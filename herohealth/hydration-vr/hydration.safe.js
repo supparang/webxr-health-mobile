@@ -4,11 +4,10 @@
 // ✅ ใช้ mode-factory (DOM target spawner + crosshair shoot + perfect ring)
 // ✅ คืน FX: score pop + judgment + burst (Particles)
 // ✅ Drag view: เลื่อนจอแล้วเป้าเลื่อนตาม (host transform)
-// ✅ FIX: spawn ใหม่ “อยู่ในมุมมอง” แม้ลากจอ (ใช้ boundsHost + offset fix ใน mode-factory)
-// ✅ Bubble target: ใสเกือบไม่เห็นแต่ขอบสวย + thin-film iridescence + reactive/device-tilt shimmer
-// ✅ PERFECT: ดาวแตกหนัก ๆ + chroma flash + burst + flash ring
+// ✅ PERFECT: ดาวแตกหนัก ๆ + chroma flash + burst
 // ✅ Storm: sway แรง/เร็ว + speedlines + wobble + chroma split ต่อเนื่อง
 // ✅ Fix zone counting: ใช้ zone จาก ui-water (LOW/GREEN/HIGH) แล้ว map เป็น BLUE/GREEN/RED
+// ✅ A2++ spawn: เป้าอยู่ “แถวกลางจอ” หาเจอง่าย + ไม่ซ้ำจุดเดิม + ไม่ต้องเลื่อนหาไปทั่ว
 
 'use strict';
 
@@ -54,12 +53,9 @@ function ensureHydrationStyle(){
   const s = DOC.createElement('style');
   s.id = 'hvr-hydration-style';
   s.textContent = `
-    /* 2-layer parallax backgrounds */
-    #hvr-playfield{ --view-x: 0px; --view-y: 0px; --tilt-x-px: 0px; --tilt-y-px: 0px; }
-
+    #hvr-playfield{ --view-x:0px; --view-y:0px; }
     .hvr-parallax{
-      position:absolute;
-      inset:-12%;
+      position:absolute; inset:-12%;
       pointer-events:none;
       transform: translate3d(calc(var(--view-x) * var(--px, 0.2)), calc(var(--view-y) * var(--py, 0.2)), 0);
       will-change: transform;
@@ -67,7 +63,7 @@ function ensureHydrationStyle(){
       filter: blur(var(--blur, 0px));
     }
     .hvr-parallax.l1{
-      --px: 0.18; --py: 0.14; --op:0.28; --blur:0px;
+      --px: 0.18; --py: 0.14; --op:0.26; --blur:0px;
       background:
         radial-gradient(900px 600px at 20% 15%, rgba(96,165,250,.18), transparent 60%),
         radial-gradient(800px 620px at 80% 20%, rgba(34,197,94,.16), transparent 60%),
@@ -75,7 +71,7 @@ function ensureHydrationStyle(){
       mix-blend-mode: screen;
     }
     .hvr-parallax.l2{
-      --px: 0.42; --py: 0.34; --op:0.22; --blur:0.4px;
+      --px: 0.42; --py: 0.34; --op:0.20; --blur:0.2px;
       background:
         repeating-radial-gradient(circle at 30% 40%, rgba(255,255,255,.08) 0 2px, transparent 2px 26px),
         repeating-linear-gradient(45deg, rgba(59,130,246,.06) 0 1px, transparent 1px 18px);
@@ -83,126 +79,46 @@ function ensureHydrationStyle(){
       transform: translate3d(calc(var(--view-x) * var(--px, 0.42)), calc(var(--view-y) * var(--py, 0.34)), 0) rotate(0.0001deg);
     }
 
-    /* Stronger chromatic split (red edge stronger) */
     #hvr-wrap.hvr-chroma{
       filter:
-        drop-shadow(3.4px 0 rgba(255, 30, 80, 0.75))
-        drop-shadow(-2.2px 0 rgba(0, 190, 255, 0.28));
+        drop-shadow(3.4px 0 rgba(255, 40, 80, 0.68))
+        drop-shadow(-2.2px 0 rgba(0, 190, 255, 0.30));
     }
 
     #hvr-wrap.hvr-wobble{ animation: hvrWobble 0.95s ease-in-out infinite; }
     @keyframes hvrWobble{
       0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      25%{ transform: translate3d(0.9px,-0.6px,0) rotate(0.05deg); }
-      50%{ transform: translate3d(-1.0px,0.7px,0) rotate(-0.05deg); }
-      75%{ transform: translate3d(0.6px,0.9px,0) rotate(0.035deg); }
+      25%{ transform: translate3d(0.9px,-0.6px,0) rotate(0.04deg); }
+      50%{ transform: translate3d(-1.0px,0.8px,0) rotate(-0.04deg); }
+      75%{ transform: translate3d(0.6px,0.9px,0) rotate(0.03deg); }
       100%{ transform: translate3d(0,0,0) rotate(0deg); }
     }
 
-    /* Storm speedlines overlay */
     .hvr-speedlines{
-      position:fixed;
-      inset:-20%;
-      pointer-events:none;
-      z-index:99960;
-      opacity:0;
-      mix-blend-mode: screen;
+      position:fixed; inset:-20%;
+      pointer-events:none; z-index:99960;
+      opacity:0; mix-blend-mode: screen;
       background:
         repeating-linear-gradient(110deg,
-          rgba(255,255,255,.00) 0 16px,
-          rgba(255,60,110,.14) 16px 19px,
-          rgba(0,190,255,.10) 19px 22px,
-          rgba(255,255,255,.00) 22px 42px
+          rgba(255,255,255,.00) 0 18px,
+          rgba(255,80,120,.12) 18px 20px,
+          rgba(0,190,255,.10) 20px 22px,
+          rgba(255,255,255,.00) 22px 44px
         );
-      filter: blur(0.65px) saturate(1.10) contrast(1.08);
+      filter: blur(0.6px) saturate(1.08) contrast(1.06);
       animation: hvrLines 0.28s linear infinite;
     }
     @keyframes hvrLines{
-      0%{ transform: translate3d(-14px, -14px, 0); }
-      100%{ transform: translate3d(34px, 28px, 0); }
+      0%{ transform: translate3d(-10px, -10px, 0); }
+      100%{ transform: translate3d(30px, 26px, 0); }
     }
     .hvr-speedlines.on{ opacity:0.34; }
 
-    /* Perfect pulse */
-    #hvr-wrap.hvr-perfect-pulse{ animation: hvrPerfectPulse 190ms ease-out 1; }
+    #hvr-wrap.hvr-perfect-pulse{ animation: hvrPerfectPulse 180ms ease-out 1; }
     @keyframes hvrPerfectPulse{
       0%{ filter: saturate(1) contrast(1); }
-      45%{ filter: saturate(1.35) contrast(1.18); }
+      45%{ filter: saturate(1.28) contrast(1.14); }
       100%{ filter: saturate(1) contrast(1); }
-    }
-
-    /* Bubble skin helpers (decorateTarget adds these classes) */
-    .hvr-target.hvr-bubble{
-      background: transparent !important;
-      box-shadow: none !important;
-      border-radius: 999px;
-      overflow: visible;
-    }
-    .hvr-bubble-shell{
-      position:absolute;
-      inset:0;
-      border-radius:999px;
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.20), rgba(255,255,255,.05) 26%, rgba(255,255,255,.015) 52%, rgba(255,255,255,0) 70%),
-        radial-gradient(circle at 70% 75%, rgba(59,130,246,.06), rgba(34,197,94,.04) 40%, rgba(255,255,255,0) 68%);
-      backdrop-filter: blur(0.6px) saturate(1.08);
-      -webkit-backdrop-filter: blur(0.6px) saturate(1.08);
-      box-shadow:
-        0 18px 40px rgba(2,6,23,.58),
-        0 0 0 1.6px rgba(255,255,255,.22),
-        0 0 0 3.2px rgba(96,165,250,.08);
-    }
-    .hvr-bubble-rim{
-      position:absolute;
-      inset:-2px;
-      border-radius:999px;
-      background:
-        conic-gradient(from 210deg,
-          rgba(255,55,120,.00),
-          rgba(255,55,120,.20),
-          rgba(0,190,255,.22),
-          rgba(255,255,255,.10),
-          rgba(34,197,94,.18),
-          rgba(255,55,120,.18),
-          rgba(255,55,120,.00)
-        );
-      filter: blur(0.35px) saturate(1.25);
-      opacity: .72; /* สีรุ้งชัดขึ้น */
-      mix-blend-mode: screen;
-      transform: translate3d(var(--tilt-x-px), var(--tilt-y-px), 0);
-      will-change: transform;
-      animation: hvrIri 1.25s linear infinite;
-      pointer-events:none;
-    }
-    @keyframes hvrIri{
-      0%{ filter: blur(0.35px) saturate(1.20); }
-      50%{ filter: blur(0.55px) saturate(1.35); }
-      100%{ filter: blur(0.35px) saturate(1.20); }
-    }
-    .hvr-bubble-sheen{
-      position:absolute;
-      inset:0;
-      border-radius:999px;
-      background:
-        radial-gradient(140px 100px at 28% 22%, rgba(255,255,255,.34), rgba(255,255,255,0) 60%),
-        radial-gradient(160px 120px at 62% 70%, rgba(255,255,255,.08), rgba(255,255,255,0) 65%);
-      opacity:.65;
-      mix-blend-mode: overlay;
-      transform: translate3d(calc(var(--tilt-x-px) * 0.6), calc(var(--tilt-y-px) * 0.6), 0);
-      pointer-events:none;
-    }
-
-    /* Icon watery glow */
-    .hvr-target.hvr-bubble .hvr-icon{
-      filter: drop-shadow(0 6px 10px rgba(2,6,23,.85)) drop-shadow(0 0 14px rgba(96,165,250,.14));
-    }
-
-    /* Storm makes bubble sway faster via host class */
-    #hvr-playfield.hvr-storm-on .hvr-bubble-rim{ opacity:.85; }
-    #hvr-playfield.hvr-storm-on .hvr-bubble-shell{ box-shadow:
-        0 18px 44px rgba(2,6,23,.62),
-        0 0 0 1.8px rgba(255,255,255,.24),
-        0 0 0 3.4px rgba(255,55,120,.10);
     }
   `;
   DOC.head.appendChild(s);
@@ -212,7 +128,6 @@ function ensurePostFXCanvas(){
   const c = $id('hvr-postfx');
   if (!c) return null;
   const ctx = c.getContext('2d');
-
   function resize(){
     const dpr = Math.max(1, Math.min(2, ROOT.devicePixelRatio || 1));
     c.width  = Math.floor((ROOT.innerWidth||1) * dpr);
@@ -227,67 +142,44 @@ function ensurePostFXCanvas(){
 }
 
 function drawStarBurst(ctx, x, y, t, strength=1){
-  const n = Math.floor(20 + 22*strength);
+  const n = Math.floor(18 + 18*strength);
   const r0 = 6 + 10*strength;
-  const r1 = 44 + 86*strength;
+  const r1 = 40 + 70*strength;
   ctx.save();
   ctx.translate(x,y);
   ctx.globalCompositeOperation = 'screen';
 
   for (let i=0;i<n;i++){
-    const a = (i/n) * Math.PI*2 + (t*0.0022);
+    const a = (i/n) * Math.PI*2 + (t*0.002);
     const rr = r0 + (r1-r0) * (0.25 + 0.75*Math.random());
-    const w = 1.2 + 2.2*strength;
+    const w = 1 + 2*strength;
 
-    ctx.strokeStyle = `rgba(255, 50, 110, ${0.12 + 0.14*strength})`;
+    ctx.strokeStyle = `rgba(255, 60, 110, ${0.10 + 0.10*strength})`;
     ctx.lineWidth = w;
     ctx.beginPath();
     ctx.moveTo(Math.cos(a)*r0, Math.sin(a)*r0);
     ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
     ctx.stroke();
 
-    const a2 = a + 0.20;
-    ctx.strokeStyle = `rgba(0, 190, 255, ${0.10 + 0.12*strength})`;
-    ctx.lineWidth = w*0.86;
+    const a2 = a + 0.18;
+    ctx.strokeStyle = `rgba(0, 190, 255, ${0.07 + 0.10*strength})`;
+    ctx.lineWidth = w*0.85;
     ctx.beginPath();
     ctx.moveTo(Math.cos(a2)*r0, Math.sin(a2)*r0);
-    ctx.lineTo(Math.cos(a2)*rr*0.94, Math.sin(a2)*rr*0.94);
+    ctx.lineTo(Math.cos(a2)*rr*0.92, Math.sin(a2)*rr*0.92);
     ctx.stroke();
   }
 
-  for (let k=0;k<18;k++){
+  for (let k=0;k<16;k++){
     const a = Math.random()*Math.PI*2;
-    const rr = 10 + Math.random()* (78*strength);
-    ctx.fillStyle = `rgba(255,255,255,${0.14 + 0.22*Math.random()})`;
+    const rr = 10 + Math.random()* (68*strength);
+    ctx.fillStyle = `rgba(255,255,255,${0.12 + 0.18*Math.random()})`;
     ctx.beginPath();
-    ctx.arc(Math.cos(a)*rr, Math.sin(a)*rr, 1.3 + 2.4*Math.random(), 0, Math.PI*2);
+    ctx.arc(Math.cos(a)*rr, Math.sin(a)*rr, 1.2 + 2.2*Math.random(), 0, Math.PI*2);
     ctx.fill();
   }
 
   ctx.restore();
-}
-
-function createTinyAudio(){
-  // เบา ๆ แต่ให้ “PERFECT ring” มีชีวิต (ไม่พังถ้า blocked)
-  let ac = null;
-  try{ ac = new (ROOT.AudioContext || ROOT.webkitAudioContext)(); }catch{ ac = null; }
-  function beep(freq=880, dur=0.06, gain=0.04){
-    if (!ac) return;
-    try{
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = 'sine';
-      o.frequency.value = freq;
-      g.gain.value = gain;
-      o.connect(g); g.connect(ac.destination);
-      const t0 = ac.currentTime;
-      o.start(t0);
-      g.gain.setValueAtTime(gain, t0);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      o.stop(t0 + dur + 0.01);
-    }catch{}
-  }
-  return { beep, resume(){ try{ ac && ac.resume && ac.resume(); }catch{} } };
 }
 
 export async function boot(opts = {}){
@@ -300,7 +192,6 @@ export async function boot(opts = {}){
   const playfield = $id('hvr-playfield');
   const blink = $id('hvr-screen-blink');
 
-  // Build parallax layers
   if (playfield && !playfield.querySelector('.hvr-parallax')){
     const l1 = DOC.createElement('div'); l1.className = 'hvr-parallax l1';
     const l2 = DOC.createElement('div'); l2.className = 'hvr-parallax l2';
@@ -308,7 +199,6 @@ export async function boot(opts = {}){
     playfield.appendChild(l2);
   }
 
-  // speedlines overlay
   let speedLines = DOC.querySelector('.hvr-speedlines');
   if (!speedLines){
     speedLines = DOC.createElement('div');
@@ -317,18 +207,18 @@ export async function boot(opts = {}){
   }
 
   const post = ensurePostFXCanvas();
-  const audio = createTinyAudio();
 
   const diff = String(opts.difficulty || 'easy').toLowerCase();
   const duration = clamp(opts.duration ?? 90, 20, 180);
 
-  const GOOD  = ['💧','🧊','🥤','🫧'];
-  const BAD   = ['🍟','🍩','🍕','🥓'];
+  const GOOD = ['💧','🧊','🥤','🫧'];
+  const BAD  = ['🍟','🥤','🍩','🍕'];
   const POWER = ['⭐','⚡','✨'];
 
   const s = {
     running: true,
     startedAt: now(),
+
     score: 0,
     combo: 0,
     comboMax: 0,
@@ -347,6 +237,9 @@ export async function boot(opts = {}){
     stormOn: false,
     stormUntil: 0,
     stormStrength: 0,
+
+    tiltX: 0,
+    tiltY: 0,
 
     sparks: []
   };
@@ -382,15 +275,11 @@ export async function boot(opts = {}){
   function bindViewDragAndShoot(inst){
     if (!playfield) return;
 
-    let down = false;
-    let moved = false;
-    let sx=0, sy=0, vx0=0, vy0=0;
-    let pid = null;
+    let down=false, moved=false, sx=0, sy=0, vx0=0, vy0=0, pid=null;
     const TH = 6;
 
     const onDown = (e)=>{
       if (!s.running) return;
-      audio.resume(); // ✅ ให้ iOS/Android ยอมเล่นเสียงหลังแตะครั้งแรก
       down = true; moved = false;
       pid = e.pointerId;
       try{ playfield.setPointerCapture(pid); }catch{}
@@ -409,7 +298,7 @@ export async function boot(opts = {}){
         applyView();
       }
     };
-    const onUp = (e)=>{
+    const onUp = ()=>{
       if (!down) return;
       down = false;
       try{ playfield.releasePointerCapture(pid); }catch{}
@@ -446,15 +335,12 @@ export async function boot(opts = {}){
     try{ Particles.scorePop(x,y,'PERFECT! +','gold'); }catch{}
     blinkOn('perfect', 130);
 
-    audio.beep(1040, 0.05, 0.045);
-    audio.beep(1560, 0.06, 0.035);
-
     if (wrap){
       addClass(wrap,'hvr-perfect-pulse');
-      ROOT.setTimeout(()=>removeClass(wrap,'hvr-perfect-pulse'), 240);
+      ROOT.setTimeout(()=>removeClass(wrap,'hvr-perfect-pulse'), 220);
     }
     if (post && post.ctx){
-      s.sparks.push({ x, y, t0: now(), str: 1.35 });
+      s.sparks.push({ x, y, t0: now(), str: 1.25 });
     }
   }
 
@@ -464,7 +350,7 @@ export async function boot(opts = {}){
     blinkOn('good', 90);
   }
 
-  function badFX(x,y, txt='MISS'){
+  function badFX(x,y, txt='MISS', kind='bad'){
     try{ Particles.burstAt(x,y,'BAD'); }catch{}
     try{ Particles.scorePop(x,y,txt,'bad'); }catch{}
     blinkOn('bad', 110);
@@ -500,14 +386,12 @@ export async function boot(opts = {}){
     const onOri = (e)=>{
       const gx = clamp((e.gamma||0)/30, -1, 1);
       const gy = clamp((e.beta||0)/40, -1, 1);
-
-      // ส่งเป็น px เพื่อใช้ calc ได้ชัวร์
-      const pxX = (gx * 14).toFixed(1) + 'px';
-      const pxY = (gy * 10).toFixed(1) + 'px';
+      s.tiltX = gx;
+      s.tiltY = gy;
 
       if (playfield){
-        playfield.style.setProperty('--tilt-x-px', pxX);
-        playfield.style.setProperty('--tilt-y-px', pxY);
+        playfield.style.setProperty('--tilt-x', gx.toFixed(3));
+        playfield.style.setProperty('--tilt-y', gy.toFixed(3));
       }
     };
     ROOT.addEventListener('deviceorientation', onOri, { passive:true });
@@ -519,16 +403,17 @@ export async function boot(opts = {}){
     if (!post || !post.ctx) return;
     const ctx = post.ctx;
     const t = now();
+
     ctx.clearRect(0,0,ROOT.innerWidth||1,ROOT.innerHeight||1);
 
     const out = [];
     for (const sp of s.sparks){
       const dt = t - sp.t0;
-      if (dt > 560) continue;
+      if (dt > 520) continue;
       out.push(sp);
 
-      const k = 1 - (dt/560);
-      ctx.globalAlpha = 0.58 * k;
+      const k = 1 - (dt/520);
+      ctx.globalAlpha = 0.55 * k;
       drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.75 + 0.55*k));
     }
     s.sparks = out;
@@ -551,7 +436,7 @@ export async function boot(opts = {}){
     const zt = $id('hha-water-zone-text');
     if (zt) zt.textContent = s.zoneLabel;
 
-    return { pct: s.water, zone: s.zone };
+    return { pct: s.water, zone: z };
   }
 
   updateWater(0);
@@ -561,71 +446,6 @@ export async function boot(opts = {}){
   function spawnMul(){
     if (!s.stormOn) return 1.0;
     return clamp(0.70 - 0.22*s.stormStrength, 0.42, 0.75);
-  }
-
-  // ✅ decorate: bubble soap style
-  function decorateTarget(el, parts, data, meta){
-    const { wiggle, inner, icon, ring } = parts || {};
-    const itemType = String(data?.itemType||'good');
-
-    // icon class for CSS glow
-    if (icon){
-      icon.classList.add('hvr-icon');
-      icon.style.fontSize = (meta.size * 0.58) + 'px';
-    }
-
-    // ring a bit clearer for aiming
-    if (ring){
-      ring.style.border = '2px solid rgba(255,255,255,0.30)';
-      ring.style.boxShadow = '0 0 16px rgba(255,255,255,0.16)';
-      ring.style.opacity = '0.92';
-    }
-
-    // bubble skin for good/fakeGood/power
-    if (itemType !== 'bad'){
-      el.classList.add('hvr-bubble');
-
-      // สร้างชั้น bubble (ขอบสวย + รุ้ง + sheen)
-      const shell = DOC.createElement('div');
-      shell.className = 'hvr-bubble-shell';
-
-      const rim = DOC.createElement('div');
-      rim.className = 'hvr-bubble-rim';
-
-      const sheen = DOC.createElement('div');
-      sheen.className = 'hvr-bubble-sheen';
-
-      // ใสเกือบไม่เห็น → ลดความทึบของ inner
-      if (inner){
-        inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(255,255,255,.08), rgba(2,6,23,.14) 55%, rgba(2,6,23,.18) 70%)';
-        inner.style.boxShadow = 'inset 0 6px 14px rgba(2,6,23,.72)';
-      }
-
-      // ประกอบเลเยอร์: rim อยู่ “นอก” + shell + sheen
-      wiggle.insertBefore(shell, wiggle.firstChild);
-      wiggle.appendChild(rim);
-      wiggle.appendChild(sheen);
-
-      // power ให้รุ้งเด่นขึ้นอีกนิด
-      if (itemType === 'power'){
-        rim.style.opacity = '0.88';
-        shell.style.boxShadow =
-          '0 18px 44px rgba(2,6,23,.60), 0 0 0 1.8px rgba(255,255,255,.24), 0 0 22px rgba(250,204,21,.22)';
-      }
-
-      // fakeGood ให้ “หลอก” แบบสวย ๆ (ไม่แดง)
-      if (itemType === 'fakeGood'){
-        rim.style.opacity = '0.80';
-      }
-    } else {
-      // BAD: ยังเป็นสไตล์อันตรายชัด ๆ
-      el.style.background = 'radial-gradient(circle at 30% 25%, rgba(251,146,60,.95), rgba(234,88,12,.96))';
-      el.style.boxShadow = '0 16px 36px rgba(2,6,23,.65), 0 0 0 2px rgba(248,113,113,.55), 0 0 18px rgba(248,113,113,.40)';
-      if (ring){
-        ring.style.border = '2px solid rgba(255,255,255,0.22)';
-        ring.style.boxShadow = '0 0 12px rgba(255,255,255,0.12)';
-      }
-    }
   }
 
   function judge(ch, ctx){
@@ -652,7 +472,7 @@ export async function boot(opts = {}){
       s.combo = 0;
       s.score = Math.max(0, s.score - 45);
       updateWater(-10);
-      badFX(x,y,'MISS');
+      badFX(x,y,'MISS','bad');
 
       if (!s.stormOn && Math.random() < 0.18){
         s.stormUntil = now() + 5200;
@@ -668,7 +488,7 @@ export async function boot(opts = {}){
       s.combo = 0;
       s.score = Math.max(0, s.score - 30);
       updateWater(-7);
-      badFX(x,y,'TRICK!');
+      badFX(x,y,'TRICK!','bad');
       hud();
       return { scoreDelta: -30, good:false };
     }
@@ -719,16 +539,21 @@ export async function boot(opts = {}){
     hud();
   }
 
-  // ✅ สำคัญ: boundsHost = #hvr-wrap (นิ่ง) / spawnHost = #hvr-playfield (ขยับตาม drag)
+  // ✅ Boot mode-factory (A2++ spawn)
   const inst = await factoryBoot({
     modeKey: 'hydration',
     difficulty: diff,
     duration,
+
     spawnHost: '#hvr-playfield',
-    boundsHost: '#hvr-wrap',
+    boundsHost: '#hvr-wrap',          // ⭐ สำคัญ: ยึดตามหน้าจอ ไม่หลุดตามการลาก
+    spawnBias: 'A2++',                // ⭐ A2++ distribution
+    antiRepeat: true,
+    antiRepeatN: 4,
 
     pools: { good: GOOD, bad: BAD, trick: ['💧','🫧'] },
     goodRate: diff === 'hard' ? 0.58 : (diff === 'normal' ? 0.62 : 0.68),
+
     powerups: POWER,
     powerRate: diff === 'hard' ? 0.12 : 0.10,
     powerEvery: 7,
@@ -736,11 +561,9 @@ export async function boot(opts = {}){
     allowAdaptive: true,
     rhythm: { enabled:true, bpm: (diff==='hard'?126:(diff==='normal'?118:108)) },
     trickRate: diff === 'hard' ? 0.12 : 0.08,
-
     spawnIntervalMul: spawnMul,
-    excludeSelectors: ['.hud', '#hvr-end', '#hvr-screen-blink'],
 
-    decorateTarget,
+    excludeSelectors: ['.hud', '#hvr-start', '#hvr-end', '#hvr-screen-blink'],
     judge,
     onExpire
   });
@@ -762,15 +585,6 @@ export async function boot(opts = {}){
     if (s.zone === 'HIGH'){
       s.score = Math.max(0, s.score - 3);
     }
-
-    // sync storm class to playfield for CSS
-    try{
-      if (playfield){
-        if (s.stormOn) playfield.classList.add('hvr-storm-on');
-        else playfield.classList.remove('hvr-storm-on');
-      }
-    }catch{}
-
     hud();
 
     if (sec <= 0){
@@ -798,41 +612,26 @@ export async function boot(opts = {}){
 
           <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;">
             <div class="card" style="pointer-events:auto;">
-              <div style="display:flex; justify-content:space-between; gap:8px;">
-                <div style="color:rgba(148,163,184,.9); font-weight:900;">Score</div>
-                <div style="font-weight:1000; font-size:18px;">${s.score|0}</div>
-              </div>
+              <div class="kpi"><div class="label">Score</div><div class="value">${s.score|0}</div></div>
               <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">รวมโบนัส PERFECT/STREAK/STORM</div>
             </div>
-
             <div class="card" style="pointer-events:auto;">
-              <div style="display:flex; justify-content:space-between; gap:8px;">
-                <div style="color:rgba(148,163,184,.9); font-weight:900;">Combo / Miss</div>
-                <div style="font-weight:1000; font-size:18px;">${s.comboMax|0} • ${s.miss|0}</div>
-              </div>
+              <div class="kpi"><div class="label">Combo / Miss</div><div class="value">${s.comboMax|0} • ${s.miss|0}</div></div>
               <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">คอมโบสูงสุด • miss (junk/trick)</div>
             </div>
-
             <div class="card" style="pointer-events:auto;">
-              <div style="display:flex; justify-content:space-between; gap:8px;">
-                <div style="color:rgba(148,163,184,.9); font-weight:900;">GREEN time</div>
-                <div style="font-weight:1000; font-size:18px;">${s.greenTick|0}s</div>
-              </div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ GREEN</div>
+              <div class="kpi"><div class="label">GREEN time</div><div class="value">${s.greenTick|0}s</div></div>
+              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ในโซน GREEN</div>
             </div>
-
             <div class="card" style="pointer-events:auto;">
-              <div style="display:flex; justify-content:space-between; gap:8px;">
-                <div style="color:rgba(148,163,184,.9); font-weight:900;">Water end</div>
-                <div style="font-weight:1000; font-size:18px;">${Math.round(s.water)}% (${s.zoneLabel})</div>
-              </div>
+              <div class="kpi"><div class="label">Water end</div><div class="value">${Math.round(s.water)}% (${s.zoneLabel})</div></div>
               <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">โซนสุดท้าย</div>
             </div>
           </div>
 
           <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button id="hvr-end-retry" class="pill" style="pointer-events:auto; cursor:pointer;">🔁 เล่นอีกครั้ง</button>
-            <button id="hvr-end-hub" class="pill" style="pointer-events:auto; cursor:pointer;">🏠 กลับ Hub</button>
+            <button id="hvr-end-retry" class="btn primary" style="pointer-events:auto;">🔁 เล่นอีกครั้ง</button>
+            <button id="hvr-end-hub" class="btn" style="pointer-events:auto;">🏠 กลับ Hub</button>
           </div>
         </div>
       </div>
@@ -853,7 +652,6 @@ export async function boot(opts = {}){
 
     if (unbindDrag) try{ unbindDrag(); }catch{}
     if (unbindTilt) try{ unbindTilt(); }catch{}
-
     ROOT.removeEventListener('hha:time', onTime);
 
     if (fxRaf) try{ ROOT.cancelAnimationFrame(fxRaf); }catch{}
@@ -862,7 +660,6 @@ export async function boot(opts = {}){
     setStorm(false, 0);
 
     try{ Particles.celebrate('END'); }catch{}
-
     buildEndOverlay();
 
     try{
