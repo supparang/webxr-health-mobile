@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Step H binder: kick+chroma + hero burst overlay
+// H+ binder: bossAtk coach + ring/laser overlay controlled by safe.js
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
 
@@ -64,12 +64,10 @@ export function boot(){
   const gameCam = $('game-cam');
   const fxChroma = $('fx-chroma');
 
-  // Boss HUD
   const elBossWrap = $('boss-wrap');
   const elBossFill = $('boss-fill');
   const elBossPhase= $('boss-phase');
 
-  // Summary overlay
   const sumOverlay = $('sum-overlay');
   const sumScore = $('sum-score');
   const sumGood  = $('sum-good');
@@ -124,6 +122,25 @@ export function boot(){
     safeText(logText, text || '');
   }
 
+  // tiny beep
+  let __audioCtx = null;
+  function beep(freq=880, ms=70, gain=0.035){
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      __audioCtx = __audioCtx || new AC();
+      const t0 = __audioCtx.currentTime;
+      const osc = __audioCtx.createOscillator();
+      const g = __audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.value = gain;
+      osc.connect(g); g.connect(__audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + ms/1000);
+    }catch(_){}
+  }
+
   function runCountdown(onDone){
     if (!elCountdown){ onDone && onDone(); return; }
     const steps = ['3','2','1','Go!'];
@@ -163,25 +180,6 @@ export function boot(){
     try{ attachTouchLook(cameraEl, { sensitivity: 0.26, areaEl: document.body }); }catch(_){}
   }
 
-  // Audio beep helper
-  let __audioCtx = null;
-  function beep(freq=880, ms=70, gain=0.035){
-    try{
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      __audioCtx = __audioCtx || new AC();
-      const t0 = __audioCtx.currentTime;
-      const osc = __audioCtx.createOscillator();
-      const g = __audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      g.gain.value = gain;
-      osc.connect(g); g.connect(__audioCtx.destination);
-      osc.start(t0);
-      osc.stop(t0 + ms/1000);
-    }catch(_){}
-  }
-
   // AIM POINT
   function setAimPoint(x, y){
     window.__GJ_AIM_POINT__ = { x: x|0, y: y|0, t: Date.now() };
@@ -191,7 +189,6 @@ export function boot(){
     }
   }
   function defaultAim(){ setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62); }
-
   function bindAimListeners(){
     const layer = document.getElementById('gj-layer');
     if (!layer) return;
@@ -263,7 +260,6 @@ export function boot(){
     if (Q) Q.tick(qState);
   });
 
-  // HUD basics
   window.addEventListener('hha:judge', (e)=>{ safeText(elJudge, (e.detail||{}).label || '\u00A0'); });
 
   window.addEventListener('hha:time', (e)=>{
@@ -287,7 +283,6 @@ export function boot(){
     if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
     if (Q) Q.tick(qState);
 
-    // Boss HUD
     const bossAlive = !!d.bossAlive;
     const hp = Number(d.bossHp||0);
     const hpMax = Math.max(1, Number(d.bossHpMax||1));
@@ -344,7 +339,7 @@ export function boot(){
     if (sec > 0) setCoach(`🏁 FINAL LOCK! เหลือ ${sec}s — อย่าพลาด!`, 'fever', 1400);
   });
 
-  // Boss beacon
+  // Boss beacon (pulse wave)
   let beaconTimer = null;
   window.addEventListener('hha:bossPulse', (e)=>{
     const d = e.detail || {};
@@ -364,7 +359,7 @@ export function boot(){
     setCoach('⚠️ BOSS PULSE! แตะย้าย “ศูนย์กลาง” ไปที่วงสีทองเร็ว!', 'fever', 1800);
   });
 
-  // ✅ Step H FX: kick + chroma + hero overlay
+  // FX hooks (kick/chroma/hero)
   let kickTimer = null;
   let chromaTimer = null;
 
@@ -403,6 +398,15 @@ export function boot(){
       beep(740, 60, 0.03);
       try{ navigator.vibrate && navigator.vibrate([10,20,10]); }catch(_){}
     }
+  });
+
+  // ✅ H+ Boss attack coach cue
+  window.addEventListener('hha:bossAtk', (e)=>{
+    const d = e.detail || {};
+    const name = String(d.name||'');
+    if (name === 'ring') setCoach('🟠 RING! ช่องปลอดภัยมีช่องเดียว — แตะย้ายศูนย์กลางไป “ช่องว่าง”!', 'fever', 1700);
+    else if (name === 'laser') setCoach('🔵 LASER! หลบแนวแสงให้ทัน — ถ้ายืนทับ = โดน!', 'fever', 1700);
+    else if (name === 'storm') setCoach('🌪️ STORM! ระวัง “ของดีปลอม” 👀', 'fever', 1700);
   });
 
   // quest:update
@@ -500,7 +504,6 @@ export function boot(){
   btnReplay && btnReplay.addEventListener('click', ()=>{ location.reload(); });
   btnExit && btnExit.addEventListener('click', ()=>{ location.href = './hub.html'; });
 
-  // Logger init (IIFE)
   function initLogger(){
     try{
       const endpoint =
