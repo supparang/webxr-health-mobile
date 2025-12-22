@@ -1,18 +1,16 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION (ROOT html: /herohealth/hydration-vr.html)
-//
-// ✅ ใช้ mode-factory (DOM target spawner + crosshair shoot + perfect ring)
-// ✅ คืน FX: score pop + judgment + burst (Particles)
-// ✅ Drag view: เลื่อนจอแล้วเป้าเลื่อนตาม (host transform)
-// ✅ PERFECT: ดาวแตกหนัก ๆ + chroma flash + burst
-// ✅ Storm: sway แรง/เร็ว + speedlines + wobble + chroma split ต่อเนื่อง
-// ✅ Fix zone counting: ใช้ zone จาก ui-water (LOW/GREEN/HIGH) แล้ว map เป็น BLUE/GREEN/RED
-// ✅ FIX IMPORTANT: boundsHost = '#hvr-wrap' (ตัวนิ่งเต็มจอ) → เป้าจะไม่หลุดจอ/หาเจอง่าย
-// ✅ Bubble skin: ใสเหมือนฟองสบู่ + iridescence ชัดขึ้น (ขอบสวย / ตัวใส)
+// Hydration Quest VR — DOM/VR Hybrid (Bubble targets + Water zone + Goal/Mini + End summary)
+// ✅ ใช้ mode-factory (spawnHost/boundsHost + exclusion + center-biased spawn)
+// ✅ เป้า “ใสเหมือนฟองสบู่” + ขอบสีรุ้งชัด (แทบมองไม่เห็นตรงกลาง แต่ขอบสวย)
+// ✅ Goals/Mini แบบที่คุย: อยู่ GREEN ให้มาก / จำกัดเวลา BLUE+RED / Combo / Perfect / NoJunk
+// ✅ Tap ว่าง ๆ = ยิง Crosshair (เหมือน VR) ช่วยเล่นบนมือถือ
+// ✅ จบเกมมีสรุป + ส่ง event ให้ HUD/particles ถ้ามี
 
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
+
+// optional (ถ้ามีในโปรเจกต์)
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
@@ -21,828 +19,573 @@ const DOC  = ROOT.document;
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, celebrate(){} };
+  { scorePop() {}, burstAt() {}, celebrateQuestFX() {}, celebrateAllQuestsFX() {} };
 
-function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
-function now(){ return (typeof performance!=='undefined' && performance.now)?performance.now():Date.now(); }
-function $id(id){ return DOC ? DOC.getElementById(id) : null; }
-
-function setText(id, txt){
-  const el = $id(id);
-  if (el) el.textContent = String(txt);
+function clamp(v, a, b){ v = Number(v)||0; return v < a ? a : (v > b ? b : v); }
+function qs(name, fallback=null){
+  try{
+    const u = new URL(location.href);
+    return u.searchParams.get(name) ?? fallback;
+  }catch{ return fallback; }
 }
-function addClass(el, c){ try{ el && el.classList.add(c); }catch{} }
-function removeClass(el, c){ try{ el && el.classList.remove(c); }catch{} }
 
-function zoneLabelFrom(zone){
-  if (zone === 'LOW') return 'BLUE';
-  if (zone === 'HIGH') return 'RED';
+function $(sel){ try{ return DOC.querySelector(sel); }catch{ return null; } }
+function setText(el, t){ if (el) el.textContent = String(t); }
+
+function dispatch(name, detail){
+  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
+}
+
+function zoneFromWaterLocal(w){
+  // ให้ GREEN เป็น “โซนดี” ชัด ๆ
+  // RED 0-29 | BLUE 30-54 | GREEN 55-100
+  if (w < 30) return 'RED';
+  if (w < 55) return 'BLUE';
   return 'GREEN';
 }
 
-function gradeFrom(score){
-  if (score >= 2600) return 'SSS';
-  if (score >= 2000) return 'SS';
-  if (score >= 1500) return 'S';
-  if (score >= 1100) return 'A';
-  if (score >= 700)  return 'B';
-  return 'C';
+function gradeFrom(score, goalsCleared, minisCleared, miss, greenSec, targetGreenSec){
+  const gProg = clamp(greenSec / Math.max(1, targetGreenSec), 0, 1);
+  let pct = (goalsCleared/2)*45 + (minisCleared/3)*35 + gProg*20;
+  pct -= miss * 2.0;
+  pct = clamp(pct, 0, 100);
+
+  let grade = 'C';
+  if (pct >= 95) grade = 'SSS';
+  else if (pct >= 88) grade = 'SS';
+  else if (pct >= 80) grade = 'S';
+  else if (pct >= 70) grade = 'A';
+  else if (pct >= 58) grade = 'B';
+  else grade = 'C';
+
+  return { grade, pct };
 }
 
-function ensureHydrationStyle(){
-  if (!DOC || DOC.getElementById('hvr-hydration-style')) return;
-  const s = DOC.createElement('style');
-  s.id = 'hvr-hydration-style';
-  s.textContent = `
-    /* 2-layer parallax backgrounds */
-    #hvr-playfield{
-      --view-x: 0px;
-      --view-y: 0px;
-      --tilt-x: 0;
-      --tilt-y: 0;
-    }
-    .hvr-parallax{
-      position:absolute;
-      inset:-12%;
-      pointer-events:none;
-      transform: translate3d(calc(var(--view-x) * var(--px, 0.2)), calc(var(--view-y) * var(--py, 0.2)), 0);
-      will-change: transform;
-      opacity: var(--op, 0.35);
-      filter: blur(var(--blur, 0px));
-    }
-    .hvr-parallax.l1{
-      --px: 0.18; --py: 0.14; --op:0.26; --blur:0px;
-      background:
-        radial-gradient(900px 600px at 20% 15%, rgba(96,165,250,.18), transparent 60%),
-        radial-gradient(800px 620px at 80% 20%, rgba(34,197,94,.16), transparent 60%),
-        radial-gradient(900px 700px at 50% 70%, rgba(59,130,246,.10), transparent 65%);
-      mix-blend-mode: screen;
-    }
-    .hvr-parallax.l2{
-      --px: 0.42; --py: 0.34; --op:0.20; --blur:0.2px;
-      background:
-        repeating-radial-gradient(circle at 30% 40%, rgba(255,255,255,.08) 0 2px, transparent 2px 26px),
-        repeating-linear-gradient(45deg, rgba(59,130,246,.06) 0 1px, transparent 1px 18px);
-      mix-blend-mode: overlay;
-      transform: translate3d(calc(var(--view-x) * var(--px, 0.42)), calc(var(--view-y) * var(--py, 0.34)), 0) rotate(0.0001deg);
-    }
+// ------------------------------------------------------
+// Bubble skin (decorateTarget for mode-factory)
+// ------------------------------------------------------
+function decorateBubble(el, parts, data, meta){
+  const { inner, ring, icon, wiggle } = parts || {};
+  const itemType = data && data.itemType;
 
-    /* postFX chroma split (stronger red edge) */
-    #hvr-wrap.hvr-chroma{
-      filter:
-        drop-shadow(3.4px 0 rgba(255, 30, 70, 0.70))
-        drop-shadow(-2.2px 0 rgba(0, 190, 255, 0.28));
-    }
+  // base “almost invisible”
+  el.style.background = 'transparent';
+  el.style.boxShadow = 'none';
 
-    #hvr-wrap.hvr-wobble{
-      animation: hvrWobble 1.05s ease-in-out infinite;
-    }
-    @keyframes hvrWobble{
-      0%{ transform: translate3d(0,0,0) rotate(0deg); }
-      25%{ transform: translate3d(0.7px,-0.5px,0) rotate(0.04deg); }
-      50%{ transform: translate3d(-0.8px,0.6px,0) rotate(-0.04deg); }
-      75%{ transform: translate3d(0.5px,0.7px,0) rotate(0.03deg); }
-      100%{ transform: translate3d(0,0,0) rotate(0deg); }
-    }
-
-    /* Storm speedlines overlay */
-    .hvr-speedlines{
-      position:fixed;
-      inset:-20%;
-      pointer-events:none;
-      z-index:99960;
-      opacity:0;
-      transform: translate3d(0,0,0);
-      mix-blend-mode: screen;
-      background:
-        repeating-linear-gradient(110deg,
-          rgba(255,255,255,.00) 0 18px,
-          rgba(255,80,120,.12) 18px 20px,
-          rgba(0,190,255,.10) 20px 22px,
-          rgba(255,255,255,.00) 22px 44px
-        );
-      filter: blur(0.6px) saturate(1.12) contrast(1.08);
-      animation: hvrLines 0.26s linear infinite;
-    }
-    @keyframes hvrLines{
-      0%{ transform: translate3d(-10px, -10px, 0); }
-      100%{ transform: translate3d(30px, 26px, 0); }
-    }
-    .hvr-speedlines.on{ opacity:0.34; }
-
-    /* tiny perfect flash pulse (short) */
-    #hvr-wrap.hvr-perfect-pulse{
-      animation: hvrPerfectPulse 180ms ease-out 1;
-    }
-    @keyframes hvrPerfectPulse{
-      0%{ filter: saturate(1) contrast(1); }
-      45%{ filter: saturate(1.30) contrast(1.14); }
-      100%{ filter: saturate(1) contrast(1); }
-    }
-
-    /* ===== Bubble skin (near-invisible body, beautiful rim + strong iridescence) ===== */
-    .hvr-target.hvr-bubble{
-      background: transparent !important;
-      box-shadow: none !important;
-    }
-    .hvr-bubble-inner{
-      position:relative;
-      width:100%;
-      height:100%;
-      border-radius:999px;
-      overflow:hidden;
-      /* body: almost invisible */
-      background:
-        radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), rgba(255,255,255,.02) 38%, rgba(0,0,0,0) 60%),
-        radial-gradient(circle at 65% 70%, rgba(255,255,255,.06), rgba(0,0,0,0) 58%);
-      box-shadow:
-        inset 0 0 0 1px rgba(255,255,255,.08),
-        0 16px 34px rgba(2,6,23,.55);
-    }
-    .hvr-bubble-rim{
-      position:absolute;
-      inset:-3%;
-      border-radius:999px;
-      pointer-events:none;
-      /* rim highlight */
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 46%),
-        radial-gradient(circle at 68% 76%, rgba(255,255,255,.28), rgba(255,255,255,0) 56%);
-      mix-blend-mode: screen;
-      opacity:.42;
-      filter: blur(.2px);
-    }
-    .hvr-bubble-film{
-      position:absolute;
-      inset:-6%;
-      border-radius:999px;
-      pointer-events:none;
-      /* strong thin-film iridescence */
-      background:
-        conic-gradient(from 120deg,
-          rgba(255, 0, 120, .00),
-          rgba(255, 0, 120, .22),
-          rgba(0, 210, 255, .20),
-          rgba(80, 255, 160, .18),
-          rgba(255, 240, 120, .18),
-          rgba(255, 0, 120, .22),
-          rgba(255, 0, 120, .00)
-        );
-      mix-blend-mode: screen;
-      opacity:.56;
-      filter: blur(.35px) saturate(1.25);
-      animation: hvrFilmSpin 1.8s linear infinite;
-      transform: translate3d(calc(var(--tilt-x) * 2px), calc(var(--tilt-y) * 2px), 0);
-    }
-    @keyframes hvrFilmSpin{
-      0%{ transform: rotate(0deg) translate3d(calc(var(--tilt-x) * 2px), calc(var(--tilt-y) * 2px), 0); }
-      100%{ transform: rotate(360deg) translate3d(calc(var(--tilt-x) * 2px), calc(var(--tilt-y) * 2px), 0); }
-    }
-    .hvr-bubble-icon{
-      position:absolute;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      filter: drop-shadow(0 4px 6px rgba(2,6,23,.65));
-    }
-    .hvr-bubble-perfect-ring{
-      opacity:.42 !important;
-      border-width:2px !important;
-      border-color: rgba(255,255,255,.50) !important;
-      box-shadow: 0 0 18px rgba(255,255,255,.22) !important;
-    }
-  `;
-  DOC.head.appendChild(s);
-}
-
-function ensurePostFXCanvas(){
-  const c = $id('hvr-postfx');
-  if (!c) return null;
-  const ctx = c.getContext('2d');
-  function resize(){
-    const dpr = Math.max(1, Math.min(2, ROOT.devicePixelRatio || 1));
-    c.width  = Math.floor((ROOT.innerWidth||1) * dpr);
-    c.height = Math.floor((ROOT.innerHeight||1) * dpr);
-    c.style.width = '100%';
-    c.style.height = '100%';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-  resize();
-  ROOT.addEventListener('resize', resize, { passive:true });
-  return { c, ctx, resize };
-}
-
-function drawStarBurst(ctx, x, y, t, strength=1){
-  const n = Math.floor(18 + 18*strength);
-  const r0 = 6 + 10*strength;
-  const r1 = 40 + 70*strength;
-  ctx.save();
-  ctx.translate(x,y);
-  ctx.globalCompositeOperation = 'screen';
-
-  for (let i=0;i<n;i++){
-    const a = (i/n) * Math.PI*2 + (t*0.002);
-    const rr = r0 + (r1-r0) * (0.25 + 0.75*Math.random());
-    const w = 1 + 2*strength;
-
-    ctx.strokeStyle = `rgba(255, 60, 110, ${0.10 + 0.10*strength})`;
-    ctx.lineWidth = w;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a)*r0, Math.sin(a)*r0);
-    ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
-    ctx.stroke();
-
-    const a2 = a + 0.18;
-    ctx.strokeStyle = `rgba(0, 190, 255, ${0.07 + 0.10*strength})`;
-    ctx.lineWidth = w*0.85;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a2)*r0, Math.sin(a2)*r0);
-    ctx.lineTo(Math.cos(a2)*rr*0.92, Math.sin(a2)*rr*0.92);
-    ctx.stroke();
+  // inner: แทบใส + เงานุ่ม + highlight
+  if (inner){
+    inner.style.background =
+      'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.14), rgba(255,255,255,0.04) 42%, rgba(0,0,0,0.06) 70%, rgba(0,0,0,0.10) 100%)';
+    inner.style.boxShadow =
+      'inset 0 10px 18px rgba(255,255,255,0.10), inset 0 -12px 24px rgba(0,0,0,0.22)';
+    inner.style.backdropFilter = 'blur(2px)';
   }
 
-  for (let k=0;k<16;k++){
-    const a = Math.random()*Math.PI*2;
-    const rr = 10 + Math.random()* (68*strength);
-    ctx.fillStyle = `rgba(255,255,255,${0.12 + 0.18*Math.random()})`;
-    ctx.beginPath();
-    ctx.arc(Math.cos(a)*rr, Math.sin(a)*rr, 1.2 + 2.2*Math.random(), 0, Math.PI*2);
-    ctx.fill();
+  // icon: ชัด แต่ยังนุ่ม
+  if (icon){
+    icon.style.filter = 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))';
   }
 
-  ctx.restore();
+  // ring: ขอบสีรุ้ง (iridescent) แบบฟองสบู่
+  if (ring){
+    ring.style.border = '0';
+    ring.style.boxShadow = '0 0 22px rgba(255,255,255,0.10)';
+    ring.style.width  = (meta.size * 1.02) + 'px';
+    ring.style.height = (meta.size * 1.02) + 'px';
+
+    // ใช้ background + mask ทำเป็น “ขอบวงแหวน”
+    ring.style.background =
+      'conic-gradient(from 210deg, rgba(255,0,128,.65), rgba(0,200,255,.65), rgba(120,255,120,.55), rgba(255,240,120,.55), rgba(255,140,80,.60), rgba(255,0,128,.65))';
+    ring.style.webkitMask =
+      'radial-gradient(circle at 50% 50%, transparent 62%, #000 66%, #000 100%)';
+    ring.style.mask =
+      'radial-gradient(circle at 50% 50%, transparent 62%, #000 66%, #000 100%)';
+    ring.style.opacity = '0.95';
+  }
+
+  // เพิ่ม “ไฮไลต์จุด” เล็ก ๆ ให้เหมือนฟอง
+  if (wiggle){
+    wiggle.style.filter = 'drop-shadow(0 16px 28px rgba(0,0,0,0.35))';
+  }
+
+  // tint ตามชนิด (bad/power/fakeGood) แบบ “ขอบ” ไม่ทึบ
+  if (itemType === 'bad'){
+    if (ring) ring.style.opacity = '0.92';
+    if (inner) inner.style.background =
+      'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.10), rgba(255,255,255,0.03) 42%, rgba(255,80,80,0.10) 78%, rgba(0,0,0,0.12) 100%)';
+  } else if (itemType === 'power'){
+    if (inner) inner.style.background =
+      'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.14), rgba(255,255,255,0.04) 42%, rgba(255,210,80,0.12) 78%, rgba(0,0,0,0.10) 100%)';
+  } else if (itemType === 'fakeGood'){
+    if (inner) inner.style.background =
+      'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.14), rgba(255,255,255,0.04) 42%, rgba(170,120,255,0.10) 78%, rgba(0,0,0,0.10) 100%)';
+  }
 }
 
+// ------------------------------------------------------
+// boot()
+// ------------------------------------------------------
 export async function boot(opts = {}){
-  if (!DOC) return { stop(){} };
+  const diff = String(opts.difficulty || qs('diff','easy') || 'easy').toLowerCase();
+  const duration = clamp(Number(opts.duration ?? qs('time','90') ?? 90), 20, 180);
 
-  ensureHydrationStyle();
-  ensureWaterGauge();
+  const playfield = $('#hvr-playfield') || $('#hvr-wrap') || DOC.body;
 
-  const wrap = $id('hvr-wrap');
-  const playfield = $id('hvr-playfield');
-  const blink = $id('hvr-screen-blink');
+  // UI refs
+  const elZoneText = $('#hha-water-zone-text');
+  const elWaterSt  = $('#hha-water-status');
+  const elFill     = $('#hha-water-fill');
 
-  if (playfield && !playfield.querySelector('.hvr-parallax')){
-    const l1 = DOC.createElement('div'); l1.className = 'hvr-parallax l1';
-    const l2 = DOC.createElement('div'); l2.className = 'hvr-parallax l2';
-    playfield.appendChild(l1);
-    playfield.appendChild(l2);
-  }
+  const elScore    = $('#hha-score-main');
+  const elComboMax = $('#hha-combo-max');
+  const elMiss     = $('#hha-miss');
 
-  let speedLines = DOC.querySelector('.hvr-speedlines');
-  if (!speedLines){
-    speedLines = DOC.createElement('div');
-    speedLines.className = 'hvr-speedlines';
-    DOC.body.appendChild(speedLines);
-  }
+  const elGoalTxt  = $('#hha-quest-goal');
+  const elMiniTxt  = $('#hha-quest-mini');
+  const elGoalCnt  = $('#hha-goal-count');
+  const elMiniCnt  = $('#hha-mini-count');
 
-  const post = ensurePostFXCanvas();
+  const elGradeBadge = $('#hha-grade-badge');
+  const elGradeFill  = $('#hha-grade-progress-fill');
+  const elGradeTxt   = $('#hha-grade-progress-text');
 
-  const diff = String(opts.difficulty || 'easy').toLowerCase();
-  const duration = clamp(opts.duration ?? 90, 20, 180);
+  const blink = $('#hvr-screen-blink');
+  const endBox = $('#hvr-end');
 
-  const GOOD  = ['💧','🧊','🥤','🫧'];
-  const BAD   = ['🍟','🥤','🍩','🍕'];
-  const POWER = ['⭐','⚡','✨'];
+  // init water gauge (if module exists)
+  try{ ensureWaterGauge && ensureWaterGauge(); }catch{}
 
-  const s = {
-    running: true,
-    startedAt: now(),
-    score: 0,
-    combo: 0,
-    comboMax: 0,
-    miss: 0,
-    water: 50,
-    zone: 'GREEN',
-    zoneLabel: 'GREEN',
-    greenTick: 0,
-    timeLeft: duration,
-    viewX: 0,
-    viewY: 0,
+  // difficulty tuning
+  const T = {
+    easy:   { greenTarget: 14, badMax: 36, waterDrain: 0.35, goodUp: 8.2, badDown: 12.0, fakeDown: 7.0, powerUp: 12.0 },
+    normal: { greenTarget: 16, badMax: 32, waterDrain: 0.40, goodUp: 8.0, badDown: 13.0, fakeDown: 7.5, powerUp: 12.5 },
+    hard:   { greenTarget: 18, badMax: 28, waterDrain: 0.46, goodUp: 7.6, badDown: 14.0, fakeDown: 8.2, powerUp: 13.5 }
+  }[diff] || { greenTarget: 16, badMax: 32, waterDrain: 0.40, goodUp: 8.0, badDown: 13.0, fakeDown: 7.5, powerUp: 12.5 };
 
-    stormOn: false,
-    stormUntil: 0,
-    stormStrength: 0,
+  // pools
+  const GOOD = ['💧','🫧','🚰','🥛'];
+  const BAD  = ['🥤','🍩','🍟','🍔'];
+  const POWER = ['⭐','🛡️','⚡'];
 
-    tiltX: 0,
-    tiltY: 0,
+  // state
+  let stopped = false;
+  let score = 0;
+  let combo = 0;
+  let comboMax = 0;
+  let miss = 0;
 
-    sparks: []
-  };
+  let water = 50; // 0..100
+  let zone = zoneFromWaterLocal(water);
 
-  function hud(){
-    setText('hha-score-main', s.score|0);
-    setText('hha-combo-max', s.comboMax|0);
-    setText('hha-miss', s.miss|0);
+  let secGreen = 0;
+  let secBad   = 0; // BLUE+RED รวม
+  let secTotal = 0;
 
-    const g = gradeFrom(s.score);
-    const badge = $id('hha-grade-badge');
-    if (badge) badge.textContent = g;
+  let perfectCount = 0;
+  let junkHits = 0;
 
-    const fill = $id('hha-grade-progress-fill');
-    const t = $id('hha-grade-progress-text');
-    const pct = clamp((s.score / 1500) * 100, 0, 100);
-    if (fill) fill.style.width = pct.toFixed(0) + '%';
-    if (t) t.textContent = `Progress to S: ${pct.toFixed(0)}%`;
+  let goalsCleared = 0;
+  let minisCleared = 0;
+  let goal1Done = false;
+  let goal2Done = false;
 
-    const qg = $id('hha-quest-goal');
-    const qm = $id('hha-quest-mini');
-    if (qg) qg.textContent = `Goal: อยู่ GREEN ให้นานที่สุด (ตอนนี้ ${s.greenTick}s)`;
-    if (qm) qm.textContent = `Mini: Perfect/Combo ลุ้น Storm Wave!`;
-  }
+  let miniComboDone = false;
+  let miniPerfectDone = false;
+  let miniNoJunkDone = false;
 
-  function applyView(){
-    if (!playfield) return;
-    playfield.style.setProperty('--view-x', s.viewX + 'px');
-    playfield.style.setProperty('--view-y', s.viewY + 'px');
-    playfield.style.transform = `translate3d(${s.viewX}px, ${s.viewY}px, 0)`;
-  }
-
-  function bindViewDragAndShoot(inst){
-    if (!playfield) return;
-
-    let down = false;
-    let moved = false;
-    let sx=0, sy=0, vx0=0, vy0=0;
-    let pid = null;
-    const TH = 6;
-
-    const onDown = (e)=>{
-      if (!s.running) return;
-      down = true; moved = false;
-      pid = e.pointerId;
-      try{ playfield.setPointerCapture(pid); }catch{}
-      sx = e.clientX; sy = e.clientY;
-      vx0 = s.viewX; vy0 = s.viewY;
-    };
-    const onMove = (e)=>{
-      if (!down || !s.running) return;
-      const dx = e.clientX - sx;
-      const dy = e.clientY - sy;
-      if (!moved && (Math.abs(dx)+Math.abs(dy) > TH)) moved = true;
-
-      if (moved){
-        // ✅ กันหลุดโลกเกินไป (หาเป้าไม่เจอ)
-        s.viewX = clamp(vx0 + dx, -110, 110);
-        s.viewY = clamp(vy0 + dy, -90, 90);
-        applyView();
-      }
-    };
-    const onUp = (e)=>{
-      if (!down) return;
-      down = false;
-      try{ playfield.releasePointerCapture(pid); }catch{}
-      pid = null;
-
-      if (!moved && inst && typeof inst.shootCrosshair === 'function'){
-        inst.shootCrosshair();
-      }
-    };
-
-    playfield.addEventListener('pointerdown', onDown, { passive:true });
-    playfield.addEventListener('pointermove', onMove, { passive:true });
-    playfield.addEventListener('pointerup', onUp, { passive:true });
-    playfield.addEventListener('pointercancel', onUp, { passive:true });
-
-    return ()=> {
-      playfield.removeEventListener('pointerdown', onDown);
-      playfield.removeEventListener('pointermove', onMove);
-      playfield.removeEventListener('pointerup', onUp);
-      playfield.removeEventListener('pointercancel', onUp);
-    };
-  }
-
-  function blinkOn(kind, ms=110){
-    if (!blink) return;
-    blink.className = '';
-    blink.classList.add('on');
-    if (kind) blink.classList.add(kind);
-    ROOT.setTimeout(()=>{ blink.className=''; }, ms);
-  }
-
-  function perfectFX(x,y){
-    try{ Particles.burstAt(x,y,'PERFECT'); }catch{}
-    try{ Particles.scorePop(x,y,'PERFECT! +','gold'); }catch{}
-    blinkOn('perfect', 130);
-
-    if (wrap){
-      addClass(wrap,'hvr-perfect-pulse');
-      ROOT.setTimeout(()=>removeClass(wrap,'hvr-perfect-pulse'), 220);
-    }
-
-    if (post && post.ctx){
-      s.sparks.push({ x, y, t0: now(), str: 1.25 });
-    }
-  }
-
-  function goodFX(x,y, txt='+', kind='good'){
-    try{ Particles.burstAt(x,y,kind==='good'?'GOOD':'POWER'); }catch{}
-    try{ Particles.scorePop(x,y,txt,kind); }catch{}
-    blinkOn('good', 90);
-  }
-
-  function badFX(x,y, txt='MISS', kind='bad'){
-    try{ Particles.burstAt(x,y,'BAD'); }catch{}
-    try{ Particles.scorePop(x,y,txt,'bad'); }catch{}
-    blinkOn('bad', 110);
-  }
-
-  function setStorm(on, strength=1){
-    s.stormOn = !!on;
-    s.stormStrength = clamp(strength, 0, 1.25);
-
-    if (wrap){
-      if (s.stormOn){
-        addClass(wrap,'hvr-chroma');
-        addClass(wrap,'hvr-wobble');
-      }else{
-        removeClass(wrap,'hvr-chroma');
-        removeClass(wrap,'hvr-wobble');
-      }
-    }
-    if (speedLines){
-      if (s.stormOn) addClass(speedLines,'on');
-      else removeClass(speedLines,'on');
-    }
-  }
-
-  function maybeStormTick(){
-    const t = now();
-    if (s.stormOn && t > s.stormUntil){
-      setStorm(false, 0);
-    }
-  }
-
-  function bindTilt(){
-    const onOri = (e)=>{
-      const gx = clamp((e.gamma||0)/30, -1, 1);
-      const gy = clamp((e.beta||0)/40, -1, 1);
-      s.tiltX = gx;
-      s.tiltY = gy;
-
-      if (playfield){
-        playfield.style.setProperty('--tilt-x', gx.toFixed(3));
-        playfield.style.setProperty('--tilt-y', gy.toFixed(3));
-      }
-    };
-    ROOT.addEventListener('deviceorientation', onOri, { passive:true });
-    return ()=> ROOT.removeEventListener('deviceorientation', onOri);
-  }
-
-  let fxRaf = null;
-  function fxLoop(){
-    if (!post || !post.ctx) return;
-    const ctx = post.ctx;
-    const t = now();
-
-    ctx.clearRect(0,0,ROOT.innerWidth||1,ROOT.innerHeight||1);
-
-    const out = [];
-    for (const sp of s.sparks){
-      const dt = t - sp.t0;
-      if (dt > 520) continue;
-      out.push(sp);
-
-      const k = 1 - (dt/520);
-      ctx.globalAlpha = 0.55 * k;
-      drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.75 + 0.55*k));
-    }
-    s.sparks = out;
-
-    ctx.globalAlpha = 1;
-    fxRaf = ROOT.requestAnimationFrame(fxLoop);
-  }
-  fxRaf = ROOT.requestAnimationFrame(fxLoop);
-
-  function updateWater(delta){
-    s.water = clamp(s.water + delta, 0, 100);
-    const z = zoneFrom(s.water);
-    s.zone = z;
-    s.zoneLabel = zoneLabelFrom(z);
-
-    setWaterGauge(s.water);
-
-    const st = $id('hha-water-status');
-    if (st) st.textContent = `${s.zoneLabel} ${Math.round(s.water)}%`;
-    const zt = $id('hha-water-zone-text');
-    if (zt) zt.textContent = `ZONE ${s.zoneLabel}`;
-
-    return { pct: s.water, zone: s.zone };
-  }
-
-  updateWater(0);
-  hud();
-  applyView();
-
+  // storm wave
+  let stormUntilTs = 0;
+  function now(){ return (typeof performance !== 'undefined' ? performance.now() : Date.now()); }
   function spawnMul(){
-    if (!s.stormOn) return 1.0;
-    return clamp(0.70 - 0.22*s.stormStrength, 0.42, 0.75);
+    const t = now();
+    if (t < stormUntilTs) return 0.65; // ถี่ขึ้น
+    // แรงกระตุ้นตามโซน
+    if (zone === 'RED') return 0.78;
+    if (zone === 'BLUE') return 0.92;
+    return 1.00;
+  }
+  function triggerStorm(ms=4200){
+    stormUntilTs = Math.max(stormUntilTs, now() + ms);
   }
 
+  function setBlink(type){
+    if (!blink) return;
+    blink.classList.remove('on','good','bad','perfect');
+    if (type) blink.classList.add('on', type);
+    ROOT.setTimeout(()=> blink.classList.remove('on'), 120);
+  }
+
+  function updateWaterUI(){
+    zone = zoneFromWaterLocal(water);
+
+    if (elZoneText) elZoneText.textContent = 'ZONE ' + zone;
+    if (elWaterSt) elWaterSt.textContent = `${zone} ${Math.round(water)}%`;
+    if (elFill) elFill.style.width = clamp(water,0,100) + '%';
+
+    // ui-water.js (ถ้ามี)
+    try{
+      if (setWaterGauge) setWaterGauge(water);
+    }catch{}
+
+    dispatch('hha:water', { water, zone });
+  }
+
+  function updateHUD(){
+    setText(elScore, score);
+    setText(elComboMax, comboMax);
+    setText(elMiss, miss);
+
+    setText(elGoalCnt, goalsCleared);
+    setText(elMiniCnt, minisCleared);
+
+    const g = gradeFrom(score, goalsCleared, minisCleared, miss, secGreen, T.greenTarget);
+    setText(elGradeBadge, g.grade);
+
+    if (elGradeFill) elGradeFill.style.width = clamp(g.pct,0,100) + '%';
+    if (elGradeTxt) elGradeTxt.textContent = `Progress to S: ${Math.round(clamp(g.pct,0,100))}%`;
+
+    dispatch('hha:score', { score, combo, comboMax, miss, grade: g.grade, gradePct: g.pct });
+    dispatch('hha:stat', {
+      score, combo, comboMax, miss,
+      water, zone,
+      secGreen, secBad, secTotal,
+      perfectCount, junkHits,
+      goalsCleared, minisCleared
+    });
+  }
+
+  function updateQuestText(){
+    // Goal lines (แบบที่คุณโชว์ในภาพ)
+    // Goal1: อยู่ GREEN >= target sec
+    // Goal2: BLUE+RED รวมไม่เกิน badMax sec (ตัดสินตอนจบ)
+    const g1 = `⏳ อยู่ GREEN ≥ ${T.greenTarget}s (ตอนนี้ ${secGreen}s/${T.greenTarget}) ${goal1Done ? '✅' : '⏳'}`;
+    const g2 = `⛔ อยู่ BLUE/RED รวมไม่เกิน ${T.badMax}s (bad ${secBad}/${T.badMax}) ${goal2Done ? '✅' : '⏳'}`;
+    if (elGoalTxt) elGoalTxt.textContent = `Goal: ${g1} · ${g2}`;
+
+    // Minis
+    const m1 = `✅ Combo ${comboMax}/8 ${miniComboDone ? '✅' : ''}`.trim();
+    const m2 = `✅ Perfect ${perfectCount}/4 ${miniPerfectDone ? '✅' : ''}`.trim();
+    const m3 = `✅ NoJunk ${junkHits}/0 ${miniNoJunkDone ? '✅' : ''}`.trim();
+    if (elMiniTxt) elMiniTxt.textContent = `Mini: ${m1} · ${m2} · ${m3}`;
+
+    dispatch('quest:update', {
+      goalText: (elGoalTxt ? elGoalTxt.textContent : ''),
+      miniText: (elMiniTxt ? elMiniTxt.textContent : ''),
+      goalsCleared, minisCleared,
+      goalTotal: 2, miniTotal: 3
+    });
+  }
+
+  function celebrate(kind){
+    // particles.js patched version มักฟัง hha:celebrate
+    dispatch('hha:celebrate', { kind, mode:'hydration' });
+    try{
+      if (Particles && typeof Particles.celebrateQuestFX === 'function') Particles.celebrateQuestFX(kind);
+    }catch{}
+  }
+
+  function checkGoalsMinis(){
+    // Goal1: green time reached
+    if (!goal1Done && secGreen >= T.greenTarget){
+      goal1Done = true;
+      goalsCleared = Math.min(2, goalsCleared + 1);
+      celebrate('goal');
+    }
+
+    // Mini combo
+    if (!miniComboDone && comboMax >= 8){
+      miniComboDone = true;
+      minisCleared = Math.min(3, minisCleared + 1);
+      celebrate('mini');
+      triggerStorm(4800);
+    }
+
+    // Mini perfect
+    if (!miniPerfectDone && perfectCount >= 4){
+      miniPerfectDone = true;
+      minisCleared = Math.min(3, minisCleared + 1);
+      celebrate('mini');
+      triggerStorm(4200);
+    }
+
+    // Mini no-junk (ตัดสินตอนจบ แต่ถ้าโดน junk แล้วก็ “ตก” ทันที)
+    if (!miniNoJunkDone && junkHits === 0 && secTotal > 6){
+      // ยังไม่ให้ผ่านจนจบเกม แต่แสดงว่า “ยังไม่พัง”
+    }
+  }
+
+  function finalizeAtEnd(){
+    if (goal2Done) return; // กันเรียกซ้ำ
+    goal2Done = (secBad <= T.badMax);
+    if (goal2Done) goalsCleared = Math.min(2, goalsCleared + 1);
+
+    if (!miniNoJunkDone && junkHits === 0){
+      miniNoJunkDone = true;
+      minisCleared = Math.min(3, minisCleared + 1);
+    }
+
+    const g = gradeFrom(score, goalsCleared, minisCleared, miss, secGreen, T.greenTarget);
+
+    updateQuestText();
+    updateHUD();
+
+    if (endBox){
+      const html = `
+        <div style="max-width:560px;width:100%;background:rgba(2,6,23,.74);border:1px solid rgba(148,163,184,.22);border-radius:22px;padding:16px 16px 14px;box-shadow:0 24px 70px rgba(0,0,0,.6);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div style="font-weight:900;font-size:20px;">Hydration — Summary</div>
+            <div style="border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.55);border-radius:999px;padding:6px 10px;font-weight:900;letter-spacing:.06em;">
+              Grade <span>${g.grade}</span>
+            </div>
+          </div>
+          <div style="margin-top:10px;color:rgba(226,232,240,.85);font-size:13px;line-height:1.55;">
+            <div>Score: <b>${score}</b> · ComboMax: <b>${comboMax}</b> · Miss: <b>${miss}</b></div>
+            <div>GREEN time: <b>${secGreen}s</b> · BLUE/RED time: <b>${secBad}s</b></div>
+            <div>Perfect: <b>${perfectCount}</b> · Junk hits: <b>${junkHits}</b></div>
+            <div>Goals: <b>${goalsCleared}/2</b> · Minis: <b>${minisCleared}/3</b></div>
+          </div>
+          <div style="margin-top:12px;height:10px;background:#0b1220;border:1px solid rgba(148,163,184,.18);border-radius:999px;overflow:hidden;">
+            <div style="height:100%;width:${clamp(g.pct,0,100)}%;background:linear-gradient(90deg,#22c55e,#60a5fa);"></div>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
+            <button id="hvr-restart" style="pointer-events:auto;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.55);color:#e5e7eb;border-radius:14px;padding:10px 12px;font-weight:900;">
+              เล่นอีกครั้ง
+            </button>
+          </div>
+        </div>
+      `;
+      endBox.innerHTML = html;
+      endBox.classList.add('on');
+
+      const btn = $('#hvr-restart');
+      if (btn){
+        btn.onclick = () => { location.reload(); };
+      }
+    }
+
+    dispatch('hha:end', {
+      mode:'hydration',
+      difficulty: diff,
+      duration,
+      score, comboMax, miss,
+      water, zone,
+      secGreen, secBad, secTotal,
+      perfectCount, junkHits,
+      goalsCleared, minisCleared,
+      grade: g.grade,
+      gradePct: g.pct
+    });
+
+    // ถ้าเคลียร์หมด
+    if (goalsCleared >= 2 && minisCleared >= 3){
+      try{
+        if (Particles && typeof Particles.celebrateAllQuestsFX === 'function') Particles.celebrateAllQuestsFX();
+      }catch{}
+      dispatch('hha:celebrate', { kind:'all', mode:'hydration' });
+    }
+  }
+
+  // ------------------------------
+  // judge callback for mode-factory
+  // ------------------------------
   function judge(ch, ctx){
-    const x = ctx?.clientX || (ctx?.targetRect?.left + (ctx?.targetRect?.width||0)/2) || (ROOT.innerWidth/2);
-    const y = ctx?.clientY || (ctx?.targetRect?.top + (ctx?.targetRect?.height||0)/2) || (ROOT.innerHeight/2);
+    // ctx: {isGood,isPower,itemType,hitPerfect,hitDistNorm,targetRect}
+    const itemType = ctx && ctx.itemType;
+    const isPower  = !!(ctx && ctx.isPower);
+    const perfect  = !!(ctx && ctx.hitPerfect);
 
-    const itemType = String(ctx?.itemType || '');
-    const isBad = (itemType === 'bad');
-    const isPower = (itemType === 'power');
-    const isFakeGood = (itemType === 'fakeGood');
+    let scoreDelta = 0;
 
-    const perfect = !!ctx?.hitPerfect;
+    if (itemType === 'bad'){
+      junkHits++;
+      miss++;
+      combo = 0;
+      scoreDelta = -60;
 
-    if (perfect){
-      s.score += 120;
-      s.combo += 1;
-      s.comboMax = Math.max(s.comboMax, s.combo);
-      updateWater(+4);
-      perfectFX(x,y);
-    }
+      water -= T.badDown * (perfect ? 0.85 : 1.0);
+      setBlink('bad');
 
-    if (isBad){
-      s.miss += 1;
-      s.combo = 0;
-      s.score = Math.max(0, s.score - 45);
-      updateWater(-10);
-      badFX(x,y,'MISS','bad');
+      try{
+        Particles && Particles.burstAt && Particles.burstAt(ctx.clientX, ctx.clientY, 'BAD');
+        Particles && Particles.scorePop && Particles.scorePop(ctx.clientX, ctx.clientY, 'JUNK!', -60);
+      }catch{}
 
-      if (!s.stormOn && Math.random() < 0.18){
-        s.stormUntil = now() + 5200;
-        setStorm(true, 0.85);
-      }
+    } else if (itemType === 'fakeGood'){
+      // หลอกตา: ไม่แรงเท่า junk แต่ “เสียเปรียบ”
+      miss++;
+      combo = Math.max(0, Math.floor(combo * 0.5));
+      scoreDelta = -20;
 
-      hud();
-      return { scoreDelta: -45, good:false };
-    }
+      water -= T.fakeDown * (perfect ? 0.90 : 1.0);
+      setBlink('bad');
 
-    if (isFakeGood && !perfect){
-      s.miss += 1;
-      s.combo = 0;
-      s.score = Math.max(0, s.score - 30);
-      updateWater(-7);
-      badFX(x,y,'TRICK!','bad');
-      hud();
-      return { scoreDelta: -30, good:false };
-    }
+      try{
+        Particles && Particles.burstAt && Particles.burstAt(ctx.clientX, ctx.clientY, 'TRAP');
+        Particles && Particles.scorePop && Particles.scorePop(ctx.clientX, ctx.clientY, 'TRICK!', -20);
+      }catch{}
 
-    if (isPower){
-      s.score += 95;
-      s.combo += 1;
-      s.comboMax = Math.max(s.comboMax, s.combo);
-      updateWater(+9);
-      goodFX(x,y,'POWER +95','power');
-
-      s.stormUntil = now() + 6800;
-      setStorm(true, 1.05);
-
-      hud();
-      return { scoreDelta: +95, good:true };
-    }
-
-    s.score += 55;
-    s.combo += 1;
-    s.comboMax = Math.max(s.comboMax, s.combo);
-
-    if (s.zone === 'LOW') updateWater(+8);
-    else if (s.zone === 'HIGH') updateWater(+3);
-    else updateWater(+5);
-
-    if (s.combo > 0 && (s.combo % 8 === 0)){
-      s.score += 80;
-      goodFX(x,y,`STREAK +80`,'good');
-
-      if (!s.stormOn && Math.random() < 0.32){
-        s.stormUntil = now() + 6200;
-        setStorm(true, 0.95);
-      }
     } else {
-      goodFX(x,y,'+55','good');
+      // good / power
+      combo++;
+      comboMax = Math.max(comboMax, combo);
+
+      const base = 100 + Math.min(60, combo * 3);
+      const pBonus = perfect ? 40 : 0;
+      const powerBonus = isPower ? 45 : 0;
+
+      scoreDelta = base + pBonus + powerBonus;
+      score += scoreDelta;
+
+      if (perfect) perfectCount++;
+
+      water += (isPower ? T.powerUp : T.goodUp) * (perfect ? 1.15 : 1.0);
+      setBlink(perfect ? 'perfect' : 'good');
+
+      try{
+        Particles && Particles.burstAt && Particles.burstAt(ctx.clientX, ctx.clientY, perfect ? 'PERFECT' : 'GOOD');
+        Particles && Particles.scorePop && Particles.scorePop(ctx.clientX, ctx.clientY, perfect ? 'PERFECT!' : 'GOOD!', scoreDelta);
+      }catch{}
+
+      // storm trigger จากฟีล “ล้น”
+      if (combo >= 6 && perfect) triggerStorm(3600);
     }
 
-    hud();
-    return { scoreDelta: +55, good:true };
+    water = clamp(water, 0, 100);
+    updateWaterUI();
+    updateHUD();
+
+    checkGoalsMinis();
+    updateQuestText();
+
+    // ส่งกลับให้ mode-factory ใช้ประเมิน hit-rate adaptive
+    return { scoreDelta, good: (itemType !== 'bad' && itemType !== 'fakeGood') };
   }
 
   function onExpire(info){
-    const itemType = String(info?.itemType||'');
-    if (itemType === 'good' || itemType === 'power'){
-      s.combo = Math.max(0, s.combo - 1);
-    }
-    hud();
+    // หมดอายุถือเป็น miss เบา ๆ เฉพาะ good/power (พลาดเป้าดี)
+    if (!info) return;
+    if (info.itemType === 'bad') return; // junk หายไปเองไม่ลงโทษ
+    miss++;
+    combo = 0;
+    score = Math.max(0, score - 8);
+
+    // น้ำค่อย ๆ ไหลลงตามเวลา/พลาด
+    water = clamp(water - 1.2, 0, 100);
+
+    updateWaterUI();
+    updateHUD();
+    updateQuestText();
   }
 
-  // ✅ Bubble decorate (ใสเหมือนฟองสบู่จริง + iridescence ชัด)
-  function decorateTarget(el, parts, data, meta){
-    const type = String(data?.itemType || '');
-    const isBad = type === 'bad';
-    const isPower = type === 'power';
+  // init UI state
+  updateWaterUI();
+  updateHUD();
+  updateQuestText();
 
-    // ทำ bubble เฉพาะของดี/ทริก/พาวเวอร์ (ขยะยังเป็นส้ม/แดงชัด)
-    if (!isBad){
-      el.classList.add('hvr-bubble');
-
-      // แทน inner เดิมด้วย bubble DOM (ไม่ทำให้คลิกเพี้ยน)
-      const inner = parts.inner;
-      if (inner){
-        inner.style.background = 'transparent';
-        inner.style.boxShadow = 'none';
-        inner.style.inset = '0';
-        inner.style.position = 'relative';
-
-        // clear content แล้วประกอบใหม่
-        inner.innerHTML = '';
-
-        const bubble = DOC.createElement('div');
-        bubble.className = 'hvr-bubble-inner';
-
-        const film = DOC.createElement('div');
-        film.className = 'hvr-bubble-film';
-
-        const rim = DOC.createElement('div');
-        rim.className = 'hvr-bubble-rim';
-
-        const iconWrap = DOC.createElement('div');
-        iconWrap.className = 'hvr-bubble-icon';
-
-        const icon = parts.icon || DOC.createElement('span');
-        icon.style.filter = 'drop-shadow(0 4px 6px rgba(2,6,23,.65))';
-        iconWrap.appendChild(icon);
-
-        bubble.appendChild(film);
-        bubble.appendChild(rim);
-        bubble.appendChild(iconWrap);
-        inner.appendChild(bubble);
-      }
-
-      // ring ให้ชัด/สวยขึ้น
-      if (parts.ring){
-        parts.ring.classList.add('hvr-bubble-perfect-ring');
-      }
-
-      // สีเฉพาะ power ให้เด่น
-      if (isPower){
-        el.style.filter = 'drop-shadow(0 0 14px rgba(250,204,21,.20))';
-      } else if (type === 'fakeGood'){
-        el.style.filter = 'drop-shadow(0 0 14px rgba(167,139,250,.18))';
-      } else {
-        el.style.filter = 'drop-shadow(0 0 14px rgba(34,197,94,.12))';
-      }
-    } else {
-      // junk: เด่นชัด
-      el.style.opacity = '0.96';
-    }
-
-    // storm: ส่ายแรงขึ้นนิดตาม spawnMul
-    if (el && el.classList){
-      if (meta && meta.spawnMul && Number(meta.spawnMul) < 0.99) el.classList.add('hvr-storm-on');
-      else el.classList.remove('hvr-storm-on');
-    }
-  }
-
-  const inst = await factoryBoot({
+  // ------------------------------
+  // start factory engine
+  // ------------------------------
+  const engine = await factoryBoot({
     modeKey: 'hydration',
     difficulty: diff,
     duration,
 
-    spawnHost:  '#hvr-playfield',
-    boundsHost: '#hvr-wrap', // ✅ FIX: ตัวนิ่งเต็มจอ (กันเป้าหลุดจอ)
+    spawnHost: '#hvr-playfield',
+    boundsHost: '#hvr-wrap',                // ✅ bounds คงที่ (ไม่เพี้ยนบนมือถือ)
+    excludeSelectors: ['.hud', '#hvr-end', '#hvr-screen-blink'],
 
-    pools: { good: GOOD, bad: BAD, trick: ['💧','🫧'] },
+    pools: { good: GOOD, bad: BAD, trick: ['🫧','💧'] },
     goodRate: diff === 'hard' ? 0.58 : (diff === 'normal' ? 0.62 : 0.68),
+
     powerups: POWER,
     powerRate: diff === 'hard' ? 0.12 : 0.10,
     powerEvery: 7,
+
     allowAdaptive: true,
     rhythm: { enabled:true, bpm: (diff==='hard'?126:(diff==='normal'?118:108)) },
     trickRate: diff === 'hard' ? 0.12 : 0.08,
-    spawnIntervalMul: spawnMul,
 
-    excludeSelectors: ['.hud', '#hvr-end', '#hvr-screen-blink'],
-    decorateTarget,
+    // ✅ สำคัญ: “เจอง่ายขึ้น” แต่ไม่ล็อกกลาง
+    centerBias: 0.80,
+    centerRadiusFrac: 0.26,
+    centerYFrac: 0.56,
+    antiRepeatPx: 140,
+
+    spawnIntervalMul: () => spawnMul(),
+    decorateTarget: decorateBubble,
 
     judge,
     onExpire
   });
 
-  const unbindDrag = bindViewDragAndShoot(inst);
-  const unbindTilt = bindTilt();
-
+  // ------------------------------
+  // time tick from factory (hha:time)
+  // ------------------------------
   function onTime(ev){
-    const sec = ev?.detail?.sec;
-    if (typeof sec !== 'number') return;
-    s.timeLeft = sec;
+    if (stopped) return;
+    const sec = Number(ev && ev.detail && ev.detail.sec);
+    if (!Number.isFinite(sec)) return;
 
-    updateWater(-1.4);
+    // sec คือ "เหลือ" — เราเก็บ total ผ่านไป
+    secTotal = Math.max(0, duration - sec);
 
-    if (s.zone === 'GREEN') s.greenTick += 1;
-
-    maybeStormTick();
-
-    if (s.zone === 'HIGH'){
-      s.score = Math.max(0, s.score - 3);
+    // drain per second (เล็ก ๆ)
+    // ทำให้ “แช่ GREEN” ต้องขยันยิงดี
+    if (secTotal > 0){
+      water = clamp(water - T.waterDrain, 0, 100);
     }
-    hud();
+
+    const z = zoneFromWaterLocal(water);
+    if (z === 'GREEN') secGreen++;
+    else secBad++;
+
+    updateWaterUI();
+
+    // อัปเดต quest/goal ต่อวินาที
+    checkGoalsMinis();
+    updateQuestText();
+    updateHUD();
 
     if (sec <= 0){
-      endGame();
+      finalizeAtEnd();
     }
   }
-  ROOT.addEventListener('hha:time', onTime, { passive:true });
+  ROOT.addEventListener('hha:time', onTime);
 
-  function buildEndOverlay(){
-    const end = $id('hvr-end');
-    if (!end) return;
-    end.className = 'on';
+  // ------------------------------
+  // Tap empty = crosshair shoot (เหมือน VR)
+  // ------------------------------
+  function onTap(ev){
+    if (stopped) return;
+    const t = ev && ev.target;
+    // ถ้ากดโดนเป้า ให้ปล่อยให้เป้าจัดการ
+    if (t && t.closest && t.closest('.hvr-target')) return;
 
-    const g = gradeFrom(s.score);
-    end.innerHTML = `
-      <div style="width:min(760px,100%); display:grid; grid-template-columns:1fr; gap:10px;">
-        <div style="background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.24); border-radius:24px; padding:14px; box-shadow:0 22px 70px rgba(0,0,0,.60);">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <h2 style="margin:0; font-size:18px; font-weight:1000;">🏁 สรุปผลการเล่น</h2>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span style="color:rgba(148,163,184,.9); font-weight:900;">Grade</span>
-              <span style="font-weight:1000; letter-spacing:.08em;">${g}</span>
-            </div>
-          </div>
-
-          <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;">
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">Score</div><div class="value">${s.score|0}</div></div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">รวมโบนัส PERFECT/STREAK/STORM</div>
-            </div>
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">Combo / Miss</div><div class="value">${s.comboMax|0} • ${s.miss|0}</div></div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">คอมโบสูงสุด • miss (junk/trick)</div>
-            </div>
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">GREEN time</div><div class="value">${s.greenTick|0}s</div></div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ในโซน GREEN</div>
-            </div>
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">Water end</div><div class="value">${Math.round(s.water)}% (${s.zoneLabel})</div></div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">โซนสุดท้าย</div>
-            </div>
-          </div>
-
-          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button id="hvr-end-retry" class="btn primary" style="pointer-events:auto;">🔁 เล่นอีกครั้ง</button>
-            <button id="hvr-end-hub" class="btn" style="pointer-events:auto;">🏠 กลับ Hub</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const retry = $id('hvr-end-retry');
-    const hub = $id('hvr-end-hub');
-    if (retry) retry.onclick = ()=>location.reload();
-    if (hub) hub.onclick = ()=>location.href = './hub.html';
-  }
-
-  function endGame(){
-    if (!s.running) return;
-    s.running = false;
-
-    try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{}
-    try{ inst && inst.stop && inst.stop(); }catch{}
-
-    if (unbindDrag) try{ unbindDrag(); }catch{}
-    if (unbindTilt) try{ unbindTilt(); }catch{}
-
-    ROOT.removeEventListener('hha:time', onTime);
-
-    if (fxRaf) try{ ROOT.cancelAnimationFrame(fxRaf); }catch{}
-    fxRaf = null;
-
-    setStorm(false, 0);
-
-    try{ Particles.celebrate('END'); }catch{}
-
-    buildEndOverlay();
-
+    // ยิงกลางจอ
     try{
-      ROOT.dispatchEvent(new CustomEvent('hha:end', {
-        detail:{
-          score: s.score|0,
-          miss: s.miss|0,
-          comboBest: s.comboMax|0,
-          grade: gradeFrom(s.score),
-          water: Math.round(s.water),
-          zone: s.zoneLabel,
-          greenTick: s.greenTick|0,
-          progPct: clamp((s.score/1500)*100,0,100)|0
-        }
-      }));
+      if (engine && typeof engine.shootCrosshair === 'function'){
+        const ok = engine.shootCrosshair();
+        if (ok) return;
+      }
     }catch{}
   }
+  if (playfield){
+    playfield.addEventListener('pointerdown', onTap, { passive:true });
+  }
 
-  hud();
+  // stop handler
+  function stop(){
+    if (stopped) return;
+    stopped = true;
 
-  return {
-    stop(){ endGame(); },
-    shoot(){ try{ inst && inst.shootCrosshair && inst.shootCrosshair(); }catch{} }
-  };
+    try{ ROOT.removeEventListener('hha:time', onTime); }catch{}
+    try{ playfield && playfield.removeEventListener('pointerdown', onTap); }catch{}
+
+    try{ engine && engine.stop && engine.stop(); }catch{}
+    try{ dispatch('hha:stop', { mode:'hydration' }); }catch{}
+  }
+
+  return { stop };
 }
 
 export default { boot };
