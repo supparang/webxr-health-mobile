@@ -4,6 +4,7 @@
 // ✅ PATCH A3.1: spawn ตาม "วิวปัจจุบัน" (ชดเชย translate ของ playfield) + กันทับกัน
 // ✅ PATCH A3.4 (3+++): Hint arrow (รวมกลุ่มตามทิศ) + BAD-first + distance intensity + ⚠️ near-edge
 // ✅ PATCH A4 (4): Mini Radar Ring (8-direction arc) + distance intensity + BAD-first + storm/danger animate
+// ✅ PATCH A5 (5): Radar 2 ชั้น (NEAR/FAR) + low-time alert (≤10s/≤5s) + tick escalate
 
 'use strict';
 
@@ -124,7 +125,7 @@ function ensureOverlayStyle () {
       will-change: transform;
     }
 
-    /* ---------- Hint overlay (A3.x) ---------- */
+    /* ---------- Hint overlay ---------- */
     .hvr-hint-host{
       position:fixed;
       inset:0;
@@ -228,11 +229,23 @@ function ensureOverlayStyle () {
       100%{ transform:translate(-50%,-50%) scale(1); opacity:.95; }
     }
 
+    /* storm baseline */
     .hvr-hint-host.hvr-storm-on .hvr-hint{
       animation: hvrHintShake .34s linear infinite, hvrHintBlink .64s ease-in-out infinite;
     }
     .hvr-hint-host.hvr-danger.hvr-storm-on .hvr-hint.bad{
       animation: hvrDangerPulse .55s ease-in-out infinite, hvrHintShakeStrong .20s linear infinite, hvrHintBlink .46s ease-in-out infinite;
+    }
+
+    /* A5: low-time alerts speed up */
+    .hvr-hint-host.hvr-time-low .hvr-hint{
+      animation: hvrHintShake .34s linear infinite, hvrHintBlink .44s ease-in-out infinite;
+    }
+    .hvr-hint-host.hvr-time-crit .hvr-hint{
+      animation: hvrHintShakeStrong .22s linear infinite, hvrHintBlink .34s ease-in-out infinite;
+    }
+    .hvr-hint-host.hvr-time-crit.hvr-danger .hvr-hint.bad{
+      animation: hvrDangerPulse .42s ease-in-out infinite, hvrHintShakeStrong .18s linear infinite, hvrHintBlink .30s ease-in-out infinite;
     }
 
     @keyframes hvrHintShake{
@@ -255,11 +268,11 @@ function ensureOverlayStyle () {
       100%{ opacity:.95; }
     }
 
-    /* ---------- A4: Mini Radar Ring ---------- */
+    /* ---------- Radar (A4/A5) ---------- */
     .hvr-radar{
       position:fixed;
       inset:0;
-      z-index:9997; /* ใต้ hint arrow นิดนึง */
+      z-index:9997;
       pointer-events:none;
       --rad-op: .75;
       --rad-bri: 1;
@@ -271,10 +284,11 @@ function ensureOverlayStyle () {
     .hvr-radar .seg{
       fill:none;
       stroke-linecap:round;
-      stroke-width:6;
       opacity: .14;
       filter: drop-shadow(0 6px 12px rgba(0,0,0,.55));
     }
+    .hvr-radar .seg.near{ stroke-width:7; }
+    .hvr-radar .seg.far{  stroke-width:5; opacity:.10; }
 
     .hvr-radar .seg.on{
       opacity: var(--o, .85);
@@ -285,11 +299,20 @@ function ensureOverlayStyle () {
     }
 
     .hvr-hint-host.hvr-danger ~ .hvr-radar{ --rad-op:.88; --rad-bri:1.06; }
+
     .hvr-hint-host.hvr-storm-on ~ .hvr-radar{
       animation: hvrRadarShake .26s linear infinite, hvrRadarBlink .64s ease-in-out infinite;
     }
     .hvr-hint-host.hvr-danger.hvr-storm-on ~ .hvr-radar{
       animation: hvrRadarShakeStrong .18s linear infinite, hvrRadarBlink .46s ease-in-out infinite;
+    }
+
+    /* A5: low-time alerts speed up radar blink */
+    .hvr-hint-host.hvr-time-low ~ .hvr-radar{
+      animation: hvrRadarShake .26s linear infinite, hvrRadarBlink .44s ease-in-out infinite;
+    }
+    .hvr-hint-host.hvr-time-crit ~ .hvr-radar{
+      animation: hvrRadarShakeStrong .18s linear infinite, hvrRadarBlink .34s ease-in-out infinite;
     }
 
     @keyframes hvrRadarShake{
@@ -353,33 +376,38 @@ function ensureRadar(){
   r.id = 'hvr-radar';
   r.className = 'hvr-radar';
 
-  // สร้าง SVG + 8 segments
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = DOC.createElementNS(svgNS, 'svg');
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('preserveAspectRatio', 'none');
 
-  // วงบางๆ กลาง (เบส)
-  const base = DOC.createElementNS(svgNS, 'circle');
-  base.setAttribute('cx', '50'); base.setAttribute('cy', '50');
-  base.setAttribute('r',  '16');
-  base.setAttribute('fill', 'none');
-  base.setAttribute('stroke', 'rgba(148,163,184,.16)');
-  base.setAttribute('stroke-width', '2');
-  svg.appendChild(base);
+  // base circles
+  const base1 = DOC.createElementNS(svgNS, 'circle');
+  base1.setAttribute('cx', '50'); base1.setAttribute('cy', '50');
+  base1.setAttribute('r',  '16');
+  base1.setAttribute('fill', 'none');
+  base1.setAttribute('stroke', 'rgba(148,163,184,.14)');
+  base1.setAttribute('stroke-width', '2');
+  svg.appendChild(base1);
 
+  // A5: 2 rings -> 16 segments (8 near + 8 far)
   for (let i=0;i<8;i++){
-    const p = DOC.createElementNS(svgNS, 'path');
-    p.setAttribute('class', 'seg');
-    p.setAttribute('data-seg', String(i));
-    svg.appendChild(p);
+    const pN = DOC.createElementNS(svgNS, 'path');
+    pN.setAttribute('class', 'seg near');
+    pN.setAttribute('data-seg', String(i));
+    pN.setAttribute('data-band', 'near');
+    svg.appendChild(pN);
+
+    const pF = DOC.createElementNS(svgNS, 'path');
+    pF.setAttribute('class', 'seg far');
+    pF.setAttribute('data-seg', String(i));
+    pF.setAttribute('data-band', 'far');
+    svg.appendChild(pF);
   }
 
   r.appendChild(svg);
 
-  // แทรกให้อยู่ “หลัง hint host”
-  // (CSS ใช้ sibling selector: hint-host ~ radar)
-  // ถ้า radar มาก่อน จะไม่ติด selector → ใส่หลัง hint host เสมอ
+  // ต้องอยู่ “หลัง hint host” เพื่อให้ sibling selector ทำงาน
   const hh = DOC.getElementById('hvr-hint-host');
   if (hh && hh.parentNode) hh.parentNode.insertBefore(r, hh.nextSibling);
   else DOC.body.appendChild(r);
@@ -682,21 +710,20 @@ function angleToSector8(ang){
   return Math.round(a / step) % 8;
 }
 
-// outside distance: 0 = อยู่บนขอบ/ในกรอบ
 function outDistance(cx, cy, ix1, iy1, ix2, iy2){
   const ox = (cx < ix1) ? (ix1 - cx) : (cx > ix2 ? (cx - ix2) : 0);
   const oy = (cy < iy1) ? (iy1 - cy) : (cy > iy2 ? (cy - iy2) : 0);
   return Math.sqrt(ox*ox + oy*oy);
 }
 
-// ---------- A4: Radar arc path (absolute pixels) ----------
+// ---------- Radar arc path (absolute pixels) ----------
 function arcPath(cx, cy, r, a0, a1){
   const x0 = cx + Math.cos(a0) * r;
   const y0 = cy + Math.sin(a0) * r;
   const x1 = cx + Math.cos(a1) * r;
   const y1 = cy + Math.sin(a1) * r;
   const large = (Math.abs(a1 - a0) > Math.PI) ? 1 : 0;
-  const sweep = 1; // ตามเข็ม (พอใน screen)
+  const sweep = 1;
   return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r.toFixed(2)} ${r.toFixed(2)} 0 ${large} ${sweep} ${x1.toFixed(2)} ${y1.toFixed(2)}`;
 }
 
@@ -719,11 +746,11 @@ function makeBeep(){
     }
   }
 
-  function beep(freq=860, dur=0.045, vol=0.040){
+  function beep(freq=860, dur=0.045, vol=0.040, minGapMs=260){
     const ctx = getCtx();
     if (!ctx) return;
     const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    if (t - A.last < 260) return;
+    if (t - A.last < minGapMs) return;
     A.last = t;
 
     try{
@@ -774,12 +801,10 @@ export async function boot (rawCfg = {}) {
     boundsHost = null,
     decorateTarget = null,
 
-    // spawn distribution
     spread = 0.50,
 
-    // hints/radar
     showHints = true,
-    showRadar = true,     // ✅ A4
+    showRadar = true,
     badFirstHints = true,
     badBeep = true
   } = rawCfg || {};
@@ -985,14 +1010,17 @@ export async function boot (rawCfg = {}) {
 
   const radarState = {
     el: (showHints && showRadar) ? ensureRadar() : null,
-    segs: null,
+    segNear: null,
+    segFar: null,
     lastGeomKey: ''
   };
   if (radarState.el){
     try{
-      radarState.segs = Array.from(radarState.el.querySelectorAll('.seg'));
+      radarState.segNear = Array.from(radarState.el.querySelectorAll('.seg.near'));
+      radarState.segFar  = Array.from(radarState.el.querySelectorAll('.seg.far'));
     }catch{
-      radarState.segs = null;
+      radarState.segNear = null;
+      radarState.segFar  = null;
     }
   }
 
@@ -1013,6 +1041,19 @@ export async function boot (rawCfg = {}) {
       else hintState.host.classList.remove('hvr-danger');
     }catch{}
   }
+  function setHintTimeAlert(sec){
+    if (!hintState.host) return;
+    const low  = (sec <= 10 && sec > 5);
+    const crit = (sec <= 5);
+
+    try{
+      if (low) hintState.host.classList.add('hvr-time-low');
+      else hintState.host.classList.remove('hvr-time-low');
+
+      if (crit) hintState.host.classList.add('hvr-time-crit');
+      else hintState.host.classList.remove('hvr-time-crit');
+    }catch{}
+  }
 
   function clearHints(){
     if (!hintState.map || !hintState.map.size) return;
@@ -1021,15 +1062,19 @@ export async function boot (rawCfg = {}) {
   }
 
   function clearRadar(){
-    if (!radarState.segs) return;
-    radarState.segs.forEach(s=>{
-      try{
-        s.classList.remove('on');
-        s.style.removeProperty('--o');
-        s.style.removeProperty('--c');
-        s.style.removeProperty('--g');
-      }catch{}
-    });
+    const wipe = (arr)=>{
+      if (!arr) return;
+      arr.forEach(s=>{
+        try{
+          s.classList.remove('on');
+          s.style.removeProperty('--o');
+          s.style.removeProperty('--c');
+          s.style.removeProperty('--g');
+        }catch{}
+      });
+    };
+    wipe(radarState.segNear);
+    wipe(radarState.segFar);
   }
 
   function kindColors(kind, I){
@@ -1077,9 +1122,12 @@ export async function boot (rawCfg = {}) {
     const bx = br.left + br.width/2;
     const by = br.top  + br.height/2;
 
-    // bucket by 8 sectors
     const buckets = new Map();
     let anyBadOffscreen = false;
+
+    // thresholds for radar rings
+    const EDGE_NEAR = 140; // near-edge warning
+    const FAR_SWITCH = 300; // A5: outDistance > FAR_SWITCH -> far ring
 
     activeTargets.forEach(t=>{
       const el = t.el;
@@ -1104,15 +1152,29 @@ export async function boot (rawCfg = {}) {
       const kp = kindPriority(kind);
       if (kind === 'bad') anyBadOffscreen = true;
 
-      // distance intensity: ใกล้ขอบเด่น
       const od = outDistance(cx, cy, ix1, iy1, ix2, iy2);
-      const EDGE_NEAR = 140;
+
+      // intensity: ใกล้ขอบเด่นกว่า
       const EDGE_FAR  = 520;
       const intensity = 1 - clamp(od / EDGE_FAR, 0, 1);
 
       let b = buckets.get(sector);
       if (!b){
-        b = { n:0, vx:0, vy:0, kind:'good', kindP:0, hasBad:false, intensityMax:0, warnNearEdge:false };
+        b = {
+          n:0, vx:0, vy:0,
+          kind:'good', kindP:0,
+          hasBad:false,
+          intensityMax:0,
+          warnNearEdge:false,
+
+          // A5 ring split
+          nearI:0,
+          farI:0,
+          nearKind:'good',
+          farKind:'good',
+          nearKindP:0,
+          farKindP:0
+        };
         buckets.set(sector, b);
       }
 
@@ -1131,6 +1193,16 @@ export async function boot (rawCfg = {}) {
         b.kindP = kp;
         b.kind = kind;
       }
+
+      // A5: split into near/far ring per target distance
+      const isFar = (od > FAR_SWITCH);
+      if (isFar){
+        b.farI = Math.max(b.farI, intensity);
+        if (kp > b.farKindP){ b.farKindP = kp; b.farKind = kind; }
+      } else {
+        b.nearI = Math.max(b.nearI, intensity);
+        if (kp > b.nearKindP){ b.nearKindP = kp; b.nearKind = kind; }
+      }
     });
 
     // BAD-first filter
@@ -1142,12 +1214,21 @@ export async function boot (rawCfg = {}) {
 
     setHintDanger(!!anyBadOffscreen);
 
-    // beep tick
+    // beep tick escalate by time + storm
     if (badBeep && anyBadOffscreen){
       const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-      const beat = stormOn ? 320 : 520;
+
+      const timeCrit = (secLeft <= 5);
+      const timeLow  = (secLeft <= 10);
+
+      const beatBase = stormOn ? 320 : 520;
+      const beat = timeCrit ? Math.max(180, beatBase * 0.55)
+                 : timeLow  ? Math.max(240, beatBase * 0.72)
+                 : beatBase;
+
+      const gap = timeCrit ? 150 : timeLow ? 190 : 260;
       if (t - lastDangerBeepAt > beat){
-        audio.beep(stormOn ? 980 : 860, 0.045, stormOn ? 0.050 : 0.040);
+        audio.beep(stormOn ? 980 : 860, 0.045, stormOn ? 0.050 : 0.040, gap);
         lastDangerBeepAt = t;
       }
     } else {
@@ -1191,48 +1272,63 @@ export async function boot (rawCfg = {}) {
       });
     }
 
-    // ---------- Update Radar Ring (A4) ----------
-    if (radarState.el && radarState.segs && radarState.segs.length >= 8){
-      // geometry: center at bounds center, radius depends on min side
+    // ---------- Update Radar Ring (A5: NEAR/FAR) ----------
+    if (radarState.el && radarState.segNear && radarState.segFar &&
+        radarState.segNear.length >= 8 && radarState.segFar.length >= 8){
+
       const minSide = Math.max(120, Math.min(br.width, br.height));
-      const r = clamp(minSide * 0.18, 72, 160);
+      const rNear = clamp(minSide * 0.18, 72, 160);
+      const rFar  = clamp(rNear + 14, 86, 182);
 
       const step = (Math.PI * 2) / 8;
-      const gap  = 0.18; // rad gap between segments
-      const geomKey = `${Math.round(bx)}|${Math.round(by)}|${Math.round(r)}`;
+      const gap  = 0.18;
+      const geomKey = `${Math.round(bx)}|${Math.round(by)}|${Math.round(rNear)}|${Math.round(rFar)}`;
 
-      // update path geometry if changed
       if (geomKey !== radarState.lastGeomKey){
         radarState.lastGeomKey = geomKey;
         for (let i=0;i<8;i++){
           const aMid = i * step;
           const a0 = aMid - (step/2) + gap;
           const a1 = aMid + (step/2) - gap;
-          const d = arcPath(bx, by, r, a0, a1);
-          try{ radarState.segs[i].setAttribute('d', d); }catch{}
+          const dN = arcPath(bx, by, rNear, a0, a1);
+          const dF = arcPath(bx, by, rFar,  a0, a1);
+          try{ radarState.segNear[i].setAttribute('d', dN); }catch{}
+          try{ radarState.segFar[i].setAttribute('d',  dF); }catch{}
         }
       }
 
-      // reset first
       clearRadar();
 
-      // apply buckets
       buckets.forEach((b, sector)=>{
-        const seg = radarState.segs[sector];
-        if (!seg) return;
-
         const countBoost = clamp((b.n - 1) * 0.06, 0, 0.22);
-        const I = clamp(b.intensityMax + countBoost, 0, 1);
 
-        const { c, g } = kindColors(b.kind, I);
-        const o = (0.18 + I * 0.80);
+        // NEAR ring
+        const IN = clamp(b.nearI + countBoost*0.55, 0, 1);
+        if (IN > 0.02){
+          const segN = radarState.segNear[sector];
+          const { c, g } = kindColors(b.nearKind, IN);
+          const o = (0.18 + IN * 0.82);
+          try{
+            segN.classList.add('on');
+            segN.style.setProperty('--c', c);
+            segN.style.setProperty('--g', g);
+            segN.style.setProperty('--o', o.toFixed(3));
+          }catch{}
+        }
 
-        try{
-          seg.classList.add('on');
-          seg.style.setProperty('--c', c);
-          seg.style.setProperty('--g', g);
-          seg.style.setProperty('--o', o.toFixed(3));
-        }catch{}
+        // FAR ring
+        const IF = clamp(b.farI + countBoost*0.45, 0, 1);
+        if (IF > 0.02){
+          const segF = radarState.segFar[sector];
+          const { c, g } = kindColors(b.farKind, IF);
+          const o = (0.12 + IF * 0.72);
+          try{
+            segF.classList.add('on');
+            segF.style.setProperty('--c', c);
+            segF.style.setProperty('--g', g);
+            segF.style.setProperty('--o', o.toFixed(3));
+          }catch{}
+        }
       });
     }
   }
@@ -1508,13 +1604,15 @@ export async function boot (rawCfg = {}) {
 
     refreshExclusions(ts);
 
+    // time alert class (A5)
+    setHintTimeAlert(secLeft);
+
     const mul = getSpawnMul();
     const stormOn = (mul < 0.99);
 
-    // sync classes (hint-host controls radar via sibling selector)
     setHintStorm(stormOn);
 
-    // ✅ update both hints + radar together
+    // update hints+radar
     updateHintsAndRadar(stormOn);
 
     if (lastClockTs == null) lastClockTs = ts;
