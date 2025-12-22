@@ -1,10 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — PRODUCTION SAFE (A2+++)
-// ✅ Bubble soap look: ใสเกือบไม่เห็น + ขอบรุ้งชัด
-// ✅ Spawn: A2+++ (center-easy + ring8 order + anti-repeat)
-// ✅ HUD responsive (fix right overflow)
+// ✅ Bubble soap look: ใสเกือบไม่เห็น + ขอบรุ้งชัด/คมขึ้น
+// ✅ Spawn: ring8 order + anti-repeat + center-biased (ไม่ล็อกกลางตายตัว)
+// ✅ Auto-recenter view (นุ่ม ๆ) + Double-tap recenter
 // ✅ Drag view + tap-to-shoot crosshair
-// ✅ PERFECT FX + Storm FX
+// ✅ PERFECT / POWER / TRICK / BAD FX + Storm FX
+// Requires: /herohealth/vr/mode-factory.js (A2+++ build ที่รองรับ spawnPattern/antiRepeat)
 
 'use strict';
 
@@ -64,7 +65,7 @@ function ensureHydrationStyle(){
       .hud .card, .hud .card.small{ flex: 1 1 100%; }
     }
 
-    /* ===== Crosshair (เห็นชัดนิด ๆ) ===== */
+    /* ===== Crosshair ===== */
     #hvr-crosshair{
       position:fixed;
       left:50%; top:52%;
@@ -72,7 +73,7 @@ function ensureHydrationStyle(){
       z-index:86;
       pointer-events:none;
       width:44px; height:44px;
-      opacity:.75;
+      opacity:.78;
       mix-blend-mode: screen;
       filter: drop-shadow(0 10px 20px rgba(0,0,0,.45));
     }
@@ -81,7 +82,9 @@ function ensureHydrationStyle(){
       position:absolute; inset:0;
       border-radius:999px;
       border: 2px solid rgba(255,255,255,.16);
-      box-shadow: 0 0 16px rgba(0,210,255,.10), 0 0 14px rgba(255,70,160,.07);
+      box-shadow:
+        0 0 18px rgba(0,210,255,.10),
+        0 0 16px rgba(255,70,160,.08);
     }
     #hvr-crosshair:after{
       content:"";
@@ -89,8 +92,14 @@ function ensureHydrationStyle(){
       width:6px; height:6px;
       border-radius:999px;
       transform:translate(-50%,-50%);
-      background: rgba(255,255,255,.45);
-      box-shadow: 0 0 10px rgba(255,255,255,.22);
+      background: rgba(255,255,255,.46);
+      box-shadow: 0 0 12px rgba(255,255,255,.22);
+    }
+    #hvr-crosshair.hint{ animation:hvrCrossHint .22s ease-out 1; }
+    @keyframes hvrCrossHint{
+      0%{ transform:translate(-50%,-50%) scale(1); opacity:.78; }
+      60%{ transform:translate(-50%,-50%) scale(1.15); opacity:.95; }
+      100%{ transform:translate(-50%,-50%) scale(1); opacity:.78; }
     }
 
     /* ===== drag view ===== */
@@ -123,8 +132,8 @@ function ensureHydrationStyle(){
     /* ===== Storm FX ===== */
     #hvr-wrap.hvr-chroma{
       filter:
-        drop-shadow(3.4px 0 rgba(255, 40, 80, 0.70))
-        drop-shadow(-2.2px 0 rgba(0, 190, 255, 0.32));
+        drop-shadow(3.6px 0 rgba(255, 40, 80, 0.72))
+        drop-shadow(-2.4px 0 rgba(0, 200, 255, 0.34));
     }
     #hvr-wrap.hvr-wobble{ animation: hvrWobble 0.95s ease-in-out infinite; }
     @keyframes hvrWobble{
@@ -142,68 +151,68 @@ function ensureHydrationStyle(){
       background:
         repeating-linear-gradient(110deg,
           rgba(255,255,255,.00) 0 18px,
-          rgba(255,80,120,.14) 18px 20px,
-          rgba(0,190,255,.12) 20px 22px,
+          rgba(255,80,120,.15) 18px 20px,
+          rgba(0,200,255,.13) 20px 22px,
           rgba(255,255,255,.00) 22px 44px
         );
-      filter: blur(0.6px) saturate(1.10) contrast(1.08);
+      filter: blur(0.6px) saturate(1.12) contrast(1.10);
       animation: hvrLines 0.28s linear infinite;
     }
     @keyframes hvrLines{
       0%{ transform: translate3d(-10px, -10px, 0); }
       100%{ transform: translate3d(30px, 26px, 0); }
     }
-    .hvr-speedlines.on{ opacity:0.34; }
+    .hvr-speedlines.on{ opacity:0.36; }
 
     #hvr-wrap.hvr-perfect-pulse{ animation: hvrPerfectPulse 180ms ease-out 1; }
     @keyframes hvrPerfectPulse{
       0%{ filter: saturate(1) contrast(1); }
-      45%{ filter: saturate(1.32) contrast(1.16); }
+      45%{ filter: saturate(1.34) contrast(1.18); }
       100%{ filter: saturate(1) contrast(1); }
     }
 
-    /* ===== Bubble soap targets ===== */
+    /* ===== Bubble soap targets (รุ้งชัดขึ้น + ใสขึ้น) ===== */
     .hvr-target.bubble{
       background: transparent !important;
-      box-shadow: 0 22px 60px rgba(0,0,0,.55);
+      box-shadow: 0 22px 62px rgba(0,0,0,.58);
       backdrop-filter: blur(0.2px);
     }
     .hvr-bubble-edge{
       position:absolute; inset:0;
       border-radius:999px;
-      border: 2.8px solid transparent;
+      border: 3.2px solid transparent;
       background:
         linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0)) padding-box,
         conic-gradient(
           from 40deg,
-          rgba(255, 70, 160, .72),
-          rgba(0, 210, 255, .70),
-          rgba(0, 255, 170, .55),
-          rgba(255, 255, 255, .22),
-          rgba(255, 70, 160, .72)
+          rgba(255, 70, 160, .86),
+          rgba(0, 210, 255, .82),
+          rgba(0, 255, 170, .66),
+          rgba(255, 255, 255, .24),
+          rgba(255, 70, 160, .86)
         ) border-box;
       box-shadow:
-        0 0 0 1px rgba(255,255,255,.08),
-        0 0 26px rgba(0, 210, 255, .18),
-        0 0 22px rgba(255, 70, 160, .14);
-      opacity: .96;
+        0 0 0 1px rgba(255,255,255,.10),
+        0 0 34px rgba(0, 210, 255, .22),
+        0 0 30px rgba(255, 70, 160, .18);
+      opacity: .98;
       pointer-events:none;
     }
     .hvr-bubble-gloss{
       position:absolute; inset:10%;
       border-radius:999px;
       background:
-        radial-gradient(circle at 28% 26%, rgba(255,255,255,.28), rgba(255,255,255,0) 55%),
-        radial-gradient(circle at 78% 78%, rgba(255,255,255,.10), rgba(255,255,255,0) 60%);
-      opacity:.48;
+        radial-gradient(circle at 28% 26%, rgba(255,255,255,.26), rgba(255,255,255,0) 58%),
+        radial-gradient(circle at 78% 78%, rgba(255,255,255,.09), rgba(255,255,255,0) 62%);
+      opacity:.42;
       pointer-events:none;
       mix-blend-mode: screen;
     }
     .hvr-bubble-tint{
       position:absolute; inset:18%;
       border-radius:999px;
-      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.08), rgba(255,255,255,0) 55%);
-      opacity:.18;
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.06), rgba(255,255,255,0) 58%);
+      opacity:.14;
       pointer-events:none;
     }
   `;
@@ -267,7 +276,12 @@ export async function boot(opts = {}){
 
     stormOn: false,
     stormUntil: 0,
-    stormStrength: 0
+    stormStrength: 0,
+
+    // view control
+    dragging: false,
+    lastDragTs: 0,
+    lastTapTs: 0
   };
 
   function hud(){
@@ -304,6 +318,14 @@ export async function boot(opts = {}){
     blink.classList.add('on');
     if (kind) blink.classList.add(kind);
     ROOT.setTimeout(()=>{ blink.className=''; }, ms);
+  }
+
+  function crossHint(){
+    const c = $id('hvr-crosshair');
+    if (!c) return;
+    c.classList.remove('hint');
+    void c.offsetWidth; // reflow
+    c.classList.add('hint');
   }
 
   function setStorm(on, strength=1){
@@ -355,7 +377,7 @@ export async function boot(opts = {}){
     try{
       el.classList.add('bubble');
       el.style.background = 'transparent';
-      el.style.boxShadow = '0 26px 76px rgba(0,0,0,.60)';
+      el.style.boxShadow = '0 26px 78px rgba(0,0,0,.62)';
 
       const { wiggle, inner, icon, ring } = parts || {};
       if (ring) ring.style.opacity = '0';
@@ -386,20 +408,18 @@ export async function boot(opts = {}){
 
       const type = String(data?.itemType||'good');
       if (type === 'power'){
-        if (edge) edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.10), 0 0 30px rgba(250,204,21,.28), 0 0 24px rgba(0,210,255,.16)';
-        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(250,204,21,.12), rgba(255,255,255,0) 55%)';
+        if (edge) edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.12), 0 0 34px rgba(250,204,21,.30), 0 0 26px rgba(0,210,255,.16)';
+        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(250,204,21,.11), rgba(255,255,255,0) 60%)';
       } else if (type === 'bad'){
-        if (edge) edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.08), 0 0 24px rgba(255,120,60,.18), 0 0 18px rgba(255,70,160,.10)';
-        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(255,120,60,.08), rgba(255,255,255,0) 55%)';
+        if (edge) edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.10), 0 0 28px rgba(255,120,60,.20), 0 0 22px rgba(255,70,160,.12)';
+        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(255,120,60,.08), rgba(255,255,255,0) 60%)';
       } else if (type === 'fakeGood'){
-        if (edge) edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.08), 0 0 24px rgba(167,139,250,.18), 0 0 18px rgba(0,210,255,.10)';
-        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(167,139,250,.08), rgba(255,255,255,0) 55%)';
-      } else {
-        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(0,210,255,.07), rgba(255,255,255,0) 55%)';
+        if (edge) edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.10), 0 0 28px rgba(167,139,250,.20), 0 0 22px rgba(0,210,255,.12)';
+        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(167,139,250,.08), rgba(255,255,255,0) 60%)';
       }
 
       if (icon){
-        icon.style.filter = 'drop-shadow(0 10px 16px rgba(0,0,0,.42))';
+        icon.style.filter = 'drop-shadow(0 12px 18px rgba(0,0,0,.44))';
       }
     }catch{}
   }
@@ -518,8 +538,9 @@ export async function boot(opts = {}){
     spawnHost: '#hvr-playfield',
     boundsHost: '#hvr-wrap',
 
+    // ✅ สำคัญ: ชุดนี้ทำให้ “หาเจอง่าย แต่ไม่ล็อกกลาง”
     spawnBias: 'A2+++',
-    spawnPattern: 'ring8',     // ✅ “ล็อก order” แบบวง 8 ทิศ (กระจายแต่ยังใกล้กลาง)
+    spawnPattern: 'ring8',
     antiRepeat: true,
     antiRepeatN: 4,
 
@@ -542,7 +563,33 @@ export async function boot(opts = {}){
     onExpire
   });
 
-  // Drag + tap shoot
+  // --- Auto recenter view (นุ่ม ๆ) ---
+  const VIEW_LIMIT_X = 180;
+  const VIEW_LIMIT_Y = 140;
+  const RECENTER_IDLE_MS = 650;     // ไม่ลากเกินนี้เริ่มเด้งกลับ
+  const RECENTER_LERP = 0.085;      // ความนุ่ม (มากขึ้น = กลับไวขึ้น)
+  const RECENTER_DEAD = 0.8;        // ใกล้ 0 แล้วหยุด
+
+  let viewRaf = null;
+  function viewLoop(){
+    if (!s.running) return;
+
+    const idle = now() - (s.lastDragTs || 0);
+    if (!s.dragging && idle > RECENTER_IDLE_MS){
+      // นุ่ม ๆ กลับเข้าใกล้ศูนย์
+      const nx = s.viewX + (0 - s.viewX) * RECENTER_LERP;
+      const ny = s.viewY + (0 - s.viewY) * RECENTER_LERP;
+
+      s.viewX = (Math.abs(nx) < RECENTER_DEAD) ? 0 : clamp(nx, -VIEW_LIMIT_X, VIEW_LIMIT_X);
+      s.viewY = (Math.abs(ny) < RECENTER_DEAD) ? 0 : clamp(ny, -VIEW_LIMIT_Y, VIEW_LIMIT_Y);
+      applyView();
+    }
+
+    viewRaf = ROOT.requestAnimationFrame(viewLoop);
+  }
+  viewRaf = ROOT.requestAnimationFrame(viewLoop);
+
+  // Drag + tap shoot + double-tap recenter
   function bindViewDragAndShoot(){
     if (!playfield) return null;
 
@@ -552,6 +599,7 @@ export async function boot(opts = {}){
     const onDown = (e)=>{
       if (!s.running) return;
       down = true; moved = false;
+      s.dragging = true;
       pid = e.pointerId;
       try{ playfield.setPointerCapture(pid); }catch{}
       sx = e.clientX; sy = e.clientY;
@@ -564,20 +612,36 @@ export async function boot(opts = {}){
       if (!moved && (Math.abs(dx)+Math.abs(dy) > TH)) moved = true;
 
       if (moved){
-        s.viewX = clamp(vx0 + dx, -180, 180);
-        s.viewY = clamp(vy0 + dy, -140, 140);
+        s.lastDragTs = now();
+        s.viewX = clamp(vx0 + dx, -VIEW_LIMIT_X, VIEW_LIMIT_X);
+        s.viewY = clamp(vy0 + dy, -VIEW_LIMIT_Y, VIEW_LIMIT_Y);
         applyView();
       }
     };
     const onUp = ()=>{
       if (!down) return;
       down = false;
+      s.dragging = false;
+      s.lastDragTs = now();
       try{ playfield.releasePointerCapture(pid); }catch{}
       pid = null;
 
       // tap = ยิงกลางจอ
       if (!moved && inst && typeof inst.shootCrosshair === 'function'){
+        const t = now();
+        const dt = t - (s.lastTapTs || 0);
+        s.lastTapTs = t;
+
+        // double tap = รีเซ็นเตอร์ (ไม่ต้องเลื่อนหา)
+        if (dt > 0 && dt < 320){
+          s.viewX = 0; s.viewY = 0;
+          applyView();
+          crossHint();
+          return;
+        }
+
         inst.shootCrosshair();
+        crossHint();
       }
     };
 
@@ -626,6 +690,8 @@ export async function boot(opts = {}){
     if (unbindDrag) try{ unbindDrag(); }catch{}
     ROOT.removeEventListener('hha:time', onTime);
 
+    if (viewRaf) { try{ ROOT.cancelAnimationFrame(viewRaf); }catch{} viewRaf = null; }
+
     setStorm(false, 0);
 
     const end = $id('hvr-end');
@@ -659,6 +725,9 @@ export async function boot(opts = {}){
           <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
             <button id="hvr-end-retry" style="appearance:none;border:1px solid rgba(34,197,94,.30);background:rgba(34,197,94,.14);color:#e5e7eb;padding:10px 12px;border-radius:14px;font-weight:900;cursor:pointer;">🔁 เล่นอีกครั้ง</button>
             <button id="hvr-end-hub" style="appearance:none;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.65);color:#e5e7eb;padding:10px 12px;border-radius:14px;font-weight:900;cursor:pointer;">🏠 กลับ Hub</button>
+          </div>
+          <div style="margin-top:10px; color:rgba(148,163,184,.9); font-size:12px;">
+            ทริค: แตะ 2 ครั้งเร็ว ๆ = รีเซ็นเตอร์จอ 🎯
           </div>
         </div>
       `;
