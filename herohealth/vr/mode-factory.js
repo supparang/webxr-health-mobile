@@ -1,20 +1,9 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ spawnHost: ที่ “append เป้า”
-// ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
-// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันให้แต่ละเกมทำได้
-// ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
-// ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
-// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ rhythm spawn (bpm) + pulse class
-// ✅ trick/fake targets (itemType='fakeGood')
-// ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
-// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
+// ✅ spawnHost / boundsHost / decorateTarget / wiggle / crosshair / rhythm / trick / storm / safezone
 // ✅ PATCH A3.1: spawn ตาม "วิวปัจจุบัน" (ชดเชย translate ของ playfield) + กันทับกัน
-// ✅ PATCH A3.3: กระจายกว้างแบบ VR + Arrow Hint ชี้เป้าเมื่ออยู่นอกจอ
-// ✅ PATCH A3.3+: Hint “รวมกลุ่มตามทิศ” + แสดงจำนวนเป้านอกจอ + Storm shake/blink
-// ✅ PATCH A3.3++: BAD-first mode + BAD glow/pulse แรงขึ้น + Beep/Tick ระหว่างมี BAD นอกจอ
-// ✅ PATCH A3.4 (3+++): Distance hint (ใกล้ขอบ=สว่าง/ชัดขึ้น) + ⚠️ ถ้า BAD ใกล้ขอบ
+// ✅ PATCH A3.4 (3+++): Hint arrow (รวมกลุ่มตามทิศ) + BAD-first + distance intensity + ⚠️ near-edge
+// ✅ PATCH A4 (4): Mini Radar Ring (8-direction arc) + distance intensity + BAD-first + storm/danger animate
 
 'use strict';
 
@@ -47,7 +36,7 @@ function getEventXY (ev) {
   return { x: x || 0, y: y || 0 };
 }
 
-// ---------- PATCH A3.1 — อ่าน translate ของ host (ตอน drag view) ----------
+// ---------- อ่าน translate ของ host (ตอน drag view) ----------
 function getTranslateXY (el) {
   try{
     if (!el || !ROOT.getComputedStyle) return { tx:0, ty:0 };
@@ -101,7 +90,7 @@ function pickDiffConfig (modeKey, diffKey) {
 }
 
 // ======================================================
-//  Overlay fallback + Hint CSS
+//  Overlay fallback + Hint/Radar CSS
 // ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
@@ -114,17 +103,15 @@ function ensureOverlayStyle () {
       z-index:9998;
       pointer-events:none;
     }
-    .hvr-overlay-host .hvr-target{
-      pointer-events:auto;
-    }
-    .hvr-target.hvr-pulse{
-      animation:hvrPulse .55s ease-in-out infinite;
-    }
+    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
+
+    .hvr-target.hvr-pulse{ animation:hvrPulse .55s ease-in-out infinite; }
     @keyframes hvrPulse{
       0%{ transform:translate(-50%,-50%) scale(1); }
       50%{ transform:translate(-50%,-50%) scale(1.08); }
       100%{ transform:translate(-50%,-50%) scale(1); }
     }
+
     .hvr-wiggle{
       position:absolute;
       inset:0;
@@ -137,13 +124,14 @@ function ensureOverlayStyle () {
       will-change: transform;
     }
 
-    /* ---------- PATCH A3.4: Hint overlay ---------- */
+    /* ---------- Hint overlay (A3.x) ---------- */
     .hvr-hint-host{
       position:fixed;
       inset:0;
       z-index:9999;
       pointer-events:none;
     }
+
     .hvr-hint{
       position:absolute;
       width:36px;
@@ -155,18 +143,18 @@ function ensureOverlayStyle () {
       display:flex;
       align-items:center;
       justify-content:center;
-      /* distance variables */
-      --op: .95;
-      --bri: 1;
-      --sat: 1;
+
+      --op: .95; --bri: 1; --sat: 1;
       --glow: rgba(148,163,184,.10);
       --glow2: rgba(148,163,184,.14);
+
       opacity: var(--op);
       filter: brightness(var(--bri)) saturate(var(--sat));
       box-shadow:
         0 12px 30px rgba(0,0,0,.45),
         0 0 0 2px var(--glow),
         0 0 22px var(--glow2);
+
       will-change: transform, left, top, opacity, filter;
       transform: translate(-50%,-50%);
     }
@@ -197,7 +185,6 @@ function ensureOverlayStyle () {
     }
     .hvr-hint.has-count .cnt{ display:flex; }
 
-    /* warning badge (near-edge BAD) */
     .hvr-hint .warn{
       position:absolute;
       left:-4px;
@@ -223,7 +210,6 @@ function ensureOverlayStyle () {
     .hvr-hint.power{ border-color: rgba(250,204,21,.22); }
     .hvr-hint.fake{ border-color: rgba(167,139,250,.22); }
 
-    /* BAD-first mode: ถ้ามี BAD นอกจอ → BAD เด่นขึ้นมาก */
     .hvr-hint-host.hvr-danger .hvr-hint.bad{
       width:44px;
       height:44px;
@@ -235,13 +221,13 @@ function ensureOverlayStyle () {
       animation: hvrDangerPulse .60s ease-in-out infinite;
     }
     .hvr-hint-host.hvr-danger .hvr-hint.bad .arr{ font-size:20px; }
+
     @keyframes hvrDangerPulse{
       0%{ transform:translate(-50%,-50%) scale(1); opacity:.95; }
       50%{ transform:translate(-50%,-50%) scale(1.08); opacity:.80; }
       100%{ transform:translate(-50%,-50%) scale(1); opacity:.95; }
     }
 
-    /* Storm: shake + blink */
     .hvr-hint-host.hvr-storm-on .hvr-hint{
       animation: hvrHintShake .34s linear infinite, hvrHintBlink .64s ease-in-out infinite;
     }
@@ -267,6 +253,63 @@ function ensureOverlayStyle () {
       0%{ opacity:.95; }
       50%{ opacity:.55; }
       100%{ opacity:.95; }
+    }
+
+    /* ---------- A4: Mini Radar Ring ---------- */
+    .hvr-radar{
+      position:fixed;
+      inset:0;
+      z-index:9997; /* ใต้ hint arrow นิดนึง */
+      pointer-events:none;
+      --rad-op: .75;
+      --rad-bri: 1;
+      opacity: var(--rad-op);
+      filter: brightness(var(--rad-bri));
+    }
+    .hvr-radar svg{ width:100%; height:100%; display:block; }
+
+    .hvr-radar .seg{
+      fill:none;
+      stroke-linecap:round;
+      stroke-width:6;
+      opacity: .14;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,.55));
+    }
+
+    .hvr-radar .seg.on{
+      opacity: var(--o, .85);
+      stroke: var(--c, rgba(148,163,184,.55));
+      filter:
+        drop-shadow(0 10px 18px rgba(0,0,0,.55))
+        drop-shadow(0 0 16px var(--g, rgba(148,163,184,.18)));
+    }
+
+    .hvr-hint-host.hvr-danger ~ .hvr-radar{ --rad-op:.88; --rad-bri:1.06; }
+    .hvr-hint-host.hvr-storm-on ~ .hvr-radar{
+      animation: hvrRadarShake .26s linear infinite, hvrRadarBlink .64s ease-in-out infinite;
+    }
+    .hvr-hint-host.hvr-danger.hvr-storm-on ~ .hvr-radar{
+      animation: hvrRadarShakeStrong .18s linear infinite, hvrRadarBlink .46s ease-in-out infinite;
+    }
+
+    @keyframes hvrRadarShake{
+      0%{ transform:translate(0,0) rotate(-.2deg); }
+      25%{ transform:translate(0.5px,0) rotate(.2deg); }
+      50%{ transform:translate(0,0.5px) rotate(-.2deg); }
+      75%{ transform:translate(-0.5px,0) rotate(.2deg); }
+      100%{ transform:translate(0,0) rotate(-.2deg); }
+    }
+    @keyframes hvrRadarShakeStrong{
+      0%{ transform:translate(0,0) rotate(-.4deg); }
+      25%{ transform:translate(1px,0) rotate(.4deg); }
+      50%{ transform:translate(0,1px) rotate(-.4deg); }
+      75%{ transform:translate(-1px,0) rotate(.4deg); }
+      100%{ transform:translate(0,0) rotate(-.4deg); }
+    }
+    @keyframes hvrRadarBlink{
+      0%{ opacity:.85; }
+      50%{ opacity:.55; }
+      100%{ opacity:.85; }
     }
   `;
   DOC.head.appendChild(s);
@@ -297,6 +340,51 @@ function ensureHintHost(){
   host.className = 'hvr-hint-host';
   DOC.body.appendChild(host);
   return host;
+}
+
+function ensureRadar(){
+  if (!DOC) return null;
+  ensureOverlayStyle();
+
+  let r = DOC.getElementById('hvr-radar');
+  if (r && r.isConnected) return r;
+
+  r = DOC.createElement('div');
+  r.id = 'hvr-radar';
+  r.className = 'hvr-radar';
+
+  // สร้าง SVG + 8 segments
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = DOC.createElementNS(svgNS, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+
+  // วงบางๆ กลาง (เบส)
+  const base = DOC.createElementNS(svgNS, 'circle');
+  base.setAttribute('cx', '50'); base.setAttribute('cy', '50');
+  base.setAttribute('r',  '16');
+  base.setAttribute('fill', 'none');
+  base.setAttribute('stroke', 'rgba(148,163,184,.16)');
+  base.setAttribute('stroke-width', '2');
+  svg.appendChild(base);
+
+  for (let i=0;i<8;i++){
+    const p = DOC.createElementNS(svgNS, 'path');
+    p.setAttribute('class', 'seg');
+    p.setAttribute('data-seg', String(i));
+    svg.appendChild(p);
+  }
+
+  r.appendChild(svg);
+
+  // แทรกให้อยู่ “หลัง hint host”
+  // (CSS ใช้ sibling selector: hint-host ~ radar)
+  // ถ้า radar มาก่อน จะไม่ติด selector → ใส่หลัง hint host เสมอ
+  const hh = DOC.getElementById('hvr-hint-host');
+  if (hh && hh.parentNode) hh.parentNode.insertBefore(r, hh.nextSibling);
+  else DOC.body.appendChild(r);
+
+  return r;
 }
 
 // ======================================================
@@ -352,9 +440,7 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
   });
 
-  try{
-    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
-  }catch{}
+  try{ DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el)); }catch{}
 
   const uniq = [];
   const seen = new Set();
@@ -385,18 +471,10 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    if (r.top < hy1 + 80 && r.bottom > hy1) {
-      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
-    }
-    if (r.bottom > hy2 - 80 && r.top < hy2) {
-      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
-    }
-    if (r.left < hx1 + 80 && r.right > hx1) {
-      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
-    }
-    if (r.right > hx2 - 80 && r.left < hx2) {
-      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
-    }
+    if (r.top < hy1 + 80 && r.bottom > hy1) m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    if (r.bottom > hy2 - 80 && r.top < hy2) m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+    if (r.left < hx1 + 80 && r.right > hx1) m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    if (r.right > hx2 - 80 && r.left < hx2) m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
   });
 
   return m;
@@ -424,7 +502,7 @@ function computePlayRectFromHost (hostEl, exState) {
 }
 
 // ======================================================
-//  overlap-safe spawn near "current view"
+//  overlap-safe spawn near current view
 // ======================================================
 function pickSpawnPoint(rect, size, activeTargets, hostForTransform, spread = 0.50){
   const W = Math.max(1, rect.width);
@@ -478,7 +556,7 @@ function pickSpawnPoint(rect, size, activeTargets, hostForTransform, spread = 0.
 }
 
 // ======================================================
-//  PATCH A3.4: Grouped hint arrows with counts + BAD-first + distance glow + ⚠️
+//  Hint/Radar helpers
 // ======================================================
 function hintKindFromItemType(itemType){
   if (itemType === 'bad') return 'bad';
@@ -523,7 +601,6 @@ function setHint(el, x, y, angRad, kind, count, intensity01, warn){
 
   el.classList.remove('good','bad','power','fake','has-count','has-warn');
   el.classList.add(kind);
-
   if (count && count > 1) el.classList.add('has-count');
   if (warn) el.classList.add('has-warn');
 
@@ -531,28 +608,20 @@ function setHint(el, x, y, angRad, kind, count, intensity01, warn){
   el.style.top  = `${Math.round(y)}px`;
 
   const arr = el.querySelector('.arr');
-  if (arr){
-    arr.style.transform = `rotate(${angRad}rad)`;
-  }
+  if (arr) arr.style.transform = `rotate(${angRad}rad)`;
 
   const cnt = el.querySelector('.cnt');
-  if (cnt){
-    cnt.textContent = (count && count > 1) ? `×${count}` : '';
-  }
+  if (cnt) cnt.textContent = (count && count > 1) ? `×${count}` : '';
 
-  // ✅ distance intensity (ใกล้ขอบ=เด่น) — ไม่ยุ่งกับ transform เพื่อไม่ชน animation
   const I = clamp(intensity01, 0, 1);
-
-  // base readability
-  const op  = 0.62 + I * 0.36;      // 0.62..0.98
-  const bri = 0.92 + I * 0.55;      // 0.92..1.47
-  const sat = 1.00 + I * 0.65;      // 1.00..1.65
+  const op  = 0.62 + I * 0.36;
+  const bri = 0.92 + I * 0.55;
+  const sat = 1.00 + I * 0.65;
 
   el.style.setProperty('--op',  op.toFixed(3));
   el.style.setProperty('--bri', bri.toFixed(3));
   el.style.setProperty('--sat', sat.toFixed(3));
 
-  // glow per kind
   let g1 = 'rgba(148,163,184,.10)';
   let g2 = 'rgba(148,163,184,.14)';
 
@@ -602,10 +671,7 @@ function projectToInnerRectEdge(bx, by, dx, dy, ix1, iy1, ix2, iy2){
   const x = bx + dx * tMin;
   const y = by + dy * tMin;
 
-  return {
-    x: clamp(x, ix1, ix2),
-    y: clamp(y, iy1, iy2)
-  };
+  return { x: clamp(x, ix1, ix2), y: clamp(y, iy1, iy2) };
 }
 
 function angleToSector8(ang){
@@ -616,8 +682,26 @@ function angleToSector8(ang){
   return Math.round(a / step) % 8;
 }
 
+// outside distance: 0 = อยู่บนขอบ/ในกรอบ
+function outDistance(cx, cy, ix1, iy1, ix2, iy2){
+  const ox = (cx < ix1) ? (ix1 - cx) : (cx > ix2 ? (cx - ix2) : 0);
+  const oy = (cy < iy1) ? (iy1 - cy) : (cy > iy2 ? (cy - iy2) : 0);
+  return Math.sqrt(ox*ox + oy*oy);
+}
+
+// ---------- A4: Radar arc path (absolute pixels) ----------
+function arcPath(cx, cy, r, a0, a1){
+  const x0 = cx + Math.cos(a0) * r;
+  const y0 = cy + Math.sin(a0) * r;
+  const x1 = cx + Math.cos(a1) * r;
+  const y1 = cy + Math.sin(a1) * r;
+  const large = (Math.abs(a1 - a0) > Math.PI) ? 1 : 0;
+  const sweep = 1; // ตามเข็ม (พอใน screen)
+  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r.toFixed(2)} ${r.toFixed(2)} 0 ${large} ${sweep} ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+
 // ======================================================
-//  PATCH A3.3++: Beep/Tick (WebAudio) + throttle
+//  Beep (WebAudio) + throttle
 // ======================================================
 function makeBeep(){
   const A = {};
@@ -639,7 +723,7 @@ function makeBeep(){
     const ctx = getCtx();
     if (!ctx) return;
     const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    if (t - A.last < 260) return; // throttle
+    if (t - A.last < 260) return;
     A.last = t;
 
     try{
@@ -690,9 +774,12 @@ export async function boot (rawCfg = {}) {
     boundsHost = null,
     decorateTarget = null,
 
-    // ✅ A3.3+
+    // spawn distribution
     spread = 0.50,
+
+    // hints/radar
     showHints = true,
+    showRadar = true,     // ✅ A4
     badFirstHints = true,
     badBeep = true
   } = rawCfg || {};
@@ -747,15 +834,9 @@ export async function boot (rawCfg = {}) {
     const lifeMul     = 1 - (adaptLevel * 0.08);
     const bonusActive = adaptLevel;
 
-    curInterval  = clamp(baseDiff.spawnInterval * intervalMul,
-                         baseDiff.spawnInterval * 0.45,
-                         baseDiff.spawnInterval * 1.4);
-    curScale     = clamp(baseDiff.scale * scaleMul,
-                         baseDiff.scale * 0.6,
-                         baseDiff.scale * 1.4);
-    curLife      = clamp(baseDiff.life * lifeMul,
-                         baseDiff.life * 0.55,
-                         baseDiff.life * 1.15);
+    curInterval  = clamp(baseDiff.spawnInterval * intervalMul, baseDiff.spawnInterval * 0.45, baseDiff.spawnInterval * 1.4);
+    curScale     = clamp(baseDiff.scale * scaleMul, baseDiff.scale * 0.6, baseDiff.scale * 1.4);
+    curLife      = clamp(baseDiff.life * lifeMul, baseDiff.life * 0.55, baseDiff.life * 1.15);
     curMaxActive = clamp(baseDiff.maxActive + bonusActive, 2, 10);
 
     sampleHits = sampleMisses = sampleTotal = 0;
@@ -789,6 +870,7 @@ export async function boot (rawCfg = {}) {
     try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
   }
 
+  // ✅ Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -872,7 +954,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Exclusions cache
+  //  Exclusions cache (computed from boundsHost)
   // ======================================================
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
@@ -894,12 +976,26 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Hint state + Beep state
+  //  Hint + Radar state
   // ======================================================
   const hintState = {
     host: showHints ? ensureHintHost() : null,
     map: new Map()
   };
+
+  const radarState = {
+    el: (showHints && showRadar) ? ensureRadar() : null,
+    segs: null,
+    lastGeomKey: ''
+  };
+  if (radarState.el){
+    try{
+      radarState.segs = Array.from(radarState.el.querySelectorAll('.seg'));
+    }catch{
+      radarState.segs = null;
+    }
+  }
+
   const audio = makeBeep();
   let lastDangerBeepAt = 0;
 
@@ -920,21 +1016,53 @@ export async function boot (rawCfg = {}) {
 
   function clearHints(){
     if (!hintState.map || !hintState.map.size) return;
-    hintState.map.forEach(v=>{
-      try{ v.el && v.el.remove(); }catch{}
-    });
+    hintState.map.forEach(v=>{ try{ v.el && v.el.remove(); }catch{} });
     hintState.map.clear();
   }
 
-  // helper: how far "outside" inner rect (0 = on edge/inside)
-  function outDistance(cx, cy, ix1, iy1, ix2, iy2){
-    const ox = (cx < ix1) ? (ix1 - cx) : (cx > ix2 ? (cx - ix2) : 0);
-    const oy = (cy < iy1) ? (iy1 - cy) : (cy > iy2 ? (cy - iy2) : 0);
-    return Math.sqrt(ox*ox + oy*oy);
+  function clearRadar(){
+    if (!radarState.segs) return;
+    radarState.segs.forEach(s=>{
+      try{
+        s.classList.remove('on');
+        s.style.removeProperty('--o');
+        s.style.removeProperty('--c');
+        s.style.removeProperty('--g');
+      }catch{}
+    });
   }
 
-  function updateHints(stormOn){
-    if (!showHints || !hintState.host) return;
+  function kindColors(kind, I){
+    I = clamp(I, 0, 1);
+    if (kind === 'bad'){
+      return {
+        c: `rgba(248,113,113,${(0.45 + I*0.45).toFixed(3)})`,
+        g: `rgba(248,113,113,${(0.12 + I*0.28).toFixed(3)})`
+      };
+    }
+    if (kind === 'power'){
+      return {
+        c: `rgba(250,204,21,${(0.42 + I*0.45).toFixed(3)})`,
+        g: `rgba(250,204,21,${(0.10 + I*0.26).toFixed(3)})`
+      };
+    }
+    if (kind === 'fake'){
+      return {
+        c: `rgba(167,139,250,${(0.40 + I*0.45).toFixed(3)})`,
+        g: `rgba(167,139,250,${(0.10 + I*0.26).toFixed(3)})`
+      };
+    }
+    return {
+      c: `rgba(74,222,128,${(0.36 + I*0.45).toFixed(3)})`,
+      g: `rgba(74,222,128,${(0.08 + I*0.24).toFixed(3)})`
+    };
+  }
+
+  // ======================================================
+  //  Update Hints + Radar from activeTargets
+  // ======================================================
+  function updateHintsAndRadar(stormOn){
+    if ((!showHints || !hintState.host) && !radarState.el) return;
 
     let br = null;
     try{ br = hostBounds.getBoundingClientRect(); }catch{}
@@ -949,8 +1077,7 @@ export async function boot (rawCfg = {}) {
     const bx = br.left + br.width/2;
     const by = br.top  + br.height/2;
 
-    // bucket offscreen targets into 8 sectors
-    // each bucket: n, vx, vy, kind, kindP, hasBad, intensityMax, warnNearEdge
+    // bucket by 8 sectors
     const buckets = new Map();
     let anyBadOffscreen = false;
 
@@ -977,14 +1104,11 @@ export async function boot (rawCfg = {}) {
       const kp = kindPriority(kind);
       if (kind === 'bad') anyBadOffscreen = true;
 
-      // ✅ A3.4: intensity based on how close the offscreen target is to the edge
-      // outDist: 0..∞  (0 = on edge)
+      // distance intensity: ใกล้ขอบเด่น
       const od = outDistance(cx, cy, ix1, iy1, ix2, iy2);
-
-      // map: close to edge (od small) => intensity high
-      const EDGE_NEAR = 140;     // <= this => show ⚠️ for BAD
-      const EDGE_FAR  = 520;     // >= this => intensity fades
-      const intensity = 1 - clamp(od / EDGE_FAR, 0, 1); // 1..0
+      const EDGE_NEAR = 140;
+      const EDGE_FAR  = 520;
+      const intensity = 1 - clamp(od / EDGE_FAR, 0, 1);
 
       let b = buckets.get(sector);
       if (!b){
@@ -1000,27 +1124,25 @@ export async function boot (rawCfg = {}) {
 
       if (kind === 'bad') {
         b.hasBad = true;
-        if (od <= EDGE_NEAR) b.warnNearEdge = true; // ✅ ⚠️
+        if (od <= EDGE_NEAR) b.warnNearEdge = true;
       }
 
-      // sector kind = highest priority
       if (kp > b.kindP){
         b.kindP = kp;
         b.kind = kind;
       }
     });
 
-    // ✅ A3.3++: BAD-first filter
+    // BAD-first filter
     if (badFirstHints && anyBadOffscreen){
       buckets.forEach((b, k)=>{
         if (!b.hasBad) buckets.delete(k);
       });
     }
 
-    // danger class on host
     setHintDanger(!!anyBadOffscreen);
 
-    // ✅ beep tick (throttle)
+    // beep tick
     if (badBeep && anyBadOffscreen){
       const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       const beat = stormOn ? 320 : 520;
@@ -1032,38 +1154,87 @@ export async function boot (rawCfg = {}) {
       lastDangerBeepAt = 0;
     }
 
-    // remove old hints not in use
-    const alive = new Set(buckets.keys());
-    hintState.map.forEach((v, k)=>{
-      if (!alive.has(k)){
-        try{ v.el.remove(); }catch{}
-        hintState.map.delete(k);
+    // ---------- Update Arrow Hints ----------
+    if (showHints && hintState.host){
+      const innerPad = 18;
+      const hx1 = br.left + innerPad;
+      const hy1 = br.top  + innerPad;
+      const hx2 = br.right - innerPad;
+      const hy2 = br.bottom - innerPad;
+
+      const alive = new Set(buckets.keys());
+      hintState.map.forEach((v, k)=>{
+        if (!alive.has(k)){
+          try{ v.el.remove(); }catch{}
+          hintState.map.delete(k);
+        }
+      });
+
+      buckets.forEach((b, sector)=>{
+        const ang = Math.atan2(b.vy, b.vx);
+        const dx = Math.cos(ang);
+        const dy = Math.sin(ang);
+        const p = projectToInnerRectEdge(bx, by, dx, dy, hx1, hy1, hx2, hy2);
+
+        let rec = hintState.map.get(sector);
+        if (!rec || !rec.el || !rec.el.isConnected){
+          const el = makeGroupedHintEl(b.kind);
+          rec = { el, kind: b.kind };
+          hintState.map.set(sector, rec);
+        }
+
+        const countBoost = clamp((b.n - 1) * 0.08, 0, 0.24);
+        const I = clamp(b.intensityMax + countBoost, 0, 1);
+        const warn = (b.kind === 'bad') && b.warnNearEdge;
+
+        setHint(rec.el, p.x, p.y, ang, b.kind, b.n, I, warn);
+      });
+    }
+
+    // ---------- Update Radar Ring (A4) ----------
+    if (radarState.el && radarState.segs && radarState.segs.length >= 8){
+      // geometry: center at bounds center, radius depends on min side
+      const minSide = Math.max(120, Math.min(br.width, br.height));
+      const r = clamp(minSide * 0.18, 72, 160);
+
+      const step = (Math.PI * 2) / 8;
+      const gap  = 0.18; // rad gap between segments
+      const geomKey = `${Math.round(bx)}|${Math.round(by)}|${Math.round(r)}`;
+
+      // update path geometry if changed
+      if (geomKey !== radarState.lastGeomKey){
+        radarState.lastGeomKey = geomKey;
+        for (let i=0;i<8;i++){
+          const aMid = i * step;
+          const a0 = aMid - (step/2) + gap;
+          const a1 = aMid + (step/2) - gap;
+          const d = arcPath(bx, by, r, a0, a1);
+          try{ radarState.segs[i].setAttribute('d', d); }catch{}
+        }
       }
-    });
 
-    // place/update each sector hint
-    buckets.forEach((b, sector)=>{
-      const ang = Math.atan2(b.vy, b.vx);
-      const dx = Math.cos(ang);
-      const dy = Math.sin(ang);
-      const p = projectToInnerRectEdge(bx, by, dx, dy, ix1, iy1, ix2, iy2);
+      // reset first
+      clearRadar();
 
-      let rec = hintState.map.get(sector);
-      if (!rec || !rec.el || !rec.el.isConnected){
-        const el = makeGroupedHintEl(b.kind);
-        rec = { el, kind: b.kind };
-        hintState.map.set(sector, rec);
-      }
+      // apply buckets
+      buckets.forEach((b, sector)=>{
+        const seg = radarState.segs[sector];
+        if (!seg) return;
 
-      // ✅ A3.4: boost intensity a bit when many targets in sector
-      const countBoost = clamp((b.n - 1) * 0.08, 0, 0.24);
-      const I = clamp(b.intensityMax + countBoost, 0, 1);
+        const countBoost = clamp((b.n - 1) * 0.06, 0, 0.22);
+        const I = clamp(b.intensityMax + countBoost, 0, 1);
 
-      // warn only for BAD + near edge; if BAD-first disabled, still ok
-      const warn = (b.kind === 'bad') && b.warnNearEdge;
+        const { c, g } = kindColors(b.kind, I);
+        const o = (0.18 + I * 0.80);
 
-      setHint(rec.el, p.x, p.y, ang, b.kind, b.n, I, warn);
-    });
+        try{
+          seg.classList.add('on');
+          seg.style.setProperty('--c', c);
+          seg.style.setProperty('--g', g);
+          seg.style.setProperty('--o', o.toFixed(3));
+        }catch{}
+      });
+    }
   }
 
   // ======================================================
@@ -1340,8 +1511,11 @@ export async function boot (rawCfg = {}) {
     const mul = getSpawnMul();
     const stormOn = (mul < 0.99);
 
+    // sync classes (hint-host controls radar via sibling selector)
     setHintStorm(stormOn);
-    updateHints(stormOn);
+
+    // ✅ update both hints + radar together
+    updateHintsAndRadar(stormOn);
 
     if (lastClockTs == null) lastClockTs = ts;
     const dt = ts - lastClockTs;
@@ -1399,6 +1573,7 @@ export async function boot (rawCfg = {}) {
     activeTargets.clear();
 
     clearHints();
+    clearRadar();
 
     try { dispatchTime(0); } catch {}
   }
