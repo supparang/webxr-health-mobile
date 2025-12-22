@@ -1,10 +1,17 @@
 // === /herohealth/vr/mode-factory.js ===
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ FIX-2: spawn จาก "พื้นที่ที่เห็นจริง" ของ spawnHost (getBoundingClientRect) แล้วแปลงเป็น local
-//          → ไม่ล็อกมุมล่างขวา/ไม่โผล่ที่เดิมแม้ drag view หรือ mobile viewport เปลี่ยน
-// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion rects
-// ✅ center bias spawn (หาเจอง่าย)
+// ✅ spawnHost: ที่ “append เป้า”
+// ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
+// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันให้แต่ละเกมทำได้
+// ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
 // ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
+// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
+// ✅ rhythm spawn (bpm) + pulse class
+// ✅ trick/fake targets (itemType='fakeGood')
+// ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
+// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
+// ✅ FIX(2025-12): HUD กว้างทั้งแถบทำให้ margin ซ้าย/ขวาพัง → เป้าติดมุมเดิม
+// ✅ NEW: center-biased spawn (โผล่แถวกลางบ่อย แต่ไม่ล็อกกลาง) + anti-repeat
 
 'use strict';
 
@@ -17,14 +24,11 @@ function clamp (v, min, max) {
   if (v > max) return max;
   return v;
 }
-function clamp01 (x) { x = Number(x) || 0; return x < 0 ? 0 : (x > 1 ? 1 : x); }
-
 function pickOne (arr, fallback = null) {
   if (!Array.isArray(arr) || !arr.length) return fallback;
   const i = Math.floor(Math.random() * arr.length);
   return arr[i];
 }
-
 function getEventXY (ev) {
   let x = ev.clientX;
   let y = ev.clientY;
@@ -38,6 +42,10 @@ function getEventXY (ev) {
     y = ev.changedTouches[0].clientY;
   }
   return { x: x || 0, y: y || 0 };
+}
+function rectIntersectsPoint(r, x, y){
+  if (!r) return false;
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 }
 
 // ---------- Base difficulty ----------
@@ -139,14 +147,15 @@ function resolveHost (rawCfg, keyName = 'spawnHost') {
   }
   if (h && h.nodeType === 1) return h;
 
-  const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
-  if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
+  // spawnHost fallback
+  if (keyName === 'spawnHost') return ensureOverlayHost();
 
-  return ensureOverlayHost();
+  // boundsHost fallback -> use spawnHost later
+  return null;
 }
 
 // ======================================================
-//  Exclusion rects (HUD avoid)
+//  SAFE ZONE / EXCLUSION
 // ======================================================
 function collectExclusionElements(rawCfg){
   if (!DOC) return [];
@@ -161,17 +170,28 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
 
+  // auto excludes
   const AUTO = [
-    '.hud',
-    '#hvr-end',
-    '.hvr-end',
+    '#hha-water-header',
+    '.hha-water-bar',
+    '.hha-main-row',
+    '#hha-card-left',
+    '#hha-card-right',
+    '.hha-bottom-row',
+    '.hha-fever-card',
     '#hvr-crosshair',
     '.hvr-crosshair',
-    '[data-hha-exclude="1"]'
+    '#hvr-end',
+    '.hvr-end',
+    '.hud'
   ];
   AUTO.forEach(s=>{
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
   });
+
+  try{
+    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
+  }catch{}
 
   const uniq = [];
   const seen = new Set();
@@ -184,16 +204,78 @@ function collectExclusionElements(rawCfg){
   return uniq;
 }
 
-function rectIntersectsPoint(r, x, y){
-  return !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+// ✅ FIX: HUD กว้างทั้งแถบอย่าไป “กิน left/right” จนเหลือมุมเดียว
+function computeExclusionMargins(hostRect, exRects){
+  const m = { top:0, bottom:0, left:0, right:0 };
+  if (!hostRect || !exRects || !exRects.length) return m;
+
+  const hx1 = hostRect.left, hy1 = hostRect.top;
+  const hx2 = hostRect.right, hy2 = hostRect.bottom;
+  const HW  = Math.max(1, hostRect.width);
+  const HH  = Math.max(1, hostRect.height);
+
+  const EDGE_BAND = 110;             // โซนขอบที่ถือว่า “ชิดขอบ”
+  const CAP_W = HW * 0.42;           // อย่าให้กินเกิน 42% ของด้านใด ๆ
+  const CAP_H = HH * 0.50;
+
+  exRects.forEach(r=>{
+    if (!r) return;
+
+    const ox1 = Math.max(hx1, r.left);
+    const oy1 = Math.max(hy1, r.top);
+    const ox2 = Math.min(hx2, r.right);
+    const oy2 = Math.min(hy2, r.bottom);
+    if (ox2 <= ox1 || oy2 <= oy1) return;
+
+    const rw = Math.max(1, r.width);
+    const rh = Math.max(1, r.height);
+
+    const spansWide = (rw / HW) > 0.72;     // แถบ HUD กว้าง
+    const spansTall = (rh / HH) > 0.55;
+
+    // TOP
+    if (r.top < hy1 + EDGE_BAND && r.bottom > hy1) {
+      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, CAP_H));
+    }
+    // BOTTOM
+    if (r.bottom > hy2 - EDGE_BAND && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, CAP_H));
+    }
+
+    // LEFT/RIGHT: ทำเฉพาะกรณีมัน “เป็นคอลัมน์” จริง ๆ ไม่ใช่แถบกว้างทั้งจอ
+    if (!spansWide && !spansTall) {
+      if (r.left < hx1 + EDGE_BAND && r.right > hx1) {
+        m.left = Math.max(m.left, clamp(r.right - hx1, 0, CAP_W));
+      }
+      if (r.right > hx2 - EDGE_BAND && r.left < hx2) {
+        m.right = Math.max(m.right, clamp(hx2 - r.left, 0, CAP_W));
+      }
+    }
+  });
+
+  return m;
 }
 
-// Gaussian random (center bias)
-function randn(){
-  let u = 0, v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
-  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+function computePlayRectFromHost (hostEl, exState) {
+  const r = hostEl.getBoundingClientRect();
+  const isOverlay = hostEl && hostEl.id === 'hvr-overlay-host';
+
+  let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
+  let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
+
+  // base padding (กันขอบ)
+  const basePadX   = w * 0.10;
+  const basePadTop = h * 0.12;
+  const basePadBot = h * 0.12;
+
+  const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+
+  const left   = basePadX   + m.left;
+  const top    = basePadTop + m.top;
+  const width  = Math.max(1, w - (basePadX*2) - m.left - m.right);
+  const height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
+
+  return { left, top, width, height, hostRect: r, isOverlay };
 }
 
 // ======================================================
@@ -219,15 +301,25 @@ export async function boot (rawCfg = {}) {
     spawnIntervalMul = null,
     excludeSelectors = null,
 
+    // ✅ optional
     boundsHost = null,
-    decorateTarget = null
+    decorateTarget = null,
+
+    // ✅ NEW: center-biased spawn tuning
+    centerBias = 0.78,            // 0.65–0.85 (มือถือแนะนำ 0.75–0.85)
+    centerRadiusFrac = 0.22,      // 0.18–0.28 (ยิ่งมากยิ่งกระจาย)
+    centerYFrac = 0.56,           // ศูนย์กลางแนวตั้ง (0.52–0.60)
+    antiRepeatPx = 120            // กัน spawn ตำแหน่งเดิมติด ๆ กัน
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
-  const hostSpawn  = resolveHost(rawCfg, 'spawnHost');
-  const hostBounds = (boundsHost ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
+  const hostSpawn = resolveHost(rawCfg, 'spawnHost');
+  let hostBounds  = resolveHost(rawCfg, 'boundsHost');
+
+  // fallback boundsHost = spawnHost
+  if (!hostBounds) hostBounds = hostSpawn;
 
   if (!hostSpawn || !hostBounds || !DOC) {
     console.error('[mode-factory] host not found');
@@ -315,6 +407,7 @@ export async function boot (rawCfg = {}) {
     try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
   }
 
+  // ✅ Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -324,6 +417,7 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
+  // ✅ life getter
   function getLifeMs(){
     const mul = getSpawnMul();
     const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
@@ -367,40 +461,18 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
-  // Exclusion cache (viewport rects)
-  const exState = {
-    els: [],
-    rects: [],
-    lastRefreshTs: 0
-  };
-
-  function refreshExclusions(ts){
-    if (!DOC) return;
-    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 350) return;
-    exState.lastRefreshTs = ts;
-
-    exState.els = collectExclusionElements({ excludeSelectors });
-    const rects = [];
-    exState.els.forEach(el=>{
-      try{
-        const r = el.getBoundingClientRect();
-        if (r && r.width > 2 && r.height > 2) rects.push(r);
-      }catch{}
-    });
-    exState.rects = rects;
-  }
-
+  // crosshair uses bounds host
   function getCrosshairPoint(){
     let rect = null;
     try{ rect = hostBounds.getBoundingClientRect(); }catch{}
     if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
 
+    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
     const padX = rect.width * 0.08;
     const padY = rect.height * 0.10;
 
-    const x = rect.left + padX + (rect.width  - padX*2) * 0.50;
-    const y = rect.top  + padY + (rect.height - padY*2) * 0.52;
+    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
+    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
     return { x: Math.round(x), y: Math.round(y) };
   }
 
@@ -421,58 +493,124 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn target (FIXED: visible-rect spawn)
+  //  Exclusions cache (computed from boundsHost)
   // ======================================================
+  const exState = {
+    els: [],
+    rects: [],
+    margins: { top:0,bottom:0,left:0,right:0 },
+    lastRefreshTs: 0
+  };
+
+  function refreshExclusions(ts){
+    if (!DOC) return;
+    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (ts - exState.lastRefreshTs < 600) return;
+    exState.lastRefreshTs = ts;
+
+    exState.els = collectExclusionElements({ excludeSelectors });
+
+    // build rect list (only connected + measurable)
+    const rects = [];
+    exState.els.forEach(el=>{
+      try{
+        const r = el.getBoundingClientRect();
+        if (!r || !r.width || !r.height) return;
+        rects.push(r);
+      }catch{}
+    });
+    exState.rects = rects;
+
+    let hostRect = null;
+    try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
+    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+
+    exState.margins = computeExclusionMargins(hostRect, exState.rects);
+  }
+
+  // ======================================================
+  //  Spawn target inside hostSpawn using bounds from hostBounds
+  // ======================================================
+  let lastSpawnXY = null;
+
+  function pickSpawnPoint(rect){
+    // rect: local rect within hostBounds (left/top/width/height)
+    // center-biased but not locked
+    const w = rect.width, h = rect.height;
+
+    const cx = rect.left + w * 0.50;
+    const cy = rect.top  + h * clamp(centerYFrac, 0.45, 0.68);
+
+    const bias = clamp(centerBias, 0.0, 0.95);
+    const useCenter = Math.random() < bias;
+
+    let x = 0, y = 0;
+
+    if (useCenter){
+      const Rmax = Math.min(w, h) * clamp(centerRadiusFrac, 0.12, 0.35);
+      const r = Math.sqrt(Math.random()) * Rmax;
+      const a = Math.random() * Math.PI * 2;
+      x = cx + Math.cos(a) * r;
+      y = cy + Math.sin(a) * r * 0.92;
+    }else{
+      x = rect.left + w * (0.15 + Math.random() * 0.70);
+      y = rect.top  + h * (0.12 + Math.random() * 0.78);
+    }
+
+    // anti-repeat: ถ้าใกล้ตำแหน่งเดิมเกินไป ให้ขยับ
+    if (lastSpawnXY){
+      const dx = x - lastSpawnXY.x;
+      const dy = y - lastSpawnXY.y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < antiRepeatPx){
+        const push = antiRepeatPx - d + (12 + Math.random()*18);
+        const a = Math.random() * Math.PI * 2;
+        x += Math.cos(a) * push;
+        y += Math.sin(a) * push * 0.90;
+      }
+    }
+
+    // clamp inside rect with soft padding
+    x = clamp(x, rect.left + 28, rect.left + w - 28);
+    y = clamp(y, rect.top  + 34, rect.top  + h - 60);
+
+    lastSpawnXY = { x, y };
+    return { x, y };
+  }
+
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
     refreshExclusions();
 
-    let sRect = null;
-    try{ sRect = hostSpawn.getBoundingClientRect(); }catch{}
-    if (!sRect || sRect.width < 10 || sRect.height < 10) return;
+    const rect = computePlayRectFromHost(hostBounds, exState);
 
-    // padding ที่ปลอดภัย (กันชิดขอบ/กันลงใต้ bar มือถือ)
-    const padL = Math.max(26, sRect.width  * 0.10);
-    const padR = Math.max(26, sRect.width  * 0.10);
-    const padT = Math.max(30, sRect.height * 0.14);
-    const padB = Math.max(44, sRect.height * 0.14);
+    // pick point in "bounds local"
+    let p = pickSpawnPoint(rect);
 
-    // try หาจุดที่ไม่ทับ HUD
-    let xV = 0, yV = 0;
-    let ok = false;
-
-    for (let attempt = 0; attempt < 18; attempt++) {
-      // center-biased (หาเจอง่าย)
-      let bx = 0.50 + randn() * 0.18;
-      let by = 0.56 + randn() * 0.20;
-      bx = clamp01(bx);
-      by = clamp01(by);
-
-      xV = sRect.left + padL + (sRect.width  - padL - padR) * bx;
-      yV = sRect.top  + padT + (sRect.height - padT - padB) * by;
-
-      // ไม่ทับ HUD
-      let collide = false;
-      for (const r of exState.rects) {
-        if (rectIntersectsPoint(r, xV, yV)) { collide = true; break; }
+    // ถ้าไปทับ exclusion rect (viewport coords) → nudge (ใช้ hostBounds rect ช่วยแปลง)
+    // NOTE: el.left/top เป็น local ใน hostSpawn; แต่ exclusion rect เป็น viewport coords
+    // เราแก้แบบง่าย: กันซ้อน HUD ด้วย margin แล้วเป็นหลัก; ถ้ายังชน ให้ดันขึ้น/ลงอีกนิด
+    // (ไม่ต้องคำนวณแปลงพิกัดซับซ้อน)
+    if (exState.rects && exState.rects.length){
+      // แปลง p(local) -> viewport เพื่อเช็คชน
+      let hb = null;
+      try{ hb = hostBounds.getBoundingClientRect(); }catch{}
+      if (hb){
+        const vx = hb.left + p.x;
+        const vy = hb.top  + p.y;
+        for (const r of exState.rects){
+          if (rectIntersectsPoint(r, vx, vy)){
+            p.y += (Math.random() < 0.5 ? 1 : -1) * (90 + Math.random()*120);
+            p.y = clamp(p.y, rect.top + 34, rect.top + rect.height - 60);
+            break;
+          }
+        }
       }
-      if (!collide) { ok = true; break; }
     }
 
-    // ถ้าหาไม่ได้ ให้เอากลางจอ
-    if (!ok) {
-      xV = sRect.left + sRect.width  * 0.50;
-      yV = sRect.top  + sRect.height * 0.58;
-    }
-
-    // แปลง viewport → local ของ spawnHost
-    let xLocal = xV - sRect.left;
-    let yLocal = yV - sRect.top;
-
-    // clamp อีกทีให้แน่น
-    xLocal = clamp(xLocal, 24, Math.max(24, sRect.width  - 24));
-    yLocal = clamp(yLocal, 30, Math.max(30, sRect.height - 54));
+    const xLocal = p.x;
+    const yLocal = p.y;
 
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
@@ -528,10 +666,12 @@ export async function boot (rawCfg = {}) {
     el.style.zIndex = '35';
     el.style.borderRadius = '999px';
 
+    // wiggle layer (animated visuals)
     const wiggle = DOC.createElement('div');
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
 
+    // default look (can be overridden by decorateTarget)
     let bgGrad = '';
     let ringGlow = '';
 
@@ -553,6 +693,7 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
+    // ring (perfect hint)
     const ring = DOC.createElement('div');
     ring.style.position = 'absolute';
     ring.style.left = '50%';
@@ -582,6 +723,7 @@ export async function boot (rawCfg = {}) {
     icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
     inner.appendChild(icon);
 
+    // trick badge
     let badge = null;
     if (itemType === 'fakeGood') {
       badge = DOC.createElement('div');
@@ -618,6 +760,7 @@ export async function boot (rawCfg = {}) {
       _hit: null
     };
 
+    // allow per-game decorate
     try{
       if (typeof decorateTarget === 'function'){
         decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
@@ -749,6 +892,11 @@ export async function boot (rawCfg = {}) {
 
       const mul = getSpawnMul();
       const effInterval = Math.max(35, curInterval * mul);
+
+      try{
+        if (mul < 0.99) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
+        else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
+      }catch{}
 
       if (rhythmOn && beatMs > 0) {
         if (!lastBeatTs) lastBeatTs = ts;
