@@ -1,9 +1,10 @@
 <!-- === /herohealth/groups-vr.html ===
-Food Groups VR — FULL HTML (FIX QUEST + READY)
-✅ FIX Quest not showing: load ./vr-groups/groups-quests.js (IIFE) BEFORE engine
+Food Groups VR — FULL HTML (PRODUCTION READY)
+✅ Quest IIFE โหลดก่อน Engine (ชัวร์)
 ✅ Emoji sticker targets + spawn/out/hit animations via --x/--y/--s
 ✅ Tap-anywhere + Lock/Fuse ring + Charge ring UI
-✅ Works with your /herohealth/vr-groups/GameEngine.js (IIFE -> window.GroupsVR.GameEngine)
+✅ CLUTCH: 3..2..1 tick + edge pulse
+✅ Works with /herohealth/vr-groups/GameEngine.js (IIFE -> window.GroupsVR.GameEngine)
 -->
 
 <!doctype html>
@@ -24,10 +25,10 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- ✅ QUEST (IIFE) MUST LOAD BEFORE ENGINE -->
+  <!-- ✅ Quest FIRST (IIFE) -->
   <script src="./vr-groups/groups-quests.js" defer></script>
 
-  <!-- ✅ ENGINE (IIFE) -->
+  <!-- ✅ Engine AFTER quest -->
   <script src="./vr-groups/GameEngine.js" defer></script>
 
   <style>
@@ -104,7 +105,10 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
     .fg-target.fg-boss{ outline: 2px solid rgba(168,85,247,.22); }
 
     .fg-target.spawn{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.72); }
-    .fg-target.show{ opacity:1; animation: fgPop .22s ease-out both; }
+    .fg-target.show{
+      opacity:1;
+      animation: fgPop .22s ease-out both;
+    }
     @keyframes fgPop{
       0%{ transform:translate3d(-50%,-50%,0) scale(.78); }
       70%{ transform:translate3d(-50%,-50%,0) scale(1.08); }
@@ -174,7 +178,10 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
       background: linear-gradient(90deg, rgba(168,85,247,.95), rgba(59,130,246,.85));
     }
 
-    .hud{ position:absolute; inset:0; z-index:20; pointer-events:none; }
+    .hud{
+      position:absolute; inset:0; z-index:20;
+      pointer-events:none;
+    }
 
     .topbar{
       position:absolute; left:12px; right:12px; top:10px;
@@ -347,6 +354,51 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
     }
     .startBtn:active{ transform: translateY(1px); }
     .note{ margin-top:10px; font-size:12px; color:var(--muted); line-height:1.35; }
+
+    /* ✅ CLUTCH Edge Pulse (3s) */
+    #edgePulse{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+      border-radius: 24px;
+      box-shadow:
+        inset 0 0 0 2px rgba(245,158,11,.00),
+        inset 0 0 38px rgba(245,158,11,.00);
+    }
+    #edgePulse.on{
+      opacity:1;
+      box-shadow:
+        inset 0 0 0 2px rgba(245,158,11,.16),
+        inset 0 0 38px rgba(245,158,11,.10);
+    }
+    #edgePulse.beat{
+      animation: edgeBeat .24s ease-out both;
+    }
+    @keyframes edgeBeat{
+      0%{
+        box-shadow:
+          inset 0 0 0 2px rgba(245,158,11,.18),
+          inset 0 0 42px rgba(245,158,11,.12);
+        filter: saturate(1.05);
+        transform: scale(1);
+      }
+      55%{
+        box-shadow:
+          inset 0 0 0 3px rgba(245,158,11,.34),
+          inset 0 0 72px rgba(245,158,11,.22);
+        filter: saturate(1.22);
+        transform: scale(1.006);
+      }
+      100%{
+        box-shadow:
+          inset 0 0 0 2px rgba(245,158,11,.16),
+          inset 0 0 38px rgba(245,158,11,.10);
+        filter: saturate(1.05);
+        transform: scale(1);
+      }
+    }
   </style>
 </head>
 
@@ -389,8 +441,7 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
       </div>
 
       <div class="coachBox">
-        <div class="coachText">
-          <div id="coachMain">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨</div>
+        <div class="coachText" id="coachText">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨
           <div class="sub" id="coachSub">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
         </div>
       </div>
@@ -419,6 +470,9 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
           <button class="btn ghost btnMini" id="btnVR">VR</button>
         </div>
       </div>
+
+      <!-- ✅ CLUTCH edge pulse overlay -->
+      <div id="edgePulse" aria-hidden="true"></div>
     </div>
 
     <div id="startOverlay">
@@ -452,7 +506,7 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
 
         <button class="startBtn" id="btnStart">START</button>
         <div class="note">
-          ✅ ไฟล์นี้โหลด quest (IIFE) ก่อน engine แล้ว — ภารกิจต้องขึ้นแน่ ๆ
+          Quest เป็น IIFE แล้ว โหลดก่อน Engine เรียบร้อย ✅
         </div>
       </div>
     </div>
@@ -484,7 +538,7 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
       const questMini = $('questMini');
       const miniPct   = $('miniPct');
 
-      const coachMain = $('coachMain');
+      const coachText = $('coachText');
 
       const btnStart = $('btnStart');
       const btnGaze  = $('btnGaze');
@@ -497,7 +551,6 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
       const ringProg = lockUI.querySelector('.ringProg');
       const ringCharge = lockUI.querySelector('.ringCharge');
 
-      // URL params -> defaults
       const sp = new URLSearchParams(location.search);
       const qDiff = (sp.get('diff')||'').toLowerCase();
       const qMode = (sp.get('mode')||'').toLowerCase();
@@ -507,9 +560,8 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
       if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
       if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(qTime);
 
-      // ring helpers
-      const C1 = 188.5; // r=30
-      const C2 = 138.2; // r=22
+      const C1 = 188.5;
+      const C2 = 138.2;
       function setRing(circle, prog, C){
         const p = Math.max(0, Math.min(1, prog||0));
         circle.style.strokeDasharray = String(C);
@@ -524,7 +576,6 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
         }
       }
 
-      // events
       window.addEventListener('hha:score', (e)=>{
         const d = (e && e.detail) || {};
         if (typeof d.score === 'number') hudScore.textContent = d.score|0;
@@ -566,7 +617,7 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
 
       window.addEventListener('hha:coach', (e)=>{
         const d = (e && e.detail) || {};
-        if (d.text) coachMain.textContent = String(d.text);
+        if (d.text) coachText.textContent = String(d.text);
       });
 
       window.addEventListener('groups:reticle', (e)=>{
@@ -611,20 +662,16 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
         eng && eng.stop && eng.stop('stop_button');
       });
 
-      btnVR.addEventListener('click', ()=>{
-        try{ if (sceneEl && sceneEl.enterVR) sceneEl.enterVR(); }catch{}
+      btnVR.addEventListener('click', async ()=>{
+        try{
+          if (sceneEl && sceneEl.enterVR) sceneEl.enterVR();
+        }catch{}
       });
 
       btnStart.addEventListener('click', ()=>{
         const eng = safeEngine();
         if (!eng){
           alert('GameEngine ยังไม่พร้อม (เช็ค path ./vr-groups/GameEngine.js)');
-          return;
-        }
-
-        // ✅ hard check quest presence (helps catch path mistakes instantly)
-        if (!window.GroupsQuest || typeof window.GroupsQuest.createFoodGroupsQuest !== 'function'){
-          alert('GroupsQuest ยังไม่พร้อม! เช็ค path ./vr-groups/groups-quests.js และต้องโหลดก่อน GameEngine.js');
           return;
         }
 
@@ -649,7 +696,7 @@ Food Groups VR — FULL HTML (FIX QUEST + READY)
       });
 
       if (sp.get('autostart') === '1'){
-        setTimeout(()=>btnStart.click(), 120);
+        setTimeout(()=>btnStart.click(), 100);
       }
     })();
   </script>
