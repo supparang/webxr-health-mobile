@@ -3,7 +3,9 @@
 // ✅ H+1 LASER: must dodge (aim point in beam at fire time => penalty)
 // ✅ H+2 RING: single safe gap (aim in danger ring => penalty)
 // ✅ H+3 STORM: fake good target (looks good but counts bad)
-// ✅ PATCH: DOM targets move with camera look (world coords + viewOffset)
+// ✅ RESTORE: view-offset spawn + aim sync (drag/VR feel)
+// ✅ FIX: Magnet works (magnetTick) — pull good/gold/power
+// ✅ FX: penalty/impact at real aim point (not hard-coded center)
 
 'use strict';
 
@@ -15,7 +17,7 @@ const Particles =
   { burstAt(){}, scorePop(){}, celebrate(){}, toast(){} };
 
 function clamp(v, a, b){ v = Number(v)||0; return v < a ? a : (v > b ? b : v); }
-function randi(a,b){ return (a + Math.floor(Math.random()*(b-a+1))); }
+function randi(a,b){ a=a|0; b=b|0; return (a + Math.floor(Math.random()*(b-a+1))); }
 function now(){ return performance.now ? performance.now() : Date.now(); }
 function safeDispatch(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
@@ -24,28 +26,18 @@ function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 function lerp(a,b,t){ return a + (b-a)*t; }
 
 function getViewOffset(){
-  const v = ROOT.__GJ_VIEW_OFFSET__;
-  if (v && Number.isFinite(v.x) && Number.isFinite(v.y)) return { x: v.x, y: v.y };
+  const vo = ROOT.__GJ_VIEW_OFFSET__;
+  if (vo && Number.isFinite(vo.x) && Number.isFinite(vo.y)) return { x: vo.x, y: vo.y };
   return { x: 0, y: 0 };
-}
-function worldBounds(){
-  const off = getViewOffset();
-  return { L: off.x, T: off.y, R: off.x + innerWidth, B: off.y + innerHeight };
-}
-function toScreen(wx, wy){
-  const off = getViewOffset();
-  return { x: (wx - off.x), y: (wy - off.y) };
 }
 
 function getAimPoint(){
-  // aim point is WORLD coords (screen center + viewOffset)
+  // Prefer HTML binder to provide this (drag view / VR)
   const ap = ROOT.__GJ_AIM_POINT__;
-  const off = getViewOffset();
+  if (ap && Number.isFinite(ap.x) && Number.isFinite(ap.y)) return { x: ap.x|0, y: ap.y|0 };
 
-  if (ap && Number.isFinite(ap.x) && Number.isFinite(ap.y)){
-    return { x: (ap.x|0) + (off.x|0), y: (ap.y|0) + (off.y|0) };
-  }
-  return { x: ((innerWidth*0.5)|0) + (off.x|0), y: ((innerHeight*0.62)|0) + (off.y|0) };
+  // fallback: slightly below center
+  return { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
 }
 
 const DIFF = {
@@ -68,15 +60,12 @@ const EMO_SHLD  = '🛡️';
 const EMO_BOSS1 = '👑';
 const EMO_BOSS2 = '👹';
 
-function createElWorld(layer, wx, wy, emoji, cls){
+function createEl(layer, x, y, emoji, cls){
   const el = document.createElement('div');
   el.className = `gj-target ${cls||''}`;
   el.textContent = emoji;
-
-  const p = toScreen(wx, wy);
-  el.style.left = (p.x|0) + 'px';
-  el.style.top  = (p.y|0) + 'px';
-
+  el.style.left = (x|0) + 'px';
+  el.style.top  = (y|0) + 'px';
   el.style.setProperty('--tScale', String(1));
   el.style.setProperty('--tRot', (randi(-10,10))+'deg');
   layer.appendChild(el);
@@ -89,17 +78,11 @@ function killEl(el){
     setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
   }catch(_){}
 }
-function burstFX(wx,wy,mode){
-  try{
-    const p = toScreen(wx,wy);
-    Particles.burstAt && Particles.burstAt(p.x, p.y, mode||'good');
-  }catch(_){}
+function burstFX(x,y,mode){
+  try{ Particles.burstAt && Particles.burstAt(x, y, mode||'good'); }catch(_){}
 }
-function scorePop(wx,wy,txt,label){
-  try{
-    const p = toScreen(wx,wy);
-    Particles.scorePop && Particles.scorePop(p.x, p.y, txt, label||'');
-  }catch(_){}
+function scorePop(x,y,txt,label){
+  try{ Particles.scorePop && Particles.scorePop(x, y, txt, label||''); }catch(_){}
 }
 
 function comboMultiplier(combo){
@@ -151,6 +134,7 @@ export function boot(opts = {}){
     magnetActive: false,
     magnetEndsAt: 0,
 
+    // HERO BURST (from pulse success)
     heroBurstActive: false,
     heroBurstEndsAt: 0,
 
@@ -165,6 +149,7 @@ export function boot(opts = {}){
     bossHpMax: 0,
     bossDecoyCooldownAt: 0,
 
+    // Boss Pulse Wave (move center)
     pulseActive: false,
     pulseX: 0,
     pulseY: 0,
@@ -172,6 +157,7 @@ export function boot(opts = {}){
     pulseNextAt: 0,
     pulseRadiusPx: 74,
 
+    // Boss attacks (H+)
     bossAtkNextAt: 0,
     bossAtkLast: '',
 
@@ -184,7 +170,7 @@ export function boot(opts = {}){
     ringEndsAt: 0,
 
     laserActive: false,
-    laserY: 0,           // WORLD Y
+    laserY: 0,
     laserWarnEndsAt: 0,
     laserFireAt: 0,
     laserEndsAt: 0,
@@ -216,7 +202,8 @@ export function boot(opts = {}){
       fever: clamp(S.fever,0,100),
       shield: S.shield|0,
       stunActive: !!S.stunActive,
-      slow: Number(S.slow)||1
+      slow: Number(S.slow)||1,
+      magnetActive: !!S.magnetActive
     });
   }
   function setJudge(label){ safeDispatch('hha:judge', { label: String(label||'') }); }
@@ -237,11 +224,12 @@ export function boot(opts = {}){
     S.hazardLockUntil = tnow + 420;
 
     fxChroma(170);
-    fxKick(1.25);
+    fxKick(1.35);
 
     const ap = getAimPoint();
 
     if ((S.shield|0) > 0){
+      // H+ โหด: hazard ทำให้แตกโล่หมดทันที
       S.shield = 0;
       safeDispatch('quest:badHit', { kind: kind + ':shieldbreak' });
       setJudge('SHIELD BREAK!');
@@ -282,6 +270,7 @@ export function boot(opts = {}){
     setJudge('MAGNET!');
     const ap = getAimPoint();
     burstFX(ap.x, ap.y, 'power');
+    fxChroma(160);
   }
   function addTime(){
     S.endAt += 3000;
@@ -289,18 +278,20 @@ export function boot(opts = {}){
     setJudge('+TIME!');
     const ap = getAimPoint();
     burstFX(ap.x, ap.y, 'power');
+    fxKick(0.9);
   }
   function addShield(){
     S.shield = clamp((S.shield|0) + 1, 0, 5);
     safeDispatch('quest:power', { power:'shield' });
     setJudge('+SHIELD!');
     emitFever();
+    fxKick(0.85);
   }
 
   function startHeroBurst(){
     S.heroBurstActive = true;
     S.heroBurstEndsAt = now() + 1500;
-    fxHero(240);
+    fxHero(260);
     setJudge('HERO BURST!');
     try{ Particles.celebrate && Particles.celebrate({ kind:'HERO', intensity:1.2 }); }catch(_){}
   }
@@ -321,6 +312,7 @@ export function boot(opts = {}){
     }
     S.targets.clear();
 
+    // cleanup overlays
     try{ if (elRing) elRing.classList.remove('show'); }catch(_){}
     try{ if (elLaser) elLaser.classList.remove('warn','fire'); }catch(_){}
 
@@ -337,7 +329,7 @@ export function boot(opts = {}){
   }
 
   // ------- spawn helpers -------
-  function spawnTarget(kind, posWorld=null){
+  function spawnTarget(kind, pos=null){
     if (!S.running) return null;
     if (S.targets.size >= D.maxActive && kind !== 'boss') return null;
 
@@ -345,13 +337,15 @@ export function boot(opts = {}){
     const topSafe = 110;
     const botSafe = 165;
 
-    const off = getViewOffset();
-    const wx = posWorld
-      ? (posWorld.x|0)
-      : ((randi(margin, Math.max(margin+10, innerWidth - margin))|0) + (off.x|0));
-    const wy = posWorld
-      ? (posWorld.y|0)
-      : ((randi(topSafe, Math.max(topSafe+10, innerHeight - botSafe))|0) + (off.y|0));
+    // ✅ view-offset aware spawn: keep targets visible in viewport after camera pan
+    const vo = getViewOffset(); // cam translate in px applied in HTML
+    const minX = (margin - vo.x)|0;
+    const maxX = (Math.max(margin+10, innerWidth - margin) - vo.x)|0;
+    const minY = (topSafe - vo.y)|0;
+    const maxY = (Math.max(topSafe+10, innerHeight - botSafe) - vo.y)|0;
+
+    const x = pos ? (pos.x|0) : randi(minX, maxX);
+    const y = pos ? (pos.y|0) : randi(minY, maxY);
 
     let emoji = '❓', cls = '', ttl = D.ttlMs;
 
@@ -382,12 +376,13 @@ export function boot(opts = {}){
       cls = 'gj-junk';
       ttl = Math.round(ttl * 0.72);
     } else if (kind === 'goodfake'){
+      // ✅ H+3 fake good: looks good but is bad
       emoji = POOL_GOOD[randi(0, POOL_GOOD.length-1)];
-      cls = 'gj-fake';
+      cls = 'gj-fake'; // ให้แสงหลอก ๆ
       ttl = Math.round(ttl * 0.86);
     }
 
-    const el = createElWorld(layer, wx, wy, emoji, cls);
+    const el = createEl(layer, x, y, emoji, cls);
 
     const sc = (kind === 'boss')
       ? (1.28 * D.scale)
@@ -397,7 +392,7 @@ export function boot(opts = {}){
     const id = S.nextId++;
     const t = {
       id, kind, el,
-      x: wx, y: wy,     // ✅ WORLD coords
+      x, y,
       bornAt: now(),
       expiresAt: now() + ttl
     };
@@ -445,8 +440,7 @@ export function boot(opts = {}){
     S.bossHpMax = D.bossHp|0;
     S.bossHp = S.bossHpMax;
 
-    const ap = getAimPoint();
-    spawnTarget('boss', { x: ap.x, y: ap.y - 60 });
+    spawnTarget('boss');
 
     try{ Particles.celebrate && Particles.celebrate({ kind:'BOSS_SPAWN', intensity:1.4 }); }catch(_){}
     setJudge('BOSS!');
@@ -460,6 +454,7 @@ export function boot(opts = {}){
     try{ Particles.celebrate && Particles.celebrate({ kind:'BOSS_PHASE2', intensity:1.6 }); }catch(_){}
     S.pulseNextAt = now() + 900;
 
+    // Attack schedule
     S.bossAtkNextAt = now() + 900;
     S.bossAtkLast = '';
     emitScore();
@@ -484,19 +479,14 @@ export function boot(opts = {}){
     const pad = 70;
     const top = 150;
     const bottom = innerHeight - 190;
-
-    const ap = getAimPoint();     // WORLD
-    const off = getViewOffset();
+    const cur = getAimPoint();
 
     for (let i=0;i<30;i++){
-      const sx = randi(pad, Math.max(pad+10, innerWidth-pad));
-      const sy = randi(top, Math.max(top+10, bottom));
-      const wx = sx + off.x;
-      const wy = sy + off.y;
-
-      if (dist2(wx,wy, ap.x,ap.y) >= (260*260)) return { x: wx|0, y: wy|0 };
+      const x = randi(pad, Math.max(pad+10, innerWidth-pad));
+      const y = randi(top, Math.max(top+10, bottom));
+      if (dist2(x,y, cur.x,cur.y) >= (260*260)) return { x, y };
     }
-    return { x: ap.x|0, y: ap.y|0 };
+    return { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
   }
 
   function startBossPulse(){
@@ -505,15 +495,13 @@ export function boot(opts = {}){
     S.pulseX = p.x|0;
     S.pulseY = p.y|0;
     S.pulseDeadlineAt = now() + 1200;
-
-    const scr = toScreen(S.pulseX, S.pulseY);
-    safeDispatch('hha:bossPulse', { x:(scr.x|0), y:(scr.y|0), wx:S.pulseX, wy:S.pulseY, ttlMs:1200 });
+    safeDispatch('hha:bossPulse', { x:S.pulseX, y:S.pulseY, ttlMs:1200 });
   }
 
   function resolveBossPulse(){
     if (!S.pulseActive) return;
 
-    const ap = getAimPoint(); // WORLD
+    const ap = getAimPoint();
     const ok = dist2(ap.x, ap.y, S.pulseX, S.pulseY) <= (S.pulseRadiusPx * S.pulseRadiusPx);
 
     if (ok){
@@ -526,7 +514,10 @@ export function boot(opts = {}){
       scorePop(S.pulseX, S.pulseY, `+${pts}`, 'PULSE!');
       burstFX(S.pulseX, S.pulseY, 'gold');
       safeDispatch('quest:goodHit', { kind:'pulse' });
+
+      // hero burst
       startHeroBurst();
+
     } else {
       setJudge('PULSE HIT!');
       burstFX(S.pulseX, S.pulseY, 'trap');
@@ -539,15 +530,19 @@ export function boot(opts = {}){
   }
 
   // ===== H+ ATTACK OVERLAYS =====
-  function showRing(gapStartDeg,gapSizeDeg){
+  function showRingAt(x,y,gapStartDeg,gapSizeDeg,ms=1200){
     if (!elRing) return;
+    elRing.style.left = (x|0)+'px';
+    elRing.style.top  = (y|0)+'px';
+    elRing.style.transform = 'translate(-50%,-50%)';
     document.documentElement.style.setProperty('--ringGapStart', gapStartDeg.toFixed(0)+'deg');
     document.documentElement.style.setProperty('--ringGapSize',  gapSizeDeg.toFixed(0)+'deg');
     elRing.classList.add('show');
+    setTimeout(()=>{ try{ elRing.classList.remove('show'); }catch(_){ } }, Math.max(300, ms|0));
   }
-  function laserWarnAtScreenY(yScreen, warnMs=420, fireMs=260){
+  function laserWarnAt(y, warnMs=420, fireMs=260){
     if (!elLaser) return;
-    elLaser.style.top = (yScreen|0)+'px';
+    elLaser.style.top = (y|0)+'px';
     elLaser.classList.remove('fire');
     elLaser.classList.add('warn');
     setTimeout(()=>{
@@ -566,74 +561,75 @@ export function boot(opts = {}){
     if (pick === S.bossAtkLast) pick = patterns[(patterns.indexOf(pick)+1) % patterns.length];
     S.bossAtkLast = pick;
 
-    const ap = getAimPoint(); // WORLD
+    const ap = getAimPoint();
     const center = { x: ap.x|0, y: ap.y|0 };
-    const b = worldBounds();
 
     safeDispatch('hha:bossAtk', { name: pick });
 
     if (pick === 'ring'){
+      // ✅ H+2: single safe gap
       setJudge('BOSS: RING!');
-      fxChroma(140);
+      fxChroma(150);
+      fxKick(0.95);
 
       S.ringActive = true;
       S.ringX = center.x|0;
       S.ringY = center.y|0;
       S.ringR = Math.round(210 + (diffKey==='hard'? 28 : diffKey==='easy'? -10 : 0));
       S.ringTh= Math.round(34 + (diffKey==='hard'? 8 : 0));
-      S.ringGapW = (Math.PI / (diffKey==='hard'? 4.2 : 3.2));
+      S.ringGapW = (Math.PI / (diffKey==='hard'? 4.2 : 3.2)); // ~43° hard, ~56° normal
       S.ringGapA = (Math.random()*Math.PI*2);
 
       S.ringEndsAt = now() + (diffKey==='hard' ? 1200 : 1350);
 
       const gapSizeDeg = (S.ringGapW * 180/Math.PI);
       const gapStartDeg = (S.ringGapA * 180/Math.PI);
-      showRing(gapStartDeg, gapSizeDeg);
+      showRingAt(S.ringX, S.ringY, gapStartDeg, gapSizeDeg, (S.ringEndsAt-now())|0);
 
+      // spawn junk ring w/ 1 gap
       const n = 8;
       const gapIndex = randi(0, n-1);
       for (let i=0;i<n;i++){
         if (i === gapIndex) continue;
         const ang = (Math.PI*2) * (i/n);
-        const wx = clamp(center.x + Math.cos(ang)*S.ringR, b.L+40, b.R-40);
-        const wy = clamp(center.y + Math.sin(ang)*S.ringR, b.T+150, b.B-190);
-        spawnTarget('junk', { x: wx, y: wy });
+        const x = clamp(center.x + Math.cos(ang)*S.ringR, 40, innerWidth-40);
+        const y = clamp(center.y + Math.sin(ang)*S.ringR, 150, innerHeight-190);
+        spawnTarget('junk', { x, y });
       }
 
     } else if (pick === 'laser'){
+      // ✅ H+1: must dodge - hazard checks aim at fire time
       setJudge('BOSS: LASER!');
-      fxChroma(160);
+      fxChroma(170);
+      fxKick(1.05);
 
-      const y = clamp(center.y + randi(-90,90), b.T+150, b.B-190);
+      const y = clamp(center.y + randi(-90,90), 150, innerHeight-190);
       S.laserActive = true;
       S.laserY = y|0;
       S.laserWarnEndsAt = now() + 420;
       S.laserFireAt = now() + 420;
       S.laserEndsAt = S.laserFireAt + 260;
 
-      const p = toScreen(0, S.laserY);
-      laserWarnAtScreenY(p.y, 420, 260);
+      laserWarnAt(S.laserY, 420, 260);
 
       for (let i=0;i<3;i++) spawnTarget('decoy');
 
-    } else {
+    } else { // storm
+      // ✅ H+3: fake good among storm
       setJudge('BOSS: STORM!');
-      fxChroma(150);
+      fxChroma(160);
+      fxKick(1.2);
 
       for (let i=0;i<5;i++) spawnTarget('decoy');
 
-      spawnTarget('gold', {
-        x: clamp(center.x + randi(-120,120), b.L+50, b.R-50),
-        y: clamp(center.y + randi(-90,90),  b.T+150, b.B-190)
-      });
-      spawnTarget('good', {
-        x: clamp(center.x + randi(-140,140), b.L+50, b.R-50),
-        y: clamp(center.y + randi(-90,90),  b.T+150, b.B-190)
-      });
-      spawnTarget('goodfake', {
-        x: clamp(center.x + randi(-140,140), b.L+50, b.R-50),
-        y: clamp(center.y + randi(-90,90),  b.T+150, b.B-190)
-      });
+      spawnTarget('gold', { x: clamp(center.x + randi(-120,120), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
+      spawnTarget('good', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
+      spawnTarget('goodfake', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), 150, innerHeight-190) });
+
+      // โหดขึ้น: hard inject fake good เพิ่ม
+      if (diffKey === 'hard' && Math.random() < 0.7){
+        spawnTarget('goodfake', { x: clamp(center.x + randi(-160,160), 50, innerWidth-50), y: clamp(center.y + randi(-110,110), 150, innerHeight-190) });
+      }
     }
   }
 
@@ -647,13 +643,8 @@ export function boot(opts = {}){
     }
 
     const rect = t.el.getBoundingClientRect();
-    const cxS = rect.left + rect.width/2;
-    const cyS = rect.top + rect.height/2;
-
-    // convert screen center to WORLD for FX consistency
-    const off = getViewOffset();
-    const cx = (cxS + off.x);
-    const cy = (cyS + off.y);
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
 
     const isBad =
       (t.kind === 'junk' || t.kind === 'fake' || t.kind === 'decoy' || t.kind === 'goodfake');
@@ -734,13 +725,13 @@ export function boot(opts = {}){
           scorePop(cx, cy, '💥', 'SHIELD BREAK!');
           burstFX(cx, cy, 'trap');
           safeDispatch('quest:badHit', { kind:'shieldbreak' });
-          fxKick(1.1); fxChroma(170);
+          fxKick(1.2); fxChroma(180);
         } else {
           S.shield = Math.max(0, (S.shield|0) - 1);
           scorePop(cx, cy, '🛡️', 'BLOCK!');
           burstFX(cx, cy, 'power');
           safeDispatch('quest:block', {});
-          fxKick(0.65);
+          fxKick(0.7);
         }
       } else {
         S.misses++;
@@ -749,7 +740,7 @@ export function boot(opts = {}){
         scorePop(cx, cy, '', 'MISS!');
         burstFX(cx, cy, 'trap');
         safeDispatch('quest:badHit', { kind:t.kind });
-        fxKick(1.15); fxChroma(170);
+        fxKick(1.25); fxChroma(180);
       }
 
       killEl(t.el); S.targets.delete(t.id);
@@ -778,21 +769,17 @@ export function boot(opts = {}){
     }
   }
 
-  // STUN field
+  // STUN field: junk breaks itself near aim center
   function stunFieldTick(){
     if (!S.stunActive) return;
-    const ap = getAimPoint(); // WORLD
+    const ap = getAimPoint();
     const R = 140, R2 = R*R;
 
     for (const t of Array.from(S.targets.values())){
       if (t.kind !== 'junk' && t.kind !== 'fake' && t.kind !== 'decoy' && t.kind !== 'goodfake') continue;
       const r = t.el.getBoundingClientRect();
-      const cxS = r.left + r.width/2;
-      const cyS = r.top + r.height/2;
-      const off = getViewOffset();
-      const cx = cxS + off.x;
-      const cy = cyS + off.y;
-
+      const cx = r.left + r.width/2;
+      const cy = r.top + r.height/2;
       if (dist2(cx,cy, ap.x,ap.y) <= R2){
         setJudge('STUN BREAK!');
         burstFX(cx,cy,'ice');
@@ -811,7 +798,7 @@ export function boot(opts = {}){
       S.heroBurstActive = false;
       return;
     }
-    const ap = getAimPoint(); // WORLD
+    const ap = getAimPoint();
     const strength = 0.18;
     const swirl = 0.08;
 
@@ -827,15 +814,53 @@ export function boot(opts = {}){
       t.x += (-dy) * swirl * 0.002;
       t.y += ( dx) * swirl * 0.002;
 
+      t.el.style.left = (t.x|0) + 'px';
+      t.el.style.top  = (t.y|0) + 'px';
       t.el.style.setProperty('--tRot', (randi(-6,6))+'deg');
+    }
+  }
+
+  // ✅ MAGNET pull: ONLY good/gold/power (ขณะ magnetActive)
+  function magnetTick(){
+    if (!S.magnetActive) return;
+    const tnow = now();
+    if (tnow >= S.magnetEndsAt){
+      S.magnetActive = false;
+      return;
+    }
+
+    const ap = getAimPoint();
+
+    const strength = (diffKey==='hard') ? 0.12 : (diffKey==='easy') ? 0.085 : 0.10;
+    const swirl = (diffKey==='hard') ? 0.10 : 0.07;
+
+    for (const t of S.targets.values()){
+      if (t.kind !== 'good' && t.kind !== 'gold' && t.kind !== 'power') continue;
+
+      const dx = ap.x - t.x;
+      const dy = ap.y - t.y;
+
+      const d2 = dx*dx + dy*dy;
+      const snap = (d2 < 95*95) ? 0.22 : 0;
+
+      t.x = lerp(t.x, ap.x, strength + snap);
+      t.y = lerp(t.y, ap.y, strength + snap);
+
+      t.x += (-dy) * swirl * 0.0016;
+      t.y += ( dx) * swirl * 0.0016;
+
+      t.el.style.left = (t.x|0) + 'px';
+      t.el.style.top  = (t.y|0) + 'px';
+      t.el.style.setProperty('--tRot', (randi(-7,7))+'deg');
     }
   }
 
   // H+ hazards tick (ring + laser)
   function hazardsTick(){
     const tnow = now();
-    const ap = getAimPoint(); // WORLD
+    const ap = getAimPoint();
 
+    // RING
     if (S.ringActive){
       if (tnow >= S.ringEndsAt){
         S.ringActive = false;
@@ -861,6 +886,7 @@ export function boot(opts = {}){
       }
     }
 
+    // LASER
     if (S.laserActive){
       if (tnow >= S.laserEndsAt){
         S.laserActive = false;
@@ -871,39 +897,6 @@ export function boot(opts = {}){
           applyPenalty('laser');
         }
       }
-    }
-  }
-
-  // ✅ render all targets + overlays to screen based on viewOffset
-  function renderTick(){
-    const off = getViewOffset();
-
-    // targets
-    for (const t of S.targets.values()){
-      const sx = (t.x - off.x);
-      const sy = (t.y - off.y);
-      t.el.style.left = (sx|0) + 'px';
-      t.el.style.top  = (sy|0) + 'px';
-    }
-
-    // ring overlay
-    if (elRing){
-      if (S.ringActive){
-        const sx = (S.ringX - off.x);
-        const sy = (S.ringY - off.y);
-        elRing.style.left = (sx|0) + 'px';
-        elRing.style.top  = (sy|0) + 'px';
-        elRing.style.transform = 'translate(-50%,-50%)';
-        elRing.classList.add('show');
-      } else {
-        elRing.classList.remove('show');
-      }
-    }
-
-    // laser overlay (keep class timing from warn/fire)
-    if (elLaser && S.laserActive){
-      const sy = (S.laserY - off.y);
-      elLaser.style.top = (sy|0) + 'px';
     }
   }
 
@@ -937,25 +930,28 @@ export function boot(opts = {}){
       return;
     }
 
+    // fever decay
     if (!S.stunActive){
       const decay = S.feverDecayPerSec / 60;
       S.fever = Math.max(0, (S.fever||0) - decay);
     }
 
+    // stun duration
     if (S.stunActive && tnow >= S.stunEndsAt){
       stopStun();
     }
 
-    if (S.magnetActive && tnow >= S.magnetEndsAt){
-      S.magnetActive = false;
-    }
+    // magnet duration handled in magnetTick()
 
+    // final lock duration
     if (S.finalLock && tnow >= S.finalLockEndsAt){
       S.finalLock = false;
     }
 
+    // boss spawn
     maybeSpawnBoss();
 
+    // Boss Pulse Wave (phase2)
     if (S.bossAlive && S.bossPhase === 2){
       if (!S.pulseActive && tnow >= (S.pulseNextAt||0)){
         startBossPulse();
@@ -965,12 +961,14 @@ export function boot(opts = {}){
         resolveBossPulse();
       }
 
+      // H+ attacks
       if (tnow >= (S.bossAtkNextAt||0)){
         bossAttackPattern();
-        S.bossAtkNextAt = tnow + (diffKey==='hard' ? 3000 : 3300);
+        S.bossAtkNextAt = tnow + (diffKey==='hard' ? 2900 : 3300);
       }
     }
 
+    // spawn cadence
     const spawnGap = Math.round(D.spawnMs * (S.stunActive ? 1.15 : 1.0));
     if (tnow - S.lastSpawnAt >= spawnGap){
       S.lastSpawnAt = tnow;
@@ -984,7 +982,7 @@ export function boot(opts = {}){
           else if (roll < 0.90) spawnTarget('gold');
           else spawnTarget('power');
 
-          if (Math.random() < (diffKey==='hard' ? 0.22 : 0.16)){
+          if (Math.random() < (diffKey==='hard' ? 0.24 : 0.16)){
             spawnTarget('goodfake');
           }
         } else {
@@ -1002,14 +1000,15 @@ export function boot(opts = {}){
 
     hazardsTick();
     heroBurstTick();
+    magnetTick();      // ✅ MAGNET จริง
     expireTick();
     stunFieldTick();
-    renderTick();
 
     if ((Math.random() < 0.06)) emitFever();
     requestAnimationFrame(loop);
   }
 
+  // init
   emitScore();
   emitTime();
   emitFever();
@@ -1022,6 +1021,7 @@ export function boot(opts = {}){
         score:S.score|0, goodHits:S.goodHits|0, misses:S.misses|0,
         comboMax:S.comboMax|0, timeLeft:S.timeLeft|0,
         fever:Math.round(S.fever), stunActive:!!S.stunActive, shield:S.shield|0,
+        magnetActive:!!S.magnetActive,
         bossAlive:!!S.bossAlive, bossPhase:S.bossPhase|0, bossHp:S.bossHp|0, bossHpMax:S.bossHpMax|0,
         pulseActive:!!S.pulseActive, heroBurstActive:!!S.heroBurstActive
       };
