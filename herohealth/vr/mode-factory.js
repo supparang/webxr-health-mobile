@@ -11,6 +11,12 @@
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
 // ✅ A2+++: center-biased + ring8 spawn order (ไม่วนมุมเดิม) + anti-repeat + screen-anchored via boundsHost
+//
+// PATCH (A3):
+// ✅ AUTO exclude ครอบ #hudTop/#hudLeft/#hudRight/#hudBottom และ .hud-top/.hud-left/.hud-right/.hud-bottom
+// ✅ FIX: computeExclusionMargins right ใช้ hx2 (แกน X) แทน hy2
+// ✅ SAFETY: ถ้า spawnHost z-index ต่ำกว่า HUD -> fallback ไป overlay host เพื่อให้ “เป้าอยู่บน HUD เสมอ” และ “ตีได้แน่นอน”
+// ✅ Target zIndex สูงขึ้นเพื่อกัน stacking context แปลก ๆ
 
 'use strict';
 
@@ -102,6 +108,11 @@ function ensureOverlayStyle () {
       pointer-events:none;
     }
     .hvr-overlay-host .hvr-target{ pointer-events:auto; }
+    .hvr-target{
+      pointer-events:auto;
+      user-select:none;
+      -webkit-user-select:none;
+    }
     .hvr-target.hvr-pulse{ animation:hvrPulse .55s ease-in-out infinite; }
     @keyframes hvrPulse{
       0%{ transform:translate(-50%,-50%) scale(1); }
@@ -140,18 +151,48 @@ function ensureOverlayHost () {
 // ======================================================
 //  Host resolver
 // ======================================================
+function _getZIndex(el){
+  try{
+    const z = (ROOT.getComputedStyle(el).zIndex || '').trim();
+    if (!z || z === 'auto') return 0;
+    const n = parseInt(z, 10);
+    return Number.isFinite(n) ? n : 0;
+  }catch{ return 0; }
+}
+
 function resolveHost (rawCfg, keyName = 'spawnHost') {
   if (!DOC) return null;
 
   const h = rawCfg && rawCfg[keyName];
-  if (h && typeof h === 'string') {
-    const el = DOC.querySelector(h);
-    if (el) return el;
-  }
-  if (h && h.nodeType === 1) return h;
+  let el = null;
 
-  const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
-  if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
+  if (h && typeof h === 'string') {
+    try{ el = DOC.querySelector(h); }catch{ el = null; }
+  } else if (h && h.nodeType === 1) {
+    el = h;
+  } else {
+    const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
+    if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) el = spawnLayer;
+  }
+
+  // --- PATCH: ถ้า spawnHost ถูกกำหนดมา แต่ z-index ต่ำกว่า HUD (เช่น 0/auto หรือ < 850) ---
+  // กันเคส “เป้าอยู่ใต้ HUD” -> ตีไม่ได้
+  if (keyName === 'spawnHost' && el) {
+    const z = _getZIndex(el);
+
+    // หากมี HUD อยู่ (ตามแพทเทิร์นของคุณ) และ spawnHost ต่ำมาก -> ใช้ overlay host แทน
+    const hasHud =
+      !!DOC.getElementById('hudTop') ||
+      !!DOC.querySelector('.hud-top,.hud-left,.hud-right,.hud-bottom,.hud');
+
+    if (hasHud && z < 850) {
+      return ensureOverlayHost();
+    }
+    return el;
+  }
+
+  // boundsHost ปล่อยตามที่ตั้งไว้ (เพราะใช้คำนวณ safezone / crosshair)
+  if (el) return el;
 
   return ensureOverlayHost();
 }
@@ -172,10 +213,15 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
 
+  // --- PATCH: AUTO ครอบ HUD ที่คุณใช้จริง + ของเดิม ---
   const AUTO = [
     '.hud',
+    '.hud-top','.hud-left','.hud-right','.hud-bottom',
+    '#hudTop','#hudLeft','#hudRight','#hudBottom',
     '#hvr-crosshair','.hvr-crosshair',
-    '#hvr-end','.hvr-end'
+    '#hvr-end','.hvr-end',
+    '#resultBackdrop','#resultCard',
+    '.hha-fx-layer'
   ];
   AUTO.forEach(s=>{
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
@@ -212,17 +258,21 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    if (r.top < hy1 + 90 && r.bottom > hy1) {
-      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    // ขยายขอบกันชนเล็กน้อย (HUD หนา ๆ)
+    const PAD = 10;
+
+    if (r.top < hy1 + 140 && r.bottom > hy1) {
+      m.top = Math.max(m.top, clamp((r.bottom - hy1) + PAD, 0, hostRect.height));
     }
-    if (r.bottom > hy2 - 90 && r.top < hy2) {
-      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+    if (r.bottom > hy2 - 140 && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp((hy2 - r.top) + PAD, 0, hostRect.height));
     }
-    if (r.left < hx1 + 90 && r.right > hx1) {
-      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    if (r.left < hx1 + 140 && r.right > hx1) {
+      m.left = Math.max(m.left, clamp((r.right - hx1) + PAD, 0, hostRect.width));
     }
-    if (r.right > hx2 - 90 && r.left < hx2) {
-      m.right = Math.max(m.right, clamp(hy2 - r.left, 0, hostRect.width));
+    if (r.right > hx2 - 140 && r.left < hx2) {
+      // ✅ FIX: ต้องใช้ hx2 (แกน X) ไม่ใช่ hy2
+      m.right = Math.max(m.right, clamp((hx2 - r.left) + PAD, 0, hostRect.width));
     }
   });
 
@@ -236,7 +286,7 @@ function computePlayRectFromHost (hostEl, exState) {
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
-  const basePadX = w * 0.10;
+  const basePadX   = w * 0.10;
   const basePadTop = h * 0.12;
   const basePadBot = h * 0.12;
 
@@ -682,7 +732,7 @@ export async function boot (rawCfg = {}) {
     el.style.width  = size + 'px';
     el.style.height = size + 'px';
     el.style.touchAction = 'manipulation';
-    el.style.zIndex = '35';
+    el.style.zIndex = '9999'; // ✅ PATCH: ให้ชัวร์ว่าอยู่บน HUD
     el.style.borderRadius = '999px';
 
     const wiggle = DOC.createElement('div');
