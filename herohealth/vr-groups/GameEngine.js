@@ -1,14 +1,14 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — PRODUCTION HYBRID ENGINE (FULL)
-// ✅ Fix Quest 0/0: QuestFactory is resolved at START time (not at load time)
-// ✅ Fallback Quest (2 goals + 7 minis) if GroupsQuest missing
-// ✅ Dynamic Safe Insets (avoid HUD/coach/controls overlap) + clamp with SAFE
-// ✅ Emoji textContent targets
-// ✅ Decoy = Invert (real logic)
-// ✅ Rage = Double-Feint (Feint#2 closer center + bigger + faster drift)
-// ✅ afterimage x2
+// Food Groups VR — PRODUCTION HYBRID ENGINE (PATCH 1-3 + SEED FIX)
+// ✅ emoji textContent fix
+// ✅ Decoy = Invert (play only)
+// ✅ Rage = Double-Feint (boss only, play only)
+// ✅ afterimage x2 (scale up on fade) via .fg-afterimage CSS
 // ✅ render uses CSS vars --x/--y/--s
-// ✅ tap-anywhere (aim assist) + lock/fuse/charge + burst + chain
+// ✅ NEW: Research mode = FIX (seeded RNG) using 2-layer seed:
+//         layer#1 StudentID + School/Room (from sessionStorage.HHA_STUDENT_PROFILE)
+//         layer#2 ConditionID (profile.group OR ?cond= OR opts.conditionId)
+//     Play mode = random as usual
 
 (function () {
   'use strict';
@@ -26,11 +26,38 @@
     ROOT.FeverUI ||
     { ensureFeverBar() {}, setFever() {}, setFeverActive() {}, setShield() {} };
 
+  const QuestFactory =
+    (ROOT.GroupsQuest && ROOT.GroupsQuest.createFoodGroupsQuest)
+      ? ROOT.GroupsQuest
+      : null;
+
+  // ---------- time/utils ----------
   function now() { return (performance && performance.now) ? performance.now() : Date.now(); }
-  function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
   function dispatch(name, detail) { try { window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch {} }
   function coach(text) { if (text) dispatch('hha:coach', { text: String(text) }); }
+
+  function toRad(deg){ return (Number(deg)||0) * Math.PI / 180; }
+  function normAngleRad(a){
+    let x = a;
+    while (x > Math.PI) x -= Math.PI*2;
+    while (x < -Math.PI) x += Math.PI*2;
+    return x;
+  }
+  function centerXY(el) {
+    try {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    } catch {
+      return { x: window.innerWidth / 2, y: window.innerHeight * 0.52 };
+    }
+  }
+
+  function normalizeGrade(g){
+    const x = String(g || '').toUpperCase().trim();
+    if (['SSS','SS','S','A','B','C'].includes(x)) return x;
+    return 'C';
+  }
 
   // ---------- logging ----------
   let sessionId = '';
@@ -69,108 +96,123 @@
   }
   function haptic(p){ try{ if (navigator.vibrate) navigator.vibrate(p); }catch{} }
 
-  // ---------- math/camera ----------
-  function toRad(deg){ return (Number(deg)||0) * Math.PI / 180; }
-  function normAngleRad(a){
-    let x = a;
-    while (x > Math.PI) x -= Math.PI*2;
-    while (x < -Math.PI) x += Math.PI*2;
-    return x;
+  // =========================================================
+  // ✅ SEEDED RNG (for Research mode FIX)
+  // =========================================================
+  function safeJsonParse(s){
+    try{ return JSON.parse(String(s||'')); }catch{ return null; }
   }
-  function centerXY(el) {
-    try {
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-    } catch {
-      return { x: window.innerWidth / 2, y: window.innerHeight * 0.52 };
+  function getQueryParam(name){
+    try{
+      const sp = new URLSearchParams(location.search);
+      const v = sp.get(name);
+      return (v == null) ? '' : String(v);
+    }catch{ return ''; }
+  }
+
+  // xmur3 + sfc32 (stable)
+  function xmur3(str) {
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function() {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= (h >>> 16)) >>> 0;
+    };
+  }
+  function sfc32(a, b, c, d) {
+    return function() {
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+      return ((t >>> 0) / 4294967296);
+    };
+  }
+  function makeSeededRng(seedStr){
+    const seed = String(seedStr || 'seed');
+    const h = xmur3(seed);
+    const a = h(), b = h(), c = h(), d = h();
+    return sfc32(a,b,c,d);
+  }
+
+  function getProfileFromSession(){
+    // HUB: sessionStorage.HHA_STUDENT_PROFILE
+    try{
+      const raw = sessionStorage.getItem('HHA_STUDENT_PROFILE');
+      const obj = safeJsonParse(raw);
+      return obj && typeof obj === 'object' ? obj : null;
+    }catch{
+      return null;
     }
   }
-  function normalizeGrade(g){
-    const x = String(g || '').toUpperCase().trim();
-    if (['SSS','SS','S','A','B','C'].includes(x)) return x;
-    return 'C';
-  }
 
-  // ---------- QuestFactory resolver (IMPORTANT) ----------
-  function getQuestFactory(){
-    const Q = (ROOT.GroupsQuest && ROOT.GroupsQuest.createFoodGroupsQuest) ? ROOT.GroupsQuest : null;
-    return Q;
-  }
+  function buildResearchSeed2Layer(diff, runMode, opts){
+    const p = getProfileFromSession() || {};
+    const studentId = String(p.studentId || p.student_id || p.sid || p.id || '').trim();
+    const school    = String(p.school || p.schoolName || '').trim();
+    const room      = String(p.room || p.classroom || '').trim();
 
-  // ---------- Fallback Quest (กัน 0/0 ถ้า GroupsQuest ไม่มา) ----------
-  function makeFallbackQuest(diff){
-    diff = String(diff || 'normal').toLowerCase();
-    const isEasy = diff === 'easy';
-    const isHard = diff === 'hard';
+    // layer#2 conditionId: profile.group (ตามภาพ) หรือ query หรือ opts
+    const condFromProfile = String(p.group || p.condition || p.team || '').trim();
+    const condFromQuery   = String(getQueryParam('cond') || getQueryParam('condition') || getQueryParam('group') || '').trim();
+    const condFromOpts    = String((opts && (opts.conditionId || opts.cond || opts.group)) || '').trim();
+    const conditionId = condFromOpts || condFromQuery || condFromProfile || 'C0';
 
-    const goals = [
-      { id:'fg_g1', label:`เก็บอาหารดีให้ครบ ${isHard?18:(isEasy?14:16)} ชิ้น 🥦`, prog:0, target:(isHard?18:(isEasy?14:16)), done:false },
-      { id:'fg_g2', label:`ทำคอมโบให้ถึง ${isHard?14:(isEasy?10:12)} 🔥`, prog:0, target:(isHard?14:(isEasy?10:12)), done:false }
-    ];
-
-    const minis = [
-      { id:'fg_m1', label:`ห้ามโดนขยะ ${isHard?12:(isEasy?9:10)} วิ`, prog:0, target:(isHard?12:(isEasy?9:10)), done:false, kind:'safe_seconds' },
-      { id:'fg_m2', label:`PERFECT ${isHard?4:(isEasy?3:3)} ครั้ง`, prog:0, target:(isHard?4:(isEasy?3:3)), done:false, kind:'perfect' },
-      { id:'fg_m3', label:`FEVER 1 ครั้ง`, prog:0, target:1, done:false, kind:'fever' },
-      { id:'fg_m4', label:`ยิง BURST ${isHard?4:(isEasy?3:3)} รอบ`, prog:0, target:(isHard?4:(isEasy?3:3)), done:false, kind:'burst' },
-      { id:'fg_m5', label:`CHARGE 1 ครั้ง`, prog:0, target:1, done:false, kind:'charge' },
-      { id:'fg_m6', label:`RUSH 1 ครั้ง`, prog:0, target:1, done:false, kind:'rush' },
-      { id:'fg_m7', label:`ปิดเกมเกรด A+`, prog:0, target:1, done:false, kind:'grade' }
-    ];
-
-    let safeSec = 0;
-    let activeGroupKey = 1;
-
-    function curMini(){ return minis.find(m => m && !m.done) || null; }
-    function bumpMini(kind, n=1){
-      const m = curMini();
-      if (!m || m.kind !== kind) return;
-      m.prog = clamp((m.prog|0) + (n|0), 0, m.target|0);
-      if (m.prog >= (m.target|0)) m.done = true;
+    // override full seed if given
+    const seedOverride = String((opts && opts.seed) || getQueryParam('seed') || '').trim();
+    if (seedOverride) {
+      return {
+        seedStr: seedOverride,
+        studentId, school, room, conditionId,
+        seedMode: 'override'
+      };
     }
+
+    // 2-layer seed (recommended):
+    // layer#1: school|room|studentId
+    // layer#2: conditionId + (game/diff/mode) เพื่อกันชนข้ามเกม/ข้าม condition
+    const layer1 = [school, room, studentId].filter(Boolean).join('|') || 'anon';
+    const layer2 = ['FoodGroupsVR', 'diff='+String(diff||'normal'), 'mode='+String(runMode||'research'), 'cond='+conditionId].join('|');
+
+    const seedStr = layer1 + '::' + layer2;
 
     return {
-      goals,
-      minis,
-      getActiveGroup(){ return { key: activeGroupKey, label:`หมู่ ${activeGroupKey}`, emojis: null }; },
-      setGroup(k){ activeGroupKey = Number(k)||1; },
-      onGoodHit(groupKey, comboNow){
-        // goal1: total good
-        if (!goals[0].done){
-          goals[0].prog++;
-          if (goals[0].prog >= goals[0].target) goals[0].done = true;
-        }
-        // goal2: combo reach
-        if (!goals[1].done){
-          goals[1].prog = Math.max(goals[1].prog|0, comboNow|0);
-          if (goals[1].prog >= goals[1].target) goals[1].done = true;
-        }
-      },
-      onJunkHit(){
-        safeSec = 0;
-        const m = curMini();
-        if (m && m.kind === 'safe_seconds'){ m.prog = 0; }
-      },
-      onPerfect(){ bumpMini('perfect', 1); },
-      onFever(){ bumpMini('fever', 1); },
-      onBurst(){ bumpMini('burst', 1); },
-      onCharge(){ bumpMini('charge', 1); },
-      onRush(){ bumpMini('rush', 1); },
-      setGrade(g){
-        const m = minis.find(x => x && !x.done && x.kind === 'grade');
-        if (!m) return;
-        const G = String(g||'').toUpperCase();
-        if (G === 'A' || G === 'S' || G === 'SS' || G === 'SSS') { m.prog = 1; m.done = true; }
-      },
-      second(){
-        const m = curMini();
-        if (m && m.kind === 'safe_seconds'){
-          safeSec++;
-          m.prog = clamp(safeSec, 0, m.target|0);
-          if (m.prog >= (m.target|0)) m.done = true;
-        }
-      }
+      seedStr,
+      studentId, school, room, conditionId,
+      seedMode: studentId ? 'profile_2layer' : 'anon_2layer'
     };
+  }
+
+  // RNG dispatcher (play=random, research=seeded)
+  let rng = Math.random;
+  let seedUsed = '';
+  let seedMeta = null;
+
+  function setRngMode(mode, diff, opts){
+    if (String(mode||'play').toLowerCase() !== 'research'){
+      rng = Math.random;
+      seedUsed = '';
+      seedMeta = null;
+      return;
+    }
+    seedMeta = buildResearchSeed2Layer(diff, mode, opts);
+    seedUsed = seedMeta.seedStr;
+    rng = makeSeededRng(seedUsed);
+  }
+
+  function rand(){ return rng(); }
+  function randInt(min, max) {
+    min = min|0; max = max|0;
+    if (max < min) { const t=min; min=max; max=t; }
+    return Math.floor(rand() * (max - min + 1)) + min;
   }
 
   // ---------- state ----------
@@ -258,7 +300,7 @@
     floatSwayPx: 8,
     floatSwayMs: 1400,
 
-    // safe clamp baseline (will be overridden by SAFE computed)
+    // safe HUD clamp
     safeLeftPx: 28,
     safeRightPx: 28,
     safeTopPx: 118,
@@ -382,7 +424,7 @@
     rageChanceBoss: 0.55,
     feint1AtProg: 0.46,
     feint2AtProg: 0.86,
-    feint1Kick: 0.0022,       // rad/ms
+    feint1Kick: 0.0022,
     feint2Kick: 0.0046,
     feint2CenterBias: 0.10
   };
@@ -434,44 +476,6 @@
     camPitch = toRad(r.x || 0);
   }
 
-  // ---------- Dynamic SAFE insets ----------
-  let SAFE = { l: CFG.safeLeftPx|0, r: CFG.safeRightPx|0, t: CFG.safeTopPx|0, b: CFG.safeBottomPx|0 };
-  function computeSafeInsets(){
-    const w = Math.max(320, window.innerWidth||320);
-    const h = Math.max(480, window.innerHeight||480);
-
-    let l = CFG.safeLeftPx|0, r = CFG.safeRightPx|0, t = CFG.safeTopPx|0, b = CFG.safeBottomPx|0;
-
-    // works with your groups-vr.html: .topbar .coachBox .controls
-    const blocks = [
-      document.querySelector('.topbar'),
-      document.querySelector('.coachBox'),
-      document.querySelector('.controls'),
-      document.querySelector('.questBox'),
-      document.querySelector('.pill.stats'),
-      document.querySelector('#startOverlay'),
-    ].filter(Boolean);
-
-    for (const el of blocks){
-      const rc = el.getBoundingClientRect();
-      if (!rc || rc.width <= 0 || rc.height <= 0) continue;
-
-      // if it sits in a region, extend inset that side
-      if (rc.left < w*0.30) l = Math.max(l, Math.round(rc.right + 12));
-      if (rc.right > w*0.70) r = Math.max(r, Math.round((w - rc.left) + 12));
-      if (rc.top < h*0.33) t = Math.max(t, Math.round(rc.bottom + 12));
-      if (rc.bottom > h*0.67) b = Math.max(b, Math.round((h - rc.top) + 12));
-    }
-
-    // keep sane
-    l = clamp(l, 10, Math.round(w*0.45));
-    r = clamp(r, 10, Math.round(w*0.45));
-    t = clamp(t, 10, Math.round(h*0.55));
-    b = clamp(b, 10, Math.round(h*0.55));
-
-    SAFE = { l, r, t, b };
-  }
-
   function worldToScreen(yaw, pitch, depth){
     const w = Math.max(320, window.innerWidth || 320);
     const h = Math.max(480, window.innerHeight || 480);
@@ -487,9 +491,8 @@
     let x = (w * 0.5) + (nx * w * 0.38) * d;
     let y = (h * 0.52) - (ny * h * 0.34) * d;
 
-    // ✅ clamp with SAFE computed
-    x = clamp(x, (SAFE.l|0), w - (SAFE.r|0));
-    y = clamp(y, (SAFE.t|0),  h - (SAFE.b|0));
+    x = clamp(x, (CFG.safeLeftPx|0), w - (CFG.safeRightPx|0));
+    y = clamp(y, (CFG.safeTopPx|0),  h - (CFG.safeBottomPx|0));
 
     return { x, y, relYaw, relPitch };
   }
@@ -551,8 +554,6 @@
     coach('🔥 FEVER! จ้องแล้วรัวเป็นชุด + มี CHAIN!');
     logEvent({ kind:'fever_start', timeLeft: remainingSec, shield, rushOn });
 
-    if (quest && quest.onFever) { try{ quest.onFever(); }catch{} }
-
     setFeverValue(0);
   }
   function tickFever() {
@@ -580,7 +581,7 @@
     }catch{}
   }
 
-  // ---------- quest emit ----------
+  // ---------- quest ----------
   function emitQuestUpdate() {
     if (!quest) return;
 
@@ -628,7 +629,6 @@
     if (quest && typeof quest.getActiveGroup === 'function') {
       const g = quest.getActiveGroup();
       if (g && Array.isArray(g.emojis) && g.emojis.includes(emoji)) return g.key || 1;
-      if (g && g.key) return g.key || 1;
     }
     return 1;
   }
@@ -683,10 +683,6 @@
     });
 
     lastGrade = g;
-
-    // fallback quest wants grade mini
-    if (quest && quest.setGrade) { try{ quest.setGrade(g); }catch{} }
-
     return g;
   }
 
@@ -711,7 +707,7 @@
     const elapsed = Math.floor((now() - startedAt) / 1000);
     if (elapsed < 12) return;
 
-    if (Math.random() > CFG.bossWaveChancePerSec) return;
+    if (rand() > CFG.bossWaveChancePerSec) return;
 
     bossWaveEndsAt = now() + (CFG.bossWaveSec * 1000);
     dispatch('groups:danger', { on:true });
@@ -729,7 +725,7 @@
 
     const elapsed = Math.floor((now() - startedAt) / 1000);
     if (elapsed < CFG.rushMinStartAfterSec) return;
-    if (Math.random() > CFG.rushChancePerSec) return;
+    if (rand() > CFG.rushChancePerSec) return;
 
     rushOn = true;
     const dur = randInt(CFG.rushMinSec, CFG.rushMaxSec);
@@ -740,8 +736,6 @@
     tone(660,0.06,0.06,'square'); setTimeout(()=>tone(880,0.06,0.06,'square'),80); setTimeout(()=>tone(990,0.06,0.06,'square'),160);
     haptic([15,10,15]);
     logEvent({ kind:'rush_start', sec: dur, timeLeft: remainingSec });
-
-    if (quest && quest.onRush) { try{ quest.onRush(); }catch{} }
   }
 
   function tickRush(){
@@ -836,11 +830,9 @@
     return best;
   }
 
-  // ---------- tap-anywhere (guard for double bind) ----------
+  // ---------- tap-anywhere ----------
   function bindTapAnywhere(el){
     if (!el) return;
-    if (el.__fgTapBound) return;
-    el.__fgTapBound = true;
 
     const onDown = (ev) => {
       if (!running) return;
@@ -868,9 +860,6 @@
         haptic([35,40,35]);
         dispatch('groups:reticle', { state:'miss' });
         logEvent({ kind:'tap_shoot_miss', x, y, timeLeft: remainingSec });
-
-        // treat as bad event for fallback safe_seconds logic? (optional)
-        if (quest && quest.onJunkHit) { try{ quest.onJunkHit(); }catch{} }
       }
     };
 
@@ -966,8 +955,6 @@
     const gap = clamp(effectiveBurstGap(), 60, 240);
 
     logEvent({ kind:'gaze_burst_start', count, gap, timeLeft: remainingSec, rushOn, feverOn, wave: bossWaveOn() });
-
-    if (quest && quest.onBurst) { try{ quest.onBurst(); }catch{} }
 
     for (let i=0;i<count;i++){
       const id = setTimeout(() => {
@@ -1072,9 +1059,9 @@
   }
 
   function spawnWorldAngles(){
-    const y = camYaw + (Math.random() * 2 - 1) * (CFG.worldYawRangeRad || 0.6);
-    const p = camPitch + (Math.random() * 2 - 1) * (CFG.worldPitchRangeRad || 0.34);
-    const depth = (CFG.parallaxDepthMin + Math.random() * (CFG.parallaxDepthMax - CFG.parallaxDepthMin));
+    const y = camYaw + (rand() * 2 - 1) * (CFG.worldYawRangeRad || 0.6);
+    const p = camPitch + (rand() * 2 - 1) * (CFG.worldPitchRangeRad || 0.34);
+    const depth = (CFG.parallaxDepthMin + rand() * (CFG.parallaxDepthMax - CFG.parallaxDepthMin));
     return { yaw: y, pitch: p, depth };
   }
 
@@ -1087,8 +1074,8 @@
 
     if (step === 1){
       t.scaleMul = 1.10;
-      t.vYaw   = (Math.random()<0.5?-1:1) * (CFG.feint1Kick||0.0022);
-      t.vPitch = (Math.random()<0.5?-1:1) * (CFG.feint1Kick||0.0022) * 0.70;
+      t.vYaw   = (rand()<0.5?-1:1) * (CFG.feint1Kick||0.0022);
+      t.vPitch = (rand()<0.5?-1:1) * (CFG.feint1Kick||0.0022) * 0.70;
 
       tone(420,0.03,0.04,'sine');
       haptic([8,12]);
@@ -1098,11 +1085,11 @@
       t.scaleMul = 1.22;
 
       const bias = clamp(Number(CFG.feint2CenterBias||0.10), 0.06, 0.20);
-      t.yaw   = camYaw   + (Math.random()*2-1) * (CFG.worldYawRangeRad * bias);
-      t.pitch = camPitch + (Math.random()*2-1) * (CFG.worldPitchRangeRad * bias);
+      t.yaw   = camYaw   + (rand()*2-1) * (CFG.worldYawRangeRad * bias);
+      t.pitch = camPitch + (rand()*2-1) * (CFG.worldPitchRangeRad * bias);
 
-      t.vYaw   = (Math.random()<0.5?-1:1) * (CFG.feint2Kick||0.0046);
-      t.vPitch = (Math.random()<0.5?-1:1) * (CFG.feint2Kick||0.0046) * 0.75;
+      t.vYaw   = (rand()<0.5?-1:1) * (CFG.feint2Kick||0.0046);
+      t.vPitch = (rand()<0.5?-1:1) * (CFG.feint2Kick||0.0046) * 0.75;
 
       tone(520,0.04,0.05,'square');
       haptic([12,10,18]);
@@ -1116,7 +1103,7 @@
 
     const g = (quest && quest.getActiveGroup) ? quest.getActiveGroup() : null;
 
-    const good = Math.random() < 0.75;
+    const good = rand() < 0.75;
     let emoji = '';
     let isBoss = false;
 
@@ -1125,13 +1112,12 @@
       else emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
     } else {
       const bossChance = bossWaveOn() ? Math.min(0.22, CFG.bossJunkChance * 2.4) : CFG.bossJunkChance;
-      isBoss = (Math.random() < bossChance);
+      isBoss = (rand() < bossChance);
       if (isBoss) emoji = CFG.bossJunkEmoji[randInt(0, CFG.bossJunkEmoji.length - 1)];
       else emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
     }
 
-    // ===== Decoy = Invert (only good, play mode) =====
-    const isDecoy = !!(CFG.decoyEnabled && good && (runMode === 'play') && (Math.random() < (CFG.decoyChance || 0)));
+    const isDecoy = !!(CFG.decoyEnabled && good && (runMode === 'play') && (rand() < (CFG.decoyChance || 0)));
 
     const el = document.createElement('div');
     el.className =
@@ -1141,8 +1127,6 @@
         : (isBoss ? 'fg-junk fg-boss' : 'fg-junk'));
 
     el.setAttribute('data-emoji', emoji);
-
-    // ✅ CRITICAL: emoji ต้องใส่ textContent
     el.textContent = emoji;
 
     el.classList.add('spawn');
@@ -1172,10 +1156,9 @@
       sx: window.innerWidth/2,
       sy: window.innerHeight*0.52,
 
-      swaySeed: Math.random()*9999,
+      swaySeed: rand()*9999,
       hitCdUntil: 0,
 
-      // rage / feint dynamics
       rage: false,
       feintStep: 0,
       vYaw: 0,
@@ -1183,9 +1166,8 @@
       scaleMul: 1.0
     };
 
-    // boss rage
     if (t.boss && CFG.rageEnabled){
-      t.rage = (Math.random() < (CFG.rageChanceBoss || 0.55));
+      t.rage = (rand() < (CFG.rageChanceBoss || 0.55));
       if (t.rage){
         try { el.classList.add('rage'); } catch {}
       }
@@ -1252,8 +1234,6 @@
     tone(1320,0.06,0.06,'triangle'); setTimeout(()=>tone(1100,0.06,0.05,'triangle'),80);
     haptic([18,10,18]);
 
-    if (quest && quest.onCharge) { try{ quest.onCharge(); }catch{} }
-
     logEvent({ kind:'charge_fire', emoji: t.emoji, boss: !!t.boss, good: !!t.good, decoy: !!t.decoy, timeLeft: remainingSec });
 
     hitTarget(t, { source:'charge', charge:true });
@@ -1263,7 +1243,6 @@
   function hitTarget(t, meta) {
     if (!running || !t || !t.alive) return;
 
-    // hit cooldown สำหรับ boss
     if (t.boss && now() < (t.hitCdUntil||0)) return;
     if (t.boss) t.hitCdUntil = now() + 70;
 
@@ -1292,9 +1271,6 @@
         addScore(penalty);
         setCombo(0);
         setFeverValue(fever - (CFG.decoyFeverLoss|0));
-
-        // treat as "bad hit" for quest timers
-        if (quest && quest.onJunkHit) { try{ quest.onJunkHit(); }catch{} }
 
         dispatch('hha:judge', { label:'DECOY!', x: pos.x, y: pos.y, good:false, emoji:t.emoji });
         Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(penalty), { judgment:'DECOY', good:false });
@@ -1338,19 +1314,15 @@
       }
 
       addScore(pts);
-
-      const newCombo = (combo|0) + 1;
-      setCombo(newCombo);
+      setCombo(combo + 1);
 
       setFeverValue(fever + CFG.feverGainGood);
       maybeEnterFever();
 
       if (quest && typeof quest.onGoodHit === 'function') {
         const gid = emojiToGroupId(t.emoji);
-        quest.onGoodHit(gid, newCombo);
+        quest.onGoodHit(gid, combo);
       }
-
-      if (quest && quest.onPerfect && isPerfect) { try{ quest.onPerfect(); }catch{} }
 
       let label = 'GOOD';
       if (meta && meta.charge) label = CFG.chargeLabel || 'CHARGE!';
@@ -1369,7 +1341,6 @@
         skill = clampSkill(skill + (isPerfect ? CFG.skillGainPerfect : CFG.skillGainGood));
       }
 
-      // CHAIN trigger
       if (CFG.chainEnabled){
         const shots =
           (meta && meta.charge) ? (CFG.chainShotsCharge|0) :
@@ -1382,8 +1353,8 @@
         }
       }
 
-      if (CFG.coachHypeEveryCombo && newCombo > 0 && (newCombo % CFG.coachHypeEveryCombo === 0)) {
-        coach(`คอมโบ ${newCombo} แล้ว! 🚀`);
+      if (CFG.coachHypeEveryCombo && combo > 0 && (combo % CFG.coachHypeEveryCombo === 0)) {
+        coach(`คอมโบ ${combo} แล้ว! 🚀`);
       }
 
       logEvent(Object.assign({
@@ -1391,7 +1362,7 @@
         emoji: t.emoji,
         pts,
         label,
-        combo: newCombo,
+        combo,
         score,
         feverOn,
         rushOn,
@@ -1439,8 +1410,6 @@
           setCombo(0);
           setFeverValue(fever - CFG.feverLossMiss);
 
-          if (quest && quest.onJunkHit) { try{ quest.onJunkHit(); }catch{} }
-
           t.hp = Math.max(0, (t.hp|0) - dmg);
           setBossBar(t);
 
@@ -1464,7 +1433,8 @@
         }
 
         if (quest && typeof quest.onJunkHit === 'function') {
-          try{ quest.onJunkHit(emojiToGroupId(t.emoji)); }catch{}
+          const gid = emojiToGroupId(t.emoji);
+          quest.onJunkHit(gid);
         }
 
       } else {
@@ -1493,7 +1463,8 @@
           setFeverValue(fever - CFG.feverLossMiss);
 
           if (quest && typeof quest.onJunkHit === 'function') {
-            try{ quest.onJunkHit(emojiToGroupId(t.emoji)); }catch{}
+            const gid = emojiToGroupId(t.emoji);
+            quest.onJunkHit(gid);
           }
 
           dispatch('hha:judge', { label:'MISS', x: pos.x, y: pos.y, good:false, emoji: t.emoji });
@@ -1541,9 +1512,6 @@
       consecutiveGood = 0;
 
       setFeverValue(fever - CFG.feverLossMiss);
-
-      // treat as "bad" for quest safe_seconds/streak resets
-      if (quest && quest.onJunkHit) { try{ quest.onJunkHit(emojiToGroupId(t.emoji)); }catch{} }
 
       dispatch('hha:judge', { label:'MISS', x: pos.x, y: pos.y, good:false, emoji: t.emoji });
       Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(CFG.pointsGoodExpire|0), { judgment:'MISS', good:false });
@@ -1598,7 +1566,6 @@
       const t = active[i];
       if (!t || !t.alive || !t.el) continue;
 
-      // drift from feints
       const vy = (t.vYaw||0), vp = (t.vPitch||0);
       if (vy || vp){
         t.yaw   += vy * dt;
@@ -1616,11 +1583,9 @@
 
       t.sx = x; t.sy = y;
 
-      // ease scaleMul back toward 1
       const sm = (typeof t.scaleMul === 'number') ? t.scaleMul : 1.0;
       t.scaleMul = sm + (1.0 - sm) * 0.06;
 
-      // ✅ IMPORTANT: use CSS vars so spawn/out/hit/ragePulse animations work
       t.el.style.setProperty('--x', Math.round(x) + 'px');
       t.el.style.setProperty('--y', Math.round(y) + 'px');
       t.el.style.setProperty('--s', String(clamp(t.scaleMul, 0.85, 1.45)));
@@ -1639,7 +1604,6 @@
       return;
     }
 
-    // เปลี่ยนเป้า -> reset
     if (gazeTarget !== t){
       gazeTarget = t;
       gazeHoldMs = 0;
@@ -1656,7 +1620,6 @@
       return;
     }
 
-    // hold -> fuse
     gazeHoldMs += dt;
 
     let prog = 0;
@@ -1664,7 +1627,6 @@
       prog = clamp(gazeHoldMs / fuseMs, 0, 1);
     }
 
-    // ===== RAGE DOUBLE-FEINT triggers (only boss+raged) =====
     if (t.rage && t.boss){
       if (t.feintStep < 1 && prog >= (CFG.feint1AtProg||0.46)){
         t.feintStep = 1;
@@ -1675,7 +1637,6 @@
       }
     }
 
-    // fuse -> burst
     if (prog >= 1){
       gazeHoldMs = 0;
       lockProgPrev = -1;
@@ -1683,13 +1644,11 @@
       burstFire();
       logEvent({ kind:'lock_fire_burst', emoji:t.emoji, timeLeft: remainingSec });
 
-      // arm charge ONLY after a burst
       gazeChargeMs = 0;
       gazeChargeArmed = true;
       prog = 0;
     }
 
-    // charge accumulate only if armed
     let charge = 0;
     if (CFG.chargeEnabled && gazeChargeArmed){
       gazeChargeMs += dt;
@@ -1705,7 +1664,7 @@
 
     updateLockEvent(t, prog, charge);
 
-    if (charge > 0.86 && Math.random() < 0.14) tone(720,0.02,0.02,'square');
+    if (charge > 0.86 && rand() < 0.14) tone(720,0.02,0.02,'square');
   }
 
   function renderLoop(){
@@ -1818,7 +1777,9 @@
       goalsCleared,
       miniTotal: minisAll.length,
       miniCleared: minisCleared,
-      grade: finalGrade
+      grade: finalGrade,
+      seed: seedUsed || '',
+      seedMode: seedMeta ? seedMeta.seedMode : ''
     });
 
     dispatch('hha:end', {
@@ -1863,6 +1824,9 @@
 
       if (opts && opts.config) Object.assign(CFG, opts.config);
 
+      // ✅ RNG MODE: play=random / research=seeded (2-layer)
+      setRngMode(runMode, diff, opts);
+
       applyDifficulty(diff);
 
       CFG._baseSpawnInterval = CFG.spawnInterval;
@@ -1870,25 +1834,16 @@
 
       resetState();
 
-      // compute SAFE after overlay removed (but safe even if overlay exists)
-      computeSafeInsets();
-      try{
-        window.addEventListener('resize', computeSafeInsets, { passive:true });
-        window.addEventListener('orientationchange', () => setTimeout(computeSafeInsets, 220), { passive:true });
-      }catch{}
-
       FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
       FeverUI.setFever && FeverUI.setFever(0);
       FeverUI.setFeverActive && FeverUI.setFeverActive(false);
       FeverUI.setShield && FeverUI.setShield(0);
 
-      // ✅ IMPORTANT: resolve quest factory at START time
-      const QF = getQuestFactory();
-      if (QF && typeof QF.createFoodGroupsQuest === 'function') {
-        quest = QF.createFoodGroupsQuest(diff);
+      if (QuestFactory && typeof QuestFactory.createFoodGroupsQuest === 'function') {
+        quest = QuestFactory.createFoodGroupsQuest(diff);
       } else {
-        console.warn('[FoodGroupsVR] GroupsQuest missing -> fallback quest used');
-        quest = makeFallbackQuest(diff);
+        quest = null;
+        console.warn('[FoodGroupsVR] quest-manager not found');
       }
 
       if (runMode === 'research') {
@@ -1909,14 +1864,30 @@
       const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
       coach(g ? `เริ่มเลย! หมู่ปัจจุบัน: ${g.label} ✨` : 'เริ่มเลย! แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨');
 
+      // ✅ log seed used (for research reproducibility)
       logSessionStart({
         diff,
         runMode,
         durationSec: remainingSec || 0,
         ua: navigator.userAgent || '',
         screenW: window.innerWidth || 0,
-        screenH: window.innerHeight || 0
+        screenH: window.innerHeight || 0,
+        seed: seedUsed || '',
+        seedMode: seedMeta ? seedMeta.seedMode : '',
+        conditionId: seedMeta ? seedMeta.conditionId : ''
       });
+
+      if (runMode === 'research' && seedMeta){
+        logEvent({
+          kind:'seed_info',
+          seedMode: seedMeta.seedMode,
+          seed: seedUsed,
+          studentId: seedMeta.studentId || '',
+          school: seedMeta.school || '',
+          room: seedMeta.room || '',
+          conditionId: seedMeta.conditionId || ''
+        });
+      }
 
       emitQuestUpdate();
       emitRank();
@@ -1928,6 +1899,7 @@
       renderLoop._last = now();
       rafId = requestAnimationFrame(renderLoop);
 
+      // deterministic initial spawns in research (rng already seeded)
       createTarget();
       setTimeout(() => createTarget(), 220);
       setTimeout(() => createTarget(), 420);
