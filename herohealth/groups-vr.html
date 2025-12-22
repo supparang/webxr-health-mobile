@@ -1,10 +1,10 @@
 <!-- === /herohealth/groups-vr.html ===
-Food Groups VR — FULL HTML (PRODUCTION FIX-ALL)
-✅ Works with: /herohealth/vr-groups/GameEngine.js (IIFE -> window.GroupsVR.GameEngine)
-✅ Works with: /herohealth/vr-groups/groups-quests.js (IIFE -> window.GroupsQuest.createFoodGroupsQuest)
-✅ Emoji bubble targets via CSS vars --x/--y/--s (engine drives)
-✅ HUD listens quest:update + hha:* (score/time/rank/fever/coach)
-✅ Safe even if some modules missing
+Food Groups VR (PRODUCTION) — FIX-ALL HTML
+✅ รองรับ IIFE: /vr/particles.js, /vr/ui-fever.js, /vr/hha-hud.js
+✅ รองรับ IIFE: /vr-groups/groups-quests.js, /vr-groups/GameEngine.js (ตัวที่คุณแปะมา)
+✅ รองรับ URL params: ?diff=easy|normal|hard &time=90 &run=play|research (หรือ mode=...) &seed=...
+✅ HUD ภารกิจ (quest:update) + Fever (hha:fever) + Score/Time/Rank (hha:score/hha:time/hha:rank)
+✅ เป้า emoji “ไม่พัง” (textContent + font emoji) + CSS vars --x/--y/--s ตาม engine
 -->
 
 <!doctype html>
@@ -16,434 +16,505 @@ Food Groups VR — FULL HTML (PRODUCTION FIX-ALL)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core -->
+  <!-- A-Frame (พื้นหลัง/VR toggle) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Global FX / Fever / Logger (IIFE) -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-
-  <!-- ✅ Quest FIRST (IIFE) -->
-  <script src="./vr-groups/groups-quests.js" defer></script>
-
-  <!-- ✅ Engine AFTER quest (IIFE) -->
-  <script src="./vr-groups/GameEngine.js" defer></script>
 
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.22);
-      --text:#e5e7eb;
-      --muted:#9ca3af;
-      --shadow:0 18px 50px rgba(0,0,0,.42);
-      --radius:18px;
-      --radius2:22px;
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --txt:rgba(226,232,240,.95);
+      --muted:rgba(226,232,240,.70);
+      --good:#22c55e;
+      --bad:#ef4444;
+      --warn:#fbbf24;
+
+      --hudTop:120px;   /* ให้สอดคล้อง safeTopPx ใน engine */
+      --hudBottom:150px;/* safeBottomPx */
     }
+    html,body{height:100%; background:var(--bg); margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Noto Sans Thai,sans-serif;}
+    *{box-sizing:border-box}
+    .stage{position:fixed; inset:0; overflow:hidden; background:radial-gradient(1200px 800px at 50% 35%, rgba(56,189,248,.08), transparent 60%),
+                                          radial-gradient(900px 700px at 20% 80%, rgba(34,197,94,.07), transparent 60%),
+                                          radial-gradient(900px 700px at 90% 85%, rgba(244,63,94,.06), transparent 60%);}
 
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;}
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-
-    .wrap{
-      position:fixed; inset:0; overflow:hidden;
-      background:
-        radial-gradient(1200px 600px at 50% 40%, rgba(59,130,246,.10), transparent 60%),
-        radial-gradient(900px 520px at 20% 10%, rgba(34,197,94,.10), transparent 60%),
-        linear-gradient(#020617, #020617);
-    }
-    a-scene{position:absolute; inset:0; z-index:0;}
-
+    /* ===== A-Frame scene behind DOM ===== */
+    a-scene{position:fixed; inset:0; z-index:0;}
+    /* ===== DOM gameplay layer ===== */
     #fg-layer{
-      position:absolute; inset:0; z-index:5;
+      position:fixed; inset:0;
+      z-index:10;
       pointer-events:auto;
       touch-action:manipulation;
+      -webkit-tap-highlight-color:transparent;
     }
 
-    /* ===== Emoji Bubble Target (ENGINE DRIVES: --x --y --s) ===== */
+    /* ===== HUD ===== */
+    #hud{
+      position:fixed; inset:0;
+      z-index:30;
+      pointer-events:none;
+      padding: calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 12px);
+      color:var(--txt);
+    }
+    .hud-top{
+      display:flex; gap:10px;
+      align-items:stretch;
+      justify-content:space-between;
+      pointer-events:none;
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      backdrop-filter: blur(10px);
+      border-radius:18px;
+      padding:10px 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      min-width: 0;
+    }
+    .statRow{display:flex; gap:10px; flex-wrap:wrap}
+    .stat{
+      min-width:72px;
+    }
+    .k{font-size:12px; letter-spacing:.08em; opacity:.72}
+    .v{font-size:22px; font-weight:800; line-height:1.05; margin-top:2px}
+    .v.small{font-size:18px}
+    .mono{font-variant-numeric:tabular-nums}
+
+    .questCard{
+      width:min(52vw, 520px);
+      max-width:520px;
+    }
+    .questHead{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      margin-bottom:8px;
+    }
+    .questTitle{
+      font-weight:900;
+      letter-spacing:.02em;
+      display:flex; align-items:center; gap:8px;
+      white-space:nowrap;
+    }
+    .questPct{font-size:12px; opacity:.75; white-space:nowrap}
+    .bar{
+      height:10px; border-radius:999px;
+      background:rgba(148,163,184,.16);
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.14);
+    }
+    .bar > i{
+      display:block; height:100%;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(56,189,248,.9));
+      border-radius:999px;
+      transition: width .18s ease;
+    }
+    .qline{margin-top:8px; font-size:14px; color:var(--muted)}
+    .qline b{color:var(--txt)}
+    .warn{color:rgba(251,191,36,.95)}
+
+    /* ===== Coach tip ===== */
+    #coach{
+      position:fixed;
+      left:12px;
+      right:12px;
+      top: calc(env(safe-area-inset-top) + 92px);
+      z-index:28;
+      pointer-events:none;
+      display:flex;
+      justify-content:center;
+    }
+    #coach .bubble{
+      max-width:min(720px, 92vw);
+      background:rgba(2,6,23,.62);
+      border:1px solid rgba(148,163,184,.16);
+      backdrop-filter: blur(10px);
+      border-radius:20px;
+      padding:10px 14px;
+      color:rgba(226,232,240,.92);
+      box-shadow:0 12px 40px rgba(0,0,0,.35);
+      font-size:14px;
+      line-height:1.25;
+    }
+
+    /* ===== Bottom controls ===== */
+    #controls{
+      position:fixed;
+      left:12px; right:12px;
+      bottom: calc(env(safe-area-inset-bottom) + 10px);
+      z-index:40;
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      pointer-events:auto;
+    }
+    .btn{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.62);
+      color:var(--txt);
+      padding:10px 14px;
+      border-radius:16px;
+      font-weight:800;
+      letter-spacing:.02em;
+      box-shadow:0 10px 25px rgba(0,0,0,.35);
+      user-select:none;
+    }
+    .btn.primary{background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.28)}
+    .btn.danger{background:rgba(239,68,68,.14); border-color:rgba(239,68,68,.22)}
+    .btn.ghost{background:rgba(148,163,184,.08)}
+
+    /* ===== Targets ===== */
     .fg-target{
       position:absolute;
-      left:var(--x, 50%); top:var(--y, 52%);
-      transform: translate3d(-50%,-50%,0) scale(var(--s,1));
+      left:var(--x, 50%);
+      top:var(--y, 52%);
+      transform: translate(-50%,-50%) scale(var(--s,1));
       width:132px; height:132px;
       border-radius:999px;
-      display:flex; align-items:center; justify-content:center;
+      display:grid;
+      place-items:center;
+      font-size:64px;
+      line-height:1;
+      cursor:pointer;
+      user-select:none;
 
-      font-size:58px; line-height:1;
-      font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
+      /* สำคัญ: emoji font */
+      font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji", system-ui, sans-serif;
 
       background:
-        radial-gradient(90px 80px at 35% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
-        radial-gradient(120px 120px at 50% 55%, rgba(255,255,255,.18), rgba(255,255,255,.06) 58%, rgba(255,255,255,.02) 100%),
-        linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
-      border:1px solid rgba(255,255,255,.18);
-      box-shadow:0 18px 48px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.22);
-      filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
-      text-shadow:0 6px 16px rgba(0,0,0,.30), 0 0 10px rgba(255,255,255,.10);
-      user-select:none; cursor:pointer; will-change: transform, left, top, opacity;
-    }
-    .fg-target.spawn{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.72); }
-    .fg-target.show{ opacity:1; animation: fgPop .22s ease-out both; }
-    @keyframes fgPop{
-      0%{ transform:translate3d(-50%,-50%,0) scale(.78); }
-      70%{ transform:translate3d(-50%,-50%,0) scale(1.08); }
-      100%{ transform:translate3d(-50%,-50%,0) scale(var(--s,1)); }
-    }
-    .fg-target.out{ animation: fgOut .18s ease-in both; }
-    @keyframes fgOut{
-      to{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.84); filter:blur(1px) drop-shadow(0 0 0 rgba(0,0,0,0)); }
-    }
-    .fg-target.hit{ animation: fgHit .16s ease-out both; }
-    @keyframes fgHit{
-      40%{ transform:translate3d(-50%,-50%,0) scale(1.18); }
-      100%{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.86); }
-    }
+        radial-gradient(90px 90px at 28% 22%, rgba(255,255,255,.18), transparent 55%),
+        radial-gradient(110px 110px at 70% 78%, rgba(0,0,0,.18), transparent 58%),
+        rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow:
+        0 18px 45px rgba(0,0,0,.42),
+        inset 0 0 0 2px rgba(255,255,255,.06);
+      backdrop-filter: blur(10px);
 
-    .fg-target.fg-good{ outline:2px solid rgba(34,197,94,.18); }
-    .fg-target.fg-junk{ outline:2px solid rgba(239,68,68,.18); }
-    .fg-target.fg-decoy{ outline:2px solid rgba(245,158,11,.22); }
-    .fg-target.fg-boss{ outline:2px solid rgba(168,85,247,.22); }
-
-    .fg-target.lock{
+      transition: transform .10s ease, filter .10s ease;
+      will-change: transform, left, top;
+    }
+    .fg-target.fg-good{
       border-color: rgba(34,197,94,.28);
       box-shadow:
-        0 18px 60px rgba(34,197,94,.10),
-        0 18px 48px rgba(0,0,0,.35),
-        inset 0 1px 0 rgba(255,255,255,.22);
+        0 18px 45px rgba(0,0,0,.42),
+        0 0 0 6px rgba(34,197,94,.08),
+        inset 0 0 0 2px rgba(255,255,255,.06);
     }
-    .fg-target.fg-boss.lock{ border-color: rgba(168,85,247,.34); }
+    .fg-target.fg-junk{
+      border-color: rgba(239,68,68,.28);
+      box-shadow:
+        0 18px 45px rgba(0,0,0,.42),
+        0 0 0 6px rgba(239,68,68,.07),
+        inset 0 0 0 2px rgba(255,255,255,.06);
+      filter:saturate(1.05);
+    }
+    .fg-target.fg-boss{
+      box-shadow:
+        0 22px 60px rgba(0,0,0,.5),
+        0 0 0 7px rgba(251,191,36,.10),
+        inset 0 0 0 2px rgba(255,255,255,.06);
+      border-color: rgba(251,191,36,.35);
+    }
+    .fg-target.fg-decoy{
+      box-shadow:
+        0 18px 45px rgba(0,0,0,.42),
+        0 0 0 6px rgba(59,130,246,.08),
+        inset 0 0 0 2px rgba(255,255,255,.06);
+      border-color: rgba(59,130,246,.28);
+      filter: hue-rotate(12deg);
+    }
+    .fg-target.spawn{transform:translate(-50%,-50%) scale(.85); opacity:.0}
+    .fg-target.show{opacity:1; transform:translate(-50%,-50%) scale(var(--s,1))}
+    .fg-target.lock{filter:brightness(1.06) saturate(1.06)}
+    .fg-target.hit{opacity:.0; transform:translate(-50%,-50%) scale(.65); filter: blur(1px)}
+    .fg-target.out{opacity:.0; transform:translate(-50%,-50%) scale(.78)}
 
-    /* boss hp bar */
+    /* boss bar */
     .bossbar{
-      position:absolute; left:50%; bottom:10px;
-      transform:translateX(-50%);
-      width:70%; height:10px;
-      background:rgba(0,0,0,.25);
-      border:1px solid rgba(255,255,255,.14);
+      position:absolute;
+      left:14%;
+      right:14%;
+      bottom:10%;
+      height:10px;
       border-radius:999px;
+      background:rgba(15,23,42,.65);
+      border:1px solid rgba(148,163,184,.22);
       overflow:hidden;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
+      box-shadow: 0 8px 16px rgba(0,0,0,.25);
     }
     .bossbar-fill{
       height:100%;
       width:100%;
-      background:linear-gradient(90deg, rgba(168,85,247,.95), rgba(239,68,68,.92));
+      background:linear-gradient(90deg, rgba(251,191,36,.95), rgba(239,68,68,.9));
       border-radius:999px;
+      transition: width .10s ease;
     }
 
-    /* afterimage (engine optional) */
+    /* afterimage */
     .fg-afterimage{
-      position:absolute; left:0; top:0;
-      opacity:.0;
-      animation: aiFade .42s ease-out forwards;
+      position:absolute;
+      left:0; top:0;
+      transform: translate3d(0,0,0);
       pointer-events:none;
-      z-index:4;
-      filter: blur(.2px);
+      z-index:9;
+      opacity:.0;
+      animation: ai .42s ease forwards;
     }
     .fg-afterimage-inner{
-      font-size:54px;
-      transform:translate(-50%,-50%) scale(1.12);
-      opacity:.55;
-      text-shadow:0 10px 28px rgba(0,0,0,.45);
+      transform: translate(-50%,-50%) scale(1.0);
+      font-size:58px;
+      filter: blur(.2px);
+      font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji", system-ui, sans-serif;
+      text-shadow: 0 14px 35px rgba(0,0,0,.5);
     }
-    @keyframes aiFade{
-      0%{ opacity:.55; }
-      100%{ opacity:0; transform: translate3d(0,-8px,0); }
+    .fg-afterimage.a1{opacity:.7}
+    .fg-afterimage.a2{opacity:.45}
+    @keyframes ai{
+      0%{opacity:.0}
+      15%{opacity:.65}
+      100%{opacity:0; transform: translate3d(0,0,0) translateY(10px) scale(.98)}
     }
-
-    /* ===== HUD ===== */
-    .hud{ position:absolute; inset:0; z-index:20; pointer-events:none; }
-    .topbar{
-      position:absolute; left:12px; right:12px; top:10px;
-      display:flex; gap:10px; align-items:flex-start;
-    }
-    .pill{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:999px;
-      padding:10px 12px;
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-    .stats{ display:flex; gap:10px; flex-wrap:wrap; }
-    .stat{ min-width:98px; display:flex; flex-direction:column; gap:2px; }
-    .k{ font-size:11px; color:var(--muted); letter-spacing:.2px; }
-    .v{ font-size:16px; font-weight:800; }
-
-    .questBox{
-      flex:1;
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:10px 12px;
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(10px);
-      min-height:64px;
-    }
-    .questTitle{ display:flex; align-items:center; gap:8px; font-weight:900; }
-    .questTitle small{ font-weight:800; color:var(--muted); margin-left:auto; }
-    .qline{ margin-top:6px; font-size:14px; color:var(--text); opacity:.96; }
-    .qline .muted{ color:var(--muted); }
-
-    .coachBox{
-      position:absolute; left:12px; top:86px;
-      width:min(520px, calc(100% - 24px));
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius2);
-      box-shadow:var(--shadow);
-      padding:10px 12px;
-      backdrop-filter: blur(10px);
-    }
-    .coachText{ font-size:14px; color:var(--text); line-height:1.35; }
-    .coachSub{ color:var(--muted); font-size:12.5px; margin-top:4px; }
-
-    #reticle{
-      position:absolute; left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      width:14px; height:14px;
-      border-radius:999px;
-      background:rgba(255,255,255,.55);
-      box-shadow:0 0 18px rgba(255,255,255,.12);
-      pointer-events:none;
-      opacity:.85;
-    }
-    #reticle.ok{ background:rgba(34,197,94,.65); box-shadow:0 0 22px rgba(34,197,94,.18); }
-    #reticle.miss{ background:rgba(239,68,68,.65); box-shadow:0 0 22px rgba(239,68,68,.18); }
-    #reticle.perfect{ background:rgba(245,158,11,.72); box-shadow:0 0 24px rgba(245,158,11,.22); }
 
     /* lock ring UI */
     #lockUI{
-      position:absolute; left:0; top:0;
-      width:10px; height:10px;
-      transform:translate(-9999px,-9999px);
-      z-index:26;
+      position:fixed; inset:0;
+      z-index:25;
       pointer-events:none;
+    }
+    #lockRing{
+      position:absolute;
+      left:50%; top:52%;
+      transform: translate(-50%,-50%);
+      width:120px; height:120px;
+      border-radius:999px;
       opacity:0;
-      transition: opacity .08s linear;
+      transition: opacity .08s ease;
+      filter: drop-shadow(0 18px 36px rgba(0,0,0,.45));
     }
-    #lockUI.on{ opacity:1; }
-    #lockSvg{ overflow:visible; }
-    .ringBack{ stroke:rgba(255,255,255,.20); stroke-width:5; fill:none; }
-    .ringProg{ stroke:rgba(34,197,94,.90); stroke-width:6; fill:none; stroke-linecap:round; }
-    .ringCharge{ stroke:rgba(59,130,246,.95); stroke-width:6; fill:none; stroke-linecap:round; opacity:.92; }
-
-    /* bottom controls */
-    .controls{
-      position:absolute; left:12px; right:12px; bottom:14px;
-      display:flex; gap:12px; align-items:flex-end;
-      z-index:30; pointer-events:none;
-    }
-    .hintCol{ flex:1; display:flex; flex-direction:column; gap:10px; }
-    .hint{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:12px 12px;
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(10px);
+    #lockRing.on{opacity:1}
+    #lockRing svg{width:100%; height:100%}
+    #lockLabel{
+      position:absolute;
+      left:50%; top:calc(52% + 78px);
+      transform:translate(-50%,-50%);
       font-weight:900;
-    }
-    .hint small{ display:block; font-weight:750; color:var(--muted); margin-top:4px; }
-
-    .btnCol{ display:flex; gap:10px; pointer-events:auto; }
-    .btn{
-      min-width:92px;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.08);
-      color:var(--text);
-      padding:12px 14px;
-      font-weight:950;
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(10px);
-      cursor:pointer;
-      user-select:none;
-    }
-    .btn:active{ transform: translateY(1px) scale(.99); }
-    .btn.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.30); }
-    .btn.danger{ background:rgba(239,68,68,.18); border-color:rgba(239,68,68,.30); }
-    .btn.ghost{ background:rgba(255,255,255,.06); }
-    .btnMini{ min-width:64px; border-radius:14px; padding:10px 12px; font-weight:950; }
-
-    /* start overlay */
-    #startOverlay{
-      position:absolute; inset:0; z-index:60;
-      background:
-        radial-gradient(900px 500px at 50% 40%, rgba(59,130,246,.16), transparent 60%),
-        rgba(2,6,23,.72);
-      display:flex; align-items:center; justify-content:center;
-      padding:18px;
-    }
-    .card{
-      width:min(560px, 100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      padding:16px;
-      backdrop-filter: blur(12px);
-    }
-    .h1{ font-size:18px; font-weight:1000; margin:0 0 8px; }
-    .p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.45; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; }
-    .seg{
-      flex:1; min-width:150px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:16px;
-      padding:10px;
-    }
-    .seg label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:900; }
-    select,input{
-      width:100%;
-      padding:10px 10px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(2,6,23,.55);
-      color:var(--text);
-      font-weight:900;
-      outline:none;
-    }
-    .startBtn{
-      width:100%;
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      border:1px solid rgba(34,197,94,.35);
-      background:rgba(34,197,94,.20);
-      color:var(--text);
-      font-weight:1000;
-      cursor:pointer;
-    }
-    .startBtn:active{ transform: translateY(1px); }
-
-    #buildTag{
-      position:absolute; right:12px; bottom:92px; z-index:40;
-      background:rgba(2,6,23,.55);
-      border:1px solid rgba(255,255,255,.10);
-      color:rgba(229,231,235,.82);
+      font-size:12px;
+      letter-spacing:.12em;
       padding:6px 10px;
       border-radius:999px;
-      font-size:11px;
-      pointer-events:none;
+      background:rgba(2,6,23,.52);
+      border:1px solid rgba(148,163,184,.18);
+      opacity:0;
+      transition:opacity .08s ease;
+      color:rgba(226,232,240,.9);
+    }
+    #lockLabel.on{opacity:1}
+
+    /* Start overlay */
+    #startOverlay{
+      position:fixed; inset:0;
+      z-index:60;
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      padding: 18px 12px calc(env(safe-area-inset-bottom) + 18px);
+      background: radial-gradient(900px 700px at 50% 40%, rgba(30,41,59,.40), rgba(2,6,23,.88));
       backdrop-filter: blur(10px);
     }
+    #startCard{
+      width:min(720px, 94vw);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.72);
+      box-shadow:0 18px 60px rgba(0,0,0,.55);
+      padding:14px 14px 12px;
+      color:var(--txt);
+    }
+    #startCard h1{margin:0 0 6px; font-size:18px}
+    #startCard p{margin:0 0 10px; color:rgba(226,232,240,.75); font-size:13px; line-height:1.25}
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    .field{
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:16px;
+      padding:10px 10px;
+    }
+    .field label{display:block; font-size:12px; opacity:.75; margin-bottom:6px}
+    select,input{
+      width:100%;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
+      color:rgba(226,232,240,.92);
+      padding:10px 10px;
+      font-weight:800;
+      outline:none;
+    }
+    .row{
+      display:flex; gap:10px; margin-top:10px; justify-content:flex-end; flex-wrap:wrap;
+    }
+    .smallNote{margin-top:10px; font-size:12px; color:rgba(226,232,240,.72)}
+    .smallNote b{color:rgba(251,191,36,.95)}
   </style>
+
+  <!-- ===== Shared IIFE modules (ต้องมาก่อน engine) ===== -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
+
+  <!-- ===== Groups scripts (IIFE) ===== -->
+  <script src="./vr-groups/groups-quests.js" defer></script>
+  <script src="./vr-groups/GameEngine.js" defer></script>
 </head>
 
 <body>
-  <div class="wrap">
-    <a-scene
-      embedded
-      renderer="antialias: true; colorManagement: true;"
-      vr-mode-ui="enabled:false"
-      background="color: #020617"
-    >
-      <a-entity id="rig" position="0 1.6 0">
-        <a-camera id="camera"
-          wasd-controls-enabled="false"
-          look-controls="enabled:true; touchEnabled:true; mouseEnabled:true"
-          position="0 0 0"
-        ></a-camera>
-      </a-entity>
-      <a-sky color="#020617"></a-sky>
-    </a-scene>
+  <div class="stage"></div>
 
-    <div id="fg-layer" aria-label="targets layer"></div>
+  <!-- A-Frame background (optional แต่ช่วย VR toggle/gyro) -->
+  <a-scene embedded xr-mode-ui="enabled: true">
+    <a-sky color="#020617"></a-sky>
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="cam" look-controls="magicWindowTrackingEnabled: true; touchEnabled: true" wasd-controls-enabled="false"></a-camera>
+    </a-entity>
+  </a-scene>
 
-    <div class="hud">
-      <div class="topbar">
-        <div class="pill stats">
-          <div class="stat"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
-          <div class="stat"><div class="k">COMBO</div><div class="v" id="hudCombo">0</div></div>
-          <div class="stat"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
-          <div class="stat"><div class="k">TIME</div><div class="v" id="hudTime">—</div></div>
-          <div class="stat"><div class="k">SHIELD</div><div class="v" id="hudShield">0</div></div>
-          <div class="stat"><div class="k">GRADE</div><div class="v" id="hudGrade">C</div></div>
-        </div>
+  <!-- DOM targets -->
+  <div id="fg-layer" aria-label="Food Groups Targets Layer"></div>
 
-        <div class="questBox">
-          <div class="questTitle">🎯 GOAL / 🧩 MINI <small id="miniPct">0%</small></div>
-          <div class="qline" id="questGoal"><span class="muted">GOAL:</span> —</div>
-          <div class="qline" id="questMini"><span class="muted">MINI:</span> —</div>
-          <div class="qline" id="questGroup"><span class="muted">GROUP:</span> —</div>
+  <!-- Lock UI -->
+  <div id="lockUI">
+    <div id="lockRing">
+      <svg viewBox="0 0 100 100">
+        <defs>
+          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="rgba(34,197,94,.95)"></stop>
+            <stop offset="1" stop-color="rgba(56,189,248,.95)"></stop>
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="44" fill="rgba(2,6,23,.25)" stroke="rgba(148,163,184,.18)" stroke-width="6"></circle>
+        <circle id="lockProg" cx="50" cy="50" r="44"
+                fill="transparent" stroke="url(#lg)" stroke-width="7"
+                stroke-linecap="round"
+                stroke-dasharray="276.46" stroke-dashoffset="276.46"
+                transform="rotate(-90 50 50)"></circle>
+        <circle id="chargeProg" cx="50" cy="50" r="36"
+                fill="transparent" stroke="rgba(251,191,36,.92)" stroke-width="6"
+                stroke-linecap="round"
+                stroke-dasharray="226.19" stroke-dashoffset="226.19"
+                transform="rotate(-90 50 50)"></circle>
+      </svg>
+    </div>
+    <div id="lockLabel">LOCK</div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-top">
+      <div class="card" style="flex:1; min-width: 220px;">
+        <div class="statRow">
+          <div class="stat">
+            <div class="k">SCORE</div>
+            <div id="hudScore" class="v mono">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">COMBO</div>
+            <div id="hudCombo" class="v mono">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">MISS</div>
+            <div id="hudMiss" class="v mono">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">TIME</div>
+            <div id="hudTime" class="v mono">—</div>
+          </div>
+          <div class="stat">
+            <div class="k">SHIELD</div>
+            <div id="hudShield" class="v mono">0</div>
+          </div>
+          <div class="stat">
+            <div class="k">GRADE</div>
+            <div id="hudGrade" class="v mono">C</div>
+          </div>
         </div>
       </div>
 
-      <div class="coachBox">
-        <div class="coachText" id="coachText">
-          แตะ/จ้อง “อาหารดี” ให้ได้เยอะ ๆ ✨
-          <div class="coachSub" id="coachSub">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
+      <div class="card questCard">
+        <div class="questHead">
+          <div class="questTitle">🧩 <span>GOAL / MINI</span></div>
+          <div id="questPct" class="questPct mono">0%</div>
         </div>
+        <div class="bar"><i id="questBar"></i></div>
+        <div class="qline"><b>GOAL:</b> <span id="questGoal">—</span></div>
+        <div class="qline"><b>MINI:</b> <span id="questMini">—</span></div>
+        <div class="qline"><b>GROUP:</b> <span id="questGroup">—</span> <span id="questWarn" class="warn" style="display:none">⚠️ QUEST NOT READY</span></div>
       </div>
-
-      <div id="reticle"></div>
-
-      <div id="lockUI">
-        <svg id="lockSvg" width="88" height="88" viewBox="0 0 88 88">
-          <circle class="ringBack" cx="44" cy="44" r="30"></circle>
-          <circle class="ringProg" cx="44" cy="44" r="30"
-            stroke-dasharray="188.5" stroke-dashoffset="188.5"></circle>
-          <circle class="ringCharge" cx="44" cy="44" r="22"
-            stroke-dasharray="138.2" stroke-dashoffset="138.2"></circle>
-        </svg>
-      </div>
-
-      <div class="controls">
-        <div class="hintCol">
-          <div class="hint">LOCK <small>จ้องจนวงเขียวเต็ม → ยิงเป็นชุด</small></div>
-          <div class="hint">CHARGE <small>ค้างต่อ → ยิงแรง + ลาม (Chain)</small></div>
-        </div>
-
-        <div class="btnCol">
-          <button class="btn primary" id="btnGaze">Gaze: ON</button>
-          <button class="btn danger" id="btnStop">STOP</button>
-          <button class="btn ghost btnMini" id="btnVR">VR</button>
-        </div>
-      </div>
-
-      <div id="buildTag">groups-vr • build: <span id="buildVal"></span></div>
     </div>
 
-    <div id="startOverlay">
-      <div class="card">
-        <div class="h1">Food Groups VR — Ready</div>
-        <div class="p">
-          Play = โหด/สุ่มได้ • Research = FIX (seeded) คุมตัวแปรเป๊ะ<br/>
-          * ถ้า Quest ไม่ขึ้น → กล่องภารกิจจะโชว์ “⚠️ QUEST NOT READY”
+    <div id="coach">
+      <div class="bubble">
+        <span id="coachText">แตะ/จ้อง “อาหารดี” ให้ได้เยอะ ๆ ✨</span><br/>
+        <span style="opacity:.72">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</span><br/>
+        <span style="opacity:.72">LOCK จ้องจนวงเขียวเต็ม → ยิงเป็นชุด</span><br/>
+        <span style="opacity:.72">CHARGE ค้างต่อ → ยิงแรง + ลาม (Chain)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <button id="btnGaze" class="btn primary" type="button">Gaze: ON</button>
+    <button id="btnStop" class="btn danger" type="button">STOP</button>
+    <button id="btnVR" class="btn ghost" type="button">VR</button>
+  </div>
+
+  <!-- Start overlay -->
+  <div id="startOverlay">
+    <div id="startCard">
+      <h1>Food Groups VR — Ready</h1>
+      <p>Play = โหด/สุ่มได้ • Research = FIX (seeded) คุมตัวแปรเป๊ะ<br/>
+      <span style="opacity:.8">* ถ้า Quest ไม่ขึ้น → กล่องภารกิจจะโชว์ “⚠️ QUEST NOT READY”</span></p>
+
+      <div class="grid">
+        <div class="field">
+          <label>Difficulty</label>
+          <select id="selDiff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+          </select>
         </div>
-
-        <div class="row">
-          <div class="seg">
-            <label>Difficulty</label>
-            <select id="selDiff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </div>
-
-          <div class="seg">
-            <label>Mode</label>
-            <select id="selMode">
-              <option value="play" selected>play</option>
-              <option value="research">research</option>
-            </select>
-          </div>
-
-          <div class="seg">
-            <label>Time (sec)</label>
-            <input id="inpTime" type="number" min="20" max="600" step="10" value="70" />
-          </div>
-
-          <div class="seg">
-            <label>Seed (research optional)</label>
-            <input id="inpSeed" type="text" placeholder="เช่น schoolA-g5-001" />
-          </div>
+        <div class="field">
+          <label>Mode</label>
+          <select id="selMode">
+            <option value="play" selected>play</option>
+            <option value="research">research</option>
+          </select>
         </div>
+        <div class="field">
+          <label>Time (sec)</label>
+          <input id="inpTime" type="number" min="10" max="999" value="90" />
+        </div>
+        <div class="field">
+          <label>Seed (research optional)</label>
+          <input id="inpSeed" type="text" placeholder="เช่น class5-A|round1" />
+        </div>
+      </div>
 
-        <button class="startBtn" id="btnStart">START</button>
+      <div class="row">
+        <button id="btnStart" class="btn primary" type="button">START</button>
+      </div>
+
+      <div class="smallNote">
+        ถ้าคุณเรียกจาก URL แบบของคุณ: <b>?diff=easy&time=90&run=play</b> จะ auto-start ได้เลย
       </div>
     </div>
   </div>
@@ -452,204 +523,229 @@ Food Groups VR — FULL HTML (PRODUCTION FIX-ALL)
     (function(){
       'use strict';
 
-      const $ = (id)=>document.getElementById(id);
-      const layer = $('fg-layer');
-      const camEl = document.querySelector('#camera');
-      const sceneEl = document.querySelector('a-scene');
+      const $ = (q)=>document.querySelector(q);
 
+      const fgLayer = $('#fg-layer');
+      const camEl = document.getElementById('cam');
+
+      const hudScore = $('#hudScore');
+      const hudCombo = $('#hudCombo');
+      const hudMiss  = $('#hudMiss');
+      const hudTime  = $('#hudTime');
+      const hudShield= $('#hudShield');
+      const hudGrade = $('#hudGrade');
+
+      const questGoal = $('#questGoal');
+      const questMini = $('#questMini');
+      const questGroup= $('#questGroup');
+      const questPct  = $('#questPct');
+      const questBar  = $('#questBar');
+      const questWarn = $('#questWarn');
+
+      const coachText = $('#coachText');
+
+      const lockRing = $('#lockRing');
+      const lockLabel= $('#lockLabel');
+      const lockProg = document.getElementById('lockProg');
+      const chargeProg = document.getElementById('chargeProg');
+
+      const btnGaze = $('#btnGaze');
+      const btnStop = $('#btnStop');
+      const btnVR   = $('#btnVR');
+
+      const startOverlay = $('#startOverlay');
+      const selDiff = $('#selDiff');
+      const selMode = $('#selMode');
+      const inpTime = $('#inpTime');
+      const inpSeed = $('#inpSeed');
+      const btnStart= $('#btnStart');
+
+      // ---- URL params ----
       const sp = new URLSearchParams(location.search);
-
-      const startOverlay = $('startOverlay');
-      const selDiff = $('selDiff');
-      const selMode = $('selMode');
-      const inpTime = $('inpTime');
-      const inpSeed = $('inpSeed');
-
-      const hudScore = $('hudScore');
-      const hudCombo = $('hudCombo');
-      const hudMiss  = $('hudMiss');
-      const hudTime  = $('hudTime');
-      const hudShield= $('hudShield');
-      const hudGrade = $('hudGrade');
-
-      const questGoal = $('questGoal');
-      const questMini = $('questMini');
-      const questGroup= $('questGroup');
-      const miniPct   = $('miniPct');
-
-      const coachText = $('coachText');
-
-      const btnStart = $('btnStart');
-      const btnGaze  = $('btnGaze');
-      const btnStop  = $('btnStop');
-      const btnVR    = $('btnVR');
-
-      const reticle  = $('reticle');
-
-      const lockUI   = $('lockUI');
-      const ringProg = lockUI.querySelector('.ringProg');
-      const ringCharge = lockUI.querySelector('.ringCharge');
-      const C1 = 188.5, C2 = 138.2;
-
-      $('buildVal').textContent = String(Date.now()).slice(-6);
-
-      // query init
-      const qDiff = (sp.get('diff')||'').toLowerCase();
-      const qMode = (sp.get('mode')||sp.get('run')||'').toLowerCase();
-      const qTime = parseInt(sp.get('time')||'',10);
+      const qDiff = (sp.get('diff') || 'normal').toLowerCase();
+      const qTime = parseInt(sp.get('time') || '90', 10);
+      // สำคัญ: รองรับ run=play (ของคุณ) + mode=play (ของเดิม)
+      const qRun  = (sp.get('run')  || '').toLowerCase();
+      const qMode = (sp.get('mode') || '').toLowerCase();
+      const autoMode = (qRun || qMode || '').toLowerCase(); // play|research
       const qSeed = sp.get('seed') || '';
 
-      if (qDiff && ['easy','normal','hard'].includes(qDiff)) selDiff.value = qDiff;
-      if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
-      if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(qTime);
-      if (qSeed) inpSeed.value = String(qSeed);
+      if (['easy','normal','hard'].includes(qDiff)) selDiff.value = qDiff;
+      if (!Number.isNaN(qTime) && qTime > 0) inpTime.value = String(qTime);
+      if (qSeed) inpSeed.value = qSeed;
+      if (autoMode === 'research') selMode.value = 'research';
+      if (autoMode === 'play') selMode.value = 'play';
 
-      function setRing(circle, prog, C){
-        const p = Math.max(0, Math.min(1, prog||0));
-        circle.style.strokeDasharray = String(C);
-        circle.style.strokeDashoffset = String(C * (1 - p));
-      }
-      function setReticle(state){
-        reticle.classList.remove('ok','miss','perfect');
-        if (state) reticle.classList.add(state);
-        if (state) setTimeout(()=>reticle.classList.remove('ok','miss','perfect'), 160);
-      }
-
-      function safeEngine(){
+      // ---- engine bootstrap ----
+      function engine(){
         return (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
       }
 
-      // ===== HUD listeners =====
-      window.addEventListener('hha:score', (e)=>{
-        const d = (e && e.detail) || {};
-        if (typeof d.score === 'number') hudScore.textContent = d.score|0;
-        if (typeof d.combo === 'number') hudCombo.textContent = d.combo|0;
-        if (typeof d.misses === 'number') hudMiss.textContent = d.misses|0;
-        if (typeof d.shield === 'number') hudShield.textContent = d.shield|0;
-      });
+      function setGazeUI(on){
+        btnGaze.textContent = on ? 'Gaze: ON' : 'Gaze: OFF';
+        btnGaze.classList.toggle('primary', !!on);
+        try { engine() && engine().setGaze(on); } catch {}
+      }
 
-      window.addEventListener('hha:time', (e)=>{
-        const d = (e && e.detail) || {};
-        if (typeof d.left === 'number') hudTime.textContent = (d.left|0);
-      });
-
-      window.addEventListener('hha:rank', (e)=>{
-        const d = (e && e.detail) || {};
-        if (d.grade) hudGrade.textContent = String(d.grade);
-      });
-
-      window.addEventListener('hha:coach', (e)=>{
-        const d = (e && e.detail) || {};
-        if (d.text) coachText.textContent = String(d.text);
-      });
-
-      // ✅ QUEST UPDATE (your engine ALWAYS emits)
-      window.addEventListener('quest:update', (e)=>{
-        const d = (e && e.detail) || {};
-        if (!d.questOk){
-          questGoal.innerHTML = `<span class="muted">GOAL:</span> ⚠️ QUEST NOT READY`;
-          questMini.innerHTML = `<span class="muted">MINI:</span> ตรวจ path ./vr-groups/groups-quests.js`;
-          questGroup.innerHTML = `<span class="muted">GROUP:</span> —`;
-          miniPct.textContent = '0%';
-          return;
-        }
-
-        const g = d.goal;
-        const m = d.mini;
-
-        questGoal.innerHTML = g && g.label
-          ? `<span class="muted">GOAL:</span> ${g.label} (${g.prog||0}/${g.target||0})`
-          : `<span class="muted">GOAL:</span> —`;
-
-        if (m && m.label){
-          const extra = (typeof m.tLeft === 'number') ? ` • เหลือ ${m.tLeft|0} วิ` : '';
-          questMini.innerHTML = `<span class="muted">MINI:</span> ${m.label} (${m.prog||0}/${m.target||0})${extra}`;
-          const pct = (m.target>0) ? Math.round((m.prog/m.target)*100) : 0;
-          miniPct.textContent = pct + '%';
-        } else {
-          questMini.innerHTML = `<span class="muted">MINI:</span> —`;
-          miniPct.textContent = '0%';
-        }
-
-        questGroup.innerHTML = d.groupLabel
-          ? `<span class="muted">GROUP:</span> ${d.groupLabel}`
-          : `<span class="muted">GROUP:</span> —`;
-      });
-
-      window.addEventListener('groups:reticle', (e)=>{
-        const d = (e && e.detail) || {};
-        if (d.state === 'ok') setReticle('ok');
-        else if (d.state === 'miss') setReticle('miss');
-        else if (d.state === 'perfect') setReticle('perfect');
-      });
-
-      window.addEventListener('groups:lock', (e)=>{
-        const d = (e && e.detail) || {};
-        if (!d.on){
-          lockUI.classList.remove('on');
-          lockUI.style.transform = 'translate(-9999px,-9999px)';
-          return;
-        }
-        lockUI.classList.add('on');
-        const x = (typeof d.x === 'number') ? d.x : (innerWidth/2);
-        const y = (typeof d.y === 'number') ? d.y : (innerHeight/2);
-        lockUI.style.transform = `translate(${Math.round(x-44)}px,${Math.round(y-44)}px)`;
-        setRing(ringProg, d.prog||0, C1);
-        setRing(ringCharge, d.charge||0, C2);
-      });
-
-      // ===== buttons =====
       let gazeOn = true;
 
+      // ---- Events: HUD ----
+      window.addEventListener('hha:score', (ev)=>{
+        const d = (ev && ev.detail) || {};
+        if (hudScore) hudScore.textContent = String(d.score ?? 0);
+        if (hudCombo) hudCombo.textContent = String(d.combo ?? 0);
+        if (hudMiss)  hudMiss.textContent  = String(d.misses ?? 0);
+        if (hudShield)hudShield.textContent= String(d.shield ?? 0);
+      });
+
+      window.addEventListener('hha:time', (ev)=>{
+        const d = (ev && ev.detail) || {};
+        const left = (d.left ?? '—');
+        if (hudTime) hudTime.textContent = String(left);
+      });
+
+      window.addEventListener('hha:rank', (ev)=>{
+        const d = (ev && ev.detail) || {};
+        if (hudGrade) hudGrade.textContent = String(d.grade || 'C');
+      });
+
+      window.addEventListener('hha:coach', (ev)=>{
+        const d = (ev && ev.detail) || {};
+        const t = String(d.text || '').trim();
+        if (t && coachText) coachText.textContent = t;
+      });
+
+      // ---- Events: Quest ----
+      function fmtLine(obj){
+        if (!obj) return '—';
+        const label = obj.label || '—';
+        const prog = (obj.prog ?? 0);
+        const target = (obj.target ?? 0);
+        if (target > 0) return `${label} (${prog}/${target})`;
+        return `${label}`;
+      }
+      window.addEventListener('quest:update', (ev)=>{
+        const d = (ev && ev.detail) || {};
+        const ok = !!d.questOk;
+
+        if (questWarn) questWarn.style.display = ok ? 'none' : 'inline';
+
+        // goal/mini
+        if (questGoal) questGoal.textContent = ok ? fmtLine(d.goal) : '—';
+        if (questMini){
+          let t = ok ? fmtLine(d.mini) : '—';
+          // rush window timer
+          if (ok && d.mini && typeof d.mini.tLeft === 'number' && d.mini.windowSec){
+            t += ` • เหลือ ${Math.max(0, d.mini.tLeft|0)} วิ`;
+          }
+          questMini.textContent = t;
+        }
+        if (questGroup) questGroup.textContent = ok ? String(d.groupLabel || '—') : '—';
+
+        // pct
+        const goalsAll = Array.isArray(d.goalsAll) ? d.goalsAll : [];
+        const minisAll = Array.isArray(d.minisAll) ? d.minisAll : [];
+        const doneG = goalsAll.filter(x=>x && x.done).length;
+        const doneM = minisAll.filter(x=>x && x.done).length;
+        const tot = (goalsAll.length||0) + (minisAll.length||0);
+        const pct = tot > 0 ? Math.round(((doneG+doneM)/tot)*100) : 0;
+        if (questPct) questPct.textContent = pct + '%';
+        if (questBar) questBar.style.width = pct + '%';
+      });
+
+      // ---- Events: Lock UI ----
+      function setCircle(circleEl, radius, pct){
+        // dasharray values already set in SVG, just change offset
+        const c = 2 * Math.PI * radius;
+        const p = Math.max(0, Math.min(1, pct||0));
+        const off = c * (1 - p);
+        circleEl.style.strokeDasharray = String(c);
+        circleEl.style.strokeDashoffset = String(off);
+      }
+      window.addEventListener('groups:lock', (ev)=>{
+        const d = (ev && ev.detail) || {};
+        const on = !!d.on;
+        const x = (typeof d.x === 'number') ? d.x : (window.innerWidth/2);
+        const y = (typeof d.y === 'number') ? d.y : (window.innerHeight/2);
+        const prog = (typeof d.prog === 'number') ? d.prog : 0;
+        const charge = (typeof d.charge === 'number') ? d.charge : 0;
+
+        lockRing.classList.toggle('on', on);
+        lockLabel.classList.toggle('on', on);
+
+        lockRing.style.left = x + 'px';
+        lockRing.style.top  = y + 'px';
+        lockLabel.style.left= x + 'px';
+        lockLabel.style.top = (y + 78) + 'px';
+
+        setCircle(lockProg, 44, prog);
+        setCircle(chargeProg, 36, charge);
+
+        lockLabel.textContent = (charge > 0.15) ? 'CHARGE' : 'LOCK';
+      });
+
+      // ---- Buttons ----
       btnGaze.addEventListener('click', ()=>{
-        const eng = safeEngine();
         gazeOn = !gazeOn;
-        btnGaze.textContent = 'Gaze: ' + (gazeOn ? 'ON' : 'OFF');
-        eng && eng.setGaze && eng.setGaze(gazeOn);
+        setGazeUI(gazeOn);
       });
 
       btnStop.addEventListener('click', ()=>{
-        const eng = safeEngine();
-        eng && eng.stop && eng.stop('stop_button');
+        try { engine() && engine().stop('stop_btn'); } catch {}
+        startOverlay.style.display = 'flex';
       });
 
       btnVR.addEventListener('click', ()=>{
-        try{ sceneEl && sceneEl.enterVR && sceneEl.enterVR(); }catch{}
+        try{
+          const scene = document.querySelector('a-scene');
+          if (scene && scene.enterVR) scene.enterVR();
+        }catch{}
       });
 
-      // ===== start =====
-      btnStart.addEventListener('click', ()=>{
-        const eng = safeEngine();
+      function startGame(){
+        const eng = engine();
         if (!eng){
-          alert('GameEngine ไม่พร้อม: เช็คไฟล์ ./vr-groups/GameEngine.js และต้องเป็น <script defer> (ไม่ใช่ type=module)');
+          alert('GameEngine ยังไม่พร้อม (เช็ค path ./vr-groups/GameEngine.js)');
           return;
         }
 
+        // bind layer + camera
+        try{ eng.setLayerEl(fgLayer); }catch{}
+        try{ eng.setCameraEl(camEl); }catch{}
+
+        const diff = (selDiff.value || 'normal').toLowerCase();
+        const mode = (selMode.value || 'play').toLowerCase();
+        const timeLeft = Math.max(10, parseInt(inpTime.value || '90', 10) || 90);
+
         startOverlay.style.display = 'none';
 
-        // bind engine
-        eng.setLayerEl && eng.setLayerEl(layer);
-        eng.setCameraEl && eng.setCameraEl(camEl);
+        try{ eng.setTimeLeft(timeLeft); }catch{}
+        try{ eng.setGaze(gazeOn); }catch{}
 
-        const diff = (selDiff.value||'normal').toLowerCase();
-        const mode = (selMode.value||'play').toLowerCase();
-        const tsec = Math.max(20, Math.min(600, parseInt(inpTime.value||'70',10) || 70));
-        const seed = String(inpSeed.value||'').trim();
+        // start
+        const seed = String(inpSeed.value || '').trim();
+        try{
+          eng.start(diff, {
+            runMode: mode,
+            seed: seed || undefined,
+            layerEl: fgLayer
+          });
+        }catch(e){
+          console.error(e);
+          alert('Start error — เปิด console ดูรายละเอียด');
+          startOverlay.style.display = 'flex';
+        }
+      }
 
-        eng.setTimeLeft && eng.setTimeLeft(tsec);
-        eng.setGaze && eng.setGaze(true);
-        gazeOn = true;
-        btnGaze.textContent = 'Gaze: ON';
+      btnStart.addEventListener('click', startGame);
 
-        eng.start(diff, {
-          layerEl: layer,
-          runMode: (mode === 'research' ? 'research' : 'play'),
-          seed: seed || undefined
-        });
-      });
+      // ---- default gaze ----
+      setGazeUI(true);
 
-      if (sp.get('autostart') === '1'){
-        setTimeout(()=>btnStart.click(), 120);
+      // ---- Auto-start when URL has run/mode ----
+      if (autoMode === 'play' || autoMode === 'research'){
+        // ซ่อน overlay แล้ว start ทันที
+        setTimeout(()=>startGame(), 50);
       }
     })();
   </script>
