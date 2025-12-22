@@ -1,739 +1,658 @@
+<!-- === /herohealth/groups-vr.html ===
+Food Groups VR — FULL HTML (FIX-ALL, PRODUCTION SAFE)
+✅ Keep emoji bubble targets (เหมือนเดิม)
+✅ Quest Watchdog: ถ้า quest:update ไม่มา → ขึ้นเตือนบน HUD
+✅ Fever hook: เรียก ensureFeverGauge ถ้ามี (ไม่พังถ้าไม่มี)
+✅ Safe: ไม่พังแม้ module บางตัวไม่อยู่
+✅ Works with: ./vr-groups/groups-quests.js (IIFE) + ./vr-groups/GameEngine.js (IIFE -> window.GroupsVR.GameEngine)
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunk VR</title>
+  <title>HeroHealth — Food Groups VR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame -->
+  <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + (optional) logger -->
+  <!-- Global FX / Fever / Logger (IIFE) -->
   <script src="./vr/particles.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- ✅ Quest FIRST (IIFE) -->
+  <script src="./vr-groups/groups-quests.js" defer></script>
+
+  <!-- ✅ Engine AFTER quest (IIFE) -->
+  <script src="./vr-groups/GameEngine.js" defer></script>
 
   <style>
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.22);
       --text:#e5e7eb;
-      --muted:#94a3b8;
+      --muted:#9ca3af;
+
       --accent:#22c55e;
+      --danger:#ef4444;
       --warn:#f59e0b;
-      --danger:#fb7185;
 
-      --crossY: 62vh; /* จุดเล็ง */
-    }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif; }
-    *{ box-sizing:border-box; }
-    #app{ position:fixed; inset:0; overflow:hidden; background: radial-gradient(1000px 700px at 50% 10%, rgba(37,99,235,.10), transparent 60%),
-                                          radial-gradient(900px 700px at 50% 120%, rgba(34,197,94,.10), transparent 55%),
-                                          linear-gradient(180deg, #020617, #020617); }
+      --radius:18px;
+      --radius2:22px;
+      --shadow:0 18px 50px rgba(0,0,0,.42);
 
-    /* A-Frame scene behind */
-    #sceneWrap{ position:absolute; inset:0; z-index:1; }
-    a-scene{ width:100%; height:100%; }
-    canvas{ touch-action:none; }
-
-    /* look-area: รับลากหมุนจอ (อยู่ใต้ targets) */
-    #look-area{
-      position:absolute; inset:0;
-      z-index:2;
-      background:transparent;
-      touch-action:none;
+      --hudTop: 110px;
+      --hudBottom: 150px;
     }
 
-    /* Targets layer */
-    #gj-layer{
-      position:absolute; inset:0;
-      z-index:3;
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+    .wrap{
+      position:fixed; inset:0;
+      overflow:hidden;
+      background: radial-gradient(1200px 600px at 50% 40%, rgba(59,130,246,.10), transparent 60%),
+                  radial-gradient(900px 520px at 20% 10%, rgba(34,197,94,.10), transparent 60%),
+                  linear-gradient(#020617, #020617);
+    }
+    a-scene{ position:absolute; inset:0; z-index:0; }
+
+    #fg-layer{
+      position:absolute; inset:0; z-index:5;
       pointer-events:auto;
-      transform: translate3d(0,0,0);
-      will-change: transform;
+      touch-action:manipulation;
     }
-    .gj-target{
-      position:absolute;
-      transform: translate(-50%,-50%);
-      font-size:56px;
-      filter: drop-shadow(0 18px 30px rgba(0,0,0,.55));
-      user-select:none;
-      -webkit-user-select:none;
-      cursor:pointer;
-      line-height:1;
-      will-change: transform, opacity;
-    }
-    .gj-target.spawn{ animation: popIn .12s ease-out both; }
-    .gj-target.gone{ animation: popOut .14s ease-in both; }
-    @keyframes popIn{ from{ transform:translate(-50%,-50%) scale(.75); opacity:.2 } to{ transform:translate(-50%,-50%) scale(1); opacity:1 } }
-    @keyframes popOut{ to{ transform:translate(-50%,-50%) scale(.55); opacity:0 } }
 
-    /* Attack overlays */
-    #atk-ring{
+    /* ===== Emoji Target Bubble (เหมือนเดิม) ===== */
+    .fg-target{
       position:absolute;
-      width:520px; height:520px;
+      left:var(--x, 50%); top:var(--y, 52%);
+      transform: translate3d(-50%,-50%,0) scale(var(--s,1));
+      width:132px; height:132px;
       border-radius:999px;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      z-index:4;
-      opacity:0;
-      pointer-events:none;
+      display:flex; align-items:center; justify-content:center;
+
+      font-size:58px; line-height:1;
+      font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
+
       background:
-        conic-gradient(from var(--ringGapStart, 0deg),
-          rgba(255,255,255,.00) 0deg,
-          rgba(255,255,255,.00) var(--ringGapSize, 50deg),
-          rgba(248,113,113,.40) var(--ringGapSize, 50deg),
-          rgba(248,113,113,.40) 360deg);
-      mask: radial-gradient(circle, transparent 52%, #000 53% 64%, transparent 65%);
-      filter: blur(.2px) drop-shadow(0 0 18px rgba(248,113,113,.35));
-    }
-    #atk-ring.show{ opacity:1; animation: ringPulse .18s ease-out both; }
-    @keyframes ringPulse{ from{ transform:translate(-50%,-50%) scale(.92) } to{ transform:translate(-50%,-50%) scale(1) } }
+        radial-gradient(90px 80px at 35% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
+        radial-gradient(120px 120px at 50% 55%, rgba(255,255,255,.18), rgba(255,255,255,.06) 58%, rgba(255,255,255,.02) 100%),
+        linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow:
+        0 18px 48px rgba(0,0,0,.35),
+        inset 0 1px 0 rgba(255,255,255,.22);
 
-    #atk-laser{
-      position:absolute;
-      left:0; width:100%; height:18px;
-      z-index:4;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
+      text-shadow:
+        0 6px 16px rgba(0,0,0,.30),
+        0 0 10px rgba(255,255,255,.10);
+
+      user-select:none;
+      cursor:pointer;
+      will-change: transform, left, top, opacity;
+    }
+    .fg-target.fg-good{ outline: 2px solid rgba(34,197,94,.18); }
+    .fg-target.fg-junk{ outline: 2px solid rgba(239,68,68,.18); }
+    .fg-target.fg-decoy{ outline: 2px solid rgba(245,158,11,.22); }
+    .fg-target.fg-boss{ outline: 2px solid rgba(168,85,247,.22); }
+
+    .fg-target.spawn{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.72); }
+    .fg-target.show{
+      opacity:1;
+      animation: fgPop .22s ease-out both;
+    }
+    @keyframes fgPop{
+      0%{ transform:translate3d(-50%,-50%,0) scale(.78); }
+      70%{ transform:translate3d(-50%,-50%,0) scale(1.08); }
+      100%{ transform:translate3d(-50%,-50%,0) scale(var(--s,1)); }
+    }
+    .fg-target.out{ animation: fgOut .18s ease-in both; }
+    @keyframes fgOut{
+      to{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.84); filter:blur(1px) drop-shadow(0 0 0 rgba(0,0,0,0)); }
+    }
+    .fg-target.hit{ animation: fgHit .16s ease-out both; }
+    @keyframes fgHit{
+      40%{ transform:translate3d(-50%,-50%,0) scale(1.18); }
+      100%{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.86); }
+    }
+
+    .fg-target.lock{
+      box-shadow:
+        0 18px 60px rgba(34,197,94,.10),
+        0 18px 48px rgba(0,0,0,.35),
+        inset 0 1px 0 rgba(255,255,255,.22);
+      border-color: rgba(34,197,94,.28);
+    }
+    .fg-target.fg-boss.lock{ border-color: rgba(168,85,247,.34); }
+
+    /* HUD */
+    .hud{
+      position:absolute; inset:0; z-index:20;
       pointer-events:none;
-      opacity:0;
-      background: linear-gradient(90deg, transparent, rgba(251,113,133,.95), transparent);
-      filter: drop-shadow(0 0 18px rgba(251,113,133,.45));
     }
-    #atk-laser.warn{ opacity:.65; animation: laserWarn .42s linear infinite; }
-    #atk-laser.fire{ opacity:1; height:26px; }
-    @keyframes laserWarn{ 50%{ opacity:.25 } }
-
-    /* Crosshair */
-    #cross{
-      position:absolute;
-      left:50%; top:var(--crossY);
-      transform: translate(-50%,-50%);
-      z-index:9;
-      width:16px; height:16px;
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,.85);
-      box-shadow: 0 0 0 8px rgba(255,255,255,.06);
+    .topbar{
+      position:absolute; left:12px; right:12px; top:10px;
+      display:flex; gap:10px;
+      align-items:flex-start;
       pointer-events:none;
     }
-
-    /* HUD panels */
-    .panel{
+    .pill{
+      pointer-events:none;
       background:var(--panel);
       border:1px solid var(--stroke);
-      border-radius:18px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      border-radius:999px;
+      padding:10px 12px;
+      box-shadow:var(--shadow);
       backdrop-filter: blur(10px);
     }
-    #hud-top{
-      position:absolute; left:12px; right:12px; top:10px;
-      z-index:10;
-      padding:10px 12px;
-      display:grid;
-      grid-template-columns: 1.2fr 1fr 1fr 1fr;
-      gap:10px;
-      align-items:center;
-    }
-    #hud-top .k{ font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
-    #hud-top .v{ font-size:20px; font-weight:800; }
-    #hud-top .v.small{ font-size:16px; font-weight:700; }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:6px 10px;
-      border-radius:999px;
+    .stats{ display:flex; gap:10px; flex-wrap:wrap; }
+    .stat{ min-width:98px; display:flex; flex-direction:column; gap:2px; }
+    .k{ font-size:11px; color:var(--muted); letter-spacing:.2px; }
+    .v{ font-size:16px; font-weight:750; }
+
+    .questBox{
+      pointer-events:none;
+      flex:1;
+      background:var(--panel);
       border:1px solid var(--stroke);
-      background:rgba(0,0,0,.12);
-      font-size:12px;
-      color:var(--text);
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+      border-radius:var(--radius);
+      padding:10px 12px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      min-height:64px;
     }
-    .dot{ width:8px; height:8px; border-radius:999px; background:var(--accent); display:inline-block; }
-    .muted{ color:var(--muted); }
+    .questTitle{ display:flex; align-items:center; gap:8px; font-weight:800; }
+    .questTitle small{ font-weight:700; color:var(--muted); }
+    .qline{ margin-top:6px; font-size:14px; color:var(--text); opacity:.96; }
+    .qline .muted{ color:var(--muted); }
 
-    #hud-quest{
-      position:absolute; left:12px; right:12px; top:108px;
-      z-index:10;
-      padding:12px;
-      min-height:118px;
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:10px;
-    }
-    .bar{
-      height:10px; border-radius:999px;
-      background:rgba(148,163,184,.15);
-      overflow:hidden;
-      border:1px solid rgba(148,163,184,.18);
-    }
-    .bar > i{
-      display:block; height:100%;
-      width:0%;
-      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.95));
-    }
-    #line-mini{ display:flex; justify-content:space-between; gap:10px; font-size:13px; }
-    #line-mini b{ font-weight:800; }
-    #line-mini .right{ color:var(--muted); }
-
-    #hud-fever{
-      display:grid;
-      grid-template-columns: 1fr auto;
-      gap:10px;
-      align-items:center;
-      font-size:13px;
-      color:var(--muted);
-    }
-    #hud-fever .shield{ color:#cbd5e1; font-weight:800; }
-
-    /* Footer */
-    #footer{
-      position:absolute; left:12px; right:12px; bottom:12px;
-      z-index:10;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
+    .coachBox{
+      position:absolute; left:12px; top:86px;
+      width:min(420px, calc(100% - 24px));
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius2);
+      box-shadow:var(--shadow);
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
       pointer-events:none;
     }
-    #badge{
-      pointer-events:auto;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(0,0,0,.18);
-      font-size:12px;
-      display:flex; align-items:center; gap:8px;
-    }
-    #badge .lamp{ width:9px; height:9px; border-radius:999px; background:rgba(248,113,113,.9); }
-    #badge.ok .lamp{ background:rgba(34,197,94,.95); }
+    .coachText{ font-size:14px; color:var(--text); line-height:1.35; }
+    .coachText .sub{ color:var(--muted); font-size:12.5px; margin-top:4px; }
 
-    #enterVR{
-      pointer-events:auto;
-      padding:10px 14px;
-      border-radius:16px;
-      border:1px solid rgba(59,130,246,.35);
-      background:rgba(37,99,235,.16);
-      color:#e0f2fe;
-      font-weight:800;
-      display:flex; align-items:center; gap:10px;
-      cursor:pointer;
+    .controls{
+      position:absolute; left:12px; right:12px; bottom:14px;
+      display:flex; gap:12px;
+      align-items:flex-end;
+      z-index:30;
+      pointer-events:none;
     }
-    #enterVR:disabled{ opacity:.55; cursor:not-allowed; }
-
-    /* Start modal */
-    #startModal{
-      position:absolute; inset:0;
-      z-index:20;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background: radial-gradient(900px 600px at 50% 30%, rgba(15,23,42,.50), rgba(2,6,23,.72));
-    }
-    #startCard{
-      width:min(720px, 100%);
-      padding:16px;
-    }
-    #startCard h1{ margin:2px 0 4px; font-size:22px; }
-    #startCard p{ margin:0 0 10px; color:var(--muted); font-size:13px; }
-    .grid2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-      margin-top:10px;
-    }
-    label{ font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
-    select{
-      width:100%;
-      margin-top:6px;
-      padding:10px 12px;
-      border-radius:14px;
+    .hintCol{ flex:1; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
+    .hint{
+      pointer-events:none;
+      background:var(--panel);
       border:1px solid var(--stroke);
-      background:rgba(0,0,0,.20);
-      color:var(--text);
-      outline:none;
+      border-radius:var(--radius);
+      padding:12px 12px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      font-weight:750;
     }
-    .actions{
-      display:flex; gap:12px; justify-content:flex-end; margin-top:12px; flex-wrap:wrap;
-    }
+    .hint small{ display:block; font-weight:650; color:var(--muted); margin-top:4px; }
+
+    .btnCol{ display:flex; gap:10px; pointer-events:auto; }
     .btn{
-      padding:12px 14px;
-      border-radius:16px;
-      border:1px solid var(--stroke);
-      background:rgba(0,0,0,.20);
+      min-width:92px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
       color:var(--text);
-      font-weight:900;
+      padding:12px 14px;
+      font-weight:850;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
       cursor:pointer;
-      display:inline-flex; align-items:center; gap:10px;
+      user-select:none;
     }
-    .btn.primary{
-      border-color:rgba(34,197,94,.35);
-      background:rgba(34,197,94,.18);
-      color:#dcfce7;
-    }
-    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.30); }
+    .btn.danger{ background:rgba(239,68,68,.18); border-color:rgba(239,68,68,.30); }
+    .btn.ghost{ background:rgba(255,255,255,.06); }
+    .btnMini{ min-width:64px; border-radius:14px; padding:10px 12px; font-weight:900; }
 
-    /* Panic / FX */
-    body.shake{ animation: shake .18s linear; }
-    @keyframes shake{
-      0%{ transform:translate(0,0) }
-      20%{ transform:translate(-2px,1px) }
-      40%{ transform:translate(2px,-1px) }
-      60%{ transform:translate(-2px,-1px) }
-      80%{ transform:translate(2px,1px) }
-      100%{ transform:translate(0,0) }
+    #reticle{
+      position:absolute; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:14px; height:14px;
+      border-radius:999px;
+      background:rgba(255,255,255,.55);
+      box-shadow:0 0 18px rgba(255,255,255,.12);
+      z-index:25;
+      pointer-events:none;
+      opacity:.85;
     }
-    #edge{
-      position:absolute; inset:0;
-      z-index:8;
+    #reticle.ok{ background:rgba(34,197,94,.65); box-shadow:0 0 22px rgba(34,197,94,.18); }
+    #reticle.miss{ background:rgba(239,68,68,.65); box-shadow:0 0 22px rgba(239,68,68,.18); }
+    #reticle.perfect{ background:rgba(245,158,11,.72); box-shadow:0 0 24px rgba(245,158,11,.22); }
+
+    #lockUI{
+      position:absolute; left:0; top:0;
+      width:10px; height:10px;
+      transform:translate(-9999px,-9999px);
+      z-index:26;
       pointer-events:none;
       opacity:0;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08), inset 0 0 80px rgba(59,130,246,.18);
-      transition: opacity .12s ease;
+      transition: opacity .08s linear;
     }
-    #edge.panic{ opacity:1; box-shadow: inset 0 0 0 2px rgba(255,255,255,.10), inset 0 0 110px rgba(251,113,133,.25); }
-    #edge.final{ opacity:1; box-shadow: inset 0 0 0 2px rgba(255,255,255,.10), inset 0 0 140px rgba(245,158,11,.25); }
+    #lockUI.on{ opacity:1; }
+    #lockSvg{ overflow:visible; }
+    .ringBack{ stroke:rgba(255,255,255,.20); stroke-width:5; fill:none; }
+    .ringProg{ stroke:rgba(34,197,94,.90); stroke-width:6; fill:none; stroke-linecap:round; }
+    .ringCharge{ stroke:rgba(59,130,246,.95); stroke-width:6; fill:none; stroke-linecap:round; opacity:.92; }
 
-    /* Panic error box */
-    #panicBox{
-      position:absolute; left:12px; right:12px; bottom:72px;
-      z-index:30;
-      display:none;
-      padding:12px;
-      border-radius:14px;
-      border:1px solid rgba(251,113,133,.35);
-      background:rgba(2,6,23,.85);
-      color:#fecdd3;
-      box-shadow:0 16px 50px rgba(0,0,0,.55);
-      font-size:12px;
-      white-space:pre-wrap;
+    #startOverlay{
+      position:absolute; inset:0; z-index:60;
+      background: radial-gradient(900px 500px at 50% 40%, rgba(59,130,246,.16), transparent 60%),
+                  rgba(2,6,23,.72);
+      display:flex; align-items:center; justify-content:center;
+      padding:18px;
     }
-    #panicBox.show{ display:block; }
+    .card{
+      width:min(520px, 100%);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      padding:16px;
+      backdrop-filter: blur(12px);
+    }
+    .h1{ font-size:18px; font-weight:950; margin:0 0 8px; }
+    .p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.45; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .seg{
+      flex:1;
+      min-width:140px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      padding:10px;
+    }
+    .seg label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:800; }
+    select,input{
+      width:100%;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(2,6,23,.55);
+      color:var(--text);
+      font-weight:800;
+      outline:none;
+    }
+    .startBtn{
+      width:100%;
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:1px solid rgba(34,197,94,.35);
+      background:rgba(34,197,94,.20);
+      color:var(--text);
+      font-weight:950;
+      cursor:pointer;
+    }
+    .startBtn:active{ transform: translateY(1px); }
+    .note{ margin-top:10px; font-size:12px; color:var(--muted); line-height:1.35; }
+
+    /* Debug tiny (ช่วยดูว่าโหลดไฟล์ใหม่จริงไหม) */
+    #buildTag{
+      position:absolute; right:12px; bottom:92px; z-index:40;
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(255,255,255,.10);
+      color:rgba(229,231,235,.82);
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:11px;
+      pointer-events:none;
+      backdrop-filter: blur(10px);
+    }
   </style>
 </head>
 
 <body>
-<div id="app">
-
-  <div id="sceneWrap">
-    <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true;">
-      <a-assets></a-assets>
-      <a-entity id="gj-camera" camera position="0 1.6 0"></a-entity>
+  <div class="wrap">
+    <a-scene
+      embedded
+      renderer="antialias: true; colorManagement: true;"
+      vr-mode-ui="enabled:false"
+      background="color: #020617"
+    >
+      <a-entity id="rig" position="0 1.6 0">
+        <a-camera id="camera"
+          wasd-controls-enabled="false"
+          look-controls="enabled:true; touchEnabled:true; mouseEnabled:true"
+          position="0 0 0"
+        ></a-camera>
+      </a-entity>
       <a-sky color="#020617"></a-sky>
-      <a-entity light="type: ambient; intensity: 0.8;"></a-entity>
-      <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
     </a-scene>
-  </div>
 
-  <div id="look-area"></div>
+    <div id="fg-layer" aria-label="targets layer"></div>
 
-  <div id="gj-layer"></div>
-  <div id="atk-ring"></div>
-  <div id="atk-laser"></div>
-
-  <div id="edge"></div>
-  <div id="cross"></div>
-
-  <div id="hud-top" class="panel">
-    <div>
-      <div class="k">mode</div>
-      <div class="pill"><span class="dot"></span><b id="modeName">GOODJUNK</b>&nbsp;<span class="muted">•</span>&nbsp;<span id="runName">PLAY</span></div>
-    </div>
-    <div>
-      <div class="k">score</div>
-      <div class="v" id="uiScore">0</div>
-    </div>
-    <div>
-      <div class="k">combo max</div>
-      <div class="v small" id="uiComboMax">0</div>
-    </div>
-    <div>
-      <div class="k">miss</div>
-      <div class="v small" id="uiMiss">0</div>
-    </div>
-  </div>
-
-  <div id="hud-quest" class="panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-      <div>
-        <div class="k">time</div>
-        <div class="v small"><span id="uiTime">--</span><span class="muted">s</span></div>
-      </div>
-      <div class="pill" id="uiDiffChallenge">Diff: NORMAL • Challenge: RUSH</div>
-    </div>
-
-    <div>
-      <div class="k">quest</div>
-      <div style="font-weight:900;font-size:16px; margin-top:4px;" id="qTitle">—</div>
-      <div class="bar" style="margin-top:8px;"><i id="qBar"></i></div>
-    </div>
-
-    <div id="line-mini">
-      <div><b id="miniText">Mini: —</b></div>
-      <div class="right" id="miniCount">mini ผ่าน 0 • เล่นอยู่ 0</div>
-    </div>
-
-    <div id="hud-fever">
-      <div>FEVER <span id="uiFever">0</span>%</div>
-      <div class="shield">🛡️ Shield <span id="uiShield">0</span></div>
-    </div>
-  </div>
-
-  <div id="footer">
-    <div id="badge"><span class="lamp"></span><span id="badgeText">boot: idle</span></div>
-    <button id="enterVR">🥽 Enter VR</button>
-  </div>
-
-  <div id="panicBox"></div>
-
-  <div id="startModal">
-    <div id="startCard" class="panel">
-      <h1>GoodJunk VR</h1>
-      <p>เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง ✅</p>
-
-      <div class="grid2">
-        <div>
-          <label>Difficulty</label>
-          <select id="selDiff">
-            <option value="easy">Easy</option>
-            <option value="normal" selected>Normal</option>
-            <option value="hard">Hard</option>
-          </select>
+    <div class="hud">
+      <div class="topbar">
+        <div class="pill stats">
+          <div class="stat"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
+          <div class="stat"><div class="k">COMBO</div><div class="v" id="hudCombo">0</div></div>
+          <div class="stat"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
+          <div class="stat"><div class="k">TIME</div><div class="v" id="hudTime">—</div></div>
+          <div class="stat"><div class="k">SHIELD</div><div class="v" id="hudShield">0</div></div>
+          <div class="stat"><div class="k">GRADE</div><div class="v" id="hudGrade">C</div></div>
         </div>
-        <div>
-          <label>Challenge</label>
-          <select id="selCh">
-            <option value="rush" selected>Rush</option>
-            <option value="boss">Boss</option>
-            <option value="survival">Survival</option>
-          </select>
+
+        <div class="questBox">
+          <div class="questTitle">🧩 <span>MINI QUEST</span> <small id="miniPct">0%</small></div>
+          <div class="qline" id="questGoal"><span class="muted">GOAL:</span> —</div>
+          <div class="qline" id="questMini"><span class="muted">MINI:</span> —</div>
         </div>
       </div>
 
-      <div class="actions">
-        <button class="btn" id="btnStart2D">▶ Start 2D</button>
-        <button class="btn primary" id="btnStartVR">🥽 Start VR</button>
+      <div class="coachBox">
+        <div class="coachText" id="coachText">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨
+          <div class="sub" id="coachSub">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
+        </div>
       </div>
 
-      <div class="muted" style="margin-top:10px;font-size:12px;">
-        * ถ้าค้าง ให้ลองเติม <b>?ts=1</b> ท้าย URL หรือ Clear Storage ของโดเมน
+      <div id="reticle"></div>
+
+      <div id="lockUI">
+        <svg id="lockSvg" width="88" height="88" viewBox="0 0 88 88">
+          <circle class="ringBack" cx="44" cy="44" r="30"></circle>
+          <circle class="ringProg" cx="44" cy="44" r="30"
+            stroke-dasharray="188.5" stroke-dashoffset="188.5"></circle>
+          <circle class="ringCharge" cx="44" cy="44" r="22"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2"></circle>
+        </svg>
+      </div>
+
+      <div class="controls">
+        <div class="hintCol">
+          <div class="hint">LOCK <small>จ้องจนวงฟ้าเต็ม → ยิงเป็นชุด</small></div>
+          <div class="hint">CHARGE <small>ค้างต่อ → ยิงแรง + ลาม (Chain)</small></div>
+        </div>
+
+        <div class="btnCol">
+          <button class="btn primary" id="btnGaze">Gaze: ON</button>
+          <button class="btn danger" id="btnStop">STOP</button>
+          <button class="btn ghost btnMini" id="btnVR">VR</button>
+        </div>
+      </div>
+
+      <div id="buildTag">groups-vr FIXALL • build: <span id="buildVal"></span></div>
+    </div>
+
+    <div id="startOverlay">
+      <div class="card">
+        <div class="h1">Food Groups VR — พร้อมลุย</div>
+        <div class="p">Play = สุ่ม/โหดได้. Research = FIX เพื่อคุมตัวแปร (เหมือนกันเป๊ะ)</div>
+
+        <div class="row">
+          <div class="seg">
+            <label>Difficulty</label>
+            <select id="selDiff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="seg">
+            <label>Run mode</label>
+            <select id="selMode">
+              <option value="play" selected>play</option>
+              <option value="research">research</option>
+            </select>
+          </div>
+
+          <div class="seg">
+            <label>Time (sec)</label>
+            <input id="inpTime" type="number" min="20" max="600" step="10" value="70" />
+          </div>
+        </div>
+
+        <button class="startBtn" id="btnStart">START</button>
+        <div class="note">
+          Quest (IIFE) โหลดก่อน Engine แล้ว ✅
+        </div>
       </div>
     </div>
   </div>
 
-</div>
+  <script>
+    (function(){
+      'use strict';
 
-<script type="module">
-  'use strict';
+      const $ = (id)=>document.getElementById(id);
 
-  const $ = (id)=>document.getElementById(id);
+      const layer = $('fg-layer');
+      const camEl = document.querySelector('#camera');
+      const sceneEl = document.querySelector('a-scene');
 
-  const elLayer = $('gj-layer');
-  const elCamEntity = $('gj-camera');
-  const elLookArea = $('look-area');
+      const startOverlay = $('startOverlay');
+      const selDiff = $('selDiff');
+      const selMode = $('selMode');
+      const inpTime = $('inpTime');
 
-  const elModal = $('startModal');
-  const btn2D = $('btnStart2D');
-  const btnVR = $('btnStartVR');
-  const btnEnterVR = $('enterVR');
+      const hudScore = $('hudScore');
+      const hudCombo = $('hudCombo');
+      const hudMiss  = $('hudMiss');
+      const hudTime  = $('hudTime');
+      const hudShield= $('hudShield');
+      const hudGrade = $('hudGrade');
 
-  const badge = $('badge');
-  const badgeText = $('badgeText');
-  const panicBox = $('panicBox');
+      const questGoal = $('questGoal');
+      const questMini = $('questMini');
+      const miniPct   = $('miniPct');
 
-  const uiScore = $('uiScore');
-  const uiComboMax = $('uiComboMax');
-  const uiMiss = $('uiMiss');
-  const uiTime = $('uiTime');
-  const uiFever = $('uiFever');
-  const uiShield = $('uiShield');
-  const uiDiffChallenge = $('uiDiffChallenge');
+      const coachText = $('coachText');
 
-  const qTitle = $('qTitle');
-  const qBar = $('qBar');
-  const miniText = $('miniText');
-  const miniCount = $('miniCount');
+      const btnStart = $('btnStart');
+      const btnGaze  = $('btnGaze');
+      const btnStop  = $('btnStop');
+      const btnVR    = $('btnVR');
 
-  const edge = $('edge');
+      const reticle  = $('reticle');
 
-  // ===== Debug badge =====
-  function setBadge(ok, text){
-    badge.classList.toggle('ok', !!ok);
-    badgeText.textContent = String(text||'');
-  }
+      const lockUI   = $('lockUI');
+      const ringProg = lockUI.querySelector('.ringProg');
+      const ringCharge = lockUI.querySelector('.ringCharge');
 
-  function showPanic(msg, err){
-    const e = err ? (err?.stack || err?.message || String(err)) : '';
-    panicBox.textContent = String(msg||'') + (e ? ('\n\n' + e) : '');
-    panicBox.classList.add('show');
-  }
-  function hidePanic(){ panicBox.classList.remove('show'); }
+      // Build tag (ช่วยเช็คว่าโหลดไฟล์ใหม่จริง)
+      $('buildVal').textContent = String(Date.now()).slice(-6);
 
-  // ===== Simple tick sound (WebAudio) =====
-  let AC=null, tickGain=null;
-  function ensureAudio(){
-    if (AC) return;
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    AC = new Ctx();
-    tickGain = AC.createGain();
-    tickGain.gain.value = 0.04;
-    tickGain.connect(AC.destination);
-  }
-  function beep(freq=880, ms=40){
-    try{
-      ensureAudio();
-      if (!AC) return;
-      const o = AC.createOscillator();
-      o.type = 'square';
-      o.frequency.value = freq;
-      o.connect(tickGain);
-      o.start();
-      setTimeout(()=>{ try{o.stop();}catch(_){ } }, ms);
-    }catch(_){}
-  }
+      const sp = new URLSearchParams(location.search);
+      const qDiff = (sp.get('diff')||'').toLowerCase();
+      const qMode = (sp.get('mode')||'').toLowerCase();
+      const qTime = parseInt(sp.get('time')||'',10);
 
-  // ===== Module loading (anti-hang) =====
-  let modSafe=null, modTouch=null;
-  let engine=null;
-  let touchCtl=null;
+      if (qDiff) selDiff.value = (['easy','normal','hard'].includes(qDiff) ? qDiff : 'normal');
+      if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
+      if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(qTime);
 
-  async function importFirst(paths){
-    let last=null;
-    for (const p of paths){
-      try{ return await import(p); }
-      catch(e){ last=e; }
-    }
-    throw last || new Error('import failed');
-  }
+      const C1 = 188.5;
+      const C2 = 138.2;
+      function setRing(circle, prog, C){
+        const p = Math.max(0, Math.min(1, prog||0));
+        circle.style.strokeDasharray = String(C);
+        circle.style.strokeDashoffset = String(C * (1 - p));
+      }
 
-  async function ensureModules(){
-    if (modSafe && modTouch) return { modSafe, modTouch };
-
-    hidePanic();
-    setBadge(false, 'boot: loading modules…');
-
-    const watchdog = setTimeout(()=>{
-      showPanic('โหลดโมดูลนานผิดปกติ — อาจ cache/404 (ลองเติม ?ts=1 หรือ Clear storage)');
-      setBadge(false, 'boot: stuck (cache/404?)');
-    }, 6000);
-
-    try{
-      // ✅ โครงสร้างของคุณ: /herohealth/goodjunk-vr.html + /herohealth/vr-goodjunk/*.js
-      const safePaths  = ['./vr-goodjunk/goodjunk.safe.js', './goodjunk.safe.js'];
-      const touchPaths = ['./vr-goodjunk/touch-look-goodjunk.js', './touch-look-goodjunk.js'];
-
-      modSafe  = await importFirst(safePaths);
-      modTouch = await importFirst(touchPaths);
-
-      clearTimeout(watchdog);
-      setBadge(true, 'boot: modules ready');
-
-      // attach touch look (drag/gyro) — pass look-area so targets still clickable
-      try{ touchCtl?.destroy?.(); }catch(_){}
-      touchCtl = modTouch.attachTouchLook(elCamEntity, { areaEl: elLookArea, sensitivity: 0.26 });
-
-      startParallaxLoop();
-
-      return { modSafe, modTouch };
-    }catch(err){
-      clearTimeout(watchdog);
-      showPanic('โหลดโมดูลไม่สำเร็จ (เช็ค path/ชื่อไฟล์ใน repo)', err);
-      setBadge(false, 'boot: import failed');
-      throw err;
-    }
-  }
-
-  // ===== VR-like parallax: targets move when you look =====
-  let rafPar=0;
-  function startParallaxLoop(){
-    cancelAnimationFrame(rafPar);
-    const pxPerRadX = ()=> innerWidth * 0.38;
-    const pxPerRadY = ()=> innerHeight * 0.22;
-
-    function tick(){
-      try{
-        const r = elCamEntity?.object3D?.rotation;
-        if (r){
-          const ox = -r.y * pxPerRadX();
-          const oy = -r.x * pxPerRadY();
-          elLayer.style.transform = `translate3d(${ox.toFixed(1)}px, ${oy.toFixed(1)}px, 0)`;
+      function setReticle(state){
+        reticle.classList.remove('ok','miss','perfect');
+        if (state) reticle.classList.add(state);
+        if (state){
+          setTimeout(()=>reticle.classList.remove('ok','miss','perfect'), 160);
         }
-        // aimpoint for safe.js hazards (crosshair at 62%)
-        window.__GJ_AIM_POINT__ = { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
-      }catch(_){}
-      rafPar = requestAnimationFrame(tick);
-    }
-    rafPar = requestAnimationFrame(tick);
-  }
+      }
 
-  // ===== HUD updates from game events =====
-  window.addEventListener('hha:score', (e)=>{
-    const d = e.detail||{};
-    uiScore.textContent = String(d.score ?? 0);
-    uiComboMax.textContent = String(d.comboMax ?? 0);
-    uiMiss.textContent = String(d.misses ?? 0);
-  });
-
-  window.addEventListener('hha:time', (e)=>{
-    const d = e.detail||{};
-    uiTime.textContent = String(d.sec ?? '--');
-  });
-
-  window.addEventListener('hha:fever', (e)=>{
-    const d = e.detail||{};
-    uiFever.textContent = String(Math.round(d.fever ?? 0));
-    uiShield.textContent = String(d.shield ?? 0);
-  });
-
-  // (ถ้าคุณมี quest-director ยิง event นี้อยู่)
-  window.addEventListener('quest:update', (e)=>{
-    const d = e.detail||{};
-    qTitle.textContent = d.title || '—';
-    const pct = Math.max(0, Math.min(100, Number(d.progressPct||0)));
-    qBar.style.width = pct.toFixed(0)+'%';
-    if (d.miniText) miniText.textContent = d.miniText;
-    if (typeof d.miniCleared === 'number' || typeof d.miniLeft === 'number'){
-      miniCount.textContent = `mini ผ่าน ${d.miniCleared||0} • เล่นอยู่ ${d.miniLeft||0}`;
-    }
-  });
-
-  // ===== FX bridge =====
-  function kick(intensity=1){
-    document.body.classList.remove('shake');
-    void document.body.offsetWidth;
-    document.body.classList.add('shake');
-  }
-  window.addEventListener('hha:fx', (e)=>{
-    const d = e.detail||{};
-    if (d.type === 'kick') kick(d.intensity||1);
-    if (d.type === 'chroma'){
-      edge.classList.add('panic');
-      setTimeout(()=> edge.classList.remove('panic'), Math.max(90, d.ms||150));
-    }
-    if (d.type === 'hero'){
-      edge.classList.add('final');
-      setTimeout(()=> edge.classList.remove('final'), Math.max(120, d.ms||220));
-    }
-  });
-
-  window.addEventListener('hha:tick', (e)=>{
-    const d = e.detail||{};
-    const k = String(d.kind||'tick');
-    const intensity = Number(d.intensity||1);
-    // โทนต่างกันนิด ๆ
-    if (k.includes('laser')) beep(980 + intensity*80, 26);
-    else if (k.includes('ring')) beep(860 + intensity*60, 30);
-    else if (k.includes('final')) beep(1200, 24);
-    else beep(820, 28);
-
-    // micro shake ตอนใกล้หมด
-    if (intensity >= 1.6) kick(1.0);
-  });
-
-  window.addEventListener('hha:panic', (e)=>{
-    const d = e.detail||{};
-    const lv = Number(d.level||0);
-    if (lv > 0.05) edge.classList.add('panic');
-    else edge.classList.remove('panic');
-  });
-
-  window.addEventListener('hha:finalPulse', ()=>{
-    edge.classList.add('final');
-    setTimeout(()=> edge.classList.remove('final'), 260);
-  });
-
-  window.addEventListener('hha:bossAtk', (e)=>{
-    const d = e.detail||{};
-    // ให้ feedback ว่า “ลูปยังทำงานจริง”
-    setBadge(true, `boss atk: ${d.name||'?'}`);
-    setTimeout(()=> setBadge(true, 'running…'), 520);
-  });
-
-  window.addEventListener('hha:storm', (e)=>{
-    const d = e.detail||{};
-    if (d.active){
-      setBadge(true, `STORM x${(d.mul||1).toFixed(2)}`);
-      edge.classList.add('panic');
-    } else {
-      setBadge(true, 'running…');
-      edge.classList.remove('panic');
-    }
-  });
-
-  // ===== Start =====
-  function getSelected(){
-    const diff = $('selDiff').value;
-    const ch = $('selCh').value;
-    return { diff, challenge: ch };
-  }
-
-  function calcSafeMargins(){
-    // ใช้ HUD จริงคำนวณ safe zone (กันเป้าทับ HUD)
-    const top = Math.ceil($('hud-quest').getBoundingClientRect().bottom + 14);
-    const bottom = 92; // เผื่อปุ่ม/ขอบล่าง
-    const left = 14;
-    const right = 14;
-    return { top, bottom, left, right };
-  }
-
-  async function startGame(runMode='play'){
-    btn2D.disabled = true; btnVR.disabled = true;
-    try{
-      ensureAudio(); // unlock audio after user gesture
-      await ensureModules();
-
-      const { diff, challenge } = getSelected();
-      uiDiffChallenge.textContent = `Diff: ${diff.toUpperCase()} • Challenge: ${challenge.toUpperCase()}`;
-
-      // stop old
-      try{ engine?.stop?.(); }catch(_){}
-      engine = null;
-
-      elModal.style.display = 'none';
-      setBadge(true, 'starting…');
-
-      // ✅ เรียก boot ของ goodjunk.safe.js
-      engine = modSafe.boot({
-        diff,
-        challenge,
-        run: runMode,
-        time: 60,
-        layerEl: elLayer,
-
-        // ✅ ส่ง safeMargins ให้ safe.js (ต้องใส่ patch ด้านล่าง)
-        safeMargins: calcSafeMargins()
+      // ===== HUD listeners =====
+      window.addEventListener('hha:score', (e)=>{
+        const d = (e && e.detail) || {};
+        if (typeof d.score === 'number') hudScore.textContent = d.score|0;
+        if (typeof d.combo === 'number') hudCombo.textContent = d.combo|0;
+        if (typeof d.misses === 'number') hudMiss.textContent = d.misses|0;
+        if (typeof d.shield === 'number') hudShield.textContent = d.shield|0;
       });
 
-      setBadge(true, 'running…');
-    }catch(err){
-      showPanic('Start ไม่สำเร็จ', err);
-      setBadge(false, 'start failed');
-      elModal.style.display = 'flex';
-    }finally{
-      btn2D.disabled = false; btnVR.disabled = false;
-    }
-  }
+      window.addEventListener('hha:time', (e)=>{
+        const d = (e && e.detail) || {};
+        if (typeof d.left === 'number') hudTime.textContent = (d.left|0);
+      });
 
-  btn2D.addEventListener('click', ()=> startGame('play'));
-  btnVR.addEventListener('click', ()=> startGame('play'));
+      window.addEventListener('hha:rank', (e)=>{
+        const d = (e && e.detail) || {};
+        if (d.grade) hudGrade.textContent = String(d.grade);
+      });
 
-  // Enter VR (A-Frame)
-  btnEnterVR.addEventListener('click', async ()=>{
-    try{
-      ensureAudio();
-      const scene = document.querySelector('a-scene');
-      if (scene?.enterVR) scene.enterVR();
-    }catch(e){
-      showPanic('Enter VR ไม่สำเร็จ', e);
-    }
-  });
+      // ✅ QUEST UPDATE (ต้องมาจาก GameEngine.dispatchEvent('quest:update',...))
+      let __gotQuestUpdate = false;
+      window.addEventListener('quest:update', (e)=>{
+        __gotQuestUpdate = true;
+        const d = (e && e.detail) || {};
+        const g = d.goal;
+        const m = d.mini;
 
-  // initial
-  setBadge(true, 'boot: idle');
-</script>
+        if (g && g.label){
+          questGoal.innerHTML = `<span class="muted">GOAL:</span> ${g.label} (${g.prog||0}/${g.target||0})`;
+        } else {
+          questGoal.innerHTML = `<span class="muted">GOAL:</span> —`;
+        }
 
+        if (m && m.label){
+          // ถ้ามี tLeft ให้โชว์แบบ “(x/y) • เหลือ z วิ”
+          const extra = (typeof m.tLeft === 'number') ? ` • เหลือ ${m.tLeft|0} วิ` : '';
+          questMini.innerHTML = `<span class="muted">MINI:</span> ${m.label} (${m.prog||0}/${m.target||0})${extra}`;
+          const pct = (m.target>0) ? Math.round((m.prog/m.target)*100) : 0;
+          miniPct.textContent = pct + '%';
+        } else {
+          questMini.innerHTML = `<span class="muted">MINI:</span> —`;
+          miniPct.textContent = '0%';
+        }
+      });
+
+      // ✅ WATCHDOG: ถ้า quest:update ไม่มา -> เตือนบน HUD (ชี้ชัดว่า Engine ยังไม่ dispatch)
+      setTimeout(()=>{
+        if (!__gotQuestUpdate){
+          questGoal.innerHTML = `<span class="muted">GOAL:</span> ⚠️ NO quest:update event`;
+          questMini.innerHTML = `<span class="muted">MINI:</span> (ต้อง patch GameEngine ให้ dispatch quest:update)`;
+          miniPct.textContent = '0%';
+        }
+      }, 1200);
+
+      window.addEventListener('hha:coach', (e)=>{
+        const d = (e && e.detail) || {};
+        if (d.text) coachText.textContent = String(d.text);
+      });
+
+      // optional reticle feedback from engine
+      window.addEventListener('groups:reticle', (e)=>{
+        const d = (e && e.detail) || {};
+        if (d.state === 'ok') setReticle('ok');
+        else if (d.state === 'miss') setReticle('miss');
+        else if (d.state === 'perfect') setReticle('perfect');
+      });
+
+      window.addEventListener('groups:lock', (e)=>{
+        const d = (e && e.detail) || {};
+        if (!d.on){
+          lockUI.classList.remove('on');
+          lockUI.style.transform = 'translate(-9999px,-9999px)';
+          return;
+        }
+        lockUI.classList.add('on');
+
+        const x = (typeof d.x === 'number') ? d.x : (innerWidth/2);
+        const y = (typeof d.y === 'number') ? d.y : (innerHeight/2);
+
+        lockUI.style.transform = `translate(${Math.round(x-44)}px,${Math.round(y-44)}px)`;
+        setRing(ringProg, d.prog||0, C1);
+        setRing(ringCharge, d.charge||0, C2);
+      });
+
+      function safeEngine(){
+        return (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
+      }
+
+      // Fever hook (ถ้ามี library จะสร้างให้เอง ไม่มีก็ไม่พัง)
+      function ensureFeverUI(){
+        try{
+          const Root = window;
+          const FeverUI = (Root.GAME_MODULES && Root.GAME_MODULES.FeverUI) || Root.FeverUI;
+          if (FeverUI && FeverUI.ensureFeverGauge) FeverUI.ensureFeverGauge();
+        }catch{}
+      }
+
+      let gazeOn = true;
+
+      btnGaze.addEventListener('click', ()=>{
+        const eng = safeEngine();
+        gazeOn = !gazeOn;
+        btnGaze.textContent = 'Gaze: ' + (gazeOn ? 'ON' : 'OFF');
+        eng && eng.setGaze && eng.setGaze(gazeOn);
+      });
+
+      btnStop.addEventListener('click', ()=>{
+        const eng = safeEngine();
+        eng && eng.stop && eng.stop('stop_button');
+      });
+
+      btnVR.addEventListener('click', async ()=>{
+        try{
+          if (sceneEl && sceneEl.enterVR) sceneEl.enterVR();
+        }catch{}
+      });
+
+      btnStart.addEventListener('click', ()=>{
+        const eng = safeEngine();
+        if (!eng){
+          alert('GameEngine ยังไม่พร้อม (เช็ค path ./vr-groups/GameEngine.js)');
+          return;
+        }
+
+        startOverlay.style.display = 'none';
+
+        // fever UI (ถ้ามี)
+        ensureFeverUI();
+
+        // bind layer/camera
+        if (eng.setLayerEl) eng.setLayerEl(layer);
+        if (eng.setCameraEl) eng.setCameraEl(camEl);
+
+        const diff = (selDiff.value||'normal').toLowerCase();
+        const mode = (selMode.value||'play').toLowerCase();
+        const tsec = Math.max(20, Math.min(600, parseInt(inpTime.value||'70',10) || 70));
+
+        if (eng.setTimeLeft) eng.setTimeLeft(tsec);
+        if (eng.setGaze) eng.setGaze(true);
+        gazeOn = true;
+        btnGaze.textContent = 'Gaze: ON';
+
+        eng.start(diff, {
+          layerEl: layer,
+          runMode: mode
+        });
+      });
+
+      if (sp.get('autostart') === '1'){
+        setTimeout(()=>btnStart.click(), 120);
+      }
+    })();
+  </script>
 </body>
 </html>
