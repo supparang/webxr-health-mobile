@@ -1,11 +1,12 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — PRODUCTION HYBRID ENGINE (PATCH 1-3: Emoji + Decoy(Invert) + Rage(Double-Feint))
-// ✅ emoji textContent fix
-// ✅ Decoy = Invert (real logic)
-// ✅ Rage = Double-Feint (Feint#2 closer center + bigger + faster drift)
-// ✅ afterimage x2 (scale up on fade) via .fg-afterimage CSS
-// ✅ render uses CSS vars --x/--y/--s (so CSS spawn/out/hit/ragePulse still works)
-// ✅ FIX-ALL RNG: play=random, research=fixed seed (same across easy/normal/hard)
+// Food Groups VR — PRODUCTION HYBRID ENGINE (FIX-ALL)
+// ✅ Quest update ALWAYS emits (even when quest missing → questOk:false)
+// ✅ Fever emits hha:fever for UI compatibility
+// ✅ Research mode = deterministic (seeded Math.random while running) + restore on stop
+// ✅ Emoji textContent fix (kept)
+// ✅ Decoy = Invert (kept)
+// ✅ Rage = Double-Feint (kept)
+// ✅ render uses CSS vars --x/--y/--s (kept)
 
 (function () {
   'use strict';
@@ -23,75 +24,8 @@
     ROOT.FeverUI ||
     { ensureFeverBar() {}, setFever() {}, setFeverActive() {}, setShield() {} };
 
-  const QuestFactory =
-    (ROOT.GroupsQuest && ROOT.GroupsQuest.createFoodGroupsQuest)
-      ? ROOT.GroupsQuest
-      : null;
-
   function now() { return (performance && performance.now) ? performance.now() : Date.now(); }
-
-  // ---------- RNG (seeded for research) ----------
-  let rng = Math.random;
-
-  function rand() {
-    try { return rng(); } catch { return Math.random(); }
-  }
-
-  function queryParam(k) {
-    try { return new URLSearchParams(location.search).get(k); } catch { return null; }
-  }
-
-  // FNV-1a 32-bit hash (string -> uint32)
-  function hash32(str) {
-    const s = String(str || '');
-    let h = 0x811c9dc5;
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 0x01000193);
-    }
-    return (h >>> 0);
-  }
-
-  // Mulberry32 PRNG (seed -> function() float 0..1)
-  function makeRng(seed) {
-    let a = (seed >>> 0) || 0x12345678;
-    return function () {
-      a |= 0;
-      a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function setRngForMode(runMode, diff, opts) {
-    if (String(runMode || '').toLowerCase() !== 'research') {
-      rng = Math.random;
-      return { mode: 'play', seed: null };
-    }
-
-    // ✅ FIX-ALL: research ใช้ seed เดียวกันทุก diff
-    let seedOverride = NaN;
-
-    try {
-      if (opts && typeof opts.researchSeed !== 'undefined') seedOverride = Number(opts.researchSeed);
-    } catch {}
-
-    const qs = queryParam('seed');
-    if (!Number.isFinite(seedOverride) && qs != null && qs !== '') {
-      const n = Number(qs);
-      if (Number.isFinite(n)) seedOverride = n;
-    }
-
-    const seed = Number.isFinite(seedOverride)
-      ? (seedOverride >>> 0)
-      : hash32('FoodGroupsVR|RESEARCH|FIXALL'); // ✅ ไม่ผูก diff แล้ว
-
-    rng = makeRng(seed);
-    return { mode: 'research', seed };
-  }
-
-  function randInt(min, max) { return Math.floor(rand() * (max - min + 1)) + min; }
+  function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
   function dispatch(name, detail) { try { window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch {} }
   function coach(text) { if (text) dispatch('hha:coach', { text: String(text) }); }
@@ -99,7 +33,7 @@
   // ---------- logging ----------
   let sessionId = '';
   function isoNow(){ try { return new Date().toISOString(); } catch { return ''; } }
-  function uid(){ return 'fg_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16); } // ok: id only
+  function uid(){ return 'fg_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16); }
   function logSessionStart(meta){
     if (!sessionId) sessionId = uid();
     dispatch('hha:log_session', Object.assign({
@@ -154,6 +88,50 @@
     const x = String(g || '').toUpperCase().trim();
     if (['SSS','SS','S','A','B','C'].includes(x)) return x;
     return 'C';
+  }
+
+  // =========================
+  //  RESEARCH FIX (seeded random)
+  // =========================
+  const _nativeRandom = Math.random;
+  let _seededOn = false;
+
+  function xmur3(str){
+    // deterministic string -> 32-bit seed
+    let h = 1779033703 ^ (str.length || 0);
+    for (let i=0;i<str.length;i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      h ^= (h >>> 16);
+      return h >>> 0;
+    };
+  }
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function enableSeededRandom(seedStr){
+    try{
+      const seedFn = xmur3(String(seedStr||'seed'));
+      const seed = seedFn();
+      Math.random = mulberry32(seed);
+      _seededOn = true;
+      logEvent({ kind:'seed_on', seed: String(seedStr||''), seed32: seed });
+    }catch{}
+  }
+  function restoreRandom(){
+    if (_seededOn){
+      try{ Math.random = _nativeRandom; }catch{}
+      _seededOn = false;
+    }
   }
 
   // ---------- state ----------
@@ -256,7 +234,7 @@
     targetSizeMinMul: 0.78,
     targetSizeMaxMul: 1.18,
 
-    // emoji sets
+    // emoji sets (fallback)
     emojisGood: ['🍗','🥩','🐟','🍳','🥛','🧀','🥦','🥕','🍎','🍌','🍚','🍞','🥔','🍊'],
     emojisJunk: ['🧋','🍟','🍩','🍔','🍕'],
 
@@ -471,16 +449,25 @@
     FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
     FeverUI.setFever && FeverUI.setFever(fever);
     dispatch('hha:score', { score, combo, misses, shield, fever });
+
+    // ✅ emit for UI compatibility
+    dispatch('hha:fever', { value: fever, on: !!feverOn, endsAt: feverEndsAt||0 });
   }
   function setShieldValue(v) {
     shield = Math.max(0, Number(v) || 0);
     FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
     FeverUI.setShield && FeverUI.setShield(shield);
     dispatch('hha:score', { score, combo, misses, shield, fever });
+
+    // keep fever channel updated too
+    dispatch('hha:fever', { value: fever, on: !!feverOn, endsAt: feverEndsAt||0, shield });
   }
   function setFeverActive(on) {
     feverOn = !!on;
     FeverUI.setFeverActive && FeverUI.setFeverActive(feverOn);
+
+    // ✅ emit for UI compatibility
+    dispatch('hha:fever', { value: fever, on: !!feverOn, endsAt: feverEndsAt||0, shield });
   }
 
   function maybeEnterFever() {
@@ -523,8 +510,26 @@
   }
 
   // ---------- quest ----------
+  function resolveQuestFactory(){
+    // ✅ resolve fresh each start (in case script loads later)
+    return (window.GroupsQuest && typeof window.GroupsQuest.createFoodGroupsQuest === 'function')
+      ? window.GroupsQuest
+      : null;
+  }
+
   function emitQuestUpdate() {
-    if (!quest) return;
+    // ✅ Always emit so HUD won't look "stuck"
+    const questOk = !!quest;
+
+    if (!quest){
+      dispatch('quest:update', {
+        questOk:false,
+        goal:null, mini:null,
+        goalsAll:[], minisAll:[],
+        groupLabel:'', groupKey:0
+      });
+      return;
+    }
 
     const goalsAll = quest.goals || [];
     const minisAll = quest.minis || [];
@@ -535,8 +540,9 @@
     const g = quest.getActiveGroup ? quest.getActiveGroup() : null;
 
     dispatch('quest:update', {
+      questOk,
       goal: goal ? { label: goal.label, prog: goal.prog, target: goal.target } : null,
-      mini: mini ? { label: mini.label, prog: mini.prog, target: mini.target } : null,
+      mini: mini ? { label: mini.label, prog: mini.prog, target: mini.target, tLeft: mini.tLeft, windowSec: mini.windowSec } : null,
       goalsAll, minisAll,
       groupLabel: g ? g.label : '',
       groupKey: g ? (g.key || 0) : 0
@@ -648,7 +654,7 @@
     const elapsed = Math.floor((now() - startedAt) / 1000);
     if (elapsed < 12) return;
 
-    if (rand() > CFG.bossWaveChancePerSec) return;
+    if (Math.random() > CFG.bossWaveChancePerSec) return;
 
     bossWaveEndsAt = now() + (CFG.bossWaveSec * 1000);
     dispatch('groups:danger', { on:true });
@@ -666,7 +672,7 @@
 
     const elapsed = Math.floor((now() - startedAt) / 1000);
     if (elapsed < CFG.rushMinStartAfterSec) return;
-    if (rand() > CFG.rushChancePerSec) return;
+    if (Math.random() > CFG.rushChancePerSec) return;
 
     rushOn = true;
     const dur = randInt(CFG.rushMinSec, CFG.rushMaxSec);
@@ -1000,9 +1006,9 @@
   }
 
   function spawnWorldAngles(){
-    const y = camYaw + (rand() * 2 - 1) * (CFG.worldYawRangeRad || 0.6);
-    const p = camPitch + (rand() * 2 - 1) * (CFG.worldPitchRangeRad || 0.34);
-    const depth = (CFG.parallaxDepthMin + rand() * (CFG.parallaxDepthMax - CFG.parallaxDepthMin));
+    const y = camYaw + (Math.random() * 2 - 1) * (CFG.worldYawRangeRad || 0.6);
+    const p = camPitch + (Math.random() * 2 - 1) * (CFG.worldPitchRangeRad || 0.34);
+    const depth = (CFG.parallaxDepthMin + Math.random() * (CFG.parallaxDepthMax - CFG.parallaxDepthMin));
     return { yaw: y, pitch: p, depth };
   }
 
@@ -1015,8 +1021,8 @@
 
     if (step === 1){
       t.scaleMul = 1.10;
-      t.vYaw   = (rand()<0.5?-1:1) * (CFG.feint1Kick||0.0022);
-      t.vPitch = (rand()<0.5?-1:1) * (CFG.feint1Kick||0.0022) * 0.70;
+      t.vYaw   = (Math.random()<0.5?-1:1) * (CFG.feint1Kick||0.0022);
+      t.vPitch = (Math.random()<0.5?-1:1) * (CFG.feint1Kick||0.0022) * 0.70;
 
       tone(420,0.03,0.04,'sine');
       haptic([8,12]);
@@ -1026,11 +1032,11 @@
       t.scaleMul = 1.22;
 
       const bias = clamp(Number(CFG.feint2CenterBias||0.10), 0.06, 0.20);
-      t.yaw   = camYaw   + (rand()*2-1) * (CFG.worldYawRangeRad * bias);
-      t.pitch = camPitch + (rand()*2-1) * (CFG.worldPitchRangeRad * bias);
+      t.yaw   = camYaw   + (Math.random()*2-1) * (CFG.worldYawRangeRad * bias);
+      t.pitch = camPitch + (Math.random()*2-1) * (CFG.worldPitchRangeRad * bias);
 
-      t.vYaw   = (rand()<0.5?-1:1) * (CFG.feint2Kick||0.0046);
-      t.vPitch = (rand()<0.5?-1:1) * (CFG.feint2Kick||0.0046) * 0.75;
+      t.vYaw   = (Math.random()<0.5?-1:1) * (CFG.feint2Kick||0.0046);
+      t.vPitch = (Math.random()<0.5?-1:1) * (CFG.feint2Kick||0.0046) * 0.75;
 
       tone(520,0.04,0.05,'square');
       haptic([12,10,18]);
@@ -1044,7 +1050,7 @@
 
     const g = (quest && quest.getActiveGroup) ? quest.getActiveGroup() : null;
 
-    const good = rand() < 0.75;
+    const good = Math.random() < 0.75;
     let emoji = '';
     let isBoss = false;
 
@@ -1053,13 +1059,12 @@
       else emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
     } else {
       const bossChance = bossWaveOn() ? Math.min(0.22, CFG.bossJunkChance * 2.4) : CFG.bossJunkChance;
-      isBoss = (rand() < bossChance);
+      isBoss = (Math.random() < bossChance);
       if (isBoss) emoji = CFG.bossJunkEmoji[randInt(0, CFG.bossJunkEmoji.length - 1)];
       else emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
     }
 
-    // ===== Decoy = Invert (only good, play mode) =====
-    const isDecoy = !!(CFG.decoyEnabled && good && (runMode === 'play') && (rand() < (CFG.decoyChance || 0)));
+    const isDecoy = !!(CFG.decoyEnabled && good && (runMode === 'play') && (Math.random() < (CFG.decoyChance || 0)));
 
     const el = document.createElement('div');
     el.className =
@@ -1070,7 +1075,7 @@
 
     el.setAttribute('data-emoji', emoji);
 
-    // ✅ CRITICAL FIX: emoji ต้องใส่ textContent
+    // ✅ emoji textContent
     el.textContent = emoji;
 
     el.classList.add('spawn');
@@ -1100,10 +1105,9 @@
       sx: window.innerWidth/2,
       sy: window.innerHeight*0.52,
 
-      swaySeed: rand()*9999,
+      swaySeed: Math.random()*9999,
       hitCdUntil: 0,
 
-      // rage / feint dynamics
       rage: false,
       feintStep: 0,
       vYaw: 0,
@@ -1111,9 +1115,8 @@
       scaleMul: 1.0
     };
 
-    // boss rage
     if (t.boss && CFG.rageEnabled){
-      t.rage = (rand() < (CFG.rageChanceBoss || 0.55));
+      t.rage = (Math.random() < (CFG.rageChanceBoss || 0.55));
       if (t.rage){
         try { el.classList.add('rage'); } catch {}
       }
@@ -1287,7 +1290,6 @@
         skill = clampSkill(skill + (isPerfect ? CFG.skillGainPerfect : CFG.skillGainGood));
       }
 
-      // CHAIN trigger
       if (CFG.chainEnabled){
         const shots =
           (meta && meta.charge) ? (CFG.chainShotsCharge|0) :
@@ -1611,7 +1613,7 @@
 
     updateLockEvent(t, prog, charge);
 
-    if (charge > 0.86 && rand() < 0.14) tone(720,0.02,0.02,'square');
+    if (charge > 0.86 && Math.random() < 0.14) tone(720,0.02,0.02,'square');
   }
 
   function renderLoop(){
@@ -1738,6 +1740,9 @@
       miniCleared: minisCleared,
       grade: finalGrade
     });
+
+    // ✅ restore random always
+    restoreRandom();
   }
 
   // ---------- public api ----------
@@ -1769,9 +1774,6 @@
 
       if (opts && opts.config) Object.assign(CFG, opts.config);
 
-      // ✅ RNG set: play=random, research=fixed seed (same across diff)
-      const rngInfo = setRngForMode(runMode, diff, opts);
-
       applyDifficulty(diff);
 
       CFG._baseSpawnInterval = CFG.spawnInterval;
@@ -1783,7 +1785,10 @@
       FeverUI.setFever && FeverUI.setFever(0);
       FeverUI.setFeverActive && FeverUI.setFeverActive(false);
       FeverUI.setShield && FeverUI.setShield(0);
+      dispatch('hha:fever', { value: 0, on:false, endsAt: 0, shield: 0 });
 
+      // ✅ Quest resolve fresh
+      const QuestFactory = resolveQuestFactory();
       if (QuestFactory && typeof QuestFactory.createFoodGroupsQuest === 'function') {
         quest = QuestFactory.createFoodGroupsQuest(diff);
       } else {
@@ -1791,23 +1796,35 @@
         console.warn('[FoodGroupsVR] quest-manager not found');
       }
 
+      // ✅ Research = FIX (seeded) + disable variance features
       if (runMode === 'research') {
         sizeMul = 1.0;
         CFG.adaptiveEnabledPlay = false;
         CFG.rushEnabled = false;
         CFG.bossWaveEnabled = false;
-        CFG.decoyEnabled = false;   // research = คุมตัวแปร
+        CFG.decoyEnabled = false;
         CFG.rageEnabled = false;
+
+        // seed priority: opts.seed > url ?seed= > fallback fixed by diff+time
+        const sp = new URLSearchParams(location.search);
+        const seedStr =
+          (opts && opts.seed) ? String(opts.seed) :
+          (sp.get('seed') ? String(sp.get('seed')) :
+           ('research|' + String(diff) + '|' + String(remainingSec||0)));
+        enableSeededRandom(seedStr);
+
       } else {
         CFG.adaptiveEnabledPlay = true;
         CFG.rushEnabled = true;
         CFG.bossWaveEnabled = true;
         CFG.decoyEnabled = true;
         CFG.rageEnabled = true;
+
+        restoreRandom();
       }
 
       const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
-      coach(g ? `เริ่มเลย! หมู่ปัจจุบัน: ${g.label} ✨` : 'เริ่มเลย! แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨');
+      coach(g ? `เริ่มเลย! หมู่ปัจจุบัน: ${g.label} ✨` : (quest ? 'เริ่มเลย! แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨' : '⚠️ QUEST ไม่พร้อม (เช็คไฟล์ groups-quests.js)'));
 
       logSessionStart({
         diff,
@@ -1815,9 +1832,7 @@
         durationSec: remainingSec || 0,
         ua: navigator.userAgent || '',
         screenW: window.innerWidth || 0,
-        screenH: window.innerHeight || 0,
-        rngMode: rngInfo.mode,
-        rngSeed: rngInfo.seed
+        screenH: window.innerHeight || 0
       });
 
       emitQuestUpdate();
@@ -1835,7 +1850,7 @@
       setTimeout(() => createTarget(), 420);
 
       dispatch('hha:score', { score, combo, misses, shield, fever });
-      logEvent({ kind:'start', diff, runMode, rngMode: rngInfo.mode, rngSeed: rngInfo.seed });
+      logEvent({ kind:'start', diff, runMode });
     },
 
     stop(reason) {
