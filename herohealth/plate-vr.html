@@ -2,8 +2,7 @@
 HeroHealth — Balanced Plate VR (PRODUCTION)
 ✅ Layout ใหม่: Top HUD แถวเดียว + Quest/Mini bottom bar (compact/expand)
 ✅ ปุ่มขวาล่าง (VR / Pause / Restart)
-✅ Research clean mode (ซ่อน Tip + คุมเข้ม UI)
-✅ รองรับ plate.safe.js (ALL-IN / ULTIMATE)
+✅ Research Protocol lock รองรับใน plate.safe.js (run=research&protocol=1&pid=...)
 -->
 
 <!doctype html>
@@ -15,10 +14,8 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Input + Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
@@ -37,18 +34,13 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
     html,body{ height:100%; background:var(--bg); color:var(--text); margin:0; }
     *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
 
-    /* A-Frame scene behind UI */
     a-scene{ position:fixed; inset:0; z-index:1; }
 
-    /* HUD zones for safezone calc */
     #hudTop, #hudLeft, #hudRight, #hudBottom{
       position:fixed; z-index:900; pointer-events:none;
     }
 
-    /* --- TOP HUD (single bar) --- */
-    #hudTop{
-      left:12px; right:12px; top:12px;
-    }
+    #hudTop{ left:12px; right:12px; top:12px; }
     .card{
       background:var(--panel);
       border:1px solid var(--stroke);
@@ -58,13 +50,9 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
       padding:10px 12px;
     }
     .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-
     .pill{
-      display:inline-flex;
-      gap:8px;
-      align-items:center;
-      padding:8px 12px;
-      border-radius:999px;
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 12px; border-radius:999px;
       background:rgba(2,6,23,.55);
       border:1px solid rgba(148,163,184,.18);
       font-weight:900;
@@ -75,15 +63,9 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
     .pill.big{ padding:10px 14px; }
     .pill.right{ margin-left:auto; }
 
-    /* Fever bar inside pill */
-    .feverWrap{
-      display:inline-flex; align-items:center; gap:8px;
-      min-width:160px;
-    }
+    .feverWrap{ display:inline-flex; align-items:center; gap:8px; min-width:160px; }
     .feverOuter{
-      width:90px; height:10px;
-      border-radius:999px;
-      overflow:hidden;
+      width:90px; height:10px; border-radius:999px; overflow:hidden;
       background:rgba(148,163,184,.14);
       border:1px solid rgba(148,163,184,.16);
     }
@@ -93,7 +75,6 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
       box-shadow:0 0 16px rgba(250,204,21,.18);
     }
 
-    /* Paused badge */
     #hudPaused{
       margin-left:auto;
       padding:8px 12px;
@@ -105,20 +86,15 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
       font-weight:1000;
     }
 
-    /* --- RIGHT CONTROLS --- */
     #hudRight{
-      right:12px;
-      bottom:14px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
+      right:12px; bottom:14px;
+      display:flex; flex-direction:column; gap:10px;
       pointer-events:auto;
     }
     .btn{
       width:66px; height:46px;
       border-radius:16px;
-      display:grid;
-      place-items:center;
+      display:grid; place-items:center;
       background:var(--panel2);
       border:1px solid var(--stroke);
       color:var(--text);
@@ -130,11 +106,7 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
     }
     .btn:active{ transform:translateY(1px); }
 
-    /* --- BOTTOM QUEST/MINI BAR --- */
-    #hudBottom{
-      left:12px; right:92px; bottom:14px;
-      pointer-events:auto;
-    }
+    #hudBottom{ left:12px; right:92px; bottom:14px; pointer-events:auto; }
     #questPanel, #miniPanel{
       background:var(--panel);
       border:1px solid var(--stroke);
@@ -145,22 +117,10 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
       margin-top:10px;
       pointer-events:auto;
     }
-    .hTitle{
-      font-weight:1000;
-      opacity:.95;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .hSub{
-      margin-top:6px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.25;
-    }
+    .hTitle{ font-weight:1000; opacity:.95; display:flex; align-items:center; gap:8px; }
+    .hSub{ margin-top:6px; color:var(--muted); font-weight:900; line-height:1.25; }
     .mono{ font-variant-numeric: tabular-nums; }
 
-    /* Compact mode: show 1 line only */
     body.hha-compact #questPanel .hSub,
     body.hha-compact #miniPanel .hSub{ display:none; }
     body.hha-compact #questPanel .hTitle,
@@ -169,11 +129,8 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
       font-size:14px;
     }
 
-    /* Tip panel (non-research) */
     #tipPanel{
-      position:fixed;
-      left:12px; right:12px;
-      bottom:132px;
+      position:fixed; left:12px; right:12px; bottom:132px;
       z-index:880;
       background:rgba(2,6,23,.55);
       border:1px solid rgba(148,163,184,.14);
@@ -185,7 +142,6 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
     }
     body.hha-research #tipPanel{ display:none; }
 
-    /* Result overlay */
     #resultBackdrop{
       position:fixed; inset:0; z-index:1200;
       display:none;
@@ -230,7 +186,6 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
       cursor:pointer;
     }
 
-    /* Mobile small tweaks */
     @media (max-width:420px){
       .pill.big{ padding:8px 10px; }
       .feverWrap{ min-width:140px; }
@@ -241,14 +196,12 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
 </head>
 
 <body>
-  <!-- A-Frame scene (camera for viewOffset in safe.js) -->
   <a-scene embedded xr-mode-ui="enabled: true" renderer="antialias:true; colorManagement:true">
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="cam" wasd-controls-enabled="false" look-controls="pointerLockEnabled:false"></a-camera>
     </a-entity>
   </a-scene>
 
-  <!-- HUD TOP -->
   <div id="hudTop">
     <div class="card">
       <div class="row">
@@ -275,14 +228,12 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
     </div>
   </div>
 
-  <!-- HUD RIGHT (controls) -->
   <div id="hudRight">
     <div id="btnEnterVR" class="btn">🥽</div>
     <div id="btnPause" class="btn">⏸️</div>
     <div id="btnRestart" class="btn">🔄</div>
   </div>
 
-  <!-- HUD BOTTOM (quest/minis) -->
   <div id="hudBottom">
     <div id="questPanel">
       <div class="hTitle">🎯 QUEST • <span id="hudGoalLine">…</span></div>
@@ -294,12 +245,10 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
     </div>
   </div>
 
-  <!-- TIP (hide in research) -->
   <div id="tipPanel">
     Tip: แตะตรงไหนก็ได้เพื่อยิง (Tap-anywhere) • หมุนมือถือเหมือน VR • ระวังขยะ!
   </div>
 
-  <!-- RESULT OVERLAY -->
   <div id="resultBackdrop">
     <div id="resultCard">
       <h2>สรุปผล</h2>
@@ -324,7 +273,6 @@ HeroHealth — Balanced Plate VR (PRODUCTION)
     </div>
   </div>
 
-  <!-- Module -->
   <script type="module" src="./plate/plate.safe.js"></script>
 </body>
 </html>
