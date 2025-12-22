@@ -10,8 +10,7 @@
 // ✅ trick/fake targets (itemType='fakeGood')
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
-// ✅ FIX(2025-12): HUD กว้างทั้งแถบทำให้ margin ซ้าย/ขวาพัง → เป้าติดมุมเดิม
-// ✅ NEW: center-biased spawn (โผล่แถวกลางบ่อย แต่ไม่ล็อกกลาง) + anti-repeat
+// ✅ A2++: spawnBias option (center-biased + anti-repeat queue) + screen-anchored spawn via boundsHost
 
 'use strict';
 
@@ -43,9 +42,10 @@ function getEventXY (ev) {
   }
   return { x: x || 0, y: y || 0 };
 }
-function rectIntersectsPoint(r, x, y){
-  if (!r) return false;
-  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+
+// A2++: very strong center bias (5-sample average)
+function biasedRand () {
+  return (Math.random() + Math.random() + Math.random() + Math.random() + Math.random()) / 5;
 }
 
 // ---------- Base difficulty ----------
@@ -147,11 +147,10 @@ function resolveHost (rawCfg, keyName = 'spawnHost') {
   }
   if (h && h.nodeType === 1) return h;
 
-  // spawnHost fallback
-  if (keyName === 'spawnHost') return ensureOverlayHost();
+  const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
+  if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
 
-  // boundsHost fallback -> use spawnHost later
-  return null;
+  return ensureOverlayHost();
 }
 
 // ======================================================
@@ -170,7 +169,6 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
 
-  // auto excludes
   const AUTO = [
     '#hha-water-header',
     '.hha-water-bar',
@@ -204,21 +202,16 @@ function collectExclusionElements(rawCfg){
   return uniq;
 }
 
-// ✅ FIX: HUD กว้างทั้งแถบอย่าไป “กิน left/right” จนเหลือมุมเดียว
-function computeExclusionMargins(hostRect, exRects){
+function computeExclusionMargins(hostRect, exEls){
   const m = { top:0, bottom:0, left:0, right:0 };
-  if (!hostRect || !exRects || !exRects.length) return m;
+  if (!hostRect || !exEls || !exEls.length) return m;
 
   const hx1 = hostRect.left, hy1 = hostRect.top;
   const hx2 = hostRect.right, hy2 = hostRect.bottom;
-  const HW  = Math.max(1, hostRect.width);
-  const HH  = Math.max(1, hostRect.height);
 
-  const EDGE_BAND = 110;             // โซนขอบที่ถือว่า “ชิดขอบ”
-  const CAP_W = HW * 0.42;           // อย่าให้กินเกิน 42% ของด้านใด ๆ
-  const CAP_H = HH * 0.50;
-
-  exRects.forEach(r=>{
+  exEls.forEach(el=>{
+    let r = null;
+    try{ r = el.getBoundingClientRect(); }catch{}
     if (!r) return;
 
     const ox1 = Math.max(hx1, r.left);
@@ -227,29 +220,17 @@ function computeExclusionMargins(hostRect, exRects){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    const rw = Math.max(1, r.width);
-    const rh = Math.max(1, r.height);
-
-    const spansWide = (rw / HW) > 0.72;     // แถบ HUD กว้าง
-    const spansTall = (rh / HH) > 0.55;
-
-    // TOP
-    if (r.top < hy1 + EDGE_BAND && r.bottom > hy1) {
-      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, CAP_H));
+    if (r.top < hy1 + 80 && r.bottom > hy1) {
+      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
-    // BOTTOM
-    if (r.bottom > hy2 - EDGE_BAND && r.top < hy2) {
-      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, CAP_H));
+    if (r.bottom > hy2 - 80 && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
     }
-
-    // LEFT/RIGHT: ทำเฉพาะกรณีมัน “เป็นคอลัมน์” จริง ๆ ไม่ใช่แถบกว้างทั้งจอ
-    if (!spansWide && !spansTall) {
-      if (r.left < hx1 + EDGE_BAND && r.right > hx1) {
-        m.left = Math.max(m.left, clamp(r.right - hx1, 0, CAP_W));
-      }
-      if (r.right > hx2 - EDGE_BAND && r.left < hx2) {
-        m.right = Math.max(m.right, clamp(hx2 - r.left, 0, CAP_W));
-      }
+    if (r.left < hx1 + 80 && r.right > hx1) {
+      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    }
+    if (r.right > hx2 - 80 && r.left < hx2) {
+      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
     }
   });
 
@@ -263,14 +244,13 @@ function computePlayRectFromHost (hostEl, exState) {
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
-  // base padding (กันขอบ)
-  const basePadX   = w * 0.10;
+  const basePadX = w * 0.10;
   const basePadTop = h * 0.12;
   const basePadBot = h * 0.12;
 
   const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
 
-  const left   = basePadX   + m.left;
+  const left   = basePadX + m.left;
   const top    = basePadTop + m.top;
   const width  = Math.max(1, w - (basePadX*2) - m.left - m.right);
   const height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
@@ -301,25 +281,21 @@ export async function boot (rawCfg = {}) {
     spawnIntervalMul = null,
     excludeSelectors = null,
 
-    // ✅ optional
+    // ✅ NEW
     boundsHost = null,
     decorateTarget = null,
 
-    // ✅ NEW: center-biased spawn tuning
-    centerBias = 0.78,            // 0.65–0.85 (มือถือแนะนำ 0.75–0.85)
-    centerRadiusFrac = 0.22,      // 0.18–0.28 (ยิ่งมากยิ่งกระจาย)
-    centerYFrac = 0.56,           // ศูนย์กลางแนวตั้ง (0.52–0.60)
-    antiRepeatPx = 120            // กัน spawn ตำแหน่งเดิมติด ๆ กัน
+    // ✅ A2++ spawn controls
+    spawnBias = 'default',         // 'default' | 'A2++'
+    antiRepeat = true,             // true = avoid repeating last spots
+    antiRepeatN = 4                // queue length
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
-  const hostSpawn = resolveHost(rawCfg, 'spawnHost');
-  let hostBounds  = resolveHost(rawCfg, 'boundsHost');
-
-  // fallback boundsHost = spawnHost
-  if (!hostBounds) hostBounds = hostSpawn;
+  const hostSpawn  = resolveHost(rawCfg, 'spawnHost');
+  const hostBounds = (boundsHost ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
 
   if (!hostSpawn || !hostBounds || !DOC) {
     console.error('[mode-factory] host not found');
@@ -461,7 +437,6 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
-  // crosshair uses bounds host
   function getCrosshairPoint(){
     let rect = null;
     try{ rect = hostBounds.getBoundingClientRect(); }catch{}
@@ -496,8 +471,7 @@ export async function boot (rawCfg = {}) {
   //  Exclusions cache (computed from boundsHost)
   // ======================================================
   const exState = {
-    els: [],
-    rects: [],
+    els: collectExclusionElements({ excludeSelectors }),
     margins: { top:0,bottom:0,left:0,right:0 },
     lastRefreshTs: 0
   };
@@ -509,109 +483,99 @@ export async function boot (rawCfg = {}) {
     exState.lastRefreshTs = ts;
 
     exState.els = collectExclusionElements({ excludeSelectors });
-
-    // build rect list (only connected + measurable)
-    const rects = [];
-    exState.els.forEach(el=>{
-      try{
-        const r = el.getBoundingClientRect();
-        if (!r || !r.width || !r.height) return;
-        rects.push(r);
-      }catch{}
-    });
-    exState.rects = rects;
-
     let hostRect = null;
     try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
     if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    exState.margins = computeExclusionMargins(hostRect, exState.els);
+  }
 
-    exState.margins = computeExclusionMargins(hostRect, exState.rects);
+  // ======================================================
+  //  A2++ anti-repeat queue (screen-space)
+  // ======================================================
+  const biasKey = String(spawnBias || 'default').toLowerCase();
+  const useA2pp = (biasKey === 'a2++' || biasKey === 'a2pp' || biasKey === 'center');
+  const useAntiRepeat = !!antiRepeat;
+
+  let lastSpawnQueue = []; // {xAbs,yAbs} in viewport coords (screen-space)
+
+  function distToQueue(x, y){
+    if (!lastSpawnQueue || !lastSpawnQueue.length) return 999999;
+    let dMin = 999999;
+    for (const p of lastSpawnQueue){
+      const dx = x - p.xAbs, dy = y - p.yAbs;
+      const d = Math.hypot(dx, dy);
+      if (d < dMin) dMin = d;
+    }
+    return dMin;
   }
 
   // ======================================================
   //  Spawn target inside hostSpawn using bounds from hostBounds
+  //  (IMPORTANT) If spawnHost is translated (drag view),
+  //  we place target by converting screen->spawn local via spawnRect.
   // ======================================================
-  let lastSpawnXY = null;
-
-  function pickSpawnPoint(rect){
-    // rect: local rect within hostBounds (left/top/width/height)
-    // center-biased but not locked
-    const w = rect.width, h = rect.height;
-
-    const cx = rect.left + w * 0.50;
-    const cy = rect.top  + h * clamp(centerYFrac, 0.45, 0.68);
-
-    const bias = clamp(centerBias, 0.0, 0.95);
-    const useCenter = Math.random() < bias;
-
-    let x = 0, y = 0;
-
-    if (useCenter){
-      const Rmax = Math.min(w, h) * clamp(centerRadiusFrac, 0.12, 0.35);
-      const r = Math.sqrt(Math.random()) * Rmax;
-      const a = Math.random() * Math.PI * 2;
-      x = cx + Math.cos(a) * r;
-      y = cy + Math.sin(a) * r * 0.92;
-    }else{
-      x = rect.left + w * (0.15 + Math.random() * 0.70);
-      y = rect.top  + h * (0.12 + Math.random() * 0.78);
-    }
-
-    // anti-repeat: ถ้าใกล้ตำแหน่งเดิมเกินไป ให้ขยับ
-    if (lastSpawnXY){
-      const dx = x - lastSpawnXY.x;
-      const dy = y - lastSpawnXY.y;
-      const d = Math.sqrt(dx*dx + dy*dy);
-      if (d < antiRepeatPx){
-        const push = antiRepeatPx - d + (12 + Math.random()*18);
-        const a = Math.random() * Math.PI * 2;
-        x += Math.cos(a) * push;
-        y += Math.sin(a) * push * 0.90;
-      }
-    }
-
-    // clamp inside rect with soft padding
-    x = clamp(x, rect.left + 28, rect.left + w - 28);
-    y = clamp(y, rect.top  + 34, rect.top  + h - 60);
-
-    lastSpawnXY = { x, y };
-    return { x, y };
-  }
-
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
     refreshExclusions();
 
     const rect = computePlayRectFromHost(hostBounds, exState);
+    const boundsRect = rect.hostRect || { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
 
-    // pick point in "bounds local"
-    let p = pickSpawnPoint(rect);
+    // absolute playable region in screen coords
+    const absLeft = (boundsRect.left || 0) + rect.left;
+    const absTop  = (boundsRect.top  || 0) + rect.top;
 
-    // ถ้าไปทับ exclusion rect (viewport coords) → nudge (ใช้ hostBounds rect ช่วยแปลง)
-    // NOTE: el.left/top เป็น local ใน hostSpawn; แต่ exclusion rect เป็น viewport coords
-    // เราแก้แบบง่าย: กันซ้อน HUD ด้วย margin แล้วเป็นหลัก; ถ้ายังชน ให้ดันขึ้น/ลงอีกนิด
-    // (ไม่ต้องคำนวณแปลงพิกัดซับซ้อน)
-    if (exState.rects && exState.rects.length){
-      // แปลง p(local) -> viewport เพื่อเช็คชน
-      let hb = null;
-      try{ hb = hostBounds.getBoundingClientRect(); }catch{}
-      if (hb){
-        const vx = hb.left + p.x;
-        const vy = hb.top  + p.y;
-        for (const r of exState.rects){
-          if (rectIntersectsPoint(r, vx, vy)){
-            p.y += (Math.random() < 0.5 ? 1 : -1) * (90 + Math.random()*120);
-            p.y = clamp(p.y, rect.top + 34, rect.top + rect.height - 60);
-            break;
-          }
-        }
-      }
+    // choose distribution
+    let X_MIN, X_SPAN, Y_MIN, Y_SPAN;
+    if (useA2pp) {
+      // A2++ tighter center bias (but NOT locked)
+      X_MIN = 0.32; X_SPAN = 0.36;
+      Y_MIN = 0.28; Y_SPAN = 0.48;
+    } else {
+      X_MIN = 0.15; X_SPAN = 0.70;
+      Y_MIN = 0.10; Y_SPAN = 0.80;
     }
 
-    const xLocal = p.x;
-    const yLocal = p.y;
+    // anti-repeat thresholds
+    const MIN_DIST = Math.max(92, Math.min(rect.width, rect.height) * 0.22);
+    const TRIES = useA2pp ? 10 : 6;
 
+    // compute best candidate in ABS coords
+    let best = null;
+    let bestD = -1;
+
+    for (let k = 0; k < TRIES; k++) {
+      const rx = useA2pp ? biasedRand() : Math.random();
+      const ry = useA2pp ? biasedRand() : Math.random();
+
+      const xAbs = absLeft + rect.width  * (X_MIN + rx * X_SPAN);
+      const yAbs = absTop  + rect.height * (Y_MIN + ry * Y_SPAN);
+
+      const dMin = useAntiRepeat ? distToQueue(xAbs, yAbs) : 999999;
+
+      if (!useAntiRepeat || dMin >= MIN_DIST) { best = { xAbs, yAbs }; bestD = dMin; break; }
+      if (dMin > bestD) { bestD = dMin; best = { xAbs, yAbs }; }
+    }
+
+    if (!best) best = { xAbs: absLeft + rect.width*0.5, yAbs: absTop + rect.height*0.52 };
+
+    // convert ABS -> spawnHost local coords (so it stays on screen even if spawnHost moved)
+    let spawnRect = null;
+    try{ spawnRect = hostSpawn.getBoundingClientRect(); }catch{}
+    if (!spawnRect) spawnRect = { left:0, top:0 };
+
+    const xLocal = best.xAbs - (spawnRect.left || 0);
+    const yLocal = best.yAbs - (spawnRect.top  || 0);
+
+    // remember last spawn (cap queue)
+    if (useAntiRepeat) {
+      lastSpawnQueue.push({ xAbs: best.xAbs, yAbs: best.yAbs });
+      const cap = clamp(antiRepeatN, 2, 10);
+      while (lastSpawnQueue.length > cap) lastSpawnQueue.shift();
+    }
+
+    // pools
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
     const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
