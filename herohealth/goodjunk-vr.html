@@ -63,7 +63,7 @@
       -webkit-user-select:none;
       cursor:pointer;
       line-height:1;
-      will-change: transform, opacity;
+      will-change: transform, opacity, left, top;
     }
     .gj-target.spawn{ animation: popIn .12s ease-out both; }
     .gj-target.gone{ animation: popOut .14s ease-in both; }
@@ -495,6 +495,32 @@
     }catch(_){}
   }
 
+  // ===== Selector persist + URL override (fix "เลือก easy แต่เข้าปกติ") =====
+  (function initSelectors(){
+    const U = new URL(location.href);
+    const sDiff = $('selDiff');
+    const sCh = $('selCh');
+
+    const urlDiff = (U.searchParams.get('diff')||'').toLowerCase();
+    const urlCh   = (U.searchParams.get('challenge')||'').toLowerCase();
+
+    const savedDiff = localStorage.getItem('gj_diff') || '';
+    const savedCh   = localStorage.getItem('gj_ch') || '';
+
+    const setIfValid = (sel, v)=>{
+      if (!v) return false;
+      const ok = Array.from(sel.options).some(o => o.value === v);
+      if (ok){ sel.value = v; return true; }
+      return false;
+    };
+
+    if (!setIfValid(sDiff, urlDiff)) setIfValid(sDiff, savedDiff);
+    if (!setIfValid(sCh, urlCh))     setIfValid(sCh, savedCh);
+
+    sDiff.addEventListener('change', ()=> localStorage.setItem('gj_diff', sDiff.value));
+    sCh.addEventListener('change',   ()=> localStorage.setItem('gj_ch', sCh.value));
+  })();
+
   // ===== Module loading (anti-hang) =====
   let modSafe=null, modTouch=null;
   let engine=null;
@@ -521,7 +547,8 @@
     }, 6000);
 
     try{
-      // ✅ โครงสร้างของคุณ: /herohealth/goodjunk-vr.html + /herohealth/vr-goodjunk/*.js
+      // โครงสร้าง: /herohealth/goodjunk-vr.html + /herohealth/vr-goodjunk/*.js
+      // fallback: /herohealth/*.js (เผื่อวางผิดโฟลเดอร์)
       const safePaths  = ['./vr-goodjunk/goodjunk.safe.js', './goodjunk.safe.js'];
       const touchPaths = ['./vr-goodjunk/touch-look-goodjunk.js', './touch-look-goodjunk.js'];
 
@@ -559,9 +586,14 @@
         if (r){
           const ox = -r.y * pxPerRadX();
           const oy = -r.x * pxPerRadY();
+
+          // ✅ Move layer (visual VR feel)
           elLayer.style.transform = `translate3d(${ox.toFixed(1)}px, ${oy.toFixed(1)}px, 0)`;
+
+          // ✅ NEW: expose offset so goodjunk.safe.js can spawn/magnet correctly
+          window.__GJ_LAYER_OFFSET__ = { x: ox, y: oy };
         }
-        // aimpoint for safe.js hazards (crosshair at 62%)
+        // aimpoint for hazards (crosshair at 62%)
         window.__GJ_AIM_POINT__ = { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
       }catch(_){}
       rafPar = requestAnimationFrame(tick);
@@ -588,7 +620,6 @@
     uiShield.textContent = String(d.shield ?? 0);
   });
 
-  // (ถ้าคุณมี quest-director ยิง event นี้อยู่)
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail||{};
     qTitle.textContent = d.title || '—';
@@ -601,14 +632,14 @@
   });
 
   // ===== FX bridge =====
-  function kick(intensity=1){
+  function kick(){
     document.body.classList.remove('shake');
     void document.body.offsetWidth;
     document.body.classList.add('shake');
   }
   window.addEventListener('hha:fx', (e)=>{
     const d = e.detail||{};
-    if (d.type === 'kick') kick(d.intensity||1);
+    if (d.type === 'kick') kick();
     if (d.type === 'chroma'){
       edge.classList.add('panic');
       setTimeout(()=> edge.classList.remove('panic'), Math.max(90, d.ms||150));
@@ -623,14 +654,12 @@
     const d = e.detail||{};
     const k = String(d.kind||'tick');
     const intensity = Number(d.intensity||1);
-    // โทนต่างกันนิด ๆ
     if (k.includes('laser')) beep(980 + intensity*80, 26);
     else if (k.includes('ring')) beep(860 + intensity*60, 30);
     else if (k.includes('final')) beep(1200, 24);
     else beep(820, 28);
 
-    // micro shake ตอนใกล้หมด
-    if (intensity >= 1.6) kick(1.0);
+    if (intensity >= 1.6) kick();
   });
 
   window.addEventListener('hha:panic', (e)=>{
@@ -647,7 +676,6 @@
 
   window.addEventListener('hha:bossAtk', (e)=>{
     const d = e.detail||{};
-    // ให้ feedback ว่า “ลูปยังทำงานจริง”
     setBadge(true, `boss atk: ${d.name||'?'}`);
     setTimeout(()=> setBadge(true, 'running…'), 520);
   });
@@ -672,8 +700,12 @@
 
   function calcSafeMargins(){
     // ใช้ HUD จริงคำนวณ safe zone (กันเป้าทับ HUD)
-    const top = Math.ceil($('hud-quest').getBoundingClientRect().bottom + 14);
-    const bottom = 92; // เผื่อปุ่ม/ขอบล่าง
+    const questRect = $('hud-quest').getBoundingClientRect();
+    const top = Math.ceil(questRect.bottom + 14);
+
+    const footerRect = $('footer').getBoundingClientRect();
+    const bottom = Math.ceil((innerHeight - footerRect.top) + 10);
+
     const left = 14;
     const right = 14;
     return { top, bottom, left, right };
@@ -695,7 +727,7 @@
       elModal.style.display = 'none';
       setBadge(true, 'starting…');
 
-      // ✅ เรียก boot ของ goodjunk.safe.js
+      // ✅ call boot of goodjunk.safe.js
       engine = modSafe.boot({
         diff,
         challenge,
@@ -703,7 +735,7 @@
         time: 60,
         layerEl: elLayer,
 
-        // ✅ ส่ง safeMargins ให้ safe.js (ต้องใส่ patch ด้านล่าง)
+        // ✅ NEW: send safeMargins to safe.js
         safeMargins: calcSafeMargins()
       });
 
