@@ -13,8 +13,8 @@
 // ✅ PATCH A3.1: spawn ตาม "วิวปัจจุบัน" (ชดเชย translate ของ playfield) + กันทับกัน
 // ✅ PATCH A3.3: กระจายกว้างแบบ VR + Arrow Hint ชี้เป้าเมื่ออยู่นอกจอ
 // ✅ PATCH A3.3+: Hint “รวมกลุ่มตามทิศ” + แสดงจำนวนเป้านอกจอ + Storm shake/blink
-// ✅ PATCH A3.3++: BAD-first mode (ถ้ามี BAD นอกจอ → โชว์เฉพาะทิศที่มี BAD)
-//                + BAD glow/pulse แรงขึ้น + Beep/Tick ระหว่างมี BAD นอกจอ (throttle)
+// ✅ PATCH A3.3++: BAD-first mode + BAD glow/pulse แรงขึ้น + Beep/Tick ระหว่างมี BAD นอกจอ
+// ✅ PATCH A3.4 (3+++): Distance hint (ใกล้ขอบ=สว่าง/ชัดขึ้น) + ⚠️ ถ้า BAD ใกล้ขอบ
 
 'use strict';
 
@@ -137,7 +137,7 @@ function ensureOverlayStyle () {
       will-change: transform;
     }
 
-    /* ---------- PATCH A3.3++: Hint overlay ---------- */
+    /* ---------- PATCH A3.4: Hint overlay ---------- */
     .hvr-hint-host{
       position:fixed;
       inset:0;
@@ -155,9 +155,19 @@ function ensureOverlayStyle () {
       display:flex;
       align-items:center;
       justify-content:center;
-      box-shadow:0 12px 30px rgba(0,0,0,.45);
+      /* distance variables */
+      --op: .95;
+      --bri: 1;
+      --sat: 1;
+      --glow: rgba(148,163,184,.10);
+      --glow2: rgba(148,163,184,.14);
+      opacity: var(--op);
+      filter: brightness(var(--bri)) saturate(var(--sat));
+      box-shadow:
+        0 12px 30px rgba(0,0,0,.45),
+        0 0 0 2px var(--glow),
+        0 0 22px var(--glow2);
       will-change: transform, left, top, opacity, filter;
-      opacity:.95;
       transform: translate(-50%,-50%);
     }
     .hvr-hint .arr{
@@ -187,6 +197,27 @@ function ensureOverlayStyle () {
     }
     .hvr-hint.has-count .cnt{ display:flex; }
 
+    /* warning badge (near-edge BAD) */
+    .hvr-hint .warn{
+      position:absolute;
+      left:-4px;
+      top:-4px;
+      width:18px;
+      height:18px;
+      border-radius:999px;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      font-size:12px;
+      font-weight:900;
+      color:#fff;
+      background:rgba(239,68,68,.72);
+      border:1px solid rgba(248,113,113,.55);
+      box-shadow:0 12px 24px rgba(0,0,0,.55), 0 0 18px rgba(248,113,113,.35);
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,.55));
+    }
+    .hvr-hint.has-warn .warn{ display:flex; }
+
     .hvr-hint.bad{ border-color: rgba(251,113,133,.30); }
     .hvr-hint.good{ border-color: rgba(74,222,128,.22); }
     .hvr-hint.power{ border-color: rgba(250,204,21,.22); }
@@ -210,11 +241,10 @@ function ensureOverlayStyle () {
       100%{ transform:translate(-50%,-50%) scale(1); opacity:.95; }
     }
 
-    /* Storm: shake + blink (รวมทั้ง BAD) */
+    /* Storm: shake + blink */
     .hvr-hint-host.hvr-storm-on .hvr-hint{
       animation: hvrHintShake .34s linear infinite, hvrHintBlink .64s ease-in-out infinite;
     }
-    /* ถ้า Danger+Storm → โหดขึ้นอีก */
     .hvr-hint-host.hvr-danger.hvr-storm-on .hvr-hint.bad{
       animation: hvrDangerPulse .55s ease-in-out infinite, hvrHintShakeStrong .20s linear infinite, hvrHintBlink .46s ease-in-out infinite;
     }
@@ -448,7 +478,7 @@ function pickSpawnPoint(rect, size, activeTargets, hostForTransform, spread = 0.
 }
 
 // ======================================================
-//  PATCH A3.3++: Grouped hint arrows with counts + BAD-first
+//  PATCH A3.4: Grouped hint arrows with counts + BAD-first + distance glow + ⚠️
 // ======================================================
 function hintKindFromItemType(itemType){
   if (itemType === 'bad') return 'bad';
@@ -477,16 +507,25 @@ function makeGroupedHintEl(kind){
   c.className = 'cnt';
   c.textContent = '';
 
+  const w = DOC.createElement('div');
+  w.className = 'warn';
+  w.textContent = '⚠️';
+
   el.appendChild(a);
   el.appendChild(c);
+  el.appendChild(w);
   host.appendChild(el);
   return el;
 }
-function setHint(el, x, y, angRad, kind, count){
+
+function setHint(el, x, y, angRad, kind, count, intensity01, warn){
   if (!el) return;
 
-  el.classList.remove('good','bad','power','fake');
+  el.classList.remove('good','bad','power','fake','has-count','has-warn');
   el.classList.add(kind);
+
+  if (count && count > 1) el.classList.add('has-count');
+  if (warn) el.classList.add('has-warn');
 
   el.style.left = `${Math.round(x)}px`;
   el.style.top  = `${Math.round(y)}px`;
@@ -497,13 +536,42 @@ function setHint(el, x, y, angRad, kind, count){
   }
 
   const cnt = el.querySelector('.cnt');
-  if (count && count > 1){
-    el.classList.add('has-count');
-    if (cnt) cnt.textContent = `×${count}`;
-  } else {
-    el.classList.remove('has-count');
-    if (cnt) cnt.textContent = '';
+  if (cnt){
+    cnt.textContent = (count && count > 1) ? `×${count}` : '';
   }
+
+  // ✅ distance intensity (ใกล้ขอบ=เด่น) — ไม่ยุ่งกับ transform เพื่อไม่ชน animation
+  const I = clamp(intensity01, 0, 1);
+
+  // base readability
+  const op  = 0.62 + I * 0.36;      // 0.62..0.98
+  const bri = 0.92 + I * 0.55;      // 0.92..1.47
+  const sat = 1.00 + I * 0.65;      // 1.00..1.65
+
+  el.style.setProperty('--op',  op.toFixed(3));
+  el.style.setProperty('--bri', bri.toFixed(3));
+  el.style.setProperty('--sat', sat.toFixed(3));
+
+  // glow per kind
+  let g1 = 'rgba(148,163,184,.10)';
+  let g2 = 'rgba(148,163,184,.14)';
+
+  if (kind === 'bad'){
+    g1 = `rgba(248,113,113,${(0.10 + I*0.22).toFixed(3)})`;
+    g2 = `rgba(248,113,113,${(0.14 + I*0.26).toFixed(3)})`;
+  } else if (kind === 'power'){
+    g1 = `rgba(250,204,21,${(0.08 + I*0.18).toFixed(3)})`;
+    g2 = `rgba(250,204,21,${(0.12 + I*0.22).toFixed(3)})`;
+  } else if (kind === 'fake'){
+    g1 = `rgba(167,139,250,${(0.08 + I*0.18).toFixed(3)})`;
+    g2 = `rgba(167,139,250,${(0.12 + I*0.22).toFixed(3)})`;
+  } else {
+    g1 = `rgba(74,222,128,${(0.06 + I*0.16).toFixed(3)})`;
+    g2 = `rgba(74,222,128,${(0.10 + I*0.20).toFixed(3)})`;
+  }
+
+  el.style.setProperty('--glow', g1);
+  el.style.setProperty('--glow2', g2);
 }
 
 function projectToInnerRectEdge(bx, by, dx, dy, ix1, iy1, ix2, iy2){
@@ -622,11 +690,11 @@ export async function boot (rawCfg = {}) {
     boundsHost = null,
     decorateTarget = null,
 
-    // ✅ A3.3 / A3.3++
+    // ✅ A3.3+
     spread = 0.50,
     showHints = true,
-    badFirstHints = true,   // ✅ A3.3++
-    badBeep = true          // ✅ A3.3++
+    badFirstHints = true,
+    badBeep = true
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -858,6 +926,13 @@ export async function boot (rawCfg = {}) {
     hintState.map.clear();
   }
 
+  // helper: how far "outside" inner rect (0 = on edge/inside)
+  function outDistance(cx, cy, ix1, iy1, ix2, iy2){
+    const ox = (cx < ix1) ? (ix1 - cx) : (cx > ix2 ? (cx - ix2) : 0);
+    const oy = (cy < iy1) ? (iy1 - cy) : (cy > iy2 ? (cy - iy2) : 0);
+    return Math.sqrt(ox*ox + oy*oy);
+  }
+
   function updateHints(stormOn){
     if (!showHints || !hintState.host) return;
 
@@ -875,7 +950,8 @@ export async function boot (rawCfg = {}) {
     const by = br.top  + br.height/2;
 
     // bucket offscreen targets into 8 sectors
-    const buckets = new Map(); // sector -> { n, vx, vy, kind, kindP, hasBad }
+    // each bucket: n, vx, vy, kind, kindP, hasBad, intensityMax, warnNearEdge
+    const buckets = new Map();
     let anyBadOffscreen = false;
 
     activeTargets.forEach(t=>{
@@ -901,9 +977,18 @@ export async function boot (rawCfg = {}) {
       const kp = kindPriority(kind);
       if (kind === 'bad') anyBadOffscreen = true;
 
+      // ✅ A3.4: intensity based on how close the offscreen target is to the edge
+      // outDist: 0..∞  (0 = on edge)
+      const od = outDistance(cx, cy, ix1, iy1, ix2, iy2);
+
+      // map: close to edge (od small) => intensity high
+      const EDGE_NEAR = 140;     // <= this => show ⚠️ for BAD
+      const EDGE_FAR  = 520;     // >= this => intensity fades
+      const intensity = 1 - clamp(od / EDGE_FAR, 0, 1); // 1..0
+
       let b = buckets.get(sector);
       if (!b){
-        b = { n:0, vx:0, vy:0, kind:'good', kindP:0, hasBad:false };
+        b = { n:0, vx:0, vy:0, kind:'good', kindP:0, hasBad:false, intensityMax:0, warnNearEdge:false };
         buckets.set(sector, b);
       }
 
@@ -911,7 +996,12 @@ export async function boot (rawCfg = {}) {
       b.vx += Math.cos(ang);
       b.vy += Math.sin(ang);
 
-      if (kind === 'bad') b.hasBad = true;
+      b.intensityMax = Math.max(b.intensityMax, intensity);
+
+      if (kind === 'bad') {
+        b.hasBad = true;
+        if (od <= EDGE_NEAR) b.warnNearEdge = true; // ✅ ⚠️
+      }
 
       // sector kind = highest priority
       if (kp > b.kindP){
@@ -922,7 +1012,6 @@ export async function boot (rawCfg = {}) {
 
     // ✅ A3.3++: BAD-first filter
     if (badFirstHints && anyBadOffscreen){
-      // keep only sectors containing bad
       buckets.forEach((b, k)=>{
         if (!b.hasBad) buckets.delete(k);
       });
@@ -931,12 +1020,11 @@ export async function boot (rawCfg = {}) {
     // danger class on host
     setHintDanger(!!anyBadOffscreen);
 
-    // ✅ beep tick (throttle แบบเป็นจังหวะ)
+    // ✅ beep tick (throttle)
     if (badBeep && anyBadOffscreen){
       const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
       const beat = stormOn ? 320 : 520;
       if (t - lastDangerBeepAt > beat){
-        // storm = เสียงสูงขึ้นนิด
         audio.beep(stormOn ? 980 : 860, 0.045, stormOn ? 0.050 : 0.040);
         lastDangerBeepAt = t;
       }
@@ -967,7 +1055,14 @@ export async function boot (rawCfg = {}) {
         hintState.map.set(sector, rec);
       }
 
-      setHint(rec.el, p.x, p.y, ang, b.kind, b.n);
+      // ✅ A3.4: boost intensity a bit when many targets in sector
+      const countBoost = clamp((b.n - 1) * 0.08, 0, 0.24);
+      const I = clamp(b.intensityMax + countBoost, 0, 1);
+
+      // warn only for BAD + near edge; if BAD-first disabled, still ok
+      const warn = (b.kind === 'bad') && b.warnNearEdge;
+
+      setHint(rec.el, p.x, p.y, ang, b.kind, b.n, I, warn);
     });
   }
 
@@ -1025,7 +1120,6 @@ export async function boot (rawCfg = {}) {
     const baseSize = 78;
     const size = baseSize * curScale;
 
-    // ✅ A3.3 spread + avoid overlaps + respect current view translate
     const p = pickSpawnPoint(rect, size, activeTargets, hostSpawn, spread);
 
     el.style.position = 'absolute';
@@ -1038,12 +1132,10 @@ export async function boot (rawCfg = {}) {
     el.style.zIndex = '35';
     el.style.borderRadius = '999px';
 
-    // wiggle layer
     const wiggle = DOC.createElement('div');
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
 
-    // default look (can be overridden by decorateTarget)
     let bgGrad = '';
     let ringGlow = '';
 
@@ -1065,7 +1157,6 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
-    // ring (perfect hint)
     const ring = DOC.createElement('div');
     ring.style.position = 'absolute';
     ring.style.left = '50%';
@@ -1095,7 +1186,6 @@ export async function boot (rawCfg = {}) {
     icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
     inner.appendChild(icon);
 
-    // trick badge
     let badge = null;
     if (itemType === 'fakeGood') {
       badge = DOC.createElement('div');
@@ -1134,7 +1224,6 @@ export async function boot (rawCfg = {}) {
       _y: p.y
     };
 
-    // allow per-game decorate
     try{
       if (typeof decorateTarget === 'function'){
         decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
@@ -1251,7 +1340,6 @@ export async function boot (rawCfg = {}) {
     const mul = getSpawnMul();
     const stormOn = (mul < 0.99);
 
-    // ✅ A3.3++ hints (group + count + BAD-first + beep)
     setHintStorm(stormOn);
     updateHints(stormOn);
 
