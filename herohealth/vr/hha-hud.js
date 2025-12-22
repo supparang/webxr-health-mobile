@@ -1,12 +1,21 @@
 // === /herohealth/vr/hha-hud.js ===
-// Hero Health Academy — Global HUD Binder (DOM/VR)
-// PATCH(A): เพิ่ม Progress Visibility แบบ “เห็นชัดมาก”
-// - Goal progress bar + x/y + pct
-// - Mini quest progress bar + x/y หรือ timer + timeLeft
-// - Status tag: ACTIVE / CLEARED (โชว์ชั่วคราวตอนผ่าน)
-// - รองรับ payload มาตรฐานจาก quest:update:
-//   detail: { goal:{title,cur,max,pct,state}, mini:{title,cur,max,pct,timeLeft,timeTotal,state}, meta?:{...} }
-// - ฟัง quest:cleared เพื่อแฟลชสถานะ + ปล่อยให้ particles/celebrate ทำงานร่วมกันได้
+// Hero Health Academy — Global HUD Binder (DOM/VR) — SAFE/ROBUST
+// ✅ ฟัง event ที่ window (แก้ปัญหา quest:update ไม่ติดกับ Patch A)
+// ✅ ไม่พังถ้า element ไม่มี (ข้ามได้หมด)
+// ✅ รองรับ payload ได้หลายรูปแบบ (ของเก่า/ของใหม่)
+// Events:
+// - hha:score    {score, goodHits, misses|miss, combo, comboMax, multiplier, ...}
+// - hha:time     {timeLeft|secLeft, timeTotal|secTotal, ...}
+// - hha:coach    {text|msg, mood:'happy|neutral|sad|fever', ...}
+// - hha:fever    {pct|feverPct, active, shield, ...}
+// - hha:judge    {text, kind:'PERFECT|HIT|MISS|...'}   (optional)
+// - quest:update {goal:{title,cur,max,pct,state,hint,timeLeft,timeTotal}, mini:{...}, meta:{...}} (Patch A)
+// - quest:cleared {kind:'goal|mini', title, id} (optional)
+// - hha:end      {stats:{...}, grade, ...}
+// - hha:adaptive {level, size, rate, ...} (optional)
+
+// NOTE: coach images are expected at /herohealth/img exactly:
+// coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
 
 (function (root) {
   'use strict';
@@ -14,455 +23,317 @@
   const doc = root.document;
   if (!doc) return;
 
-  // -------------------------
-  // Utils
-  // -------------------------
-  function clamp01(x) {
-    x = Number(x);
-    if (!isFinite(x)) x = 0;
-    if (x < 0) return 0;
-    if (x > 1) return 1;
-    return x;
-  }
-  function pctToText(pct) {
-    pct = clamp01(pct);
-    return Math.round(pct * 100) + '%';
-  }
-  function safeText(v, fallback = '') {
-    if (v === null || v === undefined) return fallback;
-    const s = String(v);
-    return s.trim() ? s : fallback;
-  }
-  function msToSec(v) {
-    v = Number(v);
-    if (!isFinite(v)) return null;
-    return Math.max(0, v) / 1000;
-  }
-  function formatSec(sec) {
-    sec = Number(sec);
-    if (!isFinite(sec)) return '';
-    sec = Math.max(0, sec);
-    // แสดงแบบ 8.0s ชัด ๆ
-    return (sec >= 10 ? Math.round(sec) : (Math.round(sec * 10) / 10)) + 's';
+  // prevent double bind
+  root.GAME_MODULES = root.GAME_MODULES || {};
+  if (root.GAME_MODULES.HUD && root.GAME_MODULES.HUD.__bound) return;
+
+  // ---------------- helpers ----------------
+  const isNum = (v) => Number.isFinite(Number(v));
+  const toNum = (v, d = 0) => (isNum(v) ? Number(v) : d);
+  const clamp01 = (x) => Math.max(0, Math.min(1, toNum(x, 0)));
+
+  function byIdAny(ids) {
+    for (const id of ids) {
+      const el = doc.getElementById(id);
+      if (el) return el;
+    }
+    return null;
   }
 
-  // -------------------------
-  // HUD creation (safe)
-  // -------------------------
-  const HUD_ID = 'hha-hud';
-  const STYLE_ID = 'hha-hud-style-a';
-
-  function ensureStyle() {
-    if (doc.getElementById(STYLE_ID)) return;
-
-    const st = doc.createElement('style');
-    st.id = STYLE_ID;
-    st.textContent = `
-/* ===== HHA HUD Patch A: Progress Visibility ===== */
-#${HUD_ID}{
-  position:fixed; inset:0; pointer-events:none; z-index:9999;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-}
-#${HUD_ID} .hha-top{
-  position:fixed; top:10px; left:50%; transform:translateX(-50%);
-  display:flex; gap:10px; align-items:flex-start; justify-content:center;
-  width:min(980px, calc(100vw - 24px));
-  pointer-events:none;
-}
-#${HUD_ID} .hha-card{
-  pointer-events:none;
-  background:rgba(2,6,23,0.72);
-  border:1px solid rgba(148,163,184,0.22);
-  box-shadow:0 10px 30px rgba(0,0,0,0.35);
-  border-radius:16px;
-  padding:10px 12px;
-  backdrop-filter: blur(8px);
-  min-width: 320px;
-  max-width: 520px;
-}
-#${HUD_ID} .hha-titleRow{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  margin-bottom:8px;
-}
-#${HUD_ID} .hha-title{
-  font-weight:800;
-  font-size:13px;
-  color:#e5e7eb;
-  letter-spacing:.2px;
-  line-height:1.1;
-  display:flex; align-items:center; gap:8px;
-}
-#${HUD_ID} .hha-sub{
-  font-weight:700;
-  font-size:12px;
-  color:#a7f3d0;
-  opacity:.95;
-}
-#${HUD_ID} .hha-badge{
-  font-weight:900;
-  font-size:11px;
-  padding:4px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,0.28);
-  color:#e5e7eb;
-  background:rgba(15,23,42,0.55);
-  text-transform:uppercase;
-  letter-spacing:.6px;
-}
-#${HUD_ID} .hha-badge.active{
-  border-color:rgba(34,197,94,0.5);
-  background:rgba(34,197,94,0.16);
-}
-#${HUD_ID} .hha-badge.cleared{
-  border-color:rgba(250,204,21,0.6);
-  background:rgba(250,204,21,0.18);
-  color:#fff7ed;
-}
-#${HUD_ID} .hha-badge.hidden{ display:none; }
-
-#${HUD_ID} .hha-progressRow{
-  display:flex; align-items:center; justify-content:space-between; gap:10px;
-  margin-bottom:6px;
-}
-#${HUD_ID} .hha-desc{
-  color:#cbd5e1;
-  font-weight:700;
-  font-size:12px;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  max-width: 78%;
-}
-#${HUD_ID} .hha-count{
-  color:#f8fafc;
-  font-weight:900;
-  font-size:12px;
-}
-#${HUD_ID} .hha-bar{
-  width:100%;
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,0.16);
-  border:1px solid rgba(148,163,184,0.18);
-  overflow:hidden;
-}
-#${HUD_ID} .hha-fill{
-  width:0%;
-  height:100%;
-  border-radius:999px;
-  background:linear-gradient(90deg, rgba(34,197,94,0.95), rgba(59,130,246,0.9));
-  transition:width 160ms ease;
-  box-shadow: 0 0 14px rgba(34,197,94,0.22);
-}
-#${HUD_ID} .hha-fill.warn{
-  background:linear-gradient(90deg, rgba(250,204,21,0.95), rgba(244,63,94,0.9));
-  box-shadow: 0 0 16px rgba(244,63,94,0.22);
-}
-#${HUD_ID} .hha-pct{
-  margin-top:6px;
-  display:flex; align-items:center; justify-content:space-between;
-  color:#94a3b8;
-  font-weight:800;
-  font-size:11px;
-}
-#${HUD_ID} .hha-flash{
-  animation:hhaFlash 420ms ease both;
-}
-@keyframes hhaFlash{
-  0%{ transform:translateY(-2px) scale(1.01); filter:brightness(1.12); }
-  100%{ transform:translateY(0) scale(1); filter:brightness(1); }
-}
-
-/* mobile tighten */
-@media (max-width:520px){
-  #${HUD_ID} .hha-card{ min-width: 220px; padding:9px 10px; }
-  #${HUD_ID} .hha-title{ font-size:12px; }
-  #${HUD_ID} .hha-desc{ max-width:74%; }
-}
-    `.trim();
-    doc.head.appendChild(st);
+  function qAny(selectors) {
+    for (const sel of selectors) {
+      const el = doc.querySelector(sel);
+      if (el) return el;
+    }
+    return null;
   }
 
-  function ensureHUD() {
-    let hud = doc.getElementById(HUD_ID);
-    if (hud) return hud;
-
-    hud = doc.createElement('div');
-    hud.id = HUD_ID;
-
-    // Top center group: Goal + Mini
-    const top = doc.createElement('div');
-    top.className = 'hha-top';
-
-    // Goal card
-    const goal = doc.createElement('div');
-    goal.className = 'hha-card';
-    goal.innerHTML = `
-      <div class="hha-titleRow">
-        <div class="hha-title"><span>🎯</span><span id="hhaGoalTitle">GOAL</span></div>
-        <div class="hha-badge active hidden" id="hhaGoalBadge">ACTIVE</div>
-      </div>
-      <div class="hha-progressRow">
-        <div class="hha-desc" id="hhaGoalDesc">—</div>
-        <div class="hha-count" id="hhaGoalCount">0/0</div>
-      </div>
-      <div class="hha-bar"><div class="hha-fill" id="hhaGoalFill"></div></div>
-      <div class="hha-pct">
-        <span id="hhaGoalPct">0%</span>
-        <span id="hhaGoalHint">ทำให้ครบ!</span>
-      </div>
-    `;
-
-    // Mini card
-    const mini = doc.createElement('div');
-    mini.className = 'hha-card';
-    mini.innerHTML = `
-      <div class="hha-titleRow">
-        <div class="hha-title"><span>🧩</span><span id="hhaMiniTitle">MINI QUEST</span></div>
-        <div class="hha-badge active hidden" id="hhaMiniBadge">ACTIVE</div>
-      </div>
-      <div class="hha-progressRow">
-        <div class="hha-desc" id="hhaMiniDesc">—</div>
-        <div class="hha-count" id="hhaMiniCount">0/0</div>
-      </div>
-      <div class="hha-bar"><div class="hha-fill" id="hhaMiniFill"></div></div>
-      <div class="hha-pct">
-        <span id="hhaMiniPct">0%</span>
-        <span id="hhaMiniHint">—</span>
-      </div>
-    `;
-
-    top.appendChild(goal);
-    top.appendChild(mini);
-    hud.appendChild(top);
-    doc.body.appendChild(hud);
-
-    return hud;
-  }
-
-  function $(id) { return doc.getElementById(id); }
-
-  function setBadge(el, state) {
+  function setText(el, txt) {
     if (!el) return;
-    el.classList.remove('active', 'cleared', 'hidden');
-    if (!state) { el.classList.add('hidden'); return; }
-    const s = String(state).toLowerCase();
-    if (s === 'active') {
-      el.textContent = 'ACTIVE';
-      el.classList.add('active');
-    } else if (s === 'cleared' || s === 'complete' || s === 'completed') {
-      el.textContent = 'CLEARED';
-      el.classList.add('cleared');
-    } else {
-      el.textContent = String(state).toUpperCase();
-      el.classList.add('active');
+    try { el.textContent = String(txt ?? ''); } catch (_) {}
+  }
+
+  function setHTML(el, html) {
+    if (!el) return;
+    try { el.innerHTML = String(html ?? ''); } catch (_) {}
+  }
+
+  function show(el, on = true) {
+    if (!el) return;
+    try { el.style.display = on ? '' : 'none'; } catch (_) {}
+  }
+
+  function setBarPct(el, pct) {
+    if (!el) return;
+    const p = clamp01(pct);
+    // support width-based bars
+    try { el.style.width = (p * 100).toFixed(1) + '%'; } catch (_) {}
+    // support scaleX-based bars
+    try { el.style.transformOrigin = '0 50%'; el.style.transform = 'scaleX(' + p.toFixed(4) + ')'; } catch (_) {}
+    // aria
+    try { el.setAttribute('aria-valuenow', String(Math.round(p * 100))); } catch (_) {}
+  }
+
+  function fmtTime(sec) {
+    const s = Math.max(0, sec | 0);
+    const m = (s / 60) | 0;
+    const r = s - m * 60;
+    return m + ':' + String(r).padStart(2, '0');
+  }
+
+  function pickCoachSrc(mood) {
+    const m = String(mood || '').toLowerCase();
+    if (m.includes('fever') || m.includes('rage') || m.includes('alert')) return './img/coach-fever.png';
+    if (m.includes('sad') || m.includes('warn') || m.includes('oops')) return './img/coach-sad.png';
+    if (m.includes('happy') || m.includes('win') || m.includes('good')) return './img/coach-happy.png';
+    return './img/coach-neutral.png';
+  }
+
+  // ---------------- element map (flexible IDs) ----------------
+  const E = {
+    // score line
+    score: byIdAny(['hud-score', 'hha-score', 'score', 'scoreVal', 'txtScore']),
+    combo: byIdAny(['hud-combo', 'hha-combo', 'combo', 'comboVal', 'txtCombo']),
+    miss:  byIdAny(['hud-miss', 'hha-miss', 'miss', 'missVal', 'txtMiss']),
+    mult:  byIdAny(['hud-mult', 'hha-mult', 'mult', 'multVal', 'txtMult']),
+    good:  byIdAny(['hud-good', 'hha-good', 'goodHits', 'goodVal', 'txtGood']),
+
+    // time
+    time:  byIdAny(['hud-time', 'hha-time', 'time', 'timeVal', 'txtTime']),
+    timeBar: byIdAny(['hud-timebar', 'hha-timebar', 'time-bar', 'timeBar', 'barTime']) || qAny(['.hud-timebar .bar', '.hha-timebar .bar']),
+
+    // fever / shield
+    feverBar: byIdAny(['hud-feverbar', 'hha-feverbar', 'fever-bar', 'feverBar', 'barFever']) || qAny(['.hud-fever .bar', '.hha-fever .bar']),
+    feverTxt: byIdAny(['hud-fevertext', 'hha-fevertext', 'feverText', 'txtFever']),
+    shieldBadge: byIdAny(['hud-shield', 'hha-shield', 'shield', 'shieldBadge']),
+
+    // quest goal
+    goalTitle: byIdAny(['hud-goal-title', 'goal-title', 'q-goal-title']),
+    goalCur:   byIdAny(['hud-goal-cur', 'goal-cur', 'q-goal-cur']),
+    goalMax:   byIdAny(['hud-goal-max', 'goal-max', 'q-goal-max']),
+    goalHint:  byIdAny(['hud-goal-hint', 'goal-hint', 'q-goal-hint']),
+    goalBar:   byIdAny(['hud-goal-bar', 'goal-bar', 'q-goal-bar']) || qAny(['.hud-goal .bar', '.q-goal .bar']),
+
+    // quest mini
+    miniTitle: byIdAny(['hud-mini-title', 'mini-title', 'q-mini-title']),
+    miniCur:   byIdAny(['hud-mini-cur', 'mini-cur', 'q-mini-cur']),
+    miniMax:   byIdAny(['hud-mini-max', 'mini-max', 'q-mini-max']),
+    miniHint:  byIdAny(['hud-mini-hint', 'mini-hint', 'q-mini-hint']),
+    miniBar:   byIdAny(['hud-mini-bar', 'mini-bar', 'q-mini-bar']) || qAny(['.hud-mini .bar', '.q-mini .bar']),
+
+    // quest meta
+    goalsCleared: byIdAny(['hud-goals-cleared', 'goals-cleared', 'q-goals-cleared']),
+    minisCleared: byIdAny(['hud-minis-cleared', 'minis-cleared', 'q-minis-cleared']),
+
+    // coach
+    coachImg: byIdAny(['hud-coach-img', 'coach-img', 'hha-coach-img', 'coachAvatar']),
+    coachText: byIdAny(['hud-coach-text', 'coach-text', 'hha-coach-text', 'coachMsg']),
+
+    // judge popup (optional)
+    judgeText: byIdAny(['hud-judge', 'judge-text', 'hha-judge', 'judgeText']),
+
+    // end overlay (optional)
+    endWrap: byIdAny(['hud-end', 'end-overlay', 'hha-end', 'endWrap']),
+    endTitle: byIdAny(['hud-end-title', 'end-title', 'hha-end-title']),
+    endBody: byIdAny(['hud-end-body', 'end-body', 'hha-end-body']),
+    endGrade: byIdAny(['hud-grade', 'grade', 'gradeVal', 'badge-grade']),
+
+    // debug adaptive (optional)
+    adaptive: byIdAny(['hud-adaptive', 'hha-adaptive', 'adaptiveText'])
+  };
+
+  // ---------------- renderers ----------------
+  function onScore(ev) {
+    const d = ev?.detail || {};
+    const score = toNum(d.score, null);
+    const combo = toNum(d.combo, null);
+    const comboMax = toNum(d.comboMax, null);
+    const misses = toNum((d.miss ?? d.misses), null);
+    const mult = toNum(d.multiplier, null);
+    const goodHits = toNum(d.goodHits, null);
+
+    if (score !== null) setText(E.score, score);
+    if (goodHits !== null) setText(E.good, goodHits);
+    if (combo !== null) setText(E.combo, combo);
+    if (misses !== null) setText(E.miss, misses);
+    if (mult !== null) setText(E.mult, 'x' + mult);
+
+    // grade badge (if someone passes it in score event)
+    if (d.grade != null && E.endGrade) setText(E.endGrade, d.grade);
+    // sometimes show comboMax if element exists (fallback into title)
+    if (!E.combo && comboMax !== null && E.endGrade) {
+      // ignore
     }
   }
 
-  function flashCard(cardEl) {
-    if (!cardEl) return;
-    cardEl.classList.remove('hha-flash');
-    // force reflow
-    void cardEl.offsetWidth;
-    cardEl.classList.add('hha-flash');
+  function onTime(ev) {
+    const d = ev?.detail || {};
+    let left = d.timeLeft ?? d.secLeft ?? d.left ?? null;
+    let total = d.timeTotal ?? d.secTotal ?? d.total ?? null;
+
+    // if ms
+    if (toNum(left, 0) > 1000) left = Math.round(toNum(left, 0) / 1000);
+    if (toNum(total, 0) > 1000) total = Math.round(toNum(total, 0) / 1000);
+
+    if (left != null) setText(E.time, fmtTime(toNum(left, 0)));
+    if (left != null && total != null && E.timeBar) {
+      const pct = (toNum(total, 0) > 0) ? (toNum(left, 0) / toNum(total, 1)) : 0;
+      setBarPct(E.timeBar, pct);
+    }
   }
 
-  function setProgress(fillEl, pct01, warn = false) {
-    if (!fillEl) return;
-    pct01 = clamp01(pct01);
-    fillEl.style.width = Math.round(pct01 * 1000) / 10 + '%';
-    if (warn) fillEl.classList.add('warn');
-    else fillEl.classList.remove('warn');
+  function onCoach(ev) {
+    const d = ev?.detail || {};
+    const text = d.text ?? d.msg ?? d.message ?? '';
+    const mood = d.mood ?? d.state ?? '';
+    if (E.coachText) setText(E.coachText, text);
+    if (E.coachImg) {
+      try {
+        const src = pickCoachSrc(mood);
+        if (E.coachImg.getAttribute('src') !== src) E.coachImg.setAttribute('src', src);
+        if (!E.coachImg.getAttribute('alt')) E.coachImg.setAttribute('alt', 'Coach');
+      } catch (_) {}
+    }
   }
 
-  // -------------------------
-  // State + update functions
-  // -------------------------
-  let lastGoalKey = '';
-  let lastMiniKey = '';
-  let lastGoalCur = null;
-  let lastMiniCur = null;
-
-  function updateGoal(g) {
-    const goalCard = $('hhaGoalTitle')?.closest('.hha-card');
-    const badge = $('hhaGoalBadge');
-    const titleEl = $('hhaGoalTitle');
-    const descEl = $('hhaGoalDesc');
-    const countEl = $('hhaGoalCount');
-    const pctEl = $('hhaGoalPct');
-    const hintEl = $('hhaGoalHint');
-    const fillEl = $('hhaGoalFill');
-
-    if (!g) {
-      if (descEl) descEl.textContent = '—';
-      if (countEl) countEl.textContent = '0/0';
-      if (pctEl) pctEl.textContent = '0%';
-      if (hintEl) hintEl.textContent = '—';
-      setProgress(fillEl, 0);
-      setBadge(badge, null);
-      return;
+  function onFever(ev) {
+    const d = ev?.detail || {};
+    const pct = clamp01(d.pct ?? d.feverPct ?? d.fever ?? 0);
+    const shield = !!(d.shield ?? d.shieldOn ?? d.hasShield);
+    if (E.feverBar) setBarPct(E.feverBar, pct);
+    if (E.feverTxt) setText(E.feverTxt, Math.round(pct * 100) + '%');
+    if (E.shieldBadge) {
+      show(E.shieldBadge, shield);
+      if (shield) setText(E.shieldBadge, '🛡️');
     }
-
-    const title = safeText(g.title, 'GOAL');
-    const cur = Number(g.cur ?? 0);
-    const max = Math.max(0, Number(g.max ?? 0));
-    const pct = (g.pct !== undefined && g.pct !== null)
-      ? clamp01(g.pct)
-      : (max > 0 ? clamp01(cur / max) : 0);
-
-    const state = safeText(g.state, 'active');
-    const key = title + '|' + max;
-
-    if (titleEl) titleEl.textContent = 'GOAL';
-    if (descEl) descEl.textContent = title;
-    if (countEl) countEl.textContent = `${Math.max(0, cur)}/${Math.max(0, max)}`;
-    if (pctEl) pctEl.textContent = pctToText(pct);
-
-    // hint
-    if (hintEl) {
-      if (String(state).toLowerCase().includes('clear')) hintEl.textContent = 'ผ่านแล้ว! 🎉';
-      else if (pct >= 0.8) hintEl.textContent = 'ใกล้แล้ว! 🔥';
-      else hintEl.textContent = 'ทำให้ครบ!';
-    }
-
-    setBadge(badge, state);
-    setProgress(fillEl, pct, false);
-
-    // flash when progress increments OR goal changes
-    if (key !== lastGoalKey || (lastGoalCur !== null && cur !== lastGoalCur)) {
-      // flash only on positive progress or change
-      if (key !== lastGoalKey || (cur > (lastGoalCur ?? -Infinity))) {
-        flashCard(goalCard);
-      }
-    }
-    lastGoalKey = key;
-    lastGoalCur = cur;
   }
 
-  function updateMini(m) {
-    const miniCard = $('hhaMiniTitle')?.closest('.hha-card');
-    const badge = $('hhaMiniBadge');
-    const titleEl = $('hhaMiniTitle');
-    const descEl = $('hhaMiniDesc');
-    const countEl = $('hhaMiniCount');
-    const pctEl = $('hhaMiniPct');
-    const hintEl = $('hhaMiniHint');
-    const fillEl = $('hhaMiniFill');
-
-    if (!m) {
-      if (descEl) descEl.textContent = '—';
-      if (countEl) countEl.textContent = '0/0';
-      if (pctEl) pctEl.textContent = '0%';
-      if (hintEl) hintEl.textContent = '—';
-      setProgress(fillEl, 0);
-      setBadge(badge, null);
-      return;
-    }
-
-    const title = safeText(m.title, 'MINI QUEST');
-    const cur = Number(m.cur ?? 0);
-    const max = Math.max(0, Number(m.max ?? 0));
-    const pct = (m.pct !== undefined && m.pct !== null)
-      ? clamp01(m.pct)
-      : (max > 0 ? clamp01(cur / max) : 0);
-
-    const state = safeText(m.state, 'active');
-    const key = title + '|' + max;
-
-    if (titleEl) titleEl.textContent = 'MINI QUEST';
-    if (descEl) descEl.textContent = title;
-
-    // timer vs counter hint
-    const tl = msToSec(m.timeLeft);
-    const tt = msToSec(m.timeTotal);
-    const hasTimer = (tl !== null && tt !== null && tt > 0);
-
-    if (countEl) {
-      if (hasTimer) countEl.textContent = `${formatSec(tl)}`;
-      else countEl.textContent = `${Math.max(0, cur)}/${Math.max(0, max)}`;
-    }
-    if (pctEl) pctEl.textContent = pctToText(pct);
-
-    // warning when time left low
-    let warn = false;
-    if (hasTimer) {
-      // warn when <= 3s
-      warn = (tl <= 3.0);
-    }
-
-    if (hintEl) {
-      if (String(state).toLowerCase().includes('clear')) hintEl.textContent = 'ผ่านแล้ว! 🌟';
-      else if (hasTimer) hintEl.textContent = `เหลือ ${formatSec(tl)} ⏳`;
-      else if (pct >= 0.8) hintEl.textContent = 'อีกนิดเดียว! ⚡';
-      else hintEl.textContent = 'ทำภารกิจย่อย!';
-    }
-
-    setBadge(badge, state);
-    setProgress(fillEl, pct, warn);
-
-    // flash when progress increments OR mini changes
-    if (key !== lastMiniKey || (lastMiniCur !== null && cur !== lastMiniCur)) {
-      if (key !== lastMiniKey || (cur > (lastMiniCur ?? -Infinity))) {
-        flashCard(miniCard);
-      }
-    }
-    lastMiniKey = key;
-    lastMiniCur = cur;
+  function onJudge(ev) {
+    const d = ev?.detail || {};
+    if (!E.judgeText) return;
+    const txt = d.text ?? d.label ?? d.kind ?? '';
+    if (!txt) return;
+    setText(E.judgeText, txt);
+    // optional auto-hide if element uses opacity animation (CSS can handle)
   }
 
-  // -------------------------
-  // Bind listeners (safe)
-  // -------------------------
-  ensureStyle();
-  ensureHUD();
+  function normalizeQuestPart(part) {
+    if (!part) return null;
 
-  // Existing HHA events (keep)
-  function onScore() { /* เกมอื่นใช้ต่อได้ ไม่แตะ */ }
-  function onCoach() { /* เกมอื่นใช้ต่อได้ ไม่แตะ */ }
-  function onEnd() { /* เกมอื่นใช้ต่อได้ ไม่แตะ */ }
+    // Patch A shape already: {title,cur,max,pct,state,hint,timeLeft,timeTotal}
+    const title = part.title ?? part.label ?? '';
+    const cur = (part.cur != null) ? toNum(part.cur, 0) : toNum(part.value, 0);
+    const max = (part.max != null) ? toNum(part.max, 0) : toNum(part.target, 0);
+    const pct = clamp01(part.pct ?? (max > 0 ? (cur / max) : 0));
+    const hint = part.hint ?? part.desc ?? '';
 
-  // Patch A: quest:update
+    // timer fields (ms)
+    const timeLeft = part.timeLeft ?? null;
+    const timeTotal = part.timeTotal ?? null;
+
+    return { title, cur, max, pct, hint, state: part.state ?? 'active', timeLeft, timeTotal };
+  }
+
   function onQuestUpdate(ev) {
-    const d = ev && ev.detail ? ev.detail : null;
-    if (!d) return;
-    updateGoal(d.goal || null);
-    updateMini(d.mini || null);
+    const d = ev?.detail || {};
+    const goal = normalizeQuestPart(d.goal);
+    const mini = normalizeQuestPart(d.mini);
+    const meta = d.meta || {};
+
+    if (goal) {
+      if (E.goalTitle) setText(E.goalTitle, goal.title || 'ภารกิจหลัก');
+      if (E.goalCur) setText(E.goalCur, goal.cur);
+      if (E.goalMax) setText(E.goalMax, goal.max);
+      if (E.goalHint) setText(E.goalHint, goal.hint || '');
+      if (E.goalBar) setBarPct(E.goalBar, goal.pct);
+
+      // if timer-like info present, prefer showing time remaining in hint slot (optional)
+      if (goal.timeLeft != null && goal.timeTotal != null && E.goalHint) {
+        const l = toNum(goal.timeLeft, 0) > 1000 ? Math.round(toNum(goal.timeLeft, 0) / 1000) : toNum(goal.timeLeft, 0);
+        const t = toNum(goal.timeTotal, 0) > 1000 ? Math.round(toNum(goal.timeTotal, 0) / 1000) : toNum(goal.timeTotal, 0);
+        setText(E.goalHint, (goal.hint ? goal.hint + ' • ' : '') + fmtTime(l) + ' / ' + fmtTime(t));
+      }
+    }
+
+    if (mini) {
+      if (E.miniTitle) setText(E.miniTitle, mini.title || 'Mini quest');
+      if (E.miniCur) setText(E.miniCur, mini.cur);
+      if (E.miniMax) setText(E.miniMax, mini.max);
+      if (E.miniHint) setText(E.miniHint, mini.hint || '');
+      if (E.miniBar) setBarPct(E.miniBar, mini.pct);
+
+      if (mini.timeLeft != null && mini.timeTotal != null && E.miniHint) {
+        const l = toNum(mini.timeLeft, 0) > 1000 ? Math.round(toNum(mini.timeLeft, 0) / 1000) : toNum(mini.timeLeft, 0);
+        const t = toNum(mini.timeTotal, 0) > 1000 ? Math.round(toNum(mini.timeTotal, 0) / 1000) : toNum(mini.timeTotal, 0);
+        setText(E.miniHint, (mini.hint ? mini.hint + ' • ' : '') + fmtTime(l) + ' / ' + fmtTime(t));
+      }
+    }
+
+    if (E.goalsCleared && meta.goalsCleared != null) setText(E.goalsCleared, meta.goalsCleared);
+    if (E.minisCleared && meta.minisCleared != null) setText(E.minisCleared, meta.minisCleared);
   }
 
-  // Patch A: quest:cleared -> flash badge CLEARED ชั่วครู่ (HUD)
   function onQuestCleared(ev) {
-    const d = ev && ev.detail ? ev.detail : null;
-    if (!d) return;
-    const kind = String(d.kind || d.type || '').toLowerCase();
-    const state = 'cleared';
+    // optional tiny toast; if you want, wire to judgeText
+    const d = ev?.detail || {};
+    if (!E.judgeText) return;
+    const kind = String(d.kind || '').toLowerCase();
+    const title = d.title || '';
+    if (!title) return;
+    setText(E.judgeText, (kind === 'goal' ? 'GOAL CLEAR 🎉 ' : 'MINI CLEAR ✅ ') + title);
+  }
 
-    if (kind.includes('goal')) {
-      const badge = $('hhaGoalBadge');
-      setBadge(badge, state);
-      flashCard($('hhaGoalTitle')?.closest('.hha-card'));
-      // กลับเป็น ACTIVE ต่อ ถ้ายังมี goal ใหม่
-      setTimeout(() => {
-        // ไม่ override ถ้า goal อัปเดตมาใหม่แล้ว
-        // (ปล่อยให้ quest:update จัดการ)
-      }, 350);
-    } else if (kind.includes('mini')) {
-      const badge = $('hhaMiniBadge');
-      setBadge(badge, state);
-      flashCard($('hhaMiniTitle')?.closest('.hha-card'));
+  function onAdaptive(ev) {
+    const d = ev?.detail || {};
+    if (!E.adaptive) return;
+    const parts = [];
+    if (d.level != null) parts.push('level:' + d.level);
+    if (d.size != null) parts.push('size:' + d.size);
+    if (d.rate != null) parts.push('rate:' + d.rate);
+    if (d.note != null) parts.push(String(d.note));
+    setText(E.adaptive, parts.join(' • '));
+  }
+
+  function onEnd(ev) {
+    const d = ev?.detail || {};
+    if (E.endWrap) show(E.endWrap, true);
+
+    if (d.grade != null && E.endGrade) setText(E.endGrade, d.grade);
+
+    const title = d.title ?? 'สรุปผลการเล่น';
+    if (E.endTitle) setText(E.endTitle, title);
+
+    const stats = d.stats || d;
+    if (E.endBody) {
+      // safe quick summary (edit ids freely in HTML)
+      const lines = [];
+      if (stats.score != null) lines.push('คะแนน: <b>' + stats.score + '</b>');
+      if (stats.goodHits != null) lines.push('เก็บของดี: <b>' + stats.goodHits + '</b>');
+      if (stats.miss != null || stats.misses != null) lines.push('MISS: <b>' + (stats.miss ?? stats.misses) + '</b>');
+      if (stats.comboMax != null) lines.push('คอมโบสูงสุด: <b>' + stats.comboMax + '</b>');
+      if (stats.goalsCleared != null) lines.push('Goals เคลียร์: <b>' + stats.goalsCleared + '</b>');
+      if (stats.minisCleared != null) lines.push('Minis เคลียร์: <b>' + stats.minisCleared + '</b>');
+      setHTML(E.endBody, lines.join('<br>'));
     }
   }
 
-  // Register only once
-  if (!root.__HHA_HUD_BOUND_A__) {
-    root.__HHA_HUD_BOUND_A__ = true;
+  // ---------------- bind listeners (✅ window) ----------------
+  const on = (name, fn) => root.addEventListener(name, fn, { passive: true });
+  on('hha:score', onScore);
+  on('hha:time', onTime);
+  on('hha:coach', onCoach);
+  on('hha:fever', onFever);
+  on('hha:judge', onJudge);
+  on('quest:update', onQuestUpdate);
+  on('quest:cleared', onQuestCleared);
+  on('hha:adaptive', onAdaptive);
+  on('hha:end', onEnd);
 
-    doc.addEventListener('quest:update', onQuestUpdate, { passive: true });
-    doc.addEventListener('quest:cleared', onQuestCleared, { passive: true });
-
-    // keep compatibility with existing HUD signals (no-op if not used)
-    doc.addEventListener('hha:score', onScore, { passive: true });
-    doc.addEventListener('hha:coach', onCoach, { passive: true });
-    doc.addEventListener('hha:end', onEnd, { passive: true });
-  }
-
-})(typeof window !== 'undefined' ? window : globalThis);
+  // expose module
+  root.GAME_MODULES.HUD = {
+    __bound: true,
+    refresh() {
+      // noop: events drive UI; keep for compatibility
+    }
+  };
+})(window);
