@@ -1,8 +1,6 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — Step H
-     ✅ Add #game-cam wrapper (shake+kicks) HUD stable
-     ✅ Add chromatic overlay #fx-chroma
-     ✅ Keep STUN fire overlay, vortex, boss beacon, summary
+     GoodJunkVR (PRODUCTION) — H+
+     ✅ Add boss attack overlays: #atk-ring #atk-laser
 -->
 <!doctype html>
 <html lang="th">
@@ -32,6 +30,10 @@
 
       --kickAmp: 10px;
       --kickRot: 4deg;
+
+      --ringSize: 420px;
+      --ringGapStart: 40deg; /* updated by JS */
+      --ringGapSize: 70deg;  /* updated by JS */
     }
 
     *{ box-sizing:border-box; }
@@ -47,14 +49,11 @@
       overflow:hidden;
     }
 
-    /* Root wrapper */
     #game-root{
       position:fixed; inset:0;
       z-index:0;
       pointer-events:none;
     }
-
-    /* Camera stage (shake/kick/fire overlays here) */
     #game-cam{
       position:absolute; inset:0;
       transform: translate3d(0,0,0);
@@ -62,15 +61,8 @@
       pointer-events:none;
     }
 
-    /* Shake (only game-cam) */
-    #game-cam.shake{
-      animation: gj-shake var(--shakeDur) linear infinite;
-    }
-
-    /* Kick (combine with shake) */
-    #game-cam.kick{
-      animation: gj-kick .22s ease-out 1;
-    }
+    #game-cam.shake{ animation: gj-shake var(--shakeDur) linear infinite; }
+    #game-cam.kick{ animation: gj-kick .22s ease-out 1; }
     #game-cam.shake.kick{
       animation: gj-shake var(--shakeDur) linear infinite, gj-kick .22s ease-out 1;
     }
@@ -88,7 +80,7 @@
       100%{ transform: translate3d(0,0,0) rotate(0deg); }
     }
 
-    /* STUN fire overlay (game-cam only) */
+    /* STUN fire overlay */
     #game-cam.stun-fire::before{
       content:"";
       position:absolute; inset:-12%;
@@ -123,7 +115,7 @@
       100%{ opacity:0.20; }
     }
 
-    /* Chromatic flash overlay */
+    /* Chromatic overlay */
     #fx-chroma{
       position:absolute; inset:0;
       pointer-events:none;
@@ -135,20 +127,104 @@
         linear-gradient(90deg, rgba(255,0,100,0.06), transparent 40%, rgba(0,255,220,0.06));
       filter: saturate(1.4) contrast(1.1);
     }
-    #fx-chroma.show{
-      animation: chromaFlash .18s ease-out 1;
-    }
+    #fx-chroma.show{ animation: chromaFlash .18s ease-out 1; }
     @keyframes chromaFlash{
       0%{ opacity:0.00; transform:scale(1); }
       30%{ opacity:0.55; transform:scale(1.01); }
       100%{ opacity:0.00; transform:scale(1); }
     }
-    /* Hero Burst overlay (blue/green shimmer) */
     #fx-chroma.hero{
       background:
         radial-gradient(circle at 50% 60%, rgba(34,197,94,0.18), transparent 58%),
         radial-gradient(circle at 45% 45%, rgba(56,189,248,0.16), transparent 55%),
         linear-gradient(90deg, rgba(34,197,94,0.06), transparent 40%, rgba(56,189,248,0.06));
+    }
+
+    /* ===== H+ Boss Attack Overlay: RING ===== */
+    #atk-ring{
+      position:absolute;
+      width: var(--ringSize);
+      height: var(--ringSize);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%,-50%);
+      pointer-events:none;
+      z-index:7;
+      opacity:0;
+      filter: drop-shadow(0 0 18px rgba(251,191,36,0.22));
+    }
+    #atk-ring.show{ opacity:1; animation: ringPulse .22s ease-in-out infinite; }
+    @keyframes ringPulse{
+      0%{ transform: translate(-50%,-50%) scale(0.995); }
+      50%{ transform: translate(-50%,-50%) scale(1.01); }
+      100%{ transform: translate(-50%,-50%) scale(0.995); }
+    }
+    #atk-ring::before{
+      content:"";
+      position:absolute; inset:0;
+      border-radius:999px;
+      /* dashed ring */
+      border: 4px dashed rgba(251,191,36,0.85);
+      box-shadow: inset 0 0 18px rgba(251,191,36,0.16);
+      opacity:0.95;
+    }
+    /* Danger area with ONE gap (conic gradient mask) */
+    #atk-ring::after{
+      content:"";
+      position:absolute; inset:-10px;
+      border-radius:999px;
+      background:
+        conic-gradient(
+          from var(--ringGapStart),
+          rgba(249,115,22,0.24) 0deg,
+          rgba(249,115,22,0.24) calc(360deg - var(--ringGapSize)),
+          rgba(0,0,0,0) calc(360deg - var(--ringGapSize)),
+          rgba(0,0,0,0) 360deg
+        );
+      -webkit-mask:
+        radial-gradient(circle, transparent 54%, #000 56%, #000 64%, transparent 66%);
+      mask:
+        radial-gradient(circle, transparent 54%, #000 56%, #000 64%, transparent 66%);
+      box-shadow: 0 0 22px rgba(249,115,22,0.18);
+    }
+
+    /* ===== H+ Boss Attack Overlay: LASER ===== */
+    #atk-laser{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width: min(92vw, 900px);
+      height: 18px;
+      transform: translate(-50%,-50%);
+      border-radius: 999px;
+      background:
+        linear-gradient(90deg,
+          rgba(56,189,248,0.00),
+          rgba(56,189,248,0.25),
+          rgba(56,189,248,0.85),
+          rgba(56,189,248,0.25),
+          rgba(56,189,248,0.00)
+        );
+      box-shadow: 0 0 26px rgba(56,189,248,0.22);
+      opacity:0;
+      pointer-events:none;
+      z-index:7;
+    }
+    #atk-laser.warn{
+      opacity:0.85;
+      animation: laserWarn .12s linear infinite;
+    }
+    #atk-laser.fire{
+      opacity:1;
+      height:26px;
+      box-shadow: 0 0 36px rgba(56,189,248,0.45);
+      filter: saturate(1.25);
+      animation: none;
+    }
+    @keyframes laserWarn{
+      0%{ transform: translate(-50%,-50%) scaleY(0.9); opacity:0.65; }
+      50%{ transform: translate(-50%,-50%) scaleY(1.05); opacity:0.95; }
+      100%{ transform: translate(-50%,-50%) scaleY(0.9); opacity:0.65; }
     }
 
     a-scene{
@@ -158,7 +234,7 @@
       pointer-events:auto;
     }
 
-    /* ---------- DOM target layer ---------- */
+    /* DOM target layer */
     #gj-layer{
       position:absolute; inset:0;
       z-index:5;
@@ -194,7 +270,7 @@
       filter: drop-shadow(0 20px 34px rgba(250,204,21,0.28)) drop-shadow(0 2px 0 rgba(255,255,255,0.12));
     }
 
-    /* ---------- VORTEX (center for STUN) ---------- */
+    /* VORTEX */
     #stun-vortex{
       position:absolute;
       width:18px; height:18px;
@@ -225,7 +301,6 @@
     @keyframes vortexSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg);} }
     @keyframes vortexPulse{ 0%{transform:scale(0.9)} 50%{transform:scale(1.12)} 100%{transform:scale(0.9)} }
 
-    /* Lock ring shrink */
     #stun-vortex.lock::before{ animation: vortexLockShrink 1s ease-out 1 !important; }
     #stun-vortex.lock::after{
       animation: vortexLockDot 0.12s linear infinite !important;
@@ -242,7 +317,7 @@
       100%{ transform:scale(1); }
     }
 
-    /* Boss Pulse beacon (tap here to move aim) */
+    /* Boss Beacon */
     #boss-beacon{
       position:absolute;
       left:50%; top:50%;
@@ -273,7 +348,9 @@
     @keyframes beaconSpin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
     @keyframes beaconPulse{ 0%{transform:scale(0.86)} 50%{transform:scale(1.18)} 100%{transform:scale(0.86)} }
 
-    /* ---------- HUD (เหมือนเดิมจาก Step G) ---------- */
+    /* ===== HUD / Start / Summary =====
+       (เหมือน Step H เดิมทั้งหมด — ยกมาเหมือนเดิมเพื่อความเสถียร)
+    */
     .hud-root{
       position:fixed;
       inset:0;
@@ -317,7 +394,6 @@
       border-color:rgba(59,130,246,0.55);
       color:#bfdbfe;
     }
-
     .hud-metrics{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
     .metric{ min-width:92px; }
     .metric-label{ font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-soft); }
@@ -533,13 +609,11 @@
     }
   </style>
 
-  <!-- FX + UI IIFEs -->
   <script src="./vr/particles.js"></script>
   <script src="./vr/ui-fever.js"></script>
   <script src="./vr/hha-summary.js"></script>
   <script src="./vr/hha-cloud-logger.js"></script>
 
-  <!-- Boot loader (module) -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
     function setBadge(ok, msg){
@@ -581,7 +655,6 @@
 </head>
 
 <body>
-
   <div id="game-root">
     <div id="game-cam">
       <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true">
@@ -593,46 +666,32 @@
 
       <div id="gj-layer" aria-label="GoodJunk Targets Layer"></div>
 
-      <!-- STUN vortex center -->
       <div id="stun-vortex" aria-hidden="true"></div>
-
-      <!-- Boss pulse beacon -->
       <div id="boss-beacon" aria-hidden="true"></div>
 
-      <!-- Chromatic FX -->
+      <!-- H+ overlays -->
+      <div id="atk-ring" aria-hidden="true"></div>
+      <div id="atk-laser" aria-hidden="true"></div>
+
       <div id="fx-chroma" aria-hidden="true"></div>
     </div>
   </div>
 
-  <!-- HUD -->
+  <!-- HUD / Start / Summary: (เหมือน Step H เดิม) -->
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
       <div class="hud-card" style="min-width: 310px;">
         <div class="hud-main">
           <div class="hud-main-title">GOODJUNK</div>
-          <div class="hud-pill" id="hud-pill">
-            <span>●</span><span id="hud-run-label">PLAY</span>
-          </div>
+          <div class="hud-pill" id="hud-pill"><span>●</span><span id="hud-run-label">PLAY</span></div>
           <div id="hud-stun"><span class="dot"></span><span>STUN</span></div>
         </div>
 
         <div class="hud-metrics">
-          <div class="metric">
-            <div class="metric-label">Score</div>
-            <div class="metric-value accent" id="hud-score">0</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Combo Max</div>
-            <div class="metric-value" id="hud-combo">0</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Miss</div>
-            <div class="metric-value danger" id="hud-miss">0</div>
-          </div>
-          <div class="metric">
-            <div class="metric-label">Time</div>
-            <div class="metric-value" id="hud-time-label">—</div>
-          </div>
+          <div class="metric"><div class="metric-label">Score</div><div class="metric-value accent" id="hud-score">0</div></div>
+          <div class="metric"><div class="metric-label">Combo Max</div><div class="metric-value" id="hud-combo">0</div></div>
+          <div class="metric"><div class="metric-label">Miss</div><div class="metric-value danger" id="hud-miss">0</div></div>
+          <div class="metric"><div class="metric-label">Time</div><div class="metric-value" id="hud-time-label">—</div></div>
         </div>
 
         <div style="margin-top:6px; font-size:11px; color:var(--text-soft);">
@@ -648,19 +707,13 @@
         <div class="quest-main-label" id="hud-quest-main">ภารกิจหลัก</div>
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-main-bar"></div></div>
-          <div class="quest-caption">
-            <span id="hud-quest-main-caption">0 / 0</span>
-            <span id="hud-quest-hint"></span>
-          </div>
+          <div class="quest-caption"><span id="hud-quest-main-caption">0 / 0</span><span id="hud-quest-hint"></span></div>
         </div>
 
         <div class="quest-mini-label" id="hud-quest-mini">Mini: —</div>
         <div class="quest-progress-wrap">
           <div class="quest-bar"><div class="quest-bar-fill" id="hud-quest-mini-bar"></div></div>
-          <div class="quest-caption">
-            <span id="hud-quest-mini-caption">0 / 0</span>
-            <span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span>
-          </div>
+          <div class="quest-caption"><span id="hud-quest-mini-caption">0 / 0</span><span id="hud-mini-count">mini ผ่าน 0 • เล่นอยู่ 1</span></div>
         </div>
 
         <div class="hud-fever">
@@ -669,16 +722,10 @@
             <div class="fever-bar"><div class="fever-fill" id="fever-fill" style="width:0%"></div></div>
             <div class="fever-pct" id="fever-pct">0%</div>
           </div>
-          <div class="shield-row">
-            <div class="shield-label">🛡️</div><div>Shield</div>
-            <div class="shield-count" id="shield-count">0</div>
-          </div>
+          <div class="shield-row"><div class="shield-label">🛡️</div><div>Shield</div><div class="shield-count" id="shield-count">0</div></div>
 
           <div class="boss-wrap" id="boss-wrap">
-            <div class="boss-top">
-              <div class="boss-name">BOSS</div>
-              <div class="boss-phase" id="boss-phase">P1</div>
-            </div>
+            <div class="boss-top"><div class="boss-name">BOSS</div><div class="boss-phase" id="boss-phase">P1</div></div>
             <div class="boss-bar"><div class="boss-fill" id="boss-fill" style="width:0%"></div></div>
           </div>
         </div>
@@ -697,12 +744,8 @@
   </div>
 
   <div class="countdown-overlay countdown-hidden" id="start-countdown">3</div>
+  <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR"><span>🥽</span> Enter VR</button>
 
-  <button class="vr-btn" id="btn-vr" type="button" aria-label="Enter VR">
-    <span>🥽</span> Enter VR
-  </button>
-
-  <!-- Logger badge -->
   <div id="logbadge" style="position:fixed; left:10px; bottom:10px; z-index:690;
     background:rgba(15,23,42,0.88); border:1px solid rgba(148,163,184,0.22); border-radius:999px;
     padding:6px 10px; font-size:11px; color:#e5e7eb; display:flex; align-items:center; gap:8px;
@@ -711,7 +754,6 @@
     <div id="logtext">boot: loading…</div>
   </div>
 
-  <!-- Start overlay -->
   <div class="start-overlay" id="start-overlay">
     <div class="start-card">
       <h1 class="start-title">GoodJunk VR</h1>
@@ -747,7 +789,6 @@
     </div>
   </div>
 
-  <!-- Summary overlay -->
   <div class="sum-overlay" id="sum-overlay">
     <div class="sum-card">
       <h2 class="sum-title">🎉 จบเกมแล้ว!</h2>
@@ -766,6 +807,5 @@
       </div>
     </div>
   </div>
-
 </body>
 </html>
