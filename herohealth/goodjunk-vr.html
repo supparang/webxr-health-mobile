@@ -1,7 +1,5 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — H+  (Option A: Mobile Compact HUD)
-     ✅ HUD bar เตี้ย + Quest collapsible + Fever/Shield strip + Coach toast
-     ✅ Keep boss attack overlays: #atk-ring #atk-laser
+     GoodJunkVR (PRODUCTION) — H+ (Full HTML, FIX: Start hang + Mobile Auto-fit + VR-like pan)
 -->
 <!doctype html>
 <html lang="th">
@@ -35,6 +33,11 @@
       --ringSize: 420px;
       --ringGapStart: 40deg; /* updated by JS */
       --ringGapSize: 70deg;  /* updated by JS */
+
+      --safeTop: env(safe-area-inset-top, 0px);
+      --safeRight: env(safe-area-inset-right, 0px);
+      --safeBottom: env(safe-area-inset-bottom, 0px);
+      --safeLeft: env(safe-area-inset-left, 0px);
     }
 
     *{ box-sizing:border-box; }
@@ -239,6 +242,8 @@
       z-index:5;
       pointer-events:auto;
       touch-action:none;
+      will-change: transform;
+      transform: translate3d(0,0,0);
     }
 
     /* Emoji sticker feel */
@@ -297,7 +302,7 @@
       box-shadow:0 0 18px rgba(56,189,248,0.85);
       animation: vortexPulse 0.42s ease-in-out infinite;
     }
-    @keyframes vortexSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg);} }
+    @keyframes vortexSpin{ from{ transform:rotate(0deg); } to{transform:rotate(360deg);} }
     @keyframes vortexPulse{ 0%{transform:scale(0.9)} 50%{transform:scale(1.12)} 100%{transform:scale(0.9)} }
 
     #stun-vortex.lock::before{ animation: vortexLockShrink 1s ease-out 1 !important; }
@@ -356,13 +361,19 @@
       display:flex;
       flex-direction:column;
       justify-content:space-between;
-      padding:10px 10px 14px;
+      padding:
+        calc(10px + var(--safeTop))
+        calc(10px + var(--safeRight))
+        calc(14px + var(--safeBottom))
+        calc(10px + var(--safeLeft));
+      gap:10px;
     }
     .hud-top{
       display:flex;
       justify-content:space-between;
       gap:8px;
-      align-items:flex-start;
+      align-items:stretch;
+      flex-wrap:wrap; /* ✅ auto-fit */
     }
     .hud-card{
       background:linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.78));
@@ -371,8 +382,10 @@
       box-shadow:0 18px 40px rgba(15,23,42,0.65);
       border:1px solid rgba(148,163,184,0.18);
       pointer-events:auto;
+      min-width:0;
+      flex: 1 1 290px; /* ✅ auto-fit */
     }
-    .hud-main{ display:flex; gap:10px; align-items:center; margin-bottom:4px; }
+    .hud-main{ display:flex; gap:10px; align-items:center; margin-bottom:4px; flex-wrap:wrap; }
     .hud-main-title{ font-size:14px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:var(--text-soft); }
     .hud-pill{
       font-size:11px;
@@ -385,6 +398,7 @@
       display:inline-flex;
       align-items:center;
       gap:6px;
+      white-space:nowrap;
     }
     .hud-pill.research{
       background:rgba(37,99,235,0.18);
@@ -398,22 +412,22 @@
     .metric-value.accent{ color:var(--accent); }
     .metric-value.danger{ color:var(--danger); }
 
-    .hud-quest{ max-width:360px; font-size:12px; }
+    .hud-quest{ max-width:560px; font-size:12px; }
     .quest-title{ font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--text-soft); margin-bottom:2px; }
     .quest-main-label{ font-size:13px; font-weight:700; }
     .quest-mini-label{ font-size:12px; color:var(--text-soft); margin-top:4px; }
     .quest-progress-wrap{ margin-top:5px; display:flex; flex-direction:column; gap:4px; }
     .quest-bar{ position:relative; width:100%; height:4px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; }
     .quest-bar-fill{ position:absolute; inset:0; width:0%; border-radius:999px; background:linear-gradient(90deg, var(--accent-soft), var(--accent)); transition:width .18s ease-out; }
-    .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; }
+    .quest-caption{ font-size:10px; color:var(--text-soft); display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
 
     .hud-fever{ margin-top:6px; display:flex; flex-direction:column; gap:6px; }
-    .fever-row{ display:flex; align-items:center; gap:8px; }
+    .fever-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .fever-label{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:#9ca3af; font-weight:900; }
     .fever-bar{ width:140px; height:6px; border-radius:999px; background:rgba(15,23,42,0.9); overflow:hidden; border:1px solid rgba(148,163,184,0.18); }
     .fever-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.95)); transition:width .16s ease-out; }
     .fever-pct{ font-size:10px; color:#fde68a; font-weight:900; min-width:44px; text-align:right; }
-    .shield-row{ display:flex; align-items:center; gap:6px; }
+    .shield-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
     .shield-count{ font-weight:950; color:#93c5fd; }
 
     #hud-stun{
@@ -425,6 +439,7 @@
       border-radius:999px;
       padding:4px 10px;
       box-shadow:0 0 22px rgba(249,115,22,0.18);
+      white-space:nowrap;
     }
     #hud-stun.show{ display:inline-flex; }
     #hud-stun .dot{
@@ -443,7 +458,13 @@
     .boss-bar{ height:7px; border-radius:999px; background:rgba(15,23,42,0.9); border:1px solid rgba(148,163,184,0.18); overflow:hidden; }
     .boss-fill{ height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg, rgba(251,191,36,0.22), rgba(251,191,36,0.98)); transition: width .14s ease-out; }
 
-    .hud-bottom{ display:flex; flex-direction:column; align-items:center; gap:8px; padding-bottom:72px; }
+    .hud-bottom{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      padding-bottom: calc(72px + var(--safeBottom));
+    }
     .coach-bubble{
       min-width:60%;
       max-width:680px;
@@ -559,6 +580,7 @@
       color:var(--text-main);
       font-weight:850;
     }
+    .start-btn[disabled]{ opacity:.6; cursor:not-allowed; }
 
     .sum-overlay{
       position:fixed; inset:0;
@@ -605,147 +627,26 @@
       color:#052e16;
     }
 
-    /* ==========================================================
-       OPTION A OVERRIDE: Mobile Compact HUD (More Gameplay)
-       - HUD bar เตี้ย (chip)
-       - Quest collapsible (default collapsed)
-       - Fever/Shield strip fixed (บาง)
-       - Coach toast auto-hide
-       ========================================================== */
-    :root{
-      --hudPad: 8px;
-      --hudGap: 8px;
-      --hudRadius: 16px;
-      --hudBarH: 64px;
-      --feverStripH: 34px;
-      --hudZ: 650;
-    }
-
-    .hud-root{
-      padding: var(--hudPad);
-      z-index: var(--hudZ);
-    }
-
-    .hud-top{
-      flex-direction: column;
-      gap: var(--hudGap);
-      align-items: stretch;
-    }
-
-    .hud-card{
-      border-radius: var(--hudRadius);
-      padding: 8px 10px;
-    }
-
-    .hud-top .hud-card:first-child{
-      width: 100%;
-    }
-
-    .hud-metrics{
-      gap: 8px;
-      flex-wrap: nowrap;
-      justify-content: space-between;
-    }
-    .metric{ min-width: 0; }
-    .metric-label{ font-size: 9px; letter-spacing:.10em; }
-    .metric-value{ font-size: 13px; }
-
-    .hud-quest{
-      width: 100%;
-      max-width: none;
-      position: relative;
-      overflow: hidden;
-      max-height: 86px; /* collapsed default */
-      transition: max-height .22s ease;
-    }
-    .hud-quest.expanded{
-      max-height: 330px;
-    }
-
-    .hud-quest .quest-title{
-      display:flex;
-      align-items:center;
-      justify-content: space-between;
-      cursor: pointer;
-      user-select:none;
-    }
-    .hud-quest .quest-title::after{
-      content:"▾";
-      opacity:.8;
-      transform: translateY(-1px);
-      transition: transform .18s ease;
-    }
-    .hud-quest.expanded .quest-title::after{
-      transform: rotate(180deg) translateY(1px);
-    }
-
-    .quest-main-label{ font-size: 12px; font-weight: 850; }
-    .quest-mini-label{ font-size: 11px; }
-
-    /* Fever strip fixed (บาง) */
-    .hud-fever{
-      position: fixed;
-      left: 10px;
-      right: 10px;
-      top: calc(env(safe-area-inset-top) + var(--hudBarH) + 10px);
-      height: var(--feverStripH);
-      padding: 6px 10px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, rgba(15,23,42,.92), rgba(15,23,42,.76));
-      border: 1px solid rgba(148,163,184,0.18);
-      box-shadow: 0 16px 36px rgba(15,23,42,.55);
-      z-index: calc(var(--hudZ) + 1);
-      display:flex;
-      align-items:center;
-      justify-content: space-between;
-      gap: 10px;
-      pointer-events:none;
-      margin-top: 0;
-    }
-    .fever-row{ gap: 8px; }
-    .fever-label{ font-size: 9px; }
-    .fever-bar{ width: min(42vw, 180px); height: 6px; }
-    .fever-pct{ font-size: 10px; min-width: 40px; }
-    .shield-row{ gap: 6px; font-size: 11px; opacity:.95; }
-
-    /* boss bar compact (อยู่ strip เดียวกัน) */
-    .boss-wrap{
-      margin-top: 0;
-      flex: 1;
-      align-items: flex-end;
-      display:none;
-    }
-    .boss-wrap.show{ display:flex; }
-    .boss-top{ display:none; }
-    .boss-bar{ height: 6px; }
-
-    /* Coach toast (ไม่กินพื้นที่) */
-    .hud-bottom{ padding-bottom: 0; }
-    .coach-bubble{
-      position: fixed;
-      left: 10px;
-      right: 10px;
-      bottom: 70px;
-      min-width: auto;
-      max-width: none;
-      z-index: calc(var(--hudZ) + 2);
-      opacity: 0;
-      transform: translateY(12px);
-      transition: opacity .18s ease, transform .18s ease;
-    }
-    .coach-bubble.show{
-      display:flex;
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    @media (max-width: 420px){
-      :root{ --hudBarH: 60px; --feverStripH: 32px; }
-      .hud-card{ padding: 7px 9px; }
-      .hud-main-title{ font-size: 12px; }
-      .hud-pill{ font-size: 10px; }
-      .metric-value{ font-size: 12px; }
-      .hud-quest{ max-height: 82px; }
+    /* ===== Mobile auto-fit ===== */
+    @media (max-width: 520px){
+      .hud-root{ padding:
+        calc(8px + var(--safeTop))
+        calc(8px + var(--safeRight))
+        calc(10px + var(--safeBottom))
+        calc(8px + var(--safeLeft));
+      }
+      .hud-card{ border-radius:16px; padding:8px 9px; flex: 1 1 100%; }
+      .hud-quest{
+        max-width:none;
+        max-height: 36vh;              /* ✅ quest เห็นครบ ไม่ตกขอบ */
+        overflow:auto;
+        -webkit-overflow-scrolling:touch;
+      }
+      .metric{ min-width:78px; }
+      .metric-value{ font-size:14px; }
+      .hud-bottom{ padding-bottom: calc(64px + var(--safeBottom)); }
+      .coach-bubble{ min-width:92%; border-radius:20px; }
+      .fever-bar{ width:120px; }
     }
   </style>
 
@@ -756,41 +657,427 @@
 
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
+
+    // ====== On-screen error reporter (กันค้างเงียบ) ======
     function setBadge(ok, msg){
       const dot = $('#logdot');
       const text = $('#logtext');
       if (dot) dot.style.background = ok ? '#22c55e' : '#ef4444';
       if (text) text.textContent = msg;
     }
-
-    async function loadBoot(){
-      const candidates = [
-        './vr-goodjunk/goodjunk-vr.boot.js',
-        './vr-goodjunk/goodjunk-vr.boot.mjs',
-        './vr-goodjunk/goodjunk.boot.js',
-        './vr-goodjunk/goodjunk.safe.js'
-      ];
-
-      let lastErr = null;
-      for (const p of candidates){
-        try{
-          const mod = await import(p);
-          const bootFn = mod.boot || mod.start || mod.init || mod.default;
-          if (typeof bootFn === 'function'){
-            setBadge(true, 'boot: ' + p);
-            bootFn();
-            return;
-          }
-          lastErr = new Error('Boot loaded but no boot/start/init/default: ' + p);
-        }catch(e){ lastErr = e; }
-      }
-      console.error('[GoodJunk] BOOT LOAD FAILED', lastErr);
-      setBadge(false, 'boot failed: ' + (lastErr?.message || 'unknown'));
+    function panic(msg, err){
+      console.error('[GoodJunk] PANIC', msg, err);
+      setBadge(false, String(msg || 'error'));
       const sub = $('#start-sub');
-      if (sub) sub.textContent = '❌ โหลดไฟล์บูตไม่สำเร็จ — ตรวจ path ./vr-goodjunk/goodjunk-vr.boot.js';
+      if (sub){
+        sub.textContent = '❌ ' + String(msg || 'เกิดข้อผิดพลาด') + (err?.message ? (' — ' + err.message) : '');
+      }
+      // show start overlay back
+      const ov = $('#start-overlay');
+      if (ov) ov.style.display = 'flex';
+      try{ enableStartBtns(true); }catch(_){}
+    }
+    window.addEventListener('error', (e)=> panic('runtime error', e.error || e.message));
+    window.addEventListener('unhandledrejection', (e)=> panic('promise rejected', e.reason));
+
+    // ====== DOM refs ======
+    const elStartOverlay = $('#start-overlay');
+    const elCountdown    = $('#start-countdown');
+    const elSumOverlay   = $('#sum-overlay');
+    const elLayer        = $('#gj-layer');
+    const elCamEntity    = $('#gj-camera');
+    const elScene        = document.querySelector('a-scene');
+    const elGameCam      = document.getElementById('game-cam');
+    const elChroma       = document.getElementById('fx-chroma');
+
+    const btnStart2D = $('#btn-start-2d');
+    const btnStartVR = $('#btn-start-vr');
+    const btnVR      = $('#btn-vr');
+    const btnReplay  = $('#btn-replay');
+    const btnExit    = $('#btn-exit');
+
+    const selDiff      = $('#sel-diff');
+    const selChallenge = $('#sel-challenge');
+
+    // HUD fields
+    const hudScore = $('#hud-score');
+    const hudCombo = $('#hud-combo');
+    const hudMiss  = $('#hud-miss');
+    const hudTime  = $('#hud-time-label');
+    const hudDiff  = $('#hud-diff-label');
+    const hudChal  = $('#hud-challenge-label');
+    const hudJudge = $('#hud-judge');
+
+    const feverFill = $('#fever-fill');
+    const feverPct  = $('#fever-pct');
+    const shieldCnt = $('#shield-count');
+    const hudStun   = $('#hud-stun');
+
+    const bossWrap  = $('#boss-wrap');
+    const bossFill  = $('#boss-fill');
+    const bossPhase = $('#boss-phase');
+
+    // Summary fields
+    const sumScore = $('#sum-score');
+    const sumGood  = $('#sum-good');
+    const sumMiss  = $('#sum-miss');
+    const sumCombo = $('#sum-combo');
+
+    let engine = null;
+    let modSafe = null;
+    let touchCtl = null;
+    let rafPan = 0;
+
+    function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+
+    // ====== Audio tick (simple) ======
+    let AC = null;
+    function ensureAudio(){
+      if (AC) return AC;
+      try{
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return null;
+        AC = new Ctx();
+      }catch(_){ return null; }
+      return AC;
+    }
+    function beep(freq=880, ms=60, gain=0.04){
+      const ac = ensureAudio();
+      if (!ac) return;
+      try{
+        if (ac.state === 'suspended') ac.resume?.();
+        const o = ac.createOscillator();
+        const g = ac.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        g.gain.value = gain;
+        o.connect(g); g.connect(ac.destination);
+        o.start();
+        setTimeout(()=>{ try{ o.stop(); }catch(_){} }, ms);
+      }catch(_){}
     }
 
-    window.addEventListener('load', ()=>{ setBadge(false,'boot: loading…'); loadBoot(); });
+    // ====== Countdown ======
+    async function runCountdown(){
+      if (!elCountdown) return;
+      elCountdown.classList.remove('countdown-hidden');
+      for (const n of [3,2,1]){
+        elCountdown.textContent = String(n);
+        await new Promise(r=> setTimeout(r, 420));
+      }
+      elCountdown.textContent = 'GO!';
+      await new Promise(r=> setTimeout(r, 180));
+      elCountdown.classList.add('countdown-hidden');
+    }
+
+    // ====== VR-like PAN: camera rotation -> layer translate ======
+    function startPanLoop(){
+      cancelAnimationFrame(rafPan);
+      const pxPerRadX = innerWidth * 0.44;
+      const pxPerRadY = innerHeight * 0.34;
+      const maxPanX   = innerWidth * 0.30;
+      const maxPanY   = innerHeight * 0.24;
+
+      const step = ()=>{
+        try{
+          const r = elCamEntity?.object3D?.rotation;
+          if (r && elLayer){
+            const yaw = Number(r.y)||0;
+            const pitch = Number(r.x)||0;
+
+            // translate opposite direction so “world” shifts with look
+            const tx = clamp(-yaw * pxPerRadX, -maxPanX, maxPanX);
+            const ty = clamp(-pitch * pxPerRadY, -maxPanY, maxPanY);
+            elLayer.style.transform = `translate3d(${tx.toFixed(2)}px, ${ty.toFixed(2)}px, 0)`;
+          }
+
+          // keep aim point fixed center-ish (safe.js uses this)
+          const w = innerWidth|0, h = innerHeight|0;
+          // clamp aimY not to sit inside top HUD too hard
+          const hudTop = document.querySelector('.hud-top')?.getBoundingClientRect?.();
+          const hudBot = document.querySelector('.hud-bottom')?.getBoundingClientRect?.();
+          const topSafe = Math.min(h - 120, Math.max(120, (hudTop?.bottom||0) + 18));
+          const botSafe = Math.max(180, Math.min(h - 90, (hudBot?.top||h) - 18));
+
+          const ax = (w*0.5)|0;
+          const ay0 = (h*0.62)|0;
+          const ay = clamp(ay0, topSafe + 40, botSafe - 40) | 0;
+
+          window.__GJ_AIM_POINT__ = { x: ax, y: ay };
+        }catch(_){}
+
+        rafPan = requestAnimationFrame(step);
+      };
+      rafPan = requestAnimationFrame(step);
+    }
+    function stopPanLoop(){
+      cancelAnimationFrame(rafPan);
+      rafPan = 0;
+      if (elLayer) elLayer.style.transform = 'translate3d(0,0,0)';
+      window.__GJ_AIM_POINT__ = null;
+    }
+
+    // ====== FX bindings (restore shake/kick/chroma) ======
+    let kickLock = 0;
+    function fxKick(intensity=1){
+      if (!elGameCam) return;
+      const t = performance.now();
+      if (t < kickLock) return;
+      kickLock = t + 80;
+
+      const amp = clamp(10 * Number(intensity||1), 6, 22);
+      const rot = clamp(4 * Number(intensity||1), 2, 9);
+      document.documentElement.style.setProperty('--kickAmp', amp.toFixed(1)+'px');
+      document.documentElement.style.setProperty('--kickRot', rot.toFixed(1)+'deg');
+
+      elGameCam.classList.remove('kick');
+      void elGameCam.offsetWidth;
+      elGameCam.classList.add('kick');
+      setTimeout(()=>{ try{ elGameCam.classList.remove('kick'); }catch(_){} }, 260);
+    }
+    let shakeTimer = 0;
+    function fxShake(level=0.0){
+      if (!elGameCam) return;
+      const amp = clamp(10 * level, 0, 18);
+      document.documentElement.style.setProperty('--shakeAmp', amp.toFixed(1)+'px');
+
+      if (amp > 0.3){
+        elGameCam.classList.add('shake');
+        clearTimeout(shakeTimer);
+        shakeTimer = setTimeout(()=>{ try{ elGameCam.classList.remove('shake'); }catch(_){} }, 420);
+      }
+    }
+    function fxChroma(ms=180, hero=false){
+      if (!elChroma) return;
+      elChroma.classList.toggle('hero', !!hero);
+      elChroma.classList.remove('show');
+      void elChroma.offsetWidth;
+      elChroma.classList.add('show');
+      setTimeout(()=>{ try{ elChroma.classList.remove('show'); }catch(_){} }, Math.max(120, ms|0));
+    }
+
+    // ====== Start/Stop engine ======
+    function enableStartBtns(on){
+      if (btnStart2D) btnStart2D.disabled = !on;
+      if (btnStartVR) btnStartVR.disabled = !on;
+    }
+
+    async function ensureModules(){
+      if (modSafe) return modSafe;
+
+      setBadge(false, 'loading modules…');
+      try{
+        modSafe = await import('./vr-goodjunk/goodjunk.safe.js');
+
+        const modTouch = await import('./vr-goodjunk/touch-look-goodjunk.js');
+        const attachTouchLook = modTouch.attachTouchLook;
+
+        // wait camera entity object3D
+        await new Promise((resolve)=>{
+          let tries = 0;
+          const t = setInterval(()=>{
+            tries++;
+            if (elCamEntity?.object3D){
+              clearInterval(t);
+              resolve();
+            } else if (tries > 60){
+              clearInterval(t);
+              resolve(); // don't block forever
+            }
+          }, 40);
+        });
+
+        // attach touch-look on #game-cam (avoid HUD area)
+        const areaEl = document.getElementById('game-cam') || document.body;
+        try{ touchCtl?.destroy?.(); }catch(_){}
+        touchCtl = attachTouchLook(elCamEntity, { areaEl, sensitivity: 0.26 });
+
+        // start pan loop
+        startPanLoop();
+
+        setBadge(true, 'modules ready');
+        return modSafe;
+      }catch(e){
+        panic('โหลดโมดูลไม่สำเร็จ (ตรวจ path ./vr-goodjunk/…)', e);
+        throw e;
+      }
+    }
+
+    function hardStop(){
+      try{ engine?.stop?.(); }catch(_){}
+      engine = null;
+
+      try{ touchCtl?.destroy?.(); }catch(_){}
+      touchCtl = null;
+
+      stopPanLoop();
+
+      // cleanup targets
+      try{
+        elLayer?.querySelectorAll?.('.gj-target')?.forEach?.(n=> n.remove());
+      }catch(_){}
+
+      // cleanup FX
+      try{
+        elGameCam?.classList.remove('shake','kick','stun-fire');
+        elChroma?.classList.remove('show','hero');
+      }catch(_){}
+    }
+
+    async function startGame(mode){
+      try{
+        ensureAudio(); // unlock early on user gesture
+        enableStartBtns(false);
+        setBadge(false, 'start…');
+
+        await ensureModules();
+
+        hardStop();
+
+        // hide summary if shown
+        try{ elSumOverlay?.classList.remove('show'); }catch(_){}
+
+        // hide start overlay
+        if (elStartOverlay) elStartOverlay.style.display = 'none';
+
+        await runCountdown();
+
+        const diff = String(selDiff?.value || 'normal');
+        const challenge = String(selChallenge?.value || 'rush');
+
+        // set labels
+        if (hudDiff) hudDiff.textContent = diff.toUpperCase();
+        if (hudChal) hudChal.textContent = challenge.toUpperCase();
+
+        // start safe.js engine
+        engine = modSafe.boot({
+          diff,
+          run: 'play',
+          challenge,
+          time: 60,
+          layerEl: elLayer
+        });
+
+        setBadge(true, `started: ${mode} • ${diff}/${challenge}`);
+        enableStartBtns(true);
+
+        if (mode === 'vr'){
+          try{ elScene?.enterVR?.(); }catch(_){}
+        }
+      }catch(e){
+        panic('Start แล้วเกิด error', e);
+      }
+    }
+
+    function showStart(){
+      hardStop();
+      if (elStartOverlay) elStartOverlay.style.display = 'flex';
+      enableStartBtns(true);
+      setBadge(true, 'ready (tap Start)');
+    }
+
+    // ====== Bind HUD events from goodjunk.safe.js ======
+    window.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail || {};
+      if (hudScore) hudScore.textContent = String(d.score ?? 0);
+      if (hudCombo) hudCombo.textContent = String(d.comboMax ?? 0);
+      if (hudMiss)  hudMiss.textContent  = String(d.misses ?? 0);
+
+      // boss UI
+      const alive = !!d.bossAlive;
+      if (bossWrap) bossWrap.classList.toggle('show', alive);
+      if (alive){
+        if (bossPhase) bossPhase.textContent = 'P' + String(d.bossPhase || 1);
+        const hp = Number(d.bossHp||0), mx = Math.max(1, Number(d.bossHpMax||1));
+        const pct = clamp((hp/mx)*100, 0, 100);
+        if (bossFill) bossFill.style.width = pct.toFixed(1) + '%';
+      } else {
+        if (bossFill) bossFill.style.width = '0%';
+      }
+    });
+
+    window.addEventListener('hha:time', (ev)=>{
+      const sec = Number(ev.detail?.sec ?? 0) | 0;
+      const m = Math.floor(sec/60);
+      const s = sec % 60;
+      if (hudTime) hudTime.textContent = `${m}:${String(s).padStart(2,'0')}`;
+    });
+
+    window.addEventListener('hha:fever', (ev)=>{
+      const d = ev.detail || {};
+      const f = clamp(d.fever ?? 0, 0, 100);
+      if (feverFill) feverFill.style.width = f.toFixed(0) + '%';
+      if (feverPct)  feverPct.textContent  = f.toFixed(0) + '%';
+      if (shieldCnt) shieldCnt.textContent = String(d.shield ?? 0);
+
+      const stun = !!d.stunActive;
+      if (hudStun) hudStun.classList.toggle('show', stun);
+      if (elGameCam) elGameCam.classList.toggle('stun-fire', stun);
+
+      // subtle shake by fever
+      fxShake(f / 100 * 0.85);
+    });
+
+    window.addEventListener('hha:judge', (ev)=>{
+      const label = String(ev.detail?.label ?? '');
+      if (hudJudge) hudJudge.textContent = label || '\u00A0';
+    });
+
+    window.addEventListener('hha:fx', (ev)=>{
+      const d = ev.detail || {};
+      const type = String(d.type || '');
+      if (type === 'kick') fxKick(Number(d.intensity||1));
+      else if (type === 'chroma') fxChroma(Number(d.ms||180), false);
+      else if (type === 'hero') fxChroma(Number(d.ms||220), true);
+    });
+
+    window.addEventListener('hha:panic', (ev)=>{
+      const lv = clamp(ev.detail?.level ?? 0, 0, 1);
+      // panic boosts shake a bit
+      fxShake(0.25 + lv*1.0);
+    });
+
+    window.addEventListener('hha:tick', (ev)=>{
+      const kind = String(ev.detail?.kind || 'tick');
+      const inten = clamp(ev.detail?.intensity ?? 1, 0.2, 3);
+      // tick sound variations
+      if (kind.includes('final')) beep(980, 42, 0.05);
+      else if (kind.includes('laser')) beep(1120, 40, 0.045);
+      else if (kind.includes('ring'))  beep(820, 44, 0.04);
+      else beep(900, 36, 0.035);
+      fxKick(0.25 + 0.18*inten);
+    });
+
+    window.addEventListener('hha:end', (ev)=>{
+      const d = ev.detail || {};
+      try{
+        if (sumScore) sumScore.textContent = String(d.score ?? 0);
+        if (sumGood)  sumGood.textContent  = String(d.goodHits ?? 0);
+        if (sumMiss)  sumMiss.textContent  = String(d.misses ?? 0);
+        if (sumCombo) sumCombo.textContent = String(d.comboMax ?? 0);
+        elSumOverlay?.classList.add('show');
+      }catch(_){}
+    });
+
+    // ====== Buttons ======
+    btnStart2D?.addEventListener('click', ()=> startGame('2d'), { passive:true });
+    btnStartVR?.addEventListener('click', ()=> startGame('vr'), { passive:true });
+
+    btnVR?.addEventListener('click', ()=>{
+      try{ ensureAudio(); elScene?.enterVR?.(); setBadge(true,'enterVR()'); }catch(e){ panic('enterVR failed', e); }
+    }, { passive:true });
+
+    btnReplay?.addEventListener('click', ()=> showStart(), { passive:true });
+    btnExit?.addEventListener('click', ()=>{
+      try{ location.href = './hub.html'; }catch(_){}
+    }, { passive:true });
+
+    // init
+    window.addEventListener('load', ()=>{
+      setBadge(true, 'ready (tap Start)');
+      enableStartBtns(true);
+      // keep overlay visible
+    });
   </script>
 </head>
 
@@ -820,7 +1107,7 @@
   <!-- HUD -->
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
-      <div class="hud-card" style="min-width: 310px;">
+      <div class="hud-card">
         <div class="hud-main">
           <div class="hud-main-title">GOODJUNK</div>
           <div class="hud-pill" id="hud-pill"><span>●</span><span id="hud-run-label">PLAY</span></div>
@@ -841,7 +1128,7 @@
         </div>
       </div>
 
-      <div class="hud-card hud-quest" style="min-width: 340px;">
+      <div class="hud-card hud-quest">
         <div class="quest-title">Quest</div>
 
         <div class="quest-main-label" id="hud-quest-main">ภารกิจหลัก</div>
@@ -873,7 +1160,7 @@
     </div>
 
     <div class="hud-bottom">
-      <div class="coach-bubble" id="coach-bubble">
+      <div class="coach-bubble show" id="coach-bubble">
         <div class="coach-emoji" id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
         <div style="display:flex; flex-direction:column; gap:2px;">
           <div style="font-size:11px; text-transform:uppercase; letter-spacing:.16em; color:#6ee7b7; font-weight:800;">Coach</div>
@@ -891,7 +1178,7 @@
     padding:6px 10px; font-size:11px; color:#e5e7eb; display:flex; align-items:center; gap:8px;
     pointer-events:none; max-width:92vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
     <div id="logdot" style="width:8px;height:8px;border-radius:999px;background:#9ca3af;"></div>
-    <div id="logtext">boot: loading…</div>
+    <div id="logtext">ready…</div>
   </div>
 
   <div class="start-overlay" id="start-overlay">
@@ -947,47 +1234,5 @@
       </div>
     </div>
   </div>
-
-  <!-- OPTION A: Quest collapsible + Coach toast auto-hide -->
-  <script>
-    (function(){
-      const questCard = document.querySelector('.hud-quest');
-      const questTitle = questCard ? questCard.querySelector('.quest-title') : null;
-
-      // default collapsed
-      if (questCard) questCard.classList.remove('expanded');
-
-      // tap to toggle
-      if (questTitle && questCard){
-        questTitle.style.pointerEvents = 'auto';
-        questTitle.addEventListener('click', (e)=>{
-          e.preventDefault();
-          questCard.classList.toggle('expanded');
-        });
-      }
-
-      // Coach toast auto-hide
-      const bubble = document.getElementById('coach-bubble');
-      let tHide = null;
-
-      function showCoachToast(){
-        if (!bubble) return;
-        bubble.classList.add('show');
-        clearTimeout(tHide);
-        tHide = setTimeout(()=> bubble.classList.remove('show'), 2400);
-      }
-
-      // listen coach event (if binder dispatches)
-      window.addEventListener('hha:coach', showCoachToast);
-
-      // if binder toggles .show itself, still auto-hide
-      if (bubble){
-        const mo = new MutationObserver(()=> {
-          if (bubble.classList.contains('show')) showCoachToast();
-        });
-        mo.observe(bubble, { attributes:true, attributeFilter:['class'] });
-      }
-    })();
-  </script>
 </body>
 </html>
