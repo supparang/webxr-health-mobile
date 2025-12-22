@@ -16,9 +16,6 @@
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
   function makeGoals(diff){
-    // 2 Goals ตลอดเกม (progress ต่อเนื่อง)
-    // Goal1: ทำคอมโบให้ถึง N
-    // Goal2: เก็บถูกหมู่ให้ครบ N ชนิดหมู่ (unique groups hit)
     const isEasy = String(diff||'normal').toLowerCase()==='easy';
     const isHard = String(diff||'normal').toLowerCase()==='hard';
     const comboTarget = isEasy ? 10 : (isHard ? 16 : 12);
@@ -31,7 +28,6 @@
   }
 
   function makeMinis(diff){
-    // 7 Minis ต่อเนื่อง (ทำเสร็จ -> ไปอันถัดไป)
     const isEasy = String(diff||'normal').toLowerCase()==='easy';
     const isHard = String(diff||'normal').toLowerCase()==='hard';
 
@@ -72,7 +68,6 @@
         m2.tLeft = m2.windowSec || 8;
         m2.active = true;
       }
-      // reset some per-mini state
       if (m2 && m2.kind === 'two_groups_mix'){
         mixCounts = { a:0, b:0, aKey: FOOD_GROUPS[groupIndex].key, bKey: FOOD_GROUPS[(groupIndex+1)%FOOD_GROUPS.length].key };
         m2.prog = 0;
@@ -85,7 +80,6 @@
 
     function rotateGroup(){
       groupIndex = (groupIndex + 1) % FOOD_GROUPS.length;
-      // reset mini1 counter when group changes (ทำให้รู้สึกเป็น “ภารกิจตามหมู่”)
       const m = activeMini();
       if (m && m.kind === 'group_hits'){
         m.prog = 0;
@@ -95,7 +89,6 @@
     function onGoodHit(groupKey, combo){
       comboNow = comboNow < combo ? combo : comboNow;
       streakGood += 1;
-      safeSec += 0; // safeSec เพิ่มใน second()
       uniqGroups.add(Number(groupKey)||1);
 
       // Goal1 combo reach (max)
@@ -129,7 +122,6 @@
         m.prog = Math.max(m.prog|0, combo|0);
         if (m.prog >= m.target){ m.done = true; nextMini(); }
       } else if (m.kind === 'two_groups_mix'){
-        // ต้องเก็บ 2 หมู่ติดกัน (หมู่ปัจจุบัน + หมู่ถัดไป)
         if ((Number(groupKey)||0) === mixCounts.aKey) mixCounts.a++;
         if ((Number(groupKey)||0) === mixCounts.bKey) mixCounts.b++;
         m.prog = clamp(mixCounts.a + mixCounts.b, 0, m.target);
@@ -154,7 +146,6 @@
     }
 
     function onJunkHit(){
-      // reset streak + safe timer for mini safe_seconds
       streakGood = 0;
       safeSec = 0;
 
@@ -163,7 +154,6 @@
         m.prog = 0;
       }
       if (m && m.kind === 'rush_window'){
-        // โดนขยะแล้วถือว่า “เสียจังหวะ” แต่ไม่ fail ถาวร: รีเซ็ตหน้าต่างเวลา
         m.tLeft = m.windowSec || 8;
         m.prog = 0;
         m.active = true;
@@ -173,13 +163,13 @@
     function second(){
       sec += 1;
 
-      // หมุนหมู่ทุก 12 วิ (โหมดเล่นรู้สึกชัด + ไม่ซ้ำ)
+      // หมุนหมู่ทุก 12 วิ
       if (sec % 12 === 0){
         rotateGroup();
       }
 
-      // mini safe_seconds
       const m = activeMini();
+
       if (m && m.kind === 'safe_seconds'){
         safeSec += 1;
         m.prog = clamp(safeSec, 0, m.target);
@@ -189,15 +179,12 @@
         }
       }
 
-      // mini rush_window countdown
       if (m && m.kind === 'rush_window' && m.active){
         m.tLeft -= 1;
         if (m.tLeft <= 0){
-          // หมดเวลา -> รีเซ็ตหน้าต่าง (ให้ลุ้นใหม่ ไม่ดรอปความสนุก)
           m.tLeft = m.windowSec || 8;
           m.prog = 0;
         }
-        // แสดงเป็น % ผ่าน prog/target ตามปกติ
       }
     }
 
