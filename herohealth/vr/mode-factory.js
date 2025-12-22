@@ -5,6 +5,7 @@
 // ✅ PATCH A3.4 (3+++): Hint arrow (รวมกลุ่มตามทิศ) + BAD-first + distance intensity + ⚠️ near-edge
 // ✅ PATCH A4 (4): Mini Radar Ring (8-direction arc) + distance intensity + BAD-first + storm/danger animate
 // ✅ PATCH A5 (5): Radar 2 ชั้น (NEAR/FAR) + low-time alert (≤10s/≤5s) + tick escalate
+// ✅ PATCH A6 (6): Radar pips นับจำนวน (แยก NEAR/FAR) + Priority Lock (BAD>POWER>FAKE>GOOD) ลดรกตา
 
 'use strict';
 
@@ -237,7 +238,7 @@ function ensureOverlayStyle () {
       animation: hvrDangerPulse .55s ease-in-out infinite, hvrHintShakeStrong .20s linear infinite, hvrHintBlink .46s ease-in-out infinite;
     }
 
-    /* A5: low-time alerts speed up */
+    /* low-time alerts speed up */
     .hvr-hint-host.hvr-time-low .hvr-hint{
       animation: hvrHintShake .34s linear infinite, hvrHintBlink .44s ease-in-out infinite;
     }
@@ -268,13 +269,13 @@ function ensureOverlayStyle () {
       100%{ opacity:.95; }
     }
 
-    /* ---------- Radar (A4/A5) ---------- */
+    /* ---------- Radar (A4/A5/A6) ---------- */
     .hvr-radar{
       position:fixed;
       inset:0;
       z-index:9997;
       pointer-events:none;
-      --rad-op: .75;
+      --rad-op: .78;
       --rad-bri: 1;
       opacity: var(--rad-op);
       filter: brightness(var(--rad-bri));
@@ -298,7 +299,20 @@ function ensureOverlayStyle () {
         drop-shadow(0 0 16px var(--g, rgba(148,163,184,.18)));
     }
 
-    .hvr-hint-host.hvr-danger ~ .hvr-radar{ --rad-op:.88; --rad-bri:1.06; }
+    /* A6: pips count */
+    .hvr-radar .pip{
+      opacity:.0;
+      transform-origin: 50% 50%;
+      filter: drop-shadow(0 8px 14px rgba(0,0,0,.55));
+    }
+    .hvr-radar .pip.on{
+      opacity: var(--po, .85);
+      fill: var(--pc, rgba(226,232,240,.65));
+    }
+    .hvr-radar .pip.near{ }
+    .hvr-radar .pip.far { opacity:.0; }
+
+    .hvr-hint-host.hvr-danger ~ .hvr-radar{ --rad-op:.90; --rad-bri:1.06; }
 
     .hvr-hint-host.hvr-storm-on ~ .hvr-radar{
       animation: hvrRadarShake .26s linear infinite, hvrRadarBlink .64s ease-in-out infinite;
@@ -307,7 +321,6 @@ function ensureOverlayStyle () {
       animation: hvrRadarShakeStrong .18s linear infinite, hvrRadarBlink .46s ease-in-out infinite;
     }
 
-    /* A5: low-time alerts speed up radar blink */
     .hvr-hint-host.hvr-time-low ~ .hvr-radar{
       animation: hvrRadarShake .26s linear infinite, hvrRadarBlink .44s ease-in-out infinite;
     }
@@ -330,9 +343,9 @@ function ensureOverlayStyle () {
       100%{ transform:translate(0,0) rotate(-.4deg); }
     }
     @keyframes hvrRadarBlink{
-      0%{ opacity:.85; }
-      50%{ opacity:.55; }
-      100%{ opacity:.85; }
+      0%{ opacity:.88; }
+      50%{ opacity:.56; }
+      100%{ opacity:.88; }
     }
   `;
   DOC.head.appendChild(s);
@@ -381,7 +394,7 @@ function ensureRadar(){
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('preserveAspectRatio', 'none');
 
-  // base circles
+  // base circle
   const base1 = DOC.createElementNS(svgNS, 'circle');
   base1.setAttribute('cx', '50'); base1.setAttribute('cy', '50');
   base1.setAttribute('r',  '16');
@@ -390,7 +403,7 @@ function ensureRadar(){
   base1.setAttribute('stroke-width', '2');
   svg.appendChild(base1);
 
-  // A5: 2 rings -> 16 segments (8 near + 8 far)
+  // A6: 2 rings + pips group
   for (let i=0;i<8;i++){
     const pN = DOC.createElementNS(svgNS, 'path');
     pN.setAttribute('class', 'seg near');
@@ -403,6 +416,31 @@ function ensureRadar(){
     pF.setAttribute('data-seg', String(i));
     pF.setAttribute('data-band', 'far');
     svg.appendChild(pF);
+
+    const gN = DOC.createElementNS(svgNS, 'g');
+    gN.setAttribute('data-pips', 'near');
+    gN.setAttribute('data-seg', String(i));
+    svg.appendChild(gN);
+
+    const gF = DOC.createElementNS(svgNS, 'g');
+    gF.setAttribute('data-pips', 'far');
+    gF.setAttribute('data-seg', String(i));
+    svg.appendChild(gF);
+
+    // create fixed pips (max 7 ต่อชั้น)
+    for (let k=0;k<7;k++){
+      const cN = DOC.createElementNS(svgNS, 'circle');
+      cN.setAttribute('class', 'pip near');
+      cN.setAttribute('data-k', String(k));
+      cN.setAttribute('r', '2.2');
+      gN.appendChild(cN);
+
+      const cF = DOC.createElementNS(svgNS, 'circle');
+      cF.setAttribute('class', 'pip far');
+      cF.setAttribute('data-k', String(k));
+      cF.setAttribute('r', '2.0');
+      gF.appendChild(cF);
+    }
   }
 
   r.appendChild(svg);
@@ -805,7 +843,10 @@ export async function boot (rawCfg = {}) {
 
     showHints = true,
     showRadar = true,
-    badFirstHints = true,
+
+    // A6:
+    lockPriority = true,      // ✅ ล็อก order BAD>POWER>FAKE>GOOD (โชว์เฉพาะระดับที่ "สูงสุด" ที่มีอยู่)
+    radarPipMax = 7,          // ✅ pips ต่อชั้น (near/far) ต่อทิศ
     badBeep = true
   } = rawCfg || {};
 
@@ -979,7 +1020,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Exclusions cache (computed from boundsHost)
+  //  Exclusions cache
   // ======================================================
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
@@ -1012,15 +1053,19 @@ export async function boot (rawCfg = {}) {
     el: (showHints && showRadar) ? ensureRadar() : null,
     segNear: null,
     segFar: null,
+    pipsNearG: null,
+    pipsFarG: null,
     lastGeomKey: ''
   };
   if (radarState.el){
     try{
       radarState.segNear = Array.from(radarState.el.querySelectorAll('.seg.near'));
       radarState.segFar  = Array.from(radarState.el.querySelectorAll('.seg.far'));
+      radarState.pipsNearG = Array.from(radarState.el.querySelectorAll('g[data-pips="near"]'));
+      radarState.pipsFarG  = Array.from(radarState.el.querySelectorAll('g[data-pips="far"]'));
     }catch{
-      radarState.segNear = null;
-      radarState.segFar  = null;
+      radarState.segNear = radarState.segFar = null;
+      radarState.pipsNearG = radarState.pipsFarG = null;
     }
   }
 
@@ -1062,7 +1107,7 @@ export async function boot (rawCfg = {}) {
   }
 
   function clearRadar(){
-    const wipe = (arr)=>{
+    const wipeSeg = (arr)=>{
       if (!arr) return;
       arr.forEach(s=>{
         try{
@@ -1073,8 +1118,25 @@ export async function boot (rawCfg = {}) {
         }catch{}
       });
     };
-    wipe(radarState.segNear);
-    wipe(radarState.segFar);
+    wipeSeg(radarState.segNear);
+    wipeSeg(radarState.segFar);
+
+    const wipePips = (gArr)=>{
+      if (!gArr) return;
+      gArr.forEach(g=>{
+        try{
+          g.querySelectorAll('.pip').forEach(p=>{
+            p.classList.remove('on');
+            p.style.removeProperty('--po');
+            p.style.removeProperty('--pc');
+            p.removeAttribute('cx');
+            p.removeAttribute('cy');
+          });
+        }catch{}
+      });
+    };
+    wipePips(radarState.pipsNearG);
+    wipePips(radarState.pipsFarG);
   }
 
   function kindColors(kind, I){
@@ -1103,6 +1165,31 @@ export async function boot (rawCfg = {}) {
     };
   }
 
+  function updatePipGroup(gEl, count, midAngle, baseR, stepR, bx, by, color, op){
+    if (!gEl) return;
+    const max = clamp(radarPipMax, 1, 7);
+    const n = clamp(count, 0, max);
+
+    const pips = Array.from(gEl.querySelectorAll('.pip'));
+    for (let k=0;k<pips.length;k++){
+      const p = pips[k];
+      if (k < n){
+        const r = baseR + stepR * k;
+        const x = bx + Math.cos(midAngle) * r;
+        const y = by + Math.sin(midAngle) * r;
+        p.setAttribute('cx', x.toFixed(2));
+        p.setAttribute('cy', y.toFixed(2));
+        p.classList.add('on');
+        p.style.setProperty('--pc', color);
+        p.style.setProperty('--po', op.toFixed(3));
+      } else {
+        p.classList.remove('on');
+        p.style.removeProperty('--pc');
+        p.style.removeProperty('--po');
+      }
+    }
+  }
+
   // ======================================================
   //  Update Hints + Radar from activeTargets
   // ======================================================
@@ -1123,11 +1210,12 @@ export async function boot (rawCfg = {}) {
     const by = br.top  + br.height/2;
 
     const buckets = new Map();
-    let anyBadOffscreen = false;
 
-    // thresholds for radar rings
-    const EDGE_NEAR = 140; // near-edge warning
-    const FAR_SWITCH = 300; // A5: outDistance > FAR_SWITCH -> far ring
+    // thresholds
+    const EDGE_NEAR = 140;      // ⚠️ near-edge warning
+    const FAR_SWITCH = 300;     // outDistance > FAR_SWITCH -> FAR ring
+
+    let anyOffscreen = false;
 
     activeTargets.forEach(t=>{
       const el = t.el;
@@ -1143,6 +1231,8 @@ export async function boot (rawCfg = {}) {
       const inside = (cx >= ix1 && cx <= ix2 && cy >= iy1 && cy <= iy2);
       if (inside) return;
 
+      anyOffscreen = true;
+
       const dx = cx - bx;
       const dy = cy - by;
       const ang = Math.atan2(dy, dx);
@@ -1150,7 +1240,6 @@ export async function boot (rawCfg = {}) {
 
       const kind = hintKindFromItemType(t.itemType);
       const kp = kindPriority(kind);
-      if (kind === 'bad') anyBadOffscreen = true;
 
       const od = outDistance(cx, cy, ix1, iy1, ix2, iy2);
 
@@ -1158,22 +1247,33 @@ export async function boot (rawCfg = {}) {
       const EDGE_FAR  = 520;
       const intensity = 1 - clamp(od / EDGE_FAR, 0, 1);
 
+      const isFar = (od > FAR_SWITCH);
+
       let b = buckets.get(sector);
       if (!b){
         b = {
-          n:0, vx:0, vy:0,
-          kind:'good', kindP:0,
-          hasBad:false,
-          intensityMax:0,
-          warnNearEdge:false,
+          n:0,
+          vx:0, vy:0,
 
-          // A5 ring split
+          // totals
+          kind:'good',
+          kindP:0,
+          intensityMax:0,
+
+          // counts by kind (for lockPriority)
+          cntBad:0, cntPower:0, cntFake:0, cntGood:0,
+
+          // A5/A6 split
+          nearCount:0,
+          farCount:0,
           nearI:0,
           farI:0,
           nearKind:'good',
           farKind:'good',
           nearKindP:0,
-          farKindP:0
+          farKindP:0,
+
+          warnNearEdge:false
         };
         buckets.set(sector, b);
       }
@@ -1181,41 +1281,60 @@ export async function boot (rawCfg = {}) {
       b.n += 1;
       b.vx += Math.cos(ang);
       b.vy += Math.sin(ang);
-
       b.intensityMax = Math.max(b.intensityMax, intensity);
 
-      if (kind === 'bad') {
-        b.hasBad = true;
-        if (od <= EDGE_NEAR) b.warnNearEdge = true;
-      }
+      if (kind === 'bad') b.cntBad++;
+      else if (kind === 'power') b.cntPower++;
+      else if (kind === 'fake') b.cntFake++;
+      else b.cntGood++;
 
+      // lock the "display kind" by max priority present in this sector
       if (kp > b.kindP){
         b.kindP = kp;
         b.kind = kind;
       }
 
-      // A5: split into near/far ring per target distance
-      const isFar = (od > FAR_SWITCH);
+      // per-band
       if (isFar){
+        b.farCount++;
         b.farI = Math.max(b.farI, intensity);
         if (kp > b.farKindP){ b.farKindP = kp; b.farKind = kind; }
       } else {
+        b.nearCount++;
         b.nearI = Math.max(b.nearI, intensity);
         if (kp > b.nearKindP){ b.nearKindP = kp; b.nearKind = kind; }
       }
+
+      // ⚠️ near-edge for BAD
+      if (kind === 'bad' && od <= EDGE_NEAR) b.warnNearEdge = true;
     });
 
-    // BAD-first filter
-    if (badFirstHints && anyBadOffscreen){
-      buckets.forEach((b, k)=>{
-        if (!b.hasBad) buckets.delete(k);
+    // ---- Priority Lock (A6): show only highest-priority kind present overall ----
+    // BAD > POWER > FAKE > GOOD
+    if (lockPriority && anyOffscreen){
+      let globalP = 0;
+      buckets.forEach(b=>{
+        // overall per sector already max, so scan
+        globalP = Math.max(globalP, b.kindP);
       });
+
+      // filter to only sectors that contain that global priority
+      const keep = new Map();
+      buckets.forEach((b, k)=>{
+        if (b.kindP === globalP) keep.set(k, b);
+      });
+      // replace
+      buckets.clear();
+      keep.forEach((b,k)=> buckets.set(k,b));
     }
 
-    setHintDanger(!!anyBadOffscreen);
+    // danger state (if any BAD exists in visible buckets)
+    let anyBad = false;
+    buckets.forEach(b=>{ if (b.kind === 'bad' || b.cntBad > 0) anyBad = true; });
+    setHintDanger(anyBad);
 
     // beep tick escalate by time + storm
-    if (badBeep && anyBadOffscreen){
+    if (badBeep && anyBad){
       const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
       const timeCrit = (secLeft <= 5);
@@ -1272,8 +1391,9 @@ export async function boot (rawCfg = {}) {
       });
     }
 
-    // ---------- Update Radar Ring (A5: NEAR/FAR) ----------
+    // ---------- Update Radar Ring + Pips (A6) ----------
     if (radarState.el && radarState.segNear && radarState.segFar &&
+        radarState.pipsNearG && radarState.pipsFarG &&
         radarState.segNear.length >= 8 && radarState.segFar.length >= 8){
 
       const minSide = Math.max(120, Math.min(br.width, br.height));
@@ -1284,6 +1404,7 @@ export async function boot (rawCfg = {}) {
       const gap  = 0.18;
       const geomKey = `${Math.round(bx)}|${Math.round(by)}|${Math.round(rNear)}|${Math.round(rFar)}`;
 
+      // update arcs once per geometry change
       if (geomKey !== radarState.lastGeomKey){
         radarState.lastGeomKey = geomKey;
         for (let i=0;i<8;i++){
@@ -1297,12 +1418,16 @@ export async function boot (rawCfg = {}) {
         }
       }
 
+      // clear current
       clearRadar();
 
+      // apply
       buckets.forEach((b, sector)=>{
         const countBoost = clamp((b.n - 1) * 0.06, 0, 0.22);
 
-        // NEAR ring
+        const aMid = sector * step;
+
+        // NEAR ring segment
         const IN = clamp(b.nearI + countBoost*0.55, 0, 1);
         if (IN > 0.02){
           const segN = radarState.segNear[sector];
@@ -1314,9 +1439,15 @@ export async function boot (rawCfg = {}) {
             segN.style.setProperty('--g', g);
             segN.style.setProperty('--o', o.toFixed(3));
           }catch{}
+
+          // pips near: stack inward toward center
+          const gN = radarState.pipsNearG[sector];
+          const pipColor = c;
+          const pipOp = clamp(0.45 + IN*0.55, 0.35, 1);
+          updatePipGroup(gN, b.nearCount, aMid, rNear - 10, -6, bx, by, pipColor, pipOp);
         }
 
-        // FAR ring
+        // FAR ring segment
         const IF = clamp(b.farI + countBoost*0.45, 0, 1);
         if (IF > 0.02){
           const segF = radarState.segFar[sector];
@@ -1328,6 +1459,12 @@ export async function boot (rawCfg = {}) {
             segF.style.setProperty('--g', g);
             segF.style.setProperty('--o', o.toFixed(3));
           }catch{}
+
+          // pips far: stack outward
+          const gF = radarState.pipsFarG[sector];
+          const pipColor = c;
+          const pipOp = clamp(0.32 + IF*0.55, 0.28, 0.95);
+          updatePipGroup(gF, b.farCount, aMid, rFar + 10, +6, bx, by, pipColor, pipOp);
         }
       });
     }
@@ -1604,7 +1741,7 @@ export async function boot (rawCfg = {}) {
 
     refreshExclusions(ts);
 
-    // time alert class (A5)
+    // time alert class
     setHintTimeAlert(secLeft);
 
     const mul = getSpawnMul();
