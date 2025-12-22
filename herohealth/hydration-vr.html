@@ -35,10 +35,12 @@
       position:fixed;
       inset:0;
       overflow:hidden;
-      background: radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
-                  radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
-                  radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
-                  #020617;
+      background:
+        radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
+        radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
+        radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
+        #020617;
+      transform: translate3d(0,0,0);
     }
 
     /* ====== PLAYFIELD MUST FILL SCREEN ====== */
@@ -47,15 +49,16 @@
       inset:0;
       width:100%;
       height:100%;
-      z-index:10;          /* ✅ เป้าอยู่ชั้นนี้ */
+      z-index:10;
       overflow:hidden;
-      touch-action:none;   /* ✅ drag view */
+      touch-action:none;
       user-select:none;
       -webkit-user-select:none;
-      transform: translate3d(0,0,0);
+      transform: translate3d(0,0,0); /* จะถูก JS ขยับ */
+      will-change: transform;
     }
 
-    /* postFX canvas (star burst / shimmer etc) */
+    /* postFX canvas */
     #hvr-postfx{
       position:fixed;
       inset:0;
@@ -63,26 +66,20 @@
       pointer-events:none;
     }
 
-    /* =========================
-       ✅ HUD responsive: กันตกขอบ
-       ========================= */
+    /* HUD layer */
     .hud{
       position:fixed;
-      left:max(12px, env(safe-area-inset-left));
-      right:max(12px, env(safe-area-inset-right));
-      top:max(12px, env(safe-area-inset-top));
+      left:18px;
+      right:18px;
+      top:14px;
       z-index:80;
       pointer-events:none;
-
       display:flex;
-      gap:10px;
+      gap:14px;
       align-items:flex-start;
-
-      /* ✅ สำคัญ */
-      flex-wrap:wrap;              /* ให้ขึ้นบรรทัดใหม่ได้ */
-      justify-content:flex-start;  /* ไม่ดันไปสุดขวาจนล้น */
+      justify-content:space-between;
+      flex-wrap:wrap; /* ✅ กันตกขอบจอ */
     }
-
     .hud .card{
       pointer-events:auto;
       background:var(--panel);
@@ -91,32 +88,10 @@
       box-shadow:0 20px 60px rgba(0,0,0,.55);
       backdrop-filter: blur(10px);
       padding:14px 14px 12px;
-
-      /* ✅ สำคัญ: อนุญาตให้หดได้ */
-      min-width:0 !important;
-      max-width:none;
-
-      /* ให้ยืด/หดตามพื้นที่ */
-      flex: 1 1 260px;            /* โตได้ หดได้ ฐาน ~260px */
-      width:auto;
+      min-width: 260px;
+      max-width: 420px;
     }
-
-    .hud .card.small{
-      min-width:0 !important;
-      max-width:none;
-      flex: 1 1 220px;
-    }
-
-    /* มือถือ: จัด 2 คอลัมน์ + กล่อง Quest กินเต็มแถวแรก */
-    @media (max-width: 720px){
-      .hud .card{ flex: 1 1 calc(50% - 10px); }
-      .hud .card:first-child{ flex: 1 1 100%; }  /* Quest เต็มแถว */
-    }
-
-    /* จอเล็กมาก: เรียงเป็นคอลัมน์เดียว */
-    @media (max-width: 420px){
-      .hud .card{ flex: 1 1 100%; }
-    }
+    .hud .card.small{ min-width: 220px; max-width: 320px; }
 
     .title{ font-size:22px; font-weight:900; margin:2px 0 6px; }
     .muted{ color:var(--muted); font-size:12px; }
@@ -152,7 +127,7 @@
       transition:width .2s ease-out;
     }
 
-    /* blink overlay (good/bad/perfect feedback) */
+    /* blink overlay */
     #hvr-screen-blink{
       position:fixed;
       inset:0;
@@ -195,21 +170,76 @@
       white-space:pre-wrap;
     }
     #hvr-error.on{ display:block; }
+
+    /* =========================================================
+       HUD layout: Mobile lock order (A2)
+       ========================================================= */
+    @media (max-width: 720px){
+      .hud{
+        left:12px;
+        right:12px;
+        top:10px;
+        gap:10px;
+        align-items:stretch;
+
+        display:grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+          "quest quest"
+          "water progress"
+          "miss  miss2";
+      }
+
+      .hud .card:nth-child(1){ grid-area: quest; }
+      .hud .card:nth-child(2){ grid-area: water; }
+      .hud .card:nth-child(3){ grid-area: progress; }
+      .hud .card:nth-child(4){ grid-area: miss; }
+
+      .hud::after{
+        content:"";
+        grid-area: miss2;
+        border-radius:22px;
+        border:1px solid rgba(148,163,184,.10);
+        background:rgba(2,6,23,.20);
+        backdrop-filter: blur(6px);
+        box-shadow: inset 0 0 0 1px rgba(148,163,184,.06);
+        min-height: 92px;
+        pointer-events:none;
+        opacity:.25;
+      }
+
+      .hud .card{
+        min-width: 0;
+        max-width: none;
+        width:100%;
+      }
+
+      .hud .card:nth-child(4){
+        min-height: 92px;
+      }
+    }
+
+    @media (max-width: 420px){
+      .hud{
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "quest"
+          "water"
+          "progress"
+          "miss";
+      }
+      .hud::after{ display:none; }
+    }
   </style>
 </head>
 
 <body>
   <div id="hvr-wrap">
-    <!-- ✅ playfield MUST exist + fill -->
     <div id="hvr-playfield" aria-label="playfield"></div>
 
-    <!-- ✅ postFX canvas -->
     <canvas id="hvr-postfx"></canvas>
-
-    <!-- blink overlay -->
     <div id="hvr-screen-blink"></div>
 
-    <!-- HUD -->
     <div class="hud">
       <div class="card">
         <div class="row">
@@ -257,14 +287,10 @@
       </div>
     </div>
 
-    <!-- End overlay -->
     <div id="hvr-end"></div>
-
-    <!-- Error overlay -->
     <div id="hvr-error"></div>
   </div>
 
-  <!-- ✅ BOOT -->
   <script type="module">
     const errBox = document.getElementById('hvr-error');
 
