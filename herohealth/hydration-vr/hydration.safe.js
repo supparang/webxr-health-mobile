@@ -1,10 +1,10 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION SAFE
-// ✅ A2++ per diff + per adapt (ผ่าน mode-factory)
-// ✅ Bubble soap targets: ใสเกือบไม่เห็น + ขอบสีรุ้งชัด (iridescent)
-// ✅ HUD responsive: ไม่ตกขอบขวา (inject CSS)
+// Hydration Quest VR — PRODUCTION SAFE (A2+++)
+// ✅ Bubble soap look: ใสเกือบไม่เห็น + ขอบรุ้งชัด
+// ✅ Spawn: A2+++ (center-easy + ring8 order + anti-repeat)
+// ✅ HUD responsive (fix right overflow)
 // ✅ Drag view + tap-to-shoot crosshair
-// ✅ PERFECT FX + Storm FX (chroma + wobble + speedlines)
+// ✅ PERFECT FX + Storm FX
 
 'use strict';
 
@@ -35,7 +35,6 @@ function zoneLabelFrom(zone){
   if (zone === 'HIGH') return 'RED';
   return 'GREEN';
 }
-
 function gradeFrom(score){
   if (score >= 2600) return 'SSS';
   if (score >= 2000) return 'SS';
@@ -63,6 +62,35 @@ function ensureHydrationStyle(){
     }
     @media (max-width: 520px){
       .hud .card, .hud .card.small{ flex: 1 1 100%; }
+    }
+
+    /* ===== Crosshair (เห็นชัดนิด ๆ) ===== */
+    #hvr-crosshair{
+      position:fixed;
+      left:50%; top:52%;
+      transform:translate(-50%,-50%);
+      z-index:86;
+      pointer-events:none;
+      width:44px; height:44px;
+      opacity:.75;
+      mix-blend-mode: screen;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,.45));
+    }
+    #hvr-crosshair:before{
+      content:"";
+      position:absolute; inset:0;
+      border-radius:999px;
+      border: 2px solid rgba(255,255,255,.16);
+      box-shadow: 0 0 16px rgba(0,210,255,.10), 0 0 14px rgba(255,70,160,.07);
+    }
+    #hvr-crosshair:after{
+      content:"";
+      position:absolute; left:50%; top:50%;
+      width:6px; height:6px;
+      border-radius:999px;
+      transform:translate(-50%,-50%);
+      background: rgba(255,255,255,.45);
+      box-shadow: 0 0 10px rgba(255,255,255,.22);
     }
 
     /* ===== drag view ===== */
@@ -143,115 +171,43 @@ function ensureHydrationStyle(){
     .hvr-bubble-edge{
       position:absolute; inset:0;
       border-radius:999px;
-      border: 2.4px solid transparent;
+      border: 2.8px solid transparent;
       background:
         linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0)) padding-box,
         conic-gradient(
           from 40deg,
-          rgba(255, 70, 160, .58),
-          rgba(0, 210, 255, .55),
-          rgba(0, 255, 170, .44),
-          rgba(255, 255, 255, .24),
-          rgba(255, 70, 160, .58)
+          rgba(255, 70, 160, .72),
+          rgba(0, 210, 255, .70),
+          rgba(0, 255, 170, .55),
+          rgba(255, 255, 255, .22),
+          rgba(255, 70, 160, .72)
         ) border-box;
       box-shadow:
         0 0 0 1px rgba(255,255,255,.08),
-        0 0 20px rgba(0, 210, 255, .18),
-        0 0 22px rgba(255, 70, 160, .12);
-      opacity: .92;
+        0 0 26px rgba(0, 210, 255, .18),
+        0 0 22px rgba(255, 70, 160, .14);
+      opacity: .96;
       pointer-events:none;
     }
     .hvr-bubble-gloss{
       position:absolute; inset:10%;
       border-radius:999px;
       background:
-        radial-gradient(circle at 28% 26%, rgba(255,255,255,.30), rgba(255,255,255,0) 55%),
-        radial-gradient(circle at 78% 78%, rgba(255,255,255,.12), rgba(255,255,255,0) 60%);
-      opacity:.55;
+        radial-gradient(circle at 28% 26%, rgba(255,255,255,.28), rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 78% 78%, rgba(255,255,255,.10), rgba(255,255,255,0) 60%);
+      opacity:.48;
       pointer-events:none;
       mix-blend-mode: screen;
     }
     .hvr-bubble-tint{
       position:absolute; inset:18%;
       border-radius:999px;
-      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), rgba(255,255,255,0) 55%);
-      opacity:.25;
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.08), rgba(255,255,255,0) 55%);
+      opacity:.18;
       pointer-events:none;
-    }
-
-    .hvr-btn{
-      appearance:none; border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.65);
-      color:#e5e7eb;
-      padding:10px 12px;
-      border-radius: 14px;
-      font-weight: 900;
-      cursor: pointer;
-    }
-    .hvr-btn.primary{
-      border-color: rgba(34,197,94,.30);
-      background: rgba(34,197,94,.14);
     }
   `;
   DOC.head.appendChild(s);
-}
-
-function ensurePostFXCanvas(){
-  const c = $id('hvr-postfx');
-  if (!c) return null;
-  const ctx = c.getContext('2d');
-  function resize(){
-    const dpr = Math.max(1, Math.min(2, ROOT.devicePixelRatio || 1));
-    c.width  = Math.floor((ROOT.innerWidth||1) * dpr);
-    c.height = Math.floor((ROOT.innerHeight||1) * dpr);
-    c.style.width = '100%';
-    c.style.height = '100%';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
-  resize();
-  ROOT.addEventListener('resize', resize, { passive:true });
-  return { c, ctx, resize };
-}
-
-function drawStarBurst(ctx, x, y, t, strength=1){
-  const n = Math.floor(18 + 18*strength);
-  const r0 = 6 + 10*strength;
-  const r1 = 40 + 70*strength;
-  ctx.save();
-  ctx.translate(x,y);
-  ctx.globalCompositeOperation = 'screen';
-
-  for (let i=0;i<n;i++){
-    const a = (i/n) * Math.PI*2 + (t*0.002);
-    const rr = r0 + (r1-r0) * (0.25 + 0.75*Math.random());
-    const w = 1 + 2*strength;
-
-    ctx.strokeStyle = `rgba(255, 60, 140, ${0.10 + 0.12*strength})`;
-    ctx.lineWidth = w;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a)*r0, Math.sin(a)*r0);
-    ctx.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
-    ctx.stroke();
-
-    const a2 = a + 0.18;
-    ctx.strokeStyle = `rgba(0, 210, 255, ${0.08 + 0.12*strength})`;
-    ctx.lineWidth = w*0.85;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a2)*r0, Math.sin(a2)*r0);
-    ctx.lineTo(Math.cos(a2)*rr*0.92, Math.sin(a2)*rr*0.92);
-    ctx.stroke();
-  }
-
-  for (let k=0;k<16;k++){
-    const a = Math.random()*Math.PI*2;
-    const rr = 10 + Math.random()* (68*strength);
-    ctx.fillStyle = `rgba(255,255,255,${0.12 + 0.18*Math.random()})`;
-    ctx.beginPath();
-    ctx.arc(Math.cos(a)*rr, Math.sin(a)*rr, 1.2 + 2.2*Math.random(), 0, Math.PI*2);
-    ctx.fill();
-  }
-
-  ctx.restore();
 }
 
 export async function boot(opts = {}){
@@ -263,6 +219,13 @@ export async function boot(opts = {}){
   const wrap = $id('hvr-wrap');
   const playfield = $id('hvr-playfield');
   const blink = $id('hvr-screen-blink');
+
+  // crosshair node (ถ้า html ยังไม่มี)
+  if (!$id('hvr-crosshair')) {
+    const c = DOC.createElement('div');
+    c.id = 'hvr-crosshair';
+    DOC.body.appendChild(c);
+  }
 
   if (playfield && !playfield.querySelector('.hvr-parallax')){
     const l1 = DOC.createElement('div'); l1.className = 'hvr-parallax l1';
@@ -278,8 +241,6 @@ export async function boot(opts = {}){
     DOC.body.appendChild(speedLines);
   }
 
-  const post = ensurePostFXCanvas();
-
   const diff = String(opts.difficulty || 'easy').toLowerCase();
   const duration = clamp(opts.duration ?? 90, 20, 180);
 
@@ -289,7 +250,6 @@ export async function boot(opts = {}){
 
   const s = {
     running: true,
-    startedAt: now(),
     score: 0,
     combo: 0,
     comboMax: 0,
@@ -307,9 +267,7 @@ export async function boot(opts = {}){
 
     stormOn: false,
     stormUntil: 0,
-    stormStrength: 0,
-
-    sparks: []
+    stormStrength: 0
   };
 
   function hud(){
@@ -348,32 +306,6 @@ export async function boot(opts = {}){
     ROOT.setTimeout(()=>{ blink.className=''; }, ms);
   }
 
-  function perfectFX(x,y){
-    try{ Particles.burstAt(x,y,'PERFECT'); }catch{}
-    try{ Particles.scorePop(x,y,'PERFECT! +','gold'); }catch{}
-    blinkOn('perfect', 130);
-
-    if (wrap){
-      addClass(wrap,'hvr-perfect-pulse');
-      ROOT.setTimeout(()=>removeClass(wrap,'hvr-perfect-pulse'), 220);
-    }
-    if (post && post.ctx){
-      s.sparks.push({ x, y, t0: now(), str: 1.25 });
-    }
-  }
-
-  function goodFX(x,y, txt='+', kind='good'){
-    try{ Particles.burstAt(x,y,kind==='good'?'GOOD':'POWER'); }catch{}
-    try{ Particles.scorePop(x,y,txt,kind); }catch{}
-    blinkOn('good', 90);
-  }
-
-  function badFX(x,y, txt='MISS'){
-    try{ Particles.burstAt(x,y,'BAD'); }catch{}
-    try{ Particles.scorePop(x,y,txt,'bad'); }catch{}
-    blinkOn('bad', 110);
-  }
-
   function setStorm(on, strength=1){
     s.stormOn = !!on;
     s.stormStrength = clamp(strength, 0, 1.25);
@@ -390,13 +322,6 @@ export async function boot(opts = {}){
     if (speedLines){
       if (s.stormOn) addClass(speedLines,'on');
       else removeClass(speedLines,'on');
-    }
-  }
-
-  function maybeStormTick(){
-    const t = now();
-    if (s.stormOn && t > s.stormUntil){
-      setStorm(false, 0);
     }
   }
 
@@ -425,15 +350,20 @@ export async function boot(opts = {}){
     return clamp(0.70 - 0.22*s.stormStrength, 0.42, 0.75);
   }
 
-  // ===== Bubble Decorator (ใสเกือบไม่เห็น + ขอบรุ้งชัด) =====
+  // Bubble Decorator
   function decorateBubbleTarget(el, parts, data){
     try{
       el.classList.add('bubble');
       el.style.background = 'transparent';
-      el.style.boxShadow = '0 24px 70px rgba(0,0,0,.58)';
+      el.style.boxShadow = '0 26px 76px rgba(0,0,0,.60)';
 
       const { wiggle, inner, icon, ring } = parts || {};
-      if (ring) { ring.style.opacity = '0.0'; }
+      if (ring) ring.style.opacity = '0';
+
+      if (inner){
+        inner.style.background = 'transparent';
+        inner.style.boxShadow = 'none';
+      }
 
       let edge = wiggle && wiggle.querySelector('.hvr-bubble-edge');
       if (!edge && wiggle){
@@ -441,14 +371,12 @@ export async function boot(opts = {}){
         edge.className = 'hvr-bubble-edge';
         wiggle.insertBefore(edge, wiggle.firstChild);
       }
-
       let gloss = wiggle && wiggle.querySelector('.hvr-bubble-gloss');
       if (!gloss && wiggle){
         gloss = DOC.createElement('div');
         gloss.className = 'hvr-bubble-gloss';
         wiggle.appendChild(gloss);
       }
-
       let tint = wiggle && wiggle.querySelector('.hvr-bubble-tint');
       if (!tint && wiggle){
         tint = DOC.createElement('div');
@@ -457,53 +385,33 @@ export async function boot(opts = {}){
       }
 
       const type = String(data?.itemType||'good');
-      const isPower = (type==='power');
-      const isBad = (type==='bad');
-      const isTrick = (type==='fakeGood');
-
-      if (inner){
-        inner.style.background = 'transparent';
-        inner.style.boxShadow = 'none';
+      if (type === 'power'){
+        if (edge) edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.10), 0 0 30px rgba(250,204,21,.28), 0 0 24px rgba(0,210,255,.16)';
+        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(250,204,21,.12), rgba(255,255,255,0) 55%)';
+      } else if (type === 'bad'){
+        if (edge) edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.08), 0 0 24px rgba(255,120,60,.18), 0 0 18px rgba(255,70,160,.10)';
+        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(255,120,60,.08), rgba(255,255,255,0) 55%)';
+      } else if (type === 'fakeGood'){
+        if (edge) edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.08), 0 0 24px rgba(167,139,250,.18), 0 0 18px rgba(0,210,255,.10)';
+        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(167,139,250,.08), rgba(255,255,255,0) 55%)';
+      } else {
+        if (tint) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(0,210,255,.07), rgba(255,255,255,0) 55%)';
       }
 
       if (icon){
-        icon.style.filter = 'drop-shadow(0 10px 16px rgba(0,0,0,.40))';
-      }
-
-      if (edge){
-        if (isPower){
-          edge.style.opacity = '1';
-          edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.10), 0 0 26px rgba(250,204,21,.26), 0 0 24px rgba(0,210,255,.18)';
-        } else if (isBad){
-          edge.style.opacity = '.92';
-          edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.08), 0 0 22px rgba(255,120,60,.18), 0 0 18px rgba(255,70,160,.10)';
-        } else if (isTrick){
-          edge.style.opacity = '.96';
-          edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.08), 0 0 22px rgba(167,139,250,.18), 0 0 18px rgba(0,210,255,.12)';
-        } else {
-          edge.style.opacity = '.90';
-        }
-      }
-
-      if (tint){
-        if (isPower) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(250,204,21,.14), rgba(255,255,255,0) 55%)';
-        else if (isBad) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(255,120,60,.10), rgba(255,255,255,0) 55%)';
-        else if (isTrick) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(167,139,250,.10), rgba(255,255,255,0) 55%)';
-        else tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(0,210,255,.08), rgba(255,255,255,0) 55%)';
-        tint.style.opacity = '.20';
+        icon.style.filter = 'drop-shadow(0 10px 16px rgba(0,0,0,.42))';
       }
     }catch{}
   }
 
   function judge(ch, ctx){
-    const x = ctx?.clientX || (ctx?.targetRect?.left + (ctx?.targetRect?.width||0)/2) || (ROOT.innerWidth/2);
-    const y = ctx?.clientY || (ctx?.targetRect?.top + (ctx?.targetRect?.height||0)/2) || (ROOT.innerHeight/2);
+    const x = ctx?.clientX || (ROOT.innerWidth/2);
+    const y = ctx?.clientY || (ROOT.innerHeight/2);
 
     const itemType = String(ctx?.itemType || '');
     const isBad = (itemType === 'bad');
     const isPower = (itemType === 'power');
     const isFakeGood = (itemType === 'fakeGood');
-
     const perfect = !!ctx?.hitPerfect;
 
     if (perfect){
@@ -511,7 +419,13 @@ export async function boot(opts = {}){
       s.combo += 1;
       s.comboMax = Math.max(s.comboMax, s.combo);
       updateWater(+4);
-      perfectFX(x,y);
+      try{ Particles.burstAt(x,y,'PERFECT'); }catch{}
+      try{ Particles.scorePop(x,y,'PERFECT! +','gold'); }catch{}
+      blinkOn('perfect', 130);
+      if (wrap){
+        addClass(wrap,'hvr-perfect-pulse');
+        ROOT.setTimeout(()=>removeClass(wrap,'hvr-perfect-pulse'), 220);
+      }
     }
 
     if (isBad){
@@ -519,7 +433,9 @@ export async function boot(opts = {}){
       s.combo = 0;
       s.score = Math.max(0, s.score - 45);
       updateWater(-10);
-      badFX(x,y,'MISS');
+      try{ Particles.burstAt(x,y,'BAD'); }catch{}
+      try{ Particles.scorePop(x,y,'MISS','bad'); }catch{}
+      blinkOn('bad', 110);
 
       if (!s.stormOn && Math.random() < 0.18){
         s.stormUntil = now() + 5200;
@@ -535,7 +451,9 @@ export async function boot(opts = {}){
       s.combo = 0;
       s.score = Math.max(0, s.score - 30);
       updateWater(-7);
-      badFX(x,y,'TRICK!');
+      try{ Particles.burstAt(x,y,'BAD'); }catch{}
+      try{ Particles.scorePop(x,y,'TRICK!','bad'); }catch{}
+      blinkOn('bad', 110);
       hud();
       return { scoreDelta: -30, good:false };
     }
@@ -545,7 +463,9 @@ export async function boot(opts = {}){
       s.combo += 1;
       s.comboMax = Math.max(s.comboMax, s.combo);
       updateWater(+9);
-      goodFX(x,y,'POWER +95','power');
+      try{ Particles.burstAt(x,y,'POWER'); }catch{}
+      try{ Particles.scorePop(x,y,'POWER +95','power'); }catch{}
+      blinkOn('good', 90);
 
       s.stormUntil = now() + 6800;
       setStorm(true, 1.05);
@@ -564,14 +484,18 @@ export async function boot(opts = {}){
 
     if (s.combo > 0 && (s.combo % 8 === 0)){
       s.score += 80;
-      goodFX(x,y,`STREAK +80`,'good');
+      try{ Particles.burstAt(x,y,'GOOD'); }catch{}
+      try{ Particles.scorePop(x,y,'STREAK +80','good'); }catch{}
+      blinkOn('good', 90);
 
       if (!s.stormOn && Math.random() < 0.32){
         s.stormUntil = now() + 6200;
         setStorm(true, 0.95);
       }
     } else {
-      goodFX(x,y,'+55','good');
+      try{ Particles.burstAt(x,y,'GOOD'); }catch{}
+      try{ Particles.scorePop(x,y,'+55','good'); }catch{}
+      blinkOn('good', 90);
     }
 
     hud();
@@ -586,7 +510,6 @@ export async function boot(opts = {}){
     hud();
   }
 
-  // ✅ Boot mode-factory (A2++ + bubble)
   const inst = await factoryBoot({
     modeKey: 'hydration',
     difficulty: diff,
@@ -594,7 +517,9 @@ export async function boot(opts = {}){
 
     spawnHost: '#hvr-playfield',
     boundsHost: '#hvr-wrap',
-    spawnBias: 'A2++',
+
+    spawnBias: 'A2+++',
+    spawnPattern: 'ring8',     // ✅ “ล็อก order” แบบวง 8 ทิศ (กระจายแต่ยังใกล้กลาง)
     antiRepeat: true,
     antiRepeatN: 4,
 
@@ -610,13 +535,14 @@ export async function boot(opts = {}){
     trickRate: diff === 'hard' ? 0.12 : 0.08,
     spawnIntervalMul: spawnMul,
 
-    excludeSelectors: ['.hud', '#hvr-start', '#hvr-end', '#hvr-screen-blink'],
+    excludeSelectors: ['.hud', '#hvr-crosshair', '#hvr-end', '#hvr-screen-blink'],
 
     decorateTarget: decorateBubbleTarget,
     judge,
     onExpire
   });
 
+  // Drag + tap shoot
   function bindViewDragAndShoot(){
     if (!playfield) return null;
 
@@ -649,6 +575,7 @@ export async function boot(opts = {}){
       try{ playfield.releasePointerCapture(pid); }catch{}
       pid = null;
 
+      // tap = ยิงกลางจอ
       if (!moved && inst && typeof inst.shootCrosshair === 'function'){
         inst.shootCrosshair();
       }
@@ -669,31 +596,6 @@ export async function boot(opts = {}){
 
   const unbindDrag = bindViewDragAndShoot();
 
-  let fxRaf = null;
-  function fxLoop(){
-    if (!post || !post.ctx) return;
-    const ctx = post.ctx;
-    const t = now();
-
-    ctx.clearRect(0,0,ROOT.innerWidth||1,ROOT.innerHeight||1);
-
-    const out = [];
-    for (const sp of s.sparks){
-      const dt = t - sp.t0;
-      if (dt > 520) continue;
-      out.push(sp);
-
-      const k = 1 - (dt/520);
-      ctx.globalAlpha = 0.55 * k;
-      drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.75 + 0.55*k));
-    }
-    s.sparks = out;
-
-    ctx.globalAlpha = 1;
-    fxRaf = ROOT.requestAnimationFrame(fxLoop);
-  }
-  fxRaf = ROOT.requestAnimationFrame(fxLoop);
-
   function onTime(ev){
     const sec = ev?.detail?.sec;
     if (typeof sec !== 'number') return;
@@ -702,11 +604,10 @@ export async function boot(opts = {}){
     updateWater(-1.4);
     if (s.zone === 'GREEN') s.greenTick += 1;
 
-    maybeStormTick();
+    if (s.stormOn && now() > s.stormUntil) setStorm(false, 0);
 
-    if (s.zone === 'HIGH'){
-      s.score = Math.max(0, s.score - 3);
-    }
+    if (s.zone === 'HIGH') s.score = Math.max(0, s.score - 3);
+
     hud();
 
     if (sec <= 0){
@@ -714,60 +615,6 @@ export async function boot(opts = {}){
     }
   }
   ROOT.addEventListener('hha:time', onTime, { passive:true });
-
-  function buildEndOverlay(){
-    const end = $id('hvr-end');
-    if (!end) return;
-    end.className = 'on';
-
-    const g = gradeFrom(s.score);
-    end.innerHTML = `
-      <div style="width:min(760px,100%); display:grid; grid-template-columns:1fr; gap:10px;">
-        <div style="background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.24); border-radius:24px; padding:14px; box-shadow:0 22px 70px rgba(0,0,0,.60);">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <h2 style="margin:0; font-size:18px; font-weight:1000;">🏁 สรุปผลการเล่น</h2>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span style="color:rgba(148,163,184,.9); font-weight:900;">Grade</span>
-              <span style="font-weight:1000; letter-spacing:.08em;">${g}</span>
-            </div>
-          </div>
-
-          <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;">
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">Score</div>
-              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.score|0}</div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">รวมโบนัส PERFECT/STREAK/STORM</div>
-            </div>
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">Combo / Miss</div>
-              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.comboMax|0} • ${s.miss|0}</div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">คอมโบสูงสุด • miss (junk/trick)</div>
-            </div>
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">GREEN time</div>
-              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.greenTick|0}s</div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ในโซน GREEN</div>
-            </div>
-            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
-              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">Water end</div>
-              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${Math.round(s.water)}% (${s.zoneLabel})</div>
-              <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">โซนสุดท้าย</div>
-            </div>
-          </div>
-
-          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button id="hvr-end-retry" class="hvr-btn primary">🔁 เล่นอีกครั้ง</button>
-            <button id="hvr-end-hub" class="hvr-btn">🏠 กลับ Hub</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    const retry = $id('hvr-end-retry');
-    const hub = $id('hvr-end-hub');
-    if (retry) retry.onclick = ()=>location.reload();
-    if (hub) hub.onclick = ()=>location.href = './hub.html';
-  }
 
   function endGame(){
     if (!s.running) return;
@@ -779,28 +626,47 @@ export async function boot(opts = {}){
     if (unbindDrag) try{ unbindDrag(); }catch{}
     ROOT.removeEventListener('hha:time', onTime);
 
-    if (fxRaf) try{ ROOT.cancelAnimationFrame(fxRaf); }catch{}
-    fxRaf = null;
-
     setStorm(false, 0);
 
-    try{ Particles.celebrate('END'); }catch{}
-    buildEndOverlay();
-
-    try{
-      ROOT.dispatchEvent(new CustomEvent('hha:end', {
-        detail:{
-          score: s.score|0,
-          miss: s.miss|0,
-          comboBest: s.comboMax|0,
-          grade: gradeFrom(s.score),
-          water: Math.round(s.water),
-          zone: s.zoneLabel,
-          greenTick: s.greenTick|0,
-          progPct: clamp((s.score/1500)*100,0,100)|0
-        }
-      }));
-    }catch{}
+    const end = $id('hvr-end');
+    if (end){
+      end.className = 'on';
+      const g = gradeFrom(s.score);
+      end.innerHTML = `
+        <div style="width:min(760px,100%); background:rgba(15,23,42,.72); border:1px solid rgba(148,163,184,.24); border-radius:24px; padding:14px; box-shadow:0 22px 70px rgba(0,0,0,.60);">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <h2 style="margin:0; font-size:18px; font-weight:1000;">🏁 สรุปผลการเล่น</h2>
+            <div style="font-weight:1000; letter-spacing:.08em;">Grade ${g}</div>
+          </div>
+          <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;">
+            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
+              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">Score</div>
+              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.score|0}</div>
+            </div>
+            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
+              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">ComboMax / Miss</div>
+              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.comboMax|0} • ${s.miss|0}</div>
+            </div>
+            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
+              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">GREEN time</div>
+              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.greenTick|0}s</div>
+            </div>
+            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
+              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">Water end</div>
+              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${Math.round(s.water)}% (${s.zoneLabel})</div>
+            </div>
+          </div>
+          <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="hvr-end-retry" style="appearance:none;border:1px solid rgba(34,197,94,.30);background:rgba(34,197,94,.14);color:#e5e7eb;padding:10px 12px;border-radius:14px;font-weight:900;cursor:pointer;">🔁 เล่นอีกครั้ง</button>
+            <button id="hvr-end-hub" style="appearance:none;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.65);color:#e5e7eb;padding:10px 12px;border-radius:14px;font-weight:900;cursor:pointer;">🏠 กลับ Hub</button>
+          </div>
+        </div>
+      `;
+      const retry = $id('hvr-end-retry');
+      const hub = $id('hvr-end-hub');
+      if (retry) retry.onclick = ()=>location.reload();
+      if (hub) hub.onclick = ()=>location.href = './hub.html';
+    }
   }
 
   hud();
