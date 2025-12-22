@@ -10,7 +10,7 @@
 // ✅ trick/fake targets (itemType='fakeGood')
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
-// ✅ A3: Anti-Overlap + Center-first then spread (polar) so ไม่กองทับกันเป็นพวง
+// ✅ PATCH A3.1: spawn ตาม "วิวปัจจุบัน" (ชดเชย translate ของ playfield) + กันทับกันแน่น
 
 'use strict';
 
@@ -43,67 +43,28 @@ function getEventXY (ev) {
   return { x: x || 0, y: y || 0 };
 }
 
-// --- center bias helper (Triangular distribution) ---
-function centerBiasedRand () {
-  return (Math.random() + Math.random()) * 0.5;
-}
+// ✅ PATCH A3.1 — อ่าน translate ของ host (ตอน drag view)
+function getTranslateXY (el) {
+  try{
+    if (!el || !ROOT.getComputedStyle) return { tx:0, ty:0 };
+    const tr = ROOT.getComputedStyle(el).transform;
+    if (!tr || tr === 'none') return { tx:0, ty:0 };
 
-// ✅ A3: pick spawn point (center-first, then spread) + anti-overlap
-function pickSpawnPoint(rect, size, activeTargets){
-  const W = Math.max(1, rect.width);
-  const H = Math.max(1, rect.height);
-
-  const minDist = size * 1.05; // กันกองเป็นพวง
-  const tries   = 18;
-
-  const toLocal = (nx, ny) => ({
-    x: rect.left + W * nx,
-    y: rect.top  + H * ny
-  });
-
-  const ok = (x, y) => {
-    let pass = true;
-    activeTargets.forEach(t=>{
-      if (!t) return;
-      const tx = Number(t._x);
-      const ty = Number(t._y);
-      if (!Number.isFinite(tx) || !Number.isFinite(ty)) return;
-      const dx = x - tx, dy = y - ty;
-      if ((dx*dx + dy*dy) < (minDist*minDist)) pass = false;
-    });
-    return pass;
-  };
-
-  const hasAny = activeTargets.size > 0;
-
-  for (let i=0; i<tries; i++){
-    let nx, ny;
-
-    if (!hasAny && i < 8){
-      // ลูกแรก ๆ: bias กลางจอ (หาเจอง่าย)
-      const rx = centerBiasedRand();
-      const ry = centerBiasedRand();
-      nx = 0.18 + rx * 0.64;
-      ny = 0.22 + ry * 0.62;
-    } else {
-      // ลูกต่อ ๆ ไป: กระจายรอบกลางจอด้วย polar
-      const ang = Math.random() * Math.PI * 2;
-      const rMin = 0.12;
-      const rMax = 0.46;
-      const rr = rMin + (Math.random() * Math.random()) * (rMax - rMin);
-      nx = 0.50 + Math.cos(ang) * rr;
-      ny = 0.52 + Math.sin(ang) * rr;
-
-      nx = clamp(nx, 0.14, 0.86);
-      ny = clamp(ny, 0.18, 0.86);
+    // matrix(a,b,c,d,tx,ty)
+    let m = tr.match(/^matrix\((.+)\)$/);
+    if (m){
+      const parts = m[1].split(',').map(s=>Number(s.trim()));
+      return { tx: parts[4] || 0, ty: parts[5] || 0 };
     }
 
-    const p = toLocal(nx, ny);
-    if (ok(p.x, p.y)) return p;
-  }
-
-  // fallback
-  return toLocal(0.18 + Math.random()*0.64, 0.22 + Math.random()*0.62);
+    // matrix3d(..., tx, ty, tz)
+    m = tr.match(/^matrix3d\((.+)\)$/);
+    if (m){
+      const parts = m[1].split(',').map(s=>Number(s.trim()));
+      return { tx: parts[12] || 0, ty: parts[13] || 0 };
+    }
+  }catch{}
+  return { tx:0, ty:0 };
 }
 
 // ---------- Base difficulty ----------
@@ -318,6 +279,64 @@ function computePlayRectFromHost (hostEl, exState) {
 }
 
 // ======================================================
+//  overlap-safe spawn near "current view" (PATCH A3.1)
+// ======================================================
+function pickSpawnPoint(rect, size, activeTargets, hostForTransform){
+  const W = Math.max(1, rect.width);
+  const H = Math.max(1, rect.height);
+
+  const minDist = size * 1.05; // กันกองเป็นพวง
+  const tries   = 22;
+
+  // ✅ ชดเชย translate ของ playfield (ตอนลากมุมมอง)
+  const { tx, ty } = getTranslateXY(hostForTransform);
+
+  // center ใน "พิกัด local ของ host" ที่ตรงกับ "กลางจอที่ผู้เล่นกำลังมอง"
+  const cx0 = rect.left + W * 0.50 - tx;
+  const cy0 = rect.top  + H * 0.52 - ty;
+
+  const clampX = (x)=> clamp(x, rect.left + size*0.60, rect.left + W - size*0.60);
+  const clampY = (y)=> clamp(y, rect.top  + size*0.65, rect.top  + H - size*0.65);
+
+  const ok = (x, y) => {
+    let pass = true;
+    activeTargets.forEach(t=>{
+      const x0 = Number(t._x), y0 = Number(t._y);
+      if (!Number.isFinite(x0) || !Number.isFinite(y0)) return;
+      const dx = x - x0, dy = y - y0;
+      if ((dx*dx + dy*dy) < (minDist*minDist)) pass = false;
+    });
+    return pass;
+  };
+
+  const hasAny = activeTargets.size > 0;
+
+  for (let i=0; i<tries; i++){
+    let x, y;
+
+    if (!hasAny && i < 10){
+      // ✅ ลูกแรก ๆ ใกล้กลางจอมาก (หาเจอง่าย)
+      const jx = (Math.random() + Math.random() - 1) * (W * 0.10);
+      const jy = (Math.random() + Math.random() - 1) * (H * 0.10);
+      x = clampX(cx0 + jx);
+      y = clampY(cy0 + jy);
+    } else {
+      // ✅ ลูกต่อ ๆ ไป กระจายรอบกลางจอ แต่ไม่ไกล (ลดการเลื่อนหา)
+      const ang  = Math.random() * Math.PI * 2;
+      const rMin = 0.06;
+      const rMax = 0.28; // ยิ่งเล็ก = ยิ่งอยู่ใกล้วิว
+      const rr   = rMin + (Math.random()*Math.random()) * (rMax - rMin);
+      x = clampX(cx0 + Math.cos(ang) * (W * rr));
+      y = clampY(cy0 + Math.sin(ang) * (H * rr));
+    }
+
+    if (ok(x, y)) return { x, y };
+  }
+
+  return { x: clampX(cx0), y: clampY(cy0) };
+}
+
+// ======================================================
 //  boot(cfg)
 // ======================================================
 export async function boot (rawCfg = {}) {
@@ -340,7 +359,6 @@ export async function boot (rawCfg = {}) {
     spawnIntervalMul = null,
     excludeSelectors = null,
 
-    // ✅ NEW
     boundsHost = null,
     decorateTarget = null
   } = rawCfg || {};
@@ -348,7 +366,7 @@ export async function boot (rawCfg = {}) {
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
-  const hostSpawn = resolveHost(rawCfg, 'spawnHost');
+  const hostSpawn  = resolveHost(rawCfg, 'spawnHost');
   const hostBounds = (boundsHost ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
 
   if (!hostSpawn || !hostBounds || !DOC) {
@@ -437,7 +455,6 @@ export async function boot (rawCfg = {}) {
     try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
   }
 
-  // ✅ Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -447,7 +464,6 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
-  // ✅ life getter
   function getLifeMs(){
     const mul = getSpawnMul();
     const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
@@ -491,7 +507,6 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
-  // crosshair uses bounds host (stable even if spawn layer moves)
   function getCrosshairPoint(){
     let rect = null;
     try{ rect = hostBounds.getBoundingClientRect(); }catch{}
@@ -523,7 +538,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Exclusions cache (computed from boundsHost)
+  //  Exclusions cache
   // ======================================================
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
@@ -545,7 +560,7 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn target inside hostSpawn using bounds from hostBounds
+  //  Spawn target
   // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
@@ -553,6 +568,14 @@ export async function boot (rawCfg = {}) {
     refreshExclusions();
 
     const rect = computePlayRectFromHost(hostBounds, exState);
+
+    const baseSize = 78;
+    const size = baseSize * curScale;
+
+    // ✅ PATCH A3.1 — จุดเกิดตามวิว + กันทับกัน
+    const p = pickSpawnPoint(rect, size, activeTargets, hostSpawn);
+    const xLocal = p.x;
+    const yLocal = p.y;
 
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
@@ -595,14 +618,6 @@ export async function boot (rawCfg = {}) {
     el.setAttribute('data-hha-tgt', '1');
     el.setAttribute('data-item-type', itemType);
 
-    const baseSize = 78;
-    const size = baseSize * curScale;
-
-    // ✅ A3: pick point with anti-overlap
-    const p = pickSpawnPoint(rect, size, activeTargets);
-    const xLocal = p.x;
-    const yLocal = p.y;
-
     el.style.position = 'absolute';
     el.style.left = xLocal + 'px';
     el.style.top  = yLocal + 'px';
@@ -613,7 +628,6 @@ export async function boot (rawCfg = {}) {
     el.style.zIndex = '35';
     el.style.borderRadius = '999px';
 
-    // wiggle layer (animated visuals)
     const wiggle = DOC.createElement('div');
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
@@ -640,7 +654,6 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
-    // ring (perfect hint)
     const ring = DOC.createElement('div');
     ring.style.position = 'absolute';
     ring.style.left = '50%';
@@ -670,7 +683,6 @@ export async function boot (rawCfg = {}) {
     icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
     inner.appendChild(icon);
 
-    // trick badge
     let badge = null;
     if (itemType === 'fakeGood') {
       badge = DOC.createElement('div');
@@ -705,13 +717,11 @@ export async function boot (rawCfg = {}) {
       bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       life: lifeMs,
       _hit: null,
-
-      // ✅ A3: keep center for overlap check
+      // ✅ PATCH A3.1 — เก็บพิกัดไว้กันทับกัน
       _x: xLocal,
       _y: yLocal
     };
 
-    // allow per-game decorate
     try{
       if (typeof decorateTarget === 'function'){
         decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
@@ -813,7 +823,6 @@ export async function boot (rawCfg = {}) {
     }, lifeMs);
   }
 
-  // ---------- clock (hha:time) ----------
   function dispatchTime (sec) {
     try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
