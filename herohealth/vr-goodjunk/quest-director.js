@@ -1,6 +1,7 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
 // Quest Director — sequential goals + endless minis (robust)
-// Emits: quest:update, quest:goalClear, quest:miniStart, quest:miniClear, quest:allGoalsClear
+// Emits: quest:update (Patch A shape), quest:goalClear, quest:miniStart, quest:miniClear,
+//        quest:allGoalsClear, quest:cleared (goal/mini)
 
 'use strict';
 
@@ -17,7 +18,6 @@ function emit(name, detail){
 
 function pickFrom(list, usedSet){
   if (!Array.isArray(list) || list.length === 0) return null;
-  // try not repeating too soon
   for (let i=0;i<12;i++){
     const it = list[(Math.random()*list.length)|0];
     if (!it || !it.id) continue;
@@ -51,7 +51,6 @@ function evalOf(def, s){
   try{
     if (typeof def.eval === 'function') return Number(def.eval(s)) || 0;
   }catch(_){}
-  // fallback common keys
   if (def && def.key) return Number(s?.[def.key]) || 0;
   return 0;
 }
@@ -76,32 +75,24 @@ export function makeQuestDirector(opts = {}) {
   const stateQ = {
     started:false,
 
-    // pools
     goalsAll: goalDefs.slice(0),
     minisAll: miniDefs.slice(0),
 
-    // progress meta
     goalsCleared:0,
     minisCleared:0,
     goalIndex:0,
     miniCount:0,
 
-    // active
     activeGoal:null,
     activeMini:null,
 
-    // anti-repeat
     usedGoals: new Set(),
     usedMinis: new Set(),
 
-    // last payload (avoid spam)
-    lastGoalPct:-1,
-    lastMiniPct:-1,
     lastEmitAt:0
   };
 
   function pickGoal(){
-    // filter by challenge first
     const list = stateQ.goalsAll.filter(g => okByChallenge(g, challenge));
     const g = pickFrom(list, stateQ.usedGoals);
     if (g && g.id) stateQ.usedGoals.add(g.id);
@@ -125,7 +116,6 @@ export function makeQuestDirector(opts = {}) {
       miniCount: stateQ.miniCount|0
     });
 
-    // immediate update
     updateEmit(s, true);
   }
 
@@ -135,43 +125,69 @@ export function makeQuestDirector(opts = {}) {
     updateEmit(s, true);
   }
 
-  function updateEmit(s, force=false){
-    const now = Date.now();
-    if (!force && now - stateQ.lastEmitAt < 110) return;
+  function makeOut(def, s, kind){
+    if (!def) return null;
 
-    const goal = stateQ.activeGoal;
-    const mini = stateQ.activeMini;
+    const tgt = targetOf(def, diff);
+    const curRaw = evalOf(def, s);
+    const cur = Number.isFinite(curRaw) ? curRaw : 0;
+
+    // pct default
+    const pct = (tgt > 0) ? clamp01(cur / tgt) : 0;
+
+    const out = {
+      title: def.label || (kind === 'goal' ? 'ภารกิจหลัก' : 'Mini quest'),
+      cur,
+      max: tgt,
+      pct,
+      state: 'active',
+      hint: def.hint || ''
+    };
+
+    // optional: timer-like display (HUD Patch A reads timeLeft/timeTotal in ms)
+    if (def.timer === true && tgt > 0){
+      const left = Math.max(0, tgt - cur);
+      out.timeLeft = Math.round(left * 1000);
+      out.timeTotal = Math.round(tgt * 1000);
+    }
+
+    // special clamp (example from your old g3 handling)
+    if (def.id === 'g3'){
+      // g3 is "miss <= X" so show cur as miss, max as target
+      out.pct = (tgt > 0) ? clamp01((tgt - cur) / tgt) : 0;
+    }
+
+    return out;
+  }
+
+  function updateEmit(s, force=false){
+    const t = Date.now();
+    if (!force && t - stateQ.lastEmitAt < 110) return;
 
     let goalOut = null;
-    if (goal){
-      const tgt = targetOf(goal, diff);
-      const cur = evalOf(goal, s);
-      const pct = (tgt > 0) ? clamp01(cur / tgt) : 0;
+    if (stateQ.activeGoal){
+      goalOut = makeOut(stateQ.activeGoal, s, 'goal');
+    } else {
       goalOut = {
-        id: goal.id || '',
-        title: goal.label || 'ภารกิจหลัก',
-        cur: (goal.id === 'g3') ? Math.min(cur, tgt) : cur,
-        max: tgt,
-        pct,
-        hint: goal.hint || ''
+        title: 'ALL GOALS CLEARED 🎉',
+        cur: stateQ.goalsCleared|0,
+        max: maxGoals|0,
+        pct: 1,
+        state: 'cleared',
+        hint: ''
       };
-      stateQ.lastGoalPct = pct;
     }
 
     let miniOut = null;
-    if (mini){
-      const tgt = targetOf(mini, diff);
-      const cur = evalOf(mini, s);
-      const pct = (tgt > 0) ? clamp01(cur / tgt) : 0;
+    if (stateQ.activeMini){
+      miniOut = makeOut(stateQ.activeMini, s, 'mini');
+    } else {
       miniOut = {
-        id: mini.id || '',
-        title: mini.label || 'Mini quest',
-        cur,
-        max: tgt,
-        pct,
-        hint: mini.hint || ''
+        title: '—',
+        cur: 0, max: 0, pct: 0,
+        state: '',
+        hint: ''
       };
-      stateQ.lastMiniPct = pct;
     }
 
     const meta = {
@@ -183,8 +199,9 @@ export function makeQuestDirector(opts = {}) {
       challenge
     };
 
+    // ✅ Patch A shape
     emit('quest:update', { goal: goalOut, mini: miniOut, meta });
-    stateQ.lastEmitAt = now;
+    stateQ.lastEmitAt = t;
   }
 
   function tick(s){
@@ -199,20 +216,20 @@ export function makeQuestDirector(opts = {}) {
 
       if (pass){
         stateQ.goalsCleared = (stateQ.goalsCleared|0) + 1;
+
         emit('quest:goalClear', { id:g.id||'', title:g.label||'', goalsCleared: stateQ.goalsCleared|0 });
+        emit('quest:cleared',  { kind:'goal', id:g.id||'', title:g.label||'' });
 
         if (stateQ.goalsCleared >= maxGoals){
           stateQ.activeGoal = null;
           emit('quest:allGoalsClear', { goalsCleared: stateQ.goalsCleared|0 });
-        }else{
+        } else {
           startGoal(s);
         }
       }
-    } else {
-      // no active goal -> keep showing "completed"
     }
 
-    // 2) minis (endless chain until maxMini reached)
+    // 2) minis (endless chain until cap)
     if (stateQ.activeMini){
       const m = stateQ.activeMini;
       const tgt = targetOf(m, diff);
@@ -221,16 +238,17 @@ export function makeQuestDirector(opts = {}) {
 
       if (pass){
         stateQ.minisCleared = (stateQ.minisCleared|0) + 1;
+
         emit('quest:miniClear', { id:m.id||'', title:m.label||'', minisCleared: stateQ.minisCleared|0 });
+        emit('quest:cleared',  { kind:'mini', id:m.id||'', title:m.label||'' });
 
         if (stateQ.miniCount >= maxMini){
           stateQ.activeMini = null;
-        }else{
+        } else {
           startMini(s);
         }
       }
     } else {
-      // if mini ended, start another (unless hit cap)
       if (stateQ.miniCount < maxMini){
         startMini(s);
       }
@@ -252,23 +270,8 @@ export function makeQuestDirector(opts = {}) {
 
     startGoal(s);
     startMini(s);
-
     updateEmit(s, true);
   }
 
-  return {
-    start,
-    tick,
-    getState(){
-      return {
-        started: stateQ.started,
-        goalsCleared: stateQ.goalsCleared|0,
-        minisCleared: stateQ.minisCleared|0,
-        goalIndex: stateQ.goalIndex|0,
-        miniCount: stateQ.miniCount|0,
-        activeGoal: stateQ.activeGoal ? { id: stateQ.activeGoal.id, label: stateQ.activeGoal.label } : null,
-        activeMini: stateQ.activeMini ? { id: stateQ.activeMini.id, label: stateQ.activeMini.label } : null
-      };
-    }
-  };
+  return { start, tick };
 }
