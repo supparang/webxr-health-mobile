@@ -1,9 +1,7 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-     GoodJunkVR (PRODUCTION) — H+ EXTREME
-     ✅ Boss attack overlays: #atk-ring #atk-laser
-     ✅ Panic vignette + ticks + SFX (WebAudio)
-     ✅ Drag-look DOM camera (mobile) + aim point sync for hazards/magnet
-     ✅ Auto-fit HUD (A15/A54) no overflow
+     GoodJunkVR (PRODUCTION) — H+  (Option A: Mobile Compact HUD)
+     ✅ HUD bar เตี้ย + Quest collapsible + Fever/Shield strip + Coach toast
+     ✅ Keep boss attack overlays: #atk-ring #atk-laser
 -->
 <!doctype html>
 <html lang="th">
@@ -37,16 +35,6 @@
       --ringSize: 420px;
       --ringGapStart: 40deg; /* updated by JS */
       --ringGapSize: 70deg;  /* updated by JS */
-
-      /* DOM camera offset */
-      --camX: 0px;
-      --camY: 0px;
-
-      /* safe areas */
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
     }
 
     *{ box-sizing:border-box; }
@@ -69,12 +57,11 @@
     }
     #game-cam{
       position:absolute; inset:0;
-      transform: translate3d(var(--camX), var(--camY), 0);
+      transform: translate3d(0,0,0);
       will-change: transform, filter;
       pointer-events:none;
     }
 
-    /* Keep camera offsets inside animations */
     #game-cam.shake{ animation: gj-shake var(--shakeDur) linear infinite; }
     #game-cam.kick{ animation: gj-kick .22s ease-out 1; }
     #game-cam.shake.kick{
@@ -82,22 +69,16 @@
     }
 
     @keyframes gj-shake{
-      0%   { transform: translate3d(calc(var(--camX) + (var(--shakeAmp) * 0.15)), calc(var(--camY) + (var(--shakeAmp) * -0.30)), 0); }
-      20%  { transform: translate3d(calc(var(--camX) + (var(--shakeAmp) * -0.35)), calc(var(--camY) + (var(--shakeAmp) * 0.25)), 0); }
-      45%  { transform: translate3d(calc(var(--camX) + (var(--shakeAmp) * 0.42)), calc(var(--camY) + (var(--shakeAmp) * 0.18)), 0); }
-      70%  { transform: translate3d(calc(var(--camX) + (var(--shakeAmp) * -0.28)), calc(var(--camY) + (var(--shakeAmp) * -0.40)), 0); }
-      100% { transform: translate3d(calc(var(--camX) + (var(--shakeAmp) * 0.12)), calc(var(--camY) + (var(--shakeAmp) * 0.30)), 0); }
+      0%   { transform: translate3d(calc(var(--shakeAmp) * 0.15), calc(var(--shakeAmp) * -0.30), 0); }
+      20%  { transform: translate3d(calc(var(--shakeAmp) * -0.35), calc(var(--shakeAmp) * 0.25), 0); }
+      45%  { transform: translate3d(calc(var(--shakeAmp) * 0.42), calc(var(--shakeAmp) * 0.18), 0); }
+      70%  { transform: translate3d(calc(var(--shakeAmp) * -0.28), calc(var(--shakeAmp) * -0.40), 0); }
+      100% { transform: translate3d(calc(var(--shakeAmp) * 0.12), calc(var(--shakeAmp) * 0.30), 0); }
     }
     @keyframes gj-kick{
-      0%{
-        transform: translate3d(calc(var(--camX) + (var(--kickAmp) * 0.55)), calc(var(--camY) + (var(--kickAmp) * -0.45)), 0)
-          rotate(calc(var(--kickRot) * -0.7));
-      }
-      45%{
-        transform: translate3d(calc(var(--camX) + (var(--kickAmp) * -0.75)), calc(var(--camY) + (var(--kickAmp) * 0.55)), 0)
-          rotate(var(--kickRot));
-      }
-      100%{ transform: translate3d(var(--camX), var(--camY), 0) rotate(0deg); }
+      0%{ transform: translate3d(calc(var(--kickAmp) * 0.55), calc(var(--kickAmp) * -0.45), 0) rotate(calc(var(--kickRot) * -0.7)); }
+      45%{ transform: translate3d(calc(var(--kickAmp) * -0.75), calc(var(--kickAmp) * 0.55), 0) rotate(var(--kickRot)); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
     }
 
     /* STUN fire overlay */
@@ -146,7 +127,6 @@
         radial-gradient(circle at 60% 60%, rgba(249,115,22,0.18), transparent 58%),
         linear-gradient(90deg, rgba(255,0,100,0.06), transparent 40%, rgba(0,255,220,0.06));
       filter: saturate(1.4) contrast(1.1);
-      z-index:8;
     }
     #fx-chroma.show{ animation: chromaFlash .18s ease-out 1; }
     @keyframes chromaFlash{
@@ -159,20 +139,6 @@
         radial-gradient(circle at 50% 60%, rgba(34,197,94,0.18), transparent 58%),
         radial-gradient(circle at 45% 45%, rgba(56,189,248,0.16), transparent 55%),
         linear-gradient(90deg, rgba(34,197,94,0.06), transparent 40%, rgba(56,189,248,0.06));
-    }
-
-    /* ✅ EXTREME: panic vignette */
-    #fx-vignette{
-      position:absolute; inset:0;
-      pointer-events:none;
-      z-index:8;
-      opacity:0;
-      transition: opacity .08s linear;
-      background:
-        radial-gradient(circle at 50% 55%, rgba(0,0,0,0) 48%, rgba(239,68,68,0.14) 70%, rgba(239,68,68,0.26) 100%),
-        radial-gradient(circle at 50% 55%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.30) 100%);
-      mix-blend-mode: screen;
-      filter: saturate(1.2);
     }
 
     /* ===== H+ Boss Attack Overlay: RING ===== */
@@ -334,6 +300,22 @@
     @keyframes vortexSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg);} }
     @keyframes vortexPulse{ 0%{transform:scale(0.9)} 50%{transform:scale(1.12)} 100%{transform:scale(0.9)} }
 
+    #stun-vortex.lock::before{ animation: vortexLockShrink 1s ease-out 1 !important; }
+    #stun-vortex.lock::after{
+      animation: vortexLockDot 0.12s linear infinite !important;
+      box-shadow:0 0 26px rgba(56,189,248,1);
+    }
+    @keyframes vortexLockShrink{
+      0%{ transform:scale(1.25); opacity:1; }
+      70%{ transform:scale(0.55); opacity:0.95; }
+      100%{ transform:scale(0.22); opacity:0.0; }
+    }
+    @keyframes vortexLockDot{
+      0%{ transform:scale(1); }
+      50%{ transform:scale(1.22); }
+      100%{ transform:scale(1); }
+    }
+
     /* Boss Beacon */
     #boss-beacon{
       position:absolute;
@@ -374,11 +356,7 @@
       display:flex;
       flex-direction:column;
       justify-content:space-between;
-      padding:
-        calc(10px + var(--sat))
-        calc(10px + var(--sar))
-        calc(14px + var(--sab))
-        calc(10px + var(--sal));
+      padding:10px 10px 14px;
     }
     .hud-top{
       display:flex;
@@ -627,31 +605,147 @@
       color:#052e16;
     }
 
-    /* ✅ Auto-fit HUD on phones (override inline min-widths) */
-    .hud-top{ flex-wrap:wrap; align-items:stretch; }
-    .hud-top .hud-card{
-      min-width: 0 !important;
-      width: min(560px, 100%) !important;
-      max-width: 100% !important;
+    /* ==========================================================
+       OPTION A OVERRIDE: Mobile Compact HUD (More Gameplay)
+       - HUD bar เตี้ย (chip)
+       - Quest collapsible (default collapsed)
+       - Fever/Shield strip fixed (บาง)
+       - Coach toast auto-hide
+       ========================================================== */
+    :root{
+      --hudPad: 8px;
+      --hudGap: 8px;
+      --hudRadius: 16px;
+      --hudBarH: 64px;
+      --feverStripH: 34px;
+      --hudZ: 650;
     }
-    .hud-quest{ max-width: none; }
-    .hud-metrics .metric{ min-width: 84px; }
+
+    .hud-root{
+      padding: var(--hudPad);
+      z-index: var(--hudZ);
+    }
+
+    .hud-top{
+      flex-direction: column;
+      gap: var(--hudGap);
+      align-items: stretch;
+    }
+
+    .hud-card{
+      border-radius: var(--hudRadius);
+      padding: 8px 10px;
+    }
+
+    .hud-top .hud-card:first-child{
+      width: 100%;
+    }
+
+    .hud-metrics{
+      gap: 8px;
+      flex-wrap: nowrap;
+      justify-content: space-between;
+    }
+    .metric{ min-width: 0; }
+    .metric-label{ font-size: 9px; letter-spacing:.10em; }
+    .metric-value{ font-size: 13px; }
+
+    .hud-quest{
+      width: 100%;
+      max-width: none;
+      position: relative;
+      overflow: hidden;
+      max-height: 86px; /* collapsed default */
+      transition: max-height .22s ease;
+    }
+    .hud-quest.expanded{
+      max-height: 330px;
+    }
+
+    .hud-quest .quest-title{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select:none;
+    }
+    .hud-quest .quest-title::after{
+      content:"▾";
+      opacity:.8;
+      transform: translateY(-1px);
+      transition: transform .18s ease;
+    }
+    .hud-quest.expanded .quest-title::after{
+      transform: rotate(180deg) translateY(1px);
+    }
+
+    .quest-main-label{ font-size: 12px; font-weight: 850; }
+    .quest-mini-label{ font-size: 11px; }
+
+    /* Fever strip fixed (บาง) */
+    .hud-fever{
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      top: calc(env(safe-area-inset-top) + var(--hudBarH) + 10px);
+      height: var(--feverStripH);
+      padding: 6px 10px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(15,23,42,.92), rgba(15,23,42,.76));
+      border: 1px solid rgba(148,163,184,0.18);
+      box-shadow: 0 16px 36px rgba(15,23,42,.55);
+      z-index: calc(var(--hudZ) + 1);
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+      pointer-events:none;
+      margin-top: 0;
+    }
+    .fever-row{ gap: 8px; }
+    .fever-label{ font-size: 9px; }
+    .fever-bar{ width: min(42vw, 180px); height: 6px; }
+    .fever-pct{ font-size: 10px; min-width: 40px; }
+    .shield-row{ gap: 6px; font-size: 11px; opacity:.95; }
+
+    /* boss bar compact (อยู่ strip เดียวกัน) */
+    .boss-wrap{
+      margin-top: 0;
+      flex: 1;
+      align-items: flex-end;
+      display:none;
+    }
+    .boss-wrap.show{ display:flex; }
+    .boss-top{ display:none; }
+    .boss-bar{ height: 6px; }
+
+    /* Coach toast (ไม่กินพื้นที่) */
+    .hud-bottom{ padding-bottom: 0; }
+    .coach-bubble{
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: 70px;
+      min-width: auto;
+      max-width: none;
+      z-index: calc(var(--hudZ) + 2);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .coach-bubble.show{
+      display:flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
 
     @media (max-width: 420px){
-      .hud-card{ border-radius:16px; padding:7px 9px; }
-      .hud-main-title{ font-size:12px; }
-      .metric-value{ font-size:14px; }
-      .quest-main-label{ font-size:12.5px; }
-      .quest-mini-label{ font-size:11.5px; }
-      .fever-bar{ width: 120px; }
-      .hud-bottom{ padding-bottom: calc(72px + var(--sab)); }
-      .vr-btn{ right: calc(12px + var(--sar)); bottom: calc(16px + var(--sab)); }
-      #logbadge{ left: calc(10px + var(--sal)); bottom: calc(10px + var(--sab)); }
-    }
-
-    @media (max-height: 720px){
-      .hud-quest{ max-height: 34vh; overflow:auto; -webkit-overflow-scrolling:touch; }
-      .hud-quest::-webkit-scrollbar{ width: 6px; }
+      :root{ --hudBarH: 60px; --feverStripH: 32px; }
+      .hud-card{ padding: 7px 9px; }
+      .hud-main-title{ font-size: 12px; }
+      .hud-pill{ font-size: 10px; }
+      .metric-value{ font-size: 12px; }
+      .hud-quest{ max-height: 82px; }
     }
   </style>
 
@@ -720,11 +814,10 @@
       <div id="atk-laser" aria-hidden="true"></div>
 
       <div id="fx-chroma" aria-hidden="true"></div>
-      <div id="fx-vignette" aria-hidden="true"></div>
     </div>
   </div>
 
-  <!-- HUD / Start / Summary -->
+  <!-- HUD -->
   <div class="hud-root" aria-label="HUD">
     <div class="hud-top">
       <div class="hud-card" style="min-width: 310px;">
@@ -855,251 +948,46 @@
     </div>
   </div>
 
-  <!-- ===== EXTREME SFX (No files needed) ===== -->
+  <!-- OPTION A: Quest collapsible + Coach toast auto-hide -->
   <script>
-  (function(){
-    let AC = null, master = null;
-    let unlocked = false;
+    (function(){
+      const questCard = document.querySelector('.hud-quest');
+      const questTitle = questCard ? questCard.querySelector('.quest-title') : null;
 
-    function ensure(){
-      if (AC) return AC;
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return null;
-      AC = new Ctx();
-      master = AC.createGain();
-      master.gain.value = 0.18;
-      master.connect(AC.destination);
-      return AC;
-    }
+      // default collapsed
+      if (questCard) questCard.classList.remove('expanded');
 
-    function unlock(){
-      const ac = ensure();
-      if (!ac || unlocked) return;
-      try{
-        const o = ac.createOscillator();
-        const g = ac.createGain();
-        g.gain.value = 0.0001;
-        o.connect(g); g.connect(master);
-        o.frequency.value = 220;
-        o.start();
-        o.stop(ac.currentTime + 0.02);
-        unlocked = true;
-      }catch(_){}
-    }
-    window.addEventListener('pointerdown', unlock, { once:true, passive:true });
-
-    function beep(freq=880, ms=60, type='sine', vol=1){
-      const ac = ensure();
-      if (!ac || ac.state === 'suspended') return;
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = type;
-      o.frequency.value = freq;
-
-      const t0 = ac.currentTime;
-      const dur = Math.max(0.02, ms/1000);
-      const v = 0.16 * (vol||1);
-
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(v, t0 + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-
-      o.connect(g); g.connect(master);
-      o.start(t0);
-      o.stop(t0 + dur + 0.02);
-    }
-
-    function zap(){
-      beep(1400, 70, 'square', 1.2);
-      setTimeout(()=>beep(620, 60, 'sawtooth', 0.9), 30);
-    }
-
-    function rumble(){
-      beep(180, 120, 'sawtooth', 1.2);
-      setTimeout(()=>beep(120, 160, 'triangle', 0.9), 40);
-    }
-
-    function tick(kind, intensity){
-      intensity = Math.max(0.2, Math.min(3, Number(intensity)||1));
-      if (kind === 'ring') beep(980 + 80*intensity, 35, 'triangle', 0.9);
-      else if (kind === 'laser-warn') beep(820 + 120*intensity, 30, 'square', 0.9);
-      else if (kind === 'final') beep(1040 + 90*intensity, 42, 'triangle', 1.1);
-      else beep(900, 28, 'triangle', 0.6);
-    }
-
-    window.addEventListener('hha:tick', (e)=>{
-      const d = (e && e.detail) || {};
-      tick(String(d.kind||'tick'), d.intensity||1);
-    });
-
-    window.addEventListener('hha:bossAtk', (e)=>{
-      const d = (e && e.detail) || {};
-      const name = String(d.name||'');
-      if (name === 'laser'){
-        tick('laser-warn', 1.4);
-        setTimeout(()=>tick('laser-warn', 1.8), 120);
-        setTimeout(()=>zap(), Math.max(120, (d.warnMs|0)||420));
+      // tap to toggle
+      if (questTitle && questCard){
+        questTitle.style.pointerEvents = 'auto';
+        questTitle.addEventListener('click', (e)=>{
+          e.preventDefault();
+          questCard.classList.toggle('expanded');
+        });
       }
-      if (name === 'ring'){
-        tick('ring', 1.2);
+
+      // Coach toast auto-hide
+      const bubble = document.getElementById('coach-bubble');
+      let tHide = null;
+
+      function showCoachToast(){
+        if (!bubble) return;
+        bubble.classList.add('show');
+        clearTimeout(tHide);
+        tHide = setTimeout(()=> bubble.classList.remove('show'), 2400);
       }
-      if (name === 'storm'){
-        rumble();
+
+      // listen coach event (if binder dispatches)
+      window.addEventListener('hha:coach', showCoachToast);
+
+      // if binder toggles .show itself, still auto-hide
+      if (bubble){
+        const mo = new MutationObserver(()=> {
+          if (bubble.classList.contains('show')) showCoachToast();
+        });
+        mo.observe(bubble, { attributes:true, attributeFilter:['class'] });
       }
-    });
-
-    window.addEventListener('hha:storm', (e)=>{
-      const d = (e && e.detail) || {};
-      if (d.active) rumble();
-    });
-  })();
-  </script>
-
-  <!-- ===== Panic vignette listener ===== -->
-  <script>
-  (function(){
-    const vignette = document.getElementById('fx-vignette');
-    if (!vignette) return;
-
-    window.addEventListener('hha:panic', (e)=>{
-      const d = (e && e.detail) || {};
-      const lv = Math.max(0, Math.min(1, Number(d.level)||0));
-      vignette.style.opacity = (0.05 + (lv*lv)*0.45).toFixed(3);
-      if ((d.ms|0) > 0){
-        setTimeout(()=>{ vignette.style.opacity = '0'; }, Math.max(80, d.ms|0));
-      } else if (lv <= 0){
-        vignette.style.opacity = '0';
-      }
-    });
-  })();
-  </script>
-
-  <!-- ===== Drag-look DOM camera + FX binder (keeps aim sync) ===== -->
-  <script>
-  (function(){
-    const cam = document.getElementById('game-cam');
-    const layer = document.getElementById('gj-layer');
-    if (!cam || !layer) return;
-
-    let dragging = false;
-    let sx=0, sy=0;
-    let cx=0, cy=0;
-    let vx=0, vy=0;
-    let maxX=0, maxY=0;
-
-    function recalcClamp(){
-      const w = window.innerWidth, h = window.innerHeight;
-      maxX = Math.round(Math.min(240, w * 0.32));
-      maxY = Math.round(Math.min(200, h * 0.22));
-    }
-    recalcClamp();
-    window.addEventListener('resize', recalcClamp);
-
-    function clamp(v,a,b){ return v<a?a : (v>b?b : v); }
-
-    function applyCam(){
-      document.documentElement.style.setProperty('--camX', (vx|0)+'px');
-      document.documentElement.style.setProperty('--camY', (vy|0)+'px');
-
-      window.__GJ_AIM_POINT__ = {
-        x: (window.innerWidth*0.5 - vx)|0,
-        y: (window.innerHeight*0.62 - vy)|0
-      };
-    }
-    applyCam();
-
-    function shouldIgnoreDrag(e){
-      const t = e && e.target;
-      if (!t) return false;
-      if (t.closest && t.closest('.gj-target')) return true;  // ✅ don't drag when tapping target
-      if (t.closest && t.closest('.hud-root')) return true;   // ✅ don't drag HUD
-      return false;
-    }
-
-    function onDown(e){
-      if (shouldIgnoreDrag(e)) return;
-      dragging = true;
-      const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
-      sx = p.clientX; sy = p.clientY;
-      cx = vx; cy = vy;
-    }
-    function onMove(e){
-      if (!dragging) return;
-      const p = (e.touches && e.touches[0]) ? e.touches[0] : e;
-      const dx = p.clientX - sx;
-      const dy = p.clientY - sy;
-
-      // drag-look
-      vx = clamp(cx - dx, -maxX, maxX);
-      vy = clamp(cy - dy, -maxY, maxY);
-
-      applyCam();
-      e.preventDefault?.();
-    }
-    function onUp(){ dragging = false; }
-
-    layer.addEventListener('pointerdown', onDown, { passive:true });
-    window.addEventListener('pointermove', onMove, { passive:false });
-    window.addEventListener('pointerup', onUp, { passive:true });
-
-    layer.addEventListener('touchstart', onDown, { passive:true });
-    window.addEventListener('touchmove', onMove, { passive:false });
-    window.addEventListener('touchend', onUp, { passive:true });
-
-    // ===== FX binder =====
-    const root = document.documentElement;
-
-    function setKick(intensity){
-      intensity = Math.max(0.6, Math.min(2.2, Number(intensity)||1));
-      root.style.setProperty('--kickAmp', (10*intensity).toFixed(1)+'px');
-      root.style.setProperty('--kickRot', (4*intensity).toFixed(1)+'deg');
-      cam.classList.remove('kick');
-      void cam.offsetWidth;
-      cam.classList.add('kick');
-      setTimeout(()=>cam.classList.remove('kick'), 240);
-    }
-
-    function setShakePx(px, dur){
-      root.style.setProperty('--shakeAmp', (px|0)+'px');
-      root.style.setProperty('--shakeDur', (dur||0.22)+'s');
-      if (px > 0) cam.classList.add('shake');
-      else cam.classList.remove('shake');
-    }
-
-    window.addEventListener('hha:fx', (e)=>{
-      const d = (e && e.detail) || {};
-      if (d.type === 'kick') setKick(d.intensity||1);
-
-      if (d.type === 'chroma' || d.type === 'hero'){
-        const el = document.getElementById('fx-chroma');
-        if (!el) return;
-        el.classList.toggle('hero', d.type === 'hero');
-        el.classList.add('show');
-        setTimeout(()=>el.classList.remove('show'), Math.max(80, d.ms|0 || (d.type==='hero' ? 220 : 180)));
-      }
-    });
-
-    window.addEventListener('hha:fever', (e)=>{
-      const d = (e && e.detail) || {};
-      const f = Math.max(0, Math.min(100, Number(d.fever)||0));
-      const stun = !!d.stunActive;
-
-      const base = (f < 35) ? 0 : (f < 70) ? 3 : (f < 90) ? 5 : 7;
-      const stunBoost = stun ? 3 : 0;
-      setShakePx(base + stunBoost, 0.22);
-
-      cam.classList.toggle('stun-fire', stun);
-    });
-
-    window.addEventListener('hha:storm', (e)=>{
-      const d = (e && e.detail) || {};
-      if (d.active){
-        setShakePx(8, 0.18);
-      } else {
-        applyCam();
-      }
-    });
-  })();
+    })();
   </script>
 </body>
 </html>
