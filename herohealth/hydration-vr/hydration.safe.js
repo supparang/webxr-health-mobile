@@ -1,13 +1,10 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION (ROOT html: /herohealth/hydration-vr.html)
-//
-// ✅ ใช้ mode-factory (DOM target spawner + crosshair shoot + perfect ring)
-// ✅ คืน FX: score pop + judgment + burst (Particles)
-// ✅ Drag view: เลื่อนจอแล้วเป้าเลื่อนตาม (host transform)
-// ✅ PERFECT: ดาวแตกหนัก ๆ + chroma flash + burst
-// ✅ Storm: sway แรง/เร็ว + speedlines + wobble + chroma split ต่อเนื่อง
-// ✅ Fix zone counting: ใช้ zone จาก ui-water (LOW/GREEN/HIGH) แล้ว map เป็น BLUE/GREEN/RED
-// ✅ A2++ spawn: เป้าอยู่ “แถวกลางจอ” หาเจอง่าย + ไม่ซ้ำจุดเดิม + ไม่ต้องเลื่อนหาไปทั่ว
+// Hydration Quest VR — PRODUCTION SAFE
+// ✅ A2++ per diff + per adapt (ผ่าน mode-factory)
+// ✅ Bubble soap targets: ใสเกือบไม่เห็น + ขอบสีรุ้งชัด (iridescent)
+// ✅ HUD responsive: ไม่ตกขอบขวา (inject CSS)
+// ✅ Drag view + tap-to-shoot crosshair
+// ✅ PERFECT FX + Storm FX (chroma + wobble + speedlines)
 
 'use strict';
 
@@ -20,7 +17,7 @@ const DOC  = ROOT.document;
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, celebrate(){} };
+  { scorePop(){}, burstAt(){}, celebrate(){}, celebrateQuestFX(){}, celebrateAllQuestsFX(){} };
 
 function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
 function now(){ return (typeof performance!=='undefined' && performance.now)?performance.now():Date.now(); }
@@ -53,6 +50,22 @@ function ensureHydrationStyle(){
   const s = DOC.createElement('style');
   s.id = 'hvr-hydration-style';
   s.textContent = `
+    /* ===== HUD fix (ไม่ตกขอบ) ===== */
+    .hud{ flex-wrap:wrap; align-items:stretch; }
+    .hud .card{ flex: 1 1 240px; max-width: 420px; min-width: 220px; }
+    .hud .card.small{ flex: 1 1 220px; max-width: 340px; min-width: 200px; }
+    @media (max-width: 980px){
+      .hud{ gap:10px; left:12px; right:12px; top:12px; }
+      .hud .card, .hud .card.small{ max-width:none; }
+    }
+    @media (max-width: 720px){
+      .hud .card, .hud .card.small{ flex: 1 1 48%; min-width: 0; }
+    }
+    @media (max-width: 520px){
+      .hud .card, .hud .card.small{ flex: 1 1 100%; }
+    }
+
+    /* ===== drag view ===== */
     #hvr-playfield{ --view-x:0px; --view-y:0px; }
     .hvr-parallax{
       position:absolute; inset:-12%;
@@ -79,12 +92,12 @@ function ensureHydrationStyle(){
       transform: translate3d(calc(var(--view-x) * var(--px, 0.42)), calc(var(--view-y) * var(--py, 0.34)), 0) rotate(0.0001deg);
     }
 
+    /* ===== Storm FX ===== */
     #hvr-wrap.hvr-chroma{
       filter:
-        drop-shadow(3.4px 0 rgba(255, 40, 80, 0.68))
-        drop-shadow(-2.2px 0 rgba(0, 190, 255, 0.30));
+        drop-shadow(3.4px 0 rgba(255, 40, 80, 0.70))
+        drop-shadow(-2.2px 0 rgba(0, 190, 255, 0.32));
     }
-
     #hvr-wrap.hvr-wobble{ animation: hvrWobble 0.95s ease-in-out infinite; }
     @keyframes hvrWobble{
       0%{ transform: translate3d(0,0,0) rotate(0deg); }
@@ -101,11 +114,11 @@ function ensureHydrationStyle(){
       background:
         repeating-linear-gradient(110deg,
           rgba(255,255,255,.00) 0 18px,
-          rgba(255,80,120,.12) 18px 20px,
-          rgba(0,190,255,.10) 20px 22px,
+          rgba(255,80,120,.14) 18px 20px,
+          rgba(0,190,255,.12) 20px 22px,
           rgba(255,255,255,.00) 22px 44px
         );
-      filter: blur(0.6px) saturate(1.08) contrast(1.06);
+      filter: blur(0.6px) saturate(1.10) contrast(1.08);
       animation: hvrLines 0.28s linear infinite;
     }
     @keyframes hvrLines{
@@ -117,8 +130,67 @@ function ensureHydrationStyle(){
     #hvr-wrap.hvr-perfect-pulse{ animation: hvrPerfectPulse 180ms ease-out 1; }
     @keyframes hvrPerfectPulse{
       0%{ filter: saturate(1) contrast(1); }
-      45%{ filter: saturate(1.28) contrast(1.14); }
+      45%{ filter: saturate(1.32) contrast(1.16); }
       100%{ filter: saturate(1) contrast(1); }
+    }
+
+    /* ===== Bubble soap targets ===== */
+    .hvr-target.bubble{
+      background: transparent !important;
+      box-shadow: 0 22px 60px rgba(0,0,0,.55);
+      backdrop-filter: blur(0.2px);
+    }
+    .hvr-bubble-edge{
+      position:absolute; inset:0;
+      border-radius:999px;
+      border: 2.4px solid transparent;
+      background:
+        linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0)) padding-box,
+        conic-gradient(
+          from 40deg,
+          rgba(255, 70, 160, .58),
+          rgba(0, 210, 255, .55),
+          rgba(0, 255, 170, .44),
+          rgba(255, 255, 255, .24),
+          rgba(255, 70, 160, .58)
+        ) border-box;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,.08),
+        0 0 20px rgba(0, 210, 255, .18),
+        0 0 22px rgba(255, 70, 160, .12);
+      opacity: .92;
+      pointer-events:none;
+    }
+    .hvr-bubble-gloss{
+      position:absolute; inset:10%;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 28% 26%, rgba(255,255,255,.30), rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 78% 78%, rgba(255,255,255,.12), rgba(255,255,255,0) 60%);
+      opacity:.55;
+      pointer-events:none;
+      mix-blend-mode: screen;
+    }
+    .hvr-bubble-tint{
+      position:absolute; inset:18%;
+      border-radius:999px;
+      background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.10), rgba(255,255,255,0) 55%);
+      opacity:.25;
+      pointer-events:none;
+    }
+
+    .hvr-btn{
+      appearance:none; border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.65);
+      color:#e5e7eb;
+      padding:10px 12px;
+      border-radius: 14px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .hvr-btn.primary{
+      border-color: rgba(34,197,94,.30);
+      background: rgba(34,197,94,.14);
     }
   `;
   DOC.head.appendChild(s);
@@ -154,7 +226,7 @@ function drawStarBurst(ctx, x, y, t, strength=1){
     const rr = r0 + (r1-r0) * (0.25 + 0.75*Math.random());
     const w = 1 + 2*strength;
 
-    ctx.strokeStyle = `rgba(255, 60, 110, ${0.10 + 0.10*strength})`;
+    ctx.strokeStyle = `rgba(255, 60, 140, ${0.10 + 0.12*strength})`;
     ctx.lineWidth = w;
     ctx.beginPath();
     ctx.moveTo(Math.cos(a)*r0, Math.sin(a)*r0);
@@ -162,7 +234,7 @@ function drawStarBurst(ctx, x, y, t, strength=1){
     ctx.stroke();
 
     const a2 = a + 0.18;
-    ctx.strokeStyle = `rgba(0, 190, 255, ${0.07 + 0.10*strength})`;
+    ctx.strokeStyle = `rgba(0, 210, 255, ${0.08 + 0.12*strength})`;
     ctx.lineWidth = w*0.85;
     ctx.beginPath();
     ctx.moveTo(Math.cos(a2)*r0, Math.sin(a2)*r0);
@@ -211,14 +283,13 @@ export async function boot(opts = {}){
   const diff = String(opts.difficulty || 'easy').toLowerCase();
   const duration = clamp(opts.duration ?? 90, 20, 180);
 
-  const GOOD = ['💧','🧊','🥤','🫧'];
-  const BAD  = ['🍟','🥤','🍩','🍕'];
+  const GOOD = ['💧','🧊','🫧','🥛','🥤'];
+  const BAD  = ['🍟','🍩','🍕','🧋'];
   const POWER = ['⭐','⚡','✨'];
 
   const s = {
     running: true,
     startedAt: now(),
-
     score: 0,
     combo: 0,
     comboMax: 0,
@@ -237,9 +308,6 @@ export async function boot(opts = {}){
     stormOn: false,
     stormUntil: 0,
     stormStrength: 0,
-
-    tiltX: 0,
-    tiltY: 0,
 
     sparks: []
   };
@@ -272,56 +340,6 @@ export async function boot(opts = {}){
     playfield.style.transform = `translate3d(${s.viewX}px, ${s.viewY}px, 0)`;
   }
 
-  function bindViewDragAndShoot(inst){
-    if (!playfield) return;
-
-    let down=false, moved=false, sx=0, sy=0, vx0=0, vy0=0, pid=null;
-    const TH = 6;
-
-    const onDown = (e)=>{
-      if (!s.running) return;
-      down = true; moved = false;
-      pid = e.pointerId;
-      try{ playfield.setPointerCapture(pid); }catch{}
-      sx = e.clientX; sy = e.clientY;
-      vx0 = s.viewX; vy0 = s.viewY;
-    };
-    const onMove = (e)=>{
-      if (!down || !s.running) return;
-      const dx = e.clientX - sx;
-      const dy = e.clientY - sy;
-      if (!moved && (Math.abs(dx)+Math.abs(dy) > TH)) moved = true;
-
-      if (moved){
-        s.viewX = clamp(vx0 + dx, -180, 180);
-        s.viewY = clamp(vy0 + dy, -140, 140);
-        applyView();
-      }
-    };
-    const onUp = ()=>{
-      if (!down) return;
-      down = false;
-      try{ playfield.releasePointerCapture(pid); }catch{}
-      pid = null;
-
-      if (!moved && inst && typeof inst.shootCrosshair === 'function'){
-        inst.shootCrosshair();
-      }
-    };
-
-    playfield.addEventListener('pointerdown', onDown, { passive:true });
-    playfield.addEventListener('pointermove', onMove, { passive:true });
-    playfield.addEventListener('pointerup', onUp, { passive:true });
-    playfield.addEventListener('pointercancel', onUp, { passive:true });
-
-    return ()=> {
-      playfield.removeEventListener('pointerdown', onDown);
-      playfield.removeEventListener('pointermove', onMove);
-      playfield.removeEventListener('pointerup', onUp);
-      playfield.removeEventListener('pointercancel', onUp);
-    };
-  }
-
   function blinkOn(kind, ms=110){
     if (!blink) return;
     blink.className = '';
@@ -350,7 +368,7 @@ export async function boot(opts = {}){
     blinkOn('good', 90);
   }
 
-  function badFX(x,y, txt='MISS', kind='bad'){
+  function badFX(x,y, txt='MISS'){
     try{ Particles.burstAt(x,y,'BAD'); }catch{}
     try{ Particles.scorePop(x,y,txt,'bad'); }catch{}
     blinkOn('bad', 110);
@@ -382,47 +400,6 @@ export async function boot(opts = {}){
     }
   }
 
-  function bindTilt(){
-    const onOri = (e)=>{
-      const gx = clamp((e.gamma||0)/30, -1, 1);
-      const gy = clamp((e.beta||0)/40, -1, 1);
-      s.tiltX = gx;
-      s.tiltY = gy;
-
-      if (playfield){
-        playfield.style.setProperty('--tilt-x', gx.toFixed(3));
-        playfield.style.setProperty('--tilt-y', gy.toFixed(3));
-      }
-    };
-    ROOT.addEventListener('deviceorientation', onOri, { passive:true });
-    return ()=> ROOT.removeEventListener('deviceorientation', onOri);
-  }
-
-  let fxRaf = null;
-  function fxLoop(){
-    if (!post || !post.ctx) return;
-    const ctx = post.ctx;
-    const t = now();
-
-    ctx.clearRect(0,0,ROOT.innerWidth||1,ROOT.innerHeight||1);
-
-    const out = [];
-    for (const sp of s.sparks){
-      const dt = t - sp.t0;
-      if (dt > 520) continue;
-      out.push(sp);
-
-      const k = 1 - (dt/520);
-      ctx.globalAlpha = 0.55 * k;
-      drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.75 + 0.55*k));
-    }
-    s.sparks = out;
-
-    ctx.globalAlpha = 1;
-    fxRaf = ROOT.requestAnimationFrame(fxLoop);
-  }
-  fxRaf = ROOT.requestAnimationFrame(fxLoop);
-
   function updateWater(delta){
     s.water = clamp(s.water + delta, 0, 100);
     const z = zoneFrom(s.water);
@@ -446,6 +423,76 @@ export async function boot(opts = {}){
   function spawnMul(){
     if (!s.stormOn) return 1.0;
     return clamp(0.70 - 0.22*s.stormStrength, 0.42, 0.75);
+  }
+
+  // ===== Bubble Decorator (ใสเกือบไม่เห็น + ขอบรุ้งชัด) =====
+  function decorateBubbleTarget(el, parts, data){
+    try{
+      el.classList.add('bubble');
+      el.style.background = 'transparent';
+      el.style.boxShadow = '0 24px 70px rgba(0,0,0,.58)';
+
+      const { wiggle, inner, icon, ring } = parts || {};
+      if (ring) { ring.style.opacity = '0.0'; }
+
+      let edge = wiggle && wiggle.querySelector('.hvr-bubble-edge');
+      if (!edge && wiggle){
+        edge = DOC.createElement('div');
+        edge.className = 'hvr-bubble-edge';
+        wiggle.insertBefore(edge, wiggle.firstChild);
+      }
+
+      let gloss = wiggle && wiggle.querySelector('.hvr-bubble-gloss');
+      if (!gloss && wiggle){
+        gloss = DOC.createElement('div');
+        gloss.className = 'hvr-bubble-gloss';
+        wiggle.appendChild(gloss);
+      }
+
+      let tint = wiggle && wiggle.querySelector('.hvr-bubble-tint');
+      if (!tint && wiggle){
+        tint = DOC.createElement('div');
+        tint.className = 'hvr-bubble-tint';
+        wiggle.appendChild(tint);
+      }
+
+      const type = String(data?.itemType||'good');
+      const isPower = (type==='power');
+      const isBad = (type==='bad');
+      const isTrick = (type==='fakeGood');
+
+      if (inner){
+        inner.style.background = 'transparent';
+        inner.style.boxShadow = 'none';
+      }
+
+      if (icon){
+        icon.style.filter = 'drop-shadow(0 10px 16px rgba(0,0,0,.40))';
+      }
+
+      if (edge){
+        if (isPower){
+          edge.style.opacity = '1';
+          edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.10), 0 0 26px rgba(250,204,21,.26), 0 0 24px rgba(0,210,255,.18)';
+        } else if (isBad){
+          edge.style.opacity = '.92';
+          edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.08), 0 0 22px rgba(255,120,60,.18), 0 0 18px rgba(255,70,160,.10)';
+        } else if (isTrick){
+          edge.style.opacity = '.96';
+          edge.style.boxShadow = '0 0 0 1px rgba(255,255,255,.08), 0 0 22px rgba(167,139,250,.18), 0 0 18px rgba(0,210,255,.12)';
+        } else {
+          edge.style.opacity = '.90';
+        }
+      }
+
+      if (tint){
+        if (isPower) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(250,204,21,.14), rgba(255,255,255,0) 55%)';
+        else if (isBad) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(255,120,60,.10), rgba(255,255,255,0) 55%)';
+        else if (isTrick) tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(167,139,250,.10), rgba(255,255,255,0) 55%)';
+        else tint.style.background = 'radial-gradient(circle at 35% 30%, rgba(0,210,255,.08), rgba(255,255,255,0) 55%)';
+        tint.style.opacity = '.20';
+      }
+    }catch{}
   }
 
   function judge(ch, ctx){
@@ -472,7 +519,7 @@ export async function boot(opts = {}){
       s.combo = 0;
       s.score = Math.max(0, s.score - 45);
       updateWater(-10);
-      badFX(x,y,'MISS','bad');
+      badFX(x,y,'MISS');
 
       if (!s.stormOn && Math.random() < 0.18){
         s.stormUntil = now() + 5200;
@@ -488,7 +535,7 @@ export async function boot(opts = {}){
       s.combo = 0;
       s.score = Math.max(0, s.score - 30);
       updateWater(-7);
-      badFX(x,y,'TRICK!','bad');
+      badFX(x,y,'TRICK!');
       hud();
       return { scoreDelta: -30, good:false };
     }
@@ -539,15 +586,15 @@ export async function boot(opts = {}){
     hud();
   }
 
-  // ✅ Boot mode-factory (A2++ spawn)
+  // ✅ Boot mode-factory (A2++ + bubble)
   const inst = await factoryBoot({
     modeKey: 'hydration',
     difficulty: diff,
     duration,
 
     spawnHost: '#hvr-playfield',
-    boundsHost: '#hvr-wrap',          // ⭐ สำคัญ: ยึดตามหน้าจอ ไม่หลุดตามการลาก
-    spawnBias: 'A2++',                // ⭐ A2++ distribution
+    boundsHost: '#hvr-wrap',
+    spawnBias: 'A2++',
     antiRepeat: true,
     antiRepeatN: 4,
 
@@ -564,12 +611,88 @@ export async function boot(opts = {}){
     spawnIntervalMul: spawnMul,
 
     excludeSelectors: ['.hud', '#hvr-start', '#hvr-end', '#hvr-screen-blink'],
+
+    decorateTarget: decorateBubbleTarget,
     judge,
     onExpire
   });
 
-  const unbindDrag = bindViewDragAndShoot(inst);
-  const unbindTilt = bindTilt();
+  function bindViewDragAndShoot(){
+    if (!playfield) return null;
+
+    let down=false, moved=false, sx=0, sy=0, vx0=0, vy0=0, pid=null;
+    const TH = 6;
+
+    const onDown = (e)=>{
+      if (!s.running) return;
+      down = true; moved = false;
+      pid = e.pointerId;
+      try{ playfield.setPointerCapture(pid); }catch{}
+      sx = e.clientX; sy = e.clientY;
+      vx0 = s.viewX; vy0 = s.viewY;
+    };
+    const onMove = (e)=>{
+      if (!down || !s.running) return;
+      const dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      if (!moved && (Math.abs(dx)+Math.abs(dy) > TH)) moved = true;
+
+      if (moved){
+        s.viewX = clamp(vx0 + dx, -180, 180);
+        s.viewY = clamp(vy0 + dy, -140, 140);
+        applyView();
+      }
+    };
+    const onUp = ()=>{
+      if (!down) return;
+      down = false;
+      try{ playfield.releasePointerCapture(pid); }catch{}
+      pid = null;
+
+      if (!moved && inst && typeof inst.shootCrosshair === 'function'){
+        inst.shootCrosshair();
+      }
+    };
+
+    playfield.addEventListener('pointerdown', onDown, { passive:true });
+    playfield.addEventListener('pointermove', onMove, { passive:true });
+    playfield.addEventListener('pointerup', onUp, { passive:true });
+    playfield.addEventListener('pointercancel', onUp, { passive:true });
+
+    return ()=> {
+      playfield.removeEventListener('pointerdown', onDown);
+      playfield.removeEventListener('pointermove', onMove);
+      playfield.removeEventListener('pointerup', onUp);
+      playfield.removeEventListener('pointercancel', onUp);
+    };
+  }
+
+  const unbindDrag = bindViewDragAndShoot();
+
+  let fxRaf = null;
+  function fxLoop(){
+    if (!post || !post.ctx) return;
+    const ctx = post.ctx;
+    const t = now();
+
+    ctx.clearRect(0,0,ROOT.innerWidth||1,ROOT.innerHeight||1);
+
+    const out = [];
+    for (const sp of s.sparks){
+      const dt = t - sp.t0;
+      if (dt > 520) continue;
+      out.push(sp);
+
+      const k = 1 - (dt/520);
+      ctx.globalAlpha = 0.55 * k;
+      drawStarBurst(ctx, sp.x, sp.y, t, sp.str * (0.75 + 0.55*k));
+    }
+    s.sparks = out;
+
+    ctx.globalAlpha = 1;
+    fxRaf = ROOT.requestAnimationFrame(fxLoop);
+  }
+  fxRaf = ROOT.requestAnimationFrame(fxLoop);
 
   function onTime(ev){
     const sec = ev?.detail?.sec;
@@ -577,7 +700,6 @@ export async function boot(opts = {}){
     s.timeLeft = sec;
 
     updateWater(-1.4);
-
     if (s.zone === 'GREEN') s.greenTick += 1;
 
     maybeStormTick();
@@ -611,27 +733,31 @@ export async function boot(opts = {}){
           </div>
 
           <div style="margin-top:10px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;">
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">Score</div><div class="value">${s.score|0}</div></div>
+            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
+              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">Score</div>
+              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.score|0}</div>
               <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">รวมโบนัส PERFECT/STREAK/STORM</div>
             </div>
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">Combo / Miss</div><div class="value">${s.comboMax|0} • ${s.miss|0}</div></div>
+            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
+              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">Combo / Miss</div>
+              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.comboMax|0} • ${s.miss|0}</div>
               <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">คอมโบสูงสุด • miss (junk/trick)</div>
             </div>
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">GREEN time</div><div class="value">${s.greenTick|0}s</div></div>
+            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
+              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">GREEN time</div>
+              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${s.greenTick|0}s</div>
               <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">เวลาที่อยู่ในโซน GREEN</div>
             </div>
-            <div class="card" style="pointer-events:auto;">
-              <div class="kpi"><div class="label">Water end</div><div class="value">${Math.round(s.water)}% (${s.zoneLabel})</div></div>
+            <div style="background:rgba(2,6,23,.55); border:1px solid rgba(148,163,184,.18); border-radius:18px; padding:12px;">
+              <div style="color:rgba(148,163,184,.9); font-size:12px; font-weight:900;">Water end</div>
+              <div style="font-size:22px; font-weight:1000; margin-top:4px;">${Math.round(s.water)}% (${s.zoneLabel})</div>
               <div style="margin-top:6px; color:rgba(148,163,184,.9); font-size:12px;">โซนสุดท้าย</div>
             </div>
           </div>
 
           <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
-            <button id="hvr-end-retry" class="btn primary" style="pointer-events:auto;">🔁 เล่นอีกครั้ง</button>
-            <button id="hvr-end-hub" class="btn" style="pointer-events:auto;">🏠 กลับ Hub</button>
+            <button id="hvr-end-retry" class="hvr-btn primary">🔁 เล่นอีกครั้ง</button>
+            <button id="hvr-end-hub" class="hvr-btn">🏠 กลับ Hub</button>
           </div>
         </div>
       </div>
@@ -651,7 +777,6 @@ export async function boot(opts = {}){
     try{ inst && inst.stop && inst.stop(); }catch{}
 
     if (unbindDrag) try{ unbindDrag(); }catch{}
-    if (unbindTilt) try{ unbindTilt(); }catch{}
     ROOT.removeEventListener('hha:time', onTime);
 
     if (fxRaf) try{ ROOT.cancelAnimationFrame(fxRaf); }catch{}
@@ -679,11 +804,7 @@ export async function boot(opts = {}){
   }
 
   hud();
-
-  return {
-    stop(){ endGame(); },
-    shoot(){ try{ inst && inst.shootCrosshair && inst.shootCrosshair(); }catch{} }
-  };
+  return { stop(){ endGame(); } };
 }
 
 export default { boot };
