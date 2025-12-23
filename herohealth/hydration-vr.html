@@ -7,241 +7,142 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ FX (Particles IIFE) -->
+  <!-- ✅ FX + UI (IIFE) -->
   <script src="./vr/particles.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
 
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.62);
-      --stroke:rgba(148,163,184,.18);
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.62);
+      --stroke:rgba(148,163,184,.20);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --radius:18px;
     }
-    html,body{
-      height:100%;
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-      overflow:hidden;
-    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;overflow:hidden}
+
     #hvr-wrap{
-      position:fixed;
-      inset:0;
-      overflow:hidden;
+      position:fixed; inset:0; overflow:hidden;
       background:
         radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
         radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
         radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
         #020617;
     }
+
+    /* Gameplay layer */
     #hvr-playfield{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      z-index:10;
-      overflow:hidden;
-      touch-action:none;
-      user-select:none;
-      -webkit-user-select:none;
+      position:absolute; inset:0; width:100%; height:100%;
+      z-index:10; overflow:hidden;
+      touch-action:none; user-select:none; -webkit-user-select:none;
       transform: translate3d(0,0,0);
     }
-    #hvr-postfx{
-      position:fixed;
-      inset:0;
-      z-index:60;
-      pointer-events:none;
-    }
-    #hvr-screen-blink{
-      position:fixed; inset:0; z-index:70;
-      pointer-events:none; opacity:0;
-      transition: opacity .14s ease-out;
-    }
+
+    /* Post FX canvas */
+    #hvr-postfx{ position:fixed; inset:0; z-index:60; pointer-events:none; }
+    #hvr-screen-blink{ position:fixed; inset:0; z-index:70; pointer-events:none; opacity:0; transition:opacity .14s ease-out; }
     #hvr-screen-blink.on{ opacity:.18; }
     #hvr-screen-blink.good{ background: radial-gradient(800px 600px at 50% 50%, rgba(34,197,94,.55), transparent 60%); }
     #hvr-screen-blink.bad{  background: radial-gradient(800px 600px at 50% 50%, rgba(239,68,68,.55), transparent 60%); }
     #hvr-screen-blink.perfect{ background: radial-gradient(900px 700px at 50% 50%, rgba(255,255,255,.75), transparent 60%); }
 
-    /* crosshair */
+    /* Crosshair */
     #hvr-crosshair{
-      position:fixed;
-      left:50%; top:52%;
+      position:fixed; left:50%; top:52%;
       transform:translate(-50%,-50%);
-      z-index:86;
-      pointer-events:none;
-      width:44px; height:44px;
-      opacity:.75;
+      z-index:86; pointer-events:none;
+      width:44px; height:44px; opacity:.72;
     }
 
-    /* =========================
-       HUD — AUTO HIDE (MINIMAL)
-       ========================= */
-    .hud-min{
+    /* ===== Minimal HUD ===== */
+    .hud{
       position:fixed;
-      inset:0;
+      left:12px; right:12px; top:10px;
       z-index:90;
       pointer-events:none;
-    }
-
-    .hud-bar{
-      position:fixed;
-      left:12px; right:12px;
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:10px;
-      pointer-events:none;
-      transition: transform .22s ease, opacity .22s ease, filter .22s ease;
-      will-change: transform, opacity;
     }
-
-    #hud-top{ top:10px; }
-    #hud-bottom{ bottom:12px; justify-content:flex-end; }
-
-    .hud-chip{
+    .hud .hudbar{
       pointer-events:auto;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      padding:10px 12px;
+      border-radius:999px;
+      background:rgba(2,6,23,.58);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 16px 46px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      max-width: 100%;
+      overflow:hidden;
+    }
+    .pill{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 10px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.52);
       border-radius:999px;
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      backdrop-filter: blur(10px);
-      box-shadow:0 14px 40px rgba(0,0,0,.45);
-      font-weight:800;
+      padding:7px 10px;
+      font-weight:900;
       font-size:12px;
       letter-spacing:.02em;
-      user-select:none;
-      -webkit-user-select:none;
-      max-width:min(48vw, 560px);
       white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
+    .muted{ color:var(--muted); font-size:12px; font-weight:700; }
+    .big{ font-size:13px; font-weight:1000; }
+    .sep{ width:1px; height:22px; background:rgba(148,163,184,.14); }
 
-    .hud-left{ display:flex; align-items:center; gap:8px; pointer-events:none; min-width:0; }
-    .hud-center{ flex:1; display:flex; justify-content:center; min-width:0; pointer-events:none; }
-    .hud-right{ display:flex; align-items:center; gap:8px; pointer-events:none; }
-
-    .muted{ color:var(--muted); font-weight:700; }
-
-    .water-mini{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      min-width:0;
-    }
-    .water-bar{
-      width:74px;
-      height:8px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#0b1220;
-      border:1px solid rgba(148,163,184,.18);
-      flex:0 0 auto;
-    }
-    .water-fill{
-      height:100%;
-      width:50%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#22c55e,#4ade80);
-      transition:width .18s ease-out;
-    }
-
-    /* Detail (ซ่อนไว้, โผล่เมื่อกด i) */
-    #hud-detail{
-      position:fixed;
-      left:12px; right:12px; top:58px;
-      z-index:95;
-      display:none;
-      pointer-events:none;
-      transition: transform .22s ease, opacity .22s ease;
-    }
-    #hud-detail.on{ display:block; }
-
-    .hud-panel{
+    /* Right-side buttons */
+    .hud-actions{
       pointer-events:auto;
-      max-width:680px;
-      margin:0 auto;
-      background:rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.20);
-      border-radius:18px;
-      backdrop-filter: blur(12px);
-      box-shadow:0 18px 60px rgba(0,0,0,.55);
-      padding:10px 12px;
-      font-size:12px;
-      line-height:1.35;
-    }
-    .hud-panel .row{
       display:flex;
       gap:10px;
-      justify-content:space-between;
       align-items:center;
-      flex-wrap:wrap;
     }
-    .hud-pill{
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.55);
+    .fab{
+      width:44px; height:44px;
       border-radius:999px;
-      padding:6px 10px;
-      font-weight:900;
-      font-size:12px;
-    }
-
-    /* Floating controls (ไม่ hide) */
-    #hud-fab{
-      position:fixed;
-      right:12px;
-      bottom:62px;
-      z-index:110;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      pointer-events:none;
-    }
-    .fab-btn{
-      pointer-events:auto;
-      width:38px;height:38px;
-      display:inline-flex;
-      align-items:center;justify-content:center;
-      border-radius:999px;
-      background:rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.22);
-      color:var(--text);
-      box-shadow:0 14px 40px rgba(0,0,0,.45);
-      font-weight:900;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.58);
+      box-shadow:0 16px 46px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      display:grid;
+      place-items:center;
+      cursor:pointer;
       user-select:none;
-      -webkit-user-select:none;
+      -webkit-tap-highlight-color: transparent;
     }
-    .fab-btn.on{
-      background:rgba(34,197,94,.16);
-      border-color:rgba(34,197,94,.35);
-    }
+    .fab:active{ transform: scale(.98); }
 
-    /* ✅ AUTO-HIDE STATE: ยก HUD ออกนอกจอจริง ๆ (ไม่บังเป้า + ไม่โดน exclusion) */
-    body.hud-hidden #hud-top{
-      transform: translateY(-140%);
-      opacity:0;
-      filter: blur(2px);
-      pointer-events:none;
+    /* Slide panel (Quest/Details) */
+    #hvr-panel{
+      position:fixed;
+      left:12px; right:12px;
+      top:64px;
+      z-index:92;
+      display:none;
+      pointer-events:auto;
     }
-    body.hud-hidden #hud-bottom{
-      transform: translateY(160%);
-      opacity:0;
-      filter: blur(2px);
-      pointer-events:none;
+    #hvr-panel.on{ display:block; }
+    #hvr-panel .card{
+      background:rgba(2,6,23,.72);
+      border:1px solid rgba(148,163,184,.20);
+      border-radius:22px;
+      box-shadow:0 20px 60px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      padding:14px 14px 12px;
     }
-    body.hud-hidden #hud-detail{
-      transform: translateY(-20px);
-      opacity:0;
-      pointer-events:none;
-    }
+    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    .title{ font-size:18px; font-weight:1000; margin:2px 0 6px; }
 
-    /* End + Error */
+    /* End overlay */
     #hvr-end{
       position:fixed; inset:0; z-index:120;
       display:none; align-items:center; justify-content:center;
@@ -251,6 +152,7 @@
     }
     #hvr-end.on{ display:flex; }
 
+    /* Error */
     #hvr-error{
       position:fixed; left:14px; right:14px; bottom:14px;
       z-index:130;
@@ -267,7 +169,7 @@
   </style>
 </head>
 
-<body class="hud-hidden">
+<body>
   <div id="hvr-wrap">
     <div id="hvr-playfield" aria-label="playfield"></div>
     <canvas id="hvr-postfx"></canvas>
@@ -276,171 +178,103 @@
     <!-- crosshair -->
     <div id="hvr-crosshair"></div>
 
-    <!-- HUD -->
-    <div class="hud-min">
-      <div class="hud-bar" id="hud-top">
-        <div class="hud-left">
-          <div class="hud-chip" id="hud-water">
-            <div class="water-mini">
-              <span>💧</span>
-              <span id="hha-water-zone-text">GREEN</span>
-              <span class="muted" id="hha-water-status">50%</span>
-              <span class="water-bar">
-                <span class="water-fill" id="hha-water-fill" style="width:50%"></span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div class="hud-center">
-          <div class="hud-chip" id="hud-questline">
-            <span class="muted">🎯</span><span id="hha-quest-goal">Goal: —</span>
-            <span class="muted" style="margin:0 6px;">|</span>
-            <span class="muted">✨</span><span id="hha-quest-mini">Mini: —</span>
-          </div>
-        </div>
-
-        <div class="hud-right">
-          <div class="hud-chip" id="hud-score">
-            <span>🏁</span><span id="hha-score-main">0</span><span class="muted">pts</span>
-            <span class="muted" style="margin:0 6px;">•</span>
-            <span>⚡</span><span id="hha-combo-max">0</span>
-            <span class="muted" style="margin:0 6px;">•</span>
-            <span>❌</span><span id="hha-miss-top">0</span>
-          </div>
-          <div class="hud-chip" id="hud-time">
-            <span>⏳</span><span id="hha-time-left">--:--</span>
-          </div>
-        </div>
+    <!-- Minimal HUD bar -->
+    <div class="hud">
+      <div class="hudbar">
+        <span class="pill">💧 <span id="hha-water-zone-text">GREEN</span></span>
+        <span class="pill"><span class="muted">Pts</span> <span id="hha-score-main" class="big">0</span></span>
+        <span class="pill">⚡ <span id="hha-combo-max" class="big">0</span></span>
+        <span class="pill">✖ <span id="hha-miss" class="big">0</span></span>
+        <span class="sep"></span>
+        <span class="pill">⏳ <span id="hha-time-left" class="big">--</span></span>
       </div>
 
-      <div id="hud-detail">
-        <div class="hud-panel">
-          <div class="row">
-            <span class="hud-pill">🎯 Goal <b id="hha-goal-count">0</b>/2</span>
-            <span class="hud-pill">✨ Mini <b id="hha-mini-count">0</b>/3</span>
-            <span class="hud-pill">💧 Zone <b id="hha-zone-detail">GREEN</b></span>
-          </div>
-          <div class="muted" style="margin-top:8px;">
-            โหมด Auto-hide: HUD จะโผล่ตอนสำคัญ แล้วหายเอง (กด 📌 เพื่อปักหมุด)
-          </div>
-        </div>
-      </div>
-
-      <div class="hud-bar" id="hud-bottom">
-        <div class="hud-chip" id="hud-miss">
-          <span>❌</span><span class="muted">Miss</span> <b id="hha-miss-bottom">0</b>
-        </div>
-      </div>
-
-      <!-- Floating buttons -->
-      <div id="hud-fab">
-        <button class="fab-btn" id="btn-detail" aria-label="detail">i</button>
-        <button class="fab-btn" id="btn-pin" aria-label="pin">📌</button>
+      <div class="hud-actions">
+        <div class="fab" id="hvr-btn-info" title="รายละเอียดเควส">i</div>
       </div>
     </div>
 
+    <!-- Quest / details panel (auto-hide) -->
+    <div id="hvr-panel" aria-label="quest panel">
+      <div class="card">
+        <div class="row">
+          <div class="muted">Quest</div>
+          <div class="pill">Grade <span id="hha-grade-badge">C</span></div>
+        </div>
+        <div class="title">Hydration</div>
+
+        <div class="muted" style="margin-top:6px;">
+          <div id="hha-quest-goal">Goal: —</div>
+          <div id="hha-quest-mini">Mini: —</div>
+        </div>
+
+        <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+          <span class="pill">🎯 Goal <b id="hha-goal-count">0</b>/2</span>
+          <span class="pill">✨ Mini <b id="hha-mini-count">0</b>/3</span>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div class="row">
+            <div class="muted">Water</div>
+            <div class="pill" id="hha-water-zone-pill">ZONE</div>
+          </div>
+          <div id="hha-water-status" class="muted" style="margin-top:6px;">GREEN 50%</div>
+          <div id="hha-water-bar" style="margin-top:8px;width:100%;height:8px;border-radius:999px;overflow:hidden;background:#0b1220;border:1px solid rgba(148,163,184,.18);">
+            <div id="hha-water-fill" style="height:100%;width:50%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:999px;transition:width .2s ease-out;"></div>
+          </div>
+          <div class="muted" style="margin-top:6px;">รักษาให้อยู่ GREEN ให้นานที่สุด 💧</div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div class="muted" id="hha-grade-progress-text">Progress to S: 0%</div>
+          <div style="margin-top:8px; height:8px; background:#0b1220; border:1px solid rgba(148,163,184,.18); border-radius:999px; overflow:hidden;">
+            <div id="hha-grade-progress-fill" style="height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#60a5fa);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- End + Error -->
     <div id="hvr-end"></div>
     <div id="hvr-error"></div>
   </div>
 
   <script type="module">
     const errBox = document.getElementById('hvr-error');
+    const timeEl = document.getElementById('hha-time-left');
+    const panel  = document.getElementById('hvr-panel');
+    const btnI   = document.getElementById('hvr-btn-info');
 
     function qs(name, fallback=null){
       const u = new URL(location.href);
       return u.searchParams.get(name) ?? fallback;
     }
 
-    const diff = (qs('diff','easy') || 'easy').toLowerCase();
-    const time = Number(qs('time', '90')) || 90;
-
-    // ---------- Auto-hide controller ----------
-    const BODY = document.body;
-    let pinned = false;
-    let hideTimer = null;
-
-    const btnPin = document.getElementById('btn-pin');
-    const btnDetail = document.getElementById('btn-detail');
-    const detail = document.getElementById('hud-detail');
-
-    function showHUD(ms=1400){
-      BODY.classList.remove('hud-hidden');
-      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-      if (!pinned){
-        hideTimer = setTimeout(()=> hideHUD(), ms);
-      }
+    // --- panel toggle + auto-hide ---
+    let panelTimer = null;
+    function showPanel(){
+      if (!panel) return;
+      panel.classList.add('on');
+      clearTimeout(panelTimer);
+      panelTimer = setTimeout(()=> panel.classList.remove('on'), 2200);
     }
-    function hideHUD(){
-      if (pinned) return;
-      BODY.classList.add('hud-hidden');
-      if (detail) detail.classList.remove('on');
+    function togglePanel(){
+      if (!panel) return;
+      const on = panel.classList.toggle('on');
+      clearTimeout(panelTimer);
+      if (on) panelTimer = setTimeout(()=> panel.classList.remove('on'), 2200);
     }
-    function pulseHUD(ms=1400){ showHUD(ms); }
+    btnI?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); togglePanel(); }, { passive:false });
+    window.addEventListener('pointerdown', ()=>{ /* แตะจอ = โชว์ชั่วคราว */ showPanel(); }, { passive:true });
 
-    // pin toggle
-    if (btnPin){
-      btnPin.addEventListener('click', (e)=>{
-        e.preventDefault(); e.stopPropagation();
-        pinned = !pinned;
-        btnPin.classList.toggle('on', pinned);
-        showHUD(pinned ? 999999 : 1400);
-      }, { passive:false });
-    }
-
-    // detail toggle (also shows HUD)
-    if (btnDetail && detail){
-      btnDetail.addEventListener('click', (e)=>{
-        e.preventDefault(); e.stopPropagation();
-        showHUD(2200);
-        detail.classList.toggle('on');
-      }, { passive:false });
-    }
-
-    // ---------- Time display ----------
+    // --- time display ---
     window.addEventListener('hha:time', (e)=>{
       const sec = Number(e?.detail?.sec);
-      if (!Number.isFinite(sec)) return;
-      const m = Math.floor(sec/60);
-      const s = sec % 60;
-      const t = document.getElementById('hha-time-left');
-      if (t) t.textContent = `${m}:${String(s).padStart(2,'0')}`;
-
-      // urgency: show HUD near end
-      if (sec <= 12) showHUD(1800);
+      if (Number.isFinite(sec) && timeEl) timeEl.textContent = String(sec);
     }, { passive:true });
 
-    // ---------- Score/Miss sync ----------
-    window.addEventListener('hha:score', (e)=>{
-      const miss = Number(e?.detail?.miss);
-      const zone = String(e?.detail?.zone || '');
-      if (Number.isFinite(miss)){
-        const a = document.getElementById('hha-miss-bottom');
-        const b = document.getElementById('hha-miss-top');
-        if (a) a.textContent = String(miss|0);
-        if (b) b.textContent = String(miss|0);
-      }
-      if (zone){
-        const z = document.getElementById('hha-zone-detail');
-        if (z) z.textContent = zone;
-      }
-    }, { passive:true });
-
-    // ---------- Events that should "wake" HUD ----------
-    window.addEventListener('hha:judge', ()=> pulseHUD(1200), { passive:true });
-    window.addEventListener('quest:update', ()=> pulseHUD(1800), { passive:true });
-    window.addEventListener('hha:coach',  ()=> pulseHUD(2000), { passive:true });
-    window.addEventListener('hha:fever',  ()=> pulseHUD(2200), { passive:true });
-
-    // ---------- Player interaction also wakes HUD ----------
-    const pf = document.getElementById('hvr-playfield');
-    if (pf){
-      pf.addEventListener('pointerdown', ()=> pulseHUD(1100), { passive:true });
-      pf.addEventListener('touchstart',  ()=> pulseHUD(1100), { passive:true });
-    }
-
-    // start: show briefly then hide
-    showHUD(2400);
+    const diff = (qs('diff','easy') || 'easy').toLowerCase();
+    const time = Number(qs('time', '90')) || 90;
 
     try{
       const mod = await import('./hydration-vr/hydration.safe.js');
@@ -453,7 +287,7 @@
       console.error(e);
       errBox.classList.add('on');
       errBox.textContent =
-        '❌ Hydration boot failed\\n\\n' +
+        '❌ Hydration boot failed\n\n' +
         String(e && (e.stack || e.message || e));
     }
   </script>
