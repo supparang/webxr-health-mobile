@@ -11,16 +11,10 @@
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
 //
-// 🔥 A2++ PATCH:
-// ✅ Spawn ยึด “มุมมองปัจจุบัน” (รอบ crosshair / center-biased) → ไม่ต้องเลื่อนหา
-// ✅ Anti-overlap (สุ่มใหม่ถ้าใกล้กันเกินไป)
-// ✅ แปลงพิกัด boundsRect → spawnRect ถูกต้อง (แก้มุม/กลางจอตลอด)
-// ✅ Cap margins กัน exclusion กินพื้นที่เกินเหตุ
-// ✅ Fallback ถ้า playRect เพี้ยน/แคบเกินไป
-//
-// 🔥 A2+++ PATCH (NEW - FIX “เป้าโดนบังไปหมด”):
-// ✅ หลบ HUD แบบ “จริง” ด้วย exclusion RECT (สุ่มแล้ว reject ถ้าทับการ์ด)
-// ✅ ไม่พึ่งแค่ margin-edge safezone อีกต่อไป (มือถือจอเล็ก HUD กองกลางจอเอาไม่อยู่)
+// 🔥 PATCH (Spawn stuck fix):
+// ✅ หาก playRect แคบ/เพี้ยน → fallback จะ “มี jitter” ไม่ยึดจุดเดิมเป๊ะ
+// ✅ rectOk robust (กัน maxX<=minX / maxY<=minY)
+// ✅ final fallback ก็ยังสุ่มเล็กน้อยเสมอ
 
 'use strict';
 
@@ -226,7 +220,6 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    // reserve margin if exclusion overlaps edge zone (robust)
     if (r.top < hy1 + 90 && r.bottom > hy1) {
       m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
@@ -241,7 +234,6 @@ function computeExclusionMargins(hostRect, exEls){
     }
   });
 
-  // ✅ A2++: cap margins (กันกินพื้นที่จนเหลือช่องเล็ก ๆ แล้วเป้า “ติดมุม/ติดกลาง”)
   const capX = hostRect.width  * 0.42;
   const capY = hostRect.height * 0.46;
   m.left   = Math.min(m.left, capX);
@@ -256,13 +248,8 @@ function computePlayRectFromHost (hostEl, exState) {
   const r = hostEl.getBoundingClientRect();
   const isOverlay = hostEl && hostEl.id === 'hvr-overlay-host';
 
-  // ✅ A2+++: robust fallback even when bounds rect is 0/too small
-  let w = r.width;
-  let h = r.height;
-  if (!w || w < 50) w = (isOverlay ? (ROOT.innerWidth || 1) : (ROOT.innerWidth || 1));
-  if (!h || h < 50) h = (isOverlay ? (ROOT.innerHeight|| 1) : (ROOT.innerHeight|| 1));
-  w = Math.max(1, w);
-  h = Math.max(1, h);
+  let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
+  let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
   const basePadX   = w * 0.10;
   const basePadTop = h * 0.12;
@@ -309,7 +296,7 @@ export async function boot (rawCfg = {}) {
     spawnAroundCrosshair = true,
     spawnRadiusX = 0.34,
     spawnRadiusY = 0.30,
-    minSeparation = 0.95,     // *size (px)
+    minSeparation = 0.95,
     maxSpawnTries = 14
   } = rawCfg || {};
 
@@ -462,9 +449,7 @@ export async function boot (rawCfg = {}) {
   function getCrosshairPoint(){
     let rect = null;
     try{ rect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!rect || (rect.width||0) < 50 || (rect.height||0) < 50) {
-      rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
-    }
+    if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
 
     const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
     const padX = rect.width * 0.08;
@@ -496,7 +481,6 @@ export async function boot (rawCfg = {}) {
   // ======================================================
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
-    rects: [], // ✅ NEW: เก็บ rect ของ exclusion เพื่อหลบแบบจริง
     margins: { top:0,bottom:0,left:0,right:0 },
     lastRefreshTs: 0
   };
@@ -510,32 +494,8 @@ export async function boot (rawCfg = {}) {
     exState.els = collectExclusionElements({ excludeSelectors });
     let hostRect = null;
     try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!hostRect || (hostRect.width||0) < 50 || (hostRect.height||0) < 50) {
-      hostRect = {
-        left:0, top:0,
-        right:(ROOT.innerWidth||1),
-        bottom:(ROOT.innerHeight||1),
-        width:(ROOT.innerWidth||1),
-        height:(ROOT.innerHeight||1)
-      };
-    }
-
+    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
     exState.margins = computeExclusionMargins(hostRect, exState.els);
-
-    // ✅ NEW: เก็บ rect จริงของ exclusion (หลบการ์ดที่ “กองกลางจอ” ได้)
-    const rects = [];
-    exState.els.forEach(el=>{
-      let r=null;
-      try{ r = el.getBoundingClientRect(); }catch{}
-      if (!r) return;
-      if ((r.width||0) < 8 || (r.height||0) < 8) return;
-
-      if (r.right < -20 || r.left > (ROOT.innerWidth||0)+20) return;
-      if (r.bottom < -20 || r.top > (ROOT.innerHeight||0)+20) return;
-
-      rects.push(r);
-    });
-    exState.rects = rects;
   }
 
   // ======================================================
@@ -545,8 +505,8 @@ export async function boot (rawCfg = {}) {
     let b = null, s = null;
     try{ b = hostBounds.getBoundingClientRect(); }catch{}
     try{ s = hostSpawn.getBoundingClientRect(); }catch{}
-    if (!b || (b.width||0) < 50 || (b.height||0) < 50) b = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
-    if (!s || (s.width||0) < 50 || (s.height||0) < 50) s = b;
+    if (!b) b = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    if (!s) s = b;
     return { bRect:b, sRect:s };
   }
 
@@ -582,21 +542,7 @@ export async function boot (rawCfg = {}) {
     return out;
   }
 
-  // ✅ NEW: ตรวจว่าจุด (client) ไปทับ exclusion rect ไหม
-  function pointHitsAnyRect(clientX, clientY, rects, pad){
-    if (!rects || !rects.length) return false;
-    const p = Number(pad)||0;
-    for (let i=0;i<rects.length;i++){
-      const r = rects[i];
-      if (!r) continue;
-      if (
-        clientX >= (r.left - p) && clientX <= (r.right + p) &&
-        clientY >= (r.top  - p) && clientY <= (r.bottom + p)
-      ) return true;
-    }
-    return false;
-  }
-
+  // ✅ PATCHED: ไม่ให้ spawn stuck ที่จุดเดิม
   function pickSpawnPointLocal(playLocal, sizePx){
     const { sRect } = playLocal;
     const centers = getExistingCentersLocal(sRect);
@@ -615,8 +561,8 @@ export async function boot (rawCfg = {}) {
     }
 
     // spawn radius around anchor
-    const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.48);
-    const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.48);
+    const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.55);
+    const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.55);
 
     const pad = Math.max(10, sizePx * 0.55);
     const minX = playLocal.left + pad;
@@ -624,11 +570,22 @@ export async function boot (rawCfg = {}) {
     const minY = playLocal.top  + pad;
     const maxY = playLocal.top  + playLocal.height - pad;
 
-    // fallback safe if rect too small
-    const rectOk = (playLocal.width >= sizePx*1.25) && (playLocal.height >= sizePx*1.25);
+    // ✅ Robust rect validity check
+    const rectOk =
+      Number.isFinite(playLocal.width) && Number.isFinite(playLocal.height) &&
+      (playLocal.width  >= sizePx * 1.10) &&
+      (playLocal.height >= sizePx * 1.10) &&
+      (maxX > minX + 4) && (maxY > minY + 4);
+
+    // ✅ Fallback: มี jitter เสมอ (ไม่คืน anchor ตรง ๆ)
     if (!rectOk) {
-      const fx = clamp(ax, minX, maxX);
-      const fy = clamp(ay, minY, maxY);
+      const j = Math.min(18, Math.max(6, sizePx * 0.12));
+      const jx = (Math.random() * 2 - 1) * j;
+      const jy = (Math.random() * 2 - 1) * j;
+
+      const fx = (maxX > minX) ? clamp(ax + jx, minX, maxX) : (ax + jx);
+      const fy = (maxY > minY) ? clamp(ay + jy, minY, maxY) : (ay + jy);
+
       return { x: fx, y: fy, ok:true };
     }
 
@@ -642,14 +599,6 @@ export async function boot (rawCfg = {}) {
       const x = clamp(ax + tri()*rx, minX, maxX);
       const y = clamp(ay + tri()*ry, minY, maxY);
 
-      // ✅ A2+++: ห้าม spawn ใต้ HUD/การ์ด (ใช้ rect จริง)
-      const clientX = (sRect.left + x);
-      const clientY = (sRect.top  + y);
-      const padEx   = Math.max(12, sizePx * 0.60);
-      if (pointHitsAnyRect(clientX, clientY, exState.rects, padEx)) {
-        continue;
-      }
-
       // separation check
       let ok = true;
       let nearest = 1e9;
@@ -661,13 +610,16 @@ export async function boot (rawCfg = {}) {
         if (d < minDist) { ok = false; break; }
       }
 
-      // ถ้ากดดันมาก (เป้าเต็ม) ให้เลือก “ไกลที่สุด” แทนการ fail
       const score = ok ? (100000 + nearest) : nearest;
       if (score > bestScore) { bestScore = score; best = { x, y, ok }; }
       if (ok) return { x, y, ok:true };
     }
 
-    return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
+    // ✅ Final fallback: ยังสุ่มเล็กน้อยเสมอ
+    const j = Math.min(14, Math.max(5, sizePx * 0.10));
+    const x = clamp(ax + (Math.random()*2-1)*j, minX, maxX);
+    const y = clamp(ay + (Math.random()*2-1)*j, minY, maxY);
+    return { x, y, ok:true };
   }
 
   // ======================================================
@@ -724,7 +676,7 @@ export async function boot (rawCfg = {}) {
     const baseSize = 78;
     const size = baseSize * curScale;
 
-    // ✅ A2++: spawn around crosshair + anti-overlap (+ A2+++: avoid hud rect)
+    // ✅ spawn around crosshair + anti-overlap
     const p = pickSpawnPointLocal(playLocal, size);
 
     el.style.position = 'absolute';
@@ -742,7 +694,6 @@ export async function boot (rawCfg = {}) {
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
 
-    // default look (can be overridden by decorateTarget)
     let bgGrad = '';
     let ringGlow = '';
 
@@ -764,7 +715,6 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
-    // ring (perfect hint)
     const ring = DOC.createElement('div');
     ring.style.position = 'absolute';
     ring.style.left = '50%';
@@ -794,7 +744,6 @@ export async function boot (rawCfg = {}) {
     icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
     inner.appendChild(icon);
 
-    // trick badge
     let badge = null;
     if (itemType === 'fakeGood') {
       badge = DOC.createElement('div');
@@ -831,7 +780,6 @@ export async function boot (rawCfg = {}) {
       _hit: null
     };
 
-    // allow per-game decorate
     try{
       if (typeof decorateTarget === 'function'){
         decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
