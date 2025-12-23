@@ -1,3 +1,4 @@
+<!-- === /herohealth/goodjunk-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -173,6 +174,25 @@
       width:0%;
       background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.95));
     }
+
+    /* ✅ DOUBLE-BINE (Goal + Mini) */
+    #qTitle{ font-weight:900;font-size:16px; margin-top:4px; }
+    #qSub{
+      margin-top:6px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    #qSub .left{ overflow:hidden; text-overflow:ellipsis; }
+    #qSub .right{ opacity:.9; }
+
     #line-mini{ display:flex; justify-content:space-between; gap:10px; font-size:13px; }
     #line-mini b{ font-weight:800; }
     #line-mini .right{ color:var(--muted); }
@@ -311,6 +331,40 @@
       white-space:pre-wrap;
     }
     #panicBox.show{ display:block; }
+
+    /* ✅ Floating Pop (ถ้า particles ไม่พร้อมก็ใช้ตัวนี้) */
+    #floating-pop-layer{
+      position:fixed; inset:0;
+      z-index:999;
+      pointer-events:none;
+      display:block;
+    }
+    .fp{
+      position:absolute;
+      left:50%; top:48%;
+      transform:translate(-50%,-50%) scale(.92);
+      padding:10px 14px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.72);
+      color:#e5e7eb;
+      font-weight:1000;
+      letter-spacing:.02em;
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      opacity:0;
+      animation: fpIn .14s ease-out forwards, fpOut .24s ease-in forwards;
+      animation-delay: 0ms, var(--fpHold, 900ms);
+      white-space:nowrap;
+      max-width:min(92vw, 820px);
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .fp.bad{ border-color:rgba(251,113,133,.28); color:#fecdd3; }
+    .fp.good{ border-color:rgba(34,197,94,.28); color:#dcfce7; }
+    .fp.gold{ border-color:rgba(245,158,11,.30); color:#ffedd5; }
+    @keyframes fpIn{ to{ opacity:1; transform:translate(-50%,-50%) scale(1); } }
+    @keyframes fpOut{ to{ opacity:0; transform:translate(-50%,-58%) scale(.98); } }
   </style>
 </head>
 
@@ -366,7 +420,14 @@
 
     <div>
       <div class="k">quest</div>
-      <div style="font-weight:900;font-size:16px; margin-top:4px;" id="qTitle">—</div>
+      <div id="qTitle">—</div>
+
+      <!-- ✅ double-bine line 2 -->
+      <div id="qSub">
+        <div class="left" id="qSubLeft">Mini: —</div>
+        <div class="right" id="qSubRight">goals 0/2 • minis 0</div>
+      </div>
+
       <div class="bar" style="margin-top:8px;"><i id="qBar"></i></div>
     </div>
 
@@ -387,6 +448,7 @@
   </div>
 
   <div id="panicBox"></div>
+  <div id="floating-pop-layer"></div>
 
   <div id="startModal">
     <div id="startCard" class="panel">
@@ -456,12 +518,22 @@
   const miniText = $('miniText');
   const miniCount = $('miniCount');
 
-  const edge = $('edge');
+  const qSubLeft = $('qSubLeft');
+  const qSubRight = $('qSubRight');
 
-  // ===== Debug badge =====
+  const edge = $('edge');
+  const fpLayer = $('floating-pop-layer');
+
+  // ===== Debug badge (auto revert) =====
+  let badgeTimer = 0;
   function setBadge(ok, text){
     badge.classList.toggle('ok', !!ok);
     badgeText.textContent = String(text||'');
+  }
+  function setBadgeTemp(ok, text, ms=900){
+    clearTimeout(badgeTimer);
+    setBadge(ok, text);
+    badgeTimer = setTimeout(()=> setBadge(true, 'running…'), Math.max(300, ms|0));
   }
 
   function showPanic(msg, err){
@@ -470,6 +542,25 @@
     panicBox.classList.add('show');
   }
   function hidePanic(){ panicBox.classList.remove('show'); }
+
+  // ===== Floating Pop helper =====
+  function floatingPop(text, tone='good', holdMs=900){
+    try{
+      // ถ้ามี particles.toast ใช้ก่อน
+      const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles;
+      if (P && typeof P.toast === 'function'){
+        P.toast(String(text||''), { tone, ms: holdMs|0 });
+        return;
+      }
+    }catch(_){}
+
+    const el = document.createElement('div');
+    el.className = `fp ${tone||''}`;
+    el.style.setProperty('--fpHold', (holdMs|0)+'ms');
+    el.textContent = String(text||'');
+    fpLayer.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, (holdMs|0) + 500);
+  }
 
   // ===== Simple tick sound (WebAudio) =====
   let AC=null, tickGain=null;
@@ -495,7 +586,7 @@
     }catch(_){}
   }
 
-  // ===== Selector persist + URL override (fix "เลือก easy แต่เข้าปกติ") =====
+  // ===== Selector persist + URL override =====
   (function initSelectors(){
     const U = new URL(location.href);
     const sDiff = $('selDiff');
@@ -521,7 +612,7 @@
     sCh.addEventListener('change',   ()=> localStorage.setItem('gj_ch', sCh.value));
   })();
 
-  // ===== Module loading (anti-hang) =====
+  // ===== Module loading =====
   let modSafe=null, modTouch=null;
   let engine=null;
   let touchCtl=null;
@@ -539,16 +630,14 @@
     if (modSafe && modTouch) return { modSafe, modTouch };
 
     hidePanic();
-    setBadge(false, 'boot: loading modules…');
+    setBadgeTemp(false, 'boot: loading modules…', 1200);
 
     const watchdog = setTimeout(()=>{
       showPanic('โหลดโมดูลนานผิดปกติ — อาจ cache/404 (ลองเติม ?ts=1 หรือ Clear storage)');
-      setBadge(false, 'boot: stuck (cache/404?)');
+      setBadgeTemp(false, 'boot: stuck (cache/404?)', 1600);
     }, 6000);
 
     try{
-      // โครงสร้าง: /herohealth/goodjunk-vr.html + /herohealth/vr-goodjunk/*.js
-      // fallback: /herohealth/*.js (เผื่อวางผิดโฟลเดอร์)
       const safePaths  = ['./vr-goodjunk/goodjunk.safe.js', './goodjunk.safe.js'];
       const touchPaths = ['./vr-goodjunk/touch-look-goodjunk.js', './touch-look-goodjunk.js'];
 
@@ -556,9 +645,8 @@
       modTouch = await importFirst(touchPaths);
 
       clearTimeout(watchdog);
-      setBadge(true, 'boot: modules ready');
+      setBadgeTemp(true, 'boot: modules ready', 900);
 
-      // attach touch look (drag/gyro) — pass look-area so targets still clickable
       try{ touchCtl?.destroy?.(); }catch(_){}
       touchCtl = modTouch.attachTouchLook(elCamEntity, { areaEl: elLookArea, sensitivity: 0.26 });
 
@@ -568,12 +656,12 @@
     }catch(err){
       clearTimeout(watchdog);
       showPanic('โหลดโมดูลไม่สำเร็จ (เช็ค path/ชื่อไฟล์ใน repo)', err);
-      setBadge(false, 'boot: import failed');
+      setBadgeTemp(false, 'boot: import failed', 1600);
       throw err;
     }
   }
 
-  // ===== VR-like parallax: targets move when you look =====
+  // ===== VR-like parallax =====
   let rafPar=0;
   function startParallaxLoop(){
     cancelAnimationFrame(rafPar);
@@ -586,14 +674,9 @@
         if (r){
           const ox = -r.y * pxPerRadX();
           const oy = -r.x * pxPerRadY();
-
-          // ✅ Move layer (visual VR feel)
           elLayer.style.transform = `translate3d(${ox.toFixed(1)}px, ${oy.toFixed(1)}px, 0)`;
-
-          // ✅ NEW: expose offset so goodjunk.safe.js can spawn/magnet correctly
           window.__GJ_LAYER_OFFSET__ = { x: ox, y: oy };
         }
-        // aimpoint for hazards (crosshair at 62%)
         window.__GJ_AIM_POINT__ = { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
       }catch(_){}
       rafPar = requestAnimationFrame(tick);
@@ -601,7 +684,7 @@
     rafPar = requestAnimationFrame(tick);
   }
 
-  // ===== HUD updates from game events =====
+  // ===== HUD updates =====
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail||{};
     uiScore.textContent = String(d.score ?? 0);
@@ -620,8 +703,40 @@
     uiShield.textContent = String(d.shield ?? 0);
   });
 
+  // ✅ รองรับ quest-director.js รูปแบบใหม่ + fallback แบบเก่า
   window.addEventListener('quest:update', (e)=>{
-    const d = e.detail||{};
+    const d = e.detail || {};
+
+    // NEW SHAPE: { goal, mini, meta }
+    if (d.goal || d.mini || d.meta){
+      const g = d.goal || null;
+      const m = d.mini || null;
+      const meta = d.meta || {};
+
+      if (g){
+        qTitle.textContent = `${g.title || 'ภารกิจหลัก'} — ${g.cur ?? 0}/${g.max ?? 0}`;
+        const pct = Math.max(0, Math.min(100, (Number(g.pct||0) * 100)));
+        qBar.style.width = pct.toFixed(0) + '%';
+      } else {
+        qTitle.textContent = 'เคลียร์ภารกิจหลักครบแล้ว ✅';
+        qBar.style.width = '100%';
+      }
+
+      if (m){
+        const miniLine = `${m.title || 'Mini'} — ${m.cur ?? 0}/${m.max ?? 0}`;
+        qSubLeft.textContent = `Mini: ${miniLine}`;
+        miniText.textContent = `Mini: ${miniLine}`;
+      } else {
+        qSubLeft.textContent = 'Mini: —';
+        miniText.textContent = 'Mini: —';
+      }
+
+      qSubRight.textContent = `goals ${meta.goalsCleared||0}/${meta.goalIndex||0} • minis ${meta.minisCleared||0}`;
+      miniCount.textContent = `mini ผ่าน ${meta.minisCleared||0} • เล่นอยู่ ${meta.miniCount||0}`;
+      return;
+    }
+
+    // OLD fallback
     qTitle.textContent = d.title || '—';
     const pct = Math.max(0, Math.min(100, Number(d.progressPct||0)));
     qBar.style.width = pct.toFixed(0)+'%';
@@ -629,6 +744,40 @@
     if (typeof d.miniCleared === 'number' || typeof d.miniLeft === 'number'){
       miniCount.textContent = `mini ผ่าน ${d.miniCleared||0} • เล่นอยู่ ${d.miniLeft||0}`;
     }
+  });
+
+  // ===== Quest “เด้งกลางจอ” + badge revert =====
+  window.addEventListener('quest:goalClear', (e)=>{
+    const d = e.detail||{};
+    setBadgeTemp(true, `GOAL CLEAR! (${d.goalsCleared||0})`, 900);
+    floatingPop(`✅ GOAL CLEAR — ${d.title||''}`, 'good', 1100);
+  });
+
+  window.addEventListener('quest:miniClear', (e)=>{
+    const d = e.detail||{};
+    setBadgeTemp(true, `MINI CLEAR! (${d.minisCleared||0})`, 850);
+    floatingPop(`⚡ MINI CLEAR — ${d.title||''}`, 'gold', 950);
+  });
+
+  window.addEventListener('quest:allGoalsClear', ()=>{
+    setBadgeTemp(true, 'ALL GOALS CLEARED!', 1200);
+    floatingPop('🏁 เคลียร์ภารกิจหลักครบแล้ว!', 'gold', 1400);
+  });
+
+  window.addEventListener('quest:badHit', (e)=>{
+    const d = e.detail||{};
+    setBadgeTemp(false, `HIT: ${d.kind||'bad'}`, 700);
+    floatingPop(`💥 โดนแล้ว! (${d.kind||'hazard'})`, 'bad', 850);
+  });
+
+  window.addEventListener('quest:block', ()=>{
+    setBadgeTemp(true, 'BLOCK!', 700);
+    floatingPop('🛡️ BLOCK!', 'good', 650);
+  });
+
+  window.addEventListener('quest:bossClear', ()=>{
+    setBadgeTemp(true, 'BOSS CLEARED!', 1200);
+    floatingPop('👑 BOSS CLEARED!', 'gold', 1400);
   });
 
   // ===== FX bridge =====
@@ -658,7 +807,6 @@
     else if (k.includes('ring')) beep(860 + intensity*60, 30);
     else if (k.includes('final')) beep(1200, 24);
     else beep(820, 28);
-
     if (intensity >= 1.6) kick();
   });
 
@@ -676,17 +824,16 @@
 
   window.addEventListener('hha:bossAtk', (e)=>{
     const d = e.detail||{};
-    setBadge(true, `boss atk: ${d.name||'?'}`);
-    setTimeout(()=> setBadge(true, 'running…'), 520);
+    setBadgeTemp(true, `boss atk: ${d.name||'?'}`, 900);
   });
 
   window.addEventListener('hha:storm', (e)=>{
     const d = e.detail||{};
     if (d.active){
-      setBadge(true, `STORM x${(d.mul||1).toFixed(2)}`);
+      setBadgeTemp(true, `STORM x${(d.mul||1).toFixed(2)}`, 1000);
       edge.classList.add('panic');
     } else {
-      setBadge(true, 'running…');
+      setBadgeTemp(true, 'running…', 400);
       edge.classList.remove('panic');
     }
   });
@@ -699,7 +846,6 @@
   }
 
   function calcSafeMargins(){
-    // ใช้ HUD จริงคำนวณ safe zone (กันเป้าทับ HUD)
     const questRect = $('hud-quest').getBoundingClientRect();
     const top = Math.ceil(questRect.bottom + 14);
 
@@ -714,35 +860,31 @@
   async function startGame(runMode='play'){
     btn2D.disabled = true; btnVR.disabled = true;
     try{
-      ensureAudio(); // unlock audio after user gesture
+      ensureAudio();
       await ensureModules();
 
       const { diff, challenge } = getSelected();
       uiDiffChallenge.textContent = `Diff: ${diff.toUpperCase()} • Challenge: ${challenge.toUpperCase()}`;
 
-      // stop old
       try{ engine?.stop?.(); }catch(_){}
       engine = null;
 
       elModal.style.display = 'none';
-      setBadge(true, 'starting…');
+      setBadgeTemp(true, 'starting…', 900);
 
-      // ✅ call boot of goodjunk.safe.js
       engine = modSafe.boot({
         diff,
         challenge,
         run: runMode,
         time: 60,
         layerEl: elLayer,
-
-        // ✅ NEW: send safeMargins to safe.js
         safeMargins: calcSafeMargins()
       });
 
-      setBadge(true, 'running…');
+      setBadgeTemp(true, 'running…', 500);
     }catch(err){
       showPanic('Start ไม่สำเร็จ', err);
-      setBadge(false, 'start failed');
+      setBadgeTemp(false, 'start failed', 1400);
       elModal.style.display = 'flex';
     }finally{
       btn2D.disabled = false; btnVR.disabled = false;
@@ -752,7 +894,6 @@
   btn2D.addEventListener('click', ()=> startGame('play'));
   btnVR.addEventListener('click', ()=> startGame('play'));
 
-  // Enter VR (A-Frame)
   btnEnterVR.addEventListener('click', async ()=>{
     try{
       ensureAudio();
@@ -763,7 +904,6 @@
     }
   });
 
-  // initial
   setBadge(true, 'boot: idle');
 </script>
 
