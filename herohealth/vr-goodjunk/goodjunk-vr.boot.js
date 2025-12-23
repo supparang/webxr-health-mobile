@@ -1,15 +1,15 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR — VR/DOM BOOT (PRODUCTION) ✅
+// GoodJunkVR — VR/DOM BOOT (PRODUCTION) ✅ (Quest FIX: always shows)
 // - Correct paths for /herohealth/*.html + /herohealth/vr-goodjunk/*.js
-// - Quest Director: uses label/targetByDiff/eval/pass (quest-director-goodjunk.js)
-// - Stable quest:update emit + HUD bind + Boss/FX/Coach hooks
-// - Aim point bridge for safe.js via window.__GJ_AIM_POINT__
-// - Optional safeMargins compute (avoid HUD overlap)
+// - Quest Director compat: accepts goalDefs/miniDefs OR goals/minis
+// - Forces quest:update early via Q.getActive() pump + Q.start(qState)
+// - Provides window.__GJ_QSTATE__ for director getActive()
+// - Keeps all FX/Coach/Boss hooks
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
 
-import { makeGoodJunkQuestDirector } from './quest-director-goodjunk.js';
+import { makeQuestDirector } from './quest-director-goodjunk.js';
 import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
 export function boot(){
@@ -229,11 +229,8 @@ export function boot(){
 
   // ---- safeMargins compute (avoid HUD overlap) ----
   function computeSafeMargins(){
-    // fallback values tuned for your HUD
     const base = { top:130, bottom:170, left:26, right:26 };
-
     try{
-      // if you have fixed HUD wrappers, use them to expand safe margins a bit
       const hudTop = document.querySelector('.hud-top');
       const hudBottom = document.querySelector('.hud-bottom');
       const hudLeft = document.querySelector('.hud-left');
@@ -256,17 +253,19 @@ export function boot(){
         base.right = Math.max(base.right, Math.ceil(window.innerWidth - r.left) + 10);
       }
     }catch(_){}
-
     return base;
   }
 
-  // ---- Quest shared state (matches quest-defs eval fields) ----
+  // ---- Quest shared state (matches your quest-defs eval fields) ----
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
     streakGood:0, goldHitsThisMini:false, blocks:0, usedMagnet:false,
     timePlus:0, safeNoJunkSeconds:0, bossCleared:false,
     challenge: CH_INIT, runMode: RUN_MODE, final8Good: 0
   };
+
+  // ✅ expose for director getActive()
+  window.__GJ_QSTATE__ = qState;
 
   let started = false;
   setInterval(()=>{ if (started) qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1; }, 1000);
@@ -282,7 +281,9 @@ export function boot(){
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
     qState.final8Good = 0;
-    if (Q) Q.tick(qState); // force emit quest:update on mini start
+
+    // ✅ force HUD refresh even if no gameplay events yet
+    if (Q) Q.tick(qState);
   });
 
   // Game events -> quest tick
@@ -577,6 +578,19 @@ export function boot(){
     return false;
   }
 
+  // ✅ Quest pump (force UI show even before gameplay)
+  function pumpQuestUI(){
+    try{
+      if (!Q) return;
+      if (typeof Q.getActive === 'function'){
+        const a = Q.getActive();
+        window.dispatchEvent(new CustomEvent('quest:update', { detail: a || {} }));
+      } else {
+        Q.tick(qState);
+      }
+    }catch(_){}
+  }
+
   let startedOnce = false;
 
   async function bootOnce({ wantVR }){
@@ -604,13 +618,19 @@ export function boot(){
     attachTouch(cam);
     initVRButton();
 
-    // ✅ Quest Director (label/targetByDiff/eval/pass)
-    Q = makeGoodJunkQuestDirector({
+    // ✅ Create quest director using compat signature (accepts goalDefs/miniDefs)
+    Q = makeQuestDirector({
       diff,
-      goals: GOODJUNK_GOALS,
-      minis: GOODJUNK_MINIS
+      goalDefs: GOODJUNK_GOALS,
+      miniDefs: GOODJUNK_MINIS
     });
-    Q.start(qState); // emits quest:update immediately
+
+    // ✅ ensure director can read current qState (for getActive fallback)
+    window.__GJ_QSTATE__ = qState;
+
+    // ✅ fire UI immediately (before countdown)
+    if (Q && typeof Q.start === 'function') Q.start(qState);
+    pumpQuestUI();
 
     runCountdown(()=>{
       waitSceneReady(async ()=>{
@@ -628,8 +648,9 @@ export function boot(){
         });
 
         window.__GJ_ENGINE__ = ENGINE;
-        // kick quest tick once more (ensures HUD shows even if listener order)
-        if (Q) Q.tick(qState);
+
+        // ✅ one more pump after engine starts (order-proof)
+        pumpQuestUI();
       });
     });
   }
@@ -638,4 +659,7 @@ export function boot(){
   btnStartVR && btnStartVR.addEventListener('click', ()=> bootOnce({ wantVR:true }));
 
   prefill();
+
+  // ✅ even before start, show placeholder quest once director exists
+  // (keeps HUD not empty while on overlay)
 }
