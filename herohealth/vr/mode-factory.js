@@ -14,12 +14,9 @@
 // 🔥 PATCH A (FULL-SPREAD):
 // ✅ ถ้า spawnAroundCrosshair:false → สุ่มแบบ uniform ทั่ว playRect (กระจายจริง ไม่กองกลาง)
 //
-// 🔥 A2++ PATCH (เดิม):
-// ✅ Spawn ยึด “มุมมองปัจจุบัน” (รอบ crosshair / center-biased) → ไม่ต้องเลื่อนหา
-// ✅ Anti-overlap (สุ่มใหม่ถ้าใกล้กันเกินไป)
-// ✅ แปลงพิกัด boundsRect → spawnRect ถูกต้อง (แก้มุม/กลางจอตลอด)
-// ✅ Cap margins กัน exclusion กินพื้นที่เกินเหตุ
-// ✅ Fallback ถ้า playRect เพี้ยน/แคบเกินไป
+// 🔥 PATCH EDGE-FIX (NO-CUT):
+// ✅ ถ้า spawnHost มี transform (ลาก/gyro) → ใช้ baseRect จาก boundsHost แทน (ignore transform)
+// ✅ เพิ่ม pad กัน pulse/scale แล้ว clamp ไม่ให้ชนขอบจริง
 
 'use strict';
 
@@ -50,6 +47,28 @@ function getEventXY (ev) {
     y = ev.changedTouches[0].clientY;
   }
   return { x: x || 0, y: y || 0 };
+}
+
+function rectFromWHLT(left, top, width, height){
+  width = Math.max(1, width||1);
+  height = Math.max(1, height||1);
+  return { left, top, width, height, right: left + width, bottom: top + height };
+}
+
+function getRectSafe(el){
+  try{
+    const r = el.getBoundingClientRect();
+    if (r && Number.isFinite(r.left) && Number.isFinite(r.top) && r.width > 0 && r.height > 0) return r;
+  }catch{}
+  return null;
+}
+
+function hasTransform(el){
+  try{
+    const cs = ROOT.getComputedStyle ? ROOT.getComputedStyle(el) : null;
+    const t = cs && cs.transform;
+    return !!(t && t !== 'none');
+  }catch{ return false; }
 }
 
 // ---------- Base difficulty ----------
@@ -225,7 +244,6 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    // reserve margin if exclusion overlaps edge zone (robust)
     if (r.top < hy1 + 90 && r.bottom > hy1) {
       m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
@@ -240,7 +258,6 @@ function computeExclusionMargins(hostRect, exEls){
     }
   });
 
-  // ✅ cap margins (กันกินพื้นที่จนเหลือช่องเล็ก ๆ)
   const capX = hostRect.width  * 0.42;
   const capY = hostRect.height * 0.46;
   m.left   = Math.min(m.left, capX);
@@ -295,7 +312,6 @@ export async function boot (rawCfg = {}) {
     spawnIntervalMul = null,
     excludeSelectors = null,
 
-    // optional
     boundsHost = null,
     decorateTarget = null,
 
@@ -303,7 +319,7 @@ export async function boot (rawCfg = {}) {
     spawnAroundCrosshair = true,
     spawnRadiusX = 0.34,
     spawnRadiusY = 0.30,
-    minSeparation = 0.95,     // *size (px)
+    minSeparation = 0.95,
     maxSpawnTries = 14
   } = rawCfg || {};
 
@@ -399,7 +415,6 @@ export async function boot (rawCfg = {}) {
     try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
   }
 
-  // Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -452,7 +467,6 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
-  // Exclusions cache (computed from boundsHost)
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
     margins: { top:0,bottom:0,left:0,right:0 },
@@ -468,14 +482,14 @@ export async function boot (rawCfg = {}) {
     exState.els = collectExclusionElements({ excludeSelectors });
     let hostRect = null;
     try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    if (!hostRect) hostRect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
     exState.margins = computeExclusionMargins(hostRect, exState.els);
   }
 
   function getCrosshairPoint(){
     let rect = null;
     try{ rect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    if (!rect) rect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
 
     const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
     const padX = rect.width * 0.08;
@@ -503,28 +517,36 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn helpers (A2++)
+  //  Spawn rects (EDGE-FIX: ignore transform)
   // ======================================================
   function getRectsForSpawn(){
-    let b = null, s = null;
-    try{ b = hostBounds.getBoundingClientRect(); }catch{}
-    try{ s = hostSpawn.getBoundingClientRect(); }catch{}
-    if (!b) b = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
-    if (!s) s = b;
-    return { bRect:b, sRect:s };
+    const bRect = getRectSafe(hostBounds) || rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
+    let sRect = getRectSafe(hostSpawn);
+
+    // ✅ IMPORTANT: ถ้า spawnHost ถูก translate/transform (drag/gyro) → rect จะ “ขยับ”
+    // เราต้องใช้ base rect ที่ไม่โดน transform เพื่อแปลงพิกัดให้ถูก (ไม่ตกขอบ)
+    if (!sRect) sRect = bRect;
+
+    const spawnHasT = hasTransform(hostSpawn);
+    if (spawnHasT) {
+      // สมมติ playfield เป็น full-screen layer (inset:0)
+      sRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
+    }
+
+    return { bRect, sRect, spawnHasT };
   }
 
   function makePlayLocalRect(){
     const { bRect, sRect } = getRectsForSpawn();
     const pr = computePlayRectFromHost(hostBounds, exState);
 
-    // play rect in CLIENT space
+    // play rect in CLIENT space (อิง boundsHost)
     const cL = bRect.left + pr.left;
     const cT = bRect.top  + pr.top;
     const cR = cL + pr.width;
     const cB = cT + pr.height;
 
-    // convert to SPAWN-LOCAL space
+    // convert to SPAWN-LOCAL space (อิง spawnHost base rect ที่ ignore transform แล้ว)
     const l = cL - sRect.left;
     const t = cT - sRect.top;
     const w = pr.width;
@@ -553,7 +575,6 @@ export async function boot (rawCfg = {}) {
     const minDist = Math.max(18, sizePx * minSeparation);
     const tries = clamp(maxSpawnTries, 6, 30);
 
-    // anchor default = center-ish
     let ax = playLocal.left + playLocal.width * 0.50;
     let ay = playLocal.top  + playLocal.height * 0.52;
 
@@ -563,31 +584,29 @@ export async function boot (rawCfg = {}) {
       ay = cp.y - sRect.top;
     }
 
-    // spawn radius around anchor
     const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.98);
     const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.98);
 
-    const pad = Math.max(10, sizePx * 0.55);
+    // ✅ กันโดนตัดจาก pulse/scale/box-shadow
+    const maxVisualScale = 1.10; // pulse ~1.08
+    const pad = Math.max(12, (sizePx * maxVisualScale) * 0.62);
+
     const minX = playLocal.left + pad;
     const maxX = playLocal.left + playLocal.width  - pad;
     const minY = playLocal.top  + pad;
     const maxY = playLocal.top  + playLocal.height - pad;
 
-    // fallback safe if rect too small
-    const rectOk = (playLocal.width >= sizePx*1.25) && (playLocal.height >= sizePx*1.25);
+    const rectOk = (playLocal.width >= sizePx*1.30) && (playLocal.height >= sizePx*1.30);
     if (!rectOk) {
-      const fx = clamp(ax, minX, maxX);
-      const fy = clamp(ay, minY, maxY);
-      return { x: fx, y: fy, ok:true };
+      return { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
     }
 
-    // triangular (center-biased) random
     function tri(){ return (Math.random() + Math.random() - 1); }
 
     let best = null;
     let bestScore = -1;
 
-    // ✅ PATCH A: ถ้าไม่ยึด crosshair → สุ่ม uniform ทั่วสนามจริง
+    // ✅ PATCH A: ไม่ยึด crosshair → สุ่ม uniform ทั่วสนามจริง
     const useUniform = !spawnAroundCrosshair;
 
     for (let i=0;i<tries;i++){
@@ -599,7 +618,6 @@ export async function boot (rawCfg = {}) {
         ? (minY + Math.random() * (maxY - minY))
         : clamp(ay + tri()*ry, minY, maxY);
 
-      // separation check
       let ok = true;
       let nearest = 1e9;
       for (let k=0;k<centers.length;k++){
@@ -610,7 +628,6 @@ export async function boot (rawCfg = {}) {
         if (d < minDist) { ok = false; break; }
       }
 
-      // ถ้ากดดันมาก (เป้าเต็ม) ให้เลือก “ไกลที่สุด” แทนการ fail
       const score = ok ? (100000 + nearest) : nearest;
       if (score > bestScore) { bestScore = score; best = { x, y, ok }; }
       if (ok) return { x, y, ok:true };
@@ -673,7 +690,6 @@ export async function boot (rawCfg = {}) {
     const baseSize = 78;
     const size = baseSize * curScale;
 
-    // spawn point
     const p = pickSpawnPointLocal(playLocal, size);
 
     el.style.position = 'absolute';
@@ -686,12 +702,10 @@ export async function boot (rawCfg = {}) {
     el.style.zIndex = '35';
     el.style.borderRadius = '999px';
 
-    // wiggle layer (animated visuals)
     const wiggle = DOC.createElement('div');
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
 
-    // default look (can be overridden by decorateTarget)
     let bgGrad = '';
     let ringGlow = '';
 
@@ -713,7 +727,6 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
-    // ring (perfect hint)
     const ring = DOC.createElement('div');
     ring.style.position = 'absolute';
     ring.style.left = '50%';
@@ -743,7 +756,6 @@ export async function boot (rawCfg = {}) {
     icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
     inner.appendChild(icon);
 
-    // trick badge
     let badge = null;
     if (itemType === 'fakeGood') {
       badge = DOC.createElement('div');
@@ -780,7 +792,6 @@ export async function boot (rawCfg = {}) {
       _hit: null
     };
 
-    // allow per-game decorate
     try{
       if (typeof decorateTarget === 'function'){
         decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
@@ -882,7 +893,6 @@ export async function boot (rawCfg = {}) {
     }, lifeMs);
   }
 
-  // ---------- clock (hha:time) ----------
   function dispatchTime (sec) {
     try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
