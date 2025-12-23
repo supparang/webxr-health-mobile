@@ -14,9 +14,13 @@
 // 🔥 PATCH A (FULL-SPREAD):
 // ✅ ถ้า spawnAroundCrosshair:false → สุ่มแบบ uniform ทั่ว playRect (กระจายจริง ไม่กองกลาง)
 //
-// 🔥 PATCH EDGE-FIX (NO-CUT):
-// ✅ ถ้า spawnHost มี transform (ลาก/gyro) → ใช้ baseRect จาก boundsHost แทน (ignore transform)
-// ✅ เพิ่ม pad กัน pulse/scale แล้ว clamp ไม่ให้ชนขอบจริง
+// 🔥 PATCH EDGE-FIX (NO-CUT + TRANSFORM-SAFE):
+// ✅ ถ้า spawnHost ถูก translate/transform (ลาก/gyro) → อ่านค่า tx/ty จาก matrix แล้วหักกลับ
+// ✅ clamp + pad เผื่อ pulse/scale/boxshadow กันโผล่ชนขอบจริง
+//
+// 🔥 PATCH SPREAD-MIX (แก้ "อยู่บริเวณเดียวกัน"):
+// ✅ แม้ spawnAroundCrosshair:true → มี spreadMix (ค่าเริ่ม 0.35) สุ่มทั่วสนามบางส่วน
+//    ทำให้ “กระจายจริง” แต่ยัง “เจอง่าย” ใกล้ crosshair
 
 'use strict';
 
@@ -69,6 +73,42 @@ function hasTransform(el){
     const t = cs && cs.transform;
     return !!(t && t !== 'none');
   }catch{ return false; }
+}
+
+// ✅ IMPORTANT: อ่านค่า translate จาก transform matrix/matrix3d
+function getTranslateXY(el){
+  try{
+    const cs = ROOT.getComputedStyle ? ROOT.getComputedStyle(el) : null;
+    const t = cs && cs.transform;
+    if (!t || t === 'none') return { x:0, y:0 };
+
+    // matrix(a,b,c,d,tx,ty)
+    if (t.startsWith('matrix(')) {
+      const nums = t.slice(7, -1).split(',').map(s => Number(s.trim()));
+      const tx = Number(nums[4]) || 0;
+      const ty = Number(nums[5]) || 0;
+      return { x: tx, y: ty };
+    }
+
+    // matrix3d(..., tx, ty, tz)
+    if (t.startsWith('matrix3d(')) {
+      const nums = t.slice(9, -1).split(',').map(s => Number(s.trim()));
+      // matrix3d indices: 12=tx, 13=ty, 14=tz
+      const tx = Number(nums[12]) || 0;
+      const ty = Number(nums[13]) || 0;
+      return { x: tx, y: ty };
+    }
+  }catch{}
+  return { x:0, y:0 };
+}
+
+function ensurePositioning(host){
+  if (!host) return;
+  try{
+    const cs = ROOT.getComputedStyle ? ROOT.getComputedStyle(host) : null;
+    const pos = cs && cs.position;
+    if (!pos || pos === 'static') host.style.position = 'relative';
+  }catch{}
 }
 
 // ---------- Base difficulty ----------
@@ -320,7 +360,10 @@ export async function boot (rawCfg = {}) {
     spawnRadiusX = 0.34,
     spawnRadiusY = 0.30,
     minSeparation = 0.95,
-    maxSpawnTries = 14
+    maxSpawnTries = 14,
+
+    // ✅ PATCH SPREAD-MIX
+    spreadMix = null
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -333,6 +376,9 @@ export async function boot (rawCfg = {}) {
     console.error('[mode-factory] host not found');
     return { stop () {}, shootCrosshair(){ return false; } };
   }
+
+  ensurePositioning(hostSpawn);
+  ensurePositioning(hostBounds);
 
   let stopped = false;
 
@@ -476,7 +522,7 @@ export async function boot (rawCfg = {}) {
   function refreshExclusions(ts){
     if (!DOC) return;
     if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 600) return;
+    if (ts - exState.lastRefreshTs < 420) return; // เร็วขึ้นนิด ให้ตาม auto-hide panel/hud
     exState.lastRefreshTs = ts;
 
     exState.els = collectExclusionElements({ excludeSelectors });
@@ -517,27 +563,24 @@ export async function boot (rawCfg = {}) {
   }
 
   // ======================================================
-  //  Spawn rects (EDGE-FIX: ignore transform)
+  //  Spawn rects (TRANSFORM-SAFE)
   // ======================================================
   function getRectsForSpawn(){
     const bRect = getRectSafe(hostBounds) || rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
     let sRect = getRectSafe(hostSpawn);
-
-    // ✅ IMPORTANT: ถ้า spawnHost ถูก translate/transform (drag/gyro) → rect จะ “ขยับ”
-    // เราต้องใช้ base rect ที่ไม่โดน transform เพื่อแปลงพิกัดให้ถูก (ไม่ตกขอบ)
     if (!sRect) sRect = bRect;
 
     const spawnHasT = hasTransform(hostSpawn);
-    if (spawnHasT) {
-      // สมมติ playfield เป็น full-screen layer (inset:0)
-      sRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
-    }
+    const tOff = spawnHasT ? getTranslateXY(hostSpawn) : { x:0, y:0 };
 
-    return { bRect, sRect, spawnHasT };
+    // เราใช้ "base rect" ของ bounds เป็นฐานเสมอ (เพื่อไม่เพี้ยนตอนลาก)
+    const baseSpawnRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
+
+    return { bRect, sRect: baseSpawnRect, spawnHasT, tOff };
   }
 
   function makePlayLocalRect(){
-    const { bRect, sRect } = getRectsForSpawn();
+    const { bRect, sRect, tOff } = getRectsForSpawn();
     const pr = computePlayRectFromHost(hostBounds, exState);
 
     // play rect in CLIENT space (อิง boundsHost)
@@ -546,57 +589,68 @@ export async function boot (rawCfg = {}) {
     const cR = cL + pr.width;
     const cB = cT + pr.height;
 
-    // convert to SPAWN-LOCAL space (อิง spawnHost base rect ที่ ignore transform แล้ว)
-    const l = cL - sRect.left;
-    const t = cT - sRect.top;
+    // convert to SPAWN-LOCAL PRE-TRANSFORM space:
+    // local = client - sRect.left - translateX
+    const l = (cL - sRect.left) - (tOff.x || 0);
+    const t = (cT - sRect.top)  - (tOff.y || 0);
     const w = pr.width;
     const h = pr.height;
 
-    return { left:l, top:t, width:w, height:h, cL, cT, cR, cB, bRect, sRect };
+    return { left:l, top:t, width:w, height:h, cL, cT, cR, cB, bRect, sRect, tOff };
   }
 
-  function getExistingCentersLocal(sRect){
+  function getExistingCentersLocal(sRect, tOff){
     const out = [];
+    const tx = (tOff && tOff.x) || 0;
+    const ty = (tOff && tOff.y) || 0;
+
     activeTargets.forEach(t=>{
       const el = t.el;
       if (!el || !el.isConnected) return;
       let r=null;
       try{ r = el.getBoundingClientRect(); }catch{}
       if (!r) return;
-      out.push({ x:(r.left + r.width/2) - sRect.left, y:(r.top + r.height/2) - sRect.top });
+
+      const cx = (r.left + r.width/2) - sRect.left - tx;
+      const cy = (r.top  + r.height/2) - sRect.top  - ty;
+      out.push({ x: cx, y: cy });
     });
     return out;
   }
 
   function pickSpawnPointLocal(playLocal, sizePx){
-    const { sRect } = playLocal;
-    const centers = getExistingCentersLocal(sRect);
+    const { sRect, tOff } = playLocal;
+    const centers = getExistingCentersLocal(sRect, tOff);
 
     const minDist = Math.max(18, sizePx * minSeparation);
-    const tries = clamp(maxSpawnTries, 6, 30);
+    const tries = clamp(maxSpawnTries, 6, 34);
 
+    // จุดอ้างอิง (anchor)
     let ax = playLocal.left + playLocal.width * 0.50;
     let ay = playLocal.top  + playLocal.height * 0.52;
 
+    // crosshair in local (หัก tx/ty แล้ว)
     if (spawnAroundCrosshair) {
       const cp = getCrosshairPoint();
-      ax = cp.x - sRect.left;
-      ay = cp.y - sRect.top;
+      const tx = (tOff && tOff.x) || 0;
+      const ty = (tOff && tOff.y) || 0;
+      ax = (cp.x - sRect.left - tx);
+      ay = (cp.y - sRect.top  - ty);
     }
 
     const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.98);
     const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.98);
 
     // ✅ กันโดนตัดจาก pulse/scale/box-shadow
-    const maxVisualScale = 1.10; // pulse ~1.08
-    const pad = Math.max(12, (sizePx * maxVisualScale) * 0.62);
+    const maxVisualScale = 1.12; // เผื่อ pulse + ease in
+    const pad = Math.max(16, (sizePx * maxVisualScale) * 0.66);
 
     const minX = playLocal.left + pad;
     const maxX = playLocal.left + playLocal.width  - pad;
     const minY = playLocal.top  + pad;
     const maxY = playLocal.top  + playLocal.height - pad;
 
-    const rectOk = (playLocal.width >= sizePx*1.30) && (playLocal.height >= sizePx*1.30);
+    const rectOk = (playLocal.width >= sizePx*1.35) && (playLocal.height >= sizePx*1.35);
     if (!rectOk) {
       return { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
     }
@@ -606,10 +660,15 @@ export async function boot (rawCfg = {}) {
     let best = null;
     let bestScore = -1;
 
-    // ✅ PATCH A: ไม่ยึด crosshair → สุ่ม uniform ทั่วสนามจริง
-    const useUniform = !spawnAroundCrosshair;
+    // ✅ PATCH A: ถ้า spawnAroundCrosshair=false → uniform เต็มสนาม
+    const fullUniform = !spawnAroundCrosshair;
+
+    // ✅ PATCH SPREAD-MIX: ถ้า spawnAroundCrosshair=true → กระจายทั่วสนามบางส่วน (default 0.35)
+    const mix = fullUniform ? 1 : clamp((spreadMix == null ? 0.35 : spreadMix), 0, 1);
 
     for (let i=0;i<tries;i++){
+      const useUniform = fullUniform ? true : (Math.random() < mix);
+
       const x = useUniform
         ? (minX + Math.random() * (maxX - minX))
         : clamp(ax + tri()*rx, minX, maxX);
