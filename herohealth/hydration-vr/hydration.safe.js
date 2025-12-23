@@ -1,10 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — DOM Emoji Engine (PLAY MODE) — FULL (PATCH B++)
-// ✅ Compact HUD (auto-hide) + ไม่บังเป้า
-// ✅ Spawn กระจายทั้งสนาม (แก้กองกลาง)
-// ✅ กันตกขอบ (clamp + pad) ใช้กับ mode-factory PATCH EDGE-FIX
-// ✅ Gyro นุ่มขึ้น/ไม่ไวเกิน (เอียงนิดเดียวไม่หนี)
-// ✅ จบเกมไม่จอดำ: มี End Summary overlay เสมอ
+// Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
+//
+// ✅ FIX PACK (Layout + Spread + Gyro + EndScreen)
+// - HUD card ใหญ่ซ่อน (กันบังเป้า) → ใช้ MiniHUD แถบบน + ปุ่ม i เปิดแผงดูรายละเอียด
+// - Spawn กระจายทั่วสนามจริง (spawnAroundCrosshair:false → FULL-SPREAD ตาม mode-factory PATCH A)
+// - Gyro ไม่วิ่งหนี: baseline + smoothing + sensitivity ลดลง + recenter ได้
+// - End game ไม่จอดำ: render end screen ลง #hvr-end
 
 'use strict';
 
@@ -12,6 +13,7 @@ import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import { createHydrationQuest } from './hydration.quest.js';
 
+// --------------------- Globals / helpers ---------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
 function clamp(v, min, max){
@@ -21,12 +23,6 @@ function clamp(v, min, max){
 function $id(id){ return document.getElementById(id); }
 function dispatch(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
-}
-function qs(name, fallback=null){
-  try{
-    const u = new URL(location.href);
-    return u.searchParams.get(name) ?? fallback;
-  }catch{ return fallback; }
 }
 
 // FX layer (particles.js IIFE)
@@ -63,15 +59,26 @@ const TUNE = {
 
   missOnGoodExpire: true,
 
-  // ✅ Gyro/drag feel (นุ่มลง + ไม่ไว)
-  lookMaxX: 240,
-  lookMaxY: 170,
-  lookPxPerDegX: 5.2,
-  lookPxPerDegY: 4.4,
-  lookSmooth: 0.08,       // smoothing แรงขึ้น
+  // ---- LOOK (ลดความไว + ทำ baseline) ----
+  lookMaxX: 320,
+  lookMaxY: 240,
 
-  // ✅ จำกัดการกระชากต่อเฟรม (กัน “วิ่งหนี”)
-  lookStepClamp: 26,
+  // px/deg (ลดลงให้ “เอียงนิดเดียวไม่พุ่ง”)
+  lookPxPerDegX: 5.2,
+  lookPxPerDegY: 4.6,
+
+  // smoothing ของ applyLookTransform (ยิ่งต่ำยิ่งนิ่ง)
+  lookSmooth: 0.085,
+
+  // gyro blend (0..1) ยิ่งต่ำยิ่งนิ่ง
+  gyroBlend: 0.16,
+
+  // deadzone กันสั่น
+  gyroDeadGamma: 2.2,
+  gyroDeadBeta:  2.8,
+
+  // bias beta กันเงย/ก้ม baseline เพิ่มเติม
+  gyroBetaBias: 16,
 
   urgencyAtSec: 10,
   urgencyBeepHz: 920,
@@ -81,176 +88,230 @@ const TUNE = {
   stormIntervalMul: 0.72
 };
 
-// --------------------- Mini HUD (auto-hide) ---------------------
-function ensureMiniHUD(){
-  if ($id('hha-mini-hud')) return;
+// --------------------- Mini HUD (ไม่บังเป้า) ---------------------
+function ensureMiniHud(){
+  if (!document || document.getElementById('hha-mini-hud')) return;
 
-  const sId = 'hha-mini-hud-style';
-  if (!$id(sId)) {
-    const st = document.createElement('style');
-    st.id = sId;
-    st.textContent = `
-      #hha-mini-hud{
-        position:fixed;
-        left:10px; right:10px; top:10px;
-        z-index:120;
-        pointer-events:none;
-        display:flex;
-        gap:10px;
-        align-items:center;
-        justify-content:space-between;
-        padding:10px 12px;
-        border-radius:999px;
-        background:rgba(2,6,23,.55);
-        border:1px solid rgba(148,163,184,.18);
-        box-shadow:0 18px 50px rgba(0,0,0,.45);
-        backdrop-filter: blur(10px);
-        transform: translate3d(0,0,0);
-        opacity:.92;
-        transition: opacity .22s ease, transform .22s ease;
-      }
-      #hha-mini-hud.hha-hide{
-        opacity:0;
-        transform: translate3d(0,-10px,0);
-      }
-      #hha-mini-hud .grp{ display:flex; gap:10px; align-items:center; }
-      #hha-mini-hud .pill{
-        display:flex; gap:8px; align-items:center;
-        padding:7px 10px;
-        border-radius:999px;
-        background:rgba(2,6,23,.55);
-        border:1px solid rgba(148,163,184,.18);
-        font-weight:900;
-        letter-spacing:.02em;
-        font-size:13px;
-        white-space:nowrap;
-      }
-      #hha-mini-hud .mut{ opacity:.82; font-weight:800; }
-      #hha-mini-hud .val{ font-variant-numeric: tabular-nums; }
-      #hha-mini-hud .dot{ opacity:.35; }
-      #hha-mini-hud button{
-        pointer-events:auto;
-        background:rgba(2,6,23,.45);
-        border:1px solid rgba(148,163,184,.18);
-        color:inherit;
-        border-radius:999px;
-        padding:7px 10px;
-        font-weight:900;
-        cursor:pointer;
-      }
-      #hha-mini-panel{
-        position:fixed;
-        left:10px; right:10px; top:62px;
-        z-index:119;
-        pointer-events:none;
-        display:none;
-        background:rgba(2,6,23,.55);
-        border:1px solid rgba(148,163,184,.18);
-        border-radius:18px;
-        padding:12px 12px;
-        backdrop-filter: blur(10px);
-        box-shadow:0 18px 50px rgba(0,0,0,.45);
-      }
-      #hha-mini-panel.on{ display:block; }
-      #hha-mini-panel .t{ font-weight:1000; font-size:14px; margin-bottom:6px; }
-      #hha-mini-panel .m{ opacity:.85; font-size:12px; line-height:1.35; }
-    `;
-    document.head.appendChild(st);
-  }
+  const style = document.createElement('style');
+  style.id = 'hha-mini-hud-style';
+  style.textContent = `
+    #hha-mini-hud{
+      position:fixed;
+      left:10px; right:10px; top:10px;
+      z-index:120;
+      pointer-events:none;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    #hha-mini-hud .bar{
+      pointer-events:none;
+      flex:1;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      justify-content:flex-start;
+      flex-wrap:nowrap;
+      overflow:hidden;
+      background:rgba(2,6,23,.60);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:999px;
+      padding:8px 10px;
+      backdrop-filter: blur(10px);
+      box-shadow:0 18px 50px rgba(0,0,0,.45);
+    }
+    #hha-mini-hud .chip{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.16);
+      white-space:nowrap;
+      font-weight:900;
+      font-size:12px;
+      color:#e5e7eb;
+      pointer-events:none;
+    }
+    #hha-mini-hud .chip b{ font-weight:900; }
+    #hha-mini-hud .actions{
+      display:flex; gap:10px;
+      pointer-events:auto;
+    }
+    #hha-mini-hud button{
+      width:46px; height:46px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.60);
+      color:#e5e7eb;
+      font-weight:900;
+      font-size:18px;
+      box-shadow:0 18px 50px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      pointer-events:auto;
+    }
+    #hha-mini-panel{
+      position:fixed;
+      inset:0;
+      z-index:140;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      background:rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+    }
+    #hha-mini-panel.on{ display:flex; }
+    #hha-mini-panel .card{
+      width:min(560px, 92vw);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.78);
+      box-shadow:0 22px 70px rgba(0,0,0,.55);
+      padding:16px 16px 14px;
+      color:#e5e7eb;
+    }
+    #hha-mini-panel .title{
+      font-size:20px;
+      font-weight:1000;
+      margin:2px 0 8px;
+    }
+    #hha-mini-panel .muted{ color:#94a3b8; font-size:12px; }
+    #hha-mini-panel .row{ display:flex; justify-content:space-between; gap:10px; align-items:center; }
+    #hha-mini-panel .pill{
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.55);
+      border-radius:999px;
+      padding:6px 10px;
+      font-weight:900;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    #hha-mini-panel .grid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    #hha-mini-panel .box{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.35);
+      border-radius:16px;
+      padding:10px;
+    }
+    #hha-mini-panel .btns{
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      margin-top:12px;
+    }
+    #hha-mini-panel .btn{
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
+      color:#e5e7eb;
+      padding:10px 12px;
+      font-weight:900;
+    }
+  `;
+  document.head.appendChild(style);
 
   const hud = document.createElement('div');
   hud.id = 'hha-mini-hud';
+  hud.setAttribute('data-hha-exclude','1'); // กัน spawn มาทับแถบบน
+
   hud.innerHTML = `
-    <div class="grp">
-      <div class="pill"><span class="val" id="m-zone">GREEN</span></div>
-      <div class="pill"><span class="mut">🏁</span><span class="val" id="m-score">0</span><span class="mut">pts</span></div>
-      <div class="pill"><span class="mut">⚡</span><span class="val" id="m-combo">0</span></div>
-      <div class="pill"><span class="mut">✖</span><span class="val" id="m-miss">0</span></div>
+    <div class="bar" data-hha-exclude="1">
+      <div class="chip" id="m-zone">💧 <b>GREEN</b></div>
+      <div class="chip" id="m-score">🏁 <b>0</b> pts</div>
+      <div class="chip" id="m-combo">⚡ <b>0</b></div>
+      <div class="chip" id="m-miss">✖ <b>0</b></div>
+      <div class="chip" id="m-time">⏳ <b>0:00</b></div>
     </div>
-    <div class="grp">
-      <div class="pill"><span class="mut">⏳</span><span class="val" id="m-time">0:00</span></div>
-      <button type="button" id="m-info" aria-label="info">i</button>
-      <button type="button" id="m-pin" aria-label="pin">📌</button>
+    <div class="actions" data-hha-exclude="1">
+      <button id="m-info" aria-label="info">i</button>
+      <button id="m-center" aria-label="center">+</button>
     </div>
   `;
   document.body.appendChild(hud);
 
   const panel = document.createElement('div');
   panel.id = 'hha-mini-panel';
+  panel.setAttribute('data-hha-exclude','1');
   panel.innerHTML = `
-    <div class="t">Quest</div>
-    <div class="m" id="m-goal">Goal: —</div>
-    <div class="m" id="m-mini">Mini: —</div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <div class="muted">Quest</div>
+          <div class="title">Hydration</div>
+        </div>
+        <div class="pill">Grade <span id="p-grade">C</span></div>
+      </div>
+
+      <div class="muted" style="margin-top:6px;">
+        <div id="p-goal">Goal: —</div>
+        <div id="p-mini">Mini: —</div>
+      </div>
+
+      <div class="grid">
+        <div class="box">
+          <div class="muted">Water</div>
+          <div style="font-size:18px;font-weight:1000;margin-top:4px;">
+            <span id="p-zone">GREEN</span> • <span id="p-water">50</span>%
+          </div>
+          <div class="muted">รักษาให้อยู่ GREEN ให้นานที่สุด 💧</div>
+        </div>
+        <div class="box">
+          <div class="muted">Stats</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+            <span class="pill">Score <b id="p-score">0</b></span>
+            <span class="pill">ComboMax <b id="p-combo">0</b></span>
+            <span class="pill">Miss <b id="p-miss">0</b></span>
+            <span class="pill">GreenSec <b id="p-green">0</b></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="btns">
+        <button class="btn" id="p-close">Close</button>
+      </div>
+    </div>
   `;
   document.body.appendChild(panel);
 
-  // ถ้ามี HUD ใหญ่เดิม → ซ่อนไปเลย (ไม่ให้บังเป้า)
-  const bigHud = document.querySelector('.hud');
-  if (bigHud) {
-    bigHud.style.display = 'none';
-  }
+  const btnInfo = document.getElementById('m-info');
+  const btnCenter = document.getElementById('m-center');
+  const btnClose = document.getElementById('p-close');
 
-  // crosshair ถ้ายังว่าง ให้แสดงแบบเบา ๆ
-  const cross = $id('hvr-crosshair');
-  if (cross && !cross.__hhaStyled) {
-    cross.__hhaStyled = 1;
-    cross.innerHTML = `
-      <div style="
-        width:44px;height:44px;border-radius:999px;
-        border:2px solid rgba(255,255,255,.22);
-        box-shadow:0 0 0 3px rgba(34,197,94,.10), 0 0 18px rgba(34,197,94,.12);
-        position:relative;
-      ">
-        <div style="
-          position:absolute;left:50%;top:50%;
-          width:10px;height:10px;border-radius:999px;
-          transform:translate(-50%,-50%);
-          background:rgba(255,255,255,.18);
-        "></div>
-      </div>
-    `;
-  }
+  const togglePanel = (on)=>{
+    const p = document.getElementById('hha-mini-panel');
+    if (!p) return;
+    if (on == null) on = !p.classList.contains('on');
+    p.classList.toggle('on', !!on);
+  };
 
-  // auto-hide behavior
-  let pinned = false;
-  let lastWake = 0;
-  const HIDE_MS = 1200;
+  btnInfo && btnInfo.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); togglePanel(true); }, { passive:false });
+  btnClose && btnClose.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); togglePanel(false); }, { passive:false });
 
-  function wake(){
-    lastWake = performance.now();
-    hud.classList.remove('hha-hide');
-  }
-  function tick(){
-    if (pinned) return ROOT.requestAnimationFrame(tick);
-    const now = performance.now();
-    if (now - lastWake > HIDE_MS) hud.classList.add('hha-hide');
-    ROOT.requestAnimationFrame(tick);
-  }
-  wake();
-  ROOT.requestAnimationFrame(tick);
+  // btnCenter: ให้ safe.js ผูก handler อีกชั้น (recenter gyro)
+  btnCenter && btnCenter.addEventListener('contextmenu', (e)=>{ e.preventDefault(); }, { passive:false });
+}
 
-  // info/pin buttons
-  const btnInfo = $id('m-info');
-  const btnPin  = $id('m-pin');
-  if (btnInfo) {
-    btnInfo.addEventListener('click', (e)=>{
-      e.preventDefault(); e.stopPropagation();
-      panel.classList.toggle('on');
-      wake();
-    }, { passive:false });
-  }
-  if (btnPin) {
-    btnPin.addEventListener('click', (e)=>{
-      e.preventDefault(); e.stopPropagation();
-      pinned = !pinned;
-      btnPin.textContent = pinned ? '📌' : '📍';
-      if (!pinned) wake();
-    }, { passive:false });
-  }
+function hideBigHudCards(){
+  // ถ้ามี HUD แบบการ์ด (จาก html เก่า) ให้ซ่อน เพื่อไม่บังสนาม
+  try{
+    const big = document.querySelector('.hud');
+    if (big) big.style.display = 'none';
+  }catch{}
+}
 
-  // wake on interaction
-  ROOT.addEventListener('pointerdown', wake, { passive:true });
-  ROOT.addEventListener('pointermove', wake, { passive:true });
+function fmtTime(sec){
+  sec = Math.max(0, sec|0);
+  const m = Math.floor(sec/60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2,'0')}`;
 }
 
 // --------------------- Main boot ---------------------
@@ -259,6 +320,8 @@ export async function boot(opts = {}) {
   const duration   = clamp(opts.duration ?? 90, 20, 180);
 
   ensureWaterGauge();
+  ensureMiniHud();
+  hideBigHudCards();
 
   const playfield = $id('hvr-playfield') || null;
   if (!playfield) {
@@ -266,12 +329,10 @@ export async function boot(opts = {}) {
     return { stop(){} };
   }
 
-  // ✅ ใช้ HUD เล็กเสมอ (ลดเกะกะ/ไม่บังเป้า)
-  ensureMiniHUD();
-
   playfield.style.willChange = 'transform';
   playfield.style.transform = 'translate3d(0,0,0)';
 
+  // Fever UI (optional)
   const FeverUI = getFeverUI();
   if (FeverUI && typeof FeverUI.ensureFeverBar === 'function') {
     FeverUI.ensureFeverBar();
@@ -298,13 +359,18 @@ export async function boot(opts = {}) {
     feverLeft: 0,
     shield: 0,
 
+    // look target/velocity
     lookTX: 0,
     lookTY: 0,
     lookVX: 0,
     lookVY: 0,
 
-    stormLeft: 0,
+    // gyro baseline
+    gyroOn: false,
+    gyroZeroG: null,
+    gyroZeroB: null,
 
+    stormLeft: 0,
     stopped: false
   };
 
@@ -314,30 +380,45 @@ export async function boot(opts = {}) {
     stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} }
   };
 
-  function fmtTime(sec){
-    sec = Math.max(0, sec|0);
-    const m = Math.floor(sec/60);
-    const s = sec%60;
-    return `${m}:${String(s).padStart(2,'0')}`;
+  // --------------------- HUD updates ---------------------
+  function updateMiniHud(){
+    const z = document.getElementById('m-zone');
+    const sc = document.getElementById('m-score');
+    const cb = document.getElementById('m-combo');
+    const ms = document.getElementById('m-miss');
+    const tm = document.getElementById('m-time');
+
+    if (z) z.innerHTML  = `💧 <b>${state.zone}</b>`;
+    if (sc) sc.innerHTML = `🏁 <b>${state.score|0}</b> pts`;
+    if (cb) cb.innerHTML = `⚡ <b>${state.comboBest|0}</b>`;
+    if (ms) ms.innerHTML = `✖ <b>${state.miss|0}</b>`;
+    if (tm) tm.innerHTML = `⏳ <b>${fmtTime(state.timeLeft)}</b>`;
   }
 
-  function updateMiniHUD(){
-    const z = $id('m-zone');  if (z) z.textContent = state.zone;
-    const sc = $id('m-score'); if (sc) sc.textContent = String(state.score|0);
-    const cb = $id('m-combo'); if (cb) cb.textContent = String(state.comboBest|0);
-    const ms = $id('m-miss');  if (ms) ms.textContent = String(state.miss|0);
-    const tm = $id('m-time');  if (tm) tm.textContent = fmtTime(state.timeLeft);
+  function updatePanel(){
+    const goalsDone = (Q.goals || []).filter(g => g._done || g.done).length;
+    const minisDone = (Q.minis || []).filter(m => m._done || m.done).length;
 
-    const mg = $id('m-goal');
-    const mm = $id('m-mini');
-    if (mg) mg.textContent = ($id('hha-quest-goal')?.textContent) || 'Goal: —';
-    if (mm) mm.textContent = ($id('hha-quest-mini')?.textContent) || 'Mini: —';
+    const fill = $id('p-grade'); if (fill) fill.textContent = ($id('hha-grade-badge')?.textContent || 'C');
+
+    const gEl = $id('p-goal'); if (gEl) gEl.textContent = $id('hha-quest-goal')?.textContent || 'Goal: —';
+    const mEl = $id('p-mini'); if (mEl) mEl.textContent = $id('hha-quest-mini')?.textContent || 'Mini: —';
+
+    const pz = $id('p-zone'); if (pz) pz.textContent = state.zone;
+    const pw = $id('p-water'); if (pw) pw.textContent = String(Math.round(state.waterPct));
+    const ps = $id('p-score'); if (ps) ps.textContent = String(state.score|0);
+    const pc = $id('p-combo'); if (pc) pc.textContent = String(state.comboBest|0);
+    const pm = $id('p-miss'); if (pm) pm.textContent = String(state.miss|0);
+    const pg = $id('p-green'); if (pg) pg.textContent = String((Q && Q.stats) ? (Q.stats.greenTick|0) : (state.greenTick|0));
+
+    // ให้ panel สื่อว่าทำไปกี่เควสแล้ว (optional)
+    // ไม่ยัดเพิ่มให้รกหน้าจอ
+    void goalsDone; void minisDone;
   }
 
   function updateWaterHud(){
     const out = setWaterGauge(state.waterPct);
     state.zone = out.zone;
-    updateMiniHUD();
   }
 
   function calcProgressToS(){
@@ -356,12 +437,7 @@ export async function boot(opts = {}) {
     const { prog, goalsDone, minisDone } = calcProgressToS();
     const progPct = Math.round(prog * 100);
 
-    // (รองรับถ้าเกมอื่นมี progress UI)
-    const fill = $id('hha-grade-progress-fill');
-    const txt  = $id('hha-grade-progress-text');
-    if (fill) fill.style.width = progPct + '%';
-    if (txt)  txt.textContent = `Progress to S (30%): ${progPct}%`;
-
+    // grade calc
     let grade = 'C';
     if (progPct >= 95) grade = 'SSS';
     else if (progPct >= 85) grade = 'SS';
@@ -369,6 +445,7 @@ export async function boot(opts = {}) {
     else if (progPct >= 50) grade = 'A';
     else if (progPct >= 30) grade = 'B';
 
+    // (เผื่อ html เก่ายังมี badge)
     const gb = $id('hha-grade-badge');
     if (gb) gb.textContent = grade;
 
@@ -384,10 +461,12 @@ export async function boot(opts = {}) {
       shield: state.shield|0,
       goalsDone,
       minisDone,
+      grade,
       label: label || ''
     });
 
-    updateMiniHUD();
+    updateMiniHud();
+    updatePanel();
   }
 
   function updateQuestHud(){
@@ -396,8 +475,6 @@ export async function boot(opts = {}) {
 
     const allGoals = Q.goals || [];
     const allMinis = Q.minis || [];
-    const goalsDone = allGoals.filter(g => g._done || g.done).length;
-    const minisDone = allMinis.filter(m => m._done || m.done).length;
 
     const curGoalId = (goalsView && goalsView[0]) ? goalsView[0].id : (allGoals[0]?.id || '');
     const curMiniId = (minisView && minisView[0]) ? minisView[0].id : (allMinis[0]?.id || '');
@@ -405,25 +482,21 @@ export async function boot(opts = {}) {
     const gInfo = Q.getGoalProgressInfo ? Q.getGoalProgressInfo(curGoalId) : null;
     const mInfo = Q.getMiniProgressInfo ? Q.getMiniProgressInfo(curMiniId) : null;
 
-    // ถ้าไม่มี element ใน HTML ก็ไม่เป็นไร (เรามี mini panel ของเรา)
+    // (เผื่อ html เดิมยังใช้)
     const goalEl = $id('hha-quest-goal');
     const miniEl = $id('hha-quest-mini');
     if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : `Goal: ทำภารกิจให้ครบ`;
     if (miniEl) miniEl.textContent = mInfo?.text ? `Mini: ${mInfo.text}` : `Mini: ทำมินิเควส`;
 
     dispatch('quest:update', {
-      goalDone: goalsDone,
-      goalTotal: allGoals.length || 2,
-      miniDone: minisDone,
-      miniTotal: allMinis.length || 3,
       goalText: goalEl ? goalEl.textContent : (gInfo?.text || ''),
       miniText: miniEl ? miniEl.textContent : (mInfo?.text || '')
     });
 
     updateScoreHud();
-    updateMiniHUD();
   }
 
+  // --------------------- Fever ---------------------
   function feverRender(){
     const F = getFeverUI();
     if (!F) return;
@@ -478,6 +551,7 @@ export async function boot(opts = {}) {
 
     let scoreDelta = 0;
     let label = 'GOOD';
+
     const mult = state.feverActive ? 2 : 1;
 
     if (isPower){
@@ -558,15 +632,7 @@ export async function boot(opts = {}) {
   let dragOn = false;
   let lastX = 0, lastY = 0;
 
-  // ✅ ลด “หนี” ด้วย step clamp
-  function stepClamp(next, cur, maxStep){
-    const d = next - cur;
-    if (Math.abs(d) <= maxStep) return next;
-    return cur + Math.sign(d) * maxStep;
-  }
-
   function applyLookTransform(){
-    // smooth target -> velocity
     state.lookVX += (state.lookTX - state.lookVX) * TUNE.lookSmooth;
     state.lookVY += (state.lookTY - state.lookVY) * TUNE.lookSmooth;
 
@@ -585,14 +651,13 @@ export async function boot(opts = {}) {
     if (!dragOn) return;
     const x = ev.clientX || 0;
     const y = ev.clientY || 0;
-    const dx = clamp(x - lastX, -28, 28);
-    const dy = clamp(y - lastY, -24, 24);
+    const dx = x - lastX;
+    const dy = y - lastY;
     lastX = x; lastY = y;
 
-    const nx = clamp(state.lookTX + dx * 1.10, -TUNE.lookMaxX, TUNE.lookMaxX);
-    const ny = clamp(state.lookTY + dy * 0.95, -TUNE.lookMaxY, TUNE.lookMaxY);
-    state.lookTX = stepClamp(nx, state.lookTX, TUNE.lookStepClamp);
-    state.lookTY = stepClamp(ny, state.lookTY, TUNE.lookStepClamp);
+    // drag คุมแบบนิ่ม ๆ
+    state.lookTX = clamp(state.lookTX + dx * 1.05, -TUNE.lookMaxX, TUNE.lookMaxX);
+    state.lookTY = clamp(state.lookTY + dy * 0.95, -TUNE.lookMaxY, TUNE.lookMaxY);
   }
   function onPointerUp(){ dragOn = false; }
 
@@ -600,32 +665,45 @@ export async function boot(opts = {}) {
     try{
       const D = ROOT.DeviceOrientationEvent;
       if (!D) return false;
-      if (typeof D.requestPermission === 'function') return false;
+      if (typeof D.requestPermission === 'function') return false; // iOS ต้องขอเอง
       return true;
     }catch{ return false; }
   }
 
-  // ✅ Gyro low-pass + deadzone (เอียงนิดเดียวไม่กระโดด)
-  function onDeviceOrientation(e){
-    const g = Number(e.gamma);
-    const b = Number(e.beta);
-    if (!Number.isFinite(g) || !Number.isFinite(b)) return;
+  function gyroRecenter(){
+    state.gyroZeroG = null;
+    state.gyroZeroB = null;
+    dispatch('hha:coach', { text:'🎯 Re-center มุมมองแล้ว', mood:'neutral' });
+    try{ Particles.toast && Particles.toast('CENTER ✅', 'good'); }catch{}
+  }
 
-    const DEAD_G = 2.3;
-    const DEAD_B = 2.8;
+  function onDeviceOrientation(e){
+    const gRaw = Number(e.gamma);
+    const bRaw = Number(e.beta);
+    if (!Number.isFinite(gRaw) || !Number.isFinite(bRaw)) return;
+
+    // baseline ครั้งแรก
+    if (state.gyroZeroG == null) state.gyroZeroG = gRaw;
+    if (state.gyroZeroB == null) state.gyroZeroB = bRaw;
+
+    const g = gRaw - state.gyroZeroG;
+    const b = bRaw - state.gyroZeroB;
+
+    const DEAD_G = TUNE.gyroDeadGamma;
+    const DEAD_B = TUNE.gyroDeadBeta;
 
     let gg = Math.abs(g) < DEAD_G ? 0 : g;
     let bb = Math.abs(b) < DEAD_B ? 0 : b;
 
-    // bias ให้ “กึ่งกลาง” คงที่
-    const BIAS_B = 18;
+    const tx = gg * TUNE.lookPxPerDegX;
+    const ty = (bb - TUNE.gyroBetaBias) * TUNE.lookPxPerDegY;
 
-    const tx = clamp(gg * TUNE.lookPxPerDegX, -TUNE.lookMaxX, TUNE.lookMaxX);
-    const ty = clamp((bb - BIAS_B) * TUNE.lookPxPerDegY, -TUNE.lookMaxY, TUNE.lookMaxY);
+    // blend เข้ากับ lookTX/TY เดิมให้ “ไม่พุ่ง”
+    const blend = clamp(TUNE.gyroBlend, 0.05, 0.45);
+    state.lookTX = clamp(state.lookTX*(1-blend) + tx*blend, -TUNE.lookMaxX, TUNE.lookMaxX);
+    state.lookTY = clamp(state.lookTY*(1-blend) + ty*blend, -TUNE.lookMaxY, TUNE.lookMaxY);
 
-    // low-pass to target (นุ่ม)
-    state.lookTX = stepClamp(state.lookTX * 0.88 + tx * 0.12, state.lookTX, TUNE.lookStepClamp);
-    state.lookTY = stepClamp(state.lookTY * 0.88 + ty * 0.12, state.lookTY, TUNE.lookStepClamp);
+    state.gyroOn = true;
   }
 
   async function requestGyroPermission(){
@@ -636,7 +714,7 @@ export async function boot(opts = {}) {
       const res = await D.requestPermission();
       if (res === 'granted') {
         ROOT.addEventListener('deviceorientation', onDeviceOrientation, true);
-        dispatch('hha:coach', { text:'✅ เปิด Gyro แล้ว! หมุนมือถือ = หันมุมมองเหมือน VR 🕶️', mood:'happy' });
+        dispatch('hha:coach', { text:'✅ เปิด Gyro แล้ว! (เอียงเบา ๆ) 🕶️', mood:'happy' });
       } else {
         dispatch('hha:coach', { text:'ℹ️ Gyro ไม่ได้รับอนุญาต ใช้ลากจอแทนได้เลย 👍', mood:'neutral' });
       }
@@ -644,6 +722,21 @@ export async function boot(opts = {}) {
       dispatch('hha:coach', { text:'ℹ️ ใช้ลากจอแทนได้เลย (Gyro ไม่พร้อม)', mood:'neutral' });
     }
   }
+
+  // ผูกปุ่ม center
+  try{
+    const btnCenter = document.getElementById('m-center');
+    if (btnCenter){
+      let holdT = null;
+      btnCenter.addEventListener('pointerdown', (e)=>{
+        e.preventDefault();
+        holdT = setTimeout(()=>{ gyroRecenter(); }, 220);
+      }, { passive:false });
+      btnCenter.addEventListener('pointerup', ()=>{ if (holdT) clearTimeout(holdT); holdT=null; }, { passive:true });
+      btnCenter.addEventListener('pointercancel', ()=>{ if (holdT) clearTimeout(holdT); holdT=null; }, { passive:true });
+      btnCenter.addEventListener('click', (e)=>{ e.preventDefault(); gyroRecenter(); }, { passive:false });
+    }
+  }catch{}
 
   // --------------------- Clock tick ---------------------
   let timer = null;
@@ -722,14 +815,105 @@ export async function boot(opts = {}) {
     rafId = ROOT.requestAnimationFrame(rafLoop);
   }
 
+  // --------------------- End screen ---------------------
+  function ensureEndHost(){
+    let end = $id('hvr-end');
+    if (end) return end;
+    end = document.createElement('div');
+    end.id = 'hvr-end';
+    document.body.appendChild(end);
+    return end;
+  }
+
+  function showEndScreen(payload){
+    const end = ensureEndHost();
+    if (!end) return;
+
+    end.classList.add('on');
+    end.style.display = 'flex';
+    end.style.alignItems = 'center';
+    end.style.justifyContent = 'center';
+    end.style.padding = '18px';
+    end.style.background = 'rgba(2,6,23,.58)';
+    end.style.backdropFilter = 'blur(10px)';
+    end.style.zIndex = '200';
+
+    const grade = ($id('hha-grade-badge')?.textContent || 'C');
+    const gsec = payload.greenTick|0;
+
+    end.innerHTML = `
+      <div style="
+        width:min(560px,92vw);
+        background:rgba(2,6,23,.80);
+        border:1px solid rgba(148,163,184,.18);
+        border-radius:22px;
+        box-shadow:0 26px 80px rgba(0,0,0,.60);
+        padding:16px 16px 14px;
+        color:#e5e7eb;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div>
+            <div style="color:#94a3b8;font-size:12px;">Result</div>
+            <div style="font-size:22px;font-weight:1000;margin-top:2px;">🏁 Hydration Complete</div>
+          </div>
+          <div style="border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.55);border-radius:999px;padding:6px 10px;font-weight:1000;">
+            Grade ${grade}
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+          <div style="border:1px solid rgba(148,163,184,.14);background:rgba(15,23,42,.35);border-radius:16px;padding:10px;">
+            <div style="color:#94a3b8;font-size:12px;">Score</div>
+            <div style="font-size:20px;font-weight:1000;margin-top:4px;">${payload.score|0} pts</div>
+            <div style="color:#94a3b8;font-size:12px;">ComboMax ${payload.comboBest|0}</div>
+          </div>
+          <div style="border:1px solid rgba(148,163,184,.14);background:rgba(15,23,42,.35);border-radius:16px;padding:10px;">
+            <div style="color:#94a3b8;font-size:12px;">Water</div>
+            <div style="font-size:20px;font-weight:1000;margin-top:4px;">${payload.zone} • ${payload.water|0}%</div>
+            <div style="color:#94a3b8;font-size:12px;">GREEN ${gsec}s</div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;border:1px solid rgba(148,163,184,.14);background:rgba(15,23,42,.25);border-radius:16px;padding:10px;">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+            <div style="color:#94a3b8;font-size:12px;">Miss</div>
+            <div style="font-size:18px;font-weight:1000;">✖ ${payload.miss|0}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px;">
+          <button id="hvr-restart" style="
+            border-radius:14px;border:1px solid rgba(148,163,184,.18);
+            background:rgba(34,197,94,.16);color:#e5e7eb;
+            padding:10px 12px;font-weight:1000;">Restart</button>
+          <button id="hvr-close" style="
+            border-radius:14px;border:1px solid rgba(148,163,184,.18);
+            background:rgba(2,6,23,.55);color:#e5e7eb;
+            padding:10px 12px;font-weight:1000;">Close</button>
+        </div>
+      </div>
+    `;
+
+    const restart = document.getElementById('hvr-restart');
+    const close = document.getElementById('hvr-close');
+
+    restart && restart.addEventListener('click', (e)=>{
+      e.preventDefault();
+      try{ location.reload(); }catch{}
+    }, { passive:false });
+
+    close && close.addEventListener('click', (e)=>{
+      e.preventDefault();
+      // ปิด overlay เฉย ๆ (ถ้าอยากกลับ hub ให้เปลี่ยนเป็น location.href='../hub.html')
+      end.classList.remove('on');
+      end.style.display = 'none';
+    }, { passive:false });
+  }
+
   // --------------------- Start spawner ---------------------
   let spawner = null;
 
   // ✅ boundsHost = ชั้น viewport ไม่โดน translate (ถ้ามี)
   const boundsEl = $id('hvr-bounds') || $id('hvr-stage') || document.body;
-
-  // ✅ กระจายทั้งสนาม (แก้ “อยู่บริเวณเดียวกัน”)
-  const spread = String(qs('spread','1')) !== '0';
 
   spawner = await factoryBoot({
     modeKey: 'hydration',
@@ -742,9 +926,8 @@ export async function boot(opts = {}) {
     // ✅ Storm เร่ง spawn “จริง”
     spawnIntervalMul: () => (state.stormLeft > 0 ? TUNE.stormIntervalMul : 1),
 
-    // ✅ ตัด HUD ออก (เราใช้ mini HUD)
+    // ✅ กันทับ UI ที่เล็ก ๆ เท่าที่จำเป็น
     excludeSelectors: [
-      '.hud',
       '#hha-mini-hud',
       '#hha-mini-panel',
       '#hvr-crosshair',
@@ -762,11 +945,14 @@ export async function boot(opts = {}) {
     powerRate: (difficulty === 'hard') ? 0.10 : 0.12,
     powerEvery: 6,
 
-    // ✅ กระจายจริง (ใช้ uniform)
-    spawnAroundCrosshair: spread ? false : true,
-    spawnRadiusX: spread ? 0.92 : 0.42,
-    spawnRadiusY: spread ? 0.86 : 0.38,
-    minSeparation: spread ? 0.82 : 0.95,
+    // ✅ IMPORTANT: กระจายทั่วจอจริง (FULL-SPREAD)
+    spawnAroundCrosshair: false,
+
+    // ค่านี้จะมีผลเมื่อ spawnAroundCrosshair:true เท่านั้น (เก็บไว้เผื่อสลับโหมด)
+    spawnRadiusX: 0.78,
+    spawnRadiusY: 0.74,
+
+    minSeparation: 1.05,
     maxSpawnTries: 22,
 
     judge: (ch, ctx) => {
@@ -807,7 +993,6 @@ export async function boot(opts = {}) {
   updateQuestHud();
   updateScoreHud();
   feverRender();
-  updateMiniHUD();
 
   playfield.addEventListener('pointerdown', onPointerDown, { passive:true });
   ROOT.addEventListener('pointermove', onPointerMove, { passive:true });
@@ -818,6 +1003,7 @@ export async function boot(opts = {}) {
     ROOT.addEventListener('deviceorientation', onDeviceOrientation, true);
   }
 
+  // iOS: ขอ permission ครั้งแรกที่ผู้ใช้แตะจอ
   const onceAsk = async () => {
     ROOT.removeEventListener('pointerdown', onceAsk);
     await requestGyroPermission();
@@ -835,92 +1021,6 @@ export async function boot(opts = {}) {
     if (Number.isFinite(sec) && sec <= 0) stop();
   };
   ROOT.addEventListener('hha:time', onTime, { passive:true });
-
-  // --------------------- End summary (กันจอดำ) ---------------------
-  function showEndOverlay(payload){
-    let end = $id('hvr-end');
-    if (!end) {
-      end = document.createElement('div');
-      end.id = 'hvr-end';
-      document.body.appendChild(end);
-    }
-
-    // ensure style if HTML ไม่ได้มี
-    if (!end.__hhaStyled) {
-      end.__hhaStyled = 1;
-      Object.assign(end.style, {
-        position:'fixed', inset:'0', zIndex:'200',
-        display:'flex', alignItems:'center', justifyContent:'center',
-        padding:'18px',
-        background:'rgba(2,6,23,.68)',
-        backdropFilter:'blur(10px)'
-      });
-    }
-
-    const grade = ($id('hha-grade-badge')?.textContent) || 'C';
-    const greenTick = payload.greenTick|0;
-    const html = `
-      <div style="
-        width:min(520px,92vw);
-        border-radius:22px;
-        background:rgba(2,6,23,.72);
-        border:1px solid rgba(148,163,184,.20);
-        box-shadow:0 22px 70px rgba(0,0,0,.55);
-        padding:16px 16px;
-        color:#e5e7eb;
-      ">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div style="font-weight:1000;font-size:18px;">🏁 จบเกม Hydration</div>
-          <div style="padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.55);font-weight:1000;">
-            Grade ${grade}
-          </div>
-        </div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div style="padding:10px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
-            <div style="opacity:.85;font-size:12px;">Score</div>
-            <div style="font-size:26px;font-weight:1000;">${payload.score|0} pts</div>
-          </div>
-          <div style="padding:10px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
-            <div style="opacity:.85;font-size:12px;">Combo Best</div>
-            <div style="font-size:26px;font-weight:1000;">${payload.comboBest|0}</div>
-          </div>
-          <div style="padding:10px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
-            <div style="opacity:.85;font-size:12px;">Miss</div>
-            <div style="font-size:26px;font-weight:1000;">${payload.miss|0}</div>
-          </div>
-          <div style="padding:10px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
-            <div style="opacity:.85;font-size:12px;">GREEN time</div>
-            <div style="font-size:26px;font-weight:1000;">${greenTick}s</div>
-          </div>
-        </div>
-
-        <div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
-          <button id="hvr-retry" style="
-            pointer-events:auto;
-            border-radius:999px;padding:10px 12px;
-            background:rgba(34,197,94,.18);
-            border:1px solid rgba(34,197,94,.35);
-            color:#e5e7eb;font-weight:1000;cursor:pointer;
-          ">เล่นอีกครั้ง</button>
-          <button id="hvr-close" style="
-            pointer-events:auto;
-            border-radius:999px;padding:10px 12px;
-            background:rgba(148,163,184,.10);
-            border:1px solid rgba(148,163,184,.22);
-            color:#e5e7eb;font-weight:1000;cursor:pointer;
-          ">ปิด</button>
-        </div>
-      </div>
-    `;
-    end.innerHTML = html;
-    end.classList.add('on');
-    end.style.display = 'flex';
-
-    const retry = $id('hvr-retry');
-    const close = $id('hvr-close');
-    if (retry) retry.onclick = () => { try{ location.reload(); }catch{} };
-    if (close) close.onclick = () => { try{ end.style.display='none'; }catch{} };
-  }
 
   function stop(){
     if (state.stopped) return;
@@ -951,11 +1051,12 @@ export async function boot(opts = {}) {
     };
 
     dispatch('hha:end', payload);
-    dispatch('hha:coach', { text:'🏁 จบเกม! ดูผลคะแนนได้เลย', mood:'happy' });
-    try{ Particles.celebrate && Particles.celebrate('end'); }catch{}
 
-    // ✅ กันจอดำ: สร้าง overlay สรุปเสมอ
-    showEndOverlay(payload);
+    // ✅ แก้ “จบแล้วจอดำ”
+    showEndScreen(payload);
+
+    dispatch('hha:coach', { text:'🏁 จบเกม! แตะ Restart เพื่อเล่นใหม่ได้เลย', mood:'happy' });
+    try{ Particles.celebrate && Particles.celebrate('end'); }catch{}
   }
 
   return { stop };
