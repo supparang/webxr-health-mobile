@@ -48,6 +48,19 @@
       -webkit-user-select:none;
       transform: translate3d(0,0,0);
     }
+
+    /* ✅ NEW: target layer (เหนือ postfx และเลื่อนได้ตาม look จาก JS) */
+    #hvr-target-layer{
+      position:fixed;
+      inset:0;
+      z-index:65;          /* > postfx(60) และ < hud(80) */
+      pointer-events:none; /* host ไม่บัง */
+      overflow:visible;
+      transform: translate3d(0,0,0);
+      will-change: transform;
+    }
+    #hvr-target-layer .hvr-target{ pointer-events:auto; }
+
     #hvr-postfx{
       position:fixed;
       inset:0;
@@ -102,7 +115,6 @@
     #hvr-screen-blink.bad{  background: radial-gradient(800px 600px at 50% 50%, rgba(239,68,68,.55), transparent 60%); }
     #hvr-screen-blink.perfect{ background: radial-gradient(900px 700px at 50% 50%, rgba(255,255,255,.75), transparent 60%); }
 
-    /* crosshair placeholder (safe.js จะใส่ style ให้อีกชั้น) */
     #hvr-crosshair{
       position:fixed;
       left:50%; top:52%;
@@ -141,13 +153,15 @@
 <body>
   <div id="hvr-wrap">
     <div id="hvr-playfield" aria-label="playfield"></div>
+
+    <!-- ✅ NEW: target layer for DOM targets -->
+    <div id="hvr-target-layer" aria-label="targets"></div>
+
     <canvas id="hvr-postfx"></canvas>
     <div id="hvr-screen-blink"></div>
 
-    <!-- crosshair -->
     <div id="hvr-crosshair"></div>
 
-    <!-- HUD -->
     <div class="hud">
       <div class="card">
         <div class="row">
@@ -223,7 +237,7 @@
       console.error(e);
       errBox.classList.add('on');
       errBox.textContent =
-        '❌ Hydration boot failed\\n\\n' +
+        '❌ Hydration boot failed\n\n' +
         String(e && (e.stack || e.message || e));
     }
   </script>
