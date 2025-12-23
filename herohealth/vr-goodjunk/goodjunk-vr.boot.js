@@ -1,9 +1,14 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// PRODUCTION BOOT — Quest FIX + SafeMargins + LayerOffset + All modes (play/research, easy/normal/hard, rush/survival/boss)
+// GoodJunkVR Page Boot — H++ / EXTREME PACK
+// - binds HUD + Coach + Fever/Shield + FX
+// - boots quest director (goodjunk specific)
+// - boots engine (goodjunk.safe.js)
+// - double-bine: quest clear -> floating pop (Particles layer)
+
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
 
-// ✅ IMPORTANT: use GoodJunk-specific quest director (emits quest:update correctly)
+// ✅ use GoodJunk compatible quest director
 import { makeQuestDirector } from './quest-director-goodjunk.js';
 import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
 
@@ -16,8 +21,32 @@ export function boot(){
 
   const $ = (id)=>document.getElementById(id);
   const safeText = (el, txt)=>{ try{ if (el) el.textContent = (txt ?? ''); }catch(_){ } };
+  const clamp = (v,min,max)=>{ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; };
+  const normDiff = (v)=>{ v=String(v||'normal').toLowerCase(); return (v==='easy'||v==='hard'||v==='normal') ? v : 'normal'; };
+  const normCh = (v)=>{ v=String(v||'rush').toLowerCase(); return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush'; };
+  const normRun = (v)=>{ v=String(v||'play').toLowerCase(); return (v==='research') ? 'research' : 'play'; };
 
-  // ---- HUD ----
+  // ---------- Particles (global IIFE) ----------
+  const Particles =
+    (window.GAME_MODULES && window.GAME_MODULES.Particles) ||
+    window.Particles ||
+    { burstAt(){}, scorePop(){}, celebrate(){}, toast(){} };
+
+  function floatingPop(text, label=''){
+    // "double-bine": prefer toast (center), fallback scorePop at aim center
+    try{
+      if (Particles.toast){
+        Particles.toast(String(text||''), String(label||'')); // expected center floating
+        return;
+      }
+    }catch(_){}
+    try{
+      const ap = window.__GJ_AIM_POINT__ || { x: innerWidth*0.5, y: innerHeight*0.45 };
+      if (Particles.scorePop) Particles.scorePop(ap.x, ap.y, String(text||''), String(label||''));
+    }catch(_){}
+  }
+
+  // ---------- HUD / UI elements ----------
   const elScore = $('hud-score');
   const elCombo = $('hud-combo');
   const elMiss  = $('hud-miss');
@@ -78,17 +107,12 @@ export function boot(){
   const btnReplay = $('btn-replay');
   const btnExit = $('btn-exit');
 
-  // ---- URL params ----
+  // ---------- URL params ----------
   const pageUrl = new window.URL(window.location.href);
   const URL_RUN = (pageUrl.searchParams.get('run') || 'play').toLowerCase();
   const URL_DIFF = (pageUrl.searchParams.get('diff') || 'normal').toLowerCase();
   const URL_CH = (pageUrl.searchParams.get('ch') || pageUrl.searchParams.get('challenge') || 'rush').toLowerCase();
   const URL_TIME_RAW = parseInt(pageUrl.searchParams.get('time') || '', 10);
-
-  function clamp(v,min,max){ v=Number(v)||0; if(v<min) return min; if(v>max) return max; return v; }
-  function normDiff(v){ v=String(v||'normal').toLowerCase(); return (v==='easy'||v==='hard'||v==='normal') ? v : 'normal'; }
-  function normCh(v){ v=String(v||'rush').toLowerCase(); return (v==='rush'||v==='boss'||v==='survival') ? v : 'rush'; }
-  function normRun(v){ v=String(v||'play').toLowerCase(); return (v==='research') ? 'research' : 'play'; }
 
   const RUN_MODE = normRun(URL_RUN);
   const DIFF_INIT = normDiff(URL_DIFF);
@@ -97,7 +121,7 @@ export function boot(){
   const DEFAULT_TIME = { easy:80, normal:60, hard:50 };
   const DUR_INIT = clamp((Number.isFinite(URL_TIME_RAW) ? URL_TIME_RAW : (DEFAULT_TIME[DIFF_INIT] || 60)), 20, 180);
 
-  // ---- Coach ----
+  // ---------- Coach ----------
   const COACH_IMG = {
     neutral: './img/coach-neutral.png',
     happy:   './img/coach-happy.png',
@@ -118,7 +142,7 @@ export function boot(){
     lastCoachTimeout = setTimeout(()=> elCoachBubble && elCoachBubble.classList.remove('show'), holdMs);
   }
 
-  // ---- Logger badge ----
+  // ---------- Logger badge ----------
   function setLogBadge(state, text){
     if (!logDot || !logText) return;
     logDot.style.background = '#9ca3af';
@@ -127,7 +151,7 @@ export function boot(){
     safeText(logText, text || '');
   }
 
-  // ---- tiny beep ----
+  // ---------- tiny beep ----------
   let __audioCtx = null;
   function beep(freq=880, ms=70, gain=0.035){
     try{
@@ -146,7 +170,7 @@ export function boot(){
     }catch(_){}
   }
 
-  // ---- Countdown ----
+  // ---------- Countdown ----------
   function runCountdown(onDone){
     if (!elCountdown){ onDone && onDone(); return; }
     const steps = ['3','2','1','Go!'];
@@ -165,6 +189,7 @@ export function boot(){
     }, 650);
   }
 
+  // ---------- VR helpers ----------
   async function tryEnterVR(){
     const scene = document.querySelector('a-scene');
     if (!scene) return false;
@@ -181,12 +206,13 @@ export function boot(){
     });
   }
 
+  // ---------- Touch look ----------
   function attachTouch(cameraEl){
     if (!cameraEl) return;
     try{ attachTouchLook(cameraEl, { sensitivity: 0.26, areaEl: document.body }); }catch(_){}
   }
 
-  // ---- AIM POINT ----
+  // ---------- AIM POINT ----------
   function setAimPoint(x, y){
     window.__GJ_AIM_POINT__ = { x: x|0, y: y|0, t: Date.now() };
     if (elVortex){
@@ -195,7 +221,6 @@ export function boot(){
     }
   }
   function defaultAim(){ setAimPoint(window.innerWidth*0.5, window.innerHeight*0.62); }
-
   function bindAimListeners(){
     const layer = document.getElementById('gj-layer');
     if (!layer) return;
@@ -217,96 +242,23 @@ export function boot(){
     });
   }
 
-  // ---- NEW: sync layer offset for safe.js (spawn/magnet correct when layer translated) ----
-  let __layerOffsetRAF = 0;
-  function bindLayerOffsetLoop(){
-    const layer = document.getElementById('gj-layer');
-    if (!layer) return;
-    const tick = ()=>{
-      try{
-        // If you use translate3d(x,y,0) on #gj-layer
-        const st = getComputedStyle(layer);
-        const tr = st.transform || st.webkitTransform || '';
-        let x=0, y=0;
-        if (tr && tr !== 'none'){
-          // matrix(a,b,c,d,tx,ty) or matrix3d(...)
-          const m = tr.match(/matrix\(([^)]+)\)/);
-          const m3 = tr.match(/matrix3d\(([^)]+)\)/);
-          if (m){
-            const p = m[1].split(',').map(s=>parseFloat(s.trim()));
-            if (p.length >= 6){ x = p[4]||0; y = p[5]||0; }
-          } else if (m3){
-            const p = m3[1].split(',').map(s=>parseFloat(s.trim()));
-            if (p.length >= 16){ x = p[12]||0; y = p[13]||0; }
-          }
-        }
-        window.__GJ_LAYER_OFFSET__ = { x, y, t: Date.now() };
-      }catch(_){}
-      __layerOffsetRAF = requestAnimationFrame(tick);
-    };
-    if (__layerOffsetRAF) cancelAnimationFrame(__layerOffsetRAF);
-    __layerOffsetRAF = requestAnimationFrame(tick);
-  }
-
-  // ---- NEW: compute safe margins from visible HUD elements ----
-  function calcSafeMargins(){
-    const base = { top:130, bottom:170, left:26, right:26 };
-    const els = [
-      elScore, elCombo, elMiss, elTime, elDiff, elChal,
-      elQuestMain, elQuestMini, elQuestMainCap, elQuestMiniCap, elQuestHint, elMiniCount,
-      elShield, elStunBadge, elRunLabel, elPill
-    ].filter(Boolean);
-
-    let top = base.top, bottom = base.bottom, left = base.left, right = base.right;
-
-    const W = window.innerWidth || 360;
-    const H = window.innerHeight || 640;
-
-    for (const el of els){
-      let r;
-      try{ r = el.getBoundingClientRect(); }catch(_){ continue; }
-      if (!r || r.width <= 0 || r.height <= 0) continue;
-
-      // top band
-      if (r.top < H*0.38) top = Math.max(top, (r.bottom + 12)|0);
-      // bottom band
-      if (r.bottom > H*0.62) bottom = Math.max(bottom, (H - r.top + 12)|0);
-      // left band
-      if (r.left < W*0.35) left = Math.max(left, (r.right + 12)|0);
-      // right band
-      if (r.right > W*0.65) right = Math.max(right, (W - r.left + 12)|0);
-    }
-
-    top = clamp(top, 90, Math.floor(H*0.55));
-    bottom = clamp(bottom, 90, Math.floor(H*0.55));
-    left = clamp(left, 16, Math.floor(W*0.55));
-    right = clamp(right, 16, Math.floor(W*0.55));
-
-    return { top, bottom, left, right };
-  }
-
-  // ---- Quest shared state (match your existing handlers) ----
+  // ---------- Quest shared state ----------
   const qState = {
-    score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
+    score:0, goodHits:0, miss:0, comboMax:0, timeLeft:DUR_INIT|0,
     streakGood:0, goldHitsThisMini:false, blocks:0, usedMagnet:false,
     timePlus:0, safeNoJunkSeconds:0, bossCleared:false,
-    challenge: CH_INIT, runMode: RUN_MODE, final8Good: 0
+    challenge: CH_INIT, runMode: RUN_MODE, final8Good: 0,
+    minisCleared: 0
   };
+  // ✅ make accessible for director getActive (optional)
+  window.__GJ_QSTATE__ = qState;
 
   let started = false;
-
-  // safer timer (no drift on background)
-  let _safeNoJunkTimer = 0;
-  function startSafeNoJunkClock(){
-    if (_safeNoJunkTimer) clearInterval(_safeNoJunkTimer);
-    _safeNoJunkTimer = setInterval(()=>{
-      if (started) qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
-    }, 1000);
-  }
-
   let Q = null;
 
-  // reset mini
+  // safe second counter
+  setInterval(()=>{ if (started) qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1; }, 1000);
+
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = false;
     qState.usedMagnet = false;
@@ -320,32 +272,42 @@ export function boot(){
   window.addEventListener('quest:goodHit', ()=>{
     qState.streakGood = (qState.streakGood|0) + 1;
     if ((qState.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
-    try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+    if (Q) Q.tick(qState);
   });
-
   window.addEventListener('quest:badHit', ()=>{
     qState.safeNoJunkSeconds = 0;
     qState.streakGood = 0;
-    try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+    if (Q) Q.tick(qState);
   });
-
   window.addEventListener('quest:block', ()=>{
     qState.blocks = (qState.blocks|0) + 1;
-    try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+    if (Q) Q.tick(qState);
   });
-
   window.addEventListener('quest:power', (e)=>{
     const d = e.detail || {};
     const p = (d.power||'');
     if (p === 'magnet') qState.usedMagnet = true;
     if (p === 'time') qState.timePlus = (qState.timePlus|0) + 1;
     if (p === 'gold') qState.goldHitsThisMini = true;
-    try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+    if (Q) Q.tick(qState);
   });
-
   window.addEventListener('quest:bossClear', ()=>{
     qState.bossCleared = true;
-    try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+    if (Q) Q.tick(qState);
+  });
+
+  // ✅ double-bine floating pop on quest clear
+  window.addEventListener('quest:goalClear', (e)=>{
+    const t = (e.detail||{}).title || 'GOAL CLEAR!';
+    floatingPop('🏁 ' + t, 'GOAL CLEAR!');
+    beep(740, 90, 0.03);
+    setCoach('เป้าหมายหลักผ่านแล้ว! 🔥 ไปต่อ!', 'happy', 1600);
+  });
+  window.addEventListener('quest:miniClear', (e)=>{
+    const t = (e.detail||{}).title || 'MINI CLEAR!';
+    floatingPop('⚡ ' + t, 'MINI CLEAR!');
+    beep(860, 80, 0.028);
+    setCoach('มินิเควสผ่าน! ต่อไปเลย! ⚡', 'happy', 1400);
   });
 
   // judge
@@ -357,7 +319,7 @@ export function boot(){
     if (typeof sec === 'number' && sec >= 0){
       safeText(elTime, sec + 's');
       qState.timeLeft = sec|0;
-      try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+      if (Q) Q.tick(qState);
     }
   });
 
@@ -366,13 +328,14 @@ export function boot(){
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail || {};
     if (typeof d.score === 'number'){ qState.score = d.score|0; safeText(elScore, String(qState.score)); }
+    if (typeof d.goodHits === 'number'){ qState.goodHits = d.goodHits|0; }
     if (typeof d.misses === 'number'){
       qState.miss = d.misses|0;
       safeText(elMiss, String(qState.miss));
       if (qState.miss > lastMissSeen){ qState.streakGood = 0; lastMissSeen = qState.miss; }
     }
     if (typeof d.comboMax === 'number'){ qState.comboMax = d.comboMax|0; safeText(elCombo, String(qState.comboMax)); }
-    try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+    if (Q) Q.tick(qState);
 
     const bossAlive = !!d.bossAlive;
     const hp = Number(d.bossHp||0);
@@ -384,7 +347,7 @@ export function boot(){
     if (elBossPhase) elBossPhase.textContent = bossAlive ? ('P' + (phase|0)) : 'P1';
   });
 
-  // Fever/Shield + shake intensity by fever%
+  // fever/shield
   window.addEventListener('hha:fever', (e)=>{
     const d = e.detail || {};
     const fever = Math.max(0, Math.min(100, Number(d.fever||0)));
@@ -418,7 +381,7 @@ export function boot(){
     if (stunActive) beep(220, 30, 0.02);
   });
 
-  // Final lock pulse
+  // final lock
   window.addEventListener('hha:finalPulse', (e)=>{
     const sec = (e.detail||{}).secLeft|0;
     if (elVortex){
@@ -430,7 +393,7 @@ export function boot(){
     if (sec > 0) setCoach(`🏁 FINAL LOCK! เหลือ ${sec}s — อย่าพลาด!`, 'fever', 1400);
   });
 
-  // Boss beacon (pulse wave)
+  // boss pulse beacon
   let beaconTimer = null;
   window.addEventListener('hha:bossPulse', (e)=>{
     const d = e.detail || {};
@@ -450,7 +413,7 @@ export function boot(){
     setCoach('⚠️ BOSS PULSE! แตะย้าย “ศูนย์กลาง” ไปที่วงสีทองเร็ว!', 'fever', 1800);
   });
 
-  // FX hooks (kick/chroma/hero)
+  // FX hooks
   let kickTimer = null;
   let chromaTimer = null;
 
@@ -491,22 +454,23 @@ export function boot(){
     }
   });
 
-  // ✅ H+ Boss attack coach cue
+  // boss attack coach
   window.addEventListener('hha:bossAtk', (e)=>{
     const d = e.detail || {};
     const name = String(d.name||'');
-    if (name === 'ring') setCoach('🟠 RING! ช่องปลอดภัยมีช่องเดียว — เล็ง/แตะให้เข้า “ช่องว่าง”!', 'fever', 1700);
+    if (name === 'ring') setCoach('🟠 RING! ช่องปลอดภัยมีช่องเดียว — แตะย้ายศูนย์กลางไป “ช่องว่าง”!', 'fever', 1700);
     else if (name === 'laser') setCoach('🔵 LASER! หลบแนวแสงให้ทัน — ถ้ายืนทับ = โดน!', 'fever', 1700);
     else if (name === 'storm') setCoach('🌪️ STORM! ระวัง “ของดีปลอม” 👀', 'fever', 1700);
   });
 
-  // ---- quest:update renders HUD ----
+  // quest:update -> HUD
   window.addEventListener('quest:update', (e)=>{
     const d = e.detail || {};
     const goal = d.goal || null;
     const mini = d.mini || null;
     const meta = d.meta || {};
 
+    // goal
     if (goal){
       const cur = (goal.cur|0), max = (goal.max|0);
       const pct = Math.max(0, Math.min(1, Number(goal.pct ?? (max>0?cur/max:0))));
@@ -519,6 +483,7 @@ export function boot(){
       if (elQuestMainCap) elQuestMainCap.textContent = '';
     }
 
+    // mini
     if (mini){
       const cur = (mini.cur|0), max = (mini.max|0);
       const pct = Math.max(0, Math.min(1, Number(mini.pct ?? (max>0?cur/max:0))));
@@ -531,43 +496,18 @@ export function boot(){
       if (elQuestMiniCap) elQuestMiniCap.textContent = '';
     }
 
-    const miniCount = (meta.miniCount|0);
+    // counts
     const minisCleared = (meta.minisCleared|0);
-    if (elMiniCount) elMiniCount.textContent = `mini ผ่าน ${minisCleared} • เล่นอยู่ ${miniCount+1}`;
+    const miniCount = (meta.miniCount|0); // number of minis started so far (>=1 after first start)
+    const playingIdx = Math.max(1, miniCount); // show 1-based
+    if (elMiniCount) elMiniCount.textContent = `mini ผ่าน ${minisCleared} • เล่นอยู่ ${playingIdx}`;
 
+    // hint
     let hint = '';
-    if (goal && Number(goal.pct||0) >= 0.8) hint = 'ใกล้แล้ว! 🔥';
-    else if (mini && Number(mini.pct||0) >= 0.8) hint = 'อีกนิดเดียว! ⚡';
+    if (goal && Number(goal.pct||0) >= 0.85) hint = 'ใกล้แล้ว! 🔥';
+    else if (mini && Number(mini.pct||0) >= 0.85) hint = 'อีกนิดเดียว! ⚡';
     if (elQuestHint) elQuestHint.textContent = hint;
   });
-
-  // ---- NEW: Quest pump (fix "quest ไม่ขึ้น") ----
-  let __questPumpTimer = 0;
-
-  function kickQuestPump(){
-    if (__questPumpTimer) clearInterval(__questPumpTimer);
-
-    // 1) force tick frequently
-    __questPumpTimer = setInterval(()=>{
-      if (!started || !Q) return;
-      try{ Q.tick && Q.tick(qState); }catch(_){}
-
-      // 2) fallback: if director provides active goal/mini, dispatch quest:update yourself
-      try{
-        const snap = (Q.getActive && Q.getActive()) || (Q.getState && Q.getState()) || null;
-        // support both shapes: {goal,mini,meta} or {activeGoal,activeMini,meta}
-        const goal = snap?.goal || snap?.activeGoal || null;
-        const mini = snap?.mini || snap?.activeMini || null;
-        const meta = snap?.meta || {
-          miniCount: snap?.miniCount ?? 0,
-          minisCleared: snap?.minisCleared ?? 0
-        };
-        if (goal || mini){
-          window.dispatchEvent(new CustomEvent('quest:update', { detail: { goal, mini, meta, questOk:true } }));
-        }
-      }catch(_){}
-    }, 250);
-  }
 
   function applyRunPill(){
     if (elRunLabel) elRunLabel.textContent = RUN_MODE.toUpperCase();
@@ -607,7 +547,7 @@ export function boot(){
     }, { once:true });
   }
 
-  // End summary
+  // end summary
   window.addEventListener('hha:end', (e)=>{
     const d = e.detail || {};
     safeText(sumScore, String(d.score|0));
@@ -640,7 +580,43 @@ export function boot(){
     return false;
   }
 
+  // ---------- Safe margins (avoid HUD overlap) ----------
+  function computeSafeMargins(){
+    // conservative + dynamic: read HUD boxes if exist
+    const topHud = $('hud-top') || document.querySelector('.hud-top') || null;
+    const botHud = $('hud-bottom') || document.querySelector('.hud-bottom') || null;
+    let top = 130, bottom = 170, left = 26, right = 26;
+
+    try{
+      if (topHud){
+        const r = topHud.getBoundingClientRect();
+        top = Math.max(top, Math.ceil(r.bottom + 10));
+      }
+    }catch(_){}
+    try{
+      if (botHud){
+        const r = botHud.getBoundingClientRect();
+        bottom = Math.max(bottom, Math.ceil((innerHeight - r.top) + 10));
+      }
+    }catch(_){}
+    // extra side padding for quest/coach panels (safe default)
+    left = Math.max(left, 34);
+    right = Math.max(right, 34);
+
+    return { top, bottom, left, right };
+  }
+
+  // ---------- Boot game ----------
   let startedOnce = false;
+
+  function pumpQuestIfStuck(){
+    // If quest:update never emitted, force one using Q.getActive() (if available)
+    try{
+      if (!Q || typeof Q.getActive !== 'function') return;
+      const snap = Q.getActive();
+      window.dispatchEvent(new CustomEvent('quest:update', { detail: snap }));
+    }catch(_){}
+  }
 
   async function bootOnce({ wantVR }){
     if (startedOnce) return;
@@ -655,41 +631,36 @@ export function boot(){
 
     qState.challenge = chal;
     qState.runMode = RUN_MODE;
+    qState.timeLeft = durationSec|0;
+    qState.minisCleared = 0;
 
     if (elDiff) elDiff.textContent = diff.toUpperCase();
     if (elChal) elChal.textContent = chal.toUpperCase();
     if (elTime) elTime.textContent = durationSec + 's';
 
     bindAimListeners();
-    bindLayerOffsetLoop();            // ✅ NEW
     initLogger();
-    startSafeNoJunkClock();
 
     const cam = document.querySelector('#gj-camera');
     attachTouch(cam);
     initVRButton();
 
-    // ✅ Quest director (GoodJunk) — emits quest:update
+    // ✅ Quest director
     Q = makeQuestDirector({
       diff,
-      goalDefs: GOODJUNK_GOALS,
-      miniDefs: GOODJUNK_MINIS,
-      maxGoals: 2,
-      maxMini: 999,
+      goalDefs: GOODJUNK_GOALS,   // compat
+      miniDefs: GOODJUNK_MINIS,   // compat
+      goals: GOODJUNK_GOALS,      // also allow direct
+      minis: GOODJUNK_MINIS,
       challenge: chal
     });
 
-    // start director (support both APIs)
-    try{
-      if (Q.start) Q.start(qState);
-      else if (Q.begin) Q.begin(qState);
-    }catch(_){}
+    // start quests immediately so HUD not empty
+    try{ Q.start(qState); }catch(err){ console.warn('[GoodJunkVR] Q.start error', err); }
 
-    // ✅ pump quest to guarantee HUD updates
-    kickQuestPump();
-
-    // compute safe margins AFTER overlay hidden and HUD painted
-    const safeMargins = calcSafeMargins();
+    // in case HUD still "—"
+    setTimeout(pumpQuestIfStuck, 120);
+    setTimeout(pumpQuestIfStuck, 420);
 
     runCountdown(()=>{
       waitSceneReady(async ()=>{
@@ -701,15 +672,11 @@ export function boot(){
           challenge: chal,
           time: durationSec,
           layerEl: document.getElementById('gj-layer'),
-
-          // ✅ IMPORTANT: feed safe margins for spawn safezone
-          safeMargins
+          safeMargins: computeSafeMargins()
         });
 
         window.__GJ_ENGINE__ = ENGINE;
-
-        // first quest tick right away (no blank)
-        try{ Q && Q.tick && Q.tick(qState); }catch(_){}
+        setCoach('ลุย! 🔥', 'happy', 1200);
       });
     });
   }
