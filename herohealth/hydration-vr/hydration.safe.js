@@ -1,18 +1,10 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// - spawn targets via mode-factory (DOM)
-// - water gauge (GREEN/LOW/HIGH)
-// - fever gauge + shield (global FeverUI from ./vr/ui-fever.js)
-// - quest goal + mini quest (hydration.quest.js)
-// - VR-feel look: gyro + drag -> playfield translate (เหมือน VR)
-// - HUD events: hha:score / hha:judge / quest:update / hha:coach / hha:time
-//
-// ✅ PATCH B (PROD):
-// - HUD Auto-hide + Compact top bar (ลดบังเป้า) + Pin/Info toggle
-// - End Screen built-in (กัน "จอดำ" หลังจบเกม)
-// - Tap-anywhere ยิงกลางจอ (shootCrosshair) ถ้าแตะพื้นที่ว่าง
-// - Spawn spreadMix + tuning กระจายจริง ไม่กองกลาง
-// - boundsHost ใช้ #hvr-wrap (นิ่ง) แยกจาก spawnHost (#hvr-playfield ที่โดน transform)
+// Hydration Quest VR — DOM Emoji Engine (PLAY MODE) — FULL (PATCH B++)
+// ✅ Compact HUD (auto-hide) + ไม่บังเป้า
+// ✅ Spawn กระจายทั้งสนาม (แก้กองกลาง)
+// ✅ กันตกขอบ (clamp + pad) ใช้กับ mode-factory PATCH EDGE-FIX
+// ✅ Gyro นุ่มขึ้น/ไม่ไวเกิน (เอียงนิดเดียวไม่หนี)
+// ✅ จบเกมไม่จอดำ: มี End Summary overlay เสมอ
 
 'use strict';
 
@@ -20,7 +12,6 @@ import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import { createHydrationQuest } from './hydration.quest.js';
 
-// --------------------- Globals / helpers ---------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
 function clamp(v, min, max){
@@ -31,8 +22,11 @@ function $id(id){ return document.getElementById(id); }
 function dispatch(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
 }
-function now(){
-  return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+function qs(name, fallback=null){
+  try{
+    const u = new URL(location.href);
+    return u.searchParams.get(name) ?? fallback;
+  }catch{ return fallback; }
 }
 
 // FX layer (particles.js IIFE)
@@ -69,256 +63,194 @@ const TUNE = {
 
   missOnGoodExpire: true,
 
-  lookMaxX: 420,
-  lookMaxY: 320,
-  lookPxPerDegX: 9.2,
-  lookPxPerDegY: 7.6,
-  lookSmooth: 0.10,
+  // ✅ Gyro/drag feel (นุ่มลง + ไม่ไว)
+  lookMaxX: 240,
+  lookMaxY: 170,
+  lookPxPerDegX: 5.2,
+  lookPxPerDegY: 4.4,
+  lookSmooth: 0.08,       // smoothing แรงขึ้น
+
+  // ✅ จำกัดการกระชากต่อเฟรม (กัน “วิ่งหนี”)
+  lookStepClamp: 26,
 
   urgencyAtSec: 10,
   urgencyBeepHz: 920,
 
   stormEverySec: 18,
   stormDurationSec: 5,
-  stormIntervalMul: 0.72,
-
-  // HUD auto-hide
-  hudIdleHideMs: 1900,
-  hudFlashMs: 900,
-  hudMinOpacity: 0.10,
-
-  // tap shoot
-  tapMoveDeadPx: 10,
-  tapMaxMs: 260
+  stormIntervalMul: 0.72
 };
 
-// --------------------- UI helpers (inject compact HUD style) ---------------------
-function ensureHydrationUI(){
-  const doc = ROOT.document;
-  if (!doc) return;
+// --------------------- Mini HUD (auto-hide) ---------------------
+function ensureMiniHUD(){
+  if ($id('hha-mini-hud')) return;
 
-  // Compact HUD style (ไม่แก้ HTML)
-  if (!doc.getElementById('hvr-hydration-ui-style')) {
-    const s = doc.createElement('style');
-    s.id = 'hvr-hydration-ui-style';
-    s.textContent = `
-      /* ============ HUD AUTO-HIDE / COMPACT BAR (Hydration) ============ */
-      body.hvr-hud-hidden .hud{
-        opacity:${TUNE.hudMinOpacity};
-        transform: translate3d(0,-8px,0);
-        transition: opacity .18s ease-out, transform .18s ease-out;
-      }
-      body.hvr-hud-shown .hud{
-        opacity:1;
-        transform: translate3d(0,0,0);
-        transition: opacity .12s ease-out, transform .12s ease-out;
-      }
-      /* ให้ HUD เป็นแถบเดียวแบบ compact (ซ่อน card ใหญ่) */
-      body.hvr-hud-compact .hud{
-        left:10px !important; right:10px !important; top:10px !important;
-        gap:10px !important;
-        flex-wrap:nowrap !important;
-        align-items:center !important;
-      }
-      body.hvr-hud-compact .hud .card{
-        padding:10px 12px !important;
-        min-width:auto !important;
-        max-width:none !important;
-        flex:0 0 auto !important;
-        border-radius:18px !important;
-      }
-      /* ซ่อนการ์ดใหญ่ เหลือเฉพาะ “จำเป็น” */
-      body.hvr-hud-compact .hud .card:nth-child(1){ display:none !important; } /* Quest big */
-      body.hvr-hud-compact .hud .card:nth-child(2){ display:none !important; } /* Water big */
-      body.hvr-hud-compact .hud .card:nth-child(3){ display:none !important; } /* Progress big */
-      body.hvr-hud-compact .hud .card:nth-child(4){ display:none !important; } /* Miss big */
-
-      /* เราสร้าง compact bar เอง */
-      #hvr-compactbar{
+  const sId = 'hha-mini-hud-style';
+  if (!$id(sId)) {
+    const st = document.createElement('style');
+    st.id = sId;
+    st.textContent = `
+      #hha-mini-hud{
         position:fixed;
         left:10px; right:10px; top:10px;
-        z-index:88;
-        pointer-events:auto;
+        z-index:120;
+        pointer-events:none;
         display:flex;
         gap:10px;
         align-items:center;
         justify-content:space-between;
-      }
-      #hvr-compactbar .bar{
-        flex:1 1 auto;
-        display:flex;
-        gap:10px;
-        align-items:center;
         padding:10px 12px;
         border-radius:999px;
-        background:rgba(2,6,23,.72);
-        border:1px solid rgba(148,163,184,.20);
-        box-shadow:0 18px 46px rgba(0,0,0,.45);
+        background:rgba(2,6,23,.55);
+        border:1px solid rgba(148,163,184,.18);
+        box-shadow:0 18px 50px rgba(0,0,0,.45);
         backdrop-filter: blur(10px);
+        transform: translate3d(0,0,0);
+        opacity:.92;
+        transition: opacity .22s ease, transform .22s ease;
       }
-      #hvr-compactbar .chip{
-        display:flex;
-        gap:8px;
-        align-items:center;
-        padding:6px 10px;
+      #hha-mini-hud.hha-hide{
+        opacity:0;
+        transform: translate3d(0,-10px,0);
+      }
+      #hha-mini-hud .grp{ display:flex; gap:10px; align-items:center; }
+      #hha-mini-hud .pill{
+        display:flex; gap:8px; align-items:center;
+        padding:7px 10px;
         border-radius:999px;
         background:rgba(2,6,23,.55);
         border:1px solid rgba(148,163,184,.18);
         font-weight:900;
-        font-size:12px;
+        letter-spacing:.02em;
+        font-size:13px;
         white-space:nowrap;
       }
-      #hvr-compactbar .chip b{ font-size:13px; }
-      #hvr-compactbar .btn{
-        width:42px; height:42px;
-        border-radius:999px;
-        border:1px solid rgba(148,163,184,.22);
-        background:rgba(2,6,23,.55);
-        color:#e5e7eb;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-weight:900;
-        box-shadow:0 18px 46px rgba(0,0,0,.35);
-        backdrop-filter: blur(10px);
-      }
-      #hvr-compactbar .btn:active{ transform: scale(.98); }
-
-      /* Info drawer */
-      #hvr-info{
-        position:fixed;
-        right:12px;
-        bottom:86px;
-        z-index:95;
-        width:min(420px, calc(100vw - 24px));
-        background:rgba(2,6,23,.78);
-        border:1px solid rgba(148,163,184,.22);
-        border-radius:18px;
-        box-shadow:0 22px 70px rgba(0,0,0,.55);
-        backdrop-filter: blur(10px);
-        padding:12px 12px 10px;
-        display:none;
+      #hha-mini-hud .mut{ opacity:.82; font-weight:800; }
+      #hha-mini-hud .val{ font-variant-numeric: tabular-nums; }
+      #hha-mini-hud .dot{ opacity:.35; }
+      #hha-mini-hud button{
         pointer-events:auto;
-      }
-      #hvr-info.on{ display:block; }
-      #hvr-info .t{ font-weight:900; font-size:14px; margin-bottom:6px; }
-      #hvr-info .m{ color:#94a3b8; font-size:12px; line-height:1.35; }
-      #hvr-info .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-      #hvr-info .pill{
-        padding:6px 10px; border-radius:999px;
-        background:rgba(2,6,23,.55);
+        background:rgba(2,6,23,.45);
         border:1px solid rgba(148,163,184,.18);
-        font-weight:900; font-size:12px;
-      }
-
-      /* Crosshair */
-      #hvr-crosshair{
-        display:flex;
-        align-items:center;
-        justify-content:center;
-      }
-      #hvr-crosshair .c{
-        width:44px; height:44px;
+        color:inherit;
         border-radius:999px;
-        border:2px solid rgba(255,255,255,.22);
-        box-shadow:0 0 0 6px rgba(34,197,94,.08);
-        position:relative;
+        padding:7px 10px;
+        font-weight:900;
+        cursor:pointer;
       }
-      #hvr-crosshair .c:before, #hvr-crosshair .c:after{
-        content:'';
-        position:absolute;
-        left:50%; top:50%;
-        transform:translate(-50%,-50%);
-        background:rgba(255,255,255,.45);
-      }
-      #hvr-crosshair .c:before{ width:18px; height:2px; }
-      #hvr-crosshair .c:after{ width:2px; height:18px; }
-
-      /* End screen */
-      #hvr-end .panel{
-        width:min(520px, 96vw);
-        border-radius:22px;
-        background:rgba(2,6,23,.78);
-        border:1px solid rgba(148,163,184,.22);
-        box-shadow:0 24px 80px rgba(0,0,0,.65);
-        padding:16px 16px 14px;
-      }
-      #hvr-end .h{
-        font-size:22px; font-weight:1000;
-        margin:2px 0 10px;
-      }
-      #hvr-end .grid{
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        gap:10px;
-      }
-      #hvr-end .card{
-        border-radius:18px;
+      #hha-mini-panel{
+        position:fixed;
+        left:10px; right:10px; top:62px;
+        z-index:119;
+        pointer-events:none;
+        display:none;
         background:rgba(2,6,23,.55);
         border:1px solid rgba(148,163,184,.18);
-        padding:10px 12px;
+        border-radius:18px;
+        padding:12px 12px;
+        backdrop-filter: blur(10px);
+        box-shadow:0 18px 50px rgba(0,0,0,.45);
       }
-      #hvr-end .k{ color:#94a3b8; font-size:12px; }
-      #hvr-end .v{ font-weight:1000; font-size:18px; margin-top:4px; }
-      #hvr-end .btnrow{ display:flex; gap:10px; margin-top:12px; }
-      #hvr-end button{
-        flex:1;
-        border-radius:16px;
-        border:1px solid rgba(148,163,184,.22);
-        background:rgba(2,6,23,.55);
-        color:#e5e7eb;
-        padding:10px 12px;
-        font-weight:1000;
-      }
-      #hvr-end button:active{ transform:scale(.99); }
+      #hha-mini-panel.on{ display:block; }
+      #hha-mini-panel .t{ font-weight:1000; font-size:14px; margin-bottom:6px; }
+      #hha-mini-panel .m{ opacity:.85; font-size:12px; line-height:1.35; }
     `;
-    doc.head.appendChild(s);
+    document.head.appendChild(st);
   }
 
-  // Create compact bar (if missing)
-  if (!doc.getElementById('hvr-compactbar')) {
-    const bar = doc.createElement('div');
-    bar.id = 'hvr-compactbar';
-    bar.innerHTML = `
-      <div class="bar" role="group" aria-label="Hydration Compact HUD">
-        <div class="chip" title="Zone"><span>💧</span><b id="hvr-z">GREEN</b></div>
-        <div class="chip" title="Score"><span>🏁</span><b id="hvr-s">0</b><span style="opacity:.7">pts</span></div>
-        <div class="chip" title="Combo"><span>⚡</span><b id="hvr-c">0</b></div>
-        <div class="chip" title="Miss"><span>✖</span><b id="hvr-m">0</b></div>
-        <div class="chip" title="Time"><span>⏳</span><b id="hvr-t">0:00</b></div>
+  const hud = document.createElement('div');
+  hud.id = 'hha-mini-hud';
+  hud.innerHTML = `
+    <div class="grp">
+      <div class="pill"><span class="val" id="m-zone">GREEN</span></div>
+      <div class="pill"><span class="mut">🏁</span><span class="val" id="m-score">0</span><span class="mut">pts</span></div>
+      <div class="pill"><span class="mut">⚡</span><span class="val" id="m-combo">0</span></div>
+      <div class="pill"><span class="mut">✖</span><span class="val" id="m-miss">0</span></div>
+    </div>
+    <div class="grp">
+      <div class="pill"><span class="mut">⏳</span><span class="val" id="m-time">0:00</span></div>
+      <button type="button" id="m-info" aria-label="info">i</button>
+      <button type="button" id="m-pin" aria-label="pin">📌</button>
+    </div>
+  `;
+  document.body.appendChild(hud);
+
+  const panel = document.createElement('div');
+  panel.id = 'hha-mini-panel';
+  panel.innerHTML = `
+    <div class="t">Quest</div>
+    <div class="m" id="m-goal">Goal: —</div>
+    <div class="m" id="m-mini">Mini: —</div>
+  `;
+  document.body.appendChild(panel);
+
+  // ถ้ามี HUD ใหญ่เดิม → ซ่อนไปเลย (ไม่ให้บังเป้า)
+  const bigHud = document.querySelector('.hud');
+  if (bigHud) {
+    bigHud.style.display = 'none';
+  }
+
+  // crosshair ถ้ายังว่าง ให้แสดงแบบเบา ๆ
+  const cross = $id('hvr-crosshair');
+  if (cross && !cross.__hhaStyled) {
+    cross.__hhaStyled = 1;
+    cross.innerHTML = `
+      <div style="
+        width:44px;height:44px;border-radius:999px;
+        border:2px solid rgba(255,255,255,.22);
+        box-shadow:0 0 0 3px rgba(34,197,94,.10), 0 0 18px rgba(34,197,94,.12);
+        position:relative;
+      ">
+        <div style="
+          position:absolute;left:50%;top:50%;
+          width:10px;height:10px;border-radius:999px;
+          transform:translate(-50%,-50%);
+          background:rgba(255,255,255,.18);
+        "></div>
       </div>
-      <button class="btn" id="hvr-pin" title="Pin HUD">📌</button>
-      <button class="btn" id="hvr-info-btn" title="Info">i</button>
     `;
-    doc.body.appendChild(bar);
   }
 
-  if (!doc.getElementById('hvr-info')) {
-    const d = doc.createElement('div');
-    d.id = 'hvr-info';
-    d.innerHTML = `
-      <div class="t">Hydration — Info</div>
-      <div class="m">
-        แตะเป้าเพื่อยิง • แตะพื้นที่ว่างเพื่อยิงกลางจอ (crosshair) • ลากจอเพื่อเปลี่ยนมุมมอง • Storm = เป้ามาไวขึ้น
-      </div>
-      <div class="row">
-        <span class="pill">Goal: <b id="hvr-g2">0</b>/2</span>
-        <span class="pill">Mini: <b id="hvr-mi3">0</b>/3</span>
-        <span class="pill">Grade: <b id="hvr-gr">C</b></span>
-      </div>
-    `;
-    doc.body.appendChild(d);
+  // auto-hide behavior
+  let pinned = false;
+  let lastWake = 0;
+  const HIDE_MS = 1200;
+
+  function wake(){
+    lastWake = performance.now();
+    hud.classList.remove('hha-hide');
+  }
+  function tick(){
+    if (pinned) return ROOT.requestAnimationFrame(tick);
+    const now = performance.now();
+    if (now - lastWake > HIDE_MS) hud.classList.add('hha-hide');
+    ROOT.requestAnimationFrame(tick);
+  }
+  wake();
+  ROOT.requestAnimationFrame(tick);
+
+  // info/pin buttons
+  const btnInfo = $id('m-info');
+  const btnPin  = $id('m-pin');
+  if (btnInfo) {
+    btnInfo.addEventListener('click', (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      panel.classList.toggle('on');
+      wake();
+    }, { passive:false });
+  }
+  if (btnPin) {
+    btnPin.addEventListener('click', (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      pinned = !pinned;
+      btnPin.textContent = pinned ? '📌' : '📍';
+      if (!pinned) wake();
+    }, { passive:false });
   }
 
-  // Crosshair content (if empty)
-  const ch = $id('hvr-crosshair');
-  if (ch && !ch.__hvrInited) {
-    ch.__hvrInited = true;
-    ch.innerHTML = `<div class="c"></div>`;
-  }
-
-  // default compact + show
-  doc.body.classList.add('hvr-hud-compact', 'hvr-hud-shown');
+  // wake on interaction
+  ROOT.addEventListener('pointerdown', wake, { passive:true });
+  ROOT.addEventListener('pointermove', wake, { passive:true });
 }
 
 // --------------------- Main boot ---------------------
@@ -326,18 +258,16 @@ export async function boot(opts = {}) {
   const difficulty = String(opts.difficulty || 'easy').toLowerCase();
   const duration   = clamp(opts.duration ?? 90, 20, 180);
 
-  ensureHydrationUI();
   ensureWaterGauge();
 
-  const doc = ROOT.document;
-  const body = doc && doc.body;
-
   const playfield = $id('hvr-playfield') || null;
-  const wrap      = $id('hvr-wrap') || doc?.body || null;
   if (!playfield) {
     console.error('[HydrationVR] #hvr-playfield not found');
     return { stop(){} };
   }
+
+  // ✅ ใช้ HUD เล็กเสมอ (ลดเกะกะ/ไม่บังเป้า)
+  ensureMiniHUD();
 
   playfield.style.willChange = 'transform';
   playfield.style.transform = 'translate3d(0,0,0)';
@@ -348,8 +278,6 @@ export async function boot(opts = {}) {
     if (typeof FeverUI.setFever === 'function') FeverUI.setFever(0);
     if (typeof FeverUI.setFeverActive === 'function') FeverUI.setFeverActive(false);
     if (typeof FeverUI.setShield === 'function') FeverUI.setShield(0);
-  } else {
-    console.warn('[HydrationVR] FeverUI not ready. Check ui-fever.js loaded before module.');
   }
 
   const state = {
@@ -382,72 +310,9 @@ export async function boot(opts = {}) {
 
   const Q = createHydrationQuest(difficulty);
 
-  // expose stop for hub/debug
   ROOT.HHA_ACTIVE_INST = {
     stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} }
   };
-
-  // --------------------- HUD auto-hide ---------------------
-  let hudPinned = false;
-  let lastHudActivity = now();
-  let hudFlashUntil = 0;
-
-  function showHud(ms = TUNE.hudFlashMs){
-    lastHudActivity = now();
-    hudFlashUntil = Math.max(hudFlashUntil, lastHudActivity + clamp(ms, 120, 4000));
-    if (body) {
-      body.classList.remove('hvr-hud-hidden');
-      body.classList.add('hvr-hud-shown');
-    }
-  }
-  function hideHud(){
-    if (!body) return;
-    body.classList.remove('hvr-hud-shown');
-    body.classList.add('hvr-hud-hidden');
-  }
-  function tickHud(){
-    if (hudPinned) { showHud(999999); return; }
-    const t = now();
-    if (t < hudFlashUntil) { showHud(120); return; }
-    if (t - lastHudActivity > TUNE.hudIdleHideMs) hideHud();
-  }
-
-  // compact bar bindings
-  const zEl = $id('hvr-z');
-  const sEl = $id('hvr-s');
-  const cEl = $id('hvr-c');
-  const mEl = $id('hvr-m');
-  const tEl = $id('hvr-t');
-  const gEl = $id('hvr-g2');
-  const miEl = $id('hvr-mi3');
-  const grEl = $id('hvr-gr');
-
-  const pinBtn = $id('hvr-pin');
-  const infoBtn = $id('hvr-info-btn');
-  const infoBox = $id('hvr-info');
-
-  if (pinBtn && !pinBtn.__hvrBind){
-    pinBtn.__hvrBind = true;
-    pinBtn.addEventListener('click', (e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      hudPinned = !hudPinned;
-      pinBtn.textContent = hudPinned ? '📌' : '📌';
-      try{ Particles.toast && Particles.toast(hudPinned ? 'HUD pinned 📌' : 'HUD auto-hide', 'good'); }catch{}
-      showHud(1500);
-    }, { passive:false });
-  }
-
-  if (infoBtn && !infoBtn.__hvrBind){
-    infoBtn.__hvrBind = true;
-    infoBtn.addEventListener('click', (e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      if (!infoBox) return;
-      infoBox.classList.toggle('on');
-      showHud(2000);
-    }, { passive:false });
-  }
 
   function fmtTime(sec){
     sec = Math.max(0, sec|0);
@@ -456,31 +321,23 @@ export async function boot(opts = {}) {
     return `${m}:${String(s).padStart(2,'0')}`;
   }
 
-  function updateCompactBar(){
-    if (zEl) zEl.textContent = String(state.zone || 'GREEN');
-    if (sEl) sEl.textContent = String(state.score|0);
-    if (cEl) cEl.textContent = String(state.comboBest|0);
-    if (mEl) mEl.textContent = String(state.miss|0);
-    if (tEl) tEl.textContent = fmtTime(state.timeLeft);
+  function updateMiniHUD(){
+    const z = $id('m-zone');  if (z) z.textContent = state.zone;
+    const sc = $id('m-score'); if (sc) sc.textContent = String(state.score|0);
+    const cb = $id('m-combo'); if (cb) cb.textContent = String(state.comboBest|0);
+    const ms = $id('m-miss');  if (ms) ms.textContent = String(state.miss|0);
+    const tm = $id('m-time');  if (tm) tm.textContent = fmtTime(state.timeLeft);
 
-    // quest summary in info drawer
-    const goalsDone = (Q.goals || []).filter(g => g._done || g.done).length;
-    const minisDone = (Q.minis || []).filter(m => m._done || m.done).length;
-    if (gEl) gEl.textContent = String(goalsDone|0);
-    if (miEl) miEl.textContent = String(minisDone|0);
-
-    // grade
-    if (grEl) grEl.textContent = String($id('hha-grade-badge')?.textContent || 'C');
+    const mg = $id('m-goal');
+    const mm = $id('m-mini');
+    if (mg) mg.textContent = ($id('hha-quest-goal')?.textContent) || 'Goal: —';
+    if (mm) mm.textContent = ($id('hha-quest-mini')?.textContent) || 'Mini: —';
   }
 
-  // --------------------- Core HUD update ---------------------
   function updateWaterHud(){
     const out = setWaterGauge(state.waterPct);
     state.zone = out.zone;
-    const ztxt = $id('hha-water-zone-text');
-    if (ztxt) ztxt.textContent = state.zone;
-
-    updateCompactBar();
+    updateMiniHUD();
   }
 
   function calcProgressToS(){
@@ -499,6 +356,7 @@ export async function boot(opts = {}) {
     const { prog, goalsDone, minisDone } = calcProgressToS();
     const progPct = Math.round(prog * 100);
 
+    // (รองรับถ้าเกมอื่นมี progress UI)
     const fill = $id('hha-grade-progress-fill');
     const txt  = $id('hha-grade-progress-text');
     if (fill) fill.style.width = progPct + '%';
@@ -513,10 +371,6 @@ export async function boot(opts = {}) {
 
     const gb = $id('hha-grade-badge');
     if (gb) gb.textContent = grade;
-
-    const sc = $id('hha-score-main'); if (sc) sc.textContent = String(state.score|0);
-    const cb = $id('hha-combo-max');  if (cb) cb.textContent = String(state.comboBest|0);
-    const ms = $id('hha-miss');       if (ms) ms.textContent = String(state.miss|0);
 
     dispatch('hha:score', {
       score: state.score|0,
@@ -533,7 +387,7 @@ export async function boot(opts = {}) {
       label: label || ''
     });
 
-    updateCompactBar();
+    updateMiniHUD();
   }
 
   function updateQuestHud(){
@@ -545,16 +399,13 @@ export async function boot(opts = {}) {
     const goalsDone = allGoals.filter(g => g._done || g.done).length;
     const minisDone = allMinis.filter(m => m._done || m.done).length;
 
-    // NOTE: HTML ของคุณใช้ #hha-goal-count/#hha-mini-count (ไม่ใช่ done/total)
-    const gc = $id('hha-goal-count'); if (gc) gc.textContent = String(goalsDone);
-    const mc = $id('hha-mini-count'); if (mc) mc.textContent = String(minisDone);
-
     const curGoalId = (goalsView && goalsView[0]) ? goalsView[0].id : (allGoals[0]?.id || '');
     const curMiniId = (minisView && minisView[0]) ? minisView[0].id : (allMinis[0]?.id || '');
 
     const gInfo = Q.getGoalProgressInfo ? Q.getGoalProgressInfo(curGoalId) : null;
     const mInfo = Q.getMiniProgressInfo ? Q.getMiniProgressInfo(curMiniId) : null;
 
+    // ถ้าไม่มี element ใน HTML ก็ไม่เป็นไร (เรามี mini panel ของเรา)
     const goalEl = $id('hha-quest-goal');
     const miniEl = $id('hha-quest-mini');
     if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : `Goal: ทำภารกิจให้ครบ`;
@@ -565,14 +416,14 @@ export async function boot(opts = {}) {
       goalTotal: allGoals.length || 2,
       miniDone: minisDone,
       miniTotal: allMinis.length || 3,
-      goalText: goalEl ? goalEl.textContent : '',
-      miniText: miniEl ? miniEl.textContent : ''
+      goalText: goalEl ? goalEl.textContent : (gInfo?.text || ''),
+      miniText: miniEl ? miniEl.textContent : (mInfo?.text || '')
     });
 
     updateScoreHud();
+    updateMiniHUD();
   }
 
-  // --------------------- Fever ---------------------
   function feverRender(){
     const F = getFeverUI();
     if (!F) return;
@@ -592,8 +443,6 @@ export async function boot(opts = {}) {
     dispatch('hha:fever', { state:'start', value: state.fever, active:true, shield: state.shield });
     dispatch('hha:coach', { text:'🔥 FEVER! ยิงให้ไว คะแนนคูณ x2 + ได้เกราะ 🛡️', mood:'happy' });
     try{ Particles.celebrate && Particles.celebrate('fever'); }catch{}
-
-    showHud(1300);
   }
 
   function feverEnd(){
@@ -603,8 +452,6 @@ export async function boot(opts = {}) {
     feverRender();
     dispatch('hha:fever', { state:'end', value: state.fever, active:false, shield: state.shield });
     dispatch('hha:coach', { text:'เยี่ยม! FEVER จบแล้ว กลับไปรักษา GREEN ต่อ 💧', mood:'neutral' });
-
-    showHud(1100);
   }
 
   function feverAdd(v){
@@ -625,24 +472,12 @@ export async function boot(opts = {}) {
     return (state.combo >= 5) || state.feverActive;
   }
 
-  // --------------------- Screen blink helper ---------------------
-  const blink = $id('hvr-screen-blink');
-  function flash(type){
-    if (!blink) return;
-    blink.className = '';
-    blink.id = 'hvr-screen-blink';
-    blink.classList.add('on');
-    if (type) blink.classList.add(type);
-    ROOT.setTimeout(()=>{ try{ blink.classList.remove('on'); }catch{} }, 120);
-  }
-
   function judge(ch, ctx){
     const isGood = !!ctx.isGood;
     const isPower = !!ctx.isPower;
 
     let scoreDelta = 0;
     let label = 'GOOD';
-
     const mult = state.feverActive ? 2 : 1;
 
     if (isPower){
@@ -659,9 +494,6 @@ export async function boot(opts = {}) {
         dispatch('hha:judge', { label:'BLOCK' });
         feverRender();
         updateScoreHud('BLOCK');
-        try{ Particles.toast && Particles.toast('BLOCK 🛡️', 'good'); }catch{}
-        flash('good');
-        showHud(900);
         return { scoreDelta, label, good:false, blocked:true };
       }
       scoreDelta = TUNE.scoreJunk;
@@ -688,12 +520,10 @@ export async function boot(opts = {}) {
       state.waterPct = clamp(state.waterPct + TUNE.goodWaterPush, 0, 100);
       feverAdd(isPower ? TUNE.feverGainPower : TUNE.feverGainGood);
       Q.onGood();
-      flash(perfect ? 'perfect' : 'good');
     } else {
       state.waterPct = clamp(state.waterPct + TUNE.junkWaterPush, 0, 100);
       feverLose(TUNE.feverLoseJunk);
       Q.onJunk();
-      flash('bad');
     }
 
     Q.updateScore(state.score);
@@ -709,7 +539,6 @@ export async function boot(opts = {}) {
     dispatch('hha:judge', { label });
 
     updateQuestHud();
-    showHud(900);
     return { scoreDelta, label, good: (isGood || isPower) };
   }
 
@@ -722,16 +551,22 @@ export async function boot(opts = {}) {
       dispatch('hha:judge', { label:'MISS' });
       updateWaterHud();
       updateScoreHud('MISS');
-      showHud(700);
     }
   }
 
   // --------------------- LOOK controls ---------------------
-  let hasOrient = false;
   let dragOn = false;
   let lastX = 0, lastY = 0;
 
+  // ✅ ลด “หนี” ด้วย step clamp
+  function stepClamp(next, cur, maxStep){
+    const d = next - cur;
+    if (Math.abs(d) <= maxStep) return next;
+    return cur + Math.sign(d) * maxStep;
+  }
+
   function applyLookTransform(){
+    // smooth target -> velocity
     state.lookVX += (state.lookTX - state.lookVX) * TUNE.lookSmooth;
     state.lookVY += (state.lookTY - state.lookVY) * TUNE.lookSmooth;
 
@@ -745,18 +580,19 @@ export async function boot(opts = {}) {
     dragOn = true;
     lastX = ev.clientX || 0;
     lastY = ev.clientY || 0;
-    showHud(500);
   }
   function onPointerMove(ev){
     if (!dragOn) return;
     const x = ev.clientX || 0;
     const y = ev.clientY || 0;
-    const dx = x - lastX;
-    const dy = y - lastY;
+    const dx = clamp(x - lastX, -28, 28);
+    const dy = clamp(y - lastY, -24, 24);
     lastX = x; lastY = y;
 
-    state.lookTX = clamp(state.lookTX + dx * 1.25, -TUNE.lookMaxX, TUNE.lookMaxX);
-    state.lookTY = clamp(state.lookTY + dy * 1.05, -TUNE.lookMaxY, TUNE.lookMaxY);
+    const nx = clamp(state.lookTX + dx * 1.10, -TUNE.lookMaxX, TUNE.lookMaxX);
+    const ny = clamp(state.lookTY + dy * 0.95, -TUNE.lookMaxY, TUNE.lookMaxY);
+    state.lookTX = stepClamp(nx, state.lookTX, TUNE.lookStepClamp);
+    state.lookTY = stepClamp(ny, state.lookTY, TUNE.lookStepClamp);
   }
   function onPointerUp(){ dragOn = false; }
 
@@ -769,25 +605,27 @@ export async function boot(opts = {}) {
     }catch{ return false; }
   }
 
+  // ✅ Gyro low-pass + deadzone (เอียงนิดเดียวไม่กระโดด)
   function onDeviceOrientation(e){
     const g = Number(e.gamma);
     const b = Number(e.beta);
     if (!Number.isFinite(g) || !Number.isFinite(b)) return;
-    hasOrient = true;
 
-    const DEAD_G = 1.2;
-    const DEAD_B = 1.6;
+    const DEAD_G = 2.3;
+    const DEAD_B = 2.8;
 
     let gg = Math.abs(g) < DEAD_G ? 0 : g;
     let bb = Math.abs(b) < DEAD_B ? 0 : b;
 
+    // bias ให้ “กึ่งกลาง” คงที่
     const BIAS_B = 18;
 
-    const tx = gg * TUNE.lookPxPerDegX;
-    const ty = (bb - BIAS_B) * TUNE.lookPxPerDegY;
+    const tx = clamp(gg * TUNE.lookPxPerDegX, -TUNE.lookMaxX, TUNE.lookMaxX);
+    const ty = clamp((bb - BIAS_B) * TUNE.lookPxPerDegY, -TUNE.lookMaxY, TUNE.lookMaxY);
 
-    state.lookTX = clamp(tx, -TUNE.lookMaxX, TUNE.lookMaxX);
-    state.lookTY = clamp(ty, -TUNE.lookMaxY, TUNE.lookMaxY);
+    // low-pass to target (นุ่ม)
+    state.lookTX = stepClamp(state.lookTX * 0.88 + tx * 0.12, state.lookTX, TUNE.lookStepClamp);
+    state.lookTY = stepClamp(state.lookTY * 0.88 + ty * 0.12, state.lookTY, TUNE.lookStepClamp);
   }
 
   async function requestGyroPermission(){
@@ -807,7 +645,10 @@ export async function boot(opts = {}) {
     }
   }
 
-  // --------------------- Audio beep ---------------------
+  // --------------------- Clock tick ---------------------
+  let timer = null;
+  let rafId = null;
+
   let audioCtx = null;
   function beep(freq, dur){
     try{
@@ -823,56 +664,12 @@ export async function boot(opts = {}) {
     }catch{}
   }
 
-  // --------------------- End screen (no black) ---------------------
-  const endEl = $id('hvr-end');
-  function renderEnd(payload){
-    if (!endEl) return;
-    const grade = String($id('hha-grade-badge')?.textContent || 'C');
-    const zone  = String(payload.zone || state.zone || 'GREEN');
-    const water = Number(payload.water ?? state.waterPct) || 0;
-
-    endEl.innerHTML = `
-      <div class="panel">
-        <div class="h">🏁 จบเกม Hydration</div>
-        <div class="grid">
-          <div class="card"><div class="k">Score</div><div class="v">${payload.score|0} pts</div></div>
-          <div class="card"><div class="k">Grade</div><div class="v">${grade}</div></div>
-          <div class="card"><div class="k">Miss</div><div class="v">${payload.miss|0}</div></div>
-          <div class="card"><div class="k">Combo Max</div><div class="v">${payload.comboBest|0}</div></div>
-          <div class="card"><div class="k">Zone</div><div class="v">${zone}</div></div>
-          <div class="card"><div class="k">Water</div><div class="v">${Math.round(water)}%</div></div>
-        </div>
-        <div class="btnrow">
-          <button id="hvr-retry">🔁 เล่นอีกครั้ง</button>
-          <button id="hvr-exit">🏠 กลับ Hub</button>
-        </div>
-      </div>
-    `;
-    endEl.classList.add('on');
-
-    const retry = $id('hvr-retry');
-    const exit  = $id('hvr-exit');
-    if (retry) retry.onclick = () => { try{ location.reload(); }catch{} };
-    if (exit)  exit.onclick  = () => {
-      try{
-        // ปรับ path ตามของจริงถ้าต้องการ
-        location.href = '../hub.html';
-      }catch{}
-    };
-  }
-
-  // --------------------- Clock tick ---------------------
-  let timer = null;
-  let rafId = null;
-  let hudTimer = null;
-
   function secondTick(){
     if (state.stopped) return;
 
     state.timeLeft = Math.max(0, state.timeLeft - 1);
     dispatch('hha:time', { sec: state.timeLeft });
 
-    // drift water
     state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec, 0, 100);
     updateWaterHud();
 
@@ -900,16 +697,13 @@ export async function boot(opts = {}) {
       feverRender();
     }
 
-    // storm
     if (state.stormLeft > 0) state.stormLeft -= 1;
     if (state.timeLeft > 0 && (state.timeLeft % TUNE.stormEverySec) === 0) {
       state.stormLeft = TUNE.stormDurationSec;
       dispatch('hha:coach', { text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น! ตั้งสติ รักษา GREEN!', mood:'happy' });
       try{ Particles.toast && Particles.toast('STORM WAVE!', 'warn'); }catch{}
-      showHud(1600);
     }
 
-    // urgency
     if (state.timeLeft > 0 && state.timeLeft <= TUNE.urgencyAtSec) {
       beep(TUNE.urgencyBeepHz, 0.04);
       if (state.timeLeft === TUNE.urgencyAtSec) {
@@ -918,7 +712,6 @@ export async function boot(opts = {}) {
     }
 
     updateQuestHud();
-    updateCompactBar();
 
     if (state.timeLeft <= 0) stop();
   }
@@ -929,50 +722,14 @@ export async function boot(opts = {}) {
     rafId = ROOT.requestAnimationFrame(rafLoop);
   }
 
-  // --------------------- Tap-anywhere shoot (blank area) ---------------------
+  // --------------------- Start spawner ---------------------
   let spawner = null;
 
-  let tapDownTs = 0;
-  let tapDownX = 0;
-  let tapDownY = 0;
-  let tapMoved = false;
+  // ✅ boundsHost = ชั้น viewport ไม่โดน translate (ถ้ามี)
+  const boundsEl = $id('hvr-bounds') || $id('hvr-stage') || document.body;
 
-  function onBlankPointerDown(ev){
-    tapDownTs = now();
-    tapDownX = ev.clientX || 0;
-    tapDownY = ev.clientY || 0;
-    tapMoved = false;
-  }
-  function onBlankPointerMove(ev){
-    const x = ev.clientX || 0, y = ev.clientY || 0;
-    const dx = x - tapDownX, dy = y - tapDownY;
-    if (Math.hypot(dx,dy) > TUNE.tapMoveDeadPx) tapMoved = true;
-  }
-  function onBlankPointerUp(ev){
-    const dt = now() - tapDownTs;
-
-    // ถ้าลากมุมมอง (tapMoved=true) ไม่ยิง
-    if (tapMoved) return;
-
-    // ถ้าแตะนานเกิน = ไม่นับเป็น tap shoot
-    if (dt > TUNE.tapMaxMs) return;
-
-    // ถ้าแตะไปโดนปุ่ม/แถบ/compactbar ไม่ยิง
-    const t = ev.target;
-    if (t && (t.closest && (t.closest('#hvr-compactbar') || t.closest('#hvr-info') || t.closest('.hud')))) return;
-
-    // ยิงกลางจอ
-    try{
-      if (spawner && typeof spawner.shootCrosshair === 'function') {
-        const ok = spawner.shootCrosshair();
-        if (ok) showHud(500);
-      }
-    }catch{}
-  }
-
-  // --------------------- Start spawner ---------------------
-  // ✅ boundsHost = ชั้น viewport ที่ "นิ่ง" (ไม่โดน translate)
-  const boundsEl = wrap || document.body;
+  // ✅ กระจายทั้งสนาม (แก้ “อยู่บริเวณเดียวกัน”)
+  const spread = String(qs('spread','1')) !== '0';
 
   spawner = await factoryBoot({
     modeKey: 'hydration',
@@ -985,11 +742,11 @@ export async function boot(opts = {}) {
     // ✅ Storm เร่ง spawn “จริง”
     spawnIntervalMul: () => (state.stormLeft > 0 ? TUNE.stormIntervalMul : 1),
 
-    // ✅ กันทับ HUD / compactbar
+    // ✅ ตัด HUD ออก (เราใช้ mini HUD)
     excludeSelectors: [
       '.hud',
-      '#hvr-compactbar',
-      '#hvr-info',
+      '#hha-mini-hud',
+      '#hha-mini-panel',
       '#hvr-crosshair',
       '#hvr-end'
     ],
@@ -1005,33 +762,28 @@ export async function boot(opts = {}) {
     powerRate: (difficulty === 'hard') ? 0.10 : 0.12,
     powerEvery: 6,
 
-    // ✅ กระจายจริง (ไม่กองกลาง) แต่ยังเจอง่าย
-    spawnAroundCrosshair: true,
-    spreadMix: (difficulty === 'hard') ? 0.55 : 0.45, // ยิ่งสูงยิ่งกระจายทั่วสนาม
-    spawnRadiusX: (difficulty === 'hard') ? 0.52 : 0.46,
-    spawnRadiusY: (difficulty === 'hard') ? 0.48 : 0.42,
-    minSeparation: 0.90,
+    // ✅ กระจายจริง (ใช้ uniform)
+    spawnAroundCrosshair: spread ? false : true,
+    spawnRadiusX: spread ? 0.92 : 0.42,
+    spawnRadiusY: spread ? 0.86 : 0.38,
+    minSeparation: spread ? 0.82 : 0.95,
     maxSpawnTries: 22,
 
     judge: (ch, ctx) => {
-      // powerups
       if (ctx.isPower && ch === '🛡️'){
         state.shield = clamp(state.shield + 1, 0, TUNE.shieldMax);
         feverRender();
         dispatch('hha:judge', { label:'SHIELD+' });
         updateScoreHud('SHIELD+');
         try{ Particles.toast && Particles.toast('+1 SHIELD 🛡️', 'good'); }catch{}
-        showHud(900);
       }
       if (ctx.isPower && ch === '⏱️'){
         state.timeLeft = clamp(state.timeLeft + 3, 0, 180);
         dispatch('hha:time', { sec: state.timeLeft });
         dispatch('hha:judge', { label:'TIME+' });
         try{ Particles.toast && Particles.toast('+3s ⏱️', 'good'); }catch{}
-        showHud(900);
       }
 
-      // storm bonus
       if (state.stormLeft > 0 && (ctx.isGood || ctx.isPower)) {
         state.fever = clamp(state.fever + 2, 0, 100);
       }
@@ -1047,7 +799,6 @@ export async function boot(opts = {}) {
     }
   });
 
-  // init HUD
   updateWaterHud();
   if (Q && Q.stats){
     Q.stats.zone = zoneFrom(state.waterPct);
@@ -1056,38 +807,26 @@ export async function boot(opts = {}) {
   updateQuestHud();
   updateScoreHud();
   feverRender();
-  showHud(1500);
+  updateMiniHUD();
 
-  // bind look drag
   playfield.addEventListener('pointerdown', onPointerDown, { passive:true });
   ROOT.addEventListener('pointermove', onPointerMove, { passive:true });
   ROOT.addEventListener('pointerup', onPointerUp, { passive:true });
   ROOT.addEventListener('pointercancel', onPointerUp, { passive:true });
 
-  // bind blank-tap shoot on wrapper (ไม่ชน target เพราะ target จะ stopPropagation เอง)
-  (wrap || playfield).addEventListener('pointerdown', onBlankPointerDown, { passive:true });
-  (wrap || playfield).addEventListener('pointermove', onBlankPointerMove, { passive:true });
-  (wrap || playfield).addEventListener('pointerup', onBlankPointerUp, { passive:true });
-
-  // gyro auto if allowed
   if (await tryEnableGyro()) {
     ROOT.addEventListener('deviceorientation', onDeviceOrientation, true);
-    hasOrient = true;
   }
 
-  // ask gyro permission once on first pointerdown
   const onceAsk = async () => {
     ROOT.removeEventListener('pointerdown', onceAsk);
     await requestGyroPermission();
   };
   ROOT.addEventListener('pointerdown', onceAsk, { passive:true });
 
-  // timers
   timer = ROOT.setInterval(secondTick, 1000);
   rafId = ROOT.requestAnimationFrame(rafLoop);
-  hudTimer = ROOT.setInterval(tickHud, 160);
 
-  // stop hooks
   const onStop = () => stop();
   ROOT.addEventListener('hha:stop', onStop);
 
@@ -1096,6 +835,92 @@ export async function boot(opts = {}) {
     if (Number.isFinite(sec) && sec <= 0) stop();
   };
   ROOT.addEventListener('hha:time', onTime, { passive:true });
+
+  // --------------------- End summary (กันจอดำ) ---------------------
+  function showEndOverlay(payload){
+    let end = $id('hvr-end');
+    if (!end) {
+      end = document.createElement('div');
+      end.id = 'hvr-end';
+      document.body.appendChild(end);
+    }
+
+    // ensure style if HTML ไม่ได้มี
+    if (!end.__hhaStyled) {
+      end.__hhaStyled = 1;
+      Object.assign(end.style, {
+        position:'fixed', inset:'0', zIndex:'200',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        padding:'18px',
+        background:'rgba(2,6,23,.68)',
+        backdropFilter:'blur(10px)'
+      });
+    }
+
+    const grade = ($id('hha-grade-badge')?.textContent) || 'C';
+    const greenTick = payload.greenTick|0;
+    const html = `
+      <div style="
+        width:min(520px,92vw);
+        border-radius:22px;
+        background:rgba(2,6,23,.72);
+        border:1px solid rgba(148,163,184,.20);
+        box-shadow:0 22px 70px rgba(0,0,0,.55);
+        padding:16px 16px;
+        color:#e5e7eb;
+      ">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="font-weight:1000;font-size:18px;">🏁 จบเกม Hydration</div>
+          <div style="padding:6px 10px;border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(2,6,23,.55);font-weight:1000;">
+            Grade ${grade}
+          </div>
+        </div>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="padding:10px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
+            <div style="opacity:.85;font-size:12px;">Score</div>
+            <div style="font-size:26px;font-weight:1000;">${payload.score|0} pts</div>
+          </div>
+          <div style="padding:10px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
+            <div style="opacity:.85;font-size:12px;">Combo Best</div>
+            <div style="font-size:26px;font-weight:1000;">${payload.comboBest|0}</div>
+          </div>
+          <div style="padding:10px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
+            <div style="opacity:.85;font-size:12px;">Miss</div>
+            <div style="font-size:26px;font-weight:1000;">${payload.miss|0}</div>
+          </div>
+          <div style="padding:10px 12px;border-radius:18px;border:1px solid rgba(148,163,184,.14);background:rgba(2,6,23,.45);">
+            <div style="opacity:.85;font-size:12px;">GREEN time</div>
+            <div style="font-size:26px;font-weight:1000;">${greenTick}s</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+          <button id="hvr-retry" style="
+            pointer-events:auto;
+            border-radius:999px;padding:10px 12px;
+            background:rgba(34,197,94,.18);
+            border:1px solid rgba(34,197,94,.35);
+            color:#e5e7eb;font-weight:1000;cursor:pointer;
+          ">เล่นอีกครั้ง</button>
+          <button id="hvr-close" style="
+            pointer-events:auto;
+            border-radius:999px;padding:10px 12px;
+            background:rgba(148,163,184,.10);
+            border:1px solid rgba(148,163,184,.22);
+            color:#e5e7eb;font-weight:1000;cursor:pointer;
+          ">ปิด</button>
+        </div>
+      </div>
+    `;
+    end.innerHTML = html;
+    end.classList.add('on');
+    end.style.display = 'flex';
+
+    const retry = $id('hvr-retry');
+    const close = $id('hvr-close');
+    if (retry) retry.onclick = () => { try{ location.reload(); }catch{} };
+    if (close) close.onclick = () => { try{ end.style.display='none'; }catch{} };
+  }
 
   function stop(){
     if (state.stopped) return;
@@ -1107,9 +932,6 @@ export async function boot(opts = {}) {
     try{ if (rafId != null) ROOT.cancelAnimationFrame(rafId); }catch{}
     rafId = null;
 
-    try{ if (hudTimer) ROOT.clearInterval(hudTimer); }catch{}
-    hudTimer = null;
-
     try{ spawner && spawner.stop && spawner.stop(); }catch{}
     try{ ROOT.removeEventListener('hha:stop', onStop); }catch{}
     try{ ROOT.removeEventListener('hha:time', onTime); }catch{}
@@ -1118,12 +940,6 @@ export async function boot(opts = {}) {
     try{ ROOT.removeEventListener('pointermove', onPointerMove); }catch{}
     try{ ROOT.removeEventListener('pointerup', onPointerUp); }catch{}
     try{ ROOT.removeEventListener('pointercancel', onPointerUp); }catch{}
-
-    try{
-      (wrap || playfield).removeEventListener('pointerdown', onBlankPointerDown);
-      (wrap || playfield).removeEventListener('pointermove', onBlankPointerMove);
-      (wrap || playfield).removeEventListener('pointerup', onBlankPointerUp);
-    }catch{}
 
     const payload = {
       score: state.score|0,
@@ -1135,14 +951,11 @@ export async function boot(opts = {}) {
     };
 
     dispatch('hha:end', payload);
-
-    // ✅ กันจอดำ: render end overlay เอง
-    renderEnd(payload);
-
-    dispatch('hha:coach', { text:'🏁 จบเกม! ดูผลคะแนนและเควสได้เลย', mood:'happy' });
+    dispatch('hha:coach', { text:'🏁 จบเกม! ดูผลคะแนนได้เลย', mood:'happy' });
     try{ Particles.celebrate && Particles.celebrate('end'); }catch{}
 
-    showHud(999999);
+    // ✅ กันจอดำ: สร้าง overlay สรุปเสมอ
+    showEndOverlay(payload);
   }
 
   return { stop };
