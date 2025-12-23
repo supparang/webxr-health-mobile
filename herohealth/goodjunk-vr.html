@@ -26,7 +26,7 @@
       --warn:#f59e0b;
       --danger:#fb7185;
 
-      --crossY: 62vh;
+      --crossY: 62vh; /* จุดเล็ง */
     }
     html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif; }
     *{ box-sizing:border-box; }
@@ -39,7 +39,7 @@
     a-scene{ width:100%; height:100%; }
     canvas{ touch-action:none; }
 
-    /* look-area: รับลากหมุนจอ */
+    /* look-area: รับลากหมุนจอ (อยู่ใต้ targets) */
     #look-area{
       position:absolute; inset:0;
       z-index:2;
@@ -127,20 +127,18 @@
       box-shadow: 0 20px 60px rgba(0,0,0,.45);
       backdrop-filter: blur(10px);
     }
-
     #hud-top{
       position:absolute; left:12px; right:12px; top:10px;
       z-index:10;
       padding:10px 12px;
       display:grid;
-      grid-template-columns: 1.25fr 1fr 1fr 1fr .9fr;
+      grid-template-columns: 1.2fr 1fr 1fr 1fr;
       gap:10px;
       align-items:center;
     }
     #hud-top .k{ font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
-    #hud-top .v{ font-size:20px; font-weight:900; }
-    #hud-top .v.small{ font-size:16px; font-weight:800; }
-
+    #hud-top .v{ font-size:20px; font-weight:800; }
+    #hud-top .v.small{ font-size:16px; font-weight:700; }
     .pill{
       display:inline-flex; align-items:center; gap:8px;
       padding:6px 10px;
@@ -156,38 +154,15 @@
     .dot{ width:8px; height:8px; border-radius:999px; background:var(--accent); display:inline-block; }
     .muted{ color:var(--muted); }
 
-    /* Grade badge realtime */
-    #uiGrade{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:64px;
-      padding:6px 10px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(0,0,0,.14);
-      font-weight:1000;
-      letter-spacing:.04em;
-    }
-    #uiGrade.pop{ animation: gradePop .18s ease-out both; }
-    @keyframes gradePop{
-      from{ transform:scale(.92); filter:drop-shadow(0 0 0 rgba(0,0,0,0)); }
-      to{ transform:scale(1); filter:drop-shadow(0 10px 18px rgba(0,0,0,.35)); }
-    }
-    #uiGrade.sss{ box-shadow:0 0 0 2px rgba(245,158,11,.18), 0 16px 40px rgba(245,158,11,.18); }
-    #uiGrade.ss { box-shadow:0 0 0 2px rgba(59,130,246,.18), 0 16px 40px rgba(59,130,246,.16); }
-    #uiGrade.s  { box-shadow:0 0 0 2px rgba(34,197,94,.18), 0 16px 40px rgba(34,197,94,.14); }
-
     #hud-quest{
       position:absolute; left:12px; right:12px; top:108px;
       z-index:10;
       padding:12px;
-      min-height:126px;
+      min-height:118px;
       display:grid;
       grid-template-columns: 1fr;
       gap:10px;
     }
-
     .bar{
       height:10px; border-radius:999px;
       background:rgba(148,163,184,.15);
@@ -200,7 +175,8 @@
       background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.95));
     }
 
-    #qTitle{ font-weight:1000;font-size:16px; margin-top:4px; }
+    /* ✅ DOUBLE-LINE (Goal + Mini) */
+    #qTitle{ font-weight:900;font-size:16px; margin-top:4px; }
     #qSub{
       margin-top:6px;
       display:flex;
@@ -209,7 +185,7 @@
       gap:10px;
       font-size:12px;
       color:var(--muted);
-      font-weight:900;
+      font-weight:800;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -218,7 +194,7 @@
     #qSub .right{ opacity:.9; }
 
     #line-mini{ display:flex; justify-content:space-between; gap:10px; font-size:13px; }
-    #line-mini b{ font-weight:1000; }
+    #line-mini b{ font-weight:800; }
     #line-mini .right{ color:var(--muted); }
 
     #hud-fever{
@@ -229,7 +205,7 @@
       font-size:13px;
       color:var(--muted);
     }
-    #hud-fever .shield{ color:#cbd5e1; font-weight:900; }
+    #hud-fever .shield{ color:#cbd5e1; font-weight:800; }
 
     /* Footer */
     #footer{
@@ -260,14 +236,14 @@
       border:1px solid rgba(59,130,246,.35);
       background:rgba(37,99,235,.16);
       color:#e0f2fe;
-      font-weight:1000;
+      font-weight:800;
       display:flex; align-items:center; gap:10px;
       cursor:pointer;
     }
     #enterVR:disabled{ opacity:.55; cursor:not-allowed; }
 
     /* Start modal */
-    #startModal, #endModal{
+    #startModal{
       position:absolute; inset:0;
       z-index:20;
       display:flex;
@@ -276,14 +252,12 @@
       padding:18px;
       background: radial-gradient(900px 600px at 50% 30%, rgba(15,23,42,.50), rgba(2,6,23,.72));
     }
-    #endModal{ z-index:25; display:none; }
-    #startCard, #endCard{
-      width:min(760px, 100%);
+    #startCard{
+      width:min(720px, 100%);
       padding:16px;
     }
-    #startCard h1, #endCard h1{ margin:2px 0 4px; font-size:22px; }
-    #startCard p, #endCard p{ margin:0 0 10px; color:var(--muted); font-size:13px; }
-
+    #startCard h1{ margin:2px 0 4px; font-size:22px; }
+    #startCard p{ margin:0 0 10px; color:var(--muted); font-size:13px; }
     .grid2{
       display:grid;
       grid-template-columns: 1fr 1fr;
@@ -310,7 +284,7 @@
       border:1px solid var(--stroke);
       background:rgba(0,0,0,.20);
       color:var(--text);
-      font-weight:1000;
+      font-weight:900;
       cursor:pointer;
       display:inline-flex; align-items:center; gap:10px;
     }
@@ -319,68 +293,7 @@
       background:rgba(34,197,94,.18);
       color:#dcfce7;
     }
-    .btn.alt{
-      border-color:rgba(59,130,246,.35);
-      background:rgba(37,99,235,.16);
-      color:#e0f2fe;
-    }
     .btn:disabled{ opacity:.55; cursor:not-allowed; }
-
-    /* End summary cards */
-    .sumGrid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-      margin-top:10px;
-    }
-    .sumCard{
-      padding:12px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(0,0,0,.12);
-    }
-    .sumCard .k{ font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
-    .sumCard .v{ font-size:24px; font-weight:1100; margin-top:6px; }
-
-    /* BIG grade */
-    #gradeBig{
-      margin-top:10px;
-      padding:12px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(0,0,0,.12);
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-    }
-    #gradeBig .left{
-      display:flex; align-items:center; gap:12px;
-    }
-    #gradeBigBadge{
-      font-size:28px;
-      font-weight:1200;
-      padding:8px 12px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.55);
-      min-width:88px;
-      text-align:center;
-      letter-spacing:.06em;
-      animation: gradePop2 .22s ease-out both;
-    }
-    @keyframes gradePop2{
-      from{ transform:scale(.88); opacity:.6; }
-      to{ transform:scale(1); opacity:1; }
-    }
-    #gradeBigText{
-      font-weight:1000;
-      font-size:14px;
-      color:#e2e8f0;
-    }
-    #gradeBigHint{
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-      white-space:nowrap;
-    }
 
     /* Panic / FX */
     body.shake{ animation: shake .18s linear; }
@@ -419,7 +332,7 @@
     }
     #panicBox.show{ display:block; }
 
-    /* Floating Pop (fallback) */
+    /* Floating Pop fallback */
     #floating-pop-layer{
       position:fixed; inset:0;
       z-index:999;
@@ -435,7 +348,7 @@
       border:1px solid rgba(148,163,184,.22);
       background:rgba(2,6,23,.72);
       color:#e5e7eb;
-      font-weight:1100;
+      font-weight:1000;
       letter-spacing:.02em;
       box-shadow:0 20px 60px rgba(0,0,0,.45);
       backdrop-filter: blur(10px);
@@ -453,55 +366,46 @@
     @keyframes fpIn{ to{ opacity:1; transform:translate(-50%,-50%) scale(1); } }
     @keyframes fpOut{ to{ opacity:0; transform:translate(-50%,-58%) scale(.98); } }
 
-    /* ✅ Confetti (SSS/SS) */
-    #confetti-layer{
-      position:fixed; inset:0;
-      z-index:998;
-      pointer-events:none;
-      overflow:hidden;
+    /* ✅ END SUMMARY MODAL */
+    #endModal{
+      position:absolute; inset:0;
+      z-index:40;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background: radial-gradient(900px 600px at 50% 30%, rgba(15,23,42,.58), rgba(2,6,23,.80));
     }
-    .confetti{
-      position:absolute;
-      top:-10vh;
-      width:10px; height:16px;
-      border-radius:2px;
-      opacity:.95;
-      transform: translate3d(0,0,0) rotate(0deg);
-      animation: confFall var(--cfDur, 1200ms) linear forwards;
-      filter: drop-shadow(0 10px 16px rgba(0,0,0,.35));
+    #endCard{
+      width:min(760px, 100%);
+      padding:16px;
     }
-    @keyframes confFall{
-      to{
-        transform: translate3d(var(--cfDx, 0px), 115vh, 0) rotate(var(--cfRot, 540deg));
-        opacity:0.95;
-      }
+    #endTop{
+      display:flex; justify-content:space-between; align-items:flex-start; gap:12px;
     }
-    /* ✅ Sparkle (S/A/B/C encouragement) */
-    .sparkle{
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%) scale(.9);
-      padding:10px 12px;
+    #gradeBig{
+      font-size:56px; font-weight:1000; letter-spacing:.06em;
+      line-height:1;
+    }
+    #gradeSub{ color:var(--muted); font-size:12px; margin-top:6px; font-weight:800; }
+    .statsGrid{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+    .stat{
+      padding:12px;
       border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.68);
-      color:#e5e7eb;
-      font-weight:1100;
-      letter-spacing:.02em;
-      box-shadow:0 20px 60px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      animation: spIn .14s ease-out forwards, spOut .24s ease-in forwards;
-      animation-delay: 0ms, 950ms;
+      border:1px solid var(--stroke);
+      background:rgba(0,0,0,.14);
     }
-    @keyframes spIn{ to{ opacity:1; transform:translate(-50%,-50%) scale(1);} }
-    @keyframes spOut{ to{ opacity:0; transform:translate(-50%,-58%) scale(.98);} }
-
-    /* Mobile tweak */
-    @media (max-width: 420px){
-      #hud-top{ grid-template-columns: 1.25fr 1fr 1fr; }
-      #hud-top .gHide{ display:none; } /* hide miss/grade */
-      #hud-quest{ top:92px; }
-      #coachText{ font-size:11px !important; }
+    .stat .k{ font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
+    .stat .v{ font-size:22px; font-weight:1000; margin-top:4px; }
+    #endHint{ margin-top:10px; color:var(--muted); font-size:12px; }
+    @media (max-width:760px){
+      #gradeBig{ font-size:46px; }
+      .statsGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
   </style>
 </head>
@@ -541,35 +445,19 @@
       <div class="k">combo max</div>
       <div class="v small" id="uiComboMax">0</div>
     </div>
-    <div class="gHide">
+    <div>
       <div class="k">miss</div>
       <div class="v small" id="uiMiss">0</div>
-    </div>
-    <div class="gHide">
-      <div class="k">grade</div>
-      <div id="uiGrade">C</div>
     </div>
   </div>
 
   <div id="hud-quest" class="panel">
-    <div style="display:grid; grid-template-columns: 1fr auto; align-items:center; gap:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div>
-          <div class="k">time</div>
-          <div class="v small"><span id="uiTime">--</span><span class="muted">s</span></div>
-        </div>
-        <div class="pill" id="uiDiffChallenge">Diff: NORMAL • Challenge: RUSH</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <div>
+        <div class="k">time</div>
+        <div class="v small"><span id="uiTime">--</span><span class="muted">s</span></div>
       </div>
-
-      <!-- ✅ Coach HUD -->
-      <div style="display:flex; align-items:center; gap:10px;">
-        <img id="coachImg" alt="coach" src="./img/coach-neutral.png"
-          style="width:54px;height:54px;object-fit:contain;border-radius:14px;border:1px solid var(--stroke);background:rgba(0,0,0,.14);" />
-        <div style="max-width:180px;">
-          <div class="k">coach</div>
-          <div style="font-size:12px;font-weight:1000;color:#e2e8f0;line-height:1.2;" id="coachText">พร้อมลุย! เล็งของดีนะ 🥦</div>
-        </div>
-      </div>
+      <div class="pill" id="uiDiffChallenge">Diff: NORMAL • Challenge: RUSH</div>
     </div>
 
     <div>
@@ -578,7 +466,7 @@
 
       <div id="qSub">
         <div class="left" id="qSubLeft">Mini: —</div>
-        <div class="right" id="qSubRight">goals • minis</div>
+        <div class="right" id="qSubRight">goals 0/0 • minis 0</div>
       </div>
 
       <div class="bar" style="margin-top:8px;"><i id="qBar"></i></div>
@@ -602,9 +490,7 @@
 
   <div id="panicBox"></div>
   <div id="floating-pop-layer"></div>
-  <div id="confetti-layer" aria-hidden="true"></div>
 
-  <!-- START -->
   <div id="startModal">
     <div id="startCard" class="panel">
       <h1>GoodJunk VR</h1>
@@ -640,58 +526,33 @@
     </div>
   </div>
 
-  <!-- END SUMMARY -->
+  <!-- ✅ END SUMMARY -->
   <div id="endModal">
     <div id="endCard" class="panel">
-      <h1>🏁 สรุปผล GoodJunk VR</h1>
-      <p id="endSub" class="muted">เล่นจบแล้ว! เก่งมาก 🎉</p>
-
-      <div id="gradeBig">
-        <div class="left">
-          <div id="gradeBigBadge">C</div>
-          <div>
-            <div id="gradeBigText">เริ่มได้ดี! ลองเล็งของดีให้แม่นขึ้นนะ 🥦</div>
-            <div class="muted" style="margin-top:4px;font-size:12px;font-weight:900;" id="gradeBigStars">★</div>
-          </div>
-        </div>
-        <div id="gradeBigHint">กด Replay เพื่อไต่ SSS!</div>
-      </div>
-
-      <div class="sumGrid">
-        <div class="sumCard">
-          <div class="k">score</div>
-          <div class="v" id="endScore">0</div>
-        </div>
-        <div class="sumCard">
-          <div class="k">combo max</div>
-          <div class="v" id="endComboMax">0</div>
-        </div>
-        <div class="sumCard">
-          <div class="k">good hits</div>
-          <div class="v" id="endGoodHits">0</div>
-        </div>
-        <div class="sumCard">
-          <div class="k">miss</div>
-          <div class="v" id="endMiss">0</div>
-        </div>
-      </div>
-
-      <div style="margin-top:10px; padding:10px 12px; border-radius:16px; border:1px solid var(--stroke); background:rgba(0,0,0,.16); display:flex; gap:10px; align-items:flex-start;">
-        <img id="endCoachImg" alt="coach" src="./img/coach-neutral.png"
-          style="width:64px;height:64px;object-fit:contain;border-radius:16px;border:1px solid var(--stroke);background:rgba(0,0,0,.12);" />
+      <div id="endTop">
         <div>
-          <div style="font-weight:1100;">โค้ช</div>
-          <div class="muted" id="endCoach">ลองใหม่ได้เลย เดี๋ยวเก่งขึ้นแน่นอน 💪</div>
+          <div class="k">result</div>
+          <div id="gradeBig">S</div>
+          <div id="gradeSub">Grade • Keep going!</div>
         </div>
+        <div class="pill" id="endMeta">Diff: NORMAL • Challenge: RUSH</div>
       </div>
 
-      <div class="actions">
-        <button class="btn alt" id="btnReplay">🔁 Replay</button>
-        <button class="btn primary" id="btnHub">🏠 Hub</button>
+      <div class="statsGrid">
+        <div class="stat"><div class="k">score</div><div class="v" id="endScore">0</div></div>
+        <div class="stat"><div class="k">good hits</div><div class="v" id="endGood">0</div></div>
+        <div class="stat"><div class="k">combo max</div><div class="v" id="endCombo">0</div></div>
+        <div class="stat"><div class="k">miss</div><div class="v" id="endMiss">0</div></div>
       </div>
 
-      <div class="muted" style="margin-top:10px;font-size:12px;">
-        * Tip: อยากได้ S/SS/SSS → เพิ่มคอมโบ + ลดโดนของไม่ดี 🔥
+      <div id="endHint">Miss = “ของดีหมดเวลา” + “โดนขยะ/กับดัก” (Shield block ไม่นับ Miss) ✅</div>
+
+      <div class="actions" style="margin-top:14px;justify-content:space-between;">
+        <button class="btn" id="btnBackToMenu">↩ เมนู</button>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <button class="btn" id="btnReplay">🔁 เล่นอีก</button>
+          <button class="btn primary" id="btnReplayHard">🔥 เล่นอีก (Hard)</button>
+        </div>
       </div>
     </div>
   </div>
@@ -707,9 +568,7 @@
   const elCamEntity = $('gj-camera');
   const elLookArea = $('look-area');
 
-  const elStart = $('startModal');
-  const elEnd = $('endModal');
-
+  const elModal = $('startModal');
   const btn2D = $('btnStart2D');
   const btnVR = $('btnStartVR');
   const btnEnterVR = $('enterVR');
@@ -725,36 +584,30 @@
   const uiFever = $('uiFever');
   const uiShield = $('uiShield');
   const uiDiffChallenge = $('uiDiffChallenge');
-  const uiGrade = $('uiGrade');
 
   const qTitle = $('qTitle');
   const qBar = $('qBar');
   const miniText = $('miniText');
   const miniCount = $('miniCount');
+
   const qSubLeft = $('qSubLeft');
   const qSubRight = $('qSubRight');
 
   const edge = $('edge');
   const fpLayer = $('floating-pop-layer');
-  const confLayer = $('confetti-layer');
 
-  const coachImg = $('coachImg');
-  const coachText = $('coachText');
-
-  // End refs
-  const endSub = $('endSub');
+  // END modal
+  const endModal = $('endModal');
+  const gradeBig = $('gradeBig');
+  const gradeSub = $('gradeSub');
+  const endMeta = $('endMeta');
   const endScore = $('endScore');
-  const endComboMax = $('endComboMax');
-  const endGoodHits = $('endGoodHits');
+  const endGood = $('endGood');
+  const endCombo = $('endCombo');
   const endMiss = $('endMiss');
-  const endCoach = $('endCoach');
-  const endCoachImg = $('endCoachImg');
-  const gradeBigBadge = $('gradeBigBadge');
-  const gradeBigText = $('gradeBigText');
-  const gradeBigStars = $('gradeBigStars');
-
+  const btnBackToMenu = $('btnBackToMenu');
   const btnReplay = $('btnReplay');
-  const btnHub = $('btnHub');
+  const btnReplayHard = $('btnReplayHard');
 
   // ===== Debug badge (auto revert) =====
   let badgeTimer = 0;
@@ -794,179 +647,27 @@
   }
 
   // ===== Simple tick sound (WebAudio) =====
-  let AC=null;
+  let AC=null, tickGain=null;
   function ensureAudio(){
     if (AC) return;
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
     AC = new Ctx();
+    tickGain = AC.createGain();
+    tickGain.gain.value = 0.04;
+    tickGain.connect(AC.destination);
   }
-  function tone(freq, ms, type='sine'){
+  function beep(freq=880, ms=40){
     try{
       ensureAudio();
       if (!AC) return;
       const o = AC.createOscillator();
-      const g = AC.createGain();
-      o.type = type;
+      o.type = 'square';
       o.frequency.value = freq;
-      g.gain.value = 0.0001;
-      o.connect(g); g.connect(AC.destination);
-
-      const t0 = AC.currentTime;
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.05, t0+0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0+(ms/1000));
-
+      o.connect(tickGain);
       o.start();
-      setTimeout(()=>{ try{o.stop();}catch(_){ } }, ms+30);
+      setTimeout(()=>{ try{o.stop();}catch(_){ } }, ms);
     }catch(_){}
-  }
-  function beep(freq=880, ms=40){ tone(freq, ms, 'square'); }
-
-  function playGradeSound(grade='C'){
-    grade = String(grade||'C').toUpperCase();
-    if (grade === 'SSS'){
-      tone(784, 120, 'square');  setTimeout(()=>tone(988, 120, 'square'), 120);
-      setTimeout(()=>tone(1175, 160, 'square'), 240);
-      setTimeout(()=>tone(1568, 220, 'square'), 420);
-      return;
-    }
-    if (grade === 'SS'){
-      tone(880, 90, 'sine'); setTimeout(()=>tone(1175, 120, 'sine'), 90);
-      setTimeout(()=>tone(1568, 160, 'sine'), 220);
-      return;
-    }
-    if (grade === 'S'){
-      tone(659, 90, 'sine'); setTimeout(()=>tone(880, 140, 'sine'), 90);
-      return;
-    }
-    if (grade === 'A'){ tone(523, 120, 'triangle'); return; }
-    if (grade === 'B'){ tone(440, 140, 'triangle'); return; }
-    tone(392, 160, 'triangle');
-  }
-
-  // ===== Coach assets (ตามไฟล์ที่คุณมี) =====
-  const COACH_SRC = {
-    happy: './img/coach-happy.png',
-    neutral: './img/coach-neutral.png',
-    sad: './img/coach-sad.png',
-    fever: './img/coach-fever.png'
-  };
-
-  function setCoach(mood='neutral', text=''){
-    const src = COACH_SRC[mood] || COACH_SRC.neutral;
-    try{
-      if (coachImg) coachImg.src = src;
-      if (coachText && text) coachText.textContent = text;
-    }catch(_){}
-  }
-  function setEndCoach(mood='neutral', text=''){
-    const src = COACH_SRC[mood] || COACH_SRC.neutral;
-    try{
-      if (endCoachImg) endCoachImg.src = src;
-      if (endCoach && text) endCoach.textContent = text;
-    }catch(_){}
-  }
-
-  // ===== Confetti/Sparkle =====
-  function confettiBurst(count=36){
-    if (!confLayer) return;
-    const w = innerWidth;
-    const palette = ['rgba(34,197,94,.95)','rgba(59,130,246,.95)','rgba(245,158,11,.95)','rgba(251,113,133,.95)','rgba(226,232,240,.95)'];
-    for (let i=0;i<count;i++){
-      const el = document.createElement('div');
-      el.className = 'confetti';
-      el.style.left = (Math.random()*w) + 'px';
-      el.style.setProperty('--cfDx', ((Math.random()*2-1)*160).toFixed(0)+'px');
-      el.style.setProperty('--cfRot', (360 + Math.random()*900).toFixed(0)+'deg');
-      el.style.setProperty('--cfDur', (900 + Math.random()*700).toFixed(0)+'ms');
-      el.style.background = palette[(Math.random()*palette.length)|0];
-      confLayer.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 1900);
-    }
-  }
-  function sparkle(text='✨ เก่งมาก!'){
-    if (!confLayer) return;
-    const el = document.createElement('div');
-    el.className = 'sparkle';
-    el.textContent = text;
-    confLayer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 1400);
-  }
-
-  // ===== Grade logic (เด็ก ป.5 — เข้าใจง่าย + เร้าใจ) =====
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-  function starsFor(grade){
-    grade = String(grade||'C').toUpperCase();
-    if (grade==='SSS') return 3;
-    if (grade==='SS') return 2;
-    if (grade==='S') return 1;
-    return 0;
-  }
-  function moodByGrade(grade){
-    grade = String(grade||'C').toUpperCase();
-    if (grade === 'SSS' || grade === 'SS' || grade === 'S') return 'happy';
-    if (grade === 'A') return 'neutral';
-    return 'sad';
-  }
-
-  // สูตรเกรด: ใช้ "score + combo + miss + goodHits" (ไม่ซับซ้อน)
-  function calcGrade({score=0, comboMax=0, misses=0, goodHits=0, durationSec=60}){
-    score = score|0; comboMax=comboMax|0; misses=misses|0; goodHits=goodHits|0; durationSec = Math.max(20, durationSec|0);
-
-    // normalize by time
-    const scorePerSec = score / durationSec;
-
-    // thresholds tuned forความมันส์: easy จะขึ้นเกรดง่ายกว่าเล็กน้อย (ปรับภายนอกได้จาก diffBias)
-    let grade='C';
-
-    // เงื่อนไขพิเศษ "ไร้พลาด" + คอมโบโหด + สกอร์แรง
-    if (misses===0 && comboMax>=22 && scorePerSec>=26) grade='SSS';
-    else if (misses<=1 && comboMax>=18 && scorePerSec>=22) grade='SS';
-    else if (misses<=2 && comboMax>=14 && scorePerSec>=18) grade='S';
-    else if (misses<=4 && comboMax>=10 && scorePerSec>=14) grade='A';
-    else if (misses<=7 && comboMax>=6  && scorePerSec>=10) grade='B';
-    else grade='C';
-
-    // กันกรณี hit เยอะแต่ score ต่ำผิดปกติ (ช่วยเด็ก)
-    if (grade==='C' && goodHits>=18 && misses<=6) grade='B';
-
-    const star = starsFor(grade);
-    return { grade, stars: star };
-  }
-
-  function gradeText(grade){
-    grade = String(grade||'C').toUpperCase();
-    if (grade==='SSS') return '🏆 HERO ระดับตำนาน! โหดมากกก!';
-    if (grade==='SS')  return '🌟 สุดยอด! ใกล้ตำนานแล้ว!';
-    if (grade==='S')   return '⭐ เก่งมาก! อีกนิดเป็น SS!';
-    if (grade==='A')   return '👍 ดีมาก! ลดพลาดอีกนิดได้ S!';
-    if (grade==='B')   return '🙂 เริ่มดีแล้ว! ซ้อมคอมโบเพิ่ม!';
-    return '💪 ไม่เป็นไร! เล่นอีกรอบได้เลย!';
-  }
-  function coachLineFor(grade){
-    grade = String(grade||'C').toUpperCase();
-    if (grade==='SSS') return 'เธอคือ HERO ของสุขภาพแล้ววว! 🥦🔥';
-    if (grade==='SS')  return 'ว้าว! เกือบแตะตำนานแล้ว! ไปต่อออ! ✨';
-    if (grade==='S')   return 'เก่งมาก! คอมโบมาแล้ว! อย่าโดนของไม่ดีนะ!';
-    if (grade==='A')   return 'ดีเลย! ลองเล็งของดีให้แม่นขึ้นอีกนิดนะ';
-    if (grade==='B')   return 'ไม่แย่! ลองโฟกัส “ของดี” แล้วคุมคอมโบ!';
-    return 'ไม่เป็นไร! ค่อย ๆ เก่งขึ้นได้แน่นอน 💪';
-  }
-
-  function setGradeUI(grade){
-    if (!uiGrade) return;
-    const g = String(grade||'C').toUpperCase();
-    uiGrade.textContent = g;
-
-    uiGrade.classList.remove('sss','ss','s');
-    if (g==='SSS') uiGrade.classList.add('sss');
-    if (g==='SS')  uiGrade.classList.add('ss');
-    if (g==='S')   uiGrade.classList.add('s');
-
-    uiGrade.classList.remove('pop');
-    void uiGrade.offsetWidth;
-    uiGrade.classList.add('pop');
   }
 
   // ===== Selector persist + URL override =====
@@ -1034,6 +735,7 @@
       touchCtl = modTouch.attachTouchLook(elCamEntity, { areaEl: elLookArea, sensitivity: 0.26 });
 
       startParallaxLoop();
+
       return { modSafe, modTouch };
     }catch(err){
       clearTimeout(watchdog);
@@ -1066,6 +768,88 @@
     rafPar = requestAnimationFrame(tick);
   }
 
+  // ===== HUD updates =====
+  window.addEventListener('hha:score', (e)=>{
+    const d = e.detail||{};
+    uiScore.textContent = String(d.score ?? 0);
+    uiComboMax.textContent = String(d.comboMax ?? 0);
+    uiMiss.textContent = String(d.misses ?? 0);
+  });
+
+  window.addEventListener('hha:time', (e)=>{
+    const d = e.detail||{};
+    uiTime.textContent = String(d.sec ?? '--');
+  });
+
+  window.addEventListener('hha:fever', (e)=>{
+    const d = e.detail||{};
+    uiFever.textContent = String(Math.round(d.fever ?? 0));
+    uiShield.textContent = String(d.shield ?? 0);
+  });
+
+  // ✅ quest:update (NEW SHAPE) — FIXED for your UI
+  window.addEventListener('quest:update', (e)=>{
+    const d = e.detail || {};
+    const g = d.goal || null;
+    const m = d.mini || null;
+    const meta = d.meta || {};
+
+    if (g){
+      qTitle.textContent = `${g.title || 'ภารกิจหลัก'} — ${g.cur ?? 0}/${g.max ?? 0}`;
+      const pct = Math.max(0, Math.min(100, (Number(g.pct||0) * 100)));
+      qBar.style.width = pct.toFixed(0) + '%';
+    } else {
+      qTitle.textContent = 'เคลียร์ภารกิจหลักครบแล้ว ✅';
+      qBar.style.width = '100%';
+    }
+
+    if (m){
+      const miniLine = `${m.title || 'Mini'} — ${m.cur ?? 0}/${m.max ?? 0}`;
+      qSubLeft.textContent = `Mini: ${miniLine}`;
+      miniText.textContent = `Mini: ${miniLine}`;
+    } else {
+      qSubLeft.textContent = 'Mini: —';
+      miniText.textContent = 'Mini: —';
+    }
+
+    qSubRight.textContent = `goals ${meta.goalsCleared||0}/${meta.goalIndex||0} • minis ${meta.minisCleared||0}`;
+    miniCount.textContent = `mini ผ่าน ${meta.minisCleared||0} • เล่นอยู่ ${meta.miniCount||0}`;
+  });
+
+  // ===== Quest popups =====
+  window.addEventListener('quest:goalClear', (e)=>{
+    const d = e.detail||{};
+    setBadgeTemp(true, `GOAL CLEAR!`, 900);
+    floatingPop(`✅ GOAL CLEAR — ${d.title||''}`, 'good', 1100);
+  });
+
+  window.addEventListener('quest:miniClear', (e)=>{
+    const d = e.detail||{};
+    setBadgeTemp(true, `MINI CLEAR! (${d.minisCleared||0})`, 850);
+    floatingPop(`⚡ MINI CLEAR — ${d.title||''}`, 'gold', 950);
+  });
+
+  window.addEventListener('quest:allGoalsClear', ()=>{
+    setBadgeTemp(true, 'ALL GOALS CLEARED!', 1200);
+    floatingPop('🏁 เคลียร์ภารกิจหลักครบแล้ว!', 'gold', 1400);
+  });
+
+  window.addEventListener('quest:badHit', (e)=>{
+    const d = e.detail||{};
+    setBadgeTemp(false, `HIT: ${d.kind||'bad'}`, 700);
+    floatingPop(`💥 โดนแล้ว! (${d.kind||'hazard'})`, 'bad', 850);
+  });
+
+  window.addEventListener('quest:block', ()=>{
+    setBadgeTemp(true, 'BLOCK!', 700);
+    floatingPop('🛡️ BLOCK!', 'good', 650);
+  });
+
+  window.addEventListener('quest:bossClear', ()=>{
+    setBadgeTemp(true, 'BOSS CLEARED!', 1200);
+    floatingPop('👑 BOSS CLEARED!', 'gold', 1400);
+  });
+
   // ===== FX bridge =====
   function kick(){
     document.body.classList.remove('shake');
@@ -1090,7 +874,7 @@
     const k = String(d.kind||'tick');
     const intensity = Number(d.intensity||1);
     if (k.includes('laser')) beep(980 + intensity*80, 26);
-    else if (k.includes('ring'))  beep(860 + intensity*60, 30);
+    else if (k.includes('ring')) beep(860 + intensity*60, 30);
     else if (k.includes('final')) beep(1200, 24);
     else beep(820, 28);
     if (intensity >= 1.6) kick();
@@ -1124,175 +908,41 @@
     }
   });
 
-  // ===== Quest UI =====
-  window.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
+  // ✅ END SUMMARY — show on hha:end
+  function showEnd(d){
+    const grade = String(d.grade || 'B');
+    gradeBig.textContent = grade;
 
-    // NEW SHAPE: { goal, mini, meta }
-    if (d.goal || d.mini || d.meta){
-      const g = d.goal || null;
-      const m = d.mini || null;
-      const meta = d.meta || {};
+    const msg = grade === 'SSS' ? 'สุดยอดมาก! โหมดฮีโร่ 💥'
+      : grade === 'SS' ? 'เก่งมาก! เกือบแตะตำนาน ✨'
+      : grade === 'S' ? 'ยอดเยี่ยม! รักษาคอมโบให้ได้ 🔥'
+      : grade === 'A' ? 'ดีมาก! ลด Miss อีกนิด 🛡️'
+      : grade === 'B' ? 'ผ่านแบบมันส์! ฝึกอีกหน่อย 💪'
+      : 'เริ่มได้ดี! ลองโฟกัสของดี 🥦';
 
-      if (g){
-        qTitle.textContent = `${g.title || 'ภารกิจหลัก'} — ${g.cur ?? 0}/${g.max ?? 0}`;
-        const pct = Math.max(0, Math.min(100, (Number(g.pct||0) * 100)));
-        qBar.style.width = pct.toFixed(0) + '%';
-      } else {
-        qTitle.textContent = 'เคลียร์ภารกิจหลักครบแล้ว ✅';
-        qBar.style.width = '100%';
-      }
+    gradeSub.textContent = msg;
 
-      if (m){
-        const miniLine = `${m.title || 'Mini'} — ${m.cur ?? 0}/${m.max ?? 0}`;
-        qSubLeft.textContent = `Mini: ${miniLine}`;
-        miniText.textContent = `Mini: ${miniLine}`;
-      } else {
-        qSubLeft.textContent = 'Mini: —';
-        miniText.textContent = 'Mini: —';
-      }
+    endMeta.textContent = `Diff: ${(d.diff||'normal').toUpperCase()} • Challenge: ${(d.challenge||'rush').toUpperCase()}`;
+    endScore.textContent = String(d.score ?? 0);
+    endGood.textContent = String(d.goodHits ?? 0);
+    endCombo.textContent = String(d.comboMax ?? 0);
+    endMiss.textContent = String(d.misses ?? 0);
 
-      // director compat: meta.minisCleared / meta.miniCount
-      const mc = meta.minisCleared ?? 0;
-      const mcount = meta.miniCount ?? 0;
-
-      qSubRight.textContent = `minis ${mc} • run ${mcount}`;
-      miniCount.textContent = `mini ผ่าน ${mc} • เล่นอยู่ ${mcount}`;
-      return;
-    }
-
-    // OLD fallback
-    qTitle.textContent = d.title || '—';
-    const pct = Math.max(0, Math.min(100, Number(d.progressPct||0)));
-    qBar.style.width = pct.toFixed(0)+'%';
-    if (d.miniText) miniText.textContent = d.miniText;
-    if (typeof d.miniCleared === 'number' || typeof d.miniLeft === 'number'){
-      miniCount.textContent = `mini ผ่าน ${d.miniCleared||0} • เล่นอยู่ ${d.miniLeft||0}`;
-    }
-  });
-
-  window.addEventListener('quest:goalClear', (e)=>{
-    const d = e.detail||{};
-    setBadgeTemp(true, `GOAL CLEAR!`, 900);
-    floatingPop(`✅ GOAL CLEAR — ${d.title||''}`, 'good', 1100);
-  });
-
-  window.addEventListener('quest:miniClear', (e)=>{
-    const d = e.detail||{};
-    setBadgeTemp(true, `MINI CLEAR!`, 850);
-    floatingPop(`⚡ MINI CLEAR — ${d.title||''}`, 'gold', 950);
-  });
-
-  window.addEventListener('quest:badHit', (e)=>{
-    const d = e.detail||{};
-    setBadgeTemp(false, `HIT: ${d.kind||'bad'}`, 700);
-    floatingPop(`💥 โดนแล้ว! (${d.kind||'hazard'})`, 'bad', 850);
-  });
-
-  window.addEventListener('quest:block', ()=>{
-    setBadgeTemp(true, 'BLOCK!', 700);
-    floatingPop('🛡️ BLOCK!', 'good', 650);
-  });
-
-  window.addEventListener('quest:bossClear', ()=>{
-    setBadgeTemp(true, 'BOSS CLEARED!', 1200);
-    floatingPop('👑 BOSS CLEARED!', 'gold', 1400);
-  });
-
-  // ===== Runtime state for grade =====
-  const RT = {
-    diff:'normal',
-    challenge:'rush',
-    durationSec:60,
-    score:0, comboMax:0, misses:0, goodHits:0,
-    fever:0, stunActive:false,
-    gradeNow:'C'
-  };
-
-  // ===== HUD updates =====
-  window.addEventListener('hha:score', (e)=>{
-    const d = e.detail||{};
-    RT.score = (d.score ?? RT.score) | 0;
-    RT.comboMax = (d.comboMax ?? RT.comboMax) | 0;
-    RT.misses = (d.misses ?? RT.misses) | 0;
-    RT.goodHits = (d.goodHits ?? RT.goodHits) | 0;
-    RT.stunActive = !!d.stunActive;
-
-    uiScore.textContent = String(RT.score);
-    uiComboMax.textContent = String(RT.comboMax);
-    uiMiss.textContent = String(RT.misses);
-
-    // realtime grade
-    const g = calcGrade({score:RT.score, comboMax:RT.comboMax, misses:RT.misses, goodHits:RT.goodHits, durationSec:RT.durationSec});
-    if (g.grade !== RT.gradeNow){
-      RT.gradeNow = g.grade;
-      setGradeUI(g.grade);
-      // voice on upgrade
-      playGradeSound(g.grade);
-      if (g.grade==='SSS') confettiBurst(22);
-      else if (g.grade==='SS') confettiBurst(16);
-      else if (g.grade==='S') sparkle('✨ S! เก่งมาก!');
-    } else {
-      setGradeUI(RT.gradeNow);
-    }
-
-    // coach realtime (ถ้าไม่ stun)
-    if (!RT.stunActive){
-      const mood = moodByGrade(RT.gradeNow);
-      setCoach(mood, coachLineFor(RT.gradeNow));
-    }
-  });
-
-  window.addEventListener('hha:time', (e)=>{
-    const d = e.detail||{};
-    uiTime.textContent = String(d.sec ?? '--');
-  });
-
-  window.addEventListener('hha:fever', (e)=>{
-    const d = e.detail||{};
-    RT.fever = Math.round(d.fever ?? RT.fever);
-    RT.stunActive = !!d.stunActive;
-
-    uiFever.textContent = String(RT.fever);
-    uiShield.textContent = String(d.shield ?? 0);
-
-    // ✅ ถ้า stunActive → coach fever
-    if (RT.stunActive){
-      setCoach('fever', 'โอ๊ย! มึนแล้ว! หลบของไม่ดีเร็ว! 😵‍💫');
-    }
-  });
-
-  // ===== Logger helpers (sessions/events/student-profile) =====
-  function uuid(){
-    try{
-      return (crypto?.randomUUID && crypto.randomUUID()) || ('gj-'+Math.random().toString(16).slice(2)+Date.now().toString(16));
-    }catch(_){
-      return 'gj-'+Math.random().toString(16).slice(2)+Date.now().toString(16);
-    }
+    endModal.style.display = 'flex';
   }
-  const sessionId = uuid();
-
-  function logEvent(name, extra={}){
-    window.dispatchEvent(new CustomEvent('hha:log_event', {
-      detail: Object.assign({
-        sessionId,
-        game:'GoodJunkVR',
-        name,
-        ts: Date.now()
-      }, extra || {})
-    }));
-  }
-  function logSessionFinal(payload){
-    window.dispatchEvent(new CustomEvent('hha:log_session', {
-      detail: Object.assign({
-        sessionId,
-        game:'GoodJunkVR',
-        ts: Date.now()
-      }, payload || {})
-    }));
+  function hideEnd(){
+    endModal.style.display = 'none';
   }
 
-  // ===== Start/End =====
+  window.addEventListener('hha:end', (e)=>{
+    const d = e.detail||{};
+    setBadgeTemp(true, 'game ended ✅', 1200);
+    // stop old engine safety
+    try{ engine?.stop?.(); }catch(_){}
+    showEnd(d);
+  });
+
+  // ===== Start =====
   function getSelected(){
     const diff = $('selDiff').value;
     const ch = $('selCh').value;
@@ -1311,38 +961,24 @@
     return { top, bottom, left, right };
   }
 
-  let lastStart = null;
-
-  async function startGame(runMode='play'){
+  async function startGame(runMode='play', force=null){
     btn2D.disabled = true; btnVR.disabled = true;
     try{
+      hideEnd();
       ensureAudio();
       await ensureModules();
 
-      const { diff, challenge } = getSelected();
-      RT.diff = diff; RT.challenge = challenge;
+      const sel = getSelected();
+      const diff = (force?.diff) ? force.diff : sel.diff;
+      const challenge = (force?.challenge) ? force.challenge : sel.challenge;
 
       uiDiffChallenge.textContent = `Diff: ${diff.toUpperCase()} • Challenge: ${challenge.toUpperCase()}`;
-      $('runName').textContent = runMode.toUpperCase();
-
-      // reset runtime
-      RT.durationSec = 60;
-      RT.score=0; RT.comboMax=0; RT.misses=0; RT.goodHits=0; RT.gradeNow='C';
-      setGradeUI('C');
-      setCoach('neutral', 'พร้อมลุย! เล็งของดีนะ 🥦');
 
       try{ engine?.stop?.(); }catch(_){}
       engine = null;
 
-      elEnd.style.display = 'none';
-      elStart.style.display = 'none';
-
+      elModal.style.display = 'none';
       setBadgeTemp(true, 'starting…', 900);
-
-      lastStart = { diff, challenge, runMode, time: 60 };
-
-      // log start as event (ไม่ต้องพึ่ง Apps Script เปิดได้ก่อนก็เก็บคิว)
-      logEvent('start', { diff, challenge, runMode, durationSec: 60 });
 
       engine = modSafe.boot({
         diff,
@@ -1357,7 +993,7 @@
     }catch(err){
       showPanic('Start ไม่สำเร็จ', err);
       setBadgeTemp(false, 'start failed', 1400);
-      elStart.style.display = 'flex';
+      elModal.style.display = 'flex';
     }finally{
       btn2D.disabled = false; btnVR.disabled = false;
     }
@@ -1376,104 +1012,15 @@
     }
   });
 
-  btnReplay.addEventListener('click', ()=>{
-    // กลับไป start modal แต่คงค่าที่เลือก
-    elEnd.style.display = 'none';
-    elStart.style.display = 'flex';
-    setBadgeTemp(true, 'replay ready', 700);
+  // End modal buttons
+  btnBackToMenu.addEventListener('click', ()=>{
+    hideEnd();
+    elModal.style.display = 'flex';
   });
+  btnReplay.addEventListener('click', ()=> startGame('play'));
+  btnReplayHard.addEventListener('click', ()=> startGame('play', { diff:'hard' }));
 
-  btnHub.addEventListener('click', ()=>{
-    try{ location.href = './hub.html'; }catch(_){}
-  });
-
-  // ===== End summary (ขั้นสุด: เกรด+ดาว+เสียง+confetti+โค้ช + log) =====
-  function showEnd(d){
-    // d จาก safe.js: {score, goodHits, misses, comboMax, durationSec, diff, challenge, runMode}
-    const score = (d.score ?? RT.score) | 0;
-    const comboMax = (d.comboMax ?? RT.comboMax) | 0;
-    const misses = (d.misses ?? RT.misses) | 0;
-    const goodHits = (d.goodHits ?? RT.goodHits) | 0;
-    const durationSec = Math.max(20, (d.durationSec ?? RT.durationSec) | 0);
-
-    const out = calcGrade({ score, comboMax, misses, goodHits, durationSec });
-    const grade = out.grade;
-    const stars = out.stars;
-
-    // UI
-    endScore.textContent = String(score);
-    endComboMax.textContent = String(comboMax);
-    endGoodHits.textContent = String(goodHits);
-    endMiss.textContent = String(misses);
-
-    gradeBigBadge.textContent = grade;
-    gradeBigStars.textContent = '★'.repeat(Math.max(1, stars || 0)) + (stars ? '' : '★');
-    gradeBigText.textContent = gradeText(grade);
-
-    const coachLine = coachLineFor(grade);
-    setEndCoach(moodByGrade(grade), coachLine);
-
-    endSub.textContent = `Diff: ${(d.diff||RT.diff||'normal').toUpperCase()} • Challenge: ${(d.challenge||RT.challenge||'rush').toUpperCase()}`;
-
-    // FX + sound
-    playGradeSound(grade);
-
-    if (grade === 'SSS'){
-      confettiBurst(70);
-      floatingPop('🏆 SSS!! เธอคือ HERO OF HEALTH!!!', 'gold', 1500);
-      kick();
-    } else if (grade === 'SS'){
-      confettiBurst(55);
-      floatingPop('🌟 SS!! สุดยอดมากกก!', 'gold', 1300);
-    } else if (grade === 'S'){
-      sparkle('✨ S! อีกนิดเป็น SS แล้ว!');
-      floatingPop('⭐ S!! คอมโบโหดมาก!', 'good', 1200);
-    } else if (grade === 'A'){
-      sparkle('👍 A! ลดพลาดอีกนิดได้ S แน่!');
-    } else if (grade === 'B'){
-      sparkle('🙂 B! เกือบแล้ว ลองเล็งของดีให้แม่นขึ้น!');
-    } else {
-      sparkle('💪 C! ไม่เป็นไร เล่นอีกรอบได้เลย!');
-    }
-
-    // ✅ log (sessions + events)
-    logEvent('end', {
-      diff: d.diff || RT.diff,
-      challenge: d.challenge || RT.challenge,
-      runMode: d.runMode || 'play',
-      durationSec,
-      score, comboMax, goodHits, misses,
-      grade, stars
-    });
-
-    logSessionFinal({
-      diff: d.diff || RT.diff,
-      challenge: d.challenge || RT.challenge,
-      runMode: d.runMode || 'play',
-      durationSec,
-      score, comboMax, goodHits, misses,
-      grade, stars,
-      coachLine
-    });
-
-    elEnd.style.display = 'flex';
-    setBadgeTemp(true, 'ended', 900);
-  }
-
-  window.addEventListener('hha:end', (e)=>{
-    try{
-      // stop touch/look? keep okay
-      showEnd(e.detail || {});
-    }catch(err){
-      showPanic('สรุปผลไม่ขึ้น (end handler error)', err);
-      setBadgeTemp(false, 'end error', 1400);
-    }
-  });
-
-  // ===== Init =====
   setBadge(true, 'boot: idle');
-  setGradeUI('C');
-  setCoach('neutral', 'พร้อมลุย! เล็งของดีนะ 🥦');
 </script>
 
 </body>
