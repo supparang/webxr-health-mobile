@@ -1,4 +1,4 @@
-<!-- === /herohealth/goodjunk-vr.html === -->
+<!-- === /herohealth/goodjunk-vr.html (FULL / DOUBLE-BINE H+++) === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -546,7 +546,6 @@
   // ===== Floating Pop helper =====
   function floatingPop(text, tone='good', holdMs=900){
     try{
-      // ถ้ามี particles.toast ใช้ก่อน
       const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles;
       if (P && typeof P.toast === 'function'){
         P.toast(String(text||''), { tone, ms: holdMs|0 });
@@ -593,7 +592,7 @@
     const sCh = $('selCh');
 
     const urlDiff = (U.searchParams.get('diff')||'').toLowerCase();
-    const urlCh   = (U.searchParams.get('challenge')||'').toLowerCase();
+    const urlCh   = (U.searchParams.get('challenge')||U.searchParams.get('ch')||'').toLowerCase();
 
     const savedDiff = localStorage.getItem('gj_diff') || '';
     const savedCh   = localStorage.getItem('gj_ch') || '';
@@ -613,9 +612,10 @@
   })();
 
   // ===== Module loading =====
-  let modSafe=null, modTouch=null;
+  let modSafe=null, modTouch=null, modQuest=null, modDefs=null;
   let engine=null;
   let touchCtl=null;
+  let Q=null;
 
   async function importFirst(paths){
     let last=null;
@@ -627,7 +627,7 @@
   }
 
   async function ensureModules(){
-    if (modSafe && modTouch) return { modSafe, modTouch };
+    if (modSafe && modTouch && modQuest && modDefs) return { modSafe, modTouch, modQuest, modDefs };
 
     hidePanic();
     setBadgeTemp(false, 'boot: loading modules…', 1200);
@@ -641,8 +641,13 @@
       const safePaths  = ['./vr-goodjunk/goodjunk.safe.js', './goodjunk.safe.js'];
       const touchPaths = ['./vr-goodjunk/touch-look-goodjunk.js', './touch-look-goodjunk.js'];
 
+      const questPaths = ['./vr-goodjunk/quest-director-goodjunk.js', './vr-goodjunk/quest-director.js', './vr-goodjunk/quest-director-goodjunk.js'];
+      const defsPaths  = ['./vr-goodjunk/quest-defs-goodjunk.js', './vr-goodjunk/quest-defs-goodjunk.js'];
+
       modSafe  = await importFirst(safePaths);
       modTouch = await importFirst(touchPaths);
+      modQuest = await importFirst(questPaths);
+      modDefs  = await importFirst(defsPaths);
 
       clearTimeout(watchdog);
       setBadgeTemp(true, 'boot: modules ready', 900);
@@ -652,7 +657,7 @@
 
       startParallaxLoop();
 
-      return { modSafe, modTouch };
+      return { modSafe, modTouch, modQuest, modDefs };
     }catch(err){
       clearTimeout(watchdog);
       showPanic('โหลดโมดูลไม่สำเร็จ (เช็ค path/ชื่อไฟล์ใน repo)', err);
@@ -684,17 +689,66 @@
     rafPar = requestAnimationFrame(tick);
   }
 
+  // ===== H+++ QUEST STATE (shared) =====
+  const qState = {
+    score:0, goodHits:0, miss:0, comboMax:0, timeLeft:60,
+    streakGood:0, goldHitsThisMini:false, blocks:0,
+    safeNoJunkSeconds:0, bossCleared:false,
+
+    // ===== H+++ MINI STATE =====
+    miniId: '',
+    miniStartTimeLeft: null,
+    miniElapsed: 0,
+    miniGoodCount: 0,
+    miniBadTouched: false,
+    miniGoldHit: false,
+    miniBlocks: 0,
+    finalWindowGood: 0
+  };
+  window.__GJ_QSTATE__ = qState;
+
+  let running = false;
+  let safeTimer = 0;
+  function startSafeTimer(){
+    clearInterval(safeTimer);
+    safeTimer = setInterval(()=>{
+      if (!running) return;
+      // ✅ นับ “ปลอด junk” ต่อเนื่อง (ถูก reset ใน quest:badHit)
+      qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
+      if (Q) Q.tick(qState);
+    }, 1000);
+  }
+
   // ===== HUD updates =====
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail||{};
     uiScore.textContent = String(d.score ?? 0);
     uiComboMax.textContent = String(d.comboMax ?? 0);
     uiMiss.textContent = String(d.misses ?? 0);
+
+    // keep qState in sync
+    if (typeof d.score === 'number') qState.score = d.score|0;
+    if (typeof d.comboMax === 'number') qState.comboMax = d.comboMax|0;
+    if (typeof d.misses === 'number') qState.miss = d.misses|0;
+
+    if (Q) Q.tick(qState);
   });
 
   window.addEventListener('hha:time', (e)=>{
     const d = e.detail||{};
-    uiTime.textContent = String(d.sec ?? '--');
+    const sec = Number(d.sec);
+    uiTime.textContent = String(Number.isFinite(sec) ? (sec|0) : '--');
+
+    if (Number.isFinite(sec)){
+      qState.timeLeft = sec|0;
+
+      // ✅ compute mini elapsed from the moment mini started
+      if (qState.miniStartTimeLeft != null){
+        qState.miniElapsed = Math.max(0, (qState.miniStartTimeLeft|0) - (qState.timeLeft|0));
+      }
+
+      if (Q) Q.tick(qState);
+    }
   });
 
   window.addEventListener('hha:fever', (e)=>{
@@ -749,14 +803,14 @@
   // ===== Quest “เด้งกลางจอ” + badge revert =====
   window.addEventListener('quest:goalClear', (e)=>{
     const d = e.detail||{};
-    setBadgeTemp(true, `GOAL CLEAR! (${d.goalsCleared||0})`, 900);
-    floatingPop(`✅ GOAL CLEAR — ${d.title||''}`, 'good', 1100);
+    setBadgeTemp(true, `GOAL CLEAR!`, 900);
+    floatingPop(`✅ GOAL CLEAR — ${d.title||d.label||''}`, 'good', 1100);
   });
 
   window.addEventListener('quest:miniClear', (e)=>{
     const d = e.detail||{};
     setBadgeTemp(true, `MINI CLEAR! (${d.minisCleared||0})`, 850);
-    floatingPop(`⚡ MINI CLEAR — ${d.title||''}`, 'gold', 950);
+    floatingPop(`⚡ MINI CLEAR — ${d.title||d.label||''}`, 'gold', 950);
   });
 
   window.addEventListener('quest:allGoalsClear', ()=>{
@@ -838,6 +892,67 @@
     }
   });
 
+  // ===== H+++ qState hooks (from game events) =====
+  window.addEventListener('quest:miniStart', (e)=>{
+    const d = e.detail||{};
+    qState.miniId = String(d.id || '');
+
+    // old keys (compat)
+    qState.goldHitsThisMini = false;
+    qState.blocks = 0;
+    qState.safeNoJunkSeconds = 0;
+    qState.streakGood = 0;
+    qState.bossCleared = false;
+
+    // H+++ per-mini
+    qState.miniStartTimeLeft = (typeof qState.timeLeft === 'number') ? (qState.timeLeft|0) : null;
+    qState.miniElapsed = 0;
+    qState.miniGoodCount = 0;
+    qState.miniBadTouched = false;
+    qState.miniGoldHit = false;
+    qState.miniBlocks = 0;
+    qState.finalWindowGood = 0;
+
+    if (Q) Q.tick(qState);
+  });
+
+  window.addEventListener('quest:goodHit', ()=>{
+    qState.goodHits = (qState.goodHits|0) + 1;
+    qState.streakGood = (qState.streakGood|0) + 1;
+    qState.miniGoodCount = (qState.miniGoodCount|0) + 1;
+
+    if ((qState.timeLeft|0) <= 8) qState.finalWindowGood = (qState.finalWindowGood|0) + 1;
+
+    if (Q) Q.tick(qState);
+  });
+
+  window.addEventListener('quest:badHit', ()=>{
+    qState.safeNoJunkSeconds = 0;
+    qState.streakGood = 0;
+    qState.miniBadTouched = true;
+    if (Q) Q.tick(qState);
+  });
+
+  window.addEventListener('quest:block', ()=>{
+    qState.blocks = (qState.blocks|0) + 1;
+    qState.miniBlocks = (qState.miniBlocks|0) + 1;
+    if (Q) Q.tick(qState);
+  });
+
+  window.addEventListener('quest:power', (e)=>{
+    const d = e.detail||{};
+    if (String(d.power||'') === 'gold'){
+      qState.goldHitsThisMini = true;
+      qState.miniGoldHit = true;
+    }
+    if (Q) Q.tick(qState);
+  });
+
+  window.addEventListener('quest:bossClear', ()=>{
+    qState.bossCleared = true;
+    if (Q) Q.tick(qState);
+  });
+
   // ===== Start =====
   function getSelected(){
     const diff = $('selDiff').value;
@@ -857,7 +972,15 @@
     return { top, bottom, left, right };
   }
 
-  async function startGame(runMode='play'){
+  function buildQuestDirector(diff){
+    const makeQ = modQuest?.makeQuestDirector || modQuest?.makeGoodJunkQuestDirector;
+    const goals = modDefs?.GOODJUNK_GOALS || [];
+    const minis = modDefs?.GOODJUNK_MINIS || [];
+    if (typeof makeQ !== 'function') return null;
+    return makeQ({ diff, goalDefs: goals, miniDefs: minis, goals, minis });
+  }
+
+  async function startGame(runMode='play', wantVR=false){
     btn2D.disabled = true; btnVR.disabled = true;
     try{
       ensureAudio();
@@ -865,12 +988,35 @@
 
       const { diff, challenge } = getSelected();
       uiDiffChallenge.textContent = `Diff: ${diff.toUpperCase()} • Challenge: ${challenge.toUpperCase()}`;
+      $('runName').textContent = String(runMode).toUpperCase();
 
+      // reset
       try{ engine?.stop?.(); }catch(_){}
       engine = null;
+      Q = null;
+
+      // reset qState (hard reset)
+      Object.assign(qState, {
+        score:0, goodHits:0, miss:0, comboMax:0, timeLeft:60,
+        streakGood:0, goldHitsThisMini:false, blocks:0,
+        safeNoJunkSeconds:0, bossCleared:false,
+        miniId:'', miniStartTimeLeft:null, miniElapsed:0,
+        miniGoodCount:0, miniBadTouched:false, miniGoldHit:false,
+        miniBlocks:0, finalWindowGood:0
+      });
 
       elModal.style.display = 'none';
       setBadgeTemp(true, 'starting…', 900);
+
+      // ✅ Quest director first (so quest “ขึ้นแน่”)
+      Q = buildQuestDirector(diff);
+      if (Q){
+        try{ Q.start(qState); }catch(_){}
+      }
+
+      // start safe timer (no-junk seconds)
+      running = true;
+      startSafeTimer();
 
       engine = modSafe.boot({
         diff,
@@ -882,6 +1028,13 @@
       });
 
       setBadgeTemp(true, 'running…', 500);
+
+      if (wantVR){
+        try{
+          const scene = document.querySelector('a-scene');
+          if (scene?.enterVR) await scene.enterVR();
+        }catch(_){}
+      }
     }catch(err){
       showPanic('Start ไม่สำเร็จ', err);
       setBadgeTemp(false, 'start failed', 1400);
@@ -891,8 +1044,8 @@
     }
   }
 
-  btn2D.addEventListener('click', ()=> startGame('play'));
-  btnVR.addEventListener('click', ()=> startGame('play'));
+  btn2D.addEventListener('click', ()=> startGame('play', false));
+  btnVR.addEventListener('click', ()=> startGame('play', true));
 
   btnEnterVR.addEventListener('click', async ()=>{
     try{
