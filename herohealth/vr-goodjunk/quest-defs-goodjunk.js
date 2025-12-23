@@ -1,112 +1,61 @@
 // === /herohealth/vr-goodjunk/quest-defs-goodjunk.js ===
-// Expect qState: score, goodHits, miss/misses, comboMax, timeLeft,
-// streakGood, goldHitsThisMini, blocks, usedMagnet, timePlus,
-// safeNoJunkSeconds, stunBreaks, bossCleared, challenge, runMode, final8Good
+// GoodJunk — Goal + Mini definitions (H++ Pack)
 
 'use strict';
 
+// GOALS (ใช้เดิมได้เลย หรือปรับข้อความตามที่คุณชอบ)
 export const GOODJUNK_GOALS = [
   {
-    id:'g1',
-    label:'เก็บของดีให้ได้ 25 ชิ้น 🥦',
-    hint:'แตะเฉพาะอาหารดีเท่านั้น',
-    targetByDiff:{ easy:20, normal:25, hard:30 },
-    eval:(s)=> (s.goodHits|0),
-    pass:(v,tgt)=> v>=tgt
+    id: 'G1_SCORE',
+    title: 'ทำคะแนนให้ถึงเป้าหมาย',
+    type: 'scoreAtLeast',
+    byDiff: { easy: 380, normal: 520, hard: 680 }
   },
   {
-    id:'g2',
-    label:'ทำคอมโบสูงสุดให้ถึง 12 🔥',
-    hint:'ห้ามพลาดระหว่างทาง',
-    targetByDiff:{ easy:10, normal:12, hard:14 },
-    eval:(s)=> (s.comboMax|0),
-    pass:(v,tgt)=> v>=tgt
-  },
-  {
-    id:'g3',
-    label:'พลาดไม่เกิน 4 ครั้ง 🛡️',
-    hint:'หลบ junk/fake ให้ดี',
-    targetByDiff:{ easy:5, normal:4, hard:3 },
-    eval:(s)=> (s.miss|0),      // ✅ we will provide miss + misses
-    pass:(v,tgt)=> v<=tgt
-  },
-  {
-    id:'g4',
-    label:'เคลียร์บอสให้ได้ 👑 (เฉพาะ Boss)',
-    hint:'บอสจะมาใกล้หมดเวลา!',
-    targetByDiff:{ easy:1, normal:1, hard:1 },
-    eval:(s)=> (s.bossCleared ? 1 : 0),
-    pass:(v)=> v>=1,
-    onlyChallenge:['boss']
+    id: 'G2_GOODHIT',
+    title: 'เก็บ “ของดี” ให้ครบตามจำนวน',
+    type: 'goodHitsAtLeast',
+    byDiff: { easy: 18, normal: 22, hard: 26 }
   }
 ];
 
+// MINIS (สุ่ม/ต่อเนื่อง)
+// NOTE: quest-director จะอ่าน `type` แล้วไปตรวจเงื่อนไขจาก state
 export const GOODJUNK_MINIS = [
   {
-    id:'m1',
-    label:'Clean Streak: เก็บดีติดกัน 8 ชิ้น ⚡',
-    hint:'ห้ามพลาดแม้แต่ครั้งเดียว',
-    targetByDiff:{ easy:6, normal:8, hard:10 },
-    eval:(s)=> (s.streakGood|0),
-    pass:(v,tgt)=> v>=tgt
+    id: 'M1_STREAK',
+    title: 'เก็บของดีติดกัน (ห้าม MISS)',
+    type: 'streakGood',
+    byDiff: { easy: 6, normal: 8, hard: 10 }
   },
   {
-    id:'m2',
-    label:'Gold Hunt: เก็บ GOLD ให้ได้ 1 🟡',
-    hint:'ต้องเก็บภายใน mini นี้เท่านั้น',
-    targetByDiff:{ easy:1, normal:1, hard:1 },
-    eval:(s)=> (s.goldHitsThisMini ? 1 : 0),
-    pass:(v)=> v>=1
+    id: 'M2_GOLD',
+    title: 'หา “ทอง” ให้เจอ',
+    type: 'goldHitOnce',
+    byDiff: { easy: 1, normal: 1, hard: 1 }
   },
   {
-    id:'m3',
-    label:'No-Junk Zone: 10 วิห้ามโดนของเสีย 🚫',
-    hint:'โดน junk/fake = รีเซ็ต (ปล่อยของดีหมดอายุไม่เป็นไร)',
-    targetByDiff:{ easy:8, normal:10, hard:12 },
-    timer:true, // ✅ HUD จะโชว์เป็นเวลาที่เหลือชัด ๆ
-    eval:(s)=> (s.safeNoJunkSeconds|0),
-    pass:(v,tgt)=> v>=tgt
+    id: 'M3_BLOCK',
+    title: 'บล็อกด้วยโล่ (Shield) ให้ได้',
+    type: 'blocksAtLeast',
+    byDiff: { easy: 1, normal: 1, hard: 2 }
   },
+
+  // ✅ NEW: Hazard Master (โหด)
+  // รอด hazard ต่อเนื่อง 3 ครั้ง (Ring/Laser นับได้หมด)
   {
-    id:'m4',
-    label:'Shield Save: BLOCK ให้ได้ 2 ครั้ง 🛡️',
-    hint:'มีโล่แล้วค่อยเสี่ยงชน junk',
-    targetByDiff:{ easy:1, normal:2, hard:2 },
-    eval:(s)=> (s.blocks|0),
-    pass:(v,tgt)=> v>=tgt
+    id: 'M4_HAZARD_MASTER',
+    title: 'Hazard Master — รอด Ring/Laser 3 ครั้งติด (ห้ามโดน)',
+    type: 'hazardsSurviveStreak',
+    byDiff: { easy: 3, normal: 3, hard: 3 }
   },
+
+  // ✅ NEW: Boss Rage Finisher
+  // เคลียร์บอส (หรือผ่าน Rage window โดยไม่ตาย/ไม่โดนเกินที่กำหนด)
   {
-    id:'m5',
-    label:'STUN Magnet: ใช้ 🧲 แล้วให้ junk แตกเอง 4 ครั้ง',
-    hint:'แตะพื้นที่ว่างเพื่อย้ายศูนย์กลาง vortex!',
-    targetByDiff:{ easy:2, normal:4, hard:5 },
-    eval:(s)=> (s.stunBreaks|0),
-    pass:(v,tgt)=> v>=tgt
-  },
-  {
-    id:'m6',
-    label:'Time Dealer: ใช้ ⏳ เพิ่มเวลา 1 ครั้ง',
-    hint:'ช่วยชีวิตได้!',
-    targetByDiff:{ easy:1, normal:1, hard:1 },
-    eval:(s)=> (s.timePlus|0),
-    pass:(v)=> v>=1,
-    notChallenge:['survival']
-  },
-  {
-    id:'m7',
-    label:'Boss Slayer: เคลียร์บอสให้ได้ 👑',
-    hint:'ช่วงท้ายเกมเท่านั้น',
-    targetByDiff:{ easy:1, normal:1, hard:1 },
-    eval:(s)=> (s.bossCleared ? 1 : 0),
-    pass:(v)=> v>=1,
-    onlyChallenge:['boss']
-  },
-  {
-    id:'m8',
-    label:'Final Sprint (PRO): 8 วิสุดท้าย เก็บดีให้ได้ 12 🏁',
-    hint:'ล็อกทุก 1 วิ • junk โผล่เยอะขึ้น • อย่าพลาด!',
-    targetByDiff:{ easy:10, normal:12, hard:14 },
-    eval:(s)=> (s.final8Good|0),
-    pass:(v,tgt)=> v>=tgt
+    id: 'M5_RAGE_FINISH',
+    title: 'Rage Finisher — ช่วงบอสคลั่ง เก็บของดีให้ได้',
+    type: 'finalRageGoodHits',
+    byDiff: { easy: 4, normal: 5, hard: 6 }
   }
 ];
