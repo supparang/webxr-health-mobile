@@ -1,10 +1,17 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// ✅ FIX:
-// - เป้าไม่เห็นแต่ Miss นับ: spawn ไปที่ #hvr-target-layer (อยู่เหนือ postfx)
-// - boundsHost ไม่ใช้ body แล้ว: ยึด #hvr-wrap (เต็มจอแน่นอน)
-// - target layer เลื่อนตาม look (translate เหมือน playfield) → VR-feel จริง
-// - แก้ id นับ Goal/Mini ให้ตรงกับ HUD: #hha-goal-count / #hha-mini-count
+// - spawn targets via mode-factory (DOM)
+// - water gauge (GREEN/LOW/HIGH)
+// - fever gauge + shield (global FeverUI from ./vr/ui-fever.js)
+// - quest goal + mini quest (hydration.quest.js)
+// - VR-feel look: gyro + drag -> playfield translate (เหมือน VR)
+// - HUD events: hha:score / hha:judge / quest:update / hha:coach / hha:time
+//
+// ✅ PATCH (AUTO-HIDE HUD compatible):
+// - excludeSelectors เปลี่ยนเป็น #hud-top/#hud-bottom/#hud-detail (กันบังเป้า)
+// - sync miss -> hha-miss-top + hha-miss-bottom
+// - sync goal/mini counts -> hha-goal-count + hha-mini-count
+// - boundsHost ใช้ #hvr-wrap (viewport fixed) กันพิกัดเพี้ยนตอน translate playfield
 
 'use strict';
 
@@ -77,28 +84,17 @@ export async function boot(opts = {}) {
   const difficulty = String(opts.difficulty || 'easy').toLowerCase();
   const duration   = clamp(opts.duration ?? 90, 20, 180);
 
-  ensureWaterGauge();
+  // keep compatibility (even if HUD is custom)
+  try{ ensureWaterGauge(); }catch{}
 
   const playfield = $id('hvr-playfield') || null;
-  const targetLayer = $id('hvr-target-layer') || null;
-  const wrap = $id('hvr-wrap') || null;
-
   if (!playfield) {
     console.error('[HydrationVR] #hvr-playfield not found');
     return { stop(){} };
   }
-  if (!wrap) {
-    console.warn('[HydrationVR] #hvr-wrap not found → fallback to documentElement for bounds');
-  }
 
-  // playfield = ฉากหลัง / targetLayer = เป้า (อยู่เหนือ postfx)
   playfield.style.willChange = 'transform';
   playfield.style.transform = 'translate3d(0,0,0)';
-
-  if (targetLayer) {
-    targetLayer.style.willChange = 'transform';
-    targetLayer.style.transform = 'translate3d(0,0,0)';
-  }
 
   const FeverUI = getFeverUI();
   if (FeverUI && typeof FeverUI.ensureFeverBar === 'function') {
@@ -144,55 +140,44 @@ export async function boot(opts = {}) {
     stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} }
   };
 
+  // ---------- HUD helpers ----------
   function updateWaterHud(){
-    const out = setWaterGauge(state.waterPct);
-    state.zone = out.zone;
+    // ui-water.js will update if it knows the ids; we also sync our minimal ids safely
+    let z = zoneFrom(state.waterPct);
+    try{
+      const out = setWaterGauge(state.waterPct);
+      if (out && out.zone) z = out.zone;
+    }catch{}
+    state.zone = z;
 
     const ztxt = $id('hha-water-zone-text');
+    const stxt = $id('hha-water-status');
+    const fill = $id('hha-water-fill');
+
     if (ztxt) ztxt.textContent = state.zone;
+    if (stxt) stxt.textContent = `${Math.round(state.waterPct)}%`;
+    if (fill) fill.style.width = `${clamp(state.waterPct,0,100)}%`;
 
-    const st = $id('hha-water-status');
-    if (st) st.textContent = `${state.zone} ${Math.round(state.waterPct)}%`;
-  }
-
-  function calcProgressToS(){
-    const goalsDone = (Q.goals || []).filter(g => g._done || g.done).length;
-    const minisDone = (Q.minis || []).filter(m => m._done || m.done).length;
-    const prog = clamp(
-      (state.score / 1200) * 0.70 +
-      (goalsDone / 2) * 0.20 +
-      (minisDone / 3) * 0.10,
-      0, 1
-    );
-    return { prog, goalsDone, minisDone };
+    // โทนสีตามโซน (ถ้ามี fill)
+    if (fill){
+      if (state.zone === 'GREEN') fill.style.background = 'linear-gradient(90deg,#22c55e,#4ade80)';
+      else if (state.zone === 'LOW') fill.style.background = 'linear-gradient(90deg,#60a5fa,#93c5fd)';
+      else fill.style.background = 'linear-gradient(90deg,#f59e0b,#fb7185)';
+    }
   }
 
   function updateScoreHud(label){
-    const { prog, goalsDone, minisDone } = calcProgressToS();
-    const progPct = Math.round(prog * 100);
-
-    const fill = $id('hha-grade-progress-fill');
-    const txt  = $id('hha-grade-progress-text');
-    if (fill) fill.style.width = progPct + '%';
-    if (txt)  txt.textContent = `Progress to S (30%): ${progPct}%`;
-
-    let grade = 'C';
-    if (progPct >= 95) grade = 'SSS';
-    else if (progPct >= 85) grade = 'SS';
-    else if (progPct >= 70) grade = 'S';
-    else if (progPct >= 50) grade = 'A';
-    else if (progPct >= 30) grade = 'B';
-
-    const gb = $id('hha-grade-badge');
-    if (gb) gb.textContent = grade;
-
     const sc = $id('hha-score-main'); if (sc) sc.textContent = String(state.score|0);
     const cb = $id('hha-combo-max');  if (cb) cb.textContent = String(state.comboBest|0);
-    const ms = $id('hha-miss');       if (ms) ms.textContent = String(state.miss|0);
 
-    // ✅ ตรง HUD จริง
-    const gc = $id('hha-goal-count'); if (gc) gc.textContent = String(goalsDone|0);
-    const mc = $id('hha-mini-count'); if (mc) mc.textContent = String(minisDone|0);
+    const mt = $id('hha-miss-top');    if (mt) mt.textContent = String(state.miss|0);
+    const mb = $id('hha-miss-bottom'); if (mb) mb.textContent = String(state.miss|0);
+
+    // also keep old id if exists
+    const ms = $id('hha-miss'); if (ms) ms.textContent = String(state.miss|0);
+
+    const goalsDone = (Q.goals || []).filter(g => g._done || g.done).length;
+    const minisDone = (Q.minis || []).filter(m => m._done || m.done).length;
 
     dispatch('hha:score', {
       score: state.score|0,
@@ -216,9 +201,11 @@ export async function boot(opts = {}) {
 
     const allGoals = Q.goals || [];
     const allMinis = Q.minis || [];
-
     const goalsDone = allGoals.filter(g => g._done || g.done).length;
     const minisDone = allMinis.filter(m => m._done || m.done).length;
+
+    const gCount = $id('hha-goal-count'); if (gCount) gCount.textContent = String(goalsDone);
+    const mCount = $id('hha-mini-count'); if (mCount) mCount.textContent = String(minisDone);
 
     const curGoalId = (goalsView && goalsView[0]) ? goalsView[0].id : (allGoals[0]?.id || '');
     const curMiniId = (minisView && minisView[0]) ? minisView[0].id : (allMinis[0]?.id || '');
@@ -228,6 +215,7 @@ export async function boot(opts = {}) {
 
     const goalEl = $id('hha-quest-goal');
     const miniEl = $id('hha-quest-mini');
+
     if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : `Goal: ทำภารกิจให้ครบ`;
     if (miniEl) miniEl.textContent = mInfo?.text ? `Mini: ${mInfo.text}` : `Mini: ทำมินิเควส`;
 
@@ -386,11 +374,7 @@ export async function boot(opts = {}) {
     const x = clamp(-state.lookVX, -TUNE.lookMaxX, TUNE.lookMaxX);
     const y = clamp(-state.lookVY, -TUNE.lookMaxY, TUNE.lookMaxY);
 
-    const tf = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-    playfield.style.transform = tf;
-
-    // ✅ สำคัญ: ให้เป้าเลื่อนตามมุมมองด้วย (แต่ยังอยู่เหนือ postfx)
-    if (targetLayer) targetLayer.style.transform = tf;
+    playfield.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
   }
 
   function onPointerDown(ev){
@@ -538,31 +522,27 @@ export async function boot(opts = {}) {
   // --------------------- Start spawner ---------------------
   let spawner = null;
 
-  // ✅ boundsHost ต้องเป็น element เต็มจอและ "ไม่เพี้ยน"
-  let boundsEl = wrap || document.documentElement;
-
-  // กันกรณี element rect เล็กผิดปกติ
-  try{
-    const r = boundsEl.getBoundingClientRect();
-    if ((r.width || 0) < 50 || (r.height || 0) < 50) boundsEl = document.documentElement;
-  }catch{}
-
-  // ✅ spawnHost: ใช้ target layer ถ้ามี (แนะนำ)
-  const spawnHostSel = targetLayer ? '#hvr-target-layer' : '#hvr-playfield';
+  // ✅ boundsHost = viewport fixed (ไม่โดน translate เหมือน playfield)
+  const boundsHost = '#hvr-wrap';
 
   spawner = await factoryBoot({
     modeKey: 'hydration',
     difficulty,
     duration,
 
-    spawnHost: spawnHostSel,
-    boundsHost: boundsEl,
+    spawnHost: '#hvr-playfield',
+    boundsHost,
 
     // ✅ Storm เร่ง spawn “จริง”
     spawnIntervalMul: () => (state.stormLeft > 0 ? TUNE.stormIntervalMul : 1),
 
-    // ✅ กันทับ HUD (แม้ mode-factory มี auto exclude อยู่แล้ว ใส่เพิ่มก็ได้)
-    excludeSelectors: ['.hud', '#hvr-crosshair', '#hvr-end'],
+    // ✅ AUTO-HIDE HUD compatible: กันเฉพาะชิ้น HUD ที่ค้างบนจอ
+    excludeSelectors: [
+      '#hud-top',
+      '#hud-bottom',
+      '#hud-detail',
+      '#hvr-crosshair'
+    ],
 
     pools: {
       good: ['💧','🥛','🍉','🥥','🍊'],
