@@ -266,3 +266,99 @@
   NS.Particles = API;
 
 })(typeof window !== 'undefined' ? window : globalThis);
+/* === HHA Particles ADDON: FloatingPop (SAFE) =========================
+   Listen: hha:floatpop { text, x, y, kind, size, ms, dx }
+   - ไม่ชนของเดิม
+   - ใช้ .hha-fx-layer ถ้ามีอยู่แล้ว; ถ้าไม่มีจะสร้างให้
+====================================================================== */
+
+(function (root) {
+  'use strict';
+  const doc = root.document;
+  if (!doc) return;
+
+  function ensureFxLayer() {
+    let layer = doc.querySelector('.hha-fx-layer');
+    if (!layer) {
+      layer = doc.createElement('div');
+      layer.className = 'hha-fx-layer';
+      Object.assign(layer.style, {
+        position: 'fixed',
+        inset: '0',
+        pointerEvents: 'none',
+        zIndex: 9999
+      });
+      doc.body.appendChild(layer);
+    }
+    return layer;
+  }
+
+  function floatPop(text, x, y, opts = {}) {
+    const layer = ensureFxLayer();
+    if (!layer) return;
+
+    const ms = Math.max(260, Number(opts.ms || 720));
+    const size = String(opts.size || 'small'); // small | big
+    const kind = String(opts.kind || 'info');  // info | warn | bad | good | gold
+    const dx = (typeof opts.dx === 'number') ? opts.dx : 0;
+
+    const el = doc.createElement('div');
+    el.textContent = String(text || '');
+
+    Object.assign(el.style, {
+      position: 'fixed',
+      left: (Number(x) || innerWidth * 0.5) + 'px',
+      top: (Number(y) || innerHeight * 0.5) + 'px',
+      transform: 'translate(-50%,-50%) scale(1)',
+      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif',
+      fontWeight: '1000',
+      letterSpacing: '.02em',
+      fontSize: (size === 'big') ? '22px' : '16px',
+      padding: (size === 'big') ? '10px 14px' : '8px 12px',
+      borderRadius: '999px',
+      border: '1px solid rgba(148,163,184,.22)',
+      background: 'rgba(2,6,23,.72)',
+      color: '#e5e7eb',
+      textShadow: '0 8px 20px rgba(0,0,0,.55)',
+      boxShadow: '0 18px 50px rgba(0,0,0,.45)',
+      opacity: '0',
+      willChange: 'transform, opacity'
+    });
+
+    // accent border by kind
+    if (kind.includes('warn')) el.style.border = '1px solid rgba(245,158,11,.35)';
+    if (kind.includes('bad'))  el.style.border = '1px solid rgba(251,113,133,.35)';
+    if (kind.includes('good')) el.style.border = '1px solid rgba(34,197,94,.35)';
+    if (kind.includes('gold')) el.style.border = '1px solid rgba(250,204,21,.35)';
+
+    layer.appendChild(el);
+
+    const rise = (size === 'big') ? 56 : 42;
+    const startY = 0;
+    const endY = -rise;
+
+    requestAnimationFrame(() => {
+      el.style.transition = `opacity 120ms ease, transform ${ms}ms ease`;
+      el.style.opacity = '1';
+      el.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${startY}px)) scale(1)`;
+    });
+
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${endY}px)) scale(.98)`;
+    }, Math.max(140, ms - 180));
+
+    setTimeout(() => { try { el.remove(); } catch (_) {} }, ms + 160);
+  }
+
+  // กัน bind ซ้ำ
+  if (!root.__HHA_FLOATPOP_BOUND__) {
+    root.__HHA_FLOATPOP_BOUND__ = true;
+
+    root.addEventListener('hha:floatpop', (e) => {
+      const d = (e && e.detail) || {};
+      floatPop(d.text || d.label || '', d.x, d.y, d);
+    }, { passive: true });
+  }
+
+})(window);
