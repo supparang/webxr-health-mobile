@@ -1,12 +1,25 @@
 // === /herohealth/plate/plate.safe.js ===
-// HeroHealth — Balanced Plate VR (ALL-IN / ULTIMATE) — CLEAN PLAY HUD + STRICT RESEARCH
-// ✅ PLAY HUD โล่งจริง + Quest/Mini เป็นแถบเล็ก
-// ✅ HUD หลบเฉพาะตอนเป้าใกล้ (auto-fade เฉพาะพื้นที่ที่โดนบัง)
-// ✅ กันเลขยาว ๆ ลอย (debug/timestamp) จาก FX
-// ✅ Research คุมเข้ม (seeded deterministic) + STRICT default (research=full เพื่อเปิดชุดโหดครบ)
-// ✅ Tap-anywhere ยิงกลางจอ + Aim assist + Perfect zone
-// ✅ Fever + Shield + Lives + Boss(เฉพาะโหมด play หรือ research=full)
-// ✅ Goals(2) + Minis(7) + FX/เสียง/สั่น + Logger dispatch
+// HeroHealth — Balanced Plate VR (ALL-IN / ULTIMATE / GoodJunk-style)
+// ✅ เล่นได้ก่อน 100%: FIX เป้าใหญ่เต็มจอ / FIX ตีไม่โดน / FIX pointer-events
+// ✅ DOM emoji targets + Safezone (กันทับ HUD รอบด้าน)
+// ✅ Tap-anywhere ยิงกลางจอ + Aim assist (เล็งใกล้ crosshair)
+// ✅ Perfect ring assist + PERFECT/HIT judge
+// ✅ Fever + Shield (shield block: ไม่เพิ่ม MISS/ไม่ลดหัวใจ)
+// ✅ Hearts/Lives (หมด = จบก่อนเวลา)
+// ✅ Goals(2) + Minis(7) (Plate Rush + urgent tick/flash/shake)
+// ✅ Boss multi-phase + Attack overlays (ring/laser/double) + telegraph
+// ✅ Powerups: Slow / No-Junk Zone / Storm (spawn ถี่ขึ้นจริง)
+// ✅ Coach bubble (ไม่ทับ HUD) + เสียง/สั่น + FX hooks (Particles)
+// ✅ Logger: dispatch hha:log_session / hha:log_event (IIFE cloud logger)
+//
+// 🔥 PATCH (1+2):
+// ✅ Hint ซ่อนโดยปริยาย (ไม่กินพื้นที่)
+// ✅ Mini ซ่อนโดยปริยาย โชว์เองเฉพาะตอนเหลือ < 3 วิ (urgent)
+// ✅ ผู้เล่น “กดค้าง” ที่แถบ Mini/Hint หรือ .hha-compact-bar เพื่อโชว์ Mini+Hint 2 วิ
+// ✅ กันการกดแถบ UI แล้วไป “ยิง”
+//
+// HTML expects defer: ./vr/particles.js, ./vr/hha-compat-input.js, ./vr/hha-cloud-logger.js, A-Frame
+// Module: <script type="module" src="./plate/plate.safe.js"></script>
 
 'use strict';
 
@@ -24,75 +37,25 @@ const DEBUG = (Q.get('debug') === '1');
 const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
 const LIVES_START = Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0 ? LIVES_PARAM : 3;
 
-const RESEARCH_FULL = (String(Q.get('research') || '').toLowerCase() === 'full');
-const RESEARCH_STRICT = (MODE === 'research' && !RESEARCH_FULL);
-
-// --- session id / seed ---
-const SID_PARAM = String(Q.get('sid') || '').trim();
-const SEED_PARAM = parseInt(Q.get('seed') || '', 10);
-
-function hash32(str){
-  str = String(str || '');
-  let h = 2166136261 >>> 0;
-  for (let i=0;i<str.length;i++){
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-function mulberry32(a){
-  return function(){
-    let t = (a += 0x6D2B79F5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-const _tmpSid = SID_PARAM || `PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const _seedBase = Number.isFinite(SEED_PARAM) ? (SEED_PARAM >>> 0) : hash32(_tmpSid);
-const RNG = (MODE === 'research') ? mulberry32(_seedBase) : null;
-const R = ()=> (RNG ? RNG() : Math.random());
-
-// ---------- FX modules ----------
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, celebrate(){}, judgeText(){} };
+  {
+    scorePop(){},
+    burstAt(){},
+    celebrate(){},
+    judgeText(){},
+  };
 
 // ---------- Utils ----------
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const rnd = (a,b)=>a + R()*(b-a);
+const rnd = (a,b)=>a+Math.random()*(b-a);
 const now = ()=>performance.now();
 const fmt = (n)=>String(Math.max(0, Math.floor(n)));
 function $(id){ return doc.getElementById(id); }
 function setTxt(el, t){ if(el) el.textContent = String(t); }
 function setShow(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
 function intersect(a,b){ return !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y); }
-
-// กันเลขยาว ๆ ที่โผล่จาก FX (เช่น timestamp/id)
-function safeFxText(t){
-  const s = String(t ?? '');
-  if (/^\d{7,}$/.test(s)) return '';            // ตัดเลขยาว 7 หลักขึ้นไป
-  if (s.length > 18 && /\d/.test(s)) return ''; // ตัด string ยาวผิดปกติที่มีตัวเลข
-  return s;
-}
-function fxScorePop(text, x, y){
-  const s = safeFxText(text);
-  if (!s) return;
-  try { Particles.scorePop && Particles.scorePop(s, x, y); } catch(_) {}
-}
-function fxJudge(text){
-  const s = safeFxText(text);
-  if (!s) return;
-  try { Particles.judgeText && Particles.judgeText(s); } catch(_) {}
-}
-function fxBurst(x, y, tag){
-  try { Particles.burstAt && Particles.burstAt(x, y, tag); } catch(_) {}
-}
-function fxCeleb(text){
-  const s = safeFxText(text) || text;
-  try { Particles.celebrate && Particles.celebrate(s); } catch(_) {}
-}
 
 // ---------- HUD ----------
 const HUD = {
@@ -208,6 +171,10 @@ const S = {
   miniUrgentArmed: false,
   miniTickAt: 0,
 
+  // 🔥 PATCH 1+2
+  forceMiniShowUntil: 0, // force show mini line until timestamp
+  forceHintUntil: 0,     // force show hint until timestamp
+
   targets: [],
   aimedId: null,
 
@@ -222,11 +189,7 @@ const S = {
 
   perfectZoneOn: false,
 
-  sessionId: _tmpSid,
-
-  // UI
-  uiMinPlay: (MODE === 'play'),
-  hudDodgeOn: false,
+  sessionId: `PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
 };
 
 // ---------- VR helpers ----------
@@ -234,7 +197,7 @@ function inVR(){
   try { return !!(scene && scene.is && scene.is('vr-mode')); } catch(_) { return false; }
 }
 
-// ---------- Inject CSS (targets + overlays + CLEAN HUD) ----------
+// ---------- Inject CSS ----------
 (function injectCss(){
   const st = doc.createElement('style');
   st.textContent = `
@@ -246,6 +209,12 @@ function inVR(){
     transform:translate3d(0,0,0);
     will-change:transform;
   }
+
+  /* 🔥 PATCH 1+2: หากมีแถบ .hha-compact-bar ในหน้า ให้มัน "กดได้" และ hint ซ่อนไว้ก่อน */
+  .hha-compact-bar{ pointer-events:auto !important; }
+  .hha-compact-bar .hint{ display:none; }
+  .hha-compact-bar .hint.on{ display:block; }
+
   .plateTarget{
     position:absolute;
     width:var(--sz,80px);
@@ -357,7 +326,21 @@ function inVR(){
   }
   .plateTarget.aimed{ animation: aimPulse 520ms ease-in-out infinite; }
 
-  /* --- overlays --- */
+  @keyframes urgentFlash{ 0%{ filter:brightness(1); } 50%{ filter:brightness(1.18); } 100%{ filter:brightness(1); } }
+  @keyframes gentleShake{
+    0%{ transform:translate3d(0,0,0); }
+    25%{ transform:translate3d(0.8px,0,0); }
+    50%{ transform:translate3d(0,-0.8px,0); }
+    75%{ transform:translate3d(-0.8px,0,0); }
+    100%{ transform:translate3d(0,0,0); }
+  }
+  body.hha-mini-urgent #miniPanel{
+    animation: urgentFlash 320ms linear infinite;
+    border-color: rgba(250,204,21,.55) !important;
+    box-shadow: 0 18px 46px rgba(0,0,0,.35), 0 0 30px rgba(250,204,21,.12);
+  }
+  body.hha-mini-urgent #hudTop{ animation: gentleShake 260ms ease-in-out infinite; }
+
   @keyframes dmgFlash{ 0%{ opacity:0; } 20%{ opacity:.65; } 100%{ opacity:0; } }
   .hha-dmg-flash{
     position:fixed; inset:0; z-index:980;
@@ -441,7 +424,6 @@ function inVR(){
   }
   .hha-power.pulse{ animation: powerPulse 520ms ease-in-out infinite; }
 
-  /* low time */
   @keyframes lowTimePulse{
     0%{ filter:brightness(1); }
     50%{ filter:brightness(1.10); }
@@ -449,7 +431,6 @@ function inVR(){
   }
   body.hha-lowtime #hudTop{ animation: lowTimePulse 420ms linear infinite; }
 
-  /* perfect zone */
   .hha-perfect-zone{
     position:fixed; left:50%; top:50%;
     transform:translate(-50%,-50%);
@@ -466,7 +447,6 @@ function inVR(){
   }
   .hha-perfect-zone.on{ opacity:1; }
 
-  /* coach bubble */
   .hha-coach{
     position:fixed;
     left:12px;
@@ -487,191 +467,49 @@ function inVR(){
   .hha-coach.on{ opacity:1; transform:translate3d(0,0,0); }
   .hha-coach .t{ font-weight:1000; }
   .hha-coach .s{ margin-top:4px; color:rgba(229,231,235,.82); font-weight:900; }
-
-  /* mini urgent */
-  @keyframes urgentFlash{ 0%{ filter:brightness(1); } 50%{ filter:brightness(1.18); } 100%{ filter:brightness(1); } }
-  @keyframes gentleShake{
-    0%{ transform:translate3d(0,0,0); }
-    25%{ transform:translate3d(0.8px,0,0); }
-    50%{ transform:translate3d(0,-0.8px,0); }
-    75%{ transform:translate3d(-0.8px,0,0); }
-    100%{ transform:translate3d(0,0,0); }
-  }
-  body.hha-mini-urgent .hha-compact-bar{
-    animation: urgentFlash 320ms linear infinite;
-    border-color: rgba(250,204,21,.55) !important;
-    box-shadow: 0 18px 46px rgba(0,0,0,.35), 0 0 30px rgba(250,204,21,.12);
-  }
-
-  /* --- CLEAN PLAY HUD --- */
-  .hha-mini-fab{
-    position:fixed; right:12px; bottom:96px;
-    z-index:950;
-    display:flex; flex-direction:column; gap:10px;
-  }
-  .hha-mini-fab button{
-    pointer-events:auto;
-    border:1px solid rgba(148,163,184,.22);
-    background:rgba(2,6,23,.62);
-    color:#e5e7eb;
-    border-radius:16px;
-    padding:10px 12px;
-    font-weight:1000;
-    backdrop-filter: blur(8px);
-    box-shadow:0 18px 40px rgba(0,0,0,.22);
-  }
-  .hha-mini-fab button:active{ transform:scale(.98); }
-
-  .hha-compact-bar{
-    position:fixed; left:12px; right:12px; bottom:14px;
-    z-index:940;
-    pointer-events:none;
-    border:1px solid rgba(148,163,184,.18);
-    background:rgba(2,6,23,.46);
-    border-radius:18px;
-    padding:10px 12px;
-    backdrop-filter: blur(10px);
-    box-shadow:0 18px 40px rgba(0,0,0,.22);
-    opacity:1;
-    transition:opacity .12s ease, transform .12s ease;
-  }
-  .hha-compact-bar .l1{ font-weight:1000; }
-  .hha-compact-bar .l2{ margin-top:6px; color:rgba(229,231,235,.82); font-weight:900; }
-  .hha-compact-bar .hint{ margin-top:6px; color:rgba(229,231,235,.70); font-weight:900; font-size:12px; line-height:1.2; }
-
-  /* auto-dodge when target near bar */
-  body.hha-hud-dodge .hha-compact-bar{
-    opacity:.22;
-    transform:translate3d(0,10px,0);
-  }
-
-  /* hide old big panels in PLAY minimal */
-  body.hha-play-min #hudRight,
-  body.hha-play-min #hudBottom{
-    opacity:0 !important;
-    pointer-events:none !important;
-    transform:translate3d(0,10px,0) !important;
-  }
-  body.hha-play-min #hudTop{
-    transform:translate3d(0,0,0);
-  }
-  /* keep HUD top but smaller visual weight (no hard dependency on internal markup) */
-  body.hha-play-min #hudTop .card{
-    background:rgba(2,6,23,.52) !important;
-  }
-
-  /* research badge */
-  .hha-research-badge{
-    position:fixed; left:12px; top:12px;
-    z-index:960;
-    pointer-events:none;
-    padding:6px 10px;
-    border-radius:999px;
-    border:1px solid rgba(56,189,248,.30);
-    background:rgba(2,6,23,.52);
-    color:rgba(226,232,240,.92);
-    font-weight:1000;
-    backdrop-filter: blur(8px);
-  }
   `;
   doc.head.appendChild(st);
 })();
 
-// ---------- Overlays / UI elements ----------
-const dmgFlash = doc.createElement('div'); dmgFlash.className = 'hha-dmg-flash'; doc.body.appendChild(dmgFlash);
-const atkRing  = doc.createElement('div'); atkRing.className = 'hha-atk-ring';  doc.body.appendChild(atkRing);
-const atkLaser = doc.createElement('div'); atkLaser.className = 'hha-atk-laser'; doc.body.appendChild(atkLaser);
+// ---------- Overlays ----------
+const dmgFlash = doc.createElement('div');
+dmgFlash.className = 'hha-dmg-flash';
+doc.body.appendChild(dmgFlash);
 
-const powGreen = doc.createElement('div'); powGreen.className = 'hha-power green pulse'; doc.body.appendChild(powGreen);
-const powBlue  = doc.createElement('div'); powBlue.className  = 'hha-power blue pulse';  doc.body.appendChild(powBlue);
-const powOrange= doc.createElement('div'); powOrange.className= 'hha-power orange pulse';doc.body.appendChild(powOrange);
+const atkRing = doc.createElement('div');
+atkRing.className = 'hha-atk-ring';
+doc.body.appendChild(atkRing);
 
-const perfectZone = doc.createElement('div'); perfectZone.className = 'hha-perfect-zone'; perfectZone.textContent = '🎯 PERFECT ZONE'; doc.body.appendChild(perfectZone);
+const atkLaser = doc.createElement('div');
+atkLaser.className = 'hha-atk-laser';
+doc.body.appendChild(atkLaser);
+
+const powGreen = doc.createElement('div');
+powGreen.className = 'hha-power green pulse';
+doc.body.appendChild(powGreen);
+
+const powBlue = doc.createElement('div');
+powBlue.className = 'hha-power blue pulse';
+doc.body.appendChild(powBlue);
+
+const powOrange = doc.createElement('div');
+powOrange.className = 'hha-power orange pulse';
+doc.body.appendChild(powOrange);
+
+const perfectZone = doc.createElement('div');
+perfectZone.className = 'hha-perfect-zone';
+perfectZone.textContent = '🎯 PERFECT ZONE';
+doc.body.appendChild(perfectZone);
 
 const coach = doc.createElement('div');
 coach.className = 'hha-coach';
 coach.innerHTML = `<div class="t">🥦 Coach</div><div class="s">พร้อมลุย!</div>`;
 doc.body.appendChild(coach);
 
-// NEW: compact bar (Goal/Mini)
-const compactBar = doc.createElement('div');
-compactBar.className = 'hha-compact-bar';
-compactBar.innerHTML = `
-  <div class="l1" id="hhaCompactGoal">🎯 Goal: …</div>
-  <div class="l2" id="hhaCompactMini">🧩 Mini: …</div>
-  <div class="hint" id="hhaCompactHint"></div>
-`;
-doc.body.appendChild(compactBar);
-const CUI = {
-  goal: doc.getElementById('hhaCompactGoal'),
-  mini: doc.getElementById('hhaCompactMini'),
-  hint: doc.getElementById('hhaCompactHint'),
-};
-
-// NEW: mini fab (VR + MENU)
-const fab = doc.createElement('div');
-fab.className = 'hha-mini-fab';
-fab.innerHTML = `
-  <button id="hhaBtnVR">🥽 VR</button>
-  <button id="hhaBtnMenu">☰ MENU</button>
-`;
-doc.body.appendChild(fab);
-
-const menuOverlay = doc.createElement('div');
-menuOverlay.style.cssText = `
-  position:fixed; inset:0; z-index:999;
-  display:none;
-  background:rgba(0,0,0,.42);
-  backdrop-filter: blur(6px);
-`;
-menuOverlay.innerHTML = `
-  <div style="
-    position:absolute; right:12px; bottom:96px;
-    width:min(360px, 92vw);
-    border:1px solid rgba(148,163,184,.22);
-    background:rgba(2,6,23,.78);
-    border-radius:18px;
-    padding:12px;
-    box-shadow:0 18px 46px rgba(0,0,0,.35);
-    color:#e5e7eb;
-  ">
-    <div style="font-weight:1000; margin-bottom:10px;">⚙️ Plate Menu</div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-      <button id="hhaMenuPause" style="padding:10px 12px; border-radius:14px; border:1px solid rgba(148,163,184,.22); background:rgba(2,6,23,.62); color:#e5e7eb; font-weight:1000;">⏸️ Pause</button>
-      <button id="hhaMenuRestart" style="padding:10px 12px; border-radius:14px; border:1px solid rgba(148,163,184,.22); background:rgba(2,6,23,.62); color:#e5e7eb; font-weight:1000;">🔁 Restart</button>
-      <button id="hhaMenuInfo" style="padding:10px 12px; border-radius:14px; border:1px solid rgba(148,163,184,.22); background:rgba(2,6,23,.62); color:#e5e7eb; font-weight:1000;">📊 Info</button>
-      <button id="hhaMenuClose" style="padding:10px 12px; border-radius:14px; border:1px solid rgba(148,163,184,.22); background:rgba(2,6,23,.62); color:#e5e7eb; font-weight:1000;">✖ Close</button>
-    </div>
-    <div id="hhaMenuInfoBox" style="display:none; margin-top:12px; color:rgba(226,232,240,.92); font-weight:900; font-size:13px; line-height:1.35;">
-      <div>MODE: <span id="hhaInfoMode"></span> • DIFF: <span id="hhaInfoDiff"></span></div>
-      <div>SCORE: <span id="hhaInfoScore"></span> • MAX COMBO: <span id="hhaInfoMaxCombo"></span></div>
-      <div>MISS: <span id="hhaInfoMiss"></span> • PERFECT: <span id="hhaInfoPerf"></span></div>
-      <div>SEED: <span id="hhaInfoSeed"></span></div>
-    </div>
-  </div>
-`;
-doc.body.appendChild(menuOverlay);
-
-const infoMode = menuOverlay.querySelector('#hhaInfoMode');
-const infoDiff = menuOverlay.querySelector('#hhaInfoDiff');
-const infoScore = menuOverlay.querySelector('#hhaInfoScore');
-const infoMaxCombo = menuOverlay.querySelector('#hhaInfoMaxCombo');
-const infoMiss = menuOverlay.querySelector('#hhaInfoMiss');
-const infoPerf = menuOverlay.querySelector('#hhaInfoPerf');
-const infoSeed = menuOverlay.querySelector('#hhaInfoSeed');
-
-// Layer for targets
+// ---------- Layer ----------
 const layer = doc.createElement('div');
 layer.className = 'plate-layer';
 doc.body.appendChild(layer);
-
-// Research badge
-if (MODE === 'research'){
-  const badge = doc.createElement('div');
-  badge.className = 'hha-research-badge';
-  badge.textContent = RESEARCH_STRICT ? `🔬 Research (STRICT) • seed ${_seedBase}` : `🔬 Research (FULL) • seed ${_seedBase}`;
-  doc.body.appendChild(badge);
-}
 
 // ---------- FX helpers ----------
 function vibe(ms){ try { if (navigator.vibrate) navigator.vibrate(ms); } catch(_) {} }
@@ -741,6 +579,7 @@ function getCamAngles(){
 }
 function viewOffset(){
   if (inVR()) return { x:0, y:0 };
+
   const { yaw, pitch } = getCamAngles();
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const pxPerRadX = clamp(vw * 0.55, 180, 720);
@@ -754,7 +593,7 @@ function applyLayerTransform(){
   layer.style.transform = `translate3d(${off.x}px, ${off.y}px, 0)`;
 }
 
-// ---------- Safezone (avoid HUD) ----------
+// ---------- Safezone ----------
 function getBlockedRects(){
   const rects = [];
   const ids = ['hudTop','hudLeft','hudRight','hudBottom'];
@@ -762,11 +601,6 @@ function getBlockedRects(){
     const el = doc.getElementById(id);
     if (!el) continue;
     const r = el.getBoundingClientRect();
-    if (r.width > 10 && r.height > 10) rects.push({ x:r.left, y:r.top, w:r.width, h:r.height });
-  }
-  // compact bar is also blocked
-  if (compactBar){
-    const r = compactBar.getBoundingClientRect();
     if (r.width > 10 && r.height > 10) rects.push({ x:r.left, y:r.top, w:r.width, h:r.height });
   }
   return rects.map(b => ({ x:b.x-10, y:b.y-10, w:b.w+20, h:b.h+20 }));
@@ -777,6 +611,7 @@ function pickSafeXY(sizePx){
   const half = sizePx * 0.5;
   const blocked = getBlockedRects();
   const tries = 70;
+
   const off = viewOffset();
 
   for (let i=0;i<tries;i++){
@@ -805,9 +640,9 @@ const FOOD_BY_GROUP = {
 };
 const JUNK = ['🍩','🍟','🍔','🍕','🧋','🍭','🍫','🥤'];
 const TRAPS = ['🎁','⭐','🍬','🍰','🧁'];
-function randFrom(arr){ return arr[(R()*arr.length)|0]; }
+function randFrom(arr){ return arr[(Math.random()*arr.length)|0]; }
 
-// ---------- HUD pills injected (Shield/Lives/Power) ----------
+// ---------- HUD pills injected ----------
 let hudShieldVal = null;
 let hudLivesVal = null;
 let hudPowerVal = null;
@@ -824,9 +659,12 @@ function powerLabel(){
 function ensurePills(){
   const top = doc.getElementById('hudTop');
   if (!top) return;
-  const card = top.querySelector('.card') || top;
+  const card = top.querySelector('.card');
+  if (!card) return;
   const rows = card.querySelectorAll('.row');
-  const row = rows && rows.length ? rows[Math.min(1, rows.length-1)] : card;
+  if (!rows || !rows.length) return;
+
+  const row = rows[Math.min(1, rows.length-1)];
 
   if (!doc.getElementById('hudShieldPill')){
     const pill = doc.createElement('span');
@@ -886,7 +724,7 @@ function setPerfectZone(on){
   perfectZone.classList.toggle('on', S.perfectZoneOn);
 }
 
-// ---------- Logger (IIFE cloud logger) ----------
+// ---------- Logger ----------
 function dispatchEvt(name, detail){
   try { ROOT.dispatchEvent(new CustomEvent(name, { detail })); } catch(_) {}
 }
@@ -899,8 +737,6 @@ function logSession(phase){
     diff: DIFF,
     timeTotal: TOTAL_TIME,
     lives: S.livesMax,
-    seed: _seedBase,
-    researchStrict: !!RESEARCH_STRICT,
     ts: Date.now(),
     ua: navigator.userAgent,
   });
@@ -919,7 +755,6 @@ function logEvent(type, data){
     shield: S.shield,
     lives: S.lives,
     power: powerLabel(),
-    seed: _seedBase,
     data: data || {},
   });
 }
@@ -931,7 +766,7 @@ function addCombo(){ S.combo += 1; S.maxCombo = Math.max(S.maxCombo, S.combo); s
 function grantShield(){
   if (S.shield >= S.shieldMax) return;
   setShield(S.shield + 1);
-  fxCeleb('SHIELD +1!');
+  Particles.celebrate && Particles.celebrate('SHIELD +1!');
   AudioX.shield();
   vibe(45);
   showCoach('🛡️ Shield!', 'กันพลาดได้ 1 ครั้ง!');
@@ -946,9 +781,9 @@ function addFever(v){
 
   if (!S.feverOn && S.fever >= 100){
     S.feverOn = true;
-    fxCeleb('FEVER!');
+    Particles.celebrate && Particles.celebrate('FEVER!');
     showCoach('🔥 FEVER!', 'คอมโบแรงขึ้น + โอกาสเจอโหมดพิเศษ!');
-    if (!RESEARCH_STRICT) grantShield();
+    grantShield();
     logEvent('fever_on', {});
   }
   if (S.feverOn && S.fever <= 15){
@@ -1028,9 +863,7 @@ function goalProgressText(){
 function setGoal(i){
   S.goalIndex = clamp(i, 0, GOALS.length-1);
   S.activeGoal = GOALS[S.goalIndex];
-  const line = `🎯 Goal ${S.goalIndex+1}/${S.goalsTotal}: ${S.activeGoal.title} (${goalProgressText()})`;
-  setTxt(HUD.goalLine, line);
-  setTxt(CUI.goal, line);
+  setTxt(HUD.goalLine, `Goal ${S.goalIndex+1}/${S.goalsTotal}: ${S.activeGoal.title} (${goalProgressText()})`);
 }
 function checkGoalClear(){
   const g = S.activeGoal;
@@ -1040,7 +873,7 @@ function checkGoalClear(){
   return false;
 }
 function onGoalCleared(){
-  fxCeleb('GOAL CLEAR!');
+  Particles.celebrate && Particles.celebrate('GOAL CLEAR!');
   showCoach('✅ GOAL CLEAR!', 'ไปต่อ! ภารกิจถัดไป!');
   vibe(60);
   logEvent('goal_clear', { goal: S.activeGoal && S.activeGoal.key });
@@ -1055,29 +888,47 @@ function startMini(){
   S.miniUrgentArmed = false;
   S.miniTickAt = 0;
   if (typeof mini.init === 'function') mini.init();
-  updateMiniHud(true);
+  updateMiniHud(false);
   logEvent('mini_start', { mini: mini.key, dur: mini.dur });
 }
+
+/* 🔥 PATCH 1+2: updateMiniHud ใหม่
+   - Hint ซ่อนโดยปริยาย
+   - Mini ซ่อนโดยปริยาย โชว์เฉพาะ urgent (<3s) หรือกดค้าง */
 function updateMiniHud(forceHint){
   const m = S.activeMini;
+  const t = now();
+
   if (!m){
-    setTxt(HUD.miniLine, '…');
-    setTxt(HUD.miniHint, '…');
-    setTxt(CUI.mini, '🧩 Mini: …');
-    setTxt(CUI.hint, '');
+    setTxt(HUD.miniLine, '');
+    setTxt(HUD.miniHint, '');
+    if (HUD.miniHint) HUD.miniHint.style.display = 'none';
+    if (HUD.miniLine) HUD.miniLine.style.display = 'none';
     return;
   }
-  const left = Math.max(0, (S.miniEndsAt - now())/1000);
+
+  const leftMs = S.miniEndsAt - t;
+  const left = Math.max(0, leftMs/1000);
+
   const prog = (typeof m.progress === 'function') ? m.progress() : '';
   const progText = prog ? ` • ${prog}` : '';
-  const line = `🧩 Mini: ${m.title}${progText} • ${left.toFixed(1)}s`;
-  setTxt(HUD.miniLine, line);
-  setTxt(CUI.mini, line);
-  if (forceHint) {
-    setTxt(HUD.miniHint, m.hint || '');
-    setTxt(CUI.hint, m.hint || '');
+  const line = `MINI: ${m.title}${progText} • ${left.toFixed(1)}s`;
+
+  const urgent = (leftMs <= 3000 && leftMs > 0);
+  const showMini = urgent || (t < (S.forceMiniShowUntil || 0));
+
+  const showHint = !!(forceHint || (t < (S.forceHintUntil || 0)));
+
+  if (HUD.miniLine){
+    HUD.miniLine.style.display = showMini ? '' : 'none';
+    setTxt(HUD.miniLine, showMini ? line : '');
+  }
+  if (HUD.miniHint){
+    HUD.miniHint.style.display = showHint ? '' : 'none';
+    setTxt(HUD.miniHint, showHint ? (m.hint || '') : '');
   }
 }
+
 function tickMini(){
   const m = S.activeMini;
   if (!m) return;
@@ -1111,7 +962,7 @@ function tickMini(){
     const cleared = (typeof m.isClear === 'function') ? !!m.isClear() : false;
     if (cleared){
       S.minisCleared += 1;
-      fxCeleb('MINI CLEAR!');
+      Particles.celebrate && Particles.celebrate('MINI CLEAR!');
       showCoach('🧩 MINI CLEAR!', 'สุดยอด! บวกคะแนน!');
       vibe(55);
       logEvent('mini_clear', { mini: m.key });
@@ -1142,7 +993,7 @@ function onGood(group){
     S.plateHave.clear();
     setTxt(HUD.have, `${S.plateHave.size}/${S.groupsTotal}`);
 
-    fxCeleb('PLATE +1!');
+    Particles.celebrate && Particles.celebrate('PLATE +1!');
     showCoach('🍽️ PLATE +1!', 'เก็บให้ครบอีก!');
     vibe(45);
     logEvent('plate_complete', { plates: S.goalsCleared });
@@ -1230,7 +1081,7 @@ function makeTarget(kind, group, opts = {}){
   el.className = `plateTarget ${kind} spawn`;
   el.dataset.tid = String(++targetSeq);
 
-  const sc = 0.92 + R()*0.22;
+  const sc = 0.92 + Math.random()*0.22;
   const sc2 = (kind === 'gold' || kind === 'boss' || isPowerKind(kind)) ? (sc * 1.08) : sc;
 
   el.style.setProperty('--sz', `${sizePx}px`);
@@ -1251,7 +1102,7 @@ function makeTarget(kind, group, opts = {}){
   else if (kind === 'nojunk'){ emoji = '🟢'; tag = 'NO-JUNK'; }
   else if (kind === 'storm'){ emoji = '🌪️'; tag = 'STORM'; }
   else if (kind === 'boss'){
-    emoji = (R() < 0.5) ? '🦠' : '😈';
+    emoji = (Math.random() < 0.5) ? '🦠' : '😈';
     tag = 'BOSS';
     hp = Math.max(2, opts.hp || D.bossHP || 4);
     meta.phase = 1;
@@ -1334,9 +1185,8 @@ function expireTargets(){
     if (rec.dead) continue;
     if (t >= rec.dieAt){
       if (rec.kind === 'good' || rec.kind === 'gold'){
-        // ✅ PLAY: ปล่อยดีหมดเวลา = MISS ได้ แต่ "ไม่กินหัวใจ" (กันเกมจบไวเกิน)
         onMiss('expire_good', { kind: rec.kind, group: rec.group });
-        fxJudge('MISS');
+        Particles.judgeText && Particles.judgeText('MISS');
         logEvent('miss_expire', { kind: rec.kind, group: rec.group });
       } else if (rec.kind === 'boss'){
         bossAttackPunish('boss_expire');
@@ -1352,8 +1202,8 @@ function expireTargets(){
 function shieldBlock(reason){
   if (S.shield <= 0) return false;
   setShield(S.shield - 1);
-  fxCeleb('🛡️ BLOCK!');
-  fxJudge('SHIELD!');
+  Particles.celebrate && Particles.celebrate('🛡️ BLOCK!');
+  Particles.judgeText && Particles.judgeText('SHIELD!');
   AudioX.shield();
   vibe(35);
   showCoach('🛡️ BLOCK!', 'กันความเสียหายได้!');
@@ -1370,13 +1220,7 @@ function onMiss(reason, extra = {}){
 
   const t = now();
   const protectedNoJunk = (t < S.noJunkUntil) && (reason === 'junk' || reason === 'trap' || reason === 'boss' || reason === 'boss_attack');
-
-  // ✅ PLAY: expire_good ไม่ลดหัวใจ (แต่ยังนับ MISS)
-  const loseLifeForReason = (MODE === 'research')
-    ? true
-    : (reason !== 'expire_good');
-
-  if (!protectedNoJunk && loseLifeForReason){
+  if (!protectedNoJunk){
     setLives(S.lives - 1);
   }
 
@@ -1413,7 +1257,7 @@ function punishBad(reason){
   screenShake();
   vibe(reason === 'boss' ? 85 : 55);
 
-  fxJudge(softened ? 'BAD (SAFE)' : 'BAD');
+  Particles.judgeText && Particles.judgeText(softened ? 'BAD (SAFE)' : 'BAD');
   AudioX.bad();
 
   onMiss(reason, {});
@@ -1435,8 +1279,8 @@ function bossAttackPunish(tag){
   addScore(-320);
   addFever(-20);
 
-  fxJudge('BOSS ATK!');
-  fxCeleb('OUCH!');
+  Particles.judgeText && Particles.judgeText('BOSS ATK!');
+  Particles.celebrate && Particles.celebrate('OUCH!');
   onMiss('boss_attack', {});
 }
 
@@ -1450,7 +1294,7 @@ function activateSlow(ms){
   const t = now();
   S.slowUntil = Math.max(S.slowUntil, t + ms);
   AudioX.power(); vibe(35);
-  fxCeleb('SLOW TIME!');
+  Particles.celebrate && Particles.celebrate('SLOW TIME!');
   showCoach('🐢 SLOW TIME!', 'ช้าลง! เล็งง่ายขึ้น!');
   logEvent('power_slow', { until: S.slowUntil });
   refreshPowerHUD();
@@ -1460,7 +1304,7 @@ function activateNoJunk(ms){
   const t = now();
   S.noJunkUntil = Math.max(S.noJunkUntil, t + ms);
   AudioX.power(); vibe(35);
-  fxCeleb('NO-JUNK!');
+  Particles.celebrate && Particles.celebrate('NO-JUNK!');
   showCoach('🟢 NO-JUNK!', 'ปลอดขยะชั่วคราว! ลุย!');
   logEvent('power_nojunk', { until: S.noJunkUntil });
   refreshPowerHUD();
@@ -1470,7 +1314,7 @@ function activateStorm(ms){
   const t = now();
   S.stormUntil = Math.max(S.stormUntil, t + ms);
   AudioX.power(); vibe(45);
-  fxCeleb('STORM!');
+  Particles.celebrate && Particles.celebrate('STORM!');
   showCoach('🌪️ STORM!', 'เป้าถี่ขึ้นจริง! รับมือ!');
   logEvent('power_storm', { until: S.stormUntil });
   refreshPowerHUD();
@@ -1492,24 +1336,24 @@ function hitTarget(rec, direct){
   // Power targets
   if (rec.kind === 'slow'){
     activateSlow(rnd(D.slowDurMs[0], D.slowDurMs[1]));
-    fxBurst(sx, sy, 'SLOW');
-    fxScorePop('+120', sx, sy);
+    Particles.burstAt && Particles.burstAt(sx, sy, 'SLOW');
+    Particles.scorePop && Particles.scorePop('+120', sx, sy);
     addScore(120); addFever(10);
     logEvent('hit_power', { kind:'slow', dist, direct:!!direct });
     removeTarget(rec); updateGrade(); return;
   }
   if (rec.kind === 'nojunk'){
     activateNoJunk(rnd(D.noJunkDurMs[0], D.noJunkDurMs[1]));
-    fxBurst(sx, sy, 'NOJUNK');
-    fxScorePop('+160', sx, sy);
+    Particles.burstAt && Particles.burstAt(sx, sy, 'NOJUNK');
+    Particles.scorePop && Particles.scorePop('+160', sx, sy);
     addScore(160); addFever(10);
     logEvent('hit_power', { kind:'nojunk', dist, direct:!!direct });
     removeTarget(rec); updateGrade(); return;
   }
   if (rec.kind === 'storm'){
     activateStorm(rnd(D.stormDurMs[0], D.stormDurMs[1]));
-    fxBurst(sx, sy, 'STORM');
-    fxScorePop('+200', sx, sy);
+    Particles.burstAt && Particles.burstAt(sx, sy, 'STORM');
+    Particles.scorePop && Particles.scorePop('+200', sx, sy);
     addScore(200); addFever(12);
     logEvent('hit_power', { kind:'storm', dist, direct:!!direct });
     removeTarget(rec); updateGrade(); return;
@@ -1517,9 +1361,9 @@ function hitTarget(rec, direct){
 
   // FakeGood
   if (rec.kind === 'fake'){
-    fxJudge('TRICK!');
-    fxBurst(sx, sy, 'TRICK');
-    fxScorePop('-220', sx, sy);
+    Particles.judgeText && Particles.judgeText('TRICK!');
+    Particles.burstAt && Particles.burstAt(sx, sy, 'TRICK');
+    Particles.scorePop && Particles.scorePop('-220', sx, sy);
     showCoach('😈 TRICK!', 'อันนี้หลอก! ระวัง!');
     punishBad('trap');
     logEvent('hit', { kind:'fake', dist, direct:!!direct });
@@ -1532,8 +1376,8 @@ function hitTarget(rec, direct){
   }
 
   if (rec.kind === 'trap'){
-    fxBurst(sx, sy, 'TRAP');
-    fxScorePop('-240', sx, sy);
+    Particles.burstAt && Particles.burstAt(sx, sy, 'TRAP');
+    Particles.scorePop && Particles.scorePop('-240', sx, sy);
     showCoach('⚠️ TRAP!', 'โดนกับดักแล้ว!');
     punishBad('trap');
     logEvent('hit', { kind:'trap', dist, direct:!!direct });
@@ -1546,8 +1390,8 @@ function hitTarget(rec, direct){
   }
 
   if (rec.kind === 'junk'){
-    fxBurst(sx, sy, 'BAD');
-    fxScorePop('-180', sx, sy);
+    Particles.burstAt && Particles.burstAt(sx, sy, 'BAD');
+    Particles.scorePop && Particles.scorePop('-180', sx, sy);
     showCoach('🧋 JUNK!', 'โดนของไม่ดี! ระวัง!');
     punishBad('junk');
     logEvent('hit', { kind:'junk', dist, direct:!!direct });
@@ -1573,9 +1417,9 @@ function hitTarget(rec, direct){
 
     AudioX.bossHit();
     vibe(25);
-    fxJudge(ph === 3 ? 'BOSS RAGE!' : 'BOSS HIT!');
-    fxBurst(sx, sy, 'BOSS');
-    fxScorePop('+120', sx, sy);
+    Particles.judgeText && Particles.judgeText(ph === 3 ? 'BOSS RAGE!' : 'BOSS HIT!');
+    Particles.burstAt && Particles.burstAt(sx, sy, 'BOSS');
+    Particles.scorePop && Particles.scorePop('+120', sx, sy);
     addScore(120);
     addFever(7);
     logEvent('boss_hit', { hp: rec.hp, hpMax: rec.hpMax, phase: ph });
@@ -1585,7 +1429,7 @@ function hitTarget(rec, direct){
 
     if (rec.hp <= 0){
       AudioX.bossDown();
-      fxCeleb('BOSS DOWN!');
+      Particles.celebrate && Particles.celebrate('BOSS DOWN!');
       showCoach('🏆 BOSS DOWN!', 'โค่นบอสได้! บวกใหญ่!');
       vibe(85);
       addScore(1000);
@@ -1593,7 +1437,7 @@ function hitTarget(rec, direct){
       S.combo += 2;
       S.maxCombo = Math.max(S.maxCombo, S.combo);
       setTxt(HUD.combo, S.combo);
-      fxScorePop('+1000', sx, sy);
+      Particles.scorePop && Particles.scorePop('+1000', sx, sy);
       logEvent('boss_down', {});
       S.bossActive = false;
       removeTarget(rec);
@@ -1618,22 +1462,22 @@ function hitTarget(rec, direct){
     S.perfectCount += 1;
     setTxt(HUD.perfect, S.perfectCount);
     addFever(14);
-    fxJudge('PERFECT');
-    fxScorePop(`+${delta}`, sx, sy);
+    Particles.judgeText && Particles.judgeText('PERFECT');
+    Particles.scorePop && Particles.scorePop(`+${delta}`, sx, sy);
     AudioX.perfect();
     vibe(35);
   } else {
     addFever(8);
-    fxJudge('GOOD');
-    fxScorePop(`+${delta}`, sx, sy);
+    Particles.judgeText && Particles.judgeText('GOOD');
+    Particles.scorePop && Particles.scorePop(`+${delta}`, sx, sy);
     AudioX.good();
   }
 
-  fxBurst(sx, sy, (rec.kind === 'gold') ? 'GOLD' : 'GOOD');
+  Particles.burstAt && Particles.burstAt(sx, sy, (rec.kind === 'gold') ? 'GOLD' : 'GOOD');
 
   if (rec.kind === 'good') onGood(rec.group);
   if (rec.kind === 'gold'){
-    let g = 1 + ((R()*5)|0);
+    let g = 1 + ((Math.random()*5)|0);
     for (let k=0;k<5;k++){
       const gg = 1 + ((g-1+k)%5);
       if (!S.plateHave.has(gg)) { g = gg; break; }
@@ -1656,17 +1500,9 @@ function hitTarget(rec, direct){
 }
 
 // ---------- Decide kind/group ----------
-function decideGroup(){ return 1 + ((R()*5)|0); }
+function decideGroup(){ return 1 + ((Math.random()*5)|0); }
 
 function decideKind(){
-  // ✅ Research STRICT: ตัด confounds ออกให้หมด (ค่าคงที่ + วัดผลสะอาด)
-  if (RESEARCH_STRICT){
-    const r = R();
-    if (r < 0.16) return 'junk';
-    if (r < 0.26) return 'gold';
-    return 'good';
-  }
-
   const t = now();
   const noJunk = (t < S.noJunkUntil);
   const storm = (t < S.stormUntil);
@@ -1696,7 +1532,7 @@ function decideKind(){
     junk *= 0.86; trap *= 0.86; fake *= 0.86; gold *= 1.05;
   }
 
-  const r = R();
+  const r = Math.random();
   let acc = 0;
 
   acc += slow; if (r < acc) return 'slow';
@@ -1713,7 +1549,6 @@ function decideKind(){
 
 // ---------- Boss spawn + attacks ----------
 function spawnBossIfReady(){
-  if (RESEARCH_STRICT) return; // ✅ strict: ปิด boss
   if (S.bossActive) return;
   const t = now();
   if (!S.bossNextAt) S.bossNextAt = t + rnd(9000, 15000);
@@ -1728,8 +1563,8 @@ function spawnBossIfReady(){
   const base = S.feverOn ? rnd(8500, 12500) : rnd(10500, 16500);
   S.bossNextAt = t + base;
 
-  fxJudge('BOSS!');
-  fxCeleb('⚠️');
+  Particles.judgeText && Particles.judgeText('BOSS!');
+  Particles.celebrate && Particles.celebrate('⚠️');
   showCoach('😈 BOSS!', 'บอสมาแล้ว! ยิงให้ล้ม!');
   vibe(35);
   logEvent('boss_spawn', { hp });
@@ -1742,7 +1577,6 @@ function bossAttackStyleForPhase(phase){
 }
 
 function tickBossAttack(){
-  if (RESEARCH_STRICT) return;
   const t = now();
   for (const rec of S.targets){
     if (rec.dead || rec.kind !== 'boss') continue;
@@ -1762,7 +1596,7 @@ function tickBossAttack(){
 
     if (t >= rec.atkAt - warnLead && !rec._warned){
       rec._warned = true;
-      fxJudge(style === 'double' ? '☠️' : '⚠️');
+      Particles.judgeText && Particles.judgeText(style === 'double' ? '☠️' : '⚠️');
       AudioX.warn(); vibe(18);
     }
 
@@ -1786,9 +1620,9 @@ function tickBossAttack(){
       const baseMax = D.bossAtkMs[1] * phaseMul;
       rec.atkAt = t + rnd(baseMin, baseMax);
 
-      if (ph === 3 && R() < 0.22){
+      if (ph === 3 && Math.random() < 0.22){
         rec.atkAt = t + rnd(900, 1400);
-        fxJudge('CHAIN!');
+        Particles.judgeText && Particles.judgeText('CHAIN!');
       }
     }
   }
@@ -1796,15 +1630,14 @@ function tickBossAttack(){
 
 // ---------- Fever ring burst ----------
 function spawnFeverRingBurst(){
-  if (RESEARCH_STRICT) return;
   if (!S.feverOn) return;
-  if (R() > 0.18) return;
+  if (Math.random() > 0.18) return;
 
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const cxS = vw/2, cyS = vh/2;
   const off = viewOffset();
 
-  const n = 5 + ((R()*3)|0);
+  const n = 5 + ((Math.random()*3)|0);
   const radius = clamp(Math.min(vw, vh) * 0.18, 92, 160);
 
   for (let i=0;i<n;i++){
@@ -1815,14 +1648,14 @@ function spawnFeverRingBurst(){
     const x = sx - off.x;
     const y = sy - off.y;
 
-    const kind = (R() < 0.22) ? 'gold' : 'good';
+    const kind = (Math.random() < 0.22) ? 'gold' : 'good';
     const group = (kind === 'good') ? decideGroup() : 0;
 
-    // ใช้ pickSafeXY ตามเดิม (ไม่ force เพื่อความปลอดภัย HUD)
-    makeTarget(kind, group);
+    // NOTE: _forceXY reserved (not used in pickSafeXY) - safe no-op
+    makeTarget(kind, group, { _forceXY: { x, y } });
   }
 
-  fxJudge('FEVER RING!');
+  Particles.judgeText && Particles.judgeText('FEVER RING!');
 }
 
 // ---------- Spawn tick ----------
@@ -1842,13 +1675,10 @@ function spawnTick(){
   if (slowOn) interval *= 1.22;
   if (t < S.noJunkUntil) interval *= 0.92;
 
-  // ✅ research strict: no burst + no jitter
   let burst = 1;
-  if (!RESEARCH_STRICT){
-    if (stormOn) burst = (R() < 0.65) ? 3 : 2;
-    else if (S.feverOn) burst = (R() < 0.22) ? 2 : 1;
-    if (DIFF === 'hard' && R() < 0.10) burst += 1;
-  }
+  if (stormOn) burst = (Math.random() < 0.65) ? 3 : 2;
+  else if (S.feverOn) burst = (Math.random() < 0.22) ? 2 : 1;
+  if (DIFF === 'hard' && Math.random() < 0.10) burst += 1;
 
   for (let i=0;i<burst;i++){
     const kind = decideKind();
@@ -1856,14 +1686,22 @@ function spawnTick(){
     makeTarget(kind, group);
   }
 
-  const jitter = RESEARCH_STRICT ? 0 : rnd(-120, 120);
+  const jitter = rnd(-120, 120);
   S.nextSpawnAt = t + Math.max(240, interval + jitter);
 }
 
 // ---------- Tap-anywhere shooting ----------
 function isUIElement(target){
   if (!target) return false;
-  return !!(target.closest && (target.closest('.btn') || target.closest('#hudRight') || target.closest('#resultBackdrop') || target.closest('#hhaBtnMenu') || target.closest('#hhaBtnVR')));
+  return !!(target.closest && (
+    target.closest('.btn') ||
+    target.closest('#hudRight') ||
+    target.closest('#resultBackdrop') ||
+    target.closest('#hhaBtnMenu') ||
+    target.closest('#hhaBtnVR') ||
+    target.closest('#miniPanel') ||          // ✅ กันกด mini panel แล้วไปยิง
+    target.closest('.hha-compact-bar')       // ✅ กันกด compact bar แล้วไปยิง
+  ));
 }
 function shootCrosshair(){
   if (!S.running || S.paused) return;
@@ -1900,6 +1738,57 @@ function bindShootHotkeys(){
   }
 }
 
+// ---------- 🔥 PATCH 1+2: Hold-to-show mini+hint ----------
+function pickHoldElement(){
+  return (
+    doc.querySelector('.hha-compact-bar') ||
+    doc.getElementById('miniPanel') ||
+    HUD.miniLine ||
+    HUD.miniHint ||
+    null
+  );
+}
+
+function bindMiniHold(){
+  const el = pickHoldElement();
+  if (!el) return;
+
+  let timer = null;
+  let armed = false;
+
+  function clear(){
+    armed = false;
+    if (timer){ clearTimeout(timer); timer = null; }
+  }
+
+  function arm(){
+    if (!S.running) return;
+    armed = true;
+    clearTimeout(timer);
+
+    timer = setTimeout(()=>{
+      if (!armed) return;
+      const t = now();
+      S.forceMiniShowUntil = t + 2000;
+      S.forceHintUntil = t + 2000;
+      vibe(15);
+      updateMiniHud(true);
+    }, 420);
+  }
+
+  // ใช้ capture กันการไหลไปยิง
+  el.addEventListener('pointerdown', (e)=>{
+    if (S.running && !S.paused){
+      e.stopPropagation();
+    }
+    arm();
+  }, { passive:true, capture:true });
+
+  ['pointerup','pointercancel','pointerleave','touchend','touchcancel'].forEach(ev=>{
+    el.addEventListener(ev, clear, { passive:true, capture:true });
+  });
+}
+
 // ---------- Pause/Restart/VR ----------
 function setPaused(on){
   S.paused = !!on;
@@ -1909,51 +1798,6 @@ function setPaused(on){
 function enterVR(){
   if (!scene || !scene.enterVR) return;
   try { scene.enterVR(); } catch(_) {}
-}
-
-// ---------- Layout: CLEAN PLAY HUD ----------
-function applyPlayMinLayout(){
-  if (!S.uiMinPlay) return;
-  doc.body.classList.add('hha-play-min');
-
-  // ซ่อน panel เก่า (ถ้ามี)
-  const hudBottom = doc.getElementById('hudBottom');
-  const hudRight  = doc.getElementById('hudRight');
-  if (hudBottom) { hudBottom.style.opacity = '0'; hudBottom.style.pointerEvents = 'none'; }
-  if (hudRight)  { hudRight.style.opacity  = '0'; hudRight.style.pointerEvents  = 'none'; }
-
-  // ย้าย tip เก่าให้จาง (ถ้ามี)
-  const tip = doc.getElementById('tipPanel') || doc.querySelector('.tip');
-  if (tip) tip.style.opacity = '0.25';
-}
-
-// HUD dodge เฉพาะตอนเป้าใกล้ compact bar
-function hudDodgeTick(){
-  if (!compactBar || !S.targets.length) {
-    if (S.hudDodgeOn){
-      S.hudDodgeOn = false;
-      doc.body.classList.remove('hha-hud-dodge');
-    }
-    return;
-  }
-  const bar = compactBar.getBoundingClientRect();
-  const off = viewOffset();
-  let near = false;
-
-  for (const rec of S.targets){
-    if (rec.dead) continue;
-    const sx = rec.cx + off.x;
-    const sy = rec.cy + off.y;
-    const half = (rec.size || 80) * 0.5;
-    const rect = { x: sx-half, y: sy-half, w: rec.size||80, h: rec.size||80 };
-    if (intersect(rect, { x: bar.left-18, y: bar.top-18, w: bar.width+36, h: bar.height+36 })){
-      near = true; break;
-    }
-  }
-  if (near !== S.hudDodgeOn){
-    S.hudDodgeOn = near;
-    doc.body.classList.toggle('hha-hud-dodge', near);
-  }
 }
 
 // ---------- Restart ----------
@@ -1989,6 +1833,10 @@ function restart(){
 
   setPerfectZone(false);
   refreshPowerHUD();
+
+  // 🔥 reset hold flags
+  S.forceMiniShowUntil = 0;
+  S.forceHintUntil = 0;
 
   setTxt(HUD.score, 0); setTxt(HUD.combo, 0); setTxt(HUD.miss, 0);
   setTxt(HUD.perfect, 0); setTxt(HUD.have, `0/5`);
@@ -2037,7 +1885,7 @@ function endGame(isGameOver){
 
   setShow(HUD.resultBackdrop, true);
 
-  fxCeleb(isGameOver ? 'GAME OVER' : 'ALL DONE!');
+  Particles.celebrate && Particles.celebrate(isGameOver ? 'GAME OVER' : 'ALL DONE!');
   vibe(isGameOver ? 70 : 60);
   logSession(isGameOver ? 'gameover' : 'end');
 }
@@ -2057,7 +1905,6 @@ function start(){
 
     applyLayerTransform();
     updateAimHighlight();
-    hudDodgeTick();
 
     if (!S.paused){
       const elapsed = (now() - S.tStart) / 1000;
@@ -2103,7 +1950,6 @@ function bindUI(){
   layer.addEventListener('touchstart', onGlobalPointerDown, { passive:false });
   layer.addEventListener('click', onGlobalPointerDown, { passive:false });
 
-  // old buttons still supported (if present)
   if (HUD.btnEnterVR) HUD.btnEnterVR.addEventListener('click', enterVR);
   if (HUD.btnPause) HUD.btnPause.addEventListener('click', ()=>{
     if (!S.running) return;
@@ -2125,50 +1971,6 @@ function bindUI(){
       if (e.target === HUD.resultBackdrop) setShow(HUD.resultBackdrop, false);
     });
   }
-
-  // new fab
-  const bVR = doc.getElementById('hhaBtnVR');
-  const bMenu = doc.getElementById('hhaBtnMenu');
-  const mPause = menuOverlay.querySelector('#hhaMenuPause');
-  const mRestart = menuOverlay.querySelector('#hhaMenuRestart');
-  const mInfo = menuOverlay.querySelector('#hhaMenuInfo');
-  const mClose = menuOverlay.querySelector('#hhaMenuClose');
-  const infoBox = menuOverlay.querySelector('#hhaMenuInfoBox');
-
-  bVR && bVR.addEventListener('click', (e)=>{ e.preventDefault(); enterVR(); });
-  bMenu && bMenu.addEventListener('click', (e)=>{
-    e.preventDefault();
-    menuOverlay.style.display = 'block';
-  });
-  menuOverlay.addEventListener('click', (e)=>{
-    if (e.target === menuOverlay) menuOverlay.style.display = 'none';
-  });
-
-  mClose && mClose.addEventListener('click', ()=>{ menuOverlay.style.display = 'none'; });
-  mPause && mPause.addEventListener('click', ()=>{
-    if (!S.running) return;
-    setPaused(!S.paused);
-    mPause.textContent = S.paused ? '▶️ Resume' : '⏸️ Pause';
-    logEvent('pause', { paused: S.paused });
-  });
-  mRestart && mRestart.addEventListener('click', ()=>{
-    logEvent('restart', {});
-    menuOverlay.style.display = 'none';
-    restart();
-  });
-  mInfo && mInfo.addEventListener('click', ()=>{
-    const on = infoBox.style.display !== 'block';
-    infoBox.style.display = on ? 'block' : 'none';
-    if (on){
-      setTxt(infoMode, MODE);
-      setTxt(infoDiff, DIFF);
-      setTxt(infoScore, S.score);
-      setTxt(infoMaxCombo, S.maxCombo);
-      setTxt(infoMiss, S.miss);
-      setTxt(infoPerf, S.perfectCount);
-      setTxt(infoSeed, _seedBase);
-    }
-  });
 }
 
 // ---------- Boot ----------
@@ -2179,10 +1981,8 @@ function bindUI(){
     }
   } catch(_) {}
 
-  // layout
-  applyPlayMinLayout();
-
   bindUI();
+  bindMiniHold();      // ✅ PATCH 1+2
   bindShootHotkeys();
 
   setShield(0);
@@ -2199,9 +1999,9 @@ function bindUI(){
   setGoal(0);
   startMini();
 
-  showCoach('🥦 Coach', RESEARCH_STRICT ? 'Research STRICT: คุมเข้ม + วัดผลสะอาด' : 'ALL-IN MODE! เอาให้สุด!');
+  showCoach('🥦 Coach', 'ALL-IN MODE! เอาให้สุด!');
   logSession('start');
   start();
 
-  if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:_seedBase, strict:RESEARCH_STRICT });
+  if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, D });
 })();
