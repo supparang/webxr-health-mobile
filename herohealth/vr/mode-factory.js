@@ -17,6 +17,10 @@
 // ✅ แปลงพิกัด boundsRect → spawnRect ถูกต้อง (แก้มุม/กลางจอตลอด)
 // ✅ Cap margins กัน exclusion กินพื้นที่เกินเหตุ
 // ✅ Fallback ถ้า playRect เพี้ยน/แคบเกินไป
+//
+// 🔥 A2+++ PATCH (NEW - FIX “เป้าโดนบังไปหมด”):
+// ✅ หลบ HUD แบบ “จริง” ด้วย exclusion RECT (สุ่มแล้ว reject ถ้าทับการ์ด)
+// ✅ ไม่พึ่งแค่ margin-edge safezone อีกต่อไป (มือถือจอเล็ก HUD กองกลางจอเอาไม่อยู่)
 
 'use strict';
 
@@ -252,8 +256,13 @@ function computePlayRectFromHost (hostEl, exState) {
   const r = hostEl.getBoundingClientRect();
   const isOverlay = hostEl && hostEl.id === 'hvr-overlay-host';
 
-  let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
-  let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
+  // ✅ A2+++: robust fallback even when bounds rect is 0/too small
+  let w = r.width;
+  let h = r.height;
+  if (!w || w < 50) w = (isOverlay ? (ROOT.innerWidth || 1) : (ROOT.innerWidth || 1));
+  if (!h || h < 50) h = (isOverlay ? (ROOT.innerHeight|| 1) : (ROOT.innerHeight|| 1));
+  w = Math.max(1, w);
+  h = Math.max(1, h);
 
   const basePadX   = w * 0.10;
   const basePadTop = h * 0.12;
@@ -453,7 +462,9 @@ export async function boot (rawCfg = {}) {
   function getCrosshairPoint(){
     let rect = null;
     try{ rect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!rect) rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    if (!rect || (rect.width||0) < 50 || (rect.height||0) < 50) {
+      rect = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    }
 
     const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
     const padX = rect.width * 0.08;
@@ -485,6 +496,7 @@ export async function boot (rawCfg = {}) {
   // ======================================================
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
+    rects: [], // ✅ NEW: เก็บ rect ของ exclusion เพื่อหลบแบบจริง
     margins: { top:0,bottom:0,left:0,right:0 },
     lastRefreshTs: 0
   };
@@ -498,8 +510,32 @@ export async function boot (rawCfg = {}) {
     exState.els = collectExclusionElements({ excludeSelectors });
     let hostRect = null;
     try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    if (!hostRect || (hostRect.width||0) < 50 || (hostRect.height||0) < 50) {
+      hostRect = {
+        left:0, top:0,
+        right:(ROOT.innerWidth||1),
+        bottom:(ROOT.innerHeight||1),
+        width:(ROOT.innerWidth||1),
+        height:(ROOT.innerHeight||1)
+      };
+    }
+
     exState.margins = computeExclusionMargins(hostRect, exState.els);
+
+    // ✅ NEW: เก็บ rect จริงของ exclusion (หลบการ์ดที่ “กองกลางจอ” ได้)
+    const rects = [];
+    exState.els.forEach(el=>{
+      let r=null;
+      try{ r = el.getBoundingClientRect(); }catch{}
+      if (!r) return;
+      if ((r.width||0) < 8 || (r.height||0) < 8) return;
+
+      if (r.right < -20 || r.left > (ROOT.innerWidth||0)+20) return;
+      if (r.bottom < -20 || r.top > (ROOT.innerHeight||0)+20) return;
+
+      rects.push(r);
+    });
+    exState.rects = rects;
   }
 
   // ======================================================
@@ -509,8 +545,8 @@ export async function boot (rawCfg = {}) {
     let b = null, s = null;
     try{ b = hostBounds.getBoundingClientRect(); }catch{}
     try{ s = hostSpawn.getBoundingClientRect(); }catch{}
-    if (!b) b = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
-    if (!s) s = b;
+    if (!b || (b.width||0) < 50 || (b.height||0) < 50) b = { left:0, top:0, width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    if (!s || (s.width||0) < 50 || (s.height||0) < 50) s = b;
     return { bRect:b, sRect:s };
   }
 
@@ -544,6 +580,21 @@ export async function boot (rawCfg = {}) {
       out.push({ x:(r.left + r.width/2) - sRect.left, y:(r.top + r.height/2) - sRect.top });
     });
     return out;
+  }
+
+  // ✅ NEW: ตรวจว่าจุด (client) ไปทับ exclusion rect ไหม
+  function pointHitsAnyRect(clientX, clientY, rects, pad){
+    if (!rects || !rects.length) return false;
+    const p = Number(pad)||0;
+    for (let i=0;i<rects.length;i++){
+      const r = rects[i];
+      if (!r) continue;
+      if (
+        clientX >= (r.left - p) && clientX <= (r.right + p) &&
+        clientY >= (r.top  - p) && clientY <= (r.bottom + p)
+      ) return true;
+    }
+    return false;
   }
 
   function pickSpawnPointLocal(playLocal, sizePx){
@@ -590,6 +641,14 @@ export async function boot (rawCfg = {}) {
     for (let i=0;i<tries;i++){
       const x = clamp(ax + tri()*rx, minX, maxX);
       const y = clamp(ay + tri()*ry, minY, maxY);
+
+      // ✅ A2+++: ห้าม spawn ใต้ HUD/การ์ด (ใช้ rect จริง)
+      const clientX = (sRect.left + x);
+      const clientY = (sRect.top  + y);
+      const padEx   = Math.max(12, sizePx * 0.60);
+      if (pointHitsAnyRect(clientX, clientY, exState.rects, padEx)) {
+        continue;
+      }
 
       // separation check
       let ok = true;
@@ -665,7 +724,7 @@ export async function boot (rawCfg = {}) {
     const baseSize = 78;
     const size = baseSize * curScale;
 
-    // ✅ A2++: spawn around crosshair + anti-overlap
+    // ✅ A2++: spawn around crosshair + anti-overlap (+ A2+++: avoid hud rect)
     const p = pickSpawnPointLocal(playLocal, size);
 
     el.style.position = 'absolute';
