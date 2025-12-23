@@ -1,4 +1,4 @@
-<!-- === /herohealth/goodjunk-vr.html (FULL / DOUBLE-BINE H+++) === -->
+<!-- === /herohealth/goodjunk-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -365,6 +365,21 @@
     .fp.gold{ border-color:rgba(245,158,11,.30); color:#ffedd5; }
     @keyframes fpIn{ to{ opacity:1; transform:translate(-50%,-50%) scale(1); } }
     @keyframes fpOut{ to{ opacity:0; transform:translate(-50%,-58%) scale(.98); } }
+
+    /* ===== END SUMMARY OVERLAY ===== */
+    #sumOverlay{
+      position:absolute; inset:0; z-index:40;
+      display:none; align-items:center; justify-content:center; padding:18px;
+      background: radial-gradient(900px 600px at 50% 30%, rgba(15,23,42,.55), rgba(2,6,23,.78));
+    }
+    #sumOverlay.show{ display:flex; }
+    #sumCard{ width:min(720px, 100%); padding:16px; }
+    #sumCard h2{ margin:4px 0 10px; font-size:20px; }
+    #sumGrid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .sumBox{ padding:12px; border-radius:16px; border:1px solid var(--stroke); background:rgba(0,0,0,.16); }
+    .sumBox .k{ font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
+    .sumBox .v{ font-size:22px; font-weight:1000; margin-top:6px; }
+    #sumActions{ margin-top:14px; display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
   </style>
 </head>
 
@@ -450,6 +465,29 @@
   <div id="panicBox"></div>
   <div id="floating-pop-layer"></div>
 
+  <!-- ===== END SUMMARY OVERLAY ===== -->
+  <div id="sumOverlay">
+    <div id="sumCard" class="panel">
+      <h2>🏁 สรุปผล GoodJunk VR</h2>
+
+      <div id="sumGrid">
+        <div class="sumBox"><div class="k">score</div><div class="v" id="sumScore">0</div></div>
+        <div class="sumBox"><div class="k">combo max</div><div class="v" id="sumComboMax">0</div></div>
+        <div class="sumBox"><div class="k">good hits</div><div class="v" id="sumGood">0</div></div>
+        <div class="sumBox"><div class="k">miss</div><div class="v" id="sumMiss">0</div></div>
+      </div>
+
+      <div class="muted" style="margin-top:10px;font-size:12px;">
+        * กด Replay เพื่อเริ่มใหม่ หรือกลับ Hub
+      </div>
+
+      <div id="sumActions">
+        <button class="btn" id="btnSumReplay">🔁 Replay</button>
+        <button class="btn primary" id="btnSumExit">🏠 Hub</button>
+      </div>
+    </div>
+  </div>
+
   <div id="startModal">
     <div id="startCard" class="panel">
       <h1>GoodJunk VR</h1>
@@ -524,6 +562,21 @@
   const edge = $('edge');
   const fpLayer = $('floating-pop-layer');
 
+  // ===== Summary UI =====
+  const sumOverlay = $('sumOverlay');
+  const sumScore = $('sumScore');
+  const sumComboMax = $('sumComboMax');
+  const sumGood = $('sumGood');
+  const sumMiss = $('sumMiss');
+  const btnSumReplay = $('btnSumReplay');
+  const btnSumExit = $('btnSumExit');
+
+  btnSumReplay?.addEventListener('click', ()=> location.reload());
+  btnSumExit?.addEventListener('click', ()=> location.href = './hub.html');
+
+  // cache last stats (fallback for end summary)
+  let lastScore = { score:0, goodHits:0, misses:0, comboMax:0 };
+
   // ===== Debug badge (auto revert) =====
   let badgeTimer = 0;
   function setBadge(ok, text){
@@ -592,7 +645,7 @@
     const sCh = $('selCh');
 
     const urlDiff = (U.searchParams.get('diff')||'').toLowerCase();
-    const urlCh   = (U.searchParams.get('challenge')||U.searchParams.get('ch')||'').toLowerCase();
+    const urlCh   = (U.searchParams.get('challenge')||'').toLowerCase();
 
     const savedDiff = localStorage.getItem('gj_diff') || '';
     const savedCh   = localStorage.getItem('gj_ch') || '';
@@ -612,10 +665,9 @@
   })();
 
   // ===== Module loading =====
-  let modSafe=null, modTouch=null, modQuest=null, modDefs=null;
+  let modSafe=null, modTouch=null;
   let engine=null;
   let touchCtl=null;
-  let Q=null;
 
   async function importFirst(paths){
     let last=null;
@@ -627,7 +679,7 @@
   }
 
   async function ensureModules(){
-    if (modSafe && modTouch && modQuest && modDefs) return { modSafe, modTouch, modQuest, modDefs };
+    if (modSafe && modTouch) return { modSafe, modTouch };
 
     hidePanic();
     setBadgeTemp(false, 'boot: loading modules…', 1200);
@@ -641,13 +693,8 @@
       const safePaths  = ['./vr-goodjunk/goodjunk.safe.js', './goodjunk.safe.js'];
       const touchPaths = ['./vr-goodjunk/touch-look-goodjunk.js', './touch-look-goodjunk.js'];
 
-      const questPaths = ['./vr-goodjunk/quest-director-goodjunk.js', './vr-goodjunk/quest-director.js', './vr-goodjunk/quest-director-goodjunk.js'];
-      const defsPaths  = ['./vr-goodjunk/quest-defs-goodjunk.js', './vr-goodjunk/quest-defs-goodjunk.js'];
-
       modSafe  = await importFirst(safePaths);
       modTouch = await importFirst(touchPaths);
-      modQuest = await importFirst(questPaths);
-      modDefs  = await importFirst(defsPaths);
 
       clearTimeout(watchdog);
       setBadgeTemp(true, 'boot: modules ready', 900);
@@ -657,7 +704,7 @@
 
       startParallaxLoop();
 
-      return { modSafe, modTouch, modQuest, modDefs };
+      return { modSafe, modTouch };
     }catch(err){
       clearTimeout(watchdog);
       showPanic('โหลดโมดูลไม่สำเร็จ (เช็ค path/ชื่อไฟล์ใน repo)', err);
@@ -689,36 +736,6 @@
     rafPar = requestAnimationFrame(tick);
   }
 
-  // ===== H+++ QUEST STATE (shared) =====
-  const qState = {
-    score:0, goodHits:0, miss:0, comboMax:0, timeLeft:60,
-    streakGood:0, goldHitsThisMini:false, blocks:0,
-    safeNoJunkSeconds:0, bossCleared:false,
-
-    // ===== H+++ MINI STATE =====
-    miniId: '',
-    miniStartTimeLeft: null,
-    miniElapsed: 0,
-    miniGoodCount: 0,
-    miniBadTouched: false,
-    miniGoldHit: false,
-    miniBlocks: 0,
-    finalWindowGood: 0
-  };
-  window.__GJ_QSTATE__ = qState;
-
-  let running = false;
-  let safeTimer = 0;
-  function startSafeTimer(){
-    clearInterval(safeTimer);
-    safeTimer = setInterval(()=>{
-      if (!running) return;
-      // ✅ นับ “ปลอด junk” ต่อเนื่อง (ถูก reset ใน quest:badHit)
-      qState.safeNoJunkSeconds = (qState.safeNoJunkSeconds|0) + 1;
-      if (Q) Q.tick(qState);
-    }, 1000);
-  }
-
   // ===== HUD updates =====
   window.addEventListener('hha:score', (e)=>{
     const d = e.detail||{};
@@ -726,29 +743,18 @@
     uiComboMax.textContent = String(d.comboMax ?? 0);
     uiMiss.textContent = String(d.misses ?? 0);
 
-    // keep qState in sync
-    if (typeof d.score === 'number') qState.score = d.score|0;
-    if (typeof d.comboMax === 'number') qState.comboMax = d.comboMax|0;
-    if (typeof d.misses === 'number') qState.miss = d.misses|0;
-
-    if (Q) Q.tick(qState);
+    // ✅ cache for end summary fallback
+    lastScore = {
+      score: Number(d.score ?? 0) || 0,
+      goodHits: Number(d.goodHits ?? 0) || 0,
+      misses: Number(d.misses ?? 0) || 0,
+      comboMax: Number(d.comboMax ?? 0) || 0
+    };
   });
 
   window.addEventListener('hha:time', (e)=>{
     const d = e.detail||{};
-    const sec = Number(d.sec);
-    uiTime.textContent = String(Number.isFinite(sec) ? (sec|0) : '--');
-
-    if (Number.isFinite(sec)){
-      qState.timeLeft = sec|0;
-
-      // ✅ compute mini elapsed from the moment mini started
-      if (qState.miniStartTimeLeft != null){
-        qState.miniElapsed = Math.max(0, (qState.miniStartTimeLeft|0) - (qState.timeLeft|0));
-      }
-
-      if (Q) Q.tick(qState);
-    }
+    uiTime.textContent = String(d.sec ?? '--');
   });
 
   window.addEventListener('hha:fever', (e)=>{
@@ -803,14 +809,14 @@
   // ===== Quest “เด้งกลางจอ” + badge revert =====
   window.addEventListener('quest:goalClear', (e)=>{
     const d = e.detail||{};
-    setBadgeTemp(true, `GOAL CLEAR!`, 900);
-    floatingPop(`✅ GOAL CLEAR — ${d.title||d.label||''}`, 'good', 1100);
+    setBadgeTemp(true, `GOAL CLEAR! (${d.goalsCleared||0})`, 900);
+    floatingPop(`✅ GOAL CLEAR — ${d.title||''}`, 'good', 1100);
   });
 
   window.addEventListener('quest:miniClear', (e)=>{
     const d = e.detail||{};
     setBadgeTemp(true, `MINI CLEAR! (${d.minisCleared||0})`, 850);
-    floatingPop(`⚡ MINI CLEAR — ${d.title||d.label||''}`, 'gold', 950);
+    floatingPop(`⚡ MINI CLEAR — ${d.title||''}`, 'gold', 950);
   });
 
   window.addEventListener('quest:allGoalsClear', ()=>{
@@ -892,65 +898,26 @@
     }
   });
 
-  // ===== H+++ qState hooks (from game events) =====
-  window.addEventListener('quest:miniStart', (e)=>{
-    const d = e.detail||{};
-    qState.miniId = String(d.id || '');
+  // ===== ✅ END SUMMARY (fix: no undefined vars) =====
+  window.addEventListener('hha:end', (e)=>{
+    const d = e.detail || {};
 
-    // old keys (compat)
-    qState.goldHitsThisMini = false;
-    qState.blocks = 0;
-    qState.safeNoJunkSeconds = 0;
-    qState.streakGood = 0;
-    qState.bossCleared = false;
+    const score   = Number(d.score   ?? lastScore.score   ?? 0) || 0;
+    const comboMx = Number(d.comboMax?? lastScore.comboMax?? 0) || 0;
+    const good    = Number(d.goodHits?? lastScore.goodHits?? 0) || 0;
+    const miss    = Number(d.misses ?? lastScore.misses  ?? 0) || 0;
 
-    // H+++ per-mini
-    qState.miniStartTimeLeft = (typeof qState.timeLeft === 'number') ? (qState.timeLeft|0) : null;
-    qState.miniElapsed = 0;
-    qState.miniGoodCount = 0;
-    qState.miniBadTouched = false;
-    qState.miniGoldHit = false;
-    qState.miniBlocks = 0;
-    qState.finalWindowGood = 0;
+    sumScore.textContent = String(score|0);
+    sumComboMax.textContent = String(comboMx|0);
+    sumGood.textContent = String(good|0);
+    sumMiss.textContent = String(miss|0);
 
-    if (Q) Q.tick(qState);
-  });
+    // show summary overlay
+    sumOverlay.classList.add('show');
 
-  window.addEventListener('quest:goodHit', ()=>{
-    qState.goodHits = (qState.goodHits|0) + 1;
-    qState.streakGood = (qState.streakGood|0) + 1;
-    qState.miniGoodCount = (qState.miniGoodCount|0) + 1;
-
-    if ((qState.timeLeft|0) <= 8) qState.finalWindowGood = (qState.finalWindowGood|0) + 1;
-
-    if (Q) Q.tick(qState);
-  });
-
-  window.addEventListener('quest:badHit', ()=>{
-    qState.safeNoJunkSeconds = 0;
-    qState.streakGood = 0;
-    qState.miniBadTouched = true;
-    if (Q) Q.tick(qState);
-  });
-
-  window.addEventListener('quest:block', ()=>{
-    qState.blocks = (qState.blocks|0) + 1;
-    qState.miniBlocks = (qState.miniBlocks|0) + 1;
-    if (Q) Q.tick(qState);
-  });
-
-  window.addEventListener('quest:power', (e)=>{
-    const d = e.detail||{};
-    if (String(d.power||'') === 'gold'){
-      qState.goldHitsThisMini = true;
-      qState.miniGoldHit = true;
-    }
-    if (Q) Q.tick(qState);
-  });
-
-  window.addEventListener('quest:bossClear', ()=>{
-    qState.bossCleared = true;
-    if (Q) Q.tick(qState);
+    setBadgeTemp(true, 'GAME ENDED ✓ (summary)', 1200);
+    floatingPop('🏁 จบเกมแล้ว! แสดงสรุปผล', 'gold', 1200);
+    beep(660, 110);
   });
 
   // ===== Start =====
@@ -972,15 +939,7 @@
     return { top, bottom, left, right };
   }
 
-  function buildQuestDirector(diff){
-    const makeQ = modQuest?.makeQuestDirector || modQuest?.makeGoodJunkQuestDirector;
-    const goals = modDefs?.GOODJUNK_GOALS || [];
-    const minis = modDefs?.GOODJUNK_MINIS || [];
-    if (typeof makeQ !== 'function') return null;
-    return makeQ({ diff, goalDefs: goals, miniDefs: minis, goals, minis });
-  }
-
-  async function startGame(runMode='play', wantVR=false){
+  async function startGame(runMode='play'){
     btn2D.disabled = true; btnVR.disabled = true;
     try{
       ensureAudio();
@@ -988,35 +947,15 @@
 
       const { diff, challenge } = getSelected();
       uiDiffChallenge.textContent = `Diff: ${diff.toUpperCase()} • Challenge: ${challenge.toUpperCase()}`;
-      $('runName').textContent = String(runMode).toUpperCase();
 
-      // reset
       try{ engine?.stop?.(); }catch(_){}
       engine = null;
-      Q = null;
 
-      // reset qState (hard reset)
-      Object.assign(qState, {
-        score:0, goodHits:0, miss:0, comboMax:0, timeLeft:60,
-        streakGood:0, goldHitsThisMini:false, blocks:0,
-        safeNoJunkSeconds:0, bossCleared:false,
-        miniId:'', miniStartTimeLeft:null, miniElapsed:0,
-        miniGoodCount:0, miniBadTouched:false, miniGoldHit:false,
-        miniBlocks:0, finalWindowGood:0
-      });
-
+      // hide overlays
+      sumOverlay.classList.remove('show');
       elModal.style.display = 'none';
+
       setBadgeTemp(true, 'starting…', 900);
-
-      // ✅ Quest director first (so quest “ขึ้นแน่”)
-      Q = buildQuestDirector(diff);
-      if (Q){
-        try{ Q.start(qState); }catch(_){}
-      }
-
-      // start safe timer (no-junk seconds)
-      running = true;
-      startSafeTimer();
 
       engine = modSafe.boot({
         diff,
@@ -1028,13 +967,6 @@
       });
 
       setBadgeTemp(true, 'running…', 500);
-
-      if (wantVR){
-        try{
-          const scene = document.querySelector('a-scene');
-          if (scene?.enterVR) await scene.enterVR();
-        }catch(_){}
-      }
     }catch(err){
       showPanic('Start ไม่สำเร็จ', err);
       setBadgeTemp(false, 'start failed', 1400);
@@ -1044,8 +976,8 @@
     }
   }
 
-  btn2D.addEventListener('click', ()=> startGame('play', false));
-  btnVR.addEventListener('click', ()=> startGame('play', true));
+  btn2D.addEventListener('click', ()=> startGame('play'));
+  btnVR.addEventListener('click', ()=> startGame('play'));
 
   btnEnterVR.addEventListener('click', async ()=>{
     try{
