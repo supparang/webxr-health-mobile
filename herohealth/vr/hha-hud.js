@@ -1,21 +1,8 @@
 // === /herohealth/vr/hha-hud.js ===
-// Hero Health Academy — Global HUD Binder (SAFE / PRODUCTION)
-// รองรับทุกเกม (GoodJunkVR / HydrationVR / PlateVR / GroupsVR ฯลฯ)
-// ฟัง event กลางแล้วอัปเดต UI ถ้ามี element นั้น ๆ ก็อัปเดต ถ้าไม่มีก็ข้าม
-//
-// Events:
-// - hha:score    {score, comboMax/combomax, misses/miss, goodHits, multiplier, ...}
-// - hha:time     {sec}
-// - hha:fever    {fever, shield, stunActive, slow}
-// - quest:update
-//    * NEW: { goal:{title,cur,max,pct,hint}, mini:{title,cur,max,pct,hint}, meta:{goalsCleared,minisCleared,goalIndex,miniCount,diff,challenge} }
-//    * OLD: { title, progressPct, miniText, miniCleared, miniLeft, hint, ... }
-// - hha:judge    {label}
-// - hha:end      {score, comboMax, misses, ...}  (เผื่อเกมอื่นใช้)
-//
-// Notes:
-// - ทำงานแบบ "ปลอดภัย" ถ้า id ไม่อยู่ก็ไม่พัง
-// - มี adapter สำหรับ quest:update ใหม่ -> ฟิลด์แบบเก่า เพื่อ UI เดิม
+// Hero Health Academy — Global HUD Binder (DOM/VR)
+// - listens: hha:score, quest:update, hha:coach, hha:fever, hha:judge, hha:time, hha:end
+// - safe: if element missing -> skip
+// ✅ PATCH: End Screen renderer (#hvr-end) to prevent "black screen" after game end
 
 (function (root) {
   'use strict';
@@ -23,185 +10,165 @@
   const doc = root.document;
   if (!doc) return;
 
-  const $ = (id) => doc.getElementById(id);
+  if (root.__HHA_HUD_BINDER__) return;
+  root.__HHA_HUD_BINDER__ = true;
 
-  // ---------- safe setters ----------
-  function setText(id, v) {
-    const el = $(id);
-    if (!el) return;
-    el.textContent = (v === undefined || v === null) ? '' : String(v);
-  }
-  function setWidth(id, pct01) {
-    const el = $(id);
-    if (!el) return;
-    const p = Math.max(0, Math.min(1, Number(pct01 || 0)));
-    el.style.width = (p * 100).toFixed(0) + '%';
-  }
-  function setStyleWidthPx(id, px) {
-    const el = $(id);
-    if (!el) return;
-    el.style.width = (Number(px) || 0) + 'px';
-  }
+  const $id = (id) => doc.getElementById(id);
+  const clamp = (v, a, b) => {
+    v = Number(v) || 0;
+    if (v < a) return a;
+    if (v > b) return b;
+    return v;
+  };
 
-  function clamp01(x) {
-    x = Number(x) || 0;
-    if (x < 0) return 0;
-    if (x > 1) return 1;
-    return x;
-  }
+  // --------------------------------------------------------
+  //  End screen
+  // --------------------------------------------------------
+  function ensureEndHost() {
+    let el = $id('hvr-end');
+    if (el) return el;
 
-  // ---------- map helpers ----------
-  function readNum(v, fallback = 0) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : fallback;
-  }
-
-  // ---------- Score HUD bindings (multi-layout) ----------
-  function onScore(d) {
-    // GoodJunk layout ids
-    setText('uiScore', d.score ?? 0);
-    setText('uiComboMax', d.comboMax ?? d.combomax ?? 0);
-    setText('uiMiss', d.misses ?? d.miss ?? 0);
-
-    // Plate layout ids
-    setText('hudScore', d.score ?? 0);
-    setText('hudCombo', d.combo ?? d.comboNow ?? 0);
-    setText('hudMiss', d.misses ?? d.miss ?? 0);
-
-    // Optional: perfect count / groups have / grade (ถ้ามีเกมส่งมา)
-    if (d.perfect !== undefined) setText('hudPerfectCount', d.perfect);
-    if (d.grade !== undefined) setText('hudGrade', d.grade);
-
-    // Hydration/others may use different ids
-    if (d.goodHits !== undefined) setText('hudGood', d.goodHits);
-    if (d.multiplier !== undefined) setText('hudMul', (readNum(d.multiplier, 1)).toFixed(2));
+    el = doc.createElement('div');
+    el.id = 'hvr-end';
+    Object.assign(el.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '120',
+      display: 'none',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '18px',
+      background: 'rgba(2,6,23,.55)',
+      backdropFilter: 'blur(10px)'
+    });
+    doc.body.appendChild(el);
+    return el;
   }
 
-  function onTime(d) {
-    const sec = (d && d.sec !== undefined) ? (d.sec | 0) : '--';
-    setText('uiTime', sec);
-    setText('hudTime', sec);
+  function showEnd(detail = {}) {
+    const endEl = ensureEndHost();
+    if (!endEl) return;
+
+    const score = detail.score ?? 0;
+    const miss  = detail.miss ?? 0;
+    const combo = detail.comboBest ?? 0;
+    const water = detail.water ?? 0;
+    const zone  = detail.zone ?? '-';
+    const green = detail.greenTick ?? 0;
+
+    const goalsDone = detail.goalsDone ?? null;
+    const minisDone = detail.minisDone ?? null;
+
+    endEl.innerHTML = `
+      <div style="width:min(560px,92vw);background:rgba(2,6,23,.82);border:1px solid rgba(148,163,184,.22);
+                  border-radius:22px;box-shadow:0 30px 90px rgba(0,0,0,.65);padding:16px 16px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div style="font-weight:1000;font-size:20px;">🏁 จบเกม</div>
+          <div style="font-weight:900;font-size:12px;opacity:.85;border:1px solid rgba(148,163,184,.25);
+                      padding:6px 10px;border-radius:999px;background:rgba(2,6,23,.55);">
+            ZONE ${zone}
+          </div>
+        </div>
+
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;">
+            <div style="opacity:.72;font-size:12px;">Score</div>
+            <div style="font-weight:1000;font-size:28px;">${score}</div>
+          </div>
+          <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;">
+            <div style="opacity:.72;font-size:12px;">Combo Best</div>
+            <div style="font-weight:1000;font-size:28px;">${combo}</div>
+          </div>
+          <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;">
+            <div style="opacity:.72;font-size:12px;">Miss</div>
+            <div style="font-weight:1000;font-size:28px;">${miss}</div>
+          </div>
+          <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;">
+            <div style="opacity:.72;font-size:12px;">Water</div>
+            <div style="font-weight:1000;font-size:28px;">${water}%</div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px;opacity:.80;font-size:12px;line-height:1.35;">
+          อยู่ในโซน GREEN รวม ~ <b>${green}</b> วินาที
+          ${goalsDone != null || minisDone != null ? `<br/>Quest: Goal <b>${goalsDone ?? '-'}</b> • Mini <b>${minisDone ?? '-'}</b>` : ``}
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+          <button id="hha-end-close"
+            style="border:1px solid rgba(148,163,184,.25);background:rgba(2,6,23,.55);color:#e5e7eb;
+                   padding:10px 12px;border-radius:14px;font-weight:900;cursor:pointer;">
+            ✅ ปิดหน้าสรุป
+          </button>
+          <button id="hha-end-restart"
+            style="border:1px solid rgba(148,163,184,.25);background:rgba(34,197,94,.18);color:#e5e7eb;
+                   padding:10px 12px;border-radius:14px;font-weight:1000;cursor:pointer;">
+            🔁 เล่นอีกครั้ง
+          </button>
+        </div>
+      </div>
+    `;
+
+    endEl.style.display = 'flex';
+    endEl.classList.add('on');
+
+    endEl.querySelector('#hha-end-close')?.addEventListener('click', () => {
+      endEl.classList.remove('on');
+      endEl.style.display = 'none';
+    });
+
+    endEl.querySelector('#hha-end-restart')?.addEventListener('click', () => {
+      root.location.reload();
+    });
   }
 
-  function onFever(d) {
-    const fever = Math.max(0, Math.min(100, readNum(d.fever, 0)));
-    const shield = readNum(d.shield, 0) | 0;
+  // --------------------------------------------------------
+  //  HUD updates (safe)
+  // --------------------------------------------------------
+  function onScore(e) {
+    const d = e?.detail || {};
+    const score = $id('hha-score-main'); if (score) score.textContent = String(d.score ?? 0);
+    const combo = $id('hha-combo-max');  if (combo) combo.textContent = String(d.comboBest ?? d.combo ?? 0);
+    const miss  = $id('hha-miss');       if (miss)  miss.textContent  = String(d.miss ?? 0);
 
-    // GoodJunk ids
-    setText('uiFever', Math.round(fever));
-    setText('uiShield', shield);
+    const z = $id('hha-water-zone-text'); if (z && d.zone) z.textContent = String(d.zone);
 
-    // Plate ids
-    setText('hudFeverPct', Math.round(fever) + '%');
-    setWidth('hudFever', fever / 100);
+    const gfill = $id('hha-grade-progress-fill');
+    const gtxt  = $id('hha-grade-progress-text');
+    if (gfill && typeof d.progressPct === 'number') gfill.style.width = clamp(d.progressPct,0,100) + '%';
+    if (gtxt && d.progressText) gtxt.textContent = String(d.progressText);
 
-    // Generic
-    setText('hudShield', shield);
+    const gb = $id('hha-grade-badge'); if (gb && d.grade) gb.textContent = String(d.grade);
+
+    // optional goal/mini counters
+    const gC = $id('hha-goal-count'); if (gC && typeof d.goalsDone === 'number') gC.textContent = String(d.goalsDone);
+    const mC = $id('hha-mini-count'); if (mC && typeof d.minisDone === 'number') mC.textContent = String(d.minisDone);
   }
 
-  // ---------- Quest adapter ----------
-  function adaptQuestUpdate(detail) {
-    const d = detail || {};
+  function onQuest(e) {
+    const d = e?.detail || {};
+    const goalEl = $id('hha-quest-goal'); if (goalEl && d.goalText) goalEl.textContent = String(d.goalText).replace(/^Goal:\s*/,'Goal: ');
+    const miniEl = $id('hha-quest-mini'); if (miniEl && d.miniText) miniEl.textContent = String(d.miniText).replace(/^Mini:\s*/,'Mini: ');
 
-    // NEW format?
-    if (d.goal || d.mini || d.meta) {
-      const goal = d.goal || null;
-      const mini = d.mini || null;
-      const meta = d.meta || {};
-
-      const goalTitle = goal ? (goal.title || goal.label || 'ภารกิจหลัก') : '—';
-      const goalPct = goal ? clamp01(goal.pct) : 0;
-
-      const miniTitle = mini ? (mini.title || mini.label || 'Mini') : 'Mini: —';
-      const miniPct = mini ? clamp01(mini.pct) : 0;
-
-      const miniCleared = (meta.minisCleared | 0) || 0;
-      const miniCount = (meta.miniCount | 0) || 0;
-
-      // “compat” fields for older UIs
-      return {
-        // old-ish:
-        title: goalTitle,
-        progressPct: Math.round(goalPct * 100),
-        hint: (goal && goal.hint) ? String(goal.hint) : '',
-
-        miniText: `Mini: ${miniTitle}`,
-        miniProgressPct: Math.round(miniPct * 100),
-        miniHint: (mini && mini.hint) ? String(mini.hint) : '',
-
-        miniCleared,
-        miniLeft: miniCount, // ใน UI บางอันใช้คำว่า "เล่นอยู่"
-        meta
-      };
-    }
-
-    // OLD format (already)
-    return d;
+    const gC = $id('hha-goal-count'); if (gC && typeof d.goalDone === 'number') gC.textContent = String(d.goalDone);
+    const mC = $id('hha-mini-count'); if (mC && typeof d.miniDone === 'number') mC.textContent = String(d.miniDone);
   }
 
-  function onQuestUpdate(detail) {
-    const d = adaptQuestUpdate(detail);
-
-    // GoodJunk HUD (your goodjunk-vr.html has these)
-    // - qTitle expects text
-    // - qBar is <i> inside .bar -> width%
-    setText('qTitle', d.title || '—');
-    if ($('qBar')) setStyleWidthPx('qBar', 0); // safety if someone used px; will override below
-    if ($('qBar')) $('qBar').style.width = (Math.max(0, Math.min(100, readNum(d.progressPct, 0)))).toFixed(0) + '%';
-
-    if (d.miniText) setText('miniText', d.miniText);
-    if (d.miniHint) setText('miniHint', d.miniHint);
-
-    if (d.miniCleared !== undefined || d.miniLeft !== undefined) {
-      const a = readNum(d.miniCleared, 0) | 0;
-      const b = readNum(d.miniLeft, 0) | 0;
-      setText('miniCount', `mini ผ่าน ${a} • เล่นอยู่ ${b}`);
-    }
-
-    // Plate HUD ids (quest/mini line)
-    if (d.title) setText('hudGoalLine', d.title);
-    if (d.miniText) setText('hudMiniLine', d.miniText.replace(/^Mini:\s*/i, ''));
-
-    if (d.miniHint) setText('hudMiniHint', d.miniHint);
+  function onTime(e) {
+    const sec = Number(e?.detail?.sec);
+    const t = $id('hha-time-left');
+    if (t && Number.isFinite(sec)) t.textContent = String(sec);
   }
 
-  // ---------- Judge -> optional floating pop ----------
-  function onJudge(d) {
-    const label = (d && d.label) ? String(d.label) : '';
-    setText('hudJudge', label);
-
-    // if particles has floatpop listener itself, no need.
-    // but safe to emit a floatpop for overlays that want it:
-    if (label) {
-      try {
-        root.dispatchEvent(new CustomEvent('hha:floatpop', {
-          detail: { text: label, kind: /miss|hit|bad/i.test(label) ? 'bad' : 'good', size: 'small', ms: 520 }
-        }));
-      } catch (_) {}
-    }
+  function onEnd(e) {
+    const d = e?.detail || {};
+    showEnd(d);
   }
 
-  // ---------- End (optional result panels) ----------
-  function onEnd(d) {
-    const s = d || {};
-    // if result ids exist
-    setText('rScore', s.score ?? 0);
-    setText('rMaxCombo', s.comboMax ?? 0);
-    setText('rMiss', s.misses ?? 0);
-    setText('rMode', s.runMode ?? s.run ?? '');
-    setText('rDiff', s.diff ?? '');
-    setText('rChallenge', s.challenge ?? '');
-  }
+  // Bind events (safe)
+  root.addEventListener('hha:score', onScore, { passive:true });
+  root.addEventListener('quest:update', onQuest, { passive:true });
+  root.addEventListener('hha:time', onTime, { passive:true });
+  root.addEventListener('hha:end',  onEnd,  { passive:true });
 
-  // ---------- attach listeners ----------
-  root.addEventListener('hha:score', (e) => onScore(e.detail || {}));
-  root.addEventListener('hha:time', (e) => onTime(e.detail || {}));
-  root.addEventListener('hha:fever', (e) => onFever(e.detail || {}));
-  root.addEventListener('quest:update', (e) => onQuestUpdate(e.detail || {}));
-  root.addEventListener('hha:judge', (e) => onJudge(e.detail || {}));
-  root.addEventListener('hha:end', (e) => onEnd(e.detail || {}));
-
-  // mark ready
-  try { root.GAME_MODULES = root.GAME_MODULES || {}; root.GAME_MODULES.HUD = { ok: true }; } catch (_) {}
-
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
