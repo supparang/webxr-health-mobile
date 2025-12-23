@@ -11,10 +11,15 @@
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
 //
-// 🔥 PATCH (Spawn stuck fix):
-// ✅ หาก playRect แคบ/เพี้ยน → fallback จะ “มี jitter” ไม่ยึดจุดเดิมเป๊ะ
-// ✅ rectOk robust (กัน maxX<=minX / maxY<=minY)
-// ✅ final fallback ก็ยังสุ่มเล็กน้อยเสมอ
+// 🔥 PATCH A (FULL-SPREAD):
+// ✅ ถ้า spawnAroundCrosshair:false → สุ่มแบบ uniform ทั่ว playRect (กระจายจริง ไม่กองกลาง)
+//
+// 🔥 A2++ PATCH (เดิม):
+// ✅ Spawn ยึด “มุมมองปัจจุบัน” (รอบ crosshair / center-biased) → ไม่ต้องเลื่อนหา
+// ✅ Anti-overlap (สุ่มใหม่ถ้าใกล้กันเกินไป)
+// ✅ แปลงพิกัด boundsRect → spawnRect ถูกต้อง (แก้มุม/กลางจอตลอด)
+// ✅ Cap margins กัน exclusion กินพื้นที่เกินเหตุ
+// ✅ Fallback ถ้า playRect เพี้ยน/แคบเกินไป
 
 'use strict';
 
@@ -220,6 +225,7 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
+    // reserve margin if exclusion overlaps edge zone (robust)
     if (r.top < hy1 + 90 && r.bottom > hy1) {
       m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
@@ -234,6 +240,7 @@ function computeExclusionMargins(hostRect, exEls){
     }
   });
 
+  // ✅ cap margins (กันกินพื้นที่จนเหลือช่องเล็ก ๆ)
   const capX = hostRect.width  * 0.42;
   const capY = hostRect.height * 0.46;
   m.left   = Math.min(m.left, capX);
@@ -288,15 +295,15 @@ export async function boot (rawCfg = {}) {
     spawnIntervalMul = null,
     excludeSelectors = null,
 
-    // ✅ optional new knobs
+    // optional
     boundsHost = null,
     decorateTarget = null,
 
-    // ✅ A2++ spawn behavior
+    // spawn behavior
     spawnAroundCrosshair = true,
     spawnRadiusX = 0.34,
     spawnRadiusY = 0.30,
-    minSeparation = 0.95,
+    minSeparation = 0.95,     // *size (px)
     maxSpawnTries = 14
   } = rawCfg || {};
 
@@ -304,7 +311,7 @@ export async function boot (rawCfg = {}) {
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
   const hostSpawn  = resolveHost(rawCfg, 'spawnHost');
-  const hostBounds = (boundsHost ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
+  const hostBounds = ((boundsHost != null) ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
 
   if (!hostSpawn || !hostBounds || !DOC) {
     console.error('[mode-factory] host not found');
@@ -392,7 +399,7 @@ export async function boot (rawCfg = {}) {
     try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
   }
 
-  // ✅ Storm multiplier getter
+  // Storm multiplier getter
   function getSpawnMul(){
     let m = 1;
     try{
@@ -402,7 +409,6 @@ export async function boot (rawCfg = {}) {
     return clamp(m, 0.25, 2.5);
   }
 
-  // ✅ life getter
   function getLifeMs(){
     const mul = getSpawnMul();
     const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
@@ -446,6 +452,26 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
+  // Exclusions cache (computed from boundsHost)
+  const exState = {
+    els: collectExclusionElements({ excludeSelectors }),
+    margins: { top:0,bottom:0,left:0,right:0 },
+    lastRefreshTs: 0
+  };
+
+  function refreshExclusions(ts){
+    if (!DOC) return;
+    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (ts - exState.lastRefreshTs < 600) return;
+    exState.lastRefreshTs = ts;
+
+    exState.els = collectExclusionElements({ excludeSelectors });
+    let hostRect = null;
+    try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
+    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
+    exState.margins = computeExclusionMargins(hostRect, exState.els);
+  }
+
   function getCrosshairPoint(){
     let rect = null;
     try{ rect = hostBounds.getBoundingClientRect(); }catch{}
@@ -474,28 +500,6 @@ export async function boot (rawCfg = {}) {
       return true;
     }
     return false;
-  }
-
-  // ======================================================
-  //  Exclusions cache (computed from boundsHost)
-  // ======================================================
-  const exState = {
-    els: collectExclusionElements({ excludeSelectors }),
-    margins: { top:0,bottom:0,left:0,right:0 },
-    lastRefreshTs: 0
-  };
-
-  function refreshExclusions(ts){
-    if (!DOC) return;
-    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 600) return;
-    exState.lastRefreshTs = ts;
-
-    exState.els = collectExclusionElements({ excludeSelectors });
-    let hostRect = null;
-    try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!hostRect) hostRect = { left:0, top:0, right:(ROOT.innerWidth||1), bottom:(ROOT.innerHeight||1), width:(ROOT.innerWidth||1), height:(ROOT.innerHeight||1) };
-    exState.margins = computeExclusionMargins(hostRect, exState.els);
   }
 
   // ======================================================
@@ -542,7 +546,6 @@ export async function boot (rawCfg = {}) {
     return out;
   }
 
-  // ✅ PATCHED: ไม่ให้ spawn stuck ที่จุดเดิม
   function pickSpawnPointLocal(playLocal, sizePx){
     const { sRect } = playLocal;
     const centers = getExistingCentersLocal(sRect);
@@ -550,7 +553,7 @@ export async function boot (rawCfg = {}) {
     const minDist = Math.max(18, sizePx * minSeparation);
     const tries = clamp(maxSpawnTries, 6, 30);
 
-    // anchor = crosshair (client) → local
+    // anchor default = center-ish
     let ax = playLocal.left + playLocal.width * 0.50;
     let ay = playLocal.top  + playLocal.height * 0.52;
 
@@ -561,8 +564,8 @@ export async function boot (rawCfg = {}) {
     }
 
     // spawn radius around anchor
-    const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.55);
-    const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.55);
+    const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.98);
+    const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.98);
 
     const pad = Math.max(10, sizePx * 0.55);
     const minX = playLocal.left + pad;
@@ -570,22 +573,11 @@ export async function boot (rawCfg = {}) {
     const minY = playLocal.top  + pad;
     const maxY = playLocal.top  + playLocal.height - pad;
 
-    // ✅ Robust rect validity check
-    const rectOk =
-      Number.isFinite(playLocal.width) && Number.isFinite(playLocal.height) &&
-      (playLocal.width  >= sizePx * 1.10) &&
-      (playLocal.height >= sizePx * 1.10) &&
-      (maxX > minX + 4) && (maxY > minY + 4);
-
-    // ✅ Fallback: มี jitter เสมอ (ไม่คืน anchor ตรง ๆ)
+    // fallback safe if rect too small
+    const rectOk = (playLocal.width >= sizePx*1.25) && (playLocal.height >= sizePx*1.25);
     if (!rectOk) {
-      const j = Math.min(18, Math.max(6, sizePx * 0.12));
-      const jx = (Math.random() * 2 - 1) * j;
-      const jy = (Math.random() * 2 - 1) * j;
-
-      const fx = (maxX > minX) ? clamp(ax + jx, minX, maxX) : (ax + jx);
-      const fy = (maxY > minY) ? clamp(ay + jy, minY, maxY) : (ay + jy);
-
+      const fx = clamp(ax, minX, maxX);
+      const fy = clamp(ay, minY, maxY);
       return { x: fx, y: fy, ok:true };
     }
 
@@ -595,9 +587,17 @@ export async function boot (rawCfg = {}) {
     let best = null;
     let bestScore = -1;
 
+    // ✅ PATCH A: ถ้าไม่ยึด crosshair → สุ่ม uniform ทั่วสนามจริง
+    const useUniform = !spawnAroundCrosshair;
+
     for (let i=0;i<tries;i++){
-      const x = clamp(ax + tri()*rx, minX, maxX);
-      const y = clamp(ay + tri()*ry, minY, maxY);
+      const x = useUniform
+        ? (minX + Math.random() * (maxX - minX))
+        : clamp(ax + tri()*rx, minX, maxX);
+
+      const y = useUniform
+        ? (minY + Math.random() * (maxY - minY))
+        : clamp(ay + tri()*ry, minY, maxY);
 
       // separation check
       let ok = true;
@@ -610,16 +610,13 @@ export async function boot (rawCfg = {}) {
         if (d < minDist) { ok = false; break; }
       }
 
+      // ถ้ากดดันมาก (เป้าเต็ม) ให้เลือก “ไกลที่สุด” แทนการ fail
       const score = ok ? (100000 + nearest) : nearest;
       if (score > bestScore) { bestScore = score; best = { x, y, ok }; }
       if (ok) return { x, y, ok:true };
     }
 
-    // ✅ Final fallback: ยังสุ่มเล็กน้อยเสมอ
-    const j = Math.min(14, Math.max(5, sizePx * 0.10));
-    const x = clamp(ax + (Math.random()*2-1)*j, minX, maxX);
-    const y = clamp(ay + (Math.random()*2-1)*j, minY, maxY);
-    return { x, y, ok:true };
+    return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
   }
 
   // ======================================================
@@ -676,7 +673,7 @@ export async function boot (rawCfg = {}) {
     const baseSize = 78;
     const size = baseSize * curScale;
 
-    // ✅ spawn around crosshair + anti-overlap
+    // spawn point
     const p = pickSpawnPointLocal(playLocal, size);
 
     el.style.position = 'absolute';
@@ -694,6 +691,7 @@ export async function boot (rawCfg = {}) {
     wiggle.className = 'hvr-wiggle';
     wiggle.style.borderRadius = '999px';
 
+    // default look (can be overridden by decorateTarget)
     let bgGrad = '';
     let ringGlow = '';
 
@@ -715,6 +713,7 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
+    // ring (perfect hint)
     const ring = DOC.createElement('div');
     ring.style.position = 'absolute';
     ring.style.left = '50%';
@@ -744,6 +743,7 @@ export async function boot (rawCfg = {}) {
     icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
     inner.appendChild(icon);
 
+    // trick badge
     let badge = null;
     if (itemType === 'fakeGood') {
       badge = DOC.createElement('div');
@@ -780,6 +780,7 @@ export async function boot (rawCfg = {}) {
       _hit: null
     };
 
+    // allow per-game decorate
     try{
       if (typeof decorateTarget === 'function'){
         decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
