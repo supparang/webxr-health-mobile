@@ -1,17 +1,5 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// - spawn targets via mode-factory (DOM)
-// - water gauge (GREEN/LOW/HIGH)
-// - fever gauge + shield (global FeverUI from ./vr/ui-fever.js)
-// - quest goal + mini quest (hydration.quest.js)
-// - VR-feel look: gyro + drag -> playfield translate (เหมือน VR)
-// - HUD events: hha:score / hha:judge / quest:update / hha:coach / hha:time
-//
-// ✅ PATCH (AUTO-HIDE HUD compatible):
-// - excludeSelectors เปลี่ยนเป็น #hud-top/#hud-bottom/#hud-detail (กันบังเป้า)
-// - sync miss -> hha-miss-top + hha-miss-bottom
-// - sync goal/mini counts -> hha-goal-count + hha-mini-count
-// - boundsHost ใช้ #hvr-wrap (viewport fixed) กันพิกัดเพี้ยนตอน translate playfield
 
 'use strict';
 
@@ -19,7 +7,6 @@ import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import { createHydrationQuest } from './hydration.quest.js';
 
-// --------------------- Globals / helpers ---------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
 function clamp(v, min, max){
@@ -31,7 +18,6 @@ function dispatch(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
 }
 
-// FX layer (particles.js IIFE)
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
@@ -41,7 +27,6 @@ function getFeverUI(){
   return (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) || ROOT.FeverUI || null;
 }
 
-// --------------------- Tuning ---------------------
 const TUNE = {
   goodWaterPush:  +6,
   junkWaterPush:  -10,
@@ -79,13 +64,11 @@ const TUNE = {
   stormIntervalMul: 0.72
 };
 
-// --------------------- Main boot ---------------------
 export async function boot(opts = {}) {
   const difficulty = String(opts.difficulty || 'easy').toLowerCase();
   const duration   = clamp(opts.duration ?? 90, 20, 180);
 
-  // keep compatibility (even if HUD is custom)
-  try{ ensureWaterGauge(); }catch{}
+  ensureWaterGauge();
 
   const playfield = $id('hvr-playfield') || null;
   if (!playfield) {
@@ -102,8 +85,6 @@ export async function boot(opts = {}) {
     if (typeof FeverUI.setFever === 'function') FeverUI.setFever(0);
     if (typeof FeverUI.setFeverActive === 'function') FeverUI.setFeverActive(false);
     if (typeof FeverUI.setShield === 'function') FeverUI.setShield(0);
-  } else {
-    console.warn('[HydrationVR] FeverUI not ready. Check ui-fever.js loaded before module.');
   }
 
   const state = {
@@ -140,44 +121,47 @@ export async function boot(opts = {}) {
     stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} }
   };
 
-  // ---------- HUD helpers ----------
   function updateWaterHud(){
-    // ui-water.js will update if it knows the ids; we also sync our minimal ids safely
-    let z = zoneFrom(state.waterPct);
-    try{
-      const out = setWaterGauge(state.waterPct);
-      if (out && out.zone) z = out.zone;
-    }catch{}
-    state.zone = z;
-
+    const out = setWaterGauge(state.waterPct);
+    state.zone = out.zone;
     const ztxt = $id('hha-water-zone-text');
-    const stxt = $id('hha-water-status');
-    const fill = $id('hha-water-fill');
-
     if (ztxt) ztxt.textContent = state.zone;
-    if (stxt) stxt.textContent = `${Math.round(state.waterPct)}%`;
-    if (fill) fill.style.width = `${clamp(state.waterPct,0,100)}%`;
+  }
 
-    // โทนสีตามโซน (ถ้ามี fill)
-    if (fill){
-      if (state.zone === 'GREEN') fill.style.background = 'linear-gradient(90deg,#22c55e,#4ade80)';
-      else if (state.zone === 'LOW') fill.style.background = 'linear-gradient(90deg,#60a5fa,#93c5fd)';
-      else fill.style.background = 'linear-gradient(90deg,#f59e0b,#fb7185)';
-    }
+  function calcProgressToS(){
+    const goalsDone = (Q.goals || []).filter(g => g._done || g.done).length;
+    const minisDone = (Q.minis || []).filter(m => m._done || m.done).length;
+    const prog = clamp(
+      (state.score / 1200) * 0.70 +
+      (goalsDone / 2) * 0.20 +
+      (minisDone / 3) * 0.10,
+      0, 1
+    );
+    return { prog, goalsDone, minisDone };
   }
 
   function updateScoreHud(label){
+    const { prog, goalsDone, minisDone } = calcProgressToS();
+    const progPct = Math.round(prog * 100);
+
+    const fill = $id('hha-grade-progress-fill');
+    const txt  = $id('hha-grade-progress-text');
+    if (fill) fill.style.width = progPct + '%';
+    if (txt)  txt.textContent = `Progress to S (30%): ${progPct}%`;
+
+    let grade = 'C';
+    if (progPct >= 95) grade = 'SSS';
+    else if (progPct >= 85) grade = 'SS';
+    else if (progPct >= 70) grade = 'S';
+    else if (progPct >= 50) grade = 'A';
+    else if (progPct >= 30) grade = 'B';
+
+    const gb = $id('hha-grade-badge');
+    if (gb) gb.textContent = grade;
+
     const sc = $id('hha-score-main'); if (sc) sc.textContent = String(state.score|0);
     const cb = $id('hha-combo-max');  if (cb) cb.textContent = String(state.comboBest|0);
-
-    const mt = $id('hha-miss-top');    if (mt) mt.textContent = String(state.miss|0);
-    const mb = $id('hha-miss-bottom'); if (mb) mb.textContent = String(state.miss|0);
-
-    // also keep old id if exists
-    const ms = $id('hha-miss'); if (ms) ms.textContent = String(state.miss|0);
-
-    const goalsDone = (Q.goals || []).filter(g => g._done || g.done).length;
-    const minisDone = (Q.minis || []).filter(m => m._done || m.done).length;
+    const ms = $id('hha-miss');       if (ms) ms.textContent = String(state.miss|0);
 
     dispatch('hha:score', {
       score: state.score|0,
@@ -196,28 +180,15 @@ export async function boot(opts = {}) {
   }
 
   function updateQuestHud(){
-    const goalsView = Q.getProgress('goals');
-    const minisView = Q.getProgress('mini');
-
     const allGoals = Q.goals || [];
     const allMinis = Q.minis || [];
     const goalsDone = allGoals.filter(g => g._done || g.done).length;
     const minisDone = allMinis.filter(m => m._done || m.done).length;
 
-    const gCount = $id('hha-goal-count'); if (gCount) gCount.textContent = String(goalsDone);
-    const mCount = $id('hha-mini-count'); if (mCount) mCount.textContent = String(minisDone);
-
-    const curGoalId = (goalsView && goalsView[0]) ? goalsView[0].id : (allGoals[0]?.id || '');
-    const curMiniId = (minisView && minisView[0]) ? minisView[0].id : (allMinis[0]?.id || '');
-
-    const gInfo = Q.getGoalProgressInfo ? Q.getGoalProgressInfo(curGoalId) : null;
-    const mInfo = Q.getMiniProgressInfo ? Q.getMiniProgressInfo(curMiniId) : null;
-
     const goalEl = $id('hha-quest-goal');
     const miniEl = $id('hha-quest-mini');
-
-    if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : `Goal: ทำภารกิจให้ครบ`;
-    if (miniEl) miniEl.textContent = mInfo?.text ? `Mini: ${mInfo.text}` : `Mini: ทำมินิเควส`;
+    if (goalEl) goalEl.textContent = `Goal: ทำภารกิจให้ครบ`;
+    if (miniEl) miniEl.textContent = `Mini: ทำมินิเควส`;
 
     dispatch('quest:update', {
       goalDone: goalsDone,
@@ -363,7 +334,6 @@ export async function boot(opts = {}) {
   }
 
   // --------------------- LOOK controls ---------------------
-  let hasOrient = false;
   let dragOn = false;
   let lastX = 0, lastY = 0;
 
@@ -395,20 +365,10 @@ export async function boot(opts = {}) {
   }
   function onPointerUp(){ dragOn = false; }
 
-  async function tryEnableGyro(){
-    try{
-      const D = ROOT.DeviceOrientationEvent;
-      if (!D) return false;
-      if (typeof D.requestPermission === 'function') return false;
-      return true;
-    }catch{ return false; }
-  }
-
   function onDeviceOrientation(e){
     const g = Number(e.gamma);
     const b = Number(e.beta);
     if (!Number.isFinite(g) || !Number.isFinite(b)) return;
-    hasOrient = true;
 
     const DEAD_G = 1.2;
     const DEAD_B = 1.6;
@@ -423,23 +383,6 @@ export async function boot(opts = {}) {
 
     state.lookTX = clamp(tx, -TUNE.lookMaxX, TUNE.lookMaxX);
     state.lookTY = clamp(ty, -TUNE.lookMaxY, TUNE.lookMaxY);
-  }
-
-  async function requestGyroPermission(){
-    try{
-      const D = ROOT.DeviceOrientationEvent;
-      if (!D || typeof D.requestPermission !== 'function') return;
-
-      const res = await D.requestPermission();
-      if (res === 'granted') {
-        ROOT.addEventListener('deviceorientation', onDeviceOrientation, true);
-        dispatch('hha:coach', { text:'✅ เปิด Gyro แล้ว! หมุนมือถือ = หันมุมมองเหมือน VR 🕶️', mood:'happy' });
-      } else {
-        dispatch('hha:coach', { text:'ℹ️ Gyro ไม่ได้รับอนุญาต ใช้ลากจอแทนได้เลย 👍', mood:'neutral' });
-      }
-    }catch{
-      dispatch('hha:coach', { text:'ℹ️ ใช้ลากจอแทนได้เลย (Gyro ไม่พร้อม)', mood:'neutral' });
-    }
   }
 
   // --------------------- Clock tick ---------------------
@@ -487,25 +430,28 @@ export async function boot(opts = {}) {
 
     if (state.feverActive){
       state.feverLeft -= 1;
-      if (state.feverLeft <= 0) feverEnd();
-      else { state.fever = 100; feverRender(); }
+      if (state.feverLeft <= 0) {
+        state.feverActive = false;
+        state.feverLeft = 0;
+      } else {
+        state.fever = 100;
+      }
+      feverRender();
     } else {
       state.fever = clamp(state.fever - TUNE.feverAutoDecay, 0, 100);
-      feverRender();
+      if (state.fever >= TUNE.feverTriggerAt) feverStart();
+      else feverRender();
     }
 
     if (state.stormLeft > 0) state.stormLeft -= 1;
     if (state.timeLeft > 0 && (state.timeLeft % TUNE.stormEverySec) === 0) {
       state.stormLeft = TUNE.stormDurationSec;
-      dispatch('hha:coach', { text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น! ตั้งสติ รักษา GREEN!', mood:'happy' });
+      dispatch('hha:coach', { text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น!', mood:'happy' });
       try{ Particles.toast && Particles.toast('STORM WAVE!', 'warn'); }catch{}
     }
 
     if (state.timeLeft > 0 && state.timeLeft <= TUNE.urgencyAtSec) {
       beep(TUNE.urgencyBeepHz, 0.04);
-      if (state.timeLeft === TUNE.urgencyAtSec) {
-        dispatch('hha:coach', { text:'⏳ ใกล้หมดเวลา! รักษา GREEN + ยิงน้ำดีให้ไว!', mood:'sad' });
-      }
     }
 
     updateQuestHud();
@@ -522,8 +468,13 @@ export async function boot(opts = {}) {
   // --------------------- Start spawner ---------------------
   let spawner = null;
 
-  // ✅ boundsHost = viewport fixed (ไม่โดน translate เหมือน playfield)
-  const boundsHost = '#hvr-wrap';
+  // ✅ สำคัญ: boundsHost ต้องเป็น element ที่ “ไม่โดน translate”
+  // ในหน้า HTML คุณยังไม่มี #hvr-bounds / #hvr-stage → ใช้ #hvr-wrap เป็น viewport ได้ดีที่สุด
+  const boundsEl =
+    $id('hvr-wrap') ||
+    $id('hvr-bounds') ||
+    $id('hvr-stage') ||
+    document.body;
 
   spawner = await factoryBoot({
     modeKey: 'hydration',
@@ -531,18 +482,12 @@ export async function boot(opts = {}) {
     duration,
 
     spawnHost: '#hvr-playfield',
-    boundsHost,
+    boundsHost: boundsEl,
 
-    // ✅ Storm เร่ง spawn “จริง”
     spawnIntervalMul: () => (state.stormLeft > 0 ? TUNE.stormIntervalMul : 1),
 
-    // ✅ AUTO-HIDE HUD compatible: กันเฉพาะชิ้น HUD ที่ค้างบนจอ
-    excludeSelectors: [
-      '#hud-top',
-      '#hud-bottom',
-      '#hud-detail',
-      '#hvr-crosshair'
-    ],
+    // ✅ A: ลด exclude ให้ไม่บีบพื้นที่จนแคบเกิน → เหลือแค่ HUD
+    excludeSelectors: ['.hud'],
 
     pools: {
       good: ['💧','🥛','🍉','🥥','🍊'],
@@ -555,12 +500,12 @@ export async function boot(opts = {}) {
     powerRate: (difficulty === 'hard') ? 0.10 : 0.12,
     powerEvery: 6,
 
-    // ✅ spawn “เจอง่าย”
-    spawnAroundCrosshair: true,
-    spawnRadiusX: 0.34,
-    spawnRadiusY: 0.30,
-    minSeparation: 0.95,
-    maxSpawnTries: 16,
+    // ✅ A: กระจายเต็มสนาม
+    spawnAroundCrosshair: false,
+    spawnRadiusX: 0.95,
+    spawnRadiusY: 0.95,
+    minSeparation: 0.78,
+    maxSpawnTries: 26,
 
     judge: (ch, ctx) => {
       if (ctx.isPower && ch === '🛡️'){
@@ -576,18 +521,10 @@ export async function boot(opts = {}) {
         dispatch('hha:judge', { label:'TIME+' });
         try{ Particles.toast && Particles.toast('+3s ⏱️', 'good'); }catch{}
       }
-
-      if (state.stormLeft > 0 && (ctx.isGood || ctx.isPower)) {
-        state.fever = clamp(state.fever + 2, 0, 100);
-      }
-
       return judge(ch, ctx);
     },
 
     onExpire: (info) => {
-      if (state.stormLeft > 0 && info && info.isGood && !info.isPower) {
-        state.waterPct = clamp(state.waterPct - 2, 0, 100);
-      }
       onExpire(info);
     }
   });
@@ -606,15 +543,7 @@ export async function boot(opts = {}) {
   ROOT.addEventListener('pointerup', onPointerUp, { passive:true });
   ROOT.addEventListener('pointercancel', onPointerUp, { passive:true });
 
-  if (await tryEnableGyro()) {
-    ROOT.addEventListener('deviceorientation', onDeviceOrientation, true);
-  }
-
-  const onceAsk = async () => {
-    ROOT.removeEventListener('pointerdown', onceAsk);
-    await requestGyroPermission();
-  };
-  ROOT.addEventListener('pointerdown', onceAsk, { passive:true });
+  ROOT.addEventListener('deviceorientation', onDeviceOrientation, true);
 
   timer = ROOT.setInterval(secondTick, 1000);
   rafId = ROOT.requestAnimationFrame(rafLoop);
@@ -656,7 +585,7 @@ export async function boot(opts = {}) {
       greenTick: (Q && Q.stats) ? (Q.stats.greenTick|0) : (state.greenTick|0)
     });
 
-    dispatch('hha:coach', { text:'🏁 จบเกม! ดูผลคะแนนและเควสได้เลย', mood:'happy' });
+    dispatch('hha:coach', { text:'🏁 จบเกม!', mood:'happy' });
     try{ Particles.celebrate && Particles.celebrate('end'); }catch{}
   }
 
