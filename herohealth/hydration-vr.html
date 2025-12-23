@@ -13,11 +13,11 @@
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.72);
-      --stroke:rgba(148,163,184,.20);
+      --panel:rgba(2,6,23,.62);
+      --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --radius:22px;
+      --radius:18px;
     }
     html,body{
       height:100%;
@@ -31,10 +31,11 @@
       position:fixed;
       inset:0;
       overflow:hidden;
-      background: radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
-                  radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
-                  radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
-                  #020617;
+      background:
+        radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
+        radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
+        radial-gradient(1200px 900px at 50% 92%, rgba(99,102,241,.10), transparent 70%),
+        #020617;
     }
     #hvr-playfield{
       position:absolute;
@@ -48,62 +49,11 @@
       -webkit-user-select:none;
       transform: translate3d(0,0,0);
     }
-
-    /* ✅ NEW: target layer (เหนือ postfx และเลื่อนได้ตาม look จาก JS) */
-    #hvr-target-layer{
-      position:fixed;
-      inset:0;
-      z-index:65;          /* > postfx(60) และ < hud(80) */
-      pointer-events:none; /* host ไม่บัง */
-      overflow:visible;
-      transform: translate3d(0,0,0);
-      will-change: transform;
-    }
-    #hvr-target-layer .hvr-target{ pointer-events:auto; }
-
     #hvr-postfx{
       position:fixed;
       inset:0;
       z-index:60;
       pointer-events:none;
-    }
-    .hud{
-      position:fixed;
-      left:18px;
-      right:18px;
-      top:14px;
-      z-index:80;
-      pointer-events:none;
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
-    .hud .card{
-      pointer-events:auto;
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      box-shadow:0 20px 60px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-      padding:14px 14px 12px;
-      min-width: 220px;
-      max-width: 420px;
-      flex:1 1 240px;
-    }
-    .hud .card.small{ max-width: 340px; flex: 1 1 220px; }
-    .title{ font-size:22px; font-weight:900; margin:2px 0 6px; }
-    .muted{ color:var(--muted); font-size:12px; }
-    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .pill{
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.55);
-      border-radius:999px;
-      padding:6px 10px;
-      font-weight:900;
-      letter-spacing:.06em;
-      font-size:12px;
     }
     #hvr-screen-blink{
       position:fixed; inset:0; z-index:70;
@@ -115,6 +65,7 @@
     #hvr-screen-blink.bad{  background: radial-gradient(800px 600px at 50% 50%, rgba(239,68,68,.55), transparent 60%); }
     #hvr-screen-blink.perfect{ background: radial-gradient(900px 700px at 50% 50%, rgba(255,255,255,.75), transparent 60%); }
 
+    /* crosshair */
     #hvr-crosshair{
       position:fixed;
       left:50%; top:52%;
@@ -125,8 +76,159 @@
       opacity:.75;
     }
 
+    /* =========================
+       HUD — MINIMAL (NO CARDS)
+       ========================= */
+    .hud-min{
+      position:fixed;
+      inset:0;
+      z-index:90;
+      pointer-events:none; /* กันบังเกม */
+    }
+
+    .hud-bar{
+      position:fixed;
+      left:12px; right:12px; top:10px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      pointer-events:none;
+    }
+
+    .hud-chip{
+      pointer-events:auto;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      backdrop-filter: blur(10px);
+      box-shadow:0 14px 40px rgba(0,0,0,.45);
+      font-weight:800;
+      font-size:12px;
+      letter-spacing:.02em;
+      user-select:none;
+      -webkit-user-select:none;
+      max-width:min(46vw, 520px);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .hud-left{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      pointer-events:none;
+      min-width:0;
+    }
+
+    .hud-center{
+      flex:1;
+      display:flex;
+      justify-content:center;
+      min-width:0;
+      pointer-events:none;
+    }
+
+    .hud-right{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    .muted{ color:var(--muted); font-weight:700; }
+
+    .water-mini{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-width:0;
+    }
+    .water-bar{
+      width:74px;
+      height:8px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#0b1220;
+      border:1px solid rgba(148,163,184,.18);
+      flex:0 0 auto;
+    }
+    .water-fill{
+      height:100%;
+      width:50%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#22c55e,#4ade80);
+      transition:width .18s ease-out;
+    }
+
+    .hud-bottom{
+      position:fixed;
+      left:12px; right:12px; bottom:12px;
+      display:flex;
+      justify-content:flex-end;
+      pointer-events:none;
+    }
+
+    /* ปุ่มรายละเอียด (optional) */
+    .hud-toggle{
+      pointer-events:auto;
+      width:34px;height:34px;
+      display:inline-flex;
+      align-items:center;justify-content:center;
+      border-radius:999px;
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+      box-shadow:0 14px 40px rgba(0,0,0,.45);
+      font-weight:900;
+    }
+
+    /* แผงรายละเอียด (ซ่อนไว้) */
+    #hud-detail{
+      position:fixed;
+      left:12px; right:12px; top:58px;
+      z-index:95;
+      display:none;
+      pointer-events:none;
+    }
+    #hud-detail.on{ display:block; }
+    .hud-panel{
+      pointer-events:auto;
+      max-width:680px;
+      margin:0 auto;
+      background:rgba(2,6,23,.72);
+      border:1px solid rgba(148,163,184,.20);
+      border-radius:18px;
+      backdrop-filter: blur(12px);
+      box-shadow:0 18px 60px rgba(0,0,0,.55);
+      padding:10px 12px;
+      font-size:12px;
+      line-height:1.35;
+    }
+    .hud-panel .row{
+      display:flex;
+      gap:10px;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .hud-pill{
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.55);
+      border-radius:999px;
+      padding:6px 10px;
+      font-weight:900;
+      font-size:12px;
+    }
+
+    /* End + Error */
     #hvr-end{
-      position:fixed; inset:0; z-index:90;
+      position:fixed; inset:0; z-index:120;
       display:none; align-items:center; justify-content:center;
       padding:18px;
       background:rgba(2,6,23,.55);
@@ -136,7 +238,7 @@
 
     #hvr-error{
       position:fixed; left:14px; right:14px; bottom:14px;
-      z-index:120;
+      z-index:130;
       background:rgba(239,68,68,.12);
       border:1px solid rgba(239,68,68,.35);
       color:#fecaca;
@@ -153,61 +255,72 @@
 <body>
   <div id="hvr-wrap">
     <div id="hvr-playfield" aria-label="playfield"></div>
-
-    <!-- ✅ NEW: target layer for DOM targets -->
-    <div id="hvr-target-layer" aria-label="targets"></div>
-
     <canvas id="hvr-postfx"></canvas>
     <div id="hvr-screen-blink"></div>
 
+    <!-- crosshair -->
     <div id="hvr-crosshair"></div>
 
-    <div class="hud">
-      <div class="card">
-        <div class="row">
-          <div class="muted">Quest</div>
-          <div class="pill">Grade <span id="hha-grade-badge">C</span></div>
-        </div>
-        <div class="title">Hydration</div>
-
-        <div class="muted" style="margin-top:6px;">
-          <div id="hha-quest-goal">Goal: —</div>
-          <div id="hha-quest-mini">Mini: —</div>
-        </div>
-
-        <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-          <span class="pill">🎯 Goal <b id="hha-goal-count">0</b>/2</span>
-          <span class="pill">✨ Mini <b id="hha-mini-count">0</b>/3</span>
-        </div>
-      </div>
-
-      <div class="card small" id="hha-water-card">
-        <div id="hha-water-header">
-          <div class="row" id="hha-water-top">
-            <div class="muted">Water</div>
-            <div class="pill" id="hha-water-zone-text">ZONE GREEN</div>
+    <!-- HUD MIN -->
+    <div class="hud-min">
+      <div class="hud-bar" id="hud-top">
+        <div class="hud-left">
+          <!-- Water (จำเป็น) -->
+          <div class="hud-chip" id="hud-water">
+            <div class="water-mini">
+              <span>💧</span>
+              <span id="hha-water-zone-text">GREEN</span>
+              <span class="muted" id="hha-water-status">50%</span>
+              <span class="water-bar"><span class="water-fill" id="hha-water-fill" style="width:50%"></span></span>
+            </div>
           </div>
-          <div id="hha-water-status" class="muted">GREEN 50%</div>
-          <div id="hha-water-bar" style="width:100%;height:8px;border-radius:999px;overflow:hidden;background:#0b1220;border:1px solid rgba(148,163,184,.18);">
-            <div id="hha-water-fill" style="height:100%;width:50%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:999px;transition:width .2s ease-out;"></div>
+
+          <!-- toggle detail -->
+          <button class="hud-toggle" id="hud-toggle" aria-label="details">i</button>
+        </div>
+
+        <!-- Goal/Mini (สั้น ๆ) -->
+        <div class="hud-center">
+          <div class="hud-chip" id="hud-questline">
+            <span class="muted">🎯</span>
+            <span id="hha-quest-goal">Goal: —</span>
+            <span class="muted" style="margin:0 6px;">|</span>
+            <span class="muted">✨</span>
+            <span id="hha-quest-mini">Mini: —</span>
           </div>
-          <div class="muted">รักษาให้อยู่ GREEN ให้นานที่สุด 💧</div>
+        </div>
+
+        <!-- Score/Combo/Time (จำเป็น) -->
+        <div class="hud-right">
+          <div class="hud-chip" id="hud-score">
+            <span>🏁</span>
+            <span id="hha-score-main">0</span><span class="muted">pts</span>
+            <span class="muted" style="margin:0 6px;">•</span>
+            <span>⚡</span><span id="hha-combo-max">0</span>
+          </div>
+          <div class="hud-chip" id="hud-time">
+            <span>⏳</span><span id="hha-time-left">--</span>
+          </div>
         </div>
       </div>
 
-      <div class="card small">
-        <div class="row"><div class="muted">Progress</div><div class="pill">Combo Max <b id="hha-combo-max">0</b></div></div>
-        <div class="title"><span id="hha-score-main">0</span> pts</div>
-        <div class="muted" id="hha-grade-progress-text">Progress to S: 0%</div>
-        <div style="margin-top:8px; height:8px; background:#0b1220; border:1px solid rgba(148,163,184,.18); border-radius:999px; overflow:hidden;">
-          <div id="hha-grade-progress-fill" style="height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#60a5fa);"></div>
+      <!-- Detail panel (optional / ซ่อนไว้) -->
+      <div id="hud-detail">
+        <div class="hud-panel">
+          <div class="row">
+            <span class="hud-pill">🎯 Goal <b id="hha-goal-count">0</b>/2</span>
+            <span class="hud-pill">✨ Mini <b id="hha-mini-count">0</b>/3</span>
+            <span class="hud-pill">❌ Miss <b id="hha-miss">0</b></span>
+          </div>
+          <div class="muted" style="margin-top:8px;">แตะ i เพื่อซ่อน/แสดงรายละเอียด (HUD จะไม่เกะกะตอนเล่น)</div>
         </div>
       </div>
 
-      <div class="card small" style="min-width:220px;">
-        <div class="muted">Miss</div>
-        <div class="title" style="margin-top:6px;"><span id="hha-miss">0</span></div>
-        <div class="muted">JUNK hit = miss + ลดน้ำ/ลดความเร็ว</div>
+      <!-- Bottom (Miss อย่างเดียวพอ) -->
+      <div class="hud-bottom" id="hud-bottom">
+        <div class="hud-chip" id="hud-miss">
+          <span>❌</span><span class="muted">Miss</span> <b id="hha-miss-bottom">0</b>
+        </div>
       </div>
     </div>
 
@@ -226,6 +339,35 @@
     const diff = (qs('diff','easy') || 'easy').toLowerCase();
     const time = Number(qs('time', '90')) || 90;
 
+    // HUD toggle
+    const btn = document.getElementById('hud-toggle');
+    const panel = document.getElementById('hud-detail');
+    if (btn && panel){
+      btn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        panel.classList.toggle('on');
+      }, { passive:false });
+    }
+
+    // time listener (แสดงเวลาที่เหลือ)
+    window.addEventListener('hha:time', (e)=>{
+      const sec = Number(e?.detail?.sec);
+      if (!Number.isFinite(sec)) return;
+      const m = Math.floor(sec/60);
+      const s = sec % 60;
+      const t = document.getElementById('hha-time-left');
+      if (t) t.textContent = `${m}:${String(s).padStart(2,'0')}`;
+    }, { passive:true });
+
+    // keep miss sync (บนล่าง)
+    window.addEventListener('hha:score', (e)=>{
+      const miss = Number(e?.detail?.miss);
+      if (!Number.isFinite(miss)) return;
+      const b = document.getElementById('hha-miss-bottom');
+      if (b) b.textContent = String(miss|0);
+    }, { passive:true });
+
     try{
       const mod = await import('./hydration-vr/hydration.safe.js');
       const boot = mod.boot || (mod.default && mod.default.boot);
@@ -237,7 +379,7 @@
       console.error(e);
       errBox.classList.add('on');
       errBox.textContent =
-        '❌ Hydration boot failed\n\n' +
+        '❌ Hydration boot failed\\n\\n' +
         String(e && (e.stack || e.message || e));
     }
   </script>
