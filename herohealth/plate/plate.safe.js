@@ -1,11 +1,9 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — ALL-IN (C4)
-// ✅ C3 Layout friendly: bottom Quest/Mini ticker will "dodge" targets ONLY when near
-// ✅ Research strict: deterministic RNG via seed/sid + reduce confounds
-// ✅ FIX: watchdog + visibility pause/resume + frame try/catch to prevent "stops playing"
-// ✅ DOM emoji targets + tap-anywhere shoot + aim assist + PERFECT zone
-// ✅ Goals(2) + Minis(7) (Plate Rush + urgent tick/flash/shake)
-// ✅ Logger events: hha:log_session / hha:log_event
+// Balanced Plate VR — ALL-IN (C5)
+// ✅ C3: bottom HUD dodge targets ONLY when near
+// ✅ C4: watchdog + visibility pause/resume + frame try/catch (no silent stop)
+// ✅ D4: Auto-reconnect on A-Frame enter/exit VR (rebase target positions so they don't jump)
+// ✅ D5: Anti-throttle timer (wall-clock + pause compensation) -> time stays accurate, not slow/drift
 
 'use strict';
 
@@ -145,8 +143,13 @@ const S = {
   running: false,
   paused: false,
 
-  tStart: 0,
+  tStart: 0,                // perf baseline (for log t)
   timeLeft: TOTAL_TIME,
+
+  // D5: wall timer (anti-throttle + pause compensation)
+  wallStart: 0,
+  pauseAccum: 0,
+  pauseWallAt: 0,
 
   score: 0,
   combo: 0,
@@ -194,6 +197,9 @@ const S = {
   lastTickWall: Date.now(),
   visPaused: false,
   watchdogId: 0,
+
+  // D4: offset tracking for VR rebase
+  _off: { x:0, y:0 },
 
   sessionId: `PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
 };
@@ -318,7 +324,7 @@ doc.body.appendChild(layer);
   doc.head.appendChild(st);
 })();
 
-// ---------- Audio (lightweight beeps) ----------
+// ---------- Audio ----------
 const AudioX = (function(){
   let ctx = null;
   function ensure(){ if (ctx) return ctx; try { ctx = new (ROOT.AudioContext || ROOT.webkitAudioContext)(); } catch(_) {} return ctx; }
@@ -382,9 +388,19 @@ function logEvent(type, data){
   });
 }
 
+// ---------- D5: wall-clock elapsed (anti-throttle, pause compensation) ----------
+function elapsedSec(){
+  if (!S.wallStart) return 0;
+  const wallNow = Date.now();
+  const pausedAdd = (S.paused && S.pauseWallAt) ? (wallNow - S.pauseWallAt) : 0;
+  const raw = (wallNow - S.wallStart - S.pauseAccum - pausedAdd) / 1000;
+  return Math.max(0, raw);
+}
+
 // ---------- Camera offset apply ----------
 function applyLayerTransform(){
   const off = viewOffset();
+  S._off = off;
   layer.style.transform = `translate3d(${off.x}px, ${off.y}px, 0)`;
 }
 
@@ -782,6 +798,12 @@ function decideKind(){
   return 'good';
 }
 
+function syncTargetCSS(rec){
+  if (!rec || !rec.el) return;
+  rec.el.style.setProperty('--x', `${(rec.cx - rec.size/2)}px`);
+  rec.el.style.setProperty('--y', `${(rec.cy - rec.size/2)}px`);
+}
+
 function makeTarget(kind, group){
   const sizePx = computeSizePx(kind);
   const pos = pickSafeXY(sizePx);
@@ -1006,6 +1028,17 @@ function onGlobalPointerDown(e){
 function setPaused(on, meta='manual'){
   const was = S.paused;
   S.paused = !!on;
+
+  // D5: pause accounting
+  if (!was && S.paused){
+    S.pauseWallAt = Date.now();
+  } else if (was && !S.paused){
+    if (S.pauseWallAt){
+      S.pauseAccum += (Date.now() - S.pauseWallAt);
+      S.pauseWallAt = 0;
+    }
+  }
+
   setShow(HUD.paused, S.paused);
   if (HUD.btnPause) HUD.btnPause.textContent = S.paused ? '▶️ RESUME' : '⏸️ PAUSE';
   if (was !== S.paused) logEvent('pause', { paused: S.paused, meta });
@@ -1023,6 +1056,11 @@ function restart(){
 
   S.tStart = 0;
   S.timeLeft = TOTAL_TIME;
+
+  // D5 reset
+  S.wallStart = 0;
+  S.pauseAccum = 0;
+  S.pauseWallAt = 0;
 
   S.score = 0; S.combo = 0; S.maxCombo = 0; S.miss = 0; S.perfectCount = 0;
   S.fever = 0; S.feverOn = false;
@@ -1083,6 +1121,61 @@ function endGame(isGameOver){
   logSession(isGameOver ? 'gameover' : 'end');
 }
 
+// ---------- D4: VR mode auto-reconnect (rebase targets) ----------
+function rebaseTargetsForOffset(oldOff, newOff){
+  if (!oldOff) oldOff = { x:0, y:0 };
+  if (!newOff) newOff = { x:0, y:0 };
+  const dx = (oldOff.x - newOff.x);
+  const dy = (oldOff.y - newOff.y);
+  if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return;
+
+  for (const rec of S.targets){
+    if (rec.dead) continue;
+    // keep same screen position: cx' + newOff = cx + oldOff
+    rec.cx = rec.cx + dx;
+    rec.cy = rec.cy + dy;
+    syncTargetCSS(rec);
+  }
+  logEvent('vr_rebase', { dx, dy, from: oldOff, to: newOff });
+}
+
+function bindVRReconnect(){
+  if (!scene || !scene.addEventListener) return;
+
+  const onEnter = ()=>{
+    const oldOff = S._off || { x:0, y:0 };
+    // event fires after vr-mode toggled; viewOffset() now returns new
+    const newOff = viewOffset();
+    rebaseTargetsForOffset(oldOff, newOff);
+    applyLayerTransform();
+    updateAimHighlight();
+    tickHudBottomDodge();
+    safeKickLoop('enter-vr');
+  };
+
+  const onExit = ()=>{
+    const oldOff = S._off || { x:0, y:0 };
+    const newOff = viewOffset();
+    rebaseTargetsForOffset(oldOff, newOff);
+    applyLayerTransform();
+    updateAimHighlight();
+    tickHudBottomDodge();
+    safeKickLoop('exit-vr');
+  };
+
+  scene.addEventListener('enter-vr', onEnter);
+  scene.addEventListener('exit-vr', onExit);
+
+  // some devices trigger enter-vr/exit-vr late; also watch vrdisplaypresentchange
+  doc.addEventListener('vrdisplaypresentchange', ()=>{
+    const oldOff = S._off || { x:0, y:0 };
+    const newOff = viewOffset();
+    rebaseTargetsForOffset(oldOff, newOff);
+    applyLayerTransform();
+    safeKickLoop('vrdisplaypresentchange');
+  }, { passive:true });
+}
+
 // ---------- C4: Visibility + Watchdog ----------
 function setupVisibilityGuard(){
   try{
@@ -1095,7 +1188,6 @@ function setupVisibilityGuard(){
         if (S.visPaused){
           S.visPaused = false;
           setPaused(false, 'visibility');
-          // kick loop again (บางเครื่อง RAF ไม่กลับเองทันที)
           safeKickLoop('visibility-return');
         }
       }
@@ -1104,14 +1196,12 @@ function setupVisibilityGuard(){
 }
 
 function safeKickLoop(reason){
-  // ถ้าลูปยังรันอยู่ ไม่ต้องทำอะไร
   const dt = Date.now() - (S.lastTickWall || 0);
   if (!S.running) return;
   if (dt < 500) return;
   if (DEBUG) console.log('[PlateVR] kickLoop', reason, 'dt=', dt);
   S.lastTickWall = Date.now();
-  // เรียก startFrameOnce เพื่อให้ RAF กลับมา
-  try { startFrameOnce(); } catch(_){}
+  try { startFrameOnce(); } catch(_) {}
 }
 
 function setupWatchdog(){
@@ -1119,7 +1209,6 @@ function setupWatchdog(){
   S.watchdogId = setInterval(()=>{
     if (!S.running) return;
     const dt = Date.now() - (S.lastTickWall || 0);
-    // ถ้าเกิน 2200ms แปลว่าลูปอาจตาย/ถูกพักผิดปกติ
     if (!doc.hidden && !S.paused && dt > 2200){
       logEvent('watchdog_kick', { dt });
       safeKickLoop('watchdog');
@@ -1130,7 +1219,15 @@ function setupWatchdog(){
 // ---------- Main loop ----------
 function start(){
   S.running = true;
+
+  // perf baseline for log
   S.tStart = now();
+
+  // D5: wall baseline for timer
+  S.wallStart = Date.now();
+  S.pauseAccum = 0;
+  S.pauseWallAt = 0;
+
   S.nextSpawnAt = now() + 350;
 
   ensurePills();
@@ -1147,7 +1244,6 @@ function startFrameOnce(){
   const frame = ()=>{
     if (!S.running) return;
 
-    // C4: กัน error ทำให้ loop ตายแบบเงียบ
     try{
       S.lastFrameAt = now();
       S.lastTickWall = Date.now();
@@ -1157,7 +1253,7 @@ function startFrameOnce(){
       tickHudBottomDodge();
 
       if (!S.paused){
-        const elapsed = (now() - S.tStart) / 1000;
+        const elapsed = elapsedSec();                 // D5
         S.timeLeft = Math.max(0, TOTAL_TIME - elapsed);
         setTxt(HUD.time, fmt(S.timeLeft));
 
@@ -1186,10 +1282,8 @@ function startFrameOnce(){
       }
 
     } catch(err){
-      // แทนที่จะหยุดเล่น → พยายามกู้
       console.error('[PlateVR] frame error:', err);
       logEvent('frame_error', { msg: String(err && err.message || err), stack: String(err && err.stack || '') });
-      // pause แล้ว kick กลับ
       setPaused(true, 'error');
       setTimeout(()=>{
         if (!S.running) return;
@@ -1201,7 +1295,6 @@ function startFrameOnce(){
     S.rafId = requestAnimationFrame(frame);
   };
 
-  // อย่าซ้อน RAF เกินจำเป็น
   if (S.rafId) cancelAnimationFrame(S.rafId);
   S.rafId = requestAnimationFrame(frame);
 }
@@ -1233,7 +1326,6 @@ function bindUI(){
     });
   }
 
-  // C4: กัน gesture ของ iOS/Chrome ที่ทำให้ audio/raf แปลก ๆ → unlock audio เร็ว ๆ
   doc.addEventListener('pointerdown', ()=>AudioX.unlock(), { passive:true });
   doc.addEventListener('touchstart', ()=>AudioX.unlock(), { passive:true });
 }
@@ -1248,6 +1340,7 @@ function bindUI(){
 
   bindUI();
   setupVisibilityGuard();
+  bindVRReconnect();        // D4
 
   setLives(S.livesMax);
 
