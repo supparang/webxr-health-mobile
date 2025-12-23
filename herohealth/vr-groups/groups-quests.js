@@ -1,5 +1,5 @@
 // === /herohealth/vr-groups/groups-quests.js ===
-// Food Groups Quest Manager (IIFE) — Goals(2) + Minis(7) + Auto Rotate Groups
+// Food Groups Quest Manager (IIFE) — Goals(2) + Minis(7) + Auto Rotate Groups (FUN+CHALLENGE)
 // Exposes: window.GroupsQuest.createFoodGroupsQuest(diff)
 
 (function(){
@@ -16,8 +16,9 @@
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
   function makeGoals(diff){
-    const isEasy = String(diff||'normal').toLowerCase()==='easy';
-    const isHard = String(diff||'normal').toLowerCase()==='hard';
+    const d = String(diff||'normal').toLowerCase();
+    const isEasy = d==='easy';
+    const isHard = d==='hard';
     const comboTarget = isEasy ? 10 : (isHard ? 16 : 12);
     const uniqTarget  = isEasy ? 4  : (isHard ? 5  : 4);
 
@@ -28,8 +29,9 @@
   }
 
   function makeMinis(diff){
-    const isEasy = String(diff||'normal').toLowerCase()==='easy';
-    const isHard = String(diff||'normal').toLowerCase()==='hard';
+    const d = String(diff||'normal').toLowerCase();
+    const isEasy = d==='easy';
+    const isHard = d==='hard';
 
     return [
       { id:'m1', label:`เก็บหมู่ปัจจุบัน ${isHard?6:(isEasy?4:5)} ชิ้น`, target: (isHard?6:(isEasy?4:5)), prog:0, done:false, kind:'group_hits' },
@@ -43,8 +45,13 @@
   }
 
   function createFoodGroupsQuest(diff){
-    const goals = makeGoals(diff);
-    const minis = makeMinis(diff);
+    const d = String(diff||'normal').toLowerCase();
+    const isEasy = d==='easy';
+    const isHard = d==='hard';
+
+    const rotateEvery = isEasy ? 12 : (isHard ? 9 : 10); // ✅ FUN: หมุนไวขึ้น
+    const goals = makeGoals(d);
+    const minis = makeMinis(d);
 
     let groupIndex = 0;
     let sec = 0;
@@ -53,25 +60,37 @@
     let uniqGroups = new Set();
     let streakGood = 0;
     let safeSec = 0;
-    let comboNow = 0;
 
     // mini trackers
     let miniIdx = 0;
-    let mixCounts = { a:0, b:0, aKey:1, bKey:2 }; // for two_groups_mix
+    let mixCounts = { a:0, b:0, aKey:1, bKey:2 };
 
     function activeMini(){ return minis[miniIdx] || null; }
-    function nextMini(){
-      const m = activeMini();
-      if (!m || m.done) miniIdx = clamp(miniIdx+1, 0, minis.length);
-      const m2 = activeMini();
-      if (m2 && m2.kind === 'rush_window'){
+
+    function prepMini(m2){
+      if (!m2) return;
+      if (m2.kind === 'rush_window'){
         m2.tLeft = m2.windowSec || 8;
         m2.active = true;
+        m2.prog = 0;
       }
-      if (m2 && m2.kind === 'two_groups_mix'){
+      if (m2.kind === 'two_groups_mix'){
         mixCounts = { a:0, b:0, aKey: FOOD_GROUPS[groupIndex].key, bKey: FOOD_GROUPS[(groupIndex+1)%FOOD_GROUPS.length].key };
         m2.prog = 0;
       }
+      if (m2.kind === 'safe_seconds'){
+        safeSec = 0;
+        m2.prog = 0;
+      }
+      if (m2.kind === 'group_hits'){
+        m2.prog = 0;
+      }
+    }
+
+    function nextMini(){
+      const cur = activeMini();
+      if (!cur || cur.done) miniIdx = clamp(miniIdx+1, 0, minis.length);
+      prepMini(activeMini());
     }
 
     function getActiveGroup(){
@@ -80,18 +99,21 @@
 
     function rotateGroup(){
       groupIndex = (groupIndex + 1) % FOOD_GROUPS.length;
+      // ให้ mini ที่เกี่ยวกับ “หมู่ปัจจุบัน” รีเซ็ตแบบแฟร์
       const m = activeMini();
-      if (m && m.kind === 'group_hits'){
-        m.prog = 0;
+      if (m && (m.kind === 'group_hits' || m.kind === 'rush_window')){
+        prepMini(m);
+      }
+      if (m && m.kind === 'two_groups_mix'){
+        prepMini(m);
       }
     }
 
     function onGoodHit(groupKey, combo){
-      comboNow = comboNow < combo ? combo : comboNow;
       streakGood += 1;
       uniqGroups.add(Number(groupKey)||1);
 
-      // Goal1 combo reach (max)
+      // Goal1 combo reach
       const g1 = goals[0];
       if (g1 && !g1.done){
         g1.prog = Math.max(g1.prog|0, combo|0);
@@ -105,7 +127,6 @@
         if (g2.prog >= g2.target) g2.done = true;
       }
 
-      // minis
       const m = activeMini();
       if (!m) return;
 
@@ -125,9 +146,7 @@
         if ((Number(groupKey)||0) === mixCounts.aKey) mixCounts.a++;
         if ((Number(groupKey)||0) === mixCounts.bKey) mixCounts.b++;
         m.prog = clamp(mixCounts.a + mixCounts.b, 0, m.target);
-        if (mixCounts.a >= 3 && mixCounts.b >= 3){
-          m.done = true; nextMini();
-        }
+        if (mixCounts.a >= 3 && mixCounts.b >= 3){ m.done = true; nextMini(); }
       } else if (m.kind === 'rush_window'){
         if (!m.active) return;
         const g = getActiveGroup();
@@ -150,9 +169,8 @@
       safeSec = 0;
 
       const m = activeMini();
-      if (m && m.kind === 'safe_seconds'){
-        m.prog = 0;
-      }
+      if (m && m.kind === 'safe_seconds') m.prog = 0;
+
       if (m && m.kind === 'rush_window'){
         m.tLeft = m.windowSec || 8;
         m.prog = 0;
@@ -163,8 +181,8 @@
     function second(){
       sec += 1;
 
-      // หมุนหมู่ทุก 12 วิ
-      if (sec % 12 === 0){
+      // ✅ หมุนหมู่ไวขึ้นตามระดับ
+      if (sec % rotateEvery === 0){
         rotateGroup();
       }
 
@@ -173,10 +191,7 @@
       if (m && m.kind === 'safe_seconds'){
         safeSec += 1;
         m.prog = clamp(safeSec, 0, m.target);
-        if (m.prog >= m.target){
-          m.done = true;
-          nextMini();
-        }
+        if (m.prog >= m.target){ m.done = true; nextMini(); }
       }
 
       if (m && m.kind === 'rush_window' && m.active){
@@ -188,14 +203,10 @@
       }
     }
 
-    return {
-      goals,
-      minis,
-      getActiveGroup,
-      onGoodHit,
-      onJunkHit,
-      second
-    };
+    // init mini state
+    prepMini(activeMini());
+
+    return { goals, minis, getActiveGroup, onGoodHit, onJunkHit, second };
   }
 
   window.GroupsQuest = window.GroupsQuest || {};
