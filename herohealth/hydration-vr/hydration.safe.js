@@ -1,8 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
 // ✅ Auto-hide HUD (เหลือส่วนจำเป็น) + Peek
-// ✅ Gyro limit (เอียงนิดเดียวไม่หนี) + calibration
+// ✅ Gyro limit (เอียงนิดเดียวไม่หนี) + calibration แบบ “เก็บค่ามุมล่าสุดจริง”
 // ✅ Drag threshold (ลาก=look ไม่ใช่ tap)
+// ✅ Spawn กระจายจริง: ใช้ spawnHost เป็น #hvr-layer (absolute inset:0) ภายใน playfield (แก้ “โผล่ที่เดิมตลอด”)
 // ✅ Endscreen fallback (กันจอดำ)
 // ✅ debug=1 รองรับ
 
@@ -51,20 +52,27 @@ const TUNE = {
 
   missOnGoodExpire:true,
 
-  lookMaxX:380,
-  lookMaxY:290,
-  lookPxPerDegX:8.2,
-  lookPxPerDegY:6.8,
-  lookSmooth:0.10,
+  // look limits
+  lookMaxX:360,
+  lookMaxY:270,
+  lookPxPerDegX:6.2,     // ลดความไว: กัน “เอียงนิดเดียววิ่งหนี”
+  lookPxPerDegY:5.4,
+  lookSmooth:0.12,
 
-  // ✅ per-frame speed limit
-  lookMaxStepX: 9.5,
-  lookMaxStepY: 7.5,
+  // per-frame speed limit
+  lookMaxStepX: 7.5,
+  lookMaxStepY: 6.2,
+
+  // drag threshold
+  dragThresholdPx: 12,
 
   // gyro stability
-  gyroDeadGamma: 1.6,
-  gyroDeadBeta:  2.0,
+  gyroDeadGamma: 2.2,
+  gyroDeadBeta:  2.6,
   gyroBiasBeta:  18,
+  gyroClampDegX: 26,
+  gyroClampDegY: 24,
+  gyroBlend: 0.22,       // blend gyro เข้า look target แบบนุ่ม ๆ
 
   urgencyAtSec:10,
   urgencyBeepHz:920,
@@ -100,7 +108,6 @@ function ensureHudAutoHide(){
   const hud = document.querySelector('.hud');
   if (!hud) return { touch(){}, peek(){}, setCompact(){}, destroy(){} };
 
-  // make compact by default: only show essential cards
   function setCompact(){
     hud.classList.add('hud-compact');
     if (!document.getElementById('hud-compact-style')){
@@ -108,9 +115,8 @@ function ensureHudAutoHide(){
       s.id='hud-compact-style';
       s.textContent=`
         .hud{ transition: transform .18s ease, opacity .18s ease; }
-        .hud.hud-hidden{ opacity:0; transform:translate3d(0,-14px,0); }
+        .hud.hud-hidden{ opacity:0; transform:translate3d(0,-14px,0); pointer-events:none; }
         .hud.hud-compact .card{ padding:10px 12px 10px !important; min-width:200px !important; }
-        /* ซ่อนสิ่งไม่จำเป็นในเกม */
         .hud.hud-compact .title{ font-size:18px !important; }
         .hud.hud-compact #hha-water-card .muted:last-child{ display:none; }
       `;
@@ -133,9 +139,9 @@ function ensureHudAutoHide(){
     setTimeout(()=>{ hud.classList.add('hud-hidden'); }, TUNE.hudPeekMs);
   }
 
-  // interactions: tap top zone to peek
+  // ✅ capture=true: ถึง target จะ stopPropagation ก็ยัง “ปลุก HUD” ได้
   const onPointerDown = ()=> touch();
-  ROOT.addEventListener('pointerdown', onPointerDown, { passive:true });
+  ROOT.addEventListener('pointerdown', onPointerDown, { passive:true, capture:true });
 
   setCompact();
   scheduleHide();
@@ -143,11 +149,40 @@ function ensureHudAutoHide(){
   return {
     touch, peek, setCompact,
     destroy(){
-      try{ ROOT.removeEventListener('pointerdown', onPointerDown); }catch{}
+      try{ ROOT.removeEventListener('pointerdown', onPointerDown, { capture:true }); }catch{}
       try{ if (hideTimer) clearTimeout(hideTimer); }catch{}
       hideTimer=null;
     }
   };
+}
+
+// ✅ สร้างเลเยอร์ spawn ภายใน playfield เพื่อให้ absolute children “อิงกรอบเดียวกัน” เสมอ
+function ensurePlayfieldLayer(playfield){
+  if (!playfield) return null;
+
+  // ทำให้ playfield เป็น containing block ของ absolute children
+  const cs = ROOT.getComputedStyle ? ROOT.getComputedStyle(playfield) : null;
+  if (!cs || cs.position === 'static') {
+    playfield.style.position = 'relative';
+  }
+  playfield.style.width = playfield.style.width || '100%';
+  playfield.style.height = playfield.style.height || '100%';
+
+  let layer = $id('hvr-layer');
+  if (layer && layer.parentElement !== playfield) {
+    try{ layer.remove(); }catch{}
+    layer = null;
+  }
+  if (!layer){
+    layer = document.createElement('div');
+    layer.id = 'hvr-layer';
+    layer.style.position = 'absolute';
+    layer.style.inset = '0';
+    layer.style.zIndex = '10';
+    layer.style.pointerEvents = 'auto';
+    playfield.appendChild(layer);
+  }
+  return layer;
 }
 
 export async function boot(opts = {}){
@@ -165,7 +200,6 @@ export async function boot(opts = {}){
   // bounds layer (not transformed)
   let boundsEl = $id('hvr-bounds') || $id('hvr-stage');
   if (!boundsEl){
-    // fallback: create bounds fixed layer for accurate rects
     boundsEl = document.createElement('div');
     boundsEl.id='hvr-bounds';
     boundsEl.style.position='fixed';
@@ -173,6 +207,9 @@ export async function boot(opts = {}){
     boundsEl.style.pointerEvents='none';
     document.body.appendChild(boundsEl);
   }
+
+  // ✅ spawn layer inside playfield (แก้ “โผล่ที่เดียวตลอด” แบบเด็ดขาด)
+  const spawnLayer = ensurePlayfieldLayer(playfield);
 
   playfield.style.willChange='transform';
   playfield.style.transform='translate3d(0,0,0)';
@@ -197,9 +234,11 @@ export async function boot(opts = {}){
     lookTX:0, lookTY:0,
     lookVX:0, lookVY:0,
 
-    // gyro center calibration
+    // gyro center calibration + last raw
     gyroCenterGamma:0,
     gyroCenterBeta: TUNE.gyroBiasBeta,
+    gyroLastGamma: 0,
+    gyroLastBeta:  0,
 
     stormLeft:0,
     stopped:false
@@ -230,8 +269,11 @@ export async function boot(opts = {}){
     const { prog } = calcProgress();
     const progPct = Math.round(prog*100);
 
-    $id('hha-grade-progress-fill') && ($id('hha-grade-progress-fill').style.width = progPct+'%');
-    $id('hha-grade-progress-text') && ($id('hha-grade-progress-text').textContent = `Progress to S (30%): ${progPct}%`);
+    const fill = $id('hha-grade-progress-fill');
+    if (fill) fill.style.width = progPct+'%';
+
+    const ptxt = $id('hha-grade-progress-text');
+    if (ptxt) ptxt.textContent = `Progress to S (30%): ${progPct}%`;
 
     let grade='C';
     if (progPct>=95) grade='SSS';
@@ -239,7 +281,9 @@ export async function boot(opts = {}){
     else if (progPct>=70) grade='S';
     else if (progPct>=50) grade='A';
     else if (progPct>=30) grade='B';
-    $id('hha-grade-badge') && ($id('hha-grade-badge').textContent = grade);
+
+    const badge = $id('hha-grade-badge');
+    if (badge) badge.textContent = grade;
 
     $id('hha-score-main') && ($id('hha-score-main').textContent = String(state.score|0));
     $id('hha-combo-max')  && ($id('hha-combo-max').textContent  = String(state.comboBest|0));
@@ -260,7 +304,6 @@ export async function boot(opts = {}){
     const goalsDone = allGoals.filter(g=>g._done||g.done).length;
     const minisDone = allMinis.filter(m=>m._done||m.done).length;
 
-    // ใช้ id ที่มีอยู่ใน HTML ของคุณ: hha-goal-count / hha-mini-count
     $id('hha-goal-count') && ($id('hha-goal-count').textContent = String(goalsDone));
     $id('hha-mini-count') && ($id('hha-mini-count').textContent = String(minisDone));
 
@@ -400,30 +443,29 @@ export async function boot(opts = {}){
 
   // --------------------- LOOK (drag) + gyro ---------------------
   let dragOn=false;
+  let startX=0,startY=0;
   let lastX=0,lastY=0;
   let movedDuringDrag=false;
 
   function applyLookTransform(){
-    // smooth toward target
-    state.lookVX += (state.lookTX - state.lookVX) * TUNE.lookSmooth;
-    state.lookVY += (state.lookTY - state.lookVY) * TUNE.lookSmooth;
+    // smooth towards target
+    const nx = state.lookVX + (state.lookTX - state.lookVX) * TUNE.lookSmooth;
+    const ny = state.lookVY + (state.lookTY - state.lookVY) * TUNE.lookSmooth;
 
-    // speed limit per frame (prevents “วิ่งหนี”)
-    const dx = clamp(state.lookVX - (state._prevVX||0), -TUNE.lookMaxStepX, TUNE.lookMaxStepX);
-    const dy = clamp(state.lookVY - (state._prevVY||0), -TUNE.lookMaxStepY, TUNE.lookMaxStepY);
-    state._prevVX = (state._prevVX||0) + dx;
-    state._prevVY = (state._prevVY||0) + dy;
+    // speed limit per frame
+    state.lookVX += clamp(nx - state.lookVX, -TUNE.lookMaxStepX, TUNE.lookMaxStepX);
+    state.lookVY += clamp(ny - state.lookVY, -TUNE.lookMaxStepY, TUNE.lookMaxStepY);
 
-    const x = clamp(-state._prevVX, -TUNE.lookMaxX, TUNE.lookMaxX);
-    const y = clamp(-state._prevVY, -TUNE.lookMaxY, TUNE.lookMaxY);
+    const x = clamp(-state.lookVX, -TUNE.lookMaxX, TUNE.lookMaxX);
+    const y = clamp(-state.lookVY, -TUNE.lookMaxY, TUNE.lookMaxY);
     playfield.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
   }
 
   function onPointerDown(ev){
     dragOn=true;
     movedDuringDrag=false;
-    lastX=ev.clientX||0;
-    lastY=ev.clientY||0;
+    startX=lastX=ev.clientX||0;
+    startY=lastY=ev.clientY||0;
     HUD.touch();
   }
   function onPointerMove(ev){
@@ -431,9 +473,14 @@ export async function boot(opts = {}){
     const x=ev.clientX||0, y=ev.clientY||0;
     const dx=x-lastX, dy=y-lastY;
     lastX=x; lastY=y;
-    if (Math.abs(dx)+Math.abs(dy) > 2) movedDuringDrag=true;
-    state.lookTX = clamp(state.lookTX + dx*1.15, -TUNE.lookMaxX, TUNE.lookMaxX);
-    state.lookTY = clamp(state.lookTY + dy*0.98, -TUNE.lookMaxY, TUNE.lookMaxY);
+
+    // ✅ threshold: กัน tap กลายเป็นลาก
+    const dist = Math.abs((x-startX)) + Math.abs((y-startY));
+    if (!movedDuringDrag && dist < TUNE.dragThresholdPx) return;
+
+    movedDuringDrag=true;
+    state.lookTX = clamp(state.lookTX + dx*1.10, -TUNE.lookMaxX, TUNE.lookMaxX);
+    state.lookTY = clamp(state.lookTY + dy*0.92, -TUNE.lookMaxY, TUNE.lookMaxY);
   }
   function onPointerUp(){ dragOn=false; }
 
@@ -442,21 +489,29 @@ export async function boot(opts = {}){
     const bRaw = Number(e.beta);
     if(!Number.isFinite(gRaw) || !Number.isFinite(bRaw)) return;
 
+    // store last raw for calibration
+    state.gyroLastGamma = gRaw;
+    state.gyroLastBeta  = bRaw;
+
     // apply calibration center
     let g = gRaw - (state.gyroCenterGamma||0);
     let b = bRaw - (state.gyroCenterBeta||TUNE.gyroBiasBeta);
+
+    // clamp deg
+    g = clamp(g, -TUNE.gyroClampDegX, TUNE.gyroClampDegX);
+    b = clamp(b, -TUNE.gyroClampDegY, TUNE.gyroClampDegY);
 
     // deadzone
     if (Math.abs(g) < TUNE.gyroDeadGamma) g=0;
     if (Math.abs(b) < TUNE.gyroDeadBeta)  b=0;
 
-    // convert deg -> px
     const tx = g * TUNE.lookPxPerDegX;
-    const ty = (b) * TUNE.lookPxPerDegY;
+    const ty = b * TUNE.lookPxPerDegY;
 
-    // blend with current look target (don’t snap)
-    state.lookTX = clamp(state.lookTX*0.65 + tx*0.35, -TUNE.lookMaxX, TUNE.lookMaxX);
-    state.lookTY = clamp(state.lookTY*0.65 + ty*0.35, -TUNE.lookMaxY, TUNE.lookMaxY);
+    // blend into look target (นุ่ม + ไม่กระชาก)
+    const a = TUNE.gyroBlend;
+    state.lookTX = clamp(state.lookTX*(1-a) + tx*a, -TUNE.lookMaxX, TUNE.lookMaxX);
+    state.lookTY = clamp(state.lookTY*(1-a) + ty*a, -TUNE.lookMaxY, TUNE.lookMaxY);
   }
 
   async function requestGyroPermission(){
@@ -475,17 +530,18 @@ export async function boot(opts = {}){
     }
   }
 
-  // double-tap to calibrate gyro center
+  // double-tap to calibrate gyro center (ใช้ค่ามุมล่าสุดจริง)
   let lastTap=0;
   function onTapForCalibrate(){
     const now=Date.now();
     if (now-lastTap < 350){
-      // calibrate to current orientation estimate (simple)
-      // we can only calibrate by storing last seen raw; if not available, just reset look
-      state.gyroCenterGamma = 0;
-      state.gyroCenterBeta  = TUNE.gyroBiasBeta;
+      state.gyroCenterGamma = Number(state.gyroLastGamma)||0;
+      state.gyroCenterBeta  = Number(state.gyroLastBeta)||TUNE.gyroBiasBeta;
+
       state.lookTX = 0; state.lookTY = 0;
-      dispatch('hha:coach',{text:'🎯 รีเซ็ตมุมมองแล้ว!', mood:'happy'});
+      state.lookVX = 0; state.lookVY = 0;
+
+      dispatch('hha:coach',{text:'🎯 Calibrate แล้ว! มุมนี้คือ “ตรงกลาง”', mood:'happy'});
       HUD.peek();
     }
     lastTap=now;
@@ -495,6 +551,7 @@ export async function boot(opts = {}){
   let timer=null;
   let rafId=null;
   let audioCtx=null;
+
   function beep(freq,dur){
     try{
       audioCtx = audioCtx || new (ROOT.AudioContext || ROOT.webkitAudioContext)();
@@ -574,22 +631,22 @@ export async function boot(opts = {}){
     difficulty,
     duration,
 
-    spawnHost:'#hvr-playfield',
-    boundsHost: boundsEl, // ✅ fixed full screen
+    // ✅ สำคัญ: spawnHost เป็น layer ที่ absolute inset 0 ภายใน playfield
+    spawnHost: spawnLayer || '#hvr-playfield',
+    boundsHost: boundsEl, // fixed full screen (rect แม่น)
 
-    // spawn distribution: FULL-SPREAD for hydration (B option)
-    spawnAroundCrosshair: false,       // ✅ กระจายทั่วสนาม
-    spawnStrategy: 'grid9',            // ✅ กระจายแบบรู้สึกได้จริง
+    // spawn distribution: FULL-SPREAD
+    spawnAroundCrosshair: false,
+    spawnStrategy: 'grid9',
     spawnRadiusX: 0.95,
     spawnRadiusY: 0.95,
     minSeparation: 0.92,
     maxSpawnTries: 18,
-    dragThresholdPx: 11,
 
-    // storm multiplier (real)
+    // storm multiplier
     spawnIntervalMul: ()=> (state.stormLeft>0 ? TUNE.stormIntervalMul : 1),
 
-    // exclude: ใช้ data-hha-exclude เป็นหลัก + hud
+    // exclude
     excludeSelectors: ['.hud', '#hvr-crosshair', '#hvr-end'],
 
     pools:{
@@ -721,7 +778,7 @@ export async function boot(opts = {}){
       dispatch('hha:coach', { text:'🏁 จบเกม! ดูผลคะแนนและเควสได้เลย', mood:'happy' });
       try{ Particles.celebrate?.('end'); }catch{}
     } finally {
-      // ✅ always cleanup, then render endscreen (no black)
+      // always cleanup
       try{ if (timer) ROOT.clearInterval(timer); }catch{} timer=null;
       try{ if (rafId!=null) ROOT.cancelAnimationFrame(rafId); }catch{} rafId=null;
       try{ spawner?.stop?.(); }catch{}
