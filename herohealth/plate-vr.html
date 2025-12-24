@@ -1,9 +1,3 @@
-<!-- === /herohealth/plate-vr.html ===
-HeroHealth — Balanced Plate VR (Layout v2: Compact HUD + Bottom Ticker)
-✅ IDs ครบให้ plate.safe.js อัปเดตได้
-✅ คืนพื้นที่ gameplay บนมือถือ (portrait friendly)
--->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -13,494 +7,437 @@ HeroHealth — Balanced Plate VR (Layout v2: Compact HUD + Bottom Ticker)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core -->
+  <!-- A-Frame (VR) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX / Logger (IIFE) -->
+  <!-- Global FX + (optional) logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
-  <script src="./vr/hha-compat-input.js" defer></script>
+
+  <!-- Plate game (DOM targets on top of A-Frame) -->
+  <script src="./plate.safe.js" defer></script>
 
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.70);
-      --panel2:rgba(15,23,42,.66);
+      --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.70);
       --stroke:rgba(148,163,184,.22);
       --text:#e5e7eb;
-      --muted:rgba(229,231,235,.72);
-
-      --r:20px;
-      --shadow:0 18px 46px rgba(0,0,0,.38);
-
-      --safe-top: 82px;    /* กัน HUD บน */
-      --safe-btm: 96px;    /* กัน ticker ล่าง */
-      --safe-right: 74px;  /* กันปุ่มขวา */
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#facc15;
+      --danger:#fb7185;
+      --radius:18px;
     }
-
+    *{ box-sizing:border-box; }
     html,body{ height:100%; }
     body{
       margin:0;
-      background: radial-gradient(1200px 700px at 50% -10%, rgba(59,130,246,.14), transparent 55%),
-                  radial-gradient(900px 600px at 20% 120%, rgba(34,197,94,.10), transparent 55%),
-                  var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
+      background: radial-gradient(1200px 900px at 50% 30%, #0b1228, #020617 55%, #020617);
       color:var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", "Noto Sans", Arial;
       overflow:hidden;
       touch-action:none;
-    }
-
-    /* ---------- HUD base ---------- */
-    .hud{
-      position:fixed;
-      z-index:900;
-      pointer-events:none;
-      user-select:none;
       -webkit-tap-highlight-color: transparent;
     }
-    .card{
-      background: linear-gradient(180deg, rgba(2,6,23,.72), rgba(2,6,23,.58));
-      border:1px solid var(--stroke);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-      border-radius: var(--r);
-      padding: 10px 12px;
+
+    /* A-Frame full screen behind */
+    .vrStage{
+      position:fixed; inset:0;
+      z-index:10;
     }
-    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    a-scene{ width:100%; height:100%; }
+
+    /* HUD zones (ให้ JS ใช้เป็น safezone กันทับ) */
+    #hudTop, #hudLeft, #hudRight, #hudBottom{
+      position:fixed;
+      z-index:850;
+      pointer-events:auto;
+    }
+
+    /* TOP — compact */
+    #hudTop{
+      left:10px; right:10px; top:10px;
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:10px 10px;
+      box-shadow:0 18px 46px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px);
+    }
+    .row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .row + .row{ margin-top:8px; }
+    .left{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .right{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+    }
     .pill{
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding: 8px 12px;
+      padding:7px 10px;
       border-radius:999px;
-      border:1px solid var(--stroke);
-      background: rgba(15,23,42,.36);
-      font-weight: 900;
-      letter-spacing:.01em;
+      background:rgba(2,6,23,.62);
+      border:1px solid rgba(148,163,184,.20);
+      font-weight:900;
+      letter-spacing:.02em;
       line-height:1;
-      pointer-events:none;
+      white-space:nowrap;
     }
-    .pill .k{ opacity:.82; font-weight:1000; }
-    .pill .v{ font-variant-numeric: tabular-nums; font-weight:1000; }
+    .pill .k{
+      font-size:12px;
+      color:rgba(229,231,235,.78);
+      font-weight:900;
+    }
+    .pill .v{
+      font-size:13px;
+      color:var(--text);
+      font-weight:1000;
+    }
+    .pill.big .v{ font-size:14px; }
 
-    /* ---------- TOP BAR (tiny) ---------- */
-    #hudTop{
-      left: 12px;
-      top: 12px;
-      right: 12px;
-      pointer-events:none;
+    .barWrap{
+      flex:1;
+      min-width:160px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(2,6,23,.62);
+      border:1px solid rgba(148,163,184,.20);
     }
-    #hudTop .card{
-      padding: 10px 10px;
-      border-radius: 22px;
+    .barLabel{
+      font-weight:1000;
+      font-size:12px;
+      color:rgba(229,231,235,.78);
+      white-space:nowrap;
     }
-    #hudTop .row{
-      justify-content:flex-start;
-      gap:10px;
+    .bar{
+      position:relative;
+      flex:1;
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.16);
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.18);
     }
-    .pill.small{
-      padding: 8px 12px;
-      font-size: 15px;
+    #hudFever{
+      position:absolute; inset:0;
+      width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.65), rgba(250,204,21,.70));
+    }
+    #hudFeverPct{
+      font-weight:1000;
+      font-size:12px;
+      color:rgba(229,231,235,.86);
+      min-width:46px;
+      text-align:right;
     }
 
-    /* row2 = เอาไว้ให้ plate.safe.js append shield/lives/power ได้ */
-    #hudTop .row2{
-      margin-top: 8px;
-      opacity:.95;
+    /* LEFT — goals/minis (เล็กลงเพื่อเพิ่ม gameplay) */
+    #hudLeft{
+      left:10px;
+      top:92px;
+      width:min(340px, 56vw);
+    }
+    .panel{
+      background:var(--panel2);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:10px 10px;
+      box-shadow:0 18px 46px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px);
+    }
+    .title{
+      font-weight:1000;
+      letter-spacing:.02em;
+      margin:0 0 6px 0;
+      font-size:13px;
+      color:rgba(229,231,235,.92);
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .line{
+      font-weight:950;
+      font-size:13px;
+      color:rgba(229,231,235,.92);
+      margin:0;
+    }
+    .hint{
+      margin-top:6px;
+      font-size:12px;
+      font-weight:900;
+      color:rgba(148,163,184,.95);
+    }
+    #miniPanel{
+      margin-top:10px;
+      border:1px solid rgba(148,163,184,.20);
+      background:rgba(2,6,23,.58);
     }
 
-    /* ---------- RIGHT FLOAT BUTTONS ---------- */
+    /* RIGHT — buttons compact */
     #hudRight{
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      pointer-events:none;
+      right:10px;
+      top:92px;
+      width:min(220px, 40vw);
     }
-    #hudRight .stack{
+    .btnCol{
       display:flex;
       flex-direction:column;
-      gap:10px;
-      align-items:flex-end;
+      gap:8px;
     }
     .btn{
-      pointer-events:auto;
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.72);
+      color:var(--text);
+      border-radius:16px;
+      padding:10px 10px;
+      font-weight:1000;
+      letter-spacing:.02em;
+      box-shadow:0 12px 26px rgba(0,0,0,.22);
       cursor:pointer;
-      border:none;
-      border-radius: 999px;
-      padding: 10px 14px;
-      font-weight: 1000;
-      color: var(--text);
-      background: rgba(2,6,23,.70);
-      border:1px solid var(--stroke);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-      min-width: 132px;
-      text-align:center;
+      user-select:none;
     }
     .btn:active{ transform: translateY(1px); }
-    .btn.vr{ min-width: 132px; }
-    .btn.pause{ min-width: 132px; }
-    .btn.restart{ min-width: 132px; }
+    .btn.primary{ border-color:rgba(34,197,94,.32); }
+    .btn.warn{ border-color:rgba(250,204,21,.34); }
+    .btn.danger{ border-color:rgba(251,113,133,.34); }
 
-    /* มือถือ: ปุ่มขวาลอยชิดล่าง เพื่อไม่บังจอ */
-    @media (max-width: 520px){
-      #hudRight{
-        top:auto;
-        bottom: 108px;
-        transform:none;
-      }
-      .btn{
-        min-width: 118px;
-        padding: 10px 12px;
-        font-size: 14px;
-      }
-    }
-
-    /* ---------- BOTTOM TICKER (QUEST+MINI) ---------- */
+    /* BOTTOM — minimal */
     #hudBottom{
-      left: 12px;
-      right: 12px;
-      bottom: 12px;
-      pointer-events:auto;
+      left:10px; right:10px; bottom:10px;
     }
-    #hudBottom .card{
-      padding: 10px 12px;
-      border-radius: 22px;
-    }
-    .ticker{
+    .bottomRow{
       display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .tickline{
-      display:flex;
-      align-items:flex-start;
-      gap:10px;
-      font-weight: 1000;
-      line-height:1.25;
-    }
-    .tickline .ic{
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
-      display:grid;
-      place-items:center;
-      border:1px solid var(--stroke);
-      background: rgba(15,23,42,.36);
-      flex: 0 0 auto;
-    }
-    .tickline .main{
-      flex:1 1 auto;
-      min-width: 0;
-    }
-    .tickline .title{
-      font-size: 15px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .tickline .sub{
-      margin-top:4px;
-      font-size: 13px;
-      color: var(--muted);
-      display:none; /* ปกติซ่อน เพื่อคืนพื้นที่ */
-    }
-
-    /* กดเพื่อ “ขยาย” hint (ละเอียด) */
-    #hudBottom details{
-      border:1px solid rgba(148,163,184,.14);
-      border-radius: 18px;
-      padding: 8px 10px;
-      background: rgba(15,23,42,.18);
-    }
-    #hudBottom summary{
-      list-style:none;
-      cursor:pointer;
-      font-weight:1000;
-      color: rgba(229,231,235,.92);
-      outline:none;
-    }
-    #hudBottom summary::-webkit-details-marker{ display:none; }
-    #hudBottom details[open] .tickline .sub{ display:block; }
-
-    /* ---------- STATUS BAR (minimal extra) ---------- */
-    #hudMiniStatus{
-      display:flex;
-      gap:10px;
       align-items:center;
-      margin-top: 8px;
-      opacity:.9;
+      justify-content:space-between;
+      gap:8px;
       flex-wrap:wrap;
     }
-    #hudMiniStatus .pill{
-      padding: 7px 11px;
-      font-size: 13px;
+    .tip{
+      font-size:12px;
+      color:rgba(148,163,184,.95);
+      font-weight:900;
+    }
+    #hudPaused{
+      display:none;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(2,6,23,.74);
+      border:1px solid rgba(148,163,184,.22);
+      font-weight:1000;
     }
 
-    /* ---------- FEVER bar tiny (inside top) ---------- */
-    .feverWrap{
-      flex: 1 1 auto;
-      min-width: 160px;
-      max-width: 360px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      border:1px solid var(--stroke);
-      background: rgba(15,23,42,.26);
+    /* Result overlay */
+    #resultBackdrop{
+      position:fixed; inset:0;
+      z-index:999;
+      display:none;
+      background:rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+      padding:18px;
+    }
+    .resultCard{
+      max-width:860px;
+      margin:0 auto;
+      background:rgba(2,6,23,.78);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:22px;
+      box-shadow:0 26px 80px rgba(0,0,0,.40);
+      padding:16px;
+    }
+    .resultHead{
       display:flex;
       align-items:center;
+      justify-content:space-between;
       gap:10px;
-      overflow:hidden;
+      flex-wrap:wrap;
+      margin-bottom:10px;
     }
-    .feverTrack{
-      flex:1 1 auto;
-      height: 10px;
-      border-radius:999px;
-      background: rgba(148,163,184,.14);
-      overflow:hidden;
-      position:relative;
+    .resultTitle{
+      font-weight:1100;
+      font-size:18px;
+      margin:0;
+      letter-spacing:.02em;
     }
-    .feverFill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background: rgba(250,204,21,.75);
-      box-shadow: 0 0 24px rgba(250,204,21,.18);
-    }
-    .feverPct{
-      font-variant-numeric: tabular-nums;
-      font-weight:1000;
-      min-width: 48px;
-      text-align:right;
-      color: rgba(229,231,235,.90);
-    }
-
-    /* ---------- PAUSED tag ---------- */
-    #hudPaused{
-      position:fixed;
-      left:50%;
-      top: 96px;
-      transform:translateX(-50%);
-      z-index:950;
-      pointer-events:none;
-      display:none;
-    }
-    #hudPaused .card{
-      padding: 10px 14px;
-      border-radius: 999px;
-      font-weight: 1000;
-    }
-
-    /* ---------- RESULT OVERLAY ---------- */
-    #resultBackdrop{
-      position:fixed;
-      inset:0;
-      z-index:1200;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      background: rgba(0,0,0,.66);
-      backdrop-filter: blur(6px);
-      padding: 16px;
-    }
-    #resultCard{
-      width: min(760px, 92vw);
-      max-height: 86vh;
-      overflow:auto;
-      border-radius: 26px;
-      padding: 14px;
-      border:1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.78);
-      box-shadow: var(--shadow);
-    }
-    #resultCard h2{
-      margin: 6px 0 10px;
-      font-size: 22px;
-    }
-    #resultGrid{
+    .grid{
       display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap:10px;
+      margin-top:10px;
     }
-    @media (max-width:520px){
-      #resultGrid{ grid-template-columns: 1fr; }
-    }
-    .kv{
+    .stat{
+      background:rgba(15,23,42,.62);
       border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.30);
       border-radius:18px;
-      padding:10px 12px;
+      padding:10px;
     }
-    .kv .k{ color: rgba(229,231,235,.72); font-weight:900; }
-    .kv .v{ font-weight:1000; margin-top:4px; font-variant-numeric: tabular-nums; }
+    .stat .k{ font-size:12px; color:rgba(148,163,184,.95); font-weight:900; }
+    .stat .v{ font-size:16px; font-weight:1100; margin-top:4px; }
 
-    .resultBtns{ display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
-    .btn2{
-      pointer-events:auto;
-      cursor:pointer;
-      border:none;
-      border-radius: 999px;
-      padding: 12px 14px;
-      font-weight: 1000;
-      color: var(--text);
-      background: rgba(15,23,42,.60);
-      border:1px solid rgba(148,163,184,.22);
+    .grid2{
+      display:grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap:10px;
+      margin-top:10px;
     }
 
-    /* ---------- Tip (tiny) ---------- */
-    #tip{
-      position:fixed;
-      left:12px;
-      bottom: 120px;
-      z-index:880;
-      pointer-events:none;
-      opacity:.85;
-      max-width: min(520px, 74vw);
+    @media (max-width: 900px){
+      #hudLeft{ width:min(320px, 62vw); }
+      #hudRight{ width:min(210px, 44vw); }
+      .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .grid2{ grid-template-columns: repeat(3, minmax(0,1fr)); }
     }
-    #tip .card{ padding:10px 12px; border-radius: 18px; }
-    #tip .t{ font-weight:1000; }
-    #tip .s{ margin-top:4px; color:rgba(229,231,235,.72); font-weight:900; }
-
+    @media (max-width: 560px){
+      #hudLeft{ width:min(300px, 74vw); top:88px; }
+      #hudRight{ width:min(190px, 46vw); top:88px; }
+      .tip{ font-size:11px; }
+      .pill .k{ display:none; } /* มือถือ: ซ่อน label ให้โล่ง */
+    }
   </style>
 </head>
 
 <body>
+  <!-- VR Stage (behind HUD & DOM targets) -->
+  <div class="vrStage">
+    <a-scene
+      embedded
+      vr-mode-ui="enabled: true"
+      renderer="colorManagement: true; physicallyCorrectLights: true"
+    >
+      <!-- Camera -->
+      <a-entity id="cam" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
 
-  <!-- A-Frame (camera only for look/VR mode) -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: false"
-    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
-    background="color: #020617"
-  >
-    <a-entity id="rig">
-      <a-camera id="cam" position="0 1.6 0" wasd-controls-enabled="false"></a-camera>
-    </a-entity>
-  </a-scene>
+      <!-- Optional hands for controller events -->
+      <a-entity laser-controls="hand: left"></a-entity>
+      <a-entity laser-controls="hand: right"></a-entity>
 
-  <!-- ===== HUD TOP (tiny bar) ===== -->
-  <div id="hudTop" class="hud">
+      <!-- Minimal background -->
+      <a-sky color="#060b1a"></a-sky>
+      <a-entity light="type: ambient; intensity: 0.9"></a-entity>
+      <a-entity light="type: directional; intensity: 0.8" position="0 3 2"></a-entity>
+    </a-scene>
+  </div>
+
+  <!-- HUD TOP (compact + necessary only) -->
+  <div id="hudTop">
     <div class="card">
-      <div class="row row1">
-        <span class="pill small">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
-        <span class="pill small">⭐ <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
-        <span class="pill small">🔥 <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
-        <span class="pill small">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
-
-        <div class="feverWrap" style="margin-left:auto;">
-          <div style="font-weight:1000; opacity:.86;">FEVER</div>
-          <div class="feverTrack">
-            <div id="hudFever" class="feverFill"></div>
-          </div>
-          <div id="hudFeverPct" class="feverPct">0%</div>
+      <!-- row[0] -->
+      <div class="row">
+        <div class="left">
+          <span class="pill big">⏱️ <span class="k">TIME</span> <span class="v" id="hudTime">0</span></span>
+          <span class="pill big">🏆 <span class="k">SCORE</span> <span class="v" id="hudScore">0</span></span>
+          <span class="pill">🔥 <span class="k">COMBO</span> <span class="v" id="hudCombo">0</span></span>
+          <span class="pill">💥 <span class="k">MISS</span> <span class="v" id="hudMiss">0</span></span>
+          <span class="pill">⭐ <span class="k">PERF</span> <span class="v" id="hudPerfectCount">0</span></span>
+          <span class="pill">🏷️ <span class="k">GRADE</span> <span class="v" id="hudGrade">C</span></span>
+        </div>
+        <div class="right">
+          <span class="pill">🎮 <span class="k">MODE</span> <span class="v" id="hudMode">Play</span></span>
+          <span class="pill">🎚️ <span class="k">DIFF</span> <span class="v" id="hudDiff">Normal</span></span>
+          <span class="pill">🍽️ <span class="k">HAVE</span> <span class="v" id="hudGroupsHave">0/5</span></span>
         </div>
       </div>
 
-      <!-- row2: ให้ plate.safe.js ใช้ append SHIELD/LIVES/POWER ได้ -->
-      <div class="row row2">
-        <span class="pill" style="opacity:.92;">🏅 <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
-        <span class="pill" style="opacity:.92;">🎯 <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
-        <span class="pill" style="opacity:.92;">🍽️ <span class="k">HAVE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
-
-        <span class="pill" style="margin-left:auto; opacity:.86;">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
-        <span class="pill" style="opacity:.86;">⚙️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Normal</span></span>
-        <!-- plate.safe.js จะ inject: hudShield/hudLives/hudPower ต่อท้ายแถวนี้เอง -->
+      <!-- row[1]  (JS จะ append Shield/Lives/State pills มาที่แถวนี้อัตโนมัติ) -->
+      <div class="row">
+        <div class="left" style="flex:1; min-width:220px;">
+          <div class="barWrap">
+            <div class="barLabel">FEVER</div>
+            <div class="bar"><div id="hudFever"></div></div>
+            <div id="hudFeverPct">0%</div>
+          </div>
+        </div>
+        <div class="right"></div>
       </div>
     </div>
   </div>
 
-  <!-- ===== RIGHT FLOAT BUTTONS ===== -->
-  <div id="hudRight" class="hud">
-    <div class="stack">
-      <button id="btnEnterVR" class="btn vr">🕶️ ENTER VR</button>
-      <button id="btnPause" class="btn pause">⏸️ PAUSE</button>
-      <button id="btnRestart" class="btn restart">🔁 RESTART</button>
-    </div>
-  </div>
+  <!-- HUD LEFT (Goal + Mini) -->
+  <div id="hudLeft">
+    <div class="panel">
+      <div class="title">🎯 QUEST</div>
+      <p class="line" id="hudGoalLine">Goal …</p>
 
-  <!-- ===== PAUSED ===== -->
-  <div id="hudPaused" class="hud">
-    <div class="card">⏸️ PAUSED</div>
-  </div>
-
-  <!-- ===== BOTTOM TICKER (Quest+Mini) ===== -->
-  <div id="hudBottom" class="hud">
-    <div class="card">
-      <div class="ticker">
-
-        <details id="questPanel">
-          <summary>
-            <div class="tickline">
-              <div class="ic">🎯</div>
-              <div class="main">
-                <div id="hudGoalLine" class="title">Goal 1/2: …</div>
-                <div class="sub">แตะเพื่อดูรายละเอียด Goal</div>
-              </div>
-            </div>
-          </summary>
-          <div style="margin-top:8px; color:rgba(229,231,235,.76); font-weight:900;">
-            ทำภารกิจให้ครบเพื่อผ่านเกม — เน้น “จานสมดุล + PERFECT”
-          </div>
-        </details>
-
-        <details id="miniPanel">
-          <summary>
-            <div class="tickline">
-              <div class="ic">🧩</div>
-              <div class="main">
-                <div id="hudMiniLine" class="title">MINI: …</div>
-                <div id="hudMiniHint" class="sub">…</div>
-              </div>
-            </div>
-          </summary>
-          <div style="margin-top:8px; color:rgba(229,231,235,.76); font-weight:900;">
-            แตะเพื่อดูเงื่อนไข Mini แบบเต็ม (ช่วงท้าย 3 วิจะกระพริบ/ติ๊ก)
-          </div>
-        </details>
-
+      <div class="panel" id="miniPanel">
+        <div class="title">🧩 MINI</div>
+        <p class="line" id="hudMiniLine">Mini …</p>
+        <div class="hint" id="hudMiniHint">…</div>
       </div>
     </div>
   </div>
 
-  <!-- ===== TIP (small) ===== -->
-  <div id="tip">
-    <div class="card">
-      <div class="t">Tip</div>
-      <div class="s">แตะตรงไหนก็ได้เพื่อยิง (Tap-anywhere) • หมุนมือถือเหมือน VR • ระวังขยะ!</div>
+  <!-- HUD RIGHT (Controls) -->
+  <div id="hudRight">
+    <div class="panel">
+      <div class="title">⚙️ CONTROLS</div>
+      <div class="btnCol">
+        <button class="btn primary" id="btnEnterVR" type="button">🥽 ENTER VR</button>
+        <button class="btn warn" id="btnPause" type="button">⏸️ PAUSE</button>
+        <button class="btn danger" id="btnRestart" type="button">🔄 RESTART</button>
+      </div>
     </div>
   </div>
 
-  <!-- ===== RESULT ===== -->
+  <!-- HUD BOTTOM (minimal tip + paused) -->
+  <div id="hudBottom">
+    <div class="card">
+      <div class="bottomRow">
+        <div class="tip">แตะหน้าจอ/คลิก = ยิงกลางจอ • VR = กด Trigger • เล็งให้เข้า “PERFECT ZONE”</div>
+        <div id="hudPaused">⏸️ PAUSED</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
   <div id="resultBackdrop">
-    <div id="resultCard">
-      <h2>🏁 สรุปผลการเล่น</h2>
-
-      <div id="resultGrid">
-        <div class="kv"><div class="k">MODE</div><div id="rMode" class="v">Play</div></div>
-        <div class="kv"><div class="k">GRADE</div><div id="rGrade" class="v">C</div></div>
-        <div class="kv"><div class="k">SCORE</div><div id="rScore" class="v">0</div></div>
-        <div class="kv"><div class="k">MAX COMBO</div><div id="rMaxCombo" class="v">0</div></div>
-        <div class="kv"><div class="k">MISS</div><div id="rMiss" class="v">0</div></div>
-        <div class="kv"><div class="k">PERFECT</div><div id="rPerfect" class="v">0</div></div>
-        <div class="kv"><div class="k">GOALS</div><div id="rGoals" class="v">0/2</div></div>
-        <div class="kv"><div class="k">MINIS</div><div id="rMinis" class="v">0/7</div></div>
-
-        <div class="kv"><div class="k">GROUP 1</div><div id="rG1" class="v">0</div></div>
-        <div class="kv"><div class="k">GROUP 2</div><div id="rG2" class="v">0</div></div>
-        <div class="kv"><div class="k">GROUP 3</div><div id="rG3" class="v">0</div></div>
-        <div class="kv"><div class="k">GROUP 4</div><div id="rG4" class="v">0</div></div>
-        <div class="kv"><div class="k">GROUP 5</div><div id="rG5" class="v">0</div></div>
-        <div class="kv"><div class="k">TOTAL GOOD</div><div id="rGTotal" class="v">0</div></div>
+    <div class="resultCard">
+      <div class="resultHead">
+        <h2 class="resultTitle">🏁 GAME SUMMARY</h2>
+        <button class="btn primary" id="btnPlayAgain" type="button">▶️ PLAY AGAIN</button>
       </div>
 
-      <div class="resultBtns">
-        <button id="btnPlayAgain" class="btn2">▶️ PLAY AGAIN</button>
-        <button class="btn2" onclick="document.getElementById('resultBackdrop').style.display='none'">✖️ CLOSE</button>
+      <div class="grid">
+        <div class="stat"><div class="k">MODE</div><div class="v" id="rMode">Play</div></div>
+        <div class="stat"><div class="k">GRADE</div><div class="v" id="rGrade">C</div></div>
+        <div class="stat"><div class="k">SCORE</div><div class="v" id="rScore">0</div></div>
+        <div class="stat"><div class="k">MAX COMBO</div><div class="v" id="rMaxCombo">0</div></div>
+        <div class="stat"><div class="k">MISS</div><div class="v" id="rMiss">0</div></div>
+        <div class="stat"><div class="k">PERFECT</div><div class="v" id="rPerfect">0</div></div>
+        <div class="stat"><div class="k">GOALS</div><div class="v" id="rGoals">0/2</div></div>
+        <div class="stat"><div class="k">MINIS</div><div class="v" id="rMinis">0/7</div></div>
+      </div>
+
+      <div class="grid2">
+        <div class="stat"><div class="k">G1</div><div class="v" id="rG1">0</div></div>
+        <div class="stat"><div class="k">G2</div><div class="v" id="rG2">0</div></div>
+        <div class="stat"><div class="k">G3</div><div class="v" id="rG3">0</div></div>
+        <div class="stat"><div class="k">G4</div><div class="v" id="rG4">0</div></div>
+        <div class="stat"><div class="k">G5</div><div class="v" id="rG5">0</div></div>
+        <div class="stat"><div class="k">TOTAL</div><div class="v" id="rGTotal">0</div></div>
       </div>
     </div>
   </div>
-
-  <!-- ===== Game module ===== -->
-  <script type="module" src="./plate/plate.safe.js"></script>
-
 </body>
 </html>
