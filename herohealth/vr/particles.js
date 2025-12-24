@@ -1,7 +1,9 @@
 // === /herohealth/vr/particles.js ===
 // HeroHealth FX Layer (PRODUCTION / SAFE)
-// - scorePop(x,y,txt,label)
-// - burstAt(x,y,mode)
+// - scorePop(x,y,txt,label)  ✅ รองรับด้วย
+// - scorePop(txt,x,y,label) ✅ รองรับย้อนหลัง (กันพารามิเตอร์สลับ)
+// - burstAt(x,y,mode)       ✅ รองรับด้วย
+// - burstAt(mode,x,y)       ✅ รองรับย้อนหลัง
 // - celebrate({kind,intensity})
 // - toast(text, ms)
 // + FloatingPop HARD MODE (fever-scaled + trail + micro-shake)
@@ -40,6 +42,30 @@
   function fever01(){ return Math.max(0, Math.min(1, (__HHA_FEVER__||0)/100)); }
 
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  // ---------- helpers: tolerant args ----------
+  function toNum(v){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : NaN;
+  }
+  function fallbackXY(x, y){
+    // ถ้า x/y ไม่ใช่ตัวเลขจริง ให้เด้งใกล้กลางจอ (ไม่ไป 0,0)
+    const fx = Number.isFinite(x) ? x : (innerWidth * 0.5);
+    const fy = Number.isFinite(y) ? y : (innerHeight * 0.42);
+    return { x: fx, y: fy };
+  }
+  function sanitizeText(txt){
+    if (txt === undefined || txt === null) return '';
+    // ถ้าเผลอส่งเลขทศนิยมยาวผิดธรรมชาติ (เช่นพิกัด) ให้ลดความยาวลง
+    if (typeof txt === 'number') {
+      // คะแนนปกติเป็น int อยู่แล้ว → ปัดให้สวย
+      return String(Math.round(txt));
+    }
+    const s = String(txt);
+    // กันเลขทศนิยมยาวแบบพิกัดหลุด
+    if (/^-?\d+\.\d{6,}$/.test(s)) return String(Math.round(Number(s)));
+    return s;
+  }
 
   // ---------- CSS ----------
   let _cssDone = false;
@@ -219,12 +245,26 @@ body.hha-microshake{ animation: hhaMicroShake .14s linear; }
   }
 
   // ---------- core fx ----------
-  function burstAt(x, y, mode = 'good') {
+  function burstAt(a, b, c = 'good') {
+    // รองรับ: burstAt(x,y,mode) และ burstAt(mode,x,y)
+    let x, y, mode;
+    if (typeof a === 'string') {
+      mode = a;
+      x = toNum(b);
+      y = toNum(c);
+    } else {
+      x = toNum(a);
+      y = toNum(b);
+      mode = c;
+    }
+    const xy = fallbackXY(x, y);
+    x = xy.x; y = xy.y;
+
     const layer = ensureLayer();
     const el = doc.createElement('div');
     el.className = 'hha-burst';
 
-    // mode tint (no hard colors requested; keep subtle via box-shadow intensity only)
+    // mode tint (subtle via glow only)
     const m = String(mode || 'good').toLowerCase();
     let glow = 'rgba(255,255,255,.20)';
     if (m.includes('trap') || m.includes('bad')) glow = 'rgba(251,113,133,.22)';
@@ -239,7 +279,24 @@ body.hha-microshake{ animation: hhaMicroShake .14s linear; }
     setTimeout(() => { try { el.remove(); } catch (_) {} }, 560);
   }
 
-  function scorePop(x, y, txt, label = '') {
+  function scorePop(a, b, c, d = '') {
+    // รองรับ:
+    // 1) scorePop(x,y,txt,label)
+    // 2) scorePop(txt,x,y,label)
+    let x, y, txt, label;
+
+    if (typeof a === 'string' && Number.isFinite(toNum(b)) && Number.isFinite(toNum(c))) {
+      txt = a; x = toNum(b); y = toNum(c); label = d;
+    } else {
+      x = toNum(a); y = toNum(b); txt = c; label = d;
+    }
+
+    const xy = fallbackXY(x, y);
+    x = xy.x; y = xy.y;
+
+    const safeTxt = sanitizeText(txt);
+    const safeLabel = (label !== undefined && label !== null) ? String(label) : '';
+
     const layer = ensureLayer();
     const el = doc.createElement('div');
     el.className = 'hha-scorepop';
@@ -248,13 +305,13 @@ body.hha-microshake{ animation: hhaMicroShake .14s linear; }
 
     const t = doc.createElement('span');
     t.className = 't';
-    t.textContent = String(txt || '');
+    t.textContent = safeTxt;
     el.appendChild(t);
 
-    if (label) {
+    if (safeLabel) {
       const l = doc.createElement('span');
       l.className = 'l';
-      l.textContent = String(label || '');
+      l.textContent = safeLabel;
       el.appendChild(l);
     }
 
@@ -349,7 +406,6 @@ body.hha-microshake{ animation: hhaMicroShake .14s linear; }
   }
 
   // ---------- event bridges ----------
-  // allow game code to do: dispatchEvent('hha:floatpop', {text,kind,size,ms,x,y,dx})
   root.addEventListener('hha:floatpop', (e) => {
     const d = e.detail || {};
     const x = (d.x !== undefined) ? Number(d.x) : innerWidth * 0.5;
@@ -357,12 +413,10 @@ body.hha-microshake{ animation: hhaMicroShake .14s linear; }
     floatPop(x, y, d.text || '', d.kind || 'info', d.size || 'small', d.ms || 720, d.dx || 0);
   });
 
-  // optional: judge -> floatpop (ถ้าอยากให้เด้งเอง)
   root.addEventListener('hha:judge', (e) => {
     const d = e.detail || {};
     const label = String(d.label || '');
     if (!label) return;
-    // center-ish pop
     floatPop(innerWidth * 0.5, innerHeight * 0.46, label, /miss|hit|bad/i.test(label) ? 'bad' : 'good', 'small', 620, 0);
   });
 
