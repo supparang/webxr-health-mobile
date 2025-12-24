@@ -1,12 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// ✅ A+B+C PACK: Arcade + Skill + Panic/Survival
-// ✅ Auto-hide HUD (เหลือส่วนจำเป็น) + Peek
-// ✅ Gyro limit (เอียงนิดเดียวไม่หนี) + calibration (double tap)
-// ✅ Drag threshold (ลาก=look ไม่ใช่ tap) [ส่งให้ mode-factory]
-// ✅ Endscreen fallback (กันจอดำ)
-// ✅ debug=1 รองรับ
-// ✅ GREEN Risk/Reward + Combo milestones + Final Rush + Boss + Freeze/Magnet + Panic overlay
+// ✅ ULTIMATE PACK: A+B+C + Tap-anywhere shoot crosshair + Anti-stuck spawn support
+// ✅ Auto-hide HUD + Peek
+// ✅ Gyro stable (เอียงนิดเดียวไม่หนี) + double-tap reset view
+// ✅ Drag threshold (ลาก=look ไม่ใช่ tap) + ยิงกลางจอเมื่อเป็น “tap”
+// ✅ Endscreen fallback (กันจอดำ) + debug=1
+// ✅ GREEN Risk/Reward + Combo milestones + Final Rush (tick/flash) + Boss 3-hit
+// ✅ Freeze 🧊 / Magnet ⭐ / Shield 🛡️ / Time ⏱️ / Trick 🍭
 // ✅ Fix: postfx canvas ไม่บังเป้า
 
 'use strict';
@@ -63,21 +63,24 @@ const TUNE = {
 
   missOnGoodExpire:true,
 
-  // look
-  lookMaxX:360,
-  lookMaxY:270,
-  lookPxPerDegX:6.6,
-  lookPxPerDegY:5.2,
+  // look (drag+gyro) — ลดความไวลงให้ “ไม่วิ่งหนี”
+  lookMaxX:340,
+  lookMaxY:250,
+  lookPxPerDegX:6.2,
+  lookPxPerDegY:4.9,
   lookSmooth:0.10,
 
-  // speed limit per frame (กัน “วิ่งหนี”)
-  lookMaxStepX: 7.2,
-  lookMaxStepY: 6.0,
+  lookMaxStepX: 6.8,
+  lookMaxStepY: 5.6,
 
-  // gyro stability
-  gyroDeadGamma: 1.8,
-  gyroDeadBeta:  2.3,
+  gyroDeadGamma: 1.9,
+  gyroDeadBeta:  2.4,
   gyroBiasBeta:  18,
+
+  // input (tap vs drag)
+  dragThresholdPx: 12,       // ถ้าขยับเกินนี้ = drag (ไม่ยิง)
+  tapMaxMs: 260,             // tap สั้น ๆ เท่านั้น
+  tapCooldownMs: 38,         // กันยิงถี่เกิน
 
   urgencyAtSec:10,
   urgencyBeepHz:920,
@@ -90,10 +93,7 @@ const TUNE = {
   rushAtSec: 8,
   rushSpawnMul: 0.62,
   rushScoreMul: 1.5,
-
-  // HUD auto-hide
-  hudHideAfterSec: 2.2,
-  hudPeekMs: 1600,
+  rushTickHz: 1020,
 
   // combo milestones
   comboMilestones: [5, 10, 15],
@@ -108,6 +108,10 @@ const TUNE = {
   bossEverySpawns: 11,
   bossHp: 3,
   bossEmoji: '💧',
+
+  // haptics
+  vibeOnJunkMs: 35,
+  vibeOnPerfectMs: 18,
 };
 
 function ensureEndHost(){
@@ -139,7 +143,7 @@ function ensureHudAutoHide(){
       s.id='hud-compact-style';
       s.textContent=`
         .hud{ transition: transform .18s ease, opacity .18s ease; }
-        .hud.hud-hidden{ opacity:0; transform:translate3d(0,-14px,0); }
+        .hud.hud-hidden{ opacity:0; transform:translate3d(0,-14px,0); pointer-events:none; }
         .hud.hud-compact .card{ padding:10px 12px 10px !important; min-width:200px !important; }
         .hud.hud-compact .title{ font-size:18px !important; }
         .hud.hud-compact #hha-water-card .muted:last-child{ display:none; }
@@ -151,7 +155,7 @@ function ensureHudAutoHide(){
   let hideTimer=null;
   function scheduleHide(){
     try{ if (hideTimer) clearTimeout(hideTimer); }catch{}
-    hideTimer = setTimeout(()=>{ hud.classList.add('hud-hidden'); }, TUNE.hudHideAfterSec*1000);
+    hideTimer = setTimeout(()=>{ hud.classList.add('hud-hidden'); }, 2200);
   }
   function touch(){
     hud.classList.remove('hud-hidden');
@@ -160,7 +164,7 @@ function ensureHudAutoHide(){
   function peek(){
     hud.classList.remove('hud-hidden');
     scheduleHide();
-    setTimeout(()=>{ hud.classList.add('hud-hidden'); }, TUNE.hudPeekMs);
+    setTimeout(()=>{ hud.classList.add('hud-hidden'); }, 1600);
   }
 
   const onPointerDown = ()=> touch();
@@ -179,7 +183,7 @@ function ensureHudAutoHide(){
   };
 }
 
-// ---------- Panic overlay (bubble / splash) ----------
+// ---------- Panic overlay ----------
 function ensurePanicLayer(){
   let el = document.getElementById('hvr-panic');
   if (el) return el;
@@ -187,10 +191,10 @@ function ensurePanicLayer(){
   el.id = 'hvr-panic';
   el.style.position='fixed';
   el.style.inset='0';
-  el.style.zIndex='55';           // ต่ำกว่า HUD(80) แต่สูงกว่า playfield(10)
+  el.style.zIndex='55';
   el.style.pointerEvents='none';
   el.style.opacity='0';
-  el.style.transition='opacity .18s ease';
+  el.style.transition='opacity .14s ease';
   el.style.background = `
     radial-gradient(900px 700px at 20% 30%, rgba(56,189,248,.14), transparent 55%),
     radial-gradient(800px 650px at 80% 25%, rgba(167,139,250,.12), transparent 60%),
@@ -202,11 +206,65 @@ function ensurePanicLayer(){
 }
 function panicOn(level=1){
   const el = ensurePanicLayer();
-  el.style.opacity = String(clamp(0.10 + level*0.06, 0.10, 0.32));
+  el.style.opacity = String(clamp(0.10 + level*0.07, 0.10, 0.34));
 }
 function panicOff(){
   const el = ensurePanicLayer();
   el.style.opacity = '0';
+}
+
+// ---------- Edge flash + mild shake ----------
+function ensureEdgeFX(){
+  let el = document.getElementById('hvr-edgefx');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id='hvr-edgefx';
+  el.style.position='fixed';
+  el.style.inset='0';
+  el.style.zIndex='58';
+  el.style.pointerEvents='none';
+  el.style.opacity='0';
+  el.style.transition='opacity .08s ease';
+  el.style.boxShadow='inset 0 0 0 3px rgba(255,255,255,0.0)';
+  document.body.appendChild(el);
+
+  if (!document.getElementById('hvr-edgefx-style')){
+    const s=document.createElement('style');
+    s.id='hvr-edgefx-style';
+    s.textContent=`
+      .hvr-shake-soft{ animation: hvrShakeSoft .14s ease-in-out 1; }
+      @keyframes hvrShakeSoft{
+        0%{ transform: translate3d(0,0,0); }
+        25%{ transform: translate3d(-2px,0,0); }
+        50%{ transform: translate3d(2px,0,0); }
+        75%{ transform: translate3d(-1px,0,0); }
+        100%{ transform: translate3d(0,0,0); }
+      }
+    `;
+    document.head.appendChild(s);
+  }
+  return el;
+}
+function edgeFlash(kind='rush'){
+  const el = ensureEdgeFX();
+  if (kind==='rush'){
+    el.style.boxShadow='inset 0 0 0 3px rgba(250,204,21,0.26), inset 0 0 24px rgba(250,204,21,0.12)';
+  } else if (kind==='storm'){
+    el.style.boxShadow='inset 0 0 0 3px rgba(56,189,248,0.24), inset 0 0 26px rgba(56,189,248,0.10)';
+  } else if (kind==='junk'){
+    el.style.boxShadow='inset 0 0 0 3px rgba(248,113,113,0.22), inset 0 0 26px rgba(248,113,113,0.10)';
+  } else {
+    el.style.boxShadow='inset 0 0 0 3px rgba(255,255,255,0.16), inset 0 0 22px rgba(255,255,255,0.06)';
+  }
+  el.style.opacity='1';
+  setTimeout(()=>{ el.style.opacity='0'; }, 90);
+}
+function shakeSoft(){
+  try{
+    document.body.classList.remove('hvr-shake-soft');
+    void document.body.offsetWidth;
+    document.body.classList.add('hvr-shake-soft');
+  }catch{}
 }
 
 export async function boot(opts = {}){
@@ -226,6 +284,7 @@ export async function boot(opts = {}){
   if (postfx){
     postfx.style.zIndex = '6';
     postfx.style.opacity = '0.55';
+    postfx.style.pointerEvents = 'none';
   }
 
   // bounds layer (not transformed)
@@ -258,31 +317,25 @@ export async function boot(opts = {}){
 
     fever:0, feverActive:false, feverLeft:0, shield:0,
 
-    // look state
     lookTX:0, lookTY:0,
     lookVX:0, lookVY:0,
     _prevVX:0, _prevVY:0,
 
-    // gyro calibration
     gyroCenterGamma:0,
     gyroCenterBeta: TUNE.gyroBiasBeta,
 
     stormLeft:0,
     stopped:false,
 
-    // A+B+C state
     rushOn:false,
     freezeLeft:0,
     magnetLeft:0,
     lastMilestone:0,
 
-    // for boss
-    spawnCount:0,
+    lastTapFireAt:0,
   };
 
   const Q = createHydrationQuest(difficulty);
-
-  // HUD auto-hide
   const HUD = ensureHudAutoHide();
 
   ROOT.HHA_ACTIVE_INST = { stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} } };
@@ -370,9 +423,9 @@ export async function boot(opts = {}){
   }
   function feverStart(){
     state.feverActive=true;
-    state.feverLeft=TUNE.feverDurationSec;
-    state.fever=TUNE.feverTriggerAt;
-    state.shield = clamp(state.shield + TUNE.shieldOnFeverStart, 0, TUNE.shieldMax);
+    state.feverLeft=6;
+    state.fever=100;
+    state.shield = clamp(state.shield + 2, 0, TUNE.shieldMax);
     feverRender();
     dispatch('hha:fever',{state:'start',value:state.fever,active:true,shield:state.shield});
     dispatch('hha:coach',{text:'🔥 FEVER! ยิงให้ไว คะแนนคูณ x2 + ได้เกราะ 🛡️', mood:'happy'});
@@ -389,7 +442,7 @@ export async function boot(opts = {}){
   function feverAdd(v){
     if (state.feverActive) return;
     state.fever = clamp(state.fever + (Number(v)||0),0,100);
-    if (state.fever >= TUNE.feverTriggerAt) feverStart();
+    if (state.fever >= 100) feverStart();
     else feverRender();
   }
   function feverLose(v){
@@ -398,26 +451,18 @@ export async function boot(opts = {}){
     feverRender();
   }
 
-  // ---------- A+B+C helpers ----------
-  function zoneMulScore(){
-    return (state.zone === 'GREEN') ? TUNE.zoneScoreMulGreen : TUNE.zoneScoreMulOff;
-  }
-  function zoneMulFever(){
-    return (state.zone === 'GREEN') ? TUNE.zoneFeverMulGreen : TUNE.zoneFeverMulOff;
-  }
-  function rushMulScore(){
-    return state.rushOn ? TUNE.rushScoreMul : 1;
-  }
+  function zoneMulScore(){ return (state.zone === 'GREEN') ? TUNE.zoneScoreMulGreen : TUNE.zoneScoreMulOff; }
+  function zoneMulFever(){ return (state.zone === 'GREEN') ? TUNE.zoneFeverMulGreen : TUNE.zoneFeverMulOff; }
+  function rushMulScore(){ return state.rushOn ? TUNE.rushScoreMul : 1; }
 
   function onComboMilestone(){
-    // milestone: 5/10/15
     const m = state.combo;
     if (m <= state.lastMilestone) return;
     if (!TUNE.comboMilestones.includes(m)) return;
-
     state.lastMilestone = m;
+
     if (m === 5){
-      dispatch('hha:coach',{text:'⚡ COMBO 5! สวยมาก! รักษา GREEN ต่อ!', mood:'happy'});
+      dispatch('hha:coach',{text:'⚡ COMBO 5! โคตรดี! รักษา GREEN ต่อ!', mood:'happy'});
       try{ Particles.toast?.('COMBO x5!','good'); }catch{}
     }
     if (m === 10){
@@ -437,23 +482,23 @@ export async function boot(opts = {}){
 
   function isPerfectHit(isGoodOrPower, ctx){
     if (!isGoodOrPower) return false;
-    // aim perfect จาก mode-factory ช่วยให้ “รู้สึกได้จริง”
-    if (ctx && ctx.hitPerfect) return true;
-    // skill perfect: GREEN + combo/fever
+    if (ctx && ctx.hitPerfect) return true;     // perfect ring จาก mode-factory
     if (state.zone !== 'GREEN') return false;
     return (state.combo >= 5) || state.feverActive;
   }
 
+  function vibrate(ms){
+    try{ if (ROOT.navigator?.vibrate) ROOT.navigator.vibrate(ms|0); }catch{}
+  }
+
   function judgeCore(ch, ctx){
     const isGood=!!ctx.isGood, isPower=!!ctx.isPower;
-    const isBoss = !!ctx.isBoss;
-    const bossChip = !!ctx.bossChip;
-
-    let scoreDelta=0, label='GOOD';
     const multFever = state.feverActive ? 2 : 1;
 
+    let scoreDelta=0, label='GOOD';
+
     if (isPower){ scoreDelta = TUNE.scorePower; label='POWER'; }
-    else if (isGood){ scoreDelta = TUNE.scoreGood; label = isBoss ? 'BOSS' : 'GOOD'; }
+    else if (isGood){ scoreDelta = TUNE.scoreGood; label = ctx.isBoss ? 'BOSS' : 'GOOD'; }
     else {
       if (state.shield>0){
         state.shield -= 1;
@@ -467,30 +512,23 @@ export async function boot(opts = {}){
       label='JUNK';
     }
 
-    // Risk/Reward: zone + rush
-    if (isGood || isPower){
-      scoreDelta = Math.round(scoreDelta * zoneMulScore() * rushMulScore());
-    } else {
-      // junk ตอน rush กดดันขึ้นนิด
-      scoreDelta = Math.round(scoreDelta * (state.rushOn ? 1.15 : 1));
-    }
+    // zone + rush
+    if (isGood || isPower) scoreDelta = Math.round(scoreDelta * zoneMulScore() * rushMulScore());
+    else scoreDelta = Math.round(scoreDelta * (state.rushOn ? 1.15 : 1));
 
-    // boss chip = แต้มเล็กก่อนแตก
-    if (isBoss && bossChip && (isGood || isPower)){
-      scoreDelta = Math.round(scoreDelta * 0.65);
-    }
-    // fever multiplier
+    // fever
     scoreDelta = Math.round(scoreDelta * multFever);
 
-    // combo
+    // combo/miss
     if (isGood || isPower){
       state.combo += 1;
       state.comboBest = Math.max(state.comboBest, state.combo);
       onComboMilestone();
     } else {
       state.combo=0;
-      state.miss += 1;
       state.lastMilestone = 0;
+      state.miss += 1;
+      edgeFlash('junk'); shakeSoft(); vibrate(TUNE.vibeOnJunkMs);
     }
 
     // perfect
@@ -498,7 +536,7 @@ export async function boot(opts = {}){
     if (perfect){
       scoreDelta += Math.round(TUNE.scorePerfectBonus * multFever * (state.rushOn ? 1.25 : 1));
       label='PERFECT';
-      // perfect เติม fever เพิ่ม (skill-based)
+      vibrate(TUNE.vibeOnPerfectMs);
       if (!state.feverActive) state.fever = clamp(state.fever + 4, 0, 100);
     }
 
@@ -546,7 +584,9 @@ export async function boot(opts = {}){
 
   // --------------------- LOOK (drag) + gyro ---------------------
   let dragOn=false;
-  let lastX=0,lastY=0;
+  let downX=0, downY=0, lastX=0, lastY=0;
+  let downTs=0;
+  let movedPx=0;
 
   function applyLookTransform(){
     state.lookVX += (state.lookTX - state.lookVX) * TUNE.lookSmooth;
@@ -564,8 +604,10 @@ export async function boot(opts = {}){
 
   function onPointerDown(ev){
     dragOn=true;
-    lastX=ev.clientX||0;
-    lastY=ev.clientY||0;
+    downX = lastX = ev.clientX||0;
+    downY = lastY = ev.clientY||0;
+    downTs = Date.now();
+    movedPx = 0;
     HUD.touch();
   }
   function onPointerMove(ev){
@@ -573,10 +615,39 @@ export async function boot(opts = {}){
     const x=ev.clientX||0, y=ev.clientY||0;
     const dx=x-lastX, dy=y-lastY;
     lastX=x; lastY=y;
+
+    movedPx += Math.abs(dx) + Math.abs(dy);
+
     state.lookTX = clamp(state.lookTX + dx*1.05, -TUNE.lookMaxX, TUNE.lookMaxX);
     state.lookTY = clamp(state.lookTY + dy*0.90, -TUNE.lookMaxY, TUNE.lookMaxY);
   }
-  function onPointerUp(){ dragOn=false; }
+
+  let spawner=null;
+
+  function tryTapFire(){
+    if (!spawner?.shootCrosshair) return false;
+    const now = Date.now();
+    if (now - state.lastTapFireAt < TUNE.tapCooldownMs) return false;
+    state.lastTapFireAt = now;
+
+    const ok = spawner.shootCrosshair();
+    if (ok){
+      try{ Particles.burstAt?.(downX, downY, 'HIT'); }catch{}
+    }
+    return ok;
+  }
+
+  function onPointerUp(){
+    const dt = Date.now() - downTs;
+    const moved = movedPx;
+
+    dragOn=false;
+
+    // ✅ Tap-anywhere ยิงกลางจอ (ถ้าไม่ลาก)
+    if (dt <= TUNE.tapMaxMs && moved <= TUNE.dragThresholdPx){
+      tryTapFire();
+    }
+  }
 
   function onDeviceOrientation(e){
     const gRaw = Number(e.gamma);
@@ -592,9 +663,8 @@ export async function boot(opts = {}){
     const tx = g * TUNE.lookPxPerDegX;
     const ty = (b) * TUNE.lookPxPerDegY;
 
-    // blend (ไม่ snap)
-    state.lookTX = clamp(state.lookTX*0.72 + tx*0.28, -TUNE.lookMaxX, TUNE.lookMaxX);
-    state.lookTY = clamp(state.lookTY*0.72 + ty*0.28, -TUNE.lookMaxY, TUNE.lookMaxY);
+    state.lookTX = clamp(state.lookTX*0.74 + tx*0.26, -TUNE.lookMaxX, TUNE.lookMaxX);
+    state.lookTY = clamp(state.lookTY*0.74 + ty*0.26, -TUNE.lookMaxY, TUNE.lookMaxY);
   }
 
   async function requestGyroPermission(){
@@ -613,9 +683,9 @@ export async function boot(opts = {}){
     }
   }
 
-  // double-tap to reset view (ง่าย+ไว)
+  // double-tap reset view
   let lastTap=0;
-  function onTapForCalibrate(){
+  function onTapForReset(){
     const now=Date.now();
     if (now-lastTap < 350){
       state.gyroCenterGamma = 0;
@@ -632,6 +702,7 @@ export async function boot(opts = {}){
   let timer=null;
   let rafId=null;
   let audioCtx=null;
+
   function beep(freq,dur){
     try{
       audioCtx = audioCtx || new (ROOT.AudioContext || ROOT.webkitAudioContext)();
@@ -652,8 +723,13 @@ export async function boot(opts = {}){
     state.timeLeft = Math.max(0, state.timeLeft - 1);
     dispatch('hha:time',{sec:state.timeLeft});
 
-    // Final Rush toggles
     state.rushOn = (state.timeLeft > 0 && state.timeLeft <= TUNE.rushAtSec);
+
+    // rush tick/flash
+    if (state.rushOn){
+      beep(TUNE.rushTickHz, 0.03);
+      edgeFlash('rush');
+    }
 
     // water drift
     state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec,0,100);
@@ -670,7 +746,6 @@ export async function boot(opts = {}){
       Q.stats.zone=state.zone;
     }
 
-    // countdown power effects
     if (state.freezeLeft > 0) state.freezeLeft -= 1;
     if (state.magnetLeft > 0) state.magnetLeft -= 1;
 
@@ -691,10 +766,11 @@ export async function boot(opts = {}){
       state.stormLeft = TUNE.stormDurationSec;
       dispatch('hha:coach',{text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น! ตั้งสติ รักษา GREEN!', mood:'happy'});
       try{ Particles.toast?.('STORM WAVE!','warn'); }catch{}
+      edgeFlash('storm');
       HUD.touch();
     }
 
-    // panic overlay: storm/rush
+    // panic overlay
     if (state.stormLeft > 0) panicOn(2);
     else if (state.rushOn)   panicOn(1);
     else panicOff();
@@ -719,8 +795,6 @@ export async function boot(opts = {}){
   }
 
   // --------------------- Spawner ---------------------
-  let spawner=null;
-
   spawner = await factoryBoot({
     modeKey:'hydration',
     difficulty,
@@ -729,42 +803,37 @@ export async function boot(opts = {}){
     spawnHost:'#hvr-playfield',
     boundsHost: boundsEl,
 
-    // ✅ FULL-SPREAD + "รู้สึกกระจายจริง"
-    spawnAroundCrosshair: ()=> (state.magnetLeft > 0),  // magnet = bias เข้ากลางชั่วคราว
+    spawnAroundCrosshair: ()=> (state.magnetLeft > 0),
     spawnStrategy: 'grid9',
-    spawnRadiusX: ()=> (state.magnetLeft > 0 ? 0.40 : 0.98),
+    spawnRadiusX: ()=> (state.magnetLeft > 0 ? 0.42 : 0.98),
     spawnRadiusY: ()=> (state.magnetLeft > 0 ? 0.38 : 0.98),
     minSeparation: 0.92,
     maxSpawnTries: 22,
 
-    // ส่ง threshold ให้ mode-factory (ป้องกัน tap vs drag ในอนาคต)
-    dragThresholdPx: 11,
+    // ส่งไปให้ mode-factory (พร้อมใช้)
+    dragThresholdPx: TUNE.dragThresholdPx,
 
-    // storm / rush / freeze: เร่งจริง + หยุดจริง
     spawnIntervalMul: ()=>{
-      if (state.freezeLeft > 0) return 999;                 // freeze = แทบไม่ spawn
-      if (state.rushOn) return TUNE.rushSpawnMul;           // final rush
+      if (state.freezeLeft > 0) return 999;
+      if (state.rushOn) return TUNE.rushSpawnMul;
       return (state.stormLeft>0 ? TUNE.stormIntervalMul : 1);
     },
 
-    // exclude: ใช้ hud + end + crosshair (แต่ mode-factory จะ ignore ตอน hud-hidden)
     excludeSelectors: ['.hud', '#hvr-crosshair', '#hvr-end'],
 
     pools:{
       good:['💧','🥛','🍉','🥥','🍊'],
       bad: ['🥤','🧋','🍟','🍔'],
-      trick:['🍭'] // fake good (อ่านเกมได้: glow ม่วงใน mode-factory)
+      trick:['🍭']
     },
 
     trickRate: (difficulty==='hard') ? 0.12 : 0.09,
-
     goodRate: (difficulty==='hard')?0.55:(difficulty==='easy'?0.70:0.62),
 
     powerups:['⭐','🛡️','⏱️','🧊'],
     powerRate:(difficulty==='hard')?0.11:0.13,
     powerEvery:6,
 
-    // boss config (เร้าใจมาก)
     boss: {
       enabled: true,
       every: TUNE.bossEverySpawns,
@@ -807,12 +876,10 @@ export async function boot(opts = {}){
         state.fever = clamp(state.fever+2,0,100);
       }
 
-      // boss / trick / normal judge
       return judgeCore(ch, ctx);
     },
 
     onExpire:(info)=>{
-      // storm punish small
       if (state.stormLeft>0 && info?.isGood && !info?.isPower){
         state.waterPct = clamp(state.waterPct-2,0,100);
       }
@@ -827,14 +894,14 @@ export async function boot(opts = {}){
   updateScoreHud();
   feverRender();
 
-  // input listeners
+  // input listeners (tap-anywhere fire)
   playfield.addEventListener('pointerdown', onPointerDown, { passive:true });
   ROOT.addEventListener('pointermove', onPointerMove, { passive:true });
   ROOT.addEventListener('pointerup', onPointerUp, { passive:true });
   ROOT.addEventListener('pointercancel', onPointerUp, { passive:true });
-  ROOT.addEventListener('pointerdown', onTapForCalibrate, { passive:true });
+  ROOT.addEventListener('pointerdown', onTapForReset, { passive:true });
 
-  // gyro: if available without permission
+  // gyro
   try{
     const D = ROOT.DeviceOrientationEvent;
     if (D && typeof D.requestPermission !== 'function'){
@@ -842,7 +909,6 @@ export async function boot(opts = {}){
     }
   }catch{}
 
-  // ask gyro permission on first touch (optional)
   const onceAsk = async ()=>{
     ROOT.removeEventListener('pointerdown', onceAsk);
     await requestGyroPermission();
@@ -923,7 +989,7 @@ export async function boot(opts = {}){
       try{ ROOT.removeEventListener('pointermove', onPointerMove); }catch{}
       try{ ROOT.removeEventListener('pointerup', onPointerUp); }catch{}
       try{ ROOT.removeEventListener('pointercancel', onPointerUp); }catch{}
-      try{ ROOT.removeEventListener('pointerdown', onTapForCalibrate); }catch{}
+      try{ ROOT.removeEventListener('pointerdown', onTapForReset); }catch{}
 
       showEndScreen(payload || {score:0,miss:0,comboBest:0,water:0,greenTick:0});
     }
