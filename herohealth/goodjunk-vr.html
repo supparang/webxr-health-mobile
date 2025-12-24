@@ -1,1029 +1,651 @@
-<!-- === /herohealth/goodjunk-vr.html === -->
+<!-- === /herohealth/goodjunk-vr.html ===
+GoodJunkVR — FULL HTML (UPDATED: MORE GAMEPLAY SPACE)
+✅ HUD/Quest/Coach compact layout (พื้นที่ gameplay ใหญ่ขึ้น)
+✅ Compact mode อัตโนมัติหลังเริ่มเล่น + แตะ Quest เพื่อ “peek” 2 วิ
+✅ โครง production: DOM target layer (#gj-layer) + End Summary overlay
+✅ โหลด particles.js BEFORE boot module (สำคัญ)
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GoodJunk VR</title>
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- A-Frame core (ใช้สำหรับ Enter VR / พื้นหลัง) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + Logger -->
+  <!-- Global FX + logger + HUD + Fever (IIFE) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
+
+  <!-- Boot (module) — MUST come after particles.js -->
+  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 
   <style>
     :root{
+      color-scheme: light dark;
       --bg:#020617;
       --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
+
       --accent:#22c55e;
       --warn:#f59e0b;
-      --danger:#fb7185;
-      --crossY: 62vh;
+      --bad:#ef4444;
+
+      --shadow: 0 18px 70px rgba(0,0,0,.45);
+
+      /* ✅ ปรับพื้นที่เกม */
+      --safeTop: env(safe-area-inset-top, 0px);
+      --safeBottom: env(safe-area-inset-bottom, 0px);
+      --hudH: 46px;
+      --hudGap: 10px;
     }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif; }
+
     *{ box-sizing:border-box; }
-    #app{ position:fixed; inset:0; overflow:hidden; background: radial-gradient(1000px 700px at 50% 10%, rgba(37,99,235,.10), transparent 60%),
-                                          radial-gradient(900px 700px at 50% 120%, rgba(34,197,94,.10), transparent 55%),
-                                          linear-gradient(180deg, #020617, #020617); }
-    #sceneWrap{ position:absolute; inset:0; z-index:1; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      background: radial-gradient(1200px 700px at 50% -10%, rgba(59,130,246,.18), transparent 55%),
+                  radial-gradient(900px 600px at 70% 10%, rgba(34,197,94,.12), transparent 55%),
+                  var(--bg);
+      color:var(--text);
+      overflow:hidden;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", "Noto Sans", Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    /* --- A-Frame canvas behind UI --- */
+    .sceneWrap{
+      position:fixed; inset:0;
+      z-index:0;
+      pointer-events:none; /* UI ทับได้ */
+    }
     a-scene{ width:100%; height:100%; }
-    canvas{ touch-action:none; }
 
-    #look-area{
-      position:absolute; inset:0;
-      z-index:2;
-      background:transparent;
-      touch-action:none;
-    }
-
+    /* --- Gameplay layer (DOM targets) --- */
     #gj-layer{
-      position:absolute; inset:0;
-      z-index:3;
-      pointer-events:auto;
-      transform: translate3d(0,0,0);
-      will-change: transform;
-    }
-    .gj-target{
-      position:absolute;
-      transform: translate(-50%,-50%);
-      font-size:56px;
-      filter: drop-shadow(0 18px 30px rgba(0,0,0,.55));
+      position:fixed; inset:0;
+      z-index:2;
+      overflow:hidden;
+      touch-action:none;
       user-select:none;
       -webkit-user-select:none;
-      cursor:pointer;
-      line-height:1;
-      will-change: transform, opacity, left, top;
-    }
-    .gj-target.spawn{ animation: popIn .12s ease-out both; }
-    .gj-target.gone{ animation: popOut .14s ease-in both; }
-    @keyframes popIn{ from{ transform:translate(-50%,-50%) scale(.75); opacity:.2 } to{ transform:translate(-50%,-50%) scale(1); opacity:1 } }
-    @keyframes popOut{ to{ transform:translate(-50%,-50%) scale(.55); opacity:0 } }
-
-    #atk-ring{
-      position:absolute;
-      width:520px; height:520px;
-      border-radius:999px;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      z-index:4;
-      opacity:0;
-      pointer-events:none;
-      background:
-        conic-gradient(from var(--ringGapStart, 0deg),
-          rgba(255,255,255,.00) 0deg,
-          rgba(255,255,255,.00) var(--ringGapSize, 50deg),
-          rgba(248,113,113,.40) var(--ringGapSize, 50deg),
-          rgba(248,113,113,.40) 360deg);
-      mask: radial-gradient(circle, transparent 52%, #000 53% 64%, transparent 65%);
-      filter: blur(.2px) drop-shadow(0 0 18px rgba(248,113,113,.35));
-    }
-    #atk-ring.show{ opacity:1; animation: ringPulse .18s ease-out both; }
-    @keyframes ringPulse{ from{ transform:translate(-50%,-50%) scale(.92) } to{ transform:translate(-50%,-50%) scale(1) } }
-
-    #atk-laser{
-      position:absolute;
-      left:0; width:100%; height:18px;
-      z-index:4;
-      pointer-events:none;
-      opacity:0;
-      background: linear-gradient(90deg, transparent, rgba(251,113,133,.95), transparent);
-      filter: drop-shadow(0 0 18px rgba(251,113,133,.45));
-    }
-    #atk-laser.warn{ opacity:.65; animation: laserWarn .42s linear infinite; }
-    #atk-laser.fire{ opacity:1; height:26px; }
-    @keyframes laserWarn{ 50%{ opacity:.25 } }
-
-    #cross{
-      position:absolute;
-      left:50%; top:var(--crossY);
-      transform: translate(-50%,-50%);
-      z-index:9;
-      width:16px; height:16px;
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,.85);
-      box-shadow: 0 0 0 8px rgba(255,255,255,.06);
-      pointer-events:none;
     }
 
-    .panel{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-    }
-    #hud-top{
-      position:absolute; left:12px; right:12px; top:10px;
-      z-index:10;
-      padding:10px 12px;
-      display:grid;
-      grid-template-columns: 1.2fr 1fr 1fr 1fr;
-      gap:10px;
+    /* --- HUD top bar --- */
+    .hha-topbar{
+      position:fixed;
+      left:12px; right:12px;
+      top: calc(var(--safeTop) + 10px);
+      height: var(--hudH);
+      display:flex;
       align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding: 8px 10px;
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 40px rgba(0,0,0,.28);
+      z-index:10;
     }
-    #hud-top .k{ font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
-    #hud-top .v{ font-size:20px; font-weight:800; }
-    #hud-top .v.small{ font-size:16px; font-weight:700; }
+    .hha-topbar .group{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+    }
     .pill{
-      display:inline-flex; align-items:center; gap:8px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
       padding:6px 10px;
       border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(0,0,0,.12);
-      font-size:12px;
-      color:var(--text);
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.35);
+      white-space:nowrap;
+      min-width:0;
+    }
+    .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 14px rgba(34,197,94,.55); }
+    .kv{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+    .kv .label{ font-size:10px; color:var(--muted); letter-spacing:.06em; }
+    .kv .big{ font-size:18px; font-weight:800; line-height:1; }
+
+    /* --- Quest panel (pill bottom) --- */
+    #questBox{
+      position:fixed;
+      left:12px; right:12px;
+      bottom: calc(var(--safeBottom) + 12px);
+      z-index:10;
+
+      padding:10px 12px;
+      border-radius:16px;
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(148,163,184,.18);
+      box-shadow: 0 14px 50px rgba(0,0,0,.34);
+
+      max-height:78px;
+      overflow:hidden;
+    }
+    #questBox .title{
+      font-size:13px;
+      font-weight:800;
+      line-height:1.1;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    .dot{ width:8px; height:8px; border-radius:999px; background:var(--accent); display:inline-block; }
-    .muted{ color:var(--muted); }
-
-    #hud-quest{
-      position:absolute; left:12px; right:12px; top:108px;
-      z-index:10;
-      padding:12px;
-      min-height:118px;
-      display:grid;
-      grid-template-columns: 1fr;
+    #questBox .row{
+      display:flex;
       gap:10px;
+      align-items:center;
+      margin-top:6px;
     }
     .bar{
-      height:10px; border-radius:999px;
-      background:rgba(148,163,184,.15);
+      flex:1;
+      height:10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(148,163,184,.10);
       overflow:hidden;
-      border:1px solid rgba(148,163,184,.18);
+      position:relative;
     }
     .bar > i{
-      display:block; height:100%;
+      position:absolute; inset:0 auto 0 0;
       width:0%;
-      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.95));
+      background: linear-gradient(90deg, rgba(34,197,94,.9), rgba(59,130,246,.85));
+      border-radius:999px;
+      box-shadow:0 0 18px rgba(59,130,246,.28);
     }
-
-    #qTitle{ font-weight:900;font-size:16px; margin-top:4px; }
-    #qSub{
-      margin-top:6px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
+    .qnum{
       font-size:12px;
       color:var(--muted);
-      font-weight:800;
+      font-weight:700;
       white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
-    #qSub .left{ overflow:hidden; text-overflow:ellipsis; }
-    #qSub .right{ opacity:.9; }
 
-    #line-mini{ display:flex; justify-content:space-between; gap:10px; font-size:13px; }
-    #line-mini b{ font-weight:800; }
-    #line-mini .right{ color:var(--muted); }
-
-    #hud-fever{
-      display:grid;
-      grid-template-columns: 1fr auto;
-      gap:10px;
-      align-items:center;
-      font-size:13px;
-      color:var(--muted);
-    }
-    #hud-fever .shield{ color:#cbd5e1; font-weight:800; }
-
-    #footer{
-      position:absolute; left:12px; right:12px; bottom:12px;
+    /* --- Coach bubble (small) --- */
+    #coachBox{
+      position:fixed;
+      left:12px;
+      bottom: calc(var(--safeBottom) + 96px);
       z-index:10;
+      max-width: min(68vw, 360px);
+
       display:flex;
-      justify-content:space-between;
-      align-items:center;
       gap:10px;
+      align-items:center;
+
+      padding:8px 10px;
+      border-radius:16px;
+      background: rgba(2,6,23,.50);
+      border: 1px solid rgba(148,163,184,.16);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 50px rgba(0,0,0,.30);
+    }
+    #coachImg{
+      width:36px; height:36px;
+      object-fit:contain;
+      filter: drop-shadow(0 8px 20px rgba(0,0,0,.35));
+    }
+    #coachText{
+      font-size:12px;
+      color:var(--text);
+      line-height:1.25;
+      font-weight:700;
+      overflow:hidden;
+      display:-webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    /* --- Fever UI container (if ui-fever.js binds into it) --- */
+    #feverMount{
+      position:fixed;
+      right:12px;
+      bottom: calc(var(--safeBottom) + 86px);
+      z-index:10;
       pointer-events:none;
     }
-    #badge{
-      pointer-events:auto;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(0,0,0,.18);
-      font-size:12px;
-      display:flex; align-items:center; gap:8px;
-    }
-    #badge .lamp{ width:9px; height:9px; border-radius:999px; background:rgba(248,113,113,.9); }
-    #badge.ok .lamp{ background:rgba(34,197,94,.95); }
 
-    #enterVR{
-      pointer-events:auto;
-      padding:10px 14px;
-      border-radius:16px;
-      border:1px solid rgba(59,130,246,.35);
-      background:rgba(37,99,235,.16);
-      color:#e0f2fe;
-      font-weight:800;
-      display:flex; align-items:center; gap:10px;
-      cursor:pointer;
-    }
-    #enterVR:disabled{ opacity:.55; cursor:not-allowed; }
-
-    #startModal, #endModal{
-      position:absolute; inset:0;
-      z-index:20;
+    /* --- Start overlay --- */
+    #startOverlay{
+      position:fixed; inset:0;
+      z-index:30;
       display:flex;
-      align-items:center;
+      align-items:flex-end;
       justify-content:center;
-      padding:18px;
-      background: radial-gradient(900px 600px at 50% 30%, rgba(15,23,42,.50), rgba(2,6,23,.72));
+      padding: 22px 16px calc(var(--safeBottom) + 18px);
+      background: radial-gradient(900px 500px at 50% 5%, rgba(59,130,246,.18), transparent 60%),
+                  rgba(2,6,23,.72);
+      backdrop-filter: blur(12px);
     }
-    #startCard, #endCard{
-      width:min(760px, 100%);
-      padding:16px;
-    }
-    #startCard h1, #endCard h1{ margin:2px 0 4px; font-size:22px; }
-    #startCard p, #endCard p{ margin:0 0 10px; color:var(--muted); font-size:13px; }
-    .grid2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-      margin-top:10px;
-    }
-    label{ font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
-    select{
-      width:100%;
-      margin-top:6px;
-      padding:10px 12px;
-      border-radius:14px;
+    .startCard{
+      width:min(640px, 100%);
       border:1px solid var(--stroke);
-      background:rgba(0,0,0,.20);
-      color:var(--text);
-      outline:none;
+      border-radius:24px;
+      background: rgba(2,6,23,.65);
+      box-shadow: var(--shadow);
+      padding: 16px 16px 14px;
     }
-    .actions{
-      display:flex; gap:12px; justify-content:flex-end; margin-top:12px; flex-wrap:wrap;
+    .startTitle{
+      font-size:20px;
+      font-weight:900;
+      margin:0 0 6px 0;
+      letter-spacing:.2px;
+    }
+    .startSub{
+      margin:0 0 12px 0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.3;
+    }
+    .btnRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
     }
     .btn{
-      padding:12px 14px;
-      border-radius:16px;
-      border:1px solid var(--stroke);
-      background:rgba(0,0,0,.20);
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.45);
       color:var(--text);
+      border-radius:14px;
+      padding: 12px 14px;
       font-weight:900;
+      font-size:14px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
       cursor:pointer;
-      display:inline-flex; align-items:center; gap:10px;
     }
     .btn.primary{
-      border-color:rgba(34,197,94,.35);
-      background:rgba(34,197,94,.18);
-      color:#dcfce7;
+      border-color: rgba(34,197,94,.35);
+      background: linear-gradient(180deg, rgba(34,197,94,.28), rgba(34,197,94,.10));
     }
-    .btn.danger{
-      border-color:rgba(251,113,133,.35);
-      background:rgba(251,113,133,.12);
-      color:#fecdd3;
+    .btn.ghost{
+      background: rgba(2,6,23,.30);
     }
-    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+    .btn:active{ transform: translateY(1px); }
 
-    body.shake{ animation: shake .18s linear; }
-    @keyframes shake{
-      0%{ transform:translate(0,0) }
-      20%{ transform:translate(-2px,1px) }
-      40%{ transform:translate(2px,-1px) }
-      60%{ transform:translate(-2px,-1px) }
-      80%{ transform:translate(2px,1px) }
-      100%{ transform:translate(0,0) }
-    }
-    #edge{
-      position:absolute; inset:0;
-      z-index:8;
-      pointer-events:none;
-      opacity:0;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,.08), inset 0 0 80px rgba(59,130,246,.18);
-      transition: opacity .12s ease;
-    }
-    #edge.panic{ opacity:1; box-shadow: inset 0 0 0 2px rgba(255,255,255,.10), inset 0 0 110px rgba(251,113,133,.25); }
-    #edge.final{ opacity:1; box-shadow: inset 0 0 0 2px rgba(255,255,255,.10), inset 0 0 140px rgba(245,158,11,.25); }
-
-    #panicBox{
-      position:absolute; left:12px; right:12px; bottom:72px;
-      z-index:30;
-      display:none;
-      padding:12px;
-      border-radius:14px;
-      border:1px solid rgba(251,113,133,.35);
-      background:rgba(2,6,23,.85);
-      color:#fecdd3;
-      box-shadow:0 16px 50px rgba(0,0,0,.55);
-      font-size:12px;
-      white-space:pre-wrap;
-    }
-    #panicBox.show{ display:block; }
-
-    #floating-pop-layer{
+    /* --- End summary overlay --- */
+    #endOverlay{
       position:fixed; inset:0;
-      z-index:999;
-      pointer-events:none;
-      display:block;
+      z-index:40;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 18px 14px;
+      background: rgba(2,6,23,.78);
+      backdrop-filter: blur(14px);
     }
-    .fp{
-      position:absolute;
-      left:50%; top:48%;
-      transform:translate(-50%,-50%) scale(.92);
-      padding:10px 14px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.72);
-      color:#e5e7eb;
+    .endCard{
+      width:min(720px, 100%);
+      border-radius:26px;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.70);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .endHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+    .endTitle{
+      font-size:22px;
       font-weight:1000;
-      letter-spacing:.02em;
-      box-shadow:0 20px 60px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      opacity:0;
-      animation: fpIn .14s ease-out forwards, fpOut .24s ease-in forwards;
-      animation-delay: 0ms, var(--fpHold, 900ms);
-      white-space:nowrap;
-      max-width:min(92vw, 820px);
-      overflow:hidden;
-      text-overflow:ellipsis;
+      margin:0;
     }
-    .fp.bad{ border-color:rgba(251,113,133,.28); color:#fecdd3; }
-    .fp.good{ border-color:rgba(34,197,94,.28); color:#dcfce7; }
-    .fp.gold{ border-color:rgba(245,158,11,.30); color:#ffedd5; }
-    @keyframes fpIn{ to{ opacity:1; transform:translate(-50%,-50%) scale(1); } }
-    @keyframes fpOut{ to{ opacity:0; transform:translate(-50%,-58%) scale(.98); } }
-
-    /* End modal bits */
-    #endModal{ display:none; z-index:40; }
-    .grade{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:12px; border-radius:16px; border:1px solid rgba(148,163,184,.18);
-      background:rgba(0,0,0,.18);
-      margin-top:10px;
+    .endMeta{
+      font-size:13px;
+      color:var(--muted);
+      font-weight:700;
+      text-align:right;
+      line-height:1.25;
     }
-    .grade .big{
-      font-size:32px; font-weight:1000; letter-spacing:.02em;
-    }
-    .stats{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
+    .gradeBox{
+      margin: 10px 0 12px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(15,23,42,.42);
+      border-radius:20px;
+      padding: 12px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
       gap:10px;
     }
-    .stat{
-      padding:10px 12px; border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(0,0,0,.16);
+    .gradeLeft{
+      display:flex;
+      align-items:baseline;
+      gap:14px;
+      min-width:0;
     }
-    .stat .k{ font-size:11px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
-    .stat .v{ font-size:20px; font-weight:900; margin-top:2px; }
-    .hint{ font-size:12px; color:var(--muted); margin-top:8px; }
+    .gradeLabel{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      letter-spacing:.08em;
+    }
+    #endGrade{
+      font-size:56px;
+      font-weight:1000;
+      letter-spacing:1px;
+      line-height:1;
+      margin:0;
+    }
+    #endCoachLine{
+      font-size:14px;
+      font-weight:900;
+      color:var(--text);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width: 56vw;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    .stat{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(15,23,42,.35);
+      border-radius:18px;
+      padding: 12px 12px;
+    }
+    .stat .k{
+      font-size:11px;
+      color:var(--muted);
+      font-weight:900;
+      letter-spacing:.08em;
+    }
+    .stat .v{
+      margin-top:6px;
+      font-size:26px;
+      font-weight:1000;
+      line-height:1;
+    }
+    .tip{
+      margin: 10px 2px 12px;
+      color: var(--muted);
+      font-size:12px;
+      line-height:1.35;
+    }
+    .endActions{
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    /* --- Compact mode (during gameplay) --- */
+    body.hha-compact #questBox{
+      max-height:44px;
+      padding:8px 10px;
+      opacity:.85;
+    }
+    body.hha-compact #coachBox{
+      opacity:.75;
+      transform: translateY(6px);
+    }
+    body.hha-compact.hha-peek #questBox{
+      max-height:92px;
+      opacity:1;
+    }
+
+    /* --- Small screens --- */
+    @media (max-width: 420px){
+      #endGrade{ font-size:52px; }
+      .grid{ grid-template-columns:1fr; }
+      #endCoachLine{ max-width: 54vw; }
+    }
   </style>
 </head>
 
 <body>
-<div id="app">
 
-  <div id="sceneWrap">
-    <a-scene embedded vr-mode-ui="enabled: false" renderer="colorManagement: true; physicallyCorrectLights: true;">
-      <a-assets></a-assets>
-      <a-entity id="gj-camera" camera position="0 1.6 0"></a-entity>
-      <a-sky color="#020617"></a-sky>
-      <a-entity light="type: ambient; intensity: 0.8;"></a-entity>
-      <a-entity light="type: directional; intensity: 0.7" position="1 2 1"></a-entity>
+  <!-- A-Frame background (optional) -->
+  <div class="sceneWrap" aria-hidden="true">
+    <a-scene embedded renderer="antialias: true; colorManagement: true" vr-mode-ui="enabled: true">
+      <a-entity camera position="0 1.6 0" look-controls="enabled:true"></a-entity>
+      <a-sky color="#050b1a"></a-sky>
+      <a-entity light="type: ambient; intensity: 0.8"></a-entity>
+      <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
     </a-scene>
   </div>
 
-  <div id="look-area"></div>
+  <!-- Gameplay DOM layer (targets spawn here) -->
+  <div id="gj-layer" aria-label="gameplay layer"></div>
 
-  <div id="gj-layer"></div>
-  <div id="atk-ring"></div>
-  <div id="atk-laser"></div>
-
-  <div id="edge"></div>
-  <div id="cross"></div>
-
-  <div id="hud-top" class="panel">
-    <div>
-      <div class="k">mode</div>
-      <div class="pill"><span class="dot"></span><b id="modeName">GOODJUNK</b>&nbsp;<span class="muted">•</span>&nbsp;<span id="runName">PLAY</span></div>
-    </div>
-    <div>
-      <div class="k">score</div>
-      <div class="v" id="uiScore">0</div>
-    </div>
-    <div>
-      <div class="k">combo max</div>
-      <div class="v small" id="uiComboMax">0</div>
-    </div>
-    <div>
-      <div class="k">miss</div>
-      <div class="v small" id="uiMiss">0</div>
-    </div>
-  </div>
-
-  <div id="hud-quest" class="panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-      <div>
-        <div class="k">time</div>
-        <div class="v small"><span id="uiTime">--</span><span class="muted">s</span></div>
+  <!-- HUD top -->
+  <div id="hudTop" class="hha-topbar" role="status" aria-label="HUD">
+    <div class="group" style="min-width:0">
+      <div class="pill" title="Mode">
+        <span class="dot" id="hudDot"></span>
+        <span style="font-weight:1000;font-size:12px;letter-spacing:.06em;">MODE</span>
+        <span style="opacity:.65">•</span>
+        <span id="hudGame" style="font-weight:1000;font-size:12px;">GOODJUNK</span>
+        <span style="opacity:.65">•</span>
+        <span id="hudRun" style="font-weight:1000;font-size:12px;">PLAY</span>
       </div>
-      <div class="pill" id="uiDiffChallenge">Diff: NORMAL • Challenge: RUSH</div>
     </div>
 
-    <div>
-      <div class="k">quest</div>
-      <div id="qTitle">—</div>
-
-      <div id="qSub">
-        <div class="left" id="qSubLeft">Mini: —</div>
-        <div class="right" id="qSubRight">goals 0/2 • minis 0</div>
-      </div>
-
-      <div class="bar" style="margin-top:8px;"><i id="qBar"></i></div>
-    </div>
-
-    <div id="line-mini">
-      <div><b id="miniText">Mini: —</b></div>
-      <div class="right" id="miniCount">mini ผ่าน 0 • เล่นอยู่ 0</div>
-    </div>
-
-    <div id="hud-fever">
-      <div>FEVER <span id="uiFever">0</span>%</div>
-      <div class="shield">🛡️ Shield <span id="uiShield">0</span></div>
-    </div>
-  </div>
-
-  <div id="footer">
-    <div id="badge"><span class="lamp"></span><span id="badgeText">boot: idle</span></div>
-    <button id="enterVR">🥽 Enter VR</button>
-  </div>
-
-  <div id="panicBox"></div>
-  <div id="floating-pop-layer"></div>
-
-  <!-- START -->
-  <div id="startModal">
-    <div id="startCard" class="panel">
-      <h1>GoodJunk VR</h1>
-      <p>เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง ✅ (แตะจอ = ยิง crosshair)</p>
-
-      <div class="grid2">
-        <div>
-          <label>Difficulty</label>
-          <select id="selDiff">
-            <option value="easy">Easy</option>
-            <option value="normal" selected>Normal</option>
-            <option value="hard">Hard</option>
-          </select>
-        </div>
-        <div>
-          <label>Challenge</label>
-          <select id="selCh">
-            <option value="rush" selected>Rush</option>
-            <option value="boss">Boss</option>
-            <option value="survival">Survival</option>
-          </select>
+    <div class="group">
+      <div class="pill">
+        <div class="kv">
+          <div class="label">SCORE</div>
+          <div class="big" id="hudScore">0</div>
         </div>
       </div>
 
-      <div class="actions">
-        <button class="btn" id="btnStart2D">▶ Start 2D</button>
-        <button class="btn primary" id="btnStartVR">🥽 Start VR</button>
+      <div class="pill">
+        <div class="kv">
+          <div class="label">COMBO MAX</div>
+          <div class="big" id="hudComboMax">0</div>
+        </div>
       </div>
 
-      <div class="muted" style="margin-top:10px;font-size:12px;">
-        * ถ้าค้าง ให้ลองเติม <b>?ts=1</b> ท้าย URL หรือ Clear Storage ของโดเมน
+      <div class="pill">
+        <div class="kv">
+          <div class="label">MISS</div>
+          <div class="big" id="hudMiss">0</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- END SUMMARY -->
-  <div id="endModal">
-    <div id="endCard" class="panel">
-      <h1>สรุปผลการเล่น</h1>
-      <p id="endSub" class="muted">—</p>
+  <!-- Fever UI mount (ui-fever.js will attach/position itself if needed) -->
+  <div id="feverMount"></div>
 
-      <div class="grade">
-        <div>
-          <div class="muted" style="font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Grade</div>
-          <div class="big" id="endGrade">B</div>
+  <!-- Coach bubble -->
+  <div id="coachBox" aria-live="polite">
+    <img id="coachImg" src="./img/coach-neutral.png" alt="coach" />
+    <div id="coachText">พร้อมลุย! เก็บของดี เลี่ยงขยะนะ 💪</div>
+  </div>
+
+  <!-- Quest pill -->
+  <div id="questBox" title="แตะเพื่อดูรายละเอียด 2 วินาที">
+    <div class="title" id="questTitle">Goal: เริ่มภารกิจ…</div>
+    <div class="row">
+      <div class="bar" aria-label="quest progress"><i id="questBar"></i></div>
+      <div class="qnum" id="questNum">0/0</div>
+    </div>
+  </div>
+
+  <!-- Start overlay -->
+  <div id="startOverlay">
+    <div class="startCard">
+      <h1 class="startTitle">GoodJunk VR 🥦🗑️</h1>
+      <p class="startSub">
+        โหมดเล่นจริง (Play) — เก็บของดีให้ไว เลี่ยงขยะให้ทัน!<br/>
+        * ระหว่างเล่น UI จะยุบให้พื้นที่เกมกว้างขึ้น (แตะ Quest เพื่อ peek)
+      </p>
+      <div class="btnRow">
+        <button id="btnStart" class="btn primary">▶️ เริ่มเล่น</button>
+        <button id="btnEnterVR" class="btn ghost">🥽 Enter VR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- End summary overlay -->
+  <div id="endOverlay">
+    <div class="endCard" role="dialog" aria-label="end summary">
+      <div class="endHeader">
+        <h2 class="endTitle">สรุปผลการเล่น</h2>
+        <div class="endMeta">
+          <div id="endMetaLine">Diff: — · Challenge: — · เวลา —s</div>
         </div>
-        <div style="text-align:right">
-          <div class="muted" style="font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Coach</div>
-          <div id="endCoach" style="font-weight:900;font-size:14px;">เก่งมาก! อีกนิดจะ S แล้ว 🥦</div>
+      </div>
+
+      <div class="gradeBox">
+        <div class="gradeLeft">
+          <div>
+            <div class="gradeLabel">GRADE</div>
+            <div id="endGrade">A</div>
+          </div>
+        </div>
+        <div style="text-align:right; min-width:0;">
+          <div class="gradeLabel" style="text-align:right;">COACH</div>
+          <div id="endCoachLine">ไปต่อได้เลย! 🔥</div>
         </div>
       </div>
 
-      <div class="stats">
-        <div class="stat"><div class="k">score</div><div class="v" id="endScore">0</div></div>
-        <div class="stat"><div class="k">combo max</div><div class="v" id="endComboMax">0</div></div>
-        <div class="stat"><div class="k">miss</div><div class="v" id="endMiss">0</div></div>
-        <div class="stat"><div class="k">good hits</div><div class="v" id="endGood">0</div></div>
+      <div class="grid">
+        <div class="stat">
+          <div class="k">SCORE</div>
+          <div class="v" id="endScore">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">COMBO MAX</div>
+          <div class="v" id="endComboMax">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">MISS</div>
+          <div class="v" id="endMiss">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">GOOD HITS</div>
+          <div class="v" id="endGoodHits">0</div>
+        </div>
       </div>
 
-      <div class="hint" id="endHint">ทิป: อย่าให้ของดีหายไปเฉย ๆ (good expired) จะนับเป็น miss ด้วยนะ!</div>
-
-      <div class="actions">
-        <button class="btn danger" id="btnBackMenu">↩ เมนู</button>
-        <button class="btn primary" id="btnReplay">🔁 เล่นอีกครั้ง</button>
+      <div class="tip">
+        ทิป: miss = ของดีหาย (good expired) + โดนขยะ (junk hit) |
+        ถ้ามีโล่ บล็อกขยะได้ “ไม่เพิ่ม miss” 🛡️
       </div>
 
-      <div class="muted" style="margin-top:10px;font-size:12px;">
+      <div class="endActions">
+        <button id="btnMenu" class="btn ghost">↩️ เมนู</button>
+        <button id="btnRetry" class="btn primary">🔁 เล่นอีกครั้ง</button>
+      </div>
+
+      <div class="tip" style="margin-top:10px;">
         * ระบบจะส่งผลเข้า Google Sheet เมื่อ endpoint logger พร้อม
       </div>
     </div>
   </div>
 
-</div>
+  <!-- Layout helper: compact mode + peek -->
+  <script>
+    (function(){
+      const doc = document;
+      const body = doc.body;
 
-<script type="module">
-  'use strict';
-
-  const $ = (id)=>document.getElementById(id);
-
-  const elLayer = $('gj-layer');
-  const elCamEntity = $('gj-camera');
-  const elLookArea = $('look-area');
-
-  const elModal = $('startModal');
-  const elEnd = $('endModal');
-
-  const btn2D = $('btnStart2D');
-  const btnVR = $('btnStartVR');
-  const btnEnterVR = $('enterVR');
-
-  const badge = $('badge');
-  const badgeText = $('badgeText');
-  const panicBox = $('panicBox');
-
-  const uiScore = $('uiScore');
-  const uiComboMax = $('uiComboMax');
-  const uiMiss = $('uiMiss');
-  const uiTime = $('uiTime');
-  const uiFever = $('uiFever');
-  const uiShield = $('uiShield');
-  const uiDiffChallenge = $('uiDiffChallenge');
-
-  const qTitle = $('qTitle');
-  const qBar = $('qBar');
-  const miniText = $('miniText');
-  const miniCount = $('miniCount');
-
-  const qSubLeft = $('qSubLeft');
-  const qSubRight = $('qSubRight');
-
-  const edge = $('edge');
-  const fpLayer = $('floating-pop-layer');
-
-  // end ui
-  const endSub = $('endSub');
-  const endGrade = $('endGrade');
-  const endCoach = $('endCoach');
-  const endScore = $('endScore');
-  const endComboMax = $('endComboMax');
-  const endMiss = $('endMiss');
-  const endGood = $('endGood');
-  const endHint = $('endHint');
-  const btnReplay = $('btnReplay');
-  const btnBackMenu = $('btnBackMenu');
-
-  // ===== Debug badge (auto revert) =====
-  let badgeTimer = 0;
-  function setBadge(ok, text){
-    badge.classList.toggle('ok', !!ok);
-    badgeText.textContent = String(text||'');
-  }
-  function setBadgeTemp(ok, text, ms=900){
-    clearTimeout(badgeTimer);
-    setBadge(ok, text);
-    badgeTimer = setTimeout(()=> setBadge(true, 'running…'), Math.max(300, ms|0));
-  }
-
-  function showPanic(msg, err){
-    const e = err ? (err?.stack || err?.message || String(err)) : '';
-    panicBox.textContent = String(msg||'') + (e ? ('\n\n' + e) : '');
-    panicBox.classList.add('show');
-  }
-  function hidePanic(){ panicBox.classList.remove('show'); }
-
-  // ===== Floating Pop helper =====
-  function floatingPop(text, tone='good', holdMs=900){
-    try{
-      const P = (window.GAME_MODULES && window.GAME_MODULES.Particles) || window.Particles;
-      if (P && typeof P.toast === 'function'){
-        P.toast(String(text||''), { tone, ms: holdMs|0 });
-        return;
+      function setCompact(on){
+        body.classList.toggle('hha-compact', !!on);
       }
-    }catch(_){}
 
-    const el = document.createElement('div');
-    el.className = `fp ${tone||''}`;
-    el.style.setProperty('--fpHold', (holdMs|0)+'ms');
-    el.textContent = String(text||'');
-    fpLayer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, (holdMs|0) + 500);
-  }
-
-  // ===== Simple tick sound (WebAudio) =====
-  let AC=null, tickGain=null;
-  function ensureAudio(){
-    if (AC) return;
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    AC = new Ctx();
-    tickGain = AC.createGain();
-    tickGain.gain.value = 0.04;
-    tickGain.connect(AC.destination);
-  }
-  function beep(freq=880, ms=40){
-    try{
-      ensureAudio();
-      if (!AC) return;
-      const o = AC.createOscillator();
-      o.type = 'square';
-      o.frequency.value = freq;
-      o.connect(tickGain);
-      o.start();
-      setTimeout(()=>{ try{o.stop();}catch(_){ } }, ms);
-    }catch(_){}
-  }
-
-  // ===== Selector persist + URL override =====
-  (function initSelectors(){
-    const U = new URL(location.href);
-    const sDiff = $('selDiff');
-    const sCh = $('selCh');
-
-    const urlDiff = (U.searchParams.get('diff')||'').toLowerCase();
-    const urlCh   = (U.searchParams.get('challenge')||'').toLowerCase();
-
-    const savedDiff = localStorage.getItem('gj_diff') || '';
-    const savedCh   = localStorage.getItem('gj_ch') || '';
-
-    const setIfValid = (sel, v)=>{
-      if (!v) return false;
-      const ok = Array.from(sel.options).some(o => o.value === v);
-      if (ok){ sel.value = v; return true; }
-      return false;
-    };
-
-    if (!setIfValid(sDiff, urlDiff)) setIfValid(sDiff, savedDiff);
-    if (!setIfValid(sCh, urlCh))     setIfValid(sCh, savedCh);
-
-    sDiff.addEventListener('change', ()=> localStorage.setItem('gj_diff', sDiff.value));
-    sCh.addEventListener('change',   ()=> localStorage.setItem('gj_ch', sCh.value));
-  })();
-
-  // ===== Module loading =====
-  let modSafe=null, modTouch=null;
-  let engine=null;
-  let touchCtl=null;
-
-  async function importFirst(paths){
-    let last=null;
-    for (const p of paths){
-      try{ return await import(p); }
-      catch(e){ last=e; }
-    }
-    throw last || new Error('import failed');
-  }
-
-  async function ensureModules(){
-    if (modSafe && modTouch) return { modSafe, modTouch };
-
-    hidePanic();
-    setBadgeTemp(false, 'boot: loading modules…', 1200);
-
-    const watchdog = setTimeout(()=>{
-      showPanic('โหลดโมดูลนานผิดปกติ — อาจ cache/404 (ลองเติม ?ts=1 หรือ Clear storage)');
-      setBadgeTemp(false, 'boot: stuck (cache/404?)', 1600);
-    }, 6000);
-
-    try{
-      const safePaths  = ['./vr-goodjunk/goodjunk.safe.js', './goodjunk.safe.js'];
-      const touchPaths = ['./vr-goodjunk/touch-look-goodjunk.js', './touch-look-goodjunk.js'];
-
-      modSafe  = await importFirst(safePaths);
-      modTouch = await importFirst(touchPaths);
-
-      clearTimeout(watchdog);
-      setBadgeTemp(true, 'boot: modules ready', 900);
-
-      try{ touchCtl?.destroy?.(); }catch(_){}
-      touchCtl = modTouch.attachTouchLook(elCamEntity, { areaEl: elLookArea, sensitivity: 0.26 });
-
-      startParallaxLoop();
-
-      return { modSafe, modTouch };
-    }catch(err){
-      clearTimeout(watchdog);
-      showPanic('โหลดโมดูลไม่สำเร็จ (เช็ค path/ชื่อไฟล์ใน repo)', err);
-      setBadgeTemp(false, 'boot: import failed', 1600);
-      throw err;
-    }
-  }
-
-  // ===== VR-like parallax =====
-  let rafPar=0;
-  function startParallaxLoop(){
-    cancelAnimationFrame(rafPar);
-    const pxPerRadX = ()=> innerWidth * 0.38;
-    const pxPerRadY = ()=> innerHeight * 0.22;
-
-    function tick(){
-      try{
-        const r = elCamEntity?.object3D?.rotation;
-        if (r){
-          const ox = -r.y * pxPerRadX();
-          const oy = -r.x * pxPerRadY();
-          elLayer.style.transform = `translate3d(${ox.toFixed(1)}px, ${oy.toFixed(1)}px, 0)`;
-          window.__GJ_LAYER_OFFSET__ = { x: ox, y: oy };
-        }
-        window.__GJ_AIM_POINT__ = { x: (innerWidth*0.5)|0, y: (innerHeight*0.62)|0 };
-      }catch(_){}
-      rafPar = requestAnimationFrame(tick);
-    }
-    rafPar = requestAnimationFrame(tick);
-  }
-
-  // ===== HUD updates =====
-  window.addEventListener('hha:score', (e)=>{
-    const d = e.detail||{};
-    uiScore.textContent = String(d.score ?? 0);
-    uiComboMax.textContent = String(d.comboMax ?? 0);
-    uiMiss.textContent = String(d.misses ?? 0);
-  });
-
-  window.addEventListener('hha:time', (e)=>{
-    const d = e.detail||{};
-    uiTime.textContent = String(d.sec ?? '--');
-  });
-
-  window.addEventListener('hha:fever', (e)=>{
-    const d = e.detail||{};
-    uiFever.textContent = String(Math.round(d.fever ?? 0));
-    uiShield.textContent = String(d.shield ?? 0);
-  });
-
-  // ✅ quest update (new)
-  window.addEventListener('quest:update', (e)=>{
-    const d = e.detail || {};
-    const g = d.goal || null;
-    const m = d.mini || null;
-    const meta = d.meta || {};
-
-    if (g){
-      qTitle.textContent = `${g.title || 'ภารกิจหลัก'} — ${g.cur ?? 0}/${g.max ?? 0}`;
-      const pct = Math.max(0, Math.min(100, (Number(g.pct||0) * 100)));
-      qBar.style.width = pct.toFixed(0) + '%';
-    } else {
-      qTitle.textContent = 'เคลียร์ภารกิจหลักครบแล้ว ✅';
-      qBar.style.width = '100%';
-    }
-
-    if (m){
-      const miniLine = `${m.title || 'Mini'} — ${m.cur ?? 0}/${m.max ?? 0}`;
-      qSubLeft.textContent = `Mini: ${miniLine}`;
-      miniText.textContent = `Mini: ${miniLine}`;
-    } else {
-      qSubLeft.textContent = 'Mini: —';
-      miniText.textContent = 'Mini: —';
-    }
-
-    qSubRight.textContent = `goals ${meta.goalsCleared||0}/${meta.goalIndex||0} • minis ${meta.minisCleared||0}`;
-    miniCount.textContent = `mini ผ่าน ${meta.minisCleared||0} • เล่นอยู่ ${meta.miniCount||0}`;
-  });
-
-  // ===== Quest pop =====
-  window.addEventListener('quest:goalClear', (e)=>{
-    const d = e.detail||{};
-    setBadgeTemp(true, `GOAL CLEAR!`, 900);
-    floatingPop(`✅ GOAL CLEAR — ${d.title||''}`, 'good', 1100);
-  });
-
-  window.addEventListener('quest:miniClear', (e)=>{
-    const d = e.detail||{};
-    setBadgeTemp(true, `MINI CLEAR!`, 850);
-    floatingPop(`⚡ MINI CLEAR — ${d.title||''}`, 'gold', 950);
-  });
-
-  window.addEventListener('quest:allGoalsClear', ()=>{
-    setBadgeTemp(true, 'ALL GOALS CLEARED!', 1200);
-    floatingPop('🏁 เคลียร์ภารกิจหลักครบแล้ว!', 'gold', 1400);
-  });
-
-  window.addEventListener('quest:badHit', (e)=>{
-    const d = e.detail||{};
-    setBadgeTemp(false, `HIT: ${d.kind||'bad'}`, 700);
-    floatingPop(`💥 พลาด! (${d.kind||'hazard'})`, 'bad', 850);
-  });
-
-  window.addEventListener('quest:block', ()=>{
-    setBadgeTemp(true, 'BLOCK!', 700);
-    floatingPop('🛡️ BLOCK!', 'good', 650);
-  });
-
-  window.addEventListener('quest:bossClear', ()=>{
-    setBadgeTemp(true, 'BOSS CLEARED!', 1200);
-    floatingPop('👑 BOSS CLEARED!', 'gold', 1400);
-  });
-
-  // ===== FX bridge =====
-  function kick(){
-    document.body.classList.remove('shake');
-    void document.body.offsetWidth;
-    document.body.classList.add('shake');
-  }
-  window.addEventListener('hha:fx', (e)=>{
-    const d = e.detail||{};
-    if (d.type === 'kick') kick();
-    if (d.type === 'chroma'){
-      edge.classList.add('panic');
-      setTimeout(()=> edge.classList.remove('panic'), Math.max(90, d.ms||150));
-    }
-    if (d.type === 'hero'){
-      edge.classList.add('final');
-      setTimeout(()=> edge.classList.remove('final'), Math.max(120, d.ms||220));
-    }
-  });
-
-  window.addEventListener('hha:tick', (e)=>{
-    const d = e.detail||{};
-    const k = String(d.kind||'tick');
-    const intensity = Number(d.intensity||1);
-    if (k.includes('laser')) beep(980 + intensity*80, 26);
-    else if (k.includes('ring')) beep(860 + intensity*60, 30);
-    else if (k.includes('final')) beep(1200, 24);
-    else beep(820, 28);
-    if (intensity >= 1.6) kick();
-  });
-
-  window.addEventListener('hha:panic', (e)=>{
-    const d = e.detail||{};
-    const lv = Number(d.level||0);
-    if (lv > 0.05) edge.classList.add('panic');
-    else edge.classList.remove('panic');
-  });
-
-  window.addEventListener('hha:finalPulse', ()=>{
-    edge.classList.add('final');
-    setTimeout(()=> edge.classList.remove('final'), 260);
-  });
-
-  window.addEventListener('hha:storm', (e)=>{
-    const d = e.detail||{};
-    if (d.active){
-      setBadgeTemp(true, `STORM x${(d.mul||1).toFixed(2)}`, 1000);
-      edge.classList.add('panic');
-    } else {
-      setBadgeTemp(true, 'running…', 400);
-      edge.classList.remove('panic');
-    }
-  });
-
-  // ===== END SUMMARY =====
-  function calcGrade({score, misses, comboMax, goodHits, durationSec, diff, challenge}){
-    // ป.5 ต้อง "เร้าใจ" => ให้ miss มีผลชัด + comboMax มีผล
-    const acc = goodHits / Math.max(1, goodHits + misses);
-    const pace = score / Math.max(1, durationSec); // score/sec
-    const combo = comboMax;
-
-    // normalize rough
-    let p = 0;
-    p += Math.min(1.2, pace / 18);     // 18 score/sec = เก่งมาก
-    p += Math.min(1.0, acc / 0.92);    // 92%+ ดีมาก
-    p += Math.min(1.0, combo / 14);    // combo 14+
-    p -= Math.min(1.2, misses / 10);   // miss 10 โดนหักแรง
-
-    // challenge modifiers
-    if (challenge === 'boss') p += 0.08;
-    if (challenge === 'survival') p += 0.04;
-    if (diff === 'hard') p += 0.06;
-
-    if (p >= 2.10) return { g:'SSS', msg:'โหดมาก! สมองไว มือไวสุด ๆ 👑🔥' };
-    if (p >= 1.85) return { g:'SS',  msg:'สุดยอด! เกือบไร้ที่ติแล้ว 🥦⚡' };
-    if (p >= 1.60) return { g:'S',   msg:'เก่งมาก! จังหวะดีขึ้นเรื่อย ๆ ✨' };
-    if (p >= 1.25) return { g:'A',   msg:'ดีมาก! ลด miss ลงอีกนิดจะ S 💚' };
-    if (p >= 0.95) return { g:'B',   msg:'โอเคเลย! เน้นยิงให้ตรง + อย่าให้ของดีหาย 🎯' };
-    return { g:'C', msg:'ยังไหว! ลองช้าลงนิด ยิงตรง crosshair ก่อนนะ 🙂' };
-  }
-
-  window.addEventListener('hha:end', (e)=>{
-    const d = e.detail||{};
-    const score = Number(d.score||0);
-    const misses = Number(d.misses||0);
-    const comboMax = Number(d.comboMax||0);
-    const goodHits = Number(d.goodHits||0);
-    const durationSec = Number(d.durationSec||60);
-
-    const grade = calcGrade({
-      score, misses, comboMax, goodHits,
-      durationSec,
-      diff: String(d.diff||'normal'),
-      challenge: String(d.challenge||'rush')
-    });
-
-    endScore.textContent = String(score);
-    endComboMax.textContent = String(comboMax);
-    endMiss.textContent = String(misses);
-    endGood.textContent = String(goodHits);
-
-    endGrade.textContent = grade.g;
-    endCoach.textContent = grade.msg;
-
-    endSub.textContent = `Diff: ${(d.diff||'normal').toUpperCase()} • Challenge: ${(d.challenge||'rush').toUpperCase()} • เวลา ${durationSec}s`;
-
-    endHint.textContent =
-      `ทิป: miss = ของดีหาย (good expired) + โดนขยะ (junk hit) | ถ้ามีโล่ บล็อกขยะได้ “ไม่เพิ่ม miss” 🛡️`;
-
-    elEnd.style.display = 'flex';
-    setBadge(true, 'ended');
-  });
-
-  btnReplay.addEventListener('click', ()=>{
-    elEnd.style.display = 'none';
-    startGame('play');
-  });
-  btnBackMenu.addEventListener('click', ()=>{
-    elEnd.style.display = 'none';
-    elModal.style.display = 'flex';
-    setBadge(true, 'boot: idle');
-  });
-
-  // ===== Start =====
-  function getSelected(){
-    const diff = $('selDiff').value;
-    const ch = $('selCh').value;
-    return { diff, challenge: ch };
-  }
-
-  function calcSafeMargins(){
-    const questRect = $('hud-quest').getBoundingClientRect();
-    const top = Math.ceil(questRect.bottom + 14);
-
-    const footerRect = $('footer').getBoundingClientRect();
-    const bottom = Math.ceil((innerHeight - footerRect.top) + 10);
-
-    const left = 14;
-    const right = 14;
-    return { top, bottom, left, right };
-  }
-
-  async function startGame(runMode='play'){
-    btn2D.disabled = true; btnVR.disabled = true;
-    try{
-      ensureAudio();
-      await ensureModules();
-
-      const { diff, challenge } = getSelected();
-      uiDiffChallenge.textContent = `Diff: ${diff.toUpperCase()} • Challenge: ${challenge.toUpperCase()}`;
-
-      try{ engine?.stop?.(); }catch(_){}
-      engine = null;
-
-      elEnd.style.display = 'none';
-      elModal.style.display = 'none';
-      setBadgeTemp(true, 'starting…', 900);
-
-      engine = modSafe.boot({
-        diff,
-        challenge,
-        run: runMode,
-        time: 60,
-        layerEl: elLayer,
-        safeMargins: calcSafeMargins(),
-        shootEl: elLookArea  /* แตะจอ = ยิง crosshair */
-      });
-
-      setBadgeTemp(true, 'running…', 500);
-    }catch(err){
-      showPanic('Start ไม่สำเร็จ', err);
-      setBadgeTemp(false, 'start failed', 1400);
-      elModal.style.display = 'flex';
-    }finally{
-      btn2D.disabled = false; btnVR.disabled = false;
-    }
-  }
-
-  btn2D.addEventListener('click', ()=> startGame('play'));
-  btnVR.addEventListener('click', ()=> startGame('play'));
-
-  btnEnterVR.addEventListener('click', async ()=>{
-    try{
-      ensureAudio();
-      const scene = document.querySelector('a-scene');
-      if (scene?.enterVR) scene.enterVR();
-    }catch(e){
-      showPanic('Enter VR ไม่สำเร็จ', e);
-    }
-  });
-
-  setBadge(true, 'boot: idle');
-</script>
+      // ฟัง event กลาง (ถ้า engine ยิงมา)
+      window.addEventListener('hha:start', ()=> setCompact(true));
+      window.addEventListener('hha:end',   ()=> setCompact(false));
+
+      // เผื่อบางรอบไม่ได้ยิง hha:start → ยุบหลังเริ่ม
+      const btnStart = doc.getElementById('btnStart');
+      const startOverlay = doc.getElementById('startOverlay');
+      if(btnStart && startOverlay){
+        btnStart.addEventListener('click', ()=>{
+          startOverlay.style.display = 'none';
+          setTimeout(()=> setCompact(true), 250);
+          // เผื่อ engine ต้องการ trigger เริ่มจาก UI
+          window.dispatchEvent(new CustomEvent('hha:uiStart'));
+        });
+      }
+
+      // Enter VR
+      const btnVR = doc.getElementById('btnEnterVR');
+      if(btnVR){
+        btnVR.addEventListener('click', ()=>{
+          const scene = doc.querySelector('a-scene');
+          if(scene && scene.enterVR) scene.enterVR();
+        });
+      }
+
+      // Quest peek 2 วิ
+      const q = doc.getElementById('questBox');
+      if(q){
+        q.style.cursor = 'pointer';
+        q.addEventListener('click', ()=>{
+          body.classList.add('hha-peek');
+          clearTimeout(window.__hhaPeekT);
+          window.__hhaPeekT = setTimeout(()=> body.classList.remove('hha-peek'), 2000);
+        });
+      }
+
+      // End overlay buttons (ให้ engine จัดการจริง แต่เรายิง event ช่วย)
+      const endOverlay = doc.getElementById('endOverlay');
+      const btnRetry = doc.getElementById('btnRetry');
+      const btnMenu  = doc.getElementById('btnMenu');
+      if(btnRetry){
+        btnRetry.addEventListener('click', ()=>{
+          endOverlay.style.display = 'none';
+          setCompact(true);
+          window.dispatchEvent(new CustomEvent('hha:retry'));
+        });
+      }
+      if(btnMenu){
+        btnMenu.addEventListener('click', ()=>{
+          window.dispatchEvent(new CustomEvent('hha:menu'));
+        });
+      }
+
+      // helpers: ให้ HUD binder/engine อัปเดต UI ได้ง่าย
+      window.HHA_UI = window.HHA_UI || {};
+      window.HHA_UI.showEnd = function(payload){
+        // payload: {diff, challenge, timeSec, grade, coachLine, score, comboMax, miss, goodHits}
+        try{
+          const p = payload || {};
+          const meta = doc.getElementById('endMetaLine');
+          if(meta) meta.textContent = `Diff: ${p.diff ?? '—'} · Challenge: ${p.challenge ?? '—'} · เวลา ${p.timeSec ?? '—'}s`;
+
+          const set = (id,val)=>{ const el=doc.getElementById(id); if(el) el.textContent = String(val ?? 0); };
+          set('endGrade', p.grade ?? 'A');
+          set('endCoachLine', p.coachLine ?? 'ไปต่อได้เลย! 🔥');
+          set('endScore', p.score ?? 0);
+          set('endComboMax', p.comboMax ?? 0);
+          set('endMiss', p.miss ?? 0);
+          set('endGoodHits', p.goodHits ?? 0);
+
+          endOverlay.style.display = 'flex';
+          setCompact(false);
+        }catch(e){}
+      };
+    })();
+  </script>
 
 </body>
 </html>
