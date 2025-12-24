@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
 // GoodJunk Quest Director — COMPAT LAYER
-// Emits: quest:miniStart, quest:goalClear, quest:miniClear, quest:update
-// ✅ meta includes goalsCleared + goalIndex(total) for UI
+// Emits: quest:miniStart, quest:goalClear, quest:miniClear, quest:update, quest:allGoalsClear
+// ✅ meta includes goalsCleared + goalIndex (total goals)
 
 'use strict';
 
@@ -72,7 +72,7 @@ export function makeGoodJunkQuestDirector(opts){
     miniCount:0
   };
 
-  function startGoal(){
+  function startGoal(s){
     S.activeGoal = goals[S.goalIndex] || null;
   }
 
@@ -122,7 +122,7 @@ export function makeGoodJunkQuestDirector(opts){
       if (S.activeGoal.pass(v, t, s)){
         emit('quest:goalClear', { title:S.activeGoal.label, id:S.activeGoal.id });
         S.goalIndex++;
-        startGoal();
+        startGoal(s);
         if (!S.activeGoal) emit('quest:allGoalsClear', {});
       }
     }
@@ -145,7 +145,7 @@ export function makeGoodJunkQuestDirector(opts){
     S.minisCleared = 0;
     S.miniCount = 0;
 
-    startGoal();
+    startGoal(s);
     startMini();
     update(s);
   }
