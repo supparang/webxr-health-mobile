@@ -1,11 +1,24 @@
 // === /herohealth/vr/mode-factory.js ===
-// ULTIMATE DOM spawner for HeroHealth
-// ✅ grid9 กระจายจริง + anti-stuck (ไม่ซ้ำ cell เดิมติดกัน)
-// ✅ ignore exclusion เมื่อ HUD ถูกซ่อน (hud-hidden/opacity low)
-// ✅ boundsHost เป็นฐานคำนวณ spawn rect (ignore transform)
-// ✅ perfect-ring support (ctx.hitPerfect)
-// ✅ Boss 3-hit (chip score) + reset expire
-// ✅ shootCrosshair() สำหรับ Tap-anywhere fire
+// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
+// ✅ spawnHost: ที่ “append เป้า”
+// ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
+// ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
+// ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
+// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
+// ✅ trick/fake targets (itemType='fakeGood')
+// ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
+// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
+//
+// 🔥 PATCH A+B+C (SPREAD PACK):
+// ✅ spawnStrategy: 'grid9' | 'uniform' | 'aroundCrosshair'  (ทำให้ “กระจายจริง”)
+// ✅ ถ้า spawnAroundCrosshair:false → default เป็น uniform ทั้งสนาม (ไม่กองกลาง)
+// ✅ grid9 = กระจายแบบรู้สึกได้ (9 โซน) + หมุนโซนแบบ shuffle
+//
+// 🔥 PATCH EDGE-FIX (NO-CUT):
+// ✅ ถ้า spawnHost มี transform (ลาก/gyro) → ใช้ baseRect จาก boundsHost (ignore transform)
+// ✅ เพิ่ม pad กัน pulse/scale แล้ว clamp ไม่ให้ชนขอบจริง
+//
+// ✅ dragThresholdPx ส่งไว้ให้เกมใช้แยก tap vs drag (ไม่ได้บังคับที่นี่ แต่ส่งผ่านได้)
 
 'use strict';
 
@@ -20,7 +33,8 @@ function clamp (v, min, max) {
 }
 function pickOne (arr, fallback = null) {
   if (!Array.isArray(arr) || !arr.length) return fallback;
-  return arr[(Math.random() * arr.length) | 0];
+  const i = Math.floor(Math.random() * arr.length);
+  return arr[i];
 }
 function getEventXY (ev) {
   let x = ev.clientX;
@@ -42,6 +56,7 @@ function rectFromWHLT(left, top, width, height){
   height = Math.max(1, height||1);
   return { left, top, width, height, right: left + width, bottom: top + height };
 }
+
 function getRectSafe(el){
   try{
     const r = el.getBoundingClientRect();
@@ -49,6 +64,7 @@ function getRectSafe(el){
   }catch{}
   return null;
 }
+
 function hasTransform(el){
   try{
     const cs = ROOT.getComputedStyle ? ROOT.getComputedStyle(el) : null;
@@ -57,6 +73,7 @@ function hasTransform(el){
   }catch{ return false; }
 }
 
+// ---------- Base difficulty ----------
 const DEFAULT_DIFF = {
   easy:   { spawnInterval: 900, maxActive: 3, life: 1900, scale: 1.15 },
   normal: { spawnInterval: 800, maxActive: 4, life: 1700, scale: 1.00 },
@@ -88,24 +105,41 @@ function pickDiffConfig (modeKey, diffKey) {
   return cfg;
 }
 
-// styles
+// ======================================================
+//  Overlay fallback
+// ======================================================
 function ensureOverlayStyle () {
   if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
   const s = DOC.createElement('style');
   s.id = 'hvr-overlay-style';
   s.textContent = `
-    .hvr-overlay-host{ position:fixed; inset:0; z-index:9998; pointer-events:none; }
-    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
-    .hvr-target.hvr-pulse{ animation:hvrPulse .55s ease-in-out infinite; }
-    @keyframes hvrPulse{ 0%{ transform:translate(-50%,-50%) scale(1); } 50%{ transform:translate(-50%,-50%) scale(1.08);} 100%{ transform:translate(-50%,-50%) scale(1);} }
-    .hvr-wiggle{ position:absolute; inset:0; border-radius:999px; display:flex; align-items:center; justify-content:center; pointer-events:none; transform: translate3d(0,0,0); will-change: transform; }
-    .hvr-boss{ box-shadow: 0 18px 44px rgba(0,0,0,.72), 0 0 0 2px rgba(56,189,248,.75), 0 0 24px rgba(56,189,248,.55) !important; }
-    .hvr-shake{ animation:hvrShake .16s ease-in-out 1; }
-    @keyframes hvrShake{
-      0%{ transform:translate(-50%,-50%) scale(1) rotate(0deg); }
-      25%{ transform:translate(-50%,-50%) scale(1.02) rotate(-3deg); }
-      50%{ transform:translate(-50%,-50%) scale(1.02) rotate(3deg); }
-      100%{ transform:translate(-50%,-50%) scale(1) rotate(0deg); }
+    .hvr-overlay-host{
+      position:fixed;
+      inset:0;
+      z-index:9998;
+      pointer-events:none;
+    }
+    .hvr-overlay-host .hvr-target{
+      pointer-events:auto;
+    }
+    .hvr-target.hvr-pulse{
+      animation:hvrPulse .55s ease-in-out infinite;
+    }
+    @keyframes hvrPulse{
+      0%{ transform:translate(-50%,-50%) scale(1); }
+      50%{ transform:translate(-50%,-50%) scale(1.08); }
+      100%{ transform:translate(-50%,-50%) scale(1); }
+    }
+    .hvr-wiggle{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      transform: translate3d(0,0,0);
+      will-change: transform;
     }
   `;
   DOC.head.appendChild(s);
@@ -124,6 +158,10 @@ function ensureOverlayHost () {
   DOC.body.appendChild(host);
   return host;
 }
+
+// ======================================================
+//  Host resolver
+// ======================================================
 function resolveHost (rawCfg, keyName = 'spawnHost') {
   if (!DOC) return null;
 
@@ -131,52 +169,58 @@ function resolveHost (rawCfg, keyName = 'spawnHost') {
   if (h && typeof h === 'string') {
     const el = DOC.querySelector(h);
     if (el) return el;
+    console.warn('[mode-factory] selector not found:', keyName, h, '→ fallback overlay host');
   }
   if (h && h.nodeType === 1) return h;
 
-  if (keyName === 'spawnHost') return ensureOverlayHost();
+  const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
+  if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
+
   return ensureOverlayHost();
 }
 
-// ---------- exclusions ----------
-function isVisiblyExcluded(el){
-  if (!el || !el.isConnected) return false;
-  try{
-    if (el.classList && el.classList.contains('hud-hidden')) return false;
-
-    const cs = ROOT.getComputedStyle ? ROOT.getComputedStyle(el) : null;
-    if (!cs) return true;
-
-    if (cs.display === 'none') return false;
-    if (cs.visibility === 'hidden') return false;
-
-    const op = Number(cs.opacity);
-    if (Number.isFinite(op) && op <= 0.06) return false;
-
-    return true;
-  }catch{
-    return true;
-  }
-}
-
+// ======================================================
+//  SAFE ZONE / EXCLUSION
+// ======================================================
 function collectExclusionElements(rawCfg){
   if (!DOC) return [];
   const out = [];
 
   const sel = rawCfg && rawCfg.excludeSelectors;
-  if (Array.isArray(sel)) sel.forEach(s=>{ try{ DOC.querySelectorAll(String(s)).forEach(el=> out.push(el)); }catch{} });
-  else if (typeof sel === 'string') { try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{} }
+  if (Array.isArray(sel)) {
+    sel.forEach(s=>{
+      try{ DOC.querySelectorAll(String(s)).forEach(el=> out.push(el)); }catch{}
+    });
+  } else if (typeof sel === 'string') {
+    try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
+  }
 
-  const AUTO = ['.hud','#hvr-crosshair','#hvr-end','.hha-bottom-row','.hha-main-row','.hha-fever-card'];
-  AUTO.forEach(s=>{ try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{} });
+  const AUTO = [
+    '#hha-water-header',
+    '.hha-water-bar',
+    '.hha-main-row',
+    '#hha-card-left',
+    '#hha-card-right',
+    '.hha-bottom-row',
+    '.hha-fever-card',
+    '#hvr-crosshair',
+    '.hvr-crosshair',
+    '#hvr-end',
+    '.hvr-end',
+    '.hud'
+  ];
+  AUTO.forEach(s=>{
+    try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
+  });
 
-  try{ DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el)); }catch{}
+  try{
+    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
+  }catch{}
 
   const uniq = [];
   const seen = new Set();
   out.forEach(el=>{
     if (!el || !el.isConnected) return;
-    if (!isVisiblyExcluded(el)) return;
     if (seen.has(el)) return;
     seen.add(el);
     uniq.push(el);
@@ -192,8 +236,7 @@ function computeExclusionMargins(hostRect, exEls){
   const hx2 = hostRect.right, hy2 = hostRect.bottom;
 
   exEls.forEach(el=>{
-    if (!isVisiblyExcluded(el)) return;
-    let r=null;
+    let r = null;
     try{ r = el.getBoundingClientRect(); }catch{}
     if (!r) return;
 
@@ -203,14 +246,26 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    if (r.top < hy1 + 90 && r.bottom > hy1) m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
-    if (r.bottom > hy2 - 90 && r.top < hy2) m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
-    if (r.left < hx1 + 90 && r.right > hx1) m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
-    if (r.right > hx2 - 90 && r.left < hx2) m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+    // top band
+    if (r.top < hy1 + 140 && r.bottom > hy1) {
+      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    }
+    // bottom band
+    if (r.bottom > hy2 - 140 && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+    }
+    // left band
+    if (r.left < hx1 + 120 && r.right > hx1) {
+      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    }
+    // right band
+    if (r.right > hx2 - 120 && r.left < hx2) {
+      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+    }
   });
 
-  const capX = hostRect.width  * 0.42;
-  const capY = hostRect.height * 0.46;
+  const capX = hostRect.width  * 0.45;
+  const capY = hostRect.height * 0.50;
   m.left   = Math.min(m.left, capX);
   m.right  = Math.min(m.right, capX);
   m.top    = Math.min(m.top, capY);
@@ -241,19 +296,8 @@ function computePlayRectFromHost (hostEl, exState) {
 }
 
 // ======================================================
-function computeHitInfoFromPoint(el, clientX, clientY){
-  const r = el.getBoundingClientRect();
-  const cx = r.left + r.width/2;
-  const cy = r.top  + r.height/2;
-  const dx = (clientX - cx);
-  const dy = (clientY - cy);
-  const dist = Math.sqrt(dx*dx + dy*dy);
-  const rad  = Math.max(1, Math.min(r.width, r.height) / 2);
-  const norm = dist / rad;
-  const perfect = norm <= 0.33;
-  return { cx, cy, dist, norm, perfect, rect:r };
-}
-
+//  boot(cfg)
+// ======================================================
 export async function boot (rawCfg = {}) {
   const {
     difficulty = 'normal',
@@ -268,6 +312,7 @@ export async function boot (rawCfg = {}) {
     onExpire,
 
     allowAdaptive = true,
+    rhythm = null,
     trickRate = 0.08,
 
     spawnIntervalMul = null,
@@ -276,14 +321,16 @@ export async function boot (rawCfg = {}) {
     boundsHost = null,
     decorateTarget = null,
 
+    // spawn behavior
     spawnAroundCrosshair = true,
-    spawnStrategy = null,
+    spawnStrategy = null,         // ✅ 'grid9' | 'uniform' | 'aroundCrosshair'
     spawnRadiusX = 0.34,
     spawnRadiusY = 0.30,
     minSeparation = 0.95,
     maxSpawnTries = 14,
 
-    boss = null,
+    // pass-through for games
+    dragThresholdPx = 10
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -294,25 +341,29 @@ export async function boot (rawCfg = {}) {
 
   if (!hostSpawn || !hostBounds || !DOC) {
     console.error('[mode-factory] host not found');
-    return { stop () {}, shootCrosshair(){ return false; } };
+    return { stop () {}, shootCrosshair(){ return false; }, dragThresholdPx };
   }
 
   let stopped = false;
 
-  const totalDuration = clamp(duration, 20, 180);
-  let secLeft = totalDuration;
+  let totalDuration = clamp(duration, 20, 180);
+  let secLeft       = totalDuration;
+  let lastClockTs   = null;
 
   let activeTargets = new Set();
+  let lastSpawnTs   = 0;
   let spawnCounter  = 0;
 
-  // adaptive (คง logic เดิมแบบย่อ)
+  // ---------- Adaptive ----------
   let adaptLevel   = 0;
   let curInterval  = baseDiff.spawnInterval;
   let curMaxActive = baseDiff.maxActive;
   let curScale     = baseDiff.scale;
   let curLife      = baseDiff.life;
 
-  let sampleHits=0, sampleMisses=0, sampleTotal=0;
+  let sampleHits   = 0;
+  let sampleMisses = 0;
+  let sampleTotal  = 0;
   const ADAPT_WINDOW = 12;
 
   function recalcAdaptive () {
@@ -330,13 +381,20 @@ export async function boot (rawCfg = {}) {
     const intervalMul = 1 - (adaptLevel * 0.12);
     const scaleMul    = 1 - (adaptLevel * 0.10);
     const lifeMul     = 1 - (adaptLevel * 0.08);
+    const bonusActive = adaptLevel;
 
-    curInterval  = clamp(baseDiff.spawnInterval * intervalMul, baseDiff.spawnInterval * 0.45, baseDiff.spawnInterval * 1.4);
-    curScale     = clamp(baseDiff.scale * scaleMul, baseDiff.scale * 0.6, baseDiff.scale * 1.4);
-    curLife      = clamp(baseDiff.life * lifeMul, baseDiff.life * 0.55, baseDiff.life * 1.15);
-    curMaxActive = clamp(baseDiff.maxActive + adaptLevel, 2, 10);
+    curInterval  = clamp(baseDiff.spawnInterval * intervalMul,
+                         baseDiff.spawnInterval * 0.45,
+                         baseDiff.spawnInterval * 1.4);
+    curScale     = clamp(baseDiff.scale * scaleMul,
+                         baseDiff.scale * 0.6,
+                         baseDiff.scale * 1.4);
+    curLife      = clamp(baseDiff.life * lifeMul,
+                         baseDiff.life * 0.55,
+                         baseDiff.life * 1.15);
+    curMaxActive = clamp(baseDiff.maxActive + bonusActive, 2, 10);
 
-    sampleHits=sampleMisses=sampleTotal=0;
+    sampleHits = sampleMisses = sampleTotal = 0;
 
     try {
       ROOT.dispatchEvent(new CustomEvent('hha:adaptive', {
@@ -347,9 +405,24 @@ export async function boot (rawCfg = {}) {
 
   function addSample (isHit) {
     if (!allowAdaptive) return;
-    if (isHit) sampleHits++; else sampleMisses++;
+    if (isHit) sampleHits++;
+    else sampleMisses++;
     sampleTotal++;
     if (sampleTotal >= ADAPT_WINDOW) recalcAdaptive();
+  }
+
+  // ---------- Rhythm ----------
+  let rhythmOn = false;
+  let beatMs = 0;
+  let lastBeatTs = 0;
+
+  if (typeof rhythm === 'boolean') rhythmOn = rhythm;
+  else if (rhythm && rhythm.enabled) rhythmOn = true;
+
+  if (rhythmOn) {
+    const bpm = clamp((rhythm && rhythm.bpm) ? rhythm.bpm : 110, 70, 160);
+    beatMs = Math.round(60000 / bpm);
+    try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
   }
 
   function getSpawnMul(){
@@ -358,7 +431,7 @@ export async function boot (rawCfg = {}) {
       if (typeof spawnIntervalMul === 'function') m = Number(spawnIntervalMul()) || 1;
       else if (spawnIntervalMul != null) m = Number(spawnIntervalMul) || 1;
     }catch{}
-    return clamp(m, 0.25, 999);
+    return clamp(m, 0.25, 2.5);
   }
 
   function getLifeMs(){
@@ -366,42 +439,25 @@ export async function boot (rawCfg = {}) {
     const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
     const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
     const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
+
     const life = curLife * stormLifeMul * ratioLifeMul;
     return Math.round(clamp(life, 520, baseDiff.life * 1.25));
   }
 
-  // exclusions state
-  const exState = {
-    els: collectExclusionElements({ excludeSelectors }),
-    margins: { top:0,bottom:0,left:0,right:0 },
-    lastRefreshTs: 0
-  };
-
-  function refreshExclusions(ts){
-    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 450) return;
-    exState.lastRefreshTs = ts;
-
-    exState.els = collectExclusionElements({ excludeSelectors });
-    let hostRect = null;
-    try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!hostRect) hostRect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
-    exState.margins = computeExclusionMargins(hostRect, exState.els);
-  }
-
-  // crosshair point
-  function getCrosshairPoint(){
-    let rect = null;
-    try{ rect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!rect) rect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
-
-    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
-    const padX = rect.width * 0.08;
-    const padY = rect.height * 0.10;
-
-    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
-    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
-    return { x: Math.round(x), y: Math.round(y) };
+  // ======================================================
+  //  perfect distance + crosshair shoot
+  // ======================================================
+  function computeHitInfoFromPoint(el, clientX, clientY){
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top  + r.height/2;
+    const dx = (clientX - cx);
+    const dy = (clientY - cy);
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const rad  = Math.max(1, Math.min(r.width, r.height) / 2);
+    const norm = dist / rad;
+    const perfect = norm <= 0.33;
+    return { cx, cy, dist, norm, perfect, rect:r };
   }
 
   function findTargetAtPoint(clientX, clientY){
@@ -421,30 +477,69 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
+  const exState = {
+    els: collectExclusionElements({ excludeSelectors }),
+    margins: { top:0,bottom:0,left:0,right:0 },
+    lastRefreshTs: 0
+  };
+
+  function refreshExclusions(ts){
+    if (!DOC) return;
+    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (ts - exState.lastRefreshTs < 380) return;  // ✅ ถี่ขึ้นนิดเพื่อ auto-hide/peek
+    exState.lastRefreshTs = ts;
+
+    exState.els = collectExclusionElements({ excludeSelectors });
+    let hostRect = null;
+    try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
+    if (!hostRect) hostRect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
+    exState.margins = computeExclusionMargins(hostRect, exState.els);
+  }
+
+  function getCrosshairPoint(){
+    let rect = null;
+    try{ rect = hostBounds.getBoundingClientRect(); }catch{}
+    if (!rect) rect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
+
+    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+    const padX = rect.width * 0.08;
+    const padY = rect.height * 0.10;
+
+    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
+    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+
   function shootCrosshair(){
     if (stopped) return false;
     refreshExclusions();
     const p = getCrosshairPoint();
     const hit = findTargetAtPoint(p.x, p.y);
     if (!hit) return false;
-    if (typeof hit.t._hit === 'function'){
-      hit.t._hit({ __hhaSynth:true, clientX:p.x, clientY:p.y }, hit.info);
+
+    const data = hit.t;
+    const info = hit.info;
+
+    if (typeof data._hit === 'function') {
+      data._hit({ __hhaSynth:true, clientX:p.x, clientY:p.y }, info);
       return true;
     }
     return false;
   }
 
-  // spawn rects (ignore transform)
+  // ======================================================
+  //  Spawn rects (EDGE-FIX: ignore transform)
+  // ======================================================
   function getRectsForSpawn(){
     const bRect = getRectSafe(hostBounds) || rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
     let sRect = getRectSafe(hostSpawn);
     if (!sRect) sRect = bRect;
 
-    if (hasTransform(hostSpawn)) {
+    const spawnHasT = hasTransform(hostSpawn);
+    if (spawnHasT) {
       sRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
     }
-
-    return { bRect, sRect };
+    return { bRect, sRect, spawnHasT };
   }
 
   function makePlayLocalRect(){
@@ -453,14 +548,10 @@ export async function boot (rawCfg = {}) {
 
     const cL = bRect.left + pr.left;
     const cT = bRect.top  + pr.top;
+    const l = cL - sRect.left;
+    const t = cT - sRect.top;
 
-    return {
-      left: cL - sRect.left,
-      top:  cT - sRect.top,
-      width: pr.width,
-      height: pr.height,
-      bRect, sRect
-    };
+    return { left:l, top:t, width:pr.width, height:pr.height, bRect, sRect };
   }
 
   function getExistingCentersLocal(sRect){
@@ -476,12 +567,22 @@ export async function boot (rawCfg = {}) {
     return out;
   }
 
-  function getValMaybeFn(v){
-    try{ return (typeof v === 'function') ? v() : v; }catch{ return v; }
+  // ✅ grid9 order (shuffle)
+  let gridOrder = null;
+  let gridPtr = 0;
+  function nextGridCell(){
+    if (!gridOrder || gridPtr >= gridOrder.length){
+      gridOrder = [0,1,2,3,4,5,6,7,8];
+      for (let i = gridOrder.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = gridOrder[i];
+        gridOrder[i] = gridOrder[j];
+        gridOrder[j] = tmp;
+      }
+      gridPtr = 0;
+    }
+    return gridOrder[gridPtr++];
   }
-
-  // anti-stuck grid9 memory
-  let lastGridCell = -1;
 
   function pickSpawnPointLocal(playLocal, sizePx){
     const { sRect } = playLocal;
@@ -490,21 +591,21 @@ export async function boot (rawCfg = {}) {
     const minDist = Math.max(18, sizePx * minSeparation);
     const tries = clamp(maxSpawnTries, 6, 30);
 
-    const around = !!getValMaybeFn(spawnAroundCrosshair);
-    const rX = clamp(Number(getValMaybeFn(spawnRadiusX) ?? 0.34) || 0.34, 0.18, 0.99);
-    const rY = clamp(Number(getValMaybeFn(spawnRadiusY) ?? 0.30) || 0.30, 0.16, 0.99);
+    const strategy =
+      (spawnStrategy ? String(spawnStrategy) :
+        (spawnAroundCrosshair ? 'aroundCrosshair' : 'uniform')).toLowerCase();
 
     let ax = playLocal.left + playLocal.width * 0.50;
     let ay = playLocal.top  + playLocal.height * 0.52;
 
-    if (around) {
+    if (strategy === 'aroundcrosshair') {
       const cp = getCrosshairPoint();
       ax = cp.x - sRect.left;
       ay = cp.y - sRect.top;
     }
 
-    const rx = playLocal.width  * rX;
-    const ry = playLocal.height * rY;
+    const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.98);
+    const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.98);
 
     const maxVisualScale = 1.10;
     const pad = Math.max(12, (sizePx * maxVisualScale) * 0.62);
@@ -520,47 +621,8 @@ export async function boot (rawCfg = {}) {
     }
 
     function tri(){ return (Math.random() + Math.random() - 1); }
-    let best=null, bestScore=-1;
 
-    const useUniform = !around;
-    const strat = String(getValMaybeFn(spawnStrategy) || '').toLowerCase();
-
-    function grid9Point(){
-      // เลือก cell แบบกันซ้ำติดกัน
-      let col=0,row=0,cell=0;
-      for (let t=0;t<4;t++){
-        col = (Math.random()*3)|0;
-        row = (Math.random()*3)|0;
-        cell = row*3 + col;
-        if (cell !== lastGridCell) break;
-      }
-      lastGridCell = cell;
-
-      const cellW = (maxX - minX) / 3;
-      const cellH = (maxY - minY) / 3;
-      const x0 = minX + col*cellW;
-      const y0 = minY + row*cellH;
-      const x = x0 + Math.random()*cellW;
-      const y = y0 + Math.random()*cellH;
-      return { x, y };
-    }
-
-    for (let i=0;i<tries;i++){
-      let x,y;
-
-      if (strat === 'grid9'){
-        const p = grid9Point();
-        x = p.x; y = p.y;
-      } else {
-        x = useUniform
-          ? (minX + Math.random() * (maxX - minX))
-          : clamp(ax + tri()*rx, minX, maxX);
-
-        y = useUniform
-          ? (minY + Math.random() * (maxY - minY))
-          : clamp(ay + tri()*ry, minY, maxY);
-      }
-
+    function checkOk(x,y){
       let ok = true;
       let nearest = 1e9;
       for (let k=0;k<centers.length;k++){
@@ -570,8 +632,44 @@ export async function boot (rawCfg = {}) {
         nearest = Math.min(nearest, d);
         if (d < minDist) { ok = false; break; }
       }
+      return { ok, nearest };
+    }
 
+    let best = null;
+    let bestScore = -1;
+
+    for (let i=0;i<tries;i++){
+      let x, y;
+
+      if (strategy === 'grid9') {
+        const cell = nextGridCell(); // 0..8
+        const col = cell % 3;
+        const row = Math.floor(cell / 3);
+
+        const cellW = (maxX - minX) / 3;
+        const cellH = (maxY - minY) / 3;
+
+        const cx1 = minX + col * cellW;
+        const cy1 = minY + row * cellH;
+        const cx2 = cx1 + cellW;
+        const cy2 = cy1 + cellH;
+
+        // random inside cell
+        x = cx1 + Math.random() * (cx2 - cx1);
+        y = cy1 + Math.random() * (cy2 - cy1);
+      }
+      else if (strategy === 'uniform') {
+        x = minX + Math.random() * (maxX - minX);
+        y = minY + Math.random() * (maxY - minY);
+      }
+      else { // aroundCrosshair
+        x = clamp(ax + tri()*rx, minX, maxX);
+        y = clamp(ay + tri()*ry, minY, maxY);
+      }
+
+      const { ok, nearest } = checkOk(x,y);
       const score = ok ? (100000 + nearest) : nearest;
+
       if (score > bestScore) { bestScore = score; best = { x, y, ok }; }
       if (ok) return { x, y, ok:true };
     }
@@ -579,6 +677,9 @@ export async function boot (rawCfg = {}) {
     return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
   }
 
+  // ======================================================
+  //  Spawn target
+  // ======================================================
   function spawnTarget () {
     if (activeTargets.size >= curMaxActive) return;
 
@@ -590,36 +691,35 @@ export async function boot (rawCfg = {}) {
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
     const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
 
-    const bossCfg = boss && boss.enabled ? boss : null;
-    const bossEvery = bossCfg ? clamp(bossCfg.every || 0, 4, 999) : 0;
-    const bossDue = bossCfg && bossEvery > 0 && (spawnCounter > 0) && (spawnCounter % bossEvery === 0);
-
-    let ch='💧', isGood=true, isPower=false, itemType='good', isBoss=false, bossHp=0;
+    let ch = '💧';
+    let isGood = true;
+    let isPower = false;
+    let itemType = 'good';
 
     const canPower = Array.isArray(powerups) && powerups.length > 0;
     const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
 
-    if (bossDue){
-      isBoss = true;
-      bossHp = clamp(bossCfg.hp || 3, 2, 9);
-      ch = String(bossCfg.emoji || '💧');
-      isGood = true;
-      isPower = false;
-      itemType = 'boss';
-    } else if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
+    if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
       ch = pickOne(powerups, '⭐');
       isGood = true;
       isPower = true;
       itemType = 'power';
     } else if (canTrick) {
-      ch = pickOne(poolsTrick, '🍭');
+      ch = pickOne(poolsTrick, '💧');
       isGood = true;
       isPower = false;
       itemType = 'fakeGood';
     } else {
       const r = Math.random();
-      if (r < goodRate || !poolsBad.length) { ch = pickOne(poolsGood, '💧'); isGood=true; itemType='good'; }
-      else { ch = pickOne(poolsBad, '🥤'); isGood=false; itemType='bad'; }
+      if (r < goodRate || !poolsBad.length) {
+        ch = pickOne(poolsGood, '💧');
+        isGood = true;
+        itemType = 'good';
+      } else {
+        ch = pickOne(poolsBad, '🥤');
+        isGood = false;
+        itemType = 'bad';
+      }
     }
     spawnCounter++;
 
@@ -629,266 +729,303 @@ export async function boot (rawCfg = {}) {
     el.setAttribute('data-item-type', itemType);
 
     const baseSize = 78;
-    const sizeMulBoss = isBoss ? 1.55 : 1.0;
-    const size = baseSize * curScale * sizeMulBoss;
+    const size = baseSize * curScale;
 
     const p = pickSpawnPointLocal(playLocal, size);
 
-    el.style.position='absolute';
-    el.style.left = p.x+'px';
-    el.style.top  = p.y+'px';
-    el.style.transform='translate(-50%,-50%) scale(0.9)';
-    el.style.width=size+'px';
-    el.style.height=size+'px';
-    el.style.touchAction='manipulation';
-    el.style.zIndex='35';
-    el.style.borderRadius='999px';
+    el.style.position = 'absolute';
+    el.style.left = p.x + 'px';
+    el.style.top  = p.y + 'px';
+    el.style.transform = 'translate(-50%, -50%) scale(0.9)';
+    el.style.width  = size + 'px';
+    el.style.height = size + 'px';
+    el.style.touchAction = 'manipulation';
+    el.style.zIndex = '35';
+    el.style.borderRadius = '999px';
 
     const wiggle = DOC.createElement('div');
-    wiggle.className='hvr-wiggle';
+    wiggle.className = 'hvr-wiggle';
+    wiggle.style.borderRadius = '999px';
 
-    let bgGrad='';
-    let ringGlow='';
+    let bgGrad = '';
+    let ringGlow = '';
 
-    if (isBoss){
-      bgGrad='radial-gradient(circle at 30% 25%, #38bdf8, #0ea5e9)';
-      ringGlow='0 0 0 2px rgba(56,189,248,0.85), 0 0 24px rgba(56,189,248,0.80)';
-      el.classList.add('hvr-boss');
-    } else if (isPower){
-      bgGrad='radial-gradient(circle at 30% 25%, #facc15, #f97316)';
-      ringGlow='0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
-    } else if (itemType==='fakeGood'){
-      bgGrad='radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
-      ringGlow='0 0 0 2px rgba(167,139,250,0.85), 0 0 22px rgba(167,139,250,0.9)';
-    } else if (isGood){
-      bgGrad='radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
-      ringGlow='0 0 0 2px rgba(74,222,128,0.75), 0 0 18px rgba(16,185,129,0.85)';
+    if (isPower) {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
+      ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
+    } else if (itemType === 'fakeGood') {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
+      ringGlow = '0 0 0 2px rgba(167,139,250,0.85), 0 0 22px rgba(167,139,250,0.9)';
+    } else if (isGood) {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
+      ringGlow = '0 0 0 2px rgba(74,222,128,0.75), 0 0 18px rgba(16,185,129,0.85)';
     } else {
-      bgGrad='radial-gradient(circle at 30% 25%, #fb923c, #ea580c)';
-      ringGlow='0 0 0 2px rgba(248,113,113,0.75), 0 0 18px rgba(248,113,113,0.9)';
+      bgGrad = 'radial-gradient(circle at 30% 25%, #fb923c, #ea580c)';
+      ringGlow = '0 0 0 2px rgba(248,113,113,0.75), 0 0 18px rgba(248,113,113,0.9)';
       el.classList.add('bad');
     }
 
-    el.style.background=bgGrad;
-    el.style.boxShadow='0 14px 30px rgba(15,23,42,0.9),'+ringGlow;
+    el.style.background = bgGrad;
+    el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
     const ring = DOC.createElement('div');
-    ring.style.position='absolute';
-    ring.style.left='50%';
-    ring.style.top='50%';
-    ring.style.width=(size*0.36)+'px';
-    ring.style.height=(size*0.36)+'px';
-    ring.style.transform='translate(-50%,-50%)';
-    ring.style.borderRadius='999px';
-    ring.style.border='2px solid rgba(255,255,255,0.35)';
-    ring.style.boxShadow='0 0 12px rgba(255,255,255,0.18)';
-    ring.style.pointerEvents='none';
+    ring.style.position = 'absolute';
+    ring.style.left = '50%';
+    ring.style.top  = '50%';
+    ring.style.width  = (size * 0.36) + 'px';
+    ring.style.height = (size * 0.36) + 'px';
+    ring.style.transform = 'translate(-50%, -50%)';
+    ring.style.borderRadius = '999px';
+    ring.style.border = '2px solid rgba(255,255,255,0.35)';
+    ring.style.boxShadow = '0 0 12px rgba(255,255,255,0.18)';
+    ring.style.pointerEvents = 'none';
 
     const inner = DOC.createElement('div');
-    inner.style.width=(size*0.82)+'px';
-    inner.style.height=(size*0.82)+'px';
-    inner.style.borderRadius='999px';
-    inner.style.display='flex';
-    inner.style.alignItems='center';
-    inner.style.justifyContent='center';
-    inner.style.background='radial-gradient(circle at 30% 25%, rgba(15,23,42,0.12), rgba(15,23,42,0.36))';
-    inner.style.boxShadow='inset 0 4px 10px rgba(15,23,42,0.9)';
+    inner.style.width = (size * 0.82) + 'px';
+    inner.style.height = (size * 0.82) + 'px';
+    inner.style.borderRadius = '999px';
+    inner.style.display = 'flex';
+    inner.style.alignItems = 'center';
+    inner.style.justifyContent = 'center';
+    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,0.12), rgba(15,23,42,0.36))';
+    inner.style.boxShadow = 'inset 0 4px 10px rgba(15,23,42,0.9)';
 
     const icon = DOC.createElement('span');
     icon.textContent = ch;
-    icon.style.fontSize=(size*0.60)+'px';
-    icon.style.lineHeight='1';
-    icon.style.filter='drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+    icon.style.fontSize = (size * 0.60) + 'px';
+    icon.style.lineHeight = '1';
+    icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
     inner.appendChild(icon);
 
-    let hpBadge=null;
-    if (isBoss){
-      hpBadge = DOC.createElement('div');
-      hpBadge.textContent = String(bossHp);
-      hpBadge.style.position='absolute';
-      hpBadge.style.left='10px';
-      hpBadge.style.top='8px';
-      hpBadge.style.fontSize='16px';
-      hpBadge.style.fontWeight='900';
-      hpBadge.style.color='#e0f2fe';
-      hpBadge.style.textShadow='0 2px 6px rgba(0,0,0,.6)';
-      hpBadge.style.pointerEvents='none';
+    let badge = null;
+    if (itemType === 'fakeGood') {
+      badge = DOC.createElement('div');
+      badge.textContent = '✨';
+      badge.style.position = 'absolute';
+      badge.style.right = '8px';
+      badge.style.top = '6px';
+      badge.style.fontSize = '18px';
+      badge.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+      badge.style.pointerEvents = 'none';
     }
 
     wiggle.appendChild(ring);
     wiggle.appendChild(inner);
-    if (hpBadge) wiggle.appendChild(hpBadge);
+    if (badge) wiggle.appendChild(badge);
     el.appendChild(wiggle);
 
-    ROOT.requestAnimationFrame(()=>{ el.style.transform='translate(-50%,-50%) scale(1)'; });
+    if (rhythmOn) el.classList.add('hvr-pulse');
 
-    const lifeMsBase = getLifeMs();
-    const lifeMs = isBoss ? Math.round(lifeMsBase * 1.18) : lifeMsBase;
+    ROOT.requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%, -50%) scale(1)';
+    });
+
+    const lifeMs = getLifeMs();
 
     const data = {
-      el, ch, isGood, isPower, itemType, isBoss, bossHp,
+      el,
+      ch,
+      isGood,
+      isPower,
+      itemType,
+      bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       life: lifeMs,
-      _hit:null,
-      _tm:null
+      _hit: null
     };
 
     try{
       if (typeof decorateTarget === 'function'){
-        decorateTarget(el, { wiggle, inner, icon, ring, hpBadge }, data, { size, modeKey, difficulty: diffKey, spawnMul:getSpawnMul(), curScale, adaptLevel });
+        decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
+          size,
+          modeKey,
+          difficulty: diffKey,
+          spawnMul: getSpawnMul(),
+          curScale,
+          adaptLevel,
+          spawnStrategy: (spawnStrategy ? String(spawnStrategy) : (spawnAroundCrosshair ? 'aroundCrosshair' : 'uniform')),
+          dragThresholdPx
+        });
       }
-    }catch{}
+    }catch(err){
+      console.warn('[mode-factory] decorateTarget error', err);
+    }
 
     activeTargets.add(data);
     hostSpawn.appendChild(el);
-
-    function scheduleExpire(ms){
-      try{ if (data._tm) ROOT.clearTimeout(data._tm); }catch{}
-      data._tm = ROOT.setTimeout(()=>{
-        if (stopped) return;
-        if (!activeTargets.has(data)) return;
-
-        activeTargets.delete(data);
-        try{ el.remove(); }catch{}
-        try{ if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, itemType, isBoss }); }catch{}
-      }, ms);
-    }
 
     function consumeHit(evOrSynth, hitInfoOpt){
       if (stopped) return;
       if (!activeTargets.has(data)) return;
 
-      const xy = (evOrSynth && evOrSynth.__hhaSynth)
-        ? { x: evOrSynth.clientX, y: evOrSynth.clientY }
-        : getEventXY(evOrSynth || {});
+      let keepRect = null;
+      try{ keepRect = el.getBoundingClientRect(); }catch{}
 
-      const info = hitInfoOpt || computeHitInfoFromPoint(el, xy.x, xy.y);
-
-      // Boss chip
-      if (data.isBoss && data.bossHp > 1){
-        data.bossHp -= 1;
-        if (hpBadge) hpBadge.textContent = String(data.bossHp);
-        el.classList.remove('hvr-shake'); void el.offsetWidth; el.classList.add('hvr-shake');
-
-        if (typeof judge === 'function'){
-          try{
-            judge(ch, {
-              clientX: xy.x, clientY: xy.y,
-              isGood:true, isPower:false,
-              itemType:'boss',
-              isBoss:true,
-              bossChip:true,
-              hitPerfect: !!info.perfect,
-              hitDistNorm: Number(info.norm||1),
-              targetRect: info.rect
-            });
-          }catch{}
-        }
-        addSample(true);
-
-        scheduleExpire(Math.max(480, Math.round(lifeMs * 0.82)));
-        return;
-      }
-
-      // remove
       activeTargets.delete(data);
-      try{ if (data._tm) ROOT.clearTimeout(data._tm); }catch{}
-      try{ el.remove(); }catch{}
+      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
+      try { hostSpawn.removeChild(el); } catch {}
 
-      let res=null;
-      if (typeof judge === 'function'){
-        try{
-          res = judge(ch, {
-            clientX: xy.x, clientY: xy.y,
-            isGood, isPower, itemType,
-            isBoss: !!data.isBoss,
-            hitPerfect: !!info.perfect,
-            hitDistNorm: Number(info.norm||1),
-            targetRect: info.rect
-          });
-        }catch{}
+      let res = null;
+      if (typeof judge === 'function') {
+        const xy = (evOrSynth && evOrSynth.__hhaSynth)
+          ? { x: evOrSynth.clientX, y: evOrSynth.clientY }
+          : getEventXY(evOrSynth || {});
+        const info = hitInfoOpt || (keepRect ? (function(){
+          const cx = keepRect.left + keepRect.width/2;
+          const cy = keepRect.top  + keepRect.height/2;
+          const dx = (xy.x - cx);
+          const dy = (xy.y - cy);
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const rad  = Math.max(1, Math.min(keepRect.width, keepRect.height) / 2);
+          const norm = dist / rad;
+          const perfect = norm <= 0.33;
+          return { cx, cy, dist, norm, perfect, rect: keepRect };
+        })() : computeHitInfoFromPoint(el, xy.x, xy.y));
+
+        const ctx = {
+          clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
+          isGood, isPower,
+          itemType,
+          hitPerfect: !!info.perfect,
+          hitDistNorm: Number(info.norm || 1),
+          targetRect: info.rect
+        };
+        try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
       }
 
-      let isHit = isGood;
-      if (res && typeof res.good === 'boolean') isHit = !!res.good;
-      else if (res && typeof res.scoreDelta === 'number') isHit = (res.scoreDelta >= 0 ? isGood : false);
+      let isHit = false;
+      if (res && typeof res.scoreDelta === 'number') {
+        if (res.scoreDelta > 0) isHit = true;
+        else if (res.scoreDelta < 0) isHit = false;
+        else isHit = isGood;
+      } else if (res && typeof res.good === 'boolean') {
+        isHit = !!res.good;
+      } else {
+        isHit = isGood;
+      }
       addSample(isHit);
     }
 
-    function handleHit(ev){
+    const handleHit = (ev) => {
       if (stopped) return;
       ev.preventDefault();
       ev.stopPropagation();
       consumeHit(ev, null);
-    }
+    };
 
     data._hit = consumeHit;
-    el.addEventListener('pointerdown', handleHit, { passive:false });
-    el.addEventListener('click', handleHit, { passive:false });
-    el.addEventListener('touchstart', handleHit, { passive:false });
 
-    scheduleExpire(lifeMs);
+    el.addEventListener('pointerdown', handleHit, { passive: false });
+    el.addEventListener('click', handleHit, { passive: false });
+    el.addEventListener('touchstart', handleHit, { passive: false });
+
+    ROOT.setTimeout(() => {
+      if (stopped) return;
+      if (!activeTargets.has(data)) return;
+
+      activeTargets.delete(data);
+      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
+      try { hostSpawn.removeChild(el); } catch {}
+
+      try { if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, itemType }); } catch (err) {
+        console.error('[mode-factory] onExpire error', err);
+      }
+    }, lifeMs);
   }
 
   function dispatchTime (sec) {
     try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
   }
 
-  let rafId=null;
-  let lastTs=0;
-  let lastSpawnTs=0;
+  let rafId = null;
 
-  function loop(ts){
+  function loop (ts) {
     if (stopped) return;
+
     refreshExclusions(ts);
 
-    if (!lastTs) lastTs = ts;
-    const dt = ts - lastTs;
+    if (lastClockTs == null) lastClockTs = ts;
+    const dt = ts - lastClockTs;
 
-    if (dt >= 1000 && secLeft > 0){
-      const steps = Math.floor(dt/1000);
-      secLeft = Math.max(0, secLeft - steps);
-      dispatchTime(secLeft);
-      lastTs += steps*1000;
+    if (dt >= 1000 && secLeft > 0) {
+      const steps = Math.floor(dt / 1000);
+      for (let i = 0; i < steps; i++) {
+        secLeft--;
+        dispatchTime(secLeft);
+        if (secLeft <= 0) break;
+      }
+      lastClockTs += steps * 1000;
     }
 
-    if (secLeft <= 0){ stop(); return; }
-
-    const mul = getSpawnMul();
-    if (mul < 50){
-      const effInterval = Math.max(35, curInterval * mul);
+    if (secLeft > 0) {
       if (!lastSpawnTs) lastSpawnTs = ts;
-      if (ts - lastSpawnTs >= effInterval){
-        if (activeTargets.size < curMaxActive) spawnTarget();
-        lastSpawnTs = ts;
+
+      const mul = getSpawnMul();
+      const effInterval = Math.max(35, curInterval * mul);
+
+      try{
+        if (mul < 0.99) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
+        else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
+      }catch{}
+
+      if (rhythmOn && beatMs > 0) {
+        if (!lastBeatTs) lastBeatTs = ts;
+        const dtBeat = ts - lastBeatTs;
+        if (dtBeat >= beatMs) {
+          spawnTarget();
+          lastBeatTs += Math.floor(dtBeat / beatMs) * beatMs;
+        }
+      } else {
+        const dtSpawn = ts - lastSpawnTs;
+        if (dtSpawn >= effInterval) {
+          spawnTarget();
+          lastSpawnTs = ts;
+        }
       }
+    } else {
+      stop();
+      return;
     }
 
     rafId = ROOT.requestAnimationFrame(loop);
   }
 
-  function stop(){
+  function stop () {
     if (stopped) return;
     stopped = true;
-    try{ if (rafId!=null) ROOT.cancelAnimationFrame(rafId); }catch{}
-    rafId=null;
 
-    activeTargets.forEach(t=>{ try{ t.el.remove(); }catch{} });
+    try { if (rafId != null) ROOT.cancelAnimationFrame(rafId); } catch {}
+    rafId = null;
+
+    activeTargets.forEach(t => { try { t.el.remove(); } catch {} });
     activeTargets.clear();
 
-    try{ dispatchTime(0); }catch{}
+    try { dispatchTime(0); } catch {}
   }
 
-  const onStopEvent = ()=> stop();
+  const onStopEvent = () => stop();
   ROOT.addEventListener('hha:stop', onStopEvent);
+
+  // refresh on resize/orientation (กัน margins เพี้ยน)
+  const onResize = ()=>{ try{ exState.lastRefreshTs = 0; }catch{} };
+  try{
+    ROOT.addEventListener('resize', onResize, { passive:true });
+    ROOT.addEventListener('orientationchange', onResize, { passive:true });
+  }catch{}
 
   rafId = ROOT.requestAnimationFrame(loop);
 
   return {
-    stop(){
-      ROOT.removeEventListener('hha:stop', onStopEvent);
+    stop () {
+      try{ ROOT.removeEventListener('hha:stop', onStopEvent); }catch{}
+      try{ ROOT.removeEventListener('resize', onResize); ROOT.removeEventListener('orientationchange', onResize); }catch{}
       stop();
     },
-    shootCrosshair
+    shootCrosshair,
+    dragThresholdPx
   };
 }
 
