@@ -1,9 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR (PRODUCTION) — H++ FINAL PACK
-// ✅ Quest Director wired (start + tick) + quest:update shape
+// ✅ Quest Director wired (start + tick) + quest:update dual-shape compatible
 // ✅ Miss rule: miss = goodExpired + junkHit ; Shield block junk => NOT miss
 // ✅ Crosshair tap shoot (1 tap) + magnet/heroBurst uses layer offset
-// ✅ Anti-clump spawn + safeMargins
+// ✅ Anti-clump spawn + safeMargins (ไม่ทับ HUD)
 // ✅ Emits hha:end (for end summary) + hha:log_session/events/profile (Google Sheet logger)
 
 'use strict';
@@ -26,9 +26,7 @@ function safeDispatch(name, detail){
 }
 function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 function lerp(a,b,t){ return a + (b-a)*t; }
-function uid8(){
-  return Math.random().toString(16).slice(2,10);
-}
+function uid8(){ return Math.random().toString(16).slice(2,10); }
 
 function getAimPoint(){
   const ap = ROOT.__GJ_AIM_POINT__;
@@ -45,6 +43,7 @@ function toLayerPt(xScreen, yScreen){
   return { x: (xScreen - o.x), y: (yScreen - o.y) };
 }
 
+// ---------------- Difficulty ----------------
 const DIFF = {
   easy:   { spawnMs: 900, maxActive: 6,  ttlMs: 2200, scale: 1.08, junkRatio: 0.34, goldRatio: 0.08, powerRatio: 0.09, bossHp: 6 },
   normal: { spawnMs: 760, maxActive: 7,  ttlMs: 1900, scale: 1.00, junkRatio: 0.40, goldRatio: 0.07, powerRatio: 0.08, bossHp: 8 },
@@ -55,6 +54,7 @@ function pickDiff(key){
   return DIFF[key] ? { ...DIFF[key] } : { ...DIFF.normal };
 }
 
+// ---------------- Emoji Pools ----------------
 const POOL_GOOD = ['🥦','🥕','🍎','🍌','🥬','🍇','🍊','🍉','🥜','🐟','🥛'];
 const POOL_JUNK = ['🍟','🍕','🍔','🍩','🍭','🥤','🍰','🍫','🧁'];
 const POOL_FAKE = ['😈','🧨','🪤','☠️'];
@@ -65,6 +65,7 @@ const EMO_SHLD  = '🛡️';
 const EMO_BOSS1 = '👑';
 const EMO_BOSS2 = '👹';
 
+// ---------------- DOM helpers ----------------
 function createEl(layer, xLayer, yLayer, emoji, cls){
   const el = document.createElement('div');
   el.className = `gj-target ${cls||''}`;
@@ -88,6 +89,7 @@ function scorePop(xScreen,yScreen,txt,label){
   try{ Particles.scorePop && Particles.scorePop(xScreen, yScreen, txt, label||''); }catch(_){}
 }
 
+// ---------------- Scoring ----------------
 function comboMultiplier(combo){
   const c = Math.max(0, combo|0);
   const m = 1 + Math.min(1.35, c * 0.07);
@@ -98,9 +100,10 @@ function scoreGain(base, combo){
   return Math.round(base * mul);
 }
 
+// ===========================================================
 export function boot(opts = {}){
-  const diffKey = String(opts.diff || 'normal').toLowerCase();
-  const runMode = String(opts.run || 'play').toLowerCase();
+  const diffKey   = String(opts.diff || 'normal').toLowerCase();
+  const runMode   = String(opts.run || 'play').toLowerCase();
   const challenge = String(opts.challenge || 'rush').toLowerCase();
   const durationSec = clamp(opts.time || 60, 20, 180) | 0;
 
@@ -125,6 +128,7 @@ export function boot(opts = {}){
   const sessionId = (opts.sessionId || `${Date.now()}-${uid8()}`).toString();
   const startedIso = new Date().toISOString();
 
+  // ---- core state ----
   const S = {
     running: true,
     startedAt: now(),
@@ -224,6 +228,7 @@ export function boot(opts = {}){
     maxMini: 999
   });
 
+  // director state contract
   const qState = {
     score: 0,
     goodHits: 0,
@@ -255,6 +260,7 @@ export function boot(opts = {}){
     if ((S.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
   };
 
+  // reset mini counters when mini starts
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = 0;
     qState.blocks = 0;
@@ -264,7 +270,7 @@ export function boot(opts = {}){
     qState.final8Good = 0;
   }, { passive:true });
 
-  // ===== Logging helpers (Google Sheet logger listens hha:log_*) =====
+  // ===== Logging helpers =====
   function logEvent(name, extra){
     safeDispatch('hha:log_event', {
       sessionId,
@@ -302,12 +308,13 @@ export function boot(opts = {}){
     });
   }
 
-  // allow profile send from outside if needed
+  // optional profile hook (hub.html can send real profile later)
   safeDispatch('hha:log_profile', {
     ts: Date.now(),
     hint: 'optional (send student profile from hub.html later)'
   });
 
+  // ===== HUD events =====
   function emitScore(){
     safeDispatch('hha:score', {
       score: S.score|0,
@@ -352,6 +359,7 @@ export function boot(opts = {}){
     S.stormMul = 1.0;
     safeDispatch('hha:storm', { active:false });
   }
+
   function setPanic(level = 0.6, ms = 900){
     const t = now();
     const L = clamp(level, 0, 1);
@@ -399,6 +407,7 @@ export function boot(opts = {}){
     if (posScreen){
       const xs = clamp(posScreen.x|0, R.left, R.right);
       const ys = clamp(posScreen.y|0, R.top,  R.bottom);
+      rememberPt(xs, ys);
       return { x: xs, y: ys };
     }
 
@@ -547,6 +556,7 @@ export function boot(opts = {}){
     });
   }
 
+  // ---------------- spawn target ----------------
   function spawnTarget(kind, posScreen=null){
     if (!S.running) return null;
     if (S.targets.size >= D.maxActive && kind !== 'boss') return null;
@@ -597,12 +607,7 @@ export function boot(opts = {}){
     el.style.transform = `translate(-50%,-50%) scale(${sc.toFixed(3)})`;
 
     const id = S.nextId++;
-    const t = {
-      id, kind, el,
-      x: xL, y: yL,
-      bornAt: now(),
-      expiresAt: now() + ttl
-    };
+    const t = { id, kind, el, x:xL, y:yL, bornAt: now(), expiresAt: now() + ttl };
     S.targets.set(id, t);
 
     el.addEventListener('pointerdown', (ev)=>{
@@ -635,6 +640,7 @@ export function boot(opts = {}){
     return spawnTarget('good');
   }
 
+  // ---------------- boss ----------------
   function maybeSpawnBoss(){
     if (challenge !== 'boss') return;
     if (S.bossSpawned) return;
@@ -856,6 +862,7 @@ export function boot(opts = {}){
     }
   }
 
+  // ---------------- hit logic ----------------
   function onHit(t, via='tap'){
     if (!S.running) return;
     if (S.finalLock){ setJudge('LOCK!'); return; }
@@ -1025,21 +1032,26 @@ export function boot(opts = {}){
   }
 
   // hook: allow boot to pass shootEl
-  if (opts.shootEl){
+  // (keep references so stop() can detach if needed)
+  let shootEl = opts.shootEl || null;
+  let onShootDown = null;
+
+  if (shootEl){
     try{
-      opts.shootEl.addEventListener('pointerdown', (ev)=>{
+      onShootDown = (ev)=>{
         ev.preventDefault?.();
         shootCrosshair();
-      }, { passive:false });
+      };
+      shootEl.addEventListener('pointerdown', onShootDown, { passive:false });
     }catch(_){}
   } else {
-    // fallback: tap anywhere on layer
     try{
-      layer.addEventListener('pointerdown', (ev)=>{
-        // if you clicked a target it already handled; this is background tap
+      onShootDown = (ev)=>{
         if (ev.target && ev.target.classList && ev.target.classList.contains('gj-target')) return;
         shootCrosshair();
-      }, { passive:false });
+      };
+      layer.addEventListener('pointerdown', onShootDown, { passive:false });
+      shootEl = layer;
     }catch(_){}
   }
 
@@ -1134,14 +1146,11 @@ export function boot(opts = {}){
     for (const t of S.targets.values()){
       if (t.kind !== 'good' && t.kind !== 'gold' && t.kind !== 'power') continue;
 
-      const dx = apL.x - t.x;
-      const dy = apL.y - t.y;
-
       t.x = lerp(t.x, apL.x, strength);
       t.y = lerp(t.y, apL.y, strength);
 
-      t.x += (-dy) * swirl * 0.002;
-      t.y += ( dx) * swirl * 0.002;
+      t.x += (-(apL.y - t.y)) * swirl * 0.002;
+      t.y += ( (apL.x - t.x)) * swirl * 0.002;
 
       t.el.style.left = (t.x|0) + 'px';
       t.el.style.top  = (t.y|0) + 'px';
@@ -1167,12 +1176,10 @@ export function boot(opts = {}){
 
           const ga = S.ringGapA;
           const gw = S.ringGapW;
-          const diff = Math.atan2(Math.sin(a-ga), Math.cos(a-ga));
-          const inGap = Math.abs(diff) <= (gw*0.5);
+          const diffA = Math.atan2(Math.sin(a-ga), Math.cos(a-ga));
+          const inGap = Math.abs(diffA) <= (gw*0.5);
 
-          if (!inGap){
-            applyPenalty('ring');
-          }
+          if (!inGap) applyPenalty('ring');
         }
       }
     }
@@ -1183,12 +1190,11 @@ export function boot(opts = {}){
         try{ if (elLaser) elLaser.classList.remove('warn','fire'); }catch(_){}
       } else if (tnow >= S.laserFireAt && tnow <= S.laserEndsAt){
         const tol = (diffKey==='hard') ? 26 : 30;
-        if (Math.abs((ap.y|0) - (S.laserY|0)) <= tol){
-          applyPenalty('laser');
-        }
+        if (Math.abs((ap.y|0) - (S.laserY|0)) <= tol) applyPenalty('laser');
       }
     }
 
+    // ring ticks (audio + shake)
     if (S.ringActive){
       if (tnow >= (S.ringTickNextAt||0)){
         const left = (S.ringEndsAt||0) - tnow;
@@ -1200,6 +1206,7 @@ export function boot(opts = {}){
       if (((S.ringEndsAt||0) - tnow) < 260) safeDispatch('hha:fx', { type:'kick', intensity: 0.85 });
     }
 
+    // laser warn ticks
     if (S.laserActive && tnow < (S.laserFireAt||0)){
       if (tnow >= (S.laserTickNextAt||0)){
         const left = (S.laserFireAt||0) - tnow;
@@ -1219,13 +1226,14 @@ export function boot(opts = {}){
   function finalSprintTick(){
     if ((S.timeLeft|0) > 8) return;
 
-    if ((S.timeLeft|0) <= 8){
-      const lv = clamp((8 - (S.timeLeft|0)) / 8, 0, 1);
-      setPanic(0.35 + lv*0.65, 650);
-      if ((S.timeLeft|0) <= 5) tick('final', 1.7);
-    }
-
     const sec = S.timeLeft|0;
+
+    // เพิ่ม panic + tick ช่วงท้ายให้ "เร้าใจ"
+    const lv = clamp((8 - sec) / 8, 0, 1);
+    setPanic(0.35 + lv*0.65, 650);
+    if (sec <= 5) tick('final', 1.7);
+
+    // spawn extra hazards each second
     if (S.lastFinalPulseSec !== sec){
       S.lastFinalPulseSec = sec;
       triggerFinalPulse(sec);
@@ -1243,7 +1251,7 @@ export function boot(opts = {}){
     qState.safeNoJunkSeconds = Math.max(0, Math.floor((now() - lastBadAt) / 1000));
   }
 
-  // ---- Init ----
+  // ---- init ----
   emitScore();
   emitTime();
   emitFever();
@@ -1252,6 +1260,7 @@ export function boot(opts = {}){
 
   logSession('start', { startedIso });
 
+  // ---------------- main loop ----------------
   function loop(){
     if (!S.running) return;
 
@@ -1269,29 +1278,25 @@ export function boot(opts = {}){
       return;
     }
 
+    // fever decay
     if (!S.stunActive){
       const decay = S.feverDecayPerSec / 60;
       S.fever = Math.max(0, (S.fever||0) - decay);
     }
 
-    if (S.stunActive && tnow >= S.stunEndsAt){
-      stopStun();
-    }
+    if (S.stunActive && tnow >= S.stunEndsAt) stopStun();
 
-    if (S.finalLock && tnow >= S.finalLockEndsAt){
-      S.finalLock = false;
-    }
+    if (S.finalLock && tnow >= S.finalLockEndsAt) S.finalLock = false;
 
     maybeSpawnBoss();
 
+    // phase2 mechanics
     if (S.bossAlive && S.bossPhase === 2){
       if (!S.pulseActive && tnow >= (S.pulseNextAt||0)){
         startBossPulse();
         S.pulseNextAt = tnow + 2150;
       }
-      if (S.pulseActive && tnow >= S.pulseDeadlineAt){
-        resolveBossPulse();
-      }
+      if (S.pulseActive && tnow >= S.pulseDeadlineAt) resolveBossPulse();
 
       if (tnow >= (S.bossAtkNextAt||0)){
         bossAttackPattern();
@@ -1299,6 +1304,7 @@ export function boot(opts = {}){
       }
     }
 
+    // spawn gap modifiers
     const stormMul = (S.stormActive ? (S.stormMul||0.62) : 1.0);
     const panicMul = (S.panicLevel > 0 ? (1.0 - 0.18*S.panicLevel) : 1.0);
     const slowMul  = (S.stunActive ? 1.15 : 1.0);
@@ -1355,7 +1361,13 @@ export function boot(opts = {}){
   requestAnimationFrame(loop);
 
   return {
-    stop(){ endGame(); },
+    stop(){
+      // detach shoot listener (prevent duplicate after restart)
+      try{
+        if (shootEl && onShootDown) shootEl.removeEventListener('pointerdown', onShootDown);
+      }catch(_){}
+      endGame();
+    },
     shootCrosshair,
     getState(){
       return {
