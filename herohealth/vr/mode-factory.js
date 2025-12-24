@@ -1,13 +1,12 @@
 // === /herohealth/vr/mode-factory.js ===
-// HeroHealth — DOM Emoji Target Spawner (Factory)
-// FIX-ALL:
+// HeroHealth — DOM Emoji Target Spawner (Factory) — SEED-RING PATCH
 // ✅ boundsHost accepts selector OR element
 // ✅ spawnStrategy: grid9 | randomRing | random
-// ✅ true separation (anti-stack) + max tries fallback (still random, not center-lock)
+// ✅ true separation (anti-stack) + tries fallback (still random, not center-lock)
 // ✅ excludeSelectors respected (HUD/crosshair/end) + padding safe zone
 // ✅ dragThresholdPx prevents drag-look counted as hit
 // ✅ spawnIntervalMul() supported (storm speedup)
-// Works with hydration.safe.js + other DOM games
+// ✅ SEED RNG: research + seed => deterministic spawn (pos/type/order) across runs
 
 'use strict';
 
@@ -15,8 +14,6 @@ const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const doc = ROOT.document;
 
 function clamp(v, min, max){ v = Number(v)||0; return v<min?min:(v>max?max:v); }
-function rnd(a=1){ return Math.random()*a; }
-function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 
 function resolveEl(x){
   if (!doc) return null;
@@ -59,14 +56,43 @@ function dist2(ax,ay,bx,by){
   return dx*dx+dy*dy;
 }
 
-// ---- placement strategies ----
+// ---------- SEED RNG ----------
+function xmur3(str){
+  let h = 1779033703 ^ (str ? str.length : 0);
+  for (let i=0; i<(str?str.length:0); i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= (h >>> 16);
+    return h >>> 0;
+  };
+}
 
-function pickGrid9(bounds, rx=0.92, ry=0.92){
-  // 3x3 grid across safe area
-  // bounds: {x,y,w,h}
+function mulberry32(a){
+  return function(){
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeRng(seedStr){
+  const seed = String(seedStr||'').trim();
+  if (!seed) return null;
+  const h = xmur3(seed);
+  const a = h(); // 32-bit
+  return mulberry32(a);
+}
+
+// ---- placement strategies ----
+function pickGrid9(bounds, rx, ry, rand){
+  const r = rand || Math.random;
   const cx = bounds.x + bounds.w*0.5;
   const cy = bounds.y + bounds.h*0.5;
-
   const halfW = bounds.w*0.5*rx;
   const halfH = bounds.h*0.5*ry;
 
@@ -79,56 +105,53 @@ function pickGrid9(bounds, rx=0.92, ry=0.92){
       cells.push([xs[ix], ys[iy]]);
     }
   }
-  // bias away from absolute center a bit
-  const c = pick(cells);
-  const jx = (rnd(1)-0.5) * bounds.w*0.12;
-  const jy = (rnd(1)-0.5) * bounds.h*0.12;
-  return { x:c[0] + jx, y:c[1] + jy };
+  const c = cells[(r()*cells.length)|0];
+  const jx = (r()-0.5) * bounds.w*0.12;
+  const jy = (r()-0.5) * bounds.h*0.12;
+  return { x:c[0]+jx, y:c[1]+jy };
 }
 
-function pickRandom(bounds, rx=0.92, ry=0.92){
+function pickRandom(bounds, rx, ry, rand){
+  const r = rand || Math.random;
   const cx = bounds.x + bounds.w*0.5;
   const cy = bounds.y + bounds.h*0.5;
   const halfW = bounds.w*0.5*rx;
   const halfH = bounds.h*0.5*ry;
   return {
-    x: cx + (rnd(1)-0.5)*2*halfW,
-    y: cy + (rnd(1)-0.5)*2*halfH
+    x: cx + (r()-0.5)*2*halfW,
+    y: cy + (r()-0.5)*2*halfH
   };
 }
 
-function pickRandomRing(bounds, rx=0.92, ry=0.92){
-  // ring around center: good for “VR feel” (targets flow around gaze)
+function pickRandomRing(bounds, rx, ry, rand){
+  const r = rand || Math.random;
   const cx = bounds.x + bounds.w*0.5;
   const cy = bounds.y + bounds.h*0.5;
 
   const halfW = bounds.w*0.5*rx;
   const halfH = bounds.h*0.5*ry;
-
-  // inner/outer radius (as fraction of min dimension)
   const minHalf = Math.min(halfW, halfH);
-  const r0 = minHalf * 0.25;  // inner
-  const r1 = minHalf * 0.92;  // outer
 
-  const ang = rnd(Math.PI*2);
-  // bias to mid ring (less center clustering)
-  const t = Math.sqrt(rnd(1)); // 0..1 biased outward
+  const r0 = minHalf * 0.25;
+  const r1 = minHalf * 0.92;
+
+  const ang = r() * Math.PI * 2;
+
+  // bias outward so it doesn't cluster center
+  const t = Math.sqrt(r());
   const rr = r0 + (r1-r0)*t;
 
-  // ellipse ring to match screen
   const ex = (rr * Math.cos(ang)) * (halfW/minHalf);
   const ey = (rr * Math.sin(ang)) * (halfH/minHalf);
 
-  // small jitter
-  const jx = (rnd(1)-0.5) * bounds.w*0.06;
-  const jy = (rnd(1)-0.5) * bounds.h*0.06;
+  const jx = (r()-0.5) * bounds.w*0.06;
+  const jy = (r()-0.5) * bounds.h*0.06;
 
   return { x: cx + ex + jx, y: cy + ey + jy };
 }
 
 function normalizeMinSep(minSep, bounds){
-  // If minSep <= 1.5 treat as fraction of min dimension.
-  // If minSep > 1.5 treat as pixels.
+  // If minSep <= 1.5 treat as fraction-ish; if >1.5 treat as pixels.
   const ms = Number(minSep);
   if (!Number.isFinite(ms) || ms <= 0) return Math.max(48, Math.min(bounds.w,bounds.h)*0.16);
   if (ms <= 1.5) return Math.max(42, Math.min(bounds.w,bounds.h) * ms * 0.28);
@@ -139,8 +162,8 @@ function makeEmojiTarget(ch, kind){
   const el = doc.createElement('div');
   el.className = 'hha-target';
   el.textContent = String(ch||'💧');
-  if (kind==='good') el.classList.add('good');
-  if (kind==='bad')  el.classList.add('bad');
+  if (kind==='good')  el.classList.add('good');
+  if (kind==='bad')   el.classList.add('bad');
   if (kind==='power') el.classList.add('power');
   el.style.setProperty('--s', '1');
   el.style.pointerEvents = 'auto';
@@ -156,6 +179,12 @@ export async function boot(opts = {}){
   const boundsHostEl = resolveEl(opts.boundsHost) || spawnHostEl;
 
   const difficulty = String(opts.difficulty || 'easy').toLowerCase();
+  const runMode = String(opts.runMode || 'play').toLowerCase(); // play|research
+  const seed = String(opts.seed || '').trim();
+
+  // ✅ research + seed => deterministic
+  const rng = (runMode === 'research' && seed) ? makeRng(seed) : null;
+  const rand = rng ? rng : Math.random;
 
   const pools = opts.pools || { good:['💧'], bad:['🥤'] };
   const goodPool = Array.isArray(pools.good) ? pools.good : ['💧'];
@@ -171,9 +200,6 @@ export async function boot(opts = {}){
   const spawnRadiusX = clamp(opts.spawnRadiusX ?? 0.92, 0.2, 1.0);
   const spawnRadiusY = clamp(opts.spawnRadiusY ?? 0.92, 0.2, 1.0);
   const maxSpawnTries = Math.max(4, opts.maxSpawnTries || 18);
-
-  // IMPORTANT: user used 0.92 (too high). We normalize to pixels smartly.
-  const minSeparationPx = ()=> normalizeMinSep(opts.minSeparation ?? 0.28, rectOf(boundsHostEl));
 
   const excludeSelectors = Array.isArray(opts.excludeSelectors) ? opts.excludeSelectors : [];
   const excludePad = 10;
@@ -192,7 +218,7 @@ export async function boot(opts = {}){
   let tickTimer = null;
   let stopped = false;
 
-  // active points for separation check
+  // points for separation check
   const activePts = []; // {x,y,t}
   const MAX_ACTIVE_PTS = 10;
 
@@ -203,11 +229,19 @@ export async function boot(opts = {}){
     }
   }
 
+  function minSeparationPx(){
+    const b = rectOf(boundsHostEl);
+    const bounds = { x:b.x, y:b.y, w:b.w, h:b.h };
+    if (bounds.w < 50 || bounds.h < 50){
+      bounds.w = innerWidth; bounds.h = innerHeight;
+    }
+    return normalizeMinSep(opts.minSeparation ?? 0.28, bounds);
+  }
+
   function pickPos(){
     const b = rectOf(boundsHostEl);
     const bounds = { x:b.x, y:b.y, w:b.w, h:b.h };
 
-    // if rect invalid -> fallback to viewport
     if (bounds.w < 50 || bounds.h < 50){
       bounds.x = 0; bounds.y = 0; bounds.w = innerWidth; bounds.h = innerHeight;
     }
@@ -221,9 +255,9 @@ export async function boot(opts = {}){
 
     for (let i=0; i<maxSpawnTries; i++){
       let p;
-      if (spawnStrategy === 'grid9') p = pickGrid9(bounds, spawnRadiusX, spawnRadiusY);
-      else if (spawnStrategy === 'random') p = pickRandom(bounds, spawnRadiusX, spawnRadiusY);
-      else p = pickRandomRing(bounds, spawnRadiusX, spawnRadiusY);
+      if (spawnStrategy === 'grid9') p = pickGrid9(bounds, spawnRadiusX, spawnRadiusY, rand);
+      else if (spawnStrategy === 'random') p = pickRandom(bounds, spawnRadiusX, spawnRadiusY, rand);
+      else p = pickRandomRing(bounds, spawnRadiusX, spawnRadiusY, rand);
 
       // keep inside bounds padding (target radius)
       const pad = 78;
@@ -243,48 +277,53 @@ export async function boot(opts = {}){
       }
       if (bad) continue;
 
-      // ok
       activePts.push({ x:p.x, y:p.y, t:Date.now() });
       if (activePts.length > MAX_ACTIVE_PTS) activePts.shift();
       return p;
     }
 
-    // fallback: STILL random (not center), but ignore separation
-    const p2 = pickRandom(bounds, spawnRadiusX, spawnRadiusY);
+    // fallback: still random (seeded if research), not center-lock
+    const p2 = pickRandom(bounds, spawnRadiusX, spawnRadiusY, rand);
     activePts.push({ x:p2.x, y:p2.y, t:Date.now() });
     if (activePts.length > MAX_ACTIVE_PTS) activePts.shift();
     return p2;
   }
 
   function placeInHost(el, px, py){
-    // convert from viewport coords -> spawnHost local coords
     const hr = rectOf(spawnHostEl);
     const x = px - hr.x;
     const y = py - hr.y;
+    // accept either % or px in CSS variable consumer — hydration uses px ok
     el.style.setProperty('--x', `${x.toFixed(1)}px`);
     el.style.setProperty('--y', `${y.toFixed(1)}px`);
+  }
+
+  function pick(arr){
+    const a = Array.isArray(arr) ? arr : [];
+    return a.length ? a[(rand()*a.length)|0] : '';
   }
 
   function spawnOne(counter){
     if (stopped) return;
 
-    const isPower = (powerups.length>0) && (counter % powerEvery === 0) && (Math.random() < powerRate);
-    const isGood = !isPower && (Math.random() < goodRate);
+    const isPower = (powerups.length>0) &&
+      (counter % powerEvery === 0) &&
+      (rand() < powerRate);
+
+    const isGood = !isPower && (rand() < goodRate);
 
     const ch = isPower ? pick(powerups) : (isGood ? pick(goodPool) : pick(badPool));
     const kind = isPower ? 'power' : (isGood ? 'good' : 'bad');
 
     const el = makeEmojiTarget(ch, kind);
 
-    // choose position
     const p = pickPos();
     placeInHost(el, p.x, p.y);
 
-    // lifetime
     const mul = clamp(spawnIntervalMul() || 1, 0.25, 2.5);
     const lifeMs = clamp(lifeMsBase / mul, 520, 2400);
 
-    let downX=0, downY=0, downT=0, moved=false, alive=true;
+    let downX=0, downY=0, moved=false, alive=true;
     const expireAt = Date.now() + lifeMs;
 
     function kill(reason){
@@ -299,7 +338,6 @@ export async function boot(opts = {}){
     function onDown(ev){
       downX = ev.clientX||0;
       downY = ev.clientY||0;
-      downT = Date.now();
       moved = false;
     }
     function onMove(ev){
@@ -308,16 +346,10 @@ export async function boot(opts = {}){
     }
     function onUp(ev){
       if (!alive) return;
+      if (moved) return; // drag-look => ignore
+
       const x = ev.clientX||0, y = ev.clientY||0;
-
-      // if dragging, ignore (look movement)
-      if (moved) return;
-
-      const ctx = {
-        clientX:x, clientY:y,
-        isGood: !!isGood,
-        isPower: !!isPower
-      };
+      const ctx = { clientX:x, clientY:y, isGood:!!isGood, isPower:!!isPower };
 
       try{ judge(ch, ctx); }catch{}
       kill('hit');
@@ -330,13 +362,11 @@ export async function boot(opts = {}){
 
     spawnHostEl.appendChild(el);
 
-    // expire tick
     const expireTimer = setTimeout(()=>{
       if (!alive) return;
       kill('expire');
     }, Math.max(220, expireAt - Date.now()));
 
-    // hard cleanup if removed early
     const origKill = kill;
     kill = (reason)=>{
       try{ clearTimeout(expireTimer); }catch{}
@@ -346,12 +376,12 @@ export async function boot(opts = {}){
     return el;
   }
 
-  // main loop
   let counter = 0;
   function scheduleNext(){
     if (stopped) return;
     const mul = clamp(spawnIntervalMul() || 1, 0.25, 2.5);
     const interval = clamp(baseInterval / mul, 220, 1600);
+
     tickTimer = setTimeout(()=>{
       if (stopped) return;
       counter++;
@@ -368,11 +398,7 @@ export async function boot(opts = {}){
     stopped = true;
     try{ if (tickTimer) clearTimeout(tickTimer); }catch{}
     tickTimer = null;
-
-    // remove remaining targets
-    try{
-      spawnHostEl.querySelectorAll('.hha-target').forEach(el=>el.remove());
-    }catch{}
+    try{ spawnHostEl.querySelectorAll('.hha-target').forEach(el=>el.remove()); }catch{}
   }
 
   return { stop };
