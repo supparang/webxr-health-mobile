@@ -1,12 +1,12 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — PRODUCTION HYBRID ENGINE (FIX-ALL)
+// Food Groups VR — PRODUCTION HYBRID ENGINE (FIX-ALL + FUN PACK)
 // ✅ Quest update ALWAYS emits (even when quest missing → questOk:false)
 // ✅ Fever emits hha:fever for UI compatibility
 // ✅ Research mode = deterministic (seeded Math.random while running) + restore on stop
 // ✅ Emoji textContent fix (kept)
 // ✅ Decoy = Invert (kept)
 // ✅ Rage = Double-Feint (kept)
-// ✅ render uses CSS vars --x/--y/--s (kept)
+// ✅ GOLD bonus + STORM mode + Anti-same-spot + VR drift + Panic tick SFX
 
 (function () {
   'use strict';
@@ -97,7 +97,6 @@
   let _seededOn = false;
 
   function xmur3(str){
-    // deterministic string -> 32-bit seed
     let h = 1779033703 ^ (str.length || 0);
     for (let i=0;i<str.length;i++){
       h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
@@ -183,6 +182,11 @@
   let rushEndsAt = 0;
   let rushCooldownSec = 0;
 
+  // storm (NEW)
+  let stormOn = false;
+  let stormEndsAt = 0;
+  let stormCooldownSec = 0;
+
   // boss wave
   let bossWaveEndsAt = 0;
 
@@ -202,6 +206,10 @@
 
   let burstInFlight = false;
   let burstTimerIds = [];
+
+  // spawn anti-repeat
+  let lastSpawnX = -9999;
+  let lastSpawnY = -9999;
 
   // ---------- config ----------
   const CFG = {
@@ -276,6 +284,7 @@
     panicLastSec: 10,
     panicSpawnMul: 0.85,
     panicMaxActiveAdd: 1,
+    panicTickLastSec: 6,
 
     // rush
     rushEnabled: true,
@@ -286,6 +295,15 @@
     rushMinStartAfterSec: 10,
     rushChancePerSec: 0.10,
     rushCooldownAfter: 12,
+
+    // storm (NEW)
+    stormEnabled: true,
+    stormChancePerSec: 0.08,
+    stormMinSec: 6,
+    stormMaxSec: 9,
+    stormSpawnMul: 0.52,
+    stormMaxActiveAdd: 3,
+    stormCooldownAfter: 14,
 
     // boss wave
     bossWaveEnabled: true,
@@ -345,7 +363,23 @@
     feint2AtProg: 0.86,
     feint1Kick: 0.0022,
     feint2Kick: 0.0046,
-    feint2CenterBias: 0.10
+    feint2CenterBias: 0.10,
+
+    // ===== GOLD BONUS (FUN) =====
+    goldEnabled: true,
+    goldChance: 0.10,
+    goldBonusPts: 18,
+    goldFeverGain: 24,
+    goldShieldGain: 1,
+
+    // ===== VR DRIFT (ลอยแบบ VR) =====
+    driftEnabled: true,
+    driftKickMin: 0.00018,
+    driftKickMax: 0.00042,
+
+    // ===== ANTI SAME SPOT =====
+    resampleSpawnTries: 7,
+    minSpawnDistPx: 150
   };
 
   let gazeFuseMsBase = CFG.gazeFuseMsNormal;
@@ -449,24 +483,18 @@
     FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
     FeverUI.setFever && FeverUI.setFever(fever);
     dispatch('hha:score', { score, combo, misses, shield, fever });
-
-    // ✅ emit for UI compatibility
-    dispatch('hha:fever', { value: fever, on: !!feverOn, endsAt: feverEndsAt||0 });
+    dispatch('hha:fever', { value: fever, on: !!feverOn, endsAt: feverEndsAt||0, shield });
   }
   function setShieldValue(v) {
     shield = Math.max(0, Number(v) || 0);
     FeverUI.ensureFeverBar && FeverUI.ensureFeverBar();
     FeverUI.setShield && FeverUI.setShield(shield);
     dispatch('hha:score', { score, combo, misses, shield, fever });
-
-    // keep fever channel updated too
     dispatch('hha:fever', { value: fever, on: !!feverOn, endsAt: feverEndsAt||0, shield });
   }
   function setFeverActive(on) {
     feverOn = !!on;
     FeverUI.setFeverActive && FeverUI.setFeverActive(feverOn);
-
-    // ✅ emit for UI compatibility
     dispatch('hha:fever', { value: fever, on: !!feverOn, endsAt: feverEndsAt||0, shield });
   }
 
@@ -480,7 +508,7 @@
 
     dispatch('hha:judge', { label:'FEVER', x: window.innerWidth/2, y: window.innerHeight*0.52, good:true });
     coach('🔥 FEVER! จ้องแล้วรัวเป็นชุด + มี CHAIN!');
-    logEvent({ kind:'fever_start', timeLeft: remainingSec, shield, rushOn });
+    logEvent({ kind:'fever_start', timeLeft: remainingSec, shield, rushOn, stormOn });
 
     setFeverValue(0);
   }
@@ -511,14 +539,12 @@
 
   // ---------- quest ----------
   function resolveQuestFactory(){
-    // ✅ resolve fresh each start (in case script loads later)
     return (window.GroupsQuest && typeof window.GroupsQuest.createFoodGroupsQuest === 'function')
       ? window.GroupsQuest
       : null;
   }
 
   function emitQuestUpdate() {
-    // ✅ Always emit so HUD won't look "stuck"
     const questOk = !!quest;
 
     if (!quest){
@@ -633,7 +659,7 @@
     return g;
   }
 
-  // ---------- panic/rush/wave ----------
+  // ---------- panic/rush/storm/wave ----------
   function setPanic(on, secLeft){
     const next = !!on;
     if (panicOn === next) return;
@@ -650,6 +676,7 @@
     if (panicOn) return;
     if (remainingSec <= 14) return;
     if (bossWaveOn()) return;
+    if (rushOn || stormOn) return;
 
     const elapsed = Math.floor((now() - startedAt) / 1000);
     if (elapsed < 12) return;
@@ -669,6 +696,7 @@
     if (rushOn) return;
     if (rushCooldownSec > 0) return;
     if (remainingSec <= (CFG.panicLastSec + 2)) return;
+    if (stormOn) return;
 
     const elapsed = Math.floor((now() - startedAt) / 1000);
     if (elapsed < CFG.rushMinStartAfterSec) return;
@@ -703,19 +731,64 @@
     }
   }
 
+  function tryStartStorm(){
+    if (!CFG.stormEnabled) return;
+    if (runMode !== 'play') return;
+    if (stormOn) return;
+    if (stormCooldownSec > 0) return;
+    if (panicOn) return;
+    if (rushOn) return;
+    if (bossWaveOn()) return;
+
+    const elapsed = Math.floor((now() - startedAt) / 1000);
+    if (elapsed < 12) return;
+    if (remainingSec <= (CFG.panicLastSec + 3)) return;
+    if (Math.random() > (CFG.stormChancePerSec || 0.08)) return;
+
+    stormOn = true;
+    const dur = randInt(CFG.stormMinSec||6, CFG.stormMaxSec||9);
+    stormEndsAt = now() + dur*1000;
+
+    dispatch('groups:storm', { on:true, sec: dur });
+    coach('🌪️ STORM! เป้ามาเป็นฝน—จ้องแล้วรัวให้สะใจ!');
+    tone(300,0.07,0.07,'square'); setTimeout(()=>tone(420,0.06,0.06,'square'),90); setTimeout(()=>tone(520,0.06,0.06,'square'),180);
+    haptic([14,10,14,20]);
+    logEvent({ kind:'storm_start', sec: dur, timeLeft: remainingSec });
+  }
+
+  function tickStorm(){
+    if (!CFG.stormEnabled) return;
+
+    if (stormOn){
+      if (now() >= stormEndsAt){
+        stormOn = false;
+        stormEndsAt = 0;
+        stormCooldownSec = (CFG.stormCooldownAfter|0) || 14;
+        dispatch('groups:storm', { on:false, sec: 0 });
+        coach('🌪️ STORM จบแล้ว! ไปต่อ!');
+        logEvent({ kind:'storm_end', timeLeft: remainingSec, score, misses, comboMax });
+      }
+    } else {
+      if (stormCooldownSec > 0) stormCooldownSec--;
+      tryStartStorm();
+    }
+  }
+
   function effectiveSpawnInterval(){
     let si = CFG.spawnInterval;
-    if (rushOn) si = Math.round(si * CFG.rushSpawnMul);
+    if (stormOn) si = Math.round(si * (CFG.stormSpawnMul || 0.52));
+    if (rushOn)  si = Math.round(si * CFG.rushSpawnMul);
     if (panicOn) si = Math.round(si * CFG.panicSpawnMul);
     if (bossWaveOn()) si = Math.round(si * 0.78);
-    return clamp(si, 420, 1600);
+    return clamp(si, 360, 1600);
   }
   function effectiveMaxActive(){
     let ma = CFG.maxActive;
-    if (rushOn) ma += (CFG.rushMaxActiveAdd | 0);
-    if (panicOn) ma += (CFG.panicMaxActiveAdd | 0);
+    if (stormOn) ma += (CFG.stormMaxActiveAdd|0) || 3;
+    if (rushOn)  ma += (CFG.rushMaxActiveAdd|0);
+    if (panicOn) ma += (CFG.panicMaxActiveAdd|0);
     if (bossWaveOn()) ma += 1;
-    return clamp(ma, 2, 9);
+    return clamp(ma, 2, 11);
   }
 
   // ---------- aim assist ----------
@@ -756,7 +829,7 @@
       if (d < bestD){ bestD = d; best = t; }
     }
 
-    const radius = (CFG.aimAssistRadiusPx|0) + (rushOn ? 60 : 0);
+    const radius = (CFG.aimAssistRadiusPx|0) + (rushOn ? 60 : 0) + (stormOn ? 80 : 0);
     if (best && bestD <= radius) return best;
     return null;
   }
@@ -798,7 +871,7 @@
       const t = pickNearestTargetAt(x, y) || pickNearestToCenter();
 
       if (t){
-        logEvent({ kind:'tap_shoot', x, y, pickedEmoji: t.emoji, pickedGood: t.good, boss: !!t.boss, decoy: !!t.decoy, timeLeft: remainingSec, rushOn, feverOn, shield });
+        logEvent({ kind:'tap_shoot', x, y, pickedEmoji: t.emoji, pickedGood: t.good, boss: !!t.boss, decoy: !!t.decoy, gold: !!t.gold, timeLeft: remainingSec, rushOn, stormOn, feverOn, shield });
         hitTarget(t, { source:'tap' });
       } else {
         addMiss(); setCombo(0);
@@ -862,7 +935,8 @@
       charge: c,
       boss: !!(t && t.boss),
       good: !!(t && t.good),
-      decoy: !!(t && t.decoy)
+      decoy: !!(t && t.decoy),
+      gold: !!(t && t.gold)
     });
   }
 
@@ -877,17 +951,18 @@
 
   function effectiveFuseMs(){
     let ms = gazeFuseMsBase;
-    if (feverOn || rushOn) ms = Math.round(ms * CFG.fuseMsRapidMul);
+    if (feverOn || rushOn || stormOn) ms = Math.round(ms * CFG.fuseMsRapidMul);
     if (bossWaveOn()) ms = Math.round(ms * CFG.fuseMsBossWaveMul);
     return clamp(ms, 240, 900);
   }
   function effectiveBurstCount(){
     if (feverOn) return (CFG.burstCountFever|0);
     if (rushOn)  return (CFG.burstCountRush|0);
+    if (stormOn) return 3;
     return (CFG.burstCountBase|0);
   }
   function effectiveBurstGap(){
-    if (feverOn || rushOn) return (CFG.burstGapMsRapid|0);
+    if (feverOn || rushOn || stormOn) return (CFG.burstGapMsRapid|0);
     return (CFG.burstGapMsBase|0);
   }
 
@@ -901,14 +976,14 @@
     const count = clamp(effectiveBurstCount(), 1, 5);
     const gap = clamp(effectiveBurstGap(), 60, 240);
 
-    logEvent({ kind:'gaze_burst_start', count, gap, timeLeft: remainingSec, rushOn, feverOn, wave: bossWaveOn() });
+    logEvent({ kind:'gaze_burst_start', count, gap, timeLeft: remainingSec, rushOn, stormOn, feverOn, wave: bossWaveOn() });
 
     for (let i=0;i<count;i++){
       const id = setTimeout(() => {
         if (!running) return;
         const t = pickNearestToCenter();
         if (t){
-          tone((feverOn||rushOn)?980:860, 0.045, 0.05, 'triangle');
+          tone((feverOn||rushOn||stormOn)?980:860, 0.045, 0.05, 'triangle');
           hitTarget(t, { source:'gaze', burst:true, shot:(i+1), burstCount:count, timeLeft: remainingSec });
         } else {
           tone(220, 0.03, 0.03, 'square');
@@ -1065,12 +1140,13 @@
     }
 
     const isDecoy = !!(CFG.decoyEnabled && good && (runMode === 'play') && (Math.random() < (CFG.decoyChance || 0)));
+    const isGold  = !!(CFG.goldEnabled  && good && (runMode === 'play') && !isDecoy && (Math.random() < (CFG.goldChance || 0.10)));
 
     const el = document.createElement('div');
     el.className =
       'fg-target ' +
       (good
-        ? ('fg-good' + (isDecoy ? ' fg-decoy' : ''))
+        ? ('fg-good' + (isDecoy ? ' fg-decoy' : '') + (isGold ? ' fg-gold' : ''))
         : (isBoss ? 'fg-junk fg-boss' : 'fg-junk'));
 
     el.setAttribute('data-emoji', emoji);
@@ -1082,8 +1158,26 @@
 
     applyTargetSizeToEl(el, isBoss ? CFG.bossJunkScaleMul : 1.0);
 
-    const wp = spawnWorldAngles();
+    // ✅ spawn angles + anti-same-spot (resample)
+    let wp = spawnWorldAngles();
+    const tries = clamp(CFG.resampleSpawnTries||7, 1, 12);
+    const minD  = clamp(CFG.minSpawnDistPx||150, 80, 260);
+
+    for (let k=0;k<tries;k++){
+      const p0 = worldToScreen(wp.yaw, wp.pitch, wp.depth);
+      const dx = (p0.x - lastSpawnX);
+      const dy = (p0.y - lastSpawnY);
+      const d2 = dx*dx + dy*dy;
+      if (d2 >= (minD*minD)) break;
+      wp = spawnWorldAngles();
+    }
+
     layerEl.appendChild(el);
+
+    const driftKick =
+      (CFG.driftEnabled)
+        ? (CFG.driftKickMin + Math.random()*(CFG.driftKickMax - CFG.driftKickMin))
+        : 0;
 
     const t = {
       el, good, emoji,
@@ -1092,6 +1186,7 @@
       hpMax: isBoss ? (CFG.bossHP|0) : 1,
 
       decoy: isDecoy,
+      gold: isGold,
 
       alive: true,
       canExpire: false,
@@ -1110,10 +1205,17 @@
 
       rage: false,
       feintStep: 0,
-      vYaw: 0,
-      vPitch: 0,
+
+      // ✅ VR drift feel
+      vYaw: (driftKick ? ((Math.random()<0.5?-1:1) * driftKick) : 0),
+      vPitch:(driftKick ? ((Math.random()<0.5?-1:1) * driftKick * 0.75) : 0),
+
       scaleMul: 1.0
     };
+
+    // set last spawn point (ใช้ center คร่าว ๆ)
+    const p1 = worldToScreen(t.yaw, t.pitch, t.depth);
+    lastSpawnX = p1.x; lastSpawnY = p1.y;
 
     if (t.boss && CFG.rageEnabled){
       t.rage = (Math.random() < (CFG.rageChanceBoss || 0.55));
@@ -1158,7 +1260,7 @@
     el.addEventListener('mousedown',   onHit);
     el.addEventListener('click',       onHit);
 
-    logEvent({ kind:'spawn', emoji, good, boss: !!t.boss, decoy: !!t.decoy, hp: t.hp, timeLeft: remainingSec, rushOn, feverOn, wave: bossWaveOn() });
+    logEvent({ kind:'spawn', emoji, good, boss: !!t.boss, decoy: !!t.decoy, gold: !!t.gold, hp: t.hp, timeLeft: remainingSec, rushOn, stormOn, feverOn, wave: bossWaveOn() });
   }
 
   // ---------- CHARGE SHOT ----------
@@ -1183,7 +1285,7 @@
     tone(1320,0.06,0.06,'triangle'); setTimeout(()=>tone(1100,0.06,0.05,'triangle'),80);
     haptic([18,10,18]);
 
-    logEvent({ kind:'charge_fire', emoji: t.emoji, boss: !!t.boss, good: !!t.good, decoy: !!t.decoy, timeLeft: remainingSec });
+    logEvent({ kind:'charge_fire', emoji: t.emoji, boss: !!t.boss, good: !!t.good, decoy: !!t.decoy, gold: !!t.gold, timeLeft: remainingSec });
 
     hitTarget(t, { source:'charge', charge:true });
   }
@@ -1252,15 +1354,9 @@
       const isPerfect = feverOn || (consecutiveGood >= 6);
       let pts = feverOn ? CFG.pointsGoodFever : CFG.pointsGood;
 
-      if (rushOn) pts = Math.round(pts * CFG.pointsGoodRushMul);
-
-      if (meta && meta.charge){
-        pts = pts + (CFG.chargeGoodBonus|0);
-      }
-
-      if (meta && meta.chain && chainPts){
-        pts = chainPts;
-      }
+      if (rushOn || stormOn) pts = Math.round(pts * CFG.pointsGoodRushMul);
+      if (meta && meta.charge) pts = pts + (CFG.chargeGoodBonus|0);
+      if (meta && meta.chain && chainPts) pts = chainPts;
 
       addScore(pts);
       setCombo(combo + 1);
@@ -1277,10 +1373,23 @@
       if (meta && meta.charge) label = CFG.chargeLabel || 'CHARGE!';
       else if (meta && meta.chain) label = 'CHAIN';
       else if (isPerfect) label = 'PERFECT';
+      else if (stormOn) label = 'STORM+';
       else if (rushOn) label = 'RUSH+';
 
       dispatch('hha:judge', { label, x: pos.x, y: pos.y, good: true, emoji: t.emoji });
       Particles.scorePop && Particles.scorePop(pos.x, pos.y, '+' + pts, { judgment: label, good: true });
+
+      // ✅ GOLD bonus
+      if (t.gold){
+        addScore(CFG.goldBonusPts|0);
+        setFeverValue(fever + (CFG.goldFeverGain|0));
+        if (CFG.goldShieldGain) setShieldValue(shield + (CFG.goldShieldGain|0));
+
+        dispatch('hha:judge', { label:'GOLD!', x: pos.x, y: pos.y, good:true, emoji: t.emoji });
+        Particles.scorePop && Particles.scorePop(pos.x, pos.y, '✨+' + (CFG.goldBonusPts|0), { judgment:'GOLD', good:true });
+        coach('✨ GOLD! แต้มพุ่ง + โล่เพิ่ม!');
+        tone(980,0.05,0.06,'triangle'); tone(1320,0.03,0.04,'triangle');
+      }
 
       dispatch('groups:reticle', { state: (meta && meta.charge) ? 'perfect' : (isPerfect ? 'perfect' : 'ok') });
       haptic([12]);
@@ -1293,7 +1402,7 @@
       if (CFG.chainEnabled){
         const shots =
           (meta && meta.charge) ? (CFG.chainShotsCharge|0) :
-          ((feverOn || rushOn) ? (CFG.chainShotsRapid|0) : 0);
+          ((feverOn || rushOn || stormOn) ? (CFG.chainShotsRapid|0) : 0);
 
         if (shots > 0){
           const exclude = new Set([t]);
@@ -1315,8 +1424,10 @@
         score,
         feverOn,
         rushOn,
+        stormOn,
         shield,
-        timeLeft: remainingSec
+        timeLeft: remainingSec,
+        gold: !!t.gold
       }, meta || {}));
 
     // -------- JUNK --------
@@ -1432,7 +1543,7 @@
       }
     }
 
-    dispatch('groups:hit', { emoji: t.emoji, good: t.good, decoy: !!t.decoy, x: pos.x, y: pos.y });
+    dispatch('groups:hit', { emoji: t.emoji, good: t.good, decoy: !!t.decoy, gold: !!t.gold, x: pos.x, y: pos.y });
     emitQuestUpdate();
     emitRank();
   }
@@ -1563,9 +1674,9 @@
 
       setLockEl(t.el);
 
-      dispatch('groups:lock', { on:true, x:t.sx, y:t.sy, prog:0, charge:0, boss:!!t.boss, good:!!t.good, decoy:!!t.decoy });
+      dispatch('groups:lock', { on:true, x:t.sx, y:t.sy, prog:0, charge:0, boss:!!t.boss, good:!!t.good, decoy:!!t.decoy, gold:!!t.gold });
       tone(t.boss ? 300 : 420, 0.03, 0.04, 'sine');
-      logEvent({ kind:'lock_acquire', emoji: t.emoji, boss:!!t.boss, good:!!t.good, decoy:!!t.decoy, timeLeft: remainingSec });
+      logEvent({ kind:'lock_acquire', emoji: t.emoji, boss:!!t.boss, good:!!t.good, decoy:!!t.decoy, gold:!!t.gold, timeLeft: remainingSec });
       return;
     }
 
@@ -1647,10 +1758,18 @@
 
       tickFever();
       tickRush();
+      tickStorm();
       tryBossWave();
 
       if (remainingSec > 0 && remainingSec <= (CFG.panicLastSec | 0)) setPanic(true, remainingSec);
       else setPanic(false, remainingSec);
+
+      // ✅ panic tick SFX (6 วิท้าย)
+      const lastN = (CFG.panicTickLastSec|0) || 6;
+      if (remainingSec > 0 && remainingSec <= lastN){
+        tone(880, 0.02, 0.02, 'square');
+        if (remainingSec <= 3) haptic([12]);
+      }
 
       if (quest && typeof quest.second === 'function') quest.second();
       updateAdaptiveSoon();
@@ -1691,7 +1810,14 @@
     rushEndsAt = 0;
     rushCooldownSec = 0;
 
+    stormOn = false;
+    stormEndsAt = 0;
+    stormCooldownSec = 0;
+
     bossWaveEndsAt = 0;
+
+    lastSpawnX = -9999;
+    lastSpawnY = -9999;
 
     clearLock(true);
     cancelBurst();
@@ -1705,6 +1831,10 @@
 
     cancelBurst();
     clearLock(true);
+
+    // reset flags
+    if (stormOn){ dispatch('groups:storm', { on:false, sec:0 }); }
+    if (rushOn) { dispatch('hha:rush', { on:false, sec:0 }); }
 
     active.slice().forEach(t => destroyTarget(t, true));
     active.length = 0;
@@ -1741,7 +1871,6 @@
       grade: finalGrade
     });
 
-    // ✅ restore random always
     restoreRandom();
   }
 
@@ -1787,7 +1916,6 @@
       FeverUI.setShield && FeverUI.setShield(0);
       dispatch('hha:fever', { value: 0, on:false, endsAt: 0, shield: 0 });
 
-      // ✅ Quest resolve fresh
       const QuestFactory = resolveQuestFactory();
       if (QuestFactory && typeof QuestFactory.createFoodGroupsQuest === 'function') {
         quest = QuestFactory.createFoodGroupsQuest(diff);
@@ -1796,16 +1924,15 @@
         console.warn('[FoodGroupsVR] quest-manager not found');
       }
 
-      // ✅ Research = FIX (seeded) + disable variance features
       if (runMode === 'research') {
         sizeMul = 1.0;
         CFG.adaptiveEnabledPlay = false;
         CFG.rushEnabled = false;
+        CFG.stormEnabled = false;
         CFG.bossWaveEnabled = false;
         CFG.decoyEnabled = false;
         CFG.rageEnabled = false;
 
-        // seed priority: opts.seed > url ?seed= > fallback fixed by diff+time
         const sp = new URLSearchParams(location.search);
         const seedStr =
           (opts && opts.seed) ? String(opts.seed) :
@@ -1816,10 +1943,10 @@
       } else {
         CFG.adaptiveEnabledPlay = true;
         CFG.rushEnabled = true;
+        CFG.stormEnabled = true;
         CFG.bossWaveEnabled = true;
         CFG.decoyEnabled = true;
         CFG.rageEnabled = true;
-
         restoreRandom();
       }
 
