@@ -1,10 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// ✅ Auto-hide HUD (เหลือส่วนจำเป็น) + Peek button
-// ✅ Gyro limit (เอียงนิดเดียวไม่หนี) + calibration จาก raw ล่าสุด
-// ✅ Drag threshold (ลาก=look ไม่ใช่ tap) + tap ยิง crosshair
+// ✅ Auto-hide HUD (เหลือส่วนจำเป็น) + Peek
+// ✅ Gyro limit (เอียงนิดเดียวไม่หนี) + calibration
+// ✅ Drag threshold (ลาก=look ไม่ใช่ tap)
 // ✅ Endscreen fallback (กันจอดำ)
-// ✅ กระจายเป้าแบบ "รู้สึกได้จริง" (grid9) + กันตกขอบ + กัน HUD บัง
+// ✅ debug=1 รองรับ
+// ✅ FX Pack: SFX (good/junk/power/perfect) + decorateTarget hooks (ring/wiggle)
 
 'use strict';
 
@@ -51,20 +52,20 @@ const TUNE = {
 
   missOnGoodExpire:true,
 
-  // look
-  lookMaxX:360,
-  lookMaxY:270,
-  lookPxPerDegX:6.8,  // ✅ ลดไว (กันหนี)
-  lookPxPerDegY:5.6,
+  lookMaxX:380,
+  lookMaxY:290,
+  lookPxPerDegX:8.2,
+  lookPxPerDegY:6.8,
   lookSmooth:0.10,
 
-  // ✅ speed limit per frame (กันวิ่งหนี)
-  lookMaxStepX: 7.2,
-  lookMaxStepY: 6.0,
+  // ✅ per-frame speed limit
+  lookMaxStepX: 9.5,
+  lookMaxStepY: 7.5,
 
   // gyro stability
-  gyroDeadGamma: 1.8,
-  gyroDeadBeta:  2.2,
+  gyroDeadGamma: 1.6,
+  gyroDeadBeta:  2.0,
+  gyroBiasBeta:  18,
 
   urgencyAtSec:10,
   urgencyBeepHz:920,
@@ -75,10 +76,7 @@ const TUNE = {
 
   // HUD auto-hide
   hudHideAfterSec: 2.2,
-  hudPeekMs: 1400,
-
-  // tap vs drag
-  dragThresholdPx: 11
+  hudPeekMs: 1600
 };
 
 function ensureEndHost(){
@@ -99,53 +97,23 @@ function ensureEndHost(){
   return end;
 }
 
-function ensureCrosshairStyle(){
-  const el = $id('hvr-crosshair');
-  if (!el) return;
-  if (document.getElementById('hvr-crosshair-style')) return;
-
-  const s = document.createElement('style');
-  s.id='hvr-crosshair-style';
-  s.textContent = `
-    #hvr-crosshair::before, #hvr-crosshair::after{
-      content:"";
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      border-radius:999px;
-      pointer-events:none;
-    }
-    #hvr-crosshair::before{
-      width:34px; height:34px;
-      border:2px solid rgba(226,232,240,.55);
-      box-shadow:0 0 18px rgba(56,189,248,.18);
-    }
-    #hvr-crosshair::after{
-      width:6px; height:6px;
-      background:rgba(226,232,240,.75);
-      box-shadow:0 0 10px rgba(34,197,94,.18);
-    }
-  `;
-  document.head.appendChild(s);
-}
-
 function ensureHudAutoHide(){
-  const hud = document.querySelector('.hud');
-  const peekBtn = $id('hvr-peek');
+  const hud = document.querySelector('.hud') || document.getElementById('hudRoot');
+  if (!hud) return { touch(){}, peek(){}, setCompact(){}, destroy(){} };
 
-  if (!hud) return { touch(){}, peek(){}, destroy(){} };
-
-  if (!document.getElementById('hud-compact-style')){
-    const s=document.createElement('style');
-    s.id='hud-compact-style';
-    s.textContent=`
-      .hud{ transition: transform .18s ease, opacity .18s ease; }
-      .hud.hud-hidden{ opacity:0; transform:translate3d(0,-14px,0); }
-      /* compact = เบาลง */
-      .hud .title{ font-size:18px !important; }
-      #hha-water-card .muted:last-child{ display:none; }
-    `;
-    document.head.appendChild(s);
+  function setCompact(){
+    hud.classList.add('hud-compact');
+    if (!document.getElementById('hud-compact-style')){
+      const s=document.createElement('style');
+      s.id='hud-compact-style';
+      s.textContent=`
+        .hud{ transition: transform .18s ease, opacity .18s ease; }
+        .hud.hud-hidden{ opacity:0; transform:translate3d(0,-14px,0); }
+        .hud.hud-compact .card{ padding:10px 12px 10px !important; min-width:200px !important; }
+        .hud.hud-compact .title{ font-size:18px !important; }
+      `;
+      document.head.appendChild(s);
+    }
   }
 
   let hideTimer=null;
@@ -153,7 +121,6 @@ function ensureHudAutoHide(){
     try{ if (hideTimer) clearTimeout(hideTimer); }catch{}
     hideTimer = setTimeout(()=>{ hud.classList.add('hud-hidden'); }, TUNE.hudHideAfterSec*1000);
   }
-
   function touch(){
     hud.classList.remove('hud-hidden');
     scheduleHide();
@@ -164,30 +131,18 @@ function ensureHudAutoHide(){
     setTimeout(()=>{ hud.classList.add('hud-hidden'); }, TUNE.hudPeekMs);
   }
 
-  // tap peek button
-  const onPeek = (ev)=>{
-    ev?.preventDefault?.();
-    ev?.stopPropagation?.();
-    peek();
-  };
-  if (peekBtn) {
-    peekBtn.addEventListener('pointerdown', onPeek, { passive:false });
-    peekBtn.addEventListener('touchstart', onPeek, { passive:false });
-  }
+  const onPointerDown = ()=> touch();
+  ROOT.addEventListener('pointerdown', onPointerDown, { passive:true });
 
+  setCompact();
   scheduleHide();
 
   return {
-    touch, peek,
+    touch, peek, setCompact,
     destroy(){
+      try{ ROOT.removeEventListener('pointerdown', onPointerDown); }catch{}
       try{ if (hideTimer) clearTimeout(hideTimer); }catch{}
       hideTimer=null;
-      try{
-        if (peekBtn){
-          peekBtn.removeEventListener('pointerdown', onPeek);
-          peekBtn.removeEventListener('touchstart', onPeek);
-        }
-      }catch{}
     }
   };
 }
@@ -197,7 +152,6 @@ export async function boot(opts = {}){
   const duration   = clamp(opts.duration ?? 90, 20, 180);
 
   ensureWaterGauge();
-  ensureCrosshairStyle();
 
   const playfield = $id('hvr-playfield');
   if (!playfield){
@@ -205,8 +159,7 @@ export async function boot(opts = {}){
     return { stop(){} };
   }
 
-  // bounds host: fixed full screen (ไม่โดน translate)
-  let boundsEl = $id('hvr-bounds');
+  let boundsEl = $id('hvr-bounds') || $id('hvr-stage');
   if (!boundsEl){
     boundsEl = document.createElement('div');
     boundsEl.id='hvr-bounds';
@@ -238,25 +191,19 @@ export async function boot(opts = {}){
     // look state
     lookTX:0, lookTY:0,
     lookVX:0, lookVY:0,
-    _prevVX:0, _prevVY:0,
 
-    // gyro center calibration (raw)
+    // gyro center calibration
     gyroCenterGamma:0,
-    gyroCenterBeta: 0,
-    _lastGammaRaw: 0,
-    _lastBetaRaw:  0,
-    _hasGyro: false,
+    gyroCenterBeta: TUNE.gyroBiasBeta,
 
     stormLeft:0,
-    stopped:false,
-    _ending:false
+    stopped:false
   };
 
   const Q = createHydrationQuest(difficulty);
 
-  // HUD auto-hide + Peek
+  // HUD auto-hide
   const HUD = ensureHudAutoHide();
-  HUD.peek(); // เปิดให้เห็นช่วงเริ่มเกมสั้น ๆ
 
   ROOT.HHA_ACTIVE_INST = { stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} } };
 
@@ -278,10 +225,8 @@ export async function boot(opts = {}){
     const { prog } = calcProgress();
     const progPct = Math.round(prog*100);
 
-    const fill = $id('hha-grade-progress-fill');
-    const txt  = $id('hha-grade-progress-text');
-    if (fill) fill.style.width = progPct+'%';
-    if (txt)  txt.textContent = `Progress to S: ${progPct}%`;
+    $id('hha-grade-progress-fill') && ($id('hha-grade-progress-fill').style.width = progPct+'%');
+    $id('hha-grade-progress-text') && ($id('hha-grade-progress-text').textContent = `Progress to S (30%): ${progPct}%`);
 
     let grade='C';
     if (progPct>=95) grade='SSS';
@@ -289,12 +234,11 @@ export async function boot(opts = {}){
     else if (progPct>=70) grade='S';
     else if (progPct>=50) grade='A';
     else if (progPct>=30) grade='B';
+    $id('hha-grade-badge') && ($id('hha-grade-badge').textContent = grade);
 
-    const gb = $id('hha-grade-badge'); if (gb) gb.textContent = grade;
-
-    const sc = $id('hha-score-main'); if (sc) sc.textContent = String(state.score|0);
-    const cb = $id('hha-combo-max');  if (cb) cb.textContent = String(state.comboBest|0);
-    const ms = $id('hha-miss');       if (ms) ms.textContent = String(state.miss|0);
+    $id('hha-score-main') && ($id('hha-score-main').textContent = String(state.score|0));
+    $id('hha-combo-max')  && ($id('hha-combo-max').textContent  = String(state.comboBest|0));
+    $id('hha-miss')       && ($id('hha-miss').textContent       = String(state.miss|0));
 
     dispatch('hha:score',{
       score:state.score|0, combo:state.combo|0, comboBest:state.comboBest|0, miss:state.miss|0,
@@ -311,8 +255,8 @@ export async function boot(opts = {}){
     const goalsDone = allGoals.filter(g=>g._done||g.done).length;
     const minisDone = allMinis.filter(m=>m._done||m.done).length;
 
-    const gc = $id('hha-goal-count'); if (gc) gc.textContent = String(goalsDone);
-    const mc = $id('hha-mini-count'); if (mc) mc.textContent = String(minisDone);
+    $id('hha-goal-count') && ($id('hha-goal-count').textContent = String(goalsDone));
+    $id('hha-mini-count') && ($id('hha-mini-count').textContent = String(minisDone));
 
     const curGoalId = (goalsView?.[0]?.id) || (allGoals[0]?.id||'');
     const curMiniId = (minisView?.[0]?.id) || (allMinis[0]?.id||'');
@@ -320,16 +264,14 @@ export async function boot(opts = {}){
     const gInfo = Q.getGoalProgressInfo ? Q.getGoalProgressInfo(curGoalId) : null;
     const mInfo = Q.getMiniProgressInfo ? Q.getMiniProgressInfo(curMiniId) : null;
 
-    const goalEl = $id('hha-quest-goal');
-    const miniEl = $id('hha-quest-mini');
-    if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : 'Goal: ทำภารกิจให้ครบ';
-    if (miniEl) miniEl.textContent = mInfo?.text ? `Mini: ${mInfo.text}` : 'Mini: ทำมินิเควส';
+    $id('hha-quest-goal') && ($id('hha-quest-goal').textContent = gInfo?.text ? `Goal: ${gInfo.text}` : 'Goal: ทำภารกิจให้ครบ');
+    $id('hha-quest-mini') && ($id('hha-quest-mini').textContent = mInfo?.text ? `Mini: ${mInfo.text}` : 'Mini: ทำมินิเควส');
 
     dispatch('quest:update',{
       goalDone:goalsDone, goalTotal:allGoals.length||2,
       miniDone:minisDone, miniTotal:allMinis.length||3,
-      goalText:goalEl?.textContent||'',
-      miniText:miniEl?.textContent||''
+      goalText:$id('hha-quest-goal')?.textContent||'',
+      miniText:$id('hha-quest-mini')?.textContent||''
     });
 
     updateScoreHud();
@@ -349,7 +291,7 @@ export async function boot(opts = {}){
     state.shield = clamp(state.shield + TUNE.shieldOnFeverStart, 0, TUNE.shieldMax);
     feverRender();
     dispatch('hha:fever',{state:'start',value:state.fever,active:true,shield:state.shield});
-    dispatch('hha:coach',{text:'🔥 FEVER! คะแนนคูณ x2 + ได้เกราะ 🛡️', mood:'happy'});
+    dispatch('hha:coach',{text:'🔥 FEVER! ยิงให้ไว คะแนนคูณ x2 + ได้เกราะ 🛡️', mood:'happy'});
     try{ Particles.celebrate?.('fever'); }catch{}
   }
   function feverEnd(){
@@ -454,16 +396,15 @@ export async function boot(opts = {}){
   let dragOn=false;
   let lastX=0,lastY=0;
   let movedDuringDrag=false;
-  let dragSum=0;
 
   function applyLookTransform(){
     state.lookVX += (state.lookTX - state.lookVX) * TUNE.lookSmooth;
     state.lookVY += (state.lookTY - state.lookVY) * TUNE.lookSmooth;
 
-    const dx = clamp(state.lookVX - state._prevVX, -TUNE.lookMaxStepX, TUNE.lookMaxStepX);
-    const dy = clamp(state.lookVY - state._prevVY, -TUNE.lookMaxStepY, TUNE.lookMaxStepY);
-    state._prevVX += dx;
-    state._prevVY += dy;
+    const dx = clamp(state.lookVX - (state._prevVX||0), -TUNE.lookMaxStepX, TUNE.lookMaxStepX);
+    const dy = clamp(state.lookVY - (state._prevVY||0), -TUNE.lookMaxStepY, TUNE.lookMaxStepY);
+    state._prevVX = (state._prevVX||0) + dx;
+    state._prevVY = (state._prevVY||0) + dy;
 
     const x = clamp(-state._prevVX, -TUNE.lookMaxX, TUNE.lookMaxX);
     const y = clamp(-state._prevVY, -TUNE.lookMaxY, TUNE.lookMaxY);
@@ -473,7 +414,6 @@ export async function boot(opts = {}){
   function onPointerDown(ev){
     dragOn=true;
     movedDuringDrag=false;
-    dragSum=0;
     lastX=ev.clientX||0;
     lastY=ev.clientY||0;
     HUD.touch();
@@ -483,39 +423,28 @@ export async function boot(opts = {}){
     const x=ev.clientX||0, y=ev.clientY||0;
     const dx=x-lastX, dy=y-lastY;
     lastX=x; lastY=y;
-
-    dragSum += Math.abs(dx) + Math.abs(dy);
-    if (dragSum > TUNE.dragThresholdPx) movedDuringDrag=true;
-
-    state.lookTX = clamp(state.lookTX + dx*1.10, -TUNE.lookMaxX, TUNE.lookMaxX);
-    state.lookTY = clamp(state.lookTY + dy*0.95, -TUNE.lookMaxY, TUNE.lookMaxY);
+    if (Math.abs(dx)+Math.abs(dy) > 2) movedDuringDrag=true;
+    state.lookTX = clamp(state.lookTX + dx*1.15, -TUNE.lookMaxX, TUNE.lookMaxX);
+    state.lookTY = clamp(state.lookTY + dy*0.98, -TUNE.lookMaxY, TUNE.lookMaxY);
   }
-  function onPointerUp(){
-    dragOn=false;
-  }
+  function onPointerUp(){ dragOn=false; }
 
-  // gyro
   function onDeviceOrientation(e){
     const gRaw = Number(e.gamma);
     const bRaw = Number(e.beta);
     if(!Number.isFinite(gRaw) || !Number.isFinite(bRaw)) return;
 
-    state._hasGyro = true;
-    state._lastGammaRaw = gRaw;
-    state._lastBetaRaw  = bRaw;
-
-    // apply calibration center
     let g = gRaw - (state.gyroCenterGamma||0);
-    let b = bRaw - (state.gyroCenterBeta||0);
+    let b = bRaw - (state.gyroCenterBeta||TUNE.gyroBiasBeta);
 
     if (Math.abs(g) < TUNE.gyroDeadGamma) g=0;
     if (Math.abs(b) < TUNE.gyroDeadBeta)  b=0;
 
     const tx = g * TUNE.lookPxPerDegX;
-    const ty = b * TUNE.lookPxPerDegY;
+    const ty = (b) * TUNE.lookPxPerDegY;
 
-    state.lookTX = clamp(state.lookTX*0.70 + tx*0.30, -TUNE.lookMaxX, TUNE.lookMaxX);
-    state.lookTY = clamp(state.lookTY*0.70 + ty*0.30, -TUNE.lookMaxY, TUNE.lookMaxY);
+    state.lookTX = clamp(state.lookTX*0.65 + tx*0.35, -TUNE.lookMaxX, TUNE.lookMaxX);
+    state.lookTY = clamp(state.lookTY*0.65 + ty*0.35, -TUNE.lookMaxY, TUNE.lookMaxY);
   }
 
   async function requestGyroPermission(){
@@ -525,7 +454,7 @@ export async function boot(opts = {}){
       const res = await D.requestPermission();
       if (res==='granted'){
         ROOT.addEventListener('deviceorientation', onDeviceOrientation, true);
-        dispatch('hha:coach',{text:'✅ เปิด Gyro แล้ว! (ดับเบิลแท็ปเพื่อ Calibrate)', mood:'happy'});
+        dispatch('hha:coach',{text:'✅ เปิด Gyro แล้ว! หมุนมือถือ = หันมุมมองเหมือน VR 🕶️', mood:'happy'});
       } else {
         dispatch('hha:coach',{text:'ℹ️ Gyro ไม่ได้อนุญาต ใช้ลากจอแทนได้เลย 👍', mood:'neutral'});
       }
@@ -534,34 +463,25 @@ export async function boot(opts = {}){
     }
   }
 
-  // double-tap anywhere to calibrate gyro center to *current raw*
+  // double-tap to calibrate gyro center
   let lastTap=0;
   function onTapForCalibrate(){
     const now=Date.now();
-    if (now-lastTap < 330){
-      if (state._hasGyro){
-        state.gyroCenterGamma = state._lastGammaRaw;
-        state.gyroCenterBeta  = state._lastBetaRaw;
-      } else {
-        state.gyroCenterGamma = 0;
-        state.gyroCenterBeta  = 0;
-      }
-
-      // reset look
+    if (now-lastTap < 350){
+      state.gyroCenterGamma = 0;
+      state.gyroCenterBeta  = TUNE.gyroBiasBeta;
       state.lookTX = 0; state.lookTY = 0;
-      state.lookVX = 0; state.lookVY = 0;
-      state._prevVX = 0; state._prevVY = 0;
-
-      dispatch('hha:coach',{text:'🎯 Calibrate OK! มุมมองนิ่งขึ้นแล้ว', mood:'happy'});
+      dispatch('hha:coach',{text:'🎯 รีเซ็ตมุมมองแล้ว!', mood:'happy'});
       HUD.peek();
     }
     lastTap=now;
   }
 
-  // --------------------- Time / storm / urgency ---------------------
+  // --------------------- Time / storm / urgency + AUDIO ---------------------
   let timer=null;
   let rafId=null;
   let audioCtx=null;
+
   function beep(freq,dur){
     try{
       audioCtx = audioCtx || new (ROOT.AudioContext || ROOT.webkitAudioContext)();
@@ -573,6 +493,30 @@ export async function boot(opts = {}){
       o.connect(g); g.connect(audioCtx.destination);
       o.start();
       o.stop(audioCtx.currentTime + (dur||0.05));
+    }catch{}
+  }
+
+  // ✅ SFX pack
+  function sfx(type){
+    try{
+      audioCtx = audioCtx || new (ROOT.AudioContext || ROOT.webkitAudioContext)();
+      const t0 = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      g.gain.setValueAtTime(0.0001, t0);
+
+      if (type === 'good'){ o.type='sine';  o.frequency.setValueAtTime(820, t0); }
+      else if (type === 'junk'){ o.type='square'; o.frequency.setValueAtTime(160, t0); }
+      else if (type === 'power'){ o.type='triangle'; o.frequency.setValueAtTime(1040, t0); }
+      else if (type === 'perfect'){ o.type='sine'; o.frequency.setValueAtTime(1180, t0); }
+      else { o.type='sine'; o.frequency.setValueAtTime(600, t0); }
+
+      g.gain.exponentialRampToValueAtTime(0.05, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.10);
+
+      o.start(t0);
+      o.stop(t0 + 0.12);
     }catch{}
   }
 
@@ -610,7 +554,7 @@ export async function boot(opts = {}){
     if (state.stormLeft>0) state.stormLeft -= 1;
     if (state.timeLeft>0 && (state.timeLeft % TUNE.stormEverySec)===0){
       state.stormLeft = TUNE.stormDurationSec;
-      dispatch('hha:coach',{text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น!', mood:'happy'});
+      dispatch('hha:coach',{text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น! ตั้งสติ รักษา GREEN!', mood:'happy'});
       try{ Particles.toast?.('STORM WAVE!','warn'); }catch{}
       HUD.touch();
     }
@@ -618,11 +562,12 @@ export async function boot(opts = {}){
     if (state.timeLeft>0 && state.timeLeft<=TUNE.urgencyAtSec){
       beep(TUNE.urgencyBeepHz,0.04);
       if (state.timeLeft===TUNE.urgencyAtSec){
-        dispatch('hha:coach',{text:'⏳ ใกล้หมดเวลา! รักษา GREEN + ยิงให้ไว!', mood:'sad'});
+        dispatch('hha:coach',{text:'⏳ ใกล้หมดเวลา! รักษา GREEN + ยิงน้ำดีให้ไว!', mood:'sad'});
       }
     }
 
     updateQuestHud();
+
     if (state.timeLeft<=0) stop();
   }
 
@@ -643,19 +588,18 @@ export async function boot(opts = {}){
     spawnHost:'#hvr-playfield',
     boundsHost: boundsEl,
 
-    // ✅ กระจายแบบแพ็ก A+B+C
-    spawnAroundCrosshair: false,      // ไม่ยึด crosshair
-    spawnStrategy: 'grid9',           // ✅ กระจาย 9 โซนแบบรู้สึกได้
+    // ✅ กระจายทั่วสนาม (แก้โผล่ที่เดียว)
+    spawnAroundCrosshair: false,
+    spawnStrategy: 'grid9',
     spawnRadiusX: 0.95,
     spawnRadiusY: 0.95,
     minSeparation: 0.92,
-    maxSpawnTries: 20,
-    dragThresholdPx: TUNE.dragThresholdPx,
+    maxSpawnTries: 18,
+    dragThresholdPx: 11,
 
-    // storm multiplier (real)
     spawnIntervalMul: ()=> (state.stormLeft>0 ? TUNE.stormIntervalMul : 1),
 
-    excludeSelectors: ['.hud', '#hvr-peek', '#hvr-crosshair', '#hvr-end'],
+    excludeSelectors: ['.hud', '#hudRoot', '#hvr-crosshair', '#hvr-end', '#startOverlay', '#hudPeekZone'],
 
     pools:{
       good:['💧','🥛','🍉','🥥','🍊'],
@@ -667,7 +611,24 @@ export async function boot(opts = {}){
     powerRate:(difficulty==='hard')?0.10:0.12,
     powerEvery:6,
 
+    // ✅ ให้ CSS ผูก FX (wiggle/ring/afterimage) ได้
+    decorateTarget: (el, parts, data) => {
+      el.classList.add('hvr-target');
+      el.classList.toggle('hvr-power', !!data.isPower);
+      el.classList.toggle('hvr-junk', !data.isGood && !data.isPower);
+      el.classList.toggle('hvr-good', !!data.isGood && !data.isPower);
+
+      try{
+        const w = parts && parts.wiggle;
+        if (w){
+          const dur = data.isPower ? 1.25 : (!data.isGood ? 1.55 : 1.85);
+          w.style.animationDuration = dur + 's';
+        }
+      }catch{}
+    },
+
     judge:(ch, ctx)=>{
+      // power pre-effects
       if (ctx.isPower && ch==='🛡️'){
         state.shield = clamp(state.shield+1,0,TUNE.shieldMax);
         feverRender();
@@ -684,7 +645,17 @@ export async function boot(opts = {}){
       if (state.stormLeft>0 && (ctx.isGood||ctx.isPower)){
         state.fever = clamp(state.fever+2,0,100);
       }
-      return judgeCore(ch, ctx);
+
+      const res = judgeCore(ch, ctx);
+
+      // ✅ SFX ตามผลจริง (รวม PERFECT)
+      if (res?.label === 'PERFECT') sfx('perfect');
+      else if (ctx.isPower) sfx('power');
+      else if (ctx.isGood) sfx('good');
+      else if (res?.label === 'BLOCK') sfx('good');
+      else sfx('junk');
+
+      return res;
     },
 
     onExpire:(info)=>{
@@ -702,25 +673,13 @@ export async function boot(opts = {}){
   updateScoreHud();
   feverRender();
 
-  // input listeners (look)
+  // input listeners
   playfield.addEventListener('pointerdown', onPointerDown, { passive:true });
   ROOT.addEventListener('pointermove', onPointerMove, { passive:true });
   ROOT.addEventListener('pointerup', onPointerUp, { passive:true });
   ROOT.addEventListener('pointercancel', onPointerUp, { passive:true });
-
-  // ✅ tap ยิง crosshair (ถ้าไม่ได้ลาก)
-  const onTapShoot = ()=>{
-    if (state.stopped) return;
-    if (movedDuringDrag) return;
-    const ok = spawner?.shootCrosshair?.();
-    if (!ok && DEBUG) { try{ Particles.toast?.('MISS (tap)', 'warn'); }catch{} }
-  };
-  ROOT.addEventListener('pointerup', onTapShoot, { passive:true });
-
-  // calibrate double tap
   ROOT.addEventListener('pointerdown', onTapForCalibrate, { passive:true });
 
-  // gyro: if available without permission
   try{
     const D = ROOT.DeviceOrientationEvent;
     if (D && typeof D.requestPermission !== 'function'){
@@ -728,7 +687,6 @@ export async function boot(opts = {}){
     }
   }catch{}
 
-  // ask gyro permission on first touch (optional)
   const onceAsk = async ()=>{
     ROOT.removeEventListener('pointerdown', onceAsk);
     await requestGyroPermission();
@@ -760,7 +718,7 @@ export async function boot(opts = {}){
           <span style="padding:6px 10px;border:1px solid rgba(148,163,184,.22);border-radius:999px;">Miss <b>${payload.miss}</b></span>
           <span style="padding:6px 10px;border:1px solid rgba(148,163,184,.22);border-radius:999px;">ComboMax <b>${payload.comboBest}</b></span>
           <span style="padding:6px 10px;border:1px solid rgba(148,163,184,.22);border-radius:999px;">Water <b>${payload.water}%</b></span>
-          <span style="padding:6px 10px;border:1px solid rgba(148,163,184,.22);border-radius:999px;">GREEN <b>${payload.greenTick}s</b></span>
+          <span style="padding:6px 10px;border:1px solid rgba(148,163,184,.22);border-radius:999px;">GREEN time <b>${payload.greenTick}s</b></span>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
           <button id="hvr-restart" style="padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,.25);
@@ -778,8 +736,7 @@ export async function boot(opts = {}){
   }
 
   function stop(){
-    if (state.stopped || state._ending) return;
-    state._ending = true;
+    if (state.stopped) return;
     state.stopped=true;
 
     let payload=null;
@@ -795,7 +752,7 @@ export async function boot(opts = {}){
       };
 
       dispatch('hha:end', payload);
-      dispatch('hha:coach', { text:'🏁 จบเกม! ดูผลสรุปได้เลย', mood:'happy' });
+      dispatch('hha:coach', { text:'🏁 จบเกม! ดูผลคะแนนและเควสได้เลย', mood:'happy' });
       try{ Particles.celebrate?.('end'); }catch{}
     } finally {
       try{ if (timer) ROOT.clearInterval(timer); }catch{} timer=null;
@@ -809,7 +766,6 @@ export async function boot(opts = {}){
       try{ ROOT.removeEventListener('pointermove', onPointerMove); }catch{}
       try{ ROOT.removeEventListener('pointerup', onPointerUp); }catch{}
       try{ ROOT.removeEventListener('pointercancel', onPointerUp); }catch{}
-      try{ ROOT.removeEventListener('pointerup', onTapShoot); }catch{}
       try{ ROOT.removeEventListener('pointerdown', onTapForCalibrate); }catch{}
 
       showEndScreen(payload || {score:0,miss:0,comboBest:0,water:0,greenTick:0});
