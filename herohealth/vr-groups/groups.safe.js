@@ -1,161 +1,96 @@
 // === /herohealth/vr-groups/groups.safe.js ===
-// Food Groups VR — BOOT (PRODUCTION)
-// ✅ Bind layerEl (#fg-layer) + cameraEl (#cam) ให้ GameEngine
-// ✅ Read params: diff, time, run(play/research), seed
-// ✅ Auto-start when run=play|research (but "no double start" guard)
-// ✅ Expose window.GroupsBoot.start/stop so HTML or dev can call
-// ✅ Friendly fallbacks + console warnings
+// Food Groups VR — BOOT (IIFE) PRODUCTION
+// Exposes: window.GroupsBoot.start(mode, {diff,time,seed}) / stop()
+// ✅ binds layer + camera
+// ✅ reads URL params (?diff=?time=?run=?seed=)
+// ✅ guards double-start via window.__FG_STARTED__
+// ✅ autostart when run=play|research (optional)
 
-'use strict';
+(function(){
+  'use strict';
 
-(function () {
   const ROOT = window;
 
-  // ---------- helpers ----------
-  const clamp = (v, a, b) => {
-    v = Number(v) || 0;
-    return v < a ? a : (v > b ? b : v);
-  };
-  const qs = (k) => {
-    try { return new URLSearchParams(location.search).get(k); } catch { return null; }
-  };
-  const normDiff = (d) => {
-    d = String(d || 'normal').toLowerCase().trim();
-    if (d === 'easy' || d === 'hard') return d;
-    return 'normal';
-  };
-  const normRun = (r) => {
-    r = String(r || '').toLowerCase().trim();
-    return (r === 'research') ? 'research' : (r === 'play' ? 'play' : '');
-  };
+  function $(sel){ return document.querySelector(sel); }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  // ---------- DOM locate ----------
-  function getLayerEl() {
-    return document.getElementById('fg-layer') || document.querySelector('#fg-layer');
-  }
-  function getCamEl() {
-    return document.getElementById('cam') || document.querySelector('#cam');
-  }
-
-  // ---------- engine locate ----------
-  function getEngine() {
+  function engine(){
     return (ROOT.GroupsVR && ROOT.GroupsVR.GameEngine) ? ROOT.GroupsVR.GameEngine : null;
   }
 
-  // ---------- state ----------
-  let started = false;
-  let startedMode = '';
-  let lastParams = null;
-
-  function readParams() {
-    const diff = normDiff(qs('diff') || 'normal');
-    const time = clamp(qs('time') || 70, 10, 999);
-    const run = normRun(qs('run') || '');
-    const seed = String(qs('seed') || '').trim();
-    return { diff, time, run, seed };
+  function parseQS(){
+    const sp = new URLSearchParams(location.search);
+    const diff = String(sp.get('diff')||'normal').toLowerCase();
+    const run  = String(sp.get('run')||sp.get('mode')||'play').toLowerCase();
+    const time = parseInt(sp.get('time')||'70',10);
+    const seed = String(sp.get('seed')||'').trim();
+    return {
+      diff: (['easy','normal','hard'].includes(diff) ? diff : 'normal'),
+      runMode: (run === 'research' ? 'research' : 'play'),
+      time: clamp(time, 20, 600) | 0,
+      seed
+    };
   }
 
-  function bindEngine(engine, layerEl, camEl) {
-    try {
-      if (engine.setLayerEl) engine.setLayerEl(layerEl);
-      if (engine.setCameraEl) engine.setCameraEl(camEl);
-      return true;
-    } catch (e) {
-      console.warn('[GroupsBoot] bindEngine failed', e);
-      return false;
-    }
+  function bindCommon(eng){
+    const layer = $('#fg-layer');
+    const cam   = $('#cam');
+    if (!layer) throw new Error('Missing #fg-layer');
+    eng.setLayerEl && eng.setLayerEl(layer);
+    eng.setCameraEl && eng.setCameraEl(cam || null);
+    return { layer, cam };
   }
 
-  function setTime(engine, sec) {
-    try {
-      if (engine.setTimeLeft) engine.setTimeLeft(sec);
-    } catch {}
-  }
-
-  function start(runMode, overrideParams) {
-    const engine = getEngine();
-    if (!engine) {
-      console.warn('[GroupsBoot] GameEngine not ready yet (window.GroupsVR.GameEngine missing)');
-      return false;
+  function start(runMode, opts){
+    const eng = engine();
+    if (!eng) {
+      console.warn('[GroupsBoot] GameEngine not ready');
+      return;
     }
 
-    const layerEl = getLayerEl();
-    const camEl = getCamEl();
-
-    if (!layerEl) {
-      console.error('[GroupsBoot] #fg-layer missing in HTML');
-      return false;
-    }
-    if (!camEl) {
-      console.warn('[GroupsBoot] #cam missing (A-Frame camera). Engine can still run but parallax may be limited.');
-    }
-
-    // prevent double start (HTML glue sometimes starts directly)
-    if (ROOT.__FG_STARTED__ || started) {
-      return true;
-    }
-
-    const p = Object.assign(readParams(), overrideParams || {});
-    p.diff = normDiff(p.diff);
-    p.time = clamp(p.time, 10, 999);
-
-    const mode = (runMode === 'research') ? 'research' : 'play';
-
-    // bind + time
-    bindEngine(engine, layerEl, camEl);
-    setTime(engine, p.time);
-
-    // start
-    try {
-      engine.start(p.diff, {
-        runMode: mode,
-        seed: p.seed || undefined
-      });
-    } catch (e) {
-      console.error('[GroupsBoot] engine.start failed', e);
-      return false;
-    }
-
-    started = true;
-    startedMode = mode;
-    lastParams = p;
+    // guard
+    if (ROOT.__FG_STARTED__) return;
     ROOT.__FG_STARTED__ = true;
 
-    return true;
+    const cfg = Object.assign(parseQS(), (opts||{}));
+    const diff = String(cfg.diff||'normal').toLowerCase();
+    const time = clamp(cfg.time||70, 20, 600) | 0;
+    const seed = String(cfg.seed||'').trim();
+    const mode = (String(runMode||cfg.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
+
+    try{
+      bindCommon(eng);
+      eng.setTimeLeft && eng.setTimeLeft(time);
+      eng.setGaze && eng.setGaze(true);
+
+      eng.start && eng.start(diff, {
+        layerEl: $('#fg-layer'),
+        runMode: mode,
+        seed: seed || undefined
+      });
+
+      console.log('[GroupsBoot] start', { diff, time, mode, seed });
+
+    }catch(err){
+      console.error('[GroupsBoot] start failed', err);
+      ROOT.__FG_STARTED__ = false;
+    }
   }
 
-  function stop(reason) {
-    const engine = getEngine();
-    try {
-      engine && engine.stop && engine.stop(reason || 'stop');
-    } catch {}
-    started = false;
-    startedMode = '';
+  function stop(reason){
+    const eng = engine();
+    try{ eng && eng.stop && eng.stop(reason||'stop'); }catch{}
     ROOT.__FG_STARTED__ = false;
   }
 
-  // ---------- expose ----------
-  ROOT.GroupsBoot = ROOT.GroupsBoot || {};
-  ROOT.GroupsBoot.start = start;
-  ROOT.GroupsBoot.stop = stop;
-  ROOT.GroupsBoot.getParams = () => Object.assign({}, readParams());
-  ROOT.GroupsBoot.getLast = () => (lastParams ? Object.assign({}, lastParams) : null);
+  ROOT.GroupsBoot = { start, stop };
 
-  // ---------- auto-start (if run param present) ----------
-  // NOTE: HTML ของเรามีตัวเริ่มเองแล้ว แต่เผื่อเปิดหน้าแบบไม่มี glue หรือ debug
-  const p0 = readParams();
-  if (p0.run === 'play' || p0.run === 'research') {
-    // wait for defer scripts (quests + engine) to attach
-    const targetMode = p0.run;
-    let tries = 0;
-    const t = setInterval(() => {
-      tries++;
-      const ok = start(targetMode, p0);
-      if (ok || tries >= 30) {
-        clearInterval(t);
-        if (!ok) console.warn('[GroupsBoot] auto-start timeout: engine not ready');
-      }
-    }, 80);
-  }
-
+  // optional autostart: run=play|research
+  try{
+    const qs = parseQS();
+    if (qs.runMode === 'play' || qs.runMode === 'research'){
+      // defer a bit to ensure defer scripts loaded
+      setTimeout(()=> start(qs.runMode, qs), 220);
+    }
+  }catch{}
 })();
