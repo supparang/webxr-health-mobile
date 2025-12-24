@@ -1,10 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR (PRODUCTION) — H++ FINAL PACK
-// ✅ Quest Director wired (start + tick) + quest:update dual-shape compatible
+// GoodJunkVR (PRODUCTION) — H++ FINAL PACK (FULL)
+// ✅ Quest Director wired (start + tick) + quest:update dual-shape
 // ✅ Miss rule: miss = goodExpired + junkHit ; Shield block junk => NOT miss
 // ✅ Crosshair tap shoot (1 tap) + magnet/heroBurst uses layer offset
-// ✅ Anti-clump spawn + safeMargins (ไม่ทับ HUD)
-// ✅ Emits hha:end (for end summary) + hha:log_session/events/profile (Google Sheet logger)
+// ✅ Anti-clump spawn + safeMargins
+// ✅ Emits hha:end + hha:log_session/event/profile (Google Sheet logger)
 
 'use strict';
 
@@ -43,7 +43,6 @@ function toLayerPt(xScreen, yScreen){
   return { x: (xScreen - o.x), y: (yScreen - o.y) };
 }
 
-// ---------------- Difficulty ----------------
 const DIFF = {
   easy:   { spawnMs: 900, maxActive: 6,  ttlMs: 2200, scale: 1.08, junkRatio: 0.34, goldRatio: 0.08, powerRatio: 0.09, bossHp: 6 },
   normal: { spawnMs: 760, maxActive: 7,  ttlMs: 1900, scale: 1.00, junkRatio: 0.40, goldRatio: 0.07, powerRatio: 0.08, bossHp: 8 },
@@ -54,7 +53,6 @@ function pickDiff(key){
   return DIFF[key] ? { ...DIFF[key] } : { ...DIFF.normal };
 }
 
-// ---------------- Emoji Pools ----------------
 const POOL_GOOD = ['🥦','🥕','🍎','🍌','🥬','🍇','🍊','🍉','🥜','🐟','🥛'];
 const POOL_JUNK = ['🍟','🍕','🍔','🍩','🍭','🥤','🍰','🍫','🧁'];
 const POOL_FAKE = ['😈','🧨','🪤','☠️'];
@@ -65,7 +63,6 @@ const EMO_SHLD  = '🛡️';
 const EMO_BOSS1 = '👑';
 const EMO_BOSS2 = '👹';
 
-// ---------------- DOM helpers ----------------
 function createEl(layer, xLayer, yLayer, emoji, cls){
   const el = document.createElement('div');
   el.className = `gj-target ${cls||''}`;
@@ -89,7 +86,6 @@ function scorePop(xScreen,yScreen,txt,label){
   try{ Particles.scorePop && Particles.scorePop(xScreen, yScreen, txt, label||''); }catch(_){}
 }
 
-// ---------------- Scoring ----------------
 function comboMultiplier(combo){
   const c = Math.max(0, combo|0);
   const m = 1 + Math.min(1.35, c * 0.07);
@@ -100,7 +96,6 @@ function scoreGain(base, combo){
   return Math.round(base * mul);
 }
 
-// ===========================================================
 export function boot(opts = {}){
   const diffKey   = String(opts.diff || 'normal').toLowerCase();
   const runMode   = String(opts.run || 'play').toLowerCase();
@@ -128,7 +123,6 @@ export function boot(opts = {}){
   const sessionId = (opts.sessionId || `${Date.now()}-${uid8()}`).toString();
   const startedIso = new Date().toISOString();
 
-  // ---- core state ----
   const S = {
     running: true,
     startedAt: now(),
@@ -228,7 +222,6 @@ export function boot(opts = {}){
     maxMini: 999
   });
 
-  // director state contract
   const qState = {
     score: 0,
     goodHits: 0,
@@ -249,6 +242,7 @@ export function boot(opts = {}){
   // expose for director getActive() fallback
   ROOT.__GJ_QSTATE__ = qState;
 
+  // ✅ สำคัญมาก: “นับ safe time” ต้องอัปเดตทุกครั้งที่โดน bad/หมดเวลา good
   let lastBadAt = now();
   const markBad = ()=>{
     lastBadAt = now();
@@ -260,7 +254,6 @@ export function boot(opts = {}){
     if ((S.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
   };
 
-  // reset mini counters when mini starts
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = 0;
     qState.blocks = 0;
@@ -307,14 +300,8 @@ export function boot(opts = {}){
       ...(extra||{})
     });
   }
+  safeDispatch('hha:log_profile', { ts: Date.now(), hint: 'optional (send student profile from hub.html later)' });
 
-  // optional profile hook (hub.html can send real profile later)
-  safeDispatch('hha:log_profile', {
-    ts: Date.now(),
-    hint: 'optional (send student profile from hub.html later)'
-  });
-
-  // ===== HUD events =====
   function emitScore(){
     safeDispatch('hha:score', {
       score: S.score|0,
@@ -326,8 +313,6 @@ export function boot(opts = {}){
       bossPhase: S.bossPhase|0,
       bossHp: S.bossHp|0,
       bossHpMax: S.bossHpMax|0,
-
-      // debug breakdown
       goodExpired: S.goodExpired|0,
       junkHits: S.junkHits|0
     });
@@ -359,7 +344,6 @@ export function boot(opts = {}){
     S.stormMul = 1.0;
     safeDispatch('hha:storm', { active:false });
   }
-
   function setPanic(level = 0.6, ms = 900){
     const t = now();
     const L = clamp(level, 0, 1);
@@ -382,10 +366,7 @@ export function boot(opts = {}){
     const right  = innerWidth - SM.right;
     const top    = SM.top;
     const bottom = innerHeight - SM.bottom;
-    return {
-      left, right: Math.max(left+10, right),
-      top, bottom: Math.max(top+10, bottom)
-    };
+    return { left, right: Math.max(left+10, right), top, bottom: Math.max(top+10, bottom) };
   }
 
   // ---- Anti-clump placement ----
@@ -407,13 +388,12 @@ export function boot(opts = {}){
     if (posScreen){
       const xs = clamp(posScreen.x|0, R.left, R.right);
       const ys = clamp(posScreen.y|0, R.top,  R.bottom);
-      rememberPt(xs, ys);
+      rememberPt(xs,ys);
       return { x: xs, y: ys };
     }
 
     const cur = getAimPoint();
-    const tries = 34;
-    for (let i=0;i<tries;i++){
+    for (let i=0;i<34;i++){
       const x = randi(R.left, R.right);
       const y = randi(R.top,  R.bottom);
       const awayAim = dist2(x,y, cur.x,cur.y) >= (190*190);
@@ -442,7 +422,7 @@ export function boot(opts = {}){
 
     const ap = getAimPoint();
     if ((S.shield|0) > 0){
-      // shield breaks -> NOT count as miss (per rule), but punishing anyway
+      // shield breaks -> NOT count miss (ตามกติกา)
       S.shield = 0;
       safeDispatch('quest:badHit', { kind: kind + ':shieldbreak' });
       setJudge('SHIELD BREAK!');
@@ -450,7 +430,6 @@ export function boot(opts = {}){
       addFever(-14);
       logEvent('shield_break', { by: kind });
     } else {
-      // junk/hazard hit => miss++
       S.junkHits++;
       S.misses++;
       setCombo(0);
@@ -556,7 +535,6 @@ export function boot(opts = {}){
     });
   }
 
-  // ---------------- spawn target ----------------
   function spawnTarget(kind, posScreen=null){
     if (!S.running) return null;
     if (S.targets.size >= D.maxActive && kind !== 'boss') return null;
@@ -607,7 +585,7 @@ export function boot(opts = {}){
     el.style.transform = `translate(-50%,-50%) scale(${sc.toFixed(3)})`;
 
     const id = S.nextId++;
-    const t = { id, kind, el, x:xL, y:yL, bornAt: now(), expiresAt: now() + ttl };
+    const t = { id, kind, el, x: xL, y: yL, bornAt: now(), expiresAt: now() + ttl };
     S.targets.set(id, t);
 
     el.addEventListener('pointerdown', (ev)=>{
@@ -640,7 +618,6 @@ export function boot(opts = {}){
     return spawnTarget('good');
   }
 
-  // ---------------- boss ----------------
   function maybeSpawnBoss(){
     if (challenge !== 'boss') return;
     if (S.bossSpawned) return;
@@ -669,7 +646,6 @@ export function boot(opts = {}){
     logEvent('boss_phase2', {});
     try{ Particles.celebrate && Particles.celebrate({ kind:'BOSS_PHASE2', intensity:1.6 }); }catch(_){}
     S.pulseNextAt = now() + 900;
-
     S.bossAtkNextAt = now() + 900;
     S.bossAtkLast = '';
     emitScore();
@@ -787,11 +763,7 @@ export function boot(opts = {}){
     const ap = getAimPoint();
     const center = { x: ap.x|0, y: ap.y|0 };
 
-    const detail = { name: pick };
-    if (pick === 'ring')  detail.ttlMs = (diffKey==='hard' ? 1200 : 1350);
-    if (pick === 'laser'){ detail.warnMs = 420; detail.fireMs = 260; }
-    if (pick === 'storm') detail.ttlMs = (diffKey==='hard' ? 1900 : 1600);
-    safeDispatch('hha:bossAtk', detail);
+    safeDispatch('hha:bossAtk', { name: pick });
 
     if (pick === 'ring'){
       setJudge('BOSS: RING!');
@@ -862,7 +834,6 @@ export function boot(opts = {}){
     }
   }
 
-  // ---------------- hit logic ----------------
   function onHit(t, via='tap'){
     if (!S.running) return;
     if (S.finalLock){ setJudge('LOCK!'); return; }
@@ -958,9 +929,8 @@ export function boot(opts = {}){
       markBad();
 
       if ((S.shield|0) > 0){
-        // ✅ shield block junk => NOT miss
+        // ✅ shield block junk => NOT miss (ยกเว้น boss phase2 โหด)
         if (challenge === 'boss' && S.bossPhase === 2){
-          // phase2 penalty: shield breaks + counts miss (หนักจริง)
           S.shield = 0;
           S.junkHits++;
           S.misses++;
@@ -982,7 +952,6 @@ export function boot(opts = {}){
           logEvent('block_bad', { via, kind:t.kind, shield:S.shield|0 });
         }
       } else {
-        // junk hit => miss++
         S.junkHits++;
         S.misses++;
         setCombo(0);
@@ -998,20 +967,19 @@ export function boot(opts = {}){
       killEl(t.el); S.targets.delete(t.id);
     }
 
-    if (!S.stunActive && (S.fever|0) >= 100){
-      startStun();
-    }
+    if (!S.stunActive && (S.fever|0) >= 100) startStun();
 
     emitScore();
     emitFever();
   }
 
-  // ✅ Crosshair shoot: find nearest target around aim point
+  // ✅ Crosshair shoot: nearest target around aim point
   function shootCrosshair(){
-    if (!S.running) return;
+    if (!S.running) return false;
     const ap = getAimPoint();
     const thr = 62; // px
     let best=null, bestD=1e18;
+
     for (const t of S.targets.values()){
       if (!t?.el) continue;
       const r = t.el.getBoundingClientRect();
@@ -1024,34 +992,27 @@ export function boot(opts = {}){
       onHit(best, 'crosshair');
       return true;
     }
-    // miss feedback (แต่ไม่เพิ่ม miss; miss rule จำกัดไว้ junk hit/good expire)
+
     setJudge('MISS AIM!');
     safeDispatch('hha:fx', { type:'kick', intensity: 0.55 });
     logEvent('shoot_miss', { x:ap.x|0, y:ap.y|0 });
     return false;
   }
 
-  // hook: allow boot to pass shootEl
-  // (keep references so stop() can detach if needed)
-  let shootEl = opts.shootEl || null;
-  let onShootDown = null;
-
-  if (shootEl){
+  // bind shoot
+  if (opts.shootEl){
     try{
-      onShootDown = (ev)=>{
+      opts.shootEl.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault?.();
         shootCrosshair();
-      };
-      shootEl.addEventListener('pointerdown', onShootDown, { passive:false });
+      }, { passive:false });
     }catch(_){}
   } else {
     try{
-      onShootDown = (ev)=>{
+      layer.addEventListener('pointerdown', (ev)=>{
         if (ev.target && ev.target.classList && ev.target.classList.contains('gj-target')) return;
         shootCrosshair();
-      };
-      layer.addEventListener('pointerdown', onShootDown, { passive:false });
-      shootEl = layer;
+      }, { passive:false });
     }catch(_){}
   }
 
@@ -1099,17 +1060,14 @@ export function boot(opts = {}){
 
   function getAimPointLayer(){
     const ap = getAimPoint();
-    const p = toLayerPt(ap.x, ap.y);
-    return { x: p.x, y: p.y };
+    return toLayerPt(ap.x, ap.y);
   }
 
   function heroBurstTick(){
     if (!S.heroBurstActive) return;
     const tnow = now();
-    if (tnow >= S.heroBurstEndsAt){
-      S.heroBurstActive = false;
-      return;
-    }
+    if (tnow >= S.heroBurstEndsAt){ S.heroBurstActive = false; return; }
+
     const apL = getAimPointLayer();
     const strength = 0.18;
     const swirl = 0.08;
@@ -1134,10 +1092,7 @@ export function boot(opts = {}){
   function magnetTick(){
     if (!S.magnetActive) return;
     const tnow = now();
-    if (tnow >= S.magnetEndsAt){
-      S.magnetActive = false;
-      return;
-    }
+    if (tnow >= S.magnetEndsAt){ S.magnetActive = false; return; }
 
     const apL = getAimPointLayer();
     const strength = (diffKey==='hard' ? 0.11 : diffKey==='easy' ? 0.08 : 0.095);
@@ -1146,11 +1101,14 @@ export function boot(opts = {}){
     for (const t of S.targets.values()){
       if (t.kind !== 'good' && t.kind !== 'gold' && t.kind !== 'power') continue;
 
+      const dx = apL.x - t.x;
+      const dy = apL.y - t.y;
+
       t.x = lerp(t.x, apL.x, strength);
       t.y = lerp(t.y, apL.y, strength);
 
-      t.x += (-(apL.y - t.y)) * swirl * 0.002;
-      t.y += ( (apL.x - t.x)) * swirl * 0.002;
+      t.x += (-dy) * swirl * 0.002;
+      t.y += ( dx) * swirl * 0.002;
 
       t.el.style.left = (t.x|0) + 'px';
       t.el.style.top  = (t.y|0) + 'px';
@@ -1194,7 +1152,6 @@ export function boot(opts = {}){
       }
     }
 
-    // ring ticks (audio + shake)
     if (S.ringActive){
       if (tnow >= (S.ringTickNextAt||0)){
         const left = (S.ringEndsAt||0) - tnow;
@@ -1206,7 +1163,6 @@ export function boot(opts = {}){
       if (((S.ringEndsAt||0) - tnow) < 260) safeDispatch('hha:fx', { type:'kick', intensity: 0.85 });
     }
 
-    // laser warn ticks
     if (S.laserActive && tnow < (S.laserFireAt||0)){
       if (tnow >= (S.laserTickNextAt||0)){
         const left = (S.laserFireAt||0) - tnow;
@@ -1226,14 +1182,11 @@ export function boot(opts = {}){
   function finalSprintTick(){
     if ((S.timeLeft|0) > 8) return;
 
-    const sec = S.timeLeft|0;
-
-    // เพิ่ม panic + tick ช่วงท้ายให้ "เร้าใจ"
-    const lv = clamp((8 - sec) / 8, 0, 1);
+    const lv = clamp((8 - (S.timeLeft|0)) / 8, 0, 1);
     setPanic(0.35 + lv*0.65, 650);
-    if (sec <= 5) tick('final', 1.7);
+    if ((S.timeLeft|0) <= 5) tick('final', 1.7);
 
-    // spawn extra hazards each second
+    const sec = S.timeLeft|0;
     if (S.lastFinalPulseSec !== sec){
       S.lastFinalPulseSec = sec;
       triggerFinalPulse(sec);
@@ -1251,16 +1204,14 @@ export function boot(opts = {}){
     qState.safeNoJunkSeconds = Math.max(0, Math.floor((now() - lastBadAt) / 1000));
   }
 
-  // ---- init ----
+  // ---- Init ----
   emitScore();
   emitTime();
   emitFever();
   syncQuestState();
   qDir.start(qState);
-
   logSession('start', { startedIso });
 
-  // ---------------- main loop ----------------
   function loop(){
     if (!S.running) return;
 
@@ -1273,24 +1224,18 @@ export function boot(opts = {}){
       emitTime();
       finalSprintTick();
     }
-    if (remainMs <= 0){
-      endGame();
-      return;
-    }
+    if (remainMs <= 0){ endGame(); return; }
 
-    // fever decay
     if (!S.stunActive){
       const decay = S.feverDecayPerSec / 60;
       S.fever = Math.max(0, (S.fever||0) - decay);
     }
 
     if (S.stunActive && tnow >= S.stunEndsAt) stopStun();
-
     if (S.finalLock && tnow >= S.finalLockEndsAt) S.finalLock = false;
 
     maybeSpawnBoss();
 
-    // phase2 mechanics
     if (S.bossAlive && S.bossPhase === 2){
       if (!S.pulseActive && tnow >= (S.pulseNextAt||0)){
         startBossPulse();
@@ -1304,7 +1249,6 @@ export function boot(opts = {}){
       }
     }
 
-    // spawn gap modifiers
     const stormMul = (S.stormActive ? (S.stormMul||0.62) : 1.0);
     const panicMul = (S.panicLevel > 0 ? (1.0 - 0.18*S.panicLevel) : 1.0);
     const slowMul  = (S.stunActive ? 1.15 : 1.0);
@@ -1322,9 +1266,7 @@ export function boot(opts = {}){
           else if (roll < 0.90) spawnTarget('gold');
           else spawnTarget('power');
 
-          if (Math.random() < (diffKey==='hard' ? 0.22 : 0.16)){
-            spawnTarget('goodfake');
-          }
+          if (Math.random() < (diffKey==='hard' ? 0.22 : 0.16)) spawnTarget('goodfake');
         } else {
           const roll = Math.random();
           if (roll < 0.48) spawnTarget('junk');
@@ -1361,13 +1303,7 @@ export function boot(opts = {}){
   requestAnimationFrame(loop);
 
   return {
-    stop(){
-      // detach shoot listener (prevent duplicate after restart)
-      try{
-        if (shootEl && onShootDown) shootEl.removeEventListener('pointerdown', onShootDown);
-      }catch(_){}
-      endGame();
-    },
+    stop(){ endGame(); },
     shootCrosshair,
     getState(){
       return {
