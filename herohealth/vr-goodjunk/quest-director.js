@@ -4,10 +4,13 @@
 //  - quest:miniStart, quest:goalClear, quest:miniClear, quest:allGoalsClear
 //  - quest:update  ✅ emits BOTH shapes (legacy flat + new nested)
 // Works with UI/HUD that expects either shape.
+// ✅ NEW: throttle quest:update via opts.emitMs (default 120ms) to save mobile performance
 
 'use strict';
 
 const clamp01 = x => Math.max(0, Math.min(1, Number(x || 0)));
+const nowMs = () => (performance && performance.now ? performance.now() : Date.now());
+
 const emit = (n, d) => {
   try { window.dispatchEvent(new CustomEvent(n, { detail: d })); } catch (_) {}
 };
@@ -76,6 +79,10 @@ export function makeQuestDirector(opts = {}) {
     miniCount: 0
   };
 
+  // ✅ Throttle
+  const EMIT_MS = (opts.emitMs != null) ? Math.max(16, Number(opts.emitMs) || 120) : 120;
+  let lastEmitAt = 0;
+
   function startGoal() {
     S.activeGoal = goals[S.goalIndex] || null;
   }
@@ -117,7 +124,7 @@ export function makeQuestDirector(opts = {}) {
     // ✅ New nested shape
     const nested = { goal: goalOut, mini: miniOut, meta, questOk: true };
 
-    // ✅ Legacy flat shape (เพื่อให้ UI/HUD เก่าขึ้นทันที)
+    // ✅ Legacy flat shape
     const flat = {
       goalTitle: goalOut?.title || '',
       goalCur: (goalOut?.cur ?? 0) | 0,
@@ -137,13 +144,17 @@ export function makeQuestDirector(opts = {}) {
       questOk: true
     };
 
-    // ยิงรวมให้ตัวเดียวจบ
     emit('quest:update', Object.assign({}, flat, nested));
   }
 
   function tick(s) {
     if (!goals.length && !minis.length) {
-      emit('quest:update', { goal: null, mini: null, meta: { goalsCleared: 0, goalIndex: 0, minisCleared: 0, miniCount: 0 }, questOk: false });
+      emit('quest:update', {
+        goal: null,
+        mini: null,
+        meta: { goalsCleared: 0, goalIndex: 0, minisCleared: 0, miniCount: 0 },
+        questOk: false
+      });
       return;
     }
 
@@ -168,7 +179,12 @@ export function makeQuestDirector(opts = {}) {
       }
     }
 
-    emitUpdate(s);
+    // ✅ throttle quest:update (production-friendly)
+    const tnow = nowMs();
+    if ((tnow - lastEmitAt) >= EMIT_MS) {
+      lastEmitAt = tnow;
+      emitUpdate(s);
+    }
   }
 
   function start(s) {
@@ -177,6 +193,9 @@ export function makeQuestDirector(opts = {}) {
     S.miniCount = 0;
     startGoal();
     startMini();
+
+    // ✅ start should always update immediately
+    lastEmitAt = 0;
     emitUpdate(s);
   }
 
