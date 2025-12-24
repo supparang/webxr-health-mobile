@@ -1,12 +1,13 @@
 <!-- === /herohealth/groups-vr.html ===
-Food Groups VR (PRODUCTION) — HTML FULL (Fix start/quest/hud)
+Food Groups VR (PRODUCTION) — FIX-ALL
 Requires:
-- ./vr/particles.js (IIFE)
-- ./vr/hha-hud.js (IIFE)
-- ./vr/ui-fever.js (IIFE)
-- ./vr/hha-cloud-logger.js (optional, IIFE)
-- ./vr-groups/groups-quests.js (IIFE)  ✅ must load BEFORE GameEngine.js
-- ./vr-groups/GameEngine.js (IIFE)     ✅ exposes window.GroupsVR.GameEngine
+  - ./vr/particles.js               (IIFE)
+  - ./vr/hha-cloud-logger.js        (IIFE) optional
+  - ./vr/ui-fever.js                (IIFE)
+  - ./vr/hha-hud.js                 (IIFE)
+  - ./vr-groups/groups-quests.js    (IIFE)
+  - ./vr-groups/GameEngine.js       (IIFE) exposes window.GroupsVR.GameEngine
+  - ./vr-groups/groups.safe.js      (module) boots / starts the game
 -->
 
 <!doctype html>
@@ -18,608 +19,606 @@ Requires:
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame -->
+  <!-- A-Frame (for camera rotation source) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + HUD binders -->
+  <!-- Global FX + (optional) logger -->
   <script src="./vr/particles.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- Fever UI + HUD binder + Quest (IIFE) -->
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
+  <script src="./vr-groups/groups-quests.js" defer></script>
+
+  <!-- Game Engine (IIFE) -->
+  <script src="./vr-groups/GameEngine.js" defer></script>
 
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.18);
+      --panel:rgba(2,6,23,.76);
+      --panel2:rgba(15,23,42,.68);
+      --stroke:rgba(148,163,184,.22);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --good:#22c55e;
       --bad:#ef4444;
-      --warn:#f59e0b;
-      --shadow: 0 20px 60px rgba(0,0,0,.55);
+      --gold:#f59e0b;
+      --shadow:0 18px 55px rgba(0,0,0,.52);
+      --r:18px;
     }
-    html,body{height:100%;margin:0;background:radial-gradient(1200px 800px at 50% 40%, #0b1226 0%, #020617 55%, #020617 100%); color:var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; overflow:hidden;}
-    .app{position:fixed; inset:0; display:block;}
 
-    /* A-Frame canvas behind */
-    a-scene{position:fixed; inset:0; z-index:0;}
-    .ui{position:fixed; inset:0; z-index:5; pointer-events:none;}
-
-    /* TOP HUD (goal/mini) */
-    .topbar{position:fixed; left:10px; right:10px; top:10px; display:grid; grid-template-columns:1fr 1fr; gap:10px; pointer-events:none;}
-    .card{
-      background:linear-gradient(180deg, rgba(2,6,23,.82), rgba(2,6,23,.62));
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      box-shadow: var(--shadow);
-      padding:10px 12px;
-      backdrop-filter: blur(10px);
-    }
-    .card h4{margin:0 0 6px 0; font-size:13px; letter-spacing:.2px; display:flex; align-items:center; gap:8px; color:var(--muted);}
-    .row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
-    .big{font-size:15px; font-weight:800;}
-    .sub{font-size:12px;color:var(--muted);}
-    .bar{height:8px;border-radius:999px;background:rgba(148,163,184,.12); overflow:hidden; border:1px solid rgba(148,163,184,.14);}
-    .bar > i{display:block;height:100%; width:0%; background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55));}
-    .bar.warn > i{background:linear-gradient(90deg, rgba(245,158,11,.95), rgba(245,158,11,.55));}
-    .bar.bad > i{background:linear-gradient(90deg, rgba(239,68,68,.95), rgba(239,68,68,.55));}
-
-    /* MID HUD left */
-    .mid{
-      position:fixed; left:12px; top:160px;
-      width:min(320px, 72vw);
-      pointer-events:none;
-    }
-    .statgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-    .stat{padding:10px 12px;}
-    .stat .k{font-size:12px;color:var(--muted);}
-    .stat .v{font-size:28px; font-weight:900; margin-top:2px;}
-    .coach{margin-top:10px; padding:12px; display:flex; gap:12px; align-items:flex-start;}
-    .coach img{width:56px;height:56px;border-radius:16px; background:rgba(148,163,184,.10); border:1px solid rgba(148,163,184,.16); object-fit:cover;}
-    .coach .msg{font-size:13px; color:var(--text); line-height:1.35;}
-    .coach .tip{margin-top:6px; font-size:12px; color:var(--muted);}
-
-    /* bottom controls */
-    .bottom{
-      position:fixed; left:12px; right:12px; bottom:12px;
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      pointer-events:auto;
-    }
-    .btnrow{display:flex; gap:10px; align-items:center;}
-    .btn{
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.72);
+    html,body{
+      width:100%;
+      height:100%;
+      margin:0;
+      background: radial-gradient(1200px 900px at 50% 40%, rgba(30,41,59,.35), transparent 60%),
+                  radial-gradient(900px 700px at 55% 60%, rgba(15,23,42,.60), transparent 62%),
+                  var(--bg);
       color:var(--text);
-      padding:12px 16px;
-      border-radius:16px;
-      font-weight:800;
-      letter-spacing:.2px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.45);
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .btn.green{background:rgba(34,197,94,.18); border-color: rgba(34,197,94,.30);}
-    .btn.red{background:rgba(239,68,68,.16); border-color: rgba(239,68,68,.30);}
-    .btn.gray{background:rgba(148,163,184,.10);}
-
-    /* Start overlay */
-    .overlay{
-      position:fixed; inset:0; z-index:10;
-      display:flex; align-items:center; justify-content:center;
-      background:radial-gradient(800px 600px at 50% 35%, rgba(15,23,42,.78), rgba(2,6,23,.90));
-      pointer-events:auto;
-    }
-    .panel{
-      width:min(640px, 92vw);
-      border-radius:22px;
-      border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.70));
-      box-shadow: var(--shadow);
-      padding:18px;
-    }
-    .title{display:flex; align-items:center; justify-content:space-between; gap:12px;}
-    .title h2{margin:0; font-size:18px;}
-    .pill{font-size:12px; color:var(--muted); border:1px solid rgba(148,163,184,.18); padding:6px 10px; border-radius:999px;}
-    .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
-    .opt{padding:12px 12px;}
-    .opt label{display:block; font-size:12px; color:var(--muted); margin-bottom:6px;}
-    select,input{
-      width:100%; box-sizing:border-box;
-      border-radius:14px; border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.55);
-      color:var(--text);
-      padding:12px;
-      font-weight:800;
-      outline:none;
-    }
-    .hint{margin-top:10px; font-size:12px; color:var(--muted); line-height:1.45;}
-    .actions{display:flex; gap:10px; justify-content:flex-end; margin-top:14px;}
-
-    /* Gameplay layer (DOM targets) */
-    #fg-layer{
-      position:fixed; inset:0;
-      z-index:3;
-      pointer-events:auto;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+      overflow:hidden;
       touch-action: manipulation;
     }
 
-    /* Target style (emoji bubble) */
+    /* --- main stage --- */
+    .stage{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+    }
+
+    /* DOM spawn layer for targets */
+    #fg-layer{
+      position:fixed;
+      inset:0;
+      pointer-events:auto;
+      z-index:20;
+    }
+
+    /* Targets (GameEngine writes --x/--y/--s) */
     .fg-target{
       position:absolute;
       left:var(--x, 50%);
       top:var(--y, 50%);
       transform: translate3d(-50%,-50%,0) scale(var(--s,1));
       width:132px; height:132px;
+      display:grid;
+      place-items:center;
       border-radius:999px;
-      display:flex; align-items:center; justify-content:center;
-      font-size:56px;
-      line-height:1;
+      background:
+        radial-gradient( circle at 30% 30%, rgba(255,255,255,.28), rgba(255,255,255,.06) 34%, rgba(0,0,0,.18) 70%),
+        rgba(255,255,255,.06);
+      box-shadow:
+        0 18px 48px rgba(0,0,0,.55),
+        inset 0 0 0 2px rgba(148,163,184,.20);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       user-select:none;
-      -webkit-tap-highlight-color: transparent;
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.18);
-      background: radial-gradient(circle at 30% 28%, rgba(255,255,255,.18), rgba(255,255,255,.05) 55%, rgba(255,255,255,.03) 75%),
-                  rgba(2,6,23,.35);
-      box-shadow: 0 18px 55px rgba(0,0,0,.50);
-      filter: saturate(1.08);
-      backdrop-filter: blur(8px);
-      transition: transform .12s ease, opacity .18s ease;
+      -webkit-user-select:none;
+      cursor:pointer;
+      font-size:58px;
+      line-height:1;
+      text-shadow: 0 10px 22px rgba(0,0,0,.35);
+      opacity:0;
+      will-change: transform, left, top, opacity;
     }
-    .fg-good{outline:2px solid rgba(34,197,94,.28);}
-    .fg-junk{outline:2px solid rgba(239,68,68,.24);}
-    .fg-boss{outline:2px solid rgba(245,158,11,.28);}
-    .fg-decoy{outline:2px solid rgba(147,197,253,.26);}
+    .fg-target.show{ opacity:1; transition: opacity .18s ease; }
+    .fg-target.spawn{ animation: popIn .24s ease both; }
+    .fg-target.hit{ animation: popOut .18s ease both; }
+    .fg-target.out{ animation: fadeOut .16s ease both; }
 
-    .fg-target.spawn{opacity:0; transform: translate3d(-50%,-50%,0) scale(.72);}
-    .fg-target.show{opacity:1; transform: translate3d(-50%,-50%,0) scale(var(--s,1));}
-    .fg-target.hit{opacity:0; transform: translate3d(-50%,-50%,0) scale(.55);}
-    .fg-target.out{opacity:.0;}
-    .fg-target.lock{box-shadow: 0 0 0 8px rgba(34,197,94,.10), 0 18px 55px rgba(0,0,0,.52);}
+    .fg-good{ box-shadow: 0 18px 48px rgba(0,0,0,.55), inset 0 0 0 2px rgba(34,197,94,.32); }
+    .fg-junk{ box-shadow: 0 18px 48px rgba(0,0,0,.55), inset 0 0 0 2px rgba(239,68,68,.32); filter:saturate(1.06); }
+    .fg-boss{ box-shadow: 0 22px 60px rgba(0,0,0,.62), inset 0 0 0 2px rgba(245,158,11,.42); }
+
+    .fg-decoy{ box-shadow: 0 18px 48px rgba(0,0,0,.55), inset 0 0 0 2px rgba(168,85,247,.40); }
+    .fg-target.lock{ outline: 2px solid rgba(34,197,94,.42); }
+    .fg-target.rage{ animation: ragePulse .9s ease-in-out infinite; }
 
     .bossbar{
-      position:absolute; left:50%; bottom:12px; transform:translateX(-50%);
-      width:70%; height:8px; border-radius:999px;
-      background:rgba(148,163,184,.14);
-      border:1px solid rgba(148,163,184,.18);
+      position:absolute;
+      left:12%;
+      right:12%;
+      bottom:12%;
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
       overflow:hidden;
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.20);
     }
     .bossbar-fill{
-      height:100%; width:100%;
-      background:linear-gradient(90deg, rgba(245,158,11,.95), rgba(245,158,11,.45));
+      height:100%;
+      width:100%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
     }
 
-    /* end summary */
-    .end{
-      position:fixed; inset:0; z-index:20;
-      display:none; align-items:center; justify-content:center;
-      background:rgba(2,6,23,.86);
+    @keyframes popIn{ from{ transform:translate3d(-50%,-50%,0) scale(.78); opacity:.0; } to{ transform:translate3d(-50%,-50%,0) scale(1); opacity:1; } }
+    @keyframes popOut{ from{ transform:translate3d(-50%,-50%,0) scale(1); opacity:1; } to{ transform:translate3d(-50%,-50%,0) scale(.86); opacity:0; } }
+    @keyframes fadeOut{ from{ opacity:1; } to{ opacity:0; } }
+    @keyframes ragePulse{ 0%,100%{ transform:translate3d(-50%,-50%,0) scale(var(--s,1)); } 50%{ transform:translate3d(-50%,-50%,0) scale(calc(var(--s,1) * 1.05)); } }
+
+    /* afterimage (engine adds) */
+    .fg-afterimage{
+      position:absolute;
+      left:0; top:0;
+      pointer-events:none;
+      z-index:21;
+      opacity:.0;
+      animation: after .42s ease both;
+      filter: blur(.1px);
+    }
+    .fg-afterimage-inner{
+      transform: translate3d(-50%,-50%,0) scale(1);
+      font-size:48px;
+      text-shadow: 0 14px 32px rgba(0,0,0,.45);
+    }
+    @keyframes after{
+      0%{ opacity:.0; transform: translate3d(var(--x,0),var(--y,0),0) translate(-50%,-50%) scale(.95); }
+      20%{ opacity:.65; }
+      100%{ opacity:0; transform: translate3d(var(--x,0),var(--y,0),0) translate(-50%,-50%) scale(1.12); }
+    }
+
+    /* --- HUD --- */
+    .hud{
+      position:fixed;
+      left:12px; right:12px;
+      top:12px;
+      z-index:40;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      pointer-events:none;
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(2,6,23,.62), rgba(2,6,23,.44));
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:18px;
+      box-shadow: var(--shadow);
+      padding:10px 12px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      overflow:hidden;
+    }
+    .card h4{
+      margin:0 0 6px 0;
+      font-size:13px;
+      letter-spacing:.2px;
+      color:rgba(229,231,235,.92);
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      font-size:14px;
+      color:rgba(229,231,235,.92);
+    }
+    .muted{ color:rgba(148,163,184,.95); }
+    .bar{
+      height:8px;
+      border-radius:999px;
+      background:rgba(148,163,184,.16);
+      overflow:hidden;
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.16);
+      margin-top:8px;
+    }
+    .bar > i{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(16,185,129,.95));
+    }
+
+    /* goal/mini blocks */
+    #hud-goalLabel, #hud-miniLabel{
+      font-weight:700;
+      font-size:14px;
+      line-height:1.2;
+    }
+    #hud-goalProg, #hud-miniProg{
+      font-size:12px;
+      color:rgba(148,163,184,.95);
+      white-space:nowrap;
+    }
+    #hud-miniExtra{
+      margin-top:6px;
+      font-size:12px;
+      color:rgba(148,163,184,.95);
+    }
+
+    /* coach bubble */
+    .coach{
+      position:fixed;
+      left:12px;
+      right:12px;
+      top:124px;
+      z-index:41;
+      pointer-events:none;
+    }
+    .coach .bubble{
+      background: linear-gradient(180deg, rgba(2,6,23,.62), rgba(2,6,23,.44));
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:18px;
+      box-shadow: var(--shadow);
+      padding:10px 12px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+    }
+    .coach img{
+      width:44px;
+      height:44px;
+      border-radius:14px;
+      object-fit:cover;
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow: 0 12px 26px rgba(0,0,0,.45);
+      flex:0 0 auto;
+    }
+    .coach .text{
+      font-size:13px;
+      line-height:1.25;
+      color:rgba(229,231,235,.95);
+      min-height:18px;
+    }
+
+    /* lower HUD */
+    .hud2{
+      position:fixed;
+      left:12px;
+      right:12px;
+      bottom:88px;
+      z-index:42;
+      display:flex;
+      gap:10px;
+      pointer-events:none;
+    }
+    .hud2 .pill{
+      flex:1;
+      background: linear-gradient(180deg, rgba(2,6,23,.62), rgba(2,6,23,.44));
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:18px;
+      box-shadow: var(--shadow);
+      padding:10px 12px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      font-size:13px;
+      color:rgba(229,231,235,.92);
+      overflow:hidden;
+    }
+    .pill strong{ font-size:18px; }
+    .pill small{ color:rgba(148,163,184,.95); font-size:12px; }
+
+    /* controls */
+    .controls{
+      position:fixed;
+      left:12px;
+      right:12px;
+      bottom:14px;
+      z-index:60;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:center;
+    }
+    .btn{
       pointer-events:auto;
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.62);
+      color:rgba(229,231,235,.95);
+      border-radius:18px;
+      padding:12px 14px;
+      font-weight:800;
+      letter-spacing:.2px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      min-width:96px;
     }
-    .end.show{display:flex;}
-    .end .panel{width:min(640px,92vw);}
-    .endgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
-    .endcard{padding:12px;}
-    .endcard .k{font-size:12px;color:var(--muted);}
-    .endcard .v{font-size:26px;font-weight:900;margin-top:4px;}
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{ background: rgba(34,197,94,.24); border-color: rgba(34,197,94,.26); }
+    .btn.danger{ background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.22); }
+    .btn.ghost{ background: rgba(148,163,184,.10); }
 
-    /* responsive */
-    @media (max-width: 420px){
-      .mid{top:140px; width:min(320px, 84vw);}
-      .stat .v{font-size:26px;}
-      .fg-target{font-size:52px;}
+    /* start overlay */
+    #startOverlay{
+      position:fixed;
+      inset:0;
+      z-index:80;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background: radial-gradient(900px 700px at 50% 40%, rgba(2,6,23,.72), rgba(2,6,23,.90));
+    }
+    .startCard{
+      width:min(520px, 96vw);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background: linear-gradient(180deg, rgba(15,23,42,.66), rgba(2,6,23,.66));
+      box-shadow: 0 30px 90px rgba(0,0,0,.68);
+      padding:16px 16px 14px;
+    }
+    .startCard h2{
+      margin:0;
+      font-size:18px;
+      letter-spacing:.2px;
+    }
+    .startCard p{
+      margin:8px 0 12px 0;
+      color:rgba(148,163,184,.95);
+      font-size:13px;
+      line-height:1.35;
+    }
+    .startGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+    .chip{
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:16px;
+      padding:10px 10px;
+      background: rgba(2,6,23,.42);
+      font-size:12px;
+      color:rgba(229,231,235,.92);
+    }
+    .chip strong{ display:block; font-size:16px; margin-top:4px; }
+    .startActions{ display:flex; gap:10px; margin-top:12px; }
+    .startActions .btn{ flex:1; }
+
+    /* small debug tag */
+    .debugTag{
+      position:fixed;
+      right:12px;
+      bottom:156px;
+      z-index:55;
+      pointer-events:none;
+      font-size:11px;
+      color:rgba(148,163,184,.95);
+      background: rgba(2,6,23,.45);
+      border:1px solid rgba(148,163,184,.14);
+      padding:6px 10px;
+      border-radius:999px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    /* a-frame scene hidden behind */
+    a-scene{
+      position:fixed !important;
+      inset:0 !important;
+      z-index:1 !important;
+      pointer-events:none;
+      opacity:0;
     }
   </style>
 </head>
 
 <body>
-<div class="app">
+  <div class="stage">
+    <!-- A-Frame scene (camera rotation source) -->
+    <a-scene embedded vr-mode-ui="enabled: false" renderer="antialias: true; alpha: true;">
+      <a-entity id="rig">
+        <a-camera id="cam" position="0 1.6 0" wasd-controls-enabled="false" look-controls="enabled:true"></a-camera>
+      </a-entity>
+    </a-scene>
 
-  <!-- A-Frame scene (for camera orientation only) -->
-  <a-scene embedded vr-mode-ui="enabled:false">
-    <a-entity id="rig">
-      <a-camera id="rigCam" position="0 1.6 0" look-controls="enabled:true"></a-camera>
-    </a-entity>
-  </a-scene>
+    <!-- DOM targets -->
+    <div id="fg-layer" aria-label="FoodGroups targets layer"></div>
 
-  <!-- DOM gameplay layer -->
-  <div id="fg-layer" aria-label="Food Groups Layer"></div>
-
-  <!-- UI -->
-  <div class="ui">
-
-    <!-- Top goal/mini -->
-    <div class="topbar">
-      <div class="card" id="hud-goal">
-        <h4>🎯 GOAL <span class="pill" id="hud-goal-count">0/0</span></h4>
+    <!-- HUD (top) -->
+    <div class="hud">
+      <div class="card" id="hud-goalCard">
+        <h4>🎯 GOAL <span class="muted" id="hud-goalCount">0/0</span></h4>
         <div class="row">
-          <div class="big" id="hud-goal-title">—</div>
-          <div class="sub" id="hud-goal-pct">0%</div>
+          <div id="hud-goalLabel">—</div>
+          <div id="hud-goalProg" class="muted">0%</div>
         </div>
-        <div class="bar" id="hud-goal-bar"><i></i></div>
+        <div class="bar"><i id="hud-goalBar"></i></div>
       </div>
 
-      <div class="card" id="hud-mini">
-        <h4>🧩 MINI QUEST</h4>
+      <div class="card" id="hud-miniCard">
+        <h4>🧩 MINI QUEST <span class="muted" id="hud-miniCount">0/0</span></h4>
         <div class="row">
-          <div class="big" id="hud-mini-title">—</div>
-          <div class="sub" id="hud-mini-pct">0%</div>
+          <div id="hud-miniLabel">—</div>
+          <div id="hud-miniProg" class="muted">0%</div>
         </div>
-        <div class="bar warn" id="hud-mini-bar"><i></i></div>
-        <div class="sub" id="hud-mini-extra" style="margin-top:6px;">—</div>
+        <div class="bar"><i id="hud-miniBar"></i></div>
+        <div id="hud-miniExtra"></div>
       </div>
     </div>
 
-    <!-- Mid stats + coach -->
-    <div class="mid">
-      <div class="statgrid">
-        <div class="card stat">
-          <div class="k">TIME</div>
-          <div class="v" id="hud-time">90</div>
-        </div>
-        <div class="card stat">
-          <div class="k">SHIELD</div>
-          <div class="v" id="hud-shield">0</div>
-        </div>
-        <div class="card stat">
-          <div class="k">GRADE</div>
-          <div class="v" id="hud-grade">C</div>
-        </div>
-        <div class="card stat">
-          <div class="k">GROUP</div>
-          <div class="v" id="hud-group" style="font-size:16px;font-weight:900;">—</div>
-        </div>
+    <!-- coach -->
+    <div class="coach">
+      <div class="bubble">
+        <img id="hud-coachImg" src="./img/coach-neutral.png" alt="coach" />
+        <div class="text" id="hud-coachText">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
       </div>
+    </div>
 
-      <div class="card coach">
-        <img id="hud-coach-img" src="./img/coach-neutral.png" alt="Coach" />
+    <!-- lower HUD -->
+    <div class="hud2">
+      <div class="pill">
         <div>
-          <div class="msg" id="hud-coach-text">แตะ/จ้อง “อาหารดี” ให้ได้เยอะที่สุด! 🥦</div>
-          <div class="tip" id="hud-tip">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
+          <div class="muted">TIME</div>
+          <strong id="hud-time">0</strong>
+        </div>
+        <div style="text-align:right">
+          <div class="muted">SHIELD</div>
+          <strong id="hud-shield">0</strong>
+        </div>
+      </div>
+
+      <div class="pill">
+        <div>
+          <div class="muted">SCORE</div>
+          <strong id="hud-score">0</strong>
+        </div>
+        <div style="text-align:right">
+          <div class="muted">GRADE</div>
+          <strong id="hud-grade">C</strong>
         </div>
       </div>
     </div>
 
-    <!-- bottom buttons -->
-    <div class="bottom">
-      <div class="btnrow">
-        <button class="btn gray" id="btn-gaze">Gaze: ON</button>
-        <button class="btn red" id="btn-stop">STOP</button>
-      </div>
-      <div class="btnrow">
-        <button class="btn gray" id="btn-vr">VR</button>
-      </div>
+    <!-- debug -->
+    <div class="debugTag" id="hud-debug">QUEST: —</div>
+
+    <!-- controls -->
+    <div class="controls">
+      <button class="btn ghost" id="btnGaze">Gaze: ON</button>
+      <button class="btn danger" id="btnStop">STOP</button>
+      <button class="btn" id="btnVR">VR</button>
     </div>
 
-  </div>
-
-  <!-- Start overlay -->
-  <div class="overlay" id="startOverlay">
-    <div class="panel">
-      <div class="title">
+    <!-- start overlay -->
+    <div id="startOverlay">
+      <div class="startCard">
         <h2>🍽️ Food Groups VR</h2>
-        <div class="pill" id="pill-url">params</div>
-      </div>
-
-      <div class="grid2">
-        <div class="card opt">
-          <label>Difficulty</label>
-          <select id="selDiff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
-          </select>
+        <p>
+          แตะ/จ้อง “อาหารดี” ให้ถูกหมู่เพื่อทำ GOAL + MINI ให้ครบ!<br/>
+          <span class="muted">Tip: แตะตรงไหนก็ได้ → ระบบจะยิงเป้าใกล้นิ้วให้</span>
+        </p>
+        <div class="startGrid">
+          <div class="chip">DIFF<strong id="chipDiff">—</strong></div>
+          <div class="chip">TIME<strong id="chipTime">—</strong></div>
+          <div class="chip">MODE<strong id="chipMode">—</strong></div>
         </div>
 
-        <div class="card opt">
-          <label>Time (sec)</label>
-          <input id="inpTime" type="number" min="10" max="300" step="5" value="90" />
+        <div class="startActions">
+          <button class="btn primary" id="btnStart">เริ่มเล่น</button>
+          <button class="btn" id="btnStartResearch">โหมดวิจัย</button>
         </div>
-
-        <div class="card opt">
-          <label>Run mode</label>
-          <select id="selRun">
-            <option value="play" selected>play</option>
-            <option value="research">research</option>
-          </select>
-        </div>
-
-        <div class="card opt">
-          <label>Seed (research)</label>
-          <input id="inpSeed" type="text" placeholder="เช่น schoolA-class5-01" />
-        </div>
-      </div>
-
-      <div class="hint">
-        - เป้าเป็น “emoji bubble” ตามที่คุยกันไว้ ✅<br/>
-        - Quest/HUD จะขึ้นเมื่อไฟล์ <code>./vr-groups/groups-quests.js</code> โหลดสำเร็จ ✅<br/>
-        - โหมดวิจัยแนะนำ “fix seed” เพื่อให้รอบเล่นเทียบกันได้ (ใส่ seed ได้ตรงนี้)
-      </div>
-
-      <div class="actions">
-        <button class="btn gray" id="btn-closeOverlay">ปิด</button>
-        <button class="btn green" id="btn-start">เริ่มเล่น</button>
       </div>
     </div>
   </div>
 
-  <!-- End summary -->
-  <div class="end" id="endOverlay">
-    <div class="panel">
-      <div class="title">
-        <h2>🏁 จบเกม</h2>
-        <div class="pill" id="end-zone">ZONE -</div>
-      </div>
+  <!-- Boot module -->
+  <script type="module" src="./vr-groups/groups.safe.js"></script>
 
-      <div class="endgrid">
-        <div class="card endcard">
-          <div class="k">Score</div>
-          <div class="v" id="end-score">0</div>
-        </div>
-        <div class="card endcard">
-          <div class="k">Combo Best</div>
-          <div class="v" id="end-combo">0</div>
-        </div>
-        <div class="card endcard">
-          <div class="k">Miss</div>
-          <div class="v" id="end-miss">0</div>
-        </div>
-        <div class="card endcard">
-          <div class="k">Quests</div>
-          <div class="v" id="end-quests">0%</div>
-        </div>
-      </div>
+  <!-- Minimal UI glue for buttons/overlay (no engine logic here) -->
+  <script>
+    (function(){
+      'use strict';
 
-      <div class="actions" style="margin-top:14px;">
-        <button class="btn gray" id="btn-end-close">✅ ปิดหน้าสรุป</button>
-        <button class="btn green" id="btn-end-retry">🔁 เล่นอีกครั้ง</button>
-      </div>
-    </div>
-  </div>
+      function qs(k){ try{ return new URLSearchParams(location.search).get(k); }catch{ return null; } }
+      function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-</div>
+      const elOverlay = document.getElementById('startOverlay');
+      const chipDiff = document.getElementById('chipDiff');
+      const chipTime = document.getElementById('chipTime');
+      const chipMode = document.getElementById('chipMode');
 
-<!-- IMPORTANT: Quest manager BEFORE engine -->
-<script src="./vr-groups/groups-quests.js"></script>
-<script src="./vr-groups/GameEngine.js"></script>
+      const btnStart = document.getElementById('btnStart');
+      const btnStartR = document.getElementById('btnStartResearch');
+      const btnGaze = document.getElementById('btnGaze');
+      const btnStop = document.getElementById('btnStop');
+      const btnVR = document.getElementById('btnVR');
+      const debug = document.getElementById('hud-debug');
 
-<script>
-(function(){
-  'use strict';
+      // read params
+      const diff = (qs('diff') || 'normal').toLowerCase();
+      const time = clamp(qs('time') || 70, 10, 999);
+      const run = (qs('run') || '').toLowerCase();
+      const seed = qs('seed') || '';
 
-  const qs = new URLSearchParams(location.search);
-  const byId = (id)=>document.getElementById(id);
+      chipDiff.textContent = diff;
+      chipTime.textContent = String(time) + 's';
+      chipMode.textContent = run === 'research' ? 'research' : 'play';
 
-  const layer = byId('fg-layer');
-  const camEl = document.querySelector('#rigCam');
+      // Hook quest:update to show debug status "QUEST: OK/NO"
+      window.addEventListener('quest:update', (ev) => {
+        try{
+          const d = ev.detail || {};
+          debug.textContent = 'QUEST: ' + (d.questOk ? 'OK' : 'NO');
+        }catch{}
+      });
 
-  const overlay = byId('startOverlay');
-  const endOverlay = byId('endOverlay');
+      function startViaBoot(runMode){
+        try{
+          // groups.safe.js should expose global start helper OR use engine directly.
+          // We'll try common patterns safely.
 
-  const selDiff = byId('selDiff');
-  const selRun  = byId('selRun');
-  const inpTime = byId('inpTime');
-  const inpSeed = byId('inpSeed');
-  const pillUrl = byId('pill-url');
+          const layer = document.getElementById('fg-layer');
+          const cam = document.getElementById('cam');
 
-  const btnStart = byId('btn-start');
-  const btnCloseOverlay = byId('btn-closeOverlay');
-  const btnStop = byId('btn-stop');
-  const btnGaze = byId('btn-gaze');
-  const btnVR = byId('btn-vr');
+          // If engine exists, start directly
+          const Engine = window.GroupsVR && window.GroupsVR.GameEngine ? window.GroupsVR.GameEngine : null;
+          if (Engine && typeof Engine.setLayerEl === 'function'){
+            Engine.setLayerEl(layer);
+            Engine.setCameraEl(cam);
+            Engine.setTimeLeft(time);
 
-  const hudTime = byId('hud-time');
-  const hudShield = byId('hud-shield');
-  const hudGrade = byId('hud-grade');
-  const hudGroup = byId('hud-group');
-
-  const gTitle = byId('hud-goal-title');
-  const gPct   = byId('hud-goal-pct');
-  const gCount = byId('hud-goal-count');
-  const gBar   = byId('hud-goal-bar').querySelector('i');
-
-  const mTitle = byId('hud-mini-title');
-  const mPct   = byId('hud-mini-pct');
-  const mBar   = byId('hud-mini-bar').querySelector('i');
-  const mExtra = byId('hud-mini-extra');
-
-  const coachText = byId('hud-coach-text');
-
-  const endScore = byId('end-score');
-  const endCombo = byId('end-combo');
-  const endMiss  = byId('end-miss');
-  const endQuests= byId('end-quests');
-  const endZone  = byId('end-zone');
-
-  const btnEndClose = byId('btn-end-close');
-  const btnEndRetry = byId('btn-end-retry');
-
-  function safeEngine(){
-    return (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
-  }
-
-  function readParams(){
-    const diff = (qs.get('diff') || 'normal').toLowerCase();
-    const time = Math.max(10, Number(qs.get('time') || 90) || 90);
-    const run  = (qs.get('run') || 'play').toLowerCase();
-    const seed = (qs.get('seed') || '');
-    return { diff, time, run, seed };
-  }
-
-  function setOverlayFromParams(){
-    const p = readParams();
-    selDiff.value = (p.diff==='easy'||p.diff==='hard'||p.diff==='normal') ? p.diff : 'normal';
-    selRun.value = (p.run==='research') ? 'research' : 'play';
-    inpTime.value = String(p.time);
-    inpSeed.value = String(p.seed || '');
-    pillUrl.textContent = `diff=${selDiff.value} | time=${inpTime.value} | run=${selRun.value}`;
-    hudTime.textContent = String(p.time);
-  }
-
-  function pct(prog, target){
-    const a = Number(prog)||0, b = Math.max(1, Number(target)||1);
-    return Math.max(0, Math.min(1, a/b));
-  }
-
-  // ---- Event bindings from engine/hud ----
-  window.addEventListener('hha:time', (e)=>{
-    const left = (e && e.detail && typeof e.detail.left==='number') ? e.detail.left : null;
-    if (left!=null) hudTime.textContent = String(left|0);
-  });
-
-  window.addEventListener('hha:score', (e)=>{
-    const d = (e && e.detail) ? e.detail : {};
-    if (typeof d.shield === 'number') hudShield.textContent = String(d.shield);
-  });
-
-  window.addEventListener('hha:rank', (e)=>{
-    const d = (e && e.detail) ? e.detail : {};
-    if (d.grade) hudGrade.textContent = String(d.grade);
-  });
-
-  window.addEventListener('hha:coach', (e)=>{
-    const d = (e && e.detail) ? e.detail : {};
-    if (d.text) coachText.textContent = String(d.text);
-  });
-
-  // QUEST UPDATE (สำคัญ: ถ้าไม่ขึ้น มักเกิดจาก groups-quests.js ไม่โหลด หรือ engine ไม่ start)
-  window.addEventListener('quest:update', (e)=>{
-    const d = (e && e.detail) ? e.detail : {};
-    const ok = !!d.questOk;
-
-    if (!ok){
-      gTitle.textContent = '—';
-      gPct.textContent = '0%';
-      gCount.textContent = '0/0';
-      gBar.style.width = '0%';
-
-      mTitle.textContent = '—';
-      mPct.textContent = '0%';
-      mBar.style.width = '0%';
-      mExtra.textContent = '⚠️ QUEST ไม่พร้อม (เช็ค ./vr-groups/groups-quests.js)';
-      hudGroup.textContent = '—';
-      return;
-    }
-
-    const goal = d.goal || null;
-    const mini = d.mini || null;
-
-    if (goal){
-      const p = pct(goal.prog, goal.target);
-      gTitle.textContent = goal.label || 'GOAL';
-      gPct.textContent = Math.round(p*100) + '%';
-      gBar.style.width = Math.round(p*100) + '%';
-    } else {
-      gTitle.textContent = 'GOAL เคลียร์แล้ว ✅';
-      gPct.textContent = '100%';
-      gBar.style.width = '100%';
-    }
-
-    const goalsAll = Array.isArray(d.goalsAll) ? d.goalsAll : [];
-    const clearedG = goalsAll.filter(x=>x && x.done).length;
-    gCount.textContent = `${clearedG}/${goalsAll.length||0}`;
-
-    if (mini){
-      const p = pct(mini.prog, mini.target);
-      mTitle.textContent = mini.label || 'MINI';
-      mPct.textContent = Math.round(p*100) + '%';
-      mBar.style.width = Math.round(p*100) + '%';
-
-      if (typeof mini.tLeft === 'number' && typeof mini.windowSec === 'number'){
-        mExtra.textContent = `⏱️ เหลือ ${mini.tLeft|0} วิ / ${mini.windowSec|0} วิ`;
-      } else {
-        mExtra.textContent = '—';
+            Engine.start(diff, { runMode: runMode, seed: seed || undefined });
+            return true;
+          }
+        }catch(e){
+          console.warn('startViaBoot failed', e);
+        }
+        return false;
       }
-    } else {
-      mTitle.textContent = 'MINI เคลียร์หมดแล้ว ⭐';
-      mPct.textContent = '100%';
-      mBar.style.width = '100%';
-      mExtra.textContent = '—';
-    }
 
-    hudGroup.textContent = d.groupLabel ? String(d.groupLabel) : '—';
-  });
+      // buttons
+      btnStart.addEventListener('click', () => {
+        elOverlay.style.display = 'none';
+        startViaBoot('play');
+      });
 
-  window.addEventListener('hha:end', (e)=>{
-    const d = (e && e.detail) ? e.detail : {};
-    endScore.textContent = String(d.scoreFinal || 0);
-    endCombo.textContent = String(d.comboMax || 0);
-    endMiss.textContent  = String(d.misses || 0);
+      btnStartR.addEventListener('click', () => {
+        elOverlay.style.display = 'none';
+        startViaBoot('research');
+      });
 
-    const qTotal = (d.goalsTotal||0) + (d.miniTotal||0);
-    const qCleared = (d.goalsCleared||0) + (d.miniCleared||0);
-    const qp = (qTotal>0) ? Math.round((qCleared/qTotal)*100) : 0;
-    endQuests.textContent = qp + '%';
+      btnStop.addEventListener('click', () => {
+        try{
+          const Engine = window.GroupsVR && window.GroupsVR.GameEngine;
+          Engine && Engine.stop && Engine.stop('stop_btn');
+        }catch{}
+        elOverlay.style.display = 'flex';
+      });
 
-    endZone.textContent = 'ZONE -';
-    endOverlay.classList.add('show');
-  });
+      let gazeOn = true;
+      btnGaze.addEventListener('click', () => {
+        gazeOn = !gazeOn;
+        btnGaze.textContent = 'Gaze: ' + (gazeOn ? 'ON' : 'OFF');
+        btnGaze.classList.toggle('primary', gazeOn);
+        try{
+          const Engine = window.GroupsVR && window.GroupsVR.GameEngine;
+          Engine && Engine.setGaze && Engine.setGaze(gazeOn);
+        }catch{}
+      });
 
-  // ---- Buttons ----
-  btnCloseOverlay.addEventListener('click', ()=> overlay.style.display='none');
-  btnEndClose.addEventListener('click', ()=> endOverlay.classList.remove('show'));
-  btnEndRetry.addEventListener('click', ()=>{
-    endOverlay.classList.remove('show');
-    overlay.style.display='flex';
-  });
+      btnVR.addEventListener('click', async () => {
+        try{
+          const scene = document.querySelector('a-scene');
+          if (scene && scene.enterVR) scene.enterVR();
+        }catch{}
+      });
 
-  let gazeOn = true;
-  btnGaze.addEventListener('click', ()=>{
-    gazeOn = !gazeOn;
-    btnGaze.textContent = 'Gaze: ' + (gazeOn ? 'ON' : 'OFF');
-    const eng = safeEngine();
-    eng && eng.setGaze && eng.setGaze(gazeOn);
-  });
-
-  btnStop.addEventListener('click', ()=>{
-    const eng = safeEngine();
-    eng && eng.stop && eng.stop('user_stop');
-  });
-
-  btnVR.addEventListener('click', async ()=>{
-    try{
-      const scene = document.querySelector('a-scene');
-      if (scene && scene.enterVR) scene.enterVR();
-    }catch{}
-  });
-
-  btnStart.addEventListener('click', ()=>{
-    const eng = safeEngine();
-    if (!eng){
-      alert('GameEngine ไม่พร้อม (เช็ค ./vr-groups/GameEngine.js)');
-      return;
-    }
-
-    const diff = (selDiff.value||'normal').toLowerCase();
-    const runMode = (selRun.value||'play').toLowerCase();
-    const tsec = Math.max(10, Number(inpTime.value||90)||90);
-    const seed = String(inpSeed.value||'').trim();
-
-    // ✅ IMPORTANT: set layer/camera/time BEFORE start
-    eng.setLayerEl && eng.setLayerEl(layer);
-    eng.setCameraEl && eng.setCameraEl(camEl);
-    eng.setTimeLeft && eng.setTimeLeft(tsec);
-    eng.setGaze && eng.setGaze(gazeOn);
-
-    overlay.style.display = 'none';
-    endOverlay.classList.remove('show');
-
-    // Start!
-    eng.start(diff, {
-      layerEl: layer,
-      runMode,
-      seed: seed || undefined
-    });
-  });
-
-  // init from url params
-  setOverlayFromParams();
-  overlay.style.display = 'flex';
-
-})();
-</script>
-
+      // auto-run if query has run=play|research
+      if (run === 'play' || run === 'research'){
+        // wait a bit for deferred scripts (quests + engine) to attach
+        setTimeout(() => {
+          elOverlay.style.display = 'none';
+          startViaBoot(run === 'research' ? 'research' : 'play');
+        }, 220);
+      }
+    })();
+  </script>
 </body>
 </html>
