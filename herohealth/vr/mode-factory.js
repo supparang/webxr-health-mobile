@@ -2,23 +2,25 @@
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
 // ✅ spawnHost: ที่ “append เป้า”
 // ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
+// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันให้แต่ละเกมทำได้
 // ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
 // ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
 // ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
+// ✅ rhythm spawn (bpm) + pulse class
 // ✅ trick/fake targets (itemType='fakeGood')
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
 //
-// 🔥 PATCH A+B+C (SPREAD PACK):
-// ✅ spawnStrategy: 'grid9' | 'uniform' | 'aroundCrosshair'  (ทำให้ “กระจายจริง”)
-// ✅ ถ้า spawnAroundCrosshair:false → default เป็น uniform ทั้งสนาม (ไม่กองกลาง)
-// ✅ grid9 = กระจายแบบรู้สึกได้ (9 โซน) + หมุนโซนแบบ shuffle
+// 🔥 PATCH A (FULL-SPREAD):
+// ✅ ถ้า spawnAroundCrosshair:false → สุ่มแบบ uniform ทั่ว playRect (กระจายจริง ไม่กองกลาง)
 //
-// 🔥 PATCH EDGE-FIX (NO-CUT):
-// ✅ ถ้า spawnHost มี transform (ลาก/gyro) → ใช้ baseRect จาก boundsHost (ignore transform)
+// 🔥 PATCH B (SMART GRID):
+// ✅ spawnStrategy:'grid9' → กระจาย 3x3 เลือกช่องที่โล่ง + กันซ้ำช่องเดิม
+//
+// 🔥 PATCH C (EDGE-FIX + HUD-MARGINS FIX):
+// ✅ HUD บนหัวจอจะไม่ไปกิน left/right (แก้ต้นเหตุ “พื้นที่กว้างเหลือ 1px → เป้ากองจุดเดียว”)
+// ✅ ถ้า spawnHost มี transform (ลาก/gyro) → ใช้ baseRect จาก boundsHost แทน (ignore transform)
 // ✅ เพิ่ม pad กัน pulse/scale แล้ว clamp ไม่ให้ชนขอบจริง
-//
-// ✅ dragThresholdPx ส่งไว้ให้เกมใช้แยก tap vs drag (ไม่ได้บังคับที่นี่ แต่ส่งผ่านได้)
 
 'use strict';
 
@@ -228,12 +230,20 @@ function collectExclusionElements(rawCfg){
   return uniq;
 }
 
+// ✅ PATCH C: HUD-MARGINS FIX (TOP HUD ไม่กิน LEFT/RIGHT)
 function computeExclusionMargins(hostRect, exEls){
   const m = { top:0, bottom:0, left:0, right:0 };
   if (!hostRect || !exEls || !exEls.length) return m;
 
   const hx1 = hostRect.left, hy1 = hostRect.top;
   const hx2 = hostRect.right, hy2 = hostRect.bottom;
+  const W = hostRect.width, H = hostRect.height;
+
+  const TOP_BAND_Y  = hy1 + H * 0.30;   // 30% บน
+  const BOT_BAND_Y  = hy2 - H * 0.22;   // 22% ล่าง
+
+  const capX = W * 0.30;
+  const capY = H * 0.55;
 
   exEls.forEach(el=>{
     let r = null;
@@ -246,26 +256,40 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    // top band
-    if (r.top < hy1 + 140 && r.bottom > hy1) {
-      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    const oW = ox2 - ox1;
+    const oH = oy2 - oy1;
+
+    const isTopBand    = (r.bottom <= TOP_BAND_Y);
+    const isBottomBand = (r.top    >= BOT_BAND_Y);
+
+    // TOP HUD -> TOP only
+    if (isTopBand){
+      if (oW >= W * 0.35){
+        m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, H));
+      }
+      return;
     }
-    // bottom band
-    if (r.bottom > hy2 - 140 && r.top < hy2) {
-      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+
+    // BOTTOM HUD -> BOTTOM only
+    if (isBottomBand){
+      if (oW >= W * 0.35){
+        m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, H));
+      }
+      return;
     }
-    // left band
-    if (r.left < hx1 + 120 && r.right > hx1) {
-      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
-    }
-    // right band
-    if (r.right > hx2 - 120 && r.left < hx2) {
-      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+
+    // LEFT/RIGHT only for tall (sidebar-like)
+    const tallEnough = (oH >= H * 0.35);
+    if (tallEnough){
+      if (r.left < hx1 + 120 && r.right > hx1){
+        m.left = Math.max(m.left, clamp(r.right - hx1, 0, W));
+      }
+      if (r.right > hx2 - 120 && r.left < hx2){
+        m.right = Math.max(m.right, clamp(hx2 - r.left, 0, W));
+      }
     }
   });
 
-  const capX = hostRect.width  * 0.45;
-  const capY = hostRect.height * 0.50;
   m.left   = Math.min(m.left, capX);
   m.right  = Math.min(m.right, capX);
   m.top    = Math.min(m.top, capY);
@@ -281,7 +305,8 @@ function computePlayRectFromHost (hostEl, exState) {
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
-  const basePadX   = w * 0.10;
+  // ✅ แนะนำให้กว้างขึ้น (เดิม 0.10)
+  const basePadX   = w * 0.06;
   const basePadTop = h * 0.12;
   const basePadBot = h * 0.12;
 
@@ -323,14 +348,13 @@ export async function boot (rawCfg = {}) {
 
     // spawn behavior
     spawnAroundCrosshair = true,
-    spawnStrategy = null,         // ✅ 'grid9' | 'uniform' | 'aroundCrosshair'
     spawnRadiusX = 0.34,
     spawnRadiusY = 0.30,
     minSeparation = 0.95,
     maxSpawnTries = 14,
 
-    // pass-through for games
-    dragThresholdPx = 10
+    // ✅ NEW
+    spawnStrategy = 'auto' // 'auto' | 'uniform' | 'grid9'
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
@@ -341,7 +365,7 @@ export async function boot (rawCfg = {}) {
 
   if (!hostSpawn || !hostBounds || !DOC) {
     console.error('[mode-factory] host not found');
-    return { stop () {}, shootCrosshair(){ return false; }, dragThresholdPx };
+    return { stop () {}, shootCrosshair(){ return false; } };
   }
 
   let stopped = false;
@@ -486,7 +510,7 @@ export async function boot (rawCfg = {}) {
   function refreshExclusions(ts){
     if (!DOC) return;
     if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 380) return;  // ✅ ถี่ขึ้นนิดเพื่อ auto-hide/peek
+    if (ts - exState.lastRefreshTs < 600) return;
     exState.lastRefreshTs = ts;
 
     exState.els = collectExclusionElements({ excludeSelectors });
@@ -512,7 +536,6 @@ export async function boot (rawCfg = {}) {
 
   function shootCrosshair(){
     if (stopped) return false;
-    refreshExclusions();
     const p = getCrosshairPoint();
     const hit = findTargetAtPoint(p.x, p.y);
     if (!hit) return false;
@@ -533,12 +556,14 @@ export async function boot (rawCfg = {}) {
   function getRectsForSpawn(){
     const bRect = getRectSafe(hostBounds) || rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
     let sRect = getRectSafe(hostSpawn);
+
     if (!sRect) sRect = bRect;
 
     const spawnHasT = hasTransform(hostSpawn);
     if (spawnHasT) {
       sRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
     }
+
     return { bRect, sRect, spawnHasT };
   }
 
@@ -548,10 +573,13 @@ export async function boot (rawCfg = {}) {
 
     const cL = bRect.left + pr.left;
     const cT = bRect.top  + pr.top;
+
     const l = cL - sRect.left;
     const t = cT - sRect.top;
+    const w = pr.width;
+    const h = pr.height;
 
-    return { left:l, top:t, width:pr.width, height:pr.height, bRect, sRect };
+    return { left:l, top:t, width:w, height:h, bRect, sRect };
   }
 
   function getExistingCentersLocal(sRect){
@@ -567,21 +595,29 @@ export async function boot (rawCfg = {}) {
     return out;
   }
 
-  // ✅ grid9 order (shuffle)
-  let gridOrder = null;
-  let gridPtr = 0;
-  function nextGridCell(){
-    if (!gridOrder || gridPtr >= gridOrder.length){
-      gridOrder = [0,1,2,3,4,5,6,7,8];
-      for (let i = gridOrder.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        const tmp = gridOrder[i];
-        gridOrder[i] = gridOrder[j];
-        gridOrder[j] = tmp;
-      }
-      gridPtr = 0;
+  // ✅ grid9 helper
+  let lastCell = -1;
+  function pickGrid9Cell(playLocal, centers){
+    const W = playLocal.width, H = playLocal.height;
+    const cellW = W / 3, cellH = H / 3;
+
+    const counts = new Array(9).fill(0);
+    for (let i=0;i<centers.length;i++){
+      const cx = centers[i].x - playLocal.left;
+      const cy = centers[i].y - playLocal.top;
+      const gx = clamp(Math.floor(cx / cellW), 0, 2);
+      const gy = clamp(Math.floor(cy / cellH), 0, 2);
+      counts[gy*3 + gx] += 1;
     }
-    return gridOrder[gridPtr++];
+
+    // เลือก cell ที่น้อยสุด + กันซ้ำ cell เดิมถ้าเป็นไปได้
+    const order = [...Array(9).keys()].sort((a,b)=> counts[a]-counts[b]);
+    let pick = order[0];
+    for (let i=0;i<order.length;i++){
+      if (order[i] !== lastCell) { pick = order[i]; break; }
+    }
+    lastCell = pick;
+    return pick;
   }
 
   function pickSpawnPointLocal(playLocal, sizePx){
@@ -591,14 +627,10 @@ export async function boot (rawCfg = {}) {
     const minDist = Math.max(18, sizePx * minSeparation);
     const tries = clamp(maxSpawnTries, 6, 30);
 
-    const strategy =
-      (spawnStrategy ? String(spawnStrategy) :
-        (spawnAroundCrosshair ? 'aroundCrosshair' : 'uniform')).toLowerCase();
-
     let ax = playLocal.left + playLocal.width * 0.50;
     let ay = playLocal.top  + playLocal.height * 0.52;
 
-    if (strategy === 'aroundcrosshair') {
+    if (spawnAroundCrosshair) {
       const cp = getCrosshairPoint();
       ax = cp.x - sRect.left;
       ay = cp.y - sRect.top;
@@ -622,7 +654,59 @@ export async function boot (rawCfg = {}) {
 
     function tri(){ return (Math.random() + Math.random() - 1); }
 
-    function checkOk(x,y){
+    let best = null;
+    let bestScore = -1;
+
+    const strategy = String(spawnStrategy || 'auto').toLowerCase();
+    const useUniform = (!spawnAroundCrosshair) && (strategy === 'uniform' || strategy === 'auto');
+    const useGrid9   = (!spawnAroundCrosshair) && (strategy === 'grid9');
+
+    // ✅ grid9: เลือกช่องโล่ง แล้วสุ่มในช่องนั้น
+    if (useGrid9){
+      const cell = pickGrid9Cell(playLocal, centers);
+      const gx = cell % 3;
+      const gy = Math.floor(cell / 3);
+
+      const cellW = (maxX - minX) / 3;
+      const cellH = (maxY - minY) / 3;
+
+      const cMinX = minX + gx * cellW;
+      const cMaxX = minX + (gx+1) * cellW;
+      const cMinY = minY + gy * cellH;
+      const cMaxY = minY + (gy+1) * cellH;
+
+      for (let i=0;i<tries;i++){
+        const x = cMinX + Math.random() * Math.max(1, (cMaxX - cMinX));
+        const y = cMinY + Math.random() * Math.max(1, (cMaxY - cMinY));
+
+        let ok = true;
+        let nearest = 1e9;
+        for (let k=0;k<centers.length;k++){
+          const dx = x - centers[k].x;
+          const dy = y - centers[k].y;
+          const d  = Math.sqrt(dx*dx + dy*dy);
+          nearest = Math.min(nearest, d);
+          if (d < minDist) { ok = false; break; }
+        }
+        if (ok) return { x, y, ok:true };
+
+        const score = nearest;
+        if (score > bestScore) { bestScore = score; best = { x, y, ok:false }; }
+      }
+
+      return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
+    }
+
+    // ✅ uniform ทั่วสนามจริง (PATCH A)
+    for (let i=0;i<tries;i++){
+      const x = useUniform
+        ? (minX + Math.random() * (maxX - minX))
+        : clamp(ax + tri()*rx, minX, maxX);
+
+      const y = useUniform
+        ? (minY + Math.random() * (maxY - minY))
+        : clamp(ay + tri()*ry, minY, maxY);
+
       let ok = true;
       let nearest = 1e9;
       for (let k=0;k<centers.length;k++){
@@ -632,44 +716,8 @@ export async function boot (rawCfg = {}) {
         nearest = Math.min(nearest, d);
         if (d < minDist) { ok = false; break; }
       }
-      return { ok, nearest };
-    }
 
-    let best = null;
-    let bestScore = -1;
-
-    for (let i=0;i<tries;i++){
-      let x, y;
-
-      if (strategy === 'grid9') {
-        const cell = nextGridCell(); // 0..8
-        const col = cell % 3;
-        const row = Math.floor(cell / 3);
-
-        const cellW = (maxX - minX) / 3;
-        const cellH = (maxY - minY) / 3;
-
-        const cx1 = minX + col * cellW;
-        const cy1 = minY + row * cellH;
-        const cx2 = cx1 + cellW;
-        const cy2 = cy1 + cellH;
-
-        // random inside cell
-        x = cx1 + Math.random() * (cx2 - cx1);
-        y = cy1 + Math.random() * (cy2 - cy1);
-      }
-      else if (strategy === 'uniform') {
-        x = minX + Math.random() * (maxX - minX);
-        y = minY + Math.random() * (maxY - minY);
-      }
-      else { // aroundCrosshair
-        x = clamp(ax + tri()*rx, minX, maxX);
-        y = clamp(ay + tri()*ry, minY, maxY);
-      }
-
-      const { ok, nearest } = checkOk(x,y);
       const score = ok ? (100000 + nearest) : nearest;
-
       if (score > bestScore) { bestScore = score; best = { x, y, ok }; }
       if (ok) return { x, y, ok:true };
     }
@@ -841,9 +889,7 @@ export async function boot (rawCfg = {}) {
           difficulty: diffKey,
           spawnMul: getSpawnMul(),
           curScale,
-          adaptLevel,
-          spawnStrategy: (spawnStrategy ? String(spawnStrategy) : (spawnAroundCrosshair ? 'aroundCrosshair' : 'uniform')),
-          dragThresholdPx
+          adaptLevel
         });
       }
     }catch(err){
@@ -1009,23 +1055,14 @@ export async function boot (rawCfg = {}) {
   const onStopEvent = () => stop();
   ROOT.addEventListener('hha:stop', onStopEvent);
 
-  // refresh on resize/orientation (กัน margins เพี้ยน)
-  const onResize = ()=>{ try{ exState.lastRefreshTs = 0; }catch{} };
-  try{
-    ROOT.addEventListener('resize', onResize, { passive:true });
-    ROOT.addEventListener('orientationchange', onResize, { passive:true });
-  }catch{}
-
   rafId = ROOT.requestAnimationFrame(loop);
 
   return {
     stop () {
-      try{ ROOT.removeEventListener('hha:stop', onStopEvent); }catch{}
-      try{ ROOT.removeEventListener('resize', onResize); ROOT.removeEventListener('orientationchange', onResize); }catch{}
+      ROOT.removeEventListener('hha:stop', onStopEvent);
       stop();
     },
-    shootCrosshair,
-    dragThresholdPx
+    shootCrosshair
   };
 }
 
