@@ -1,6 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR (PRODUCTION) — H++ FINAL PACK (PATCH: GOLD/BLOCK/STUNBREAK tick immediately)
-// ✅ Quest Director wired (start + tick) + quest:update shape
+// GoodJunkVR (PRODUCTION) — H++ FINAL PACK (PATCH A)
+// ✅ FIX: Gold Hunt 🟡 นับแน่ (increment + tickQuestNow)
+// ✅ FIX: No Junk Zone 🚫 รีเซ็ตจริง (miniStart => reset lastBadAt)
+// ✅ FIX: Quest นับทันทีทุก event สำคัญ (hit gold/power/block/stunBreak/goodExpired)
 // ✅ Miss rule: miss = goodExpired + junkHit ; Shield block junk => NOT miss
 // ✅ Crosshair tap shoot (1 tap) + magnet/heroBurst uses layer offset
 // ✅ Anti-clump spawn + safeMargins
@@ -127,7 +129,6 @@ export function boot(opts = {}){
     running: true,
     startedAt: now(),
     endAt: now() + durationSec*1000,
-
     timeLeft: durationSec,
 
     score: 0,
@@ -239,6 +240,7 @@ export function boot(opts = {}){
     final8Good: 0
   };
 
+  // expose for director getActive() fallback
   ROOT.__GJ_QSTATE__ = qState;
 
   let lastBadAt = now();
@@ -252,6 +254,7 @@ export function boot(opts = {}){
     if ((S.timeLeft|0) <= 8) qState.final8Good = (qState.final8Good|0) + 1;
   };
 
+  // ✅ PATCH: miniStart ต้องรีเซ็ต “ฐานเวลา” ของ No Junk Zone ด้วย
   window.addEventListener('quest:miniStart', ()=>{
     qState.goldHitsThisMini = 0;
     qState.blocks = 0;
@@ -259,6 +262,7 @@ export function boot(opts = {}){
     qState.timePlus = 0;
     qState.safeNoJunkSeconds = 0;
     qState.final8Good = 0;
+    lastBadAt = now(); // ✅ ทำให้ No Junk Zone เริ่มนับใหม่จริง
   }, { passive:true });
 
   // ===== Logging helpers (Google Sheet logger listens hha:log_*) =====
@@ -374,6 +378,7 @@ export function boot(opts = {}){
     };
   }
 
+  // ---- Anti-clump placement ----
   function rememberPt(x,y){
     S.recentPts.push({x,y,t:now()});
     if (S.recentPts.length > 14) S.recentPts.shift();
@@ -444,6 +449,7 @@ export function boot(opts = {}){
     }
     emitScore();
     emitFever();
+    tickQuestNow('penalty'); // ✅ นับ quest ทันที
   }
 
   function startStun(){
@@ -482,6 +488,7 @@ export function boot(opts = {}){
     const ap = getAimPoint();
     burstFX(ap.x, ap.y, 'power');
     logEvent('power_time', {});
+    tickQuestNow('timePlus'); // ✅
   }
   function addShield(){
     S.shield = clamp((S.shield|0) + 1, 0, 5);
@@ -675,6 +682,7 @@ export function boot(opts = {}){
     setPanic(0.2, 220);
     logEvent('boss_clear', {});
     emitScore();
+    tickQuestNow('bossClear'); // ✅
   }
 
   function pickPulsePoint(){
@@ -737,6 +745,7 @@ export function boot(opts = {}){
     S.pulseActive = false;
     emitScore();
     emitFever();
+    tickQuestNow('pulse'); // ✅
   }
 
   function showRingAt(x,y,gapStartDeg,gapSizeDeg,ms=1200){
@@ -847,6 +856,7 @@ export function boot(opts = {}){
     }
   }
 
+  // ===== Quest sync + force tick (PATCH A) =====
   function syncQuestState(){
     qState.score = S.score|0;
     qState.goodHits = S.goodHits|0;
@@ -854,12 +864,17 @@ export function boot(opts = {}){
     qState.comboMax = S.comboMax|0;
     qState.timeLeft = S.timeLeft|0;
     qState.safeNoJunkSeconds = Math.max(0, Math.floor((now() - lastBadAt) / 1000));
+    // note: goldHitsThisMini / blocks / stunBreaks / timePlus / streakGood / final8Good ถูกดูแลเป็น event-based
   }
-
-  // ✅ helper: force director tick immediately (fix mini not counting immediately)
-  function tickQuestNow(){
+  let _qtLock = 0;
+  function tickQuestNow(reason='event'){
+    const t = now();
+    if (t < _qtLock) return;
+    _qtLock = t + 18; // กันสแปมถี่เกิน
     syncQuestState();
-    qDir.tick(qState);
+    try{ qDir.tick(qState); }catch(_){}
+    // debug hook ถ้าต้องการ
+    // logEvent('quest_tick_now', { reason });
   }
 
   function onHit(t, via='tap'){
@@ -890,7 +905,7 @@ export function boot(opts = {}){
       killEl(t.el); S.targets.delete(t.id);
       logEvent('hit_good', { via });
 
-      // (loop tick ก็พอ)
+      tickQuestNow('hit_good'); // ✅
 
     } else if (t.kind === 'gold'){
       S.goodHits++;
@@ -900,8 +915,9 @@ export function boot(opts = {}){
       const pts = scoreGain(90, S.combo);
       S.score += pts;
 
-      // ✅ PATCH: gold must count immediately for mini
-      qState.goldHitsThisMini = 1;
+      // ✅ PATCH: Gold Hunt ต้องนับ “แน่” แบบ event-based (ไม่โดน overwrite)
+      qState.goldHitsThisMini = (qState.goldHitsThisMini|0) + 1;
+
       markGood();
 
       scorePop(cx, cy, `+${pts}`, 'GOLD!');
@@ -910,10 +926,9 @@ export function boot(opts = {}){
       safeDispatch('quest:goodHit', { kind:'gold' });
 
       killEl(t.el); S.targets.delete(t.id);
-      logEvent('hit_gold', { via });
+      logEvent('hit_gold', { via, goldHitsThisMini: qState.goldHitsThisMini|0 });
 
-      // ✅ force director tick now (fix “เก็บแล้วไม่นับ”)
-      tickQuestNow();
+      tickQuestNow('hit_gold'); // ✅ สำคัญมาก
 
     } else if (t.kind === 'power'){
       addFever(6);
@@ -931,7 +946,7 @@ export function boot(opts = {}){
       killEl(t.el); S.targets.delete(t.id);
       logEvent('hit_power', { via, emo });
 
-      // (loop tick ก็พอ)
+      tickQuestNow('hit_power'); // ✅
 
     } else if (t.kind === 'boss'){
       setCombo(S.combo + 1);
@@ -961,7 +976,7 @@ export function boot(opts = {}){
       emitScore();
       logEvent('hit_boss', { via, hp:S.bossHp|0 });
 
-      // (loop tick ก็พอ)
+      tickQuestNow('hit_boss'); // ✅
 
     } else if (isBad){
       markBad();
@@ -969,6 +984,7 @@ export function boot(opts = {}){
       if ((S.shield|0) > 0){
         // ✅ shield block junk => NOT miss
         if (challenge === 'boss' && S.bossPhase === 2){
+          // phase2 penalty: shield breaks + counts miss (หนักจริง)
           S.shield = 0;
           S.junkHits++;
           S.misses++;
@@ -987,12 +1003,12 @@ export function boot(opts = {}){
           burstFX(cx, cy, 'power');
           fxKick(0.65);
           setPanic(0.35, 420);
-          logEvent('block_bad', { via, kind:t.kind, shield:S.shield|0 });
+          logEvent('block_bad', { via, kind:t.kind, shield:S.shield|0, blocks:qState.blocks|0 });
 
-          // ✅ PATCH: blocks mini should update immediately
-          tickQuestNow();
+          tickQuestNow('block'); // ✅
         }
       } else {
+        // junk hit => miss++
         S.junkHits++;
         S.misses++;
         setCombo(0);
@@ -1006,6 +1022,8 @@ export function boot(opts = {}){
       }
 
       killEl(t.el); S.targets.delete(t.id);
+
+      tickQuestNow('bad'); // ✅
     }
 
     if (!S.stunActive && (S.fever|0) >= 100){
@@ -1040,6 +1058,7 @@ export function boot(opts = {}){
     return false;
   }
 
+  // hook: allow boot to pass shootEl
   if (opts.shootEl){
     try{
       opts.shootEl.addEventListener('pointerdown', (ev)=>{
@@ -1062,12 +1081,15 @@ export function boot(opts = {}){
       if (t.kind === 'boss') continue;
       if (tnow >= t.expiresAt){
         if (t.kind === 'good' || t.kind === 'gold'){
+          // ✅ good expired => MISS++
           S.goodExpired++;
           S.misses++;
           setCombo(Math.max(0, (S.combo|0) - 2));
           markBad();
           safeDispatch('quest:badHit', { kind:'goodExpired' });
           logEvent('good_expired', { kind:t.kind });
+
+          tickQuestNow('goodExpired'); // ✅ สำคัญ
         }
         killEl(t.el);
         S.targets.delete(t.id);
@@ -1092,10 +1114,9 @@ export function boot(opts = {}){
         burstFX(cx,cy,'ice');
         killEl(t.el);
         S.targets.delete(t.id);
-        logEvent('stun_break', { kind:t.kind });
+        logEvent('stun_break', { kind:t.kind, stunBreaks:qState.stunBreaks|0 });
 
-        // ✅ PATCH: stunBreaks mini should update immediately
-        tickQuestNow();
+        tickQuestNow('stunBreak'); // ✅
       }
     }
   }
@@ -1234,11 +1255,9 @@ export function boot(opts = {}){
   function finalSprintTick(){
     if ((S.timeLeft|0) > 8) return;
 
-    if ((S.timeLeft|0) <= 8){
-      const lv = clamp((8 - (S.timeLeft|0)) / 8, 0, 1);
-      setPanic(0.35 + lv*0.65, 650);
-      if ((S.timeLeft|0) <= 5) tick('final', 1.7);
-    }
+    const lv = clamp((8 - (S.timeLeft|0)) / 8, 0, 1);
+    setPanic(0.35 + lv*0.65, 650);
+    if ((S.timeLeft|0) <= 5) tick('final', 1.7);
 
     const sec = S.timeLeft|0;
     if (S.lastFinalPulseSec !== sec){
@@ -1269,6 +1288,7 @@ export function boot(opts = {}){
       S.timeLeft = remainSec|0;
       emitTime();
       finalSprintTick();
+      tickQuestNow('time'); // ✅
     }
     if (remainMs <= 0){
       endGame();
@@ -1351,6 +1371,7 @@ export function boot(opts = {}){
       S.panicEndsAt = 0;
     }
 
+    // ปกติยัง tick ทุกเฟรมอยู่ (แต่ event สำคัญจะ tickQuestNow แล้ว)
     syncQuestState();
     qDir.tick(qState);
 
@@ -1371,7 +1392,9 @@ export function boot(opts = {}){
         comboMax:S.comboMax|0, timeLeft:S.timeLeft|0,
         fever:Math.round(S.fever), stunActive:!!S.stunActive, shield:S.shield|0,
         bossAlive:!!S.bossAlive, bossPhase:S.bossPhase|0, bossHp:S.bossHp|0, bossHpMax:S.bossHpMax|0,
-        pulseActive:!!S.pulseActive, heroBurstActive:!!S.heroBurstActive
+        pulseActive:!!S.pulseActive, heroBurstActive:!!S.heroBurstActive,
+        goldHitsThisMini: qState.goldHitsThisMini|0,
+        safeNoJunkSeconds: qState.safeNoJunkSeconds|0
       };
     }
   };
