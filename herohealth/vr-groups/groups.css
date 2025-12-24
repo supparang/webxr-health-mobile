@@ -1,334 +1,356 @@
 /* === /herohealth/vr-groups/groups.css ===
-Food Groups VR — TARGETS + HUD FX (SAFE, NOT BREAK EMOJI)
-Works with:
-- groups-vr.html (fg-layer)
-- vr-groups/GameEngine.js (sets --x/--y/--s)
-- groups-ui.js (HUD binder: reticle, lock ring, edge pulse, end card etc.)
+Food Groups VR — PRODUCTION CSS (Split)
+✅ Target styles (emoji bubble + good/junk/boss/decoy)
+✅ Lock highlight + reticle + edge pulse
+✅ Boss bar + afterimage
+✅ Start overlay
+✅ A-Frame behind
 */
 
 :root{
   --bg:#020617;
-  --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.72);
-  --stroke:rgba(148,163,184,.22);
+  --panel: rgba(2,6,23,.74);
+  --stroke: rgba(148,163,184,.22);
+  --text: rgba(229,231,235,.95);
+  --muted: rgba(148,163,184,.85);
 
-  --text:#e5e7eb;
-  --muted:#94a3b8;
-
-  --good:#22c55e;
-  --bad:#ef4444;
-  --warn:#f59e0b;
-  --violet:#a855f7;
-  --blue:#3b82f6;
-
-  --radius:18px;
-  --shadow:0 18px 50px rgba(0,0,0,.42);
-
-  /* Safe HUD zones (keep aligned w/ GameEngine CFG.safeTopPx etc.) */
-  --safeTop: 118px;
-  --safeBottom: 150px;
-  --safeLeft: 28px;
-  --safeRight: 28px;
+  /* safe zone (match engine clamp) */
+  --safe-top: 118px;
+  --safe-bot: 150px;
+  --safe-l: 28px;
+  --safe-r: 28px;
 }
 
-html, body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial;
+html,body{
+  height:100%;
+  margin:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", Arial;
+  overflow:hidden;
+  touch-action: manipulation;
 }
 
-/* ---------- Target layer ---------- */
+/* ===== A-Frame canvas behind ===== */
+a-scene, canvas{
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 0 !important;
+  background: radial-gradient(1200px 800px at 50% 40%, rgba(30,41,59,.45), rgba(2,6,23,1) 70%);
+}
+
+/* ===== Targets layer ===== */
 #fg-layer{
-  position:fixed;
-  inset:0;
-  z-index:10;
-  pointer-events:auto;
-  touch-action:manipulation;
-  transform:translateZ(0);
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
 
-/* ---------- Emoji Target (core) ---------- */
-/* Engine sets:
-   left/top via CSS vars --x/--y (px)
-   scale via --s (string)
-*/
+/* base target */
 .fg-target{
-  position:absolute;
+  position: absolute;
   left: var(--x, 50%);
-  top:  var(--y, 52%);
-  transform: translate3d(-50%,-50%,0) scale(var(--s,1));
-  transform-origin:center;
-
-  width:132px;
-  height:132px;
-  border-radius:999px;
-
+  top: var(--y, 52%);
+  transform: translate(-50%, -50%) scale(var(--s, 1));
+  width: 132px;
+  height: 132px;
+  border-radius: 999px;
   display:flex;
   align-items:center;
   justify-content:center;
 
-  /* Emoji rendering: DON'T break */
-  font-size:58px;
-  line-height:1;
-  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
+  /* emoji */
+  font-size: 54px;
+  line-height: 1;
 
-  /* glass bubble */
-  background:
-    radial-gradient(90px 80px at 35% 25%, rgba(255,255,255,.56), rgba(255,255,255,0) 60%),
-    radial-gradient(120px 120px at 50% 55%, rgba(255,255,255,.18), rgba(255,255,255,.06) 58%, rgba(255,255,255,.02) 100%),
-    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03));
+  cursor: pointer;
+  will-change: transform, left, top, opacity, filter;
 
-  border:1px solid rgba(255,255,255,.18);
+  /* feel */
+  filter: drop-shadow(0 14px 34px rgba(0,0,0,.45));
+  transition: transform .10s ease, opacity .16s ease, filter .16s ease;
 
-  box-shadow:
-    0 18px 48px rgba(0,0,0,.35),
-    inset 0 1px 0 rgba(255,255,255,.22);
-
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.34));
-  text-shadow:
-    0 6px 16px rgba(0,0,0,.30),
-    0 0 10px rgba(255,255,255,.10);
-
-  user-select:none;
-  -webkit-user-select:none;
-  cursor:pointer;
-
-  /* perf */
-  will-change: transform, left, top, opacity;
-  backface-visibility:hidden;
-  -webkit-font-smoothing:antialiased;
+  pointer-events: auto;
 }
 
-/* Ring outline per type */
-.fg-target.fg-good{ outline:2px solid rgba(34,197,94,.18); }
-.fg-target.fg-junk{ outline:2px solid rgba(239,68,68,.18); }
-.fg-target.fg-decoy{ outline:2px solid rgba(245,158,11,.22); }
-.fg-target.fg-boss{ outline:2px solid rgba(168,85,247,.22); }
-
-/* Slight motion feel even if engine doesn't sway much */
+/* ring + glass */
+.fg-target::before{
+  content:'';
+  position:absolute;
+  inset: 8px;
+  border-radius: 999px;
+  background:
+    radial-gradient(120px 120px at 30% 25%, rgba(255,255,255,.20), rgba(255,255,255,0) 55%),
+    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: inset 0 0 0 1px rgba(2,6,23,.22);
+  pointer-events:none;
+}
 .fg-target::after{
   content:'';
   position:absolute;
-  inset:8px;
+  inset:-6px;
   border-radius:999px;
-  background: radial-gradient(60px 50px at 35% 25%, rgba(255,255,255,.10), rgba(255,255,255,0) 70%);
+  border: 2px solid rgba(148,163,184,.16);
   pointer-events:none;
-  opacity:.9;
+  opacity:.65;
 }
 
-/* ---------- Spawn / Show / Out / Hit ---------- */
-.fg-target.spawn{
-  opacity:0;
-  transform: translate3d(-50%,-50%,0) scale(.72);
+/* Good vs Junk */
+.fg-good{
+  background: radial-gradient(120px 90px at 30% 30%, rgba(34,197,94,.22), rgba(34,197,94,.06) 55%, rgba(2,6,23,.00) 70%);
 }
-.fg-target.show{
-  opacity:1;
-  animation: fgPop .22s ease-out both;
+.fg-junk{
+  background: radial-gradient(120px 90px at 30% 30%, rgba(239,68,68,.22), rgba(239,68,68,.06) 55%, rgba(2,6,23,.00) 70%);
 }
-@keyframes fgPop{
-  0%{ transform:translate3d(-50%,-50%,0) scale(.78); filter:blur(.2px) drop-shadow(0 6px 14px rgba(0,0,0,.22)); }
-  70%{ transform:translate3d(-50%,-50%,0) scale(1.10); }
-  100%{ transform:translate3d(-50%,-50%,0) scale(var(--s,1)); filter:drop-shadow(0 10px 22px rgba(0,0,0,.34)); }
+.fg-boss{
+  filter: drop-shadow(0 16px 40px rgba(239,68,68,.28)) drop-shadow(0 14px 34px rgba(0,0,0,.45));
 }
 
-.fg-target.out{
-  animation: fgOut .18s ease-in both;
-}
-@keyframes fgOut{
-  to{
-    opacity:0;
-    transform:translate3d(-50%,-50%,0) scale(.86);
-    filter: blur(1px) drop-shadow(0 0 0 rgba(0,0,0,0));
-  }
+/* Decoy tint */
+.fg-decoy{
+  background: radial-gradient(120px 90px at 30% 30%, rgba(168,85,247,.22), rgba(168,85,247,.06) 55%, rgba(2,6,23,.00) 70%);
 }
 
-.fg-target.hit{
-  animation: fgHit .16s ease-out both;
-}
-@keyframes fgHit{
-  40%{ transform:translate3d(-50%,-50%,0) scale(1.18); }
-  100%{ opacity:0; transform:translate3d(-50%,-50%,0) scale(.86); }
+/* spawn/exit */
+.fg-target.spawn{ opacity: 0; transform: translate(-50%,-50%) scale(.70); }
+.fg-target.show { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
+.fg-target.hit  { opacity: 0; transform: translate(-50%,-50%) scale(.82); filter: blur(.2px); }
+.fg-target.out  { opacity: 0; transform: translate(-50%,-50%) scale(.92); }
+
+/* lock highlight */
+.fg-target.lock::after{
+  border-color: rgba(59,130,246,.60);
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.14), 0 0 26px rgba(59,130,246,.22);
 }
 
-/* ---------- Lock highlight ---------- */
-.fg-target.lock{
-  border-color: rgba(34,197,94,.30);
-  box-shadow:
-    0 18px 60px rgba(34,197,94,.10),
-    0 18px 48px rgba(0,0,0,.35),
-    inset 0 1px 0 rgba(255,255,255,.22);
-}
-.fg-target.fg-boss.lock{
-  border-color: rgba(168,85,247,.36);
-  box-shadow:
-    0 18px 70px rgba(168,85,247,.12),
-    0 18px 48px rgba(0,0,0,.35),
-    inset 0 1px 0 rgba(255,255,255,.22);
-}
-
-/* ---------- RAGE pulsing (boss) ---------- */
-.fg-target.rage{
-  animation: ragePulse .85s ease-in-out infinite;
+/* boss rage hint */
+.fg-target.rage::after{
+  border-color: rgba(251,113,133,.55);
+  box-shadow: 0 0 0 4px rgba(239,68,68,.12), 0 0 28px rgba(239,68,68,.22);
+  animation: ragePulse .8s ease-in-out infinite;
 }
 @keyframes ragePulse{
-  0%,100%{
-    box-shadow:0 18px 48px rgba(0,0,0,.35), 0 0 0 rgba(168,85,247,0);
-  }
-  50%{
-    box-shadow:0 18px 48px rgba(0,0,0,.35), 0 0 28px rgba(168,85,247,.26);
-  }
+  0%,100%{ opacity:.75; }
+  50%{ opacity:1; }
 }
 
-/* ---------- Afterimage (from engine) ---------- */
-.fg-afterimage{
-  position:absolute;
-  z-index:9;
-  pointer-events:none;
-  opacity:.22;
-  filter: blur(.2px);
-  animation: aiFade .42s ease-out forwards;
-  transform: translate3d(0,0,0) translate(-50%,-50%);
-}
-.fg-afterimage-inner{
-  width:110px; height:110px;
-  border-radius:999px;
-  display:flex; align-items:center; justify-content:center;
-  font-size:54px; line-height:1;
-  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
-  background: rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.10);
-  transform: scale(1.04);
-}
-.fg-afterimage.a2{ opacity:.16; }
-@keyframes aiFade{
-  to{
-    opacity:0;
-    transform: translate3d(0,0,0) translate(-50%,-50%) scale(1.18);
-  }
-}
-
-/* ---------- Boss bar (engine injects .bossbar) ---------- */
+/* boss HP bar */
 .bossbar{
   position:absolute;
-  left:12px; right:12px;
-  bottom:10px;
-  height:8px;
-  border-radius:999px;
-  background: rgba(255,255,255,.10);
+  left: 16px;
+  right: 16px;
+  bottom: 14px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
   overflow:hidden;
-  border:1px solid rgba(255,255,255,.14);
+  pointer-events:none;
 }
 .bossbar-fill{
   height:100%;
   width:100%;
-  border-radius:999px;
-  background: linear-gradient(90deg, rgba(168,85,247,.95), rgba(59,130,246,.85));
+  background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(251,146,60,.90));
+  border-radius: 999px;
+  box-shadow: 0 8px 22px rgba(239,68,68,.22);
 }
 
-/* =========================================================
-   HUD HELPERS (groups-ui.js can create these IDs/classes)
-   If your groups-ui.js already defines them, this just skins.
-   ========================================================= */
+/* ===== Reticle (created by groups-ui.js) ===== */
+.fg-reticle{
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  transform: translate(-50%,-50%);
+  border: 2px solid rgba(229,231,235,.35);
+  box-shadow: 0 0 0 6px rgba(2,6,23,.35);
+  z-index: 34;
+  pointer-events: none;
+  opacity: .9;
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+.fg-reticle.ok{
+  border-color: rgba(34,197,94,.75);
+  box-shadow: 0 0 0 7px rgba(34,197,94,.14);
+  transform: translate(-50%,-50%) scale(1.06);
+}
+.fg-reticle.miss{
+  border-color: rgba(239,68,68,.78);
+  box-shadow: 0 0 0 10px rgba(239,68,68,.16);
+  transform: translate(-50%,-50%) scale(1.10);
+}
+.fg-reticle.perfect{
+  border-color: rgba(59,130,246,.85);
+  box-shadow: 0 0 0 10px rgba(59,130,246,.16);
+  transform: translate(-50%,-50%) scale(1.12);
+}
 
-/* Reticle */
-#reticle, .fg-reticle{
-  position:fixed;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
-  width:14px;
-  height:14px;
-  border-radius:999px;
-  background: rgba(255,255,255,.55);
-  box-shadow: 0 0 18px rgba(255,255,255,.12);
-  z-index:25;
+/* ===== Edge pulse (panic/rush cues) ===== */
+.fg-edgePulse{
+  position: fixed;
+  inset: 0;
+  z-index: 33;
   pointer-events:none;
-  opacity:.85;
-}
-#reticle.ok, .fg-reticle.ok{
-  background: rgba(34,197,94,.65);
-  box-shadow: 0 0 22px rgba(34,197,94,.18);
-}
-#reticle.miss, .fg-reticle.miss{
-  background: rgba(239,68,68,.65);
-  box-shadow: 0 0 22px rgba(239,68,68,.18);
-}
-#reticle.perfect, .fg-reticle.perfect{
-  background: rgba(245,158,11,.72);
-  box-shadow: 0 0 24px rgba(245,158,11,.22);
-}
-
-/* Lock UI ring */
-#lockUI, .fg-lockUI{
-  position:fixed;
-  left:0; top:0;
-  width:10px; height:10px;
-  transform: translate(-9999px,-9999px);
-  z-index:26;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .08s linear;
-}
-#lockUI.on, .fg-lockUI.on{ opacity:1; }
-#lockSvg{ overflow:visible; }
-.ringBack{ stroke:rgba(255,255,255,.20); stroke-width:5; fill:none; }
-.ringProg{ stroke:rgba(34,197,94,.90); stroke-width:6; fill:none; stroke-linecap:round; }
-.ringCharge{ stroke:rgba(59,130,246,.95); stroke-width:6; fill:none; stroke-linecap:round; opacity:.92; }
-
-/* Edge pulse (panic/clutch etc.) */
-#edgePulse, .fg-edgePulse{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .12s ease;
-  border-radius: 24px;
-  z-index: 24;
+  opacity: 0;
+  transition: opacity .18s ease;
   box-shadow:
-    inset 0 0 0 2px rgba(245,158,11,.00),
-    inset 0 0 38px rgba(245,158,11,.00);
+    inset 0 0 0 0 rgba(0,0,0,0),
+    inset 0 0 0 3px rgba(239,68,68,.00);
 }
-#edgePulse.on, .fg-edgePulse.on{
-  opacity:1;
-  box-shadow:
-    inset 0 0 0 2px rgba(245,158,11,.16),
-    inset 0 0 38px rgba(245,158,11,.10);
-}
-#edgePulse.beat, .fg-edgePulse.beat{
-  animation: edgeBeat .24s ease-out both;
+.fg-edgePulse.on{ opacity: 1; }
+.fg-edgePulse.beat{
+  animation: edgeBeat .26s ease-out;
 }
 @keyframes edgeBeat{
   0%{
     box-shadow:
-      inset 0 0 0 2px rgba(245,158,11,.18),
-      inset 0 0 42px rgba(245,158,11,.12);
-    filter: saturate(1.05);
-    transform: scale(1);
-  }
-  55%{
-    box-shadow:
-      inset 0 0 0 3px rgba(245,158,11,.34),
-      inset 0 0 72px rgba(245,158,11,.22);
-    filter: saturate(1.22);
-    transform: scale(1.006);
+      inset 0 0 0 0 rgba(0,0,0,0),
+      inset 0 0 0 2px rgba(239,68,68,.00),
+      0 0 0 0 rgba(0,0,0,0);
+    opacity: .7;
   }
   100%{
     box-shadow:
-      inset 0 0 0 2px rgba(245,158,11,.16),
-      inset 0 0 38px rgba(245,158,11,.10);
-    filter: saturate(1.05);
-    transform: scale(1);
+      inset 0 0 0 0 rgba(0,0,0,0),
+      inset 0 0 0 7px rgba(239,68,68,.18),
+      0 0 40px rgba(239,68,68,.10);
+    opacity: 1;
   }
 }
 
-/* Optional: small screen tweaks */
-@media (max-width:420px){
-  .fg-target{ width:120px; height:120px; font-size:54px; }
-  .fg-afterimage-inner{ width:100px; height:100px; font-size:50px; }
+/* ===== Lock UI ring (created by groups-ui.js) ===== */
+.fg-lockUI{
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 120px;
+  height: 120px;
+  z-index: 36;
+  pointer-events:none;
+  opacity: 0;
+  transition: opacity .12s ease;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.40));
+}
+.fg-lockUI.on{ opacity: 1; }
+.fg-lockUI svg{ display:block; }
+.fg-lockUI .ringBack{
+  fill: transparent;
+  stroke: rgba(148,163,184,.18);
+  stroke-width: 8;
+}
+.fg-lockUI .ringProg{
+  fill: transparent;
+  stroke: rgba(59,130,246,.85);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 60px 60px;
+}
+.fg-lockUI .ringCharge{
+  fill: transparent;
+  stroke: rgba(34,197,94,.88);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 60px 60px;
 }
 
-/* Accessibility: reduce motion */
-@media (prefers-reduced-motion: reduce){
-  .fg-target.show, .fg-target.hit, .fg-target.out, .fg-afterimage{ animation:none !important; }
-  .fg-target.rage{ animation:none !important; }
+/* afterimage (engine spawns) */
+.fg-afterimage{
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 19;
+  pointer-events:none;
+  opacity: .0;
+  animation: afterPop .42s ease-out forwards;
+}
+.fg-afterimage-inner{
+  font-size: 54px;
+  filter: blur(.1px);
+  opacity: .8;
+  transform: translate(-50%,-50%) scale(.92);
+}
+@keyframes afterPop{
+  0%{ opacity: 0; }
+  20%{ opacity: .65; }
+  100%{ opacity: 0; transform: translateY(8px); }
+}
+
+/* ===== Start Overlay ===== */
+#startOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: radial-gradient(1200px 900px at 50% 30%, rgba(30,41,59,.55), rgba(2,6,23,.92));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+#startCard{
+  width: min(780px, 92vw);
+  border-radius: 22px;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.76);
+  box-shadow: 0 30px 90px rgba(0,0,0,.55);
+  padding: 16px 16px 14px;
+}
+#startCard h1{
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: .2px;
+}
+#startMeta{
+  margin-top: 8px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  opacity: .88;
+  font-size: 13px;
+}
+.pill{
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(15,23,42,.55);
+}
+#startHint{
+  margin-top: 12px;
+  font-size: 13px;
+  opacity: .85;
+  line-height: 1.45;
+}
+#startActions{
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+button{
+  pointer-events: auto;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(15,23,42,.65);
+  color: rgba(229,231,235,.95);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 900;
+  font-size: 14px;
+}
+button.primary{
+  background: rgba(34,197,94,.20);
+  border-color: rgba(34,197,94,.35);
 }
