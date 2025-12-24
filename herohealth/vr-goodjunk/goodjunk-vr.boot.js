@@ -5,6 +5,9 @@
 // - Forces quest:update early via Q.getActive() pump + Q.start(qState)
 // - Provides window.__GJ_QSTATE__ for director getActive()
 // - Keeps all FX/Coach/Boss hooks
+//
+// ✅ PATCH (2025-12-24):
+// - AUTO-RUN boot() on module load to fix "UI shows but game never starts" (black/empty gameplay)
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
@@ -256,7 +259,7 @@ export function boot(){
     return base;
   }
 
-  // ---- Quest shared state (matches your quest-defs eval fields) ----
+  // ---- Quest shared state ----
   const qState = {
     score:0, goodHits:0, miss:0, comboMax:0, timeLeft:0,
     streakGood:0, goldHitsThisMini:false, blocks:0, usedMagnet:false,
@@ -282,7 +285,6 @@ export function boot(){
     qState.streakGood = 0;
     qState.final8Good = 0;
 
-    // ✅ force HUD refresh even if no gameplay events yet
     if (Q) Q.tick(qState);
   });
 
@@ -618,17 +620,16 @@ export function boot(){
     attachTouch(cam);
     initVRButton();
 
-    // ✅ Create quest director using compat signature (accepts goalDefs/miniDefs)
+    // ✅ Create quest director
     Q = makeQuestDirector({
       diff,
       goalDefs: GOODJUNK_GOALS,
       miniDefs: GOODJUNK_MINIS
     });
 
-    // ✅ ensure director can read current qState (for getActive fallback)
     window.__GJ_QSTATE__ = qState;
 
-    // ✅ fire UI immediately (before countdown)
+    // ✅ fire UI immediately
     if (Q && typeof Q.start === 'function') Q.start(qState);
     pumpQuestUI();
 
@@ -649,7 +650,7 @@ export function boot(){
 
         window.__GJ_ENGINE__ = ENGINE;
 
-        // ✅ one more pump after engine starts (order-proof)
+        // ✅ one more pump after engine starts
         pumpQuestUI();
       });
     });
@@ -660,6 +661,15 @@ export function boot(){
 
   prefill();
 
-  // ✅ even before start, show placeholder quest once director exists
-  // (keeps HUD not empty while on overlay)
+  // NOTE: placeholder quest before start is handled by prefill/coach + director created at start.
+}
+
+// ✅ AUTO-RUN (fix black/empty gameplay)
+try{
+  boot();
+  // optional handle for manual calling
+  window.GoodJunkBootPage = boot;
+}catch(err){
+  console.error('[GoodJunkVR] boot() failed:', err);
+  try{ alert('GoodJunkVR boot error: ' + (err?.message || err)); }catch(_){}
 }
