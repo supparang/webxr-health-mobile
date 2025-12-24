@@ -1,3 +1,13 @@
+<!-- === /herohealth/hydration-vr.html ===
+Hydration Quest VR — FULL HTML (A+B+C + ต่ออีก)
+✅ Playfield FIX: full-screen + absolute targets (กระจายจริง)
+✅ bounds layer (#hvr-bounds) สำหรับคำนวณ safe rect ไม่เพี้ยนตอนลาก/gyro
+✅ HUD minimal + auto-hide รองรับจาก hydration.safe.js
+✅ ปุ่ม Peek HUD (ไม่บังเป้า) + Coach toast เล็ก ๆ
+✅ Endscreen host + Error box กันจอดำ
+✅ โหลด ui-fever.js (ถ้ามี) + particles.js
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,25 +17,41 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ FX + UI (IIFE) -->
+  <!-- ✅ FX (Particles IIFE) -->
   <script src="./vr/particles.js" defer></script>
+
+  <!-- ✅ Fever UI (IIFE) ถ้ามีไฟล์นี้ -->
   <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-hud.js" defer></script>
 
   <style>
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.62);
+      --panel2:rgba(15,23,42,.58);
       --stroke:rgba(148,163,184,.20);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --radius:18px;
+      --radius:20px;
+
+      --safeTop: env(safe-area-inset-top, 0px);
+      --safeBot: env(safe-area-inset-bottom, 0px);
+      --safeL: env(safe-area-inset-left, 0px);
+      --safeR: env(safe-area-inset-right, 0px);
     }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;overflow:hidden}
+
+    html,body{
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+      overflow:hidden;
+    }
 
     #hvr-wrap{
-      position:fixed; inset:0; overflow:hidden;
+      position:fixed;
+      inset:0;
+      overflow:hidden;
       background:
         radial-gradient(1000px 600px at 18% 20%, rgba(59,130,246,.14), transparent 55%),
         radial-gradient(900px 700px at 82% 26%, rgba(34,197,94,.12), transparent 60%),
@@ -33,129 +59,193 @@
         #020617;
     }
 
-    /* Gameplay layer */
-    #hvr-playfield{
-      position:absolute; inset:0; width:100%; height:100%;
-      z-index:10; overflow:hidden;
-      touch-action:none; user-select:none; -webkit-user-select:none;
-      transform: translate3d(0,0,0);
+    /* ===== bounds layer (not transformed) ===== */
+    #hvr-bounds{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:4;
     }
 
-    /* Post FX canvas */
-    #hvr-postfx{ position:fixed; inset:0; z-index:60; pointer-events:none; }
-    #hvr-screen-blink{ position:fixed; inset:0; z-index:70; pointer-events:none; opacity:0; transition:opacity .14s ease-out; }
+    /* ===== PLAYFIELD FIX: must be full-screen & absolute-friendly ===== */
+    #hvr-playfield{
+      position:fixed;
+      inset:0;
+      width:100vw;
+      height:100vh;
+      z-index:12;
+      overflow:hidden;
+      pointer-events:auto;
+      touch-action:none;
+      user-select:none;
+      -webkit-user-select:none;
+
+      will-change: transform;
+      transform: translate3d(0,0,0);
+      transform-origin: 50% 50%;
+    }
+
+    /* targets (mode-factory creates .hvr-target) */
+    .hvr-target{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      touch-action:manipulation;
+      user-select:none;
+      -webkit-user-select:none;
+    }
+
+    /* postfx canvas MUST not block */
+    #hvr-postfx{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      pointer-events:none !important;
+    }
+
+    #hvr-screen-blink{
+      position:fixed; inset:0; z-index:70;
+      pointer-events:none; opacity:0;
+      transition: opacity .14s ease-out;
+    }
     #hvr-screen-blink.on{ opacity:.18; }
     #hvr-screen-blink.good{ background: radial-gradient(800px 600px at 50% 50%, rgba(34,197,94,.55), transparent 60%); }
     #hvr-screen-blink.bad{  background: radial-gradient(800px 600px at 50% 50%, rgba(239,68,68,.55), transparent 60%); }
     #hvr-screen-blink.perfect{ background: radial-gradient(900px 700px at 50% 50%, rgba(255,255,255,.75), transparent 60%); }
 
-    /* Crosshair */
+    /* crosshair */
     #hvr-crosshair{
-      position:fixed; left:50%; top:52%;
+      position:fixed;
+      left:50%;
+      top:52%;
       transform:translate(-50%,-50%);
-      z-index:86; pointer-events:none;
-      width:44px; height:44px; opacity:.72;
+      z-index:40;
+      pointer-events:none;
+      width:22px;
+      height:22px;
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,.55);
+      box-shadow:0 0 0 6px rgba(255,255,255,.08);
+      opacity:.85;
     }
 
-    /* ===== Minimal HUD ===== */
+    /* ===== HUD (minimal + auto-hide supported by safe.js) ===== */
     .hud{
       position:fixed;
-      left:12px; right:12px; top:10px;
-      z-index:90;
+      left: calc(12px + var(--safeL));
+      right: calc(12px + var(--safeR));
+      top: calc(10px + var(--safeTop));
+      z-index:80;
       pointer-events:none;
       display:flex;
-      align-items:center;
+      align-items:flex-start;
       justify-content:space-between;
       gap:10px;
     }
-    .hud .hudbar{
-      pointer-events:auto;
+
+    .hud .stack{
       display:flex;
-      gap:8px;
-      align-items:center;
-      padding:10px 12px;
-      border-radius:999px;
-      background:rgba(2,6,23,.58);
-      border:1px solid rgba(148,163,184,.18);
-      box-shadow:0 16px 46px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      max-width: 100%;
-      overflow:hidden;
+      flex-direction:column;
+      gap:10px;
+      pointer-events:none;
     }
+
+    .hud .card{
+      pointer-events:auto;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:0 18px 55px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      padding:10px 12px;
+      max-width: 360px;
+    }
+
+    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .title{ font-size:18px; font-weight:900; margin:2px 0 6px; letter-spacing:.2px; }
+    .muted{ color:var(--muted); font-size:12px; }
     .pill{
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.55);
+      border-radius:999px;
+      padding:6px 10px;
+      font-weight:900;
+      letter-spacing:.06em;
+      font-size:12px;
       display:inline-flex;
       align-items:center;
-      gap:8px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.52);
-      border-radius:999px;
-      padding:7px 10px;
-      font-weight:900;
-      font-size:12px;
-      letter-spacing:.02em;
+      gap:6px;
       white-space:nowrap;
     }
-    .muted{ color:var(--muted); font-size:12px; font-weight:700; }
-    .big{ font-size:13px; font-weight:1000; }
-    .sep{ width:1px; height:22px; background:rgba(148,163,184,.14); }
 
-    /* Right-side buttons */
-    .hud-actions{
-      pointer-events:auto;
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-    .fab{
-      width:44px; height:44px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.58);
-      box-shadow:0 16px 46px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      display:grid;
-      place-items:center;
-      cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .fab:active{ transform: scale(.98); }
-
-    /* Slide panel (Quest/Details) */
-    #hvr-panel{
+    /* ✅ tiny Peek HUD button (always available, won't block targets because small + excluded) */
+    #hvr-peek{
       position:fixed;
-      left:12px; right:12px;
-      top:64px;
-      z-index:92;
-      display:none;
+      left: calc(12px + var(--safeL));
+      top:  calc(10px + var(--safeTop));
+      z-index: 88;
       pointer-events:auto;
-    }
-    #hvr-panel.on{ display:block; }
-    #hvr-panel .card{
-      background:rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.20);
-      border-radius:22px;
-      box-shadow:0 20px 60px rgba(0,0,0,.55);
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.25);
+      background:rgba(2,6,23,.55);
+      color:var(--text);
+      font-weight:900;
+      padding:8px 10px;
+      font-size:12px;
       backdrop-filter: blur(10px);
-      padding:14px 14px 12px;
+      box-shadow:0 16px 40px rgba(0,0,0,.45);
     }
-    .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
-    .title{ font-size:18px; font-weight:1000; margin:2px 0 6px; }
 
-    /* End overlay */
+    /* auto-hide states (safe.js also injects styles; this is a safe baseline) */
+    .hud.hud-hidden{ opacity:0; transform:translate3d(0,-14px,0); transition:opacity .18s ease, transform .18s ease; }
+    .hud{ transition:opacity .18s ease, transform .18s ease; }
+
+    /* ===== Coach toast ===== */
+    #hvr-coach{
+      position:fixed;
+      left:50%;
+      bottom: calc(14px + var(--safeBot));
+      transform:translate(-50%, 8px);
+      z-index:85;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .18s ease, transform .18s ease;
+      max-width:min(560px, calc(100vw - 24px));
+    }
+    #hvr-coach.on{
+      opacity:1;
+      transform:translate(-50%, 0);
+    }
+    #hvr-coach .bubble{
+      background:rgba(2,6,23,.72);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:999px;
+      padding:10px 12px;
+      box-shadow:0 18px 55px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      font-weight:900;
+      font-size:13px;
+      text-align:center;
+      color:var(--text);
+    }
+
+    /* ===== End & Error ===== */
     #hvr-end{
-      position:fixed; inset:0; z-index:120;
+      position:fixed; inset:0; z-index:90;
       display:none; align-items:center; justify-content:center;
       padding:18px;
       background:rgba(2,6,23,.55);
       backdrop-filter: blur(10px);
+      pointer-events:auto;
     }
     #hvr-end.on{ display:flex; }
 
-    /* Error */
     #hvr-error{
-      position:fixed; left:14px; right:14px; bottom:14px;
-      z-index:130;
+      position:fixed;
+      left:14px; right:14px;
+      bottom: calc(14px + var(--safeBot));
+      z-index:120;
       background:rgba(239,68,68,.12);
       border:1px solid rgba(239,68,68,.35);
       color:#fecaca;
@@ -164,6 +254,7 @@
       font-size:12px;
       display:none;
       white-space:pre-wrap;
+      pointer-events:auto;
     }
     #hvr-error.on{ display:block; }
   </style>
@@ -171,107 +262,135 @@
 
 <body>
   <div id="hvr-wrap">
+    <!-- bounds layer (สำคัญมาก) -->
+    <div id="hvr-bounds"></div>
+
+    <!-- playfield (spawn targets append ที่นี่) -->
     <div id="hvr-playfield" aria-label="playfield"></div>
+
     <canvas id="hvr-postfx"></canvas>
     <div id="hvr-screen-blink"></div>
 
     <!-- crosshair -->
     <div id="hvr-crosshair"></div>
 
-    <!-- Minimal HUD bar -->
-    <div class="hud">
-      <div class="hudbar">
-        <span class="pill">💧 <span id="hha-water-zone-text">GREEN</span></span>
-        <span class="pill"><span class="muted">Pts</span> <span id="hha-score-main" class="big">0</span></span>
-        <span class="pill">⚡ <span id="hha-combo-max" class="big">0</span></span>
-        <span class="pill">✖ <span id="hha-miss" class="big">0</span></span>
-        <span class="sep"></span>
-        <span class="pill">⏳ <span id="hha-time-left" class="big">--</span></span>
+    <!-- ✅ Peek HUD button (exclude from spawn) -->
+    <button id="hvr-peek" type="button" data-hha-exclude="1">👁️ HUD</button>
+
+    <!-- HUD (minimal, exclude from spawn) -->
+    <div class="hud" data-hha-exclude="1">
+      <!-- Left stack: Quest -->
+      <div class="stack">
+        <div class="card">
+          <div class="row">
+            <div class="pill">💧 Hydration</div>
+            <div class="pill">Grade <span id="hha-grade-badge">C</span></div>
+          </div>
+
+          <div class="muted" style="margin-top:6px;">
+            <div id="hha-quest-goal">Goal: —</div>
+            <div id="hha-quest-mini">Mini: —</div>
+          </div>
+
+          <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+            <span class="pill">🎯 <b id="hha-goal-count">0</b>/2</span>
+            <span class="pill">✨ <b id="hha-mini-count">0</b>/3</span>
+          </div>
+        </div>
       </div>
 
-      <div class="hud-actions">
-        <div class="fab" id="hvr-btn-info" title="รายละเอียดเควส">i</div>
-      </div>
-    </div>
-
-    <!-- Quest / details panel (auto-hide) -->
-    <div id="hvr-panel" aria-label="quest panel">
-      <div class="card">
-        <div class="row">
-          <div class="muted">Quest</div>
-          <div class="pill">Grade <span id="hha-grade-badge">C</span></div>
-        </div>
-        <div class="title">Hydration</div>
-
-        <div class="muted" style="margin-top:6px;">
-          <div id="hha-quest-goal">Goal: —</div>
-          <div id="hha-quest-mini">Mini: —</div>
-        </div>
-
-        <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-          <span class="pill">🎯 Goal <b id="hha-goal-count">0</b>/2</span>
-          <span class="pill">✨ Mini <b id="hha-mini-count">0</b>/3</span>
-        </div>
-
-        <div style="margin-top:10px;">
+      <!-- Right stack: Water + Score -->
+      <div class="stack">
+        <div class="card" id="hha-water-card">
           <div class="row">
             <div class="muted">Water</div>
-            <div class="pill" id="hha-water-zone-pill">ZONE</div>
+            <div class="pill" id="hha-water-zone-text">GREEN</div>
           </div>
-          <div id="hha-water-status" class="muted" style="margin-top:6px;">GREEN 50%</div>
+
+          <div class="muted" id="hha-water-status" style="margin-top:4px;">GREEN 50%</div>
+
           <div id="hha-water-bar" style="margin-top:8px;width:100%;height:8px;border-radius:999px;overflow:hidden;background:#0b1220;border:1px solid rgba(148,163,184,.18);">
             <div id="hha-water-fill" style="height:100%;width:50%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:999px;transition:width .2s ease-out;"></div>
           </div>
-          <div class="muted" style="margin-top:6px;">รักษาให้อยู่ GREEN ให้นานที่สุด 💧</div>
         </div>
 
-        <div style="margin-top:10px;">
-          <div class="muted" id="hha-grade-progress-text">Progress to S: 0%</div>
-          <div style="margin-top:8px; height:8px; background:#0b1220; border:1px solid rgba(148,163,184,.18); border-radius:999px; overflow:hidden;">
+        <div class="card">
+          <div class="row">
+            <div class="muted">Score</div>
+            <div class="pill">ComboMax <b id="hha-combo-max">0</b></div>
+          </div>
+
+          <div class="title"><span id="hha-score-main">0</span> pts</div>
+
+          <div class="row" style="margin-top:6px;">
+            <span class="pill">Miss <b id="hha-miss">0</b></span>
+            <span class="pill" style="opacity:.9;">🎯 double-tap = reset view</span>
+          </div>
+
+          <div class="muted" id="hha-grade-progress-text" style="margin-top:6px;">Progress to S (30%): 0%</div>
+          <div style="margin-top:6px; height:8px; background:#0b1220; border:1px solid rgba(148,163,184,.18); border-radius:999px; overflow:hidden;">
             <div id="hha-grade-progress-fill" style="height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#60a5fa);"></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- End + Error -->
-    <div id="hvr-end"></div>
-    <div id="hvr-error"></div>
+    <!-- Coach toast -->
+    <div id="hvr-coach" aria-live="polite">
+      <div class="bubble" id="hvr-coach-text">พร้อมลุย! 💧</div>
+    </div>
+
+    <!-- End & Error -->
+    <div id="hvr-end" data-hha-exclude="1"></div>
+    <div id="hvr-error" data-hha-exclude="1"></div>
   </div>
+
+  <script>
+    // ✅ Coach toast listener (ถ้าไม่มี HUD binder กลาง ก็ยังเห็นข้อความโค้ช)
+    (function(){
+      const box = document.getElementById('hvr-coach');
+      const txt = document.getElementById('hvr-coach-text');
+      if (!box || !txt) return;
+
+      let t = null;
+      function show(msg){
+        txt.textContent = String(msg || '');
+        box.classList.add('on');
+        try{ if (t) clearTimeout(t); }catch{}
+        t = setTimeout(()=> box.classList.remove('on'), 1800);
+      }
+
+      window.addEventListener('hha:coach', (e)=>{
+        const m = (e && e.detail && e.detail.text) ? e.detail.text : '';
+        if (m) show(m);
+      }, { passive:true });
+
+      // initial hint
+      setTimeout(()=>show('แตะจอเพื่อเริ่ม! (HUD auto-hide) 💧'), 450);
+    })();
+
+    // ✅ Peek button: reveal HUD briefly
+    (function(){
+      const btn = document.getElementById('hvr-peek');
+      const hud = document.querySelector('.hud');
+      if (!btn || !hud) return;
+
+      btn.addEventListener('click', ()=>{
+        hud.classList.remove('hud-hidden');
+        // ให้ safe.js จัดการ auto-hide ต่อเอง (มันฟัง pointerdown อยู่แล้ว)
+        try{ window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text:'👁️ HUD แสดงชั่วคราว', mood:'neutral'}})); }catch{}
+        setTimeout(()=> hud.classList.add('hud-hidden'), 1400);
+      }, { passive:true });
+    })();
+  </script>
 
   <script type="module">
     const errBox = document.getElementById('hvr-error');
-    const timeEl = document.getElementById('hha-time-left');
-    const panel  = document.getElementById('hvr-panel');
-    const btnI   = document.getElementById('hvr-btn-info');
 
     function qs(name, fallback=null){
       const u = new URL(location.href);
       return u.searchParams.get(name) ?? fallback;
     }
-
-    // --- panel toggle + auto-hide ---
-    let panelTimer = null;
-    function showPanel(){
-      if (!panel) return;
-      panel.classList.add('on');
-      clearTimeout(panelTimer);
-      panelTimer = setTimeout(()=> panel.classList.remove('on'), 2200);
-    }
-    function togglePanel(){
-      if (!panel) return;
-      const on = panel.classList.toggle('on');
-      clearTimeout(panelTimer);
-      if (on) panelTimer = setTimeout(()=> panel.classList.remove('on'), 2200);
-    }
-    btnI?.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); togglePanel(); }, { passive:false });
-    window.addEventListener('pointerdown', ()=>{ /* แตะจอ = โชว์ชั่วคราว */ showPanel(); }, { passive:true });
-
-    // --- time display ---
-    window.addEventListener('hha:time', (e)=>{
-      const sec = Number(e?.detail?.sec);
-      if (Number.isFinite(sec) && timeEl) timeEl.textContent = String(sec);
-    }, { passive:true });
 
     const diff = (qs('diff','easy') || 'easy').toLowerCase();
     const time = Number(qs('time', '90')) || 90;
@@ -281,6 +400,7 @@
       const boot = mod.boot || (mod.default && mod.default.boot);
       if (!boot) throw new Error('hydration.safe.js ไม่มี export boot');
 
+      // ✅ IMPORTANT: hydration.safe.js จะใช้ #hvr-playfield + #hvr-bounds
       await boot({ difficulty: diff, duration: time });
       console.log('[HydrationVR] boot OK', { diff, time });
     }catch(e){
