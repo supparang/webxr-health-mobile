@@ -2,20 +2,25 @@
 // Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
 // ✅ spawnHost: ที่ “append เป้า”
 // ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
-// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันให้แต่ละเกมทำได้
-// ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
+// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชัน
 // ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
 // ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ rhythm spawn (bpm) + pulse class
-// ✅ trick/fake targets (itemType='fakeGood')
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
 //
-// 🔥 PATCH B (ULTIMATE-SPAWN FIX):
-// ✅ Auto-fallback ถ้า spawnHost rect เพี้ยน/เล็ก → ใช้ overlay host ทันที (แก้โผล่ที่เดียว)
-// ✅ spawnStrategy: 'crosshair' | 'grid9' | 'uniform' (กระจายจริง)
-// ✅ EDGE-FIX NO-CUT: pad กัน pulse/scale/boxShadow + clamp ไม่ตกขอบ
-// ✅ SAFEZONE failsafe: ถ้า exclusion กินพื้นที่จน playRect แคบ → ลด pad/margin อัตโนมัติให้เล่นได้
+// 🔥 PATCH A (FULL-SPREAD):
+// ✅ spawnAroundCrosshair:false → กระจายทั่วสนามจริง
+//
+// 🔥 PATCH EDGE-FIX (NO-CUT):
+// ✅ ถ้า spawnHost มี transform (ลาก/gyro) → ใช้ baseRect จาก boundsHost แทน (ignore transform)
+// ✅ pad + clamp กัน pulse/scale แล้วไม่ตกขอบจริง
+//
+// 🔥 PATCH B (GRID9 + HUD-HIDDEN IGNORE):
+// ✅ spawnStrategy:'grid9' กระจายแบบเห็นชัด
+// ✅ ignore exclusion element ที่ถูกซ่อน (display none / visibility hidden / opacity ต่ำ / hud-hidden)
+//
+// 🔥 PATCH C (BOSS 3-HIT):
+// ✅ cfg.boss: { enabled, every, hp, emoji } → เป้า BOSS ต้องยิงหลายที
 
 'use strict';
 
@@ -56,7 +61,7 @@ function rectFromWHLT(left, top, width, height){
 
 function getRectSafe(el){
   try{
-    const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    const r = el.getBoundingClientRect();
     if (r && Number.isFinite(r.left) && Number.isFinite(r.top) && r.width > 0 && r.height > 0) return r;
   }catch{}
   return null;
@@ -68,14 +73,6 @@ function hasTransform(el){
     const t = cs && cs.transform;
     return !!(t && t !== 'none');
   }catch{ return false; }
-}
-
-function isBadRect(r, minSide = 240){
-  if (!r) return true;
-  if (!Number.isFinite(r.left) || !Number.isFinite(r.top)) return true;
-  if (!Number.isFinite(r.width) || !Number.isFinite(r.height)) return true;
-  if (r.width < minSide || r.height < minSide) return true;
-  return false;
 }
 
 // ---------- Base difficulty ----------
@@ -146,6 +143,18 @@ function ensureOverlayStyle () {
       transform: translate3d(0,0,0);
       will-change: transform;
     }
+    .hvr-boss{
+      box-shadow: 0 18px 44px rgba(0,0,0,.72), 0 0 0 2px rgba(56,189,248,.75), 0 0 24px rgba(56,189,248,.55) !important;
+    }
+    .hvr-shake{
+      animation:hvrShake .16s ease-in-out 1;
+    }
+    @keyframes hvrShake{
+      0%{ transform:translate(-50%,-50%) scale(1) rotate(0deg); }
+      25%{ transform:translate(-50%,-50%) scale(1.02) rotate(-3deg); }
+      50%{ transform:translate(-50%,-50%) scale(1.02) rotate(3deg); }
+      100%{ transform:translate(-50%,-50%) scale(1) rotate(0deg); }
+    }
   `;
   DOC.head.appendChild(s);
 }
@@ -187,6 +196,27 @@ function resolveHost (rawCfg, keyName = 'spawnHost') {
 // ======================================================
 //  SAFE ZONE / EXCLUSION
 // ======================================================
+function isVisiblyExcluded(el){
+  if (!el || !el.isConnected) return false;
+  try{
+    // ถ้า HUD ถูกซ่อนด้วย class → อย่ากันพื้นที่
+    if (el.classList && el.classList.contains('hud-hidden')) return false;
+
+    const cs = ROOT.getComputedStyle ? ROOT.getComputedStyle(el) : null;
+    if (!cs) return true;
+
+    if (cs.display === 'none') return false;
+    if (cs.visibility === 'hidden') return false;
+
+    const op = Number(cs.opacity);
+    if (Number.isFinite(op) && op <= 0.06) return false; // opacity ต่ำมาก = ถือว่าไม่บัง
+
+    return true;
+  }catch{
+    return true;
+  }
+}
+
 function collectExclusionElements(rawCfg){
   if (!DOC) return [];
   const out = [];
@@ -200,7 +230,6 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
 
-  // auto excludes
   const AUTO = [
     '#hha-water-header',
     '.hha-water-bar',
@@ -219,12 +248,15 @@ function collectExclusionElements(rawCfg){
     try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
   });
 
-  try{ DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el)); }catch{}
+  try{
+    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
+  }catch{}
 
   const uniq = [];
   const seen = new Set();
   out.forEach(el=>{
     if (!el || !el.isConnected) return;
+    if (!isVisiblyExcluded(el)) return; // ✅ ignore hidden
     if (seen.has(el)) return;
     seen.add(el);
     uniq.push(el);
@@ -240,6 +272,7 @@ function computeExclusionMargins(hostRect, exEls){
   const hx2 = hostRect.right, hy2 = hostRect.bottom;
 
   exEls.forEach(el=>{
+    if (!isVisiblyExcluded(el)) return;
     let r = null;
     try{ r = el.getBoundingClientRect(); }catch{}
     if (!r) return;
@@ -250,13 +283,20 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    if (r.top < hy1 + 90 && r.bottom > hy1) m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
-    if (r.bottom > hy2 - 90 && r.top < hy2) m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
-    if (r.left < hx1 + 90 && r.right > hx1) m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
-    if (r.right > hx2 - 90 && r.left < hx2) m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+    if (r.top < hy1 + 90 && r.bottom > hy1) {
+      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    }
+    if (r.bottom > hy2 - 90 && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+    }
+    if (r.left < hx1 + 90 && r.right > hx1) {
+      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    }
+    if (r.right > hx2 - 90 && r.left < hx2) {
+      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+    }
   });
 
-  // cap กันกินพื้นที่
   const capX = hostRect.width  * 0.42;
   const capY = hostRect.height * 0.46;
   m.left   = Math.min(m.left, capX);
@@ -274,41 +314,16 @@ function computePlayRectFromHost (hostEl, exState) {
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
-  // base pads
-  let basePadX   = w * 0.10;
-  let basePadTop = h * 0.12;
-  let basePadBot = h * 0.12;
+  const basePadX   = w * 0.10;
+  const basePadTop = h * 0.12;
+  const basePadBot = h * 0.12;
 
-  const m0 = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
-  let m = { ...m0 };
+  const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
 
-  let left   = basePadX + m.left;
-  let top    = basePadTop + m.top;
-  let width  = Math.max(1, w - (basePadX*2) - m.left - m.right);
-  let height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
-
-  // ✅ FAILSAFE: ถ้าสนามแคบเกิน → ลด basePad + ลดผลของ margin ให้เหลือพื้นที่เล่น
-  const tooNarrow = (width < Math.max(220, w * 0.28));
-  const tooShort  = (height < Math.max(240, h * 0.28));
-
-  if (tooNarrow || tooShort) {
-    basePadX   = w * 0.06;
-    basePadTop = h * 0.08;
-    basePadBot = h * 0.08;
-
-    // ลด margin effect
-    m = {
-      left:   Math.min(m.left,   w * 0.26),
-      right:  Math.min(m.right,  w * 0.26),
-      top:    Math.min(m.top,    h * 0.30),
-      bottom: Math.min(m.bottom, h * 0.30)
-    };
-
-    left   = basePadX + m.left;
-    top    = basePadTop + m.top;
-    width  = Math.max(1, w - (basePadX*2) - m.left - m.right);
-    height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
-  }
+  const left   = basePadX + m.left;
+  const top    = basePadTop + m.top;
+  const width  = Math.max(1, w - (basePadX*2) - m.left - m.right);
+  const height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
 
   return { left, top, width, height, hostRect: r, isOverlay };
 }
@@ -340,36 +355,26 @@ export async function boot (rawCfg = {}) {
     decorateTarget = null,
 
     // spawn behavior
-    spawnAroundCrosshair = true,
-    spawnStrategy = null,          // 'crosshair' | 'grid9' | 'uniform'
-    spawnRadiusX = 0.34,
-    spawnRadiusY = 0.30,
+    spawnAroundCrosshair = true,     // boolean | function
+    spawnStrategy = null,            // 'grid9'
+    spawnRadiusX = 0.34,             // number | function
+    spawnRadiusY = 0.30,             // number | function
     minSeparation = 0.95,
     maxSpawnTries = 14,
 
-    // ✅ auto fallback
-    fallbackOverlayOnBadRect = true,
-    badRectMinSide = 240
+    // boss
+    boss = null,
   } = rawCfg || {};
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
 
-  let hostSpawn  = resolveHost(rawCfg, 'spawnHost');
+  const hostSpawn  = resolveHost(rawCfg, 'spawnHost');
   const hostBounds = ((boundsHost != null) ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
 
   if (!hostSpawn || !hostBounds || !DOC) {
     console.error('[mode-factory] host not found');
     return { stop () {}, shootCrosshair(){ return false; } };
-  }
-
-  // ✅ fallback ถ้า spawnHost rect เพี้ยน/เล็ก (สาเหตุหลักของ “โผล่ที่เดียว”)
-  if (fallbackOverlayOnBadRect) {
-    const r = getRectSafe(hostSpawn);
-    if (isBadRect(r, badRectMinSide)) {
-      console.warn('[mode-factory] spawnHost rect bad -> fallback overlay host', r);
-      hostSpawn = ensureOverlayHost();
-    }
   }
 
   let stopped = false;
@@ -411,9 +416,15 @@ export async function boot (rawCfg = {}) {
     const lifeMul     = 1 - (adaptLevel * 0.08);
     const bonusActive = adaptLevel;
 
-    curInterval  = clamp(baseDiff.spawnInterval * intervalMul, baseDiff.spawnInterval * 0.45, baseDiff.spawnInterval * 1.4);
-    curScale     = clamp(baseDiff.scale * scaleMul, baseDiff.scale * 0.6, baseDiff.scale * 1.4);
-    curLife      = clamp(baseDiff.life * lifeMul, baseDiff.life * 0.55, baseDiff.life * 1.15);
+    curInterval  = clamp(baseDiff.spawnInterval * intervalMul,
+                         baseDiff.spawnInterval * 0.45,
+                         baseDiff.spawnInterval * 1.4);
+    curScale     = clamp(baseDiff.scale * scaleMul,
+                         baseDiff.scale * 0.6,
+                         baseDiff.scale * 1.4);
+    curLife      = clamp(baseDiff.life * lifeMul,
+                         baseDiff.life * 0.55,
+                         baseDiff.life * 1.15);
     curMaxActive = clamp(baseDiff.maxActive + bonusActive, 2, 10);
 
     sampleHits = sampleMisses = sampleTotal = 0;
@@ -453,11 +464,12 @@ export async function boot (rawCfg = {}) {
       if (typeof spawnIntervalMul === 'function') m = Number(spawnIntervalMul()) || 1;
       else if (spawnIntervalMul != null) m = Number(spawnIntervalMul) || 1;
     }catch{}
-    return clamp(m, 0.25, 2.5);
+    return clamp(m, 0.25, 999);
   }
 
   function getLifeMs(){
     const mul = getSpawnMul();
+    // ถ้า freeze (mul ใหญ่) ไม่ต้องลด life
     const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
     const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
     const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
@@ -508,7 +520,7 @@ export async function boot (rawCfg = {}) {
   function refreshExclusions(ts){
     if (!DOC) return;
     if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 600) return;
+    if (ts - exState.lastRefreshTs < 450) return;
     exState.lastRefreshTs = ts;
 
     exState.els = collectExclusionElements({ excludeSelectors });
@@ -553,14 +565,14 @@ export async function boot (rawCfg = {}) {
   // ======================================================
   function getRectsForSpawn(){
     const bRect = getRectSafe(hostBounds) || rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
-    let sRect = getRectSafe(hostSpawn) || bRect;
+    let sRect = getRectSafe(hostSpawn);
+    if (!sRect) sRect = bRect;
 
-    // ถ้า spawnHost ถูก transform (drag/gyro) → getBoundingClientRect จะขยับ/เพี้ยน
-    // ให้ใช้ base rect อิง boundsHost แทน
     const spawnHasT = hasTransform(hostSpawn);
     if (spawnHasT) {
       sRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
     }
+
     return { bRect, sRect, spawnHasT };
   }
 
@@ -570,11 +582,12 @@ export async function boot (rawCfg = {}) {
 
     const cL = bRect.left + pr.left;
     const cT = bRect.top  + pr.top;
-
     const l = cL - sRect.left;
     const t = cT - sRect.top;
+    const w = pr.width;
+    const h = pr.height;
 
-    return { left:l, top:t, width:pr.width, height:pr.height, bRect, sRect };
+    return { left:l, top:t, width:w, height:h, bRect, sRect };
   }
 
   function getExistingCentersLocal(sRect){
@@ -590,14 +603,8 @@ export async function boot (rawCfg = {}) {
     return out;
   }
 
-  let lastCell = -1;
-
-  function pickGrid9Cell(){
-    // 0..8 (3x3)
-    let cell = Math.floor(Math.random() * 9);
-    if (cell === lastCell) cell = (cell + 1 + Math.floor(Math.random()*7)) % 9;
-    lastCell = cell;
-    return cell;
+  function getValMaybeFn(v){
+    try{ return (typeof v === 'function') ? v() : v; }catch{ return v; }
   }
 
   function pickSpawnPointLocal(playLocal, sizePx){
@@ -607,7 +614,23 @@ export async function boot (rawCfg = {}) {
     const minDist = Math.max(18, sizePx * minSeparation);
     const tries = clamp(maxSpawnTries, 6, 30);
 
-    const maxVisualScale = 1.10; // pulse ~1.08
+    const around = !!getValMaybeFn(spawnAroundCrosshair);
+    const rX = clamp(Number(getValMaybeFn(spawnRadiusX) ?? 0.34) || 0.34, 0.18, 0.99);
+    const rY = clamp(Number(getValMaybeFn(spawnRadiusY) ?? 0.30) || 0.30, 0.16, 0.99);
+
+    let ax = playLocal.left + playLocal.width * 0.50;
+    let ay = playLocal.top  + playLocal.height * 0.52;
+
+    if (around) {
+      const cp = getCrosshairPoint();
+      ax = cp.x - sRect.left;
+      ay = cp.y - sRect.top;
+    }
+
+    const rx = playLocal.width  * rX;
+    const ry = playLocal.height * rY;
+
+    const maxVisualScale = 1.10;
     const pad = Math.max(12, (sizePx * maxVisualScale) * 0.62);
 
     const minX = playLocal.left + pad;
@@ -617,60 +640,47 @@ export async function boot (rawCfg = {}) {
 
     const rectOk = (playLocal.width >= sizePx*1.30) && (playLocal.height >= sizePx*1.30);
     if (!rectOk) {
-      const ax = playLocal.left + playLocal.width * 0.50;
-      const ay = playLocal.top  + playLocal.height * 0.52;
       return { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
     }
-
-    // decide strategy
-    let strat = spawnStrategy;
-    if (!strat) strat = spawnAroundCrosshair ? 'crosshair' : 'grid9';
-    strat = String(strat).toLowerCase();
-
-    // anchor crosshair for 'crosshair'
-    let ax = playLocal.left + playLocal.width * 0.50;
-    let ay = playLocal.top  + playLocal.height * 0.52;
-    if (spawnAroundCrosshair || strat === 'crosshair') {
-      const cp = getCrosshairPoint();
-      ax = cp.x - sRect.left;
-      ay = cp.y - sRect.top;
-    }
-
-    const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.98);
-    const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.98);
 
     function tri(){ return (Math.random() + Math.random() - 1); }
 
     let best = null;
     let bestScore = -1;
 
+    const useUniform = !around;
+
+    const strat = String(getValMaybeFn(spawnStrategy) || '').toLowerCase();
+
+    // grid9: เลือก cell 3x3 แล้วสุ่มใน cell (กระจายแบบเห็นชัด)
+    function grid9Point(){
+      const col = Math.floor(Math.random()*3);
+      const row = Math.floor(Math.random()*3);
+      const cellW = (maxX - minX) / 3;
+      const cellH = (maxY - minY) / 3;
+      const x0 = minX + col*cellW;
+      const y0 = minY + row*cellH;
+      const x = x0 + Math.random()*cellW;
+      const y = y0 + Math.random()*cellH;
+      return { x, y };
+    }
+
     for (let i=0;i<tries;i++){
-      let x, y;
+      let x,y;
 
-      if (strat === 'uniform') {
-        x = (minX + Math.random() * (maxX - minX));
-        y = (minY + Math.random() * (maxY - minY));
-      } else if (strat === 'grid9') {
-        const cell = pickGrid9Cell();
-        const col = cell % 3;
-        const row = Math.floor(cell / 3);
-
-        const cellW = (maxX - minX) / 3;
-        const cellH = (maxY - minY) / 3;
-
-        const cx1 = minX + col * cellW;
-        const cy1 = minY + row * cellH;
-
-        // jitter ใน cell
-        x = cx1 + cellW * (0.18 + Math.random() * 0.64);
-        y = cy1 + cellH * (0.18 + Math.random() * 0.64);
+      if (strat === 'grid9'){
+        const p = grid9Point();
+        x = p.x; y = p.y;
       } else {
-        // crosshair (center-biased) random
-        x = clamp(ax + tri()*rx, minX, maxX);
-        y = clamp(ay + tri()*ry, minY, maxY);
+        x = useUniform
+          ? (minX + Math.random() * (maxX - minX))
+          : clamp(ax + tri()*rx, minX, maxX);
+
+        y = useUniform
+          ? (minY + Math.random() * (maxY - minY))
+          : clamp(ay + tri()*ry, minY, maxY);
       }
 
-      // separation check
       let ok = true;
       let nearest = 1e9;
       for (let k=0;k<centers.length;k++){
@@ -686,7 +696,7 @@ export async function boot (rawCfg = {}) {
       if (ok) return { x, y, ok:true };
     }
 
-    return best || { x: (minX+maxX)/2, y: (minY+maxY)/2, ok:true };
+    return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
   }
 
   // ======================================================
@@ -703,15 +713,29 @@ export async function boot (rawCfg = {}) {
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
     const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
 
+    // boss?
+    const bossCfg = boss && boss.enabled ? boss : null;
+    const bossEvery = bossCfg ? clamp(bossCfg.every || 0, 4, 999) : 0;
+    const bossDue = bossCfg && bossEvery > 0 && (spawnCounter > 0) && (spawnCounter % bossEvery === 0);
+
     let ch = '💧';
     let isGood = true;
     let isPower = false;
     let itemType = 'good';
+    let isBoss = false;
+    let bossHp = 0;
 
     const canPower = Array.isArray(powerups) && powerups.length > 0;
     const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
 
-    if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
+    if (bossDue){
+      isBoss = true;
+      bossHp = clamp(bossCfg.hp || 3, 2, 9);
+      ch = String(bossCfg.emoji || '💧');
+      isGood = true;
+      isPower = false;
+      itemType = 'boss';
+    } else if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
       ch = pickOne(powerups, '⭐');
       isGood = true;
       isPower = true;
@@ -741,7 +765,8 @@ export async function boot (rawCfg = {}) {
     el.setAttribute('data-item-type', itemType);
 
     const baseSize = 78;
-    const size = baseSize * curScale;
+    const sizeMulBoss = isBoss ? 1.55 : 1.0;
+    const size = baseSize * curScale * sizeMulBoss;
 
     const p = pickSpawnPointLocal(playLocal, size);
 
@@ -762,7 +787,11 @@ export async function boot (rawCfg = {}) {
     let bgGrad = '';
     let ringGlow = '';
 
-    if (isPower) {
+    if (isBoss){
+      bgGrad = 'radial-gradient(circle at 30% 25%, #38bdf8, #0ea5e9)';
+      ringGlow = '0 0 0 2px rgba(56,189,248,0.85), 0 0 24px rgba(56,189,248,0.80)';
+      el.classList.add('hvr-boss');
+    } else if (isPower) {
       bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
       ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
     } else if (itemType === 'fakeGood') {
@@ -821,9 +850,25 @@ export async function boot (rawCfg = {}) {
       badge.style.pointerEvents = 'none';
     }
 
+    // boss HP badge
+    let hpBadge = null;
+    if (isBoss){
+      hpBadge = DOC.createElement('div');
+      hpBadge.textContent = String(bossHp);
+      hpBadge.style.position = 'absolute';
+      hpBadge.style.left = '10px';
+      hpBadge.style.top = '8px';
+      hpBadge.style.fontSize = '16px';
+      hpBadge.style.fontWeight = '900';
+      hpBadge.style.color = '#e0f2fe';
+      hpBadge.style.textShadow = '0 2px 6px rgba(0,0,0,.6)';
+      hpBadge.style.pointerEvents='none';
+    }
+
     wiggle.appendChild(ring);
     wiggle.appendChild(inner);
     if (badge) wiggle.appendChild(badge);
+    if (hpBadge) wiggle.appendChild(hpBadge);
     el.appendChild(wiggle);
 
     if (rhythmOn) el.classList.add('hvr-pulse');
@@ -832,7 +877,8 @@ export async function boot (rawCfg = {}) {
       el.style.transform = 'translate(-50%, -50%) scale(1)';
     });
 
-    const lifeMs = getLifeMs();
+    const lifeMsBase = getLifeMs();
+    const lifeMs = isBoss ? Math.round(lifeMsBase * 1.18) : lifeMsBase;
 
     const data = {
       el,
@@ -840,9 +886,12 @@ export async function boot (rawCfg = {}) {
       isGood,
       isPower,
       itemType,
+      isBoss,
+      bossHp,
       bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       life: lifeMs,
-      _hit: null
+      _hit: null,
+      _tm: null
     };
 
     try{
@@ -863,6 +912,24 @@ export async function boot (rawCfg = {}) {
     activeTargets.add(data);
     hostSpawn.appendChild(el);
 
+    function scheduleExpire(ms){
+      try{ if (data._tm) ROOT.clearTimeout(data._tm); }catch{}
+      data._tm = ROOT.setTimeout(() => {
+        if (stopped) return;
+        if (!activeTargets.has(data)) return;
+
+        activeTargets.delete(data);
+        try { el.removeEventListener('pointerdown', handleHit); } catch {}
+        try { el.removeEventListener('click', handleHit); } catch {}
+        try { el.removeEventListener('touchstart', handleHit); } catch {}
+        try { hostSpawn.removeChild(el); } catch {}
+
+        try { if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, itemType, isBoss }); } catch (err) {
+          console.error('[mode-factory] onExpire error', err);
+        }
+      }, ms);
+    }
+
     function consumeHit(evOrSynth, hitInfoOpt){
       if (stopped) return;
       if (!activeTargets.has(data)) return;
@@ -870,33 +937,68 @@ export async function boot (rawCfg = {}) {
       let keepRect = null;
       try{ keepRect = el.getBoundingClientRect(); }catch{}
 
+      const xy = (evOrSynth && evOrSynth.__hhaSynth)
+        ? { x: evOrSynth.clientX, y: evOrSynth.clientY }
+        : getEventXY(evOrSynth || {});
+
+      const info = hitInfoOpt || (keepRect ? (function(){
+        const cx = keepRect.left + keepRect.width/2;
+        const cy = keepRect.top  + keepRect.height/2;
+        const dx = (xy.x - cx);
+        const dy = (xy.y - cy);
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const rad  = Math.max(1, Math.min(keepRect.width, keepRect.height) / 2);
+        const norm = dist / rad;
+        const perfect = norm <= 0.33;
+        return { cx, cy, dist, norm, perfect, rect: keepRect };
+      })() : computeHitInfoFromPoint(el, xy.x, xy.y));
+
+      // BOSS multi-hit: ลด hp ก่อน ถ้ายังไม่หมดให้ “คงอยู่”
+      if (data.isBoss && data.bossHp > 1){
+        data.bossHp -= 1;
+        if (hpBadge) hpBadge.textContent = String(data.bossHp);
+        el.classList.remove('hvr-shake');
+        // reflow then shake
+        void el.offsetWidth;
+        el.classList.add('hvr-shake');
+
+        // judge แบบ chip
+        let resChip = null;
+        if (typeof judge === 'function') {
+          const ctx = {
+            clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
+            isGood: true, isPower: false,
+            itemType: 'boss',
+            isBoss: true,
+            bossChip: true,
+            hitPerfect: !!info.perfect,
+            hitDistNorm: Number(info.norm || 1),
+            targetRect: info.rect
+          };
+          try { resChip = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
+        }
+        addSample(true);
+
+        // รีเซ็ตอายุเป้าให้มีเวลาแตก (ไม่หายก่อน)
+        scheduleExpire(Math.max(480, Math.round(lifeMs * 0.82)));
+        return;
+      }
+
+      // normal remove (or boss final)
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
       try { el.removeEventListener('click', handleHit); } catch {}
       try { el.removeEventListener('touchstart', handleHit); } catch {}
+      try { if (data._tm) ROOT.clearTimeout(data._tm); }catch{}
       try { hostSpawn.removeChild(el); } catch {}
 
       let res = null;
       if (typeof judge === 'function') {
-        const xy = (evOrSynth && evOrSynth.__hhaSynth)
-          ? { x: evOrSynth.clientX, y: evOrSynth.clientY }
-          : getEventXY(evOrSynth || {});
-        const info = hitInfoOpt || (keepRect ? (function(){
-          const cx = keepRect.left + keepRect.width/2;
-          const cy = keepRect.top  + keepRect.height/2;
-          const dx = (xy.x - cx);
-          const dy = (xy.y - cy);
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          const rad  = Math.max(1, Math.min(keepRect.width, keepRect.height) / 2);
-          const norm = dist / rad;
-          const perfect = norm <= 0.33;
-          return { cx, cy, dist, norm, perfect, rect: keepRect };
-        })() : computeHitInfoFromPoint(el, xy.x, xy.y));
-
         const ctx = {
           clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
           isGood, isPower,
           itemType,
+          isBoss: !!data.isBoss,
           hitPerfect: !!info.perfect,
           hitDistNorm: Number(info.norm || 1),
           targetRect: info.rect
@@ -930,20 +1032,7 @@ export async function boot (rawCfg = {}) {
     el.addEventListener('click', handleHit, { passive: false });
     el.addEventListener('touchstart', handleHit, { passive: false });
 
-    ROOT.setTimeout(() => {
-      if (stopped) return;
-      if (!activeTargets.has(data)) return;
-
-      activeTargets.delete(data);
-      try { el.removeEventListener('pointerdown', handleHit); } catch {}
-      try { el.removeEventListener('click', handleHit); } catch {}
-      try { el.removeEventListener('touchstart', handleHit); } catch {}
-      try { hostSpawn.removeChild(el); } catch {}
-
-      try { if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, itemType }); } catch (err) {
-        console.error('[mode-factory] onExpire error', err);
-      }
-    }, lifeMs);
+    scheduleExpire(lifeMs);
   }
 
   function dispatchTime (sec) {
@@ -974,6 +1063,12 @@ export async function boot (rawCfg = {}) {
       if (!lastSpawnTs) lastSpawnTs = ts;
 
       const mul = getSpawnMul();
+      // freeze: mul ใหญ่มาก → อย่า spawn (แต่ยัง tick เวลา)
+      if (mul >= 50) {
+        rafId = ROOT.requestAnimationFrame(loop);
+        return;
+      }
+
       const effInterval = Math.max(35, curInterval * mul);
 
       try{
