@@ -1,10 +1,9 @@
 // === /herohealth/vr/hha-hud.js ===
-// Hero Health Academy — Global HUD Binder (DOM/VR) — FIX-ALL
-// ✅ Binds once (no double listeners)
-// ✅ Supports multiple ID variants (new + legacy)
-// ✅ Shows: time, score, combo, miss, grade, goal, mini, groupLabel, fever/shield (if FeverUI exists)
-// ✅ Handles quest:update even when questOk:false (won't look stuck)
-// ✅ Handles hha:end to show end summary if elements exist
+// Hero Health Academy — Global HUD Binder (DOM)
+// FIX-ALL: quest/update + fever compatibility + rank + end summary
+// ✅ Safe if elements missing
+// ✅ Prevent double-binding
+// ✅ Coach mood image names fixed: coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
 
 (function (root) {
   'use strict';
@@ -12,217 +11,235 @@
   const doc = root.document;
   if (!doc) return;
 
+  // Prevent double init
   if (root.__HHA_HUD_BOUND__) return;
   root.__HHA_HUD_BOUND__ = true;
 
-  const FeverUI =
-    (root.GAME_MODULES && root.GAME_MODULES.FeverUI) ||
-    root.FeverUI ||
-    null;
-
   // ---------- helpers ----------
-  const $ = (sel) => doc.querySelector(sel);
-  const byId = (id) => doc.getElementById(id);
+  const $ = (sel) => { try { return doc.querySelector(sel); } catch { return null; } };
+  const setText = (el, v) => { if (!el) return; try { el.textContent = String(v ?? ''); } catch {} };
+  const clamp = (v, a, b) => { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); };
 
-  function pickId(ids){
-    for (let i=0;i<ids.length;i++){
-      const el = byId(ids[i]);
-      if (el) return el;
+  // ---------- elements (optional) ----------
+  const elScore    = $('#hud-score');
+  const elCombo    = $('#hud-combo');
+  const elMiss     = $('#hud-miss');
+  const elShield   = $('#hud-shield');
+  const elTime     = $('#hud-time');
+
+  const elGoalLbl  = $('#hud-goal');
+  const elGoalProg = $('#hud-goal-prog');
+  const elMiniLbl  = $('#hud-mini');
+  const elMiniProg = $('#hud-mini-prog');
+  const elGroup    = $('#hud-group');
+
+  const elCoachTxt = $('#hud-coach');
+  const elCoachImg = $('#hud-coach-img');
+
+  const elRank     = $('#hud-rank');
+
+  // End overlay (optional)
+  const elEndOverlay = $('#endOverlay');
+  const elEndGrade   = $('#endGrade');
+  const elEndScore   = $('#endScore');
+  const elEndComboMax= $('#endComboMax');
+  const elEndMiss    = $('#endMiss');
+  const elEndGoals   = $('#endGoals');
+  const elEndMinis   = $('#endMinis');
+
+  // ---------- coach mood images ----------
+  const COACH_IMG = {
+    fever: './img/coach-fever.png',
+    happy: './img/coach-happy.png',
+    neutral: './img/coach-neutral.png',
+    sad: './img/coach-sad.png'
+  };
+
+  let lastCoachMood = 'neutral';
+  function setCoachMood(mood) {
+    const m = String(mood || '').toLowerCase();
+    const pick =
+      (m.includes('fever') || m.includes('fire') || m.includes('hot')) ? 'fever' :
+      (m.includes('happy') || m.includes('win') || m.includes('good') || m.includes('success')) ? 'happy' :
+      (m.includes('sad') || m.includes('miss') || m.includes('bad') || m.includes('fail')) ? 'sad' :
+      'neutral';
+
+    if (pick === lastCoachMood) return;
+    lastCoachMood = pick;
+    if (!elCoachImg) return;
+    try { elCoachImg.src = COACH_IMG[pick] || COACH_IMG.neutral; } catch {}
+  }
+
+  // ---------- score/hud state ----------
+  let sScore = 0, sCombo = 0, sMiss = 0, sShield = 0, sFever = 0;
+  let qGoal = null, qMini = null, qGroupLabel = '';
+  let qQuestOk = true;
+
+  function renderScore() {
+    setText(elScore, sScore | 0);
+    setText(elCombo, sCombo | 0);
+    setText(elMiss,  sMiss  | 0);
+    setText(elShield, sShield | 0);
+  }
+
+  function fmtProg(prog, target) {
+    const p = (prog == null) ? 0 : (Number(prog) || 0);
+    const t = (target == null) ? 0 : (Number(target) || 0);
+    return `${Math.max(0, p|0)}/${Math.max(0, t|0)}`;
+  }
+
+  function renderQuest() {
+    if (!qQuestOk) {
+      setText(elGoalLbl,  '⚠️ QUEST ไม่พร้อม');
+      setText(elGoalProg, '—');
+      setText(elMiniLbl,  'เช็คไฟล์ groups-quests.js');
+      setText(elMiniProg, '—');
+      setText(elGroup,    '—');
+      return;
     }
-    return null;
-  }
 
-  function setText(el, text){
-    if (!el) return;
-    el.textContent = (text == null) ? '' : String(text);
-  }
-
-  function setHTML(el, html){
-    if (!el) return;
-    el.innerHTML = (html == null) ? '' : String(html);
-  }
-
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-  // ---------- map HUD elements (new + legacy) ----------
-  const elTime  = pickId(['hudTime','timeLeft','hhaTimeLeft']);
-  const elScore = pickId(['hudScore','score','hhaScore']);
-  const elCombo = pickId(['hudCombo','combo','hhaCombo']);
-  const elMiss  = pickId(['hudMiss','miss','hhaMiss']);
-
-  const elGrade = pickId(['hudGrade','grade','hhaGrade']);
-
-  const elGroup = pickId(['hudGroupLabel','groupLabel','hhaGroupLabel']);
-  const elGoal  = pickId(['hudGoal','goalText','hhaGoal']);
-  const elMini  = pickId(['hudMini','miniText','hhaMini']);
-
-  // Optional end summary (new + legacy)
-  const endWrap  = pickId(['endSummary','hhaEnd','endOverlay']);
-  const endScore = pickId(['endScore','end_score','hhaEndScore']);
-  const endCombo = pickId(['endComboMax','end_comboMax','hhaEndComboMax']);
-  const endMiss  = pickId(['endMiss','end_miss','hhaEndMiss']);
-  const endGrade = pickId(['endGrade','end_grade','hhaEndGrade']);
-  const endGoals = pickId(['endGoals','end_goals','hhaEndGoals']);
-  const endMinis = pickId(['endMinis','end_minis','hhaEndMinis']);
-
-  // ---------- Fever UI ensure (safe) ----------
-  function ensureFever(){
-    try{
-      if (FeverUI && FeverUI.ensureFeverBar) FeverUI.ensureFeverBar();
-    }catch{}
-  }
-  ensureFever();
-
-  // ---------- state ----------
-  let lastQuestKey = '';
-  let lastGoalLabel = '';
-  let lastMiniLabel = '';
-  let lastGroupLabel = '';
-  let lastGrade = '';
-
-  function formatQuestLine(prefix, item){
-    if (!item) return `${prefix}: --`;
-    const prog = (item.prog == null) ? 0 : (item.prog|0);
-    const tar  = (item.target == null) ? 0 : (item.target|0);
-    let extra = '';
-    if (item.tLeft != null){
-      extra = ` <span class="mini-timer">(${item.tLeft}s)</span>`;
+    if (qGoal) {
+      setText(elGoalLbl,  qGoal.label || '—');
+      setText(elGoalProg, fmtProg(qGoal.prog, qGoal.target));
+    } else {
+      setText(elGoalLbl,  '✅ Goal ครบแล้ว');
+      setText(elGoalProg, '✓');
     }
-    return `${prefix}: ${item.label} (${prog}/${tar})${extra}`;
+
+    if (qMini) {
+      // support rush-window: show tLeft if present
+      const hasTL = (qMini.tLeft != null && qMini.windowSec != null);
+      setText(elMiniLbl, qMini.label || '—');
+      if (hasTL) {
+        setText(elMiniProg, `${fmtProg(qMini.prog, qMini.target)}  ⏱ ${Math.max(0, qMini.tLeft|0)}s`);
+      } else {
+        setText(elMiniProg, fmtProg(qMini.prog, qMini.target));
+      }
+    } else {
+      setText(elMiniLbl,  '✨ Mini ครบแล้ว');
+      setText(elMiniProg, '✓');
+    }
+
+    setText(elGroup, qGroupLabel || '—');
   }
 
-  // ---------- listeners ----------
-  root.addEventListener('hha:time', (ev) => {
-    const d = ev && ev.detail ? ev.detail : {};
-    const left = (d.left == null) ? null : (d.left|0);
-    if (left != null) setText(elTime, left);
-  });
+  function renderRankLine(detail) {
+    if (!elRank) return;
+    const g = String((detail && detail.grade) || '').toUpperCase().trim() || 'C';
+    const sps = (detail && detail.scorePerSec != null) ? Number(detail.scorePerSec) : null;
+    const acc = (detail && detail.accuracy != null) ? Number(detail.accuracy) : null;
+    const qp  = (detail && detail.questsPct != null) ? Number(detail.questsPct) : null;
 
+    // compact line
+    const parts = [`Grade: ${g}`];
+    if (sps != null && Number.isFinite(sps)) parts.push(`SPS ${sps.toFixed(2)}`);
+    if (acc != null && Number.isFinite(acc)) parts.push(`ACC ${acc|0}%`);
+    if (qp  != null && Number.isFinite(qp))  parts.push(`Q ${qp|0}%`);
+
+    setText(elRank, parts.join(' · '));
+  }
+
+  // ---------- events ----------
   root.addEventListener('hha:score', (ev) => {
     const d = ev && ev.detail ? ev.detail : {};
-    if (d.score != null) setText(elScore, d.score|0);
-    if (d.combo != null) setText(elCombo, d.combo|0);
-    // miss naming variants
-    const missVal = (d.misses != null) ? d.misses : (d.miss != null ? d.miss : null);
-    if (missVal != null) setText(elMiss, missVal|0);
-
-    // ensure fever bar exists even if loaded late
-    ensureFever();
-
-    // sync fever/shield if provided
-    try{
-      if (FeverUI){
-        if (d.fever != null && FeverUI.setFever) FeverUI.setFever(clamp(d.fever,0,100));
-        if (d.shield != null && FeverUI.setShield) FeverUI.setShield(Math.max(0, d.shield|0));
-      }
-    }catch{}
+    if (d.score != null)  sScore = d.score|0;
+    if (d.combo != null)  sCombo = d.combo|0;
+    if (d.misses != null) sMiss  = d.misses|0;
+    if (d.shield != null) sShield = Number(d.shield)||0;
+    if (d.fever != null)  sFever = Number(d.fever)||0;
+    renderScore();
   });
 
-  root.addEventListener('hha:fever', (ev) => {
+  root.addEventListener('hha:time', (ev) => {
     const d = ev && ev.detail ? ev.detail : {};
-    ensureFever();
-    try{
-      if (FeverUI){
-        if (d.value != null && FeverUI.setFever) FeverUI.setFever(clamp(d.value,0,100));
-        if (d.on != null && FeverUI.setFeverActive) FeverUI.setFeverActive(!!d.on);
-        if (d.shield != null && FeverUI.setShield) FeverUI.setShield(Math.max(0, d.shield|0));
-      }
-    }catch{}
+    if (d.left != null) setText(elTime, Math.max(0, d.left|0));
   });
 
-  root.addEventListener('hha:rank', (ev) => {
-    const d = ev && ev.detail ? ev.detail : {};
-    const g = (d.grade == null) ? '' : String(d.grade);
-    if (g && g !== lastGrade){
-      lastGrade = g;
-      setText(elGrade, g);
-    }
-  });
-
+  // Quest update from engines (GoodJunk/Groups/Hydration/Plate)
   root.addEventListener('quest:update', (ev) => {
     const d = ev && ev.detail ? ev.detail : {};
+    qQuestOk = (d.questOk !== false);
 
-    // If quest missing, still show placeholders (so UI doesn't feel broken)
-    const questOk = !!d.questOk;
+    qGoal = d.goal || null;
+    qMini = d.mini || null;
 
-    const groupLabel = d.groupLabel ? String(d.groupLabel) : '';
-    const goal = d.goal || null;
-    const mini = d.mini || null;
+    // group label
+    qGroupLabel = String(d.groupLabel || '');
+    renderQuest();
+  });
 
-    const gLine = groupLabel ? ('หมู่ปัจจุบัน: ' + groupLabel) : (questOk ? 'หมู่ปัจจุบัน: --' : '⚠️ QUEST ไม่พร้อม');
-    const goalLine = formatQuestLine('Goal', goal);
-    const miniLine = formatQuestLine('Mini', mini);
+  // Coach messages
+  root.addEventListener('hha:coach', (ev) => {
+    const d = ev && ev.detail ? ev.detail : {};
+    const text = (d.text != null) ? String(d.text) : '';
+    if (text) setText(elCoachTxt, text);
 
-    const key = [gLine, goalLine, miniLine].join('|');
-    if (key === lastQuestKey) return;
-    lastQuestKey = key;
-
-    if (elGroup){
-      if (gLine !== lastGroupLabel){
-        lastGroupLabel = gLine;
-        setText(elGroup, gLine);
-      }
-    }
-
-    if (elGoal){
-      if (goalLine !== lastGoalLabel){
-        lastGoalLabel = goalLine;
-        setText(elGoal, goalLine);
-      }
-    }
-
-    if (elMini){
-      // allow timer highlight via HTML (mini-timer span)
-      if (miniLine !== lastMiniLabel){
-        lastMiniLabel = miniLine;
-        if (mini && mini.tLeft != null) setHTML(elMini, miniLine);
-        else setText(elMini, miniLine);
-      }
+    // mood: explicit or infer from message
+    if (d.mood) {
+      setCoachMood(d.mood);
+    } else if (text) {
+      const t = text.toLowerCase();
+      if (t.includes('fever') || t.includes('🔥')) setCoachMood('fever');
+      else if (t.includes('ผ่าน') || t.includes('เยี่ยม') || t.includes('สำเร็จ') || t.includes('🎉') || t.includes('⭐')) setCoachMood('happy');
+      else if (t.includes('miss') || t.includes('โดน') || t.includes('พลาด') || t.includes('😵') || t.includes('⚠️')) setCoachMood('sad');
+      else setCoachMood('neutral');
     }
   });
 
+  // Fever compat channel (some UIs want this)
+  root.addEventListener('hha:fever', (ev) => {
+    // We don't draw fever bar here (ui-fever.js does)
+    // but we can switch coach mood if fever turns on
+    const d = ev && ev.detail ? ev.detail : {};
+    if (d.on === true) setCoachMood('fever');
+  });
+
+  // Rank
+  root.addEventListener('hha:rank', (ev) => {
+    renderRankLine(ev && ev.detail ? ev.detail : {});
+  });
+
+  // Panic/Rush/Wave are visualized in html badges (glue script), but keep compatibility if needed
+  root.addEventListener('hha:panic', () => {});
+  root.addEventListener('hha:rush',  () => {});
+  root.addEventListener('groups:danger', () => {});
+
+  // End summary
   root.addEventListener('hha:end', (ev) => {
     const d = ev && ev.detail ? ev.detail : {};
-    // show end summary if exists
-    if (endWrap){
-      try{
-        endWrap.style.display = 'flex';
-      }catch{}
+    const grade = String(d.grade || 'C').toUpperCase();
+
+    // if end overlay exists
+    if (elEndOverlay) {
+      try { elEndOverlay.classList.add('show'); } catch {}
     }
 
-    if (endScore && d.scoreFinal != null) setText(endScore, d.scoreFinal|0);
-    if (endCombo && d.comboMax != null) setText(endCombo, d.comboMax|0);
-
-    const missVal = (d.misses != null) ? d.misses : (d.miss != null ? d.miss : null);
-    if (endMiss && missVal != null) setText(endMiss, missVal|0);
-
-    if (endGrade && d.grade != null) setText(endGrade, String(d.grade));
-
-    if (endGoals){
-      const a = (d.goalsCleared != null) ? (d.goalsCleared|0) : 0;
-      const b = (d.goalsTotal != null) ? (d.goalsTotal|0) : 0;
-      setText(endGoals, `${a}/${b}`);
+    if (elEndGrade) {
+      setText(elEndGrade, grade);
+      try {
+        elEndGrade.className = 'kpi grade ' + grade.toLowerCase();
+      } catch {}
     }
-    if (endMinis){
-      const a = (d.miniCleared != null) ? (d.miniCleared|0) : 0;
-      const b = (d.miniTotal != null) ? (d.miniTotal|0) : 0;
-      setText(endMinis, `${a}/${b}`);
+    setText(elEndScore, d.scoreFinal ?? 0);
+    setText(elEndComboMax, d.comboMax ?? 0);
+    setText(elEndMiss, d.misses ?? 0);
+
+    if (elEndGoals) {
+      setText(elEndGoals, `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`);
     }
+    if (elEndMinis) {
+      setText(elEndMinis, `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`);
+    }
+
+    // Coach final mood
+    if (grade === 'SSS' || grade === 'SS' || grade === 'S') setCoachMood('happy');
+    else if ((d.misses|0) >= 8) setCoachMood('sad');
+    else setCoachMood('neutral');
   });
 
-  // Optional: allow close end overlay by clicking background (if it exists)
-  if (endWrap){
-    endWrap.addEventListener('click', (ev) => {
-      const t = ev.target;
-      if (t && t.closest && t.closest('button')) return;
-      try{ endWrap.style.display = 'none'; }catch{}
-    });
-  }
-
-  // ---------- debug ping ----------
-  try{
-    // helps detect "hud file loaded but no events firing"
-    root.dispatchEvent(new CustomEvent('hha:hud_ready', { detail: { ok:true } }));
-  }catch{}
+  // ---------- initial paint ----------
+  renderScore();
+  renderQuest();
+  renderRankLine({ grade: 'C' });
 
 })(window);
