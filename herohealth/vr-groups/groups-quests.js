@@ -49,7 +49,9 @@
     const isEasy = d==='easy';
     const isHard = d==='hard';
 
-    const rotateEvery = isEasy ? 12 : (isHard ? 9 : 10); // ✅ FUN: หมุนไวขึ้น
+    // ✅ FUN: หมุนไวขึ้นตามระดับ
+    const rotateEvery = isEasy ? 12 : (isHard ? 9 : 10);
+
     const goals = makeGoals(d);
     const minis = makeMinis(d);
 
@@ -85,6 +87,9 @@
       if (m2.kind === 'group_hits'){
         m2.prog = 0;
       }
+      if (m2.kind === 'streak_good' || m2.kind === 'combo_reach' || m2.kind === 'good_total'){
+        // ไม่ reset streak/combo รวมของเกม
+      }
     }
 
     function nextMini(){
@@ -99,12 +104,10 @@
 
     function rotateGroup(){
       groupIndex = (groupIndex + 1) % FOOD_GROUPS.length;
+
       // ให้ mini ที่เกี่ยวกับ “หมู่ปัจจุบัน” รีเซ็ตแบบแฟร์
       const m = activeMini();
-      if (m && (m.kind === 'group_hits' || m.kind === 'rush_window')){
-        prepMini(m);
-      }
-      if (m && m.kind === 'two_groups_mix'){
+      if (m && (m.kind === 'group_hits' || m.kind === 'rush_window' || m.kind === 'two_groups_mix')){
         prepMini(m);
       }
     }
@@ -181,7 +184,6 @@
     function second(){
       sec += 1;
 
-      // ✅ หมุนหมู่ไวขึ้นตามระดับ
       if (sec % rotateEvery === 0){
         rotateGroup();
       }
