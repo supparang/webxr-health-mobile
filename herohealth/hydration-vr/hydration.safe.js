@@ -1,11 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// ✅ Auto-hide HUD (เหลือส่วนจำเป็น) + Peek
+// Hydration Quest VR — DOM Emoji Engine (PLAY/RESEARCH)
+// ✅ Auto-hide HUD + Peek
 // ✅ Gyro limit (เอียงนิดเดียวไม่หนี) + calibration
 // ✅ Drag threshold (ลาก=look ไม่ใช่ tap)
 // ✅ Endscreen fallback (กันจอดำ)
 // ✅ debug=1 รองรับ
-// ✅ FX Pack: SFX (good/junk/power/perfect) + decorateTarget hooks (ring/wiggle)
+// ✅ Spawn: randomRing + proper minSeparation (แก้ “โผล่จุดเดียว”)
+// ✅ Research: run=research&seed=... => deterministic spawn
 
 'use strict';
 
@@ -58,7 +59,7 @@ const TUNE = {
   lookPxPerDegY:6.8,
   lookSmooth:0.10,
 
-  // ✅ per-frame speed limit
+  // ✅ per-frame speed limit (กัน “วิ่งหนี”)
   lookMaxStepX: 9.5,
   lookMaxStepY: 7.5,
 
@@ -98,7 +99,7 @@ function ensureEndHost(){
 }
 
 function ensureHudAutoHide(){
-  const hud = document.querySelector('.hud') || document.getElementById('hudRoot');
+  const hud = document.querySelector('.hud');
   if (!hud) return { touch(){}, peek(){}, setCompact(){}, destroy(){} };
 
   function setCompact(){
@@ -111,6 +112,7 @@ function ensureHudAutoHide(){
         .hud.hud-hidden{ opacity:0; transform:translate3d(0,-14px,0); }
         .hud.hud-compact .card{ padding:10px 12px 10px !important; min-width:200px !important; }
         .hud.hud-compact .title{ font-size:18px !important; }
+        .hud.hud-compact #hha-water-card .muted:last-child{ display:none; }
       `;
       document.head.appendChild(s);
     }
@@ -148,8 +150,17 @@ function ensureHudAutoHide(){
 }
 
 export async function boot(opts = {}){
-  const difficulty = String(opts.difficulty || 'easy').toLowerCase();
-  const duration   = clamp(opts.duration ?? 90, 20, 180);
+  const qDiff = (url?.searchParams.get('diff')||'').toLowerCase();
+  const qTime = Number(url?.searchParams.get('time')||'');
+  const qRun  = (url?.searchParams.get('run')||url?.searchParams.get('mode')||'').toLowerCase();
+  const qSeed = String(url?.searchParams.get('seed')||'').trim();
+
+  const difficulty = String(opts.difficulty || qDiff || 'easy').toLowerCase();
+  const duration   = clamp(opts.duration ?? (Number.isFinite(qTime)?qTime:90), 20, 180);
+
+  // runMode + seed
+  const runMode = String(opts.runMode || qRun || 'play').toLowerCase();      // play|research
+  const seed    = String(opts.seed || qSeed || '').trim();                  // if research -> deterministic
 
   ensureWaterGauge();
 
@@ -159,6 +170,7 @@ export async function boot(opts = {}){
     return { stop(){} };
   }
 
+  // bounds layer (fixed, not transformed) — important for correct spawn distribution
   let boundsEl = $id('hvr-bounds') || $id('hvr-stage');
   if (!boundsEl){
     boundsEl = document.createElement('div');
@@ -182,6 +194,9 @@ export async function boot(opts = {}){
 
   const state = {
     diff:difficulty,
+    runMode,
+    seed,
+
     timeLeft:duration,
     score:0, combo:0, comboBest:0, miss:0,
     waterPct:50, zone:'GREEN', greenTick:0,
@@ -463,7 +478,7 @@ export async function boot(opts = {}){
     }
   }
 
-  // double-tap to calibrate gyro center
+  // double-tap to reset view
   let lastTap=0;
   function onTapForCalibrate(){
     const now=Date.now();
@@ -477,7 +492,7 @@ export async function boot(opts = {}){
     lastTap=now;
   }
 
-  // --------------------- Time / storm / urgency + AUDIO ---------------------
+  // --------------------- Time / storm / urgency ---------------------
   let timer=null;
   let rafId=null;
   let audioCtx=null;
@@ -493,30 +508,6 @@ export async function boot(opts = {}){
       o.connect(g); g.connect(audioCtx.destination);
       o.start();
       o.stop(audioCtx.currentTime + (dur||0.05));
-    }catch{}
-  }
-
-  // ✅ SFX pack
-  function sfx(type){
-    try{
-      audioCtx = audioCtx || new (ROOT.AudioContext || ROOT.webkitAudioContext)();
-      const t0 = audioCtx.currentTime;
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.connect(g); g.connect(audioCtx.destination);
-      g.gain.setValueAtTime(0.0001, t0);
-
-      if (type === 'good'){ o.type='sine';  o.frequency.setValueAtTime(820, t0); }
-      else if (type === 'junk'){ o.type='square'; o.frequency.setValueAtTime(160, t0); }
-      else if (type === 'power'){ o.type='triangle'; o.frequency.setValueAtTime(1040, t0); }
-      else if (type === 'perfect'){ o.type='sine'; o.frequency.setValueAtTime(1180, t0); }
-      else { o.type='sine'; o.frequency.setValueAtTime(600, t0); }
-
-      g.gain.exponentialRampToValueAtTime(0.05, t0 + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.10);
-
-      o.start(t0);
-      o.stop(t0 + 0.12);
     }catch{}
   }
 
@@ -551,12 +542,17 @@ export async function boot(opts = {}){
       feverRender();
     }
 
-    if (state.stormLeft>0) state.stormLeft -= 1;
-    if (state.timeLeft>0 && (state.timeLeft % TUNE.stormEverySec)===0){
-      state.stormLeft = TUNE.stormDurationSec;
-      dispatch('hha:coach',{text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น! ตั้งสติ รักษา GREEN!', mood:'happy'});
-      try{ Particles.toast?.('STORM WAVE!','warn'); }catch{}
-      HUD.touch();
+    // ✅ Storm only in play mode (research = คุมตัวแปร)
+    if (state.runMode !== 'research'){
+      if (state.stormLeft>0) state.stormLeft -= 1;
+      if (state.timeLeft>0 && (state.timeLeft % TUNE.stormEverySec)===0){
+        state.stormLeft = TUNE.stormDurationSec;
+        dispatch('hha:coach',{text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น! ตั้งสติ รักษา GREEN!', mood:'happy'});
+        try{ Particles.toast?.('STORM WAVE!','warn'); }catch{}
+        HUD.touch();
+      }
+    } else {
+      state.stormLeft = 0;
     }
 
     if (state.timeLeft>0 && state.timeLeft<=TUNE.urgencyAtSec){
@@ -585,21 +581,24 @@ export async function boot(opts = {}){
     difficulty,
     duration,
 
-    spawnHost:'#hvr-playfield',
-    boundsHost: boundsEl,
+    runMode: state.runMode,
+    seed: state.seed,
 
-    // ✅ กระจายทั่วสนาม (แก้โผล่ที่เดียว)
-    spawnAroundCrosshair: false,
-    spawnStrategy: 'grid9',
-    spawnRadiusX: 0.95,
-    spawnRadiusY: 0.95,
-    minSeparation: 0.92,
-    maxSpawnTries: 18,
+    spawnHost:'#hvr-playfield',
+    boundsHost: boundsEl, // ✅ fixed full screen
+
+    // ✅ กระจายแบบ “รู้สึกได้” และไม่กองจุดเดียว
+    spawnStrategy: 'randomRing',  // ✅ randomRing = วงแหวนรอบศูนย์ (ไม่กองกลาง)
+    spawnRadiusX: 0.96,
+    spawnRadiusY: 0.96,
+    minSeparation: 0.28,          // ✅ สำคัญมาก: อย่าใช้ 0.92 (จะหาที่วางไม่ได้แล้ว fallback กอง)
+    maxSpawnTries: 24,
     dragThresholdPx: 11,
 
-    spawnIntervalMul: ()=> (state.stormLeft>0 ? TUNE.stormIntervalMul : 1),
+    // ✅ storm speedup (only play)
+    spawnIntervalMul: ()=> (state.runMode === 'research' ? 1 : (state.stormLeft>0 ? TUNE.stormIntervalMul : 1)),
 
-    excludeSelectors: ['.hud', '#hudRoot', '#hvr-crosshair', '#hvr-end', '#startOverlay', '#hudPeekZone'],
+    excludeSelectors: ['.hud', '#hvr-crosshair', '#hvr-end'],
 
     pools:{
       good:['💧','🥛','🍉','🥥','🍊'],
@@ -607,28 +606,12 @@ export async function boot(opts = {}){
     },
     goodRate: (difficulty==='hard')?0.55:(difficulty==='easy'?0.70:0.62),
 
-    powerups:['⭐','🛡️','⏱️'],
+    // ✅ research: ลด powerups เพื่อคุมตัวแปร (แต่ยังเล่นได้)
+    powerups: (state.runMode==='research') ? ['⭐'] : ['⭐','🛡️','⏱️'],
     powerRate:(difficulty==='hard')?0.10:0.12,
     powerEvery:6,
 
-    // ✅ ให้ CSS ผูก FX (wiggle/ring/afterimage) ได้
-    decorateTarget: (el, parts, data) => {
-      el.classList.add('hvr-target');
-      el.classList.toggle('hvr-power', !!data.isPower);
-      el.classList.toggle('hvr-junk', !data.isGood && !data.isPower);
-      el.classList.toggle('hvr-good', !!data.isGood && !data.isPower);
-
-      try{
-        const w = parts && parts.wiggle;
-        if (w){
-          const dur = data.isPower ? 1.25 : (!data.isGood ? 1.55 : 1.85);
-          w.style.animationDuration = dur + 's';
-        }
-      }catch{}
-    },
-
     judge:(ch, ctx)=>{
-      // power pre-effects
       if (ctx.isPower && ch==='🛡️'){
         state.shield = clamp(state.shield+1,0,TUNE.shieldMax);
         feverRender();
@@ -636,30 +619,20 @@ export async function boot(opts = {}){
         updateScoreHud('SHIELD+');
         try{ Particles.toast?.('+1 SHIELD 🛡️','good'); }catch{}
       }
-      if (ctx.isPower && ch==='⏱️'){
+      if (ctx.isPower && ch==='⏱️' && state.runMode!=='research'){
         state.timeLeft = clamp(state.timeLeft+3,0,180);
         dispatch('hha:time',{sec:state.timeLeft});
         dispatch('hha:judge',{label:'TIME+'});
         try{ Particles.toast?.('+3s ⏱️','good'); }catch{}
       }
-      if (state.stormLeft>0 && (ctx.isGood||ctx.isPower)){
+      if (state.runMode!=='research' && state.stormLeft>0 && (ctx.isGood||ctx.isPower)){
         state.fever = clamp(state.fever+2,0,100);
       }
-
-      const res = judgeCore(ch, ctx);
-
-      // ✅ SFX ตามผลจริง (รวม PERFECT)
-      if (res?.label === 'PERFECT') sfx('perfect');
-      else if (ctx.isPower) sfx('power');
-      else if (ctx.isGood) sfx('good');
-      else if (res?.label === 'BLOCK') sfx('good');
-      else sfx('junk');
-
-      return res;
+      return judgeCore(ch, ctx);
     },
 
     onExpire:(info)=>{
-      if (state.stormLeft>0 && info?.isGood && !info?.isPower){
+      if (state.runMode!=='research' && state.stormLeft>0 && info?.isGood && !info?.isPower){
         state.waterPct = clamp(state.waterPct-2,0,100);
       }
       onExpire(info);
@@ -680,6 +653,7 @@ export async function boot(opts = {}){
   ROOT.addEventListener('pointercancel', onPointerUp, { passive:true });
   ROOT.addEventListener('pointerdown', onTapForCalibrate, { passive:true });
 
+  // gyro: if available without permission
   try{
     const D = ROOT.DeviceOrientationEvent;
     if (D && typeof D.requestPermission !== 'function'){
@@ -687,6 +661,7 @@ export async function boot(opts = {}){
     }
   }catch{}
 
+  // ask gyro permission on first touch (optional)
   const onceAsk = async ()=>{
     ROOT.removeEventListener('pointerdown', onceAsk);
     await requestGyroPermission();
