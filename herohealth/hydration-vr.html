@@ -1,9 +1,11 @@
-<!-- === /herohealth/hydration-vr/hydration-vr.html ===
-Hydration Quest VR — FULL HTML (PRODUCTION / FIX START)
-✅ Start button uses ES module boot (dynamic import) -> works on GitHub Pages
-✅ Cache-bust friendly (?ts=)
-✅ Works with hydration.safe.js (module) + vr/mode-factory.js (module)
-✅ Keeps particles/fever/hud/logger as defer (IIFE)
+<!-- === /herohealth/hydration-vr.html ===
+Hydration Quest VR — FULL HTML (PRODUCTION / FIX-ALL)
+✅ Fix: dynamic import path -> ./hydration-vr/hydration.safe.js (no Failed to fetch module)
+✅ Script order fixed: particles → fever → hud → logger → (module import on Start)
+✅ HUD ready (score/combo/miss/grade/quest) + auto-hide support (safe.js controls)
+✅ Playfield + bounds layer for correct spawn distribution
+✅ Start overlay supports URL params: ?diff=easy&time=90&run=play&seed=...
+✅ Buttons: START / STOP / VR
 -->
 
 <!doctype html>
@@ -13,16 +15,16 @@ Hydration Quest VR — FULL HTML (PRODUCTION / FIX START)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Hydration Quest VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- (Optional) A-Frame for VR button / enterVR -->
+  <!-- A-Frame core (for VR button / future) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- Global FX / Fever / HUD / Logger (IIFE) -->
-  <script src="../vr/particles.js" defer></script>
-  <script src="../vr/ui-fever.js" defer></script>
-  <script src="../vr/hha-hud.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
 
   <style>
     :root{
@@ -32,42 +34,62 @@ Hydration Quest VR — FULL HTML (PRODUCTION / FIX START)
       --stroke:rgba(148,163,184,.22);
       --text:#e5e7eb;
       --muted:#94a3b8;
+
       --accent:#22c55e;
       --danger:#ef4444;
       --warn:#f59e0b;
-      --shadow:0 18px 50px rgba(0,0,0,.42);
-      --r:22px;
+
+      --radius:18px;
+      --radius2:22px;
+      --shadow:0 18px 52px rgba(0,0,0,.42);
+
+      --hudTop: 110px;
+      --hudBottom: 150px;
     }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
     .wrap{
-      position:fixed; inset:0; overflow:hidden;
+      position:fixed; inset:0;
+      overflow:hidden;
       background:
         radial-gradient(1200px 600px at 50% 40%, rgba(59,130,246,.10), transparent 60%),
         radial-gradient(900px 520px at 20% 10%, rgba(34,197,94,.10), transparent 60%),
         linear-gradient(#020617, #020617);
     }
 
-    /* Optional VR scene behind */
     a-scene{ position:absolute; inset:0; z-index:0; }
 
-    /* Playfield = targets host (transformed by hydration.safe.js look) */
+    /* Playfield: everything moves with look (safe.js translates this) */
     #hvr-playfield{
       position:absolute; inset:0; z-index:5;
       pointer-events:auto;
       touch-action:manipulation;
       will-change: transform;
+      transform: translate3d(0,0,0);
     }
 
-    /* Targets base (mode-factory creates .hvr-target) */
-    .hvr-target{
+    /* Bounds: fixed full screen for accurate spawn rects (safe.js uses this) */
+    #hvr-bounds{
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:2;
+    }
+
+    /* Targets from mode-factory typically create .hha-target; give it nice skin */
+    .hha-target{
       position:absolute;
+      left:var(--x, 50%); top:var(--y, 52%);
+      transform: translate3d(-50%,-50%,0) scale(var(--s,1));
       width:132px; height:132px;
       border-radius:999px;
       display:flex; align-items:center; justify-content:center;
-      user-select:none;
-      cursor:pointer;
+
+      font-size:58px; line-height:1;
+      font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
+
       background:
         radial-gradient(90px 80px at 35% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
         radial-gradient(120px 120px at 50% 55%, rgba(255,255,255,.18), rgba(255,255,255,.06) 58%, rgba(255,255,255,.02) 100%),
@@ -76,81 +98,182 @@ Hydration Quest VR — FULL HTML (PRODUCTION / FIX START)
       box-shadow:
         0 18px 48px rgba(0,0,0,.35),
         inset 0 1px 0 rgba(255,255,255,.22);
+
       filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
       text-shadow:
         0 6px 16px rgba(0,0,0,.30),
         0 0 10px rgba(255,255,255,.10);
-      will-change: transform,left,top,opacity;
-    }
-    .hvr-target.hvr-good{ outline:2px solid rgba(34,197,94,.18); }
-    .hvr-target.hvr-junk{ outline:2px solid rgba(239,68,68,.18); }
-    .hvr-target.hvr-power{ outline:2px solid rgba(245,158,11,.22); }
 
-    /* Random ring variants */
-    .hvr-ring{
-      position:absolute;
-      inset:auto;
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,.18);
-      box-shadow:0 0 0 rgba(0,0,0,0);
-      opacity:.85;
-      transform: translate(-50%,-50%);
-    }
-    .hvr-ring.r1{ border-style:solid;  }
-    .hvr-ring.r2{ border-style:dashed; opacity:.70; }
-    .hvr-ring.r3{ border-style:dotted; opacity:.75; }
-
-    /* Wiggle */
-    .hvr-wiggle{
-      width:100%; height:100%;
-      display:flex; align-items:center; justify-content:center;
-      border-radius:999px;
-      animation: wiggle 1.85s ease-in-out infinite;
-    }
-    @keyframes wiggle{
-      0%,100%{ transform: translate3d(0,0,0) rotate(0deg); }
-      50%{ transform: translate3d(0,-1px,0) rotate(1.2deg); }
+      user-select:none;
+      cursor:pointer;
+      will-change: transform, left, top, opacity;
     }
 
-    /* Afterimage on hit */
-    .hvr-afterimage{
-      position:absolute;
-      transform: translate(-50%,-50%);
-      pointer-events:none;
-      opacity:.22;
-      filter: blur(.2px);
-      animation: aiFade .42s ease-out forwards;
-      z-index:4;
-    }
-    .hvr-afterimage-inner{
-      width:110px; height:110px;
-      border-radius:999px;
-      display:flex; align-items:center; justify-content:center;
-      font-size:54px; line-height:1;
-      background: rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.10);
-      transform: scale(1.04);
-      font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
-    }
-    @keyframes aiFade{
-      to{ opacity:0; transform: translate(-50%,-50%) scale(1.18); }
-    }
+    /* optional state classes (if mode-factory sets them) */
+    .hha-target.good{ outline:2px solid rgba(34,197,94,.18); }
+    .hha-target.bad{ outline:2px solid rgba(239,68,68,.18); }
+    .hha-target.power{ outline:2px solid rgba(59,130,246,.20); }
 
-    /* Simple crosshair (optional) */
+    /* Crosshair */
     #hvr-crosshair{
       position:absolute; left:50%; top:50%;
       transform:translate(-50%,-50%);
-      width:14px; height:14px; border-radius:999px;
-      background:rgba(255,255,255,.55);
-      box-shadow:0 0 18px rgba(255,255,255,.12);
-      z-index:25; pointer-events:none; opacity:.85;
+      width:22px; height:22px;
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,.42);
+      box-shadow:0 0 22px rgba(255,255,255,.12);
+      z-index:25;
+      pointer-events:none;
+      opacity:.92;
     }
+    #hvr-crosshair::after{
+      content:'';
+      position:absolute; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:6px; height:6px; border-radius:999px;
+      background:rgba(255,255,255,.55);
+    }
+
+    /* HUD wrapper (safe.js may auto-hide by toggling .hud-hidden / .hud-compact) */
+    .hud{ position:absolute; inset:0; z-index:30; pointer-events:none; }
+
+    .topbar{
+      position:absolute; left:12px; right:12px; top:10px;
+      display:flex; gap:10px; align-items:flex-start;
+      pointer-events:none;
+    }
+
+    .pill{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:999px;
+      padding:10px 12px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .stats{ display:flex; gap:10px; flex-wrap:wrap; }
+    .stat{ min-width:98px; display:flex; flex-direction:column; gap:2px; }
+    .k{ font-size:11px; color:var(--muted); letter-spacing:.2px; }
+    .v{ font-size:16px; font-weight:850; }
+
+    .questBox{
+      flex:1;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:10px 12px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      min-height:64px;
+    }
+    .questTitle{ display:flex; align-items:center; gap:8px; font-weight:1000; }
+    .questTitle small{ font-weight:850; color:var(--muted); }
+    .qline{ margin-top:6px; font-size:14px; color:var(--text); opacity:.96; }
+    .qline .muted{ color:var(--muted); }
+
+    .waterCard{
+      width:220px;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:10px 12px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .bar{
+      margin-top:8px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.12);
+    }
+    #hha-water-fill{
+      height:100%;
+      width:50%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.70));
+    }
+
+    .scoreCard{
+      position:absolute;
+      right:12px; top:110px;
+      width:260px;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius2);
+      padding:10px 12px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      pointer-events:none;
+    }
+    .bigScore{ font-size:30px; font-weight:1000; letter-spacing:.2px; }
+    .chips{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+    .chip{
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      font-weight:950;
+    }
+    .progLine{ margin-top:10px; font-size:12px; color:var(--muted); }
+    .progBar{
+      margin-top:8px; height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      overflow:hidden; border:1px solid rgba(255,255,255,.12);
+    }
+    #hha-grade-progress-fill{
+      height:100%; width:0%;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(59,130,246,.75));
+    }
+
+    .controls{
+      position:absolute; left:12px; right:12px; bottom:14px;
+      display:flex; gap:12px;
+      align-items:flex-end;
+      z-index:40;
+      pointer-events:none;
+    }
+    .hintCol{ flex:1; display:flex; flex-direction:column; gap:10px; }
+    .hint{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:12px 12px;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      font-weight:1000;
+    }
+    .hint small{ display:block; font-weight:800; color:var(--muted); margin-top:4px; }
+
+    .btnCol{ display:flex; gap:10px; pointer-events:auto; }
+    .btn{
+      min-width:92px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+      padding:12px 14px;
+      font-weight:1000;
+      box-shadow:var(--shadow);
+      backdrop-filter: blur(10px);
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.30); }
+    .btn.danger{ background:rgba(239,68,68,.18); border-color:rgba(239,68,68,.30); }
+    .btn.ghost{ background:rgba(255,255,255,.06); }
+    .btnMini{ min-width:64px; border-radius:14px; padding:10px 12px; font-weight:1000; }
 
     /* Start overlay */
     #startOverlay{
       position:absolute; inset:0; z-index:60;
-      background: radial-gradient(900px 500px at 50% 40%, rgba(59,130,246,.16), transparent 60%),
-                  rgba(2,6,23,.72);
+      background:
+        radial-gradient(900px 500px at 50% 40%, rgba(59,130,246,.16), transparent 60%),
+        rgba(2,6,23,.72);
       display:flex; align-items:center; justify-content:center;
       padding:18px;
     }
@@ -163,17 +286,18 @@ Hydration Quest VR — FULL HTML (PRODUCTION / FIX START)
       padding:16px;
       backdrop-filter: blur(12px);
     }
-    .h1{ font-size:20px; font-weight:1000; margin:0 0 8px; }
+    .h1{ font-size:18px; font-weight:1100; margin:0 0 8px; }
     .p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.45; }
     .row{ display:flex; gap:10px; flex-wrap:wrap; }
     .seg{
-      flex:1; min-width:140px;
+      flex:1;
+      min-width:140px;
       background:rgba(255,255,255,.06);
       border:1px solid rgba(255,255,255,.12);
       border-radius:16px;
       padding:10px;
     }
-    .seg label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:900; }
+    .seg label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:1000; }
     select,input{
       width:100%;
       padding:10px 10px;
@@ -181,7 +305,7 @@ Hydration Quest VR — FULL HTML (PRODUCTION / FIX START)
       border:1px solid rgba(255,255,255,.14);
       background:rgba(2,6,23,.55);
       color:var(--text);
-      font-weight:900;
+      font-weight:1000;
       outline:none;
     }
     .startBtn{
@@ -192,57 +316,107 @@ Hydration Quest VR — FULL HTML (PRODUCTION / FIX START)
       border:1px solid rgba(34,197,94,.35);
       background:rgba(34,197,94,.20);
       color:var(--text);
-      font-weight:1000;
+      font-weight:1100;
       cursor:pointer;
     }
     .startBtn:active{ transform: translateY(1px); }
     .note{ margin-top:10px; font-size:12px; color:var(--muted); line-height:1.35; }
-
-    /* HUD root (your existing HUD can live here) */
-    .hud{ position:absolute; inset:0; z-index:30; pointer-events:none; }
-
-    /* bottom buttons (optional) */
-    .btnRow{
-      position:absolute; right:12px; bottom:14px; z-index:70;
-      display:flex; gap:10px;
-    }
-    .btn{
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.08);
-      color:var(--text);
-      padding:12px 14px;
-      font-weight:950;
-      box-shadow:var(--shadow);
-      backdrop-filter: blur(10px);
-      cursor:pointer;
-      user-select:none;
-    }
-    .btn:active{ transform: translateY(1px) scale(.99); }
-    .btn.danger{ background:rgba(239,68,68,.18); border-color:rgba(239,68,68,.30); }
+    code{ font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <a-scene embedded renderer="antialias:true; colorManagement:true;" vr-mode-ui="enabled:false" background="color:#020617">
-      <a-entity position="0 1.6 0">
-        <a-camera id="cam" wasd-controls-enabled="false" look-controls="enabled:true; touchEnabled:true; mouseEnabled:true"></a-camera>
+    <a-scene
+      embedded
+      renderer="antialias: true; colorManagement: true;"
+      vr-mode-ui="enabled:false"
+      background="color: #020617"
+    >
+      <a-entity id="rig" position="0 1.6 0">
+        <a-camera id="cam"
+          wasd-controls-enabled="false"
+          look-controls="enabled:true; touchEnabled:true; mouseEnabled:true"
+          position="0 0 0"
+        ></a-camera>
       </a-entity>
       <a-sky color="#020617"></a-sky>
     </a-scene>
 
-    <div id="hvr-playfield" aria-label="hydration playfield"></div>
-    <div id="hvr-crosshair"></div>
+    <!-- Fixed bounds for spawn calculations -->
+    <div id="hvr-bounds" aria-hidden="true"></div>
 
-    <!-- (Optional) your HUD layout (if you already have, keep ids used by hydration.safe.js) -->
-    <div class="hud" id="hudRoot"></div>
+    <!-- Transformed playfield: targets live here -->
+    <div id="hvr-playfield" aria-label="playfield"></div>
 
+    <!-- Crosshair -->
+    <div id="hvr-crosshair" aria-hidden="true"></div>
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="topbar">
+        <div class="pill stats">
+          <div class="stat"><div class="k">SCORE</div><div class="v" id="hha-score-main">0</div></div>
+          <div class="stat"><div class="k">COMBO MAX</div><div class="v" id="hha-combo-max">0</div></div>
+          <div class="stat"><div class="k">MISS</div><div class="v" id="hha-miss">0</div></div>
+          <div class="stat"><div class="k">TIME</div><div class="v" id="hudTime">—</div></div>
+          <div class="stat"><div class="k">GRADE</div><div class="v" id="hha-grade-badge">C</div></div>
+        </div>
+
+        <div class="questBox">
+          <div class="questTitle">🧩 <span>QUEST</span> <small id="miniPct">—</small></div>
+          <div class="qline" id="hha-quest-goal"><span class="muted">Goal:</span> —</div>
+          <div class="qline" id="hha-quest-mini"><span class="muted">Mini:</span> —</div>
+          <div class="qline">
+            <span class="chip">🎯 <span id="hha-goal-count">0</span></span>
+            <span class="chip">✨ <span id="hha-mini-count">0</span></span>
+          </div>
+        </div>
+
+        <div class="waterCard" id="hha-water-card">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <div style="font-weight:1000;">Water</div>
+            <div style="font-weight:1000;"><span id="hha-water-zone-text">GREEN</span> <span id="hha-water-pct-text">50%</span></div>
+          </div>
+          <div class="bar"><div id="hha-water-fill"></div></div>
+          <div class="p" style="margin:8px 0 0;">
+            รักษา <b>GREEN</b> ให้ได้นาน + เก็บน้ำดีให้ไว!
+          </div>
+        </div>
+      </div>
+
+      <div class="scoreCard">
+        <div class="k">Score</div>
+        <div class="bigScore"><span id="hudScoreMirror">0</span> pts</div>
+
+        <div class="chips">
+          <div class="chip">Miss <span id="hudMissMirror">0</span></div>
+          <div class="chip">ComboMax <span id="hudComboMirror">0</span></div>
+        </div>
+
+        <div class="progLine" id="hha-grade-progress-text">Progress to S (30%): 0%</div>
+        <div class="progBar"><div id="hha-grade-progress-fill"></div></div>
+      </div>
+
+      <div class="controls">
+        <div class="hintCol">
+          <div class="hint">Peek HUD <small>แตะจอเพื่อโชว์ HUD ชั่วคราว</small></div>
+          <div class="hint">Double-tap <small>รีเซ็ตมุมมอง / กันเอียงหนี</small></div>
+        </div>
+
+        <div class="btnCol">
+          <button class="btn ghost btnMini" id="btnVR">VR</button>
+          <button class="btn danger" id="btnStop">STOP</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start overlay -->
     <div id="startOverlay">
       <div class="card">
         <div class="h1">Hydration Quest VR — พร้อมลุย 💧</div>
         <div class="p">
-          โหมด <b>play</b> = สนุก เร้าใจ (Storm + Fever + Shield)<br/>
+          โหมด <b>play</b> = สนุก เร้าใจ (Storm + Fever + Shield + Powerups) <br/>
           โหมด <b>research</b> = ใส่ seed เพื่อคุมการทดสอบ (ถ้าเกมรองรับ)
         </div>
 
@@ -250,8 +424,8 @@ Hydration Quest VR — FULL HTML (PRODUCTION / FIX START)
           <div class="seg">
             <label>Difficulty</label>
             <select id="selDiff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
+              <option value="easy" selected>easy</option>
+              <option value="normal">normal</option>
               <option value="hard">hard</option>
             </select>
           </div>
@@ -266,132 +440,156 @@ Hydration Quest VR — FULL HTML (PRODUCTION / FIX START)
 
           <div class="seg">
             <label>Time (sec)</label>
-            <input id="inpTime" type="number" min="20" max="180" step="5" value="90" />
+            <input id="inpTime" type="number" min="20" max="180" step="10" value="90" />
           </div>
 
           <div class="seg">
             <label>Seed (optional)</label>
-            <input id="inpSeed" type="text" placeholder="เช่น schoolA-g5-0" />
+            <input id="inpSeed" type="text" placeholder="เช่น schoolA-g5-001" />
           </div>
         </div>
 
         <button class="startBtn" id="btnStart">START</button>
-        <div class="note" id="noteUrl">URL: —</div>
+        <div class="note" id="noteUrl">URL: ?diff=easy&time=90&run=play&debug=1</div>
+        <div class="note">HUD จะซ่อนอัตโนมัติ → แตะจอเพื่อ Peek</div>
       </div>
-    </div>
-
-    <div class="btnRow">
-      <button class="btn" id="btnVR">VR</button>
-      <button class="btn danger" id="btnStop">STOP</button>
     </div>
   </div>
 
-  <!-- ✅ IMPORTANT: module boot lives here -->
-  <script type="module">
-    const $ = (id)=>document.getElementById(id);
+  <script>
+    (function(){
+      'use strict';
+      const $ = (id)=>document.getElementById(id);
 
-    const sp = new URLSearchParams(location.search);
-    const qDiff = (sp.get('diff')||'').toLowerCase();
-    const qMode = (sp.get('run')||sp.get('mode')||'').toLowerCase();
-    const qTime = parseInt(sp.get('time')||'',10);
-    const qSeed = String(sp.get('seed')||'').trim();
-    const DEBUG = (sp.get('debug') === '1');
+      const sp = new URLSearchParams(location.search);
+      const qDiff = (sp.get('diff')||'').toLowerCase();
+      const qMode = (sp.get('run')||sp.get('mode')||'').toLowerCase();
+      const qTime = parseInt(sp.get('time')||'',10);
+      const qSeed = String(sp.get('seed')||'').trim();
+      const DEBUG = (sp.get('debug') === '1');
 
-    const startOverlay = $('startOverlay');
-    const selDiff = $('selDiff');
-    const selMode = $('selMode');
-    const inpTime = $('inpTime');
-    const inpSeed = $('inpSeed');
-    const btnStart = $('btnStart');
-    const noteUrl = $('noteUrl');
+      const startOverlay = $('startOverlay');
+      const selDiff = $('selDiff');
+      const selMode = $('selMode');
+      const inpTime = $('inpTime');
+      const inpSeed = $('inpSeed');
+      const btnStart = $('btnStart');
+      const noteUrl  = $('noteUrl');
 
-    const btnVR = $('btnVR');
-    const btnStop = $('btnStop');
+      const btnVR = $('btnVR');
+      const btnStop = $('btnStop');
 
-    // init form from URL
-    if (qDiff) selDiff.value = (['easy','normal','hard'].includes(qDiff) ? qDiff : 'normal');
-    if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
-    if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(Math.min(180, Math.max(20, qTime)));
-    if (qSeed) inpSeed.value = qSeed;
+      const hudScoreMirror = $('hudScoreMirror');
+      const hudMissMirror  = $('hudMissMirror');
+      const hudComboMirror = $('hudComboMirror');
+      const hudTime = $('hudTime');
 
-    function updateNote(){
-      const diff = (selDiff.value||'normal').toLowerCase();
-      const mode = (selMode.value||'play').toLowerCase();
-      const tsec = Math.max(20, Math.min(180, parseInt(inpTime.value||'90',10) || 90));
-      const seed = String(inpSeed.value||'').trim();
+      const sceneEl = document.querySelector('a-scene');
 
-      const u = new URL(location.href);
-      u.searchParams.set('diff', diff);
-      u.searchParams.set('time', String(tsec));
-      u.searchParams.set('run', mode);
-      if (seed) u.searchParams.set('seed', seed); else u.searchParams.delete('seed');
-      if (DEBUG) u.searchParams.set('debug','1');
-      noteUrl.textContent = 'URL: ' + u.search.replace(/^\?/,'?');
-    }
-    ['change','input'].forEach(ev=>{
-      selDiff.addEventListener(ev, updateNote);
-      selMode.addEventListener(ev, updateNote);
-      inpTime.addEventListener(ev, updateNote);
-      inpSeed.addEventListener(ev, updateNote);
-    });
-    updateNote();
+      // init from URL
+      if (qDiff) selDiff.value = (['easy','normal','hard'].includes(qDiff) ? qDiff : 'easy');
+      if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
+      if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(Math.min(180, Math.max(20, qTime)));
+      if (qSeed) inpSeed.value = qSeed;
 
-    // STOP
-    btnStop.addEventListener('click', ()=>{
-      try{ window.dispatchEvent(new CustomEvent('hha:stop')); }catch{}
-      startOverlay.style.display = '';
-      window.__HVR_STARTED__ = false;
-    });
+      function updateNote(){
+        const diff = (selDiff.value||'easy').toLowerCase();
+        const mode = (selMode.value||'play').toLowerCase();
+        const tsec = Math.max(20, Math.min(180, parseInt(inpTime.value||'90',10) || 90));
+        const seed = String(inpSeed.value||'').trim();
 
-    // VR
-    btnVR.addEventListener('click', ()=>{
-      try{
-        const sceneEl = document.querySelector('a-scene');
-        if (sceneEl && sceneEl.enterVR) sceneEl.enterVR();
-      }catch{}
-    });
-
-    // ✅ START (dynamic import module)
-    btnStart.addEventListener('click', async ()=>{
-      const diff = (selDiff.value||'normal').toLowerCase();
-      const mode = (selMode.value||'play').toLowerCase();
-      const tsec = Math.max(20, Math.min(180, parseInt(inpTime.value||'90',10) || 90));
-      const seed = String(inpSeed.value||'').trim();
-
-      // sync URL
-      try{
         const u = new URL(location.href);
         u.searchParams.set('diff', diff);
         u.searchParams.set('time', String(tsec));
         u.searchParams.set('run', mode);
         if (seed) u.searchParams.set('seed', seed); else u.searchParams.delete('seed');
-        history.replaceState(null,'',u.toString());
-      }catch{}
+        if (DEBUG) u.searchParams.set('debug','1');
+        noteUrl.textContent = 'URL: ' + u.search.replace(/^\?/,'?');
+      }
+      ['change','input'].forEach(ev=>{
+        selDiff.addEventListener(ev, updateNote);
+        selMode.addEventListener(ev, updateNote);
+        inpTime.addEventListener(ev, updateNote);
+        inpSeed.addEventListener(ev, updateNote);
+      });
+      updateNote();
 
-      startOverlay.style.display = 'none';
+      // mirror HUD events (so the big card updates even if hha-hud not bound)
+      window.addEventListener('hha:score', (e)=>{
+        const d = (e && e.detail) || {};
+        if (typeof d.score === 'number') hudScoreMirror.textContent = String(d.score|0);
+        if (typeof d.miss === 'number')  hudMissMirror.textContent  = String(d.miss|0);
+        if (typeof d.comboBest === 'number') hudComboMirror.textContent = String(d.comboBest|0);
+      });
+      window.addEventListener('hha:time', (e)=>{
+        const d = (e && e.detail) || {};
+        const sec = (typeof d.sec === 'number') ? d.sec : ((typeof d.left === 'number') ? d.left : null);
+        if (sec != null) hudTime.textContent = String(sec|0);
+      });
 
-      try{
-        // IMPORTANT: correct relative path from hydration-vr.html -> hydration.safe.js
-        const mod = await import('./hydration.safe.js');
-        if (!mod || typeof mod.boot !== 'function') throw new Error('hydration.safe.js does not export boot()');
-
-        // start game
-        await mod.boot({ difficulty: diff, duration: tsec, runMode: mode, seed: seed || undefined });
-        window.__HVR_STARTED__ = true;
-
-      }catch(err){
-        console.error('[HydrationVR] START failed:', err);
-        alert('เข้าเกมไม่ได้: ' + (err && err.message ? err.message : String(err)));
+      // STOP
+      btnStop.addEventListener('click', ()=>{
+        try{ window.dispatchEvent(new CustomEvent('hha:stop')); }catch{}
         startOverlay.style.display = '';
         window.__HVR_STARTED__ = false;
-      }
-    });
+      });
 
-    // (Optional) autostart if URL has run=
-    if (qMode === 'play' || qMode === 'research'){
-      // small delay so defer scripts settle
-      setTimeout(()=>{ btnStart.click(); }, 250);
-    }
+      // VR
+      btnVR.addEventListener('click', ()=>{
+        try{ if (sceneEl && sceneEl.enterVR) sceneEl.enterVR(); }catch{}
+      });
+
+      // START (dynamic import module)
+      btnStart.addEventListener('click', async ()=>{
+        const diff = (selDiff.value||'easy').toLowerCase();
+        const mode = (selMode.value||'play').toLowerCase();
+        const tsec = Math.max(20, Math.min(180, parseInt(inpTime.value||'90',10) || 90));
+        const seed = String(inpSeed.value||'').trim();
+
+        // sync URL
+        try{
+          const u = new URL(location.href);
+          u.searchParams.set('diff', diff);
+          u.searchParams.set('time', String(tsec));
+          u.searchParams.set('run', mode);
+          if (seed) u.searchParams.set('seed', seed); else u.searchParams.delete('seed');
+          history.replaceState(null,'',u.toString());
+        }catch{}
+
+        startOverlay.style.display = 'none';
+
+        try{
+          // ✅ FIXED PATH: safe.js lives in /herohealth/hydration-vr/hydration.safe.js
+          const modUrl = new URL('./hydration-vr/hydration.safe.js', location.href);
+          modUrl.searchParams.set('ts', String(Date.now())); // cache-bust
+
+          const mod = await import(modUrl.toString());
+          if (!mod || typeof mod.boot !== 'function') {
+            throw new Error('hydration.safe.js does not export boot()');
+          }
+
+          await mod.boot({
+            difficulty: diff,
+            duration: tsec,
+            runMode: mode,
+            seed: seed || undefined
+          });
+
+          window.__HVR_STARTED__ = true;
+
+        }catch(err){
+          console.error('[HydrationVR] START failed:', err);
+          alert('เข้าเกมไม่ได้: ' + (err && err.message ? err.message : String(err)));
+          startOverlay.style.display = '';
+          window.__HVR_STARTED__ = false;
+        }
+      });
+
+      // autostart if URL has run=play|research
+      if (qMode === 'play' || qMode === 'research'){
+        setTimeout(()=>{ btnStart.click(); }, 250);
+      }
+    })();
   </script>
 </body>
 </html>
