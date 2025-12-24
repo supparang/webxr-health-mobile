@@ -1,10 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR (PRODUCTION) — H++ FINAL PACK (FULL)
-// ✅ Quest Director wired (start + tick) + quest:update dual-shape
+// GoodJunkVR (PRODUCTION) — H++ FINAL PACK (PATCH: GOLD/BLOCK/STUNBREAK tick immediately)
+// ✅ Quest Director wired (start + tick) + quest:update shape
 // ✅ Miss rule: miss = goodExpired + junkHit ; Shield block junk => NOT miss
 // ✅ Crosshair tap shoot (1 tap) + magnet/heroBurst uses layer offset
 // ✅ Anti-clump spawn + safeMargins
-// ✅ Emits hha:end + hha:log_session/event/profile (Google Sheet logger)
+// ✅ Emits hha:end (for end summary) + hha:log_session/events/profile (Google Sheet logger)
 
 'use strict';
 
@@ -97,8 +97,8 @@ function scoreGain(base, combo){
 }
 
 export function boot(opts = {}){
-  const diffKey   = String(opts.diff || 'normal').toLowerCase();
-  const runMode   = String(opts.run || 'play').toLowerCase();
+  const diffKey = String(opts.diff || 'normal').toLowerCase();
+  const runMode = String(opts.run || 'play').toLowerCase();
   const challenge = String(opts.challenge || 'rush').toLowerCase();
   const durationSec = clamp(opts.time || 60, 20, 180) | 0;
 
@@ -239,10 +239,8 @@ export function boot(opts = {}){
     final8Good: 0
   };
 
-  // expose for director getActive() fallback
   ROOT.__GJ_QSTATE__ = qState;
 
-  // ✅ สำคัญมาก: “นับ safe time” ต้องอัปเดตทุกครั้งที่โดน bad/หมดเวลา good
   let lastBadAt = now();
   const markBad = ()=>{
     lastBadAt = now();
@@ -263,7 +261,7 @@ export function boot(opts = {}){
     qState.final8Good = 0;
   }, { passive:true });
 
-  // ===== Logging helpers =====
+  // ===== Logging helpers (Google Sheet logger listens hha:log_*) =====
   function logEvent(name, extra){
     safeDispatch('hha:log_event', {
       sessionId,
@@ -300,7 +298,11 @@ export function boot(opts = {}){
       ...(extra||{})
     });
   }
-  safeDispatch('hha:log_profile', { ts: Date.now(), hint: 'optional (send student profile from hub.html later)' });
+
+  safeDispatch('hha:log_profile', {
+    ts: Date.now(),
+    hint: 'optional (send student profile from hub.html later)'
+  });
 
   function emitScore(){
     safeDispatch('hha:score', {
@@ -366,10 +368,12 @@ export function boot(opts = {}){
     const right  = innerWidth - SM.right;
     const top    = SM.top;
     const bottom = innerHeight - SM.bottom;
-    return { left, right: Math.max(left+10, right), top, bottom: Math.max(top+10, bottom) };
+    return {
+      left, right: Math.max(left+10, right),
+      top, bottom: Math.max(top+10, bottom)
+    };
   }
 
-  // ---- Anti-clump placement ----
   function rememberPt(x,y){
     S.recentPts.push({x,y,t:now()});
     if (S.recentPts.length > 14) S.recentPts.shift();
@@ -388,12 +392,12 @@ export function boot(opts = {}){
     if (posScreen){
       const xs = clamp(posScreen.x|0, R.left, R.right);
       const ys = clamp(posScreen.y|0, R.top,  R.bottom);
-      rememberPt(xs,ys);
       return { x: xs, y: ys };
     }
 
     const cur = getAimPoint();
-    for (let i=0;i<34;i++){
+    const tries = 34;
+    for (let i=0;i<tries;i++){
       const x = randi(R.left, R.right);
       const y = randi(R.top,  R.bottom);
       const awayAim = dist2(x,y, cur.x,cur.y) >= (190*190);
@@ -422,7 +426,6 @@ export function boot(opts = {}){
 
     const ap = getAimPoint();
     if ((S.shield|0) > 0){
-      // shield breaks -> NOT count miss (ตามกติกา)
       S.shield = 0;
       safeDispatch('quest:badHit', { kind: kind + ':shieldbreak' });
       setJudge('SHIELD BREAK!');
@@ -585,7 +588,12 @@ export function boot(opts = {}){
     el.style.transform = `translate(-50%,-50%) scale(${sc.toFixed(3)})`;
 
     const id = S.nextId++;
-    const t = { id, kind, el, x: xL, y: yL, bornAt: now(), expiresAt: now() + ttl };
+    const t = {
+      id, kind, el,
+      x: xL, y: yL,
+      bornAt: now(),
+      expiresAt: now() + ttl
+    };
     S.targets.set(id, t);
 
     el.addEventListener('pointerdown', (ev)=>{
@@ -646,6 +654,7 @@ export function boot(opts = {}){
     logEvent('boss_phase2', {});
     try{ Particles.celebrate && Particles.celebrate({ kind:'BOSS_PHASE2', intensity:1.6 }); }catch(_){}
     S.pulseNextAt = now() + 900;
+
     S.bossAtkNextAt = now() + 900;
     S.bossAtkLast = '';
     emitScore();
@@ -763,7 +772,11 @@ export function boot(opts = {}){
     const ap = getAimPoint();
     const center = { x: ap.x|0, y: ap.y|0 };
 
-    safeDispatch('hha:bossAtk', { name: pick });
+    const detail = { name: pick };
+    if (pick === 'ring')  detail.ttlMs = (diffKey==='hard' ? 1200 : 1350);
+    if (pick === 'laser'){ detail.warnMs = 420; detail.fireMs = 260; }
+    if (pick === 'storm') detail.ttlMs = (diffKey==='hard' ? 1900 : 1600);
+    safeDispatch('hha:bossAtk', detail);
 
     if (pick === 'ring'){
       setJudge('BOSS: RING!');
@@ -834,6 +847,21 @@ export function boot(opts = {}){
     }
   }
 
+  function syncQuestState(){
+    qState.score = S.score|0;
+    qState.goodHits = S.goodHits|0;
+    qState.miss = S.misses|0;
+    qState.comboMax = S.comboMax|0;
+    qState.timeLeft = S.timeLeft|0;
+    qState.safeNoJunkSeconds = Math.max(0, Math.floor((now() - lastBadAt) / 1000));
+  }
+
+  // ✅ helper: force director tick immediately (fix mini not counting immediately)
+  function tickQuestNow(){
+    syncQuestState();
+    qDir.tick(qState);
+  }
+
   function onHit(t, via='tap'){
     if (!S.running) return;
     if (S.finalLock){ setJudge('LOCK!'); return; }
@@ -862,6 +890,8 @@ export function boot(opts = {}){
       killEl(t.el); S.targets.delete(t.id);
       logEvent('hit_good', { via });
 
+      // (loop tick ก็พอ)
+
     } else if (t.kind === 'gold'){
       S.goodHits++;
       setCombo(S.combo + 1);
@@ -870,6 +900,7 @@ export function boot(opts = {}){
       const pts = scoreGain(90, S.combo);
       S.score += pts;
 
+      // ✅ PATCH: gold must count immediately for mini
       qState.goldHitsThisMini = 1;
       markGood();
 
@@ -880,6 +911,9 @@ export function boot(opts = {}){
 
       killEl(t.el); S.targets.delete(t.id);
       logEvent('hit_gold', { via });
+
+      // ✅ force director tick now (fix “เก็บแล้วไม่นับ”)
+      tickQuestNow();
 
     } else if (t.kind === 'power'){
       addFever(6);
@@ -896,6 +930,8 @@ export function boot(opts = {}){
 
       killEl(t.el); S.targets.delete(t.id);
       logEvent('hit_power', { via, emo });
+
+      // (loop tick ก็พอ)
 
     } else if (t.kind === 'boss'){
       setCombo(S.combo + 1);
@@ -925,11 +961,13 @@ export function boot(opts = {}){
       emitScore();
       logEvent('hit_boss', { via, hp:S.bossHp|0 });
 
+      // (loop tick ก็พอ)
+
     } else if (isBad){
       markBad();
 
       if ((S.shield|0) > 0){
-        // ✅ shield block junk => NOT miss (ยกเว้น boss phase2 โหด)
+        // ✅ shield block junk => NOT miss
         if (challenge === 'boss' && S.bossPhase === 2){
           S.shield = 0;
           S.junkHits++;
@@ -950,6 +988,9 @@ export function boot(opts = {}){
           fxKick(0.65);
           setPanic(0.35, 420);
           logEvent('block_bad', { via, kind:t.kind, shield:S.shield|0 });
+
+          // ✅ PATCH: blocks mini should update immediately
+          tickQuestNow();
         }
       } else {
         S.junkHits++;
@@ -967,19 +1008,20 @@ export function boot(opts = {}){
       killEl(t.el); S.targets.delete(t.id);
     }
 
-    if (!S.stunActive && (S.fever|0) >= 100) startStun();
+    if (!S.stunActive && (S.fever|0) >= 100){
+      startStun();
+    }
 
     emitScore();
     emitFever();
   }
 
-  // ✅ Crosshair shoot: nearest target around aim point
+  // ✅ Crosshair shoot: find nearest target around aim point
   function shootCrosshair(){
-    if (!S.running) return false;
+    if (!S.running) return;
     const ap = getAimPoint();
     const thr = 62; // px
     let best=null, bestD=1e18;
-
     for (const t of S.targets.values()){
       if (!t?.el) continue;
       const r = t.el.getBoundingClientRect();
@@ -992,14 +1034,12 @@ export function boot(opts = {}){
       onHit(best, 'crosshair');
       return true;
     }
-
     setJudge('MISS AIM!');
     safeDispatch('hha:fx', { type:'kick', intensity: 0.55 });
     logEvent('shoot_miss', { x:ap.x|0, y:ap.y|0 });
     return false;
   }
 
-  // bind shoot
   if (opts.shootEl){
     try{
       opts.shootEl.addEventListener('pointerdown', (ev)=>{
@@ -1022,7 +1062,6 @@ export function boot(opts = {}){
       if (t.kind === 'boss') continue;
       if (tnow >= t.expiresAt){
         if (t.kind === 'good' || t.kind === 'gold'){
-          // ✅ good expired => MISS++
           S.goodExpired++;
           S.misses++;
           setCombo(Math.max(0, (S.combo|0) - 2));
@@ -1054,20 +1093,26 @@ export function boot(opts = {}){
         killEl(t.el);
         S.targets.delete(t.id);
         logEvent('stun_break', { kind:t.kind });
+
+        // ✅ PATCH: stunBreaks mini should update immediately
+        tickQuestNow();
       }
     }
   }
 
   function getAimPointLayer(){
     const ap = getAimPoint();
-    return toLayerPt(ap.x, ap.y);
+    const p = toLayerPt(ap.x, ap.y);
+    return { x: p.x, y: p.y };
   }
 
   function heroBurstTick(){
     if (!S.heroBurstActive) return;
     const tnow = now();
-    if (tnow >= S.heroBurstEndsAt){ S.heroBurstActive = false; return; }
-
+    if (tnow >= S.heroBurstEndsAt){
+      S.heroBurstActive = false;
+      return;
+    }
     const apL = getAimPointLayer();
     const strength = 0.18;
     const swirl = 0.08;
@@ -1092,7 +1137,10 @@ export function boot(opts = {}){
   function magnetTick(){
     if (!S.magnetActive) return;
     const tnow = now();
-    if (tnow >= S.magnetEndsAt){ S.magnetActive = false; return; }
+    if (tnow >= S.magnetEndsAt){
+      S.magnetActive = false;
+      return;
+    }
 
     const apL = getAimPointLayer();
     const strength = (diffKey==='hard' ? 0.11 : diffKey==='easy' ? 0.08 : 0.095);
@@ -1134,10 +1182,12 @@ export function boot(opts = {}){
 
           const ga = S.ringGapA;
           const gw = S.ringGapW;
-          const diffA = Math.atan2(Math.sin(a-ga), Math.cos(a-ga));
-          const inGap = Math.abs(diffA) <= (gw*0.5);
+          const diff = Math.atan2(Math.sin(a-ga), Math.cos(a-ga));
+          const inGap = Math.abs(diff) <= (gw*0.5);
 
-          if (!inGap) applyPenalty('ring');
+          if (!inGap){
+            applyPenalty('ring');
+          }
         }
       }
     }
@@ -1148,7 +1198,9 @@ export function boot(opts = {}){
         try{ if (elLaser) elLaser.classList.remove('warn','fire'); }catch(_){}
       } else if (tnow >= S.laserFireAt && tnow <= S.laserEndsAt){
         const tol = (diffKey==='hard') ? 26 : 30;
-        if (Math.abs((ap.y|0) - (S.laserY|0)) <= tol) applyPenalty('laser');
+        if (Math.abs((ap.y|0) - (S.laserY|0)) <= tol){
+          applyPenalty('laser');
+        }
       }
     }
 
@@ -1182,9 +1234,11 @@ export function boot(opts = {}){
   function finalSprintTick(){
     if ((S.timeLeft|0) > 8) return;
 
-    const lv = clamp((8 - (S.timeLeft|0)) / 8, 0, 1);
-    setPanic(0.35 + lv*0.65, 650);
-    if ((S.timeLeft|0) <= 5) tick('final', 1.7);
+    if ((S.timeLeft|0) <= 8){
+      const lv = clamp((8 - (S.timeLeft|0)) / 8, 0, 1);
+      setPanic(0.35 + lv*0.65, 650);
+      if ((S.timeLeft|0) <= 5) tick('final', 1.7);
+    }
 
     const sec = S.timeLeft|0;
     if (S.lastFinalPulseSec !== sec){
@@ -1195,21 +1249,13 @@ export function boot(opts = {}){
     }
   }
 
-  function syncQuestState(){
-    qState.score = S.score|0;
-    qState.goodHits = S.goodHits|0;
-    qState.miss = S.misses|0;
-    qState.comboMax = S.comboMax|0;
-    qState.timeLeft = S.timeLeft|0;
-    qState.safeNoJunkSeconds = Math.max(0, Math.floor((now() - lastBadAt) / 1000));
-  }
-
   // ---- Init ----
   emitScore();
   emitTime();
   emitFever();
   syncQuestState();
   qDir.start(qState);
+
   logSession('start', { startedIso });
 
   function loop(){
@@ -1224,15 +1270,23 @@ export function boot(opts = {}){
       emitTime();
       finalSprintTick();
     }
-    if (remainMs <= 0){ endGame(); return; }
+    if (remainMs <= 0){
+      endGame();
+      return;
+    }
 
     if (!S.stunActive){
       const decay = S.feverDecayPerSec / 60;
       S.fever = Math.max(0, (S.fever||0) - decay);
     }
 
-    if (S.stunActive && tnow >= S.stunEndsAt) stopStun();
-    if (S.finalLock && tnow >= S.finalLockEndsAt) S.finalLock = false;
+    if (S.stunActive && tnow >= S.stunEndsAt){
+      stopStun();
+    }
+
+    if (S.finalLock && tnow >= S.finalLockEndsAt){
+      S.finalLock = false;
+    }
 
     maybeSpawnBoss();
 
@@ -1241,7 +1295,9 @@ export function boot(opts = {}){
         startBossPulse();
         S.pulseNextAt = tnow + 2150;
       }
-      if (S.pulseActive && tnow >= S.pulseDeadlineAt) resolveBossPulse();
+      if (S.pulseActive && tnow >= S.pulseDeadlineAt){
+        resolveBossPulse();
+      }
 
       if (tnow >= (S.bossAtkNextAt||0)){
         bossAttackPattern();
@@ -1266,7 +1322,9 @@ export function boot(opts = {}){
           else if (roll < 0.90) spawnTarget('gold');
           else spawnTarget('power');
 
-          if (Math.random() < (diffKey==='hard' ? 0.22 : 0.16)) spawnTarget('goodfake');
+          if (Math.random() < (diffKey==='hard' ? 0.22 : 0.16)){
+            spawnTarget('goodfake');
+          }
         } else {
           const roll = Math.random();
           if (roll < 0.48) spawnTarget('junk');
