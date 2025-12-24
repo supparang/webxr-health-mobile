@@ -7,435 +7,197 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (VR) -->
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + (optional) logger -->
+  <!-- Global FX + input compat + logger (defer สำคัญ) -->
   <script src="./vr/particles.js" defer></script>
+  <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
-
-  <!-- Plate game (DOM targets on top of A-Frame) -->
-  <script src="./plate.safe.js" defer></script>
 
   <style>
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.22);
+      --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
-      --warn:#facc15;
-      --danger:#fb7185;
-      --radius:18px;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
     }
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial;
-      background: radial-gradient(1200px 900px at 50% 30%, #0b1228, #020617 55%, #020617);
-      color:var(--text);
-      overflow:hidden;
-      touch-action:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    /* A-Frame full screen behind */
-    .vrStage{
-      position:fixed; inset:0;
-      z-index:10;
-    }
-    a-scene{ width:100%; height:100%; }
-
-    /* HUD zones (ให้ JS ใช้เป็น safezone กันทับ) */
-    #hudTop, #hudLeft, #hudRight, #hudBottom{
-      position:fixed;
-      z-index:850;
-      pointer-events:auto;
-    }
-
-    /* TOP — compact */
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); overflow:hidden;}
+    a-scene{position:fixed; inset:0;}
+    /* HUD minimal */
     #hudTop{
-      left:10px; right:10px; top:10px;
+      position:fixed; left:10px; right:10px; top:10px;
+      z-index:900; pointer-events:none;
+      display:flex; gap:10px; align-items:stretch; justify-content:space-between;
     }
-    .card{
+    .hudCard{
       background:var(--panel);
       border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:10px 10px;
-      box-shadow:0 18px 46px rgba(0,0,0,.28);
-      backdrop-filter: blur(10px);
-    }
-    .row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-    }
-    .row + .row{ margin-top:8px; }
-    .left{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-    .right{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:flex-end;
+      border-radius:16px;
+      padding:10px 12px;
+      backdrop-filter: blur(8px);
+      box-shadow:0 18px 44px rgba(0,0,0,.35);
+      display:flex; gap:10px; align-items:center;
+      pointer-events:none;
+      min-width: 0;
     }
     .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:7px 10px;
-      border-radius:999px;
-      background:rgba(2,6,23,.62);
-      border:1px solid rgba(148,163,184,.20);
-      font-weight:900;
-      letter-spacing:.02em;
-      line-height:1;
-      white-space:nowrap;
-    }
-    .pill .k{
-      font-size:12px;
-      color:rgba(229,231,235,.78);
-      font-weight:900;
-    }
-    .pill .v{
-      font-size:13px;
-      color:var(--text);
-      font-weight:1000;
-    }
-    .pill.big .v{ font-size:14px; }
-
-    .barWrap{
-      flex:1;
-      min-width:160px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:7px 10px;
-      border-radius:999px;
-      background:rgba(2,6,23,.62);
-      border:1px solid rgba(148,163,184,.20);
-    }
-    .barLabel{
-      font-weight:1000;
-      font-size:12px;
-      color:rgba(229,231,235,.78);
-      white-space:nowrap;
-    }
-    .bar{
-      position:relative;
-      flex:1;
-      height:10px;
-      border-radius:999px;
-      background:rgba(148,163,184,.16);
-      overflow:hidden;
+      display:inline-flex; gap:8px; align-items:baseline;
+      padding:8px 10px; border-radius:999px;
+      background:rgba(15,23,42,.55);
       border:1px solid rgba(148,163,184,.18);
-    }
-    #hudFever{
-      position:absolute; inset:0;
-      width:0%;
-      background:linear-gradient(90deg, rgba(34,197,94,.65), rgba(250,204,21,.70));
-    }
-    #hudFeverPct{
-      font-weight:1000;
-      font-size:12px;
-      color:rgba(229,231,235,.86);
-      min-width:46px;
-      text-align:right;
-    }
-
-    /* LEFT — goals/minis (เล็กลงเพื่อเพิ่ม gameplay) */
-    #hudLeft{
-      left:10px;
-      top:92px;
-      width:min(340px, 56vw);
-    }
-    .panel{
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:10px 10px;
-      box-shadow:0 18px 46px rgba(0,0,0,.28);
-      backdrop-filter: blur(10px);
-    }
-    .title{
-      font-weight:1000;
-      letter-spacing:.02em;
-      margin:0 0 6px 0;
-      font-size:13px;
-      color:rgba(229,231,235,.92);
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .line{
-      font-weight:950;
-      font-size:13px;
-      color:rgba(229,231,235,.92);
-      margin:0;
-    }
-    .hint{
-      margin-top:6px;
-      font-size:12px;
       font-weight:900;
-      color:rgba(148,163,184,.95);
+      white-space:nowrap;
     }
-    #miniPanel{
-      margin-top:10px;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.58);
-    }
-
-    /* RIGHT — buttons compact */
-    #hudRight{
-      right:10px;
-      top:92px;
-      width:min(220px, 40vw);
-    }
-    .btnCol{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
+    .k{color:var(--muted); font-weight:900; font-size:12px;}
+    .v{font-size:16px; font-weight:1000;}
+    #hudLeftGroup{display:flex; gap:8px; flex-wrap:wrap;}
+    #hudRightGroup{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
+    #hudBtns{
+      position:fixed; right:10px; bottom:10px;
+      z-index:910; display:flex; gap:10px;
     }
     .btn{
-      appearance:none;
+      pointer-events:auto;
+      background:rgba(2,6,23,.75);
       border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.72);
       color:var(--text);
-      border-radius:16px;
-      padding:10px 10px;
+      border-radius:14px;
+      padding:10px 12px;
       font-weight:1000;
-      letter-spacing:.02em;
-      box-shadow:0 12px 26px rgba(0,0,0,.22);
-      cursor:pointer;
+      box-shadow:0 16px 36px rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
       user-select:none;
     }
-    .btn:active{ transform: translateY(1px); }
-    .btn.primary{ border-color:rgba(34,197,94,.32); }
-    .btn.warn{ border-color:rgba(250,204,21,.34); }
-    .btn.danger{ border-color:rgba(251,113,133,.34); }
-
-    /* BOTTOM — minimal */
-    #hudBottom{
-      left:10px; right:10px; bottom:10px;
+    .btn:active{transform:translateY(1px);}
+    /* Mini/Goal compact strip */
+    #miniPanel{
+      position:fixed; left:10px; right:10px; bottom:64px;
+      z-index:905;
+      pointer-events:none;
+      background:rgba(2,6,23,.62);
+      border:1px solid rgba(148,163,184,.20);
+      border-radius:16px;
+      padding:10px 12px;
+      backdrop-filter: blur(8px);
+      box-shadow:0 18px 44px rgba(0,0,0,.35);
     }
-    .bottomRow{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-    .tip{
-      font-size:12px;
-      color:rgba(148,163,184,.95);
-      font-weight:900;
-    }
-    #hudPaused{
-      display:none;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(2,6,23,.74);
-      border:1px solid rgba(148,163,184,.22);
-      font-weight:1000;
-    }
-
+    #miniLine{font-weight:1000;}
+    #goalLine{margin-top:6px; color:rgba(229,231,235,.86); font-weight:900;}
+    #miniHint{margin-top:6px; color:rgba(148,163,184,.92); font-weight:900; font-size:13px; line-height:1.25;}
     /* Result overlay */
     #resultBackdrop{
-      position:fixed; inset:0;
-      z-index:999;
-      display:none;
+      position:fixed; inset:0; z-index:1200;
+      display:none; align-items:center; justify-content:center;
       background:rgba(2,6,23,.72);
       backdrop-filter: blur(10px);
-      padding:18px;
+      pointer-events:auto;
     }
-    .resultCard{
-      max-width:860px;
-      margin:0 auto;
+    #resultCard{
+      width:min(680px,92vw);
       background:rgba(2,6,23,.78);
       border:1px solid rgba(148,163,184,.22);
       border-radius:22px;
-      box-shadow:0 26px 80px rgba(0,0,0,.40);
       padding:16px;
+      box-shadow:0 26px 80px rgba(0,0,0,.55);
     }
-    .resultHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom:10px;
-    }
-    .resultTitle{
-      font-weight:1100;
-      font-size:18px;
-      margin:0;
-      letter-spacing:.02em;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap:10px;
-      margin-top:10px;
-    }
-    .stat{
-      background:rgba(15,23,42,.62);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
-      padding:10px;
-    }
-    .stat .k{ font-size:12px; color:rgba(148,163,184,.95); font-weight:900; }
-    .stat .v{ font-size:16px; font-weight:1100; margin-top:4px; }
-
-    .grid2{
-      display:grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap:10px;
-      margin-top:10px;
-    }
-
-    @media (max-width: 900px){
-      #hudLeft{ width:min(320px, 62vw); }
-      #hudRight{ width:min(210px, 44vw); }
-      .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-      .grid2{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-    }
-    @media (max-width: 560px){
-      #hudLeft{ width:min(300px, 74vw); top:88px; }
-      #hudRight{ width:min(190px, 46vw); top:88px; }
-      .tip{ font-size:11px; }
-      .pill .k{ display:none; } /* มือถือ: ซ่อน label ให้โล่ง */
+    .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px;}
+    .cell{background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px;}
+    .cell .k{display:block; margin-bottom:4px;}
+    /* hidden helper */
+    #hudPaused{
+      position:fixed; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      z-index:980;
+      display:none;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(2,6,23,.75);
+      border:1px solid rgba(148,163,184,.25);
+      font-weight:1000;
+      pointer-events:none;
     }
   </style>
+
+  <!-- ✅ ต้องชี้ไปที่โฟลเดอร์ plate/ -->
+  <script type="module" src="./plate/plate.safe.js"></script>
 </head>
 
 <body>
-  <!-- VR Stage (behind HUD & DOM targets) -->
-  <div class="vrStage">
-    <a-scene
-      embedded
-      vr-mode-ui="enabled: true"
-      renderer="colorManagement: true; physicallyCorrectLights: true"
-    >
-      <!-- Camera -->
-      <a-entity id="cam" camera position="0 1.6 0" look-controls="pointerLockEnabled: false"></a-entity>
+  <a-scene embedded vr-mode-ui="enabled: false">
+    <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
+  </a-scene>
 
-      <!-- Optional hands for controller events -->
-      <a-entity laser-controls="hand: left"></a-entity>
-      <a-entity laser-controls="hand: right"></a-entity>
-
-      <!-- Minimal background -->
-      <a-sky color="#060b1a"></a-sky>
-      <a-entity light="type: ambient; intensity: 0.9"></a-entity>
-      <a-entity light="type: directional; intensity: 0.8" position="0 3 2"></a-entity>
-    </a-scene>
-  </div>
-
-  <!-- HUD TOP (compact + necessary only) -->
+  <!-- HUD -->
   <div id="hudTop">
-    <div class="card">
-      <!-- row[0] -->
-      <div class="row">
-        <div class="left">
-          <span class="pill big">⏱️ <span class="k">TIME</span> <span class="v" id="hudTime">0</span></span>
-          <span class="pill big">🏆 <span class="k">SCORE</span> <span class="v" id="hudScore">0</span></span>
-          <span class="pill">🔥 <span class="k">COMBO</span> <span class="v" id="hudCombo">0</span></span>
-          <span class="pill">💥 <span class="k">MISS</span> <span class="v" id="hudMiss">0</span></span>
-          <span class="pill">⭐ <span class="k">PERF</span> <span class="v" id="hudPerfectCount">0</span></span>
-          <span class="pill">🏷️ <span class="k">GRADE</span> <span class="v" id="hudGrade">C</span></span>
-        </div>
-        <div class="right">
-          <span class="pill">🎮 <span class="k">MODE</span> <span class="v" id="hudMode">Play</span></span>
-          <span class="pill">🎚️ <span class="k">DIFF</span> <span class="v" id="hudDiff">Normal</span></span>
-          <span class="pill">🍽️ <span class="k">HAVE</span> <span class="v" id="hudGroupsHave">0/5</span></span>
-        </div>
+    <div class="hudCard" style="flex:1">
+      <div id="hudLeftGroup">
+        <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
+        <span class="pill">🏆 <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
+        <span class="pill">⚡ <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
+        <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
+        <span class="pill">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
       </div>
+    </div>
 
-      <!-- row[1]  (JS จะ append Shield/Lives/State pills มาที่แถวนี้อัตโนมัติ) -->
-      <div class="row">
-        <div class="left" style="flex:1; min-width:220px;">
-          <div class="barWrap">
-            <div class="barLabel">FEVER</div>
-            <div class="bar"><div id="hudFever"></div></div>
-            <div id="hudFeverPct">0%</div>
-          </div>
-        </div>
-        <div class="right"></div>
+    <div class="hudCard" style="flex:0 0 auto">
+      <div id="hudRightGroup">
+        <span class="pill">🔥 <span class="k">FEVER</span> <span id="hudFeverPct" class="v">0%</span></span>
+        <span class="pill">🎖️ <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
+        <span class="pill">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
+        <span class="pill">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Easy</span></span>
+        <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
       </div>
     </div>
   </div>
 
-  <!-- HUD LEFT (Goal + Mini) -->
-  <div id="hudLeft">
-    <div class="panel">
-      <div class="title">🎯 QUEST</div>
-      <p class="line" id="hudGoalLine">Goal …</p>
-
-      <div class="panel" id="miniPanel">
-        <div class="title">🧩 MINI</div>
-        <p class="line" id="hudMiniLine">Mini …</p>
-        <div class="hint" id="hudMiniHint">…</div>
-      </div>
-    </div>
+  <div id="miniPanel">
+    <div id="miniLine">MINI: …</div>
+    <div id="goalLine">Goal: …</div>
+    <div id="miniHint">…</div>
   </div>
 
-  <!-- HUD RIGHT (Controls) -->
-  <div id="hudRight">
-    <div class="panel">
-      <div class="title">⚙️ CONTROLS</div>
-      <div class="btnCol">
-        <button class="btn primary" id="btnEnterVR" type="button">🥽 ENTER VR</button>
-        <button class="btn warn" id="btnPause" type="button">⏸️ PAUSE</button>
-        <button class="btn danger" id="btnRestart" type="button">🔄 RESTART</button>
-      </div>
-    </div>
+  <div id="hudBtns">
+    <button class="btn" id="btnEnterVR">🕶️ ENTER VR</button>
+    <button class="btn" id="btnPause">⏸️ PAUSE</button>
+    <button class="btn" id="btnRestart">🔁 RESTART</button>
   </div>
 
-  <!-- HUD BOTTOM (minimal tip + paused) -->
-  <div id="hudBottom">
-    <div class="card">
-      <div class="bottomRow">
-        <div class="tip">แตะหน้าจอ/คลิก = ยิงกลางจอ • VR = กด Trigger • เล็งให้เข้า “PERFECT ZONE”</div>
-        <div id="hudPaused">⏸️ PAUSED</div>
-      </div>
-    </div>
-  </div>
+  <div id="hudPaused">⏸️ PAUSED</div>
 
-  <!-- RESULT -->
+  <!-- Result -->
   <div id="resultBackdrop">
-    <div class="resultCard">
-      <div class="resultHead">
-        <h2 class="resultTitle">🏁 GAME SUMMARY</h2>
-        <button class="btn primary" id="btnPlayAgain" type="button">▶️ PLAY AGAIN</button>
+    <div id="resultCard">
+      <div style="font-weight:1100; font-size:20px">สรุปผลเกม (Plate VR)</div>
+      <div style="color:rgba(148,163,184,.95); font-weight:900; margin-top:6px">
+        Mode: <span id="rMode">—</span> • Grade: <span id="rGrade">—</span>
       </div>
 
       <div class="grid">
-        <div class="stat"><div class="k">MODE</div><div class="v" id="rMode">Play</div></div>
-        <div class="stat"><div class="k">GRADE</div><div class="v" id="rGrade">C</div></div>
-        <div class="stat"><div class="k">SCORE</div><div class="v" id="rScore">0</div></div>
-        <div class="stat"><div class="k">MAX COMBO</div><div class="v" id="rMaxCombo">0</div></div>
-        <div class="stat"><div class="k">MISS</div><div class="v" id="rMiss">0</div></div>
-        <div class="stat"><div class="k">PERFECT</div><div class="v" id="rPerfect">0</div></div>
-        <div class="stat"><div class="k">GOALS</div><div class="v" id="rGoals">0/2</div></div>
-        <div class="stat"><div class="k">MINIS</div><div class="v" id="rMinis">0/7</div></div>
+        <div class="cell"><span class="k">Score</span><span id="rScore" class="v">0</span></div>
+        <div class="cell"><span class="k">Max Combo</span><span id="rMaxCombo" class="v">0</span></div>
+        <div class="cell"><span class="k">Miss</span><span id="rMiss" class="v">0</span></div>
+        <div class="cell"><span class="k">Perfect</span><span id="rPerfect" class="v">0</span></div>
+        <div class="cell"><span class="k">Goals</span><span id="rGoals" class="v">0/2</span></div>
+        <div class="cell"><span class="k">Minis</span><span id="rMinis" class="v">0/7</span></div>
       </div>
 
-      <div class="grid2">
-        <div class="stat"><div class="k">G1</div><div class="v" id="rG1">0</div></div>
-        <div class="stat"><div class="k">G2</div><div class="v" id="rG2">0</div></div>
-        <div class="stat"><div class="k">G3</div><div class="v" id="rG3">0</div></div>
-        <div class="stat"><div class="k">G4</div><div class="v" id="rG4">0</div></div>
-        <div class="stat"><div class="k">G5</div><div class="v" id="rG5">0</div></div>
-        <div class="stat"><div class="k">TOTAL</div><div class="v" id="rGTotal">0</div></div>
+      <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+        <div class="cell"><span class="k">G1</span><span id="rG1" class="v">0</span></div>
+        <div class="cell"><span class="k">G2</span><span id="rG2" class="v">0</span></div>
+        <div class="cell"><span class="k">G3</span><span id="rG3" class="v">0</span></div>
+        <div class="cell"><span class="k">G4</span><span id="rG4" class="v">0</span></div>
+        <div class="cell"><span class="k">G5</span><span id="rG5" class="v">0</span></div>
+        <div class="cell"><span class="k">Total</span><span id="rGTotal" class="v">0</span></div>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px">
+        <button class="btn" id="btnPlayAgain">▶️ เล่นอีกครั้ง</button>
       </div>
     </div>
   </div>
