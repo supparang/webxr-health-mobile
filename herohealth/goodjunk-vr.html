@@ -1,8 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
-- ไม่ฝืน start logic: ปล่อยให้ goodjunk-vr.boot.js เป็นตัวเริ่มเกม
-- เพิ่ม Fatal Overlay บนจอ: ถ้ามี error จะเห็นทันที (มือถือก็รู้เรื่อง)
-- ปรับ layout ให้ gameplay โล่งขึ้น: HUD บางลง + Quest/Coach เป็นแถบเล็ก + compact auto
+GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
+✅ Restore Start Overlay IDs that boot expects (prevents "black screen / no spawn")
+✅ No forced start logic in HTML (boot owns start)
+✅ Compact HUD/Quest/Coach for more gameplay space + Quest peek
+✅ Fatal overlay shows runtime errors on mobile
 -->
 
 <!doctype html>
@@ -14,23 +15,23 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core (ถ้าเกมใช้ Enter VR UI) -->
+  <!-- A-Frame (Enter VR button) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ สำคัญ: particles ก่อน boot เสมอ -->
+  <!-- Global FX + optional logger + UI binders (IIFE) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
 
-  <!-- Boot module -->
+  <!-- ✅ Boot (module) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 
   <style>
     :root{
       color-scheme: light dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.78);
+      --panel:rgba(2,6,23,.72);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
@@ -39,7 +40,7 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
       --safeTop: env(safe-area-inset-top, 0px);
       --safeBottom: env(safe-area-inset-bottom, 0px);
 
-      /* ✅ ปรับให้ gameplay โล่ง */
+      /* ✅ เพิ่มพื้นที่เกม */
       --hudH: 44px;
     }
 
@@ -53,11 +54,19 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
         var(--bg);
       color:var(--text);
       overflow:hidden;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", "Noto Sans", Arial,
-                   "Apple Color Emoji","Segoe UI Emoji";
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", "Noto Sans",
+                   Arial, "Apple Color Emoji","Segoe UI Emoji";
     }
 
-    /* ===== Gameplay layer (DOM targets spawn here) ===== */
+    /* Optional A-Frame background behind DOM gameplay (safe) */
+    .sceneWrap{
+      position:fixed; inset:0;
+      z-index:0;
+      pointer-events:none;
+    }
+    a-scene{ width:100%; height:100%; }
+
+    /* ===== Gameplay DOM layer (targets spawn here) ===== */
     #gj-layer{
       position:fixed; inset:0;
       z-index:2;
@@ -67,7 +76,7 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
       -webkit-user-select:none;
     }
 
-    /* ===== Top HUD (บางลง) ===== */
+    /* ===== Top HUD (thin) ===== */
     #hudTop, .hha-topbar, .hha-hud-top{
       position:fixed;
       left:12px; right:12px;
@@ -80,7 +89,7 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
       padding: 6px 10px;
       border:1px solid var(--stroke);
       border-radius:999px;
-      background: rgba(2,6,23,.50);
+      background: rgba(2,6,23,.48);
       backdrop-filter: blur(12px);
       box-shadow: 0 10px 40px rgba(0,0,0,.25);
       z-index:10;
@@ -103,16 +112,7 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
     .kv .label{ font-size:10px; color:var(--muted); letter-spacing:.06em; }
     .kv .big{ font-size:18px; font-weight:900; line-height:1; }
 
-    /* ===== Fever mount (ให้ ui-fever.js แปะเอง) ===== */
-    #feverMount{
-      position:fixed;
-      right:12px;
-      top: calc(var(--safeTop) + 62px);
-      z-index:10;
-      pointer-events:auto;
-    }
-
-    /* ===== Coach bubble (เล็กลง ไม่บัง) ===== */
+    /* ===== Coach bubble (small) ===== */
     #coachBox{
       position:fixed;
       left:12px;
@@ -128,6 +128,7 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
       border: 1px solid rgba(148,163,184,.16);
       backdrop-filter: blur(10px);
       box-shadow: 0 14px 50px rgba(0,0,0,.28);
+      pointer-events:none; /* กันบังการแตะเป้า */
     }
     #coachImg{ width:36px; height:36px; object-fit:contain; }
     #coachText{
@@ -140,7 +141,7 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
       -webkit-box-orient: vertical;
     }
 
-    /* ===== Quest pill (ยาวแต่เตี้ย) ===== */
+    /* ===== Quest pill (bottom, low height) ===== */
     #questBox{
       position:fixed;
       left:12px; right:12px;
@@ -183,12 +184,68 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
     }
     #questNum{ font-size:12px; color:var(--muted); font-weight:800; white-space:nowrap; }
 
-    /* ===== Compact mode: ยุบเพิ่มตอนเล่นจริง ===== */
+    /* ===== Compact mode (during gameplay) ===== */
     body.hha-compact #questBox{ max-height:44px; padding:8px 10px; opacity:.86; }
     body.hha-compact #coachBox{ opacity:.78; transform: translateY(6px); }
     body.hha-compact.hha-peek #questBox{ max-height:92px; opacity:1; }
 
-    /* ===== Fatal overlay (โชว์ error มือถือ) ===== */
+    /* ===== Start Overlay (RESTORED IDs) ===== */
+    #startOverlay{
+      position:fixed; inset:0;
+      z-index:30;
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      padding: 22px 16px calc(var(--safeBottom) + 18px);
+      background: radial-gradient(900px 500px at 50% 5%, rgba(59,130,246,.18), transparent 60%),
+                  rgba(2,6,23,.78);
+      backdrop-filter: blur(12px);
+    }
+    .startCard{
+      width:min(640px, 100%);
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      background: rgba(2,6,23,.68);
+      box-shadow: 0 18px 70px rgba(0,0,0,.45);
+      padding: 16px 16px 14px;
+    }
+    .startTitle{ font-size:20px; font-weight:1000; margin:0 0 6px 0; }
+    .startSub{ margin:0 0 12px 0; color:var(--muted); font-size:13px; line-height:1.3; }
+    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.45);
+      color:var(--text);
+      border-radius:14px;
+      padding: 12px 14px;
+      font-weight:1000;
+      font-size:14px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      cursor:pointer;
+    }
+    .btn.primary{
+      border-color: rgba(34,197,94,.35);
+      background: linear-gradient(180deg, rgba(34,197,94,.28), rgba(34,197,94,.10));
+    }
+    .btn.ghost{ background: rgba(2,6,23,.30); }
+    .btn:active{ transform: translateY(1px); }
+
+    /* ===== End Overlay (keep IDs for summary) ===== */
+    #endOverlay{
+      position:fixed; inset:0;
+      z-index:40;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 18px 14px;
+      background: rgba(2,6,23,.78);
+      backdrop-filter: blur(14px);
+    }
+
+    /* ===== Fatal overlay (mobile debug) ===== */
     #hhaFatal{
       position:fixed; inset:0;
       display:none;
@@ -221,20 +278,35 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
       border:1px solid rgba(255,255,255,.18);
       border-radius:14px;
       padding:10px 12px;
-      font-weight:900;
+      font-weight:1000;
       background: rgba(255,255,255,.08);
       color:#fff;
       cursor:pointer;
+    }
+
+    @media (max-width: 420px){
+      .pill{ padding:6px 8px; }
+      .kv .big{ font-size:17px; }
     }
   </style>
 </head>
 
 <body>
 
-  <!-- Gameplay layer -->
+  <!-- Optional A-Frame background -->
+  <div class="sceneWrap" aria-hidden="true">
+    <a-scene embedded renderer="antialias: true; colorManagement: true" vr-mode-ui="enabled: true">
+      <a-entity camera position="0 1.6 0" look-controls="enabled:true"></a-entity>
+      <a-sky color="#050b1a"></a-sky>
+      <a-entity light="type: ambient; intensity: 0.8"></a-entity>
+      <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
+    </a-scene>
+  </div>
+
+  <!-- Gameplay DOM layer -->
   <div id="gj-layer" aria-label="GoodJunk gameplay layer"></div>
 
-  <!-- HUD top -->
+  <!-- HUD -->
   <div id="hudTop" class="hha-topbar" role="status" aria-label="HUD">
     <div class="hud-group" style="min-width:0">
       <div class="pill" title="Mode">
@@ -248,28 +320,19 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
     </div>
 
     <div class="hud-group">
-      <div class="pill">
-        <div class="kv"><div class="label">SCORE</div><div class="big" id="hudScore">0</div></div>
-      </div>
-      <div class="pill">
-        <div class="kv"><div class="label">COMBO MAX</div><div class="big" id="hudComboMax">0</div></div>
-      </div>
-      <div class="pill">
-        <div class="kv"><div class="label">MISS</div><div class="big" id="hudMiss">0</div></div>
-      </div>
+      <div class="pill"><div class="kv"><div class="label">SCORE</div><div class="big" id="hudScore">0</div></div></div>
+      <div class="pill"><div class="kv"><div class="label">COMBO MAX</div><div class="big" id="hudComboMax">0</div></div></div>
+      <div class="pill"><div class="kv"><div class="label">MISS</div><div class="big" id="hudMiss">0</div></div></div>
     </div>
   </div>
 
-  <!-- Fever mount -->
-  <div id="feverMount"></div>
-
-  <!-- Coach bubble -->
+  <!-- Coach -->
   <div id="coachBox" aria-live="polite">
     <img id="coachImg" src="./img/coach-neutral.png" alt="coach" />
     <div id="coachText">พร้อมลุย! เก็บของดี เลี่ยงขยะนะ 💪</div>
   </div>
 
-  <!-- Quest pill -->
+  <!-- Quest -->
   <div id="questBox" title="แตะเพื่อดูรายละเอียด 2 วินาที">
     <div id="questTitle">Goal: เริ่มภารกิจ…</div>
     <div class="qrow">
@@ -278,7 +341,26 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
     </div>
   </div>
 
-  <!-- Fatal overlay -->
+  <!-- Start Overlay (RESTORED for boot) -->
+  <div id="startOverlay">
+    <div class="startCard">
+      <h1 class="startTitle">GoodJunk VR 🥦🗑️</h1>
+      <p class="startSub">
+        เริ่มเล่นแล้ว UI จะยุบให้พื้นที่เกมกว้างขึ้น<br/>
+        (แตะแถบ Goal เพื่อ peek 2 วินาที)
+      </p>
+      <div class="btnRow">
+        <!-- ✅ IDs ที่ boot มักใช้ -->
+        <button id="btnStart" class="btn primary">▶️ เริ่มเล่น</button>
+        <button id="btnEnterVR" class="btn ghost">🥽 Enter VR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- End Overlay (ให้ boot/hud แสดงเอง) -->
+  <div id="endOverlay" aria-hidden="true"></div>
+
+  <!-- Fatal -->
   <div id="hhaFatal">
     <div class="card">
       <h3>เกิดข้อผิดพลาดในเกม (Fatal)</h3>
@@ -288,7 +370,7 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
   </div>
 
   <script>
-    // ---- Fatal overlay: ให้เห็น error บนมือถือทันที ----
+    // Fatal overlay
     (function(){
       const box = document.getElementById('hhaFatal');
       const txt = document.getElementById('hhaFatalText');
@@ -299,7 +381,7 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
         box.style.display = 'block';
       }
       window.addEventListener('error', (e)=>{
-        const m = (e && (e.message || e.error && e.error.stack)) || 'Unknown error';
+        const m = (e && (e.message || (e.error && e.error.stack))) || 'Unknown error';
         show(m);
       });
       window.addEventListener('unhandledrejection', (e)=>{
@@ -309,25 +391,18 @@ GoodJunkVR — FULL HTML (SAFE START + MORE GAMEPLAY SPACE)
       if(btn) btn.onclick = ()=> location.reload();
     })();
 
-    // ---- Compact/peek: เพิ่มพื้นที่ gameplay โดยไม่ไปยุ่ง logic เกม ----
+    // Compact/peek only (no start logic)
     (function(){
       const body = document.body;
       const q = document.getElementById('questBox');
 
       function compact(on){ body.classList.toggle('hha-compact', !!on); }
 
-      // ถ้าเกมยิง event เหล่านี้อยู่แล้ว เราจะยุบ/ขยายให้เองแบบปลอดภัย
+      // ถ้าเกมยิง event อยู่แล้ว → ใช้ได้ทันที
       window.addEventListener('hha:start', ()=> compact(true));
       window.addEventListener('hha:end',   ()=> compact(false));
 
-      // เผื่อเกมไม่ได้ยิง hha:start: รอ 700ms แล้วถ้ามีเป้าโผล่ -> ยุบ
-      setTimeout(()=>{
-        const layer = document.getElementById('gj-layer');
-        const hasTargets = layer && layer.children && layer.children.length > 0;
-        if(hasTargets) compact(true);
-      }, 700);
-
-      // แตะ quest เพื่อ peek 2 วิ
+      // แตะ quest เพื่อ peek
       if(q){
         q.addEventListener('click', ()=>{
           body.classList.add('hha-peek');
