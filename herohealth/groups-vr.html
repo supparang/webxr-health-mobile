@@ -1,9 +1,10 @@
 <!-- === /herohealth/groups-vr.html ===
-Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
-✅ Script order fixed (defer): particles → fever → hud → logger → quests → engine → boot
-✅ HUD+Quest robust: supports miss/misses, left/sec, goalText/miniText fallbacks
-✅ data-hha-exclude="1" added for safezone-aware engines
-✅ Start sets window.__FG_STARTED__ = true
+Food Groups VR — FULL HTML (PRODUCTION READY + SCHOOL/RESEARCH + END SUMMARY)
+✅ Quest IIFE loads before Engine
+✅ Boot IIFE (groups.safe.js) optional autostart + guard
+✅ School/Seed generator (play random / research fixed)
+✅ End Summary overlay (listens hha:end)
+✅ Camera id = #cam (engine/boot compatible)
 -->
 
 <!doctype html>
@@ -18,19 +19,19 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
   <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX / Fever / HUD / Logger (IIFE) -->
+  <!-- Global FX / HUD / Fever / Logger (IIFE) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Quest FIRST (IIFE) -->
+  <!-- ✅ Quest FIRST (IIFE) -->
   <script src="./vr-groups/groups-quests.js" defer></script>
 
-  <!-- Engine AFTER quest (IIFE -> window.GroupsVR.GameEngine) -->
+  <!-- ✅ Engine AFTER quest -->
   <script src="./vr-groups/GameEngine.js" defer></script>
 
-  <!-- Boot (IIFE -> window.GroupsBoot.start/stop) -->
+  <!-- ✅ Boot LAST (bind + autostart + guard) -->
   <script src="./vr-groups/groups.safe.js" defer></script>
 
   <style>
@@ -45,6 +46,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       --accent:#22c55e;
       --danger:#ef4444;
       --warn:#f59e0b;
+      --info:#3b82f6;
 
       --radius:18px;
       --radius2:22px;
@@ -66,13 +68,13 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
     }
     a-scene{ position:absolute; inset:0; z-index:0; }
 
-    /* Targets layer */
     #fg-layer{
       position:absolute; inset:0; z-index:5;
       pointer-events:auto;
       touch-action:manipulation;
     }
 
+    /* ---- Targets (emoji) ---- */
     .fg-target{
       position:absolute;
       left:var(--x, 50%); top:var(--y, 52%);
@@ -82,7 +84,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       display:flex; align-items:center; justify-content:center;
 
       font-size:58px; line-height:1;
-      font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
+      font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
 
       background:
         radial-gradient(90px 80px at 35% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),
@@ -155,6 +157,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       background: rgba(255,255,255,.06);
       border:1px solid rgba(255,255,255,.10);
       transform: scale(1.04);
+      font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui;
     }
     .fg-afterimage.a2{ opacity:.16; }
     @keyframes aiFade{
@@ -178,15 +181,19 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       background: linear-gradient(90deg, rgba(168,85,247,.95), rgba(59,130,246,.85));
     }
 
-    /* HUD */
-    .hud{ position:absolute; inset:0; z-index:20; pointer-events:none; }
-
+    /* ---- HUD ---- */
+    .hud{
+      position:absolute; inset:0; z-index:20;
+      pointer-events:none;
+    }
     .topbar{
       position:absolute; left:12px; right:12px; top:10px;
-      display:flex; gap:10px; align-items:flex-start;
+      display:flex; gap:10px;
+      align-items:flex-start;
       pointer-events:none;
     }
     .pill{
+      pointer-events:none;
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:999px;
@@ -200,6 +207,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
     .v{ font-size:16px; font-weight:750; }
 
     .questBox{
+      pointer-events:none;
       flex:1;
       background:var(--panel);
       border:1px solid var(--stroke);
@@ -209,10 +217,22 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       backdrop-filter: blur(10px);
       min-height:64px;
     }
-    .questTitle{ display:flex; align-items:center; gap:8px; font-weight:900; }
-    .questTitle small{ font-weight:800; color:var(--muted); }
+    .questTitle{ display:flex; align-items:center; gap:8px; font-weight:800; }
+    .questTitle small{ font-weight:700; color:var(--muted); }
     .qline{ margin-top:6px; font-size:14px; color:var(--text); opacity:.96; }
     .qline .muted{ color:var(--muted); }
+    .qbadge{
+      display:inline-flex; align-items:center; gap:6px;
+      margin-left:10px;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      font-size:12px;
+      color:var(--muted);
+    }
+    .qok{ color:rgba(34,197,94,.95); }
+    .qbad{ color:rgba(239,68,68,.95); }
 
     .coachBox{
       position:absolute; left:12px; top:86px;
@@ -226,7 +246,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       pointer-events:none;
     }
     .coachText{ font-size:14px; color:var(--text); line-height:1.35; }
-    .coachSub{ color:var(--muted); font-size:12.5px; margin-top:4px; }
+    .coachText .sub{ color:var(--muted); font-size:12.5px; margin-top:4px; }
 
     .controls{
       position:absolute; left:12px; right:12px; bottom:14px;
@@ -235,17 +255,18 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       z-index:30;
       pointer-events:none;
     }
-    .hintCol{ flex:1; display:flex; flex-direction:column; gap:10px; }
+    .hintCol{ flex:1; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
     .hint{
+      pointer-events:none;
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--radius);
       padding:12px 12px;
       box-shadow:var(--shadow);
       backdrop-filter: blur(10px);
-      font-weight:900;
+      font-weight:750;
     }
-    .hint small{ display:block; font-weight:750; color:var(--muted); margin-top:4px; }
+    .hint small{ display:block; font-weight:650; color:var(--muted); margin-top:4px; }
 
     .btnCol{ display:flex; gap:10px; pointer-events:auto; }
     .btn{
@@ -255,7 +276,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       background:rgba(255,255,255,.08);
       color:var(--text);
       padding:12px 14px;
-      font-weight:950;
+      font-weight:850;
       box-shadow:var(--shadow);
       backdrop-filter: blur(10px);
       cursor:pointer;
@@ -265,9 +286,8 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
     .btn.primary{ background:rgba(34,197,94,.18); border-color:rgba(34,197,94,.30); }
     .btn.danger{ background:rgba(239,68,68,.18); border-color:rgba(239,68,68,.30); }
     .btn.ghost{ background:rgba(255,255,255,.06); }
-    .btnMini{ min-width:64px; border-radius:14px; padding:10px 12px; font-weight:950; }
+    .btnMini{ min-width:64px; border-radius:14px; padding:10px 12px; font-weight:900; }
 
-    /* Center reticle */
     #reticle{
       position:absolute; left:50%; top:50%;
       transform:translate(-50%,-50%);
@@ -283,7 +303,6 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
     #reticle.miss{ background:rgba(239,68,68,.65); box-shadow:0 0 22px rgba(239,68,68,.18); }
     #reticle.perfect{ background:rgba(245,158,11,.72); box-shadow:0 0 24px rgba(245,158,11,.22); }
 
-    /* Lock UI */
     #lockUI{
       position:absolute; left:0; top:0;
       width:10px; height:10px;
@@ -294,11 +313,12 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       transition: opacity .08s linear;
     }
     #lockUI.on{ opacity:1; }
+    #lockSvg{ overflow:visible; }
     .ringBack{ stroke:rgba(255,255,255,.20); stroke-width:5; fill:none; }
     .ringProg{ stroke:rgba(34,197,94,.90); stroke-width:6; fill:none; stroke-linecap:round; }
     .ringCharge{ stroke:rgba(59,130,246,.95); stroke-width:6; fill:none; stroke-linecap:round; opacity:.92; }
 
-    /* Start overlay */
+    /* ---- Start Overlay ---- */
     #startOverlay{
       position:absolute; inset:0; z-index:60;
       background: radial-gradient(900px 500px at 50% 40%, rgba(59,130,246,.16), transparent 60%),
@@ -307,7 +327,7 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       padding:18px;
     }
     .card{
-      width:min(560px, 100%);
+      width:min(760px, 100%);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:24px;
@@ -315,18 +335,18 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       padding:16px;
       backdrop-filter: blur(12px);
     }
-    .h1{ font-size:18px; font-weight:1000; margin:0 0 8px; }
+    .h1{ font-size:18px; font-weight:950; margin:0 0 8px; }
     .p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.45; }
     .row{ display:flex; gap:10px; flex-wrap:wrap; }
     .seg{
       flex:1;
-      min-width:140px;
+      min-width:160px;
       background:rgba(255,255,255,.06);
       border:1px solid rgba(255,255,255,.12);
       border-radius:16px;
       padding:10px;
     }
-    .seg label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:900; }
+    .seg label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; font-weight:800; }
     select,input{
       width:100%;
       padding:10px 10px;
@@ -334,9 +354,28 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       border:1px solid rgba(255,255,255,.14);
       background:rgba(2,6,23,.55);
       color:var(--text);
-      font-weight:900;
+      font-weight:800;
       outline:none;
     }
+    .inline{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      margin-top:10px;
+    }
+    .chip{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      font-size:12px;
+      color:var(--muted);
+      user-select:none;
+    }
+    .chip b{ color:var(--text); }
+    .chip.ok{ border-color: rgba(34,197,94,.22); }
+    .chip.warn{ border-color: rgba(245,158,11,.22); }
+    .chip.bad{ border-color: rgba(239,68,68,.22); }
+
     .startBtn{
       width:100%;
       margin-top:12px;
@@ -345,30 +384,92 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       border:1px solid rgba(34,197,94,.35);
       background:rgba(34,197,94,.20);
       color:var(--text);
-      font-weight:1000;
+      font-weight:950;
       cursor:pointer;
     }
     .startBtn:active{ transform: translateY(1px); }
-    .note{ margin-top:10px; font-size:12px; color:var(--muted); line-height:1.35; }
 
-    /* Debug pill */
-    .debugPill{
-      position:absolute;
-      right:12px; bottom:118px;
-      z-index:40;
-      pointer-events:none;
-      font-size:11px;
+    .note{
+      margin-top:10px;
+      font-size:12px;
       color:var(--muted);
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(2,6,23,.55);
-      backdrop-filter: blur(10px);
-      box-shadow:0 10px 30px rgba(0,0,0,.35);
+      line-height:1.35;
     }
-    .dot{ display:inline-block; width:8px; height:8px; border-radius:999px; margin-right:6px; background:#64748b; vertical-align:middle; }
-    .dot.ok{ background:#22c55e; }
-    .dot.no{ background:#ef4444; }
+
+    /* ---- End Summary Overlay ---- */
+    #endOverlay{
+      position:absolute; inset:0; z-index:80;
+      background: radial-gradient(900px 500px at 50% 40%, rgba(34,197,94,.14), transparent 60%),
+                  rgba(2,6,23,.74);
+      display:none;
+      align-items:center; justify-content:center;
+      padding:18px;
+    }
+    .endCard{
+      width:min(640px, 100%);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      padding:16px;
+      backdrop-filter: blur(12px);
+    }
+    .endTitle{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+    .bigGrade{
+      font-size:28px; font-weight:1000;
+      padding:6px 12px;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+    }
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+    .box{
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:16px;
+      padding:12px;
+    }
+    .box .k{ font-size:12px; color:var(--muted); font-weight:800; }
+    .box .v{ font-size:18px; font-weight:950; margin-top:4px; }
+    .endBtns{
+      display:flex; gap:10px; flex-wrap:wrap;
+      margin-top:12px;
+    }
+    .btnWide{ flex:1; min-width:160px; }
+
+    /* ---- CLUTCH edge pulse (optional) ---- */
+    #edgePulse{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+      border-radius: 24px;
+      box-shadow:
+        inset 0 0 0 2px rgba(245,158,11,.00),
+        inset 0 0 38px rgba(245,158,11,.00);
+    }
+    #edgePulse.on{
+      opacity:1;
+      box-shadow:
+        inset 0 0 0 2px rgba(245,158,11,.16),
+        inset 0 0 38px rgba(245,158,11,.10);
+    }
+    #edgePulse.beat{ animation: edgeBeat .24s ease-out both; }
+    @keyframes edgeBeat{
+      0%{ box-shadow: inset 0 0 0 2px rgba(245,158,11,.18), inset 0 0 42px rgba(245,158,11,.12); transform: scale(1); }
+      55%{ box-shadow: inset 0 0 0 3px rgba(245,158,11,.34), inset 0 0 72px rgba(245,158,11,.22); transform: scale(1.006); }
+      100%{ box-shadow: inset 0 0 0 2px rgba(245,158,11,.16), inset 0 0 38px rgba(245,158,11,.10); transform: scale(1); }
+    }
   </style>
 </head>
 
@@ -392,9 +493,9 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
 
     <div id="fg-layer" aria-label="targets layer"></div>
 
-    <div class="hud" data-hha-exclude="1">
-      <div class="topbar" data-hha-exclude="1">
-        <div class="pill stats" data-hha-exclude="1">
+    <div class="hud">
+      <div class="topbar">
+        <div class="pill stats">
           <div class="stat"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
           <div class="stat"><div class="k">COMBO</div><div class="v" id="hudCombo">0</div></div>
           <div class="stat"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
@@ -403,33 +504,40 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
           <div class="stat"><div class="k">GRADE</div><div class="v" id="hudGrade">C</div></div>
         </div>
 
-        <div class="questBox" data-hha-exclude="1">
-          <div class="questTitle">🧩 <span>QUEST</span> <small id="miniPct">0%</small></div>
+        <div class="questBox">
+          <div class="questTitle">
+            🧩 <span>QUEST</span>
+            <small id="miniPct">0%</small>
+            <span class="qbadge" id="questOkBadge">quest: —</span>
+          </div>
           <div class="qline" id="questGoal"><span class="muted">GOAL:</span> —</div>
           <div class="qline" id="questMini"><span class="muted">MINI:</span> —</div>
           <div class="qline" id="questGroup"><span class="muted">GROUP:</span> —</div>
         </div>
       </div>
 
-      <div class="coachBox" data-hha-exclude="1">
-        <div class="coachText" id="coachText">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨</div>
-        <div class="coachSub" id="coachSub">Tip: แตะตรงไหนก็ยิง “เป้าใกล้นิ้ว” ได้</div>
+      <div class="coachBox">
+        <div class="coachText" id="coachText">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨
+          <div class="sub" id="coachSub">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
+        </div>
       </div>
 
       <div id="reticle"></div>
 
       <div id="lockUI">
-        <svg width="88" height="88" viewBox="0 0 88 88" style="overflow:visible">
+        <svg id="lockSvg" width="88" height="88" viewBox="0 0 88 88">
           <circle class="ringBack" cx="44" cy="44" r="30"></circle>
-          <circle class="ringProg"  cx="44" cy="44" r="30" stroke-dasharray="188.5" stroke-dashoffset="188.5"></circle>
-          <circle class="ringCharge" cx="44" cy="44" r="22" stroke-dasharray="138.2" stroke-dashoffset="138.2"></circle>
+          <circle class="ringProg" cx="44" cy="44" r="30"
+            stroke-dasharray="188.5" stroke-dashoffset="188.5"></circle>
+          <circle class="ringCharge" cx="44" cy="44" r="22"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2"></circle>
         </svg>
       </div>
 
-      <div class="controls" data-hha-exclude="1">
+      <div class="controls">
         <div class="hintCol">
           <div class="hint">LOCK <small>จ้องจนวงเขียวเต็ม → ยิงเป็นชุด</small></div>
-          <div class="hint">CHARGE <small>ค้างต่อ → ยิงแรง + โซ่ CHAIN</small></div>
+          <div class="hint">CHARGE <small>ค้างต่อ → ยิงแรง + CHAIN</small></div>
         </div>
 
         <div class="btnCol">
@@ -439,21 +547,16 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
         </div>
       </div>
 
-      <div class="debugPill" id="debugPill" data-hha-exclude="1">
-        <span class="dot" id="dotEng"></span>ENGINE
-        &nbsp;|&nbsp;
-        <span class="dot" id="dotQuest"></span>QUEST
-        &nbsp;|&nbsp;
-        <span class="dot" id="dotFever"></span>FEVER
-      </div>
+      <div id="edgePulse" aria-hidden="true"></div>
     </div>
 
+    <!-- Start Overlay -->
     <div id="startOverlay">
       <div class="card">
-        <div class="h1">Food Groups VR — พร้อมลุย</div>
+        <div class="h1">Food Groups VR — School/Research Setup</div>
         <div class="p">
-          โหมด <b>play</b> = สนุกเร้าใจ (Adaptive + Rush + BossWave + Decoy + Rage)
-          <br/>โหมด <b>research</b> = คุมตัวแปร (Seed fix + ปิด random features)
+          <b>Play</b> = สนุกเร้าใจ (สุ่ม + Adaptive/Rush/Wave/Decoy/Rage)
+          • <b>Research</b> = คุมตัวแปร (fix seed + ปิดสิ่งสุ่ม)
         </div>
 
         <div class="row">
@@ -476,19 +579,91 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
 
           <div class="seg">
             <label>Time (sec)</label>
-            <input id="inpTime" type="number" min="20" max="600" step="10" value="70" />
+            <input id="inpTime" type="number" min="20" max="600" step="10" value="90" />
           </div>
 
           <div class="seg">
-            <label>Seed (research)</label>
-            <input id="inpSeed" type="text" placeholder="เช่น schoolA-grade5-001" />
+            <label>Stage</label>
+            <select id="selStage">
+              <option value="pre" selected>pre</option>
+              <option value="post">post</option>
+              <option value="follow">follow</option>
+              <option value="practice">practice</option>
+            </select>
           </div>
         </div>
 
-        <button class="startBtn" id="btnStart">START</button>
-        <div class="note">
-          ถ้าเปิดด้วย URL: <code>?diff=easy&time=90&run=play</code> จะเริ่มอัตโนมัติได้ (แต่ยังกัน start ซ้ำ)
+        <div class="row" style="margin-top:10px">
+          <div class="seg">
+            <label>District (เขต)</label>
+            <select id="selDistrict">
+              <option value="JJ" selected>จตุจักร (JJ)</option>
+              <option value="DM">ดอนเมือง (DM)</option>
+              <option value="LP">ลาดพร้าว (LP)</option>
+              <option value="MB">มีนบุรี (MB)</option>
+              <option value="NJ">หนองจอก (NJ)</option>
+            </select>
+          </div>
+
+          <div class="seg">
+            <label>School (ชื่อ/รหัสโรงเรียน)</label>
+            <input id="inpSchool" placeholder="ยังไม่มีชื่อก็เว้นว่างได้" value="" />
+          </div>
+
+          <div class="seg">
+            <label>Class</label>
+            <input id="inpClass" placeholder="เช่น 5/1 หรือ 5-1" value="5/1" />
+          </div>
+
+          <div class="seg">
+            <label>Student ID</label>
+            <input id="inpStudent" placeholder="เช่น 012" value="001" />
+          </div>
         </div>
+
+        <div class="inline">
+          <span class="chip ok">Seed (research) จะถูก <b>Fix</b> อัตโนมัติ</span>
+          <span class="chip warn">Play จะใช้ Seed เป็น “label” ให้ logger แต่ไม่บังคับสุ่ม</span>
+        </div>
+
+        <div class="inline">
+          <span class="chip" id="seedChip">seed: <b id="seedPreview">—</b></span>
+          <span class="chip" id="urlChip">url: <b id="urlPreview">—</b></span>
+        </div>
+
+        <button class="startBtn" id="btnStart">START</button>
+
+        <div class="note">
+          ถ้าเปิดด้วยลิงก์ที่มี <code>?run=play</code> หรือ <code>?run=research</code> ระบบ Boot จะ autostart ได้เองด้วยนะ ✅
+        </div>
+      </div>
+    </div>
+
+    <!-- End Summary Overlay -->
+    <div id="endOverlay">
+      <div class="endCard">
+        <div class="endTitle">
+          <div>
+            <div class="h1" style="margin:0">สรุปผลการเล่น</div>
+            <div class="p" style="margin:4px 0 0" id="endReason">—</div>
+          </div>
+          <div class="bigGrade" id="endGrade">C</div>
+        </div>
+
+        <div class="grid2">
+          <div class="box"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
+          <div class="box"><div class="k">MAX COMBO</div><div class="v" id="endCombo">0</div></div>
+          <div class="box"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
+          <div class="box"><div class="k">QUESTS</div><div class="v" id="endQuest">0/0</div></div>
+        </div>
+
+        <div class="endBtns">
+          <button class="btn primary btnWide" id="btnRestart">RESTART</button>
+          <button class="btn ghost btnWide" id="btnBack">BACK TO SETUP</button>
+          <button class="btn danger btnWide" id="btnStop2">STOP</button>
+        </div>
+
+        <div class="note" id="endMeta">—</div>
       </div>
     </div>
   </div>
@@ -496,17 +671,25 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
   <script>
     (function(){
       'use strict';
+
       const $ = (id)=>document.getElementById(id);
 
-      const layer = $('fg-layer');
-      const camEl = document.querySelector('#cam');
-      const sceneEl = document.querySelector('a-scene');
-
+      // UI refs
       const startOverlay = $('startOverlay');
+      const endOverlay   = $('endOverlay');
+
       const selDiff = $('selDiff');
       const selMode = $('selMode');
       const inpTime = $('inpTime');
-      const inpSeed = $('inpSeed');
+      const selStage = $('selStage');
+
+      const selDistrict = $('selDistrict');
+      const inpSchool   = $('inpSchool');
+      const inpClass    = $('inpClass');
+      const inpStudent  = $('inpStudent');
+
+      const seedPreview = $('seedPreview');
+      const urlPreview  = $('urlPreview');
 
       const hudScore = $('hudScore');
       const hudCombo = $('hudCombo');
@@ -519,14 +702,18 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       const questMini = $('questMini');
       const questGroup= $('questGroup');
       const miniPct   = $('miniPct');
+      const questOkBadge = $('questOkBadge');
 
       const coachText = $('coachText');
-      const coachSub  = $('coachSub');
 
       const btnStart = $('btnStart');
       const btnGaze  = $('btnGaze');
       const btnStop  = $('btnStop');
       const btnVR    = $('btnVR');
+
+      const btnRestart = $('btnRestart');
+      const btnBack    = $('btnBack');
+      const btnStop2   = $('btnStop2');
 
       const reticle  = $('reticle');
 
@@ -534,27 +721,58 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       const ringProg = lockUI.querySelector('.ringProg');
       const ringCharge = lockUI.querySelector('.ringCharge');
 
-      const dotEng   = $('dotEng');
-      const dotQuest = $('dotQuest');
-      const dotFever = $('dotFever');
+      const endReason = $('endReason');
+      const endGrade  = $('endGrade');
+      const endScore  = $('endScore');
+      const endCombo  = $('endCombo');
+      const endMiss   = $('endMiss');
+      const endQuest  = $('endQuest');
+      const endMeta   = $('endMeta');
 
-      const sp = new URLSearchParams(location.search);
-      const qDiff = (sp.get('diff')||'').toLowerCase();
-      const qMode = (sp.get('run')||sp.get('mode')||'').toLowerCase();
-      const qTime = parseInt(sp.get('time')||'',10);
-      const qSeed = String(sp.get('seed')||'').trim();
+      const sceneEl = document.querySelector('a-scene');
 
-      if (qDiff) selDiff.value = (['easy','normal','hard'].includes(qDiff) ? qDiff : 'normal');
-      if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
-      if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(qTime);
-      if (qSeed) inpSeed.value = qSeed;
+      // utils
+      function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+      function pad3(n){ n=String(n||''); while(n.length<3) n='0'+n; return n.slice(-3); }
 
-      const C1 = 188.5, C2 = 138.2;
+      function todayISO(){
+        try{
+          const d = new Date();
+          const yy = d.getFullYear();
+          const mm = String(d.getMonth()+1).padStart(2,'0');
+          const dd = String(d.getDate()).padStart(2,'0');
+          return yy+'-'+mm+'-'+dd;
+        }catch{ return 'unknown-date'; }
+      }
+
+      function makeSeed(){
+        const dist = String(selDistrict.value||'XX').trim();
+        const school = String(inpSchool.value||'').trim() || 'unknown';
+        const cls = String(inpClass.value||'5/1').trim().replace(/\s+/g,'');
+        const sid = pad3(String(inpStudent.value||'001').trim().replace(/\D/g,'') || '1');
+        const stage = String(selStage.value||'pre').trim();
+        // seed readable + deterministic across devices
+        return `${dist}-${school}-g5-${cls}-${sid}-${stage}-${todayISO()}`.replace(/[^\w\-\/]/g,'');
+      }
+
+      function makeURLPreview(diff, mode, time, seed){
+        const sp = new URLSearchParams(location.search);
+        sp.set('diff', diff);
+        sp.set('time', String(time));
+        sp.set('run', mode);
+        if (seed) sp.set('seed', seed); else sp.delete('seed');
+        // keep ts if exists
+        return location.pathname + '?' + sp.toString();
+      }
+
+      const C1 = 188.5;
+      const C2 = 138.2;
       function setRing(circle, prog, C){
         const p = Math.max(0, Math.min(1, prog||0));
         circle.style.strokeDasharray = String(C);
         circle.style.strokeDashoffset = String(C * (1 - p));
       }
+
       function setReticle(state){
         reticle.classList.remove('ok','miss','perfect');
         if (state) reticle.classList.add(state);
@@ -563,32 +781,63 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
         }
       }
 
-      function dotSet(el, ok){
-        el.classList.remove('ok','no');
-        el.classList.add(ok ? 'ok' : 'no');
-      }
-      function refreshDebug(){
-        dotSet(dotEng, !!(window.GroupsVR && window.GroupsVR.GameEngine));
-        dotSet(dotQuest, !!(window.GroupsQuest && typeof window.GroupsQuest.createFoodGroupsQuest === 'function'));
-        dotSet(dotFever, !!(window.FeverUI || (window.GAME_MODULES && window.GAME_MODULES.FeverUI)));
+      function safeEngine(){
+        return (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
       }
 
-      // HUD events (robust keys)
+      function safeBoot(){
+        return window.GroupsBoot || null;
+      }
+
+      // QS init
+      const sp = new URLSearchParams(location.search);
+      const qDiff = (sp.get('diff')||'').toLowerCase();
+      const qRun  = (sp.get('run')||sp.get('mode')||'').toLowerCase();
+      const qTime = parseInt(sp.get('time')||'',10);
+      const qSeed = String(sp.get('seed')||'').trim();
+
+      if (qDiff) selDiff.value = (['easy','normal','hard'].includes(qDiff) ? qDiff : 'normal');
+      if (qRun)  selMode.value = (qRun === 'research' ? 'research' : 'play');
+      if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(clamp(qTime,20,600));
+      if (qSeed) {
+        // attempt to split a little (best-effort)
+        // keep raw seed in preview only
+      }
+
+      function refreshSeedUI(){
+        const diff = (selDiff.value||'normal').toLowerCase();
+        const mode = (selMode.value||'play').toLowerCase();
+        const time = clamp(parseInt(inpTime.value||'90',10)||90, 20, 600);
+        const seed = makeSeed();
+
+        seedPreview.textContent = seed;
+        urlPreview.textContent  = makeURLPreview(diff, mode, time, seed);
+      }
+
+      ['change','input'].forEach(evt=>{
+        selDiff.addEventListener(evt, refreshSeedUI);
+        selMode.addEventListener(evt, refreshSeedUI);
+        inpTime.addEventListener(evt, refreshSeedUI);
+        selStage.addEventListener(evt, refreshSeedUI);
+        selDistrict.addEventListener(evt, refreshSeedUI);
+        inpSchool.addEventListener(evt, refreshSeedUI);
+        inpClass.addEventListener(evt, refreshSeedUI);
+        inpStudent.addEventListener(evt, refreshSeedUI);
+      });
+      refreshSeedUI();
+
+      // HUD events
       window.addEventListener('hha:score', (e)=>{
         const d = (e && e.detail) || {};
         if (typeof d.score === 'number') hudScore.textContent = d.score|0;
         if (typeof d.combo === 'number') hudCombo.textContent = d.combo|0;
-
-        const missVal = (typeof d.misses === 'number') ? d.misses : ((typeof d.miss === 'number') ? d.miss : null);
-        if (missVal != null) hudMiss.textContent = missVal|0;
-
+        if (typeof d.misses === 'number') hudMiss.textContent = d.misses|0;
         if (typeof d.shield === 'number') hudShield.textContent = d.shield|0;
       });
 
       window.addEventListener('hha:time', (e)=>{
         const d = (e && e.detail) || {};
-        const left = (typeof d.left === 'number') ? d.left : ((typeof d.sec === 'number') ? d.sec : null);
-        if (left != null) hudTime.textContent = (left|0);
+        if (typeof d.left === 'number') hudTime.textContent = (d.left|0);
       });
 
       window.addEventListener('hha:rank', (e)=>{
@@ -598,29 +847,26 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
 
       window.addEventListener('quest:update', (e)=>{
         const d = (e && e.detail) || {};
-        const g = d.goal, m = d.mini;
+        const g = d.goal;
+        const m = d.mini;
 
-        // goal line
+        // questOk badge
+        const ok = !!d.questOk;
+        questOkBadge.textContent = 'quest: ' + (ok ? 'OK' : 'NO');
+        questOkBadge.classList.toggle('qok', ok);
+        questOkBadge.classList.toggle('qbad', !ok);
+
         if (g && g.label){
           questGoal.innerHTML = `<span class="muted">GOAL:</span> ${g.label} (${g.prog||0}/${g.target||0})`;
-        } else if (d.goalText){
-          questGoal.innerHTML = `<span class="muted">GOAL:</span> ${String(d.goalText)}`;
         } else {
           questGoal.innerHTML = `<span class="muted">GOAL:</span> —`;
         }
 
-        // mini line
         if (m && m.label){
-          let extra = '';
-          if (typeof m.tLeft === 'number' && typeof m.windowSec === 'number'){
-            extra = ` <span class="muted">⏱️ ${m.tLeft|0}s</span>`;
-          }
+          const extra = (typeof m.tLeft === 'number') ? ` <span class="muted">(⏱️${m.tLeft|0})</span>` : '';
           questMini.innerHTML = `<span class="muted">MINI:</span> ${m.label} (${m.prog||0}/${m.target||0})${extra}`;
           const pct = (m.target>0) ? Math.round((m.prog/m.target)*100) : 0;
           miniPct.textContent = pct + '%';
-        } else if (d.miniText){
-          questMini.innerHTML = `<span class="muted">MINI:</span> ${String(d.miniText)}`;
-          miniPct.textContent = '0%';
         } else {
           questMini.innerHTML = `<span class="muted">MINI:</span> —`;
           miniPct.textContent = '0%';
@@ -662,13 +908,34 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
         setRing(ringCharge, d.charge||0, C2);
       });
 
-      function safeEngine(){
-        return (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
-      }
+      // End summary
+      window.addEventListener('hha:end', (e)=>{
+        const d = (e && e.detail) || {};
+        endOverlay.style.display = 'flex';
 
+        endReason.textContent = `เหตุผล: ${String(d.reason||'end')}`;
+        endGrade.textContent  = String(d.grade || 'C');
+        endScore.textContent  = String(d.scoreFinal || 0);
+        endCombo.textContent  = String(d.comboMax || 0);
+        endMiss.textContent   = String(d.misses || 0);
+
+        const gt = (d.goalsTotal|0) || 0;
+        const gc = (d.goalsCleared|0) || 0;
+        const mt = (d.miniTotal|0) || 0;
+        const mc = (d.miniCleared|0) || 0;
+        endQuest.textContent  = `${(gc+mc)}/${(gt+mt)}`;
+
+        const diff = (selDiff.value||'normal').toLowerCase();
+        const mode = (selMode.value||'play').toLowerCase();
+        const time = clamp(parseInt(inpTime.value||'90',10)||90,20,600);
+        const seed = makeSeed();
+        endMeta.textContent = `diff=${diff} • mode=${mode} • time=${time}s • seed=${seed}`;
+      });
+
+      // Controls
       let gazeOn = true;
 
-      btnGaze.addEventListener('click', ()=>{
+      $('btnGaze').addEventListener('click', ()=>{
         const eng = safeEngine();
         gazeOn = !gazeOn;
         btnGaze.textContent = 'Gaze: ' + (gazeOn ? 'ON' : 'OFF');
@@ -676,79 +943,97 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL+)
       });
 
       btnStop.addEventListener('click', ()=>{
-        const eng = safeEngine();
-        eng && eng.stop && eng.stop('stop_button');
-        startOverlay.style.display = '';
-        window.__FG_STARTED__ = false;
+        const b = safeBoot();
+        if (b && b.stop) b.stop('stop_button');
+        else {
+          const eng = safeEngine();
+          eng && eng.stop && eng.stop('stop_button');
+        }
+      });
+
+      btnStop2.addEventListener('click', ()=>{
+        const b = safeBoot();
+        if (b && b.stop) b.stop('stop_button');
+        else {
+          const eng = safeEngine();
+          eng && eng.stop && eng.stop('stop_button');
+        }
+        endOverlay.style.display = 'none';
+        startOverlay.style.display = 'flex';
       });
 
       btnVR.addEventListener('click', async ()=>{
-        try{ if (sceneEl && sceneEl.enterVR) sceneEl.enterVR(); }catch{}
+        try{
+          if (sceneEl && sceneEl.enterVR) sceneEl.enterVR();
+        }catch{}
       });
 
+      btnBack.addEventListener('click', ()=>{
+        endOverlay.style.display = 'none';
+        startOverlay.style.display = 'flex';
+      });
+
+      btnRestart.addEventListener('click', ()=>{
+        endOverlay.style.display = 'none';
+        // restart with same settings
+        btnStart.click();
+      });
+
+      // Start
       btnStart.addEventListener('click', ()=>{
-        refreshDebug();
+        const boot = safeBoot();
+        const eng  = safeEngine();
+
+        // ensure scripts loaded
+        if (!boot && !eng){
+          alert('ยังไม่พร้อม: เช็คว่าโหลด ./vr-groups/GameEngine.js และ ./vr-groups/groups.safe.js แล้ว');
+          return;
+        }
+
+        startOverlay.style.display = 'none';
 
         const diff = (selDiff.value||'normal').toLowerCase();
         const mode = (selMode.value||'play').toLowerCase();
-        const tsec = Math.max(20, Math.min(600, parseInt(inpTime.value||'70',10) || 70));
-        const seed = String(inpSeed.value||'').trim();
+        const tsec = clamp(parseInt(inpTime.value||'90',10)||90, 20, 600);
+        const seed = makeSeed();
 
-        // sync URL (optional nice)
+        // update URL for reproducibility (nice for research)
         try{
-          const u = new URL(location.href);
-          u.searchParams.set('diff', diff);
-          u.searchParams.set('time', String(tsec));
-          u.searchParams.set('run', mode);
-          if (seed) u.searchParams.set('seed', seed);
-          history.replaceState(null,'',u.toString());
+          const next = makeURLPreview(diff, mode, tsec, seed);
+          history.replaceState(null, '', next);
         }catch{}
 
-        startOverlay.style.display = 'none';
-        window.__FG_STARTED__ = true; // ✅ important flag
+        gazeOn = true;
+        btnGaze.textContent = 'Gaze: ON';
 
-        // Use Boot (guards + passes seed)
-        if (window.GroupsBoot && window.GroupsBoot.start){
-          window.GroupsBoot.start(mode, { diff, time: tsec, seed });
-        } else {
-          // fallback direct
-          const eng = safeEngine();
-          if (!eng) { alert('GameEngine ยังไม่พร้อม'); startOverlay.style.display=''; window.__FG_STARTED__=false; return; }
-          eng.setLayerEl(layer);
-          eng.setCameraEl(camEl);
-          eng.setTimeLeft(tsec);
-          eng.setGaze(true);
-          gazeOn = true;
-          btnGaze.textContent = 'Gaze: ON';
-          eng.start(diff, { layerEl: layer, runMode: mode, seed: seed||undefined });
+        // prefer boot (guard + bind)
+        if (boot && boot.start){
+          boot.start(mode, { diff, time: tsec, seed });
+          return;
         }
 
-        coachSub.textContent = (mode === 'research')
-          ? 'Research: Seed fix + ปิด Rush/Wave/Decoy/Rage เพื่อคุมตัวแปร'
-          : 'Play: Adaptive + Rush + BossWave + Decoy + Rage = โหดสนุก!';
+        // fallback direct start (if boot missing)
+        try{
+          const layer = document.getElementById('fg-layer');
+          const cam   = document.getElementById('cam');
+          eng.setLayerEl(layer);
+          eng.setCameraEl(cam);
+          eng.setTimeLeft(tsec);
+          eng.setGaze(true);
+          eng.start(diff, { layerEl: layer, runMode: mode, seed });
+        }catch(err){
+          console.error(err);
+          alert('เริ่มไม่สำเร็จ: ดู console');
+          startOverlay.style.display = 'flex';
+        }
       });
 
-      // initial debug refresh after defer scripts
-      let tries=0;
-      const it = setInterval(()=>{
-        refreshDebug();
-        tries++;
-        if (tries>20) clearInterval(it);
-      }, 120);
+      // If autostart already started by boot, hide overlay automatically
+      // (boot uses __FG_STARTED__ guard)
+      setTimeout(()=>{
+        if (window.__FG_STARTED__) startOverlay.style.display = 'none';
+      }, 600);
 
-      // If URL says autostart (run=play|research) then hide overlay after engine starts itself
-      if (qMode === 'play' || qMode === 'research'){
-        let t=0;
-        const w = setInterval(()=>{
-          t++;
-          refreshDebug();
-          if (window.__FG_STARTED__){
-            startOverlay.style.display = 'none';
-            clearInterval(w);
-          }
-          if (t>40) clearInterval(w);
-        }, 120);
-      }
     })();
   </script>
 </body>
