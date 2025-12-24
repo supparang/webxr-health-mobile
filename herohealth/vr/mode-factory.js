@@ -1,1069 +1,447 @@
 // === /herohealth/vr/mode-factory.js ===
-// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ spawnHost: ที่ “append เป้า”
-// ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
-// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันให้แต่ละเกมทำได้
-// ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
-// ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
-// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ rhythm spawn (bpm) + pulse class
-// ✅ trick/fake targets (itemType='fakeGood')
-// ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
-// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
-//
-// 🔥 PATCH A (FULL-SPREAD):
-// ✅ ถ้า spawnAroundCrosshair:false → สุ่มแบบ uniform ทั่ว playRect (กระจายจริง ไม่กองกลาง)
-//
-// 🔥 PATCH B (SMART GRID):
-// ✅ spawnStrategy:'grid9' → กระจาย 3x3 เลือกช่องที่โล่ง + กันซ้ำช่องเดิม
-//
-// 🔥 PATCH C (EDGE-FIX + HUD-MARGINS FIX):
-// ✅ HUD บนหัวจอจะไม่ไปกิน left/right (แก้ต้นเหตุ “พื้นที่กว้างเหลือ 1px → เป้ากองจุดเดียว”)
-// ✅ ถ้า spawnHost มี transform (ลาก/gyro) → ใช้ baseRect จาก boundsHost แทน (ignore transform)
-// ✅ เพิ่ม pad กัน pulse/scale แล้ว clamp ไม่ให้ชนขอบจริง
+// DOM Emoji Target Spawner (Factory)
+// ✅ spawnHost + boundsHost
+// ✅ spawnStrategy: 'grid9' (กระจายแบบรู้สึกได้)
+// ✅ minSeparation + maxSpawnTries
+// ✅ excludeSelectors (กันทับ HUD)
+// ✅ powerEvery (กันไม่ออก power นานเกิน)
+// ✅ random ring variants + afterimage on hit
+// ✅ returns { stop() }
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
-function clamp (v, min, max) {
-  v = Number(v) || 0;
-  if (v < min) return min;
-  if (v > max) return max;
-  return v;
+function clamp(v, a, b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+function rand(a,b){ return a + Math.random()*(b-a); }
+function pickOne(arr, fallback){
+  if (!Array.isArray(arr) || arr.length===0) return fallback;
+  return arr[(Math.random()*arr.length)|0];
 }
-function pickOne (arr, fallback = null) {
-  if (!Array.isArray(arr) || !arr.length) return fallback;
-  const i = Math.floor(Math.random() * arr.length);
-  return arr[i];
-}
-function getEventXY (ev) {
-  let x = ev.clientX;
-  let y = ev.clientY;
+function now(){ return (ROOT.performance && performance.now) ? performance.now() : Date.now(); }
 
-  if ((x == null || y == null || (x === 0 && y === 0)) && ev.touches && ev.touches[0]) {
-    x = ev.touches[0].clientX;
-    y = ev.touches[0].clientY;
-  }
-  if ((x == null || y == null) && ev.changedTouches && ev.changedTouches[0]) {
-    x = ev.changedTouches[0].clientX;
-    y = ev.changedTouches[0].clientY;
-  }
-  return { x: x || 0, y: y || 0 };
-}
-
-function rectFromWHLT(left, top, width, height){
-  width = Math.max(1, width||1);
-  height = Math.max(1, height||1);
-  return { left, top, width, height, right: left + width, bottom: top + height };
-}
-
-function getRectSafe(el){
-  try{
-    const r = el.getBoundingClientRect();
-    if (r && Number.isFinite(r.left) && Number.isFinite(r.top) && r.width > 0 && r.height > 0) return r;
-  }catch{}
-  return null;
-}
-
-function hasTransform(el){
-  try{
-    const cs = ROOT.getComputedStyle ? ROOT.getComputedStyle(el) : null;
-    const t = cs && cs.transform;
-    return !!(t && t !== 'none');
-  }catch{ return false; }
-}
-
-// ---------- Base difficulty ----------
-const DEFAULT_DIFF = {
-  easy:   { spawnInterval: 900, maxActive: 3, life: 1900, scale: 1.15 },
-  normal: { spawnInterval: 800, maxActive: 4, life: 1700, scale: 1.00 },
-  hard:   { spawnInterval: 650, maxActive: 5, life: 1500, scale: 0.90 }
-};
-
-function pickDiffConfig (modeKey, diffKey) {
-  diffKey = String(diffKey || 'normal').toLowerCase();
-  let base = null;
-
-  if (ROOT.HHA_DIFF_TABLE && modeKey && ROOT.HHA_DIFF_TABLE[modeKey]) {
-    const table = ROOT.HHA_DIFF_TABLE[modeKey];
-    if (table && table[diffKey]) base = table[diffKey];
-  }
-  if (!base) base = DEFAULT_DIFF[diffKey] || DEFAULT_DIFF.normal;
-
-  const cfg = {
-    spawnInterval: Number(base.spawnInterval ?? base.interval ?? 800),
-    maxActive:     Number(base.maxActive ?? base.active ?? 4),
-    life:          Number(base.life ?? base.targetLife ?? 1700),
-    scale:         Number(base.scale ?? base.size ?? 1)
-  };
-
-  if (!Number.isFinite(cfg.spawnInterval) || cfg.spawnInterval <= 0) cfg.spawnInterval = 800;
-  if (!Number.isFinite(cfg.maxActive)     || cfg.maxActive <= 0)     cfg.maxActive = 4;
-  if (!Number.isFinite(cfg.life)          || cfg.life <= 0)          cfg.life = 1700;
-  if (!Number.isFinite(cfg.scale)         || cfg.scale <= 0)         cfg.scale = 1;
-
-  return cfg;
-}
-
-// ======================================================
-//  Overlay fallback
-// ======================================================
-function ensureOverlayStyle () {
-  if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
-  const s = DOC.createElement('style');
-  s.id = 'hvr-overlay-style';
-  s.textContent = `
-    .hvr-overlay-host{
-      position:fixed;
-      inset:0;
-      z-index:9998;
-      pointer-events:none;
-    }
-    .hvr-overlay-host .hvr-target{
-      pointer-events:auto;
-    }
-    .hvr-target.hvr-pulse{
-      animation:hvrPulse .55s ease-in-out infinite;
-    }
-    @keyframes hvrPulse{
-      0%{ transform:translate(-50%,-50%) scale(1); }
-      50%{ transform:translate(-50%,-50%) scale(1.08); }
-      100%{ transform:translate(-50%,-50%) scale(1); }
-    }
-    .hvr-wiggle{
-      position:absolute;
-      inset:0;
-      border-radius:999px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      pointer-events:none;
-      transform: translate3d(0,0,0);
-      will-change: transform;
-    }
-  `;
-  DOC.head.appendChild(s);
-}
-function ensureOverlayHost () {
+function getEl(ref){
   if (!DOC) return null;
-  ensureOverlayStyle();
-
-  let host = DOC.getElementById('hvr-overlay-host');
-  if (host && host.isConnected) return host;
-
-  host = DOC.createElement('div');
-  host.id = 'hvr-overlay-host';
-  host.className = 'hvr-overlay-host';
-  host.setAttribute('data-hvr-host', '1');
-  DOC.body.appendChild(host);
-  return host;
+  if (!ref) return null;
+  if (typeof ref === 'string') return DOC.querySelector(ref);
+  return ref;
 }
 
-// ======================================================
-//  Host resolver
-// ======================================================
-function resolveHost (rawCfg, keyName = 'spawnHost') {
-  if (!DOC) return null;
-
-  const h = rawCfg && rawCfg[keyName];
-  if (h && typeof h === 'string') {
-    const el = DOC.querySelector(h);
-    if (el) return el;
-    console.warn('[mode-factory] selector not found:', keyName, h, '→ fallback overlay host');
-  }
-  if (h && h.nodeType === 1) return h;
-
-  const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
-  if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
-
-  return ensureOverlayHost();
+function rectOf(el){
+  try{ return el.getBoundingClientRect(); }catch{ return null; }
 }
 
-// ======================================================
-//  SAFE ZONE / EXCLUSION
-// ======================================================
-function collectExclusionElements(rawCfg){
-  if (!DOC) return [];
+function collectExcludeRects(selectors){
   const out = [];
-
-  const sel = rawCfg && rawCfg.excludeSelectors;
-  if (Array.isArray(sel)) {
-    sel.forEach(s=>{
-      try{ DOC.querySelectorAll(String(s)).forEach(el=> out.push(el)); }catch{}
-    });
-  } else if (typeof sel === 'string') {
-    try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
-  }
-
-  const AUTO = [
-    '#hha-water-header',
-    '.hha-water-bar',
-    '.hha-main-row',
-    '#hha-card-left',
-    '#hha-card-right',
-    '.hha-bottom-row',
-    '.hha-fever-card',
-    '#hvr-crosshair',
-    '.hvr-crosshair',
-    '#hvr-end',
-    '.hvr-end',
-    '.hud'
-  ];
-  AUTO.forEach(s=>{
-    try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
-  });
-
-  try{
-    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
-  }catch{}
-
-  const uniq = [];
-  const seen = new Set();
-  out.forEach(el=>{
-    if (!el || !el.isConnected) return;
-    if (seen.has(el)) return;
-    seen.add(el);
-    uniq.push(el);
-  });
-  return uniq;
-}
-
-// ✅ PATCH C: HUD-MARGINS FIX (TOP HUD ไม่กิน LEFT/RIGHT)
-function computeExclusionMargins(hostRect, exEls){
-  const m = { top:0, bottom:0, left:0, right:0 };
-  if (!hostRect || !exEls || !exEls.length) return m;
-
-  const hx1 = hostRect.left, hy1 = hostRect.top;
-  const hx2 = hostRect.right, hy2 = hostRect.bottom;
-  const W = hostRect.width, H = hostRect.height;
-
-  const TOP_BAND_Y  = hy1 + H * 0.30;   // 30% บน
-  const BOT_BAND_Y  = hy2 - H * 0.22;   // 22% ล่าง
-
-  const capX = W * 0.30;
-  const capY = H * 0.55;
-
-  exEls.forEach(el=>{
-    let r = null;
-    try{ r = el.getBoundingClientRect(); }catch{}
-    if (!r) return;
-
-    const ox1 = Math.max(hx1, r.left);
-    const oy1 = Math.max(hy1, r.top);
-    const ox2 = Math.min(hx2, r.right);
-    const oy2 = Math.min(hy2, r.bottom);
-    if (ox2 <= ox1 || oy2 <= oy1) return;
-
-    const oW = ox2 - ox1;
-    const oH = oy2 - oy1;
-
-    const isTopBand    = (r.bottom <= TOP_BAND_Y);
-    const isBottomBand = (r.top    >= BOT_BAND_Y);
-
-    // TOP HUD -> TOP only
-    if (isTopBand){
-      if (oW >= W * 0.35){
-        m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, H));
-      }
-      return;
-    }
-
-    // BOTTOM HUD -> BOTTOM only
-    if (isBottomBand){
-      if (oW >= W * 0.35){
-        m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, H));
-      }
-      return;
-    }
-
-    // LEFT/RIGHT only for tall (sidebar-like)
-    const tallEnough = (oH >= H * 0.35);
-    if (tallEnough){
-      if (r.left < hx1 + 120 && r.right > hx1){
-        m.left = Math.max(m.left, clamp(r.right - hx1, 0, W));
-      }
-      if (r.right > hx2 - 120 && r.left < hx2){
-        m.right = Math.max(m.right, clamp(hx2 - r.left, 0, W));
-      }
-    }
-  });
-
-  m.left   = Math.min(m.left, capX);
-  m.right  = Math.min(m.right, capX);
-  m.top    = Math.min(m.top, capY);
-  m.bottom = Math.min(m.bottom, capY);
-
-  return m;
-}
-
-function computePlayRectFromHost (hostEl, exState) {
-  const r = hostEl.getBoundingClientRect();
-  const isOverlay = hostEl && hostEl.id === 'hvr-overlay-host';
-
-  let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
-  let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
-
-  // ✅ แนะนำให้กว้างขึ้น (เดิม 0.10)
-  const basePadX   = w * 0.06;
-  const basePadTop = h * 0.12;
-  const basePadBot = h * 0.12;
-
-  const m = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
-
-  const left   = basePadX + m.left;
-  const top    = basePadTop + m.top;
-  const width  = Math.max(1, w - (basePadX*2) - m.left - m.right);
-  const height = Math.max(1, h - basePadTop - basePadBot - m.top - m.bottom);
-
-  return { left, top, width, height, hostRect: r, isOverlay };
-}
-
-// ======================================================
-//  boot(cfg)
-// ======================================================
-export async function boot (rawCfg = {}) {
-  const {
-    difficulty = 'normal',
-    duration   = 60,
-    modeKey    = 'hydration',
-    pools      = {},
-    goodRate   = 0.6,
-    powerups   = [],
-    powerRate  = 0.10,
-    powerEvery = 7,
-    judge,
-    onExpire,
-
-    allowAdaptive = true,
-    rhythm = null,
-    trickRate = 0.08,
-
-    spawnIntervalMul = null,
-    excludeSelectors = null,
-
-    boundsHost = null,
-    decorateTarget = null,
-
-    // spawn behavior
-    spawnAroundCrosshair = true,
-    spawnRadiusX = 0.34,
-    spawnRadiusY = 0.30,
-    minSeparation = 0.95,
-    maxSpawnTries = 14,
-
-    // ✅ NEW
-    spawnStrategy = 'auto' // 'auto' | 'uniform' | 'grid9'
-  } = rawCfg || {};
-
-  const diffKey  = String(difficulty || 'normal').toLowerCase();
-  const baseDiff = pickDiffConfig(modeKey, diffKey);
-
-  const hostSpawn  = resolveHost(rawCfg, 'spawnHost');
-  const hostBounds = ((boundsHost != null) ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
-
-  if (!hostSpawn || !hostBounds || !DOC) {
-    console.error('[mode-factory] host not found');
-    return { stop () {}, shootCrosshair(){ return false; } };
-  }
-
-  let stopped = false;
-
-  let totalDuration = clamp(duration, 20, 180);
-  let secLeft       = totalDuration;
-  let lastClockTs   = null;
-
-  let activeTargets = new Set();
-  let lastSpawnTs   = 0;
-  let spawnCounter  = 0;
-
-  // ---------- Adaptive ----------
-  let adaptLevel   = 0;
-  let curInterval  = baseDiff.spawnInterval;
-  let curMaxActive = baseDiff.maxActive;
-  let curScale     = baseDiff.scale;
-  let curLife      = baseDiff.life;
-
-  let sampleHits   = 0;
-  let sampleMisses = 0;
-  let sampleTotal  = 0;
-  const ADAPT_WINDOW = 12;
-
-  function recalcAdaptive () {
-    if (!allowAdaptive) return;
-    if (sampleTotal < ADAPT_WINDOW) return;
-
-    const hitRate = sampleHits / sampleTotal;
-    let next = adaptLevel;
-
-    if (hitRate >= 0.85 && sampleMisses <= 2) next += 1;
-    else if (hitRate <= 0.55 || sampleMisses >= 6) next -= 1;
-
-    adaptLevel = clamp(next, -1, 3);
-
-    const intervalMul = 1 - (adaptLevel * 0.12);
-    const scaleMul    = 1 - (adaptLevel * 0.10);
-    const lifeMul     = 1 - (adaptLevel * 0.08);
-    const bonusActive = adaptLevel;
-
-    curInterval  = clamp(baseDiff.spawnInterval * intervalMul,
-                         baseDiff.spawnInterval * 0.45,
-                         baseDiff.spawnInterval * 1.4);
-    curScale     = clamp(baseDiff.scale * scaleMul,
-                         baseDiff.scale * 0.6,
-                         baseDiff.scale * 1.4);
-    curLife      = clamp(baseDiff.life * lifeMul,
-                         baseDiff.life * 0.55,
-                         baseDiff.life * 1.15);
-    curMaxActive = clamp(baseDiff.maxActive + bonusActive, 2, 10);
-
-    sampleHits = sampleMisses = sampleTotal = 0;
-
-    try {
-      ROOT.dispatchEvent(new CustomEvent('hha:adaptive', {
-        detail: { modeKey, difficulty: diffKey, level: adaptLevel, spawnInterval: curInterval, maxActive: curMaxActive, scale: curScale, life: curLife }
-      }));
-    } catch {}
-  }
-
-  function addSample (isHit) {
-    if (!allowAdaptive) return;
-    if (isHit) sampleHits++;
-    else sampleMisses++;
-    sampleTotal++;
-    if (sampleTotal >= ADAPT_WINDOW) recalcAdaptive();
-  }
-
-  // ---------- Rhythm ----------
-  let rhythmOn = false;
-  let beatMs = 0;
-  let lastBeatTs = 0;
-
-  if (typeof rhythm === 'boolean') rhythmOn = rhythm;
-  else if (rhythm && rhythm.enabled) rhythmOn = true;
-
-  if (rhythmOn) {
-    const bpm = clamp((rhythm && rhythm.bpm) ? rhythm.bpm : 110, 70, 160);
-    beatMs = Math.round(60000 / bpm);
-    try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
-  }
-
-  function getSpawnMul(){
-    let m = 1;
+  if (!DOC) return out;
+  const list = Array.isArray(selectors) ? selectors : [];
+  for (const sel of list){
     try{
-      if (typeof spawnIntervalMul === 'function') m = Number(spawnIntervalMul()) || 1;
-      else if (spawnIntervalMul != null) m = Number(spawnIntervalMul) || 1;
+      const nodes = DOC.querySelectorAll(sel);
+      nodes.forEach(n=>{
+        const r = rectOf(n);
+        if (r && r.width>1 && r.height>1) out.push(r);
+      });
     }catch{}
-    return clamp(m, 0.25, 2.5);
+  }
+  return out;
+}
+
+function insideAnyRect(x,y, rects){
+  for (const r of rects){
+    if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return true;
+  }
+  return false;
+}
+
+function distNorm(a,b){
+  const dx=a.nx-b.nx, dy=a.ny-b.ny;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function makeTargetEl(){
+  const el = DOC.createElement('div');
+  el.className = 'hvr-target';
+  el.style.position = 'absolute';
+  el.style.left = '50%';
+  el.style.top  = '50%';
+  el.style.transform = 'translate(-50%,-50%)';
+  el.style.width  = '132px';
+  el.style.height = '132px';
+  el.style.borderRadius = '999px';
+  el.style.display='flex';
+  el.style.alignItems='center';
+  el.style.justifyContent='center';
+  el.style.userSelect='none';
+  el.style.cursor='pointer';
+  el.style.willChange='transform,left,top,opacity';
+  el.style.pointerEvents='auto';
+
+  // inner container for wiggle
+  const wiggle = DOC.createElement('div');
+  wiggle.className = 'hvr-wiggle';
+  wiggle.style.width='100%';
+  wiggle.style.height='100%';
+  wiggle.style.display='flex';
+  wiggle.style.alignItems='center';
+  wiggle.style.justifyContent='center';
+  wiggle.style.borderRadius='999px';
+
+  // emoji
+  const icon = DOC.createElement('div');
+  icon.className = 'hvr-emoji';
+  icon.style.fontSize = '58px';
+  icon.style.lineHeight = '1';
+  icon.style.fontFamily = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui';
+
+  wiggle.appendChild(icon);
+  el.appendChild(wiggle);
+
+  return { el, wiggle, icon };
+}
+
+function createRandomRing(size){
+  const ringEl = DOC.createElement('div');
+  ringEl.className = 'hvr-ring ' + pickOne(['r1','r2','r3'], 'r1');
+  ringEl.style.position = 'absolute';
+  ringEl.style.left = '50%';
+  ringEl.style.top  = '50%';
+  ringEl.style.width  = (size * 0.36) + 'px';
+  ringEl.style.height = (size * 0.36) + 'px';
+  ringEl.style.transform = 'translate(-50%, -50%)';
+  ringEl.style.borderRadius = '999px';
+  ringEl.style.pointerEvents = 'none';
+  return ringEl;
+}
+
+function addAfterimage(host, x, y, ch){
+  try{
+    const ghost = DOC.createElement('div');
+    ghost.className = 'hvr-afterimage';
+    ghost.style.left = x + 'px';
+    ghost.style.top  = y + 'px';
+
+    const gi = DOC.createElement('div');
+    gi.className = 'hvr-afterimage-inner';
+    gi.textContent = ch;
+
+    ghost.appendChild(gi);
+    host.appendChild(ghost);
+    ROOT.setTimeout(()=>{ try{ ghost.remove(); }catch{} }, 520);
+  }catch{}
+}
+
+function pickGrid9Point(nx, ny){
+  // 3x3 grid center points with jitter
+  const gx = [1/6, 3/6, 5/6];
+  const gy = [1/6, 3/6, 5/6];
+  const cx = pickOne(gx, 0.5);
+  const cy = pickOne(gy, 0.5);
+  // small jitter so it won't look rigid
+  const jx = rand(-0.10, 0.10);
+  const jy = rand(-0.10, 0.10);
+  return { nx: clamp(cx + jx, 0.08, 0.92), ny: clamp(cy + jy, 0.10, 0.90) };
+}
+
+/**
+ * boot({
+ *   modeKey, difficulty, duration,
+ *   spawnHost, boundsHost,
+ *   spawnAroundCrosshair, spawnStrategy,
+ *   spawnRadiusX, spawnRadiusY,
+ *   minSeparation, maxSpawnTries,
+ *   excludeSelectors,
+ *   pools:{good,bad}, goodRate,
+ *   powerups, powerRate, powerEvery,
+ *   dragThresholdPx,
+ *   spawnIntervalMul: ()=>number,
+ *   decorateTarget(el, parts, data, meta),
+ *   judge(ch, ctx),
+ *   onExpire(info)
+ * })
+ */
+export async function boot(opts = {}){
+  if (!DOC) return { stop(){} };
+
+  const hostSpawn = getEl(opts.spawnHost);
+  const boundsEl  = getEl(opts.boundsHost) || hostSpawn;
+
+  if (!hostSpawn || !boundsEl){
+    console.error('[mode-factory] spawnHost/boundsHost missing');
+    return { stop(){} };
   }
 
-  function getLifeMs(){
-    const mul = getSpawnMul();
-    const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
-    const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
-    const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
+  const diff = String(opts.difficulty || 'easy').toLowerCase();
+  const baseInterval =
+    diff==='hard' ? 520 :
+    diff==='normal' ? 620 :
+    720;
 
-    const life = curLife * stormLifeMul * ratioLifeMul;
-    return Math.round(clamp(life, 520, baseDiff.life * 1.25));
-  }
+  const spawnStrategy = String(opts.spawnStrategy || 'grid9');
+  const minSep = clamp(opts.minSeparation ?? 0.88, 0.20, 2.0);
+  const maxTries = clamp(opts.maxSpawnTries ?? 14, 6, 40);
 
-  // ======================================================
-  //  perfect distance + crosshair shoot
-  // ======================================================
-  function computeHitInfoFromPoint(el, clientX, clientY){
-    const r = el.getBoundingClientRect();
-    const cx = r.left + r.width/2;
-    const cy = r.top  + r.height/2;
-    const dx = (clientX - cx);
-    const dy = (clientY - cy);
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const rad  = Math.max(1, Math.min(r.width, r.height) / 2);
-    const norm = dist / rad;
-    const perfect = norm <= 0.33;
-    return { cx, cy, dist, norm, perfect, rect:r };
-  }
+  const pools = opts.pools || {};
+  const goodPool = Array.isArray(pools.good) ? pools.good : ['💧'];
+  const badPool  = Array.isArray(pools.bad)  ? pools.bad  : ['🥤'];
 
-  function findTargetAtPoint(clientX, clientY){
-    let best = null;
-    let bestD = 999999;
+  const powerups = Array.isArray(opts.powerups) ? opts.powerups : [];
+  const goodRate = clamp(opts.goodRate ?? 0.65, 0.05, 0.95);
+  const powerRate = clamp(opts.powerRate ?? 0.10, 0.00, 0.45);
+  const powerEvery = clamp(opts.powerEvery ?? 6, 0, 99);
 
-    activeTargets.forEach(t => {
-      const el = t.el;
-      if (!el || !el.isConnected) return;
-      const r = el.getBoundingClientRect();
-      const inside = (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom);
-      if (!inside) return;
-      const info = computeHitInfoFromPoint(el, clientX, clientY);
-      if (info.dist < bestD) { bestD = info.dist; best = { t, info }; }
-    });
+  const excludeSelectors = Array.isArray(opts.excludeSelectors) ? opts.excludeSelectors : [];
 
-    return best;
-  }
-
-  const exState = {
-    els: collectExclusionElements({ excludeSelectors }),
-    margins: { top:0,bottom:0,left:0,right:0 },
-    lastRefreshTs: 0
+  const state = {
+    stopped:false,
+    active: new Map(),     // id -> obj
+    recent: [],            // recent spawn positions for min separation
+    spawnCount: 0,
+    lastPowerAt: 0,
+    lastSpawnAt: 0,
+    timerId: null
   };
 
-  function refreshExclusions(ts){
-    if (!DOC) return;
-    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-    if (ts - exState.lastRefreshTs < 600) return;
-    exState.lastRefreshTs = ts;
-
-    exState.els = collectExclusionElements({ excludeSelectors });
-    let hostRect = null;
-    try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!hostRect) hostRect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
-    exState.margins = computeExclusionMargins(hostRect, exState.els);
-  }
-
-  function getCrosshairPoint(){
-    let rect = null;
-    try{ rect = hostBounds.getBoundingClientRect(); }catch{}
-    if (!rect) rect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
-
-    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
-    const padX = rect.width * 0.08;
-    const padY = rect.height * 0.10;
-
-    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
-    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
-    return { x: Math.round(x), y: Math.round(y) };
-  }
-
-  function shootCrosshair(){
-    if (stopped) return false;
-    const p = getCrosshairPoint();
-    const hit = findTargetAtPoint(p.x, p.y);
-    if (!hit) return false;
-
-    const data = hit.t;
-    const info = hit.info;
-
-    if (typeof data._hit === 'function') {
-      data._hit({ __hhaSynth:true, clientX:p.x, clientY:p.y }, info);
-      return true;
+  function boundsRect(){
+    const r = rectOf(boundsEl);
+    if (!r || r.width<10 || r.height<10){
+      return { left:0, top:0, width: innerWidth, height: innerHeight, right: innerWidth, bottom: innerHeight };
     }
-    return false;
+    return r;
   }
 
-  // ======================================================
-  //  Spawn rects (EDGE-FIX: ignore transform)
-  // ======================================================
-  function getRectsForSpawn(){
-    const bRect = getRectSafe(hostBounds) || rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
-    let sRect = getRectSafe(hostSpawn);
-
-    if (!sRect) sRect = bRect;
-
-    const spawnHasT = hasTransform(hostSpawn);
-    if (spawnHasT) {
-      sRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
+  function spawnRect(){
+    const r = rectOf(hostSpawn);
+    if (!r || r.width<10 || r.height<10){
+      const b = boundsRect();
+      return { left:b.left, top:b.top, width:b.width, height:b.height, right:b.right, bottom:b.bottom };
     }
-
-    return { bRect, sRect, spawnHasT };
+    return r;
   }
 
-  function makePlayLocalRect(){
-    const { bRect, sRect } = getRectsForSpawn();
-    const pr = computePlayRectFromHost(hostBounds, exState);
-
-    const cL = bRect.left + pr.left;
-    const cT = bRect.top  + pr.top;
-
-    const l = cL - sRect.left;
-    const t = cT - sRect.top;
-    const w = pr.width;
-    const h = pr.height;
-
-    return { left:l, top:t, width:w, height:h, bRect, sRect };
+  function makeCandidate(){
+    // normalized (0..1) inside bounds
+    let p;
+    if (spawnStrategy === 'grid9'){
+      p = pickGrid9Point();
+    } else {
+      p = { nx: rand(0.08,0.92), ny: rand(0.10,0.90) };
+    }
+    return p;
   }
 
-  function getExistingCentersLocal(sRect){
-    const out = [];
-    activeTargets.forEach(t=>{
-      const el = t.el;
-      if (!el || !el.isConnected) return;
-      let r=null;
-      try{ r = el.getBoundingClientRect(); }catch{}
-      if (!r) return;
-      out.push({ x:(r.left + r.width/2) - sRect.left, y:(r.top + r.height/2) - sRect.top });
-    });
-    return out;
+  function isFarEnough(p){
+    for (const q of state.recent){
+      if (distNorm(p,q) < minSep*0.18) return false; // tuned: 0.18 feels right for grid9
+    }
+    return true;
   }
 
-  // ✅ grid9 helper
-  let lastCell = -1;
-  function pickGrid9Cell(playLocal, centers){
-    const W = playLocal.width, H = playLocal.height;
-    const cellW = W / 3, cellH = H / 3;
+  function pushRecent(p){
+    state.recent.push(p);
+    if (state.recent.length > 8) state.recent.shift();
+  }
 
-    const counts = new Array(9).fill(0);
-    for (let i=0;i<centers.length;i++){
-      const cx = centers[i].x - playLocal.left;
-      const cy = centers[i].y - playLocal.top;
-      const gx = clamp(Math.floor(cx / cellW), 0, 2);
-      const gy = clamp(Math.floor(cy / cellH), 0, 2);
-      counts[gy*3 + gx] += 1;
+  function chooseKind(){
+    state.spawnCount++;
+    const mustPower = (powerEvery>0) && ((state.spawnCount - state.lastPowerAt) >= powerEvery) && powerups.length>0;
+    if (mustPower){
+      state.lastPowerAt = state.spawnCount;
+      return { kind:'power', ch: pickOne(powerups, '⭐') };
+    }
+    const r = Math.random();
+    if (powerups.length>0 && r < powerRate){
+      state.lastPowerAt = state.spawnCount;
+      return { kind:'power', ch: pickOne(powerups, '⭐') };
+    }
+    if (r < powerRate + goodRate){
+      return { kind:'good', ch: pickOne(goodPool, '💧') };
+    }
+    return { kind:'bad', ch: pickOne(badPool, '🥤') };
+  }
+
+  function calcLifetime(){
+    // lifetime: slightly faster on harder
+    const base = diff==='hard' ? 980 : (diff==='normal' ? 1150 : 1320);
+    // mild randomness
+    return clamp(base + rand(-160, 220), 520, 1700);
+  }
+
+  function spawnOne(){
+    if (state.stopped) return;
+
+    const b = boundsRect();
+    const s = spawnRect();
+    const exRects = collectExcludeRects(excludeSelectors);
+
+    let pick = null;
+    for (let i=0;i<maxTries;i++){
+      const p = makeCandidate();
+      if (!isFarEnough(p)) continue;
+
+      const x = b.left + p.nx * b.width;
+      const y = b.top  + p.ny * b.height;
+
+      if (insideAnyRect(x,y, exRects)) continue;
+
+      pick = { ...p, x, y };
+      break;
     }
 
-    // เลือก cell ที่น้อยสุด + กันซ้ำ cell เดิมถ้าเป็นไปได้
-    const order = [...Array(9).keys()].sort((a,b)=> counts[a]-counts[b]);
-    let pick = order[0];
-    for (let i=0;i<order.length;i++){
-      if (order[i] !== lastCell) { pick = order[i]; break; }
-    }
-    lastCell = pick;
-    return pick;
-  }
-
-  function pickSpawnPointLocal(playLocal, sizePx){
-    const { sRect } = playLocal;
-    const centers = getExistingCentersLocal(sRect);
-
-    const minDist = Math.max(18, sizePx * minSeparation);
-    const tries = clamp(maxSpawnTries, 6, 30);
-
-    let ax = playLocal.left + playLocal.width * 0.50;
-    let ay = playLocal.top  + playLocal.height * 0.52;
-
-    if (spawnAroundCrosshair) {
-      const cp = getCrosshairPoint();
-      ax = cp.x - sRect.left;
-      ay = cp.y - sRect.top;
-    }
-
-    const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.98);
-    const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.98);
-
-    const maxVisualScale = 1.10;
-    const pad = Math.max(12, (sizePx * maxVisualScale) * 0.62);
-
-    const minX = playLocal.left + pad;
-    const maxX = playLocal.left + playLocal.width  - pad;
-    const minY = playLocal.top  + pad;
-    const maxY = playLocal.top  + playLocal.height - pad;
-
-    const rectOk = (playLocal.width >= sizePx*1.30) && (playLocal.height >= sizePx*1.30);
-    if (!rectOk) {
-      return { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
-    }
-
-    function tri(){ return (Math.random() + Math.random() - 1); }
-
-    let best = null;
-    let bestScore = -1;
-
-    const strategy = String(spawnStrategy || 'auto').toLowerCase();
-    const useUniform = (!spawnAroundCrosshair) && (strategy === 'uniform' || strategy === 'auto');
-    const useGrid9   = (!spawnAroundCrosshair) && (strategy === 'grid9');
-
-    // ✅ grid9: เลือกช่องโล่ง แล้วสุ่มในช่องนั้น
-    if (useGrid9){
-      const cell = pickGrid9Cell(playLocal, centers);
-      const gx = cell % 3;
-      const gy = Math.floor(cell / 3);
-
-      const cellW = (maxX - minX) / 3;
-      const cellH = (maxY - minY) / 3;
-
-      const cMinX = minX + gx * cellW;
-      const cMaxX = minX + (gx+1) * cellW;
-      const cMinY = minY + gy * cellH;
-      const cMaxY = minY + (gy+1) * cellH;
-
-      for (let i=0;i<tries;i++){
-        const x = cMinX + Math.random() * Math.max(1, (cMaxX - cMinX));
-        const y = cMinY + Math.random() * Math.max(1, (cMaxY - cMinY));
-
-        let ok = true;
-        let nearest = 1e9;
-        for (let k=0;k<centers.length;k++){
-          const dx = x - centers[k].x;
-          const dy = y - centers[k].y;
-          const d  = Math.sqrt(dx*dx + dy*dy);
-          nearest = Math.min(nearest, d);
-          if (d < minDist) { ok = false; break; }
+    // fallback: even if minSep fail, still spawn somewhere valid
+    if (!pick){
+      for (let i=0;i<maxTries;i++){
+        const p = { nx: rand(0.10,0.90), ny: rand(0.12,0.88) };
+        const x = b.left + p.nx * b.width;
+        const y = b.top  + p.ny * b.height;
+        if (!insideAnyRect(x,y, collectExcludeRects(excludeSelectors))){
+          pick = { ...p, x, y };
+          break;
         }
-        if (ok) return { x, y, ok:true };
-
-        const score = nearest;
-        if (score > bestScore) { bestScore = score; best = { x, y, ok:false }; }
-      }
-
-      return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
-    }
-
-    // ✅ uniform ทั่วสนามจริง (PATCH A)
-    for (let i=0;i<tries;i++){
-      const x = useUniform
-        ? (minX + Math.random() * (maxX - minX))
-        : clamp(ax + tri()*rx, minX, maxX);
-
-      const y = useUniform
-        ? (minY + Math.random() * (maxY - minY))
-        : clamp(ay + tri()*ry, minY, maxY);
-
-      let ok = true;
-      let nearest = 1e9;
-      for (let k=0;k<centers.length;k++){
-        const dx = x - centers[k].x;
-        const dy = y - centers[k].y;
-        const d  = Math.sqrt(dx*dx + dy*dy);
-        nearest = Math.min(nearest, d);
-        if (d < minDist) { ok = false; break; }
-      }
-
-      const score = ok ? (100000 + nearest) : nearest;
-      if (score > bestScore) { bestScore = score; best = { x, y, ok }; }
-      if (ok) return { x, y, ok:true };
-    }
-
-    return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
-  }
-
-  // ======================================================
-  //  Spawn target
-  // ======================================================
-  function spawnTarget () {
-    if (activeTargets.size >= curMaxActive) return;
-
-    refreshExclusions();
-
-    const playLocal = makePlayLocalRect();
-
-    const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
-    const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
-    const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
-
-    let ch = '💧';
-    let isGood = true;
-    let isPower = false;
-    let itemType = 'good';
-
-    const canPower = Array.isArray(powerups) && powerups.length > 0;
-    const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
-
-    if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
-      ch = pickOne(powerups, '⭐');
-      isGood = true;
-      isPower = true;
-      itemType = 'power';
-    } else if (canTrick) {
-      ch = pickOne(poolsTrick, '💧');
-      isGood = true;
-      isPower = false;
-      itemType = 'fakeGood';
-    } else {
-      const r = Math.random();
-      if (r < goodRate || !poolsBad.length) {
-        ch = pickOne(poolsGood, '💧');
-        isGood = true;
-        itemType = 'good';
-      } else {
-        ch = pickOne(poolsBad, '🥤');
-        isGood = false;
-        itemType = 'bad';
       }
     }
-    spawnCounter++;
-
-    const el = DOC.createElement('div');
-    el.className = 'hvr-target';
-    el.setAttribute('data-hha-tgt', '1');
-    el.setAttribute('data-item-type', itemType);
-
-    const baseSize = 78;
-    const size = baseSize * curScale;
-
-    const p = pickSpawnPointLocal(playLocal, size);
-
-    el.style.position = 'absolute';
-    el.style.left = p.x + 'px';
-    el.style.top  = p.y + 'px';
-    el.style.transform = 'translate(-50%, -50%) scale(0.9)';
-    el.style.width  = size + 'px';
-    el.style.height = size + 'px';
-    el.style.touchAction = 'manipulation';
-    el.style.zIndex = '35';
-    el.style.borderRadius = '999px';
-
-    const wiggle = DOC.createElement('div');
-    wiggle.className = 'hvr-wiggle';
-    wiggle.style.borderRadius = '999px';
-
-    let bgGrad = '';
-    let ringGlow = '';
-
-    if (isPower) {
-      bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
-      ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
-    } else if (itemType === 'fakeGood') {
-      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
-      ringGlow = '0 0 0 2px rgba(167,139,250,0.85), 0 0 22px rgba(167,139,250,0.9)';
-    } else if (isGood) {
-      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
-      ringGlow = '0 0 0 2px rgba(74,222,128,0.75), 0 0 18px rgba(16,185,129,0.85)';
-    } else {
-      bgGrad = 'radial-gradient(circle at 30% 25%, #fb923c, #ea580c)';
-      ringGlow = '0 0 0 2px rgba(248,113,113,0.75), 0 0 18px rgba(248,113,113,0.9)';
-      el.classList.add('bad');
+    if (!pick){
+      pick = { nx:0.5, ny:0.5, x:b.left + b.width/2, y:b.top + b.height/2 };
     }
 
-    el.style.background = bgGrad;
-    el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
+    pushRecent(pick);
 
-    const ring = DOC.createElement('div');
-    ring.style.position = 'absolute';
-    ring.style.left = '50%';
-    ring.style.top  = '50%';
-    ring.style.width  = (size * 0.36) + 'px';
-    ring.style.height = (size * 0.36) + 'px';
-    ring.style.transform = 'translate(-50%, -50%)';
-    ring.style.borderRadius = '999px';
-    ring.style.border = '2px solid rgba(255,255,255,0.35)';
-    ring.style.boxShadow = '0 0 12px rgba(255,255,255,0.18)';
-    ring.style.pointerEvents = 'none';
+    const { kind, ch } = chooseKind();
 
-    const inner = DOC.createElement('div');
-    inner.style.width = (size * 0.82) + 'px';
-    inner.style.height = (size * 0.82) + 'px';
-    inner.style.borderRadius = '999px';
-    inner.style.display = 'flex';
-    inner.style.alignItems = 'center';
-    inner.style.justifyContent = 'center';
-    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,0.12), rgba(15,23,42,0.36))';
-    inner.style.boxShadow = 'inset 0 4px 10px rgba(15,23,42,0.9)';
+    const { el, wiggle, icon } = makeTargetEl();
+    const size = 132;
+    el.style.width = size+'px';
+    el.style.height = size+'px';
 
-    const icon = DOC.createElement('span');
+    // place relative to spawnHost
+    // convert viewport x/y into local coords inside spawnHost
+    const lx = pick.x - s.left;
+    const ly = pick.y - s.top;
+
+    el.style.left = lx + 'px';
+    el.style.top  = ly + 'px';
+
+    // add ring (random)
+    const ringEl = createRandomRing(size);
+    el.insertBefore(ringEl, wiggle);
+
     icon.textContent = ch;
-    icon.style.fontSize = (size * 0.60) + 'px';
-    icon.style.lineHeight = '1';
-    icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
-    inner.appendChild(icon);
 
-    let badge = null;
-    if (itemType === 'fakeGood') {
-      badge = DOC.createElement('div');
-      badge.textContent = '✨';
-      badge.style.position = 'absolute';
-      badge.style.right = '8px';
-      badge.style.top = '6px';
-      badge.style.fontSize = '18px';
-      badge.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
-      badge.style.pointerEvents = 'none';
-    }
-
-    wiggle.appendChild(ring);
-    wiggle.appendChild(inner);
-    if (badge) wiggle.appendChild(badge);
-    el.appendChild(wiggle);
-
-    if (rhythmOn) el.classList.add('hvr-pulse');
-
-    ROOT.requestAnimationFrame(() => {
-      el.style.transform = 'translate(-50%, -50%) scale(1)';
-    });
-
-    const lifeMs = getLifeMs();
-
+    // flags
+    const id = 't' + Math.random().toString(16).slice(2) + (now()|0);
     const data = {
-      el,
+      id,
       ch,
-      isGood,
-      isPower,
-      itemType,
-      bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
-      life: lifeMs,
-      _hit: null
+      kind,
+      isGood: kind==='good',
+      isPower: kind==='power'
     };
 
-    try{
-      if (typeof decorateTarget === 'function'){
-        decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
-          size,
-          modeKey,
-          difficulty: diffKey,
-          spawnMul: getSpawnMul(),
-          curScale,
-          adaptLevel
-        });
-      }
-    }catch(err){
-      console.warn('[mode-factory] decorateTarget error', err);
-    }
+    // class tags
+    el.classList.toggle('hvr-good', data.isGood && !data.isPower);
+    el.classList.toggle('hvr-junk', !data.isGood && !data.isPower);
+    el.classList.toggle('hvr-power', data.isPower);
 
-    activeTargets.add(data);
+    // let game customize
+    try{
+      if (typeof opts.decorateTarget === 'function'){
+        opts.decorateTarget(el, { wiggle, icon, ringEl }, data, { difficulty: diff, modeKey: String(opts.modeKey||'') });
+      }
+    }catch{}
+
     hostSpawn.appendChild(el);
 
-    function consumeHit(evOrSynth, hitInfoOpt){
-      if (stopped) return;
-      if (!activeTargets.has(data)) return;
+    const born = now();
+    const life = calcLifetime();
+    let killed = false;
 
-      let keepRect = null;
-      try{ keepRect = el.getBoundingClientRect(); }catch{}
-
-      activeTargets.delete(data);
-      try { el.removeEventListener('pointerdown', handleHit); } catch {}
-      try { el.removeEventListener('click', handleHit); } catch {}
-      try { el.removeEventListener('touchstart', handleHit); } catch {}
-      try { hostSpawn.removeChild(el); } catch {}
-
-      let res = null;
-      if (typeof judge === 'function') {
-        const xy = (evOrSynth && evOrSynth.__hhaSynth)
-          ? { x: evOrSynth.clientX, y: evOrSynth.clientY }
-          : getEventXY(evOrSynth || {});
-        const info = hitInfoOpt || (keepRect ? (function(){
-          const cx = keepRect.left + keepRect.width/2;
-          const cy = keepRect.top  + keepRect.height/2;
-          const dx = (xy.x - cx);
-          const dy = (xy.y - cy);
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          const rad  = Math.max(1, Math.min(keepRect.width, keepRect.height) / 2);
-          const norm = dist / rad;
-          const perfect = norm <= 0.33;
-          return { cx, cy, dist, norm, perfect, rect: keepRect };
-        })() : computeHitInfoFromPoint(el, xy.x, xy.y));
-
-        const ctx = {
-          clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
-          isGood, isPower,
-          itemType,
-          hitPerfect: !!info.perfect,
-          hitDistNorm: Number(info.norm || 1),
-          targetRect: info.rect
-        };
-        try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
+    function kill(reason){
+      if (killed) return;
+      killed = true;
+      try{ el.remove(); }catch{}
+      state.active.delete(id);
+      if (reason==='expire'){
+        try{
+          if (typeof opts.onExpire === 'function'){
+            opts.onExpire({ id, ch, isGood:data.isGood, isPower:data.isPower, kind:data.kind });
+          }
+        }catch{}
       }
-
-      let isHit = false;
-      if (res && typeof res.scoreDelta === 'number') {
-        if (res.scoreDelta > 0) isHit = true;
-        else if (res.scoreDelta < 0) isHit = false;
-        else isHit = isGood;
-      } else if (res && typeof res.good === 'boolean') {
-        isHit = !!res.good;
-      } else {
-        isHit = isGood;
-      }
-      addSample(isHit);
     }
 
-    const handleHit = (ev) => {
-      if (stopped) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      consumeHit(ev, null);
+    // click / tap hit
+    const onDown = (ev)=>{
+      // respect drag threshold if provided: if user is dragging view, ignore
+      // (we can’t fully know here, but keep it light)
+      const cx = (ev.clientX ?? (s.left + lx));
+      const cy = (ev.clientY ?? (s.top + ly));
+
+      // remove first (so it feels snappy)
+      kill('hit');
+
+      // afterimage at local coordinate
+      addAfterimage(hostSpawn, lx, ly, ch);
+
+      // judge callback
+      try{
+        if (typeof opts.judge === 'function'){
+          opts.judge(ch, {
+            id,
+            isGood:data.isGood,
+            isPower:data.isPower,
+            kind:data.kind,
+            clientX: cx,
+            clientY: cy
+          });
+        }
+      }catch{}
+      ev.preventDefault?.();
+      ev.stopPropagation?.();
     };
 
-    data._hit = consumeHit;
+    el.addEventListener('pointerdown', onDown, { passive:false });
 
-    el.addEventListener('pointerdown', handleHit, { passive: false });
-    el.addEventListener('click', handleHit, { passive: false });
-    el.addEventListener('touchstart', handleHit, { passive: false });
+    // expire timer
+    const expireTimer = ROOT.setTimeout(()=> kill('expire'), life);
 
-    ROOT.setTimeout(() => {
-      if (stopped) return;
-      if (!activeTargets.has(data)) return;
-
-      activeTargets.delete(data);
-      try { el.removeEventListener('pointerdown', handleHit); } catch {}
-      try { el.removeEventListener('click', handleHit); } catch {}
-      try { el.removeEventListener('touchstart', handleHit); } catch {}
-      try { hostSpawn.removeChild(el); } catch {}
-
-      try { if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, itemType }); } catch (err) {
-        console.error('[mode-factory] onExpire error', err);
-      }
-    }, lifeMs);
+    state.active.set(id, {
+      id, el, data,
+      born, life,
+      expireTimer,
+      kill
+    });
   }
 
-  function dispatchTime (sec) {
-    try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
+  function scheduleNext(){
+    if (state.stopped) return;
+    const mul = (typeof opts.spawnIntervalMul === 'function') ? (Number(opts.spawnIntervalMul())||1) : 1;
+    const delay = clamp(baseInterval * clamp(mul, 0.35, 2.5), 180, 1600);
+    state.timerId = ROOT.setTimeout(()=>{
+      state.timerId = null;
+      spawnOne();
+      scheduleNext();
+    }, delay);
   }
 
-  let rafId = null;
+  // start
+  scheduleNext();
 
-  function loop (ts) {
-    if (stopped) return;
+  function stop(){
+    if (state.stopped) return;
+    state.stopped = true;
+    try{ if (state.timerId) ROOT.clearTimeout(state.timerId); }catch{}
+    state.timerId = null;
 
-    refreshExclusions(ts);
-
-    if (lastClockTs == null) lastClockTs = ts;
-    const dt = ts - lastClockTs;
-
-    if (dt >= 1000 && secLeft > 0) {
-      const steps = Math.floor(dt / 1000);
-      for (let i = 0; i < steps; i++) {
-        secLeft--;
-        dispatchTime(secLeft);
-        if (secLeft <= 0) break;
-      }
-      lastClockTs += steps * 1000;
+    for (const it of state.active.values()){
+      try{ ROOT.clearTimeout(it.expireTimer); }catch{}
+      try{ it.el.remove(); }catch{}
     }
-
-    if (secLeft > 0) {
-      if (!lastSpawnTs) lastSpawnTs = ts;
-
-      const mul = getSpawnMul();
-      const effInterval = Math.max(35, curInterval * mul);
-
-      try{
-        if (mul < 0.99) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
-        else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
-      }catch{}
-
-      if (rhythmOn && beatMs > 0) {
-        if (!lastBeatTs) lastBeatTs = ts;
-        const dtBeat = ts - lastBeatTs;
-        if (dtBeat >= beatMs) {
-          spawnTarget();
-          lastBeatTs += Math.floor(dtBeat / beatMs) * beatMs;
-        }
-      } else {
-        const dtSpawn = ts - lastSpawnTs;
-        if (dtSpawn >= effInterval) {
-          spawnTarget();
-          lastSpawnTs = ts;
-        }
-      }
-    } else {
-      stop();
-      return;
-    }
-
-    rafId = ROOT.requestAnimationFrame(loop);
+    state.active.clear();
+    state.recent.length = 0;
   }
 
-  function stop () {
-    if (stopped) return;
-    stopped = true;
-
-    try { if (rafId != null) ROOT.cancelAnimationFrame(rafId); } catch {}
-    rafId = null;
-
-    activeTargets.forEach(t => { try { t.el.remove(); } catch {} });
-    activeTargets.clear();
-
-    try { dispatchTime(0); } catch {}
-  }
-
-  const onStopEvent = () => stop();
-  ROOT.addEventListener('hha:stop', onStopEvent);
-
-  rafId = ROOT.requestAnimationFrame(loop);
-
-  return {
-    stop () {
-      ROOT.removeEventListener('hha:stop', onStopEvent);
-      stop();
-    },
-    shootCrosshair
-  };
+  return { stop };
 }
 
 export default { boot };
