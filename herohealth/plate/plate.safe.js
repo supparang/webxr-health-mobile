@@ -1,8 +1,13 @@
 // === /herohealth/plate/plate.safe.js ===
-// HeroHealth — Balanced Plate VR (ALL-IN / ULTIMATE / GoodJunk-style) — UPDATED
-// ✅ Research คุมเข้ม (seeded) + Boss attack fair (punish only when boss near center)
-// ✅ Minimal HUD in play (ui=full เพื่อโชว์เต็ม) + filter เลขยาวลอย
-// ✅ กันยิง/โดนซ้ำจาก event ซ้ำบนมือถือ
+// HeroHealth — Balanced Plate VR (ALL-IN / ULTIMATE / GoodJunk-style)
+// ✅ C: Minimal HUD (พื้นที่ gameplay เยอะขึ้น) — ซ่อน hudLeft/hudRight/hudBottom อัตโนมัติ
+// ✅ C2: Boss attack “โดนเฉพาะตอนเล็งใกล้” (หลบมองออก = DODGE! ไม่โดนลงโทษ)
+// ✅ FIX: แยก PlateCount ออกจาก GoalsCleared (ไม่เพี้ยน)
+// ✅ Research strict: seed RNG + ปิด boss/power/trap/fake/storm/fever-burst + spawn คงที่
+// ✅ Clean: ซ่อนเลขยาวๆ (timestamp/debug overlay) ที่ลอยมารบกวนสายตา
+//
+// HTML expects defer: ./vr/particles.js, ./vr/hha-compat-input.js, ./vr/hha-cloud-logger.js, A-Frame
+// Module: <script type="module" src="./plate/plate.safe.js"></script>
 
 'use strict';
 
@@ -17,31 +22,30 @@ const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal
 const TOTAL_TIME = Math.max(20, parseInt(Q.get('time') || '80', 10) || 80);
 const DEBUG = (Q.get('debug') === '1');
 
-// --- UI mode: minimal by default in play, full in research (or ui=full) ---
-const UI_MODE = String(Q.get('ui') || (MODE === 'research' ? 'full' : 'mini')).toLowerCase(); // mini|full
-
-const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
-const LIVES_START = Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0 ? LIVES_PARAM : 3;
-
-// ---------- Seeded RNG (Research strict) ----------
+// ---- Research strict ----
+const STRICT_RESEARCH = (MODE === 'research') && (Q.get('research') !== 'loose'); // allow ?research=loose
 const SEED = (()=>{
-  const raw = Q.get('seed') || Q.get('ts') || '';
-  const n = parseInt(String(raw || ''), 10);
-  if (Number.isFinite(n) && n > 0) return n >>> 0;
-  // fallback: still stable-ish per load
-  return (Date.now() & 0xffffffff) >>> 0;
+  const s = Q.get('seed');
+  if (s && /^\d+$/.test(String(s))) return parseInt(s, 10) || 1;
+  const ts = Q.get('ts');
+  if (ts && /^\d+$/.test(String(ts))) return parseInt(ts, 10) || 1;
+  return 1;
 })();
 
-function makePRNG(seed){
-  let s = (seed >>> 0) || 1;
-  return function rand01(){
-    // LCG: deterministic + fast
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
-    return s / 4294967296;
+// Deterministic RNG (LCG) for research
+function makeLCG(seed){
+  let x = (seed >>> 0) || 1;
+  return function rand(){
+    x = (1664525 * x + 1013904223) >>> 0;
+    return x / 4294967296;
   };
 }
-const _rand01 = (MODE === 'research') ? makePRNG(SEED) : Math.random;
-const rand = ()=> _rand01();
+const RAND = STRICT_RESEARCH ? makeLCG(SEED) : (()=>Math.random());
+
+const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
+// ป.5 แนะนำ easy เริ่ม 4 หัวใจ (ถ้าไม่ส่งมาเอง)
+const DEFAULT_LIVES = (DIFF === 'easy') ? 4 : 3;
+const LIVES_START = Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0 ? LIVES_PARAM : DEFAULT_LIVES;
 
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
@@ -55,7 +59,7 @@ const Particles =
 
 // ---------- Utils ----------
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const rnd = (a,b)=>a + rand()*(b-a);
+const rnd = (a,b)=>a+RAND()*(b-a);
 const now = ()=>performance.now();
 const fmt = (n)=>String(Math.max(0, Math.floor(n)));
 function $(id){ return doc.getElementById(id); }
@@ -100,6 +104,7 @@ const HUD = {
   rG4: $('rG4'),
   rG5: $('rG5'),
   rGTotal: $('rGTotal'),
+  rPlates: $('rPlates'), // (ถ้า HTML ยังไม่มี ก็ไม่เป็นไร)
 };
 
 // ---------- A-Frame refs ----------
@@ -158,8 +163,11 @@ const S = {
   lives: LIVES_START,
   livesMax: Math.max(1, LIVES_START),
 
+  // FIX: แยก PlateCount vs GoalsCleared
+  platesMade: 0,
   goalsCleared: 0,
   goalsTotal: 2,
+
   minisCleared: 0,
   minisTotal: 7,
 
@@ -191,10 +199,7 @@ const S = {
 
   perfectZoneOn: false,
 
-  // research: deterministic session id
-  sessionId: (MODE === 'research')
-    ? `PLATE-R-${DIFF}-${TOTAL_TIME}-S${SEED}`
-    : `PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  sessionId: `PLATE-${Date.now()}-${(STRICT_RESEARCH ? `seed${SEED}` : Math.random().toString(16).slice(2))}`,
 };
 
 // ---------- VR helpers ----------
@@ -202,37 +207,10 @@ function inVR(){
   try { return !!(scene && scene.is && scene.is('vr-mode')); } catch(_) { return false; }
 }
 
-// ---------- Inject CSS ----------
+// ---------- Inject CSS (FIX: var(--x) / var(--y) ใช้ px ตรง ๆ ไม่คูณ 1px) ----------
 (function injectCss(){
   const st = doc.createElement('style');
   st.textContent = `
-  /* --- HUD compact to expand gameplay --- */
-  #hudTop, #hudLeft, #hudRight, #hudBottom{
-    backdrop-filter: blur(8px);
-  }
-  body.hha-ui-mini #hudLeft,
-  body.hha-ui-mini #hudRight{
-    transform-origin: top;
-    transform: scale(0.88);
-  }
-  body.hha-ui-mini #hudTop{
-    transform-origin: top left;
-    transform: scale(0.92);
-  }
-  body.hha-ui-mini #hudBottom{
-    transform-origin: bottom left;
-    transform: scale(0.90);
-  }
-  body.hha-ui-mini .pill{ padding:4px 8px !important; font-size:12px !important; }
-  body.hha-ui-mini .card{ padding:10px 10px !important; }
-  body.hha-ui-mini #hudGradePill,
-  body.hha-ui-mini #hudModePill,
-  body.hha-ui-mini #hudDiffPill,
-  body.hha-ui-mini #hudPerfectPill{ display:none !important; }
-
-  /* Hide any logger debug overlays just in case */
-  .hha-logger-debug, #hhaLoggerDebug, #hha-log-debug, .logger-debug{ display:none !important; }
-
   .plate-layer{
     position:fixed; inset:0;
     z-index:400;
@@ -493,6 +471,31 @@ function inVR(){
   .hha-coach.on{ opacity:1; transform:translate3d(0,0,0); }
   .hha-coach .t{ font-weight:1000; }
   .hha-coach .s{ margin-top:4px; color:rgba(229,231,235,.82); font-weight:900; }
+
+  /* ---- C: Minimal HUD mode ---- */
+  body.plate-minimal #hudLeft,
+  body.plate-minimal #hudRight,
+  body.plate-minimal #hudBottom{
+    display:none !important;
+    visibility:hidden !important;
+  }
+  body.plate-minimal #hudTop{
+    max-width:min(820px, 96vw);
+    left:50%;
+    transform:translateX(-50%);
+  }
+  body.plate-minimal #hudTop .card{
+    padding:10px 10px !important;
+  }
+  body.plate-minimal #hudTop .pill{
+    padding:6px 10px !important;
+    border-radius:999px;
+  }
+  body.plate-minimal #miniPanel{
+    max-width:min(860px, 96vw);
+    left:50%;
+    transform:translateX(-50%);
+  }
   `;
   doc.head.appendChild(st);
 })();
@@ -597,7 +600,7 @@ const AudioX = (function(){
   return { ensure, unlock, tick, warn, good, perfect, bad, bossHit, bossDown, atk, shield, power };
 })();
 
-// ---------- Camera -> view offset ----------
+// ---------- Camera -> view offset (GoodJunk style on mobile; in VR = 0) ----------
 function getCamAngles(){
   const r = cam && cam.object3D ? cam.object3D.rotation : null;
   if (!r) return { yaw:0, pitch:0 };
@@ -640,9 +643,12 @@ function pickSafeXY(sizePx){
 
   const off = viewOffset();
 
+  const topPad = doc.body.classList.contains('plate-minimal') ? 20 : 60;
+  const bottomPad = doc.body.classList.contains('plate-minimal') ? 20 : 60;
+
   for (let i=0;i<tries;i++){
     const sx = rnd(m+half, vw-m-half);
-    const sy = rnd(m+half+52, vh-m-half-52);
+    const sy = rnd(m+half+topPad, vh-m-half-bottomPad);
     const screenRect = { x: sx-half, y: sy-half, w: sizePx, h: sizePx };
 
     let ok = true;
@@ -666,7 +672,7 @@ const FOOD_BY_GROUP = {
 };
 const JUNK = ['🍩','🍟','🍔','🍕','🧋','🍭','🍫','🥤'];
 const TRAPS = ['🎁','⭐','🍬','🍰','🧁'];
-function randFrom(arr){ return arr[(rand()*arr.length)|0]; }
+function randFrom(arr){ return arr[(RAND()*arr.length)|0]; }
 
 // ---------- HUD pills injected (Shield/Lives/Power) ----------
 let hudShieldVal = null;
@@ -742,15 +748,21 @@ function refreshPowerHUD(){
   setShow(powGreen, t < S.noJunkUntil);
   setShow(powBlue, t < S.slowUntil);
   setShow(powOrange, t < S.stormUntil);
+
+  // research strict: ไม่โชว์ power overlay
+  if (STRICT_RESEARCH){
+    setShow(powGreen,false); setShow(powBlue,false); setShow(powOrange,false);
+  }
 }
 
 // ---------- Perfect zone ----------
 function setPerfectZone(on){
   S.perfectZoneOn = !!on;
   perfectZone.classList.toggle('on', S.perfectZoneOn);
+  if (STRICT_RESEARCH) perfectZone.classList.remove('on'); // research ไม่โชว์ช่วยเล็ง
 }
 
-// ---------- Logger ----------
+// ---------- Logger (IIFE cloud logger) ----------
 function dispatchEvt(name, detail){
   try { ROOT.dispatchEvent(new CustomEvent(name, { detail })); } catch(_) {}
 }
@@ -763,7 +775,8 @@ function logSession(phase){
     diff: DIFF,
     timeTotal: TOTAL_TIME,
     lives: S.livesMax,
-    seed: (MODE === 'research') ? SEED : undefined,
+    seed: SEED,
+    strictResearch: !!STRICT_RESEARCH,
     ts: Date.now(),
     ua: navigator.userAgent,
   });
@@ -782,6 +795,8 @@ function logEvent(type, data){
     shield: S.shield,
     lives: S.lives,
     power: powerLabel(),
+    platesMade: S.platesMade,
+    goalsCleared: S.goalsCleared,
     data: data || {},
   });
 }
@@ -791,6 +806,7 @@ function addScore(delta){ S.score += delta; setTxt(HUD.score, S.score); }
 function addCombo(){ S.combo += 1; S.maxCombo = Math.max(S.maxCombo, S.combo); setTxt(HUD.combo, S.combo); }
 
 function grantShield(){
+  if (STRICT_RESEARCH) return;
   if (S.shield >= S.shieldMax) return;
   setShield(S.shield + 1);
   Particles.celebrate && Particles.celebrate('SHIELD +1!');
@@ -800,6 +816,7 @@ function grantShield(){
   logEvent('shield_gain', { shield: S.shield });
 }
 function addFever(v){
+  if (STRICT_RESEARCH) return; // คุมเข้ม: ปิด fever
   const prev = S.fever;
   S.fever = clamp(S.fever + v, 0, 100);
   const pct = Math.round(S.fever);
@@ -883,7 +900,7 @@ const MINIS = [
 function goalProgressText(){
   const g = S.activeGoal;
   if (!g) return '0';
-  if (g.key === 'plates2') return `${S.goalsCleared}/${g.target}`;
+  if (g.key === 'plates2') return `${S.platesMade}/${g.target}`;
   if (g.key === 'perfect6') return `${S.perfectCount}/${g.target}`;
   return '0';
 }
@@ -895,15 +912,16 @@ function setGoal(i){
 function checkGoalClear(){
   const g = S.activeGoal;
   if (!g) return false;
-  if (g.key === 'plates2') return (S.goalsCleared >= g.target);
+  if (g.key === 'plates2') return (S.platesMade >= g.target);
   if (g.key === 'perfect6') return (S.perfectCount >= g.target);
   return false;
 }
 function onGoalCleared(){
+  S.goalsCleared += 1; // FIX
   Particles.celebrate && Particles.celebrate('GOAL CLEAR!');
   showCoach('✅ GOAL CLEAR!', 'ไปต่อ! ภารกิจถัดไป!');
   vibe(60);
-  logEvent('goal_clear', { goal: S.activeGoal && S.activeGoal.key });
+  logEvent('goal_clear', { goal: S.activeGoal && S.activeGoal.key, goalsCleared: S.goalsCleared });
   if (S.goalIndex+1 < GOALS.length) setGoal(S.goalIndex+1);
 }
 
@@ -987,14 +1005,14 @@ function onGood(group){
   setTxt(HUD.have, `${S.plateHave.size}/${S.groupsTotal}`);
 
   if (S.plateHave.size >= S.groupsTotal){
-    S.goalsCleared += 1;
+    S.platesMade += 1;           // FIX: นับ “ทำจาน” แยก
     S.plateHave.clear();
     setTxt(HUD.have, `${S.plateHave.size}/${S.groupsTotal}`);
 
     Particles.celebrate && Particles.celebrate('PLATE +1!');
     showCoach('🍽️ PLATE +1!', 'เก็บให้ครบอีก!');
     vibe(45);
-    logEvent('plate_complete', { plates: S.goalsCleared });
+    logEvent('plate_complete', { platesMade: S.platesMade });
 
     setGoal(S.goalIndex);
     if (S.activeGoal && S.activeGoal.key === 'plates2' && checkGoalClear()){
@@ -1026,6 +1044,10 @@ function pickNearCrosshair(radiusPx){
   return null;
 }
 function updateAimHighlight(){
+  if (STRICT_RESEARCH){
+    setPerfectZone(false);
+    return;
+  }
   const assist = inVR() ? Math.max(D.aimAssist, 170) : D.aimAssist;
   const picked = pickNearCrosshair(assist);
   const tid = picked ? picked.rec.el.dataset.tid : null;
@@ -1074,16 +1096,15 @@ function bossPhaseFor(rec){
 function makeTarget(kind, group, opts = {}){
   const sizePx = computeSizePx(kind);
 
-  // allow forced center position (used by fever ring burst)
-  const pos = (opts && opts._forceXY && typeof opts._forceXY.x === 'number')
-    ? { x: opts._forceXY.x, y: opts._forceXY.y }
-    : pickSafeXY(sizePx);
+  // FIX: รองรับ force XY (ใช้ใน fever ring burst)
+  const forced = opts && opts._forceXY && typeof opts._forceXY.x === 'number' && typeof opts._forceXY.y === 'number';
+  const pos = forced ? { x: opts._forceXY.x, y: opts._forceXY.y } : pickSafeXY(sizePx);
 
   const el = doc.createElement('div');
   el.className = `plateTarget ${kind} spawn`;
   el.dataset.tid = String(++targetSeq);
 
-  const sc = 0.92 + rand()*0.22;
+  const sc = 0.92 + RAND()*0.22;
   const sc2 = (kind === 'gold' || kind === 'boss' || isPowerKind(kind)) ? (sc * 1.08) : sc;
 
   el.style.setProperty('--sz', `${sizePx}px`);
@@ -1104,7 +1125,7 @@ function makeTarget(kind, group, opts = {}){
   else if (kind === 'nojunk'){ emoji = '🟢'; tag = 'NO-JUNK'; }
   else if (kind === 'storm'){ emoji = '🌪️'; tag = 'STORM'; }
   else if (kind === 'boss'){
-    emoji = (rand() < 0.5) ? '🦠' : '😈';
+    emoji = (RAND() < 0.5) ? '🦠' : '😈';
     tag = 'BOSS';
     hp = Math.max(2, opts.hp || D.bossHP || 4);
     meta.phase = 1;
@@ -1142,30 +1163,24 @@ function makeTarget(kind, group, opts = {}){
     atkArmed: (kind === 'boss'),
     atkDelays: 0,
     _warned: false,
-    _hit: false,
   };
 
   S.targets.push(rec);
 
   const hitHandler = (e)=>{
-    if (rec._hit) return;
-    rec._hit = true;
-    try{
-      e.preventDefault();
-      e.stopPropagation();
-    }catch(_){}
+    e.preventDefault();
+    e.stopPropagation();
     AudioX.unlock();
     hitTarget(rec, true);
   };
-
-  // pointerdown is primary; click fallback
   el.addEventListener('pointerdown', hitHandler, { passive:false });
   el.addEventListener('click', hitHandler, { passive:false });
+  el.addEventListener('touchstart', hitHandler, { passive:false });
 
   layer.appendChild(el);
   setTimeout(()=> el.classList.remove('spawn'), 260);
 
-  logEvent('spawn', { kind, group, size: sizePx, x: cx, y: cy, hp, meta });
+  logEvent('spawn', { kind, group, size: sizePx, x: cx, y: cy, hp, meta, forced });
   return rec;
 }
 
@@ -1197,9 +1212,10 @@ function expireTargets(){
         Particles.judgeText && Particles.judgeText('MISS');
         logEvent('miss_expire', { kind: rec.kind, group: rec.group });
       } else if (rec.kind === 'boss'){
-        bossAttackPunish('boss_expire');
+        // research strict: ไม่ลงโทษบอสหมดเวลา (เพราะไม่มีบอสอยู่แล้ว)
+        if (!STRICT_RESEARCH) bossAttackPunish(rec, 'expire');
         S.bossActive = false;
-        logEvent('boss_expire_punish', {});
+        logEvent('boss_expire', {});
       }
       removeTarget(rec);
     }
@@ -1271,14 +1287,57 @@ function punishBad(reason){
   onMiss(reason, {});
 }
 
-function bossAttackPunish(tag){
+// ---- C2: Boss punish only when "aim near" at attack moment ----
+function isBossDangerNow(bossRec, style){
+  if (!bossRec || bossRec.dead) return false;
+
+  const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
+  const cx = vw/2, cy = vh/2;
+  const off = viewOffset();
+
+  const sx = bossRec.cx + off.x;
+  const sy = bossRec.cy + off.y;
+
+  const dx = sx - cx;
+  const dy = sy - cy;
+  const dist = Math.hypot(dx, dy);
+
+  const ringR = clamp((bossRec.size || 130) * 0.85, 95, 165);
+  const beamW = clamp((bossRec.size || 130) * 0.52, 60, 120);
+
+  const ringDanger = (dist <= ringR);
+  const laserDanger = (Math.abs(dx) <= beamW || Math.abs(dy) <= beamW);
+
+  if (style === 'ring') return ringDanger;
+  if (style === 'laser') return laserDanger;
+  if (style === 'double') return (ringDanger || laserDanger);
+
+  // expire/unknown: ถือว่าไม่ลงโทษถ้าไม่ได้เล็งใกล้
+  return ringDanger;
+}
+
+function bossAttackPunish(bossRec, style){
+  // C2: ถ้าไม่ได้เล็งใกล้ = DODGE
+  const danger = isBossDangerNow(bossRec, style);
+
+  if (!danger){
+    Particles.judgeText && Particles.judgeText('DODGE!');
+    Particles.celebrate && Particles.celebrate('✨ DODGE!');
+    AudioX.good(); vibe(18);
+    addScore(40);
+    addFever(4);
+    logEvent('boss_dodge', { style });
+    return;
+  }
+
+  // Danger: โดนจริง
   atkFX();
   AudioX.atk();
   screenShake();
   flashDamage();
   vibe(85);
 
-  if (shieldBlock(tag)){
+  if (shieldBlock('boss_attack')){
     addScore(-80);
     addFever(-8);
     return;
@@ -1289,7 +1348,7 @@ function bossAttackPunish(tag){
 
   Particles.judgeText && Particles.judgeText('BOSS ATK!');
   Particles.celebrate && Particles.celebrate('OUCH!');
-  onMiss('boss_attack', {});
+  onMiss('boss_attack', { style });
 }
 
 function judgeFromDist(distPx, sizePx){
@@ -1299,6 +1358,7 @@ function judgeFromDist(distPx, sizePx){
 
 // ---------- Powerups ----------
 function activateSlow(ms){
+  if (STRICT_RESEARCH) return;
   const t = now();
   S.slowUntil = Math.max(S.slowUntil, t + ms);
   AudioX.power(); vibe(35);
@@ -1309,6 +1369,7 @@ function activateSlow(ms){
   if (S.activeMini && typeof S.activeMini.onPower === 'function') S.activeMini.onPower();
 }
 function activateNoJunk(ms){
+  if (STRICT_RESEARCH) return;
   const t = now();
   S.noJunkUntil = Math.max(S.noJunkUntil, t + ms);
   AudioX.power(); vibe(35);
@@ -1319,6 +1380,7 @@ function activateNoJunk(ms){
   if (S.activeMini && typeof S.activeMini.onPower === 'function') S.activeMini.onPower();
 }
 function activateStorm(ms){
+  if (STRICT_RESEARCH) return;
   const t = now();
   S.stormUntil = Math.max(S.stormUntil, t + ms);
   AudioX.power(); vibe(45);
@@ -1485,7 +1547,7 @@ function hitTarget(rec, direct){
 
   if (rec.kind === 'good') onGood(rec.group);
   if (rec.kind === 'gold'){
-    let g = 1 + ((rand()*5)|0);
+    let g = 1 + ((RAND()*5)|0);
     for (let k=0;k<5;k++){
       const gg = 1 + ((g-1+k)%5);
       if (!S.plateHave.has(gg)) { g = gg; break; }
@@ -1508,9 +1570,15 @@ function hitTarget(rec, direct){
 }
 
 // ---------- Decide kind/group ----------
-function decideGroup(){ return 1 + ((rand()*5)|0); }
+function decideGroup(){ return 1 + ((RAND()*5)|0); }
 
 function decideKind(){
+  // research strict: only good/junk with fixed rate
+  if (STRICT_RESEARCH){
+    const jr = clamp(D.junkRate, 0.10, 0.35);
+    return (RAND() < jr) ? 'junk' : 'good';
+  }
+
   const t = now();
   const noJunk = (t < S.noJunkUntil);
   const storm = (t < S.stormUntil);
@@ -1540,7 +1608,7 @@ function decideKind(){
     junk *= 0.86; trap *= 0.86; fake *= 0.86; gold *= 1.05;
   }
 
-  const r = rand();
+  const r = RAND();
   let acc = 0;
 
   acc += slow; if (r < acc) return 'slow';
@@ -1557,13 +1625,10 @@ function decideKind(){
 
 // ---------- Boss spawn + attacks ----------
 function spawnBossIfReady(){
+  if (STRICT_RESEARCH) return; // คุมเข้ม: ไม่มีบอส
   if (S.bossActive) return;
   const t = now();
-  if (!S.bossNextAt){
-    S.bossNextAt = (MODE === 'research')
-      ? (t + 11000)         // fixed cadence starter
-      : (t + rnd(9000, 15000));
-  }
+  if (!S.bossNextAt) S.bossNextAt = t + rnd(9000, 15000);
   if (t < S.bossNextAt) return;
 
   S.bossActive = true;
@@ -1572,10 +1637,7 @@ function spawnBossIfReady(){
   const rec = makeTarget('boss', 0, { hp });
   bossHpSync(rec);
 
-  const base = (MODE === 'research')
-    ? 15000
-    : (S.feverOn ? rnd(8500, 12500) : rnd(10500, 16500));
-
+  const base = S.feverOn ? rnd(8500, 12500) : rnd(10500, 16500);
   S.bossNextAt = t + base;
 
   Particles.judgeText && Particles.judgeText('BOSS!');
@@ -1591,19 +1653,8 @@ function bossAttackStyleForPhase(phase){
   return 'ring';
 }
 
-// FAIR: punish only when boss is near center ("หลบเฉพาะตอนเป้าใกล้")
-function bossIsNearCenter(rec){
-  const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
-  const off = viewOffset();
-  const sx = rec.cx + off.x;
-  const sy = rec.cy + off.y;
-  const cx = vw/2, cy = vh/2;
-  const d = Math.hypot(sx - cx, sy - cy);
-  const threshold = clamp(Math.min(vw, vh) * 0.26, 160, 260); // tuned for kid fairness
-  return d <= threshold;
-}
-
 function tickBossAttack(){
+  if (STRICT_RESEARCH) return;
   const t = now();
   for (const rec of S.targets){
     if (rec.dead || rec.kind !== 'boss') continue;
@@ -1641,22 +1692,15 @@ function tickBossAttack(){
       AudioX.atk();
       logEvent('boss_attack', { phase: ph, style });
 
-      // ONLY punish if boss is near center
-      if (bossIsNearCenter(rec)){
-        bossAttackPunish('boss_attack');
-      } else {
-        Particles.judgeText && Particles.judgeText('DODGE!');
-        Particles.celebrate && Particles.celebrate('SAFE!');
-        logEvent('boss_attack_dodged', { phase: ph, style });
-      }
+      // C2: punish only if aiming near
+      bossAttackPunish(rec, style);
 
       const baseMin = D.bossAtkMs[0] * phaseMul;
       const baseMax = D.bossAtkMs[1] * phaseMul;
+      rec.atkAt = t + rnd(baseMin, baseMax);
 
-      rec.atkAt = t + (MODE === 'research' ? (baseMin + baseMax)/2 : rnd(baseMin, baseMax));
-
-      if (ph === 3 && rand() < (MODE === 'research' ? 0.12 : 0.22)){
-        rec.atkAt = t + (MODE === 'research' ? 1200 : rnd(900, 1400));
+      if (ph === 3 && RAND() < 0.22){
+        rec.atkAt = t + rnd(900, 1400);
         Particles.judgeText && Particles.judgeText('CHAIN!');
       }
     }
@@ -1665,17 +1709,15 @@ function tickBossAttack(){
 
 // ---------- Fever ring burst ----------
 function spawnFeverRingBurst(){
+  if (STRICT_RESEARCH) return;
   if (!S.feverOn) return;
-
-  // research: deterministic + lower variance
-  const p = (MODE === 'research') ? 0.12 : 0.18;
-  if (rand() > p) return;
+  if (RAND() > 0.18) return;
 
   const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
   const cxS = vw/2, cyS = vh/2;
   const off = viewOffset();
 
-  const n = 5 + ((rand()*3)|0);
+  const n = 5 + ((RAND()*3)|0);
   const radius = clamp(Math.min(vw, vh) * 0.18, 92, 160);
 
   for (let i=0;i<n;i++){
@@ -1686,7 +1728,7 @@ function spawnFeverRingBurst(){
     const x = sx - off.x;
     const y = sy - off.y;
 
-    const kind = (rand() < 0.22) ? 'gold' : 'good';
+    const kind = (RAND() < 0.22) ? 'gold' : 'good';
     const group = (kind === 'good') ? decideGroup() : 0;
 
     makeTarget(kind, group, { _forceXY: { x, y } });
@@ -1707,19 +1749,26 @@ function spawnTick(){
   const slowOn = (t < S.slowUntil);
 
   let interval = D.spawnMs;
+
+  // research: fixed cadence, fixed burst=1
+  if (STRICT_RESEARCH){
+    interval = D.spawnMs;
+    const kind = decideKind();
+    const group = (kind === 'good') ? decideGroup() : 0;
+    makeTarget(kind, group);
+    S.nextSpawnAt = t + Math.max(260, interval);
+    return;
+  }
+
   if (S.feverOn) interval *= 0.78;
   if (stormOn) interval *= 0.56;
   if (slowOn) interval *= 1.22;
   if (t < S.noJunkUntil) interval *= 0.92;
 
   let burst = 1;
-  if (MODE === 'research'){
-    burst = 1; // strict
-  } else {
-    if (stormOn) burst = (rand() < 0.65) ? 3 : 2;
-    else if (S.feverOn) burst = (rand() < 0.22) ? 2 : 1;
-    if (DIFF === 'hard' && rand() < 0.10) burst += 1;
-  }
+  if (stormOn) burst = (RAND() < 0.65) ? 3 : 2;
+  else if (S.feverOn) burst = (RAND() < 0.22) ? 2 : 1;
+  if (DIFF === 'hard' && RAND() < 0.10) burst += 1;
 
   for (let i=0;i<burst;i++){
     const kind = decideKind();
@@ -1727,7 +1776,7 @@ function spawnTick(){
     makeTarget(kind, group);
   }
 
-  const jitter = (MODE === 'research') ? 0 : rnd(-120, 120);
+  const jitter = rnd(-120, 120);
   S.nextSpawnAt = t + Math.max(240, interval + jitter);
 }
 
@@ -1736,23 +1785,27 @@ function isUIElement(target){
   if (!target) return false;
   return !!(target.closest && (target.closest('.btn') || target.closest('#hudRight') || target.closest('#resultBackdrop')));
 }
+function pickNearCrosshairStrict(radiusPx){
+  // research: allow simple assist only for “tap-anywhere”
+  return pickNearCrosshair(radiusPx);
+}
 function shootCrosshair(){
   if (!S.running || S.paused) return;
   AudioX.unlock();
 
   const assist = inVR() ? Math.max(D.aimAssist, 170) : D.aimAssist;
-  const picked = pickNearCrosshair(assist);
+  const picked = STRICT_RESEARCH ? pickNearCrosshairStrict(assist) : pickNearCrosshair(assist);
   if (picked && picked.rec) hitTarget(picked.rec, false);
 }
 
 function onGlobalPointerDown(e){
   if (!S.running || S.paused) return;
   if (isUIElement(e.target)) return;
-  try { e.preventDefault(); } catch(_) {}
+  e.preventDefault();
   shootCrosshair();
 }
 
-// ---------- VR controller / keyboard support ----------
+// ---------- VR controller / keyboard support (GoodJunk-style) ----------
 function bindShootHotkeys(){
   ROOT.addEventListener('keydown', (e)=>{
     const k = String(e.key || '').toLowerCase();
@@ -1783,6 +1836,47 @@ function enterVR(){
   try { scene.enterVR(); } catch(_) {}
 }
 
+// ---------- Minimal HUD + Clean debug numbers ----------
+function applyMinimalHUD(){
+  // default = minimal (ตามที่ขอ)
+  doc.body.classList.add('plate-minimal');
+
+  const hideIds = ['hudLeft','hudRight','hudBottom'];
+  hideIds.forEach(id=>{
+    const el = $(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // ซ่อน pill ที่ไม่จำเป็นถ้าหาเจอ
+  const hideValIds = ['hudMode','hudDiff']; // เล่นจริงไม่ต้องโชว์
+  hideValIds.forEach(id=>{
+    const v = $(id);
+    if (v && v.closest){
+      const p = v.closest('.pill');
+      if (p) p.style.display = 'none';
+    }
+  });
+}
+function hideFloatingLongNumbers(){
+  // ลบ overlay เลขยาวๆ (มักเป็น timestamp/debug)
+  try{
+    const nodes = Array.from(doc.body.querySelectorAll('div,span'));
+    for (const el of nodes){
+      if (!el || el === layer) continue;
+      const txt = (el.textContent || '').trim();
+      if (!/^\d{13,}$/.test(txt)) continue;
+
+      const cs = ROOT.getComputedStyle(el);
+      const pos = cs.position;
+      const z = parseInt(cs.zIndex || '0', 10) || 0;
+      if ((pos === 'fixed' || pos === 'absolute') && z >= 400){
+        el.style.display = 'none';
+        el.style.visibility = 'hidden';
+      }
+    }
+  }catch(_){}
+}
+
 // ---------- Restart ----------
 function restart(){
   for (const rec of [...S.targets]) removeTarget(rec);
@@ -1799,13 +1893,15 @@ function restart(){
   setShield(0);
   setLives(S.livesMax);
 
-  S.goalsCleared = 0; S.minisCleared = 0;
+  S.platesMade = 0;
+  S.goalsCleared = 0;
+  S.minisCleared = 0;
 
   S.plateHave.clear();
   S.groupCounts = [0,0,0,0,0];
 
   S.bossActive = false;
-  S.bossNextAt = now() + (MODE === 'research' ? 11000 : rnd(8000, 14000));
+  S.bossNextAt = now() + rnd(8000, 14000);
 
   S.stormUntil = 0;
   S.slowUntil = 0;
@@ -1854,6 +1950,7 @@ function endGame(isGameOver){
 
   setTxt(HUD.rGoals, `${Math.min(S.goalsCleared, S.goalsTotal)}/${S.goalsTotal}`);
   setTxt(HUD.rMinis, `${Math.min(S.minisCleared, S.minisTotal)}/${S.minisTotal}`);
+  if (HUD.rPlates) setTxt(HUD.rPlates, String(S.platesMade));
 
   setTxt(HUD.rG1, S.groupCounts[0]);
   setTxt(HUD.rG2, S.groupCounts[1]);
@@ -1869,39 +1966,6 @@ function endGame(isGameOver){
   logSession(isGameOver ? 'gameover' : 'end');
 }
 
-// ---------- Anti "เลขยาวลอย" filter ----------
-function installFloatNumberFilter(){
-  let mo = null;
-  const attach = ()=>{
-    const fx = doc.querySelector('.hha-fx-layer') || doc.querySelector('#hhaFxLayer');
-    if (!fx) return false;
-
-    if (mo) return true;
-    mo = new MutationObserver((mutList)=>{
-      for (const m of mutList){
-        for (const node of m.addedNodes || []){
-          try{
-            const txt = (node && node.textContent) ? String(node.textContent).trim() : '';
-            // remove long numeric ids (8+ digits) which are not gameplay score pops
-            if (txt && /\d{8,}/.test(txt) && !/[+\-]\d{1,4}/.test(txt)){
-              node.remove();
-            }
-          }catch(_){}
-        }
-      }
-    });
-    try{ mo.observe(fx, { childList:true, subtree:true }); }catch(_){}
-    return true;
-  };
-
-  // try now + retry a few times (particles layer may appear later)
-  let tries = 0;
-  const t = setInterval(()=>{
-    tries++;
-    if (attach() || tries >= 40) clearInterval(t);
-  }, 200);
-}
-
 // ---------- Main loop ----------
 function start(){
   S.running = true;
@@ -1915,52 +1979,50 @@ function start(){
   function frame(){
     if (!S.running) return;
 
-    try{
-      applyLayerTransform();
-      updateAimHighlight();
+    applyLayerTransform();
+    updateAimHighlight();
+    hideFloatingLongNumbers(); // เคลียร์เลขยาวๆ ระหว่างเล่น
 
-      if (!S.paused){
-        const elapsed = (now() - S.tStart) / 1000;
-        S.timeLeft = Math.max(0, TOTAL_TIME - elapsed);
-        setTxt(HUD.time, fmt(S.timeLeft));
+    if (!S.paused){
+      const elapsed = (now() - S.tStart) / 1000;
+      S.timeLeft = Math.max(0, TOTAL_TIME - elapsed);
+      setTxt(HUD.time, fmt(S.timeLeft));
 
-        if (S.timeLeft <= 10){
-          doc.body.classList.add('hha-lowtime');
-          const sec = Math.ceil(S.timeLeft);
-          if (sec !== S.lowTimeLastSec){
-            S.lowTimeLastSec = sec;
-            AudioX.tick();
-          }
-        } else {
-          doc.body.classList.remove('hha-lowtime');
-          S.lowTimeLastSec = null;
+      if (S.timeLeft <= 10){
+        doc.body.classList.add('hha-lowtime');
+        const sec = Math.ceil(S.timeLeft);
+        if (sec !== S.lowTimeLastSec){
+          S.lowTimeLastSec = sec;
+          AudioX.tick();
         }
-
-        spawnTick();
-        tickBossAttack();
-        expireTargets();
-        tickMini();
-        refreshPowerHUD();
-
-        // research: slower drift (less chaos)
-        addFever(S.feverOn ? (MODE === 'research' ? -0.18 : -0.22) : (MODE === 'research' ? -0.08 : -0.10));
-
-        setGoal(S.goalIndex);
-
-        if (S.timeLeft <= 0){
-          showCoach('⏱️ Time!', 'หมดเวลาแล้ว!');
-          endGame(false);
-          return;
-        }
+      } else {
+        doc.body.classList.remove('hha-lowtime');
+        S.lowTimeLastSec = null;
       }
-    }catch(err){
-      // prevent "หยุดเล่น" from hard crash
-      try{ console.error('[PlateVR] frame error', err); }catch(_){}
-      showCoach('⚠️ ERROR', 'รีโหลดหน้าอีกครั้งนะ');
-      endGame(true);
-      return;
-    }
 
+      spawnTick();
+      tickBossAttack();
+      expireTargets();
+      tickMini();
+      refreshPowerHUD();
+
+      if (!STRICT_RESEARCH){
+        addFever(S.feverOn ? -0.22 : -0.10);
+      } else {
+        // ensure fever stays off
+        S.fever = 0; S.feverOn = false;
+        if (HUD.feverBar) HUD.feverBar.style.width = `0%`;
+        setTxt(HUD.feverPct, `0%`);
+      }
+
+      setGoal(S.goalIndex);
+
+      if (S.timeLeft <= 0){
+        showCoach('⏱️ Time!', 'หมดเวลาแล้ว!');
+        endGame(false);
+        return;
+      }
+    }
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
@@ -1995,39 +2057,16 @@ function bindUI(){
   }
 }
 
-// ---------- Minimal HUD (play) ----------
-function applyMinimalHUD(){
-  if (UI_MODE !== 'mini') {
-    doc.body.classList.remove('hha-ui-mini');
-    return;
-  }
-  doc.body.classList.add('hha-ui-mini');
-
-  // try to hide pills by id if exist
-  const hidePill = (el)=>{
-    if (!el) return;
-    const p = el.closest ? el.closest('.pill') : null;
-    if (p) p.style.display = 'none';
-  };
-  hidePill(HUD.mode);
-  hidePill(HUD.diff);
-  hidePill(HUD.grade);
-  hidePill(HUD.perfect);
-
-  // keep: time/score/combo/miss + shield/lives/power + goal/mini
-}
-
 // ---------- Boot ----------
 (function boot(){
   try {
     if (ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.init === 'function'){
-      // never show debug overlays unless debug=1
-      ROOT.HHACloudLogger.init({ debug: !!DEBUG });
+      ROOT.HHACloudLogger.init({ debug: DEBUG });
     }
   } catch(_) {}
 
   applyMinimalHUD();
-  installFloatNumberFilter();
+  hideFloatingLongNumbers();
 
   bindUI();
   bindShootHotkeys();
@@ -2041,14 +2080,19 @@ function applyMinimalHUD(){
   updateGrade();
 
   refreshPowerHUD();
-  S.bossNextAt = now() + (MODE === 'research' ? 11000 : rnd(8000, 14000));
+  S.bossNextAt = now() + rnd(8000, 14000);
 
   setGoal(0);
   startMini();
 
-  showCoach('🥦 Coach', (MODE === 'research') ? 'RESEARCH MODE (seeded)!' : 'ALL-IN MODE! เอาให้สุด!');
+  if (STRICT_RESEARCH){
+    showCoach('🧪 Research', `คุมเข้ม • seed=${SEED}`, 1600);
+  } else {
+    showCoach('🥦 Coach', 'ALL-IN MODE! เอาให้สุด!');
+  }
+
   logSession('start');
   start();
 
-  if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed: SEED, UI_MODE, D });
+  if (DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, strict: STRICT_RESEARCH, seed: SEED, D });
 })();
