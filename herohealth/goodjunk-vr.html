@@ -1,9 +1,8 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
-✅ Restore Start Overlay IDs that boot expects (prevents "black screen / no spawn")
-✅ No forced start logic in HTML (boot owns start)
-✅ Compact HUD/Quest/Coach for more gameplay space + Quest peek
-✅ Fatal overlay shows runtime errors on mobile
+GoodJunkVR — FULL HTML (BOOT-ID COMPAT + MORE GAMEPLAY SPACE)
+✅ IDs match: /vr-goodjunk/goodjunk-vr.boot.js
+✅ Gameplay space bigger: thinner HUD + compact quest/coach + peek
+✅ FEVER/SHIELD panel + FX hooks + summary overlay
 -->
 
 <!doctype html>
@@ -15,16 +14,16 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (Enter VR button) -->
+  <!-- A-Frame (VR) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + optional logger + UI binders (IIFE) -->
+  <!-- Global FX + logger + UI binders (IIFE) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
 
-  <!-- ✅ Boot (module) -->
+  <!-- Boot (module) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 
   <style>
@@ -32,16 +31,20 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
       color-scheme: light dark;
       --bg:#020617;
       --panel:rgba(2,6,23,.72);
+      --panel2:rgba(15,23,42,.58);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
 
       --safeTop: env(safe-area-inset-top, 0px);
       --safeBottom: env(safe-area-inset-bottom, 0px);
 
-      /* ✅ เพิ่มพื้นที่เกม */
+      /* ✅ gameplay space */
       --hudH: 44px;
+      --pad: 12px;
     }
 
     *{ box-sizing:border-box; }
@@ -58,7 +61,7 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
                    Arial, "Apple Color Emoji","Segoe UI Emoji";
     }
 
-    /* Optional A-Frame background behind DOM gameplay (safe) */
+    /* ---------- A-Frame background (optional, safe) ---------- */
     .sceneWrap{
       position:fixed; inset:0;
       z-index:0;
@@ -66,7 +69,7 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
     }
     a-scene{ width:100%; height:100%; }
 
-    /* ===== Gameplay DOM layer (targets spawn here) ===== */
+    /* ---------- Gameplay DOM layer (targets spawn here) ---------- */
     #gj-layer{
       position:fixed; inset:0;
       z-index:2;
@@ -76,10 +79,49 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
       -webkit-user-select:none;
     }
 
-    /* ===== Top HUD (thin) ===== */
-    #hudTop, .hha-topbar, .hha-hud-top{
+    /* ---------- FX overlay hooks ---------- */
+    #fx-chroma{
+      position:fixed; inset:0;
+      z-index:8;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+      background: radial-gradient(700px 380px at 50% 52%, rgba(59,130,246,.18), transparent 65%);
+      mix-blend-mode: screen;
+    }
+    #fx-chroma.show{ opacity:1; }
+    #fx-chroma.hero{
+      background: radial-gradient(700px 380px at 50% 52%, rgba(34,197,94,.22), transparent 65%);
+    }
+
+    /* game cam shake target (DOM wrapper) */
+    #game-cam{
+      position:fixed; inset:0;
+      z-index:1;
+      pointer-events:none;
+      transform: translate3d(0,0,0);
+    }
+    #game-cam.shake{
+      animation: hhaShake var(--shakeDur, .26s) infinite linear;
+    }
+    #game-cam.kick{
+      animation: hhaKick .26s ease-out 1;
+    }
+    @keyframes hhaShake{
+      0%{ transform: translate3d(calc(var(--shakeAmp,0px)*-1), 0, 0); }
+      50%{ transform: translate3d(var(--shakeAmp,0px), 0, 0); }
+      100%{ transform: translate3d(calc(var(--shakeAmp,0px)*-1), 0, 0); }
+    }
+    @keyframes hhaKick{
+      0%{ transform: translate3d(0,0,0) rotate(0deg); }
+      50%{ transform: translate3d(var(--kickAmp,10px), 0, 0) rotate(var(--kickRot,4deg)); }
+      100%{ transform: translate3d(0,0,0) rotate(0deg); }
+    }
+
+    /* ---------- HUD TOP (thin) ---------- */
+    .hud-top{
       position:fixed;
-      left:12px; right:12px;
+      left:var(--pad); right:var(--pad);
       top: calc(var(--safeTop) + 10px);
       height: var(--hudH);
       display:flex;
@@ -95,6 +137,12 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
       z-index:10;
       min-width:0;
     }
+    /* boot toggles .research on #hud-pill */
+    #hud-pill.research{
+      border-color: rgba(34,197,94,.35);
+      box-shadow: 0 0 0 2px rgba(34,197,94,.08), 0 10px 40px rgba(0,0,0,.25);
+    }
+
     .hud-group{ display:flex; align-items:center; gap:10px; min-width:0; }
     .pill{
       display:inline-flex;
@@ -110,15 +158,116 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
     .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 14px rgba(34,197,94,.55); }
     .kv{ display:flex; flex-direction:column; gap:1px; min-width:0; }
     .kv .label{ font-size:10px; color:var(--muted); letter-spacing:.06em; }
-    .kv .big{ font-size:18px; font-weight:900; line-height:1; }
+    .kv .big{ font-size:18px; font-weight:1000; line-height:1; }
 
-    /* ===== Coach bubble (small) ===== */
-    #coachBox{
+    /* Diff/Challenge/Time line (small, optional but matches boot IDs) */
+    .hud-meta{
       position:fixed;
-      left:12px;
+      left:var(--pad); right:var(--pad);
+      top: calc(var(--safeTop) + 10px + var(--hudH) + 8px);
+      z-index:10;
+      display:flex;
+      justify-content:flex-start;
+      gap:10px;
+      pointer-events:none;
+    }
+    .meta-pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.38);
+      backdrop-filter: blur(10px);
+      color: var(--muted);
+      font-size:12px;
+      font-weight:800;
+    }
+    .meta-pill b{ color: var(--text); }
+
+    /* ---------- Judge text ---------- */
+    #hud-judge{
+      position:fixed;
+      left:0; right:0;
+      top: calc(var(--safeTop) + 82px);
+      z-index:10;
+      text-align:center;
+      font-weight:1000;
+      letter-spacing:.02em;
+      color: rgba(229,231,235,.92);
+      text-shadow: 0 10px 30px rgba(0,0,0,.55);
+      pointer-events:none;
+    }
+
+    /* ---------- Fever / Shield panel (right) ---------- */
+    .hud-right{
+      position:fixed;
+      right:var(--pad);
+      top: calc(var(--safeTop) + 10px + var(--hudH) + 12px);
+      z-index:10;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      width: min(290px, 56vw);
+    }
+    .card{
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.45);
+      backdrop-filter: blur(12px);
+      border-radius:18px;
+      padding: 10px 12px;
+      box-shadow: 0 14px 50px rgba(0,0,0,.24);
+    }
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .card h4{
+      margin:0;
+      font-size:12px;
+      letter-spacing:.08em;
+      color: var(--muted);
+    }
+    .pct{ font-weight:1000; color:var(--text); font-size:12px; }
+    .bar{
+      margin-top:8px;
+      height:10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(148,163,184,.10);
+      overflow:hidden;
+      position:relative;
+    }
+    #fever-fill{
+      position:absolute; inset:0 auto 0 0;
+      width:0%;
+      background: linear-gradient(90deg, rgba(245,158,11,.9), rgba(239,68,68,.85));
+      border-radius:999px;
+      box-shadow:0 0 18px rgba(239,68,68,.22);
+    }
+    #shield-count{
+      font-weight:1000;
+      font-size:16px;
+      color: var(--text);
+    }
+    #hud-stun{
+      display:none;
+      margin-top:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(239,68,68,.18);
+      background: rgba(239,68,68,.10);
+      font-weight:1000;
+      font-size:12px;
+      color: rgba(255,255,255,.92);
+    }
+    #hud-stun.show{ display:inline-flex; gap:8px; align-items:center; }
+
+    /* ---------- Coach bubble (bottom-left, small) ---------- */
+    #coach-bubble{
+      position:fixed;
+      left:var(--pad);
       bottom: calc(var(--safeBottom) + 92px);
       z-index:10;
-      max-width: min(70vw, 380px);
+      max-width: min(70vw, 420px);
       display:flex;
       gap:10px;
       align-items:center;
@@ -128,45 +277,62 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
       border: 1px solid rgba(148,163,184,.16);
       backdrop-filter: blur(10px);
       box-shadow: 0 14px 50px rgba(0,0,0,.28);
-      pointer-events:none; /* กันบังการแตะเป้า */
+      opacity:.0;
+      transform: translateY(8px);
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events:none;
     }
-    #coachImg{ width:36px; height:36px; object-fit:contain; }
-    #coachText{
+    #coach-bubble.show{ opacity:1; transform: translateY(0); }
+    #coach-emoji{
+      width:36px; height:36px;
+      border-radius:12px;
+      background-size: contain;
+      background-repeat:no-repeat;
+      background-position:center;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
+    }
+    #coach-text{
       font-size:12px;
       line-height:1.25;
-      font-weight:800;
+      font-weight:900;
       overflow:hidden;
       display:-webkit-box;
       -webkit-line-clamp:2;
       -webkit-box-orient: vertical;
     }
 
-    /* ===== Quest pill (bottom, low height) ===== */
-    #questBox{
+    /* ---------- Quest HUD (bottom) ---------- */
+    .hud-bottom{
       position:fixed;
-      left:12px; right:12px;
+      left:var(--pad); right:var(--pad);
       bottom: calc(var(--safeBottom) + 12px);
       z-index:10;
-      padding:10px 12px;
-      border-radius:16px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.52);
-      border: 1px solid rgba(148,163,184,.18);
       backdrop-filter: blur(10px);
       box-shadow: 0 14px 50px rgba(0,0,0,.30);
-      max-height:78px;
+      padding: 10px 12px;
+      max-height: 120px;
       overflow:hidden;
       cursor:pointer;
     }
-    #questTitle{
+    .qtitle{
       font-size:13px;
-      font-weight:900;
-      line-height:1.1;
+      font-weight:1000;
+      line-height:1.15;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    .qrow{ display:flex; gap:10px; align-items:center; margin-top:6px; }
-    .bar{
+    .qcap{
+      font-size:12px;
+      color: var(--muted);
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .qline{ margin-top:8px; display:flex; align-items:center; gap:10px; }
+    .qbar{
       flex:1;
       height:10px;
       border-radius:999px;
@@ -175,34 +341,40 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
       overflow:hidden;
       position:relative;
     }
-    #questBar{
+    #hud-quest-main-bar, #hud-quest-mini-bar{
       position:absolute; inset:0 auto 0 0;
       width:0%;
-      background: linear-gradient(90deg, rgba(34,197,94,.9), rgba(59,130,246,.85));
       border-radius:999px;
-      box-shadow:0 0 18px rgba(59,130,246,.28);
+      background: linear-gradient(90deg, rgba(34,197,94,.9), rgba(59,130,246,.85));
+      box-shadow:0 0 18px rgba(59,130,246,.22);
     }
-    #questNum{ font-size:12px; color:var(--muted); font-weight:800; white-space:nowrap; }
+    #hud-quest-mini-bar{
+      background: linear-gradient(90deg, rgba(245,158,11,.9), rgba(34,197,94,.80));
+      box-shadow:0 0 18px rgba(245,158,11,.18);
+    }
+    #hud-quest-hint{ margin-top:6px; font-size:12px; font-weight:1000; color: rgba(229,231,235,.92); }
+    #hud-mini-count{ margin-top:6px; font-size:12px; font-weight:900; color: var(--muted); }
 
-    /* ===== Compact mode (during gameplay) ===== */
-    body.hha-compact #questBox{ max-height:44px; padding:8px 10px; opacity:.86; }
-    body.hha-compact #coachBox{ opacity:.78; transform: translateY(6px); }
-    body.hha-compact.hha-peek #questBox{ max-height:92px; opacity:1; }
+    /* ---------- Compact mode after start ---------- */
+    body.hha-compact .hud-bottom{ max-height: 62px; padding:8px 10px; opacity:.88; }
+    body.hha-compact #coach-bubble{ opacity:.72; }
+    body.hha-compact.hha-peek .hud-bottom{ max-height: 120px; opacity:1; }
 
-    /* ===== Start Overlay (RESTORED IDs) ===== */
-    #startOverlay{
+    /* ---------- Start overlay (IDs that boot expects) ---------- */
+    #start-overlay{
       position:fixed; inset:0;
       z-index:30;
       display:flex;
       align-items:flex-end;
       justify-content:center;
       padding: 22px 16px calc(var(--safeBottom) + 18px);
-      background: radial-gradient(900px 500px at 50% 5%, rgba(59,130,246,.18), transparent 60%),
-                  rgba(2,6,23,.78);
+      background:
+        radial-gradient(900px 500px at 50% 5%, rgba(59,130,246,.18), transparent 60%),
+        rgba(2,6,23,.80);
       backdrop-filter: blur(12px);
     }
     .startCard{
-      width:min(640px, 100%);
+      width:min(680px, 100%);
       border:1px solid var(--stroke);
       border-radius:24px;
       background: rgba(2,6,23,.68);
@@ -210,9 +382,26 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
       padding: 16px 16px 14px;
     }
     .startTitle{ font-size:20px; font-weight:1000; margin:0 0 6px 0; }
-    .startSub{ margin:0 0 12px 0; color:var(--muted); font-size:13px; line-height:1.3; }
+    #start-sub{ margin:0 0 12px 0; color:var(--muted); font-size:13px; line-height:1.3; }
+    .controls{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    select{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.40);
+      color: var(--text);
+      border-radius:14px;
+      padding: 10px 12px;
+      font-weight:900;
+      font-size:14px;
+      outline:none;
+    }
     .btnRow{ display:flex; gap:10px; flex-wrap:wrap; }
-    .btn{
+    button{
       appearance:none;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(15,23,42,.45);
@@ -226,15 +415,125 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
       gap:10px;
       cursor:pointer;
     }
-    .btn.primary{
+    button.primary{
       border-color: rgba(34,197,94,.35);
       background: linear-gradient(180deg, rgba(34,197,94,.28), rgba(34,197,94,.10));
     }
-    .btn.ghost{ background: rgba(2,6,23,.30); }
-    .btn:active{ transform: translateY(1px); }
+    button:active{ transform: translateY(1px); }
 
-    /* ===== End Overlay (keep IDs for summary) ===== */
-    #endOverlay{
+    /* Countdown */
+    #start-countdown{
+      margin-top:10px;
+      font-size:40px;
+      font-weight:1100;
+      text-align:center;
+      letter-spacing:1px;
+    }
+    .countdown-hidden{ display:none; }
+
+    /* ---------- Logger badge ---------- */
+    #logBadge{
+      position:fixed;
+      left:var(--pad);
+      top: calc(var(--safeTop) + 10px + var(--hudH) + 12px);
+      z-index:10;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.38);
+      backdrop-filter: blur(10px);
+      color: var(--muted);
+      font-size:12px;
+      font-weight:900;
+      pointer-events:none;
+    }
+    #logdot{ width:8px; height:8px; border-radius:50%; background:#9ca3af; }
+    #logtext{ white-space:nowrap; }
+
+    /* ---------- Aim/Vortex + Beacon ---------- */
+    #stun-vortex{
+      position:fixed;
+      left:50%; top:62%;
+      transform: translate(-50%,-50%);
+      width: 54px; height:54px;
+      border-radius:999px;
+      border:2px solid rgba(239,68,68,.0);
+      box-shadow: 0 0 0 0 rgba(239,68,68,.0);
+      z-index:9;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+    }
+    #stun-vortex.show{
+      opacity:1;
+      border-color: rgba(239,68,68,.45);
+      box-shadow: 0 0 0 10px rgba(239,68,68,.12);
+    }
+    #stun-vortex.lock{
+      animation: lockPulse .9s ease-out 1;
+    }
+    @keyframes lockPulse{
+      0%{ transform: translate(-50%,-50%) scale(1); opacity:1; }
+      60%{ transform: translate(-50%,-50%) scale(1.35); opacity:1; }
+      100%{ transform: translate(-50%,-50%) scale(1.05); opacity:.85; }
+    }
+
+    #boss-beacon{
+      position:fixed;
+      left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      width: 58px; height:58px;
+      border-radius:999px;
+      border:2px solid rgba(245,158,11,.55);
+      box-shadow: 0 0 0 10px rgba(245,158,11,.14);
+      z-index:9;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+    }
+    #boss-beacon.show{ opacity:1; }
+
+    /* ---------- Boss HUD (optional) ---------- */
+    #boss-wrap{
+      position:fixed;
+      left:50%;
+      top: calc(var(--safeTop) + 10px + var(--hudH) + 48px);
+      transform: translateX(-50%);
+      z-index:10;
+      display:none;
+      gap:10px;
+      align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.38);
+      backdrop-filter: blur(10px);
+      color: var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+    #boss-wrap.show{ display:flex; }
+    .bossbar{
+      width: 160px;
+      height:10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(148,163,184,.10);
+      overflow:hidden;
+      position:relative;
+    }
+    #boss-fill{
+      position:absolute; inset:0 auto 0 0;
+      width:0%;
+      background: linear-gradient(90deg, rgba(239,68,68,.9), rgba(245,158,11,.85));
+      border-radius:999px;
+    }
+
+    /* ---------- Summary overlay (IDs boot expects) ---------- */
+    #sum-overlay{
       position:fixed; inset:0;
       z-index:40;
       display:none;
@@ -244,172 +543,243 @@ GoodJunkVR — FULL HTML (FIX: BOOT START + MORE GAMEPLAY SPACE)
       background: rgba(2,6,23,.78);
       backdrop-filter: blur(14px);
     }
-
-    /* ===== Fatal overlay (mobile debug) ===== */
-    #hhaFatal{
-      position:fixed; inset:0;
-      display:none;
-      z-index:9999;
-      padding: 18px 14px calc(var(--safeBottom) + 18px);
-      background: rgba(2,6,23,.92);
-      backdrop-filter: blur(12px);
-      color:#fff;
+    #sum-overlay.show{ display:flex; }
+    .sumCard{
+      width:min(720px, 100%);
+      border-radius:26px;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.70);
+      box-shadow: 0 18px 70px rgba(0,0,0,.45);
+      padding: 16px;
     }
-    #hhaFatal .card{
-      width:min(820px, 100%);
-      margin: 0 auto;
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:20px;
-      background: rgba(15,23,42,.55);
-      padding: 14px;
-      box-shadow: 0 20px 70px rgba(0,0,0,.55);
+    .sumTitle{ font-size:22px; font-weight:1100; margin:0 0 10px; }
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:10px;
+      margin-top:10px;
     }
-    #hhaFatal h3{ margin:0 0 10px; font-size:18px; }
-    #hhaFatal pre{
-      margin:0;
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:12px;
-      color: rgba(255,255,255,.92);
-      line-height:1.35;
+    .stat{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(15,23,42,.35);
+      border-radius:18px;
+      padding: 12px 12px;
     }
-    #hhaFatal .btn{
-      margin-top:12px;
-      border:1px solid rgba(255,255,255,.18);
-      border-radius:14px;
-      padding:10px 12px;
+    .stat .k{
+      font-size:11px;
+      color:var(--muted);
       font-weight:1000;
-      background: rgba(255,255,255,.08);
-      color:#fff;
-      cursor:pointer;
+      letter-spacing:.08em;
+    }
+    .stat .v{
+      margin-top:6px;
+      font-size:26px;
+      font-weight:1100;
+      line-height:1;
+    }
+    .sumActions{
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      margin-top:12px;
     }
 
     @media (max-width: 420px){
-      .pill{ padding:6px 8px; }
-      .kv .big{ font-size:17px; }
+      .hud-right{ width: min(280px, 62vw); }
+      .grid{ grid-template-columns: 1fr; }
     }
   </style>
 </head>
 
 <body>
 
-  <!-- Optional A-Frame background -->
+  <!-- A-Frame bg -->
   <div class="sceneWrap" aria-hidden="true">
     <a-scene embedded renderer="antialias: true; colorManagement: true" vr-mode-ui="enabled: true">
-      <a-entity camera position="0 1.6 0" look-controls="enabled:true"></a-entity>
+      <a-entity id="gj-camera" camera position="0 1.6 0" look-controls="enabled:true"></a-entity>
       <a-sky color="#050b1a"></a-sky>
       <a-entity light="type: ambient; intensity: 0.8"></a-entity>
       <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
     </a-scene>
   </div>
 
+  <!-- DOM game cam wrapper for shake/kick -->
+  <div id="game-cam" aria-hidden="true"></div>
+
   <!-- Gameplay DOM layer -->
   <div id="gj-layer" aria-label="GoodJunk gameplay layer"></div>
 
-  <!-- HUD -->
-  <div id="hudTop" class="hha-topbar" role="status" aria-label="HUD">
+  <!-- FX -->
+  <div id="fx-chroma" aria-hidden="true"></div>
+
+  <!-- HUD TOP (boot uses id hud-pill + hud-run-label + hud-score/hud-combo/hud-miss) -->
+  <div id="hud-pill" class="hud-top">
     <div class="hud-group" style="min-width:0">
-      <div class="pill" title="Mode">
-        <span class="dot" id="hudDot"></span>
-        <span style="font-weight:1000;font-size:12px;letter-spacing:.06em;">MODE</span>
+      <div class="pill">
+        <span class="dot"></span>
+        <span style="font-weight:1100;font-size:12px;letter-spacing:.06em;">MODE</span>
         <span style="opacity:.65">•</span>
-        <span id="hudGame" style="font-weight:1000;font-size:12px;">GOODJUNK</span>
+        <span style="font-weight:1100;font-size:12px;">GOODJUNK</span>
         <span style="opacity:.65">•</span>
-        <span id="hudRun" style="font-weight:1000;font-size:12px;">PLAY</span>
+        <span id="hud-run-label" style="font-weight:1100;font-size:12px;">PLAY</span>
       </div>
     </div>
 
     <div class="hud-group">
-      <div class="pill"><div class="kv"><div class="label">SCORE</div><div class="big" id="hudScore">0</div></div></div>
-      <div class="pill"><div class="kv"><div class="label">COMBO MAX</div><div class="big" id="hudComboMax">0</div></div></div>
-      <div class="pill"><div class="kv"><div class="label">MISS</div><div class="big" id="hudMiss">0</div></div></div>
+      <div class="pill"><div class="kv"><div class="label">SCORE</div><div class="big" id="hud-score">0</div></div></div>
+      <div class="pill"><div class="kv"><div class="label">COMBO MAX</div><div class="big" id="hud-combo">0</div></div></div>
+      <div class="pill"><div class="kv"><div class="label">MISS</div><div class="big" id="hud-miss">0</div></div></div>
     </div>
   </div>
 
-  <!-- Coach -->
-  <div id="coachBox" aria-live="polite">
-    <img id="coachImg" src="./img/coach-neutral.png" alt="coach" />
-    <div id="coachText">พร้อมลุย! เก็บของดี เลี่ยงขยะนะ 💪</div>
+  <!-- meta pills that boot updates -->
+  <div class="hud-meta" aria-hidden="true">
+    <div class="meta-pill">DIFF <b id="hud-diff-label">—</b></div>
+    <div class="meta-pill">CH <b id="hud-challenge-label">—</b></div>
+    <div class="meta-pill">TIME <b id="hud-time-label">—</b></div>
   </div>
 
-  <!-- Quest -->
-  <div id="questBox" title="แตะเพื่อดูรายละเอียด 2 วินาที">
-    <div id="questTitle">Goal: เริ่มภารกิจ…</div>
-    <div class="qrow">
-      <div class="bar"><i id="questBar"></i></div>
-      <div id="questNum">0/0</div>
+  <!-- logger badge -->
+  <div id="logBadge" aria-hidden="true">
+    <span id="logdot"></span>
+    <span id="logtext">logger: —</span>
+  </div>
+
+  <!-- judge label -->
+  <div id="hud-judge">&nbsp;</div>
+
+  <!-- fever/shield panel (boot uses fever-fill, fever-pct, shield-count, hud-stun) -->
+  <div class="hud-right">
+    <div class="card">
+      <div class="row">
+        <h4>🔥 FEVER</h4>
+        <div class="pct" id="fever-pct">0%</div>
+      </div>
+      <div class="bar"><i id="fever-fill"></i></div>
+      <div id="hud-stun">⚡ STUN</div>
     </div>
-  </div>
 
-  <!-- Start Overlay (RESTORED for boot) -->
-  <div id="startOverlay">
-    <div class="startCard">
-      <h1 class="startTitle">GoodJunk VR 🥦🗑️</h1>
-      <p class="startSub">
-        เริ่มเล่นแล้ว UI จะยุบให้พื้นที่เกมกว้างขึ้น<br/>
-        (แตะแถบ Goal เพื่อ peek 2 วินาที)
-      </p>
-      <div class="btnRow">
-        <!-- ✅ IDs ที่ boot มักใช้ -->
-        <button id="btnStart" class="btn primary">▶️ เริ่มเล่น</button>
-        <button id="btnEnterVR" class="btn ghost">🥽 Enter VR</button>
+    <div class="card">
+      <div class="row">
+        <h4>🛡️ SHIELD</h4>
+        <div id="shield-count">0</div>
+      </div>
+      <!-- optional: VR button that boot binds (btn-vr) -->
+      <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
+        <button id="btn-vr" style="padding:10px 12px; border-radius:14px; font-weight:1000;">Enter VR</button>
       </div>
     </div>
   </div>
 
-  <!-- End Overlay (ให้ boot/hud แสดงเอง) -->
-  <div id="endOverlay" aria-hidden="true"></div>
+  <!-- boss HUD -->
+  <div id="boss-wrap">
+    <span style="opacity:.85">BOSS</span>
+    <div class="bossbar"><i id="boss-fill"></i></div>
+    <span id="boss-phase">P1</span>
+  </div>
 
-  <!-- Fatal -->
-  <div id="hhaFatal">
-    <div class="card">
-      <h3>เกิดข้อผิดพลาดในเกม (Fatal)</h3>
-      <pre id="hhaFatalText">—</pre>
-      <button class="btn" id="hhaFatalReload">รีโหลดหน้า</button>
+  <!-- coach bubble (boot uses coach-bubble/coach-text/coach-emoji) -->
+  <div id="coach-bubble" aria-live="polite">
+    <div id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
+    <div id="coach-text">พร้อมลุย! เก็บของดี เลี่ยงขยะนะ 💪</div>
+  </div>
+
+  <!-- quest HUD bottom (boot uses hud-quest-*) -->
+  <div class="hud-bottom" id="hud-quest-wrap" title="แตะเพื่อ peek 2 วินาที">
+    <div class="qtitle" id="hud-quest-main">Goal: เริ่มภารกิจ…</div>
+    <div class="qline">
+      <div class="qbar"><i id="hud-quest-main-bar"></i></div>
+      <div class="qcap" id="hud-quest-main-caption"></div>
+    </div>
+
+    <div style="height:8px"></div>
+
+    <div class="qtitle" id="hud-quest-mini">Mini: —</div>
+    <div class="qline">
+      <div class="qbar"><i id="hud-quest-mini-bar"></i></div>
+      <div class="qcap" id="hud-quest-mini-caption"></div>
+    </div>
+
+    <div id="hud-quest-hint"></div>
+    <div id="hud-mini-count"></div>
+  </div>
+
+  <!-- aim helpers -->
+  <div id="stun-vortex" aria-hidden="true"></div>
+  <div id="boss-beacon" aria-hidden="true"></div>
+
+  <!-- START overlay (boot expects these IDs) -->
+  <div id="start-overlay">
+    <div class="startCard">
+      <h1 class="startTitle">GoodJunk VR 🥦🗑️</h1>
+      <p id="start-sub">เลือกความยาก + โหมดความมันส์ แล้วกดเริ่ม 1 ครั้ง ✅</p>
+
+      <div class="controls">
+        <select id="sel-diff" aria-label="difficulty">
+          <option value="easy">easy</option>
+          <option value="normal" selected>normal</option>
+          <option value="hard">hard</option>
+        </select>
+
+        <select id="sel-challenge" aria-label="challenge">
+          <option value="rush" selected>rush</option>
+          <option value="boss">boss</option>
+          <option value="survival">survival</option>
+        </select>
+      </div>
+
+      <div class="btnRow">
+        <button id="btn-start-2d" class="primary">▶️ เริ่มเล่น (2D)</button>
+        <button id="btn-start-vr">🥽 เริ่มเล่น (VR)</button>
+      </div>
+
+      <div id="start-countdown" class="countdown-hidden">3</div>
     </div>
   </div>
 
-  <script>
-    // Fatal overlay
-    (function(){
-      const box = document.getElementById('hhaFatal');
-      const txt = document.getElementById('hhaFatalText');
-      const btn = document.getElementById('hhaFatalReload');
-      function show(msg){
-        if(!box || !txt) return;
-        txt.textContent = String(msg || 'Unknown error');
-        box.style.display = 'block';
-      }
-      window.addEventListener('error', (e)=>{
-        const m = (e && (e.message || (e.error && e.error.stack))) || 'Unknown error';
-        show(m);
-      });
-      window.addEventListener('unhandledrejection', (e)=>{
-        const m = (e && (e.reason && (e.reason.stack || e.reason.message) || e.reason)) || 'Unhandled rejection';
-        show(m);
-      });
-      if(btn) btn.onclick = ()=> location.reload();
-    })();
+  <!-- SUMMARY overlay (boot expects sum-*) -->
+  <div id="sum-overlay" aria-hidden="true">
+    <div class="sumCard">
+      <div class="sumTitle">สรุปผลการเล่น</div>
 
-    // Compact/peek only (no start logic)
+      <div class="grid">
+        <div class="stat"><div class="k">SCORE</div><div class="v" id="sum-score">0</div></div>
+        <div class="stat"><div class="k">COMBO MAX</div><div class="v" id="sum-combo">0</div></div>
+        <div class="stat"><div class="k">GOOD HITS</div><div class="v" id="sum-good">0</div></div>
+        <div class="stat"><div class="k">MISS</div><div class="v" id="sum-miss">0</div></div>
+      </div>
+
+      <div class="sumActions">
+        <button id="btn-exit">↩️ เมนู</button>
+        <button id="btn-replay" class="primary">🔁 เล่นอีกครั้ง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layout helper (ไม่แตะ logic start ของ boot) -->
+  <script>
     (function(){
       const body = document.body;
-      const q = document.getElementById('questBox');
+      const q = document.getElementById('hud-quest-wrap');
+      const b2d = document.getElementById('btn-start-2d');
+      const bvr = document.getElementById('btn-start-vr');
 
-      function compact(on){ body.classList.toggle('hha-compact', !!on); }
-
-      // ถ้าเกมยิง event อยู่แล้ว → ใช้ได้ทันที
-      window.addEventListener('hha:start', ()=> compact(true));
-      window.addEventListener('hha:end',   ()=> compact(false));
-
-      // แตะ quest เพื่อ peek
-      if(q){
-        q.addEventListener('click', ()=>{
-          body.classList.add('hha-peek');
-          clearTimeout(window.__hhaPeekT);
-          window.__hhaPeekT = setTimeout(()=> body.classList.remove('hha-peek'), 2000);
-        });
+      function peek(){
+        body.classList.add('hha-peek');
+        clearTimeout(window.__hhaPeekT);
+        window.__hhaPeekT = setTimeout(()=> body.classList.remove('hha-peek'), 2000);
       }
+
+      if (q) q.addEventListener('click', peek, { passive:true });
+
+      // ทำ compact ทันทีที่กดเริ่ม (ไม่ไปกัน boot)
+      function makeCompact(){ body.classList.add('hha-compact'); }
+      if (b2d) b2d.addEventListener('click', makeCompact, { passive:true });
+      if (bvr) bvr.addEventListener('click', makeCompact, { passive:true });
+
+      // เมื่อจบเกมค่อยขยายกลับ (event จากเกม)
+      window.addEventListener('hha:end', ()=> body.classList.remove('hha-compact'));
     })();
   </script>
 
