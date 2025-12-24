@@ -1,735 +1,1148 @@
-// === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
-// - spawn targets via mode-factory (DOM)
-// - water gauge (GREEN/LOW/HIGH)
-// - fever gauge + shield (global FeverUI from ./vr/ui-fever.js)
-// - quest goal + mini quest (hydration.quest.js)
-// - VR-feel look: gyro + drag -> playfield translate (เหมือน VR)
-// - HUD events: hha:score / hha:judge / quest:update / hha:coach / hha:time
+// === /herohealth/vr-groups/GameEngine.js ===
+// Food Groups VR — PRODUCTION HYBRID ENGINE (A+B+C PACK)
+// IIFE -> window.GroupsVR.GameEngine
+// ✅ DOM emoji targets via CSS vars --x/--y/--s (render loop)
+// ✅ Spawn spread + avoid HUD safezone (data-hha-exclude + .hud)
+// ✅ Play mode: Adaptive + Rush + BossWave + Decoy + Rage + Lock/Charge/Chain
+// ✅ Research mode: seed deterministic + disables random events/features
+// ✅ Emits events: hha:score, hha:time, hha:rank, quest:update, hha:coach, groups:lock, groups:reticle
 
-'use strict';
+(function () {
+  'use strict';
 
-import { boot as factoryBoot } from '../vr/mode-factory.js';
-import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
-import { createHydrationQuest } from './hydration.quest.js';
+  const ROOT = window;
+  const ns = (ROOT.GroupsVR = ROOT.GroupsVR || {});
 
-// --------------------- Globals / helpers ---------------------
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+  const Particles =
+    (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+    ROOT.Particles ||
+    { scorePop() {}, burstAt() {}, celebrateQuestFX() {}, celebrateAllQuestsFX() {}, toast() {} };
 
-function clamp(v, min, max){
-  v = Number(v) || 0;
-  return v < min ? min : (v > max ? max : v);
-}
-function $id(id){ return document.getElementById(id); }
-function dispatch(name, detail){
-  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
-}
-
-// FX layer (particles.js IIFE)
-const Particles =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-  ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, celebrate(){}, toast(){}, };
-
-function getFeverUI(){
-  return (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) || ROOT.FeverUI || null;
-}
-
-// --------------------- Tuning (เด็ก ป.5 แต่ยังท้าทาย) ---------------------
-const TUNE = {
-  // water balance move
-  goodWaterPush:  +6,
-  junkWaterPush:  -10,
-  waterDriftPerSec: -0.9, // กันค้าง GREEN ฟรี
-
-  // scoring
-  scoreGood:   18,
-  scorePower:  28,
-  scoreJunk:  -25,
-  scorePerfectBonus: 10,   // bonus เมื่อเข้าเงื่อนไข “Perfect”
-
-  // fever
-  feverGainGood:  10,
-  feverGainPower: 16,
-  feverLoseJunk:  20,
-  feverAutoDecay: 1.1,
-
-  // fever trigger
-  feverTriggerAt: 100,
-  feverDurationSec: 6,
-
-  // shield
-  shieldOnFeverStart: 2,
-  shieldMax: 6,
-
-  // miss policy (concept):
-  // - ปล่อย "น้ำดี" หลุด = miss (เพิ่มความท้าทาย)
-  // - ปล่อย "น้ำหวาน" หลุด = ไม่ miss
-  missOnGoodExpire: true,
-
-  // ===== LOOK / AIM (เหมือน VR จริง) =====
-  lookMaxX: 420,
-  lookMaxY: 320,
-  lookPxPerDegX: 9.2,
-  lookPxPerDegY: 7.6,
-  lookSmooth: 0.10,
-
-  // ===== excitement =====
-  // urgency (10 วินาทีสุดท้าย)
-  urgencyAtSec: 10,
-  urgencyBeepHz: 920,
-
-  // storm wave: ช่วงสั้น ๆ ที่ spawn ถี่ขึ้น
-  stormEverySec: 18,     // ทุก ๆ 18 วิ
-  stormDurationSec: 5,   // นาน 5 วิ
-  stormIntervalMul: 0.72 // spawn ถี่ขึ้น
-};
-
-// --------------------- Main boot ---------------------
-export async function boot(opts = {}) {
-  const difficulty = String(opts.difficulty || 'easy').toLowerCase();
-  const duration   = clamp(opts.duration ?? 90, 20, 180);
-
-  // --- bind HUD widgets ---
-  ensureWaterGauge();
-
-  // --- host / playfield ---
-  const playfield = $id('hvr-playfield') || null;
-  if (!playfield) {
-    console.error('[HydrationVR] #hvr-playfield not found');
-    return { stop(){} };
-  }
-
-  // ทำให้ playfield พร้อม transform
-  playfield.style.willChange = 'transform';
-  playfield.style.transform = 'translate3d(0,0,0)';
-
-  // --- FeverUI init (กันไม่เจอ ensureFeverBar) ---
-  const FeverUI = getFeverUI();
-  if (FeverUI && typeof FeverUI.ensureFeverBar === 'function') {
-    FeverUI.ensureFeverBar();
-    if (typeof FeverUI.setFever === 'function') FeverUI.setFever(0);
-    if (typeof FeverUI.setFeverActive === 'function') FeverUI.setFeverActive(false);
-    if (typeof FeverUI.setShield === 'function') FeverUI.setShield(0);
-  } else {
-    console.warn('[HydrationVR] FeverUI not ready. Check: <script src="./vr/ui-fever.js"></script> before module.');
-  }
-
-  // --- runtime state ---
-  const state = {
-    diff: difficulty,
-    timeLeft: duration,
-
-    score: 0,
-    combo: 0,
-    comboBest: 0,
-    miss: 0,
-
-    waterPct: 50,
-    zone: 'GREEN',
-
-    // quest-visible
-    greenTick: 0,
-
-    // fever
-    fever: 0,
-    feverActive: false,
-    feverLeft: 0,
-    shield: 0,
-
-    // look (VR-feel)
-    lookTX: 0,
-    lookTY: 0,
-    lookVX: 0,
-    lookVY: 0,
-
-    // storm
-    stormLeft: 0,
-
-    stopped: false
+  // ---------- helpers ----------
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const nowMs = () => (ROOT.performance && performance.now ? performance.now() : Date.now());
+  const dispatch = (name, detail) => {
+    try { ROOT.dispatchEvent(new CustomEvent(name, { detail })); } catch {}
   };
 
-  // --- Quest deck ---
-  const Q = createHydrationQuest(difficulty);
-
-  // expose instance
-  ROOT.HHA_ACTIVE_INST = {
-    stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} }
-  };
-
-  // --------------------- HUD update helpers ---------------------
-  function updateWaterHud(){
-    const out = setWaterGauge(state.waterPct);
-    state.zone = out.zone;
-    const ztxt = $id('hha-water-zone-text');
-    if (ztxt) ztxt.textContent = state.zone;
-  }
-
-  function calcProgressToS(){
-    const goalsDone = (Q.goals || []).filter(g => g._done || g.done).length;
-    const minisDone = (Q.minis || []).filter(m => m._done || m.done).length;
-
-    // “S 30%” = แถบความคืบหน้าตาม score + เควส (ไม่หลุด concept)
-    const prog = clamp(
-      (state.score / 1200) * 0.70 +
-      (goalsDone / 2) * 0.20 +
-      (minisDone / 3) * 0.10,
-      0, 1
-    );
-    return { prog, goalsDone, minisDone };
-  }
-
-  function updateScoreHud(label){
-    const { prog, goalsDone, minisDone } = calcProgressToS();
-    const progPct = Math.round(prog * 100);
-
-    // progress bar
-    const fill = $id('hha-grade-progress-fill');
-    const txt  = $id('hha-grade-progress-text');
-    if (fill) fill.style.width = progPct + '%';
-    if (txt)  txt.textContent = `Progress to S (30%): ${progPct}%`;
-
-    // grade
-    let grade = 'C';
-    if (progPct >= 95) grade = 'SSS';
-    else if (progPct >= 85) grade = 'SS';
-    else if (progPct >= 70) grade = 'S';
-    else if (progPct >= 50) grade = 'A';
-    else if (progPct >= 30) grade = 'B';
-
-    const gb = $id('hha-grade-badge');
-    if (gb) gb.textContent = grade;
-
-    // basic hud
-    const sc = $id('hha-score-main'); if (sc) sc.textContent = String(state.score|0);
-    const cb = $id('hha-combo-max');  if (cb) cb.textContent = String(state.comboBest|0);
-    const ms = $id('hha-miss');       if (ms) ms.textContent = String(state.miss|0);
-
-    dispatch('hha:score', {
-      score: state.score|0,
-      combo: state.combo|0,
-      comboBest: state.comboBest|0,
-      miss: state.miss|0,
-      zone: state.zone,
-      water: Math.round(state.waterPct),
-      fever: Math.round(state.fever),
-      feverActive: !!state.feverActive,
-      shield: state.shield|0,
-      goalsDone,
-      minisDone,
-      label: label || ''
-    });
-  }
-
-  function updateQuestHud(){
-    const goalsView = Q.getProgress('goals');
-    const minisView = Q.getProgress('mini');
-
-    const allGoals = Q.goals || [];
-    const allMinis = Q.minis || [];
-    const goalsDone = allGoals.filter(g => g._done || g.done).length;
-    const minisDone = allMinis.filter(m => m._done || m.done).length;
-
-    const gd = $id('hha-goal-done');  if (gd) gd.textContent = String(goalsDone);
-    const gt = $id('hha-goal-total'); if (gt) gt.textContent = String(allGoals.length || 2);
-    const md = $id('hha-mini-done');  if (md) md.textContent = String(minisDone);
-    const mt = $id('hha-mini-total'); if (mt) mt.textContent = String(allMinis.length || 3);
-
-    const curGoalId = (goalsView && goalsView[0]) ? goalsView[0].id : (allGoals[0]?.id || '');
-    const curMiniId = (minisView && minisView[0]) ? minisView[0].id : (allMinis[0]?.id || '');
-
-    const gInfo = Q.getGoalProgressInfo ? Q.getGoalProgressInfo(curGoalId) : null;
-    const mInfo = Q.getMiniProgressInfo ? Q.getMiniProgressInfo(curMiniId) : null;
-
-    const goalEl = $id('hha-quest-goal');
-    const miniEl = $id('hha-quest-mini');
-    if (goalEl) goalEl.textContent = gInfo?.text ? `Goal: ${gInfo.text}` : `Goal: ทำภารกิจให้ครบ`;
-    if (miniEl) miniEl.textContent = mInfo?.text ? `Mini: ${mInfo.text}` : `Mini: ทำมินิเควส`;
-
-    dispatch('quest:update', {
-      goalDone: goalsDone,
-      goalTotal: allGoals.length || 2,
-      miniDone: minisDone,
-      miniTotal: allMinis.length || 3,
-      goalText: goalEl ? goalEl.textContent : '',
-      miniText: miniEl ? miniEl.textContent : ''
-    });
-
-    updateScoreHud();
-  }
-
-  // --------------------- Fever logic ---------------------
-  function feverRender(){
-    const F = getFeverUI();
-    if (!F) return;
-    if (typeof F.setFever === 'function') F.setFever(state.fever);
-    if (typeof F.setFeverActive === 'function') F.setFeverActive(state.feverActive);
-    if (typeof F.setShield === 'function') F.setShield(state.shield);
-  }
-
-  function feverStart(){
-    state.feverActive = true;
-    state.feverLeft = TUNE.feverDurationSec;
-    state.fever = TUNE.feverTriggerAt;
-
-    // give shield
-    state.shield = clamp(state.shield + TUNE.shieldOnFeverStart, 0, TUNE.shieldMax);
-
-    feverRender();
-    dispatch('hha:fever', { state:'start', value: state.fever, active:true, shield: state.shield });
-
-    dispatch('hha:coach', { text:'🔥 FEVER! ยิงให้ไว คะแนนคูณ x2 + ได้เกราะ 🛡️', mood:'happy' });
-    try{ Particles.celebrate && Particles.celebrate('fever'); }catch{}
-  }
-
-  function feverEnd(){
-    state.feverActive = false;
-    state.feverLeft = 0;
-    state.fever = clamp(state.fever * 0.35, 0, 100);
-    feverRender();
-    dispatch('hha:fever', { state:'end', value: state.fever, active:false, shield: state.shield });
-    dispatch('hha:coach', { text:'เยี่ยม! FEVER จบแล้ว กลับไปรักษา GREEN ต่อ 💧', mood:'neutral' });
-  }
-
-  function feverAdd(v){
-    if (state.feverActive) return;
-    state.fever = clamp(state.fever + (Number(v)||0), 0, 100);
-    if (state.fever >= TUNE.feverTriggerAt) feverStart();
-    else feverRender();
-  }
-
-  function feverLose(v){
-    if (state.feverActive) return;
-    state.fever = clamp(state.fever - (Number(v)||0), 0, 100);
-    feverRender();
-  }
-
-  // --------------------- “Perfect” rule (สนุกขึ้นไม่ทิ้ง concept) ---------------------
-  function isPerfectHit(isGoodOrPower){
-    // Perfect ถ้า (อยู่ GREEN) และ (คอมโบ>=5 หรือกำลัง FEVER) และเป็น good/power
-    if (!isGoodOrPower) return false;
-    if (state.zone !== 'GREEN') return false;
-    return (state.combo >= 5) || state.feverActive;
-  }
-
-  // --------------------- Judge (hit logic) ---------------------
-  function judge(ch, ctx){
-    const isGood = !!ctx.isGood;
-    const isPower = !!ctx.isPower;
-
-    let scoreDelta = 0;
-    let label = 'GOOD';
-
-    const mult = state.feverActive ? 2 : 1;
-
-    if (isPower){
-      scoreDelta = TUNE.scorePower * mult;
-      label = 'POWER';
-    } else if (isGood){
-      scoreDelta = TUNE.scoreGood * mult;
-      label = 'GOOD';
-    } else {
-      // junk hit: shield block?
-      if (state.shield > 0){
-        state.shield -= 1;
-        scoreDelta = 0;
-        label = 'BLOCK';
-        dispatch('hha:judge', { label:'BLOCK' });
-        feverRender();
-        updateScoreHud('BLOCK');
-        return { scoreDelta, label, good:false, blocked:true };
-      }
-      scoreDelta = TUNE.scoreJunk;
-      label = 'JUNK';
+  function hash32(str) {
+    str = String(str || '');
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
     }
+    return h >>> 0;
+  }
+  function mulberry32(seed) {
+    let t = (seed >>> 0) || 1;
+    return function () {
+      t += 0x6D2B79F5;
+      let x = t;
+      x = Math.imul(x ^ (x >>> 15), 1 | x);
+      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 
-    // combo rules
-    if (isGood || isPower){
-      state.combo += 1;
-      if (state.combo > state.comboBest) state.comboBest = state.combo;
-    } else {
-      state.combo = 0;
-      state.miss += 1;
+  function rectIntersects(a, b) {
+    return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  }
+
+  function getExcludeRects(extraSelectors) {
+    const sels = []
+      .concat(extraSelectors || [])
+      .concat(['[data-hha-exclude="1"]', '.hud', '#startOverlay']);
+    const rects = [];
+    for (const sel of sels) {
+      const els = document.querySelectorAll(sel);
+      els.forEach((el) => {
+        if (!el || !el.getBoundingClientRect) return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 8 || r.height < 8) return;
+        rects.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+      });
     }
-
-    // “Perfect” bonus (ให้เด็กว้าว)
-    const perfect = isPerfectHit(isGood || isPower);
-    if (perfect) {
-      scoreDelta += TUNE.scorePerfectBonus * mult;
-      label = 'PERFECT';
-    }
-
-    // score
-    state.score = Math.max(0, (state.score + scoreDelta) | 0);
-
-    // water move + quest hooks
-    if (isPower || isGood){
-      state.waterPct = clamp(state.waterPct + TUNE.goodWaterPush, 0, 100);
-      feverAdd(isPower ? TUNE.feverGainPower : TUNE.feverGainGood);
-      Q.onGood();
-    } else {
-      state.waterPct = clamp(state.waterPct + TUNE.junkWaterPush, 0, 100);
-      feverLose(TUNE.feverLoseJunk);
-      Q.onJunk();
-    }
-
-    Q.updateScore(state.score);
-    Q.updateCombo(state.combo);
-
-    updateWaterHud();
-
-    // FX
-    try{
-      Particles.burstAt && Particles.burstAt(ctx.clientX || 0, ctx.clientY || 0, label);
-      Particles.scorePop && Particles.scorePop(ctx.clientX || 0, ctx.clientY || 0, scoreDelta, label);
-    }catch{}
-
-    dispatch('hha:judge', { label });
-
-    updateQuestHud();
-    return { scoreDelta, label, good: (isGood || isPower) };
+    return rects;
   }
 
-  // --------------------- Expire (ของหลุด) ---------------------
-  function onExpire(info){
-    if (state.stopped) return;
+  function pickSpawnPoint(layerEl, marginPx, excludeRects, tries, rng) {
+    const W = innerWidth || 360;
+    const H = innerHeight || 640;
+    const m = marginPx || 8;
 
-    // ปล่อย "น้ำดี" หลุด = miss (ถ้าตั้ง)
-    if (info && info.isGood && !info.isPower && TUNE.missOnGoodExpire){
-      state.miss += 1;
-      state.combo = 0;
+    const safe = {
+      left: m,
+      top: m,
+      right: W - m,
+      bottom: H - m
+    };
 
-      // น้ำดีหลุด = น้ำลดนิด
-      state.waterPct = clamp(state.waterPct - 3, 0, 100);
-
-      dispatch('hha:judge', { label:'MISS' });
-      updateWaterHud();
-      updateScoreHud('MISS');
-    }
-    // ปล่อย junk หลุด = ถือว่าดี ไม่ miss
-  }
-
-  // --------------------- LOOK controls (gyro + drag) ---------------------
-  let hasOrient = false;
-  let dragOn = false;
-  let lastX = 0, lastY = 0;
-
-  function applyLookTransform(){
-    // smooth/inertia
-    state.lookVX += (state.lookTX - state.lookVX) * TUNE.lookSmooth;
-    state.lookVY += (state.lookTY - state.lookVY) * TUNE.lookSmooth;
-
-    // “เหมือน VR” = หันขวา -> โลกเลื่อนไปซ้าย (สวนมือ)
-    const x = clamp(-state.lookVX, -TUNE.lookMaxX, TUNE.lookMaxX);
-    const y = clamp(-state.lookVY, -TUNE.lookMaxY, TUNE.lookMaxY);
-
-    playfield.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-  }
-
-  function onPointerDown(ev){
-    dragOn = true;
-    lastX = ev.clientX || 0;
-    lastY = ev.clientY || 0;
-  }
-  function onPointerMove(ev){
-    if (!dragOn) return;
-    const x = ev.clientX || 0;
-    const y = ev.clientY || 0;
-    const dx = x - lastX;
-    const dy = y - lastY;
-    lastX = x; lastY = y;
-
-    // VR-feel drag (หนักแน่น)
-    state.lookTX = clamp(state.lookTX + dx * 1.25, -TUNE.lookMaxX, TUNE.lookMaxX);
-    state.lookTY = clamp(state.lookTY + dy * 1.05, -TUNE.lookMaxY, TUNE.lookMaxY);
-  }
-  function onPointerUp(){
-    dragOn = false;
-  }
-
-  // iOS ต้องขอ permission
-  async function tryEnableGyro(){
-    try{
-      const D = ROOT.DeviceOrientationEvent;
-      if (!D) return false;
-
-      if (typeof D.requestPermission === 'function') {
-        // ต้องมาจาก gesture แต่เราเรียกใน boot แล้วจะมีบางเครื่องไม่ให้
-        // ให้คุณกด/แตะจอก่อนก็ได้ (เรา bind เพิ่มด้านล่าง)
-        return false;
+    const test = (x, y) => {
+      const pt = { left: x - 2, right: x + 2, top: y - 2, bottom: y + 2 };
+      for (const r of excludeRects) {
+        if (rectIntersects(pt, r)) return false;
       }
       return true;
-    }catch{
-      return false;
+    };
+
+    let best = null;
+    let bestScore = -1;
+
+    for (let i = 0; i < (tries || 18); i++) {
+      const x = safe.left + (safe.right - safe.left) * (rng ? rng() : Math.random());
+      const y = safe.top + (safe.bottom - safe.top) * (rng ? rng() : Math.random());
+
+      if (!test(x, y)) continue;
+
+      // score: farther from excluded rect centers -> better
+      let score = 0;
+      for (const r of excludeRects) {
+        const cx = (r.left + r.right) / 2;
+        const cy = (r.top + r.bottom) / 2;
+        const dx = x - cx;
+        const dy = y - cy;
+        score += (dx * dx + dy * dy);
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        best = { x, y };
+      }
     }
+
+    if (!best) {
+      // fallback center-ish
+      best = { x: W * 0.5, y: H * 0.60 };
+    }
+
+    return best;
   }
 
-  function onDeviceOrientation(e){
-    const g = Number(e.gamma);
-    const b = Number(e.beta);
-    if (!Number.isFinite(g) || !Number.isFinite(b)) return;
-    hasOrient = true;
+  // ---------- content: 5 food groups ----------
+  const GROUPS = [
+    { id: 1, name: 'หมู่ 1 โปรตีน', emoji: ['🥚','🥛','🐟','🍗','🫘','🥜'] },
+    { id: 2, name: 'หมู่ 2 คาร์บ', emoji: ['🍚','🍞','🥖','🍜','🥔','🍠'] },
+    { id: 3, name: 'หมู่ 3 ผัก', emoji: ['🥦','🥬','🥒','🥕','🌽','🍆'] },
+    { id: 4, name: 'หมู่ 4 ผลไม้', emoji: ['🍎','🍌','🍊','🍉','🍇','🍍'] },
+    { id: 5, name: 'หมู่ 5 ไขมัน', emoji: ['🥑','🧈','🫒','🥥','🧀','🍳'] }
+  ];
+  const JUNK = ['🍟','🍔','🥤','🧋','🍩','🍰','🍕','🍫'];
 
-    // deadzone กันสั่น
-    const DEAD_G = 1.2;
-    const DEAD_B = 1.6;
+  // ---------- tuning ----------
+  function makeTune(diff) {
+    diff = String(diff || 'normal').toLowerCase();
+    const base =
+      diff === 'easy'
+        ? { spawnEvery: 820, ttl: 2200, size: 1.08, junkRate: 0.22, lockSec: 0.55, chargeSec: 0.65 }
+        : diff === 'hard'
+          ? { spawnEvery: 560, ttl: 1650, size: 0.92, junkRate: 0.35, lockSec: 0.70, chargeSec: 0.78 }
+          : { spawnEvery: 680, ttl: 1900, size: 1.00, junkRate: 0.28, lockSec: 0.62, chargeSec: 0.72 };
 
-    let gg = Math.abs(g) < DEAD_G ? 0 : g;
-    let bb = Math.abs(b) < DEAD_B ? 0 : b;
+    return {
+      ...base,
 
-    // bias ให้ “เงยเล็กน้อย” เป็นกลาง
-    const BIAS_B = 18;
+      // scoring
+      scoreGood: 18,
+      scoreJunk: -26,
+      scoreBoss: 55,
+      scorePerfectBonus: 10,
 
-    const tx = gg * TUNE.lookPxPerDegX;
-    const ty = (bb - BIAS_B) * TUNE.lookPxPerDegY;
+      // combo / miss
+      comboPerfectAt: 6,
+      missPenaltySec: 0, // reserved
+      shieldMax: 6,
 
-    state.lookTX = clamp(tx, -TUNE.lookMaxX, TUNE.lookMaxX);
-    state.lookTY = clamp(ty, -TUNE.lookMaxY, TUNE.lookMaxY);
+      // lock/charge
+      lockRadiusPx: 74,
+      chargeExtraRadiusPx: 92,
+      burstShots: 3,
+      chainHits: 2,
+
+      // play events
+      rushEverySec: 18,
+      rushWindowSec: 8,
+      rushNeed: 6,          // hit good in window
+      rushMulSpawn: 0.72,   // faster spawns
+      rushBonus: 40,
+
+      bossEverySec: 24,
+      bossHp: 3,
+
+      rageEverySec: 16,
+      rageTtlMul: 0.82,
+      rageDodgePxPerSec: 88,
+
+      decoyRate: 0.12, // play only
+
+      // adaptive
+      adaptiveEverySec: 6,
+      adaptiveStep: 0.06,   // adjust factor
+      adaptiveMax: 0.28,
+    };
   }
 
-  // request gyro permission on first user gesture (iOS)
-  async function requestGyroPermission(){
-    try{
-      const D = ROOT.DeviceOrientationEvent;
-      if (!D || typeof D.requestPermission !== 'function') return;
+  // ---------- quest (fallback) ----------
+  function makeFallbackQuest(runMode) {
+    const q = {
+      // goal: collect at least 1 from each group (repeatable)
+      goalNeedEach: 1,
+      got: { 1:0,2:0,3:0,4:0,5:0 },
+      goalDone: false,
 
-      const res = await D.requestPermission();
-      if (res === 'granted') {
-        ROOT.addEventListener('deviceorientation', onDeviceOrientation, true);
-        dispatch('hha:coach', { text:'✅ เปิด Gyro แล้ว! หมุนมือถือ = หันมุมมองเหมือน VR 🕶️', mood:'happy' });
+      // mini: Rush
+      miniOn: false,
+      miniLeft: 0,
+      miniNeed: 0,
+      miniProg: 0,
+
+      // current group focus
+      focusGroup: 1,
+      focusTick: 0
+    };
+
+    function goalProgress() {
+      let doneCount = 0;
+      for (let i = 1; i <= 5; i++) doneCount += (q.got[i] >= q.goalNeedEach ? 1 : 0);
+      return doneCount;
+    }
+
+    function currentGroupLabel() {
+      const g = GROUPS.find(x=>x.id===q.focusGroup);
+      return g ? g.name : '—';
+    }
+
+    return {
+      onHitGood(groupId) {
+        q.got[groupId] = (q.got[groupId] || 0) + 1;
+        if (!q.goalDone && goalProgress() >= 5) q.goalDone = true;
+        if (q.miniOn) q.miniProg += 1;
+      },
+      onHitJunk() {},
+      second() {
+        q.focusTick += 1;
+        if (q.focusTick % 10 === 0) {
+          q.focusGroup = (q.focusGroup % 5) + 1;
+        }
+        if (q.miniOn) {
+          q.miniLeft -= 1;
+          if (q.miniLeft <= 0) q.miniOn = false;
+        }
+      },
+      startRush(need, windowSec) {
+        q.miniOn = true;
+        q.miniLeft = windowSec;
+        q.miniNeed = need;
+        q.miniProg = 0;
+      },
+      isRushActive() { return !!q.miniOn; },
+      rushLeft() { return q.miniLeft|0; },
+      rushNeed() { return q.miniNeed|0; },
+      rushProg() { return q.miniProg|0; },
+
+      snapshot() {
+        const goalDone = goalProgress();
+        return {
+          goal: { label: 'เก็บอาหารให้ครบ 5 หมู่ (อย่างละ 1)', prog: goalDone, target: 5 },
+          mini: q.miniOn ? {
+            label: 'RUSH: เก็บอาหารดีให้ทัน!',
+            prog: q.miniProg,
+            target: q.miniNeed,
+            tLeft: q.miniLeft,
+            windowSec: q.miniNeed ? q.miniLeft : 0
+          } : null,
+          groupLabel: currentGroupLabel()
+        };
+      }
+    };
+  }
+
+  // ---------- engine ----------
+  const Engine = {
+    _layerEl: null,
+    _camEl: null,
+
+    _running: false,
+    _raf: null,
+    _timer: null,
+    _rng: null,
+    _seed: '',
+    _runMode: 'play',
+
+    _diff: 'normal',
+    _tune: null,
+
+    _timeLeft: 70,
+    _score: 0,
+    _combo: 0,
+    _comboBest: 0,
+    _miss: 0,
+    _shield: 0,
+
+    _targets: [],
+    _idSeq: 1,
+
+    _lastSpawnAt: 0,
+    _spawnEvery: 680,
+
+    _lock: {
+      on: false,
+      id: null,
+      prog: 0,
+      charge: 0,
+      atX: 0,
+      atY: 0
+    },
+
+    _events: {
+      rushLeft: 0,
+      nextRushAt: 0,
+      nextBossAt: 0,
+      nextRageAt: 0,
+      bossAlive: false,
+      bossId: null,
+      adaptiveFactor: 0
+    },
+
+    setLayerEl(el) { this._layerEl = el; },
+    setCameraEl(el) { this._camEl = el; },
+    setTimeLeft(sec) { this._timeLeft = Math.max(0, sec|0); },
+
+    setGaze(on) {
+      this._gazeOn = !!on;
+      dispatch('hha:coach', { text: this._gazeOn ? '👀 Gaze ON: จ้องเพื่อ LOCK/CHARGE' : '👆 Gaze OFF: แตะยิงอย่างเดียว', mood:'neutral' });
+    },
+
+    start(diff, opts = {}) {
+      if (this._running) return;
+      this._running = true;
+
+      this._diff = String(diff || 'normal').toLowerCase();
+      this._runMode = String(opts.runMode || opts.mode || 'play').toLowerCase() === 'research' ? 'research' : 'play';
+
+      this._seed = String(opts.seed || '').trim();
+      const seed32 = this._seed ? hash32(this._seed) : (Math.random() * 0xffffffff) >>> 0;
+      this._rng = (this._runMode === 'research') ? mulberry32(seed32) : null;
+
+      this._tune = makeTune(this._diff);
+      this._spawnEvery = this._tune.spawnEvery;
+
+      this._score = 0;
+      this._combo = 0;
+      this._comboBest = 0;
+      this._miss = 0;
+      this._shield = 0;
+
+      this._targets = [];
+      this._idSeq = 1;
+
+      this._gazeOn = true;
+
+      this._lock = { on:false, id:null, prog:0, charge:0, atX:0, atY:0 };
+
+      const t = this._tune;
+      const sec = this._timeLeft|0;
+
+      this._events = {
+        rushLeft: 0,
+        nextRushAt: (this._runMode === 'play') ? (sec - t.rushEverySec) : 999999,
+        nextBossAt: (this._runMode === 'play') ? (sec - t.bossEverySec) : 999999,
+        nextRageAt: (this._runMode === 'play') ? (sec - t.rageEverySec) : 999999,
+        bossAlive: false,
+        bossId: null,
+        adaptiveFactor: 0,
+        adaptiveTick: 0,
+        lastScore: 0,
+        lastComboBest: 0
+      };
+
+      // quest hookup
+      const externalQuest = (ROOT.GroupsQuest && typeof ROOT.GroupsQuest.createFoodGroupsQuest === 'function')
+        ? ROOT.GroupsQuest.createFoodGroupsQuest(this._diff, { runMode: this._runMode, seed: this._seed })
+        : null;
+      this._quest = externalQuest || makeFallbackQuest(this._runMode);
+
+      // layer
+      if (!this._layerEl) this._layerEl = document.getElementById('fg-layer');
+      if (!this._layerEl) {
+        console.error('[GroupsVR] layer not found');
+        this._running = false;
+        return;
+      }
+
+      // input
+      this._onPointerDown = (ev) => this._handleTap(ev);
+      this._layerEl.addEventListener('pointerdown', this._onPointerDown, { passive:true });
+
+      dispatch('hha:coach', {
+        text: this._runMode === 'research'
+          ? '🧪 Research: Seed fix + ปิด Rush/Boss/Decoy/Rage เพื่อคุมตัวแปร'
+          : '🔥 Play: LOCK/CHARGE + Rush + BossWave + Decoy + Rage มาแล้ว!',
+        mood: 'happy'
+      });
+
+      // init emit
+      this._emitScore();
+      this._emitTime();
+      this._emitRank();
+      this._emitQuest(true);
+
+      // loops
+      this._lastSpawnAt = nowMs();
+      this._raf = ROOT.requestAnimationFrame(() => this._tick());
+      this._timer = ROOT.setInterval(() => this._second(), 1000);
+      ROOT.__FG_STARTED__ = true;
+    },
+
+    stop(reason) {
+      if (!this._running) return;
+      this._running = false;
+
+      try { if (this._raf) ROOT.cancelAnimationFrame(this._raf); } catch {}
+      try { if (this._timer) ROOT.clearInterval(this._timer); } catch {}
+      this._raf = null;
+      this._timer = null;
+
+      try { this._layerEl && this._onPointerDown && this._layerEl.removeEventListener('pointerdown', this._onPointerDown); } catch {}
+      this._onPointerDown = null;
+
+      // clear targets
+      try {
+        this._targets.forEach(t => { try { t.el && t.el.remove(); } catch {} });
+      } catch {}
+      this._targets = [];
+
+      // lock UI off
+      dispatch('groups:lock', { on:false });
+
+      dispatch('hha:coach', { text: '🛑 หยุดเกมแล้ว', mood:'neutral', reason: reason||'' });
+    },
+
+    // --------- core loop ----------
+    _tick() {
+      if (!this._running) return;
+
+      const tNow = nowMs();
+      const dt = clamp((tNow - (this._lastTickAt || tNow)) / 1000, 0, 0.05);
+      this._lastTickAt = tNow;
+
+      // spawn control (rush affects cadence)
+      const rushOn = (this._runMode === 'play') && this._quest && this._quest.isRushActive && this._quest.isRushActive();
+      const spawnMul = rushOn ? this._tune.rushMulSpawn : 1;
+      const every = clamp(this._spawnEvery * spawnMul * (1 - this._events.adaptiveFactor), 360, 1200);
+
+      if (tNow - this._lastSpawnAt >= every) {
+        this._spawnOne();
+        this._lastSpawnAt = tNow;
+      }
+
+      // update targets (ttl + rage dodge)
+      this._updateTargets(dt);
+
+      // gaze lock + charge
+      this._updateGazeLock(dt);
+
+      // render lock UI each frame
+      this._emitLockUI();
+
+      this._raf = ROOT.requestAnimationFrame(() => this._tick());
+    },
+
+    _second() {
+      if (!this._running) return;
+
+      this._timeLeft = Math.max(0, (this._timeLeft|0) - 1);
+      this._emitTime();
+
+      // quest tick
+      try { this._quest && this._quest.second && this._quest.second(); } catch {}
+
+      // play events schedule (based on timeLeft crossing)
+      if (this._runMode === 'play') {
+        this._handleEventsEachSecond();
+        this._handleAdaptiveEachSecond();
+      }
+
+      this._emitQuest(false);
+      this._emitRank();
+
+      if (this._timeLeft <= 0) {
+        dispatch('hha:coach', { text:'🏁 จบเกม!', mood:'happy' });
+        dispatch('hha:end', {
+          score: this._score|0,
+          miss: this._miss|0,
+          misses: this._miss|0,
+          comboBest: this._comboBest|0,
+          time: 0
+        });
+        try { Particles.celebrateAllQuestsFX?.(); } catch {}
+        this.stop('time_up');
+      }
+    },
+
+    _handleEventsEachSecond() {
+      const t = this._tune;
+      const left = this._timeLeft|0;
+
+      // RUSH trigger
+      if (left > 0 && (left % t.rushEverySec) === 0) {
+        try { this._quest && this._quest.startRush && this._quest.startRush(t.rushNeed, t.rushWindowSec); } catch {}
+        dispatch('hha:coach', { text:`⚡ RUSH! เก็บอาหารดี ${t.rushNeed} ชิ้นใน ${t.rushWindowSec}s`, mood:'happy' });
+        try { Particles.toast?.('RUSH!', 'warn'); } catch {}
+      }
+
+      // BOSS wave trigger
+      if (left > 0 && (left % t.bossEverySec) === 0) {
+        if (!this._events.bossAlive) {
+          this._spawnBoss();
+          dispatch('hha:coach', { text:'👑 BOSS WAVE! ยิงให้แตก!', mood:'happy' });
+          try { Particles.toast?.('BOSS WAVE!', 'warn'); } catch {}
+        }
+      }
+
+      // RAGE trigger (makes one target dodge)
+      if (left > 0 && (left % t.rageEverySec) === 0) {
+        this._makeRage();
+      }
+    },
+
+    _handleAdaptiveEachSecond() {
+      const t = this._tune;
+      this._events.adaptiveTick += 1;
+      if ((this._events.adaptiveTick % t.adaptiveEverySec) !== 0) return;
+
+      // simple performance-based adjust
+      const scoreGain = (this._score|0) - (this._events.lastScore|0);
+      const cb = this._comboBest|0;
+      const cbGain = cb - (this._events.lastComboBest|0);
+
+      this._events.lastScore = this._score|0;
+      this._events.lastComboBest = cb;
+
+      // if player strong -> harder, else easier
+      let delta = 0;
+      if (scoreGain >= 220 || cbGain >= 4) delta = +t.adaptiveStep;
+      else if (scoreGain <= 90 || cbGain <= 0) delta = -t.adaptiveStep;
+
+      this._events.adaptiveFactor = clamp(this._events.adaptiveFactor + delta, -t.adaptiveMax, t.adaptiveMax);
+
+      // adjust spawnEvery slightly
+      const base = this._tune.spawnEvery;
+      const fac = this._events.adaptiveFactor;
+      this._spawnEvery = clamp(base * (1 - fac * 0.6), 420, 1200);
+
+      dispatch('hha:adaptive', { factor: this._events.adaptiveFactor, spawnEvery: this._spawnEvery|0 });
+
+      if (delta > 0) dispatch('hha:coach', { text:'😈 เก่งขึ้นแล้ว! เกมจะไวขึ้นนิดนึง!', mood:'happy' });
+      else if (delta < 0) dispatch('hha:coach', { text:'💙 ผ่อนให้หน่อยนะ ตั้งสติแล้วลุยต่อ!', mood:'neutral' });
+    },
+
+    // --------- spawn ----------
+    _pickRand() {
+      return this._rng ? this._rng() : Math.random();
+    },
+
+    _spawnOne() {
+      const t = this._tune;
+      const r = this._pickRand();
+
+      // choose type
+      const isJunk = (r < (t.junkRate + (this._events.adaptiveFactor > 0 ? 0.04 : 0)));
+      const canDecoy = (this._runMode === 'play');
+      const isDecoy = canDecoy && !isJunk && (this._pickRand() < t.decoyRate);
+
+      const groupFocus = this._getFocusGroup();
+      const groupId = isJunk ? 0 : (this._pickRand() < 0.55 ? groupFocus : (1 + Math.floor(this._pickRand() * 5)));
+
+      let ch = '🍚';
+      let kind = 'good';
+      if (isJunk) {
+        kind = 'junk';
+        ch = JUNK[Math.floor(this._pickRand() * JUNK.length)];
       } else {
-        dispatch('hha:coach', { text:'ℹ️ Gyro ไม่ได้รับอนุญาต ใช้ลากจอแทนได้เลย 👍', mood:'neutral' });
+        const g = GROUPS.find(x => x.id === groupId) || GROUPS[0];
+        ch = g.emoji[Math.floor(this._pickRand() * g.emoji.length)];
+        kind = isDecoy ? 'decoy' : 'good';
       }
-    }catch{
-      dispatch('hha:coach', { text:'ℹ️ ใช้ลากจอแทนได้เลย (Gyro ไม่พร้อม)', mood:'neutral' });
-    }
-  }
 
-  // --------------------- Clock tick (สำคัญต่อ GREEN tick) ---------------------
-  let timer = null;
-  let rafId = null;
+      // safe spawn point avoiding HUD
+      const excludeRects = getExcludeRects(['#reticle', '#lockUI']);
+      const pt = pickSpawnPoint(this._layerEl, 10, excludeRects, 18, this._rng);
 
-  // small beep for urgency (no external file)
-  let audioCtx = null;
-  function beep(freq, dur){
-    try{
-      audioCtx = audioCtx || new (ROOT.AudioContext || ROOT.webkitAudioContext)();
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.type = 'sine';
-      o.frequency.value = freq || 880;
-      g.gain.value = 0.04;
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start();
-      o.stop(audioCtx.currentTime + (dur || 0.05));
-    }catch{}
-  }
+      const el = document.createElement('div');
+      el.className = 'fg-target spawn';
+      el.textContent = ch;
 
-  function secondTick(){
-    if (state.stopped) return;
+      // class flavors
+      if (kind === 'junk') el.classList.add('fg-junk');
+      else if (kind === 'decoy') el.classList.add('fg-decoy');
+      else el.classList.add('fg-good');
 
-    state.timeLeft = Math.max(0, state.timeLeft - 1);
-    dispatch('hha:time', { sec: state.timeLeft });
+      // scale by diff
+      const s = clamp(this._tune.size * rnd(0.92, 1.08), 0.80, 1.28);
 
-    // water drift
-    state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec, 0, 100);
-    updateWaterHud();
+      el.style.setProperty('--x', ((pt.x / (innerWidth||360)) * 100).toFixed(2) + '%');
+      el.style.setProperty('--y', ((pt.y / (innerHeight||640)) * 100).toFixed(2) + '%');
+      el.style.setProperty('--s', s.toFixed(3));
 
-    // ✅ FIX: GREEN tick ต้องนับ “จริง” ทุกวินาที
-    const z = zoneFrom(state.waterPct);
-    state.zone = z;
+      // attach
+      this._layerEl.appendChild(el);
 
-    if (z === 'GREEN'){
-      state.greenTick += 1;
-      // ✅ FIX: sync เข้า quest.stats.greenTick (เดิมไม่ถูกอัปเดต)
-      if (Q && Q.stats){
-        Q.stats.zone = 'GREEN';
-        Q.stats.greenTick = (Q.stats.greenTick|0) + 1;
-      }
-    } else {
-      if (Q && Q.stats) Q.stats.zone = z;
-    }
+      // animate in
+      requestAnimationFrame(() => {
+        el.classList.add('show');
+        el.classList.remove('spawn');
+      });
 
-    // quest second tick
-    Q.second();
+      const id = (this._idSeq++).toString(36);
+      const ttl = clamp(this._tune.ttl * rnd(0.90, 1.12), 1100, 3200);
 
-    // fever tick / decay
-    if (state.feverActive){
-      state.feverLeft -= 1;
-      if (state.feverLeft <= 0) feverEnd();
-      else {
-        state.fever = 100;
-        feverRender();
-      }
-    } else {
-      state.fever = clamp(state.fever - TUNE.feverAutoDecay, 0, 100);
-      feverRender();
-    }
+      const target = {
+        id, el, ch,
+        kind, groupId,
+        born: nowMs(),
+        ttl,
+        hp: 1,
+        rage: false,
 
-    // storm wave timer
-    if (state.stormLeft > 0) state.stormLeft -= 1;
-    if (state.timeLeft > 0 && (state.timeLeft % TUNE.stormEverySec) === 0) {
-      state.stormLeft = TUNE.stormDurationSec;
-      dispatch('hha:coach', { text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น! ตั้งสติ รักษา GREEN!', mood:'happy' });
-      try{ Particles.toast && Particles.toast('STORM WAVE!', 'warn'); }catch{}
-    }
+        // cached center updated in update pass
+        cx: pt.x, cy: pt.y,
+        s
+      };
 
-    // urgency (10 วิสุดท้าย) — beep + coach
-    if (state.timeLeft > 0 && state.timeLeft <= TUNE.urgencyAtSec) {
-      beep(TUNE.urgencyBeepHz, 0.04);
-      if (state.timeLeft === TUNE.urgencyAtSec) {
-        dispatch('hha:coach', { text:'⏳ ใกล้หมดเวลา! รักษา GREEN + ยิงน้ำดีให้ไว!', mood:'sad' });
-      }
-    }
+      // click handler
+      el.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this._hitTarget(target, { x: ev.clientX||target.cx, y: ev.clientY||target.cy, via:'tap' });
+      }, { passive:false });
 
-    // update quest hud (goal/minis ต้องขยับ)
-    updateQuestHud();
-
-    // stop when time up
-    if (state.timeLeft <= 0) stop();
-  }
-
-  // RAF loop for look transform
-  function rafLoop(){
-    if (state.stopped) return;
-    applyLookTransform();
-    rafId = ROOT.requestAnimationFrame(rafLoop);
-  }
-
-  // --------------------- Start spawner ---------------------
-  let spawner = null;
-
-  spawner = await factoryBoot({
-    modeKey: 'hydration',
-    difficulty,
-    duration,
-
-    // ✅ spawn ลง playfield (ไม่ต้อง scroll)
-    spawnHost: '#hvr-playfield',
-
-    pools: {
-      good: ['💧','🥛','🍉','🥥','🍊'],
-      bad:  ['🥤','🧋','🍟','🍔']
+      this._targets.push(target);
     },
 
-    goodRate: (difficulty === 'hard') ? 0.55 : (difficulty === 'easy' ? 0.70 : 0.62),
+    _spawnBoss() {
+      const t = this._tune;
 
-    powerups: ['⭐','🛡️','⏱️'],
-    powerRate: (difficulty === 'hard') ? 0.10 : 0.12,
-    powerEvery: 6,
+      const excludeRects = getExcludeRects(['#reticle', '#lockUI']);
+      const pt = pickSpawnPoint(this._layerEl, 14, excludeRects, 22, this._rng);
 
-    // ✅ ปรับ spawn interval ช่วง storm wave
-    // (hack แบบปลอดภัย: เราไม่แก้ mode-factory แต่ใช้ onExpire/score ทำให้ท้าทาย + storm wave จาก tick)
-    judge: (ch, ctx) => {
-      // power types:
-      if (ctx.isPower && ch === '🛡️'){
-        state.shield = clamp(state.shield + 1, 0, TUNE.shieldMax);
-        feverRender();
-        dispatch('hha:judge', { label:'SHIELD+' });
-        updateScoreHud('SHIELD+');
-        try{ Particles.toast && Particles.toast('+1 SHIELD 🛡️', 'good'); }catch{}
-      }
-      if (ctx.isPower && ch === '⏱️'){
-        state.timeLeft = clamp(state.timeLeft + 3, 0, 180);
-        dispatch('hha:time', { sec: state.timeLeft });
-        dispatch('hha:judge', { label:'TIME+' });
-        try{ Particles.toast && Particles.toast('+3s ⏱️', 'good'); }catch{}
-      }
+      const el = document.createElement('div');
+      el.className = 'fg-target fg-boss spawn show';
+      el.textContent = '👑';
 
-      // storm wave = ทำให้ “Perfect bonus” ง่ายขึ้นนิดเพื่อเร้าใจ
-      if (state.stormLeft > 0 && (ctx.isGood || ctx.isPower)) {
-        state.fever = clamp(state.fever + 2, 0, 100);
-      }
+      const s = clamp(this._tune.size * 1.25, 1.10, 1.42);
+      el.style.setProperty('--x', ((pt.x / (innerWidth||360)) * 100).toFixed(2) + '%');
+      el.style.setProperty('--y', ((pt.y / (innerHeight||640)) * 100).toFixed(2) + '%');
+      el.style.setProperty('--s', s.toFixed(3));
 
-      return judge(ch, ctx);
+      // boss HP bar
+      const bar = document.createElement('div');
+      bar.className = 'bossbar';
+      const fill = document.createElement('div');
+      fill.className = 'bossbar-fill';
+      bar.appendChild(fill);
+      el.appendChild(bar);
+
+      this._layerEl.appendChild(el);
+
+      const id = 'boss_' + (this._idSeq++).toString(36);
+      const hp = clamp(t.bossHp + (this._diff === 'hard' ? 1 : 0), 3, 5);
+
+      const target = {
+        id, el, ch:'👑',
+        kind:'boss', groupId: 0,
+        born: nowMs(),
+        ttl: clamp(t.ttl * 1.55, 2300, 5200),
+        hp,
+        hpMax: hp,
+        barFill: fill,
+        rage: false,
+        cx: pt.x, cy: pt.y,
+        s
+      };
+
+      el.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        this._hitTarget(target, { x: ev.clientX||target.cx, y: ev.clientY||target.cy, via:'tap' });
+      }, { passive:false });
+
+      this._events.bossAlive = true;
+      this._events.bossId = id;
+      this._targets.push(target);
+
+      try { Particles.toast?.('BOSS!', 'warn'); } catch {}
     },
 
-    onExpire: (info) => {
-      // storm wave: ตอน storm ปล่อย good หลุด = โดนลงโทษมากขึ้น (เร้าใจ)
-      if (state.stormLeft > 0 && info && info.isGood && !info.isPower) {
-        state.waterPct = clamp(state.waterPct - 2, 0, 100);
+    _makeRage() {
+      if (!this._targets.length) return;
+
+      // pick a non-boss good/decoy target if possible
+      let candidates = this._targets.filter(t => t && t.el && !t.rage && t.kind !== 'boss');
+      if (!candidates.length) return;
+
+      const pick = candidates[Math.floor(this._pickRand() * candidates.length)];
+      pick.rage = true;
+      pick.el.classList.add('rage');
+
+      // shorten ttl to create urgency
+      pick.ttl = clamp(pick.ttl * this._tune.rageTtlMul, 850, 2100);
+
+      dispatch('hha:coach', { text:'⚠️ RAGE! เป้าจะหลบ ต้อง LOCK/ยิงให้ทัน!', mood:'sad' });
+      try { Particles.toast?.('RAGE!', 'warn'); } catch {}
+    },
+
+    _getFocusGroup() {
+      // external quest may expose current group
+      try {
+        const snap = this._quest && this._quest.snapshot ? this._quest.snapshot() : null;
+        // if quest provides groupLabel only, just rotate by time
+      } catch {}
+      // fallback: rotate by timeLeft blocks
+      const k = (Math.floor(((this._timeLeft|0) / 10)) % 5);
+      return 1 + ((5 - k) % 5);
+    },
+
+    // --------- update targets ----------
+    _updateTargets(dt) {
+      const tNow = nowMs();
+
+      for (let i = this._targets.length - 1; i >= 0; i--) {
+        const tg = this._targets[i];
+        if (!tg || !tg.el) { this._targets.splice(i,1); continue; }
+
+        // update cached center (cheap: rect every few frames)
+        if (!tg._rectTick || (tg._rectTick++ % 6) === 0) {
+          try {
+            const r = tg.el.getBoundingClientRect();
+            tg.cx = r.left + r.width / 2;
+            tg.cy = r.top + r.height / 2;
+            tg._w = r.width; tg._h = r.height;
+          } catch {}
+        }
+
+        // rage dodge movement (push away from screen center slightly)
+        if (tg.rage) {
+          const cx = (innerWidth||360)/2;
+          const cy = (innerHeight||640)/2;
+          const dx = tg.cx - cx;
+          const dy = tg.cy - cy;
+          const len = Math.max(1, Math.hypot(dx, dy));
+          const vx = (dx/len) * this._tune.rageDodgePxPerSec;
+          const vy = (dy/len) * this._tune.rageDodgePxPerSec;
+
+          // move by modifying --x/--y in % space
+          const px = tg.cx + vx * dt;
+          const py = tg.cy + vy * dt;
+
+          // afterimage
+          if ((tg._aiTick = (tg._aiTick||0) + dt) > 0.12) {
+            tg._aiTick = 0;
+            this._spawnAfterimage(tg);
+          }
+
+          const xPct = clamp((px / (innerWidth||360)) * 100, 8, 92);
+          const yPct = clamp((py / (innerHeight||640)) * 100, 10, 90);
+          tg.el.style.setProperty('--x', xPct.toFixed(2) + '%');
+          tg.el.style.setProperty('--y', yPct.toFixed(2) + '%');
+        }
+
+        // ttl expire
+        if (tNow - tg.born >= tg.ttl) {
+          this._expireTarget(tg);
+          try { tg.el.classList.add('out'); } catch {}
+          try { setTimeout(() => { try { tg.el.remove(); } catch {} }, 180); } catch {}
+          this._targets.splice(i, 1);
+        }
       }
-      onExpire(info);
+    },
+
+    _spawnAfterimage(tg) {
+      try {
+        const ai = document.createElement('div');
+        ai.className = 'fg-afterimage';
+        ai.style.left = (tg.cx|0) + 'px';
+        ai.style.top = (tg.cy|0) + 'px';
+
+        const inner = document.createElement('div');
+        inner.className = 'fg-afterimage-inner';
+        inner.textContent = tg.ch;
+
+        ai.appendChild(inner);
+        this._layerEl.appendChild(ai);
+
+        setTimeout(() => { try { ai.remove(); } catch {} }, 520);
+      } catch {}
+    },
+
+    _expireTarget(tg) {
+      // expiration penalty: boss ignored, rage extra penalty
+      if (tg.kind === 'boss') {
+        // boss escaped -> heavy miss
+        this._miss += 2;
+        this._combo = 0;
+        this._emitScore('BOSS_ESCAPE');
+        dispatch('groups:reticle', { state:'miss' });
+        dispatch('hha:coach', { text:'😵 BOSS หนีไปแล้ว! ระวัง!', mood:'sad' });
+        return;
+      }
+
+      // If good/decoy expires -> count miss (makes it challenging)
+      if (tg.kind === 'good' || tg.kind === 'decoy') {
+        this._miss += tg.rage ? 2 : 1;
+        this._combo = 0;
+        this._emitScore(tg.rage ? 'RAGE_MISS' : 'MISS');
+        dispatch('groups:reticle', { state:'miss' });
+      }
+    },
+
+    // --------- hit / judge ----------
+    _handleTap(ev) {
+      // tap-anywhere: pick nearest target to tap point
+      const x = ev.clientX || (innerWidth/2);
+      const y = ev.clientY || (innerHeight/2);
+
+      let best = null;
+      let bestD = 1e18;
+
+      for (const tg of this._targets) {
+        if (!tg || !tg.el) continue;
+        const dx = (tg.cx||0) - x;
+        const dy = (tg.cy||0) - y;
+        const d = dx*dx + dy*dy;
+        if (d < bestD) { bestD = d; best = tg; }
+      }
+
+      // if too far, do nothing (avoid accidental)
+      const r = 110;
+      if (!best || bestD > r*r) return;
+
+      this._hitTarget(best, { x, y, via:'tapAnywhere' });
+    },
+
+    _hitTarget(tg, ctx) {
+      if (!this._running || !tg || !tg.el) return;
+
+      // decoy in play mode: treat as junk although looks good
+      let kind = tg.kind;
+      if (kind === 'decoy') kind = 'junk';
+
+      // boss special
+      if (tg.kind === 'boss') {
+        tg.hp -= 1;
+        this._combo += 1;
+        this._comboBest = Math.max(this._comboBest, this._combo);
+
+        const delta = this._tune.scoreBoss;
+        this._score = Math.max(0, (this._score + delta) | 0);
+
+        // update boss bar
+        try {
+          if (tg.barFill && tg.hpMax) {
+            const p = clamp(tg.hp / tg.hpMax, 0, 1);
+            tg.barFill.style.width = (p*100).toFixed(0) + '%';
+          }
+        } catch {}
+
+        dispatch('groups:reticle', { state: (this._combo >= this._tune.comboPerfectAt ? 'perfect' : 'ok') });
+
+        try { Particles.burstAt?.(ctx.x||tg.cx, ctx.y||tg.cy, 'BOSS'); } catch {}
+        try { Particles.scorePop?.(ctx.x||tg.cx, ctx.y||tg.cy, delta, 'BOSS'); } catch {}
+
+        // boss dead
+        if (tg.hp <= 0) {
+          this._events.bossAlive = false;
+          this._events.bossId = null;
+
+          this._score = Math.max(0, (this._score + 80) | 0);
+          dispatch('hha:coach', { text:'🎉 BOSS แตก! ได้โบนัส!', mood:'happy' });
+          try { Particles.celebrateQuestFX?.(); } catch {}
+
+          this._removeTarget(tg, 'hit');
+        } else {
+          // keep alive, add shake
+          try { tg.el.classList.add('lock'); setTimeout(()=>tg.el.classList.remove('lock'), 140); } catch {}
+        }
+
+        this._emitScore('BOSS_HIT');
+        this._emitRank();
+        this._emitQuest(false);
+        return;
+      }
+
+      // good / junk
+      if (kind === 'junk') {
+        if (this._shield > 0) {
+          this._shield -= 1;
+          dispatch('hha:coach', { text:'🛡️ BLOCK! เกราะกันพลาด', mood:'neutral' });
+          dispatch('groups:reticle', { state:'ok' });
+          this._emitScore('BLOCK');
+          this._removeTarget(tg, 'hit');
+          return;
+        }
+
+        this._score = Math.max(0, (this._score + this._tune.scoreJunk) | 0);
+        this._combo = 0;
+        this._miss += 1;
+
+        try { this._quest && this._quest.onHitJunk && this._quest.onHitJunk(); } catch {}
+
+        dispatch('groups:reticle', { state:'miss' });
+        try { Particles.burstAt?.(ctx.x||tg.cx, ctx.y||tg.cy, 'JUNK'); } catch {}
+        try { Particles.scorePop?.(ctx.x||tg.cx, ctx.y||tg.cy, this._tune.scoreJunk, 'JUNK'); } catch {}
+        dispatch('hha:coach', { text:'❌ โดนขยะ! รีเซ็ตคอมโบ', mood:'sad' });
+
+        this._emitScore('JUNK');
+        this._emitQuest(false);
+        this._emitRank();
+        this._removeTarget(tg, 'hit');
+        return;
+      }
+
+      // GOOD
+      const deltaBase = this._tune.scoreGood;
+      this._combo += 1;
+      this._comboBest = Math.max(this._comboBest, this._combo);
+
+      let delta = deltaBase;
+
+      const perfect = (this._combo >= this._tune.comboPerfectAt);
+      if (perfect) delta += this._tune.scorePerfectBonus;
+
+      this._score = Math.max(0, (this._score + delta) | 0);
+
+      // shield chance in play mode (small spice)
+      if (this._runMode === 'play' && this._pickRand() < 0.06) {
+        this._shield = clamp(this._shield + 1, 0, this._tune.shieldMax);
+        dispatch('hha:coach', { text:'🛡️ +1 SHIELD!', mood:'happy' });
+        try { Particles.toast?.('+1 SHIELD 🛡️', 'good'); } catch {}
+      }
+
+      try { this._quest && this._quest.onHitGood && this._quest.onHitGood(tg.groupId||1); } catch {}
+
+      dispatch('groups:reticle', { state: perfect ? 'perfect' : 'ok' });
+      try { Particles.burstAt?.(ctx.x||tg.cx, ctx.y||tg.cy, perfect ? 'PERFECT' : 'GOOD'); } catch {}
+      try { Particles.scorePop?.(ctx.x||tg.cx, ctx.y||tg.cy, delta, perfect ? 'PERFECT' : 'GOOD'); } catch {}
+
+      // rush success bonus
+      if (this._runMode === 'play' && this._quest && this._quest.isRushActive && this._quest.isRushActive()) {
+        const prog = this._quest.rushProg ? this._quest.rushProg() : 0;
+        const need = this._quest.rushNeed ? this._quest.rushNeed() : 999;
+        if (need && prog >= need) {
+          this._score = Math.max(0, (this._score + this._tune.rushBonus) | 0);
+          dispatch('hha:coach', { text:'⚡ RUSH CLEAR! โบนัสเพิ่ม!', mood:'happy' });
+          try { Particles.celebrateQuestFX?.(); } catch {}
+          try { Particles.toast?.('RUSH CLEAR!', 'good'); } catch {}
+          // stop rush (if fallback quest)
+          try { if (this._quest.startRush) this._quest.startRush(0,0); } catch {}
+        }
+      }
+
+      this._emitScore(perfect ? 'PERFECT' : 'GOOD');
+      this._emitQuest(false);
+      this._emitRank();
+      this._removeTarget(tg, 'hit');
+    },
+
+    _removeTarget(tg, anim) {
+      try {
+        if (tg.el) {
+          tg.el.classList.add(anim === 'hit' ? 'hit' : 'out');
+          setTimeout(() => { try { tg.el.remove(); } catch {} }, 220);
+        }
+      } catch {}
+      const idx = this._targets.indexOf(tg);
+      if (idx >= 0) this._targets.splice(idx, 1);
+
+      // if it was lock target, clear lock
+      if (this._lock && this._lock.id === tg.id) {
+        this._lock.id = null;
+        this._lock.prog = 0;
+        this._lock.charge = 0;
+      }
+    },
+
+    // --------- gaze lock / charge ----------
+    _updateGazeLock(dt) {
+      if (!this._gazeOn) {
+        this._lock.on = false;
+        this._lock.id = null;
+        this._lock.prog = 0;
+        this._lock.charge = 0;
+        return;
+      }
+
+      const cx = (innerWidth||360)/2;
+      const cy = (innerHeight||640)/2;
+      const t = this._tune;
+
+      // find closest target to center
+      let best = null;
+      let bestD = 1e18;
+
+      for (const tg of this._targets) {
+        if (!tg || !tg.el) continue;
+        // ignore junk for lock? (still lockable but risky)
+        const dx = (tg.cx||0) - cx;
+        const dy = (tg.cy||0) - cy;
+        const d = dx*dx + dy*dy;
+        if (d < bestD) { bestD = d; best = tg; }
+      }
+
+      const inLock = best && bestD <= (t.lockRadiusPx * t.lockRadiusPx);
+      const inCharge = best && bestD <= (t.chargeExtraRadiusPx * t.chargeExtraRadiusPx);
+
+      if (!inLock) {
+        // lose lock
+        if (this._lock.on) {
+          this._lock.on = false;
+          this._lock.id = null;
+          this._lock.prog = 0;
+          this._lock.charge = 0;
+        }
+        return;
+      }
+
+      // acquire/keep lock
+      if (this._lock.id !== best.id) {
+        // new lock target
+        this._lock.on = true;
+        this._lock.id = best.id;
+        this._lock.prog = 0;
+        this._lock.charge = 0;
+      }
+
+      // progress
+      this._lock.prog = clamp(this._lock.prog + dt / Math.max(0.18, t.lockSec), 0, 1);
+
+      // mark UI and target
+      try { best.el.classList.add('lock'); } catch {}
+
+      // on full lock -> auto burst (A: ยิงเป็นชุด)
+      if (this._lock.prog >= 1 && !this._lock._burstDone) {
+        this._lock._burstDone = true;
+
+        // burst shots: hit same target multiple times quickly
+        dispatch('hha:coach', { text:'🎯 LOCK! ยิงเป็นชุด!', mood:'happy' });
+        for (let k = 0; k < t.burstShots; k++) {
+          setTimeout(() => {
+            // may already removed, so re-check
+            const alive = this._targets.find(x=>x.id===best.id);
+            if (alive) this._hitTarget(alive, { x: cx, y: cy, via:'lockBurst' });
+          }, 35 * k);
+        }
+      }
+
+      // charge fills when staying inside charge radius after lock full
+      if (this._lock.prog >= 1 && inCharge) {
+        this._lock.charge = clamp(this._lock.charge + dt / Math.max(0.25, t.chargeSec), 0, 1);
+
+        // on full charge -> chain hits (B: โซ่ CHAIN)
+        if (this._lock.charge >= 1 && !this._lock._chainDone) {
+          this._lock._chainDone = true;
+
+          dispatch('hha:coach', { text:'💥 CHARGE! ยิงแรง + CHAIN!', mood:'happy' });
+          try { Particles.toast?.('CHAIN!', 'good'); } catch {}
+
+          // hit nearest extra targets (prefer good)
+          const extras = this._targets
+            .filter(x => x && x.el && x.id !== best.id)
+            .sort((a,b)=>{
+              const da = ((a.cx-cx)*(a.cx-cx) + (a.cy-cy)*(a.cy-cy));
+              const db = ((b.cx-cx)*(b.cx-cx) + (b.cy-cy)*(b.cy-cy));
+              return da - db;
+            });
+
+          let hitCount = 0;
+          for (const tg of extras) {
+            if (hitCount >= t.chainHits) break;
+            // prefer good first
+            if (tg.kind === 'junk') continue;
+            hitCount++;
+            setTimeout(()=>this._hitTarget(tg, { x: tg.cx, y: tg.cy, via:'chain' }), 30 * hitCount);
+          }
+
+          // even if no extras, reward a small bonus
+          if (hitCount === 0) {
+            this._score = Math.max(0, (this._score + 18) | 0);
+            this._emitScore('CHAIN_BONUS');
+          }
+        }
+      }
+    },
+
+    _emitLockUI() {
+      if (!this._gazeOn || !this._lock.on || !this._lock.id) {
+        dispatch('groups:lock', { on:false });
+        return;
+      }
+
+      const tg = this._targets.find(x => x && x.id === this._lock.id);
+      if (!tg) { dispatch('groups:lock', { on:false }); return; }
+
+      const x = tg.cx || (innerWidth/2);
+      const y = tg.cy || (innerHeight/2);
+
+      dispatch('groups:lock', {
+        on: true,
+        x, y,
+        prog: this._lock.prog || 0,
+        charge: this._lock.charge || 0
+      });
+    },
+
+    // --------- emits ----------
+    _emitScore(label) {
+      dispatch('hha:score', {
+        score: this._score|0,
+        combo: this._combo|0,
+        comboBest: this._comboBest|0,
+        miss: this._miss|0,
+        misses: this._miss|0,
+        shield: this._shield|0,
+        label: label||''
+      });
+    },
+
+    _emitTime() {
+      dispatch('hha:time', { left: this._timeLeft|0, sec: this._timeLeft|0 });
+    },
+
+    _emitRank() {
+      // simple grade from score + comboBest - miss
+      const s = (this._score|0);
+      const m = (this._miss|0);
+      const cb = (this._comboBest|0);
+      const v = clamp(s + cb*12 - m*35, 0, 5000);
+
+      let grade = 'C';
+      if (v >= 1350) grade = 'SSS';
+      else if (v >= 1100) grade = 'SS';
+      else if (v >= 850) grade = 'S';
+      else if (v >= 600) grade = 'A';
+      else if (v >= 360) grade = 'B';
+
+      dispatch('hha:rank', { grade, value: v });
+    },
+
+    _emitQuest(force) {
+      let snap = null;
+      try {
+        snap = this._quest && this._quest.snapshot ? this._quest.snapshot() : null;
+      } catch {}
+
+      if (!snap) return;
+
+      dispatch('quest:update', {
+        goal: snap.goal || null,
+        mini: snap.mini || null,
+        groupLabel: snap.groupLabel || ''
+      });
+
+      if (force) {
+        dispatch('hha:coach', { text: `🎵 โฟกัสตอนนี้: ${snap.groupLabel || '—'}`, mood:'neutral' });
+      }
     }
-  });
-
-  // init hud
-  updateWaterHud();
-  // ✅ initial sync quest zone/green
-  if (Q && Q.stats){
-    Q.stats.zone = zoneFrom(state.waterPct);
-    Q.stats.greenTick = 0;
-  }
-  updateQuestHud();
-  updateScoreHud();
-  feverRender();
-
-  // look controls binding
-  playfield.addEventListener('pointerdown', onPointerDown, { passive:true });
-  ROOT.addEventListener('pointermove', onPointerMove, { passive:true });
-  ROOT.addEventListener('pointerup', onPointerUp, { passive:true });
-  ROOT.addEventListener('pointercancel', onPointerUp, { passive:true });
-
-  // gyro (if available)
-  if (await tryEnableGyro()) {
-    ROOT.addEventListener('deviceorientation', onDeviceOrientation, true);
-  }
-
-  // iOS permission: bind once on first tap anywhere
-  const onceAsk = async () => {
-    ROOT.removeEventListener('pointerdown', onceAsk);
-    await requestGyroPermission();
   };
-  ROOT.addEventListener('pointerdown', onceAsk, { passive:true });
 
-  // start loops
-  timer = ROOT.setInterval(secondTick, 1000);
-  rafId = ROOT.requestAnimationFrame(rafLoop);
-
-  // stop cleanup
-  const onStop = () => stop();
-  ROOT.addEventListener('hha:stop', onStop);
-
-  // ถ้าหมดเวลาใน mode-factory จะ stop เองอยู่แล้ว แต่กันไว้
-  const onTime = (e)=>{
-    const sec = Number(e?.detail?.sec);
-    if (Number.isFinite(sec) && sec <= 0) stop();
-  };
-  ROOT.addEventListener('hha:time', onTime, { passive:true });
-
-  function stop(){
-    if (state.stopped) return;
-    state.stopped = true;
-
-    try{ if (timer) ROOT.clearInterval(timer); }catch{}
-    timer = null;
-
-    try{ if (rafId != null) ROOT.cancelAnimationFrame(rafId); }catch{}
-    rafId = null;
-
-    try{ spawner && spawner.stop && spawner.stop(); }catch{}
-    try{ ROOT.removeEventListener('hha:stop', onStop); }catch{}
-    try{ ROOT.removeEventListener('hha:time', onTime); }catch{}
-
-    try{ ROOT.removeEventListener('deviceorientation', onDeviceOrientation, true); }catch{}
-    try{ ROOT.removeEventListener('pointermove', onPointerMove); }catch{}
-    try{ ROOT.removeEventListener('pointerup', onPointerUp); }catch{}
-    try{ ROOT.removeEventListener('pointercancel', onPointerUp); }catch{}
-
-    dispatch('hha:end', {
-      score: state.score|0,
-      miss: state.miss|0,
-      comboBest: state.comboBest|0,
-      water: Math.round(state.waterPct),
-      zone: state.zone,
-      greenTick: (Q && Q.stats) ? (Q.stats.greenTick|0) : (state.greenTick|0)
-    });
-
-    dispatch('hha:coach', { text:'🏁 จบเกม! ดูผลคะแนนและเควสได้เลย', mood:'happy' });
-    try{ Particles.celebrate && Particles.celebrate('end'); }catch{}
-  }
-
-  return { stop };
-}
-
-export default { boot };
+  ns.GameEngine = Engine;
+})();
