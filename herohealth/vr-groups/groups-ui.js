@@ -1,497 +1,745 @@
 // === /herohealth/vr-groups/groups-ui.js ===
-// Food Groups VR — UI Binder (IIFE)  ✅ "ขึ้นแน่"
-// - Creates minimal DOM UI if missing: HUD, Quest, Coach, Reticle, LockRing, Start/End overlays
-// - Binds events from GameEngine: hha:score, hha:time, quest:update, hha:coach, hha:end, hha:rank,
-//   groups:lock, groups:reticle, hha:panic, hha:rush, hha:fever
-//
-// Usage in groups-vr.html:
-//   <link rel="stylesheet" href="./vr-groups/groups.css">
-//   <script src="./vr-groups/groups-ui.js" defer></script>
-//   (then your engine/boot starts game)
+// Food Groups VR — UI Binder (FIX-ALL, auto-create)
+// ✅ Creates HUD + Quest panel + Fever/Shield mini UI + Coach toast
+// ✅ Creates Reticle + Lock ring + Edge pulse (panic/rush/danger)
+// ✅ Creates End Card (with Grade SSS/SS/S/A/B/C)
+// ✅ Works even if HTML missing elements (auto inject)
+// ✅ Safe: won't break other games if included accidentally
 
-(function(){
+(function () {
   'use strict';
 
   const doc = document;
   const ROOT = window;
 
-  function qs(sel, root){ return (root||doc).querySelector(sel); }
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function pct(prog, target){
-    const p = (Number(target)||0) > 0 ? (Number(prog)||0)/(Number(target)||1) : 0;
-    return clamp(p,0,1);
+  const $ = (sel, host) => (host || doc).querySelector(sel);
+  const on = (name, fn) => ROOT.addEventListener(name, fn);
+
+  function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
+  function safeText(el, t) { if (el) el.textContent = (t == null ? '' : String(t)); }
+  function fmtPct(v) { return String(Math.round(clamp(v, 0, 100))) + '%'; }
+  function fmtNum(v) { v = Number(v) || 0; return String(Math.round(v)); }
+  function fmtTime(sec) {
+    sec = Math.max(0, sec | 0);
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m + ':' + String(s).padStart(2, '0');
   }
 
-  // ---------- build DOM (if missing) ----------
-  function ensureBaseUI(){
-    let overlay = qs('.overlay');
-    if (!overlay){
-      overlay = doc.createElement('div');
-      overlay.className = 'overlay';
-      doc.body.appendChild(overlay);
-    }
+  // ---------- ensure container ----------
+  function ensureStyleLink() {
+    // optional - if you want auto load groups.css when missing, uncomment and set path
+    // const href = './vr-groups/groups.css';
+    // if (!doc.querySelector(`link[href="${href}"]`)) {
+    //   const l = doc.createElement('link');
+    //   l.rel = 'stylesheet';
+    //   l.href = href;
+    //   doc.head.appendChild(l);
+    // }
+  }
 
-    // HUD root
-    let hud = qs('.hud', overlay);
-    if (!hud){
+  function ensureRoot() {
+    let host = $('#fg-ui');
+    if (!host) {
+      host = doc.createElement('div');
+      host.id = 'fg-ui';
+      Object.assign(host.style, {
+        position: 'fixed',
+        inset: '0',
+        pointerEvents: 'none',
+        zIndex: '30'
+      });
+      doc.body.appendChild(host);
+    }
+    return host;
+  }
+
+  // ---------- HUD ----------
+  function ensureHUD(host) {
+    let hud = $('#fg-hud', host);
+    if (!hud) {
       hud = doc.createElement('div');
-      hud.className = 'hud';
-      overlay.appendChild(hud);
-    }
+      hud.id = 'fg-hud';
+      Object.assign(hud.style, {
+        position: 'fixed',
+        top: '12px',
+        left: '12px',
+        right: '12px',
+        display: 'grid',
+        gridTemplateColumns: '1fr auto',
+        gap: '10px',
+        alignItems: 'start',
+        pointerEvents: 'none',
+        zIndex: '31'
+      });
 
-    // topbar
-    let topbar = qs('.topbar', hud);
-    if (!topbar){
-      topbar = doc.createElement('div');
-      topbar.className = 'topbar';
-      hud.appendChild(topbar);
-    }
+      // left stack
+      const left = doc.createElement('div');
+      left.id = 'fg-hud-left';
+      Object.assign(left.style, {
+        display: 'grid',
+        gap: '8px',
+        maxWidth: 'min(520px, 92vw)'
+      });
 
-    // Score card
-    let scoreCard = qs('#fg-score-card', topbar);
-    if (!scoreCard){
-      scoreCard = doc.createElement('div');
-      scoreCard.className = 'card';
-      scoreCard.id = 'fg-score-card';
-      scoreCard.innerHTML = `
-        <h4>Score</h4>
-        <div class="row">
-          <span class="pill good">⭐ <b id="fg-score">0</b></span>
-          <span class="pill warn">🔥 Combo <b id="fg-combo">0</b></span>
-          <span class="pill bad">💔 Miss <b id="fg-miss">0</b></span>
+      // stats row
+      const stats = doc.createElement('div');
+      stats.id = 'fg-stats';
+      stats.className = 'hha-panel';
+      Object.assign(stats.style, {
+        background: 'rgba(2,6,23,.72)',
+        border: '1px solid rgba(148,163,184,.22)',
+        borderRadius: '16px',
+        padding: '10px 12px',
+        boxShadow: '0 18px 50px rgba(0,0,0,.32)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, auto)',
+        gap: '10px',
+        alignItems: 'center',
+        width: 'fit-content'
+      });
+
+      stats.innerHTML = `
+        <div style="display:grid;gap:2px">
+          <div style="font-size:12px;opacity:.75">คะแนน</div>
+          <div id="fg-score" style="font-size:18px;font-weight:800">0</div>
         </div>
-        <div class="row" style="margin-top:8px">
-          <span class="pill cyan">🛡️ <b id="fg-shield">0</b></span>
-          <span class="pill">⏱️ <b id="fg-time">0</b>s</span>
+        <div style="display:grid;gap:2px">
+          <div style="font-size:12px;opacity:.75">คอมโบ</div>
+          <div id="fg-combo" style="font-size:18px;font-weight:800">0</div>
+        </div>
+        <div style="display:grid;gap:2px">
+          <div style="font-size:12px;opacity:.75">Miss</div>
+          <div id="fg-miss" style="font-size:18px;font-weight:800">0</div>
+        </div>
+        <div style="display:grid;gap:2px">
+          <div style="font-size:12px;opacity:.75">เวลา</div>
+          <div id="fg-time" style="font-size:18px;font-weight:800">0:00</div>
         </div>
       `;
-      topbar.appendChild(scoreCard);
-    }
 
-    // Status card (Group / Rush / Panic / Fever)
-    let statusCard = qs('#fg-status-card', topbar);
-    if (!statusCard){
-      statusCard = doc.createElement('div');
-      statusCard.className = 'card';
-      statusCard.id = 'fg-status-card';
-      statusCard.style.flex = '1 1 auto';
-      statusCard.innerHTML = `
-        <h4>Status</h4>
-        <div class="row">
-          <span class="pill">🍽️ <span id="fg-group-label" class="muted">—</span></span>
-          <span class="pill warn" id="fg-rush-pill" style="display:none">🚀 RUSH</span>
-          <span class="pill bad" id="fg-panic-pill" style="display:none">⏰ PANIC</span>
-          <span class="pill" id="fg-fever-pill" style="display:none">🔥 FEVER</span>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <span class="muted" id="fg-quest-ok">QUEST: —</span>
-          <span class="muted" id="fg-rank" style="margin-left:auto">Rank: —</span>
-        </div>
-      `;
-      topbar.appendChild(statusCard);
-    }
-
-    // Quest panel
-    let quest = qs('.quest', hud);
-    if (!quest){
-      quest = doc.createElement('div');
-      quest.className = 'quest card';
+      // quest row
+      const quest = doc.createElement('div');
       quest.id = 'fg-quest';
-      quest.innerHTML = `
-        <h4>Quests</h4>
+      Object.assign(quest.style, {
+        background: 'rgba(15,23,42,.70)',
+        border: '1px solid rgba(148,163,184,.22)',
+        borderRadius: '16px',
+        padding: '10px 12px',
+        boxShadow: '0 18px 50px rgba(0,0,0,.28)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)'
+      });
 
-        <div class="qtag" id="fg-goal-tag">🎯 GOAL</div>
-        <div class="qline">
-          <div id="fg-goal-label">—</div>
-          <div class="qprog"><span id="fg-goal-prog">0</span>/<span id="fg-goal-target">0</span></div>
+      quest.innerHTML = `
+        <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div style="font-weight:900">ภารกิจ</div>
+            <div id="fg-quest-ok" style="font-size:12px;opacity:.75">กำลังเชื่อมต่อ…</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div id="fg-group-pill" style="
+              font-size:12px;
+              padding:6px 10px;
+              border-radius:999px;
+              border:1px solid rgba(148,163,184,.22);
+              background: rgba(2,6,23,.55);
+              opacity:.95;
+            ">หมู่: -</div>
+
+            <div id="fg-fever-pill" style="
+              font-size:12px;
+              padding:6px 10px;
+              border-radius:999px;
+              border:1px solid rgba(148,163,184,.22);
+              background: rgba(2,6,23,.55);
+              display:flex;gap:8px;align-items:center
+            ">
+              <span style="opacity:.85">🔥</span>
+              <span id="fg-fever-val" style="font-weight:800">0%</span>
+              <span style="opacity:.75">|</span>
+              <span style="opacity:.85">🛡️</span>
+              <span id="fg-shield-val" style="font-weight:800">0</span>
+            </div>
+          </div>
         </div>
-        <div class="bar" aria-hidden="true"><i id="fg-goal-bar"></i></div>
 
         <div style="height:10px"></div>
 
-        <div class="qtag" id="fg-mini-tag">⭐ MINI</div>
-        <div class="qline">
-          <div id="fg-mini-label">—</div>
-          <div class="qprog">
-            <span id="fg-mini-prog">0</span>/<span id="fg-mini-target">0</span>
-            <span id="fg-mini-tleft" class="muted" style="display:none">⏱️ <b id="fg-mini-tleft-val">0</b>s</span>
-          </div>
-        </div>
-        <div class="bar subbar" aria-hidden="true"><i id="fg-mini-bar"></i></div>
-
-        <div class="small" id="fg-hint" style="margin-top:8px">
-          แตะเป้าหรือ “แตะจอยิง” เพื่อช่วยเล็ง — โหมดเล่นสนุก / โหมดวิจัยคงที่
-        </div>
-      `;
-      hud.appendChild(quest);
-    }
-
-    // Coach panel
-    let coach = qs('.coach', hud);
-    if (!coach){
-      coach = doc.createElement('div');
-      coach.className = 'coach';
-      coach.id = 'fg-coach';
-      coach.innerHTML = `
-        <div class="avatar"><img id="fg-coach-img" alt="coach" /></div>
-        <div class="bubble" id="fg-coach-text">พร้อมลุย! ✨</div>
-      `;
-      hud.appendChild(coach);
-    }
-
-    // Reticle center
-    let reticle = qs('.reticle', overlay);
-    if (!reticle){
-      reticle = doc.createElement('div');
-      reticle.className = 'reticle';
-      reticle.innerHTML = `<div class="ret" id="fg-ret"></div>`;
-      overlay.appendChild(reticle);
-    }
-
-    // Lock ring
-    let lock = qs('.lockRing', overlay);
-    if (!lock){
-      lock = doc.createElement('div');
-      lock.className = 'lockRing';
-      lock.id = 'fg-lock';
-      lock.innerHTML = `<div class="prog"></div><div class="charge"></div>`;
-      overlay.appendChild(lock);
-    }
-
-    // End overlay
-    let end = qs('.end', overlay);
-    if (!end){
-      end = doc.createElement('div');
-      end.className = 'end';
-      end.id = 'fg-end';
-      end.innerHTML = `
-        <div class="endCard">
-          <h2>สรุปผล</h2>
-          <div class="rankBig">
-            <div class="g" id="fg-end-grade">C</div>
-            <div class="m">
-              <div>Accuracy <b id="fg-end-acc">0</b>%</div>
-              <div>Quests <b id="fg-end-qp">0</b>%</div>
-              <div>Score/s <b id="fg-end-sps">0</b></div>
+        <div style="display:grid;gap:8px">
+          <div>
+            <div style="font-size:12px;opacity:.75">GOAL</div>
+            <div id="fg-goal" style="font-weight:800">-</div>
+            <div style="height:6px"></div>
+            <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid rgba(255,255,255,.10)">
+              <div id="fg-goal-bar" style="height:100%;width:0%;background:rgba(34,197,94,.82)"></div>
             </div>
           </div>
-          <div class="endGrid">
-            <div class="stat"><div class="k">Score</div><div class="v" id="fg-end-score">0</div></div>
-            <div class="stat"><div class="k">Combo Max</div><div class="v" id="fg-end-combo">0</div></div>
-            <div class="stat"><div class="k">Miss</div><div class="v" id="fg-end-miss">0</div></div>
+
+          <div>
+            <div style="font-size:12px;opacity:.75">MINI</div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <div id="fg-mini" style="font-weight:800">-</div>
+              <div id="fg-mini-time" style="font-size:12px;opacity:.85"></div>
+            </div>
+            <div style="height:6px"></div>
+            <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid rgba(255,255,255,.10)">
+              <div id="fg-mini-bar" style="height:100%;width:0%;background:rgba(59,130,246,.82)"></div>
+            </div>
           </div>
-          <div class="actions" style="margin-top:12px">
-            <button class="btn warn" id="fg-end-close">ปิด</button>
-          </div>
-          <div class="small">Tip: ถ้า QUEST ไม่ขึ้น ให้เช็ค groups-quests.js โหลดก่อน GameEngine.start()</div>
         </div>
       `;
-      overlay.appendChild(end);
 
-      const closeBtn = qs('#fg-end-close', end);
-      if (closeBtn){
-        closeBtn.addEventListener('click', () => {
-          end.classList.remove('show');
-        }, { passive:true });
-      }
+      // right stack (rank)
+      const right = doc.createElement('div');
+      right.id = 'fg-hud-right';
+      Object.assign(right.style, {
+        display: 'grid',
+        gap: '8px',
+        justifyItems: 'end'
+      });
+
+      const rank = doc.createElement('div');
+      rank.id = 'fg-rank';
+      Object.assign(rank.style, {
+        background: 'rgba(2,6,23,.72)',
+        border: '1px solid rgba(148,163,184,.22)',
+        borderRadius: '16px',
+        padding: '10px 12px',
+        boxShadow: '0 18px 50px rgba(0,0,0,.26)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        minWidth: '150px',
+        textAlign: 'right'
+      });
+      rank.innerHTML = `
+        <div style="font-size:12px;opacity:.75">เกรด</div>
+        <div id="fg-grade" style="font-size:22px;font-weight:900;letter-spacing:.5px">C</div>
+        <div style="height:6px"></div>
+        <div style="display:grid;gap:4px;font-size:12px;opacity:.85">
+          <div>Acc: <span id="fg-acc">0%</span></div>
+          <div>Quest: <span id="fg-q">0%</span></div>
+          <div>SPS: <span id="fg-sps">0</span></div>
+        </div>
+      `;
+
+      left.appendChild(stats);
+      left.appendChild(quest);
+      right.appendChild(rank);
+
+      hud.appendChild(left);
+      hud.appendChild(right);
+
+      host.appendChild(hud);
     }
+    return hud;
+  }
 
-    // Coach images (fallback paths)
-    const coachImg = qs('#fg-coach-img');
-    if (coachImg && !coachImg.getAttribute('src')){
-      // try use your known coach assets if present
-      coachImg.src = './img/coach-neutral.png';
+  // ---------- Coach toast ----------
+  function ensureCoach(host) {
+    let c = $('#fg-coach', host);
+    if (!c) {
+      c = doc.createElement('div');
+      c.id = 'fg-coach';
+      Object.assign(c.style, {
+        position: 'fixed',
+        left: '50%',
+        bottom: '18px',
+        transform: 'translateX(-50%)',
+        maxWidth: 'min(720px, 92vw)',
+        padding: '10px 14px',
+        borderRadius: '999px',
+        background: 'rgba(2,6,23,.70)',
+        border: '1px solid rgba(148,163,184,.22)',
+        boxShadow: '0 18px 50px rgba(0,0,0,.32)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        color: 'rgba(229,231,235,.95)',
+        fontWeight: '800',
+        textAlign: 'center',
+        pointerEvents: 'none',
+        opacity: '0',
+        transition: 'opacity .18s ease, transform .18s ease',
+        zIndex: '35'
+      });
+      c.textContent = '';
+      host.appendChild(c);
     }
-
-    return overlay;
+    return c;
   }
 
-  // ---------- state cache ----------
-  const UI = {
-    overlay: null,
-    score: 0,
-    combo: 0,
-    miss: 0,
-    shield: 0,
-    fever: 0,
-    feverOn: false,
-    timeLeft: 0,
-    questOk: null,
-    rank: { grade:'C', accuracy:0, questsPct:0, scorePerSec:0 }
-  };
+  function showCoach(text, ms) {
+    const host = ensureRoot();
+    const c = ensureCoach(host);
+    if (!text) return;
+    c.textContent = String(text);
 
-  // ---------- DOM setters ----------
-  function setText(id, v){
-    const el = qs('#'+id);
-    if (el) el.textContent = String(v);
-  }
-  function setShow(id, on){
-    const el = qs('#'+id);
-    if (!el) return;
-    el.style.display = on ? '' : 'none';
+    c.style.opacity = '1';
+    c.style.transform = 'translateX(-50%) translateY(0)';
+
+    clearTimeout(showCoach._t);
+    showCoach._t = setTimeout(() => {
+      c.style.opacity = '0';
+      c.style.transform = 'translateX(-50%) translateY(6px)';
+    }, clamp(ms || 1600, 700, 4000));
   }
 
-  function updateScore(){
-    setText('fg-score', UI.score|0);
-    setText('fg-combo', UI.combo|0);
-    setText('fg-miss', UI.miss|0);
-    setText('fg-shield', UI.shield|0);
-  }
-  function updateTime(){
-    setText('fg-time', UI.timeLeft|0);
-  }
-  function updateStatusPills(){
-    // fever pill
-    setShow('fg-fever-pill', !!(UI.feverOn || (UI.fever|0) > 0));
-    // quest ok label
-    const qok = qs('#fg-quest-ok');
-    if (qok){
-      if (UI.questOk === null) qok.textContent = 'QUEST: —';
-      else qok.textContent = UI.questOk ? 'QUEST: OK ✅' : 'QUEST: NOT READY ⚠️';
+  // ---------- Reticle ----------
+  function ensureReticle(host) {
+    let r = $('#reticle', host);
+    if (!r) {
+      r = doc.createElement('div');
+      r.id = 'reticle';
+      r.className = 'fg-reticle';
+      host.appendChild(r);
     }
-    // rank
-    const r = qs('#fg-rank');
-    if (r) r.textContent = 'Rank: ' + (UI.rank.grade || '—');
+    return r;
+  }
+  function setReticle(state) {
+    const host = ensureRoot();
+    const r = ensureReticle(host);
+    r.classList.remove('ok', 'miss', 'perfect');
+    if (state) r.classList.add(String(state));
+    // auto clear
+    clearTimeout(setReticle._t);
+    setReticle._t = setTimeout(() => {
+      r.classList.remove('ok', 'miss', 'perfect');
+    }, 180);
   }
 
-  function updateQuest(detail){
-    const ok = !!detail.questOk;
-    UI.questOk = ok;
-    setText('fg-group-label', detail.groupLabel || '—');
-
-    // goal
-    if (detail.goal){
-      setText('fg-goal-label', detail.goal.label || '—');
-      setText('fg-goal-prog', detail.goal.prog|0);
-      setText('fg-goal-target', detail.goal.target|0);
-      const w = Math.round(pct(detail.goal.prog, detail.goal.target) * 100);
-      const bar = qs('#fg-goal-bar');
-      if (bar) bar.style.width = w + '%';
-    } else {
-      setText('fg-goal-label', ok ? '🎯 เคลียร์ GOAL แล้ว!' : '—');
-      setText('fg-goal-prog', 0); setText('fg-goal-target', 0);
-      const bar = qs('#fg-goal-bar'); if (bar) bar.style.width = '0%';
+  // ---------- Edge pulse ----------
+  function ensureEdge(host) {
+    let e = $('#edgePulse', host);
+    if (!e) {
+      e = doc.createElement('div');
+      e.id = 'edgePulse';
+      e.className = 'fg-edgePulse';
+      host.appendChild(e);
     }
-
-    // mini
-    if (detail.mini){
-      setText('fg-mini-label', detail.mini.label || '—');
-      setText('fg-mini-prog', detail.mini.prog|0);
-      setText('fg-mini-target', detail.mini.target|0);
-      const w = Math.round(pct(detail.mini.prog, detail.mini.target) * 100);
-      const bar = qs('#fg-mini-bar'); if (bar) bar.style.width = w + '%';
-
-      const tLeft = Number(detail.mini.tLeft);
-      if (!Number.isNaN(tLeft) && tLeft > 0){
-        setShow('fg-mini-tleft', true);
-        setText('fg-mini-tleft-val', tLeft|0);
-      } else {
-        setShow('fg-mini-tleft', false);
-      }
-    } else {
-      setText('fg-mini-label', ok ? '⭐ เคลียร์ MINI แล้ว!' : '—');
-      setText('fg-mini-prog', 0); setText('fg-mini-target', 0);
-      const bar = qs('#fg-mini-bar'); if (bar) bar.style.width = '0%';
-      setShow('fg-mini-tleft', false);
-    }
-
-    updateStatusPills();
+    return e;
+  }
+  function edgeOn(on) {
+    const host = ensureRoot();
+    const e = ensureEdge(host);
+    if (on) e.classList.add('on');
+    else e.classList.remove('on');
+  }
+  function edgeBeat() {
+    const host = ensureRoot();
+    const e = ensureEdge(host);
+    e.classList.add('on');
+    e.classList.remove('beat');
+    // force reflow
+    void e.offsetWidth;
+    e.classList.add('beat');
+    clearTimeout(edgeBeat._t);
+    edgeBeat._t = setTimeout(() => e.classList.remove('beat'), 260);
   }
 
-  function updateCoach(text, mood){
-    const bubble = qs('#fg-coach-text');
-    if (bubble && text) bubble.textContent = String(text);
+  // ---------- Lock ring ----------
+  function ensureLock(host) {
+    let box = $('#lockUI', host);
+    if (!box) {
+      box = doc.createElement('div');
+      box.id = 'lockUI';
+      box.className = 'fg-lockUI';
 
-    const img = qs('#fg-coach-img');
-    if (img){
-      const m = String(mood||'').toLowerCase().trim();
-      // map moods -> your known files (from memory): coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
-      let src = './img/coach-neutral.png';
-      if (m.includes('fever')) src = './img/coach-fever.png';
-      else if (m.includes('happy') || m.includes('win') || m.includes('good')) src = './img/coach-happy.png';
-      else if (m.includes('sad') || m.includes('miss') || m.includes('bad')) src = './img/coach-sad.png';
-      img.src = src;
+      // small SVG ring with 2 progress arcs
+      box.innerHTML = `
+        <svg id="lockSvg" width="120" height="120" viewBox="0 0 120 120">
+          <circle class="ringBack" cx="60" cy="60" r="42"></circle>
+          <circle id="ringProg" class="ringProg" cx="60" cy="60" r="42"
+            stroke-dasharray="264" stroke-dashoffset="264"></circle>
+          <circle id="ringCharge" class="ringCharge" cx="60" cy="60" r="42"
+            stroke-dasharray="264" stroke-dashoffset="264" style="opacity:.0"></circle>
+        </svg>
+      `;
+      host.appendChild(box);
     }
+    return box;
   }
 
-  function updateReticle(state){
-    const ret = qs('#fg-ret');
-    if (!ret) return;
-    ret.classList.remove('ok','miss');
-    if (state === 'ok' || state === 'perfect') ret.classList.add('ok');
-    if (state === 'miss') ret.classList.add('miss');
-    // auto clear shake class after a bit
-    if (state === 'miss'){
-      setTimeout(()=>{ try{ ret.classList.remove('miss'); }catch{} }, 260);
-    }
-  }
+  function setLockUI(payload) {
+    const host = ensureRoot();
+    const box = ensureLock(host);
+    const onState = !!(payload && payload.on);
 
-  function updateLock(detail){
-    const lock = qs('#fg-lock');
-    if (!lock) return;
-
-    if (!detail || !detail.on){
-      lock.classList.remove('on');
+    if (!onState) {
+      box.classList.remove('on');
+      box.style.transform = 'translate(-9999px,-9999px)';
       return;
     }
 
-    lock.classList.add('on');
+    box.classList.add('on');
 
-    const x = Number(detail.x); const y = Number(detail.y);
-    if (!Number.isNaN(x) && !Number.isNaN(y)){
-      lock.style.left = Math.round(x) + 'px';
-      lock.style.top  = Math.round(y) + 'px';
+    const x = Number(payload.x) || (ROOT.innerWidth / 2);
+    const y = Number(payload.y) || (ROOT.innerHeight / 2);
+
+    // place at target center
+    box.style.transform = `translate(${Math.round(x - 60)}px,${Math.round(y - 60)}px)`;
+
+    const prog = clamp(payload.prog, 0, 1);
+    const charge = clamp(payload.charge, 0, 1);
+
+    const C = 264; // approx circumference for r=42
+    const pOff = Math.round(C * (1 - prog));
+    const cOff = Math.round(C * (1 - charge));
+
+    const ringProg = $('#ringProg', box);
+    const ringCharge = $('#ringCharge', box);
+
+    if (ringProg) ringProg.style.strokeDashoffset = String(pOff);
+
+    if (ringCharge) {
+      if (charge > 0) {
+        ringCharge.style.opacity = '0.92';
+        ringCharge.style.strokeDashoffset = String(cOff);
+      } else {
+        ringCharge.style.opacity = '0';
+        ringCharge.style.strokeDashoffset = String(C);
+      }
+    }
+  }
+
+  // ---------- End card ----------
+  function ensureEnd(host) {
+    let wrap = $('#fg-end', host);
+    if (!wrap) {
+      wrap = doc.createElement('div');
+      wrap.id = 'fg-end';
+      Object.assign(wrap.style, {
+        position: 'fixed',
+        inset: '0',
+        display: 'none',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'auto',
+        zIndex: '60',
+        background: 'rgba(2,6,23,.72)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)'
+      });
+
+      const card = doc.createElement('div');
+      card.id = 'fg-end-card';
+      Object.assign(card.style, {
+        width: 'min(720px, 92vw)',
+        borderRadius: '22px',
+        border: '1px solid rgba(148,163,184,.22)',
+        background: 'rgba(2,6,23,.80)',
+        boxShadow: '0 30px 90px rgba(0,0,0,.55)',
+        padding: '16px 16px 14px'
+      });
+
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:12px;opacity:.75">สรุปผล</div>
+            <div style="font-size:20px;font-weight:900">Food Groups VR</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;opacity:.75">GRADE</div>
+            <div id="fg-end-grade" style="font-size:30px;font-weight:1000;letter-spacing:.6px">C</div>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div style="display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:10px">
+          <div style="border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:10px;background:rgba(15,23,42,.55)">
+            <div style="font-size:12px;opacity:.75">คะแนน</div>
+            <div id="fg-end-score" style="font-size:18px;font-weight:900">0</div>
+          </div>
+          <div style="border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:10px;background:rgba(15,23,42,.55)">
+            <div style="font-size:12px;opacity:.75">คอมโบสูงสุด</div>
+            <div id="fg-end-combo" style="font-size:18px;font-weight:900">0</div>
+          </div>
+          <div style="border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:10px;background:rgba(15,23,42,.55)">
+            <div style="font-size:12px;opacity:.75">Miss</div>
+            <div id="fg-end-miss" style="font-size:18px;font-weight:900">0</div>
+          </div>
+          <div style="border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:10px;background:rgba(15,23,42,.55)">
+            <div style="font-size:12px;opacity:.75">Quest</div>
+            <div id="fg-end-quest" style="font-size:18px;font-weight:900">0/0</div>
+          </div>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div id="fg-end-note" style="font-size:13px;opacity:.85;line-height:1.35">
+          กด “เล่นอีกครั้ง” เพื่อทำให้ดีกว่าเดิม 🔥
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+          <button id="fg-btn-close" style="
+            pointer-events:auto;
+            padding:10px 14px;border-radius:14px;
+            border:1px solid rgba(148,163,184,.22);
+            background:rgba(15,23,42,.65);
+            color:rgba(229,231,235,.95);
+            font-weight:900;
+          ">ปิด</button>
+        </div>
+      `;
+
+      wrap.appendChild(card);
+      host.appendChild(wrap);
+
+      // close behavior (only hides UI; engine start handled elsewhere)
+      const btn = $('#fg-btn-close', wrap);
+      if (btn) btn.addEventListener('click', () => {
+        wrap.style.display = 'none';
+      });
+    }
+    return wrap;
+  }
+
+  function showEnd(payload) {
+    const host = ensureRoot();
+    const wrap = ensureEnd(host);
+
+    wrap.style.display = 'flex';
+
+    const grade = (payload && payload.grade) ? String(payload.grade) : 'C';
+    safeText($('#fg-end-grade', wrap), grade);
+
+    safeText($('#fg-end-score', wrap), fmtNum(payload && payload.scoreFinal));
+    safeText($('#fg-end-combo', wrap), fmtNum(payload && payload.comboMax));
+    safeText($('#fg-end-miss', wrap), fmtNum(payload && payload.misses));
+
+    const gT = (payload && payload.goalsTotal) | 0;
+    const gC = (payload && payload.goalsCleared) | 0;
+    const mT = (payload && payload.miniTotal) | 0;
+    const mC = (payload && payload.miniCleared) | 0;
+    safeText($('#fg-end-quest', wrap), `${gC}/${gT} + ${mC}/${mT}`);
+
+    let note = 'กด “เล่นอีกครั้ง” เพื่อทำให้ดีกว่าเดิม 🔥';
+    if (grade === 'SSS') note = 'โหดมาก! SSS แล้ววว 👑🔥';
+    else if (grade === 'SS') note = 'สุดจัด! อีกนิดจะ SSS 👀';
+    else if (grade === 'S') note = 'ดีมาก! ลุยต่อให้ถึง SS/SSS 🚀';
+    else if (grade === 'A') note = 'เยี่ยม! ลองโฟกัส Quest กับ Accuracy 💡';
+    else if (grade === 'B') note = 'กำลังมา! ลด Miss แล้วคอมโบจะพุ่ง ✨';
+    safeText($('#fg-end-note', wrap), note);
+  }
+
+  // ---------- state cache ----------
+  const uiState = {
+    score: 0,
+    combo: 0,
+    misses: 0,
+    timeLeft: 0,
+    fever: 0,
+    shield: 0,
+    grade: 'C',
+    acc: 0,
+    qp: 0,
+    sps: 0,
+    questOk: null
+  };
+
+  // ---------- update helpers ----------
+  function setGoalMini(goal, mini) {
+    const host = ensureRoot();
+    ensureHUD(host);
+
+    const okEl = $('#fg-quest-ok');
+    const goalEl = $('#fg-goal');
+    const miniEl = $('#fg-mini');
+    const miniTime = $('#fg-mini-time');
+    const goalBar = $('#fg-goal-bar');
+    const miniBar = $('#fg-mini-bar');
+
+    if (uiState.questOk === false) {
+      if (okEl) okEl.textContent = '⚠️ QUEST ไม่พร้อม (เช็ค groups-quests.js)';
+      if (okEl) okEl.style.opacity = '0.95';
+    } else if (uiState.questOk === true) {
+      if (okEl) okEl.textContent = 'พร้อมแล้ว ✅';
+      if (okEl) okEl.style.opacity = '0.75';
     } else {
-      lock.style.left = '50%';
-      lock.style.top = '50%';
+      if (okEl) okEl.textContent = 'กำลังเชื่อมต่อ…';
     }
 
-    const p = clamp(detail.prog,0,1);
-    const c = clamp(detail.charge,0,1);
-
-    // use conic-gradient trick for arc feel
-    const prog = lock.querySelector('.prog');
-    const chg  = lock.querySelector('.charge');
-
-    if (prog){
-      const deg = Math.round(p * 360);
-      prog.style.borderTopColor = 'rgba(34,211,238,.90)';
-      prog.style.transform = 'rotate(-90deg)';
-      prog.style.maskImage = `conic-gradient(#000 ${deg}deg, transparent 0deg)`;
-      prog.style.webkitMaskImage = `conic-gradient(#000 ${deg}deg, transparent 0deg)`;
+    if (goal && goal.label) {
+      safeText(goalEl, goal.label);
+      const p = clamp(goal.prog / Math.max(1, goal.target), 0, 1);
+      if (goalBar) goalBar.style.width = Math.round(p * 100) + '%';
+    } else {
+      safeText(goalEl, '-');
+      if (goalBar) goalBar.style.width = '0%';
     }
-    if (chg){
-      const deg2 = Math.round(c * 360);
-      chg.style.borderTopColor = 'rgba(245,158,11,.95)';
-      chg.style.transform = 'rotate(-90deg)';
-      chg.style.maskImage = `conic-gradient(#000 ${deg2}deg, transparent 0deg)`;
-      chg.style.webkitMaskImage = `conic-gradient(#000 ${deg2}deg, transparent 0deg)`;
+
+    if (mini && mini.label) {
+      safeText(miniEl, mini.label);
+      const p = clamp(mini.prog / Math.max(1, mini.target), 0, 1);
+      if (miniBar) miniBar.style.width = Math.round(p * 100) + '%';
+
+      if (mini.tLeft != null && mini.windowSec != null) {
+        safeText(miniTime, `⏱️ ${fmtNum(mini.tLeft)}s`);
+      } else {
+        safeText(miniTime, '');
+      }
+    } else {
+      safeText(miniEl, '-');
+      safeText(miniTime, '');
+      if (miniBar) miniBar.style.width = '0%';
     }
   }
 
-  function showEnd(detail){
-    const end = qs('#fg-end');
-    if (!end) return;
-
-    // Fill from cached rank/score
-    setText('fg-end-grade', (detail && detail.grade) ? detail.grade : (UI.rank.grade || 'C'));
-    setText('fg-end-score', (detail && detail.scoreFinal != null) ? detail.scoreFinal : UI.score);
-    setText('fg-end-combo', (detail && detail.comboMax != null) ? detail.comboMax : UI.combo);
-    setText('fg-end-miss',  (detail && detail.misses != null) ? detail.misses : UI.miss);
-
-    setText('fg-end-acc', UI.rank.accuracy|0);
-    setText('fg-end-qp', UI.rank.questsPct|0);
-    setText('fg-end-sps', UI.rank.scorePerSec);
-
-    end.classList.add('show');
+  function setGroupLabel(label) {
+    const el = $('#fg-group-pill');
+    if (el) el.textContent = label ? String(label) : 'หมู่: -';
   }
 
-  // ---------- event binds ----------
-  function bindEvents(){
-    // score
-    window.addEventListener('hha:score', (ev)=>{
+  function setScoreBox() {
+    safeText($('#fg-score'), uiState.score);
+    safeText($('#fg-combo'), uiState.combo);
+    safeText($('#fg-miss'), uiState.misses);
+    safeText($('#fg-time'), fmtTime(uiState.timeLeft));
+  }
+
+  function setFeverBox() {
+    safeText($('#fg-fever-val'), fmtPct(uiState.fever));
+    safeText($('#fg-shield-val'), fmtNum(uiState.shield));
+  }
+
+  function setRankBox() {
+    safeText($('#fg-grade'), uiState.grade);
+    safeText($('#fg-acc'), fmtPct(uiState.acc));
+    safeText($('#fg-q'), fmtPct(uiState.qp));
+    safeText($('#fg-sps'), (Number(uiState.sps) || 0).toFixed(2));
+  }
+
+  // ---------- wire events ----------
+  function init() {
+    ensureStyleLink();
+    const host = ensureRoot();
+    ensureHUD(host);
+    ensureCoach(host);
+    ensureReticle(host);
+    ensureEdge(host);
+    ensureLock(host);
+    ensureEnd(host);
+
+    // Score updates
+    on('hha:score', (ev) => {
       const d = (ev && ev.detail) || {};
-      UI.score  = d.score|0;
-      UI.combo  = d.combo|0;
-      UI.miss   = d.misses|0;
-      UI.shield = Number(d.shield)||0;
-      UI.fever  = Number(d.fever)||0;
-      updateScore();
-      updateStatusPills();
+      uiState.score = Number(d.score) || 0;
+      uiState.combo = Number(d.combo) || 0;
+      uiState.misses = Number(d.misses) || 0;
+
+      // shield/fever may also come here
+      if (d.fever != null) uiState.fever = clamp(d.fever, 0, 100);
+      if (d.shield != null) uiState.shield = Math.max(0, Number(d.shield) || 0);
+
+      setScoreBox();
+      setFeverBox();
     });
 
-    // time
-    window.addEventListener('hha:time', (ev)=>{
+    // Timer
+    on('hha:time', (ev) => {
       const d = (ev && ev.detail) || {};
-      UI.timeLeft = d.left|0;
-      updateTime();
+      uiState.timeLeft = Math.max(0, Number(d.left) || 0);
+      setScoreBox();
     });
 
-    // quest
-    window.addEventListener('quest:update', (ev)=>{
+    // Fever channel (your engine emits hha:fever)
+    on('hha:fever', (ev) => {
       const d = (ev && ev.detail) || {};
-      updateQuest(d);
+      if (d.value != null) uiState.fever = clamp(d.value, 0, 100);
+      if (d.shield != null) uiState.shield = Math.max(0, Number(d.shield) || 0);
+      setFeverBox();
     });
 
-    // coach
-    window.addEventListener('hha:coach', (ev)=>{
+    // Coach
+    on('hha:coach', (ev) => {
       const d = (ev && ev.detail) || {};
-      updateCoach(d.text, d.mood);
+      if (d.text) showCoach(String(d.text), 1700);
     });
 
-    // fever compatibility
-    window.addEventListener('hha:fever', (ev)=>{
+    // Quest updates
+    on('quest:update', (ev) => {
       const d = (ev && ev.detail) || {};
-      UI.fever = Number(d.value)||0;
-      UI.feverOn = !!d.on;
-      updateStatusPills();
+      uiState.questOk = (d.questOk === true) ? true : (d.questOk === false ? false : uiState.questOk);
+
+      if (d.groupLabel) setGroupLabel(d.groupLabel);
+      else setGroupLabel(d.groupLabel || 'หมู่: -');
+
+      setGoalMini(d.goal || null, d.mini || null);
     });
 
-    // rush
-    window.addEventListener('hha:rush', (ev)=>{
+    // Rank
+    on('hha:rank', (ev) => {
       const d = (ev && ev.detail) || {};
-      setShow('fg-rush-pill', !!d.on);
+      if (d.grade) uiState.grade = String(d.grade).toUpperCase();
+      uiState.acc = Number(d.accuracy) || 0;
+      uiState.qp  = Number(d.questsPct) || 0;
+      uiState.sps = Number(d.scorePerSec) || 0;
+      setRankBox();
     });
 
-    // panic
-    window.addEventListener('hha:panic', (ev)=>{
+    // Panic / Rush / Danger => edge pulse cues
+    on('hha:panic', (ev) => {
       const d = (ev && ev.detail) || {};
-      setShow('fg-panic-pill', !!d.on);
+      if (d.on) { edgeOn(true); edgeBeat(); }
+      else edgeOn(false);
+    });
+    on('hha:rush', (ev) => {
+      const d = (ev && ev.detail) || {};
+      if (d.on) { edgeOn(true); edgeBeat(); showCoach('🚀 RUSH!', 900); }
+    });
+    on('groups:danger', (ev) => {
+      const d = (ev && ev.detail) || {};
+      if (d.on) { edgeOn(true); edgeBeat(); }
     });
 
-    // rank
-    window.addEventListener('hha:rank', (ev)=>{
+    // Reticle feedback
+    on('groups:reticle', (ev) => {
       const d = (ev && ev.detail) || {};
-      UI.rank.grade = d.grade || UI.rank.grade;
-      UI.rank.scorePerSec = d.scorePerSec != null ? d.scorePerSec : UI.rank.scorePerSec;
-      UI.rank.accuracy = d.accuracy != null ? d.accuracy : UI.rank.accuracy;
-      UI.rank.questsPct = d.questsPct != null ? d.questsPct : UI.rank.questsPct;
-      updateStatusPills();
+      setReticle(d.state || '');
+      if (d.state === 'miss') edgeBeat();
     });
 
-    // reticle state
-    window.addEventListener('groups:reticle', (ev)=>{
+    // Lock ring
+    on('groups:lock', (ev) => {
       const d = (ev && ev.detail) || {};
-      updateReticle(d.state);
+      setLockUI(d);
     });
 
-    // lock/fuse/charge ring
-    window.addEventListener('groups:lock', (ev)=>{
+    // Celebrate hooks (optional, nice feedback)
+    on('hha:celebrate', (ev) => {
       const d = (ev && ev.detail) || {};
-      updateLock(d);
+      if (d.kind === 'goal') { edgeBeat(); showCoach('🎯 GOAL ผ่าน!', 1100); }
+      if (d.kind === 'mini') { edgeBeat(); showCoach('⭐ MINI ผ่าน!', 1100); }
+      if (d.kind === 'all')  { edgeBeat(); showCoach('🎉 เคลียร์หมด!', 1400); }
     });
 
-    // end summary
-    window.addEventListener('hha:end', (ev)=>{
+    // End
+    on('hha:end', (ev) => {
       const d = (ev && ev.detail) || {};
       showEnd(d);
     });
+
+    // Boot baseline display (in case engine starts before UI)
+    setScoreBox();
+    setFeverBox();
+    setRankBox();
+    setGroupLabel('หมู่: -');
+    setGoalMini(null, null);
+
+    // expose debug helper
+    ROOT.GroupsUI = ROOT.GroupsUI || {};
+    ROOT.GroupsUI.ping = () => {
+      showCoach('UI OK ✅', 900);
+      edgeBeat();
+      setReticle('ok');
+    };
   }
 
-  // ---------- init ----------
-  function init(){
-    UI.overlay = ensureBaseUI();
-    bindEvents();
-
-    // initial render
-    updateScore();
-    updateTime();
-    updateStatusPills();
-
-    // If no quest event arrives soon, show hint
-    setTimeout(()=>{
-      if (UI.questOk === null){
-        const qok = qs('#fg-quest-ok');
-        if (qok) qok.textContent = 'QUEST: waiting…';
-      }
-    }, 600);
-  }
-
-  if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init, { once:true });
+  if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init);
   else init();
-
-  // export small helpers (optional)
-  ROOT.GroupsUI = ROOT.GroupsUI || {};
-  ROOT.GroupsUI.showEnd = showEnd;
 
 })();
