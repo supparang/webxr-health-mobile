@@ -1,3 +1,12 @@
+<!-- === /herohealth/groups-vr.html ===
+Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL)
+✅ ใช้ groups-vr.css (แยก CSS)
+✅ Quest IIFE โหลดก่อน Engine
+✅ HUD รับ quest:update / hha:fever / hha:score / hha:time / hha:rank
+✅ แก้ Coach ไม่ทำลาย sub line (แยก #coachMain/#coachSub)
+✅ STUN FX overlay รองรับ 0.8s (groups:stun)
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,357 +16,369 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- A-Frame core -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <link rel="stylesheet" href="./vr-groups/groups.css" />
-
+  <!-- Global FX / Fever / HUD / Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
-  <script src="./vr/hha-hud-quest.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
 
+  <!-- ✅ Quest FIRST (IIFE) -->
   <script src="./vr-groups/groups-quests.js" defer></script>
+
+  <!-- ✅ Engine AFTER quest -->
   <script src="./vr-groups/GameEngine.js" defer></script>
+
+  <!-- ✅ External CSS -->
+  <link rel="stylesheet" href="./groups-vr.css" />
 </head>
 
 <body>
-  <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true; alpha: true">
-    <a-entity id="camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
-  </a-scene>
+  <div class="wrap">
+    <a-scene
+      embedded
+      renderer="antialias: true; colorManagement: true;"
+      vr-mode-ui="enabled:false"
+      background="color: #020617"
+    >
+      <a-entity id="rig" position="0 1.6 0">
+        <a-camera id="camera"
+          wasd-controls-enabled="false"
+          look-controls="enabled:true; touchEnabled:true; mouseEnabled:true"
+          position="0 0 0"
+        ></a-camera>
+      </a-entity>
+      <a-sky color="#020617"></a-sky>
+    </a-scene>
 
-  <div id="fg-root" class="fg-root">
-    <div id="fg-layer" class="fg-layer" aria-label="playfield"></div>
+    <div id="fg-layer" aria-label="targets layer"></div>
 
-    <!-- Reticle -->
-    <div class="fg-reticle" id="fg-reticle" aria-hidden="true"></div>
-
-    <!-- ✅ Lock/Charge Ring (NEW) -->
-    <div class="lock-ring" id="lockRing" aria-hidden="true">
-      <svg viewBox="0 0 120 120" class="ring">
-        <!-- outer track -->
-        <circle class="track" cx="60" cy="60" r="44"></circle>
-        <!-- outer progress -->
-        <circle class="prog"  cx="60" cy="60" r="44"></circle>
-
-        <!-- inner track (charge) -->
-        <circle class="track2" cx="60" cy="60" r="33"></circle>
-        <!-- inner progress (charge) -->
-        <circle class="prog2"  cx="60" cy="60" r="33"></circle>
-      </svg>
-      <div class="lock-label" id="lockLabel">LOCK</div>
-    </div>
-
-    <!-- Top-left stats -->
-    <div class="hud hud-left">
-      <div class="hud-chip"><div class="k">คะแนน</div><div class="v" id="hudScore">0</div></div>
-      <div class="hud-chip"><div class="k">คอมโบ</div><div class="v" id="hudCombo">0</div></div>
-      <div class="hud-chip"><div class="k">Miss</div><div class="v" id="hudMiss">0</div></div>
-      <div class="hud-chip"><div class="k">เวลา</div><div class="v" id="hudTime">0</div></div>
-    </div>
-
-    <!-- Top-right -->
-    <div class="hud hud-right">
-      <div class="hud-card">
-        <div class="k">หมู่ปัจจุบัน</div>
-        <div class="v" id="hudGroup">—</div>
-      </div>
-
-      <div class="hud-card">
-        <div class="k">เกรด</div>
-        <div class="v grade" id="hudGrade">C</div>
-      </div>
-
-      <div class="fever-wrap">
-        <div id="feverBarHost"></div>
-      </div>
-    </div>
-
-    <!-- Bottom-left Quest panel -->
-    <div class="quest-panel">
-      <div class="quest-title">
-        <div class="q-head">GOAL</div>
-        <div class="q-meta" id="qGoalMeta">0/0</div>
-      </div>
-      <div class="q-row">
-        <div class="q-label" id="qGoalLabel">—</div>
-        <div class="q-right" id="qGoalProg">0%</div>
-      </div>
-      <div class="q-bar"><div class="q-bar-fill" id="qGoalBar"></div></div>
-
-      <div class="quest-title mt">
-        <div class="q-head">🧩 MINI</div>
-        <div class="q-meta" id="qMiniMeta">0/0</div>
-      </div>
-      <div class="q-row">
-        <div class="q-label" id="qMiniLabel">—</div>
-        <div class="q-right" id="qMiniProg">0%</div>
-      </div>
-      <div class="q-bar"><div class="q-bar-fill" id="qMiniBar"></div></div>
-
-      <div class="q-warn" id="qWarn" style="display:none;">⚠️ QUEST ไม่พร้อม (เช็ค groups-quests.js / hha-hud-quest.js)</div>
-    </div>
-
-    <!-- Coach -->
-    <div class="coach" id="hudCoach">
-      <div class="coach-title">Coach</div>
-      <div class="coach-text" id="hudCoachText">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨</div>
-    </div>
-
-    <!-- Controls -->
-    <div class="controls">
-      <button class="btn ghost" id="btnGaze">Gaze: ON</button>
-      <button class="btn danger" id="btnStop">STOP</button>
-      <button class="btn" id="btnVR">VR</button>
-    </div>
-
-    <!-- Start overlay -->
-    <div class="overlay" id="startOverlay">
-      <div class="overlay-card">
-        <div class="overlay-title">Food Groups VR</div>
-        <div class="overlay-sub" id="startSub">พร้อมแล้วกดเริ่มได้เลย</div>
-
-        <div class="overlay-grid">
-          <div class="row">
-            <span class="pill" id="pillMode">MODE: PLAY</span>
-            <span class="pill" id="pillDiff">DIFF: EASY</span>
-            <span class="pill" id="pillTime">TIME: 90s</span>
-          </div>
-
-          <div class="row btnrow">
-            <button class="btn big" id="btnStartPlay">▶ เล่น (Play)</button>
-            <button class="btn big ghost" id="btnStartResearch">🧪 วิจัย (Research)</button>
-          </div>
-
-          <div class="overlay-note">
-            Tip: แตะที่ไหนก็ได้เพื่อยิงเป้าใกล้นิ้ว • จ้องกลางจอเพื่อ Lock ยิงเป็นชุด + Charge + Chain
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- End overlay -->
-    <div class="overlay" id="endOverlay" style="display:none;">
-      <div class="overlay-card end">
-        <div class="overlay-title">🏁 จบเกม</div>
-        <div class="overlay-sub" id="endReason">—</div>
-
-        <div class="end-grid">
-          <div class="end-card"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
-          <div class="end-card"><div class="k">Combo Best</div><div class="v" id="endCombo">0</div></div>
-          <div class="end-card"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
-          <div class="end-card"><div class="k">Quests</div><div class="v" id="endQuest">0%</div></div>
-          <div class="end-card"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
-          <div class="end-card"><div class="k">Grade</div><div class="v grade" id="endGrade">C</div></div>
+    <div class="hud">
+      <div class="topbar">
+        <div class="pill stats">
+          <div class="stat"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
+          <div class="stat"><div class="k">COMBO</div><div class="v" id="hudCombo">0</div></div>
+          <div class="stat"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
+          <div class="stat"><div class="k">TIME</div><div class="v" id="hudTime">—</div></div>
+          <div class="stat"><div class="k">SHIELD</div><div class="v" id="hudShield">0</div></div>
+          <div class="stat"><div class="k">GRADE</div><div class="v" id="hudGrade">C</div></div>
         </div>
 
-        <div class="row btnrow">
-          <button class="btn big ghost" id="btnCloseEnd">✅ ปิดหน้าสรุป</button>
-          <button class="btn big" id="btnReplay">🔁 เล่นอีกครั้ง</button>
+        <div class="questBox">
+          <div class="questTitle">🧩 <span>MINI QUEST</span> <small id="miniPct">0%</small></div>
+          <div class="qline" id="questGoal"><span class="muted">GOAL:</span> —</div>
+          <div class="qline" id="questMini"><span class="muted">MINI:</span> —</div>
+        </div>
+      </div>
+
+      <div class="coachBox">
+        <div id="coachMain">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨</div>
+        <div id="coachSub">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
+      </div>
+
+      <div id="reticle"></div>
+
+      <div id="lockUI">
+        <svg id="lockSvg" width="88" height="88" viewBox="0 0 88 88">
+          <circle class="ringBack" cx="44" cy="44" r="30"></circle>
+          <circle class="ringProg" cx="44" cy="44" r="30"
+            stroke-dasharray="188.5" stroke-dashoffset="188.5"></circle>
+          <circle class="ringCharge" cx="44" cy="44" r="22"
+            stroke-dasharray="138.2" stroke-dashoffset="138.2"></circle>
+        </svg>
+      </div>
+
+      <div class="controls">
+        <div class="hintCol">
+          <div class="hint">LOCK <small>จ้องจนวงเขียวเต็ม → ยิงเป็นชุด</small></div>
+          <div class="hint">CHARGE <small>ค้างต่อ → ยิงแรง + CHAIN แบบ Cone</small></div>
+        </div>
+
+        <div class="btnCol">
+          <button class="btn primary" id="btnGaze">Gaze: ON</button>
+          <button class="btn danger" id="btnStop">STOP</button>
+          <button class="btn ghost btnMini" id="btnVR">VR</button>
+        </div>
+      </div>
+
+      <div id="edgePulse" aria-hidden="true"></div>
+    </div>
+
+    <!-- STUN overlay (0.8s) -->
+    <div id="stunFX" aria-hidden="true"></div>
+
+    <div id="startOverlay">
+      <div class="card">
+        <div class="h1">Food Groups VR — พร้อมลุย</div>
+        <div class="p">
+          <b>Play</b>: สุ่ม + Adaptive + Rush + BossWave + Decoy + Rage (เร้าใจสุด) <br/>
+          <b>Research</b>: fix seed + ปิดสิ่งสุ่มเพื่อคุมตัวแปร (เที่ยงตรง)
+        </div>
+
+        <div class="row">
+          <div class="seg">
+            <label>Difficulty</label>
+            <select id="selDiff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="seg">
+            <label>Run mode</label>
+            <select id="selMode">
+              <option value="play" selected>play</option>
+              <option value="research">research</option>
+            </select>
+          </div>
+
+          <div class="seg">
+            <label>Time (sec)</label>
+            <input id="inpTime" type="number" min="20" max="600" step="10" value="70" />
+          </div>
+        </div>
+
+        <button class="startBtn" id="btnStart">START</button>
+        <div class="note">
+          ถ้า Quest ไม่ขึ้น: เช็ค path <code>./vr-groups/groups-quests.js</code> และ console warning.
         </div>
       </div>
     </div>
   </div>
 
   <script>
-  (function(){
-    'use strict';
-    const $ = (id)=>document.getElementById(id);
-    const sp = new URLSearchParams(location.search);
+    (function(){
+      'use strict';
 
-    const diff = (sp.get('diff')||'easy').toLowerCase();
-    const timeSec = Math.max(10, parseInt(sp.get('time')||'90',10)||90);
-    const run = (sp.get('run')||'play').toLowerCase();
+      const $ = (id)=>document.getElementById(id);
 
-    $('pillMode').textContent = 'MODE: ' + (run==='research'?'RESEARCH':'PLAY');
-    $('pillDiff').textContent = 'DIFF: ' + diff.toUpperCase();
-    $('pillTime').textContent = 'TIME: ' + timeSec + 's';
+      const layer = $('fg-layer');
+      const camEl = document.querySelector('#camera');
+      const sceneEl = document.querySelector('a-scene');
 
-    const engine = (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
-    if (engine){
-      engine.setLayerEl($('fg-layer'));
-      engine.setCameraEl($('camera'));
-      engine.setTimeLeft(timeSec);
-    }
+      const startOverlay = $('startOverlay');
+      const selDiff = $('selDiff');
+      const selMode = $('selMode');
+      const inpTime = $('inpTime');
 
-    // ------- basic HUD -------
-    window.addEventListener('hha:score', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      $('hudScore').textContent = (d.score|0);
-      $('hudCombo').textContent = (d.combo|0);
-      $('hudMiss').textContent  = (d.misses|0);
-    });
+      const hudScore = $('hudScore');
+      const hudCombo = $('hudCombo');
+      const hudMiss  = $('hudMiss');
+      const hudTime  = $('hudTime');
+      const hudShield= $('hudShield');
+      const hudGrade = $('hudGrade');
 
-    window.addEventListener('hha:time', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      $('hudTime').textContent = (d.left|0);
-    });
+      const questGoal = $('questGoal');
+      const questMini = $('questMini');
+      const miniPct   = $('miniPct');
 
-    window.addEventListener('hha:coach', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      if (d.text) $('hudCoachText').textContent = String(d.text);
-    });
+      const coachMain = $('coachMain');
+      const coachSub  = $('coachSub');
 
-    window.addEventListener('hha:rank', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      $('hudGrade').textContent = String(d.grade||'C');
-    });
+      const btnStart = $('btnStart');
+      const btnGaze  = $('btnGaze');
+      const btnStop  = $('btnStop');
+      const btnVR    = $('btnVR');
 
-    window.addEventListener('quest:update', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      $('hudGroup').textContent = d.groupLabel ? String(d.groupLabel) : '—';
-    });
+      const reticle  = $('reticle');
 
-    // ------- reticle feedback -------
-    const ret = $('fg-reticle');
-    function pulse(cls){
-      ret.classList.remove('ok','miss','perfect');
-      ret.classList.add(cls);
-      setTimeout(()=>{ try{ ret.classList.remove(cls); }catch{} }, 140);
-    }
-    window.addEventListener('groups:reticle', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      if (d.state==='miss') pulse('miss');
-      else if (d.state==='perfect') pulse('perfect');
-      else pulse('ok');
-    });
+      const lockUI   = $('lockUI');
+      const ringProg = lockUI.querySelector('.ringProg');
+      const ringCharge = lockUI.querySelector('.ringCharge');
 
-    // ------- Controls -------
-    let gazeOn = true;
-    $('btnGaze').addEventListener('click', ()=>{
-      gazeOn = !gazeOn;
-      $('btnGaze').textContent = 'Gaze: ' + (gazeOn?'ON':'OFF');
-      try{ engine && engine.setGaze(gazeOn); }catch{}
-    });
-    $('btnStop').addEventListener('click', ()=>{ try{ engine && engine.stop('stop'); }catch{} });
-    $('btnVR').addEventListener('click', ()=>{
-      try{
-        const scene = document.querySelector('a-scene');
-        if (scene && scene.enterVR) scene.enterVR();
-      }catch{}
-    });
+      const edgePulse = $('edgePulse');
+      const stunFX = $('stunFX');
 
-    function startGame(mode){
-      if (!engine) return;
-      $('startOverlay').style.display = 'none';
-      $('endOverlay').style.display = 'none';
+      const sp = new URLSearchParams(location.search);
+      const qDiff = (sp.get('diff')||'').toLowerCase();
+      const qMode = (sp.get('mode')||sp.get('run')||'').toLowerCase();
+      const qTime = parseInt(sp.get('time')||'',10);
 
-      const seed = sp.get('seed') || ('school|' + diff + '|' + timeSec);
-      engine.setTimeLeft(timeSec);
-      engine.start(diff, { runMode: mode, seed });
-    }
+      if (qDiff) selDiff.value = (['easy','normal','hard'].includes(qDiff) ? qDiff : 'normal');
+      if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
+      if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(qTime);
 
-    $('btnStartPlay').addEventListener('click', ()=>startGame('play'));
-    $('btnStartResearch').addEventListener('click', ()=>startGame('research'));
-
-    if ((sp.get('autostart')||'0')==='1'){
-      startGame(run==='research'?'research':'play');
-    }
-
-    // ------- End overlay -------
-    function pct(n){ n=Number(n)||0; return Math.max(0,Math.min(100,Math.round(n)))+'%'; }
-    window.addEventListener('hha:end', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      $('endOverlay').style.display = '';
-      $('endReason').textContent = (d.reason==='time_up') ? 'หมดเวลา' : 'หยุดเกม';
-
-      $('endScore').textContent = (d.scoreFinal|0);
-      $('endCombo').textContent = (d.comboMax|0);
-      $('endMiss').textContent  = (d.misses|0);
-      $('endGrade').textContent = String(d.grade||'C');
-
-      $('endQuest').textContent = (typeof d.questsPct === 'number') ? pct(d.questsPct*100) : '—';
-      $('endAcc').textContent   = (typeof d.accuracy === 'number') ? pct(d.accuracy*100) : '—';
-    });
-    $('btnCloseEnd').addEventListener('click', ()=>{ $('endOverlay').style.display='none'; });
-    $('btnReplay').addEventListener('click', ()=>{
-      $('endOverlay').style.display='none';
-      $('startOverlay').style.display='';
-    });
-
-    // ==========================================================
-    // ✅ 1) Rush mini panic: tick + flash + slight shake
-    // ==========================================================
-    let audioCtx = null;
-    function tickBeep(){
-      try{
-        audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
-        const ctx = audioCtx;
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = 'square';
-        o.frequency.value = 980;
-        g.gain.value = 0.03;
-        o.connect(g); g.connect(ctx.destination);
-        o.start(); o.stop(ctx.currentTime + 0.05);
-      }catch{}
-      try{ navigator.vibrate && navigator.vibrate(12); }catch{}
-    }
-
-    const root = $('fg-root');
-    let lastPanicSec = -1;
-
-    window.addEventListener('quest:panic', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      const sec = (d.secLeft|0);
-
-      if (sec <= 0){
-        root.classList.remove('panic');
-        lastPanicSec = -1;
-        return;
+      const C1 = 188.5;
+      const C2 = 138.2;
+      function setRing(circle, prog, C){
+        const p = Math.max(0, Math.min(1, prog||0));
+        circle.style.strokeDasharray = String(C);
+        circle.style.strokeDashoffset = String(C * (1 - p));
       }
 
-      root.classList.add('panic');
-
-      // beep only when sec changes (no spam)
-      if (sec !== lastPanicSec){
-        tickBeep();
-        lastPanicSec = sec;
-      }
-    });
-
-    // ==========================================================
-    // ✅ 2) Lock/Charge ring UI (listen groups:lock)
-    // ==========================================================
-    const ring = $('lockRing');
-    const label = $('lockLabel');
-
-    const outer = ring.querySelector('.prog');
-    const inner = ring.querySelector('.prog2');
-
-    function setCircle(circle, p){
-      p = Math.max(0, Math.min(1, Number(p)||0));
-      const r = Number(circle.getAttribute('r')) || 44;
-      const C = 2 * Math.PI * r;
-      circle.style.strokeDasharray = String(C);
-      circle.style.strokeDashoffset = String(C * (1 - p));
-    }
-
-    // init
-    setCircle(outer, 0);
-    setCircle(inner, 0);
-    ring.classList.remove('on');
-
-    window.addEventListener('groups:lock', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      if (!d.on){
-        ring.classList.remove('on');
-        setCircle(outer, 0);
-        setCircle(inner, 0);
-        label.textContent = 'LOCK';
-        return;
+      function setReticle(state){
+        reticle.classList.remove('ok','miss','perfect');
+        if (state) reticle.classList.add(state);
+        if (state){
+          setTimeout(()=>reticle.classList.remove('ok','miss','perfect'), 160);
+        }
       }
 
-      ring.classList.add('on');
-      setCircle(outer, d.prog || 0);
-      setCircle(inner, d.charge || 0);
+      // --- HUD updates ---
+      window.addEventListener('hha:score', (e)=>{
+        const d = (e && e.detail) || {};
+        if (typeof d.score === 'number') hudScore.textContent = d.score|0;
+        if (typeof d.combo === 'number') hudCombo.textContent = d.combo|0;
+        if (typeof d.misses === 'number') hudMiss.textContent = d.misses|0;
+        if (typeof d.shield === 'number') hudShield.textContent = d.shield|0;
+      });
 
-      if ((d.charge||0) > 0) label.textContent = 'CHARGE';
-      else if ((d.prog||0) > 0.92) label.textContent = 'FIRE';
-      else label.textContent = (d.boss ? 'BOSS' : 'LOCK');
-    });
+      window.addEventListener('hha:time', (e)=>{
+        const d = (e && e.detail) || {};
+        if (typeof d.left === 'number') hudTime.textContent = (d.left|0);
+      });
 
-  })();
+      window.addEventListener('hha:rank', (e)=>{
+        const d = (e && e.detail) || {};
+        if (d.grade) hudGrade.textContent = String(d.grade);
+      });
+
+      // ✅ QUEST MUST SHOW
+      window.addEventListener('quest:update', (e)=>{
+        const d = (e && e.detail) || {};
+        const g = d.goal;
+        const m = d.mini;
+
+        if (!d.questOk){
+          questGoal.innerHTML = `<span class="muted">GOAL:</span> (quest ไม่พร้อม)`;
+          questMini.innerHTML = `<span class="muted">MINI:</span> (เช็ค groups-quests.js)`;
+          miniPct.textContent = '0%';
+          return;
+        }
+
+        if (g && g.label){
+          questGoal.innerHTML = `<span class="muted">GOAL:</span> ${g.label} <span class="muted">(${g.prog||0}/${g.target||0})</span>`;
+        } else {
+          questGoal.innerHTML = `<span class="muted">GOAL:</span> —`;
+        }
+
+        if (m && m.label){
+          const pct = (m.target>0) ? Math.round((m.prog/m.target)*100) : 0;
+          miniPct.textContent = pct + '%';
+
+          // แสดงเวลาหน้าต่าง rush ถ้ามี
+          const tLeft = (typeof m.tLeft === 'number') ? ` <span class="muted">⏱️${m.tLeft}</span>` : '';
+          questMini.innerHTML = `<span class="muted">MINI:</span> ${m.label} <span class="muted">(${m.prog||0}/${m.target||0})</span>${tLeft}`;
+        } else {
+          questMini.innerHTML = `<span class="muted">MINI:</span> —`;
+          miniPct.textContent = '0%';
+        }
+      });
+
+      window.addEventListener('hha:coach', (e)=>{
+        const d = (e && e.detail) || {};
+        if (!d) return;
+        if (d.text) coachMain.textContent = String(d.text);
+      });
+
+      window.addEventListener('groups:reticle', (e)=>{
+        const d = (e && e.detail) || {};
+        if (d.state === 'ok') setReticle('ok');
+        else if (d.state === 'miss') setReticle('miss');
+        else if (d.state === 'perfect') setReticle('perfect');
+      });
+
+      window.addEventListener('groups:lock', (e)=>{
+        const d = (e && e.detail) || {};
+        if (!d.on){
+          lockUI.classList.remove('on');
+          lockUI.style.transform = 'translate(-9999px,-9999px)';
+          return;
+        }
+        lockUI.classList.add('on');
+
+        const x = (typeof d.x === 'number') ? d.x : (innerWidth/2);
+        const y = (typeof d.y === 'number') ? d.y : (innerHeight/2);
+
+        lockUI.style.transform = `translate(${Math.round(x-44)}px,${Math.round(y-44)}px)`;
+        setRing(ringProg, d.prog||0, C1);
+        setRing(ringCharge, d.charge||0, C2);
+      });
+
+      // CLUTCH edge pulse hook (optional)
+      window.addEventListener('hha:panic', (e)=>{
+        const d = (e && e.detail) || {};
+        if (!edgePulse) return;
+        if (d.on){
+          edgePulse.classList.add('on');
+          edgePulse.classList.add('beat');
+          setTimeout(()=>edgePulse.classList.remove('beat'), 260);
+        } else {
+          edgePulse.classList.remove('on');
+          edgePulse.classList.remove('beat');
+        }
+      });
+
+      // ✅ STUN FX (0.8s)
+      window.addEventListener('groups:stun', (e)=>{
+        const d = (e && e.detail) || {};
+        if (!stunFX) return;
+        if (d.on){
+          stunFX.classList.add('on');
+          setTimeout(()=>stunFX.classList.remove('on'), Math.max(100, d.ms|0));
+        } else {
+          stunFX.classList.remove('on');
+        }
+      });
+
+      function safeEngine(){
+        return (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
+      }
+
+      let gazeOn = true;
+
+      btnGaze.addEventListener('click', ()=>{
+        const eng = safeEngine();
+        gazeOn = !gazeOn;
+        btnGaze.textContent = 'Gaze: ' + (gazeOn ? 'ON' : 'OFF');
+        eng && eng.setGaze && eng.setGaze(gazeOn);
+      });
+
+      btnStop.addEventListener('click', ()=>{
+        const eng = safeEngine();
+        eng && eng.stop && eng.stop('stop_button');
+      });
+
+      btnVR.addEventListener('click', async ()=>{
+        try{ if (sceneEl && sceneEl.enterVR) sceneEl.enterVR(); }catch{}
+      });
+
+      btnStart.addEventListener('click', ()=>{
+        const eng = safeEngine();
+        if (!eng){
+          alert('GameEngine ยังไม่พร้อม (เช็ค path ./vr-groups/GameEngine.js)');
+          return;
+        }
+
+        startOverlay.style.display = 'none';
+
+        eng.setLayerEl(layer);
+        eng.setCameraEl(camEl);
+
+        const diff = (selDiff.value||'normal').toLowerCase();
+        const mode = (selMode.value||'play').toLowerCase();
+        const tsec = Math.max(20, Math.min(600, parseInt(inpTime.value||'70',10) || 70));
+
+        eng.setTimeLeft(tsec);
+        eng.setGaze(true);
+        gazeOn = true;
+        btnGaze.textContent = 'Gaze: ON';
+
+        // เคลียร์ UI ให้เห็นแน่
+        coachSub.textContent = (mode === 'research')
+          ? 'Research: fix seed + ปิดสุ่ม (คุมตัวแปร)'
+          : 'Play: สุ่ม + Adaptive + Rush/BossWave/Decoy/Rage';
+
+        eng.start(diff, { layerEl: layer, runMode: mode });
+      });
+
+      if (sp.get('autostart') === '1'){
+        setTimeout(()=>btnStart.click(), 100);
+      }
+    })();
   </script>
 </body>
 </html>
