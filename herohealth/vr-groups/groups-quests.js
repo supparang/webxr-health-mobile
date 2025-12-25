@@ -1,6 +1,6 @@
 // === /herohealth/vr-groups/groups-quests.js ===
 // Food Groups Quest Manager (IIFE) — Goals(2) + Minis(7) + Auto Rotate Groups
-// Exposes: window.GroupsQuest.createFoodGroupsQuest(diff)
+// + NEW: emits quest:panic when rush_window (m6) <= 3 sec
 
 (function(){
   'use strict';
@@ -14,10 +14,7 @@
   ];
 
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-  function isDiff(diff, name){
-    return String(diff||'normal').toLowerCase() === name;
-  }
+  function isDiff(diff, name){ return String(diff||'normal').toLowerCase() === name; }
 
   function makeGoals(diff){
     const isEasy = isDiff(diff,'easy');
@@ -41,7 +38,10 @@
       { id:'m3', label:`เก็บดีติดกัน ${isHard?8:(isEasy?5:6)} ครั้ง`, target: (isHard?8:(isEasy?5:6)), prog:0, done:false, kind:'streak_good' },
       { id:'m4', label:`เก็บครบ 2 หมู่ (อย่างละ 3) 🌀`, target: 6, prog:0, done:false, kind:'two_groups_mix' },
       { id:'m5', label:`คอมโบแตะ ${isHard?12:(isEasy?8:10)}`, target: (isHard?12:(isEasy?8:10)), prog:0, done:false, kind:'combo_reach' },
+
+      // m6 rush window
       { id:'m6', label:`เก็บหมู่ปัจจุบัน 3 ชิ้นใน 8 วิ ⏱️`, target: 3, prog:0, done:false, kind:'rush_window', windowSec: 8, tLeft: 8, active:true },
+
       { id:'m7', label:`ปิดเกมแบบหล่อ ๆ: เก็บดีอีก 10 ชิ้น ✨`, target: 10, prog:0, done:false, kind:'good_total' },
     ];
   }
@@ -53,14 +53,14 @@
     let groupIndex = 0;
     let sec = 0;
 
-    // trackers
     const uniqGroups = new Set();
     let streakGood = 0;
     let safeSec = 0;
 
-    // mini trackers
     let miniIdx = 0;
     let mixCounts = { a:0, b:0, aKey:1, bKey:2 };
+
+    let lastPanicSent = -1;
 
     function activeMini(){ return minis[miniIdx] || null; }
 
@@ -70,6 +70,8 @@
         m.tLeft = m.windowSec || 8;
         m.active = true;
         m.prog = 0;
+        lastPanicSent = -1;
+        try{ window.dispatchEvent(new CustomEvent('quest:panic', { detail:{ secLeft:0 } })); }catch{}
       }
       if (m.kind === 'two_groups_mix'){
         mixCounts = {
@@ -79,13 +81,8 @@
         };
         m.prog = 0;
       }
-      if (m.kind === 'group_hits'){
-        m.prog = 0;
-      }
-      if (m.kind === 'safe_seconds'){
-        safeSec = 0;
-        m.prog = 0;
-      }
+      if (m.kind === 'group_hits'){ m.prog = 0; }
+      if (m.kind === 'safe_seconds'){ safeSec = 0; m.prog = 0; }
     }
 
     function nextMini(){
@@ -95,9 +92,7 @@
       resetMiniState(activeMini());
     }
 
-    function getActiveGroup(){
-      return FOOD_GROUPS[groupIndex] || FOOD_GROUPS[0];
-    }
+    function getActiveGroup(){ return FOOD_GROUPS[groupIndex] || FOOD_GROUPS[0]; }
 
     function rotateGroup(){
       groupIndex = (groupIndex + 1) % FOOD_GROUPS.length;
@@ -110,14 +105,12 @@
       streakGood += 1;
       uniqGroups.add(gk);
 
-      // Goal1: combo reach
       const g1 = goals[0];
       if (g1 && !g1.done){
         g1.prog = Math.max(g1.prog|0, comboNow|0);
         if (g1.prog >= g1.target) g1.done = true;
       }
 
-      // Goal2: unique groups
       const g2 = goals[1];
       if (g2 && !g2.done){
         g2.prog = uniqGroups.size;
@@ -134,9 +127,6 @@
           m.prog += 1;
           if (m.prog >= m.target){ m.done = true; nextMini(); }
         }
-      }
-      else if (m.kind === 'safe_seconds'){
-        // handled by second()
       }
       else if (m.kind === 'streak_good'){
         m.prog = Math.max(m.prog|0, streakGood|0);
@@ -161,6 +151,7 @@
           if (m.prog >= m.target){
             m.done = true;
             m.active = false;
+            try{ window.dispatchEvent(new CustomEvent('quest:panic', { detail:{ secLeft:0 } })); }catch{}
             nextMini();
           }
         }
@@ -185,16 +176,15 @@
         m.tLeft = m.windowSec || 8;
         m.prog = 0;
         m.active = true;
+        lastPanicSent = -1;
+        try{ window.dispatchEvent(new CustomEvent('quest:panic', { detail:{ secLeft:0 } })); }catch{}
       }
     }
 
     function second(){
       sec += 1;
 
-      // rotate every 12s
-      if (sec % 12 === 0){
-        rotateGroup();
-      }
+      if (sec % 12 === 0) rotateGroup();
 
       const m = activeMini();
       if (!m || m.done) return;
@@ -210,24 +200,26 @@
 
       if (m.kind === 'rush_window' && m.active){
         m.tLeft -= 1;
-        if (m.tLeft <= 0){
+
+        // ✅ panic trigger when <=3 sec
+        const secLeft = Math.max(0, Math.round(m.tLeft));
+        if (secLeft <= 3 && secLeft !== lastPanicSent){
+          lastPanicSent = secLeft;
+          try{ window.dispatchEvent(new CustomEvent('quest:panic', { detail:{ secLeft } })); }catch{}
+        }
+        if (secLeft === 0){
+          // reset window
           m.tLeft = m.windowSec || 8;
           m.prog = 0;
+          lastPanicSent = -1;
+          try{ window.dispatchEvent(new CustomEvent('quest:panic', { detail:{ secLeft:0 } })); }catch{}
         }
       }
     }
 
-    // init mini state
     resetMiniState(activeMini());
 
-    return {
-      goals,
-      minis,
-      getActiveGroup,
-      onGoodHit,
-      onJunkHit,
-      second
-    };
+    return { goals, minis, getActiveGroup, onGoodHit, onJunkHit, second };
   }
 
   window.GroupsQuest = window.GroupsQuest || {};
