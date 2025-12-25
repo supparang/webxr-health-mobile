@@ -1,184 +1,152 @@
 // === /herohealth/vr/hha-compat-input.js ===
-// HeroHealth — Cross-device input/permission helper (PC/Mobile/iOS/VR Shinecon)
-// IIFE → window.HHACompat
+// HeroHealth — Input Compatibility Layer (UNIVERSAL)
+// ✅ FIX: กัน "ต้องกด 2 ที" / กัน click ซ้ำหลัง touch (mobile browsers ชอบยิงซ้อน)
+// ✅ FIX: ลด double-fire เมื่อมีทั้ง touchstart + click + pointerdown
+// ✅ Works: Android Chrome / Samsung Internet / iOS Safari / Desktop
+// ✅ Safe: ไม่แตะเกม logic โดยตรง แค่กัน event ซ้ำ + normalize บางเคส
+
 (function (root) {
   'use strict';
+  const doc = root.document;
+  if (!doc) return;
 
-  const H = {};
-  let __ac = null;
+  // -------------------- Config --------------------
+  const CLICK_AFTER_TOUCH_BLOCK_MS = 650;  // กัน click ที่ตามมาหลัง touch
+  const POINTER_AFTER_TOUCH_BLOCK_MS = 80; // กัน pointerdown ซ้อนทันทีหลัง touchstart (บางเครื่องยิงติดกัน)
 
-  function ac() {
-    if (__ac) return __ac;
-    const Ctx = root.AudioContext || root.webkitAudioContext;
-    if (!Ctx) return null;
-    __ac = new Ctx();
-    return __ac;
+  // -------------------- State --------------------
+  let lastTouchAt = 0;
+  let lastTouchTarget = null;
+
+  // กันซ้ำ per-target (บาง element จะยิงทั้ง pointerdown + click)
+  const lastFire = new WeakMap(); // target -> time
+
+  function now() { return performance.now(); }
+  function isInteractiveTarget(t) {
+    if (!t) return false;
+    // ถ้ากดบน UI/button ให้ผ่าน (ไม่ block)
+    return !!(t.closest && (t.closest('button') || t.closest('.btn') || t.closest('a') || t.closest('input') || t.closest('select') || t.closest('textarea')));
   }
-  H.resumeAudio = function () {
-    try { ac()?.resume?.(); } catch (_) {}
-  };
 
-  // iOS motion permission (must be called from gesture)
-  let asked = false;
-  let granted = false;
-  H.ensureMotionPermission = async function (force) {
-    if (granted) return true;
-    if (asked && !force) return false;
-    asked = true;
-    let ok = true;
-
+  function markFire(t) {
+    try { lastFire.set(t, now()); } catch (_) {}
+  }
+  function firedRecently(t, ms) {
     try {
-      if (root.DeviceOrientationEvent && typeof root.DeviceOrientationEvent.requestPermission === 'function') {
-        const res = await root.DeviceOrientationEvent.requestPermission();
-        ok = ok && (res === 'granted');
-      }
-    } catch (_) { ok = false; }
+      const v = lastFire.get(t);
+      return (typeof v === 'number') && (now() - v <= ms);
+    } catch (_) { return false; }
+  }
 
-    try {
-      if (root.DeviceMotionEvent && typeof root.DeviceMotionEvent.requestPermission === 'function') {
-        const res = await root.DeviceMotionEvent.requestPermission();
-        ok = ok && (res === 'granted');
-      }
-    } catch (_) { /* ignore */ }
+  // -------------------- Core: touch -> click dedupe --------------------
+  // หลักการ: บนมือถือ "touchstart" แล้วเบราเซอร์จะยิง "click" ซ้ำตามมา
+  // ถ้าเกมผูกทั้ง touch + click (หรือ pointer) จะดูเหมือน "ต้องกด 2 ที" หรือ "กดทีเดียวแต่นับ 2"
+  function onTouchStartCapture(e) {
+    // อย่ารบกวนปุ่ม UI
+    if (isInteractiveTarget(e.target)) return;
 
-    granted = !!ok;
-    return granted;
-  };
+    lastTouchAt = now();
+    lastTouchTarget = e.target || null;
 
-  // Bind first gesture to request permission + resume audio (keeps listening if denied)
-  H.bindFirstGesture = function (onDeniedMsg) {
-    if (root.__HHA_FIRST_GESTURE__) return;
-    root.__HHA_FIRST_GESTURE__ = true;
+    // IMPORTANT: ไม่ preventDefault ที่นี่ เพื่อไม่ทำให้ pointer events บางรุ่นมีพฤติกรรมแปลก
+    // แต่เราจะ block click ที่ตามมาทีหลังแทน
+  }
 
-    const once = async () => {
-      H.resumeAudio();
-      const ok = await H.ensureMotionPermission(false);
-      if (!ok) {
-        if (typeof onDeniedMsg === 'function') onDeniedMsg();
-        return; // keep listeners so user can tap again
-      }
-      root.removeEventListener('pointerdown', once, true);
-      root.removeEventListener('touchstart', once, true);
-      root.removeEventListener('click', once, true);
-    };
+  function shouldBlockSyntheticClick(e) {
+    const t = now();
+    if (!lastTouchAt) return false;
+    if (t - lastTouchAt > CLICK_AFTER_TOUCH_BLOCK_MS) return false;
 
-    root.addEventListener('pointerdown', once, true);
-    root.addEventListener('touchstart', once, true);
-    root.addEventListener('click', once, true);
-  };
+    // ถ้าเป็น UI/button ให้ผ่าน
+    if (isInteractiveTarget(e.target)) return false;
 
-  // Attach a root entity under camera so targets follow device rotation (magic-window/VR)
-  H.attachRootToCamera = function (camEl, rootEl, zDist) {
-    try {
-      if (!camEl || !rootEl) return;
-      if (rootEl.parentElement !== camEl) camEl.appendChild(rootEl);
-      rootEl.setAttribute('position', `0 0 ${-(Math.abs(zDist || 1.35))}`);
-      rootEl.setAttribute('rotation', '0 0 0');
-    } catch (_) {}
-  };
+    // ถ้า click มาจาก target เดียวกัน (หรือใกล้เคียง) ให้ block
+    // หมายเหตุ: บาง browser target ไม่ตรง 100% จึงเช็คแค่ “ภายใต้ช่วงเวลา” ก็พอ
+    return true;
+  }
 
-  // Prevent double fire on same target quickly
-  const recentHits = new Map();
-  H.wasRecentlyHit = function (id, ms) {
-    const now = performance.now();
-    const ttl = 1000;
-    for (const [k, t] of recentHits.entries()) if (now - t > ttl) recentHits.delete(k);
-    const t = recentHits.get(id);
-    if (t && now - t < (ms || 240)) return true;
-    recentHits.set(id, now);
-    return false;
-  };
-
-  // Raycast fallback: click/touch canvas → intersect objects under rootEl.object3D
-  H.bindPointerRaycast = function (sceneEl, rootEl, acceptFn, onHitFn) {
-    if (!sceneEl || !rootEl || !onHitFn) return;
-    if (root.__HHA_RAYCAST_BOUND__) return;
-    root.__HHA_RAYCAST_BOUND__ = true;
-
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    let lastShot = 0;
-
-    function doCast(ev) {
-      const now = performance.now();
-      if (now - lastShot < 180) return;
-      lastShot = now;
-
-      if (!sceneEl.camera || !sceneEl.canvas) return;
-
-      const tag = String(ev.target?.tagName || '').toUpperCase();
-      if (tag !== 'CANVAS') return;
-
-      H.resumeAudio();
-
-      const rect = sceneEl.canvas.getBoundingClientRect();
-      let cx, cy;
-      if (ev.touches && ev.touches.length) {
-        cx = ev.touches[0].clientX; cy = ev.touches[0].clientY;
-      } else {
-        cx = ev.clientX; cy = ev.clientY;
-      }
-
-      mouse.x = ((cx - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -(((cy - rect.top) / rect.height) * 2 - 1);
-
-      raycaster.setFromCamera(mouse, sceneEl.camera);
-
-      const root3D = rootEl.object3D;
-      if (!root3D) return;
-      const hits = raycaster.intersectObjects(root3D.children, true);
-      if (!hits || !hits.length) return;
-
-      let el = hits[0].object?.el;
-      while (el && el !== sceneEl) {
-        if (!acceptFn || acceptFn(el)) break;
-        el = el.parentEl;
-      }
-      if (!el || (acceptFn && !acceptFn(el))) return;
-
-      onHitFn(el, 'raycast');
+  function onClickCapture(e) {
+    // ถ้าเป็น click ที่ตามหลัง touch -> block เพื่อลด double-fire
+    if (shouldBlockSyntheticClick(e)) {
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation && e.stopImmediatePropagation();
+      } catch (_) {}
+      return;
     }
 
-    root.addEventListener('pointerdown', doCast, { passive: true });
-    root.addEventListener('touchstart', doCast, { passive: true });
-  };
-
-  // FX nudge: push a point away from HUD rectangles
-  H.nudgeAwayFromHUD = function (px, py, selectors, padPx) {
-    const W = Math.max(1, root.innerWidth || 1);
-    const Hh = Math.max(1, root.innerHeight || 1);
-    const pad = padPx ?? 14;
-
-    let x = Math.max(pad, Math.min(W - pad, px));
-    let y = Math.max(pad, Math.min(Hh - pad, py));
-
-    const sels = selectors || [
-      '#hudTop', '#hudLeft', '#hudRight', '#hudBottom',
-      '.hud-top', '.hud-left', '.hud-right', '.hud-bottom',
-      '#questPanel', '#miniPanel', '#resultCard'
-    ].join(',');
-
-    const els = Array.from(document.querySelectorAll(sels));
-    for (const el of els) {
-      if (!el?.getBoundingClientRect) continue;
-      const r = el.getBoundingClientRect();
-      if (!r || r.width < 20 || r.height < 20) continue;
-
-      const inside = (x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad);
-      if (!inside) continue;
-
-      const cand = [
-        { x, y: r.bottom + pad, c: Math.abs((r.bottom + pad) - y) },
-        { x, y: r.top - pad,    c: Math.abs((r.top - pad) - y) },
-        { x: r.right + pad, y,  c: Math.abs((r.right + pad) - x) },
-        { x: r.left - pad,  y,  c: Math.abs((r.left - pad) - x) }
-      ].map(o => ({ x: Math.max(pad, Math.min(W - pad, o.x)), y: Math.max(pad, Math.min(Hh - pad, o.y)), c: o.c }));
-
-      cand.sort((a,b)=>a.c-b.c);
-      x = cand[0].x; y = cand[0].y;
+    // กัน click ซ้ำเร็ว ๆ บน element เดิม
+    if (e && e.target && firedRecently(e.target, 55)) {
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation && e.stopImmediatePropagation();
+      } catch (_) {}
+      return;
     }
-    return { x, y };
+    if (e && e.target) markFire(e.target);
+  }
+
+  // -------------------- Core: pointerdown/touchstart dedupe --------------------
+  function onPointerDownCapture(e) {
+    // ถ้าเป็น UI/button ให้ผ่าน
+    if (isInteractiveTarget(e.target)) return;
+
+    // ถ้า pointerdown ซ้อนหลัง touchstart ทันที (บางเครื่องยิงติดกัน) -> block
+    const t = now();
+    if (lastTouchAt && (t - lastTouchAt <= POINTER_AFTER_TOUCH_BLOCK_MS)) {
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation && e.stopImmediatePropagation();
+      } catch (_) {}
+      return;
+    }
+
+    // กัน pointerdown ซ้ำเร็ว ๆ บน target เดิม
+    if (e && e.target && firedRecently(e.target, 45)) {
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation && e.stopImmediatePropagation();
+      } catch (_) {}
+      return;
+    }
+    if (e && e.target) markFire(e.target);
+  }
+
+  // -------------------- Optional: normalize touch-action --------------------
+  // เกมส่วนใหญ่ต้องการ “แตะแล้วเกิด action ทันที” + ไม่ให้ browser delay/zoom
+  function injectTouchActionSafety() {
+    const st = doc.createElement('style');
+    st.textContent = `
+      html,body{ touch-action: manipulation; }
+      a-scene, canvas{ touch-action: none; }
+      .plate-layer, .hha-fx-layer{ touch-action: none; }
+    `;
+    doc.head && doc.head.appendChild(st);
+  }
+
+  // -------------------- Attach listeners (capture phase สำคัญ) --------------------
+  // ใช้ capture เพื่อ "ดักก่อน" ที่เกมจะรับ event
+  doc.addEventListener('touchstart', onTouchStartCapture, { passive: true, capture: true });
+  doc.addEventListener('click', onClickCapture, { passive: false, capture: true });
+
+  // PointerEvent มีใน browser ใหม่เกือบหมด
+  if (root.PointerEvent) {
+    doc.addEventListener('pointerdown', onPointerDownCapture, { passive: false, capture: true });
+  } else {
+    // fallback: mousedown
+    doc.addEventListener('mousedown', onPointerDownCapture, { passive: false, capture: true });
+  }
+
+  injectTouchActionSafety();
+
+  // -------------------- Export tiny debug hook (optional) --------------------
+  root.HHAInputCompat = {
+    get lastTouchAt() { return lastTouchAt; },
+    get lastTouchTarget() { return lastTouchTarget; }
   };
 
-  root.HHACompat = H;
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
