@@ -1,356 +1,379 @@
 /* === /herohealth/vr-groups/groups.css ===
-Food Groups VR — PRODUCTION CSS (Split)
-✅ Target styles (emoji bubble + good/junk/boss/decoy)
-✅ Lock highlight + reticle + edge pulse
-✅ Boss bar + afterimage
-✅ Start overlay
-✅ A-Frame behind
+Food Groups VR — PRODUCTION CSS (FIX-ALL)
+- Targets use CSS vars: --x --y --s  (from GameEngine.js)
+- Quest panel (auto-created by groups-hud-quest.js) looks good
+- Lock/Charge ring, Reticle, Danger vignette, Rage glow
+- Mobile safe, no HUD overlap, pointer-safe
 */
 
 :root{
-  --bg:#020617;
-  --panel: rgba(2,6,23,.74);
-  --stroke: rgba(148,163,184,.22);
-  --text: rgba(229,231,235,.95);
-  --muted: rgba(148,163,184,.85);
+  --bg0:#020617;
+  --bg1:#0b1120;
+  --panel:rgba(2,6,23,.70);
+  --panel2:rgba(15,23,42,.62);
+  --stroke:rgba(148,163,184,.20);
+  --stroke2:rgba(148,163,184,.12);
+  --text:#e5e7eb;
+  --muted:#94a3b8;
 
-  /* safe zone (match engine clamp) */
-  --safe-top: 118px;
-  --safe-bot: 150px;
-  --safe-l: 28px;
-  --safe-r: 28px;
+  --good:#22c55e;
+  --good2:#16a34a;
+  --junk:#f97316;
+  --bad:#ef4444;
+  --boss:#a855f7;
+  --blue:#3b82f6;
+
+  --shadow:0 18px 55px rgba(0,0,0,.45);
+  --shadow2:0 10px 32px rgba(0,0,0,.38);
+  --r:18px;
 }
 
-html,body{
-  height:100%;
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
   margin:0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", Arial;
+  background: radial-gradient(1200px 800px at 50% 35%, #0b122a 0%, var(--bg0) 55%, #01030b 100%);
+  color:var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", "Noto Sans", sans-serif;
+  overflow:hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ======================
+   Layer / Playfield
+====================== */
+#fg-layer, #gj-layer, #play-layer, .fg-layer{
+  position:fixed;
+  inset:0;
   overflow:hidden;
   touch-action: manipulation;
 }
 
-/* ===== A-Frame canvas behind ===== */
-a-scene, canvas{
-  position: fixed !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  z-index: 0 !important;
-  background: radial-gradient(1200px 800px at 50% 40%, rgba(30,41,59,.45), rgba(2,6,23,1) 70%);
+.fg-world{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
 }
 
-/* ===== Targets layer ===== */
-#fg-layer{
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  pointer-events: auto;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
+.fg-vignette{
+  position:fixed;
+  inset:-4px;
+  pointer-events:none;
+  background:
+    radial-gradient(1200px 700px at 50% 40%, rgba(0,0,0,0) 0%, rgba(0,0,0,.18) 58%, rgba(0,0,0,.48) 100%);
+  opacity:.9;
+  mix-blend-mode: normal;
 }
 
-/* base target */
+/* Danger (boss wave) helper class (optional if you toggle) */
+body.fg-danger .fg-vignette{
+  background:
+    radial-gradient(1000px 650px at 50% 45%, rgba(0,0,0,0) 0%, rgba(239,68,68,.12) 52%, rgba(239,68,68,.28) 75%, rgba(0,0,0,.58) 100%);
+}
+
+/* ======================
+   Targets (DOM emoji)
+====================== */
 .fg-target{
-  position: absolute;
-  left: var(--x, 50%);
+  position:absolute;
+  left:var(--x, 50%);
   top: var(--y, 52%);
-  transform: translate(-50%, -50%) scale(var(--s, 1));
-  width: 132px;
-  height: 132px;
-  border-radius: 999px;
+  transform:
+    translate3d(0,0,0)
+    translate(-50%, -50%)
+    scale(var(--s, 1));
+  width:132px;
+  height:132px;
+  border-radius:999px;
+
   display:flex;
   align-items:center;
   justify-content:center;
 
-  /* emoji */
-  font-size: 54px;
-  line-height: 1;
+  user-select:none;
+  -webkit-user-select:none;
+  cursor:pointer;
 
-  cursor: pointer;
-  will-change: transform, left, top, opacity, filter;
+  /* keep emoji crisp */
+  font-size:56px;
+  line-height:1;
 
-  /* feel */
-  filter: drop-shadow(0 14px 34px rgba(0,0,0,.45));
-  transition: transform .10s ease, opacity .16s ease, filter .16s ease;
-
-  pointer-events: auto;
-}
-
-/* ring + glass */
-.fg-target::before{
-  content:'';
-  position:absolute;
-  inset: 8px;
-  border-radius: 999px;
   background:
-    radial-gradient(120px 120px at 30% 25%, rgba(255,255,255,.20), rgba(255,255,255,0) 55%),
-    linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
-  border: 1px solid rgba(255,255,255,.18);
-  box-shadow: inset 0 0 0 1px rgba(2,6,23,.22);
-  pointer-events:none;
+    radial-gradient(circle at 35% 30%, rgba(255,255,255,.22) 0%, rgba(255,255,255,.06) 40%, rgba(255,255,255,.03) 70%, rgba(255,255,255,.02) 100%),
+    rgba(2,6,23,.38);
+
+  border:1px solid var(--stroke);
+  box-shadow: var(--shadow2);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+
+  transition: transform .14s ease, filter .14s ease, opacity .14s ease;
+  will-change: transform, left, top, filter, opacity;
+  pointer-events:auto;
 }
+
+/* outer rings */
+.fg-target::before,
 .fg-target::after{
-  content:'';
+  content:"";
   position:absolute;
-  inset:-6px;
+  inset:-14px;
   border-radius:999px;
-  border: 2px solid rgba(148,163,184,.16);
-  pointer-events:none;
+  border:1px solid rgba(148,163,184,.18);
   opacity:.65;
 }
-
-/* Good vs Junk */
-.fg-good{
-  background: radial-gradient(120px 90px at 30% 30%, rgba(34,197,94,.22), rgba(34,197,94,.06) 55%, rgba(2,6,23,.00) 70%);
-}
-.fg-junk{
-  background: radial-gradient(120px 90px at 30% 30%, rgba(239,68,68,.22), rgba(239,68,68,.06) 55%, rgba(2,6,23,.00) 70%);
-}
-.fg-boss{
-  filter: drop-shadow(0 16px 40px rgba(239,68,68,.28)) drop-shadow(0 14px 34px rgba(0,0,0,.45));
+.fg-target::after{
+  inset:-28px;
+  opacity:.35;
 }
 
-/* Decoy tint */
-.fg-decoy{
-  background: radial-gradient(120px 90px at 30% 30%, rgba(168,85,247,.22), rgba(168,85,247,.06) 55%, rgba(2,6,23,.00) 70%);
+/* spawn animation */
+.fg-target.spawn{
+  opacity:0;
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .78));
+  filter: saturate(1.05) brightness(1.04);
+}
+.fg-target.show{
+  opacity:1;
+  transform: translate(-50%,-50%) scale(var(--s,1));
 }
 
-/* spawn/exit */
-.fg-target.spawn{ opacity: 0; transform: translate(-50%,-50%) scale(.70); }
-.fg-target.show { opacity: 1; transform: translate(-50%,-50%) scale(var(--s,1)); }
-.fg-target.hit  { opacity: 0; transform: translate(-50%,-50%) scale(.82); filter: blur(.2px); }
-.fg-target.out  { opacity: 0; transform: translate(-50%,-50%) scale(.92); }
-
-/* lock highlight */
-.fg-target.lock::after{
-  border-color: rgba(59,130,246,.60);
-  opacity: 1;
-  box-shadow: 0 0 0 3px rgba(59,130,246,.14), 0 0 26px rgba(59,130,246,.22);
+/* hit/out */
+.fg-target.hit{
+  opacity:0;
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.12));
+  filter: blur(0.2px) brightness(1.08);
+}
+.fg-target.out{
+  opacity:.0;
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .92));
+  filter: grayscale(.15) brightness(.9);
 }
 
-/* boss rage hint */
+/* Good / Junk styling */
+.fg-target.fg-good{
+  border-color: rgba(34,197,94,.32);
+  background:
+    radial-gradient(circle at 30% 28%, rgba(34,197,94,.22) 0%, rgba(255,255,255,.06) 42%, rgba(255,255,255,.03) 72%, rgba(255,255,255,.02) 100%),
+    rgba(2,6,23,.36);
+}
+.fg-target.fg-junk{
+  border-color: rgba(249,115,22,.34);
+  background:
+    radial-gradient(circle at 30% 28%, rgba(249,115,22,.22) 0%, rgba(255,255,255,.06) 42%, rgba(255,255,255,.03) 72%, rgba(255,255,255,.02) 100%),
+    rgba(2,6,23,.36);
+}
+.fg-target.fg-boss{
+  border-color: rgba(168,85,247,.45);
+  box-shadow: 0 18px 62px rgba(168,85,247,.12), var(--shadow2);
+}
+
+/* Decoy (invert) */
+.fg-target.fg-decoy{
+  border-color: rgba(244,63,94,.35);
+  filter: hue-rotate(160deg) saturate(1.2);
+}
+.fg-target.fg-decoy::before{
+  border-color: rgba(244,63,94,.24);
+}
+
+/* Rage glow */
+.fg-target.rage{
+  box-shadow: 0 18px 70px rgba(239,68,68,.16), var(--shadow2);
+}
 .fg-target.rage::after{
-  border-color: rgba(251,113,133,.55);
-  box-shadow: 0 0 0 4px rgba(239,68,68,.12), 0 0 28px rgba(239,68,68,.22);
-  animation: ragePulse .8s ease-in-out infinite;
-}
-@keyframes ragePulse{
-  0%,100%{ opacity:.75; }
-  50%{ opacity:1; }
+  border-color: rgba(239,68,68,.20);
+  opacity:.55;
 }
 
-/* boss HP bar */
-.bossbar{
+/* Boss HP bar */
+.fg-target .bossbar{
   position:absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 14px;
-  height: 9px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.12);
+  left:12px;
+  right:12px;
+  bottom:10px;
+  height:10px;
+  border-radius:999px;
+  background: rgba(148,163,184,.16);
+  border:1px solid rgba(148,163,184,.18);
   overflow:hidden;
-  pointer-events:none;
 }
-.bossbar-fill{
+.fg-target .bossbar-fill{
   height:100%;
   width:100%;
-  background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(251,146,60,.90));
-  border-radius: 999px;
-  box-shadow: 0 8px 22px rgba(239,68,68,.22);
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(168,85,247,.95), rgba(59,130,246,.92));
 }
 
-/* ===== Reticle (created by groups-ui.js) ===== */
-.fg-reticle{
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  transform: translate(-50%,-50%);
-  border: 2px solid rgba(229,231,235,.35);
-  box-shadow: 0 0 0 6px rgba(2,6,23,.35);
-  z-index: 34;
-  pointer-events: none;
-  opacity: .9;
-  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+/* Lock highlight class (engine adds .lock) */
+.fg-target.lock{
+  outline: 2px solid rgba(59,130,246,.40);
+  filter: saturate(1.06) brightness(1.05);
 }
-.fg-reticle.ok{
-  border-color: rgba(34,197,94,.75);
-  box-shadow: 0 0 0 7px rgba(34,197,94,.14);
-  transform: translate(-50%,-50%) scale(1.06);
-}
-.fg-reticle.miss{
-  border-color: rgba(239,68,68,.78);
-  box-shadow: 0 0 0 10px rgba(239,68,68,.16);
-  transform: translate(-50%,-50%) scale(1.10);
-}
-.fg-reticle.perfect{
-  border-color: rgba(59,130,246,.85);
-  box-shadow: 0 0 0 10px rgba(59,130,246,.16);
-  transform: translate(-50%,-50%) scale(1.12);
+.fg-target.lock::before{
+  border-color: rgba(59,130,246,.26);
 }
 
-/* ===== Edge pulse (panic/rush cues) ===== */
-.fg-edgePulse{
-  position: fixed;
-  inset: 0;
-  z-index: 33;
-  pointer-events:none;
-  opacity: 0;
-  transition: opacity .18s ease;
-  box-shadow:
-    inset 0 0 0 0 rgba(0,0,0,0),
-    inset 0 0 0 3px rgba(239,68,68,.00);
-}
-.fg-edgePulse.on{ opacity: 1; }
-.fg-edgePulse.beat{
-  animation: edgeBeat .26s ease-out;
-}
-@keyframes edgeBeat{
-  0%{
-    box-shadow:
-      inset 0 0 0 0 rgba(0,0,0,0),
-      inset 0 0 0 2px rgba(239,68,68,.00),
-      0 0 0 0 rgba(0,0,0,0);
-    opacity: .7;
-  }
-  100%{
-    box-shadow:
-      inset 0 0 0 0 rgba(0,0,0,0),
-      inset 0 0 0 7px rgba(239,68,68,.18),
-      0 0 40px rgba(239,68,68,.10);
-    opacity: 1;
-  }
-}
-
-/* ===== Lock UI ring (created by groups-ui.js) ===== */
-.fg-lockUI{
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 120px;
-  height: 120px;
-  z-index: 36;
-  pointer-events:none;
-  opacity: 0;
-  transition: opacity .12s ease;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.40));
-}
-.fg-lockUI.on{ opacity: 1; }
-.fg-lockUI svg{ display:block; }
-.fg-lockUI .ringBack{
-  fill: transparent;
-  stroke: rgba(148,163,184,.18);
-  stroke-width: 8;
-}
-.fg-lockUI .ringProg{
-  fill: transparent;
-  stroke: rgba(59,130,246,.85);
-  stroke-width: 8;
-  stroke-linecap: round;
-  transform: rotate(-90deg);
-  transform-origin: 60px 60px;
-}
-.fg-lockUI .ringCharge{
-  fill: transparent;
-  stroke: rgba(34,197,94,.88);
-  stroke-width: 8;
-  stroke-linecap: round;
-  transform: rotate(-90deg);
-  transform-origin: 60px 60px;
-}
-
-/* afterimage (engine spawns) */
+/* ======================
+   Afterimage (rage feint)
+====================== */
 .fg-afterimage{
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 19;
+  position:fixed;
+  left:0; top:0;
   pointer-events:none;
-  opacity: .0;
-  animation: afterPop .42s ease-out forwards;
+  z-index: 25;
+  opacity:.0;
+  transform: translate3d(0,0,0) translate(-50%,-50%) scale(1);
+  animation: fgAfter .42s ease forwards;
+  filter: blur(.2px);
 }
 .fg-afterimage-inner{
-  font-size: 54px;
-  filter: blur(.1px);
-  opacity: .8;
-  transform: translate(-50%,-50%) scale(.92);
+  font-size: 44px;
+  opacity:.9;
 }
-@keyframes afterPop{
-  0%{ opacity: 0; }
-  20%{ opacity: .65; }
-  100%{ opacity: 0; transform: translateY(8px); }
+.fg-afterimage.a1{ animation-duration:.40s; }
+.fg-afterimage.a2{ animation-duration:.44s; opacity:.0; }
+
+@keyframes fgAfter{
+  0%{ opacity:.0; transform: translate3d(0,0,0) translate(-50%,-50%) scale(.92); }
+  20%{ opacity:.62; }
+  100%{ opacity:0; transform: translate3d(0,0,0) translate(-50%,-50%) scale(1.12); }
 }
 
-/* ===== Start Overlay ===== */
-#startOverlay{
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-  background: radial-gradient(1200px 900px at 50% 30%, rgba(30,41,59,.55), rgba(2,6,23,.92));
+/* ======================
+   Reticle (center)
+====================== */
+.fg-reticle{
+  position:fixed;
+  left:50%;
+  top:50%;
+  width:18px;
+  height:18px;
+  border-radius:999px;
+  transform:translate(-50%,-50%);
+  border:2px solid rgba(226,232,240,.55);
+  box-shadow: 0 0 0 10px rgba(2,6,23,.22);
+  pointer-events:none;
+  z-index: 30;
+  opacity:.9;
+}
+.fg-reticle::after{
+  content:"";
+  position:absolute;
+  inset:5px;
+  border-radius:999px;
+  background: rgba(226,232,240,.55);
+  opacity:.45;
+}
+
+/* reticle states (optional if you toggle body classes) */
+body.fg-reticle-ok .fg-reticle{ border-color: rgba(34,197,94,.70); }
+body.fg-reticle-miss .fg-reticle{ border-color: rgba(239,68,68,.78); }
+body.fg-reticle-perfect .fg-reticle{ border-color: rgba(59,130,246,.80); }
+
+/* ======================
+   Lock ring + Charge ring
+   (for groups:lock / groups:charge overlays you may have)
+====================== */
+.fg-lockring{
+  position:fixed;
+  left:var(--lx, 50%);
+  top: var(--ly, 50%);
+  width:74px;
+  height:74px;
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  pointer-events:none;
+  z-index: 31;
+  opacity:0;
+  transition: opacity .10s ease;
+}
+.fg-lockring.on{ opacity:1; }
+.fg-lockring::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  border:2px solid rgba(59,130,246,.65);
+  box-shadow: 0 0 0 10px rgba(59,130,246,.10);
+  opacity:.75;
+}
+.fg-lockring .fg-lockfill{
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  background: conic-gradient(rgba(59,130,246,.92) calc(var(--lp, 0)*1turn), rgba(148,163,184,.10) 0);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 63%);
+          mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 63%);
+  opacity:.88;
+}
+.fg-lockring .fg-chargefill{
+  position:absolute;
+  inset:-8px;
+  border-radius:999px;
+  background: conic-gradient(rgba(34,197,94,.92) calc(var(--cp, 0)*1turn), rgba(148,163,184,.08) 0);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 72%, #000 73%);
+          mask: radial-gradient(circle at 50% 50%, transparent 72%, #000 73%);
+  opacity:.85;
+}
+
+/* ======================
+   Quest Panel (auto-created)
+====================== */
+.fg-questPanel{
+  box-shadow: var(--shadow);
+}
+#fg-questPanel{
+  /* the JS already sets inline; keep compatible */
+}
+#fg-questPanel .bar{ border-radius:999px; }
+
+/* Improve readability on very wide screens */
+@media (min-width: 980px){
+  #fg-questPanel{
+    left: 16px !important;
+    bottom: 16px !important;
+    width: min(780px, calc(100vw - 32px)) !important;
+  }
+}
+
+/* ======================
+   Coach bubble (if your HTML has it)
+====================== */
+.fg-coach{
+  position:fixed;
+  right:12px;
+  bottom:12px;
+  width:min(520px, calc(100vw - 24px));
+  background: var(--panel);
+  border:1px solid var(--stroke);
+  border-radius: 18px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow2);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  z-index: 45;
+  pointer-events:none;
 }
-#startCard{
-  width: min(780px, 92vw);
-  border-radius: 22px;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.76);
-  box-shadow: 0 30px 90px rgba(0,0,0,.55);
-  padding: 16px 16px 14px;
+.fg-coach .title{
+  font-weight:800;
+  opacity:.95;
+  margin-bottom:6px;
 }
-#startCard h1{
-  margin: 0;
-  font-size: 22px;
-  letter-spacing: .2px;
+.fg-coach .msg{
+  color:rgba(226,232,240,.95);
+  opacity:.95;
+  line-height:1.35;
 }
-#startMeta{
-  margin-top: 8px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  opacity: .88;
-  font-size: 13px;
-}
-.pill{
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(15,23,42,.55);
-}
-#startHint{
-  margin-top: 12px;
-  font-size: 13px;
-  opacity: .85;
-  line-height: 1.45;
-}
-#startActions{
-  margin-top: 14px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-button{
-  pointer-events: auto;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(15,23,42,.65);
-  color: rgba(229,231,235,.95);
-  border-radius: 14px;
-  padding: 10px 14px;
-  font-weight: 900;
-  font-size: 14px;
-}
-button.primary{
-  background: rgba(34,197,94,.20);
-  border-color: rgba(34,197,94,.35);
+
+/* ======================
+   Small utility: hide scrollbars (just in case)
+====================== */
+::-webkit-scrollbar{ width:0; height:0; }
+
+/* ======================
+   Motion safety
+====================== */
+@media (prefers-reduced-motion: reduce){
+  .fg-target, .fg-afterimage{ transition:none !important; animation:none !important; }
 }
