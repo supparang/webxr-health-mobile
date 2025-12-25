@@ -1,28 +1,27 @@
 // === /herohealth/vr/hha-hud.js ===
-// HeroHealth — HUD Binder (GoodJunk HTML NEW + Quest Director Dual-shape)
-// ✅ Compatible with quest:update that emits BOTH shapes:
-//    - nested: goal{title,cur,max,pct}, mini{title,cur,max,pct}
-//    - flat: goalTitle/goalCur/goalMax/goalPct + miniTitle/miniCur/miniMax/miniPct
-// ✅ GoodJunk NEW HTML IDs mapping (hud-quest-main-bar, fever-fill, shield-count, etc.)
-// ✅ VR: move ALL HUD to TOP-LEFT on enter-vr (A-Frame enter-vr / exit-vr)
-// ✅ Safe if elements missing + Prevent double-binding
+// HeroHealth — HUD Binder (GoodJunk NEW HTML + goodjunk.safe.js PATCH B)
+// ✅ quest:update รองรับหลาย shape:
+//    - nested goal/mini: {title, cur, target|max, pct, tLeft, windowSec}
+//    - flat: goalTitle/goalCur/goalTarget|goalMax + miniTitle/miniCur/miniTarget|miniMax
+// ✅ รองรับ hha:score / hha:time / hha:fever / hha:shield / hha:judge / hha:coach / hha:end / hha:rank
+// ✅ VR: ย้าย HUD ทั้งหมดไปมุมบนซ้ายเมื่อ enter-vr (A-Frame enter-vr / exit-vr)
+// ✅ ปลอดภัย: element ไม่มี → ข้าม, กัน bind ซ้ำ
 
 (function (root) {
   'use strict';
 
   const doc = root.document;
   if (!doc) return;
-
   if (root.__HHA_HUD_BOUND__) return;
   root.__HHA_HUD_BOUND__ = true;
 
-  // ---------------- helpers ----------------
+  // ---------- helpers ----------
   const $ = (sel) => { try { return doc.querySelector(sel); } catch { return null; } };
   const setText = (el, v) => { if (!el) return; try { el.textContent = String(v ?? ''); } catch {} };
   const setStyle = (el, k, v) => { if (!el) return; try { el.style[k] = v; } catch {} };
   const clamp = (v, a, b) => { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); };
   const clamp01 = (x) => Math.max(0, Math.min(1, Number(x || 0)));
-  const safeStr = (v) => String(v ?? '').trim();
+  const sstr = (v) => String(v ?? '').trim();
 
   function pctFrom(prog, target){
     const p = Number(prog)||0, t = Number(target)||0;
@@ -35,17 +34,20 @@
     return `${p}/${t}`;
   }
 
-  // ---------------- elements (GoodJunk NEW HTML) ----------------
+  // ---------- elements (GoodJunk NEW HTML IDs) ----------
   // Top KPIs
   const elScore = $('#hud-score');
   const elCombo = $('#hud-combo'); // COMBO MAX
   const elMiss  = $('#hud-miss');
 
   // Meta labels
-  const elRunLabel  = $('#hud-run-label');       // PLAY/RESEARCH
+  const elRunLabel  = $('#hud-run-label');
   const elDiffLabel = $('#hud-diff-label');
   const elChLabel   = $('#hud-challenge-label');
   const elTimeLabel = $('#hud-time-label');
+
+  // Rank (optional)
+  const elGrade = $('#hud-grade') || $('#hud-rank') || $('#rank-grade');
 
   // Fever UI
   const elFeverPct  = $('#fever-pct');
@@ -63,7 +65,7 @@
   const elCoachImg = $('#coach-emoji'); // div (background-image)
   const elCoachBubble = $('#coach-bubble');
 
-  // Quest HUD bottom
+  // Quest HUD
   const elQMainTitle = $('#hud-quest-main');
   const elQMainCap   = $('#hud-quest-main-caption');
   const elQMainBar   = $('#hud-quest-main-bar');
@@ -84,7 +86,7 @@
   const elBossFill  = $('#boss-fill');
   const elBossPhase = $('#boss-phase');
 
-  // Boss overlays (optional)
+  // Overlays (optional)
   const elAtkRing    = $('#atk-ring');
   const elAtkLaser   = $('#atk-laser');
   const elStunVortex = $('#stun-vortex');
@@ -99,13 +101,14 @@
   const btnExit      = $('#btn-exit');
   const btnReplay    = $('#btn-replay');
 
-  // HUD blocks for VR reposition
+  // Blocks for VR reposition
   const elHudTop   = $('#hud-pill');
   const elHudMeta  = $('.hud-meta');
   const elHudRight = $('#hud-right');
   const elHudQuest = $('#hud-quest-wrap');
+  const elLogBadge = $('#logBadge');
 
-  // ---------------- coach mood images ----------------
+  // ---------- coach mood images ----------
   const COACH_IMG = {
     fever:   './img/coach-fever.png',
     happy:   './img/coach-happy.png',
@@ -144,25 +147,21 @@
     }, 1700);
   }
 
-  // ---------------- HUD state ----------------
+  // ---------- HUD state ----------
   let sScore=0, sComboMax=0, sMiss=0, sGoodHits=0;
   let sFever=0, sShield=0;
-
   let meta = { run:'PLAY', diff:'—', challenge:'—', time:'—' };
 
   // normalized quest objects: {label, prog, target, tLeft?, windowSec?, hint?}
   let qQuestOk = true;
   let qGoal = null;
   let qMini = null;
-
-  // counters for display
   let qGoalsCleared = 0, qGoalsTotal = 0;
   let qMinisCleared = 0, qMiniCount  = 0;
 
-  // boss
   let boss = { show:false, hp:0, hpMax:1, phase:'P1' };
 
-  // ---------------- renderers ----------------
+  // ---------- render ----------
   function renderTop(){
     setText(elScore, sScore|0);
     setText(elCombo, sComboMax|0);
@@ -233,7 +232,7 @@
       setStyle(elQMainBar, 'width', `${pctFrom(qGoal.prog, qGoal.target)}%`);
     } else {
       setText(elQMainTitle, 'Goal: ✅ ครบแล้ว');
-      setText(elQMainCap, `(${qGoalsCleared|0}/${qGoalsTotal|0})`);
+      setText(elQMainCap, (qGoalsTotal>0) ? `(${qGoalsCleared|0}/${qGoalsTotal|0})` : '');
       setStyle(elQMainBar, 'width', '100%');
     }
 
@@ -249,15 +248,13 @@
       setStyle(elQMiniBar, 'width', `${pctFrom(qMini.prog, qMini.target)}%`);
       setText(elQHint, qMini.hint != null ? String(qMini.hint) : '');
     } else {
-      setText(elQMiniTitle, 'Mini: ✨ ครบแล้ว');
-      setText(elQMiniCap, `(${qMinisCleared|0})`);
-      setStyle(elQMiniBar, 'width', '100%');
+      setText(elQMiniTitle, 'Mini: ✨ ต่อเนื่อง');
+      setText(elQMiniCap, `✓${qMinisCleared|0}`);
+      setStyle(elQMiniBar, 'width', '0%');
       setText(elQHint, '');
     }
 
-    // counts line
     if (elMiniCount){
-      // goalTotal/miniTotal ไม่มีส่งมาแน่นอน (เพราะ mini เป็นวนลูป) → โชว์ cleared + started
       const parts = [];
       if (qGoalsTotal > 0) parts.push(`Goals ${qGoalsCleared|0}/${qGoalsTotal|0}`);
       if (qMiniCount > 0 || qMinisCleared > 0) parts.push(`Minis ✓${qMinisCleared|0} · started ${qMiniCount|0}`);
@@ -315,42 +312,41 @@
     if (btnReplay) btnReplay.onclick = () => { try { elSumOverlay.classList.remove('show'); } catch {} };
   }
 
-  // ---------------- normalize quest:update (THE FIX) ----------------
-  function normalizeQuestObj(fromNested, flatTitle, flatCur, flatMax){
-    // Accept:
-    //  - nested: {title,cur,max,pct} OR {label,prog,target}
-    //  - flat: title/cur/max
+  // ---------- normalize quest:update (รองรับ target/max + flat goalTarget/goalMax) ----------
+  function normalizeQuestObj(fromNested, flatTitle, flatCur, flatTargetOrMax){
     const out = { label:'', prog:0, target:1 };
 
     if (fromNested && typeof fromNested === 'object'){
-      // preferred: label/prog/target
+      // (A) already normalized-ish (label/prog/target)
       if (fromNested.label != null || fromNested.prog != null || fromNested.target != null){
-        out.label  = safeStr(fromNested.label || fromNested.title || '');
+        out.label  = sstr(fromNested.label || fromNested.title || '');
         out.prog   = Number(fromNested.prog ?? fromNested.cur ?? 0) || 0;
         out.target = Number(fromNested.target ?? fromNested.max ?? 1) || 1;
-        // pass-through extras
         if (fromNested.tLeft != null) out.tLeft = fromNested.tLeft;
         if (fromNested.windowSec != null) out.windowSec = fromNested.windowSec;
         if (fromNested.hint != null) out.hint = fromNested.hint;
         return out;
       }
-      // nested quest-director shape: title/cur/max
-      if (fromNested.title != null || fromNested.cur != null || fromNested.max != null){
-        out.label  = safeStr(fromNested.title || '');
+      // (B) quest-director nested (title/cur/max) OR safe.js nested (title/cur/target)
+      if (fromNested.title != null || fromNested.cur != null || fromNested.max != null || fromNested.target != null){
+        out.label  = sstr(fromNested.title || '');
         out.prog   = Number(fromNested.cur ?? 0) || 0;
-        out.target = Number(fromNested.max ?? 1) || 1;
+        out.target = Number(fromNested.target ?? fromNested.max ?? 1) || 1;
+        if (fromNested.tLeft != null) out.tLeft = fromNested.tLeft;
+        if (fromNested.windowSec != null) out.windowSec = fromNested.windowSec;
+        if (fromNested.hint != null) out.hint = fromNested.hint;
         return out;
       }
     }
 
-    // fallback flat keys
-    out.label  = safeStr(flatTitle || '');
+    // flat fallback
+    out.label  = sstr(flatTitle || '');
     out.prog   = Number(flatCur ?? 0) || 0;
-    out.target = Number(flatMax ?? 1) || 1;
+    out.target = Number(flatTargetOrMax ?? 1) || 1;
     return out;
   }
 
-  // ---------------- VR: move ALL HUD to top-left ----------------
+  // ---------- VR layout: move ALL HUD to top-left ----------
   const __orig = new Map();
   function stashStyle(el){
     if (!el || __orig.has(el)) return;
@@ -368,15 +364,13 @@
 
     try { body.classList.toggle('hha-vr', !!on); } catch {}
 
-    // stash originals once
-    [elHudTop, elHudMeta, elHudRight, elHudQuest, elBossWrap, $('#logBadge')].forEach(stashStyle);
+    [elHudTop, elHudMeta, elHudRight, elHudQuest, elBossWrap, elLogBadge].forEach(stashStyle);
 
     if (!on){
-      [elHudTop, elHudMeta, elHudRight, elHudQuest, elBossWrap, $('#logBadge')].forEach(restoreStyle);
+      [elHudTop, elHudMeta, elHudRight, elHudQuest, elBossWrap, elLogBadge].forEach(restoreStyle);
       return;
     }
 
-    // Stack order: hud-top -> meta -> right-panel -> boss-wrap -> quest
     const pad = '10px';
     const safeTop = 'calc(env(safe-area-inset-top, 0px) + 8px)';
 
@@ -384,7 +378,7 @@
       setStyle(elHudTop, 'left', pad);
       setStyle(elHudTop, 'right', 'auto');
       setStyle(elHudTop, 'top', safeTop);
-      setStyle(elHudTop, 'width', 'min(520px, 92vw)');
+      setStyle(elHudTop, 'width', 'min(560px, 94vw)');
       setStyle(elHudTop, 'justifyContent', 'flex-start');
       setStyle(elHudTop, 'gap', '8px');
     }
@@ -395,16 +389,15 @@
       setStyle(elHudMeta, 'top', `calc(${safeTop} + 44px)`);
       setStyle(elHudMeta, 'justifyContent', 'flex-start');
       setStyle(elHudMeta, 'pointerEvents', 'none');
-      setStyle(elHudMeta, 'width', 'min(520px, 92vw)');
+      setStyle(elHudMeta, 'width', 'min(560px, 94vw)');
       setStyle(elHudMeta, 'flexWrap', 'wrap');
     }
 
-    // Right panel -> become "stack panel" left
     if (elHudRight){
       setStyle(elHudRight, 'left', pad);
       setStyle(elHudRight, 'right', 'auto');
       setStyle(elHudRight, 'top', `calc(${safeTop} + 84px)`);
-      setStyle(elHudRight, 'width', 'min(320px, 88vw)');
+      setStyle(elHudRight, 'width', 'min(340px, 90vw)');
       setStyle(elHudRight, 'transform', 'translateZ(0)');
     }
 
@@ -421,15 +414,14 @@
       setStyle(elHudQuest, 'right', 'auto');
       setStyle(elHudQuest, 'bottom', 'auto');
       setStyle(elHudQuest, 'top', `calc(${safeTop} + 84px + 240px)`);
-      setStyle(elHudQuest, 'width', 'min(520px, 92vw)');
-      setStyle(elHudQuest, 'maxHeight', '130px');
+      setStyle(elHudQuest, 'width', 'min(560px, 94vw)');
+      setStyle(elHudQuest, 'maxHeight', '140px');
     }
 
-    const logBadge = $('#logBadge');
-    if (logBadge){
-      setStyle(logBadge, 'left', pad);
-      setStyle(logBadge, 'right', 'auto');
-      setStyle(logBadge, 'top', `calc(${safeTop} + 84px + 320px)`);
+    if (elLogBadge){
+      setStyle(elLogBadge, 'left', pad);
+      setStyle(elLogBadge, 'right', 'auto');
+      setStyle(elLogBadge, 'top', `calc(${safeTop} + 84px + 330px)`);
     }
   }
 
@@ -437,17 +429,13 @@
   (function bindAFRAMEVR(){
     const scene = $('a-scene');
     if (!scene) return;
-
-    // start in vr? (usually false)
     try{
       scene.addEventListener('enter-vr', ()=> applyVRLayout(true));
       scene.addEventListener('exit-vr',  ()=> applyVRLayout(false));
     }catch{}
   })();
 
-  // ---------------- events ----------------
-
-  // score event (unified)
+  // ---------- events ----------
   root.addEventListener('hha:score', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
 
@@ -466,48 +454,64 @@
     if (d.challenge != null) meta.challenge = String(d.challenge);
     if (d.run != null) meta.run = String(d.run).toUpperCase();
 
+    // boss compact (optional)
+    if (d.bossHp != null || d.bossHpMax != null || d.bossPhase != null){
+      boss.show = !!d.bossAlive;
+      if (d.bossHp != null) boss.hp = Number(d.bossHp)||0;
+      if (d.bossHpMax != null) boss.hpMax = Number(d.bossHpMax)||1;
+      if (d.bossPhase != null) boss.phase = `P${Number(d.bossPhase)||1}`;
+      renderBoss();
+    }
+
     renderTop();
     renderFever();
     renderShield();
     renderMeta();
   });
 
-  // time label
   root.addEventListener('hha:time', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.left != null){
-      meta.time = String(Math.max(0, d.left|0));
+    // goodjunk.safe.js ส่ง {sec}
+    const sec = (d.sec != null) ? d.sec : (d.left != null ? d.left : null);
+    if (sec != null){
+      meta.time = String(Math.max(0, sec|0));
       renderMeta();
     }
   });
 
-  // ✅ Quest update (dual-shape compatible)
   root.addEventListener('quest:update', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     qQuestOk = (d.questOk !== false);
 
-    // meta counts (from flat or nested.meta)
     const metaIn = (d.meta && typeof d.meta === 'object') ? d.meta : null;
     qGoalsCleared = Number(d.goalsCleared ?? metaIn?.goalsCleared ?? 0) || 0;
-    qGoalsTotal   = Number(d.goalsTotal   ?? metaIn?.goalIndex    ?? 0) || 0; // meta.goalIndex = goals.length
+    qGoalsTotal   = Number(d.goalsTotal   ?? metaIn?.goalIndex    ?? 0) || 0;
     qMinisCleared = Number(d.minisCleared ?? metaIn?.minisCleared ?? 0) || 0;
     qMiniCount    = Number(d.miniCount    ?? metaIn?.miniCount    ?? 0) || 0;
 
-    // normalize goal/mini from either nested OR flat
+    // nested
     const goalRaw = d.goal || d.main || null;
     const miniRaw = d.mini || null;
 
-    const gNorm = normalizeQuestObj(goalRaw, d.goalTitle, d.goalCur, d.goalMax);
-    const mNorm = normalizeQuestObj(miniRaw, d.miniTitle, d.miniCur, d.miniMax);
+    // flat (รองรับ goalTarget/miniTarget + goalMax/miniMax)
+    const gFlatMax = (d.goalTarget != null) ? d.goalTarget : (d.goalMax != null ? d.goalMax : (d.goalTargetOrMax ?? null));
+    const mFlatMax = (d.miniTarget != null) ? d.miniTarget : (d.miniMax != null ? d.miniMax : (d.miniTargetOrMax ?? null));
 
-    // if empty title => treat as null (goal cleared / mini missing)
-    qGoal = (safeStr(gNorm.label) ? gNorm : null);
-    qMini = (safeStr(mNorm.label) ? mNorm : null);
+    const gNorm = normalizeQuestObj(goalRaw, d.goalTitle, d.goalCur, gFlatMax);
+    const mNorm = normalizeQuestObj(miniRaw, d.miniTitle, d.miniCur, mFlatMax);
+
+    qGoal = (sstr(gNorm.label) ? gNorm : null);
+    qMini = (sstr(mNorm.label) ? mNorm : null);
+
+    // time window fields sometimes come as flat too
+    if (qMini){
+      if (qMini.tLeft == null && d.miniTLeft != null) qMini.tLeft = d.miniTLeft;
+      if (qMini.windowSec == null && d.miniWindowSec != null) qMini.windowSec = d.miniWindowSec;
+    }
 
     renderQuest();
   });
 
-  // coach messages
   root.addEventListener('hha:coach', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     const text = (d.text != null) ? String(d.text) : '';
@@ -524,36 +528,33 @@
     showCoach(text, mood);
   });
 
-  // fever compat
   root.addEventListener('hha:fever', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     if (d.fever != null) sFever = clamp(d.fever, 0, 100);
-    if (d.on === true) setCoachMood('fever');
+    if (d.shield != null) sShield = Number(d.shield)||0;
+    if (d.stunActive != null) flashStun(!!d.stunActive);
     renderFever();
+    renderShield();
   });
 
-  // shield compat
   root.addEventListener('hha:shield', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     if (d.shield != null) sShield = Number(d.shield)||0;
     renderShield();
   });
 
-  // judge compat
   root.addEventListener('hha:judge', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const text = (d.text != null) ? d.text : (d.judge != null ? d.judge : '');
+    const text = (d.label != null) ? d.label : (d.text != null ? d.text : (d.judge ?? ''));
     if (text) showJudge(text);
   });
 
-  // stun
   root.addEventListener('hha:stun', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     flashStun(d.on === true);
     if (d.on === true) setCoachMood('sad');
   });
 
-  // boss HUD + attack cues (optional)
   root.addEventListener('hha:boss', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     boss.show = (d.show !== false);
@@ -562,18 +563,19 @@
     if (d.phase != null) boss.phase = String(d.phase);
     renderBoss();
 
-    if (d.ring != null){
-      showAtkRing(!!d.ring.on, d.ring.gapStart, d.ring.gapSize);
-    }
-    if (d.laser != null){
-      showLaser(d.laser);
-    }
-    if (d.beacon != null){
-      showBossBeacon(!!d.beacon);
-    }
+    if (d.ring != null) showAtkRing(!!d.ring.on, d.ring.gapStart, d.ring.gapSize);
+    if (d.laser != null) showLaser(d.laser);
+    if (d.beacon != null) showBossBeacon(!!d.beacon);
   });
 
-  // logger status (optional)
+  // Rank ticker (goodjunk.safe.js emits hha:rank {grade,...})
+  root.addEventListener('hha:rank', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    if (!elGrade) return;
+    const g = String(d.grade || '').toUpperCase().trim();
+    if (g) setText(elGrade, g);
+  });
+
   root.addEventListener('hha:logger', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     if (elLogText) setText(elLogText, `logger: ${d.state || '—'}`);
@@ -585,7 +587,6 @@
     }
   });
 
-  // end summary
   root.addEventListener('hha:end', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
 
@@ -600,6 +601,8 @@
     flashStun(false);
 
     const g = String(d.grade || '').toUpperCase().trim();
+    if (elGrade && g) setText(elGrade, g);
+
     if (g === 'SSS' || g === 'SS' || g === 'S') setCoachMood('happy');
     else if ((d.misses|0) >= 8) setCoachMood('sad');
     else setCoachMood('neutral');
@@ -610,11 +613,9 @@
     renderQuest();
     renderBoss();
     openSummary(d);
-
-    // if end -> leave VR layout as-is (บางคนอยากดูสรุปใน VR)
   });
 
-  // ---------------- initial paint ----------------
+  // ---------- initial paint ----------
   renderTop();
   renderMeta();
   renderFever();
