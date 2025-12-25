@@ -1,59 +1,66 @@
 // === /herohealth/hydration-vr/hydration.coach.js ===
-// Hydration Coach Director — context-aware + throttle (PRODUCTION)
+// Coach: ส่งข้อความไป HUD ผ่าน event hha:coach
+// moods: neutral | happy | sad
 'use strict';
 
-function emit(name, detail){
-  try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
-}
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
-function nowMs(){ return (typeof performance!=='undefined' ? performance.now() : Date.now()); }
+function emit(name, detail){ try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch{} }
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-export function createHydrationCoach(opts = {}){
-  const run = String(opts.run || 'play').toLowerCase();
-  const st = {
-    lastSayAt: 0,
-    lastZone: 'GREEN',
-    lastFever: 0,
-    lastMood: 'neutral'
-  };
+export function createHydrationCoach(opts={}){
+  const run = String(opts.run||'play').toLowerCase();
+  const isResearch = (run==='research');
+
+  let lastSayAt = 0;
 
   function say(text, mood='neutral', force=false){
-    const ts = nowMs();
-    const minGap = force ? 0 : 1200;
-    if (ts - st.lastSayAt < minGap) return;
-    st.lastSayAt = ts;
-    st.lastMood = mood;
-    emit('hha:coach', { text, mood });
+    const now = Date.now();
+    if(!force && (now - lastSayAt) < (isResearch ? 2200 : 1400)) return;
+    lastSayAt = now;
+
+    emit('hha:coach', {
+      text: String(text||''),
+      mood: String(mood||'neutral'),
+      ts: now
+    });
   }
 
-  function onTick({sec, zone, feverPct}){
-    st.lastZone = zone || st.lastZone;
-    st.lastFever = Number(feverPct||0);
-
-    if (sec === 60) say('เริ่มเลย! รักษาโซน GREEN ให้ได้นานที่สุด 💧', 'happy');
-    if (sec === 30) say('ครึ่งทางแล้ว! โฟกัสน้ำดี หลีกเลี่ยงน้ำหวาน 🥤', 'neutral');
-
-    if (zone === 'LOW')  say('น้ำต่ำไปนะ! เก็บ 💧 เพิ่มหน่อย', 'sad');
-    if (zone === 'HIGH') say('น้ำหวานเยอะไป! รีบกลับเข้า GREEN นะ', 'sad');
-
-    if (st.lastFever >= 70) say('ใจเย็น ๆ! พยายามเก็บน้ำดีแบบแม่น ๆ', 'sad');
-    else if (st.lastFever >= 45) say('เริ่มร้อนแล้วนะ ลดพลาดลงอีกนิด 🔥', 'neutral');
-
-    if (sec <= 10 && sec > 0) say(`เหลือ ${sec} วิ! เร่งอีกนิด!`, 'happy', true);
-  }
-
-  function onHit({good, perfect, power, bad, blocked}){
-    if (power) return say('ได้พลังแล้ว! ใช้ให้คุ้ม 🛡️⭐', 'happy');
-    if (blocked) return say('โล่ช่วยไว้! ระวังต่อไปนะ 🛡️', 'neutral');
-    if (bad) return say('โอ๊ย! น้ำหวานโดนแล้ว 😵 หลบให้ไว!', 'sad', true);
-    if (perfect) return say('เป๊ะมาก! คุมสมดุลได้สุด ๆ ✨', 'happy');
-    if (good && run !== 'research') return say('ดีมาก! ไปต่อ 💧', 'happy');
+  function onHit(e={}){
+    if(e.power) say('ได้พลังแล้ว! ใช้ให้คุ้ม!', 'happy');
+    else if(e.blocked) say('โล่ช่วยไว้! ระวังน้ำหวาน!', 'neutral');
+    else if(e.bad) say('โอ๊ย! น้ำหวานทำเสียสมดุล!', 'sad');
+    else if(e.good && e.perfect) say('Perfect! สมดุลดีมาก!', 'happy');
+    else if(e.good) say('ดี! รักษาสมดุลไว้!', 'neutral');
+    else if(e.boss) say('โดนบอสแล้ว! ไปต่อ!', 'happy');
   }
 
   function onQuest(kind){
-    if (kind === 'goal') say('เคลียร์ GOAL แล้ว! เก่งมาก 🎉', 'happy', true);
-    if (kind === 'mini') say('MINI ผ่านแล้ว! ต่อภารกิจถัดไป ⚡', 'happy', true);
+    if(kind==='goal') say('Goal ผ่านแล้ว! สุดยอด!', 'happy', true);
+    else if(kind==='mini') say('Mini ผ่าน! เก่งมาก!', 'happy', true);
+    else if(kind==='all') say('เคลียร์ครบ! โคตรเทพ! 🔥', 'happy', true);
   }
 
-  return { say, onTick, onHit, onQuest };
+  function onTick(info={}){
+    // เบา ๆ: เตือนโซน
+    const sec = Number(info.sec||0);
+    const zone = String(info.zone||'');
+    if(sec>0 && sec%12===0){
+      if(zone==='LOW') say('น้ำต่ำไป! เก็บน้ำดีเพิ่มนะ!', 'sad');
+      else if(zone==='HIGH') say('น้ำมากไป! ระวังน้ำหวาน!', 'sad');
+      else if(zone==='GREEN') say('GREEN อยู่! ไปต่อ!', 'neutral');
+    }
+
+    // RAID hints
+    if(info.boss && info.phase===2 && sec%7===0){
+      say('จำไว้: คอมโบถึงก่อน แล้วค่อยยิงบอส!', 'neutral');
+    }
+    if(info.boss && info.phase===3 && sec%5===0){
+      say('FINAL! อย่าออก GREEN นาน!', 'sad');
+    }
+  }
+
+  return { say, onHit, onQuest, onTick };
 }
+
+export default { createHydrationCoach };
