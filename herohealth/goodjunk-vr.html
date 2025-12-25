@@ -1,11 +1,8 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR — FULL HTML (HUD+Quest+End+Boss+Aim compat)
-✅ ID compat with /vr/hha-hud.js  (hud-score, hud-combo, hud-miss, hud-goal, hud-mini, hud-goal-prog, hud-mini-prog, hud-coach, hud-coach-img, hud-rank, hud-group, hud-time)
-✅ Quest bars (main/mini) update on quest:update
-✅ Judge label update on hha:judge
-✅ Boss HUD update on hha:score (bossAlive/bossHp/bossHpMax/bossPhase)
-✅ End overlay uses existing #sum-overlay on hha:end
-✅ Keep layer offset + aim point accurate on mobile/rotate/address bar
+GoodJunkVR — FULL HTML (HUD+Quest+End+Boss+Aim compat) — FINAL (PATCH: z-index + restart/menu works + EnterVR)
+✅ FIX: #gj-layer z-index < HUD (HUD คลิกได้ชัวร์)
+✅ FIX: กด ↩️ เมนู แล้วเริ่มใหม่ได้เสมอ (startedOnce รีเซ็ตถูก)
+✅ Add: ปุ่ม Enter VR ทำงานได้เอง (best-effort)
 -->
 
 <!doctype html>
@@ -78,7 +75,7 @@ GoodJunkVR — FULL HTML (HUD+Quest+End+Boss+Aim compat)
     /* ---------- Gameplay DOM layer ---------- */
     #gj-layer{
       position:fixed; inset:0;
-      z-index:9999;
+      z-index:7000; /* ✅ ต่ำกว่า HUD(9100) / aim(9000) / FX(8000+) */
       overflow:hidden;
       touch-action:none;
       user-select:none;
@@ -943,9 +940,23 @@ GoodJunkVR — FULL HTML (HUD+Quest+End+Boss+Aim compat)
       if (b2d) b2d.addEventListener('click', makeCompact, { passive:true });
       if (bvr) bvr.addEventListener('click', makeCompact, { passive:true });
 
+      // ✅ restart/menu-safe start overlay control
+      let startedOnce = false;
+
+      function showStartOverlay(){
+        const start = document.getElementById('start-overlay');
+        if (start) start.style.display = 'flex';
+        startedOnce = false; // ✅ รีเซ็ตให้รอบใหม่ซ่อน overlay ได้
+      }
+      function hideStartOverlay(){
+        const start = document.getElementById('start-overlay');
+        if (start) start.style.display = 'none';
+      }
+
       window.addEventListener('hha:end', ()=> {
         body.classList.remove('hha-compact');
         body.classList.remove('hha-peek');
+        startedOnce = true; // ✅ จบเกมแล้วล็อกไว้จนกว่าจะกดเมนู/รีเพลย์
       });
 
       // layer offset (mobile safe)
@@ -1084,7 +1095,17 @@ GoodJunkVR — FULL HTML (HUD+Quest+End+Boss+Aim compat)
         }
       });
 
-      // rank mirror (hha-hud.js will write #hud-rank already; no-op ok)
+      // Enter VR (best-effort)
+      const btnVR = document.getElementById('btn-vr');
+      if (btnVR){
+        btnVR.addEventListener('click', ()=>{
+          try{
+            const scene = document.querySelector('a-scene');
+            if (scene && scene.enterVR) scene.enterVR();
+          }catch(e){}
+        });
+      }
+
       // end summary
       window.addEventListener('hha:end', (ev)=>{
         const d = ev && ev.detail ? ev.detail : {};
@@ -1110,8 +1131,7 @@ GoodJunkVR — FULL HTML (HUD+Quest+End+Boss+Aim compat)
       }
       if (btnExit) btnExit.addEventListener('click', ()=>{
         closeSummary();
-        const start = document.getElementById('start-overlay');
-        if (start) start.style.display = 'flex';
+        showStartOverlay(); // ✅ รีเซ็ต startedOnce ด้วย
       });
 
       if (btnReplay) btnReplay.addEventListener('click', ()=>{
@@ -1120,12 +1140,10 @@ GoodJunkVR — FULL HTML (HUD+Quest+End+Boss+Aim compat)
       });
 
       // hide start overlay when game actually starts (best-effort: first score event)
-      let startedOnce = false;
       window.addEventListener('hha:score', ()=>{
         if (startedOnce) return;
         startedOnce = true;
-        const start = document.getElementById('start-overlay');
-        if (start) start.style.display = 'none';
+        hideStartOverlay();
       });
 
     })();
