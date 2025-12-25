@@ -1,12 +1,10 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR — PRODUCTION++ (Debug Pill + Better Summary + Research Strict)
-// ✅ FIX: crash guard (undefined rec) in expireTargets + other loops
-// ✅ FIX: split counters (platesMade vs goalsDone)
-// ✅ Default round time by diff: easy 90 / normal 75 / hard 60 (if ?time missing)
-// ✅ Hard tuned for 60s "ผ่านได้บ้าง"
-// ✅ NEW: Debug Pill (seed/targets/boss/power timers/state)
-// ✅ NEW: End summary shows platesMade + Goal1/Goal2 pass/fail
-// ✅ NEW: Research mode strict (no jitter, fixed burst, fixed boss schedule, fixed durations)
+// Plate VR — PRODUCTION+++
+// ✅ Debug Pill: click toggle min/full, long-press opens Debug Panel
+// ✅ Debug Panel: targets list + last events ring buffer
+// ✅ Research strict Tick-Lock: fixed timestep (33.333ms) makes schedule stable across FPS
+// ✅ Boss HUD: HP/Phase/Next atk countdown (auto-create if HTML missing)
+// ✅ Crash guards + split counters platesMade vs goalsDone + better end summary
 
 'use strict';
 
@@ -68,7 +66,6 @@ const MODE = String(Q.get('run') || 'play').toLowerCase();      // play | resear
 const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal | hard
 const DEBUG = (Q.get('debug') === '1') || (Q.get('debug') === 'true');
 
-// ✅ Default time per diff
 const DEFAULT_TIME_BY_DIFF = { easy: 90, normal: 75, hard: 60 };
 const TOTAL_TIME = Math.max(
   20,
@@ -91,10 +88,25 @@ const STRICT_RESEARCH = (MODE === 'research');
 const R = STRICT_RESEARCH ? srnd : Math.random;
 
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const now = ()=>performance.now();
-const fmt = (n)=>String(Math.max(0, Math.floor(n)));
+function fmt(n){ return String(Math.max(0, Math.floor(n))); }
 function rnd(a,b){ return a + R()*(b-a); }
 function randFrom(arr){ return arr[(R()*arr.length)|0]; }
+
+// ---------- Timing core (Tick-Lock for research) ----------
+const STEP_MS = 33.3333333333; // 30 Hz simulation in research strict
+
+const Time = {
+  // perfNow: real clock
+  perfNow(){ return performance.now(); },
+
+  // simNow: research uses S.simMs; play uses perf
+  nowMs(){
+    return STRICT_RESEARCH ? (S.simMs|0) : performance.now();
+  },
+  nowSec(){
+    return Time.nowMs()/1000;
+  }
+};
 
 // ---------- Modules ----------
 const Particles =
@@ -142,7 +154,7 @@ const HUD = {
   rG5: $('rG5'),
   rGTotal: $('rGTotal'),
 
-  // NEW optional ids (ถ้า HTML ไม่มี ก็จะสร้างให้ใน result overlay)
+  // optional ids (if present in HTML)
   rPlates: $('rPlates'),
   rGoal1: $('rGoal1'),
   rGoal2: $('rGoal2'),
@@ -183,7 +195,13 @@ const LIVES_START = (Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0) ? LIVES_PA
 
 const S = {
   running:false, paused:false,
-  tStart:0, timeLeft:TOTAL_TIME,
+
+  // timing
+  simMs: 0,          // research sim time (ms)
+  realLast: 0,       // last perf time for accumulator
+  acc: 0,            // accumulator ms
+
+  timeLeft:TOTAL_TIME,
   score:0, combo:0, maxCombo:0,
   miss:0, perfectCount:0,
   fever:0, feverOn:false,
@@ -191,8 +209,8 @@ const S = {
   shield:0, shieldMax:1,
   lives:LIVES_START, livesMax:Math.max(1,LIVES_START),
 
-  platesMade:0,     // ✅ number of completed balanced plates
-  goalsDone:0,      // ✅ number of goals cleared (0..2)
+  platesMade:0,
+  goalsDone:0,
 
   goalsTotal:2,
   minisCleared:0, minisTotal:7,
@@ -211,6 +229,9 @@ const S = {
 
   lowTimeLastSec:null,
 
+  // debug ring
+  _ev: [],
+
   sessionId:`PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`
 };
 
@@ -222,6 +243,14 @@ function vibe(ms){ try { navigator.vibrate && navigator.vibrate(ms); } catch(_){
 
 function dispatchEvt(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
+}
+
+// last-events ring buffer
+function pushEv(item){
+  try{
+    S._ev.push(item);
+    if(S._ev.length>14) S._ev.splice(0, S._ev.length-14);
+  }catch(_){}
 }
 
 function safeFxText(t){
@@ -254,11 +283,13 @@ function flash(kind='bad', ms=110){
   setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch(_){} }, ms|0);
 }
 
-// ---------- Debug Pill (NEW) ----------
+// ---------- Debug Pill + Panel ----------
 let debugPill = null;
-function ensureDebugPill(){
-  if(!doc) return;
-  if(debugPill) return;
+let debugPanel = null;
+let _dbgLast = 0;
+let _dbgPressTimer = 0;
+
+function injectDebugCss(){
   const st = doc.createElement('style');
   st.textContent = `
     .hha-debug-pill{
@@ -274,6 +305,7 @@ function ensureDebugPill(){
       display:flex; align-items:center; gap:10px;
       max-width:calc(100vw - 20px);
       overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+      user-select:none;
     }
     .hha-debug-pill b{ color:#fff; }
     .hha-debug-pill .sep{ opacity:.35; }
@@ -291,57 +323,327 @@ function ensureDebugPill(){
       background:rgba(248,113,113,.95);
       box-shadow:0 0 0 6px rgba(248,113,113,.10);
     }
+
+    .hha-debug-panel{
+      position:fixed; inset:10px; z-index:10000;
+      border-radius:18px;
+      background:rgba(2,6,23,.90);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow:0 30px 120px rgba(0,0,0,.62);
+      backdrop-filter: blur(12px);
+      color:rgba(229,231,235,.96);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      font-weight:900;
+      display:none;
+      overflow:hidden;
+    }
+    .hha-debug-panel .hdr{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 14px;
+      border-bottom:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.35);
+    }
+    .hha-debug-panel .hdr .t{
+      font-size:14px;
+      letter-spacing:.2px;
+    }
+    .hha-debug-panel .btn{
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.55);
+      color:#e5e7eb;
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:1000;
+    }
+    .hha-debug-panel .body{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      padding:12px;
+      height:calc(100% - 54px);
+      overflow:auto;
+    }
+    .hha-debug-card{
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
+      border-radius:16px;
+      padding:10px 12px;
+      overflow:auto;
+      min-height:140px;
+    }
+    .hha-debug-card .cap{
+      font-size:12px;
+      opacity:.9;
+      margin-bottom:8px;
+    }
+    .hha-debug-list{
+      font-size:12px;
+      line-height:1.25;
+      opacity:.95;
+      white-space:pre;
+    }
+    @media (max-width: 860px){
+      .hha-debug-panel .body{ grid-template-columns:1fr; }
+    }
   `;
   doc.head.appendChild(st);
+}
+
+function ensureDebugPill(){
+  if(!doc) return;
+  if(debugPill) return;
+  injectDebugCss();
 
   debugPill = doc.createElement('div');
   debugPill.className = 'hha-debug-pill';
   debugPill.innerHTML = `<span class="dot"></span><span id="hhaDebugText"></span>`;
+  doc.body && doc.body.appendChild(debugPill);
+
+  // click: toggle min/full
   debugPill.addEventListener('click', ()=>{
-    // toggle hide/show details quickly
     debugPill.dataset.min = (debugPill.dataset.min==='1') ? '0' : '1';
   });
-  doc.body && doc.body.appendChild(debugPill);
+
+  // long press: open panel
+  const startPress = ()=>{
+    clearTimeout(_dbgPressTimer);
+    _dbgPressTimer = setTimeout(()=>openDebugPanel(), 450);
+  };
+  const endPress = ()=>{
+    clearTimeout(_dbgPressTimer);
+  };
+  debugPill.addEventListener('pointerdown', startPress, {passive:true});
+  debugPill.addEventListener('pointerup', endPress, {passive:true});
+  debugPill.addEventListener('pointercancel', endPress, {passive:true});
+  debugPill.addEventListener('touchstart', startPress, {passive:true});
+  debugPill.addEventListener('touchend', endPress, {passive:true});
 }
-function secLeft(ts){ return Math.max(0, (ts - now())/1000); }
-function fmtS(n){ return (Math.max(0,n)).toFixed(1); }
-let _dbgLast = 0;
-function tickDebugPill(){
+
+function ensureDebugPanel(){
+  if(!doc) return;
+  if(debugPanel) return;
+
+  debugPanel = doc.createElement('div');
+  debugPanel.className = 'hha-debug-panel';
+  debugPanel.innerHTML = `
+    <div class="hdr">
+      <div class="t">🧪 PlateVR Debug Panel</div>
+      <div style="display:flex; gap:8px; align-items:center">
+        <button class="btn" id="hhaDbgCopy">📋 Copy</button>
+        <button class="btn" id="hhaDbgClose">✖ Close</button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="hha-debug-card">
+        <div class="cap">State</div>
+        <div class="hha-debug-list" id="hhaDbgState"></div>
+      </div>
+      <div class="hha-debug-card">
+        <div class="cap">Targets</div>
+        <div class="hha-debug-list" id="hhaDbgTargets"></div>
+      </div>
+      <div class="hha-debug-card">
+        <div class="cap">Last events</div>
+        <div class="hha-debug-list" id="hhaDbgEvents"></div>
+      </div>
+      <div class="hha-debug-card">
+        <div class="cap">Boss</div>
+        <div class="hha-debug-list" id="hhaDbgBoss"></div>
+      </div>
+    </div>
+  `;
+  doc.body && doc.body.appendChild(debugPanel);
+
+  const close = ()=>{ debugPanel.style.display='none'; };
+  const copy = async ()=>{
+    try{
+      const txt = buildDebugDump();
+      await navigator.clipboard.writeText(txt);
+      fxJudge('COPIED');
+    }catch(_){
+      fxJudge('COPY FAIL');
+    }
+  };
+
+  $('hhaDbgClose') && $('hhaDbgClose').addEventListener('click', close);
+  $('hhaDbgCopy') && $('hhaDbgCopy').addEventListener('click', copy);
+
+  debugPanel.addEventListener('click', (e)=>{
+    if(e.target === debugPanel) close();
+  });
+}
+
+function openDebugPanel(){
   if(!DEBUG) return;
-  if(!debugPill) ensureDebugPill();
-  const t = now();
-  if(t - _dbgLast < 180) return;
-  _dbgLast = t;
+  ensureDebugPanel();
+  debugPanel.style.display = 'block';
+  renderDebugPanel();
+}
+
+function buildDebugDump(){
+  const t = Time.nowMs();
+  const boss = S.targets.find(r=>r && !r.dead && r.kind==='boss');
+
+  const lines = [];
+  lines.push(`PlateVR Debug Dump`);
+  lines.push(`mode=${MODE} diff=${DIFF} strict=${STRICT_RESEARCH} seed=${SEED}`);
+  lines.push(`tMs=${Math.floor(t)} timeLeft=${S.timeLeft.toFixed(2)} running=${S.running} paused=${S.paused}`);
+  lines.push(`score=${S.score} combo=${S.combo} maxCombo=${S.maxCombo} miss=${S.miss} perfect=${S.perfectCount}`);
+  lines.push(`fever=${Math.round(S.fever)}% feverOn=${S.feverOn} shield=${S.shield} lives=${S.lives}/${S.livesMax}`);
+  lines.push(`platesMade=${S.platesMade} goalsDone=${S.goalsDone}/2 minis=${S.minisCleared}/7`);
+  lines.push(`power slow=${secLeft(S.slowUntil).toFixed(1)}s nojunk=${secLeft(S.noJunkUntil).toFixed(1)}s storm=${secLeft(S.stormUntil).toFixed(1)}s`);
+  lines.push(`targets=${S.targets.length}/${D.maxTargets} nextSpawnIn=${Math.max(0,(S.nextSpawnAt-t)/1000).toFixed(2)}s`);
+  if(boss){
+    lines.push(`boss hp=${boss.hp}/${boss.hpMax} phase=${bossPhaseFor(boss)} nextAtkIn=${Math.max(0,(boss.atkAt-t)/1000).toFixed(2)}s`);
+  }else{
+    lines.push(`boss —`);
+  }
+  lines.push(`\nTargets:`);
+  for(const r of S.targets){
+    if(!r || r.dead) continue;
+    lines.push(`- ${r.kind}${r.kind==='good' || r.kind==='fake' ? ` g${r.group}`:''} x=${Math.round(r.cx)} y=${Math.round(r.cy)} dieIn=${Math.max(0,(r.dieAt-t)/1000).toFixed(2)}s ${r.kind==='boss'?`hp=${r.hp}/${r.hpMax}`:''}`);
+  }
+  lines.push(`\nEvents:`);
+  for(const e of S._ev){
+    lines.push(`- t=${e.t}s ${e.type} ${e.msg||''}`);
+  }
+  return lines.join('\n');
+}
+
+function renderDebugPanel(){
+  if(!debugPanel || debugPanel.style.display!=='block') return;
+  const t = Time.nowMs();
 
   const boss = S.targets.find(r=>r && !r.dead && r.kind==='boss');
-  const bossHp = boss ? `${boss.hp}/${boss.hpMax}` : '—';
-  const pSlow = fmtS(secLeft(S.slowUntil));
-  const pNoJ  = fmtS(secLeft(S.noJunkUntil));
-  const pSto  = fmtS(secLeft(S.stormUntil));
+  const st =
+`mode=${MODE} diff=${DIFF} strict=${STRICT_RESEARCH} seed=${SEED}
+t=${(t/1000).toFixed(2)}s  timeLeft=${S.timeLeft.toFixed(2)}s
+running=${S.running} paused=${S.paused}
 
-  const textEl = $('hhaDebugText');
-  if(!textEl) return;
+score=${S.score}
+combo=${S.combo}  maxCombo=${S.maxCombo}
+miss=${S.miss}   perfect=${S.perfectCount}
 
-  const min = (debugPill.dataset.min==='1');
+fever=${Math.round(S.fever)}% (on=${S.feverOn})
+shield=${S.shield} lives=${S.lives}/${S.livesMax}
 
-  debugPill.classList.toggle('paused', !!S.paused && S.running);
-  debugPill.classList.toggle('stopped', !S.running);
+platesMade=${S.platesMade}
+goalsDone=${S.goalsDone}/2
+minis=${S.minisCleared}/7
 
-  if(min){
-    textEl.textContent =
-      `${MODE}/${DIFF} | seed:${SEED} | T:${S.targets.length} | B:${boss?bossHp:'—'}`;
+power slow=${secLeft(S.slowUntil).toFixed(1)}s
+power nojunk=${secLeft(S.noJunkUntil).toFixed(1)}s
+power storm=${secLeft(S.stormUntil).toFixed(1)}s
+targets=${S.targets.length}/${D.maxTargets}
+nextSpawnIn=${Math.max(0,(S.nextSpawnAt-t)/1000).toFixed(2)}s
+`;
+
+  const tar = [];
+  for(const r of S.targets){
+    if(!r || r.dead) continue;
+    const dieIn = Math.max(0,(r.dieAt-t)/1000).toFixed(2);
+    if(r.kind==='boss'){
+      tar.push(`boss hp=${r.hp}/${r.hpMax} phase=${bossPhaseFor(r)} atkIn=${Math.max(0,(r.atkAt-t)/1000).toFixed(2)}s dieIn=${dieIn}s`);
+    }else{
+      tar.push(`${r.kind}${(r.kind==='good'||r.kind==='fake')?` g${r.group}`:''} dieIn=${dieIn}s x=${Math.round(r.cx)} y=${Math.round(r.cy)}`);
+    }
+  }
+  const ev = [];
+  for(const e of S._ev){
+    ev.push(`t=${e.t}s ${e.type}${e.msg?` • ${e.msg}`:''}`);
+  }
+  const bossTxt = boss
+    ? `hp=${boss.hp}/${boss.hpMax}\nphase=${bossPhaseFor(boss)}\nnextAtkIn=${Math.max(0,(boss.atkAt-t)/1000).toFixed(2)}s\nwarned=${!!boss._warned}`
+    : '—';
+
+  const a = $('hhaDbgState'); if(a) a.textContent = st;
+  const b = $('hhaDbgTargets'); if(b) b.textContent = (tar.length?tar.join('\n'):'(none)');
+  const c = $('hhaDbgEvents'); if(c) c.textContent = (ev.length?ev.join('\n'):'(none)');
+  const d = $('hhaDbgBoss'); if(d) d.textContent = bossTxt;
+}
+
+// ---------- Boss HUD (auto create) ----------
+let bossHud = null;
+function ensureBossHud(){
+  if(!doc) return;
+  if(bossHud) return;
+
+  const st = doc.createElement('style');
+  st.textContent = `
+    .hha-boss-hud{
+      position:fixed; left:10px; top:10px; z-index:9998;
+      background:rgba(2,6,23,.58);
+      border:1px solid rgba(248,113,113,.25);
+      color:rgba(229,231,235,.95);
+      border-radius:14px;
+      padding:8px 10px;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      font-weight:1000;
+      font-size:12px;
+      backdrop-filter: blur(10px);
+      box-shadow:0 18px 50px rgba(0,0,0,.42);
+      display:none;
+      min-width: 172px;
+    }
+    .hha-boss-hud .row{ display:flex; justify-content:space-between; gap:10px; }
+    .hha-boss-hud .k{ opacity:.85; font-weight:1000; }
+    .hha-boss-hud .v{ color:#fff; }
+    .hha-boss-hud .bar{
+      margin-top:7px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.14);
+      border:1px solid rgba(148,163,184,.18);
+      overflow:hidden;
+    }
+    .hha-boss-hud .bar > div{
+      height:100%;
+      width:100%;
+      transform-origin:left;
+      transform:scaleX(1);
+      background:rgba(248,113,113,.88);
+      transition:transform .08s linear;
+    }
+  `;
+  doc.head.appendChild(st);
+
+  bossHud = doc.createElement('div');
+  bossHud.className = 'hha-boss-hud';
+  bossHud.innerHTML = `
+    <div class="row"><span class="k">👿 BOSS</span><span class="v" id="hhaBossHp">—</span></div>
+    <div class="row" style="margin-top:2px"><span class="k">Phase</span><span class="v" id="hhaBossPh">—</span></div>
+    <div class="row" style="margin-top:2px"><span class="k">Next atk</span><span class="v" id="hhaBossAtk">—</span></div>
+    <div class="bar"><div id="hhaBossBar"></div></div>
+  `;
+  doc.body && doc.body.appendChild(bossHud);
+}
+function tickBossHud(){
+  if(!bossHud) ensureBossHud();
+  const t = Time.nowMs();
+  const boss = S.targets.find(r=>r && !r.dead && r.kind==='boss');
+
+  if(!boss){
+    bossHud.style.display='none';
     return;
   }
+  bossHud.style.display='block';
 
-  textEl.textContent =
-    `${MODE}/${DIFF} ` +
-    `| seed:${SEED} ` +
-    `| tl:${Math.floor(S.timeLeft)}s ` +
-    `| T:${S.targets.length}/${D.maxTargets} ` +
-    `| boss:${boss?bossHp:'—'} ` +
-    `| pow S:${pSlow}s N:${pNoJ}s St:${pSto}s ` +
-    `| plates:${S.platesMade} goals:${S.goalsDone}/2 minis:${S.minisCleared}/7 ` +
-    `| fever:${Math.round(S.fever)}% sh:${S.shield} life:${S.lives}`;
+  const hpEl = $('hhaBossHp');
+  const phEl = $('hhaBossPh');
+  const atkEl = $('hhaBossAtk');
+  const barEl = $('hhaBossBar');
+
+  const ph = bossPhaseFor(boss);
+  const atkIn = Math.max(0,(boss.atkAt - t)/1000);
+
+  hpEl && (hpEl.textContent = `${boss.hp}/${boss.hpMax}`);
+  phEl && (phEl.textContent = String(ph));
+  atkEl && (atkEl.textContent = `${atkIn.toFixed(1)}s`);
+
+  if(barEl){
+    const ratio = boss.hpMax ? clamp(boss.hp/boss.hpMax,0,1) : 0;
+    barEl.style.transform = `scaleX(${ratio})`;
+  }
 }
 
 // ---------- DOM target layer + CSS ----------
@@ -447,10 +749,12 @@ function logSession(phase){
   });
 }
 function logEvent(type, data){
+  const t = Math.round(Time.nowMs());
+  pushEv({ t: (t/1000).toFixed(2), type, msg: data && data.kind ? `${data.kind}` : '' });
+
   dispatchEvt('hha:log_event',{
     sessionId:S.sessionId, game:'PlateVR', type,
-    t: Math.round((now() - S.tStart) || 0),
-    score:S.score, combo:S.combo, miss:S.miss, perfect:S.perfectCount,
+    t, score:S.score, combo:S.combo, miss:S.miss, perfect:S.perfectCount,
     fever:Math.round(S.fever), shield:S.shield, lives:S.lives,
     platesMade:S.platesMade, goalsDone:S.goalsDone, minisCleared:S.minisCleared,
     data:data||{}
@@ -532,7 +836,6 @@ const FOOD_BY_GROUP={
 const JUNK=['🍩','🍟','🍔','🍕','🧋','🍭','🍫','🥤'];
 const TRAPS=['🎁','⭐','🍬','🍰','🧁'];
 
-function isBadKind(kind){ return (kind==='junk'||kind==='trap'||kind==='fakebad'); }
 function isPowerKind(kind){ return (kind==='slow'||kind==='nojunk'||kind==='storm'); }
 
 // ---------- Score/Fever/Grade ----------
@@ -654,7 +957,7 @@ function startMini(){
   const idx=S.minisCleared % MINIS.length;
   const m=MINIS[idx];
   S.activeMini=m;
-  S.miniEndsAt=now()+m.dur;
+  S.miniEndsAt=Time.nowMs()+m.dur;
   S.miniUrgentArmed=false;
   S.miniTickAt=0;
   if(typeof m.init==='function') m.init();
@@ -664,7 +967,7 @@ function startMini(){
 function updateMiniHud(){
   const m=S.activeMini;
   if(!m){ setTxt(HUD.miniLine,'MINI: …'); setTxt(HUD.miniHint,'…'); return; }
-  const left=Math.max(0,(S.miniEndsAt-now())/1000);
+  const left=Math.max(0,(S.miniEndsAt-Time.nowMs())/1000);
   const prog=(typeof m.progress==='function') ? m.progress() : '';
   const p = prog ? ` • ${prog}` : '';
   setTxt(HUD.miniLine, `MINI: ${m.title}${p} • ${left.toFixed(1)}s`);
@@ -674,7 +977,7 @@ function tickMini(){
   const m=S.activeMini; if(!m) return;
   if(typeof m.tick==='function') m.tick();
 
-  const leftMs=S.miniEndsAt-now();
+  const leftMs=S.miniEndsAt-Time.nowMs();
   const urgent=(leftMs<=3000 && leftMs>0);
 
   if(urgent && !S.miniUrgentArmed){
@@ -782,6 +1085,7 @@ function bossAttackStyleForPhase(phase){
   if(phase===2) return 'laser';
   return 'ring';
 }
+function midMs(pair){ return Math.round((pair[0]+pair[1])*0.5); }
 
 function makeTarget(kind, group, opts={}){
   const sizePx=computeSizePx(kind);
@@ -823,13 +1127,13 @@ function makeTarget(kind, group, opts={}){
     ${tag ? `<div class="tag">${tag}</div>` : ``}
   `;
 
-  const bornAt=now();
+  const bornAt=Time.nowMs();
   let life=D.life;
   if(kind==='boss') life=clamp(D.life*1.8,3400,7800);
   if(kind==='gold') life=D.life*0.92;
   if(kind==='trap'||kind==='fake') life=D.life*0.95;
   if(isPowerKind(kind)) life=clamp(D.life*0.95,1700,3200);
-  if(now()<S.slowUntil) life*=1.12;
+  if(Time.nowMs()<S.slowUntil) life*=1.12;
 
   const rec={
     el, kind, group,
@@ -837,7 +1141,9 @@ function makeTarget(kind, group, opts={}){
     cx:pos.x, cy:pos.y, size:sizePx,
     hp, hpMax:hp, dead:false,
     meta,
-    atkAt:(kind==='boss') ? (bornAt + (STRICT_RESEARCH ? Math.round((D.bossAtkMs[0]+D.bossAtkMs[1])*0.5) : rnd(D.bossAtkMs[0], D.bossAtkMs[1]))) : 0,
+    atkAt:(kind==='boss')
+      ? (bornAt + (STRICT_RESEARCH ? midMs(D.bossAtkMs) : rnd(D.bossAtkMs[0], D.bossAtkMs[1])))
+      : 0,
     _warned:false,
   };
 
@@ -874,16 +1180,11 @@ function bossHpSync(rec){
   bar.style.transform = `scaleX(${ratio})`;
 }
 
-// ✅ FIX: undefined rec guard
 function expireTargets(){
-  const t=now();
+  const t=Time.nowMs();
   for(let i=S.targets.length-1;i>=0;i--){
     const rec=S.targets[i];
-
-    if(!rec){
-      S.targets.splice(i,1);
-      continue;
-    }
+    if(!rec){ S.targets.splice(i,1); continue; }
     if(rec.dead) continue;
 
     if(t>=rec.dieAt){
@@ -915,7 +1216,7 @@ function onMiss(reason, extra={}){
   S.combo=0; setTxt(HUD.combo,0);
   S.miss++; setTxt(HUD.miss,S.miss);
 
-  const t=now();
+  const t=Time.nowMs();
   const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
   if(!protectedNoJunk) setLives(S.lives-1);
 
@@ -927,8 +1228,8 @@ function punishBad(reason){
   if(shieldBlock(reason)){ addScore(-60); addFever(-6); return; }
   S.combo=0; setTxt(HUD.combo,0);
   addFever(reason==='boss'?-22:-16);
-  addScore((now()<S.noJunkUntil)?-120:(reason==='trap'?-240:-180));
-  fxJudge((now()<S.noJunkUntil)?'BAD(SAFE)':'BAD');
+  addScore((Time.nowMs()<S.noJunkUntil)?-120:(reason==='trap'?-240:-180));
+  fxJudge((Time.nowMs()<S.noJunkUntil)?'BAD(SAFE)':'BAD');
   flash(reason==='boss'?'boss':'bad', 120);
   AudioX.bad(); vibe(reason==='boss'?75:45);
   onMiss(reason,{});
@@ -970,21 +1271,22 @@ function bossAttackPunish(tag, forceHit=false){
 }
 
 // ---------- Powerups ----------
-function midMs(pair){ return Math.round((pair[0]+pair[1])*0.5); }
+function secLeft(ts){ return Math.max(0, (ts - Time.nowMs())/1000); }
+
 function activateSlow(ms){
-  S.slowUntil=Math.max(S.slowUntil, now()+ms);
+  S.slowUntil=Math.max(S.slowUntil, Time.nowMs()+ms);
   AudioX.power(); vibe(25); fxCelebrate('SLOW!', 1.0);
   logEvent('power_slow',{until:S.slowUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateNoJunk(ms){
-  S.noJunkUntil=Math.max(S.noJunkUntil, now()+ms);
+  S.noJunkUntil=Math.max(S.noJunkUntil, Time.nowMs()+ms);
   AudioX.power(); vibe(25); fxCelebrate('NO-JUNK!', 1.0);
   logEvent('power_nojunk',{until:S.noJunkUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateStorm(ms){
-  S.stormUntil=Math.max(S.stormUntil, now()+ms);
+  S.stormUntil=Math.max(S.stormUntil, Time.nowMs()+ms);
   AudioX.power(); vibe(30); fxCelebrate('STORM!', 1.05);
   logEvent('power_storm',{until:S.stormUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
@@ -1095,7 +1397,7 @@ function hitTarget(rec, direct){
   const mult=S.feverOn?1.35:1.0;
   const base=(rec.kind==='gold')?520:240;
   const bonus=(judge==='PERFECT')?220:0;
-  const stormBonus=(now()<S.stormUntil)?60:0;
+  const stormBonus=(Time.nowMs()<S.stormUntil)?60:0;
   const delta=Math.round((base+bonus+stormBonus)*mult);
 
   addScore(delta);
@@ -1140,7 +1442,7 @@ function hitTarget(rec, direct){
 // ---------- Decide kind/group ----------
 function decideGroup(){ return 1 + ((R()*5)|0); }
 function decideKind(){
-  const t=now();
+  const t=Time.nowMs();
   const noJunk=(t<S.noJunkUntil);
   const storm=(t<S.stormUntil);
   const fever=S.feverOn;
@@ -1181,10 +1483,9 @@ function decideKind(){
 // ---------- Boss spawn + attacks ----------
 function spawnBossIfReady(){
   if(S.bossActive) return;
-  const t=now();
+  const t=Time.nowMs();
 
   if(!S.bossNextAt){
-    // STRICT: fixed schedule
     S.bossNextAt = t + (STRICT_RESEARCH ? 11000 : rnd(9000,15000));
   }
   if(t < S.bossNextAt) return;
@@ -1206,7 +1507,7 @@ function spawnBossIfReady(){
 }
 
 function tickBossAttack(){
-  const t=now();
+  const t=Time.nowMs();
   for(const rec of S.targets){
     if(!rec || rec.dead || rec.kind!=='boss') continue;
 
@@ -1233,7 +1534,6 @@ function tickBossAttack(){
       const nextAtk = STRICT_RESEARCH ? Math.round((baseMin+baseMax)*0.5) : rnd(baseMin,baseMax);
       rec.atkAt = t + nextAtk;
 
-      // STRICT: no extra chain randomness
       if(!STRICT_RESEARCH && ph===3 && R()<0.22){
         rec.atkAt = t + rnd(900,1400);
         fxJudge('CHAIN!');
@@ -1244,7 +1544,7 @@ function tickBossAttack(){
 
 // ---------- Spawn tick ----------
 function spawnTick(){
-  const t=now();
+  const t=Time.nowMs();
   if(t < S.nextSpawnAt) return;
 
   const cap = D.maxTargets || 12;
@@ -1264,7 +1564,6 @@ function spawnTick(){
   if(slowOn) interval*=1.22;
   if(t < S.noJunkUntil) interval*=0.92;
 
-  // ✅ Research strict: fixed burst, no jitter
   let burst = 1;
   if(!STRICT_RESEARCH){
     if(stormOn) burst = (R()<0.65)?3:2;
@@ -1288,7 +1587,7 @@ function spawnTick(){
 // ---------- Tap-anywhere shooting ----------
 function isUIElement(target){
   if(!target) return false;
-  return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop')));
+  return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop') || target.closest('.hha-debug-panel')));
 }
 function airShot(){
   S.combo=0; setTxt(HUD.combo,0);
@@ -1330,7 +1629,13 @@ function restart(){
   for(const rec of [...S.targets]) removeTarget(rec);
 
   S.running=false; S.paused=false;
-  S.tStart=0; S.timeLeft=TOTAL_TIME;
+
+  // timing reset
+  S.simMs=0;
+  S.realLast=Time.perfNow();
+  S.acc=0;
+
+  S.timeLeft=TOTAL_TIME;
   S.score=0; S.combo=0; S.maxCombo=0; S.miss=0; S.perfectCount=0;
   S.fever=0; S.feverOn=false;
   setShield(0); setLives(S.livesMax);
@@ -1341,7 +1646,7 @@ function restart(){
   S.groupCounts=[0,0,0,0,0];
 
   S.bossActive=false;
-  S.bossNextAt = now() + (STRICT_RESEARCH ? 11000 : rnd(8000,14000));
+  S.bossNextAt = Time.nowMs() + (STRICT_RESEARCH ? 11000 : rnd(8000,14000));
 
   S.stormUntil=0; S.slowUntil=0; S.noJunkUntil=0;
   S.lowTimeLastSec=null;
@@ -1361,7 +1666,6 @@ function restart(){
 function ensureResultExtras(){
   if(!doc || !HUD.resultBackdrop) return;
 
-  // try find a container inside result overlay to append
   let host =
     HUD.resultBackdrop.querySelector('.result-card') ||
     HUD.resultBackdrop.querySelector('.card') ||
@@ -1400,8 +1704,6 @@ function endGame(isGameOver){
   const g1Pass = (S.platesMade >= 2);
   const g2Pass = (S.perfectCount >= 6);
   const goalsDone = (g1Pass?1:0) + (g2Pass?1:0);
-
-  // keep internal goalsDone consistent (use computed truth at end)
   S.goalsDone = goalsDone;
 
   setTxt(HUD.rMode, MODE==='research'?'Research':'Play');
@@ -1421,12 +1723,10 @@ function endGame(isGameOver){
   setTxt(HUD.rG5, S.groupCounts[4]);
   setTxt(HUD.rGTotal, S.groupCounts.reduce((a,b)=>a+b,0));
 
-  // NEW: platesMade + pass/fail status (if elements exist)
   if(HUD.rPlates) setTxt(HUD.rPlates, String(S.platesMade));
   if(HUD.rGoal1) setTxt(HUD.rGoal1, g1Pass ? '✓ ผ่าน' : '✗ ไม่ผ่าน');
   if(HUD.rGoal2) setTxt(HUD.rGoal2, g2Pass ? '✓ ผ่าน' : '✗ ไม่ผ่าน');
 
-  // If HTML doesn't have those ids, inject extras block
   const extra = ensureResultExtras();
   if(extra){
     extra.innerHTML = `
@@ -1437,7 +1737,7 @@ function endGame(isGameOver){
         <div style="opacity:.35">•</div>
         <div><b>Goal 2</b> (Perfect 6): <span style="color:${g2Pass?'rgba(34,197,94,.95)':'rgba(248,113,113,.95)'}">${g2Pass?'✓ ผ่าน':'✗ ไม่ผ่าน'}</span></div>
         <div style="opacity:.35">•</div>
-        <div><b>Seed:</b> ${SEED} ${STRICT_RESEARCH?'<span style="opacity:.8">(strict)</span>':''}</div>
+        <div><b>Seed:</b> ${SEED} ${STRICT_RESEARCH?'<span style="opacity:.8">(tick-lock)</span>':''}</div>
       </div>
     `;
   }
@@ -1448,28 +1748,73 @@ function endGame(isGameOver){
   logSession(isGameOver?'gameover':'end');
 }
 
-// ---------- Main loop ----------
+// ---------- Debug pill tick ----------
+function tickDebugPill(){
+  if(!DEBUG) return;
+  if(!debugPill) ensureDebugPill();
+
+  const t = Time.nowMs();
+  if(t - _dbgLast < 180) return;
+  _dbgLast = t;
+
+  const boss = S.targets.find(r=>r && !r.dead && r.kind==='boss');
+  const bossHp = boss ? `${boss.hp}/${boss.hpMax}` : '—';
+
+  const textEl = $('hhaDebugText');
+  if(!textEl) return;
+
+  const min = (debugPill.dataset.min==='1');
+
+  debugPill.classList.toggle('paused', !!S.paused && S.running);
+  debugPill.classList.toggle('stopped', !S.running);
+
+  if(min){
+    textEl.textContent =
+      `${MODE}/${DIFF} | seed:${SEED} | T:${S.targets.length} | B:${boss?bossHp:'—'}`;
+  }else{
+    textEl.textContent =
+      `${MODE}/${DIFF} | seed:${SEED} | tl:${Math.floor(S.timeLeft)}s ` +
+      `| T:${S.targets.length}/${D.maxTargets} | boss:${boss?bossHp:'—'} ` +
+      `| pow S:${secLeft(S.slowUntil).toFixed(1)} N:${secLeft(S.noJunkUntil).toFixed(1)} St:${secLeft(S.stormUntil).toFixed(1)} ` +
+      `| plates:${S.platesMade} goals:${S.goalsDone}/2 minis:${S.minisCleared}/7 ` +
+      `| fever:${Math.round(S.fever)}% sh:${S.shield} life:${S.lives}`;
+  }
+
+  // keep panel live
+  if(debugPanel && debugPanel.style.display==='block') renderDebugPanel();
+}
+
+// ---------- Main loop (Play or Tick-Lock Research) ----------
 function start(){
   S.running=true;
-  S.tStart=now();
-  S.nextSpawnAt=now()+350;
 
   setTxt(HUD.mode, MODE==='research'?'Research':'Play');
   setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
   setGoal(S.goalIndex);
 
-  function frame(){
+  // schedule initial spawn
+  S.nextSpawnAt = Time.nowMs() + 350;
+
+  // boss schedule
+  if(!S.bossNextAt){
+    S.bossNextAt = Time.nowMs() + (STRICT_RESEARCH ? 11000 : rnd(8000,14000));
+  }
+
+  // init tick-lock
+  S.realLast = Time.perfNow();
+  S.acc = 0;
+
+  function stepOnce(){
+    // called for each fixed sim tick (or once per frame in play)
     if(!S.running) return;
 
-    applyLayerTransform();
-    updateAimHighlight();
-    tickDebugPill(); // ✅ NEW
-
     if(!S.paused){
-      const elapsed=(now()-S.tStart)/1000;
-      S.timeLeft=Math.max(0, TOTAL_TIME - elapsed);
+      // time
+      const tSec = Time.nowMs()/1000;
+      S.timeLeft = Math.max(0, TOTAL_TIME - tSec);
       setTxt(HUD.time, fmt(S.timeLeft));
 
+      // low time tick
       if(S.timeLeft<=10){
         const sec=Math.ceil(S.timeLeft);
         if(sec!==S.lowTimeLastSec){ S.lowTimeLastSec=sec; AudioX.tick(); }
@@ -1480,14 +1825,55 @@ function start(){
       expireTargets();
       tickMini();
 
+      // fever drain
       addFever(S.feverOn ? -0.22 : -0.10);
 
+      // update goal text
       setGoal(S.goalIndex);
 
+      // end
       if(S.timeLeft<=0) endGame(false);
     }
+  }
+
+  function frame(){
+    if(!S.running) return;
+
+    // per-frame visuals
+    applyLayerTransform();
+    updateAimHighlight();
+    tickBossHud();
+    tickDebugPill();
+
+    if(STRICT_RESEARCH){
+      // fixed timestep simulation
+      const nowReal = Time.perfNow();
+      let dt = nowReal - S.realLast;
+      S.realLast = nowReal;
+
+      // clamp dt to avoid huge catch-up after tab switch
+      dt = clamp(dt, 0, 250);
+      S.acc += dt;
+
+      // run steps
+      const maxSteps = 18; // safety: max 18 steps per frame (~600ms)
+      let steps = 0;
+      while(S.acc >= STEP_MS && steps < maxSteps){
+        if(!S.paused){
+          S.simMs += STEP_MS;
+        }
+        stepOnce();
+        S.acc -= STEP_MS;
+        steps++;
+      }
+    }else{
+      // play mode: uses performance.now timeline
+      stepOnce();
+    }
+
     ROOT.requestAnimationFrame(frame);
   }
+
   ROOT.requestAnimationFrame(frame);
 }
 
@@ -1538,6 +1924,14 @@ function bindUI(){
   setShield(0);
   setLives(S.livesMax);
 
+  // init time domains
+  if(STRICT_RESEARCH){
+    S.simMs = 0;
+  }else{
+    // play uses perf timeline; keep simMs unused
+    S.simMs = 0;
+  }
+
   setTxt(HUD.mode, MODE==='research'?'Research':'Play');
   setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
   setTxt(HUD.have,'0/5');
@@ -1546,7 +1940,8 @@ function bindUI(){
   emitFever();
   updateGrade();
 
-  S.bossNextAt = now() + (STRICT_RESEARCH ? 11000 : rnd(8000,14000));
+  // boss schedule base
+  S.bossNextAt = Time.nowMs() + (STRICT_RESEARCH ? 11000 : rnd(8000,14000));
 
   setGoal(0);
   startMini();
@@ -1554,5 +1949,5 @@ function bindUI(){
   logSession('start');
   start();
 
-  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, strict:STRICT_RESEARCH, D });
+  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, strict:STRICT_RESEARCH, D, STEP_MS });
 })();
