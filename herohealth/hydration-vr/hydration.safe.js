@@ -1,10 +1,16 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION SAFE (Quest+Coach+Audio+UIFX + BOSS WAVE)
-// ✅ play vs research strict
-// ✅ quest director + coach director
-// ✅ urgent tick + fever vignette/shake
-// ✅ BOSS WAVE: last 15s -> must stay/return GREEN; out-of-green drain after grace (fair)
-// ✅ emits: hha:score / quest:update / hha:coach / hha:time / hha:celebrate / hha:end
+// Hydration Quest VR — PRODUCTION SAFE (Boss Ultimate)
+// ✅ Play vs Research policy
+// ✅ Quest + Coach + Audio (safe fallback)
+// ✅ Drag-look world (targets follow view; factory edge-fix supported)
+// ✅ HUD events: hha:score / quest:update / hha:coach / hha:time / hha:celebrate / hha:end
+// ✅ Boss Ultimate (last 15s):
+//    - Phase 1 (15–10): WARNING STORM (เร็วขึ้น + กดดันโซน)
+//    - Phase 2 (10–5): BOSS TARGET (🌀) สุ่มโผล่ + Aim Gate (ต้องยิงใกล้ crosshair ถึงจะนับ)
+//    - Phase 3 (5–0): FINAL RUSH (ถี่สุด + drain ถ้าออก GREEN เกิน grace)
+//    - Clear condition: อยู่ GREEN สะสมให้ครบ -> โบนัส + ฉลอง
+// ✅ Fair Drain: โดนเฉพาะตอนอยู่นอก GREEN ต่อเนื่องเกิน grace เท่านั้น
+
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
@@ -50,16 +56,62 @@ function fatal(msg, err){
       padding:'18px', fontFamily:'system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
     });
     box.innerHTML = `
-      <div style="max-width:680px;border:1px solid rgba(148,163,184,.22);border-radius:22px;padding:16px;background:rgba(15,23,42,.55)">
+      <div style="max-width:720px;border:1px solid rgba(148,163,184,.22);border-radius:22px;padding:16px;background:rgba(15,23,42,.55)">
         <div style="font-weight:900;font-size:18px;margin-bottom:8px">เข้าเกมไม่ได้</div>
         <div id="hhaFatalMsg" style="white-space:pre-wrap;color:rgba(229,231,235,.92);line-height:1.35"></div>
-        <div style="margin-top:10px;color:rgba(148,163,184,.95);font-size:12px">Tip: ตรวจ path ของไฟล์ .js และล้าง cache (Hard reload)</div>
+        <div style="margin-top:10px;color:rgba(148,163,184,.95);font-size:12px">
+          Tip: ตรวจ path ของไฟล์ .js / ล้าง cache (Hard reload) / เช็ก Console error
+        </div>
       </div>
     `;
     doc.body.appendChild(box);
   }
   const m = doc.getElementById('hhaFatalMsg');
   if(m) m.textContent = String(msg || 'Unknown error');
+}
+
+function ensureBossStyle(){
+  if(!doc) return;
+  if(doc.getElementById('hhaBossStyle')) return;
+  const s = doc.createElement('style');
+  s.id = 'hhaBossStyle';
+  s.textContent = `
+    /* ===== Boss overlays injected by hydration.safe.js ===== */
+    #hha-vignette, #hha-warnline{ position:fixed; inset:0; pointer-events:none; z-index:9; opacity:0; transition:opacity .2s ease; }
+    #hha-vignette{ background:
+      radial-gradient(1200px 680px at 50% 50%, rgba(0,0,0,0) 50%, rgba(0,0,0,.80) 100%),
+      radial-gradient(900px 520px at 50% 52%, rgba(239,68,68,0) 45%, rgba(239,68,68,.18) 95%);
+      mix-blend-mode: screen;
+    }
+    #hha-warnline{ background: linear-gradient(180deg, rgba(239,68,68,0), rgba(239,68,68,0) 32%, rgba(239,68,68,.18) 60%, rgba(239,68,68,0)); }
+    body.hha-boss #hha-vignette{ opacity:.42; }
+    body.hha-boss-danger #hha-warnline{ opacity:.75; animation: hhaWarnPulse .42s ease-in-out infinite; }
+    body.hha-boss-peak #hha-vignette{ opacity:.55; }
+    body.hha-boss-peak #hha-warnline{ opacity:.85; animation: hhaWarnPulse .28s ease-in-out infinite; }
+    @keyframes hhaWarnPulse{ 0%{ filter:blur(0px); } 50%{ filter:blur(1px);} 100%{ filter:blur(0px);} }
+
+    /* Boss shake (soft) */
+    body.hha-boss-shake{ animation:hhaBossShake .18s ease-in-out 1; }
+    @keyframes hhaBossShake{
+      0%{ transform:translate3d(0,0,0); }
+      25%{ transform:translate3d(-2px,1px,0); }
+      55%{ transform:translate3d(2px,-1px,0); }
+      100%{ transform:translate3d(0,0,0); }
+    }
+  `;
+  doc.head.appendChild(s);
+
+  // create overlay nodes if missing
+  if(!doc.getElementById('hha-vignette')){
+    const v = doc.createElement('div');
+    v.id = 'hha-vignette';
+    doc.body.appendChild(v);
+  }
+  if(!doc.getElementById('hha-warnline')){
+    const w = doc.createElement('div');
+    w.id = 'hha-warnline';
+    doc.body.appendChild(w);
+  }
 }
 
 function bindHud(){
@@ -131,16 +183,16 @@ function gradeFromScore(score, miss){
   const s = Number(score)||0;
   const m = Number(miss)||0;
   const eff = s - m*8;
-  if (eff >= 520) return 'SSS';
-  if (eff >= 420) return 'SS';
-  if (eff >= 340) return 'S';
-  if (eff >= 260) return 'A';
-  if (eff >= 180) return 'B';
+  if (eff >= 560) return 'SSS';
+  if (eff >= 450) return 'SS';
+  if (eff >= 360) return 'S';
+  if (eff >= 270) return 'A';
+  if (eff >= 190) return 'B';
   return 'C';
 }
 function progressToS(score){
-  const s = clamp(Number(score)||0, 0, 340);
-  return (s / 340) * 100;
+  const s = clamp(Number(score)||0, 0, 360);
+  return (s / 360) * 100;
 }
 
 // ---- view drag ----
@@ -196,9 +248,13 @@ const EMOJI = {
   power:['🛡️','⭐','⚡']
 };
 
+// Boss target emoji
+const BOSS_EMOJI = ['🌀']; // whirlpool boss
+
 export function bootHydration(){
   try{
     if(!doc) return;
+    ensureBossStyle();
     bindHud();
 
     const { diff, run, seed, time, debug } = parseQS();
@@ -221,19 +277,23 @@ export function bootHydration(){
       (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
       ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
 
-    // audio
-    const audio = createHydrationAudio({ volume: isResearch ? 0.12 : 0.22 });
+    // audio (safe)
+    const audio = createHydrationAudio ? createHydrationAudio({ volume: isResearch ? 0.12 : 0.22 }) : {
+      unlock: async()=>{}, tick:()=>{}, good:()=>{}, miss:()=>{}, power:()=>{}, celebrate:()=>{}
+    };
 
-    // unlock audio on first user gesture
+    // unlock audio on first gesture
     const unlockOnce = async ()=>{
-      try{ await audio.unlock(); }catch{}
+      try{ await audio.unlock?.(); }catch{}
       doc.removeEventListener('pointerdown', unlockOnce);
     };
     doc.addEventListener('pointerdown', unlockOnce, { passive:true });
 
-    // quest+coach
-    const quest = createHydrationQuest({ diff, run });
-    const coach = createHydrationCoach({ run });
+    // quest+coach (safe)
+    const quest = createHydrationQuest ? createHydrationQuest({ diff, run }) : { start(){}, tick(){}, onHit(){} };
+    const coach = createHydrationCoach ? createHydrationCoach({ run }) : {
+      say(){}, onTick(){}, onHit(){}, onQuest(){}
+    };
 
     // state
     let stopped=false, ended=false;
@@ -251,42 +311,55 @@ export function bootHydration(){
     };
 
     // ============================
-    // BOSS WAVE (last 15 sec)
+    // BOSS ULTIMATE CONFIG
     // ============================
     const BOSS = {
-      startAtSec: 15,        // เปิดบอสตอนเหลือ 15 วิ
-      graceOutSec: 3,        // ออก GREEN ได้ฟรี 3 วิ ก่อนโดน drain
-      drainPerSec: 6,        // drain คะแนนต่อวิเมื่ออยู่ LOW/HIGH เกิน grace
-      feverPerSec: 0.035,    // เพิ่ม fever ต่อวิเมื่อโดน drain
-      clearNeedGreenSec: (diff==='hard'? 10 : diff==='easy'? 8 : 9), // ต้องอยู่ GREEN สะสมให้ถึงเพื่อ "เคลียร์บอส"
-      clearBonus: (diff==='hard'? 55 : diff==='easy'? 45 : 50)      // โบนัสเคลียร์บอส
+      startAtSec: 15,
+
+      // Fair drain policy
+      graceOutSec: (diff==='hard'? 2 : diff==='easy'? 3 : 3),
+      drainPerSec: (diff==='hard'? 9 : diff==='easy'? 6 : 7),
+      feverPerSec: (diff==='hard'? 0.045 : diff==='easy'? 0.032 : 0.038),
+
+      // Clear condition
+      clearNeedGreenSec: (diff==='hard'? 11 : diff==='easy'? 8 : 10),
+      clearBonus: (diff==='hard'? 75 : diff==='easy'? 55 : 65),
+
+      // Boss target
+      bossSpawnChanceP1: 0.00,  // 15–10
+      bossSpawnChanceP2: (diff==='hard'? 0.42 : diff==='easy'? 0.30 : 0.36), // 10–5
+      bossSpawnChanceP3: (diff==='hard'? 0.55 : diff==='easy'? 0.40 : 0.48), // 5–0
+      bossLifeMulP2: 1.18,
+      bossLifeMulP3: 1.10,
+
+      // Aim gate
+      aimGateNorm: (diff==='hard'? 0.42 : diff==='easy'? 0.52 : 0.47), // ต้องใกล้กึ่งกลางพอถึงจะนับ
+      grazeNorm:   (diff==='hard'? 0.70 : diff==='easy'? 0.78 : 0.74), // ถ้าไกลเกินนี้ถือว่ากดพลาด
+
+      // Boss hit scoring
+      bossHitBase: (diff==='hard'? 32 : diff==='easy'? 26 : 29),
+      bossHitPerfectBonus: (diff==='hard'? 18 : diff==='easy'? 14 : 16),
+      bossGrazePenalty: (diff==='hard'? 16 : diff==='easy'? 12 : 14),
+      bossExpirePenalty: (diff==='hard'? 18 : diff==='easy'? 12 : 15),
+
+      // Phase multipliers (spawnIntervalMul)
+      mulP1: 0.85, // warning storm
+      mulP2: 0.72, // boss target
+      mulP3: 0.60  // final rush
     };
 
     const boss = {
       on:false,
       entered:false,
       cleared:false,
-      outStreak:0,      // อยู่ LOW/HIGH ต่อเนื่องกี่วิ
-      greenHold:0       // อยู่ GREEN สะสมกี่วิในช่วงบอส
+      phase:0,           // 0 none, 1(15-10), 2(10-5), 3(5-0)
+      outStreak:0,       // out GREEN consecutive seconds (boss)
+      greenHold:0,       // in GREEN cumulative (boss)
+      drainTicks:0,      // how many seconds drained
+      bossHits:0,
+      bossMissed:0,
+      bossGrazed:0
     };
-
-    function enterBoss(){
-      if (boss.entered) return;
-      boss.entered = true;
-      boss.on = true;
-      doc.body.classList.add('hha-boss');
-      coach.say?.('🔥 BOSS WAVE! 15 วิท้าย — รักษาโซน GREEN ให้ได้!', 'happy', true);
-      try{ audio.tick(true); }catch{}
-      try{ Particles.celebrate?.('boss'); }catch{}
-    }
-
-    function leaveBoss(){
-      boss.on = false;
-      doc.body.classList.remove('hha-boss');
-      doc.body.classList.remove('hha-boss-danger');
-    }
-
-    const look = attachDragLook();
 
     function setWaterZone(){
       const w = state.water;
@@ -319,6 +392,51 @@ export function bootHydration(){
       setBodyFx();
     }
 
+    function pulseBossShake(){
+      doc.body.classList.remove('hha-boss-shake');
+      void doc.body.offsetWidth;
+      doc.body.classList.add('hha-boss-shake');
+    }
+
+    function enterBoss(){
+      if (boss.entered) return;
+      boss.entered = true;
+      boss.on = true;
+      boss.phase = 1;
+      doc.body.classList.add('hha-boss');
+      coach.say?.('🔥 BOSS WAVE เริ่มแล้ว! 15 วิท้าย — รักษา GREEN ให้ได้!', 'happy', true);
+      try{ audio.tick?.(true); }catch{}
+      try{ Particles.celebrate?.('boss'); }catch{}
+    }
+
+    function updateBossPhase(sec){
+      if (!boss.on) return;
+      let p = 1;
+      if (sec <= 5) p = 3;
+      else if (sec <= 10) p = 2;
+      else p = 1;
+
+      if (p !== boss.phase){
+        boss.phase = p;
+        if (p === 2){
+          coach.say?.('🌀 บอสโผล่! ยิงให้โดน “ใกล้จุดกลาง” ถึงจะนับ!', 'neutral', true);
+          try{ audio.tick?.(true); }catch{}
+        } else if (p === 3){
+          doc.body.classList.add('hha-boss-peak');
+          coach.say?.('⚡ FINAL RUSH! กลับ GREEN ให้ไว! ยิงบอสให้ชัวร์!', 'sad', true);
+          try{ audio.tick?.(true); }catch{}
+        }
+      }
+    }
+
+    function leaveBoss(){
+      boss.on = false;
+      boss.phase = 0;
+      doc.body.classList.remove('hha-boss','hha-boss-danger','hha-boss-peak');
+    }
+
+    const look = attachDragLook();
+
     function stopAll(){
       if (stopped) return;
       stopped=true;
@@ -334,75 +452,189 @@ export function bootHydration(){
 
       const grade = gradeFromScore(state.score, state.miss);
       const prog  = progressToS(state.score);
+
       emit('hha:end', {
         title:'จบเกมแล้ว! 💧',
         score: state.score|0,
         miss: state.miss|0,
         comboMax: state.comboMax|0,
         grade,
-        progressPct: prog
+        progressPct: prog,
+        boss: {
+          entered: boss.entered,
+          cleared: boss.cleared,
+          greenHold: boss.greenHold,
+          drainTicks: boss.drainTicks,
+          bossHits: boss.bossHits,
+          bossMissed: boss.bossMissed,
+          bossGrazed: boss.bossGrazed
+        }
       });
     }
 
     ROOT.addEventListener('hha:stop', endGame);
 
-    // celebration listener -> fx+coach+audio
     ROOT.addEventListener('hha:celebrate', (ev)=>{
       const d = ev?.detail || {};
       try{ Particles.celebrate?.(d.kind || 'mini'); }catch{}
-      try{ audio.celebrate(); }catch{}
+      try{ audio.celebrate?.(); }catch{}
       try{ coach.onQuest?.(d.kind || 'mini'); }catch{}
     });
 
     // start quest
-    quest.start();
+    quest.start?.();
     setWaterZone();
     applyScore();
 
-    // urgent timer tick + UI
+    // urgent tick
     let lastTickSec = 999;
     function urgentFx(sec){
       const urgent = (sec <= 10 && sec > 0);
       doc.body.classList.toggle('hha-urgent', urgent);
       if (urgent && sec !== lastTickSec){
         lastTickSec = sec;
-        try{ audio.tick(true); }catch{}
-        if (sec <= 5){
-          doc.body.classList.remove('hha-shake');
-          void doc.body.offsetWidth;
-          doc.body.classList.add('hha-shake');
-        }
+        try{ audio.tick?.(true); }catch{}
+        if (sec <= 5) pulseBossShake();
       }
       if (!urgent) lastTickSec = 999;
     }
 
-    // storm interval multiplier
+    // ===== dynamic spawn multiplier =====
     function spawnIntervalMul(){
-      if (!allowStorm) return 1;
+      if (isResearch) return 1;
 
       // fever 0..1 => 1..0.55
       const feverMul = clamp(1 - state.fever*0.45, 0.55, 1.0);
 
-      // boss ทำให้ถี่ขึ้นอีกนิด (แต่ไม่บ้า)
-      const bossMul = boss.on ? 0.78 : 1.0;
+      // boss phases
+      let bossMul = 1.0;
+      if (boss.on){
+        if (boss.phase === 1) bossMul = BOSS.mulP1;
+        else if (boss.phase === 2) bossMul = BOSS.mulP2;
+        else if (boss.phase === 3) bossMul = BOSS.mulP3;
+      }
 
       return clamp(feverMul * bossMul, 0.45, 1.0);
     }
 
-    // judge
+    // ===== decorate targets (convert some into boss) =====
+    function decorateTarget(el, parts, data, meta){
+      try{
+        if (!boss.on) return;
+        if (boss.phase < 2) return; // boss target starts from phase2
+
+        const chance = (boss.phase === 2) ? BOSS.bossSpawnChanceP2 : BOSS.bossSpawnChanceP3;
+        if (Math.random() > chance) return;
+
+        // convert to boss target
+        data.ch = BOSS_EMOJI[0];
+        data.isGood = true;
+        data.isPower = false;
+        data.itemType = 'boss';
+        try{ el.setAttribute('data-item-type', 'boss'); }catch{}
+
+        // stronger visual
+        el.style.background = 'radial-gradient(circle at 30% 25%, #ef4444, #7f1d1d)';
+        el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9), 0 0 0 2px rgba(239,68,68,0.75), 0 0 26px rgba(239,68,68,0.85)';
+
+        if (parts && parts.ring){
+          parts.ring.style.borderColor = 'rgba(255,255,255,0.55)';
+          parts.ring.style.outlineColor = 'rgba(239,68,68,0.25)';
+          parts.ring.style.filter = 'drop-shadow(0 0 14px rgba(239,68,68,.25))';
+        }
+        if (parts && parts.icon){
+          parts.icon.textContent = data.ch;
+          parts.icon.style.filter = 'drop-shadow(0 4px 6px rgba(15,23,42,0.95))';
+        }
+
+        // make boss live a bit longer (internal lifeMs computed already; we can "fake" by giving hope via style only)
+        // (Mode-factory doesn't accept per-target life override safely here, so we keep visual + scoring as main pressure.)
+
+      }catch{}
+    }
+
+    // ===== judge =====
     function judge(ch, ctx){
       const perfect = !!ctx.hitPerfect;
       const type = String(ctx.itemType||'good');
-      const isTrap = (type === 'fakeGood');
+      const isBoss = (type === 'boss') || (BOSS_EMOJI.includes(String(ch)));
 
       const hitX = Number(ctx.clientX ?? 0);
       const hitY = Number(ctx.clientY ?? 0);
 
-      // ========= scoring tuning when boss =========
-      const bossBonus = boss.on ? 2 : 0;      // good hit เพิ่มอีกนิดในบอส
-      const bossPenalty = boss.on ? 3 : 0;    // bad hit โดนหนักขึ้น (ยุติธรรม: โดนเฉพาะตอน "โดนจริง")
+      // -------- BOSS TARGET (Aim Gate) --------
+      if (isBoss){
+        // Must be near center to count (Aim gate)
+        const norm = Number(ctx.hitDistNorm ?? 1);
+        const gate = BOSS.aimGateNorm;
+        const graze = BOSS.grazeNorm;
 
-      // powerups
+        // if player is outside GREEN, boss gives less help (still possible)
+        const inGreen = (state.waterZone === 'GREEN');
+
+        if (norm <= gate){
+          // HIT BOSS SUCCESS
+          const add = BOSS.bossHitBase + (perfect ? BOSS.bossHitPerfectBonus : 0) + (inGreen ? 6 : 0);
+          state.score += add;
+
+          // reward: pull water to GREEN + reduce fever
+          const pull = (0.52 - state.water) * (inGreen ? 0.34 : 0.26);
+          bumpWater(pull + 0.03);
+          bumpFever(perfect ? -0.10 : -0.07);
+
+          state.combo = clamp(state.combo + 2, 0, 9999);
+          state.comboMax = Math.max(state.comboMax, state.combo);
+
+          boss.bossHits++;
+
+          try{ Particles.burstAt?.(hitX, hitY, perfect ? 'BOSS_PERFECT' : 'BOSS'); }catch{}
+          try{ Particles.scorePop?.(hitX, hitY, `+${add}`, 1); }catch{}
+          try{ audio.good?.(true); }catch{}
+          coach.onHit?.({ boss:true, perfect });
+
+          quest.onHit?.({ isGood:true, isPower:false, itemType:'boss', perfect:true });
+          applyScore();
+          return { scoreDelta: add, good:true, boss:true };
+        }
+
+        // Graze: clicked boss but not centered enough
+        if (norm >= graze){
+          const pen = BOSS.bossGrazePenalty;
+          state.score -= pen;
+          state.miss += 1;
+          state.combo = 0;
+
+          // boss graze spikes fever a bit
+          bumpFever(+0.10);
+          // and pushes water away slightly
+          bumpWater(state.waterZone === 'LOW' ? -0.02 : +0.02);
+
+          boss.bossGrazed++;
+          doc.body.classList.add('hha-boss-danger');
+          pulseBossShake();
+          try{ Particles.burstAt?.(hitX, hitY, 'GRAZE'); }catch{}
+          try{ Particles.scorePop?.(hitX, hitY, `-${pen}`, 0); }catch{}
+          try{ audio.miss?.(); }catch{}
+          coach.say?.('โดนบอสไม่ชัวร์! เล็งกลางให้เป๊ะ!', 'sad', true);
+
+          quest.onHit?.({ isGood:false, isPower:false, itemType:'boss', perfect:false, grazed:true });
+          applyScore();
+          return { scoreDelta: -pen, good:false, boss:true, grazed:true };
+        }
+
+        // near miss but not terrible: small reward if in GREEN, else neutral
+        if (state.waterZone === 'GREEN'){
+          state.score += 6;
+          bumpFever(-0.02);
+          try{ Particles.scorePop?.(hitX, hitY, '+6', 1); }catch{}
+          applyScore();
+          return { scoreDelta: 6, good:true, boss:true, soft:true };
+        }
+        applyScore();
+        return { scoreDelta: 0, good:false, boss:true, soft:true };
+      }
+
+      // -------- POWER --------
       if (type === 'power'){
         if (ch === '🛡️') state.shield = clamp(state.shield + 1, 0, 5);
         else if (ch === '⚡'){
@@ -418,16 +650,17 @@ export function bootHydration(){
         state.comboMax = Math.max(state.comboMax, state.combo);
 
         try{ Particles.burstAt?.(hitX, hitY, 'POWER'); }catch{}
-        try{ Particles.scorePop?.(hitX, hitY, '+', 1); }catch{}
-        try{ audio.power(); }catch{}
-        coach.onHit({ power:true });
+        try{ Particles.scorePop?.(hitX, hitY, '+25', 1); }catch{}
+        try{ audio.power?.(); }catch{}
+        coach.onHit?.({ power:true });
 
-        quest.onHit({ isGood:true, isPower:true, itemType:'power', perfect });
+        quest.onHit?.({ isGood:true, isPower:true, itemType:'power', perfect });
         applyScore();
         return { scoreDelta: 25, good:true, power:true };
       }
 
-      // bad/trap
+      // -------- BAD / TRICK --------
+      const isTrap = (type === 'fakeGood');
       if (!ctx.isGood || isTrap){
         // shield block => not MISS
         if (state.shield > 0){
@@ -436,69 +669,80 @@ export function bootHydration(){
           state.combo = 0;
 
           try{ Particles.burstAt?.(hitX, hitY, 'BLOCK'); }catch{}
-          try{ audio.tick(false); }catch{}
-          coach.onHit({ blocked:true });
+          try{ audio.tick?.(false); }catch{}
+          coach.onHit?.({ blocked:true });
 
-          quest.onHit({ isGood:false, isPower:false, itemType:type, blocked:true });
+          quest.onHit?.({ isGood:false, isPower:false, itemType:type, blocked:true });
           applyScore();
           return { scoreDelta: 0, good:false, blocked:true };
         }
 
+        const bossPenalty = boss.on ? (boss.phase===3 ? 6 : 4) : 0;
         const penalty = 12 + bossPenalty;
+
         state.score -= penalty;
         state.miss  += 1;
         state.combo = 0;
 
-        // boss ทำให้ fever ดันแรงขึ้นนิด
-        bumpFever(boss.on ? +0.14 : +0.12);
-
-        // โดน bad แล้วน้ำจะไหลไป HIGH ง่ายขึ้น (กดดันให้กลับ GREEN)
+        bumpFever(boss.on ? +0.15 : +0.12);
         bumpWater(boss.on ? +0.10 : +0.08);
 
-        doc.body.classList.remove('hha-shake');
-        void doc.body.offsetWidth;
-        doc.body.classList.add('hha-shake');
-
+        pulseBossShake();
         try{ Particles.burstAt?.(hitX, hitY, 'BAD'); }catch{}
         try{ Particles.scorePop?.(hitX, hitY, `-${penalty}`, 0); }catch{}
-        try{ audio.miss(); }catch{}
-        coach.onHit({ bad:true });
+        try{ audio.miss?.(); }catch{}
+        coach.onHit?.({ bad:true });
 
-        quest.onHit({ isGood:false, isPower:false, itemType:type, perfect, blocked:false });
+        quest.onHit?.({ isGood:false, isPower:false, itemType:type, perfect, blocked:false });
         applyScore();
         return { scoreDelta: -penalty, good:false };
       }
 
-      // good
+      // -------- GOOD --------
+      const bossBonus = boss.on ? (boss.phase===3 ? 4 : 2) : 0;
       const base = (10 + bossBonus) + (perfect ? (boss.on ? 7 : 5) : 0);
       state.score += base;
 
       state.combo = clamp(state.combo + 1, 0, 9999);
       state.comboMax = Math.max(state.comboMax, state.combo);
 
-      // good ดึงน้ำกลับ GREEN
       const pull = (0.52 - state.water) * (boss.on ? 0.28 : 0.22);
       bumpWater(pull + (boss.on ? 0.026 : 0.02));
-
       bumpFever(perfect ? (boss.on ? -0.04 : -0.03) : (boss.on ? -0.022 : -0.015));
 
       try{ Particles.burstAt?.(hitX, hitY, perfect ? 'PERFECT' : 'GOOD'); }catch{}
       try{ Particles.scorePop?.(hitX, hitY, `+${base}`, 1); }catch{}
-      try{ audio.good(perfect); }catch{}
-      coach.onHit({ good:true, perfect });
+      try{ audio.good?.(perfect); }catch{}
+      coach.onHit?.({ good:true, perfect });
 
-      quest.onHit({ isGood:true, isPower:false, itemType:'good', perfect });
+      quest.onHit?.({ isGood:true, isPower:false, itemType:'good', perfect });
       applyScore();
       return { scoreDelta: base, good:true, perfect };
     }
 
+    // expire rule
     function onExpire(info){
-      // miss rule: good expired => miss, bad expired => no penalty
       const it = String(info?.itemType || '');
       const isGood = !!info?.isGood;
-      const isTrap = (it === 'fakeGood');
 
-      if (isGood && !isTrap){
+      // Boss target expired => penalty always
+      if (it === 'boss' || BOSS_EMOJI.includes(String(info?.ch))){
+        state.score -= BOSS.bossExpirePenalty;
+        state.miss += 1;
+        state.combo = 0;
+        bumpFever(+0.10);
+        boss.bossMissed++;
+        doc.body.classList.add('hha-boss-danger');
+        pulseBossShake();
+        try{ audio.miss?.(); }catch{}
+        try{ Particles.scorePop?.((ROOT.innerWidth||0)*0.5, (ROOT.innerHeight||0)*0.35, `-${BOSS.bossExpirePenalty}`, 0); }catch{}
+        coach.say?.('บอสหลุด! ยิงให้ทัน!', 'sad', true);
+        applyScore();
+        return;
+      }
+
+      // normal: good expired => miss, bad expired => ignore
+      if (isGood){
         state.miss += 1;
         state.combo = 0;
         bumpFever(boss.on ? +0.06 : +0.05);
@@ -507,7 +751,7 @@ export function bootHydration(){
       }
     }
 
-    // factory config
+    // factory config (static distribution) + we inject boss via decorateTarget
     const factoryCfg = {
       modeKey: 'hydration',
       difficulty: diff,
@@ -515,13 +759,15 @@ export function bootHydration(){
 
       spawnHost:'#hvr-layer',
       boundsHost:'#hvr-bounds',
+
+      // full spread (not around crosshair) + grid9
       spawnAroundCrosshair:false,
       spawnStrategy:'grid9',
       minSeparation:0.98,
       maxSpawnTries:18,
 
       pools:{ good:EMOJI.good, bad:EMOJI.bad, trick: allowTrick ? EMOJI.trick : [] },
-      goodRate:0.64,
+      goodRate: (diff==='easy'? 0.68 : diff==='hard'? 0.60 : 0.64),
 
       powerups: allowPower ? EMOJI.power : [],
       powerRate: allowPower ? 0.12 : 0,
@@ -533,80 +779,74 @@ export function bootHydration(){
       seed: (isResearch && seed) ? seed : null,
       rng:null,
 
-      spawnIntervalMul: (isResearch ? 1 : spawnIntervalMul),
+      spawnIntervalMul: (allowStorm ? spawnIntervalMul : 1),
 
+      decorateTarget,
       judge,
       onExpire
     };
 
-    // start boot
     let factory = null;
 
-    // ===== time loop side effects (boss+drain+coach) =====
+    // ===== time loop side effects (boss + drain + clear) =====
     ROOT.addEventListener('hha:time', (ev)=>{
       const sec = Number(ev?.detail?.sec ?? 0);
 
       // enter boss at last 15 sec
       if (!boss.entered && sec <= BOSS.startAtSec && sec > 0) enterBoss();
+      if (boss.on && sec > 0) updateBossPhase(sec);
 
-      // urgent visuals
       urgentFx(sec);
 
-      // quest tick
-      quest.tick(sec, state.waterZone);
+      quest.tick?.(sec, state.waterZone);
+      coach.onTick?.({ sec, zone: state.waterZone, feverPct: pct01(state.fever), boss: boss.on, phase: boss.phase });
 
-      // coach tick
-      coach.onTick({ sec, zone: state.waterZone, feverPct: pct01(state.fever) });
-
-      // tiny tick every 15 sec (non-urgent)
-      if (!isResearch && sec > 0 && sec % 15 === 0){
-        try{ audio.tick(false); }catch{}
-      }
-
-      // ===== BOSS LOGIC =====
+      // ===== BOSS DRAIN / CLEAR =====
       if (boss.on && sec > 0){
-        if (state.waterZone === 'GREEN'){
+        const inGreen = (state.waterZone === 'GREEN');
+
+        if (inGreen){
           boss.outStreak = 0;
           doc.body.classList.remove('hha-boss-danger');
 
           if (!boss.cleared){
             boss.greenHold++;
-            // เคลียร์บอสเมื่อสะสม GREEN ถึงเป้า
             if (boss.greenHold >= BOSS.clearNeedGreenSec){
               boss.cleared = true;
               state.score += BOSS.clearBonus;
               try{ Particles.celebrate?.('goal'); }catch{}
-              try{ audio.celebrate(); }catch{}
+              try{ audio.celebrate?.(); }catch{}
               coach.say?.(`เคลียร์บอสแล้ว! +${BOSS.clearBonus} 🎉`, 'happy', true);
-              // ส่งเป็น celebrate เพื่อให้ FX ชั้นรวมทำงาน
               emit('hha:celebrate', { kind:'goal', id:'boss' });
               applyScore();
             }
           }
         } else {
           boss.outStreak++;
-          // เตือนก่อนโดน drain
+
+          // warn early
           if (boss.outStreak === 1){
             coach.say?.('ออกนอก GREEN แล้ว! รีบกลับเข้า GREEN!', 'sad', true);
           }
-          // danger overlay เมื่อใกล้โดน drain
+
+          // danger overlay near drain
           if (boss.outStreak >= Math.max(1, BOSS.graceOutSec - 1)){
             doc.body.classList.add('hha-boss-danger');
           }
 
+          // FAIR DRAIN only after grace
           if (boss.outStreak > BOSS.graceOutSec){
-            // FAIR DRAIN: โดนเฉพาะตอน "อยู่นอก GREEN เกิน grace" เท่านั้น
             state.score -= BOSS.drainPerSec;
             bumpFever(BOSS.feverPerSec);
+            boss.drainTicks++;
 
-            // shake เบาๆ ตอนโดน drain (ไม่ถี่เกิน)
-            if (boss.outStreak % 2 === 0){
-              doc.body.classList.remove('hha-shake');
-              void doc.body.offsetWidth;
-              doc.body.classList.add('hha-shake');
+            // extra pressure on final rush
+            if (boss.phase === 3){
+              bumpWater(state.waterZone==='LOW' ? -0.01 : +0.01);
             }
 
-            try{ audio.tick(true); }catch{}
+            if (boss.outStreak % 2 === 0) pulseBossShake();
+            try{ audio.tick?.(true); }catch{}
             applyScore();
           }
         }
@@ -615,6 +855,7 @@ export function bootHydration(){
       if (sec <= 0) endGame();
     });
 
+    // boot factory
     factoryBoot(factoryCfg).then((h)=>{
       factory = h;
 
