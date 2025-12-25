@@ -1,9 +1,10 @@
 // === /herohealth/vr/ui-fever.js ===
-// Hero Health Academy — Fever + Shield UI (IIFE) — FIX-ALL
-// ✅ Exposes: window.FeverUI + window.GAME_MODULES.FeverUI
-// ✅ Methods: ensureFeverBar(), setFever(value), setFeverActive(on), setShield(n)
+// Hero Health Academy — Fever + Shield UI (IIFE) — NO-DUP + COMPAT
+// ✅ Prefers existing FEVER markup if found: #fever-pct #fever-fill #shield-count
+// ✅ Otherwise injects .hha-fever-wrap (single instance)
 // ✅ Listens: hha:fever (preferred), fallback hha:score (fever/shield fields)
-// ✅ Safe if called before DOM ready, safe re-init, no double DOM.
+// ✅ Exposes: window.FeverUI + window.GAME_MODULES.FeverUI
+// ✅ No double DOM + safe before DOM ready
 
 (function (root) {
   'use strict';
@@ -11,7 +12,7 @@
   const doc = root.document;
   if (!doc) return;
 
-  // prevent double-attach
+  // prevent double-attach (script loaded twice)
   if (root.__HHA_FEVER_BOUND__) return;
   root.__HHA_FEVER_BOUND__ = true;
 
@@ -23,10 +24,17 @@
   let endsAt = 0;           // optional timestamp
 
   // ---------- DOM refs ----------
+  // (A) existing markup refs (legacy/old HUD)
+  let extPct = null;
+  let extFill = null;
+  let extShield = null;
+  let extWrap = null; // optional wrapper to toggle .on
+
+  // (B) injected markup refs (this module)
   let wrap = null;
   let bar = null;
   let pct = null;
-  let sh = null;
+  let shNum = null;
 
   function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
   function int(v) { return Math.max(0, (Number(v) || 0) | 0); }
@@ -39,7 +47,7 @@
       .hha-fever-wrap{
         position:fixed;
         right:12px;
-        top: calc(10px + 74px); /* ใต้ topbar โดยประมาณ */
+        top: calc(10px + 74px);
         z-index: 9999;
         pointer-events:none;
         display:flex;
@@ -113,11 +121,8 @@
         font-size: 12px;
         opacity:.96;
       }
-      .hha-shield-pill b{
-        font-size: 13px;
-      }
+      .hha-shield-pill b{ font-size: 13px; }
 
-      /* Mobile safe: if very small height, move slightly down */
       @media (max-height: 640px){
         .hha-fever-wrap{ top: calc(10px + 64px); }
       }
@@ -125,14 +130,44 @@
     doc.head.appendChild(style);
   }
 
-  function mount() {
-    if (mounted) return;
+  // Try bind to existing FEVER UI (legacy HUD) to avoid duplicates
+  function bindExistingIfAny(){
+    // common ids from older HUDs
+    const p = doc.querySelector('#fever-pct');
+    const f = doc.querySelector('#fever-fill');
+    const s = doc.querySelector('#shield-count');
+
+    if (p || f || s){
+      extPct = p;
+      extFill = f;
+      extShield = s;
+      // best-effort wrapper: nearest card/container
+      extWrap = (p && p.closest('.fever, .card, .hud-right, .hha-fever-wrap')) || null;
+      mounted = true;
+      return true;
+    }
+    return false;
+  }
+
+  function mountInjected() {
+    // If already injected exists, reuse it
+    const exists = doc.querySelector('.hha-fever-wrap[data-hha-fever="1"]');
+    if (exists){
+      wrap = exists;
+      bar = wrap.querySelector('.hha-fever-bar');
+      pct = wrap.querySelector('.hha-fever-pct');
+      shNum = wrap.querySelector('#hhaShieldNum');
+      mounted = true;
+      render();
+      return;
+    }
+
     injectCSS();
 
     wrap = doc.createElement('div');
     wrap.className = 'hha-fever-wrap';
+    wrap.setAttribute('data-hha-fever', '1');
 
-    // FEVER card
     const card = doc.createElement('div');
     card.className = 'hha-fever-card';
 
@@ -160,8 +195,7 @@
     card.appendChild(head);
     card.appendChild(track);
 
-    // SHIELD pill
-    sh = doc.createElement('div');
+    const sh = doc.createElement('div');
     sh.className = 'hha-shield-pill';
     sh.innerHTML = `🛡️ SHIELD <b id="hhaShieldNum">0</b>`;
 
@@ -169,18 +203,30 @@
     wrap.appendChild(sh);
 
     (doc.body || doc.documentElement).appendChild(wrap);
-    mounted = true;
 
-    // paint initial state
+    shNum = wrap.querySelector('#hhaShieldNum');
+
+    mounted = true;
     render();
   }
 
   function ensureFeverBar() {
-    // safe even before DOM ready
+    if (mounted) return;
+
+    const doMount = () => {
+      // 1) Prefer existing markup (prevents duplicates)
+      if (bindExistingIfAny()){
+        render();
+        return;
+      }
+      // 2) Otherwise inject our own (single)
+      mountInjected();
+    };
+
     if (doc.readyState === 'loading') {
-      doc.addEventListener('DOMContentLoaded', mount, { once: true });
+      doc.addEventListener('DOMContentLoaded', doMount, { once: true });
     } else {
-      mount();
+      doMount();
     }
   }
 
@@ -188,22 +234,35 @@
     if (!mounted) return;
 
     const v = clamp(feverVal, 0, 100);
+    const shv = String(int(shield));
+
+    // if using existing markup
+    if (extPct || extFill || extShield){
+      if (extFill) extFill.style.width = Math.round(v) + '%';
+      if (extPct) extPct.textContent = Math.round(v) + '%';
+      if (extShield) extShield.textContent = shv;
+
+      if (extWrap && extWrap.classList){
+        if (feverOn) extWrap.classList.add('on');
+        else extWrap.classList.remove('on');
+      }
+      return;
+    }
+
+    // injected markup
     if (bar) bar.style.width = Math.round(v) + '%';
     if (pct) pct.textContent = Math.round(v) + '%';
 
-    if (wrap) {
+    if (wrap && wrap.classList){
       if (feverOn) wrap.classList.add('on');
       else wrap.classList.remove('on');
     }
-
-    const num = wrap ? wrap.querySelector('#hhaShieldNum') : null;
-    if (num) num.textContent = String(int(shield));
+    if (shNum) shNum.textContent = shv;
   }
 
   function setFever(value) {
     feverVal = clamp(value, 0, 100);
     ensureFeverBar();
-    // render after mount
     setTimeout(render, 0);
   }
 
@@ -219,18 +278,21 @@
     setTimeout(render, 0);
   }
 
-  // ---------- Event listeners (compat) ----------
+  // ---------- Event listeners ----------
   root.addEventListener('hha:fever', (ev) => {
     const d = (ev && ev.detail) ? ev.detail : {};
+    // accept both {value} and {fever}
     if (d.value != null) feverVal = clamp(d.value, 0, 100);
+    if (d.fever != null) feverVal = clamp(d.fever, 0, 100);
     if (d.on != null) feverOn = !!d.on;
+    if (d.active != null) feverOn = !!d.active;
     if (d.shield != null) shield = int(d.shield);
     if (d.endsAt != null) endsAt = Number(d.endsAt) || 0;
+
     ensureFeverBar();
     setTimeout(render, 0);
   });
 
-  // fallback: some engines only send fever/shield in hha:score
   root.addEventListener('hha:score', (ev) => {
     const d = (ev && ev.detail) ? ev.detail : {};
     if (d.fever != null) feverVal = clamp(d.fever, 0, 100);
@@ -240,13 +302,7 @@
   });
 
   // ---------- expose API ----------
-  const api = {
-    ensureFeverBar,
-    setFever,
-    setFeverActive,
-    setShield
-  };
-
+  const api = { ensureFeverBar, setFever, setFeverActive, setShield };
   root.FeverUI = api;
   root.GAME_MODULES = root.GAME_MODULES || {};
   root.GAME_MODULES.FeverUI = api;
