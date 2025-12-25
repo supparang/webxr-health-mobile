@@ -1,330 +1,511 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HeroHealth — Cloud Logger (Google Apps Script friendly)
-// ✅ รับ event มาตรฐาน: hha:log_session / hha:log_event / hha:end (ถ้ามี)
-// ✅ ส่งขึ้น Google Apps Script endpoint แบบ queue + batch + retry
-// ✅ กันเน็ตหลุด: เก็บคิวใน localStorage แล้ว flush เมื่อกลับมาออนไลน์
-// ✅ ใช้ sendBeacon ถ้าได้ (ตอนปิดหน้า) + fallback fetch
-// ✅ ปลอดภัย: ไม่บังคับ schema ตายตัว (ส่งเฉพาะ field ที่มี)
-
-// วิธีตั้ง endpoint (เลือกอย่างใดอย่างหนึ่ง)
-// 1) ใส่ใน URL: ?log=YOUR_APPS_SCRIPT_EXEC_URL
-// 2) หรือกำหนด global ก่อนโหลดไฟล์นี้: window.HHA_LOG_ENDPOINT = "https://script.google.com/macros/s/xxx/exec"
-// 3) หรือใส่ใน <script ... data-endpoint="..."></script> (ถ้าคุณอยากเพิ่มภายหลัง)
+// HeroHealth — Cloud Logger (Web App / Google Apps Script)
+// ✅ Batch queue (sendBeacon + fetch fallback)
+// ✅ Auto-captures URL params context (studyId/phase/conditionGroup/student...)
+// ✅ Listens to standard HeroHealth events:
+//    - hha:log_session  (start / end markers)
+//    - hha:log_event    (sparse events: spawn/hit/miss/boss/...)
+//    - hha:end          (final summary: scoreFinal, comboMax, misses, goals/minis...)
+// ✅ Optional passive snapshots:
+//    - hha:score / hha:time / quest:update  (เก็บ last known state; ไม่ยิงถี่)
+// ✅ Endpoint:
+//    - ?log=<WEB_APP_EXEC_URL>  (recommended)
+//    - or window.HHA_LOG_ENDPOINT = ".../exec"
+//
+// Notes:
+// - This file is pure IIFE (no module) for maximum compat.
+// - Server side (Code.gs) จะรับ {kind:'hha_batch', items:[...]}
 
 (function (root) {
   'use strict';
+
   const doc = root.document;
-  if (!doc) return;
+  const nav = root.navigator || {};
+  const loc = root.location || { href: '' };
+  const TZ = (Intl && Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions)
+    ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
+    : '';
 
-  // -------------------- Small helpers --------------------
+  const URLX = new URL(loc.href);
+  const Q = URLX.searchParams;
+
+  // ---------- Config ----------
+  const CFG = {
+    // batching
+    flushEveryMs: 2500,
+    maxQueue: 40,
+    maxPayloadBytes: 220 * 1024, // ~220KB safe-ish
+    // endpoints
+    endpoint: '',
+    // debug
+    debug: false,
+    // optional: disable logger
+    disabled: (Q.get('nolog') === '1'),
+  };
+
+  // allow override via global before init
+  if (typeof root.HHA_LOG_ENDPOINT === 'string' && root.HHA_LOG_ENDPOINT.trim()) {
+    CFG.endpoint = root.HHA_LOG_ENDPOINT.trim();
+  } else if (Q.get('log')) {
+    CFG.endpoint = String(Q.get('log')).trim();
+  }
+
+  // ---------- Helpers ----------
   const now = () => Date.now();
-  const safeJson = (x) => {
-    try { return JSON.stringify(x); } catch (_) { return '{}'; }
-  };
-  const parseIntSafe = (v, d=0) => {
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) ? n : d;
-  };
 
-  function getParam(name){
-    try{
-      const u = new URL(root.location.href);
-      return u.searchParams.get(name);
-    }catch(_){ return null; }
+  function safeStr(v) {
+    if (v === undefined || v === null) return '';
+    return String(v);
+  }
+  function safeNum(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  function tryJson(v) {
+    try { return JSON.stringify(v); } catch (_) { return ''; }
+  }
+  function pick(keys, fallback = '') {
+    for (const k of keys) {
+      const v = Q.get(k);
+      if (v !== null && v !== '') return v;
+    }
+    return fallback;
   }
 
-  // -------------------- Endpoint resolve --------------------
-  function resolveEndpoint(){
-    // 1) URL ?log=
-    const q = getParam('log') || getParam('logger') || getParam('endpoint');
-    if (q && /^https?:\/\//i.test(q)) return q;
-
-    // 2) global
-    if (root.HHA_LOG_ENDPOINT && /^https?:\/\//i.test(root.HHA_LOG_ENDPOINT)) return root.HHA_LOG_ENDPOINT;
-
-    // 3) data-endpoint from this script tag
-    try{
-      const cur = doc.currentScript;
-      const d = cur && (cur.dataset && (cur.dataset.endpoint || cur.dataset.url));
-      if (d && /^https?:\/\//i.test(d)) return d;
-    }catch(_){}
-
-    // default: none
-    return '';
+  function deviceHint() {
+    // light heuristic
+    // if A-Frame scene in vr-mode -> 'vr'
+    try {
+      const scene = doc && doc.querySelector && doc.querySelector('a-scene');
+      if (scene && scene.is && scene.is('vr-mode')) return 'vr';
+    } catch (_) {}
+    const ua = (nav.userAgent || '').toLowerCase();
+    if (ua.includes('oculus') || ua.includes('quest') || ua.includes('vive')) return 'vr';
+    if (ua.includes('android') || ua.includes('iphone') || ua.includes('ipad')) return 'mobile';
+    return 'desktop';
   }
 
-  // -------------------- Context snapshot --------------------
-  function buildBaseContext(){
-    // เก็บเฉพาะที่มีจริง (ไม่บังคับ schema)
-    let href = '';
-    try { href = String(root.location.href || ''); } catch(_){}
+  // ---------- Context (from URL params) ----------
+  const CTX = {
+    timestampIso: new Date().toISOString(),
 
-    const ctx = {
+    // Experiment / project tags (รองรับหลาย alias)
+    projectTag: pick(['projectTag', 'project', 'tag'], ''),
+    runMode: pick(['runMode', 'run', 'mode'], 'play'),
+    studyId: pick(['studyId', 'study', 'sid'], ''),
+    phase: pick(['phase'], ''),
+    conditionGroup: pick(['conditionGroup', 'cond', 'cg'], ''),
+    sessionOrder: pick(['sessionOrder', 'order'], ''),
+    blockLabel: pick(['blockLabel', 'block'], ''),
+    siteCode: pick(['siteCode', 'site'], ''),
+    schoolYear: pick(['schoolYear', 'sy'], ''),
+    semester: pick(['semester', 'sem'], ''),
+
+    // session / game
+    sessionId: pick(['sessionId'], ''),
+    gameMode: pick(['gameMode', 'game'], ''),
+    diff: pick(['diff'], 'normal'),
+    durationPlannedSec: safeNum(pick(['time', 'durationPlannedSec'], '')),
+
+    // meta
+    device: deviceHint(),
+    gameVersion: pick(['v', 'ver', 'gameVersion'], (root.HHA_GAME_VERSION || '')),
+    href: loc.href,
+    ua: nav.userAgent || '',
+    tz: TZ,
+
+    // student profile (ถ้ามี)
+    studentKey: pick(['studentKey'], ''),
+    schoolCode: pick(['schoolCode'], ''),
+    schoolName: pick(['schoolName'], ''),
+    classRoom: pick(['classRoom', 'class'], ''),
+    studentNo: pick(['studentNo', 'no'], ''),
+    nickName: pick(['nickName', 'nick'], ''),
+    gender: pick(['gender'], ''),
+    age: pick(['age'], ''),
+    gradeLevel: pick(['gradeLevel', 'grade'], ''),
+    heightCm: pick(['heightCm'], ''),
+    weightKg: pick(['weightKg'], ''),
+    bmi: pick(['bmi'], ''),
+    bmiGroup: pick(['bmiGroup'], ''),
+    vrExperience: pick(['vrExperience'], ''),
+    gameFrequency: pick(['gameFrequency'], ''),
+    handedness: pick(['handedness'], ''),
+    visionIssue: pick(['visionIssue'], ''),
+    healthDetail: pick(['healthDetail'], ''),
+    consentParent: pick(['consentParent'], ''),
+  };
+
+  // ---------- Rolling state (snapshot) ----------
+  const STATE = {
+    startTimeIso: '',
+    endTimeIso: '',
+    durationPlayedSec: null,
+
+    scoreFinal: null,
+    comboMax: null,
+    misses: null,
+
+    goalsCleared: null,
+    goalsTotal: null,
+    miniCleared: null,
+    miniTotal: null,
+
+    // optional counters
+    nTargetGoodSpawned: 0,
+    nTargetJunkSpawned: 0,
+    nTargetStarSpawned: 0,
+    nTargetDiamondSpawned: 0,
+    nTargetShieldSpawned: 0,
+
+    nHitGood: 0,
+    nHitJunk: 0,
+    nHitJunkGuard: 0,
+    nExpireGood: 0,
+
+    // optional performance
+    accuracyGoodPct: null,
+    junkErrorPct: null,
+    avgRtGoodMs: null,
+    medianRtGoodMs: null,
+    fastHitRatePct: null,
+
+    reason: '',
+  };
+
+  // ---------- Queue / batching ----------
+  let queue = [];
+  let flushTimer = null;
+  let lastFlushAt = 0;
+
+  function logd(...args) {
+    if (CFG.debug) console.log('[HHACloudLogger]', ...args);
+  }
+
+  function enqueue(type, data) {
+    if (CFG.disabled) return;
+    if (!CFG.endpoint) return;
+
+    const item = {
       ts: now(),
-      href,
-      ua: (root.navigator && root.navigator.userAgent) ? root.navigator.userAgent : '',
-      tz: (()=>{ try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch(_){ return ''; } })(),
+      type: type,
+      href: CTX.href,
+      ua: CTX.ua,
+      tz: CTX.tz,
+
+      // attach context (flat keys)
+      ...CTX,
+
+      // attach data
+      data: data || {}
     };
 
-    // ดึงบางพารามิเตอร์ที่ใช้บ่อย (ถ้ามี)
-    const u = (()=>{ try { return new URL(href); } catch(_){ return null; } })();
-    if (u){
-      const sp = u.searchParams;
-      const keys = [
-        'projectTag','run','mode','diff','time','seed',
-        'studyId','phase','conditionGroup','sessionOrder','blockLabel',
-        'siteCode','schoolYear','semester',
-        'sessionId','gameMode','durationPlannedSec'
-      ];
-      for(const k of keys){
-        const v = sp.get(k);
-        if (v !== null && v !== '') ctx[k] = v;
-      }
+    queue.push(item);
 
-      // นักเรียน/สถานศึกษา (ถ้ามีส่งมาจาก hub)
-      const studentKeys = [
-        'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-        'gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup',
-        'vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent'
-      ];
-      for(const k of studentKeys){
-        const v = sp.get(k);
-        if (v !== null && v !== '') ctx[k] = v;
-      }
+    // soft cap
+    if (queue.length > CFG.maxQueue) {
+      queue.splice(0, queue.length - CFG.maxQueue);
     }
 
-    // ถ้าเกมมี context กลางใน window (optional)
-    if (root.HHA_CONTEXT && typeof root.HHA_CONTEXT === 'object'){
-      ctx.HHA_CONTEXT = root.HHA_CONTEXT;
-    }
-
-    return ctx;
+    scheduleFlush();
   }
 
-  // -------------------- Queue + persistence --------------------
-  const LS_KEY = 'HHA_LOG_QUEUE_V1';
-  const STATE = {
-    enabled: true,
-    debug: false,
-    endpoint: '',
-    batchSize: 12,
-    flushEveryMs: 1200,
-    retryBaseMs: 1000,
-    retryMaxMs: 15000,
-    maxQueue: 600,
-    queue: [],
-    flushing: false,
-    nextFlushAt: 0,
-    lastSendAt: 0,
-    failCount: 0,
-    baseCtx: buildBaseContext()
-  };
-
-  function loadQueue(){
-    try{
-      const raw = root.localStorage && root.localStorage.getItem(LS_KEY);
-      if(!raw) return;
-      const arr = JSON.parse(raw);
-      if(Array.isArray(arr)) STATE.queue = arr.slice(0, STATE.maxQueue);
-    }catch(_){}
-  }
-  function saveQueue(){
-    try{
-      if(!root.localStorage) return;
-      root.localStorage.setItem(LS_KEY, safeJson(STATE.queue.slice(0, STATE.maxQueue)));
-    }catch(_){}
-  }
-  function enqueue(item){
-    if(!STATE.enabled) return;
-    if(!item || typeof item !== 'object') return;
-
-    // เติม context + ts
-    const payload = Object.assign({}, STATE.baseCtx, { ts: now() }, item);
-
-    // cap queue
-    if (STATE.queue.length >= STATE.maxQueue) {
-      STATE.queue.splice(0, Math.max(1, Math.floor(STATE.maxQueue * 0.25)));
-    }
-    STATE.queue.push(payload);
-    saveQueue();
-
-    scheduleFlushSoon();
-    if (STATE.debug) console.log('[HHACloudLogger] enqueue', payload);
+  function scheduleFlush() {
+    if (flushTimer) return;
+    flushTimer = root.setTimeout(() => {
+      flushTimer = null;
+      flush();
+    }, CFG.flushEveryMs);
   }
 
-  // -------------------- Send logic --------------------
-  function canSend(){
-    return !!STATE.endpoint && /^https?:\/\//i.test(STATE.endpoint);
-  }
+  function flush(force = false) {
+    if (CFG.disabled) return;
+    if (!CFG.endpoint) return;
+    if (!queue.length) return;
 
-  async function postJson(url, bodyObj){
-    const body = safeJson(bodyObj);
-
-    // ถ้าเป็นตอนปิดหน้า: sendBeacon จะเสถียรกว่า
-    if (root.navigator && typeof root.navigator.sendBeacon === 'function') {
-      try{
-        const blob = new Blob([body], { type: 'application/json' });
-        const ok = root.navigator.sendBeacon(url, blob);
-        if (ok) return { ok: true, status: 204, beacon: true };
-      }catch(_){}
-    }
-
-    // fetch fallback
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body,
-      keepalive: true,
-      mode: 'cors',
-      credentials: 'omit'
-    });
-    return { ok: resp.ok, status: resp.status, beacon: false };
-  }
-
-  function scheduleFlushSoon(){
     const t = now();
-    // อย่า spam: ให้ไหลรวมเป็น batch
-    if (STATE.nextFlushAt && t < STATE.nextFlushAt) return;
-    STATE.nextFlushAt = t + STATE.flushEveryMs;
+    if (!force && (t - lastFlushAt) < 500) return;
 
-    setTimeout(()=>{ flush().catch(()=>{}); }, STATE.flushEveryMs);
+    // pack as batch
+    const payload = {
+      kind: 'hha_batch',
+      v: 1,
+      items: queue.splice(0, queue.length)
+    };
+
+    // attach a compact "final snapshot" occasionally (helps server mapping)
+    // (ไม่หนัก เพราะเป็น object เดียว)
+    payload.snapshot = buildSnapshot_();
+
+    const body = JSON.stringify(payload);
+    if (body.length > CFG.maxPayloadBytes) {
+      // ถ้า payload ใหญ่ไป: แบ่งครึ่ง
+      const items = payload.items || [];
+      const mid = Math.max(1, (items.length / 2) | 0);
+      const a = { kind:'hha_batch', v:1, items: items.slice(0, mid), snapshot: payload.snapshot };
+      const b = { kind:'hha_batch', v:1, items: items.slice(mid), snapshot: payload.snapshot };
+      send_(JSON.stringify(a));
+      send_(JSON.stringify(b));
+    } else {
+      send_(body);
+    }
+
+    lastFlushAt = t;
   }
 
-  async function flush(){
-    if(!STATE.enabled) return;
-    if(STATE.flushing) return;
-    if(!canSend()) return;
-    if(!STATE.queue.length) return;
-    if(root.navigator && root.navigator.onLine === false) return;
-
-    STATE.flushing = true;
-    try{
-      const batch = STATE.queue.slice(0, STATE.batchSize);
-      const body = { kind:'hha_batch', v:1, items: batch };
-
-      const res = await postJson(STATE.endpoint, body);
-
-      if(res && res.ok){
-        // pop batch
-        STATE.queue.splice(0, batch.length);
-        saveQueue();
-        STATE.failCount = 0;
-        if (STATE.debug) console.log('[HHACloudLogger] flush ok', { sent: batch.length, status: res.status, beacon: res.beacon });
-      }else{
-        STATE.failCount++;
-        if (STATE.debug) console.warn('[HHACloudLogger] flush fail', res);
-        backoff();
+  function send_(bodyStr) {
+    try {
+      // prefer sendBeacon
+      if (nav.sendBeacon) {
+        const ok = nav.sendBeacon(CFG.endpoint, new Blob([bodyStr], { type: 'application/json' }));
+        logd('beacon', ok, 'bytes', bodyStr.length);
+        if (ok) return;
       }
-    }catch(err){
-      STATE.failCount++;
-      if (STATE.debug) console.warn('[HHACloudLogger] flush error', err);
-      backoff();
-    }finally{
-      STATE.flushing = false;
+    } catch (_) {}
 
-      // ถ้ายังเหลือคิว ให้พยายามต่อแบบสุภาพ
-      if (STATE.queue.length) {
-        scheduleFlushSoon();
-      }
+    // fallback fetch
+    try {
+      fetch(CFG.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: bodyStr,
+        keepalive: true
+      }).then(() => logd('fetch ok'))
+        .catch(err => logd('fetch fail', err));
+    } catch (err) {
+      logd('send error', err);
     }
   }
 
-  function backoff(){
-    const fc = Math.max(1, STATE.failCount);
-    const wait = Math.min(STATE.retryMaxMs, STATE.retryBaseMs * Math.pow(1.7, fc));
-    STATE.nextFlushAt = now() + wait;
-    setTimeout(()=>{ flush().catch(()=>{}); }, wait);
+  // ---------- Snapshot building ----------
+  function buildSnapshot_() {
+    return {
+      // context
+      ...CTX,
+
+      // state
+      startTimeIso: STATE.startTimeIso,
+      endTimeIso: STATE.endTimeIso,
+      durationPlayedSec: STATE.durationPlayedSec,
+
+      scoreFinal: STATE.scoreFinal,
+      comboMax: STATE.comboMax,
+      misses: STATE.misses,
+
+      goalsCleared: STATE.goalsCleared,
+      goalsTotal: STATE.goalsTotal,
+      miniCleared: STATE.miniCleared,
+      miniTotal: STATE.miniTotal,
+
+      nTargetGoodSpawned: STATE.nTargetGoodSpawned,
+      nTargetJunkSpawned: STATE.nTargetJunkSpawned,
+      nTargetStarSpawned: STATE.nTargetStarSpawned,
+      nTargetDiamondSpawned: STATE.nTargetDiamondSpawned,
+      nTargetShieldSpawned: STATE.nTargetShieldSpawned,
+
+      nHitGood: STATE.nHitGood,
+      nHitJunk: STATE.nHitJunk,
+      nHitJunkGuard: STATE.nHitJunkGuard,
+      nExpireGood: STATE.nExpireGood,
+
+      accuracyGoodPct: STATE.accuracyGoodPct,
+      junkErrorPct: STATE.junkErrorPct,
+      avgRtGoodMs: STATE.avgRtGoodMs,
+      medianRtGoodMs: STATE.medianRtGoodMs,
+      fastHitRatePct: STATE.fastHitRatePct,
+
+      device: CTX.device,
+      gameVersion: CTX.gameVersion,
+      reason: STATE.reason
+    };
   }
 
-  // -------------------- Event listeners --------------------
-  function onLogSession(e){
+  // ---------- Event listeners ----------
+  function onSession(e) {
     const d = (e && e.detail) ? e.detail : {};
-    enqueue({ type:'session', data: d });
-  }
-  function onLogEvent(e){
-    const d = (e && e.detail) ? e.detail : {};
-    enqueue({ type:'event', data: d });
-  }
-  function onEnd(e){
-    const d = (e && e.detail) ? e.detail : {};
-    enqueue({ type:'end', data: d });
+    // session start marker
+    if (!STATE.startTimeIso) STATE.startTimeIso = new Date().toISOString();
+
+    // allow sessionId override from engine
+    if (d.sessionId) CTX.sessionId = safeStr(d.sessionId);
+    if (d.game) CTX.gameMode = safeStr(d.game);
+    if (d.mode) CTX.runMode = safeStr(d.mode);
+    if (d.diff) CTX.diff = safeStr(d.diff);
+    if (d.seed !== undefined) CTX.seed = safeStr(d.seed);
+
+    enqueue('session', d);
   }
 
-  // -------------------- Public API --------------------
+  function onEvent(e) {
+    const d = (e && e.detail) ? e.detail : {};
+    // update rolling state quickly based on event type
+    // expected d: { sessionId, game, type, t, score, combo, miss, perfect, fever, shield, lives, data:{} }
+    if (d.sessionId) CTX.sessionId = safeStr(d.sessionId);
+    if (d.game) CTX.gameMode = safeStr(d.game);
+
+    const et = safeStr(d.type || '');
+    const data = d.data || {};
+
+    // simple counters from eventType
+    if (et === 'spawn') {
+      const k = safeStr(data.kind || data.type || '');
+      if (k === 'good') STATE.nTargetGoodSpawned++;
+      else if (k === 'junk') STATE.nTargetJunkSpawned++;
+      else if (k === 'gold' || k === 'star') STATE.nTargetStarSpawned++;
+      else if (k === 'diamond') STATE.nTargetDiamondSpawned++;
+      else if (k === 'shield') STATE.nTargetShieldSpawned++;
+    }
+    if (et === 'hit') {
+      const k = safeStr(data.kind || '');
+      if (k === 'good' || k === 'gold') STATE.nHitGood++;
+      if (k === 'junk') STATE.nHitJunk++;
+    }
+    if (et === 'miss_expire') {
+      STATE.nExpireGood++;
+    }
+    if (et === 'shield_block') {
+      // count guarded junk hit
+      STATE.nHitJunkGuard++;
+    }
+
+    enqueue('event', d);
+  }
+
+  function onEnd(e) {
+    const d = (e && e.detail) ? e.detail : {};
+    // normalize: accept both direct fields + nested
+    if (d.sessionId) CTX.sessionId = safeStr(d.sessionId);
+    if (d.game) CTX.gameMode = safeStr(d.game);
+    if (d.diff) CTX.diff = safeStr(d.diff);
+    if (d.mode) CTX.runMode = safeStr(d.mode);
+
+    STATE.endTimeIso = new Date().toISOString();
+
+    // duration played
+    if (STATE.startTimeIso) {
+      try {
+        const a = new Date(STATE.startTimeIso).getTime();
+        const b = new Date(STATE.endTimeIso).getTime();
+        if (Number.isFinite(a) && Number.isFinite(b) && b >= a) {
+          STATE.durationPlayedSec = Math.round((b - a) / 1000);
+        }
+      } catch (_) {}
+    }
+
+    // common summary fields (support multiple names)
+    STATE.scoreFinal = safeNum(d.scoreFinal ?? d.score ?? d.finalScore ?? null);
+    STATE.comboMax   = safeNum(d.comboMax ?? d.maxCombo ?? null);
+    STATE.misses     = safeNum(d.misses ?? d.miss ?? null);
+
+    STATE.goalsCleared = safeNum(d.goalsCleared ?? d.goals ?? null);
+    STATE.goalsTotal   = safeNum(d.goalsTotal ?? null);
+    STATE.miniCleared  = safeNum(d.miniCleared ?? d.minisCleared ?? d.minis ?? null);
+    STATE.miniTotal    = safeNum(d.miniTotal ?? null);
+
+    // optional performance fields if game emits them
+    STATE.accuracyGoodPct = safeNum(d.accuracyGoodPct ?? null);
+    STATE.junkErrorPct    = safeNum(d.junkErrorPct ?? null);
+    STATE.avgRtGoodMs     = safeNum(d.avgRtGoodMs ?? null);
+    STATE.medianRtGoodMs  = safeNum(d.medianRtGoodMs ?? null);
+    STATE.fastHitRatePct  = safeNum(d.fastHitRatePct ?? null);
+
+    STATE.reason = safeStr(d.reason || (d.gameOver ? 'gameover' : '') || '');
+
+    // include final snapshot in data to help server write long schema
+    const out = Object.assign({}, d, buildSnapshot_());
+
+    enqueue('end', out);
+
+    // flush immediately at end
+    flush(true);
+  }
+
+  // passive snapshots (optional — does NOT enqueue by default)
+  function onScore(e) {
+    const d = (e && e.detail) ? e.detail : {};
+    // keep last-known for end fallback
+    if (d.scoreFinal !== undefined) STATE.scoreFinal = safeNum(d.scoreFinal);
+    if (d.score !== undefined) STATE.scoreFinal = safeNum(d.score);
+    if (d.comboMax !== undefined) STATE.comboMax = safeNum(d.comboMax);
+    if (d.combo !== undefined) STATE.comboMax = Math.max(STATE.comboMax || 0, safeNum(d.combo) || 0);
+    if (d.misses !== undefined) STATE.misses = safeNum(d.misses);
+    if (d.miss !== undefined) STATE.misses = safeNum(d.miss);
+  }
+
+  function onTime(e) {
+    const d = (e && e.detail) ? e.detail : {};
+    // capture start time on first time event
+    if (!STATE.startTimeIso) STATE.startTimeIso = new Date().toISOString();
+    // no enqueue
+    if (d.sec !== undefined && CTX.durationPlannedSec == null) {
+      // leave planned from URL; not override
+    }
+  }
+
+  function onQuestUpdate(e) {
+    const d = (e && e.detail) ? e.detail : {};
+    // attempt parse: { goalsCleared, goalsTotal, minisCleared, minisTotal }
+    if (d.goalsCleared !== undefined) STATE.goalsCleared = safeNum(d.goalsCleared);
+    if (d.goalsTotal !== undefined) STATE.goalsTotal = safeNum(d.goalsTotal);
+    if (d.minisCleared !== undefined) STATE.miniCleared = safeNum(d.minisCleared);
+    if (d.miniTotal !== undefined) STATE.miniTotal = safeNum(d.miniTotal);
+  }
+
+  // ---------- Public API ----------
   const API = {
-    init(opts = {}){
-      STATE.debug = !!opts.debug;
+    init(opts = {}) {
+      if (opts && typeof opts.debug === 'boolean') CFG.debug = opts.debug;
+      if (opts && typeof opts.endpoint === 'string' && opts.endpoint.trim()) {
+        CFG.endpoint = opts.endpoint.trim();
+      }
+      if (opts && typeof opts.disabled === 'boolean') CFG.disabled = opts.disabled;
 
-      // resolve endpoint now
-      const ep = resolveEndpoint();
-      if (ep) STATE.endpoint = ep;
-
-      if (typeof opts.endpoint === 'string' && /^https?:\/\//i.test(opts.endpoint)) {
-        STATE.endpoint = opts.endpoint;
+      if (!CFG.endpoint) {
+        logd('No endpoint. Add ?log=WEB_APP_URL or set window.HHA_LOG_ENDPOINT');
+        return;
+      }
+      if (CFG.disabled) {
+        logd('Logger disabled via nolog=1');
+        return;
       }
 
-      if (typeof opts.enabled === 'boolean') STATE.enabled = opts.enabled;
-      if (opts.batchSize) STATE.batchSize = Math.max(1, parseIntSafe(opts.batchSize, STATE.batchSize));
-      if (opts.flushEveryMs) STATE.flushEveryMs = Math.max(250, parseIntSafe(opts.flushEveryMs, STATE.flushEveryMs));
-
-      // load persisted queue
-      loadQueue();
-
-      // attach events once
-      root.removeEventListener('hha:log_session', onLogSession);
-      root.removeEventListener('hha:log_event', onLogEvent);
-      root.removeEventListener('hha:end', onEnd);
-
-      root.addEventListener('hha:log_session', onLogSession);
-      root.addEventListener('hha:log_event', onLogEvent);
+      // bind events
+      root.addEventListener('hha:log_session', onSession);
+      root.addEventListener('hha:log_event', onEvent);
       root.addEventListener('hha:end', onEnd);
 
-      // auto flush on online
-      root.addEventListener('online', ()=> scheduleFlushSoon());
+      // optional snapshot listeners
+      root.addEventListener('hha:score', onScore);
+      root.addEventListener('hha:time', onTime);
+      root.addEventListener('quest:update', onQuestUpdate);
 
-      // flush on page hide
-      doc.addEventListener('visibilitychange', ()=>{
-        if (doc.visibilityState === 'hidden') flush().catch(()=>{});
-      });
-      root.addEventListener('pagehide', ()=>{ flush().catch(()=>{}); });
-
-      // initial flush
-      scheduleFlushSoon();
-
-      if (STATE.debug) console.log('[HHACloudLogger] init', {
-        enabled: STATE.enabled,
-        endpoint: STATE.endpoint,
-        queued: STATE.queue.length
+      // flush on pagehide/visibility
+      root.addEventListener('pagehide', () => flush(true));
+      root.addEventListener('beforeunload', () => flush(true));
+      doc && doc.addEventListener && doc.addEventListener('visibilitychange', () => {
+        if (doc.visibilityState === 'hidden') flush(true);
       });
 
-      return true;
+      // mark start time
+      if (!STATE.startTimeIso) STATE.startTimeIso = new Date().toISOString();
+
+      logd('init ok', { endpoint: CFG.endpoint });
     },
-    setEndpoint(url){
-      if (typeof url === 'string' && /^https?:\/\//i.test(url)){
-        STATE.endpoint = url;
-        scheduleFlushSoon();
-        return true;
-      }
-      return false;
-    },
-    enqueue(item){ enqueue(item); },
-    flush(){ return flush(); },
-    getState(){
-      return {
-        enabled: STATE.enabled,
-        debug: STATE.debug,
-        endpoint: STATE.endpoint,
-        queued: STATE.queue.length,
-        failCount: STATE.failCount
-      };
-    }
+
+    flushNow() { flush(true); },
+
+    // manual log helper (rare use)
+    log(type, data) { enqueue(type || 'event', data || {}); },
+
+    getContext() { return Object.assign({}, CTX); },
+    getSnapshot() { return buildSnapshot_(); }
   };
 
-  // expose
   root.HHACloudLogger = API;
 
-  // auto-init (ไม่บังคับ endpoint)
-  // ถ้ามี endpoint -> จะเริ่มส่งเอง, ถ้าไม่มี -> จะเก็บคิวไว้จนกว่าจะตั้ง endpoint
-  API.init({ debug: false });
+  // auto-init if endpoint exists
+  try {
+    if (!CFG.disabled && CFG.endpoint) API.init({ debug: (Q.get('logdebug') === '1') });
+  } catch (_) {}
 
 })(typeof window !== 'undefined' ? window : globalThis);
