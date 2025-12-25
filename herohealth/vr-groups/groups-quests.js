@@ -1,288 +1,381 @@
 // === /herohealth/vr-groups/groups-quests.js ===
-// Food Groups VR — Quest System (ALL-IN)
-// ✅ goals 3, minis 7 (chain)
-// ✅ active group progression + group change drama event
-// ✅ provides group emojis list for power-charge system
+// Food Groups — Quest System (Goals + Minis) + Group label + Quest%
+// Classic script (no import/export) for groups-vr.html
+// ✅ emits: quest:update (questOk true), hha:rank (questsPct)
+// ✅ supports runMode: play/research, diff: easy/normal/hard, seed fix in research
 
-(function(){
+(function (root) {
   'use strict';
 
-  const ROOT = window;
-  const dispatch = (name, detail) => {
-    try { window.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); } catch {}
-  };
+  const W = root;
+  W.GroupsVR = W.GroupsVR || {};
 
-  // 5 food groups + emoji pool (feel free to tweak)
-  const GROUPS = [
-    { key:1, label:'หมู่ 1 โปรตีน 🥚🥛', emojis:['🥚','🍳','🥛','🧀','🐟','🍗','🥩','🌰'] },
-    { key:2, label:'หมู่ 2 คาร์บ ⚡🍚', emojis:['🍚','🍞','🥔','🍠','🥨','🥐','🍜','🍙'] },
-    { key:3, label:'หมู่ 3 ผัก 🥦',     emojis:['🥦','🥬','🥒','🥕','🌽','🍄','🫛','🍆'] },
-    { key:4, label:'หมู่ 4 ผลไม้ 🍎',   emojis:['🍎','🍌','🍊','🍇','🍉','🍓','🥭','🍍'] },
-    { key:5, label:'หมู่ 5 ไขมัน 🥑',   emojis:['🥑','🫒','🥜','🧈','🍯','🥥','🍫','🧴'] }
+  // ------------------ helpers ------------------
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+
+  // small deterministic RNG (mulberry32)
+  function makeRng(seedStr){
+    let s = 0x9e3779b9;
+    const str = String(seedStr || '');
+    for (let i=0;i<str.length;i++){
+      s ^= (str.charCodeAt(i) + (s<<6) + (s>>2)) >>> 0;
+    }
+    return function(){
+      s |= 0; s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function emit(name, detail){
+    try{ W.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
+  }
+
+  // ------------------ quest defs ------------------
+  // NOTE: เกม Groups = "ยิงถูกหมู่ปัจจุบัน" + "เลี่ยง junk/ผิดหมู่" ให้มีเอกลักษณ์ ไม่ซ้ำ GoodJunk/Plate
+
+  const GOAL_DEFS = [
+    {
+      id:'g1',
+      label:'ยิงถูก “หมู่ปัจจุบัน” ให้ได้ 🎯',
+      targetByDiff:{ easy:18, normal:24, hard:30 },
+      eval:(S)=>S.correctHits|0,
+      pass:(v,t)=>v>=t
+    },
+    {
+      id:'g2',
+      label:'คอมโบสูงสุด 🔥',
+      targetByDiff:{ easy:6, normal:9, hard:12 },
+      eval:(S)=>S.comboMax|0,
+      pass:(v,t)=>v>=t
+    },
+    {
+      id:'g3',
+      label:'ความแม่น ≥ 70% ✅',
+      targetByDiff:{ easy:70, normal:75, hard:80 },
+      eval:(S)=>S.accuracy|0,
+      pass:(v,t)=>v>=t
+    }
   ];
 
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  // mini = แบบ “ภารกิจระเบิด” สั้น ๆ สนุก/เร้าใจ
+  const MINI_DEFS = [
+    {
+      id:'m1',
+      label:'Clean Streak ⚡ (ถูกหมู่ติดกัน)',
+      targetByDiff:{ easy:5, normal:7, hard:9 },
+      timeByDiff:{ easy:12, normal:11, hard:10 },
+      kind:'streak_correct'
+    },
+    {
+      id:'m2',
+      label:'No Wrong ❌ (ห้ามยิงผิดหมู่)',
+      targetByDiff:{ easy:10, normal:12, hard:14 },
+      timeByDiff:{ easy:14, normal:13, hard:12 },
+      kind:'avoid_wrong'
+    },
+    {
+      id:'m3',
+      label:'Anti-Junk 🚫 (ห้ามโดน junk)',
+      targetByDiff:{ easy:10, normal:12, hard:14 },
+      timeByDiff:{ easy:14, normal:13, hard:12 },
+      kind:'avoid_junk'
+    }
+  ];
 
-  function quotaByDiff(diff){
-    diff = String(diff||'normal').toLowerCase();
-    if (diff === 'easy') return 6;
-    if (diff === 'hard') return 8;
-    return 7;
-  }
+  // ------------------ factory ------------------
+  function createGroupsQuest(opts){
+    opts = opts || {};
+    const diff = String(opts.diff || 'normal').toLowerCase();
+    const runMode = String(opts.runMode || 'play').toLowerCase();
+    const seed = String(opts.seed || '');
 
-  function makeGoals(diff){
-    diff = String(diff||'normal').toLowerCase();
+    // ✅ seed policy:
+    // - research: fix seed เสมอ (ถ้าไม่ส่ง seed มา ให้ใช้ default)
+    // - play: ถ้าไม่ส่ง seed มา ให้สุ่มเวลา
+    const finalSeed = (runMode === 'research')
+      ? (seed || 'HHA-GROUPS-RESEARCH-SEED')
+      : (seed || ('PLAY-' + Math.floor(Date.now()/1000)));
 
-    const t1 = (diff==='easy') ? 24 : (diff==='hard' ? 32 : 28);
-    const t2 = (diff==='easy') ? 10 : (diff==='hard' ? 14 : 12);
-    const t3 = (diff==='easy') ? 1  : (diff==='hard' ? 2  : 2);
+    const rng = makeRng(finalSeed);
 
-    return [
-      {
-        id:'g1',
-        label:'เก็บอาหาร “ถูกหมู่” ให้ได้ 🧠',
-        prog:0, target:t1, done:false
-      },
-      {
-        id:'g2',
-        label:'ทำคอมโบให้ถึง 🔥',
-        prog:0, target:t2, done:false
-      },
-      {
-        id:'g3',
-        label:'ทุบ “บอสขยะ” ให้แตก 😈',
-        prog:0, target:t3, done:false
-      }
-    ];
-  }
+    const state = {
+      diff, runMode, seed: finalSeed,
 
-  function makeMinis(diff){
-    diff = String(diff||'normal').toLowerCase();
-    const w1 = (diff==='easy') ? 10 : (diff==='hard' ? 7 : 8);
-    const w2 = (diff==='easy') ? 9  : (diff==='hard' ? 6 : 7);
+      // main stats from engine
+      groupLabel: 'หมู่ ?',
+      correctHits: 0,
+      wrongHits: 0,
+      junkHits: 0,
+      totalShots: 0,
+      combo: 0,
+      comboMax: 0,
+      accuracy: 0,
 
-    return [
-      { id:'m1', label:'Clean Streak ⚡ (ถูกหมู่ติดกัน)', prog:0, target:6, done:false, windowSec:null, tLeft:null },
-      { id:'m2', label:'Speed Eat ⏱ (ถูกหมู่ 5 ในเวลาจำกัด)', prog:0, target:5, done:false, windowSec:w1, tLeft:w1, _armed:false },
-      { id:'m3', label:'No Junk Zone 🚫 (30 วิ ห้ามโดนขยะ)', prog:0, target:30, done:false, windowSec:30, tLeft:30, _armed:true },
-      { id:'m4', label:'Combo Climb 🧗 (คอมโบ 8 โดยไม่พลาด)', prog:0, target:8, done:false, windowSec:null, tLeft:null },
-      { id:'m5', label:'Fruit Sprint 🍎 (ถูกหมู่ 4 จำนวน 6)', prog:0, target:6, done:false, windowSec:null, tLeft:null },
-      { id:'m6', label:'Veg Heal 🌿 (ถูกหมู่ 3 จำนวน 7)', prog:0, target:7, done:false, windowSec:null, tLeft:null },
-      { id:'m7', label:'Boss Breaker 💥 (ทุบบอสอีก 1)', prog:0, target:1, done:false, windowSec:w2, tLeft:w2, _armed:false }
-    ];
-  }
+      // current goal / mini
+      goalIndex: 0,
+      activeGoal: null,
 
-  function createFoodGroupsQuest(diff='normal'){
-    diff = String(diff||'normal').toLowerCase();
+      miniIndex: 0,
+      activeMini: null,
+      miniStartAt: 0,
+      miniTLeft: null,
 
-    const q = {
-      diff,
-      goals: makeGoals(diff),
-      minis: makeMinis(diff),
-
-      _activeIdx: 0,
-      _quota: quotaByDiff(diff),
-      _groupHits: 0,
-      _groupMiss: 0,
-
-      _goodHits: 0,
-      _junkHits: 0,
-      _comboMax: 0,
-      _bossBreaks: 0,
-
-      _streakGroup: 0,        // streak for mini
-      _streakAny: 0,
-      _speedArmedAt: 0,
-      _speedStartAt: 0,
-
-      getActiveGroup(){
-        return GROUPS[clamp(this._activeIdx,0,GROUPS.length-1)];
-      },
-
-      _changeGroup(){
-        this._activeIdx = (this._activeIdx + 1) % GROUPS.length;
-        this._groupHits = 0;
-        this._groupMiss = 0;
-
-        const g = this.getActiveGroup();
-        dispatch('groups:group_change', { key:g.key, label:g.label, quota:this._quota });
-        dispatch('hha:coach', { text:`เปลี่ยนหมู่! → ${g.label} ✨ ยิงถูกหมู่เพื่อชาร์จสกิล!` });
-      },
-
-      _hitMatchesActive(emoji){
-        const g = this.getActiveGroup();
-        return !!(g && Array.isArray(g.emojis) && g.emojis.includes(emoji));
-      },
-
-      // Called by engine
-      onGoodHit(groupId, combo){
-        const g = this.getActiveGroup();
-
-        // groupId comes from engine mapping (active group most of time)
-        const hitActive = (groupId|0) === (g.key|0);
-        if (hitActive){
-          this._groupHits++;
-          this._goodHits++;
-          this._streakGroup++;
-          this._streakAny++;
-
-          // Goal1: correct-group hits
-          const goal1 = this.goals[0];
-          if (goal1 && !goal1.done){
-            goal1.prog = clamp(goal1.prog + 1, 0, goal1.target);
-            if (goal1.prog >= goal1.target) goal1.done = true;
-          }
-
-          // Mini1: Clean streak (correct-group consecutive)
-          const m1 = this.minis[0];
-          if (m1 && !m1.done){
-            m1.prog = clamp(this._streakGroup, 0, m1.target);
-            if (m1.prog >= m1.target) m1.done = true;
-          }
-
-          // Mini2: Speed Eat (armed when first active hit)
-          const m2 = this.minis[1];
-          if (m2 && !m2.done){
-            if (!m2._armed){
-              m2._armed = true;
-              m2.windowSec = m2.windowSec|0;
-              m2.tLeft = m2.windowSec|0;
-              this._speedStartAt = Date.now();
-            }
-            m2.prog = clamp(m2.prog + 1, 0, m2.target);
-            if (m2.prog >= m2.target) m2.done = true;
-          }
-
-          // Mini5: Fruit Sprint
-          const m5 = this.minis[4];
-          if (m5 && !m5.done && g.key === 4){
-            m5.prog = clamp(m5.prog + 1, 0, m5.target);
-            if (m5.prog >= m5.target) m5.done = true;
-          }
-
-          // Mini6: Veg Heal
-          const m6 = this.minis[5];
-          if (m6 && !m6.done && g.key === 3){
-            m6.prog = clamp(m6.prog + 1, 0, m6.target);
-            if (m6.prog >= m6.target) m6.done = true;
-          }
-
-          // group quota -> change group
-          if (this._groupHits >= this._quota){
-            this._changeGroup();
-          }
-
-        } else {
-          // hit good but not active-group -> considered neutral
-          this._goodHits++;
-          this._streakAny++;
-          this._streakGroup = 0;
-        }
-
-        // Goal2: combo max
-        this._comboMax = Math.max(this._comboMax, combo|0);
-        const goal2 = this.goals[1];
-        if (goal2 && !goal2.done){
-          goal2.prog = clamp(this._comboMax, 0, goal2.target);
-          if (goal2.prog >= goal2.target) goal2.done = true;
-        }
-
-        // Mini4: Combo climb (combo 8 no miss)
-        const m4 = this.minis[3];
-        if (m4 && !m4.done){
-          m4.prog = clamp(combo|0, 0, m4.target);
-          if (m4.prog >= m4.target) m4.done = true;
-        }
-      },
-
-      onJunkHit(/*groupId*/){
-        this._junkHits++;
-        this._streakAny = 0;
-        this._streakGroup = 0;
-
-        // Mini3: No Junk Zone (fails by hit -> reset timer/prog)
-        const m3 = this.minis[2];
-        if (m3 && !m3.done){
-          m3.prog = 0;
-          m3.tLeft = m3.windowSec|0;
-        }
-
-        // Mini4: combo climb reset by miss is handled by engine side; here keep it simple
-      },
-
-      onBossBreak(){
-        this._bossBreaks++;
-        const goal3 = this.goals[2];
-        if (goal3 && !goal3.done){
-          goal3.prog = clamp(goal3.prog + 1, 0, goal3.target);
-          if (goal3.prog >= goal3.target) goal3.done = true;
-        }
-
-        // Mini7: Boss breaker (armed when boss appears -> give short window)
-        const m7 = this.minis[6];
-        if (m7 && !m7.done){
-          m7.prog = clamp(m7.prog + 1, 0, m7.target);
-          if (m7.prog >= m7.target) m7.done = true;
-        }
-      },
-
-      // called each second by engine
-      second(){
-        // Mini2: Speed Eat countdown only after armed
-        const m2 = this.minis[1];
-        if (m2 && !m2.done && m2._armed){
-          m2.tLeft = Math.max(0, (m2.tLeft|0) - 1);
-          if ((m2.tLeft|0) <= 0){
-            // fail -> reset
-            m2._armed = false;
-            m2.prog = 0;
-            m2.tLeft = m2.windowSec|0;
-          }
-        }
-
-        // Mini3: No Junk Zone countdown (always armed)
-        const m3 = this.minis[2];
-        if (m3 && !m3.done && m3._armed){
-          m3.tLeft = Math.max(0, (m3.tLeft|0) - 1);
-          m3.prog = clamp(m3.prog + 1, 0, m3.target);
-          if (m3.prog >= m3.target){
-            m3.done = true;
-          }
-          if ((m3.tLeft|0) <= 0 && !m3.done){
-            // reset window
-            m3.tLeft = m3.windowSec|0;
-            m3.prog = 0;
-          }
-        }
-
-        // Mini7: Boss breaker short window logic (optional: countdown if armed)
-        const m7 = this.minis[6];
-        if (m7 && !m7.done){
-          if (!m7._armed){
-            // arm it periodically when late game? keep simple:
-            m7._armed = true;
-            m7.windowSec = m7.windowSec|0;
-            m7.tLeft = m7.windowSec|0;
-          } else {
-            m7.tLeft = Math.max(0, (m7.tLeft|0) - 1);
-            if ((m7.tLeft|0) <= 0 && !m7.done){
-              // re-arm
-              m7.tLeft = m7.windowSec|0;
-            }
-          }
-        }
-      }
+      questOk: false,
+      questsPassed: 0,
+      questsTotal: GOAL_DEFS.length + MINI_DEFS.length
     };
 
-    // start with drama once
-    const g0 = q.getActiveGroup();
-    dispatch('groups:group_change', { key:g0.key, label:g0.label, quota:q._quota });
-    dispatch('hha:coach', { text:`เริ่มเลย! หมู่แรก: ${g0.label} ✨ ยิงถูกหมู่เพื่อชาร์จสกิล ⚡` });
+    function goalTarget(def){
+      const m = def.targetByDiff || {};
+      return (diff in m) ? (m[diff]|0) : (m.normal|0);
+    }
+    function miniTarget(def){
+      const m = def.targetByDiff || {};
+      return (diff in m) ? (m[diff]|0) : (m.normal|0);
+    }
+    function miniTime(def){
+      const m = def.timeByDiff || {};
+      return (diff in m) ? (m[diff]|0) : (m.normal|0);
+    }
 
-    return q;
+    function makeGoal(idx){
+      const def = GOAL_DEFS[idx] || GOAL_DEFS[0];
+      return {
+        id:def.id, label:def.label,
+        target: goalTarget(def),
+        prog: 0,
+        pass:false
+      };
+    }
+
+    function pickMini(){
+      // research: mini order = fixed (ไม่สุ่ม)
+      // play: mini order = pseudo-random แต่ deterministic ด้วย seed (ถ้าตั้ง)
+      let idx;
+      if (runMode === 'research'){
+        idx = state.miniIndex % MINI_DEFS.length;
+      } else {
+        idx = Math.floor(rng() * MINI_DEFS.length) % MINI_DEFS.length;
+      }
+      const def = MINI_DEFS[idx];
+      return {
+        id:def.id, label:def.label,
+        kind:def.kind,
+        target: miniTarget(def),
+        prog: 0,
+        tLimit: miniTime(def),
+        tLeft: miniTime(def),
+        fail:false,
+        pass:false
+      };
+    }
+
+    function computeAccuracy(){
+      const shots = Math.max(1, state.totalShots|0);
+      const good = state.correctHits|0;
+      state.accuracy = Math.round((good / shots) * 100);
+    }
+
+    function updateGoalProgress(){
+      const def = GOAL_DEFS[state.goalIndex] || GOAL_DEFS[0];
+      const t = goalTarget(def);
+      const v = def.eval(state)|0;
+      state.activeGoal.prog = v;
+      state.activeGoal.target = t;
+      state.activeGoal.pass = !!def.pass(v, t);
+    }
+
+    function updateMiniProgress(dtSec){
+      const m = state.activeMini;
+      if (!m) return;
+
+      // tick time
+      if (m.tLimit != null){
+        m.tLeft = Math.max(0, (m.tLeft||0) - (dtSec||0));
+        state.miniTLeft = Math.ceil(m.tLeft);
+        if (m.tLeft <= 0 && !m.pass){
+          m.fail = true;
+        }
+      }
+
+      // pass check
+      if (!m.fail && (m.prog|0) >= (m.target|0)){
+        m.pass = true;
+      }
+    }
+
+    function emitQuestUpdate(){
+      const goal = state.activeGoal;
+      const mini = state.activeMini;
+      emit('quest:update', {
+        questOk: state.questOk,
+        groupLabel: state.groupLabel,
+
+        goal: goal ? {
+          id: goal.id, label: goal.label,
+          prog: goal.prog|0, target: goal.target|0,
+          pass: !!goal.pass
+        } : null,
+
+        mini: mini ? {
+          id: mini.id, label: mini.label,
+          prog: mini.prog|0, target: mini.target|0,
+          tLeft: (mini.tLeft != null) ? Math.ceil(mini.tLeft) : null,
+          pass: !!mini.pass,
+          fail: !!mini.fail
+        } : null
+      });
+    }
+
+    function emitQuestPct(){
+      // คิด % จาก (goal ผ่าน + mini ผ่าน)
+      const passed = state.questsPassed|0;
+      const total  = Math.max(1, state.questsTotal|0);
+      const pct = Math.round((passed / total) * 100);
+      emit('hha:rank', { questsPct: pct });
+    }
+
+    function start(){
+      state.questOk = true;
+      state.goalIndex = 0;
+      state.activeGoal = makeGoal(state.goalIndex);
+
+      state.miniIndex = 0;
+      state.activeMini = pickMini();
+      state.activeMini.tLeft = state.activeMini.tLimit;
+      state.miniStartAt = now();
+
+      emitQuestUpdate();
+      emitQuestPct();
+    }
+
+    function nextGoalIfPassed(){
+      if (!state.activeGoal) return;
+      if (!state.activeGoal.pass) return;
+
+      state.questsPassed++;
+      emit('hha:celebrate', { kind:'goal', text:'GOAL CLEAR!' });
+      emitQuestPct();
+
+      state.goalIndex++;
+      if (state.goalIndex >= GOAL_DEFS.length){
+        // all goals done -> keep last goal shown as passed, but no further goals
+        // (เกมจบจะสรุปเอง)
+        return;
+      }
+      state.activeGoal = makeGoal(state.goalIndex);
+      emitQuestUpdate();
+    }
+
+    function nextMini(){
+      state.questsPassed++;
+      emit('hha:celebrate', { kind:'mini', text:'MINI CLEAR!' });
+      emitQuestPct();
+
+      state.miniIndex++;
+      state.activeMini = pickMini();
+      state.activeMini.tLeft = state.activeMini.tLimit;
+      state.miniStartAt = now();
+      emitQuestUpdate();
+    }
+
+    function failMini(){
+      // mini fail -> reset ใหม่ (ไม่เพิ่ม passed)
+      emit('hha:judge', { text:'MINI FAIL', kind:'warn' });
+      state.activeMini = pickMini();
+      state.activeMini.tLeft = state.activeMini.tLimit;
+      state.miniStartAt = now();
+      emitQuestUpdate();
+    }
+
+    // ------------------ engine hooks ------------------
+    function onGroupChange(label){
+      state.groupLabel = label || 'หมู่ ?';
+      emitQuestUpdate();
+    }
+
+    function onShot(result){
+      // result: { correct:boolean, wrong:boolean, junk:boolean }
+      state.totalShots++;
+
+      if (result && result.correct){
+        state.correctHits++;
+        state.combo++;
+        if (state.combo > state.comboMax) state.comboMax = state.combo;
+
+        // mini progress types
+        if (state.activeMini){
+          if (state.activeMini.kind === 'streak_correct'){
+            state.activeMini.prog++;
+          }
+          if (state.activeMini.kind === 'avoid_wrong'){
+            state.activeMini.prog++;
+          }
+          if (state.activeMini.kind === 'avoid_junk'){
+            state.activeMini.prog++;
+          }
+        }
+      } else {
+        // break combo
+        state.combo = 0;
+
+        if (result && result.wrong) state.wrongHits++;
+        if (result && result.junk)  state.junkHits++;
+
+        // mini fail rules
+        if (state.activeMini){
+          if (state.activeMini.kind === 'avoid_wrong' && result.wrong) state.activeMini.fail = true;
+          if (state.activeMini.kind === 'avoid_junk'  && result.junk)  state.activeMini.fail = true;
+          if (state.activeMini.kind === 'streak_correct'){
+            // streak mini: ยิงผิด = streak reset (ไม่ fail ทันที แค่ reset)
+            state.activeMini.prog = 0;
+          }
+        }
+      }
+
+      computeAccuracy();
+      updateGoalProgress();
+      emitQuestUpdate();
+      nextGoalIfPassed();
+
+      // mini pass/fail check จะทำใน tick เพื่อคุมเวลา
+    }
+
+    function tick(dtSec){
+      if (!state.questOk) return;
+
+      updateMiniProgress(dtSec);
+
+      if (state.activeMini){
+        if (state.activeMini.fail) {
+          failMini();
+        } else if (state.activeMini.pass){
+          nextMini();
+        } else {
+          emitQuestUpdate();
+        }
+      }
+    }
+
+    function snapshot(){
+      return JSON.parse(JSON.stringify(state));
+    }
+
+    return {
+      start,
+      tick,
+      onShot,
+      onGroupChange,
+      snapshot,
+      get seed(){ return state.seed; },
+      get runMode(){ return state.runMode; }
+    };
   }
 
-  ROOT.GroupsQuest = ROOT.GroupsQuest || {};
-  ROOT.GroupsQuest.createFoodGroupsQuest = createFoodGroupsQuest;
+  // expose
+  W.GroupsVR.createGroupsQuest = createGroupsQuest;
 
-})();
+})(window);
