@@ -1,3 +1,12 @@
+<!-- === /herohealth/plate-vr.html ===
+     HeroHealth — Balanced Plate VR (FINAL)
+     ✅ รองรับ plate.safe.js (FINAL PACK v1) เต็มระบบ:
+       - Start overlay (Play) / Research auto-start
+       - quest:update / hha:time / hha:score / hha:end
+       - HUD ids ครบ + result overlay
+       - particles.js + compat input + cloud logger (defer สำคัญ)
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -14,9 +23,6 @@
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
-
-  <!-- (Optional) Global HUD binder — ปลอดภัย / ไม่บังคับ -->
-  <script src="./vr/hha-hud.js" defer></script>
 
   <style>
     :root{
@@ -61,7 +67,7 @@
     #hudLeftGroup{display:flex; gap:8px; flex-wrap:wrap;}
     #hudRightGroup{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
 
-    /* ===== Crosshair ===== */
+    /* ===== Crosshair (ช่วยความรู้สึก VR) ===== */
     #crosshair{
       position:fixed;
       left:50%; top:50%;
@@ -146,6 +152,7 @@
     #goalLine{margin-top:6px; color:rgba(229,231,235,.88); font-weight:900;}
     #miniHint{margin-top:6px; color:rgba(148,163,184,.92); font-weight:900; font-size:13px; line-height:1.25;}
 
+    /* hidden helper */
     #hudPaused{
       position:fixed; left:50%; top:50%;
       transform:translate(-50%,-50%);
@@ -180,7 +187,7 @@
     .cell .k{display:block; margin-bottom:4px;}
   </style>
 
-  <!-- ✅ plate.safe.js -->
+  <!-- ✅ plate.safe.js (FINAL) -->
   <script type="module" src="./plate/plate.safe.js"></script>
 </head>
 
@@ -210,7 +217,7 @@
         <span class="pill">🔥 <span class="k">FEVER</span> <span id="hudFeverPct" class="v">0%</span></span>
         <span class="pill">🎖️ <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
 
-        <!-- ซ่อนข้อมูลไม่จำเป็นระหว่างเล่น แต่ยังมี element ไว้ให้ JS set ได้ -->
+        <!-- element ที่ JS ต้องใช้ (ซ่อนระหว่างเล่น) -->
         <span class="pill" style="display:none">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
         <span class="pill" style="display:none">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
         <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Easy</span></span>
@@ -218,12 +225,14 @@
     </div>
   </div>
 
+  <!-- Quest panel -->
   <div id="miniPanel">
     <div id="miniLine">MINI: …</div>
     <div id="goalLine">Goal: …</div>
     <div id="miniHint">…</div>
   </div>
 
+  <!-- Buttons -->
   <div id="hudBtns">
     <button class="btn" id="btnEnterVR">🕶️ ENTER VR</button>
     <button class="btn" id="btnPause">⏸️ PAUSE</button>
