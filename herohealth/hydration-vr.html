@@ -1,9 +1,6 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration Quest VR — PRODUCTION READY (Full HTML)
-✅ Fix import path: ./hydration-vr/hydration.safe.js (กัน Failed to fetch)
-✅ HUD + Start overlay + End overlay (ครบ)
-✅ Playfield + BoundsHost + SpawnHost แยก (รองรับ drag/transform ไม่ให้ hitbox เพี้ยน)
-✅ ปุ่ม VR/STOP + Peek HUD + Double-tap reset view
+Hydration Quest VR — PRODUCTION READY (HTML + UI FX overlays)
++ Vignette (fever/urgent) + Shake class hooks
 -->
 <!doctype html>
 <html lang="th">
@@ -14,10 +11,8 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- (Optional) A-Frame for VR button compat if you use it elsewhere -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + Logger (safe if absent) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
@@ -25,7 +20,6 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.72);
-      --panel2:rgba(15,23,42,.62);
       --stroke:rgba(148,163,184,.22);
       --text:#e5e7eb;
       --muted:#94a3b8;
@@ -38,58 +32,65 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
     html,body{height:100%; background:radial-gradient(1200px 800px at 50% 15%, rgba(34,197,94,.10), transparent 55%), var(--bg); color:var(--text); margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;}
     *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
-    /* bounds host (คำนวณ safe-zone) */
-    #hvr-bounds{
-      position:fixed; inset:0;
-      overflow:hidden;
-      touch-action:none;
-    }
+    #hvr-bounds{ position:fixed; inset:0; overflow:hidden; touch-action:none; }
+    #hvr-world{ position:absolute; inset:0; transform: translate3d(0,0,0); will-change: transform; }
+    #hvr-layer{ position:absolute; inset:0; pointer-events:auto; }
 
-    /* world (ถูกลาก/gyro) */
-    #hvr-world{
-      position:absolute; inset:0;
-      transform: translate3d(0,0,0);
-      will-change: transform;
-    }
-
-    /* spawn host */
-    #hvr-layer{
-      position:absolute; inset:0;
-      pointer-events:auto;
-    }
-
-    /* crosshair (ยิงกลางจอ) */
     #hvr-crosshair{
-      position:fixed;
-      left:50%; top:52%;
+      position:fixed; left:50%; top:52%;
       transform:translate(-50%,-50%);
       width:18px; height:18px;
       border:2px solid rgba(229,231,235,.55);
       border-radius:999px;
       box-shadow:0 0 16px rgba(255,255,255,.10);
-      z-index:30;
-      pointer-events:none;
-      opacity:.7;
+      z-index:30; pointer-events:none; opacity:.7;
     }
     #hvr-crosshair::after{
-      content:'';
-      position:absolute; left:50%; top:50%;
+      content:''; position:absolute; left:50%; top:50%;
       transform:translate(-50%,-50%);
-      width:4px; height:4px;
-      border-radius:999px;
+      width:4px; height:4px; border-radius:999px;
       background:rgba(229,231,235,.65);
     }
 
-    /* HUD */
-    #hha-hud{
-      position:fixed; inset:0;
+    /* ---------- NEW: FX overlays ---------- */
+    #hha-vignette{
+      position:fixed; inset:-2px;
+      z-index:46;
       pointer-events:none;
-      z-index:40;
+      opacity:0;
+      transition: opacity .18s ease;
+      background:
+        radial-gradient(1200px 680px at 50% 50%, rgba(0,0,0,0) 54%, rgba(0,0,0,.55) 100%),
+        radial-gradient(900px 520px at 50% 52%, rgba(34,197,94,.0) 45%, rgba(34,197,94,.10) 95%);
+      mix-blend-mode: screen;
+      filter: blur(.2px);
     }
-    .hud-top{
-      position:absolute; left:16px; right:16px; top:14px;
-      display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
+    body.hha-fever #hha-vignette{ opacity:.22; }
+    body.hha-urgent #hha-vignette{ opacity:.35; }
+
+    #hha-warnline{
+      position:fixed; inset:0;
+      z-index:47; pointer-events:none;
+      opacity:0;
+      transition: opacity .18s ease;
+      background:
+        linear-gradient(180deg, rgba(245,158,11,.0), rgba(245,158,11,.0) 35%, rgba(245,158,11,.10) 55%, rgba(245,158,11,.0));
     }
+    body.hha-urgent #hha-warnline{ opacity:.55; animation: warnPulse .65s ease-in-out infinite; }
+    @keyframes warnPulse{ 0%{opacity:.22} 50%{opacity:.62} 100%{opacity:.22} }
+
+    body.hha-shake{ animation: hhaShake .22s ease-in-out 1; }
+    @keyframes hhaShake{
+      0%{ transform: translate3d(0,0,0); }
+      25%{ transform: translate3d(-3px, 1px,0); }
+      50%{ transform: translate3d(3px, -1px,0); }
+      75%{ transform: translate3d(-2px, -1px,0); }
+      100%{ transform: translate3d(0,0,0); }
+    }
+
+    /* HUD */
+    #hha-hud{ position:fixed; inset:0; pointer-events:none; z-index:40; }
+    .hud-top{ position:absolute; left:16px; right:16px; top:14px; display:flex; gap:12px; align-items:flex-start; justify-content:space-between; }
     .pill{
       pointer-events:none;
       background:linear-gradient(180deg, rgba(2,6,23,.75), rgba(2,6,23,.55));
@@ -101,23 +102,9 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
       backdrop-filter: blur(10px);
     }
     .pill b{ font-weight:800; letter-spacing:.2px; }
-    .bar{
-      height:10px; width:170px;
-      border-radius:999px;
-      background:rgba(148,163,184,.16);
-      overflow:hidden;
-      border:1px solid rgba(148,163,184,.18);
-    }
-    .bar > i{
-      display:block; height:100%;
-      width:50%;
-      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55));
-      border-radius:999px;
-    }
-    .hud-mid{
-      position:absolute; left:16px; right:16px; top:86px;
-      display:flex; gap:14px; align-items:flex-start; justify-content:space-between;
-    }
+    .bar{ height:10px; width:170px; border-radius:999px; background:rgba(148,163,184,.16); overflow:hidden; border:1px solid rgba(148,163,184,.18); }
+    .bar > i{ display:block; height:100%; width:50%; background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55)); border-radius:999px; }
+    .hud-mid{ position:absolute; left:16px; right:16px; top:86px; display:flex; gap:14px; align-items:flex-start; justify-content:space-between; }
     .card{
       pointer-events:none;
       width:min(320px, 44vw);
@@ -145,25 +132,10 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
     .big .row{ display:flex; justify-content:space-between; gap:10px; align-items:center;}
     .big .row h3{ margin:0; font-size:14px; letter-spacing:.2px;}
     .big .sub{ margin-top:8px; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
-    .big .prog{
-      margin-top:10px;
-      height:12px; border-radius:999px;
-      background:rgba(148,163,184,.14);
-      border:1px solid rgba(148,163,184,.18);
-      overflow:hidden;
-    }
-    .big .prog > i{
-      display:block; height:100%;
-      width:0%;
-      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55));
-      border-radius:999px;
-    }
+    .big .prog{ margin-top:10px; height:12px; border-radius:999px; background:rgba(148,163,184,.14); border:1px solid rgba(148,163,184,.18); overflow:hidden; }
+    .big .prog > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55)); border-radius:999px; }
 
-    .hud-right-stack{
-      pointer-events:none;
-      display:flex; flex-direction:column; gap:10px;
-      width:min(240px, 34vw);
-    }
+    .hud-right-stack{ pointer-events:none; display:flex; flex-direction:column; gap:10px; width:min(240px, 34vw); }
 
     .hint{
       position:fixed; left:16px; bottom:108px;
@@ -184,8 +156,7 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
     .hud-bottom{
       position:fixed; left:16px; right:16px; bottom:18px;
       display:flex; align-items:center; justify-content:flex-end; gap:10px;
-      pointer-events:auto;
-      z-index:55;
+      pointer-events:auto; z-index:55;
     }
     .btn{
       border:1px solid rgba(148,163,184,.18);
@@ -193,8 +164,7 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
       color:rgba(229,231,235,.92);
       padding:12px 18px;
       border-radius: 16px;
-      font-weight:800;
-      letter-spacing:.2px;
+      font-weight:800; letter-spacing:.2px;
       box-shadow: var(--shadow);
       backdrop-filter: blur(10px);
       user-select:none;
@@ -203,10 +173,9 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
     .btn.vr{ background:linear-gradient(180deg, rgba(20,83,45,.68), rgba(2,6,23,.88)); }
     .btn:active{ transform: translateY(1px); }
 
-    /* START overlay */
+    /* START overlay (เหมือนเดิม) */
     #hvr-start{
-      position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
       z-index:80;
       background: radial-gradient(900px 500px at 50% 20%, rgba(34,197,94,.12), transparent 60%), rgba(2,6,23,.78);
       backdrop-filter: blur(10px);
@@ -222,12 +191,7 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
     }
     .start-card h2{ margin:0; font-size:22px; letter-spacing:.2px; }
     .start-card p{ margin:10px 0 0; color:rgba(148,163,184,.98); line-height:1.35; }
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-    }
+    .grid{ margin-top:14px; display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
     label{ display:block; font-size:12px; color:rgba(148,163,184,.98); margin:0 0 6px; }
     select,input{
       width:100%;
@@ -267,8 +231,7 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
     /* END overlay */
     #hvr-end{
       position:fixed; inset:0;
-      display:none;
-      align-items:center; justify-content:center;
+      display:none; align-items:center; justify-content:center;
       z-index:90;
       background:rgba(2,6,23,.80);
       backdrop-filter: blur(10px);
@@ -286,54 +249,34 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
     .end-top h2{ margin:0; font-size:22px; letter-spacing:.2px; }
     .badge-grade{
       display:inline-flex; align-items:center; justify-content:center;
-      min-width:54px;
-      padding:10px 14px;
+      min-width:54px; padding:10px 14px;
       border-radius: 16px;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(2,6,23,.55);
-      font-weight:900;
-      letter-spacing:.4px;
+      font-weight:900; letter-spacing:.4px;
     }
     .end-kpis{
       margin-top:12px;
-      display:grid;
-      grid-template-columns: repeat(3, 1fr);
+      display:grid; grid-template-columns: repeat(3, 1fr);
       gap:10px;
     }
-    .kpi{
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.45);
-      border-radius: 18px;
-      padding:12px 12px;
-    }
+    .kpi{ border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.45); border-radius: 18px; padding:12px 12px; }
     .kpi b{ display:block; font-size:22px; }
     .kpi span{ color:rgba(148,163,184,.95); font-size:12px; }
-    .end-prog{
-      margin-top:12px;
-      height:14px; border-radius:999px;
-      background:rgba(148,163,184,.14);
-      border:1px solid rgba(148,163,184,.18);
-      overflow:hidden;
-    }
-    .end-prog > i{
-      display:block; height:100%;
-      width:0%;
-      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55));
-      border-radius:999px;
-    }
-    .end-actions{
-      margin-top:14px;
-      display:flex; gap:10px; justify-content:flex-end;
-    }
+    .end-prog{ margin-top:12px; height:14px; border-radius:999px; background:rgba(148,163,184,.14); border:1px solid rgba(148,163,184,.18); overflow:hidden; }
+    .end-prog > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55)); border-radius:999px; }
+    .end-actions{ margin-top:14px; display:flex; gap:10px; justify-content:flex-end; }
     .end-actions .btn{ pointer-events:auto; }
 
-    /* hidden hud */
     .hud-hidden #hha-hud{ opacity:.12; }
   </style>
 </head>
 
 <body>
-  <!-- bounds host -->
+  <!-- NEW overlays -->
+  <div id="hha-vignette" aria-hidden="true"></div>
+  <div id="hha-warnline" aria-hidden="true"></div>
+
   <div id="hvr-bounds">
     <div id="hvr-world">
       <div id="hvr-layer" aria-label="spawn-layer"></div>
@@ -352,10 +295,7 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
         <span id="hha-water-pct" style="margin-left:2px; font-weight:900;">50%</span>
         <div class="bar" style="margin-left:10px;"><i id="hha-water-fill" style="width:50%"></i></div>
       </div>
-
-      <div class="pill" id="hha-water-bar" style="opacity:.0; pointer-events:none;">
-        <!-- (optional spare) -->
-      </div>
+      <div class="pill" id="hha-water-bar" style="opacity:.0; pointer-events:none;"></div>
     </div>
 
     <div class="hud-mid">
@@ -393,7 +333,6 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
           <div class="bar" style="width:100%"><i id="hha-fever-fill" style="width:0%"></i></div>
           <div class="sub" style="margin-top:8px;"><b id="hha-fever-pct">0%</b></div>
         </div>
-
         <div class="card" id="hha-shield-card">
           <h4>🛡️ SHIELD</h4>
           <div class="sub"><b id="hha-shield">0</b></div>
@@ -452,7 +391,7 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
       </div>
 
       <div class="tiny" id="uiUrlPreview">URL: ?diff=normal&time=90&run=play&seed=</div>
-      <div class="tiny">HUD จะซ่อนอัตโนมัติ → แตะขอบบนเพื่อ Peek • Double-tap: Reset view</div>
+      <div class="tiny">HUD ซ่อนอัตโนมัติ → แตะขอบบน Peek • Double-tap: Reset view</div>
     </div>
   </div>
 
@@ -481,7 +420,6 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
   </div>
 
   <script type="module">
-    // --- URL helpers ---
     const $ = (id)=>document.getElementById(id);
     const qs = new URLSearchParams(location.search);
     const get = (k, d='') => (qs.get(k) ?? d);
@@ -494,7 +432,6 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
       const url = `?diff=${encodeURIComponent(diff)}&time=${encodeURIComponent(time)}&run=${encodeURIComponent(run)}${seed?`&seed=${encodeURIComponent(seed)}`:''}&debug=1`;
       $('uiUrlPreview').textContent = 'URL: ' + url;
     }
-
     ['uiDiff','uiRun','uiTime','uiSeed'].forEach(id=>{
       const el = $(id);
       el.addEventListener('input', setPreview);
@@ -516,30 +453,21 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
       nqs.set('debug', '1');
       location.href = location.pathname + '?' + nqs.toString();
     }
-
     $('uiStart').addEventListener('click', navToStart);
 
-    // prefill form from URL
-    const urlDiff = get('diff','normal');
-    const urlRun  = get('run','play');
-    const urlTime = get('time','90');
-    const urlSeed = get('seed','');
-    $('uiDiff').value = ['easy','normal','hard'].includes(urlDiff) ? urlDiff : 'normal';
-    $('uiRun').value  = (urlRun === 'research') ? 'research' : 'play';
-    $('uiTime').value = Math.max(20, Math.min(180, Number(urlTime||90)));
-    $('uiSeed').value = urlSeed;
+    // prefill form
+    $('uiDiff').value = ['easy','normal','hard'].includes(get('diff','normal')) ? get('diff','normal') : 'normal';
+    $('uiRun').value  = (get('run','play') === 'research') ? 'research' : 'play';
+    $('uiTime').value = Math.max(20, Math.min(180, Number(get('time','90')||90)));
+    $('uiSeed').value = get('seed','');
     setPreview();
 
-    // Buttons (STOP/VR)
+    // Buttons
     $('btnStop').addEventListener('click', ()=> window.dispatchEvent(new CustomEvent('hha:stop')));
-    $('btnVR').addEventListener('click', ()=> {
-      // placeholder: if you have a VR scene, hook it here
-      // For now: attempt fullscreen
-      try{ document.documentElement.requestFullscreen?.(); }catch{}
-    });
+    $('btnVR').addEventListener('click', ()=> { try{ document.documentElement.requestFullscreen?.(); }catch{} });
 
-    // Peek HUD: tap top edge
-    let hudPeekTimer = null;
+    // Peek HUD
+    let hudPeekTimer=null;
     function showHudTemp(ms=2500){
       document.body.classList.remove('hud-hidden');
       clearTimeout(hudPeekTimer);
@@ -549,14 +477,12 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
       clearTimeout(hudPeekTimer);
       hudPeekTimer = setTimeout(()=> document.body.classList.add('hud-hidden'), 2500);
     }
-    window.addEventListener('pointerdown', (e)=>{
-      if (e.clientY < 36) showHudTemp(2800);
-    }, {passive:true});
+    window.addEventListener('pointerdown', (e)=>{ if (e.clientY < 36) showHudTemp(2800); }, {passive:true});
     autoHideHud();
 
     // Double-tap reset view
-    let lastTap = 0;
-    window.addEventListener('pointerup', (e)=>{
+    let lastTap=0;
+    window.addEventListener('pointerup', ()=>{
       const now = performance.now();
       if (now - lastTap < 320) window.dispatchEvent(new CustomEvent('hha:resetView'));
       lastTap = now;
@@ -565,12 +491,11 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
     // End overlay hooks
     function showEnd(on){ $('hvr-end').style.display = on ? 'flex' : 'none'; }
     $('endClose').addEventListener('click', ()=> showEnd(false));
-    $('endReplay').addEventListener('click', ()=> {
+    $('endReplay').addEventListener('click', ()=>{
       const nqs = new URLSearchParams(location.search);
       nqs.set('ts', String(Date.now()));
       location.href = location.pathname + '?' + nqs.toString();
     });
-
     window.addEventListener('hha:end', (ev)=>{
       const d = ev?.detail || {};
       $('endTitle').textContent = d.title || 'จบเกมแล้ว! 💧';
@@ -583,7 +508,7 @@ Hydration Quest VR — PRODUCTION READY (Full HTML)
       showEnd(true);
     });
 
-    // Boot the game engine (MODULE) — IMPORTANT PATH FIX HERE:
+    // Boot
     import { bootHydration } from './hydration-vr/hydration.safe.js';
     bootHydration();
   </script>
