@@ -1,13 +1,10 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups VR — PRODUCTION HYBRID ENGINE (FIX-ALL + STUN 0.8s)
+// Food Groups VR — PRODUCTION HYBRID ENGINE (FIX-ALL + STUN 0.8s + GROUP POWERS)
+// ✅ Group Power by Active Food Group (1–5) — unique gameplay vs GoodJunk/Plate
 // ✅ Quest update ALWAYS emits (even when quest missing → questOk:false)
 // ✅ Fever emits hha:fever for UI compatibility
 // ✅ Research mode = deterministic (seeded Math.random while running) + restore on stop
-// ✅ Emoji textContent fix (kept)
-// ✅ Decoy = Invert (kept)
-// ✅ Rage = Double-Feint (kept)
-// ✅ render uses CSS vars --x/--y/--s (kept)
-// ✅ STUN 0.8s: when hit junk with no shield (and boss hit) -> disable inputs briefly + FX event
+// ✅ STUN 0.8s: junk hit with no shield + boss hit → stun + FX + input disabled briefly
 
 (function () {
   'use strict';
@@ -18,7 +15,7 @@
   const Particles =
     (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
     ROOT.Particles ||
-    { scorePop() {}, burstAt() {}, celebrateQuestFX() {}, celebrateAllQuestsFX() {} };
+    { scorePop() {}, burstAt() {}, celebrateQuestFX() {}, celebrateAllQuestsFX() {}, celebrateQuest() {} };
 
   const FeverUI =
     (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
@@ -210,8 +207,153 @@
   function doStun(){
     stunUntil = now() + STUN_MS;
     dispatch('groups:stun', { on:true, ms: STUN_MS });
-    // เบาแต่รู้สึกได้
     haptic([25, 25, 25]);
+  }
+  function clearStun(){
+    if (stunUntil > 0){
+      stunUntil = 0;
+      dispatch('groups:stun', { on:false, ms: 0 });
+    }
+  }
+
+  // =========================
+  // ✅ GROUP POWER SYSTEM (unique per food group)
+  // =========================
+  // charge builds ONLY by hitting "good" of active group; decays on miss/junk/expire.
+  // when charge reaches threshold -> power triggers instantly.
+  const groupCharge = [0,0,0,0,0,0]; // 1..5
+  let powerUntil = 0;
+  let powerType = ''; // 'protein' | 'carb' | 'veg' | 'fruit' | 'fat'
+  let bossDamageBonus = 0;
+  let bossBaitUntil = 0;
+
+  function powerActive(){ return now() < powerUntil; }
+  function resetCharges(){
+    for (let i=1;i<=5;i++) groupCharge[i]=0;
+    powerUntil = 0;
+    powerType = '';
+    bossDamageBonus = 0;
+    bossBaitUntil = 0;
+  }
+
+  function powerThreshold(diff){
+    // Easy triggers more often; Hard needs more chaining
+    diff = String(diff||'normal').toLowerCase();
+    if (diff === 'easy') return 5;
+    if (diff === 'hard') return 7;
+    return 6;
+  }
+
+  function groupName(key){
+    switch (key|0){
+      case 1: return 'หมู่ 1 โปรตีน';
+      case 2: return 'หมู่ 2 คาร์บ';
+      case 3: return 'หมู่ 3 ผัก';
+      case 4: return 'หมู่ 4 ผลไม้';
+      case 5: return 'หมู่ 5 ไขมัน';
+      default:return 'หมู่ ?';
+    }
+  }
+
+  function powerLabel(key){
+    switch (key|0){
+      case 1: return 'POWER: SHIELD+ 🛡️';
+      case 2: return 'POWER: MINI-RUSH 🚀';
+      case 3: return 'POWER: HEAL 🌿';
+      case 4: return 'POWER: TIME+ 🍎';
+      case 5: return 'POWER: BOSS BAIT 😈';
+      default:return 'POWER!';
+    }
+  }
+
+  function emitPower(key, x, y){
+    dispatch('hha:judge', { label: powerLabel(key), x, y, good:true });
+    Particles.scorePop && Particles.scorePop(x, y, '⚡', { judgment:'POWER', good:true });
+    tone(980,0.06,0.06,'triangle');
+    haptic([14,10,14]);
+  }
+
+  function activatePowerByGroup(key){
+    const tNow = now();
+    const dur = (runMode === 'research') ? 3500 : 5200; // research shorter but deterministic
+    powerUntil = tNow + dur;
+
+    if ((key|0) === 1){
+      powerType = 'protein';
+      setShieldValue(shield + 1);
+      coach('🛡️ หมู่ 1: ได้โล่เพิ่ม! กันพลาดได้อีกครั้ง');
+      logEvent({ kind:'power', type:'protein', shield, durMs: dur, timeLeft: remainingSec });
+
+    } else if ((key|0) === 2){
+      powerType = 'carb';
+      // mini-rush even in research (no randomness, just multiplier effect + chain feel)
+      rushOn = true;
+      rushEndsAt = tNow + 4200;
+      dispatch('hha:rush', { on:true, sec: 4 });
+      coach('🚀 หมู่ 2: MINI-RUSH! คะแนน x2 ชั่วคราว + chain มา!');
+      logEvent({ kind:'power', type:'carb_minirush', durMs: dur, timeLeft: remainingSec });
+
+    } else if ((key|0) === 3){
+      powerType = 'veg';
+      // heal: add fever instantly + clear stun
+      clearStun();
+      setFeverValue(Math.min(100, fever + 35));
+      coach('🌿 หมู่ 3: HEAL! เพิ่ม FEVER + ล้าง STUN');
+      logEvent({ kind:'power', type:'veg_heal', durMs: dur, timeLeft: remainingSec });
+
+    } else if ((key|0) === 4){
+      powerType = 'fruit';
+      // time +3 (cap sane)
+      const add = 3;
+      remainingSec = Math.min(999, (remainingSec|0) + add);
+      dispatch('hha:time', { left: remainingSec });
+      coach('🍎 หมู่ 4: TIME+3s! ได้เวลาเพิ่ม ลุยต่อ!');
+      logEvent({ kind:'power', type:'fruit_time', addSec:add, durMs: dur, timeLeft: remainingSec });
+
+    } else if ((key|0) === 5){
+      powerType = 'fat';
+      // boss bait: make boss spawn more likely + boss damage bonus for a short time
+      bossDamageBonus = 1;
+      bossBaitUntil = tNow + 6000;
+      coach('😈 หมู่ 5: BOSS BAIT! บอสมาไวขึ้น + ยิงบอสแรงขึ้น!');
+      logEvent({ kind:'power', type:'fat_bossbait', durMs: dur, timeLeft: remainingSec });
+
+    } else {
+      powerType = 'generic';
+      logEvent({ kind:'power', type:'generic', durMs: dur, timeLeft: remainingSec });
+    }
+  }
+
+  function addGroupChargeIfMatch(emoji, x, y){
+    if (!quest || !quest.getActiveGroup) return;
+    const g = quest.getActiveGroup();
+    if (!g || !g.key) return;
+
+    const key = g.key|0;
+    // only if emoji belongs to active group list
+    if (!Array.isArray(g.emojis) || !g.emojis.includes(emoji)) return;
+
+    // build charge, but if already active, don't build too much
+    const th = powerThreshold(currentDiff || 'normal');
+    const inc = (rushOn || feverOn) ? 2 : 1;
+    groupCharge[key] = clamp(groupCharge[key] + inc, 0, th);
+
+    // lightweight progress ping to HUD (optional)
+    dispatch('groups:power', { groupKey:key, groupName: groupName(key), charge: groupCharge[key], threshold: th, active: powerActive(), type: powerType });
+
+    if (groupCharge[key] >= th){
+      groupCharge[key] = 0;
+      emitPower(key, x, y);
+      activatePowerByGroup(key);
+    }
+  }
+
+  function decayCharges(reason){
+    // decay all charges slightly on mistakes
+    const dec = (reason === 'junk' || reason === 'expire' || reason === 'miss') ? 2 : 1;
+    for (let i=1;i<=5;i++){
+      groupCharge[i] = Math.max(0, (groupCharge[i]|0) - dec);
+    }
   }
 
   // ---------- config ----------
@@ -361,9 +503,11 @@
 
   let gazeFuseMsBase = CFG.gazeFuseMsNormal;
   let lastChargeAt = 0;
+  let currentDiff = 'normal';
 
   function applyDifficulty(diff) {
     diff = String(diff || 'normal').toLowerCase();
+    currentDiff = diff;
 
     if (diff === 'easy') {
       CFG.spawnInterval = 1200;
@@ -691,18 +835,18 @@
   }
 
   function tickRush(){
-    if (!CFG.rushEnabled) return;
-
+    // also respects power-carbs mini-rush which forces rushOn true
     if (rushOn) {
       if (now() >= rushEndsAt) {
         rushOn = false;
         rushEndsAt = 0;
-        rushCooldownSec = CFG.rushCooldownAfter | 0;
+        if (CFG.rushEnabled) rushCooldownSec = CFG.rushCooldownAfter | 0;
         dispatch('hha:rush', { on:false, sec: 0 });
         coach('จบ RUSH แล้ว ไปต่อ!');
         logEvent({ kind:'rush_end', timeLeft: remainingSec, score, misses, comboMax });
       }
     } else {
+      if (!CFG.rushEnabled) return;
       if (rushCooldownSec > 0) rushCooldownSec--;
       tryStartRush();
     }
@@ -789,7 +933,7 @@
     const onDown = (ev) => {
       if (!running) return;
       if (!layerEl) return;
-      if (isStunned()) return; // ✅ ignore during stun
+      if (isStunned()) return;
 
       const targetEl = ev.target && ev.target.closest ? ev.target.closest('.fg-target') : null;
       if (targetEl) return;
@@ -813,6 +957,7 @@
         tone(180, 0.06, 0.07, 'square');
         haptic([35,40,35]);
         dispatch('groups:reticle', { state:'miss' });
+        decayCharges('miss');
         logEvent({ kind:'tap_shoot_miss', x, y, timeLeft: remainingSec });
       }
     };
@@ -900,7 +1045,7 @@
 
   function burstFire(){
     if (!running || !gazeEnabled) return;
-    if (isStunned()) return; // ✅ no burst during stun
+    if (isStunned()) return;
     if (burstInFlight) return;
 
     burstInFlight = true;
@@ -923,6 +1068,7 @@
         } else {
           tone(220, 0.03, 0.03, 'square');
           dispatch('groups:reticle', { state:'miss' });
+          decayCharges('miss');
           logEvent({ kind:'gaze_burst_dry', shot:(i+1), burstCount:count, timeLeft: remainingSec });
         }
 
@@ -1056,6 +1202,10 @@
     }
   }
 
+  function bossBaitOn(){
+    return (bossBaitUntil && now() < bossBaitUntil);
+  }
+
   function createTarget() {
     if (!running || !layerEl) return;
     if (active.length >= effectiveMaxActive()) return;
@@ -1070,8 +1220,10 @@
       if (g && Array.isArray(g.emojis) && g.emojis.length) emoji = g.emojis[randInt(0, g.emojis.length - 1)];
       else emoji = CFG.emojisGood[randInt(0, CFG.emojisGood.length - 1)];
     } else {
+      // ✅ boss bait power makes boss more likely (even in research, still deterministic due to seeded RNG)
+      const baitBoost = bossBaitOn() ? 0.18 : 0.0;
       const bossChance = bossWaveOn() ? Math.min(0.22, CFG.bossJunkChance * 2.4) : CFG.bossJunkChance;
-      isBoss = (Math.random() < bossChance);
+      isBoss = (Math.random() < clamp(bossChance + baitBoost, 0, 0.40));
       if (isBoss) emoji = CFG.bossJunkEmoji[randInt(0, CFG.bossJunkEmoji.length - 1)];
       else emoji = CFG.emojisJunk[randInt(0, CFG.emojisJunk.length - 1)];
     }
@@ -1086,7 +1238,7 @@
         : (isBoss ? 'fg-junk fg-boss' : 'fg-junk'));
 
     el.setAttribute('data-emoji', emoji);
-    el.textContent = emoji; // ✅ emoji textContent
+    el.textContent = emoji;
     el.classList.add('spawn');
 
     applyTargetSizeToEl(el, isBoss ? CFG.bossJunkScaleMul : 1.0);
@@ -1137,7 +1289,7 @@
       dispatch('groups:danger', { on:true });
       tone(260,0.08,0.07,'square'); setTimeout(()=>tone(220,0.08,0.07,'square'),120);
       haptic([18,18,18]);
-      logEvent({ kind:'boss_spawn', hp: t.hp, timeLeft: remainingSec, wave: bossWaveOn() });
+      logEvent({ kind:'boss_spawn', hp: t.hp, timeLeft: remainingSec, wave: bossWaveOn(), bait: bossBaitOn() });
     }
 
     active.push(t);
@@ -1222,6 +1374,7 @@
         Particles.scorePop && Particles.scorePop(pos.x, pos.y, '🛡️', { judgment:'DECOY', good:true });
         coach('😼 เกือบแล้ว! นั่น Decoy แต่โล่ช่วยไว้');
         tone(520,0.05,0.05,'sine'); haptic([10]);
+        decayCharges('junk');
 
         logEvent({ kind:'decoy_block', emoji:t.emoji, timeLeft: remainingSec, shield });
 
@@ -1236,8 +1389,8 @@
         coach('🧠 โดนหลอก! Decoy = Invert!');
         tone(150,0.08,0.08,'square');
 
-        // ✅ stun on harsh mistake
         doStun();
+        decayCharges('miss');
 
         spawnAfterimage(pos.x, pos.y, t.emoji, 'a1');
         setTimeout(()=>spawnAfterimage(pos.x, pos.y, t.emoji, 'a2'), 55);
@@ -1266,20 +1419,17 @@
       let pts = feverOn ? CFG.pointsGoodFever : CFG.pointsGood;
 
       if (rushOn) pts = Math.round(pts * CFG.pointsGoodRushMul);
-
-      if (meta && meta.charge){
-        pts = pts + (CFG.chargeGoodBonus|0);
-      }
-
-      if (meta && meta.chain && chainPts){
-        pts = chainPts;
-      }
+      if (meta && meta.charge) pts = pts + (CFG.chargeGoodBonus|0);
+      if (meta && meta.chain && chainPts) pts = chainPts;
 
       addScore(pts);
       setCombo(combo + 1);
 
       setFeverValue(fever + CFG.feverGainGood);
       maybeEnterFever();
+
+      // ✅ build group power charge (only when emoji in ACTIVE GROUP)
+      addGroupChargeIfMatch(t.emoji, pos.x, pos.y);
 
       if (quest && typeof quest.onGoodHit === 'function') {
         const gid = emojiToGroupId(t.emoji);
@@ -1335,9 +1485,11 @@
     // -------- JUNK --------
     } else {
       const isBoss = !!t.boss;
+      decayCharges('junk');
 
       if (isBoss){
-        const dmg = (meta && meta.charge) ? (CFG.chargeDamageBoss|0) : 1;
+        const baseDmg = (meta && meta.charge) ? (CFG.chargeDamageBoss|0) : 1;
+        const dmg = baseDmg + (bossDamageBonus|0); // ✅ fat power bonus
 
         if (shield > 0) {
           junkHits++;
@@ -1372,7 +1524,6 @@
           setCombo(0);
           setFeverValue(fever - CFG.feverLossMiss);
 
-          // ✅ STUN 0.8s on boss hit no shield
           doStun();
 
           t.hp = Math.max(0, (t.hp|0) - dmg);
@@ -1426,7 +1577,6 @@
           setCombo(0);
           setFeverValue(fever - CFG.feverLossMiss);
 
-          // ✅ STUN 0.8s on junk hit no shield
           doStun();
 
           if (quest && typeof quest.onJunkHit === 'function') {
@@ -1478,6 +1628,7 @@
       consecutiveGood = 0;
 
       setFeverValue(fever - CFG.feverLossMiss);
+      decayCharges('expire');
 
       dispatch('hha:judge', { label:'MISS', x: pos.x, y: pos.y, good:false, emoji: t.emoji });
       Particles.scorePop && Particles.scorePop(pos.x, pos.y, String(CFG.pointsGoodExpire|0), { judgment:'MISS', good:false });
@@ -1662,6 +1813,15 @@
     secondTimer = setInterval(() => {
       if (!running) return;
 
+      // power housekeeping
+      if (!powerActive()){
+        powerType = '';
+        bossDamageBonus = 0;
+      }
+      if (bossBaitUntil && now() >= bossBaitUntil){
+        bossBaitUntil = 0;
+      }
+
       if (remainingSec > 0) remainingSec--;
       dispatch('hha:time', { left: remainingSec });
 
@@ -1714,6 +1874,8 @@
     bossWaveEndsAt = 0;
 
     stunUntil = 0;
+
+    resetCharges();
 
     clearLock(true);
     cancelBurst();
@@ -1817,14 +1979,14 @@
         console.warn('[FoodGroupsVR] quest-manager not found');
       }
 
-      // ✅ Research = FIX seed + disable variance features
+      // ✅ Research = FIX seed + reduce random variance (still allows group powers; deterministic)
       if (runMode === 'research') {
         sizeMul = 1.0;
         CFG.adaptiveEnabledPlay = false;
-        CFG.rushEnabled = false;
-        CFG.bossWaveEnabled = false;
-        CFG.decoyEnabled = false;
-        CFG.rageEnabled = false;
+        CFG.rushEnabled = false;      // random rush off
+        CFG.bossWaveEnabled = false;  // random wave off
+        CFG.decoyEnabled = false;     // decoy off
+        CFG.rageEnabled = false;      // rage off
 
         const sp = new URLSearchParams(location.search);
         const seedStr =
@@ -1844,7 +2006,9 @@
       }
 
       const g = quest && quest.getActiveGroup ? quest.getActiveGroup() : null;
-      coach(g ? `เริ่มเลย! หมู่ปัจจุบัน: ${g.label} ✨` : (quest ? 'เริ่มเลย! แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨' : '⚠️ QUEST ไม่พร้อม (เช็คไฟล์ groups-quests.js)'));
+      coach(g ? `เริ่มเลย! หมู่ปัจจุบัน: ${g.label} ✨ (ยิงถูกหมู่ → ชาร์จสกิล!)`
+              : (quest ? 'เริ่มเลย! แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨ (ยิงถูกหมู่ → ชาร์จสกิล!)'
+                       : '⚠️ QUEST ไม่พร้อม (เช็คไฟล์ groups-quests.js)'));
 
       logSessionStart({
         diff,
@@ -1855,7 +2019,6 @@
         screenH: window.innerHeight || 0
       });
 
-      // ✅ emit immediately so HUD shows right away
       emitQuestUpdate();
       emitRank();
 
