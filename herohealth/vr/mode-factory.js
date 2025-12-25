@@ -11,17 +11,9 @@
 // ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
 // ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
 //
-// 🔥 PATCH A (FULL-SPREAD):
-// ✅ ถ้า spawnAroundCrosshair:false → สุ่มแบบ uniform ทั่ว playRect (กระจายจริง ไม่กองกลาง)
-//
-// 🔥 PATCH EDGE-FIX (NO-CUT):
-// ✅ ถ้า spawnHost มี transform (ลาก/gyro) → ใช้ baseRect จาก boundsHost แทน (ignore transform)
-// ✅ เพิ่ม pad กัน pulse/scale แล้ว clamp ไม่ให้ชนขอบจริง
-//
-// 🔥 PATCH C (HUD-SAFE + GRID SPREAD + RANDOM RING):
-// ✅ ข้าม exclusion ที่ครอบทั้งจอ (เช่น .hud wrapper) ไม่ให้บีบสนามจนเหลือแถบเดียว
-// ✅ spawnStrategy:'grid9' → กระจายแบบ 3x3 + balance cell
-// ✅ randomRing: วงแหวน dashed หมุน + สุ่มความเร็ว/ทิศ/offset
+// 🔥 PATCH D (HOLES-EXCLUSION):
+// ✅ ไม่บีบสนามด้วย #hha-card-left/#hha-card-right (side HUD) อีกแล้ว
+// ✅ แต่ใช้ “holes” (rects) กัน spawn ทับ HUD แทน → ไม่กองเป็นเสา
 
 'use strict';
 
@@ -253,6 +245,7 @@ function collectExclusionElements(rawCfg){
   return uniq;
 }
 
+// ✅ PATCH: ไม่ให้ side HUD บีบสนามซ้าย/ขวา แต่จะกันด้วย holes แทน
 function computeExclusionMargins(hostRect, exEls){
   const m = { top:0, bottom:0, left:0, right:0 };
   if (!hostRect || !exEls || !exEls.length) return m;
@@ -260,12 +253,15 @@ function computeExclusionMargins(hostRect, exEls){
   const hx1 = hostRect.left, hy1 = hostRect.top;
   const hx2 = hostRect.right, hy2 = hostRect.bottom;
 
+  const SIDE_IDS = new Set(['hha-card-left','hha-card-right']);
+  const SIDE_CLASSES = ['hha-fever-card'];
+
   exEls.forEach(el=>{
     let r = null;
     try{ r = el.getBoundingClientRect(); }catch{}
     if (!r) return;
 
-    // ✅ PATCH: ข้าม “wrapper เต็มจอ” ไม่ให้บีบสนามจนเหลือแถบเดียว
+    // ✅ ข้าม wrapper เต็มจอ
     const coverW = r.width  / Math.max(1, hostRect.width);
     const coverH = r.height / Math.max(1, hostRect.height);
     if (coverW > 0.78 && coverH > 0.78) return;
@@ -276,17 +272,26 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
+    const isSideCard =
+      (el.id && SIDE_IDS.has(el.id)) ||
+      (el.classList && SIDE_CLASSES.some(c => el.classList.contains(c)));
+
+    // TOP/BOTTOM margins ยังโอเค
     if (r.top < hy1 + 90 && r.bottom > hy1) {
       m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
     }
     if (r.bottom > hy2 - 90 && r.top < hy2) {
       m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
     }
-    if (r.left < hx1 + 90 && r.right > hx1) {
-      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
-    }
-    if (r.right > hx2 - 90 && r.left < hx2) {
-      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+
+    // LEFT/RIGHT: ถ้าเป็น side HUD → ไม่บีบสนาม
+    if (!isSideCard){
+      if (r.left < hx1 + 90 && r.right > hx1) {
+        m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+      }
+      if (r.right > hx2 - 90 && r.left < hx2) {
+        m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+      }
     }
   });
 
@@ -354,7 +359,7 @@ export async function boot (rawCfg = {}) {
     minSeparation = 0.95,
     maxSpawnTries = 14,
 
-    // ✅ new: spread strategy
+    // spread strategy
     spawnStrategy = 'random' // 'random' | 'grid9'
   } = rawCfg || {};
 
@@ -502,8 +507,10 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
+  // ✅ NEW: exState.rects = holes exclusion
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
+    rects: [],
     margins: { top:0,bottom:0,left:0,right:0 },
     lastRefreshTs: 0
   };
@@ -515,10 +522,36 @@ export async function boot (rawCfg = {}) {
     exState.lastRefreshTs = ts;
 
     exState.els = collectExclusionElements({ excludeSelectors });
+
     let hostRect = null;
     try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
     if (!hostRect) hostRect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
+
     exState.margins = computeExclusionMargins(hostRect, exState.els);
+
+    // ✅ build holes rects
+    const rects = [];
+    const hx1 = hostRect.left, hy1 = hostRect.top, hx2 = hostRect.right, hy2 = hostRect.bottom;
+
+    exState.els.forEach(el=>{
+      let r = null;
+      try{ r = el.getBoundingClientRect(); }catch{}
+      if (!r) return;
+
+      const coverW = r.width  / Math.max(1, hostRect.width);
+      const coverH = r.height / Math.max(1, hostRect.height);
+      if (coverW > 0.78 && coverH > 0.78) return;
+
+      const ox1 = Math.max(hx1, r.left);
+      const oy1 = Math.max(hy1, r.top);
+      const ox2 = Math.min(hx2, r.right);
+      const oy2 = Math.min(hy2, r.bottom);
+      if (ox2 <= ox1 || oy2 <= oy1) return;
+
+      rects.push({ left:ox1, top:oy1, right:ox2, bottom:oy2 });
+    });
+
+    exState.rects = rects;
   }
 
   function getCrosshairPoint(){
@@ -596,6 +629,19 @@ export async function boot (rawCfg = {}) {
     return out;
   }
 
+  // ✅ holes checker
+  function pointHitsExclusion(clientX, clientY, pad, rects){
+    if (!rects || !rects.length) return false;
+    const x1 = clientX - pad, x2 = clientX + pad;
+    const y1 = clientY - pad, y2 = clientY + pad;
+    for (let i=0;i<rects.length;i++){
+      const r = rects[i];
+      if (x2 <= r.left || x1 >= r.right || y2 <= r.top || y1 >= r.bottom) continue;
+      return true;
+    }
+    return false;
+  }
+
   // ✅ grid spread state
   const grid9 = { counts: new Array(9).fill(0) };
   function pickGridCell9(){
@@ -646,8 +692,6 @@ export async function boot (rawCfg = {}) {
     let bestScore = -1;
 
     const useUniform = !spawnAroundCrosshair;
-
-    // ✅ grid9 mode (ชัดมากว่า “กระจาย”)
     const useGrid9 = (useUniform && String(spawnStrategy||'').toLowerCase() === 'grid9');
 
     function pointFromGrid9(){
@@ -685,6 +729,23 @@ export async function boot (rawCfg = {}) {
         y = useUniform
           ? (minY + Math.random() * (maxY - minY))
           : clamp(ay + tri()*ry, minY, maxY);
+      }
+
+      // ✅ HOLES: กันทับ HUD โดยไม่บีบสนาม
+      const clientX = x + sRect.left;
+      const clientY = y + sRect.top;
+      const holePad = Math.max(14, sizePx * 0.52);
+      if (pointHitsExclusion(clientX, clientY, holePad, exState.rects)){
+        // ให้โอกาส best fallback
+        let nearest = 1e9;
+        for (let k=0;k<centers.length;k++){
+          const dx = x - centers[k].x;
+          const dy = y - centers[k].y;
+          nearest = Math.min(nearest, Math.sqrt(dx*dx + dy*dy));
+        }
+        const score = nearest;
+        if (score > bestScore) { bestScore = score; best = { x, y, ok:false }; }
+        continue;
       }
 
       let ok = true;
