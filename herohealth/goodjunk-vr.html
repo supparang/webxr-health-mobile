@@ -1,8 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR — FULL HTML (PRODUCTION) — PATCH C COMPAT
-✅ Script order: particles → logger → fever → hud → module boot
+GoodJunkVR — FULL HTML (PRODUCTION) — PATCH C COMPAT + FX PACK (Fever-based)
+✅ Script order: particles → logger → fever → hud → (FX listener) → module boot
 ✅ DOM targets layer (#gj-layer) + VR-feel playfield (drag + gyro)
 ✅ Ring/Laser overlays (#atk-ring/#atk-laser) with CSS vars
+✅ FX overlays: vignette + warnline + chroma flash (scaled by Fever%)
 ✅ Start overlay + Motion permission button
 ✅ Fallback end summary (listen hha:end)
 -->
@@ -445,6 +446,74 @@ GoodJunkVR — FULL HTML (PRODUCTION) — PATCH C COMPAT
       opacity:.65;
       font-size: 11px;
     }
+
+    /* =========================
+       HHA FX PACK (Fever-based)
+       ========================= */
+    #hha-vignette{
+      position:fixed; inset:0;
+      z-index: 25;           /* above playfield, below HUD */
+      pointer-events:none;
+      opacity: .0;
+      transition: opacity .12s ease;
+      background:
+        radial-gradient(1100px 720px at 50% 60%, rgba(0,0,0,0) 52%, rgba(0,0,0,.55) 100%),
+        radial-gradient(900px 600px at 50% 62%, rgba(239,68,68,.0) 0%, rgba(239,68,68,.0) 62%, rgba(239,68,68,.10) 100%);
+      mix-blend-mode: multiply;
+    }
+
+    #hha-warnline{
+      position:fixed; inset:0;
+      z-index: 32;           /* above hazards, below crosshair/hud ok */
+      pointer-events:none;
+      opacity: 0;
+      transition: opacity .10s ease;
+      box-shadow:
+        inset 0 0 0 2px rgba(239,68,68,.35),
+        inset 0 0 44px rgba(239,68,68,.10),
+        inset 0 0 88px rgba(245,158,11,.08);
+      border-radius: 0;
+      mix-blend-mode: screen;
+    }
+
+    #hha-chroma{
+      position:fixed; inset:-10%;
+      z-index: 34;           /* flash layer */
+      pointer-events:none;
+      opacity:0;
+      transform: translateZ(0);
+      background:
+        radial-gradient(900px 520px at 50% 60%, rgba(239,68,68,.22), rgba(245,158,11,.10), rgba(2,6,23,0) 65%),
+        radial-gradient(1200px 700px at 20% 30%, rgba(34,197,94,.08), rgba(2,6,23,0) 62%);
+      mix-blend-mode: screen;
+    }
+
+    /* Shake targets: playfield + HUD + overlays */
+    body.hha-shake #gj-layer,
+    body.hha-shake .hud,
+    body.hha-shake #atk-ring,
+    body.hha-shake #atk-laser,
+    body.hha-shake #gj-crosshair,
+    body.hha-shake .shoot{
+      animation: hhaShake var(--shakeMs, 140ms) linear;
+    }
+
+    @keyframes hhaShake{
+      0%   { transform: translate3d(0,0,0) rotate(0deg); }
+      15%  { transform: translate3d(var(--sx, 2px), calc(var(--sy, 2px) * -1), 0) rotate(-0.2deg); }
+      35%  { transform: translate3d(calc(var(--sx, 2px) * -1), var(--sy, 2px), 0) rotate(0.25deg); }
+      55%  { transform: translate3d(calc(var(--sx, 2px) * 0.6), calc(var(--sy, 2px) * 0.4), 0) rotate(-0.15deg); }
+      75%  { transform: translate3d(calc(var(--sx, 2px) * -0.35), calc(var(--sy, 2px) * -0.5), 0) rotate(0.1deg); }
+      100% { transform: translate3d(0,0,0) rotate(0deg); }
+    }
+
+    /* “panic pulse” เพิ่มความเร้าใจ */
+    body.hha-panic #hha-warnline{
+      opacity: var(--warnAlpha, .35);
+    }
+    body.hha-panic #hha-vignette{
+      opacity: var(--vigAlpha, .22);
+    }
   </style>
 </head>
 
@@ -466,6 +535,11 @@ GoodJunkVR — FULL HTML (PRODUCTION) — PATCH C COMPAT
   <!-- Boss hazards -->
   <div id="atk-ring" aria-hidden="true"></div>
   <div id="atk-laser" aria-hidden="true"></div>
+
+  <!-- Screen FX overlays (vignette + warnline + chroma flash) -->
+  <div id="hha-vignette" aria-hidden="true"></div>
+  <div id="hha-warnline" aria-hidden="true"></div>
+  <div id="hha-chroma" aria-hidden="true"></div>
 
   <!-- Crosshair -->
   <div id="gj-crosshair" class="crosshair" aria-hidden="true"></div>
@@ -586,6 +660,164 @@ GoodJunkVR — FULL HTML (PRODUCTION) — PATCH C COMPAT
     </div>
   </div>
 
+  <!-- FX Listener (Fever-based) -->
+  <script>
+  (function(){
+    'use strict';
+
+    const $ = (id)=> document.getElementById(id);
+
+    const vig = $('hha-vignette');
+    const warn = $('hha-warnline');
+    const chroma = $('hha-chroma');
+
+    let fever = 0;          // 0..100
+    let stunActive = false; // true => glow เพิ่ม
+    let panic = 0;          // 0..1
+
+    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+    function setVignette(){
+      if(!vig) return;
+      // base: ตาม fever + stun + panic
+      const f = clamp(fever,0,100)/100;
+      const s = stunActive ? 0.18 : 0.0;
+      const p = clamp(panic,0,1)*0.22;
+      const a = clamp(0.03 + f*0.22 + s + p, 0, 0.65);
+      vig.style.opacity = a.toFixed(3);
+      document.documentElement.style.setProperty('--vigAlpha', a.toFixed(3));
+    }
+
+    function setWarnline(alpha, ms){
+      if(!warn) return;
+      const a = clamp(alpha, 0, 1);
+      warn.style.opacity = a.toFixed(3);
+      document.documentElement.style.setProperty('--warnAlpha', a.toFixed(3));
+      if (ms && ms > 0){
+        setTimeout(()=>{ if(warn) warn.style.opacity = '0'; }, ms|0);
+      }
+    }
+
+    function flashChroma(ms, strength){
+      if(!chroma) return;
+      const s = clamp(strength, 0, 1);
+      chroma.style.opacity = (0.10 + s*0.55).toFixed(3);
+      setTimeout(()=>{ if(chroma) chroma.style.opacity='0'; }, Math.max(60, ms|0));
+    }
+
+    function kick(intensity, ms){
+      const f = clamp(fever,0,100)/100;
+
+      // shake scale grows with fever
+      const base = 1.6 + f*4.2;
+      const mul = clamp(intensity, 0.2, 3.0);
+      const amp = base * mul;
+
+      // set CSS vars (randomize a bit)
+      const sx = (Math.random()<0.5?-1:1) * (amp*0.9);
+      const sy = (Math.random()<0.5?-1:1) * (amp*0.75);
+
+      document.documentElement.style.setProperty('--sx', sx.toFixed(1)+'px');
+      document.documentElement.style.setProperty('--sy', sy.toFixed(1)+'px');
+      document.documentElement.style.setProperty('--shakeMs', (ms||140)|0 + 'ms');
+
+      document.body.classList.add('hha-shake');
+      setTimeout(()=> document.body.classList.remove('hha-shake'), Math.max(80, (ms||140)|0));
+    }
+
+    function setPanic(level, ms){
+      panic = clamp(level,0,1);
+      document.body.classList.toggle('hha-panic', panic > 0.02);
+      setVignette();
+
+      // warnline ตาม panic + fever
+      const f = clamp(fever,0,100)/100;
+      const a = clamp(0.10 + panic*0.55 + f*0.18, 0, 1);
+      if (panic > 0.02) setWarnline(a, 0);
+
+      if (ms && ms > 0){
+        const endAt = Date.now() + (ms|0);
+        const t = setInterval(()=>{
+          const left = endAt - Date.now();
+          if (left <= 0){
+            clearInterval(t);
+            panic = 0;
+            document.body.classList.remove('hha-panic');
+            if (warn) warn.style.opacity = '0';
+            setVignette();
+          }
+        }, 80);
+      }
+    }
+
+    // ---------- event inputs ----------
+    window.addEventListener('hha:fever', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      if (d.fever != null) fever = clamp(d.fever,0,100);
+      else if (d.value != null) fever = clamp(d.value,0,100);
+
+      if (d.stunActive != null) stunActive = !!d.stunActive;
+      else if (d.on != null) stunActive = !!d.on;
+
+      setVignette();
+    }, { passive:true });
+
+    window.addEventListener('hha:score', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      if (d.fever != null) fever = clamp(d.fever,0,100);
+      setVignette();
+    }, { passive:true });
+
+    window.addEventListener('hha:panic', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      setPanic(d.level ?? 0, d.ms ?? 0);
+    }, { passive:true });
+
+    window.addEventListener('hha:fx', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      const type = String(d.type||'').toLowerCase();
+      if (type === 'kick') kick(d.intensity ?? 1, d.ms ?? 140);
+      if (type === 'chroma') flashChroma(d.ms ?? 180, 0.75);
+      if (type === 'hero')   flashChroma(d.ms ?? 240, 0.55);
+    }, { passive:true });
+
+    window.addEventListener('hha:tick', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      const kind = String(d.kind||'').toLowerCase();
+      const intensity = clamp(d.intensity ?? 1, 0.2, 3);
+
+      // warnline pulse + micro shake
+      const f = clamp(fever,0,100)/100;
+      const a = clamp(0.08 + intensity*0.10 + f*0.22, 0, 0.9);
+      setWarnline(a, 120);
+      kick(0.25 + intensity*0.22, 110);
+
+      // “final” tick โหดขึ้น
+      if (kind.includes('final')){
+        flashChroma(140, 0.65);
+      }
+    }, { passive:true });
+
+    window.addEventListener('hha:finalPulse', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      const sec = (d.secLeft|0);
+
+      // ช่วงท้าย 5 วิ: เร่ง warnline + flash
+      if (sec <= 5){
+        setWarnline(0.72, 180);
+        flashChroma(150, 0.85);
+        kick(1.2, 160);
+      }else{
+        setWarnline(0.35, 120);
+        kick(0.7, 140);
+      }
+    }, { passive:true });
+
+    // initial
+    setVignette();
+  })();
+  </script>
+
   <!-- Boot module -->
   <script type="module">
     import { boot as goodjunkBoot } from './vr-goodjunk/goodjunk.safe.js';
@@ -696,12 +928,12 @@ GoodJunkVR — FULL HTML (PRODUCTION) — PATCH C COMPAT
 
     btnHow.addEventListener('click', ()=>{
       alert(
-        'วิธีเล่น GoodJunkVR\\n\\n' +
-        '1) เล็งเป้ากลาง (วงกลม)\\n' +
-        '2) แตะ “ยิง” หรือแตะพื้นที่ว่างเพื่อยิงใส่เป้าที่ใกล้ crosshair\\n' +
-        '3) เก็บของดี 🥦/ทอง 🟡/พลัง 🧲⏳🛡️\\n' +
-        '4) หลีกขยะ 🍟🍕 และกับดัก 😈🧨\\n' +
-        '5) โหมด Boss จะมี Ring/Laser/Storm ให้หลบ\\n\\n' +
+        'วิธีเล่น GoodJunkVR\n\n' +
+        '1) เล็งเป้ากลาง (วงกลม)\n' +
+        '2) แตะ “ยิง” หรือแตะพื้นที่ว่างเพื่อยิงใส่เป้าที่ใกล้ crosshair\n' +
+        '3) เก็บของดี 🥦/ทอง 🟡/พลัง 🧲⏳🛡️\n' +
+        '4) หลีกขยะ 🍟🍕 และกับดัก 😈🧨\n' +
+        '5) โหมด Boss จะมี Ring/Laser/Storm ให้หลบ\n\n' +
         'ทิป: ลากจอเพื่อขยับสนามเหมือน VR (หรือเปิด Motion)'
       );
     }, { passive:true });
