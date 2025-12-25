@@ -1,11 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — DOM Emoji Engine (PLAY/RESEARCH)
-// ✅ Play: target size ADAPTIVE (skill-based) + difficulty baseline
-// ✅ Research: target size FIXED by difficulty only (no adaptive)
-// ✅ spawn spread fix via mode-factory randomRing + best-candidate fallback
-// ✅ Auto-hide HUD + Peek
-// ✅ Gyro limit + calibration
+// Hydration Quest VR — DOM Emoji Engine (PLAY MODE)
+// ✅ Auto-hide HUD (เหลือส่วนจำเป็น) + Peek
+// ✅ Gyro limit (เอียงนิดเดียวไม่หนี) + calibration
+// ✅ Drag threshold (ลาก=look ไม่ใช่ tap)
 // ✅ Endscreen fallback (กันจอดำ)
+// ✅ debug=1 รองรับ
+// ✅ play = adaptive ON / research = adaptive OFF (fixed easy/normal/hard)
+// ✅ spawnStrategy:grid9 + ไม่ exclude .hud wrapper (กันสนามโดนบีบ)
 
 'use strict';
 
@@ -58,9 +59,11 @@ const TUNE = {
   lookPxPerDegY:6.8,
   lookSmooth:0.10,
 
+  // ✅ per-frame speed limit
   lookMaxStepX: 9.5,
   lookMaxStepY: 7.5,
 
+  // gyro stability
   gyroDeadGamma: 1.6,
   gyroDeadBeta:  2.0,
   gyroBiasBeta:  18,
@@ -72,19 +75,9 @@ const TUNE = {
   stormDurationSec:5,
   stormIntervalMul:0.72,
 
+  // HUD auto-hide
   hudHideAfterSec: 2.2,
-  hudPeekMs: 1600,
-
-  // ---- Target size baseline per difficulty ----
-  sizeBaseByDiff: { easy: 1.10, normal: 1.00, hard: 0.90 },
-
-  // ---- Play adaptive (skill) ----
-  adaptMin: 0.78,
-  adaptMax: 1.22,
-  adaptStepDown: 0.035,
-  adaptStepUp:   0.045,
-  adaptEveryHits: 8,
-  adaptWindow: 16,
+  hudPeekMs: 1600
 };
 
 function ensureEndHost(){
@@ -107,7 +100,7 @@ function ensureEndHost(){
 
 function ensureHudAutoHide(){
   const hud = document.querySelector('.hud');
-  if (!hud) return { touch(){}, peek(){}, destroy(){} };
+  if (!hud) return { touch(){}, peek(){}, setCompact(){}, destroy(){} };
 
   function setCompact(){
     hud.classList.add('hud-compact');
@@ -117,7 +110,9 @@ function ensureHudAutoHide(){
       s.textContent=`
         .hud{ transition: transform .18s ease, opacity .18s ease; }
         .hud.hud-hidden{ opacity:0; transform:translate3d(0,-14px,0); }
-        .hud.hud-compact .card{ padding:10px 12px 10px !important; }
+        .hud.hud-compact .card{ padding:10px 12px 10px !important; min-width:200px !important; }
+        .hud.hud-compact .title{ font-size:18px !important; }
+        .hud.hud-compact #hha-water-card .muted:last-child{ display:none; }
       `;
       document.head.appendChild(s);
     }
@@ -145,7 +140,7 @@ function ensureHudAutoHide(){
   scheduleHide();
 
   return {
-    touch, peek,
+    touch, peek, setCompact,
     destroy(){
       try{ ROOT.removeEventListener('pointerdown', onPointerDown); }catch{}
       try{ if (hideTimer) clearTimeout(hideTimer); }catch{}
@@ -155,11 +150,9 @@ function ensureHudAutoHide(){
 }
 
 export async function boot(opts = {}){
-  const difficulty = String(opts.difficulty || (url?.searchParams.get('diff')||'easy') || 'easy').toLowerCase();
-  const duration   = clamp(opts.duration ?? (parseInt(url?.searchParams.get('time')||'90',10)||90), 20, 180);
-
-  const runMode = String(opts.runMode || (url?.searchParams.get('run')||url?.searchParams.get('mode')||'play')).toLowerCase();
-  const seed    = String(opts.seed || (url?.searchParams.get('seed')||'')).trim();
+  const difficulty = String(opts.difficulty || 'easy').toLowerCase();
+  const duration   = clamp(opts.duration ?? 90, 20, 180);
+  const runMode    = String(opts.runMode || 'play').toLowerCase(); // play | research
 
   ensureWaterGauge();
 
@@ -190,47 +183,9 @@ export async function boot(opts = {}){
     FeverUI.setShield?.(0);
   }
 
-  // ---------- Target size controller ----------
-  const baseScale = (TUNE.sizeBaseByDiff[difficulty] ?? 1.0);
-
-  // ✅ Corrected: play = adaptive, research = fixed
-  const adaptiveEnabled = (runMode === 'play');
-
-  const adapt = {
-    factor: 1.0,
-    buf: [],
-    hits: 0
-  };
-
-  function recordOutcome(isSuccess){
-    if (!adaptiveEnabled) return;
-    adapt.hits++;
-    adapt.buf.push(isSuccess ? 1 : 0);
-    while (adapt.buf.length > TUNE.adaptWindow) adapt.buf.shift();
-
-    if ((adapt.hits % TUNE.adaptEveryHits) !== 0) return;
-
-    const sum = adapt.buf.reduce((a,b)=>a+b,0);
-    const rate = adapt.buf.length ? (sum / adapt.buf.length) : 0.5;
-
-    // เก่งขึ้น → เป้าเล็กลง / พลาดเยอะ → เป้าใหญ่ขึ้น
-    if (rate >= 0.82){
-      adapt.factor = clamp(adapt.factor - TUNE.adaptStepDown, TUNE.adaptMin, TUNE.adaptMax);
-      dispatch('hha:coach',{ text:`🎯 Play Adaptive: เก่งมาก! ลดขนาดเป้าลงนิดนึง (${Math.round(adapt.factor*100)}%)`, mood:'happy' });
-    } else if (rate <= 0.58){
-      adapt.factor = clamp(adapt.factor + TUNE.adaptStepUp, TUNE.adaptMin, TUNE.adaptMax);
-      dispatch('hha:coach',{ text:`🛟 Play Adaptive: เพิ่มขนาดเป้าให้พอดีมือ (${Math.round(adapt.factor*100)}%)`, mood:'neutral' });
-    }
-  }
-
-  function currentTargetScale(){
-    return baseScale * (adaptiveEnabled ? adapt.factor : 1.0);
-  }
-
   const state = {
     diff:difficulty,
-    mode:runMode,
-    seed,
+    runMode,
     timeLeft:duration,
     score:0, combo:0, comboBest:0, miss:0,
     waterPct:50, zone:'GREEN', greenTick:0,
@@ -241,13 +196,14 @@ export async function boot(opts = {}){
     lookVX:0, lookVY:0,
 
     gyroCenterGamma:0,
-    gyroCenterBeta: 18,
+    gyroCenterBeta: TUNE.gyroBiasBeta,
 
     stormLeft:0,
     stopped:false
   };
 
   const Q = createHydrationQuest(difficulty);
+
   const HUD = ensureHudAutoHide();
 
   ROOT.HHA_ACTIVE_INST = { stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} } };
@@ -294,21 +250,29 @@ export async function boot(opts = {}){
   }
 
   function updateQuestHud(){
-    const goalsDone = (Q.goals||[]).filter(g=>g._done||g.done).length;
-    const minisDone = (Q.minis||[]).filter(m=>m._done||m.done).length;
+    const goalsView = Q.getProgress('goals');
+    const minisView = Q.getProgress('mini');
+    const allGoals=Q.goals||[], allMinis=Q.minis||[];
+    const goalsDone = allGoals.filter(g=>g._done||g.done).length;
+    const minisDone = allMinis.filter(m=>m._done||m.done).length;
 
     $id('hha-goal-count') && ($id('hha-goal-count').textContent = String(goalsDone));
     $id('hha-mini-count') && ($id('hha-mini-count').textContent = String(minisDone));
 
-    $id('hha-quest-goal') && ($id('hha-quest-goal').textContent = Q.getGoalText ? `Goal: ${Q.getGoalText()}` : ($id('hha-quest-goal').textContent||'Goal: —'));
-    $id('hha-quest-mini') && ($id('hha-quest-mini').textContent = Q.getMiniText ? `Mini: ${Q.getMiniText()}` : ($id('hha-quest-mini').textContent||'Mini: —'));
+    const curGoalId = (goalsView?.[0]?.id) || (allGoals[0]?.id||'');
+    const curMiniId = (minisView?.[0]?.id) || (allMinis[0]?.id||'');
+
+    const gInfo = Q.getGoalProgressInfo ? Q.getGoalProgressInfo(curGoalId) : null;
+    const mInfo = Q.getMiniProgressInfo ? Q.getMiniProgressInfo(curMiniId) : null;
+
+    $id('hha-quest-goal') && ($id('hha-quest-goal').textContent = gInfo?.text ? `Goal: ${gInfo.text}` : 'Goal: ทำภารกิจให้ครบ');
+    $id('hha-quest-mini') && ($id('hha-quest-mini').textContent = mInfo?.text ? `Mini: ${mInfo.text}` : 'Mini: ทำมินิเควส');
 
     dispatch('quest:update',{
-      goalDone:goalsDone, goalTotal:(Q.goals||[]).length||2,
-      miniDone:minisDone, miniTotal:(Q.minis||[]).length||3,
+      goalDone:goalsDone, goalTotal:allGoals.length||2,
+      miniDone:minisDone, miniTotal:allMinis.length||3,
       goalText:$id('hha-quest-goal')?.textContent||'',
-      miniText:$id('hha-quest-mini')?.textContent||'',
-      mode: runMode
+      miniText:$id('hha-quest-mini')?.textContent||''
     });
 
     updateScoreHud();
@@ -324,8 +288,8 @@ export async function boot(opts = {}){
   function feverStart(){
     state.feverActive=true;
     state.feverLeft=TUNE.feverDurationSec;
-    state.fever=100;
-    state.shield = clamp(state.shield + 2, 0, 6);
+    state.fever=TUNE.feverTriggerAt;
+    state.shield = clamp(state.shield + TUNE.shieldOnFeverStart, 0, TUNE.shieldMax);
     feverRender();
     dispatch('hha:fever',{state:'start',value:state.fever,active:true,shield:state.shield});
     dispatch('hha:coach',{text:'🔥 FEVER! ยิงให้ไว คะแนนคูณ x2 + ได้เกราะ 🛡️', mood:'happy'});
@@ -342,7 +306,7 @@ export async function boot(opts = {}){
   function feverAdd(v){
     if (state.feverActive) return;
     state.fever = clamp(state.fever + (Number(v)||0),0,100);
-    if (state.fever >= 100) feverStart();
+    if (state.fever >= TUNE.feverTriggerAt) feverStart();
     else feverRender();
   }
   function feverLose(v){
@@ -362,18 +326,17 @@ export async function boot(opts = {}){
     let scoreDelta=0, label='GOOD';
     const mult = state.feverActive ? 2 : 1;
 
-    if (isPower){ scoreDelta = 28*mult; label='POWER'; }
-    else if (isGood){ scoreDelta = 18*mult; label='GOOD'; }
+    if (isPower){ scoreDelta = TUNE.scorePower*mult; label='POWER'; }
+    else if (isGood){ scoreDelta = TUNE.scoreGood*mult; label='GOOD'; }
     else {
       if (state.shield>0){
         state.shield -= 1;
         feverRender();
         dispatch('hha:judge',{label:'BLOCK'});
         updateScoreHud('BLOCK');
-        recordOutcome(true);
         return { scoreDelta:0, label:'BLOCK', good:false, blocked:true };
       }
-      scoreDelta = -25;
+      scoreDelta = TUNE.scoreJunk;
       label='JUNK';
     }
 
@@ -387,22 +350,20 @@ export async function boot(opts = {}){
 
     const perfect = isPerfectHit(isGood || isPower);
     if (perfect){
-      scoreDelta += 10*mult;
+      scoreDelta += TUNE.scorePerfectBonus*mult;
       label='PERFECT';
     }
 
     state.score = Math.max(0, (state.score + scoreDelta) | 0);
 
     if (isPower || isGood){
-      state.waterPct = clamp(state.waterPct + 6,0,100);
-      feverAdd(isPower ? 16 : 10);
+      state.waterPct = clamp(state.waterPct + TUNE.goodWaterPush,0,100);
+      feverAdd(isPower ? TUNE.feverGainPower : TUNE.feverGainGood);
       Q.onGood();
-      recordOutcome(true);
     } else {
-      state.waterPct = clamp(state.waterPct - 10,0,100);
-      feverLose(20);
+      state.waterPct = clamp(state.waterPct + TUNE.junkWaterPush,0,100);
+      feverLose(TUNE.feverLoseJunk);
       Q.onJunk();
-      recordOutcome(false);
     }
 
     Q.updateScore(state.score);
@@ -421,8 +382,7 @@ export async function boot(opts = {}){
 
   function onExpire(info){
     if (state.stopped) return;
-
-    if (info?.isGood && !info?.isPower && true){
+    if (info?.isGood && !info?.isPower && TUNE.missOnGoodExpire){
       state.miss += 1;
       state.combo = 0;
       state.waterPct = clamp(state.waterPct - 3, 0, 100);
@@ -430,7 +390,6 @@ export async function boot(opts = {}){
       updateWaterHud();
       updateScoreHud('MISS');
       HUD.touch();
-      recordOutcome(false);
     }
   }
 
@@ -439,27 +398,32 @@ export async function boot(opts = {}){
   let lastX=0,lastY=0;
 
   function applyLookTransform(){
-    state.lookVX += (state.lookTX - state.lookVX) * 0.10;
-    state.lookVY += (state.lookTY - state.lookVY) * 0.10;
+    state.lookVX += (state.lookTX - state.lookVX) * TUNE.lookSmooth;
+    state.lookVY += (state.lookTY - state.lookVY) * TUNE.lookSmooth;
 
-    const dx = clamp(state.lookVX - (state._prevVX||0), -9.5, 9.5);
-    const dy = clamp(state.lookVY - (state._prevVY||0), -7.5, 7.5);
+    const dx = clamp(state.lookVX - (state._prevVX||0), -TUNE.lookMaxStepX, TUNE.lookMaxStepX);
+    const dy = clamp(state.lookVY - (state._prevVY||0), -TUNE.lookMaxStepY, TUNE.lookMaxStepY);
     state._prevVX = (state._prevVX||0) + dx;
     state._prevVY = (state._prevVY||0) + dy;
 
-    const x = clamp(-state._prevVX, -380, 380);
-    const y = clamp(-state._prevVY, -290, 290);
+    const x = clamp(-state._prevVX, -TUNE.lookMaxX, TUNE.lookMaxX);
+    const y = clamp(-state._prevVY, -TUNE.lookMaxY, TUNE.lookMaxY);
     playfield.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
   }
 
-  function onPointerDown(ev){ dragOn=true; lastX=ev.clientX||0; lastY=ev.clientY||0; HUD.touch(); }
+  function onPointerDown(ev){
+    dragOn=true;
+    lastX=ev.clientX||0;
+    lastY=ev.clientY||0;
+    HUD.touch();
+  }
   function onPointerMove(ev){
     if(!dragOn) return;
     const x=ev.clientX||0, y=ev.clientY||0;
     const dx=x-lastX, dy=y-lastY;
     lastX=x; lastY=y;
-    state.lookTX = clamp(state.lookTX + dx*1.15, -380, 380);
-    state.lookTY = clamp(state.lookTY + dy*0.98, -290, 290);
+    state.lookTX = clamp(state.lookTX + dx*1.15, -TUNE.lookMaxX, TUNE.lookMaxX);
+    state.lookTY = clamp(state.lookTY + dy*0.98, -TUNE.lookMaxY, TUNE.lookMaxY);
   }
   function onPointerUp(){ dragOn=false; }
 
@@ -469,16 +433,16 @@ export async function boot(opts = {}){
     if(!Number.isFinite(gRaw) || !Number.isFinite(bRaw)) return;
 
     let g = gRaw - (state.gyroCenterGamma||0);
-    let b = bRaw - (state.gyroCenterBeta||18);
+    let b = bRaw - (state.gyroCenterBeta||TUNE.gyroBiasBeta);
 
-    if (Math.abs(g) < 1.6) g=0;
-    if (Math.abs(b) < 2.0) b=0;
+    if (Math.abs(g) < TUNE.gyroDeadGamma) g=0;
+    if (Math.abs(b) < TUNE.gyroDeadBeta)  b=0;
 
-    const tx = g * 8.2;
-    const ty = (b) * 6.8;
+    const tx = g * TUNE.lookPxPerDegX;
+    const ty = (b) * TUNE.lookPxPerDegY;
 
-    state.lookTX = clamp(state.lookTX*0.65 + tx*0.35, -380, 380);
-    state.lookTY = clamp(state.lookTY*0.65 + ty*0.35, -290, 290);
+    state.lookTX = clamp(state.lookTX*0.65 + tx*0.35, -TUNE.lookMaxX, TUNE.lookMaxX);
+    state.lookTY = clamp(state.lookTY*0.65 + ty*0.35, -TUNE.lookMaxY, TUNE.lookMaxY);
   }
 
   async function requestGyroPermission(){
@@ -497,12 +461,13 @@ export async function boot(opts = {}){
     }
   }
 
+  // double-tap to reset
   let lastTap=0;
   function onTapForCalibrate(){
     const now=Date.now();
     if (now-lastTap < 350){
       state.gyroCenterGamma = 0;
-      state.gyroCenterBeta  = 18;
+      state.gyroCenterBeta  = TUNE.gyroBiasBeta;
       state.lookTX = 0; state.lookTY = 0;
       dispatch('hha:coach',{text:'🎯 รีเซ็ตมุมมองแล้ว!', mood:'happy'});
       HUD.peek();
@@ -514,16 +479,17 @@ export async function boot(opts = {}){
   let timer=null;
   let rafId=null;
   let audioCtx=null;
-
   function beep(freq,dur){
     try{
       audioCtx = audioCtx || new (ROOT.AudioContext || ROOT.webkitAudioContext)();
       const o=audioCtx.createOscillator();
       const g=audioCtx.createGain();
-      o.type='sine'; o.frequency.value=freq||880;
+      o.type='sine';
+      o.frequency.value=freq||880;
       g.gain.value=0.04;
       o.connect(g); g.connect(audioCtx.destination);
-      o.start(); o.stop(audioCtx.currentTime + (dur||0.05));
+      o.start();
+      o.stop(audioCtx.currentTime + (dur||0.05));
     }catch{}
   }
 
@@ -533,7 +499,7 @@ export async function boot(opts = {}){
     state.timeLeft = Math.max(0, state.timeLeft - 1);
     dispatch('hha:time',{sec:state.timeLeft});
 
-    state.waterPct = clamp(state.waterPct - 0.9,0,100);
+    state.waterPct = clamp(state.waterPct + TUNE.waterDriftPerSec,0,100);
     updateWaterHud();
     state.zone = zoneFrom(state.waterPct);
 
@@ -554,27 +520,26 @@ export async function boot(opts = {}){
       if (state.feverLeft<=0) feverEnd();
       else { state.fever=100; feverRender(); }
     } else {
-      state.fever = clamp(state.fever - 1.1,0,100);
+      state.fever = clamp(state.fever - TUNE.feverAutoDecay,0,100);
       feverRender();
     }
 
     if (state.stormLeft>0) state.stormLeft -= 1;
-    if (state.timeLeft>0 && (state.timeLeft % 18)===0){
-      state.stormLeft = 5;
+    if (state.timeLeft>0 && (state.timeLeft % TUNE.stormEverySec)===0){
+      state.stormLeft = TUNE.stormDurationSec;
       dispatch('hha:coach',{text:'🌪️ STORM WAVE! เป้าจะมาเร็วขึ้น! ตั้งสติ รักษา GREEN!', mood:'happy'});
       try{ Particles.toast?.('STORM WAVE!','warn'); }catch{}
       HUD.touch();
     }
 
-    if (state.timeLeft>0 && state.timeLeft<=10){
-      beep(920,0.04);
-      if (state.timeLeft===10){
+    if (state.timeLeft>0 && state.timeLeft<=TUNE.urgencyAtSec){
+      beep(TUNE.urgencyBeepHz,0.04);
+      if (state.timeLeft===TUNE.urgencyAtSec){
         dispatch('hha:coach',{text:'⏳ ใกล้หมดเวลา! รักษา GREEN + ยิงน้ำดีให้ไว!', mood:'sad'});
       }
     }
 
     updateQuestHud();
-
     if (state.timeLeft<=0) stop();
   }
 
@@ -584,40 +549,35 @@ export async function boot(opts = {}){
     rafId = ROOT.requestAnimationFrame(rafLoop);
   }
 
-  // --------------------- Spawner (mode-factory) ---------------------
+  // --------------------- Spawner ---------------------
   let spawner=null;
+
+  // ✅ สลับตามที่ตกลง: play=adaptive ON / research=OFF
+  const allowAdaptive = (runMode === 'play');
 
   spawner = await factoryBoot({
     modeKey:'hydration',
-
-    // ✅ research มักอยาก reproducible: ถ้าไม่ใส่ seed ให้ default
-    // ✅ play: ไม่บังคับ seed (แต่ถ้าใส่มาก็ใช้)
-    seed: (runMode === 'research' ? (seed || 'research-default') : (seed || '')),
+    difficulty,
+    duration,
 
     spawnHost:'#hvr-playfield',
     boundsHost: boundsEl,
 
-    spawnStrategy: 'randomRing',
-    ringMin: 0.18,
-    ringMax: 0.96,
+    allowAdaptive,
 
-    minSeparation: 0.88,
+    // ✅ กระจายจริง (full spread) + grid9
+    spawnAroundCrosshair: false,
+    spawnStrategy: 'grid9',
+    spawnRadiusX: 0.95,
+    spawnRadiusY: 0.95,
+    minSeparation: 0.92,
     maxSpawnTries: 18,
-    dragThresholdPx: 11,
 
-    spawnIntervalMul: ()=> (state.stormLeft>0 ? 0.72 : 1),
+    spawnIntervalMul: ()=> (state.stormLeft>0 ? TUNE.stormIntervalMul : 1),
 
-    // ✅ scale hook — play adaptive / research fixed
-    getTargetScale: ()=> currentTargetScale(),
-
-    baseSizePx: 118,
-    spawnEverySec: 0.92,
-    spawnJitterSec: 0.24,
-    extraSpawnChance: 0.16,
-    lifeMsBase: 1180,
-    lifeMsJitter: 420,
-
-    excludeSelectors: ['.hud', '#hvr-crosshair', '#hvr-end'],
+    // ✅ สำคัญ: อย่า exclude '.hud' ทั้งก้อน
+    // ให้ใช้ data-hha-exclude เฉพาะกล่องจริง + crosshair/end
+    excludeSelectors: ['[data-hha-exclude="1"]', '#hvr-crosshair', '#hvr-end'],
 
     pools:{
       good:['💧','🥛','🍉','🥥','🍊'],
@@ -631,7 +591,7 @@ export async function boot(opts = {}){
 
     judge:(ch, ctx)=>{
       if (ctx.isPower && ch==='🛡️'){
-        state.shield = clamp(state.shield+1,0,6);
+        state.shield = clamp(state.shield+1,0,TUNE.shieldMax);
         feverRender();
         dispatch('hha:judge',{label:'SHIELD+'});
         updateScoreHud('SHIELD+');
@@ -657,21 +617,18 @@ export async function boot(opts = {}){
     }
   });
 
-  // init HUD
   updateWaterHud();
   if (Q?.stats){ Q.stats.zone = zoneFrom(state.waterPct); Q.stats.greenTick=0; }
   updateQuestHud();
   updateScoreHud();
   feverRender();
 
-  // input listeners
   playfield.addEventListener('pointerdown', onPointerDown, { passive:true });
   ROOT.addEventListener('pointermove', onPointerMove, { passive:true });
   ROOT.addEventListener('pointerup', onPointerUp, { passive:true });
   ROOT.addEventListener('pointercancel', onPointerUp, { passive:true });
   ROOT.addEventListener('pointerdown', onTapForCalibrate, { passive:true });
 
-  // gyro: if available without permission
   try{
     const D = ROOT.DeviceOrientationEvent;
     if (D && typeof D.requestPermission !== 'function'){
@@ -679,7 +636,6 @@ export async function boot(opts = {}){
     }
   }catch{}
 
-  // ask gyro permission on first touch
   const onceAsk = async ()=>{
     ROOT.removeEventListener('pointerdown', onceAsk);
     await requestGyroPermission();
@@ -719,11 +675,13 @@ export async function boot(opts = {}){
           <button id="hvr-close" style="padding:10px 12px;border-radius:14px;border:1px solid rgba(148,163,184,.25);
             background:rgba(2,6,23,.55);color:#e5e7eb;font-weight:900;">Close</button>
         </div>
-        ${DEBUG ? `<div style="margin-top:10px;color:#94a3b8;font-size:12px;">debug=1 enabled • mode=${runMode} • scale=${(currentTargetScale()).toFixed(2)}</div>`:''}
+        ${DEBUG ? `<div style="margin-top:10px;color:#94a3b8;font-size:12px;">debug=1 enabled</div>`:''}
       </div>
     `;
-    document.getElementById('hvr-restart')?.addEventListener('click', ()=> location.reload(), { passive:true });
-    document.getElementById('hvr-close')?.addEventListener('click', ()=>{ end.classList.remove('on'); end.style.display='none'; }, { passive:true });
+    const btnR = document.getElementById('hvr-restart');
+    const btnC = document.getElementById('hvr-close');
+    btnR && btnR.addEventListener('click', ()=>{ location.reload(); }, { passive:true });
+    btnC && btnC.addEventListener('click', ()=>{ end.classList.remove('on'); end.style.display='none'; }, { passive:true });
   }
 
   function stop(){
@@ -762,14 +720,6 @@ export async function boot(opts = {}){
       showEndScreen(payload || {score:0,miss:0,comboBest:0,water:0,greenTick:0});
     }
   }
-
-  // initial coach hint
-  dispatch('hha:coach', {
-    text: adaptiveEnabled
-      ? '🎮 Play Adaptive: เป้าจะปรับใหญ่/เล็กตามฝีมือของคุณ'
-      : '🧪 Research Fixed: เป้าคงที่ตามระดับ easy/normal/hard',
-    mood:'neutral'
-  });
 
   return { stop };
 }
