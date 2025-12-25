@@ -1,9 +1,11 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups — GameEngine (classic script) — ALL-IN PATCHED
+// Food Groups — GameEngine (classic script) — FULL PATCHED v2
 // ✅ CSS vars --x/--y/--s + classes fg-good/fg-junk/fg-decoy/fg-boss
-// ✅ Multi-group targets: correct = current group, wrong = other group, junk = stun 0.8s
-// ✅ FIX accuracy/grade counters (no NaN)
-// ✅ Emits: hha:score, hha:time, quest:update (via groups-quests.js), groups:* , hha:rank, groups:lock
+// ✅ FIX: กันคะแนนติดลบ (score floor = 0) + กัน penalty ทำคะแนน “ไหล”
+// ✅ FIX: กัน miss/expire ซ้ำ (el._dead) + กัน TTL ซ้อน
+// ✅ FIX: pointerdown ซ้อนไม่ทำให้ยิงซ้อน (stopPropagation)
+// ✅ Research: seeded RNG (deterministic) ถ้าส่ง {runMode:'research', seed:'...'} มา
+// ✅ Emits: hha:score, hha:time, quest:update (ผ่าน groups-quests.js), groups:* , hha:rank, groups:lock, hha:end
 
 (function (root) {
   'use strict';
@@ -15,19 +17,36 @@
   function emit(name, detail){
     try{ W.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
   }
-  function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+  function now(){
+    return (performance && performance.now) ? performance.now() : Date.now();
+  }
+
+  // --- deterministic RNG (mulberry32-ish) ---
+  function makeRng(seedStr){
+    let s = 0x9e3779b9;
+    const str = String(seedStr || '');
+    for (let i=0;i<str.length;i++){
+      s ^= (str.charCodeAt(i) + (s<<6) + (s>>2)) >>> 0;
+    }
+    return function(){
+      s |= 0; s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 
   // --- Difficulty tuning ---
   const DIFF = {
-    easy:   { spawnEvery: 720, maxOnScreen: 5, ttl: [2200, 3400], junkRate:.18, decoyRate:.07, bossEvery: 16, bossHP: 3,
+    easy:   { spawnEvery: 720, maxOnScreen: 5, ttl: [2300, 3600], junkRate:.18, decoyRate:.07, bossEvery: 16, bossHP: 3,
               correctScore: 120, wrongPenalty: 120, junkPenalty: 180, decoyPenalty: 140, bossScore: 220, powerThreshold: 6 },
-    normal: { spawnEvery: 640, maxOnScreen: 6, ttl: [2100, 3300], junkRate:.20, decoyRate:.08, bossEvery: 14, bossHP: 3,
+    normal: { spawnEvery: 640, maxOnScreen: 6, ttl: [2200, 3500], junkRate:.20, decoyRate:.08, bossEvery: 14, bossHP: 3,
               correctScore: 130, wrongPenalty: 140, junkPenalty: 200, decoyPenalty: 160, bossScore: 240, powerThreshold: 7 },
-    hard:   { spawnEvery: 560, maxOnScreen: 7, ttl: [2000, 3200], junkRate:.22, decoyRate:.10, bossEvery: 12, bossHP: 4,
+    hard:   { spawnEvery: 560, maxOnScreen: 7, ttl: [2100, 3400], junkRate:.22, decoyRate:.10, bossEvery: 12, bossHP: 4,
               correctScore: 140, wrongPenalty: 160, junkPenalty: 230, decoyPenalty: 180, bossScore: 260, powerThreshold: 8 }
   };
 
-  // --- Groups data (ปรับได้ทีหลัง) ---
+  // --- Groups data ---
   const GROUPS = [
     { id:1, label:'หมู่ 1', foods:['🥛','🥚','🫘','🍗'] },
     { id:2, label:'หมู่ 2', foods:['🍚','🍞','🥔','🍜'] },
@@ -37,22 +56,19 @@
   ];
   const JUNK = ['🍟','🍔','🍩','🧁','🥤'];
 
-  function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
-  function pickGroup(){ return GROUPS[(Math.random()*GROUPS.length)|0]; }
+  function pick(arr, rnd){ return arr[(rnd()*arr.length)|0]; }
+  function pickGroup(rnd){ return GROUPS[(rnd()*GROUPS.length)|0]; }
 
   // --- Safe spawn box based on HUD + safe-area ---
-  function getSpawnBox(layerEl){
-    const w = window.innerWidth || 360;
+  function getSpawnBox(){
+    const w = window.innerWidth  || 360;
     const h = window.innerHeight || 640;
 
     // base margins
-    let left  = 18;
-    let right = 18;
-    let top   = 18;
-    let bot   = 18;
+    let left  = 18, right = 18, top = 18, bot = 18;
 
-    // add safe-area
-    const cs = getComputedStyle(document.documentElement);
+    // add safe-area from CSS vars
+    const cs  = getComputedStyle(document.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
     const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
     const sal = parseFloat(cs.getPropertyValue('--sal')) || 0;
@@ -60,8 +76,7 @@
 
     left += sal; right += sar; top += sat; bot += sab;
 
-    // reserve HUD top area (approx)
-    // safer: use actual element if exists
+    // reserve HUD top area (use actual element if exists)
     const hud = document.querySelector('.hud-top');
     if (hud){
       const r = hud.getBoundingClientRect();
@@ -70,10 +85,9 @@
       top = Math.max(top, 120 + sat);
     }
 
-    // reserve bottom minimal for mobile bar
+    // reserve bottom space
     bot = Math.max(bot, 72 + sab);
 
-    // return usable region
     return {
       x0: left,
       y0: top,
@@ -113,7 +127,7 @@
 
     _quest: null,
     _runMode: 'play',
-    _seed: undefined,
+    _seed: '',
 
     // boss pacing
     _correctHitsTotal: 0,
@@ -122,8 +136,11 @@
     _lockActive: false,
     _lockEl: null,
     _lockStartAt: 0,
-    _lockDur: 420, // ms to lock
+    _lockDur: 420,
     _lockRAF: 0,
+
+    // RNG
+    _rnd: Math.random,
 
     setLayerEl(el){ this._layerEl = el; },
     setCameraEl(el){ this._camEl = el; },
@@ -132,16 +149,26 @@
     start(diff, opts){
       opts = opts || {};
       this._diff = (DIFF[diff] ? diff : 'normal');
-      this._cfg = DIFF[this._diff];
+      this._cfg  = DIFF[this._diff];
 
       this._runMode = String(opts.runMode || 'play').toLowerCase();
-      this._seed = opts.seed;
+      this._seed    = String(opts.seed || '');
+
+      // RNG policy
+      if (this._runMode === 'research'){
+        const s = this._seed || 'HHA-GROUPS-RESEARCH-SEED';
+        this._seed = s;
+        this._rnd = makeRng(s);
+      } else {
+        // play mode: ถ้าส่ง seed มาก็ deterministic ได้
+        this._rnd = this._seed ? makeRng(this._seed) : Math.random;
+      }
 
       this._running = true;
 
       this._timerAcc = 0;
       this._spawnAcc = 0;
-      this._targets = [];
+      this._targets  = [];
 
       this._score = 0;
       this._combo = 0;
@@ -149,16 +176,16 @@
       this._misses = 0;
 
       this._shots = 0;
-      this._hits = 0;
+      this._hits  = 0;
 
       this._powerCharge = 0;
-      this._stunUntil = 0;
+      this._stunUntil   = 0;
       this._correctHitsTotal = 0;
 
       this._lockActive = false;
-      this._lockEl = null;
+      this._lockEl     = null;
 
-      // clear
+      // clear layer
       if (this._layerEl) this._layerEl.innerHTML = '';
 
       // init group
@@ -166,6 +193,7 @@
       emit('groups:group_change', { label: GROUPS[this._groupIdx].label });
 
       // Quest init
+      this._quest = null;
       if (W.GroupsVR && typeof W.GroupsVR.createGroupsQuest === 'function'){
         this._quest = W.GroupsVR.createGroupsQuest({
           diff: this._diff,
@@ -182,6 +210,7 @@
 
       this._emitScore();
       this._emitTime();
+      this._emitPower();
 
       this._last = now();
       this._raf = requestAnimationFrame(this._loop.bind(this));
@@ -192,7 +221,22 @@
       try{ cancelAnimationFrame(this._raf); }catch(_){}
       this._unbindInput();
       this._stopLock();
-      emit('hha:end', { reason: reason || 'stop' });
+
+      const acc = this._accuracy();
+      const grade = this._grade(acc, this._comboMax, this._misses);
+
+      emit('hha:end', {
+        reason: reason || 'stop',
+        diff: this._diff,
+        runMode: this._runMode,
+        seed: this._seed,
+        score: this._score|0,
+        comboMax: this._comboMax|0,
+        misses: this._misses|0,
+        accuracy: acc,
+        grade,
+        groupLabel: GROUPS[this._groupIdx] ? GROUPS[this._groupIdx].label : ''
+      });
     },
 
     _loop(t){
@@ -206,6 +250,7 @@
         this._timerAcc -= 1;
         this._timeLeft = Math.max(0, (this._timeLeft|0) - 1);
         this._emitTime();
+
         if (this._timeLeft <= 0){
           this.stop('time');
           return;
@@ -233,10 +278,8 @@
 
       this._onPointer = (ev)=>{
         if (!this._running) return;
-        // if stunned, ignore
-        if (now() < this._stunUntil) return;
+        if (now() < this._stunUntil) return; // stunned ignore
 
-        // Start lock on closest target (gaze-ish)
         this._startLock(ev);
       };
 
@@ -248,6 +291,12 @@
         document.removeEventListener('pointerdown', this._onPointer);
         this._onPointer = null;
       }
+    },
+
+    _addScore(delta){
+      // ✅ score floor = 0 (กันติดลบแบบในรูป)
+      const next = (this._score|0) + (delta|0);
+      this._score = clamp(next, 0, 999999);
     },
 
     _emitScore(){
@@ -267,13 +316,20 @@
       emit('hha:time', { left: this._timeLeft|0 });
     },
 
+    _emitPower(){
+      const g = GROUPS[this._groupIdx];
+      const th = Math.max(1, this._cfg.powerThreshold|0);
+      const c  = this._powerCharge|0;
+      emit('groups:power', { groupName: g ? g.label : '', charge: c, threshold: th });
+    },
+
     _accuracy(){
-      const shots = Math.max(1, this._shots|0);
-      return Math.round(((this._hits|0) / shots) * 100);
+      const shots = this._shots|0;
+      if (shots <= 0) return 0;
+      return Math.round(((this._hits|0) / Math.max(1, shots)) * 100);
     },
 
     _grade(acc, comboMax, misses){
-      // SSS/SS/S/A/B/C (school-friendly)
       if (acc>=92 && comboMax>=10 && misses<=6) return 'SSS';
       if (acc>=88 && comboMax>=8  && misses<=8) return 'SS';
       if (acc>=82 && comboMax>=6  && misses<=10) return 'S';
@@ -287,51 +343,53 @@
       if (this._targets.length >= (this._cfg.maxOnScreen|0)) return;
 
       // boss pacing
-      const bossDue = (this._correctHitsTotal > 0) && (this._correctHitsTotal % (this._cfg.bossEvery|0) === 0);
-      const spawnBoss = bossDue && (Math.random() < 0.35);
+      const bossDue = (this._correctHitsTotal > 0) &&
+        (this._correctHitsTotal % (this._cfg.bossEvery|0) === 0);
+      const spawnBoss = bossDue && (this._rnd() < 0.35);
 
       let type = 'food';
-      let gid = null;
+      let gid  = null;
       let emoji = '🍎';
 
-      const r = Math.random();
+      const r = this._rnd();
 
       if (spawnBoss){
         type = 'boss';
-        gid = GROUPS[this._groupIdx].id;
-        emoji = '🧠'; // boss icon (ปรับได้)
+        gid  = GROUPS[this._groupIdx].id;
+        emoji = '🧠';
       } else if (r < this._cfg.junkRate){
         type = 'junk';
-        emoji = pick(JUNK);
+        emoji = pick(JUNK, this._rnd);
       } else if (r < (this._cfg.junkRate + this._cfg.decoyRate)){
         type = 'decoy';
-        gid = GROUPS[this._groupIdx].id;     // looks like current group
-        emoji = pick(GROUPS[this._groupIdx].foods);
+        gid  = GROUPS[this._groupIdx].id; // looks like current group
+        emoji = pick(GROUPS[this._groupIdx].foods, this._rnd);
       } else {
-        // food from random group (ทำให้ “หมู่ปัจจุบัน” มีความหมายจริง)
-        const g = pickGroup();
+        const g = pickGroup(this._rnd);
         gid = g.id;
-        emoji = pick(g.foods);
+        emoji = pick(g.foods, this._rnd);
       }
 
-      // create element
       const el = document.createElement('button');
       el.className = 'fg-target';
       el.type = 'button';
       el.setAttribute('aria-label', 'target');
 
-      // dataset
       el.dataset.type = type; // food/junk/decoy/boss
       if (gid != null) el.dataset.gid = String(gid);
 
+      // mark state
+      el._dead = false;
+
       if (type === 'boss'){
         el.dataset.hp = String(this._cfg.bossHP|0);
-        // bossbar
+
         const bar = document.createElement('div');
         bar.className = 'bossbar';
         const fill = document.createElement('div');
         fill.className = 'bossbar-fill';
         bar.appendChild(fill);
+
         el.appendChild(bar);
         el.classList.add('fg-boss');
       } else if (type === 'junk'){
@@ -339,38 +397,34 @@
       } else if (type === 'decoy'){
         el.classList.add('fg-decoy');
       } else {
-        // classify good/wrong by gid vs current
         const curId = GROUPS[this._groupIdx].id;
         if ((gid|0) === (curId|0)) el.classList.add('fg-good');
       }
 
-      // emoji as text node (keep bossbar intact)
+      // emoji text (keep bossbar intact)
       const span = document.createElement('span');
       span.textContent = emoji;
       span.style.pointerEvents = 'none';
       el.insertBefore(span, el.firstChild);
 
-      // position via CSS vars
-      const box = getSpawnBox(this._layerEl);
-
-      const x = box.x0 + Math.random() * Math.max(10, (box.x1 - box.x0));
-      const y = box.y0 + Math.random() * Math.max(10, (box.y1 - box.y0));
-
-      const s = 0.92 + Math.random()*0.22;
+      // position via CSS vars (px)
+      const box = getSpawnBox();
+      const x = box.x0 + this._rnd() * Math.max(10, (box.x1 - box.x0));
+      const y = box.y0 + this._rnd() * Math.max(10, (box.y1 - box.y0));
+      const s = 0.92 + this._rnd()*0.22;
 
       el.style.setProperty('--x', Math.round(x) + 'px');
       el.style.setProperty('--y', Math.round(y) + 'px');
       el.style.setProperty('--s', String(s));
 
-      // show + spawn anim
       el.classList.add('show','spawn');
-      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch{} }, 220);
+      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 220);
 
-      // direct click = immediate hit (ไม่ต้องรอ lock)
+      // ✅ direct tap = immediate hit (กัน lock รอ)
       el.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault();
         ev.stopPropagation();
-        this._stopLock();         // stop any active lock
+        this._stopLock();
         this._hitTarget(el, 'tap');
       }, { passive:false });
 
@@ -378,28 +432,38 @@
       this._targets.push(el);
 
       // lifetime
-      const ttl = (this._cfg.ttl[0] + Math.random()*(this._cfg.ttl[1]-this._cfg.ttl[0]))|0;
-      const timer = setTimeout(()=>{
+      const ttl = (this._cfg.ttl[0] + this._rnd()*(this._cfg.ttl[1]-this._cfg.ttl[0]))|0;
+
+      // กัน timer ซ้อน
+      if (el._ttlTimer) { try{ clearTimeout(el._ttlTimer); }catch(_){ } }
+      el._ttlTimer = setTimeout(()=>{
         if (!el.isConnected) return;
         this._expireTarget(el);
       }, ttl);
-      el._ttlTimer = timer;
     },
 
     _expireTarget(el){
-      // expire = miss (treat as wrong)
-      this._misses++;
+      if (!el || !el.isConnected) return;
+      if (el._dead) return;      // ✅ กัน expire ซ้ำ
+      el._dead = true;
+
+      // expire = miss (shot counted)
+      this._misses = (this._misses|0) + 1;
       this._combo = 0;
-      this._shots++;
-      // miss shot (no hit)
+      this._shots = (this._shots|0) + 1;
+
       this._removeTarget(el, 'out');
       this._emitScore();
+
       if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
     },
 
     _removeTarget(el, anim){
+      if (!el) return;
+
       try{
-        if (el && el._ttlTimer) clearTimeout(el._ttlTimer);
+        if (el._ttlTimer) clearTimeout(el._ttlTimer);
+        el._ttlTimer = 0;
       }catch(_){}
 
       try{
@@ -421,6 +485,7 @@
       for (let i=0;i<this._targets.length;i++){
         const el = this._targets[i];
         if (!el || !el.isConnected) continue;
+        if (el._dead) continue;
         const r = el.getBoundingClientRect();
         const cx = r.left + r.width/2;
         const cy = r.top + r.height/2;
@@ -436,10 +501,11 @@
       const y = (ev && ev.clientY!=null) ? ev.clientY : (window.innerHeight/2);
 
       const c = this._closestTarget(x,y);
+
+      // ✅ ถ้าไม่มีเป้าใกล้ ๆ: นับเป็น miss “ครั้งเดียว” (ไม่ทำคะแนนติดลบ)
       if (!c.el || c.d2 > (210*210)){
-        // no target near = miss shot
-        this._shots++;
-        this._misses++;
+        this._shots = (this._shots|0) + 1;
+        this._misses = (this._misses|0) + 1;
         this._combo = 0;
         this._emitScore();
         if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
@@ -447,19 +513,16 @@
         return;
       }
 
-      // lock on that element
       this._lockActive = true;
       this._lockEl = c.el;
       this._lockStartAt = now();
 
-      // highlight
       try{ this._lockEl.classList.add('lock'); }catch(_){}
-
       this._tickLock();
     },
 
     _tickLock(){
-      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected) {
+      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected || this._lockEl._dead){
         emit('groups:lock', { on:false });
         this._stopLock();
         return;
@@ -468,12 +531,10 @@
       const t = now();
       const prog = clamp((t - this._lockStartAt) / (this._lockDur|0), 0, 1);
 
-      // lock ring position at target center
       const r = this._lockEl.getBoundingClientRect();
       const cx = r.left + r.width/2;
       const cy = r.top + r.height/2;
 
-      // charge ring = power progress
       const th = Math.max(1, this._cfg.powerThreshold|0);
       const charge = clamp((this._powerCharge|0) / th, 0, 1);
 
@@ -492,7 +553,9 @@
 
     _stopLock(){
       this._lockActive = false;
-      if (this._lockRAF) { try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
+      if (this._lockRAF){
+        try{ cancelAnimationFrame(this._lockRAF); }catch(_){}
+      }
       this._lockRAF = 0;
 
       if (this._lockEl){
@@ -505,35 +568,34 @@
 
     _hitTarget(el, via){
       if (!el || !el.isConnected) return;
-
-      // if stunned, ignore
+      if (el._dead) return;  // ✅ กันยิงซ้ำ
       const t = now();
       if (t < this._stunUntil) return;
 
+      el._dead = true; // ✅ lock state ตอนเริ่ม hit
+
       const type = String(el.dataset.type || 'food');
-      const cur = GROUPS[this._groupIdx];
-      const curId = cur.id|0;
+      const cur  = GROUPS[this._groupIdx];
+      const curId = cur ? (cur.id|0) : 0;
 
       // count shot
-      this._shots++;
+      this._shots = (this._shots|0) + 1;
 
       if (type === 'junk'){
-        // junk hit -> stun 0.8s
-        this._score -= (this._cfg.junkPenalty|0);
-        this._misses++;
+        this._addScore(-(this._cfg.junkPenalty|0));
+        this._misses = (this._misses|0) + 1;
         this._combo = 0;
 
-        // STUN 0.8s
         this._stunUntil = t + 800;
         emit('groups:stun', { on:true, ms:800 });
 
         document.documentElement.classList.add('stunflash');
         setTimeout(()=>document.documentElement.classList.remove('stunflash'), 220);
 
-        if (navigator.vibrate) { try{ navigator.vibrate([60,60,60]); }catch(_){ } }
+        if (navigator.vibrate){
+          try{ navigator.vibrate([60,60,60]); }catch(_){}
+        }
 
-        // fx animation
-        try{ el.classList.add('hit'); }catch(_){}
         this._removeTarget(el, 'hit');
 
         if (this._quest) this._quest.onShot({ correct:false, wrong:false, junk:true });
@@ -542,50 +604,43 @@
       }
 
       if (type === 'boss'){
-        // boss needs multi-hit
         let hp = parseInt(el.dataset.hp || '1', 10) || 1;
         hp = Math.max(0, hp - 1);
         el.dataset.hp = String(hp);
 
-        // hit counts as hit
-        this._hits++;
-        this._score += (this._cfg.bossScore|0);
-        this._combo++;
+        this._hits = (this._hits|0) + 1;
+        this._addScore(this._cfg.bossScore|0);
+        this._combo = (this._combo|0) + 1;
         if (this._combo > this._comboMax) this._comboMax = this._combo;
 
-        // update bossbar
         const maxHP = (this._cfg.bossHP|0);
         const fill = el.querySelector('.bossbar-fill');
         if (fill){
-          const pct = clamp(hp / Math.max(1,maxHP), 0, 1);
+          const pct = clamp(hp / Math.max(1, maxHP), 0, 1);
           fill.style.width = Math.round(pct*100) + '%';
         }
 
         if (hp <= 0){
-          try{ el.classList.add('hit'); }catch(_){}
           this._removeTarget(el, 'hit');
         } else {
-          // rage glow when low
           if (hp <= 1) { try{ el.classList.add('rage'); }catch(_){ } }
+          // ยังอยู่ต่อ -> คืน _dead เป็น false เพื่อให้ยิงต่อได้
+          el._dead = false;
         }
 
-        // power charge on boss too
-        this._powerCharge++;
+        this._powerCharge = (this._powerCharge|0) + 1;
         this._emitPower();
 
-        // quest treat as correct hit
         if (this._quest) this._quest.onShot({ correct:true, wrong:false, junk:false });
         this._emitScore();
         return;
       }
 
       if (type === 'decoy'){
-        // looks good but wrong (no stun)
-        this._score -= (this._cfg.decoyPenalty|0);
-        this._misses++;
+        this._addScore(-(this._cfg.decoyPenalty|0));
+        this._misses = (this._misses|0) + 1;
         this._combo = 0;
 
-        try{ el.classList.add('hit'); }catch(_){}
         this._removeTarget(el, 'hit');
 
         if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
@@ -598,18 +653,16 @@
       const isCorrect = (gid|0) === (curId|0);
 
       if (isCorrect){
-        this._hits++;
-        this._correctHitsTotal++;
+        this._hits = (this._hits|0) + 1;
+        this._correctHitsTotal = (this._correctHitsTotal|0) + 1;
 
-        this._score += (this._cfg.correctScore|0);
-        this._combo++;
+        this._addScore(this._cfg.correctScore|0);
+        this._combo = (this._combo|0) + 1;
         if (this._combo > this._comboMax) this._comboMax = this._combo;
 
-        // power charge
-        this._powerCharge++;
-        this._emitPower();
+        this._powerCharge = (this._powerCharge|0) + 1;
 
-        // check power ready -> swap group
+        // power ready -> swap group
         if (this._powerCharge >= (this._cfg.powerThreshold|0)){
           this._powerCharge = 0;
           this._groupIdx = (this._groupIdx + 1) % GROUPS.length;
@@ -626,26 +679,18 @@
 
       } else {
         // wrong group
-        this._score -= (this._cfg.wrongPenalty|0);
-        this._misses++;
+        this._addScore(-(this._cfg.wrongPenalty|0));
+        this._misses = (this._misses|0) + 1;
         this._combo = 0;
         if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
       }
 
-      try{ el.classList.add('hit'); }catch(_){}
+      this._emitPower();
       this._removeTarget(el, 'hit');
       this._emitScore();
-    },
-
-    _emitPower(){
-      const g = GROUPS[this._groupIdx];
-      const th = Math.max(1, this._cfg.powerThreshold|0);
-      const c = this._powerCharge|0;
-      emit('groups:power', { groupName: g.label, charge: c, threshold: th });
     }
   };
 
-  // expose
   W.GroupsVR.GameEngine = Engine;
 
 })(window);
