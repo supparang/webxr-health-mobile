@@ -5,6 +5,7 @@
 //  - quest:update  ✅ emits BOTH shapes (legacy flat + new nested)
 // Works with UI/HUD that expects either shape.
 // ✅ NEW: throttle quest:update via opts.emitMs (default 120ms) to save mobile performance
+// ✅ PATCH C: goal/mini output includes target+max + done ; add getSummary() for grade/questsPct
 
 'use strict';
 
@@ -94,12 +95,21 @@ export function makeQuestDirector(opts = {}) {
     emit('quest:miniStart', { id: S.activeMini?.id, title: S.activeMini?.label });
   }
 
+  // ✅ PATCH: include target+max + done (consistent with engine/HUD)
   function computeGoalOut(s) {
     const g = S.activeGoal;
     if (!g) return null;
     const t = Math.max(1, targetOf(g, diff));
     const v = Number(g.eval(s)) || 0;
-    return { title: g.label, cur: v, max: t, pct: clamp01(v / t) };
+    const done = !!g.pass(v, t, s);
+    return {
+      title: g.label,
+      cur: v,
+      target: t,
+      max: t,
+      pct: clamp01(v / t),
+      done
+    };
   }
 
   function computeMiniOut(s) {
@@ -107,7 +117,15 @@ export function makeQuestDirector(opts = {}) {
     if (!m) return null;
     const t = Math.max(1, targetOf(m, diff));
     const v = Number(m.eval(s)) || 0;
-    return { title: m.label, cur: v, max: t, pct: clamp01(v / t) };
+    const done = !!m.pass(v, t, s);
+    return {
+      title: m.label,
+      cur: v,
+      target: t,
+      max: t,
+      pct: clamp01(v / t),
+      done
+    };
   }
 
   function emitUpdate(s) {
@@ -129,11 +147,13 @@ export function makeQuestDirector(opts = {}) {
       goalTitle: goalOut?.title || '',
       goalCur: (goalOut?.cur ?? 0) | 0,
       goalMax: (goalOut?.max ?? 1) | 0,
+      goalTarget: (goalOut?.target ?? goalOut?.max ?? 1) | 0,
       goalPct: clamp01(goalOut?.pct ?? 0),
 
       miniTitle: miniOut?.title || '',
       miniCur: (miniOut?.cur ?? 0) | 0,
       miniMax: (miniOut?.max ?? 1) | 0,
+      miniTarget: (miniOut?.target ?? miniOut?.max ?? 1) | 0,
       miniPct: clamp01(miniOut?.pct ?? 0),
 
       goalsCleared: meta.goalsCleared,
@@ -210,5 +230,17 @@ export function makeQuestDirector(opts = {}) {
     };
   }
 
-  return { start, tick, getActive };
+  // ✅ PATCH: summary for grade/questsPct (cap minis to make % meaningful)
+  function getSummary(){
+    const goalsTotal = goals.length | 0;
+    const goalsCleared = Math.min(S.goalIndex|0, goalsTotal);
+
+    const MINI_CAP = 7; // ใช้ฐาน % mini (เช่น 7 mini แรก)
+    const miniTotal = Math.max(1, MINI_CAP);
+    const miniCleared = Math.min(S.minisCleared|0, MINI_CAP);
+
+    return { goalsCleared, goalsTotal, miniCleared, miniTotal };
+  }
+
+  return { start, tick, getActive, getSummary };
 }
