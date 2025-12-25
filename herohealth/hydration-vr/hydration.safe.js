@@ -1,8 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION SAFE (Quest+Coach+Audio+UIFX)
+// Hydration Quest VR — PRODUCTION SAFE (Quest+Coach+Audio+UIFX + BOSS WAVE)
 // ✅ play vs research strict
 // ✅ quest director + coach director
 // ✅ urgent tick + fever vignette/shake
+// ✅ BOSS WAVE: last 15s -> must stay/return GREEN; out-of-green drain after grace (fair)
 // ✅ emits: hha:score / quest:update / hha:coach / hha:time / hha:celebrate / hha:end
 'use strict';
 
@@ -17,8 +18,6 @@ const doc  = ROOT.document;
 function $(id){ return doc ? doc.getElementById(id) : null; }
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 function pct01(x){ return Math.round(clamp(x,0,1)*100); }
-function safeText(el,t){ if(el) el.textContent = String(t); }
-function safeWidth(el,p){ if(el) el.style.width = String(clamp(p,0,100)) + '%'; }
 function emit(name, detail){ try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch{} }
 
 function parseQS(){
@@ -87,47 +86,47 @@ function bindHud(){
   };
 
   function setWater(zone, p){
-    safeText(el.waterZone, zone);
-    safeText(el.waterZone2, zone);
-    safeText(el.waterPct,  `${p}%`);
-    safeText(el.waterPct2, `${p}%`);
-    safeWidth(el.waterFill, p);
+    if (el.waterZone) el.waterZone.textContent = zone;
+    if (el.waterZone2) el.waterZone2.textContent = zone;
+    if (el.waterPct) el.waterPct.textContent = `${p}%`;
+    if (el.waterPct2) el.waterPct2.textContent = `${p}%`;
+    if (el.waterFill) el.waterFill.style.width = `${clamp(p,0,100)}%`;
   }
   function setFever(p){
-    safeText(el.feverPct, `${p}%`);
-    safeWidth(el.feverFill, p);
+    if (el.feverPct) el.feverPct.textContent = `${p}%`;
+    if (el.feverFill) el.feverFill.style.width = `${clamp(p,0,100)}%`;
   }
 
   ROOT.addEventListener('hha:score', (ev)=>{
     const d = ev?.detail || {};
-    safeText(el.score, d.score ?? 0);
-    safeText(el.comboMax, d.comboMax ?? 0);
-    safeText(el.miss, d.miss ?? 0);
-    safeText(el.grade, d.grade ?? 'C');
+    if (el.score) el.score.textContent = String(d.score ?? 0);
+    if (el.comboMax) el.comboMax.textContent = String(d.comboMax ?? 0);
+    if (el.miss) el.miss.textContent = String(d.miss ?? 0);
+    if (el.grade) el.grade.textContent = String(d.grade ?? 'C');
     if (d.waterZone) setWater(d.waterZone, d.waterPct ?? 50);
     if (d.feverPct != null) setFever(d.feverPct);
-    if (d.shield != null) safeText(el.shield, d.shield);
-    if (d.progressPct != null){
-      safeWidth(el.progFill, d.progressPct);
-      safeText(el.progText, `Progress to S (30%): ${Math.round(d.progressPct)}%`);
+    if (d.shield != null && el.shield) el.shield.textContent = String(d.shield);
+    if (d.progressPct != null && el.progFill && el.progText){
+      el.progFill.style.width = `${clamp(d.progressPct,0,100)}%`;
+      el.progText.textContent = `Progress to S (30%): ${Math.round(Number(d.progressPct||0))}%`;
     }
   });
 
   ROOT.addEventListener('hha:time', (ev)=>{
     const d = ev?.detail || {};
-    safeText(el.time, d.sec ?? 0);
+    if (el.time) el.time.textContent = String(d.sec ?? 0);
   });
 
   ROOT.addEventListener('quest:update', (ev)=>{
     const d = ev?.detail || {};
-    safeText(el.qNum, d.questNum ?? 1);
-    safeText(el.qText, d.text ?? '');
-    safeText(el.qSub, d.sub ?? '');
-    safeText(el.qDone, d.done ?? '');
+    if (el.qNum) el.qNum.textContent = String(d.questNum ?? 1);
+    if (el.qText) el.qText.textContent = String(d.text ?? '');
+    if (el.qSub) el.qSub.textContent = String(d.sub ?? '');
+    if (el.qDone) el.qDone.textContent = String(d.done ?? '');
   });
 }
 
-// ---- grading/progress (เหมือนเดิม) ----
+// ---- grading/progress ----
 function gradeFromScore(score, miss){
   const s = Number(score)||0;
   const m = Number(miss)||0;
@@ -251,6 +250,42 @@ export function bootHydration(){
       waterZone:'GREEN'
     };
 
+    // ============================
+    // BOSS WAVE (last 15 sec)
+    // ============================
+    const BOSS = {
+      startAtSec: 15,        // เปิดบอสตอนเหลือ 15 วิ
+      graceOutSec: 3,        // ออก GREEN ได้ฟรี 3 วิ ก่อนโดน drain
+      drainPerSec: 6,        // drain คะแนนต่อวิเมื่ออยู่ LOW/HIGH เกิน grace
+      feverPerSec: 0.035,    // เพิ่ม fever ต่อวิเมื่อโดน drain
+      clearNeedGreenSec: (diff==='hard'? 10 : diff==='easy'? 8 : 9), // ต้องอยู่ GREEN สะสมให้ถึงเพื่อ "เคลียร์บอส"
+      clearBonus: (diff==='hard'? 55 : diff==='easy'? 45 : 50)      // โบนัสเคลียร์บอส
+    };
+
+    const boss = {
+      on:false,
+      entered:false,
+      cleared:false,
+      outStreak:0,      // อยู่ LOW/HIGH ต่อเนื่องกี่วิ
+      greenHold:0       // อยู่ GREEN สะสมกี่วิในช่วงบอส
+    };
+
+    function enterBoss(){
+      if (boss.entered) return;
+      boss.entered = true;
+      boss.on = true;
+      doc.body.classList.add('hha-boss');
+      coach.say?.('🔥 BOSS WAVE! 15 วิท้าย — รักษาโซน GREEN ให้ได้!', 'happy', true);
+      try{ audio.tick(true); }catch{}
+      try{ Particles.celebrate?.('boss'); }catch{}
+    }
+
+    function leaveBoss(){
+      boss.on = false;
+      doc.body.classList.remove('hha-boss');
+      doc.body.classList.remove('hha-boss-danger');
+    }
+
     const look = attachDragLook();
 
     function setWaterZone(){
@@ -295,6 +330,7 @@ export function bootHydration(){
       if (ended) return;
       ended=true;
       stopAll();
+      leaveBoss();
 
       const grade = gradeFromScore(state.score, state.miss);
       const prog  = progressToS(state.score);
@@ -331,7 +367,6 @@ export function bootHydration(){
       if (urgent && sec !== lastTickSec){
         lastTickSec = sec;
         try{ audio.tick(true); }catch{}
-        // เบา ๆ: shake ตอน 5 วิสุดท้าย
         if (sec <= 5){
           doc.body.classList.remove('hha-shake');
           void doc.body.offsetWidth;
@@ -344,19 +379,28 @@ export function bootHydration(){
     // storm interval multiplier
     function spawnIntervalMul(){
       if (!allowStorm) return 1;
+
       // fever 0..1 => 1..0.55
-      return clamp(1 - state.fever*0.45, 0.55, 1.0);
+      const feverMul = clamp(1 - state.fever*0.45, 0.55, 1.0);
+
+      // boss ทำให้ถี่ขึ้นอีกนิด (แต่ไม่บ้า)
+      const bossMul = boss.on ? 0.78 : 1.0;
+
+      return clamp(feverMul * bossMul, 0.45, 1.0);
     }
 
     // judge
     function judge(ch, ctx){
-      // ctx: {isGood,isPower,itemType,hitPerfect,hitDistNorm,targetRect,clientX,clientY}
       const perfect = !!ctx.hitPerfect;
       const type = String(ctx.itemType||'good');
       const isTrap = (type === 'fakeGood');
 
       const hitX = Number(ctx.clientX ?? 0);
       const hitY = Number(ctx.clientY ?? 0);
+
+      // ========= scoring tuning when boss =========
+      const bossBonus = boss.on ? 2 : 0;      // good hit เพิ่มอีกนิดในบอส
+      const bossPenalty = boss.on ? 3 : 0;    // bad hit โดนหนักขึ้น (ยุติธรรม: โดนเฉพาะตอน "โดนจริง")
 
       // powerups
       if (type === 'power'){
@@ -400,36 +444,43 @@ export function bootHydration(){
           return { scoreDelta: 0, good:false, blocked:true };
         }
 
-        state.score -= 12;
+        const penalty = 12 + bossPenalty;
+        state.score -= penalty;
         state.miss  += 1;
         state.combo = 0;
-        bumpFever(+0.12);
-        bumpWater(+0.08);
 
-        // shake + fx
+        // boss ทำให้ fever ดันแรงขึ้นนิด
+        bumpFever(boss.on ? +0.14 : +0.12);
+
+        // โดน bad แล้วน้ำจะไหลไป HIGH ง่ายขึ้น (กดดันให้กลับ GREEN)
+        bumpWater(boss.on ? +0.10 : +0.08);
+
         doc.body.classList.remove('hha-shake');
         void doc.body.offsetWidth;
         doc.body.classList.add('hha-shake');
 
         try{ Particles.burstAt?.(hitX, hitY, 'BAD'); }catch{}
-        try{ Particles.scorePop?.(hitX, hitY, '-12', 0); }catch{}
+        try{ Particles.scorePop?.(hitX, hitY, `-${penalty}`, 0); }catch{}
         try{ audio.miss(); }catch{}
         coach.onHit({ bad:true });
 
         quest.onHit({ isGood:false, isPower:false, itemType:type, perfect, blocked:false });
         applyScore();
-        return { scoreDelta: -12, good:false };
+        return { scoreDelta: -penalty, good:false };
       }
 
       // good
-      const base = 10 + (perfect ? 5 : 0);
+      const base = (10 + bossBonus) + (perfect ? (boss.on ? 7 : 5) : 0);
       state.score += base;
+
       state.combo = clamp(state.combo + 1, 0, 9999);
       state.comboMax = Math.max(state.comboMax, state.combo);
 
-      const pull = (0.52 - state.water) * 0.22;
-      bumpWater(pull + 0.02);
-      bumpFever(perfect ? -0.03 : -0.015);
+      // good ดึงน้ำกลับ GREEN
+      const pull = (0.52 - state.water) * (boss.on ? 0.28 : 0.22);
+      bumpWater(pull + (boss.on ? 0.026 : 0.02));
+
+      bumpFever(perfect ? (boss.on ? -0.04 : -0.03) : (boss.on ? -0.022 : -0.015));
 
       try{ Particles.burstAt?.(hitX, hitY, perfect ? 'PERFECT' : 'GOOD'); }catch{}
       try{ Particles.scorePop?.(hitX, hitY, `+${base}`, 1); }catch{}
@@ -450,8 +501,8 @@ export function bootHydration(){
       if (isGood && !isTrap){
         state.miss += 1;
         state.combo = 0;
-        bumpFever(+0.05);
-        bumpWater(-0.04);
+        bumpFever(boss.on ? +0.06 : +0.05);
+        bumpWater(boss.on ? -0.05 : -0.04);
         applyScore();
       }
     }
@@ -491,20 +542,74 @@ export function bootHydration(){
     // start boot
     let factory = null;
 
+    // ===== time loop side effects (boss+drain+coach) =====
     ROOT.addEventListener('hha:time', (ev)=>{
       const sec = Number(ev?.detail?.sec ?? 0);
 
+      // enter boss at last 15 sec
+      if (!boss.entered && sec <= BOSS.startAtSec && sec > 0) enterBoss();
+
+      // urgent visuals
       urgentFx(sec);
 
-      // quest tick (zone+sec)
+      // quest tick
       quest.tick(sec, state.waterZone);
 
       // coach tick
       coach.onTick({ sec, zone: state.waterZone, feverPct: pct01(state.fever) });
 
-      // audio tick (non-urgent small tick every 15 sec)
+      // tiny tick every 15 sec (non-urgent)
       if (!isResearch && sec > 0 && sec % 15 === 0){
         try{ audio.tick(false); }catch{}
+      }
+
+      // ===== BOSS LOGIC =====
+      if (boss.on && sec > 0){
+        if (state.waterZone === 'GREEN'){
+          boss.outStreak = 0;
+          doc.body.classList.remove('hha-boss-danger');
+
+          if (!boss.cleared){
+            boss.greenHold++;
+            // เคลียร์บอสเมื่อสะสม GREEN ถึงเป้า
+            if (boss.greenHold >= BOSS.clearNeedGreenSec){
+              boss.cleared = true;
+              state.score += BOSS.clearBonus;
+              try{ Particles.celebrate?.('goal'); }catch{}
+              try{ audio.celebrate(); }catch{}
+              coach.say?.(`เคลียร์บอสแล้ว! +${BOSS.clearBonus} 🎉`, 'happy', true);
+              // ส่งเป็น celebrate เพื่อให้ FX ชั้นรวมทำงาน
+              emit('hha:celebrate', { kind:'goal', id:'boss' });
+              applyScore();
+            }
+          }
+        } else {
+          boss.outStreak++;
+          // เตือนก่อนโดน drain
+          if (boss.outStreak === 1){
+            coach.say?.('ออกนอก GREEN แล้ว! รีบกลับเข้า GREEN!', 'sad', true);
+          }
+          // danger overlay เมื่อใกล้โดน drain
+          if (boss.outStreak >= Math.max(1, BOSS.graceOutSec - 1)){
+            doc.body.classList.add('hha-boss-danger');
+          }
+
+          if (boss.outStreak > BOSS.graceOutSec){
+            // FAIR DRAIN: โดนเฉพาะตอน "อยู่นอก GREEN เกิน grace" เท่านั้น
+            state.score -= BOSS.drainPerSec;
+            bumpFever(BOSS.feverPerSec);
+
+            // shake เบาๆ ตอนโดน drain (ไม่ถี่เกิน)
+            if (boss.outStreak % 2 === 0){
+              doc.body.classList.remove('hha-shake');
+              void doc.body.offsetWidth;
+              doc.body.classList.add('hha-shake');
+            }
+
+            try{ audio.tick(true); }catch{}
+            applyScore();
+          }
+        }
       }
 
       if (sec <= 0) endGame();
@@ -513,7 +618,7 @@ export function bootHydration(){
     factoryBoot(factoryCfg).then((h)=>{
       factory = h;
 
-      // tap anywhere => crosshair shoot (เล่นง่าย)
+      // tap anywhere => crosshair shoot
       doc.addEventListener('pointerdown', (e)=>{
         if (stopped || ended) return;
         const t = e.target;
@@ -525,7 +630,7 @@ export function bootHydration(){
       fatal('Failed to boot hydration.safe.js\n' + String(err?.message || err), err);
     });
 
-    if (debug) console.log('[HydrationVR] boot', { diff, run, time, seed, factoryCfg });
+    if (debug) console.log('[HydrationVR] boot', { diff, run, time, seed, factoryCfg, BOSS });
 
   }catch(err){
     fatal('Hydration.safe.js crashed\n' + String(err?.message || err), err);
