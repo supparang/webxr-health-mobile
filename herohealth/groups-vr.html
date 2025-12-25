@@ -7,38 +7,46 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (for camera rotation) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ CSS แยกไฟล์ -->
   <link rel="stylesheet" href="./vr-groups/groups.css" />
 
-  <!-- ✅ Script order (สำคัญมาก) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
-
-  <!-- ✅ Quest HUD binder (ไฟล์ใหม่) -->
   <script src="./vr/hha-hud-quest.js" defer></script>
 
-  <!-- ✅ Quest manager + Engine -->
   <script src="./vr-groups/groups-quests.js" defer></script>
   <script src="./vr-groups/GameEngine.js" defer></script>
 </head>
 
 <body>
-  <!-- A-Frame scene (ซ่อนไว้ ใช้แค่ camera rotation) -->
   <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true; alpha: true">
     <a-entity id="camera" camera look-controls="enabled: true" position="0 1.6 0"></a-entity>
   </a-scene>
 
-  <!-- Main layer -->
   <div id="fg-root" class="fg-root">
     <div id="fg-layer" class="fg-layer" aria-label="playfield"></div>
 
     <!-- Reticle -->
     <div class="fg-reticle" id="fg-reticle" aria-hidden="true"></div>
+
+    <!-- ✅ Lock/Charge Ring (NEW) -->
+    <div class="lock-ring" id="lockRing" aria-hidden="true">
+      <svg viewBox="0 0 120 120" class="ring">
+        <!-- outer track -->
+        <circle class="track" cx="60" cy="60" r="44"></circle>
+        <!-- outer progress -->
+        <circle class="prog"  cx="60" cy="60" r="44"></circle>
+
+        <!-- inner track (charge) -->
+        <circle class="track2" cx="60" cy="60" r="33"></circle>
+        <!-- inner progress (charge) -->
+        <circle class="prog2"  cx="60" cy="60" r="33"></circle>
+      </svg>
+      <div class="lock-label" id="lockLabel">LOCK</div>
+    </div>
 
     <!-- Top-left stats -->
     <div class="hud hud-left">
@@ -60,7 +68,6 @@
         <div class="v grade" id="hudGrade">C</div>
       </div>
 
-      <!-- Fever UI ของ ui-fever.js จะมา bind เอง (ต้องมี container ให้มัน) -->
       <div class="fever-wrap">
         <div id="feverBarHost"></div>
       </div>
@@ -91,7 +98,7 @@
       <div class="q-warn" id="qWarn" style="display:none;">⚠️ QUEST ไม่พร้อม (เช็ค groups-quests.js / hha-hud-quest.js)</div>
     </div>
 
-    <!-- Coach / tips -->
+    <!-- Coach -->
     <div class="coach" id="hudCoach">
       <div class="coach-title">Coach</div>
       <div class="coach-text" id="hudCoachText">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨</div>
@@ -129,7 +136,7 @@
       </div>
     </div>
 
-    <!-- End overlay (ของ Groups โดยเฉพาะ ไม่ปน Water) -->
+    <!-- End overlay -->
     <div class="overlay" id="endOverlay" style="display:none;">
       <div class="overlay-card end">
         <div class="overlay-title">🏁 จบเกม</div>
@@ -150,14 +157,11 @@
         </div>
       </div>
     </div>
-
   </div>
 
-  <!-- Boot -->
   <script>
   (function(){
     'use strict';
-
     const $ = (id)=>document.getElementById(id);
     const sp = new URLSearchParams(location.search);
 
@@ -165,56 +169,48 @@
     const timeSec = Math.max(10, parseInt(sp.get('time')||'90',10)||90);
     const run = (sp.get('run')||'play').toLowerCase();
 
-    const startOverlay = $('startOverlay');
-    const endOverlay = $('endOverlay');
-
     $('pillMode').textContent = 'MODE: ' + (run==='research'?'RESEARCH':'PLAY');
     $('pillDiff').textContent = 'DIFF: ' + diff.toUpperCase();
     $('pillTime').textContent = 'TIME: ' + timeSec + 's';
 
     const engine = (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
-    const layerEl = $('fg-layer');
-    const camEl = $('camera');
-
     if (engine){
-      engine.setLayerEl(layerEl);
-      engine.setCameraEl(camEl);
+      engine.setLayerEl($('fg-layer'));
+      engine.setCameraEl($('camera'));
       engine.setTimeLeft(timeSec);
     }
 
-    // HUD basic bindings (score/time/coach/rank)
+    // ------- basic HUD -------
     window.addEventListener('hha:score', (ev)=>{
       const d = (ev && ev.detail) ? ev.detail : {};
-      if ($('hudScore')) $('hudScore').textContent = (d.score|0);
-      if ($('hudCombo')) $('hudCombo').textContent = (d.combo|0);
-      if ($('hudMiss')) $('hudMiss').textContent  = (d.misses|0);
+      $('hudScore').textContent = (d.score|0);
+      $('hudCombo').textContent = (d.combo|0);
+      $('hudMiss').textContent  = (d.misses|0);
     });
 
     window.addEventListener('hha:time', (ev)=>{
       const d = (ev && ev.detail) ? ev.detail : {};
-      if ($('hudTime')) $('hudTime').textContent = (d.left|0);
+      $('hudTime').textContent = (d.left|0);
     });
 
     window.addEventListener('hha:coach', (ev)=>{
       const d = (ev && ev.detail) ? ev.detail : {};
-      const t = String(d.text||'');
-      if (t && $('hudCoachText')) $('hudCoachText').textContent = t;
+      if (d.text) $('hudCoachText').textContent = String(d.text);
     });
 
     window.addEventListener('hha:rank', (ev)=>{
       const d = (ev && ev.detail) ? ev.detail : {};
-      if ($('hudGrade')) $('hudGrade').textContent = String(d.grade||'C');
+      $('hudGrade').textContent = String(d.grade||'C');
     });
 
     window.addEventListener('quest:update', (ev)=>{
       const d = (ev && ev.detail) ? ev.detail : {};
-      if ($('hudGroup')) $('hudGroup').textContent = d.groupLabel ? String(d.groupLabel) : '—';
+      $('hudGroup').textContent = d.groupLabel ? String(d.groupLabel) : '—';
     });
 
-    // Reticle feedback
+    // ------- reticle feedback -------
     const ret = $('fg-reticle');
     function pulse(cls){
-      if (!ret) return;
       ret.classList.remove('ok','miss','perfect');
       ret.classList.add(cls);
       setTimeout(()=>{ try{ ret.classList.remove(cls); }catch{} }, 140);
@@ -226,18 +222,14 @@
       else pulse('ok');
     });
 
-    // Controls
+    // ------- Controls -------
     let gazeOn = true;
     $('btnGaze').addEventListener('click', ()=>{
       gazeOn = !gazeOn;
       $('btnGaze').textContent = 'Gaze: ' + (gazeOn?'ON':'OFF');
       try{ engine && engine.setGaze(gazeOn); }catch{}
     });
-
-    $('btnStop').addEventListener('click', ()=>{
-      try{ engine && engine.stop('stop'); }catch{}
-    });
-
+    $('btnStop').addEventListener('click', ()=>{ try{ engine && engine.stop('stop'); }catch{} });
     $('btnVR').addEventListener('click', ()=>{
       try{
         const scene = document.querySelector('a-scene');
@@ -250,25 +242,19 @@
       $('startOverlay').style.display = 'none';
       $('endOverlay').style.display = 'none';
 
-      // seed: research fixed; play ignore
       const seed = sp.get('seed') || ('school|' + diff + '|' + timeSec);
-
       engine.setTimeLeft(timeSec);
-      engine.start(diff, {
-        runMode: mode,
-        seed: seed
-      });
+      engine.start(diff, { runMode: mode, seed });
     }
 
     $('btnStartPlay').addEventListener('click', ()=>startGame('play'));
     $('btnStartResearch').addEventListener('click', ()=>startGame('research'));
 
-    // Auto start if url says run=play/research and autostart=1
     if ((sp.get('autostart')||'0')==='1'){
       startGame(run==='research'?'research':'play');
     }
 
-    // End overlay
+    // ------- End overlay -------
     function pct(n){ n=Number(n)||0; return Math.max(0,Math.min(100,Math.round(n)))+'%'; }
     window.addEventListener('hha:end', (ev)=>{
       const d = (ev && ev.detail) ? ev.detail : {};
@@ -280,23 +266,95 @@
       $('endMiss').textContent  = (d.misses|0);
       $('endGrade').textContent = String(d.grade||'C');
 
-      // pull latest rank metrics if available
-      // (GameEngine emits hha:rank each second, so values should exist)
-      let lastRank = null;
-      window.addEventListener('hha:rank', (e)=>{ lastRank = (e && e.detail) ? e.detail : null; }, { once:true });
-
-      // fallback compute from detail if present
-      const qp  = (typeof d.questsPct === 'number') ? d.questsPct : null;
-      const acc = (typeof d.accuracy === 'number') ? d.accuracy : null;
-
-      $('endQuest').textContent = qp!=null ? pct(qp*100) : '—';
-      $('endAcc').textContent   = acc!=null ? pct(acc*100) : '—';
+      $('endQuest').textContent = (typeof d.questsPct === 'number') ? pct(d.questsPct*100) : '—';
+      $('endAcc').textContent   = (typeof d.accuracy === 'number') ? pct(d.accuracy*100) : '—';
     });
-
     $('btnCloseEnd').addEventListener('click', ()=>{ $('endOverlay').style.display='none'; });
     $('btnReplay').addEventListener('click', ()=>{
       $('endOverlay').style.display='none';
       $('startOverlay').style.display='';
+    });
+
+    // ==========================================================
+    // ✅ 1) Rush mini panic: tick + flash + slight shake
+    // ==========================================================
+    let audioCtx = null;
+    function tickBeep(){
+      try{
+        audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+        const ctx = audioCtx;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'square';
+        o.frequency.value = 980;
+        g.gain.value = 0.03;
+        o.connect(g); g.connect(ctx.destination);
+        o.start(); o.stop(ctx.currentTime + 0.05);
+      }catch{}
+      try{ navigator.vibrate && navigator.vibrate(12); }catch{}
+    }
+
+    const root = $('fg-root');
+    let lastPanicSec = -1;
+
+    window.addEventListener('quest:panic', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      const sec = (d.secLeft|0);
+
+      if (sec <= 0){
+        root.classList.remove('panic');
+        lastPanicSec = -1;
+        return;
+      }
+
+      root.classList.add('panic');
+
+      // beep only when sec changes (no spam)
+      if (sec !== lastPanicSec){
+        tickBeep();
+        lastPanicSec = sec;
+      }
+    });
+
+    // ==========================================================
+    // ✅ 2) Lock/Charge ring UI (listen groups:lock)
+    // ==========================================================
+    const ring = $('lockRing');
+    const label = $('lockLabel');
+
+    const outer = ring.querySelector('.prog');
+    const inner = ring.querySelector('.prog2');
+
+    function setCircle(circle, p){
+      p = Math.max(0, Math.min(1, Number(p)||0));
+      const r = Number(circle.getAttribute('r')) || 44;
+      const C = 2 * Math.PI * r;
+      circle.style.strokeDasharray = String(C);
+      circle.style.strokeDashoffset = String(C * (1 - p));
+    }
+
+    // init
+    setCircle(outer, 0);
+    setCircle(inner, 0);
+    ring.classList.remove('on');
+
+    window.addEventListener('groups:lock', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      if (!d.on){
+        ring.classList.remove('on');
+        setCircle(outer, 0);
+        setCircle(inner, 0);
+        label.textContent = 'LOCK';
+        return;
+      }
+
+      ring.classList.add('on');
+      setCircle(outer, d.prog || 0);
+      setCircle(inner, d.charge || 0);
+
+      if ((d.charge||0) > 0) label.textContent = 'CHARGE';
+      else if ((d.prog||0) > 0.92) label.textContent = 'FIRE';
+      else label.textContent = (d.boss ? 'BOSS' : 'LOCK');
     });
 
   })();
