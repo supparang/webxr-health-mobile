@@ -1,24 +1,27 @@
 // === /herohealth/vr/hha-hud.js ===
-// HeroHealth — HUD Binder (for NEW goodjunk-vr.html IDs)
-// ✅ Supports: hha:score / hha:time / quest:update / hha:coach / hha:rank / hha:end
-// ✅ Uses NEW HTML IDs: hhaScore/hhaCombo/hhaMiss/hhaTime/hhaGrade + quest + coach + end overlay
-// ✅ Does NOT create Fever UI (leave to ./vr/ui-fever.js) -> prevents FEVER duplicate
-// ✅ Safe: missing elements -> skip, guard bind
+// HeroHealth — HUD Binder (A-COMPAT for goodjunk-vr.html IDs)
+// ✅ Works with IDs: hhaScore/hhaCombo/hhaMiss/hhaTime/hhaGrade
+// ✅ Quest IDs: qGoalTitle/qGoalCur/qGoalMax/qGoalFill + qMiniTitle/qMiniCur/qMiniMax/qMiniFill + qMiniTLeft + hhaQuestMeta
+// ✅ Coach IDs: hhaCoachLine/hhaCoachSub/hhaCoachImg
+// ✅ Events: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:rank, hha:end
+// ✅ VR: when enter-vr, stack panels to top-left (keep FeverUI top-right)
+// ✅ Safe: missing elements => skip, no double bind
 
 (function (root) {
   'use strict';
 
   const doc = root.document;
   if (!doc) return;
-  if (root.__HHA_HUD_BOUND__) return;
-  root.__HHA_HUD_BOUND__ = true;
+  if (root.__HHA_HUD_BOUND_A__) return;
+  root.__HHA_HUD_BOUND_A__ = true;
 
-  // ---------- helpers ----------
-  const $id = (id) => doc.getElementById(id);
-  const setText = (el, v) => { if (el) el.textContent = String(v ?? ''); };
-  const setStyle = (el, k, v) => { if (el) el.style[k] = v; };
+  // ---------------- helpers ----------------
+  const $ = (id) => { try { return doc.getElementById(id); } catch { return null; } };
+  const qs = (sel) => { try { return doc.querySelector(sel); } catch { return null; } };
   const clamp = (v, a, b) => { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); };
-  const sstr = (v) => String(v ?? '').trim();
+  const s = (v) => String(v ?? '').trim();
+  const setTxt = (el, v) => { if (!el) return; try { el.textContent = String(v ?? ''); } catch {} };
+  const setW = (el, pct) => { if (!el) return; try { el.style.width = `${clamp(pct, 0, 100)}%`; } catch {} };
 
   function pctFrom(cur, max){
     const c = Number(cur) || 0;
@@ -27,150 +30,221 @@
     return clamp((c / m) * 100, 0, 100);
   }
 
-  // ---------- NEW HTML elements ----------
-  // Topbar
-  const elScore = $id('hhaScore');
-  const elCombo = $id('hhaCombo'); // (comboMax or current, your engine decides)
-  const elMiss  = $id('hhaMiss');
-  const elTime  = $id('hhaTime');
-  const elGrade = $id('hhaGrade');
+  function inferMood(text){
+    const t = String(text || '').toLowerCase();
+    if (t.includes('fever') || t.includes('🔥')) return 'fever';
+    if (t.includes('เยี่ยม') || t.includes('สำเร็จ') || t.includes('ผ่าน') || t.includes('🎉') || t.includes('⭐')) return 'happy';
+    if (t.includes('พลาด') || t.includes('โดน') || t.includes('miss') || t.includes('😵') || t.includes('⚠️')) return 'sad';
+    return 'neutral';
+  }
 
-  // Quest panel
-  const qGoalTitle = $id('qGoalTitle');
-  const qGoalCur   = $id('qGoalCur');
-  const qGoalMax   = $id('qGoalMax');
-  const qGoalFill  = $id('qGoalFill');
+  // ---------------- elements (A HTML) ----------------
+  // Top KPIs
+  const elScore = $('hhaScore');
+  const elCombo = $('hhaCombo');
+  const elMiss  = $('hhaMiss');
+  const elTime  = $('hhaTime');
+  const elGrade = $('hhaGrade');
 
-  const qMiniTitle = $id('qMiniTitle');
-  const qMiniCur   = $id('qMiniCur');
-  const qMiniMax   = $id('qMiniMax');
-  const qMiniFill  = $id('qMiniFill');
-  const qMiniTLeft = $id('qMiniTLeft');
+  // Quest
+  const elQuestMeta = $('hhaQuestMeta');
+  const elGoalTitle = $('qGoalTitle');
+  const elGoalCur   = $('qGoalCur');
+  const elGoalMax   = $('qGoalMax');
+  const elGoalFill  = $('qGoalFill');
 
-  const qMeta = $id('hhaQuestMeta');
+  const elMiniTitle = $('qMiniTitle');
+  const elMiniCur   = $('qMiniCur');
+  const elMiniMax   = $('qMiniMax');
+  const elMiniFill  = $('qMiniFill');
+  const elMiniTLeft = $('qMiniTLeft');
 
   // Coach
-  const coachImg = $id('hhaCoachImg');
-  const coachLine = $id('hhaCoachLine');
-  const coachSub  = $id('hhaCoachSub');
+  const elCoachImg  = $('hhaCoachImg');
+  const elCoachLine = $('hhaCoachLine');
+  const elCoachSub  = $('hhaCoachSub');
 
+  // Panels (for VR layout)
+  const elTopbar = qs('.topbar');
+  const elQuestPanel = qs('.quest');
+  const elCoachPanel = qs('.coach');
+
+  // ---------------- coach images ----------------
   const COACH_IMG = {
     fever:   './img/coach-fever.png',
     happy:   './img/coach-happy.png',
     neutral: './img/coach-neutral.png',
     sad:     './img/coach-sad.png'
   };
-  let coachMood = 'neutral';
-  function setCoachMood(m){
+  let lastMood = 'neutral';
+  function setCoachMood(mood){
+    const m = String(mood || '').toLowerCase();
     const pick =
-      (String(m||'').includes('fever') || String(m||'').includes('🔥')) ? 'fever' :
-      (String(m||'').includes('happy') || String(m||'').includes('🎉') || String(m||'').includes('⭐')) ? 'happy' :
-      (String(m||'').includes('sad')   || String(m||'').includes('😵') || String(m||'').includes('⚠️')) ? 'sad' :
+      (m.includes('fever') || m.includes('fire') || m.includes('hot') || m.includes('🔥')) ? 'fever' :
+      (m.includes('happy') || m.includes('win')  || m.includes('good') || m.includes('success') || m.includes('🎉') || m.includes('⭐')) ? 'happy' :
+      (m.includes('sad')   || m.includes('miss') || m.includes('bad')  || m.includes('fail') || m.includes('😵') || m.includes('⚠️')) ? 'sad' :
       'neutral';
 
-    if (pick === coachMood) return;
-    coachMood = pick;
-    if (coachImg) coachImg.src = COACH_IMG[pick] || COACH_IMG.neutral;
+    if (pick === lastMood) return;
+    lastMood = pick;
+    if (elCoachImg) {
+      try { elCoachImg.src = COACH_IMG[pick] || COACH_IMG.neutral; } catch {}
+    }
   }
 
-  // End overlay (your HTML fallback)
-  const endBox = $id('hhaEnd');
-  const endGrade = $id('endGrade');
-  const endScore = $id('endScore');
-  const endComboMax = $id('endComboMax');
-  const endMiss = $id('endMiss');
-  const endGoals = $id('endGoals');
-  const endGoalsTotal = $id('endGoalsTotal');
-  const endMinis = $id('endMinis');
-  const endMinisTotal = $id('endMinisTotal');
-  const endAcc = $id('endAcc');
+  function showCoach(text, mood){
+    if (text != null) setTxt(elCoachLine, text);
+    setCoachMood(mood || inferMood(text));
+    // sub line stays unless provided
+  }
 
-  // ---------- state ----------
-  let sScore = 0, sComboMax = 0, sMiss = 0, sTime = 0;
-  let sGrade = '—';
+  // ---------------- tiny CSS fix (VR + keep FeverUI on top-right) ----------------
+  (function injectCSS(){
+    if (doc.getElementById('hha-hud-a-css')) return;
+    const st = doc.createElement('style');
+    st.id = 'hha-hud-a-css';
+    st.textContent = `
+      body.hha-vr .topbar{
+        left:12px !important;
+        right:auto !important;
+        width: min(560px, 94vw) !important;
+      }
+      body.hha-vr .quest{
+        left:12px !important;
+        bottom:auto !important;
+        top: calc(env(safe-area-inset-top, 0px) + 84px) !important;
+        width: min(560px, 94vw) !important;
+        opacity:.98;
+      }
+      body.hha-vr .coach{
+        left:12px !important;
+        right:auto !important;
+        bottom:auto !important;
+        top: calc(env(safe-area-inset-top, 0px) + 260px) !important;
+        width: min(560px, 94vw) !important;
+        opacity:.98;
+      }
+      /* FeverUI stays top-right (just a bit safer in VR) */
+      body.hha-vr .hha-fever-wrap{
+        top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+        right: 12px !important;
+        z-index: 9999 !important;
+      }
+    `;
+    (doc.head || doc.documentElement).appendChild(st);
+  })();
 
-  let goal = null; // {title, cur, max}
-  let mini = null; // {title, cur, max, tLeft?}
+  // ---------------- state ----------------
+  let score=0, combo=0, miss=0, timeSec=0, grade='—';
 
-  // ---------- render ----------
+  // quest summary meta
+  let goalsCleared=0, goalsTotal=0, minisCleared=0, miniCount=0;
+
+  // ---------------- render ----------------
   function renderTop(){
-    setText(elScore, sScore|0);
-    setText(elCombo, sComboMax|0);
-    setText(elMiss,  sMiss|0);
-    setText(elTime,  sTime|0);
-    if (elGrade) setText(elGrade, sGrade || '—');
+    setTxt(elScore, score|0);
+    setTxt(elCombo, combo|0);
+    setTxt(elMiss,  miss|0);
+    setTxt(elTime,  timeSec|0);
+    if (elGrade) setTxt(elGrade, grade || '—');
   }
 
-  function renderQuest(){
+  function renderQuest(goal, mini){
+    // meta line
+    const metaBits = [];
+    if (goalsTotal > 0) metaBits.push(`Goals ${goalsCleared|0}/${goalsTotal|0}`);
+    if (minisCleared > 0 || miniCount > 0) metaBits.push(`Minis ✓${minisCleared|0}`);
+    setTxt(elQuestMeta, metaBits.length ? metaBits.join(' • ') : '—');
+
+    // goal
     if (goal){
-      setText(qGoalTitle, `Goal: ${goal.title || '—'}`);
-      setText(qGoalCur, goal.cur|0);
-      setText(qGoalMax, goal.max|0);
-      if (qGoalFill) setStyle(qGoalFill, 'width', `${pctFrom(goal.cur, goal.max)}%`);
+      setTxt(elGoalTitle, `Goal: ${goal.title || goal.label || '—'}`);
+      setTxt(elGoalCur, goal.cur ?? goal.prog ?? 0);
+      setTxt(elGoalMax, goal.target ?? goal.max ?? 0);
+      setW(elGoalFill, pctFrom(goal.cur ?? goal.prog ?? 0, goal.target ?? goal.max ?? 0));
     } else {
-      setText(qGoalTitle, 'Goal: —');
-      setText(qGoalCur, 0);
-      setText(qGoalMax, 0);
-      if (qGoalFill) setStyle(qGoalFill, 'width', `0%`);
+      setTxt(elGoalTitle, 'Goal: —');
+      setTxt(elGoalCur, 0);
+      setTxt(elGoalMax, 0);
+      setW(elGoalFill, 0);
     }
 
+    // mini
     if (mini){
-      setText(qMiniTitle, `Mini: ${mini.title || '—'}`);
-      setText(qMiniCur, mini.cur|0);
-      setText(qMiniMax, mini.max|0);
-      if (qMiniFill) setStyle(qMiniFill, 'width', `${pctFrom(mini.cur, mini.max)}%`);
-      if (qMiniTLeft) setText(qMiniTLeft, (mini.tLeft != null) ? String(Math.max(0, mini.tLeft|0)) : '—');
+      setTxt(elMiniTitle, `Mini: ${mini.title || mini.label || '—'}`);
+      setTxt(elMiniCur, mini.cur ?? mini.prog ?? 0);
+      setTxt(elMiniMax, mini.target ?? mini.max ?? 0);
+      setW(elMiniFill, pctFrom(mini.cur ?? mini.prog ?? 0, mini.target ?? mini.max ?? 0));
+
+      const tl = (mini.tLeft != null) ? mini.tLeft : (mini.left != null ? mini.left : null);
+      setTxt(elMiniTLeft, (tl == null) ? '—' : String(Math.max(0, tl|0)));
     } else {
-      setText(qMiniTitle, 'Mini: —');
-      setText(qMiniCur, 0);
-      setText(qMiniMax, 0);
-      if (qMiniFill) setStyle(qMiniFill, 'width', `0%`);
-      if (qMiniTLeft) setText(qMiniTLeft, '—');
+      setTxt(elMiniTitle, 'Mini: —');
+      setTxt(elMiniCur, 0);
+      setTxt(elMiniMax, 0);
+      setW(elMiniFill, 0);
+      setTxt(elMiniTLeft, '—');
     }
   }
 
-  function openEnd(d){
-    if (!endBox) return;
-    setText(endGrade, d.grade ?? sGrade ?? '—');
-    setText(endScore, d.scoreFinal ?? d.score ?? sScore ?? 0);
-    setText(endComboMax, d.comboMax ?? sComboMax ?? 0);
-    setText(endMiss, d.misses ?? sMiss ?? 0);
-
-    setText(endGoals, d.goalsCleared ?? 0);
-    setText(endGoalsTotal, d.goalsTotal ?? 0);
-    setText(endMinis, d.minisCleared ?? d.miniCleared ?? 0);
-    setText(endMinisTotal, d.minisTotal ?? d.miniTotal ?? 0);
-    setText(endAcc, d.accuracy ?? 0);
-
-    endBox.style.display = 'flex';
+  // ---------------- quest normalize (nested + flat) ----------------
+  function normObj(obj){
+    if (!obj || typeof obj !== 'object') return null;
+    const title = s(obj.title ?? obj.label ?? obj.name ?? '');
+    const cur = (obj.cur != null) ? obj.cur : (obj.prog != null ? obj.prog : 0);
+    const max = (obj.target != null) ? obj.target : (obj.max != null ? obj.max : 0);
+    const out = { title, cur: Number(cur)||0, target: Number(max)||0 };
+    if (obj.tLeft != null) out.tLeft = obj.tLeft;
+    if (obj.windowSec != null) out.windowSec = obj.windowSec;
+    if (obj.hint != null) out.hint = obj.hint;
+    return title ? out : null;
   }
 
-  // ---------- normalize quest:update ----------
-  function normBlock(obj, flatTitle, flatCur, flatMax){
-    if (obj && typeof obj === 'object'){
-      const title = sstr(obj.title ?? obj.label ?? '');
-      const cur = Number(obj.cur ?? obj.prog ?? 0) || 0;
-      const max = Number(obj.target ?? obj.max ?? 0) || 0;
-      if (title) return { title, cur, max, tLeft: obj.tLeft, windowSec: obj.windowSec };
+  function normFromFlat(prefix, d){
+    // supports: goalTitle/goalCur/goalTarget|goalMax, miniTitle/miniCur/miniTarget|miniMax
+    const Title = s(d[`${prefix}Title`]);
+    if (!Title) return null;
+    const Cur = Number(d[`${prefix}Cur`] ?? 0) || 0;
+    const Max = Number(
+      d[`${prefix}Target`] ?? d[`${prefix}Max`] ?? d[`${prefix}TargetOrMax`] ?? 0
+    ) || 0;
+
+    const out = { title: Title, cur: Cur, target: Max };
+    if (prefix === 'mini'){
+      if (d.miniTLeft != null) out.tLeft = d.miniTLeft;
+      if (d.miniWindowSec != null) out.windowSec = d.miniWindowSec;
     }
-    const t = sstr(flatTitle);
-    if (!t) return null;
-    return { title: t, cur: Number(flatCur||0)||0, max: Number(flatMax||0)||0 };
+    return out;
   }
 
-  // ---------- events ----------
+  // ---------------- VR layout bind ----------------
+  function applyVR(on){
+    try { doc.body.classList.toggle('hha-vr', !!on); } catch {}
+  }
+  (function bindAFRAMEVR(){
+    const scene = qs('a-scene');
+    if (!scene) return;
+    try{
+      scene.addEventListener('enter-vr', ()=> applyVR(true));
+      scene.addEventListener('exit-vr',  ()=> applyVR(false));
+    }catch{}
+  })();
+
+  // ---------------- events ----------------
   root.addEventListener('hha:score', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.score != null) sScore = d.score|0;
 
-    // prefer comboMax if present, else keep max seen of combo
-    if (d.comboMax != null) sComboMax = d.comboMax|0;
-    else if (d.combo != null) sComboMax = Math.max(sComboMax|0, d.combo|0);
+    if (d.score != null) score = d.score|0;
 
-    if (d.misses != null) sMiss = d.misses|0;
+    // Combo (A UI label = "Combo" -> prefer current combo, fallback comboMax)
+    if (d.combo != null) combo = d.combo|0;
+    else if (d.comboMax != null) combo = d.comboMax|0;
 
-    // optional: some engines send {sec} here
-    if (d.sec != null) sTime = d.sec|0;
+    if (d.misses != null) miss = d.misses|0;
+
+    // some engines include time in score payload
+    if (d.sec != null) timeSec = Math.max(0, d.sec|0);
+    if (d.left != null) timeSec = Math.max(0, d.left|0);
 
     renderTop();
   });
@@ -179,81 +253,68 @@
     const d = (ev && ev.detail) ? ev.detail : {};
     const sec = (d.sec != null) ? d.sec : (d.left != null ? d.left : null);
     if (sec != null){
-      sTime = Math.max(0, sec|0);
+      timeSec = Math.max(0, sec|0);
       renderTop();
     }
   });
 
   root.addEventListener('hha:rank', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const g = sstr(d.grade).toUpperCase();
-    if (g) sGrade = g;
-    renderTop();
+    const g = s(d.grade).toUpperCase();
+    if (g) { grade = g; renderTop(); }
   });
 
   root.addEventListener('quest:update', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
 
-    // meta text (optional)
-    if (qMeta){
-      const parts = [];
-      if (d.goalsCleared != null && d.goalsTotal != null) parts.push(`Goals ${d.goalsCleared}/${d.goalsTotal}`);
-      if (d.minisCleared != null) parts.push(`Minis ✓${d.minisCleared}`);
-      setText(qMeta, parts.join(' • ') || '—');
-    }
+    const metaIn = (d.meta && typeof d.meta === 'object') ? d.meta : null;
+    goalsCleared = Number(d.goalsCleared ?? metaIn?.goalsCleared ?? 0) || 0;
+    goalsTotal   = Number(d.goalsTotal   ?? metaIn?.goalsTotal   ?? metaIn?.goalIndex ?? 0) || 0;
+    minisCleared = Number(d.minisCleared ?? metaIn?.minisCleared ?? 0) || 0;
+    miniCount    = Number(d.miniCount    ?? metaIn?.miniCount    ?? 0) || 0;
 
-    // nested or flat shapes
-    const gFlatMax = (d.goalTarget != null) ? d.goalTarget : (d.goalMax != null ? d.goalMax : d.goalTargetOrMax);
-    const mFlatMax = (d.miniTarget != null) ? d.miniTarget : (d.miniMax != null ? d.miniMax : d.miniTargetOrMax);
+    const goal = normObj(d.goal || d.main) || normFromFlat('goal', d);
+    const mini = normObj(d.mini) || normFromFlat('mini', d);
 
-    goal = normBlock(d.goal ?? d.main, d.goalTitle, d.goalCur, gFlatMax);
-    mini = normBlock(d.mini, d.miniTitle, d.miniCur, mFlatMax);
-
-    // flat mini time
-    if (mini){
-      if (mini.tLeft == null && d.miniTLeft != null) mini.tLeft = d.miniTLeft;
-      if (mini.windowSec == null && d.miniWindowSec != null) mini.windowSec = d.miniWindowSec;
-    }
-
-    renderQuest();
+    renderQuest(goal, mini);
   });
 
   root.addEventListener('hha:coach', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.text != null) setText(coachLine, d.text);
-    if (d.sub != null)  setText(coachSub, d.sub);
+    const text = (d.text != null) ? String(d.text) : '';
+    const mood = d.mood || inferMood(text);
+    if (text) setTxt(elCoachLine, text);
+    if (d.sub != null) setTxt(elCoachSub, d.sub);
+    setCoachMood(mood);
+  });
 
-    // infer mood if not provided
-    let mood = d.mood;
-    if (!mood && d.text){
-      const t = String(d.text).toLowerCase();
-      if (t.includes('fever') || t.includes('🔥')) mood = 'fever';
-      else if (t.includes('ผ่าน') || t.includes('เยี่ยม') || t.includes('สำเร็จ') || t.includes('🎉') || t.includes('⭐')) mood = 'happy';
-      else if (t.includes('miss') || t.includes('พลาด') || t.includes('โดน') || t.includes('😵') || t.includes('⚠️')) mood = 'sad';
-      else mood = 'neutral';
-    }
-    setCoachMood(mood || 'neutral');
+  root.addEventListener('hha:judge', (ev)=>{
+    // (A HTML ไม่มี judge element) -> ใช้ coach line เป็น fallback
+    const d = (ev && ev.detail) ? ev.detail : {};
+    const txt = d.label ?? d.text ?? d.judge ?? '';
+    const t = s(txt);
+    if (!t) return;
+    // โผล่สั้น ๆ ใน coach line
+    showCoach(t, inferMood(t));
   });
 
   root.addEventListener('hha:end', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.scoreFinal != null) sScore = d.scoreFinal|0;
-    if (d.comboMax != null) sComboMax = d.comboMax|0;
-    if (d.misses != null) sMiss = d.misses|0;
-    if (d.grade != null) sGrade = String(d.grade).toUpperCase();
-
+    if (d.scoreFinal != null) score = d.scoreFinal|0;
+    if (d.comboMax != null) combo = d.comboMax|0;
+    if (d.misses != null) miss = d.misses|0;
+    const g = s(d.grade).toUpperCase();
+    if (g) grade = g;
     renderTop();
-    openEnd(d);
 
-    // coach mood at end
-    if (sGrade === 'SSS' || sGrade === 'SS' || sGrade === 'S') setCoachMood('happy');
-    else if ((d.misses|0) >= 8) setCoachMood('sad');
+    // final coach mood
+    if (g === 'SSS' || g === 'SS' || g === 'S') setCoachMood('happy');
+    else if ((miss|0) >= 8) setCoachMood('sad');
     else setCoachMood('neutral');
   });
 
-  // ---------- initial paint ----------
+  // initial paint
   renderTop();
-  renderQuest();
-  if (coachImg && !coachImg.src) coachImg.src = COACH_IMG.neutral;
+  renderQuest(null, null);
 
 })(window);
