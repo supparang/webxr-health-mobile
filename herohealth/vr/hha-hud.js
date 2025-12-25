@@ -1,13 +1,9 @@
 // === /herohealth/vr/hha-hud.js ===
-// Hero Health Academy — Global HUD Binder (DOM)
-// FIX-ALL: quest/update + time compat + fever compat + rank + end summary
+// HeroHealth — HUD Binder (GoodJunk HTML NEW)
+// FIX-ALL: new IDs mapping + quest bars + judge + fever/shield + boss HUD + summary overlay + VR stack safe
 // ✅ Safe if elements missing
 // ✅ Prevent double-binding
 // ✅ Coach mood image names fixed: coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
-// ✅ Compat: quest:update supports {label/prog/target} + {title/cur/target/pct/done} + legacy flat fields
-// ✅ Compat: hha:time supports {left} / {sec} / {timeLeft}
-// ✅ Compat: hha:fever supports {on} + {fever,shield,stunActive}
-// ✅ Compat: hha:end supports multiple keysets (GoodJunk emits {score,misses,comboMax,...})
 
 (function (root) {
   'use strict';
@@ -19,345 +15,491 @@
   if (root.__HHA_HUD_BOUND__) return;
   root.__HHA_HUD_BOUND__ = true;
 
-  // ---------- helpers ----------
+  // ---------------- helpers ----------------
   const $ = (sel) => { try { return doc.querySelector(sel); } catch { return null; } };
   const setText = (el, v) => { if (!el) return; try { el.textContent = String(v ?? ''); } catch {} };
+  const setStyle = (el, k, v) => { if (!el) return; try { el.style[k] = v; } catch {} };
   const clamp = (v, a, b) => { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); };
+  const now = () => (root.performance && performance.now) ? performance.now() : Date.now();
 
-  const toInt = (v, fb=0) => {
-    const n = Number(v);
-    return Number.isFinite(n) ? (n|0) : (fb|0);
-  };
+  function pct(p, t){
+    p = Number(p)||0; t = Number(t)||0;
+    if (t <= 0) return 0;
+    return clamp((p / t) * 100, 0, 100);
+  }
 
-  // pick first non-null/undefined
-  const pick = (...xs) => {
-    for (const x of xs) if (x !== undefined && x !== null) return x;
-    return undefined;
-  };
+  function fmtProg(prog, target){
+    const p = Math.max(0, (Number(prog)||0)|0);
+    const t = Math.max(0, (Number(target)||0)|0);
+    return `${p}/${t}`;
+  }
 
-  // ---------- elements (optional) ----------
-  const elScore    = $('#hud-score');
-  const elCombo    = $('#hud-combo');
-  const elMiss     = $('#hud-miss');
-  const elShield   = $('#hud-shield');
-  const elTime     = $('#hud-time');
+  function safeUpper(s){ return String(s||'').toUpperCase().trim(); }
 
-  const elGoalLbl  = $('#hud-goal');
-  const elGoalProg = $('#hud-goal-prog');
-  const elMiniLbl  = $('#hud-mini');
-  const elMiniProg = $('#hud-mini-prog');
-  const elGroup    = $('#hud-group');
+  // ---------------- elements (GoodJunk NEW IDs) ----------------
+  // Top KPIs
+  const elScore = $('#hud-score');
+  const elCombo = $('#hud-combo');     // (ใน HTML ระบุ COMBO MAX)
+  const elMiss  = $('#hud-miss');
 
-  const elCoachTxt = $('#hud-coach');
-  const elCoachImg = $('#hud-coach-img');
+  // Fever UI (new)
+  const elFeverPct  = $('#fever-pct');
+  const elFeverFill = $('#fever-fill');
+  const elHudStun   = $('#hud-stun');
 
-  const elRank     = $('#hud-rank');
+  // Shield UI (new)
+  const elShieldCount = $('#shield-count');
 
-  // End overlay (optional)
-  const elEndOverlay = $('#endOverlay');
-  const elEndGrade   = $('#endGrade');
-  const elEndScore   = $('#endScore');
-  const elEndComboMax= $('#endComboMax');
-  const elEndMiss    = $('#endMiss');
-  const elEndGoals   = $('#endGoals');
-  const elEndMinis   = $('#endMinis');
+  // Judge label (new)
+  const elJudge = $('#hud-judge');
 
-  // ---------- coach mood images ----------
+  // Coach bubble (new)
+  const elCoachTxt = $('#coach-text');
+  const elCoachImg = $('#coach-emoji'); // เป็น div background-image
+
+  // Quest HUD bottom (new)
+  const elQMainTitle   = $('#hud-quest-main');
+  const elQMainCap     = $('#hud-quest-main-caption');
+  const elQMainBar     = $('#hud-quest-main-bar');
+
+  const elQMiniTitle   = $('#hud-quest-mini');
+  const elQMiniCap     = $('#hud-quest-mini-caption');
+  const elQMiniBar     = $('#hud-quest-mini-bar');
+
+  const elQHint        = $('#hud-quest-hint');
+  const elMiniCount    = $('#hud-mini-count');
+
+  // Meta labels
+  const elRunLabel  = $('#hud-run-label');       // PLAY/RESEARCH
+  const elDiffLabel = $('#hud-diff-label');
+  const elChLabel   = $('#hud-challenge-label');
+  const elTimeLabel = $('#hud-time-label');
+
+  // Logger badge
+  const elLogDot  = $('#logdot');
+  const elLogText = $('#logtext');
+
+  // Boss HUD (new)
+  const elBossWrap  = $('#boss-wrap');
+  const elBossFill  = $('#boss-fill');
+  const elBossPhase = $('#boss-phase');
+
+  // Summary overlay (new)
+  const elSumOverlay = $('#sum-overlay');
+  const elSumScore   = $('#sum-score');
+  const elSumCombo   = $('#sum-combo');
+  const elSumGood    = $('#sum-good');
+  const elSumMiss    = $('#sum-miss');
+  const btnExit      = $('#btn-exit');
+  const btnReplay    = $('#btn-replay');
+
+  // Optional VR helper nodes
+  const elAtkRing  = $('#atk-ring');
+  const elAtkLaser = $('#atk-laser');
+  const elStunVortex = $('#stun-vortex');
+  const elBossBeacon = $('#boss-beacon');
+
+  // ---------------- coach mood images ----------------
   const COACH_IMG = {
-    fever: './img/coach-fever.png',
-    happy: './img/coach-happy.png',
-    neutral: './img/coach-neutral.png',
-    sad: './img/coach-sad.png'
+    fever:  './img/coach-fever.png',
+    happy:  './img/coach-happy.png',
+    neutral:'./img/coach-neutral.png',
+    sad:    './img/coach-sad.png'
   };
 
   let lastCoachMood = 'neutral';
-  function setCoachMood(mood) {
-    const m = String(mood || '').toLowerCase();
-    const pickMood =
-      (m.includes('fever') || m.includes('fire') || m.includes('hot')) ? 'fever' :
-      (m.includes('happy') || m.includes('win') || m.includes('good') || m.includes('success')) ? 'happy' :
-      (m.includes('sad') || m.includes('miss') || m.includes('bad') || m.includes('fail')) ? 'sad' :
+  let coachHideT = 0;
+
+  function setCoachMood(mood){
+    const m = String(mood||'').toLowerCase();
+    const pick =
+      (m.includes('fever') || m.includes('fire') || m.includes('hot') || m.includes('🔥')) ? 'fever' :
+      (m.includes('happy') || m.includes('win')  || m.includes('good') || m.includes('success') || m.includes('🎉') || m.includes('⭐')) ? 'happy' :
+      (m.includes('sad') || m.includes('miss') || m.includes('bad') || m.includes('fail') || m.includes('😵') || m.includes('⚠️')) ? 'sad' :
       'neutral';
 
-    if (pickMood === lastCoachMood) return;
-    lastCoachMood = pickMood;
-    if (!elCoachImg) return;
-    try { elCoachImg.src = COACH_IMG[pickMood] || COACH_IMG.neutral; } catch {}
+    if (pick === lastCoachMood) return;
+    lastCoachMood = pick;
+
+    if (elCoachImg){
+      // #coach-emoji เป็น DIV → background-image
+      setStyle(elCoachImg, 'backgroundImage', `url('${COACH_IMG[pick] || COACH_IMG.neutral}')`);
+    }
   }
 
-  // ---------- score/hud state ----------
-  let sScore = 0, sCombo = 0, sMiss = 0, sShield = 0, sFever = 0;
-  let qGoal = null, qMini = null, qGroupLabel = '';
-  let qQuestOk = true;
+  function showCoach(text, mood){
+    if (text != null && elCoachTxt) setText(elCoachTxt, String(text));
+    if (mood) setCoachMood(mood);
 
-  function renderScore() {
-    setText(elScore, sScore | 0);
-    setText(elCombo, sCombo | 0);
-    setText(elMiss,  sMiss  | 0);
-    setText(elShield, sShield | 0);
+    // ใช้ bubble show/hide (ถ้า element wrapper มี)
+    const bubble = $('#coach-bubble');
+    if (!bubble) return;
+
+    try { bubble.classList.add('show'); } catch {}
+    clearTimeout(coachHideT);
+    coachHideT = setTimeout(()=> {
+      try { bubble.classList.remove('show'); } catch {}
+    }, 1800);
   }
 
-  function fmtProg(cur, target) {
-    const c = toInt(cur, 0);
-    const t = toInt(target, 0);
-    return `${Math.max(0, c|0)}/${Math.max(0, t|0)}`;
+  // ---------------- HUD state ----------------
+  let sScore=0, sComboMax=0, sMiss=0, sGoodHits=0;
+  let sFever=0, sShield=0;
+  let sJudgeText = '';
+  let judgeHideT = 0;
+
+  // Quest state (goal/mini)
+  let qGoal=null, qMini=null, qQuestOk=true;
+  let qMiniCleared=0;
+
+  // Boss state
+  let boss = { show:false, hp:0, hpMax:0, phase:'P1' };
+
+  // Meta
+  let meta = { run:'PLAY', diff:'—', challenge:'—', time:'—' };
+
+  function renderTop(){
+    setText(elScore, sScore|0);
+    setText(elCombo, sComboMax|0);
+    setText(elMiss,  sMiss|0);
   }
 
-  // Normalize quest part to { label, prog, target, tLeft, windowSec, done, pct }
-  function normQuestPart(part, fallbackTitle, fallbackCur, fallbackTarget) {
-    if (!part) return null;
-
-    const label = String(
-      pick(part.label, part.title, part.name, fallbackTitle, '—')
-    );
-
-    // progress keys
-    const prog = toInt(pick(
-      part.prog, part.progress, part.cur, part.current, fallbackCur
-    ), 0);
-
-    const target = toInt(pick(
-      part.target, part.tgt, part.goal, part.count, fallbackTarget
-    ), 0);
-
-    const pct = Number(pick(part.pct, part.percent, null));
-    const done = !!pick(part.done, part.complete, part.completed, false);
-
-    // rush-window keys (optional)
-    const tLeft = pick(part.tLeft, part.timeLeft, null);
-    const windowSec = pick(part.windowSec, part.window, null);
-
-    return {
-      label,
-      prog,
-      target,
-      pct: Number.isFinite(pct) ? pct : null,
-      done,
-      tLeft: (tLeft == null ? null : toInt(tLeft, 0)),
-      windowSec: (windowSec == null ? null : toInt(windowSec, 0))
-    };
+  function renderMeta(){
+    if (elRunLabel)  setText(elRunLabel, meta.run || 'PLAY');
+    if (elDiffLabel) setText(elDiffLabel, meta.diff || '—');
+    if (elChLabel)   setText(elChLabel, meta.challenge || '—');
+    if (elTimeLabel) setText(elTimeLabel, meta.time || '—');
   }
 
-  function renderQuest() {
-    if (!qQuestOk) {
-      setText(elGoalLbl,  '⚠️ QUEST ไม่พร้อม');
-      setText(elGoalProg, '—');
-      setText(elMiniLbl,  'ตรวจสอบไฟล์ quest ที่เกมใช้');
-      setText(elMiniProg, '—');
-      setText(elGroup,    '—');
+  function renderFever(){
+    const p = clamp(sFever, 0, 100);
+    if (elFeverPct) setText(elFeverPct, `${p|0}%`);
+    if (elFeverFill) setStyle(elFeverFill, 'width', `${p}%`);
+
+    // coach mood hint
+    if (p >= 70) setCoachMood('fever');
+  }
+
+  function renderShield(){
+    if (elShieldCount) setText(elShieldCount, sShield|0);
+  }
+
+  function flashStun(on){
+    if (elHudStun){
+      try { elHudStun.classList.toggle('show', !!on); } catch {}
+    }
+    if (elStunVortex){
+      try { elStunVortex.classList.toggle('show', !!on); } catch {}
+    }
+  }
+
+  function showJudge(txt){
+    if (!elJudge) return;
+    const t = String(txt||'').trim();
+    if (!t) return;
+
+    setText(elJudge, t);
+    setStyle(elJudge, 'opacity', '1');
+    clearTimeout(judgeHideT);
+    judgeHideT = setTimeout(()=>{
+      setStyle(elJudge, 'opacity', '0');
+      setText(elJudge, '\u00A0');
+    }, 650);
+  }
+
+  function renderQuest(){
+    if (!qQuestOk){
+      setText(elQMainTitle, '⚠️ QUEST ไม่พร้อม');
+      setText(elQMainCap, 'ตรวจสอบ quest modules');
+      setStyle(elQMainBar, 'width', '0%');
+
+      setText(elQMiniTitle, 'Mini: —');
+      setText(elQMiniCap, '—');
+      setStyle(elQMiniBar, 'width', '0%');
+
+      setText(elQHint, '—');
+      setText(elMiniCount, '');
       return;
     }
 
-    if (qGoal) {
-      setText(elGoalLbl,  qGoal.label || '—');
-      setText(elGoalProg, fmtProg(qGoal.prog, qGoal.target));
+    // MAIN
+    if (qGoal){
+      const lab = qGoal.label || qGoal.title || 'Goal';
+      setText(elQMainTitle, `Goal: ${lab}`);
+      setText(elQMainCap, fmtProg(qGoal.prog, qGoal.target));
+      setStyle(elQMainBar, 'width', `${pct(qGoal.prog, qGoal.target)}%`);
     } else {
-      setText(elGoalLbl,  '✅ Goal ครบแล้ว');
-      setText(elGoalProg, '✓');
+      setText(elQMainTitle, 'Goal: ✅ ครบแล้ว');
+      setText(elQMainCap, '✓');
+      setStyle(elQMainBar, 'width', '100%');
     }
 
-    if (qMini) {
+    // MINI
+    if (qMini){
+      const lab = qMini.label || qMini.title || 'Mini';
+      setText(elQMiniTitle, `Mini: ${lab}`);
+
       const hasTL = (qMini.tLeft != null && qMini.windowSec != null);
-      setText(elMiniLbl, qMini.label || '—');
-      if (hasTL) {
-        setText(elMiniProg, `${fmtProg(qMini.prog, qMini.target)}  ⏱ ${Math.max(0, qMini.tLeft|0)}s`);
+      if (hasTL){
+        setText(elQMiniCap, `${fmtProg(qMini.prog, qMini.target)}  ⏱ ${Math.max(0, qMini.tLeft|0)}s`);
       } else {
-        setText(elMiniProg, fmtProg(qMini.prog, qMini.target));
+        setText(elQMiniCap, fmtProg(qMini.prog, qMini.target));
       }
+      setStyle(elQMiniBar, 'width', `${pct(qMini.prog, qMini.target)}%`);
+
+      // hint
+      if (qMini.hint != null) setText(elQHint, String(qMini.hint));
+      else setText(elQHint, '');
     } else {
-      setText(elMiniLbl,  '✨ Mini ครบแล้ว');
-      setText(elMiniProg, '✓');
+      setText(elQMiniTitle, 'Mini: ✨ ครบแล้ว');
+      setText(elQMiniCap, '✓');
+      setStyle(elQMiniBar, 'width', '100%');
+      setText(elQHint, '');
     }
 
-    setText(elGroup, qGroupLabel || '—');
-  }
-
-  function renderRankLine(detail) {
-    if (!elRank) return;
-    const g = String((detail && detail.grade) || '').toUpperCase().trim() || 'C';
-    const sps = (detail && detail.scorePerSec != null) ? Number(detail.scorePerSec) : null;
-    const acc = (detail && detail.accuracy != null) ? Number(detail.accuracy) : null;
-    const qp  = (detail && detail.questsPct != null) ? Number(detail.questsPct) : null;
-
-    const parts = [`Grade: ${g}`];
-    if (sps != null && Number.isFinite(sps)) parts.push(`SPS ${sps.toFixed(2)}`);
-    if (acc != null && Number.isFinite(acc)) parts.push(`ACC ${acc|0}%`);
-    if (qp  != null && Number.isFinite(qp))  parts.push(`Q ${qp|0}%`);
-
-    setText(elRank, parts.join(' · '));
-  }
-
-  // ---------- events ----------
-
-  // score/hud
-  root.addEventListener('hha:score', (ev) => {
-    const d = ev && ev.detail ? ev.detail : {};
-
-    // score
-    if (d.score != null)  sScore = toInt(d.score, sScore);
-
-    // combo: accept multiple keys (some engines only send comboMax)
-    const comboLike = pick(d.combo, d.comboNow, d.comboCur, d.comboCurrent, null);
-    if (comboLike != null) sCombo = toInt(comboLike, sCombo);
-    else if (d.comboMax != null && sCombo === 0) {
-      // fallback: show comboMax if we never got current combo
-      sCombo = toInt(d.comboMax, sCombo);
+    // mini counter (ถ้ามีส่งมา)
+    if (qMini && qMini.cleared != null){
+      qMiniCleared = Number(qMini.cleared)||0;
     }
+    const total = (qMini && qMini.total != null) ? (Number(qMini.total)||0) : null;
+    if (elMiniCount){
+      if (total != null && total > 0) setText(elMiniCount, `Mini chain: ${qMiniCleared|0}/${total|0}`);
+      else if (qMiniCleared > 0) setText(elMiniCount, `Mini chain: ${qMiniCleared|0}`);
+      else setText(elMiniCount, '');
+    }
+  }
 
-    // miss
-    if (d.misses != null) sMiss  = toInt(d.misses, sMiss);
-    else if (d.miss != null) sMiss = toInt(d.miss, sMiss);
+  function renderBoss(){
+    if (!elBossWrap) return;
+    const show = !!boss.show;
+    try { elBossWrap.classList.toggle('show', show); } catch {}
+    if (!show) return;
 
-    // shield/fever sometimes come here (some engines do)
-    if (d.shield != null) sShield = Number(d.shield)||0;
-    if (d.fever != null)  sFever  = Number(d.fever)||0;
+    const hp = Math.max(0, Number(boss.hp)||0);
+    const hm = Math.max(1, Number(boss.hpMax)||1);
+    const w = clamp((hp/hm)*100, 0, 100);
 
-    renderScore();
+    if (elBossFill) setStyle(elBossFill, 'width', `${w}%`);
+    if (elBossPhase) setText(elBossPhase, String(boss.phase||'P1'));
+  }
+
+  function showAtkRing(on, gapStartDeg, gapSizeDeg){
+    if (!elAtkRing) return;
+    try{
+      elAtkRing.classList.toggle('show', !!on);
+      if (gapStartDeg != null) doc.documentElement.style.setProperty('--ringGapStart', `${Number(gapStartDeg)||0}deg`);
+      if (gapSizeDeg != null)  doc.documentElement.style.setProperty('--ringGapSize',  `${Number(gapSizeDeg)||60}deg`);
+    }catch{}
+  }
+
+  function showLaser(state){
+    if (!elAtkLaser) return;
+    try{
+      elAtkLaser.classList.remove('warn','fire');
+      if (state === 'warn') elAtkLaser.classList.add('warn');
+      else if (state === 'fire') elAtkLaser.classList.add('fire');
+      else setStyle(elAtkLaser, 'opacity', '0');
+    }catch{}
+  }
+
+  function showBossBeacon(on){
+    if (!elBossBeacon) return;
+    try{ elBossBeacon.classList.toggle('show', !!on); } catch {}
+  }
+
+  // Summary overlay open/close
+  function openSummary(d){
+    if (!elSumOverlay) return;
+    try { elSumOverlay.classList.add('show'); } catch {}
+
+    if (elSumScore) setText(elSumScore, d && d.scoreFinal != null ? d.scoreFinal : (sScore|0));
+    if (elSumCombo) setText(elSumCombo, d && d.comboMax != null ? d.comboMax : (sComboMax|0));
+    if (elSumGood)  setText(elSumGood,  d && d.goodHits != null ? d.goodHits : (sGoodHits|0));
+    if (elSumMiss)  setText(elSumMiss,  d && d.misses != null ? d.misses : (sMiss|0));
+
+    // ให้ปุ่มใช้งานได้ แต่ไม่ไปยุ่ง engine (ปล่อยให้ boot ฟังเองได้)
+    if (btnExit){
+      btnExit.onclick = () => { try { elSumOverlay.classList.remove('show'); } catch {} };
+    }
+    if (btnReplay){
+      btnReplay.onclick = () => { try { elSumOverlay.classList.remove('show'); } catch {} };
+    }
+  }
+
+  // ---------------- events ----------------
+
+  // score event (unified)
+  root.addEventListener('hha:score', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+
+    if (d.score != null)      sScore = d.score|0;
+    if (d.comboMax != null)   sComboMax = d.comboMax|0;
+    else if (d.combo != null) sComboMax = Math.max(sComboMax|0, d.combo|0); // fallback
+    if (d.misses != null)     sMiss = d.misses|0;
+    if (d.goodHits != null)   sGoodHits = d.goodHits|0;
+
+    if (d.fever != null)      sFever = clamp(d.fever, 0, 100);
+    if (d.shield != null)     sShield = Number(d.shield)||0;
+
+    // optional meta echoes
+    if (d.diff != null) meta.diff = String(d.diff);
+    if (d.challenge != null) meta.challenge = String(d.challenge);
+    if (d.run != null) meta.run = String(d.run).toUpperCase();
+
+    renderTop();
+    renderFever();
+    renderShield();
+    renderMeta();
   });
 
-  // time compat: {left} (legacy) or {sec} (new) or {timeLeft}
-  root.addEventListener('hha:time', (ev) => {
-    const d = ev && ev.detail ? ev.detail : {};
-    const v = pick(d.left, d.sec, d.timeLeft, d.t, null);
-    if (v != null) setText(elTime, Math.max(0, toInt(v, 0)));
+  // time label support (your HTML uses TIME pill; we accept either hha:time or d.timeLeft)
+  root.addEventListener('hha:time', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    if (d.left != null){
+      meta.time = String(Math.max(0, d.left|0));
+      renderMeta();
+    }
   });
 
-  // Quest update from engines (GoodJunk/Groups/Hydration/Plate)
-  root.addEventListener('quest:update', (ev) => {
-    const d = ev && ev.detail ? ev.detail : {};
+  // quest update (unified)
+  root.addEventListener('quest:update', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
     qQuestOk = (d.questOk !== false);
 
-    // Support multiple payload styles:
-    // A) d.goal/d.mini objects:
-    //    - {label, prog, target} (older)
-    //    - {title, cur, target, pct, done} (new)
-    // B) flat fields: goalTitle/goalCur/goalTarget, miniTitle/miniCur/miniTarget, miniTLeft/windowSec
-    const gObj = d.goal || null;
-    const mObj = d.mini || null;
+    // accept either d.goal/d.mini or d.main/d.mini
+    qGoal = d.goal || d.main || null;
+    qMini = d.mini || null;
 
-    const gTitle = pick(d.goalTitle, d.goal_label, d.goalName, null);
-    const gCur   = pick(d.goalCur, d.goalProg, d.goalProgress, null);
-    const gTgt   = pick(d.goalTarget, d.goalTgt, null);
-
-    const mTitle = pick(d.miniTitle, d.mini_label, d.miniName, null);
-    const mCur   = pick(d.miniCur, d.miniProg, d.miniProgress, null);
-    const mTgt   = pick(d.miniTarget, d.miniTgt, null);
-
-    qGoal = gObj ? normQuestPart(gObj, gTitle, gCur, gTgt) : null;
-    qMini = mObj ? normQuestPart(mObj, mTitle, mCur, mTgt) : null;
-
-    // If engine sends flat only (no objects), build objects
-    if (!qGoal && (gTitle != null || gCur != null || gTgt != null)) {
-      qGoal = normQuestPart({ title: gTitle, cur: gCur, target: gTgt }, gTitle, gCur, gTgt);
-    }
-    if (!qMini && (mTitle != null || mCur != null || mTgt != null)) {
-      const tLeft = pick(d.miniTLeft, d.miniTimeLeft, null);
-      const win   = pick(d.miniWindowSec, d.miniWindow, null);
-      qMini = normQuestPart({ title: mTitle, cur: mCur, target: mTgt, tLeft, windowSec: win }, mTitle, mCur, mTgt);
-    }
-
-    // group label
-    qGroupLabel = String(pick(d.groupLabel, d.group, d.group_name, '') || '');
+    // mini counter optional
+    if (qMini && d.miniCleared != null) qMini.cleared = d.miniCleared;
+    if (qMini && d.miniTotal != null)   qMini.total = d.miniTotal;
 
     renderQuest();
   });
 
-  // Coach messages
-  root.addEventListener('hha:coach', (ev) => {
-    const d = ev && ev.detail ? ev.detail : {};
+  // coach messages
+  root.addEventListener('hha:coach', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
     const text = (d.text != null) ? String(d.text) : '';
-    if (text) setText(elCoachTxt, text);
+    if (!text && !d.mood) return;
 
-    // mood: explicit or infer from message
-    if (d.mood) {
-      setCoachMood(d.mood);
-    } else if (text) {
+    // infer mood if not set
+    let mood = d.mood;
+    if (!mood && text){
       const t = text.toLowerCase();
-      if (t.includes('fever') || t.includes('🔥')) setCoachMood('fever');
-      else if (t.includes('ผ่าน') || t.includes('เยี่ยม') || t.includes('สำเร็จ') || t.includes('🎉') || t.includes('⭐')) setCoachMood('happy');
-      else if (t.includes('miss') || t.includes('โดน') || t.includes('พลาด') || t.includes('😵') || t.includes('⚠️')) setCoachMood('sad');
-      else setCoachMood('neutral');
+      if (t.includes('fever') || t.includes('🔥')) mood = 'fever';
+      else if (t.includes('ผ่าน') || t.includes('เยี่ยม') || t.includes('สำเร็จ') || t.includes('🎉') || t.includes('⭐')) mood = 'happy';
+      else if (t.includes('miss') || t.includes('โดน') || t.includes('พลาด') || t.includes('😵') || t.includes('⚠️')) mood = 'sad';
+      else mood = 'neutral';
+    }
+    showCoach(text, mood);
+  });
+
+  // fever compat (ui-fever.js might emit this)
+  root.addEventListener('hha:fever', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    if (d.fever != null) sFever = clamp(d.fever, 0, 100);
+    if (d.on === true) setCoachMood('fever');
+    renderFever();
+  });
+
+  // shield compat
+  root.addEventListener('hha:shield', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    if (d.shield != null) sShield = Number(d.shield)||0;
+    renderShield();
+  });
+
+  // judge compat
+  root.addEventListener('hha:judge', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    const text = (d.text != null) ? d.text : (d.judge != null ? d.judge : '');
+    if (text) showJudge(text);
+  });
+
+  // stun / danger
+  root.addEventListener('hha:stun', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    flashStun(d.on === true);
+    if (d.on === true) setCoachMood('sad');
+  });
+
+  // boss HUD + attack cues (optional)
+  root.addEventListener('hha:boss', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    boss.show = (d.show !== false);
+    if (d.hp != null) boss.hp = Number(d.hp)||0;
+    if (d.hpMax != null) boss.hpMax = Number(d.hpMax)||0;
+    if (d.phase != null) boss.phase = String(d.phase);
+    renderBoss();
+
+    // optional ring/laser cues
+    if (d.ring != null){
+      // d.ring: { on:true, gapStart:deg, gapSize:deg }
+      showAtkRing(!!d.ring.on, d.ring.gapStart, d.ring.gapSize);
+    }
+    if (d.laser != null){
+      // d.laser: 'warn'|'fire'|'' 
+      showLaser(d.laser);
+    }
+    if (d.beacon != null){
+      showBossBeacon(!!d.beacon);
     }
   });
 
-  // Fever compat channel
-  root.addEventListener('hha:fever', (ev) => {
-    const d = ev && ev.detail ? ev.detail : {};
-
-    // accept multiple formats
-    const fever = pick(d.fever, d.value, d.level, null);
-    if (fever != null) sFever = Number(fever) || 0;
-
-    const shield = pick(d.shield, null);
-    if (shield != null) sShield = Number(shield) || 0;
-
-    renderScore();
-
-    // mood if fever high or stun active
-    const stun = !!pick(d.stunActive, d.stun, false);
-    const on   = (pick(d.on, null) === true) || stun || (sFever >= 70);
-    if (on) setCoachMood('fever');
+  // logger status (optional from hha-cloud-logger.js)
+  root.addEventListener('hha:logger', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    if (elLogText) setText(elLogText, `logger: ${d.state || '—'}`);
+    if (elLogDot){
+      const st = String(d.state||'').toLowerCase();
+      if (st.includes('ok') || st.includes('ready')) setStyle(elLogDot, 'background', '#22c55e');
+      else if (st.includes('sending')) setStyle(elLogDot, 'background', '#f59e0b');
+      else setStyle(elLogDot, 'background', '#9ca3af');
+    }
   });
 
-  // Rank
-  root.addEventListener('hha:rank', (ev) => {
-    renderRankLine(ev && ev.detail ? ev.detail : {});
-  });
+  // end summary (unified)
+  root.addEventListener('hha:end', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
 
-  // Panic/Rush/Wave compatibility (no-op)
-  root.addEventListener('hha:panic', () => {});
-  root.addEventListener('hha:rush',  () => {});
-  root.addEventListener('groups:danger', () => {});
+    // update cached for summary
+    if (d.scoreFinal != null) sScore = d.scoreFinal|0;
+    if (d.comboMax != null) sComboMax = d.comboMax|0;
+    if (d.misses != null) sMiss = d.misses|0;
+    if (d.goodHits != null) sGoodHits = d.goodHits|0;
 
-  // End summary (supports multiple keysets)
-  root.addEventListener('hha:end', (ev) => {
-    const d = ev && ev.detail ? ev.detail : {};
+    // hide boss visuals
+    showAtkRing(false);
+    showLaser('');
+    showBossBeacon(false);
+    flashStun(false);
 
-    // Some engines send grade in end, some not
-    const grade = String(pick(d.grade, d.rank, 'C') || 'C').toUpperCase();
-
-    // if end overlay exists
-    if (elEndOverlay) {
-      try { elEndOverlay.classList.add('show'); } catch {}
-    }
-
-    if (elEndGrade) {
-      setText(elEndGrade, grade);
-      try { elEndGrade.className = 'kpi grade ' + grade.toLowerCase(); } catch {}
-    }
-
-    // score / comboMax / miss compat
-    const scoreFinal = pick(d.scoreFinal, d.score, d.scoreEnd, 0);
-    const comboMax   = pick(d.comboMax, d.combo_max, d.maxCombo, 0);
-    const misses     = pick(d.misses, d.miss, d.missCount, 0);
-
-    setText(elEndScore, scoreFinal ?? 0);
-    setText(elEndComboMax, comboMax ?? 0);
-    setText(elEndMiss, misses ?? 0);
-
-    // quests counts (if provided)
-    if (elEndGoals) {
-      const gC = pick(d.goalsCleared, d.goalCleared, d.goalsDone, null);
-      const gT = pick(d.goalsTotal, d.goalTotal, d.goalsAll, null);
-      if (gC != null || gT != null) setText(elEndGoals, `${toInt(gC,0)}/${toInt(gT,0)}`);
-      else setText(elEndGoals, '—');
-    }
-    if (elEndMinis) {
-      const mC = pick(d.miniCleared, d.minisCleared, d.miniDone, null);
-      const mT = pick(d.miniTotal, d.minisTotal, d.miniAll, null);
-      if (mC != null || mT != null) setText(elEndMinis, `${toInt(mC,0)}/${toInt(mT,0)}`);
-      else setText(elEndMinis, '—');
-    }
-
-    // Coach final mood
-    if (grade === 'SSS' || grade === 'SS' || grade === 'S') setCoachMood('happy');
-    else if (toInt(misses,0) >= 8) setCoachMood('sad');
+    // mood by grade if sent
+    const g = safeUpper(d.grade || '');
+    if (g === 'SSS' || g === 'SS' || g === 'S') setCoachMood('happy');
+    else if ((d.misses|0) >= 8) setCoachMood('sad');
     else setCoachMood('neutral');
+
+    renderTop();
+    renderFever();
+    renderShield();
+    renderQuest();
+    renderBoss();
+    openSummary(d);
   });
 
-  // ---------- initial paint ----------
-  renderScore();
+  // ---------------- initial paint ----------------
+  renderTop();
+  renderMeta();
+  renderFever();
+  renderShield();
   renderQuest();
-  renderRankLine({ grade: 'C' });
+  renderBoss();
+
+  // default coach
+  if (elCoachImg && !elCoachImg.style.backgroundImage){
+    setStyle(elCoachImg, 'backgroundImage', `url('${COACH_IMG.neutral}')`);
+  }
 
 })(window);
