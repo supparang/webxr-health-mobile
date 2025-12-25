@@ -1,20 +1,13 @@
 // === /herohealth/vr/mode-factory.js ===
-// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
-// ✅ spawnHost: ที่ “append เป้า”
-// ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
-// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันให้แต่ละเกมทำได้
-// ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
-// ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
-// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
-// ✅ rhythm spawn (bpm) + pulse class
-// ✅ trick/fake targets (itemType='fakeGood')
-// ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
-// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
-//
-// 🔥 PATCH D (HOLES-EXCLUSION):
-// ✅ ไม่บีบสนามด้วย #hha-card-left/#hha-card-right (side HUD) อีกแล้ว
-// ✅ แต่ใช้ “holes” (rects) กัน spawn ทับ HUD แทน → ไม่กองเป็นเสา
-
+// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest — PRODUCTION
+// ✅ spawnHost / boundsHost
+// ✅ SAFEZONE (exclusion auto)
+// ✅ EDGE-FIX: ignore spawnHost transform (ใช้ boundsHost rect)
+// ✅ FULL-SPREAD: spawnAroundCrosshair:false -> uniform in playRect
+// ✅ GRID9 spread: spawnStrategy:'grid9'
+// ✅ randomRing: dashed/dotted rotate
+// ✅ NEW: Seeded RNG (cfg.seed) + cfg.rng override (สำคัญสำหรับ research)
+// ✅ crosshair shooting + perfect distance
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
@@ -26,9 +19,47 @@ function clamp (v, min, max) {
   if (v > max) return max;
   return v;
 }
-function pickOne (arr, fallback = null) {
+
+// ---------- Seeded RNG (xmur3 + sfc32) ----------
+function xmur3(str){
+  let h = 1779033703 ^ str.length;
+  for (let i=0;i<str.length;i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function(){
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= (h >>> 16);
+    return h >>> 0;
+  };
+}
+function sfc32(a,b,c,d){
+  return function(){
+    a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+    let t = (a + b) | 0;
+    a = b ^ (b >>> 9);
+    b = (c + (c << 3)) | 0;
+    c = (c << 21) | (c >>> 11);
+    d = (d + 1) | 0;
+    t = (t + d) | 0;
+    c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  };
+}
+function makeSeededRng(seedStr){
+  const seed = String(seedStr || '').trim();
+  if (!seed) return null;
+  const h = xmur3(seed);
+  const a = h(), b = h(), c = h(), d = h();
+  const rnd = sfc32(a,b,c,d);
+  return { random: () => rnd() };
+}
+
+// ---------- random helpers (use rng) ----------
+function pickOne (arr, fallback = null, rnd = Math.random) {
   if (!Array.isArray(arr) || !arr.length) return fallback;
-  const i = Math.floor(Math.random() * arr.length);
+  const i = Math.floor(rnd() * arr.length);
   return arr[i];
 }
 function getEventXY (ev) {
@@ -114,18 +145,13 @@ function ensureOverlayStyle () {
       z-index:9998;
       pointer-events:none;
     }
-    .hvr-overlay-host .hvr-target{
-      pointer-events:auto;
-    }
-    .hvr-target.hvr-pulse{
-      animation:hvrPulse .55s ease-in-out infinite;
-    }
+    .hvr-overlay-host .hvr-target{ pointer-events:auto; }
+    .hvr-target.hvr-pulse{ animation:hvrPulse .55s ease-in-out infinite; }
     @keyframes hvrPulse{
       0%{ transform:translate(-50%,-50%) scale(1); }
       50%{ transform:translate(-50%,-50%) scale(1.08); }
       100%{ transform:translate(-50%,-50%) scale(1); }
     }
-
     .hvr-wiggle{
       position:absolute;
       inset:0;
@@ -137,8 +163,6 @@ function ensureOverlayStyle () {
       transform: translate3d(0,0,0);
       will-change: transform;
     }
-
-    /* randomRing */
     .hvr-ring{
       position:absolute;
       left:50%; top:50%;
@@ -148,12 +172,8 @@ function ensureOverlayStyle () {
       opacity:.95;
       filter: drop-shadow(0 0 10px rgba(255,255,255,.10));
     }
-    .hvr-ring.spin{
-      animation: hvrSpin var(--spin,1.25s) linear infinite;
-    }
-    .hvr-ring.spin.rev{
-      animation-direction: reverse;
-    }
+    .hvr-ring.spin{ animation: hvrSpin var(--spin,1.25s) linear infinite; }
+    .hvr-ring.spin.rev{ animation-direction: reverse; }
     @keyframes hvrSpin{
       from{ transform:translate(-50%,-50%) rotate(0deg); }
       to  { transform:translate(-50%,-50%) rotate(360deg); }
@@ -164,7 +184,6 @@ function ensureOverlayStyle () {
 function ensureOverlayHost () {
   if (!DOC) return null;
   ensureOverlayStyle();
-
   let host = DOC.getElementById('hvr-overlay-host');
   if (host && host.isConnected) return host;
 
@@ -205,9 +224,7 @@ function collectExclusionElements(rawCfg){
 
   const sel = rawCfg && rawCfg.excludeSelectors;
   if (Array.isArray(sel)) {
-    sel.forEach(s=>{
-      try{ DOC.querySelectorAll(String(s)).forEach(el=> out.push(el)); }catch{}
-    });
+    sel.forEach(s=>{ try{ DOC.querySelectorAll(String(s)).forEach(el=> out.push(el)); }catch{} });
   } else if (typeof sel === 'string') {
     try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
   }
@@ -224,15 +241,10 @@ function collectExclusionElements(rawCfg){
     '.hvr-crosshair',
     '#hvr-end',
     '.hvr-end'
-    // ⚠️ ไม่ใส่ '.hud' แล้ว (เพราะบางเกม .hud เป็น wrapper เต็มจอ)
   ];
-  AUTO.forEach(s=>{
-    try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
-  });
+  AUTO.forEach(s=>{ try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{} });
 
-  try{
-    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
-  }catch{}
+  try{ DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el)); }catch{}
 
   const uniq = [];
   const seen = new Set();
@@ -245,7 +257,6 @@ function collectExclusionElements(rawCfg){
   return uniq;
 }
 
-// ✅ PATCH: ไม่ให้ side HUD บีบสนามซ้าย/ขวา แต่จะกันด้วย holes แทน
 function computeExclusionMargins(hostRect, exEls){
   const m = { top:0, bottom:0, left:0, right:0 };
   if (!hostRect || !exEls || !exEls.length) return m;
@@ -253,15 +264,12 @@ function computeExclusionMargins(hostRect, exEls){
   const hx1 = hostRect.left, hy1 = hostRect.top;
   const hx2 = hostRect.right, hy2 = hostRect.bottom;
 
-  const SIDE_IDS = new Set(['hha-card-left','hha-card-right']);
-  const SIDE_CLASSES = ['hha-fever-card'];
-
   exEls.forEach(el=>{
     let r = null;
     try{ r = el.getBoundingClientRect(); }catch{}
     if (!r) return;
 
-    // ✅ ข้าม wrapper เต็มจอ
+    // ข้าม wrapper เต็มจอ
     const coverW = r.width  / Math.max(1, hostRect.width);
     const coverH = r.height / Math.max(1, hostRect.height);
     if (coverW > 0.78 && coverH > 0.78) return;
@@ -272,27 +280,10 @@ function computeExclusionMargins(hostRect, exEls){
     const oy2 = Math.min(hy2, r.bottom);
     if (ox2 <= ox1 || oy2 <= oy1) return;
 
-    const isSideCard =
-      (el.id && SIDE_IDS.has(el.id)) ||
-      (el.classList && SIDE_CLASSES.some(c => el.classList.contains(c)));
-
-    // TOP/BOTTOM margins ยังโอเค
-    if (r.top < hy1 + 90 && r.bottom > hy1) {
-      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
-    }
-    if (r.bottom > hy2 - 90 && r.top < hy2) {
-      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
-    }
-
-    // LEFT/RIGHT: ถ้าเป็น side HUD → ไม่บีบสนาม
-    if (!isSideCard){
-      if (r.left < hx1 + 90 && r.right > hx1) {
-        m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
-      }
-      if (r.right > hx2 - 90 && r.left < hx2) {
-        m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
-      }
-    }
+    if (r.top < hy1 + 90 && r.bottom > hy1) m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    if (r.bottom > hy2 - 90 && r.top < hy2) m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+    if (r.left < hx1 + 90 && r.right > hx1) m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    if (r.right > hx2 - 90 && r.left < hx2) m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
   });
 
   const capX = hostRect.width  * 0.42;
@@ -301,7 +292,6 @@ function computeExclusionMargins(hostRect, exEls){
   m.right  = Math.min(m.right, capX);
   m.top    = Math.min(m.top, capY);
   m.bottom = Math.min(m.bottom, capY);
-
   return m;
 }
 
@@ -359,9 +349,17 @@ export async function boot (rawCfg = {}) {
     minSeparation = 0.95,
     maxSpawnTries = 14,
 
-    // spread strategy
-    spawnStrategy = 'random' // 'random' | 'grid9'
+    spawnStrategy = 'random',   // 'random' | 'grid9'
+
+    // ✅ NEW: rng/seed
+    rng  = null,
+    seed = null
   } = rawCfg || {};
+
+  // RNG selection
+  const seeded = (!rng && seed) ? makeSeededRng(seed) : null;
+  const RND = (rng && typeof rng.random === 'function') ? rng : seeded;
+  const rand = RND ? (() => RND.random()) : Math.random;
 
   const diffKey  = String(difficulty || 'normal').toLowerCase();
   const baseDiff = pickDiffConfig(modeKey, diffKey);
@@ -413,15 +411,9 @@ export async function boot (rawCfg = {}) {
     const lifeMul     = 1 - (adaptLevel * 0.08);
     const bonusActive = adaptLevel;
 
-    curInterval  = clamp(baseDiff.spawnInterval * intervalMul,
-                         baseDiff.spawnInterval * 0.45,
-                         baseDiff.spawnInterval * 1.4);
-    curScale     = clamp(baseDiff.scale * scaleMul,
-                         baseDiff.scale * 0.6,
-                         baseDiff.scale * 1.4);
-    curLife      = clamp(baseDiff.life * lifeMul,
-                         baseDiff.life * 0.55,
-                         baseDiff.life * 1.15);
+    curInterval  = clamp(baseDiff.spawnInterval * intervalMul, baseDiff.spawnInterval * 0.45, baseDiff.spawnInterval * 1.4);
+    curScale     = clamp(baseDiff.scale * scaleMul, baseDiff.scale * 0.6, baseDiff.scale * 1.4);
+    curLife      = clamp(baseDiff.life * lifeMul, baseDiff.life * 0.55, baseDiff.life * 1.15);
     curMaxActive = clamp(baseDiff.maxActive + bonusActive, 2, 10);
 
     sampleHits = sampleMisses = sampleTotal = 0;
@@ -507,10 +499,8 @@ export async function boot (rawCfg = {}) {
     return best;
   }
 
-  // ✅ NEW: exState.rects = holes exclusion
   const exState = {
     els: collectExclusionElements({ excludeSelectors }),
-    rects: [],
     margins: { top:0,bottom:0,left:0,right:0 },
     lastRefreshTs: 0
   };
@@ -522,36 +512,10 @@ export async function boot (rawCfg = {}) {
     exState.lastRefreshTs = ts;
 
     exState.els = collectExclusionElements({ excludeSelectors });
-
     let hostRect = null;
     try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
     if (!hostRect) hostRect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
-
     exState.margins = computeExclusionMargins(hostRect, exState.els);
-
-    // ✅ build holes rects
-    const rects = [];
-    const hx1 = hostRect.left, hy1 = hostRect.top, hx2 = hostRect.right, hy2 = hostRect.bottom;
-
-    exState.els.forEach(el=>{
-      let r = null;
-      try{ r = el.getBoundingClientRect(); }catch{}
-      if (!r) return;
-
-      const coverW = r.width  / Math.max(1, hostRect.width);
-      const coverH = r.height / Math.max(1, hostRect.height);
-      if (coverW > 0.78 && coverH > 0.78) return;
-
-      const ox1 = Math.max(hx1, r.left);
-      const oy1 = Math.max(hy1, r.top);
-      const ox2 = Math.min(hx2, r.right);
-      const oy2 = Math.min(hy2, r.bottom);
-      if (ox2 <= ox1 || oy2 <= oy1) return;
-
-      rects.push({ left:ox1, top:oy1, right:ox2, bottom:oy2 });
-    });
-
-    exState.rects = rects;
   }
 
   function getCrosshairPoint(){
@@ -593,9 +557,8 @@ export async function boot (rawCfg = {}) {
     if (!sRect) sRect = bRect;
 
     const spawnHasT = hasTransform(hostSpawn);
-    if (spawnHasT) {
-      sRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
-    }
+    if (spawnHasT) sRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
+
     return { bRect, sRect, spawnHasT };
   }
 
@@ -605,15 +568,13 @@ export async function boot (rawCfg = {}) {
 
     const cL = bRect.left + pr.left;
     const cT = bRect.top  + pr.top;
-    const cR = cL + pr.width;
-    const cB = cT + pr.height;
 
     const l = cL - sRect.left;
     const t = cT - sRect.top;
     const w = pr.width;
     const h = pr.height;
 
-    return { left:l, top:t, width:w, height:h, cL, cT, cR, cB, bRect, sRect };
+    return { left:l, top:t, width:w, height:h, bRect, sRect };
   }
 
   function getExistingCentersLocal(sRect){
@@ -629,19 +590,6 @@ export async function boot (rawCfg = {}) {
     return out;
   }
 
-  // ✅ holes checker
-  function pointHitsExclusion(clientX, clientY, pad, rects){
-    if (!rects || !rects.length) return false;
-    const x1 = clientX - pad, x2 = clientX + pad;
-    const y1 = clientY - pad, y2 = clientY + pad;
-    for (let i=0;i<rects.length;i++){
-      const r = rects[i];
-      if (x2 <= r.left || x1 >= r.right || y2 <= r.top || y1 >= r.bottom) continue;
-      return true;
-    }
-    return false;
-  }
-
   // ✅ grid spread state
   const grid9 = { counts: new Array(9).fill(0) };
   function pickGridCell9(){
@@ -649,7 +597,7 @@ export async function boot (rawCfg = {}) {
     for (let i=0;i<9;i++) min = Math.min(min, grid9.counts[i]);
     const ties = [];
     for (let i=0;i<9;i++) if (grid9.counts[i] === min) ties.push(i);
-    const idx = ties[Math.floor(Math.random()*ties.length)];
+    const idx = ties[Math.floor(rand()*ties.length)];
     grid9.counts[idx] += 1;
     return idx;
   }
@@ -682,11 +630,9 @@ export async function boot (rawCfg = {}) {
     const maxY = playLocal.top  + playLocal.height - pad;
 
     const rectOk = (playLocal.width >= sizePx*1.30) && (playLocal.height >= sizePx*1.30);
-    if (!rectOk) {
-      return { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
-    }
+    if (!rectOk) return { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
 
-    function tri(){ return (Math.random() + Math.random() - 1); }
+    function tri(){ return (rand() + rand() - 1); }
 
     let best = null;
     let bestScore = -1;
@@ -710,8 +656,8 @@ export async function boot (rawCfg = {}) {
       const gx2 = gx1 + cw;
       const gy2 = gy1 + ch;
 
-      const x = gx1 + Math.random() * Math.max(1, (gx2 - gx1));
-      const y = gy1 + Math.random() * Math.max(1, (gy2 - gy1));
+      const x = gx1 + rand() * Math.max(1, (gx2 - gx1));
+      const y = gy1 + rand() * Math.max(1, (gy2 - gy1));
       return { x, y };
     }
 
@@ -722,30 +668,8 @@ export async function boot (rawCfg = {}) {
         const p = pointFromGrid9();
         x = p.x; y = p.y;
       } else {
-        x = useUniform
-          ? (minX + Math.random() * (maxX - minX))
-          : clamp(ax + tri()*rx, minX, maxX);
-
-        y = useUniform
-          ? (minY + Math.random() * (maxY - minY))
-          : clamp(ay + tri()*ry, minY, maxY);
-      }
-
-      // ✅ HOLES: กันทับ HUD โดยไม่บีบสนาม
-      const clientX = x + sRect.left;
-      const clientY = y + sRect.top;
-      const holePad = Math.max(14, sizePx * 0.52);
-      if (pointHitsExclusion(clientX, clientY, holePad, exState.rects)){
-        // ให้โอกาส best fallback
-        let nearest = 1e9;
-        for (let k=0;k<centers.length;k++){
-          const dx = x - centers[k].x;
-          const dy = y - centers[k].y;
-          nearest = Math.min(nearest, Math.sqrt(dx*dx + dy*dy));
-        }
-        const score = nearest;
-        if (score > bestScore) { bestScore = score; best = { x, y, ok:false }; }
-        continue;
+        x = useUniform ? (minX + rand() * (maxX - minX)) : clamp(ax + tri()*rx, minX, maxX);
+        y = useUniform ? (minY + rand() * (maxY - minY)) : clamp(ay + tri()*ry, minY, maxY);
       }
 
       let ok = true;
@@ -786,26 +710,26 @@ export async function boot (rawCfg = {}) {
     let itemType = 'good';
 
     const canPower = Array.isArray(powerups) && powerups.length > 0;
-    const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
+    const canTrick = poolsTrick.length > 0 && rand() < trickRate;
 
-    if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
-      ch = pickOne(powerups, '⭐');
+    if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && rand() < powerRate) {
+      ch = pickOne(powerups, '⭐', rand);
       isGood = true;
       isPower = true;
       itemType = 'power';
     } else if (canTrick) {
-      ch = pickOne(poolsTrick, '💧');
+      ch = pickOne(poolsTrick, '💧', rand);
       isGood = true;
       isPower = false;
       itemType = 'fakeGood';
     } else {
-      const r = Math.random();
+      const r = rand();
       if (r < goodRate || !poolsBad.length) {
-        ch = pickOne(poolsGood, '💧');
+        ch = pickOne(poolsGood, '💧', rand);
         isGood = true;
         itemType = 'good';
       } else {
-        ch = pickOne(poolsBad, '🥤');
+        ch = pickOne(poolsBad, '🥤', rand);
         isGood = false;
         itemType = 'bad';
       }
@@ -857,18 +781,18 @@ export async function boot (rawCfg = {}) {
     el.style.background = bgGrad;
     el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
 
-    // ✅ randomRing
+    // randomRing
     const ring = DOC.createElement('div');
-    ring.className = 'hvr-ring spin' + (Math.random()<0.35 ? ' rev' : '');
+    ring.className = 'hvr-ring spin' + (rand()<0.35 ? ' rev' : '');
     ring.style.width  = (size * 0.92) + 'px';
     ring.style.height = (size * 0.92) + 'px';
     ring.style.border = '2px dashed rgba(255,255,255,0.42)';
     ring.style.outline = '1px solid rgba(255,255,255,0.10)';
     ring.style.outlineOffset = '-6px';
-    ring.style.setProperty('--spin', (0.92 + Math.random()*0.9).toFixed(2) + 's');
-    ring.style.borderStyle = (Math.random()<0.55 ? 'dashed' : 'dotted');
-    ring.style.borderWidth = (Math.random()<0.5 ? '2px' : '3px');
-    ring.style.opacity = (0.86 + Math.random()*0.12).toFixed(2);
+    ring.style.setProperty('--spin', (0.92 + rand()*0.9).toFixed(2) + 's');
+    ring.style.borderStyle = (rand()<0.55 ? 'dashed' : 'dotted');
+    ring.style.borderWidth = (rand()<0.5 ? '2px' : '3px');
+    ring.style.opacity = (0.86 + rand()*0.12).toFixed(2);
     ring.style.filter = 'drop-shadow(0 0 12px rgba(255,255,255,.10))';
 
     const inner = DOC.createElement('div');
@@ -914,11 +838,7 @@ export async function boot (rawCfg = {}) {
     const lifeMs = getLifeMs();
 
     const data = {
-      el,
-      ch,
-      isGood,
-      isPower,
-      itemType,
+      el, ch, isGood, isPower, itemType,
       bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
       life: lifeMs,
       _hit: null
