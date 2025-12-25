@@ -1,455 +1,1051 @@
 // === /herohealth/vr/mode-factory.js ===
-// HeroHealth DOM Target Spawner Factory (ESM)
-// ✅ deterministic RNG with seed (string)
-// ✅ spawn strategies: randomRing / grid9 / random
-// ✅ minSeparation as fraction of min(width,height)
-// ✅ excludeSelectors avoid HUD overlap
-// ✅ stop() cleanup
-// ✅ click/drag threshold on target
+// Generic DOM target spawner (adaptive) สำหรับ HeroHealth VR/Quest
+// ✅ spawnHost: ที่ “append เป้า”
+// ✅ boundsHost: ที่ใช้คำนวณ safe zone / crosshair (สำคัญสำหรับ drag view)
+// ✅ decorateTarget(el, parts, data, meta): ปรับสกิน/อนิเมชันให้แต่ละเกมทำได้
+// ✅ wiggle layer: ขยับ “ลอย/ส่าย” โดยไม่ทำพิกัดคลิกเพี้ยน
+// ✅ crosshair shooting (tap ยิงกลางจอ) via shootCrosshair()
+// ✅ perfect ring distance (ctx.hitPerfect, ctx.hitDistNorm)
+// ✅ rhythm spawn (bpm) + pulse class
+// ✅ trick/fake targets (itemType='fakeGood')
+// ✅ Storm: spawnIntervalMul ทำให้ถี่ขึ้นจริง + life sync
+// ✅ SAFEZONE: กัน spawn ทับ HUD ด้วย exclusion auto + cfg.excludeSelectors
+//
+// 🔥 PATCH A (FULL-SPREAD):
+// ✅ ถ้า spawnAroundCrosshair:false → สุ่มแบบ uniform ทั่ว playRect (กระจายจริง ไม่กองกลาง)
+//
+// 🔥 PATCH EDGE-FIX (NO-CUT):
+// ✅ ถ้า spawnHost มี transform (ลาก/gyro) → ใช้ baseRect จาก boundsHost แทน (ignore transform)
+// ✅ เพิ่ม pad กัน pulse/scale แล้ว clamp ไม่ให้ชนขอบจริง
+//
+// 🔥 PATCH C (HUD-SAFE + GRID SPREAD + RANDOM RING):
+// ✅ ข้าม exclusion ที่ครอบทั้งจอ (เช่น .hud wrapper) ไม่ให้บีบสนามจนเหลือแถบเดียว
+// ✅ spawnStrategy:'grid9' → กระจายแบบ 3x3 + balance cell
+// ✅ randomRing: วงแหวน dashed หมุน + สุ่มความเร็ว/ทิศ/offset
 
 'use strict';
 
-function clamp(v, a, b){ v = Number(v)||0; return v < a ? a : (v > b ? b : v); }
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
 
-function hashStringToUint32(str){
-  str = String(str||'');
-  let h = 2166136261 >>> 0; // FNV-1a
-  for (let i=0;i<str.length;i++){
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
+function clamp (v, min, max) {
+  v = Number(v) || 0;
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+function pickOne (arr, fallback = null) {
+  if (!Array.isArray(arr) || !arr.length) return fallback;
+  const i = Math.floor(Math.random() * arr.length);
+  return arr[i];
+}
+function getEventXY (ev) {
+  let x = ev.clientX;
+  let y = ev.clientY;
+
+  if ((x == null || y == null || (x === 0 && y === 0)) && ev.touches && ev.touches[0]) {
+    x = ev.touches[0].clientX;
+    y = ev.touches[0].clientY;
   }
-  return h >>> 0;
+  if ((x == null || y == null) && ev.changedTouches && ev.changedTouches[0]) {
+    x = ev.changedTouches[0].clientX;
+    y = ev.changedTouches[0].clientY;
+  }
+  return { x: x || 0, y: y || 0 };
 }
 
-function mulberry32(seed){
-  let t = seed >>> 0;
-  return function(){
-    t += 0x6D2B79F5;
-    let x = t;
-    x = Math.imul(x ^ (x >>> 15), x | 1);
-    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
-    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-  };
+function rectFromWHLT(left, top, width, height){
+  width = Math.max(1, width||1);
+  height = Math.max(1, height||1);
+  return { left, top, width, height, right: left + width, bottom: top + height };
 }
 
-function pick(arr, rnd){
-  if (!arr || !arr.length) return null;
-  return arr[(rnd()*arr.length) | 0];
-}
-
-function rectsFromSelectors(selectors){
-  const out = [];
+function getRectSafe(el){
   try{
-    (selectors||[]).forEach(sel=>{
-      document.querySelectorAll(sel).forEach(el=>{
-        const r = el.getBoundingClientRect();
-        // ignore invisible
-        if (r.width > 2 && r.height > 2) out.push(r);
-      });
-    });
+    const r = el.getBoundingClientRect();
+    if (r && Number.isFinite(r.left) && Number.isFinite(r.top) && r.width > 0 && r.height > 0) return r;
   }catch{}
-  return out;
+  return null;
 }
 
-function pointInRect(x,y,r){
-  return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
+function hasTransform(el){
+  try{
+    const cs = ROOT.getComputedStyle ? ROOT.getComputedStyle(el) : null;
+    const t = cs && cs.transform;
+    return !!(t && t !== 'none');
+  }catch{ return false; }
 }
 
-// returns {ok:boolean, penalty:number}
-function allowedPoint(x,y, exclRects){
-  let penalty = 0;
-  for (const r of exclRects){
-    if (pointInRect(x,y,r)) return { ok:false, penalty:1e9 };
-    // soft penalty: near excluded zone (feels better)
-    const dx = (x < r.left) ? (r.left-x) : (x > r.right ? (x-r.right) : 0);
-    const dy = (y < r.top)  ? (r.top-y)  : (y > r.bottom? (y-r.bottom): 0);
-    const d = Math.sqrt(dx*dx+dy*dy);
-    if (d < 28) penalty += (28-d) * 2;
+// ---------- Base difficulty ----------
+const DEFAULT_DIFF = {
+  easy:   { spawnInterval: 900, maxActive: 3, life: 1900, scale: 1.15 },
+  normal: { spawnInterval: 800, maxActive: 4, life: 1700, scale: 1.00 },
+  hard:   { spawnInterval: 650, maxActive: 5, life: 1500, scale: 0.90 }
+};
+
+function pickDiffConfig (modeKey, diffKey) {
+  diffKey = String(diffKey || 'normal').toLowerCase();
+  let base = null;
+
+  if (ROOT.HHA_DIFF_TABLE && modeKey && ROOT.HHA_DIFF_TABLE[modeKey]) {
+    const table = ROOT.HHA_DIFF_TABLE[modeKey];
+    if (table && table[diffKey]) base = table[diffKey];
   }
-  return { ok:true, penalty };
-}
+  if (!base) base = DEFAULT_DIFF[diffKey] || DEFAULT_DIFF.normal;
 
-function dist(ax,ay,bx,by){
-  const dx=ax-bx, dy=ay-by;
-  return Math.sqrt(dx*dx+dy*dy);
-}
-
-function buildGrid9Points(cx, cy, rx, ry){
-  // 3x3 points around center (normalized)
-  const xs = [-0.66, 0, 0.66];
-  const ys = [-0.66, 0, 0.66];
-  const pts = [];
-  for (const yy of ys){
-    for (const xx of xs){
-      pts.push({ x: cx + xx*rx, y: cy + yy*ry });
-    }
-  }
-  return pts;
-}
-
-function candidateRandom(bounds, rx, ry, rnd){
-  const cx = (bounds.left + bounds.right) * 0.5;
-  const cy = (bounds.top + bounds.bottom) * 0.5;
-  const x = cx + (rnd()*2-1) * rx;
-  const y = cy + (rnd()*2-1) * ry;
-  return { x, y };
-}
-
-function candidateRandomRing(bounds, rx, ry, rnd){
-  const cx = (bounds.left + bounds.right) * 0.5;
-  const cy = (bounds.top + bounds.bottom) * 0.5;
-
-  // angle uniform
-  const a = rnd() * Math.PI * 2;
-
-  // radius: avoid center “pile” (ring-ish)
-  // r in [0.35..1.00] with slight bias to outer ring
-  const u = rnd();
-  const r = 0.35 + 0.65 * Math.sqrt(u);
-
-  const x = cx + Math.cos(a) * rx * r;
-  const y = cy + Math.sin(a) * ry * r;
-  return { x, y };
-}
-
-function chooseSpawnPoint(opts){
-  const bounds = opts.boundsRect;
-  const existing = opts.existing || [];
-  const rnd = opts.rnd || Math.random;
-
-  // usable radii
-  const rx = (bounds.width  * clamp(opts.spawnRadiusX ?? 0.95, 0.2, 1)) * 0.5;
-  const ry = (bounds.height * clamp(opts.spawnRadiusY ?? 0.95, 0.2, 1)) * 0.5;
-
-  const exclRects = opts.exclRects || [];
-  const minDim = Math.max(1, Math.min(bounds.width, bounds.height));
-
-  // minSeparation fraction of minDim
-  const sepFrac = clamp(opts.minSeparation ?? 0.28, 0.04, 0.95);
-  const minSepPxBase = minDim * sepFrac;
-
-  const maxTries = clamp(opts.maxSpawnTries ?? 20, 6, 80);
-
-  const strategy = String(opts.spawnStrategy || 'randomRing');
-
-  // helper to evaluate candidate
-  function scoreCandidate(x,y, sepPx){
-    // inside bounds padding
-    const pad = 68; // approximate target size
-    if (x < bounds.left+pad || x > bounds.right-pad) return null;
-    if (y < bounds.top+pad  || y > bounds.bottom-pad) return null;
-
-    const allow = allowedPoint(x,y, exclRects);
-    if (!allow.ok) return null;
-
-    // distance to existing
-    let minD = 1e9;
-    for (const p of existing){
-      const d = dist(x,y,p.x,p.y);
-      if (d < minD) minD = d;
-      if (d < sepPx) return null; // hard reject
-    }
-
-    // bigger minD is better, lower penalty better
-    const score = (minD * 1.0) - allow.penalty;
-    return { x, y, score };
-  }
-
-  let best = null;
-  let sepPx = minSepPxBase;
-
-  // try with gradually relaxing separation (prevents “no spot then pile”)
-  for (let pass=0; pass<3; pass++){
-    for (let i=0;i<maxTries;i++){
-      let c;
-      if (strategy === 'grid9'){
-        const cx = (bounds.left + bounds.right) * 0.5;
-        const cy = (bounds.top + bounds.bottom) * 0.5;
-        const pts = buildGrid9Points(cx, cy, rx, ry);
-        c = pts[(rnd()*pts.length)|0];
-        // add jitter
-        c = { x: c.x + (rnd()*2-1)*24, y: c.y + (rnd()*2-1)*18 };
-      } else if (strategy === 'random'){
-        c = candidateRandom(bounds, rx, ry, rnd);
-      } else {
-        c = candidateRandomRing(bounds, rx, ry, rnd);
-      }
-
-      const s = scoreCandidate(c.x, c.y, sepPx);
-      if (s){
-        if (!best || s.score > best.score) best = s;
-        // early accept if very good
-        if (s.score > (sepPx*2.2)) return s;
-      }
-    }
-    // relax separation and retry
-    sepPx *= 0.82;
-  }
-
-  // absolute fallback: still avoid excluded rects by scanning random
-  for (let i=0;i<maxTries;i++){
-    const c = candidateRandomRing(bounds, rx, ry, rnd);
-    const allow = allowedPoint(c.x, c.y, exclRects);
-    if (allow.ok) return { x:c.x, y:c.y, score:0 };
-  }
-
-  return best || {
-    x: (bounds.left + bounds.right) * 0.5,
-    y: (bounds.top + bounds.bottom) * 0.5,
-    score:-1
+  const cfg = {
+    spawnInterval: Number(base.spawnInterval ?? base.interval ?? 800),
+    maxActive:     Number(base.maxActive ?? base.active ?? 4),
+    life:          Number(base.life ?? base.targetLife ?? 1700),
+    scale:         Number(base.scale ?? base.size ?? 1)
   };
+
+  if (!Number.isFinite(cfg.spawnInterval) || cfg.spawnInterval <= 0) cfg.spawnInterval = 800;
+  if (!Number.isFinite(cfg.maxActive)     || cfg.maxActive <= 0)     cfg.maxActive = 4;
+  if (!Number.isFinite(cfg.life)          || cfg.life <= 0)          cfg.life = 1700;
+  if (!Number.isFinite(cfg.scale)         || cfg.scale <= 0)         cfg.scale = 1;
+
+  return cfg;
 }
 
-function makeTargetEl(ch, kind){
-  const el = document.createElement('div');
-  el.className = 'hha-target ' + (kind ? ('t-' + kind) : '');
-  el.textContent = ch;
+// ======================================================
+//  Overlay fallback
+// ======================================================
+function ensureOverlayStyle () {
+  if (!DOC || DOC.getElementById('hvr-overlay-style')) return;
+  const s = DOC.createElement('style');
+  s.id = 'hvr-overlay-style';
+  s.textContent = `
+    .hvr-overlay-host{
+      position:fixed;
+      inset:0;
+      z-index:9998;
+      pointer-events:none;
+    }
+    .hvr-overlay-host .hvr-target{
+      pointer-events:auto;
+    }
+    .hvr-target.hvr-pulse{
+      animation:hvrPulse .55s ease-in-out infinite;
+    }
+    @keyframes hvrPulse{
+      0%{ transform:translate(-50%,-50%) scale(1); }
+      50%{ transform:translate(-50%,-50%) scale(1.08); }
+      100%{ transform:translate(-50%,-50%) scale(1); }
+    }
 
-  // inline safe style fallback (if page CSS missing)
-  el.style.position = 'absolute';
-  el.style.left = '50%';
-  el.style.top  = '50%';
-  el.style.transform = 'translate(-50%,-50%)';
-  el.style.width = '132px';
-  el.style.height = '132px';
-  el.style.borderRadius = '999px';
-  el.style.display = 'flex';
-  el.style.alignItems = 'center';
-  el.style.justifyContent = 'center';
-  el.style.fontSize = '58px';
-  el.style.userSelect = 'none';
-  el.style.cursor = 'pointer';
-  el.style.background =
-    'radial-gradient(90px 80px at 35% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 60%),' +
-    'radial-gradient(120px 120px at 50% 55%, rgba(255,255,255,.18), rgba(255,255,255,.06) 58%, rgba(255,255,255,.02) 100%),' +
-    'linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.03))';
-  el.style.border = '1px solid rgba(255,255,255,.18)';
-  el.style.boxShadow = '0 18px 48px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.22)';
-  el.style.filter = 'drop-shadow(0 10px 22px rgba(0,0,0,.35))';
+    .hvr-wiggle{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      transform: translate3d(0,0,0);
+      will-change: transform;
+    }
 
-  return el;
+    /* randomRing */
+    .hvr-ring{
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      pointer-events:none;
+      opacity:.95;
+      filter: drop-shadow(0 0 10px rgba(255,255,255,.10));
+    }
+    .hvr-ring.spin{
+      animation: hvrSpin var(--spin,1.25s) linear infinite;
+    }
+    .hvr-ring.spin.rev{
+      animation-direction: reverse;
+    }
+    @keyframes hvrSpin{
+      from{ transform:translate(-50%,-50%) rotate(0deg); }
+      to  { transform:translate(-50%,-50%) rotate(360deg); }
+    }
+  `;
+  DOC.head.appendChild(s);
+}
+function ensureOverlayHost () {
+  if (!DOC) return null;
+  ensureOverlayStyle();
+
+  let host = DOC.getElementById('hvr-overlay-host');
+  if (host && host.isConnected) return host;
+
+  host = DOC.createElement('div');
+  host.id = 'hvr-overlay-host';
+  host.className = 'hvr-overlay-host';
+  host.setAttribute('data-hvr-host', '1');
+  DOC.body.appendChild(host);
+  return host;
 }
 
-export async function boot(opts = {}){
-  const spawnHost = (typeof opts.spawnHost === 'string')
-    ? document.querySelector(opts.spawnHost)
-    : (opts.spawnHost || null);
+// ======================================================
+//  Host resolver
+// ======================================================
+function resolveHost (rawCfg, keyName = 'spawnHost') {
+  if (!DOC) return null;
 
-  if (!spawnHost) throw new Error('[mode-factory] spawnHost not found');
+  const h = rawCfg && rawCfg[keyName];
+  if (h && typeof h === 'string') {
+    const el = DOC.querySelector(h);
+    if (el) return el;
+    console.warn('[mode-factory] selector not found:', keyName, h, '→ fallback overlay host');
+  }
+  if (h && h.nodeType === 1) return h;
 
-  const boundsHost = (opts.boundsHost && opts.boundsHost.getBoundingClientRect)
-    ? opts.boundsHost
-    : (typeof opts.boundsHost === 'string' ? document.querySelector(opts.boundsHost) : null);
+  const spawnLayer = rawCfg && (rawCfg.spawnLayer || rawCfg.container);
+  if (keyName === 'spawnHost' && spawnLayer && spawnLayer.nodeType === 1) return spawnLayer;
 
-  const boundsEl = boundsHost || spawnHost;
+  return ensureOverlayHost();
+}
 
-  // RNG
-  const runMode = String(opts.runMode || 'play').toLowerCase();
-  const seedStr = String(opts.seed || '').trim();
-  const rnd = (runMode === 'research' && seedStr)
-    ? mulberry32(hashStringToUint32(seedStr))
-    : Math.random;
+// ======================================================
+//  SAFE ZONE / EXCLUSION
+// ======================================================
+function collectExclusionElements(rawCfg){
+  if (!DOC) return [];
+  const out = [];
 
-  // difficulty tuning
-  const diff = String(opts.difficulty || 'easy').toLowerCase();
-  const baseInterval = (diff==='hard') ? 560 : (diff==='normal' ? 650 : 760);
-  const baseTTL      = (diff==='hard') ? 980 : (diff==='normal' ? 1150 : 1300);
+  const sel = rawCfg && rawCfg.excludeSelectors;
+  if (Array.isArray(sel)) {
+    sel.forEach(s=>{
+      try{ DOC.querySelectorAll(String(s)).forEach(el=> out.push(el)); }catch{}
+    });
+  } else if (typeof sel === 'string') {
+    try{ DOC.querySelectorAll(sel).forEach(el=> out.push(el)); }catch{}
+  }
 
-  const spawnIntervalMul = (typeof opts.spawnIntervalMul === 'function') ? opts.spawnIntervalMul : (()=>1);
+  const AUTO = [
+    '#hha-water-header',
+    '.hha-water-bar',
+    '.hha-main-row',
+    '#hha-card-left',
+    '#hha-card-right',
+    '.hha-bottom-row',
+    '.hha-fever-card',
+    '#hvr-crosshair',
+    '.hvr-crosshair',
+    '#hvr-end',
+    '.hvr-end'
+    // ⚠️ ไม่ใส่ '.hud' แล้ว (เพราะบางเกม .hud เป็น wrapper เต็มจอ)
+  ];
+  AUTO.forEach(s=>{
+    try{ DOC.querySelectorAll(s).forEach(el=> out.push(el)); }catch{}
+  });
 
-  // pools + rates
-  const pools = opts.pools || {};
-  const goodPool = pools.good || ['💧','🥛','🍉','🥥','🍊'];
-  const badPool  = pools.bad  || ['🥤','🧋','🍟','🍔'];
-  const powerups = Array.isArray(opts.powerups) ? opts.powerups : ['⭐','🛡️','⏱️'];
+  try{
+    DOC.querySelectorAll('[data-hha-exclude="1"]').forEach(el=> out.push(el));
+  }catch{}
 
-  const goodRate = clamp(opts.goodRate ?? 0.65, 0.2, 0.9);
-  const powerRate = clamp(opts.powerRate ?? 0.12, 0, 0.35);
-  const powerEvery = clamp(opts.powerEvery ?? 6, 2, 999);
+  const uniq = [];
+  const seen = new Set();
+  out.forEach(el=>{
+    if (!el || !el.isConnected) return;
+    if (seen.has(el)) return;
+    seen.add(el);
+    uniq.push(el);
+  });
+  return uniq;
+}
 
-  const judge = (typeof opts.judge === 'function') ? opts.judge : (()=>({}));
-  const onExpire = (typeof opts.onExpire === 'function') ? opts.onExpire : (()=>{});
+function computeExclusionMargins(hostRect, exEls){
+  const m = { top:0, bottom:0, left:0, right:0 };
+  if (!hostRect || !exEls || !exEls.length) return m;
 
-  const excludeSelectors = Array.isArray(opts.excludeSelectors) ? opts.excludeSelectors : [];
-  const spawnStrategy = String(opts.spawnStrategy || 'randomRing');
+  const hx1 = hostRect.left, hy1 = hostRect.top;
+  const hx2 = hostRect.right, hy2 = hostRect.bottom;
 
-  const spawnRadiusX = clamp(opts.spawnRadiusX ?? 0.95, 0.2, 1);
-  const spawnRadiusY = clamp(opts.spawnRadiusY ?? 0.95, 0.2, 1);
-  const minSeparation = clamp(opts.minSeparation ?? 0.28, 0.04, 0.95);
-  const maxSpawnTries = clamp(opts.maxSpawnTries ?? 20, 6, 80);
+  exEls.forEach(el=>{
+    let r = null;
+    try{ r = el.getBoundingClientRect(); }catch{}
+    if (!r) return;
 
-  const dragThresholdPx = clamp(opts.dragThresholdPx ?? 10, 1, 60);
+    // ✅ PATCH: ข้าม “wrapper เต็มจอ” ไม่ให้บีบสนามจนเหลือแถบเดียว
+    const coverW = r.width  / Math.max(1, hostRect.width);
+    const coverH = r.height / Math.max(1, hostRect.height);
+    if (coverW > 0.78 && coverH > 0.78) return;
+
+    const ox1 = Math.max(hx1, r.left);
+    const oy1 = Math.max(hy1, r.top);
+    const ox2 = Math.min(hx2, r.right);
+    const oy2 = Math.min(hy2, r.bottom);
+    if (ox2 <= ox1 || oy2 <= oy1) return;
+
+    if (r.top < hy1 + 90 && r.bottom > hy1) {
+      m.top = Math.max(m.top, clamp(r.bottom - hy1, 0, hostRect.height));
+    }
+    if (r.bottom > hy2 - 90 && r.top < hy2) {
+      m.bottom = Math.max(m.bottom, clamp(hy2 - r.top, 0, hostRect.height));
+    }
+    if (r.left < hx1 + 90 && r.right > hx1) {
+      m.left = Math.max(m.left, clamp(r.right - hx1, 0, hostRect.width));
+    }
+    if (r.right > hx2 - 90 && r.left < hx2) {
+      m.right = Math.max(m.right, clamp(hx2 - r.left, 0, hostRect.width));
+    }
+  });
+
+  const capX = hostRect.width  * 0.42;
+  const capY = hostRect.height * 0.46;
+  m.left   = Math.min(m.left, capX);
+  m.right  = Math.min(m.right, capX);
+  m.top    = Math.min(m.top, capY);
+  m.bottom = Math.min(m.bottom, capY);
+
+  return m;
+}
+
+function computePlayRectFromHost (hostEl, exState) {
+  const r = hostEl.getBoundingClientRect();
+  const isOverlay = hostEl && hostEl.id === 'hvr-overlay-host';
+
+  let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
+  let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
+
+  const basePadX   = w * 0.10;
+  const basePadTop = h * 0.12;
+  const basePadBot = h * 0.12;
+
+  const mm = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+
+  const left   = basePadX + mm.left;
+  const top    = basePadTop + mm.top;
+  const width  = Math.max(1, w - (basePadX*2) - mm.left - mm.right);
+  const height = Math.max(1, h - basePadTop - basePadBot - mm.top - mm.bottom);
+
+  return { left, top, width, height, hostRect: r, isOverlay };
+}
+
+// ======================================================
+//  boot(cfg)
+// ======================================================
+export async function boot (rawCfg = {}) {
+  const {
+    difficulty = 'normal',
+    duration   = 60,
+    modeKey    = 'hydration',
+    pools      = {},
+    goodRate   = 0.6,
+    powerups   = [],
+    powerRate  = 0.10,
+    powerEvery = 7,
+    judge,
+    onExpire,
+
+    allowAdaptive = true,
+    rhythm = null,
+    trickRate = 0.08,
+
+    spawnIntervalMul = null,
+    excludeSelectors = null,
+
+    boundsHost = null,
+    decorateTarget = null,
+
+    // spawn behavior
+    spawnAroundCrosshair = true,
+    spawnRadiusX = 0.34,
+    spawnRadiusY = 0.30,
+    minSeparation = 0.95,
+    maxSpawnTries = 14,
+
+    // ✅ new: spread strategy
+    spawnStrategy = 'random' // 'random' | 'grid9'
+  } = rawCfg || {};
+
+  const diffKey  = String(difficulty || 'normal').toLowerCase();
+  const baseDiff = pickDiffConfig(modeKey, diffKey);
+
+  const hostSpawn  = resolveHost(rawCfg, 'spawnHost');
+  const hostBounds = ((boundsHost != null) ? resolveHost(rawCfg, 'boundsHost') : null) || hostSpawn;
+
+  if (!hostSpawn || !hostBounds || !DOC) {
+    console.error('[mode-factory] host not found');
+    return { stop () {}, shootCrosshair(){ return false; } };
+  }
 
   let stopped = false;
-  let tickTimer = null;
 
-  const live = new Set(); // target records
-  const points = [];      // for separation
+  let totalDuration = clamp(duration, 20, 180);
+  let secLeft       = totalDuration;
+  let lastClockTs   = null;
 
-  let spawnCount = 0;
+  let activeTargets = new Set();
+  let lastSpawnTs   = 0;
+  let spawnCounter  = 0;
 
-  function boundsRect(){
-    const r = boundsEl.getBoundingClientRect();
-    return {
-      left:r.left, top:r.top, right:r.right, bottom:r.bottom,
-      width:r.width, height:r.height
-    };
+  // ---------- Adaptive ----------
+  let adaptLevel   = 0;
+  let curInterval  = baseDiff.spawnInterval;
+  let curMaxActive = baseDiff.maxActive;
+  let curScale     = baseDiff.scale;
+  let curLife      = baseDiff.life;
+
+  let sampleHits   = 0;
+  let sampleMisses = 0;
+  let sampleTotal  = 0;
+  const ADAPT_WINDOW = 12;
+
+  function recalcAdaptive () {
+    if (!allowAdaptive) return;
+    if (sampleTotal < ADAPT_WINDOW) return;
+
+    const hitRate = sampleHits / sampleTotal;
+    let next = adaptLevel;
+
+    if (hitRate >= 0.85 && sampleMisses <= 2) next += 1;
+    else if (hitRate <= 0.55 || sampleMisses >= 6) next -= 1;
+
+    adaptLevel = clamp(next, -1, 3);
+
+    const intervalMul = 1 - (adaptLevel * 0.12);
+    const scaleMul    = 1 - (adaptLevel * 0.10);
+    const lifeMul     = 1 - (adaptLevel * 0.08);
+    const bonusActive = adaptLevel;
+
+    curInterval  = clamp(baseDiff.spawnInterval * intervalMul,
+                         baseDiff.spawnInterval * 0.45,
+                         baseDiff.spawnInterval * 1.4);
+    curScale     = clamp(baseDiff.scale * scaleMul,
+                         baseDiff.scale * 0.6,
+                         baseDiff.scale * 1.4);
+    curLife      = clamp(baseDiff.life * lifeMul,
+                         baseDiff.life * 0.55,
+                         baseDiff.life * 1.15);
+    curMaxActive = clamp(baseDiff.maxActive + bonusActive, 2, 10);
+
+    sampleHits = sampleMisses = sampleTotal = 0;
+
+    try {
+      ROOT.dispatchEvent(new CustomEvent('hha:adaptive', {
+        detail: { modeKey, difficulty: diffKey, level: adaptLevel, spawnInterval: curInterval, maxActive: curMaxActive, scale: curScale, life: curLife }
+      }));
+    } catch {}
   }
 
-  function cleanupPoint(rec){
-    // remove its point
-    for (let i=points.length-1;i>=0;i--){
-      if (points[i].id === rec.id){
-        points.splice(i,1);
-        break;
-      }
-    }
+  function addSample (isHit) {
+    if (!allowAdaptive) return;
+    if (isHit) sampleHits++;
+    else sampleMisses++;
+    sampleTotal++;
+    if (sampleTotal >= ADAPT_WINDOW) recalcAdaptive();
   }
 
-  function spawnOne(){
-    if (stopped) return;
+  // ---------- Rhythm ----------
+  let rhythmOn = false;
+  let beatMs = 0;
+  let lastBeatTs = 0;
 
-    const b = boundsRect();
-    if (b.width < 120 || b.height < 180) return;
+  if (typeof rhythm === 'boolean') rhythmOn = rhythm;
+  else if (rhythm && rhythm.enabled) rhythmOn = true;
 
-    const exclRects = rectsFromSelectors(excludeSelectors);
+  if (rhythmOn) {
+    const bpm = clamp((rhythm && rhythm.bpm) ? rhythm.bpm : 110, 70, 160);
+    beatMs = Math.round(60000 / bpm);
+    try { hostBounds.classList.add('hvr-rhythm-on'); } catch {}
+  }
 
-    // choose kind
-    spawnCount++;
-    const shouldPower = (powerups.length>0) && ((spawnCount % powerEvery)===0) && (rnd() < powerRate);
-    const isGood = shouldPower ? true : (rnd() < goodRate);
-    const isPower = !!shouldPower;
+  function getSpawnMul(){
+    let m = 1;
+    try{
+      if (typeof spawnIntervalMul === 'function') m = Number(spawnIntervalMul()) || 1;
+      else if (spawnIntervalMul != null) m = Number(spawnIntervalMul) || 1;
+    }catch{}
+    return clamp(m, 0.25, 2.5);
+  }
 
-    const ch = isPower ? pick(powerups, rnd) : (isGood ? pick(goodPool, rnd) : pick(badPool, rnd));
-    const kind = isPower ? 'power' : (isGood ? 'good' : 'bad');
+  function getLifeMs(){
+    const mul = getSpawnMul();
+    const stormLifeMul = (mul < 0.99) ? 0.88 : 1.0;
+    const intervalRatio = clamp(curInterval / baseDiff.spawnInterval, 0.45, 1.4);
+    const ratioLifeMul = clamp(intervalRatio * 0.98, 0.55, 1.15);
 
-    // pick point
-    const chosen = chooseSpawnPoint({
-      boundsRect: b,
-      spawnRadiusX,
-      spawnRadiusY,
-      minSeparation,
-      maxSpawnTries,
-      spawnStrategy,
-      exclRects,
-      existing: points.map(p=>({x:p.x,y:p.y})),
-      rnd
+    const life = curLife * stormLifeMul * ratioLifeMul;
+    return Math.round(clamp(life, 520, baseDiff.life * 1.25));
+  }
+
+  // ======================================================
+  //  perfect distance + crosshair shoot
+  // ======================================================
+  function computeHitInfoFromPoint(el, clientX, clientY){
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top  + r.height/2;
+    const dx = (clientX - cx);
+    const dy = (clientY - cy);
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const rad  = Math.max(1, Math.min(r.width, r.height) / 2);
+    const norm = dist / rad;
+    const perfect = norm <= 0.33;
+    return { cx, cy, dist, norm, perfect, rect:r };
+  }
+
+  function findTargetAtPoint(clientX, clientY){
+    let best = null;
+    let bestD = 999999;
+
+    activeTargets.forEach(t => {
+      const el = t.el;
+      if (!el || !el.isConnected) return;
+      const r = el.getBoundingClientRect();
+      const inside = (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom);
+      if (!inside) return;
+      const info = computeHitInfoFromPoint(el, clientX, clientY);
+      if (info.dist < bestD) { bestD = info.dist; best = { t, info }; }
     });
 
-    const el = makeTargetEl(ch, kind);
+    return best;
+  }
 
-    // place with CSS vars if page wants it; also set left/top directly
-    el.style.left = (chosen.x - b.left) + 'px';
-    el.style.top  = (chosen.y - b.top)  + 'px';
+  const exState = {
+    els: collectExclusionElements({ excludeSelectors }),
+    margins: { top:0,bottom:0,left:0,right:0 },
+    lastRefreshTs: 0
+  };
 
-    const id = 't' + Date.now().toString(36) + ((rnd()*1e6)|0).toString(36);
-    const rec = {
-      id,
+  function refreshExclusions(ts){
+    if (!DOC) return;
+    if (!ts) ts = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (ts - exState.lastRefreshTs < 600) return;
+    exState.lastRefreshTs = ts;
+
+    exState.els = collectExclusionElements({ excludeSelectors });
+    let hostRect = null;
+    try{ hostRect = hostBounds.getBoundingClientRect(); }catch{}
+    if (!hostRect) hostRect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
+    exState.margins = computeExclusionMargins(hostRect, exState.els);
+  }
+
+  function getCrosshairPoint(){
+    let rect = null;
+    try{ rect = hostBounds.getBoundingClientRect(); }catch{}
+    if (!rect) rect = rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
+
+    const ex = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+    const padX = rect.width * 0.08;
+    const padY = rect.height * 0.10;
+
+    const x = rect.left + ex.left + padX + (rect.width  - ex.left - ex.right - padX*2) * 0.50;
+    const y = rect.top  + ex.top  + padY + (rect.height - ex.top  - ex.bottom - padY*2) * 0.52;
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+
+  function shootCrosshair(){
+    if (stopped) return false;
+    const p = getCrosshairPoint();
+    const hit = findTargetAtPoint(p.x, p.y);
+    if (!hit) return false;
+
+    const data = hit.t;
+    const info = hit.info;
+
+    if (typeof data._hit === 'function') {
+      data._hit({ __hhaSynth:true, clientX:p.x, clientY:p.y }, info);
+      return true;
+    }
+    return false;
+  }
+
+  // ======================================================
+  //  Spawn rects (EDGE-FIX: ignore transform)
+  // ======================================================
+  function getRectsForSpawn(){
+    const bRect = getRectSafe(hostBounds) || rectFromWHLT(0,0,(ROOT.innerWidth||1),(ROOT.innerHeight||1));
+    let sRect = getRectSafe(hostSpawn);
+    if (!sRect) sRect = bRect;
+
+    const spawnHasT = hasTransform(hostSpawn);
+    if (spawnHasT) {
+      sRect = rectFromWHLT(bRect.left, bRect.top, bRect.width, bRect.height);
+    }
+    return { bRect, sRect, spawnHasT };
+  }
+
+  function makePlayLocalRect(){
+    const { bRect, sRect } = getRectsForSpawn();
+    const pr = computePlayRectFromHost(hostBounds, exState);
+
+    const cL = bRect.left + pr.left;
+    const cT = bRect.top  + pr.top;
+    const cR = cL + pr.width;
+    const cB = cT + pr.height;
+
+    const l = cL - sRect.left;
+    const t = cT - sRect.top;
+    const w = pr.width;
+    const h = pr.height;
+
+    return { left:l, top:t, width:w, height:h, cL, cT, cR, cB, bRect, sRect };
+  }
+
+  function getExistingCentersLocal(sRect){
+    const out = [];
+    activeTargets.forEach(t=>{
+      const el = t.el;
+      if (!el || !el.isConnected) return;
+      let r=null;
+      try{ r = el.getBoundingClientRect(); }catch{}
+      if (!r) return;
+      out.push({ x:(r.left + r.width/2) - sRect.left, y:(r.top + r.height/2) - sRect.top });
+    });
+    return out;
+  }
+
+  // ✅ grid spread state
+  const grid9 = { counts: new Array(9).fill(0) };
+  function pickGridCell9(){
+    let min = 1e9;
+    for (let i=0;i<9;i++) min = Math.min(min, grid9.counts[i]);
+    const ties = [];
+    for (let i=0;i<9;i++) if (grid9.counts[i] === min) ties.push(i);
+    const idx = ties[Math.floor(Math.random()*ties.length)];
+    grid9.counts[idx] += 1;
+    return idx;
+  }
+
+  function pickSpawnPointLocal(playLocal, sizePx){
+    const { sRect } = playLocal;
+    const centers = getExistingCentersLocal(sRect);
+
+    const minDist = Math.max(18, sizePx * minSeparation);
+    const tries = clamp(maxSpawnTries, 6, 30);
+
+    let ax = playLocal.left + playLocal.width * 0.50;
+    let ay = playLocal.top  + playLocal.height * 0.52;
+
+    if (spawnAroundCrosshair) {
+      const cp = getCrosshairPoint();
+      ax = cp.x - sRect.left;
+      ay = cp.y - sRect.top;
+    }
+
+    const rx = playLocal.width  * clamp(spawnRadiusX, 0.18, 0.98);
+    const ry = playLocal.height * clamp(spawnRadiusY, 0.16, 0.98);
+
+    const maxVisualScale = 1.10;
+    const pad = Math.max(12, (sizePx * maxVisualScale) * 0.62);
+
+    const minX = playLocal.left + pad;
+    const maxX = playLocal.left + playLocal.width  - pad;
+    const minY = playLocal.top  + pad;
+    const maxY = playLocal.top  + playLocal.height - pad;
+
+    const rectOk = (playLocal.width >= sizePx*1.30) && (playLocal.height >= sizePx*1.30);
+    if (!rectOk) {
+      return { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
+    }
+
+    function tri(){ return (Math.random() + Math.random() - 1); }
+
+    let best = null;
+    let bestScore = -1;
+
+    const useUniform = !spawnAroundCrosshair;
+
+    // ✅ grid9 mode (ชัดมากว่า “กระจาย”)
+    const useGrid9 = (useUniform && String(spawnStrategy||'').toLowerCase() === 'grid9');
+
+    function pointFromGrid9(){
+      const idx = pickGridCell9();
+      const col = idx % 3;
+      const row = Math.floor(idx / 3);
+
+      const w = (maxX - minX);
+      const h = (maxY - minY);
+
+      const cw = w / 3;
+      const ch = h / 3;
+
+      const gx1 = minX + col*cw;
+      const gy1 = minY + row*ch;
+      const gx2 = gx1 + cw;
+      const gy2 = gy1 + ch;
+
+      const x = gx1 + Math.random() * Math.max(1, (gx2 - gx1));
+      const y = gy1 + Math.random() * Math.max(1, (gy2 - gy1));
+      return { x, y };
+    }
+
+    for (let i=0;i<tries;i++){
+      let x, y;
+
+      if (useGrid9){
+        const p = pointFromGrid9();
+        x = p.x; y = p.y;
+      } else {
+        x = useUniform
+          ? (minX + Math.random() * (maxX - minX))
+          : clamp(ax + tri()*rx, minX, maxX);
+
+        y = useUniform
+          ? (minY + Math.random() * (maxY - minY))
+          : clamp(ay + tri()*ry, minY, maxY);
+      }
+
+      let ok = true;
+      let nearest = 1e9;
+      for (let k=0;k<centers.length;k++){
+        const dx = x - centers[k].x;
+        const dy = y - centers[k].y;
+        const d  = Math.sqrt(dx*dx + dy*dy);
+        nearest = Math.min(nearest, d);
+        if (d < minDist) { ok = false; break; }
+      }
+
+      const score = ok ? (100000 + nearest) : nearest;
+      if (score > bestScore) { bestScore = score; best = { x, y, ok }; }
+      if (ok) return { x, y, ok:true };
+    }
+
+    return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
+  }
+
+  // ======================================================
+  //  Spawn target
+  // ======================================================
+  function spawnTarget () {
+    if (activeTargets.size >= curMaxActive) return;
+
+    refreshExclusions();
+
+    const playLocal = makePlayLocalRect();
+
+    const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
+    const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
+    const poolsTrick = Array.isArray(pools.trick) ? pools.trick : [];
+
+    let ch = '💧';
+    let isGood = true;
+    let isPower = false;
+    let itemType = 'good';
+
+    const canPower = Array.isArray(powerups) && powerups.length > 0;
+    const canTrick = poolsTrick.length > 0 && Math.random() < trickRate;
+
+    if (canPower && ((spawnCounter % Math.max(1, powerEvery)) === 0) && Math.random() < powerRate) {
+      ch = pickOne(powerups, '⭐');
+      isGood = true;
+      isPower = true;
+      itemType = 'power';
+    } else if (canTrick) {
+      ch = pickOne(poolsTrick, '💧');
+      isGood = true;
+      isPower = false;
+      itemType = 'fakeGood';
+    } else {
+      const r = Math.random();
+      if (r < goodRate || !poolsBad.length) {
+        ch = pickOne(poolsGood, '💧');
+        isGood = true;
+        itemType = 'good';
+      } else {
+        ch = pickOne(poolsBad, '🥤');
+        isGood = false;
+        itemType = 'bad';
+      }
+    }
+    spawnCounter++;
+
+    const el = DOC.createElement('div');
+    el.className = 'hvr-target';
+    el.setAttribute('data-hha-tgt', '1');
+    el.setAttribute('data-item-type', itemType);
+
+    const baseSize = 78;
+    const size = baseSize * curScale;
+
+    const p = pickSpawnPointLocal(playLocal, size);
+
+    el.style.position = 'absolute';
+    el.style.left = p.x + 'px';
+    el.style.top  = p.y + 'px';
+    el.style.transform = 'translate(-50%, -50%) scale(0.9)';
+    el.style.width  = size + 'px';
+    el.style.height = size + 'px';
+    el.style.touchAction = 'manipulation';
+    el.style.zIndex = '35';
+    el.style.borderRadius = '999px';
+
+    const wiggle = DOC.createElement('div');
+    wiggle.className = 'hvr-wiggle';
+    wiggle.style.borderRadius = '999px';
+
+    let bgGrad = '';
+    let ringGlow = '';
+
+    if (isPower) {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #facc15, #f97316)';
+      ringGlow = '0 0 0 2px rgba(250,204,21,0.85), 0 0 22px rgba(250,204,21,0.9)';
+    } else if (itemType === 'fakeGood') {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
+      ringGlow = '0 0 0 2px rgba(167,139,250,0.85), 0 0 22px rgba(167,139,250,0.9)';
+    } else if (isGood) {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #4ade80, #16a34a)';
+      ringGlow = '0 0 0 2px rgba(74,222,128,0.75), 0 0 18px rgba(16,185,129,0.85)';
+    } else {
+      bgGrad = 'radial-gradient(circle at 30% 25%, #fb923c, #ea580c)';
+      ringGlow = '0 0 0 2px rgba(248,113,113,0.75), 0 0 18px rgba(248,113,113,0.9)';
+      el.classList.add('bad');
+    }
+
+    el.style.background = bgGrad;
+    el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + ringGlow;
+
+    // ✅ randomRing
+    const ring = DOC.createElement('div');
+    ring.className = 'hvr-ring spin' + (Math.random()<0.35 ? ' rev' : '');
+    ring.style.width  = (size * 0.92) + 'px';
+    ring.style.height = (size * 0.92) + 'px';
+    ring.style.border = '2px dashed rgba(255,255,255,0.42)';
+    ring.style.outline = '1px solid rgba(255,255,255,0.10)';
+    ring.style.outlineOffset = '-6px';
+    ring.style.setProperty('--spin', (0.92 + Math.random()*0.9).toFixed(2) + 's');
+    ring.style.borderStyle = (Math.random()<0.55 ? 'dashed' : 'dotted');
+    ring.style.borderWidth = (Math.random()<0.5 ? '2px' : '3px');
+    ring.style.opacity = (0.86 + Math.random()*0.12).toFixed(2);
+    ring.style.filter = 'drop-shadow(0 0 12px rgba(255,255,255,.10))';
+
+    const inner = DOC.createElement('div');
+    inner.style.width = (size * 0.82) + 'px';
+    inner.style.height = (size * 0.82) + 'px';
+    inner.style.borderRadius = '999px';
+    inner.style.display = 'flex';
+    inner.style.alignItems = 'center';
+    inner.style.justifyContent = 'center';
+    inner.style.background = 'radial-gradient(circle at 30% 25%, rgba(15,23,42,0.12), rgba(15,23,42,0.36))';
+    inner.style.boxShadow = 'inset 0 4px 10px rgba(15,23,42,0.9)';
+
+    const icon = DOC.createElement('span');
+    icon.textContent = ch;
+    icon.style.fontSize = (size * 0.60) + 'px';
+    icon.style.lineHeight = '1';
+    icon.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+    inner.appendChild(icon);
+
+    let badge = null;
+    if (itemType === 'fakeGood') {
+      badge = DOC.createElement('div');
+      badge.textContent = '✨';
+      badge.style.position = 'absolute';
+      badge.style.right = '8px';
+      badge.style.top = '6px';
+      badge.style.fontSize = '18px';
+      badge.style.filter = 'drop-shadow(0 3px 4px rgba(15,23,42,0.9))';
+      badge.style.pointerEvents = 'none';
+    }
+
+    wiggle.appendChild(ring);
+    wiggle.appendChild(inner);
+    if (badge) wiggle.appendChild(badge);
+    el.appendChild(wiggle);
+
+    if (rhythmOn) el.classList.add('hvr-pulse');
+
+    ROOT.requestAnimationFrame(() => {
+      el.style.transform = 'translate(-50%, -50%) scale(1)';
+    });
+
+    const lifeMs = getLifeMs();
+
+    const data = {
       el,
       ch,
       isGood,
       isPower,
-      born: performance.now(),
-      ttl: baseTTL,
-      dead:false,
-      downX:0,
-      downY:0,
-      moved:false,
-      expireTimer:null
+      itemType,
+      bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+      life: lifeMs,
+      _hit: null
     };
 
-    // register point for separation (absolute client coords)
-    points.push({ id, x:chosen.x, y:chosen.y });
+    try{
+      if (typeof decorateTarget === 'function'){
+        decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
+          size,
+          modeKey,
+          difficulty: diffKey,
+          spawnMul: getSpawnMul(),
+          curScale,
+          adaptLevel
+        });
+      }
+    }catch(err){
+      console.warn('[mode-factory] decorateTarget error', err);
+    }
 
-    // input: ignore if drag
-    el.addEventListener('pointerdown', (ev)=>{
-      rec.downX = ev.clientX||0;
-      rec.downY = ev.clientY||0;
-      rec.moved = false;
-      try{ el.setPointerCapture(ev.pointerId); }catch{}
-    }, { passive:true });
+    activeTargets.add(data);
+    hostSpawn.appendChild(el);
 
-    el.addEventListener('pointermove', (ev)=>{
-      const x = ev.clientX||0, y = ev.clientY||0;
-      const dx = x - rec.downX, dy = y - rec.downY;
-      if (Math.abs(dx)+Math.abs(dy) > dragThresholdPx) rec.moved = true;
-    }, { passive:true });
+    function consumeHit(evOrSynth, hitInfoOpt){
+      if (stopped) return;
+      if (!activeTargets.has(data)) return;
 
-    el.addEventListener('pointerup', (ev)=>{
-      if (rec.dead) return;
-      if (rec.moved) return; // treat as look drag
-      hit(rec, ev);
-    }, { passive:true });
+      let keepRect = null;
+      try{ keepRect = el.getBoundingClientRect(); }catch{}
 
-    spawnHost.appendChild(el);
-    live.add(rec);
+      activeTargets.delete(data);
+      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
+      try { hostSpawn.removeChild(el); } catch {}
 
-    // expire
-    rec.expireTimer = setTimeout(()=>{
-      if (rec.dead) return;
-      rec.dead = true;
-      try{ el.remove(); }catch{}
-      live.delete(rec);
-      cleanupPoint(rec);
-      try{ onExpire({ ch:rec.ch, isGood:rec.isGood, isPower:rec.isPower }); }catch{}
-    }, rec.ttl);
+      let res = null;
+      if (typeof judge === 'function') {
+        const xy = (evOrSynth && evOrSynth.__hhaSynth)
+          ? { x: evOrSynth.clientX, y: evOrSynth.clientY }
+          : getEventXY(evOrSynth || {});
+        const info = hitInfoOpt || (keepRect ? (function(){
+          const cx = keepRect.left + keepRect.width/2;
+          const cy = keepRect.top  + keepRect.height/2;
+          const dx = (xy.x - cx);
+          const dy = (xy.y - cy);
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const rad  = Math.max(1, Math.min(keepRect.width, keepRect.height) / 2);
+          const norm = dist / rad;
+          const perfect = norm <= 0.33;
+          return { cx, cy, dist, norm, perfect, rect: keepRect };
+        })() : computeHitInfoFromPoint(el, xy.x, xy.y));
 
-    return rec;
-  }
+        const ctx = {
+          clientX: xy.x, clientY: xy.y, cx: xy.x, cy: xy.y,
+          isGood, isPower,
+          itemType,
+          hitPerfect: !!info.perfect,
+          hitDistNorm: Number(info.norm || 1),
+          targetRect: info.rect
+        };
+        try { res = judge(ch, ctx); } catch (err) { console.error('[mode-factory] judge error', err); }
+      }
 
-  function hit(rec, ev){
-    if (rec.dead) return;
-    rec.dead = true;
+      let isHit = false;
+      if (res && typeof res.scoreDelta === 'number') {
+        if (res.scoreDelta > 0) isHit = true;
+        else if (res.scoreDelta < 0) isHit = false;
+        else isHit = isGood;
+      } else if (res && typeof res.good === 'boolean') {
+        isHit = !!res.good;
+      } else {
+        isHit = isGood;
+      }
+      addSample(isHit);
+    }
 
-    try{ if (rec.expireTimer) clearTimeout(rec.expireTimer); }catch{}
-    rec.expireTimer = null;
-
-    // remove early
-    try{ rec.el.remove(); }catch{}
-
-    live.delete(rec);
-    cleanupPoint(rec);
-
-    const ctx = {
-      clientX: ev?.clientX ?? 0,
-      clientY: ev?.clientY ?? 0,
-      isGood: rec.isGood,
-      isPower: rec.isPower
+    const handleHit = (ev) => {
+      if (stopped) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      consumeHit(ev, null);
     };
 
-    try{ judge(rec.ch, ctx); }catch{}
+    data._hit = consumeHit;
+
+    el.addEventListener('pointerdown', handleHit, { passive: false });
+    el.addEventListener('click', handleHit, { passive: false });
+    el.addEventListener('touchstart', handleHit, { passive: false });
+
+    ROOT.setTimeout(() => {
+      if (stopped) return;
+      if (!activeTargets.has(data)) return;
+
+      activeTargets.delete(data);
+      try { el.removeEventListener('pointerdown', handleHit); } catch {}
+      try { el.removeEventListener('click', handleHit); } catch {}
+      try { el.removeEventListener('touchstart', handleHit); } catch {}
+      try { hostSpawn.removeChild(el); } catch {}
+
+      try { if (typeof onExpire === 'function') onExpire({ ch, isGood, isPower, itemType }); } catch (err) {
+        console.error('[mode-factory] onExpire error', err);
+      }
+    }, lifeMs);
   }
 
-  function scheduleNext(){
+  function dispatchTime (sec) {
+    try { ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {}
+  }
+
+  let rafId = null;
+
+  function loop (ts) {
     if (stopped) return;
-    const mul = clamp(spawnIntervalMul() || 1, 0.2, 3.5);
-    const iv = clamp(baseInterval * mul, 120, 2200);
 
-    tickTimer = setTimeout(()=>{
-      spawnOne();
-      scheduleNext();
-    }, iv);
+    refreshExclusions(ts);
+
+    if (lastClockTs == null) lastClockTs = ts;
+    const dt = ts - lastClockTs;
+
+    if (dt >= 1000 && secLeft > 0) {
+      const steps = Math.floor(dt / 1000);
+      for (let i = 0; i < steps; i++) {
+        secLeft--;
+        dispatchTime(secLeft);
+        if (secLeft <= 0) break;
+      }
+      lastClockTs += steps * 1000;
+    }
+
+    if (secLeft > 0) {
+      if (!lastSpawnTs) lastSpawnTs = ts;
+
+      const mul = getSpawnMul();
+      const effInterval = Math.max(35, curInterval * mul);
+
+      try{
+        if (mul < 0.99) { hostBounds.classList.add('hvr-storm-on'); hostSpawn.classList.add('hvr-storm-on'); }
+        else { hostBounds.classList.remove('hvr-storm-on'); hostSpawn.classList.remove('hvr-storm-on'); }
+      }catch{}
+
+      if (rhythmOn && beatMs > 0) {
+        if (!lastBeatTs) lastBeatTs = ts;
+        const dtBeat = ts - lastBeatTs;
+        if (dtBeat >= beatMs) {
+          spawnTarget();
+          lastBeatTs += Math.floor(dtBeat / beatMs) * beatMs;
+        }
+      } else {
+        const dtSpawn = ts - lastSpawnTs;
+        if (dtSpawn >= effInterval) {
+          spawnTarget();
+          lastSpawnTs = ts;
+        }
+      }
+    } else {
+      stop();
+      return;
+    }
+
+    rafId = ROOT.requestAnimationFrame(loop);
   }
 
-  scheduleNext();
-
-  function stop(){
+  function stop () {
     if (stopped) return;
     stopped = true;
 
-    try{ if (tickTimer) clearTimeout(tickTimer); }catch{}
-    tickTimer = null;
+    try { if (rafId != null) ROOT.cancelAnimationFrame(rafId); } catch {}
+    rafId = null;
 
-    for (const rec of live){
-      try{ if (rec.expireTimer) clearTimeout(rec.expireTimer); }catch{}
-      rec.expireTimer = null;
-      try{ rec.el.remove(); }catch{}
-    }
-    live.clear();
-    points.length = 0;
+    activeTargets.forEach(t => { try { t.el.remove(); } catch {} });
+    activeTargets.clear();
+
+    try { dispatchTime(0); } catch {}
   }
 
-  return { stop };
+  const onStopEvent = () => stop();
+  ROOT.addEventListener('hha:stop', onStopEvent);
+
+  rafId = ROOT.requestAnimationFrame(loop);
+
+  return {
+    stop () {
+      ROOT.removeEventListener('hha:stop', onStopEvent);
+      stop();
+    },
+    shootCrosshair
+  };
 }
 
 export default { boot };
