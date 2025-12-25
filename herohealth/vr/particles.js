@@ -1,26 +1,26 @@
 // === /herohealth/vr/particles.js ===
-// HeroHealth FX Layer — PRODUCTION (Universal)
-// ✅ scorePop(x,y,text,label) + floatPop
+// HeroHealth — Global FX Layer (UNIVERSAL) — PATCH ULTIMATE
+// ✅ scorePop(x,y,text,label)
 // ✅ burstAt(x,y,kind)
 // ✅ celebrate({kind,intensity})
-// ✅ listens: hha:celebrate, hha:judge, hha:fever (optional)
-// ✅ Anti long-number / sanitize text
-// ✅ Mobile-safe, no crash if called weirdly
+// ✅ toast(text, ms)
+// ✅ Listens: hha:celebrate, hha:judge
+// ✅ Safe text sanitize (กันเลขยาว/กัน undefined) + anti-spam
 
 (function (root) {
   'use strict';
   const doc = root.document;
   if (!doc) return;
 
-  // -------- utils --------
+  // -------------------- Utils --------------------
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const now = () => performance.now();
 
   function safeText(t) {
     t = String(t ?? '');
-    // เลขยาว/ข้อมูลพิลึก ๆ กันลอยยาว
+    // กันโดน timestamp / ตัวเลขยาว (เช่น 1766....) เข้ามาเป็น "text"
     if (/^\d{10,}$/.test(t)) return '✓';
-    if (t.length > 24) return t.slice(0, 24) + '…';
+    if (t.length > 26) return t.slice(0, 26) + '…';
     return t;
   }
 
@@ -30,222 +30,326 @@
 
     layer = doc.createElement('div');
     layer.className = 'hha-fx-layer';
+
     Object.assign(layer.style, {
       position: 'fixed',
-      inset: '0',
-      zIndex: 999,
+      left: '0',
+      top: '0',
+      right: '0',
+      bottom: '0',
+      zIndex: '999',
       pointerEvents: 'none',
-      overflow: 'hidden',
+      overflow: 'hidden'
     });
+
+    // CSS injection (ครั้งเดียว)
+    const st = doc.createElement('style');
+    st.textContent = `
+      .hha-fx-layer *{box-sizing:border-box}
+
+      .hha-pop{
+        position:absolute;
+        left:0; top:0;
+        transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(1);
+        padding:8px 12px;
+        border-radius:999px;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+        font-weight:1000;
+        letter-spacing:.2px;
+        background: rgba(2,6,23,.70);
+        border: 1px solid rgba(148,163,184,.22);
+        color:#e5e7eb;
+        backdrop-filter: blur(8px);
+        box-shadow: 0 18px 44px rgba(0,0,0,.38);
+        white-space:nowrap;
+        will-change: transform, opacity;
+        opacity: 0;
+        animation: hhaPop 620ms ease-out forwards;
+      }
+      .hha-pop[data-kind="good"]{ border-color: rgba(34,197,94,.40); }
+      .hha-pop[data-kind="bad"]{ border-color: rgba(251,113,133,.40); }
+      .hha-pop[data-kind="gold"]{ border-color: rgba(250,204,21,.55); }
+      .hha-pop[data-kind="trap"]{ border-color: rgba(147,51,234,.45); }
+      .hha-pop[data-kind="boss"]{ border-color: rgba(248,113,113,.45); }
+      .hha-pop[data-kind="power"]{ border-color: rgba(56,189,248,.45); }
+      .hha-pop .sub{
+        margin-left:8px;
+        color: rgba(148,163,184,.96);
+        font-weight: 1000;
+        font-size: 12px;
+      }
+      @keyframes hhaPop{
+        0%{ opacity:0; transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(.85); }
+        20%{ opacity:1; transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(1.02); }
+        100%{ opacity:0; transform:translate3d(var(--x,0px), calc(var(--y,0px) - 42px), 0) scale(1.0); }
+      }
+
+      .hha-burst{
+        position:absolute;
+        left:0; top:0;
+        transform:translate3d(var(--x,0px), var(--y,0px), 0);
+        width: 10px; height: 10px;
+        border-radius: 999px;
+        background: rgba(229,231,235,.18);
+        box-shadow: 0 0 0 0 rgba(229,231,235,.0);
+        opacity: 0;
+        will-change: transform, opacity, box-shadow;
+        animation: hhaBurst 420ms ease-out forwards;
+      }
+      .hha-burst[data-kind="good"]{
+        background: rgba(34,197,94,.30);
+        box-shadow: 0 0 0 10px rgba(34,197,94,.10), 0 0 44px rgba(34,197,94,.14);
+      }
+      .hha-burst[data-kind="bad"]{
+        background: rgba(251,113,133,.28);
+        box-shadow: 0 0 0 10px rgba(251,113,133,.10), 0 0 44px rgba(251,113,133,.14);
+      }
+      .hha-burst[data-kind="gold"]{
+        background: rgba(250,204,21,.30);
+        box-shadow: 0 0 0 12px rgba(250,204,21,.11), 0 0 54px rgba(250,204,21,.16);
+      }
+      .hha-burst[data-kind="trap"]{
+        background: rgba(147,51,234,.28);
+        box-shadow: 0 0 0 12px rgba(147,51,234,.11), 0 0 54px rgba(147,51,234,.16);
+      }
+      .hha-burst[data-kind="boss"]{
+        background: rgba(248,113,113,.30);
+        box-shadow: 0 0 0 14px rgba(248,113,113,.11), 0 0 62px rgba(248,113,113,.18);
+      }
+      .hha-burst[data-kind="power"]{
+        background: rgba(56,189,248,.30);
+        box-shadow: 0 0 0 12px rgba(56,189,248,.11), 0 0 56px rgba(56,189,248,.16);
+      }
+      @keyframes hhaBurst{
+        0%{ opacity:0; transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(.60); }
+        20%{ opacity:1; transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(1.0); }
+        100%{ opacity:0; transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(1.75); }
+      }
+
+      .hha-center{
+        position:absolute;
+        left:50%; top:18%;
+        transform: translate(-50%, 0);
+        max-width:min(92vw, 720px);
+        padding: 10px 14px;
+        border-radius: 16px;
+        background: rgba(2,6,23,.72);
+        border: 1px solid rgba(148,163,184,.22);
+        color: #e5e7eb;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+        font-weight: 1100;
+        font-size: 18px;
+        letter-spacing:.2px;
+        text-align:center;
+        box-shadow: 0 22px 70px rgba(0,0,0,.45);
+        backdrop-filter: blur(10px);
+        opacity: 0;
+        pointer-events:none;
+        will-change: transform, opacity;
+      }
+      .hha-center.show{
+        animation: hhaCenter 980ms ease-out forwards;
+      }
+      .hha-center[data-kind="gold"]{ border-color: rgba(250,204,21,.55); }
+      .hha-center[data-kind="good"]{ border-color: rgba(34,197,94,.45); }
+      .hha-center[data-kind="bad"]{ border-color: rgba(251,113,133,.45); }
+      .hha-center[data-kind="boss"]{ border-color: rgba(248,113,113,.45); }
+      .hha-center[data-kind="power"]{ border-color: rgba(56,189,248,.45); }
+      @keyframes hhaCenter{
+        0%{ opacity:0; transform: translate(-50%, 12px) scale(.96); }
+        12%{ opacity:1; transform: translate(-50%, 0px) scale(1.00); }
+        82%{ opacity:1; transform: translate(-50%, 0px) scale(1.00); }
+        100%{ opacity:0; transform: translate(-50%, -6px) scale(.995); }
+      }
+
+      .hha-toast{
+        position:absolute;
+        left:50%; bottom: 16px;
+        transform: translate(-50%, 0);
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(2,6,23,.76);
+        border: 1px solid rgba(148,163,184,.22);
+        color: rgba(229,231,235,.95);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+        font-weight: 1000;
+        box-shadow: 0 18px 60px rgba(0,0,0,.42);
+        backdrop-filter: blur(10px);
+        opacity:0;
+        pointer-events:none;
+      }
+      .hha-toast.show{ animation: hhaToast 1400ms ease-out forwards; }
+      @keyframes hhaToast{
+        0%{opacity:0; transform:translate(-50%, 10px) scale(.98);}
+        12%{opacity:1; transform:translate(-50%, 0px) scale(1);}
+        84%{opacity:1;}
+        100%{opacity:0; transform:translate(-50%, -6px) scale(.995);}
+      }
+    `;
+    doc.head.appendChild(st);
+
     doc.body.appendChild(layer);
     return layer;
   }
 
-  function ensureStyle() {
-    if (doc.getElementById('hha-fx-style')) return;
-    const st = doc.createElement('style');
-    st.id = 'hha-fx-style';
-    st.textContent = `
-      .hha-fx-pop{
-        position:absolute;
-        transform:translate(-50%,-50%);
-        font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
-        font-weight:1000;
-        padding:6px 10px;
-        border-radius:999px;
-        border:1px solid rgba(148,163,184,.22);
-        backdrop-filter: blur(8px);
-        box-shadow:0 18px 44px rgba(0,0,0,.35);
-        background:rgba(2,6,23,.62);
-        color:rgba(229,231,235,.95);
-        will-change: transform, opacity;
-        opacity:0;
-      }
-      .hha-fx-pop b{font-weight:1100}
-      .hha-fx-pop .tag{opacity:.85; margin-left:6px; font-weight:1000}
+  // -------------------- Center banner (judge/celebrate) --------------------
+  let centerEl = null;
+  let lastCenterAt = 0;
 
-      @keyframes hhaPopUp {
-        0%   { opacity:0; transform:translate(-50%,-50%) translateY(10px) scale(.92); }
-        15%  { opacity:1; transform:translate(-50%,-50%) translateY(0px) scale(1.02); }
-        100% { opacity:0; transform:translate(-50%,-50%) translateY(-34px) scale(1.0); }
-      }
-      .hha-fx-pop.up { animation:hhaPopUp 760ms ease-out both; }
-
-      .hha-fx-burst{
-        position:absolute;
-        left:0; top:0;
-        width:14px; height:14px;
-        transform:translate(-50%,-50%);
-        border-radius:999px;
-        opacity:0;
-        will-change: transform, opacity;
-      }
-      @keyframes hhaBurst {
-        0% { opacity:0; transform:translate(-50%,-50%) scale(.5); }
-        20%{ opacity:1; transform:translate(-50%,-50%) scale(1.15); }
-        100%{ opacity:0; transform:translate(-50%,-50%) scale(2.2); }
-      }
-      .hha-fx-burst.go { animation:hhaBurst 420ms ease-out both; }
-
-      .hha-toast{
-        position:fixed;
-        left:50%; bottom:14px;
-        transform:translateX(-50%);
-        z-index:1000;
-        pointer-events:none;
-        background:rgba(2,6,23,.72);
-        border:1px solid rgba(148,163,184,.22);
-        border-radius:999px;
-        padding:8px 12px;
-        font-weight:1000;
-        color:rgba(229,231,235,.95);
-        box-shadow:0 18px 44px rgba(0,0,0,.40);
-        backdrop-filter: blur(8px);
-        opacity:0;
-      }
-      @keyframes hhaToast {
-        0%{ opacity:0; transform:translateX(-50%) translateY(10px) scale(.98); }
-        12%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1.0); }
-        88%{ opacity:1; }
-        100%{ opacity:0; transform:translateX(-50%) translateY(6px) scale(.99); }
-      }
-      .hha-toast.go{ animation:hhaToast 1400ms ease-out both; }
-
-      /* intensity glow (FEVER) */
-      .hha-fx-fever{
-        position:fixed;
-        inset:0;
-        pointer-events:none;
-        z-index: 998;
-        opacity:0;
-        transition: opacity .18s linear;
-        background: radial-gradient(circle at 50% 50%, rgba(250,204,21,.0) 40%, rgba(248,113,113,.10) 70%, rgba(2,6,23,.48) 100%);
-      }
-      .hha-fx-fever.on{ opacity:1; }
-    `;
-    doc.head.appendChild(st);
+  function ensureCenter(layer) {
+    if (centerEl) return centerEl;
+    centerEl = doc.createElement('div');
+    centerEl.className = 'hha-center';
+    centerEl.textContent = '';
+    layer.appendChild(centerEl);
+    return centerEl;
   }
 
-  ensureStyle();
-  const layer = ensureLayer();
+  function showCenter(text, kind) {
+    const t = now();
+    // anti-spam: 120ms
+    if (t - lastCenterAt < 120) return;
+    lastCenterAt = t;
 
-  // Fever glow overlay (optional)
-  let feverEl = doc.querySelector('.hha-fx-fever');
-  if (!feverEl) {
-    feverEl = doc.createElement('div');
-    feverEl.className = 'hha-fx-fever';
-    doc.body.appendChild(feverEl);
+    const layer = ensureLayer();
+    const el = ensureCenter(layer);
+    el.dataset.kind = String(kind || 'good');
+    el.textContent = safeText(text);
+
+    el.classList.remove('show');
+    // restart animation
+    void el.offsetWidth;
+    el.classList.add('show');
   }
 
-  // -------- API --------
+  // -------------------- Pop + Burst --------------------
+  let lastPopAt = 0;
   function scorePop(x, y, text, label) {
-    try {
-      x = Number(x) || (root.innerWidth * 0.5);
-      y = Number(y) || (root.innerHeight * 0.5);
-      const t = safeText(text);
-      const l = label ? safeText(label) : '';
+    const t = now();
+    // anti-spam: 35ms
+    if (t - lastPopAt < 35) return;
+    lastPopAt = t;
 
-      const el = doc.createElement('div');
-      el.className = 'hha-fx-pop up';
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-      el.innerHTML = `<b>${t}</b>${l ? `<span class="tag">${l}</span>` : ''}`;
+    const layer = ensureLayer();
+    const pop = doc.createElement('div');
 
-      layer.appendChild(el);
-      setTimeout(() => { try { el.remove(); } catch (_) {} }, 900);
-    } catch (_) {}
+    const sx = clamp(Number(x) || 0, 0, root.innerWidth);
+    const sy = clamp(Number(y) || 0, 0, root.innerHeight);
+
+    pop.className = 'hha-pop';
+    pop.style.setProperty('--x', `${sx}px`);
+    pop.style.setProperty('--y', `${sy}px`);
+
+    const a = safeText(text);
+    const b = safeText(label);
+
+    // guess kind from text/label (ถ้าอยากบังคับ kind ให้ใช้ celebrate หรือ burstAt)
+    let kind = 'good';
+    const low = (a + ' ' + b).toLowerCase();
+    if (low.includes('miss') || low.includes('bad') || low.includes('-')) kind = 'bad';
+    if (low.includes('gold') || low.includes('⭐') || low.includes('goal') || low.includes('clear')) kind = 'gold';
+    if (low.includes('trap')) kind = 'trap';
+    if (low.includes('boss')) kind = 'boss';
+    if (low.includes('power') || low.includes('slow') || low.includes('storm') || low.includes('shield')) kind = 'power';
+
+    pop.dataset.kind = kind;
+
+    pop.innerHTML = b
+      ? `${a}<span class="sub">${b}</span>`
+      : `${a}`;
+
+    layer.appendChild(pop);
+    setTimeout(() => { try { pop.remove(); } catch(_){} }, 800);
   }
-
-  // alias
-  function floatPop(x, y, text) { scorePop(x, y, text, ''); }
 
   function burstAt(x, y, kind) {
-    try {
-      x = Number(x) || (root.innerWidth * 0.5);
-      y = Number(y) || (root.innerHeight * 0.5);
-      kind = String(kind || 'good');
+    const layer = ensureLayer();
+    const b = doc.createElement('div');
 
-      const el = doc.createElement('div');
-      el.className = 'hha-fx-burst go';
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
+    const sx = clamp(Number(x) || 0, 0, root.innerWidth);
+    const sy = clamp(Number(y) || 0, 0, root.innerHeight);
 
-      // ไม่ fix สีตามคำสั่งระบบ? (ระบบห้าม set สีเฉพาะตอนทำ chart เท่านั้น)
-      // ใน CSS/DOM UI ใส่สีได้ปกติ
-      let bg = 'rgba(229,231,235,.30)';
-      if (kind === 'good') bg = 'rgba(34,197,94,.34)';
-      else if (kind === 'bad') bg = 'rgba(251,113,133,.30)';
-      else if (kind === 'gold') bg = 'rgba(250,204,21,.34)';
-      else if (kind === 'boss') bg = 'rgba(248,113,113,.34)';
-      else if (kind === 'trap') bg = 'rgba(147,51,234,.32)';
-      else if (kind === 'power') bg = 'rgba(56,189,248,.32)';
+    b.className = 'hha-burst';
+    b.dataset.kind = String(kind || 'good');
+    b.style.setProperty('--x', `${sx}px`);
+    b.style.setProperty('--y', `${sy}px`);
 
-      el.style.background = bg;
-      el.style.boxShadow = `0 0 0 10px ${bg.replace('0.34','0.12').replace('0.32','0.12').replace('0.30','0.12')}`;
-
-      layer.appendChild(el);
-      setTimeout(() => { try { el.remove(); } catch (_) {} }, 520);
-    } catch (_) {}
+    layer.appendChild(b);
+    setTimeout(() => { try { b.remove(); } catch(_){} }, 520);
   }
 
-  function toast(text) {
-    try {
-      text = safeText(text);
-      let el = doc.querySelector('.hha-toast');
-      if (!el) {
-        el = doc.createElement('div');
-        el.className = 'hha-toast';
-        doc.body.appendChild(el);
-      }
-      el.textContent = text;
-      el.classList.remove('go');
-      void el.offsetWidth; // restart anim
-      el.classList.add('go');
-    } catch (_) {}
-  }
-
+  // -------------------- Celebrate + Toast --------------------
   function celebrate(payload) {
+    const kind = (payload && payload.kind) ? safeText(payload.kind) : 'GOOD!';
+    const intensity = clamp(Number(payload && payload.intensity) || 1, 0.6, 2.2);
+
+    // แปลง kind → color tag
+    let k = 'gold';
+    const low = String(kind).toLowerCase();
+    if (low.includes('fail') || low.includes('bad') || low.includes('miss') || low.includes('game over')) k = 'bad';
+    else if (low.includes('boss')) k = 'boss';
+    else if (low.includes('power') || low.includes('slow') || low.includes('storm') || low.includes('shield')) k = 'power';
+    else if (low.includes('good') || low.includes('perfect') || low.includes('hit')) k = 'good';
+
+    showCenter(kind, k);
+
+    // เสริม burst กลางจอ (ตาม intensity)
+    const vw = root.innerWidth, vh = root.innerHeight;
+    const cx = vw * 0.5, cy = vh * 0.45;
+    const n = Math.round(2 + intensity * 2.2);
+    for (let i = 0; i < n; i++) {
+      const dx = (Math.random() - 0.5) * (120 + intensity * 90);
+      const dy = (Math.random() - 0.5) * (90 + intensity * 70);
+      burstAt(cx + dx, cy + dy, k);
+    }
+  }
+
+  let toastEl = null;
+  function toast(text, ms = 1400) {
+    const layer = ensureLayer();
+    if (!toastEl) {
+      toastEl = doc.createElement('div');
+      toastEl.className = 'hha-toast';
+      layer.appendChild(toastEl);
+    }
+    toastEl.textContent = safeText(text);
+    toastEl.classList.remove('show');
+    void toastEl.offsetWidth;
+    toastEl.classList.add('show');
+    setTimeout(() => { try { toastEl && toastEl.classList.remove('show'); } catch(_){} }, Math.max(800, ms|0));
+  }
+
+  // -------------------- Optional helpers --------------------
+  function floatPop() {
+    // alias: เผื่อโค้ดเก่าเรียก
+    return scorePop.apply(null, arguments);
+  }
+
+  // -------------------- Listen global events --------------------
+  root.addEventListener('hha:celebrate', (e) => {
+    try { celebrate(e.detail || {}); } catch(_){}
+  });
+
+  root.addEventListener('hha:judge', (e) => {
     try {
-      const kind = safeText(payload && payload.kind ? payload.kind : 'CLEAR!');
-      const intensity = clamp(Number(payload && payload.intensity ? payload.intensity : 1.0) || 1.0, 0.6, 2.2);
-      toast(`🎉 ${kind}`);
-
-      // burst confetti-ish around center
-      const cx = root.innerWidth * 0.5;
-      const cy = root.innerHeight * 0.42;
-      const n = Math.floor(10 * intensity);
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * Math.PI * 2;
-        const r = 18 + Math.random() * (52 * intensity);
-        const x = cx + Math.cos(a) * r;
-        const y = cy + Math.sin(a) * r;
-        burstAt(x, y, (kind.includes('BOSS') ? 'boss' : 'gold'));
-      }
-    } catch (_) {}
-  }
-
-  // -------- event bridge --------
-  function onEvt(name, fn) {
-    try { root.addEventListener(name, fn); } catch (_) {}
-  }
-
-  onEvt('hha:celebrate', (e) => celebrate((e && e.detail) || {}));
-  onEvt('hha:judge', (e) => {
-    const d = (e && e.detail) || {};
-    if (d && d.label) toast(String(d.label));
-  });
-  onEvt('hha:fever', (e) => {
-    const d = (e && e.detail) || {};
-    const pct = Number(d.feverPct ?? d.fever ?? 0) || 0;
-    // เปิด glow เบา ๆ เมื่อ fever สูง
-    if (!feverEl) return;
-    feverEl.classList.toggle('on', pct >= 80);
-    feverEl.style.opacity = String(clamp((pct - 70) / 30, 0, 1) * 0.55);
+      const label = e && e.detail && e.detail.label;
+      if (!label) return;
+      // judge จะแสดงสั้น ๆ กลางจอ
+      const low = String(label).toLowerCase();
+      let k = 'good';
+      if (low.includes('miss') || low.includes('bad') || low.includes('fail')) k = 'bad';
+      if (low.includes('boss')) k = 'boss';
+      if (low.includes('power') || low.includes('slow') || low.includes('storm') || low.includes('shield')) k = 'power';
+      if (low.includes('perfect')) k = 'gold';
+      showCenter(label, k);
+    } catch(_){}
   });
 
-  // expose
-  root.Particles = { scorePop, floatPop, burstAt, celebrate, toast };
+  // -------------------- Export to global --------------------
+  const api = { scorePop, burstAt, celebrate, toast, floatPop };
+
+  root.Particles = api;
   root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.Particles = root.Particles;
+  root.GAME_MODULES.Particles = api;
 
 })(typeof window !== 'undefined' ? window : globalThis);
