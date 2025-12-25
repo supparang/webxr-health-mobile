@@ -1,5 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR (PRODUCTION) — H++ FINAL PACK (PATCH C)
+// GoodJunkVR (PRODUCTION) — H++ FINAL PACK (PATCH C) + “โหดสุด 2 อย่าง”
+// ✅ A) Decoy Wall Corridor: กำแพง decoy ทิ้ง “ทางเดินปลอดภัย” บีบให้ขยับจริงแบบ VR
+// ✅ B) Perfect Counter Window (0.18s): ใกล้หมด Ring ถ้าอยู่ “REAL GAP” ได้ +คะแนน +Shield
 // ✅ FIX: Goal+Mini Quest MUST show (engine emits quest:update itself)
 // ✅ FIX: HUD time compat (emits hha:time {sec})
 // ✅ FIX: End summary payload (hha:end includes grade + scoreFinal + quests counts)
@@ -252,7 +254,14 @@ export function boot(opts = {}){
     laserTickRateMs: 0,
 
     // anti-clump memory (screen coords)
-    recentPts: []
+    recentPts: [],
+
+    // ===== Perfect Counter (B) =====
+    counterOpen: false,
+    counterEndsAt: 0,
+    counterArmed: false,
+    counterUsed: false,
+    counterNextAt: 0,
   };
 
   // ===== QUEST DIRECTOR =====
@@ -464,6 +473,51 @@ export function boot(opts = {}){
     return { x, y };
   }
 
+  // ===== A) Decoy Wall Corridor (โหดแต่แฟร์) =====
+  function spawnDecoyCorridor(opts = {}){
+    const R = getSafeScreenRect();
+
+    const mode = String(opts.mode || 'diag'); // 'h' | 'v' | 'diag' | 'diag2'
+    const width = Math.max(90, opts.width|0 || 150);   // corridor width
+    const step  = Math.max(90, opts.step|0  || 120);   // density
+    const maxN  = Math.max(6,  opts.maxN|0  || 16);
+
+    const cx = (opts.cx != null) ? (opts.cx|0) : ((R.left + R.right) * 0.5)|0;
+    const cy = (opts.cy != null) ? (opts.cy|0) : ((R.top + R.bottom) * 0.5)|0;
+
+    function distToCorridor(x,y){
+      if (mode === 'h')  return Math.abs(y - cy);
+      if (mode === 'v')  return Math.abs(x - cx);
+      if (mode === 'diag'){
+        return Math.abs((y - x) - (cy - cx)) / Math.SQRT2;
+      }
+      // diag2
+      return Math.abs((y + x) - (cy + cx)) / Math.SQRT2;
+    }
+
+    const ap = getAimPoint();
+    const avoidR2 = 150*150;
+
+    let n = 0;
+    for (let y = R.top; y <= R.bottom && n < maxN; y += step){
+      for (let x = R.left; x <= R.right && n < maxN; x += step){
+        if (distToCorridor(x,y) <= (width*0.5)) continue;
+        if (dist2(x,y, ap.x, ap.y) < avoidR2) continue;
+        if (Math.random() < 0.35) continue;
+
+        spawnTarget('decoy', { x, y });
+        n++;
+      }
+    }
+
+    if (n < maxN && Math.random() < 0.60) spawnTarget('goodfake');
+    if (n < maxN && Math.random() < 0.45) spawnTarget('fake');
+
+    safeDispatch('hha:wall', { mode, width, placed:n });
+    logEvent('corridor_wall', { mode, width, placed:n });
+    return n;
+  }
+
   function applyPenalty(kind='hazard'){
     const tnow = now();
     if (tnow < (S.hazardLockUntil||0)) return;
@@ -569,7 +623,6 @@ export function boot(opts = {}){
     qState.comboMax = S.comboMax|0;
     qState.timeLeft = S.timeLeft|0;
     qState.safeNoJunkSeconds = Math.max(0, Math.floor((now() - lastBadAt) / 1000));
-    // note: goldHitsThisMini / blocks / stunBreaks / timePlus / streakGood / final8Good managed by events
   }
 
   // --- quest emitter (ทำให้ HUD เห็นแน่) ---
@@ -584,11 +637,9 @@ export function boot(opts = {}){
       if (qDir && typeof qDir.getActive === 'function') active = qDir.getActive();
     }catch(_){}
 
-    // normalize active shape
     const goal = (active && active.goal) ? active.goal : (active && active.activeGoal) ? active.activeGoal : null;
     const mini = (active && active.mini) ? active.mini : (active && active.activeMini) ? active.activeMini : null;
 
-    // ✅ accept both: target/max keys
     const goalTarget = goal ? (goal.target ?? goal.max ?? goal.tgt ?? goal.need ?? 0) : 0;
     const miniTarget = mini ? (mini.target ?? mini.max ?? mini.tgt ?? mini.need ?? 0) : 0;
 
@@ -614,9 +665,8 @@ export function boot(opts = {}){
       questOk: true,
       goal: goalObj,
       mini: miniObj,
-      groupLabel: '',  // GoodJunk ไม่มี group
+      groupLabel: '',
 
-      // backup flat fields (กัน HUD รุ่นเก่าบางไฟล์)
       goalTitle: goalObj ? goalObj.title : '',
       goalCur: goalObj ? goalObj.cur : 0,
       goalTarget: goalObj ? goalObj.target : 0,
@@ -634,11 +684,10 @@ export function boot(opts = {}){
   function tickQuestNow(reason='event'){
     const t = now();
     if (t < _qtLock) return;
-    _qtLock = t + 18; // กันสแปมถี่เกิน
+    _qtLock = t + 18;
     syncQuestState();
     try{ qDir.tick(qState); }catch(_){}
-    emitQuestUpdate(true); // ✅ ยิง “ทันที” ตอนสำคัญ/ทุก 1 วิ (ลื่นและชัวร์)
-    // logEvent('quest_tick_now', { reason });
+    emitQuestUpdate(true);
   }
 
   // ===== Rank emitter =====
@@ -654,7 +703,6 @@ export function boot(opts = {}){
     const totalActs = (S.goodHits|0) + (S.misses|0);
     const acc = totalActs > 0 ? Math.round((S.goodHits/totalActs)*100) : 0;
 
-    // quest percent (best effort)
     let qp = 0;
     try{
       if (qDir && typeof qDir.getSummary === 'function'){
@@ -689,7 +737,6 @@ export function boot(opts = {}){
     const endedIso = new Date().toISOString();
     logSession('end', { endedIso });
 
-    // final rank snapshot
     const t = now();
     const elapsedSec = Math.max(1, Math.round((t - S.startedAt)/1000));
     const sps = (S.score|0) / elapsedSec;
@@ -717,7 +764,6 @@ export function boot(opts = {}){
       challenge,
       runMode,
 
-      // --- HUD expects these ---
       grade,
       scoreFinal: S.score|0,
       comboMax: S.comboMax|0,
@@ -726,7 +772,6 @@ export function boot(opts = {}){
       goalsCleared, goalsTotal,
       miniCleared,  miniTotal,
 
-      // extras
       score: S.score|0,
       goodHits: S.goodHits|0,
       goodExpired: S.goodExpired|0,
@@ -741,7 +786,13 @@ export function boot(opts = {}){
 
   function spawnTarget(kind, posScreen=null){
     if (!S.running) return null;
-    if (S.targets.size >= D.maxActive && kind !== 'boss') return null;
+
+    // ===== A) allow more clutter during boss attacks (corridor walls) =====
+    const extraBoss = (S.bossAlive ? (diffKey==='hard' ? 8 : 6) : 0);
+    const extraStorm= (S.stormActive ? 3 : 0);
+    const cap = (D.maxActive|0) + extraBoss + extraStorm;
+
+    if (S.targets.size >= cap && kind !== 'boss') return null;
 
     const pos = pickSpawnPoint(posScreen);
     const pL = toLayerPt(pos.x, pos.y);
@@ -876,7 +927,7 @@ export function boot(opts = {}){
     setPanic(0.2, 220);
     logEvent('boss_clear', {});
     emitScore();
-    tickQuestNow('bossClear'); // ✅
+    tickQuestNow('bossClear');
   }
 
   function pickPulsePoint(){
@@ -939,7 +990,7 @@ export function boot(opts = {}){
     S.pulseActive = false;
     emitScore();
     emitFever();
-    tickQuestNow('pulse'); // ✅
+    tickQuestNow('pulse');
   }
 
   function showRingAt(x,y,gapStartDeg,gapSizeDeg,ms=1200){
@@ -966,6 +1017,56 @@ export function boot(opts = {}){
     }, Math.max(120, warnMs|0));
   }
 
+  // ===== B) Perfect Counter helpers =====
+  function resetCounter(){
+    S.counterOpen = false;
+    S.counterArmed = false;
+    S.counterUsed = false;
+    S.counterEndsAt = 0;
+    S.counterNextAt = 0;
+    try{ safeDispatch('hha:counter', { open:false }); }catch(_){}
+  }
+  function openCounterWindow(){
+    const t = now();
+    if (S.counterUsed) return;
+    if (t < (S.counterNextAt||0)) return;
+
+    S.counterOpen = true;
+    S.counterArmed = true;
+    S.counterEndsAt = t + 180;     // 0.18s
+    S.counterNextAt = t + 999999;  // once per ring
+
+    tick('counter', 2.2);
+    safeDispatch('hha:fx', { type:'chroma', ms: 210 });
+    safeDispatch('hha:counter', { open:true, ms:180 });
+    try{ Particles.toast && Particles.toast('⚡ COUNTER WINDOW!', 'warn'); }catch(_){}
+  }
+  function tryCounterReward(isInBand, isInRealGap){
+    if (!S.counterOpen || !S.counterArmed || S.counterUsed) return;
+    if (!isInBand || !isInRealGap) return;
+
+    S.counterUsed = true;
+    S.counterArmed = false;
+    S.counterOpen = false;
+
+    const ap = getAimPoint();
+    const bonus = (diffKey==='hard' ? 75 : 55);
+    S.score += bonus;
+
+    S.shield = clamp((S.shield|0) + 1, 0, 5);
+
+    scorePop(ap.x, ap.y, `+${bonus}`, 'COUNTER!');
+    burstFX(ap.x, ap.y, 'gold');
+    safeDispatch('hha:fx', { type:'hero', ms: 260 });
+    setJudge('PERFECT COUNTER!');
+    logEvent('perfect_counter', { bonus, shield:S.shield|0 });
+    try{ Particles.toast && Particles.toast('✨ PERFECT COUNTER!', 'good'); }catch(_){}
+
+    emitScore();
+    emitFever();
+    tickQuestNow('counter');
+  }
+
   function bossAttackPattern(){
     const patterns = ['ring','laser','storm'];
     let pick = patterns[randi(0, patterns.length-1)];
@@ -987,6 +1088,9 @@ export function boot(opts = {}){
       setPanic(diffKey==='hard' ? 0.75 : 0.55, 900);
       logEvent('boss_atk_ring', {});
 
+      // reset counter for this ring (B)
+      resetCounter();
+
       S.ringActive = true;
       S.ringX = center.x|0;
       S.ringY = center.y|0;
@@ -1004,6 +1108,7 @@ export function boot(opts = {}){
       const gapStartDeg = (S.ringGapA * 180/Math.PI);
       showRingAt(S.ringX, S.ringY, gapStartDeg, gapSizeDeg, (S.ringEndsAt-now())|0);
 
+      // pressure spawn
       const n = 8;
       const gapIndex = randi(0, n-1);
       for (let i=0;i<n;i++){
@@ -1013,6 +1118,16 @@ export function boot(opts = {}){
         const ys = clamp(center.y + Math.sin(ang)*S.ringR, 40, innerHeight-40);
         spawnTarget('junk', { x: xs, y: ys });
       }
+
+      // ===== A) Corridor Wall during ring (โหดมาก แต่มีทางรอด) =====
+      spawnDecoyCorridor({
+        mode: (Math.random()<0.5 ? 'diag' : 'diag2'),
+        width: (diffKey==='hard' ? 132 : 155),
+        step:  (diffKey==='hard' ? 108 : 122),
+        maxN:  (diffKey==='hard' ? 18 : 14),
+        cx: center.x,
+        cy: center.y
+      });
 
     } else if (pick === 'laser'){
       setJudge('BOSS: LASER!');
@@ -1034,6 +1149,16 @@ export function boot(opts = {}){
 
       for (let i=0;i<3;i++) spawnTarget('decoy');
 
+      // ===== A) Corridor Wall during laser warn (บังคับ “ขยับแนว”) =====
+      spawnDecoyCorridor({
+        mode: (Math.random()<0.5 ? 'h' : 'v'),
+        width: (diffKey==='hard' ? 120 : 145),
+        step:  (diffKey==='hard' ? 105 : 120),
+        maxN:  (diffKey==='hard' ? 20 : 16),
+        cy: S.laserY,
+        cx: center.x
+      });
+
     } else {
       setJudge('BOSS: STORM!');
       fxChroma(150);
@@ -1047,6 +1172,16 @@ export function boot(opts = {}){
       spawnTarget('gold', { x: clamp(center.x + randi(-120,120), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), SM.top+40, innerHeight-SM.bottom-40) });
       spawnTarget('good', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), SM.top+40, innerHeight-SM.bottom-40) });
       spawnTarget('goodfake', { x: clamp(center.x + randi(-140,140), 50, innerWidth-50), y: clamp(center.y + randi(-90,90), SM.top+40, innerHeight-SM.bottom-40) });
+
+      // ===== A) Corridor Wall during storm (แคบลง) =====
+      spawnDecoyCorridor({
+        mode: (Math.random()<0.5 ? 'diag' : 'diag2'),
+        width: (diffKey==='hard' ? 118 : 140),
+        step:  (diffKey==='hard' ? 102 : 116),
+        maxN:  (diffKey==='hard' ? 22 : 18),
+        cx: center.x,
+        cy: center.y
+      });
     }
   }
 
@@ -1078,7 +1213,7 @@ export function boot(opts = {}){
       killEl(t.el); S.targets.delete(t.id);
       logEvent('hit_good', { via });
 
-      tickQuestNow('hit_good'); // ✅
+      tickQuestNow('hit_good');
 
     } else if (t.kind === 'gold'){
       S.goodHits++;
@@ -1088,7 +1223,6 @@ export function boot(opts = {}){
       const pts = scoreGain(90, S.combo);
       S.score += pts;
 
-      // ✅ PATCH: Gold Hunt ต้องนับ “แน่” แบบ event-based
       qState.goldHitsThisMini = (qState.goldHitsThisMini|0) + 1;
 
       markGood();
@@ -1101,7 +1235,7 @@ export function boot(opts = {}){
       killEl(t.el); S.targets.delete(t.id);
       logEvent('hit_gold', { via, goldHitsThisMini: qState.goldHitsThisMini|0 });
 
-      tickQuestNow('hit_gold'); // ✅
+      tickQuestNow('hit_gold');
 
     } else if (t.kind === 'power'){
       addFever(6);
@@ -1119,7 +1253,7 @@ export function boot(opts = {}){
       killEl(t.el); S.targets.delete(t.id);
       logEvent('hit_power', { via, emo });
 
-      tickQuestNow('hit_power'); // ✅
+      tickQuestNow('hit_power');
 
     } else if (t.kind === 'boss'){
       setCombo(S.combo + 1);
@@ -1149,7 +1283,7 @@ export function boot(opts = {}){
       emitScore();
       logEvent('hit_boss', { via, hp:S.bossHp|0 });
 
-      tickQuestNow('hit_boss'); // ✅
+      tickQuestNow('hit_boss');
 
     } else if (isBad){
       markBad();
@@ -1178,7 +1312,7 @@ export function boot(opts = {}){
           setPanic(0.35, 420);
           logEvent('block_bad', { via, kind:t.kind, shield:S.shield|0, blocks:qState.blocks|0 });
 
-          tickQuestNow('block'); // ✅
+          tickQuestNow('block');
         }
       } else {
         // junk hit => miss++
@@ -1195,7 +1329,7 @@ export function boot(opts = {}){
       }
 
       killEl(t.el); S.targets.delete(t.id);
-      tickQuestNow('bad'); // ✅
+      tickQuestNow('bad');
     }
 
     if (!S.stunActive && (S.fever|0) >= 100){
@@ -1261,7 +1395,7 @@ export function boot(opts = {}){
           safeDispatch('quest:badHit', { kind:'goodExpired' });
           logEvent('good_expired', { kind:t.kind });
 
-          tickQuestNow('goodExpired'); // ✅
+          tickQuestNow('goodExpired');
         }
         killEl(t.el);
         S.targets.delete(t.id);
@@ -1288,7 +1422,7 @@ export function boot(opts = {}){
         S.targets.delete(t.id);
         logEvent('stun_break', { kind:t.kind, stunBreaks:qState.stunBreaks|0 });
 
-        tickQuestNow('stunBreak'); // ✅
+        tickQuestNow('stunBreak');
       }
     }
   }
@@ -1316,7 +1450,6 @@ export function boot(opts = {}){
       t.x = lerp(t.x, apL.x, strength);
       t.y = lerp(t.y, apL.y, strength);
 
-      // swirl
       const dx = apL.x - t.x;
       const dy = apL.y - t.y;
       t.x += (-dy) * swirl * 0.002;
@@ -1345,7 +1478,6 @@ export function boot(opts = {}){
       t.x = lerp(t.x, apL.x, strength);
       t.y = lerp(t.y, apL.y, strength);
 
-      // swirl
       const dx = apL.x - t.x;
       const dy = apL.y - t.y;
       t.x += (-dy) * swirl * 0.002;
@@ -1363,6 +1495,8 @@ export function boot(opts = {}){
     if (S.ringActive){
       if (tnow >= S.ringEndsAt){
         S.ringActive = false;
+        // close counter if still open
+        if (S.counterOpen){ S.counterOpen=false; S.counterArmed=false; safeDispatch('hha:counter', { open:false }); }
       } else {
         const dx = ap.x - S.ringX;
         const dy = ap.y - S.ringY;
@@ -1378,8 +1512,29 @@ export function boot(opts = {}){
           const diff = Math.atan2(Math.sin(a-ga), Math.cos(a-ga));
           const inGap = Math.abs(diff) <= (gw*0.5);
 
+          // ----- Perfect Counter Window near ring end (B) -----
+          const leftMs = (S.ringEndsAt||0) - tnow;
+          if (!S.counterUsed && leftMs <= 320 && leftMs > 120){
+            openCounterWindow();
+          }
+          if (S.counterOpen && tnow >= (S.counterEndsAt||0)){
+            S.counterOpen = false;
+            S.counterArmed = false;
+            safeDispatch('hha:counter', { open:false });
+          }
+
+          // reward only if in REAL GAP during window
+          tryCounterReward(inBand, inGap);
+
           if (!inGap){
             applyPenalty('ring');
+          }
+        } else {
+          // if not in band, still can counter? no — must be in band+gap (แฟร์)
+          if (S.counterOpen && tnow >= (S.counterEndsAt||0)){
+            S.counterOpen = false;
+            S.counterArmed = false;
+            safeDispatch('hha:counter', { open:false });
           }
         }
       }
@@ -1463,7 +1618,7 @@ export function boot(opts = {}){
       S.timeLeft = remainSec|0;
       emitTime();
       finalSprintTick();
-      tickQuestNow('time'); // ✅ ทุก 1 วิ
+      tickQuestNow('time');
     }
     if (remainMs <= 0){
       endGame();
@@ -1546,11 +1701,9 @@ export function boot(opts = {}){
       S.panicEndsAt = 0;
     }
 
-    // quest state sync (no need to emit each frame)
     syncQuestState();
     try{ qDir.tick(qState); }catch(_){}
 
-    // rank ticker
     emitRank();
 
     if ((Math.random() < 0.06)) emitFever();
@@ -1572,7 +1725,9 @@ export function boot(opts = {}){
         bossAlive:!!S.bossAlive, bossPhase:S.bossPhase|0, bossHp:S.bossHp|0, bossHpMax:S.bossHpMax|0,
         pulseActive:!!S.pulseActive, heroBurstActive:!!S.heroBurstActive,
         goldHitsThisMini: qState.goldHitsThisMini|0,
-        safeNoJunkSeconds: qState.safeNoJunkSeconds|0
+        safeNoJunkSeconds: qState.safeNoJunkSeconds|0,
+        counterOpen: !!S.counterOpen,
+        counterUsed: !!S.counterUsed
       };
     }
   };
