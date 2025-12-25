@@ -1,254 +1,218 @@
 // === /herohealth/hydration-vr/hydration.quest.js ===
-// Quest Deck สำหรับ Hydration Quest VR
-// ใช้ร่วมกับ: hydration.safe.js
-//
-// ✅ FIX 2025-12-20:
-// - เพิ่ม setZone(zone)
-// - second(zone) นับ greenTick จากโซนจริง
-// - รองรับโซน: GREEN / LOW / HIGH (case-safe)
-// - คง API เดิมทั้งหมด + getGoalProgressInfo/getMiniProgressInfo
-
+// Hydration Quest Director — Goals sequential + Minis chain (PRODUCTION)
 'use strict';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-function clamp (v, min, max) {
-  v = Number(v) || 0;
-  if (v < min) return min;
-  if (v > max) return max;
-  return v;
+function emit(name, detail){
+  try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
 }
 
-function normDiff (d) {
-  d = String(d || 'normal').toLowerCase();
-  if (d !== 'easy' && d !== 'hard') return 'normal';
-  return d;
-}
+function nowMs(){ return (typeof performance!=='undefined' ? performance.now() : Date.now()); }
 
-function normZone (z) {
-  const Z = String(z || '').toUpperCase();
-  if (Z === 'GREEN' || Z === 'LOW' || Z === 'HIGH') return Z;
-  return 'GREEN';
-}
+const DIFF = {
+  easy:   { greenHoldSec: 14, avoidBadStreak: 6, rushCount: 5, rushSec: 9, powerCount: 2 },
+  normal: { greenHoldSec: 18, avoidBadStreak: 8, rushCount: 6, rushSec: 9, powerCount: 3 },
+  hard:   { greenHoldSec: 22, avoidBadStreak: 10, rushCount: 7, rushSec: 8, powerCount: 4 }
+};
 
-function makeView (all) {
-  const remain = all.filter(item => !item._done && !item.done);
-  remain._all = all;
-  return remain;
-}
+export function createHydrationQuest(opts={}){
+  const diff = String(opts.diff||'normal').toLowerCase();
+  const run  = String(opts.run ||'play').toLowerCase();
 
-export function createHydrationQuest (diffKey = 'normal') {
-  const diff = normDiff(diffKey);
+  const t = DIFF[diff] || DIFF.normal;
 
-  const cfg = {
-    goalGreenTick: (diff === 'easy') ? 18 : (diff === 'hard' ? 32 : 25),
-    goalBadZoneLimit: (diff === 'easy') ? 16 : (diff === 'hard' ? 10 : 12),
+  const st = {
+    started:false,
 
-    miniComboBest: (diff === 'easy') ? 5 : (diff === 'hard' ? 10 : 7),
-    miniGoodHits:  (diff === 'easy') ? 20 : (diff === 'hard' ? 30 : 24),
-    miniNoJunkSec: (diff === 'easy') ? 10 : (diff === 'hard' ? 18 : 14)
-  };
+    // stats signals (from engine)
+    waterZone:'GREEN',
+    lastSec: 999,
 
-  const stats = {
-    zone: 'GREEN',
-    greenTick: 0,
-    timeSec: 0,
+    // goal progress
+    goalIndex: 0,
+    goalsDone: 0,
+    minisDone: 0,
 
+    // goal1: hold green seconds (cumulative)
+    greenHold: 0,
+
+    // goal2: good hits
     goodHits: 0,
-    junkHits: 0,
-    secSinceJunk: 0,
 
-    comboNow: 0,
-    comboBest: 0,
-    score: 0
+    // mini chain state
+    miniIndex: 0,
+
+    // mini A: avoid bad streak
+    avoidBad: 0,
+
+    // mini B: rush window
+    rushActive:false,
+    rushStart:0,
+    rushGood:0,
+    rushBadDuring:false,
+
+    // mini C: power count
+    powerGot:0,
+
+    // last events
+    lastCelebrateAt:0
   };
 
   const goals = [
-    {
-      id: 'goal-green-time',
-      label: 'โซนน้ำสีเขียว',
-      text: 'รักษาน้ำในร่างกายให้อยู่โซนสีเขียวสะสมตามที่กำหนด',
-      target: cfg.goalGreenTick,
-      prog: 0,
-      _done: false
-    },
-    {
-      id: 'goal-stable-zone',
-      label: 'โซนไม่เหวี่ยง',
-      text: 'อยู่โซนแย่ (LOW/HIGH) ให้น้อยกว่าเกณฑ์ (ยิ่งน้อยยิ่งดี)',
-      target: cfg.goalBadZoneLimit,
-      prog: 0,
-      _done: false
-    }
+    { id:'g1', label:`รักษาโซน GREEN ให้ได้ ${t.greenHoldSec} วิ`, target:t.greenHoldSec },
+    { id:'g2', label:`เก็บน้ำดีให้ได้`, target: (diff==='hard'? 22 : diff==='easy'? 16 : 19) }
   ];
 
   const minis = [
-    {
-      id: 'mini-combo',
-      label: 'สายคอมโบ',
-      text: 'ทำคอมโบสูงสุดให้ถึงตามเกณฑ์ของระดับนี้',
-      target: cfg.miniComboBest,
-      prog: 0,
-      _done: false
-    },
-    {
-      id: 'mini-good-hits',
-      label: 'เก็บน้ำดีรัว ๆ',
-      text: 'เก็บน้ำดี (💧 / 🥛 / 🍉 / Power-ups) ให้ครบตามจำนวน',
-      target: cfg.miniGoodHits,
-      prog: 0,
-      _done: false
-    },
-    {
-      id: 'mini-no-junk',
-      label: 'เลี่ยงน้ำหวาน',
-      text: 'ไม่โดนน้ำหวานต่อเนื่องตามเวลาที่กำหนด',
-      target: cfg.miniNoJunkSec,
-      prog: 0,
-      _done: false
-    }
+    { id:'m1', label:`No Sugary Streak ⚡ (หลบ 🥤 ให้ได้ติดกัน)`, target:t.avoidBadStreak },
+    { id:'m2', label:`Hydration Rush 💧 (${t.rushCount} ภายใน ${t.rushSec} วิ + ห้ามโดนขยะ)`, target:t.rushCount },
   ];
 
-  function badZoneSec () {
-    return clamp(stats.timeSec - stats.greenTick, 0, 9999);
+  // research mode: mini chain ลด RNG/ความเร้าใจ (ยังคงได้ แต่ไม่สุ่มอีเวนต์เพิ่ม)
+  if (run !== 'research') minis.push({ id:'m3', label:`Power Grab ⭐ (เก็บพาวเวอร์)`, target:t.powerCount });
+
+  function activeGoal(){ return goals[clamp(st.goalIndex, 0, goals.length-1)] || goals[0]; }
+  function activeMini(){ return minis[clamp(st.miniIndex, 0, minis.length-1)] || minis[0]; }
+
+  function ui(){
+    const g = activeGoal();
+    const m = activeMini();
+
+    let gVal = 0;
+    if (g.id==='g1') gVal = st.greenHold;
+    if (g.id==='g2') gVal = st.goodHits;
+
+    let mVal = 0;
+    if (m.id==='m1') mVal = st.avoidBad;
+    if (m.id==='m2') mVal = st.rushGood;
+    if (m.id==='m3') mVal = st.powerGot;
+
+    emit('quest:update', {
+      questNum: st.goalIndex + 1,
+      text: `Goal: ${g.label} (${gVal}/${g.target})`,
+      sub: `Mini: ${m.label} (${mVal}/${m.target}) • Zone: ${st.waterZone}`,
+      done: `Goals done: ${st.goalsDone} • Minis done: ${st.minisDone}`
+    });
   }
 
-  function syncProgFields () {
-    goals[0].prog = clamp(stats.greenTick, 0, goals[0].target);
-    goals[1].prog = badZoneSec();
-
-    minis[0].prog = clamp(stats.comboBest, 0, minis[0].target);
-    minis[1].prog = clamp(stats.goodHits, 0, minis[1].target);
-    minis[2].prog = clamp(stats.secSinceJunk, 0, minis[2].target);
+  function celebrate(kind='mini'){
+    const ts = nowMs();
+    if (ts - st.lastCelebrateAt < 350) return;
+    st.lastCelebrateAt = ts;
+    emit('hha:celebrate', { kind, ts, id: kind==='goal' ? activeGoal().id : activeMini().id });
   }
 
-  function evalGoals () {
-    syncProgFields();
+  function passGoal(){
+    st.goalsDone++;
+    celebrate('goal');
+    st.goalIndex = clamp(st.goalIndex + 1, 0, goals.length); // อาจเกินได้ (จบ goal)
+    ui();
+  }
 
-    if (!goals[0]._done && stats.greenTick >= cfg.goalGreenTick) {
-      goals[0]._done = true;
+  function passMini(){
+    st.minisDone++;
+    celebrate('mini');
+    st.miniIndex = (st.miniIndex + 1) % minis.length;
+
+    // reset mini-specific
+    st.avoidBad = 0;
+    st.rushActive = false;
+    st.rushGood = 0;
+    st.rushBadDuring = false;
+    st.powerGot = 0;
+
+    ui();
+  }
+
+  function tick(sec, waterZone){
+    st.waterZone = waterZone || st.waterZone;
+
+    // goal1: count green seconds (cumulative)
+    if (activeGoal().id === 'g1'){
+      if (st.waterZone === 'GREEN') st.greenHold++;
+      if (st.greenHold >= activeGoal().target) passGoal();
     }
 
-    if (!goals[1]._done) {
-      const bz = badZoneSec();
-      if (bz <= cfg.goalBadZoneLimit && stats.timeSec >= cfg.goalGreenTick) {
-        goals[1]._done = true;
+    // mini2: rush timer handling
+    const m = activeMini();
+    if (m.id === 'm2'){
+      if (!st.rushActive){
+        // start automatically when entering GREEN (ครั้งแรกในช่วง)
+        if (st.waterZone === 'GREEN'){
+          st.rushActive = true;
+          st.rushStart = nowMs();
+          st.rushGood = 0;
+          st.rushBadDuring = false;
+        }
+      } else {
+        const dt = (nowMs() - st.rushStart) / 1000;
+        if (dt > t.rushSec){
+          // fail window -> restart if still green
+          st.rushActive = false;
+          st.rushGood = 0;
+          st.rushBadDuring = false;
+        }
       }
     }
+
+    ui();
   }
 
-  function evalMinis () {
-    syncProgFields();
+  function onHit(info){
+    // info: {isGood,isPower,itemType,perfect,blocked}
+    const isGood = !!info.isGood;
+    const isPower = !!info.isPower || info.itemType==='power';
+    const isBad = !isGood || info.itemType==='bad' || info.itemType==='fakeGood';
 
-    if (!minis[0]._done && stats.comboBest >= cfg.miniComboBest) minis[0]._done = true;
-    if (!minis[1]._done && stats.goodHits >= cfg.miniGoodHits)   minis[1]._done = true;
-    if (!minis[2]._done && stats.secSinceJunk >= cfg.miniNoJunkSec) minis[2]._done = true;
-  }
-
-  function evalAll () { evalGoals(); evalMinis(); }
-
-  function setZone (zone) {
-    stats.zone = normZone(zone);
-    evalGoals();
-  }
-
-  function updateScore (score) {
-    stats.score = Number(score) || 0;
-    evalAll();
-  }
-
-  function updateCombo (combo) {
-    const c = combo | 0;
-    stats.comboNow = c;
-    if (c > stats.comboBest) stats.comboBest = c;
-    evalMinis();
-  }
-
-  function onGood () {
-    stats.goodHits += 1;
-    evalMinis();
-  }
-
-  function onJunk () {
-    stats.junkHits += 1;
-    stats.secSinceJunk = 0;
-    evalAll();
-  }
-
-  function second (zoneMaybe) {
-    if (zoneMaybe != null) stats.zone = normZone(zoneMaybe);
-
-    stats.timeSec += 1;
-    stats.secSinceJunk += 1;
-
-    if (String(stats.zone).toUpperCase() === 'GREEN') {
-      stats.greenTick += 1;
+    // goal2: good hits
+    if (activeGoal().id === 'g2' && isGood && !isBad){
+      st.goodHits++;
+      if (st.goodHits >= activeGoal().target) passGoal();
     }
 
-    evalAll();
+    // minis
+    const m = activeMini();
+    if (m.id === 'm1'){
+      if (isBad && !info.blocked){
+        st.avoidBad = 0;
+      } else if (!isBad){
+        st.avoidBad++;
+        if (st.avoidBad >= m.target) passMini();
+      }
+    }
+
+    if (m.id === 'm2'){
+      if (isBad && !info.blocked) st.rushBadDuring = true;
+      if (isGood && !isBad){
+        if (!st.rushActive) {
+          st.rushActive = true;
+          st.rushStart = nowMs();
+          st.rushGood = 0;
+          st.rushBadDuring = false;
+        }
+        st.rushGood++;
+        const dt = (nowMs() - st.rushStart) / 1000;
+        if (st.rushGood >= m.target && dt <= t.rushSec && !st.rushBadDuring){
+          passMini();
+        }
+      }
+    }
+
+    if (m.id === 'm3'){
+      if (isPower){
+        st.powerGot++;
+        if (st.powerGot >= m.target) passMini();
+      }
+    }
+
+    ui();
   }
 
-  function nextGoal () {}
-  function nextMini () {}
-
-  function getProgress (kind) {
-    if (kind === 'goals') return makeView(goals);
-    if (kind === 'mini')  return makeView(minis);
-    return [];
+  function start(){
+    st.started = true;
+    ui();
   }
 
-  function getGoalProgressInfo(id) {
-    syncProgFields();
-    if (id === 'goal-green-time') {
-      return { now: stats.greenTick, target: cfg.goalGreenTick, text: `${stats.greenTick}/${cfg.goalGreenTick} วินาที (โซน GREEN)` };
-    }
-    if (id === 'goal-stable-zone') {
-      const bz = badZoneSec();
-      return { now: bz, target: cfg.goalBadZoneLimit, text: `${bz}/${cfg.goalBadZoneLimit} วินาที (โซนแย่ ต้อง ≤ เกณฑ์)` };
-    }
-    return { now: 0, target: 0, text: '' };
-  }
-
-  function getMiniProgressInfo(id) {
-    syncProgFields();
-    if (id === 'mini-combo') {
-      return { now: stats.comboBest, target: cfg.miniComboBest, text: `${stats.comboBest}/${cfg.miniComboBest} คอมโบสูงสุด` };
-    }
-    if (id === 'mini-good-hits') {
-      return { now: stats.goodHits, target: cfg.miniGoodHits, text: `${stats.goodHits}/${cfg.miniGoodHits} น้ำดีที่เก็บ` };
-    }
-    if (id === 'mini-no-junk') {
-      return { now: stats.secSinceJunk, target: cfg.miniNoJunkSec, text: `${stats.secSinceJunk}/${cfg.miniNoJunkSec} วินาทีไม่โดนน้ำหวาน` };
-    }
-    return { now: 0, target: 0, text: '' };
-  }
-
-  function getMiniNoJunkProgress() {
-    return { now: stats.secSinceJunk, target: cfg.miniNoJunkSec };
-  }
-
-  try {
-    ROOT.HHA_HYDRATION_QUEST_DEBUG = { cfg, stats, goals, minis };
-  } catch {}
-
-  return {
-    cfg,
-    stats,
-    goals,
-    minis,
-    setZone,
-    updateScore,
-    updateCombo,
-    onGood,
-    onJunk,
-    second,
-    getProgress,
-    nextGoal,
-    nextMini,
-    getGoalProgressInfo,
-    getMiniProgressInfo,
-    getMiniNoJunkProgress
-  };
+  return { start, tick, onHit, getState:()=>({ ...st, goals, minis }) };
 }
-
-export default { createHydrationQuest };
