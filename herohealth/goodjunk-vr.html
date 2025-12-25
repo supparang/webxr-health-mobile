@@ -1,10 +1,11 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
-✅ FIX: .gj-target has position:absolute (left/top works)
-✅ FIX: layer z-index + pointer-events
-✅ ADD: atk-ring + atk-laser overlay
-✅ ADD: crosshair (aim)
-✅ ADD: auto refresh __GJ_LAYER_OFFSET__ (mobile viewport safe)
+GoodJunkVR — FULL HTML (HUD+Quest+End+Boss+Aim compat)
+✅ ID compat with /vr/hha-hud.js  (hud-score, hud-combo, hud-miss, hud-goal, hud-mini, hud-goal-prog, hud-mini-prog, hud-coach, hud-coach-img, hud-rank, hud-group, hud-time)
+✅ Quest bars (main/mini) update on quest:update
+✅ Judge label update on hha:judge
+✅ Boss HUD update on hha:score (bossAlive/bossHp/bossHpMax/bossPhase)
+✅ End overlay uses existing #sum-overlay on hha:end
+✅ Keep layer offset + aim point accurate on mobile/rotate/address bar
 -->
 
 <!doctype html>
@@ -44,12 +45,10 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       --safeTop: env(safe-area-inset-top, 0px);
       --safeBottom: env(safe-area-inset-bottom, 0px);
 
-      /* gameplay space */
       --hudH: 40px;
       --pad: 10px;
       --radius: 18px;
 
-      /* boss ring css vars */
       --ringGapStart: 0deg;
       --ringGapSize: 60deg;
     }
@@ -76,19 +75,18 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
     }
     a-scene{ width:100%; height:100%; }
 
-    /* ---------- Gameplay DOM layer (targets spawn here) ---------- */
+    /* ---------- Gameplay DOM layer ---------- */
     #gj-layer{
       position:fixed; inset:0;
-      z-index:9999;              /* ✅ อยู่บนสุด */
+      z-index:9999;
       overflow:hidden;
       touch-action:none;
       user-select:none;
       -webkit-user-select:none;
-      pointer-events:auto;       /* ✅ รับคลิกได้ */
+      pointer-events:auto;
       transform: translateZ(0);
     }
 
-    /* ✅ สำคัญ: target ต้องเป็น absolute ไม่งั้น left/top ไม่ทำงาน */
     .gj-target{
       position:absolute;
       left:0; top:0;
@@ -107,18 +105,16 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       will-change: transform, opacity, left, top;
       cursor:pointer;
       -webkit-tap-highlight-color: transparent;
+      pointer-events:auto;
+      visibility: visible;
     }
-    .gj-target.spawn{
-      opacity:1;
-      transform: translate(-50%,-50%) scale(1);
-    }
+    .gj-target.spawn{ opacity:1; }
     .gj-target.gone{
       opacity:0;
       transform: translate(-50%,-50%) scale(.72);
       filter: blur(2px);
     }
 
-    /* type highlights */
     .gj-junk{ border-color: rgba(239,68,68,.28); background: rgba(239,68,68,.08); }
     .gj-fake{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.06); }
     .gj-gold{
@@ -162,7 +158,7 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       background: radial-gradient(700px 380px at 50% 52%, rgba(34,197,94,.22), transparent 65%);
     }
 
-    /* ---------- Attack overlays (ring / laser) ---------- */
+    /* ---------- Attack overlays ---------- */
     #atk-ring{
       position:fixed;
       left:50%; top:50%;
@@ -176,8 +172,6 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       filter: drop-shadow(0 18px 40px rgba(0,0,0,.45));
     }
     #atk-ring.show{ opacity:1; }
-
-    /* ring visuals: red band with a safe gap */
     #atk-ring::before{
       content:"";
       position:absolute; inset:0;
@@ -190,10 +184,8 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
           rgba(239,68,68,.55) var(--ringGapSize),
           rgba(239,68,68,.55) 360deg
         );
-      -webkit-mask:
-        radial-gradient(circle, transparent 56%, #000 57%); /* donut */
-      mask:
-        radial-gradient(circle, transparent 56%, #000 57%);
+      -webkit-mask: radial-gradient(circle, transparent 56%, #000 57%);
+      mask: radial-gradient(circle, transparent 56%, #000 57%);
       box-shadow: 0 0 0 10px rgba(239,68,68,.10);
     }
 
@@ -220,7 +212,7 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       100%{ filter: brightness(1); }
     }
 
-    /* ---------- Crosshair (aim) ---------- */
+    /* ---------- Crosshair ---------- */
     #aim{
       position:fixed;
       left:50%;
@@ -244,7 +236,7 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
     #aim::before{ width: 26px; height:2px; }
     #aim::after{ width: 2px; height:26px; }
 
-    /* ---------- HUD TOP (thinner) ---------- */
+    /* ---------- HUD TOP ---------- */
     .hud-top{
       position:fixed;
       left:var(--pad); right:var(--pad);
@@ -296,6 +288,7 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       justify-content:flex-start;
       gap:8px;
       pointer-events:none;
+      flex-wrap:wrap;
     }
     .meta-pill{
       display:inline-flex;
@@ -324,7 +317,11 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       color: rgba(229,231,235,.92);
       text-shadow: 0 10px 30px rgba(0,0,0,.55);
       pointer-events:none;
+      opacity:0;
+      transform: translateY(4px);
+      transition: opacity .14s ease, transform .14s ease;
     }
+    #hud-judge.show{ opacity:1; transform: translateY(0); }
 
     /* fever/shield panel */
     .hud-right{
@@ -412,15 +409,16 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       pointer-events:none;
     }
     #coach-bubble.show{ opacity:1; transform: translateY(0); }
-    #coach-emoji{
+
+    #hud-coach-img{
       width:34px; height:34px;
       border-radius:12px;
-      background-size: contain;
-      background-repeat:no-repeat;
-      background-position:center;
+      object-fit: contain;
+      background: rgba(15,23,42,.20);
       filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
+      flex: 0 0 auto;
     }
-    #coach-text{
+    #hud-coach{
       font-size:12px;
       line-height:1.25;
       font-weight:900;
@@ -460,6 +458,8 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       color: rgba(148,163,184,.95);
       font-weight:900;
       white-space:nowrap;
+      min-width: 64px;
+      text-align:right;
     }
     .qline{ margin-top:7px; display:flex; align-items:center; gap:9px; }
     .qbar{
@@ -471,25 +471,24 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       overflow:hidden;
       position:relative;
     }
-    #hud-quest-main-bar, #hud-quest-mini-bar{
+    #hud-goal-bar, #hud-mini-bar{
       position:absolute; inset:0 auto 0 0;
       width:0%;
       border-radius:999px;
       background: linear-gradient(90deg, rgba(34,197,94,.9), rgba(59,130,246,.85));
       box-shadow:0 0 18px rgba(59,130,246,.18);
     }
-    #hud-quest-mini-bar{
+    #hud-mini-bar{
       background: linear-gradient(90deg, rgba(245,158,11,.9), rgba(34,197,94,.80));
       box-shadow:0 0 18px rgba(245,158,11,.16);
     }
     #hud-quest-hint{ margin-top:6px; font-size:11.5px; font-weight:1100; color: rgba(229,231,235,.92); }
     #hud-mini-count{ margin-top:6px; font-size:11.5px; font-weight:900; color: rgba(148,163,184,.95); }
 
-    /* compact mode after start */
+    /* compact mode */
     body.hha-compact .hud-meta{ display:none; }
     body.hha-compact #logBadge{ display:none; }
     body.hha-compact #hud-judge{ opacity:0; }
-
     body.hha-compact .hud-top{
       opacity:.82;
       background: rgba(2,6,23,.30);
@@ -500,20 +499,18 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
     body.hha-compact .hud-top .pill{ padding:4px 7px; }
     body.hha-compact .kv .label{ display:none; }
     body.hha-compact .kv .big{ font-size:15px; }
-
     body.hha-compact .hud-right{
       width: min(210px, 44vw);
       opacity:.78;
       gap:7px;
     }
     body.hha-compact .card{ padding: 7px 9px; }
-
     body.hha-compact .hud-bottom{
       max-height: 54px;
       padding: 7px 9px;
       opacity:.86;
     }
-    body.hha-compact #coach-bubble{ opacity:.0; transform: translateY(10px); }
+    body.hha-compact #coach-bubble{ opacity:0; transform: translateY(10px); }
 
     body.hha-compact.hha-peek .hud-bottom{ max-height: 112px; opacity:1; }
     body.hha-compact.hha-peek #coach-bubble{ opacity:1; transform: translateY(0); }
@@ -603,41 +600,6 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
     }
     #logdot{ width:8px; height:8px; border-radius:50%; background:#9ca3af; }
     #logtext{ white-space:nowrap; }
-
-    /* boss helpers */
-    #stun-vortex{
-      position:fixed;
-      left:50%; top:62%;
-      transform: translate(-50%,-50%);
-      width: 54px; height:54px;
-      border-radius:999px;
-      border:2px solid rgba(239,68,68,.0);
-      box-shadow: 0 0 0 0 rgba(239,68,68,.0);
-      z-index:9050;
-      pointer-events:none;
-      opacity:0;
-      transition: opacity .12s ease;
-    }
-    #stun-vortex.show{
-      opacity:1;
-      border-color: rgba(239,68,68,.45);
-      box-shadow: 0 0 0 10px rgba(239,68,68,.12);
-    }
-
-    #boss-beacon{
-      position:fixed;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      width: 58px; height:58px;
-      border-radius:999px;
-      border:2px solid rgba(245,158,11,.55);
-      box-shadow: 0 0 0 10px rgba(245,158,11,.14);
-      z-index:9050;
-      pointer-events:none;
-      opacity:0;
-      transition: opacity .12s ease;
-    }
-    #boss-beacon.show{ opacity:1; }
 
     /* boss HUD */
     #boss-wrap{
@@ -734,6 +696,9 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       .grid{ grid-template-columns: 1fr; }
       .gj-target{ font-size:52px; }
     }
+
+    /* tiny hidden compat nodes */
+    .hha-hidden{ position:fixed; left:-9999px; top:-9999px; width:1px; height:1px; overflow:hidden; opacity:0; }
   </style>
 </head>
 
@@ -777,7 +742,7 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
 
     <div class="hud-group">
       <div class="pill"><div class="kv"><div class="label">SCORE</div><div class="big" id="hud-score">0</div></div></div>
-      <div class="pill"><div class="kv"><div class="label">COMBO MAX</div><div class="big" id="hud-combo">0</div></div></div>
+      <div class="pill"><div class="kv"><div class="label">COMBO</div><div class="big" id="hud-combo">0</div></div></div>
       <div class="pill"><div class="kv"><div class="label">MISS</div><div class="big" id="hud-miss">0</div></div></div>
     </div>
   </div>
@@ -787,6 +752,8 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
     <div class="meta-pill">DIFF <b id="hud-diff-label">—</b></div>
     <div class="meta-pill">CH <b id="hud-challenge-label">—</b></div>
     <div class="meta-pill">TIME <b id="hud-time-label">—</b></div>
+    <div class="meta-pill">MAX <b id="hud-comboMax">0</b></div>
+    <div class="meta-pill"><b id="hud-rank">Grade: C</b></div>
   </div>
 
   <!-- logger badge -->
@@ -829,33 +796,29 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
 
   <!-- coach bubble -->
   <div id="coach-bubble" aria-live="polite">
-    <div id="coach-emoji" style="background-image:url('./img/coach-neutral.png')"></div>
-    <div id="coach-text">พร้อมลุย! เก็บของดี เลี่ยงขยะนะ 💪</div>
+    <img id="hud-coach-img" src="./img/coach-neutral.png" alt="coach" />
+    <div id="hud-coach">พร้อมลุย! เก็บของดี เลี่ยงขยะนะ 💪</div>
   </div>
 
   <!-- quest HUD bottom -->
   <div class="hud-bottom" id="hud-quest-wrap" title="แตะเพื่อ peek 2 วินาที">
-    <div class="qtitle" id="hud-quest-main">Goal: เริ่มภารกิจ…</div>
+    <div class="qtitle" id="hud-goal">Goal: เริ่มภารกิจ…</div>
     <div class="qline">
-      <div class="qbar"><i id="hud-quest-main-bar"></i></div>
-      <div class="qcap" id="hud-quest-main-caption"></div>
+      <div class="qbar"><i id="hud-goal-bar"></i></div>
+      <div class="qcap" id="hud-goal-prog"></div>
     </div>
 
     <div style="height:8px"></div>
 
-    <div class="qtitle" id="hud-quest-mini">Mini: —</div>
+    <div class="qtitle" id="hud-mini">Mini: —</div>
     <div class="qline">
-      <div class="qbar"><i id="hud-quest-mini-bar"></i></div>
-      <div class="qcap" id="hud-quest-mini-caption"></div>
+      <div class="qbar"><i id="hud-mini-bar"></i></div>
+      <div class="qcap" id="hud-mini-prog"></div>
     </div>
 
     <div id="hud-quest-hint"></div>
     <div id="hud-mini-count"></div>
   </div>
-
-  <!-- aim helpers -->
-  <div id="stun-vortex" aria-hidden="true"></div>
-  <div id="boss-beacon" aria-hidden="true"></div>
 
   <!-- START overlay -->
   <div id="start-overlay">
@@ -892,10 +855,12 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
       <div class="sumTitle">สรุปผลการเล่น</div>
 
       <div class="grid">
+        <div class="stat"><div class="k">GRADE</div><div class="v" id="sum-grade">C</div></div>
         <div class="stat"><div class="k">SCORE</div><div class="v" id="sum-score">0</div></div>
         <div class="stat"><div class="k">COMBO MAX</div><div class="v" id="sum-combo">0</div></div>
         <div class="stat"><div class="k">GOOD HITS</div><div class="v" id="sum-good">0</div></div>
         <div class="stat"><div class="k">MISS</div><div class="v" id="sum-miss">0</div></div>
+        <div class="stat"><div class="k">QUESTS</div><div class="v" id="sum-quests">0/0</div></div>
       </div>
 
       <div class="sumActions">
@@ -905,24 +870,69 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
     </div>
   </div>
 
-  <!-- Layout helper + OFFSET REFRESH (no game logic touch) -->
+  <!-- hidden compat nodes for hha-hud.js -->
+  <div class="hha-hidden">
+    <span id="hud-time">0</span>
+    <span id="hud-shield">0</span>
+    <span id="hud-group">—</span>
+  </div>
+
+  <!-- Layout helper + OFFSET + AIMPOINT + HUD glue -->
   <script>
     (function(){
       const body = document.body;
-      const q = document.getElementById('hud-quest-wrap');
+
+      const layer = document.getElementById('gj-layer');
+      const aim = document.getElementById('aim');
+
+      const qWrap = document.getElementById('hud-quest-wrap');
       const top = document.getElementById('hud-pill');
       const right = document.getElementById('hud-right');
 
       const b2d = document.getElementById('btn-start-2d');
       const bvr = document.getElementById('btn-start-vr');
 
+      // meta
+      const elDiff = document.getElementById('hud-diff-label');
+      const elCh   = document.getElementById('hud-challenge-label');
+      const elTimeLabel = document.getElementById('hud-time-label');
+      const elComboMax = document.getElementById('hud-comboMax');
+
+      // judge
+      const elJudge = document.getElementById('hud-judge');
+
+      // quest bars + captions
+      const goalBar = document.getElementById('hud-goal-bar');
+      const miniBar = document.getElementById('hud-mini-bar');
+
+      // shield display (ui-fever may also set it; we keep in sync)
+      const shieldCount = document.getElementById('shield-count');
+      const hudShield = document.getElementById('hud-shield');
+      const hudTime = document.getElementById('hud-time');
+
+      // boss HUD
+      const bossWrap = document.getElementById('boss-wrap');
+      const bossFill = document.getElementById('boss-fill');
+      const bossPhase = document.getElementById('boss-phase');
+
+      // summary
+      const sumOverlay = document.getElementById('sum-overlay');
+      const sumGrade = document.getElementById('sum-grade');
+      const sumScore = document.getElementById('sum-score');
+      const sumCombo = document.getElementById('sum-combo');
+      const sumGood  = document.getElementById('sum-good');
+      const sumMiss  = document.getElementById('sum-miss');
+      const sumQuests= document.getElementById('sum-quests');
+      const btnExit  = document.getElementById('btn-exit');
+      const btnReplay= document.getElementById('btn-replay');
+
+      // compact peek
       function peek(){
         body.classList.add('hha-peek');
         clearTimeout(window.__hhaPeekT);
         window.__hhaPeekT = setTimeout(()=> body.classList.remove('hha-peek'), 2000);
       }
-
-      if (q) q.addEventListener('click', peek, { passive:true });
+      if (qWrap) qWrap.addEventListener('click', peek, { passive:true });
       if (top) top.addEventListener('click', peek, { passive:true });
       if (right) right.addEventListener('click', peek, { passive:true });
 
@@ -938,22 +948,185 @@ GoodJunkVR — FULL HTML (FIX: targets visible + offset + atk ring/laser)
         body.classList.remove('hha-peek');
       });
 
-      // ✅ FIX: keep layer offset accurate (mobile address bar / rotate / scroll)
-      const layer = document.getElementById('gj-layer');
+      // layer offset (mobile safe)
       function refreshLayerOffset(){
         try{
           const r = layer.getBoundingClientRect();
           window.__GJ_LAYER_OFFSET__ = { x: r.left, y: r.top };
         }catch(e){}
       }
-      refreshLayerOffset();
-      window.addEventListener('resize', refreshLayerOffset, { passive:true });
-      window.addEventListener('scroll',  refreshLayerOffset, { passive:true });
-      window.addEventListener('orientationchange', refreshLayerOffset, { passive:true });
-      if (window.visualViewport){
-        window.visualViewport.addEventListener('resize', refreshLayerOffset, { passive:true });
-        window.visualViewport.addEventListener('scroll', refreshLayerOffset, { passive:true });
+
+      // aim point for crosshair hit-test
+      function refreshAimPoint(){
+        try{
+          const r = aim.getBoundingClientRect();
+          window.__GJ_AIM_POINT__ = { x: (r.left + r.width/2)|0, y: (r.top + r.height/2)|0 };
+        }catch(e){}
       }
+
+      function refreshAll(){
+        refreshLayerOffset();
+        refreshAimPoint();
+      }
+      refreshAll();
+
+      window.addEventListener('resize', refreshAll, { passive:true });
+      window.addEventListener('scroll',  refreshAll, { passive:true });
+      window.addEventListener('orientationchange', refreshAll, { passive:true });
+      if (window.visualViewport){
+        window.visualViewport.addEventListener('resize', refreshAll, { passive:true });
+        window.visualViewport.addEventListener('scroll', refreshAll, { passive:true });
+      }
+
+      // fill meta from selectors (boot will also do its own; we just keep UI consistent)
+      const selDiff = document.getElementById('sel-diff');
+      const selCh = document.getElementById('sel-challenge');
+      function syncMetaFromSel(){
+        if (elDiff && selDiff) elDiff.textContent = (selDiff.value || '—');
+        if (elCh && selCh) elCh.textContent = (selCh.value || '—');
+      }
+      if (selDiff) selDiff.addEventListener('change', syncMetaFromSel, { passive:true });
+      if (selCh) selCh.addEventListener('change', syncMetaFromSel, { passive:true });
+      syncMetaFromSel();
+
+      // judge
+      function showJudge(text){
+        if (!elJudge) return;
+        elJudge.textContent = text || '';
+        elJudge.classList.add('show');
+        clearTimeout(window.__gjJudgeT);
+        window.__gjJudgeT = setTimeout(()=> elJudge.classList.remove('show'), 650);
+      }
+      window.addEventListener('hha:judge', (ev)=>{
+        const d = ev && ev.detail ? ev.detail : {};
+        showJudge(String(d.label || ''));
+      });
+
+      // fx overlay (optional)
+      const fx = document.getElementById('fx-chroma');
+      function fxChroma(ms=160, hero=false){
+        if (!fx) return;
+        fx.classList.toggle('hero', !!hero);
+        fx.classList.add('show');
+        clearTimeout(window.__fxT);
+        window.__fxT = setTimeout(()=> fx.classList.remove('show','hero'), Math.max(60, ms|0));
+      }
+      function fxKick(intensity=1){
+        const k = Math.max(0.2, Math.min(2.6, Number(intensity)||1));
+        body.animate([
+          { transform:'translate3d(0,0,0)' },
+          { transform:`translate3d(${(Math.random()*2-1)*6*k}px, ${(Math.random()*2-1)*5*k}px, 0)` },
+          { transform:'translate3d(0,0,0)' }
+        ], { duration: 120, iterations: 1, easing:'ease-out' });
+      }
+      window.addEventListener('hha:fx', (ev)=>{
+        const d = ev && ev.detail ? ev.detail : {};
+        const t = String(d.type||'');
+        if (t==='chroma') fxChroma(d.ms||160, false);
+        if (t==='hero') fxChroma(d.ms||220, true);
+        if (t==='kick') fxKick(d.intensity||1);
+      });
+
+      // quest bars
+      function pct(cur, target){
+        cur = Number(cur)||0; target = Number(target)||0;
+        if (target <= 0) return 0;
+        return Math.max(0, Math.min(100, (cur/target)*100));
+      }
+      window.addEventListener('quest:update', (ev)=>{
+        const d = ev && ev.detail ? ev.detail : {};
+        // use either object form or flat fallback
+        const g = d.goal || null;
+        const m = d.mini || null;
+
+        const gCur = (g ? (g.cur ?? g.prog ?? 0) : (d.goalCur ?? 0));
+        const gTgt = (g ? (g.target ?? 0) : (d.goalTarget ?? 0));
+        const mCur = (m ? (m.cur ?? m.prog ?? 0) : (d.miniCur ?? 0));
+        const mTgt = (m ? (m.target ?? 0) : (d.miniTarget ?? 0));
+
+        if (goalBar) goalBar.style.width = pct(gCur, gTgt).toFixed(1) + '%';
+        if (miniBar) miniBar.style.width = pct(mCur, mTgt).toFixed(1) + '%';
+      });
+
+      // time sync: hha-hud.js updates #hud-time, we mirror into meta
+      window.addEventListener('hha:time', (ev)=>{
+        const d = ev && ev.detail ? ev.detail : {};
+        const sec = (d.left ?? d.sec ?? d.timeLeft ?? 0) | 0;
+        if (hudTime) hudTime.textContent = String(Math.max(0, sec));
+        if (elTimeLabel) elTimeLabel.textContent = String(Math.max(0, sec));
+      });
+
+      // score sync extras
+      window.addEventListener('hha:score', (ev)=>{
+        const d = ev && ev.detail ? ev.detail : {};
+
+        // combo max
+        if (elComboMax && d.comboMax != null) elComboMax.textContent = String(d.comboMax|0);
+
+        // shield count (keep in sync even if hha-hud.js doesn't have #hud-shield visible)
+        if (d.shield != null){
+          const v = String(d.shield|0);
+          if (hudShield) hudShield.textContent = v;
+          if (shieldCount) shieldCount.textContent = v;
+        }
+
+        // boss HUD
+        const alive = !!d.bossAlive;
+        if (bossWrap){
+          bossWrap.classList.toggle('show', alive);
+          if (alive){
+            const hp = Math.max(0, (d.bossHp|0));
+            const hpMax = Math.max(1, (d.bossHpMax|0));
+            const w = Math.max(0, Math.min(100, (hp/hpMax)*100));
+            if (bossFill) bossFill.style.width = w.toFixed(1) + '%';
+            if (bossPhase) bossPhase.textContent = 'P' + String(d.bossPhase|0 || 1);
+          }
+        }
+      });
+
+      // rank mirror (hha-hud.js will write #hud-rank already; no-op ok)
+      // end summary
+      window.addEventListener('hha:end', (ev)=>{
+        const d = ev && ev.detail ? ev.detail : {};
+        if (!sumOverlay) return;
+
+        sumGrade.textContent = String((d.grade || 'C')).toUpperCase();
+        sumScore.textContent = String(d.scoreFinal ?? d.score ?? 0);
+        sumCombo.textContent = String(d.comboMax ?? 0);
+        sumGood.textContent  = String(d.goodHits ?? 0);
+        sumMiss.textContent  = String(d.misses ?? 0);
+
+        const gC = (d.goalsCleared ?? 0)|0, gT = (d.goalsTotal ?? 0)|0;
+        const mC = (d.miniCleared  ?? 0)|0, mT = (d.miniTotal  ?? 0)|0;
+        const done = gC + mC, tot = gT + mT;
+        sumQuests.textContent = String(done) + '/' + String(tot);
+
+        sumOverlay.classList.add('show');
+      });
+
+      // summary actions
+      function closeSummary(){
+        if (sumOverlay) sumOverlay.classList.remove('show');
+      }
+      if (btnExit) btnExit.addEventListener('click', ()=>{
+        closeSummary();
+        const start = document.getElementById('start-overlay');
+        if (start) start.style.display = 'flex';
+      });
+
+      if (btnReplay) btnReplay.addEventListener('click', ()=>{
+        // simplest: reload (keeps query params)
+        location.reload();
+      });
+
+      // hide start overlay when game actually starts (best-effort: first score event)
+      let startedOnce = false;
+      window.addEventListener('hha:score', ()=>{
+        if (startedOnce) return;
+        startedOnce = true;
+        const start = document.getElementById('start-overlay');
+        if (start) start.style.display = 'none';
+      });
 
     })();
   </script>
