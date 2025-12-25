@@ -5,11 +5,13 @@
 // ✅ Minimal HUD + Crosshair + Hit flash
 // ✅ Anti-overlap spawn + Safe-zone (avoid HUD/panels)
 // ✅ Cap max targets (mobile performance)
-// ✅ Boss: Telegraph patterns (RING/LASER/DOUBLE) + punish fair (only when boss close)
+// ✅ Boss: telegraph clearer + punish only when boss close to crosshair
 // ✅ Air-shot feedback (soft punish, no life loss)
 // ✅ Fever event bridge (particles listens to hha:fever)
-// ✅ REPLAY: record/play deterministic input stream (strict tick-lock + seed)
-// ✅ FIX: expireTargets guard against undefined rec
+// ✅ PATCH (2025-12-25):
+//    - Remove duplicated input events (click/touchstart/mousedown) → pointerdown only
+//    - Add per-target hit lock + global shoot lock (กันยิง/ตีซ้อน)
+//    - Guard undefined rec in expireTargets (fix: Cannot read properties of undefined 'dead')
 
 'use strict';
 
@@ -67,23 +69,10 @@ function setShow(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
 const URLX = new URL(ROOT.location.href);
 const Q = URLX.searchParams;
 
-let MODE = String(Q.get('run') || 'play').toLowerCase();      // play | research
-const DIFF = String(Q.get('diff') || 'normal').toLowerCase(); // easy | normal | hard
-const DEBUG = (Q.get('debug') === '1') || (Q.get('debug') === 'true');
-
-// Replay (record/play/off)
-const REPLAY_MODE = String(Q.get('replay') || 'off').toLowerCase(); // off | record | play
-const REPLAY_KEY  = String(Q.get('replayKey') || 'default').trim() || 'default';
-const REPLAY_ON   = (REPLAY_MODE === 'record' || REPLAY_MODE === 'play');
-
-// ถ้าเปิด replay ให้บังคับ research mode เพื่อให้ deterministic
-if (REPLAY_ON) MODE = 'research';
-
-const DEFAULT_TIME_BY_DIFF = { easy: 90, normal: 75, hard: 60 };
-const TOTAL_TIME = Math.max(
-  20,
-  parseInt(Q.get('time') || '', 10) || DEFAULT_TIME_BY_DIFF[DIFF] || 90
-);
+const MODE = String(Q.get('run') || 'play').toLowerCase();      // play | research
+const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal | hard
+const TOTAL_TIME = Math.max(20, parseInt(Q.get('time') || '90', 10) || 90);
+const DEBUG = (Q.get('debug') === '1');
 
 // ---------- RNG (Research strict) ----------
 let SEED = parseInt(Q.get('seed') || '', 10);
@@ -97,11 +86,10 @@ function srnd(){
   _seed ^= (_seed << 5); _seed >>>= 0;
   return (_seed >>> 0) / 4294967296;
 }
-
-const STRICT_RESEARCH = (MODE === 'research') || REPLAY_ON;
-const R = STRICT_RESEARCH ? srnd : Math.random;
+const R = (MODE === 'research') ? srnd : Math.random;
 
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const now = ()=>performance.now();
 const fmt = (n)=>String(Math.max(0, Math.floor(n)));
 const rnd = (a,b)=>a + R()*(b-a);
 function randFrom(arr){ return arr[(R()*arr.length)|0]; }
@@ -188,14 +176,7 @@ const LIVES_START = (Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0) ? LIVES_PA
 
 const S = {
   running:false, paused:false,
-
-  // time
-  tStartAbs: 0,     // absolute start (performance.now)
-  simMs: 0,         // deterministic ms since start (strict tick-lock)
-  rafPrevAbs: 0,
-
-  timeLeft:TOTAL_TIME,
-
+  tStart:0, timeLeft:TOTAL_TIME,
   score:0, combo:0, maxCombo:0,
   miss:0, perfectCount:0,
   fever:0, feverOn:false,
@@ -221,17 +202,6 @@ const S = {
 
   sessionId:`PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`
 };
-
-// ---------- Deterministic clock ----------
-const FIXED_DT_MS = 1000/60; // 16.666...
-function nowAbs(){
-  // absolute time reference used throughout logic
-  return STRICT_RESEARCH ? (S.tStartAbs + S.simMs) : performance.now();
-}
-function nowSimMs(){
-  // ms since start for replay/logging
-  return STRICT_RESEARCH ? Math.round(S.simMs) : Math.round(Math.max(0, performance.now() - S.tStartAbs));
-}
 
 // ---------- Helpers ----------
 function inVR(){
@@ -287,6 +257,7 @@ function flash(kind='bad', ms=110){
     border-radius:999px; display:grid; place-items:center;
     font-weight:1000; user-select:none; -webkit-tap-highlight-color:transparent;
     box-shadow:0 18px 46px rgba(0,0,0,.35); backdrop-filter: blur(8px);
+    touch-action:none;
   }
   .plateTarget::before{content:''; position:absolute; inset:-2px; border-radius:inherit; pointer-events:none; opacity:.95;}
   .plateTarget.good{background:rgba(34,197,94,.16); border:1px solid rgba(34,197,94,.35);}
@@ -340,76 +311,6 @@ const layer = doc.createElement('div');
 layer.className = 'plate-layer';
 doc.body.appendChild(layer);
 
-// ---------- Telegraph FX (Boss warning patterns) ----------
-let tgLayer = null;
-
-function ensureTelegraphLayer(){
-  if(!doc || tgLayer) return;
-  const st = doc.createElement('style');
-  st.textContent = `
-    .hha-tg-layer{position:fixed; inset:0; pointer-events:none; z-index:9997;}
-    .hha-tg-ring{
-      position:absolute; left:0; top:0;
-      width:200px; height:200px; border-radius:999px;
-      border:3px solid rgba(248,113,113,.80);
-      box-shadow:0 0 0 10px rgba(248,113,113,.10), 0 0 60px rgba(248,113,113,.22);
-      transform:translate3d(-9999px,-9999px,0) scale(.25);
-      opacity:0;
-      animation:hhaRing 520ms ease-out both;
-    }
-    @keyframes hhaRing{
-      0%{opacity:0; transform:translate3d(var(--x), var(--y), 0) scale(.15);}
-      20%{opacity:1;}
-      100%{opacity:0; transform:translate3d(var(--x), var(--y), 0) scale(1.08);}
-    }
-    .hha-tg-laser{
-      position:absolute; left:0; top:0;
-      height:10px; border-radius:999px;
-      background:linear-gradient(90deg, rgba(248,113,113,.05), rgba(248,113,113,.85), rgba(248,113,113,.05));
-      box-shadow:0 0 0 10px rgba(248,113,113,.08), 0 0 70px rgba(248,113,113,.20);
-      transform-origin:left center;
-      opacity:0;
-      animation:hhaLaser 520ms ease-out both;
-    }
-    @keyframes hhaLaser{
-      0%{opacity:0; filter:brightness(1.15);}
-      18%{opacity:1;}
-      100%{opacity:0; filter:brightness(1);}
-    }
-  `;
-  doc.head.appendChild(st);
-
-  tgLayer = doc.createElement('div');
-  tgLayer.className = 'hha-tg-layer';
-  doc.body && doc.body.appendChild(tgLayer);
-}
-
-function tgRingAt(x,y, size=220){
-  ensureTelegraphLayer();
-  const el = doc.createElement('div');
-  el.className = 'hha-tg-ring';
-  el.style.width = `${size}px`;
-  el.style.height = `${size}px`;
-  el.style.setProperty('--x', `${x - size/2}px`);
-  el.style.setProperty('--y', `${y - size/2}px`);
-  tgLayer.appendChild(el);
-  setTimeout(()=>{ try{el.remove();}catch(_){} }, 650);
-}
-
-function tgLaser(x1,y1, x2,y2){
-  ensureTelegraphLayer();
-  const dx = x2-x1, dy=y2-y1;
-  const len = Math.max(40, Math.hypot(dx,dy));
-  const ang = Math.atan2(dy,dx) * 180/Math.PI;
-
-  const el = doc.createElement('div');
-  el.className = 'hha-tg-laser';
-  el.style.width = `${len}px`;
-  el.style.transform = `translate3d(${x1}px, ${y1-5}px, 0) rotate(${ang}deg)`;
-  tgLayer.appendChild(el);
-  setTimeout(()=>{ try{el.remove();}catch(_){} }, 650);
-}
-
 // ---------- Audio (tiny beeps) ----------
 const AudioX = (function(){
   let ctx=null;
@@ -443,16 +344,13 @@ function logSession(phase){
   dispatchEvt('hha:log_session',{
     sessionId:S.sessionId, game:'PlateVR', phase,
     mode:MODE, diff:DIFF, timeTotal:TOTAL_TIME, lives:S.livesMax,
-    seed: SEED, ts:Date.now(), ua:navigator.userAgent,
-    strict: !!STRICT_RESEARCH,
-    replay: REPLAY_ON ? REPLAY_MODE : 'off',
-    replayKey: REPLAY_KEY
+    seed: SEED, ts:Date.now(), ua:navigator.userAgent
   });
 }
 function logEvent(type, data){
   dispatchEvt('hha:log_event',{
     sessionId:S.sessionId, game:'PlateVR', type,
-    t: nowSimMs(),
+    t: Math.round((now() - S.tStart) || 0),
     score:S.score, combo:S.combo, miss:S.miss, perfect:S.perfectCount,
     fever:Math.round(S.fever), shield:S.shield, lives:S.lives,
     data:data||{}
@@ -534,7 +432,6 @@ const FOOD_BY_GROUP={
 const JUNK=['🍩','🍟','🍔','🍕','🧋','🍭','🍫','🥤'];
 const TRAPS=['🎁','⭐','🍬','🍰','🧁'];
 
-function isBadKind(kind){ return (kind==='junk'||kind==='trap'||kind==='fakebad'); }
 function isPowerKind(kind){ return (kind==='slow'||kind==='nojunk'||kind==='storm'); }
 
 // ---------- Score/Fever/Grade ----------
@@ -655,7 +552,7 @@ function startMini(){
   const idx=S.minisCleared % MINIS.length;
   const m=MINIS[idx];
   S.activeMini=m;
-  S.miniEndsAt=nowAbs()+m.dur;
+  S.miniEndsAt=now()+m.dur;
   S.miniUrgentArmed=false;
   S.miniTickAt=0;
   if(typeof m.init==='function') m.init();
@@ -665,7 +562,7 @@ function startMini(){
 function updateMiniHud(){
   const m=S.activeMini;
   if(!m){ setTxt(HUD.miniLine,'MINI: …'); setTxt(HUD.miniHint,'…'); return; }
-  const left=Math.max(0,(S.miniEndsAt-nowAbs())/1000);
+  const left=Math.max(0,(S.miniEndsAt-now())/1000);
   const prog=(typeof m.progress==='function') ? m.progress() : '';
   const p = prog ? ` • ${prog}` : '';
   setTxt(HUD.miniLine, `MINI: ${m.title}${p} • ${left.toFixed(1)}s`);
@@ -675,7 +572,7 @@ function tickMini(){
   const m=S.activeMini; if(!m) return;
   if(typeof m.tick==='function') m.tick();
 
-  const leftMs=S.miniEndsAt-nowAbs();
+  const leftMs=S.miniEndsAt-now();
   const urgent=(leftMs<=3000 && leftMs>0);
 
   if(urgent && !S.miniUrgentArmed){
@@ -728,7 +625,7 @@ function onGood(group){
   }
 }
 
-// ---------- Aim assist ----------
+// ---------- Aim assist (for boss-close check too) ----------
 function pickNearCrosshair(radiusPx){
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const cx=vw/2, cy=vh/2;
@@ -746,8 +643,9 @@ function pickNearCrosshair(radiusPx){
 function updateAimHighlight(){
   const assist = inVR()? Math.max(D.aimAssist,170) : D.aimAssist;
   const picked=pickNearCrosshair(assist);
-  const tid=picked && picked.rec && picked.rec.el ? picked.rec.el.dataset.tid : null;
+  const tid=picked? picked.rec.el.dataset.tid : null;
   if(tid===S.aimedId) return;
+
   if(S.aimedId){
     const prev=S.targets.find(r=>r && r.el && r.el.dataset && r.el.dataset.tid===S.aimedId);
     prev && prev.el && prev.el.classList.remove('aimed');
@@ -798,6 +696,7 @@ function makeTarget(kind, group, opts={}){
   el.style.setProperty('--x', `${(pos.x - sizePx/2)}px`);
   el.style.setProperty('--y', `${(pos.y - sizePx/2)}px`);
   el.style.setProperty('--sc', `${sc2}`);
+  el.style.touchAction = 'none';
 
   let emoji='🍽️', tag='', hp=0, meta={};
 
@@ -823,13 +722,13 @@ function makeTarget(kind, group, opts={}){
     ${tag ? `<div class="tag">${tag}</div>` : ``}
   `;
 
-  const bornAt=nowAbs();
+  const bornAt=now();
   let life=D.life;
   if(kind==='boss') life=clamp(D.life*1.8,3400,7800);
   if(kind==='gold') life=D.life*0.92;
   if(kind==='trap'||kind==='fake') life=D.life*0.95;
   if(isPowerKind(kind)) life=clamp(D.life*0.95,1700,3200);
-  if(nowAbs()<S.slowUntil) life*=1.12;
+  if(now()<S.slowUntil) life*=1.12;
 
   const rec={
     el, kind, group,
@@ -837,21 +736,25 @@ function makeTarget(kind, group, opts={}){
     cx:pos.x, cy:pos.y, size:sizePx,
     hp, hpMax:hp, dead:false,
     meta,
-    atkAt:(kind==='boss') ? (bornAt + (STRICT_RESEARCH ? Math.round((D.bossAtkMs[0]+D.bossAtkMs[1])*0.5) : rnd(D.bossAtkMs[0], D.bossAtkMs[1]))) : 0,
+    atkAt:(kind==='boss') ? (bornAt + rnd(D.bossAtkMs[0], D.bossAtkMs[1])) : 0,
     _warned:false,
-    _doubleAt:0,
+    _hitLock:false,
   };
 
   S.targets.push(rec);
 
+  // ✅ pointerdown ONLY + hit lock (กัน event ซ้อน)
   const hitHandler=(e)=>{
+    if(!S.running || S.paused || !rec || rec.dead) return;
+    if(rec._hitLock) return;
+    rec._hitLock = true;
+    setTimeout(()=>{ rec._hitLock = false; }, 0);
+
     e.preventDefault(); e.stopPropagation();
     AudioX.unlock();
-    hitTarget(rec,true,false);
+    hitTarget(rec,true);
   };
   el.addEventListener('pointerdown', hitHandler, {passive:false});
-  el.addEventListener('click', hitHandler, {passive:false});
-  el.addEventListener('touchstart', hitHandler, {passive:false});
 
   layer.appendChild(el);
   setTimeout(()=>el.classList.remove('spawn'), 260);
@@ -859,29 +762,27 @@ function makeTarget(kind, group, opts={}){
   logEvent('spawn',{kind,group,size:sizePx,x:rec.cx,y:rec.cy,hp});
   return rec;
 }
-
 function removeTarget(rec){
-  if(!rec || rec.dead) return;
+  if(!rec||rec.dead) return;
   rec.dead=true;
-  try{ rec.el && rec.el.remove(); }catch(_){}
+  try{ rec.el.remove(); }catch(_){}
   const i=S.targets.indexOf(rec);
   if(i>=0) S.targets.splice(i,1);
 }
-
 function bossHpSync(rec){
-  if(!rec||rec.kind!=='boss' || !rec.el) return;
+  if(!rec||rec.kind!=='boss') return;
   const bar=rec.el.querySelector('.hp > div');
   if(!bar) return;
   const ratio=rec.hpMax ? clamp(rec.hp/rec.hpMax,0,1) : 0;
   rec.el.style.setProperty('--hp', String(ratio));
   bar.style.transform = `scaleX(${ratio})`;
 }
-
 function expireTargets(){
-  const t=nowAbs();
+  const t=now();
   for(let i=S.targets.length-1;i>=0;i--){
     const rec=S.targets[i];
-    if(!rec || rec.dead) continue; // ✅ FIX guard undefined
+    if(!rec) continue;           // ✅ guard hole/undefined
+    if(rec.dead) continue;
     if(t>=rec.dieAt){
       if(rec.kind==='good'||rec.kind==='gold'){
         onMiss('expire_good',{kind:rec.kind,group:rec.group});
@@ -889,7 +790,7 @@ function expireTargets(){
         flash('bad', 110);
         logEvent('miss_expire',{kind:rec.kind,group:rec.group});
       }else if(rec.kind==='boss'){
-        bossAttackPunish('boss_expire', true, 'ring');
+        bossAttackPunish('boss_expire', true);
         S.bossActive=false;
       }
       removeTarget(rec);
@@ -911,8 +812,8 @@ function onMiss(reason, extra={}){
   S.combo=0; setTxt(HUD.combo,0);
   S.miss++; setTxt(HUD.miss,S.miss);
 
-  const t=nowAbs();
-  const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack'||reason==='boss_attack2');
+  const t=now();
+  const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
   if(!protectedNoJunk) setLives(S.lives-1);
 
   updateGrade();
@@ -923,38 +824,30 @@ function punishBad(reason){
   if(shieldBlock(reason)){ addScore(-60); addFever(-6); return; }
   S.combo=0; setTxt(HUD.combo,0);
   addFever(reason==='boss'?-22:-16);
-  addScore((nowAbs()<S.noJunkUntil)?-120:(reason==='trap'?-240:-180));
-  fxJudge((nowAbs()<S.noJunkUntil)?'BAD(SAFE)':'BAD');
+  addScore((now()<S.noJunkUntil)?-120:(reason==='trap'?-240:-180));
+  fxJudge((now()<S.noJunkUntil)?'BAD(SAFE)':'BAD');
   flash(reason==='boss'?'boss':'bad', 120);
   AudioX.bad(); vibe(reason==='boss'?75:45);
   onMiss(reason,{});
 }
-
-function bossAttackPunish(tag, forceHit=false, style='ring'){
+function bossAttackPunish(tag, forceHit=false){
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const cx=vw/2, cy=vh/2;
   const off=viewOffset();
 
   let boss=null;
-  for(const r of S.targets){
-    if(!r || r.dead) continue;
-    if(r.kind==='boss'){ boss=r; break; }
-  }
-
+  for(const r of S.targets){ if(r && !r.dead && r.kind==='boss'){ boss=r; break; } }
   let close=false;
   if(boss){
     const sx=boss.cx+off.x, sy=boss.cy+off.y;
     const d=Math.hypot(sx-cx, sy-cy);
-
-    const dangerBase = inVR()? 240 : 210;
-    const danger = (style==='laser') ? (dangerBase+40) : dangerBase;
-
+    const danger = inVR()? 240 : 210;
     close = (d <= danger);
   }
   if(forceHit) close=true;
 
   AudioX.atk(); vibe(35);
-  logEvent('boss_attack_punish',{tag, close, style});
+  logEvent('boss_attack_punish',{tag, close});
 
   if(!close){
     fxJudge('DODGED!');
@@ -965,109 +858,29 @@ function bossAttackPunish(tag, forceHit=false, style='ring'){
 
   if(shieldBlock(tag)){ addScore(-80); addFever(-8); return; }
   addScore(-320); addFever(-20);
-  fxJudge(style==='laser' ? 'LASER HIT!' : 'BOSS ATK!');
+  fxJudge('BOSS ATK!');
   flash('boss', 140);
-  onMiss(tag==='boss_attack2'?'boss_attack2':'boss_attack',{style});
+  onMiss('boss_attack',{});
 }
 
 // ---------- Powerups ----------
 function activateSlow(ms){
-  S.slowUntil=Math.max(S.slowUntil, nowAbs()+ms);
+  S.slowUntil=Math.max(S.slowUntil, now()+ms);
   AudioX.power(); vibe(25); fxCelebrate('SLOW!', 1.0);
   logEvent('power_slow',{until:S.slowUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateNoJunk(ms){
-  S.noJunkUntil=Math.max(S.noJunkUntil, nowAbs()+ms);
+  S.noJunkUntil=Math.max(S.noJunkUntil, now()+ms);
   AudioX.power(); vibe(25); fxCelebrate('NO-JUNK!', 1.0);
   logEvent('power_nojunk',{until:S.noJunkUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateStorm(ms){
-  S.stormUntil=Math.max(S.stormUntil, nowAbs()+ms);
+  S.stormUntil=Math.max(S.stormUntil, now()+ms);
   AudioX.power(); vibe(30); fxCelebrate('STORM!', 1.05);
   logEvent('power_storm',{until:S.stormUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
-}
-
-// ---------- Replay (record/play deterministic input stream) ----------
-const REPLAY_STORE_PREFIX = 'HHA:PlateVR:';
-const Replay = {
-  mode: REPLAY_MODE,  // off | record | play
-  key: REPLAY_KEY,
-  events: [],
-  idx: 0,
-  armed: REPLAY_ON,
-
-  load(){
-    if(!this.armed || this.mode!=='play') return false;
-    try{
-      const raw = localStorage.getItem(REPLAY_STORE_PREFIX + this.key);
-      if(!raw) return false;
-      const obj = JSON.parse(raw);
-      if(!obj || !Array.isArray(obj.events)) return false;
-      this.events = obj.events.slice().sort((a,b)=>a.t-b.t);
-      this.idx = 0;
-      logEvent('replay_loaded',{key:this.key,n:this.events.length});
-      return true;
-    }catch(_){ return false; }
-  },
-
-  save(){
-    if(!this.armed || this.mode!=='record') return false;
-    try{
-      const payload = {
-        v:1,
-        game:'PlateVR',
-        key:this.key,
-        seed:SEED,
-        strict:!!STRICT_RESEARCH,
-        diff:DIFF,
-        time:TOTAL_TIME,
-        events:this.events
-      };
-      localStorage.setItem(REPLAY_STORE_PREFIX + this.key, JSON.stringify(payload));
-      dispatchEvt('hha:replay', payload);
-      logEvent('replay_saved',{key:this.key,n:this.events.length});
-      return true;
-    }catch(_){ return false; }
-  },
-
-  reset(){ this.events=[]; this.idx=0; },
-
-  nowT(){ return Math.round(S.simMs); }, // deterministic ms since start
-
-  push(ev){
-    if(!this.armed || this.mode!=='record') return;
-    this.events.push(ev);
-  },
-
-  pump(){
-    if(!this.armed || this.mode!=='play') return;
-    while(this.idx < this.events.length){
-      const ev = this.events[this.idx];
-      const tNow = this.nowT();
-      if(ev.t > tNow + 1) break;
-      this.idx++;
-      try{
-        if(ev.type==='shoot'){
-          shootCrosshair(true); // fromReplay
-        }else if(ev.type==='direct'){
-          const tid = String(ev.tid||'');
-          const rec = S.targets.find(r=>r && !r.dead && r.el && r.el.dataset && r.el.dataset.tid===tid);
-          if(rec) hitTarget(rec,true,true);
-          else shootCrosshair(true);
-        }else if(ev.type==='pause'){
-          setPaused(!!ev.on);
-        }
-      }catch(_){}
-    }
-  }
-};
-
-if(REPLAY_ON && REPLAY_MODE==='play'){
-  const ok = Replay.load();
-  if(!ok) console.warn('[PlateVR] replay=play but no data for key:', REPLAY_KEY);
 }
 
 // ---------- Hit handling ----------
@@ -1076,14 +889,8 @@ function judgeFromDist(distPx, sizePx){
   return (n<=0.38) ? 'PERFECT' : 'HIT';
 }
 
-function hitTarget(rec, direct, fromReplay=false){
+function hitTarget(rec, direct){
   if(!S.running || S.paused || !rec || rec.dead) return;
-
-  // record direct-hit
-  if(REPLAY_ON && !fromReplay && Replay.mode==='record' && direct){
-    const tid = rec && rec.el && rec.el.dataset ? rec.el.dataset.tid : '';
-    Replay.push({ t: Replay.nowT(), type:'direct', tid });
-  }
 
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const cx=vw/2, cy=vh/2;
@@ -1091,9 +898,8 @@ function hitTarget(rec, direct, fromReplay=false){
   const sx=rec.cx+off.x, sy=rec.cy+off.y;
   const dist=Math.hypot(sx-cx, sy-cy);
 
-  // power targets
   if(rec.kind==='slow'){
-    const ms = (STRICT_RESEARCH) ? Math.round((D.slowDurMs[0]+D.slowDurMs[1])*0.5) : rnd(D.slowDurMs[0],D.slowDurMs[1]);
+    const ms = (MODE==='research') ? Math.round((D.slowDurMs[0]+D.slowDurMs[1])*0.5) : rnd(D.slowDurMs[0],D.slowDurMs[1]);
     activateSlow(ms);
     fxBurst(sx,sy,'power'); fxPop('+120',sx,sy);
     flash('good', 90);
@@ -1102,7 +908,7 @@ function hitTarget(rec, direct, fromReplay=false){
     removeTarget(rec); updateGrade(); return;
   }
   if(rec.kind==='nojunk'){
-    const ms = (STRICT_RESEARCH) ? Math.round((D.noJunkDurMs[0]+D.noJunkDurMs[1])*0.5) : rnd(D.noJunkDurMs[0],D.noJunkDurMs[1]);
+    const ms = (MODE==='research') ? Math.round((D.noJunkDurMs[0]+D.noJunkDurMs[1])*0.5) : rnd(D.noJunkDurMs[0],D.noJunkDurMs[1]);
     activateNoJunk(ms);
     fxBurst(sx,sy,'power'); fxPop('+160',sx,sy);
     flash('good', 90);
@@ -1111,7 +917,7 @@ function hitTarget(rec, direct, fromReplay=false){
     removeTarget(rec); updateGrade(); return;
   }
   if(rec.kind==='storm'){
-    const ms = (STRICT_RESEARCH) ? Math.round((D.stormDurMs[0]+D.stormDurMs[1])*0.5) : rnd(D.stormDurMs[0],D.stormDurMs[1]);
+    const ms = (MODE==='research') ? Math.round((D.stormDurMs[0]+D.stormDurMs[1])*0.5) : rnd(D.stormDurMs[0],D.stormDurMs[1]);
     activateStorm(ms);
     fxBurst(sx,sy,'power'); fxPop('+200',sx,sy);
     flash('gold', 95);
@@ -1183,14 +989,14 @@ function hitTarget(rec, direct, fromReplay=false){
   const mult=S.feverOn?1.35:1.0;
   const base=(rec.kind==='gold')?520:240;
   const bonus=(judge==='PERFECT')?220:0;
-  const stormBonus=(nowAbs()<S.stormUntil)?60:0;
+  const stormBonus=(now()<S.stormUntil)?60:0;
   const delta=Math.round((base+bonus+stormBonus)*mult);
 
   addScore(delta);
   addCombo();
 
   if(judge==='PERFECT'){
-    S.perfectCount++; setTxt(HUD.perfect,S.perfectCount);
+    S.perfectCount++; setTxt(HUD.perfect, S.perfectCount);
     addFever(14);
     fxJudge('PERFECT'); AudioX.perfect(); vibe(30);
     flash(rec.kind==='gold'?'gold':'good', 95);
@@ -1228,7 +1034,7 @@ function hitTarget(rec, direct, fromReplay=false){
 // ---------- Decide kind/group ----------
 function decideGroup(){ return 1 + ((R()*5)|0); }
 function decideKind(){
-  const t=nowAbs();
+  const t=now();
   const noJunk=(t<S.noJunkUntil);
   const storm=(t<S.stormUntil);
   const fever=S.feverOn;
@@ -1269,10 +1075,10 @@ function decideKind(){
 // ---------- Boss spawn + attacks ----------
 function spawnBossIfReady(){
   if(S.bossActive) return;
-  const t=nowAbs();
+  const t=now();
 
   if(!S.bossNextAt){
-    S.bossNextAt = STRICT_RESEARCH ? (t + 11000) : (t + rnd(9000,15000));
+    S.bossNextAt = (MODE==='research') ? (t + 11000) : (t + rnd(9000,15000));
   }
   if(t < S.bossNextAt) return;
 
@@ -1282,7 +1088,7 @@ function spawnBossIfReady(){
   const boss = makeTarget('boss',0,{hp});
   bossHpSync(boss);
 
-  const base = STRICT_RESEARCH
+  const base = (MODE==='research')
     ? (t + 14000)
     : (t + (S.feverOn ? rnd(8500,12500) : rnd(10500,16500)));
   S.bossNextAt = base;
@@ -1295,80 +1101,42 @@ function spawnBossIfReady(){
 }
 
 function tickBossAttack(){
-  const t=nowAbs();
-  const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
-  const cx=vw/2, cy=vh/2;
-  const off=viewOffset();
-
+  const t=now();
   for(const rec of S.targets){
     if(!rec || rec.dead || rec.kind!=='boss') continue;
-
     const ph=bossPhaseFor(rec);
     const style=bossAttackStyleForPhase(ph);
     const phaseMul=(ph===3)?0.78:(ph===2)?0.90:1.0;
 
-    const warnLead=(style==='double')?720:560;
-
-    const sx=rec.cx+off.x, sy=rec.cy+off.y;
-
+    const warnLead=(style==='double')?680:520;
     if(t >= rec.atkAt - warnLead && !rec._warned){
       rec._warned=true;
-      rec.el && rec.el.classList.add('warn');
-
-      if(style==='ring'){
-        tgRingAt(sx, sy, 230);
-      }else if(style==='laser'){
-        tgLaser(sx, sy, cx, cy);
-      }else if(style==='double'){
-        tgRingAt(sx, sy, 230);
-        setTimeout(()=>{ try{ tgLaser(sx, sy, cx, cy); }catch(_){ } }, 120);
-      }
-
-      fxJudge(style==='laser'?'🔴 LASER':'⚠️');
+      rec.el.classList.add('warn');
+      fxJudge(style==='double'?'☠️':'⚠️');
       AudioX.warn(); vibe(15);
     }
-
-    // first hit
     if(t >= rec.atkAt){
       rec._warned=false;
-      rec.el && rec.el.classList.remove('warn');
+      rec.el.classList.remove('warn');
 
-      bossAttackPunish('boss_attack', false, style);
+      bossAttackPunish('boss_attack', false);
       logEvent('boss_attack',{phase:ph,style});
-
-      // double second hit
-      if(style==='double'){
-        const dt2 = STRICT_RESEARCH ? 360 : 380;
-        rec._doubleAt = t + dt2;
-        tgRingAt(sx, sy, 210);
-      }else{
-        rec._doubleAt = 0;
-      }
 
       const baseMin=D.bossAtkMs[0]*phaseMul;
       const baseMax=D.bossAtkMs[1]*phaseMul;
-      const nextAtk = STRICT_RESEARCH ? Math.round((baseMin+baseMax)*0.5) : rnd(baseMin,baseMax);
-      rec.atkAt = t + nextAtk;
+      rec.atkAt = t + ((MODE==='research') ? Math.round((baseMin+baseMax)*0.5) : rnd(baseMin,baseMax));
 
-      if(!STRICT_RESEARCH && ph===3 && R()<0.22){
-        rec.atkAt = t + rnd(900,1400);
+      if(ph===3 && R()<0.22){
+        rec.atkAt = t + ((MODE==='research') ? 1100 : rnd(900,1400));
         fxJudge('CHAIN!');
       }
-    }
-
-    // second hit
-    if(rec._doubleAt && t >= rec._doubleAt){
-      rec._doubleAt = 0;
-      tgLaser(sx, sy, cx, cy);
-      bossAttackPunish('boss_attack2', false, 'double');
-      logEvent('boss_attack2',{phase:ph,style:'double'});
     }
   }
 }
 
 // ---------- Spawn tick ----------
 function spawnTick(){
-  const t=nowAbs();
+  const t=now();
   if(t < S.nextSpawnAt) return;
 
   const cap = D.maxTargets || 12;
@@ -1389,7 +1157,7 @@ function spawnTick(){
   if(t < S.noJunkUntil) interval*=0.92;
 
   let burst = 1;
-  if(!STRICT_RESEARCH){
+  if(MODE !== 'research'){
     if(stormOn) burst = (R()<0.65)?3:2;
     else if(S.feverOn) burst = (R()<0.22)?2:1;
     if(DIFF==='hard' && R()<0.10) burst += 1;
@@ -1404,7 +1172,7 @@ function spawnTick(){
     makeTarget(kind,group);
   }
 
-  const jitter = STRICT_RESEARCH ? 0 : rnd(-120,120);
+  const jitter = (MODE==='research') ? 0 : rnd(-120,120);
   S.nextSpawnAt = t + Math.max(240, interval + jitter);
 }
 
@@ -1425,24 +1193,25 @@ function airShot(){
   logEvent('air_shot',{});
 }
 
-function shootCrosshair(fromReplay=false){
+let _shootLockAt = 0; // ✅ กันยิงซ้อนในบางเครื่อง
+function shootCrosshair(){
   if(!S.running || S.paused) return;
 
-  if(REPLAY_ON && !fromReplay && Replay.mode==='record'){
-    Replay.push({ t: Replay.nowT(), type:'shoot' });
-  }
+  const t=now();
+  if(t - _shootLockAt < 28) return;
+  _shootLockAt = t;
 
   AudioX.unlock();
   const assist = inVR()? Math.max(D.aimAssist,170) : D.aimAssist;
   const picked = pickNearCrosshair(assist);
-  if(picked && picked.rec) hitTarget(picked.rec,false,fromReplay);
+  if(picked && picked.rec) hitTarget(picked.rec,false);
   else airShot();
 }
 function onGlobalPointerDown(e){
   if(!S.running || S.paused) return;
   if(isUIElement(e.target)) return;
   e.preventDefault();
-  shootCrosshair(false);
+  shootCrosshair();
 }
 
 // ---------- Pause/Restart/VR ----------
@@ -1459,11 +1228,7 @@ function restart(){
   for(const rec of [...S.targets]) removeTarget(rec);
 
   S.running=false; S.paused=false;
-
-  S.simMs = 0;
-  S.rafPrevAbs = 0;
-
-  S.timeLeft=TOTAL_TIME;
+  S.tStart=0; S.timeLeft=TOTAL_TIME;
   S.score=0; S.combo=0; S.maxCombo=0; S.miss=0; S.perfectCount=0;
   S.fever=0; S.feverOn=false;
   setShield(0); setLives(S.livesMax);
@@ -1472,7 +1237,7 @@ function restart(){
   S.groupCounts=[0,0,0,0,0];
 
   S.bossActive=false;
-  S.bossNextAt = STRICT_RESEARCH ? (nowAbs()+11000) : (nowAbs()+rnd(8000,14000));
+  S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
 
   S.stormUntil=0; S.slowUntil=0; S.noJunkUntil=0;
   S.lowTimeLastSec=null;
@@ -1486,10 +1251,6 @@ function restart(){
   setGoal(0);
   startMini();
   logSession('start');
-
-  if(REPLAY_ON && REPLAY_MODE==='record') Replay.reset();
-  if(REPLAY_ON && REPLAY_MODE==='play') Replay.idx = 0;
-
   start();
 }
 
@@ -1519,19 +1280,13 @@ function endGame(isGameOver){
   fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
   vibe(isGameOver?60:50);
   logSession(isGameOver?'gameover':'end');
-
-  if(REPLAY_ON && REPLAY_MODE==='record'){
-    Replay.save();
-  }
 }
 
 // ---------- Main loop ----------
 function start(){
   S.running=true;
-  S.tStartAbs = performance.now();
-  S.rafPrevAbs = S.tStartAbs;
-
-  S.nextSpawnAt=nowAbs()+350;
+  S.tStart=now();
+  S.nextSpawnAt=now()+350;
 
   setTxt(HUD.mode, MODE==='research'?'Research':'Play');
   setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
@@ -1540,20 +1295,12 @@ function start(){
   function frame(){
     if(!S.running) return;
 
-    // deterministic tick-lock (strict)
-    if(STRICT_RESEARCH){
-      S.simMs += FIXED_DT_MS;
-    }else{
-      // for logging only; gameplay uses nowAbs() which is perf.now
-      S.simMs = Math.max(0, performance.now() - S.tStartAbs);
-    }
-
     applyLayerTransform();
     updateAimHighlight();
 
     if(!S.paused){
-      const elapsedSec = STRICT_RESEARCH ? (S.simMs/1000) : ((performance.now()-S.tStartAbs)/1000);
-      S.timeLeft=Math.max(0, TOTAL_TIME - elapsedSec);
+      const elapsed=(now()-S.tStart)/1000;
+      S.timeLeft=Math.max(0, TOTAL_TIME - elapsed);
       setTxt(HUD.time, fmt(S.timeLeft));
 
       if(S.timeLeft<=10){
@@ -1566,16 +1313,12 @@ function start(){
       expireTargets();
       tickMini();
 
-      // replay pump (เฉพาะ play)
-      if(REPLAY_ON && REPLAY_MODE==='play') Replay.pump();
-
       addFever(S.feverOn ? -0.22 : -0.10);
 
       setGoal(S.goalIndex);
 
       if(S.timeLeft<=0) endGame(false);
     }
-
     ROOT.requestAnimationFrame(frame);
   }
   ROOT.requestAnimationFrame(frame);
@@ -1585,34 +1328,24 @@ function start(){
 function bindShootHotkeys(){
   ROOT.addEventListener('keydown',(e)=>{
     const k=String(e.key||'').toLowerCase();
-    if(k===' '||k==='enter'||k==='z'||k==='x') shootCrosshair(false);
+    if(k===' '||k==='enter'||k==='z'||k==='x') shootCrosshair();
   });
+
+  // ✅ กัน event ซ้อน: ไม่ใช้ mousedown/click บน scene แล้ว (เหลือเฉพาะ controller events)
   if(scene){
-    const fire=()=>shootCrosshair(false);
+    const fire=()=>shootCrosshair();
     scene.addEventListener('triggerdown', fire);
     scene.addEventListener('abuttondown', fire);
     scene.addEventListener('xbuttondown', fire);
     scene.addEventListener('gripdown', fire);
-    scene.addEventListener('mousedown', fire);
-    scene.addEventListener('click', fire);
   }
 }
 function bindUI(){
-  // ถ้า replay=play ปิด input คนจริง
-  if(!(REPLAY_ON && REPLAY_MODE==='play')){
-    layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
-    layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
-    layer.addEventListener('click', onGlobalPointerDown, {passive:false});
-  }
+  // ✅ pointerdown ONLY
+  layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
 
   HUD.btnEnterVR && HUD.btnEnterVR.addEventListener('click', enterVR);
-  HUD.btnPause && HUD.btnPause.addEventListener('click', ()=>{
-    if(!S.running) return;
-    setPaused(!S.paused);
-    if(REPLAY_ON && Replay.mode==='record'){
-      Replay.push({ t: Replay.nowT(), type:'pause', on: !!S.paused });
-    }
-  });
+  HUD.btnPause && HUD.btnPause.addEventListener('click', ()=>{ if(!S.running) return; setPaused(!S.paused); });
   HUD.btnRestart && HUD.btnRestart.addEventListener('click', ()=>restart());
   HUD.btnPlayAgain && HUD.btnPlayAgain.addEventListener('click', ()=>{ setShow(HUD.resultBackdrop,false); restart(); });
 
@@ -1643,7 +1376,7 @@ function bindUI(){
   emitFever();
   updateGrade();
 
-  S.bossNextAt = STRICT_RESEARCH ? (nowAbs()+11000) : (nowAbs()+rnd(8000,14000));
+  S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
 
   setGoal(0);
   startMini();
@@ -1651,5 +1384,5 @@ function bindUI(){
   logSession('start');
   start();
 
-  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D, STRICT_RESEARCH, REPLAY_MODE, REPLAY_KEY });
+  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D });
 })();
