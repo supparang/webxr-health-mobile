@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR (PRODUCTION) — H++ FINAL PACK (PATCH B)
+// GoodJunkVR (PRODUCTION) — H++ FINAL PACK (PATCH C)
 // ✅ FIX: Goal+Mini Quest MUST show (engine emits quest:update itself)
 // ✅ FIX: HUD time compat (emits hha:time {sec})
 // ✅ FIX: End summary payload (hha:end includes grade + scoreFinal + quests counts)
@@ -7,6 +7,8 @@
 // ✅ FIX: Gold Hunt 🟡 นับแน่ (increment + tickQuestNow)
 // ✅ FIX: No Junk Zone 🚫 รีเซ็ตจริง (miniStart => reset lastBadAt)
 // ✅ FIX: Quest นับทันทีทุก event สำคัญ (hit gold/power/block/stunBreak/goodExpired)
+// ✅ FIX: Quest target/max/done mapping เข้ากันทุกฝั่ง (director/engine/hud)
+// ✅ PERF: ลด quest:update ถี่เกิน (ไม่ emit ทุกเฟรมแล้ว)
 // ✅ Miss rule: miss = goodExpired + junkHit ; Shield block junk => NOT miss
 // ✅ Crosshair tap shoot (1 tap) + magnet/heroBurst uses layer offset
 // ✅ Anti-clump spawn + safeMargins
@@ -260,7 +262,8 @@ export function boot(opts = {}){
     goalDefs: GOODJUNK_GOALS,
     miniDefs: GOODJUNK_MINIS,
     maxGoals: 2,
-    maxMini: 999
+    maxMini: 999,
+    emitMs: 120 // director ยิง quest:update ได้ แต่ engine จะยิงเฉพาะตอนสำคัญ + ทุก 1 วิ (ลื่น)
   });
 
   const qState = {
@@ -351,7 +354,7 @@ export function boot(opts = {}){
   function emitScore(){
     safeDispatch('hha:score', {
       score: S.score|0,
-      combo: S.combo|0,          // ✅ เพิ่ม combo ปัจจุบันให้ HUD
+      combo: S.combo|0,
       goodHits: S.goodHits|0,
       misses: S.misses|0,
       comboMax: S.comboMax|0,
@@ -558,7 +561,7 @@ export function boot(opts = {}){
     safeDispatch('hha:finalPulse', { secLeft: secLeft|0 });
   }
 
-  // ===== Quest sync + force tick (PATCH B) =====
+  // ===== Quest sync + force tick (PATCH C) =====
   function syncQuestState(){
     qState.score = S.score|0;
     qState.goodHits = S.goodHits|0;
@@ -585,10 +588,14 @@ export function boot(opts = {}){
     const goal = (active && active.goal) ? active.goal : (active && active.activeGoal) ? active.activeGoal : null;
     const mini = (active && active.mini) ? active.mini : (active && active.activeMini) ? active.activeMini : null;
 
+    // ✅ accept both: target/max keys
+    const goalTarget = goal ? (goal.target ?? goal.max ?? goal.tgt ?? goal.need ?? 0) : 0;
+    const miniTarget = mini ? (mini.target ?? mini.max ?? mini.tgt ?? mini.need ?? 0) : 0;
+
     const goalObj = goal ? {
       title: String(goal.label || goal.title || goal.name || 'Goal'),
       cur: (goal.prog ?? goal.cur ?? goal.value ?? 0)|0,
-      target: (goal.target ?? goal.tgt ?? goal.need ?? 0)|0,
+      target: (goalTarget ?? 0)|0,
       pct: (goal.pct ?? null),
       done: !!(goal.done ?? goal.pass ?? goal.completed ?? false)
     } : null;
@@ -596,7 +603,7 @@ export function boot(opts = {}){
     const miniObj = mini ? {
       title: String(mini.label || mini.title || mini.name || 'Mini'),
       cur: (mini.prog ?? mini.cur ?? mini.value ?? 0)|0,
-      target: (mini.target ?? mini.tgt ?? mini.need ?? 0)|0,
+      target: (miniTarget ?? 0)|0,
       pct: (mini.pct ?? null),
       done: !!(mini.done ?? mini.pass ?? mini.completed ?? false),
       tLeft: (mini.tLeft ?? mini.timeLeft ?? null),
@@ -608,13 +615,16 @@ export function boot(opts = {}){
       goal: goalObj,
       mini: miniObj,
       groupLabel: '',  // GoodJunk ไม่มี group
+
       // backup flat fields (กัน HUD รุ่นเก่าบางไฟล์)
       goalTitle: goalObj ? goalObj.title : '',
       goalCur: goalObj ? goalObj.cur : 0,
       goalTarget: goalObj ? goalObj.target : 0,
+
       miniTitle: miniObj ? miniObj.title : '',
       miniCur: miniObj ? miniObj.cur : 0,
       miniTarget: miniObj ? miniObj.target : 0,
+
       miniTLeft: miniObj ? miniObj.tLeft : null,
       miniWindowSec: miniObj ? miniObj.windowSec : null
     });
@@ -627,7 +637,7 @@ export function boot(opts = {}){
     _qtLock = t + 18; // กันสแปมถี่เกิน
     syncQuestState();
     try{ qDir.tick(qState); }catch(_){}
-    emitQuestUpdate(false); // ✅ สำคัญ: ให้ HUD เห็นทันที
+    emitQuestUpdate(true); // ✅ ยิง “ทันที” ตอนสำคัญ/ทุก 1 วิ (ลื่นและชัวร์)
     // logEvent('quest_tick_now', { reason });
   }
 
@@ -686,7 +696,7 @@ export function boot(opts = {}){
     const totalActs = (S.goodHits|0) + (S.misses|0);
     const acc = totalActs > 0 ? Math.round((S.goodHits/totalActs)*100) : 0;
 
-    let goalsCleared=0, goalsTotal=2, miniCleared=0, miniTotal=0, qp=0;
+    let goalsCleared=0, goalsTotal=2, miniCleared=0, miniTotal=7, qp=0;
     try{
       if (qDir && typeof qDir.getSummary === 'function'){
         const sum = qDir.getSummary();
@@ -1453,7 +1463,7 @@ export function boot(opts = {}){
       S.timeLeft = remainSec|0;
       emitTime();
       finalSprintTick();
-      tickQuestNow('time'); // ✅
+      tickQuestNow('time'); // ✅ ทุก 1 วิ
     }
     if (remainMs <= 0){
       endGame();
@@ -1536,10 +1546,9 @@ export function boot(opts = {}){
       S.panicEndsAt = 0;
     }
 
-    // continuous quest sync + emit (HUD will see even if director doesn't dispatch)
+    // quest state sync (no need to emit each frame)
     syncQuestState();
     try{ qDir.tick(qState); }catch(_){}
-    emitQuestUpdate(false);
 
     // rank ticker
     emitRank();
