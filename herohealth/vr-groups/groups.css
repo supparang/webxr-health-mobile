@@ -1,379 +1,374 @@
 /* === /herohealth/vr-groups/groups.css ===
-Food Groups VR — PRODUCTION CSS (FIX-ALL)
-- Targets use CSS vars: --x --y --s  (from GameEngine.js)
-- Quest panel (auto-created by groups-hud-quest.js) looks good
-- Lock/Charge ring, Reticle, Danger vignette, Rage glow
-- Mobile safe, no HUD overlap, pointer-safe
+   Food Groups VR — UI + Targets (PRODUCTION / FIX-ALL)
+   - Emoji bubble targets (DOM) + ripple rings
+   - Boss bar + Rage glow + Decoy invert
+   - Lock ring + charge ring (events driven; optional)
+   - Danger vignette + panic pulse
+   - Quest panel styles (compatible with hha-hud-quest.js autogen/fallback)
 */
 
 :root{
-  --bg0:#020617;
-  --bg1:#0b1120;
-  --panel:rgba(2,6,23,.70);
+  --bg:#020617;
+  --panel:rgba(2,6,23,.72);
   --panel2:rgba(15,23,42,.62);
-  --stroke:rgba(148,163,184,.20);
-  --stroke2:rgba(148,163,184,.12);
+  --stroke:rgba(148,163,184,.18);
+  --stroke2:rgba(148,163,184,.10);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
   --good:#22c55e;
-  --good2:#16a34a;
-  --junk:#f97316;
-  --bad:#ef4444;
-  --boss:#a855f7;
+  --junk:#ef4444;
+  --boss:#f97316;
   --blue:#3b82f6;
 
-  --shadow:0 18px 55px rgba(0,0,0,.45);
-  --shadow2:0 10px 32px rgba(0,0,0,.38);
-  --r:18px;
+  --shadow:0 18px 60px rgba(0,0,0,.46);
+  --glass:blur(12px);
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
-body{
+/* ---------- Base ---------- */
+html, body{
   margin:0;
-  background: radial-gradient(1200px 800px at 50% 35%, #0b122a 0%, var(--bg0) 55%, #01030b 100%);
+  padding:0;
+  width:100%;
+  height:100%;
+  background:radial-gradient(1200px 800px at 50% 30%, rgba(30,41,59,.30), transparent 55%),
+             radial-gradient(800px 900px at 20% 70%, rgba(2,132,199,.14), transparent 50%),
+             radial-gradient(900px 800px at 80% 70%, rgba(34,197,94,.10), transparent 55%),
+             var(--bg);
   color:var(--text);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", "Noto Sans", sans-serif;
   overflow:hidden;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
   -webkit-tap-highlight-color: transparent;
-}
-
-/* ======================
-   Layer / Playfield
-====================== */
-#fg-layer, #gj-layer, #play-layer, .fg-layer{
-  position:fixed;
-  inset:0;
-  overflow:hidden;
   touch-action: manipulation;
 }
 
-.fg-world{
+*{ box-sizing:border-box; }
+
+/* ---------- Game Layer (DOM targets) ---------- */
+#fg-layer, #groups-layer, .fg-layer{
   position:fixed;
   inset:0;
-  pointer-events:none;
-}
-
-.fg-vignette{
-  position:fixed;
-  inset:-4px;
-  pointer-events:none;
-  background:
-    radial-gradient(1200px 700px at 50% 40%, rgba(0,0,0,0) 0%, rgba(0,0,0,.18) 58%, rgba(0,0,0,.48) 100%);
-  opacity:.9;
-  mix-blend-mode: normal;
-}
-
-/* Danger (boss wave) helper class (optional if you toggle) */
-body.fg-danger .fg-vignette{
-  background:
-    radial-gradient(1000px 650px at 50% 45%, rgba(0,0,0,0) 0%, rgba(239,68,68,.12) 52%, rgba(239,68,68,.28) 75%, rgba(0,0,0,.58) 100%);
-}
-
-/* ======================
-   Targets (DOM emoji)
-====================== */
-.fg-target{
-  position:absolute;
-  left:var(--x, 50%);
-  top: var(--y, 52%);
-  transform:
-    translate3d(0,0,0)
-    translate(-50%, -50%)
-    scale(var(--s, 1));
-  width:132px;
-  height:132px;
-  border-radius:999px;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  user-select:none;
-  -webkit-user-select:none;
-  cursor:pointer;
-
-  /* keep emoji crisp */
-  font-size:56px;
-  line-height:1;
-
-  background:
-    radial-gradient(circle at 35% 30%, rgba(255,255,255,.22) 0%, rgba(255,255,255,.06) 40%, rgba(255,255,255,.03) 70%, rgba(255,255,255,.02) 100%),
-    rgba(2,6,23,.38);
-
-  border:1px solid var(--stroke);
-  box-shadow: var(--shadow2);
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
-
-  transition: transform .14s ease, filter .14s ease, opacity .14s ease;
-  will-change: transform, left, top, filter, opacity;
+  overflow:hidden;
+  z-index:20;
   pointer-events:auto;
 }
 
-/* outer rings */
-.fg-target::before,
-.fg-target::after{
-  content:"";
+/* Target element: Engine sets --x --y --s */
+.fg-target{
   position:absolute;
-  inset:-14px;
+  left:var(--x, 50%);
+  top:var(--y, 50%);
+  transform:
+    translate3d(0,0,0)
+    translate(-50%,-50%)
+    scale(var(--s, 1));
+  width:132px;
+  height:132px;
+  display:grid;
+  place-items:center;
+  font-size:56px;
+  line-height:1;
+  user-select:none;
+  -webkit-user-select:none;
+  cursor:pointer;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.18);
-  opacity:.65;
-}
-.fg-target::after{
-  inset:-28px;
-  opacity:.35;
-}
-
-/* spawn animation */
-.fg-target.spawn{
+  pointer-events:auto;
+  will-change: transform, left, top, opacity, filter;
+  filter: drop-shadow(0 16px 24px rgba(0,0,0,.35));
   opacity:0;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .78));
-  filter: saturate(1.05) brightness(1.04);
-}
-.fg-target.show{
-  opacity:1;
-  transform: translate(-50%,-50%) scale(var(--s,1));
 }
 
-/* hit/out */
+/* bubble glass */
+.fg-target::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  background:
+    radial-gradient(120px 120px at 30% 25%, rgba(255,255,255,.22), rgba(255,255,255,.06) 45%, rgba(255,255,255,.03) 70%, transparent 75%),
+    radial-gradient(140px 140px at 65% 70%, rgba(148,163,184,.16), transparent 55%),
+    rgba(15,23,42,.20);
+  border:1px solid rgba(148,163,184,.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    inset 0 -14px 30px rgba(0,0,0,.20);
+}
+
+/* ripple ring */
+.fg-target::after{
+  content:'';
+  position:absolute;
+  inset:-10px;
+  border-radius:999px;
+  border:2px solid rgba(148,163,184,.20);
+  opacity:.55;
+  transform:scale(.90);
+  filter: blur(.2px);
+}
+
+/* good / junk color accents */
+.fg-good::after{ border-color: rgba(34,197,94,.26); }
+.fg-junk::after{ border-color: rgba(239,68,68,.26); }
+
+.fg-target.spawn{ opacity:0; transform:translate(-50%,-50%) scale(.82); }
+.fg-target.show{ opacity:1; transform:translate(-50%,-50%) scale(var(--s,1)); transition: opacity .16s ease, transform .22s cubic-bezier(.2,.8,.2,1); }
+
+.fg-target:hover{ filter: drop-shadow(0 18px 30px rgba(0,0,0,.46)); }
+
+/* hit / expire */
 .fg-target.hit{
   opacity:0;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.12));
-  filter: blur(0.2px) brightness(1.08);
+  transform:translate(-50%,-50%) scale(.72);
+  transition: opacity .14s ease, transform .16s ease;
 }
 .fg-target.out{
-  opacity:.0;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * .92));
-  filter: grayscale(.15) brightness(.9);
+  opacity:0;
+  transform:translate(-50%,-50%) scale(.88);
+  filter: blur(1.4px);
+  transition: opacity .16s ease, transform .20s ease, filter .18s ease;
 }
 
-/* Good / Junk styling */
-.fg-target.fg-good{
-  border-color: rgba(34,197,94,.32);
+/* Boss */
+.fg-boss{
+  filter: drop-shadow(0 20px 34px rgba(249,115,22,.18)) drop-shadow(0 18px 26px rgba(0,0,0,.42));
+}
+.fg-boss::after{ border-color: rgba(249,115,22,.32); }
+.fg-boss::before{
   background:
-    radial-gradient(circle at 30% 28%, rgba(34,197,94,.22) 0%, rgba(255,255,255,.06) 42%, rgba(255,255,255,.03) 72%, rgba(255,255,255,.02) 100%),
-    rgba(2,6,23,.36);
-}
-.fg-target.fg-junk{
-  border-color: rgba(249,115,22,.34);
-  background:
-    radial-gradient(circle at 30% 28%, rgba(249,115,22,.22) 0%, rgba(255,255,255,.06) 42%, rgba(255,255,255,.03) 72%, rgba(255,255,255,.02) 100%),
-    rgba(2,6,23,.36);
-}
-.fg-target.fg-boss{
-  border-color: rgba(168,85,247,.45);
-  box-shadow: 0 18px 62px rgba(168,85,247,.12), var(--shadow2);
+    radial-gradient(120px 120px at 30% 25%, rgba(255,255,255,.22), rgba(255,255,255,.06) 45%, rgba(255,255,255,.03) 70%, transparent 75%),
+    radial-gradient(140px 140px at 70% 75%, rgba(249,115,22,.18), transparent 55%),
+    rgba(15,23,42,.20);
+  border:1px solid rgba(249,115,22,.22);
 }
 
-/* Decoy (invert) */
-.fg-target.fg-decoy{
-  border-color: rgba(244,63,94,.35);
-  filter: hue-rotate(160deg) saturate(1.2);
-}
-.fg-target.fg-decoy::before{
-  border-color: rgba(244,63,94,.24);
-}
-
-/* Rage glow */
-.fg-target.rage{
-  box-shadow: 0 18px 70px rgba(239,68,68,.16), var(--shadow2);
-}
-.fg-target.rage::after{
-  border-color: rgba(239,68,68,.20);
-  opacity:.55;
-}
-
-/* Boss HP bar */
+/* Boss bar */
 .fg-target .bossbar{
   position:absolute;
   left:12px;
   right:12px;
   bottom:10px;
-  height:10px;
+  height:8px;
   border-radius:999px;
-  background: rgba(148,163,184,.16);
-  border:1px solid rgba(148,163,184,.18);
+  background: rgba(148,163,184,.14);
+  border:1px solid rgba(148,163,184,.14);
   overflow:hidden;
 }
 .fg-target .bossbar-fill{
   height:100%;
   width:100%;
   border-radius:999px;
-  background: linear-gradient(90deg, rgba(168,85,247,.95), rgba(59,130,246,.92));
+  background: linear-gradient(90deg, rgba(249,115,22,.92), rgba(239,68,68,.85));
 }
 
-/* Lock highlight class (engine adds .lock) */
-.fg-target.lock{
-  outline: 2px solid rgba(59,130,246,.40);
-  filter: saturate(1.06) brightness(1.05);
+/* Rage state (boss feint) */
+.fg-target.rage::before{
+  border-color: rgba(239,68,68,.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 0 0 3px rgba(239,68,68,.08),
+    0 0 40px rgba(239,68,68,.10);
 }
-.fg-target.lock::before{
-  border-color: rgba(59,130,246,.26);
+.fg-target.rage{
+  animation: fg-rage-pulse .95s ease-in-out infinite;
+}
+@keyframes fg-rage-pulse{
+  0%,100%{ filter: drop-shadow(0 18px 28px rgba(239,68,68,.12)) drop-shadow(0 18px 26px rgba(0,0,0,.42)); }
+  50%{ filter: drop-shadow(0 22px 38px rgba(239,68,68,.18)) drop-shadow(0 18px 26px rgba(0,0,0,.42)); }
 }
 
-/* ======================
-   Afterimage (rage feint)
-====================== */
+/* Decoy (Invert look) */
+.fg-decoy{
+  filter: drop-shadow(0 18px 30px rgba(34,197,94,.10)) drop-shadow(0 18px 26px rgba(0,0,0,.42));
+}
+.fg-decoy::before{
+  background:
+    radial-gradient(120px 120px at 30% 25%, rgba(255,255,255,.20), rgba(255,255,255,.06) 45%, rgba(255,255,255,.03) 70%, transparent 75%),
+    radial-gradient(160px 160px at 70% 70%, rgba(59,130,246,.18), transparent 55%),
+    rgba(15,23,42,.20);
+  border:1px solid rgba(59,130,246,.22);
+}
+.fg-decoy::after{ border-color: rgba(59,130,246,.30); }
+
+/* ---------- Afterimage (feint) ---------- */
 .fg-afterimage{
   position:fixed;
   left:0; top:0;
+  transform: translate3d(0,0,0) translate(-50%,-50%);
   pointer-events:none;
-  z-index: 25;
+  z-index:30;
   opacity:.0;
-  transform: translate3d(0,0,0) translate(-50%,-50%) scale(1);
-  animation: fgAfter .42s ease forwards;
-  filter: blur(.2px);
+  animation: fg-after .42s ease-out forwards;
 }
 .fg-afterimage-inner{
-  font-size: 44px;
-  opacity:.9;
-}
-.fg-afterimage.a1{ animation-duration:.40s; }
-.fg-afterimage.a2{ animation-duration:.44s; opacity:.0; }
-
-@keyframes fgAfter{
-  0%{ opacity:.0; transform: translate3d(0,0,0) translate(-50%,-50%) scale(.92); }
-  20%{ opacity:.62; }
-  100%{ opacity:0; transform: translate3d(0,0,0) translate(-50%,-50%) scale(1.12); }
-}
-
-/* ======================
-   Reticle (center)
-====================== */
-.fg-reticle{
-  position:fixed;
-  left:50%;
-  top:50%;
-  width:18px;
-  height:18px;
-  border-radius:999px;
-  transform:translate(-50%,-50%);
-  border:2px solid rgba(226,232,240,.55);
-  box-shadow: 0 0 0 10px rgba(2,6,23,.22);
-  pointer-events:none;
-  z-index: 30;
-  opacity:.9;
-}
-.fg-reticle::after{
-  content:"";
-  position:absolute;
-  inset:5px;
-  border-radius:999px;
-  background: rgba(226,232,240,.55);
-  opacity:.45;
-}
-
-/* reticle states (optional if you toggle body classes) */
-body.fg-reticle-ok .fg-reticle{ border-color: rgba(34,197,94,.70); }
-body.fg-reticle-miss .fg-reticle{ border-color: rgba(239,68,68,.78); }
-body.fg-reticle-perfect .fg-reticle{ border-color: rgba(59,130,246,.80); }
-
-/* ======================
-   Lock ring + Charge ring
-   (for groups:lock / groups:charge overlays you may have)
-====================== */
-.fg-lockring{
-  position:fixed;
-  left:var(--lx, 50%);
-  top: var(--ly, 50%);
-  width:74px;
-  height:74px;
-  transform: translate(-50%,-50%);
-  border-radius:999px;
-  pointer-events:none;
-  z-index: 31;
-  opacity:0;
-  transition: opacity .10s ease;
-}
-.fg-lockring.on{ opacity:1; }
-.fg-lockring::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:999px;
-  border:2px solid rgba(59,130,246,.65);
-  box-shadow: 0 0 0 10px rgba(59,130,246,.10);
-  opacity:.75;
-}
-.fg-lockring .fg-lockfill{
-  position:absolute;
-  inset:0;
-  border-radius:999px;
-  background: conic-gradient(rgba(59,130,246,.92) calc(var(--lp, 0)*1turn), rgba(148,163,184,.10) 0);
-  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 63%);
-          mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 63%);
-  opacity:.88;
-}
-.fg-lockring .fg-chargefill{
-  position:absolute;
-  inset:-8px;
-  border-radius:999px;
-  background: conic-gradient(rgba(34,197,94,.92) calc(var(--cp, 0)*1turn), rgba(148,163,184,.08) 0);
-  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 72%, #000 73%);
-          mask: radial-gradient(circle at 50% 50%, transparent 72%, #000 73%);
+  font-size:48px;
+  filter: blur(.2px);
   opacity:.85;
 }
+.fg-afterimage.a1 .fg-afterimage-inner{ opacity:.78; }
+.fg-afterimage.a2 .fg-afterimage-inner{ opacity:.55; }
+@keyframes fg-after{
+  0%{ opacity:0; }
+  20%{ opacity:.75; }
+  100%{ opacity:0; transform: translate3d(0,0,0) translate(-50%,-50%) scale(1.06); filter: blur(.9px); }
+}
 
-/* ======================
-   Quest Panel (auto-created)
-====================== */
-.fg-questPanel{
+/* ---------- Lock ring overlay (optional elements) ---------- */
+#lockRing, .fg-lock-ring{
+  position:fixed;
+  width:84px; height:84px;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+  border:2px solid rgba(34,197,94,.55);
+  box-shadow:0 0 0 6px rgba(34,197,94,.10);
+  pointer-events:none;
+  z-index:60;
+  opacity:0;
+}
+#lockRing.on, .fg-lock-ring.on{ opacity:1; transition: opacity .10s ease; }
+
+#lockRing .prog, .fg-lock-ring .prog{
+  position:absolute; inset:-6px;
+  border-radius:999px;
+  border:6px solid rgba(34,197,94,.18);
+  clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%);
+  opacity:.0;
+}
+
+/* charge ring */
+#chargeRing, .fg-charge-ring{
+  position:fixed;
+  width:92px; height:92px;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+  border:2px dashed rgba(59,130,246,.55);
+  box-shadow:0 0 0 6px rgba(59,130,246,.10);
+  pointer-events:none;
+  z-index:60;
+  opacity:0;
+}
+#chargeRing.on, .fg-charge-ring.on{ opacity:1; transition: opacity .10s ease; }
+#chargeRing.spin, .fg-charge-ring.spin{ animation: fg-spin .8s linear infinite; }
+
+@keyframes fg-spin{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
+
+/* ---------- Danger vignette / panic ---------- */
+#dangerVignette, .fg-danger{
+  position:fixed;
+  inset:-2px;
+  pointer-events:none;
+  z-index:45;
+  opacity:0;
+  transition: opacity .18s ease;
+  background:
+    radial-gradient(closest-side at 50% 50%, transparent 68%, rgba(239,68,68,.22) 86%, rgba(239,68,68,.35) 100%);
+  mix-blend-mode: screen;
+}
+#dangerVignette.on, .fg-danger.on{ opacity:1; }
+
+#panicPulse, .fg-panic{
+  position:fixed;
+  inset:-2px;
+  pointer-events:none;
+  z-index:46;
+  opacity:0;
+  background:
+    radial-gradient(closest-side at 50% 55%, rgba(249,115,22,.06), transparent 55%),
+    radial-gradient(closest-side at 50% 55%, transparent 60%, rgba(249,115,22,.22) 90%, transparent 100%);
+}
+.fg-panic.on{
+  opacity:1;
+  animation: fg-panic 1.0s ease-in-out infinite;
+}
+@keyframes fg-panic{
+  0%,100%{ opacity:.25; }
+  50%{ opacity:.60; }
+}
+
+/* ---------- Quest Panel styles (for binder or autogen) ---------- */
+.hha-quest, .quest-panel, #hudQuest, #questPanel{
+  position:fixed;
+  left:12px;
+  bottom:12px;
+  width:min(660px, calc(100vw - 24px));
+  z-index:65;
+  pointer-events:none;
+  background: rgba(2,6,23,.52);
+  border: 1px solid rgba(148,163,184,.16);
+  border-radius: 20px;
+  padding: 10px 12px;
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
   box-shadow: var(--shadow);
 }
-#fg-questPanel{
-  /* the JS already sets inline; keep compatible */
-}
-#fg-questPanel .bar{ border-radius:999px; }
 
-/* Improve readability on very wide screens */
-@media (min-width: 980px){
-  #fg-questPanel{
-    left: 16px !important;
-    bottom: 16px !important;
-    width: min(780px, calc(100vw - 32px)) !important;
-  }
+.hha-quest .row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
 }
 
-/* ======================
-   Coach bubble (if your HTML has it)
-====================== */
-.fg-coach{
-  position:fixed;
-  right:12px;
-  bottom:12px;
-  width:min(520px, calc(100vw - 24px));
-  background: var(--panel);
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding: 12px 14px;
-  box-shadow: var(--shadow2);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  z-index: 45;
-  pointer-events:none;
-}
-.fg-coach .title{
-  font-weight:800;
-  opacity:.95;
-  margin-bottom:6px;
-}
-.fg-coach .msg{
-  color:rgba(226,232,240,.95);
-  opacity:.95;
-  line-height:1.35;
+.hha-quest .col{
+  flex:1 1 260px;
+  min-width:220px;
 }
 
-/* ======================
-   Small utility: hide scrollbars (just in case)
-====================== */
-::-webkit-scrollbar{ width:0; height:0; }
+.hha-quest .hdr{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-weight:900;
+  font-size:12px;
+  letter-spacing:.2px;
+  opacity:.88;
+}
 
-/* ======================
-   Motion safety
-====================== */
+.hha-goal-title, .hha-mini-title{
+  margin-top:4px;
+  font-weight:900;
+  font-size:14px;
+  line-height:1.2;
+  text-shadow: 0 10px 30px rgba(0,0,0,.28);
+}
+
+.hha-goal-prog, .hha-mini-prog{
+  font-size:12px;
+  opacity:.92;
+}
+
+.hha-goal-pct, .hha-mini-pct{
+  font-size:12px;
+  opacity:.92;
+}
+
+.hha-goal-bar, .hha-mini-bar{
+  margin-top:6px;
+  height:10px;
+  border-radius:999px;
+  background: rgba(148,163,184,.12);
+  border: 1px solid rgba(148,163,184,.12);
+  overflow:hidden;
+}
+
+.hha-goal-bar .fill{ height:100%; width:0%; background: rgba(34,197,94,.92); border-radius:999px; }
+.hha-mini-bar .fill{ height:100%; width:0%; background: rgba(59,130,246,.92); border-radius:999px; }
+
+.hha-quest-hint, .hha-quest-group{
+  margin-top:8px;
+  font-size:12px;
+  opacity:.86;
+}
+
+/* ---------- Small screen fit ---------- */
+@media (max-width: 520px){
+  .fg-target{ font-size:52px; }
+  .hha-quest{ border-radius:18px; padding:9px 10px; }
+}
+
+/* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce){
-  .fg-target, .fg-afterimage{ transition:none !important; animation:none !important; }
+  .fg-target.show, .fg-target.hit, .fg-target.out{ transition:none !important; }
+  .fg-target.rage{ animation:none !important; }
+  .fg-panic.on{ animation:none !important; }
 }
