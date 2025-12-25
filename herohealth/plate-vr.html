@@ -15,6 +15,9 @@
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
+  <!-- (Optional) Global HUD binder — ปลอดภัย / ไม่บังคับ -->
+  <script src="./vr/hha-hud.js" defer></script>
+
   <style>
     :root{
       --bg:#020617;
@@ -58,7 +61,7 @@
     #hudLeftGroup{display:flex; gap:8px; flex-wrap:wrap;}
     #hudRightGroup{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
 
-    /* ===== Crosshair (ช่วยความรู้สึก VR) ===== */
+    /* ===== Crosshair ===== */
     #crosshair{
       position:fixed;
       left:50%; top:50%;
@@ -127,7 +130,7 @@
     }
     .btn:active{transform:translateY(1px);}
 
-    /* ===== Mini/Goal panel (เตี้ยลง) ===== */
+    /* ===== Mini/Goal panel ===== */
     #miniPanel{
       position:fixed; left:10px; right:10px; bottom:64px;
       z-index:905;
@@ -143,7 +146,6 @@
     #goalLine{margin-top:6px; color:rgba(229,231,235,.88); font-weight:900;}
     #miniHint{margin-top:6px; color:rgba(148,163,184,.92); font-weight:900; font-size:13px; line-height:1.25;}
 
-    /* hidden helper */
     #hudPaused{
       position:fixed; left:50%; top:50%;
       transform:translate(-50%,-50%);
