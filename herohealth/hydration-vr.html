@@ -1,6 +1,5 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration Quest VR — PRODUCTION READY (HTML + UI FX overlays)
-+ Vignette (fever/urgent) + Shake class hooks
+Hydration Quest VR — PRODUCTION READY (END: Boss Result ULTRA++ + Stamp + CountUp + Timeline Danger Meter)
 -->
 <!doctype html>
 <html lang="th">
@@ -52,7 +51,7 @@ Hydration Quest VR — PRODUCTION READY (HTML + UI FX overlays)
       background:rgba(229,231,235,.65);
     }
 
-    /* ---------- NEW: FX overlays ---------- */
+    /* ---------- FX overlays ---------- */
     #hha-vignette{
       position:fixed; inset:-2px;
       z-index:46;
@@ -173,7 +172,7 @@ Hydration Quest VR — PRODUCTION READY (HTML + UI FX overlays)
     .btn.vr{ background:linear-gradient(180deg, rgba(20,83,45,.68), rgba(2,6,23,.88)); }
     .btn:active{ transform: translateY(1px); }
 
-    /* START overlay (เหมือนเดิม) */
+    /* START overlay */
     #hvr-start{
       position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
       z-index:80;
@@ -238,14 +237,23 @@ Hydration Quest VR — PRODUCTION READY (HTML + UI FX overlays)
       padding:18px;
     }
     .end-card{
-      width:min(680px, 94vw);
+      width:min(820px, 96vw);
       border:1px solid rgba(148,163,184,.18);
       background:linear-gradient(180deg, rgba(2,6,23,.90), rgba(15,23,42,.62));
       border-radius: 28px;
       box-shadow: 0 28px 80px rgba(0,0,0,.72);
       padding:18px;
+      overflow:hidden;
+      position:relative;
     }
-    .end-top{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .end-card::before{
+      content:'';
+      position:absolute; inset:-2px;
+      background: radial-gradient(900px 420px at 50% 0%, rgba(34,197,94,.10), transparent 65%),
+                  radial-gradient(720px 380px at 50% 15%, rgba(239,68,68,.08), transparent 62%);
+      pointer-events:none;
+    }
+    .end-top{ position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .end-top h2{ margin:0; font-size:22px; letter-spacing:.2px; }
     .badge-grade{
       display:inline-flex; align-items:center; justify-content:center;
@@ -253,27 +261,119 @@ Hydration Quest VR — PRODUCTION READY (HTML + UI FX overlays)
       border-radius: 16px;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(2,6,23,.55);
-      font-weight:900; letter-spacing:.4px;
+      font-weight:1000; letter-spacing:.6px;
     }
     .end-kpis{
+      position:relative;
       margin-top:12px;
       display:grid; grid-template-columns: repeat(3, 1fr);
       gap:10px;
     }
     .kpi{ border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.45); border-radius: 18px; padding:12px 12px; }
-    .kpi b{ display:block; font-size:22px; }
-    .kpi span{ color:rgba(148,163,184,.95); font-size:12px; }
-    .end-prog{ margin-top:12px; height:14px; border-radius:999px; background:rgba(148,163,184,.14); border:1px solid rgba(148,163,184,.18); overflow:hidden; }
+    .kpi b{ display:block; font-size:24px; letter-spacing:.2px; font-weight:1000; }
+    .kpi span{ color:rgba(148,163,184,.95); font-size:12px; font-weight:900; }
+    .end-prog{ position:relative; margin-top:12px; height:14px; border-radius:999px; background:rgba(148,163,184,.14); border:1px solid rgba(148,163,184,.18); overflow:hidden; }
     .end-prog > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55)); border-radius:999px; }
-    .end-actions{ margin-top:14px; display:flex; gap:10px; justify-content:flex-end; }
+    .end-actions{ position:relative; margin-top:14px; display:flex; gap:10px; justify-content:flex-end; }
     .end-actions .btn{ pointer-events:auto; }
 
     .hud-hidden #hha-hud{ opacity:.12; }
+
+    /* ===== Boss Result ULTRA++ ===== */
+    #bossResultWrap{ margin-top:12px; display:none; position:relative; }
+    .boss-hero{
+      border:1px solid rgba(148,163,184,.16);
+      background: linear-gradient(180deg, rgba(2,6,23,.54), rgba(15,23,42,.40));
+      border-radius: 22px;
+      padding:14px;
+      position:relative;
+      overflow:hidden;
+    }
+    .boss-hero::before{
+      content:'';
+      position:absolute; inset:-2px;
+      background: radial-gradient(900px 380px at 20% 0%, rgba(239,68,68,.12), transparent 58%),
+                  radial-gradient(900px 380px at 80% 0%, rgba(168,85,247,.10), transparent 58%),
+                  radial-gradient(900px 380px at 50% 100%, rgba(34,197,94,.08), transparent 58%);
+      pointer-events:none;
+    }
+    .boss-row{ position:relative; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .boss-left{ min-width:220px; }
+    .boss-title{
+      font-weight:1100;
+      letter-spacing:.3px;
+      font-size:16px;
+    }
+    .boss-sub{
+      margin-top:6px;
+      font-size:12px;
+      color:rgba(148,163,184,.95);
+      font-weight:900;
+      line-height:1.25;
+      white-space:pre-wrap;
+    }
+    .boss-rank{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:10px 14px;
+      border-radius: 16px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
+      font-weight:1100;
+      letter-spacing:.6px;
+      gap:8px;
+    }
+    .boss-stamp{
+      position:absolute;
+      right:14px;
+      top:14px;
+      transform: rotate(10deg);
+      padding:10px 14px;
+      border-radius: 18px;
+      font-weight:1200;
+      letter-spacing:1px;
+      border:2px solid rgba(229,231,235,.85);
+      background: rgba(2,6,23,.35);
+      text-transform: uppercase;
+      box-shadow: 0 18px 40px rgba(0,0,0,.55);
+      opacity:.92;
+      pointer-events:none;
+    }
+    .boss-stamp.ok{
+      border-color: rgba(34,197,94,.92);
+      color: rgba(34,197,94,.95);
+      background: rgba(20,83,45,.18);
+    }
+    .boss-stamp.bad{
+      border-color: rgba(239,68,68,.92);
+      color: rgba(239,68,68,.95);
+      background: rgba(127,29,29,.16);
+    }
+
+    .boss-kpis{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap:10px;
+    }
+    .bk{
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(2,6,23,.35);
+      border-radius:18px;
+      padding:10px 10px;
+      min-height:64px;
+    }
+    .bk b{ display:block; font-size:20px; font-weight:1100; letter-spacing:.2px; }
+    .bk span{ display:block; font-size:12px; color:rgba(148,163,184,.95); font-weight:900; margin-top:2px; }
+
+    /* ===== Boss Timeline ===== */
+    #bossTimelineWrap .card{ width:100%; pointer-events:none; }
+    #bossTimeline{ image-rendering:auto; display:block; width:100%; height:auto; }
   </style>
 </head>
 
 <body>
-  <!-- NEW overlays -->
   <div id="hha-vignette" aria-hidden="true"></div>
   <div id="hha-warnline" aria-hidden="true"></div>
 
@@ -412,6 +512,63 @@ Hydration Quest VR — PRODUCTION READY (HTML + UI FX overlays)
       <div class="end-prog"><i id="endProgFill" style="width:0%"></i></div>
       <div class="tiny" id="endDesc">Progress to S: 0%</div>
 
+      <!-- ===== Boss Result ULTRA++ (NEW) ===== -->
+      <div id="bossResultWrap">
+        <div class="boss-hero">
+          <div class="boss-stamp ok" id="bossStamp">CLEARED</div>
+
+          <div class="boss-row">
+            <div class="boss-left">
+              <div class="boss-title">🌀 BOSS RESULT</div>
+              <div class="boss-sub" id="bossSub">
+                Phase: P0 • Enrage: 0 • HP: 0/0
+              </div>
+            </div>
+
+            <div class="boss-rank" id="bossRank">
+              <span style="font-size:18px;">🏷️</span>
+              <span id="bossRankText">ULTRA++</span>
+            </div>
+          </div>
+
+          <div class="boss-kpis">
+            <div class="bk"><b id="bossHits">0</b><span>Boss Hits</span></div>
+            <div class="bk"><b id="bossGrazed">0</b><span>Grazed</span></div>
+            <div class="bk"><b id="bossMissed">0</b><span>Boss Missed</span></div>
+            <div class="bk"><b id="bossGateFails">0</b><span>Gate Fails</span></div>
+
+            <div class="bk"><b id="bossDecoys">0</b><span>Decoy Hits</span></div>
+            <div class="bk"><b id="bossLasers">0</b><span>Lasers</span></div>
+            <div class="bk"><b id="bossShock">0</b><span>Shock (Dodge/Hit)</span></div>
+            <div class="bk"><b id="bossRegens">0</b><span>Regens</span></div>
+          </div>
+
+          <div class="tiny" id="bossNote" style="margin-top:10px;">
+            เคลียร์บอส + รักษา GREEN + กัน Shockwave = คะแนนพุ่งแบบเทพ 😈
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== BOSS TIMELINE: DANGER METER (NEW) ===== -->
+      <div id="bossTimelineWrap" style="margin-top:12px; display:none;">
+        <div class="card">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div style="font-weight:1100; letter-spacing:.2px;">📈 BOSS TIMELINE — Danger Meter</div>
+            <div id="bossTimelineLegend" style="font-size:12px; color:rgba(148,163,184,.95); font-weight:900;">
+              ● Laser  ● Shock(Hit/Dodge)  ● Decoy  ● GateFail  ● Regen
+            </div>
+          </div>
+
+          <div style="margin-top:10px; border:1px solid rgba(148,163,184,.16); border-radius:18px; overflow:hidden; background:rgba(2,6,23,.35);">
+            <canvas id="bossTimeline" width="820" height="220"></canvas>
+          </div>
+
+          <div class="tiny" id="bossTimelineHint" style="margin-top:8px;">
+            เส้นสูง = โซนอันตรายมาก (ออก GREEN / Boss phase สูง / Enrage / Shock/Laser)
+          </div>
+        </div>
+      </div>
+
       <div class="end-actions">
         <div class="btn" id="endReplay">REPLAY</div>
         <div class="btn stop" id="endClose">CLOSE</div>
@@ -423,6 +580,8 @@ Hydration Quest VR — PRODUCTION READY (HTML + UI FX overlays)
     const $ = (id)=>document.getElementById(id);
     const qs = new URLSearchParams(location.search);
     const get = (k, d='') => (qs.get(k) ?? d);
+
+    const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
     function setPreview(){
       const diff = $('uiDiff').value;
@@ -496,15 +655,260 @@ Hydration Quest VR — PRODUCTION READY (HTML + UI FX overlays)
       nqs.set('ts', String(Date.now()));
       location.href = location.pathname + '?' + nqs.toString();
     });
+
+    // ===== CountUp (numbers running) =====
+    function animateCount(el, to, dur=820, suffix=''){
+      if(!el) return;
+      const from = Number(String(el.textContent).replace(/[^\d\-\.]/g,'')) || 0;
+      const t0 = performance.now();
+      const target = Number(to)||0;
+      const ease = (x)=> 1 - Math.pow(1-x, 3); // cubic out
+
+      function tick(now){
+        const p = Math.min(1, (now - t0) / Math.max(220, dur));
+        const v = Math.round(from + (target - from) * ease(p));
+        el.textContent = String(v) + (suffix||'');
+        if(p < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // ===== Boss Rank (ULTRA++) =====
+    function bossRank(b){
+      if(!b?.entered) return 'NO-RAID';
+      if(b?.wipe) return 'WIPE';
+      if(b?.cleared){
+        const hard = (b.enrage?1:0) + (b.phase>=3?1:0);
+        const mistakes = (b.gateFails||0) + (b.decoyHits||0) + (b.shockHits||0) + (b.lasers||0) + (b.regens||0);
+        if(mistakes <= 1 && hard>=1) return 'ULTRA++';
+        if(mistakes <= 3) return 'ULTRA+';
+        return 'ULTRA';
+      }
+      return 'FAILED';
+    }
+
+    function setStamp(el, kind){
+      if(!el) return;
+      el.classList.remove('ok','bad');
+      if(kind === 'CLEARED'){
+        el.textContent = 'CLEARED';
+        el.classList.add('ok');
+      }else if(kind === 'WIPE'){
+        el.textContent = 'WIPE';
+        el.classList.add('bad');
+      }else{
+        el.textContent = String(kind||'BOSS');
+        el.classList.add('bad');
+      }
+    }
+
+    // ===========================
+    // BOSS TIMELINE CHART (Canvas)
+    // ===========================
+    function drawBossTimeline(canvas, samples, events){
+      if(!canvas || !samples?.length) return;
+
+      const ctx = canvas.getContext('2d');
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const cssW = canvas.clientWidth || 820;
+      const cssH = Math.max(180, Math.round(cssW * 220/820));
+      canvas.width  = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+
+      const w = cssW, h = cssH;
+      const padL = 46, padR = 14, padT = 14, padB = 28;
+      const plotW = Math.max(10, w - padL - padR);
+      const plotH = Math.max(10, h - padT - padB);
+
+      ctx.clearRect(0,0,w,h);
+
+      // bg
+      ctx.fillStyle = 'rgba(2,6,23,.18)';
+      ctx.fillRect(0,0,w,h);
+
+      // grid + y labels
+      ctx.lineWidth = 1;
+      for(let i=0;i<=4;i++){
+        const y = padT + (plotH * i/4);
+        ctx.strokeStyle = 'rgba(148,163,184,.12)';
+        ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+plotW,y); ctx.stroke();
+
+        const label = String(100 - i*25);
+        ctx.fillStyle = 'rgba(148,163,184,.70)';
+        ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, padL-10, y);
+      }
+
+      const maxT = Math.max(...samples.map(s=>Number(s.t)||0), 1);
+      const xOf = (t)=> padL + (clamp(t,0,maxT)/maxT) * plotW;
+      const yOf = (danger)=> padT + (1 - clamp(danger,0,100)/100) * plotH;
+
+      // area
+      ctx.beginPath();
+      for(let i=0;i<samples.length;i++){
+        const s = samples[i];
+        const x = xOf(Number(s.t||0));
+        const y = yOf(Number(s.d||0));
+        if(i===0) ctx.moveTo(x,y);
+        else ctx.lineTo(x,y);
+      }
+      ctx.lineTo(xOf(maxT), padT+plotH);
+      ctx.lineTo(xOf(0),    padT+plotH);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(239,68,68,.10)';
+      ctx.fill();
+
+      // line
+      ctx.beginPath();
+      for(let i=0;i<samples.length;i++){
+        const s = samples[i];
+        const x = xOf(Number(s.t||0));
+        const y = yOf(Number(s.d||0));
+        if(i===0) ctx.moveTo(x,y);
+        else ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle = 'rgba(239,68,68,.86)';
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      // phase separators
+      for(let i=1;i<samples.length;i++){
+        const a=samples[i-1], b=samples[i];
+        if((a.p|0)!==(b.p|0)){
+          const x = xOf(Number(b.t||0));
+          ctx.strokeStyle='rgba(245,158,11,.22)';
+          ctx.lineWidth=1;
+          ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT+plotH); ctx.stroke();
+        }
+      }
+
+      const ev = Array.isArray(events) ? events : [];
+      const colorBy = (type)=>{
+        switch(type){
+          case 'laser': return 'rgba(239,68,68,.95)';
+          case 'shock_hit': return 'rgba(245,158,11,.95)';
+          case 'shock_dodge': return 'rgba(34,197,94,.95)';
+          case 'decoy': return 'rgba(168,85,247,.95)';
+          case 'gatefail': return 'rgba(251,113,133,.95)';
+          case 'regen': return 'rgba(148,163,184,.95)';
+          case 'wipe': return 'rgba(255,255,255,.95)';
+          default: return 'rgba(229,231,235,.85)';
+        }
+      };
+      const glyphBy = (type)=>{
+        switch(type){
+          case 'laser': return 'L';
+          case 'shock_hit': return 'S!';
+          case 'shock_dodge': return 'S✓';
+          case 'decoy': return '?';
+          case 'gatefail': return 'G';
+          case 'regen': return '+';
+          case 'wipe': return 'X';
+          default: return '•';
+        }
+      };
+      const dangerAt = (t)=>{
+        let best=samples[0], bd=1e9;
+        for(const s of samples){
+          const dt=Math.abs((s.t||0)-t);
+          if(dt<bd){ bd=dt; best=s; }
+        }
+        return Number(best.d||0);
+      };
+
+      ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+
+      for(const e of ev){
+        const t = Number(e.t||0);
+        const type = String(e.type||'');
+        // show only key event types
+        if(!['laser','shock_hit','shock_dodge','decoy','gatefail','regen','wipe'].includes(type)) continue;
+
+        const x = xOf(t);
+        const y = yOf(dangerAt(t));
+
+        ctx.fillStyle = colorBy(type);
+        ctx.beginPath();
+        ctx.arc(x, y, 5.2, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(2,6,23,.92)';
+        ctx.fillText(glyphBy(type), x, y);
+      }
+
+      // x labels
+      ctx.fillStyle = 'rgba(148,163,184,.80)';
+      ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+      ctx.fillText('time →', padL, h-8);
+      ctx.textAlign='right';
+      ctx.fillText(`${maxT}s`, padL+plotW, h-8);
+    }
+
     window.addEventListener('hha:end', (ev)=>{
       const d = ev?.detail || {};
+
       $('endTitle').textContent = d.title || 'จบเกมแล้ว! 💧';
       $('endGrade').textContent = d.grade || 'C';
-      $('endScore').textContent = String(d.score ?? 0);
-      $('endMiss').textContent = String(d.miss ?? 0);
-      $('endCombo').textContent = String(d.comboMax ?? 0);
+
+      // main KPIs (numbers running)
+      animateCount($('endScore'), d.score ?? 0, 950);
+      animateCount($('endMiss'),  d.miss ?? 0, 760);
+      animateCount($('endCombo'), d.comboMax ?? 0, 820);
+
       $('endProgFill').style.width = String(Math.max(0, Math.min(100, Number(d.progressPct||0)))) + '%';
       $('endDesc').textContent = `Progress to S: ${Math.round(Number(d.progressPct||0))}%`;
+
+      // Boss Result
+      const b = d.boss || null;
+      const wrap = $('bossResultWrap');
+      if(wrap && b?.entered){
+        wrap.style.display = 'block';
+
+        const rank = bossRank(b);
+        $('bossRankText').textContent = rank;
+
+        // stamp
+        if(b.cleared && !b.wipe) setStamp($('bossStamp'), 'CLEARED');
+        else if(b.wipe) setStamp($('bossStamp'), 'WIPE');
+        else setStamp($('bossStamp'), 'FAILED');
+
+        const sub = [
+          `Phase: P${b.phase ?? 0} • Enrage: ${b.enrage?1:0} • HP: ${(b.hpMax?Math.max(0,b.hp|0):0)}/${Math.max(0,b.hpMax|0)}`,
+          `Shock: Dodge ${b.shockDodges||0} / Hit ${b.shockHits||0} • Laser: ${b.lasers||0} • Regen: ${b.regens||0}`
+        ].join('\n');
+        $('bossSub').textContent = sub;
+
+        // boss KPIs (numbers running)
+        animateCount($('bossHits'),      b.hits ?? 0, 720);
+        animateCount($('bossGrazed'),    b.grazed ?? 0, 720);
+        animateCount($('bossMissed'),    b.missed ?? 0, 720);
+        animateCount($('bossGateFails'), b.gateFails ?? 0, 720);
+
+        animateCount($('bossDecoys'),    b.decoyHits ?? 0, 720);
+        animateCount($('bossLasers'),    b.lasers ?? 0, 720);
+        $('bossShock').textContent = `${b.shockDodges||0}/${b.shockHits||0}`;
+        animateCount($('bossRegens'),    b.regens ?? 0, 720);
+      }else if(wrap){
+        wrap.style.display = 'none';
+      }
+
+      // Timeline (Danger Meter)
+      const tlWrap = $('bossTimelineWrap');
+      const tlCv   = $('bossTimeline');
+      if(tlWrap && tlCv){
+        const tl = d.bossTimeline || null;
+        if(b?.entered && tl?.samples?.length){
+          tlWrap.style.display = 'block';
+          drawBossTimeline(tlCv, tl.samples, tl.events);
+        }else{
+          tlWrap.style.display = 'none';
+        }
+      }
+
       showEnd(true);
     });
 
