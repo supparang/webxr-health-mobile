@@ -1,14 +1,10 @@
 <!-- === /herohealth/groups-vr.html ===
-Food Groups VR — FULL HTML (PRODUCTION / FIX-ALL)
-✅ Targets = DOM emoji + VR-parallax (via GameEngine CSS vars --x/--y/--s)
-✅ GOAL + MINI quest always shows (via hha-hud-quest.js + quest:update emits)
-✅ Fever/Shield works (ui-fever.js + hha:fever)
-✅ Lock ring / Charge ring / Reticle / Danger vignette ready
-✅ URL params:
-   ?diff=easy|normal|hard
-   &time=90
-   &run=play|research
-   &seed=abc (optional for research)
+Food Groups VR — FULL HTML (PRODUCTION / FIX-ALL / Split CSS)
+✅ Emoji targets = textContent (ไม่พัง)
+✅ Goal + Mini Quest แสดงแน่ (มี fallback panel + รองรับ hha-hud.js)
+✅ Fever/Shield ทำงาน (ui-fever.js)
+✅ Lock + Charge ring + Danger/Panic overlays พร้อม (events: groups:lock / groups:charge / groups:danger / hha:panic)
+✅ Script order ปลอดภัย: particles → fever → hud → (optional logger) → quests → engine → boot
 -->
 
 <!doctype html>
@@ -23,350 +19,350 @@ Food Groups VR — FULL HTML (PRODUCTION / FIX-ALL)
   <!-- A-Frame (camera rotation source) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles -->
+  <!-- Split CSS -->
   <link rel="stylesheet" href="./vr-groups/groups.css" />
 
-  <!-- Global FX + Fever UI + HUD binders -->
+  <!-- Global FX / UI (IIFE) — MUST load before engine -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
-
-  <!-- HUD: score/coach/time/rank + Quest panel (IMPORTANT) -->
   <script src="./vr/hha-hud.js" defer></script>
-  <script src="./vr/hha-hud-quest.js" defer></script>
 
-  <!-- Game scripts (IIFE) -->
+  <!-- (optional) cloud logger (IIFE) -->
+  <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- Groups quests + engine (IIFE) -->
   <script src="./vr-groups/groups-quests.js" defer></script>
   <script src="./vr-groups/GameEngine.js" defer></script>
 
   <style>
-    /* minimal layout helpers (core visuals in groups.css) */
-    .topbar{
-      position:fixed; left:12px; top:12px;
-      display:flex; gap:10px; z-index:60;
-      pointer-events:none;
-    }
-    .pill{
-      pointer-events:none;
-      min-width:90px;
-      padding:10px 12px;
-      border-radius:16px;
-      background: rgba(2,6,23,.65);
-      border:1px solid rgba(148,163,184,.18);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      box-shadow: 0 10px 30px rgba(0,0,0,.32);
-    }
-    .pill .k{ font-size:12px; color:rgba(148,163,184,.9); margin-bottom:4px; }
-    .pill .v{ font-size:18px; font-weight:800; }
-
-    .rightbar{
-      position:fixed; right:12px; top:12px;
-      z-index:60;
-      display:flex; flex-direction:column; gap:10px;
-      pointer-events:none;
-    }
-    .rightbar .pill{ min-width:120px; }
-
-    .bottombar{
-      position:fixed; left:12px; right:12px; bottom:12px;
-      display:flex; gap:10px; justify-content:center;
-      z-index:70;
-      pointer-events:auto;
-    }
-    .btn{
-      appearance:none; border:0; cursor:pointer;
-      padding:12px 14px;
-      border-radius:18px;
-      background: rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.18);
-      color:#e5e7eb;
-      font-weight:900;
-      min-width:112px;
-      box-shadow: 0 12px 34px rgba(0,0,0,.36);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-    }
-    .btn:active{ transform: translateY(1px); }
-    .btn.green{ border-color: rgba(34,197,94,.25); }
-    .btn.red{ border-color: rgba(239,68,68,.20); }
-    .btn.gray{ border-color: rgba(148,163,184,.18); }
-
-    /* Start overlay */
-    .overlay{
-      position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      z-index:90;
-      background: radial-gradient(1000px 650px at 50% 40%, rgba(15,23,42,.55), rgba(2,6,23,.92));
-      padding:16px;
-    }
-    .card{
-      width:min(560px, 100%);
-      background: rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:22px;
-      box-shadow: 0 22px 70px rgba(0,0,0,.45);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      padding:16px;
-    }
-    .title{
-      font-size:18px; font-weight:1000; letter-spacing:.2px;
-      margin:2px 0 10px;
-    }
-    .sub{
-      color:rgba(148,163,184,.95);
-      font-size:13px;
-      line-height:1.35;
-      margin:0 0 12px;
-    }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; }
-    .chip{
-      padding:10px 12px;
-      border-radius:16px;
-      background: rgba(15,23,42,.55);
-      border:1px solid rgba(148,163,184,.16);
-      color:rgba(226,232,240,.95);
-      font-weight:800;
-      font-size:13px;
-    }
-    .row .btn{ flex:1 1 160px; }
-    .hint{
-      margin-top:10px;
-      font-size:12px;
-      color:rgba(148,163,184,.95);
-      line-height:1.35;
-    }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    /* กันคลิก HUD (ให้ยิงเป้าง่าย) */
+    .hud, .hha-hud, #hud, #hudRoot, #hudTop, #hudBottom, #hudQuest, #questPanel { pointer-events:none; }
+    .tap-hint { pointer-events:none; }
+    /* ปุ่ม start overlay ให้กดได้ */
+    #startOverlay, #startOverlay *{ pointer-events:auto; }
   </style>
 </head>
 
 <body>
-  <!-- background vignette + world layer -->
-  <div class="fg-vignette"></div>
 
-  <!-- DOM play layer -->
-  <div id="fg-layer" class="fg-layer" aria-label="FoodGroups Layer"></div>
-
-  <!-- Reticle -->
-  <div class="fg-reticle" aria-hidden="true"></div>
-
-  <!-- Lock ring (driven by groups:lock) -->
-  <div id="fg-lockring" class="fg-lockring" aria-hidden="true">
-    <div class="fg-lockfill"></div>
-    <div class="fg-chargefill"></div>
-  </div>
-
-  <!-- Minimal HUD (hha-hud.js will also bind to ids if present) -->
-  <div class="topbar">
-    <div class="pill"><div class="k">คะแนน</div><div class="v" id="hudScore">0</div></div>
-    <div class="pill"><div class="k">คอมโบ</div><div class="v" id="hudCombo">0</div></div>
-    <div class="pill"><div class="k">Miss</div><div class="v" id="hudMiss">0</div></div>
-    <div class="pill"><div class="k">เวลา</div><div class="v" id="hudTime">0</div></div>
-  </div>
-
-  <div class="rightbar">
-    <div class="pill"><div class="k">หมู่ปัจจุบัน</div><div class="v" id="hudGroup">—</div></div>
-    <div class="pill"><div class="k">เกรด</div><div class="v" id="hudGrade">C</div></div>
-    <!-- Fever/Shield UI is handled by ui-fever.js + hha-hud.js (it may inject its own bar) -->
-  </div>
-
-  <!-- Coach bubble (hha-hud.js will update via hha:coach) -->
-  <div class="fg-coach" id="coachBox" style="display:none;">
-    <div class="title">Coach</div>
-    <div class="msg" id="coachMsg">—</div>
-  </div>
-
-  <!-- Bottom controls -->
-  <div class="bottombar">
-    <button class="btn green" id="btnGaze">Gaze: ON</button>
-    <button class="btn red" id="btnStop">STOP</button>
-    <button class="btn gray" id="btnVR">VR</button>
-  </div>
-
-  <!-- A-Frame scene (camera rotation source) -->
+  <!-- ===== A-Frame scene (ใช้กล้องจริง + VR enter) ===== -->
   <a-scene
     embedded
-    renderer="colorManagement: true; physicallyCorrectLights: false"
     vr-mode-ui="enabled: true"
-    device-orientation-permission-ui="enabled: true"
-    style="position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0.001;">
-    <a-entity id="rig">
-      <a-camera id="cam" position="0 1.6 0" look-controls="enabled: true" wasd-controls="enabled:false"></a-camera>
+    renderer="colorManagement: true; antialias: true"
+    background="color: #020617"
+  >
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="cam" wasd-controls-enabled="false" look-controls="enabled: true"></a-camera>
     </a-entity>
   </a-scene>
 
-  <!-- Start overlay -->
-  <div class="overlay" id="startOverlay">
-    <div class="card">
-      <div class="title">🥦 Food Groups VR — พร้อมลุย!</div>
-      <p class="sub">
-        แตะที่เป้า หรือ “แตะตรงไหนก็ได้” เพื่อยิงเป้าใกล้จุดเล็ง<br/>
-        โหมด <b>Research</b> จะใช้ Seed แบบ fix เพื่อความเที่ยงตรง
-      </p>
+  <!-- ===== DOM gameplay layer (targets spawn here) ===== -->
+  <div id="fg-layer" class="fg-layer" aria-label="FoodGroups layer"></div>
 
-      <div class="row" style="margin-bottom:10px;">
-        <div class="chip">diff: <span id="chipDiff" class="mono">normal</span></div>
-        <div class="chip">time: <span id="chipTime" class="mono">90</span>s</div>
-        <div class="chip">run: <span id="chipRun" class="mono">play</span></div>
-        <div class="chip">seed: <span id="chipSeed" class="mono">—</span></div>
+  <!-- ===== overlays: danger / panic ===== -->
+  <div id="dangerVignette" class="fg-danger" aria-hidden="true"></div>
+  <div id="panicPulse" class="fg-panic" aria-hidden="true"></div>
+
+  <!-- ===== lock / charge rings (optional; driven by events) ===== -->
+  <div id="lockRing" class="fg-lock-ring" aria-hidden="true"></div>
+  <div id="chargeRing" class="fg-charge-ring" aria-hidden="true"></div>
+
+  <!-- ===== Quest Panel fallback (ถ้า hha-hud.js ไม่สร้าง/ไม่เจอ element ก็ยังมีตัวนี้) ===== -->
+  <div id="hudQuest" class="hha-quest" style="display:none;">
+    <div class="hdr">
+      <div>ภารกิจ 🎯</div>
+      <div id="qGroupLabel" style="opacity:.82;"></div>
+    </div>
+
+    <div class="row" style="margin-top:6px;">
+      <div class="col">
+        <div class="hha-goal-title" id="goalTitle">GOAL: —</div>
+        <div class="hha-goal-prog"  id="goalProg">0 / 0</div>
+        <div class="hha-goal-bar"><div class="fill" id="goalFill"></div></div>
       </div>
-
-      <div class="row">
-        <button class="btn green" id="btnStart">▶ เริ่มเล่น</button>
-        <button class="btn gray" id="btnStartResearch">🧪 เริ่ม (Research)</button>
-      </div>
-
-      <div class="hint">
-        ถ้า GOAL/MINI ไม่ขึ้น ให้เช็คว่าโหลดไฟล์นี้ครบ:
-        <span class="mono">./vr/hha-hud-quest.js</span> และมี event <span class="mono">quest:update</span> ถูกยิง (Engine ของคุณยิงแล้ว ✅)
+      <div class="col">
+        <div class="hha-mini-title" id="miniTitle">MINI: —</div>
+        <div class="hha-mini-prog"  id="miniProg">0 / 0</div>
+        <div class="hha-mini-bar"><div class="fill" id="miniFill"></div></div>
+        <div class="hha-quest-hint" id="miniHint" style="display:none;"></div>
       </div>
     </div>
   </div>
 
-  <script>
-    (function(){
-      'use strict';
+  <!-- ===== Start overlay ===== -->
+  <div id="startOverlay" style="
+    position:fixed; inset:0; z-index:80;
+    display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(900px 700px at 50% 30%, rgba(30,41,59,.55), rgba(2,6,23,.92));
+    ">
+    <div style="
+      width:min(760px, calc(100vw - 24px));
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.62);
+      box-shadow: 0 22px 70px rgba(0,0,0,.55);
+      backdrop-filter: blur(12px);
+      padding:16px 14px;
+      ">
+      <div style="display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:900; font-size:18px;">Food Groups VR 🍽️</div>
+          <div style="opacity:.85; font-size:13px; margin-top:2px;">
+            โหมดเล่น: แตะที่เป้า หรือ “จ้องกลางจอ” ให้ล็อกแล้วรัวเป็นชุด 🔥
+          </div>
+        </div>
 
-      const $ = (id)=>document.getElementById(id);
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <label style="display:flex; gap:8px; align-items:center; font-size:13px; opacity:.92;">
+            ระดับ
+            <select id="diffSel" style="
+              background: rgba(15,23,42,.70);
+              color:#e5e7eb; border:1px solid rgba(148,163,184,.22);
+              border-radius:12px; padding:8px 10px;">
+              <option value="easy">ง่าย</option>
+              <option value="normal" selected>ปกติ</option>
+              <option value="hard">ยาก</option>
+            </select>
+          </label>
 
-      function sp(){ try{ return new URLSearchParams(location.search); } catch { return new URLSearchParams(); } }
-      const q = sp();
+          <label style="display:flex; gap:8px; align-items:center; font-size:13px; opacity:.92;">
+            โหมด
+            <select id="modeSel" style="
+              background: rgba(15,23,42,.70);
+              color:#e5e7eb; border:1px solid rgba(148,163,184,.22);
+              border-radius:12px; padding:8px 10px;">
+              <option value="play" selected>เล่น</option>
+              <option value="research">วิจัย (Seeded)</option>
+            </select>
+          </label>
 
-      const diff = String(q.get('diff') || 'normal').toLowerCase();
-      const timeSec = Math.max(10, parseInt(q.get('time') || '90', 10) || 90);
-      const run = String(q.get('run') || 'play').toLowerCase() === 'research' ? 'research' : 'play';
-      const seed = String(q.get('seed') || '').trim();
+          <label style="display:flex; gap:8px; align-items:center; font-size:13px; opacity:.92;">
+            เวลา
+            <select id="timeSel" style="
+              background: rgba(15,23,42,.70);
+              color:#e5e7eb; border:1px solid rgba(148,163,184,.22);
+              border-radius:12px; padding:8px 10px;">
+              <option value="60">60 วิ</option>
+              <option value="90" selected>90 วิ</option>
+              <option value="120">120 วิ</option>
+            </select>
+          </label>
 
-      $('chipDiff').textContent = diff;
-      $('chipTime').textContent = String(timeSec);
-      $('chipRun').textContent  = run;
-      $('chipSeed').textContent = seed ? seed : '—';
+          <button id="btnStart" style="
+            background: rgba(34,197,94,.92);
+            color:#052e16; border:0;
+            font-weight:900;
+            border-radius:14px;
+            padding:10px 14px;
+            box-shadow: 0 18px 40px rgba(34,197,94,.18);
+            ">
+            เริ่มเกม ▶
+          </button>
+        </div>
+      </div>
 
-      // Simple coach render (in case hha-hud.js is missing)
-      window.addEventListener('hha:coach', (ev)=>{
-        const text = ev && ev.detail && ev.detail.text ? String(ev.detail.text) : '';
-        if (!text) return;
-        $('coachBox').style.display = '';
-        $('coachMsg').textContent = text;
-      });
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; opacity:.92; font-size:12px;">
+        <div style="padding:8px 10px; border:1px solid rgba(148,163,184,.16); border-radius:14px; background: rgba(15,23,42,.40);">
+          🎯 เป้าอาหารดี = คะแนน + คอมโบ + เติม FEVER
+        </div>
+        <div style="padding:8px 10px; border:1px solid rgba(148,163,184,.16); border-radius:14px; background: rgba(15,23,42,.40);">
+          😈 ขยะ/บอส = MISS (ถ้าไม่มีโล่) / มีโล่กันได้
+        </div>
+        <div style="padding:8px 10px; border:1px solid rgba(148,163,184,.16); border-radius:14px; background: rgba(15,23,42,.40);">
+          🚀 RUSH/WAVE/DECOY/RAGE มีในโหมดเล่น (สนุก+โหด)
+        </div>
+      </div>
 
-      // Minimal HUD mirrors (hha-hud.js can override; this is fallback)
-      window.addEventListener('hha:score', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        if ($('hudScore')) $('hudScore').textContent = String(d.score ?? 0);
-        if ($('hudCombo')) $('hudCombo').textContent = String(d.combo ?? 0);
-        if ($('hudMiss'))  $('hudMiss').textContent  = String(d.misses ?? 0);
-      });
-      window.addEventListener('hha:time', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        if ($('hudTime')) $('hudTime').textContent = String(d.left ?? 0);
-      });
-      window.addEventListener('quest:update', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        // show active group label in small HUD (quest manager provides)
-        if ($('hudGroup')) $('hudGroup').textContent = d.groupLabel ? String(d.groupLabel) : '—';
-      });
-      window.addEventListener('hha:rank', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        if ($('hudGrade')) $('hudGrade').textContent = d.grade ? String(d.grade) : 'C';
-      });
+      <div id="bootWarn" style="margin-top:10px; font-size:12px; opacity:.86; display:none; color:#fde68a;">
+        ⚠️ ยังไม่พร้อม: ตรวจสอบ groups-quests.js / GameEngine.js โหลดครบหรือไม่
+      </div>
+    </div>
+  </div>
 
-      // Danger vignette toggle
-      window.addEventListener('groups:danger', (ev)=>{
-        const on = !!(ev && ev.detail && ev.detail.on);
-        document.body.classList.toggle('fg-danger', on);
-      });
+  <!-- ===== Boot (module) ===== -->
+  <script type="module">
+    // --- URL params override ---
+    const sp = new URLSearchParams(location.search);
 
-      // Reticle state (optional)
-      window.addEventListener('groups:reticle', (ev)=>{
-        const s = (ev && ev.detail && ev.detail.state) ? String(ev.detail.state) : '';
-        document.body.classList.toggle('fg-reticle-ok', s === 'ok');
-        document.body.classList.toggle('fg-reticle-miss', s === 'miss');
-        document.body.classList.toggle('fg-reticle-perfect', s === 'perfect');
-        if (s){
-          setTimeout(()=>{
-            document.body.classList.remove('fg-reticle-ok','fg-reticle-miss','fg-reticle-perfect');
-          }, 220);
-        }
-      });
+    function $(id){ return document.getElementById(id); }
 
-      // Lock ring (driven by engine)
-      window.addEventListener('groups:lock', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        const ring = $('fg-lockring');
-        if (!ring) return;
+    // read params
+    const urlDiff = (sp.get('diff') || '').toLowerCase();
+    const urlTime = parseInt(sp.get('time') || '0', 10) || 0;
+    const urlRun  = (sp.get('run')  || '').toLowerCase();
 
-        const on = !!d.on;
-        ring.classList.toggle('on', on);
-        if (!on) return;
+    // UI default from url
+    if (urlDiff && ['easy','normal','hard'].includes(urlDiff)) $('diffSel').value = urlDiff;
+    if (urlTime && [60,90,120].includes(urlTime)) $('timeSel').value = String(urlTime);
+    if (urlRun && ['play','research'].includes(urlRun)) $('modeSel').value = urlRun;
 
-        // position
-        ring.style.setProperty('--lx', (Math.round(d.x || (innerWidth/2))) + 'px');
-        ring.style.setProperty('--ly', (Math.round(d.y || (innerHeight/2))) + 'px');
-        ring.style.setProperty('--lp', String(Math.max(0, Math.min(1, Number(d.prog)||0))));
-        ring.style.setProperty('--cp', String(Math.max(0, Math.min(1, Number(d.charge)||0))));
-      });
+    const layerEl = $('fg-layer');
+    const camEl   = document.querySelector('#cam');
 
-      // VR button
-      $('btnVR').addEventListener('click', ()=>{
-        try{
-          const scene = document.querySelector('a-scene');
-          if (scene && scene.enterVR) scene.enterVR();
-        }catch{}
-      });
+    // Link engine to layer/camera (safe)
+    function bindEngine(){
+      const eng = (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
+      if (!eng) return null;
+      try{ eng.setLayerEl(layerEl); }catch{}
+      try{ eng.setCameraEl(camEl); }catch{}
+      return eng;
+    }
 
-      // Engine start/stop
-      function engine(){
-        return window.GroupsVR && window.GroupsVR.GameEngine ? window.GroupsVR.GameEngine : null;
+    // ===== Quest Panel fallback binder =====
+    function showQuestPanel(on){
+      const el = $('hudQuest');
+      if (!el) return;
+      el.style.display = on ? '' : 'none';
+    }
+    function setFill(id, pct){
+      const el = $(id);
+      if (!el) return;
+      const p = Math.max(0, Math.min(100, Math.round(pct)));
+      el.style.width = p + '%';
+    }
+    window.addEventListener('quest:update', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      // ถ้า HUD global ทำงานอยู่แล้ว จะมี UI ของมันเอง
+      // แต่เรายังเปิด fallback panel เพื่อ "กันไม่ขึ้น"
+      showQuestPanel(true);
+
+      const goal = d.goal || null;
+      const mini = d.mini || null;
+
+      $('qGroupLabel').textContent = d.groupLabel ? String(d.groupLabel) : '';
+
+      if (goal){
+        $('goalTitle').textContent = String(goal.label || 'GOAL');
+        $('goalProg').textContent  = `${goal.prog|0} / ${goal.target|0}`;
+        const pct = (goal.target>0) ? (goal.prog/goal.target*100) : 0;
+        setFill('goalFill', pct);
+      } else {
+        $('goalTitle').textContent = 'GOAL: —';
+        $('goalProg').textContent  = '0 / 0';
+        setFill('goalFill', 0);
       }
 
-      function startWithMode(mode){
-        const ge = engine();
-        const layerEl = $('fg-layer');
-        const camEl = document.querySelector('#cam');
-        if (!ge || !layerEl){
-          alert('GameEngine หรือ fg-layer ไม่พร้อม (เช็คไฟล์ ./vr-groups/GameEngine.js และ id="fg-layer")');
-          return;
+      if (mini){
+        $('miniTitle').textContent = String(mini.label || 'MINI');
+        $('miniProg').textContent  = `${mini.prog|0} / ${mini.target|0}`;
+        const pct = (mini.target>0) ? (mini.prog/mini.target*100) : 0;
+        setFill('miniFill', pct);
+
+        // rush window hint
+        if (typeof mini.tLeft === 'number' && mini.tLeft >= 0){
+          $('miniHint').style.display = '';
+          $('miniHint').textContent = `⏱️ เหลือ ${mini.tLeft|0} วิ`;
+        } else {
+          $('miniHint').style.display = 'none';
+          $('miniHint').textContent = '';
         }
+      } else {
+        $('miniTitle').textContent = 'MINI: —';
+        $('miniProg').textContent  = '0 / 0';
+        setFill('miniFill', 0);
+        $('miniHint').style.display = 'none';
+      }
 
-        ge.setLayerEl(layerEl);
-        ge.setCameraEl(camEl);
+      // warn if quest missing
+      if (d.questOk === false){
+        $('bootWarn').style.display = '';
+      } else {
+        $('bootWarn').style.display = 'none';
+      }
+    });
 
-        ge.setTimeLeft(timeSec);
+    // ===== Danger / Panic / Lock / Charge overlays =====
+    window.addEventListener('groups:danger', (ev)=>{
+      const on = !!(ev && ev.detail && ev.detail.on);
+      $('dangerVignette')?.classList.toggle('on', on);
+      if (!on) $('dangerVignette')?.classList.remove('on');
+    });
 
-        // start
-        ge.start(diff, {
-          runMode: mode,
-          seed: seed || undefined,
-          layerEl: layerEl
+    window.addEventListener('hha:panic', (ev)=>{
+      const on = !!(ev && ev.detail && ev.detail.on);
+      $('panicPulse')?.classList.toggle('on', on);
+    });
+
+    window.addEventListener('groups:lock', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      const ring = $('lockRing');
+      if (!ring) return;
+
+      if (!d.on){
+        ring.classList.remove('on');
+        return;
+      }
+      ring.classList.add('on');
+      const x = (typeof d.x === 'number') ? d.x : window.innerWidth/2;
+      const y = (typeof d.y === 'number') ? d.y : window.innerHeight/2;
+      ring.style.left = Math.round(x) + 'px';
+      ring.style.top  = Math.round(y) + 'px';
+
+      // color by type
+      const boss = !!d.boss;
+      const good = !!d.good;
+      const decoy = !!d.decoy;
+      ring.style.borderColor =
+        boss ? 'rgba(249,115,22,.60)' :
+        decoy ? 'rgba(59,130,246,.62)' :
+        (good ? 'rgba(34,197,94,.60)' : 'rgba(239,68,68,.60)');
+    });
+
+    window.addEventListener('groups:charge', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      const ring = $('chargeRing');
+      if (!ring) return;
+      ring.classList.toggle('on', !!d.on);
+      ring.classList.toggle('spin', !!d.on);
+    });
+
+    // ===== Start/Stop =====
+    function startFromUI(){
+      const eng = bindEngine();
+      if (!eng){
+        $('bootWarn').style.display = '';
+        return;
+      }
+
+      const diff = $('diffSel').value;
+      const runMode = $('modeSel').value;
+      const timeLeft = parseInt($('timeSel').value, 10) || 90;
+
+      // set time first
+      eng.setTimeLeft(timeLeft);
+
+      // optional: url seed (research)
+      const seed = sp.get('seed') ? String(sp.get('seed')) : '';
+
+      // start
+      eng.start(diff, { runMode, seed, layerEl });
+
+      $('startOverlay').style.display = 'none';
+    }
+
+    $('btnStart').addEventListener('click', startFromUI);
+
+    // auto-run via url (run=play/research)
+    if (urlRun === 'play' || urlRun === 'research'){
+      // wait scripts load (defer) + next frame
+      window.addEventListener('load', () => {
+        requestAnimationFrame(() => {
+          const eng = bindEngine();
+          if (!eng) { $('bootWarn').style.display = ''; return; }
+
+          const diff = ['easy','normal','hard'].includes(urlDiff) ? urlDiff : $('diffSel').value;
+          const runMode = urlRun;
+          const timeLeft = urlTime || (parseInt($('timeSel').value,10)||90);
+
+          eng.setTimeLeft(timeLeft);
+          const seed = sp.get('seed') ? String(sp.get('seed')) : '';
+          eng.start(diff, { runMode, seed, layerEl });
+
+          $('startOverlay').style.display = 'none';
         });
-
-        $('startOverlay').style.display = 'none';
-      }
-
-      $('btnStart').addEventListener('click', ()=> startWithMode('play'));
-      $('btnStartResearch').addEventListener('click', ()=> startWithMode('research'));
-
-      $('btnStop').addEventListener('click', ()=>{
-        const ge = engine();
-        if (ge && ge.stop) ge.stop('stop_btn');
-        $('startOverlay').style.display = '';
       });
-
-      // Gaze toggle
-      let gazeOn = true;
-      $('btnGaze').addEventListener('click', ()=>{
-        gazeOn = !gazeOn;
-        $('btnGaze').textContent = gazeOn ? 'Gaze: ON' : 'Gaze: OFF';
-        const ge = engine();
-        if (ge && ge.setGaze) ge.setGaze(gazeOn);
-      });
-
-      // If URL asked to auto-run (optional)
-      if (q.get('autorun') === '1'){
-        setTimeout(()=> startWithMode(run), 250);
-      }
-    })();
+    }
   </script>
 </body>
 </html>
