@@ -1,10 +1,11 @@
 <!-- === /herohealth/groups-vr.html ===
-Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL)
-✅ ใช้ groups-vr.css (แยก CSS)
-✅ Quest IIFE โหลดก่อน Engine
-✅ HUD รับ quest:update / hha:fever / hha:score / hha:time / hha:rank
-✅ แก้ Coach ไม่ทำลาย sub line (แยก #coachMain/#coachSub)
-✅ STUN FX overlay รองรับ 0.8s (groups:stun)
+Food Groups VR — FULL HTML (ALL-IN PACK)
+✅ Quest+Mini แสดงแน่ (มี #hudGoal/#hudMini ชัด)
+✅ Group Power HUD (ชาร์จ 0/threshold) + popup power
+✅ Group Swap Drama (flash + banner + coach)
+✅ Stun 0.8s overlay + edge flash + vibration
+✅ Lock ring progress + charge ring (สำหรับ gaze/fuse + charge)
+✅ รองรับ run=play / run=research, diff=easy/normal/hard, time=90, seed=...
 -->
 
 <!doctype html>
@@ -16,369 +17,397 @@ Food Groups VR — FULL HTML (PRODUCTION READY / FIX-ALL)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core -->
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX / Fever / HUD / Logger -->
+  <!-- Global FX + Fever + HUD (IIFE) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- ✅ Quest FIRST (IIFE) -->
-  <script src="./vr-groups/groups-quests.js" defer></script>
+  <!-- Groups CSS (แยกไฟล์) -->
+  <link rel="stylesheet" href="./vr-groups/groups-vr.css" />
 
-  <!-- ✅ Engine AFTER quest -->
-  <script src="./vr-groups/GameEngine.js" defer></script>
-
-  <!-- ✅ External CSS -->
-  <link rel="stylesheet" href="./groups-vr.css" />
 </head>
-
 <body>
-  <div class="wrap">
-    <a-scene
-      embedded
-      renderer="antialias: true; colorManagement: true;"
-      vr-mode-ui="enabled:false"
-      background="color: #020617"
-    >
-      <a-entity id="rig" position="0 1.6 0">
-        <a-camera id="camera"
-          wasd-controls-enabled="false"
-          look-controls="enabled:true; touchEnabled:true; mouseEnabled:true"
-          position="0 0 0"
-        ></a-camera>
-      </a-entity>
-      <a-sky color="#020617"></a-sky>
-    </a-scene>
 
-    <div id="fg-layer" aria-label="targets layer"></div>
+  <!-- ===== A-Frame Scene (ใช้ camera rotation สำหรับ parallax targets) ===== -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: true"
+    renderer="antialias: true; colorManagement: true;"
+    background="color: #020617">
 
-    <div class="hud">
-      <div class="topbar">
-        <div class="pill stats">
-          <div class="stat"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
-          <div class="stat"><div class="k">COMBO</div><div class="v" id="hudCombo">0</div></div>
-          <div class="stat"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
-          <div class="stat"><div class="k">TIME</div><div class="v" id="hudTime">—</div></div>
-          <div class="stat"><div class="k">SHIELD</div><div class="v" id="hudShield">0</div></div>
-          <div class="stat"><div class="k">GRADE</div><div class="v" id="hudGrade">C</div></div>
-        </div>
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity id="hhaCam" camera look-controls="pointerLockEnabled: false"></a-entity>
+    </a-entity>
 
-        <div class="questBox">
-          <div class="questTitle">🧩 <span>MINI QUEST</span> <small id="miniPct">0%</small></div>
-          <div class="qline" id="questGoal"><span class="muted">GOAL:</span> —</div>
-          <div class="qline" id="questMini"><span class="muted">MINI:</span> —</div>
-        </div>
+    <!-- Sky / ambience -->
+    <a-sky color="#020617"></a-sky>
+  </a-scene>
+
+  <!-- ===== Gameplay DOM Layer ===== -->
+  <div id="fg-layer" class="fg-layer" aria-label="FoodGroups Targets Layer"></div>
+
+  <!-- ===== Top HUD ===== -->
+  <div class="hud-top">
+    <div class="hud-card hud-left">
+      <div class="hud-row">
+        <div class="hud-title">คะแนน</div>
+        <div id="hudScore" class="hud-val">0</div>
       </div>
-
-      <div class="coachBox">
-        <div id="coachMain">แตะ/จ้องอาหารดีให้ได้เยอะ ๆ ✨</div>
-        <div id="coachSub">Tip: Tap-anywhere จะยิงเป้าใกล้นิ้วให้</div>
+      <div class="hud-row">
+        <div class="hud-title">คอมโบ</div>
+        <div id="hudCombo" class="hud-val">0</div>
       </div>
-
-      <div id="reticle"></div>
-
-      <div id="lockUI">
-        <svg id="lockSvg" width="88" height="88" viewBox="0 0 88 88">
-          <circle class="ringBack" cx="44" cy="44" r="30"></circle>
-          <circle class="ringProg" cx="44" cy="44" r="30"
-            stroke-dasharray="188.5" stroke-dashoffset="188.5"></circle>
-          <circle class="ringCharge" cx="44" cy="44" r="22"
-            stroke-dasharray="138.2" stroke-dashoffset="138.2"></circle>
-        </svg>
+      <div class="hud-row">
+        <div class="hud-title">พลาด</div>
+        <div id="hudMiss" class="hud-val">0</div>
       </div>
-
-      <div class="controls">
-        <div class="hintCol">
-          <div class="hint">LOCK <small>จ้องจนวงเขียวเต็ม → ยิงเป็นชุด</small></div>
-          <div class="hint">CHARGE <small>ค้างต่อ → ยิงแรง + CHAIN แบบ Cone</small></div>
-        </div>
-
-        <div class="btnCol">
-          <button class="btn primary" id="btnGaze">Gaze: ON</button>
-          <button class="btn danger" id="btnStop">STOP</button>
-          <button class="btn ghost btnMini" id="btnVR">VR</button>
-        </div>
-      </div>
-
-      <div id="edgePulse" aria-hidden="true"></div>
     </div>
 
-    <!-- STUN overlay (0.8s) -->
-    <div id="stunFX" aria-hidden="true"></div>
+    <div class="hud-card hud-mid">
+      <div class="hud-group-row">
+        <div id="hudGroup" class="hud-group">หมู่ ?</div>
+        <div id="hudTimer" class="hud-timer">90s</div>
+      </div>
 
-    <div id="startOverlay">
-      <div class="card">
-        <div class="h1">Food Groups VR — พร้อมลุย</div>
-        <div class="p">
-          <b>Play</b>: สุ่ม + Adaptive + Rush + BossWave + Decoy + Rage (เร้าใจสุด) <br/>
-          <b>Research</b>: fix seed + ปิดสิ่งสุ่มเพื่อคุมตัวแปร (เที่ยงตรง)
+      <!-- ✅ Power HUD -->
+      <div class="power-wrap">
+        <div class="power-label">
+          <span id="hudPowerName">POWER</span>
+          <span id="hudPowerNum">0/6</span>
         </div>
-
-        <div class="row">
-          <div class="seg">
-            <label>Difficulty</label>
-            <select id="selDiff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </div>
-
-          <div class="seg">
-            <label>Run mode</label>
-            <select id="selMode">
-              <option value="play" selected>play</option>
-              <option value="research">research</option>
-            </select>
-          </div>
-
-          <div class="seg">
-            <label>Time (sec)</label>
-            <input id="inpTime" type="number" min="20" max="600" step="10" value="70" />
-          </div>
+        <div class="power-bar">
+          <div id="hudPowerFill" class="power-fill" style="width:0%"></div>
         </div>
+      </div>
 
-        <button class="startBtn" id="btnStart">START</button>
-        <div class="note">
-          ถ้า Quest ไม่ขึ้น: เช็ค path <code>./vr-groups/groups-quests.js</code> และ console warning.
+      <!-- ✅ Quest HUD -->
+      <div class="quest-wrap">
+        <div class="quest-line">
+          <div class="q-badge">GOAL</div>
+          <div id="hudGoal" class="q-text">—</div>
+          <div id="hudGoalNum" class="q-num">0/0</div>
         </div>
+        <div class="quest-line">
+          <div class="q-badge mini">MINI</div>
+          <div id="hudMini" class="q-text">—</div>
+          <div id="hudMiniNum" class="q-num">0/0</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="hud-card hud-right">
+      <div class="rank-box">
+        <div class="rank-title">GRADE</div>
+        <div id="hudGrade" class="rank-grade">C</div>
+      </div>
+      <div class="rank-sub">
+        <div><span id="hudAcc">0</span>% ACC</div>
+        <div><span id="hudQp">0</span>% Q</div>
       </div>
     </div>
   </div>
 
+  <!-- ===== Center Lock Ring (for gaze fuse + charge) ===== -->
+  <div id="lockRing" class="lock-ring" style="display:none">
+    <div class="lock-core"></div>
+    <div class="lock-prog"></div>
+    <div class="lock-charge"></div>
+  </div>
+
+  <!-- ===== Group Swap Banner ===== -->
+  <div id="groupBanner" class="group-banner" style="display:none">
+    <div id="groupBannerText" class="group-banner-text">หมู่ ?</div>
+    <div class="group-banner-sub">ยิงถูกหมู่ = ชาร์จสกิล ⚡</div>
+  </div>
+
+  <!-- ===== Stun Overlay ===== -->
+  <div id="stunOverlay" class="stun-overlay" style="display:none">
+    <div class="stun-card">
+      <div class="stun-title">STUN!</div>
+      <div class="stun-sub">พัก 0.8 วิ 😵</div>
+    </div>
+  </div>
+
+  <!-- ===== Start Overlay ===== -->
+  <div id="startOverlay" class="start-overlay">
+    <div class="start-card">
+      <div class="start-title">Food Groups VR</div>
+      <div class="start-sub">
+        แตะที่เป้า หรือแตะที่จอเพื่อยิง (auto-aim) <br/>
+        จ้องกลางจอ = ยิงเป็นชุด + ชาร์จ (ถ้าอุปกรณ์รองรับ) <br/>
+        ยิงถูก “หมู่ปัจจุบัน” ต่อเนื่อง → ปลด POWER ⚡
+      </div>
+
+      <div class="start-grid">
+        <div class="pill"><b>School</b> Mode</div>
+        <div class="pill">SSS / SS / S / A / B / C</div>
+        <div class="pill"><span id="pillDiff">diff</span></div>
+        <div class="pill"><span id="pillMode">mode</span></div>
+      </div>
+
+      <div class="start-actions">
+        <button id="btnStart" class="btn primary">เริ่มเล่น</button>
+        <button id="btnRestart" class="btn">เริ่มใหม่</button>
+        <button id="btnExit" class="btn ghost">ปิด</button>
+      </div>
+
+      <div class="start-note">
+        * โหมดวิจัย (run=research) จะ fix seed และปิด randomness บางอย่างเพื่อความยุติธรรม
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Boot Scripts ===== -->
+  <script src="./vr-groups/groups-quests.js" defer></script>
+  <script src="./vr-groups/GameEngine.js" defer></script>
+
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
 
-      const $ = (id)=>document.getElementById(id);
+    const $ = (id)=>document.getElementById(id);
 
-      const layer = $('fg-layer');
-      const camEl = document.querySelector('#camera');
-      const sceneEl = document.querySelector('a-scene');
+    const layerEl = $('fg-layer');
+    const camEl = document.querySelector('#hhaCam');
 
-      const startOverlay = $('startOverlay');
-      const selDiff = $('selDiff');
-      const selMode = $('selMode');
-      const inpTime = $('inpTime');
+    const hudScore = $('hudScore');
+    const hudCombo = $('hudCombo');
+    const hudMiss  = $('hudMiss');
+    const hudTimer = $('hudTimer');
+    const hudGroup = $('hudGroup');
 
-      const hudScore = $('hudScore');
-      const hudCombo = $('hudCombo');
-      const hudMiss  = $('hudMiss');
-      const hudTime  = $('hudTime');
-      const hudShield= $('hudShield');
-      const hudGrade = $('hudGrade');
+    const hudGoal = $('hudGoal');
+    const hudMini = $('hudMini');
+    const hudGoalNum = $('hudGoalNum');
+    const hudMiniNum = $('hudMiniNum');
 
-      const questGoal = $('questGoal');
-      const questMini = $('questMini');
-      const miniPct   = $('miniPct');
+    const hudPowerName = $('hudPowerName');
+    const hudPowerNum  = $('hudPowerNum');
+    const hudPowerFill = $('hudPowerFill');
 
-      const coachMain = $('coachMain');
-      const coachSub  = $('coachSub');
+    const hudGrade = $('hudGrade');
+    const hudAcc = $('hudAcc');
+    const hudQp  = $('hudQp');
 
-      const btnStart = $('btnStart');
-      const btnGaze  = $('btnGaze');
-      const btnStop  = $('btnStop');
-      const btnVR    = $('btnVR');
+    const lockRing = $('lockRing');
+    const groupBanner = $('groupBanner');
+    const groupBannerText = $('groupBannerText');
+    const stunOverlay = $('stunOverlay');
 
-      const reticle  = $('reticle');
+    const startOverlay = $('startOverlay');
+    const btnStart = $('btnStart');
+    const btnRestart = $('btnRestart');
+    const btnExit = $('btnExit');
 
-      const lockUI   = $('lockUI');
-      const ringProg = lockUI.querySelector('.ringProg');
-      const ringCharge = lockUI.querySelector('.ringCharge');
+    const pillDiff = $('pillDiff');
+    const pillMode = $('pillMode');
 
-      const edgePulse = $('edgePulse');
-      const stunFX = $('stunFX');
+    function sp(){
+      try { return new URLSearchParams(location.search); }
+      catch { return new URLSearchParams(); }
+    }
+    function getParam(name, def){
+      const v = sp().get(name);
+      return (v == null || v === '') ? def : v;
+    }
+    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-      const sp = new URLSearchParams(location.search);
-      const qDiff = (sp.get('diff')||'').toLowerCase();
-      const qMode = (sp.get('mode')||sp.get('run')||'').toLowerCase();
-      const qTime = parseInt(sp.get('time')||'',10);
+    const diff = String(getParam('diff','normal')).toLowerCase();
+    const timeSec = Math.max(10, parseInt(getParam('time','90'),10)||90);
+    const run = String(getParam('run','play')).toLowerCase();
+    const seed = String(getParam('seed','')||'');
 
-      if (qDiff) selDiff.value = (['easy','normal','hard'].includes(qDiff) ? qDiff : 'normal');
-      if (qMode) selMode.value = (qMode === 'research' ? 'research' : 'play');
-      if (!Number.isNaN(qTime) && qTime>0) inpTime.value = String(qTime);
+    pillDiff.textContent = 'diff=' + diff;
+    pillMode.textContent = 'run=' + run;
 
-      const C1 = 188.5;
-      const C2 = 138.2;
-      function setRing(circle, prog, C){
-        const p = Math.max(0, Math.min(1, prog||0));
-        circle.style.strokeDasharray = String(C);
-        circle.style.strokeDashoffset = String(C * (1 - p));
+    // ===== UI Helpers =====
+    function flashBanner(text){
+      if (!groupBanner || !groupBannerText) return;
+      groupBannerText.textContent = String(text||'');
+      groupBanner.style.display = '';
+      groupBanner.classList.remove('pop');
+      void groupBanner.offsetWidth;
+      groupBanner.classList.add('pop');
+      setTimeout(()=>{ try{ groupBanner.style.display='none'; }catch{} }, 1100);
+    }
+
+    function showStun(ms){
+      if (!stunOverlay) return;
+      stunOverlay.style.display = '';
+      stunOverlay.classList.remove('pop');
+      void stunOverlay.offsetWidth;
+      stunOverlay.classList.add('pop');
+      setTimeout(()=>{ try{ stunOverlay.style.display='none'; }catch{} }, Math.max(520, ms|0));
+    }
+
+    function showLock(on, x, y, prog, charge){
+      if (!lockRing) return;
+      if (!on){
+        lockRing.style.display = 'none';
+        return;
+      }
+      const w = window.innerWidth || 360;
+      const h = window.innerHeight || 640;
+      const px = clamp(x, 0, w);
+      const py = clamp(y, 0, h);
+
+      lockRing.style.display = '';
+      lockRing.style.transform =
+        `translate3d(${Math.round(px)}px,${Math.round(py)}px,0) translate(-50%,-50%)`;
+
+      const p = clamp(prog, 0, 1);
+      const c = clamp(charge, 0, 1);
+
+      lockRing.style.setProperty('--p', String(p));
+      lockRing.style.setProperty('--c', String(c));
+    }
+
+    // ===== Bind Events =====
+    window.addEventListener('hha:score', (e)=>{
+      const d = (e && e.detail) ? e.detail : {};
+      if (hudScore) hudScore.textContent = String(d.score ?? 0);
+      if (hudCombo) hudCombo.textContent = String(d.combo ?? 0);
+      if (hudMiss)  hudMiss.textContent  = String(d.misses ?? 0);
+    });
+
+    window.addEventListener('hha:time', (e)=>{
+      const d = (e && e.detail) ? e.detail : {};
+      const left = Math.max(0, d.left|0);
+      if (hudTimer) hudTimer.textContent = left + 's';
+      if (left <= 10) document.documentElement.classList.add('panic');
+      else document.documentElement.classList.remove('panic');
+    });
+
+    window.addEventListener('quest:update', (e)=>{
+      const d = (e && e.detail) ? e.detail : {};
+      const gLabel = d.groupLabel || '';
+      if (hudGroup) hudGroup.textContent = gLabel ? gLabel : 'หมู่ ?';
+
+      if (!d.questOk){
+        if (hudGoal) hudGoal.textContent = '⚠️ QUEST ไม่พร้อม';
+        if (hudMini) hudMini.textContent = 'เช็ค groups-quests.js';
+        if (hudGoalNum) hudGoalNum.textContent = '';
+        if (hudMiniNum) hudMiniNum.textContent = '';
+        return;
       }
 
-      function setReticle(state){
-        reticle.classList.remove('ok','miss','perfect');
-        if (state) reticle.classList.add(state);
-        if (state){
-          setTimeout(()=>reticle.classList.remove('ok','miss','perfect'), 160);
+      const goal = d.goal || null;
+      const mini = d.mini || null;
+
+      if (hudGoal) hudGoal.textContent = goal ? goal.label : '—';
+      if (hudMini) hudMini.textContent = mini ? mini.label : '—';
+
+      if (hudGoalNum) hudGoalNum.textContent =
+        goal ? `${goal.prog|0}/${goal.target|0}` : '0/0';
+
+      if (hudMiniNum){
+        if (!mini) hudMiniNum.textContent = '0/0';
+        else {
+          const t = `${mini.prog|0}/${mini.target|0}`;
+          const tl = (mini.tLeft != null) ? ` ⏱${mini.tLeft|0}s` : '';
+          hudMiniNum.textContent = t + tl;
         }
       }
+    });
 
-      // --- HUD updates ---
-      window.addEventListener('hha:score', (e)=>{
-        const d = (e && e.detail) || {};
-        if (typeof d.score === 'number') hudScore.textContent = d.score|0;
-        if (typeof d.combo === 'number') hudCombo.textContent = d.combo|0;
-        if (typeof d.misses === 'number') hudMiss.textContent = d.misses|0;
-        if (typeof d.shield === 'number') hudShield.textContent = d.shield|0;
-      });
+    // ✅ Group Power progress
+    window.addEventListener('groups:power', (e)=>{
+      const d = (e && e.detail) ? e.detail : {};
+      const name = d.groupName || 'POWER';
+      const c = d.charge|0;
+      const th = Math.max(1, d.threshold|0);
+      const pct = clamp(c / th, 0, 1);
 
-      window.addEventListener('hha:time', (e)=>{
-        const d = (e && e.detail) || {};
-        if (typeof d.left === 'number') hudTime.textContent = (d.left|0);
-      });
+      if (hudPowerName) hudPowerName.textContent = name;
+      if (hudPowerNum) hudPowerNum.textContent = `${c}/${th}`;
+      if (hudPowerFill) hudPowerFill.style.width = Math.round(pct * 100) + '%';
 
-      window.addEventListener('hha:rank', (e)=>{
-        const d = (e && e.detail) || {};
-        if (d.grade) hudGrade.textContent = String(d.grade);
-      });
-
-      // ✅ QUEST MUST SHOW
-      window.addEventListener('quest:update', (e)=>{
-        const d = (e && e.detail) || {};
-        const g = d.goal;
-        const m = d.mini;
-
-        if (!d.questOk){
-          questGoal.innerHTML = `<span class="muted">GOAL:</span> (quest ไม่พร้อม)`;
-          questMini.innerHTML = `<span class="muted">MINI:</span> (เช็ค groups-quests.js)`;
-          miniPct.textContent = '0%';
-          return;
-        }
-
-        if (g && g.label){
-          questGoal.innerHTML = `<span class="muted">GOAL:</span> ${g.label} <span class="muted">(${g.prog||0}/${g.target||0})</span>`;
-        } else {
-          questGoal.innerHTML = `<span class="muted">GOAL:</span> —`;
-        }
-
-        if (m && m.label){
-          const pct = (m.target>0) ? Math.round((m.prog/m.target)*100) : 0;
-          miniPct.textContent = pct + '%';
-
-          // แสดงเวลาหน้าต่าง rush ถ้ามี
-          const tLeft = (typeof m.tLeft === 'number') ? ` <span class="muted">⏱️${m.tLeft}</span>` : '';
-          questMini.innerHTML = `<span class="muted">MINI:</span> ${m.label} <span class="muted">(${m.prog||0}/${m.target||0})</span>${tLeft}`;
-        } else {
-          questMini.innerHTML = `<span class="muted">MINI:</span> —`;
-          miniPct.textContent = '0%';
-        }
-      });
-
-      window.addEventListener('hha:coach', (e)=>{
-        const d = (e && e.detail) || {};
-        if (!d) return;
-        if (d.text) coachMain.textContent = String(d.text);
-      });
-
-      window.addEventListener('groups:reticle', (e)=>{
-        const d = (e && e.detail) || {};
-        if (d.state === 'ok') setReticle('ok');
-        else if (d.state === 'miss') setReticle('miss');
-        else if (d.state === 'perfect') setReticle('perfect');
-      });
-
-      window.addEventListener('groups:lock', (e)=>{
-        const d = (e && e.detail) || {};
-        if (!d.on){
-          lockUI.classList.remove('on');
-          lockUI.style.transform = 'translate(-9999px,-9999px)';
-          return;
-        }
-        lockUI.classList.add('on');
-
-        const x = (typeof d.x === 'number') ? d.x : (innerWidth/2);
-        const y = (typeof d.y === 'number') ? d.y : (innerHeight/2);
-
-        lockUI.style.transform = `translate(${Math.round(x-44)}px,${Math.round(y-44)}px)`;
-        setRing(ringProg, d.prog||0, C1);
-        setRing(ringCharge, d.charge||0, C2);
-      });
-
-      // CLUTCH edge pulse hook (optional)
-      window.addEventListener('hha:panic', (e)=>{
-        const d = (e && e.detail) || {};
-        if (!edgePulse) return;
-        if (d.on){
-          edgePulse.classList.add('on');
-          edgePulse.classList.add('beat');
-          setTimeout(()=>edgePulse.classList.remove('beat'), 260);
-        } else {
-          edgePulse.classList.remove('on');
-          edgePulse.classList.remove('beat');
-        }
-      });
-
-      // ✅ STUN FX (0.8s)
-      window.addEventListener('groups:stun', (e)=>{
-        const d = (e && e.detail) || {};
-        if (!stunFX) return;
-        if (d.on){
-          stunFX.classList.add('on');
-          setTimeout(()=>stunFX.classList.remove('on'), Math.max(100, d.ms|0));
-        } else {
-          stunFX.classList.remove('on');
-        }
-      });
-
-      function safeEngine(){
-        return (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
+      // little pulse
+      if (hudPowerFill){
+        hudPowerFill.classList.remove('pulse');
+        void hudPowerFill.offsetWidth;
+        hudPowerFill.classList.add('pulse');
       }
+    });
 
-      let gazeOn = true;
+    // ✅ Group swap drama
+    window.addEventListener('groups:group_change', (e)=>{
+      const d = (e && e.detail) ? e.detail : {};
+      const text = d.label || 'เปลี่ยนหมู่!';
+      flashBanner(text);
+      document.documentElement.classList.add('swapflash');
+      setTimeout(()=>document.documentElement.classList.remove('swapflash'), 240);
+    });
 
-      btnGaze.addEventListener('click', ()=>{
-        const eng = safeEngine();
-        gazeOn = !gazeOn;
-        btnGaze.textContent = 'Gaze: ' + (gazeOn ? 'ON' : 'OFF');
-        eng && eng.setGaze && eng.setGaze(gazeOn);
-      });
+    // ✅ STUN overlay
+    window.addEventListener('groups:stun', (e)=>{
+      const d = (e && e.detail) ? e.detail : {};
+      if (d.on) showStun(d.ms|0);
+      document.documentElement.classList.add('stunflash');
+      setTimeout(()=>document.documentElement.classList.remove('stunflash'), 220);
+    });
 
-      btnStop.addEventListener('click', ()=>{
-        const eng = safeEngine();
-        eng && eng.stop && eng.stop('stop_button');
-      });
+    // ✅ Lock ring
+    window.addEventListener('groups:lock', (e)=>{
+      const d = (e && e.detail) ? e.detail : {};
+      showLock(!!d.on, d.x, d.y, d.prog, d.charge);
+    });
 
-      btnVR.addEventListener('click', async ()=>{
-        try{ if (sceneEl && sceneEl.enterVR) sceneEl.enterVR(); }catch{}
-      });
+    // Rank
+    window.addEventListener('hha:rank', (e)=>{
+      const d = (e && e.detail) ? e.detail : {};
+      if (hudGrade) hudGrade.textContent = String(d.grade || 'C');
+      if (hudAcc) hudAcc.textContent = String(d.accuracy ?? 0);
+      if (hudQp)  hudQp.textContent  = String(d.questsPct ?? 0);
+    });
 
-      btnStart.addEventListener('click', ()=>{
-        const eng = safeEngine();
-        if (!eng){
-          alert('GameEngine ยังไม่พร้อม (เช็ค path ./vr-groups/GameEngine.js)');
-          return;
-        }
+    // ===== Start / Restart =====
+    function getEngine(){
+      return (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
+    }
 
-        startOverlay.style.display = 'none';
-
-        eng.setLayerEl(layer);
-        eng.setCameraEl(camEl);
-
-        const diff = (selDiff.value||'normal').toLowerCase();
-        const mode = (selMode.value||'play').toLowerCase();
-        const tsec = Math.max(20, Math.min(600, parseInt(inpTime.value||'70',10) || 70));
-
-        eng.setTimeLeft(tsec);
-        eng.setGaze(true);
-        gazeOn = true;
-        btnGaze.textContent = 'Gaze: ON';
-
-        // เคลียร์ UI ให้เห็นแน่
-        coachSub.textContent = (mode === 'research')
-          ? 'Research: fix seed + ปิดสุ่ม (คุมตัวแปร)'
-          : 'Play: สุ่ม + Adaptive + Rush/BossWave/Decoy/Rage';
-
-        eng.start(diff, { layerEl: layer, runMode: mode });
-      });
-
-      if (sp.get('autostart') === '1'){
-        setTimeout(()=>btnStart.click(), 100);
+    function startGame(){
+      const engine = getEngine();
+      if (!engine) {
+        alert('GameEngine ยังไม่โหลด (เช็คไฟล์ ./vr-groups/GameEngine.js)');
+        return;
       }
-    })();
+      engine.setLayerEl(layerEl);
+      engine.setCameraEl(camEl);
+      engine.setTimeLeft(timeSec);
+
+      const opts = {
+        layerEl,
+        runMode: run,
+        seed: seed || undefined
+      };
+
+      engine.start(diff, opts);
+      startOverlay.style.display = 'none';
+    }
+
+    btnStart && btnStart.addEventListener('click', startGame);
+    btnRestart && btnRestart.addEventListener('click', ()=>{
+      const engine = getEngine();
+      if (engine) engine.stop('restart');
+      startOverlay.style.display = '';
+    });
+
+    btnExit && btnExit.addEventListener('click', ()=>{
+      startOverlay.style.display = 'none';
+    });
+
+    // Auto-run if run=play and autostart=1
+    const auto = String(getParam('autostart','0')) === '1';
+    if (auto) setTimeout(startGame, 220);
+
+  })();
   </script>
+
 </body>
 </html>
