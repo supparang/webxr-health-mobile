@@ -10,7 +10,7 @@
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + input compat + logger -->
+  <!-- Global FX + input compat + logger (defer สำคัญ) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
@@ -19,6 +19,7 @@
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.62);
+      --panel2:rgba(2,6,23,.52);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
@@ -47,7 +48,7 @@
     #startDesc{color:rgba(148,163,184,.95); font-weight:900; margin-top:8px; line-height:1.35;}
     #startBtns{display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;}
 
-    /* ===== Minimal HUD ===== */
+    /* ===== Minimal HUD (พื้นที่เล่นใหญ่ขึ้น) ===== */
     #hudTop{
       position:fixed; left:10px; right:10px; top:10px;
       z-index:900; pointer-events:none;
@@ -77,7 +78,7 @@
     #hudLeftGroup{display:flex; gap:8px; flex-wrap:wrap;}
     #hudRightGroup{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
 
-    /* ===== Crosshair ===== */
+    /* ===== Crosshair (ช่วยความรู้สึก VR) ===== */
     #crosshair{
       position:fixed;
       left:50%; top:50%;
@@ -195,9 +196,6 @@
     .cell{background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px;}
     .cell .k{display:block; margin-bottom:4px;}
   </style>
-
-  <!-- ✅ plate.safe.js -->
-  <script type="module" src="./plate/plate.safe.js"></script>
 </head>
 
 <body>
@@ -293,5 +291,8 @@
       </div>
     </div>
   </div>
+
+  <!-- ✅ IMPORTANT: โหลดหลัง DOM เพื่อกัน “กดเริ่มไม่ได้/เข้าเกมไม่ไป” -->
+  <script type="module" src="./plate/plate.safe.js"></script>
 </body>
 </html>
