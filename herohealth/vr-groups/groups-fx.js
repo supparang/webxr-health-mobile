@@ -1,452 +1,302 @@
 // === /herohealth/vr-groups/groups-fx.js ===
-// Food Groups VR — FX + UI helpers (IIFE) — PRODUCTION
-// ✅ Creates (if missing): lock ring, stun overlay, group banner, end summary modal (optional)
-// ✅ Binds events:
-//    - groups:lock        -> lock ring follows target + progress + charge
-//    - groups:group_change-> banner pop
-//    - groups:stun        -> stun overlay + shake
-//    - hha:time           -> panic blink when low time
-//    - hha:score          -> score pop
-//    - hha:celebrate      -> goal/mini/all celebration burst
-//    - hha:judge          -> judge toast
-//    - hha:end            -> optional summary modal (safe if you don't want)
-// Works with: groups-vr.css + groups-vr.html + GameEngine.js + groups-quests.js
+// Food Groups VR — FX Binder (classic script) — PRODUCTION
+// ✅ Ensures: lock ring UI, stun overlay, group banner
+// ✅ Listens: groups:lock, groups:stun, groups:group_change, hha:time, hha:score, hha:rank, hha:celebrate, hha:judge
+// ✅ Adds: panic class near end, swap flash already done by Engine, stun flash class compat
+// ✅ Optional: afterimage trail on hits (uses .fg-afterimage in CSS)
+// ✅ Safe / idempotent
 
 (function () {
   'use strict';
 
-  const W = window;
   const doc = document;
   if (!doc) return;
 
-  // prevent double bind
-  const NS = (W.GroupsFX = W.GroupsFX || {});
+  const NS = (window.GroupsFX = window.GroupsFX || {});
   if (NS.__bound) return;
   NS.__bound = true;
 
-  // ---------------- helpers ----------------
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function $(id){ return doc.getElementById(id); }
-  function el(tag, cls){
-    const e = doc.createElement(tag);
-    if (cls) e.className = cls;
-    return e;
-  }
+  function $(sel){ return doc.querySelector(sel); }
+  function byId(id){ return doc.getElementById(id); }
 
-  // ---------- ensure base FX layer (for pop/burst/toast) ----------
-  function ensureFxLayer(){
-    let layer = doc.querySelector('.hha-fx-layer');
-    if (layer) return layer;
-
-    layer = el('div', 'hha-fx-layer');
-    Object.assign(layer.style, {
-      position:'fixed',
-      inset:'0',
-      zIndex:'40',
-      pointerEvents:'none',
-      overflow:'hidden'
-    });
-    doc.body.appendChild(layer);
-    return layer;
-  }
-
-  // ---------- ensure lock ring ----------
+  // ---------------- Ensure UI nodes ----------------
   function ensureLockRing(){
-    let ring = doc.querySelector('.lock-ring');
+    let ring = $('.lock-ring');
     if (ring) return ring;
 
-    ring = el('div', 'lock-ring');
-    ring.innerHTML = `
-      <div class="lock-prog"></div>
-      <div class="lock-charge"></div>
-      <div class="lock-core"></div>
-    `;
-    // default hidden
-    ring.style.opacity = '0';
-    ring.style.transform = 'translate3d(-9999px,-9999px,0)';
+    ring = doc.createElement('div');
+    ring.className = 'lock-ring';
+    ring.style.transform = 'translate(-50%,-50%)';
+
+    const core = doc.createElement('div');
+    core.className = 'lock-core';
+
+    const prog = doc.createElement('div');
+    prog.className = 'lock-prog';
+
+    const chg = doc.createElement('div');
+    chg.className = 'lock-charge';
+
+    ring.appendChild(core);
+    ring.appendChild(prog);
+    ring.appendChild(chg);
+
     doc.body.appendChild(ring);
+
+    // hidden by default
+    ring.style.opacity = '0';
+    ring.style.transition = 'opacity .10s linear';
     return ring;
   }
 
-  // ---------- ensure stun overlay ----------
   function ensureStunOverlay(){
-    let s = doc.querySelector('.stun-overlay');
-    if (s) return s;
+    let ov = $('.stun-overlay');
+    if (ov) return ov;
 
-    s = el('div', 'stun-overlay');
-    s.style.display = 'none';
-    s.innerHTML = `
-      <div class="stun-card">
-        <div class="stun-title">STUN!</div>
-        <div class="stun-sub">โดนขยะแล้ว 🥤 ล็อกชั่วคราว</div>
-      </div>
-    `;
-    doc.body.appendChild(s);
-    return s;
-  }
+    ov = doc.createElement('div');
+    ov.className = 'stun-overlay';
+    ov.style.display = 'none';
 
-  // ---------- ensure group banner ----------
-  function ensureGroupBanner(){
-    let b = doc.querySelector('.group-banner');
-    if (b) return b;
-
-    b = el('div', 'group-banner');
-    b.style.display = 'none';
-    b.innerHTML = `
-      <div class="group-banner-text" id="fg-bannerText">หมู่ ?</div>
-      <div class="group-banner-sub" id="fg-bannerSub">POWER ready → สลับหมู่!</div>
-    `;
-    doc.body.appendChild(b);
-    return b;
-  }
-
-  // ---------- ensure end summary modal (optional, safe) ----------
-  function ensureEndModal(){
-    let m = doc.getElementById('fg-endModal');
-    if (m) return m;
-
-    m = el('div');
-    m.id = 'fg-endModal';
-    Object.assign(m.style, {
-      position:'fixed',
-      inset:'0',
-      zIndex:'60',
-      display:'none',
-      alignItems:'center',
-      justifyContent:'center',
-      padding:'18px',
-      background:'radial-gradient(circle at 50% 35%, rgba(34,211,238,.10), rgba(2,6,23,.92))'
-    });
-
-    const card = el('div');
-    Object.assign(card.style, {
-      width:'min(760px, 94vw)',
-      background:'rgba(2,6,23,.86)',
-      border:'1px solid rgba(148,163,184,.20)',
-      borderRadius:'26px',
-      padding:'18px',
-      boxShadow:'0 24px 90px rgba(0,0,0,.55)',
-      backdropFilter:'blur(12px)'
-    });
-
+    const card = doc.createElement('div');
+    card.className = 'stun-card';
     card.innerHTML = `
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-        <div>
-          <div style="font-weight:1000;font-size:22px;letter-spacing:.4px">สรุปผล Food Groups VR</div>
-          <div id="fg-endReason" style="margin-top:6px;opacity:.8;font-weight:700">—</div>
-        </div>
-        <div id="fg-endGrade" style="font-weight:1000;font-size:34px;letter-spacing:1px">C</div>
-      </div>
-
-      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-        <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.14);border-radius:18px;padding:10px">
-          <div style="opacity:.75;font-size:12px">SCORE</div>
-          <div id="fg-endScore" style="font-weight:1000;font-size:18px">0</div>
-        </div>
-        <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.14);border-radius:18px;padding:10px">
-          <div style="opacity:.75;font-size:12px">ACC</div>
-          <div id="fg-endAcc" style="font-weight:1000;font-size:18px">0%</div>
-        </div>
-        <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.14);border-radius:18px;padding:10px">
-          <div style="opacity:.75;font-size:12px">BEST COMBO</div>
-          <div id="fg-endCombo" style="font-weight:1000;font-size:18px">0</div>
-        </div>
-      </div>
-
-      <div style="margin-top:10px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
-        <div style="background:rgba(2,6,23,.55);border:1px solid rgba(148,163,184,.12);border-radius:18px;padding:10px">
-          <div style="opacity:.75;font-size:12px">MISSES</div>
-          <div id="fg-endMiss" style="font-weight:900">0</div>
-        </div>
-        <div style="background:rgba(2,6,23,.55);border:1px solid rgba(148,163,184,.12);border-radius:18px;padding:10px">
-          <div style="opacity:.75;font-size:12px">HITS / SHOTS</div>
-          <div id="fg-endHS" style="font-weight:900">0 / 0</div>
-        </div>
-      </div>
-
-      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
-        <button id="fg-endClose" style="
-          pointer-events:auto;
-          padding:10px 14px;border-radius:16px;
-          border:1px solid rgba(148,163,184,.22);
-          background:transparent;color:rgba(229,231,235,.92);
-          font-weight:900;cursor:pointer
-        ">ปิด</button>
-        <button id="fg-endRestart" style="
-          pointer-events:auto;
-          padding:10px 14px;border-radius:16px;
-          border:1px solid rgba(34,211,238,.25);
-          background:linear-gradient(90deg, rgba(34,197,94,.92), rgba(34,211,238,.92));
-          color:#081019;font-weight:1000;cursor:pointer
-        ">เล่นอีกครั้ง</button>
-      </div>
+      <div class="stun-title">STUN!</div>
+      <div class="stun-sub">โดนขยะแล้ว 😵‍💫</div>
     `;
-
-    m.appendChild(card);
-    doc.body.appendChild(m);
-
-    // buttons
-    const close = card.querySelector('#fg-endClose');
-    const restart = card.querySelector('#fg-endRestart');
-    close.addEventListener('click', ()=>{ m.style.display='none'; });
-    restart.addEventListener('click', ()=>{ location.reload(); });
-
-    return m;
+    ov.appendChild(card);
+    doc.body.appendChild(ov);
+    return ov;
   }
 
-  // ---------- score pop ----------
-  function scorePop(text, x, y){
-    const layer = ensureFxLayer();
-    const n = el('div');
-    n.textContent = String(text);
-    Object.assign(n.style, {
-      position:'fixed',
-      left: (x|0) + 'px',
-      top:  (y|0) + 'px',
-      transform:'translate(-50%,-50%)',
-      fontWeight:'1000',
-      fontSize:'18px',
-      letterSpacing:'.3px',
-      textShadow:'0 10px 24px rgba(0,0,0,.45)',
-      opacity:'0',
-      willChange:'transform,opacity',
-      pointerEvents:'none'
-    });
-    layer.appendChild(n);
+  function ensureGroupBanner(){
+    let bn = $('.group-banner');
+    if (bn) return bn;
 
-    // animate
-    requestAnimationFrame(()=>{
-      n.style.opacity = '1';
-      n.style.transform = 'translate(-50%,-70%) scale(1.06)';
-    });
-    setTimeout(()=>{
-      n.style.opacity = '0';
-      n.style.transform = 'translate(-50%,-95%) scale(.98)';
-    }, 240);
-    setTimeout(()=>{ try{ n.remove(); }catch{} }, 520);
+    bn = doc.createElement('div');
+    bn.className = 'group-banner';
+    bn.style.display = 'none';
+    bn.innerHTML = `
+      <div class="group-banner-text" id="fg-bannerText">หมู่ ?</div>
+      <div class="group-banner-sub" id="fg-bannerSub">ยิงให้ถูก “หมู่ปัจจุบัน” 🎯</div>
+    `;
+    doc.body.appendChild(bn);
+    return bn;
   }
 
-  // ---------- burst confetti (simple emoji burst) ----------
-  function burstAt(x,y, emoji){
-    const layer = ensureFxLayer();
-    const count = 10;
-    for (let i=0;i<count;i++){
-      const p = el('div');
-      p.textContent = emoji || '✨';
-      Object.assign(p.style, {
-        position:'fixed',
-        left:(x|0)+'px',
-        top:(y|0)+'px',
-        transform:'translate(-50%,-50%)',
-        fontSize:(16 + (Math.random()*16))|0 + 'px',
-        opacity:'0',
-        pointerEvents:'none',
-        willChange:'transform,opacity'
-      });
-      layer.appendChild(p);
+  const lockRing = ensureLockRing();
+  const stunOv   = ensureStunOverlay();
+  const banner   = ensureGroupBanner();
 
-      const a = Math.random()*Math.PI*2;
-      const r = 12 + Math.random()*40;
-      const dx = Math.cos(a)*r;
-      const dy = Math.sin(a)*r;
-
-      requestAnimationFrame(()=>{
-        p.style.opacity = '1';
-        p.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.08)`;
-      });
-      setTimeout(()=>{
-        p.style.opacity = '0';
-        p.style.transform = `translate(calc(-50% + ${dx*1.2}px), calc(-50% + ${dy*1.2}px)) scale(.92)`;
-      }, 220);
-      setTimeout(()=>{ try{ p.remove(); }catch{} }, 520);
-    }
-  }
-
-  // ---------- judge toast ----------
-  function toast(text, kind){
-    const layer = ensureFxLayer();
-    const box = el('div');
-    const isWarn = (kind === 'warn');
-    box.textContent = String(text || '');
-    Object.assign(box.style, {
-      position:'fixed',
-      left:'50%',
-      top:'calc(16px + var(--sat, 0px))',
-      transform:'translateX(-50%)',
-      padding:'10px 14px',
-      borderRadius:'16px',
-      border:'1px solid ' + (isWarn ? 'rgba(245,158,11,.25)' : 'rgba(148,163,184,.18)'),
-      background: isWarn ? 'rgba(245,158,11,.10)' : 'rgba(2,6,23,.55)',
-      color:'rgba(229,231,235,.92)',
-      fontWeight:'900',
-      letterSpacing:'.2px',
-      boxShadow:'0 18px 60px rgba(0,0,0,.35)',
-      opacity:'0',
-      pointerEvents:'none',
-      zIndex:'55'
-    });
-    layer.appendChild(box);
-
-    requestAnimationFrame(()=>{ box.style.opacity='1'; });
-    setTimeout(()=>{ box.style.opacity='0'; }, 560);
-    setTimeout(()=>{ try{ box.remove(); }catch{} }, 880);
-  }
-
-  // ---------- panic timer (low time) ----------
-  let lastPanic = false;
-  function setPanic(on){
-    on = !!on;
-    if (on === lastPanic) return;
-    lastPanic = on;
-    doc.documentElement.classList.toggle('panic', on);
-  }
-
-  // ---------------- ensure UI ----------
-  const ring = ensureLockRing();
-  const stun = ensureStunOverlay();
-  const banner = ensureGroupBanner();
-  const endModal = ensureEndModal(); // safe even if you don't show
-
-  // ---------------- event bindings ----------------
-
-  // lock ring follow
-  W.addEventListener('groups:lock', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    const on = !!d.on;
+  // ---------------- Lock ring control ----------------
+  function setLock(on, x, y, prog, charge){
+    if (!lockRing) return;
 
     if (!on){
-      ring.style.opacity = '0';
-      ring.style.transform = 'translate3d(-9999px,-9999px,0)';
-      ring.style.setProperty('--p', 0);
-      ring.style.setProperty('--c', 0);
+      lockRing.style.opacity = '0';
       return;
     }
 
-    const x = Number(d.x)||0;
-    const y = Number(d.y)||0;
-    const prog = clamp(d.prog, 0, 1);
-    const charge = clamp(d.charge, 0, 1);
+    // position
+    lockRing.style.left = (x|0) + 'px';
+    lockRing.style.top  = (y|0) + 'px';
 
-    ring.style.opacity = '1';
-    ring.style.left = x + 'px';
-    ring.style.top  = y + 'px';
-    ring.style.transform = 'translate(-50%,-50%)';
-    ring.style.setProperty('--p', prog);
-    ring.style.setProperty('--c', charge);
-  }, { passive:true });
+    // CSS vars for conic progress
+    lockRing.style.setProperty('--p', String(clamp(prog,0,1)));
+    lockRing.style.setProperty('--c', String(clamp(charge,0,1)));
 
-  // group banner pop
-  let bannerTO = 0;
-  W.addEventListener('groups:group_change', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    const label = d.label || 'หมู่ ?';
+    lockRing.style.opacity = '1';
+  }
 
-    const t = banner.querySelector('#fg-bannerText');
-    if (t) t.textContent = label;
+  // ---------------- Stun overlay control ----------------
+  let stunTimer = 0;
+  function showStun(ms){
+    if (!stunOv) return;
+    try{ clearTimeout(stunTimer); }catch(_){}
+
+    stunOv.style.display = '';
+    stunOv.classList.remove('pop');
+    // retrigger anim
+    void stunOv.offsetWidth;
+    stunOv.classList.add('pop');
+
+    // subtle screen shake via class (if you want stronger, tweak CSS in html.stunflash::before)
+    doc.documentElement.classList.add('stunflash');
+    setTimeout(()=>doc.documentElement.classList.remove('stunflash'), 220);
+
+    stunTimer = setTimeout(()=>{
+      stunOv.style.display = 'none';
+    }, Math.max(180, ms|0));
+  }
+
+  // ---------------- Group banner control ----------------
+  let bannerTimer = 0;
+  function flashGroup(label){
+    if (!banner) return;
+
+    const t = byId('fg-bannerText');
+    if (t) t.textContent = label || 'หมู่ ?';
 
     banner.style.display = '';
     banner.classList.remove('pop');
-    // reflow
     void banner.offsetWidth;
     banner.classList.add('pop');
 
-    clearTimeout(bannerTO);
-    bannerTO = setTimeout(()=>{
+    try{ clearTimeout(bannerTimer); }catch(_){}
+    bannerTimer = setTimeout(()=>{
       banner.style.display = 'none';
-      banner.classList.remove('pop');
     }, 900);
-  }, { passive:true });
+  }
 
-  // stun overlay
-  let stunTO = 0;
-  W.addEventListener('groups:stun', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    const on = !!d.on;
-    const ms = Math.max(200, d.ms|0);
+  // ---------------- Panic mode (near end) ----------------
+  // Adds html.panic when <= 10s
+  let lastPanic = false;
+  function applyPanic(left){
+    const on = (left|0) <= 10;
+    if (on === lastPanic) return;
+    lastPanic = on;
+    doc.documentElement.classList.toggle('panic', on);
 
-    if (!on) return;
-
-    stun.style.display = 'flex';
-    stun.classList.remove('pop');
-    void stun.offsetWidth;
-    stun.classList.add('pop');
-
-    // subtle shake
-    doc.documentElement.classList.add('stunshake');
-    clearTimeout(stunTO);
-    stunTO = setTimeout(()=>{
-      stun.style.display = 'none';
-      doc.documentElement.classList.remove('stunshake');
-    }, ms);
-  }, { passive:true });
-
-  // panic when <= 10 sec
-  W.addEventListener('hha:time', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    const left = d.left|0;
-    setPanic(left > 0 && left <= 10);
-  }, { passive:true });
-
-  // score pop (center-ish)
-  W.addEventListener('hha:score', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    // show small pop on big milestones only to avoid spam
-    const score = d.score|0;
-    const combo = d.combo|0;
-
-    if (combo > 0 && (combo % 5 === 0)){
-      scorePop('COMBO x' + combo, window.innerWidth*0.5, window.innerHeight*0.58);
-      burstAt(window.innerWidth*0.5, window.innerHeight*0.58, '✨');
+    // little extra vibrate tick at 3..1
+    if (on && navigator.vibrate){
+      // nothing here, handled on time event for 3..1 below
     }
-    // optional: score tick pop every 1000
-    if (score !== 0 && (Math.abs(score) % 1000 === 0)){
-      scorePop((score>0?'+':'') + score, window.innerWidth*0.5, window.innerHeight*0.52);
-    }
-  }, { passive:true });
+  }
 
-  // celebrate (from quests)
-  W.addEventListener('hha:celebrate', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    const kind = String(d.kind || '');
-    const text = d.text || (kind === 'goal' ? 'GOAL CLEAR!' : 'NICE!');
-    toast(text, 'ok');
-
-    const cx = window.innerWidth*0.5;
-    const cy = window.innerHeight*0.46;
-
-    if (kind === 'goal'){
-      burstAt(cx, cy, '🎉');
-      burstAt(cx, cy, '✨');
-    } else if (kind === 'mini'){
-      burstAt(cx, cy, '⚡');
-      burstAt(cx, cy, '✨');
-    } else {
-      burstAt(cx, cy, '🎊');
-    }
-  }, { passive:true });
-
-  // judge toast
-  W.addEventListener('hha:judge', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    toast(d.text || '—', d.kind || 'warn');
-  }, { passive:true });
-
-  // end summary (optional modal)
-  W.addEventListener('hha:end', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    // show end modal automatically
+  // ---------------- Afterimage trail ----------------
+  function spawnAfterimage(x, y, emoji){
     try{
-      $('fg-endReason').textContent = 'เหตุผล: ' + (d.reason || 'end');
-      $('fg-endGrade').textContent  = d.grade || 'C';
-      $('fg-endScore').textContent  = String(d.scoreFinal|0);
-      $('fg-endAcc').textContent    = String((d.accuracy|0)) + '%';
-      $('fg-endCombo').textContent  = String(d.comboMax|0);
-      $('fg-endMiss').textContent   = String(d.misses|0);
-      $('fg-endHS').textContent     = `${d.hits|0} / ${d.shots|0}`;
-      endModal.style.display = 'flex';
-    }catch(_){
-      // if anything missing, fail silently
+      const a = doc.createElement('div');
+      a.className = 'fg-afterimage a1';
+      a.style.setProperty('--x', (x|0) + 'px');
+      a.style.setProperty('--y', (y|0) + 'px');
+
+      const inner = doc.createElement('div');
+      inner.className = 'fg-afterimage-inner';
+      inner.textContent = emoji || '✨';
+
+      a.appendChild(inner);
+      doc.body.appendChild(a);
+
+      setTimeout(()=>{ try{ a.className = 'fg-afterimage a2'; }catch(_){ } }, 60);
+      setTimeout(()=>{ try{ if (a.parentNode) a.parentNode.removeChild(a); }catch(_){ } }, 260);
+    }catch(_){}
+  }
+
+  // optional: small “burst” using text pop (lightweight)
+  function burstAt(x, y, text){
+    try{
+      const b = doc.createElement('div');
+      b.style.position = 'fixed';
+      b.style.left = (x|0) + 'px';
+      b.style.top  = (y|0) + 'px';
+      b.style.transform = 'translate(-50%,-50%) scale(0.8)';
+      b.style.zIndex = '40';
+      b.style.pointerEvents = 'none';
+      b.style.fontSize = '18px';
+      b.style.fontWeight = '900';
+      b.style.opacity = '0';
+      b.style.transition = 'transform .18s ease, opacity .18s ease';
+      b.textContent = text || '+';
+
+      doc.body.appendChild(b);
+      requestAnimationFrame(()=>{
+        b.style.opacity = '1';
+        b.style.transform = 'translate(-50%,-50%) scale(1)';
+      });
+      setTimeout(()=>{
+        b.style.opacity = '0';
+        b.style.transform = 'translate(-50%,-60%) scale(1.05)';
+      }, 160);
+      setTimeout(()=>{ try{ if (b.parentNode) b.parentNode.removeChild(b); }catch(_){ } }, 360);
+    }catch(_){}
+  }
+
+  // ---------------- Event bindings ----------------
+  window.addEventListener('groups:lock', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    setLock(!!d.on, d.x, d.y, d.prog, d.charge);
+  }, { passive:true });
+
+  window.addEventListener('groups:stun', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    if (d.on) showStun(d.ms || 800);
+  }, { passive:true });
+
+  window.addEventListener('groups:group_change', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    flashGroup(d.label || 'หมู่ ?');
+  }, { passive:true });
+
+  window.addEventListener('hha:time', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    const left = d.left|0;
+
+    applyPanic(left);
+
+    // tick vibes for last 3 seconds
+    if (left <= 3 && left > 0 && navigator.vibrate){
+      try{ navigator.vibrate(30); }catch(_){}
     }
   }, { passive:true });
+
+  // add a tiny “feel” on score changes (optional)
+  let lastScore = 0;
+  window.addEventListener('hha:score', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    const score = d.score|0;
+    if (score !== lastScore){
+      lastScore = score;
+      // very light feedback: no DOM spam
+    }
+  }, { passive:true });
+
+  // Celebrate / judge (from quest system)
+  window.addEventListener('hha:celebrate', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    // quick banner sub hint
+    const sub = byId('fg-bannerSub');
+    if (sub) sub.textContent = d.text || 'NICE! ✨';
+
+    // flash banner even if not group change
+    const t = byId('fg-bannerText');
+    if (t) t.textContent = (d.kind === 'goal') ? 'GOAL ✅' : (d.kind === 'mini' ? 'MINI ✅' : 'NICE');
+
+    banner.style.display = '';
+    banner.classList.remove('pop');
+    void banner.offsetWidth;
+    banner.classList.add('pop');
+
+    try{ clearTimeout(bannerTimer); }catch(_){}
+    bannerTimer = setTimeout(()=>{ banner.style.display = 'none'; }, 900);
+  }, { passive:true });
+
+  window.addEventListener('hha:judge', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    // quick small burst at center
+    burstAt(window.innerWidth/2, window.innerHeight/2, d.text || '!');
+  }, { passive:true });
+
+  // Afterimage: when player hits (tap/lock) we can infer by pointerdown on targets
+  // (safe: only listens capture on body)
+  doc.body.addEventListener('pointerdown', (ev)=>{
+    const t = ev.target;
+    if (!t) return;
+    if (!(t.classList && t.classList.contains('fg-target'))) return;
+
+    // get center
+    const r = t.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top + r.height/2;
+
+    // emoji is first span child
+    let emoji = '✨';
+    try{
+      const span = t.querySelector('span');
+      if (span && span.textContent) emoji = span.textContent.trim() || emoji;
+    }catch(_){}
+
+    spawnAfterimage(cx, cy, emoji);
+  }, { passive:true, capture:true });
 
 })();
