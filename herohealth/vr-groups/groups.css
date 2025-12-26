@@ -1,4 +1,15 @@
-/* === /herohealth/vr-groups/groups.css ===
-Alias loader — keep this file if pages link to /vr-groups/groups.css
-*/
+/* =========================================================
+   /herohealth/vr-groups/groups.css
+   Alias loader — DO NOT PUT STYLES HERE
+   Purpose: redirect to the real stylesheet
+   ========================================================= */
+
+/* Core visual system */
 @import url("./groups-vr.css");
+
+/* 
+  NOTE:
+  - ไฟล์นี้มีไว้เพื่อ backward compatibility
+  - ทุกหน้าเก่าที่อ้าง /vr-groups/groups.css จะยังทำงานได้
+  - ห้ามใส่ CSS จริงในไฟล์นี้ ให้แก้ที่ groups-vr.css เท่านั้น
+*/
