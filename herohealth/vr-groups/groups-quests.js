@@ -14,7 +14,7 @@
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
   function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-  // small deterministic RNG (mulberry32-ish)
+  // small deterministic RNG (mulberry32)
   function makeRng(seedStr){
     let s = 0x9e3779b9;
     const str = String(seedStr || '');
@@ -307,15 +307,9 @@
 
         // mini progress types
         if (state.activeMini){
-          if (state.activeMini.kind === 'streak_correct'){
-            state.activeMini.prog++;
-          }
-          if (state.activeMini.kind === 'avoid_wrong'){
-            state.activeMini.prog++;
-          }
-          if (state.activeMini.kind === 'avoid_junk'){
-            state.activeMini.prog++;
-          }
+          if (state.activeMini.kind === 'streak_correct') state.activeMini.prog++;
+          if (state.activeMini.kind === 'avoid_wrong')    state.activeMini.prog++;
+          if (state.activeMini.kind === 'avoid_junk')     state.activeMini.prog++;
         }
       } else {
         // break combo
@@ -329,7 +323,7 @@
           if (state.activeMini.kind === 'avoid_wrong' && result.wrong) state.activeMini.fail = true;
           if (state.activeMini.kind === 'avoid_junk'  && result.junk)  state.activeMini.fail = true;
           if (state.activeMini.kind === 'streak_correct'){
-            // streak mini: ยิงผิด = streak reset (ไม่ fail ทันที แค่ reset)
+            // streak mini: ยิงผิด = streak reset
             state.activeMini.prog = 0;
           }
         }
@@ -339,7 +333,6 @@
       updateGoalProgress();
       emitQuestUpdate();
       nextGoalIfPassed();
-
       // mini pass/fail check จะทำใน tick เพื่อคุมเวลา
     }
 
