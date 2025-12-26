@@ -1,10 +1,11 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR — ULTIMATE ALL-IN-ONE (UI-clean + Research-Strict + Boss-focused mid)
-// ✅ FIX: result overlay show (display:flex) + paused badge show (display:block)
-// ✅ FIX: expireTargets guard (rec may be undefined) -> no crash reading 'dead'
-// ✅ FIX: prevent multi-fire from duplicate events (pointerdown only + tiny lock)
-// ✅ FIX: endGame disables play-layer pointerEvents; restart restores
-// ✅ DEFAULT TIME (Grade 5): easy 90s / normal 75s / hard 60s when ?time= is not provided
+// Plate VR — ULTIMATE ALL-IN-ONE (StartOverlay-ready + UI-clean + Boss-focused mid)
+// ✅ FIX: เข้าเกมไม่ได้ (Start overlay บัง) → bind #btnStart + hide overlay + begin()
+// ✅ FIX: plate.safe.js:773 Cannot read 'dead' → guard undefined rec in loops
+// ✅ FIX: หน้าสรุปไม่ขึ้น/จบแปลก → ensure overlay hidden + endGame always show
+// ✅ Fallback time: use durationPlannedSec if ?time missing
+// ✅ Grade 5 timing: Easy 80s / Normal 70s / Hard 60s (default when param missing)
+// ✅ Hard 60s “ผ่านได้บ้าง”: ลดโทษ/ลด rate เล็กน้อย (ยังเร้าใจ)
 
 'use strict';
 
@@ -13,14 +14,9 @@ const doc = ROOT.document;
 
 function $(id){ return doc ? doc.getElementById(id) : null; }
 function setTxt(el, t){ if(el) el.textContent = String(t); }
+function setShow(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
 
-// ✅ FIX: support displayOn (flex/block/etc) instead of '' which may fallback to CSS display:none
-function setShow(el, on, displayOn){
-  if(!el) return;
-  if(on) el.style.display = displayOn || 'block';
-  else el.style.display = 'none';
-}
-
+// ---------- Fatal overlay (เดิม) ----------
 (function attachFatalOverlay(){
   if (!doc) return;
   const box = doc.createElement('div');
@@ -72,11 +68,11 @@ const MODE = String(Q.get('run') || 'play').toLowerCase();      // play | resear
 const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal | hard
 const DEBUG = (Q.get('debug') === '1');
 
-// ✅ DEFAULT TIME for ป.5 (if ?time= not provided)
-const DEFAULT_TIME_BY_DIFF = { easy: 90, normal: 75, hard: 60 };
-const HAS_TIME = Q.has('time');
-const TIME_RAW = HAS_TIME ? (parseInt(Q.get('time') || '', 10) || 0) : 0;
-const TOTAL_TIME = Math.max(20, (HAS_TIME ? TIME_RAW : (DEFAULT_TIME_BY_DIFF[DIFF] || 75)));
+// time: prefer ?time, else durationPlannedSec, else default by diff (ป.5)
+const plannedSec = parseInt(Q.get('durationPlannedSec') || '', 10);
+const timeParam  = parseInt(Q.get('time') || '', 10);
+const defaultByDiff = (DIFF === 'easy') ? 80 : (DIFF === 'hard') ? 60 : 70;
+const TOTAL_TIME = Math.max(20, (Number.isFinite(timeParam) ? timeParam : (Number.isFinite(plannedSec) ? plannedSec : defaultByDiff)));
 
 // ---------- RNG (Research strict) ----------
 let SEED = parseInt(Q.get('seed') || '', 10);
@@ -84,7 +80,6 @@ if (!Number.isFinite(SEED)) SEED = 1337;
 let _seed = (SEED >>> 0) || 1337;
 
 function srnd(){
-  // xorshift32
   _seed ^= (_seed << 13); _seed >>>= 0;
   _seed ^= (_seed >>> 17); _seed >>>= 0;
   _seed ^= (_seed << 5); _seed >>>= 0;
@@ -129,6 +124,7 @@ const HUD = {
   resultBackdrop: $('resultBackdrop'),
   btnPlayAgain: $('btnPlayAgain'),
 
+  // result fields
   rMode: $('rMode'),
   rGrade: $('rGrade'),
   rScore: $('rScore'),
@@ -145,7 +141,7 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
-// ---------- Difficulty (กลาง ๆ เน้นบอส) ----------
+// ---------- Difficulty ----------
 const DIFF_TABLE = {
   easy: {
     size: 92, life: 3200, spawnMs: 900, maxTargets: 10,
@@ -164,11 +160,12 @@ const DIFF_TABLE = {
     stormDurMs:[4200, 7200], slowDurMs:[3200, 5600], noJunkDurMs:[4200, 6800],
   },
   hard: {
-    size: 66, life: 2300, spawnMs: 660, maxTargets: 14,
-    junkRate: 0.30, goldRate: 0.14, trapRate: 0.095, bossRate: 0.060, fakeRate: 0.070,
-    slowRate: 0.055, noJunkRate: 0.022, stormRate: 0.040,
+    // ✅ ปรับให้ 60 วิ “ผ่านได้บ้าง” (ยังท้าทาย แต่ไม่โหดเกิน)
+    size: 68, life: 2450, spawnMs: 700, maxTargets: 14,
+    junkRate: 0.27, goldRate: 0.14, trapRate: 0.085, bossRate: 0.055, fakeRate: 0.060,
+    slowRate: 0.058, noJunkRate: 0.026, stormRate: 0.042,
     aimAssist: 125,
-    bossHP: 6, bossAtkMs:[1550, 2300], bossPhase2At: 0.60, bossPhase3At: 0.34,
+    bossHP: 5, bossAtkMs:[1650, 2400], bossPhase2At: 0.60, bossPhase3At: 0.34,
     stormDurMs:[4800, 8200], slowDurMs:[3200, 5800], noJunkDurMs:[4200, 7200],
   },
 };
@@ -179,7 +176,7 @@ const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
 const LIVES_START = (Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0) ? LIVES_PARAM : 3;
 
 const S = {
-  running:false, paused:false,
+  running:false, paused:false, started:false,
   tStart:0, timeLeft:TOTAL_TIME,
   score:0, combo:0, maxCombo:0,
   miss:0, perfectCount:0,
@@ -217,7 +214,6 @@ function dispatchEvt(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
 }
 
-/* ===== FIX: sanitize + correct Particles API ===== */
 function safeFxText(t){
   t = String(t ?? '');
   if (/^\d+(\.\d+)?$/.test(t) && t.length >= 10) return '✓';
@@ -234,9 +230,7 @@ function fxJudge(label){
   dispatchEvt('hha:judge', { label: safeFxText(label) });
 }
 function fxCelebrate(kind, intensity=1.0){
-  try{
-    Particles.celebrate && Particles.celebrate({ kind: safeFxText(kind), intensity: clamp(intensity,0.6,2.2) });
-  }catch(_){}
+  try{ Particles.celebrate && Particles.celebrate({ kind: safeFxText(kind), intensity: clamp(intensity,0.6,2.2) }); }catch(_){}
 }
 
 // hit flash overlay
@@ -245,10 +239,10 @@ function flash(kind='bad', ms=110){
   if(!hitFxEl) return;
   hitFxEl.dataset.kind = String(kind||'bad');
   hitFxEl.classList.add('show');
-  setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch (_){} }, ms|0);
+  setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch(_){} }, ms|0);
 }
 
-// ---------- DOM target layer + CSS ----------
+// ---------- DOM target layer + CSS (เดิม) ----------
 (function injectCss(){
   if (!doc) return;
   const st = doc.createElement('style');
@@ -314,7 +308,7 @@ const layer = doc.createElement('div');
 layer.className = 'plate-layer';
 doc.body.appendChild(layer);
 
-// ---------- Audio (tiny beeps) ----------
+// ---------- Audio ----------
 const AudioX = (function(){
   let ctx=null;
   function ensure(){ if(ctx) return ctx; try{ ctx=new (ROOT.AudioContext||ROOT.webkitAudioContext)(); }catch(_){ } return ctx; }
@@ -648,8 +642,9 @@ function updateAimHighlight(){
   const picked=pickNearCrosshair(assist);
   const tid=picked? picked.rec.el.dataset.tid : null;
   if(tid===S.aimedId) return;
+
   if(S.aimedId){
-    const prev=S.targets.find(r=>r && r.el && r.el.dataset.tid===S.aimedId);
+    const prev=S.targets.find(r=>r && r.el && r.el.dataset && r.el.dataset.tid===S.aimedId);
     prev && prev.el && prev.el.classList.remove('aimed');
   }
   S.aimedId=tid;
@@ -681,27 +676,6 @@ function bossAttackStyleForPhase(phase){
   if(phase===3) return 'double';
   if(phase===2) return 'laser';
   return 'ring';
-}
-
-// ✅ one event path + tiny lock (prevents double from pointerdown+click+touchstart)
-function bindHit(el, rec){
-  const fire = (e)=>{
-    if(e){ try{ e.preventDefault(); e.stopPropagation(); }catch(_){ } }
-    if(!rec || rec.dead) return;
-    const t = now();
-    if(rec._hitLock && (t - rec._hitLock) < 80) return;
-    rec._hitLock = t;
-    AudioX.unlock();
-    hitTarget(rec,true);
-  };
-
-  // Prefer pointerdown; fallback to touchstart if PointerEvent not supported
-  if('PointerEvent' in ROOT){
-    el.addEventListener('pointerdown', fire, {passive:false});
-  }else{
-    el.addEventListener('touchstart', fire, {passive:false});
-    el.addEventListener('mousedown', fire, {passive:false});
-  }
 }
 
 function makeTarget(kind, group, opts={}){
@@ -760,15 +734,21 @@ function makeTarget(kind, group, opts={}){
     meta,
     atkAt:(kind==='boss') ? (bornAt + rnd(D.bossAtkMs[0], D.bossAtkMs[1])) : 0,
     _warned:false,
-    _hitLock:0,
   };
 
   S.targets.push(rec);
 
-  bindHit(el, rec);
+  const hitHandler=(e)=>{
+    e.preventDefault(); e.stopPropagation();
+    AudioX.unlock();
+    hitTarget(rec,true);
+  };
+  el.addEventListener('pointerdown', hitHandler, {passive:false});
+  el.addEventListener('click', hitHandler, {passive:false});
+  el.addEventListener('touchstart', hitHandler, {passive:false});
 
   layer.appendChild(el);
-  setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 260);
+  setTimeout(()=>el.classList.remove('spawn'), 260);
 
   logEvent('spawn',{kind,group,size:sizePx,x:rec.cx,y:rec.cy,hp});
   return rec;
@@ -776,7 +756,7 @@ function makeTarget(kind, group, opts={}){
 function removeTarget(rec){
   if(!rec || rec.dead) return;
   rec.dead=true;
-  try{ rec.el && rec.el.remove(); }catch(_){}
+  try{ rec.el.remove(); }catch(_){}
   const i=S.targets.indexOf(rec);
   if(i>=0) S.targets.splice(i,1);
 }
@@ -788,13 +768,13 @@ function bossHpSync(rec){
   rec.el.style.setProperty('--hp', String(ratio));
   bar.style.transform = `scaleX(${ratio})`;
 }
+
+// ✅ FIX: guard undefined rec
 function expireTargets(){
   const t=now();
-  if(!S.targets || !S.targets.length) return;
   for(let i=S.targets.length-1;i>=0;i--){
     const rec=S.targets[i];
-    // ✅ FIX: guard undefined holes
-    if(!rec) { S.targets.splice(i,1); continue; }
+    if(!rec) continue;           // ✅
     if(rec.dead) continue;
     if(t>=rec.dieAt){
       if(rec.kind==='good'||rec.kind==='gold'){
@@ -911,7 +891,6 @@ function hitTarget(rec, direct){
   const sx=rec.cx+off.x, sy=rec.cy+off.y;
   const dist=Math.hypot(sx-cx, sy-cy);
 
-  // power targets
   if(rec.kind==='slow'){
     const ms = (MODE==='research') ? Math.round((D.slowDurMs[0]+D.slowDurMs[1])*0.5) : rnd(D.slowDurMs[0],D.slowDurMs[1]);
     activateSlow(ms);
@@ -1098,7 +1077,7 @@ function spawnBossIfReady(){
 
   S.bossActive=true;
 
-  const hp = (S.feverOn ? Math.max(2, D.bossHP-1) : D.bossHP);
+  const hp = (S.feverOn ? Math.max(2, (D.bossHP||5)-1) : (D.bossHP||5));
   const boss = makeTarget('boss',0,{hp});
   bossHpSync(boss);
 
@@ -1118,6 +1097,7 @@ function tickBossAttack(){
   const t=now();
   for(const rec of S.targets){
     if(!rec || rec.dead || rec.kind!=='boss') continue;
+
     const ph=bossPhaseFor(rec);
     const style=bossAttackStyleForPhase(ph);
     const phaseMul=(ph===3)?0.78:(ph===2)?0.90:1.0;
@@ -1193,13 +1173,7 @@ function spawnTick(){
 // ---------- Tap-anywhere shooting ----------
 function isUIElement(target){
   if(!target) return false;
-  return !!(target.closest && (
-    target.closest('.btn') ||
-    target.closest('#resultBackdrop') ||
-    target.closest('#hudTop') ||
-    target.closest('#hudBtns') ||
-    target.closest('#miniPanel')
-  ));
+  return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop') || target.closest('#startOverlay')));
 }
 function airShot(){
   S.combo=0; setTxt(HUD.combo,0);
@@ -1208,7 +1182,6 @@ function airShot(){
   fxJudge('WHIFF');
   flash('bad', 80);
   AudioX.tick();
-
   S.miss++; setTxt(HUD.miss, S.miss);
   updateGrade();
   logEvent('air_shot',{});
@@ -1231,7 +1204,7 @@ function onGlobalPointerDown(e){
 // ---------- Pause/Restart/VR ----------
 function setPaused(on){
   S.paused=!!on;
-  setShow(HUD.paused, S.paused, 'block');   // ✅ FIX: show even if CSS had display:none
+  setShow(HUD.paused,S.paused);
   if(HUD.btnPause) HUD.btnPause.textContent = S.paused ? '▶️ RESUME' : '⏸️ PAUSE';
   logEvent('pause',{paused:S.paused});
 }
@@ -1240,9 +1213,6 @@ function enterVR(){ try{ scene && scene.enterVR && scene.enterVR(); }catch(_){ }
 // ---------- Restart / End ----------
 function restart(){
   for(const rec of [...S.targets]) removeTarget(rec);
-
-  // ✅ restore play input
-  layer.style.pointerEvents = 'auto';
 
   S.running=false; S.paused=false;
   S.tStart=0; S.timeLeft=TOTAL_TIME;
@@ -1263,8 +1233,8 @@ function restart(){
   setTxt(HUD.perfect,0); setTxt(HUD.have,'0/5'); setTxt(HUD.feverPct,'0%');
   emitFever();
   updateGrade(); setPaused(false);
+  setShow(HUD.resultBackdrop,false);
 
-  setShow(HUD.resultBackdrop,false); // ✅ ensure hidden
   setGoal(0);
   startMini();
   logSession('start');
@@ -1274,12 +1244,14 @@ function restart(){
 function endGame(isGameOver){
   if(!S.running) return;
   S.running=false;
+
+  // ✅ ensure overlay not blocking result
+  const so = $('startOverlay');
+  so && (so.style.display = 'none');
+
   doc.body.classList.remove('hha-mini-urgent');
   S.nextSpawnAt=Infinity;
   for(const rec of [...S.targets]) removeTarget(rec);
-
-  // ✅ block gameplay touches while result open
-  layer.style.pointerEvents = 'none';
 
   setTxt(HUD.rMode, MODE==='research'?'Research':'Play');
   setTxt(HUD.rGrade, gradeFromScore());
@@ -1296,7 +1268,7 @@ function endGame(isGameOver){
   setTxt(HUD.rG5, S.groupCounts[4]);
   setTxt(HUD.rGTotal, S.groupCounts.reduce((a,b)=>a+b,0));
 
-  setShow(HUD.resultBackdrop,true,'flex');  // ✅ FIX: show overlay
+  setShow(HUD.resultBackdrop,true);
   fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
   vibe(isGameOver?60:50);
   logSession(isGameOver?'gameover':'end');
@@ -1361,13 +1333,9 @@ function bindShootHotkeys(){
   }
 }
 function bindUI(){
-  // ✅ single path: pointerdown (fallback if no PointerEvent)
-  if('PointerEvent' in ROOT){
-    layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
-  }else{
-    layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
-    layer.addEventListener('mousedown', onGlobalPointerDown, {passive:false});
-  }
+  layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
+  layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
+  layer.addEventListener('click', onGlobalPointerDown, {passive:false});
 
   HUD.btnEnterVR && HUD.btnEnterVR.addEventListener('click', enterVR);
   HUD.btnPause && HUD.btnPause.addEventListener('click', ()=>{ if(!S.running) return; setPaused(!S.paused); });
@@ -1377,6 +1345,41 @@ function bindUI(){
   HUD.resultBackdrop && HUD.resultBackdrop.addEventListener('click',(e)=>{
     if(e.target === HUD.resultBackdrop) setShow(HUD.resultBackdrop,false);
   });
+}
+
+// ---------- Start overlay / permission ----------
+async function requestMotionPermissionIfNeeded(){
+  try{
+    const DM = ROOT.DeviceMotionEvent;
+    if(DM && typeof DM.requestPermission === 'function'){
+      const res = await DM.requestPermission();
+      return res === 'granted';
+    }
+  }catch(_){}
+  return true; // not required or failed gracefully
+}
+function beginGameFromOverlay(){
+  const so = $('startOverlay');
+  const btn = $('btnStart');
+
+  const begin = async ()=>{
+    if(S.started) return;
+    S.started = true;
+    AudioX.unlock();
+    await requestMotionPermissionIfNeeded();
+
+    if(so) so.style.display = 'none';
+    // เริ่มใหม่แบบ “คลีน” ให้ทุกอย่างเข้าที่ + log เริ่ม
+    restart();
+  };
+
+  if(btn){
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); begin(); }, {passive:false});
+    btn.addEventListener('pointerdown', (e)=>{ e.preventDefault(); }, {passive:false});
+  }
+
+  // ถ้าไม่มี overlay → auto begin
+  if(!so) begin();
 }
 
 // ---------- BOOT ----------
@@ -1404,10 +1407,10 @@ function bindUI(){
   S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
 
   setGoal(0);
-  startMini();
+  startMini(); // เตรียมไว้ก่อน
 
-  logSession('start');
-  start();
+  // ✅ สำคัญ: เริ่มผ่าน overlay
+  beginGameFromOverlay();
 
   if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D });
 })();
