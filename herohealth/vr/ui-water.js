@@ -1,45 +1,53 @@
 // === /herohealth/vr/ui-water.js ===
-// Water UI (IIFE) — ensure() + set(pct, zone)
-// ids: hha-water-fill, hha-water-zone, hha-water-pct
+// Water Gauge UI — PRODUCTION
+// ensureWaterGauge({textEl, fillEl})
+// setWaterGauge(valuePct? , delta?)
+// zoneFrom(): 'low'|'balanced'|'high'
 
-(function(root){
-  'use strict';
-  const doc = root.document;
+'use strict';
 
-  function $(id){ return doc ? doc.getElementById(id) : null; }
-  function clamp(v,min,max){ v = Number(v)||0; return v<min?min:(v>max?max:v); }
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC = ROOT.document;
 
-  function zoneFrom(pct){
-    pct = Number(pct)||0;
-    if (pct < 35) return 'LOW';
-    if (pct > 70) return 'HIGH';
-    return 'BALANCED';
+const W = {
+  value: 50,
+  textEl: null,
+  fillEl: null
+};
+
+export function ensureWaterGauge(opts = {}){
+  W.textEl = opts.textEl || W.textEl || DOC.getElementById('waterZoneText');
+  W.fillEl = opts.fillEl || W.fillEl || DOC.getElementById('waterBarFill');
+  render();
+}
+
+export function setWaterGauge(valuePct = null, delta = 0){
+  if (valuePct != null){
+    const v = Number(valuePct);
+    if (Number.isFinite(v)) W.value = clamp(v, 0, 100);
   }
-
-  function ensure(){
-    // nothing to build here (HTML already has)
+  if (delta){
+    W.value = clamp(W.value + Number(delta), 0, 100);
   }
+  render();
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:water', { detail:{ value: W.value, zone: zoneFrom() } }));
+  }catch{}
+  return W.value;
+}
 
-  function set(pct, zone){
-    pct = clamp(pct, 0, 100);
-    zone = zone || zoneFrom(pct);
+export function zoneFrom(){
+  if (W.value < 35) return 'low';
+  if (W.value > 65) return 'high';
+  return 'balanced';
+}
 
-    const fill = $('hha-water-fill');
-    const zEl  = $('hha-water-zone');
-    const pEl  = $('hha-water-pct');
-
-    if (fill) fill.style.width = pct + '%';
-    if (pEl) pEl.textContent = `${pct}%`;
-
-    if (zEl){
-      let label = '💧 BALANCED';
-      if (zone === 'LOW') label = '⚠️ LOW';
-      if (zone === 'HIGH') label = '🌊 HIGH';
-      zEl.textContent = label;
-    }
+function render(){
+  if (W.fillEl) W.fillEl.style.width = `${clamp(W.value,0,100).toFixed(1)}%`;
+  if (W.textEl){
+    const z = zoneFrom();
+    W.textEl.textContent = `ZONE: ${String(z).toUpperCase()}`;
   }
+}
 
-  root.WaterUI = { ensure, set, zoneFrom };
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.WaterUI = root.WaterUI;
-})(typeof window !== 'undefined' ? window : globalThis);
+function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v)||0)); }
