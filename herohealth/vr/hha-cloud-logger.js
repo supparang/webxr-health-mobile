@@ -12,6 +12,10 @@
 //    - ?log=<WEB_APP_EXEC_URL>  (recommended)
 //    - or window.HHA_LOG_ENDPOINT = ".../exec"
 //
+// ✅ PATCH (สำคัญ):
+// - flatten data -> stringify object/array เพื่อกัน [object Object]
+// - FORCE bossJson ตอนจบ (end) เพื่อให้ลงชีทได้ชัวร์
+//
 // Notes:
 // - This file is pure IIFE (no module) for maximum compat.
 // - Server side (Code.gs) จะรับ {kind:'hha_batch', items:[...]}
@@ -70,6 +74,27 @@
       if (v !== null && v !== '') return v;
     }
     return fallback;
+  }
+
+  // ---------- Flatten for Sheet (stringify object/array) ----------
+  function flatForSheet(obj){
+    if (!obj || typeof obj !== 'object') return obj;
+
+    const out = {};
+    for (const k in obj){
+      if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+      const v = obj[k];
+
+      if (v === undefined) out[k] = '';
+      else if (v === null) out[k] = null;
+      else if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string') out[k] = v;
+      else {
+        // array/object/date/etc -> JSON
+        const s = tryJson(v);
+        out[k] = (s !== '' ? s : safeStr(v));
+      }
+    }
+    return out;
   }
 
   function deviceHint() {
@@ -196,8 +221,8 @@
       // attach context (flat keys)
       ...CTX,
 
-      // attach data
-      data: data || {}
+      // attach data (flatten for sheet)
+      data: flatForSheet(data || {})
     };
 
     queue.push(item);
@@ -234,7 +259,6 @@
     };
 
     // attach a compact "final snapshot" occasionally (helps server mapping)
-    // (ไม่หนัก เพราะเป็น object เดียว)
     payload.snapshot = buildSnapshot_();
 
     const body = JSON.stringify(payload);
@@ -242,8 +266,8 @@
       // ถ้า payload ใหญ่ไป: แบ่งครึ่ง
       const items = payload.items || [];
       const mid = Math.max(1, (items.length / 2) | 0);
-      const a = { kind:'hha_batch', v:1, items: items.slice(0, mid), snapshot: payload.snapshot };
-      const b = { kind:'hha_batch', v:1, items: items.slice(mid), snapshot: payload.snapshot };
+      const a = { kind: 'hha_batch', v: 1, items: items.slice(0, mid), snapshot: payload.snapshot };
+      const b = { kind: 'hha_batch', v: 1, items: items.slice(mid), snapshot: payload.snapshot };
       send_(JSON.stringify(a));
       send_(JSON.stringify(b));
     } else {
@@ -412,7 +436,17 @@
     STATE.reason = safeStr(d.reason || (d.gameOver ? 'gameover' : '') || '');
 
     // include final snapshot in data to help server write long schema
-    const out = Object.assign({}, d, buildSnapshot_());
+    const merged = Object.assign({}, d, buildSnapshot_());
+
+    // ---- FORCE bossJson ----
+    // รองรับทั้ง d.boss (object) หรือ d.bossJson (string)
+    const bossObj = merged.boss || d.boss || null;
+    const bossJson = safeStr(merged.bossJson || d.bossJson || (bossObj ? tryJson(bossObj) : ''));
+
+    merged.bossJson = bossJson;
+    if (bossObj && typeof bossObj === 'object') merged.boss = bossJson;
+
+    const out = flatForSheet(merged);
 
     enqueue('end', out);
 
