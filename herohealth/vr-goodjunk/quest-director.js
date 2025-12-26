@@ -1,7 +1,8 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
 // Quest Director (Goals sequential + Minis chain) for GoodJunk
-// ✅ NEW: getUIState() -> ใช้โชว์ Goal/Mini บน HUD
-// ✅ NEW: onUpdate callback -> ให้ goodjunk.safe.js ยิง quest:update ได้ง่าย
+// ✅ getUIState()
+// ✅ onUpdate callback
+// ✅ NEW: updateFromState(state) รองรับ defs แบบ label/targetByDiff/eval/pass
 
 'use strict';
 
@@ -32,43 +33,15 @@ export function makeQuestDirector(opts = {}) {
     lastUpdateTs: 0
   };
 
-  // ----- Helpers -----
   function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  function pickGoal(i){
-    const def = stateQ.goalsAll[i] || stateQ.goalsAll[0] || null;
+  function normalize(def, isMini=false){
     if(!def) return null;
-    const t = normalizeGoal(def);
-    return t;
-  }
 
-  function pickMini(i){
-    const def = stateQ.minisAll[i] || stateQ.minisAll[0] || null;
-    if(!def) return null;
-    const t = normalizeMini(def);
-    return t;
-  }
-
-  function normalizeGoal(def){
-    // ยืดหยุ่น: รับ {title,target,cur,kind,...} หรือ {name,count,...}
-    const title  = String(def.title ?? def.name ?? 'Goal');
+    const title = String(def.title ?? def.label ?? def.name ?? (isMini?'Mini':'Goal'));
+    const kind  = String(def.kind ?? def.type ?? def.id ?? (isMini?'mini':'goal'));
     const target = Math.max(1, Number(def.target ?? def.max ?? def.count ?? 1) || 1);
-    const kind   = String(def.kind ?? def.type ?? 'generic');
-    return {
-      ...def,
-      title,
-      kind,
-      target,
-      cur: clamp(def.cur ?? 0, 0, target),
-      done: false
-    };
-  }
 
-  function normalizeMini(def){
-    const title  = String(def.title ?? def.name ?? 'Mini');
-    const target = Math.max(1, Number(def.target ?? def.max ?? def.count ?? 1) || 1);
-    const kind   = String(def.kind ?? def.type ?? 'generic');
-    const timeLimitSec = (def.timeLimitSec != null) ? Math.max(0, Number(def.timeLimitSec)||0) : null;
     return {
       ...def,
       title,
@@ -76,10 +49,25 @@ export function makeQuestDirector(opts = {}) {
       target,
       cur: clamp(def.cur ?? 0, 0, target),
       done: false,
-      timeLimitSec,
+      // รองรับ eval/pass (optional)
+      eval: (typeof def.eval === 'function') ? def.eval : null,
+      pass: (typeof def.pass === 'function') ? def.pass : null,
+
+      // mini timer fields (optional)
+      timeLimitSec: (def.timeLimitSec != null) ? Math.max(0, Number(def.timeLimitSec)||0) : null,
       startedAt: null,
       tLeft: null
     };
+  }
+
+  function pickGoal(i){
+    const def = stateQ.goalsAll[i] || stateQ.goalsAll[0] || null;
+    return def ? normalize(def, false) : null;
+  }
+
+  function pickMini(i){
+    const def = stateQ.minisAll[i] || stateQ.minisAll[0] || null;
+    return def ? normalize(def, true) : null;
   }
 
   function fireUpdate(reason='update'){
@@ -89,7 +77,6 @@ export function makeQuestDirector(opts = {}) {
     }
   }
 
-  // ----- Public: UI state -----
   function getUIState(reason='state'){
     const g = stateQ.activeGoal;
     const m = stateQ.activeMini;
@@ -97,18 +84,15 @@ export function makeQuestDirector(opts = {}) {
     return {
       reason,
 
-      // goal UI
-      goalTitle: g ? `Goal: ${g.title}` : 'Goal: —',
+      goalTitle: g ? g.title : 'Goal: —',
       goalCur:   g ? (g.cur|0) : 0,
       goalMax:   g ? (g.target|0) : 0,
 
-      // mini UI
-      miniTitle: m ? `Mini: ${m.title}` : 'Mini: —',
+      miniTitle: m ? m.title : 'Mini: —',
       miniCur:   m ? (m.cur|0) : 0,
       miniMax:   m ? (m.target|0) : 0,
       miniTLeft: (m && m.tLeft != null) ? m.tLeft : null,
 
-      // meta
       goalIndex: Math.min(stateQ.goalIndex + 1, stateQ.goalsTotal),
       goalsTotal: stateQ.goalsTotal,
       miniIndex: Math.min(stateQ.miniCount + (m?1:0), stateQ.minisTotal),
@@ -118,7 +102,6 @@ export function makeQuestDirector(opts = {}) {
     };
   }
 
-  // ----- Lifecycle -----
   function start(){
     if(stateQ.started) return;
     stateQ.started = true;
@@ -127,16 +110,17 @@ export function makeQuestDirector(opts = {}) {
 
     stateQ.activeGoal = pickGoal(stateQ.goalIndex);
     stateQ.activeMini = pickMini(0);
+
     if(stateQ.activeMini){
       stateQ.activeMini.startedAt = Date.now();
       if(stateQ.activeMini.timeLimitSec != null){
         stateQ.activeMini.tLeft = Math.ceil(stateQ.activeMini.timeLimitSec);
       }
     }
+
     fireUpdate('start');
   }
 
-  // ----- Tick (for mini timer) -----
   function tick(){
     const m = stateQ.activeMini;
     if(!m) return;
@@ -149,14 +133,49 @@ export function makeQuestDirector(opts = {}) {
         m.tLeft = newLeft;
         fireUpdate('mini-tick');
       }
-      // time out -> fail mini and advance
       if(left <= 0){
         failMini('timeout');
       }
     }
   }
 
-  // ----- Progress APIs -----
+  // ✅ NEW: อัปเดตความคืบหน้าจาก state ด้วย eval/pass
+  function updateFromState(s = {}){
+    let changed = false;
+
+    const g = stateQ.activeGoal;
+    if (g && !g.done && g.eval){
+      const v = Number(g.eval(s)) || 0;
+      const cur = clamp(v, 0, g.target);
+      if (cur !== g.cur){ g.cur = cur; changed = true; }
+
+      const ok = g.pass ? !!g.pass(g.cur, g.target) : (g.cur >= g.target);
+      if (ok){
+        g.done = true;
+        fireUpdate('goal-complete');
+        nextGoal();
+        return; // goal เปลี่ยนแล้ว ออกจากรอบนี้
+      }
+    }
+
+    const m = stateQ.activeMini;
+    if (m && !m.done && m.eval){
+      const v = Number(m.eval(s)) || 0;
+      const cur = clamp(v, 0, m.target);
+      if (cur !== m.cur){ m.cur = cur; changed = true; }
+
+      const ok = m.pass ? !!m.pass(m.cur, m.target) : (m.cur >= m.target);
+      if (ok){
+        m.done = true;
+        fireUpdate('mini-complete');
+        nextMini();
+        return;
+      }
+    }
+
+    if (changed) fireUpdate('state-progress');
+  }
+
   function addGoalProgress(n=1){
     const g = stateQ.activeGoal;
     if(!g || g.done) return { done:false };
@@ -214,7 +233,6 @@ export function makeQuestDirector(opts = {}) {
   }
 
   function failMini(reason='fail'){
-    // mini fail -> advance to next mini (ยังโชว์ว่ามีการเปลี่ยน)
     const m = stateQ.activeMini;
     if(m && !m.done){
       m.done = true;
@@ -223,13 +241,16 @@ export function makeQuestDirector(opts = {}) {
     return nextMini();
   }
 
-  // ----- Exposed -----
   return {
     start,
     tick,
 
+    // แบบเดิม (นับ +1)
     addGoalProgress,
     addMiniProgress,
+
+    // ✅ แบบใหม่ (ประเมินจาก state)
+    updateFromState,
 
     nextGoal,
     nextMini,
