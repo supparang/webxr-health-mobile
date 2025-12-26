@@ -51,7 +51,7 @@
     let top   = 18;
     let bot   = 18;
 
-    // add safe-area (values set in CSS :root)
+    // add safe-area
     const cs = getComputedStyle(document.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
     const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
@@ -60,7 +60,7 @@
 
     left += sal; right += sar; top += sat; bot += sab;
 
-    // reserve HUD top area (prefer actual rect)
+    // reserve HUD top area (approx)
     const hud = document.querySelector('.hud-top');
     if (hud){
       const r = hud.getBoundingClientRect();
@@ -69,9 +69,10 @@
       top = Math.max(top, 120 + sat);
     }
 
-    // reserve bottom minimal for mobile bar / thumb zone
+    // reserve bottom minimal for mobile bar
     bot = Math.max(bot, 72 + sab);
 
+    // return usable region
     return {
       x0: left,
       y0: top,
@@ -180,7 +181,6 @@
 
       this._emitScore();
       this._emitTime();
-      this._emitPower();
 
       this._last = now();
       this._raf = requestAnimationFrame(this._loop.bind(this));
@@ -205,11 +205,6 @@
         this._timerAcc -= 1;
         this._timeLeft = Math.max(0, (this._timeLeft|0) - 1);
         this._emitTime();
-
-        // panic FX flag (last 10s)
-        if (this._timeLeft <= 10) document.documentElement.classList.add('panic');
-        else document.documentElement.classList.remove('panic');
-
         if (this._timeLeft <= 0){
           this.stop('time');
           return;
@@ -306,7 +301,7 @@
         emoji = pick(JUNK);
       } else if (r < (this._cfg.junkRate + this._cfg.decoyRate)){
         type = 'decoy';
-        gid = GROUPS[this._groupIdx].id;
+        gid = GROUPS[this._groupIdx].id;     // looks like current group
         emoji = pick(GROUPS[this._groupIdx].foods);
       } else {
         const g = pickGroup();
@@ -340,13 +335,11 @@
         if ((gid|0) === (curId|0)) el.classList.add('fg-good');
       }
 
-      // emoji
       const span = document.createElement('span');
       span.textContent = emoji;
       span.style.pointerEvents = 'none';
       el.insertBefore(span, el.firstChild);
 
-      // position
       const box = getSpawnBox(this._layerEl);
       const x = box.x0 + Math.random() * Math.max(10, (box.x1 - box.x0));
       const y = box.y0 + Math.random() * Math.max(10, (box.y1 - box.y0));
@@ -357,9 +350,9 @@
       el.style.setProperty('--s', String(s));
 
       el.classList.add('show','spawn');
-      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 220);
+      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch{} }, 220);
 
-      // direct tap hit
+      // direct click = immediate hit
       el.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault();
         ev.stopPropagation();
@@ -370,7 +363,6 @@
       this._layerEl.appendChild(el);
       this._targets.push(el);
 
-      // ttl
       const ttl = (this._cfg.ttl[0] + Math.random()*(this._cfg.ttl[1]-this._cfg.ttl[0]))|0;
       const timer = setTimeout(()=>{
         if (!el.isConnected) return;
@@ -389,10 +381,7 @@
     },
 
     _removeTarget(el, anim){
-      try{
-        if (el && el._ttlTimer) clearTimeout(el._ttlTimer);
-      }catch(_){}
-
+      try{ if (el && el._ttlTimer) clearTimeout(el._ttlTimer); }catch(_){}
       try{
         const i = this._targets.indexOf(el);
         if (i >= 0) this._targets.splice(i, 1);
@@ -428,7 +417,6 @@
 
       const c = this._closestTarget(x,y);
       if (!c.el || c.d2 > (210*210)){
-        // no target near = miss
         this._shots++;
         this._misses++;
         this._combo = 0;
@@ -441,13 +429,13 @@
       this._lockActive = true;
       this._lockEl = c.el;
       this._lockStartAt = now();
-
       try{ this._lockEl.classList.add('lock'); }catch(_){}
+
       this._tickLock();
     },
 
     _tickLock(){
-      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected){
+      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected) {
         emit('groups:lock', { on:false });
         this._stopLock();
         return;
@@ -567,7 +555,6 @@
         return;
       }
 
-      // normal food
       const gid = parseInt(el.dataset.gid || '0', 10) || 0;
       const isCorrect = (gid|0) === (curId|0);
 
@@ -582,7 +569,6 @@
         this._powerCharge++;
         this._emitPower();
 
-        // power swap group
         if (this._powerCharge >= (this._cfg.powerThreshold|0)){
           this._powerCharge = 0;
           this._groupIdx = (this._groupIdx + 1) % GROUPS.length;
@@ -593,7 +579,6 @@
           setTimeout(()=>document.documentElement.classList.remove('swapflash'), 240);
 
           if (this._quest) this._quest.onGroupChange(n.label);
-          this._emitPower();
         }
 
         if (this._quest) this._quest.onShot({ correct:true, wrong:false, junk:false });
@@ -618,7 +603,6 @@
     }
   };
 
-  // expose
   W.GroupsVR.GameEngine = Engine;
 
 })(window);
