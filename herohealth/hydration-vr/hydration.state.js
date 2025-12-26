@@ -1,43 +1,53 @@
 // === /herohealth/hydration-vr/hydration.state.js ===
-// แปลง stats (ดิบ) จาก hydration.quest.js ให้เป็น state เดียว
-// ที่ goals / minis ใช้อ่านค่าได้ง่าย
+// Shared helpers for Hydration (rank, zones, ids)
 
 'use strict';
 
-// แปลง diff ให้เหลือ easy / normal / hard
-export function normalizeHydrationDiff (raw) {
-  const t = String(raw || 'normal').toLowerCase();
-  if (t === 'easy' || t === 'normal' || t === 'hard') return t;
-  return 'normal';
+export function clamp01(v){
+  v = Number(v) || 0;
+  if (v < 0) return 0;
+  if (v > 1) return 1;
+  return v;
 }
 
-// แปลง stats → state ที่ quest ใช้ตรวจเงื่อนไข
-export function mapHydrationState (stats) {
-  const s = stats || {};
-  const tick = Number(s.tick || 0);          // เวลาเล่นสะสม (วินาที)
-  const greenTick = Number(s.greenTick || 0); // เวลาที่อยู่โซน GREEN
+export function zoneFromPct(pct){
+  pct = Number(pct)||0;
+  if (pct < 35) return 'LOW';
+  if (pct > 70) return 'HIGH';
+  return 'BALANCED';
+}
+export const zoneFromPctAlias = zoneFromPct;
 
-  return {
-    // คะแนน / combo
-    score: Number(s.score || 0),
-    combo: Number(s.combo || 0),
-    comboMax: Number(s.comboMax || 0),
+export function makeSessionId(){
+  const t = Date.now().toString(36);
+  const r = Math.floor(Math.random()*1e9).toString(36);
+  return `HHA-${t}-${r}`;
+}
 
-    // จำนวนเป้าดี / miss
-    good: Number(s.goodCount || 0),
-    goodCount: Number(s.goodCount || 0),
-    miss: Number(s.junkMiss || 0),
-    junkMiss: Number(s.junkMiss || 0),
+// Grade mapping: SSS, SS, S, A, B, C
+export function rankFromScore(scoreFinal, misses, comboMax){
+  scoreFinal = Number(scoreFinal)||0;
+  misses = Number(misses)||0;
+  comboMax = Number(comboMax)||0;
 
-    // เวลา
-    timeSec: tick,
-    tick,
+  // soft normalize
+  const bonusCombo = Math.min(400, comboMax * 12);
+  const penalty = misses * 120;
 
-    // เวลาโซนเขียว + สัดส่วนเวลาใน GREEN
-    greenTick,
-    greenRatio: tick > 0 ? (greenTick / tick) : 0,
+  const eff = scoreFinal + bonusCombo - penalty;
 
-    // โซนล่าสุด
-    zone: s.zone || 'GREEN'
-  };
+  if (eff >= 3200 && misses <= 2) return 'SSS';
+  if (eff >= 2600 && misses <= 4) return 'SS';
+  if (eff >= 2100 && misses <= 6) return 'S';
+  if (eff >= 1500) return 'A';
+  if (eff >= 900)  return 'B';
+  return 'C';
+}
+
+// for Hydration: zone names
+export function zoneFromPct(pct){
+  pct = Number(pct)||0;
+  if (pct < 35) return 'LOW';
+  if (pct > 70) return 'HIGH';
+  return 'BALANCED';
 }
