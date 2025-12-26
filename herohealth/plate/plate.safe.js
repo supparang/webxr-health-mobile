@@ -1,21 +1,16 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR — ULTIMATE ALL-IN-ONE (UI-clean + Research-Strict + Boss-focused mid)
-// ✅ Fix crash: guard undefined rec in loops (rec.dead)
-// ✅ Default time by diff (ป.5): Easy 90 / Normal 75 / Hard 60 (Hard “ผ่านได้บ้าง”)
-// ✅ Start Overlay: กดเริ่มก่อนค่อยนับเวลา + tutorial 10 วิแรก
-// ✅ Unified events: hha:time / hha:score / quest:update / hha:end
-// ✅ Anti-overlap spawn + Safe-zone (avoid HUD/panels)
-// ✅ Cap max targets (mobile performance)
-// ✅ Boss: telegraph clearer + punish only when boss close to crosshair
-// ✅ Air-shot feedback (soft punish, no life loss)
-// ✅ Fever event bridge (particles listens to hha:fever)
+// Plate VR — ULTIMATE ALL-IN-ONE (Coach+Logger+P5-time + Boss-focused mid)
+// ✅ Coach system (mood images + bubble + emits hha:coach)
+// ✅ Research/Play strict seed
+// ✅ P5 time default by diff (easy 80 / normal 70 / hard 60) if no ?time=
+// ✅ Full-ish metrics counters + emits hha:score/hha:time/quest:update/hha:end
+// ✅ Fix: rec undefined guard (prevents reading 'dead' crash)
+// ✅ Safe-zone + anti-overlap spawn + cap targets
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const doc = ROOT.document;
-
-const GAME_VERSION = 'plate.safe.js@ULTIMATE-PROD-PACK-1.0.0';
 
 function $(id){ return doc ? doc.getElementById(id) : null; }
 function setTxt(el, t){ if(el) el.textContent = String(t); }
@@ -68,24 +63,57 @@ function setShow(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
 const URLX = new URL(ROOT.location.href);
 const Q = URLX.searchParams;
 
+// Common meta (for logger schema pass-through)
+const META = {
+  timestampIso: Q.get('timestampIso') || new Date().toISOString(),
+  projectTag: Q.get('projectTag') || 'HeroHealth-PlateVR',
+  runMode: Q.get('runMode') || '',
+  studyId: Q.get('studyId') || Q.get('study') || '',
+  phase: Q.get('phase') || '',
+  conditionGroup: Q.get('conditionGroup') || Q.get('cond') || '',
+  sessionOrder: Q.get('sessionOrder') || '',
+  blockLabel: Q.get('blockLabel') || '',
+  siteCode: Q.get('siteCode') || '',
+  schoolYear: Q.get('schoolYear') || '',
+  semester: Q.get('semester') || '',
+  sessionId: Q.get('sessionId') || '',
+  device: Q.get('device') || '',
+  gameVersion: Q.get('v') || Q.get('ver') || 'plate.safe.js@ultimate',
+  reason: Q.get('reason') || '',
+  studentKey: Q.get('studentKey') || '',
+  schoolCode: Q.get('schoolCode') || '',
+  schoolName: Q.get('schoolName') || '',
+  classRoom: Q.get('classRoom') || '',
+  studentNo: Q.get('studentNo') || '',
+  nickName: Q.get('nickName') || '',
+  gender: Q.get('gender') || '',
+  age: Q.get('age') || '',
+  gradeLevel: Q.get('gradeLevel') || '',
+  heightCm: Q.get('heightCm') || '',
+  weightKg: Q.get('weightKg') || '',
+  bmi: Q.get('bmi') || '',
+  bmiGroup: Q.get('bmiGroup') || '',
+  vrExperience: Q.get('vrExperience') || '',
+  gameFrequency: Q.get('gameFrequency') || '',
+  handedness: Q.get('handedness') || '',
+  visionIssue: Q.get('visionIssue') || '',
+  healthDetail: Q.get('healthDetail') || '',
+  consentParent: Q.get('consentParent') || '',
+};
+
 const MODE = String(Q.get('run') || 'play').toLowerCase();      // play | research
 const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal | hard
-const DEBUG = (Q.get('debug') === '1');
 
-function defaultTimeByDiff(diff){
-  // ป.5 ต่อรอบตามระดับ
-  if(diff === 'hard') return 60;
-  if(diff === 'easy') return 90;
-  return 75; // normal
-}
-const _timeParam = Q.get('time');
-const TOTAL_TIME = (() => {
-  if(_timeParam != null && String(_timeParam).trim() !== ''){
-    const t = parseInt(_timeParam, 10);
-    return Math.max(20, Number.isFinite(t) ? t : defaultTimeByDiff(DIFF));
-  }
-  return defaultTimeByDiff(DIFF);
-})();
+// ✅ ป.5 เวลาตามระดับ (ถ้าไม่ส่ง time= มา)
+const DEFAULT_TIME_BY_DIFF = { easy:80, normal:70, hard:60 };
+const rawTime = Q.get('time');
+const TOTAL_TIME = Math.max(
+  20,
+  rawTime ? (parseInt(rawTime,10) || DEFAULT_TIME_BY_DIFF[DIFF] || 70)
+          : (DEFAULT_TIME_BY_DIFF[DIFF] || 70)
+);
+
+const DEBUG = (Q.get('debug') === '1');
 
 // ---------- RNG (Research strict) ----------
 let SEED = parseInt(Q.get('seed') || '', 10);
@@ -93,7 +121,6 @@ if (!Number.isFinite(SEED)) SEED = 1337;
 let _seed = (SEED >>> 0) || 1337;
 
 function srnd(){
-  // xorshift32
   _seed ^= (_seed << 13); _seed >>>= 0;
   _seed ^= (_seed >>> 17); _seed >>>= 0;
   _seed ^= (_seed << 5); _seed >>>= 0;
@@ -138,6 +165,12 @@ const HUD = {
   resultBackdrop: $('resultBackdrop'),
   btnPlayAgain: $('btnPlayAgain'),
 
+  // Coach (NEW)
+  coachImg: $('coachImg'),
+  coachText: $('coachText'),
+  coachSub: $('coachSub'),
+
+  // result fields
   rMode: $('rMode'),
   rGrade: $('rGrade'),
   rScore: $('rScore'),
@@ -154,7 +187,7 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
-// ---------- Difficulty (กลาง ๆ เน้นบอส) ----------
+// ---------- Difficulty ----------
 const DIFF_TABLE = {
   easy: {
     size: 92, life: 3200, spawnMs: 900, maxTargets: 10,
@@ -173,11 +206,12 @@ const DIFF_TABLE = {
     stormDurMs:[4200, 7200], slowDurMs:[3200, 5600], noJunkDurMs:[4200, 6800],
   },
   hard: {
-    size: 66, life: 2300, spawnMs: 660, maxTargets: 14,
-    junkRate: 0.30, goldRate: 0.14, trapRate: 0.095, bossRate: 0.060, fakeRate: 0.070,
+    // ✅ ปรับให้ “60 วิ ผ่านได้บ้าง” (นิ่มลงนิดเดียว แต่ยังโหด)
+    size: 66, life: 2400, spawnMs: 700, maxTargets: 14,
+    junkRate: 0.28, goldRate: 0.14, trapRate: 0.085, bossRate: 0.055, fakeRate: 0.060,
     slowRate: 0.055, noJunkRate: 0.022, stormRate: 0.040,
     aimAssist: 125,
-    bossHP: 6, bossAtkMs:[1550, 2300], bossPhase2At: 0.60, bossPhase3At: 0.34,
+    bossHP: 5, bossAtkMs:[1650, 2450], bossPhase2At: 0.60, bossPhase3At: 0.34,
     stormDurMs:[4800, 8200], slowDurMs:[3200, 5800], noJunkDurMs:[4200, 7200],
   },
 };
@@ -186,6 +220,9 @@ const D = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
 // ---------- State ----------
 const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
 const LIVES_START = (Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0) ? LIVES_PARAM : 3;
+
+// ✅ “1 หัวใจ = miss กี่ครั้ง” (ถ้าอยากคุม): ?miss_per_life=2
+const MISS_PER_LIFE = clamp(parseInt(Q.get('miss_per_life') || '1', 10) || 1, 1, 9);
 
 const S = {
   running:false, paused:false,
@@ -213,7 +250,43 @@ const S = {
 
   lowTimeLastSec:null,
 
-  sessionId:`PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  // Coach
+  coachUntil:0,
+  coachMood:'neutral',
+
+  // Emits throttles
+  lastEmitSec:null,
+  lastEmitScoreAt:0,
+
+  // Metrics (for logger)
+  m: {
+    nTargetGoodSpawned:0,
+    nTargetJunkSpawned:0,
+    nTargetStarSpawned:0,     // gold
+    nTargetDiamondSpawned:0,  // (unused but keep slot)
+    nTargetShieldSpawned:0,   // (unused but keep slot)
+    nTargetTrapSpawned:0,
+    nTargetFakeSpawned:0,
+    nTargetBossSpawned:0,
+    nTargetPowerSpawned:0,    // slow/nojunk/storm
+
+    nHitGood:0,
+    nHitGold:0,
+    nHitJunk:0,
+    nHitTrap:0,
+    nHitFake:0,
+    nHitBoss:0,
+    nHitPower:0,
+
+    nExpireGood:0,
+    nExpireGold:0,
+    nExpireBoss:0,
+
+    // reaction time (good+gold)
+    rtGoodMs:[],
+  },
+
+  sessionId: META.sessionId || `PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`
 };
 
 // ---------- Helpers ----------
@@ -226,54 +299,7 @@ function dispatchEvt(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
 }
 
-// ---------- PRODUCTION: unified HUD/logger events ----------
-let _lastTimeEmitSec = -1;
-let _lastScoreEmitAt = 0;
-
-function emitTime(){
-  const sec = Math.max(0, Math.floor(S.timeLeft || 0));
-  if(sec === _lastTimeEmitSec) return;
-  _lastTimeEmitSec = sec;
-  dispatchEvt('hha:time', { sec });
-}
-
-function emitScore(reason='tick'){
-  const t = now();
-  if(reason === 'tick' && (t - _lastScoreEmitAt) < 250) return; // throttle 4/sec
-  _lastScoreEmitAt = t;
-
-  dispatchEvt('hha:score', {
-    reason,
-    score: S.score,
-    combo: S.combo,
-    comboMax: S.maxCombo,
-    misses: S.miss,
-    perfect: S.perfectCount,
-    lives: S.lives,
-    feverPct: Math.round(S.fever),
-    goalsCleared: Math.min(S.goalsCleared, 2),
-    goalsTotal: 2,
-    miniCleared: Math.min(S.minisCleared, 7),
-    miniTotal: 7,
-    diff: DIFF,
-    mode: MODE,
-    gameVersion: GAME_VERSION
-  });
-}
-
-function emitQuestUpdate(){
-  dispatchEvt('quest:update', {
-    goalText: HUD.goalLine ? HUD.goalLine.textContent : '',
-    miniText: HUD.miniLine ? HUD.miniLine.textContent : '',
-    miniHint: HUD.miniHint ? HUD.miniHint.textContent : '',
-    goalsCleared: Math.min(S.goalsCleared,2),
-    goalsTotal: 2,
-    minisCleared: Math.min(S.minisCleared,7),
-    minisTotal: 7
-  });
-}
-
-/* ===== FIX: sanitize + correct Particles API ===== */
+/* ===== FX helpers ===== */
 function safeFxText(t){
   t = String(t ?? '');
   if (/^\d+(\.\d+)?$/.test(t) && t.length >= 10) return '✓';
@@ -302,6 +328,109 @@ function flash(kind='bad', ms=110){
   hitFxEl.dataset.kind = String(kind||'bad');
   hitFxEl.classList.add('show');
   setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch(_){} }, ms|0);
+}
+
+// ---------- Audio ----------
+const AudioX = (function(){
+  let ctx=null;
+  function ensure(){ if(ctx) return ctx; try{ ctx=new (ROOT.AudioContext||ROOT.webkitAudioContext)(); }catch(_){ } return ctx; }
+  function unlock(){ const c=ensure(); if(!c) return; if(c.state==='suspended'){ try{ c.resume(); }catch(_){ } } }
+  function beep(freq=740, dur=0.06, gain=0.05, type='sine'){
+    const c=ensure(); if(!c) return;
+    const t0=c.currentTime;
+    const o=c.createOscillator(); const g=c.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq,t0);
+    g.gain.setValueAtTime(gain,t0);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t0); o.stop(t0+dur+0.01);
+  }
+  const tick=()=>beep(860,0.05,0.04,'square');
+  const warn=()=>beep(520,0.08,0.06,'sawtooth');
+  const good=()=>beep(980,0.045,0.035,'sine');
+  const perfect=()=>beep(1180,0.06,0.04,'triangle');
+  const bad=()=>beep(220,0.08,0.06,'sawtooth');
+  const bossHit=()=>beep(420,0.06,0.05,'square');
+  const bossDown=()=>{beep(240,0.11,0.06,'sawtooth'); setTimeout(()=>beep(760,0.08,0.05,'triangle'),60);};
+  const power=()=>{beep(720,0.08,0.04,'triangle'); setTimeout(()=>beep(1040,0.06,0.035,'sine'),50);};
+  const shield=()=>{beep(980,0.08,0.045,'triangle'); setTimeout(()=>beep(1320,0.06,0.04,'sine'),60);};
+  const atk=()=>{beep(160,0.10,0.06,'sawtooth'); setTimeout(()=>beep(90,0.12,0.05,'square'),70);};
+  return { unlock, tick, warn, good, perfect, bad, bossHit, bossDown, power, shield, atk };
+})();
+
+// ---------- Coach (NEW) ----------
+const COACH_IMG = {
+  neutral: './img/coach-neutral.png',
+  happy: './img/coach-happy.png',
+  sad: './img/coach-sad.png',
+  fever: './img/coach-fever.png',
+};
+
+function setCoachMood(mood){
+  const m = (mood in COACH_IMG) ? mood : 'neutral';
+  S.coachMood = m;
+  if(HUD.coachImg) HUD.coachImg.src = COACH_IMG[m];
+}
+
+function coachSay(text, mood='neutral', sub='', durMs=2600, priority=0){
+  const t=now();
+  // priority: 0 normal, 1 important, 2 critical (override)
+  if(priority<=0 && t < S.coachUntil) return;
+  if(priority===1 && t < S.coachUntil-400) return;
+
+  setCoachMood(mood);
+  if(HUD.coachText) setTxt(HUD.coachText, text);
+  if(HUD.coachSub) setTxt(HUD.coachSub, sub || '');
+
+  S.coachUntil = t + clamp(durMs, 1400, 5200);
+
+  dispatchEvt('hha:coach', { mood:S.coachMood, text:String(text||''), sub:String(sub||''), t:Math.round(t) });
+}
+
+// ---------- Logger ----------
+function logSession(phase){
+  dispatchEvt('hha:log_session',{
+    ...META,
+    sessionId:S.sessionId,
+    game:'PlateVR',
+    phase,
+    mode:MODE,
+    diff:DIFF,
+    durationPlannedSec: TOTAL_TIME,
+    seed: SEED,
+    ts:Date.now(),
+    ua:navigator.userAgent
+  });
+}
+function logEvent(type, data){
+  dispatchEvt('hha:log_event',{
+    ...META,
+    sessionId:S.sessionId,
+    game:'PlateVR',
+    type,
+    t: Math.round((now() - S.tStart) || 0),
+    score:S.score, combo:S.combo, miss:S.miss, perfect:S.perfectCount,
+    fever:Math.round(S.fever), shield:S.shield, lives:S.lives,
+    data:data||{}
+  });
+}
+
+// ---------- Camera -> view offset ----------
+function getCamAngles(){
+  const r = cam && cam.object3D ? cam.object3D.rotation : null;
+  if(!r) return {yaw:0,pitch:0};
+  return { yaw: r.y || 0, pitch: r.x || 0 };
+}
+function viewOffset(){
+  if(inVR()) return {x:0,y:0};
+  const {yaw,pitch}=getCamAngles();
+  const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
+  const pxPerRadX=clamp(vw*0.55,180,720);
+  const pxPerRadY=clamp(vh*0.48,160,640);
+  return {
+    x: clamp(-yaw*pxPerRadX, -vw*1.2, vw*1.2),
+    y: clamp(+pitch*pxPerRadY, -vh*1.2, vh*1.2),
+  };
 }
 
 // ---------- DOM target layer + CSS ----------
@@ -370,71 +499,6 @@ const layer = doc.createElement('div');
 layer.className = 'plate-layer';
 doc.body.appendChild(layer);
 
-// ---------- Audio (tiny beeps) ----------
-const AudioX = (function(){
-  let ctx=null;
-  function ensure(){ if(ctx) return ctx; try{ ctx=new (ROOT.AudioContext||ROOT.webkitAudioContext)(); }catch(_){ } return ctx; }
-  function unlock(){ const c=ensure(); if(!c) return; if(c.state==='suspended'){ try{ c.resume(); }catch(_){ } } }
-  function beep(freq=740, dur=0.06, gain=0.05, type='sine'){
-    const c=ensure(); if(!c) return;
-    const t0=c.currentTime;
-    const o=c.createOscillator(); const g=c.createGain();
-    o.type=type; o.frequency.setValueAtTime(freq,t0);
-    g.gain.setValueAtTime(gain,t0);
-    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
-    o.connect(g); g.connect(c.destination);
-    o.start(t0); o.stop(t0+dur+0.01);
-  }
-  const tick=()=>beep(860,0.05,0.04,'square');
-  const warn=()=>beep(520,0.08,0.06,'sawtooth');
-  const good=()=>beep(980,0.045,0.035,'sine');
-  const perfect=()=>beep(1180,0.06,0.04,'triangle');
-  const bad=()=>beep(220,0.08,0.06,'sawtooth');
-  const bossHit=()=>beep(420,0.06,0.05,'square');
-  const bossDown=()=>{beep(240,0.11,0.06,'sawtooth'); setTimeout(()=>beep(760,0.08,0.05,'triangle'),60);};
-  const power=()=>{beep(720,0.08,0.04,'triangle'); setTimeout(()=>beep(1040,0.06,0.035,'sine'),50);};
-  const shield=()=>{beep(980,0.08,0.045,'triangle'); setTimeout(()=>beep(1320,0.06,0.04,'sine'),60);};
-  const atk=()=>{beep(160,0.10,0.06,'sawtooth'); setTimeout(()=>beep(90,0.12,0.05,'square'),70);};
-  return { unlock, tick, warn, good, perfect, bad, bossHit, bossDown, power, shield, atk };
-})();
-
-// ---------- Logger ----------
-function logSession(phase){
-  dispatchEvt('hha:log_session',{
-    sessionId:S.sessionId, game:'PlateVR', phase,
-    mode:MODE, diff:DIFF, timeTotal:TOTAL_TIME, lives:S.livesMax,
-    seed: SEED, ts:Date.now(), ua:navigator.userAgent,
-    gameVersion: GAME_VERSION
-  });
-}
-function logEvent(type, data){
-  dispatchEvt('hha:log_event',{
-    sessionId:S.sessionId, game:'PlateVR', type,
-    t: Math.round((now() - S.tStart) || 0),
-    score:S.score, combo:S.combo, miss:S.miss, perfect:S.perfectCount,
-    fever:Math.round(S.fever), shield:S.shield, lives:S.lives,
-    data:data||{},
-    gameVersion: GAME_VERSION
-  });
-}
-
-// ---------- Camera -> view offset ----------
-function getCamAngles(){
-  const r = cam && cam.object3D ? cam.object3D.rotation : null;
-  if(!r) return {yaw:0,pitch:0};
-  return { yaw: r.y || 0, pitch: r.x || 0 };
-}
-function viewOffset(){
-  if(inVR()) return {x:0,y:0};
-  const {yaw,pitch}=getCamAngles();
-  const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
-  const pxPerRadX=clamp(vw*0.55,180,720);
-  const pxPerRadY=clamp(vh*0.48,160,640);
-  return {
-    x: clamp(-yaw*pxPerRadX, -vw*1.2, vw*1.2),
-    y: clamp(+pitch*pxPerRadY, -vh*1.2, vh*1.2),
-  };
-}
 function applyLayerTransform(){
   const off=viewOffset();
   layer.style.transform = `translate3d(${off.x}px, ${off.y}px, 0)`;
@@ -444,7 +508,7 @@ function applyLayerTransform(){
 function intersect(a,b){ return !(a.x+a.w<b.x||b.x+b.w<a.x||a.y+a.h<b.y||b.y+b.h<a.y); }
 function getBlockedRects(){
   const rects=[];
-  const ids=['hudTop','hudBtns','miniPanel'];
+  const ids=['hudTop','hudBtns','miniPanel','coachPanel'];
   for(const id of ids){
     const el=$(id); if(!el) continue;
     const r=el.getBoundingClientRect();
@@ -493,17 +557,34 @@ const FOOD_BY_GROUP={
 const JUNK=['🍩','🍟','🍔','🍕','🧋','🍭','🍫','🥤'];
 const TRAPS=['🎁','⭐','🍬','🍰','🧁'];
 
+function isBadKind(kind){ return (kind==='junk'||kind==='trap'||kind==='fakebad'); }
 function isPowerKind(kind){ return (kind==='slow'||kind==='nojunk'||kind==='storm'); }
 
 // ---------- Score/Fever/Grade ----------
-function addScore(delta){ S.score += delta; setTxt(HUD.score, S.score); }
-function addCombo(){ S.combo+=1; S.maxCombo=Math.max(S.maxCombo,S.combo); setTxt(HUD.combo,S.combo); }
-function setShield(n){ S.shield=clamp(n,0,S.shieldMax); }
-function setLives(n){ S.lives=clamp(n,0,S.livesMax); }
+function addScore(delta){ S.score += delta; setTxt(HUD.score, S.score); emitScore(); }
+function addCombo(){ S.combo+=1; S.maxCombo=Math.max(S.maxCombo,S.combo); setTxt(HUD.combo,S.combo); emitScore(); }
+function setShield(n){ S.shield=clamp(n,0,S.shieldMax); emitScore(); }
+function setLives(n){ S.lives=clamp(n,0,S.livesMax); emitScore(); }
 
 function emitFever(){
   dispatchEvt('hha:fever', { feverPct: Math.round(S.fever), fever: Math.round(S.fever) });
 }
+
+function emitScore(){
+  const t=now();
+  if(t - S.lastEmitScoreAt < 120) return;
+  S.lastEmitScoreAt = t;
+  dispatchEvt('hha:score', {
+    score:S.score, combo:S.combo, maxCombo:S.maxCombo,
+    miss:S.miss, lives:S.lives, livesMax:S.livesMax,
+    feverPct: Math.round(S.fever),
+    shield:S.shield,
+    grade: gradeFromScore(),
+    plateHave: S.plateHave.size,
+    plateNeed: S.groupsTotal
+  });
+}
+
 function addFever(v){
   const prev=S.fever;
   S.fever=clamp(S.fever+v,0,100);
@@ -516,14 +597,17 @@ function addFever(v){
     fxCelebrate('FEVER!', 1.2);
     AudioX.shield(); vibe(40);
     setShield(S.shield+1);
+    coachSay('เข้าสู่ FEVER! 🛡️ ได้โล่ 1 ครั้ง', 'fever', 'ทิป: ตอน FEVER คะแนนคูณแรงขึ้น!', 2800, 2);
     logEvent('fever_on',{});
   }
   if(S.feverOn && S.fever<=15){
     S.feverOn=false;
+    coachSay('FEVER หมดแล้วนะ 🙂', 'neutral', 'เก็บ PERFECT อีกนิดจะกลับมาได้', 2200, 1);
     logEvent('fever_off',{});
   }
   if(prev<100 && S.fever>=100) S.fever=100;
 }
+
 function gradeFromScore(){
   const metric=S.score + S.perfectCount*120 + S.maxCombo*35 - S.miss*260 - (S.livesMax-S.lives)*180;
   if(metric>=8200) return 'SSS';
@@ -533,7 +617,7 @@ function gradeFromScore(){
   if(metric>=1700) return 'B';
   return 'C';
 }
-function updateGrade(){ setTxt(HUD.grade, gradeFromScore()); }
+function updateGrade(){ setTxt(HUD.grade, gradeFromScore()); emitScore(); }
 
 // ---------- Goals / Minis ----------
 const GOALS=[
@@ -591,25 +675,58 @@ function goalProgressText(){
   if(g.key==='perfect6') return `${S.perfectCount}/${g.target}`;
   return '0';
 }
+
+function emitQuestUpdate(){
+  const goalText = (S.activeGoal)
+    ? `GOAL ${S.goalIndex+1}/${GOALS.length}: ${S.activeGoal.title} (${goalProgressText()})`
+    : 'GOAL: …';
+
+  const m=S.activeMini;
+  let miniText='MINI: …', hint='…', left=0;
+  if(m){
+    left = Math.max(0,(S.miniEndsAt-now())/1000);
+    const prog=(typeof m.progress==='function') ? m.progress() : '';
+    const p = prog ? ` • ${prog}` : '';
+    miniText = `MINI: ${m.title}${p} • ${left.toFixed(1)}s`;
+    hint = m.hint||'';
+  }
+
+  dispatchEvt('quest:update', {
+    goalText, miniText, hint,
+    goalsCleared: Math.min(S.goalsCleared, S.goalsTotal),
+    goalsTotal: S.goalsTotal,
+    minisCleared: Math.min(S.minisCleared, S.minisTotal),
+    minisTotal: S.minisTotal,
+    goalIndex: S.goalIndex,
+    miniKey: m ? m.key : '',
+    miniTimeLeftSec: left
+  });
+}
+
 function setGoal(i){
   S.goalIndex=clamp(i,0,GOALS.length-1);
   S.activeGoal=GOALS[S.goalIndex];
   setTxt(HUD.goalLine, `GOAL ${S.goalIndex+1}/2: ${S.activeGoal.title} (${goalProgressText()})`);
   emitQuestUpdate();
 }
+
 function checkGoalClear(){
   const g=S.activeGoal; if(!g) return false;
   if(g.key==='plates2') return S.goalsCleared>=g.target;
   if(g.key==='perfect6') return S.perfectCount>=g.target;
   return false;
 }
+
 function onGoalCleared(){
   fxCelebrate('GOAL CLEAR!', 1.25);
   flash('gold', 140);
   vibe(60);
+  coachSay('GOAL CLEAR! 🎉 เก่งมาก!', 'happy', 'ไปต่อ! เป้าถัดไปมาแล้ว', 2400, 2);
   logEvent('goal_clear',{goal:S.activeGoal && S.activeGoal.key});
   if(S.goalIndex+1<GOALS.length) setGoal(S.goalIndex+1);
+  emitQuestUpdate();
 }
+
 function startMini(){
   const idx=S.minisCleared % MINIS.length;
   const m=MINIS[idx];
@@ -618,10 +735,13 @@ function startMini(){
   S.miniUrgentArmed=false;
   S.miniTickAt=0;
   if(typeof m.init==='function') m.init();
-  updateMiniHud();
+  updateMiniHud(true);
   logEvent('mini_start',{mini:m.key,dur:m.dur});
+
+  coachSay(`MINI เริ่ม! ${m.title} ⚡`, 'neutral', m.hint || '', 2600, 1);
 }
-function updateMiniHud(){
+
+function updateMiniHud(force=false){
   const m=S.activeMini;
   if(!m){ setTxt(HUD.miniLine,'MINI: …'); setTxt(HUD.miniHint,'…'); emitQuestUpdate(); return; }
   const left=Math.max(0,(S.miniEndsAt-now())/1000);
@@ -629,8 +749,9 @@ function updateMiniHud(){
   const p = prog ? ` • ${prog}` : '';
   setTxt(HUD.miniLine, `MINI: ${m.title}${p} • ${left.toFixed(1)}s`);
   setTxt(HUD.miniHint, m.hint||'');
-  emitQuestUpdate();
+  if(force) emitQuestUpdate();
 }
+
 function tickMini(){
   const m=S.activeMini; if(!m) return;
   if(typeof m.tick==='function') m.tick();
@@ -642,6 +763,7 @@ function tickMini(){
     S.miniUrgentArmed=true;
     doc.body.classList.add('hha-mini-urgent');
     AudioX.warn(); vibe(20);
+    coachSay('ใกล้หมดเวลาแล้ว! ⏳', 'sad', 'เร่งนิด! ทำให้ทัน!', 2000, 1);
   }
   if(!urgent && S.miniUrgentArmed){
     S.miniUrgentArmed=false;
@@ -658,14 +780,19 @@ function tickMini(){
       S.minisCleared++; fxCelebrate('MINI CLEAR!', 1.15);
       flash('good', 120);
       addScore(450); addFever(18); vibe(50);
+      coachSay('MINI CLEAR! ✅', 'happy', 'สุดยอด! รับโบนัสไปเลย', 2400, 2);
       logEvent('mini_clear',{mini:m.key});
     }else{
       fxJudge('MINI FAIL');
       addScore(-120); addFever(-12);
+      coachSay('MINI ไม่ผ่าน 😅', 'sad', 'ไม่เป็นไร รอบหน้าทำได้แน่', 2200, 1);
       logEvent('mini_fail',{mini:m.key});
     }
     startMini();
-  }else updateMiniHud();
+  }else{
+    updateMiniHud(false);
+    emitQuestUpdate();
+  }
 }
 
 // ---------- Plate logic ----------
@@ -675,6 +802,8 @@ function onGood(group){
     S.groupCounts[group-1]+=1;
   }
   setTxt(HUD.have, `${S.plateHave.size}/${S.groupsTotal}`);
+  emitScore();
+
   if(S.plateHave.size>=S.groupsTotal){
     S.goalsCleared++;
     S.plateHave.clear();
@@ -682,13 +811,14 @@ function onGood(group){
     fxCelebrate('PLATE +1!', 1.0);
     flash('good', 120);
     vibe(35);
+    coachSay('จานสมดุล 1 ใบสำเร็จ! 🍽️', 'happy', 'เก็บต่ออีกนิด!', 2200, 1);
     logEvent('plate_complete',{plates:S.goalsCleared});
     setGoal(S.goalIndex);
     if(S.activeGoal && S.activeGoal.key==='plates2' && checkGoalClear()) onGoalCleared();
   }
 }
 
-// ---------- Aim assist (for boss-close check too) ----------
+// ---------- Aim assist ----------
 function pickNearCrosshair(radiusPx){
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const cx=vw/2, cy=vh/2;
@@ -708,6 +838,7 @@ function updateAimHighlight(){
   const picked=pickNearCrosshair(assist);
   const tid=picked? picked.rec.el.dataset.tid : null;
   if(tid===S.aimedId) return;
+
   if(S.aimedId){
     const prev=S.targets.find(r=>r && r.el && r.el.dataset && r.el.dataset.tid===S.aimedId);
     prev && prev.el && prev.el.classList.remove('aimed');
@@ -730,6 +861,7 @@ function computeSizePx(kind){
   if(isPowerKind(kind)) sz=clamp(sz*1.10,62,150);
   return sz;
 }
+
 function bossPhaseFor(rec){
   if(!rec||rec.kind!=='boss') return 1;
   const ratio=rec.hpMax ? (rec.hp/rec.hpMax) : 1;
@@ -741,6 +873,16 @@ function bossAttackStyleForPhase(phase){
   if(phase===3) return 'double';
   if(phase===2) return 'laser';
   return 'ring';
+}
+
+function metricSpawn(kind){
+  if(kind==='good') S.m.nTargetGoodSpawned++;
+  else if(kind==='junk') S.m.nTargetJunkSpawned++;
+  else if(kind==='gold') S.m.nTargetStarSpawned++;
+  else if(kind==='trap') S.m.nTargetTrapSpawned++;
+  else if(kind==='fake') S.m.nTargetFakeSpawned++;
+  else if(kind==='boss') S.m.nTargetBossSpawned++;
+  else if(isPowerKind(kind)) S.m.nTargetPowerSpawned++;
 }
 
 function makeTarget(kind, group, opts={}){
@@ -802,6 +944,7 @@ function makeTarget(kind, group, opts={}){
   };
 
   S.targets.push(rec);
+  metricSpawn(kind);
 
   const hitHandler=(e)=>{
     e.preventDefault(); e.stopPropagation();
@@ -818,13 +961,15 @@ function makeTarget(kind, group, opts={}){
   logEvent('spawn',{kind,group,size:sizePx,x:rec.cx,y:rec.cy,hp});
   return rec;
 }
+
 function removeTarget(rec){
   if(!rec || rec.dead) return;
   rec.dead=true;
-  try{ rec.el.remove(); }catch(_){}
+  try{ rec.el && rec.el.remove(); }catch(_){}
   const i=S.targets.indexOf(rec);
   if(i>=0) S.targets.splice(i,1);
 }
+
 function bossHpSync(rec){
   if(!rec||rec.kind!=='boss') return;
   const bar=rec.el.querySelector('.hp > div');
@@ -833,18 +978,25 @@ function bossHpSync(rec){
   rec.el.style.setProperty('--hp', String(ratio));
   bar.style.transform = `scaleX(${ratio})`;
 }
+
 function expireTargets(){
   const t=now();
   for(let i=S.targets.length-1;i>=0;i--){
-    const rec = S.targets[i];
-    if(!rec || rec.dead) continue; // ✅ FIX
+    const rec=S.targets[i];
+    if(!rec || rec.dead) continue;
+
     if(t>=rec.dieAt){
-      if(rec.kind==='good'||rec.kind==='gold'){
+      if(rec.kind==='good' || rec.kind==='gold'){
         onMiss('expire_good',{kind:rec.kind,group:rec.group});
         fxJudge('MISS');
         flash('bad', 110);
+
+        if(rec.kind==='good') S.m.nExpireGood++;
+        if(rec.kind==='gold') S.m.nExpireGold++;
+
         logEvent('miss_expire',{kind:rec.kind,group:rec.group});
       }else if(rec.kind==='boss'){
+        S.m.nExpireBoss++;
         bossAttackPunish('boss_expire', true);
         S.bossActive=false;
       }
@@ -860,34 +1012,52 @@ function shieldBlock(reason){
   fxCelebrate('🛡️ BLOCK!', 1.05);
   flash('gold', 120);
   AudioX.shield(); vibe(30);
+  coachSay('บล็อกได้! 🛡️', 'fever', 'โล่ช่วยกันโดน 1 ครั้ง', 1800, 1);
   logEvent('shield_block',{reason,shield:S.shield});
-  emitScore('shield');
   return true;
 }
+
+function applyLifePolicyOnMiss(reason){
+  // ✅ miss++ ทุกครั้ง, แต่ “เสียชีวิต” ตาม miss_per_life
+  // default miss_per_life=1 (เหมือนเดิม)
+  const t=now();
+  const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
+  if(protectedNoJunk) return;
+
+  if(MISS_PER_LIFE<=1){
+    setLives(S.lives-1);
+    return;
+  }
+  // ลดชีวิตเมื่อ miss ถึงขั้น
+  // ตัวอย่าง miss_per_life=2: miss 1 ยังไม่ลด, miss 2 ลด 1 heart
+  if(S.miss>0 && (S.miss % MISS_PER_LIFE === 0)){
+    setLives(S.lives-1);
+  }
+}
+
 function onMiss(reason, extra={}){
   S.combo=0; setTxt(HUD.combo,0);
   S.miss++; setTxt(HUD.miss,S.miss);
 
-  const t=now();
-  const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
-  if(!protectedNoJunk) setLives(S.lives-1);
+  applyLifePolicyOnMiss(reason);
 
   updateGrade();
-  emitScore('miss');
-
   if(S.lives<=0) endGame(true);
   logEvent('miss',{reason,...extra});
 }
+
 function punishBad(reason){
-  if(shieldBlock(reason)){ addScore(-60); addFever(-6); emitScore('bad'); return; }
+  if(shieldBlock(reason)){ addScore(-60); addFever(-6); return; }
   S.combo=0; setTxt(HUD.combo,0);
   addFever(reason==='boss'?-22:-16);
   addScore((now()<S.noJunkUntil)?-120:(reason==='trap'?-240:-180));
   fxJudge((now()<S.noJunkUntil)?'BAD(SAFE)':'BAD');
   flash(reason==='boss'?'boss':'bad', 120);
   AudioX.bad(); vibe(reason==='boss'?75:45);
+  coachSay('โอ๊ะ! โดนของไม่ดี 😵', 'sad', 'หลบ JUNK/TRAP ให้ไว!', 2000, 0);
   onMiss(reason,{});
 }
+
 function bossAttackPunish(tag, forceHit=false){
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const cx=vw/2, cy=vh/2;
@@ -911,14 +1081,14 @@ function bossAttackPunish(tag, forceHit=false){
     fxJudge('DODGED!');
     addScore(+40);
     addFever(+2);
-    emitScore('boss_dodge');
     return;
   }
 
-  if(shieldBlock(tag)){ addScore(-80); addFever(-8); emitScore('boss_block'); return; }
+  if(shieldBlock(tag)){ addScore(-80); addFever(-8); return; }
   addScore(-320); addFever(-20);
   fxJudge('BOSS ATK!');
   flash('boss', 140);
+  coachSay('บอสโจมตี! ⚠️', 'sad', 'อย่าให้บอสเข้ากลางจอ!', 2000, 1);
   onMiss('boss_attack',{});
 }
 
@@ -926,22 +1096,22 @@ function bossAttackPunish(tag, forceHit=false){
 function activateSlow(ms){
   S.slowUntil=Math.max(S.slowUntil, now()+ms);
   AudioX.power(); vibe(25); fxCelebrate('SLOW!', 1.0);
+  coachSay('SLOW! 🐢', 'neutral', 'เป้าจะอยู่นานขึ้น', 1800, 0);
   logEvent('power_slow',{until:S.slowUntil});
-  emitScore('power');
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateNoJunk(ms){
   S.noJunkUntil=Math.max(S.noJunkUntil, now()+ms);
   AudioX.power(); vibe(25); fxCelebrate('NO-JUNK!', 1.0);
+  coachSay('NO-JUNK! 🟢', 'happy', 'โดนขยะช่วงนี้ “ไม่เสียหัวใจ”', 2200, 1);
   logEvent('power_nojunk',{until:S.noJunkUntil});
-  emitScore('power');
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateStorm(ms){
   S.stormUntil=Math.max(S.stormUntil, now()+ms);
   AudioX.power(); vibe(30); fxCelebrate('STORM!', 1.05);
+  coachSay('STORM! 🌪️', 'fever', 'คะแนนมาไว แต่ขยะก็เยอะขึ้น!', 2200, 1);
   logEvent('power_storm',{until:S.stormUntil});
-  emitScore('power');
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 
@@ -949,6 +1119,14 @@ function activateStorm(ms){
 function judgeFromDist(distPx, sizePx){
   const n=clamp(distPx/(sizePx*0.55),0,1);
   return (n<=0.38) ? 'PERFECT' : 'HIT';
+}
+
+function recordRtIfGood(rec){
+  if(!rec) return;
+  if(rec.kind!=='good' && rec.kind!=='gold') return;
+  const rt = Math.max(0, Math.round(now() - rec.bornAt));
+  S.m.rtGoodMs.push(rt);
+  if(S.m.rtGoodMs.length > 240) S.m.rtGoodMs.splice(0, 80); // cap
 }
 
 function hitTarget(rec, direct){
@@ -967,8 +1145,9 @@ function hitTarget(rec, direct){
     fxBurst(sx,sy,'power'); fxPop('+120',sx,sy);
     flash('good', 90);
     addScore(120); addFever(10);
+    S.m.nHitPower++;
     logEvent('hit_power',{kind:'slow',dist,direct:!!direct});
-    removeTarget(rec); updateGrade(); emitScore('hit'); return;
+    removeTarget(rec); updateGrade(); setGoal(S.goalIndex); return;
   }
   if(rec.kind==='nojunk'){
     const ms = (MODE==='research') ? Math.round((D.noJunkDurMs[0]+D.noJunkDurMs[1])*0.5) : rnd(D.noJunkDurMs[0],D.noJunkDurMs[1]);
@@ -976,8 +1155,9 @@ function hitTarget(rec, direct){
     fxBurst(sx,sy,'power'); fxPop('+160',sx,sy);
     flash('good', 90);
     addScore(160); addFever(10);
+    S.m.nHitPower++;
     logEvent('hit_power',{kind:'nojunk',dist,direct:!!direct});
-    removeTarget(rec); updateGrade(); emitScore('hit'); return;
+    removeTarget(rec); updateGrade(); setGoal(S.goalIndex); return;
   }
   if(rec.kind==='storm'){
     const ms = (MODE==='research') ? Math.round((D.stormDurMs[0]+D.stormDurMs[1])*0.5) : rnd(D.stormDurMs[0],D.stormDurMs[1]);
@@ -985,43 +1165,45 @@ function hitTarget(rec, direct){
     fxBurst(sx,sy,'power'); fxPop('+200',sx,sy);
     flash('gold', 95);
     addScore(200); addFever(12);
+    S.m.nHitPower++;
     logEvent('hit_power',{kind:'storm',dist,direct:!!direct});
-    removeTarget(rec); updateGrade(); emitScore('hit'); return;
+    removeTarget(rec); updateGrade(); setGoal(S.goalIndex); return;
   }
 
   if(rec.kind==='fake'){
     fxJudge('TRICK!');
     fxBurst(sx,sy,'trap'); fxPop('-220',sx,sy);
+    S.m.nHitFake++;
     punishBad('trap');
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'trap'},'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
     removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
     logEvent('hit',{kind:'fake',dist,direct:!!direct});
-    emitScore('hit');
     return;
   }
   if(rec.kind==='trap'){
     fxBurst(sx,sy,'trap'); fxPop('-240',sx,sy);
+    S.m.nHitTrap++;
     punishBad('trap');
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
     removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
     logEvent('hit',{kind:'trap',dist,direct:!!direct});
-    emitScore('hit');
     return;
   }
   if(rec.kind==='junk'){
     fxBurst(sx,sy,'bad'); fxPop('-180',sx,sy);
+    S.m.nHitJunk++;
     punishBad('junk');
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
     removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
     logEvent('hit',{kind:'junk',dist,direct:!!direct});
-    emitScore('hit');
     return;
   }
 
   if(rec.kind==='boss'){
+    S.m.nHitBoss++;
     rec.hp = Math.max(0, (rec.hp|0)-1);
     bossHpSync(rec);
     const ph=bossPhaseFor(rec);
@@ -1038,6 +1220,7 @@ function hitTarget(rec, direct){
     if(rec.hp<=0){
       AudioX.bossDown(); vibe(65);
       fxCelebrate('BOSS DOWN!', 1.35);
+      coachSay('บอสล้มแล้ว! 🏆', 'happy', 'รับโบนัสใหญ่!', 2400, 2);
       flash('gold', 160);
       addScore(1200); addFever(30);
       S.combo += 2; S.maxCombo=Math.max(S.maxCombo,S.combo); setTxt(HUD.combo,S.combo);
@@ -1047,11 +1230,12 @@ function hitTarget(rec, direct){
       removeTarget(rec);
     }
     updateGrade(); setGoal(S.goalIndex);
-    emitScore('boss');
     return;
   }
 
   // good / gold
+  recordRtIfGood(rec);
+
   const judge=judgeFromDist(dist, rec.size);
   const mult=S.feverOn?1.35:1.0;
   const base=(rec.kind==='gold')?520:240;
@@ -1061,6 +1245,9 @@ function hitTarget(rec, direct){
 
   addScore(delta);
   addCombo();
+
+  if(rec.kind==='gold') S.m.nHitGold++;
+  else S.m.nHitGood++;
 
   if(judge==='PERFECT'){
     S.perfectCount++; setTxt(HUD.perfect,S.perfectCount);
@@ -1096,7 +1283,6 @@ function hitTarget(rec, direct){
   removeTarget(rec);
   updateGrade(); setGoal(S.goalIndex);
   logEvent('hit',{kind:rec.kind,group:rec.group,judge,dist,direct:!!direct,delta});
-  emitScore('hit');
 }
 
 // ---------- Decide kind/group ----------
@@ -1165,8 +1351,8 @@ function spawnBossIfReady(){
   fxCelebrate('⚠️', 1.0);
   flash('boss', 140);
   AudioX.warn(); vibe(25);
+  coachSay('บอสมาแล้ว! 😈', 'fever', 'อย่าให้บอสเข้ากลางจอ แล้วค่อยยิง!', 2600, 2);
   logEvent('boss_spawn',{hp});
-  emitScore('boss_spawn');
 }
 
 function tickBossAttack(){
@@ -1199,7 +1385,6 @@ function tickBossAttack(){
         rec.atkAt = t + ((MODE==='research') ? 1100 : rnd(900,1400));
         fxJudge('CHAIN!');
       }
-      emitScore('boss_attack');
     }
   }
 }
@@ -1259,10 +1444,10 @@ function airShot(){
   flash('bad', 80);
   AudioX.tick();
 
+  // นับเป็น miss แต่ไม่ลดชีวิต
   S.miss++; setTxt(HUD.miss, S.miss);
   updateGrade();
   logEvent('air_shot',{});
-  emitScore('air');
 }
 function shootCrosshair(){
   if(!S.running || S.paused) return;
@@ -1284,8 +1469,8 @@ function setPaused(on){
   S.paused=!!on;
   setShow(HUD.paused,S.paused);
   if(HUD.btnPause) HUD.btnPause.textContent = S.paused ? '▶️ RESUME' : '⏸️ PAUSE';
+  coachSay(S.paused?'พักก่อนนะ ⏸️':'ไปต่อเลย! ▶️', 'neutral', '', 1600, 1);
   logEvent('pause',{paused:S.paused});
-  emitScore('pause');
 }
 function enterVR(){ try{ scene && scene.enterVR && scene.enterVR(); }catch(_){ } }
 
@@ -1308,6 +1493,14 @@ function restart(){
   S.stormUntil=0; S.slowUntil=0; S.noJunkUntil=0;
   S.lowTimeLastSec=null;
 
+  // reset metrics
+  S.m.nTargetGoodSpawned=0; S.m.nTargetJunkSpawned=0; S.m.nTargetStarSpawned=0;
+  S.m.nTargetDiamondSpawned=0; S.m.nTargetShieldSpawned=0;
+  S.m.nTargetTrapSpawned=0; S.m.nTargetFakeSpawned=0; S.m.nTargetBossSpawned=0; S.m.nTargetPowerSpawned=0;
+  S.m.nHitGood=0; S.m.nHitGold=0; S.m.nHitJunk=0; S.m.nHitTrap=0; S.m.nHitFake=0; S.m.nHitBoss=0; S.m.nHitPower=0;
+  S.m.nExpireGood=0; S.m.nExpireGold=0; S.m.nExpireBoss=0;
+  S.m.rtGoodMs.length=0;
+
   setTxt(HUD.score,0); setTxt(HUD.combo,0); setTxt(HUD.miss,0);
   setTxt(HUD.perfect,0); setTxt(HUD.have,'0/5'); setTxt(HUD.feverPct,'0%');
   emitFever();
@@ -1316,9 +1509,20 @@ function restart(){
 
   setGoal(0);
   startMini();
+  coachSay('เริ่มใหม่! เก็บครบ 5 หมู่ให้เป็นจานสมดุล 🍽️', 'neutral', `ทิป: เล็งใกล้กากบาทจะ PERFECT ง่าย`, 2800, 2);
+
   logSession('start');
   start();
-  emitScore('restart');
+}
+
+function computeRtStats(arr){
+  if(!arr || !arr.length) return {avg:0, median:0};
+  const a = arr.slice().sort((x,y)=>x-y);
+  const sum = a.reduce((p,c)=>p+c,0);
+  const avg = Math.round(sum / a.length);
+  const mid = Math.floor(a.length/2);
+  const median = (a.length%2===1) ? a[mid] : Math.round((a[mid-1]+a[mid])/2);
+  return {avg, median};
 }
 
 function endGame(isGameOver){
@@ -1328,8 +1532,10 @@ function endGame(isGameOver){
   S.nextSpawnAt=Infinity;
   for(const rec of [...S.targets]) removeTarget(rec);
 
+  const grade = gradeFromScore();
+
   setTxt(HUD.rMode, MODE==='research'?'Research':'Play');
-  setTxt(HUD.rGrade, gradeFromScore());
+  setTxt(HUD.rGrade, grade);
   setTxt(HUD.rScore, S.score);
   setTxt(HUD.rMaxCombo, S.maxCombo);
   setTxt(HUD.rMiss, S.miss);
@@ -1347,29 +1553,59 @@ function endGame(isGameOver){
   fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
   vibe(isGameOver?60:50);
 
-  // ---- unified end payload ----
-  dispatchEvt('hha:end', {
-    sessionId: S.sessionId,
-    game: 'PlateVR',
-    mode: MODE,
+  coachSay(isGameOver?'หมดหัวใจแล้ว 😭':'จบเกมแล้ว! 🎉', isGameOver?'sad':'happy', `เกรดของเรา: ${grade}`, 3200, 2);
+
+  // metrics
+  const rt = computeRtStats(S.m.rtGoodMs);
+  const goodTotal = S.m.nHitGood + S.m.nHitGold + S.m.nExpireGood + S.m.nExpireGold;
+  const accuracyGoodPct = goodTotal>0 ? Math.round(((S.m.nHitGood + S.m.nHitGold)/goodTotal)*1000)/10 : 0;
+  const junkTotal = S.m.nTargetJunkSpawned + S.m.nTargetTrapSpawned + S.m.nTargetFakeSpawned;
+  const junkErrorPct = junkTotal>0 ? Math.round(((S.m.nHitJunk + S.m.nHitTrap + S.m.nHitFake)/junkTotal)*1000)/10 : 0;
+
+  const payloadEnd = {
+    ...META,
+    sessionId:S.sessionId,
+    projectTag: META.projectTag || 'HeroHealth-PlateVR',
+    gameMode: 'PlateVR',
+    runMode: MODE,
     diff: DIFF,
-    gameVersion: GAME_VERSION,
     durationPlannedSec: TOTAL_TIME,
-    durationPlayedSec: Math.max(0, Math.round((now()-S.tStart)/1000)),
+    durationPlayedSec: Math.round((now()-S.tStart)/1000),
+
     scoreFinal: S.score,
     comboMax: S.maxCombo,
     misses: S.miss,
-    perfect: S.perfectCount,
-    grade: gradeFromScore(),
     goalsCleared: Math.min(S.goalsCleared,2),
     goalsTotal: 2,
     miniCleared: Math.min(S.minisCleared,7),
     miniTotal: 7,
-    nG1: S.groupCounts[0], nG2: S.groupCounts[1], nG3: S.groupCounts[2], nG4: S.groupCounts[3], nG5: S.groupCounts[4]
-  });
 
+    nTargetGoodSpawned: S.m.nTargetGoodSpawned,
+    nTargetJunkSpawned: S.m.nTargetJunkSpawned,
+    nTargetStarSpawned: S.m.nTargetStarSpawned,
+    nTargetDiamondSpawned: S.m.nTargetDiamondSpawned,
+    nTargetShieldSpawned: S.m.nTargetShieldSpawned,
+
+    nHitGood: S.m.nHitGood + S.m.nHitGold,
+    nHitJunk: S.m.nHitJunk + S.m.nHitTrap + S.m.nHitFake,
+    nHitJunkGuard: 0, // (Plate ไม่มี guard แบบสัมผัสโล่ชน junk — ช่องไว้ให้ schema)
+    nExpireGood: S.m.nExpireGood + S.m.nExpireGold,
+
+    accuracyGoodPct,
+    junkErrorPct,
+    avgRtGoodMs: rt.avg,
+    medianRtGoodMs: rt.median,
+
+    grade,
+    device: META.device || (inVR() ? 'vr' : 'mobile'),
+    gameVersion: META.gameVersion,
+    startTimeIso: META.timestampIso,
+    endTimeIso: new Date().toISOString(),
+  };
+
+  // ✅ emits for cloud logger
+  dispatchEvt('hha:end', payloadEnd);
   logSession(isGameOver?'gameover':'end');
-  emitScore('end');
 }
 
 // ---------- Main loop ----------
@@ -1393,13 +1629,16 @@ function start(){
       S.timeLeft=Math.max(0, TOTAL_TIME - elapsed);
       setTxt(HUD.time, fmt(S.timeLeft));
 
-      emitTime();
-      emitScore('tick');
-      tutorialTick();
+      // emit time per second
+      const sec = Math.floor(S.timeLeft);
+      if(sec !== S.lastEmitSec){
+        S.lastEmitSec = sec;
+        dispatchEvt('hha:time', { secLeft: sec, secPlayed: Math.floor(elapsed), secTotal: TOTAL_TIME });
+      }
 
       if(S.timeLeft<=10){
-        const sec=Math.ceil(S.timeLeft);
-        if(sec!==S.lowTimeLastSec){ S.lowTimeLastSec=sec; AudioX.tick(); }
+        const s2=Math.ceil(S.timeLeft);
+        if(s2!==S.lowTimeLastSec){ S.lowTimeLastSec=s2; AudioX.tick(); }
       }else S.lowTimeLastSec=null;
 
       spawnTick();
@@ -1449,108 +1688,6 @@ function bindUI(){
   });
 }
 
-// ---------- PRODUCTION: Start overlay + tutorial ----------
-let _introStartedAt = 0;
-let _startedOnce = false;
-
-function ensureStartOverlay(){
-  if(!doc) return null;
-  if(doc.getElementById('plateStartOverlay')) return doc.getElementById('plateStartOverlay');
-
-  const ov = doc.createElement('div');
-  ov.id = 'plateStartOverlay';
-  Object.assign(ov.style, {
-    position:'fixed', inset:'0', zIndex:1300,
-    display:'flex', alignItems:'center', justifyContent:'center',
-    background:'rgba(2,6,23,.74)', backdropFilter:'blur(10px)'
-  });
-
-  const card = doc.createElement('div');
-  Object.assign(card.style, {
-    width:'min(720px,92vw)',
-    borderRadius:'22px',
-    border:'1px solid rgba(148,163,184,.22)',
-    background:'rgba(2,6,23,.78)',
-    boxShadow:'0 26px 90px rgba(0,0,0,.60)',
-    padding:'16px'
-  });
-
-  const title = doc.createElement('div');
-  title.textContent = '🍽️ Balanced Plate VR';
-  Object.assign(title.style,{fontWeight:'1100', fontSize:'20px'});
-
-  const sub = doc.createElement('div');
-  sub.innerHTML = `
-    <div style="margin-top:6px; color:rgba(148,163,184,.95); font-weight:900">
-      โหมด: <b>${MODE}</b> • ระดับ: <b>${DIFF}</b> • เวลา: <b>${TOTAL_TIME}s</b>
-    </div>
-    <div style="margin-top:10px; color:rgba(229,231,235,.92); font-weight:900; line-height:1.35">
-      • แตะที่ไหนก็ได้เพื่อ “ยิง” ตามเป้ากลางจอ 🎯<br/>
-      • ทำจานให้ครบ 5 หมู่ = ได้ 1 Plate 🍽️<br/>
-      • Mini Quest จะสลับเองเรื่อย ๆ (มีนับถอยหลัง) ⏳<br/>
-      • Hard 60 วิ ออกแบบให้ “ผ่านได้บ้าง” ไม่โหดเกิน 🔥
-    </div>
-  `;
-
-  const row = doc.createElement('div');
-  Object.assign(row.style,{display:'flex', gap:'10px', justifyContent:'flex-end', marginTop:'14px'});
-
-  const b1 = doc.createElement('button');
-  b1.className='btn';
-  b1.textContent='▶️ เริ่มเล่น';
-  b1.style.pointerEvents='auto';
-
-  const b2 = doc.createElement('button');
-  b2.className='btn';
-  b2.textContent='🕶️ เริ่มแล้วเข้า VR';
-  b2.style.pointerEvents='auto';
-
-  row.appendChild(b2);
-  row.appendChild(b1);
-
-  card.appendChild(title);
-  card.appendChild(sub);
-  card.appendChild(row);
-  ov.appendChild(card);
-  doc.body.appendChild(ov);
-
-  function begin(andVR){
-    if(_startedOnce) return;
-    _startedOnce = true;
-    try{ ov.remove(); }catch(_){}
-    _introStartedAt = now();
-
-    startMini();
-    logSession('start');
-    start();
-    emitScore('start');
-    emitQuestUpdate();
-
-    if(andVR) setTimeout(()=>{ try{ enterVR(); }catch(_){ } }, 120);
-  }
-
-  b1.addEventListener('click', ()=>begin(false));
-  b2.addEventListener('click', ()=>begin(true));
-
-  ov.addEventListener('pointerdown', (e)=>{
-    if(e.target === ov) begin(false);
-  });
-
-  return ov;
-}
-
-function tutorialTick(){
-  if(!_introStartedAt) return;
-  const t = now() - _introStartedAt;
-  if(t < 2500){
-    fxJudge('แตะเพื่อยิง 🎯');
-  }else if(t < 5500){
-    fxJudge('ครบ 5 หมู่ = 1 Plate 🍽️');
-  }else if(t < 9000){
-    fxJudge('Mini Quest กำลังนับถอยหลัง ⏳');
-  }
-}
-
 // ---------- BOOT ----------
 (function boot(){
   try{
@@ -1576,10 +1713,18 @@ function tutorialTick(){
   S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
 
   setGoal(0);
-  emitQuestUpdate();
-  emitScore('boot');
+  startMini();
 
-  ensureStartOverlay();
+  coachSay(
+    `เริ่มเลย! (Diff: ${DIFF.toUpperCase()} • ${TOTAL_TIME}s) 🍽️`,
+    'neutral',
+    `ทิป: ยิงใกล้กากบาทจะ PERFECT ง่าย • miss_per_life=${MISS_PER_LIFE}`,
+    3200,
+    2
+  );
 
-  if(DEBUG) console.log('[PlateVR] boot ok (waiting start)', { MODE, DIFF, TOTAL_TIME, seed:SEED, D, GAME_VERSION });
+  logSession('start');
+  start();
+
+  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D, MISS_PER_LIFE });
 })();
