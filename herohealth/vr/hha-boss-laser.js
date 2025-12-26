@@ -1,6 +1,7 @@
 // === /herohealth/vr/hha-boss-laser.js ===
-// Boss LASER overlay V3 — NO ENGINE CHANGES
-// + Safe Gap Marker (shows safest spot to move crosshair toward)
+// Boss LASER overlay V4 — NO ENGINE CHANGES
+// + Safe Gap Marker (shows safest spot), now visible in WARN + moves in FIRE
+// + Fake Gap (decoy) for adaptLevel >= 3 (short + fair reveal)
 // + Charge + Fire sounds (WebAudio, auto unlock)
 // patterns: X / SWEEP / DOUBLE SWEEP
 // emits:
@@ -71,6 +72,7 @@
   filter: blur(.2px);
 }
 
+/* --- SAFE GAP (real) --- */
 #hhaBossLaserGap{
   position:absolute;
   left: 50%;
@@ -104,9 +106,45 @@
   text-shadow: 0 8px 22px rgba(0,0,0,.55);
   opacity: .95;
 }
+
+/* --- FAKE GAP (decoy) --- */
+#hhaBossLaserDecoy{
+  position:absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%,-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  opacity: 0;
+  transition: opacity .10s ease, transform .08s ease;
+  background: radial-gradient(circle at 30% 25%,
+    rgba(167,139,250,.92),
+    rgba(167,139,250,.20) 55%,
+    rgba(167,139,250,0) 75%);
+  box-shadow:
+    0 0 0 2px rgba(167,139,250,.55),
+    0 0 22px rgba(167,139,250,.28),
+    0 0 46px rgba(167,139,250,.14);
+  mix-blend-mode: screen;
+}
+#hhaBossLaserDecoy.on{ opacity: 1; }
+#hhaBossLaserDecoy::after{
+  content:'SAFE?';
+  position:absolute;
+  left:50%;
+  top: 120%;
+  transform: translateX(-50%);
+  font: 950 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  letter-spacing: .3px;
+  color: rgba(235,225,255,.95);
+  text-shadow: 0 8px 22px rgba(0,0,0,.55);
+  opacity: .95;
+}
+
 @media (prefers-reduced-motion: reduce){
   .hhaLaserBeam{ filter:none !important; }
-  #hhaBossLaserGap{ transition:none !important; }
+  #hhaBossLaserGap, #hhaBossLaserDecoy{ transition:none !important; }
 }
 `;
     doc.head.appendChild(s);
@@ -118,15 +156,22 @@
     if (el && el.isConnected) return el;
     el = doc.createElement('div');
     el.id = 'hhaBossLaser';
+
     const gap = doc.createElement('div');
     gap.id = 'hhaBossLaserGap';
+
+    const decoy = doc.createElement('div');
+    decoy.id = 'hhaBossLaserDecoy';
+
     el.appendChild(gap);
+    el.appendChild(decoy);
     doc.body.appendChild(el);
     return el;
   }
 
   const layer = ensureLayer();
   const gapEl = doc.getElementById('hhaBossLaserGap');
+  const decoyEl = doc.getElementById('hhaBossLaserDecoy');
 
   // -------------------------------
   // Helpers
@@ -219,7 +264,6 @@
   }
 
   function chargeSound(intensity=1){
-    // 3-step “pew-pew-pew” rising tension
     const k = clamp(intensity, 0.4, 2.0);
     const f1 = 420 + 80*k;
     const f2 = 520 + 110*k;
@@ -264,93 +308,145 @@
   }
 
   // -------------------------------
-  // Safe gap finder + marker
+  // Safe gap + decoy logic
   // -------------------------------
-  let gapOn = false;
-  function setGapMarker(on){
-    if (!gapEl) return;
-    gapOn = !!on;
-    if (gapOn) gapEl.classList.add('on');
-    else gapEl.classList.remove('on');
-  }
+  function setGap(on){ if (!gapEl) return; if (on) gapEl.classList.add('on'); else gapEl.classList.remove('on'); }
+  function setDecoy(on){ if (!decoyEl) return; if (on) decoyEl.classList.add('on'); else decoyEl.classList.remove('on'); }
 
-  function placeGapAt(x, y){
-    if (!gapEl) return;
-    gapEl.style.left = x.toFixed(0) + 'px';
-    gapEl.style.top  = y.toFixed(0) + 'px';
-    // tiny pulse feel
-    gapEl.style.transform = 'translate(-50%,-50%) scale(1.0)';
-    setTimeout(()=>{ try{ gapEl.style.transform='translate(-50%,-50%) scale(1.06)'; }catch{} }, 30);
-    setTimeout(()=>{ try{ gapEl.style.transform='translate(-50%,-50%) scale(1.0)'; }catch{} }, 140);
+  function placeMarker(el, x, y){
+    if (!el) return;
+    el.style.left = x.toFixed(0) + 'px';
+    el.style.top  = y.toFixed(0) + 'px';
+    el.style.transform = 'translate(-50%,-50%) scale(1.0)';
+    setTimeout(()=>{ try{ el.style.transform='translate(-50%,-50%) scale(1.06)'; }catch{} }, 30);
+    setTimeout(()=>{ try{ el.style.transform='translate(-50%,-50%) scale(1.0)'; }catch{} }, 140);
   }
 
   function scorePoint(px, py){
-    // score = min distance to any beam edge (bigger is safer)
+    // score = min clearance from any beam body (bigger is safer)
     let best = 1e9;
     for (const b of beams){
       const th = Math.max(1, b.th);
       const theta = (b.angDeg * Math.PI) / 180;
       const d = distToBeam(px, py, theta, b.off);
-      // effective clearance from beam body
       const clearance = d - (th * 0.5);
       best = Math.min(best, clearance);
     }
     return best;
   }
 
-  function updateSafeGap(){
-    if (!gapEl) return;
-    if (phase !== 'fire' || beams.length === 0) { setGapMarker(false); return; }
-
+  function pickCandidates(){
     const w = Math.max(1, root.innerWidth || 1);
     const h = Math.max(1, root.innerHeight|| 1);
-    const ch = getCrosshairXY();
-
-    // candidate points around screen (8 + center-ish)
-    const pts = [];
     const padX = w * 0.10;
     const padY = h * 0.14;
 
     const xs = [padX, w*0.33, w*0.50, w*0.67, w-padX];
     const ys = [padY, h*0.30, h*0.52, h*0.70, h-padY];
 
-    // grid candidates (sparse)
+    const pts = [];
     for (let yi=0; yi<ys.length; yi++){
       for (let xi=0; xi<xs.length; xi++){
         pts.push({ x: xs[xi], y: ys[yi] });
       }
     }
+    return pts;
+  }
 
-    // exclude too-close-to-crosshair (soไม่ trivial)
+  function findBestSafePoint(){
+    const pts = pickCandidates();
+    const ch = getCrosshairXY();
     const minToCh = 80;
-    let bestP = null;
-    let bestS = -1e9;
 
+    let bestP = null, bestS = -1e9;
     for (const p of pts){
-      const dx = p.x - ch.x;
-      const dy = p.y - ch.y;
+      const dx = p.x - ch.x, dy = p.y - ch.y;
       const dd = Math.sqrt(dx*dx + dy*dy);
       if (dd < minToCh) continue;
-
       const s = scorePoint(p.x, p.y);
       if (s > bestS) { bestS = s; bestP = p; }
     }
-
-    // if nothing left (rare), allow closest
     if (!bestP){
       for (const p of pts){
         const s = scorePoint(p.x, p.y);
         if (s > bestS) { bestS = s; bestP = p; }
       }
     }
+    return { p: bestP, s: bestS, ch };
+  }
 
-    // show marker only if actually safer than current
-    const curS = scorePoint(ch.x, ch.y);
-    if (bestP && (bestS > curS + 12)){
-      setGapMarker(true);
-      placeGapAt(bestP.x, bestP.y);
+  function findDecoyPoint(best){
+    // Decoy: "ดูน่าเชื่อ" แต่ไม่ดีที่สุด
+    // เลือก point ที่ safety ต่ำกว่าของจริง แต่ไม่ติดเลเซอร์ทันที (clearance > -2)
+    const pts = pickCandidates();
+    const targetS = best.s - 18; // ต่ำกว่าจริงพอให้พลาด
+    let pick = null, pickS = -1e9;
+
+    for (const p of pts){
+      const s = scorePoint(p.x, p.y);
+      if (s <= -6) continue;              // อย่าเอาจุดที่โดนแน่ ๆ
+      if (s >= best.s - 6) continue;      // อย่าใกล้ของจริงเกิน
+      const closeness = -Math.abs(s - targetS);
+      if (closeness > pickS){ pickS = closeness; pick = p; }
+    }
+
+    // fallback: เอาจุดที่แย่ที่สุดแต่ยัง "ไม่โดนทันที"
+    if (!pick){
+      let worst = null, worstS = 1e9;
+      for (const p of pts){
+        const s = scorePoint(p.x, p.y);
+        if (s <= -6) continue;
+        if (s < worstS){ worstS = s; worst = p; }
+      }
+      pick = worst;
+    }
+    return pick;
+  }
+
+  function updateGapMarkers(ts){
+    if (beams.length === 0) { setGap(false); setDecoy(false); return; }
+
+    const best = findBestSafePoint();
+    const chS = scorePoint(best.ch.x, best.ch.y);
+
+    // show real marker only if better than current by margin
+    const showReal = !!(best.p && best.s > chS + 12);
+
+    // decoy rules: only in FIRE, only when adaptLevel>=3, only if chosen for this attack
+    if (phase === 'fire' && decoyActive && showReal && best.p){
+      // show decoy first, then reveal real (fair)
+      const tInto = (ts - fireStartedAt);
+      const revealAt = decoyRevealMs; // when real becomes visible
+      const hideDecoyAt = decoyHideMs;
+
+      // decoy marker moves too (so "น่าเชื่อ")
+      const decoyP = decoyPoint || findDecoyPoint(best);
+      decoyPoint = decoyP || decoyPoint;
+
+      if (tInto < hideDecoyAt && decoyPoint){
+        setDecoy(true);
+        placeMarker(decoyEl, decoyPoint.x, decoyPoint.y);
+      } else {
+        setDecoy(false);
+      }
+
+      if (tInto >= revealAt){
+        setGap(true);
+        placeMarker(gapEl, best.p.x, best.p.y);
+      } else {
+        // still hide real before reveal
+        setGap(false);
+      }
+      return;
+    }
+
+    // normal: show real in WARN+FIRE (no decoy)
+    setDecoy(false);
+    if (showReal && best.p){
+      setGap(true);
+      placeMarker(gapEl, best.p.x, best.p.y);
     } else {
-      setGapMarker(false);
+      setGap(false);
     }
   }
 
@@ -368,6 +464,13 @@
   let pattern = 'sweep';
   let ang = 0;
   let intensity = 1.0;
+
+  // decoy per-attack
+  let decoyActive = false;
+  let decoyPoint = null;
+  let fireStartedAt = 0;
+  let decoyRevealMs = 220; // show real after this
+  let decoyHideMs = 520;   // hide decoy by this (still fair)
 
   // hit cooldown
   let lastHitAt = 0;
@@ -406,12 +509,24 @@
     return a;
   }
 
+  function decideDecoy(){
+    // only for adaptLevel >=3, only sometimes, and always fair reveal
+    if (adaptLevel < 3) return false;
+    // later in game => more likely
+    const tail = (secLeft == null) ? 0.3 : clamp((20 - secLeft)/20, 0, 1);
+    const p = clamp(0.28 + 0.22*tail, 0.22, 0.55);
+    return (Math.random() < p);
+  }
+
   function startWarn(){
     pattern = pickPattern();
     intensity = intensityFromContext();
 
     clearBeams();
-    setGapMarker(false);
+    setGap(false);
+    setDecoy(false);
+    decoyPoint = null;
+
     setOn(true);
 
     ang = pickAngle();
@@ -428,6 +543,9 @@
     } else {
       makeBeam({ angDeg: ang, thickness: thick, opacity: op, warn:true, off:0 });
     }
+
+    // show SAFE marker already in WARN (help player plan)
+    updateGapMarkers(now());
 
     emit('hha:bossAtk', { name:'laser' });
     emit('hha:tick', { kind:'laser-warn', intensity });
@@ -450,6 +568,17 @@
     const thick = clamp(12 + 10*intensity, 10, 36);
     const op = clamp(0.82 + 0.18*intensity, 0.74, 1.0);
 
+    // per-attack decoy decision (only in FIRE)
+    decoyActive = decideDecoy();
+    decoyPoint = null;
+
+    // tune decoy timings by intensity (stronger => shorter fake window)
+    const k = clamp(intensity, 0.4, 2.0);
+    decoyRevealMs = clamp(240 - 40*(k-0.9), 140, 240); // real appears sooner when intense
+    decoyHideMs   = clamp(560 - 70*(k-0.9), 320, 560); // decoy gone soon
+
+    fireStartedAt = ts || now();
+
     // sound: fire
     fireSound(intensity);
 
@@ -464,12 +593,12 @@
       makeBeam({
         angDeg: ang, thickness: thick, opacity: op, warn:false,
         off: -28,
-        sweep: { t0: ts, dur, from: -30, to: 30 }
+        sweep: { t0: fireStartedAt, dur, from: -30, to: 30 }
       });
       makeBeam({
         angDeg: ang, thickness: thick, opacity: op, warn:false,
         off:  28,
-        sweep: { t0: ts, dur, from:  30, to: -30 }
+        sweep: { t0: fireStartedAt, dur, from:  30, to: -30 }
       });
 
       phaseEndsAt = now() + dur;
@@ -481,7 +610,7 @@
       makeBeam({
         angDeg: ang, thickness: thick, opacity: op, warn:false,
         off: dir * -24,
-        sweep: { t0: ts, dur, from: dir * -28, to: dir * 28 }
+        sweep: { t0: fireStartedAt, dur, from: dir * -28, to: dir * 28 }
       });
 
       phaseEndsAt = now() + dur;
@@ -490,13 +619,15 @@
     emit('hha:tick', { kind:'laser-fire', intensity });
 
     phase = 'fire';
-    // first gap compute immediately
-    updateSafeGap();
+
+    // markers immediately
+    updateGapMarkers(fireStartedAt);
   }
 
   function endAtk(){
     clearBeams();
-    setGapMarker(false);
+    setGap(false);
+    setDecoy(false);
     setOn(false);
     phase = 'idle';
     phaseEndsAt = 0;
@@ -507,7 +638,8 @@
   function stopAll(){
     running = false;
     clearBeams();
-    setGapMarker(false);
+    setGap(false);
+    setDecoy(false);
     setOn(false);
     nextAtkAt = 0;
     phase = 'idle';
@@ -559,7 +691,13 @@
       if (!nextAtkAt) scheduleNext();
       if (t >= nextAtkAt) startWarn();
     } else if (phase === 'warn'){
-      // เพิ่มติ๊กอีกทีตอนใกล้ยิง
+      // update marker in warn too (a bit slower)
+      if (!lastGapTs || (ts - lastGapTs) > 120){
+        lastGapTs = ts;
+        updateGapMarkers(ts || now());
+      }
+
+      // extra tick near fire
       if (t >= (phaseEndsAt - 360) && t <= (phaseEndsAt - 300)){
         emit('hha:tick', { kind:'laser-warn', intensity: intensity*0.92 });
       }
@@ -570,10 +708,10 @@
       updateBeams(ts || now());
       checkHit(ts || now());
 
-      // update safe gap marker ~12fps
+      // marker updates ~12fps (moves with sweep)
       if (!lastGapTs || (ts - lastGapTs) > 80){
         lastGapTs = ts;
-        updateSafeGap();
+        updateGapMarkers(ts || now());
       }
 
       if (t >= phaseEndsAt) endAtk();
@@ -614,6 +752,10 @@
   root.addEventListener('hha:stop', ()=> stop(), { passive:true });
 
   // debug
-  root.HHABossLaser = { start, stop, setLevel(lvl){ adaptLevel = clamp(lvl, -1, 3); } };
+  root.HHABossLaser = {
+    start, stop,
+    setLevel(lvl){ adaptLevel = clamp(lvl, -1, 3); },
+    forceDecoy(on){ decoyActive = !!on; }
+  };
 
 })(typeof window !== 'undefined' ? window : globalThis);
