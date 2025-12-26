@@ -34,7 +34,8 @@
   }
 
   // ------------------ quest defs ------------------
-  // เอกลักษณ์ Groups = “ยิงถูกหมู่ปัจจุบัน” + “เลี่ยงผิดหมู่/เลี่ยง junk”
+  // NOTE: เกม Groups = "ยิงถูกหมู่ปัจจุบัน" + "เลี่ยง junk/ผิดหมู่" ให้มีเอกลักษณ์ ไม่ซ้ำ GoodJunk/Plate
+
   const GOAL_DEFS = [
     {
       id:'g1',
@@ -59,6 +60,7 @@
     }
   ];
 
+  // mini = ภารกิจสั้น ๆ เร้าใจ
   const MINI_DEFS = [
     {
       id:'m1',
@@ -92,7 +94,7 @@
 
     // ✅ seed policy:
     // - research: fix seed เสมอ (ถ้าไม่ส่ง seed มา ให้ใช้ default)
-    // - play: ถ้าไม่ส่ง seed มา ให้สุ่มตามเวลา
+    // - play: ถ้าไม่ส่ง seed มา ให้สุ่มเวลา
     const finalSeed = (runMode === 'research')
       ? (seed || 'HHA-GROUPS-RESEARCH-SEED')
       : (seed || ('PLAY-' + Math.floor(Date.now()/1000)));
@@ -102,6 +104,7 @@
     const state = {
       diff, runMode, seed: finalSeed,
 
+      // main stats from engine
       groupLabel: 'หมู่ ?',
       correctHits: 0,
       wrongHits: 0,
@@ -111,6 +114,7 @@
       comboMax: 0,
       accuracy: 0,
 
+      // current goal / mini
       goalIndex: 0,
       activeGoal: null,
 
@@ -148,11 +152,13 @@
     }
 
     function pickMini(){
+      // research: mini order fixed
+      // play: deterministic by seed
       let idx;
       if (runMode === 'research'){
-        idx = state.miniIndex % MINI_DEFS.length; // fixed order
+        idx = state.miniIndex % MINI_DEFS.length;
       } else {
-        idx = Math.floor(rng() * MINI_DEFS.length) % MINI_DEFS.length; // deterministic by seed
+        idx = Math.floor(rng() * MINI_DEFS.length) % MINI_DEFS.length;
       }
       const def = MINI_DEFS[idx];
       return {
@@ -218,6 +224,7 @@
           id: mini.id, label: mini.label,
           prog: mini.prog|0, target: mini.target|0,
           tLeft: (mini.tLeft != null) ? Math.ceil(mini.tLeft) : null,
+          windowSec: (mini.tLimit != null) ? (mini.tLimit|0) : null,
           pass: !!mini.pass,
           fail: !!mini.fail
         } : null
@@ -246,7 +253,8 @@
     }
 
     function nextGoalIfPassed(){
-      if (!state.activeGoal || !state.activeGoal.pass) return;
+      if (!state.activeGoal) return;
+      if (!state.activeGoal.pass) return;
 
       state.questsPassed++;
       emit('hha:celebrate', { kind:'goal', text:'GOAL CLEAR!' });
@@ -254,7 +262,6 @@
 
       state.goalIndex++;
       if (state.goalIndex >= GOAL_DEFS.length){
-        // all goals done -> keep last shown; no further
         return;
       }
       state.activeGoal = makeGoal(state.goalIndex);
@@ -295,7 +302,6 @@
         state.combo++;
         if (state.combo > state.comboMax) state.comboMax = state.combo;
 
-        // mini progress
         if (state.activeMini){
           if (state.activeMini.kind === 'streak_correct') state.activeMini.prog++;
           if (state.activeMini.kind === 'avoid_wrong')    state.activeMini.prog++;
@@ -303,15 +309,15 @@
         }
       } else {
         state.combo = 0;
+
         if (result && result.wrong) state.wrongHits++;
         if (result && result.junk)  state.junkHits++;
 
-        // mini fail rules
         if (state.activeMini){
           if (state.activeMini.kind === 'avoid_wrong' && result.wrong) state.activeMini.fail = true;
           if (state.activeMini.kind === 'avoid_junk'  && result.junk)  state.activeMini.fail = true;
           if (state.activeMini.kind === 'streak_correct'){
-            state.activeMini.prog = 0; // reset streak, not instant fail
+            state.activeMini.prog = 0; // reset streak only
           }
         }
       }
