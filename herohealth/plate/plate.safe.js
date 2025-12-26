@@ -1,13 +1,10 @@
 // === /herohealth/plate/plate.safe.js ===
 // Plate VR — ULTIMATE ALL-IN-ONE (UI-clean + Research-Strict + Boss-focused mid)
-// ✅ Hub Context Bridge (query + localStorage) + attach to all logs
-// ✅ End summary dispatch (hha:end) + always show result overlay
-// ✅ Start overlay support (motion permission + audio unlock) + start paused until user taps
-// ✅ Fix expireTargets crash: guard undefined rec
-// ✅ No-Junk Zone "safe": blocked hits don't count miss/life (still score/fever penalty)
-// ✅ Default time by difficulty for ป.5: Easy 90 / Normal 75 / Hard 60 (if no ?time=)
-// ✅ Hard tuned to "ผ่านได้บ้าง" (less punishing, fairer boss)
-// ✅ Particles.scorePop(x,y,txt,label) signature correct
+// ✅ FIX: result overlay show (display:flex) + paused badge show (display:block)
+// ✅ FIX: expireTargets guard (rec may be undefined) -> no crash reading 'dead'
+// ✅ FIX: prevent multi-fire from duplicate events (pointerdown only + tiny lock)
+// ✅ FIX: endGame disables play-layer pointerEvents; restart restores
+// ✅ DEFAULT TIME (Grade 5): easy 90s / normal 75s / hard 60s when ?time= is not provided
 
 'use strict';
 
@@ -16,8 +13,13 @@ const doc = ROOT.document;
 
 function $(id){ return doc ? doc.getElementById(id) : null; }
 function setTxt(el, t){ if(el) el.textContent = String(t); }
-function setShow(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
-function hasParam(sp, k){ return sp && sp.has && sp.has(k); }
+
+// ✅ FIX: support displayOn (flex/block/etc) instead of '' which may fallback to CSS display:none
+function setShow(el, on, displayOn){
+  if(!el) return;
+  if(on) el.style.display = displayOn || 'block';
+  else el.style.display = 'none';
+}
 
 (function attachFatalOverlay(){
   if (!doc) return;
@@ -70,10 +72,11 @@ const MODE = String(Q.get('run') || 'play').toLowerCase();      // play | resear
 const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal | hard
 const DEBUG = (Q.get('debug') === '1');
 
-const DEFAULT_TIME_BY_DIFF = { easy: 90, normal: 75, hard: 60 }; // ป.5 รอบละเวลา
-const TIME_FROM_Q = hasParam(Q,'time') ? (parseInt(Q.get('time') || '', 10) || 0) : 0;
-const TOTAL_TIME_DEFAULT = DEFAULT_TIME_BY_DIFF[DIFF] || 90;
-const TOTAL_TIME = Math.max(20, (TIME_FROM_Q > 0 ? TIME_FROM_Q : TOTAL_TIME_DEFAULT));
+// ✅ DEFAULT TIME for ป.5 (if ?time= not provided)
+const DEFAULT_TIME_BY_DIFF = { easy: 90, normal: 75, hard: 60 };
+const HAS_TIME = Q.has('time');
+const TIME_RAW = HAS_TIME ? (parseInt(Q.get('time') || '', 10) || 0) : 0;
+const TOTAL_TIME = Math.max(20, (HAS_TIME ? TIME_RAW : (DEFAULT_TIME_BY_DIFF[DIFF] || 75)));
 
 // ---------- RNG (Research strict) ----------
 let SEED = parseInt(Q.get('seed') || '', 10);
@@ -94,58 +97,6 @@ const now = ()=>performance.now();
 const fmt = (n)=>String(Math.max(0, Math.floor(n)));
 const rnd = (a,b)=>a + R()*(b-a);
 function randFrom(arr){ return arr[(R()*arr.length)|0]; }
-
-// ---------- Hub Context Bridge ----------
-function safeJSONParse(s){
-  try{ return JSON.parse(String(s||'')); }catch(_){ return null; }
-}
-function readStorageJSON(keys){
-  if(!ROOT.localStorage) return null;
-  for(const k of keys){
-    try{
-      const v = ROOT.localStorage.getItem(k);
-      if(!v) continue;
-      const j = safeJSONParse(v);
-      if(j && typeof j === 'object') return j;
-    }catch(_){}
-  }
-  return null;
-}
-function normalizeCtxValue(v){
-  if(v == null) return undefined;
-  if(typeof v === 'string'){
-    const s = v.trim();
-    if(!s) return undefined;
-    // numeric string -> number (but keep leading zeros like studentNo if any)
-    if(/^-?\d+(\.\d+)?$/.test(s) && s.length <= 8) return Number(s);
-    return s;
-  }
-  if(typeof v === 'number' && Number.isFinite(v)) return v;
-  if(typeof v === 'boolean') return v;
-  return v;
-}
-function buildContext(){
-  // 1) pull from URL query
-  const fromQ = {};
-  try{
-    Q.forEach((val, key)=>{ fromQ[key] = normalizeCtxValue(val); });
-  }catch(_){}
-
-  // 2) pull from localStorage (hub might save one of these)
-  const fromLS =
-    readStorageJSON(['HHA_CTX','HHA_CONTEXT','hha:ctx','hhaContext','herohealth_ctx','HHA_PROFILE','hhaProfile','herohealth_profile'])
-    || {};
-
-  const ctx = Object.assign({}, fromLS, fromQ);
-
-  // Ensure common keys exist (best-effort)
-  ctx.runMode = ctx.runMode ?? MODE;
-  ctx.diff = ctx.diff ?? DIFF;
-  ctx.timeTotal = ctx.timeTotal ?? TOTAL_TIME;
-
-  return ctx;
-}
-const HUB_CTX = buildContext();
 
 // ---------- Modules ----------
 const Particles =
@@ -178,7 +129,6 @@ const HUD = {
   resultBackdrop: $('resultBackdrop'),
   btnPlayAgain: $('btnPlayAgain'),
 
-  // result
   rMode: $('rMode'),
   rGrade: $('rGrade'),
   rScore: $('rScore'),
@@ -195,7 +145,7 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
-// ---------- Difficulty ----------
+// ---------- Difficulty (กลาง ๆ เน้นบอส) ----------
 const DIFF_TABLE = {
   easy: {
     size: 92, life: 3200, spawnMs: 900, maxTargets: 10,
@@ -206,26 +156,23 @@ const DIFF_TABLE = {
     stormDurMs:[4200, 6500], slowDurMs:[3200, 5200], noJunkDurMs:[4200, 6200],
   },
   normal: {
-    size: 78, life: 2750, spawnMs: 780, maxTargets: 12,
-    junkRate: 0.23, goldRate: 0.12, trapRate: 0.068, bossRate: 0.038, fakeRate: 0.040,
+    size: 78, life: 2700, spawnMs: 780, maxTargets: 12,
+    junkRate: 0.24, goldRate: 0.12, trapRate: 0.070, bossRate: 0.040, fakeRate: 0.040,
     slowRate: 0.050, noJunkRate: 0.026, stormRate: 0.032,
-    aimAssist: 140,
-    bossHP: 5, bossAtkMs:[1950, 2700], bossPhase2At: 0.55, bossPhase3At: 0.30,
+    aimAssist: 135,
+    bossHP: 5, bossAtkMs:[1900, 2650], bossPhase2At: 0.55, bossPhase3At: 0.30,
     stormDurMs:[4200, 7200], slowDurMs:[3200, 5600], noJunkDurMs:[4200, 6800],
   },
   hard: {
-    // ✅ tuned for ป.5 (60s) “ผ่านได้บ้าง”
-    size: 68, life: 2550, spawnMs: 700, maxTargets: 13,
-    junkRate: 0.27, goldRate: 0.14, trapRate: 0.085, bossRate: 0.050, fakeRate: 0.055,
-    slowRate: 0.060, noJunkRate: 0.028, stormRate: 0.040,
-    aimAssist: 135,
-    bossHP: 5, bossAtkMs:[1650, 2400], bossPhase2At: 0.60, bossPhase3At: 0.34,
-    stormDurMs:[4800, 8200], slowDurMs:[3600, 6200], noJunkDurMs:[4600, 7600],
+    size: 66, life: 2300, spawnMs: 660, maxTargets: 14,
+    junkRate: 0.30, goldRate: 0.14, trapRate: 0.095, bossRate: 0.060, fakeRate: 0.070,
+    slowRate: 0.055, noJunkRate: 0.022, stormRate: 0.040,
+    aimAssist: 125,
+    bossHP: 6, bossAtkMs:[1550, 2300], bossPhase2At: 0.60, bossPhase3At: 0.34,
+    stormDurMs:[4800, 8200], slowDurMs:[3200, 5800], noJunkDurMs:[4200, 7200],
   },
 };
 const D = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
-
-const GAME_VERSION = 'plate-ultimate-2025-12-26';
 
 // ---------- State ----------
 const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
@@ -270,7 +217,7 @@ function dispatchEvt(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
 }
 
-// Particles helpers
+/* ===== FIX: sanitize + correct Particles API ===== */
 function safeFxText(t){
   t = String(t ?? '');
   if (/^\d+(\.\d+)?$/.test(t) && t.length >= 10) return '✓';
@@ -298,16 +245,7 @@ function flash(kind='bad', ms=110){
   if(!hitFxEl) return;
   hitFxEl.dataset.kind = String(kind||'bad');
   hitFxEl.classList.add('show');
-  setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch(_){} }, ms|0);
-}
-
-// ---------- Coach (optional, safe even if no UI) ----------
-let _coachLastAt = 0;
-function coachSay(text, mood='neutral', cooldown=2200){
-  const t = now();
-  if(t - _coachLastAt < cooldown) return;
-  _coachLastAt = t;
-  dispatchEvt('hha:coach', { text: String(text||''), mood: String(mood||'neutral') });
+  setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch (_){} }, ms|0);
 }
 
 // ---------- DOM target layer + CSS ----------
@@ -404,68 +342,21 @@ const AudioX = (function(){
   return { unlock, tick, warn, good, perfect, bad, bossHit, bossDown, power, shield, atk };
 })();
 
-// ---------- Motion permission helper ----------
-async function requestMotionPermission(){
-  try{
-    const DME = ROOT.DeviceMotionEvent;
-    if(DME && typeof DME.requestPermission === 'function'){
-      const res = await DME.requestPermission();
-      return (res === 'granted');
-    }
-  }catch(_){}
-  return true; // android mostly ok
-}
-
-// ---------- Logger helpers ----------
-function baseLogContext(){
-  return {
-    ...HUB_CTX,
-    game:'PlateVR',
-    gameTag:'PlateVR',
-    gameVersion: GAME_VERSION,
-    runMode: MODE,
-    diff: DIFF,
-    timeTotal: TOTAL_TIME,
-    livesMax: S.livesMax,
-    seed: SEED,
-    sessionId: S.sessionId,
-    ua: navigator.userAgent
-  };
-}
+// ---------- Logger ----------
 function logSession(phase){
   dispatchEvt('hha:log_session',{
-    ...baseLogContext(),
-    phase,
-    ts:Date.now()
+    sessionId:S.sessionId, game:'PlateVR', phase,
+    mode:MODE, diff:DIFF, timeTotal:TOTAL_TIME, lives:S.livesMax,
+    seed: SEED, ts:Date.now(), ua:navigator.userAgent
   });
 }
 function logEvent(type, data){
   dispatchEvt('hha:log_event',{
-    ...baseLogContext(),
-    type,
+    sessionId:S.sessionId, game:'PlateVR', type,
     t: Math.round((now() - S.tStart) || 0),
     score:S.score, combo:S.combo, miss:S.miss, perfect:S.perfectCount,
     fever:Math.round(S.fever), shield:S.shield, lives:S.lives,
     data:data||{}
-  });
-}
-function logEnd(isGameOver){
-  dispatchEvt('hha:end', {
-    ...baseLogContext(),
-    reason: isGameOver ? 'gameover' : 'end',
-    startTimeMs: Math.round(S.tStart||0),
-    durationPlayedSec: Math.round(((now()-S.tStart)/1000) || 0),
-    scoreFinal: S.score,
-    comboMax: S.maxCombo,
-    misses: S.miss,
-    perfect: S.perfectCount,
-    goalsCleared: Math.min(S.goalsCleared,2),
-    goalsTotal: 2,
-    miniCleared: Math.min(S.minisCleared,7),
-    miniTotal: 7,
-    groupCounts: [...S.groupCounts],
-    groupsTotalHit: S.groupCounts.reduce((a,b)=>a+b,0),
-    ts: Date.now()
   });
 }
 
@@ -495,10 +386,9 @@ function applyLayerTransform(){
 function intersect(a,b){ return !(a.x+a.w<b.x||b.x+b.w<a.x||a.y+a.h<b.y||b.y+b.h<a.y); }
 function getBlockedRects(){
   const rects=[];
-  const ids=['hudTop','hudBtns','miniPanel','startOverlay']; // include start overlay area if present
+  const ids=['hudTop','hudBtns','miniPanel'];
   for(const id of ids){
     const el=$(id); if(!el) continue;
-    if(el.style && el.style.display === 'none') continue;
     const r=el.getBoundingClientRect();
     if(r.width>10 && r.height>10) rects.push({x:r.left,y:r.top,w:r.width,h:r.height});
   }
@@ -518,7 +408,7 @@ function pickSafeXY(sizePx){
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const m=14, half=sizePx*0.5;
   const blocked=getBlockedRects();
-  const tries=120;
+  const tries=110;
   const off=viewOffset();
   for(let i=0;i<tries;i++){
     const sx=rnd(m+half, vw-m-half);
@@ -545,7 +435,6 @@ const FOOD_BY_GROUP={
 const JUNK=['🍩','🍟','🍔','🍕','🧋','🍭','🍫','🥤'];
 const TRAPS=['🎁','⭐','🍬','🍰','🧁'];
 
-function isBadKind(kind){ return (kind==='junk'||kind==='trap'||kind==='fakebad'); }
 function isPowerKind(kind){ return (kind==='slow'||kind==='nojunk'||kind==='storm'); }
 
 // ---------- Score/Fever/Grade ----------
@@ -569,7 +458,6 @@ function addFever(v){
     fxCelebrate('FEVER!', 1.2);
     AudioX.shield(); vibe(40);
     setShield(S.shield+1);
-    coachSay('ฟีเวอร์มาแล้ว! ลุยยย 🔥','happy',1200);
     logEvent('fever_on',{});
   }
   if(S.feverOn && S.fever<=15){
@@ -645,15 +533,10 @@ function goalProgressText(){
   if(g.key==='perfect6') return `${S.perfectCount}/${g.target}`;
   return '0';
 }
-let _goalLineCache = '';
 function setGoal(i){
   S.goalIndex=clamp(i,0,GOALS.length-1);
   S.activeGoal=GOALS[S.goalIndex];
-  const line = `GOAL ${S.goalIndex+1}/2: ${S.activeGoal.title} (${goalProgressText()})`;
-  if(line !== _goalLineCache){
-    _goalLineCache = line;
-    setTxt(HUD.goalLine, line);
-  }
+  setTxt(HUD.goalLine, `GOAL ${S.goalIndex+1}/2: ${S.activeGoal.title} (${goalProgressText()})`);
 }
 function checkGoalClear(){
   const g=S.activeGoal; if(!g) return false;
@@ -665,7 +548,6 @@ function onGoalCleared(){
   fxCelebrate('GOAL CLEAR!', 1.25);
   flash('gold', 140);
   vibe(60);
-  coachSay('โกลผ่านแล้ว! เก่งมาก 🌟','happy',1200);
   logEvent('goal_clear',{goal:S.activeGoal && S.activeGoal.key});
   if(S.goalIndex+1<GOALS.length) setGoal(S.goalIndex+1);
 }
@@ -680,22 +562,14 @@ function startMini(){
   updateMiniHud();
   logEvent('mini_start',{mini:m.key,dur:m.dur});
 }
-let _miniLineCache='';
-let _miniHintCache='';
 function updateMiniHud(){
   const m=S.activeMini;
-  if(!m){
-    if(_miniLineCache!=='MINI: …'){ _miniLineCache='MINI: …'; setTxt(HUD.miniLine,'MINI: …'); }
-    if(_miniHintCache!=='…'){ _miniHintCache='…'; setTxt(HUD.miniHint,'…'); }
-    return;
-  }
+  if(!m){ setTxt(HUD.miniLine,'MINI: …'); setTxt(HUD.miniHint,'…'); return; }
   const left=Math.max(0,(S.miniEndsAt-now())/1000);
   const prog=(typeof m.progress==='function') ? m.progress() : '';
   const p = prog ? ` • ${prog}` : '';
-  const line = `MINI: ${m.title}${p} • ${left.toFixed(1)}s`;
-  if(line!==_miniLineCache){ _miniLineCache=line; setTxt(HUD.miniLine, line); }
-  const hint = m.hint||'';
-  if(hint!==_miniHintCache){ _miniHintCache=hint; setTxt(HUD.miniHint, hint); }
+  setTxt(HUD.miniLine, `MINI: ${m.title}${p} • ${left.toFixed(1)}s`);
+  setTxt(HUD.miniHint, m.hint||'');
 }
 function tickMini(){
   const m=S.activeMini; if(!m) return;
@@ -708,7 +582,6 @@ function tickMini(){
     S.miniUrgentArmed=true;
     doc.body.classList.add('hha-mini-urgent');
     AudioX.warn(); vibe(20);
-    coachSay('เหลือเวลาแล้ว! เร่งหน่อย! ⏳','neutral',1600);
   }
   if(!urgent && S.miniUrgentArmed){
     S.miniUrgentArmed=false;
@@ -725,12 +598,10 @@ function tickMini(){
       S.minisCleared++; fxCelebrate('MINI CLEAR!', 1.15);
       flash('good', 120);
       addScore(450); addFever(18); vibe(50);
-      coachSay('มินิเควสผ่าน! สุดยอด 🎉','happy',1200);
       logEvent('mini_clear',{mini:m.key});
     }else{
       fxJudge('MINI FAIL');
       addScore(-120); addFever(-12);
-      coachSay('เกือบแล้ว! เอาใหม่อีกรอบ 💪','sad',1200);
       logEvent('mini_fail',{mini:m.key});
     }
     startMini();
@@ -751,7 +622,6 @@ function onGood(group){
     fxCelebrate('PLATE +1!', 1.0);
     flash('good', 120);
     vibe(35);
-    coachSay('ครบ 5 หมู่แล้ว! 🍽️','happy',1200);
     logEvent('plate_complete',{plates:S.goalsCleared});
     setGoal(S.goalIndex);
     if(S.activeGoal && S.activeGoal.key==='plates2' && checkGoalClear()) onGoalCleared();
@@ -813,6 +683,27 @@ function bossAttackStyleForPhase(phase){
   return 'ring';
 }
 
+// ✅ one event path + tiny lock (prevents double from pointerdown+click+touchstart)
+function bindHit(el, rec){
+  const fire = (e)=>{
+    if(e){ try{ e.preventDefault(); e.stopPropagation(); }catch(_){ } }
+    if(!rec || rec.dead) return;
+    const t = now();
+    if(rec._hitLock && (t - rec._hitLock) < 80) return;
+    rec._hitLock = t;
+    AudioX.unlock();
+    hitTarget(rec,true);
+  };
+
+  // Prefer pointerdown; fallback to touchstart if PointerEvent not supported
+  if('PointerEvent' in ROOT){
+    el.addEventListener('pointerdown', fire, {passive:false});
+  }else{
+    el.addEventListener('touchstart', fire, {passive:false});
+    el.addEventListener('mousedown', fire, {passive:false});
+  }
+}
+
 function makeTarget(kind, group, opts={}){
   const sizePx=computeSizePx(kind);
   const pos=pickSafeXY(sizePx);
@@ -869,21 +760,15 @@ function makeTarget(kind, group, opts={}){
     meta,
     atkAt:(kind==='boss') ? (bornAt + rnd(D.bossAtkMs[0], D.bossAtkMs[1])) : 0,
     _warned:false,
+    _hitLock:0,
   };
 
   S.targets.push(rec);
 
-  const hitHandler=(e)=>{
-    e.preventDefault(); e.stopPropagation();
-    AudioX.unlock();
-    hitTarget(rec,true);
-  };
-  el.addEventListener('pointerdown', hitHandler, {passive:false});
-  el.addEventListener('click', hitHandler, {passive:false});
-  el.addEventListener('touchstart', hitHandler, {passive:false});
+  bindHit(el, rec);
 
   layer.appendChild(el);
-  setTimeout(()=>el.classList.remove('spawn'), 260);
+  setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 260);
 
   logEvent('spawn',{kind,group,size:sizePx,x:rec.cx,y:rec.cy,hp});
   return rec;
@@ -891,7 +776,7 @@ function makeTarget(kind, group, opts={}){
 function removeTarget(rec){
   if(!rec || rec.dead) return;
   rec.dead=true;
-  try{ rec.el.remove(); }catch(_){}
+  try{ rec.el && rec.el.remove(); }catch(_){}
   const i=S.targets.indexOf(rec);
   if(i>=0) S.targets.splice(i,1);
 }
@@ -903,57 +788,61 @@ function bossHpSync(rec){
   rec.el.style.setProperty('--hp', String(ratio));
   bar.style.transform = `scaleX(${ratio})`;
 }
-
-// ---------- MISS/LIFE (มาตรฐาน) ----------
-function applyMiss({ reason, extra={}, countMiss=true, loseLife=true }){
-  // reset combo always
-  S.combo=0; setTxt(HUD.combo,0);
-
-  if(countMiss){
-    S.miss++; setTxt(HUD.miss,S.miss);
-  }
-  if(loseLife){
-    setLives(S.lives-1);
-  }
-
-  updateGrade();
-  logEvent('miss', { reason, countMiss, loseLife, ...extra });
-
-  if(S.lives<=0){
-    endGame(true);
+function expireTargets(){
+  const t=now();
+  if(!S.targets || !S.targets.length) return;
+  for(let i=S.targets.length-1;i>=0;i--){
+    const rec=S.targets[i];
+    // ✅ FIX: guard undefined holes
+    if(!rec) { S.targets.splice(i,1); continue; }
+    if(rec.dead) continue;
+    if(t>=rec.dieAt){
+      if(rec.kind==='good'||rec.kind==='gold'){
+        onMiss('expire_good',{kind:rec.kind,group:rec.group});
+        fxJudge('MISS');
+        flash('bad', 110);
+        logEvent('miss_expire',{kind:rec.kind,group:rec.group});
+      }else if(rec.kind==='boss'){
+        bossAttackPunish('boss_expire', true);
+        S.bossActive=false;
+      }
+      removeTarget(rec);
+    }
   }
 }
+
+// ---------- MISS/LIFE ----------
 function shieldBlock(reason){
   if(S.shield<=0) return false;
   setShield(S.shield-1);
   fxCelebrate('🛡️ BLOCK!', 1.05);
   flash('gold', 120);
   AudioX.shield(); vibe(30);
-  coachSay('โล่กันไว้! 🛡️','happy',1200);
   logEvent('shield_block',{reason,shield:S.shield});
   return true;
 }
-function punishBad(reason){
-  const t=now();
-  const inNoJunk = (t < S.noJunkUntil);
-  // ✅ Shield block = no miss
-  if(shieldBlock(reason)){ addScore(-60); addFever(-6); return; }
+function onMiss(reason, extra={}){
+  S.combo=0; setTxt(HUD.combo,0);
+  S.miss++; setTxt(HUD.miss,S.miss);
 
-  addFever(reason==='boss'?-20:-14);
-  addScore(inNoJunk ? -120 : (reason==='trap' ? -230 : -170));
-  fxJudge(inNoJunk ? 'BAD(SAFE)' : 'BAD');
+  const t=now();
+  const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
+  if(!protectedNoJunk) setLives(S.lives-1);
+
+  updateGrade();
+  if(S.lives<=0) endGame(true);
+  logEvent('miss',{reason,...extra});
+}
+function punishBad(reason){
+  if(shieldBlock(reason)){ addScore(-60); addFever(-6); return; }
+  S.combo=0; setTxt(HUD.combo,0);
+  addFever(reason==='boss'?-22:-16);
+  addScore((now()<S.noJunkUntil)?-120:(reason==='trap'?-240:-180));
+  fxJudge((now()<S.noJunkUntil)?'BAD(SAFE)':'BAD');
   flash(reason==='boss'?'boss':'bad', 120);
   AudioX.bad(); vibe(reason==='boss'?75:45);
-
-  // ✅ No-Junk safe: ไม่คิด miss/ไม่ลดชีวิต (แต่ยังลงโทษคะแนน/ฟีเวอร์ + รีเซ็ตคอมโบ)
-  applyMiss({
-    reason,
-    extra: { safe: inNoJunk },
-    countMiss: !inNoJunk,
-    loseLife: !inNoJunk
-  });
+  onMiss(reason,{});
 }
-
 function bossAttackPunish(tag, forceHit=false){
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const cx=vw/2, cy=vh/2;
@@ -977,70 +866,32 @@ function bossAttackPunish(tag, forceHit=false){
     fxJudge('DODGED!');
     addScore(+40);
     addFever(+2);
-    coachSay('หลบได้! 👀','neutral',1600);
     return;
   }
 
-  const t=now();
-  const inNoJunk = (t < S.noJunkUntil);
-
   if(shieldBlock(tag)){ addScore(-80); addFever(-8); return; }
-
-  addScore(inNoJunk ? -160 : -300);
-  addFever(inNoJunk ? -10 : -18);
-  fxJudge(inNoJunk ? 'BOSS(SAFE)' : 'BOSS ATK!');
+  addScore(-320); addFever(-20);
+  fxJudge('BOSS ATK!');
   flash('boss', 140);
-
-  applyMiss({
-    reason: 'boss_attack',
-    extra: { tag, safe: inNoJunk },
-    countMiss: !inNoJunk,
-    loseLife: !inNoJunk
-  });
-}
-
-// ---------- Expire (FIX crash) ----------
-function expireTargets(){
-  const t=now();
-  for(let i=S.targets.length-1;i>=0;i--){
-    const rec=S.targets[i];
-    if(!rec) continue;              // ✅ FIX: guard undefined
-    if(rec.dead) continue;
-    if(t>=rec.dieAt){
-      if(rec.kind==='good'||rec.kind==='gold'){
-        fxJudge('MISS');
-        flash('bad', 110);
-        coachSay('เร็วอีกนิด! ⏱️','sad',1600);
-        applyMiss({ reason:'expire_good', extra:{ kind:rec.kind, group:rec.group }, countMiss:true, loseLife:true });
-        logEvent('miss_expire',{kind:rec.kind,group:rec.group});
-      }else if(rec.kind==='boss'){
-        bossAttackPunish('boss_expire', true);
-        S.bossActive=false;
-      }
-      removeTarget(rec);
-    }
-  }
+  onMiss('boss_attack',{});
 }
 
 // ---------- Powerups ----------
 function activateSlow(ms){
   S.slowUntil=Math.max(S.slowUntil, now()+ms);
   AudioX.power(); vibe(25); fxCelebrate('SLOW!', 1.0);
-  coachSay('ช้าลงหน่อย! 🐢','happy',1600);
   logEvent('power_slow',{until:S.slowUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateNoJunk(ms){
   S.noJunkUntil=Math.max(S.noJunkUntil, now()+ms);
   AudioX.power(); vibe(25); fxCelebrate('NO-JUNK!', 1.0);
-  coachSay('โซนปลอดขยะ! 🟢','happy',1600);
   logEvent('power_nojunk',{until:S.noJunkUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateStorm(ms){
   S.stormUntil=Math.max(S.stormUntil, now()+ms);
   AudioX.power(); vibe(30); fxCelebrate('STORM!', 1.05);
-  coachSay('พายุมา! ยิงรัวได้ 🌪️','happy',1600);
   logEvent('power_storm',{until:S.stormUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
@@ -1139,7 +990,6 @@ function hitTarget(rec, direct){
       addScore(1200); addFever(30);
       S.combo += 2; S.maxCombo=Math.max(S.maxCombo,S.combo); setTxt(HUD.combo,S.combo);
       fxPop('+1200',sx,sy);
-      coachSay('บอสล้มแล้ววว! 🏆','happy',1200);
       logEvent('boss_down',{});
       S.bossActive=false;
       removeTarget(rec);
@@ -1164,7 +1014,6 @@ function hitTarget(rec, direct){
     addFever(14);
     fxJudge('PERFECT'); AudioX.perfect(); vibe(30);
     flash(rec.kind==='gold'?'gold':'good', 95);
-    coachSay('เพอร์เฟค! ⭐','happy',1600);
   }else{
     addFever(8);
     fxJudge('GOOD'); AudioX.good();
@@ -1218,7 +1067,7 @@ function decideKind(){
   fake=clamp(fake,0.00,0.22);
 
   if(noJunk){
-    junk*=0.10; trap*=0.10; fake*=0.08;
+    junk*=0.12; trap*=0.12; fake*=0.10;
     gold*=1.10; slow*=1.08; stormP*=0.60;
   }
   if(t<S.slowUntil){
@@ -1262,7 +1111,6 @@ function spawnBossIfReady(){
   fxCelebrate('⚠️', 1.0);
   flash('boss', 140);
   AudioX.warn(); vibe(25);
-  coachSay('บอสมาแล้ว! เล็งกลางจอ! 😈','neutral',1200);
   logEvent('boss_spawn',{hp});
 }
 
@@ -1272,9 +1120,9 @@ function tickBossAttack(){
     if(!rec || rec.dead || rec.kind!=='boss') continue;
     const ph=bossPhaseFor(rec);
     const style=bossAttackStyleForPhase(ph);
-    const phaseMul=(ph===3)?0.80:(ph===2)?0.92:1.0;
+    const phaseMul=(ph===3)?0.78:(ph===2)?0.90:1.0;
 
-    const warnLead=(style==='double')?700:540;
+    const warnLead=(style==='double')?680:520;
     if(t >= rec.atkAt - warnLead && !rec._warned){
       rec._warned=true;
       rec.el.classList.add('warn');
@@ -1292,8 +1140,8 @@ function tickBossAttack(){
       const baseMax=D.bossAtkMs[1]*phaseMul;
       rec.atkAt = t + ((MODE==='research') ? Math.round((baseMin+baseMax)*0.5) : rnd(baseMin,baseMax));
 
-      if(ph===3 && R()<0.18){
-        rec.atkAt = t + ((MODE==='research') ? 1150 : rnd(950,1450));
+      if(ph===3 && R()<0.22){
+        rec.atkAt = t + ((MODE==='research') ? 1100 : rnd(900,1400));
         fxJudge('CHAIN!');
       }
     }
@@ -1317,16 +1165,16 @@ function spawnTick(){
   const slowOn=(t < S.slowUntil);
 
   let interval=D.spawnMs;
-  if(S.feverOn) interval*=0.80;
-  if(stormOn) interval*=0.58;
-  if(slowOn) interval*=1.20;
+  if(S.feverOn) interval*=0.78;
+  if(stormOn) interval*=0.56;
+  if(slowOn) interval*=1.22;
   if(t < S.noJunkUntil) interval*=0.92;
 
   let burst = 1;
   if(MODE !== 'research'){
     if(stormOn) burst = (R()<0.65)?3:2;
     else if(S.feverOn) burst = (R()<0.22)?2:1;
-    if(DIFF==='hard' && R()<0.08) burst += 1;
+    if(DIFF==='hard' && R()<0.10) burst += 1;
   } else {
     burst = stormOn ? 2 : 1;
   }
@@ -1345,17 +1193,24 @@ function spawnTick(){
 // ---------- Tap-anywhere shooting ----------
 function isUIElement(target){
   if(!target) return false;
-  return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop') || target.closest('#startOverlay')));
+  return !!(target.closest && (
+    target.closest('.btn') ||
+    target.closest('#resultBackdrop') ||
+    target.closest('#hudTop') ||
+    target.closest('#hudBtns') ||
+    target.closest('#miniPanel')
+  ));
 }
 function airShot(){
-  // soft punish: ไม่ลดชีวิต แต่ลงโทษเล็กน้อย + นับ miss
+  S.combo=0; setTxt(HUD.combo,0);
   addScore(-20);
   addFever(-2);
   fxJudge('WHIFF');
   flash('bad', 80);
   AudioX.tick();
 
-  applyMiss({ reason:'air_shot', extra:{}, countMiss:true, loseLife:false });
+  S.miss++; setTxt(HUD.miss, S.miss);
+  updateGrade();
   logEvent('air_shot',{});
 }
 function shootCrosshair(){
@@ -1376,7 +1231,7 @@ function onGlobalPointerDown(e){
 // ---------- Pause/Restart/VR ----------
 function setPaused(on){
   S.paused=!!on;
-  setShow(HUD.paused,S.paused);
+  setShow(HUD.paused, S.paused, 'block');   // ✅ FIX: show even if CSS had display:none
   if(HUD.btnPause) HUD.btnPause.textContent = S.paused ? '▶️ RESUME' : '⏸️ PAUSE';
   logEvent('pause',{paused:S.paused});
 }
@@ -1384,7 +1239,10 @@ function enterVR(){ try{ scene && scene.enterVR && scene.enterVR(); }catch(_){ }
 
 // ---------- Restart / End ----------
 function restart(){
-  for(const rec of [...S.targets]) rec && removeTarget(rec);
+  for(const rec of [...S.targets]) removeTarget(rec);
+
+  // ✅ restore play input
+  layer.style.pointerEvents = 'auto';
 
   S.running=false; S.paused=false;
   S.tStart=0; S.timeLeft=TOTAL_TIME;
@@ -1405,14 +1263,12 @@ function restart(){
   setTxt(HUD.perfect,0); setTxt(HUD.have,'0/5'); setTxt(HUD.feverPct,'0%');
   emitFever();
   updateGrade(); setPaused(false);
-  setShow(HUD.resultBackdrop,false);
 
+  setShow(HUD.resultBackdrop,false); // ✅ ensure hidden
   setGoal(0);
   startMini();
   logSession('start');
-
-  // Start overlay again
-  armStartOverlay(true);
+  start();
 }
 
 function endGame(isGameOver){
@@ -1420,7 +1276,10 @@ function endGame(isGameOver){
   S.running=false;
   doc.body.classList.remove('hha-mini-urgent');
   S.nextSpawnAt=Infinity;
-  for(const rec of [...S.targets]) rec && removeTarget(rec);
+  for(const rec of [...S.targets]) removeTarget(rec);
+
+  // ✅ block gameplay touches while result open
+  layer.style.pointerEvents = 'none';
 
   setTxt(HUD.rMode, MODE==='research'?'Research':'Play');
   setTxt(HUD.rGrade, gradeFromScore());
@@ -1437,15 +1296,10 @@ function endGame(isGameOver){
   setTxt(HUD.rG5, S.groupCounts[4]);
   setTxt(HUD.rGTotal, S.groupCounts.reduce((a,b)=>a+b,0));
 
-  setShow(HUD.resultBackdrop,true);
+  setShow(HUD.resultBackdrop,true,'flex');  // ✅ FIX: show overlay
   fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
   vibe(isGameOver?60:50);
-
-  // ✅ log end (session + hha:end summary)
   logSession(isGameOver?'gameover':'end');
-  logEnd(isGameOver);
-
-  coachSay(isGameOver ? 'ไม่เป็นไร! เล่นใหม่ได้ 💪' : 'จบแล้ว! เก่งมาก 🏅', isGameOver?'sad':'happy', 800);
 }
 
 // ---------- Main loop ----------
@@ -1479,7 +1333,6 @@ function start(){
       expireTargets();
       tickMini();
 
-      // fever decay
       addFever(S.feverOn ? -0.22 : -0.10);
 
       setGoal(S.goalIndex);
@@ -1508,9 +1361,13 @@ function bindShootHotkeys(){
   }
 }
 function bindUI(){
-  layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
-  layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
-  layer.addEventListener('click', onGlobalPointerDown, {passive:false});
+  // ✅ single path: pointerdown (fallback if no PointerEvent)
+  if('PointerEvent' in ROOT){
+    layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
+  }else{
+    layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
+    layer.addEventListener('mousedown', onGlobalPointerDown, {passive:false});
+  }
 
   HUD.btnEnterVR && HUD.btnEnterVR.addEventListener('click', enterVR);
   HUD.btnPause && HUD.btnPause.addEventListener('click', ()=>{ if(!S.running) return; setPaused(!S.paused); });
@@ -1520,40 +1377,6 @@ function bindUI(){
   HUD.resultBackdrop && HUD.resultBackdrop.addEventListener('click',(e)=>{
     if(e.target === HUD.resultBackdrop) setShow(HUD.resultBackdrop,false);
   });
-}
-
-// ---------- Start Overlay (HTML optional) ----------
-function armStartOverlay(forceShow){
-  const ov = $('startOverlay');
-  const btn = $('btnStart');
-  const hint = $('startHint');
-  if(!ov || !btn) {
-    // fallback: start immediately if overlay not present
-    S.paused = false;
-    setShow(HUD.paused,false);
-    if(!S.running) start();
-    return;
-  }
-
-  // Pause until start tap
-  S.paused = true;
-  setShow(HUD.paused,true);
-
-  if(forceShow) ov.style.display = 'flex';
-
-  btn.onclick = async ()=>{
-    try{
-      AudioX.unlock();
-      const ok = await requestMotionPermission();
-      if(hint) hint.textContent = ok ? 'พร้อมแล้ว! ยิงได้เลย 🎯' : 'ถ้าไม่อนุญาต Motion ยังเล่นได้ (ลาก/แตะ) ✅';
-    }catch(_){}
-    ov.style.display = 'none';
-    setPaused(false);
-
-    // Start loop if not running yet
-    if(!S.running) start();
-    coachSay('เริ่มเลย! เล็งกลางจอแล้วแตะยิง 🎯','happy',800);
-  };
 }
 
 // ---------- BOOT ----------
@@ -1583,11 +1406,8 @@ function armStartOverlay(forceShow){
   setGoal(0);
   startMini();
 
-  // ✅ log session start (with hub ctx)
   logSession('start');
+  start();
 
-  // Start overlay: pause until user taps (prevents "ต้องกด 2 ที" + unlock audio/motion)
-  armStartOverlay(false);
-
-  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D, HUB_CTX, ver:GAME_VERSION });
+  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D });
 })();
