@@ -1,9 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
-✅ DOM emoji targets on #gj-layer (fixed fullscreen)
+GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST + HUB PATCH)
+✅ Back-to-Hub button (hub=... override) + preserve params
+✅ Auto profile/context logging: hha:log_profile + context passed into hha:log_session/events
 ✅ Works with: /vr/particles.js (IIFE) + /vr/ui-fever.js (IIFE) + /vr/hha-hud.js (IIFE)
 ✅ Boots: /vr-goodjunk/goodjunk.safe.js (H++ FINAL PACK PATCH C)
-✅ Includes: HUD ids (score/combo/miss/time/grade), Quest panel ids, Coach ids, End summary ids
 ✅ Includes: atk-ring / atk-laser overlays for boss patterns
 ✅ Includes: offset sync for aim point + layer offset + visualViewport/orientationchange
 -->
@@ -88,16 +88,12 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
     }
-    .gj-target.spawn{
-      animation: gjPop .12s ease-out;
-    }
+    .gj-target.spawn{ animation: gjPop .12s ease-out; }
     @keyframes gjPop{
       from{ transform: translate(-50%,-50%) scale(.55); opacity:.55; }
       to{ transform: translate(-50%,-50%) scale(1); opacity:1; }
     }
-    .gj-target.gone{
-      animation: gjGone .14s ease-in forwards;
-    }
+    .gj-target.gone{ animation: gjGone .14s ease-in forwards; }
     @keyframes gjGone{
       to{ transform: translate(-50%,-50%) scale(.2); opacity:0; }
     }
@@ -168,9 +164,24 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
       font-size: 12px;
       opacity: .95;
     }
-    #btnShoot b{
-      font-size: 22px;
-      line-height:1;
+    #btnShoot b{ font-size: 22px; line-height:1; }
+
+    /* --- Hub button --- */
+    #btnHub{
+      position:fixed;
+      right: 12px;
+      top: 12px;
+      z-index: 7;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.62);
+      color: var(--text);
+      padding: 10px 12px;
+      font-weight: 1000;
+      letter-spacing:.2px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      -webkit-tap-highlight-color: transparent;
     }
 
     /* --- Boss hazards overlays (ring/laser) --- */
@@ -186,7 +197,6 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
       pointer-events:none;
       opacity:0;
       transition: opacity .10s ease;
-      /* donut ring with a gap by conic-gradient */
       background:
         conic-gradient(
           from var(--ringGapStart),
@@ -195,10 +205,8 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
           rgba(245,158,11,.55) var(--ringGapSize),
           rgba(245,158,11,.55) 360deg
         );
-      -webkit-mask:
-        radial-gradient(circle, transparent 54%, #000 56%);
-      mask:
-        radial-gradient(circle, transparent 54%, #000 56%);
+      -webkit-mask: radial-gradient(circle, transparent 54%, #000 56%);
+      mask: radial-gradient(circle, transparent 54%, #000 56%);
       filter: drop-shadow(0 0 30px rgba(245,158,11,.18));
     }
     #atk-ring.show{ opacity:.95; }
@@ -219,9 +227,7 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
       box-shadow: 0 0 30px rgba(239,68,68,.18);
       animation: laserWarn .38s linear infinite;
     }
-    @keyframes laserWarn{
-      50%{ opacity:.25; }
-    }
+    @keyframes laserWarn{ 50%{ opacity:.25; } }
     #atk-laser.fire{
       opacity: 1;
       height: 18px;
@@ -240,11 +246,7 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
       gap:10px;
       pointer-events:none;
     }
-    .hud-row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
+    .hud-row{ display:flex; gap:10px; flex-wrap:wrap; }
     .pill{
       display:inline-flex;
       align-items:center;
@@ -260,10 +262,7 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
       color: var(--text);
       letter-spacing:.2px;
     }
-    .pill b{
-      font-size: 13px;
-      font-weight: 1000;
-    }
+    .pill b{ font-size: 13px; font-weight: 1000; }
     .muted{ color: var(--muted); font-weight: 800; }
 
     /* Quest panel */
@@ -419,9 +418,7 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
       box-shadow: 0 18px 50px rgba(0,0,0,.42);
       backdrop-filter: blur(10px);
     }
-    .btn.secondary{
-      background: rgba(2,6,23,.62);
-    }
+    .btn.secondary{ background: rgba(2,6,23,.62); }
     .small{
       font-size: 12px;
       color: var(--muted);
@@ -465,6 +462,9 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
 </head>
 
 <body>
+
+  <!-- Back to HUB -->
+  <button id="btnHub" type="button" aria-label="Back to Hub">🏠 HUB</button>
 
   <!-- optional: subtle VR background -->
   <div class="vr-stage" aria-hidden="true">
@@ -561,6 +561,7 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
 
       <div class="small" style="margin-top:10px">
         พารามิเตอร์: <b>?diff=easy|normal|hard</b> & <b>time=60..180</b> & <b>challenge=rush|survival|boss</b> & <b>run=play|study</b>
+        <br/>Hub: <b>&hub=./hub.html</b> (หรือ path ที่ต้องการ)
       </div>
     </div>
   </div>
@@ -615,6 +616,8 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
     const run  = (qs.get('run') || 'play').toLowerCase();
     const challenge = (qs.get('challenge') || 'rush').toLowerCase();
 
+    const hubUrl = (qs.get('hub') || './hub.html').toString();
+
     const layer = document.getElementById('gj-layer');
     const aimDot = document.getElementById('aim-dot');
     const shootBtn = document.getElementById('btnShoot');
@@ -625,11 +628,118 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
     const btnPlayAgain = document.getElementById('btnPlayAgain');
     const btnCloseEnd = document.getElementById('btnCloseEnd');
 
+    const btnHub = document.getElementById('btnHub');
     const runInfo = document.getElementById('runInfo');
 
     let engine = null;
 
-    // --- offsets (layer / aim) for GoodJunk engine ---
+    // ---------------- Profile/Context (Hub Patch) ----------------
+    // Accept from:
+    // 1) query params (studyId/phase/conditionGroup/... etc)
+    // 2) localStorage key "hha_profile" or "HHA_PROFILE" (JSON)
+    // 3) window.postMessage {type:'hha_profile', payload:{...}} or {hha_profile:{...}}
+    const PROFILE_KEYS = [
+      // research meta
+      'timestampIso','projectTag','runMode','studyId','phase','conditionGroup','sessionOrder','blockLabel',
+      'siteCode','schoolYear','semester','sessionId','gameMode','diff','durationPlannedSec',
+      // student profile
+      'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel',
+      'heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue','healthDetail',
+      'consentParent'
+    ];
+
+    function safeJsonParse(s){
+      try{ return JSON.parse(s); }catch(_){ return null; }
+    }
+
+    function pickQSProfile(){
+      const p = {};
+      for (const k of PROFILE_KEYS){
+        if (!qs.has(k)) continue;
+        const v = qs.get(k);
+        if (v === null || v === '') continue;
+        p[k] = v;
+      }
+      // normalize a few numeric fields
+      const numKeys = ['sessionOrder','schoolYear','semester','studentNo','age','gradeLevel','heightCm','weightKg','bmi','durationPlannedSec'];
+      for (const nk of numKeys){
+        if (p[nk] != null){
+          const n = Number(p[nk]);
+          if (Number.isFinite(n)) p[nk] = n;
+        }
+      }
+      return p;
+    }
+
+    function readStoredProfile(){
+      const a = safeJsonParse(localStorage.getItem('hha_profile') || '');
+      const b = safeJsonParse(localStorage.getItem('HHA_PROFILE') || '');
+      const c = safeJsonParse(sessionStorage.getItem('hha_profile') || '');
+      const d = safeJsonParse(sessionStorage.getItem('HHA_PROFILE') || '');
+      return (a && typeof a==='object') ? a :
+             (b && typeof b==='object') ? b :
+             (c && typeof c==='object') ? c :
+             (d && typeof d==='object') ? d : null;
+    }
+
+    let liveProfile = {};
+    function mergeProfile(base, patch){
+      if (!patch || typeof patch !== 'object') return base;
+      for (const k of Object.keys(patch)){
+        const v = patch[k];
+        if (v === undefined || v === null || v === '') continue;
+        base[k] = v;
+      }
+      return base;
+    }
+
+    function buildProfile(){
+      const stored = readStoredProfile();
+      const fromQS = pickQSProfile();
+
+      const p = {};
+      mergeProfile(p, stored);
+      mergeProfile(p, fromQS);
+
+      // fill helpful defaults
+      p.gameMode = p.gameMode || 'goodjunk';
+      p.runMode = p.runMode || run;
+      p.diff = p.diff || diff;
+      p.durationPlannedSec = p.durationPlannedSec || Math.max(20, Math.min(180, (Number(time)||70)|0));
+      p.projectTag = p.projectTag || 'HeroHealth';
+      p.timestampIso = p.timestampIso || new Date().toISOString();
+
+      return p;
+    }
+
+    function emitProfileOnce(profile){
+      if (!profile || typeof profile !== 'object') return;
+      // store for other pages too
+      try{
+        sessionStorage.setItem('hha_profile', JSON.stringify(profile));
+        localStorage.setItem('hha_profile', JSON.stringify(profile));
+      }catch(_){}
+
+      // logger listens this
+      try{
+        window.dispatchEvent(new CustomEvent('hha:log_profile', { detail: { ts: Date.now(), ...profile } }));
+      }catch(_){}
+    }
+
+    window.addEventListener('message', (ev)=>{
+      const data = ev && ev.data;
+      if (!data) return;
+      const payload =
+        (data.type === 'hha_profile' && data.payload && typeof data.payload === 'object') ? data.payload :
+        (data.hha_profile && typeof data.hha_profile === 'object') ? data.hha_profile :
+        null;
+      if (!payload) return;
+      liveProfile = mergeProfile(liveProfile, payload);
+      const merged = mergeProfile(buildProfile(), liveProfile);
+      emitProfileOnce(merged);
+    }, { passive:true });
+
+    // ---------------- offsets (layer / aim) for GoodJunk engine ----------------
     function updateOffsets(){
       try{
         const r = aimDot.getBoundingClientRect();
@@ -637,7 +747,6 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
       }catch(_){
         window.__GJ_AIM_POINT__ = { x: innerWidth*0.5, y: innerHeight*0.62 };
       }
-
       try{
         const lr = layer.getBoundingClientRect();
         window.__GJ_LAYER_OFFSET__ = { x: lr.left, y: lr.top };
@@ -668,6 +777,28 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
       if (end) end.style.display = 'none';
     }
 
+    // --------------- HUB NAV (preserve params) ---------------
+    function goHub(){
+      // preserve all params + keep run context
+      const p = new URLSearchParams(location.search);
+      p.set('from', 'goodjunk');
+      p.set('ts', String(Date.now()));
+      // ensure current mode snapshot in params (handy for hub)
+      p.set('diff', diff);
+      p.set('time', String(Math.max(20, Math.min(180, (Number(time)||70)|0))));
+      p.set('run', run);
+      p.set('challenge', challenge);
+      // always keep hub param too
+      p.set('hub', hubUrl);
+
+      const url = hubUrl.includes('?')
+        ? (hubUrl + '&' + p.toString())
+        : (hubUrl + '?' + p.toString());
+
+      location.href = url;
+    }
+    btnHub.addEventListener('pointerdown', (e)=>{ e.preventDefault(); goHub(); }, { passive:false });
+
     function startGame(){
       resetEnd();
       startOverlay.style.display = 'none';
@@ -676,6 +807,10 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
 
       // Ensure fever UI exists
       try{ window.FeverUI?.ensureFeverBar?.(); }catch(_){}
+
+      // build + emit profile BEFORE boot (ให้ logger เก็บทันที)
+      const mergedProfile = mergeProfile(buildProfile(), liveProfile);
+      emitProfileOnce(mergedProfile);
 
       coach(
         'เริ่มแล้ว! เล็งให้แม่น ยิงให้ไว 🔥',
@@ -702,7 +837,7 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
         }
       });
 
-      // initial emit
+      // initial emit (HUD)
       window.dispatchEvent(new CustomEvent('hha:score', { detail: { score:0, combo:0, misses:0, goodHits:0 } }));
       window.dispatchEvent(new CustomEvent('hha:time',  { detail: { sec: Math.max(20, Math.min(180, (Number(time)||70)|0)) } }));
 
@@ -716,11 +851,14 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
 
     btnPlayAgain.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
-      // reload with same params (preserve)
-      location.href = location.pathname + '?' + new URLSearchParams({
-        diff, time: String(time|0), run, challenge,
-        ts: String(Date.now())
-      }).toString();
+      const p = new URLSearchParams(location.search);
+      p.set('diff', diff);
+      p.set('time', String((Math.max(20, Math.min(180, (Number(time)||70)|0)))|0));
+      p.set('run', run);
+      p.set('challenge', challenge);
+      p.set('hub', hubUrl);
+      p.set('ts', String(Date.now()));
+      location.href = location.pathname + '?' + p.toString();
     }, { passive:false });
 
     btnCloseEnd.addEventListener('pointerdown', (e)=>{
@@ -732,6 +870,12 @@ GoodJunkVR (PRODUCTION) — H++ FINAL (HTML LATEST)
     document.getElementById('hhaEnd').addEventListener('pointerdown', (e)=>{
       if (e.target && (e.target.id === 'hhaEnd')) e.currentTarget.style.display = 'none';
     });
+
+    // Pre-emit profile (even before start) so hub->game flow records early
+    (function primeProfile(){
+      const mergedProfile = mergeProfile(buildProfile(), liveProfile);
+      emitProfileOnce(mergedProfile);
+    })();
 
     // Auto start? (if ?autostart=1)
     if (qs.get('autostart') === '1'){
