@@ -1,11 +1,17 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR — ULTIMATE ALL-IN-ONE (StartOverlay-ready + UI-clean + Boss-focused mid)
-// ✅ FIX: เข้าเกมไม่ได้ (Start overlay บัง) → bind #btnStart + hide overlay + begin()
-// ✅ FIX: plate.safe.js:773 Cannot read 'dead' → guard undefined rec in loops
-// ✅ FIX: หน้าสรุปไม่ขึ้น/จบแปลก → ensure overlay hidden + endGame always show
-// ✅ Fallback time: use durationPlannedSec if ?time missing
-// ✅ Grade 5 timing: Easy 80s / Normal 70s / Hard 60s (default when param missing)
-// ✅ Hard 60s “ผ่านได้บ้าง”: ลดโทษ/ลด rate เล็กน้อย (ยังเร้าใจ)
+// Plate VR — ULTIMATE ALL-IN-ONE (UI-clean + Research-Strict + Boss-focused mid)
+// ✅ Fix black screen: fatal overlay
+// ✅ Fix long-number floating: correct Particles.scorePop(x,y,txt,label)
+// ✅ Minimal HUD + Crosshair + Hit flash
+// ✅ Anti-overlap spawn + Safe-zone (avoid HUD/panels)
+// ✅ Cap max targets (mobile performance)
+// ✅ Boss: telegraph clearer + punish only when boss close to crosshair
+// ✅ Air-shot feedback (soft punish, no life loss)
+// ✅ Fever event bridge (particles listens to hha:fever)
+// ✅ PATCH: direct tap PERFECT uses touch/pointer coords (not crosshair) → PERFECT counts correctly
+// ✅ PATCH: setShow() shows elements with CSS display:none (result/paused) properly
+// ✅ PATCH: guard undefined rec in expireTargets
+// ✅ PATCH: default time for ป.5 per diff if URL has no time param: easy80/normal70/hard60
 
 'use strict';
 
@@ -14,9 +20,18 @@ const doc = ROOT.document;
 
 function $(id){ return doc ? doc.getElementById(id) : null; }
 function setTxt(el, t){ if(el) el.textContent = String(t); }
-function setShow(el, on){ if(!el) return; el.style.display = on ? '' : 'none'; }
 
-// ---------- Fatal overlay (เดิม) ----------
+// ✅ PATCH: make setShow work even when CSS has display:none
+function setShow(el, on){
+  if(!el) return;
+  if(on){
+    // result backdrop should be flex (centered), others use block
+    el.style.display = (el.id === 'resultBackdrop') ? 'flex' : 'block';
+  }else{
+    el.style.display = 'none';
+  }
+}
+
 (function attachFatalOverlay(){
   if (!doc) return;
   const box = doc.createElement('div');
@@ -68,11 +83,13 @@ const MODE = String(Q.get('run') || 'play').toLowerCase();      // play | resear
 const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal | hard
 const DEBUG = (Q.get('debug') === '1');
 
-// time: prefer ?time, else durationPlannedSec, else default by diff (ป.5)
-const plannedSec = parseInt(Q.get('durationPlannedSec') || '', 10);
-const timeParam  = parseInt(Q.get('time') || '', 10);
-const defaultByDiff = (DIFF === 'easy') ? 80 : (DIFF === 'hard') ? 60 : 70;
-const TOTAL_TIME = Math.max(20, (Number.isFinite(timeParam) ? timeParam : (Number.isFinite(plannedSec) ? plannedSec : defaultByDiff)));
+// ✅ PATCH: default time for ป.5 by diff IF no explicit time=
+const HAS_TIME_PARAM = Q.has('time');
+const DEFAULT_TIME_BY_DIFF = (DIFF === 'easy') ? 80 : (DIFF === 'hard') ? 60 : 70;
+const TOTAL_TIME = Math.max(
+  20,
+  parseInt(HAS_TIME_PARAM ? (Q.get('time') || '0') : String(DEFAULT_TIME_BY_DIFF), 10) || DEFAULT_TIME_BY_DIFF
+);
 
 // ---------- RNG (Research strict) ----------
 let SEED = parseInt(Q.get('seed') || '', 10);
@@ -80,6 +97,7 @@ if (!Number.isFinite(SEED)) SEED = 1337;
 let _seed = (SEED >>> 0) || 1337;
 
 function srnd(){
+  // xorshift32
   _seed ^= (_seed << 13); _seed >>>= 0;
   _seed ^= (_seed >>> 17); _seed >>>= 0;
   _seed ^= (_seed << 5); _seed >>>= 0;
@@ -124,7 +142,6 @@ const HUD = {
   resultBackdrop: $('resultBackdrop'),
   btnPlayAgain: $('btnPlayAgain'),
 
-  // result fields
   rMode: $('rMode'),
   rGrade: $('rGrade'),
   rScore: $('rScore'),
@@ -141,7 +158,7 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
-// ---------- Difficulty ----------
+// ---------- Difficulty (กลาง ๆ เน้นบอส) ----------
 const DIFF_TABLE = {
   easy: {
     size: 92, life: 3200, spawnMs: 900, maxTargets: 10,
@@ -160,12 +177,11 @@ const DIFF_TABLE = {
     stormDurMs:[4200, 7200], slowDurMs:[3200, 5600], noJunkDurMs:[4200, 6800],
   },
   hard: {
-    // ✅ ปรับให้ 60 วิ “ผ่านได้บ้าง” (ยังท้าทาย แต่ไม่โหดเกิน)
-    size: 68, life: 2450, spawnMs: 700, maxTargets: 14,
-    junkRate: 0.27, goldRate: 0.14, trapRate: 0.085, bossRate: 0.055, fakeRate: 0.060,
-    slowRate: 0.058, noJunkRate: 0.026, stormRate: 0.042,
+    size: 66, life: 2300, spawnMs: 660, maxTargets: 14,
+    junkRate: 0.30, goldRate: 0.14, trapRate: 0.095, bossRate: 0.060, fakeRate: 0.070,
+    slowRate: 0.055, noJunkRate: 0.022, stormRate: 0.040,
     aimAssist: 125,
-    bossHP: 5, bossAtkMs:[1650, 2400], bossPhase2At: 0.60, bossPhase3At: 0.34,
+    bossHP: 6, bossAtkMs:[1550, 2300], bossPhase2At: 0.60, bossPhase3At: 0.34,
     stormDurMs:[4800, 8200], slowDurMs:[3200, 5800], noJunkDurMs:[4200, 7200],
   },
 };
@@ -176,7 +192,7 @@ const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
 const LIVES_START = (Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0) ? LIVES_PARAM : 3;
 
 const S = {
-  running:false, paused:false, started:false,
+  running:false, paused:false,
   tStart:0, timeLeft:TOTAL_TIME,
   score:0, combo:0, maxCombo:0,
   miss:0, perfectCount:0,
@@ -214,6 +230,7 @@ function dispatchEvt(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
 }
 
+/* ===== FIX: sanitize + correct Particles API ===== */
 function safeFxText(t){
   t = String(t ?? '');
   if (/^\d+(\.\d+)?$/.test(t) && t.length >= 10) return '✓';
@@ -230,7 +247,9 @@ function fxJudge(label){
   dispatchEvt('hha:judge', { label: safeFxText(label) });
 }
 function fxCelebrate(kind, intensity=1.0){
-  try{ Particles.celebrate && Particles.celebrate({ kind: safeFxText(kind), intensity: clamp(intensity,0.6,2.2) }); }catch(_){}
+  try{
+    Particles.celebrate && Particles.celebrate({ kind: safeFxText(kind), intensity: clamp(intensity,0.6,2.2) });
+  }catch(_){}
 }
 
 // hit flash overlay
@@ -242,7 +261,7 @@ function flash(kind='bad', ms=110){
   setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch(_){} }, ms|0);
 }
 
-// ---------- DOM target layer + CSS (เดิม) ----------
+// ---------- DOM target layer + CSS ----------
 (function injectCss(){
   if (!doc) return;
   const st = doc.createElement('style');
@@ -308,7 +327,7 @@ const layer = doc.createElement('div');
 layer.className = 'plate-layer';
 doc.body.appendChild(layer);
 
-// ---------- Audio ----------
+// ---------- Audio (tiny beeps) ----------
 const AudioX = (function(){
   let ctx=null;
   function ensure(){ if(ctx) return ctx; try{ ctx=new (ROOT.AudioContext||ROOT.webkitAudioContext)(); }catch(_){ } return ctx; }
@@ -642,9 +661,8 @@ function updateAimHighlight(){
   const picked=pickNearCrosshair(assist);
   const tid=picked? picked.rec.el.dataset.tid : null;
   if(tid===S.aimedId) return;
-
   if(S.aimedId){
-    const prev=S.targets.find(r=>r && r.el && r.el.dataset && r.el.dataset.tid===S.aimedId);
+    const prev=S.targets.find(r=>r && r.el && r.el.dataset.tid===S.aimedId);
     prev && prev.el && prev.el.classList.remove('aimed');
   }
   S.aimedId=tid;
@@ -738,10 +756,11 @@ function makeTarget(kind, group, opts={}){
 
   S.targets.push(rec);
 
+  // ✅ PATCH: pass event into hitTarget for direct-tap perfect calculation
   const hitHandler=(e)=>{
     e.preventDefault(); e.stopPropagation();
     AudioX.unlock();
-    hitTarget(rec,true);
+    hitTarget(rec, true, e);
   };
   el.addEventListener('pointerdown', hitHandler, {passive:false});
   el.addEventListener('click', hitHandler, {passive:false});
@@ -754,7 +773,7 @@ function makeTarget(kind, group, opts={}){
   return rec;
 }
 function removeTarget(rec){
-  if(!rec || rec.dead) return;
+  if(!rec||rec.dead) return;
   rec.dead=true;
   try{ rec.el.remove(); }catch(_){}
   const i=S.targets.indexOf(rec);
@@ -768,14 +787,13 @@ function bossHpSync(rec){
   rec.el.style.setProperty('--hp', String(ratio));
   bar.style.transform = `scaleX(${ratio})`;
 }
-
-// ✅ FIX: guard undefined rec
 function expireTargets(){
   const t=now();
   for(let i=S.targets.length-1;i>=0;i--){
     const rec=S.targets[i];
-    if(!rec) continue;           // ✅
-    if(rec.dead) continue;
+    // ✅ PATCH: guard undefined
+    if(!rec || rec.dead) continue;
+
     if(t>=rec.dieAt){
       if(rec.kind==='good'||rec.kind==='gold'){
         onMiss('expire_good',{kind:rec.kind,group:rec.group});
@@ -882,19 +900,35 @@ function judgeFromDist(distPx, sizePx){
   return (n<=0.38) ? 'PERFECT' : 'HIT';
 }
 
-function hitTarget(rec, direct){
+// ✅ PATCH: hitTarget receives event; if direct tap, compute dist from finger (clientX/Y)
+function hitTarget(rec, direct, ev){
   if(!S.running || S.paused || !rec || rec.dead) return;
 
-  const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
-  const cx=vw/2, cy=vh/2;
   const off=viewOffset();
-  const sx=rec.cx+off.x, sy=rec.cy+off.y;
-  const dist=Math.hypot(sx-cx, sy-cy);
 
+  // target position on screen
+  const tx = rec.cx + off.x;
+  const ty = rec.cy + off.y;
+
+  // pointer/touch position
+  let px=null, py=null;
+  if(direct && ev){
+    if(typeof ev.clientX === 'number'){ px=ev.clientX; py=ev.clientY; }
+    else if(ev.touches && ev.touches[0]){ px=ev.touches[0].clientX; py=ev.touches[0].clientY; }
+    else if(ev.changedTouches && ev.changedTouches[0]){ px=ev.changedTouches[0].clientX; py=ev.changedTouches[0].clientY; }
+  }
+  if(px===null){
+    px = ROOT.innerWidth/2;
+    py = ROOT.innerHeight/2;
+  }
+
+  const dist = Math.hypot(tx-px, ty-py);
+
+  // power targets
   if(rec.kind==='slow'){
     const ms = (MODE==='research') ? Math.round((D.slowDurMs[0]+D.slowDurMs[1])*0.5) : rnd(D.slowDurMs[0],D.slowDurMs[1]);
     activateSlow(ms);
-    fxBurst(sx,sy,'power'); fxPop('+120',sx,sy);
+    fxBurst(tx,ty,'power'); fxPop('+120',tx,ty);
     flash('good', 90);
     addScore(120); addFever(10);
     logEvent('hit_power',{kind:'slow',dist,direct:!!direct});
@@ -903,7 +937,7 @@ function hitTarget(rec, direct){
   if(rec.kind==='nojunk'){
     const ms = (MODE==='research') ? Math.round((D.noJunkDurMs[0]+D.noJunkDurMs[1])*0.5) : rnd(D.noJunkDurMs[0],D.noJunkDurMs[1]);
     activateNoJunk(ms);
-    fxBurst(sx,sy,'power'); fxPop('+160',sx,sy);
+    fxBurst(tx,ty,'power'); fxPop('+160',tx,ty);
     flash('good', 90);
     addScore(160); addFever(10);
     logEvent('hit_power',{kind:'nojunk',dist,direct:!!direct});
@@ -912,7 +946,7 @@ function hitTarget(rec, direct){
   if(rec.kind==='storm'){
     const ms = (MODE==='research') ? Math.round((D.stormDurMs[0]+D.stormDurMs[1])*0.5) : rnd(D.stormDurMs[0],D.stormDurMs[1]);
     activateStorm(ms);
-    fxBurst(sx,sy,'power'); fxPop('+200',sx,sy);
+    fxBurst(tx,ty,'power'); fxPop('+200',tx,ty);
     flash('gold', 95);
     addScore(200); addFever(12);
     logEvent('hit_power',{kind:'storm',dist,direct:!!direct});
@@ -921,7 +955,7 @@ function hitTarget(rec, direct){
 
   if(rec.kind==='fake'){
     fxJudge('TRICK!');
-    fxBurst(sx,sy,'trap'); fxPop('-220',sx,sy);
+    fxBurst(tx,ty,'trap'); fxPop('-220',tx,ty);
     punishBad('trap');
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'trap'},'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
@@ -930,7 +964,7 @@ function hitTarget(rec, direct){
     return;
   }
   if(rec.kind==='trap'){
-    fxBurst(sx,sy,'trap'); fxPop('-240',sx,sy);
+    fxBurst(tx,ty,'trap'); fxPop('-240',tx,ty);
     punishBad('trap');
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
@@ -939,7 +973,7 @@ function hitTarget(rec, direct){
     return;
   }
   if(rec.kind==='junk'){
-    fxBurst(sx,sy,'bad'); fxPop('-180',sx,sy);
+    fxBurst(tx,ty,'bad'); fxPop('-180',tx,ty);
     punishBad('junk');
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
@@ -954,10 +988,10 @@ function hitTarget(rec, direct){
     const ph=bossPhaseFor(rec);
     AudioX.bossHit(); vibe(20);
     fxJudge(ph===3?'BOSS RAGE!':'BOSS HIT!');
-    fxBurst(sx,sy,'boss'); fxPop('+120',sx,sy);
+    fxBurst(tx,ty,'boss'); fxPop('+120',tx,ty);
     flash('boss', 110);
     addScore(120); addFever(7);
-    logEvent('boss_hit',{hp:rec.hp,hpMax:rec.hpMax,phase:ph});
+    logEvent('boss_hit',{hp:rec.hp,hpMax:rec.hpMax,phase:ph,dist,direct:!!direct});
 
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'HIT');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('HIT');
@@ -968,7 +1002,7 @@ function hitTarget(rec, direct){
       flash('gold', 160);
       addScore(1200); addFever(30);
       S.combo += 2; S.maxCombo=Math.max(S.maxCombo,S.combo); setTxt(HUD.combo,S.combo);
-      fxPop('+1200',sx,sy);
+      fxPop('+1200',tx,ty);
       logEvent('boss_down',{});
       S.bossActive=false;
       removeTarget(rec);
@@ -999,8 +1033,8 @@ function hitTarget(rec, direct){
     flash(rec.kind==='gold'?'gold':'good', 85);
   }
 
-  fxBurst(sx,sy,(rec.kind==='gold')?'gold':'good');
-  fxPop(`+${delta}`,sx,sy);
+  fxBurst(tx,ty,(rec.kind==='gold')?'gold':'good');
+  fxPop(`+${delta}`,tx,ty);
 
   if(rec.kind==='good') onGood(rec.group);
   if(rec.kind==='gold'){
@@ -1077,7 +1111,7 @@ function spawnBossIfReady(){
 
   S.bossActive=true;
 
-  const hp = (S.feverOn ? Math.max(2, (D.bossHP||5)-1) : (D.bossHP||5));
+  const hp = (S.feverOn ? Math.max(2, D.bossHP-1) : D.bossHP);
   const boss = makeTarget('boss',0,{hp});
   bossHpSync(boss);
 
@@ -1097,7 +1131,6 @@ function tickBossAttack(){
   const t=now();
   for(const rec of S.targets){
     if(!rec || rec.dead || rec.kind!=='boss') continue;
-
     const ph=bossPhaseFor(rec);
     const style=bossAttackStyleForPhase(ph);
     const phaseMul=(ph===3)?0.78:(ph===2)?0.90:1.0;
@@ -1173,7 +1206,7 @@ function spawnTick(){
 // ---------- Tap-anywhere shooting ----------
 function isUIElement(target){
   if(!target) return false;
-  return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop') || target.closest('#startOverlay')));
+  return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop')));
 }
 function airShot(){
   S.combo=0; setTxt(HUD.combo,0);
@@ -1191,7 +1224,7 @@ function shootCrosshair(){
   AudioX.unlock();
   const assist = inVR()? Math.max(D.aimAssist,170) : D.aimAssist;
   const picked = pickNearCrosshair(assist);
-  if(picked && picked.rec) hitTarget(picked.rec,false);
+  if(picked && picked.rec) hitTarget(picked.rec,false,null);
   else airShot();
 }
 function onGlobalPointerDown(e){
@@ -1244,11 +1277,6 @@ function restart(){
 function endGame(isGameOver){
   if(!S.running) return;
   S.running=false;
-
-  // ✅ ensure overlay not blocking result
-  const so = $('startOverlay');
-  so && (so.style.display = 'none');
-
   doc.body.classList.remove('hha-mini-urgent');
   S.nextSpawnAt=Infinity;
   for(const rec of [...S.targets]) removeTarget(rec);
@@ -1268,7 +1296,9 @@ function endGame(isGameOver){
   setTxt(HUD.rG5, S.groupCounts[4]);
   setTxt(HUD.rGTotal, S.groupCounts.reduce((a,b)=>a+b,0));
 
+  // ✅ PATCH: this now works because setShow sets display:flex for resultBackdrop
   setShow(HUD.resultBackdrop,true);
+
   fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
   vibe(isGameOver?60:50);
   logSession(isGameOver?'gameover':'end');
@@ -1347,41 +1377,6 @@ function bindUI(){
   });
 }
 
-// ---------- Start overlay / permission ----------
-async function requestMotionPermissionIfNeeded(){
-  try{
-    const DM = ROOT.DeviceMotionEvent;
-    if(DM && typeof DM.requestPermission === 'function'){
-      const res = await DM.requestPermission();
-      return res === 'granted';
-    }
-  }catch(_){}
-  return true; // not required or failed gracefully
-}
-function beginGameFromOverlay(){
-  const so = $('startOverlay');
-  const btn = $('btnStart');
-
-  const begin = async ()=>{
-    if(S.started) return;
-    S.started = true;
-    AudioX.unlock();
-    await requestMotionPermissionIfNeeded();
-
-    if(so) so.style.display = 'none';
-    // เริ่มใหม่แบบ “คลีน” ให้ทุกอย่างเข้าที่ + log เริ่ม
-    restart();
-  };
-
-  if(btn){
-    btn.addEventListener('click', (e)=>{ e.preventDefault(); begin(); }, {passive:false});
-    btn.addEventListener('pointerdown', (e)=>{ e.preventDefault(); }, {passive:false});
-  }
-
-  // ถ้าไม่มี overlay → auto begin
-  if(!so) begin();
-}
-
 // ---------- BOOT ----------
 (function boot(){
   try{
@@ -1407,10 +1402,10 @@ function beginGameFromOverlay(){
   S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
 
   setGoal(0);
-  startMini(); // เตรียมไว้ก่อน
+  startMini();
 
-  // ✅ สำคัญ: เริ่มผ่าน overlay
-  beginGameFromOverlay();
+  logSession('start');
+  start();
 
   if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D });
 })();
