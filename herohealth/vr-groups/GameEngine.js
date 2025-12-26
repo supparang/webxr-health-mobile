@@ -1,631 +1,796 @@
-// === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups — GameEngine (classic script) — PRODUCTION (ALL-IN)
-// ✅ CSS vars --x/--y/--s (px) + classes fg-good/fg-junk/fg-decoy/fg-boss
-// ✅ Multi-group targets: correct = current group, wrong = other group, junk = stun, decoy = trap, boss = multi-hit
-// ✅ Safe spawn box: respects HUD + safe-area + bottom bar
-// ✅ Direct tap hit + optional "tap-near" lock (gaze-ish)
-// ✅ Emits: hha:score, hha:time, hha:rank, quest:update (via groups-quests.js), groups:group_change, groups:power, groups:lock, groups:stun
+/* === /herohealth/vr-groups/GameEngine.js ===
+Food Groups VR — GameEngine (PRODUCTION / classic script)
+✅ window.GroupsVR.GameEngine (no module import)
+✅ Spawn targets (GOOD / JUNK / BOSS / DECOY) on #fg-layer
+✅ Safe-zone: avoids HUD area (top) + screen edges + safe-area insets
+✅ Power charge -> group change + swapflash
+✅ Stun on junk hit + stun overlay event hook
+✅ Time loop + panic blink + emits hha:time {left}
+✅ Score/Combo/Miss + Rank SSS/SS/S/A/B/C via hha:rank
+✅ End summary via hha:end (scoreFinal, comboMax, misses, etc)
+✅ Emits:
+   - hha:score {score, combo, misses, comboMax}
+   - hha:rank  {grade, accuracy}
+   - hha:time  {left}
+   - groups:group_change {groupId,label}
+   - groups:power {charge,threshold}
+   - quest:update (delegated: engine emits groups:progress and quest binder can translate)
+*/
 
 (function (root) {
   'use strict';
 
-  const W = root;
-  W.GroupsVR = W.GroupsVR || {};
+  const DOC = root.document;
+  if (!DOC) return;
 
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function emit(name, detail){
-    try{ W.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
+  // Namespace
+  const NS = (root.GroupsVR = root.GroupsVR || {});
+
+  // -------------------- Utilities --------------------
+  function nowMs() { return (root.performance && performance.now) ? performance.now() : Date.now(); }
+  function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function randInt(rng, a, b){ return a + Math.floor(rng() * (b - a + 1)); }
+  function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
+
+  // Seeded RNG (mulberry32)
+  function hashSeed(str){
+    str = String(str || '');
+    let h = 1779033703 ^ str.length;
+    for (let i = 0; i < str.length; i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return (h >>> 0);
   }
-  function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+  function mulberry32(a){
+    return function(){
+      let t = (a += 0x6D2B79F5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 
-  // ---------------- Difficulty tuning ----------------
-  const DIFF = {
-    easy:   { spawnEvery: 720, maxOnScreen: 5, ttl: [2200, 3400], junkRate:.18, decoyRate:.07, bossEvery: 16, bossHP: 3,
-              correctScore: 120, wrongPenalty: 120, junkPenalty: 180, decoyPenalty: 140, bossScore: 220, powerThreshold: 6, lockDur: 420 },
-    normal: { spawnEvery: 640, maxOnScreen: 6, ttl: [2100, 3300], junkRate:.20, decoyRate:.08, bossEvery: 14, bossHP: 3,
-              correctScore: 130, wrongPenalty: 140, junkPenalty: 200, decoyPenalty: 160, bossScore: 240, powerThreshold: 7, lockDur: 420 },
-    hard:   { spawnEvery: 560, maxOnScreen: 7, ttl: [2000, 3200], junkRate:.22, decoyRate:.10, bossEvery: 12, bossHP: 4,
-              correctScore: 140, wrongPenalty: 160, junkPenalty: 230, decoyPenalty: 180, bossScore: 260, powerThreshold: 8, lockDur: 420 }
-  };
+  function emit(name, detail){
+    root.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
+  }
 
-  // ---------------- Groups data ----------------
-  const GROUPS = [
-    { id:1, label:'หมู่ 1', foods:['🥛','🥚','🫘','🍗'] },
-    { id:2, label:'หมู่ 2', foods:['🍚','🍞','🥔','🍜'] },
-    { id:3, label:'หมู่ 3', foods:['🥦','🥬','🥕','🌽'] },
-    { id:4, label:'หมู่ 4', foods:['🍎','🍌','🍊','🍉'] },
-    { id:5, label:'หมู่ 5', foods:['🥑','🧈','🥜','🫒'] }
-  ];
-  const JUNK = ['🍟','🍔','🍩','🧁','🥤'];
-
-  function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
-  function pickGroup(){ return GROUPS[(Math.random()*GROUPS.length)|0]; }
-
-  // ---------------- Safe spawn box ----------------
-  // uses :root --sat --sab --sal --sar (set in groups-vr.css)
-  function getSpawnBox(){
-    const w = window.innerWidth || 360;
-    const h = window.innerHeight || 640;
-
-    let left = 18, right = 18, top = 18, bot = 18;
-
-    const cs = getComputedStyle(document.documentElement);
+  // safe-area insets from CSS vars env()
+  function readSafeInsets(){
+    const cs = getComputedStyle(DOC.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
     const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
     const sal = parseFloat(cs.getPropertyValue('--sal')) || 0;
     const sar = parseFloat(cs.getPropertyValue('--sar')) || 0;
-
-    left += sal; right += sar; top += sat; bot += sab;
-
-    // reserve HUD if present
-    const hud = document.querySelector('.hud-top');
-    if (hud){
-      const r = hud.getBoundingClientRect();
-      top = Math.max(top, r.bottom + 14);
-    } else {
-      top = Math.max(top, 120 + sat);
-    }
-
-    // reserve bottom bar on mobile
-    bot = Math.max(bot, 72 + sab);
-
-    // keep region valid
-    const x0 = left;
-    const y0 = top;
-    const x1 = Math.max(left + 60, w - right);
-    const y1 = Math.max(top + 110, h - bot);
-
-    return { x0, y0, x1, y1, w, h };
+    return { sat, sab, sal, sar };
   }
 
-  // ---------------- Engine ----------------
-  const Engine = {
-    _layerEl: null,
-    _running: false,
+  function ensureEl(selector, builder){
+    let el = DOC.querySelector(selector);
+    if (!el && typeof builder === 'function'){
+      el = builder();
+    }
+    return el;
+  }
 
-    _diff: 'normal',
-    _cfg: DIFF.normal,
-
-    _timeLeft: 90,
-    _timerAcc: 0,
-
-    _spawnAcc: 0,
-    _targets: [],
-
-    _score: 0,
-    _combo: 0,
-    _comboMax: 0,
-    _misses: 0,
-
-    _shots: 0,
-    _hits: 0,
-
-    _groupIdx: 0,
-    _powerCharge: 0,
-
-    _stunUntil: 0,
-
-    _quest: null,
-    _runMode: 'play',
-    _seed: '',
-
-    _correctHitsTotal: 0,
-
-    // lock system
-    _lockActive: false,
-    _lockEl: null,
-    _lockStartAt: 0,
-    _lockDur: 420,
-    _lockRAF: 0,
-
-    setLayerEl(el){ this._layerEl = el; },
-    setTimeLeft(sec){ this._timeLeft = Math.max(10, sec|0); },
-
-    start(diff, opts){
-      opts = opts || {};
-      this._diff = (DIFF[diff] ? diff : 'normal');
-      this._cfg = DIFF[this._diff];
-      this._lockDur = this._cfg.lockDur|0;
-
-      this._runMode = String(opts.runMode || 'play').toLowerCase();
-      this._seed = String(opts.seed || '');
-
-      this._running = true;
-
-      this._timerAcc = 0;
-      this._spawnAcc = 0;
-      this._targets = [];
-
-      this._score = 0;
-      this._combo = 0;
-      this._comboMax = 0;
-      this._misses = 0;
-
-      this._shots = 0;
-      this._hits = 0;
-
-      this._powerCharge = 0;
-      this._stunUntil = 0;
-      this._correctHitsTotal = 0;
-
-      this._stopLock();
-
-      if (this._layerEl) this._layerEl.innerHTML = '';
-
-      this._groupIdx = 0;
-      emit('groups:group_change', { label: GROUPS[this._groupIdx].label });
-
-      if (W.GroupsVR && typeof W.GroupsVR.createGroupsQuest === 'function'){
-        this._quest = W.GroupsVR.createGroupsQuest({
-          diff: this._diff,
-          runMode: this._runMode,
-          seed: this._seed
-        });
-        this._quest.start();
-        this._quest.onGroupChange(GROUPS[this._groupIdx].label);
-      } else {
-        this._quest = null;
-        emit('quest:update', { questOk:false, groupLabel: GROUPS[this._groupIdx].label });
-      }
-
-      this._bindInput();
-
-      this._emitScore();
-      this._emitTime();
-      this._emitPower();
-
-      this._last = now();
-      this._raf = requestAnimationFrame(this._loop.bind(this));
+  // Minimal FX hooks (works even if groups-fx.js is missing)
+  const FX = {
+    panic(on){
+      DOC.documentElement.classList.toggle('panic', !!on);
     },
-
-    stop(reason){
-      this._running = false;
-      try{ cancelAnimationFrame(this._raf); }catch(_){}
-      this._unbindInput();
-      this._stopLock();
-
-      // cleanup
-      try{
-        for (const el of (this._targets||[])){
-          try{ if (el && el._ttlTimer) clearTimeout(el._ttlTimer); }catch(_){}
-          try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){}
-        }
-      }catch(_){}
-      this._targets = [];
-
-      emit('hha:end', { reason: reason || 'stop' });
+    stunFlash(){
+      DOC.documentElement.classList.add('stunflash');
+      setTimeout(()=>DOC.documentElement.classList.remove('stunflash'), 220);
     },
-
-    _loop(t){
-      if (!this._running) return;
-      const dt = Math.min(0.05, Math.max(0.001, (t - this._last) / 1000));
-      this._last = t;
-
-      // timer
-      this._timerAcc += dt;
-      if (this._timerAcc >= 1){
-        this._timerAcc -= 1;
-        this._timeLeft = Math.max(0, (this._timeLeft|0) - 1);
-        this._emitTime();
-        if (this._timeLeft <= 0){
-          this.stop('time');
-          return;
-        }
-      }
-
-      // spawn
-      const isStunned = (t < this._stunUntil);
-      if (!isStunned){
-        this._spawnAcc += dt * 1000;
-        if (this._spawnAcc >= this._cfg.spawnEvery){
-          this._spawnAcc = 0;
-          this._maybeSpawn();
-        }
-      }
-
-      // quest tick
-      if (this._quest) this._quest.tick(dt);
-
-      requestAnimationFrame(this._loop.bind(this));
+    swapFlash(){
+      DOC.documentElement.classList.add('swapflash');
+      setTimeout(()=>DOC.documentElement.classList.remove('swapflash'), 220);
     },
+    afterimage(xpx, ypx, emoji){
+      // optional fancy: create afterimage trail
+      const wrap = DOC.createElement('div');
+      wrap.className = 'fg-afterimage a1';
+      wrap.style.setProperty('--x', xpx + 'px');
+      wrap.style.setProperty('--y', ypx + 'px');
+      const inner = DOC.createElement('div');
+      inner.className = 'fg-afterimage-inner';
+      inner.textContent = emoji || '✨';
+      wrap.appendChild(inner);
+      DOC.body.appendChild(wrap);
+      setTimeout(()=>wrap.remove(), 240);
 
-    _bindInput(){
-      if (this._onPointer) return;
+      const wrap2 = DOC.createElement('div');
+      wrap2.className = 'fg-afterimage a2';
+      wrap2.style.setProperty('--x', xpx + 'px');
+      wrap2.style.setProperty('--y', ypx + 'px');
+      const inner2 = DOC.createElement('div');
+      inner2.className = 'fg-afterimage-inner';
+      inner2.textContent = emoji || '✨';
+      wrap2.appendChild(inner2);
+      DOC.body.appendChild(wrap2);
+      setTimeout(()=>wrap2.remove(), 300);
+    }
+  };
+  NS.FX = NS.FX || FX;
 
-      this._onPointer = (ev)=>{
-        if (!this._running) return;
-        if (now() < this._stunUntil) return;
+  // -------------------- Content (Food Groups) --------------------
+  // Group labels
+  const GROUPS = [
+    { id:1, label:'หมู่ 1 โปรตีน 💪', good:['🥚','🥛','🐟','🥜','🍗','🧀'] },
+    { id:2, label:'หมู่ 2 คาร์บ 🌾',   good:['🍚','🍞','🥔','🍠','🥨','🍜'] },
+    { id:3, label:'หมู่ 3 ผัก 🥦',     good:['🥦','🥬','🥕','🌽','🥒','🍅'] },
+    { id:4, label:'หมู่ 4 ผลไม้ 🍎',   good:['🍎','🍌','🍊','🍇','🍉','🍓'] },
+    { id:5, label:'หมู่ 5 ไขมัน 🫒',   good:['🫒','🥑','🧈','🥥','🥜','🧀'] }
+  ];
 
-        // start lock on closest target near tap position
-        this._startLock(ev);
-      };
+  const JUNK_EMOJI = ['🍟','🍔','🍕','🍩','🍭','🧁','🥤','🍿','🍫','🍪'];
+  const DECOY_EMOJI = ['❓','🌀','🎭','🧩','🎲'];
+  const BOSS_EMOJI  = ['👹','😈','🧟','🦂','🐲'];
 
-      document.addEventListener('pointerdown', this._onPointer, { passive:true });
+  // -------------------- Difficulty Profiles --------------------
+  const DIFF = {
+    easy: {
+      timeDefault: 90,
+      spawnEveryMs: [650, 900],
+      lifeMs: [1300, 1750],
+      size: [0.88, 1.05],
+      junkRate: 0.16,
+      decoyRate: 0.08,
+      bossRate: 0.06,
+      bossHp: [3, 4],
+      stunMs: 450,
+      powerThreshold: 7,
+      score: { good: 120, bossHit: 90, bossKill: 220, decoy: -60, junk: -90 },
+      missPenalty: 1
     },
-
-    _unbindInput(){
-      if (this._onPointer){
-        document.removeEventListener('pointerdown', this._onPointer);
-        this._onPointer = null;
-      }
+    normal: {
+      timeDefault: 90,
+      spawnEveryMs: [520, 800],
+      lifeMs: [1050, 1550],
+      size: [0.82, 1.02],
+      junkRate: 0.22,
+      decoyRate: 0.10,
+      bossRate: 0.08,
+      bossHp: [4, 6],
+      stunMs: 650,
+      powerThreshold: 9,
+      score: { good: 130, bossHit: 95, bossKill: 260, decoy: -70, junk: -110 },
+      missPenalty: 1
     },
-
-    _emitScore(){
-      emit('hha:score', {
-        score: this._score|0,
-        combo: this._combo|0,
-        comboMax: this._comboMax|0,
-        misses: this._misses|0
-      });
-
-      const acc = this._accuracy();
-      const grade = this._grade(acc, this._comboMax, this._misses);
-      emit('hha:rank', { grade, accuracy: acc });
-    },
-
-    _emitTime(){
-      emit('hha:time', { left: this._timeLeft|0 });
-    },
-
-    _emitPower(){
-      const g = GROUPS[this._groupIdx];
-      const th = Math.max(1, this._cfg.powerThreshold|0);
-      const c = this._powerCharge|0;
-      emit('groups:power', { groupName: g.label, charge: c, threshold: th });
-    },
-
-    _accuracy(){
-      const shots = Math.max(1, this._shots|0);
-      return Math.round(((this._hits|0) / shots) * 100);
-    },
-
-    _grade(acc, comboMax, misses){
-      // SSS/SS/S/A/B/C
-      if (acc>=92 && comboMax>=10 && misses<=6) return 'SSS';
-      if (acc>=88 && comboMax>=8  && misses<=8) return 'SS';
-      if (acc>=82 && comboMax>=6  && misses<=10) return 'S';
-      if (acc>=74) return 'A';
-      if (acc>=60) return 'B';
-      return 'C';
-    },
-
-    _maybeSpawn(){
-      if (!this._layerEl) return;
-      if (this._targets.length >= (this._cfg.maxOnScreen|0)) return;
-
-      // boss pacing (after correct hits)
-      const bossDue = (this._correctHitsTotal > 0) &&
-        (this._correctHitsTotal % (this._cfg.bossEvery|0) === 0);
-      const spawnBoss = bossDue && (Math.random() < 0.35);
-
-      let type = 'food';
-      let gid = null;
-      let emoji = '🍎';
-
-      const r = Math.random();
-
-      if (spawnBoss){
-        type = 'boss';
-        gid = GROUPS[this._groupIdx].id;
-        emoji = '🧠'; // boss icon
-      } else if (r < this._cfg.junkRate){
-        type = 'junk';
-        emoji = pick(JUNK);
-      } else if (r < (this._cfg.junkRate + this._cfg.decoyRate)){
-        type = 'decoy';
-        gid = GROUPS[this._groupIdx].id;     // looks like current group
-        emoji = pick(GROUPS[this._groupIdx].foods);
-      } else {
-        // random group food (so current-group matters)
-        const g = pickGroup();
-        gid = g.id;
-        emoji = pick(g.foods);
-      }
-
-      const el = document.createElement('button');
-      el.className = 'fg-target';
-      el.type = 'button';
-      el.setAttribute('aria-label', 'target');
-
-      el.dataset.type = type; // food/junk/decoy/boss
-      if (gid != null) el.dataset.gid = String(gid);
-
-      if (type === 'boss'){
-        el.dataset.hp = String(this._cfg.bossHP|0);
-
-        const bar = document.createElement('div');
-        bar.className = 'bossbar';
-        const fill = document.createElement('div');
-        fill.className = 'bossbar-fill';
-        bar.appendChild(fill);
-        el.appendChild(bar);
-
-        el.classList.add('fg-boss');
-      } else if (type === 'junk'){
-        el.classList.add('fg-junk');
-      } else if (type === 'decoy'){
-        el.classList.add('fg-decoy');
-      } else {
-        const curId = GROUPS[this._groupIdx].id;
-        if ((gid|0) === (curId|0)) el.classList.add('fg-good');
-        // wrong group: leave default (still looks neutral)
-      }
-
-      // emoji (keep bossbar)
-      const span = document.createElement('span');
-      span.textContent = emoji;
-      span.style.pointerEvents = 'none';
-      el.insertBefore(span, el.firstChild);
-
-      // position via CSS vars (px)
-      const box = getSpawnBox();
-      const x = box.x0 + Math.random() * Math.max(10, (box.x1 - box.x0));
-      const y = box.y0 + Math.random() * Math.max(10, (box.y1 - box.y0));
-      const s = 0.92 + Math.random()*0.22;
-
-      el.style.setProperty('--x', Math.round(x) + 'px');
-      el.style.setProperty('--y', Math.round(y) + 'px');
-      el.style.setProperty('--s', String(s));
-
-      el.classList.add('show','spawn');
-      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 220);
-
-      // direct tap hit (no lock needed)
-      el.addEventListener('pointerdown', (ev)=>{
-        ev.preventDefault();
-        ev.stopPropagation();
-        this._stopLock();
-        this._hitTarget(el, 'tap');
-      }, { passive:false });
-
-      this._layerEl.appendChild(el);
-      this._targets.push(el);
-
-      const ttl = (this._cfg.ttl[0] + Math.random()*(this._cfg.ttl[1]-this._cfg.ttl[0]))|0;
-      const timer = setTimeout(()=>{
-        if (!el.isConnected) return;
-        this._expireTarget(el);
-      }, ttl);
-      el._ttlTimer = timer;
-    },
-
-    _expireTarget(el){
-      this._misses++;
-      this._combo = 0;
-      this._shots++; // counted as a shot attempt (miss)
-      this._removeTarget(el, 'out');
-      this._emitScore();
-      if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
-    },
-
-    _removeTarget(el, anim){
-      try{ if (el && el._ttlTimer) clearTimeout(el._ttlTimer); }catch(_){}
-
-      try{
-        const i = this._targets.indexOf(el);
-        if (i >= 0) this._targets.splice(i, 1);
-      }catch(_){}
-
-      try{
-        if (anim) el.classList.add(anim);
-        setTimeout(()=>{
-          try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){}
-        }, anim ? 200 : 0);
-      }catch(_){}
-    },
-
-    _closestTarget(x,y){
-      let best = null, bestD = 1e9;
-      for (let i=0;i<this._targets.length;i++){
-        const el = this._targets[i];
-        if (!el || !el.isConnected) continue;
-        const r = el.getBoundingClientRect();
-        const cx = r.left + r.width/2;
-        const cy = r.top + r.height/2;
-        const dx = cx - x, dy = cy - y;
-        const d = dx*dx + dy*dy;
-        if (d < bestD){ bestD = d; best = el; }
-      }
-      return { el: best, d2: bestD };
-    },
-
-    _startLock(ev){
-      const x = (ev && ev.clientX!=null) ? ev.clientX : (window.innerWidth/2);
-      const y = (ev && ev.clientY!=null) ? ev.clientY : (window.innerHeight/2);
-
-      const c = this._closestTarget(x,y);
-      if (!c.el || c.d2 > (210*210)){
-        // no target near tap -> miss shot
-        this._shots++;
-        this._misses++;
-        this._combo = 0;
-        this._emitScore();
-        if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
-        emit('groups:lock', { on:false });
-        return;
-      }
-
-      this._lockActive = true;
-      this._lockEl = c.el;
-      this._lockStartAt = now();
-
-      try{ this._lockEl.classList.add('lock'); }catch(_){}
-
-      this._tickLock();
-    },
-
-    _tickLock(){
-      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected){
-        emit('groups:lock', { on:false });
-        this._stopLock();
-        return;
-      }
-
-      const t = now();
-      const prog = clamp((t - this._lockStartAt) / (this._lockDur|0), 0, 1);
-
-      const r = this._lockEl.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-
-      const th = Math.max(1, this._cfg.powerThreshold|0);
-      const charge = clamp((this._powerCharge|0) / th, 0, 1);
-
-      emit('groups:lock', { on:true, x:cx, y:cy, prog, charge });
-
-      if (prog >= 1){
-        const hitEl = this._lockEl;
-        this._stopLock();
-        this._hitTarget(hitEl, 'lock');
-        emit('groups:lock', { on:false });
-        return;
-      }
-
-      this._lockRAF = requestAnimationFrame(()=>this._tickLock());
-    },
-
-    _stopLock(){
-      this._lockActive = false;
-      if (this._lockRAF){
-        try{ cancelAnimationFrame(this._lockRAF); }catch(_){}
-      }
-      this._lockRAF = 0;
-
-      if (this._lockEl){
-        try{ this._lockEl.classList.remove('lock'); }catch(_){}
-      }
-      this._lockEl = null;
-
-      emit('groups:lock', { on:false });
-    },
-
-    _hitTarget(el, via){
-      if (!el || !el.isConnected) return;
-
-      const t = now();
-      if (t < this._stunUntil) return;
-
-      const type = String(el.dataset.type || 'food');
-      const cur = GROUPS[this._groupIdx];
-      const curId = cur.id|0;
-
-      this._shots++;
-
-      if (type === 'junk'){
-        this._score -= (this._cfg.junkPenalty|0);
-        this._misses++;
-        this._combo = 0;
-
-        this._stunUntil = t + 800;
-        emit('groups:stun', { on:true, ms:800 });
-
-        document.documentElement.classList.add('stunflash');
-        setTimeout(()=>document.documentElement.classList.remove('stunflash'), 220);
-
-        if (navigator.vibrate){
-          try{ navigator.vibrate([60,60,60]); }catch(_){}
-        }
-
-        try{ el.classList.add('hit'); }catch(_){}
-        this._removeTarget(el, 'hit');
-
-        if (this._quest) this._quest.onShot({ correct:false, wrong:false, junk:true });
-        this._emitScore();
-        return;
-      }
-
-      if (type === 'boss'){
-        let hp = parseInt(el.dataset.hp || '1', 10) || 1;
-        hp = Math.max(0, hp - 1);
-        el.dataset.hp = String(hp);
-
-        this._hits++;
-        this._score += (this._cfg.bossScore|0);
-        this._combo++;
-        if (this._combo > this._comboMax) this._comboMax = this._combo;
-
-        const maxHP = (this._cfg.bossHP|0);
-        const fill = el.querySelector('.bossbar-fill');
-        if (fill){
-          const pct = clamp(hp / Math.max(1,maxHP), 0, 1);
-          fill.style.width = Math.round(pct*100) + '%';
-        }
-
-        if (hp <= 0){
-          try{ el.classList.add('hit'); }catch(_){}
-          this._removeTarget(el, 'hit');
-        } else {
-          if (hp <= 1){
-            try{ el.classList.add('rage'); }catch(_){}
-          }
-        }
-
-        this._powerCharge++;
-        this._emitPower();
-
-        if (this._quest) this._quest.onShot({ correct:true, wrong:false, junk:false });
-        this._emitScore();
-        return;
-      }
-
-      if (type === 'decoy'){
-        this._score -= (this._cfg.decoyPenalty|0);
-        this._misses++;
-        this._combo = 0;
-
-        try{ el.classList.add('hit'); }catch(_){}
-        this._removeTarget(el, 'hit');
-
-        if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
-        this._emitScore();
-        return;
-      }
-
-      // normal food
-      const gid = parseInt(el.dataset.gid || '0', 10) || 0;
-      const isCorrect = (gid|0) === (curId|0);
-
-      if (isCorrect){
-        this._hits++;
-        this._correctHitsTotal++;
-
-        this._score += (this._cfg.correctScore|0);
-        this._combo++;
-        if (this._combo > this._comboMax) this._comboMax = this._combo;
-
-        this._powerCharge++;
-        this._emitPower();
-
-        if (this._powerCharge >= (this._cfg.powerThreshold|0)){
-          this._powerCharge = 0;
-
-          this._groupIdx = (this._groupIdx + 1) % GROUPS.length;
-          const n = GROUPS[this._groupIdx];
-
-          emit('groups:group_change', { label: n.label });
-
-          document.documentElement.classList.add('swapflash');
-          setTimeout(()=>document.documentElement.classList.remove('swapflash'), 240);
-
-          if (this._quest) this._quest.onGroupChange(n.label);
-          this._emitPower();
-        }
-
-        if (this._quest) this._quest.onShot({ correct:true, wrong:false, junk:false });
-
-      } else {
-        this._score -= (this._cfg.wrongPenalty|0);
-        this._misses++;
-        this._combo = 0;
-        if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
-      }
-
-      try{ el.classList.add('hit'); }catch(_){}
-      this._removeTarget(el, 'hit');
-      this._emitScore();
+    hard: {
+      timeDefault: 90,
+      spawnEveryMs: [430, 690],
+      lifeMs: [900, 1300],
+      size: [0.76, 0.98],
+      junkRate: 0.28,
+      decoyRate: 0.12,
+      bossRate: 0.10,
+      bossHp: [6, 8],
+      stunMs: 820,
+      powerThreshold: 11,
+      score: { good: 140, bossHit: 105, bossKill: 320, decoy: -80, junk: -140 },
+      missPenalty: 1
     }
   };
 
-  W.GroupsVR.GameEngine = Engine;
+  function gradeFrom(acc, score){
+    // acc 0-100
+    if (acc >= 92 && score >= 8500) return 'SSS';
+    if (acc >= 88 && score >= 7000) return 'SS';
+    if (acc >= 83) return 'S';
+    if (acc >= 74) return 'A';
+    if (acc >= 62) return 'B';
+    return 'C';
+  }
 
+  // -------------------- Engine --------------------
+  const Engine = (function(){
+    const state = {
+      running:false,
+      diff:'normal',
+      runMode:'play',     // play / research (still same behavior here; you can clamp later)
+      seed:'',
+      rng: Math.random,
+
+      layerEl:null,
+      targets:new Map(),
+      nextId:1,
+
+      // timing
+      timeLeft:90,
+      timeTotal:90,
+      timerInt:null,
+      spawnTo:null,
+
+      // score
+      score:0,
+      combo:0,
+      comboMax:0,
+      misses:0,
+
+      // accuracy core
+      goodHit:0,
+      goodSpawn:0,
+      goodExpire:0,
+      junkHit:0,
+      junkSpawn:0,
+      decoyHit:0,
+      bossKills:0,
+
+      // group/power
+      groupIndex:0,
+      powerCharge:0,
+      powerThreshold:9,
+
+      // stun
+      stunnedUntil:0,
+
+      // panic
+      panicOn:false,
+
+      // input
+      lastPointer: { x:0, y:0 },
+      lockedId: null,
+      lockStartMs: 0,
+      lockNeedMs: 220 // small hold-to-lock
+    };
+
+    function cfg(){
+      return DIFF[state.diff] || DIFF.normal;
+    }
+
+    function setLayerEl(el){
+      state.layerEl = el;
+      if (el){
+        el.addEventListener('pointerdown', onPointerDown, { passive:false });
+        el.addEventListener('pointermove', onPointerMove, { passive:true });
+      }
+    }
+
+    function setTimeLeft(sec){
+      sec = Math.max(1, (sec|0));
+      state.timeLeft = sec;
+      state.timeTotal = sec;
+    }
+
+    function resetStats(){
+      state.targets.clear();
+      state.nextId = 1;
+
+      state.score = 0;
+      state.combo = 0;
+      state.comboMax = 0;
+      state.misses = 0;
+
+      state.goodHit = 0;
+      state.goodSpawn = 0;
+      state.goodExpire = 0;
+      state.junkHit = 0;
+      state.junkSpawn = 0;
+      state.decoyHit = 0;
+      state.bossKills = 0;
+
+      state.groupIndex = 0;
+      state.powerCharge = 0;
+
+      state.stunnedUntil = 0;
+      state.panicOn = false;
+
+      state.lockedId = null;
+      state.lockStartMs = 0;
+
+      // wipe DOM targets
+      if (state.layerEl) state.layerEl.innerHTML = '';
+    }
+
+    function currentGroup(){
+      return GROUPS[state.groupIndex % GROUPS.length];
+    }
+
+    function computePlayRect(){
+      const w = root.innerWidth || DOC.documentElement.clientWidth || 360;
+      const h = root.innerHeight || DOC.documentElement.clientHeight || 640;
+      const insets = readSafeInsets();
+
+      // HUD height (avoid spawning under HUD)
+      const hud = DOC.querySelector('.hud-top');
+      const hudRect = hud ? hud.getBoundingClientRect() : { bottom: 0 };
+      const hudBottom = Math.max(0, hudRect.bottom || 0);
+
+      // extra padding margins
+      const pad = 12;
+      const top = Math.min(h-140, Math.max(hudBottom + 10, 10 + insets.sat + 10));
+      const left = 10 + insets.sal + pad;
+      const right = w - (10 + insets.sar + pad);
+      const bottom = h - (10 + insets.sab + pad);
+
+      // ensure valid
+      return {
+        left,
+        top,
+        right,
+        bottom,
+        width: Math.max(10, right - left),
+        height: Math.max(10, bottom - top),
+        w, h
+      };
+    }
+
+    function spawn(){
+      if (!state.running) return;
+
+      const c = cfg();
+      const play = computePlayRect();
+
+      // decide type
+      const r = state.rng();
+      let type = 'good';
+      if (r < c.bossRate) type = 'boss';
+      else if (r < c.bossRate + c.decoyRate) type = 'decoy';
+      else if (r < c.bossRate + c.decoyRate + c.junkRate) type = 'junk';
+
+      // emoji + meta
+      const g = currentGroup();
+      let emoji = pick(state.rng, g.good);
+      if (type === 'junk') emoji = pick(state.rng, JUNK_EMOJI);
+      if (type === 'decoy') emoji = pick(state.rng, DECOY_EMOJI);
+      if (type === 'boss') emoji = pick(state.rng, BOSS_EMOJI);
+
+      // size
+      const s = c.size[0] + state.rng() * (c.size[1] - c.size[0]);
+
+      // position (px)
+      // leave some room for target size so it doesn't clip
+      const half = (132 * s) * 0.5;
+      const x = clamp(play.left + half + state.rng()*(play.width - 2*half), play.left + half, play.right - half);
+      const y = clamp(play.top  + half + state.rng()*(play.height - 2*half), play.top  + half, play.bottom - half);
+
+      // lifetime
+      const life = randInt(state.rng, c.lifeMs[0], c.lifeMs[1]);
+      const expireAt = nowMs() + life;
+
+      // DOM
+      const id = String(state.nextId++);
+      const el = DOC.createElement('div');
+      el.className = 'fg-target show spawn';
+      el.dataset.id = id;
+      el.dataset.type = type;
+
+      if (type === 'good') el.classList.add('fg-good');
+      if (type === 'junk') el.classList.add('fg-junk');
+      if (type === 'decoy') el.classList.add('fg-decoy');
+      if (type === 'boss') el.classList.add('fg-boss');
+
+      el.style.setProperty('--x', x.toFixed(1) + 'px');
+      el.style.setProperty('--y', y.toFixed(1) + 'px');
+      el.style.setProperty('--s', s.toFixed(3));
+
+      el.textContent = emoji;
+
+      let bossHp = 0;
+      let bossHpMax = 0;
+      let bossFillEl = null;
+
+      if (type === 'boss'){
+        bossHpMax = randInt(state.rng, c.bossHp[0], c.bossHp[1]);
+        bossHp = bossHpMax;
+
+        // append bossbar
+        const bar = DOC.createElement('div');
+        bar.className = 'bossbar';
+        const fill = DOC.createElement('div');
+        fill.className = 'bossbar-fill';
+        bar.appendChild(fill);
+        el.appendChild(bar);
+        bossFillEl = fill;
+      }
+
+      state.layerEl.appendChild(el);
+
+      // stats spawn
+      if (type === 'good'){ state.goodSpawn++; }
+      if (type === 'junk'){ state.junkSpawn++; }
+
+      state.targets.set(id, {
+        id,
+        el,
+        type,
+        emoji,
+        x, y, s,
+        expireAt,
+        dead:false,
+        groupId: g.id,
+        bossHp,
+        bossHpMax,
+        bossFillEl
+      });
+
+      // clean spawn anim class
+      setTimeout(()=>{ if (el) el.classList.remove('spawn'); }, 220);
+
+      // schedule next spawn
+      const next = randInt(state.rng, c.spawnEveryMs[0], c.spawnEveryMs[1]);
+      state.spawnTo = setTimeout(spawn, next);
+    }
+
+    function removeTarget(t, reason){
+      if (!t || t.dead) return;
+      t.dead = true;
+      state.targets.delete(t.id);
+
+      const el = t.el;
+      if (el){
+        el.classList.remove('spawn');
+        el.classList.add('out');
+        setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 220);
+      }
+
+      if (reason === 'expire'){
+        if (t.type === 'good'){
+          state.goodExpire++;
+          addMiss();
+        }
+      }
+    }
+
+    function addMiss(){
+      state.misses += 1;
+      state.combo = 0;
+      emitScore();
+    }
+
+    function emitScore(){
+      state.comboMax = Math.max(state.comboMax, state.combo);
+      emit('hha:score', {
+        score: state.score|0,
+        combo: state.combo|0,
+        misses: state.misses|0,
+        comboMax: state.comboMax|0
+      });
+
+      const acc = calcAccuracy();
+      emit('hha:rank', { grade: gradeFrom(acc, state.score|0), accuracy: acc|0 });
+    }
+
+    function calcAccuracy(){
+      // accuracy focuses on "correct good targets" vs (good hit + good expire)
+      const denom = Math.max(1, state.goodHit + state.goodExpire);
+      return Math.round((state.goodHit / denom) * 100);
+    }
+
+    function powerAdd(n){
+      const c = cfg();
+      const th = state.powerThreshold || c.powerThreshold || 9;
+      state.powerCharge = clamp(state.powerCharge + (n|0), 0, th);
+      emit('groups:power', { charge: state.powerCharge|0, threshold: th|0 });
+
+      if (state.powerCharge >= th){
+        state.powerCharge = 0;
+        emit('groups:power', { charge: 0, threshold: th|0 });
+        swapGroup(+1);
+      }
+    }
+
+    function swapGroup(dir){
+      const prev = currentGroup();
+      state.groupIndex = (state.groupIndex + (dir|0) + GROUPS.length) % GROUPS.length;
+      const g = currentGroup();
+
+      (NS.FX || FX).swapFlash();
+      emit('groups:group_change', { groupId: g.id, label: g.label, from: prev.id });
+
+      // optional quest hook
+      emit('groups:progress', { kind:'group_swap', groupId:g.id });
+    }
+
+    function isStunned(){
+      return nowMs() < state.stunnedUntil;
+    }
+
+    function hitTarget(t){
+      if (!t || t.dead) return;
+
+      const c = cfg();
+      const type = t.type;
+
+      // hit animation
+      if (t.el){
+        t.el.classList.remove('spawn');
+        t.el.classList.add('hit');
+        setTimeout(()=>{ try{ t.el.remove(); }catch(e){} }, 220);
+      }
+      state.targets.delete(t.id);
+      t.dead = true;
+
+      // afterimage
+      (NS.FX || FX).afterimage(t.x, t.y, t.emoji);
+
+      if (type === 'good'){
+        state.goodHit++;
+        state.combo++;
+        state.score += c.score.good + Math.min(220, state.combo * 6);
+        powerAdd(1);
+        emit('hha:judge', { text:'GOOD!', kind:'good' });
+        emit('groups:progress', { kind:'good_hit', groupId: t.groupId });
+      }
+      else if (type === 'junk'){
+        state.junkHit++;
+        state.combo = 0;
+        state.score += c.score.junk; // negative
+        addMiss();
+        state.stunnedUntil = nowMs() + (c.stunMs|0);
+        (NS.FX || FX).stunFlash();
+        emit('groups:stun', { ms: c.stunMs|0 });
+        emit('hha:judge', { text:'STUN!', kind:'bad' });
+      }
+      else if (type === 'decoy'){
+        state.decoyHit++;
+        state.combo = 0;
+        state.score += c.score.decoy; // negative
+        addMiss();
+        emit('hha:judge', { text:'DECOY!', kind:'warn' });
+        emit('groups:progress', { kind:'decoy_hit' });
+      }
+      else if (type === 'boss'){
+        // boss is multi-hit, but we "remove" here only when killed
+        // so boss is handled in hitBoss() below
+      }
+
+      emitScore();
+    }
+
+    function hitBoss(t){
+      if (!t || t.dead) return;
+
+      const c = cfg();
+      t.bossHp = Math.max(0, (t.bossHp|0) - 1);
+
+      // score per hit
+      state.combo++;
+      state.score += c.score.bossHit + Math.min(240, state.combo * 6);
+
+      // update bar
+      if (t.bossFillEl && t.bossHpMax){
+        const pct = Math.max(0, (t.bossHp / t.bossHpMax) * 100);
+        t.bossFillEl.style.width = pct.toFixed(1) + '%';
+      }
+
+      // rage mode when low
+      if (t.el && t.bossHpMax && t.bossHp <= Math.ceil(t.bossHpMax * 0.35)){
+        t.el.classList.add('rage');
+      }
+
+      // kill
+      if (t.bossHp <= 0){
+        state.bossKills++;
+        state.score += c.score.bossKill;
+        powerAdd(2);
+
+        // explode / remove
+        if (t.el){
+          t.el.classList.add('hit');
+          setTimeout(()=>{ try{ t.el.remove(); }catch(e){} }, 220);
+        }
+        t.dead = true;
+        state.targets.delete(t.id);
+
+        emit('hha:judge', { text:'BOSS DOWN!', kind:'boss' });
+        emit('groups:progress', { kind:'boss_kill' });
+      } else {
+        emit('hha:judge', { text:'HIT!', kind:'boss' });
+      }
+
+      emitScore();
+    }
+
+    function findNearestTarget(px, py, radiusPx){
+      let best = null;
+      let bestD = 1e9;
+
+      state.targets.forEach((t)=>{
+        if (!t || t.dead) return;
+        const dx = (t.x - px);
+        const dy = (t.y - py);
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < bestD){
+          bestD = d;
+          best = t;
+        }
+      });
+
+      if (!best) return null;
+      return (bestD <= radiusPx) ? best : null;
+    }
+
+    function tryLock(px, py){
+      const t = findNearestTarget(px, py, 120);
+      if (!t) {
+        state.lockedId = null;
+        state.lockStartMs = 0;
+        return null;
+      }
+      // mark lock target (CSS outline)
+      if (state.lockedId !== t.id){
+        // clear old
+        if (state.lockedId && state.targets.has(state.lockedId)){
+          const old = state.targets.get(state.lockedId);
+          if (old && old.el) old.el.classList.remove('lock');
+        }
+        state.lockedId = t.id;
+        state.lockStartMs = nowMs();
+        if (t.el) t.el.classList.add('lock');
+      }
+      return t;
+    }
+
+    function onPointerMove(ev){
+      if (!state.running) return;
+      if (!ev) return;
+      state.lastPointer.x = ev.clientX || 0;
+      state.lastPointer.y = ev.clientY || 0;
+
+      // optional: update lock target
+      if (isStunned()) return;
+      tryLock(state.lastPointer.x, state.lastPointer.y);
+    }
+
+    function onPointerDown(ev){
+      if (!state.running) return;
+      if (!ev) return;
+
+      // prevent scroll
+      try { ev.preventDefault(); } catch(e) {}
+
+      const px = ev.clientX || 0;
+      const py = ev.clientY || 0;
+      state.lastPointer.x = px;
+      state.lastPointer.y = py;
+
+      if (isStunned()) return;
+
+      // priority: direct nearest in radius
+      const t = findNearestTarget(px, py, 110);
+      if (t){
+        if (t.type === 'boss'){
+          hitBoss(t);
+        } else {
+          hitTarget(t);
+        }
+        return;
+      }
+
+      // fallback: if locked long enough, auto-hit locked
+      if (state.lockedId && state.targets.has(state.lockedId)){
+        const lt = state.targets.get(state.lockedId);
+        const held = nowMs() - (state.lockStartMs || 0);
+        if (held >= state.lockNeedMs && lt){
+          if (lt.type === 'boss') hitBoss(lt);
+          else hitTarget(lt);
+        }
+      }
+    }
+
+    function tickSecond(){
+      if (!state.running) return;
+
+      state.timeLeft = Math.max(0, (state.timeLeft|0) - 1);
+      emit('hha:time', { left: state.timeLeft|0 });
+
+      // panic at last 12s
+      const panic = state.timeLeft <= 12 && state.timeLeft > 0;
+      if (panic !== state.panicOn){
+        state.panicOn = panic;
+        (NS.FX || FX).panic(panic);
+      }
+
+      // expire sweep
+      const tnow = nowMs();
+      const exp = [];
+      state.targets.forEach((t)=>{
+        if (!t || t.dead) return;
+        if (tnow >= t.expireAt) exp.push(t);
+      });
+      for (let i=0;i<exp.length;i++) removeTarget(exp[i], 'expire');
+
+      // end
+      if (state.timeLeft <= 0){
+        stop(true);
+      }
+    }
+
+    function start(diff, opts){
+      opts = opts || {};
+      state.diff = String(diff || 'normal').toLowerCase();
+      if (!DIFF[state.diff]) state.diff = 'normal';
+
+      state.runMode = String(opts.runMode || 'play').toLowerCase();
+      state.seed = String(opts.seed || '');
+
+      // rng
+      const seedNum = state.seed ? hashSeed(state.seed) : (Math.random()*1e9)>>>0;
+      state.rng = mulberry32(seedNum);
+
+      // thresholds
+      const c = cfg();
+      state.powerThreshold = (c.powerThreshold|0);
+
+      // layer must exist
+      if (!state.layerEl){
+        console.warn('[GroupsVR] layer not set');
+        return;
+      }
+
+      resetStats();
+      state.running = true;
+
+      // emit first group
+      emit('groups:group_change', { groupId: currentGroup().id, label: currentGroup().label, from: 0 });
+      emit('groups:power', { charge:0, threshold: state.powerThreshold|0 });
+      emit('hha:time', { left: state.timeLeft|0 });
+      emitScore();
+
+      // timer
+      clearInterval(state.timerInt);
+      state.timerInt = setInterval(tickSecond, 1000);
+
+      // spawn loop
+      clearTimeout(state.spawnTo);
+      state.spawnTo = setTimeout(spawn, 250);
+    }
+
+    function stop(ended){
+      if (!state.running) return;
+      state.running = false;
+
+      clearInterval(state.timerInt);
+      clearTimeout(state.spawnTo);
+      state.timerInt = null;
+      state.spawnTo = null;
+
+      (NS.FX || FX).panic(false);
+
+      // clear lock outline
+      if (state.lockedId && state.targets.has(state.lockedId)){
+        const t = state.targets.get(state.lockedId);
+        if (t && t.el) t.el.classList.remove('lock');
+      }
+
+      if (ended){
+        const acc = calcAccuracy();
+        const grade = gradeFrom(acc, state.score|0);
+        emit('hha:rank', { grade, accuracy: acc|0 });
+
+        emit('hha:end', {
+          game: 'groups',
+          diff: state.diff,
+          runMode: state.runMode,
+          seed: state.seed,
+
+          scoreFinal: state.score|0,
+          comboMax: state.comboMax|0,
+          misses: state.misses|0,
+
+          goodHit: state.goodHit|0,
+          goodSpawn: state.goodSpawn|0,
+          goodExpire: state.goodExpire|0,
+          junkHit: state.junkHit|0,
+          junkSpawn: state.junkSpawn|0,
+          decoyHit: state.decoyHit|0,
+          bossKills: state.bossKills|0,
+
+          accuracyGoodPct: acc|0,
+          grade: grade
+        });
+      }
+    }
+
+    return {
+      setLayerEl,
+      setTimeLeft,
+      start,
+      stop
+    };
+  })();
+
+  NS.GameEngine = Engine;
 })(window);
