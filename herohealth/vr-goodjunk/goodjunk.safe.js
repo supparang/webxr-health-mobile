@@ -1,15 +1,15 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE (PRODUCTION) — Full module
-// ✅ Emits quest:update + hha:quest -> Goal/Mini always visible
-// ✅ Quest cache: window.__HHA_LAST_QUEST__ (late-bind HUD ไม่พลาด)
+// GoodJunkVR — SAFE (PRODUCTION) — Full module (MAGNET FULL PACK)
+// ✅ Quest emits: quest:update + hha:quest (cache: window.__HHA_LAST_QUEST__)
 // ✅ Stun: screen shake + edge flash
 // ✅ Boss mode: boss + ring/laser hazards
 // ✅ FEVER -> auto Shield (blocks junk/hazard; junk blocked does NOT count as miss)
 // ✅ Miss definition: miss = good expired + junk hit (only if NOT blocked by shield)
-// ✅ Works with GoodJunkVR HTML that sets:
-//    - window.__GJ_LAYER_OFFSET__
-//    - window.__GJ_AIM_POINT__
-// and provides #gj-layer, #btnShoot, #atk-ring, #atk-laser
+// ✅ MAGNET FULL PACK:
+//    - Real pull toward crosshair (good/gold/power only)
+//    - Anti-junk field (push junk/trap away within radius while magnet active)
+//    - Magnet field lines FX + crosshair glow + aura
+//    - Magnet bonus: extra score + extra combo + fever boost on good hits
 
 'use strict';
 
@@ -48,7 +48,9 @@ function dist2(ax, ay, bx, by) {
   return dx * dx + dy * dy;
 }
 
-// --------------------------- Style injection (stun/panic) ---------------------------
+function hypot(dx, dy){ return Math.hypot(dx, dy); }
+
+// --------------------------- Style injection (stun/panic/magnet) ---------------------------
 function ensureFXStyles() {
   if (document.getElementById('gj-safe-fx-style')) return;
   const style = document.createElement('style');
@@ -106,6 +108,56 @@ function ensureFXStyles() {
       from{ opacity:.10; }
       to{ opacity:.60; }
     }
+
+    /* ---- Magnet mode FX ---- */
+    body.gj-magnet #gj-crosshair{
+      box-shadow:
+        0 0 0 3px rgba(34,197,94,.18),
+        0 0 26px rgba(34,197,94,.22),
+        0 0 60px rgba(34,197,94,.10);
+      border-color: rgba(255,255,255,.92);
+    }
+    body.gj-magnet::before{
+      content:'';
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index: 9997;
+      background: radial-gradient(700px 500px at 50% 62%, rgba(34,197,94,.085), transparent 60%);
+      opacity:.95;
+      mix-blend-mode: screen;
+    }
+
+    /* ---- Magnet field lines layer ---- */
+    .gj-mline-layer{
+      position:fixed;
+      inset:0;
+      z-index: 32; /* above targets (20), under hazards (33) + HUD (40) */
+      pointer-events:none;
+      overflow:hidden;
+    }
+    .gj-mline{
+      position:absolute;
+      left:0; top:0;
+      height: 3px;
+      border-radius: 999px;
+      transform-origin: 0% 50%;
+      background: linear-gradient(90deg,
+        rgba(34,197,94,0.00),
+        rgba(34,197,94,0.75),
+        rgba(245,158,11,0.55),
+        rgba(255,255,255,0.18)
+      );
+      filter: drop-shadow(0 10px 22px rgba(34,197,94,.20));
+      mix-blend-mode: screen;
+      opacity: 0;
+      animation: gjMagLine .26s ease-out forwards;
+    }
+    @keyframes gjMagLine{
+      0%{ opacity:0; transform: translate3d(0,0,0) scaleX(.82); }
+      35%{ opacity:.95; }
+      100%{ opacity:0; transform: translate3d(0,0,0) scaleX(1.02); }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -119,11 +171,7 @@ const Particles =
 const FeverUI =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
   ROOT.FeverUI ||
-  {
-    setFever() {},
-    setShield() {},
-    setState() {},
-  };
+  { setFever() {}, setShield() {}, setState() {} };
 
 // --------------------------- Quest Director (embedded, no dependency) ---------------------------
 function makeQuestDirector(opts = {}) {
@@ -351,6 +399,44 @@ export function boot(opts = {}) {
   // Quest defs
   const defs = makeDefaultQuestDefs(diff, challenge);
 
+  // ---------------- magnet line layer ----------------
+  let mlineLayer = null;
+  function ensureMagnetLineLayer(){
+    if (mlineLayer && mlineLayer.isConnected) return mlineLayer;
+    mlineLayer = document.querySelector('.gj-mline-layer');
+    if (mlineLayer) return mlineLayer;
+
+    const el = document.createElement('div');
+    el.className = 'gj-mline-layer';
+    document.body.appendChild(el);
+    mlineLayer = el;
+    return mlineLayer;
+  }
+
+  // rate limit for magnet lines
+  let magLineNextMs = 0;
+  function spawnMagLine(x1, y1, x2, y2){
+    const layer = ensureMagnetLineLayer();
+    if (!layer) return;
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.max(10, Math.hypot(dx, dy));
+    const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+
+    const line = document.createElement('div');
+    line.className = 'gj-mline';
+    line.style.left = `${x1.toFixed(1)}px`;
+    line.style.top  = `${y1.toFixed(1)}px`;
+    line.style.width = `${len.toFixed(1)}px`;
+    line.style.transform = `rotate(${ang.toFixed(2)}deg)`;
+    line.style.height = `${rndi(2, 4)}px`;
+
+    layer.appendChild(line);
+    // cleanup
+    setTimeout(() => { try { line.remove(); } catch(_) {} }, 320);
+  }
+
   // Internal state
   const S = {
     startedAtIso: null,
@@ -401,7 +487,10 @@ export function boot(opts = {}) {
     miniCleared: 0,
     miniTotal: 7,
 
-    grade: '—'
+    grade: '—',
+
+    // magnet helpers
+    __magCoachCdMs: 0
   };
 
   // ✅ helper: cache quest state for late-bind HUD
@@ -531,6 +620,138 @@ export function boot(opts = {}) {
     return { x, y };
   }
 
+  // --------------------------- Magnet physics (REAL pull + anti-junk + FX lines) ---------------------------
+  function clampToSafe(t){
+    const w = Math.max(1, window.innerWidth);
+    const h = Math.max(1, window.innerHeight);
+    const pad = 34;
+
+    t.xView = clamp(t.xView, safeMargins.left + pad, w - safeMargins.right - pad);
+    t.yView = clamp(t.yView, safeMargins.top + pad,  h - safeMargins.bottom - pad);
+  }
+
+  function repaintTarget(t){
+    const p = viewportToLayerXY(t.xView, t.yView);
+    t.el.style.left = `${p.x}px`;
+    t.el.style.top  = `${p.y}px`;
+  }
+
+  function applyMagnetPull(dtMs){
+    if (S.magnet <= 0) return;
+
+    const dt = Math.max(0.001, dtMs / 1000);
+    const a  = getAimPoint(); // viewport coords
+    const now = nowMs();
+
+    // pull strength
+    const strength = 4.2;
+    const k = 1 - Math.exp(-strength * dt);
+
+    // limit per frame
+    const maxStep = 540 * dt;
+
+    const tNow = now / 1000;
+    let linesBudget = 2; // draw at most 2 lines per frame (safe)
+
+    for (const t of targets.values()) {
+      if (!t || !t.el) continue;
+
+      // ✅ pull only these
+      if (!(t.type === 'good' || t.type === 'gold' || t.type === 'power')) continue;
+
+      const dx = a.x - t.xView;
+      const dy = a.y - t.yView;
+      const dist = hypot(dx, dy);
+      if (dist < 10) continue;
+
+      let sx = dx * k;
+      let sy = dy * k;
+
+      const stepLen = hypot(sx, sy);
+      if (stepLen > maxStep) {
+        const s = maxStep / stepLen;
+        sx *= s; sy *= s;
+      }
+
+      // wobble
+      const idn = (Number(t.id) || 0);
+      const wob = Math.min(1, dist / 260) * 18; // px/sec
+      sx += Math.sin(tNow * 10 + idn * 0.77) * wob * dt;
+      sy += Math.cos(tNow *  9 + idn * 0.61) * wob * dt;
+
+      // power pull slightly less
+      const mul = (t.type === 'power') ? 0.82 : 1.0;
+
+      // move
+      t.xView += sx * mul;
+      t.yView += sy * mul;
+
+      clampToSafe(t);
+      repaintTarget(t);
+
+      // field lines FX (rate-limited)
+      if (linesBudget > 0 && now >= magLineNextMs && dist > 60) {
+        magLineNextMs = now + 70; // ~14 lines/sec max
+        linesBudget--;
+
+        // draw from target -> aim (slightly jitter)
+        spawnMagLine(
+          t.xView + rnd(-6, 6),
+          t.yView + rnd(-6, 6),
+          a.x + rnd(-4, 4),
+          a.y + rnd(-4, 4)
+        );
+      }
+    }
+  }
+
+  function applyAntiJunkField(dtMs){
+    if (S.magnet <= 0) return;
+
+    const dt = Math.max(0.001, dtMs / 1000);
+    const a = getAimPoint();
+    const radius = 260;      // push range
+    const r2 = radius * radius;
+
+    const pushStrength = 6.0;  // higher = stronger repel
+    const k = 1 - Math.exp(-pushStrength * dt);
+    const maxStep = 520 * dt;
+
+    const tNow = nowMs() / 1000;
+
+    for (const t of targets.values()) {
+      if (!t || !t.el) continue;
+      if (!(t.type === 'junk' || t.type === 'trap')) continue;
+
+      const dx = t.xView - a.x;
+      const dy = t.yView - a.y;
+      const d2 = dx*dx + dy*dy;
+      if (d2 > r2) continue;
+
+      const d = Math.max(1, Math.sqrt(d2));
+      const nx = dx / d;
+      const ny = dy / d;
+
+      // repel more when closer
+      const closeness = 1 - Math.min(1, d / radius);
+      let step = (radius * 0.95 * closeness) * k;
+
+      // cap per frame
+      step = Math.min(step, maxStep);
+
+      // little swirl
+      const swirl = 80 * closeness * dt;
+      const sx = (-ny) * swirl * Math.sin(tNow * 7 + (Number(t.id)||0));
+      const sy = ( nx) * swirl * Math.cos(tNow * 6 + (Number(t.id)||0));
+
+      t.xView += nx * step + sx;
+      t.yView += ny * step + sy;
+
+      clampToSafe(t);
+      repaintTarget(t);
+    }
+  }
+
   // Emojis
   const EMOJI_GOOD = ['🥦','🥬','🥕','🍎','🍌','🍇','🍊','🥒','🍅','🫐'];
   const EMOJI_JUNK = ['🍟','🍕','🍔','🌭','🍩','🍪','🧁','🍫'];
@@ -600,9 +821,7 @@ export function boot(opts = {}) {
       const nx = clamp(t.xView + rnd(-jitter, jitter), safeMargins.left + 60, innerWidth - safeMargins.right - 60);
       const ny = clamp(t.yView + rnd(-jitter, jitter), safeMargins.top + 60, innerHeight - safeMargins.bottom - 60);
       t.xView = nx; t.yView = ny;
-      const p = viewportToLayerXY(nx, ny);
-      t.el.style.left = `${p.x}px`;
-      t.el.style.top = `${p.y}px`;
+      repaintTarget(t);
       break;
     }
 
@@ -699,14 +918,10 @@ export function boot(opts = {}) {
     maxGoals: 2,
     maxMini: 7,
     onUpdate: (ui) => {
-      // ✅ cache first for late-bind HUD
       cacheQuest(ui);
-
-      // ✅ emit both event names (hud supports both)
       emitEvt('quest:update', ui);
       emitEvt('hha:quest', ui);
 
-      // keep totals synced
       S.goalsCleared = ui.goalsCleared|0;
       S.goalsTotal = ui.goalsTotal|0;
       S.miniCleared = ui.minisCleared|0;
@@ -717,7 +932,7 @@ export function boot(opts = {}) {
   // Start quest now (so Goal/Mini shows immediately)
   Q.start();
 
-  // ✅ init push + cache + re-emit (0ms) กัน listener bind ช้า
+  // init push + cache + re-emit (0ms) กัน listener bind ช้า
   const initUI = Q.getUIState('init');
   cacheQuest(initUI);
   emitEvt('quest:update', initUI);
@@ -743,7 +958,15 @@ export function boot(opts = {}) {
 
     for (const t of targets.values()) {
       if (!t || !t.el) continue;
-      const allow = (t.type === 'boss') || (t.type === 'good') || (t.type === 'junk') || (t.type === 'trap') || (t.type === 'gold') || (t.type === 'power');
+
+      const allow =
+        (t.type === 'boss') ||
+        (t.type === 'good') ||
+        (t.type === 'junk') ||
+        (t.type === 'trap') ||
+        (t.type === 'gold') ||
+        (t.type === 'power');
+
       if (!allow) continue;
 
       const d2 = dist2(a.x, a.y, t.xView, t.yView);
@@ -789,8 +1012,26 @@ export function boot(opts = {}) {
     if (t.type === 'good') {
       S.nHitGood += 1;
       S.rtGood.push(rt);
+
+      // base
       S.score += 120 + Math.min(120, (S.combo * 6));
       S.combo += 1;
+
+      // ✅ Magnet bonus (ALL IN)
+      if (S.magnet > 0) {
+        S.score += 40;           // bonus score
+        S.combo += 1;            // extra combo tick
+        setFever(S.fever + 2);   // extra fever
+        Particles.burstAt?.(t.xView, t.yView, 'POWER');
+
+        // tiny coach cooldown
+        const n = nowMs();
+        if (n >= S.__magCoachCdMs) {
+          S.__magCoachCdMs = n + 1800;
+          coach('แม่เหล็กกำลังทำงาน! ดูดของดีเข้าศูนย์กลาง 🧲', 'happy', 'รีบโกยคอมโบให้สุด!');
+        }
+      }
+
       S.comboMax = Math.max(S.comboMax, S.combo);
       setFever(S.fever + 6);
 
@@ -814,7 +1055,7 @@ export function boot(opts = {}) {
         if (S.combo % 7 === 0) coach('คอมโบมาแล้ว! ดีมาก 🔥', 'happy', 'รักษาจังหวะ!');
       }
 
-      emitEvt('hha:log_event', { kind:'hit_good', ts: Date.now(), rtMs: Math.round(rt), direct: !!meta.direct });
+      emitEvt('hha:log_event', { kind:'hit_good', ts: Date.now(), rtMs: Math.round(rt), direct: !!meta.direct, magnet: (S.magnet>0?1:0) });
       emitScore();
       return;
     }
@@ -822,11 +1063,12 @@ export function boot(opts = {}) {
     if (t.type === 'gold') {
       S.score += 350;
       S.combo += 2;
+      if (S.magnet > 0) { S.score += 60; S.combo += 1; setFever(S.fever + 3); }
       S.comboMax = Math.max(S.comboMax, S.combo);
       setFever(S.fever + 10);
       Particles.celebrate?.('GOLD');
       coach('เจอของพิเศษ! คะแนนพุ่ง ⭐', 'happy', 'รักษาคอมโบ!');
-      emitEvt('hha:log_event', { kind:'hit_gold', ts: Date.now() });
+      emitEvt('hha:log_event', { kind:'hit_gold', ts: Date.now(), magnet:(S.magnet>0?1:0) });
       emitScore();
       return;
     }
@@ -840,10 +1082,11 @@ export function boot(opts = {}) {
         S.timeLeftSec = Math.min(S.durationPlannedSec + 30, S.timeLeftSec + 6);
         coach('บวกเวลา! ⏳', 'happy', 'รีบโกยของดี!');
       } else {
+        // 🧲 magnet
         S.magnet = Math.max(S.magnet, 8.0);
-        coach('พลังแม่เหล็ก! 🧲 เก็บของดีให้ไว!', 'happy', 'เล็งกลางแล้วกดยิงรัวได้เลย');
+        coach('พลังแม่เหล็ก! 🧲 ของดีจะไหลเข้าศูนย์กลาง', 'happy', 'ระวัง—ขยะจะโดนผลักออกด้วย!');
+        Particles.celebrate?.('POWER');
       }
-      Particles.celebrate?.('POWER');
       emitEvt('hha:log_event', { kind:'hit_power', ts: Date.now(), power: tag });
       emitScore();
       return;
@@ -856,9 +1099,7 @@ export function boot(opts = {}) {
         coach('โล่กันไว้! ไม่พลาด 🛡️', 'happy', 'ดีมาก!');
         emitEvt('hha:log_event', { kind:'hit_junk_guard', ts: Date.now(), type: t.type });
         emitScore();
-
-        // ✅ IMPORTANT: เมื่อ guard แล้ว "ไม่" fail forbidJunk mini
-        // Q.onJunkHit();  // <- removed
+        // ✅ guard แล้ว "ไม่" fail forbidJunk mini
         return;
       }
 
@@ -881,8 +1122,7 @@ export function boot(opts = {}) {
   function shoot() {
     if (!canAct()) return;
     const baseR = 120;
-    const radius = (S.magnet > 0) ? 240 : baseR;
-
+    const radius = (S.magnet > 0) ? 260 : baseR; // ✅ magnet: wider lock
     const t = nearestTargetToAim(radius);
 
     if (!t) {
@@ -981,70 +1221,6 @@ export function boot(opts = {}) {
     emitEvt('hha:log_event', { kind:'spawn_good', ts: Date.now() });
   }
 
-  function update(dtMs) {
-    S.timeLeftSec = Math.max(0, S.timeLeftSec - (dtMs / 1000));
-    S.durationPlayedSec = (timeLimitSec - S.timeLeftSec);
-
-    if (S.timeLeftSec <= 8 && S.timeLeftSec > 0) document.body.classList.add('gj-panic');
-    else document.body.classList.remove('gj-panic');
-
-    if (S.shield > 0) setShield(S.shield - (dtMs / 1000));
-    if (S.magnet > 0) S.magnet = Math.max(0, S.magnet - (dtMs / 1000));
-    if (S.slowmo > 0) S.slowmo = Math.max(0, S.slowmo - (dtMs / 1000));
-
-    if (S.fever >= 100 && S.shield <= 0.01) {
-      setFever(0);
-      setShield(6.0);
-      Particles.celebrate?.('FEVER');
-      coach('FEVER เต็ม! ได้โล่ 🛡️', 'fever', 'ช่วงนี้บวกให้สุด!');
-    }
-
-    Q.tick();
-
-    const cfg = spawnConfig();
-    const slowFactor = (S.slowmo > 0) ? 0.7 : 1.0;
-    spawnAccMs += dtMs;
-
-    const interval = cfg.baseInterval / slowFactor;
-
-    while (spawnAccMs >= interval && S.timeLeftSec > 0) {
-      spawnAccMs -= interval;
-
-      if ((challenge === 'boss') && !S.bossSpawned && S.timeLeftSec <= (timeLimitSec - 2)) {
-        spawnBoss();
-      } else if ((challenge === 'rush') && !S.bossSpawned && S.score >= 8000) {
-        spawnBoss();
-      }
-
-      if (S.bossAlive) {
-        if (Math.random() < 0.55) spawnOne();
-      } else {
-        spawnOne();
-      }
-    }
-
-    const tNow = nowMs();
-    for (const [id, t] of targets) {
-      if (!t) continue;
-      if (t.type === 'boss') continue;
-
-      if (tNow >= t.expireMs) {
-        if (t.type === 'good') {
-          S.nExpireGood += 1;
-          S.misses += 1;
-          S.combo = 0;
-          setFever(S.fever - 12);
-          emitEvt('hha:log_event', { kind:'expire_good', ts: Date.now() });
-          emitScore();
-        }
-        removeTarget(id);
-      }
-    }
-
-    tickBossHazards(dtMs);
-    emitTime();
-  }
-
   function computeStats() {
     const goodTotal = Math.max(1, S.nHitGood + S.nExpireGood);
     const accuracyGoodPct = Math.round((S.nHitGood / goodTotal) * 100);
@@ -1081,6 +1257,7 @@ export function boot(opts = {}) {
     ended = true;
 
     document.body.classList.remove('gj-panic');
+    document.body.classList.remove('gj-magnet');
     showRing(false);
     laserClass(null);
 
@@ -1148,7 +1325,7 @@ export function boot(opts = {}) {
       grade: S.grade,
 
       device: (navigator.userAgent || 'unknown'),
-      gameVersion: (context.gameVersion || 'safe-full'),
+      gameVersion: (context.gameVersion || 'safe-full-magnet'),
 
       reason,
 
@@ -1162,6 +1339,78 @@ export function boot(opts = {}) {
     emitEvt('hha:end', payload);
 
     coach(`จบเกม! เกรด ${S.grade} 🎉`, 'happy', `Accuracy ${stats.accuracyGoodPct}% • Miss ${S.misses} • ComboMax ${S.comboMax}`);
+  }
+
+  function update(dtMs) {
+    S.timeLeftSec = Math.max(0, S.timeLeftSec - (dtMs / 1000));
+    S.durationPlayedSec = (timeLimitSec - S.timeLeftSec);
+
+    if (S.timeLeftSec <= 8 && S.timeLeftSec > 0) document.body.classList.add('gj-panic');
+    else document.body.classList.remove('gj-panic');
+
+    if (S.shield > 0) setShield(S.shield - (dtMs / 1000));
+    if (S.magnet > 0) S.magnet = Math.max(0, S.magnet - (dtMs / 1000));
+    if (S.slowmo > 0) S.slowmo = Math.max(0, S.slowmo - (dtMs / 1000));
+
+    // ✅ Magnet class toggle
+    if (S.magnet > 0) document.body.classList.add('gj-magnet');
+    else document.body.classList.remove('gj-magnet');
+
+    if (S.fever >= 100 && S.shield <= 0.01) {
+      setFever(0);
+      setShield(6.0);
+      Particles.celebrate?.('FEVER');
+      coach('FEVER เต็ม! ได้โล่ 🛡️', 'fever', 'ช่วงนี้บวกให้สุด!');
+    }
+
+    Q.tick();
+
+    // ✅ REAL magnet forces (ALL)
+    applyAntiJunkField(dtMs);
+    applyMagnetPull(dtMs);
+
+    const cfg = spawnConfig();
+    const slowFactor = (S.slowmo > 0) ? 0.7 : 1.0;
+    spawnAccMs += dtMs;
+
+    const interval = cfg.baseInterval / slowFactor;
+
+    while (spawnAccMs >= interval && S.timeLeftSec > 0) {
+      spawnAccMs -= interval;
+
+      if ((challenge === 'boss') && !S.bossSpawned && S.timeLeftSec <= (timeLimitSec - 2)) {
+        spawnBoss();
+      } else if ((challenge === 'rush') && !S.bossSpawned && S.score >= 8000) {
+        spawnBoss();
+      }
+
+      if (S.bossAlive) {
+        if (Math.random() < 0.55) spawnOne();
+      } else {
+        spawnOne();
+      }
+    }
+
+    const tNow = nowMs();
+    for (const [id, t] of targets) {
+      if (!t) continue;
+      if (t.type === 'boss') continue;
+
+      if (tNow >= t.expireMs) {
+        if (t.type === 'good') {
+          S.nExpireGood += 1;
+          S.misses += 1;
+          S.combo = 0;
+          setFever(S.fever - 12);
+          emitEvt('hha:log_event', { kind:'expire_good', ts: Date.now() });
+          emitScore();
+        }
+        removeTarget(id);
+      }
+    }
+
+    tickBossHazards(dtMs);
+    emitTime();
   }
 
   function raf() {
@@ -1186,6 +1435,7 @@ export function boot(opts = {}) {
       misses: S.misses,
       fever: S.fever,
       shield: Math.ceil(S.shield),
+      magnet: Math.ceil(S.magnet),
       bossAlive: S.bossAlive,
       bossPhase: S.bossPhase,
       bossHp: S.bossHp,
