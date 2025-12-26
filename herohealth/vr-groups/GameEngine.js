@@ -1,10 +1,9 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups — GameEngine (classic script) — FULL PATCHED
+// Food Groups — GameEngine (classic script) — ALL-IN PATCHED
 // ✅ CSS vars --x/--y/--s + classes fg-good/fg-junk/fg-decoy/fg-boss
-// ✅ Multi-group targets: correct = current group, wrong = other group, junk = stun 0.8s
+// ✅ Multi-group targets: correct=current group, wrong=other group, junk=stun 0.8s
 // ✅ FIX accuracy/grade counters (no NaN)
-// ✅ Emits: hha:score, hha:time, quest:update (via groups-quests.js), groups:* , hha:rank, groups:lock, groups:power
-// ✅ Tap-to-hit + Lock-to-hit (gaze-ish) — safe + idempotent
+// ✅ Emits: hha:score, hha:time, quest:update (via groups-quests.js), groups:* , hha:rank, groups:lock
 
 (function (root) {
   'use strict';
@@ -18,7 +17,6 @@
   }
   function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-  // --- Difficulty tuning ---
   const DIFF = {
     easy:   { spawnEvery: 720, maxOnScreen: 5, ttl: [2200, 3400], junkRate:.18, decoyRate:.07, bossEvery: 16, bossHP: 3,
               correctScore: 120, wrongPenalty: 120, junkPenalty: 180, decoyPenalty: 140, bossScore: 220, powerThreshold: 6 },
@@ -28,7 +26,6 @@
               correctScore: 140, wrongPenalty: 160, junkPenalty: 230, decoyPenalty: 180, bossScore: 260, powerThreshold: 8 }
   };
 
-  // --- Groups data ---
   const GROUPS = [
     { id:1, label:'หมู่ 1', foods:['🥛','🥚','🫘','🍗'] },
     { id:2, label:'หมู่ 2', foods:['🍚','🍞','🥔','🍜'] },
@@ -41,18 +38,12 @@
   function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
   function pickGroup(){ return GROUPS[(Math.random()*GROUPS.length)|0]; }
 
-  // --- Safe spawn box based on HUD + safe-area ---
-  function getSpawnBox(layerEl){
+  function getSpawnBox(){
     const w = window.innerWidth || 360;
     const h = window.innerHeight || 640;
 
-    // base margins
-    let left  = 18;
-    let right = 18;
-    let top   = 18;
-    let bot   = 18;
+    let left  = 18, right = 18, top = 18, bot = 18;
 
-    // add safe-area from :root CSS vars
     const cs = getComputedStyle(document.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
     const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
@@ -61,7 +52,6 @@
 
     left += sal; right += sar; top += sat; bot += sab;
 
-    // reserve HUD top area (prefer actual)
     const hud = document.querySelector('.hud-top');
     if (hud){
       const r = hud.getBoundingClientRect();
@@ -70,7 +60,6 @@
       top = Math.max(top, 120 + sat);
     }
 
-    // reserve bottom minimal (gesture bar / nav)
     bot = Math.max(bot, 72 + sab);
 
     return {
@@ -81,10 +70,8 @@
     };
   }
 
-  // ---------------- Engine ----------------
   const Engine = {
     _layerEl: null,
-    _camEl: null,
     _running: false,
 
     _diff: 'normal',
@@ -101,7 +88,6 @@
     _comboMax: 0,
     _misses: 0,
 
-    // shot stats
     _shots: 0,
     _hits: 0,
 
@@ -114,18 +100,15 @@
     _runMode: 'play',
     _seed: undefined,
 
-    // boss pacing
     _correctHitsTotal: 0,
 
-    // lock system
     _lockActive: false,
     _lockEl: null,
     _lockStartAt: 0,
-    _lockDur: 420, // ms to lock
+    _lockDur: 420,
     _lockRAF: 0,
 
     setLayerEl(el){ this._layerEl = el; },
-    setCameraEl(el){ this._camEl = el; },
     setTimeLeft(sec){ this._timeLeft = Math.max(10, sec|0); },
 
     start(diff, opts){
@@ -157,14 +140,11 @@
       this._lockActive = false;
       this._lockEl = null;
 
-      // clear layer
       if (this._layerEl) this._layerEl.innerHTML = '';
 
-      // init group
       this._groupIdx = 0;
       emit('groups:group_change', { label: GROUPS[this._groupIdx].label });
 
-      // Quest init
       if (W.GroupsVR && typeof W.GroupsVR.createGroupsQuest === 'function'){
         this._quest = W.GroupsVR.createGroupsQuest({
           diff: this._diff,
@@ -181,7 +161,6 @@
 
       this._emitScore();
       this._emitTime();
-      this._emitPower(); // initial
 
       this._last = now();
       this._raf = requestAnimationFrame(this._loop.bind(this));
@@ -192,16 +171,25 @@
       try{ cancelAnimationFrame(this._raf); }catch(_){}
       this._unbindInput();
       this._stopLock();
-      emit('hha:end', { reason: reason || 'stop' });
+
+      const acc = this._accuracy();
+      const grade = this._grade(acc, this._comboMax, this._misses);
+
+      emit('hha:end', {
+        reason: reason || 'stop',
+        scoreFinal: this._score|0,
+        comboMax: this._comboMax|0,
+        misses: this._misses|0,
+        accuracy: acc|0,
+        grade
+      });
     },
 
     _loop(t){
       if (!this._running) return;
-
       const dt = Math.min(0.05, Math.max(0.001, (t - this._last) / 1000));
       this._last = t;
 
-      // timer
       this._timerAcc += dt;
       if (this._timerAcc >= 1){
         this._timerAcc -= 1;
@@ -213,7 +201,6 @@
         }
       }
 
-      // spawn (pause when stunned)
       const isStunned = (t < this._stunUntil);
       if (!isStunned){
         this._spawnAcc += dt * 1000;
@@ -223,9 +210,7 @@
         }
       }
 
-      // quest tick
       if (this._quest) this._quest.tick(dt);
-
       requestAnimationFrame(this._loop.bind(this));
     },
 
@@ -261,9 +246,7 @@
       emit('hha:rank', { grade, accuracy: acc });
     },
 
-    _emitTime(){
-      emit('hha:time', { left: this._timeLeft|0 });
-    },
+    _emitTime(){ emit('hha:time', { left: this._timeLeft|0 }); },
 
     _accuracy(){
       const shots = Math.max(1, this._shots|0);
@@ -271,7 +254,6 @@
     },
 
     _grade(acc, comboMax, misses){
-      // SSS/SS/S/A/B/C
       if (acc>=92 && comboMax>=10 && misses<=6) return 'SSS';
       if (acc>=88 && comboMax>=8  && misses<=8) return 'SS';
       if (acc>=82 && comboMax>=6  && misses<=10) return 'S';
@@ -284,7 +266,6 @@
       if (!this._layerEl) return;
       if (this._targets.length >= (this._cfg.maxOnScreen|0)) return;
 
-      // boss pacing (based on correct hits total)
       const bossDue = (this._correctHitsTotal > 0) && (this._correctHitsTotal % (this._cfg.bossEvery|0) === 0);
       const spawnBoss = bossDue && (Math.random() < 0.35);
 
@@ -303,10 +284,9 @@
         emoji = pick(JUNK);
       } else if (r < (this._cfg.junkRate + this._cfg.decoyRate)){
         type = 'decoy';
-        gid = GROUPS[this._groupIdx].id;      // looks like current group
+        gid = GROUPS[this._groupIdx].id;
         emoji = pick(GROUPS[this._groupIdx].foods);
       } else {
-        // food from random group
         const g = pickGroup();
         gid = g.id;
         emoji = pick(g.foods);
@@ -317,7 +297,7 @@
       el.type = 'button';
       el.setAttribute('aria-label', 'target');
 
-      el.dataset.type = type; // food/junk/decoy/boss
+      el.dataset.type = type;
       if (gid != null) el.dataset.gid = String(gid);
 
       if (type === 'boss'){
@@ -334,19 +314,16 @@
       } else if (type === 'decoy'){
         el.classList.add('fg-decoy');
       } else {
-        // good marker if same group as current
         const curId = GROUPS[this._groupIdx].id;
         if ((gid|0) === (curId|0)) el.classList.add('fg-good');
       }
 
-      // emoji
       const span = document.createElement('span');
       span.textContent = emoji;
       span.style.pointerEvents = 'none';
       el.insertBefore(span, el.firstChild);
 
-      // position via CSS vars
-      const box = getSpawnBox(this._layerEl);
+      const box = getSpawnBox();
       const x = box.x0 + Math.random() * Math.max(10, (box.x1 - box.x0));
       const y = box.y0 + Math.random() * Math.max(10, (box.y1 - box.y0));
       const s = 0.92 + Math.random()*0.22;
@@ -356,9 +333,8 @@
       el.style.setProperty('--s', String(s));
 
       el.classList.add('show','spawn');
-      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 220);
+      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch{} }, 220);
 
-      // tap => hit immediately (no lock wait)
       el.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault();
         ev.stopPropagation();
@@ -378,7 +354,6 @@
     },
 
     _expireTarget(el){
-      // expire = miss shot
       this._misses++;
       this._combo = 0;
       this._shots++;
@@ -389,17 +364,13 @@
 
     _removeTarget(el, anim){
       try{ if (el && el._ttlTimer) clearTimeout(el._ttlTimer); }catch(_){}
-
       try{
         const i = this._targets.indexOf(el);
         if (i >= 0) this._targets.splice(i, 1);
       }catch(_){}
-
       try{
         if (anim) el.classList.add(anim);
-        const kill = ()=>{
-          try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){}
-        };
+        const kill = ()=>{ try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){} };
         setTimeout(kill, anim ? 200 : 0);
       }catch(_){}
     },
@@ -425,7 +396,6 @@
 
       const c = this._closestTarget(x,y);
       if (!c.el || c.d2 > (210*210)){
-        // no target near => miss shot
         this._shots++;
         this._misses++;
         this._combo = 0;
@@ -439,12 +409,11 @@
       this._lockEl = c.el;
       this._lockStartAt = now();
       try{ this._lockEl.classList.add('lock'); }catch(_){}
-
       this._tickLock();
     },
 
     _tickLock(){
-      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected){
+      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected) {
         emit('groups:lock', { on:false });
         this._stopLock();
         return;
@@ -475,20 +444,18 @@
 
     _stopLock(){
       this._lockActive = false;
-      if (this._lockRAF){ try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
+      if (this._lockRAF) { try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
       this._lockRAF = 0;
 
       if (this._lockEl){
         try{ this._lockEl.classList.remove('lock'); }catch(_){}
       }
       this._lockEl = null;
-
       emit('groups:lock', { on:false });
     },
 
-    _hitTarget(el, via){
+    _hitTarget(el){
       if (!el || !el.isConnected) return;
-
       const t = now();
       if (t < this._stunUntil) return;
 
@@ -496,7 +463,6 @@
       const cur = GROUPS[this._groupIdx];
       const curId = cur.id|0;
 
-      // count shot
       this._shots++;
 
       if (type === 'junk'){
@@ -560,7 +526,6 @@
         return;
       }
 
-      // normal food
       const gid = parseInt(el.dataset.gid || '0', 10) || 0;
       const isCorrect = (gid|0) === (curId|0);
 
@@ -575,7 +540,6 @@
         this._powerCharge++;
         this._emitPower();
 
-        // power ready => swap group
         if (this._powerCharge >= (this._cfg.powerThreshold|0)){
           this._powerCharge = 0;
           this._groupIdx = (this._groupIdx + 1) % GROUPS.length;
@@ -586,7 +550,6 @@
           setTimeout(()=>document.documentElement.classList.remove('swapflash'), 240);
 
           if (this._quest) this._quest.onGroupChange(n.label);
-          this._emitPower(); // update group name after swap
         }
 
         if (this._quest) this._quest.onShot({ correct:true, wrong:false, junk:false });
@@ -609,7 +572,6 @@
     }
   };
 
-  // expose
   W.GroupsVR.GameEngine = Engine;
 
 })(window);
