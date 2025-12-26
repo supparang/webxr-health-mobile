@@ -1,9 +1,8 @@
-// === /herohealth/vr-groups/groups-quests.js ==========================
+// === /herohealth/vr-groups/groups-quests.js ===
 // Food Groups — Quest System (Goals + Minis) + Group label + Quest%
 // Classic script (no import/export) for groups-vr.html
-// ✅ emits: quest:update (questOk true), hha:rank (questsPct), hha:celebrate, hha:judge
+// ✅ emits: quest:update (questOk true), hha:rank (questsPct)
 // ✅ supports runMode: play/research, diff: easy/normal/hard, seed fix in research
-// =====================================================================
 
 (function (root) {
   'use strict';
@@ -15,7 +14,7 @@
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
   function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-  // small deterministic RNG (mulberry32)
+  // small deterministic RNG (mulberry32-ish)
   function makeRng(seedStr){
     let s = 0x9e3779b9;
     const str = String(seedStr || '');
@@ -35,7 +34,8 @@
   }
 
   // ------------------ quest defs ------------------
-  // NOTE: เอกลักษณ์ Groups = “ยิงถูกหมู่ปัจจุบัน” + “เลี่ยงผิดหมู่/เลี่ยง junk”
+  // NOTE: เกม Groups = "ยิงถูกหมู่ปัจจุบัน" + "เลี่ยง junk/ผิดหมู่" ให้มีเอกลักษณ์ ไม่ซ้ำ GoodJunk/Plate
+
   const GOAL_DEFS = [
     {
       id:'g1',
@@ -60,7 +60,7 @@
     }
   ];
 
-  // mini = ภารกิจระเบิดสั้น ๆ เร้าใจ
+  // mini = แบบ “ภารกิจระเบิด” สั้น ๆ สนุก/เร้าใจ
   const MINI_DEFS = [
     {
       id:'m1',
@@ -92,9 +92,9 @@
     const runMode = String(opts.runMode || 'play').toLowerCase();
     const seed = String(opts.seed || '');
 
-    // ✅ Seed policy:
-    // - research: fix seed เสมอ (ถ้าไม่ส่งมา ใช้ default)
-    // - play: ถ้าไม่ส่งมา ใช้เวลาปัจจุบันเป็น seed (ยัง deterministic ต่อ session)
+    // ✅ seed policy:
+    // - research: fix seed เสมอ (ถ้าไม่ส่ง seed มา ให้ใช้ default)
+    // - play: ถ้าไม่ส่ง seed มา ให้สุ่มเวลา
     const finalSeed = (runMode === 'research')
       ? (seed || 'HHA-GROUPS-RESEARCH-SEED')
       : (seed || ('PLAY-' + Math.floor(Date.now()/1000)));
@@ -104,7 +104,7 @@
     const state = {
       diff, runMode, seed: finalSeed,
 
-      // stats (feed from engine)
+      // main stats from engine
       groupLabel: 'หมู่ ?',
       correctHits: 0,
       wrongHits: 0,
@@ -144,8 +144,7 @@
     function makeGoal(idx){
       const def = GOAL_DEFS[idx] || GOAL_DEFS[0];
       return {
-        id:def.id,
-        label:def.label,
+        id:def.id, label:def.label,
         target: goalTarget(def),
         prog: 0,
         pass:false
@@ -153,8 +152,8 @@
     }
 
     function pickMini(){
-      // research: ลำดับ mini = fixed
-      // play: pseudo-random แต่ deterministic ด้วย seed
+      // research: mini order = fixed (ไม่สุ่ม)
+      // play: mini order = pseudo-random แต่ deterministic ด้วย seed (ถ้าตั้ง)
       let idx;
       if (runMode === 'research'){
         idx = state.miniIndex % MINI_DEFS.length;
@@ -163,16 +162,14 @@
       }
       const def = MINI_DEFS[idx];
       return {
-        id:def.id,
-        label:def.label,
+        id:def.id, label:def.label,
         kind:def.kind,
         target: miniTarget(def),
         prog: 0,
         tLimit: miniTime(def),
         tLeft: miniTime(def),
         fail:false,
-        pass:false,
-        windowSec: miniTime(def) // (เผื่อ HUD อยากโชว์)
+        pass:false
       };
     }
 
@@ -195,6 +192,7 @@
       const m = state.activeMini;
       if (!m) return;
 
+      // tick time
       if (m.tLimit != null){
         m.tLeft = Math.max(0, (m.tLeft||0) - (dtSec||0));
         state.miniTLeft = Math.ceil(m.tLeft);
@@ -203,6 +201,7 @@
         }
       }
 
+      // pass check
       if (!m.fail && (m.prog|0) >= (m.target|0)){
         m.pass = true;
       }
@@ -216,20 +215,15 @@
         groupLabel: state.groupLabel,
 
         goal: goal ? {
-          id: goal.id,
-          label: goal.label,
-          prog: goal.prog|0,
-          target: goal.target|0,
+          id: goal.id, label: goal.label,
+          prog: goal.prog|0, target: goal.target|0,
           pass: !!goal.pass
         } : null,
 
         mini: mini ? {
-          id: mini.id,
-          label: mini.label,
-          prog: mini.prog|0,
-          target: mini.target|0,
+          id: mini.id, label: mini.label,
+          prog: mini.prog|0, target: mini.target|0,
           tLeft: (mini.tLeft != null) ? Math.ceil(mini.tLeft) : null,
-          windowSec: (mini.windowSec != null) ? (mini.windowSec|0) : null,
           pass: !!mini.pass,
           fail: !!mini.fail
         } : null
@@ -237,6 +231,7 @@
     }
 
     function emitQuestPct(){
+      // คิด % จาก (goal ผ่าน + mini ผ่าน)
       const passed = state.questsPassed|0;
       const total  = Math.max(1, state.questsTotal|0);
       const pct = Math.round((passed / total) * 100);
@@ -245,21 +240,9 @@
 
     function start(){
       state.questOk = true;
-
-      // reset stats
-      state.correctHits = 0;
-      state.wrongHits = 0;
-      state.junkHits = 0;
-      state.totalShots = 0;
-      state.combo = 0;
-      state.comboMax = 0;
-      state.accuracy = 0;
-
-      // goal
       state.goalIndex = 0;
       state.activeGoal = makeGoal(state.goalIndex);
 
-      // mini
       state.miniIndex = 0;
       state.activeMini = pickMini();
       state.activeMini.tLeft = state.activeMini.tLimit;
@@ -279,8 +262,7 @@
 
       state.goalIndex++;
       if (state.goalIndex >= GOAL_DEFS.length){
-        // all goals done
-        emitQuestUpdate();
+        // all goals done -> keep last goal shown as passed
         return;
       }
       state.activeGoal = makeGoal(state.goalIndex);
@@ -300,9 +282,8 @@
     }
 
     function failMini(){
+      // mini fail -> reset ใหม่ (ไม่เพิ่ม passed)
       emit('hha:judge', { text:'MINI FAIL', kind:'warn' });
-
-      // reset mini (ไม่เพิ่ม passed)
       state.activeMini = pickMini();
       state.activeMini.tLeft = state.activeMini.tLimit;
       state.miniStartAt = now();
@@ -315,8 +296,8 @@
       emitQuestUpdate();
     }
 
-    // result: { correct:boolean, wrong:boolean, junk:boolean }
     function onShot(result){
+      // result: { correct:boolean, wrong:boolean, junk:boolean }
       state.totalShots++;
 
       if (result && result.correct){
@@ -324,34 +305,42 @@
         state.combo++;
         if (state.combo > state.comboMax) state.comboMax = state.combo;
 
+        // mini progress types
         if (state.activeMini){
-          if (state.activeMini.kind === 'streak_correct') state.activeMini.prog++;
-          if (state.activeMini.kind === 'avoid_wrong')    state.activeMini.prog++;
-          if (state.activeMini.kind === 'avoid_junk')     state.activeMini.prog++;
+          if (state.activeMini.kind === 'streak_correct'){
+            state.activeMini.prog++;
+          }
+          if (state.activeMini.kind === 'avoid_wrong'){
+            state.activeMini.prog++;
+          }
+          if (state.activeMini.kind === 'avoid_junk'){
+            state.activeMini.prog++;
+          }
         }
       } else {
+        // break combo
         state.combo = 0;
 
         if (result && result.wrong) state.wrongHits++;
         if (result && result.junk)  state.junkHits++;
 
+        // mini fail rules
         if (state.activeMini){
           if (state.activeMini.kind === 'avoid_wrong' && result.wrong) state.activeMini.fail = true;
           if (state.activeMini.kind === 'avoid_junk'  && result.junk)  state.activeMini.fail = true;
-
           if (state.activeMini.kind === 'streak_correct'){
-            // ยิงผิด = streak reset (ไม่ fail ทันที)
+            // streak mini: ยิงผิด = streak reset (ไม่ fail ทันที แค่ reset)
             state.activeMini.prog = 0;
           }
         }
       }
 
       computeAccuracy();
-      if (state.activeGoal) updateGoalProgress();
-
+      updateGoalProgress();
       emitQuestUpdate();
       nextGoalIfPassed();
-      // mini pass/fail จะคุมใน tick()
+
+      // mini pass/fail check จะทำใน tick เพื่อคุมเวลา
     }
 
     function tick(dtSec){
@@ -360,12 +349,11 @@
       updateMiniProgress(dtSec);
 
       if (state.activeMini){
-        if (state.activeMini.fail){
+        if (state.activeMini.fail) {
           failMini();
         } else if (state.activeMini.pass){
           nextMini();
         } else {
-          // keep HUD alive (timer)
           emitQuestUpdate();
         }
       }
