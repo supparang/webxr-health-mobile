@@ -9,6 +9,7 @@
 // ✅ NEW: Seeded RNG (cfg.seed) + cfg.rng override (สำคัญสำหรับ research)
 // ✅ crosshair shooting + perfect distance
 // ✅ PATCH: auto-relax safezone เมื่อ playRect เล็กเกิน (กันอาการ "เป้าเกิดที่เดียว")
+// ✅ PATCH B2: Laser warning overlay (BAD only) + hha:tick laser-warn/laser-fire
 
 'use strict';
 
@@ -180,6 +181,54 @@ function ensureOverlayStyle () {
     @keyframes hvrSpin{
       from{ transform:translate(-50%,-50%) rotate(0deg); }
       to  { transform:translate(-50%,-50%) rotate(360deg); }
+    }
+
+    /* === PATCH B2: Laser warning overlay (BAD only) === */
+    .hvr-laser{
+      position:absolute;
+      left:50%; top:50%;
+      width:140%;
+      height:10px;
+      transform: translate(-50%,-50%) rotate(var(--laserRot, -18deg));
+      border-radius:999px;
+      opacity:0;
+      pointer-events:none;
+      will-change: transform, opacity, filter;
+      background: linear-gradient(90deg,
+        rgba(255,0,0,0),
+        rgba(255,80,96,.18),
+        rgba(255,80,96,.85),
+        rgba(255,80,96,.18),
+        rgba(255,0,0,0)
+      );
+      box-shadow:
+        0 0 0 1px rgba(255,80,96,.10),
+        0 0 18px rgba(255,80,96,.38),
+        0 0 34px rgba(255,80,96,.22);
+      filter: drop-shadow(0 0 14px rgba(255,80,96,.22));
+    }
+    .hvr-target.hvr-laser-warn .hvr-laser{
+      opacity: .95;
+      animation: hvrLaserScan .22s ease-in-out infinite;
+    }
+    .hvr-target.hvr-laser-fire .hvr-laser{
+      height: 12px;
+      opacity: 1;
+      animation: hvrLaserFire .14s ease-in-out infinite;
+      box-shadow:
+        0 0 0 1px rgba(255,80,96,.18),
+        0 0 28px rgba(255,80,96,.55),
+        0 0 54px rgba(255,80,96,.35);
+    }
+    @keyframes hvrLaserScan{
+      0%   { transform: translate(-50%,-50%) rotate(var(--laserRot, -18deg)) translateX(-10%); opacity:.65; }
+      50%  { transform: translate(-50%,-50%) rotate(var(--laserRot, -18deg)) translateX(10%);  opacity:1; }
+      100% { transform: translate(-50%,-50%) rotate(var(--laserRot, -18deg)) translateX(-10%); opacity:.70; }
+    }
+    @keyframes hvrLaserFire{
+      0%   { opacity:.65; filter: brightness(1.0) saturate(1.1); }
+      50%  { opacity:1;   filter: brightness(1.25) saturate(1.25); }
+      100% { opacity:.70; filter: brightness(1.0) saturate(1.1); }
     }
   `;
   DOC.head.appendChild(s);
@@ -880,6 +929,16 @@ export async function boot (rawCfg = {}) {
     wiggle.appendChild(ring);
     wiggle.appendChild(inner);
     if (badge) wiggle.appendChild(badge);
+
+    // ✅ PATCH B2: Laser element (BAD only)
+    let laser = null;
+    if (itemType === 'bad') {
+      laser = DOC.createElement('div');
+      laser.className = 'hvr-laser';
+      laser.style.setProperty('--laserRot', ((-22 + rand()*44).toFixed(1)) + 'deg');
+      wiggle.appendChild(laser);
+    }
+
     el.appendChild(wiggle);
 
     if (rhythmOn) el.classList.add('hvr-pulse');
@@ -890,6 +949,29 @@ export async function boot (rawCfg = {}) {
 
     const lifeMs = getLifeMs();
 
+    // ✅ PATCH B2: laser timers (must be visible to consumeHit/expire)
+    let laserWarnTimer = 0;
+    let laserFireTimer = 0;
+
+    // schedule warn/fire (BAD only)
+    if (itemType === 'bad') {
+      const warnAt = Math.max(120, lifeMs - 360);
+      const fireAt = Math.max(80,  lifeMs - 160);
+
+      laserWarnTimer = ROOT.setTimeout(() => {
+        try { el.classList.add('hvr-laser-warn'); } catch {}
+        try { ROOT.dispatchEvent(new CustomEvent('hha:tick', { detail: { kind: 'laser-warn', intensity: 1.0 } })); } catch {}
+      }, warnAt);
+
+      laserFireTimer = ROOT.setTimeout(() => {
+        try {
+          el.classList.remove('hvr-laser-warn');
+          el.classList.add('hvr-laser-fire');
+        } catch {}
+        try { ROOT.dispatchEvent(new CustomEvent('hha:tick', { detail: { kind: 'laser-fire', intensity: 1.15 } })); } catch {}
+      }, fireAt);
+    }
+
     const data = {
       el, ch, isGood, isPower, itemType,
       bornAt: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
@@ -899,7 +981,7 @@ export async function boot (rawCfg = {}) {
 
     try{
       if (typeof decorateTarget === 'function'){
-        decorateTarget(el, { wiggle, inner, icon, ring, badge }, data, {
+        decorateTarget(el, { wiggle, inner, icon, ring, badge, laser }, data, {
           size,
           modeKey,
           difficulty: diffKey,
@@ -918,6 +1000,10 @@ export async function boot (rawCfg = {}) {
     function consumeHit(evOrSynth, hitInfoOpt){
       if (stopped) return;
       if (!activeTargets.has(data)) return;
+
+      // ✅ clear laser timers
+      try { if (laserWarnTimer) ROOT.clearTimeout(laserWarnTimer); } catch {}
+      try { if (laserFireTimer) ROOT.clearTimeout(laserFireTimer); } catch {}
 
       let keepRect = null;
       try{ keepRect = el.getBoundingClientRect(); }catch{}
@@ -985,6 +1071,10 @@ export async function boot (rawCfg = {}) {
     ROOT.setTimeout(() => {
       if (stopped) return;
       if (!activeTargets.has(data)) return;
+
+      // ✅ clear laser timers
+      try { if (laserWarnTimer) ROOT.clearTimeout(laserWarnTimer); } catch {}
+      try { if (laserFireTimer) ROOT.clearTimeout(laserFireTimer); } catch {}
 
       activeTargets.delete(data);
       try { el.removeEventListener('pointerdown', handleHit); } catch {}
