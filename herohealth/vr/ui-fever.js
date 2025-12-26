@@ -1,38 +1,39 @@
 // === /herohealth/vr/ui-fever.js ===
-// Fever UI (IIFE) — ensure() + set(fever01) + setShield(bool)
-// ids: hha-fever-fill, hha-shield, hha-fever-label
+// Fever UI — PRODUCTION (works with any HeroHealth game)
+// ensureFeverUI()
+// setFever(pct0to100)
+// setShield(n)
 
-(function(root){
-  'use strict';
-  const doc = root.document;
+'use strict';
 
-  function $(id){ return doc ? doc.getElementById(id) : null; }
-  function clamp(v,min,max){ v = Number(v)||0; return v<min?min:(v>max?max:v); }
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
 
-  let shield = false;
+const F = {
+  fever: 0,
+  shield: 0
+};
 
-  function ensure(){}
+export function ensureFeverUI(){
+  // if you later add a visual bar, bind here.
+  // currently HUD text is updated by game; this is a safe shared holder.
+  if (!ROOT.FeverUI) ROOT.FeverUI = { setFever, setShield, get: ()=>({ ...F }) };
+}
 
-  function set(fever01){
-    const pct = clamp(Math.round((Number(fever01)||0)*100), 0, 100);
-    const fill = $('hha-fever-fill');
-    if (fill) fill.style.width = pct + '%';
+export function setFever(pct){
+  F.fever = clamp(pct, 0, 100);
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:fever', { detail:{ fever: F.fever, shield: F.shield } }));
+  }catch{}
+  return F.fever;
+}
 
-    const label = $('hha-fever-label');
-    if (label){
-      if (pct >= 100) label.textContent = '🔥 FEVER MAX';
-      else if (pct >= 60) label.textContent = '🔥 FEVER';
-      else label.textContent = '✨ WARM UP';
-    }
-  }
+export function setShield(n){
+  F.shield = clamp(n, 0, 9);
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:shield', { detail:{ shield: F.shield, fever: F.fever } }));
+  }catch{}
+  return F.shield;
+}
 
-  function setShield(on){
-    shield = !!on;
-    const s = $('hha-shield');
-    if (s) s.textContent = shield ? '🛡️ ON' : '🛡️ OFF';
-  }
-
-  root.FeverUI = { ensure, set, setShield };
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.FeverUI = root.FeverUI;
-})(typeof window !== 'undefined' ? window : globalThis);
+function clamp(v,a,b){ return Math.max(a, Math.min(b, Number(v)||0)); }
