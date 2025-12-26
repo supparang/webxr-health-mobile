@@ -1,20 +1,18 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE (PRODUCTION) — Full module
-// ✅ Uses quest-defs-goodjunk.js (eval/pass + targetByDiff)
-// ✅ Emits quest:update + hha:quest (HUD always visible)
+// GoodJunkVR — SAFE (PRODUCTION) — Full module (Quest = external)
+// ✅ Emits quest:update -> Goal/Mini always visible (via quest-goodjunk.js)
 // ✅ Stun: screen shake + edge flash
 // ✅ Boss mode: boss + ring/laser hazards
 // ✅ FEVER -> auto Shield (blocks junk/hazard; junk blocked does NOT count as miss)
 // ✅ Miss definition: miss = good expired + junk hit (only if NOT blocked by shield)
-// ✅ Guarded junk does NOT fail forbid-junk minis (and does not count as miss)
-// ✅ Supports GoodJunkVR HTML that sets:
+// ✅ Works with GoodJunkVR HTML that sets:
 //    - window.__GJ_LAYER_OFFSET__
 //    - window.__GJ_AIM_POINT__
 // and provides #gj-layer, #btnShoot, #atk-ring, #atk-laser
 
 'use strict';
 
-import { GOODJUNK_GOALS, GOODJUNK_MINIS } from './quest-defs-goodjunk.js';
+import { createVRGoodjunkQuest } from './quest-goodjunk.js';
 
 // --------------------------- Utilities ---------------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
@@ -122,189 +120,19 @@ const Particles =
 const FeverUI =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
   ROOT.FeverUI ||
-  { setFever() {}, setShield() {}, setState() {} };
-
-// --------------------------- Quest helpers (targetByDiff) ---------------------------
-function pickTargetByDiff(targetByDiff, diff = 'normal') {
-  const d = String(diff).toLowerCase();
-  if (!targetByDiff || typeof targetByDiff !== 'object') return 1;
-  return (
-    Number(targetByDiff[d]) ||
-    Number(targetByDiff.normal) ||
-    Number(targetByDiff.easy) ||
-    1
-  );
-}
-
-function buildQuestDefs(diff) {
-  return {
-    goals: (GOODJUNK_GOALS || []).map(g => ({
-      id: g.id,
-      title: g.label ?? g.title ?? g.name ?? 'Goal',
-      target: pickTargetByDiff(g.targetByDiff, diff),
-      eval: g.eval,
-      pass: g.pass,
-    })),
-    minis: (GOODJUNK_MINIS || []).map(m => ({
-      id: m.id,
-      title: m.label ?? m.title ?? m.name ?? 'Mini',
-      target: pickTargetByDiff(m.targetByDiff, diff),
-      eval: m.eval,
-      pass: m.pass,
-    })),
+  {
+    setFever() {},
+    setShield() {},
+    setState() {},
   };
-}
-
-// --------------------------- Quest Director (eval/pass + updateFromState) ---------------------------
-function makeQuestDirector(opts = {}) {
-  const diff = String(opts.diff || 'normal').toLowerCase();
-  const goalDefs = Array.isArray(opts.goalDefs) ? opts.goalDefs : [];
-  const miniDefs = Array.isArray(opts.miniDefs) ? opts.miniDefs : [];
-  const maxGoals = Math.max(1, opts.maxGoals || 2);
-  const maxMini  = Math.max(1, opts.maxMini  || 3);
-  const onUpdate = (typeof opts.onUpdate === 'function') ? opts.onUpdate : null;
-
-  const Q = {
-    started: false,
-    goalIndex: 0,
-    miniIndex: 0,
-    goalsTotal: Math.min(maxGoals, goalDefs.length || maxGoals),
-    minisTotal: Math.min(maxMini,  miniDefs.length || maxMini),
-    goalsCleared: 0,
-    minisCleared: 0,
-    activeGoal: null,
-    activeMini: null,
-    lastPushTs: 0
-  };
-
-  function norm(def){
-    const title  = String(def.title ?? def.label ?? def.name ?? 'Quest');
-    const target = Math.max(1, Number(def.target ?? def.count ?? 1) || 1);
-    return {
-      ...def,
-      title,
-      target,
-      cur: 0,
-      done: false,
-      eval: (typeof def.eval === 'function') ? def.eval : null,
-      pass: (typeof def.pass === 'function') ? def.pass : null,
-    };
-  }
-
-  function pickGoal(i){
-    const def = goalDefs[i] || goalDefs[0] || null;
-    return def ? norm(def) : null;
-  }
-  function pickMini(i){
-    const def = miniDefs[i] || miniDefs[0] || null;
-    return def ? norm(def) : null;
-  }
-
-  function ui(reason='update'){
-    const g = Q.activeGoal;
-    const m = Q.activeMini;
-    return {
-      reason, diff,
-      goalId: g?.id ?? null,
-      miniId: m?.id ?? null,
-
-      goalTitle: g ? g.title : '—',
-      goalCur: g ? (g.cur|0) : 0,
-      goalMax: g ? (g.target|0) : 0,
-
-      miniTitle: m ? m.title : '—',
-      miniCur: m ? (m.cur|0) : 0,
-      miniMax: m ? (m.target|0) : 0,
-      miniTLeft: null,
-
-      goalsCleared: Q.goalsCleared|0,
-      goalsTotal: Q.goalsTotal|0,
-      minisCleared: Q.minisCleared|0,
-      minisTotal: Q.minisTotal|0,
-
-      goalIndex: Math.min(Q.goalIndex + 1, Q.goalsTotal),
-      miniIndex: Math.min(Q.miniIndex + 1, Q.minisTotal),
-    };
-  }
-
-  function push(reason){
-    Q.lastPushTs = Date.now();
-    if(onUpdate){ try { onUpdate(ui(reason)); } catch(_){} }
-  }
-
-  function start(){
-    if(Q.started) return;
-    Q.started = true;
-    Q.goalIndex = 0; Q.miniIndex = 0;
-    Q.goalsCleared = 0; Q.minisCleared = 0;
-    Q.activeGoal = pickGoal(Q.goalIndex);
-    Q.activeMini = pickMini(Q.miniIndex);
-    push('start');
-  }
-
-  function nextGoal(){
-    Q.goalIndex++;
-    if(Q.goalIndex >= Q.goalsTotal){ Q.activeGoal = null; push('all-goals-done'); return; }
-    Q.activeGoal = pickGoal(Q.goalIndex);
-    push('next-goal');
-  }
-
-  function nextMini(){
-    Q.miniIndex++;
-    if(Q.miniIndex >= Q.minisTotal){ Q.activeMini = null; push('all-minis-done'); return; }
-    Q.activeMini = pickMini(Q.miniIndex);
-    push('next-mini');
-  }
-
-  function updateFromState(state = {}, reason='state'){
-    // goal
-    const g = Q.activeGoal;
-    if(g && !g.done && g.eval){
-      const v = Number(g.eval(state)) || 0;
-      const cur = clamp(v, 0, g.target);
-      if(cur !== g.cur){ g.cur = cur; }
-      const ok = g.pass ? !!g.pass(g.cur, g.target) : (g.cur >= g.target);
-      if(ok){
-        g.done = true;
-        Q.goalsCleared++;
-        push('goal-complete');
-        nextGoal();
-        return;
-      }
-    }
-
-    // mini
-    const m = Q.activeMini;
-    if(m && !m.done && m.eval){
-      const v = Number(m.eval(state)) || 0;
-      const cur = clamp(v, 0, m.target);
-      if(cur !== m.cur){ m.cur = cur; }
-      const ok = m.pass ? !!m.pass(m.cur, m.target) : (m.cur >= m.target);
-      if(ok){
-        m.done = true;
-        Q.minisCleared++;
-        push('mini-complete');
-        nextMini();
-        return;
-      }
-    }
-
-    // throttle push: only if something changes enough (or caller explicitly wants)
-    if (reason && reason !== 'tick') push(reason);
-  }
-
-  function getUIState(reason='state'){ return ui(reason); }
-
-  return { start, updateFromState, getUIState };
-}
 
 // --------------------------- Game boot ---------------------------
 export function boot(opts = {}) {
   ensureFXStyles();
 
   const diff = String(opts.diff || 'normal').toLowerCase();
-  const run = String(opts.run || 'play').toLowerCase();             // play | research
-  const challenge = String(opts.challenge || 'rush').toLowerCase(); // rush | boss | survival
+  const run = String(opts.run || 'play').toLowerCase();              // play | research
+  const challenge = String(opts.challenge || 'rush').toLowerCase();  // rush | boss | survival
   const timeLimitSec = clamp(opts.time ?? 80, 20, 180) | 0;
 
   const layerEl = opts.layerEl || document.getElementById('gj-layer');
@@ -319,9 +147,6 @@ export function boot(opts = {}) {
 
   if (!layerEl) throw new Error('[GoodJunk] layerEl missing (#gj-layer)');
   if (!shootEl) throw new Error('[GoodJunk] shootEl missing (#btnShoot)');
-
-  // Quest defs (from quest-defs-goodjunk.js)
-  const defs = buildQuestDefs(diff);
 
   // Internal state
   const S = {
@@ -352,6 +177,11 @@ export function boot(opts = {}) {
     magnet: 0,      // seconds left
     slowmo: 0,      // seconds left
 
+    // quest helpers (for defs eval)
+    streakGood: 0,
+    goldHitsThisMini: false,
+    safeNoJunkSeconds: 0, // นับวินาที “ไม่โดน junk แบบไม่ guard” ตั้งแต่เริ่ม mini/หลังโดนครั้งล่าสุด
+
     // counts for research/logging
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
@@ -363,11 +193,6 @@ export function boot(opts = {}) {
     nHitJunk: 0,
     nHitJunkGuard: 0,
     nExpireGood: 0,
-
-    // quest state needed by defs
-    streakGood: 0,
-    goldHitsThisMini: false,
-    safeNoJunkSeconds: 0,
 
     // reaction time
     rtGood: [],
@@ -382,11 +207,11 @@ export function boot(opts = {}) {
     // control
     stunnedUntilMs: 0,
 
-    // quest derived
+    // quest derived (for end summary)
     goalsCleared: 0,
-    goalsTotal: Math.min(3, defs.goals.length || 3),
+    goalsTotal: 0,
     miniCleared: 0,
-    miniTotal: Math.min(3, defs.minis.length || 3),
+    miniTotal: 0,
 
     // grade
     grade: '—'
@@ -400,9 +225,9 @@ export function boot(opts = {}) {
       misses: S.misses,
       fever: S.fever,
       shield: Math.max(0, Math.ceil(S.shield)),
+      grade: S.grade,
       diff: S.diff,
-      challenge: S.challenge,
-      grade: S.grade
+      challenge: S.challenge
     });
   }
 
@@ -451,14 +276,16 @@ export function boot(opts = {}) {
     el.textContent = emoji;
 
     if (type === 'junk') el.classList.add('gj-junk');
-    if (type === 'trap') el.classList.add('gj-fake');
+    if (type === 'fake') el.classList.add('gj-fake');
     if (type === 'gold') el.classList.add('gj-gold');
     if (type === 'power') el.classList.add('gj-power');
     if (type === 'boss') el.classList.add('gj-boss');
+    if (type === 'trap') el.classList.add('gj-trap');
 
     el.style.left = `${p.x}px`;
     el.style.top = `${p.y}px`;
 
+    // Size tuning
     if (type === 'boss') {
       el.style.fontSize = '64px';
     } else {
@@ -470,6 +297,7 @@ export function boot(opts = {}) {
     el.dataset.type = type;
     el.setAttribute('role', 'button');
 
+    // tap directly => hit that target (mobile friendly)
     el.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -581,6 +409,7 @@ export function boot(opts = {}) {
     S.bossHp = Math.max(0, S.bossHp - (Number(n)||0));
     emitEvt('hha:log_event', { kind:'boss_hit', ts: Date.now(), hp: S.bossHp, hpMax: S.bossHpMax });
 
+    // move boss a bit (more in hard)
     const jitter = (diff === 'hard') ? 120 : (diff === 'easy' ? 70 : 95);
     for (const t of targets.values()) {
       if (t.type !== 'boss') continue;
@@ -596,6 +425,7 @@ export function boot(opts = {}) {
     if (S.bossHp <= 0) {
       S.bossAlive = false;
       S.bossPhase = 0;
+
       for (const [id, t] of targets) {
         if (t.type === 'boss') removeTarget(id);
       }
@@ -614,15 +444,16 @@ export function boot(opts = {}) {
       emitEvt('hha:log_event', { kind:'hazard_block', ts: Date.now(), hazard: kind });
       return;
     }
+    // hazard hit counts as miss (เหมือน junk hit)
     S.misses += 1;
     S.combo = 0;
     S.streakGood = 0;
     S.safeNoJunkSeconds = 0;
+
     setFever(S.fever - 14);
     stun('hazard');
     emitScore();
     emitEvt('hha:log_event', { kind:'hazard_hit', ts: Date.now(), hazard: kind });
-    syncQuest('hazard-hit');
   }
 
   function tickBossHazards(dtMs) {
@@ -630,6 +461,7 @@ export function boot(opts = {}) {
 
     bossHazardAccMs += dtMs;
 
+    // Ring cycle: warn 650ms, fire 800ms
     if (ringState.phase === 'idle' && bossHazardAccMs > 2500) {
       bossHazardAccMs = 0;
       ringState.phase = 'warn';
@@ -655,6 +487,7 @@ export function boot(opts = {}) {
       }
     }
 
+    // Laser cycle: warn 450ms, fire 520ms
     if (laserState.phase === 'idle' && Math.random() < (dtMs / 1000) * 0.12) {
       laserState.phase = 'warn';
       laserState.warnAt = nowMs();
@@ -678,65 +511,49 @@ export function boot(opts = {}) {
     }
   }
 
-  // --------------------------- Quest director (from defs) ---------------------------
-  function questState(){
+  // --------------------------- Quest (external) ---------------------------
+  function questSnapshot(){
     return {
-      goodHits: S.nHitGood,
-      comboMax: S.comboMax,
-      streakGood: S.streakGood,
-      goldHitsThisMini: S.goldHitsThisMini,
-      safeNoJunkSeconds: (S.safeNoJunkSeconds|0)
+      goodHits: S.nHitGood|0,
+      comboMax: S.comboMax|0,
+      streakGood: S.streakGood|0,
+      goldHitsThisMini: S.goldHitsThisMini ? 1 : 0,
+      safeNoJunkSeconds: (S.safeNoJunkSeconds|0),
+      misses: S.misses|0
     };
   }
 
-  let lastQuestSyncMs = 0;
-  function syncQuest(reason='tick'){
-    const t = Date.now();
-    // throttle tick-sync a bit
-    if (reason === 'tick' && (t - lastQuestSyncMs) < 200) return;
-    lastQuestSyncMs = t;
-    try { Q.updateFromState(questState(), reason); } catch(_) {}
+  function resetMiniTrackers(){
+    S.goldHitsThisMini = false;
+    S.safeNoJunkSeconds = 0;
+    S.streakGood = 0;
   }
 
-  const Q = makeQuestDirector({
-    diff,
-    goalDefs: defs.goals,
-    miniDefs: defs.minis,
-    maxGoals: 3,
-    maxMini: 3,
+  const Q = createVRGoodjunkQuest(diff, {
     onUpdate: (ui) => {
-      ROOT.__HHA_LAST_QUEST__ = ui;
       emitEvt('quest:update', ui);
-      emitEvt('hha:quest', ui);
 
+      // sync totals for end summary
       S.goalsCleared = ui.goalsCleared|0;
       S.goalsTotal   = ui.goalsTotal|0;
       S.miniCleared  = ui.minisCleared|0;
       S.miniTotal    = ui.minisTotal|0;
 
-      if (ui.reason === 'start' || ui.reason === 'next-mini') {
-        S.streakGood = 0;
-        S.goldHitsThisMini = false;
-        S.safeNoJunkSeconds = 0;
-      }
-
-      if (ui.reason === 'goal-complete') {
-        Particles.celebrate?.('GOAL');
-        coach('Goal ผ่านแล้ว! ไปต่อ 🔥', 'happy', 'เป้าถัดไปมาแล้ว!');
-      }
-      if (ui.reason === 'mini-complete') {
-        Particles.celebrate?.('MINI');
-        coach('Mini ผ่าน! สุดจัด ⚡', 'happy', 'ต่ออีกอันเลย!');
+      // reset trackers at mini boundaries
+      const r = String(ui.reason || '');
+      if (r.startsWith('start') || r.startsWith('next-mini') || r.startsWith('mini-fail')) {
+        resetMiniTrackers();
       }
     }
   });
 
   Q.start();
   emitEvt('quest:update', Q.getUIState('init'));
-  emitEvt('hha:quest', Q.getUIState('init'));
 
   // --------------------------- Input (shoot) ---------------------------
-  function canAct() { return nowMs() >= S.stunnedUntilMs; }
+  function canAct() {
+    return nowMs() >= S.stunnedUntilMs;
+  }
 
   function nearestTargetToAim(radiusPx) {
     const a = getAimPoint();
@@ -745,11 +562,15 @@ export function boot(opts = {}) {
 
     for (const t of targets.values()) {
       if (!t || !t.el) continue;
+
       const allow = (t.type === 'boss') || (t.type === 'good') || (t.type === 'junk') || (t.type === 'trap') || (t.type === 'gold') || (t.type === 'power');
       if (!allow) continue;
 
       const d2 = dist2(a.x, a.y, t.xView, t.yView);
-      if (d2 < bestD2) { bestD2 = d2; best = t; }
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = t;
+      }
     }
 
     if (!best) return null;
@@ -769,6 +590,7 @@ export function boot(opts = {}) {
       S.combo += 1;
       S.comboMax = Math.max(S.comboMax, S.combo);
       setFever(S.fever + 5);
+
       Particles.burstAt?.(t.xView, t.yView, 'BOSS');
       bossTakeHit(1);
       removeTarget(t.id);
@@ -777,8 +599,12 @@ export function boot(opts = {}) {
         const p = randomSafeXY();
         makeTarget('boss', EMOJI_BOSS[rndi(0, EMOJI_BOSS.length - 1)], p.x, p.y, 999, { hp: S.bossHp });
       }
+
+      emitEvt('hha:log_event', { kind:'boss_hit', ts: Date.now(), rtMs: Math.round(rt), direct: !!meta.direct });
       emitScore();
-      emitEvt('hha:log_event', { kind:'hit_boss', ts: Date.now(), direct: !!meta.direct });
+
+      // quest eval tick
+      Q.updateFromState?.(questSnapshot(), 'boss_hit');
       return;
     }
 
@@ -793,6 +619,7 @@ export function boot(opts = {}) {
       S.comboMax = Math.max(S.comboMax, S.combo);
 
       S.streakGood += 1;
+
       setFever(S.fever + 6);
 
       Particles.scorePop?.(t.xView, t.yView, '+');
@@ -800,7 +627,8 @@ export function boot(opts = {}) {
 
       emitEvt('hha:log_event', { kind:'hit_good', ts: Date.now(), rtMs: Math.round(rt), direct: !!meta.direct });
       emitScore();
-      syncQuest('hit-good');
+
+      Q.updateFromState?.(questSnapshot(), 'hit_good');
 
       if (S.combo % 7 === 0) coach('คอมโบมาแล้ว! ดีมาก 🔥', 'happy', 'รักษาจังหวะ!');
       return;
@@ -810,15 +638,16 @@ export function boot(opts = {}) {
       S.score += 350;
       S.combo += 2;
       S.comboMax = Math.max(S.comboMax, S.combo);
-      setFever(S.fever + 10);
 
       S.goldHitsThisMini = true;
 
+      setFever(S.fever + 10);
       Particles.celebrate?.('GOLD');
       coach('เจอของพิเศษ! คะแนนพุ่ง ⭐', 'happy', 'รักษาคอมโบ!');
       emitEvt('hha:log_event', { kind:'hit_gold', ts: Date.now() });
       emitScore();
-      syncQuest('hit-gold');
+
+      Q.updateFromState?.(questSnapshot(), 'hit_gold');
       return;
     }
 
@@ -837,19 +666,28 @@ export function boot(opts = {}) {
       Particles.celebrate?.('POWER');
       emitEvt('hha:log_event', { kind:'hit_power', ts: Date.now(), power: tag });
       emitScore();
+
+      Q.updateFromState?.(questSnapshot(), 'hit_power');
       return;
     }
 
+    // junk/trap
     if (t.type === 'junk' || t.type === 'trap') {
       if (S.shield > 0) {
-        // ✅ blocked => NO MISS + do NOT fail minis
+        // blocked => NO MISS
         S.nHitJunkGuard += 1;
         coach('โล่กันไว้! ไม่พลาด 🛡️', 'happy', 'ดีมาก!');
         emitEvt('hha:log_event', { kind:'hit_junk_guard', ts: Date.now(), type: t.type });
+
+        // ✅ fair: guarded junk does NOT fail forbidJunk mini
+        Q.onJunkHit?.({ guarded: true });
+        Q.updateFromState?.(questSnapshot(), 'hit_junk_guard');
+
         emitScore();
         return;
       }
 
+      // counts as MISS
       S.nHitJunk += 1;
       S.misses += 1;
       S.combo = 0;
@@ -862,8 +700,11 @@ export function boot(opts = {}) {
       Particles.burstAt?.(t.xView, t.yView, 'JUNK');
       emitEvt('hha:log_event', { kind:'hit_junk', ts: Date.now(), type: t.type });
 
+      // forbid-junk minis fail
+      Q.onJunkHit?.({ guarded: false });
+      Q.updateFromState?.(questSnapshot(), 'hit_junk');
+
       emitScore();
-      syncQuest('hit-junk');
       return;
     }
   }
@@ -875,6 +716,7 @@ export function boot(opts = {}) {
     const radius = (S.magnet > 0) ? 240 : baseR;
 
     const t = nearestTargetToAim(radius);
+
     if (!t) {
       emitEvt('hha:log_event', { kind:'shoot_empty', ts: Date.now() });
       return;
@@ -916,20 +758,23 @@ export function boot(opts = {}) {
     ...context
   });
 
+  // Initial HUD/Coach
   coach('พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫', 'neutral', 'เล็งกลางแล้วกดยิง / ลากจอเพื่อ “เอียงโลก” แบบ VR');
   emitScore();
   emitTime();
-  syncQuest('init');
 
   // --------------------------- Main loop ---------------------------
   let rafId = 0;
   let ended = false;
+  let questAccMs = 0;
 
   function spawnOne() {
     const cfg = spawnConfig();
     const { x, y } = randomSafeXY();
+
     const r = Math.random();
 
+    // power
     if (r < cfg.powerChance) {
       const pr = Math.random();
       let tag = 'magnet', emoji = '🧲';
@@ -946,6 +791,7 @@ export function boot(opts = {}) {
       return;
     }
 
+    // gold
     if (r < cfg.powerChance + cfg.goldChance) {
       const emoji = (Math.random() < 0.55) ? '⭐' : '💎';
       makeTarget('gold', emoji, x, y, cfg.ttl + 0.8, {});
@@ -953,6 +799,7 @@ export function boot(opts = {}) {
       return;
     }
 
+    // trap/junk/good
     const junk = (Math.random() < cfg.junkRatio);
     if (junk) {
       const isTrap = (Math.random() < 0.22);
@@ -963,6 +810,7 @@ export function boot(opts = {}) {
       return;
     }
 
+    // good
     const emoji = EMOJI_GOOD[rndi(0, EMOJI_GOOD.length - 1)];
     makeTarget('good', emoji, x, y, cfg.ttl, {});
     S.nTargetGoodSpawned += 1;
@@ -970,24 +818,38 @@ export function boot(opts = {}) {
   }
 
   function update(dtMs) {
+    // time
     S.timeLeftSec = Math.max(0, S.timeLeftSec - (dtMs / 1000));
     S.durationPlayedSec = (timeLimitSec - S.timeLeftSec);
 
+    // panic edge near end
     if (S.timeLeftSec <= 8 && S.timeLeftSec > 0) document.body.classList.add('gj-panic');
     else document.body.classList.remove('gj-panic');
 
+    // timers
     if (S.shield > 0) setShield(S.shield - (dtMs / 1000));
     if (S.magnet > 0) S.magnet = Math.max(0, S.magnet - (dtMs / 1000));
     if (S.slowmo > 0) S.slowmo = Math.max(0, S.slowmo - (dtMs / 1000));
 
-    // safe time increments (reset on unblocked junk/hazard/expire)
-    S.safeNoJunkSeconds = Math.min(9999, S.safeNoJunkSeconds + (dtMs / 1000));
-
+    // FEVER -> auto shield
     if (S.fever >= 100 && S.shield <= 0.01) {
       setFever(0);
       setShield(6.0);
       Particles.celebrate?.('FEVER');
       coach('FEVER เต็ม! ได้โล่ 🛡️', 'fever', 'ช่วงนี้บวกให้สุด!');
+    }
+
+    // Quest tick (mini timer)
+    Q.tick?.();
+
+    // safeNoJunkSeconds count
+    S.safeNoJunkSeconds += (dtMs / 1000);
+
+    // throttle quest evaluation
+    questAccMs += dtMs;
+    if (questAccMs >= 120) {
+      questAccMs = 0;
+      Q.updateFromState?.(questSnapshot(), 'tick');
     }
 
     // spawn pacing
@@ -996,15 +858,18 @@ export function boot(opts = {}) {
     spawnAccMs += dtMs;
 
     const interval = cfg.baseInterval / slowFactor;
+
     while (spawnAccMs >= interval && S.timeLeftSec > 0) {
       spawnAccMs -= interval;
 
+      // spawn boss condition
       if ((challenge === 'boss') && !S.bossSpawned && S.timeLeftSec <= (timeLimitSec - 2)) {
         spawnBoss();
       } else if ((challenge === 'rush') && !S.bossSpawned && S.score >= 8000) {
         spawnBoss();
       }
 
+      // In boss mode: reduce normal spawns a bit while boss alive
       if (S.bossAlive) {
         if (Math.random() < 0.55) spawnOne();
       } else {
@@ -1025,22 +890,21 @@ export function boot(opts = {}) {
           S.combo = 0;
 
           S.streakGood = 0;
-          S.safeNoJunkSeconds = 0;
 
           setFever(S.fever - 12);
           emitEvt('hha:log_event', { kind:'expire_good', ts: Date.now() });
           emitScore();
-          syncQuest('expire-good');
+
+          Q.updateFromState?.(questSnapshot(), 'expire_good');
         }
         removeTarget(id);
       }
     }
 
+    // boss hazards
     tickBossHazards(dtMs);
 
-    // quest update from state (throttled)
-    syncQuest('tick');
-
+    // emit time
     emitTime();
   }
 
@@ -1088,11 +952,19 @@ export function boot(opts = {}) {
     const endIso = new Date().toISOString();
     S.endedAtIso = endIso;
 
+    // finalize quest (for end-goals if any)
+    Q.finalize?.(questSnapshot());
+    const qEnd = Q.getUIState?.('end') || null;
+    if (qEnd) {
+      emitEvt('quest:update', qEnd);
+      S.goalsCleared = qEnd.goalsCleared|0;
+      S.goalsTotal   = qEnd.goalsTotal|0;
+      S.miniCleared  = qEnd.minisCleared|0;
+      S.miniTotal    = qEnd.minisTotal|0;
+    }
+
     const stats = computeStats();
     S.grade = computeGrade(stats);
-
-    emitScore();
-    syncQuest('end');
 
     const payload = {
       timestampIso: endIso,
@@ -1138,8 +1010,10 @@ export function boot(opts = {}) {
       medianRtGoodMs: stats.medianRtGoodMs,
 
       grade: S.grade,
+
       device: (navigator.userAgent || 'unknown'),
       gameVersion: (context.gameVersion || 'safe-full'),
+
       reason,
 
       startTimeIso: S.startedAtIso,
@@ -1152,6 +1026,7 @@ export function boot(opts = {}) {
     emitEvt('hha:end', payload);
 
     coach(`จบเกม! เกรด ${S.grade} 🎉`, 'happy', `Accuracy ${stats.accuracyGoodPct}% • Miss ${S.misses} • ComboMax ${S.comboMax}`);
+    emitScore();
   }
 
   function raf() {
@@ -1163,15 +1038,11 @@ export function boot(opts = {}) {
       update(dt);
       if (S.timeLeftSec <= 0) endGame('time');
     }
+
     rafId = requestAnimationFrame(raf);
   }
 
   rafId = requestAnimationFrame(raf);
-
-  // If tab hidden -> end gracefully in research
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && run === 'research' && !ended) endGame('hidden');
-  }, { passive: true });
 
   // --------------------------- Public API ---------------------------
   function getState() {
@@ -1198,5 +1069,11 @@ export function boot(opts = {}) {
     endGame('stop');
   }
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && run === 'research' && !ended) endGame('hidden');
+  }, { passive: true });
+
   return { getState, stop };
 }
+
+export default { boot };
