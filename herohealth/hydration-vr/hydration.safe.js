@@ -1,14 +1,15 @@
 'use strict';
 
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION (BOSS STEP 3 / PHASED++)
-// ✅ Boss Phase 1/2/3 (tele shorter + decoys more + patterns meaner)
-// ✅ Single-Safe-Slit (overlap) + "moving slit" (shift twice during fire)
-// ✅ Slit Timing Windows x2: hit safe-slit during window 2 times => BIG BONUS + Shield + Fever down
-// ✅ Shockwave after beam ends
-// ✅ Read-Pattern Bonus (clean + good hits)
+// Hydration Quest VR — PRODUCTION (BOSS STEP 4)
+// ✅ Boss Phase 1/2/3
+// ✅ Single-Safe-Slit (real) + Moving slit (shift twice)
+// ✅ STEP4:
+//    - Rotate Overlap (slit beams rotate during fire)
+//    - Fake Slit 1 segment (visual decoy slit; real slit subtle then swap)
+//    - Phase 3 Rapid Micro-Slit (3 tiny timing windows)
+//    - Window SFX/FX (beeps + pulse)
 // ✅ Shield blocks junk/laser => block != miss
-// ✅ Last 10s warning tick + pulse + shake scaling
 // ✅ End summary + logger
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
@@ -145,15 +146,17 @@ const S = {
     minGoodHits: 3,
     paid: false,
 
-    // STEP3: slit timing
     slit: {
       active: false,
-      windows: [],       // [{t0,t1,hit:false}]
+      windows: [],       // [{t0,t1,hit:false,missed:false}]
       hits: 0,
       streak: 0,         // consecutive window hits
       paid: false,
       lastSafe: false,
-      phase: 1
+      phase: 1,
+      requiredStreak: 2,  // phase3 -> 3
+      swapAtMs: 0,        // fake->real swap
+      swapped: false
     }
   },
 
@@ -228,7 +231,6 @@ function addMiss(reason){
   addFever(reason==='junk' ? 14 : 10);
   markPatternDirty('miss_'+reason);
 
-  // also ruins slit chain (STEP3)
   if (S.pattern.slit && S.pattern.slit.active){
     S.pattern.slit.streak = 0;
   }
@@ -416,8 +418,13 @@ function beep(freq=880, durMs=60, vol=0.06){
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + durMs/1000);
   }catch{}
 }
+function beepTriple(base=820){
+  beep(base, 55, 0.06);
+  ROOT.setTimeout(()=>beep(base+120, 55, 0.055), 70);
+  ROOT.setTimeout(()=>beep(base+240, 60, 0.05), 140);
+}
 
-// --------------------- FX CSS (lasers + shockwave) ---------------------
+// --------------------- FX CSS (lasers + shockwave + STEP4 visuals) ---------------------
 function attachHydrationFxCss(){
   if (DOC.getElementById('hydr-fx-style')) return;
   const s = DOC.createElement('style');
@@ -473,6 +480,10 @@ function attachHydrationFxCss(){
       opacity:.34;
       filter: blur(1.1px) saturate(.95);
     }
+
+    /* STEP4: real subtle + fake highlight */
+    .hvr-beam.realSubtle{ opacity:.18 !important; filter: blur(.3px) saturate(.92); }
+    .hvr-beam.fakeHi{ opacity:.62 !important; box-shadow: 0 0 24px rgba(56,189,248,.18); }
 
     /* GAP */
     .hvr-beam.gap{ --gapPos: 0; --gapH: 18px; }
@@ -595,9 +606,8 @@ function pointToBeamSpace(px, py, beam){
   return { x, y };
 }
 
-// ---------- Phase (STEP3) ----------
+// ---------- Phase ----------
 function bossPhase(){
-  // Phase increases when: near end OR fever high
   const t = S.secLeft;
   if (t <= 18 || S.fever >= 86) return 3;
   if (t <= 38 || S.fever >= 72) return 2;
@@ -634,18 +644,26 @@ function makeBeam(opts){
     isDecoy: !!opts.isDecoy,
     lockCenter: !!opts.lockCenter,
 
-    // STEP3: tag for slit beams
     slitKey: opts.slitKey || '',
 
-    // movement of center for "moving slit"
+    // movement of center
     centerShift: opts.centerShift || null, // {t0,dur,from:{x,y},to:{x,y}}
+
+    // STEP4 rotate
+    baseAngle: Number.isFinite(opts.angle) ? opts.angle : 0,
+    rotateAmp: opts.rotateAmp || 0,        // degrees
+    rotateSpeed: opts.rotateSpeed || 0,    // rad-ish multiplier
+    rotatePhase: opts.rotatePhase || (Math.random()*Math.PI*2),
+
+    // gap offset (misalign if needed)
+    gapOffset: opts.gapOffset || 0,
 
     phase: 'tele',
     teleMs: opts.teleMs || 900,
     fireMs: opts.fireMs || 1200,
 
     width: opts.width || 110,
-    angle: opts.angle || 0,
+    angle: Number.isFinite(opts.angle) ? opts.angle : 0,
     sweepDir: opts.sweepDir || 1,
     sweepSpeed: opts.sweepSpeed || 50,
 
@@ -664,7 +682,7 @@ function makeBeam(opts){
     tEnd: 0
   };
 
-  const cls = `${b.variant} tele show${b.isDecoy ? ' decoy':''}`;
+  const cls = `${b.variant} tele show${b.isDecoy ? ' decoy':''} ${(opts.extraClass||'')}`.trim();
   b.el = makeBeamEl(cls);
 
   if (b.variant === 'gap'){
@@ -696,7 +714,7 @@ function beginPattern(name, totalMs){
   S.pattern.goodHits = 0;
   S.pattern.paid = false;
 
-  // STEP3 reset slit sub-state
+  // reset slit
   S.pattern.slit.active = false;
   S.pattern.slit.windows = [];
   S.pattern.slit.hits = 0;
@@ -704,6 +722,9 @@ function beginPattern(name, totalMs){
   S.pattern.slit.paid = false;
   S.pattern.slit.lastSafe = false;
   S.pattern.slit.phase = bossPhase();
+  S.pattern.slit.requiredStreak = (S.pattern.slit.phase >= 3 ? 3 : 2);
+  S.pattern.slit.swapAtMs = 0;
+  S.pattern.slit.swapped = false;
 
   dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'pattern_begin', data:{ name, endInMs: totalMs||0, phase:S.pattern.slit.phase }});
 }
@@ -727,7 +748,7 @@ function endPatternIfDue(){
   S.pattern.active = false;
 }
 
-// ---------- STEP3: Slit timing sampling ----------
+// ---------- STEP4 slit helpers ----------
 function findSlitBeams(){
   const a = ATK.beams.find(b => !b.dead && !b.isDecoy && b.slitKey === 'A');
   const c = ATK.beams.find(b => !b.dead && !b.isDecoy && b.slitKey === 'B');
@@ -743,56 +764,95 @@ function isPointSafeInGapBeam(layerX, layerY, beam){
   const gapH = beam.gapH || 18;
   return Math.abs(bp.y - gapPosPx) <= (gapH/2);
 }
+
+// window pulse helper
+function pulseWindow(level=1){
+  warnPulse(0.25 + clamp(level,0,1)*0.75);
+  ROOT.setTimeout(()=>warnPulse(0), 120);
+  shake(1 + Math.round(level*2), 70);
+}
+
 function sampleSlitTiming(){
   if (!S.pattern.active) return;
   if (S.pattern.name !== 'SINGLE-SLIT') return;
   if (!S.pattern.slit.active) return;
 
   const t = nowMs();
+
+  // swap fake->real cue
+  if (!S.pattern.slit.swapped && S.pattern.slit.swapAtMs && t >= S.pattern.slit.swapAtMs){
+    S.pattern.slit.swapped = true;
+    beepTriple(760);
+    pulseWindow(0.65);
+    setCoach('fever', 'สลับช่องแล้ว!', 'ช่องเด่นเมื่อกี้ “หลอก” — ตามช่องจริงให้ทัน!');
+    dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'slit_swap', data:{ phase:S.pattern.slit.phase }});
+  }
+
   const p = getCrosshairLayerLocal();
   const { a, b } = findSlitBeams();
   if (!a || !b) return;
 
-  const safeA = isPointSafeInGapBeam(p.x, p.y, a);
-  const safeB = isPointSafeInGapBeam(p.x, p.y, b);
-  const safe = safeA && safeB;
+  const safe = isPointSafeInGapBeam(p.x, p.y, a) && isPointSafeInGapBeam(p.x, p.y, b);
 
-  // windows check
+  // mark missed windows (and reset streak)
+  for (const w of S.pattern.slit.windows){
+    if (!w.hit && !w.missed && t > w.t1){
+      w.missed = true;
+      S.pattern.slit.streak = 0;
+      beep(260, 70, 0.06);
+      dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'slit_window_miss', data:{ phase:S.pattern.slit.phase }});
+    }
+  }
+
+  // find active window
   const w = S.pattern.slit.windows.find(w => !w.hit && t >= w.t0 && t <= w.t1);
   if (w && safe){
     w.hit = true;
     S.pattern.slit.hits++;
     S.pattern.slit.streak++;
 
-    // small ping bonus per window
-    addScore(10 + Math.min(6, Math.floor(S.combo/10)), p.rect.left + p.x, p.rect.top + p.y);
+    // success ping
+    beep(980, 55, 0.06);
+    pulseWindow(0.55);
+
+    const small = 10 + Math.min(6, Math.floor(S.combo/10));
+    addScore(small, p.rect.left + p.x, p.rect.top + p.y);
     try{ Particles.burstAt(p.rect.left + p.x, p.rect.top + p.y, 'gold'); }catch{}
     incCombo();
     addFever(-3);
 
-    dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'slit_window_hit', data:{ idx:S.pattern.slit.hits, phase:S.pattern.slit.phase }});
-    setCoach('happy', 'เข้า Safe-Slit ถูกจังหวะ!', `ดีมาก! อีกครั้งให้ครบ 2 ครั้งติด จะได้โบนัสใหญ่! (${S.pattern.slit.streak}/2)`);
+    dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'slit_window_hit', data:{ idx:S.pattern.slit.hits, streak:S.pattern.slit.streak, phase:S.pattern.slit.phase }});
+
+    const need = S.pattern.slit.requiredStreak;
+    setCoach('happy', 'เข้า Safe-Slit ถูกจังหวะ!', `สวย! ทำให้ครบ ${need} ครั้งติด (${S.pattern.slit.streak}/${need})`);
     hud();
   }
 
-  // lose streak if window passed and not hit or pattern dirty / got unsafe too long during strict phase
+  // phase3 strict: leaving slit breaks streak
   if (!safe && S.pattern.slit.lastSafe && S.pattern.slit.phase >= 3){
-    // phase3 strict: leaving slit breaks streak
     S.pattern.slit.streak = 0;
   }
   S.pattern.slit.lastSafe = safe;
 
-  // BIG PAY: 2 consecutive window hits + pattern still clean
-  if (!S.pattern.slit.paid && S.pattern.slit.streak >= 2 && S.pattern.clean){
+  // BIG PAY
+  const need = S.pattern.slit.requiredStreak;
+  if (!S.pattern.slit.paid && S.pattern.slit.streak >= need && S.pattern.clean){
     S.pattern.slit.paid = true;
 
-    const big = 40 + (S.pattern.slit.phase * 10);
+    const big = (need === 3)
+      ? (60 + S.pattern.slit.phase * 10)
+      : (40 + S.pattern.slit.phase * 10);
+
     addScore(big, p.rect.left + p.x, p.rect.top + p.y);
     addShield(1);
     addFever(-(10 + S.pattern.slit.phase*2));
+
     try{ Particles.burstAt(p.rect.left + p.x, p.rect.top + p.y, 'diamond'); }catch{}
+    beepTriple(920);
+    pulseWindow(0.9);
+
     setCoach('happy', 'SAFE-SLIT MASTER! +BIG BONUS', `+${big} • +โล่ • ไข้ลด! โหดจริง!`);
-    dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'slit_big_bonus', data:{ phase:S.pattern.slit.phase, score:big }});
+    dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'slit_big_bonus', data:{ phase:S.pattern.slit.phase, score:big, need }});
     hud();
   }
 }
@@ -810,7 +870,6 @@ function beamToFire(b){
   if (b.variant === 'gap'){
     const storm = feverStormOn();
     b.gapH = storm ? Math.min(b.gapH, 16) : b.gapH;
-    b.gapVel = (storm ? 220 : b.gapVel) * (Math.random()<0.5?-1:1);
     b.el.style.setProperty('--gapH', b.gapH + 'px');
   }
 
@@ -829,8 +888,6 @@ function tickBeams(){
     const active = ATK.beams.filter(b=>!b.dead);
 
     endPatternIfDue();
-
-    // STEP3: timing sampler
     sampleSlitTiming();
 
     if (!active.length){
@@ -871,14 +928,20 @@ function beamUpdate(b, dt){
   if (!b || b.dead || !b.el) return;
   const storm = feverStormOn();
 
-  // STEP3: center shift (moving slit)
+  // center shift
   if (b.centerShift){
     const t = nowMs();
     const p = clamp((t - b.centerShift.t0) / (b.centerShift.dur || 1), 0, 1);
-    const fx = b.centerShift.from.x + (b.centerShift.to.x - b.centerShift.from.x) * (1 - Math.pow(1-p, 3));
-    const fy = b.centerShift.from.y + (b.centerShift.to.y - b.centerShift.from.y) * (1 - Math.pow(1-p, 3));
-    b.center.x = fx;
-    b.center.y = fy;
+    const ease = (1 - Math.pow(1-p, 3));
+    b.center.x = b.centerShift.from.x + (b.centerShift.to.x - b.centerShift.from.x) * ease;
+    b.center.y = b.centerShift.from.y + (b.centerShift.to.y - b.centerShift.from.y) * ease;
+  }
+
+  // rotate (STEP4)
+  if (b.rotateAmp && b.lockCenter && b.phase === 'fire'){
+    const tt = nowMs()/1000;
+    const wob = Math.sin(tt * (b.rotateSpeed || 6) + (b.rotatePhase||0));
+    b.angle = (b.baseAngle || 0) + wob * b.rotateAmp;
   }
 
   if (b.variant === 'sweep'){
@@ -913,13 +976,12 @@ function beamUpdate(b, dt){
 
   if (b.variant === 'gap' && b.phase === 'fire'){
     if (b.lockCenter){
-      // locked overlap beams: tiny wobble; gapH shrinks with phase
-      const phase = bossPhase();
+      const ph = bossPhase();
       const wobble = (storm ? 1.2 : 0.9) * Math.sin(nowMs()/180);
-      b.el.style.setProperty('--gapPos', wobble.toFixed(2) + 'px');
-      const hh = (phase >= 3 ? (storm?11:12) : (phase === 2 ? (storm?12:13) : (storm?12:14)));
-      b.el.style.setProperty('--gapH', hh + 'px');
+      const hh = (ph >= 3 ? (storm?11:12) : (ph === 2 ? (storm?12:13) : (storm?12:14)));
       b.gapH = hh;
+      b.el.style.setProperty('--gapH', hh + 'px');
+      b.el.style.setProperty('--gapPos', (wobble + (b.gapOffset||0)).toFixed(2) + 'px');
       return;
     }
 
@@ -986,7 +1048,7 @@ function beamDamageCheck(b){
   hud();
 }
 
-// --------------------- Boss patterns (PHASED STEP3) ---------------------
+// --------------------- Boss patterns (STEP4) ---------------------
 function bossCooldownMs(){
   const storm = feverStormOn();
   const ph = bossPhase();
@@ -1015,7 +1077,6 @@ function spawnBoss(){
 
   const center = { x:(playfield.clientWidth||1)*0.5, y:(playfield.clientHeight||1)*0.52 };
 
-  // probabilities by phase
   const r = Math.random();
   let pattern = 'doubleSweep';
 
@@ -1029,7 +1090,7 @@ function spawnBoss(){
     else if (r < 0.60) pattern = 'tripleWave';
     else if (r < 0.80) pattern = 'crossStrike';
     else pattern = 'singleSlit';
-  } else { // phase 3
+  } else {
     if (r < 0.22) pattern = 'doubleSweep';
     else if (r < 0.48) pattern = 'tripleWave';
     else if (r < 0.70) pattern = 'crossStrike';
@@ -1041,20 +1102,20 @@ function spawnBoss(){
   const tele = (storm ? 700 : 940) - (ph*70);
   const teleMs = clamp(tele, 520, 980);
 
+  // --- (patterns other than slit) ---
   if (pattern === 'doubleSweep'){
     setCoach('fever', `บอส P${ph}: DOUBLE-SWEEP!`, '2 เส้นสวนกัน — อ่านจังหวะแล้ว “เข้า Gap”');
     const fire = (storm ? 1550 : 1380) + (ph*90);
 
     beginPattern('DOUBLE-SWEEP', teleMs + fire + 180);
 
-    // decoys more by phase
     const dec = (ph >= 3 ? 3 : (ph === 2 ? 2 : 1));
     for (let i=0;i<dec;i++){
-      makeBeam({ variant:'sweep', isDecoy:true, teleMs: teleMs, fireMs: 650, width: storm?118:110, angle: (Math.random()*70-35), sweepDir: (i%2?1:-1), sweepSpeed: storm?78:56, center:{...center} });
+      makeBeam({ variant:'sweep', isDecoy:true, teleMs, fireMs: 650, width: storm?118:110, angle: (Math.random()*70-35), sweepDir: (i%2?1:-1), sweepSpeed: storm?78:56, center:{...center} });
     }
 
-    makeBeam({ variant:'gap', teleMs: teleMs, fireMs: fire, width: storm?124:112, angle: (Math.random()*55-27.5), gapH: storm?16:18, center:{...center} });
-    makeBeam({ variant:'sweep', teleMs: teleMs, fireMs: fire, width: storm?122:110, angle: (Math.random()*55-27.5), sweepDir: (Math.random()<0.5?-1:1), sweepSpeed: storm?74:56, center:{...center} });
+    makeBeam({ variant:'gap', teleMs, fireMs: fire, width: storm?124:112, angle: (Math.random()*55-27.5), gapH: storm?16:18, center:{...center} });
+    makeBeam({ variant:'sweep', teleMs, fireMs: fire, width: storm?122:110, angle: (Math.random()*55-27.5), sweepDir: (Math.random()<0.5?-1:1), sweepSpeed: storm?74:56, center:{...center} });
   }
 
   if (pattern === 'tripleWave'){
@@ -1065,20 +1126,19 @@ function spawnBoss(){
 
     beginPattern('TRIPLE-WAVE', teleMs + fire2 + 980);
 
-    makeBeam({ variant:'gap', isDecoy:(ph>=2), teleMs: teleMs, fireMs: fire1, width: storm?118:108, angle: baseAng - 18, gapH: storm?16:18, center:{...center} });
+    makeBeam({ variant:'gap', isDecoy:(ph>=2), teleMs, fireMs: fire1, width: storm?118:108, angle: baseAng - 18, gapH: storm?16:18, center:{...center} });
 
     ROOT.setTimeout(()=>{
       if (S.ended) return;
-      makeBeam({ variant:'gap', teleMs: teleMs, fireMs: fire2, width: storm?126:112, angle: baseAng + 4, gapH: storm?16:18, center:{...center} });
-      // extra sweep decoy on higher phase
+      makeBeam({ variant:'gap', teleMs, fireMs: fire2, width: storm?126:112, angle: baseAng + 4, gapH: storm?16:18, center:{...center} });
       if (ph >= 2){
-        makeBeam({ variant:'sweep', isDecoy:true, teleMs: teleMs, fireMs: 920, width: storm?112:104, angle: baseAng + 22, sweepDir: 1, sweepSpeed: storm?82:60, center:{...center} });
+        makeBeam({ variant:'sweep', isDecoy:true, teleMs, fireMs: 920, width: storm?112:104, angle: baseAng + 22, sweepDir: 1, sweepSpeed: storm?82:60, center:{...center} });
       }
     }, (ph>=3?360:420));
 
     ROOT.setTimeout(()=>{
       if (S.ended) return;
-      makeBeam({ variant:'cross', isDecoy:true, teleMs: teleMs, fireMs: fire1, width: storm?116:108, angle: 90, center:{...center} });
+      makeBeam({ variant:'cross', isDecoy:true, teleMs, fireMs: fire1, width: storm?116:108, angle: 90, center:{...center} });
     }, (ph>=3?680:780));
   }
 
@@ -1088,70 +1148,120 @@ function spawnBoss(){
 
     beginPattern('CROSS-STRIKE', teleMs + fire + 320);
 
-    // decoy cross layers
-    makeBeam({ variant:'cross', isDecoy:true, teleMs: teleMs, fireMs: 820, width: storm?112:104, angle: 0,  center:{...center} });
-    makeBeam({ variant:'cross', isDecoy:true, teleMs: teleMs, fireMs: 820, width: storm?112:104, angle: 90, center:{...center} });
+    makeBeam({ variant:'cross', isDecoy:true, teleMs, fireMs: 820, width: storm?112:104, angle: 0,  center:{...center} });
+    makeBeam({ variant:'cross', isDecoy:true, teleMs, fireMs: 820, width: storm?112:104, angle: 90, center:{...center} });
     if (ph >= 2){
-      makeBeam({ variant:'gap', isDecoy:true, teleMs: teleMs, fireMs: 720, width: storm?112:104, angle: (Math.random()*60-30), gapH: 18, center:{...center} });
+      makeBeam({ variant:'gap', isDecoy:true, teleMs, fireMs: 720, width: storm?112:104, angle: (Math.random()*60-30), gapH: 18, center:{...center} });
     }
 
-    makeBeam({ variant:'cross', teleMs: teleMs, fireMs: fire, width: storm?126:112, angle: (Math.random()<0.5?0:90), center:{...center} });
-    makeBeam({ variant:'gap',  teleMs: teleMs, fireMs: fire, width: storm?124:112, angle: (Math.random()*55-27.5), gapH: storm?16:18, center:{...center} });
+    makeBeam({ variant:'cross', teleMs, fireMs: fire, width: storm?126:112, angle: (Math.random()<0.5?0:90), center:{...center} });
+    makeBeam({ variant:'gap',  teleMs, fireMs: fire, width: storm?124:112, angle: (Math.random()*55-27.5), gapH: storm?16:18, center:{...center} });
   }
 
-  // === STEP3: Moving Single Safe Slit ===
+  // === STEP4: SINGLE-SAFE-SLIT (Fake segment + rotate + micro windows in phase3) ===
   if (pattern === 'singleSlit'){
-    setCoach('fever', `บอส P${ph}: SINGLE-SAFE-SLIT!`, '2 ช่องซ้อนกัน — “มีช่องปลอดภัยเดียว” และมันจะย้ายตำแหน่ง!');
-    const fire = (storm ? 1700 : 1500) + (ph*120);
+    setCoach('fever', `บอส P${ph}: SINGLE-SAFE-SLIT!`, 'ช่วงแรกมี “ช่องปลอม” เด่น ๆ แล้วจะสลับไปช่องจริง!');
 
-    // objective: good hits required while pattern active
-    S.pattern.minGoodHits = (ph>=3 ? (storm?3:3) : (ph===2 ? (storm?3:4) : (storm?3:4)));
+    const fire = (storm ? 1750 : 1550) + (ph*130);
+    S.pattern.minGoodHits = (ph>=3 ? 3 : 4);
 
-    beginPattern('SINGLE-SLIT', teleMs + fire + 380);
+    beginPattern('SINGLE-SLIT', teleMs + fire + 420);
 
-    // Activate slit timing windows (2 windows)
-    S.pattern.slit.active = true;
+    // timing windows
     const t0 = nowMs();
-    const wLen = (ph>=3 ? 260 : 320);
-    const wGap = (ph>=3 ? 520 : 620);
-    S.pattern.slit.windows = [
-      { t0: t0 + teleMs + 260,           t1: t0 + teleMs + 260 + wLen, hit:false },
-      { t0: t0 + teleMs + 260 + wGap,    t1: t0 + teleMs + 260 + wGap + wLen, hit:false }
-    ];
+    S.pattern.slit.active = true;
 
-    // decoy tease
-    makeBeam({ variant:'gap', isDecoy:true, teleMs: teleMs, fireMs: 820, width: storm?118:110, angle: 0, gapH: 18, center:{...center} });
+    const isMicro = (ph >= 3);
+    const wLen = isMicro ? 180 : (ph>=2 ? 260 : 320);
+    const wGap = isMicro ? 360 : (ph>=2 ? 520 : 620);
+    const nWin = isMicro ? 3 : 2;
+    S.pattern.slit.requiredStreak = isMicro ? 3 : 2;
 
-    // real overlap beams (locked center) + MOVE SHIFT twice
+    // window schedule + start beeps
+    const wStart0 = t0 + teleMs + 260;
+    S.pattern.slit.windows = [];
+    for (let i=0;i<nWin;i++){
+      const a = wStart0 + i*wGap;
+      const b = a + wLen;
+      S.pattern.slit.windows.push({ t0:a, t1:b, hit:false, missed:false });
+      ROOT.setTimeout(()=>{ if(!S.ended){ beep(720 + i*70, 60, 0.055); pulseWindow(isMicro?0.55:0.45); } }, Math.max(0, a - nowMs()));
+    }
+
+    // fake segment: highlight decoy slit at fakeCenter; real slit subtle at realCenter
     const base = { ...center };
+    const fakeCenter = { x: base.x + (storm? 34: 28), y: base.y - (storm? 18: 14) };
+
+    // real movement (two shifts)
     const shift1 = { x: base.x + (storm? 18: 14), y: base.y - (storm? 10: 8) };
     const shift2 = { x: base.x - (storm? 22: 16), y: base.y + (storm? 14: 10) };
 
+    // decoy (visual only) — "ช่องปลอม"
+    makeBeam({
+      variant:'gap',
+      isDecoy:true,
+      teleMs, fireMs: fire,
+      width: storm?128:116,
+      angle: +22,
+      gapH: 14,
+      center:{...fakeCenter},
+      lockCenter:true,
+      rotateAmp: (ph>=2? 7: 5),
+      rotateSpeed: 7,
+      extraClass:'fakeHi'
+    });
+    makeBeam({
+      variant:'gap',
+      isDecoy:true,
+      teleMs, fireMs: fire,
+      width: storm?128:116,
+      angle: -22,
+      gapH: 14,
+      center:{...fakeCenter},
+      lockCenter:true,
+      rotateAmp: (ph>=2? 7: 5),
+      rotateSpeed: 7,
+      extraClass:'fakeHi'
+    });
+
+    // real overlap beams (damage) — subtle first
     const A = makeBeam({
       variant:'gap',
-      teleMs: teleMs,
-      fireMs: fire,
+      teleMs, fireMs: fire,
       width: storm?128:116,
       angle: +18,
       gapH: (ph>=3 ? (storm?11:12) : (storm?12:13)),
       center:{...base},
       lockCenter:true,
       slitKey:'A',
+      rotateAmp: (ph>=3 ? 10 : 7),
+      rotateSpeed: (ph>=3 ? 9 : 7),
+      extraClass:'realSubtle',
       centerShift: { t0: t0 + teleMs + 140, dur: 420, from:{...base}, to:{...shift1} }
     });
 
     const B = makeBeam({
       variant:'gap',
-      teleMs: teleMs,
-      fireMs: fire,
+      teleMs, fireMs: fire,
       width: storm?128:116,
       angle: -18,
       gapH: (ph>=3 ? (storm?11:12) : (storm?12:13)),
       center:{...base},
       lockCenter:true,
       slitKey:'B',
+      rotateAmp: (ph>=3 ? 10 : 7),
+      rotateSpeed: (ph>=3 ? 9 : 7),
+      extraClass:'realSubtle',
       centerShift: { t0: t0 + teleMs + 140, dur: 420, from:{...base}, to:{...shift1} }
     });
+
+    // swap moment: fade in real / cue player
+    S.pattern.slit.swapAtMs = t0 + teleMs + (ph>=3 ? 720 : 860);
+    ROOT.setTimeout(()=>{
+      if (S.ended) return;
+      // bring real to normal brightness
+      try{ A.el && A.el.classList.remove('realSubtle'); }catch{}
+      try{ B.el && B.el.classList.remove('realSubtle'); }catch{}
+    }, Math.max(0, S.pattern.slit.swapAtMs - nowMs()));
 
     // shift again mid-fire (second relocation)
     ROOT.setTimeout(()=>{
@@ -1164,13 +1274,13 @@ function spawnBoss(){
         B.centerShift = { t0: t1, dur: 460, from:{...B.center}, to:{...shift2} };
       }
       dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'slit_relocate', data:{ phase:ph }});
-      setCoach('fever', 'SAFE-SLIT ย้ายแล้ว!', 'ตามมันให้ทัน แล้ว “เข้าให้ถูกจังหวะ” อีกครั้ง!');
-    }, (ph>=3 ? 820 : 920));
+      setCoach('fever', 'SAFE-SLIT ย้ายแล้ว!', 'ตามมันให้ทัน แล้วเข้าให้ถูก “จังหวะ”!');
+    }, (ph>=3 ? 840 : 940));
 
-    // extra pressure visual
-    makeBeam({ variant:'cross', isDecoy:true, teleMs: teleMs, fireMs: (ph>=3?980:860), width: storm?110:104, angle: (Math.random()<0.5?0:90), center:{...center} });
+    // extra pressure visuals
+    makeBeam({ variant:'cross', isDecoy:true, teleMs, fireMs: (ph>=3?980:860), width: storm?110:104, angle: (Math.random()<0.5?0:90), center:{...center} });
     if (ph >= 2){
-      makeBeam({ variant:'sweep', isDecoy:true, teleMs: teleMs, fireMs: (ph>=3?980:860), width: storm?110:104, angle: (Math.random()*70-35), sweepDir:(Math.random()<0.5?-1:1), sweepSpeed:(storm?86:64), center:{...center} });
+      makeBeam({ variant:'sweep', isDecoy:true, teleMs, fireMs: (ph>=3?980:860), width: storm?110:104, angle: (Math.random()*70-35), sweepDir:(Math.random()<0.5?-1:1), sweepSpeed:(storm?86:64), center:{...center} });
     }
   }
 
@@ -1228,7 +1338,7 @@ function finalize(reason='timeup'){
   if (S.misses <= 2) tips.push('✅ Miss น้อยมาก — โฟกัสดีสุด ๆ');
   if (acc >= 90) tips.push('🎯 Accuracy ยืนพื้นระดับท็อป');
   if (S.comboMax >= 18) tips.push('🔥 คอมโบยาวมาก — จังหวะนิ่ง!');
-  if (S.fever >= 85) tips.push('⚠️ บอสโหด — ครั้งหน้า “เข้า Safe-Slit ตามจังหวะ 2 ครั้ง” จะง่ายขึ้น');
+  if (S.fever >= 85) tips.push('⚠️ บอสโหด — เน้น “เข้า Safe-Slit ตาม beep window”');
   if (!tips.length) tips.push('เล่นอีกรอบแล้วอ่านแพทเทิร์นเลเซอร์ให้ทัน!');
   endTips.textContent = tips.join('\n');
 
@@ -1261,7 +1371,7 @@ function finalize(reason='timeup'){
   });
 }
 
-// --------------------- Tick-warning last 10 seconds ---------------------
+// --------------------- Last 10s warning ---------------------
 function updateEndgameWarning(){
   if (!S.started || S.ended) return;
 
@@ -1299,7 +1409,7 @@ async function startGame(){
   S.warn.lastSec = null;
 
   startOverlay && (startOverlay.style.display = 'none');
-  setCoach('neutral', 'ไป!', 'โฟกัสน้ำดี และอ่านแพทเทิร์นบอสให้ทัน');
+  setCoach('neutral', 'ไป!', 'โฟกัสน้ำดี และฟัง beep ตอน Safe-Slit มา');
   hud();
 
   dispatch('hha:log_session', {
@@ -1483,7 +1593,7 @@ async function startGame(){
       setWaterGauge(null, -4);
 
       dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'hit', data:{ kind:'junk', ch, fake:isFake }});
-      setCoach('sad', isFake ? 'โดนหลอก!' : 'โดนขยะ!', 'ระวังแก้วหวาน/ขยะ และอย่าลืมเข้า Safe-Slit ตอนบอสมา');
+      setCoach('sad', isFake ? 'โดนหลอก!' : 'โดนขยะ!', 'ระวังแก้วหวาน/ขยะ และฟัง beep ตอน Safe-Slit');
       hud();
       try{ QUEST.onHit({ kind:'junk', good:false, perfect:false }); }catch{}
       return { scoreDelta: -12, good:false };
@@ -1529,5 +1639,5 @@ startOverlay && startOverlay.addEventListener('click', (e)=>{ if (e.target === s
 
 attachVRFeel();
 
-setCoach('neutral', 'พร้อมแล้วไปกัน!', 'แตะเป้า 💧 ให้ตรงจังหวะ และเข้า Safe-Slit ให้ได้ 2 ครั้งติด!');
+setCoach('neutral', 'พร้อมแล้วไปกัน!', 'จำไว้: ช่องเด่นอาจ “หลอก” — ฟัง beep แล้วเข้า Safe-Slit ให้ทัน!');
 hud();
