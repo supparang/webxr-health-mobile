@@ -41,12 +41,17 @@
   function pickGroup(){ return GROUPS[(Math.random()*GROUPS.length)|0]; }
 
   // --- Safe spawn box based on HUD + safe-area ---
-  function getSpawnBox(){
+  function getSpawnBox(layerEl){
     const w = window.innerWidth || 360;
     const h = window.innerHeight || 640;
 
-    let left  = 18, right = 18, top = 18, bot = 18;
+    // base margins
+    let left  = 18;
+    let right = 18;
+    let top   = 18;
+    let bot   = 18;
 
+    // add safe-area
     const cs = getComputedStyle(document.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
     const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
@@ -55,6 +60,7 @@
 
     left += sal; right += sar; top += sat; bot += sab;
 
+    // reserve HUD top area
     const hud = document.querySelector('.hud-top');
     if (hud){
       const r = hud.getBoundingClientRect();
@@ -63,6 +69,7 @@
       top = Math.max(top, 120 + sat);
     }
 
+    // reserve bottom area
     bot = Math.max(bot, 72 + sab);
 
     return {
@@ -93,6 +100,7 @@
     _comboMax: 0,
     _misses: 0,
 
+    // shot stats
     _shots: 0,
     _hits: 0,
 
@@ -105,12 +113,14 @@
     _runMode: 'play',
     _seed: undefined,
 
+    // boss pacing
     _correctHitsTotal: 0,
 
+    // lock system
     _lockActive: false,
     _lockEl: null,
     _lockStartAt: 0,
-    _lockDur: 420,
+    _lockDur: 420, // ms to lock
     _lockRAF: 0,
 
     setLayerEl(el){ this._layerEl = el; },
@@ -146,8 +156,10 @@
       this._lockActive = false;
       this._lockEl = null;
 
+      // clear layer
       if (this._layerEl) this._layerEl.innerHTML = '';
 
+      // init group
       this._groupIdx = 0;
       emit('groups:group_change', { label: GROUPS[this._groupIdx].label });
 
@@ -179,7 +191,16 @@
       try{ cancelAnimationFrame(this._raf); }catch(_){}
       this._unbindInput();
       this._stopLock();
-      emit('hha:end', { reason: reason || 'stop' });
+      emit('hha:end', {
+        reason: reason || 'stop',
+        // summary for logger/debug
+        scoreFinal: this._score|0,
+        comboMax: this._comboMax|0,
+        misses: this._misses|0,
+        shots: this._shots|0,
+        hits: this._hits|0,
+        accuracy: this._accuracy()
+      });
     },
 
     _loop(t){
@@ -193,6 +214,11 @@
         this._timerAcc -= 1;
         this._timeLeft = Math.max(0, (this._timeLeft|0) - 1);
         this._emitTime();
+
+        // panic class for last 10s
+        if (this._timeLeft <= 10) document.documentElement.classList.add('panic');
+        else document.documentElement.classList.remove('panic');
+
         if (this._timeLeft <= 0){
           this.stop('time');
           return;
@@ -248,6 +274,7 @@
     },
 
     _emitTime(){
+      // compat: hha:time expects {left} in Groups; other games may use {sec}
       emit('hha:time', { left: this._timeLeft|0 });
     },
 
@@ -257,6 +284,7 @@
     },
 
     _grade(acc, comboMax, misses){
+      // SSS/SS/S/A/B/C
       if (acc>=92 && comboMax>=10 && misses<=6) return 'SSS';
       if (acc>=88 && comboMax>=8  && misses<=8) return 'SS';
       if (acc>=82 && comboMax>=6  && misses<=10) return 'S';
@@ -269,6 +297,7 @@
       if (!this._layerEl) return;
       if (this._targets.length >= (this._cfg.maxOnScreen|0)) return;
 
+      // boss pacing
       const bossDue = (this._correctHitsTotal > 0) && (this._correctHitsTotal % (this._cfg.bossEvery|0) === 0);
       const spawnBoss = bossDue && (Math.random() < 0.35);
 
@@ -300,17 +329,19 @@
       el.type = 'button';
       el.setAttribute('aria-label', 'target');
 
-      el.dataset.type = type;
+      el.dataset.type = type; // food/junk/decoy/boss
       if (gid != null) el.dataset.gid = String(gid);
 
       if (type === 'boss'){
         el.dataset.hp = String(this._cfg.bossHP|0);
+
         const bar = document.createElement('div');
         bar.className = 'bossbar';
         const fill = document.createElement('div');
         fill.className = 'bossbar-fill';
         bar.appendChild(fill);
         el.appendChild(bar);
+
         el.classList.add('fg-boss');
       } else if (type === 'junk'){
         el.classList.add('fg-junk');
@@ -321,12 +352,14 @@
         if ((gid|0) === (curId|0)) el.classList.add('fg-good');
       }
 
+      // emoji node
       const span = document.createElement('span');
       span.textContent = emoji;
       span.style.pointerEvents = 'none';
       el.insertBefore(span, el.firstChild);
 
-      const box = getSpawnBox();
+      // position via CSS vars
+      const box = getSpawnBox(this._layerEl);
       const x = box.x0 + Math.random() * Math.max(10, (box.x1 - box.x0));
       const y = box.y0 + Math.random() * Math.max(10, (box.y1 - box.y0));
       const s = 0.92 + Math.random()*0.22;
@@ -338,7 +371,7 @@
       el.classList.add('show','spawn');
       setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch{} }, 220);
 
-      // tap hit immediately
+      // direct tap hit
       el.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault();
         ev.stopPropagation();
@@ -349,6 +382,7 @@
       this._layerEl.appendChild(el);
       this._targets.push(el);
 
+      // lifetime
       const ttl = (this._cfg.ttl[0] + Math.random()*(this._cfg.ttl[1]-this._cfg.ttl[0]))|0;
       const timer = setTimeout(()=>{
         if (!el.isConnected) return;
@@ -372,9 +406,12 @@
         const i = this._targets.indexOf(el);
         if (i >= 0) this._targets.splice(i, 1);
       }catch(_){}
+
       try{
         if (anim) el.classList.add(anim);
-        const kill = ()=>{ try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){} };
+        const kill = ()=>{
+          try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){}
+        };
         setTimeout(kill, anim ? 200 : 0);
       }catch(_){}
     },
@@ -449,7 +486,7 @@
 
     _stopLock(){
       this._lockActive = false;
-      if (this._lockRAF){ try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
+      if (this._lockRAF) { try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
       this._lockRAF = 0;
 
       if (this._lockEl){
@@ -460,8 +497,9 @@
       emit('groups:lock', { on:false });
     },
 
-    _hitTarget(el){
+    _hitTarget(el, via){
       if (!el || !el.isConnected) return;
+
       const t = now();
       if (t < this._stunUntil) return;
 
@@ -470,6 +508,9 @@
       const curId = cur.id|0;
 
       this._shots++;
+
+      // FX hook (optional global)
+      const FX = (W.GAME_MODULES && W.GAME_MODULES.Particles) || W.Particles || null;
 
       if (type === 'junk'){
         this._score -= (this._cfg.junkPenalty|0);
@@ -483,6 +524,10 @@
         setTimeout(()=>document.documentElement.classList.remove('stunflash'), 220);
 
         if (navigator.vibrate) { try{ navigator.vibrate([60,60,60]); }catch(_){ } }
+
+        if (FX && FX.burstAt){
+          try{ FX.burstAt((window.innerWidth/2),(window.innerHeight/2), { kind:'bad' }); }catch(_){}
+        }
 
         try{ el.classList.add('hit'); }catch(_){}
         this._removeTarget(el, 'hit');
@@ -509,6 +554,10 @@
           fill.style.width = Math.round(pct*100) + '%';
         }
 
+        if (FX && FX.scorePop){
+          try{ FX.scorePop('+'+(this._cfg.bossScore|0), window.innerWidth/2, window.innerHeight*0.35); }catch(_){}
+        }
+
         if (hp <= 0){
           try{ el.classList.add('hit'); }catch(_){}
           this._removeTarget(el, 'hit');
@@ -528,6 +577,10 @@
         this._score -= (this._cfg.decoyPenalty|0);
         this._misses++;
         this._combo = 0;
+
+        if (FX && FX.scorePop){
+          try{ FX.scorePop('-'+(this._cfg.decoyPenalty|0), window.innerWidth/2, window.innerHeight*0.35); }catch(_){}
+        }
 
         try{ el.classList.add('hit'); }catch(_){}
         this._removeTarget(el, 'hit');
@@ -549,6 +602,10 @@
         this._combo++;
         if (this._combo > this._comboMax) this._comboMax = this._combo;
 
+        if (FX && FX.scorePop){
+          try{ FX.scorePop('+'+(this._cfg.correctScore|0), window.innerWidth/2, window.innerHeight*0.35); }catch(_){}
+        }
+
         this._powerCharge++;
         this._emitPower();
 
@@ -566,10 +623,16 @@
         }
 
         if (this._quest) this._quest.onShot({ correct:true, wrong:false, junk:false });
+
       } else {
         this._score -= (this._cfg.wrongPenalty|0);
         this._misses++;
         this._combo = 0;
+
+        if (FX && FX.scorePop){
+          try{ FX.scorePop('-'+(this._cfg.wrongPenalty|0), window.innerWidth/2, window.innerHeight*0.35); }catch(_){}
+        }
+
         if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
       }
 
