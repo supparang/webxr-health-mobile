@@ -1,51 +1,48 @@
 // === /herohealth/vr-groups/groups-fx.js ===
-// Food Groups VR — FX + Overlays (classic script) — PRODUCTION
-// ✅ ensure: lock ring, group banner, stun overlay, fx layer
-// ✅ listen: groups:lock, groups:panic, groups:stun, groups:group_change, groups:power
-// ✅ listen: hha:celebrate, hha:judge
-// ✅ panic tick sound via WebAudio (no assets)
-// ✅ lock ring uses CSS vars --p (progress) and --c (charge)
+// Food Groups VR — FX + UI helpers (IIFE) — PRODUCTION
+// ✅ Creates (if missing): lock ring, stun overlay, group banner, end summary modal (optional)
+// ✅ Binds events:
+//    - groups:lock        -> lock ring follows target + progress + charge
+//    - groups:group_change-> banner pop
+//    - groups:stun        -> stun overlay + shake
+//    - hha:time           -> panic blink when low time
+//    - hha:score          -> score pop
+//    - hha:celebrate      -> goal/mini/all celebration burst
+//    - hha:judge          -> judge toast
+//    - hha:end            -> optional summary modal (safe if you don't want)
+// Works with: groups-vr.css + groups-vr.html + GameEngine.js + groups-quests.js
 
 (function () {
   'use strict';
 
+  const W = window;
   const doc = document;
   if (!doc) return;
 
-  const W = window;
+  // prevent double bind
   const NS = (W.GroupsFX = W.GroupsFX || {});
   if (NS.__bound) return;
   NS.__bound = true;
 
   // ---------------- helpers ----------------
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function $(sel){ return doc.querySelector(sel); }
-  function byId(id){ return doc.getElementById(id); }
-
-  function ensureEl(id, tag, cls, parent){
-    let el = byId(id);
-    if (el) return el;
-    el = doc.createElement(tag || 'div');
-    if (id) el.id = id;
-    if (cls) el.className = cls;
-    (parent || doc.body).appendChild(el);
-    return el;
+  function $(id){ return doc.getElementById(id); }
+  function el(tag, cls){
+    const e = doc.createElement(tag);
+    if (cls) e.className = cls;
+    return e;
   }
 
-  function setStyle(el, obj){
-    if (!el) return;
-    try{ Object.assign(el.style, obj); }catch(_){}
-  }
-
-  // ---------------- ensure base layers ----------------
-  function ensureFXLayer(){
-    let layer = $('.hha-fx-layer');
+  // ---------- ensure base FX layer (for pop/burst/toast) ----------
+  function ensureFxLayer(){
+    let layer = doc.querySelector('.hha-fx-layer');
     if (layer) return layer;
-    layer = doc.createElement('div');
-    layer.className = 'hha-fx-layer';
-    setStyle(layer, {
-      position:'fixed', inset:'0',
-      zIndex: 40,
+
+    layer = el('div', 'hha-fx-layer');
+    Object.assign(layer.style, {
+      position:'fixed',
+      inset:'0',
+      zIndex:'40',
       pointerEvents:'none',
       overflow:'hidden'
     });
@@ -53,369 +50,403 @@
     return layer;
   }
 
-  function ensureGroupBanner(){
-    // Prefer CSS class .group-banner defined in groups-vr.css
-    const el = ensureEl('fgGroupBanner', 'div', 'group-banner', doc.body);
-    if (!el.querySelector('.group-banner-text')){
-      el.innerHTML = `
-        <div class="group-banner-text" id="fgGroupBannerText">หมู่ ?</div>
-        <div class="group-banner-sub" id="fgGroupBannerSub">ยิงให้ถูกหมู่ปัจจุบัน 🎯</div>
-      `;
-    }
-    // hidden initially
-    if (!el.dataset.ready){
-      el.dataset.ready = '1';
-      setStyle(el, { opacity:'0', transform:'translateX(-50%) translateY(-10px) scale(.96)' });
-      // let CSS animation handle when .pop added
-    }
-    return el;
-  }
-
+  // ---------- ensure lock ring ----------
   function ensureLockRing(){
-    const ring = ensureEl('fgLockRing', 'div', 'lock-ring', doc.body);
-    if (!ring.querySelector('.lock-core')){
-      ring.innerHTML = `
-        <div class="lock-core"></div>
-        <div class="lock-prog" id="fgLockProg"></div>
-        <div class="lock-charge" id="fgLockCharge"></div>
-      `;
-    }
-    // hide until active
-    setStyle(ring, { opacity:'0', transform:'translate(-50%,-50%) scale(.9)' });
+    let ring = doc.querySelector('.lock-ring');
+    if (ring) return ring;
+
+    ring = el('div', 'lock-ring');
+    ring.innerHTML = `
+      <div class="lock-prog"></div>
+      <div class="lock-charge"></div>
+      <div class="lock-core"></div>
+    `;
+    // default hidden
+    ring.style.opacity = '0';
+    ring.style.transform = 'translate3d(-9999px,-9999px,0)';
+    doc.body.appendChild(ring);
     return ring;
   }
 
+  // ---------- ensure stun overlay ----------
   function ensureStunOverlay(){
-    const ov = ensureEl('fgStunOverlay', 'div', 'stun-overlay', doc.body);
-    if (!ov.querySelector('.stun-card')){
-      ov.innerHTML = `
-        <div class="stun-card">
-          <div class="stun-title">STUN!</div>
-          <div class="stun-sub" id="fgStunSub">พักแป๊บ…</div>
-        </div>
-      `;
-    }
-    setStyle(ov, { display:'none' });
-    return ov;
+    let s = doc.querySelector('.stun-overlay');
+    if (s) return s;
+
+    s = el('div', 'stun-overlay');
+    s.style.display = 'none';
+    s.innerHTML = `
+      <div class="stun-card">
+        <div class="stun-title">STUN!</div>
+        <div class="stun-sub">โดนขยะแล้ว 🥤 ล็อกชั่วคราว</div>
+      </div>
+    `;
+    doc.body.appendChild(s);
+    return s;
   }
 
-  // ---------------- tiny audio (panic tick) ----------------
-  let audioCtx = null;
-  function getAudio(){
-    if (audioCtx) return audioCtx;
-    try{
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }catch(_){
-      audioCtx = null;
-    }
-    return audioCtx;
-  }
-  function beep(freq, durMs, gain){
-    const ctx = getAudio();
-    if (!ctx) return;
-    try{
-      if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'square';
-      o.frequency.value = freq || 880;
-      g.gain.value = 0.0001;
+  // ---------- ensure group banner ----------
+  function ensureGroupBanner(){
+    let b = doc.querySelector('.group-banner');
+    if (b) return b;
 
-      o.connect(g);
-      g.connect(ctx.destination);
-
-      const t0 = ctx.currentTime;
-      const attack = 0.005;
-      const hold = Math.max(0.01, (durMs||60)/1000);
-      const peak = clamp(gain==null?0.06:gain, 0.01, 0.12);
-
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.linearRampToValueAtTime(peak, t0 + attack);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + hold);
-
-      o.start(t0);
-      o.stop(t0 + hold + 0.02);
-    }catch(_){}
+    b = el('div', 'group-banner');
+    b.style.display = 'none';
+    b.innerHTML = `
+      <div class="group-banner-text" id="fg-bannerText">หมู่ ?</div>
+      <div class="group-banner-sub" id="fg-bannerSub">POWER ready → สลับหมู่!</div>
+    `;
+    doc.body.appendChild(b);
+    return b;
   }
 
-  // ---------------- FX primitives ----------------
-  const fxLayer = ensureFXLayer();
+  // ---------- ensure end summary modal (optional, safe) ----------
+  function ensureEndModal(){
+    let m = doc.getElementById('fg-endModal');
+    if (m) return m;
 
-  function scorePop(text, x, y, big){
-    const el = doc.createElement('div');
-    el.textContent = String(text || '');
-    setStyle(el, {
+    m = el('div');
+    m.id = 'fg-endModal';
+    Object.assign(m.style, {
       position:'fixed',
-      left:'0', top:'0',
-      transform:`translate3d(${Math.round(x||0)}px, ${Math.round(y||0)}px, 0) translate(-50%,-50%)`,
+      inset:'0',
+      zIndex:'60',
+      display:'none',
+      alignItems:'center',
+      justifyContent:'center',
+      padding:'18px',
+      background:'radial-gradient(circle at 50% 35%, rgba(34,211,238,.10), rgba(2,6,23,.92))'
+    });
+
+    const card = el('div');
+    Object.assign(card.style, {
+      width:'min(760px, 94vw)',
+      background:'rgba(2,6,23,.86)',
+      border:'1px solid rgba(148,163,184,.20)',
+      borderRadius:'26px',
+      padding:'18px',
+      boxShadow:'0 24px 90px rgba(0,0,0,.55)',
+      backdropFilter:'blur(12px)'
+    });
+
+    card.innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div>
+          <div style="font-weight:1000;font-size:22px;letter-spacing:.4px">สรุปผล Food Groups VR</div>
+          <div id="fg-endReason" style="margin-top:6px;opacity:.8;font-weight:700">—</div>
+        </div>
+        <div id="fg-endGrade" style="font-weight:1000;font-size:34px;letter-spacing:1px">C</div>
+      </div>
+
+      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.14);border-radius:18px;padding:10px">
+          <div style="opacity:.75;font-size:12px">SCORE</div>
+          <div id="fg-endScore" style="font-weight:1000;font-size:18px">0</div>
+        </div>
+        <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.14);border-radius:18px;padding:10px">
+          <div style="opacity:.75;font-size:12px">ACC</div>
+          <div id="fg-endAcc" style="font-weight:1000;font-size:18px">0%</div>
+        </div>
+        <div style="background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.14);border-radius:18px;padding:10px">
+          <div style="opacity:.75;font-size:12px">BEST COMBO</div>
+          <div id="fg-endCombo" style="font-weight:1000;font-size:18px">0</div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+        <div style="background:rgba(2,6,23,.55);border:1px solid rgba(148,163,184,.12);border-radius:18px;padding:10px">
+          <div style="opacity:.75;font-size:12px">MISSES</div>
+          <div id="fg-endMiss" style="font-weight:900">0</div>
+        </div>
+        <div style="background:rgba(2,6,23,.55);border:1px solid rgba(148,163,184,.12);border-radius:18px;padding:10px">
+          <div style="opacity:.75;font-size:12px">HITS / SHOTS</div>
+          <div id="fg-endHS" style="font-weight:900">0 / 0</div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+        <button id="fg-endClose" style="
+          pointer-events:auto;
+          padding:10px 14px;border-radius:16px;
+          border:1px solid rgba(148,163,184,.22);
+          background:transparent;color:rgba(229,231,235,.92);
+          font-weight:900;cursor:pointer
+        ">ปิด</button>
+        <button id="fg-endRestart" style="
+          pointer-events:auto;
+          padding:10px 14px;border-radius:16px;
+          border:1px solid rgba(34,211,238,.25);
+          background:linear-gradient(90deg, rgba(34,197,94,.92), rgba(34,211,238,.92));
+          color:#081019;font-weight:1000;cursor:pointer
+        ">เล่นอีกครั้ง</button>
+      </div>
+    `;
+
+    m.appendChild(card);
+    doc.body.appendChild(m);
+
+    // buttons
+    const close = card.querySelector('#fg-endClose');
+    const restart = card.querySelector('#fg-endRestart');
+    close.addEventListener('click', ()=>{ m.style.display='none'; });
+    restart.addEventListener('click', ()=>{ location.reload(); });
+
+    return m;
+  }
+
+  // ---------- score pop ----------
+  function scorePop(text, x, y){
+    const layer = ensureFxLayer();
+    const n = el('div');
+    n.textContent = String(text);
+    Object.assign(n.style, {
+      position:'fixed',
+      left: (x|0) + 'px',
+      top:  (y|0) + 'px',
+      transform:'translate(-50%,-50%)',
       fontWeight:'1000',
-      letterSpacing:'.2px',
-      fontSize: big ? '26px' : '18px',
+      fontSize:'18px',
+      letterSpacing:'.3px',
+      textShadow:'0 10px 24px rgba(0,0,0,.45)',
       opacity:'0',
-      textShadow:'0 10px 30px rgba(0,0,0,.45)',
-      filter:'drop-shadow(0 8px 20px rgba(0,0,0,.35))',
       willChange:'transform,opacity',
       pointerEvents:'none'
     });
-    fxLayer.appendChild(el);
+    layer.appendChild(n);
 
     // animate
-    const dy = big ? 56 : 44;
     requestAnimationFrame(()=>{
-      el.style.transition = 'transform .35s ease-out, opacity .35s ease-out';
-      el.style.opacity = '1';
-      el.style.transform =
-        `translate3d(${Math.round(x||0)}px, ${Math.round((y||0)-dy)}px, 0) translate(-50%,-50%)`;
+      n.style.opacity = '1';
+      n.style.transform = 'translate(-50%,-70%) scale(1.06)';
     });
-
     setTimeout(()=>{
-      try{
-        el.style.transition = 'transform .22s ease-in, opacity .22s ease-in';
-        el.style.opacity = '0';
-        el.style.transform =
-          `translate3d(${Math.round(x||0)}px, ${Math.round((y||0)-dy-18)}px, 0) translate(-50%,-50%) scale(.98)`;
-      }catch(_){}
-    }, 260);
-
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
+      n.style.opacity = '0';
+      n.style.transform = 'translate(-50%,-95%) scale(.98)';
+    }, 240);
+    setTimeout(()=>{ try{ n.remove(); }catch{} }, 520);
   }
 
-  function burstAt(x, y, emoji){
-    const n = 9;
-    for (let i=0;i<n;i++){
-      const p = doc.createElement('div');
+  // ---------- burst confetti (simple emoji burst) ----------
+  function burstAt(x,y, emoji){
+    const layer = ensureFxLayer();
+    const count = 10;
+    for (let i=0;i<count;i++){
+      const p = el('div');
       p.textContent = emoji || '✨';
-      const ang = Math.random() * Math.PI * 2;
-      const r = 18 + Math.random() * 38;
-      const dx = Math.cos(ang) * r;
-      const dy = Math.sin(ang) * r;
-      setStyle(p, {
+      Object.assign(p.style, {
         position:'fixed',
-        left:'0', top:'0',
-        transform:`translate3d(${x}px, ${y}px, 0) translate(-50%,-50%) scale(.9)`,
+        left:(x|0)+'px',
+        top:(y|0)+'px',
+        transform:'translate(-50%,-50%)',
+        fontSize:(16 + (Math.random()*16))|0 + 'px',
         opacity:'0',
-        fontSize:'22px',
-        willChange:'transform,opacity',
         pointerEvents:'none',
-        filter:'drop-shadow(0 10px 18px rgba(0,0,0,.35))'
+        willChange:'transform,opacity'
       });
-      fxLayer.appendChild(p);
+      layer.appendChild(p);
+
+      const a = Math.random()*Math.PI*2;
+      const r = 12 + Math.random()*40;
+      const dx = Math.cos(a)*r;
+      const dy = Math.sin(a)*r;
 
       requestAnimationFrame(()=>{
-        p.style.transition = 'transform .42s ease-out, opacity .42s ease-out';
         p.style.opacity = '1';
-        p.style.transform =
-          `translate3d(${Math.round(x+dx)}px, ${Math.round(y+dy)}px, 0) translate(-50%,-50%) scale(1.12)`;
+        p.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.08)`;
       });
-
       setTimeout(()=>{
-        try{
-          p.style.transition = 'transform .32s ease-in, opacity .32s ease-in';
-          p.style.opacity = '0';
-          p.style.transform =
-            `translate3d(${Math.round(x+dx*1.4)}px, ${Math.round(y+dy*1.4)}px, 0) translate(-50%,-50%) scale(.9)`;
-        }catch(_){}
-      }, 240);
-
-      setTimeout(()=>{ try{ p.remove(); }catch(_){ } }, 820);
+        p.style.opacity = '0';
+        p.style.transform = `translate(calc(-50% + ${dx*1.2}px), calc(-50% + ${dy*1.2}px)) scale(.92)`;
+      }, 220);
+      setTimeout(()=>{ try{ p.remove(); }catch{} }, 520);
     }
   }
 
+  // ---------- judge toast ----------
   function toast(text, kind){
-    const el = doc.createElement('div');
-    el.textContent = String(text || '');
-    const top = 160;
-    setStyle(el, {
+    const layer = ensureFxLayer();
+    const box = el('div');
+    const isWarn = (kind === 'warn');
+    box.textContent = String(text || '');
+    Object.assign(box.style, {
       position:'fixed',
       left:'50%',
-      top: top + 'px',
-      transform:'translateX(-50%) translateY(-10px) scale(.98)',
+      top:'calc(16px + var(--sat, 0px))',
+      transform:'translateX(-50%)',
       padding:'10px 14px',
       borderRadius:'16px',
-      fontWeight:'1000',
-      letterSpacing:'.4px',
-      zIndex: 45,
+      border:'1px solid ' + (isWarn ? 'rgba(245,158,11,.25)' : 'rgba(148,163,184,.18)'),
+      background: isWarn ? 'rgba(245,158,11,.10)' : 'rgba(2,6,23,.55)',
+      color:'rgba(229,231,235,.92)',
+      fontWeight:'900',
+      letterSpacing:'.2px',
+      boxShadow:'0 18px 60px rgba(0,0,0,.35)',
       opacity:'0',
       pointerEvents:'none',
-      background: kind==='warn'
-        ? 'rgba(245,158,11,.14)'
-        : (kind==='bad' ? 'rgba(239,68,68,.14)' : 'rgba(34,197,94,.14)'),
-      border: kind==='warn'
-        ? '1px solid rgba(245,158,11,.22)'
-        : (kind==='bad' ? '1px solid rgba(239,68,68,.22)' : '1px solid rgba(34,197,94,.22)'),
-      backdropFilter:'blur(10px)',
-      WebkitBackdropFilter:'blur(10px)',
-      boxShadow:'0 18px 60px rgba(0,0,0,.45)'
+      zIndex:'55'
     });
-    doc.body.appendChild(el);
+    layer.appendChild(box);
 
-    requestAnimationFrame(()=>{
-      el.style.transition = 'transform .18s ease-out, opacity .18s ease-out';
-      el.style.opacity = '1';
-      el.style.transform = 'translateX(-50%) translateY(0) scale(1)';
-    });
-
-    setTimeout(()=>{
-      try{
-        el.style.transition = 'transform .18s ease-in, opacity .18s ease-in';
-        el.style.opacity = '0';
-        el.style.transform = 'translateX(-50%) translateY(-8px) scale(.98)';
-      }catch(_){}
-    }, 520);
-
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 820);
+    requestAnimationFrame(()=>{ box.style.opacity='1'; });
+    setTimeout(()=>{ box.style.opacity='0'; }, 560);
+    setTimeout(()=>{ try{ box.remove(); }catch{} }, 880);
   }
 
-  // ---------------- bind events ----------------
-  const lockRing = ensureLockRing();
-  const groupBanner = ensureGroupBanner();
-  const stunOverlay = ensureStunOverlay();
+  // ---------- panic timer (low time) ----------
+  let lastPanic = false;
+  function setPanic(on){
+    on = !!on;
+    if (on === lastPanic) return;
+    lastPanic = on;
+    doc.documentElement.classList.toggle('panic', on);
+  }
 
-  // LOCK RING
+  // ---------------- ensure UI ----------
+  const ring = ensureLockRing();
+  const stun = ensureStunOverlay();
+  const banner = ensureGroupBanner();
+  const endModal = ensureEndModal(); // safe even if you don't show
+
+  // ---------------- event bindings ----------------
+
+  // lock ring follow
   W.addEventListener('groups:lock', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     const on = !!d.on;
 
     if (!on){
-      lockRing.style.opacity = '0';
-      lockRing.style.transform = 'translate(-50%,-50%) scale(.9)';
-      lockRing.style.setProperty('--p', '0');
+      ring.style.opacity = '0';
+      ring.style.transform = 'translate3d(-9999px,-9999px,0)';
+      ring.style.setProperty('--p', 0);
+      ring.style.setProperty('--c', 0);
       return;
     }
 
-    const x = Number(d.x)|| (innerWidth/2);
-    const y = Number(d.y)|| (innerHeight/2);
-    const p = clamp(d.prog, 0, 1);
-    const c = clamp(d.charge, 0, 1);
+    const x = Number(d.x)||0;
+    const y = Number(d.y)||0;
+    const prog = clamp(d.prog, 0, 1);
+    const charge = clamp(d.charge, 0, 1);
 
-    lockRing.style.left = Math.round(x) + 'px';
-    lockRing.style.top  = Math.round(y) + 'px';
-    lockRing.style.opacity = '1';
-    lockRing.style.transform = 'translate(-50%,-50%) scale(1)';
-    lockRing.style.setProperty('--p', String(p));
-    lockRing.style.setProperty('--c', String(c));
+    ring.style.opacity = '1';
+    ring.style.left = x + 'px';
+    ring.style.top  = y + 'px';
+    ring.style.transform = 'translate(-50%,-50%)';
+    ring.style.setProperty('--p', prog);
+    ring.style.setProperty('--c', charge);
   }, { passive:true });
 
-  // PANIC (last 3 seconds of mini window)
-  let panicLastLeft = 999;
-  W.addEventListener('groups:panic', (ev)=>{
+  // group banner pop
+  let bannerTO = 0;
+  W.addEventListener('groups:group_change', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const on = !!d.on;
-    const left = (d.left|0);
+    const label = d.label || 'หมู่ ?';
 
-    // toggle HTML class (CSS already has html.panic)
-    if (on) doc.documentElement.classList.add('panic');
-    else doc.documentElement.classList.remove('panic');
+    const t = banner.querySelector('#fg-bannerText');
+    if (t) t.textContent = label;
 
-    // tick sound only when countdown changes
-    if (on && left !== panicLastLeft){
-      panicLastLeft = left;
+    banner.style.display = '';
+    banner.classList.remove('pop');
+    // reflow
+    void banner.offsetWidth;
+    banner.classList.add('pop');
 
-      // 3..2..1 pitch up
-      const freq = (left===3)?660:(left===2?820:980);
-      beep(freq, 55, 0.06);
-
-      // tiny pulse on timer text (if exists)
-      const tEl = byId('hud-time');
-      if (tEl){
-        tEl.style.transform = 'scale(1.04)';
-        setTimeout(()=>{ try{ tEl.style.transform='scale(1)'; }catch(_){} }, 90);
-      }
-    }
-
-    if (!on){
-      panicLastLeft = 999;
-    }
+    clearTimeout(bannerTO);
+    bannerTO = setTimeout(()=>{
+      banner.style.display = 'none';
+      banner.classList.remove('pop');
+    }, 900);
   }, { passive:true });
 
-  // STUN overlay
+  // stun overlay
+  let stunTO = 0;
   W.addEventListener('groups:stun', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     const on = !!d.on;
     const ms = Math.max(200, d.ms|0);
 
-    if (!on){
-      stunOverlay.style.display = 'none';
-      return;
-    }
+    if (!on) return;
 
-    stunOverlay.style.display = '';
-    stunOverlay.classList.remove('pop');
-    void stunOverlay.offsetWidth; // reflow
-    stunOverlay.classList.add('pop');
+    stun.style.display = 'flex';
+    stun.classList.remove('pop');
+    void stun.offsetWidth;
+    stun.classList.add('pop');
 
-    const sub = byId('fgStunSub');
-    if (sub) sub.textContent = `พัก ${Math.ceil(ms/1000)}s…`;
-
-    // auto hide
-    setTimeout(()=>{ stunOverlay.style.display='none'; }, ms);
+    // subtle shake
+    doc.documentElement.classList.add('stunshake');
+    clearTimeout(stunTO);
+    stunTO = setTimeout(()=>{
+      stun.style.display = 'none';
+      doc.documentElement.classList.remove('stunshake');
+    }, ms);
   }, { passive:true });
 
-  // GROUP banner pop
-  W.addEventListener('groups:group_change', (ev)=>{
+  // panic when <= 10 sec
+  W.addEventListener('hha:time', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const textEl = byId('fgGroupBannerText');
-    if (textEl) textEl.textContent = d.label || 'หมู่ ?';
-
-    groupBanner.classList.remove('pop');
-    // show instantly (CSS anim will fade/slide in)
-    groupBanner.style.opacity = '1';
-    void groupBanner.offsetWidth;
-    groupBanner.classList.add('pop');
-
-    // fade after a moment
-    setTimeout(()=>{
-      try{
-        groupBanner.style.transition = 'opacity .35s ease-in';
-        groupBanner.style.opacity = '0';
-      }catch(_){}
-    }, 900);
-
-    setTimeout(()=>{
-      try{ groupBanner.style.transition=''; }catch(_){}
-    }, 1400);
+    const left = d.left|0;
+    setPanic(left > 0 && left <= 10);
   }, { passive:true });
 
-  // POWER pulse (nice feedback when power increments)
-  W.addEventListener('groups:power', (ev)=>{
-    const fill = $('.power-fill');
-    if (!fill) return;
-    fill.classList.remove('pulse');
-    void fill.offsetWidth;
-    fill.classList.add('pulse');
+  // score pop (center-ish)
+  W.addEventListener('hha:score', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    // show small pop on big milestones only to avoid spam
+    const score = d.score|0;
+    const combo = d.combo|0;
+
+    if (combo > 0 && (combo % 5 === 0)){
+      scorePop('COMBO x' + combo, window.innerWidth*0.5, window.innerHeight*0.58);
+      burstAt(window.innerWidth*0.5, window.innerHeight*0.58, '✨');
+    }
+    // optional: score tick pop every 1000
+    if (score !== 0 && (Math.abs(score) % 1000 === 0)){
+      scorePop((score>0?'+':'') + score, window.innerWidth*0.5, window.innerHeight*0.52);
+    }
   }, { passive:true });
 
-  // CELEBRATE (goal/mini)
+  // celebrate (from quests)
   W.addEventListener('hha:celebrate', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const kind = String(d.kind||'').toLowerCase();
-    const text = d.text || (kind==='goal' ? 'GOAL CLEAR!' : 'MINI CLEAR!');
-    toast(text, 'good');
+    const kind = String(d.kind || '');
+    const text = d.text || (kind === 'goal' ? 'GOAL CLEAR!' : 'NICE!');
+    toast(text, 'ok');
 
-    // light confetti burst around center
-    const x = Math.round(innerWidth/2);
-    const y = Math.round(innerHeight*0.32);
-    burstAt(x, y, kind==='goal' ? '✨' : '⭐');
+    const cx = window.innerWidth*0.5;
+    const cy = window.innerHeight*0.46;
 
-    // subtle screen flash
-    doc.documentElement.classList.add('swapflash');
-    setTimeout(()=>doc.documentElement.classList.remove('swapflash'), 160);
+    if (kind === 'goal'){
+      burstAt(cx, cy, '🎉');
+      burstAt(cx, cy, '✨');
+    } else if (kind === 'mini'){
+      burstAt(cx, cy, '⚡');
+      burstAt(cx, cy, '✨');
+    } else {
+      burstAt(cx, cy, '🎊');
+    }
   }, { passive:true });
 
-  // JUDGE (warn)
+  // judge toast
   W.addEventListener('hha:judge', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const text = d.text || 'WARNING';
-    toast(text, 'warn');
-
-    // small burst
-    const x = Math.round(innerWidth/2);
-    const y = Math.round(innerHeight*0.32);
-    burstAt(x, y, '⚠️');
+    toast(d.text || '—', d.kind || 'warn');
   }, { passive:true });
 
-  // Provide a tiny API if you want (optional)
-  NS.scorePop = scorePop;
-  NS.burstAt  = burstAt;
+  // end summary (optional modal)
+  W.addEventListener('hha:end', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    // show end modal automatically
+    try{
+      $('fg-endReason').textContent = 'เหตุผล: ' + (d.reason || 'end');
+      $('fg-endGrade').textContent  = d.grade || 'C';
+      $('fg-endScore').textContent  = String(d.scoreFinal|0);
+      $('fg-endAcc').textContent    = String((d.accuracy|0)) + '%';
+      $('fg-endCombo').textContent  = String(d.comboMax|0);
+      $('fg-endMiss').textContent   = String(d.misses|0);
+      $('fg-endHS').textContent     = `${d.hits|0} / ${d.shots|0}`;
+      endModal.style.display = 'flex';
+    }catch(_){
+      // if anything missing, fail silently
+    }
+  }, { passive:true });
 
 })();
