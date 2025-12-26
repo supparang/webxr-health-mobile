@@ -1,6 +1,6 @@
 /* === /herohealth/vr-groups/groups.css ===
-Alias loader — keep this file if pages link to /vr-groups/groups.css
--> maps to groups-vr.css (latest)
+   Alias loader — keep this file if pages link to /vr-groups/groups.css
+   ✅ This file simply imports the real stylesheet (groups-vr.css)
 */
 
 @import url("./groups-vr.css");
