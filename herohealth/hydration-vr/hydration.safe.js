@@ -1,14 +1,18 @@
-// === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION (FULL)
-// ✅ กระจายเป้าทั่วจอ (grid9 + spawnAroundCrosshair:false + minSeparation สูง)
-// ✅ VR-feel: gyro + drag → playfield translate/rotate
-// ✅ Water Gauge + Fever + Shield
-// ✅ Goal + Chain Mini quests
-// ✅ Laser Boss: Aim+Sweep + Fake-Out + Moving GAP (ช่องปลอดภัยขยับ)
-// ✅ End Summary: Stamp grade + Count-up numbers + logger (hha:end)
-
-// Imports
 'use strict';
+
+// === /herohealth/hydration-vr/hydration.safe.js ===
+// Hydration Quest VR — PRODUCTION (BOSS COMPLETE)
+// ✅ กระจายเป้าทั่วจอ: grid9 + spawnAroundCrosshair:false + minSeparation สูง
+// ✅ VR-feel: gyro + drag
+// ✅ Water Gauge + Fever + Shield
+// ✅ Shield บล็อก junk/laser: บล็อกแล้ว "ไม่เป็น miss"
+// ✅ Goal + Chain Mini quests
+// ✅ Boss Lasers (3 patterns):
+//    1) DOUBLE-SWEEP (2 เส้นสวนกัน + aim assist)
+//    2) TRIPLE-WAVE (tele 3 เส้น/หลอก/จริง + gap ขยับ)
+//    3) CROSS-STRIKE (สลับแนวตั้ง/แนวนอน + fake-out)
+// ✅ 10s last: Tick-warning + edge pulse + shake scaling + beep (WebAudio)
+// ✅ End Summary: Stamp grade + Count-up + logger
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
@@ -25,6 +29,7 @@ const Particles =
   { scorePop(){}, burstAt(){}, celebrate(){}, edgePulse(){} };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v)||0));
+const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 function qs(k, d=''){
   try{
@@ -37,13 +42,9 @@ function qn(k, d=0){
   const v = Number(qs(k,''));
   return Number.isFinite(v) ? v : d;
 }
-
-function nowMs(){ return (typeof performance !== 'undefined' ? performance.now() : Date.now()); }
-
 function dispatch(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch{}
 }
-
 function fmtPct(n){
   if (!Number.isFinite(n)) return '—';
   return `${Math.round(n)}%`;
@@ -54,6 +55,7 @@ const elApp = DOC.getElementById('appRoot');
 const playfield = DOC.getElementById('playfield');
 const layer = DOC.getElementById('hydr-layer');
 const atkLayer = DOC.getElementById('atk-layer');
+const warnOverlay = DOC.getElementById('warn-overlay');
 
 const startOverlay = DOC.getElementById('startOverlay');
 const btnStart  = DOC.getElementById('btnStart');
@@ -102,18 +104,17 @@ const btnCloseEnd = DOC.getElementById('btnCloseEnd');
 const runMode = String(qs('run', qs('runMode', 'play'))).toLowerCase();
 const diff = String(qs('diff', 'normal')).toLowerCase();
 const duration = clamp(qn('time', qn('duration', 60)), 20, 180);
+const seed = qs('seed','');
 
 modeText.textContent = runMode;
 diffText.textContent = diff;
-
-// seed (optional)
-const seed = qs('seed','');
 
 // --------------------- Game state ---------------------
 const S = {
   started:false,
   ended:false,
   sessionId: qs('sessionId', `hydr-${Date.now()}`),
+
   t0: 0,
   secLeft: duration,
 
@@ -121,7 +122,7 @@ const S = {
   combo: 0,
   comboMax: 0,
 
-  // miss definition: good expired + junk hit (shield block not count)
+  // miss definition: good expire + junk hit (shield block does NOT count)
   misses: 0,
 
   nSpawnGood: 0,
@@ -132,10 +133,15 @@ const S = {
   nExpireGood: 0,
 
   fever: 0,     // 0..100
-  shield: 0,    // charges
+  shield: 0,    // charges 0..9
   stunnedUntil: 0,
 
-  // accuracy (good hits / (good hits + misses (expire + junk hit)))
+  warn: {
+    lastSec: null,
+    ticking: false,
+    pulse: 0
+  },
+
   get accPct(){
     const denom = Math.max(1, (this.nHitGood + this.nExpireGood + this.nHitJunk));
     return (this.nHitGood / denom) * 100;
@@ -154,41 +160,23 @@ function setCoach(mood, line1, line2){
   dispatch('hha:coach', { mood, line1, line2 });
 }
 
-function hud(){
-  scoreText.textContent = String(Math.max(0, Math.round(S.score)));
-  comboText.textContent = String(S.combo);
-  comboMaxText.textContent = String(S.comboMax);
-  missText.textContent = String(S.misses);
-  feverText.textContent = `${Math.round(S.fever)}%`;
-  shieldText.textContent = String(S.shield);
-  accText.textContent = fmtPct(S.accPct);
-
-  const g = computeGradeLive();
-  liveGrade.textContent = g;
-
-  dispatch('hha:score', {
-    sessionId: S.sessionId,
-    game: 'hydration',
-    score: S.score,
-    combo: S.combo,
-    comboMax: S.comboMax,
-    misses: S.misses,
-    fever: S.fever,
-    shield: S.shield,
-    accuracyGoodPct: S.accPct
-  });
-}
-
 function shake(px, ms=140){
   try{
     DOC.documentElement.style.setProperty('--shake', `${px}px`);
     ROOT.setTimeout(()=> DOC.documentElement.style.setProperty('--shake', `0px`), ms);
   }catch{}
 }
-
 function edgeGlow(v){
+  try{ DOC.documentElement.style.setProperty('--edgeGlow', String(clamp(v,0,1))); }catch{}
+}
+function warnPulse(v){
+  const vv = clamp(v,0,1);
   try{
-    DOC.documentElement.style.setProperty('--edgeGlow', String(clamp(v,0,1)));
+    DOC.documentElement.style.setProperty('--warnPulse', String(vv));
+    if (warnOverlay){
+      if (vv > 0.02) warnOverlay.classList.add('on');
+      else warnOverlay.classList.remove('on');
+    }
   }catch{}
 }
 
@@ -203,22 +191,17 @@ function addScore(delta, x, y){
   }
 }
 
+function applyCombo(){
+  if (S.combo > S.comboMax) S.comboMax = S.combo;
+  try{ QUEST.setCombo(S.combo); }catch{}
+}
 function incCombo(){
   S.combo++;
-  if (S.combo > S.comboMax) S.comboMax = S.combo;
+  applyCombo();
 }
-
 function breakCombo(){
   S.combo = 0;
-}
-
-function addMiss(reason){
-  // miss = good expire + junk hit (shield block not count)
-  S.misses++;
-  breakCombo();
-  S.fever = clamp(S.fever + (reason==='junk' ? 14 : 10), 0, 100);
-  setFever(S.fever);
-  if (S.fever >= 90) setCoach('fever', 'ระวัง! ไข้ขึ้นแล้ว!', 'หลบเลเซอร์/อย่าโดนขยะ และเก็บน้ำดีให้ต่อเนื่อง');
+  applyCombo();
 }
 
 function addFever(delta){
@@ -226,11 +209,18 @@ function addFever(delta){
   setFever(S.fever);
 }
 
+function addMiss(reason){
+  // miss = good expire + junk hit (shield block not count)
+  S.misses++;
+  breakCombo();
+  addFever(reason==='junk' ? 14 : 10);
+  if (S.fever >= 90) setCoach('fever', 'ระวัง! ไข้ขึ้นแล้ว!', 'หลบเลเซอร์/อย่าโดนขยะ และเก็บน้ำดีให้ต่อเนื่อง');
+}
+
 function addShield(n=1){
   S.shield = clamp(S.shield + n, 0, 9);
   setShield(S.shield);
 }
-
 function consumeShield(){
   if (S.shield <= 0) return false;
   S.shield--;
@@ -244,531 +234,8 @@ function stun(ms=650){
   shake(6, 210);
 }
 
-// --------------------- VR-feel: gyro + drag ---------------------
-function attachVRFeel(){
-  let dragging = false;
-  let sx=0, sy=0, bx=0, by=0;
-
-  let pfX = 0, pfY = 0, pfRX = 0, pfRY = 0;
-
-  function apply(){
-    DOC.documentElement.style.setProperty('--pfX', `${pfX.toFixed(1)}px`);
-    DOC.documentElement.style.setProperty('--pfY', `${pfY.toFixed(1)}px`);
-    DOC.documentElement.style.setProperty('--pfRX', `${pfRX.toFixed(2)}deg`);
-    DOC.documentElement.style.setProperty('--pfRY', `${pfRY.toFixed(2)}deg`);
-  }
-
-  playfield.addEventListener('pointerdown', (e)=>{
-    dragging = true;
-    sx = e.clientX; sy = e.clientY;
-    bx = pfX; by = pfY;
-  }, { passive:true });
-
-  ROOT.addEventListener('pointermove', (e)=>{
-    if (!dragging) return;
-    const dx = (e.clientX - sx);
-    const dy = (e.clientY - sy);
-    pfX = clamp(bx + dx*0.18, -70, 70);
-    pfY = clamp(by + dy*0.18, -70, 70);
-    apply();
-  }, { passive:true });
-
-  ROOT.addEventListener('pointerup', ()=>{
-    dragging = false;
-  }, { passive:true });
-
-  // gyro
-  let gyroOn = false;
-  function onOri(e){
-    if (!e) return;
-    const beta = Number(e.beta)||0;   // front-back
-    const gamma = Number(e.gamma)||0; // left-right
-    // subtle
-    pfRX = clamp((beta-10) * 0.06, -6, 6);
-    pfRY = clamp((gamma) * 0.08, -7, 7);
-    apply();
-  }
-
-  async function requestMotion(){
-    try{
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
-        const r = await DeviceOrientationEvent.requestPermission();
-        if (r === 'granted'){
-          gyroOn = true;
-          ROOT.addEventListener('deviceorientation', onOri, { passive:true });
-          setCoach('happy', 'Motion เปิดแล้ว!', 'เอียงเครื่องเพื่อ VR-feel ได้เลย ✨');
-        }
-      } else {
-        gyroOn = true;
-        ROOT.addEventListener('deviceorientation', onOri, { passive:true });
-        setCoach('happy', 'Motion พร้อม!', 'เอียงเครื่องเพื่อ VR-feel ได้เลย ✨');
-      }
-    }catch{
-      setCoach('sad', 'ขอสิทธิ์ Motion ไม่สำเร็จ', 'เล่นแบบลากจอได้เหมือนเดิมนะ');
-    }
-  }
-
-  btnMotion.addEventListener('click', requestMotion);
-  return { requestMotion };
-}
-
-// --------------------- Water Gauge ---------------------
-ensureWaterGauge({
-  textEl: waterZoneText,
-  fillEl: waterFill
-});
-setWaterGauge(50); // start balanced
-
-// --------------------- Fever UI ---------------------
-ensureFeverUI();
-setFever(0);
-setShield(0);
-
-// --------------------- Quest system ---------------------
-const QUEST = createHydrationQuest({
-  onUpdate: (q) => {
-    goalTitle.textContent = q.goalTitle || '—';
-    miniTitle.textContent = q.miniTitle || '—';
-    goalProg.textContent = `${q.goalsCleared||0}/${q.goalsTotal||0}`;
-    miniProg.textContent = `${q.minisCleared||0}/${q.miniTotal||0}`;
-    dispatch('quest:update', q);
-  },
-  onCelebrate: (kind, payload) => {
-    try{ Particles.celebrate(kind, payload || {}); }catch{}
-    setCoach('happy', 'เยี่ยม!', kind === 'goal' ? 'ผ่าน Goal แล้ว ไปต่อ!' : 'Mini สำเร็จ! คอมโบต่อเนื่องไว้!');
-  }
-});
-
-// --------------------- Laser System (FULL) ---------------------
-function attachHydrationFxCss(){
-  if (DOC.getElementById('hydr-fx-style')) return;
-  const s = DOC.createElement('style');
-  s.id = 'hydr-fx-style';
-  s.textContent = `
-    /* === Hydration Laser FX (tele + fire + sweep + gap + fake-out) === */
-    .atk-host{ position:absolute; inset:0; pointer-events:none; z-index:40; }
-    .hvr-beam{
-      position:absolute;
-      left:50%; top:52%;
-      width:min(1200px, 160vw);
-      height: 110px;
-      transform: translate(-50%,-50%) rotate(0deg);
-      transform-origin: 50% 50%;
-      border-radius:999px;
-      opacity:0;
-      filter: saturate(1.05);
-      will-change: transform, opacity;
-    }
-    .hvr-beam .core{
-      position:absolute; inset:0;
-      border-radius:999px;
-      background:
-        linear-gradient(90deg,
-          rgba(244,63,94,.05) 0%,
-          rgba(244,63,94,.18) 26%,
-          rgba(56,189,248,.14) 50%,
-          rgba(244,63,94,.18) 74%,
-          rgba(244,63,94,.05) 100%);
-      box-shadow:
-        0 0 0 1px rgba(148,163,184,.05),
-        0 0 30px rgba(56,189,248,.18),
-        0 0 34px rgba(244,63,94,.12);
-    }
-    .hvr-beam.tele{ opacity: .0; }
-    .hvr-beam.tele.show{
-      opacity: .62;
-      animation: telePulse .42s ease-in-out infinite;
-    }
-    @keyframes telePulse{
-      0%{ filter: blur(.0px) saturate(1.05); }
-      50%{ filter: blur(.9px) saturate(1.10); }
-      100%{ filter: blur(.0px) saturate(1.05); }
-    }
-    .hvr-beam.fire{
-      opacity:.92;
-      animation: fireFlicker .14s linear infinite;
-    }
-    @keyframes fireFlicker{
-      0%{ filter: blur(.0px) saturate(1.10); }
-      50%{ filter: blur(.6px) saturate(1.18); }
-      100%{ filter: blur(.0px) saturate(1.10); }
-    }
-    .hvr-beam.decoy{
-      opacity:.34;
-      filter: blur(1.1px) saturate(.95);
-    }
-
-    /* ---------- Moving GAP (real safe slit) ---------- */
-    .hvr-beam.gap{ --gapPos: 0; --gapH: 18px; }
-    .hvr-beam.gap .core{
-      position:absolute; inset:0;
-      border-radius:999px;
-      overflow:hidden;
-      background: none !important;
-    }
-    .hvr-beam.gap .coreA,
-    .hvr-beam.gap .coreB{
-      position:absolute; left:0; right:0;
-      background:
-        linear-gradient(90deg,
-          rgba(244,63,94,.06) 0%,
-          rgba(244,63,94,.22) 25%,
-          rgba(56,189,248,.18) 50%,
-          rgba(244,63,94,.22) 75%,
-          rgba(244,63,94,.06) 100%);
-      filter: blur(.1px) saturate(1.05);
-    }
-    .hvr-beam.gap .gap{
-      position:absolute; left:0; right:0;
-      height: var(--gapH);
-      top: calc(50% + var(--gapPos) - (var(--gapH) / 2));
-      background: rgba(0,0,0,0);
-      box-shadow:
-        inset 0 1px 0 rgba(56,189,248,.55),
-        inset 0 -1px 0 rgba(244,63,94,.55),
-        0 0 14px rgba(56,189,248,.18),
-        0 0 18px rgba(244,63,94,.14);
-      pointer-events:none;
-    }
-    .hvr-beam.gap .coreA{ top:0; bottom: calc(50% + var(--gapPos) + (var(--gapH) / 2)); }
-    .hvr-beam.gap .coreB{ top:   calc(50% + var(--gapPos) + (var(--gapH) / 2)); bottom:0; }
-  `;
-  DOC.head.appendChild(s);
-}
-attachHydrationFxCss();
-
-function ensureAtkHost(){
-  let host = atkLayer.querySelector('.atk-host');
-  if (host) return host;
-  host = DOC.createElement('div');
-  host.className = 'atk-host';
-  atkLayer.appendChild(host);
-  return host;
-}
-
-const ATK = {
-  host: ensureAtkHost(),
-  laser: null,
-  lastDamageAt: 0
-};
-
-function makeBeamEl(extraCls=''){
-  const el = DOC.createElement('div');
-  el.className = `hvr-beam ${extraCls}`.trim();
-  el.innerHTML = `<div class="core"></div>`;
-  ATK.host.appendChild(el);
-  return el;
-}
-
-function ensureGapStructure(el){
-  if (!el) return;
-  if (el.__gapReady) return;
-  const core = el.querySelector('.core');
-  if (!core) return;
-  core.innerHTML = `
-    <div class="coreA"></div>
-    <div class="gap"></div>
-    <div class="coreB"></div>
-  `;
-  el.__gapReady = true;
-}
-
-function getCrosshairClient(){
-  // crosshair is fixed at center; use viewport
-  const x = (ROOT.innerWidth || 1) * 0.5;
-  const y = (ROOT.innerHeight || 1) * 0.52;
-  return { x, y };
-}
-
-function getCrosshairLayerLocal(){
-  // convert to playfield local for geometry tests
-  const r = playfield.getBoundingClientRect();
-  const c = getCrosshairClient();
-  return { x: c.x - r.left, y: c.y - r.top, rect: r };
-}
-
-function computeAimAssist(laser){
-  // higher fever = stronger tracking
-  const on = true;
-  const base = 0.028;
-  const feverMul = 1 + (S.fever/100) * 1.35;
-  let k = base * feverMul;
-  k = clamp(k, 0.02, 0.082);
-
-  // if sweep, reduce a bit (still nasty)
-  const isSweep = (laser && laser.variant === 'sweep');
-  const kk = isSweep ? (k * 0.72) : k;
-  return { on, k: kk };
-}
-
-function spawnLaser(){
-  if (!S.started || S.ended) return;
-  if (nowMs() < S.stunnedUntil) return;
-
-  // avoid too frequent
-  const cd = feverStormOn() ? 5200 : 7600;
-  if (ATK.laser && !ATK.laser.dead) return;
-
-  const stormOn = feverStormOn();
-  edgeGlow(stormOn ? 1 : 0.35);
-
-  const variant = (Math.random() < 0.55) ? 'gap' : 'sweep';
-  const teleMs  = stormOn ? 720 : 980;
-  const fireMs  = stormOn ? 1380 : 1280;
-
-  const baseW = stormOn ? 122 : 110;
-
-  const laser = {
-    variant,
-    phase: 'tele',
-    dead:false,
-    born: nowMs(),
-    teleMs, fireMs,
-    width: baseW,
-    angle: (Math.random()*70 - 35),   // deg
-    sweepDir: (Math.random()<0.5 ? -1 : 1),
-    sweepSpeed: stormOn ? 64 : 48,    // deg/sec
-    center: { x: (playfield.clientWidth||1)*0.5, y: (playfield.clientHeight||1)*0.52 },
-
-    // moving gap
-    gapPos: 0,
-    gapVel: 0,
-    gapH: 18,
-
-    el: null,
-    decoys: [],
-    lastTs: 0,
-    lastAimTs: 0
-  };
-
-  // main beam
-  const el = makeBeamEl(`tele show ${variant}`);
-  laser.el = el;
-
-  if (variant === 'gap'){
-    ensureGapStructure(el);
-    laser.gapH = stormOn ? 16 : 18;
-    el.style.setProperty('--gapH', laser.gapH + 'px');
-    el.style.setProperty('--gapPos', '0');
-  }
-
-  // Fake-out (tele decoys)
-  const wantDecoy = Math.random() < (stormOn ? 0.62 : 0.48);
-  const decoyN = wantDecoy ? (stormOn ? 2 : 1) : 0;
-  for (let i=0;i<decoyN;i++){
-    const dEl = makeBeamEl(`tele show decoy ${variant}`);
-    if (variant === 'gap'){
-      ensureGapStructure(dEl);
-      dEl.style.setProperty('--gapH', (stormOn ? 16 : 18) + 'px');
-      dEl.style.setProperty('--gapPos', '0');
-    }
-    const jitterAng = (Math.random()*58 - 29);
-    dEl.style.transform = `translate(-50%,-50%) rotate(${jitterAng.toFixed(2)}deg)`;
-    laser.decoys.push(dEl);
-  }
-
-  ATK.laser = laser;
-
-  // after tele -> fire
-  ROOT.setTimeout(()=> laserToFire(laser), teleMs);
-}
-
-function clearDecoys(laser){
-  if (!laser || !laser.decoys) return;
-  laser.decoys.forEach(d => { try{ d.remove(); }catch{} });
-  laser.decoys.length = 0;
-}
-
-function laserToFire(laser){
-  if (!laser || laser.dead) return;
-  laser.phase = 'fire';
-
-  clearDecoys(laser);
-
-  // start moving gap
-  const stormOn = feverStormOn();
-  if (laser.variant === 'gap'){
-    laser.gapPos = 0;
-    laser.gapVel = (stormOn ? 210 : 160) * (Math.random() < 0.5 ? -1 : 1);
-    try{ laser.el && laser.el.style.setProperty('--gapH', (laser.gapH || 18) + 'px'); }catch{}
-  }
-
-  try{
-    laser.el.classList.remove('tele');
-    laser.el.classList.add('fire');
-  }catch{}
-
-  const tEnd = nowMs() + laser.fireMs;
-  function tick(){
-    if (!laser || laser.dead) return;
-    const t = nowMs();
-    const dt = laser.lastTs ? clamp((t - laser.lastTs)/1000, 0, 0.05) : 0.016;
-    laser.lastTs = t;
-
-    laserUpdateTransform(laser, dt);
-    laserDamageCheck(laser);
-
-    if (t >= tEnd){
-      laserKill(laser);
-      return;
-    }
-    ROOT.requestAnimationFrame(tick);
-  }
-  ROOT.requestAnimationFrame(tick);
-}
-
-function laserUpdateTransform(laser, dt){
-  if (!laser || !laser.el) return;
-
-  const stormOn = feverStormOn();
-  const bounds = playfield;
-
-  // 1) sweep angle
-  if (laser.variant === 'sweep'){
-    laser.angle += laser.sweepDir * laser.sweepSpeed * dt;
-    const lim = stormOn ? 60 : 52;
-    if (laser.angle > lim){ laser.angle = lim; laser.sweepDir *= -1; }
-    if (laser.angle < -lim){ laser.angle = -lim; laser.sweepDir *= -1; }
-  }
-
-  // 2) aim drift (follow crosshair slightly)
-  const aim = computeAimAssist(laser);
-  if (aim.on){
-    const p = getCrosshairLayerLocal();
-    const sweeping = (laser.variant === 'sweep');
-    const maxStep = ((stormOn ? 86 : 62) * dt) * (sweeping ? 1.12 : 1.0);
-
-    const dx = (p.x - laser.center.x);
-    const dy = (p.y - laser.center.y);
-
-    laser.center.x += clamp(dx * aim.k, -maxStep, maxStep);
-    laser.center.y += clamp(dy * aim.k, -maxStep, maxStep);
-  }
-
-  // 3) apply transform
-  const cx = laser.center.x;
-  const cy = laser.center.y;
-
-  laser.el.style.left = cx + 'px';
-  laser.el.style.top  = cy + 'px';
-  laser.el.style.height = (laser.width) + 'px';
-
-  // micro jitter in storm
-  const j = stormOn ? (Math.random()*2 - 1) * 0.65 : 0;
-  laser.el.style.transform = `translate(-50%,-50%) rotate(${(laser.angle + j).toFixed(2)}deg)`;
-
-  // Moving GAP during FIRE (variant gap)
-  if (laser.variant === 'gap' && laser.phase === 'fire' && laser.el){
-    const amp = stormOn ? 26 : 20;
-    const p = getCrosshairLayerLocal();
-    const toCrossY = (p.y - laser.center.y);
-    const bias = clamp(toCrossY * 0.08, -12, 12);
-
-    // integrate
-    laser.gapPos += laser.gapVel * dt;
-
-    // bounce
-    if (laser.gapPos > amp){ laser.gapPos = amp; laser.gapVel *= -1; }
-    if (laser.gapPos < -amp){ laser.gapPos = -amp; laser.gapVel *= -1; }
-
-    const jitter = stormOn ? ((Math.random()*2-1) * 1.8) : ((Math.random()*2-1) * 0.9);
-    const pos = clamp(laser.gapPos + bias + jitter, -amp, amp);
-    laser.el.style.setProperty('--gapPos', pos.toFixed(2) + 'px');
-  }
-}
-
-function pointToBeamSpace(px, py, laser){
-  // beam local coordinates: rotate point by -angle around center
-  const ang = (laser.angle * Math.PI) / 180;
-  const cx = laser.center.x, cy = laser.center.y;
-  const dx = px - cx;
-  const dy = py - cy;
-
-  const cos = Math.cos(-ang);
-  const sin = Math.sin(-ang);
-  const x = dx*cos - dy*sin;
-  const y = dx*sin + dy*cos;
-  return { x, y };
-}
-
-function laserDamageCheck(laser){
-  if (!laser || laser.dead || laser.phase !== 'fire') return;
-  if (S.ended) return;
-
-  const t = nowMs();
-  if (t - ATK.lastDamageAt < 420) return;
-
-  const p = getCrosshairLayerLocal(); // playfield local
-  const bp = pointToBeamSpace(p.x, p.y, laser);
-
-  const halfH = (laser.width || 110) / 2;
-  const inside = Math.abs(bp.y) <= halfH;
-
-  if (!inside) return;
-
-  // if gap variant: safe slit around y = gapPos (in beam space)
-  if (laser.variant === 'gap'){
-    const gapPosPx = parseFloat(laser.el.style.getPropertyValue('--gapPos')) || 0;
-    const gapH = laser.gapH || 18;
-    const safe = Math.abs(bp.y - gapPosPx) <= (gapH/2);
-    if (safe) return;
-  }
-
-  // hit!
-  ATK.lastDamageAt = t;
-
-  // shield blocks laser (count as shield_block, not miss)
-  if (consumeShield()){
-    S.nHitJunkGuard++;
-    dispatch('hha:log_event', {
-      sessionId: S.sessionId,
-      game: 'hydration',
-      type: 'shield_block',
-      data: { kind:'laser' }
-    });
-    try{ Particles.burstAt(p.rect.left + p.x, p.rect.top + p.y, 'shield'); }catch{}
-    shake(3, 120);
-    addFever(4);
-    hud();
-    return;
-  }
-
-  // damage: fever + stun + small score penalty (ไม่ใช่ miss)
-  addFever(feverStormOn() ? 12 : 9);
-  addScore(-6, p.rect.left + p.x, p.rect.top + p.y);
-  stun(520);
-
-  dispatch('hha:log_event', {
-    sessionId: S.sessionId,
-    game: 'hydration',
-    type: 'laser_hit',
-    data: { variant: laser.variant }
-  });
-
-  if (S.fever >= 100){
-    // meltdown: force miss + bigger penalty
-    addMiss('laser');
-    addScore(-14, p.rect.left + p.x, p.rect.top + p.y);
-    setCoach('sad', 'โอ๊ย! ไข้พุ่งสุด!', 'ช้า ๆ แต่ชัวร์ เข้า Gap แล้วค่อยยิง');
-    shake(8, 200);
-  }
-
-  hud();
-}
-
-function laserKill(laser){
-  if (!laser || laser.dead) return;
-  laser.dead = true;
-  try{ laser.el.remove(); }catch{}
-  clearDecoys(laser);
-  ATK.laser = null;
-
-  edgeGlow(0);
-}
-
-// --------------------- End + grade + count-up ---------------------
+// --------------------- HUD ---------------------
 function computeGrade(score, acc, misses){
-  // tuned for kid-friendly + "ยุติธรรม" แต่มี SSS
   const a = Number.isFinite(acc) ? acc : 0;
   const s = Number.isFinite(score) ? score : 0;
   const m = Number.isFinite(misses) ? misses : 999;
@@ -800,18 +267,623 @@ function computeGrade(score, acc, misses){
   if (total >= 3)  return 'B';
   return 'C';
 }
-
 function computeGradeLive(){
   return computeGrade(S.score, S.accPct, S.misses);
 }
 
+function hud(){
+  scoreText.textContent = String(Math.max(0, Math.round(S.score)));
+  comboText.textContent = String(S.combo);
+  comboMaxText.textContent = String(S.comboMax);
+  missText.textContent = String(S.misses);
+  feverText.textContent = `${Math.round(S.fever)}%`;
+  shieldText.textContent = String(S.shield);
+  accText.textContent = fmtPct(S.accPct);
+
+  liveGrade.textContent = computeGradeLive();
+
+  dispatch('hha:score', {
+    sessionId: S.sessionId,
+    game: 'hydration',
+    score: S.score,
+    combo: S.combo,
+    comboMax: S.comboMax,
+    misses: S.misses,
+    fever: S.fever,
+    shield: S.shield,
+    accuracyGoodPct: S.accPct
+  });
+}
+
+// --------------------- VR-feel: gyro + drag ---------------------
+function attachVRFeel(){
+  let dragging = false;
+  let sx=0, sy=0, bx=0, by=0;
+
+  let pfX = 0, pfY = 0, pfRX = 0, pfRY = 0;
+
+  function apply(){
+    DOC.documentElement.style.setProperty('--pfX', `${pfX.toFixed(1)}px`);
+    DOC.documentElement.style.setProperty('--pfY', `${pfY.toFixed(1)}px`);
+    DOC.documentElement.style.setProperty('--pfRX', `${pfRX.toFixed(2)}deg`);
+    DOC.documentElement.style.setProperty('--pfRY', `${pfRY.toFixed(2)}deg`);
+  }
+
+  playfield.addEventListener('pointerdown', (e)=>{
+    dragging = true;
+    sx = e.clientX; sy = e.clientY;
+    bx = pfX; by = pfY;
+  }, { passive:true });
+
+  ROOT.addEventListener('pointermove', (e)=>{
+    if (!dragging) return;
+    const dx = (e.clientX - sx);
+    const dy = (e.clientY - sy);
+    pfX = clamp(bx + dx*0.18, -70, 70);
+    pfY = clamp(by + dy*0.18, -70, 70);
+    apply();
+  }, { passive:true });
+
+  ROOT.addEventListener('pointerup', ()=>{ dragging = false; }, { passive:true });
+
+  function onOri(e){
+    if (!e) return;
+    const beta = Number(e.beta)||0;
+    const gamma = Number(e.gamma)||0;
+    pfRX = clamp((beta-10) * 0.06, -6, 6);
+    pfRY = clamp((gamma) * 0.08, -7, 7);
+    apply();
+  }
+
+  async function requestMotion(){
+    try{
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+        const r = await DeviceOrientationEvent.requestPermission();
+        if (r === 'granted'){
+          ROOT.addEventListener('deviceorientation', onOri, { passive:true });
+          setCoach('happy', 'Motion เปิดแล้ว!', 'เอียงเครื่องเพื่อ VR-feel ได้เลย ✨');
+        }
+      } else {
+        ROOT.addEventListener('deviceorientation', onOri, { passive:true });
+        setCoach('happy', 'Motion พร้อม!', 'เอียงเครื่องเพื่อ VR-feel ได้เลย ✨');
+      }
+    }catch{
+      setCoach('sad', 'ขอสิทธิ์ Motion ไม่สำเร็จ', 'เล่นแบบลากจอได้เหมือนเดิมนะ');
+    }
+  }
+  btnMotion.addEventListener('click', requestMotion);
+  return { requestMotion };
+}
+
+// --------------------- Water + Fever UI init ---------------------
+ensureWaterGauge({ textEl: waterZoneText, fillEl: waterFill });
+setWaterGauge(50);
+
+ensureFeverUI();
+setFever(0);
+setShield(0);
+
+// --------------------- Quest system ---------------------
+const QUEST = createHydrationQuest({
+  onUpdate: (q) => {
+    goalTitle.textContent = q.goalTitle || '—';
+    miniTitle.textContent = q.miniTitle || '—';
+    goalProg.textContent = `${q.goalsCleared||0}/${q.goalsTotal||0}`;
+    miniProg.textContent = `${q.minisCleared||0}/${q.miniTotal||0}`;
+    dispatch('quest:update', q);
+  },
+  onCelebrate: (kind, payload) => {
+    try{ Particles.celebrate(kind, payload || {}); }catch{}
+    setCoach('happy', 'เยี่ยม!', kind === 'goal' ? 'ผ่าน Goal แล้ว ไปต่อ!' : 'Mini สำเร็จ! คอมโบต่อเนื่องไว้!');
+  }
+});
+
+// --------------------- WebAudio beep (tick warning) ---------------------
+let audioCtx = null;
+function beep(freq=880, durMs=60, vol=0.06){
+  try{
+    if (!audioCtx) audioCtx = new (ROOT.AudioContext || ROOT.webkitAudioContext)();
+    const t0 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    gain.gain.value = vol;
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start(t0);
+    osc.stop(t0 + durMs/1000);
+
+    // tiny decay
+    gain.gain.setValueAtTime(vol, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + durMs/1000);
+  }catch{}
+}
+
+// --------------------- FX CSS for lasers (IIFE style in-file) ---------------------
+function attachHydrationFxCss(){
+  if (DOC.getElementById('hydr-fx-style')) return;
+  const s = DOC.createElement('style');
+  s.id = 'hydr-fx-style';
+  s.textContent = `
+    .atk-host{ position:absolute; inset:0; pointer-events:none; z-index:40; }
+    .hvr-beam{
+      position:absolute;
+      left:50%; top:52%;
+      width:min(1200px, 160vw);
+      height: 110px;
+      transform: translate(-50%,-50%) rotate(0deg);
+      transform-origin: 50% 50%;
+      border-radius:999px;
+      opacity:0;
+      will-change: transform, opacity;
+    }
+    .hvr-beam .core{
+      position:absolute; inset:0;
+      border-radius:999px;
+      background:
+        linear-gradient(90deg,
+          rgba(244,63,94,.05) 0%,
+          rgba(244,63,94,.18) 26%,
+          rgba(56,189,248,.14) 50%,
+          rgba(244,63,94,.18) 74%,
+          rgba(244,63,94,.05) 100%);
+      box-shadow:
+        0 0 0 1px rgba(148,163,184,.05),
+        0 0 30px rgba(56,189,248,.18),
+        0 0 34px rgba(244,63,94,.12);
+    }
+    .hvr-beam.tele.show{
+      opacity: .62;
+      animation: telePulse .42s ease-in-out infinite;
+    }
+    @keyframes telePulse{
+      0%{ filter: blur(.0px) saturate(1.05); }
+      50%{ filter: blur(.9px) saturate(1.10); }
+      100%{ filter: blur(.0px) saturate(1.05); }
+    }
+    .hvr-beam.fire{
+      opacity:.92;
+      animation: fireFlicker .14s linear infinite;
+    }
+    @keyframes fireFlicker{
+      0%{ filter: blur(.0px) saturate(1.10); }
+      50%{ filter: blur(.6px) saturate(1.18); }
+      100%{ filter: blur(.0px) saturate(1.10); }
+    }
+    .hvr-beam.decoy{
+      opacity:.34;
+      filter: blur(1.1px) saturate(.95);
+    }
+
+    /* GAP */
+    .hvr-beam.gap{ --gapPos: 0; --gapH: 18px; }
+    .hvr-beam.gap .core{
+      position:absolute; inset:0;
+      border-radius:999px;
+      overflow:hidden;
+      background:none !important;
+    }
+    .hvr-beam.gap .coreA, .hvr-beam.gap .coreB{
+      position:absolute; left:0; right:0;
+      background:
+        linear-gradient(90deg,
+          rgba(244,63,94,.06) 0%,
+          rgba(244,63,94,.22) 25%,
+          rgba(56,189,248,.18) 50%,
+          rgba(244,63,94,.22) 75%,
+          rgba(244,63,94,.06) 100%);
+      filter: blur(.1px) saturate(1.05);
+    }
+    .hvr-beam.gap .gap{
+      position:absolute; left:0; right:0;
+      height: var(--gapH);
+      top: calc(50% + var(--gapPos) - (var(--gapH) / 2));
+      box-shadow:
+        inset 0 1px 0 rgba(56,189,248,.55),
+        inset 0 -1px 0 rgba(244,63,94,.55),
+        0 0 14px rgba(56,189,248,.18),
+        0 0 18px rgba(244,63,94,.14);
+    }
+    .hvr-beam.gap .coreA{ top:0; bottom: calc(50% + var(--gapPos) + (var(--gapH) / 2)); }
+    .hvr-beam.gap .coreB{ top:   calc(50% + var(--gapPos) + (var(--gapH) / 2)); bottom:0; }
+  `;
+  DOC.head.appendChild(s);
+}
+attachHydrationFxCss();
+
+function ensureAtkHost(){
+  let host = atkLayer.querySelector('.atk-host');
+  if (host) return host;
+  host = DOC.createElement('div');
+  host.className = 'atk-host';
+  atkLayer.appendChild(host);
+  return host;
+}
+
+const ATK = {
+  host: ensureAtkHost(),
+  beams: [],   // active beams (real + decoy)
+  lastDamageAt: 0,
+  nextSpawnAt: 0
+};
+
+function makeBeamEl(cls=''){
+  const el = DOC.createElement('div');
+  el.className = `hvr-beam ${cls}`.trim();
+  el.innerHTML = `<div class="core"></div>`;
+  ATK.host.appendChild(el);
+  return el;
+}
+function ensureGapStructure(el){
+  if (!el || el.__gapReady) return;
+  const core = el.querySelector('.core');
+  if (!core) return;
+  core.innerHTML = `<div class="coreA"></div><div class="gap"></div><div class="coreB"></div>`;
+  el.__gapReady = true;
+}
+
+function getCrosshairClient(){
+  const x = (ROOT.innerWidth || 1) * 0.5;
+  const y = (ROOT.innerHeight || 1) * 0.52;
+  return { x, y };
+}
+function getCrosshairLayerLocal(){
+  const r = playfield.getBoundingClientRect();
+  const c = getCrosshairClient();
+  return { x: c.x - r.left, y: c.y - r.top, rect: r };
+}
+function pointToBeamSpace(px, py, beam){
+  const ang = (beam.angle * Math.PI) / 180;
+  const cx = beam.center.x, cy = beam.center.y;
+  const dx = px - cx;
+  const dy = py - cy;
+  const cos = Math.cos(-ang);
+  const sin = Math.sin(-ang);
+  const x = dx*cos - dy*sin;
+  const y = dx*sin + dy*cos;
+  return { x, y };
+}
+function aimAssistK(beam){
+  const base = 0.028;
+  const feverMul = 1 + (S.fever/100) * 1.35;
+  let k = base * feverMul;
+  k = clamp(k, 0.02, 0.090);
+  if (beam.variant === 'sweep') k *= 0.70;
+  if (beam.variant === 'cross') k *= 0.78;
+  return k;
+}
+
+function killAllBeams(){
+  ATK.beams.forEach(b=>{
+    b.dead = true;
+    try{ b.el && b.el.remove(); }catch{}
+  });
+  ATK.beams.length = 0;
+  edgeGlow(0);
+}
+
+function makeBeam(opts){
+  const b = {
+    id: `b_${Math.random().toString(16).slice(2)}`,
+    dead:false,
+
+    variant: opts.variant || 'gap', // gap | sweep | cross
+    isDecoy: !!opts.isDecoy,
+    phase: 'tele',
+    teleMs: opts.teleMs || 900,
+    fireMs: opts.fireMs || 1200,
+
+    width: opts.width || 110,
+    angle: opts.angle || 0,
+    sweepDir: opts.sweepDir || 1,
+    sweepSpeed: opts.sweepSpeed || 50,
+
+    // gap
+    gapH: opts.gapH || 18,
+    gapPos: 0,
+    gapVel: opts.gapVel || 160,
+
+    // anchor
+    center: opts.center || { x:(playfield.clientWidth||1)*0.5, y:(playfield.clientHeight||1)*0.52 },
+
+    // damage
+    damageCdMs: opts.damageCdMs || 420,
+
+    // DOM
+    el: null,
+
+    // timing
+    born: nowMs(),
+    lastTs: 0,
+    tEnd: 0
+  };
+
+  const cls = `${b.variant} tele show${b.isDecoy ? ' decoy':''}`;
+  b.el = makeBeamEl(cls);
+
+  if (b.variant === 'gap'){
+    b.el.classList.add('gap');
+    ensureGapStructure(b.el);
+    b.el.style.setProperty('--gapH', b.gapH + 'px');
+    b.el.style.setProperty('--gapPos', '0px');
+  }
+
+  // initial transform
+  b.el.style.height = b.width + 'px';
+  b.el.style.left = b.center.x + 'px';
+  b.el.style.top  = b.center.y + 'px';
+  b.el.style.transform = `translate(-50%,-50%) rotate(${b.angle.toFixed(2)}deg)`;
+
+  ATK.beams.push(b);
+
+  // tele -> fire
+  ROOT.setTimeout(()=> beamToFire(b), b.teleMs);
+
+  return b;
+}
+
+function beamToFire(b){
+  if (!b || b.dead) return;
+  b.phase = 'fire';
+  b.tEnd = nowMs() + b.fireMs;
+
+  try{
+    b.el.classList.remove('tele');
+    b.el.classList.add('fire');
+  }catch{}
+
+  // gap motion
+  if (b.variant === 'gap'){
+    const storm = feverStormOn();
+    b.gapH = storm ? 16 : b.gapH;
+    b.gapVel = (storm ? 220 : b.gapVel) * (Math.random()<0.5?-1:1);
+    b.el.style.setProperty('--gapH', b.gapH + 'px');
+  }
+
+  tickBeams();
+}
+
+let beamsTicking = false;
+function tickBeams(){
+  if (beamsTicking) return;
+  beamsTicking = true;
+
+  function raf(){
+    if (S.ended){ beamsTicking=false; return; }
+
+    const t = nowMs();
+    const active = ATK.beams.filter(b=>!b.dead);
+
+    if (!active.length){
+      beamsTicking=false;
+      edgeGlow(0);
+      return;
+    }
+
+    // glow while beams present
+    edgeGlow(feverStormOn() ? 1 : 0.55);
+
+    for (const b of active){
+      const dt = b.lastTs ? clamp((t - b.lastTs)/1000, 0, 0.05) : 0.016;
+      b.lastTs = t;
+
+      // update motion
+      beamUpdate(b, dt);
+
+      // damage check only for real beams (not decoy)
+      if (!b.isDecoy) beamDamageCheck(b);
+
+      // end
+      if (b.phase === 'fire' && t >= b.tEnd){
+        b.dead = true;
+        try{ b.el.remove(); }catch{}
+      }
+    }
+
+    // cleanup
+    ATK.beams = ATK.beams.filter(b=>!b.dead);
+
+    ROOT.requestAnimationFrame(raf);
+  }
+  ROOT.requestAnimationFrame(raf);
+}
+
+function beamUpdate(b, dt){
+  if (!b || b.dead || !b.el) return;
+  const storm = feverStormOn();
+
+  // sweep angle for sweep variant
+  if (b.variant === 'sweep'){
+    b.angle += b.sweepDir * b.sweepSpeed * dt;
+    const lim = storm ? 66 : 56;
+    if (b.angle > lim){ b.angle = lim; b.sweepDir *= -1; }
+    if (b.angle < -lim){ b.angle = -lim; b.sweepDir *= -1; }
+  }
+
+  // cross strike: "snap" angle drift slightly between 0 and 90
+  if (b.variant === 'cross'){
+    // keep angle near target
+    const snap = (Math.abs(b.angle) < 1) ? 0 : 90;
+    const target = (Math.random() < 0.012) ? (snap === 0 ? 90 : 0) : snap;
+    b.angle += (target - b.angle) * clamp(dt*2.4, 0, 1);
+  }
+
+  // aim follow crosshair
+  const p = getCrosshairLayerLocal();
+  const k = aimAssistK(b);
+  const maxStep = ((storm ? 92 : 66) * dt) * (b.variant === 'sweep' ? 1.12 : 1.0);
+  const dx = (p.x - b.center.x);
+  const dy = (p.y - b.center.y);
+  b.center.x += clamp(dx * k, -maxStep, maxStep);
+  b.center.y += clamp(dy * k, -maxStep, maxStep);
+
+  // apply
+  b.el.style.left = b.center.x + 'px';
+  b.el.style.top  = b.center.y + 'px';
+  const j = storm ? ((Math.random()*2-1)*0.7) : 0;
+  b.el.style.transform = `translate(-50%,-50%) rotate(${(b.angle + j).toFixed(2)}deg)`;
+
+  // moving gap
+  if (b.variant === 'gap' && b.phase === 'fire'){
+    const amp = storm ? 28 : 20;
+    const bias = clamp((p.y - b.center.y) * 0.08, -12, 12);
+    b.gapPos += b.gapVel * dt;
+
+    if (b.gapPos > amp){ b.gapPos = amp; b.gapVel *= -1; }
+    if (b.gapPos < -amp){ b.gapPos = -amp; b.gapVel *= -1; }
+
+    const jitter = storm ? ((Math.random()*2-1) * 2.0) : ((Math.random()*2-1) * 1.0);
+    const pos = clamp(b.gapPos + bias + jitter, -amp, amp);
+    b.el.style.setProperty('--gapPos', pos.toFixed(2) + 'px');
+  }
+}
+
+function beamDamageCheck(b){
+  if (!b || b.dead || b.phase !== 'fire') return;
+  if (S.ended) return;
+
+  const t = nowMs();
+  if (t - ATK.lastDamageAt < b.damageCdMs) return;
+
+  const p = getCrosshairLayerLocal();
+  const bp = pointToBeamSpace(p.x, p.y, b);
+  const halfH = (b.width || 110) / 2;
+  const inside = Math.abs(bp.y) <= halfH;
+  if (!inside) return;
+
+  // gap safe slit
+  if (b.variant === 'gap'){
+    const gapPosPx = parseFloat(b.el.style.getPropertyValue('--gapPos')) || 0;
+    const gapH = b.gapH || 18;
+    const safe = Math.abs(bp.y - gapPosPx) <= (gapH/2);
+    if (safe) return;
+  }
+
+  // HIT
+  ATK.lastDamageAt = t;
+
+  // Shield blocks laser — not miss
+  if (consumeShield()){
+    S.nHitJunkGuard++;
+    try{ QUEST.onSpecial('shieldBlock'); }catch{}
+    dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'shield_block', data:{ kind:'laser', variant:b.variant }});
+    try{ Particles.burstAt(p.rect.left + p.x, p.rect.top + p.y, 'shield'); }catch{}
+    shake(3, 120);
+    addFever(4);
+    hud();
+    return;
+  }
+
+  // damage (not miss)
+  addFever(storm ? 12 : 9);
+  addScore(-6, p.rect.left + p.x, p.rect.top + p.y);
+  stun(520);
+
+  dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'laser_hit', data:{ variant:b.variant }});
+
+  if (S.fever >= 100){
+    addMiss('laser');
+    addScore(-14, p.rect.left + p.x, p.rect.top + p.y);
+    setCoach('sad', 'โอ๊ย! ไข้พุ่งสุด!', 'ช้า ๆ แต่ชัวร์ เข้า Gap แล้วค่อยยิง');
+    shake(8, 200);
+  }
+
+  hud();
+}
+
+// --------------------- Boss patterns ---------------------
+function bossCooldownMs(){
+  // tougher when storm; also slightly tougher in hard
+  const storm = feverStormOn();
+  const base = (diff === 'hard') ? 5600 : (diff === 'easy' ? 7600 : 6600);
+  return storm ? Math.max(4200, base - 1400) : base;
+}
+function canSpawnBoss(){
+  const t = nowMs();
+  return t >= ATK.nextSpawnAt && ATK.beams.length === 0 && t >= (S.stunnedUntil || 0);
+}
+
+function scheduleNextBoss(){
+  ATK.nextSpawnAt = nowMs() + bossCooldownMs();
+}
+
+function spawnBoss(){
+  if (!S.started || S.ended) return;
+  if (!canSpawnBoss()) return;
+
+  const storm = feverStormOn();
+  const center = { x:(playfield.clientWidth||1)*0.5, y:(playfield.clientHeight||1)*0.52 };
+
+  // choose pattern
+  const r = Math.random();
+  let pattern = 'doubleSweep';
+  if (r < 0.34) pattern = 'doubleSweep';
+  else if (r < 0.72) pattern = 'tripleWave';
+  else pattern = 'crossStrike';
+
+  dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'boss_spawn', data:{ pattern, storm }});
+
+  if (pattern === 'doubleSweep'){
+    setCoach('fever', 'บอส: DOUBLE-SWEEP!', '2 เส้นสวนกัน — อ่านจังหวะแล้ว “เข้า Gap”');
+    // tele decoys
+    makeBeam({ variant:'sweep', isDecoy:true, teleMs: 720, fireMs: 650, width: storm?118:110, angle: (Math.random()*60-30), sweepDir: 1, sweepSpeed: storm?74:56, center:{...center} });
+    makeBeam({ variant:'sweep', isDecoy:true, teleMs: 720, fireMs: 650, width: storm?118:110, angle: (Math.random()*60-30), sweepDir:-1, sweepSpeed: storm?74:56, center:{...center} });
+    // real beams
+    makeBeam({ variant:'gap', teleMs: storm?720:920, fireMs: storm?1500:1350, width: storm?122:112, angle: (Math.random()*50-25), gapH: storm?16:18, center:{...center} });
+    makeBeam({ variant:'sweep', teleMs: storm?720:920, fireMs: storm?1500:1350, width: storm?120:110, angle: (Math.random()*50-25), sweepDir: (Math.random()<0.5?-1:1), sweepSpeed: storm?72:54, center:{...center} });
+  }
+
+  if (pattern === 'tripleWave'){
+    setCoach('fever', 'บอส: TRIPLE-WAVE!', 'มี 3 คลื่น — บางเส้นหลอก (Decoy) ช่องปลอดภัยขยับ!');
+    // 3 waves spaced
+    const tele = storm ? 620 : 860;
+    const fire = storm ? 1180 : 1100;
+    const baseAng = (Math.random()*60 - 30);
+
+    // wave 1: decoy
+    makeBeam({ variant:'gap', isDecoy:true, teleMs: tele, fireMs: fire, width: storm?118:108, angle: baseAng - 18, gapH: storm?16:18, center:{...center} });
+
+    // wave 2: REAL
+    ROOT.setTimeout(()=>{
+      if (S.ended) return;
+      makeBeam({ variant:'gap', teleMs: tele, fireMs: storm?1500:1320, width: storm?124:112, angle: baseAng + 4, gapH: storm?16:18, center:{...center} });
+      // little fake sweep alongside
+      makeBeam({ variant:'sweep', isDecoy:true, teleMs: tele, fireMs: 820, width: storm?112:104, angle: baseAng + 22, sweepDir: 1, sweepSpeed: storm?78:58, center:{...center} });
+    }, 420);
+
+    // wave 3: decoy cross
+    ROOT.setTimeout(()=>{
+      if (S.ended) return;
+      makeBeam({ variant:'cross', isDecoy:true, teleMs: tele, fireMs: fire, width: storm?116:108, angle: 90, center:{...center} });
+    }, 780);
+  }
+
+  if (pattern === 'crossStrike'){
+    setCoach('fever', 'บอส: CROSS-STRIKE!', 'สลับแนวตั้ง/แนวนอน — อย่ายืนกลางเส้นนาน!');
+    const tele = storm ? 680 : 920;
+    const fire = storm ? 1450 : 1300;
+
+    // tele fake-out: two decoys
+    makeBeam({ variant:'cross', isDecoy:true, teleMs: tele, fireMs: 760, width: storm?112:104, angle: 0,  center:{...center} });
+    makeBeam({ variant:'cross', isDecoy:true, teleMs: tele, fireMs: 760, width: storm?112:104, angle: 90, center:{...center} });
+
+    // real: one cross + one gap
+    makeBeam({ variant:'cross', teleMs: tele, fireMs: fire, width: storm?124:112, angle: (Math.random()<0.5?0:90), center:{...center} });
+    makeBeam({ variant:'gap',  teleMs: tele, fireMs: fire, width: storm?122:112, angle: (Math.random()*50-25), gapH: storm?16:18, center:{...center} });
+  }
+
+  scheduleNextBoss();
+}
+
+// --------------------- End overlay helpers ---------------------
 function countUp(el, from, to, ms=900, suffix=''){
   from = Number(from)||0;
   to = Number(to)||0;
-
   const t0 = nowMs();
   function easeOutCubic(x){ return 1 - Math.pow(1-x, 3); }
-
   function tick(){
     const t = nowMs();
     const p = clamp((t - t0)/ms, 0, 1);
@@ -821,29 +893,25 @@ function countUp(el, from, to, ms=900, suffix=''){
   }
   ROOT.requestAnimationFrame(tick);
 }
-
-function showEnd(){
-  endOverlay.classList.add('show');
-}
-function hideEnd(){
-  endOverlay.classList.remove('show');
-}
+function showEnd(){ endOverlay.classList.add('show'); }
+function hideEnd(){ endOverlay.classList.remove('show'); }
 
 btnCloseEnd.addEventListener('click', hideEnd);
 btnRestart.addEventListener('click', ()=> ROOT.location.reload());
 
-// --------------------- Game finalize ---------------------
+// --------------------- Finalize ---------------------
 function finalize(reason='timeup'){
   if (S.ended) return;
   S.ended = true;
 
-  dispatch('hha:stop', {});
+  // stop beams
+  killAllBeams();
+  warnPulse(0);
+  edgeGlow(0);
 
-  // summary
   const acc = S.accPct;
   const grade = computeGrade(S.score, acc, S.misses);
 
-  // end overlay count-up + stamp
   endScore.textContent = '0';
   endAcc.textContent = '—';
   endComboMax.textContent = String(S.comboMax);
@@ -853,25 +921,21 @@ function finalize(reason='timeup'){
   endGrade.textContent = grade;
 
   endStamp.classList.remove('ink');
-  // trigger stamp
   ROOT.setTimeout(()=> endStamp.classList.add('ink'), 40);
 
-  // count-up
   countUp(endScore, 0, S.score, 950, '');
   ROOT.setTimeout(()=> { endAcc.textContent = fmtPct(acc); }, 520);
 
-  // tips
   const tips = [];
   if (S.misses <= 2) tips.push('✅ Miss น้อยมาก — โฟกัสดีสุด ๆ');
   if (acc >= 90) tips.push('🎯 Accuracy ยืนพื้นระดับท็อป');
   if (S.comboMax >= 18) tips.push('🔥 คอมโบยาวมาก — จังหวะนิ่ง!');
-  if (S.fever >= 85) tips.push('⚠️ เลเซอร์โหด — ครั้งหน้ารีบ “เข้า Gap” ก่อนยิง');
-  if (!tips.length) tips.push('ลองเล่นอีกรอบ แล้วกดคอมโบให้ยาวขึ้น!');
+  if (S.fever >= 85) tips.push('⚠️ บอสโหด — ครั้งหน้า “เข้า Gap” ก่อน แล้วค่อยยิง');
+  if (!tips.length) tips.push('เล่นอีกรอบแล้วอ่านแพทเทิร์นเลเซอร์ให้ทัน!');
   endTips.textContent = tips.join('\n');
 
   showEnd();
 
-  // logger end payload
   dispatch('hha:end', {
     sessionId: S.sessionId,
     game: 'hydration',
@@ -899,15 +963,53 @@ function finalize(reason='timeup'){
   });
 }
 
-// --------------------- Start overlay ---------------------
+// --------------------- Tick-warning last 10 seconds ---------------------
+function updateEndgameWarning(){
+  if (!S.started || S.ended) return;
+
+  const sec = Math.max(0, S.secLeft|0);
+  const last = S.warn.lastSec;
+
+  // only act when second changed
+  if (last === sec) return;
+  S.warn.lastSec = sec;
+
+  if (sec <= 10 && sec > 0){
+    // pulse intensity grows as time runs out
+    const intensity = clamp((11 - sec) / 10, 0, 1); // 0..1
+    S.warn.pulse = intensity;
+
+    // visual
+    warnPulse(0.25 + intensity*0.75);
+
+    // sound tick
+    const f = 720 + (10-sec)*38;
+    beep(f, 55, 0.05 + intensity*0.05);
+
+    // micro shake scaling
+    shake(1 + Math.round(intensity*4), 80 + Math.round(intensity*50));
+
+    // coach prompt at key moments
+    if (sec === 10) setCoach('fever', '10 วิสุดท้าย!', 'อย่าพลาดโดนขยะ/เลเซอร์ — รักษาคอมโบ!');
+    if (sec === 5)  setCoach('fever', '5 วิสุดท้าย!', 'เร็ว แต่แม่น! เข้า Gap แล้วค่อยยิง!');
+  }
+
+  if (sec === 0){
+    warnPulse(0);
+  }
+}
+
+// --------------------- Start game ---------------------
 async function startGame(){
   if (S.started) return;
   S.started = true;
   S.t0 = nowMs();
   S.secLeft = duration;
+  S.warn.lastSec = null;
 
   startOverlay.style.display = 'none';
-  setCoach('neutral', 'ไป!', 'โฟกัสน้ำดี และหลบเลเซอร์แบบมีชั้นเชิง');
+  setCoach('neutral', 'ไป!', 'โฟกัสน้ำดี และอ่านแพทเทิร์นบอสให้ทัน');
+  hud();
 
   dispatch('hha:log_session', {
     sessionId: S.sessionId,
@@ -917,16 +1019,17 @@ async function startGame(){
     seed
   });
 
-  // Time listener
+  // time from engine
   ROOT.addEventListener('hha:time', (e)=>{
     const sec = (e && e.detail && typeof e.detail.sec === 'number') ? e.detail.sec : null;
     if (sec == null) return;
     S.secLeft = sec;
     clockText.textContent = String(sec);
+    updateEndgameWarning();
     if (sec <= 0) finalize('timeup');
   });
 
-  // spawnMul based on fever (storm)
+  // dynamic spawn interval multiplier by fever
   function spawnMul(){
     if (S.ended) return 999;
     const f = S.fever;
@@ -936,39 +1039,34 @@ async function startGame(){
     return 1.0;
   }
 
-  // Factory (IMPORTANT: spread full screen — fix “เป้าที่เดิม”)
+  // Boot factory (spread full screen)
   const spawner = await factoryBoot({
     difficulty: diff,
     duration,
     modeKey: 'hydration',
 
-    // pools
     pools: {
       good: ['💧','🚰','🫧','🥛'],
       bad:  ['🥤','🧋','🧃','🍭'],
-      trick:['💧'] // fake good skin (will be judged as bad)
+      trick:['💧']
     },
     goodRate: 0.62,
 
-    // powerups
     powerups: ['🛡️','⭐','💎'],
     powerRate: 0.14,
     powerEvery: 6,
 
-    // ✅ spread controls
-    spawnAroundCrosshair: false,        // << กระจายเต็มจอ
-    spawnStrategy: 'grid9',             // << กระจายทั่วจอแบบสมดุล
-    minSeparation: 1.18,                // << ห้ามซ้อน
+    // spread
+    spawnAroundCrosshair: false,
+    spawnStrategy: 'grid9',
+    minSeparation: 1.18,
     maxSpawnTries: 18,
 
-    // link hosts
     spawnHost: '#hydr-layer',
     boundsHost: '#playfield',
 
-    // fever affects speed
     spawnIntervalMul: spawnMul,
 
-    // exclusion zones (HUD)
     excludeSelectors: [
       '#hha-water-header',
       '#hha-card-left',
@@ -978,12 +1076,21 @@ async function startGame(){
       '#hvr-end'
     ],
 
-    // expire = miss (only good)
-    onExpire: ({ ch, isGood, itemType }) => {
+    decorateTarget: (el, parts, data) => {
+      const delay = (Math.random()*1.2).toFixed(2);
+      try{ parts.wiggle.style.animationDelay = `${delay}s`; }catch{}
+
+      // log spawn sparsely
+      const kind = String(data.itemType || (data.isGood ? 'good' : 'junk'));
+      if (kind === 'good' || kind === 'fakeGood') S.nSpawnGood++;
+      if (kind === 'junk') S.nSpawnJunk++;
+      dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'spawn', data:{ kind }});
+    },
+
+    onExpire: ({ ch, itemType }) => {
       if (S.ended) return;
 
       if (itemType === 'good' || itemType === 'fakeGood'){
-        // good expired counts as miss
         S.nExpireGood++;
         addMiss('expire');
 
@@ -999,20 +1106,6 @@ async function startGame(){
       }
     },
 
-    decorateTarget: (el, parts, data, meta) => {
-      // random float phase
-      const delay = (Math.random()*1.2).toFixed(2);
-      try{
-        parts.wiggle.style.animationDelay = `${delay}s`;
-      }catch{}
-
-      // tiny emphasis for power
-      if (data.itemType === 'power'){
-        el.style.boxShadow += ', 0 0 26px rgba(250,204,21,.22)';
-      }
-    },
-
-    // judge
     judge: (ch, ctx) => {
       if (S.ended) return { scoreDelta: 0, good:false };
       if (nowMs() < S.stunnedUntil) return { scoreDelta: 0, good:false };
@@ -1021,40 +1114,36 @@ async function startGame(){
       const y = ctx.clientY || 0;
 
       const kind = ctx.itemType || (ctx.isGood ? 'good' : 'junk');
-
-      // normalize fakeGood = junk (หลอก)
       const isFake = (kind === 'fakeGood');
       const isPower = !!ctx.isPower;
-      const isGood = (!!ctx.isGood) && !isFake && !(!ctx.isGood);
+      const isGood = (!!ctx.isGood) && !isFake && (kind === 'good');
 
-      // perfect bonus
       const perfect = !!ctx.hitPerfect;
       const perfectBonus = perfect ? 5 : 0;
 
-      // handle powerups
+      // powerups
       if (isPower){
-        // map by emoji
         if (ch === '🛡️'){
           addShield(1);
           addScore(10, x, y);
           incCombo();
           addFever(-6);
-          setCoach('happy', 'ได้โล่!', 'โล่ช่วยกันเลเซอร์/ขยะ (ไม่เป็น miss เมื่อ block)');
+          setCoach('happy', 'ได้โล่!', 'โล่บล็อกขยะ/เลเซอร์ (บล็อกแล้วไม่เป็น miss)');
           dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'hit', data:{ kind:'shield', ch }});
           try{ Particles.burstAt(x,y,'shield'); }catch{}
           hud();
-          QUEST.onHit({ kind:'power', good:true, perfect });
+          try{ QUEST.onHit({ kind:'power', good:true, perfect }); }catch{}
           return { scoreDelta: 10, good:true };
         }
         if (ch === '⭐'){
           addScore(18, x, y);
-          incCombo(); incCombo(); // star boosts
+          incCombo(); incCombo();
           addFever(-8);
           setCoach('happy', 'ซูเปอร์!', 'ดาวช่วยดันคอมโบ + ลดไข้');
           dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'hit', data:{ kind:'star', ch }});
           try{ Particles.burstAt(x,y,'gold'); }catch{}
           hud();
-          QUEST.onHit({ kind:'power', good:true, perfect });
+          try{ QUEST.onHit({ kind:'power', good:true, perfect }); }catch{}
           return { scoreDelta: 18, good:true };
         }
         // 💎
@@ -1065,134 +1154,116 @@ async function startGame(){
         dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'hit', data:{ kind:'diamond', ch }});
         try{ Particles.burstAt(x,y,'diamond'); }catch{}
         hud();
-        QUEST.onHit({ kind:'power', good:true, perfect });
+        try{ QUEST.onHit({ kind:'power', good:true, perfect }); }catch{}
         return { scoreDelta: 22, good:true };
       }
 
       // good hit
-      if (isGood && (kind === 'good')){
+      if (isGood){
         S.nHitGood++;
-        S.nSpawnGood = Math.max(S.nSpawnGood, S.nHitGood); // (soft)
         const delta = 10 + perfectBonus + Math.min(8, Math.floor(S.combo/6));
         addScore(delta, x, y);
         incCombo();
         addFever(perfect ? -3 : -1);
 
-        // water gauge (simple: drift to 50 on good)
-        const current = qn('water', 50); // optional external seed; fallback
-        // We'll keep internal gauge in ui-water module (global var)
-        setWaterGauge(null, +2); // nudge +2
+        setWaterGauge(null, +2);
 
-        dispatch('hha:log_event', {
-          sessionId:S.sessionId, game:'hydration',
-          type:'hit',
-          data:{ kind:'good', ch, perfect }
-        });
-
+        dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'hit', data:{ kind:'good', ch, perfect }});
         if (perfect) setCoach('happy', 'Perfect!', 'จังหวะดีมาก! คอมโบต่อไป');
         hud();
-        QUEST.onHit({ kind:'good', good:true, perfect });
+        try{ QUEST.onHit({ kind:'good', good:true, perfect }); }catch{}
         return { scoreDelta: delta, good:true };
       }
 
-      // junk hit (shield block already handled elsewhere)
+      // junk hit => Shield can block (NO miss)
+      if (consumeShield()){
+        S.nHitJunkGuard++;
+        try{ QUEST.onSpecial('shieldBlock'); }catch{}
+        addScore(-2, x, y); // small penalty for block
+        addFever(2);
+        setWaterGauge(null, -1);
+
+        dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'shield_block', data:{ kind:'junk', ch, fake:isFake }});
+        try{ Particles.burstAt(x,y,'shield'); }catch{}
+        setCoach('happy', 'โล่ช่วยไว้!', 'บล็อกขยะแล้ว (ไม่เป็น miss) แต่ระวังต่อไป');
+        hud();
+        try{ QUEST.onHit({ kind:'junk', good:false, perfect:false }); }catch{} // still informs mini logic
+        return { scoreDelta: -2, good:false };
+      }
+
+      // junk actually hits => miss
       S.nHitJunk++;
       addMiss('junk');
       addScore(-12, x, y);
       shake(5, 160);
-
-      // water gauge goes worse on junk
       setWaterGauge(null, -4);
 
-      dispatch('hha:log_event', {
-        sessionId:S.sessionId, game:'hydration',
-        type:'hit',
-        data:{ kind:'junk', ch, fake:isFake }
-      });
-
-      setCoach('sad', isFake ? 'โดนหลอก!' : 'โดนขยะ!', 'ระวังแก้วหวาน/ขยะ และอย่าลืมเข้า Gap ตอนเลเซอร์');
+      dispatch('hha:log_event', { sessionId:S.sessionId, game:'hydration', type:'hit', data:{ kind:'junk', ch, fake:isFake }});
+      setCoach('sad', isFake ? 'โดนหลอก!' : 'โดนขยะ!', 'ระวังแก้วหวาน/ขยะ และอย่าลืมเข้า Gap ตอนบอสมา');
       hud();
-      QUEST.onHit({ kind:'junk', good:false, perfect:false });
+      try{ QUEST.onHit({ kind:'junk', good:false, perfect:false }); }catch{}
       return { scoreDelta: -12, good:false };
     }
   });
 
-  // store for stop
   S._spawner = spawner;
 
-  // time driver (fallback)
+  // fallback initial time update
   dispatch('hha:time', { sec: duration });
 
-  // main loop: laser spawns + quest ticks
-  let lastLaserTry = 0;
-  let raf = 0;
+  // schedule first boss
+  scheduleNextBoss();
+
+  // main loop: boss + zone text + warning pulse decay
   function loop(){
     if (S.ended) return;
 
-    const t = nowMs();
+    // boss spawns
+    spawnBoss();
 
-    // laser schedule
-    const interval = feverStormOn() ? 6100 : 8200;
-    if (t - lastLaserTry > interval){
-      lastLaserTry = t;
-      spawnLaser();
-    }
-
-    // update water zone text from module
+    // zone UI
     const z = zoneFrom();
     waterZoneText.textContent = `ZONE: ${z.toUpperCase()}`;
 
-    // glow if storm
-    edgeGlow(feverStormOn() ? 1 : 0);
+    // warn pulse decay a bit
+    if (S.secLeft > 10){
+      warnPulse(0);
+    }
 
-    // hard safety: end when time 0
+    // safety end
     if (S.secLeft <= 0){
       finalize('timeup');
       return;
     }
 
-    raf = ROOT.requestAnimationFrame(loop);
+    ROOT.requestAnimationFrame(loop);
   }
-  raf = ROOT.requestAnimationFrame(loop);
+  ROOT.requestAnimationFrame(loop);
 
-  // crosshair shooting: tap anywhere on playfield = shoot crosshair (optional)
-  playfield.addEventListener('pointerdown', (e)=>{
+  // optional assist: tap playfield = shoot crosshair (if mode-factory supports)
+  playfield.addEventListener('pointerdown', ()=>{
     if (S.ended) return;
     if (nowMs() < S.stunnedUntil) return;
-    // if tap hits a target normally, mode-factory handler consumes it already.
-    // If tap misses, allow "shootCrosshair" as assist for VR-like feel
     try{ spawner.shootCrosshair(); }catch{}
   }, { passive:true });
 
-  // end button events
-  btnRestart.addEventListener('click', ()=> ROOT.location.reload());
-
-  // initial HUD
   hud();
 }
 
 btnStart.addEventListener('click', startGame);
 btnSkip.addEventListener('click', startGame);
-
-// allow start by tapping overlay background
-startOverlay.addEventListener('click', (e)=>{
-  if (e.target === startOverlay) startGame();
-});
-
-// close end
-btnCloseEnd.addEventListener('click', hideEnd);
+startOverlay.addEventListener('click', (e)=>{ if (e.target === startOverlay) startGame(); });
 
 // VR-feel
 attachVRFeel();
 
-// stop on visibility
+// visibility safety
 DOC.addEventListener('visibilitychange', ()=>{
   if (DOC.visibilityState === 'hidden' && S.started && !S.ended){
-    // flush logger + stop gracefully
     dispatch('hha:stop', {});
   }
 });
 
-// initial coach
-setCoach('neutral', 'พร้อมแล้วไปกัน!', 'แตะเป้า 💧 ให้ตรงจังหวะ และหลบเลเซอร์ให้ได้!');
+// initial
+setCoach('neutral', 'พร้อมแล้วไปกัน!', 'แตะเป้า 💧 ให้ตรงจังหวะ และหลบบอสให้ได้!');
 hud();
