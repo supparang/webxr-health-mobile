@@ -14,7 +14,7 @@
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
   function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-  // small deterministic RNG (mulberry32)
+  // small deterministic RNG (mulberry32-ish)
   function makeRng(seedStr){
     let s = 0x9e3779b9;
     const str = String(seedStr || '');
@@ -34,8 +34,7 @@
   }
 
   // ------------------ quest defs ------------------
-  // NOTE: เกม Groups = "ยิงถูกหมู่ปัจจุบัน" + "เลี่ยง junk/ผิดหมู่" ให้มีเอกลักษณ์ ไม่ซ้ำ GoodJunk/Plate
-
+  // เอกลักษณ์ Groups = “ยิงถูกหมู่ปัจจุบัน” + “เลี่ยงผิดหมู่/เลี่ยง junk”
   const GOAL_DEFS = [
     {
       id:'g1',
@@ -60,7 +59,6 @@
     }
   ];
 
-  // mini = แบบ “ภารกิจระเบิด” สั้น ๆ สนุก/เร้าใจ
   const MINI_DEFS = [
     {
       id:'m1',
@@ -94,7 +92,7 @@
 
     // ✅ seed policy:
     // - research: fix seed เสมอ (ถ้าไม่ส่ง seed มา ให้ใช้ default)
-    // - play: ถ้าไม่ส่ง seed มา ให้สุ่มเวลา
+    // - play: ถ้าไม่ส่ง seed มา ให้สุ่มตามเวลา
     const finalSeed = (runMode === 'research')
       ? (seed || 'HHA-GROUPS-RESEARCH-SEED')
       : (seed || ('PLAY-' + Math.floor(Date.now()/1000)));
@@ -104,7 +102,6 @@
     const state = {
       diff, runMode, seed: finalSeed,
 
-      // main stats from engine
       groupLabel: 'หมู่ ?',
       correctHits: 0,
       wrongHits: 0,
@@ -114,7 +111,6 @@
       comboMax: 0,
       accuracy: 0,
 
-      // current goal / mini
       goalIndex: 0,
       activeGoal: null,
 
@@ -152,13 +148,11 @@
     }
 
     function pickMini(){
-      // research: mini order = fixed (ไม่สุ่ม)
-      // play: mini order = pseudo-random แต่ deterministic ด้วย seed (ถ้าตั้ง)
       let idx;
       if (runMode === 'research'){
-        idx = state.miniIndex % MINI_DEFS.length;
+        idx = state.miniIndex % MINI_DEFS.length; // fixed order
       } else {
-        idx = Math.floor(rng() * MINI_DEFS.length) % MINI_DEFS.length;
+        idx = Math.floor(rng() * MINI_DEFS.length) % MINI_DEFS.length; // deterministic by seed
       }
       const def = MINI_DEFS[idx];
       return {
@@ -231,7 +225,6 @@
     }
 
     function emitQuestPct(){
-      // คิด % จาก (goal ผ่าน + mini ผ่าน)
       const passed = state.questsPassed|0;
       const total  = Math.max(1, state.questsTotal|0);
       const pct = Math.round((passed / total) * 100);
@@ -253,8 +246,7 @@
     }
 
     function nextGoalIfPassed(){
-      if (!state.activeGoal) return;
-      if (!state.activeGoal.pass) return;
+      if (!state.activeGoal || !state.activeGoal.pass) return;
 
       state.questsPassed++;
       emit('hha:celebrate', { kind:'goal', text:'GOAL CLEAR!' });
@@ -262,7 +254,7 @@
 
       state.goalIndex++;
       if (state.goalIndex >= GOAL_DEFS.length){
-        // all goals done -> keep last goal shown as passed
+        // all goals done -> keep last shown; no further
         return;
       }
       state.activeGoal = makeGoal(state.goalIndex);
@@ -282,7 +274,6 @@
     }
 
     function failMini(){
-      // mini fail -> reset ใหม่ (ไม่เพิ่ม passed)
       emit('hha:judge', { text:'MINI FAIL', kind:'warn' });
       state.activeMini = pickMini();
       state.activeMini.tLeft = state.activeMini.tLimit;
@@ -297,7 +288,6 @@
     }
 
     function onShot(result){
-      // result: { correct:boolean, wrong:boolean, junk:boolean }
       state.totalShots++;
 
       if (result && result.correct){
@@ -305,16 +295,14 @@
         state.combo++;
         if (state.combo > state.comboMax) state.comboMax = state.combo;
 
-        // mini progress types
+        // mini progress
         if (state.activeMini){
           if (state.activeMini.kind === 'streak_correct') state.activeMini.prog++;
           if (state.activeMini.kind === 'avoid_wrong')    state.activeMini.prog++;
           if (state.activeMini.kind === 'avoid_junk')     state.activeMini.prog++;
         }
       } else {
-        // break combo
         state.combo = 0;
-
         if (result && result.wrong) state.wrongHits++;
         if (result && result.junk)  state.junkHits++;
 
@@ -323,8 +311,7 @@
           if (state.activeMini.kind === 'avoid_wrong' && result.wrong) state.activeMini.fail = true;
           if (state.activeMini.kind === 'avoid_junk'  && result.junk)  state.activeMini.fail = true;
           if (state.activeMini.kind === 'streak_correct'){
-            // streak mini: ยิงผิด = streak reset
-            state.activeMini.prog = 0;
+            state.activeMini.prog = 0; // reset streak, not instant fail
           }
         }
       }
@@ -333,7 +320,6 @@
       updateGoalProgress();
       emitQuestUpdate();
       nextGoalIfPassed();
-      // mini pass/fail check จะทำใน tick เพื่อคุมเวลา
     }
 
     function tick(dtSec){
@@ -342,7 +328,7 @@
       updateMiniProgress(dtSec);
 
       if (state.activeMini){
-        if (state.activeMini.fail) {
+        if (state.activeMini.fail){
           failMini();
         } else if (state.activeMini.pass){
           nextMini();
