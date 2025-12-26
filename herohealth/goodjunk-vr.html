@@ -1,12 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
-✅ Script order: particles → logger → fever → hud → module boot
-✅ DOM targets layer (#gj-layer) + VR-feel playfield (drag + gyro)
-✅ Ring/Laser overlays (#atk-ring/#atk-laser) with CSS vars
-✅ Start overlay + Motion permission button
-✅ Fallback end summary (listen hha:end)
-✅ Hub Context Bridge (read profile/context from hub via storage/query)
-✅ NEW: HUD+Quest Fallback Binder (fix Goal+Mini not showing / Score not updating)
+GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
+✅ Goal/Mini always visible: listen quest:update + hha:quest + repaint from cache
+✅ Dynamic import goodjunk.safe.js with ?v=ts to kill caching issues
+✅ End summary accuracy uses accuracyGoodPct
+✅ Keeps VR-feel drag+gyro playfield + ring/laser overlays + start overlay
 -->
 
 <!doctype html>
@@ -22,12 +19,12 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- Global FX + (optional) logger -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
+  <script src="./vr/particles.js?v=20251226" defer></script>
+  <script src="./vr/hha-cloud-logger.js?v=20251226" defer></script>
 
   <!-- Global UI -->
-  <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-hud.js" defer></script>
+  <script src="./vr/ui-fever.js?v=20251226" defer></script>
+  <script src="./vr/hha-hud.js?v=20251226" defer></script>
 
   <style>
     :root{
@@ -590,8 +587,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
 
   <!-- Boot module -->
   <script type="module">
-    import { boot as goodjunkBoot } from './vr-goodjunk/goodjunk.safe.js';
-
     const $ = (id)=> document.getElementById(id);
 
     function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
@@ -607,6 +602,9 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
     const time = clamp(qp('time',80), 20, 180) | 0;
     const challenge = String(qp('challenge','rush')).toLowerCase();
 
+    // cache-bust token (สำคัญมากสำหรับ GitHub pages + mobile)
+    const tsToken = String(qp('ts', Date.now()));
+
     // --- UI refs ---
     const layer = $('gj-layer');
     const cross = $('gj-crosshair');
@@ -620,7 +618,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
 
     const dbgLine = $('dbgLine');
 
-    // --- Maintain layer offset + aim point for engine (PATCH C expects these globals) ---
+    // --- Maintain layer offset + aim point for engine ---
     function updateOffsets(){
       const r = layer.getBoundingClientRect();
       window.__GJ_LAYER_OFFSET__ = { x: r.left, y: r.top };
@@ -734,7 +732,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
         'studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
         'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel',
         'heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
-        'sessionId'
+        'sessionId','gameVersion'
       ].forEach((k)=>{
         const v = pick(k);
         if (v !== undefined) ctx[k] = v;
@@ -743,6 +741,9 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
       ['age','gradeLevel','heightCm','weightKg','bmi','schoolYear','semester','sessionOrder'].forEach((k)=>{
         if (ctx[k] != null && ctx[k] !== '' && !isNaN(ctx[k])) ctx[k] = Number(ctx[k]);
       });
+
+      // stamp version if missing
+      if (!ctx.gameVersion) ctx.gameVersion = `goodjunk-html-${tsToken}`;
 
       return ctx;
     }
@@ -761,11 +762,15 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
     // --- Start game ---
     let game = null;
 
-    function startGame(){
+    async function startGame(){
       startOverlay.style.display = 'none';
 
       const ctx = readHubContext();
       emitProfileOnce(ctx);
+
+      // ✅ Dynamic import to kill cached old module
+      const mod = await import(`./vr-goodjunk/goodjunk.safe.js?v=${encodeURIComponent(tsToken)}`);
+      const goodjunkBoot = mod.boot;
 
       game = goodjunkBoot({
         diff,
@@ -773,10 +778,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
         time,
         challenge,
 
-        // pass hub context into engine for logging/end payload
         context: ctx,
-
-        // if hub provides sessionId, unify it
         sessionId: ctx.sessionId || undefined,
 
         layerEl: layer,
@@ -790,11 +792,8 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
       });
     }
 
-    btnStart2D.addEventListener('click', startGame, { passive:true });
-
-    btnStartVR.addEventListener('click', ()=>{
-      startGame();
-    }, { passive:true });
+    btnStart2D.addEventListener('click', ()=>{ startGame(); }, { passive:true });
+    btnStartVR.addEventListener('click', ()=>{ startGame(); }, { passive:true });
 
     // --- Debug / offsets loop ---
     function raf(){
@@ -831,18 +830,14 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
       setTxt('endMinis', d.miniCleared ?? d.minisCleared ?? 0);
       setTxt('endMinisTotal', d.miniTotal ?? d.minisTotal ?? 0);
 
-      setTxt('endAcc', d.accuracy ?? 0);
+      // ✅ accuracy field fixed
+      setTxt('endAcc', d.accuracyGoodPct ?? d.accuracy ?? 0);
 
       endBox.style.display = 'flex';
     });
 
-    $('btnReplay').addEventListener('click', ()=>{
-      location.reload();
-    }, { passive:true });
-
-    $('btnCloseEnd').addEventListener('click', ()=>{
-      endBox.style.display = 'none';
-    }, { passive:true });
+    $('btnReplay').addEventListener('click', ()=>{ location.reload(); }, { passive:true });
+    $('btnCloseEnd').addEventListener('click', ()=>{ endBox.style.display = 'none'; }, { passive:true });
 
     // initial offsets
     updateOffsets();
@@ -855,11 +850,14 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
   </script>
 
   <!-- =========================================================
-       NEW: HUD + QUEST FALLBACK BINDER (Fix Goal+Mini not showing)
+       INLINE HUD+QUEST FALLBACK (guarantee Goal+Mini shows)
        ========================================================= -->
   <script>
   (function () {
     'use strict';
+    if (window.__GJ_HUD_FALLBACK_BOUND__) return;
+    window.__GJ_HUD_FALLBACK_BOUND__ = true;
+
     const $ = (id)=> document.getElementById(id);
 
     const setText = (id, v)=>{
@@ -874,40 +872,14 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
       el.style.width = p.toFixed(1) + '%';
     };
 
-    // listen on both window + document (บางครั้ง engine dispatch ที่ document)
     function listen(type, handler){
       window.addEventListener(type, handler, { passive:true });
       document.addEventListener(type, handler, { passive:true });
     }
 
-    listen('hha:score', (ev)=>{
-      const d = ev?.detail || {};
-      setText('hhaScore', d.score ?? d.scoreFinal ?? 0);
-      setText('hhaCombo', d.combo ?? 0);
-      setText('hhaMiss',  d.misses ?? d.miss ?? 0);
-
-      if (d.grade != null) setText('hhaGrade', d.grade);
-
-      if (d.timeLeft != null) setText('hhaTime', Math.max(0, Math.round(d.timeLeft)));
-      else if (d.timeSec != null) setText('hhaTime', Math.max(0, Math.round(d.timeSec)));
-      else if (d.time != null) setText('hhaTime', Math.max(0, Math.round(d.time)));
-
-      // meta line if provided
-      if (d.run != null || d.diff != null || d.challenge != null){
-        const meta = [d.run, d.diff, d.challenge].filter(Boolean).join(' • ');
-        if (meta) setText('hhaQuestMeta', meta);
-      }
-    });
-
-    listen('hha:time', (ev)=>{
-      const d = ev?.detail || {};
-      if (d.timeLeft != null) setText('hhaTime', Math.max(0, Math.round(d.timeLeft)));
-      else if (d.timeSec != null) setText('hhaTime', Math.max(0, Math.round(d.timeSec)));
-      else if (d.time != null) setText('hhaTime', Math.max(0, Math.round(d.time)));
-    });
-
-    listen('quest:update', (ev)=>{
-      const d = ev?.detail || {};
+    function paintQuest(d){
+      d = d || {};
+      try { window.__HHA_LAST_QUEST__ = d; } catch(_){}
 
       const gTitle = d.goalTitle ?? d.goalName ?? d.goal ?? 'Goal: —';
       const gCur   = d.goalCur ?? d.goalNow ?? d.goalProgress ?? 0;
@@ -929,37 +901,44 @@ GoodJunkVR — FULL HTML (PRODUCTION) — HUD/QUEST FALLBACK PATCH (FULL UPDATE)
 
       if (d.miniTLeft != null) setText('qMiniTLeft', d.miniTLeft);
 
-      // meta if provided
-      if (d.goalIndex != null || d.goalsTotal != null || d.miniIndex != null){
-        const meta = [
-          (d.goalIndex!=null && d.goalsTotal!=null) ? `Goal ${d.goalIndex}/${d.goalsTotal}` : null,
-          (d.miniIndex!=null && d.minisTotal!=null) ? `Mini ${d.miniIndex}/${d.minisTotal}` : null
-        ].filter(Boolean).join(' • ');
+      if (d.goalsCleared!=null && d.goalsTotal!=null && d.minisCleared!=null && d.minisTotal!=null){
+        setText('hhaQuestMeta', `Goals ${d.goalsCleared}/${d.goalsTotal} • Minis ${d.minisCleared}/${d.minisTotal}`);
+      } else if (d.goalIndex!=null && d.goalsTotal!=null && d.miniIndex!=null && d.minisTotal!=null) {
+        setText('hhaQuestMeta', `Goal ${d.goalIndex}/${d.goalsTotal} • Mini ${d.miniIndex}/${d.minisTotal}`);
+      }
+    }
+
+    listen('hha:score', (ev)=>{
+      const d = ev?.detail || {};
+      setText('hhaScore', d.score ?? d.scoreFinal ?? 0);
+      setText('hhaCombo', d.combo ?? 0);
+      setText('hhaMiss',  d.misses ?? d.miss ?? 0);
+      if (d.grade != null) setText('hhaGrade', d.grade);
+
+      if (d.run != null || d.diff != null || d.challenge != null){
+        const meta = [d.run, d.diff, d.challenge].filter(Boolean).join(' • ');
         if (meta) setText('hhaQuestMeta', meta);
       }
     });
 
-    listen('hha:coach', (ev)=>{
+    listen('hha:time', (ev)=>{
       const d = ev?.detail || {};
-      if (d.line != null) setText('hhaCoachLine', d.line);
-      if (d.sub  != null) setText('hhaCoachSub',  d.sub);
-
-      if (d.mood != null){
-        const img = $('hhaCoachImg');
-        if (img){
-          const m = String(d.mood).toLowerCase();
-          const map = {
-            happy: 'coach-happy.png',
-            neutral: 'coach-neutral.png',
-            sad: 'coach-sad.png',
-            fever: 'coach-fever.png'
-          };
-          img.src = './img/' + (map[m] || 'coach-neutral.png');
-        }
-      }
+      if (d.timeLeft != null) setText('hhaTime', Math.max(0, Math.round(d.timeLeft)));
+      else if (d.timeLeftSec != null) setText('hhaTime', Math.max(0, Math.round(d.timeLeftSec)));
     });
 
-    console.log('[HUD Fallback] ready ✅');
+    // ✅ listen both event names
+    listen('quest:update', (ev)=> paintQuest(ev?.detail || {}));
+    listen('hha:quest',   (ev)=> paintQuest(ev?.detail || {}));
+
+    // ✅ repaint from cache (late bind)
+    setTimeout(()=>{
+      try{
+        if (window.__HHA_LAST_QUEST__) paintQuest(window.__HHA_LAST_QUEST__);
+      }catch(_){}
+    }, 80);
+
+    console.log('[GoodJunk HUD Fallback] ready ✅');
   })();
   </script>
 
