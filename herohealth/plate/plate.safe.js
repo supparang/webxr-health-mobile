@@ -1,14 +1,10 @@
 // === /herohealth/plate/plate.safe.js ===
 // Plate VR — ULTIMATE ALL-IN-ONE (UI-clean + Research-Strict + Boss-focused mid)
-// ✅ Fix black screen: fatal overlay
-// ✅ Fix long-number floating: correct Particles.scorePop(x,y,txt,label)
-// ✅ Minimal HUD + Crosshair + Hit flash
-// ✅ Anti-overlap spawn + Safe-zone (avoid HUD/panels)
-// ✅ Cap max targets (mobile performance)
-// ✅ Boss: telegraph clearer + punish only when boss close to crosshair
-// ✅ Air-shot feedback (soft punish, no life loss)
-// ✅ Fever event bridge (particles listens to hha:fever)
-// ✅ NEW (P.5): Miss-per-life system (default 1 life = 2 miss) via &mpl=2
+// ✅ Fix crash: guard undefined rec in loops (reading 'dead')
+// ✅ Hard tuned (60s) target pass-rate ~4/10 for ป.5 ระดับกลาง
+// ✅ 1 heart = 3 miss (strikes per life)
+// ✅ Goals counter fixed: goalsDone (0–2) separate from platesMade
+// ✅ Keeps: anti-overlap + safe-zone, boss fair punish, mini urgent FX, fever bridge
 
 'use strict';
 
@@ -71,17 +67,12 @@ const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal
 const TOTAL_TIME = Math.max(20, parseInt(Q.get('time') || '90', 10) || 90);
 const DEBUG = (Q.get('debug') === '1');
 
-// ✅ Miss-per-life (ป.5: 1 หัวใจ = 2 miss) ปรับได้ด้วย &mpl=3
-const MPL_PARAM = parseInt(Q.get('mpl') || '', 10);
-const MISS_PER_LIFE = (Number.isFinite(MPL_PARAM) && MPL_PARAM > 0) ? MPL_PARAM : 2;
-
 // ---------- RNG (Research strict) ----------
 let SEED = parseInt(Q.get('seed') || '', 10);
 if (!Number.isFinite(SEED)) SEED = 1337;
 let _seed = (SEED >>> 0) || 1337;
 
 function srnd(){
-  // xorshift32
   _seed ^= (_seed << 13); _seed >>>= 0;
   _seed ^= (_seed >>> 17); _seed >>>= 0;
   _seed ^= (_seed << 5); _seed >>>= 0;
@@ -142,7 +133,7 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
-// ---------- Difficulty (กลาง ๆ เน้นบอส) ----------
+// ---------- Difficulty ----------
 const DIFF_TABLE = {
   easy: {
     size: 92, life: 3200, spawnMs: 900, maxTargets: 10,
@@ -160,13 +151,33 @@ const DIFF_TABLE = {
     bossHP: 5, bossAtkMs:[1900, 2650], bossPhase2At: 0.55, bossPhase3At: 0.30,
     stormDurMs:[4200, 7200], slowDurMs:[3200, 5600], noJunkDurMs:[4200, 6800],
   },
+
+  // ✅ HARD tuned: pass-rate ~4/10 (ป.5 กลาง) @ 60s
   hard: {
-    size: 66, life: 2300, spawnMs: 660, maxTargets: 14,
-    junkRate: 0.30, goldRate: 0.14, trapRate: 0.095, bossRate: 0.060, fakeRate: 0.070,
-    slowRate: 0.055, noJunkRate: 0.022, stormRate: 0.040,
+    size: 68,
+    life: 2350,
+    spawnMs: 680,
+    maxTargets: 14,
+
+    junkRate: 0.29,
+    goldRate: 0.14,
+    trapRate: 0.095,
+    bossRate: 0.058,
+    fakeRate: 0.060,
+
+    slowRate: 0.055,
+    noJunkRate: 0.022,
+    stormRate: 0.040,
+
     aimAssist: 125,
-    bossHP: 6, bossAtkMs:[1550, 2300], bossPhase2At: 0.60, bossPhase3At: 0.34,
-    stormDurMs:[4800, 8200], slowDurMs:[3200, 5800], noJunkDurMs:[4200, 7200],
+    bossHP: 6,
+    bossAtkMs:[1550, 2300],
+    bossPhase2At: 0.60,
+    bossPhase3At: 0.34,
+
+    stormDurMs:[4800, 8200],
+    slowDurMs:[3200, 5800],
+    noJunkDurMs:[4200, 7200],
   },
 };
 const D = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
@@ -175,19 +186,25 @@ const D = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
 const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
 const LIVES_START = (Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0) ? LIVES_PARAM : 3;
 
+// ✅ 1 heart = 3 miss
+const STRIKES_PER_LIFE = Math.max(1, parseInt(Q.get('heart') || '3', 10) || 3);
+
 const S = {
   running:false, paused:false,
   tStart:0, timeLeft:TOTAL_TIME,
   score:0, combo:0, maxCombo:0,
   miss:0, perfectCount:0,
-  missDebt:0, // ✅ miss สะสมเพื่อหัก 1 หัวใจ (ครบ MISS_PER_LIFE ค่อย -1 life)
   fever:0, feverOn:false,
 
   shield:0, shieldMax:1,
   lives:LIVES_START, livesMax:Math.max(1,LIVES_START),
+  strikes:0, strikesPerLife: STRIKES_PER_LIFE,
 
-  goalsCleared:0, goalsTotal:2,
+  // ✅ FIXED counters
+  platesMade:0,           // จำนวน “จานสมดุล” ที่ทำได้
+  goalsDone:0, goalsTotal:2,
   minisCleared:0, minisTotal:7,
+
   plateHave:new Set(), groupsTotal:5, groupCounts:[0,0,0,0,0],
 
   targets:[], aimedId:null,
@@ -215,7 +232,7 @@ function dispatchEvt(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
 }
 
-/* ===== FIX: sanitize + correct Particles API ===== */
+/* ===== FX helpers ===== */
 function safeFxText(t){
   t = String(t ?? '');
   if (/^\d+(\.\d+)?$/.test(t) && t.length >= 10) return '✓';
@@ -312,7 +329,7 @@ const layer = doc.createElement('div');
 layer.className = 'plate-layer';
 doc.body.appendChild(layer);
 
-// ---------- Audio (tiny beeps) ----------
+// ---------- Audio ----------
 const AudioX = (function(){
   let ctx=null;
   function ensure(){ if(ctx) return ctx; try{ ctx=new (ROOT.AudioContext||ROOT.webkitAudioContext)(); }catch(_){ } return ctx; }
@@ -345,7 +362,6 @@ function logSession(phase){
   dispatchEvt('hha:log_session',{
     sessionId:S.sessionId, game:'PlateVR', phase,
     mode:MODE, diff:DIFF, timeTotal:TOTAL_TIME, lives:S.livesMax,
-    missPerLife: MISS_PER_LIFE,
     seed: SEED, ts:Date.now(), ua:navigator.userAgent
   });
 }
@@ -355,6 +371,7 @@ function logEvent(type, data){
     t: Math.round((now() - S.tStart) || 0),
     score:S.score, combo:S.combo, miss:S.miss, perfect:S.perfectCount,
     fever:Math.round(S.fever), shield:S.shield, lives:S.lives,
+    strikes:S.strikes, strikesPerLife:S.strikesPerLife,
     data:data||{}
   });
 }
@@ -514,8 +531,8 @@ const MINIS=[
     isClear(){ return S._mini.good>=4 && !S._mini.fail; }
   },
   { key:'noMiss', title:'No-Miss (12s)', hint:'12 วิ ห้ามพลาด (รวมหมดอายุ)', dur:12000,
-    init(){ S._mini={m:S.miss,l:S.lives, d:S.missDebt}; },
-    isClear(){ return (S.miss===S._mini.m) && (S.lives===S._mini.l) && (S.missDebt===S._mini.d); }
+    init(){ S._mini={m:S.miss,l:S.lives, s:S.strikes}; },
+    isClear(){ return S.miss===S._mini.m && S.lives===S._mini.l && S.strikes===S._mini.s; }
   },
   { key:'shine', title:'Shine (10s)', hint:'10 วิ PERFECT 2 หรือ Power 1 ก็ผ่าน', dur:10000,
     init(){ S._mini={p:0, pow:false}; },
@@ -529,7 +546,7 @@ const MINIS=[
 function goalProgressText(){
   const g=S.activeGoal;
   if(!g) return '0';
-  if(g.key==='plates2') return `${S.goalsCleared}/${g.target}`;
+  if(g.key==='plates2') return `${S.platesMade}/${g.target}`;
   if(g.key==='perfect6') return `${S.perfectCount}/${g.target}`;
   return '0';
 }
@@ -540,15 +557,19 @@ function setGoal(i){
 }
 function checkGoalClear(){
   const g=S.activeGoal; if(!g) return false;
-  if(g.key==='plates2') return S.goalsCleared>=g.target;
+  if(g.key==='plates2') return S.platesMade>=g.target;
   if(g.key==='perfect6') return S.perfectCount>=g.target;
   return false;
 }
 function onGoalCleared(){
+  // ✅ count goal done
+  S.goalsDone = Math.min(S.goalsTotal, S.goalsDone + 1);
+
   fxCelebrate('GOAL CLEAR!', 1.25);
   flash('gold', 140);
   vibe(60);
-  logEvent('goal_clear',{goal:S.activeGoal && S.activeGoal.key});
+  logEvent('goal_clear',{goal:S.activeGoal && S.activeGoal.key, goalsDone:S.goalsDone});
+
   if(S.goalIndex+1<GOALS.length) setGoal(S.goalIndex+1);
 }
 function startMini(){
@@ -615,20 +636,24 @@ function onGood(group){
     S.groupCounts[group-1]+=1;
   }
   setTxt(HUD.have, `${S.plateHave.size}/${S.groupsTotal}`);
+
   if(S.plateHave.size>=S.groupsTotal){
-    S.goalsCleared++;
+    S.platesMade++;
     S.plateHave.clear();
     setTxt(HUD.have, `0/5`);
     fxCelebrate('PLATE +1!', 1.0);
     flash('good', 120);
     vibe(35);
-    logEvent('plate_complete',{plates:S.goalsCleared});
+    logEvent('plate_complete',{platesMade:S.platesMade});
+
     setGoal(S.goalIndex);
-    if(S.activeGoal && S.activeGoal.key==='plates2' && checkGoalClear()) onGoalCleared();
+    if(S.activeGoal && S.activeGoal.key==='plates2' && checkGoalClear()){
+      onGoalCleared();
+    }
   }
 }
 
-// ---------- Aim assist (for boss-close check too) ----------
+// ---------- Aim assist ----------
 function pickNearCrosshair(radiusPx){
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const cx=vw/2, cy=vh/2;
@@ -646,10 +671,11 @@ function pickNearCrosshair(radiusPx){
 function updateAimHighlight(){
   const assist = inVR()? Math.max(D.aimAssist,170) : D.aimAssist;
   const picked=pickNearCrosshair(assist);
-  const tid=picked? picked.rec.el.dataset.tid : null;
+  const tid=picked? (picked.rec.el && picked.rec.el.dataset.tid) : null;
   if(tid===S.aimedId) return;
+
   if(S.aimedId){
-    const prev=S.targets.find(r=>r && r.el && r.el.dataset.tid===S.aimedId);
+    const prev=S.targets.find(r=>r && r.el && r.el.dataset && r.el.dataset.tid===S.aimedId);
     prev && prev.el && prev.el.classList.remove('aimed');
   }
   S.aimedId=tid;
@@ -761,23 +787,25 @@ function makeTarget(kind, group, opts={}){
 function removeTarget(rec){
   if(!rec || rec.dead) return;
   rec.dead=true;
-  try{ rec.el.remove(); }catch(_){}
+  try{ rec.el && rec.el.remove(); }catch(_){}
   const i=S.targets.indexOf(rec);
   if(i>=0) S.targets.splice(i,1);
 }
 function bossHpSync(rec){
-  if(!rec||rec.kind!=='boss') return;
+  if(!rec||rec.kind!=='boss' || !rec.el) return;
   const bar=rec.el.querySelector('.hp > div');
   if(!bar) return;
   const ratio=rec.hpMax ? clamp(rec.hp/rec.hpMax,0,1) : 0;
   rec.el.style.setProperty('--hp', String(ratio));
   bar.style.transform = `scaleX(${ratio})`;
 }
+
+// ✅ FIX crash: guard undefined entries
 function expireTargets(){
   const t=now();
   for(let i=S.targets.length-1;i>=0;i--){
     const rec=S.targets[i];
-    if(!rec) continue;            // ✅ กัน undefined (fix: reading 'dead')
+    if(!rec){ S.targets.splice(i,1); continue; }
     if(rec.dead) continue;
     if(t>=rec.dieAt){
       if(rec.kind==='good'||rec.kind==='gold'){
@@ -794,7 +822,7 @@ function expireTargets(){
   }
 }
 
-// ---------- MISS/LIFE ----------
+// ---------- MISS/LIFE (1 heart = 3 miss) ----------
 function shieldBlock(reason){
   if(S.shield<=0) return false;
   setShield(S.shield-1);
@@ -805,39 +833,34 @@ function shieldBlock(reason){
   return true;
 }
 
-// ✅ Miss-per-life: ลดหัวใจเมื่อสะสม missDebt ครบ MISS_PER_LIFE (default 2)
+function applyStrikeLoss(extra={}){
+  // เพิ่ม strike ทุกครั้งที่เป็น miss จริง (ที่ควรลงโทษ)
+  S.strikes++;
+  logEvent('strike_add',{strikes:S.strikes, ...extra});
+
+  if(S.strikes >= S.strikesPerLife){
+    S.strikes = 0;
+    setLives(S.lives - 1);
+    logEvent('life_down',{lives:S.lives});
+  }
+}
+
 function onMiss(reason, extra={}){
   S.combo=0; setTxt(HUD.combo,0);
-
-  // miss รวม (สถิติ/เกรด)
-  S.miss++;
-  setTxt(HUD.miss,S.miss);
+  S.miss++; setTxt(HUD.miss,S.miss);
 
   const t=now();
-  const protectedNoJunk =
-    (t < S.noJunkUntil) &&
-    (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
+  const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
 
-  const costsLife = !protectedNoJunk;
-
-  if(costsLife){
-    S.missDebt = (S.missDebt|0) + 1;
-
-    if(S.missDebt >= MISS_PER_LIFE){
-      S.missDebt = 0;
-      setLives(S.lives-1);
-
-      updateGrade();
-      if(S.lives<=0){
-        endGame(true);
-        logEvent('miss',{reason,...extra, costsLife, missDebt:S.missDebt, mpl:MISS_PER_LIFE});
-        return;
-      }
-    }
+  if(!protectedNoJunk){
+    applyStrikeLoss({reason});
+  }else{
+    logEvent('miss_protected',{reason});
   }
 
   updateGrade();
-  logEvent('miss',{reason,...extra, costsLife, missDebt:S.missDebt, mpl:MISS_PER_LIFE});
+  if(S.lives<=0) endGame(true);
+  logEvent('miss',{reason,...extra, lives:S.lives, strikes:S.strikes});
 }
 
 function punishBad(reason){
@@ -850,6 +873,7 @@ function punishBad(reason){
   AudioX.bad(); vibe(reason==='boss'?75:45);
   onMiss(reason,{});
 }
+
 function bossAttackPunish(tag, forceHit=false){
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const cx=vw/2, cy=vh/2;
@@ -1017,7 +1041,7 @@ function hitTarget(rec, direct){
   addCombo();
 
   if(judge==='PERFECT'){
-    S.perfectCount++; setTxt(HUD.perfect,S.perfectCount);
+    S.perfectCount++; setTxt(HUD.perfect, S.perfectCount);
     addFever(14);
     fxJudge('PERFECT'); AudioX.perfect(); vibe(30);
     flash(rec.kind==='gold'?'gold':'good', 95);
@@ -1132,13 +1156,13 @@ function tickBossAttack(){
     const warnLead=(style==='double')?680:520;
     if(t >= rec.atkAt - warnLead && !rec._warned){
       rec._warned=true;
-      rec.el.classList.add('warn');
+      rec.el && rec.el.classList.add('warn');
       fxJudge(style==='double'?'☠️':'⚠️');
       AudioX.warn(); vibe(15);
     }
     if(t >= rec.atkAt){
       rec._warned=false;
-      rec.el.classList.remove('warn');
+      rec.el && rec.el.classList.remove('warn');
 
       bossAttackPunish('boss_attack', false);
       logEvent('boss_attack',{phase:ph,style});
@@ -1210,7 +1234,7 @@ function airShot(){
   flash('bad', 80);
   AudioX.tick();
 
-  // นับเป็น miss แต่ไม่ลดชีวิต (ไม่เพิ่ม missDebt)
+  // นับ miss แต่ "ไม่ตี strike" (ยิงลมเป็นแค่ soft punish)
   S.miss++; setTxt(HUD.miss, S.miss);
   updateGrade();
   logEvent('air_shot',{});
@@ -1246,11 +1270,15 @@ function restart(){
   S.running=false; S.paused=false;
   S.tStart=0; S.timeLeft=TOTAL_TIME;
   S.score=0; S.combo=0; S.maxCombo=0; S.miss=0; S.perfectCount=0;
-  S.missDebt=0;
   S.fever=0; S.feverOn=false;
-
   setShield(0); setLives(S.livesMax);
-  S.goalsCleared=0; S.minisCleared=0;
+
+  S.strikes=0;
+
+  S.platesMade=0;
+  S.goalsDone=0;
+  S.minisCleared=0;
+
   S.plateHave.clear();
   S.groupCounts=[0,0,0,0,0];
 
@@ -1279,15 +1307,13 @@ function endGame(isGameOver){
   S.nextSpawnAt=Infinity;
   for(const rec of [...S.targets]) removeTarget(rec);
 
-  const grade = gradeFromScore();
-
   setTxt(HUD.rMode, MODE==='research'?'Research':'Play');
-  setTxt(HUD.rGrade, grade);
+  setTxt(HUD.rGrade, gradeFromScore());
   setTxt(HUD.rScore, S.score);
   setTxt(HUD.rMaxCombo, S.maxCombo);
   setTxt(HUD.rMiss, S.miss);
   setTxt(HUD.rPerfect, S.perfectCount);
-  setTxt(HUD.rGoals, `${Math.min(S.goalsCleared,2)}/2`);
+  setTxt(HUD.rGoals, `${Math.min(S.goalsDone,2)}/2`);
   setTxt(HUD.rMinis, `${Math.min(S.minisCleared,7)}/7`);
   setTxt(HUD.rG1, S.groupCounts[0]);
   setTxt(HUD.rG2, S.groupCounts[1]);
@@ -1299,28 +1325,6 @@ function endGame(isGameOver){
   setShow(HUD.resultBackdrop,true);
   fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
   vibe(isGameOver?60:50);
-
-  // ✅ emit end summary (ให้ logger / hub ใช้ได้เหมือนเกมอื่น)
-  dispatchEvt('hha:end', {
-    game:'PlateVR',
-    mode:MODE, diff:DIFF,
-    timeTotal:TOTAL_TIME,
-    scoreFinal:S.score,
-    grade,
-    comboMax:S.maxCombo,
-    misses:S.miss,
-    missPerLife: MISS_PER_LIFE,
-    livesStart:S.livesMax,
-    livesLeft:S.lives,
-    goalsCleared: Math.min(S.goalsCleared,2),
-    goalsTotal: 2,
-    miniCleared: Math.min(S.minisCleared,7),
-    miniTotal: 7,
-    groups: { g1:S.groupCounts[0], g2:S.groupCounts[1], g3:S.groupCounts[2], g4:S.groupCounts[3], g5:S.groupCounts[4], total:S.groupCounts.reduce((a,b)=>a+b,0) },
-    ts: Date.now(),
-    sessionId: S.sessionId
-  });
-
   logSession(isGameOver?'gameover':'end');
 }
 
@@ -1411,6 +1415,8 @@ function bindUI(){
   setShield(0);
   setLives(S.livesMax);
 
+  S.strikes=0;
+
   setTxt(HUD.mode, MODE==='research'?'Research':'Play');
   setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
   setTxt(HUD.have,'0/5');
@@ -1427,5 +1433,5 @@ function bindUI(){
   logSession('start');
   start();
 
-  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D, MISS_PER_LIFE });
+  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D, strikesPerLife:S.strikesPerLife });
 })();
