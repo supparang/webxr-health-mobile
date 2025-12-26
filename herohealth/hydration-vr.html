@@ -1,5 +1,9 @@
-<!-- === /herohealth/hydration-vr.html ===
-Hydration Quest VR — PRODUCTION READY (END: Boss Result ULTRA++ + Stamp + CountUp + Timeline Danger Meter)
+<!-- === /herohealth/hydration-vr/hydration-vr.html ===
+Hydration Quest VR (LATEST PACK)
+✅ DOM targets on #hvr-layer (transformed playfield)
+✅ Bounds on #hvr-bounds (fixed viewport)
+✅ Includes: particles + water UI + fever UI + HUD binder + cloud logger
+✅ Start overlay (Play / Research)
 -->
 <!doctype html>
 <html lang="th">
@@ -10,911 +14,560 @@ Hydration Quest VR — PRODUCTION READY (END: Boss Result ULTRA++ + Stamp + Coun
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.72);
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.22);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --good:#22c55e;
-      --bad:#fb7185;
+      --accent:#22c55e;
       --warn:#f59e0b;
-      --shadow: 0 16px 40px rgba(0,0,0,.55);
-      --r:22px;
-    }
-    html,body{height:100%; background:radial-gradient(1200px 800px at 50% 15%, rgba(34,197,94,.10), transparent 55%), var(--bg); color:var(--text); margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;}
-    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+      --bad:#ef4444;
 
-    #hvr-bounds{ position:fixed; inset:0; overflow:hidden; touch-action:none; }
-    #hvr-world{ position:absolute; inset:0; transform: translate3d(0,0,0); will-change: transform; }
-    #hvr-layer{ position:absolute; inset:0; pointer-events:auto; }
+      --glass: blur(10px);
+      --r: 18px;
 
-    #hvr-crosshair{
-      position:fixed; left:50%; top:52%;
-      transform:translate(-50%,-50%);
-      width:18px; height:18px;
-      border:2px solid rgba(229,231,235,.55);
-      border-radius:999px;
-      box-shadow:0 0 16px rgba(255,255,255,.10);
-      z-index:30; pointer-events:none; opacity:.7;
+      --shadow: 0 14px 40px rgba(0,0,0,.55);
+      --shadow2: 0 10px 30px rgba(0,0,0,.42);
     }
-    #hvr-crosshair::after{
-      content:''; position:absolute; left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      width:4px; height:4px; border-radius:999px;
-      background:rgba(229,231,235,.65);
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", Arial;
+      background: radial-gradient(1200px 600px at 50% 0%, rgba(56,189,248,.10), transparent 55%),
+                  radial-gradient(1000px 600px at 20% 30%, rgba(34,197,94,.10), transparent 50%),
+                  radial-gradient(1000px 600px at 90% 30%, rgba(167,139,250,.08), transparent 45%),
+                  var(--bg);
+      color:var(--text);
+      overflow:hidden;
     }
 
-    /* ---------- FX overlays ---------- */
-    #hha-vignette{
-      position:fixed; inset:-2px;
-      z-index:46;
-      pointer-events:none;
-      opacity:0;
-      transition: opacity .18s ease;
-      background:
-        radial-gradient(1200px 680px at 50% 50%, rgba(0,0,0,0) 54%, rgba(0,0,0,.55) 100%),
-        radial-gradient(900px 520px at 50% 52%, rgba(34,197,94,.0) 45%, rgba(34,197,94,.10) 95%);
-      mix-blend-mode: screen;
-      filter: blur(.2px);
-    }
-    body.hha-fever #hha-vignette{ opacity:.22; }
-    body.hha-urgent #hha-vignette{ opacity:.35; }
-
-    #hha-warnline{
-      position:fixed; inset:0;
-      z-index:47; pointer-events:none;
-      opacity:0;
-      transition: opacity .18s ease;
-      background:
-        linear-gradient(180deg, rgba(245,158,11,.0), rgba(245,158,11,.0) 35%, rgba(245,158,11,.10) 55%, rgba(245,158,11,.0));
-    }
-    body.hha-urgent #hha-warnline{ opacity:.55; animation: warnPulse .65s ease-in-out infinite; }
-    @keyframes warnPulse{ 0%{opacity:.22} 50%{opacity:.62} 100%{opacity:.22} }
-
-    body.hha-shake{ animation: hhaShake .22s ease-in-out 1; }
-    @keyframes hhaShake{
-      0%{ transform: translate3d(0,0,0); }
-      25%{ transform: translate3d(-3px, 1px,0); }
-      50%{ transform: translate3d(3px, -1px,0); }
-      75%{ transform: translate3d(-2px, -1px,0); }
-      100%{ transform: translate3d(0,0,0); }
-    }
-
-    /* HUD */
-    #hha-hud{ position:fixed; inset:0; pointer-events:none; z-index:40; }
-    .hud-top{ position:absolute; left:16px; right:16px; top:14px; display:flex; gap:12px; align-items:flex-start; justify-content:space-between; }
-    .pill{
-      pointer-events:none;
-      background:linear-gradient(180deg, rgba(2,6,23,.75), rgba(2,6,23,.55));
-      border:1px solid var(--stroke);
-      border-radius:999px;
-      padding:8px 12px;
-      display:flex; align-items:center; gap:10px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-    .pill b{ font-weight:800; letter-spacing:.2px; }
-    .bar{ height:10px; width:170px; border-radius:999px; background:rgba(148,163,184,.16); overflow:hidden; border:1px solid rgba(148,163,184,.18); }
-    .bar > i{ display:block; height:100%; width:50%; background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55)); border-radius:999px; }
-    .hud-mid{ position:absolute; left:16px; right:16px; top:86px; display:flex; gap:14px; align-items:flex-start; justify-content:space-between; }
-    .card{
-      pointer-events:none;
-      width:min(320px, 44vw);
-      background:linear-gradient(180deg, rgba(2,6,23,.78), rgba(15,23,42,.58));
-      border:1px solid var(--stroke);
-      border-radius: var(--r);
-      padding:12px 14px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-    .card h4{ margin:0 0 8px; font-size:13px; letter-spacing:.2px; color:rgba(229,231,235,.9); }
-    .kv{ display:grid; grid-template-columns: 1fr auto; gap:6px 10px; font-size:12px; color:rgba(229,231,235,.88);}
-    .kv span{ color:rgba(148,163,184,.95); }
-    .big{
-      pointer-events:none;
-      flex:1;
-      min-width: 260px;
-      background:linear-gradient(180deg, rgba(2,6,23,.70), rgba(15,23,42,.52));
-      border:1px solid var(--stroke);
-      border-radius: var(--r);
-      padding:12px 14px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-    .big .row{ display:flex; justify-content:space-between; gap:10px; align-items:center;}
-    .big .row h3{ margin:0; font-size:14px; letter-spacing:.2px;}
-    .big .sub{ margin-top:8px; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
-    .big .prog{ margin-top:10px; height:12px; border-radius:999px; background:rgba(148,163,184,.14); border:1px solid rgba(148,163,184,.18); overflow:hidden; }
-    .big .prog > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55)); border-radius:999px; }
-
-    .hud-right-stack{ pointer-events:none; display:flex; flex-direction:column; gap:10px; width:min(240px, 34vw); }
-
-    .hint{
-      position:fixed; left:16px; bottom:108px;
-      width:min(320px, 44vw);
-      pointer-events:none;
-      background:linear-gradient(180deg, rgba(2,6,23,.72), rgba(15,23,42,.55));
-      border:1px solid rgba(148,163,184,.20);
-      border-radius: var(--r);
-      padding:12px 14px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-      color:rgba(229,231,235,.92);
-      z-index:45;
-    }
-    .hint b{ display:block; margin-bottom:6px; }
-    .hint small{ color:rgba(148,163,184,.95); }
-
-    .hud-bottom{
-      position:fixed; left:16px; right:16px; bottom:18px;
-      display:flex; align-items:center; justify-content:flex-end; gap:10px;
-      pointer-events:auto; z-index:55;
-    }
-    .btn{
-      border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(15,23,42,.72), rgba(2,6,23,.82));
-      color:rgba(229,231,235,.92);
-      padding:12px 18px;
-      border-radius: 16px;
-      font-weight:800; letter-spacing:.2px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
+    /* ===== fixed game viewport ===== */
+    #hvr-bounds{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      touch-action:none;
+      -webkit-user-select:none;
       user-select:none;
     }
-    .btn.stop{ background:linear-gradient(180deg, rgba(127,29,29,.70), rgba(2,6,23,.88)); }
-    .btn.vr{ background:linear-gradient(180deg, rgba(20,83,45,.68), rgba(2,6,23,.88)); }
-    .btn:active{ transform: translateY(1px); }
 
-    /* START overlay */
-    #hvr-start{
-      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-      z-index:80;
-      background: radial-gradient(900px 500px at 50% 20%, rgba(34,197,94,.12), transparent 60%), rgba(2,6,23,.78);
-      backdrop-filter: blur(10px);
-      padding:18px;
-    }
-    .start-card{
-      width:min(520px, 92vw);
-      border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(15,23,42,.62));
-      border-radius: 26px;
-      box-shadow: 0 26px 70px rgba(0,0,0,.68);
-      padding:18px;
-    }
-    .start-card h2{ margin:0; font-size:22px; letter-spacing:.2px; }
-    .start-card p{ margin:10px 0 0; color:rgba(148,163,184,.98); line-height:1.35; }
-    .grid{ margin-top:14px; display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    label{ display:block; font-size:12px; color:rgba(148,163,184,.98); margin:0 0 6px; }
-    select,input{
-      width:100%;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.55);
-      color:rgba(229,231,235,.92);
-      padding:14px 14px;
-      border-radius: 18px;
-      outline:none;
-      font-weight:700;
-    }
-    .start-actions{ margin-top:14px; display:flex; gap:12px; }
-    .start-btn{
-      flex:1;
-      padding:14px 16px;
-      border-radius: 18px;
-      border:1px solid rgba(34,197,94,.30);
-      background: linear-gradient(180deg, rgba(20,83,45,.78), rgba(2,6,23,.92));
-      color:rgba(229,231,235,.95);
-      font-weight:900;
-      letter-spacing:.3px;
-      box-shadow: var(--shadow);
-    }
-    .start-btn:active{ transform: translateY(1px); }
-    .tiny{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.40);
-      color:rgba(148,163,184,.95);
-      font-size:12px;
-      line-height:1.25;
-      white-space:pre-wrap;
+    /* ===== transformed playfield (targets move with it) ===== */
+    #hvr-layer{
+      position:absolute;
+      inset:0;
+      transform: translate3d(0,0,0);
+      will-change: transform;
+      pointer-events:none; /* targets have pointer-events:auto */
     }
 
-    /* END overlay */
-    #hvr-end{
-      position:fixed; inset:0;
-      display:none; align-items:center; justify-content:center;
-      z-index:90;
-      background:rgba(2,6,23,.80);
-      backdrop-filter: blur(10px);
-      padding:18px;
-    }
-    .end-card{
-      width:min(820px, 96vw);
-      border:1px solid rgba(148,163,184,.18);
-      background:linear-gradient(180deg, rgba(2,6,23,.90), rgba(15,23,42,.62));
-      border-radius: 28px;
-      box-shadow: 0 28px 80px rgba(0,0,0,.72);
-      padding:18px;
-      overflow:hidden;
-      position:relative;
-    }
-    .end-card::before{
-      content:'';
-      position:absolute; inset:-2px;
-      background: radial-gradient(900px 420px at 50% 0%, rgba(34,197,94,.10), transparent 65%),
-                  radial-gradient(720px 380px at 50% 15%, rgba(239,68,68,.08), transparent 62%);
+    /* crosshair */
+    #hvr-crosshair{
+      position:fixed;
+      left:50%;
+      top:52%;
+      transform:translate(-50%,-50%);
+      z-index:9997;
+      width:22px; height:22px;
+      border-radius:999px;
       pointer-events:none;
+      box-shadow:
+        0 0 0 2px rgba(226,232,240,.55),
+        0 0 16px rgba(56,189,248,.25);
+      background: radial-gradient(circle, rgba(255,255,255,.72), rgba(255,255,255,.08));
+      opacity:.92;
     }
-    .end-top{ position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .end-top h2{ margin:0; font-size:22px; letter-spacing:.2px; }
-    .badge-grade{
-      display:inline-flex; align-items:center; justify-content:center;
-      min-width:54px; padding:10px 14px;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.55);
-      font-weight:1000; letter-spacing:.6px;
+    #hvr-crosshair:before, #hvr-crosshair:after{
+      content:"";
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:3px; height:3px;
+      border-radius:999px;
+      background: rgba(255,255,255,.85);
+      box-shadow: 0 0 14px rgba(255,255,255,.35);
     }
-    .end-kpis{
-      position:relative;
-      margin-top:12px;
-      display:grid; grid-template-columns: repeat(3, 1fr);
+
+    /* ===== HUD ===== */
+    .hha-hud{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:9990;
+    }
+    .hud-top{
+      position:absolute;
+      left:12px; right:12px; top:10px;
+      display:flex;
       gap:10px;
+      align-items:stretch;
     }
-    .kpi{ border:1px solid rgba(148,163,184,.16); background:rgba(2,6,23,.45); border-radius: 18px; padding:12px 12px; }
-    .kpi b{ display:block; font-size:24px; letter-spacing:.2px; font-weight:1000; }
-    .kpi span{ color:rgba(148,163,184,.95); font-size:12px; font-weight:900; }
-    .end-prog{ position:relative; margin-top:12px; height:14px; border-radius:999px; background:rgba(148,163,184,.14); border:1px solid rgba(148,163,184,.18); overflow:hidden; }
-    .end-prog > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55)); border-radius:999px; }
-    .end-actions{ position:relative; margin-top:14px; display:flex; gap:10px; justify-content:flex-end; }
-    .end-actions .btn{ pointer-events:auto; }
-
-    .hud-hidden #hha-hud{ opacity:.12; }
-
-    /* ===== Boss Result ULTRA++ ===== */
-    #bossResultWrap{ margin-top:12px; display:none; position:relative; }
-    .boss-hero{
-      border:1px solid rgba(148,163,184,.16);
-      background: linear-gradient(180deg, rgba(2,6,23,.54), rgba(15,23,42,.40));
-      border-radius: 22px;
-      padding:14px;
-      position:relative;
-      overflow:hidden;
+    .hud-bot{
+      position:absolute;
+      left:12px; right:12px; bottom:12px;
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+      justify-content:space-between;
     }
-    .boss-hero::before{
-      content:'';
-      position:absolute; inset:-2px;
-      background: radial-gradient(900px 380px at 20% 0%, rgba(239,68,68,.12), transparent 58%),
-                  radial-gradient(900px 380px at 80% 0%, rgba(168,85,247,.10), transparent 58%),
-                  radial-gradient(900px 380px at 50% 100%, rgba(34,197,94,.08), transparent 58%);
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--r);
+      backdrop-filter: var(--glass);
+      box-shadow: var(--shadow2);
+      padding:10px 12px;
       pointer-events:none;
     }
-    .boss-row{ position:relative; display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-    .boss-left{ min-width:220px; }
-    .boss-title{
-      font-weight:1100;
-      letter-spacing:.3px;
-      font-size:16px;
+    .card.tight{ padding:8px 10px; }
+    .row{ display:flex; gap:10px; align-items:center; }
+    .col{ display:flex; flex-direction:column; gap:6px; }
+    .muted{ color:var(--muted); font-size:12px; }
+    .big{
+      font-size:18px;
+      font-weight:800;
+      letter-spacing:.2px;
     }
-    .boss-sub{
-      margin-top:6px;
-      font-size:12px;
-      color:rgba(148,163,184,.95);
-      font-weight:900;
-      line-height:1.25;
-      white-space:pre-wrap;
-    }
-    .boss-rank{
+    .pill{
       display:inline-flex;
       align-items:center;
-      justify-content:center;
-      padding:10px 14px;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.55);
-      font-weight:1100;
-      letter-spacing:.6px;
       gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.35);
+      font-weight:700;
+      font-size:13px;
     }
-    .boss-stamp{
-      position:absolute;
-      right:14px;
-      top:14px;
-      transform: rotate(10deg);
-      padding:10px 14px;
-      border-radius: 18px;
-      font-weight:1200;
-      letter-spacing:1px;
-      border:2px solid rgba(229,231,235,.85);
-      background: rgba(2,6,23,.35);
-      text-transform: uppercase;
-      box-shadow: 0 18px 40px rgba(0,0,0,.55);
-      opacity:.92;
+
+    /* Water bar */
+    #hha-water-header{
+      min-width: 220px;
+    }
+    .bar{
+      height:12px;
+      width:220px;
+      border-radius:999px;
+      overflow:hidden;
+      background: rgba(148,163,184,.15);
+      border:1px solid rgba(148,163,184,.20);
+      box-shadow: inset 0 6px 16px rgba(0,0,0,.35);
+    }
+    .bar > i{
+      display:block;
+      height:100%;
+      width:50%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(56,189,248,.95));
+      box-shadow: 0 0 18px rgba(56,189,248,.22);
+      transition: width .12s linear;
+    }
+
+    /* Fever bar */
+    .feverbar{
+      height:10px;
+      width:180px;
+      border-radius:999px;
+      overflow:hidden;
+      background: rgba(148,163,184,.14);
+      border:1px solid rgba(148,163,184,.20);
+      box-shadow: inset 0 6px 16px rgba(0,0,0,.35);
+    }
+    .feverbar > i{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(244,63,94,.95));
+      box-shadow: 0 0 18px rgba(244,63,94,.20);
+      transition: width .12s linear;
+    }
+
+    /* Quest */
+    #hha-quest{
+      min-width: 320px;
+      max-width: 520px;
+    }
+    .quest-title{
+      font-weight:900;
+      font-size:14px;
+      letter-spacing:.2px;
+    }
+    .quest-sub{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:2px;
+    }
+    .quest-progress{
+      display:flex;
+      gap:8px;
+      margin-top:8px;
+      align-items:center;
+      justify-content:space-between;
+      font-size:12px;
+      color:rgba(226,232,240,.92);
+    }
+    .mini{
+      margin-top:6px;
+      padding:8px 10px;
+      border-radius:14px;
+      border:1px dashed rgba(148,163,184,.28);
+      background: rgba(2,6,23,.22);
+    }
+    .mini .mini-title{ font-weight:900; font-size:13px; }
+    .mini .mini-sub{ color:var(--muted); font-size:12px; margin-top:2px; }
+
+    /* Coach */
+    #hha-coach{
+      display:flex;
+      align-items:flex-end;
+      gap:10px;
+      max-width: 520px;
       pointer-events:none;
     }
-    .boss-stamp.ok{
-      border-color: rgba(34,197,94,.92);
-      color: rgba(34,197,94,.95);
-      background: rgba(20,83,45,.18);
+    #hha-coach img{
+      width:54px;
+      height:54px;
+      object-fit:contain;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,.35));
     }
-    .boss-stamp.bad{
-      border-color: rgba(239,68,68,.92);
-      color: rgba(239,68,68,.95);
-      background: rgba(127,29,29,.16);
+    #hha-coach .bubble{
+      flex:1;
+      padding:10px 12px;
+      border-radius: 18px;
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.55);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow2);
+      font-weight:800;
+      line-height:1.25;
     }
 
-    .boss-kpis{
-      margin-top:10px;
+    /* Start overlay */
+    #hvr-start{
+      position:fixed;
+      inset:0;
+      z-index:10000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: radial-gradient(1000px 600px at 50% 30%, rgba(56,189,248,.10), transparent 55%),
+                  rgba(2,6,23,.84);
+      backdrop-filter: blur(10px);
+    }
+    .start-card{
+      width:min(560px, calc(100vw - 24px));
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.70);
+      box-shadow: 0 24px 80px rgba(0,0,0,.6);
+      padding:18px;
+    }
+    .start-title{
+      font-size:20px;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+    .start-sub{
+      margin-top:6px;
+      color:rgba(226,232,240,.78);
+      font-size:13px;
+      line-height:1.35;
+    }
+    .btnrow{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+    button{
+      pointer-events:auto;
+      cursor:pointer;
+      border:0;
+      border-radius:16px;
+      padding:10px 14px;
+      font-weight:900;
+      letter-spacing:.2px;
+      color:#031019;
+      box-shadow: 0 14px 30px rgba(0,0,0,.35);
+    }
+    .btn-play{
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(56,189,248,.95));
+    }
+    .btn-research{
+      background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(244,63,94,.95));
+      color:#0b1020;
+    }
+    .btn-ghost{
+      background: rgba(148,163,184,.20);
+      color: rgba(226,232,240,.92);
+      border:1px solid rgba(148,163,184,.28);
+      box-shadow:none;
+    }
+
+    /* End summary */
+    #hvr-end{
+      position:fixed;
+      inset:0;
+      z-index:10001;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: rgba(2,6,23,.80);
+      backdrop-filter: blur(10px);
+      pointer-events:auto;
+    }
+    .end-card{
+      width:min(640px, calc(100vw - 24px));
+      border-radius:26px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.78);
+      box-shadow: 0 30px 90px rgba(0,0,0,.62);
+      padding:18px;
+    }
+    .end-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      font-weight:1000;
+      font-size:18px;
+      letter-spacing:.2px;
+    }
+    .rank{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background: rgba(2,6,23,.35);
+      border:1px solid rgba(148,163,184,.22);
+      font-weight:1000;
+    }
+    .grid{
+      margin-top:12px;
       display:grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: 1fr 1fr;
       gap:10px;
     }
-    .bk{
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.35);
+    .kv{
+      padding:12px;
       border-radius:18px;
-      padding:10px 10px;
-      min-height:64px;
+      background: rgba(2,6,23,.22);
+      border:1px solid rgba(148,163,184,.18);
     }
-    .bk b{ display:block; font-size:20px; font-weight:1100; letter-spacing:.2px; }
-    .bk span{ display:block; font-size:12px; color:rgba(148,163,184,.95); font-weight:900; margin-top:2px; }
+    .kv b{ display:block; font-size:12px; color:rgba(226,232,240,.75); }
+    .kv span{ display:block; margin-top:4px; font-size:18px; font-weight:1000; }
+    .end-actions{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; justify-content:flex-end; }
 
-    /* ===== Boss Timeline ===== */
-    #bossTimelineWrap .card{ width:100%; pointer-events:none; }
-    #bossTimeline{ image-rendering:auto; display:block; width:100%; height:auto; }
+    /* FX helpers */
+    .screen-hit{
+      position:fixed; inset:0;
+      z-index:9996;
+      pointer-events:none;
+      background: radial-gradient(700px 400px at 50% 52%, rgba(56,189,248,.10), transparent 60%),
+                  radial-gradient(900px 500px at 50% 52%, rgba(255,255,255,.06), transparent 65%);
+      opacity:0;
+      transition: opacity .12s ease;
+    }
+    .screen-hit.on{ opacity:1; }
+
+    .danger-vignette{
+      position:fixed; inset:0;
+      z-index:9995;
+      pointer-events:none;
+      box-shadow: inset 0 0 0 0 rgba(244,63,94,.0);
+      transition: box-shadow .12s ease;
+    }
+    .danger-vignette.on{
+      box-shadow: inset 0 0 0 999px rgba(244,63,94,.06), inset 0 0 120px rgba(244,63,94,.16);
+    }
+
+    /* Make targets clickable */
+    #hvr-layer .hvr-target{ pointer-events:auto; }
   </style>
+
+  <!-- Global FX + UI + HUD + Logger (order matters: these are IIFE) -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/ui-water.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
 </head>
 
 <body>
-  <div id="hha-vignette" aria-hidden="true"></div>
-  <div id="hha-warnline" aria-hidden="true"></div>
+  <div id="hvr-bounds" aria-label="Hydration Bounds">
+    <div id="hvr-layer" aria-label="Hydration Layer"></div>
 
-  <div id="hvr-bounds">
-    <div id="hvr-world">
-      <div id="hvr-layer" aria-label="spawn-layer"></div>
-    </div>
-  </div>
+    <div class="screen-hit" id="hvr-hitflash"></div>
+    <div class="danger-vignette" id="hvr-vignette"></div>
 
-  <div id="hvr-crosshair" aria-hidden="true"></div>
+    <div id="hvr-crosshair" aria-hidden="true"></div>
 
-  <!-- HUD -->
-  <div id="hha-hud">
-    <div class="hud-top">
-      <div class="pill" id="hha-water-header">
-        <span>💧</span>
-        <b>Water balance</b>
-        <span id="hha-water-zone" style="margin-left:6px; font-weight:900;">GREEN</span>
-        <span id="hha-water-pct" style="margin-left:2px; font-weight:900;">50%</span>
-        <div class="bar" style="margin-left:10px;"><i id="hha-water-fill" style="width:50%"></i></div>
-      </div>
-      <div class="pill" id="hha-water-bar" style="opacity:.0; pointer-events:none;"></div>
-    </div>
-
-    <div class="hud-mid">
-      <div class="card" id="hha-card-left">
-        <h4>STATS</h4>
-        <div class="kv">
-          <span>SCORE</span><b id="hha-score">0</b>
-          <span>COMBO MAX</span><b id="hha-comboMax">0</b>
-          <span>MISS</span><b id="hha-miss">0</b>
-          <span>TIME</span><b id="hha-time">0</b>
-          <span>GRADE</span><b id="hha-grade">C</b>
-        </div>
-      </div>
-
-      <div class="big" id="hha-card-right">
-        <div class="row">
-          <h3>🧩 QUEST <span id="hha-quest-num">1</span></h3>
-          <div class="pill" style="padding:6px 10px;">
-            <span>💧</span>
-            <b>Water balance</b>
-            <span id="hha-water-zone2" style="margin-left:6px; font-weight:900;">GREEN</span>
-            <span id="hha-water-pct2" style="margin-left:2px; font-weight:900;">50%</span>
-          </div>
-        </div>
-        <div class="sub" id="hha-quest-text">Goal: 0/0 • Mini: 0/0</div>
-        <div class="sub" id="hha-quest-sub">Water Zone: GREEN</div>
-        <div class="sub" id="hha-quest-done">Goals done: 0 • Minis done: 0</div>
-        <div class="prog"><i id="hha-progress-fill" style="width:0%"></i></div>
-        <div class="sub" id="hha-progress-text">Progress to S (30%): 0%</div>
-      </div>
-
-      <div class="hud-right-stack">
-        <div class="card hha-fever-card" id="hha-fever-card">
-          <h4>🔥 FEVER</h4>
-          <div class="bar" style="width:100%"><i id="hha-fever-fill" style="width:0%"></i></div>
-          <div class="sub" style="margin-top:8px;"><b id="hha-fever-pct">0%</b></div>
-        </div>
-        <div class="card" id="hha-shield-card">
-          <h4>🛡️ SHIELD</h4>
-          <div class="sub"><b id="hha-shield">0</b></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="hint" id="hha-hint">
-      <b>Peek HUD</b>
-      <small>แตะขอบบนจอเพื่อโชว์ HUD ชั่วคราว</small>
-    </div>
-
-    <div class="hud-bottom">
-      <div class="btn vr" id="btnVR">VR</div>
-      <div class="btn stop" id="btnStop">STOP</div>
-    </div>
-  </div>
-
-  <!-- START overlay -->
-  <div id="hvr-start">
-    <div class="start-card">
-      <h2>Hydration Quest VR — พร้อมลุย 💧</h2>
-      <p>
-        โหมด <b>play</b> = สนุก เร้าใจ (Adaptive + Storm + Shield)<br/>
-        โหมด <b>research</b> = ใส่ seed เพื่อคุมการทดสอบ (นิ่ง ทำซ้ำได้)
-      </p>
-
-      <div class="grid">
-        <div>
-          <label>Difficulty</label>
-          <select id="uiDiff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
-          </select>
-        </div>
-        <div>
-          <label>Run mode</label>
-          <select id="uiRun">
-            <option value="play" selected>play</option>
-            <option value="research">research</option>
-          </select>
-        </div>
-        <div>
-          <label>Time (sec)</label>
-          <input id="uiTime" type="number" min="20" max="180" step="1" value="90"/>
-        </div>
-        <div>
-          <label>Seed (optional)</label>
-          <input id="uiSeed" type="text" placeholder="เช่น schoolA-g5-0"/>
-        </div>
-      </div>
-
-      <div class="start-actions">
-        <button class="start-btn" id="uiStart">START</button>
-      </div>
-
-      <div class="tiny" id="uiUrlPreview">URL: ?diff=normal&time=90&run=play&seed=</div>
-      <div class="tiny">HUD ซ่อนอัตโนมัติ → แตะขอบบน Peek • Double-tap: Reset view</div>
-    </div>
-  </div>
-
-  <!-- END overlay -->
-  <div id="hvr-end">
-    <div class="end-card">
-      <div class="end-top">
-        <h2 id="endTitle">จบเกมแล้ว! 💧</h2>
-        <div class="badge-grade" id="endGrade">B</div>
-      </div>
-
-      <div class="end-kpis">
-        <div class="kpi"><b id="endScore">0</b><span>Score</span></div>
-        <div class="kpi"><b id="endMiss">0</b><span>Miss</span></div>
-        <div class="kpi"><b id="endCombo">0</b><span>ComboMax</span></div>
-      </div>
-
-      <div class="end-prog"><i id="endProgFill" style="width:0%"></i></div>
-      <div class="tiny" id="endDesc">Progress to S: 0%</div>
-
-      <!-- ===== Boss Result ULTRA++ (NEW) ===== -->
-      <div id="bossResultWrap">
-        <div class="boss-hero">
-          <div class="boss-stamp ok" id="bossStamp">CLEARED</div>
-
-          <div class="boss-row">
-            <div class="boss-left">
-              <div class="boss-title">🌀 BOSS RESULT</div>
-              <div class="boss-sub" id="bossSub">
-                Phase: P0 • Enrage: 0 • HP: 0/0
-              </div>
+    <div class="hha-hud" aria-hidden="true">
+      <div class="hud-top">
+        <div class="card tight" id="hha-score-card">
+          <div class="row">
+            <div class="col">
+              <div class="muted">SCORE</div>
+              <div class="big" id="hha-score">0</div>
             </div>
-
-            <div class="boss-rank" id="bossRank">
-              <span style="font-size:18px;">🏷️</span>
-              <span id="bossRankText">ULTRA++</span>
+            <div class="col">
+              <div class="muted">COMBO</div>
+              <div class="big" id="hha-combo">0</div>
+            </div>
+            <div class="col">
+              <div class="muted">MISS</div>
+              <div class="big" id="hha-miss">0</div>
+            </div>
+            <div class="col">
+              <div class="muted">TIME</div>
+              <div class="big" id="hha-time">60</div>
             </div>
           </div>
+        </div>
 
-          <div class="boss-kpis">
-            <div class="bk"><b id="bossHits">0</b><span>Boss Hits</span></div>
-            <div class="bk"><b id="bossGrazed">0</b><span>Grazed</span></div>
-            <div class="bk"><b id="bossMissed">0</b><span>Boss Missed</span></div>
-            <div class="bk"><b id="bossGateFails">0</b><span>Gate Fails</span></div>
-
-            <div class="bk"><b id="bossDecoys">0</b><span>Decoy Hits</span></div>
-            <div class="bk"><b id="bossLasers">0</b><span>Lasers</span></div>
-            <div class="bk"><b id="bossShock">0</b><span>Shock (Dodge/Hit)</span></div>
-            <div class="bk"><b id="bossRegens">0</b><span>Regens</span></div>
+        <div class="card" id="hha-water-header" data-hha-exclude="1">
+          <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+            <div class="pill" id="hha-water-zone">💧 BALANCED</div>
+            <div class="pill" id="hha-water-pct">50%</div>
           </div>
+          <div class="bar hha-water-bar"><i id="hha-water-fill" style="width:50%"></i></div>
+        </div>
 
-          <div class="tiny" id="bossNote" style="margin-top:10px;">
-            เคลียร์บอส + รักษา GREEN + กัน Shockwave = คะแนนพุ่งแบบเทพ 😈
+        <div class="card" id="hha-fever-card" data-hha-exclude="1">
+          <div class="row" style="justify-content:space-between; margin-bottom:8px;">
+            <div class="pill" id="hha-fever-label">🔥 FEVER</div>
+            <div class="pill" id="hha-shield">🛡️ OFF</div>
+          </div>
+          <div class="feverbar"><i id="hha-fever-fill" style="width:0%"></i></div>
+        </div>
+
+        <div class="card" id="hha-quest" data-hha-exclude="1">
+          <div class="quest-title" id="hha-quest-title">GOAL</div>
+          <div class="quest-sub" id="hha-quest-sub">—</div>
+          <div class="quest-progress">
+            <span id="hha-goal-count">0/0</span>
+            <span class="muted" id="hha-mini-count">MINI 0/0</span>
+          </div>
+          <div class="mini" id="hha-mini-box" style="display:none">
+            <div class="mini-title" id="hha-mini-title">MINI</div>
+            <div class="mini-sub" id="hha-mini-sub">—</div>
           </div>
         </div>
       </div>
 
-      <!-- ===== BOSS TIMELINE: DANGER METER (NEW) ===== -->
-      <div id="bossTimelineWrap" style="margin-top:12px; display:none;">
-        <div class="card">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <div style="font-weight:1100; letter-spacing:.2px;">📈 BOSS TIMELINE — Danger Meter</div>
-            <div id="bossTimelineLegend" style="font-size:12px; color:rgba(148,163,184,.95); font-weight:900;">
-              ● Laser  ● Shock(Hit/Dodge)  ● Decoy  ● GateFail  ● Regen
-            </div>
-          </div>
-
-          <div style="margin-top:10px; border:1px solid rgba(148,163,184,.16); border-radius:18px; overflow:hidden; background:rgba(2,6,23,.35);">
-            <canvas id="bossTimeline" width="820" height="220"></canvas>
-          </div>
-
-          <div class="tiny" id="bossTimelineHint" style="margin-top:8px;">
-            เส้นสูง = โซนอันตรายมาก (ออก GREEN / Boss phase สูง / Enrage / Shock/Laser)
-          </div>
+      <div class="hud-bot">
+        <div id="hha-coach">
+          <img id="hha-coach-img" src="./img/coach-neutral.png" alt="Coach" />
+          <div class="bubble" id="hha-coach-text">พร้อมลุย! เก็บน้ำให้สมดุล 💧</div>
         </div>
-      </div>
-
-      <div class="end-actions">
-        <div class="btn" id="endReplay">REPLAY</div>
-        <div class="btn stop" id="endClose">CLOSE</div>
+        <div class="card tight" id="hha-debug" style="display:none"></div>
       </div>
     </div>
+
+    <div id="hvr-start">
+      <div class="start-card">
+        <div class="start-title">Hydration Quest VR 💧</div>
+        <div class="start-sub">
+          เก็บ “น้ำดี” ให้สมดุล หลีกเลี่ยง “เครื่องดื่มหวาน/ขยะ” ✋<br/>
+          <span class="muted">Tip: แตะเป้าได้เลย / โหมด VR-feel: ลากหน้าจอให้เป้า “เลื่อนตาม”</span>
+        </div>
+        <div class="btnrow">
+          <button class="btn-play" id="btnPlay">PLAY MODE</button>
+          <button class="btn-research" id="btnResearch">RESEARCH MODE</button>
+          <button class="btn-ghost" id="btnCloseStart">CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="hvr-end">
+      <div class="end-card">
+        <div class="end-title">
+          <span>สรุปผล 🎉</span>
+          <span class="rank" id="hvr-rank">RANK: A</span>
+        </div>
+        <div class="grid">
+          <div class="kv"><b>SCORE</b><span id="hvr-end-score">0</span></div>
+          <div class="kv"><b>MAX COMBO</b><span id="hvr-end-combo">0</span></div>
+          <div class="kv"><b>MISS</b><span id="hvr-end-miss">0</span></div>
+          <div class="kv"><b>GOAL / MINI</b><span id="hvr-end-quest">0/0 • 0/0</span></div>
+        </div>
+        <div class="end-actions">
+          <button class="btn-play" id="btnReplay">REPLAY</button>
+          <button class="btn-ghost" id="btnCloseEnd">CLOSE</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script type="module">
-    const $ = (id)=>document.getElementById(id);
-    const qs = new URLSearchParams(location.search);
-    const get = (k, d='') => (qs.get(k) ?? d);
+    import { bootHydration } from './hydration.safe.js';
 
-    const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+    function q(id){ return document.getElementById(id); }
 
-    function setPreview(){
-      const diff = $('uiDiff').value;
-      const run  = $('uiRun').value;
-      const time = Math.max(20, Math.min(180, Number($('uiTime').value||90)));
-      const seed = String($('uiSeed').value||'').trim();
-      const url = `?diff=${encodeURIComponent(diff)}&time=${encodeURIComponent(time)}&run=${encodeURIComponent(run)}${seed?`&seed=${encodeURIComponent(seed)}`:''}&debug=1`;
-      $('uiUrlPreview').textContent = 'URL: ' + url;
-    }
-    ['uiDiff','uiRun','uiTime','uiSeed'].forEach(id=>{
-      const el = $(id);
-      el.addEventListener('input', setPreview);
-      el.addEventListener('change', setPreview);
-    });
-    setPreview();
+    const start = q('hvr-start');
+    const end   = q('hvr-end');
 
-    function navToStart(){
-      const diff = $('uiDiff').value;
-      const run  = $('uiRun').value;
-      const time = Math.max(20, Math.min(180, Number($('uiTime').value||90)));
-      const seed = String($('uiSeed').value||'').trim();
-      const nqs = new URLSearchParams();
-      nqs.set('diff', diff);
-      nqs.set('time', String(time));
-      nqs.set('run', run);
-      nqs.set('ts', String(Date.now()));
-      if (seed) nqs.set('seed', seed);
-      nqs.set('debug', '1');
-      location.href = location.pathname + '?' + nqs.toString();
-    }
-    $('uiStart').addEventListener('click', navToStart);
+    const btnPlay    = q('btnPlay');
+    const btnResearch= q('btnResearch');
+    const btnCloseStart = q('btnCloseStart');
 
-    // prefill form
-    $('uiDiff').value = ['easy','normal','hard'].includes(get('diff','normal')) ? get('diff','normal') : 'normal';
-    $('uiRun').value  = (get('run','play') === 'research') ? 'research' : 'play';
-    $('uiTime').value = Math.max(20, Math.min(180, Number(get('time','90')||90)));
-    $('uiSeed').value = get('seed','');
-    setPreview();
+    const btnReplay  = q('btnReplay');
+    const btnCloseEnd= q('btnCloseEnd');
 
-    // Buttons
-    $('btnStop').addEventListener('click', ()=> window.dispatchEvent(new CustomEvent('hha:stop')));
-    $('btnVR').addEventListener('click', ()=> { try{ document.documentElement.requestFullscreen?.(); }catch{} });
-
-    // Peek HUD
-    let hudPeekTimer=null;
-    function showHudTemp(ms=2500){
-      document.body.classList.remove('hud-hidden');
-      clearTimeout(hudPeekTimer);
-      hudPeekTimer = setTimeout(()=> document.body.classList.add('hud-hidden'), ms);
-    }
-    function autoHideHud(){
-      clearTimeout(hudPeekTimer);
-      hudPeekTimer = setTimeout(()=> document.body.classList.add('hud-hidden'), 2500);
-    }
-    window.addEventListener('pointerdown', (e)=>{ if (e.clientY < 36) showHudTemp(2800); }, {passive:true});
-    autoHideHud();
-
-    // Double-tap reset view
-    let lastTap=0;
-    window.addEventListener('pointerup', ()=>{
-      const now = performance.now();
-      if (now - lastTap < 320) window.dispatchEvent(new CustomEvent('hha:resetView'));
-      lastTap = now;
-    }, {passive:true});
-
-    // End overlay hooks
-    function showEnd(on){ $('hvr-end').style.display = on ? 'flex' : 'none'; }
-    $('endClose').addEventListener('click', ()=> showEnd(false));
-    $('endReplay').addEventListener('click', ()=>{
-      const nqs = new URLSearchParams(location.search);
-      nqs.set('ts', String(Date.now()));
-      location.href = location.pathname + '?' + nqs.toString();
-    });
-
-    // ===== CountUp (numbers running) =====
-    function animateCount(el, to, dur=820, suffix=''){
-      if(!el) return;
-      const from = Number(String(el.textContent).replace(/[^\d\-\.]/g,'')) || 0;
-      const t0 = performance.now();
-      const target = Number(to)||0;
-      const ease = (x)=> 1 - Math.pow(1-x, 3); // cubic out
-
-      function tick(now){
-        const p = Math.min(1, (now - t0) / Math.max(220, dur));
-        const v = Math.round(from + (target - from) * ease(p));
-        el.textContent = String(v) + (suffix||'');
-        if(p < 1) requestAnimationFrame(tick);
-      }
-      requestAnimationFrame(tick);
-    }
-
-    // ===== Boss Rank (ULTRA++) =====
-    function bossRank(b){
-      if(!b?.entered) return 'NO-RAID';
-      if(b?.wipe) return 'WIPE';
-      if(b?.cleared){
-        const hard = (b.enrage?1:0) + (b.phase>=3?1:0);
-        const mistakes = (b.gateFails||0) + (b.decoyHits||0) + (b.shockHits||0) + (b.lasers||0) + (b.regens||0);
-        if(mistakes <= 1 && hard>=1) return 'ULTRA++';
-        if(mistakes <= 3) return 'ULTRA+';
-        return 'ULTRA';
-      }
-      return 'FAILED';
-    }
-
-    function setStamp(el, kind){
-      if(!el) return;
-      el.classList.remove('ok','bad');
-      if(kind === 'CLEARED'){
-        el.textContent = 'CLEARED';
-        el.classList.add('ok');
-      }else if(kind === 'WIPE'){
-        el.textContent = 'WIPE';
-        el.classList.add('bad');
-      }else{
-        el.textContent = String(kind||'BOSS');
-        el.classList.add('bad');
-      }
-    }
-
-    // ===========================
-    // BOSS TIMELINE CHART (Canvas)
-    // ===========================
-    function drawBossTimeline(canvas, samples, events){
-      if(!canvas || !samples?.length) return;
-
-      const ctx = canvas.getContext('2d');
-      const dpr = Math.max(1, window.devicePixelRatio || 1);
-      const cssW = canvas.clientWidth || 820;
-      const cssH = Math.max(180, Math.round(cssW * 220/820));
-      canvas.width  = Math.round(cssW * dpr);
-      canvas.height = Math.round(cssH * dpr);
-      ctx.setTransform(dpr,0,0,dpr,0,0);
-
-      const w = cssW, h = cssH;
-      const padL = 46, padR = 14, padT = 14, padB = 28;
-      const plotW = Math.max(10, w - padL - padR);
-      const plotH = Math.max(10, h - padT - padB);
-
-      ctx.clearRect(0,0,w,h);
-
-      // bg
-      ctx.fillStyle = 'rgba(2,6,23,.18)';
-      ctx.fillRect(0,0,w,h);
-
-      // grid + y labels
-      ctx.lineWidth = 1;
-      for(let i=0;i<=4;i++){
-        const y = padT + (plotH * i/4);
-        ctx.strokeStyle = 'rgba(148,163,184,.12)';
-        ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+plotW,y); ctx.stroke();
-
-        const label = String(100 - i*25);
-        ctx.fillStyle = 'rgba(148,163,184,.70)';
-        ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-        ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-        ctx.fillText(label, padL-10, y);
-      }
-
-      const maxT = Math.max(...samples.map(s=>Number(s.t)||0), 1);
-      const xOf = (t)=> padL + (clamp(t,0,maxT)/maxT) * plotW;
-      const yOf = (danger)=> padT + (1 - clamp(danger,0,100)/100) * plotH;
-
-      // area
-      ctx.beginPath();
-      for(let i=0;i<samples.length;i++){
-        const s = samples[i];
-        const x = xOf(Number(s.t||0));
-        const y = yOf(Number(s.d||0));
-        if(i===0) ctx.moveTo(x,y);
-        else ctx.lineTo(x,y);
-      }
-      ctx.lineTo(xOf(maxT), padT+plotH);
-      ctx.lineTo(xOf(0),    padT+plotH);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(239,68,68,.10)';
-      ctx.fill();
-
-      // line
-      ctx.beginPath();
-      for(let i=0;i<samples.length;i++){
-        const s = samples[i];
-        const x = xOf(Number(s.t||0));
-        const y = yOf(Number(s.d||0));
-        if(i===0) ctx.moveTo(x,y);
-        else ctx.lineTo(x,y);
-      }
-      ctx.strokeStyle = 'rgba(239,68,68,.86)';
-      ctx.lineWidth = 2.2;
-      ctx.stroke();
-
-      // phase separators
-      for(let i=1;i<samples.length;i++){
-        const a=samples[i-1], b=samples[i];
-        if((a.p|0)!==(b.p|0)){
-          const x = xOf(Number(b.t||0));
-          ctx.strokeStyle='rgba(245,158,11,.22)';
-          ctx.lineWidth=1;
-          ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT+plotH); ctx.stroke();
-        }
-      }
-
-      const ev = Array.isArray(events) ? events : [];
-      const colorBy = (type)=>{
-        switch(type){
-          case 'laser': return 'rgba(239,68,68,.95)';
-          case 'shock_hit': return 'rgba(245,158,11,.95)';
-          case 'shock_dodge': return 'rgba(34,197,94,.95)';
-          case 'decoy': return 'rgba(168,85,247,.95)';
-          case 'gatefail': return 'rgba(251,113,133,.95)';
-          case 'regen': return 'rgba(148,163,184,.95)';
-          case 'wipe': return 'rgba(255,255,255,.95)';
-          default: return 'rgba(229,231,235,.85)';
-        }
+    function parseUrl(){
+      const u = new URL(location.href);
+      const p = u.searchParams;
+      return {
+        diff: p.get('diff') || 'normal',
+        time: Number(p.get('time') || '60') || 60,
+        run : (p.get('run') || 'play').toLowerCase(),
+        seed: p.get('seed') || p.get('ts') || '',
       };
-      const glyphBy = (type)=>{
-        switch(type){
-          case 'laser': return 'L';
-          case 'shock_hit': return 'S!';
-          case 'shock_dodge': return 'S✓';
-          case 'decoy': return '?';
-          case 'gatefail': return 'G';
-          case 'regen': return '+';
-          case 'wipe': return 'X';
-          default: return '•';
-        }
-      };
-      const dangerAt = (t)=>{
-        let best=samples[0], bd=1e9;
-        for(const s of samples){
-          const dt=Math.abs((s.t||0)-t);
-          if(dt<bd){ bd=dt; best=s; }
-        }
-        return Number(best.d||0);
+    }
+
+    let lastCfg = null;
+    let stopFn = null;
+
+    function startGame(mode){
+      // hide overlays
+      start.style.display = 'none';
+      end.style.display = 'none';
+
+      // stop previous if any
+      try{ if (stopFn) stopFn(); }catch{}
+      stopFn = null;
+
+      const url = parseUrl();
+      lastCfg = {
+        ...url,
+        runMode: mode,
       };
 
-      ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-
-      for(const e of ev){
-        const t = Number(e.t||0);
-        const type = String(e.type||'');
-        // show only key event types
-        if(!['laser','shock_hit','shock_dodge','decoy','gatefail','regen','wipe'].includes(type)) continue;
-
-        const x = xOf(t);
-        const y = yOf(dangerAt(t));
-
-        ctx.fillStyle = colorBy(type);
-        ctx.beginPath();
-        ctx.arc(x, y, 5.2, 0, Math.PI*2);
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(2,6,23,.92)';
-        ctx.fillText(glyphBy(type), x, y);
-      }
-
-      // x labels
-      ctx.fillStyle = 'rgba(148,163,184,.80)';
-      ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-      ctx.fillText('time →', padL, h-8);
-      ctx.textAlign='right';
-      ctx.fillText(`${maxT}s`, padL+plotW, h-8);
+      bootHydration({
+        difficulty: (mode === 'research') ? url.diff : url.diff,
+        duration: url.time,
+        runMode: mode,
+        seed: url.seed,
+        onStop: (why) => {
+          // external stop hook (optional)
+        }
+      }).then(api=>{
+        stopFn = () => api && api.stop && api.stop();
+      });
     }
 
-    window.addEventListener('hha:end', (ev)=>{
-      const d = ev?.detail || {};
+    btnPlay.addEventListener('click', ()=> startGame('play'));
+    btnResearch.addEventListener('click', ()=> startGame('research'));
+    btnCloseStart.addEventListener('click', ()=>{ start.style.display='none'; });
 
-      $('endTitle').textContent = d.title || 'จบเกมแล้ว! 💧';
-      $('endGrade').textContent = d.grade || 'C';
+    btnReplay.addEventListener('click', ()=> startGame((lastCfg && lastCfg.runMode) || 'play'));
+    btnCloseEnd.addEventListener('click', ()=>{ end.style.display='none'; });
 
-      // main KPIs (numbers running)
-      animateCount($('endScore'), d.score ?? 0, 950);
-      animateCount($('endMiss'),  d.miss ?? 0, 760);
-      animateCount($('endCombo'), d.comboMax ?? 0, 820);
-
-      $('endProgFill').style.width = String(Math.max(0, Math.min(100, Number(d.progressPct||0)))) + '%';
-      $('endDesc').textContent = `Progress to S: ${Math.round(Number(d.progressPct||0))}%`;
-
-      // Boss Result
-      const b = d.boss || null;
-      const wrap = $('bossResultWrap');
-      if(wrap && b?.entered){
-        wrap.style.display = 'block';
-
-        const rank = bossRank(b);
-        $('bossRankText').textContent = rank;
-
-        // stamp
-        if(b.cleared && !b.wipe) setStamp($('bossStamp'), 'CLEARED');
-        else if(b.wipe) setStamp($('bossStamp'), 'WIPE');
-        else setStamp($('bossStamp'), 'FAILED');
-
-        const sub = [
-          `Phase: P${b.phase ?? 0} • Enrage: ${b.enrage?1:0} • HP: ${(b.hpMax?Math.max(0,b.hp|0):0)}/${Math.max(0,b.hpMax|0)}`,
-          `Shock: Dodge ${b.shockDodges||0} / Hit ${b.shockHits||0} • Laser: ${b.lasers||0} • Regen: ${b.regens||0}`
-        ].join('\n');
-        $('bossSub').textContent = sub;
-
-        // boss KPIs (numbers running)
-        animateCount($('bossHits'),      b.hits ?? 0, 720);
-        animateCount($('bossGrazed'),    b.grazed ?? 0, 720);
-        animateCount($('bossMissed'),    b.missed ?? 0, 720);
-        animateCount($('bossGateFails'), b.gateFails ?? 0, 720);
-
-        animateCount($('bossDecoys'),    b.decoyHits ?? 0, 720);
-        animateCount($('bossLasers'),    b.lasers ?? 0, 720);
-        $('bossShock').textContent = `${b.shockDodges||0}/${b.shockHits||0}`;
-        animateCount($('bossRegens'),    b.regens ?? 0, 720);
-      }else if(wrap){
-        wrap.style.display = 'none';
-      }
-
-      // Timeline (Danger Meter)
-      const tlWrap = $('bossTimelineWrap');
-      const tlCv   = $('bossTimeline');
-      if(tlWrap && tlCv){
-        const tl = d.bossTimeline || null;
-        if(b?.entered && tl?.samples?.length){
-          tlWrap.style.display = 'block';
-          drawBossTimeline(tlCv, tl.samples, tl.events);
-        }else{
-          tlWrap.style.display = 'none';
-        }
-      }
-
-      showEnd(true);
-    });
-
-    // Boot
-    import { bootHydration } from './hydration-vr/hydration.safe.js';
-    bootHydration();
+    // auto-start if run=play/research and autostart=1
+    const u = new URL(location.href);
+    if (u.searchParams.get('autostart') === '1'){
+      startGame((u.searchParams.get('run') || 'play').toLowerCase());
+    }
   </script>
 </body>
 </html>
