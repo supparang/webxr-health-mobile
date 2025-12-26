@@ -58,7 +58,7 @@
     #hudLeftGroup{display:flex; gap:8px; flex-wrap:wrap;}
     #hudRightGroup{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
 
-    /* ===== Crosshair (ช่วยความรู้สึก VR) ===== */
+    /* ===== Crosshair ===== */
     #crosshair{
       position:fixed;
       left:50%; top:50%;
@@ -112,7 +112,6 @@
     #hudBtns{
       position:fixed; right:10px; bottom:10px;
       z-index:910; display:flex; gap:10px;
-      pointer-events:none;
     }
     .btn{
       pointer-events:auto;
@@ -144,7 +143,34 @@
     #goalLine{margin-top:6px; color:rgba(229,231,235,.88); font-weight:900;}
     #miniHint{margin-top:6px; color:rgba(148,163,184,.92); font-weight:900; font-size:13px; line-height:1.25;}
 
-    /* Paused badge */
+    /* ===== Coach panel (NEW) ===== */
+    #coachPanel{
+      position:fixed; left:10px; bottom:146px;
+      z-index:906;
+      pointer-events:none;
+      display:flex; gap:10px; align-items:flex-end;
+    }
+    #coachImg{
+      width:92px; height:92px; border-radius:18px;
+      background:rgba(2,6,23,.45);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 18px 44px rgba(0,0,0,.30);
+      object-fit:cover;
+    }
+    #coachBubble{
+      max-width:min(560px, 72vw);
+      background:rgba(2,6,23,.58);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:10px 12px;
+      box-shadow:0 18px 44px rgba(0,0,0,.30);
+      backdrop-filter: blur(8px);
+      transform-origin:left bottom;
+    }
+    #coachText{font-weight:1000; line-height:1.25;}
+    #coachSub{margin-top:6px; color:rgba(148,163,184,.92); font-weight:900; font-size:12px;}
+
+    /* hidden helper */
     #hudPaused{
       position:fixed; left:50%; top:50%;
       transform:translate(-50%,-50%);
@@ -179,12 +205,11 @@
     .cell .k{display:block; margin-bottom:4px;}
   </style>
 
-  <!-- ✅ Plate engine -->
+  <!-- ✅ plate.safe.js -->
   <script type="module" src="./plate/plate.safe.js"></script>
 </head>
 
 <body>
-  <!-- A-Frame base (ใช้เพื่อ enterVR + pose/rotation) -->
   <a-scene embedded vr-mode-ui="enabled: false">
     <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
   </a-scene>
@@ -210,17 +235,26 @@
         <span class="pill">🔥 <span class="k">FEVER</span> <span id="hudFeverPct" class="v">0%</span></span>
         <span class="pill">🎖️ <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
 
-        <!-- ซ่อนข้อมูล แต่ยังมี element ให้ JS set ได้ -->
+        <!-- ซ่อนข้อมูลไม่จำเป็นระหว่างเล่น แต่ยังมี element ไว้ให้ JS set ได้ -->
         <span class="pill" style="display:none">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
         <span class="pill" style="display:none">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
-        <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Normal</span></span>
+        <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Easy</span></span>
       </div>
+    </div>
+  </div>
+
+  <!-- Coach (NEW) -->
+  <div id="coachPanel" aria-hidden="true">
+    <img id="coachImg" src="./img/coach-neutral.png" alt="Coach" />
+    <div id="coachBubble">
+      <div id="coachText">พร้อมแล้ว! เก็บครบ 5 หมู่ให้เป็น “จานสมดุล” 🍽️</div>
+      <div id="coachSub">ทิป: เล็งใกล้กากบาทกลางจอจะ PERFECT ง่ายขึ้น ⭐</div>
     </div>
   </div>
 
   <div id="miniPanel">
     <div id="miniLine">MINI: …</div>
-    <div id="goalLine">GOAL: …</div>
+    <div id="goalLine">Goal: …</div>
     <div id="miniHint">…</div>
   </div>
 
