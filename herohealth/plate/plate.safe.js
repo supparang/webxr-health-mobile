@@ -1,5 +1,6 @@
 // === /herohealth/plate/plate.safe.js ===
 // Plate VR — ULTIMATE ALL-IN-ONE (UI-clean + Research-Strict + Boss-focused mid)
+// ✅ FIX "กดเริ่มไม่ได้/เข้าเกมไม่ไป": Start overlay binding + hide overlay + start on gesture
 // ✅ Fix black screen: fatal overlay
 // ✅ Fix long-number floating: correct Particles.scorePop(x,y,txt,label)
 // ✅ Minimal HUD + Crosshair + Hit flash
@@ -7,11 +8,12 @@
 // ✅ Cap max targets (mobile performance)
 // ✅ Boss: telegraph clearer + punish only when boss close to crosshair
 // ✅ Air-shot feedback (soft punish, no life loss)
-// ✅ Fever event bridge (particles listens to hha:fever)
-// ✅ PATCH: direct tap PERFECT uses touch/pointer coords (not crosshair) → PERFECT counts correctly
-// ✅ PATCH: setShow() shows elements with CSS display:none (result/paused) properly
-// ✅ PATCH: guard undefined rec in expireTargets
-// ✅ PATCH: default time for ป.5 per diff if URL has no time param: easy80/normal70/hard60
+// ✅ Fever event bridge
+// ✅ PERFECT direct tap uses pointer coords (not crosshair)
+// ✅ setShow works with display:none
+// ✅ guard undefined rec in expireTargets
+// ✅ default time for ป.5 if URL has no time param: easy80/normal70/hard60
+// ✅ Dispatch hha:end summary for HUD/logger listeners
 
 'use strict';
 
@@ -25,7 +27,6 @@ function setTxt(el, t){ if(el) el.textContent = String(t); }
 function setShow(el, on){
   if(!el) return;
   if(on){
-    // result backdrop should be flex (centered), others use block
     el.style.display = (el.id === 'resultBackdrop') ? 'flex' : 'block';
   }else{
     el.style.display = 'none';
@@ -97,7 +98,6 @@ if (!Number.isFinite(SEED)) SEED = 1337;
 let _seed = (SEED >>> 0) || 1337;
 
 function srnd(){
-  // xorshift32
   _seed ^= (_seed << 13); _seed >>>= 0;
   _seed ^= (_seed >>> 17); _seed >>>= 0;
   _seed ^= (_seed << 5); _seed >>>= 0;
@@ -142,6 +142,10 @@ const HUD = {
   resultBackdrop: $('resultBackdrop'),
   btnPlayAgain: $('btnPlayAgain'),
 
+  // start overlay
+  startOverlay: $('startOverlay'),
+  btnStart: $('btnStart'),
+
   rMode: $('rMode'),
   rGrade: $('rGrade'),
   rScore: $('rScore'),
@@ -158,7 +162,7 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
-// ---------- Difficulty (กลาง ๆ เน้นบอส) ----------
+// ---------- Difficulty ----------
 const DIFF_TABLE = {
   easy: {
     size: 92, life: 3200, spawnMs: 900, maxTargets: 10,
@@ -217,7 +221,9 @@ const S = {
 
   lowTimeLastSec:null,
 
-  sessionId:`PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  sessionId:`PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+
+  booted:false
 };
 
 // ---------- Helpers ----------
@@ -230,7 +236,7 @@ function dispatchEvt(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
 }
 
-/* ===== FIX: sanitize + correct Particles API ===== */
+// sanitize + correct Particles API
 function safeFxText(t){
   t = String(t ?? '');
   if (/^\d+(\.\d+)?$/.test(t) && t.length >= 10) return '✓';
@@ -354,6 +360,19 @@ const AudioX = (function(){
   const atk=()=>{beep(160,0.10,0.06,'sawtooth'); setTimeout(()=>beep(90,0.12,0.05,'square'),70);};
   return { unlock, tick, warn, good, perfect, bad, bossHit, bossDown, power, shield, atk };
 })();
+
+// ---------- iOS Motion permission helper ----------
+async function requestMotionPermissionIfNeeded(){
+  try{
+    const DME = ROOT.DeviceMotionEvent;
+    if(!DME) return true;
+    if(typeof DME.requestPermission !== 'function') return true; // non-iOS
+    const res = await DME.requestPermission();
+    return (res === 'granted');
+  }catch(_){
+    return false;
+  }
+}
 
 // ---------- Logger ----------
 function logSession(phase){
@@ -756,7 +775,7 @@ function makeTarget(kind, group, opts={}){
 
   S.targets.push(rec);
 
-  // ✅ PATCH: pass event into hitTarget for direct-tap perfect calculation
+  // direct tap -> PERFECT by pointer coords
   const hitHandler=(e)=>{
     e.preventDefault(); e.stopPropagation();
     AudioX.unlock();
@@ -791,7 +810,6 @@ function expireTargets(){
   const t=now();
   for(let i=S.targets.length-1;i>=0;i--){
     const rec=S.targets[i];
-    // ✅ PATCH: guard undefined
     if(!rec || rec.dead) continue;
 
     if(t>=rec.dieAt){
@@ -900,17 +918,14 @@ function judgeFromDist(distPx, sizePx){
   return (n<=0.38) ? 'PERFECT' : 'HIT';
 }
 
-// ✅ PATCH: hitTarget receives event; if direct tap, compute dist from finger (clientX/Y)
+// direct tap: use clientX/Y; otherwise crosshair center
 function hitTarget(rec, direct, ev){
   if(!S.running || S.paused || !rec || rec.dead) return;
 
   const off=viewOffset();
-
-  // target position on screen
   const tx = rec.cx + off.x;
   const ty = rec.cy + off.y;
 
-  // pointer/touch position
   let px=null, py=null;
   if(direct && ev){
     if(typeof ev.clientX === 'number'){ px=ev.clientX; py=ev.clientY; }
@@ -924,7 +939,6 @@ function hitTarget(rec, direct, ev){
 
   const dist = Math.hypot(tx-px, ty-py);
 
-  // power targets
   if(rec.kind==='slow'){
     const ms = (MODE==='research') ? Math.round((D.slowDurMs[0]+D.slowDurMs[1])*0.5) : rnd(D.slowDurMs[0],D.slowDurMs[1]);
     activateSlow(ms);
@@ -1206,7 +1220,7 @@ function spawnTick(){
 // ---------- Tap-anywhere shooting ----------
 function isUIElement(target){
   if(!target) return false;
-  return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop')));
+  return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop') || target.closest('#startOverlay')));
 }
 function airShot(){
   S.combo=0; setTxt(HUD.combo,0);
@@ -1281,8 +1295,10 @@ function endGame(isGameOver){
   S.nextSpawnAt=Infinity;
   for(const rec of [...S.targets]) removeTarget(rec);
 
+  const finalGrade = gradeFromScore();
+
   setTxt(HUD.rMode, MODE==='research'?'Research':'Play');
-  setTxt(HUD.rGrade, gradeFromScore());
+  setTxt(HUD.rGrade, finalGrade);
   setTxt(HUD.rScore, S.score);
   setTxt(HUD.rMaxCombo, S.maxCombo);
   setTxt(HUD.rMiss, S.miss);
@@ -1296,8 +1312,27 @@ function endGame(isGameOver){
   setTxt(HUD.rG5, S.groupCounts[4]);
   setTxt(HUD.rGTotal, S.groupCounts.reduce((a,b)=>a+b,0));
 
-  // ✅ PATCH: this now works because setShow sets display:flex for resultBackdrop
   setShow(HUD.resultBackdrop,true);
+
+  // ✅ Broadcast summary (ให้ HUD/logger ฟังได้)
+  dispatchEvt('hha:end', {
+    sessionId: S.sessionId,
+    gameMode: 'plate',
+    runMode: MODE,
+    diff: DIFF,
+    durationPlannedSec: TOTAL_TIME,
+    durationPlayedSec: TOTAL_TIME - Math.max(0, S.timeLeft),
+    scoreFinal: S.score,
+    comboMax: S.maxCombo,
+    misses: S.miss,
+    perfect: S.perfectCount,
+    goalsCleared: Math.min(S.goalsCleared,2),
+    goalsTotal: 2,
+    miniCleared: Math.min(S.minisCleared,7),
+    miniTotal: 7,
+    grade: finalGrade,
+    groupCounts: S.groupCounts.slice()
+  });
 
   fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
   vibe(isGameOver?60:50);
@@ -1362,6 +1397,7 @@ function bindShootHotkeys(){
     scene.addEventListener('click', fire);
   }
 }
+
 function bindUI(){
   layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
   layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
@@ -1377,8 +1413,48 @@ function bindUI(){
   });
 }
 
+// ---------- Start overlay gating (สำคัญสุดสำหรับ “กดเล่นไม่ได้”) ----------
+function setupStartOverlayGate(){
+  const ov = HUD.startOverlay;
+  const btn = HUD.btnStart;
+
+  // ถ้าไม่มี overlay → เริ่มทันที
+  if(!ov || !btn){
+    restart();
+    return;
+  }
+
+  // โชว์ overlay ไว้ก่อน
+  setShow(ov, true);
+
+  let started=false;
+
+  const startNow = async ()=>{
+    if(started) return;
+    started=true;
+
+    // gesture unlock
+    try{ AudioX.unlock(); }catch(_){}
+
+    // iOS motion permission (ไม่บังคับ)
+    try{ await requestMotionPermissionIfNeeded(); }catch(_){}
+
+    // hide overlay แล้วเริ่มเกมจริง
+    setShow(ov, false);
+
+    // เริ่มเกมจาก state สดใหม่
+    restart();
+  };
+
+  btn.addEventListener('click', (e)=>{ e.preventDefault(); startNow(); }, {passive:false});
+  btn.addEventListener('pointerdown', (e)=>{ e.preventDefault(); }, {passive:false});
+}
+
 // ---------- BOOT ----------
 (function boot(){
+  if(S.booted) return;
+  S.booted=true;
+
   try{
     if(ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.init==='function'){
       ROOT.HHACloudLogger.init({ debug: DEBUG });
@@ -1404,8 +1480,8 @@ function bindUI(){
   setGoal(0);
   startMini();
 
-  logSession('start');
-  start();
+  // ✅ สำคัญ: ถ้ามี startOverlay → รอให้ผู้เล่นกดเริ่มก่อน
+  setupStartOverlayGate();
 
   if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D });
 })();
