@@ -27,7 +27,7 @@
               correctScore: 140, wrongPenalty: 160, junkPenalty: 230, decoyPenalty: 180, bossScore: 260, powerThreshold: 8 }
   };
 
-  // --- Groups data (ปรับได้ทีหลัง) ---
+  // --- Groups data ---
   const GROUPS = [
     { id:1, label:'หมู่ 1', foods:['🥛','🥚','🫘','🍗'] },
     { id:2, label:'หมู่ 2', foods:['🍚','🍞','🥔','🍜'] },
@@ -41,17 +41,12 @@
   function pickGroup(){ return GROUPS[(Math.random()*GROUPS.length)|0]; }
 
   // --- Safe spawn box based on HUD + safe-area ---
-  function getSpawnBox(layerEl){
+  function getSpawnBox(){
     const w = window.innerWidth || 360;
     const h = window.innerHeight || 640;
 
-    // base margins
-    let left  = 18;
-    let right = 18;
-    let top   = 18;
-    let bot   = 18;
+    let left  = 18, right = 18, top = 18, bot = 18;
 
-    // add safe-area
     const cs = getComputedStyle(document.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
     const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
@@ -60,7 +55,6 @@
 
     left += sal; right += sar; top += sat; bot += sab;
 
-    // reserve HUD top area (approx)
     const hud = document.querySelector('.hud-top');
     if (hud){
       const r = hud.getBoundingClientRect();
@@ -69,10 +63,8 @@
       top = Math.max(top, 120 + sat);
     }
 
-    // reserve bottom minimal for mobile bar
     bot = Math.max(bot, 72 + sab);
 
-    // return usable region
     return {
       x0: left,
       y0: top,
@@ -101,7 +93,6 @@
     _comboMax: 0,
     _misses: 0,
 
-    // shot stats
     _shots: 0,
     _hits: 0,
 
@@ -114,14 +105,12 @@
     _runMode: 'play',
     _seed: undefined,
 
-    // boss pacing
     _correctHitsTotal: 0,
 
-    // lock system
     _lockActive: false,
     _lockEl: null,
     _lockStartAt: 0,
-    _lockDur: 420, // ms to lock
+    _lockDur: 420,
     _lockRAF: 0,
 
     setLayerEl(el){ this._layerEl = el; },
@@ -157,10 +146,8 @@
       this._lockActive = false;
       this._lockEl = null;
 
-      // clear
       if (this._layerEl) this._layerEl.innerHTML = '';
 
-      // init group
       this._groupIdx = 0;
       emit('groups:group_change', { label: GROUPS[this._groupIdx].label });
 
@@ -181,6 +168,7 @@
 
       this._emitScore();
       this._emitTime();
+      this._emitPower();
 
       this._last = now();
       this._raf = requestAnimationFrame(this._loop.bind(this));
@@ -269,7 +257,6 @@
     },
 
     _grade(acc, comboMax, misses){
-      // SSS/SS/S/A/B/C
       if (acc>=92 && comboMax>=10 && misses<=6) return 'SSS';
       if (acc>=88 && comboMax>=8  && misses<=8) return 'SS';
       if (acc>=82 && comboMax>=6  && misses<=10) return 'S';
@@ -282,7 +269,6 @@
       if (!this._layerEl) return;
       if (this._targets.length >= (this._cfg.maxOnScreen|0)) return;
 
-      // boss pacing
       const bossDue = (this._correctHitsTotal > 0) && (this._correctHitsTotal % (this._cfg.bossEvery|0) === 0);
       const spawnBoss = bossDue && (Math.random() < 0.35);
 
@@ -301,7 +287,7 @@
         emoji = pick(JUNK);
       } else if (r < (this._cfg.junkRate + this._cfg.decoyRate)){
         type = 'decoy';
-        gid = GROUPS[this._groupIdx].id;     // looks like current group
+        gid = GROUPS[this._groupIdx].id;
         emoji = pick(GROUPS[this._groupIdx].foods);
       } else {
         const g = pickGroup();
@@ -314,7 +300,7 @@
       el.type = 'button';
       el.setAttribute('aria-label', 'target');
 
-      el.dataset.type = type; // food/junk/decoy/boss
+      el.dataset.type = type;
       if (gid != null) el.dataset.gid = String(gid);
 
       if (type === 'boss'){
@@ -340,7 +326,7 @@
       span.style.pointerEvents = 'none';
       el.insertBefore(span, el.firstChild);
 
-      const box = getSpawnBox(this._layerEl);
+      const box = getSpawnBox();
       const x = box.x0 + Math.random() * Math.max(10, (box.x1 - box.x0));
       const y = box.y0 + Math.random() * Math.max(10, (box.y1 - box.y0));
       const s = 0.92 + Math.random()*0.22;
@@ -352,7 +338,7 @@
       el.classList.add('show','spawn');
       setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch{} }, 220);
 
-      // direct click = immediate hit
+      // tap hit immediately
       el.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault();
         ev.stopPropagation();
@@ -386,12 +372,9 @@
         const i = this._targets.indexOf(el);
         if (i >= 0) this._targets.splice(i, 1);
       }catch(_){}
-
       try{
         if (anim) el.classList.add(anim);
-        const kill = ()=>{
-          try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){}
-        };
+        const kill = ()=>{ try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){} };
         setTimeout(kill, anim ? 200 : 0);
       }catch(_){}
     },
@@ -429,13 +412,13 @@
       this._lockActive = true;
       this._lockEl = c.el;
       this._lockStartAt = now();
-      try{ this._lockEl.classList.add('lock'); }catch(_){}
 
+      try{ this._lockEl.classList.add('lock'); }catch(_){}
       this._tickLock();
     },
 
     _tickLock(){
-      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected) {
+      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected){
         emit('groups:lock', { on:false });
         this._stopLock();
         return;
@@ -466,7 +449,7 @@
 
     _stopLock(){
       this._lockActive = false;
-      if (this._lockRAF) { try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
+      if (this._lockRAF){ try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
       this._lockRAF = 0;
 
       if (this._lockEl){
@@ -477,9 +460,8 @@
       emit('groups:lock', { on:false });
     },
 
-    _hitTarget(el, via){
+    _hitTarget(el){
       if (!el || !el.isConnected) return;
-
       const t = now();
       if (t < this._stunUntil) return;
 
@@ -555,6 +537,7 @@
         return;
       }
 
+      // normal food
       const gid = parseInt(el.dataset.gid || '0', 10) || 0;
       const isCorrect = (gid|0) === (curId|0);
 
@@ -579,10 +562,10 @@
           setTimeout(()=>document.documentElement.classList.remove('swapflash'), 240);
 
           if (this._quest) this._quest.onGroupChange(n.label);
+          this._emitPower();
         }
 
         if (this._quest) this._quest.onShot({ correct:true, wrong:false, junk:false });
-
       } else {
         this._score -= (this._cfg.wrongPenalty|0);
         this._misses++;
