@@ -8,6 +8,8 @@
 // ✅ randomRing: dashed/dotted rotate
 // ✅ NEW: Seeded RNG (cfg.seed) + cfg.rng override (สำคัญสำหรับ research)
 // ✅ crosshair shooting + perfect distance
+// ✅ PATCH: auto-relax safezone เมื่อ playRect เล็กเกิน (กันอาการ "เป้าเกิดที่เดียว")
+
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
@@ -146,6 +148,7 @@ function ensureOverlayStyle () {
       pointer-events:none;
     }
     .hvr-overlay-host .hvr-target{ pointer-events:auto; }
+    .hvr-target{ pointer-events:auto; } /* ✅ PATCH: เผื่อ spawnHost ไม่ใช่ overlay */
     .hvr-target.hvr-pulse{ animation:hvrPulse .55s ease-in-out infinite; }
     @keyframes hvrPulse{
       0%{ transform:translate(-50%,-50%) scale(1); }
@@ -295,25 +298,41 @@ function computeExclusionMargins(hostRect, exEls){
   return m;
 }
 
-function computePlayRectFromHost (hostEl, exState) {
+/**
+ * ✅ PATCH: padding + relax margins
+ * playPadXFrac / playPadTopFrac / playPadBotFrac : ปรับได้จาก cfg
+ * relaxK 0..1 : 0=เต็ม safezone, 0.6=ผ่อน safezone 60% (พื้นที่เล่นใหญ่ขึ้น)
+ */
+function computePlayRectFromHost (hostEl, exState, padCfg, relaxK = 0) {
   const r = hostEl.getBoundingClientRect();
   const isOverlay = hostEl && hostEl.id === 'hvr-overlay-host';
 
   let w = Math.max(1, r.width  || (isOverlay ? (ROOT.innerWidth  || 1) : 1));
   let h = Math.max(1, r.height || (isOverlay ? (ROOT.innerHeight || 1) : 1));
 
-  const basePadX   = w * 0.10;
-  const basePadTop = h * 0.12;
-  const basePadBot = h * 0.12;
+  const px = clamp(padCfg && padCfg.xFrac != null ? padCfg.xFrac : 0.10, 0.02, 0.18);
+  const pt = clamp(padCfg && padCfg.topFrac != null ? padCfg.topFrac : 0.12, 0.03, 0.20);
+  const pb = clamp(padCfg && padCfg.botFrac != null ? padCfg.botFrac : 0.12, 0.03, 0.22);
 
-  const mm = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+  const basePadX   = w * px;
+  const basePadTop = h * pt;
+  const basePadBot = h * pb;
+
+  const mm0 = exState && exState.margins ? exState.margins : { top:0,bottom:0,left:0,right:0 };
+  const k = clamp(1 - Number(relaxK || 0), 0, 1);
+  const mm = {
+    top:    mm0.top    * k,
+    bottom: mm0.bottom * k,
+    left:   mm0.left   * k,
+    right:  mm0.right  * k
+  };
 
   const left   = basePadX + mm.left;
   const top    = basePadTop + mm.top;
   const width  = Math.max(1, w - (basePadX*2) - mm.left - mm.right);
   const height = Math.max(1, h - basePadTop - basePadBot - mm.top - mm.bottom);
 
-  return { left, top, width, height, hostRect: r, isOverlay };
+  return { left, top, width, height, hostRect: r, isOverlay, relaxK };
 }
 
 // ======================================================
@@ -353,7 +372,18 @@ export async function boot (rawCfg = {}) {
 
     // ✅ NEW: rng/seed
     rng  = null,
-    seed = null
+    seed = null,
+
+    // ✅ PATCH: play padding (optional)
+    playPadXFrac = 0.10,
+    playPadTopFrac = 0.12,
+    playPadBotFrac = 0.12,
+
+    // ✅ PATCH: safezone relax behavior
+    autoRelaxSafezone = true,     // ถ้า playRect เล็กเกิน -> ผ่อน safezone อัตโนมัติ
+    relaxThresholdMul = 1.35,     // ถ้า playRect < size*mul => ถือว่าเล็ก
+    relaxStep = 0.35,             // ความแรงในการผ่อนครั้งแรก
+    relaxStep2 = 0.65             // ถ้ายังเล็กอยู่ ผ่อนอีก
   } = rawCfg || {};
 
   // RNG selection
@@ -562,9 +592,11 @@ export async function boot (rawCfg = {}) {
     return { bRect, sRect, spawnHasT };
   }
 
-  function makePlayLocalRect(){
+  const padCfg = { xFrac: playPadXFrac, topFrac: playPadTopFrac, botFrac: playPadBotFrac };
+
+  function makePlayLocalRect(relaxK=0){
     const { bRect, sRect } = getRectsForSpawn();
-    const pr = computePlayRectFromHost(hostBounds, exState);
+    const pr = computePlayRectFromHost(hostBounds, exState, padCfg, relaxK);
 
     const cL = bRect.left + pr.left;
     const cT = bRect.top  + pr.top;
@@ -574,7 +606,7 @@ export async function boot (rawCfg = {}) {
     const w = pr.width;
     const h = pr.height;
 
-    return { left:l, top:t, width:w, height:h, bRect, sRect };
+    return { left:l, top:t, width:w, height:h, bRect, sRect, relaxK };
   }
 
   function getExistingCentersLocal(sRect){
@@ -597,9 +629,7 @@ export async function boot (rawCfg = {}) {
     for (let i=0;i<9;i++) min = Math.min(min, grid9.counts[i]);
     const ties = [];
     for (let i=0;i<9;i++) if (grid9.counts[i] === min) ties.push(i);
-    const idx = ties[Math.floor(rand()*ties.length)];
-    grid9.counts[idx] += 1;
-    return idx;
+    return ties[Math.floor(rand()*ties.length)];
   }
 
   function pickSpawnPointLocal(playLocal, sizePx){
@@ -629,8 +659,10 @@ export async function boot (rawCfg = {}) {
     const minY = playLocal.top  + pad;
     const maxY = playLocal.top  + playLocal.height - pad;
 
-    const rectOk = (playLocal.width >= sizePx*1.30) && (playLocal.height >= sizePx*1.30);
-    if (!rectOk) return { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
+    // ✅ PATCH: ถ้า playRect เล็กเกิน (มือถือ) จะกลับไป clamp จุดเดิม ทำให้เหมือนเกิดที่เดียว
+    // เราไม่แก้ในนี้โดยตรง แต่ spawnTarget จะผ่อน safezone แล้วค่อยเรียกใหม่
+    const rectOk = (playLocal.width >= sizePx*relaxThresholdMul) && (playLocal.height >= sizePx*relaxThresholdMul);
+    if (!rectOk) return { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:false };
 
     function tri(){ return (rand() + rand() - 1); }
 
@@ -658,15 +690,15 @@ export async function boot (rawCfg = {}) {
 
       const x = gx1 + rand() * Math.max(1, (gx2 - gx1));
       const y = gy1 + rand() * Math.max(1, (gy2 - gy1));
-      return { x, y };
+      return { x, y, idx };
     }
 
     for (let i=0;i<tries;i++){
-      let x, y;
+      let x, y, cellIdx = -1;
 
       if (useGrid9){
         const p = pointFromGrid9();
-        x = p.x; y = p.y;
+        x = p.x; y = p.y; cellIdx = p.idx;
       } else {
         x = useUniform ? (minX + rand() * (maxX - minX)) : clamp(ax + tri()*rx, minX, maxX);
         y = useUniform ? (minY + rand() * (maxY - minY)) : clamp(ay + tri()*ry, minY, maxY);
@@ -683,11 +715,17 @@ export async function boot (rawCfg = {}) {
       }
 
       const score = ok ? (100000 + nearest) : nearest;
-      if (score > bestScore) { bestScore = score; best = { x, y, ok }; }
-      if (ok) return { x, y, ok:true };
+      if (score > bestScore) { bestScore = score; best = { x, y, ok, cellIdx }; }
+
+      if (ok){
+        // ✅ PATCH: นับ cell เฉพาะตอน “ผ่านจริง”
+        if (useGrid9 && cellIdx >= 0) grid9.counts[cellIdx] += 1;
+        return { x, y, ok:true };
+      }
     }
 
-    return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:true };
+    if (best && best.ok && useGrid9 && best.cellIdx >= 0) grid9.counts[best.cellIdx] += 1;
+    return best || { x: clamp(ax, minX, maxX), y: clamp(ay, minY, maxY), ok:false };
   }
 
   // ======================================================
@@ -698,7 +736,26 @@ export async function boot (rawCfg = {}) {
 
     refreshExclusions();
 
-    const playLocal = makePlayLocalRect();
+    const baseSize = 78;
+    const size = baseSize * curScale;
+
+    // ✅ PATCH: auto-relax safezone ถ้าพื้นที่เล็กเกิน
+    let playLocal = makePlayLocalRect(0);
+
+    // ลองตำแหน่งครั้งแรก
+    let p = pickSpawnPointLocal(playLocal, size);
+
+    if (autoRelaxSafezone && p && p.ok === false){
+      // ผ่อนครั้งที่ 1
+      playLocal = makePlayLocalRect(relaxStep);
+      p = pickSpawnPointLocal(playLocal, size);
+
+      if (p && p.ok === false){
+        // ผ่อนครั้งที่ 2 (แรงขึ้น)
+        playLocal = makePlayLocalRect(relaxStep2);
+        p = pickSpawnPointLocal(playLocal, size);
+      }
+    }
 
     const poolsGood  = Array.isArray(pools.good)  ? pools.good  : [];
     const poolsBad   = Array.isArray(pools.bad)   ? pools.bad   : [];
@@ -741,11 +798,6 @@ export async function boot (rawCfg = {}) {
     el.setAttribute('data-hha-tgt', '1');
     el.setAttribute('data-item-type', itemType);
 
-    const baseSize = 78;
-    const size = baseSize * curScale;
-
-    const p = pickSpawnPointLocal(playLocal, size);
-
     el.style.position = 'absolute';
     el.style.left = p.x + 'px';
     el.style.top  = p.y + 'px';
@@ -755,6 +807,7 @@ export async function boot (rawCfg = {}) {
     el.style.touchAction = 'manipulation';
     el.style.zIndex = '35';
     el.style.borderRadius = '999px';
+    el.style.pointerEvents = 'auto';
 
     const wiggle = DOC.createElement('div');
     wiggle.className = 'hvr-wiggle';
