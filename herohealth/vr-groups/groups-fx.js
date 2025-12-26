@@ -1,388 +1,421 @@
 // === /herohealth/vr-groups/groups-fx.js ===
-// Food Groups VR — FX Layer (IIFE) — PRODUCTION
-// ✅ lock ring (groups:lock {on,x,y,prog,charge})
-// ✅ group banner (groups:group_change)
-// ✅ stun overlay (groups:stun)
-// ✅ panic last 10s (hha:time)
-// ✅ celebrate (hha:celebrate {kind,text})
-// ✅ judge (hha:judge {text,kind})
-// ✅ afterimage + tiny burst on hit (lightweight)
-// ✅ NEVER create bottom quest panel; remove if exists
+// Food Groups VR — FX + Overlays (classic script) — PRODUCTION
+// ✅ ensure: lock ring, group banner, stun overlay, fx layer
+// ✅ listen: groups:lock, groups:panic, groups:stun, groups:group_change, groups:power
+// ✅ listen: hha:celebrate, hha:judge
+// ✅ panic tick sound via WebAudio (no assets)
+// ✅ lock ring uses CSS vars --p (progress) and --c (charge)
 
 (function () {
   'use strict';
 
   const doc = document;
-  const W = window;
   if (!doc) return;
 
+  const W = window;
   const NS = (W.GroupsFX = W.GroupsFX || {});
   if (NS.__bound) return;
   NS.__bound = true;
 
-  // ---------- helpers ----------
-  function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
-  function $(sel) { return doc.querySelector(sel); }
-  function byId(id) { return doc.getElementById(id); }
+  // ---------------- helpers ----------------
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function $(sel){ return doc.querySelector(sel); }
+  function byId(id){ return doc.getElementById(id); }
 
-  function removeBottomPanelIfAny(){
-    const p = byId('fg-questPanel');
-    if (p && p.parentNode) { try{ p.parentNode.removeChild(p); }catch(_){ } }
-  }
-
-  function makeEl(tag, cls, css){
-    const el = doc.createElement(tag);
+  function ensureEl(id, tag, cls, parent){
+    let el = byId(id);
+    if (el) return el;
+    el = doc.createElement(tag || 'div');
+    if (id) el.id = id;
     if (cls) el.className = cls;
-    if (css) Object.assign(el.style, css);
+    (parent || doc.body).appendChild(el);
     return el;
   }
 
-  // safe-area read (fallback 0)
-  function safeInset(name){
-    try{
-      const cs = getComputedStyle(doc.documentElement);
-      return parseFloat(cs.getPropertyValue(name)) || 0;
-    }catch(_){ return 0; }
+  function setStyle(el, obj){
+    if (!el) return;
+    try{ Object.assign(el.style, obj); }catch(_){}
   }
 
-  // ---------- ensure FX DOM ----------
-  function ensureLockRing(){
-    let ring = $('.lock-ring');
-    if (ring) return ring;
-
-    ring = makeEl('div','lock-ring');
-    ring.style.display = 'none';
-
-    const core = makeEl('div','lock-core');
-    const prog = makeEl('div','lock-prog');
-    const chg  = makeEl('div','lock-charge');
-
-    ring.appendChild(core);
-    ring.appendChild(prog);
-    ring.appendChild(chg);
-
-    doc.body.appendChild(ring);
-    return ring;
+  // ---------------- ensure base layers ----------------
+  function ensureFXLayer(){
+    let layer = $('.hha-fx-layer');
+    if (layer) return layer;
+    layer = doc.createElement('div');
+    layer.className = 'hha-fx-layer';
+    setStyle(layer, {
+      position:'fixed', inset:'0',
+      zIndex: 40,
+      pointerEvents:'none',
+      overflow:'hidden'
+    });
+    doc.body.appendChild(layer);
+    return layer;
   }
 
   function ensureGroupBanner(){
-    let b = $('.group-banner');
-    if (b) return b;
+    // Prefer CSS class .group-banner defined in groups-vr.css
+    const el = ensureEl('fgGroupBanner', 'div', 'group-banner', doc.body);
+    if (!el.querySelector('.group-banner-text')){
+      el.innerHTML = `
+        <div class="group-banner-text" id="fgGroupBannerText">หมู่ ?</div>
+        <div class="group-banner-sub" id="fgGroupBannerSub">ยิงให้ถูกหมู่ปัจจุบัน 🎯</div>
+      `;
+    }
+    // hidden initially
+    if (!el.dataset.ready){
+      el.dataset.ready = '1';
+      setStyle(el, { opacity:'0', transform:'translateX(-50%) translateY(-10px) scale(.96)' });
+      // let CSS animation handle when .pop added
+    }
+    return el;
+  }
 
-    b = makeEl('div','group-banner');
-    b.style.display = 'none';
-    b.innerHTML = `
-      <div class="group-banner-text" id="fg-bannerText">หมู่ ?</div>
-      <div class="group-banner-sub"  id="fg-bannerSub">ยิงให้ถูกหมู่ปัจจุบัน 🎯</div>
-    `;
-    doc.body.appendChild(b);
-    return b;
+  function ensureLockRing(){
+    const ring = ensureEl('fgLockRing', 'div', 'lock-ring', doc.body);
+    if (!ring.querySelector('.lock-core')){
+      ring.innerHTML = `
+        <div class="lock-core"></div>
+        <div class="lock-prog" id="fgLockProg"></div>
+        <div class="lock-charge" id="fgLockCharge"></div>
+      `;
+    }
+    // hide until active
+    setStyle(ring, { opacity:'0', transform:'translate(-50%,-50%) scale(.9)' });
+    return ring;
   }
 
   function ensureStunOverlay(){
-    let o = $('.stun-overlay');
-    if (o) return o;
-
-    o = makeEl('div','stun-overlay');
-    o.style.display = 'none';
-    o.innerHTML = `
-      <div class="stun-card">
-        <div class="stun-title">STUN!</div>
-        <div class="stun-sub" id="fg-stunSub">โดนขยะ 🚫 พักแป๊บ</div>
-      </div>
-    `;
-    doc.body.appendChild(o);
-    return o;
-  }
-
-  function ensureToastLayer(){
-    let layer = $('.fg-toast-layer');
-    if (layer) return layer;
-
-    layer = makeEl('div','fg-toast-layer', {
-      position:'fixed',
-      left:'0', top:'0', right:'0', bottom:'0',
-      pointerEvents:'none',
-      zIndex: 25
-    });
-    doc.body.appendChild(layer);
-    return layer;
-  }
-
-  function ensureFxLayer(){
-    // for bursts/afterimage
-    let layer = $('.fg-fx-layer');
-    if (layer) return layer;
-
-    layer = makeEl('div','fg-fx-layer', {
-      position:'fixed',
-      left:'0', top:'0', right:'0', bottom:'0',
-      pointerEvents:'none',
-      zIndex: 9
-    });
-    doc.body.appendChild(layer);
-    return layer;
-  }
-
-  // ---------- toast (celebrate/judge) ----------
-  function toast(text, kind){
-    const layer = ensureToastLayer();
-    const sat = safeInset('--sat');
-
-    const card = makeEl('div','fg-toast', {
-      position:'fixed',
-      left:'50%',
-      top: `calc(${(78 + sat)}px)`,
-      transform:'translateX(-50%)',
-      background:'rgba(2,6,23,.78)',
-      border:'1px solid rgba(148,163,184,.20)',
-      borderRadius:'18px',
-      padding:'10px 14px',
-      color:'#e5e7eb',
-      fontWeight:'900',
-      letterSpacing:'.4px',
-      boxShadow:'0 18px 60px rgba(0,0,0,.45)',
-      backdropFilter:'blur(10px)',
-      WebkitBackdropFilter:'blur(10px)',
-      opacity:'0',
-      zIndex: 26
-    });
-
-    // tint
-    const k = String(kind||'').toLowerCase();
-    if (k === 'warn' || k === 'bad') {
-      card.style.borderColor = 'rgba(239,68,68,.22)';
-      card.style.boxShadow   = '0 18px 60px rgba(0,0,0,.45), 0 0 0 1px rgba(239,68,68,.10)';
-    } else if (k === 'mini') {
-      card.style.borderColor = 'rgba(167,139,250,.22)';
-    } else if (k === 'goal') {
-      card.style.borderColor = 'rgba(34,197,94,.22)';
-    } else {
-      card.style.borderColor = 'rgba(34,211,238,.20)';
+    const ov = ensureEl('fgStunOverlay', 'div', 'stun-overlay', doc.body);
+    if (!ov.querySelector('.stun-card')){
+      ov.innerHTML = `
+        <div class="stun-card">
+          <div class="stun-title">STUN!</div>
+          <div class="stun-sub" id="fgStunSub">พักแป๊บ…</div>
+        </div>
+      `;
     }
+    setStyle(ov, { display:'none' });
+    return ov;
+  }
 
-    card.textContent = String(text || '');
-    layer.appendChild(card);
+  // ---------------- tiny audio (panic tick) ----------------
+  let audioCtx = null;
+  function getAudio(){
+    if (audioCtx) return audioCtx;
+    try{
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }catch(_){
+      audioCtx = null;
+    }
+    return audioCtx;
+  }
+  function beep(freq, durMs, gain){
+    const ctx = getAudio();
+    if (!ctx) return;
+    try{
+      if (ctx.state === 'suspended') ctx.resume().catch(()=>{});
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'square';
+      o.frequency.value = freq || 880;
+      g.gain.value = 0.0001;
+
+      o.connect(g);
+      g.connect(ctx.destination);
+
+      const t0 = ctx.currentTime;
+      const attack = 0.005;
+      const hold = Math.max(0.01, (durMs||60)/1000);
+      const peak = clamp(gain==null?0.06:gain, 0.01, 0.12);
+
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + hold);
+
+      o.start(t0);
+      o.stop(t0 + hold + 0.02);
+    }catch(_){}
+  }
+
+  // ---------------- FX primitives ----------------
+  const fxLayer = ensureFXLayer();
+
+  function scorePop(text, x, y, big){
+    const el = doc.createElement('div');
+    el.textContent = String(text || '');
+    setStyle(el, {
+      position:'fixed',
+      left:'0', top:'0',
+      transform:`translate3d(${Math.round(x||0)}px, ${Math.round(y||0)}px, 0) translate(-50%,-50%)`,
+      fontWeight:'1000',
+      letterSpacing:'.2px',
+      fontSize: big ? '26px' : '18px',
+      opacity:'0',
+      textShadow:'0 10px 30px rgba(0,0,0,.45)',
+      filter:'drop-shadow(0 8px 20px rgba(0,0,0,.35))',
+      willChange:'transform,opacity',
+      pointerEvents:'none'
+    });
+    fxLayer.appendChild(el);
 
     // animate
-    card.animate([
-      { transform:'translateX(-50%) translateY(-6px) scale(.98)', opacity:0 },
-      { transform:'translateX(-50%) translateY(0) scale(1)', opacity:1, offset:0.18 },
-      { transform:'translateX(-50%) translateY(0) scale(1)', opacity:1, offset:0.75 },
-      { transform:'translateX(-50%) translateY(-6px) scale(.99)', opacity:0 }
-    ], { duration: 1200, easing:'cubic-bezier(.2,.9,.2,1)' });
+    const dy = big ? 56 : 44;
+    requestAnimationFrame(()=>{
+      el.style.transition = 'transform .35s ease-out, opacity .35s ease-out';
+      el.style.opacity = '1';
+      el.style.transform =
+        `translate3d(${Math.round(x||0)}px, ${Math.round((y||0)-dy)}px, 0) translate(-50%,-50%)`;
+    });
 
-    setTimeout(()=>{ try{ card.remove(); }catch(_){ } }, 1250);
+    setTimeout(()=>{
+      try{
+        el.style.transition = 'transform .22s ease-in, opacity .22s ease-in';
+        el.style.opacity = '0';
+        el.style.transform =
+          `translate3d(${Math.round(x||0)}px, ${Math.round((y||0)-dy-18)}px, 0) translate(-50%,-50%) scale(.98)`;
+      }catch(_){}
+    }, 260);
+
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 700);
   }
 
-  // ---------- afterimage + burst ----------
-  function afterimageAt(x, y, emoji){
-    const layer = ensureFxLayer();
-    const el = makeEl('div','fg-afterimage a1');
-    el.style.setProperty('--x', Math.round(x) + 'px');
-    el.style.setProperty('--y', Math.round(y) + 'px');
-
-    const inner = makeEl('div','fg-afterimage-inner');
-    inner.textContent = emoji || '✨';
-    el.appendChild(inner);
-
-    layer.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 220);
-
-    // second trail
-    const el2 = makeEl('div','fg-afterimage a2');
-    el2.style.setProperty('--x', Math.round(x) + 'px');
-    el2.style.setProperty('--y', Math.round(y) + 'px');
-    const inner2 = makeEl('div','fg-afterimage-inner');
-    inner2.textContent = emoji || '✨';
-    inner2.style.opacity = '.65';
-    el2.appendChild(inner2);
-    layer.appendChild(el2);
-    setTimeout(()=>{ try{ el2.remove(); }catch(_){ } }, 260);
-  }
-
-  function burstAt(x, y, kind){
-    const layer = ensureFxLayer();
-
-    const n = 8;
-    const k = String(kind||'').toLowerCase();
-    const sym = (k === 'goal') ? '🎉' :
-                (k === 'mini') ? '✨' :
-                (k === 'warn') ? '⚠️' : '💥';
-
+  function burstAt(x, y, emoji){
+    const n = 9;
     for (let i=0;i<n;i++){
-      const p = makeEl('div','fg-burst', {
+      const p = doc.createElement('div');
+      p.textContent = emoji || '✨';
+      const ang = Math.random() * Math.PI * 2;
+      const r = 18 + Math.random() * 38;
+      const dx = Math.cos(ang) * r;
+      const dy = Math.sin(ang) * r;
+      setStyle(p, {
         position:'fixed',
-        left: Math.round(x) + 'px',
-        top:  Math.round(y) + 'px',
-        transform:'translate(-50%,-50%)',
-        fontSize: (22 + (Math.random()*16)) + 'px',
+        left:'0', top:'0',
+        transform:`translate3d(${x}px, ${y}px, 0) translate(-50%,-50%) scale(.9)`,
         opacity:'0',
-        zIndex: 10
+        fontSize:'22px',
+        willChange:'transform,opacity',
+        pointerEvents:'none',
+        filter:'drop-shadow(0 10px 18px rgba(0,0,0,.35))'
       });
-      p.textContent = sym;
-      layer.appendChild(p);
+      fxLayer.appendChild(p);
 
-      const ang = Math.random()*Math.PI*2;
-      const dist = 24 + Math.random()*44;
-      const dx = Math.cos(ang)*dist;
-      const dy = Math.sin(ang)*dist;
+      requestAnimationFrame(()=>{
+        p.style.transition = 'transform .42s ease-out, opacity .42s ease-out';
+        p.style.opacity = '1';
+        p.style.transform =
+          `translate3d(${Math.round(x+dx)}px, ${Math.round(y+dy)}px, 0) translate(-50%,-50%) scale(1.12)`;
+      });
 
-      p.animate([
-        { transform:`translate(-50%,-50%) translate(${dx*0.25}px,${dy*0.25}px) scale(.9)`, opacity:0 },
-        { transform:`translate(-50%,-50%) translate(${dx*0.65}px,${dy*0.65}px) scale(1.05)`, opacity:0.9, offset:0.22 },
-        { transform:`translate(-50%,-50%) translate(${dx}px,${dy}px) scale(.95)`, opacity:0 }
-      ], { duration: 420 + Math.random()*260, easing:'cubic-bezier(.2,.9,.2,1)' });
+      setTimeout(()=>{
+        try{
+          p.style.transition = 'transform .32s ease-in, opacity .32s ease-in';
+          p.style.opacity = '0';
+          p.style.transform =
+            `translate3d(${Math.round(x+dx*1.4)}px, ${Math.round(y+dy*1.4)}px, 0) translate(-50%,-50%) scale(.9)`;
+        }catch(_){}
+      }, 240);
 
-      setTimeout(()=>{ try{ p.remove(); }catch(_){ } }, 800);
+      setTimeout(()=>{ try{ p.remove(); }catch(_){ } }, 820);
     }
   }
 
-  // ---------- lock ring driver ----------
+  function toast(text, kind){
+    const el = doc.createElement('div');
+    el.textContent = String(text || '');
+    const top = 160;
+    setStyle(el, {
+      position:'fixed',
+      left:'50%',
+      top: top + 'px',
+      transform:'translateX(-50%) translateY(-10px) scale(.98)',
+      padding:'10px 14px',
+      borderRadius:'16px',
+      fontWeight:'1000',
+      letterSpacing:'.4px',
+      zIndex: 45,
+      opacity:'0',
+      pointerEvents:'none',
+      background: kind==='warn'
+        ? 'rgba(245,158,11,.14)'
+        : (kind==='bad' ? 'rgba(239,68,68,.14)' : 'rgba(34,197,94,.14)'),
+      border: kind==='warn'
+        ? '1px solid rgba(245,158,11,.22)'
+        : (kind==='bad' ? '1px solid rgba(239,68,68,.22)' : '1px solid rgba(34,197,94,.22)'),
+      backdropFilter:'blur(10px)',
+      WebkitBackdropFilter:'blur(10px)',
+      boxShadow:'0 18px 60px rgba(0,0,0,.45)'
+    });
+    doc.body.appendChild(el);
+
+    requestAnimationFrame(()=>{
+      el.style.transition = 'transform .18s ease-out, opacity .18s ease-out';
+      el.style.opacity = '1';
+      el.style.transform = 'translateX(-50%) translateY(0) scale(1)';
+    });
+
+    setTimeout(()=>{
+      try{
+        el.style.transition = 'transform .18s ease-in, opacity .18s ease-in';
+        el.style.opacity = '0';
+        el.style.transform = 'translateX(-50%) translateY(-8px) scale(.98)';
+      }catch(_){}
+    }, 520);
+
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 820);
+  }
+
+  // ---------------- bind events ----------------
   const lockRing = ensureLockRing();
-  function setLock(on, x, y, prog, charge){
+  const groupBanner = ensureGroupBanner();
+  const stunOverlay = ensureStunOverlay();
+
+  // LOCK RING
+  W.addEventListener('groups:lock', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    const on = !!d.on;
+
     if (!on){
-      lockRing.style.display = 'none';
+      lockRing.style.opacity = '0';
+      lockRing.style.transform = 'translate(-50%,-50%) scale(.9)';
+      lockRing.style.setProperty('--p', '0');
       return;
     }
 
-    // position on target center
-    lockRing.style.display = '';
+    const x = Number(d.x)|| (innerWidth/2);
+    const y = Number(d.y)|| (innerHeight/2);
+    const p = clamp(d.prog, 0, 1);
+    const c = clamp(d.charge, 0, 1);
+
     lockRing.style.left = Math.round(x) + 'px';
     lockRing.style.top  = Math.round(y) + 'px';
-    lockRing.style.transform = 'translate(-50%,-50%)';
+    lockRing.style.opacity = '1';
+    lockRing.style.transform = 'translate(-50%,-50%) scale(1)';
+    lockRing.style.setProperty('--p', String(p));
+    lockRing.style.setProperty('--c', String(c));
+  }, { passive:true });
 
-    // css vars for conic gradients
-    lockRing.style.setProperty('--p', String(clamp(prog,0,1)));
-    lockRing.style.setProperty('--c', String(clamp(charge,0,1)));
-  }
+  // PANIC (last 3 seconds of mini window)
+  let panicLastLeft = 999;
+  W.addEventListener('groups:panic', (ev)=>{
+    const d = (ev && ev.detail) ? ev.detail : {};
+    const on = !!d.on;
+    const left = (d.left|0);
 
-  // ---------- group banner ----------
-  const banner = ensureGroupBanner();
-  let bannerTimer = 0;
+    // toggle HTML class (CSS already has html.panic)
+    if (on) doc.documentElement.classList.add('panic');
+    else doc.documentElement.classList.remove('panic');
 
-  function showBanner(label){
-    const t = byId('fg-bannerText');
-    if (t) t.textContent = label || 'หมู่ ?';
+    // tick sound only when countdown changes
+    if (on && left !== panicLastLeft){
+      panicLastLeft = left;
 
-    const sub = byId('fg-bannerSub');
-    if (sub) sub.textContent = 'ยิงให้ถูกหมู่ปัจจุบัน 🎯';
+      // 3..2..1 pitch up
+      const freq = (left===3)?660:(left===2?820:980);
+      beep(freq, 55, 0.06);
 
-    // avoid HUD overlap: push below HUD based on .hud-top bottom
-    try{
-      const hud = $('.hud-top');
-      if (hud){
-        const r = hud.getBoundingClientRect();
-        const sat = safeInset('--sat');
-        const top = Math.max(96 + sat, Math.round(r.bottom + 10));
-        banner.style.top = top + 'px';
+      // tiny pulse on timer text (if exists)
+      const tEl = byId('hud-time');
+      if (tEl){
+        tEl.style.transform = 'scale(1.04)';
+        setTimeout(()=>{ try{ tEl.style.transform='scale(1)'; }catch(_){} }, 90);
       }
-    }catch(_){}
+    }
 
-    banner.style.display = '';
-    banner.classList.remove('pop');
-    // restart animation
-    void banner.offsetWidth;
-    banner.classList.add('pop');
-
-    clearTimeout(bannerTimer);
-    bannerTimer = setTimeout(()=>{ banner.style.display='none'; }, 1100);
-  }
-
-  // ---------- stun overlay ----------
-  const stun = ensureStunOverlay();
-  let stunTimer = 0;
-
-  function showStun(ms){
-    stun.style.display = '';
-    stun.classList.remove('pop');
-    void stun.offsetWidth;
-    stun.classList.add('pop');
-
-    // hide after ms
-    clearTimeout(stunTimer);
-    stunTimer = setTimeout(()=>{ stun.style.display='none'; }, Math.max(120, ms|0));
-  }
-
-  // ---------- panic ----------
-  let panicOn = false;
-  function setPanic(on){
-    on = !!on;
-    if (on === panicOn) return;
-    panicOn = on;
-    doc.documentElement.classList.toggle('panic', panicOn);
-  }
-
-  // ---------- bind events ----------
-  removeBottomPanelIfAny();
-
-  W.addEventListener('groups:lock', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    setLock(!!d.on, d.x||0, d.y||0, d.prog||0, d.charge||0);
+    if (!on){
+      panicLastLeft = 999;
+    }
   }, { passive:true });
 
-  W.addEventListener('groups:group_change', (ev)=>{
-    const d = (ev && ev.detail) ? ev.detail : {};
-    showBanner(d.label || 'หมู่ ?');
-  }, { passive:true });
-
+  // STUN overlay
   W.addEventListener('groups:stun', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const ms = (d.ms|0) || 800;
-    showStun(ms);
+    const on = !!d.on;
+    const ms = Math.max(200, d.ms|0);
 
-    // slight shake (safe)
-    try{
-      if (navigator.vibrate) navigator.vibrate([40,40,40]);
-    }catch(_){}
+    if (!on){
+      stunOverlay.style.display = 'none';
+      return;
+    }
+
+    stunOverlay.style.display = '';
+    stunOverlay.classList.remove('pop');
+    void stunOverlay.offsetWidth; // reflow
+    stunOverlay.classList.add('pop');
+
+    const sub = byId('fgStunSub');
+    if (sub) sub.textContent = `พัก ${Math.ceil(ms/1000)}s…`;
+
+    // auto hide
+    setTimeout(()=>{ stunOverlay.style.display='none'; }, ms);
   }, { passive:true });
 
-  W.addEventListener('hha:time', (ev)=>{
+  // GROUP banner pop
+  W.addEventListener('groups:group_change', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const left = (d.left|0);
-    // panic when <= 10s
-    setPanic(left > 0 && left <= 10);
+    const textEl = byId('fgGroupBannerText');
+    if (textEl) textEl.textContent = d.label || 'หมู่ ?';
+
+    groupBanner.classList.remove('pop');
+    // show instantly (CSS anim will fade/slide in)
+    groupBanner.style.opacity = '1';
+    void groupBanner.offsetWidth;
+    groupBanner.classList.add('pop');
+
+    // fade after a moment
+    setTimeout(()=>{
+      try{
+        groupBanner.style.transition = 'opacity .35s ease-in';
+        groupBanner.style.opacity = '0';
+      }catch(_){}
+    }, 900);
+
+    setTimeout(()=>{
+      try{ groupBanner.style.transition=''; }catch(_){}
+    }, 1400);
   }, { passive:true });
 
+  // POWER pulse (nice feedback when power increments)
+  W.addEventListener('groups:power', (ev)=>{
+    const fill = $('.power-fill');
+    if (!fill) return;
+    fill.classList.remove('pulse');
+    void fill.offsetWidth;
+    fill.classList.add('pulse');
+  }, { passive:true });
+
+  // CELEBRATE (goal/mini)
   W.addEventListener('hha:celebrate', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const kind = String(d.kind || 'ok');
-    const text = d.text || (kind === 'goal' ? 'GOAL CLEAR!' : 'NICE!');
-    toast(text, kind);
+    const kind = String(d.kind||'').toLowerCase();
+    const text = d.text || (kind==='goal' ? 'GOAL CLEAR!' : 'MINI CLEAR!');
+    toast(text, 'good');
 
-    // burst near center-top (avoid HUD)
-    const sat = safeInset('--sat');
-    const x = (innerWidth||360)/2;
-    const y = Math.max(120 + sat, 0.30*(innerHeight||640));
-    burstAt(x, y, kind);
+    // light confetti burst around center
+    const x = Math.round(innerWidth/2);
+    const y = Math.round(innerHeight*0.32);
+    burstAt(x, y, kind==='goal' ? '✨' : '⭐');
+
+    // subtle screen flash
+    doc.documentElement.classList.add('swapflash');
+    setTimeout(()=>doc.documentElement.classList.remove('swapflash'), 160);
   }, { passive:true });
 
+  // JUDGE (warn)
   W.addEventListener('hha:judge', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-    const text = d.text || 'OK';
-    const kind = d.kind || 'warn';
-    toast(text, kind);
+    const text = d.text || 'WARNING';
+    toast(text, 'warn');
+
+    // small burst
+    const x = Math.round(innerWidth/2);
+    const y = Math.round(innerHeight*0.32);
+    burstAt(x, y, '⚠️');
   }, { passive:true });
 
-  // If you want a tiny hit FX without touching engine:
-  // capture clicks on targets at capture phase (doesn't block engine)
-  doc.addEventListener('pointerdown', (ev)=>{
-    const t = ev.target;
-    if (!t || !t.classList) return;
-    if (!t.classList.contains('fg-target')) return;
-
-    const r = t.getBoundingClientRect();
-    const x = r.left + r.width/2;
-    const y = r.top  + r.height/2;
-
-    // emoji for trail (first child span)
-    let emoji = '✨';
-    try{
-      const sp = t.querySelector('span');
-      if (sp && sp.textContent) emoji = sp.textContent.trim() || emoji;
-    }catch(_){}
-
-    afterimageAt(x, y, emoji);
-  }, { passive:true, capture:true });
+  // Provide a tiny API if you want (optional)
+  NS.scorePop = scorePop;
+  NS.burstAt  = burstAt;
 
 })();
