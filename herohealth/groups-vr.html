@@ -1,8 +1,7 @@
-<!-- === /herohealth/groups-vr.html ===
-Food Groups VR — PRODUCTION FULL HTML
-✅ Uses DOM targets (emoji) on #fg-layer
-✅ Loads: particles -> quests -> hudQuest -> engine -> lock ring binder -> basic HUD binder
-✅ Start overlay + Safe mobile viewport
+<!-- === /herohealth/vr-groups/groups-vr.html ===
+Food Groups VR — PRODUCTION (classic scripts)
+✅ Uses /vr-groups/groups.css alias -> groups-vr.css
+✅ Load order safe: HUD quest binder -> quest -> fx -> engine -> boot
 -->
 
 <!doctype html>
@@ -12,76 +11,68 @@ Food Groups VR — PRODUCTION FULL HTML
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Food Groups VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (scene optional; gameplay is DOM overlay) -->
+  <!-- A-Frame (optional scene bg) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./vr-groups/groups-vr.css" />
-
-  <!-- FX (global) -->
-  <script src="./vr/particles.js" defer></script>
-
-  <!-- Quest + HUD Quest binder -->
-  <script src="./vr-groups/groups-quests.js" defer></script>
-  <script src="./vr-groups/groups-hud-quest.js" defer></script>
-
-  <!-- Engine -->
-  <script src="./vr-groups/GameEngine.js" defer></script>
-
-  <style>
-    /* ensure layer sits above A-Frame canvas */
-    .fg-layer { z-index: 6; }
-    .start-overlay { z-index: 30; }
-    .lock-ring { display:none; }
-    .lock-ring.on { display:block; }
-  </style>
+  <!-- ✅ IMPORTANT: alias loader (you said it is here for sure) -->
+  <link rel="stylesheet" href="./groups.css" />
 </head>
 
 <body>
-
-  <!-- Optional A-Frame scene (kept minimal) -->
+  <!-- Optional background scene -->
   <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
-    <a-sky color="#020617"></a-sky>
+    <a-sky color="#06101f"></a-sky>
+    <a-entity position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
-  <!-- Gameplay DOM layer -->
-  <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
+  <!-- Gameplay layer (targets spawn here) -->
+  <div class="fg-layer" id="fg-layer"></div>
 
-  <!-- HUD (top) -->
+  <!-- HUD -->
   <div class="hud-top">
     <div class="hud-card hud-left">
-      <div class="hud-row"><div class="hud-title">SCORE</div><div id="hud-score" class="hud-val">0</div></div>
-      <div class="hud-row"><div class="hud-title">COMBO</div><div id="hud-combo" class="hud-val">0</div></div>
-      <div class="hud-row"><div class="hud-title">MISS</div><div id="hud-miss" class="hud-val">0</div></div>
+      <div class="hud-row">
+        <div class="hud-title">SCORE</div>
+        <div class="hud-val" id="hud-score">0</div>
+      </div>
+      <div class="hud-row">
+        <div class="hud-title">COMBO</div>
+        <div class="hud-val" id="hud-combo">0</div>
+      </div>
+      <div class="hud-row">
+        <div class="hud-title">MISS</div>
+        <div class="hud-val" id="hud-miss">0</div>
+      </div>
     </div>
 
     <div class="hud-card hud-mid">
       <div class="hud-group-row">
-        <div id="hud-group" class="hud-group">หมู่ 1</div>
-        <div id="hud-time" class="hud-timer">90</div>
+        <div class="hud-group" id="hud-group">หมู่ ?</div>
+        <div class="hud-timer" id="hud-time">90</div>
       </div>
 
       <div class="power-wrap">
         <div class="power-label">
-          <div id="hud-powerLabel">Power</div>
-          <div id="hud-powerNum">0/7</div>
+          <div>POWER</div>
+          <div id="fg-powerText" style="font-weight:900;opacity:.9">0/0</div>
         </div>
-        <div class="power-bar"><div id="hud-powerFill" class="power-fill"></div></div>
+        <div class="power-bar">
+          <div class="power-fill" id="hud-powerFill"></div>
+        </div>
       </div>
 
       <div class="quest-wrap">
         <div class="quest-line">
           <div class="q-badge">GOAL</div>
-          <div id="hud-goal-title" class="q-text">—</div>
-          <div id="hud-goal-val" class="q-num">0/0</div>
+          <div class="q-text" id="hud-goal-title">—</div>
+          <div class="q-num" id="hud-goal-val">0/0</div>
         </div>
         <div class="quest-line">
           <div class="q-badge mini">MINI</div>
-          <div id="hud-mini-title" class="q-text">—</div>
-          <div id="hud-mini-val" class="q-num">0/0</div>
+          <div class="q-text" id="hud-mini-title">—</div>
+          <div class="q-num" id="hud-mini-val">0/0</div>
         </div>
       </div>
     </div>
@@ -90,227 +81,157 @@ Food Groups VR — PRODUCTION FULL HTML
       <div class="rank-box">
         <div>
           <div class="rank-title">RANK</div>
-          <div id="hud-grade" class="rank-grade">C</div>
+          <div class="rank-sub">
+            <span>ACC</span>
+            <span id="hud-acc">0%</span>
+          </div>
         </div>
-        <div style="text-align:right">
-          <div class="rank-title">ACC</div>
-          <div id="hud-acc" class="hud-val">0%</div>
-        </div>
+        <div class="rank-grade" id="hud-rank">C</div>
       </div>
       <div class="rank-sub">
-        <div>Quests</div>
-        <div id="hud-questsPct">0%</div>
+        <span>BEST</span>
+        <span id="hud-comboMax">0</span>
       </div>
     </div>
   </div>
 
-  <!-- Group banner -->
-  <div id="groupBanner" class="group-banner" style="display:none">
-    <div id="groupBannerText" class="group-banner-text">หมู่ 1</div>
-    <div id="groupBannerSub" class="group-banner-sub">ยิงให้ถูกหมู่ปัจจุบัน</div>
-  </div>
-
-  <!-- Lock ring -->
-  <div id="lockRing" class="lock-ring">
-    <div class="lock-core"></div>
-    <div class="lock-prog"></div>
-    <div class="lock-charge"></div>
-  </div>
-
-  <!-- Stun overlay -->
-  <div id="stunOverlay" class="stun-overlay" style="display:none">
-    <div class="stun-card">
-      <div class="stun-title">STUN!</div>
-      <div class="stun-sub">โดนขยะแล้ว 😵‍💫</div>
-    </div>
-  </div>
-
-  <!-- Start overlay -->
-  <div id="startOverlay" class="start-overlay">
+  <!-- Start Overlay -->
+  <div class="start-overlay" id="startOverlay">
     <div class="start-card">
       <div class="start-title">Food Groups VR 🍽️</div>
       <div class="start-sub">
-        ยิง “อาหารที่ตรงกับหมู่ปัจจุบัน” ให้ไวที่สุด ⚡<br/>
-        ระวัง Junk (โดนแล้ว STUN) และ Decoy (หน้าตาดีแต่หลอก) 👀
+        ยิงให้ถูก “หมู่ปัจจุบัน” 🎯 สะสมพลังเพื่อสลับหมู่ ✨<br/>
+        ระวังขยะ (STUN) 🚫 และตัวหลอก (decoy) ❓
       </div>
 
       <div class="start-grid">
-        <div class="pill">🎯 Lock = ค้าง/เล็งใกล้เป้า</div>
-        <div class="pill">👆 Tap = ยิงทันที</div>
-        <div class="pill">⚡ Power เต็ม = เปลี่ยนหมู่</div>
-        <div class="pill">🧠 Boss ต้องยิงหลายครั้ง</div>
+        <div class="pill" id="pill-diff">DIFF: normal</div>
+        <div class="pill" id="pill-time">TIME: 90s</div>
+        <div class="pill" id="pill-mode">MODE: play</div>
       </div>
 
       <div class="start-actions">
-        <button id="btnPlay" class="btn primary" type="button">▶️ เริ่ม (Play)</button>
-        <button id="btnResearch" class="btn" type="button">🧪 เริ่ม (Research)</button>
-        <button id="btnReset" class="btn ghost" type="button">↻ รีเฟรช</button>
+        <button class="btn primary" id="btnStart">เริ่มเล่น</button>
+        <button class="btn ghost" id="btnRestart">รีเซ็ต</button>
       </div>
 
       <div class="start-note">
-        Tip: ถ้าจะวิจัยให้ส่ง seed เดิมทุกครั้ง เช่น ?run=research&seed=CRU01
+        Tip: แตะเป้า = ยิงทันที / แตะใกล้เป้า = ล็อกยิงอัตโนมัติ
       </div>
     </div>
   </div>
 
+  <!-- Stun overlay / lock ring / group banner are created by groups-fx.js if missing -->
+
+  <!-- ===== Scripts (classic order) ===== -->
+  <script src="./groups-hud-quest.js"></script>
+  <script src="./groups-quests.js"></script>
+  <script src="./groups-fx.js"></script>
+  <script src="./GameEngine.js"></script>
+
+  <!-- Boot -->
   <script>
-  // === inline binders (keep html self-contained) ===
   (function(){
     'use strict';
 
-    function $(id){ return document.getElementById(id); }
-    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-    // ----- Lock ring binder -----
-    const ring = $('lockRing');
-    function setRing(on, x, y, p, c){
-      if (!ring) return;
-      if (!on){
-        ring.classList.remove('on');
-        return;
-      }
-      ring.classList.add('on');
-      ring.style.left = (x|0) + 'px';
-      ring.style.top  = (y|0) + 'px';
-      ring.style.transform = 'translate(-50%,-50%)';
-      ring.style.setProperty('--p', clamp(p,0,1));
-      ring.style.setProperty('--c', clamp(c,0,1));
+    function qs(name, def){
+      const u = new URL(location.href);
+      return u.searchParams.get(name) ?? def;
+    }
+    function int(name, def){
+      const v = parseInt(qs(name, def), 10);
+      return Number.isFinite(v) ? v : def;
     }
 
-    window.addEventListener('groups:lock', (ev)=>{
-      const d = ev && ev.detail ? ev.detail : {};
-      setRing(!!d.on, d.x||0, d.y||0, d.prog||0, d.charge||0);
-    }, { passive:true });
+    const diff = String(qs('diff','normal')).toLowerCase();
+    const time = int('time', 90);
+    const run  = String(qs('run','play')).toLowerCase();
+    const seed = qs('seed', '');
 
-    // ----- HUD basic binder -----
-    const elScore = $('hud-score');
-    const elCombo = $('hud-combo');
-    const elMiss  = $('hud-miss');
-    const elTime  = $('hud-time');
-    const elGroup = $('hud-group');
+    // pills
+    document.getElementById('pill-diff').textContent = 'DIFF: ' + diff;
+    document.getElementById('pill-time').textContent = 'TIME: ' + time + 's';
+    document.getElementById('pill-mode').textContent = 'MODE: ' + run;
 
-    const elGrade = $('hud-grade');
-    const elAcc   = $('hud-acc');
-    const elQuestsPct = $('hud-questsPct');
-
-    const elPowerFill = $('hud-powerFill');
-    const elPowerNum  = $('hud-powerNum');
-    const elPowerLabel= $('hud-powerLabel');
-
-    const banner = $('groupBanner');
-    const bannerText = $('groupBannerText');
-
-    const stunOverlay = $('stunOverlay');
-
+    // HUD binders
     window.addEventListener('hha:score', (ev)=>{
-      const d = ev && ev.detail ? ev.detail : {};
-      if (elScore) elScore.textContent = String(d.score|0);
-      if (elCombo) elCombo.textContent = String(d.combo|0);
-      if (elMiss)  elMiss.textContent  = String(d.misses|0);
-    }, { passive:true });
+      const d = ev.detail || {};
+      const score = (d.score|0);
+      const combo = (d.combo|0);
+      const miss  = (d.misses|0);
+      const comboMax = (d.comboMax|0);
 
-    window.addEventListener('hha:time', (ev)=>{
-      const d = ev && ev.detail ? ev.detail : {};
-      if (elTime) elTime.textContent = String(d.left|0);
-
-      // panic class when low
-      if ((d.left|0) <= 10) document.documentElement.classList.add('panic');
-      else document.documentElement.classList.remove('panic');
+      const sEl = document.getElementById('hud-score'); if (sEl) sEl.textContent = score;
+      const cEl = document.getElementById('hud-combo'); if (cEl) cEl.textContent = combo;
+      const mEl = document.getElementById('hud-miss');  if (mEl) mEl.textContent = miss;
+      const bEl = document.getElementById('hud-comboMax'); if (bEl) bEl.textContent = comboMax;
     }, { passive:true });
 
     window.addEventListener('hha:rank', (ev)=>{
-      const d = ev && ev.detail ? ev.detail : {};
-      if (d.grade && elGrade) elGrade.textContent = String(d.grade);
-      if (typeof d.accuracy === 'number' && elAcc) elAcc.textContent = String(d.accuracy|0) + '%';
-      if (typeof d.questsPct === 'number' && elQuestsPct) elQuestsPct.textContent = String(d.questsPct|0) + '%';
+      const d = ev.detail || {};
+      if (d.grade){
+        const rEl = document.getElementById('hud-rank'); if (rEl) rEl.textContent = d.grade;
+      }
+      if (typeof d.accuracy === 'number'){
+        const aEl = document.getElementById('hud-acc'); if (aEl) aEl.textContent = (d.accuracy|0) + '%';
+      }
+    }, { passive:true });
+
+    window.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail || {};
+      const left = (d.left|0);
+      const tEl = document.getElementById('hud-time'); if (tEl) tEl.textContent = left;
     }, { passive:true });
 
     window.addEventListener('groups:group_change', (ev)=>{
-      const d = ev && ev.detail ? ev.detail : {};
-      const label = String(d.label || '');
-      if (elGroup) elGroup.textContent = label || 'หมู่ ?';
-
-      if (banner && bannerText){
-        bannerText.textContent = label || 'หมู่ ?';
-        banner.style.display = '';
-        banner.classList.remove('pop');
-        void banner.offsetWidth; // reflow
-        banner.classList.add('pop');
-        setTimeout(()=>{ try{ banner.style.display='none'; }catch(_){} }, 900);
-      }
+      const d = ev.detail || {};
+      const gEl = document.getElementById('hud-group'); if (gEl) gEl.textContent = d.label || 'หมู่ ?';
     }, { passive:true });
 
     window.addEventListener('groups:power', (ev)=>{
-      const d = ev && ev.detail ? ev.detail : {};
-      const c = (d.charge|0);
+      const d = ev.detail || {};
       const th = Math.max(1, d.threshold|0);
-      const p = clamp(c / th, 0, 1);
+      const ch = Math.max(0, d.charge|0);
+      const pct = Math.min(100, (ch/th)*100);
 
-      if (elPowerFill){
-        elPowerFill.style.width = Math.round(p*100) + '%';
-        elPowerFill.classList.remove('pulse');
-        void elPowerFill.offsetWidth;
-        elPowerFill.classList.add('pulse');
-      }
-      if (elPowerNum) elPowerNum.textContent = `${c}/${th}`;
-      if (elPowerLabel) elPowerLabel.textContent = d.groupName ? `Power: ${d.groupName}` : 'Power';
+      const fill = document.querySelector('.power-fill');
+      if (fill) fill.style.width = pct.toFixed(1) + '%';
+
+      const txt = document.getElementById('fg-powerText');
+      if (txt) txt.textContent = `${ch}/${th}`;
     }, { passive:true });
 
-    window.addEventListener('groups:stun', (ev)=>{
-      const d = ev && ev.detail ? ev.detail : {};
-      if (!stunOverlay) return;
-      if (d.on){
-        stunOverlay.style.display = '';
-        stunOverlay.classList.remove('pop');
-        void stunOverlay.offsetWidth;
-        stunOverlay.classList.add('pop');
-        setTimeout(()=>{ try{ stunOverlay.style.display='none'; }catch(_){} }, (d.ms|0) || 800);
-      }
-    }, { passive:true });
+    // Start controls
+    const overlay = document.getElementById('startOverlay');
+    const btnStart = document.getElementById('btnStart');
+    const btnRestart = document.getElementById('btnRestart');
 
-    // ----- Start overlay actions -----
-    function parseQS(){
-      const p = new URLSearchParams(location.search);
-      return {
-        diff: (p.get('diff')||'normal').toLowerCase(),
-        time: parseInt(p.get('time')||'90',10) || 90,
-        run: (p.get('run')||'play').toLowerCase(),
-        seed: p.get('seed') || ''
-      };
-    }
-
-    function boot(runMode){
-      const qs = parseQS();
-      const diff = qs.diff;
-      const time = qs.time;
-
-      const layer = $('fg-layer');
-      if (!layer || !window.GroupsVR || !window.GroupsVR.GameEngine){
-        alert('Engine ยังไม่พร้อม (เช็ค path ไฟล์)');
+    function boot(){
+      const engine = window.GroupsVR && window.GroupsVR.GameEngine;
+      if (!engine){
+        alert('GroupsVR.GameEngine not found');
         return;
       }
-
-      window.GroupsVR.GameEngine.setLayerEl(layer);
-      window.GroupsVR.GameEngine.setTimeLeft(time);
-      window.GroupsVR.GameEngine.start(diff, {
-        runMode: runMode || qs.run,
-        seed: qs.seed || ''
-      });
-
-      const so = $('startOverlay');
-      if (so) so.style.display = 'none';
+      engine.setLayerEl(document.getElementById('fg-layer'));
+      engine.setTimeLeft(time);
+      engine.start(diff, { runMode: run, seed: seed });
     }
 
-    const btnPlay = $('btnPlay');
-    const btnResearch = $('btnResearch');
-    const btnReset = $('btnReset');
+    btnStart.addEventListener('click', ()=>{
+      overlay.style.display = 'none';
+      boot();
+    });
 
-    if (btnPlay) btnPlay.addEventListener('click', ()=>boot('play'));
-    if (btnResearch) btnResearch.addEventListener('click', ()=>boot('research'));
-    if (btnReset) btnReset.addEventListener('click', ()=>location.reload());
+    btnRestart.addEventListener('click', ()=>{
+      location.reload();
+    });
 
+    // auto hide overlay if ?autostart=1
+    if (qs('autostart','0') === '1'){
+      overlay.style.display = 'none';
+      boot();
+    }
   })();
   </script>
-
 </body>
 </html>
