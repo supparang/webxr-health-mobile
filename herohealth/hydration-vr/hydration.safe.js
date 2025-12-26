@@ -1,982 +1,854 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PLAY MODE (PRODUCTION)
-// ✅ Targets spawn FULL SPREAD (grid9) + safezone exclusions
-// ✅ VR-feel playfield move (gyro + drag)
-// ✅ Score/Combo/Miss + Perfect bonus
-// ✅ Powerups: ⭐ (boost) + 🛡️ (shield)
-// ✅ Stamp Finisher (Grade) + Odometer rolling numbers + Spark trail
-// ✅ Emits standard events: hha:score, hha:time, hha:judge, hha:coach, hha:end
-// ✅ Cloud logger compatible: hha:log_session, hha:log_event, hha:end
+// Hydration Quest VR — PRODUCTION PACK (module)
+// ✅ เข้าเกมชัวร์ (module load ถูกต้อง)
+// ✅ เป้ากระจายทั้งจอ: spawnAroundCrosshair:false + grid9
+// ✅ ยิง crosshair ด้วย “แตะกลางจอ” (มือถือสะดวก)
+// ✅ HUD + Fever + Water balance + End summary + Logger events
+// ✅ มี Stamp effect (goal/mini) + running counter
 
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
+import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 
+/* ------------------------- helpers ------------------------- */
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC  = ROOT.document;
+const $ = (s) => document.querySelector(s);
 
-// ---------------------------------------------------------
-// helpers
-// ---------------------------------------------------------
-function $(sel){ return DOC ? DOC.querySelector(sel) : null; }
-function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
-function q(name, fallback=''){
-  try{
-    const u = new URL(ROOT.location.href);
-    const v = u.searchParams.get(name);
-    return (v==null || v==='') ? fallback : v;
-  }catch{ return fallback; }
+function clamp(v, a, b){
+  v = Number(v) || 0;
+  if (v < a) return a;
+  if (v > b) return b;
+  return v;
 }
-function qn(name, fallback=null){
-  const s = q(name, '');
-  const n = Number(s);
+function qs(){
+  return new URLSearchParams(location.search);
+}
+function str(v, fallback=''){ return (v == null) ? fallback : String(v); }
+function num(v, fallback=null){
+  const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
-function nowMs(){ return (typeof performance!=='undefined'? performance.now(): Date.now()); }
+function nowMs(){ return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now(); }
 
+/* ------------------------- UI refs ------------------------- */
+const UI = {
+  startOverlay: $('#start-overlay'),
+  btnStart: $('#btn-start'),
+  btnMotion: $('#btn-motion'),
+  btnVR: $('#btn-vr'),
+  btnStop: $('#btn-stop'),
+
+  statScore: $('#stat-score'),
+  statCombo: $('#stat-combo'),
+  statComboMax: $('#stat-combo-max'),
+  statMiss: $('#stat-miss'),
+  statTime: $('#stat-time'),
+  statGrade: $('#stat-grade'),
+
+  waterZone: $('#water-zone'),
+  waterPct: $('#water-pct'),
+  waterBar: $('#water-bar'),
+
+  feverPct: $('#fever-pct'),
+  feverBar: $('#fever-bar'),
+
+  questTitle: $('#quest-title'),
+  q1: $('#quest-line1'),
+  q2: $('#quest-line2'),
+  q3: $('#quest-line3'),
+  q4: $('#quest-line4'),
+
+  coachFace: $('#coach-face'),
+  coachText: $('#coach-text'),
+  coachSub: $('#coach-sub'),
+
+  stamp: $('#hha-stamp'),
+  stampBig: $('#stamp-big'),
+  stampSmall: $('#stamp-small'),
+
+  end: $('#hvr-end'),
+  endScore: $('#end-score'),
+  endGrade: $('#end-grade'),
+  endCombo: $('#end-combo'),
+  endMiss: $('#end-miss'),
+  endGoals: $('#end-goals'),
+  endMinis: $('#end-minis'),
+  btnRetry: $('#btn-retry'),
+  btnBackHub: $('#btn-backhub'),
+
+  playfield: $('#playfield'),
+};
+
+function showStamp(big, small){
+  if (!UI.stamp) return;
+  UI.stampBig && (UI.stampBig.textContent = big || 'GOAL!');
+  UI.stampSmall && (UI.stampSmall.textContent = small || '');
+  UI.stamp.classList.remove('show');
+  // reflow
+  void UI.stamp.offsetWidth;
+  UI.stamp.classList.add('show');
+}
+
+function setCoach(face, text, sub){
+  if (UI.coachFace) UI.coachFace.textContent = face || '🥦';
+  if (UI.coachText) UI.coachText.textContent = text || '';
+  if (UI.coachSub && sub != null) UI.coachSub.textContent = sub;
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:coach', { detail: { face, text, sub } }));
+  }catch{}
+}
+
+/* ------------------------- core state ------------------------- */
+const Q = qs();
+
+const SESSION = {
+  projectTag: str(Q.get('projectTag') || Q.get('project') || 'HeroHealth'),
+  runMode: str(Q.get('runMode') || Q.get('run') || 'play'),
+  game: 'hydration',
+  diff: str(Q.get('diff') || 'normal').toLowerCase(),
+  duration: clamp(num(Q.get('time') || Q.get('durationPlannedSec') || 70, 70), 20, 180),
+  sessionId: str(Q.get('sessionId') || (Date.now() + '-' + Math.random().toString(16).slice(2))),
+  seed: str(Q.get('seed') || Q.get('sessionId') || Q.get('ts') || ''),
+
+  hub: str(Q.get('hub') || './hub.html'),
+};
+
+const STATE = {
+  started: false,
+  ended: false,
+
+  score: 0,
+  combo: 0,
+  comboMax: 0,
+
+  // miss ตามสเปคของคุณ: miss = good expired + junk hit (และ shield block ไม่นับ)
+  miss: 0,
+
+  // hydration gauge (0..100)
+  water: 34, // start at ~34%
+  waterZone: 'LOW',
+
+  // fever 0..100
+  fever: 0,
+  shield: 0, // seconds remaining (simple)
+
+  // quest
+  goalsCleared: 0,
+  goalsTotal: 2,
+  miniCleared: 0,
+  miniTotal: 3,
+
+  // stats for research-ish
+  goodSpawned: 0,
+  junkSpawned: 0,
+  goodHits: 0,
+  junkHits: 0,
+  expireGood: 0,
+
+  tStartIso: '',
+  tEndIso: '',
+};
+
+/* ------------------------- grading ------------------------- */
+function calcGrade(){
+  // โหดแบบสนุก: เอาคะแนน+มิส+ความสมดุลน้ำ
+  const score = STATE.score;
+  const miss = STATE.miss;
+  const zone = STATE.waterZone; // GREEN/LOW/HIGH
+
+  let g = 'C';
+  if (score >= 900 && miss <= 2 && zone === 'GREEN') g = 'SSS';
+  else if (score >= 780 && miss <= 3) g = 'SS';
+  else if (score >= 660 && miss <= 4) g = 'S';
+  else if (score >= 520 && miss <= 6) g = 'A';
+  else if (score >= 360) g = 'B';
+  else g = 'C';
+  return g;
+}
+
+function updateHUD(){
+  UI.statScore && (UI.statScore.textContent = String(STATE.score));
+  UI.statCombo && (UI.statCombo.textContent = String(STATE.combo));
+  UI.statComboMax && (UI.statComboMax.textContent = String(STATE.comboMax));
+  UI.statMiss && (UI.statMiss.textContent = String(STATE.miss));
+  UI.statGrade && (UI.statGrade.textContent = calcGrade());
+
+  // water ui
+  if (UI.waterPct) UI.waterPct.textContent = Math.round(STATE.water) + '%';
+  if (UI.waterZone) UI.waterZone.textContent = STATE.waterZone;
+  if (UI.waterBar) UI.waterBar.style.width = clamp(STATE.water, 0, 100) + '%';
+
+  // fever ui
+  if (UI.feverPct) UI.feverPct.textContent = Math.round(STATE.fever) + '%';
+  if (UI.feverBar) UI.feverBar.style.width = clamp(STATE.fever, 0, 100) + '%';
+
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:score', {
+      detail:{
+        score: STATE.score,
+        combo: STATE.combo,
+        comboMax: STATE.comboMax,
+        misses: STATE.miss,
+        fever: STATE.fever,
+        shield: STATE.shield,
+        water: STATE.water,
+        waterZone: STATE.waterZone,
+        grade: calcGrade(),
+      }
+    }));
+  }catch{}
+}
+
+function setWater(v){
+  STATE.water = clamp(v, 0, 100);
+  const z = zoneFrom ? zoneFrom(STATE.water) : (STATE.water >= 45 && STATE.water <= 70 ? 'GREEN' : (STATE.water < 45 ? 'LOW' : 'HIGH'));
+  STATE.waterZone = String(z || 'LOW').toUpperCase();
+  try{ setWaterGauge(STATE.water); }catch{}
+  updateHUD();
+}
+
+function addFever(d){
+  STATE.fever = clamp(STATE.fever + d, 0, 100);
+  // shield degrade
+  updateHUD();
+}
+
+/* ------------------------- quest (simple but fun) ------------------------- */
+const QUEST = {
+  goalIndex: 0,
+  miniMask: new Set(),
+
+  // Goal 1: สะสม GREEN-zone hits รวม 10
+  g1Need: 10,
+  g1Now: 0,
+
+  // Goal 2: อยู่ GREEN ต่อเนื่อง 12 วินาที (นับเวลาจาก time event)
+  g2NeedSec: 12,
+  g2NowSec: 0,
+  g2Active: false,
+
+  // Mini A: PERFECT 6 ครั้ง
+  mPerfectNeed: 6,
+  mPerfectNow: 0,
+
+  // Mini B: No-junk sprint: เก็บ good 5 ภายใน 8 วินาที และห้ามโดน junk
+  sprintNeed: 5,
+  sprintNow: 0,
+  sprintWindowSec: 8,
+  sprintT0: null,
+  sprintFail: false,
+
+  // Mini C: Recovery: จาก HIGH/LOW กลับเข้า GREEN ภายใน 6 วินาที
+  recNeedSec: 6,
+  recT0: null,
+  recArmed: false,
+};
+
+function questText(){
+  // title + lines
+  UI.questTitle && (UI.questTitle.textContent = `Quest ${QUEST.goalIndex + 1}`);
+
+  // Goal line
+  if (QUEST.goalIndex === 0){
+    UI.q1 && (UI.q1.textContent = `Goal: อยู่ GREEN แล้ว “เก็บน้ำดี” ให้ครบ 🟢`);
+    UI.q2 && (UI.q2.textContent = `สะสม GREEN hit: ${QUEST.g1Now}/${QUEST.g1Need}`);
+  } else {
+    UI.q1 && (UI.q1.textContent = `Goal: อยู่ GREEN ต่อเนื่อง ${QUEST.g2NeedSec} วินาที 🟢`);
+    UI.q2 && (UI.q2.textContent = `เวลา GREEN ต่อเนื่อง: ${QUEST.g2NowSec}/${QUEST.g2NeedSec} วินาที`);
+  }
+
+  UI.q3 && (UI.q3.textContent = `Goals done: ${STATE.goalsCleared} · Minis done: ${STATE.miniCleared}`);
+
+  // progress to S (30%) แบบง่าย ๆ
+  const p = clamp(Math.round((STATE.goalsCleared/STATE.goalsTotal)*60 + (STATE.miniCleared/STATE.miniTotal)*40), 0, 100);
+  UI.q4 && (UI.q4.textContent = `Progress to S (30%): ${p}%`);
+
+  try{
+    ROOT.dispatchEvent(new CustomEvent('quest:update', {
+      detail:{
+        goalsCleared: STATE.goalsCleared,
+        goalsTotal: STATE.goalsTotal,
+        minisCleared: STATE.miniCleared,
+        miniTotal: STATE.miniTotal,
+        questTitle: UI.questTitle ? UI.questTitle.textContent : '',
+        line1: UI.q1 ? UI.q1.textContent : '',
+        line2: UI.q2 ? UI.q2.textContent : '',
+        progressPct: p,
+      }
+    }));
+  }catch{}
+}
+
+function clearSprint(){
+  QUEST.sprintNow = 0;
+  QUEST.sprintT0 = null;
+  QUEST.sprintFail = false;
+}
+
+function completeMini(key, label){
+  if (QUEST.miniMask.has(key)) return;
+  QUEST.miniMask.add(key);
+  STATE.miniCleared += 1;
+
+  showStamp('MINI!', label || '✔');
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:celebrate', { detail:{ kind:'mini', label:key } }));
+  }catch{}
+  setCoach('🤩', `Mini สำเร็จ! ${label || ''}`, 'ไปต่อเลย!');
+  questText();
+}
+
+function completeGoal(label){
+  STATE.goalsCleared += 1;
+  showStamp('GOAL!', label || '✔');
+
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:celebrate', { detail:{ kind:'goal', label } }));
+  }catch{}
+  setCoach('🏆', `Goal สำเร็จ! ${label || ''}`, 'เยี่ยมมาก!');
+
+  QUEST.goalIndex += 1;
+  // reset goal counters
+  QUEST.g2NowSec = 0;
+  QUEST.g2Active = false;
+
+  questText();
+
+  if (STATE.goalsCleared >= STATE.goalsTotal){
+    // all done -> bonus end soon
+    setCoach('🌟', 'เคลียร์ Goals ครบแล้ว! เก็บแต้มเพิ่มอีกนิด!', 'เวลาเหลือ เก็บคอมโบ!');
+  }
+}
+
+/* ------------------------- logger helpers ------------------------- */
+function logSessionStart(){
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:log_session', {
+      detail:{
+        sessionId: SESSION.sessionId,
+        game: SESSION.game,
+        mode: SESSION.runMode,
+        diff: SESSION.diff,
+        seed: SESSION.seed,
+        projectTag: SESSION.projectTag,
+        t: 'start',
+      }
+    }));
+  }catch{}
+}
+function logEvent(type, data){
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:log_event', {
+      detail:{
+        sessionId: SESSION.sessionId,
+        game: SESSION.game,
+        type,
+        t: Date.now(),
+        data: data || {}
+      }
+    }));
+  }catch{}
+}
+
+/* ------------------------- FX hooks ------------------------- */
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
   { scorePop(){}, burstAt(){}, celebrate(){} };
 
-// ---------------------------------------------------------
-// DOM refs
-// ---------------------------------------------------------
-const elBounds   = $('#hvr-bounds');
-const elPlay     = $('#hvr-playfield');
-const elLayer    = $('#hvr-layer');
+/* ------------------------- gameplay judge ------------------------- */
+function judge(ch, ctx){
+  // ctx: { isGood,isPower,itemType,hitPerfect,hitDistNorm,targetRect,... }
+  const isGood = !!ctx.isGood;
+  const isPower = !!ctx.isPower;
+  const itemType = ctx.itemType || (isGood ? 'good' : 'bad');
 
-const elStart    = $('#hvr-start');
-const btnStart   = $('#btn-start');
-const btnMotion  = $('#btn-motion');
+  // shield time tick (soft)
+  if (STATE.shield > 0) STATE.shield = Math.max(0, STATE.shield - 0.25);
 
-const hudScore   = $('#hud-score');
-const hudCombo   = $('#hud-combo');
-const hudMiss    = $('#hud-miss');
-const hudTime    = $('#hud-time');
+  // base deltas
+  let scoreDelta = 0;
+  let feverDelta = 0;
+  let waterDelta = 0;
+  let comboDelta = 0;
 
-const waterFill  = $('#water-fill');
-const waterZone  = $('#water-zone');
+  const perfect = !!ctx.hitPerfect;
 
-const coachText  = $('#coach-text');
+  if (itemType === 'power'){
+    // powerups (🛡️/💎/⭐)
+    if (ch.includes('🛡')) {
+      STATE.shield = Math.min(8, STATE.shield + 6);
+      scoreDelta = 55;
+      feverDelta = -8;
+      waterDelta = +3;
+      comboDelta = +1;
+      setCoach('🛡️', 'โล่พร้อม! กันพลาดได้ (junk hit ที่ถูกกันจะไม่นับ miss)', 'กวาดแต้มต่อ!');
+      logEvent('hit', { kind:'shield', perfect });
+    } else if (ch.includes('💎')) {
+      scoreDelta = 80;
+      feverDelta = -10;
+      waterDelta = +2;
+      comboDelta = +2;
+      showStamp('BONUS!', '+💎');
+      logEvent('hit', { kind:'diamond', perfect });
+    } else {
+      scoreDelta = 65;
+      feverDelta = -6;
+      waterDelta = +2;
+      comboDelta = +2;
+      showStamp('BONUS!', '+⭐');
+      logEvent('hit', { kind:'star', perfect });
+    }
+  }
+  else if (isGood){
+    // good hit
+    STATE.goodHits++;
+    scoreDelta = perfect ? 42 : 28;
+    waterDelta = perfect ? +6 : +4;
+    feverDelta = perfect ? -3 : -1;
+    comboDelta = +1;
 
-const elEnd      = $('#hvr-end');
-const endScore   = $('#end-score');
-const endCombo   = $('#end-combo');
-const endMiss    = $('#end-miss');
-const endGrade   = $('#end-grade');
-const btnRestart = $('#btn-restart');
-const btnCloseEnd= $('#btn-close-end');
+    logEvent('hit', { kind:'good', perfect });
 
-const elStamp    = $('#hvr-stamp');
-const stampGrade = $('#stamp-grade');
-const stampSub   = $('#stamp-sub');
-const stampScore = $('#stamp-score');
+    // quest counters
+    if (STATE.waterZone === 'GREEN') {
+      QUEST.g1Now++;
+      if (QUEST.goalIndex === 0 && QUEST.g1Now >= QUEST.g1Need) completeGoal('GREEN Hits');
+    }
 
-// ---------------------------------------------------------
-// Config (URL)
-// ---------------------------------------------------------
-const diff = String(q('diff', 'normal')).toLowerCase();
-const duration = clamp(qn('time', 60) ?? 60, 20, 180);
-const runMode = String(q('run', 'play')).toLowerCase();
-const seed = String(q('seed', q('ts','')) || '').trim(); // allow ?seed= or fallback ts
+    // mini perfect
+    if (perfect){
+      QUEST.mPerfectNow++;
+      if (QUEST.mPerfectNow >= QUEST.mPerfectNeed) completeMini('perfect6', 'Perfect ×6');
+    }
 
-// ---------------------------------------------------------
-// Game state
-// ---------------------------------------------------------
-const S = {
-  started: false,
-  ended: false,
-  tStart: 0,
-  secLeft: duration,
+    // sprint start/advance
+    if (!QUEST.sprintT0){
+      QUEST.sprintT0 = null; // let time-event start it when good hit
+    }
+  }
+  else {
+    // junk hit
+    STATE.junkHits++;
 
-  score: 0,
-  combo: 0,
-  comboMax: 0,
-  miss: 0,
+    // shield block rule: ถ้ามีโล่ -> ไม่นับ miss
+    if (STATE.shield > 0.01){
+      scoreDelta = -6;
+      feverDelta = +4;
+      waterDelta = -3;
+      comboDelta = -STATE.combo; // break combo
+      logEvent('shield_block', { kind:'junk' });
+      setCoach('😤', 'โดนขยะ แต่โล่กันไว้แล้ว! (ไม่นับ miss)', 'อย่าพลาดซ้ำ!');
+    } else {
+      scoreDelta = -18;
+      feverDelta = +10;
+      waterDelta = -7;
+      comboDelta = -STATE.combo; // break
+      STATE.miss += 1; // junk hit -> miss
+      logEvent('hit', { kind:'junk', miss:1 });
+      setCoach('😟', 'โดนเครื่องดื่มหวาน! ระวัง miss เพิ่มนะ', 'หันกลับไปเก็บน้ำดี!');
+    }
 
-  // hydration balance (0..100)
-  water: 50,
+    // sprint fail
+    QUEST.sprintFail = true;
+  }
 
-  // powerups
-  shieldUntil: 0,
-  boostUntil: 0,
+  // apply state
+  STATE.score = Math.max(0, STATE.score + scoreDelta);
 
-  // counters (logger-friendly)
-  nSpawnGood: 0,
-  nSpawnBad: 0,
-  nSpawnStar: 0,
-  nSpawnShield: 0,
-  nHitGood: 0,
-  nHitBad: 0,
-  nHitShieldBlock: 0,
-  nExpireGood: 0,
+  if (comboDelta >= 1) STATE.combo += comboDelta;
+  else if (comboDelta < 0) STATE.combo = 0;
+  STATE.comboMax = Math.max(STATE.comboMax, STATE.combo);
 
-  // accuracy
-  hitGood: 0,
-  missGood: 0,
-  totalGood: 0
-};
+  setWater(STATE.water + waterDelta);
+  addFever(feverDelta);
 
-function isShieldOn(){ return nowMs() < S.shieldUntil; }
-function isBoostOn(){ return nowMs() < S.boostUntil; }
-
-function setCoach(msg){
-  if (coachText) coachText.textContent = msg;
+  // score pop FX
   try{
-    ROOT.dispatchEvent(new CustomEvent('hha:coach', { detail: { text: msg } }));
-  }catch{}
-}
-
-function setWater(v){
-  S.water = clamp(v, 0, 100);
-  if (waterFill) waterFill.style.width = S.water.toFixed(0) + '%';
-  const z = (S.water < 35) ? 'LOW'
-          : (S.water > 75) ? 'HIGH'
-          : 'OK';
-  if (waterZone) {
-    waterZone.textContent = z;
-    waterZone.style.color =
-      (z==='OK') ? 'rgba(255,255,255,.86)' :
-      (z==='LOW') ? 'rgba(34,197,94,.92)' :
-      'rgba(245,158,11,.92)';
-  }
-}
-
-function uiScore(){
-  if (hudScore) hudScore.textContent = String(S.score|0);
-  if (hudCombo) hudCombo.textContent = String(S.combo|0);
-  if (hudMiss)  hudMiss.textContent  = String(S.miss|0);
-
-  try{
-    ROOT.dispatchEvent(new CustomEvent('hha:score', {
-      detail: {
-        score: S.score, combo: S.combo, comboMax: S.comboMax, misses: S.miss,
-        water: S.water,
-        shield: isShieldOn(),
-        boost: isBoostOn()
-      }
-    }));
-  }catch{}
-}
-
-function uiTime(){
-  if (hudTime) hudTime.textContent = String(S.secLeft|0);
-  try{ ROOT.dispatchEvent(new CustomEvent('hha:time', { detail: { sec: S.secLeft } })); }catch{}
-}
-
-// ---------------------------------------------------------
-// Logger helpers (sparse)
-// ---------------------------------------------------------
-function logSession(kind='start'){
-  try{
-    ROOT.dispatchEvent(new CustomEvent('hha:log_session', {
-      detail: {
-        kind,
-        sessionId: q('sessionId', ''),
-        game: 'hydration',
-        mode: runMode,
-        diff,
-        seed
-      }
-    }));
-  }catch{}
-}
-function logEvent(type, data={}){
-  try{
-    ROOT.dispatchEvent(new CustomEvent('hha:log_event', {
-      detail: {
-        sessionId: q('sessionId', ''),
-        game: 'hydration',
-        type,
-        t: Math.round(nowMs()),
-        score: S.score,
-        combo: S.combo,
-        miss: S.miss,
-        data
-      }
-    }));
-  }catch{}
-}
-
-// ---------------------------------------------------------
-// Grade logic (SSS/SS/S/A/B/C)
-// ---------------------------------------------------------
-function computeGrade(){
-  const score = S.score|0;
-  const miss  = S.miss|0;
-  const combo = S.comboMax|0;
-
-  // simple tuned rubric
-  let g = 'C';
-  if (score >= 900 && miss <= 2 && combo >= 18) g = 'SSS';
-  else if (score >= 760 && miss <= 4 && combo >= 14) g = 'SS';
-  else if (score >= 620 && miss <= 6 && combo >= 10) g = 'S';
-  else if (score >= 480 && miss <= 8) g = 'A';
-  else if (score >= 320) g = 'B';
-  else g = 'C';
-  return g;
-}
-function gradeSubtitle(g){
-  if (g==='SSS') return 'Hydration GODMODE ⚡💧';
-  if (g==='SS')  return 'Hydration Master ✨';
-  if (g==='S')   return 'Great Balance 🌿';
-  if (g==='A')   return 'Nice! Keep going 💪';
-  if (g==='B')   return 'Good start 🙂';
-  return 'ลองใหม่อีกทีนะ 🫶';
-}
-
-// ---------------------------------------------------------
-// VR-feel look (gyro + drag) -> moves playfield
-// ---------------------------------------------------------
-function attachTouchLook(){
-  if (!elPlay) return () => {};
-  let dragging = false;
-  let sx=0, sy=0;
-  let ox=0, oy=0;
-  let gx=0, gy=0;
-
-  function apply(){
-    // clamp small movement
-    const x = clamp(ox + gx, -42, 42);
-    const y = clamp(oy + gy, -46, 46);
-    elPlay.style.transform = `translate3d(${x}px,${y}px,0)`;
-  }
-
-  function onDown(e){
-    dragging = true;
-    const t = (e.touches && e.touches[0]) ? e.touches[0] : e;
-    sx = t.clientX; sy = t.clientY;
-    e.preventDefault();
-  }
-  function onMove(e){
-    if (!dragging) return;
-    const t = (e.touches && e.touches[0]) ? e.touches[0] : e;
-    const dx = t.clientX - sx;
-    const dy = t.clientY - sy;
-    ox = clamp(dx * 0.15, -42, 42);
-    oy = clamp(dy * 0.15, -46, 46);
-    apply();
-    e.preventDefault();
-  }
-  function onUp(){
-    dragging = false;
-    // ease back a bit
-    ox *= 0.55; oy *= 0.55;
-    apply();
-  }
-
-  function onOrient(ev){
-    // mild gyro
-    const beta  = Number(ev.beta)||0;   // -180..180
-    const gamma = Number(ev.gamma)||0;  // -90..90
-    gx = clamp(gamma * 0.32, -22, 22);
-    gy = clamp(beta  * 0.10, -22, 22);
-    apply();
-  }
-
-  DOC.addEventListener('pointerdown', onDown, { passive:false });
-  DOC.addEventListener('pointermove', onMove, { passive:false });
-  DOC.addEventListener('pointerup',   onUp,   { passive:true });
-  DOC.addEventListener('touchstart',  onDown, { passive:false });
-  DOC.addEventListener('touchmove',   onMove, { passive:false });
-  DOC.addEventListener('touchend',    onUp,   { passive:true });
-
-  ROOT.addEventListener('deviceorientation', onOrient, { passive:true });
-
-  return () => {
-    DOC.removeEventListener('pointerdown', onDown);
-    DOC.removeEventListener('pointermove', onMove);
-    DOC.removeEventListener('pointerup', onUp);
-    DOC.removeEventListener('touchstart', onDown);
-    DOC.removeEventListener('touchmove', onMove);
-    DOC.removeEventListener('touchend', onUp);
-    ROOT.removeEventListener('deviceorientation', onOrient);
-  };
-}
-
-// iOS motion permission
-async function requestMotionPermission(){
-  try{
-    const DME = ROOT.DeviceMotionEvent;
-    if (DME && typeof DME.requestPermission === 'function') {
-      const res = await DME.requestPermission();
-      return res === 'granted';
+    const r = ctx.targetRect;
+    if (r && Particles && Particles.scorePop){
+      Particles.scorePop((scoreDelta>=0?'+':'') + scoreDelta, r.left + r.width/2, r.top + r.height/2, { perfect });
+    }
+    if (r && Particles && Particles.burstAt){
+      Particles.burstAt(r.left + r.width/2, r.top + r.height/2, { kind: itemType, perfect });
     }
   }catch{}
-  return true;
+
+  // quest text update
+  questText();
+  updateHUD();
+
+  return { scoreDelta, good: isGood, perfect };
 }
 
-// ---------------------------------------------------------
-// STEP 6.75 — Finisher Pack (lightweight)
-// ---------------------------------------------------------
-function playFinisherPack({ grade='B' } = {}){
-  // subtle camera shake + FX burst
-  try{
-    const x = (ROOT.innerWidth || 360) * 0.5;
-    const y = (ROOT.innerHeight|| 640) * 0.42;
-    Particles.celebrate && Particles.celebrate({ x, y, kind:'stamp', grade });
-    Particles.burstAt && Particles.burstAt(x, y, { kind:'gold', amount: (grade==='SSS'? 28: 18) });
-  }catch{}
-  // tiny audio ping via oscillator (no asset needed)
-  try{
-    const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
-    if (!AC) return;
-    const ac = new AC();
-    const o = ac.createOscillator();
-    const g = ac.createGain();
-    o.type = 'triangle';
-    o.frequency.value = (grade==='SSS') ? 880 : (grade==='SS'? 740 : 640);
-    g.gain.value = 0.0001;
-    o.connect(g); g.connect(ac.destination);
-    o.start();
-    const t = ac.currentTime;
-    g.gain.exponentialRampToValueAtTime(0.18, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
-    o.stop(t + 0.25);
-    setTimeout(()=> { try{ ac.close(); }catch{} }, 420);
-  }catch{}
-}
+/* ------------------------- spawn/expire hooks ------------------------- */
+function onExpire(info){
+  // info: {ch,isGood,isPower,itemType}
+  const isGood = !!info.isGood;
+  const itemType = info.itemType || (isGood ? 'good':'bad');
 
-// ---------------------------------------------------------
-// STEP 6.9 — ODOMETER + SPARK (FULL BLOCK)
-// ---------------------------------------------------------
-const HHA_ODO = { styleId:'hha-odo-style-v1', sparkHostId:'hha-odo-spark-host', lastSparkAt:0 };
+  if (itemType === 'good'){
+    // good expired -> miss (ตามสเปคคุณ)
+    STATE.expireGood++;
+    STATE.miss += 1;
+    STATE.combo = 0;
 
-function ensureOdoStyle(){
-  if (!DOC) return;
-  if (DOC.getElementById(HHA_ODO.styleId)) return;
+    setCoach('😵', 'พลาดน้ำดี! (good หมดเวลา) miss +1', 'รีบเก็บเป้าให้ทัน!');
+    addFever(+6);
+    setWater(STATE.water - 2);
 
-  const s = DOC.createElement('style');
-  s.id = HHA_ODO.styleId;
-  s.textContent = `
-    .hha-odo{ display:inline-flex; align-items:flex-end; gap:.06em;
-      font-variant-numeric: tabular-nums; letter-spacing:.02em;
-      transform: translateZ(0); will-change: transform;
-      filter: drop-shadow(0 10px 20px rgba(0,0,0,.40));
-    }
-    .hha-odo .odo-prefix,.hha-odo .odo-suffix{
-      font-weight: 900; opacity:.95; transform: translateY(-.06em);
-    }
-    .hha-odo-digit{
-      position:relative; width:.70em; height:1.05em; overflow:hidden;
-      border-radius:.22em; background: rgba(255,255,255,.08);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.12), inset 0 -12px 24px rgba(0,0,0,.28);
-    }
-    .hha-odo-digit::after{
-      content:""; position:absolute; inset:0;
-      background: linear-gradient(to bottom,
-        rgba(0,0,0,.25), rgba(0,0,0,0) 28%,
-        rgba(0,0,0,0) 72%, rgba(0,0,0,.30));
-      pointer-events:none;
-    }
-    .hha-odo-wheel{
-      position:absolute; left:0; top:0; width:100%;
-      transform: translateY(0);
-      will-change: transform, filter;
-    }
-    .hha-odo-num{
-      height:1.05em;
-      display:flex; align-items:center; justify-content:center;
-      font-weight: 1000; line-height:1; user-select:none;
-      color: rgba(255,255,255,.97);
-      text-shadow: 0 3px 10px rgba(0,0,0,.40);
-    }
-    .hha-odo.pop{ animation: hhaOdoPop .22s ease-out 1; }
-    @keyframes hhaOdoPop{
-      0%{ transform: scale(.98); }
-      60%{ transform: scale(1.08); }
-      100%{ transform: scale(1.00); }
-    }
-    #${HHA_ODO.sparkHostId}{
-      position:fixed; inset:0; pointer-events:none; z-index:99995;
-    }
-    .hha-spark{
-      position:absolute; width:6px; height:6px; border-radius:999px;
-      opacity:0; transform: translate3d(0,0,0);
-      filter: drop-shadow(0 10px 14px rgba(0,0,0,.35));
-    }
-    .hha-spark.fly{ animation: hhaSparkFly .42s cubic-bezier(.2,.9,.2,1) 1; }
-    @keyframes hhaSparkFly{
-      0%{ opacity:0; transform: translate3d(var(--x0),var(--y0),0) scale(.65); }
-      15%{ opacity:1; }
-      100%{ opacity:0; transform: translate3d(var(--x1),var(--y1),0) scale(1.25); }
-    }
-  `;
-  DOC.head.appendChild(s);
-}
-function ensureSparkHost(){
-  if (!DOC) return null;
-  ensureOdoStyle();
-  let host = DOC.getElementById(HHA_ODO.sparkHostId);
-  if (host && host.isConnected) return host;
-  host = DOC.createElement('div');
-  host.id = HHA_ODO.sparkHostId;
-  DOC.body.appendChild(host);
-  return host;
-}
-function spawnSparkAt(clientX, clientY, intensity=1){
-  const host = ensureSparkHost();
-  if (!host) return;
-  const n = Math.max(1, Math.min(6, Math.round(intensity * 3)));
-  for (let i=0;i<n;i++){
-    const sp = DOC.createElement('div');
-    sp.className = 'hha-spark';
-    const r = Math.random();
-    const bg = (r<0.45) ? 'rgba(250,204,21,.95)'
-            : (r<0.80) ? 'rgba(255,255,255,.92)'
-                       : 'rgba(34,197,94,.92)';
-    sp.style.background = bg;
-    const x0 = clientX + (Math.random()*18 - 9);
-    const y0 = clientY + (Math.random()*14 - 7);
-    const x1 = x0 + (Math.random()*90 - 45);
-    const y1 = y0 + (Math.random()*120 - 30);
-    sp.style.setProperty('--x0', x0.toFixed(0)+'px');
-    sp.style.setProperty('--y0', y0.toFixed(0)+'px');
-    sp.style.setProperty('--x1', x1.toFixed(0)+'px');
-    sp.style.setProperty('--y1', y1.toFixed(0)+'px');
-    host.appendChild(sp);
-    ROOT.requestAnimationFrame(()=> sp.classList.add('fly'));
-    ROOT.setTimeout(()=> { try{ sp.remove(); }catch{} }, 520);
+    logEvent('miss_expire', { kind:'good', miss:1 });
+  } else if (itemType === 'bad'){
+    // junk expire ไม่ถือว่า miss (ปล่อยให้ผ่านได้)
+    logEvent('expire', { kind:'junk' });
+  } else {
+    logEvent('expire', { kind:itemType });
   }
+
+  questText();
+  updateHUD();
 }
-function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
-function clamp01(t){ t=Number(t)||0; return t<0?0:(t>1?1:t); }
-function makeOdoEl({ prefix='', suffix='' } = {}){
-  ensureOdoStyle();
-  const root = DOC.createElement('span');
-  root.className = 'hha-odo';
-  if (prefix){
-    const p = DOC.createElement('span');
-    p.className = 'odo-prefix';
-    p.textContent = prefix;
-    root.appendChild(p);
-  }
-  if (suffix){
-    const s = DOC.createElement('span');
-    s.className = 'odo-suffix';
-    s.textContent = suffix;
-    root.appendChild(s);
-  }
-  return root;
-}
-function buildDigit(){
-  const d = DOC.createElement('span');
-  d.className = 'hha-odo-digit';
-  const wheel = DOC.createElement('span');
-  wheel.className = 'hha-odo-wheel';
-  for (let i=0;i<10;i++){
-    const n = DOC.createElement('span');
-    n.className = 'hha-odo-num';
-    n.textContent = String(i);
-    wheel.appendChild(n);
-  }
-  d.appendChild(wheel);
-  return { digitEl:d, wheelEl:wheel };
-}
-function setWheelToDigit(wheelEl, digit, speedHint=0){
-  const y = -digit * 1.05;
-  wheelEl.style.transform = `translateY(${y}em)`;
-  if (speedHint > 0.60) wheelEl.style.filter = 'blur(0.9px)';
-  else if (speedHint > 0.35) wheelEl.style.filter = 'blur(0.5px)';
-  else wheelEl.style.filter = 'blur(0px)';
-}
-function formatInt(n){
-  n = Math.max(0, Math.floor(Number(n)||0));
-  return String(n);
-}
-function startOdometerOnHost(hostEl, {
-  from=0, to=999, ms=900, prefix='', suffix='', spark=true, sparkIntensity=1.0
-} = {}){
-  if (!DOC || !hostEl) return { stop(){}, el:null };
 
-  ensureOdoStyle();
-  hostEl.innerHTML = '';
-  const odo = makeOdoEl({ prefix, suffix });
+/* ------------------------- time hook ------------------------- */
+function onTime(e){
+  const sec = e && e.detail ? Number(e.detail.sec) : null;
+  if (sec == null) return;
 
-  const strTo = formatInt(to);
-  const nd = strTo.length;
-  const suffixEl = odo.querySelector('.odo-suffix');
-  const insertBeforeNode = suffixEl || null;
+  UI.statTime && (UI.statTime.textContent = String(sec));
 
-  const digits = [];
-  for (let i=0;i<nd;i++){
-    const { digitEl, wheelEl } = buildDigit();
-    digits.push({ digitEl, wheelEl, cur:0 });
-    odo.insertBefore(digitEl, insertBeforeNode);
-  }
-  hostEl.appendChild(odo);
-
-  const rectOf = () => { try{ return odo.getBoundingClientRect(); }catch{ return null; } };
-
-  let stopped = false;
-  const t0 = nowMs();
-  const span = Math.max(180, Number(ms)||900);
-  const a = Math.max(0, Math.floor(Number(from)||0));
-  const b = Math.max(0, Math.floor(Number(to)||0));
-  const range = Math.max(1, Math.abs(b - a));
-
-  let lastVal = a;
-  renderValue(a, 0);
-
-  function renderValue(val, speedHint){
-    const s = formatInt(val).padStart(nd, '0');
-    for (let i=0;i<nd;i++){
-      const dig = s.charCodeAt(i) - 48;
-      setWheelToDigit(digits[i].wheelEl, dig, speedHint);
+  // Goal 2: GREEN ต่อเนื่อง
+  if (QUEST.goalIndex === 1){
+    const inGreen = (STATE.waterZone === 'GREEN');
+    if (inGreen){
+      QUEST.g2NowSec += 1;
+      if (QUEST.g2NowSec >= QUEST.g2NeedSec) completeGoal('Green Hold');
+    } else {
+      QUEST.g2NowSec = 0;
     }
-    if (spark){
-      const tNow = nowMs();
-      if (tNow - HHA_ODO.lastSparkAt > 55){
-        HHA_ODO.lastSparkAt = tNow;
-        const r = rectOf();
-        if (r){
-          const x = r.left + r.width * (0.55 + Math.random()*0.35);
-          const y = r.top  + r.height * (0.25 + Math.random()*0.55);
-          spawnSparkAt(x, y, sparkIntensity);
+  }
+
+  // Sprint mini: เริ่มจับเวลาเมื่อ “เริ่มเก็บ good” ชุดแรก
+  // เราเริ่ม sprint เมื่ออยู่ GREEN และกด good ครั้งแรก หลังจากนั้นต้องครบ 5 ใน 8 วิ
+  if (QUEST.sprintT0 != null){
+    const dt = (STATE.durationPlannedSec || SESSION.duration) - sec; // not reliable; ignore
+  }
+
+  // Recovery mini: ถ้าออกจาก GREEN -> arm และถ้ากลับ GREEN ภายใน 6 วิ -> mini
+  if (STATE.waterZone !== 'GREEN'){
+    if (!QUEST.recArmed){
+      QUEST.recArmed = true;
+      QUEST.recT0 = sec; // ใช้ sec นับถอยหลัง
+    }
+  } else {
+    if (QUEST.recArmed){
+      const t0 = QUEST.recT0;
+      if (t0 != null){
+        const elapsed = (t0 - sec); // เพราะ sec ลดลง
+        if (elapsed >= 0 && elapsed <= QUEST.recNeedSec){
+          completeMini('recovery', 'Recovery!');
         }
       }
+      QUEST.recArmed = false;
+      QUEST.recT0 = null;
     }
   }
 
-  function loop(ts){
-    if (stopped) return;
-    const t = (ts - t0) / span;
-    const p = easeOutCubic(clamp01(t));
-    const val = Math.round(a + (b - a) * p);
+  // Sprint mini logic robust: นับจาก “hit good ครั้งแรก” หลังจากเริ่มแล้ว ต้องครบใน 8 วินาที ห้าม junk
+  // เราทำง่าย: เริ่มเมื่อ good hit ครั้งแรกตั้ง flag แล้วใช้ window timer
+}
 
-    const dv = Math.abs(val - lastVal);
-    const speedHint = Math.min(1, dv / Math.max(1, range * 0.04));
+/* ------------------------- sprint mini (timer-based) ------------------------- */
+let sprintTimer = null;
 
-    if (val !== lastVal){
-      lastVal = val;
-      renderValue(val, speedHint);
-    } else {
-      if (spark) renderValue(val, 0.15);
+function startSprintWindow(){
+  if (QUEST.miniMask.has('sprint')) return;
+  if (QUEST.sprintT0 != null) return;
+  QUEST.sprintT0 = nowMs();
+  QUEST.sprintNow = 0;
+  QUEST.sprintFail = false;
+
+  if (sprintTimer) { try{ clearTimeout(sprintTimer); }catch{} }
+  sprintTimer = setTimeout(() => {
+    // window ends
+    if (!QUEST.miniMask.has('sprint')){
+      if (!QUEST.sprintFail && QUEST.sprintNow >= QUEST.sprintNeed){
+        completeMini('sprint', 'No-Junk Sprint');
+      } else {
+        setCoach('😤', 'Sprint ไม่ผ่าน ลองใหม่ได้!', 'เริ่มใหม่: เก็บ good 5 ใน 8 วิ');
+      }
     }
+    QUEST.sprintT0 = null;
+    QUEST.sprintNow = 0;
+    QUEST.sprintFail = false;
+  }, QUEST.sprintWindowSec * 1000);
 
-    if (t < 1) ROOT.requestAnimationFrame(loop);
-    else {
-      renderValue(b, 0);
-      odo.classList.remove('pop'); void odo.offsetHeight; odo.classList.add('pop');
-    }
-  }
-
-  ROOT.requestAnimationFrame(loop);
-  return { el: odo, stop(){ stopped=true; } };
-}
-function startStampOdometer(stampEl, opts = {}){
-  if (!DOC || !stampEl) return;
-  let numHost = stampEl.querySelector('[data-stamp-number]');
-  if (!numHost){
-    numHost = DOC.createElement('div');
-    numHost.setAttribute('data-stamp-number', '1');
-    stampEl.appendChild(numHost);
-  }
-  const to = Math.max(0, Math.floor(Number(opts.to ?? opts.score ?? 0) || 0));
-  const from = Math.max(0, Math.floor(Number(opts.from ?? Math.max(0, to - 120)) || 0));
-  const ms   = Math.max(260, Math.floor(Number(opts.ms ?? 820) || 820));
-  const prefix = (opts.prefix != null) ? String(opts.prefix) : '';
-  const suffix = (opts.suffix != null) ? String(opts.suffix) : '';
-  const grade = String(opts.grade || '').toUpperCase();
-  const intensity = (grade === 'SSS') ? 1.6 : (grade === 'SS' ? 1.2 : 1.0);
-
-  startOdometerOnHost(numHost, { from, to, ms, prefix, suffix, spark:true, sparkIntensity:intensity });
+  setCoach('⚡', `Mini Start! เก็บ good ${QUEST.sprintNeed} ใน ${QUEST.sprintWindowSec} วิ`, 'ห้ามโดน junk ระหว่างทำ!');
 }
 
-// ---------------------------------------------------------
-// Stamp finisher
-// ---------------------------------------------------------
-function showStampFinisher(){
-  if (!elStamp) return;
-  const grade = computeGrade();
-  const score = S.score|0;
-
-  stampGrade && (stampGrade.textContent = grade);
-  stampSub   && (stampSub.textContent = gradeSubtitle(grade));
-  stampScore && (stampScore.textContent = String(score));
-
-  elStamp.classList.add('show');
-  playFinisherPack({ grade });
-
-  // ✅ Odometer rolling score + sparks
-  startStampOdometer(elStamp, { to: score, from: Math.max(0, score - 120), ms: 820, grade });
-}
-
-// ---------------------------------------------------------
-// End / Summary
-// ---------------------------------------------------------
-function showEnd(){
-  if (!elEnd) return;
-  const grade = computeGrade();
-
-  endScore && (endScore.textContent = String(S.score|0));
-  endCombo && (endCombo.textContent = String(S.comboMax|0));
-  endMiss  && (endMiss.textContent  = String(S.miss|0));
-  endGrade && (endGrade.textContent = grade);
-
-  elEnd.classList.add('show');
-}
-
-// ---------------------------------------------------------
-// Judge & Expire
-// ---------------------------------------------------------
-function addScore(delta){
-  delta = delta|0;
-  if (isBoostOn() && delta > 0) delta = Math.round(delta * 1.5);
-  S.score = Math.max(0, (S.score|0) + delta);
-}
-
-function onGoodHit(ctx){
-  const perfect = !!ctx.hitPerfect;
-  const base = 10;
-  const bonus = perfect ? 6 : 0;
-  addScore(base + bonus);
-
-  S.combo++;
-  S.comboMax = Math.max(S.comboMax, S.combo);
-
-  S.hitGood++; S.totalGood++;
-
-  // water balance -> up
-  setWater(S.water + (perfect ? 6 : 4));
-
-  // FX
-  try{
-    const x = ctx.clientX || ctx.cx || (ROOT.innerWidth*0.5);
-    const y = ctx.clientY || ctx.cy || (ROOT.innerHeight*0.52);
-    Particles.scorePop && Particles.scorePop(x, y, `+${base+bonus}`, { kind:'good', perfect });
-    Particles.burstAt && Particles.burstAt(x, y, { kind:'good', amount: perfect ? 14 : 10 });
-  }catch{}
-
-  logEvent('hit', { kind:'good', perfect });
-
-  if (perfect && S.combo % 6 === 0) setCoach('Perfect รัว ๆ! เก่งมาก 💧✨');
-}
-
-function onBadHit(ctx){
-  if (isShieldOn()){
-    // block bad hit (no miss)
-    S.nHitShieldBlock++;
-    try{
-      const x = ctx.clientX || (ROOT.innerWidth*0.5);
-      const y = ctx.clientY || (ROOT.innerHeight*0.52);
-      Particles.scorePop && Particles.scorePop(x, y, 'BLOCK', { kind:'shield' });
-      Particles.burstAt && Particles.burstAt(x, y, { kind:'shield', amount: 10 });
-    }catch{}
-    logEvent('shield_block', { kind:'junk' });
-    setCoach('โล่ช่วยบล็อกได้! 🛡️');
-    return;
-  }
-
-  addScore(-12);
-  S.combo = 0;
-  S.miss++;
-
-  S.nHitBad++;
-
-  // water balance -> down
-  setWater(S.water - 9);
-
-  try{
-    const x = ctx.clientX || (ROOT.innerWidth*0.5);
-    const y = ctx.clientY || (ROOT.innerHeight*0.52);
-    Particles.scorePop && Particles.scorePop(x, y, '-12', { kind:'bad' });
-    Particles.burstAt && Particles.burstAt(x, y, { kind:'bad', amount: 12 });
-  }catch{}
-
-  logEvent('hit', { kind:'junk' });
-  setCoach('โอ๊ะ! หลีกเลี่ยงน้ำหวานนะ 🥤');
-}
-
-function onPowerHit(kind, ctx){
-  if (kind === 'shield'){
-    S.shieldUntil = nowMs() + 6500;
-    setCoach('ได้โล่! โดนขยะช่วงนี้ไม่เสีย Miss 🛡️');
-    logEvent('hit', { kind:'shield' });
-    try{
-      const x = ctx.clientX || (ROOT.innerWidth*0.5);
-      const y = ctx.clientY || (ROOT.innerHeight*0.52);
-      Particles.scorePop && Particles.scorePop(x, y, 'SHIELD!', { kind:'shield' });
-      Particles.burstAt && Particles.burstAt(x, y, { kind:'shield', amount: 16 });
-    }catch{}
-    return;
-  }
-  // star boost
-  S.boostUntil = nowMs() + 7000;
-  addScore(25);
-  setCoach('Boost Score! ช่วงนี้คะแนนคูณ 🔥⭐');
-  logEvent('hit', { kind:'star' });
-  try{
-    const x = ctx.clientX || (ROOT.innerWidth*0.5);
-    const y = ctx.clientY || (ROOT.innerHeight*0.52);
-    Particles.scorePop && Particles.scorePop(x, y, '+25', { kind:'gold' });
-    Particles.burstAt && Particles.burstAt(x, y, { kind:'gold', amount: 18 });
-  }catch{}
-}
-
-// ---------------------------------------------------------
-// Main game boot
-// ---------------------------------------------------------
-let detachLook = null;
+/* ------------------------- start/stop/end ------------------------- */
 let engine = null;
-let clockTimer = null;
+
+function showEnd(){
+  if (!UI.end) return;
+  UI.endScore && (UI.endScore.textContent = String(STATE.score));
+  UI.endCombo && (UI.endCombo.textContent = String(STATE.comboMax));
+  UI.endMiss && (UI.endMiss.textContent = String(STATE.miss));
+  UI.endGoals && (UI.endGoals.textContent = `${STATE.goalsCleared}/${STATE.goalsTotal}`);
+  UI.endMinis && (UI.endMinis.textContent = `${STATE.miniCleared}/${STATE.miniTotal}`);
+
+  const grade = calcGrade();
+  UI.endGrade && (UI.endGrade.textContent = grade);
+
+  UI.end.style.display = 'flex';
+}
+
+function endGame(reason='timeup'){
+  if (STATE.ended) return;
+  STATE.ended = true;
+
+  STATE.tEndIso = new Date().toISOString();
+
+  try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{}
+  try{ engine && engine.stop && engine.stop(); }catch{}
+
+  const grade = calcGrade();
+
+  // final event
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:end', {
+      detail:{
+        sessionId: SESSION.sessionId,
+        game: SESSION.game,
+        diff: SESSION.diff,
+        mode: SESSION.runMode,
+        durationPlannedSec: SESSION.duration,
+        scoreFinal: STATE.score,
+        comboMax: STATE.comboMax,
+        misses: STATE.miss,
+        goalsCleared: STATE.goalsCleared,
+        goalsTotal: STATE.goalsTotal,
+        miniCleared: STATE.miniCleared,
+        miniTotal: STATE.miniTotal,
+        grade,
+        reason,
+      }
+    }));
+  }catch{}
+
+  showEnd();
+  setCoach('🏁', 'จบเกม! ดูสรุปผลได้เลย', `Grade ${grade} · Score ${STATE.score}`);
+}
+
+function attachEndButtons(){
+  if (UI.btnRetry){
+    UI.btnRetry.addEventListener('click', () => {
+      location.reload();
+    });
+  }
+  if (UI.btnBackHub){
+    UI.btnBackHub.addEventListener('click', () => {
+      try{
+        const u = new URL(SESSION.hub, location.href);
+        // ส่ง context กลับ hub ด้วย
+        u.searchParams.set('lastGame', 'hydration');
+        u.searchParams.set('sessionId', SESSION.sessionId);
+        u.searchParams.set('score', String(STATE.score));
+        location.href = u.toString();
+      }catch{
+        location.href = SESSION.hub;
+      }
+    });
+  }
+}
+
+/* ------------------------- input (tap center shoot) ------------------------- */
+let tapCooldown = 0;
+
+function attachCrosshairTapShoot(){
+  if (!UI.playfield) return;
+
+  UI.playfield.addEventListener('pointerdown', (ev) => {
+    if (!STATE.started || STATE.ended) return;
+    // ถ้ากดบนเป้าจริง ๆ ให้เป้าจัดการเอง (mode-factory จะ preventDefault แล้ว)
+    // แต่ถ้ากดที่พื้นที่ว่าง -> ยิง crosshair
+    const t = nowMs();
+    if (t - tapCooldown < 90) return;
+    tapCooldown = t;
+
+    // ยิง crosshair
+    try{
+      if (engine && engine.shootCrosshair && engine.shootCrosshair()){
+        // ok
+      }
+    }catch{}
+  }, { passive:true });
+}
+
+/* ------------------------- boot sequence ------------------------- */
+async function requestMotionIfNeeded(){
+  // iOS Safari
+  const w = ROOT;
+  const DM = w.DeviceMotionEvent;
+  if (DM && typeof DM.requestPermission === 'function'){
+    UI.btnMotion && (UI.btnMotion.style.display = 'inline-flex');
+    UI.btnMotion && UI.btnMotion.addEventListener('click', async () => {
+      try{
+        const res = await DM.requestPermission();
+        if (res === 'granted'){
+          UI.btnMotion.style.display = 'none';
+          showStamp('OK!', 'Motion');
+        }
+      }catch(err){
+        showStamp('NOPE', 'Motion');
+      }
+    });
+  }
+}
+
+function softInitUI(){
+  try{ ensureWaterGauge(); }catch{}
+  setWater(STATE.water);
+  addFever(0);
+  questText();
+  updateHUD();
+  attachEndButtons();
+}
 
 async function startGame(){
-  if (S.started) return;
-  S.started = true;
-  S.ended = false;
-  S.tStart = Date.now();
-  S.secLeft = duration;
+  if (STATE.started) return;
+  STATE.started = true;
+  STATE.tStartIso = new Date().toISOString();
 
-  // reset
-  S.score=0; S.combo=0; S.comboMax=0; S.miss=0;
-  S.water=50;
-  S.shieldUntil=0; S.boostUntil=0;
-  S.nSpawnGood=0; S.nSpawnBad=0; S.nSpawnStar=0; S.nSpawnShield=0;
-  S.nHitGood=0; S.nHitBad=0; S.nHitShieldBlock=0; S.nExpireGood=0;
-  S.hitGood=0; S.missGood=0; S.totalGood=0;
+  UI.startOverlay && (UI.startOverlay.style.display = 'none');
 
-  setWater(50);
-  uiScore();
-  uiTime();
-  setCoach('เริ่มเลย! เก็บน้ำให้ได้เยอะ ๆ 💧');
+  setCoach('🥦', 'เริ่มแล้ว! เก็บน้ำดีให้สมดุล 🟢', 'แตะเป้า หรือแตะกลางจอยิง crosshair');
 
-  logSession('start');
+  logSessionStart();
 
-  // look controls
-  detachLook = attachTouchLook();
-
-  // factory boot (FULL SPREAD)
+  // ✅ factory config: กระจายทั้งจอ
   engine = await factoryBoot({
     modeKey: 'hydration',
-    difficulty: diff,
-    duration: duration,
-    seed,
-
-    // hosts
-    spawnHost: '#hvr-layer',
-    boundsHost: '#hvr-bounds',
+    difficulty: SESSION.diff,
+    duration: SESSION.duration,
 
     // pools
     pools: {
-      good: ['💧','🧊','🚰'],
-      bad:  ['🥤','🍩','🧋'],
-      trick: [] // not used here
+      good: ['💧','🚰','🫧'],
+      bad:  ['🥤','🧃','☕','🧋'],
+      trick: ['🫗'] // fake-good (optional)
     },
-    goodRate: 0.68,
+    goodRate: 0.62,
 
-    // powerups appear
-    powerups: ['⭐','🛡️'],
-    powerRate: 0.18,
-    powerEvery: 6,
+    // powerups
+    powerups: ['🛡️','⭐','💎'],
+    powerRate: 0.12,
+    powerEvery: 7,
 
-    // ✅ spread across playRect
+    // ✅ HOSTS
+    spawnHost: '#hvr-layer',
+    boundsHost: '#playfield',
+
+    // ✅ DISTRIBUTE
     spawnAroundCrosshair: false,
     spawnStrategy: 'grid9',
-    spawnRadiusX: 0.95,
-    spawnRadiusY: 0.95,
-    minSeparation: 1.00,
-    maxSpawnTries: 18,
 
-    // exclude HUD
+    // ✅ research reproducible
+    seed: SESSION.seed,
+
+    // safezone (ไม่ทับ HUD)
     excludeSelectors: [
-      '#hha-hud',
-      '#hvr-start',
+      '#hud',
+      '#hha-water-header',
+      '.hha-water-bar',
+      '.hha-main-row',
+      '#hha-card-left',
+      '#hha-card-right',
+      '.hha-bottom-row',
+      '.hha-fever-card',
       '#hvr-end',
-      '#hvr-stamp'
+      '#start-overlay'
     ],
 
-    // optional decorate
-    decorateTarget(el, parts, data){
-      // tag counters + logger spawn type
-      const type = data.itemType;
-      if (type === 'power'){
-        // decide which
-        const ch = data.ch;
-        if (ch === '⭐') S.nSpawnStar++;
-        else S.nSpawnShield++;
-        logEvent('spawn', { kind: (ch==='🛡️'?'shield':'star') });
-      } else if (type === 'good'){
-        S.nSpawnGood++;
-        logEvent('spawn', { kind: 'good' });
-      } else {
-        S.nSpawnBad++;
-        logEvent('spawn', { kind: 'junk' });
+    // rhythm feel
+    rhythm: { enabled:true, bpm: 112 },
+
+    // judge / expire
+    judge: (ch, ctx) => {
+      // mini sprint start trigger: เริ่มเมื่อ “hit good ครั้งแรก” และยังไม่ทำ mini sprint
+      if (ctx && ctx.isGood && !ctx.isPower && (ctx.itemType === 'good')){
+        if (!QUEST.miniMask.has('sprint') && QUEST.sprintT0 == null){
+          startSprintWindow();
+        }
+        if (QUEST.sprintT0 != null && !QUEST.sprintFail){
+          QUEST.sprintNow++;
+          if (QUEST.sprintNow >= QUEST.sprintNeed){
+            // complete in-window (จะถูก finalize ใน timer แต่เราจบเลยก็ได้)
+            completeMini('sprint', 'No-Junk Sprint');
+            try{ clearTimeout(sprintTimer); }catch{}
+            QUEST.sprintT0 = null;
+          }
+        }
       }
+      // ถ้าโดน junk ระหว่าง sprint -> fail
+      if (ctx && !ctx.isGood && QUEST.sprintT0 != null){
+        QUEST.sprintFail = true;
+      }
+      return judge(ch, ctx);
     },
-
-    judge(ch, ctx){
-      // route by item type from ctx
-      const t = String(ctx.itemType || (ctx.isPower ? 'power' : (ctx.isGood ? 'good' : 'bad')));
-
-      if (t === 'power'){
-        // map char
-        const kind = (ch === '🛡️') ? 'shield' : 'star';
-        onPowerHit(kind, ctx);
-        uiScore();
-        return { scoreDelta: 0, good:true };
-      }
-
-      if (ctx.isGood){
-        onGoodHit(ctx);
-        uiScore();
-        return { scoreDelta: 1, good:true };
-      } else {
-        onBadHit(ctx);
-        uiScore();
-        return { scoreDelta: -1, good:false };
-      }
-    },
-
-    onExpire({ itemType, isGood }){
-      // good expired = miss
-      if (itemType === 'good' && isGood){
-        S.nExpireGood++;
-        S.combo = 0;
-        S.miss++;
-        S.missGood++; S.totalGood++;
-        setWater(S.water - 4);
-        uiScore();
-        logEvent('miss_expire', { kind:'good' });
-
-        // subtle coach
-        if ((S.miss % 3) === 0) setCoach('รีบเก็บน้ำก่อนหมดเวลา! 💧');
-      }
-    }
+    onExpire: onExpire,
   });
 
-  // Clock (hard stop at 0)
-  if (clockTimer) clearInterval(clockTimer);
-  clockTimer = setInterval(()=>{
-    if (S.ended) return;
-    S.secLeft = Math.max(0, S.secLeft - 1);
-    uiTime();
+  // time events from mode-factory
+  ROOT.addEventListener('hha:time', onTime);
 
-    // hype cues
-    if (S.secLeft === 15) setCoach('เหลือ 15 วิ! ปั๊มคะแนน! 🔥');
-    if (S.secLeft === 8)  setCoach('ใกล้จบแล้ว! โคตรเดือด 💥');
+  // stop button
+  UI.btnStop && UI.btnStop.addEventListener('click', () => endGame('stop'));
 
-    if (S.secLeft <= 0){
-      endGame('timeup');
-    }
-  }, 1000);
+  // VR button (แค่โหมด UI — คุณจะผูก A-Frame เพิ่มก็ได้ภายหลัง)
+  UI.btnVR && UI.btnVR.addEventListener('click', () => {
+    showStamp('VR', 'Soon');
+    setCoach('😄','โหมด VR UI พร้อมแล้ว (ยิง crosshair ได้)','ถ้าต้องการ A-Frame scene เดี๋ยวจัดให้เพิ่ม');
+  });
+
+  // log spawn counts (ผ่าน event แบบเบา ๆ)
+  ROOT.addEventListener('hha:log_event', ()=>{});
+
+  // ยิง crosshair ด้วยการแตะกลางจอ
+  attachCrosshairTapShoot();
+
+  // first quest call
+  questText();
+  updateHUD();
 }
 
-function endGame(reason='end'){
-  if (S.ended) return;
-  S.ended = true;
+/* ------------------------- start overlay bindings ------------------------- */
+function bindStart(){
+  UI.btnStart && UI.btnStart.addEventListener('click', () => startGame());
+  // allow tap anywhere on start overlay
+  UI.startOverlay && UI.startOverlay.addEventListener('pointerdown', (ev) => {
+    const t = ev.target;
+    if (t && (t.id === 'btn-motion')) return;
+    if (t && (t.id === 'btn-start')) return;
+  }, { passive:true });
+}
 
-  try{ engine && engine.stop && engine.stop(); }catch{}
-  engine = null;
-
-  try{ detachLook && detachLook(); }catch{}
-  detachLook = null;
-
-  if (clockTimer) { clearInterval(clockTimer); clockTimer=null; }
-
-  // compute perf
-  const accuracyGoodPct = (S.totalGood > 0)
-    ? Math.round((S.hitGood / S.totalGood) * 1000) / 10
-    : null;
-  const junkErrorPct = null; // optional in future
-
-  const grade = computeGrade();
-
-  // emit end summary
-  try{
-    ROOT.dispatchEvent(new CustomEvent('hha:end', {
-      detail: {
-        sessionId: q('sessionId',''),
-        game: 'hydration',
-        mode: runMode,
-        diff,
-        seed,
-        reason,
-
-        scoreFinal: S.score|0,
-        comboMax: S.comboMax|0,
-        misses: S.miss|0,
-
-        goalsCleared: null,
-        goalsTotal: null,
-        miniCleared: null,
-        miniTotal: null,
-
-        nTargetGoodSpawned: S.nSpawnGood,
-        nTargetJunkSpawned: S.nSpawnBad,
-        nTargetStarSpawned: S.nSpawnStar,
-        nTargetShieldSpawned: S.nSpawnShield,
-
-        nHitGood: S.nHitGood,
-        nHitJunk: S.nHitBad,
-        nHitJunkGuard: S.nHitShieldBlock,
-        nExpireGood: S.nExpireGood,
-
-        accuracyGoodPct,
-        junkErrorPct,
-        grade
-      }
-    }));
-  }catch{}
-
-  logSession('end');
-
-  // UI end
-  showStampFinisher();
-  showEnd();
-
-  // auto-hide stamp after a moment
-  if (elStamp){
-    setTimeout(()=> { try{ elStamp.classList.remove('show'); }catch{} }, 2800);
+/* ------------------------- auto end when time hits 0 ------------------------- */
+ROOT.addEventListener('hha:time', (e) => {
+  const sec = e && e.detail ? Number(e.detail.sec) : null;
+  if (sec === 0 && STATE.started && !STATE.ended){
+    endGame('timeup');
   }
-}
-
-// ---------------------------------------------------------
-// Controls
-// ---------------------------------------------------------
-function hideStart(){
-  if (elStart) elStart.style.display = 'none';
-}
-function showStart(){
-  if (elStart) elStart.style.display = 'flex';
-}
-
-btnStart && btnStart.addEventListener('click', async ()=>{
-  hideStart();
-  await startGame();
-}, { passive:true });
-
-btnMotion && btnMotion.addEventListener('click', async ()=>{
-  const ok = await requestMotionPermission();
-  setCoach(ok ? 'Motion พร้อมแล้ว ✅' : 'Motion ไม่พร้อม แต่ยังเล่นได้ 🙂');
-}, { passive:true });
-
-btnRestart && btnRestart.addEventListener('click', ()=>{
-  // reset overlays
-  try{ elEnd && elEnd.classList.remove('show'); }catch{}
-  try{ elStamp && elStamp.classList.remove('show'); }catch{}
-  // restart
-  startGame();
-}, { passive:true });
-
-btnCloseEnd && btnCloseEnd.addEventListener('click', ()=>{
-  try{ elEnd && elEnd.classList.remove('show'); }catch{}
-  showStart();
-}, { passive:true });
-
-// crosshair shoot (tap anywhere quickly)
-DOC && DOC.addEventListener('dblclick', ()=>{
-  try{ engine && engine.shootCrosshair && engine.shootCrosshair(); }catch{}
-}, { passive:true });
-
-// safety stop on visibility
-DOC && DOC.addEventListener('visibilitychange', ()=>{
-  if (DOC.visibilityState === 'hidden' && !S.ended && S.started) endGame('hidden');
 });
 
-// initial
-setWater(50);
-uiScore();
-uiTime();
-setCoach('พร้อมดื่มน้ำให้สมดุล! 💧');
+/* ------------------------- init ------------------------- */
+(async function main(){
+  softInitUI();
+  bindStart();
+  await requestMotionIfNeeded();
+
+  // safety: if start overlay missing, auto start
+  if (!UI.startOverlay){
+    startGame();
+  }
+})();
