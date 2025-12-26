@@ -1,305 +1,252 @@
 // === /herohealth/hydration-vr/hydration.quest.js ===
-// Hydration Quest Director (Goals sequential + Minis chain)
-// Emits quest:update (global event via binder in hydration.safe.js)
+// Hydration Quest — Goals sequential + Minis chain (PRODUCTION)
+// Emits:
+// - onUpdate({goalTitle, miniTitle, goalsCleared, goalsTotal, miniCleared, miniTotal, goalProg, miniProg})
+// - onCelebrate(kind:'goal'|'mini', payload)
 
 'use strict';
 
 export function createHydrationQuest(opts = {}){
-  const duration = Number(opts.duration || 60) || 60;
-  const onCoach = (typeof opts.onCoach === 'function') ? opts.onCoach : ()=>{};
-  const onCelebrate = (typeof opts.onCelebrate === 'function') ? opts.onCelebrate : ()=>{};
+  const onUpdate = typeof opts.onUpdate === 'function' ? opts.onUpdate : ()=>{};
+  const onCelebrate = typeof opts.onCelebrate === 'function' ? opts.onCelebrate : ()=>{};
 
-  // ---- Goal definitions (sequential) ----
-  const GOALS = [
-    {
-      id:'g1',
-      title:'สมดุลน้ำให้ได้',
-      desc:'ทำให้น้ำอยู่โซน BALANCED อย่างน้อย 6 ครั้ง (นับตอน “เก็บน้ำดี” แล้วอยู่ BALANCED)',
-      need: 6
-    },
-    {
-      id:'g2',
-      title:'คอมโบสายชุ่มฉ่ำ',
-      desc:'ทำ COMBO ถึง 12 ขึ้นไป (ห้ามพลาดระหว่างทาง)',
-      need: 12
-    }
+  const goals = [
+    { title:'เก็บน้ำดี 12 ครั้ง', need:12, kind:'good' },
+    { title:'Perfect 6 ครั้ง', need:6, kind:'perfect' },
+    { title:'คอมโบถึง 15', need:15, kind:'combo' }
   ];
 
-  // ---- Mini chain (ต่อเนื่อง) ----
-  const MINIS = [
-    {
-      id:'m1',
-      title:'Perfect Streak ✨',
-      desc:'ทำ PERFECT 3 ครั้ง',
-      need: 3
-    },
-    {
-      id:'m2',
-      title:'No Junk Zone 🚫',
-      desc:'ห้ามโดนขยะ 10 วินาที',
-      need: 10, // seconds
-      timeBased:true
-    },
-    {
-      id:'m3',
-      title:'Diamond Rescue 💎',
-      desc:'เก็บเพชร 1 ครั้ง',
-      need: 1
-    },
-    {
-      id:'m4',
-      title:'Shield Master 🛡️',
-      desc:'กันขยะด้วยโล่ 2 ครั้ง',
-      need: 2
-    }
+  const minis = [
+    { title:'No-Junk Zone (8 วิ ห้ามโดนขยะ)', need:8, kind:'timerNoJunk' },
+    { title:'Water Rush (เก็บน้ำดี 6 ภายใน 9 วิ)', need:6, kind:'rushGood', window:9 },
+    { title:'Shield Save (บล็อกเลเซอร์/ขยะ 1 ครั้ง)', need:1, kind:'shieldBlock' },
+    { title:'Streak Perfect (Perfect ติดกัน 4)', need:4, kind:'streakPerfect' },
+    { title:'Endurance (คอมโบ 20 ก่อนหมดเวลา)', need:20, kind:'combo' }
   ];
 
-  const state = {
-    started:false,
-    goalsAll: GOALS,
-    minisAll: MINIS,
-
+  const Q = {
+    goalsAll: goals,
+    minisAll: minis,
     goalIndex: 0,
-    goalProg: 0,
-
     miniIndex: 0,
-    miniProg: 0,
 
-    miniTimerOn:false,
-    miniSecLeft: 0,
-    lastMiniTickAt: 0,
+    goalsCleared: 0,
+    minisCleared: 0,
 
-    // counters (from gameplay)
-    perfectCount: 0,
-    diamondCount: 0,
-    shieldBlockCount: 0,
+    // runtime counters
+    curGoalCount: 0,
+    curMiniCount: 0,
 
-    comboMaxSeen: 0,
-    balancedHits: 0,
+    // state
+    combo: 0,
+    noJunkUntil: 0,
+    rushUntil: 0,
+    rushStart: 0,
+    streakPerfect: 0
   };
 
-  let cb = {
-    onQuestUpdate: null,
-    onGoalClear: null,
-    onMiniClear: null,
-    onAllClear: null
-  };
+  function activeGoal(){
+    return Q.goalsAll[Q.goalIndex] || null;
+  }
+  function activeMini(){
+    return Q.minisAll[Q.miniIndex] || null;
+  }
 
-  function curGoal(){ return state.goalsAll[state.goalIndex] || null; }
-  function curMini(){ return state.minisAll[state.miniIndex] || null; }
-
-  function pushUpdate(extra = {}){
-    const g = curGoal();
-    const m = curMini();
-
-    const payload = {
-      // goal
-      goalId: g ? g.id : '',
-      goalTitle: g ? g.title : '',
-      goalDesc: g ? g.desc : '',
-      goalsCleared: state.goalIndex,
-      goalsTotal: state.goalsAll.length,
-
-      // mini
-      miniId: m ? m.id : '',
-      miniTitle: m ? m.title : '',
-      miniDesc: m ? m.desc : '',
-      minisCleared: state.miniIndex,
-      miniTotal: state.minisAll.length,
-
-      // progress
-      goalProg: state.goalProg,
-      goalNeed: g ? g.need : 0,
-      miniProg: state.miniProg,
-      miniNeed: m ? m.need : 0,
-      miniSecLeft: state.miniTimerOn ? state.miniSecLeft : null,
-
-      ...extra
-    };
-
-    if (typeof cb.onQuestUpdate === 'function') cb.onQuestUpdate(payload);
+  function emit(){
+    const g = activeGoal();
+    const m = activeMini();
+    onUpdate({
+      goalTitle: g ? g.title : 'ALL CLEAR',
+      miniTitle: m ? m.title : '—',
+      goalsCleared: Q.goalsCleared,
+      goalsTotal: Q.goalsAll.length,
+      minisCleared: Q.minisCleared,
+      miniTotal: Q.minisAll.length,
+      goalProg: g ? `${Q.curGoalCount}/${g.need}` : `—`,
+      miniProg: m ? `${Q.curMiniCount}/${m.need}` : `—`,
+    });
   }
 
   function clearGoal(){
-    const g = curGoal();
+    const g = activeGoal();
     if (!g) return;
-
-    onCelebrate('GOAL', g.title);
-    onCoach(`ผ่าน GOAL: ${g.title} ✅`, 'happy');
-
-    if (typeof cb.onGoalClear === 'function') cb.onGoalClear(g);
-
-    state.goalIndex++;
-    state.goalProg = 0;
-
-    if (state.goalIndex >= state.goalsAll.length){
-      // all goals done
-      onCelebrate('ALL', 'ALL GOALS CLEAR!');
-      onCoach('เคลียร์ GOAL ทั้งหมดแล้ว! 🎉', 'happy');
-      if (typeof cb.onAllClear === 'function') cb.onAllClear({ kind:'goals' });
-    }
-
-    pushUpdate({ justCleared:'goal', justClearedId:g.id });
+    Q.goalsCleared++;
+    Q.goalIndex++;
+    Q.curGoalCount = 0;
+    onCelebrate('goal', { title: g.title });
+    emit();
   }
 
   function clearMini(){
-    const m = curMini();
+    const m = activeMini();
+    if (!m) return;
+    Q.minisCleared++;
+    Q.miniIndex++;
+    Q.curMiniCount = 0;
+
+    // reset some mini state
+    Q.rushUntil = 0;
+    Q.noJunkUntil = 0;
+    Q.streakPerfect = 0;
+
+    onCelebrate('mini', { title: m.title });
+    emit();
+  }
+
+  function tickTimers(){
+    const t = Date.now()/1000;
+    const m = activeMini();
     if (!m) return;
 
-    onCelebrate('MINI', m.title);
-    onCoach(`ผ่าน MINI: ${m.title} ⭐`, 'happy');
+    if (m.kind === 'timerNoJunk'){
+      // progress only while timer active
+      if (Q.noJunkUntil > 0){
+        const left = Math.max(0, Q.noJunkUntil - t);
+        Q.curMiniCount = Math.round((m.need - left));
+        if (left <= 0){
+          Q.curMiniCount = m.need;
+          clearMini();
+        } else emit();
+      }
+    }
 
-    if (typeof cb.onMiniClear === 'function') cb.onMiniClear(m);
-
-    state.miniIndex++;
-    state.miniProg = 0;
-
-    // reset timer mini
-    state.miniTimerOn = false;
-    state.miniSecLeft = 0;
-    state.lastMiniTickAt = 0;
-
-    pushUpdate({ justCleared:'mini', justClearedId:m.id });
-  }
-
-  function startMiniTimerIfNeeded(){
-    const m = curMini();
-    if (!m || !m.timeBased) return;
-    if (state.miniTimerOn) return;
-    state.miniTimerOn = true;
-    state.miniSecLeft = Number(m.need || 10) || 10;
-    state.lastMiniTickAt = 0;
-    onCoach(`MINI เริ่มแล้ว: ${m.title} ⏱️`, 'neutral');
-  }
-
-  function tickMiniTimer(ts){
-    const m = curMini();
-    if (!m || !m.timeBased) return;
-    if (!state.miniTimerOn) return;
-
-    if (!state.lastMiniTickAt) state.lastMiniTickAt = ts;
-    const dt = ts - state.lastMiniTickAt;
-    if (dt < 1000) return;
-
-    const steps = Math.floor(dt/1000);
-    state.miniSecLeft -= steps;
-    state.lastMiniTickAt += steps*1000;
-
-    if (state.miniSecLeft <= 0){
-      // success
-      state.miniTimerOn = false;
-      state.miniProg = m.need;
-      clearMini();
-    } else {
-      pushUpdate({ miniSecLeft: state.miniSecLeft });
+    if (m.kind === 'rushGood'){
+      if (Q.rushUntil > 0 && t > Q.rushUntil){
+        // failed rush → restart
+        Q.rushUntil = 0;
+        Q.curMiniCount = 0;
+        emit();
+      }
     }
   }
 
   function onHit(ev){
-    // ev: { kind:'good'|'fakeGood'|'junk'|'star'|'diamond'|'shield', perfect:boolean }
-    const kind = String(ev.kind || '');
-    const perfect = !!ev.perfect;
+    // ev: {kind:'good'|'junk'|'power', good:boolean, perfect:boolean}
+    const g = activeGoal();
+    const m = activeMini();
+    const now = Date.now()/1000;
 
-    // ---- Goal logic ----
-    const g = curGoal();
+    // goal update
     if (g){
-      if (g.id === 'g1'){
-        // this goal expects "balancedHits" to be incremented externally
-        // we accept a signal via ev.zoneBalanced === true
-        if (ev.zoneBalanced === true){
-          state.balancedHits++;
-          state.goalProg = state.balancedHits;
-          if (state.goalProg >= g.need) clearGoal();
-        }
+      if (g.kind === 'good' && ev.kind === 'good'){
+        Q.curGoalCount++;
+        if (Q.curGoalCount >= g.need) clearGoal(); else emit();
       }
-      if (g.id === 'g2'){
-        // expects comboMaxSeen updated externally via ev.comboMax
-        if (typeof ev.comboMax === 'number'){
-          state.comboMaxSeen = Math.max(state.comboMaxSeen, ev.comboMax);
-          state.goalProg = state.comboMaxSeen;
-          if (state.goalProg >= g.need) clearGoal();
-        }
+      if (g.kind === 'perfect' && ev.perfect){
+        Q.curGoalCount++;
+        if (Q.curGoalCount >= g.need) clearGoal(); else emit();
+      }
+      if (g.kind === 'combo'){
+        // combo handled externally via setCombo
       }
     }
 
-    // ---- Mini logic ----
-    const m = curMini();
+    // mini update
     if (m){
-      if (m.id === 'm1'){
-        if (perfect && (kind === 'good' || kind === 'fakeGood' || kind === 'star' || kind === 'diamond')){
-          state.perfectCount++;
-          state.miniProg = state.perfectCount;
-          if (state.miniProg >= m.need) clearMini();
+      if (m.kind === 'timerNoJunk'){
+        // start timer when first good hit
+        if (Q.noJunkUntil <= 0 && ev.kind === 'good'){
+          Q.noJunkUntil = now + m.need;
+          Q.curMiniCount = 0;
+          emit();
         }
-      } else if (m.id === 'm2'){
-        // time based: starts when mini becomes active; resets if junk hit
-        startMiniTimerIfNeeded();
-        // no direct prog, timer ticks in update loop
-      } else if (m.id === 'm3'){
-        if (kind === 'diamond'){
-          state.diamondCount++;
-          state.miniProg = state.diamondCount;
-          if (state.miniProg >= m.need) clearMini();
+        // if junk happens -> fail
+        if (ev.kind === 'junk'){
+          Q.noJunkUntil = 0;
+          Q.curMiniCount = 0;
+          emit();
         }
-      } else if (m.id === 'm4'){
-        // handled by onBlock (shield block)
+      }
+
+      if (m.kind === 'rushGood'){
+        if (ev.kind === 'good'){
+          if (Q.rushUntil <= 0){
+            Q.rushStart = now;
+            Q.rushUntil = now + (m.window || 9);
+            Q.curMiniCount = 0;
+          }
+          Q.curMiniCount++;
+          if (Q.curMiniCount >= m.need){
+            clearMini();
+          } else emit();
+        }
+        if (ev.kind === 'junk'){
+          Q.rushUntil = 0;
+          Q.curMiniCount = 0;
+          emit();
+        }
+      }
+
+      if (m.kind === 'shieldBlock'){
+        // will be triggered via onSpecial('shieldBlock')
+      }
+
+      if (m.kind === 'streakPerfect'){
+        if (ev.perfect){
+          Q.streakPerfect++;
+          Q.curMiniCount = Q.streakPerfect;
+          if (Q.curMiniCount >= m.need) clearMini(); else emit();
+        } else if (ev.kind === 'good'){
+          // good but not perfect breaks streak
+          Q.streakPerfect = 0;
+          Q.curMiniCount = 0;
+          emit();
+        }
+        if (ev.kind === 'junk'){
+          Q.streakPerfect = 0;
+          Q.curMiniCount = 0;
+          emit();
+        }
+      }
+
+      if (m.kind === 'combo'){
+        // combo handled via setCombo
       }
     }
 
-    pushUpdate();
+    tickTimers();
   }
 
-  function onBlock(ev){
-    // shield_block
-    const m = curMini();
-    if (m && m.id === 'm4'){
-      state.shieldBlockCount++;
-      state.miniProg = state.shieldBlockCount;
-      if (state.miniProg >= m.need) clearMini();
-      pushUpdate();
+  function onSpecial(name){
+    const m = activeMini();
+    if (!m) return;
+
+    if (m.kind === 'shieldBlock' && name === 'shieldBlock'){
+      Q.curMiniCount = 1;
+      clearMini();
+      return;
     }
   }
 
-  function onMiss(ev){
-    // misses reset some minis/timers
-    const m = curMini();
-    if (m && m.id === 'm2'){
-      // fail and restart timer
-      state.miniTimerOn = false;
-      state.miniSecLeft = 0;
-      state.lastMiniTickAt = 0;
-      onCoach('โดนขยะ/พลาด! MINI No Junk รีเซ็ต 😅', 'sad');
-      startMiniTimerIfNeeded();
-      pushUpdate();
+  function setCombo(combo){
+    Q.combo = Math.max(0, combo|0);
+
+    // goal combo
+    const g = activeGoal();
+    if (g && g.kind === 'combo'){
+      Q.curGoalCount = Math.max(Q.curGoalCount, Q.combo);
+      if (Q.curGoalCount >= g.need) clearGoal(); else emit();
+    }
+
+    // mini combo
+    const m = activeMini();
+    if (m && m.kind === 'combo'){
+      Q.curMiniCount = Math.max(Q.curMiniCount, Q.combo);
+      if (Q.curMiniCount >= m.need) clearMini(); else emit();
     }
   }
 
-  function bind(bindings = {}){
-    cb = { ...cb, ...bindings };
-    state.started = true;
-    onCoach('เริ่มภารกิจ! รักษาน้ำให้สมดุล 💧⚖️', 'neutral');
-    pushUpdate();
-  }
-
-  function update(ts){
-    // tick time-based mini
-    tickMiniTimer(ts || performance.now());
-  }
-
-  function getGoalsState(){
-    return { cleared: state.goalIndex, total: state.goalsAll.length };
-  }
-  function getMiniState(){
-    return { cleared: state.miniIndex, total: state.minisAll.length };
-  }
+  // initial emit
+  emit();
 
   return {
-    bind,
-    update,
+    get goalsCleared(){ return Q.goalsCleared; },
+    get goalsTotal(){ return Q.goalsAll.length; },
+    get minisCleared(){ return Q.minisCleared; },
+    get miniTotal(){ return Q.minisAll.length; },
+
     onHit,
-    onBlock,
-    onMiss,
-    getGoalsState,
-    getMiniState
+    onSpecial,
+    setCombo
   };
 }
