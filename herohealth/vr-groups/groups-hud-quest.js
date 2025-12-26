@@ -1,86 +1,145 @@
-// === /herohealth/vr-groups/groups-hud-quest.js ===
-// Food Groups VR — HUD Quest Binder (TOP-ONLY) — PRODUCTION
-// ✅ แสดง GOAL/MINI ใน HUD บนเท่านั้น
-// ✅ อัปเดต title/val + progress bar + mini timer
-// ✅ ไม่สร้าง fg-questPanel (ล่าง) และจะลบทิ้งถ้ามี
-// ✅ กัน bind ซ้ำ
+/* === /herohealth/vr-groups/groups-hud-quest.js ===
+Food Groups VR — HUD Quest Binder (PRODUCTION / classic script)
+✅ listens: quest:update
+✅ updates:
+   - #hud-goal-title, #hud-goal-val
+   - #hud-mini-title, #hud-mini-val
+✅ optional top bars (qbar):
+   - creates inside .hud-mid if missing:
+       .qbar.goal  -> .qbar-fill.goal + timer (optional)
+       .qbar.mini  -> .qbar-fill.mini + timer (miniSecLeft)
+✅ safe: elements missing => skip
+*/
 
-(function(){
+(function (root) {
   'use strict';
 
-  const doc = document;
-  if (!doc) return;
+  const DOC = root.document;
+  if (!DOC) return;
 
-  const NS = (window.GroupsHUD = window.GroupsHUD || {});
-  if (NS.__questBoundTopOnly) return;
-  NS.__questBoundTopOnly = true;
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-  function pct(prog,target){
-    const p = Number(prog)||0;
-    const t = Math.max(1, Number(target)||0);
-    return clamp(p/t, 0, 1);
+  function qs(sel){ return DOC.querySelector(sel); }
+
+  // --- main HUD refs (existing in your HTML) ---
+  const elGoalTitle = DOC.getElementById('hud-goal-title');
+  const elGoalVal   = DOC.getElementById('hud-goal-val');
+  const elMiniTitle = DOC.getElementById('hud-mini-title');
+  const elMiniVal   = DOC.getElementById('hud-mini-val');
+
+  // --- optional bar container ---
+  const hudMid = qs('.hud-mid');
+
+  // Create qbar blocks (optional) if HUD mid exists
+  function ensureQBars(){
+    if (!hudMid) return null;
+
+    // Do not duplicate
+    let wrap = hudMid.querySelector('.qbars-wrap');
+    if (wrap) return wrap;
+
+    wrap = DOC.createElement('div');
+    wrap.className = 'qbars-wrap';
+    // minimal spacing (CSS already has .qbar styles)
+    wrap.style.marginTop = '8px';
+
+    // GOAL bar
+    const goalBar = DOC.createElement('div');
+    goalBar.className = 'qbar qbar-goal';
+    goalBar.innerHTML = `
+      <div class="q-badge" style="min-width:56px;text-align:center;">GOAL</div>
+      <div class="qbar-track"><div class="qbar-fill goal" id="qbarGoalFill"></div></div>
+      <div class="qbar-timer" id="qbarGoalTxt">0/0</div>
+    `;
+
+    // MINI bar
+    const miniBar = DOC.createElement('div');
+    miniBar.className = 'qbar qbar-mini';
+    miniBar.innerHTML = `
+      <div class="q-badge mini" style="min-width:56px;text-align:center;">MINI</div>
+      <div class="qbar-track"><div class="qbar-fill mini" id="qbarMiniFill"></div></div>
+      <div class="qbar-timer" id="qbarMiniTxt">0/0</div>
+    `;
+
+    wrap.appendChild(goalBar);
+    wrap.appendChild(miniBar);
+
+    // Insert right before .quest-wrap if exists, else append to hudMid
+    const questWrap = hudMid.querySelector('.quest-wrap');
+    if (questWrap) hudMid.insertBefore(wrap, questWrap);
+    else hudMid.appendChild(wrap);
+
+    return wrap;
   }
-  function setText(el, t){
+
+  const qwrap = ensureQBars();
+  const qbarGoalFill = DOC.getElementById('qbarGoalFill');
+  const qbarMiniFill = DOC.getElementById('qbarMiniFill');
+  const qbarGoalTxt  = DOC.getElementById('qbarGoalTxt');
+  const qbarMiniTxt  = DOC.getElementById('qbarMiniTxt');
+
+  // Update helper
+  function setText(el, text){
     if (!el) return;
-    el.textContent = String(t == null ? '' : t);
+    el.textContent = String(text == null ? '' : text);
   }
-  function setWidth(el, p){
+
+  function pct(now, total){
+    total = Math.max(1, total|0);
+    now = clamp(now|0, 0, total);
+    return (now / total) * 100;
+  }
+
+  function setFill(el, percent){
     if (!el) return;
-    el.style.width = Math.round(clamp(p,0,1)*100) + '%';
+    const p = clamp(percent, 0, 100);
+    el.style.width = p.toFixed(1) + '%';
   }
 
-  function removeBottomPanelIfAny(){
-    const p = doc.getElementById('fg-questPanel');
-    if (p && p.parentNode) {
-      try{ p.parentNode.removeChild(p); }catch(_){}
+  // Main listener
+  root.addEventListener('quest:update', (ev)=>{
+    const d = ev.detail || {};
+
+    const goalTitle = (d.goalTitle != null ? String(d.goalTitle) : '—');
+    const goalNow   = (d.goalNow|0);
+    const goalTotal = (d.goalTotal|0);
+
+    const miniTitle = (d.miniTitle != null ? String(d.miniTitle) : '—');
+    const miniNow   = (d.miniNow|0);
+    const miniTotal = (d.miniTotal|0);
+
+    const miniSecLeft = (d.miniSecLeft == null ? null : (d.miniSecLeft|0));
+
+    // ---- text HUD ----
+    setText(elGoalTitle, goalTitle);
+    setText(elGoalVal, `${goalNow}/${Math.max(0,goalTotal|0)}`);
+
+    setText(elMiniTitle, miniTitle);
+    setText(elMiniVal, `${miniNow}/${Math.max(0,miniTotal|0)}`);
+
+    // ---- bars (optional) ----
+    if (qwrap){
+      setFill(qbarGoalFill, pct(goalNow, goalTotal));
+      setFill(qbarMiniFill, pct(miniNow, miniTotal));
+
+      // Right text: show timer if exists, else show now/total
+      if (qbarGoalTxt) qbarGoalTxt.textContent = `${goalNow}/${Math.max(0,goalTotal|0)}`;
+
+      if (qbarMiniTxt){
+        if (typeof miniSecLeft === 'number'){
+          // show both: remaining sec + progress
+          qbarMiniTxt.textContent = `${miniSecLeft}s • ${miniNow}/${Math.max(0,miniTotal|0)}`;
+
+          // panic class when close to 3s
+          const html = DOC.documentElement;
+          if (miniSecLeft <= 3) html.classList.add('panic');
+          else html.classList.remove('panic');
+        } else {
+          qbarMiniTxt.textContent = `${miniNow}/${Math.max(0,miniTotal|0)}`;
+          DOC.documentElement.classList.remove('panic');
+        }
+      }
     }
-  }
-
-  // cache nodes lazily
-  let nGoalT, nGoalV, nMiniT, nMiniV, nGoalBar, nMiniBar, nMiniTimer;
-
-  function ensureNodes(){
-    nGoalT = nGoalT || doc.getElementById('hud-goal-title');
-    nGoalV = nGoalV || doc.getElementById('hud-goal-val');
-    nMiniT = nMiniT || doc.getElementById('hud-mini-title');
-    nMiniV = nMiniV || doc.getElementById('hud-mini-val');
-
-    nGoalBar = nGoalBar || doc.getElementById('hud-goal-bar');
-    nMiniBar = nMiniBar || doc.getElementById('hud-mini-bar');
-    nMiniTimer = nMiniTimer || doc.getElementById('hud-mini-timer');
-  }
-
-  function applyQuestUpdate(d){
-    removeBottomPanelIfAny();
-    ensureNodes();
-
-    const goal = d && d.goal ? d.goal : null;
-    const mini = d && d.mini ? d.mini : null;
-
-    // GOAL
-    setText(nGoalT, goal && goal.label ? goal.label : '—');
-    setText(nGoalV, goal ? ((goal.prog|0) + '/' + (goal.target|0)) : '0/0');
-    setWidth(nGoalBar, goal ? pct(goal.prog, goal.target) : 0);
-
-    // MINI
-    setText(nMiniT, mini && mini.label ? mini.label : '—');
-    setText(nMiniV, mini ? ((mini.prog|0) + '/' + (mini.target|0)) : '0/0');
-    setWidth(nMiniBar, mini ? pct(mini.prog, mini.target) : 0);
-
-    // MINI timer
-    if (mini && typeof mini.tLeft === 'number'){
-      setText(nMiniTimer, `⏱️ ${Math.max(0, mini.tLeft|0)}s`);
-    } else {
-      setText(nMiniTimer, '');
-    }
-  }
-
-  removeBottomPanelIfAny();
-
-  window.addEventListener('quest:update', (ev)=>{
-    const d = ev && ev.detail ? ev.detail : {};
-    applyQuestUpdate(d);
   }, { passive:true });
 
-})();
+})(window);
