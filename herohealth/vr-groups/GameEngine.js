@@ -1,9 +1,12 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups — GameEngine (classic script) — ALL-IN v2
-// ✅ VR-lag motion + afterimage trail
-// ✅ hit FX (burst + score pop)
-// ✅ end summary payload includes quest counters + detailed stats
-// ✅ Emits: hha:score, hha:time, groups:* , hha:rank, groups:lock, hha:end
+// Food Groups — GameEngine (classic script) — FULL LATEST
+// ✅ DOM targets use CSS vars --x/--y/--s + classes fg-good/fg-junk/fg-decoy/fg-boss
+// ✅ Correct = current group, Wrong = other group, Junk = stun 0.8s
+// ✅ Boss multi-hit + bossbar + rage glow
+// ✅ Decoy looks-correct but penalty
+// ✅ Lock-on (tap near target) + direct hit (tap target)
+// ✅ Emits: hha:score, hha:time, hha:rank, quest:update (via groups-quests.js), groups:* , groups:lock
+// ✅ END payload: hha:end includes scoreFinal + grade + accuracy + comboMax + misses + goals/minis counts
 
 (function (root) {
   'use strict';
@@ -17,10 +20,7 @@
   }
   function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
 
-  const FX =
-    (W.GroupsFX) ||
-    { scorePop(){}, burstAt(){}, trailAt(){} };
-
+  // ---------------- Difficulty tuning ----------------
   const DIFF = {
     easy:   { spawnEvery: 720, maxOnScreen: 5, ttl: [2200, 3400], junkRate:.18, decoyRate:.07, bossEvery: 16, bossHP: 3,
               correctScore: 120, wrongPenalty: 120, junkPenalty: 180, decoyPenalty: 140, bossScore: 220, powerThreshold: 6 },
@@ -30,6 +30,7 @@
               correctScore: 140, wrongPenalty: 160, junkPenalty: 230, decoyPenalty: 180, bossScore: 260, powerThreshold: 8 }
   };
 
+  // ---------------- Groups data ----------------
   const GROUPS = [
     { id:1, label:'หมู่ 1', foods:['🥛','🥚','🫘','🍗'] },
     { id:2, label:'หมู่ 2', foods:['🍚','🍞','🥔','🍜'] },
@@ -42,12 +43,18 @@
   function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
   function pickGroup(){ return GROUPS[(Math.random()*GROUPS.length)|0]; }
 
+  // ---------------- Safe spawn box based on HUD + safe-area ----------------
   function getSpawnBox(){
     const w = window.innerWidth || 360;
     const h = window.innerHeight || 640;
 
-    let left  = 18, right = 18, top = 18, bot = 18;
+    // base margins
+    let left  = 18;
+    let right = 18;
+    let top   = 18;
+    let bot   = 18;
 
+    // add safe-area (from CSS vars)
     const cs = getComputedStyle(document.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
     const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
@@ -56,6 +63,7 @@
 
     left += sal; right += sar; top += sat; bot += sab;
 
+    // reserve HUD top area
     const hud = document.querySelector('.hud-top');
     if (hud){
       const r = hud.getBoundingClientRect();
@@ -64,6 +72,7 @@
       top = Math.max(top, 120 + sat);
     }
 
+    // reserve bottom for mobile bars
     bot = Math.max(bot, 72 + sab);
 
     return {
@@ -74,70 +83,7 @@
     };
   }
 
-  function centerOf(el){
-    const r = el.getBoundingClientRect();
-    return { x: r.left + r.width/2, y: r.top + r.height/2, w:r.width, h:r.height };
-  }
-
-  // --- VR-lag input: device orientation + drag velocity ---
-  const Motion = {
-    tiltX: 0, tiltY: 0,
-    vx: 0, vy: 0,
-    ox: 0, oy: 0, // smoothed offset
-    lastX: null, lastY: null,
-    bound: false,
-    onOri(ev){
-      // gamma [-90..90] left-right, beta [-180..180] front-back
-      const gx = Number(ev.gamma)||0;
-      const by = Number(ev.beta)||0;
-      Motion.tiltX = clamp(gx/35, -1, 1);
-      Motion.tiltY = clamp(by/50, -1, 1);
-    },
-    onMove(ev){
-      const x = (ev && ev.clientX!=null) ? ev.clientX : null;
-      const y = (ev && ev.clientY!=null) ? ev.clientY : null;
-      if (x==null || y==null) return;
-
-      if (Motion.lastX==null){ Motion.lastX=x; Motion.lastY=y; return; }
-      const dx = x - Motion.lastX;
-      const dy = y - Motion.lastY;
-      Motion.lastX = x; Motion.lastY = y;
-
-      // accumulate velocity (damped)
-      Motion.vx = clamp(Motion.vx + dx*0.12, -18, 18);
-      Motion.vy = clamp(Motion.vy + dy*0.12, -18, 18);
-    },
-    bind(){
-      if (Motion.bound) return;
-      Motion.bound = true;
-      window.addEventListener('deviceorientation', Motion.onOri, { passive:true });
-      window.addEventListener('pointermove', Motion.onMove, { passive:true });
-    },
-    unbind(){
-      if (!Motion.bound) return;
-      Motion.bound = false;
-      window.removeEventListener('deviceorientation', Motion.onOri);
-      window.removeEventListener('pointermove', Motion.onMove);
-      Motion.lastX = Motion.lastY = null;
-      Motion.vx = Motion.vy = 0;
-      Motion.ox = Motion.oy = 0;
-      Motion.tiltX = Motion.tiltY = 0;
-    },
-    step(dt){
-      // base offset from tilt + drag velocity
-      const targetX = Motion.tiltX * 10 + Motion.vx;
-      const targetY = Motion.tiltY *  8 + Motion.vy;
-
-      // smooth lag
-      Motion.ox += (targetX - Motion.ox) * clamp(dt*6.5, 0, 1);
-      Motion.oy += (targetY - Motion.oy) * clamp(dt*6.5, 0, 1);
-
-      // decay velocity
-      Motion.vx *= (1 - clamp(dt*3.4, 0, 1));
-      Motion.vy *= (1 - clamp(dt*3.4, 0, 1));
-    }
-  };
-
+  // ---------------- Engine ----------------
   const Engine = {
     _layerEl: null,
     _running: false,
@@ -161,7 +107,6 @@
 
     _groupIdx: 0,
     _powerCharge: 0,
-    _powerSwaps: 0,
 
     _stunUntil: 0,
 
@@ -171,14 +116,12 @@
 
     _correctHitsTotal: 0,
 
+    // lock system
     _lockActive: false,
     _lockEl: null,
     _lockStartAt: 0,
     _lockDur: 420,
     _lockRAF: 0,
-
-    // motion
-    _trailAcc: 0,
 
     setLayerEl(el){ this._layerEl = el; },
     setTimeLeft(sec){ this._timeLeft = Math.max(10, sec|0); },
@@ -206,21 +149,19 @@
       this._hits = 0;
 
       this._powerCharge = 0;
-      this._powerSwaps = 0;
-
       this._stunUntil = 0;
       this._correctHitsTotal = 0;
 
       this._lockActive = false;
       this._lockEl = null;
 
-      this._trailAcc = 0;
-
       if (this._layerEl) this._layerEl.innerHTML = '';
 
+      // init group
       this._groupIdx = 0;
       emit('groups:group_change', { label: GROUPS[this._groupIdx].label });
 
+      // Quest init
       if (W.GroupsVR && typeof W.GroupsVR.createGroupsQuest === 'function'){
         this._quest = W.GroupsVR.createGroupsQuest({
           diff: this._diff,
@@ -230,10 +171,10 @@
         this._quest.start();
         this._quest.onGroupChange(GROUPS[this._groupIdx].label);
       } else {
+        this._quest = null;
         emit('quest:update', { questOk:false, groupLabel: GROUPS[this._groupIdx].label });
       }
 
-      Motion.bind();
       this._bindInput();
 
       this._emitScore();
@@ -245,48 +186,39 @@
     },
 
     stop(reason){
+      if (!this._running) return;
       this._running = false;
       try{ cancelAnimationFrame(this._raf); }catch(_){}
       this._unbindInput();
       this._stopLock();
-      Motion.unbind();
 
+      // ---- summary for end payload ----
       const acc = this._accuracy();
       const grade = this._grade(acc, this._comboMax, this._misses);
 
-      // quest counters (if available)
-      let goalsCleared = null, goalsTotal = null, miniCleared = null, miniTotal = null, questsPassed = null, questsTotal = null;
+      let qsum = null;
       if (this._quest && typeof this._quest.getSummary === 'function'){
-        const qs = this._quest.getSummary() || {};
-        goalsCleared = qs.goalsCleared ?? null;
-        goalsTotal   = qs.goalsTotal ?? null;
-        miniCleared  = qs.miniCleared ?? null;
-        miniTotal    = qs.miniTotal ?? null;
-        questsPassed = qs.questsPassed ?? null;
-        questsTotal  = qs.questsTotal ?? null;
+        try{ qsum = this._quest.getSummary(); }catch(_){}
       }
 
       emit('hha:end', {
         reason: reason || 'stop',
-        scoreFinal: this._score|0,
-        comboMax: this._comboMax|0,
-        misses: this._misses|0,
-        accuracy: acc|0,
-        grade,
-
-        // extra payload for logger/research
         diff: this._diff,
         runMode: this._runMode,
-        powerSwaps: this._powerSwaps|0,
-        powerThreshold: this._cfg.powerThreshold|0,
+        seed: (qsum && qsum.seed) ? qsum.seed : (this._seed || null),
 
-        shots: this._shots|0,
-        hits: this._hits|0,
-        correctHits: this._correctHitsTotal|0,
+        scoreFinal: this._score|0,
+        accuracy: acc|0,
+        grade: grade,
+        comboMax: this._comboMax|0,
+        misses: this._misses|0,
 
-        goalsCleared, goalsTotal,
-        miniCleared, miniTotal,
-        questsPassed, questsTotal
+        goalsCleared: qsum ? (qsum.goalsCleared|0) : 0,
+        goalsTotal:   qsum ? (qsum.goalsTotal|0)   : 0,
+        miniCleared:  qsum ? (qsum.miniCleared|0)  : 0,
+        miniTotal:    qsum ? (qsum.miniTotal|0)    : 0,
+        questsPassed: qsum ? (qsum.questsPassed|0) : 0,
+        questsTotal:  qsum ? (qsum.questsTotal|0)  : 0
       });
     },
 
@@ -295,20 +227,24 @@
       const dt = Math.min(0.05, Math.max(0.001, (t - this._last) / 1000));
       this._last = t;
 
-      Motion.step(dt);
-      this._applyMotion(dt);
-
+      // timer
       this._timerAcc += dt;
       if (this._timerAcc >= 1){
         this._timerAcc -= 1;
         this._timeLeft = Math.max(0, (this._timeLeft|0) - 1);
         this._emitTime();
+
+        // panic class when low time
+        if (this._timeLeft <= 10) document.documentElement.classList.add('panic');
+        else document.documentElement.classList.remove('panic');
+
         if (this._timeLeft <= 0){
           this.stop('time');
           return;
         }
       }
 
+      // spawn (pause while stunned)
       const isStunned = (t < this._stunUntil);
       if (!isStunned){
         this._spawnAcc += dt * 1000;
@@ -318,46 +254,10 @@
         }
       }
 
+      // quest tick
       if (this._quest) this._quest.tick(dt);
+
       requestAnimationFrame(this._loop.bind(this));
-    },
-
-    _applyMotion(dt){
-      // move targets slightly using motion offset (VR-lag feel)
-      const ox = Motion.ox, oy = Motion.oy;
-
-      // afterimage trail accumulator
-      this._trailAcc += dt;
-      const trailTick = (this._trailAcc >= 0.085);
-      if (trailTick) this._trailAcc = 0;
-
-      for (let i=0;i<this._targets.length;i++){
-        const el = this._targets[i];
-        if (!el || !el.isConnected) continue;
-
-        const bx = parseFloat(el.dataset.bx || '0') || 0;
-        const by = parseFloat(el.dataset.by || '0') || 0;
-        const s  = parseFloat(el.dataset.bs || '1') || 1;
-
-        const mx = bx + ox;
-        const my = by + oy;
-
-        el.style.setProperty('--x', Math.round(mx) + 'px');
-        el.style.setProperty('--y', Math.round(my) + 'px');
-        el.style.setProperty('--s', String(s));
-        el.classList.add('moving');
-
-        if (trailTick){
-          // only trail for good/boss to feel premium
-          const type = String(el.dataset.type||'food');
-          if (type === 'food' || type === 'boss'){
-            const emoji = (el.querySelector('span') && el.querySelector('span').textContent) || '';
-            const k = (type === 'boss') ? 'boss' : 'good';
-            const c = centerOf(el);
-            FX.trailAt(c.x, c.y, emoji, k, s);
-          }
-        }
-      }
     },
 
     _bindInput(){
@@ -397,7 +297,7 @@
     _emitPower(){
       const g = GROUPS[this._groupIdx];
       const th = Math.max(1, this._cfg.powerThreshold|0);
-      const c = this._powerCharge|0;
+      const c  = this._powerCharge|0;
       emit('groups:power', { groupName: g.label, charge: c, threshold: th });
     },
 
@@ -407,6 +307,7 @@
     },
 
     _grade(acc, comboMax, misses){
+      // SSS/SS/S/A/B/C
       if (acc>=92 && comboMax>=10 && misses<=6) return 'SSS';
       if (acc>=88 && comboMax>=8  && misses<=8) return 'SS';
       if (acc>=82 && comboMax>=6  && misses<=10) return 'S';
@@ -419,6 +320,7 @@
       if (!this._layerEl) return;
       if (this._targets.length >= (this._cfg.maxOnScreen|0)) return;
 
+      // boss pacing
       const bossDue = (this._correctHitsTotal > 0) && (this._correctHitsTotal % (this._cfg.bossEvery|0) === 0);
       const spawnBoss = bossDue && (Math.random() < 0.35);
 
@@ -455,12 +357,14 @@
 
       if (type === 'boss'){
         el.dataset.hp = String(this._cfg.bossHP|0);
+
         const bar = document.createElement('div');
         bar.className = 'bossbar';
         const fill = document.createElement('div');
         fill.className = 'bossbar-fill';
         bar.appendChild(fill);
         el.appendChild(bar);
+
         el.classList.add('fg-boss');
       } else if (type === 'junk'){
         el.classList.add('fg-junk');
@@ -481,11 +385,6 @@
       const y = box.y0 + Math.random() * Math.max(10, (box.y1 - box.y0));
       const s = 0.92 + Math.random()*0.22;
 
-      // store base pos for motion (bx/by/bs)
-      el.dataset.bx = String(Math.round(x));
-      el.dataset.by = String(Math.round(y));
-      el.dataset.bs = String(s);
-
       el.style.setProperty('--x', Math.round(x) + 'px');
       el.style.setProperty('--y', Math.round(y) + 'px');
       el.style.setProperty('--s', String(s));
@@ -493,6 +392,7 @@
       el.classList.add('show','spawn');
       setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch{} }, 220);
 
+      // direct click = hit now
       el.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault();
         ev.stopPropagation();
@@ -515,10 +415,6 @@
       this._misses++;
       this._combo = 0;
       this._shots++;
-
-      const c = centerOf(el);
-      FX.scorePop(c.x, c.y, 'MISS', 'bad');
-
       this._removeTarget(el, 'out');
       this._emitScore();
       if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
@@ -532,19 +428,21 @@
       }catch(_){}
       try{
         if (anim) el.classList.add(anim);
-        const kill = ()=>{ try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){} };
+        const kill = ()=>{
+          try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){}
+        };
         setTimeout(kill, anim ? 200 : 0);
       }catch(_){}
     },
 
     _closestTarget(x,y){
-      let best = null, bestD = 1e9;
+      let best=null, bestD=1e9;
       for (let i=0;i<this._targets.length;i++){
         const el = this._targets[i];
         if (!el || !el.isConnected) continue;
         const r = el.getBoundingClientRect();
         const cx = r.left + r.width/2;
-        const cy = r.top + r.height/2;
+        const cy = r.top  + r.height/2;
         const dx = cx - x, dy = cy - y;
         const d = dx*dx + dy*dy;
         if (d < bestD){ bestD = d; best = el; }
@@ -558,6 +456,7 @@
 
       const c = this._closestTarget(x,y);
       if (!c.el || c.d2 > (210*210)){
+        // no target near => miss shot
         this._shots++;
         this._misses++;
         this._combo = 0;
@@ -575,7 +474,7 @@
     },
 
     _tickLock(){
-      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected) {
+      if (!this._lockActive || !this._lockEl || !this._lockEl.isConnected){
         emit('groups:lock', { on:false });
         this._stopLock();
         return;
@@ -586,7 +485,7 @@
 
       const r = this._lockEl.getBoundingClientRect();
       const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
+      const cy = r.top  + r.height/2;
 
       const th = Math.max(1, this._cfg.powerThreshold|0);
       const charge = clamp((this._powerCharge|0) / th, 0, 1);
@@ -606,13 +505,16 @@
 
     _stopLock(){
       this._lockActive = false;
-      if (this._lockRAF) { try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
+      if (this._lockRAF){
+        try{ cancelAnimationFrame(this._lockRAF); }catch(_){}
+      }
       this._lockRAF = 0;
 
       if (this._lockEl){
         try{ this._lockEl.classList.remove('lock'); }catch(_){}
       }
       this._lockEl = null;
+
       emit('groups:lock', { on:false });
     },
 
@@ -621,11 +523,11 @@
       const t = now();
       if (t < this._stunUntil) return;
 
-      const c = centerOf(el);
       const type = String(el.dataset.type || 'food');
       const cur = GROUPS[this._groupIdx];
       const curId = cur.id|0;
 
+      // count shot
       this._shots++;
 
       if (type === 'junk'){
@@ -633,18 +535,18 @@
         this._misses++;
         this._combo = 0;
 
-        FX.burstAt(c.x, c.y, 'bad');
-        FX.scorePop(c.x, c.y, `-${this._cfg.junkPenalty|0}`, 'bad');
-
+        // stun 0.8s
         this._stunUntil = t + 800;
         emit('groups:stun', { on:true, ms:800 });
 
         document.documentElement.classList.add('stunflash');
         setTimeout(()=>document.documentElement.classList.remove('stunflash'), 220);
 
-        if (navigator.vibrate) { try{ navigator.vibrate([60,60,60]); }catch(_){ } }
+        if (navigator.vibrate){ try{ navigator.vibrate([60,60,60]); }catch(_){ } }
 
+        try{ el.classList.add('hit'); }catch(_){}
         this._removeTarget(el, 'hit');
+
         if (this._quest) this._quest.onShot({ correct:false, wrong:false, junk:true });
         this._emitScore();
         return;
@@ -660,9 +562,6 @@
         this._combo++;
         if (this._combo > this._comboMax) this._comboMax = this._combo;
 
-        FX.burstAt(c.x, c.y, 'boss');
-        FX.scorePop(c.x, c.y, `+${this._cfg.bossScore|0}`, 'boss');
-
         const maxHP = (this._cfg.bossHP|0);
         const fill = el.querySelector('.bossbar-fill');
         if (fill){
@@ -671,6 +570,7 @@
         }
 
         if (hp <= 0){
+          try{ el.classList.add('hit'); }catch(_){}
           this._removeTarget(el, 'hit');
         } else {
           if (hp <= 1) { try{ el.classList.add('rage'); }catch(_){ } }
@@ -689,15 +589,15 @@
         this._misses++;
         this._combo = 0;
 
-        FX.burstAt(c.x, c.y, 'decoy');
-        FX.scorePop(c.x, c.y, `-${this._cfg.decoyPenalty|0}`, 'decoy');
-
+        try{ el.classList.add('hit'); }catch(_){}
         this._removeTarget(el, 'hit');
+
         if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
         this._emitScore();
         return;
       }
 
+      // normal food
       const gid = parseInt(el.dataset.gid || '0', 10) || 0;
       const isCorrect = (gid|0) === (curId|0);
 
@@ -709,16 +609,12 @@
         this._combo++;
         if (this._combo > this._comboMax) this._comboMax = this._combo;
 
-        FX.burstAt(c.x, c.y, 'good');
-        FX.scorePop(c.x, c.y, `+${this._cfg.correctScore|0}`, 'good');
-
         this._powerCharge++;
         this._emitPower();
 
+        // power ready -> swap group
         if (this._powerCharge >= (this._cfg.powerThreshold|0)){
           this._powerCharge = 0;
-          this._powerSwaps++;
-
           this._groupIdx = (this._groupIdx + 1) % GROUPS.length;
           const n = GROUPS[this._groupIdx];
 
@@ -727,20 +623,20 @@
           setTimeout(()=>document.documentElement.classList.remove('swapflash'), 240);
 
           if (this._quest) this._quest.onGroupChange(n.label);
+          this._emitPower();
         }
 
         if (this._quest) this._quest.onShot({ correct:true, wrong:false, junk:false });
+
       } else {
         this._score -= (this._cfg.wrongPenalty|0);
         this._misses++;
         this._combo = 0;
 
-        FX.burstAt(c.x, c.y, 'bad');
-        FX.scorePop(c.x, c.y, `-${this._cfg.wrongPenalty|0}`, 'bad');
-
         if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
       }
 
+      try{ el.classList.add('hit'); }catch(_){}
       this._removeTarget(el, 'hit');
       this._emitScore();
     }
