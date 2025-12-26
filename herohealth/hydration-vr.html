@@ -34,13 +34,13 @@
 
       --shake: 0px;
       --edgeGlow: 0;
+      --warnPulse: 0;
     }
 
     *{ box-sizing:border-box; }
     html,body{ height:100%; margin:0; background:radial-gradient(1200px 900px at 50% 20%, rgba(56,189,248,.10), transparent 60%), var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif; }
     body{ overflow:hidden; }
 
-    /* layout */
     .app{
       position:fixed; inset:0;
       display:flex; flex-direction:column;
@@ -65,7 +65,6 @@
     }
     .card .bd{ padding:10px 12px; }
 
-    /* left / right HUD */
     #hha-card-left{ width: 42%; min-width: 250px; }
     #hha-card-right{ flex:1; min-width: 260px; }
 
@@ -79,12 +78,9 @@
       font-size:12px; color:var(--muted);
       white-space:nowrap;
     }
-    .big{
-      font-size:22px; font-weight:900; letter-spacing:.2px; color:var(--text);
-    }
+    .big{ font-size:22px; font-weight:900; letter-spacing:.2px; color:var(--text); }
     .muted{ color:var(--muted); }
 
-    /* water header (auto-excluded by mode-factory) */
     #hha-water-header{
       display:flex; align-items:center; justify-content:space-between;
       padding:10px 12px;
@@ -117,7 +113,6 @@
       box-shadow: 0 0 12px rgba(245,158,11,.25);
     }
 
-    /* playfield */
     #playfield{
       position:relative;
       flex:1;
@@ -136,11 +131,22 @@
     #hydr-layer{ position:absolute; inset:0; }
     #atk-layer{ position:absolute; inset:0; pointer-events:none; }
 
-    /* target base */
-    .hvr-target{
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
+    /* warning overlay */
+    #warn-overlay{
+      position:absolute; inset:0;
+      pointer-events:none;
+      opacity:0;
+      background:
+        radial-gradient(900px 650px at 50% 45%,
+          rgba(245,158,11, calc(var(--warnPulse) * .10)),
+          rgba(244,63,94,  calc(var(--warnPulse) * .08)),
+          transparent 65%);
+      transition: opacity .12s ease;
+      z-index: 30;
     }
+    #warn-overlay.on{ opacity:1; }
+
+    .hvr-target{ user-select:none; -webkit-tap-highlight-color: transparent; }
     .hvr-target .hvr-wiggle{
       animation: floaty 2.3s ease-in-out infinite;
       transform: translate3d(0,0,0);
@@ -152,7 +158,6 @@
       100%{ transform: translate3d(0,0,0) scale(1); }
     }
 
-    /* crosshair */
     #hvr-crosshair{
       position:fixed;
       left:50%; top:52%;
@@ -174,11 +179,7 @@
     #hvr-crosshair::before{ width: 2px; height: 20px; }
     #hvr-crosshair::after{ width: 20px; height: 2px; }
 
-    /* bottom row (coach) */
-    .bottomRow{
-      display:flex; gap:10px; align-items:stretch;
-      pointer-events:auto;
-    }
+    .bottomRow{ display:flex; gap:10px; align-items:stretch; pointer-events:auto; }
     .coachCard{ flex:1; display:flex; gap:10px; align-items:center; padding:10px 12px; }
     .coachFace{
       width:44px; height:44px; border-radius:14px;
@@ -187,12 +188,11 @@
       display:flex; align-items:center; justify-content:center;
       overflow:hidden;
     }
-    .coachFace img{ width:100%; height:100%; object-fit:contain; image-rendering:auto; }
+    .coachFace img{ width:100%; height:100%; object-fit:contain; }
     .coachText{ flex:1; }
     .coachLine1{ font-weight:900; }
     .coachLine2{ font-size:12px; color:var(--muted); margin-top:2px; }
 
-    /* start overlay */
     #startOverlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -227,7 +227,6 @@
       box-shadow:none;
     }
 
-    /* end overlay */
     #hvr-end{
       position:fixed; inset:0;
       display:none;
@@ -261,17 +260,11 @@
       background: rgba(15,23,42,.45);
       padding:12px;
     }
-    .endBig{
-      font-size:40px;
-      font-weight:1000;
-      letter-spacing:.4px;
-      line-height:1;
-    }
+    .endBig{ font-size:40px; font-weight:1000; letter-spacing:.4px; line-height:1; }
     .endMeta{ margin-top:6px; color:var(--muted); font-size:12px; }
     .endGrid{ margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:13px; color:var(--muted); }
     .endGrid b{ color:var(--text); font-weight:950; }
 
-    /* stamp */
     .stamp{
       position:absolute;
       right:14px; top:62px;
@@ -286,43 +279,36 @@
       filter: saturate(1.05);
       pointer-events:none;
     }
-    .stamp .g{
-      font-size:34px; font-weight:1100; letter-spacing:.6px;
-    }
-    .stamp .sub{
-      font-size:11px; color:var(--muted); margin-top:2px;
-    }
-    .stamp.ink{
-      animation: stampIn .42s cubic-bezier(.2,.9,.2,1) forwards;
-    }
+    .stamp .g{ font-size:34px; font-weight:1100; letter-spacing:.6px; }
+    .stamp .sub{ font-size:11px; color:var(--muted); margin-top:2px; }
+    .stamp.ink{ animation: stampIn .42s cubic-bezier(.2,.9,.2,1) forwards; }
     @keyframes stampIn{
       0%{ transform: rotate(-16deg) scale(1.35); opacity:0; filter: blur(3px) saturate(1.4); }
       65%{ transform: rotate(-12deg) scale(.92); opacity:1; filter: blur(0px) saturate(1.05); }
       100%{ transform: rotate(-12deg) scale(.90); opacity:1; }
     }
 
-    /* edge glow when storm/laser */
     #playfield::after{
       content:"";
       position:absolute; inset:0;
       border-radius:22px;
       pointer-events:none;
-      box-shadow: 0 0 0 1px rgba(148,163,184,.04),
-                  0 0 24px rgba(56,189,248, calc(var(--edgeGlow) * .22)),
-                  0 0 30px rgba(244,63,94,  calc(var(--edgeGlow) * .18));
-      transition: box-shadow .18s ease;
+      box-shadow:
+        0 0 0 1px rgba(148,163,184,.04),
+        0 0 26px rgba(56,189,248, calc(var(--edgeGlow) * .22)),
+        0 0 34px rgba(244,63,94,  calc(var(--edgeGlow) * .18)),
+        0 0 28px rgba(245,158,11, calc(var(--warnPulse) * .16));
+      transition: box-shadow .10s ease;
     }
   </style>
 </head>
 
 <body>
-  <!-- Optional A-Frame scene (kept minimal) -->
   <a-scene embedded vr-mode-ui="enabled: true" style="position:fixed; inset:0; pointer-events:none; opacity:0;">
     <a-entity></a-entity>
   </a-scene>
 
   <div class="app" id="appRoot">
-    <!-- WATER HEADER -->
     <div id="hha-water-header">
       <div class="waterLeft">
         <div class="waterTitle">💧 Hydration Quest</div>
@@ -336,7 +322,6 @@
       <div class="pill" id="clockPill">⏱️ <b id="clockText">60</b>s</div>
     </div>
 
-    <!-- TOP HUD -->
     <div class="topRow">
       <div class="card" id="hha-card-left">
         <div class="hd">
@@ -371,13 +356,12 @@
       </div>
     </div>
 
-    <!-- PLAYFIELD -->
     <div id="playfield">
+      <div id="warn-overlay"></div>
       <div id="hydr-layer"></div>
       <div id="atk-layer"></div>
     </div>
 
-    <!-- COACH -->
     <div class="bottomRow card coachCard">
       <div class="coachFace">
         <img id="coachImg" src="../img/coach-neutral.png" alt="coach" />
@@ -390,17 +374,15 @@
     </div>
   </div>
 
-  <!-- CROSSHAIR -->
   <div id="hvr-crosshair" aria-hidden="true"></div>
 
-  <!-- START OVERLAY -->
   <div id="startOverlay">
     <div class="startCard">
-      <div class="startTitle">💧 Hydration Quest — PLAY</div>
+      <div class="startTitle">💧 Hydration Quest — BOSS</div>
       <div class="startDesc">
-        • แตะเป้าน้ำ “ดี” เพื่อทำคะแนน<br/>
-        • หลีกเลี่ยงเครื่องดื่มหวาน/ขยะ และ “เลเซอร์” (มี Fake-Out + Gap ขยับ!)<br/>
-        • โหมดนี้กระจายเป้าทั่วจอ (แก้เป้าเกิดที่เดิมแล้ว) + ปรับยากอัตโนมัติ
+        • บอสเลเซอร์มี 3 แพทเทิร์น: Double-Sweep / Triple-Wave / Cross-Strike<br/>
+        • มี Fake-Out และช่องปลอดภัย (Gap) ที่ “ขยับ”<br/>
+        • 10 วินาทีสุดท้ายมี Tick-warning + ขอบจอเตือน + สั่นตามความกดดัน
       </div>
       <div class="btnRow">
         <button class="btn" id="btnStart">เริ่มเล่น</button>
@@ -408,12 +390,11 @@
         <button class="btn ghost" id="btnSkip">ข้าม</button>
       </div>
       <div class="startDesc" style="margin-top:10px;">
-        Tip: ใส่พารามิเตอร์ เช่น <span class="muted">?diff=hard&time=90&run=play</span>
+        Tip: <span class="muted">?diff=hard&time=90&run=play</span>
       </div>
     </div>
   </div>
 
-  <!-- END OVERLAY -->
   <div id="hvr-end" class="hvr-end" aria-hidden="true">
     <div class="endCard">
       <div class="endTop">
@@ -442,9 +423,7 @@
 
         <div class="endStat">
           <div class="muted">ไฮไลต์</div>
-          <div style="margin-top:8px; font-size:13px; color:var(--muted); line-height:1.55;" id="endTips">
-            —
-          </div>
+          <div style="margin-top:8px; font-size:13px; color:var(--muted); line-height:1.55;" id="endTips">—</div>
 
           <div class="btnRow" style="margin-top:12px;">
             <button class="btn" id="btnRestart">เริ่มใหม่</button>
@@ -455,7 +434,6 @@
     </div>
   </div>
 
-  <!-- GAME (module) -->
   <script type="module" src="./hydration.safe.js"></script>
 </body>
 </html>
