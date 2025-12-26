@@ -1,11 +1,11 @@
-// === /herohealth/vr-groups/GameEngine.js =====================================
-// Food Groups — GameEngine (classic script) — ALL-IN PATCHED
-// ✅ CSS vars --x/--y/--s + classes fg-good/fg-junk/fg-decoy/fg-boss
-// ✅ Correct = current group, wrong = other group, junk = stun 0.8s
-// ✅ FIX counters (no NaN), accurate grade
-// ✅ Emits: hha:score, hha:time, groups:* , hha:rank, hha:end
-// ✅ Quest: calls GroupsVR.createGroupsQuest() if present -> quest:update always
-// ============================================================================
+// === /herohealth/vr-groups/GameEngine.js ===
+// Food Groups — GameEngine (classic script) — PRODUCTION ALL-IN (LATEST)
+// ✅ CSS vars --x/--y/--s (px) + classes fg-good/fg-junk/fg-decoy/fg-boss
+// ✅ Multi-group targets: correct = current group, wrong = other group, junk = stun 0.8s
+// ✅ FIX accuracy/grade counters (no NaN)
+// ✅ Emits: hha:score, hha:time, hha:rank, groups:power, groups:group_change, groups:stun, groups:lock
+// ✅ Lock system: pointerdown anywhere -> lock nearest target; direct tap on target = instant hit
+// ✅ Safe spawn box: respects safe-area + avoids HUD top + reserves bottom area
 
 (function (root) {
   'use strict';
@@ -43,12 +43,17 @@
   function pickGroup(){ return GROUPS[(Math.random()*GROUPS.length)|0]; }
 
   // --- Safe spawn box based on HUD + safe-area ---
-  function getSpawnBox(layerEl){
+  function getSpawnBox(){
     const w = window.innerWidth || 360;
     const h = window.innerHeight || 640;
 
-    let left  = 18, right = 18, top = 18, bot = 18;
+    // base margins
+    let left  = 18;
+    let right = 18;
+    let top   = 18;
+    let bot   = 18;
 
+    // add safe-area (from CSS vars)
     const cs = getComputedStyle(document.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
     const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
@@ -57,6 +62,7 @@
 
     left += sal; right += sar; top += sat; bot += sab;
 
+    // reserve HUD top area
     const hud = document.querySelector('.hud-top');
     if (hud){
       const r = hud.getBoundingClientRect();
@@ -65,6 +71,7 @@
       top = Math.max(top, 120 + sat);
     }
 
+    // reserve bottom minimal for mobile bar / fingers
     bot = Math.max(bot, 72 + sab);
 
     return {
@@ -95,6 +102,7 @@
     _comboMax: 0,
     _misses: 0,
 
+    // shot stats
     _shots: 0,
     _hits: 0,
 
@@ -107,13 +115,19 @@
     _runMode: 'play',
     _seed: undefined,
 
+    // boss pacing
     _correctHitsTotal: 0,
 
+    // lock system
     _lockActive: false,
     _lockEl: null,
     _lockStartAt: 0,
-    _lockDur: 420,
+    _lockDur: 420, // ms to lock
     _lockRAF: 0,
+
+    _raf: 0,
+    _last: 0,
+    _onPointer: null,
 
     setLayerEl(el){ this._layerEl = el; },
     setCameraEl(el){ this._camEl = el; },
@@ -148,8 +162,10 @@
       this._lockActive = false;
       this._lockEl = null;
 
+      // clear layer
       if (this._layerEl) this._layerEl.innerHTML = '';
 
+      // init group
       this._groupIdx = 0;
       emit('groups:group_change', { label: GROUPS[this._groupIdx].label });
 
@@ -167,9 +183,10 @@
       }
 
       this._bindInput();
+
       this._emitScore();
       this._emitTime();
-      this._emitPower(); // ให้ HUD power ขึ้นตั้งแต่เริ่ม
+      this._emitPower();
 
       this._last = now();
       this._raf = requestAnimationFrame(this._loop.bind(this));
@@ -181,16 +198,15 @@
       this._unbindInput();
       this._stopLock();
 
-      // summary payload (เท่าที่ engine มี)
-      emit('hha:end', {
-        reason: reason || 'stop',
-        scoreFinal: this._score|0,
-        comboMax: this._comboMax|0,
-        misses: this._misses|0,
-        accuracy: this._accuracy(),
-        shots: this._shots|0,
-        hits: this._hits|0
-      });
+      // kill targets (defensive)
+      try{
+        const list = (this._targets || []).slice();
+        for (let i=0;i<list.length;i++){
+          this._removeTarget(list[i], null);
+        }
+      }catch(_){}
+
+      emit('hha:end', { reason: reason || 'stop' });
     },
 
     _loop(t){
@@ -210,7 +226,7 @@
         }
       }
 
-      // spawn (pause while stunned)
+      // spawn
       const isStunned = (t < this._stunUntil);
       if (!isStunned){
         this._spawnAcc += dt * 1000;
@@ -229,10 +245,9 @@
     _bindInput(){
       if (this._onPointer) return;
 
-      // tap screen (not target) -> lock nearest target around tap point
       this._onPointer = (ev)=>{
         if (!this._running) return;
-        if (now() < this._stunUntil) return;
+        if (now() < this._stunUntil) return; // stunned ignore
         this._startLock(ev);
       };
 
@@ -263,19 +278,13 @@
       emit('hha:time', { left: this._timeLeft|0 });
     },
 
-    _emitPower(){
-      const g = GROUPS[this._groupIdx];
-      const th = Math.max(1, this._cfg.powerThreshold|0);
-      const c = this._powerCharge|0;
-      emit('groups:power', { groupName: g.label, charge: c, threshold: th });
-    },
-
     _accuracy(){
       const shots = Math.max(1, this._shots|0);
       return Math.round(((this._hits|0) / shots) * 100);
     },
 
     _grade(acc, comboMax, misses){
+      // SSS/SS/S/A/B/C
       if (acc>=92 && comboMax>=10 && misses<=6) return 'SSS';
       if (acc>=88 && comboMax>=8  && misses<=8) return 'SS';
       if (acc>=82 && comboMax>=6  && misses<=10) return 'S';
@@ -284,10 +293,18 @@
       return 'C';
     },
 
+    _emitPower(){
+      const g = GROUPS[this._groupIdx];
+      const th = Math.max(1, this._cfg.powerThreshold|0);
+      const c = this._powerCharge|0;
+      emit('groups:power', { groupName: g.label, charge: c, threshold: th });
+    },
+
     _maybeSpawn(){
       if (!this._layerEl) return;
       if (this._targets.length >= (this._cfg.maxOnScreen|0)) return;
 
+      // boss pacing
       const bossDue = (this._correctHitsTotal > 0) && (this._correctHitsTotal % (this._cfg.bossEvery|0) === 0);
       const spawnBoss = bossDue && (Math.random() < 0.35);
 
@@ -306,7 +323,7 @@
         emoji = pick(JUNK);
       } else if (r < (this._cfg.junkRate + this._cfg.decoyRate)){
         type = 'decoy';
-        gid = GROUPS[this._groupIdx].id; // looks like current
+        gid = GROUPS[this._groupIdx].id; // looks like current group
         emoji = pick(GROUPS[this._groupIdx].foods);
       } else {
         const g = pickGroup();
@@ -319,17 +336,20 @@
       el.type = 'button';
       el.setAttribute('aria-label', 'target');
 
-      el.dataset.type = type;
+      el.dataset.type = type; // food/junk/decoy/boss
       if (gid != null) el.dataset.gid = String(gid);
 
       if (type === 'boss'){
         el.dataset.hp = String(this._cfg.bossHP|0);
+
+        // bossbar
         const bar = document.createElement('div');
         bar.className = 'bossbar';
         const fill = document.createElement('div');
         fill.className = 'bossbar-fill';
         bar.appendChild(fill);
         el.appendChild(bar);
+
         el.classList.add('fg-boss');
       } else if (type === 'junk'){
         el.classList.add('fg-junk');
@@ -340,12 +360,13 @@
         if ((gid|0) === (curId|0)) el.classList.add('fg-good');
       }
 
+      // emoji as span (keep bossbar intact)
       const span = document.createElement('span');
       span.textContent = emoji;
       span.style.pointerEvents = 'none';
       el.insertBefore(span, el.firstChild);
 
-      const box = getSpawnBox(this._layerEl);
+      const box = getSpawnBox();
       const x = box.x0 + Math.random() * Math.max(10, (box.x1 - box.x0));
       const y = box.y0 + Math.random() * Math.max(10, (box.y1 - box.y0));
       const s = 0.92 + Math.random()*0.22;
@@ -357,7 +378,7 @@
       el.classList.add('show','spawn');
       setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch{} }, 220);
 
-      // tap target = immediate hit
+      // direct click = immediate hit (no lock needed)
       el.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault();
         ev.stopPropagation();
@@ -368,6 +389,7 @@
       this._layerEl.appendChild(el);
       this._targets.push(el);
 
+      // lifetime -> expire = miss
       const ttl = (this._cfg.ttl[0] + Math.random()*(this._cfg.ttl[1]-this._cfg.ttl[0]))|0;
       const timer = setTimeout(()=>{
         if (!el.isConnected) return;
@@ -379,11 +401,9 @@
     _expireTarget(el){
       this._misses++;
       this._combo = 0;
-      this._shots++; // count as a shot attempt missed
-
+      this._shots++; // count as a shot attempt
       this._removeTarget(el, 'out');
       this._emitScore();
-
       if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
     },
 
@@ -396,11 +416,12 @@
       }catch(_){}
 
       try{
+        if (!el) return;
         if (anim) el.classList.add(anim);
         const kill = ()=>{
           try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){}
         };
-        setTimeout(kill, anim ? 200 : 0);
+        setTimeout(kill, anim ? 210 : 0);
       }catch(_){}
     },
 
@@ -424,8 +445,9 @@
       const y = (ev && ev.clientY!=null) ? ev.clientY : (window.innerHeight/2);
 
       const c = this._closestTarget(x,y);
+
+      // no target near -> miss shot
       if (!c.el || c.d2 > (210*210)){
-        // no target near -> miss
         this._shots++;
         this._misses++;
         this._combo = 0;
@@ -475,10 +497,14 @@
 
     _stopLock(){
       this._lockActive = false;
-      if (this._lockRAF){ try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
+      if (this._lockRAF){
+        try{ cancelAnimationFrame(this._lockRAF); }catch(_){}
+      }
       this._lockRAF = 0;
 
-      if (this._lockEl){ try{ this._lockEl.classList.remove('lock'); }catch(_){ } }
+      if (this._lockEl){
+        try{ this._lockEl.classList.remove('lock'); }catch(_){}
+      }
       this._lockEl = null;
 
       emit('groups:lock', { on:false });
@@ -494,19 +520,22 @@
       const cur = GROUPS[this._groupIdx];
       const curId = cur.id|0;
 
-      this._shots++;
+      this._shots++; // every hit attempt is a shot
 
       if (type === 'junk'){
         this._score -= (this._cfg.junkPenalty|0);
         this._misses++;
         this._combo = 0;
 
-        // STUN 0.8s
         this._stunUntil = t + 800;
         emit('groups:stun', { on:true, ms:800 });
 
+        document.documentElement.classList.add('stunflash');
+        setTimeout(()=>document.documentElement.classList.remove('stunflash'), 220);
+
         if (navigator.vibrate) { try{ navigator.vibrate([60,60,60]); }catch(_){ } }
 
+        try{ el.classList.add('hit'); }catch(_){}
         this._removeTarget(el, 'hit');
 
         if (this._quest) this._quest.onShot({ correct:false, wrong:false, junk:true });
@@ -532,6 +561,7 @@
         }
 
         if (hp <= 0){
+          try{ el.classList.add('hit'); }catch(_){}
           this._removeTarget(el, 'hit');
         } else {
           if (hp <= 1) { try{ el.classList.add('rage'); }catch(_){ } }
@@ -550,6 +580,7 @@
         this._misses++;
         this._combo = 0;
 
+        try{ el.classList.add('hit'); }catch(_){}
         this._removeTarget(el, 'hit');
 
         if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
@@ -557,6 +588,7 @@
         return;
       }
 
+      // normal food
       const gid = parseInt(el.dataset.gid || '0', 10) || 0;
       const isCorrect = (gid|0) === (curId|0);
 
@@ -578,6 +610,8 @@
           const n = GROUPS[this._groupIdx];
 
           emit('groups:group_change', { label: n.label });
+          document.documentElement.classList.add('swapflash');
+          setTimeout(()=>document.documentElement.classList.remove('swapflash'), 240);
 
           if (this._quest) this._quest.onGroupChange(n.label);
           this._emitPower();
@@ -589,10 +623,10 @@
         this._score -= (this._cfg.wrongPenalty|0);
         this._misses++;
         this._combo = 0;
-
         if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
       }
 
+      try{ el.classList.add('hit'); }catch(_){}
       this._removeTarget(el, 'hit');
       this._emitScore();
     }
