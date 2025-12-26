@@ -1,11 +1,9 @@
 // === /herohealth/vr-groups/GameEngine.js ===
-// Food Groups — GameEngine (classic script) — PRODUCTION ALL-IN (LATEST)
-// ✅ CSS vars --x/--y/--s (px) + classes fg-good/fg-junk/fg-decoy/fg-boss
+// Food Groups — GameEngine (classic script) — ALL-IN PATCHED
+// ✅ CSS vars --x/--y/--s + classes fg-good/fg-junk/fg-decoy/fg-boss
 // ✅ Multi-group targets: correct = current group, wrong = other group, junk = stun 0.8s
 // ✅ FIX accuracy/grade counters (no NaN)
-// ✅ Emits: hha:score, hha:time, hha:rank, groups:power, groups:group_change, groups:stun, groups:lock
-// ✅ Lock system: pointerdown anywhere -> lock nearest target; direct tap on target = instant hit
-// ✅ Safe spawn box: respects safe-area + avoids HUD top + reserves bottom area
+// ✅ Emits: hha:score, hha:time, quest:update (via groups-quests.js), groups:* , hha:rank, groups:lock
 
 (function (root) {
   'use strict';
@@ -29,7 +27,7 @@
               correctScore: 140, wrongPenalty: 160, junkPenalty: 230, decoyPenalty: 180, bossScore: 260, powerThreshold: 8 }
   };
 
-  // --- Groups data ---
+  // --- Groups data (ปรับได้ทีหลัง) ---
   const GROUPS = [
     { id:1, label:'หมู่ 1', foods:['🥛','🥚','🫘','🍗'] },
     { id:2, label:'หมู่ 2', foods:['🍚','🍞','🥔','🍜'] },
@@ -43,7 +41,7 @@
   function pickGroup(){ return GROUPS[(Math.random()*GROUPS.length)|0]; }
 
   // --- Safe spawn box based on HUD + safe-area ---
-  function getSpawnBox(){
+  function getSpawnBox(layerEl){
     const w = window.innerWidth || 360;
     const h = window.innerHeight || 640;
 
@@ -53,7 +51,7 @@
     let top   = 18;
     let bot   = 18;
 
-    // add safe-area (from CSS vars)
+    // add safe-area (values set in CSS :root)
     const cs = getComputedStyle(document.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
     const sab = parseFloat(cs.getPropertyValue('--sab')) || 0;
@@ -62,7 +60,7 @@
 
     left += sal; right += sar; top += sat; bot += sab;
 
-    // reserve HUD top area
+    // reserve HUD top area (prefer actual rect)
     const hud = document.querySelector('.hud-top');
     if (hud){
       const r = hud.getBoundingClientRect();
@@ -71,7 +69,7 @@
       top = Math.max(top, 120 + sat);
     }
 
-    // reserve bottom minimal for mobile bar / fingers
+    // reserve bottom minimal for mobile bar / thumb zone
     bot = Math.max(bot, 72 + sab);
 
     return {
@@ -125,10 +123,6 @@
     _lockDur: 420, // ms to lock
     _lockRAF: 0,
 
-    _raf: 0,
-    _last: 0,
-    _onPointer: null,
-
     setLayerEl(el){ this._layerEl = el; },
     setCameraEl(el){ this._camEl = el; },
     setTimeLeft(sec){ this._timeLeft = Math.max(10, sec|0); },
@@ -162,7 +156,7 @@
       this._lockActive = false;
       this._lockEl = null;
 
-      // clear layer
+      // clear
       if (this._layerEl) this._layerEl.innerHTML = '';
 
       // init group
@@ -197,15 +191,6 @@
       try{ cancelAnimationFrame(this._raf); }catch(_){}
       this._unbindInput();
       this._stopLock();
-
-      // kill targets (defensive)
-      try{
-        const list = (this._targets || []).slice();
-        for (let i=0;i<list.length;i++){
-          this._removeTarget(list[i], null);
-        }
-      }catch(_){}
-
       emit('hha:end', { reason: reason || 'stop' });
     },
 
@@ -220,6 +205,11 @@
         this._timerAcc -= 1;
         this._timeLeft = Math.max(0, (this._timeLeft|0) - 1);
         this._emitTime();
+
+        // panic FX flag (last 10s)
+        if (this._timeLeft <= 10) document.documentElement.classList.add('panic');
+        else document.documentElement.classList.remove('panic');
+
         if (this._timeLeft <= 0){
           this.stop('time');
           return;
@@ -239,7 +229,7 @@
       // quest tick
       if (this._quest) this._quest.tick(dt);
 
-      this._raf = requestAnimationFrame(this._loop.bind(this));
+      requestAnimationFrame(this._loop.bind(this));
     },
 
     _bindInput(){
@@ -247,7 +237,7 @@
 
       this._onPointer = (ev)=>{
         if (!this._running) return;
-        if (now() < this._stunUntil) return; // stunned ignore
+        if (now() < this._stunUntil) return;
         this._startLock(ev);
       };
 
@@ -293,13 +283,6 @@
       return 'C';
     },
 
-    _emitPower(){
-      const g = GROUPS[this._groupIdx];
-      const th = Math.max(1, this._cfg.powerThreshold|0);
-      const c = this._powerCharge|0;
-      emit('groups:power', { groupName: g.label, charge: c, threshold: th });
-    },
-
     _maybeSpawn(){
       if (!this._layerEl) return;
       if (this._targets.length >= (this._cfg.maxOnScreen|0)) return;
@@ -323,7 +306,7 @@
         emoji = pick(JUNK);
       } else if (r < (this._cfg.junkRate + this._cfg.decoyRate)){
         type = 'decoy';
-        gid = GROUPS[this._groupIdx].id; // looks like current group
+        gid = GROUPS[this._groupIdx].id;
         emoji = pick(GROUPS[this._groupIdx].foods);
       } else {
         const g = pickGroup();
@@ -341,15 +324,12 @@
 
       if (type === 'boss'){
         el.dataset.hp = String(this._cfg.bossHP|0);
-
-        // bossbar
         const bar = document.createElement('div');
         bar.className = 'bossbar';
         const fill = document.createElement('div');
         fill.className = 'bossbar-fill';
         bar.appendChild(fill);
         el.appendChild(bar);
-
         el.classList.add('fg-boss');
       } else if (type === 'junk'){
         el.classList.add('fg-junk');
@@ -360,13 +340,14 @@
         if ((gid|0) === (curId|0)) el.classList.add('fg-good');
       }
 
-      // emoji as span (keep bossbar intact)
+      // emoji
       const span = document.createElement('span');
       span.textContent = emoji;
       span.style.pointerEvents = 'none';
       el.insertBefore(span, el.firstChild);
 
-      const box = getSpawnBox();
+      // position
+      const box = getSpawnBox(this._layerEl);
       const x = box.x0 + Math.random() * Math.max(10, (box.x1 - box.x0));
       const y = box.y0 + Math.random() * Math.max(10, (box.y1 - box.y0));
       const s = 0.92 + Math.random()*0.22;
@@ -376,9 +357,9 @@
       el.style.setProperty('--s', String(s));
 
       el.classList.add('show','spawn');
-      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch{} }, 220);
+      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 220);
 
-      // direct click = immediate hit (no lock needed)
+      // direct tap hit
       el.addEventListener('pointerdown', (ev)=>{
         ev.preventDefault();
         ev.stopPropagation();
@@ -389,7 +370,7 @@
       this._layerEl.appendChild(el);
       this._targets.push(el);
 
-      // lifetime -> expire = miss
+      // ttl
       const ttl = (this._cfg.ttl[0] + Math.random()*(this._cfg.ttl[1]-this._cfg.ttl[0]))|0;
       const timer = setTimeout(()=>{
         if (!el.isConnected) return;
@@ -401,14 +382,16 @@
     _expireTarget(el){
       this._misses++;
       this._combo = 0;
-      this._shots++; // count as a shot attempt
+      this._shots++;
       this._removeTarget(el, 'out');
       this._emitScore();
       if (this._quest) this._quest.onShot({ correct:false, wrong:true, junk:false });
     },
 
     _removeTarget(el, anim){
-      try{ if (el && el._ttlTimer) clearTimeout(el._ttlTimer); }catch(_){}
+      try{
+        if (el && el._ttlTimer) clearTimeout(el._ttlTimer);
+      }catch(_){}
 
       try{
         const i = this._targets.indexOf(el);
@@ -416,12 +399,11 @@
       }catch(_){}
 
       try{
-        if (!el) return;
         if (anim) el.classList.add(anim);
         const kill = ()=>{
           try{ if (el && el.parentNode) el.parentNode.removeChild(el); }catch(_){}
         };
-        setTimeout(kill, anim ? 210 : 0);
+        setTimeout(kill, anim ? 200 : 0);
       }catch(_){}
     },
 
@@ -445,9 +427,8 @@
       const y = (ev && ev.clientY!=null) ? ev.clientY : (window.innerHeight/2);
 
       const c = this._closestTarget(x,y);
-
-      // no target near -> miss shot
       if (!c.el || c.d2 > (210*210)){
+        // no target near = miss
         this._shots++;
         this._misses++;
         this._combo = 0;
@@ -497,9 +478,7 @@
 
     _stopLock(){
       this._lockActive = false;
-      if (this._lockRAF){
-        try{ cancelAnimationFrame(this._lockRAF); }catch(_){}
-      }
+      if (this._lockRAF) { try{ cancelAnimationFrame(this._lockRAF); }catch(_){ } }
       this._lockRAF = 0;
 
       if (this._lockEl){
@@ -520,7 +499,7 @@
       const cur = GROUPS[this._groupIdx];
       const curId = cur.id|0;
 
-      this._shots++; // every hit attempt is a shot
+      this._shots++;
 
       if (type === 'junk'){
         this._score -= (this._cfg.junkPenalty|0);
@@ -603,7 +582,7 @@
         this._powerCharge++;
         this._emitPower();
 
-        // power ready -> swap group
+        // power swap group
         if (this._powerCharge >= (this._cfg.powerThreshold|0)){
           this._powerCharge = 0;
           this._groupIdx = (this._groupIdx + 1) % GROUPS.length;
@@ -629,9 +608,17 @@
       try{ el.classList.add('hit'); }catch(_){}
       this._removeTarget(el, 'hit');
       this._emitScore();
+    },
+
+    _emitPower(){
+      const g = GROUPS[this._groupIdx];
+      const th = Math.max(1, this._cfg.powerThreshold|0);
+      const c = this._powerCharge|0;
+      emit('groups:power', { groupName: g.label, charge: c, threshold: th });
     }
   };
 
+  // expose
   W.GroupsVR.GameEngine = Engine;
 
 })(window);
