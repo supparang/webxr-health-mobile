@@ -1,202 +1,235 @@
 // === /herohealth/vr/hha-hud.js ===
-// Hero Health Academy — Global HUD Binder (DOM/VR) — FULL (PATCH)
-// ✅ listens: hha:score, hha:time, quest:update, hha:coach, hha:end, hha:fever
-// ✅ updates IDs used in your GoodJunk/Plate/Hydration/Groups HTML
-// ✅ safe: no-throw if elements missing, avoids double-bind
+// Hero Health Academy — Global HUD Binder (DOM/VR)
+// ✅ listens: hha:score, hha:time, hha:coach, quest:update, hha:quest, hha:end
+// ✅ robust field mapping + late-bind cache window.__HHA_LAST_QUEST__
+// ✅ safe if elements are missing
 
 (function (root) {
   'use strict';
-
   const doc = root.document;
   if (!doc) return;
 
-  // prevent double bind
   if (root.__HHA_HUD_BOUND__) return;
   root.__HHA_HUD_BOUND__ = true;
 
   const $ = (id) => doc.getElementById(id);
 
-  function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
-  function pct(cur, max) {
-    cur = Number(cur) || 0;
-    max = Number(max) || 0;
-    if (max <= 0) return 0;
-    return clamp((cur / max) * 100, 0, 100);
+  const els = {
+    score: $('hhaScore'),
+    combo: $('hhaCombo'),
+    miss: $('hhaMiss'),
+    time: $('hhaTime'),
+    grade: $('hhaGrade'),
+
+    coachImg: $('hhaCoachImg'),
+    coachLine: $('hhaCoachLine'),
+    coachSub: $('hhaCoachSub'),
+
+    qMeta: $('hhaQuestMeta'),
+    qGoalTitle: $('qGoalTitle'),
+    qGoalCur: $('qGoalCur'),
+    qGoalMax: $('qGoalMax'),
+    qGoalFill: $('qGoalFill'),
+
+    qMiniTitle: $('qMiniTitle'),
+    qMiniCur: $('qMiniCur'),
+    qMiniMax: $('qMiniMax'),
+    qMiniFill: $('qMiniFill'),
+    qMiniTLeft: $('qMiniTLeft'),
+
+    endBox: $('hhaEnd'),
+    endGrade: $('endGrade'),
+    endScore: $('endScore'),
+    endComboMax: $('endComboMax'),
+    endMiss: $('endMiss'),
+    endGoals: $('endGoals'),
+    endGoalsTotal: $('endGoalsTotal'),
+    endMinis: $('endMinis'),
+    endMinisTotal: $('endMinisTotal'),
+    endAcc: $('endAcc'),
+  };
+
+  function toNum(v, def = 0) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : def;
   }
-  function setText(id, v) {
-    const el = $(id);
+  function toText(v, def = '—') {
+    return (v === undefined || v === null || v === '') ? def : String(v);
+  }
+  function setText(el, v, def = '—') {
     if (!el) return;
-    el.textContent = (v == null) ? '' : String(v);
+    el.textContent = toText(v, def);
   }
-  function setHTML(id, v) {
-    const el = $(id);
+  function setFill(el, cur, max) {
     if (!el) return;
-    el.innerHTML = (v == null) ? '' : String(v);
+    const c = Math.max(0, toNum(cur, 0));
+    const m = Math.max(0, toNum(max, 0));
+    const pct = (m > 0) ? Math.max(0, Math.min(100, (c / m) * 100)) : 0;
+    el.style.width = `${pct.toFixed(1)}%`;
   }
-  function setWidth(id, percent) {
-    const el = $(id);
-    if (!el) return;
-    el.style.width = `${clamp(percent, 0, 100).toFixed(1)}%`;
+  function prefix(label, s) {
+    s = toText(s, '—');
+    if (s === '—') return `${label}: —`;
+    if (s.toLowerCase().startsWith(label.toLowerCase())) return s;
+    if (s.startsWith(label + ':')) return s;
+    return `${label}: ${s}`;
   }
 
-  // --- elements (optional) ---
-  const elScore = $('hhaScore');
-  const elCombo = $('hhaCombo');
-  const elMiss  = $('hhaMiss');
-  const elTime  = $('hhaTime');
-  const elGrade = $('hhaGrade');
-
-  const elCoachImg  = $('hhaCoachImg');
-  const elCoachLine = $('hhaCoachLine');
-  const elCoachSub  = $('hhaCoachSub');
-
-  const elQuestMeta = $('hhaQuestMeta');
-
-  // Goal / Mini
-  const elGoalTitle = $('qGoalTitle');
-  const elGoalCur   = $('qGoalCur');
-  const elGoalMax   = $('qGoalMax');
-  const elGoalFill  = $('qGoalFill');
-
-  const elMiniTitle = $('qMiniTitle');
-  const elMiniCur   = $('qMiniCur');
-  const elMiniMax   = $('qMiniMax');
-  const elMiniFill  = $('qMiniFill');
-
-  const elMiniTLeft = $('qMiniTLeft');
-
-  // If quest panel exists, set initial placeholder (so it doesn't stay 0/0 forever)
-  (function initQuestPlaceholders(){
-    if (elGoalTitle) elGoalTitle.textContent = 'Goal: กำลังโหลด…';
-    if (elMiniTitle) elMiniTitle.textContent = 'Mini: กำลังโหลด…';
-    if (elGoalCur) elGoalCur.textContent = '0';
-    if (elGoalMax) elGoalMax.textContent = '0';
-    if (elMiniCur) elMiniCur.textContent = '0';
-    if (elMiniMax) elMiniMax.textContent = '0';
-    if (elGoalFill) elGoalFill.style.width = '0%';
-    if (elMiniFill) elMiniFill.style.width = '0%';
-    if (elMiniTLeft) elMiniTLeft.textContent = '—';
-    if (elQuestMeta) elQuestMeta.textContent = '—';
-  })();
-
-  // ---------------------------
-  // Handlers
-  // ---------------------------
-
-  function onScore(ev){
+  // ---------------- score ----------------
+  function onScore(ev) {
     const d = (ev && ev.detail) ? ev.detail : {};
-    if (elScore) elScore.textContent = String(d.score ?? 0);
-    if (elCombo) elCombo.textContent = String(d.combo ?? 0);
-    if (elMiss)  elMiss.textContent  = String(d.misses ?? 0);
+    setText(els.score, d.score ?? d.scoreFinal ?? 0, '0');
+    setText(els.combo, d.combo ?? 0, '0');
+    setText(els.miss, d.misses ?? d.miss ?? 0, '0');
 
-    // Some games may pass grade continuously
-    if (d.grade != null && elGrade) elGrade.textContent = String(d.grade);
+    if (els.grade && (d.grade != null)) setText(els.grade, d.grade, '—');
+  }
 
-    // optional: quick meta in quest panel
-    if (elQuestMeta) {
-      const diff = (d.diff != null) ? String(d.diff) : '';
-      const ch   = (d.challenge != null) ? String(d.challenge) : '';
-      const fever = (d.fever != null) ? `fever ${d.fever}%` : '';
-      const shield = (d.shield != null) ? `sh ${d.shield}` : '';
-      const parts = [diff && `โหมด ${diff}`, ch && `• ${ch}`, fever && `• ${fever}`, shield && `• ${shield}`].filter(Boolean);
-      if (parts.length) elQuestMeta.textContent = parts.join(' ');
+  // ---------------- time ----------------
+  function onTime(ev) {
+    const d = (ev && ev.detail) ? ev.detail : {};
+    // support: timeLeftSec / timeLeft / time / sec
+    let t = d.timeLeftSec;
+    if (t == null) t = d.timeLeft;
+    if (t == null) t = d.time;
+    if (t == null) t = d.sec;
+
+    if (t == null) return; // don't overwrite if sender doesn't provide
+    t = Math.max(0, Math.round(toNum(t, 0)));
+    setText(els.time, t, '0');
+  }
+
+  // ---------------- coach ----------------
+  function onCoach(ev) {
+    const d = (ev && ev.detail) ? ev.detail : {};
+    if (els.coachLine) setText(els.coachLine, d.line ?? d.text ?? '', '—');
+    if (els.coachSub) setText(els.coachSub, d.sub ?? d.subtitle ?? '', '');
+
+    if (els.coachImg && d.mood) {
+      // optional mood mapping if you use files like coach-happy.png etc.
+      const m = String(d.mood).toLowerCase();
+      const map = {
+        happy: 'coach-happy.png',
+        sad: 'coach-sad.png',
+        fever: 'coach-fever.png',
+        neutral: 'coach-neutral.png',
+      };
+      const fn = map[m];
+      if (fn && !els.coachImg.src.includes(fn)) {
+        // keep path style same as current
+        const cur = els.coachImg.getAttribute('src') || '';
+        const base = cur.includes('/img/') ? cur.split('/img/')[0] + '/img/' : './img/';
+        els.coachImg.setAttribute('src', base + fn);
+      }
     }
   }
 
-  function onTime(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    // accept multiple field names
-    const t = (d.timeLeft != null) ? d.timeLeft :
-              (d.timeLeftSec != null) ? Math.ceil(d.timeLeftSec) :
-              (d.t != null) ? d.t : null;
-    if (t != null && elTime) elTime.textContent = String(Math.max(0, Number(t) || 0));
+  // ---------------- quest ----------------
+  function normalizeQuestDetail(raw) {
+    const d = raw || {};
+
+    // allow multiple key styles
+    const goalTitle = d.goalTitle ?? d.goalText ?? d.goal ?? d.goal_name ?? d.goalName;
+    const goalCur   = d.goalCur ?? d.goalCurrent ?? d.goalNow ?? d.gCur ?? d.gcur ?? 0;
+    const goalMax   = d.goalMax ?? d.goalTarget ?? d.goalTotal ?? d.gMax ?? d.gmax ?? 0;
+
+    const miniTitle = d.miniTitle ?? d.miniText ?? d.mini ?? d.mini_name ?? d.miniName;
+    const miniCur   = d.miniCur ?? d.miniCurrent ?? d.miniNow ?? d.mCur ?? d.mcur ?? 0;
+    const miniMax   = d.miniMax ?? d.miniTarget ?? d.miniTotal ?? d.mMax ?? d.mmax ?? 0;
+
+    const miniTLeft = d.miniTLeft ?? d.tLeft ?? d.tleft ?? null;
+
+    const goalsCleared = d.goalsCleared ?? d.goalCleared ?? 0;
+    const goalsTotal   = d.goalsTotal ?? d.goalTotalAll ?? d.goalsAll ?? 0;
+    const minisCleared = d.minisCleared ?? d.miniCleared ?? 0;
+    const minisTotal   = d.minisTotal ?? d.miniTotalAll ?? d.minisAll ?? 0;
+
+    const goalIndex = d.goalIndex ?? 0;
+    const miniIndex = d.miniIndex ?? 0;
+
+    return {
+      goalTitle, goalCur, goalMax,
+      miniTitle, miniCur, miniMax, miniTLeft,
+      goalsCleared, goalsTotal, minisCleared, minisTotal,
+      goalIndex, miniIndex,
+    };
   }
 
-  function onCoach(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if (elCoachLine && d.line != null) elCoachLine.textContent = String(d.line);
-    if (elCoachSub && d.sub != null)  elCoachSub.textContent  = String(d.sub);
+  function paintQuest(detail) {
+    const q = normalizeQuestDetail(detail);
 
-    // mood -> image switch if possible
-    if (elCoachImg && d.mood) {
-      const mood = String(d.mood).toLowerCase();
-      // expected filenames in your project:
-      // coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
-      let src = './img/coach-neutral.png';
-      if (mood.includes('happy')) src = './img/coach-happy.png';
-      else if (mood.includes('sad')) src = './img/coach-sad.png';
-      else if (mood.includes('fever') || mood.includes('fire')) src = './img/coach-fever.png';
-      elCoachImg.src = src;
+    // cache for late-bind
+    root.__HHA_LAST_QUEST__ = detail;
+
+    if (els.qGoalTitle) setText(els.qGoalTitle, prefix('Goal', q.goalTitle), 'Goal: —');
+    if (els.qGoalCur) setText(els.qGoalCur, toNum(q.goalCur, 0), '0');
+    if (els.qGoalMax) setText(els.qGoalMax, toNum(q.goalMax, 0), '0');
+    setFill(els.qGoalFill, q.goalCur, q.goalMax);
+
+    if (els.qMiniTitle) setText(els.qMiniTitle, prefix('Mini', q.miniTitle), 'Mini: —');
+    if (els.qMiniCur) setText(els.qMiniCur, toNum(q.miniCur, 0), '0');
+    if (els.qMiniMax) setText(els.qMiniMax, toNum(q.miniMax, 0), '0');
+    setFill(els.qMiniFill, q.miniCur, q.miniMax);
+
+    if (els.qMiniTLeft) {
+      if (q.miniTLeft == null) {
+        els.qMiniTLeft.textContent = '—';
+      } else {
+        els.qMiniTLeft.textContent = String(Math.max(0, toNum(q.miniTLeft, 0)));
+      }
+    }
+
+    if (els.qMeta) {
+      const gT = Math.max(0, toNum(q.goalsTotal, 0));
+      const mT = Math.max(0, toNum(q.minisTotal, 0));
+      const gC = Math.max(0, toNum(q.goalsCleared, 0));
+      const mC = Math.max(0, toNum(q.minisCleared, 0));
+      // show cleared/total if available; fallback to index if totals are 0
+      let meta = '';
+      if (gT > 0 || mT > 0) meta = `Goals ${gC}/${gT} • Minis ${mC}/${mT}`;
+      else meta = `Goal#${toNum(q.goalIndex, 0)} • Mini#${toNum(q.miniIndex, 0)}`;
+      els.qMeta.textContent = meta;
     }
   }
 
-  function onQuest(ev){
+  function onQuest(ev) {
     const d = (ev && ev.detail) ? ev.detail : {};
-
-    // normalize goal
-    const gTitle = d.goalTitle ?? d.goal ?? d.goalName ?? 'Goal: —';
-    const gCur   = (d.goalCur != null) ? d.goalCur : (d.gCur != null ? d.gCur : 0);
-    const gMax   = (d.goalMax != null) ? d.goalMax : (d.gMax != null ? d.gMax : 0);
-
-    // normalize mini
-    const mTitle = d.miniTitle ?? d.mini ?? d.miniName ?? 'Mini: —';
-    const mCur   = (d.miniCur != null) ? d.miniCur : (d.mCur != null ? d.mCur : 0);
-    const mMax   = (d.miniMax != null) ? d.miniMax : (d.mMax != null ? d.mMax : 0);
-
-    if (elGoalTitle) elGoalTitle.textContent = String(gTitle);
-    if (elGoalCur)   elGoalCur.textContent   = String(gCur ?? 0);
-    if (elGoalMax)   elGoalMax.textContent   = String(gMax ?? 0);
-    if (elGoalFill)  elGoalFill.style.width  = `${pct(gCur, gMax).toFixed(1)}%`;
-
-    if (elMiniTitle) elMiniTitle.textContent = String(mTitle);
-    if (elMiniCur)   elMiniCur.textContent   = String(mCur ?? 0);
-    if (elMiniMax)   elMiniMax.textContent   = String(mMax ?? 0);
-    if (elMiniFill)  elMiniFill.style.width  = `${pct(mCur, mMax).toFixed(1)}%`;
-
-    // mini timer
-    if (elMiniTLeft) {
-      const tLeft = (d.miniTLeft != null) ? d.miniTLeft :
-                    (d.tLeft != null) ? d.tLeft : null;
-      elMiniTLeft.textContent = (tLeft == null || tLeft === '') ? '—' : String(tLeft);
-    }
-
-    // meta: overall progress
-    if (elQuestMeta) {
-      const gc = (d.goalsCleared != null) ? d.goalsCleared : null;
-      const gt = (d.goalsTotal != null) ? d.goalsTotal : null;
-      const mc = (d.minisCleared != null) ? d.minisCleared : null;
-      const mt = (d.minisTotal != null) ? d.minisTotal : null;
-
-      const parts = [];
-      if (gc != null && gt != null) parts.push(`Goals ${gc}/${gt}`);
-      if (mc != null && mt != null) parts.push(`Minis ${mc}/${mt}`);
-      if (d.reason) parts.push(String(d.reason));
-      if (parts.length) elQuestMeta.textContent = parts.join(' • ');
-    }
+    paintQuest(d);
   }
 
-  function onEnd(ev){
+  // ---------------- end ----------------
+  function onEnd(ev) {
     const d = (ev && ev.detail) ? ev.detail : {};
-    if (elGrade && d.grade != null) elGrade.textContent = String(d.grade);
+    if (!els.endBox) return;
 
-    // freeze final numbers if present
-    if (elScore && (d.scoreFinal != null || d.score != null)) elScore.textContent = String(d.scoreFinal ?? d.score);
-    if (elCombo && d.comboMax != null) elCombo.textContent = String(d.comboMax);
-    if (elMiss && d.misses != null) elMiss.textContent = String(d.misses);
+    setText(els.endGrade, d.grade ?? '—', '—');
+    setText(els.endScore, d.scoreFinal ?? d.score ?? 0, '0');
+    setText(els.endComboMax, d.comboMax ?? 0, '0');
+    setText(els.endMiss, d.misses ?? 0, '0');
+
+    setText(els.endGoals, d.goalsCleared ?? 0, '0');
+    setText(els.endGoalsTotal, d.goalsTotal ?? 0, '0');
+    setText(els.endMinis, d.miniCleared ?? d.minisCleared ?? 0, '0');
+    setText(els.endMinisTotal, d.miniTotal ?? d.minisTotal ?? 0, '0');
+
+    setText(els.endAcc, d.accuracy ?? d.accuracyGoodPct ?? 0, '0');
+
+    els.endBox.style.display = 'flex';
   }
 
-  // ---------------------------
-  // Bind listeners
-  // ---------------------------
-  root.addEventListener('hha:score', onScore);
-  root.addEventListener('hha:time', onTime);
-  root.addEventListener('quest:update', onQuest);
-  root.addEventListener('hha:coach', onCoach);
-  root.addEventListener('hha:end', onEnd);
+  // bind
+  root.addEventListener('hha:score', onScore, { passive: true });
+  root.addEventListener('hha:time', onTime, { passive: true });
+  root.addEventListener('hha:coach', onCoach, { passive: true });
 
-  // for debugging: show that binder loaded
+  // ✅ support both names
+  root.addEventListener('quest:update', onQuest, { passive: true });
+  root.addEventListener('hha:quest', onQuest, { passive: true });
+
+  root.addEventListener('hha:end', onEnd, { passive: true });
+
+  // late-bind: if game already cached quest state
   try {
-    root.dispatchEvent(new CustomEvent('hha:hud_ready', { detail: { ts: Date.now() } }));
+    if (root.__HHA_LAST_QUEST__) paintQuest(root.__HHA_LAST_QUEST__);
   } catch (_) {}
-
 })(typeof window !== 'undefined' ? window : globalThis);
