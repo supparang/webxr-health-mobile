@@ -1,9 +1,10 @@
-<!-- === /herohealth/groups-vr.html ===
-Food Groups VR — FULL HTML (LATEST ALL-IN)
-✅ Quest+Mini แสดงแน่ (#hudGoal/#hudMini + fallback panel via groups-hud-quest.js)
-✅ Power HUD + group banner + stun overlay + lock ring
-✅ รองรับ run=play / run=research, diff=easy/normal/hard, time=90, seed=...
-✅ โหลด FX ใหม่: ./vr-groups/groups-fx.js
+<!-- === /herohealth/vr-groups/groups-vr.html ===
+Food Groups VR — FULL HTML (LATEST)
+✅ Quest+Mini แสดงแน่ (#hudGoal/#hudMini + fallback panel)
+✅ Group Power HUD + Lock ring + Stun overlay + Group banner
+✅ CSS path fixed -> ./vr-groups/groups.css (ตามที่คุณยืนยันว่าอยู่ตรงนี้)
+✅ Script order fixed -> particles/ui-fever/hha-hud/logger -> quests -> hud-quest -> engine
+✅ รองรับ run=play|research, diff=easy|normal|hard, time=90, seed=...
 -->
 
 <!doctype html>
@@ -13,34 +14,32 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Food Groups VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + Fever + HUD (IIFE) -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-hud.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
+  <!-- Global FX + Fever + HUD + Logger (IIFE) -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/ui-fever.js" defer></script>
+  <script src="../vr/hha-hud.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- ✅ Groups CSS (แยกไฟล์) -->
-  <link rel="stylesheet" href="./vr-groups/groups-vr.css" />
+  <!-- ✅ Groups CSS (ตามที่คุณบอกว่าอยู่ตรงนี้แน่นอน) -->
+  <link rel="stylesheet" href="./groups.css" />
 </head>
 
 <body>
 
-  <!-- ===== A-Frame Scene (ไว้ทำ ambience + camera rotation) ===== -->
+  <!-- ===== A-Frame Scene (camera rotation for VR feel) ===== -->
   <a-scene
     embedded
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true;"
     background="color: #020617">
-
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="hhaCam" camera look-controls="pointerLockEnabled: false"></a-entity>
     </a-entity>
-
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
@@ -70,7 +69,7 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
         <div id="hudTimer" class="hud-timer">90s</div>
       </div>
 
-      <!-- ✅ Power HUD -->
+      <!-- POWER HUD -->
       <div class="power-wrap">
         <div class="power-label">
           <span id="hudPowerName">POWER</span>
@@ -81,7 +80,7 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
         </div>
       </div>
 
-      <!-- ✅ Quest HUD (แสดงแน่) -->
+      <!-- ✅ Quest HUD (หลัก) -->
       <div class="quest-wrap">
         <div class="quest-line">
           <div class="q-badge">GOAL</div>
@@ -108,8 +107,8 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
     </div>
   </div>
 
-  <!-- ===== Center Lock Ring (for gaze lock + charge) ===== -->
-  <div id="lockRing" class="lock-ring" style="opacity:0">
+  <!-- ===== Center Lock Ring ===== -->
+  <div id="lockRing" class="lock-ring" style="display:none">
     <div class="lock-core"></div>
     <div class="lock-prog"></div>
     <div class="lock-charge"></div>
@@ -134,8 +133,8 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
     <div class="start-card">
       <div class="start-title">Food Groups VR</div>
       <div class="start-sub">
-        แตะเป้าเพื่อยิงทันที (tap hit) <br/>
-        แตะใกล้เป้า = ระบบล็อกแล้วยิงอัตโนมัติ (lock) <br/>
+        แตะที่เป้า = ยิงทันที (auto-aim) <br/>
+        แตะใกล้เป้า = เริ่ม Lock ring (ยิงอัตโนมัติเมื่อครบวง) <br/>
         ยิงถูก “หมู่ปัจจุบัน” ต่อเนื่อง → ปลด POWER ⚡
       </div>
 
@@ -144,8 +143,6 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
         <div class="pill">SSS / SS / S / A / B / C</div>
         <div class="pill"><span id="pillDiff">diff</span></div>
         <div class="pill"><span id="pillMode">mode</span></div>
-        <div class="pill"><span id="pillTime">time</span></div>
-        <div class="pill"><span id="pillSeed">seed</span></div>
       </div>
 
       <div class="start-actions">
@@ -155,22 +152,22 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
       </div>
 
       <div class="start-note">
-        * โหมดวิจัย (run=research) จะ fix seed (ถ้าไม่ส่ง seed มา จะใช้ค่า default) เพื่อความยุติธรรม
+        * โหมดวิจัย (run=research) จะ fix seed เพื่อความยุติธรรม
       </div>
     </div>
   </div>
 
-  <!-- ===== Boot Scripts (ORDER สำคัญ) ===== -->
-  <!-- ✅ 1) Quest (emits quest:update) -->
-  <script src="./vr-groups/groups-quests.js" defer></script>
-  <!-- ✅ 2) Quest HUD fallback panel (กันกรณี #hudGoal/#hudMini ไม่ขึ้น) -->
-  <script src="./vr-groups/groups-hud-quest.js" defer></script>
-  <!-- ✅ 3) Groups FX (score pop/burst/celebrate) -->
-  <script src="./vr-groups/groups-fx.js" defer></script>
-  <!-- ✅ 4) Engine -->
-  <script src="./vr-groups/GameEngine.js" defer></script>
+  <!-- ===== Boot Scripts (ORDER สำคัญ!) ===== -->
+  <!-- 1) quest system (emits quest:update) -->
+  <script src="./groups-quests.js" defer></script>
 
-  <!-- ===== Page binder (รับ events จาก Engine/Quest แล้วอัป HUD) ===== -->
+  <!-- 2) quest HUD binder (fallback panel + compat ids) -->
+  <script src="./groups-hud-quest.js" defer></script>
+
+  <!-- 3) engine (emits hha:score/hha:time/groups:* and calls quest hooks) -->
+  <script src="./GameEngine.js" defer></script>
+
+  <!-- ===== Page binder ===== -->
   <script>
   (function(){
     'use strict';
@@ -211,8 +208,6 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
 
     const pillDiff = $('pillDiff');
     const pillMode = $('pillMode');
-    const pillTime = $('pillTime');
-    const pillSeed = $('pillSeed');
 
     function sp(){
       try { return new URLSearchParams(location.search); }
@@ -231,8 +226,6 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
 
     pillDiff.textContent = 'diff=' + diff;
     pillMode.textContent = 'run=' + run;
-    pillTime.textContent = 'time=' + timeSec;
-    pillSeed.textContent = 'seed=' + (seed || '(auto)');
 
     // ===== UI Helpers =====
     function flashBanner(text){
@@ -257,7 +250,7 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
     function showLock(on, x, y, prog, charge){
       if (!lockRing) return;
       if (!on){
-        lockRing.style.opacity = '0';
+        lockRing.style.display = 'none';
         return;
       }
       const w = window.innerWidth || 360;
@@ -265,12 +258,15 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
       const px = clamp(x, 0, w);
       const py = clamp(y, 0, h);
 
-      lockRing.style.opacity = '1';
-      lockRing.style.left = Math.round(px) + 'px';
-      lockRing.style.top  = Math.round(py) + 'px';
+      lockRing.style.display = '';
+      lockRing.style.transform =
+        `translate3d(${Math.round(px)}px,${Math.round(py)}px,0) translate(-50%,-50%)`;
 
-      lockRing.style.setProperty('--p', String(clamp(prog, 0, 1)));
-      lockRing.style.setProperty('--c', String(clamp(charge, 0, 1)));
+      const p = clamp(prog, 0, 1);
+      const c = clamp(charge, 0, 1);
+
+      lockRing.style.setProperty('--p', String(p));
+      lockRing.style.setProperty('--c', String(c));
     }
 
     // ===== Bind Events =====
@@ -321,7 +317,7 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
       }
     }, { passive:true });
 
-    // ✅ Group Power progress
+    // Group Power progress
     window.addEventListener('groups:power', (e)=>{
       const d = (e && e.detail) ? e.detail : {};
       const name = d.groupName || 'POWER';
@@ -340,7 +336,7 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
       }
     }, { passive:true });
 
-    // ✅ Group swap drama
+    // Group swap drama
     window.addEventListener('groups:group_change', (e)=>{
       const d = (e && e.detail) ? e.detail : {};
       const text = d.label || 'เปลี่ยนหมู่!';
@@ -349,7 +345,7 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
       setTimeout(()=>document.documentElement.classList.remove('swapflash'), 240);
     }, { passive:true });
 
-    // ✅ STUN overlay
+    // STUN overlay (0.8s)
     window.addEventListener('groups:stun', (e)=>{
       const d = (e && e.detail) ? e.detail : {};
       if (d.on) showStun(d.ms|0);
@@ -357,7 +353,7 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
       setTimeout(()=>document.documentElement.classList.remove('stunflash'), 220);
     }, { passive:true });
 
-    // ✅ Lock ring
+    // Lock ring
     window.addEventListener('groups:lock', (e)=>{
       const d = (e && e.detail) ? e.detail : {};
       showLock(!!d.on, d.x, d.y, d.prog, d.charge);
@@ -366,9 +362,9 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
     // Rank
     window.addEventListener('hha:rank', (e)=>{
       const d = (e && e.detail) ? e.detail : {};
-      if (hudGrade && d.grade) hudGrade.textContent = String(d.grade || 'C');
-      if (hudAcc && d.accuracy != null) hudAcc.textContent = String(d.accuracy ?? 0);
-      if (hudQp  && d.questsPct != null) hudQp.textContent  = String(d.questsPct ?? 0);
+      if (hudGrade && d.grade != null) hudGrade.textContent = String(d.grade || 'C');
+      if (hudAcc  && d.accuracy != null) hudAcc.textContent  = String(d.accuracy ?? 0);
+      if (hudQp   && d.questsPct != null) hudQp.textContent   = String(d.questsPct ?? 0);
     }, { passive:true });
 
     // ===== Start / Restart =====
@@ -379,7 +375,7 @@ Food Groups VR — FULL HTML (LATEST ALL-IN)
     function startGame(){
       const engine = getEngine();
       if (!engine) {
-        alert('GameEngine ยังไม่โหลด (เช็คไฟล์ ./vr-groups/GameEngine.js)');
+        alert('GameEngine ยังไม่โหลด (เช็คไฟล์ ./GameEngine.js)');
         return;
       }
       engine.setLayerEl(layerEl);
