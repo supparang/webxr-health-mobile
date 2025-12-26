@@ -3,6 +3,7 @@
 // ✅ listens: hha:score, hha:time, hha:coach, quest:update, hha:quest, hha:end
 // ✅ robust field mapping + late-bind cache window.__HHA_LAST_QUEST__
 // ✅ safe if elements are missing
+// ✅ binds to BOTH window + document (เผื่อเกม dispatch คนละที่)
 
 (function (root) {
   'use strict';
@@ -75,6 +76,12 @@
     return `${label}: ${s}`;
   }
 
+  // bind helper (window + document)
+  function bind(type, handler){
+    root.addEventListener(type, handler, { passive:true });
+    doc.addEventListener(type, handler, { passive:true });
+  }
+
   // ---------------- score ----------------
   function onScore(ev) {
     const d = (ev && ev.detail) ? ev.detail : {};
@@ -88,13 +95,12 @@
   // ---------------- time ----------------
   function onTime(ev) {
     const d = (ev && ev.detail) ? ev.detail : {};
-    // support: timeLeftSec / timeLeft / time / sec
     let t = d.timeLeftSec;
     if (t == null) t = d.timeLeft;
     if (t == null) t = d.time;
     if (t == null) t = d.sec;
 
-    if (t == null) return; // don't overwrite if sender doesn't provide
+    if (t == null) return;
     t = Math.max(0, Math.round(toNum(t, 0)));
     setText(els.time, t, '0');
   }
@@ -106,7 +112,6 @@
     if (els.coachSub) setText(els.coachSub, d.sub ?? d.subtitle ?? '', '');
 
     if (els.coachImg && d.mood) {
-      // optional mood mapping if you use files like coach-happy.png etc.
       const m = String(d.mood).toLowerCase();
       const map = {
         happy: 'coach-happy.png',
@@ -115,8 +120,7 @@
         neutral: 'coach-neutral.png',
       };
       const fn = map[m];
-      if (fn && !els.coachImg.src.includes(fn)) {
-        // keep path style same as current
+      if (fn && !String(els.coachImg.src || '').includes(fn)) {
         const cur = els.coachImg.getAttribute('src') || '';
         const base = cur.includes('/img/') ? cur.split('/img/')[0] + '/img/' : './img/';
         els.coachImg.setAttribute('src', base + fn);
@@ -128,7 +132,6 @@
   function normalizeQuestDetail(raw) {
     const d = raw || {};
 
-    // allow multiple key styles
     const goalTitle = d.goalTitle ?? d.goalText ?? d.goal ?? d.goal_name ?? d.goalName;
     const goalCur   = d.goalCur ?? d.goalCurrent ?? d.goalNow ?? d.gCur ?? d.gcur ?? 0;
     const goalMax   = d.goalMax ?? d.goalTarget ?? d.goalTotal ?? d.gMax ?? d.gmax ?? 0;
@@ -158,8 +161,7 @@
   function paintQuest(detail) {
     const q = normalizeQuestDetail(detail);
 
-    // cache for late-bind
-    root.__HHA_LAST_QUEST__ = detail;
+    try { root.__HHA_LAST_QUEST__ = detail; } catch (_) {}
 
     if (els.qGoalTitle) setText(els.qGoalTitle, prefix('Goal', q.goalTitle), 'Goal: —');
     if (els.qGoalCur) setText(els.qGoalCur, toNum(q.goalCur, 0), '0');
@@ -172,11 +174,8 @@
     setFill(els.qMiniFill, q.miniCur, q.miniMax);
 
     if (els.qMiniTLeft) {
-      if (q.miniTLeft == null) {
-        els.qMiniTLeft.textContent = '—';
-      } else {
-        els.qMiniTLeft.textContent = String(Math.max(0, toNum(q.miniTLeft, 0)));
-      }
+      if (q.miniTLeft == null) els.qMiniTLeft.textContent = '—';
+      else els.qMiniTLeft.textContent = String(Math.max(0, toNum(q.miniTLeft, 0)));
     }
 
     if (els.qMeta) {
@@ -184,7 +183,7 @@
       const mT = Math.max(0, toNum(q.minisTotal, 0));
       const gC = Math.max(0, toNum(q.goalsCleared, 0));
       const mC = Math.max(0, toNum(q.minisCleared, 0));
-      // show cleared/total if available; fallback to index if totals are 0
+
       let meta = '';
       if (gT > 0 || mT > 0) meta = `Goals ${gC}/${gT} • Minis ${mC}/${mT}`;
       else meta = `Goal#${toNum(q.goalIndex, 0)} • Mini#${toNum(q.miniIndex, 0)}`;
@@ -212,21 +211,22 @@
     setText(els.endMinis, d.miniCleared ?? d.minisCleared ?? 0, '0');
     setText(els.endMinisTotal, d.miniTotal ?? d.minisTotal ?? 0, '0');
 
-    setText(els.endAcc, d.accuracy ?? d.accuracyGoodPct ?? 0, '0');
+    // ✅ prefer accuracyGoodPct
+    setText(els.endAcc, d.accuracyGoodPct ?? d.accuracy ?? 0, '0');
 
     els.endBox.style.display = 'flex';
   }
 
   // bind
-  root.addEventListener('hha:score', onScore, { passive: true });
-  root.addEventListener('hha:time', onTime, { passive: true });
-  root.addEventListener('hha:coach', onCoach, { passive: true });
+  bind('hha:score', onScore);
+  bind('hha:time', onTime);
+  bind('hha:coach', onCoach);
 
   // ✅ support both names
-  root.addEventListener('quest:update', onQuest, { passive: true });
-  root.addEventListener('hha:quest', onQuest, { passive: true });
+  bind('quest:update', onQuest);
+  bind('hha:quest', onQuest);
 
-  root.addEventListener('hha:end', onEnd, { passive: true });
+  bind('hha:end', onEnd);
 
   // late-bind: if game already cached quest state
   try {
