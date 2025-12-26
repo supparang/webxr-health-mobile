@@ -1,8 +1,8 @@
 // === /herohealth/vr-groups/groups-hud-quest.js ===
 // Food Groups VR — HUD Quest Binder (IIFE) — FIX-ALL
 // ✅ Always shows GOAL + MINI even if HTML missing
-// ✅ Listens quest:update emitted by GameEngine.js
-// ✅ Does not conflict with other HUD binders (idempotent)
+// ✅ Listens quest:update emitted by Engine / Quest
+// ✅ Idempotent (bind ครั้งเดียว)
 // ✅ Supports: {questOk, goal:{label,prog,target}, mini:{label,prog,target,tLeft,windowSec}, groupLabel}
 
 (function(){
@@ -102,7 +102,7 @@
     el.style.display = on ? '' : 'none';
   }
 
-  // ---------- mapping (supports other HUD ids too) ----------
+  // ---------- mapping ----------
   function applyQuestUpdate(d){
     ensureQuestPanel();
 
@@ -128,10 +128,7 @@
     if (mini && mini.label){
       setTxt('fg-miniText', mini.label);
 
-      // rush_window timer optional
-      if (typeof mini.tLeft === 'number' && typeof mini.windowSec === 'number'){
-        setTxt('fg-miniTimer', `⏱️ ${Math.max(0, mini.tLeft|0)}s`);
-      } else if (typeof mini.tLeft === 'number') {
+      if (typeof mini.tLeft === 'number'){
         setTxt('fg-miniTimer', `⏱️ ${Math.max(0, mini.tLeft|0)}s`);
       } else {
         setTxt('fg-miniTimer', '');
@@ -146,16 +143,16 @@
       setBar('fg-miniBar', 0);
     }
 
-    // Also update any “old HUD ids” if your page has them (compat mode)
+    // Compat: update HUD ids on page if exist
     try{
-      const compatGoalTitle = doc.querySelector('[data-hha-goal-title], #hud-goal-title, #goalTitle');
-      const compatGoalVal   = doc.querySelector('[data-hha-goal-val], #hud-goal-val, #goalVal');
-      const compatMiniTitle = doc.querySelector('[data-hha-mini-title], #hud-mini-title, #miniTitle');
-      const compatMiniVal   = doc.querySelector('[data-hha-mini-val], #hud-mini-val, #miniVal');
+      const compatGoalTitle = doc.querySelector('[data-hha-goal-title], #hud-goalTitle, #hud-goal-title, #goalTitle');
+      const compatGoalVal   = doc.querySelector('[data-hha-goal-val], #hud-goalVal, #hud-goal-val, #goalVal');
+      const compatMiniTitle = doc.querySelector('[data-hha-mini-title], #hud-miniTitle, #hud-mini-title, #miniTitle');
+      const compatMiniVal   = doc.querySelector('[data-hha-mini-val], #hud-miniVal, #hud-mini-val, #miniVal');
 
-      if (compatGoalTitle) compatGoalTitle.textContent = goal && goal.label ? goal.label : '—';
+      if (compatGoalTitle) compatGoalTitle.textContent = (goal && goal.label) ? goal.label : '—';
       if (compatGoalVal)   compatGoalVal.textContent   = goal ? ((goal.prog|0)+'/'+(goal.target|0)) : '0/0';
-      if (compatMiniTitle) compatMiniTitle.textContent = mini && mini.label ? mini.label : '—';
+      if (compatMiniTitle) compatMiniTitle.textContent = (mini && mini.label) ? mini.label : '—';
       if (compatMiniVal)   compatMiniVal.textContent   = mini ? ((mini.prog|0)+'/'+(mini.target|0)) : '0/0';
     }catch{}
   }
@@ -166,6 +163,7 @@
     applyQuestUpdate(d);
   }, { passive:true });
 
-  // ---------- fallback: if engine forgets to emit, we still show panel ----------
+  // fallback: show panel immediately
   ensureQuestPanel();
+
 })();
