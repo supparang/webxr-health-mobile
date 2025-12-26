@@ -1,10 +1,3 @@
-<!-- === /herohealth/groups-vr.html ===
-Food Groups VR — FULL HTML (ALL-IN PACK) — CSS PATH FIXED ✅
-✅ ใช้ CSS จริง: /herohealth/vr-groups/groups.css
-✅ กัน cache ด้วย ?v=...
-✅ Quest/Power/Lock/Stun events binder พร้อม
--->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -14,394 +7,140 @@ Food Groups VR — FULL HTML (ALL-IN PACK) — CSS PATH FIXED ✅
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame -->
+  <!-- A-Frame (scene as backdrop) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + Fever + HUD + Logger (IIFE) -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-hud.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-
-  <!-- ✅ Groups CSS (ไฟล์จริงอยู่ /herohealth/vr-groups/groups.css) -->
-  <link rel="stylesheet" href="./vr-groups/groups.css?v=20251225a" />
+  <!-- ✅ CSS: ใช้ alias ตามที่คุณยืนยันว่า /vr-groups/groups.css อยู่แน่นอน -->
+  <link rel="stylesheet" href="./vr-groups/groups.css?v=1" />
 </head>
 
 <body>
-
-  <!-- ===== A-Frame Scene ===== -->
-  <a-scene
-    embedded
-    vr-mode-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true;"
-    background="color: #020617">
-
-    <a-entity id="rig" position="0 1.6 0">
-      <a-entity id="hhaCam" camera look-controls="pointerLockEnabled: false"></a-entity>
+  <!-- Backdrop scene (optional, can be minimal) -->
+  <a-scene embedded vr-mode-ui="enabled: true" renderer="colorManagement: true">
+    <a-entity position="0 1.6 0">
+      <a-camera wasd-controls-enabled="false"></a-camera>
     </a-entity>
 
     <a-sky color="#020617"></a-sky>
+    <a-entity light="type: ambient; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
   </a-scene>
 
-  <!-- ===== Gameplay DOM Layer ===== -->
-  <div id="fg-layer" class="fg-layer" aria-label="FoodGroups Targets Layer"></div>
+  <!-- Gameplay layer (DOM targets) -->
+  <div id="fg-layer" class="fg-layer" aria-label="Food Groups layer"></div>
 
-  <!-- ===== Top HUD ===== -->
-  <div class="hud-top">
+  <!-- HUD (ถ้าไม่ชอบ layout นี้ ปรับได้ แต่ engine/hud binder รองรับ) -->
+  <div class="hud-top" aria-hidden="true">
     <div class="hud-card hud-left">
-      <div class="hud-row">
-        <div class="hud-title">คะแนน</div>
-        <div id="hudScore" class="hud-val">0</div>
-      </div>
-      <div class="hud-row">
-        <div class="hud-title">คอมโบ</div>
-        <div id="hudCombo" class="hud-val">0</div>
-      </div>
-      <div class="hud-row">
-        <div class="hud-title">พลาด</div>
-        <div id="hudMiss" class="hud-val">0</div>
-      </div>
+      <div class="hud-row"><span class="hud-title">SCORE</span><span id="hud-score" class="hud-val">0</span></div>
+      <div class="hud-row"><span class="hud-title">COMBO</span><span id="hud-combo" class="hud-val">0</span></div>
+      <div class="hud-row"><span class="hud-title">MISS</span><span id="hud-miss" class="hud-val">0</span></div>
     </div>
 
     <div class="hud-card hud-mid">
       <div class="hud-group-row">
-        <div id="hudGroup" class="hud-group">หมู่ ?</div>
-        <div id="hudTimer" class="hud-timer">90s</div>
+        <div id="hud-group" class="hud-group">หมู่ 1</div>
+        <div id="hud-time" class="hud-timer">90</div>
       </div>
 
-      <!-- Power HUD -->
       <div class="power-wrap">
         <div class="power-label">
-          <span id="hudPowerName">POWER</span>
-          <span id="hudPowerNum">0/6</span>
+          <span>POWER</span>
+          <span id="hud-powerText">0/7</span>
         </div>
         <div class="power-bar">
-          <div id="hudPowerFill" class="power-fill" style="width:0%"></div>
+          <div id="hud-powerFill" class="power-fill"></div>
         </div>
       </div>
 
-      <!-- Quest HUD -->
       <div class="quest-wrap">
         <div class="quest-line">
           <div class="q-badge">GOAL</div>
-          <div id="hudGoal" class="q-text">—</div>
-          <div id="hudGoalNum" class="q-num">0/0</div>
+          <div id="hud-goal-title" class="q-text">—</div>
+          <div id="hud-goal-val" class="q-num">0/0</div>
         </div>
         <div class="quest-line">
           <div class="q-badge mini">MINI</div>
-          <div id="hudMini" class="q-text">—</div>
-          <div id="hudMiniNum" class="q-num">0/0</div>
+          <div id="hud-mini-title" class="q-text">—</div>
+          <div id="hud-mini-val" class="q-num">0/0</div>
         </div>
       </div>
     </div>
 
     <div class="hud-card hud-right">
       <div class="rank-box">
-        <div class="rank-title">GRADE</div>
-        <div id="hudGrade" class="rank-grade">C</div>
+        <div>
+          <div class="rank-title">RANK</div>
+          <div id="hud-grade" class="rank-grade">C</div>
+        </div>
+        <div style="text-align:right">
+          <div class="rank-title">ACC</div>
+          <div id="hud-acc" class="hud-val">0%</div>
+        </div>
       </div>
       <div class="rank-sub">
-        <div><span id="hudAcc">0</span>% ACC</div>
-        <div><span id="hudQp">0</span>% Q</div>
+        <span>comboMax</span><span id="hud-comboMax">0</span>
+      </div>
+      <div class="rank-sub">
+        <span>quests</span><span id="hud-quests">0%</span>
       </div>
     </div>
   </div>
 
-  <!-- ===== Center Lock Ring ===== -->
-  <div id="lockRing" class="lock-ring" style="display:none">
-    <div class="lock-core"></div>
-    <div class="lock-prog"></div>
-    <div class="lock-charge"></div>
+  <!-- Group banner -->
+  <div id="fg-banner" class="group-banner" style="display:none" aria-hidden="true">
+    <div id="fg-bannerText" class="group-banner-text">หมู่ 1</div>
+    <div id="fg-bannerSub" class="group-banner-sub">ยิงให้ถูกหมู่ปัจจุบัน</div>
   </div>
 
-  <!-- ===== Group Swap Banner ===== -->
-  <div id="groupBanner" class="group-banner" style="display:none">
-    <div id="groupBannerText" class="group-banner-text">หมู่ ?</div>
-    <div class="group-banner-sub">ยิงถูกหมู่ = ชาร์จสกิล ⚡</div>
-  </div>
-
-  <!-- ===== Stun Overlay (0.8s) ===== -->
-  <div id="stunOverlay" class="stun-overlay" style="display:none">
+  <!-- Stun overlay -->
+  <div id="fg-stun" class="stun-overlay" style="display:none" aria-hidden="true">
     <div class="stun-card">
       <div class="stun-title">STUN!</div>
-      <div class="stun-sub">พัก 0.8 วิ 😵</div>
+      <div id="fg-stunSub" class="stun-sub">โดน junk — หยุดชั่วคราว</div>
     </div>
   </div>
 
-  <!-- ===== Start Overlay ===== -->
+  <!-- Start overlay -->
   <div id="startOverlay" class="start-overlay">
     <div class="start-card">
-      <div class="start-title">Food Groups VR</div>
+      <div class="start-title">Food Groups VR 🍽️</div>
       <div class="start-sub">
-        แตะที่เป้า หรือแตะที่จอเพื่อยิง (auto-aim) <br/>
-        จ้องกลางจอ = LOCK/ชาร์จ (ตามระบบเกม) <br/>
-        ยิงถูก “หมู่ปัจจุบัน” ต่อเนื่อง → ปลด POWER ⚡
+        ยิง “หมู่ปัจจุบัน” ให้ถูก! <br/>
+        ระวัง: ❌ ยิงผิดหมู่ / 🚫 junk / ❓ decoy / 🧠 boss
       </div>
-
       <div class="start-grid">
-        <div class="pill"><b>School</b> Mode</div>
-        <div class="pill">SSS / SS / S / A / B / C</div>
-        <div class="pill"><span id="pillDiff">diff</span></div>
-        <div class="pill"><span id="pillMode">mode</span></div>
+        <div class="pill">Tap = ยิงทันที</div>
+        <div class="pill">Lock = แตะใกล้เป้าให้ล็อก</div>
+        <div class="pill">Power ครบ = เปลี่ยนหมู่</div>
+        <div class="pill">SSS/SS/S/A/B/C</div>
       </div>
-
       <div class="start-actions">
-        <button id="btnStart" class="btn primary">เริ่มเล่น</button>
-        <button id="btnRestart" class="btn">เริ่มใหม่</button>
-        <button id="btnExit" class="btn ghost">ปิด</button>
+        <button id="btnPlay" class="btn primary" type="button">เริ่มเล่น</button>
+        <button id="btnVR" class="btn" type="button">เข้า VR Mode</button>
+        <button id="btnReset" class="btn ghost" type="button">รีเซ็ต</button>
       </div>
-
-      <div class="start-note">
-        * โหมดวิจัย (run=research) แนะนำให้ fix seed เพื่อความยุติธรรม
-      </div>
+      <div id="startNote" class="start-note"></div>
     </div>
   </div>
 
-  <!-- ===== Boot Scripts (Groups) ===== -->
-  <script src="./vr-groups/groups-quests.js" defer></script>
-  <script src="./vr-groups/GameEngine.js" defer></script>
+  <!-- End summary -->
+  <div id="endOverlay" class="start-overlay" style="display:none">
+    <div class="start-card">
+      <div class="start-title">สรุปผล 🎉</div>
+      <div id="endBody" class="start-sub"></div>
+      <div class="start-actions">
+        <button id="btnReplay" class="btn primary" type="button">เล่นอีกครั้ง</button>
+        <button id="btnCloseEnd" class="btn" type="button">ปิด</button>
+      </div>
+      <div class="start-note">Tip: ถ้า CSS ไม่ขึ้น ให้ลองเติม ?v=timestamp ที่ไฟล์ groups.css</div>
+    </div>
+  </div>
 
-  <script>
-  (function(){
-    'use strict';
-
-    const $ = (id)=>document.getElementById(id);
-
-    const layerEl = $('fg-layer');
-    const camEl = document.querySelector('#hhaCam');
-
-    const hudScore = $('hudScore');
-    const hudCombo = $('hudCombo');
-    const hudMiss  = $('hudMiss');
-    const hudTimer = $('hudTimer');
-    const hudGroup = $('hudGroup');
-
-    const hudGoal = $('hudGoal');
-    const hudMini = $('hudMini');
-    const hudGoalNum = $('hudGoalNum');
-    const hudMiniNum = $('hudMiniNum');
-
-    const hudPowerName = $('hudPowerName');
-    const hudPowerNum  = $('hudPowerNum');
-    const hudPowerFill = $('hudPowerFill');
-
-    const hudGrade = $('hudGrade');
-    const hudAcc = $('hudAcc');
-    const hudQp  = $('hudQp');
-
-    const lockRing = $('lockRing');
-    const groupBanner = $('groupBanner');
-    const groupBannerText = $('groupBannerText');
-    const stunOverlay = $('stunOverlay');
-
-    const startOverlay = $('startOverlay');
-    const btnStart = $('btnStart');
-    const btnRestart = $('btnRestart');
-    const btnExit = $('btnExit');
-
-    const pillDiff = $('pillDiff');
-    const pillMode = $('pillMode');
-
-    function sp(){
-      try { return new URLSearchParams(location.search); }
-      catch { return new URLSearchParams(); }
-    }
-    function getParam(name, def){
-      const v = sp().get(name);
-      return (v == null || v === '') ? def : v;
-    }
-    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-    const diff = String(getParam('diff','normal')).toLowerCase();
-    const timeSec = Math.max(10, parseInt(getParam('time','90'),10)||90);
-    const run = String(getParam('run','play')).toLowerCase();
-    const seed = String(getParam('seed','')||'');
-
-    pillDiff.textContent = 'diff=' + diff;
-    pillMode.textContent = 'run=' + run;
-
-    // ===== UI Helpers =====
-    function flashBanner(text){
-      if (!groupBanner || !groupBannerText) return;
-      groupBannerText.textContent = String(text||'');
-      groupBanner.style.display = '';
-      groupBanner.classList.remove('pop');
-      void groupBanner.offsetWidth;
-      groupBanner.classList.add('pop');
-      setTimeout(()=>{ try{ groupBanner.style.display='none'; }catch{} }, 1100);
-    }
-
-    function showStun(ms){
-      if (!stunOverlay) return;
-      stunOverlay.style.display = '';
-      stunOverlay.classList.remove('pop');
-      void stunOverlay.offsetWidth;
-      stunOverlay.classList.add('pop');
-      setTimeout(()=>{ try{ stunOverlay.style.display='none'; }catch{} }, Math.max(520, ms|0));
-    }
-
-    function showLock(on, x, y, prog, charge){
-      if (!lockRing) return;
-      if (!on){
-        lockRing.style.display = 'none';
-        return;
-      }
-      const w = window.innerWidth || 360;
-      const h = window.innerHeight || 640;
-      const px = clamp(x, 0, w);
-      const py = clamp(y, 0, h);
-
-      lockRing.style.display = '';
-      lockRing.style.transform =
-        `translate3d(${Math.round(px)}px,${Math.round(py)}px,0) translate(-50%,-50%)`;
-
-      const p = clamp(prog, 0, 1);
-      const c = clamp(charge, 0, 1);
-      lockRing.style.setProperty('--p', String(p));
-      lockRing.style.setProperty('--c', String(c));
-    }
-
-    // ===== Bind Events =====
-    window.addEventListener('hha:score', (e)=>{
-      const d = (e && e.detail) ? e.detail : {};
-      if (hudScore) hudScore.textContent = String(d.score ?? 0);
-      if (hudCombo) hudCombo.textContent = String(d.combo ?? 0);
-      if (hudMiss)  hudMiss.textContent  = String(d.misses ?? 0);
-    });
-
-    window.addEventListener('hha:time', (e)=>{
-      const d = (e && e.detail) ? e.detail : {};
-      const left = Math.max(0, d.left|0);
-      if (hudTimer) hudTimer.textContent = left + 's';
-      if (left <= 10) document.documentElement.classList.add('panic');
-      else document.documentElement.classList.remove('panic');
-    });
-
-    window.addEventListener('quest:update', (e)=>{
-      const d = (e && e.detail) ? e.detail : {};
-      const gLabel = d.groupLabel || '';
-      if (hudGroup) hudGroup.textContent = gLabel ? gLabel : 'หมู่ ?';
-
-      if (!d.questOk){
-        if (hudGoal) hudGoal.textContent = '⚠️ QUEST ไม่พร้อม';
-        if (hudMini) hudMini.textContent = 'เช็ค ./vr-groups/groups-quests.js';
-        if (hudGoalNum) hudGoalNum.textContent = '';
-        if (hudMiniNum) hudMiniNum.textContent = '';
-        return;
-      }
-
-      const goal = d.goal || null;
-      const mini = d.mini || null;
-
-      if (hudGoal) hudGoal.textContent = goal ? goal.label : '—';
-      if (hudMini) hudMini.textContent = mini ? mini.label : '—';
-
-      if (hudGoalNum) hudGoalNum.textContent =
-        goal ? `${goal.prog|0}/${goal.target|0}` : '0/0';
-
-      if (hudMiniNum){
-        if (!mini) hudMiniNum.textContent = '0/0';
-        else {
-          const t = `${mini.prog|0}/${mini.target|0}`;
-          const tl = (mini.tLeft != null) ? ` ⏱${mini.tLeft|0}s` : '';
-          hudMiniNum.textContent = t + tl;
-        }
-      }
-    });
-
-    window.addEventListener('groups:power', (e)=>{
-      const d = (e && e.detail) ? e.detail : {};
-      const name = d.groupName || 'POWER';
-      const c = d.charge|0;
-      const th = Math.max(1, d.threshold|0);
-      const pct = clamp(c / th, 0, 1);
-
-      if (hudPowerName) hudPowerName.textContent = name;
-      if (hudPowerNum) hudPowerNum.textContent = `${c}/${th}`;
-      if (hudPowerFill) hudPowerFill.style.width = Math.round(pct * 100) + '%';
-
-      if (hudPowerFill){
-        hudPowerFill.classList.remove('pulse');
-        void hudPowerFill.offsetWidth;
-        hudPowerFill.classList.add('pulse');
-      }
-    });
-
-    window.addEventListener('groups:group_change', (e)=>{
-      const d = (e && e.detail) ? e.detail : {};
-      const text = d.label || 'เปลี่ยนหมู่!';
-      flashBanner(text);
-      document.documentElement.classList.add('swapflash');
-      setTimeout(()=>document.documentElement.classList.remove('swapflash'), 240);
-    });
-
-    window.addEventListener('groups:stun', (e)=>{
-      const d = (e && e.detail) ? e.detail : {};
-      if (d.on) showStun(d.ms|0);
-      document.documentElement.classList.add('stunflash');
-      setTimeout(()=>document.documentElement.classList.remove('stunflash'), 220);
-    });
-
-    window.addEventListener('groups:lock', (e)=>{
-      const d = (e && e.detail) ? e.detail : {};
-      showLock(!!d.on, d.x, d.y, d.prog, d.charge);
-    });
-
-    window.addEventListener('hha:rank', (e)=>{
-      const d = (e && e.detail) ? e.detail : {};
-      if (hudGrade) hudGrade.textContent = String(d.grade || 'C');
-      if (hudAcc) hudAcc.textContent = String(d.accuracy ?? 0);
-      if (hudQp)  hudQp.textContent  = String(d.questsPct ?? 0);
-    });
-
-    // ===== Engine Bridge =====
-    function getEngine(){
-      // รองรับทั้งแบบ global window.GroupsVR.GameEngine หรือ window.GameEngine
-      if (window.GroupsVR && window.GroupsVR.GameEngine) return window.GroupsVR.GameEngine;
-      if (window.GameEngine) return window.GameEngine;
-      return null;
-    }
-
-    function startGame(){
-      const engine = getEngine();
-      if (!engine) {
-        alert('GameEngine ยังไม่โหลด (เช็คไฟล์ ./vr-groups/GameEngine.js)');
-        return;
-      }
-
-      // set basics
-      if (engine.setLayerEl) engine.setLayerEl(layerEl);
-      if (engine.setCameraEl) engine.setCameraEl(camEl);
-      if (engine.setTimeLeft) engine.setTimeLeft(timeSec);
-
-      const opts = {
-        layerEl,
-        runMode: run,
-        seed: seed || undefined
-      };
-
-      if (engine.start) engine.start(diff, opts);
-      startOverlay.style.display = 'none';
-    }
-
-    btnStart && btnStart.addEventListener('click', startGame);
-
-    btnRestart && btnRestart.addEventListener('click', ()=>{
-      const engine = getEngine();
-      if (engine && engine.stop) engine.stop('restart');
-      startOverlay.style.display = '';
-    });
-
-    btnExit && btnExit.addEventListener('click', ()=>{
-      startOverlay.style.display = 'none';
-    });
-
-    // Auto-run if autostart=1
-    const auto = String(getParam('autostart','0')) === '1';
-    if (auto) setTimeout(startGame, 220);
-
-  })();
-  </script>
-
+  <!-- ✅ Scripts order: quests -> engine -> hud binders -->
+  <script src="./vr-groups/groups-quests.js?v=1"></script>
+  <script src="./vr-groups/GameEngine.js?v=1"></script>
+  <script src="./vr-groups/groups-hud-quest.js?v=1"></script>
+  <script src="./vr-groups/groups-ui.js?v=1"></script>
 </body>
 </html>
