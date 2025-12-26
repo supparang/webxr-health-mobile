@@ -1,228 +1,184 @@
 // === /herohealth/vr/ui-fever.js ===
-// Hero Health Academy — Fever + Shield UI (IIFE) — COMPAT+FIX
-// ✅ Exposes: window.FeverUI + window.GAME_MODULES.FeverUI
-// ✅ Methods: ensureFeverBar(), setFever(value), setFeverActive(on), setShield(n)
-// ✅ Listens: hha:fever (accepts value|fever + on|active|stunActive), fallback hha:score (fever/shield)
-// ✅ Safe before DOM ready, safe re-init, no double DOM.
+// HeroHealth — Fever UI (GLOBAL) — FULL COMPAT
+// ✅ listens: hha:fever (value|fever, on?, shield?, endsAt?)
+// ✅ fallback: hha:score (fever, shield)
+// ✅ auto-on if on is missing (fever>=70 or stunActive)
+// ✅ safe: create minimal UI if none exists
+// Exposes: window.FeverUI and window.GAME_MODULES.FeverUI
 
-(function (root) {
+(function(root){
   'use strict';
 
   const doc = root.document;
   if (!doc) return;
 
-  if (root.__HHA_FEVER_BOUND__) return;
-  root.__HHA_FEVER_BOUND__ = true;
+  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const int = (v)=> (Number(v)||0) | 0;
+  const now = ()=> (performance.now ? performance.now() : Date.now());
 
-  let mounted = false;
-  let feverVal = 0;   // 0..100
+  let feverVal = 0;
   let feverOn = false;
   let shield = 0;
+  let endsAt = 0;
+  let lastRenderAt = 0;
 
-  let wrap = null;
-  let bar = null;
-  let pct = null;
+  let wrap=null, bar=null, fill=null, txt=null, sh=null, timer=null;
 
-  function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
-  function int(v) { return Math.max(0, (Number(v) || 0) | 0); }
+  function ensureFeverBar(){
+    if (wrap && doc.body.contains(wrap)) return;
 
-  function injectCSS() {
-    if (doc.getElementById('hha-fever-css')) return;
-    const style = doc.createElement('style');
-    style.id = 'hha-fever-css';
-    style.textContent = `
-      .hha-fever-wrap{
-        position:fixed;
-        right:12px;
-        top: calc(10px + 74px);
-        z-index: 9999;
-        pointer-events:none;
-        display:flex;
-        flex-direction:column;
-        gap:8px;
-        align-items:flex-end;
-        font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      }
-      .hha-fever-card{
-        pointer-events:none;
-        background: rgba(2,6,23,.72);
-        border: 1px solid rgba(148,163,184,.22);
-        border-radius: 16px;
-        padding: 10px 12px;
-        box-shadow: 0 18px 50px rgba(0,0,0,.42);
-        backdrop-filter: blur(10px);
-        min-width: 168px;
-      }
-      .hha-fever-head{
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:10px;
-        margin-bottom:8px;
-      }
-      .hha-fever-title{
-        font-weight: 900;
-        letter-spacing:.2px;
-        font-size: 12px;
-        opacity:.95;
-      }
-      .hha-fever-pct{
-        font-weight: 950;
-        font-size: 12px;
-        opacity:.95;
-      }
-      .hha-fever-track{
-        height: 10px;
-        border-radius: 999px;
-        overflow:hidden;
-        background: rgba(255,255,255,.10);
-        border: 1px solid rgba(255,255,255,.14);
-      }
-      .hha-fever-bar{
-        height:100%;
-        width:0%;
-        border-radius: 999px;
-        background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.92));
-        transform: translateZ(0);
-        transition: width .10s linear;
-      }
-      .hha-fever-wrap.on .hha-fever-card{
-        box-shadow:
-          0 18px 50px rgba(0,0,0,.42),
-          0 0 28px rgba(239,68,68,.18),
-          0 0 56px rgba(245,158,11,.10);
-        border-color: rgba(245,158,11,.24);
-      }
-      .hha-shield-pill{
-        pointer-events:none;
-        display:inline-flex;
-        align-items:center;
-        gap:8px;
-        padding: 10px 12px;
-        border-radius: 999px;
-        background: rgba(2,6,23,.72);
-        border: 1px solid rgba(148,163,184,.22);
-        box-shadow: 0 18px 50px rgba(0,0,0,.42);
-        backdrop-filter: blur(10px);
-        font-weight: 950;
-        font-size: 12px;
-        opacity:.96;
-      }
-      .hha-shield-pill b{ font-size: 13px; }
-      @media (max-height: 640px){
-        .hha-fever-wrap{ top: calc(10px + 64px); }
-      }
-    `;
-    doc.head.appendChild(style);
+    wrap = doc.getElementById('hha-fever');
+    if (!wrap){
+      wrap = doc.createElement('div');
+      wrap.id = 'hha-fever';
+      Object.assign(wrap.style, {
+        position:'fixed',
+        left:'50%',
+        top:'74px',
+        transform:'translateX(-50%)',
+        zIndex:'58',
+        pointerEvents:'none',
+        display:'flex',
+        gap:'10px',
+        alignItems:'center',
+        padding:'10px 12px',
+        borderRadius:'999px',
+        border:'1px solid rgba(148,163,184,.22)',
+        background:'rgba(2,6,23,.60)',
+        boxShadow:'0 18px 50px rgba(0,0,0,.42)',
+        backdropFilter:'blur(10px)',
+        WebkitBackdropFilter:'blur(10px)',
+        color:'#e5e7eb',
+        fontFamily:'system-ui,-apple-system,Segoe UI,Roboto,Arial',
+        fontWeight:'950',
+        fontSize:'12px',
+        opacity:'0.92'
+      });
+
+      const icon = doc.createElement('div');
+      icon.textContent = '🔥';
+      Object.assign(icon.style, { fontSize:'14px' });
+
+      bar = doc.createElement('div');
+      Object.assign(bar.style, {
+        width:'180px',
+        height:'10px',
+        borderRadius:'999px',
+        overflow:'hidden',
+        background:'rgba(255,255,255,.10)',
+        border:'1px solid rgba(255,255,255,.14)'
+      });
+
+      fill = doc.createElement('div');
+      Object.assign(fill.style, {
+        height:'100%',
+        width:'0%',
+        borderRadius:'999px',
+        background:'linear-gradient(90deg, rgba(34,197,94,.92), rgba(245,158,11,.92), rgba(239,68,68,.92))',
+        transition:'width .10s linear'
+      });
+      bar.appendChild(fill);
+
+      txt = doc.createElement('div');
+      txt.textContent = '0%';
+      Object.assign(txt.style, { minWidth:'42px', textAlign:'right' });
+
+      sh = doc.createElement('div');
+      sh.textContent = '🛡️0';
+      Object.assign(sh.style, { opacity:'0.92' });
+
+      timer = doc.createElement('div');
+      timer.textContent = '';
+      Object.assign(timer.style, { opacity:'0.70', fontWeight:'900' });
+
+      wrap.appendChild(icon);
+      wrap.appendChild(bar);
+      wrap.appendChild(txt);
+      wrap.appendChild(sh);
+      wrap.appendChild(timer);
+
+      doc.body.appendChild(wrap);
+    }else{
+      // If user already has UI, try bind pieces (optional)
+      bar = wrap.querySelector('.hha-fever-bar') || bar;
+      fill = wrap.querySelector('.hha-fever-fill') || fill;
+    }
   }
 
-  function mount() {
-    if (mounted) return;
-    injectCSS();
+  function render(force=false){
+    const t = now();
+    if (!force && (t - lastRenderAt) < 50) return;
+    lastRenderAt = t;
 
-    wrap = doc.createElement('div');
-    wrap.className = 'hha-fever-wrap';
-
-    const card = doc.createElement('div');
-    card.className = 'hha-fever-card';
-
-    const head = doc.createElement('div');
-    head.className = 'hha-fever-head';
-
-    const title = doc.createElement('div');
-    title.className = 'hha-fever-title';
-    title.textContent = '🔥 FEVER';
-
-    pct = doc.createElement('div');
-    pct.className = 'hha-fever-pct';
-    pct.textContent = '0%';
-
-    head.appendChild(title);
-    head.appendChild(pct);
-
-    const track = doc.createElement('div');
-    track.className = 'hha-fever-track';
-
-    bar = doc.createElement('div');
-    bar.className = 'hha-fever-bar';
-
-    track.appendChild(bar);
-    card.appendChild(head);
-    card.appendChild(track);
-
-    const sh = doc.createElement('div');
-    sh.className = 'hha-shield-pill';
-    sh.innerHTML = `🛡️ SHIELD <b id="hhaShieldNum">0</b>`;
-
-    wrap.appendChild(card);
-    wrap.appendChild(sh);
-
-    (doc.body || doc.documentElement).appendChild(wrap);
-    mounted = true;
-    render();
-  }
-
-  function ensureFeverBar() {
-    if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', mount, { once: true });
-    else mount();
-  }
-
-  function render() {
-    if (!mounted) return;
+    ensureFeverBar();
 
     const v = clamp(feverVal, 0, 100);
-    if (bar) bar.style.width = Math.round(v) + '%';
-    if (pct) pct.textContent = Math.round(v) + '%';
+    if (fill) fill.style.width = v.toFixed(0) + '%';
+    if (txt) txt.textContent = v.toFixed(0) + '%';
+    if (sh) sh.textContent = '🛡️' + (shield|0);
 
-    if (wrap) {
-      if (feverOn) wrap.classList.add('on');
-      else wrap.classList.remove('on');
-      const num = wrap.querySelector('#hhaShieldNum');
-      if (num) num.textContent = String(int(shield));
+    // glow when feverOn
+    if (wrap){
+      wrap.style.opacity = feverOn ? '0.98' : '0.88';
+      wrap.style.boxShadow = feverOn
+        ? '0 18px 60px rgba(239,68,68,.18), 0 18px 50px rgba(0,0,0,.42)'
+        : '0 18px 50px rgba(0,0,0,.42)';
+      wrap.style.borderColor = feverOn ? 'rgba(239,68,68,.28)' : 'rgba(148,163,184,.22)';
+    }
+
+    // countdown (optional)
+    if (timer){
+      if (endsAt && endsAt > Date.now()){
+        const leftMs = Math.max(0, endsAt - Date.now());
+        const left = Math.ceil(leftMs/1000);
+        timer.textContent = `⏳${left}s`;
+      }else{
+        timer.textContent = '';
+      }
     }
   }
 
-  function setFever(value) { feverVal = clamp(value, 0, 100); ensureFeverBar(); setTimeout(render, 0); }
-  function setFeverActive(on) { feverOn = !!on; ensureFeverBar(); setTimeout(render, 0); }
-  function setShield(n) { shield = int(n); ensureFeverBar(); setTimeout(render, 0); }
+  // Public API
+  const FeverUI = {
+    set(v, on){ feverVal = clamp(v,0,100); feverOn = !!on; render(true); },
+    setShield(n){ shield = clamp(int(n),0,9); render(true); },
+    get(){ return { value: feverVal, on: feverOn, shield, endsAt }; }
+  };
 
-  // hha:fever (COMPAT)
-  root.addEventListener('hha:fever', (ev) => {
+  // Expose
+  root.FeverUI = root.FeverUI || FeverUI;
+  root.GAME_MODULES = root.GAME_MODULES || {};
+  root.GAME_MODULES.FeverUI = root.GAME_MODULES.FeverUI || FeverUI;
+
+  // Listen events
+  root.addEventListener('hha:fever', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
-
-    // accept both "value" and "fever"
-    const v = (d.value != null) ? d.value : (d.fever != null) ? d.fever : null;
+    const v = (d.value != null) ? d.value : (d.fever != null ? d.fever : null);
     if (v != null) feverVal = clamp(v, 0, 100);
 
-    // accept "on" / "active" / "stunActive" (engine sends stunActive)
     if (d.on != null) feverOn = !!d.on;
-    else if (d.active != null) feverOn = !!d.active;
-    else if (d.stunActive != null) feverOn = !!d.stunActive;
-    else {
-      // fallback: glow when high fever
-      feverOn = (feverVal >= 70);
+    else if (v != null) feverOn = (clamp(v,0,100) >= 70) || !!d.stunActive;
+
+    if (d.shield != null) shield = clamp(int(d.shield), 0, 9);
+
+    if (d.endsAt != null){
+      const e = Number(d.endsAt)||0;
+      endsAt = (e > 1e12) ? e : (e>0 ? Date.now() + e : 0);
     }
 
-    if (d.shield != null) shield = int(d.shield);
+    render(true);
+  }, { passive:true });
 
-    ensureFeverBar();
-    setTimeout(render, 0);
-  });
-
-  // fallback: hha:score
-  root.addEventListener('hha:score', (ev) => {
+  // fallback for older engines
+  root.addEventListener('hha:score', (ev)=>{
     const d = (ev && ev.detail) ? ev.detail : {};
     if (d.fever != null) feverVal = clamp(d.fever, 0, 100);
-    if (d.shield != null) shield = int(d.shield);
-    feverOn = (feverVal >= 70);
-    ensureFeverBar();
-    setTimeout(render, 0);
-  });
+    if (d.shield != null) shield = clamp(int(d.shield), 0, 9);
+    // do not override feverOn here aggressively
+    render(false);
+  }, { passive:true });
 
-  const api = { ensureFeverBar, setFever, setFeverActive, setShield };
-  root.FeverUI = api;
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.FeverUI = api;
+  // initial render
+  setTimeout(()=>render(true), 0);
 
-  ensureFeverBar();
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
