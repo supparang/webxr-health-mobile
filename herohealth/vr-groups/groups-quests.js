@@ -1,10 +1,8 @@
 // === /herohealth/vr-groups/groups-quests.js ===
-// Food Groups — Quest System (Goals + Minis) + Panic timer events
+// Food Groups — Quest System (Goals + Minis) + Group label + Quest%
 // Classic script (no import/export) for groups-vr.html
-// ✅ emits: quest:update (questOk true), hha:rank (questsPct), groups:panic (on/off, left)
-// ✅ seed policy: research fixed / play pseudo-random deterministic by seed
-// ✅ mini: cooldown after fail to avoid instant fail loops
-// ✅ mini panic: last 3s emits groups:panic {on:true,left}
+// ✅ emits: quest:update (questOk true), hha:rank (questsPct), hha:celebrate, hha:judge
+// ✅ supports runMode: play/research, diff: easy/normal/hard, seed fix in research
 
 (function (root) {
   'use strict';
@@ -12,19 +10,19 @@
   const W = root;
   W.GroupsVR = W.GroupsVR || {};
 
-  // ------------------ helpers ------------------
+  // ---------------- helpers ----------------
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
   function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
   function emit(name, detail){
     try{ W.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
   }
 
-  // deterministic RNG (mulberry-ish)
+  // deterministic RNG (mulberry32-ish)
   function makeRng(seedStr){
-    let s = 0x9e3779b9;
+    let s = 0x9e3779b9 >>> 0;
     const str = String(seedStr || '');
     for (let i=0;i<str.length;i++){
-      s ^= (str.charCodeAt(i) + (s<<6) + (s>>2)) >>> 0;
+      s ^= (str.charCodeAt(i) + (s<<6) + (s>>>2)) >>> 0;
     }
     return function(){
       s |= 0; s = (s + 0x6D2B79F5) | 0;
@@ -34,8 +32,8 @@
     };
   }
 
-  // ------------------ quest defs ------------------
-  // เอกลักษณ์ Groups: "ยิงถูกหมู่ปัจจุบัน" + "สลับหมู่ด้วยพลัง" + "อย่าโดน junk/ผิดหมู่"
+  // ---------------- quest defs ----------------
+  // Uniqueness: Groups = "ยิงให้ถูกหมู่ปัจจุบัน" + "รักษา flow ด้วย power swap"
   const GOAL_DEFS = [
     {
       id:'g1',
@@ -60,6 +58,7 @@
     }
   ];
 
+  // minis = burst challenges (short + exciting)
   const MINI_DEFS = [
     {
       id:'m1',
@@ -84,13 +83,16 @@
     }
   ];
 
-  // ------------------ factory ------------------
+  // ---------------- factory ----------------
   function createGroupsQuest(opts){
     opts = opts || {};
     const diff = String(opts.diff || 'normal').toLowerCase();
     const runMode = String(opts.runMode || 'play').toLowerCase();
     const seedIn = String(opts.seed || '');
 
+    // ✅ seed policy
+    // - research: fixed seed always (if not provided -> default)
+    // - play: if not provided -> time-based
     const finalSeed = (runMode === 'research')
       ? (seedIn || 'HHA-GROUPS-RESEARCH-SEED')
       : (seedIn || ('PLAY-' + Math.floor(Date.now()/1000)));
@@ -100,7 +102,7 @@
     const state = {
       diff, runMode, seed: finalSeed,
 
-      // engine-fed stats
+      // live stats (fed by engine)
       groupLabel: 'หมู่ ?',
       correctHits: 0,
       wrongHits: 0,
@@ -110,25 +112,18 @@
       comboMax: 0,
       accuracy: 0,
 
-      // goal & mini
+      // goal / mini
       goalIndex: 0,
       activeGoal: null,
 
       miniIndex: 0,
       activeMini: null,
+      miniStartAt: 0,
       miniTLeft: null,
-
-      // mini anti-loop
-      miniCooldown: 0,      // seconds
-      miniFailLock: false,  // avoid multiple fail triggers
 
       questOk: false,
       questsPassed: 0,
-      questsTotal: GOAL_DEFS.length + MINI_DEFS.length,
-
-      // panic signal for fx (last 3s)
-      panicOn: false,
-      lastPanicLeft: 999
+      questsTotal: GOAL_DEFS.length + MINI_DEFS.length
     };
 
     function goalTarget(def){
@@ -144,24 +139,20 @@
       return (diff in m) ? (m[diff]|0) : (m.normal|0);
     }
 
-    function computeAccuracy(){
-      const shots = Math.max(1, state.totalShots|0);
-      const good  = state.correctHits|0;
-      state.accuracy = Math.round((good / shots) * 100);
-    }
-
     function makeGoal(idx){
       const def = GOAL_DEFS[idx] || GOAL_DEFS[0];
       return {
-        id: def.id,
-        label: def.label,
+        id:def.id,
+        label:def.label,
         target: goalTarget(def),
         prog: 0,
-        pass: false
+        pass:false
       };
     }
 
     function pickMini(){
+      // research: fixed order (not random)
+      // play: pseudo-random but deterministic by seed
       let idx;
       if (runMode === 'research'){
         idx = state.miniIndex % MINI_DEFS.length;
@@ -170,25 +161,48 @@
       }
       const def = MINI_DEFS[idx];
       return {
-        id: def.id,
-        label: def.label,
-        kind: def.kind,
+        id:def.id,
+        label:def.label,
+        kind:def.kind,
         target: miniTarget(def),
         prog: 0,
         tLimit: miniTime(def),
         tLeft: miniTime(def),
-        fail: false,
-        pass: false
+        fail:false,
+        pass:false
       };
+    }
+
+    function computeAccuracy(){
+      const shots = Math.max(1, state.totalShots|0);
+      const good = state.correctHits|0;
+      state.accuracy = Math.round((good / shots) * 100);
     }
 
     function updateGoalProgress(){
       const def = GOAL_DEFS[state.goalIndex] || GOAL_DEFS[0];
       const t = goalTarget(def);
-      const v = (def.eval(state)|0);
+      const v = def.eval(state)|0;
       state.activeGoal.prog = v;
       state.activeGoal.target = t;
       state.activeGoal.pass = !!def.pass(v, t);
+    }
+
+    function updateMiniProgress(dtSec){
+      const m = state.activeMini;
+      if (!m) return;
+
+      if (m.tLimit != null){
+        m.tLeft = Math.max(0, (m.tLeft||0) - (dtSec||0));
+        state.miniTLeft = Math.ceil(m.tLeft);
+        if (m.tLeft <= 0 && !m.pass){
+          m.fail = true;
+        }
+      }
+
+      if (!m.fail && (m.prog|0) >= (m.target|0)){
+        m.pass = true;
+      }
     }
 
     function emitQuestUpdate(){
@@ -200,14 +214,18 @@
         groupLabel: state.groupLabel,
 
         goal: goal ? {
-          id: goal.id, label: goal.label,
-          prog: goal.prog|0, target: goal.target|0,
+          id: goal.id,
+          label: goal.label,
+          prog: goal.prog|0,
+          target: goal.target|0,
           pass: !!goal.pass
         } : null,
 
         mini: mini ? {
-          id: mini.id, label: mini.label,
-          prog: mini.prog|0, target: mini.target|0,
+          id: mini.id,
+          label: mini.label,
+          prog: mini.prog|0,
+          target: mini.target|0,
           tLeft: (mini.tLeft != null) ? Math.ceil(mini.tLeft) : null,
           windowSec: (mini.tLimit != null) ? (mini.tLimit|0) : null,
           pass: !!mini.pass,
@@ -223,32 +241,35 @@
       emit('hha:rank', { questsPct: pct });
     }
 
-    function setPanic(on, left){
-      const l = (left==null) ? 999 : (left|0);
-      if (!!on === state.panicOn && l === state.lastPanicLeft) return;
-      state.panicOn = !!on;
-      state.lastPanicLeft = l;
-      emit('groups:panic', { on: state.panicOn, left: state.lastPanicLeft });
-    }
-
     function start(){
       state.questOk = true;
+
+      // reset stats counters (quest side only)
+      state.correctHits = 0;
+      state.wrongHits = 0;
+      state.junkHits = 0;
+      state.totalShots = 0;
+      state.combo = 0;
+      state.comboMax = 0;
+      state.accuracy = 0;
+
+      state.questsPassed = 0;
 
       state.goalIndex = 0;
       state.activeGoal = makeGoal(state.goalIndex);
 
       state.miniIndex = 0;
       state.activeMini = pickMini();
-      state.miniFailLock = false;
-      state.miniCooldown = 0;
+      state.activeMini.tLeft = state.activeMini.tLimit;
+      state.miniStartAt = now();
 
-      setPanic(false, 999);
       emitQuestUpdate();
       emitQuestPct();
     }
 
     function nextGoalIfPassed(){
-      if (!state.activeGoal || !state.activeGoal.pass) return;
+      if (!state.activeGoal) return;
+      if (!state.activeGoal.pass) return;
 
       state.questsPassed++;
       emit('hha:celebrate', { kind:'goal', text:'GOAL CLEAR!' });
@@ -256,7 +277,7 @@
 
       state.goalIndex++;
       if (state.goalIndex >= GOAL_DEFS.length){
-        // goals all done: keep last as passed (display), no next
+        // all goals done -> keep last goal shown, stop advancing
         emitQuestUpdate();
         return;
       }
@@ -271,29 +292,20 @@
 
       state.miniIndex++;
       state.activeMini = pickMini();
-      state.miniFailLock = false;
-      state.miniCooldown = 0;
-
-      setPanic(false, 999);
+      state.activeMini.tLeft = state.activeMini.tLimit;
+      state.miniStartAt = now();
       emitQuestUpdate();
     }
 
     function failMini(){
-      // mini fail -> cooldown then new mini (กันวน fail ติด)
-      if (state.miniFailLock) return;
-      state.miniFailLock = true;
-
       emit('hha:judge', { text:'MINI FAIL', kind:'warn' });
-      setPanic(false, 999);
-
-      // cooldown short (diff-based)
-      const cd = (diff === 'hard') ? 1.2 : (diff === 'easy' ? 0.8 : 1.0);
-      state.miniCooldown = cd;
-
+      state.activeMini = pickMini();
+      state.activeMini.tLeft = state.activeMini.tLimit;
+      state.miniStartAt = now();
       emitQuestUpdate();
     }
 
-    // ------------------ hooks ------------------
+    // ---------------- engine hooks ----------------
     function onGroupChange(label){
       state.groupLabel = label || 'หมู่ ?';
       emitQuestUpdate();
@@ -303,105 +315,54 @@
       // result: { correct:boolean, wrong:boolean, junk:boolean }
       state.totalShots++;
 
-      const correct = !!(result && result.correct);
-      const wrong   = !!(result && result.wrong);
-      const junk    = !!(result && result.junk);
-
-      if (correct){
+      if (result && result.correct){
         state.correctHits++;
         state.combo++;
         if (state.combo > state.comboMax) state.comboMax = state.combo;
 
-        // mini progress
-        if (state.activeMini && !state.activeMini.fail){
-          const k = state.activeMini.kind;
-          if (k === 'streak_correct') state.activeMini.prog++;
-          if (k === 'avoid_wrong')    state.activeMini.prog++;
-          if (k === 'avoid_junk')     state.activeMini.prog++;
+        if (state.activeMini){
+          if (state.activeMini.kind === 'streak_correct') state.activeMini.prog++;
+          if (state.activeMini.kind === 'avoid_wrong')    state.activeMini.prog++;
+          if (state.activeMini.kind === 'avoid_junk')     state.activeMini.prog++;
         }
-
       } else {
-        // break combo
         state.combo = 0;
 
-        if (wrong) state.wrongHits++;
-        if (junk)  state.junkHits++;
+        if (result && result.wrong) state.wrongHits++;
+        if (result && result.junk)  state.junkHits++;
 
         if (state.activeMini){
-          const k = state.activeMini.kind;
-
-          if (k === 'avoid_wrong' && wrong) state.activeMini.fail = true;
-          if (k === 'avoid_junk'  && junk)  state.activeMini.fail = true;
-
-          if (k === 'streak_correct'){
-            // streak reset (not instant fail)
+          if (state.activeMini.kind === 'avoid_wrong' && result.wrong) state.activeMini.fail = true;
+          if (state.activeMini.kind === 'avoid_junk'  && result.junk)  state.activeMini.fail = true;
+          if (state.activeMini.kind === 'streak_correct'){
+            // streak mini: reset only
             state.activeMini.prog = 0;
           }
         }
       }
 
       computeAccuracy();
-      if (state.activeGoal) updateGoalProgress();
+      updateGoalProgress();
 
       emitQuestUpdate();
       nextGoalIfPassed();
-      // mini pass/fail is handled in tick (time-aware)
+      // mini pass/fail handled in tick (time-aware)
     }
 
     function tick(dtSec){
       if (!state.questOk) return;
-      const dt = Number(dtSec) || 0;
 
-      // cooldown after fail
-      if (state.miniCooldown > 0){
-        state.miniCooldown = Math.max(0, state.miniCooldown - dt);
-        if (state.miniCooldown <= 0){
-          // new mini after cooldown
-          state.activeMini = pickMini();
-          state.miniFailLock = false;
-          setPanic(false, 999);
+      updateMiniProgress(dtSec);
+
+      if (state.activeMini){
+        if (state.activeMini.fail){
+          failMini();
+        } else if (state.activeMini.pass){
+          nextMini();
+        } else {
           emitQuestUpdate();
         }
-        return;
       }
-
-      const m = state.activeMini;
-      if (!m) return;
-
-      // tick time
-      if (m.tLimit != null){
-        m.tLeft = Math.max(0, (m.tLeft||0) - dt);
-        state.miniTLeft = Math.ceil(m.tLeft);
-
-        // panic: last 3 seconds
-        const left = Math.ceil(m.tLeft);
-        if (left <= 3 && left >= 1 && !m.pass && !m.fail){
-          setPanic(true, left);
-        } else {
-          setPanic(false, left);
-        }
-
-        // time out
-        if (m.tLeft <= 0 && !m.pass){
-          m.fail = true;
-        }
-      }
-
-      // pass check
-      if (!m.fail && (m.prog|0) >= (m.target|0)){
-        m.pass = true;
-      }
-
-      if (m.fail){
-        failMini();
-        return;
-      }
-      if (m.pass){
-        nextMini();
-        return;
-      }
-
-      emitQuestUpdate();
     }
 
     function snapshot(){
@@ -419,6 +380,7 @@
     };
   }
 
+  // expose
   W.GroupsVR.createGroupsQuest = createGroupsQuest;
 
 })(window);
