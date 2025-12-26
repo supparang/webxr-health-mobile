@@ -2,6 +2,7 @@
 Food Groups VR — PRODUCTION (classic scripts)
 ✅ Uses /vr-groups/groups.css alias -> groups-vr.css
 ✅ Load order safe: HUD quest binder -> quest -> fx -> engine -> boot
+✅ TOP layout: Goal/Mini shown in HUD only (with bars + mini timer)
 -->
 
 <!doctype html>
@@ -16,7 +17,7 @@ Food Groups VR — PRODUCTION (classic scripts)
   <!-- A-Frame (optional scene bg) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ IMPORTANT: alias loader (you said it is here for sure) -->
+  <!-- ✅ IMPORTANT: alias loader -->
   <link rel="stylesheet" href="./groups.css" />
 </head>
 
@@ -64,15 +65,29 @@ Food Groups VR — PRODUCTION (classic scripts)
       </div>
 
       <div class="quest-wrap">
+        <!-- GOAL -->
         <div class="quest-line">
           <div class="q-badge">GOAL</div>
           <div class="q-text" id="hud-goal-title">—</div>
           <div class="q-num" id="hud-goal-val">0/0</div>
         </div>
+        <div class="qbar">
+          <div class="qbar-track">
+            <div class="qbar-fill goal" id="hud-goal-bar"></div>
+          </div>
+        </div>
+
+        <!-- MINI -->
         <div class="quest-line">
           <div class="q-badge mini">MINI</div>
           <div class="q-text" id="hud-mini-title">—</div>
           <div class="q-num" id="hud-mini-val">0/0</div>
+        </div>
+        <div class="qbar">
+          <div class="qbar-track">
+            <div class="qbar-fill mini" id="hud-mini-bar"></div>
+          </div>
+          <div class="qbar-timer" id="hud-mini-timer"></div>
         </div>
       </div>
     </div>
@@ -121,8 +136,6 @@ Food Groups VR — PRODUCTION (classic scripts)
     </div>
   </div>
 
-  <!-- Stun overlay / lock ring / group banner are created by groups-fx.js if missing -->
-
   <!-- ===== Scripts (classic order) ===== -->
   <script src="./groups-hud-quest.js"></script>
   <script src="./groups-quests.js"></script>
@@ -153,7 +166,7 @@ Food Groups VR — PRODUCTION (classic scripts)
     document.getElementById('pill-time').textContent = 'TIME: ' + time + 's';
     document.getElementById('pill-mode').textContent = 'MODE: ' + run;
 
-    // HUD binders
+    // HUD binders (score/rank/time/group/power)
     window.addEventListener('hha:score', (ev)=>{
       const d = ev.detail || {};
       const score = (d.score|0);
@@ -192,10 +205,10 @@ Food Groups VR — PRODUCTION (classic scripts)
       const d = ev.detail || {};
       const th = Math.max(1, d.threshold|0);
       const ch = Math.max(0, d.charge|0);
-      const pct = Math.min(100, (ch/th)*100);
+      const p = Math.min(100, (ch/th)*100);
 
-      const fill = document.querySelector('.power-fill');
-      if (fill) fill.style.width = pct.toFixed(1) + '%';
+      const fill = document.getElementById('hud-powerFill');
+      if (fill) fill.style.width = p.toFixed(1) + '%';
 
       const txt = document.getElementById('fg-powerText');
       if (txt) txt.textContent = `${ch}/${th}`;
