@@ -1,1275 +1,675 @@
+
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — PRODUCTION SAFE (ULTRA BOSS: Shockwave + Laser + Enrage)
-// ✅ FIX: hha:time loop (internal marker)
-// ✅ END: emits bossTimeline {samples, events} for Danger Meter chart
-// ✅ END: emits boss object (stats) for Boss Result ULTRA++
+// Hydration Quest VR — LATEST PRODUCTION PACK
+// ✅ FULL-SPREAD spawn (แก้ “เป้าที่เดิม”): spawnAroundCrosshair:false + spawnStrategy:'grid9'
+// ✅ Targets move with screen (VR-feel): drag + subtle gyro
+// ✅ Water Gauge (LOW/BALANCED/HIGH) + Fever/Shield
+// ✅ Score/Combo/Miss + hit flash + danger vignette at low time
+// ✅ Quest: Goals sequential + Mini chain (hydration.quest.js)
+// ✅ Logger: emits hha:log_session / hha:log_event / hha:end
+//
+// Depends:
+// - ../vr/mode-factory.js
+// - ../vr/ui-water.js (IIFE global WaterUI)
+// - ../vr/ui-fever.js (IIFE global FeverUI)
+// - ../vr/particles.js (IIFE global Particles)
+// - ../vr/hha-hud.js (IIFE global HUD binder)
+// - ./hydration.quest.js
+// - ./hydration.state.js
 
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { createHydrationQuest } from './hydration.quest.js';
-import { createHydrationCoach } from './hydration.coach.js';
-import { createHydrationAudio } from './hydration.audio.js';
+import { clamp01, rankFromScore, makeSessionId, zoneFromPct } from './hydration.state.js';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
 function $(id){ return DOC ? DOC.getElementById(id) : null; }
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-function emit(name, detail){ try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch{} }
-function pct01(x){ return Math.round(clamp(x,0,1)*100); }
+function now(){ return (typeof performance !== 'undefined') ? performance.now() : Date.now(); }
+function clamp(v,min,max){ v = Number(v)||0; return v<min?min:(v>max?max:v); }
+function safeStr(v){ return (v==null) ? '' : String(v); }
 
-function parseQS(){
-  const qs = new URLSearchParams(ROOT.location.search || '');
-  const diff = String(qs.get('diff') || 'normal').toLowerCase();
-  const run  = String(qs.get('run')  || 'play').toLowerCase();
-  const seed = String(qs.get('seed') || '').trim();
-  const time = clamp(qs.get('time') || 90, 20, 180);
-  const debug = (qs.get('debug') === '1' || qs.get('debug') === 'true');
+const Particles =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+  ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){}, stamp(){} };
+
+const WaterUI =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.WaterUI) ||
+  ROOT.WaterUI || { ensure(){}, set(){}, zoneFrom(){ return 'BALANCED'; } };
+
+const FeverUI =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
+  ROOT.FeverUI || { ensure(){}, set(){}, setShield(){} };
+
+function emit(name, detail){
+  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
+}
+
+function parseUrlCtx(){
+  const u = new URL(ROOT.location.href);
+  const p = u.searchParams;
   return {
-    diff: (diff==='easy'||diff==='hard'||diff==='normal') ? diff : 'normal',
-    run:  (run==='research') ? 'research' : 'play',
-    seed, time, debug
+    diff: (p.get('diff') || 'normal').toLowerCase(),
+    time: Number(p.get('time') || '60') || 60,
+    run : (p.get('run')  || 'play').toLowerCase(),
+    seed: p.get('seed') || p.get('ts') || '',
+    sessionId: p.get('sessionId') || '',
   };
 }
 
-function fatal(msg, err){
-  console.error('[HydrationVR] FATAL:', msg, err||'');
-  if(!DOC) return;
-  let box = DOC.getElementById('hhaFatal');
-  if(!box){
-    box = DOC.createElement('div');
-    box.id='hhaFatal';
-    Object.assign(box.style,{
-      position:'fixed', inset:'0', zIndex:'9999',
-      background:'rgba(2,6,23,.92)', color:'#e5e7eb',
-      display:'flex', alignItems:'center', justifyContent:'center',
-      padding:'18px', fontFamily:'system-ui,-apple-system,Segoe UI,Roboto,sans-serif'
-    });
-    box.innerHTML = `
-      <div style="max-width:760px;border:1px solid rgba(148,163,184,.22);border-radius:22px;padding:16px;background:rgba(15,23,42,.55)">
-        <div style="font-weight:900;font-size:18px;margin-bottom:8px">เข้าเกมไม่ได้</div>
-        <div id="hhaFatalMsg" style="white-space:pre-wrap;line-height:1.35;color:rgba(229,231,235,.92)"></div>
-        <div style="margin-top:10px;color:rgba(148,163,184,.95);font-size:12px">
-          Tip: ตรวจ path ของไฟล์ / ล้าง cache (Hard reload) / เช็ก Console
-        </div>
-      </div>`;
-    DOC.body.appendChild(box);
-  }
-  const m = DOC.getElementById('hhaFatalMsg');
-  if(m) m.textContent = String(msg||'Unknown error');
+function setCoach(text, mood='neutral'){
+  emit('hha:coach', { text, mood });
 }
 
-/* ---------------------------------------------------------
-   FX + Boss HUD (inject only what HTML doesn't already provide)
---------------------------------------------------------- */
-function ensureUltraStyle(){
-  if(!DOC || DOC.getElementById('hhaUltraRaidStyle')) return;
-
-  const s = DOC.createElement('style');
-  s.id='hhaUltraRaidStyle';
-  s.textContent = `
-    /* Boss HUD */
-    #hha-boss-hud{
-      position:fixed; top:10px; left:50%;
-      transform:translateX(-50%);
-      z-index:58;
-      width:min(560px, calc(100vw - 22px));
-      pointer-events:none;
-      opacity:0; transition:opacity .18s ease;
-      border-radius:18px;
-      background:rgba(2,6,23,.62);
-      border:1px solid rgba(148,163,184,.22);
-      box-shadow:0 16px 40px rgba(2,6,23,.65);
-      overflow:hidden;
-    }
-    #hha-boss-hud.on{ opacity:1; }
-    #hha-boss-top{
-      display:flex; align-items:center; justify-content:space-between;
-      padding:10px 12px 8px 12px;
-      color:rgba(229,231,235,.95);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      font-weight:900; letter-spacing:.2px;
-    }
-    #hha-boss-top .tag{ display:flex; align-items:center; gap:8px; font-size:13px; }
-    #hha-boss-top .tag .icon{ font-size:18px; }
-    #hha-boss-top .meta{ font-size:12px; color:rgba(148,163,184,.95); font-weight:800; }
-    #hha-boss-bar{
-      height:14px; margin:0 12px 12px 12px;
-      background:rgba(148,163,184,.14);
-      border-radius:999px;
-      overflow:hidden;
-      border:1px solid rgba(148,163,184,.16);
-    }
-    #hha-boss-fill{
-      height:100%;
-      width:100%;
-      background:linear-gradient(90deg, rgba(239,68,68,.95), rgba(244,63,94,.82));
-      border-radius:999px;
-      box-shadow:0 0 18px rgba(239,68,68,.35);
-      transition:width .10s linear;
-    }
-    #hha-boss-sub{
-      margin:-6px 12px 12px 12px;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-      font-size:12px;
-      color:rgba(148,163,184,.95);
-      font-weight:800;
-      letter-spacing:.2px;
-      display:flex; justify-content:space-between; gap:10px;
-    }
-
-    /* Laser overlay */
-    #hha-laserflash{
-      position:fixed; inset:0; z-index:57;
-      pointer-events:none;
-      opacity:0;
-      background:
-        radial-gradient(1000px 640px at 50% 50%, rgba(255,255,255,.06), rgba(255,255,255,0) 62%),
-        linear-gradient(90deg, rgba(239,68,68,0), rgba(239,68,68,.24), rgba(239,68,68,0));
-      mix-blend-mode: screen;
-    }
-    body.hha-laser #hha-laserflash{ opacity:.92; animation:hhaLaser .12s ease-in-out 1; }
-    @keyframes hhaLaser{ 0%{opacity:0;} 35%{opacity:.95;} 100%{opacity:0;} }
-
-    /* Shockwave overlay */
-    #hha-shock{
-      position:fixed; inset:0; z-index:56;
-      pointer-events:none;
-      opacity:0;
-      background:
-        radial-gradient(circle at 50% 52%, rgba(239,68,68,.20), rgba(239,68,68,0) 54%),
-        radial-gradient(circle at 50% 52%, rgba(255,255,255,.06), rgba(255,255,255,0) 62%);
-      mix-blend-mode: screen;
-    }
-    body.hha-shock #hha-shock{ opacity:1; animation:hhaShock .42s ease-in-out 1; }
-    @keyframes hhaShock{
-      0%{ transform:scale(0.98); filter:blur(0px); }
-      40%{ transform:scale(1.02); filter:blur(.6px); }
-      100%{ transform:scale(1.00); filter:blur(0px); opacity:0; }
-    }
-
-    /* Boss danger: repaint warnline to RED (override your yellow warnline) */
-    body.hha-boss-danger #hha-warnline{
-      opacity:.70 !important;
-      background: linear-gradient(180deg,
-        rgba(239,68,68,0),
-        rgba(239,68,68,0) 30%,
-        rgba(239,68,68,.18) 62%,
-        rgba(239,68,68,0)
-      ) !important;
-      animation: warnPulse .45s ease-in-out infinite !important;
-    }
-    body.hha-enrage #hha-warnline{ opacity:.86 !important; animation: warnPulse .30s ease-in-out infinite !important; }
-  `;
-  DOC.head.appendChild(s);
-
-  function ensureEl(id){
-    if(DOC.getElementById(id)) return;
-    const d = DOC.createElement('div');
-    d.id = id;
-    d.setAttribute('aria-hidden','true');
-    DOC.body.appendChild(d);
-  }
-  ensureEl('hha-laserflash');
-  ensureEl('hha-shock');
+function hitFlash(on){
+  const el = $('hvr-hitflash');
+  if (!el) return;
+  el.classList.toggle('on', !!on);
+}
+function dangerVignette(on){
+  const el = $('hvr-vignette');
+  if (!el) return;
+  el.classList.toggle('on', !!on);
 }
 
-function ensureBossHud(){
-  if(!DOC) return null;
-  let hud = DOC.getElementById('hha-boss-hud');
-  if(hud && hud.isConnected) return hud;
+function showEndSummary(summary){
+  const end = $('hvr-end');
+  if (!end) return;
+  const sScore = $('hvr-end-score');
+  const sCombo = $('hvr-end-combo');
+  const sMiss  = $('hvr-end-miss');
+  const sQuest = $('hvr-end-quest');
+  const sRank  = $('hvr-rank');
 
-  hud = DOC.createElement('div');
-  hud.id = 'hha-boss-hud';
-  hud.setAttribute('data-hha-exclude','1');
-  hud.innerHTML = `
-    <div id="hha-boss-top">
-      <div class="tag"><span class="icon">🌀</span><span id="hha-boss-title">BOSS RAID</span></div>
-      <div class="meta"><span id="hha-boss-hp">HP 0/0</span> • <span id="hha-boss-phase">P0</span></div>
-    </div>
-    <div id="hha-boss-bar"><div id="hha-boss-fill"></div></div>
-    <div id="hha-boss-sub">
-      <span id="hha-boss-rule">ComboGate</span>
-      <span id="hha-boss-status">—</span>
-    </div>
-  `;
-  DOC.body.appendChild(hud);
-  return hud;
+  if (sScore) sScore.textContent = String(summary.scoreFinal || 0);
+  if (sCombo) sCombo.textContent = String(summary.comboMax || 0);
+  if (sMiss)  sMiss.textContent  = String(summary.misses || 0);
+  if (sQuest) sQuest.textContent = `${summary.goalsCleared||0}/${summary.goalsTotal||0} • ${summary.miniCleared||0}/${summary.miniTotal||0}`;
+  if (sRank)  sRank.textContent  = `RANK: ${summary.rank || 'A'}`;
+
+  end.style.display = 'flex';
 }
 
-function setBossHud(on, hp, hpMax, phase, title, rule, status){
-  if(!DOC) return;
-  const hud = ensureBossHud();
-  if(!hud) return;
-  hud.classList.toggle('on', !!on);
-  const hpEl = DOC.getElementById('hha-boss-hp');
-  const phEl = DOC.getElementById('hha-boss-phase');
-  const fill = DOC.getElementById('hha-boss-fill');
-  const tEl  = DOC.getElementById('hha-boss-title');
-  const rEl  = DOC.getElementById('hha-boss-rule');
-  const sEl  = DOC.getElementById('hha-boss-status');
+function makePlayfieldController(layerEl, boundsEl){
+  // VR-feel: drag to translate playfield + subtle gyro
+  const state = {
+    x:0, y:0,
+    vx:0, vy:0,
+    dragging:false,
+    lastX:0, lastY:0,
+    gyroX:0, gyroY:0,
+    enabled:true,
+  };
 
-  if(hpEl) hpEl.textContent = `HP ${Math.max(0,hp|0)}/${Math.max(1,hpMax|0)}`;
-  if(phEl) phEl.textContent = `P${phase|0}`;
-  if(tEl && title) tEl.textContent = title;
-  if(rEl && rule)  rEl.textContent = rule;
-  if(sEl && status) sEl.textContent = status;
-
-  if(fill){
-    const p = (hpMax>0) ? clamp(hp/hpMax,0,1) : 0;
-    fill.style.width = `${Math.round(p*100)}%`;
-    if (p <= 0.18) fill.style.boxShadow = '0 0 26px rgba(244,63,94,.58)';
-  }
-}
-
-function attachDragLook(){
-  const bounds = $('hvr-bounds');
-  const world  = $('hvr-world');
-  if(!bounds || !world) return { reset(){}, setEnabled(){} };
-
-  let ox=0, oy=0, down=false, sx=0, sy=0, bx=0, by=0;
-  let enabled=true;
-  const maxX = () => Math.max(18, (bounds.clientWidth||1) * 0.10);
-  const maxY = () => Math.max(18, (bounds.clientHeight||1) * 0.12);
+  const maxShift = () => {
+    const w = boundsEl ? boundsEl.clientWidth : (ROOT.innerWidth||1);
+    const h = boundsEl ? boundsEl.clientHeight: (ROOT.innerHeight||1);
+    return { mx: Math.max(18, w*0.10), my: Math.max(18, h*0.12) };
+  };
 
   function apply(){
-    const mx=maxX(), my=maxY();
-    ox = clamp(ox, -mx, mx);
-    oy = clamp(oy, -my, my);
-    world.style.transform = `translate3d(${Math.round(ox)}px, ${Math.round(oy)}px, 0)`;
+    if (!layerEl) return;
+    const { mx, my } = maxShift();
+    const tx = clamp(state.x + state.gyroX, -mx, mx);
+    const ty = clamp(state.y + state.gyroY, -my, my);
+    layerEl.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
   }
-  function reset(){ ox=0; oy=0; apply(); }
-  function setEnabled(v){ enabled=!!v; }
 
-  bounds.addEventListener('pointerdown', (e)=>{
-    if(!enabled) return;
-    const t=e.target;
-    if(t && (t.id==='btnStop'||t.id==='btnVR'||t.id==='endReplay'||t.id==='endClose')) return;
-    down=true; sx=e.clientX; sy=e.clientY; bx=ox; by=oy;
-  }, {passive:true});
+  function onDown(e){
+    if (!state.enabled) return;
+    state.dragging = true;
+    state.lastX = e.clientX || 0;
+    state.lastY = e.clientY || 0;
+  }
+  function onMove(e){
+    if (!state.enabled || !state.dragging) return;
+    const x = e.clientX || 0;
+    const y = e.clientY || 0;
+    const dx = x - state.lastX;
+    const dy = y - state.lastY;
+    state.lastX = x; state.lastY = y;
 
-  bounds.addEventListener('pointermove', (e)=>{
-    if(!enabled || !down) return;
-    ox = bx + (e.clientX - sx)*0.55;
-    oy = by + (e.clientY - sy)*0.55;
+    state.x += dx * 0.62;
+    state.y += dy * 0.62;
     apply();
-  }, {passive:true});
-
-  bounds.addEventListener('pointerup', ()=>{ down=false; }, {passive:true});
-  bounds.addEventListener('pointercancel', ()=>{ down=false; }, {passive:true});
-
-  ROOT.addEventListener('hha:resetView', reset);
-  return { reset, setEnabled };
-}
-
-/* ---------------------------------------------------------
-   HUD fallback binder (updates your HTML IDs directly)
---------------------------------------------------------- */
-function setText(id, txt){ const el=$(id); if(el) el.textContent = String(txt); }
-function setWidth(id, pct){ const el=$(id); if(el) el.style.width = `${clamp(pct,0,100)}%`; }
-
-function bindHudFallback(){
-  if(!DOC) return;
-  let lastTime = null;
-
-  ROOT.addEventListener('hha:score', (ev)=>{
-    const d = ev?.detail || {};
-    setText('hha-score', d.score ?? 0);
-    setText('hha-comboMax', d.comboMax ?? 0);
-    setText('hha-miss', d.miss ?? 0);
-    setText('hha-grade', d.grade ?? 'C');
-
-    setText('hha-water-zone', d.waterZone ?? 'GREEN');
-    setText('hha-water-zone2', d.waterZone ?? 'GREEN');
-    setText('hha-water-pct', `${d.waterPct ?? 0}%`);
-    setText('hha-water-pct2', `${d.waterPct ?? 0}%`);
-    setWidth('hha-water-fill', d.waterPct ?? 0);
-
-    setText('hha-fever-pct', `${d.feverPct ?? 0}%`);
-    setWidth('hha-fever-fill', d.feverPct ?? 0);
-
-    setText('hha-shield', d.shield ?? 0);
-
-    setWidth('hha-progress-fill', d.progressPct ?? 0);
-    setText('hha-progress-text', `Progress to S (30%): ${Math.round(d.progressPct ?? 0)}%`);
-  });
-
-  ROOT.addEventListener('quest:update', (ev)=>{
-    const q = ev?.detail || {};
-    setText('hha-quest-num', q.questNum ?? 1);
-    if(q.text) setText('hha-quest-text', q.text);
-    if(q.sub)  setText('hha-quest-sub', q.sub);
-    if(q.done) setText('hha-quest-done', q.done);
-  });
-
-  ROOT.addEventListener('hha:time', (ev)=>{
-    const sec = Number(ev?.detail?.sec ?? NaN);
-    if(!Number.isFinite(sec)) return;
-    if(sec === lastTime) return;
-    lastTime = sec;
-    setText('hha-time', sec);
-  });
-
-  ROOT.addEventListener('hha:coach', (ev)=>{
-    const c = ev?.detail || {};
-    const hint = $('hha-hint');
-    if(!hint) return;
-    hint.innerHTML = `<b>Coach</b><small>${String(c.text||'')}</small>`;
-  });
-}
-
-/* ---------------------------------------------------------
-   Emojis
---------------------------------------------------------- */
-const EMOJI = {
-  good: ['💧','🚰','🥛','🧊','🍉','🍊','🍇','🍏','🥥'],
-  bad:  ['🥤','🧃','🧋','🍺','🍹','🥛‍🍫','🍶'],
-  trick:['💧','🚰'],
-  power:['🛡️','⭐','⚡']
-};
-const BOSS_EMOJI = ['🌀'];
-
-/* ---------------------------------------------------------
-   Main boot
---------------------------------------------------------- */
-export function bootHydration(){
-  try{
-    if(!DOC) return;
-
-    ensureUltraStyle();
-    bindHudFallback();
-
-    const { diff, run, seed, time, debug } = parseQS();
-    const isResearch = (run === 'research');
-
-    const hasRunParams = (new URLSearchParams(location.search)).has('run');
-    const startOverlay = $('hvr-start');
-    if (startOverlay) startOverlay.style.display = hasRunParams ? 'none' : 'flex';
-    if (!hasRunParams) return;
-
-    const Particles =
-      (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-      ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
-
-    const audio = createHydrationAudio ? createHydrationAudio({ volume: isResearch ? 0.12 : 0.22 }) : {
-      unlock: async()=>{}, tick:()=>{}, good:()=>{}, miss:()=>{}, power:()=>{}, celebrate:()=>{}
-    };
-
-    const unlockOnce = async ()=>{
-      try{ await audio.unlock?.(); }catch{}
-      DOC.removeEventListener('pointerdown', unlockOnce);
-    };
-    DOC.addEventListener('pointerdown', unlockOnce, { passive:true });
-
-    const quest = createHydrationQuest ? createHydrationQuest({ diff, run }) : { start(){}, tick(){}, onHit(){}, getState(){return{};} };
-    const coach = createHydrationCoach ? createHydrationCoach({ run }) : { say(){}, onTick(){}, onHit(){}, onQuest(){} };
-
-    let ended=false;
-
-    // ---- core state ----
-    const state = {
-      run, diff, seed, time,
-      score:0,
-      combo:0,
-      comboMax:0,
-      miss:0,
-      shield:0,
-      fever:0,    // 0..1
-      water:0.50, // 0..1
-      zone:'GREEN'
-    };
-
-    function setZone(){
-      const w=state.water;
-      state.zone = (w>=0.40 && w<=0.62) ? 'GREEN' : (w<0.40 ? 'LOW' : 'HIGH');
-    }
-    function bumpFever(d){ state.fever = clamp(state.fever + d, 0, 1); }
-    function bumpWater(d){ state.water = clamp(state.water + d, 0, 1); setZone(); }
-
-    function gradeFromScore(score, miss){
-      const s = Number(score)||0;
-      const m = Number(miss)||0;
-      const eff = s - m*8;
-      if (eff >= 560) return 'SSS';
-      if (eff >= 450) return 'SS';
-      if (eff >= 360) return 'S';
-      if (eff >= 270) return 'A';
-      if (eff >= 190) return 'B';
-      return 'C';
-    }
-    function progressToS(score){
-      const s = clamp(Number(score)||0, 0, 360);
-      return (s / 360) * 100;
-    }
-
-    function setFeverClasses(){
-      const feverPct = pct01(state.fever);
-      DOC.body.classList.toggle('hha-fever', feverPct >= 35);
-    }
-
-    function emitScore(){
-      setFeverClasses();
-      emit('hha:score', {
-        score: state.score|0,
-        comboMax: state.comboMax|0,
-        miss: state.miss|0,
-        grade: gradeFromScore(state.score, state.miss),
-        waterZone: state.zone,
-        waterPct: pct01(state.water),
-        feverPct: pct01(state.fever),
-        shield: state.shield|0,
-        progressPct: progressToS(state.score)
-      });
-    }
-
-    function shake(){
-      DOC.body.classList.remove('hha-shake');
-      void DOC.body.offsetWidth;
-      DOC.body.classList.add('hha-shake');
-    }
-    function laserFlash(){
-      DOC.body.classList.remove('hha-laser');
-      void DOC.body.offsetWidth;
-      DOC.body.classList.add('hha-laser');
-      setTimeout(()=>{ try{ DOC.body.classList.remove('hha-laser'); }catch{} }, 160);
-    }
-    function shockFlash(){
-      DOC.body.classList.remove('hha-shock');
-      void DOC.body.offsetWidth;
-      DOC.body.classList.add('hha-shock');
-      setTimeout(()=>{ try{ DOC.body.classList.remove('hha-shock'); }catch{} }, 520);
-    }
-
-    /* ============================
-       ULTRA RAID CONFIG
-    ============================ */
-    const RAID = {
-      raidSec: (diff==='easy'? 18 : diff==='hard'? 24 : 21),
-
-      p1_end:  Math.round((diff==='easy'? 12 : diff==='hard'? 16 : 14)),
-      p2_end:  Math.round((diff==='easy'? 7  : diff==='hard'? 9  : 8)),
-
-      hpMax:   (diff==='easy'? 11 : diff==='hard'? 18 : 14),
-
-      comboGateMin: 3,
-      aimGate: (diff==='easy'? 0.52 : diff==='hard'? 0.41 : 0.46),
-      graze:   (diff==='easy'? 0.78 : diff==='hard'? 0.69 : 0.74),
-
-      bossChanceP2: (isResearch ? 0.18 : (diff==='easy'? 0.34 : diff==='hard'? 0.52 : 0.42)),
-      bossChanceP3: (isResearch ? 0.22 : (diff==='easy'? 0.44 : diff==='hard'? 0.66 : 0.54)),
-      decoyChance:  (isResearch ? 0.00 : (diff==='easy'? 0.24 : diff==='hard'? 0.38 : 0.32)),
-
-      dmgBase: 1,
-      dmgPerfectBonus: (diff==='easy'? 1 : diff==='hard'? 2 : 1),
-      dmgGreenBonus: 1,
-
-      bossHitScore: (diff==='easy'? 26 : diff==='hard'? 34 : 30),
-      bossPerfectScoreBonus: (diff==='easy'? 14 : diff==='hard'? 18 : 16),
-      bossGrazePenalty: (diff==='easy'? 12 : diff==='hard'? 18 : 14),
-      bossExpirePenalty:(diff==='easy'? 12 : diff==='hard'? 20 : 16),
-
-      gateFailPenalty:(diff==='easy'? 8 : diff==='hard'? 12 : 10),
-      gateFailFever:  (diff==='easy'? 0.06 : diff==='hard'? 0.09 : 0.075),
-
-      decoyPenalty:(diff==='easy'? 18 : diff==='hard'? 26 : 22),
-      decoyFever:  (diff==='easy'? 0.10 : diff==='hard'? 0.15 : 0.12),
-
-      graceOutSec:(diff==='easy'? 3 : diff==='hard'? 2 : 3),
-      drainPerSec:(diff==='easy'? 7 : diff==='hard'? 11 : 9),
-      feverPerSec:(diff==='easy'? 0.034 : diff==='hard'? 0.050 : 0.042),
-
-      laserPenalty:(diff==='easy'? 16 : diff==='hard'? 26 : 20),
-      laserFever:  (diff==='easy'? 0.045 : diff==='hard'? 0.070 : 0.055),
-      laserWaterPush:(diff==='easy'? 0.014 : diff==='hard'? 0.020 : 0.017),
-
-      shockEverySec:(diff==='easy'? 6 : diff==='hard'? 5 : 5),
-      shockWindowMs:(diff==='easy'? 900 : diff==='hard'? 720 : 820),
-      shockPenalty:(diff==='easy'? 18 : diff==='hard'? 28 : 22),
-      shockFever:  (diff==='easy'? 0.09 : diff==='hard'? 0.13 : 0.11),
-      shockWaterPush:(diff==='easy'? 0.06 : diff==='hard'? 0.09 : 0.075),
-
-      enrageHpPct: 0.30,
-      enrageBossChanceBoost: 0.14,
-      enrageDecoyBoost: 0.12,
-      enrageDrainBoost: 4,
-      enrageLaserBoost: 8,
-      enrageGraceReduce: 1,
-      enrageSpawnMul: 0.85,
-      enrageShockEveryReduce: 1,
-
-      regenEverySec: (diff==='easy'? 5 : diff==='hard'? 4 : 4),
-      regenHp: 1,
-
-      wipePenalty:(diff==='easy'? 75 : diff==='hard'? 110 : 92),
-      wipeFever:  (diff==='easy'? 0.20 : diff==='hard'? 0.28 : 0.24),
-
-      mulP1: 0.84,
-      mulP2: 0.70,
-      mulP3: 0.58
-    };
-
-    const boss = {
-      on:false,
-      entered:false,
-      phase:0,
-      hp:RAID.hpMax,
-      hpMax:RAID.hpMax,
-      cleared:false,
-      enrage:false,
-      outStreak:0,
-
-      shockCd: 0,
-      shockArmed:false,
-      shockTimer:null,
-      shockDodges:0,
-      shockHits:0,
-
-      hits:0,
-      missed:0,
-      grazed:0,
-      gateFails:0,
-      decoyHits:0,
-      lasers:0,
-      regens:0
-    };
-
-    // ===== Boss Timeline logger (NEW) =====
-    const bossTimeline = { samples: [], events: [] };
-    function tlReset(){ bossTimeline.samples.length=0; bossTimeline.events.length=0; }
-    function tlEvent(type, sec){
-      if(!Number.isFinite(sec)) return;
-      bossTimeline.events.push({ t: sec|0, type: String(type||'') });
-    }
-    function tlSample(sec){
-      if(!Number.isFinite(sec)) return;
-      if(!boss.on || !boss.entered) return;
-
-      let d=0;
-      const p = boss.phase|0;
-      d += (p===1? 12 : p===2? 24 : p===3? 34 : 0);
-      if(boss.enrage) d += 18;
-
-      if(state.zone !== 'GREEN'){
-        d += 14 + Math.min(24, boss.outStreak*2.2);
-      }
-      d += clamp(state.fever,0,1) * 22;
-      if(boss.shockArmed) d += 22;
-
-      const hpPct = boss.hpMax>0 ? (boss.hp/boss.hpMax) : 1;
-      d += (1-hpPct) * 10;
-
-      d = clamp(d,0,100);
-      bossTimeline.samples.push({
-        t: sec|0,
-        d: Math.round(d),
-        z: state.zone,
-        p,
-        e: boss.enrage ? 1 : 0,
-        hp: Math.round(hpPct*100)
-      });
-    }
-
-    function bossRuleText(){
-      const gate = `Combo ≥ ${RAID.comboGateMin} + เล็งกลาง`;
-      const enr  = boss.enrage ? ' • ENRAGE' : '';
-      return gate + enr;
-    }
-    function bossStatusText(){
-      if(!boss.on) return '—';
-      if(boss.cleared) return 'CLEARED ✅';
-      if(boss.phase===1) return 'WARNING…';
-      if(boss.phase===2) return boss.enrage ? 'ENRAGE RAID!' : 'RAID!';
-      return boss.enrage ? 'FINAL ENRAGE!' : 'FINAL!';
-    }
-
-    function enterBoss(){
-      if(boss.entered) return;
-      boss.entered=true;
-      boss.on=true;
-      boss.phase=1;
-      boss.hp=boss.hpMax=RAID.hpMax;
-      boss.shockCd = RAID.shockEverySec;
-
-      tlReset();
-
-      DOC.body.classList.add('hha-boss');
-      setBossHud(true, boss.hp, boss.hpMax, boss.phase, 'BOSS RAID', bossRuleText(), bossStatusText());
-
-      coach.say?.(`🔥 BOSS RAID! สะสมคอมโบให้ถึง ${RAID.comboGateMin} ก่อนยิงบอส!`, 'happy', true);
-      try{ audio.tick?.(true); }catch{}
-      emitScore();
-    }
-
-    function setPhase(p){
-      if(!boss.on) return;
-      if(p === boss.phase) return;
-      boss.phase = p;
-
-      if(p===2){
-        coach.say?.(`🌀 บอสโผล่! ระวัง SHOCKWAVE (ต้องยิงอะไรสักอย่างเพื่อกันแรง)`, 'neutral', true);
-      } else if(p===3){
-        coach.say?.('⚡ FINAL! ออก GREEN นาน → LASER ยิงทุกวิ!', 'sad', true);
-      }
-      setBossHud(true, boss.hp, boss.hpMax, boss.phase, boss.enrage?'BOSS ENRAGE':'BOSS RAID', bossRuleText(), bossStatusText());
-      emitScore();
-    }
-
-    function setEnrage(on){
-      if(!!on === boss.enrage) return;
-      boss.enrage = !!on;
-      DOC.body.classList.toggle('hha-enrage', boss.enrage);
-      coach.say?.(boss.enrage ? '😈 ENRAGE! บอสคลั่งแล้ว!' : 'บอสเริ่มนิ่งลง…', boss.enrage?'sad':'neutral', true);
-      setBossHud(true, boss.hp, boss.hpMax, boss.phase, boss.enrage?'BOSS ENRAGE':'BOSS RAID', bossRuleText(), bossStatusText());
-    }
-
-    function stopBossHud(){
-      setBossHud(false, 0, 1, 0, '', '', '');
-      DOC.body.classList.remove('hha-boss','hha-boss-danger','hha-enrage','hha-laser','hha-shock');
-    }
-
-    function applyBossDamage(dmg){
-      dmg = Math.max(0, dmg|0);
-      if(!dmg) return false;
-      boss.hp = Math.max(0, boss.hp - dmg);
-
-      if(!boss.enrage && boss.hpMax>0 && (boss.hp / boss.hpMax) <= RAID.enrageHpPct){
-        setEnrage(true);
-      }
-
-      setBossHud(true, boss.hp, boss.hpMax, boss.phase, boss.enrage?'BOSS ENRAGE':'BOSS RAID', bossRuleText(), bossStatusText());
-
-      if(boss.hp <= 0 && !boss.cleared){
-        boss.cleared = true;
-        coach.say?.('🎉 บอสแตกแล้ว! โหดแค่ไหนก็ไม่รอด!', 'happy', true);
-        emit('hha:celebrate', { kind:'goal', id:'boss_raid' });
-        try{ Particles.celebrate?.('goal'); }catch{}
-        try{ audio.celebrate?.(); }catch{}
-      }
-      return true;
-    }
-
-    /* -------------------------------
-       Spawn speed control (storm)
-    ------------------------------- */
-    function spawnIntervalMul(){
-      if(isResearch) return 1;
-
-      const feverMul = clamp(1 - state.fever*0.45, 0.55, 1.0);
-
-      let bossMul = 1.0;
-      if (boss.on){
-        bossMul = (boss.phase===1) ? RAID.mulP1 : (boss.phase===2 ? RAID.mulP2 : RAID.mulP3);
-      }
-
-      const enrageMul = (boss.on && boss.enrage) ? RAID.enrageSpawnMul : 1.0;
-      return clamp(feverMul * bossMul * enrageMul, 0.38, 1.0);
-    }
-
-    /* -------------------------------
-       Boss attacks: Shockwave + Laser + Regen
-    ------------------------------- */
-    function clearShock(){
-      boss.shockArmed = false;
-      if(boss.shockTimer){
-        try{ clearTimeout(boss.shockTimer); }catch{}
-        boss.shockTimer = null;
-      }
-    }
-
-    function armShockwave(){
-      if(!boss.on || boss.cleared) return;
-      if(boss.phase < 2) return;
-
-      clearShock();
-      boss.shockArmed = true;
-
-      tlEvent('shock_arm', lastSec ?? 0);
-
-      DOC.body.classList.add('hha-boss-danger');
-      shockFlash();
-      coach.say?.('🌊 SHOCKWAVE! ยิง “อะไรก็ได้” ภายในเสี้ยววิ เพื่อกันแรง!', 'sad', true);
-      try{ audio.tick?.(true); }catch{}
-      try{ Particles.scorePop?.((ROOT.innerWidth||0)*0.5, (ROOT.innerHeight||0)*0.30, 'SHOCKWAVE!', 0); }catch{}
-      shake();
-
-      const windowMs = RAID.shockWindowMs - (boss.enrage ? 140 : 0);
-
-      boss.shockTimer = setTimeout(()=>{
-        if(!boss.shockArmed) return;
-        boss.shockArmed = false;
-        boss.shockHits++;
-
-        tlEvent('shock_hit', lastSec ?? 0);
-
-        state.score -= (RAID.shockPenalty + (boss.enrage ? 8 : 0));
-        bumpFever(+RAID.shockFever + (boss.enrage ? 0.04 : 0));
-        bumpWater(state.zone==='LOW' ? -RAID.shockWaterPush : +RAID.shockWaterPush);
-
-        DOC.body.classList.add('hha-boss-danger');
-        shockFlash();
-        shake();
-        try{ audio.miss?.(); }catch{}
-        try{
-          Particles.scorePop?.((ROOT.innerWidth||0)*0.5, (ROOT.innerHeight||0)*0.34,
-            `SHOCK -${RAID.shockPenalty + (boss.enrage ? 8 : 0)}`, 0);
-        }catch{}
-        coach.say?.('โดน Shockwave เต็ม ๆ! รีบกลับ GREEN!', 'sad', true);
-        emitScore();
-      }, windowMs);
-    }
-
-    function dodgeShockwaveByHit(){
-      if(!boss.shockArmed) return;
-      boss.shockArmed = false;
-      if(boss.shockTimer){
-        try{ clearTimeout(boss.shockTimer); }catch{}
-        boss.shockTimer = null;
-      }
-      boss.shockDodges++;
-
-      tlEvent('shock_dodge', lastSec ?? 0);
-
-      state.score += (boss.enrage ? 10 : 8);
-      bumpFever(-0.06);
-      bumpWater((0.52 - state.water) * 0.22);
-      try{ audio.good?.(true); }catch{}
-      try{ Particles.scorePop?.((ROOT.innerWidth||0)*0.5, (ROOT.innerHeight||0)*0.30, 'DODGE +8', 1); }catch{}
-      coach.say?.('กันแรงได้! สวยมาก!', 'happy', false);
-      emitScore();
-    }
-
-    function laserPunish(){
-      boss.lasers++;
-      tlEvent('laser', lastSec ?? 0);
-
-      state.score -= (RAID.laserPenalty + (boss.enrage ? RAID.enrageLaserBoost : 0));
-      bumpFever(+RAID.laserFever + (boss.enrage ? 0.02 : 0));
-      bumpWater(state.zone==='LOW' ? -RAID.laserWaterPush : +RAID.laserWaterPush);
-
-      laserFlash();
-      shake();
-
-      try{ audio.tick?.(true); }catch{}
-      try{
-        Particles.scorePop?.((ROOT.innerWidth||0)*0.5,(ROOT.innerHeight||0)*0.30,
-          `LASER -${RAID.laserPenalty + (boss.enrage ? RAID.enrageLaserBoost : 0)}`,0);
-      }catch{}
-      coach.say?.('⚡ LASER! กลับ GREEN เดี๋ยวนี้!', 'sad', true);
-      emitScore();
-    }
-
-    function maybeRegenBoss(){
-      if(!boss.on || boss.cleared) return;
-      if(boss.phase < 2) return;
-      if(state.zone === 'GREEN') return;
-      if(boss.hp <= 0) return;
-
-      const every = Math.max(2, RAID.regenEverySec - (boss.enrage ? 1 : 0));
-      if(boss.outStreak > (RAID.graceOutSec + 2) && (boss.outStreak % every === 0)){
-        const before = boss.hp;
-        boss.hp = Math.min(boss.hpMax, boss.hp + RAID.regenHp);
-        if(boss.hp !== before){
-          boss.regens++;
-          tlEvent('regen', lastSec ?? 0);
-
-          DOC.body.classList.add('hha-boss-danger');
-          try{ Particles.scorePop?.((ROOT.innerWidth||0)*0.5,(ROOT.innerHeight||0)*0.26,'BOSS REGEN +1',0); }catch{}
-          coach.say?.('บอสฟื้นพลัง! อย่าออก GREEN นาน!', 'sad', true);
-          setBossHud(true, boss.hp, boss.hpMax, boss.phase, boss.enrage?'BOSS ENRAGE':'BOSS RAID', bossRuleText(), bossStatusText());
-        }
-      }
-    }
-
-    /* -------------------------------
-       decorateTarget: convert some targets to boss/decoy
-    ------------------------------- */
-    function decorateTarget(el, parts, data){
-      try{
-        if(!boss.on) return;
-        if(boss.phase < 2) return;
-        if(boss.cleared) return;
-
-        const baseChance = (boss.phase===2) ? RAID.bossChanceP2 : RAID.bossChanceP3;
-        const chance = baseChance + (boss.enrage ? RAID.enrageBossChanceBoost : 0);
-        if(Math.random() > chance) return;
-
-        const baseDecoy = RAID.decoyChance + (boss.enrage ? RAID.enrageDecoyBoost : 0);
-        const isDecoy = (!isResearch && Math.random() < baseDecoy);
-
-        data.ch = BOSS_EMOJI[0];
-        data.isGood = true;
-        data.isPower = false;
-        data.itemType = isDecoy ? 'bossDecoy' : 'boss';
-
-        try{ el.setAttribute('data-item-type', data.itemType); }catch{}
-
-        const baseGrad = isDecoy
-          ? 'radial-gradient(circle at 30% 25%, #a855f7, #3b0764)'
-          : 'radial-gradient(circle at 30% 25%, #ef4444, #7f1d1d)';
-        el.style.background = baseGrad;
-
-        const glow = isDecoy
-          ? '0 0 0 2px rgba(167,139,250,0.75), 0 0 26px rgba(167,139,250,0.55)'
-          : '0 0 0 2px rgba(239,68,68,0.75), 0 0 28px rgba(239,68,68,0.85)';
-        el.style.boxShadow = '0 14px 30px rgba(15,23,42,0.9),' + glow;
-
-        if(parts?.icon){
-          parts.icon.textContent = data.ch;
-          parts.icon.style.filter = 'drop-shadow(0 4px 6px rgba(15,23,42,0.95))';
-        }
-        if(parts?.badge){
-          parts.badge.textContent = isDecoy ? '❓' : (boss.enrage ? '☠️' : '⚔️');
-          parts.badge.style.opacity = isDecoy ? '0.78' : '0.88';
-        }
-      }catch{}
-    }
-
-    /* -------------------------------
-       judge: scoring/logic
-    ------------------------------- */
-    function judge(ch, ctx){
-      const type = String(ctx.itemType||'good');
-      const hitX = Number(ctx.clientX ?? 0);
-      const hitY = Number(ctx.clientY ?? 0);
-      const perfect = !!ctx.hitPerfect;
-      const norm = Number(ctx.hitDistNorm ?? 1);
-
-      if(boss.shockArmed) dodgeShockwaveByHit();
-
-      if(type === 'bossDecoy'){
-        boss.decoyHits++;
-        tlEvent('decoy', lastSec ?? 0);
-
-        state.score -= (RAID.decoyPenalty + (boss.enrage ? 6 : 0));
-        state.combo = 0;
-        bumpFever(+RAID.decoyFever + (boss.enrage ? 0.03 : 0));
-
-        DOC.body.classList.add('hha-boss-danger');
-        shake();
-
-        try{ Particles.burstAt?.(hitX, hitY, 'DECOY'); }catch{}
-        try{ Particles.scorePop?.(hitX, hitY, `DECOY -${RAID.decoyPenalty + (boss.enrage ? 6 : 0)}`, 0); }catch{}
-        try{ audio.miss?.(); }catch{}
-        coach.say?.('โดนตัวหลอก! 😈 เล็งกลาง + รักษา GREEN!', 'sad', true);
-
-        quest.onHit?.({ isGood:false, isPower:false, itemType:'bossDecoy', perfect:false });
-        emitScore();
-        return { scoreDelta: -(RAID.decoyPenalty + (boss.enrage ? 6 : 0)), good:false, decoy:true };
-      }
-
-      if(type === 'boss'){
-        if((state.combo|0) < RAID.comboGateMin){
-          boss.gateFails++;
-          tlEvent('gatefail', lastSec ?? 0);
-
-          state.score -= (RAID.gateFailPenalty + (boss.enrage ? 5 : 0));
-          state.combo = 0;
-          bumpFever(+RAID.gateFailFever + (boss.enrage ? 0.03 : 0));
-          DOC.body.classList.add('hha-boss-danger');
-          shake();
-
-          try{ Particles.burstAt?.(hitX, hitY, 'GATE'); }catch{}
-          try{ Particles.scorePop?.(hitX, hitY, `GATE -${RAID.gateFailPenalty + (boss.enrage ? 5 : 0)}`, 0); }catch{}
-          try{ audio.miss?.(); }catch{}
-          coach.say?.(`คอมโบยังไม่ถึง ${RAID.comboGateMin}! เก็บน้ำก่อน`, 'sad', true);
-
-          quest.onHit?.({ isGood:false, isPower:false, itemType:'boss', gateFail:true });
-          emitScore();
-          return { scoreDelta: -(RAID.gateFailPenalty + (boss.enrage ? 5 : 0)), good:false, gateFail:true };
-        }
-
-        if(norm <= RAID.aimGate){
-          boss.hits++;
-          tlEvent('boss_hit', lastSec ?? 0);
-
-          const inGreen = (state.zone === 'GREEN');
-          const dmg = RAID.dmgBase + (perfect ? RAID.dmgPerfectBonus : 0) + (inGreen ? RAID.dmgGreenBonus : 0) + (boss.enrage ? 1 : 0);
-          applyBossDamage(dmg);
-
-          const add = RAID.bossHitScore
-            + (perfect ? RAID.bossPerfectScoreBonus : 0)
-            + (inGreen ? 6 : 0)
-            + (boss.enrage ? 6 : 0);
-
-          state.score += add;
-
-          const pull = (0.52 - state.water) * (inGreen ? 0.34 : 0.26);
-          bumpWater(pull + 0.03);
-          bumpFever(perfect ? -0.11 : -0.08);
-
-          state.combo = clamp(state.combo + 2, 0, 9999);
-          state.comboMax = Math.max(state.comboMax, state.combo);
-
-          try{ Particles.burstAt?.(hitX, hitY, perfect ? 'BOSS_PERFECT' : 'BOSS'); }catch{}
-          try{ Particles.scorePop?.(hitX, hitY, `+${add}`, 1); }catch{}
-          try{ audio.good?.(true); }catch{}
-          coach.onHit?.({ boss:true, perfect });
-
-          quest.onHit?.({ isGood:true, isPower:false, itemType:'boss', perfect:true });
-          emitScore();
-          return { scoreDelta: add, good:true, boss:true };
-        }
-
-        if(norm >= RAID.graze){
-          boss.grazed++;
-          tlEvent('graze', lastSec ?? 0);
-
-          state.score -= RAID.bossGrazePenalty;
-          state.miss += 1;
-          state.combo = 0;
-
-          bumpFever(+0.12);
-          bumpWater(state.zone==='LOW' ? -0.02 : +0.02);
-
-          DOC.body.classList.add('hha-boss-danger');
-          shake();
-
-          try{ Particles.burstAt?.(hitX, hitY, 'GRAZE'); }catch{}
-          try{ Particles.scorePop?.(hitX, hitY, `-${RAID.bossGrazePenalty}`, 0); }catch{}
-          try{ audio.miss?.(); }catch{}
-          coach.say?.('โดนไม่ชัวร์! เล็งกลางให้เป๊ะ!', 'sad', true);
-
-          quest.onHit?.({ isGood:false, isPower:false, itemType:'boss', grazed:true });
-          emitScore();
-          return { scoreDelta: -RAID.bossGrazePenalty, good:false, boss:true, grazed:true };
-        }
-
-        emitScore();
-        return { scoreDelta: 0, good:false, boss:true, soft:true };
-      }
-
-      if(type === 'power'){
-        if (ch === '🛡️') state.shield = clamp(state.shield + 1, 0, 5);
-        else if (ch === '⚡'){
-          state.fever = clamp(state.fever - 0.18, 0, 1);
-          bumpWater((0.52 - state.water) * 0.45);
-        } else {
-          state.score += 25;
-          bumpWater(+0.03);
-        }
-
-        state.combo = clamp(state.combo + 1, 0, 9999);
-        state.comboMax = Math.max(state.comboMax, state.combo);
-
-        try{ Particles.burstAt?.(hitX, hitY, 'POWER'); }catch{}
-        try{ Particles.scorePop?.(hitX, hitY, '+25', 1); }catch{}
-        try{ audio.power?.(); }catch{}
-        coach.onHit?.({ power:true });
-
-        quest.onHit?.({ isGood:true, isPower:true, itemType:'power', perfect });
-        emitScore();
-        return { scoreDelta: 25, good:true, power:true };
-      }
-
-      const isTrap = (type === 'fakeGood');
-      if(!ctx.isGood || isTrap){
-        if(state.shield > 0){
-          state.shield--;
-          bumpFever(+0.02);
-          state.combo = 0;
-
-          try{ Particles.burstAt?.(hitX, hitY, 'BLOCK'); }catch{}
-          coach.onHit?.({ blocked:true });
-
-          quest.onHit?.({ isGood:false, isPower:false, itemType:type, blocked:true });
-          emitScore();
-          return { scoreDelta: 0, good:false, blocked:true };
-        }
-
-        const bossPenalty = boss.on ? (boss.phase===3 ? 7 : 5) : 0;
-        const penalty = 12 + bossPenalty + (boss.enrage ? 4 : 0);
-
-        state.score -= penalty;
-        state.miss  += 1;
-        state.combo = 0;
-
-        bumpFever(boss.on ? +0.16 : +0.12);
-        bumpWater(boss.on ? +0.10 : +0.08);
-
-        DOC.body.classList.add('hha-boss-danger');
-        shake();
-
-        try{ Particles.burstAt?.(hitX, hitY, 'BAD'); }catch{}
-        try{ Particles.scorePop?.(hitX, hitY, `-${penalty}`, 0); }catch{}
-        try{ audio.miss?.(); }catch{}
-        coach.onHit?.({ bad:true });
-
-        quest.onHit?.({ isGood:false, isPower:false, itemType:type, perfect, blocked:false });
-        emitScore();
-        return { scoreDelta: -penalty, good:false };
-      }
-
-      const bossBonus = boss.on ? (boss.phase===3 ? 4 : 2) : 0;
-      const add = (10 + bossBonus) + (perfect ? (boss.on ? 7 : 5) : 0) + (boss.enrage ? 2 : 0);
-      state.score += add;
-
-      state.combo = clamp(state.combo + 1, 0, 9999);
-      state.comboMax = Math.max(state.comboMax, state.combo);
-
-      bumpWater((0.52 - state.water) * (boss.on ? 0.28 : 0.22) + (boss.on ? 0.026 : 0.02));
-      bumpFever(perfect ? (boss.on ? -0.04 : -0.03) : (boss.on ? -0.022 : -0.015));
-
-      try{ Particles.burstAt?.(hitX, hitY, perfect ? 'PERFECT' : 'GOOD'); }catch{}
-      try{ Particles.scorePop?.(hitX, hitY, `+${add}`, 1); }catch{}
-      try{ audio.good?.(perfect); }catch{}
-      coach.onHit?.({ good:true, perfect });
-
-      quest.onHit?.({ isGood:true, isPower:false, itemType:'good', perfect });
-      emitScore();
-      return { scoreDelta: add, good:true, perfect };
-    }
-
-    function onExpire(info){
-      const it = String(info?.itemType || '');
-      const isGood = !!info?.isGood;
-
-      if(it === 'boss'){
-        boss.missed++;
-        state.score -= RAID.bossExpirePenalty;
-        state.miss += 1;
-        state.combo = 0;
-        bumpFever(+0.10);
-        DOC.body.classList.add('hha-boss-danger');
-        shake();
-        try{ audio.miss?.(); }catch{}
-        try{ Particles.scorePop?.((ROOT.innerWidth||0)*0.5, (ROOT.innerHeight||0)*0.35, `-${RAID.bossExpirePenalty}`, 0); }catch{}
-        coach.say?.('บอสหลุด! ยิงให้ทัน!', 'sad', true);
-        emitScore();
-        return;
-      }
-      if(it === 'bossDecoy') return;
-
-      if(isGood){
-        state.miss += 1;
-        state.combo = 0;
-        bumpFever(boss.on ? +0.06 : +0.05);
-        bumpWater(boss.on ? -0.05 : -0.04);
-        emitScore();
-      }
-    }
-
-    attachDragLook();
-
-    const allowAdaptive = !isResearch;
-    const allowTrick    = !isResearch;
-    const allowPower    = !isResearch;
-    const allowStorm    = !isResearch;
-
-    quest.start?.();
-    setZone();
-    emitScore();
-
-    /* -------------------------------
-       Time handling
-    ------------------------------- */
-    let lastSec = null;
-    let externalTimeSeen = false;
-
-    function endGame(){
-      if(ended) return;
-      ended=true;
-
-      stopBossHud();
-
-      const wipe = (boss.entered && !boss.cleared);
-      if(wipe){
-        tlEvent('wipe', lastSec ?? 0);
-        state.score -= RAID.wipePenalty;
-        bumpFever(+RAID.wipeFever);
-        coach.say?.(`💥 WIPE! บอสไม่แตก → -${RAID.wipePenalty}`, 'sad', true);
-      }
-
-      const grade = gradeFromScore(state.score, state.miss);
-
-      emit('hha:end', {
-        title:'จบเกม Hydration 💧',
-        score: state.score|0,
-        miss: state.miss|0,
-        comboMax: state.comboMax|0,
-        grade,
-        progressPct: progressToS(state.score),
-        boss: {
-          entered: boss.entered,
-          cleared: boss.cleared,
-          enrage: boss.enrage,
-          hp: boss.hp,
-          hpMax: boss.hpMax,
-          phase: boss.phase,
-          wipe,
-          hits: boss.hits,
-          missed: boss.missed,
-          grazed: boss.grazed,
-          gateFails: boss.gateFails,
-          decoyHits: boss.decoyHits,
-          lasers: boss.lasers,
-          shockDodges: boss.shockDodges,
-          shockHits: boss.shockHits,
-          regens: boss.regens
-        },
-        bossTimeline: {
-          samples: bossTimeline.samples,
-          events: bossTimeline.events
-        }
-      });
-
-      emitScore();
-    }
-
-    function handleTimeTick(sec){
-      sec = Number(sec||0);
-      if(!Number.isFinite(sec)) return;
-      if(sec === lastSec) return;
-      lastSec = sec;
-
-      DOC.body.classList.toggle('hha-urgent', (sec <= 10 && sec > 0));
-      if(sec <= 10 && sec > 0){
-        try{ audio.tick?.(true); }catch{}
-        if(sec <= 5) shake();
-      }
-
-      if(!boss.entered && sec <= RAID.raidSec && sec > 0) enterBoss();
-
-      if(boss.on && sec > 0){
-        if(sec <= RAID.p2_end) setPhase(3);
-        else if(sec <= RAID.p1_end) setPhase(2);
-        else setPhase(1);
-
-        const grace = Math.max(1, RAID.graceOutSec - (boss.enrage ? RAID.enrageGraceReduce : 0));
-        const inGreen = (state.zone === 'GREEN');
-
-        if(inGreen){
-          boss.outStreak = 0;
-          DOC.body.classList.remove('hha-boss-danger');
-        }else{
-          boss.outStreak++;
-
-          if(boss.outStreak >= Math.max(1, grace - 1)){
-            DOC.body.classList.add('hha-boss-danger');
-          }
-
-          if(boss.outStreak > grace){
-            state.score -= (RAID.drainPerSec + (boss.enrage ? RAID.enrageDrainBoost : 0));
-            bumpFever(+RAID.feverPerSec + (boss.enrage ? 0.01 : 0));
-
-            if(boss.phase === 3){
-              laserPunish();
-            }else{
-              if(boss.outStreak % 2 === 0) shake();
-              try{ audio.tick?.(true); }catch{}
-              emitScore();
-            }
-          }
-        }
-
-        if(boss.phase >= 2 && !boss.cleared){
-          const reduce = (boss.enrage ? RAID.enrageShockEveryReduce : 0);
-          const every = Math.max(3, RAID.shockEverySec - reduce);
-          boss.shockCd--;
-          if(boss.shockCd <= 0){
-            boss.shockCd = every;
-            armShockwave();
-          }
-        }
-
-        maybeRegenBoss();
-
-        setBossHud(true, boss.hp, boss.hpMax, boss.phase,
-          boss.enrage?'BOSS ENRAGE':'BOSS RAID',
-          bossRuleText(),
-          bossStatusText()
-        );
-
-        tlSample(sec);
-      }
-
-      quest.tick?.(sec, { zone: state.zone, boss: boss.on, phase: boss.phase, bossHp: boss.hp, bossHpMax: boss.hpMax });
-      coach.onTick?.({ sec, zone: state.zone, feverPct: pct01(state.fever), boss: boss.on, phase: boss.phase, hp: boss.hp });
-
-      // ✅ internal marker to avoid loop
-      emit('hha:time', { sec, __internal:true });
-
-      if(sec <= 0) endGame();
-    }
-
-    // listen external time only if not internal
-    ROOT.addEventListener('hha:time', (ev)=>{
-      if(ev?.detail && ev.detail.__internal) return;
-      externalTimeSeen = true;
-      handleTimeTick(Number(ev?.detail?.sec ?? 0));
-    });
-
-    // fallback timer if no external time arrives
-    const t0 = performance.now();
-    let fallbackTimer = setInterval(()=>{
-      if(externalTimeSeen || ended) return;
-      const elapsed = (performance.now() - t0) / 1000;
-      const secLeft = Math.max(0, Math.ceil(time - elapsed));
-      handleTimeTick(secLeft);
-      if(secLeft <= 0){
-        try{ clearInterval(fallbackTimer); }catch{}
-        fallbackTimer = null;
-      }
-    }, 250);
-
-    ROOT.addEventListener('hha:stop', ()=>{
-      if(ended) return;
-      endGame();
-    });
-
-    /* -------------------------------
-       Boot factory (spawn engine)
-    ------------------------------- */
-    const factoryCfg = {
-      modeKey:'hydration',
-      difficulty: diff,
-      duration: time,
-
-      spawnHost:'#hvr-layer',
-      boundsHost:'#hvr-bounds',
-
-      spawnAroundCrosshair:false,
-      spawnStrategy:'grid9',
-      minSeparation:0.98,
-      maxSpawnTries:18,
-
-      pools:{ good:EMOJI.good, bad:EMOJI.bad, trick: allowTrick ? EMOJI.trick : [] },
-      goodRate:(diff==='easy'? 0.68 : diff==='hard'? 0.60 : 0.64),
-
-      powerups: allowPower ? EMOJI.power : [],
-      powerRate: allowPower ? 0.12 : 0,
-      powerEvery: allowPower ? 6 : 999,
-      trickRate: allowTrick ? 0.10 : 0.0,
-
-      allowAdaptive,
-      seed: (isResearch && seed) ? seed : null,
-
-      spawnIntervalMul: (allowStorm ? spawnIntervalMul : 1),
-
-      decorateTarget,
-      judge,
-      onExpire
-    };
-
-    factoryBoot(factoryCfg).then((h)=>{
-      DOC.addEventListener('pointerdown', (e)=>{
-        if(ended) return;
-        const t=e.target;
-        if(t && (t.id==='btnStop'||t.id==='btnVR'||t.id==='endReplay'||t.id==='endClose')) return;
-        try{ h?.shootCrosshair?.(); }catch{}
-      }, { passive:true });
-
-    }).catch((err)=>{
-      fatal('Failed to boot hydration.safe.js\n' + String(err?.message||err), err);
-    });
-
-    setBossHud(false, 0, 1, 0, '', '', '');
-
-    if(debug) console.log('[HydrationVR ULTRA] boot', { diff, run, time, seed, RAID });
-
-  }catch(err){
-    fatal('Hydration.safe.js crashed\n' + String(err?.message||err), err);
   }
+  function onUp(){
+    state.dragging = false;
+  }
+
+  // subtle gyro
+  function onOri(ev){
+    if (!state.enabled) return;
+    const g = Number(ev.gamma)||0; // left-right
+    const b = Number(ev.beta)||0;  // front-back
+    // normalize & clamp
+    const gx = clamp(g / 25, -1, 1);
+    const gy = clamp((b - 10) / 30, -1, 1);
+    const { mx, my } = maxShift();
+    state.gyroX = gx * mx * 0.18;
+    state.gyroY = gy * my * 0.18;
+    apply();
+  }
+
+  boundsEl && boundsEl.addEventListener('pointerdown', onDown, { passive:true });
+  boundsEl && boundsEl.addEventListener('pointermove', onMove, { passive:true });
+  boundsEl && boundsEl.addEventListener('pointerup', onUp, { passive:true });
+  boundsEl && boundsEl.addEventListener('pointercancel', onUp, { passive:true });
+  boundsEl && boundsEl.addEventListener('pointerleave', onUp, { passive:true });
+
+  try{ ROOT.addEventListener('deviceorientation', onOri, { passive:true }); }catch{}
+
+  apply();
+
+  return {
+    setEnabled(v){ state.enabled = !!v; if (!v){ state.gyroX=state.gyroY=0; } apply(); },
+    set(x,y){ state.x=x||0; state.y=y||0; apply(); }
+  };
+}
+
+export async function bootHydration(opts = {}){
+  const url = parseUrlCtx();
+
+  const runMode = (opts.runMode || url.run || 'play').toLowerCase(); // play | research
+  const difficulty = (opts.difficulty || url.diff || 'normal').toLowerCase();
+  const duration = clamp((opts.duration ?? url.time ?? 60), 20, 180);
+
+  const bounds = $('hvr-bounds');
+  const layer  = $('hvr-layer');
+
+  if (!bounds || !layer) {
+    console.error('[Hydration] missing bounds/layer');
+    return { stop(){} };
+  }
+
+  // ensure UI
+  try{ WaterUI.ensure && WaterUI.ensure(); }catch{}
+  try{ FeverUI.ensure && FeverUI.ensure(); }catch{}
+
+  // playfield controller
+  const playfield = makePlayfieldController(layer, bounds);
+
+  // game state
+  const sessionId = safeStr(url.sessionId || makeSessionId());
+  const seed = safeStr(opts.seed || url.seed || '');
+
+  let stopped = false;
+
+  let score = 0;
+  let combo = 0;
+  let comboMax = 0;
+
+  let misses = 0;
+
+  // Hydration meter 0..1 (0=LOW, 0.5=BALANCED, 1=HIGH)
+  let water = 0.50;
+
+  // fever 0..1, shield on when fever=1 and active for some seconds
+  let fever = 0;
+  let shieldOn = false;
+  let shieldUntil = 0;
+
+  // timers
+  let lastSecLeft = duration;
+  let lastHitTs = 0;
+
+  // mode policy
+  const allowAdaptive = (runMode !== 'research'); // research strict
+  const spreadUniform = true; // always want spread
+
+  // pools
+  const POOLS = {
+    good: ['💧','🫧','💦','🥛','🍉'],
+    bad:  ['🥤','🧋','🍟','🍩','🧃'],
+    trick:['💧','💦'] // fake good skin (optional)
+  };
+
+  // powerups for hydration
+  const POWERUPS = ['⭐','💎','🛡️'];
+
+  // quest system
+  const quest = createHydrationQuest({
+    duration,
+    onCoach: (text, mood) => setCoach(text, mood),
+    onCelebrate: (kind, label) => {
+      Particles.celebrate && Particles.celebrate(kind, label);
+      Particles.stamp && Particles.stamp(label || 'CLEAR!');
+    }
+  });
+
+  // logger: start marker
+  emit('hha:log_session', {
+    t: 'start',
+    sessionId,
+    game: 'hydration',
+    mode: runMode,
+    diff: difficulty,
+    seed
+  });
+
+  // HUD initial
+  emit('hha:score', { score, combo, comboMax, misses, waterPct: Math.round(water*100), feverPct: Math.round(fever*100), shield: shieldOn });
+  emit('hha:time', { sec: lastSecLeft });
+  setCoach('พร้อมลุย! เก็บน้ำให้สมดุล 💧', 'neutral');
+
+  function setShield(on, ms=5200){
+    shieldOn = !!on;
+    if (shieldOn) {
+      shieldUntil = now() + ms;
+      emit('hha:log_event', { sessionId, game:'hydration', type:'shield_on', data:{ ms } });
+    } else {
+      emit('hha:log_event', { sessionId, game:'hydration', type:'shield_off', data:{} });
+    }
+    FeverUI.setShield && FeverUI.setShield(shieldOn);
+    emit('hha:score', { score, combo, comboMax, misses, waterPct: Math.round(water*100), feverPct: Math.round(fever*100), shield: shieldOn });
+  }
+
+  function addFever(delta){
+    fever = clamp01(fever + delta);
+    if (fever >= 1 && !shieldOn) {
+      setShield(true, 5200);
+      setCoach('FEVER เต็ม! เปิดโล่ 5 วิ 🛡️🔥', 'fever');
+      Particles.celebrate && Particles.celebrate('FEVER', 'FEVER!');
+    }
+    FeverUI.set && FeverUI.set(fever);
+    emit('hha:fever', { pct: Math.round(fever*100), shield: shieldOn });
+  }
+
+  function setWater(next){
+    water = clamp01(next);
+    const pct = Math.round(water * 100);
+    const zone = zoneFromPct(pct);
+    WaterUI.set && WaterUI.set(pct, zone);
+    emit('hha:score', { score, combo, comboMax, misses, waterPct: pct, waterZone: zone, feverPct: Math.round(fever*100), shield: shieldOn });
+  }
+
+  // grading / scoring flavor
+  function scoreForHit(ctx){
+    // perfect gets more
+    const perfect = !!ctx.hitPerfect;
+    const kind = safeStr(ctx.itemType || '');
+
+    if (kind === 'power') {
+      // map by emoji
+      if (ctx.ch === '⭐') return perfect ? 220 : 160;
+      if (ctx.ch === '💎') return perfect ? 260 : 190;
+      if (ctx.ch === '🛡️') return perfect ? 180 : 130;
+      return perfect ? 200 : 150;
+    }
+
+    if (kind === 'bad') return perfect ? -140 : -120;
+    if (kind === 'fakeGood') return perfect ? 60 : 45;
+    // good
+    return perfect ? 120 : 85;
+  }
+
+  function updateCombo(isGood){
+    if (isGood) {
+      combo++;
+      comboMax = Math.max(comboMax, combo);
+      // fever grows faster at high combo
+      addFever(0.03 + Math.min(0.05, combo * 0.002));
+    } else {
+      combo = 0;
+      // small fever drop
+      fever = clamp01(fever - 0.10);
+      FeverUI.set && FeverUI.set(fever);
+      emit('hha:fever', { pct: Math.round(fever*100), shield: shieldOn });
+    }
+  }
+
+  function addMiss(reason='miss'){
+    misses++;
+    emit('hha:log_event', { sessionId, game:'hydration', type:reason, data:{} });
+    emit('hha:score', { score, combo, comboMax, misses, waterPct: Math.round(water*100), feverPct: Math.round(fever*100), shield: shieldOn });
+  }
+
+  function onExpire(info){
+    // expire good counts as miss; bad expire = ignore
+    if (!info) return;
+    if (info.isGood && (info.itemType === 'good' || info.itemType === 'fakeGood')) {
+      addMiss('miss_expire');
+      updateCombo(false);
+      setCoach('ช้าไปนิด! ระวังน้ำหมด 💧', 'sad');
+      setWater(water - 0.06);
+      Particles.scorePop && Particles.scorePop(null, null, '-1', 'MISS');
+      quest.onMiss && quest.onMiss({ type:'expire', item: info });
+    }
+  }
+
+  function judge(ch, ctx){
+    if (stopped) return { scoreDelta:0, good:true };
+    lastHitTs = now();
+
+    // shield timeout
+    if (shieldOn && now() > shieldUntil) setShield(false);
+
+    // classify
+    const itemType = safeStr(ctx.itemType || 'good');
+    const isBad = (itemType === 'bad');
+    const isPower = (itemType === 'power');
+
+    // handle power special
+    if (isPower) {
+      if (ch === '🛡️') {
+        setShield(true, 5200);
+        setCoach('รับโล่แล้ว! กันพลาดได้ชั่วคราว 🛡️', 'happy');
+        Particles.burstAt && Particles.burstAt(ctx.clientX, ctx.clientY, 'SHIELD');
+        emit('hha:log_event', { sessionId, game:'hydration', type:'hit', data:{ kind:'shield', perfect:!!ctx.hitPerfect } });
+        // score
+        const sd = scoreForHit({ ...ctx, ch });
+        score += sd;
+        updateCombo(true);
+        Particles.scorePop && Particles.scorePop(ctx.clientX, ctx.clientY, `+${sd}`, 'POWER');
+        hitFlash(true); setTimeout(()=>hitFlash(false), 90);
+        quest.onHit && quest.onHit({ kind:'shield', perfect:!!ctx.hitPerfect });
+        return { scoreDelta: sd, good:true };
+      }
+
+      if (ch === '⭐') {
+        // score burst
+        const sd = scoreForHit({ ...ctx, ch });
+        score += sd;
+        updateCombo(true);
+        setWater(water + 0.08);
+        Particles.burstAt && Particles.burstAt(ctx.clientX, ctx.clientY, 'STAR');
+        Particles.scorePop && Particles.scorePop(ctx.clientX, ctx.clientY, `+${sd}`, 'STAR');
+        setCoach('สุดยอด! โบนัสพลัง ⭐', 'happy');
+        emit('hha:log_event', { sessionId, game:'hydration', type:'hit', data:{ kind:'gold', perfect:!!ctx.hitPerfect } });
+        quest.onHit && quest.onHit({ kind:'star', perfect:!!ctx.hitPerfect });
+        hitFlash(true); setTimeout(()=>hitFlash(false), 90);
+        return { scoreDelta: sd, good:true };
+      }
+
+      if (ch === '💎') {
+        // diamond = big score + water stabilize
+        const sd = scoreForHit({ ...ctx, ch });
+        score += sd;
+        updateCombo(true);
+        // pull water towards balanced
+        const target = 0.5;
+        setWater(water + (target - water) * 0.35);
+        Particles.burstAt && Particles.burstAt(ctx.clientX, ctx.clientY, 'DIAMOND');
+        Particles.scorePop && Particles.scorePop(ctx.clientX, ctx.clientY, `+${sd}`, 'DIAMOND');
+        setCoach('เพชร! ดึงน้ำกลับสู่สมดุล 💎', 'happy');
+        emit('hha:log_event', { sessionId, game:'hydration', type:'hit', data:{ kind:'diamond', perfect:!!ctx.hitPerfect } });
+        quest.onHit && quest.onHit({ kind:'diamond', perfect:!!ctx.hitPerfect });
+        hitFlash(true); setTimeout(()=>hitFlash(false), 90);
+        return { scoreDelta: sd, good:true };
+      }
+    }
+
+    // bad hit
+    if (isBad) {
+      if (shieldOn) {
+        // blocked: no miss
+        Particles.scorePop && Particles.scorePop(ctx.clientX, ctx.clientY, 'BLOCK', 'SHIELD');
+        Particles.burstAt && Particles.burstAt(ctx.clientX, ctx.clientY, 'BLOCK');
+        emit('hha:log_event', { sessionId, game:'hydration', type:'shield_block', data:{ kind:'junk' } });
+        setCoach('โล่กันไว้! ดีมาก 🛡️', 'happy');
+        // tiny fever drop only
+        fever = clamp01(fever - 0.04);
+        FeverUI.set && FeverUI.set(fever);
+        hitFlash(true); setTimeout(()=>hitFlash(false), 80);
+        quest.onBlock && quest.onBlock({ kind:'junk' });
+        return { scoreDelta: 0, good:true };
+      }
+
+      const sd = scoreForHit(ctx);
+      score += sd;
+      updateCombo(false);
+      addMiss('miss_junk');
+      setWater(water - 0.10);
+      setCoach('โอ๊ะ! เครื่องดื่มหวาน/ขยะ 😵‍💫', 'sad');
+      Particles.burstAt && Particles.burstAt(ctx.clientX, ctx.clientY, 'JUNK');
+      Particles.scorePop && Particles.scorePop(ctx.clientX, ctx.clientY, String(sd), 'JUNK');
+      emit('hha:log_event', { sessionId, game:'hydration', type:'hit', data:{ kind:'junk', perfect:!!ctx.hitPerfect } });
+      hitFlash(true); setTimeout(()=>hitFlash(false), 110);
+      quest.onHit && quest.onHit({ kind:'junk', perfect:!!ctx.hitPerfect });
+      return { scoreDelta: sd, good:false };
+    }
+
+    // good/fakeGood hit
+    const sd = scoreForHit({ ...ctx, ch });
+    score += sd;
+    updateCombo(true);
+
+    // water changes:
+    // good raises, fakeGood smaller, and if too high -> warn
+    if (itemType === 'fakeGood') setWater(water + 0.03);
+    else setWater(water + 0.06);
+
+    const pct = Math.round(water*100);
+    const zone = zoneFromPct(pct);
+
+    if (zone === 'HIGH') setCoach('น้ำเริ่มสูงไปนะ! ปรับให้สมดุล 💧⚖️', 'neutral');
+    else if (zone === 'LOW') setCoach('น้ำใกล้หมด! รีบเก็บน้ำดี 💧', 'sad');
+    else setCoach('ดีมาก! รักษาสมดุลไว้ 💧✨', 'happy');
+
+    Particles.burstAt && Particles.burstAt(ctx.clientX, ctx.clientY, ctx.hitPerfect ? 'PERFECT' : 'HIT');
+    Particles.scorePop && Particles.scorePop(ctx.clientX, ctx.clientY, `+${sd}`, ctx.hitPerfect ? 'PERFECT' : 'GOOD');
+
+    emit('hha:log_event', { sessionId, game:'hydration', type:'hit', data:{ kind:(itemType==='fakeGood'?'fakeGood':'good'), perfect:!!ctx.hitPerfect } });
+
+    hitFlash(true); setTimeout(()=>hitFlash(false), 90);
+
+    quest.onHit && quest.onHit({ kind:(itemType==='fakeGood'?'fakeGood':'good'), perfect:!!ctx.hitPerfect });
+
+    return { scoreDelta: sd, good:true };
+  }
+
+  // decorate target: add hover/float + emit spawn log + extra stamp ring
+  function decorateTarget(el, parts, data){
+    const kind =
+      (data.itemType === 'bad') ? 'junk' :
+      (data.itemType === 'power' && data.ch === '⭐') ? 'gold' :
+      (data.itemType === 'power' && data.ch === '💎') ? 'diamond' :
+      (data.itemType === 'power' && data.ch === '🛡️') ? 'shield' :
+      (data.itemType === 'fakeGood') ? 'fakeGood' : 'good';
+
+    emit('hha:log_event', { sessionId, game:'hydration', type:'spawn', data:{ kind } });
+
+    // micro-float
+    try{
+      el.animate([
+        { transform: 'translate(-50%, -50%) scale(1) translateY(0px)' },
+        { transform: 'translate(-50%, -50%) scale(1.03) translateY(-6px)' },
+        { transform: 'translate(-50%, -50%) scale(1) translateY(0px)' }
+      ], {
+        duration: 1100 + Math.random()*900,
+        iterations: Infinity,
+        easing: 'ease-in-out'
+      });
+    }catch{}
+  }
+
+  // difficulty knobs for hydration
+  const diffTable = {
+    easy:   { spawnInterval: 860, maxActive: 4, life: 2100, scale: 1.18 },
+    normal: { spawnInterval: 780, maxActive: 5, life: 1900, scale: 1.00 },
+    hard:   { spawnInterval: 650, maxActive: 6, life: 1700, scale: 0.92 },
+  };
+
+  // storm scaling by fever/combo (play only)
+  function spawnMul(){
+    if (runMode === 'research') return 1;
+    const feverMul = 1 - (fever * 0.22);            // fever makes faster
+    const comboMul = 1 - Math.min(0.18, combo * 0.004); // high combo => slightly faster
+    return clamp(feverMul * comboMul, 0.55, 1.25);
+  }
+
+  // start spawner
+  const engine = await factoryBoot({
+    modeKey: 'hydration',
+    difficulty,
+    duration,
+    allowAdaptive,
+    seed,
+
+    // hosts
+    spawnHost: layer,
+    boundsHost: bounds,
+
+    // EXCLUSION: HUD + end screen + crosshair already auto-collected in mode-factory,
+    // but we keep it explicit for safety if you add new panels later.
+    excludeSelectors: [
+      '.hha-hud',
+      '#hha-score-card',
+      '#hha-water-header',
+      '#hha-fever-card',
+      '#hha-quest',
+      '#hha-coach',
+      '#hvr-end',
+      '#hvr-crosshair'
+    ],
+
+    // pools
+    pools: POOLS,
+    goodRate: 0.68,
+    powerups: POWERUPS,
+    powerRate: 0.16,
+    powerEvery: 6,
+
+    // trick (fake good)
+    trickRate: 0.08,
+
+    // spread (แก้เป้าที่เดิม)
+    spawnAroundCrosshair: false,
+    spawnStrategy: 'grid9',
+    minSeparation: 1.06,
+    maxSpawnTries: 16,
+    spawnRadiusX: 0.92,
+    spawnRadiusY: 0.92,
+
+    // life adapt by storm
+    spawnIntervalMul: spawnMul,
+
+    judge,
+    onExpire,
+    decorateTarget
+  });
+
+  // QUEST bind
+  quest.bind({
+    onQuestUpdate: (d) => emit('quest:update', d),
+    onGoalClear: (d) => Particles.celebrate && Particles.celebrate('GOAL', d && d.title ? d.title : 'GOAL!'),
+    onMiniClear: (d) => Particles.celebrate && Particles.celebrate('MINI', d && d.title ? d.title : 'MINI!'),
+    onAllClear:  (d) => Particles.celebrate && Particles.celebrate('ALL', 'ALL CLEAR!')
+  });
+
+  // listen time ticks (from mode-factory)
+  const onTime = (e)=>{
+    if (stopped) return;
+    const sec = (e && e.detail && typeof e.detail.sec === 'number') ? e.detail.sec : null;
+    if (sec == null) return;
+    lastSecLeft = sec;
+    emit('hha:time', { sec });
+
+    // danger cues
+    if (sec <= 10) dangerVignette(true);
+    else dangerVignette(false);
+
+    if (sec === 10) {
+      setCoach('ใกล้หมดเวลา! เร่งมืออีกนิด ⏱️', 'neutral');
+      Particles.stamp && Particles.stamp('10s!');
+    }
+  };
+  ROOT.addEventListener('hha:time', onTime);
+
+  // low water warning cadence
+  let lastWarnTs = 0;
+  const warnLoop = ()=>{
+    if (stopped) return;
+    if (water <= 0.18 && now() - lastWarnTs > 1800){
+      lastWarnTs = now();
+      Particles.stamp && Particles.stamp('LOW!');
+      setCoach('น้ำต่ำ! รีบเก็บน้ำดี 💧', 'sad');
+    }
+    ROOT.requestAnimationFrame(warnLoop);
+  };
+  ROOT.requestAnimationFrame(warnLoop);
+
+  function endGame(reason='timeout'){
+    if (stopped) return;
+    stopped = true;
+
+    try{ ROOT.removeEventListener('hha:time', onTime); }catch{}
+
+    try{ engine && engine.stop && engine.stop(); }catch{}
+    try{ emit('hha:stop', { reason }); }catch{}
+
+    const goals = quest.getGoalsState();
+    const minis = quest.getMiniState();
+
+    const rank = rankFromScore(score, misses, comboMax);
+
+    const summary = {
+      sessionId,
+      game: 'hydration',
+      mode: runMode,
+      diff: difficulty,
+      seed,
+
+      scoreFinal: Math.round(score),
+      comboMax: Math.round(comboMax),
+      misses: Math.round(misses),
+
+      goalsCleared: goals.cleared,
+      goalsTotal: goals.total,
+      miniCleared: minis.cleared,
+      miniTotal: minis.total,
+
+      // optional metrics
+      waterEndPct: Math.round(water*100),
+      feverEndPct: Math.round(fever*100),
+
+      rank,
+      reason
+    };
+
+    // emit end for HUD + logger
+    emit('hha:end', summary);
+
+    // show end overlay
+    showEndSummary(summary);
+
+    // final celebration
+    Particles.celebrate && Particles.celebrate('END', `RANK ${rank}`);
+    Particles.stamp && Particles.stamp(`RANK ${rank}`);
+
+    return summary;
+  }
+
+  // If mode-factory stops by itself at time=0, we call end too.
+  // We rely on our onTime handler (sec -> 0) to stop everything:
+  const endWatcher = (e)=>{
+    const sec = e && e.detail ? e.detail.sec : null;
+    if (sec === 0) {
+      ROOT.removeEventListener('hha:time', endWatcher);
+      endGame('timeout');
+    }
+  };
+  ROOT.addEventListener('hha:time', endWatcher);
+
+  // Crosshair shoot on single tap (optional)
+  bounds.addEventListener('click', (ev)=>{
+    // if user clicks a target directly, target handler already consumes
+    // this is for "tap-shoot" feeling at crosshair
+    if (stopped) return;
+    if (engine && engine.shootCrosshair && engine.shootCrosshair()){
+      // tiny feedback
+      hitFlash(true); setTimeout(()=>hitFlash(false), 60);
+    }
+  }, { passive:true });
+
+  // expose API
+  return {
+    stop(){
+      endGame('manual_stop');
+    }
+  };
 }
 
 export default { bootHydration };
