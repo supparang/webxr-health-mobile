@@ -1,246 +1,240 @@
 // === /herohealth/vr-goodjunk/quest-director.js ===
-// GoodJunk Quest Director — PRODUCTION COMPAT (Dual-shape quest:update)
-// Emits:
-//  - quest:miniStart, quest:goalClear, quest:miniClear, quest:allGoalsClear
-//  - quest:update  ✅ emits BOTH shapes (legacy flat + new nested)
-// Works with UI/HUD that expects either shape.
-// ✅ NEW: throttle quest:update via opts.emitMs (default 120ms) to save mobile performance
-// ✅ PATCH C: goal/mini output includes target+max + done ; add getSummary() for grade/questsPct
+// Quest Director (Goals sequential + Minis chain) for GoodJunk
+// ✅ NEW: getUIState() -> ใช้โชว์ Goal/Mini บน HUD
+// ✅ NEW: onUpdate callback -> ให้ goodjunk.safe.js ยิง quest:update ได้ง่าย
 
 'use strict';
 
-const clamp01 = x => Math.max(0, Math.min(1, Number(x || 0)));
-const nowMs = () => (performance && performance.now ? performance.now() : Date.now());
-
-const emit = (n, d) => {
-  try { window.dispatchEvent(new CustomEvent(n, { detail: d })); } catch (_) {}
-};
-
-function targetOf(def, diff) {
-  const d = String(diff || 'normal').toLowerCase();
-  const t1 = def && def.targetByDiff;
-  if (t1 && (t1[d] != null || t1.normal != null)) return Number(t1[d] ?? t1.normal ?? 0) || 0;
-
-  const t2 = def && def.byDiff;
-  if (t2 && (t2[d] != null || t2.normal != null)) return Number(t2[d] ?? t2.normal ?? Object.values(t2)[0] ?? 0) || 0;
-
-  if (def && def.value != null) return Number(def.value) || 0;
-  return 0;
-}
-
-function normalizeDef(def) {
-  if (!def) return null;
-
-  if (typeof def.eval === 'function' && typeof def.pass === 'function') {
-    return {
-      id: def.id || def.key || def.label || def.title || '',
-      label: def.label || def.title || def.id || 'Quest',
-      eval: def.eval,
-      pass: def.pass,
-      targetByDiff: def.targetByDiff,
-      byDiff: def.byDiff,
-      value: def.value
-    };
-  }
-
-  const type = String(def.type || '').trim();
-  const label = def.label || def.title || def.id || 'Quest';
-  const id = def.id || def.key || label;
-
-  const evalFn = (s) => {
-    if (!s) return 0;
-    if (type === 'scoreAtLeast') return (s.score | 0);
-    if (type === 'goodHitsAtLeast') return (s.goodHits | 0);
-    if (type === 'streakGood') return (s.streakGood | 0);
-    if (type === 'goldHitOnce') return (s.goldHitsThisMini ? 1 : 0);
-    if (type === 'blocksAtLeast') return (s.blocks | 0);
-    if (type) return (s[type] | 0);
-    return 0;
-  };
-
-  const passFn = (v, t) => (Number(v) || 0) >= (Number(t) || 0);
-
-  return { id, label, eval: evalFn, pass: passFn, targetByDiff: def.targetByDiff, byDiff: def.byDiff, value: def.value };
-}
-
 export function makeQuestDirector(opts = {}) {
   const diff = String(opts.diff || 'normal').toLowerCase();
+  const goalDefs = Array.isArray(opts.goalDefs) ? opts.goalDefs : [];
+  const miniDefs = Array.isArray(opts.miniDefs) ? opts.miniDefs : [];
 
-  const goalsIn = (opts.goals || opts.goalDefs || []);
-  const minisIn = (opts.minis || opts.miniDefs || []);
+  const maxGoals = Math.max(1, opts.maxGoals || 2);
+  const maxMini  = Math.max(1, opts.maxMini  || 999);
 
-  const goals = (Array.isArray(goalsIn) ? goalsIn : []).map(normalizeDef).filter(Boolean);
-  const minis = (Array.isArray(minisIn) ? minisIn : []).map(normalizeDef).filter(Boolean);
+  const onUpdate = (typeof opts.onUpdate === 'function') ? opts.onUpdate : null;
 
-  const S = {
+  const stateQ = {
+    goalsAll: goalDefs.slice(0),
+    minisAll: miniDefs.slice(0),
+
     goalIndex: 0,
+    goalsTotal: Math.min(maxGoals, goalDefs.length || maxGoals),
+
+    miniCount: 0,
+    minisTotal: Math.min(maxMini, miniDefs.length || maxMini),
+
     activeGoal: null,
     activeMini: null,
-    minisCleared: 0,
-    miniCount: 0
+
+    started: false,
+    lastUpdateTs: 0
   };
 
-  // ✅ Throttle
-  const EMIT_MS = (opts.emitMs != null) ? Math.max(16, Number(opts.emitMs) || 120) : 120;
-  let lastEmitAt = 0;
+  // ----- Helpers -----
+  function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  function startGoal() {
-    S.activeGoal = goals[S.goalIndex] || null;
+  function pickGoal(i){
+    const def = stateQ.goalsAll[i] || stateQ.goalsAll[0] || null;
+    if(!def) return null;
+    const t = normalizeGoal(def);
+    return t;
   }
 
-  function startMini() {
-    if (!minis.length) { S.activeMini = null; return; }
-    S.activeMini = minis[S.miniCount % minis.length] || null;
-    S.miniCount++;
-    emit('quest:miniStart', { id: S.activeMini?.id, title: S.activeMini?.label });
+  function pickMini(i){
+    const def = stateQ.minisAll[i] || stateQ.minisAll[0] || null;
+    if(!def) return null;
+    const t = normalizeMini(def);
+    return t;
   }
 
-  // ✅ PATCH: include target+max + done (consistent with engine/HUD)
-  function computeGoalOut(s) {
-    const g = S.activeGoal;
-    if (!g) return null;
-    const t = Math.max(1, targetOf(g, diff));
-    const v = Number(g.eval(s)) || 0;
-    const done = !!g.pass(v, t, s);
+  function normalizeGoal(def){
+    // ยืดหยุ่น: รับ {title,target,cur,kind,...} หรือ {name,count,...}
+    const title  = String(def.title ?? def.name ?? 'Goal');
+    const target = Math.max(1, Number(def.target ?? def.max ?? def.count ?? 1) || 1);
+    const kind   = String(def.kind ?? def.type ?? 'generic');
     return {
-      title: g.label,
-      cur: v,
-      target: t,
-      max: t,
-      pct: clamp01(v / t),
-      done
+      ...def,
+      title,
+      kind,
+      target,
+      cur: clamp(def.cur ?? 0, 0, target),
+      done: false
     };
   }
 
-  function computeMiniOut(s) {
-    const m = S.activeMini;
-    if (!m) return null;
-    const t = Math.max(1, targetOf(m, diff));
-    const v = Number(m.eval(s)) || 0;
-    const done = !!m.pass(v, t, s);
+  function normalizeMini(def){
+    const title  = String(def.title ?? def.name ?? 'Mini');
+    const target = Math.max(1, Number(def.target ?? def.max ?? def.count ?? 1) || 1);
+    const kind   = String(def.kind ?? def.type ?? 'generic');
+    const timeLimitSec = (def.timeLimitSec != null) ? Math.max(0, Number(def.timeLimitSec)||0) : null;
     return {
-      title: m.label,
-      cur: v,
-      target: t,
-      max: t,
-      pct: clamp01(v / t),
-      done
+      ...def,
+      title,
+      kind,
+      target,
+      cur: clamp(def.cur ?? 0, 0, target),
+      done: false,
+      timeLimitSec,
+      startedAt: null,
+      tLeft: null
     };
   }
 
-  function emitUpdate(s) {
-    const goalOut = computeGoalOut(s);
-    const miniOut = computeMiniOut(s);
-
-    const meta = {
-      goalsCleared: (S.goalIndex | 0),
-      goalIndex: (goals.length | 0),
-      minisCleared: (S.minisCleared | 0),
-      miniCount: (S.miniCount | 0)
-    };
-
-    // ✅ New nested shape
-    const nested = { goal: goalOut, mini: miniOut, meta, questOk: true };
-
-    // ✅ Legacy flat shape
-    const flat = {
-      goalTitle: goalOut?.title || '',
-      goalCur: (goalOut?.cur ?? 0) | 0,
-      goalMax: (goalOut?.max ?? 1) | 0,
-      goalTarget: (goalOut?.target ?? goalOut?.max ?? 1) | 0,
-      goalPct: clamp01(goalOut?.pct ?? 0),
-
-      miniTitle: miniOut?.title || '',
-      miniCur: (miniOut?.cur ?? 0) | 0,
-      miniMax: (miniOut?.max ?? 1) | 0,
-      miniTarget: (miniOut?.target ?? miniOut?.max ?? 1) | 0,
-      miniPct: clamp01(miniOut?.pct ?? 0),
-
-      goalsCleared: meta.goalsCleared,
-      goalsTotal: meta.goalIndex,
-      minisCleared: meta.minisCleared,
-      miniCount: meta.miniCount,
-
-      questOk: true
-    };
-
-    emit('quest:update', Object.assign({}, flat, nested));
-  }
-
-  function tick(s) {
-    if (!goals.length && !minis.length) {
-      emit('quest:update', {
-        goal: null,
-        mini: null,
-        meta: { goalsCleared: 0, goalIndex: 0, minisCleared: 0, miniCount: 0 },
-        questOk: false
-      });
-      return;
+  function fireUpdate(reason='update'){
+    stateQ.lastUpdateTs = Date.now();
+    if(onUpdate) {
+      try { onUpdate(getUIState(reason)); } catch(_) {}
     }
+  }
 
-    if (S.activeGoal) {
-      const t = Math.max(1, targetOf(S.activeGoal, diff));
-      const v = Number(S.activeGoal.eval(s)) || 0;
-      if (S.activeGoal.pass(v, t, s)) {
-        emit('quest:goalClear', { title: S.activeGoal.label, id: S.activeGoal.id });
-        S.goalIndex++;
-        startGoal();
-        if (!S.activeGoal) emit('quest:allGoalsClear', {});
+  // ----- Public: UI state -----
+  function getUIState(reason='state'){
+    const g = stateQ.activeGoal;
+    const m = stateQ.activeMini;
+
+    return {
+      reason,
+
+      // goal UI
+      goalTitle: g ? `Goal: ${g.title}` : 'Goal: —',
+      goalCur:   g ? (g.cur|0) : 0,
+      goalMax:   g ? (g.target|0) : 0,
+
+      // mini UI
+      miniTitle: m ? `Mini: ${m.title}` : 'Mini: —',
+      miniCur:   m ? (m.cur|0) : 0,
+      miniMax:   m ? (m.target|0) : 0,
+      miniTLeft: (m && m.tLeft != null) ? m.tLeft : null,
+
+      // meta
+      goalIndex: Math.min(stateQ.goalIndex + 1, stateQ.goalsTotal),
+      goalsTotal: stateQ.goalsTotal,
+      miniIndex: Math.min(stateQ.miniCount + (m?1:0), stateQ.minisTotal),
+      minisTotal: stateQ.minisTotal,
+
+      diff
+    };
+  }
+
+  // ----- Lifecycle -----
+  function start(){
+    if(stateQ.started) return;
+    stateQ.started = true;
+    stateQ.goalIndex = 0;
+    stateQ.miniCount = 0;
+
+    stateQ.activeGoal = pickGoal(stateQ.goalIndex);
+    stateQ.activeMini = pickMini(0);
+    if(stateQ.activeMini){
+      stateQ.activeMini.startedAt = Date.now();
+      if(stateQ.activeMini.timeLimitSec != null){
+        stateQ.activeMini.tLeft = Math.ceil(stateQ.activeMini.timeLimitSec);
       }
     }
+    fireUpdate('start');
+  }
 
-    if (S.activeMini) {
-      const t = Math.max(1, targetOf(S.activeMini, diff));
-      const v = Number(S.activeMini.eval(s)) || 0;
-      if (S.activeMini.pass(v, t, s)) {
-        S.minisCleared++;
-        emit('quest:miniClear', { title: S.activeMini.label, id: S.activeMini.id, minisCleared: S.minisCleared | 0 });
-        startMini();
+  // ----- Tick (for mini timer) -----
+  function tick(){
+    const m = stateQ.activeMini;
+    if(!m) return;
+
+    if(m.timeLimitSec != null && m.startedAt != null && !m.done){
+      const t = (Date.now() - m.startedAt)/1000;
+      const left = Math.max(0, m.timeLimitSec - t);
+      const newLeft = Math.ceil(left);
+      if(m.tLeft !== newLeft){
+        m.tLeft = newLeft;
+        fireUpdate('mini-tick');
+      }
+      // time out -> fail mini and advance
+      if(left <= 0){
+        failMini('timeout');
       }
     }
+  }
 
-    // ✅ throttle quest:update (production-friendly)
-    const tnow = nowMs();
-    if ((tnow - lastEmitAt) >= EMIT_MS) {
-      lastEmitAt = tnow;
-      emitUpdate(s);
+  // ----- Progress APIs -----
+  function addGoalProgress(n=1){
+    const g = stateQ.activeGoal;
+    if(!g || g.done) return { done:false };
+    g.cur = clamp(g.cur + (Number(n)||0), 0, g.target);
+    if(g.cur >= g.target){
+      g.done = true;
+      fireUpdate('goal-complete');
+      return { done:true };
     }
+    fireUpdate('goal-progress');
+    return { done:false };
   }
 
-  function start(s) {
-    S.goalIndex = 0;
-    S.minisCleared = 0;
-    S.miniCount = 0;
-    startGoal();
-    startMini();
-
-    // ✅ start should always update immediately
-    lastEmitAt = 0;
-    emitUpdate(s);
+  function addMiniProgress(n=1){
+    const m = stateQ.activeMini;
+    if(!m || m.done) return { done:false };
+    m.cur = clamp(m.cur + (Number(n)||0), 0, m.target);
+    if(m.cur >= m.target){
+      m.done = true;
+      fireUpdate('mini-complete');
+      return { done:true };
+    }
+    fireUpdate('mini-progress');
+    return { done:false };
   }
 
-  function getActive() {
-    const s = window.__GJ_QSTATE__ || {};
-    const goalOut = computeGoalOut(s);
-    const miniOut = computeMiniOut(s);
-    return {
-      goal: goalOut,
-      mini: miniOut,
-      meta: { goalsCleared: S.goalIndex | 0, goalIndex: goals.length | 0, minisCleared: S.minisCleared | 0, miniCount: S.miniCount | 0 }
-    };
+  function nextGoal(){
+    stateQ.goalIndex += 1;
+    if(stateQ.goalIndex >= stateQ.goalsTotal){
+      stateQ.activeGoal = null;
+      fireUpdate('all-goals-done');
+      return { ended:true };
+    }
+    stateQ.activeGoal = pickGoal(stateQ.goalIndex);
+    fireUpdate('next-goal');
+    return { ended:false };
   }
 
-  // ✅ PATCH: summary for grade/questsPct (cap minis to make % meaningful)
-  function getSummary(){
-    const goalsTotal = goals.length | 0;
-    const goalsCleared = Math.min(S.goalIndex|0, goalsTotal);
-
-    const MINI_CAP = 7; // ใช้ฐาน % mini (เช่น 7 mini แรก)
-    const miniTotal = Math.max(1, MINI_CAP);
-    const miniCleared = Math.min(S.minisCleared|0, MINI_CAP);
-
-    return { goalsCleared, goalsTotal, miniCleared, miniTotal };
+  function nextMini(){
+    stateQ.miniCount += 1;
+    if(stateQ.miniCount >= stateQ.minisTotal){
+      stateQ.activeMini = null;
+      fireUpdate('all-minis-done');
+      return { ended:true };
+    }
+    stateQ.activeMini = pickMini(stateQ.miniCount);
+    if(stateQ.activeMini){
+      stateQ.activeMini.startedAt = Date.now();
+      if(stateQ.activeMini.timeLimitSec != null){
+        stateQ.activeMini.tLeft = Math.ceil(stateQ.activeMini.timeLimitSec);
+      }
+    }
+    fireUpdate('next-mini');
+    return { ended:false };
   }
 
-  return { start, tick, getActive, getSummary };
+  function failMini(reason='fail'){
+    // mini fail -> advance to next mini (ยังโชว์ว่ามีการเปลี่ยน)
+    const m = stateQ.activeMini;
+    if(m && !m.done){
+      m.done = true;
+    }
+    fireUpdate('mini-fail:'+reason);
+    return nextMini();
+  }
+
+  // ----- Exposed -----
+  return {
+    start,
+    tick,
+
+    addGoalProgress,
+    addMiniProgress,
+
+    nextGoal,
+    nextMini,
+    failMini,
+
+    getUIState
+  };
 }
