@@ -1,11 +1,12 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — ALL-IN CSS (PRODUCTION)
+Food Groups VR — ALL-IN CSS (LATEST)
 ✅ HUD / Quest / Power bar
-✅ Targets via CSS vars --x --y --s (px recommended)
+✅ Targets via CSS vars --x --y --s
 ✅ Lock ring progress/charge
 ✅ Panic / Stun / Swap flash
 ✅ Boss bar + rage glow + decoy style
 ✅ Mobile safe-area + safe-zone
+✅ FX: score pop / burst / afterimage trail
 */
 
 :root{
@@ -21,6 +22,7 @@ Food Groups VR — ALL-IN CSS (PRODUCTION)
   --cyan:#22d3ee;
   --violet:#a78bfa;
 
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
@@ -36,6 +38,7 @@ html,body{
 }
 a-scene{ position:fixed; inset:0; z-index:0; }
 
+/* Gameplay layer on top of scene */
 .fg-layer{
   position:fixed; inset:0;
   z-index:5;
@@ -46,6 +49,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 .fg-target{
   position:absolute;
   left:0; top:0;
+
   transform:
     translate3d(var(--x, 50vw), var(--y, 52vh), 0)
     translate(-50%,-50%)
@@ -59,7 +63,6 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   background:rgba(2,6,23,.08);
   border:1px solid rgba(148,163,184,.10);
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 
   box-shadow:
     0 12px 40px rgba(0,0,0,.40),
@@ -71,6 +74,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   opacity:0;
   will-change: transform, opacity;
 }
+
 .fg-target.show{ opacity:1; }
 .fg-target.spawn{ animation: popIn .18s ease-out both; }
 .fg-target.hit{ animation: popOut .18s ease-in both; }
@@ -96,6 +100,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
     0 0 0 1px rgba(34,197,94,.16),
     inset 0 0 0 1px rgba(255,255,255,.06);
 }
+
 .fg-junk{
   border-color: rgba(239,68,68,.22);
   box-shadow:
@@ -103,6 +108,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
     0 0 0 1px rgba(239,68,68,.16),
     inset 0 0 0 1px rgba(255,255,255,.06);
 }
+
 .fg-boss{
   border-color: rgba(245,158,11,.28);
   box-shadow:
@@ -110,6 +116,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
     0 0 0 1px rgba(245,158,11,.18),
     inset 0 0 0 1px rgba(255,255,255,.06);
 }
+
 .fg-boss .bossbar{
   position:absolute;
   left:12px; right:12px; bottom:10px;
@@ -126,12 +133,14 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   background:linear-gradient(90deg, rgba(245,158,11,.95), rgba(239,68,68,.95));
   transition: width .12s linear;
 }
+
 .fg-boss.rage{ animation: ragePulse 1.1s ease-in-out infinite; }
 @keyframes ragePulse{
   0%,100%{ filter: drop-shadow(0 0 0 rgba(245,158,11,0)); }
   50%{ filter: drop-shadow(0 0 12px rgba(245,158,11,.55)); }
 }
 
+/* Decoy (looks good but trap) */
 .fg-decoy{
   border-color: rgba(34,211,238,.22);
   box-shadow:
@@ -149,10 +158,11 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   background:rgba(34,211,238,.16);
   border:1px solid rgba(34,211,238,.22);
   color:rgba(229,231,235,.9);
-  font-weight:900;
+  font-weight:700;
   font-size:14px;
 }
 
+/* Lock highlight */
 .fg-target.lock{
   outline: 3px solid rgba(34,211,238,.35);
   outline-offset: 2px;
@@ -177,21 +187,21 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   padding:10px 12px;
   box-shadow: 0 18px 60px rgba(0,0,0,.35);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 .hud-left .hud-row{
   display:flex; align-items:center; justify-content:space-between;
   padding:2px 0;
 }
 .hud-title{ color:var(--muted); font-size:12px; }
-.hud-val{ font-weight:900; font-size:16px; }
+.hud-val{ font-weight:800; font-size:16px; }
+
 .hud-mid .hud-group-row{
   display:flex; align-items:center; justify-content:space-between;
   gap:8px;
 }
-.hud-group{ font-weight:1100; letter-spacing:.2px; }
+.hud-group{ font-weight:900; letter-spacing:.2px; }
 .hud-timer{
-  font-weight:1100;
+  font-weight:900;
   padding:6px 10px;
   border-radius:999px;
   background:rgba(148,163,184,.10);
@@ -238,7 +248,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 }
 .q-badge{
   font-size:12px;
-  font-weight:1100;
+  font-weight:900;
   padding:4px 10px;
   border-radius:999px;
   background:rgba(34,197,94,.12);
@@ -260,13 +270,13 @@ a-scene{ position:fixed; inset:0; z-index:0; }
 .q-num{
   font-variant-numeric: tabular-nums;
   color:rgba(229,231,235,.86);
-  font-weight:900;
+  font-weight:800;
 }
 
 /* Rank */
 .rank-box{ display:flex; align-items:center; justify-content:space-between; }
 .rank-title{ color:var(--muted); font-size:12px; }
-.rank-grade{ font-weight:1200; font-size:28px; letter-spacing:1px; }
+.rank-grade{ font-weight:1000; font-size:28px; letter-spacing:1px; }
 .rank-sub{
   margin-top:6px;
   display:flex;
@@ -332,11 +342,10 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   padding:10px 14px;
   box-shadow: 0 18px 60px rgba(0,0,0,.35);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   min-width:260px;
   text-align:center;
 }
-.group-banner-text{ font-weight:1200; letter-spacing:.3px; }
+.group-banner-text{ font-weight:1000; letter-spacing:.3px; }
 .group-banner-sub{
   margin-top:4px;
   color:rgba(229,231,235,.78);
@@ -366,17 +375,16 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   text-align:center;
   box-shadow: 0 18px 60px rgba(0,0,0,.45);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 .stun-title{
-  font-weight:1200;
+  font-weight:1000;
   font-size:26px;
   letter-spacing:.8px;
 }
 .stun-sub{
   margin-top:6px;
   color:rgba(229,231,235,.80);
-  font-weight:900;
+  font-weight:700;
 }
 .stun-overlay.pop{ animation: stunPop .18s ease-out both; }
 @keyframes stunPop{ from{ opacity:0; transform: scale(.98); } to{ opacity:1; transform: scale(1); } }
@@ -399,9 +407,8 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   padding:18px 18px 16px;
   box-shadow: 0 24px 80px rgba(0,0,0,.55);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
-.start-title{ font-weight:1200; letter-spacing:.4px; font-size:24px; }
+.start-title{ font-weight:1000; letter-spacing:.4px; font-size:24px; }
 .start-sub{
   margin-top:8px;
   color:rgba(229,231,235,.82);
@@ -421,7 +428,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   border:1px solid rgba(148,163,184,.16);
   color:rgba(229,231,235,.82);
   font-size:12px;
-  font-weight:900;
+  font-weight:800;
 }
 .start-actions{
   margin-top:14px;
@@ -436,7 +443,7 @@ a-scene{ position:fixed; inset:0; z-index:0; }
   border:1px solid rgba(148,163,184,.22);
   background:rgba(15,23,42,.55);
   color:rgba(229,231,235,.92);
-  font-weight:1100;
+  font-weight:900;
   cursor:pointer;
 }
 .btn.primary{
@@ -476,6 +483,94 @@ html.swapflash::before{
   box-shadow: inset 0 0 0 3px rgba(34,211,238,.18), inset 0 0 70px rgba(34,211,238,.10);
 }
 
+/* ===== Groups FX ===== */
+.fx-pop{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  font-weight:1200;
+  font-size:18px;
+  letter-spacing:.2px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.72);
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+  animation: fxPop 900ms ease-out both;
+  will-change: transform, opacity, filter;
+}
+.fx-pop.good{ border-color: rgba(34,197,94,.28); }
+.fx-pop.bad{  border-color: rgba(239,68,68,.28); }
+.fx-pop.boss{ border-color: rgba(245,158,11,.30); }
+.fx-pop.decoy{border-color: rgba(34,211,238,.30); }
+
+@keyframes fxPop{
+  0%{ opacity:0; transform:translate(-50%,-50%) translateY(10px) scale(.96); filter:blur(1px); }
+  15%{ opacity:1; filter:blur(0); }
+  100%{ opacity:0; transform:translate(-50%,-50%) translateY(-28px) scale(1.02); }
+}
+
+.fx-burst{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  width:12px; height:12px;
+  border-radius:999px;
+  background:rgba(229,231,235,.85);
+  opacity:.9;
+  animation: fxBurst 650ms ease-out both;
+}
+.fx-burst.good{ background: rgba(34,197,94,.95); }
+.fx-burst.bad{  background: rgba(239,68,68,.95); }
+.fx-burst.boss{ background: rgba(245,158,11,.95); }
+.fx-burst.decoy{background: rgba(34,211,238,.95); }
+
+@keyframes fxBurst{
+  0%{ opacity:0; transform:translate(-50%,-50%) scale(.7); }
+  10%{ opacity:1; }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(1.6); }
+}
+
+.fx-shard{
+  position:absolute;
+  left:50%; top:50%;
+  width:6px; height:6px;
+  border-radius:999px;
+  background:rgba(229,231,235,.9);
+  transform:translate(-50%,-50%);
+  animation: fxShard 650ms ease-out both;
+}
+.fx-shard.good{ background: rgba(34,197,94,.95); }
+.fx-shard.bad{  background: rgba(239,68,68,.95); }
+.fx-shard.boss{ background: rgba(245,158,11,.95); }
+.fx-shard.decoy{background: rgba(34,211,238,.95); }
+
+@keyframes fxShard{
+  0%{ opacity:0; transform:translate(-50%,-50%) scale(.7); }
+  10%{ opacity:1; }
+  100%{
+    opacity:0;
+    transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.9);
+  }
+}
+
+.fx-trail{
+  position:absolute;
+  transform:translate(-50%,-50%);
+  font-size:56px;
+  opacity:.24;
+  filter: blur(.2px);
+  animation: fxTrail 420ms ease-out both;
+  will-change: transform, opacity;
+}
+@keyframes fxTrail{
+  0%{ opacity:.22; }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(1.08); }
+}
+
+/* Subtle VR-lag look */
+.fg-target.moving{
+  transition: transform 90ms ease-out;
+}
+
 /* Small screens */
 @media (max-width: 520px){
   .hud-top{ grid-template-columns: 1fr; }
@@ -488,6 +583,11 @@ html.swapflash::before{
     border-radius:22px;
   }
 
-  .group-banner{ min-width:220px; }
-  .lock-ring{ width:70px; height:70px; }
+  .group-banner{
+    min-width:220px;
+  }
+
+  .lock-ring{
+    width:70px; height:70px;
+  }
 }
