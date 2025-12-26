@@ -1,168 +1,367 @@
-// === /herohealth/vr-groups/groups-hud-quest.js ===
-// Food Groups VR — HUD Quest Binder (IIFE) — FIX-ALL
-// ✅ Always shows GOAL + MINI even if HTML missing
-// ✅ Listens quest:update emitted by groups-quests.js / GameEngine.js
-// ✅ Idempotent (กัน bind ซ้ำ)
-// ✅ Supports detail: {questOk, goal:{label,prog,target}, mini:{label,prog,target,tLeft}, groupLabel}
+// === /herohealth/vr-groups/groups-quests.js ===
+// Food Groups — Quest System (Goals + Minis) + Group label + Quest%
+// Classic script (no import/export) for groups-vr.html
+// ✅ emits: quest:update (questOk true), hha:rank (questsPct)
+// ✅ supports runMode: play/research, diff: easy/normal/hard, seed fix in research
 
-(function(){
+(function (root) {
   'use strict';
 
-  const doc = document;
-  if (!doc) return;
+  const W = root;
+  W.GroupsVR = W.GroupsVR || {};
 
-  const NS = (window.GroupsHUD = window.GroupsHUD || {});
-  if (NS.__questBound) return;
-  NS.__questBound = true;
-
-  function $(id){ return doc.getElementById(id); }
+  // ------------------ helpers ------------------
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function pct(prog,target){
-    const p = Number(prog)||0, t = Math.max(1, Number(target)||0);
-    return clamp(p/t, 0, 1);
+  function now(){ return (performance && performance.now) ? performance.now() : Date.now(); }
+
+  // small deterministic RNG (mulberry32-like)
+  function makeRng(seedStr){
+    let s = 0x9e3779b9;
+    const str = String(seedStr || '');
+    for (let i=0;i<str.length;i++){
+      s ^= (str.charCodeAt(i) + (s<<6) + (s>>2)) >>> 0;
+    }
+    return function(){
+      s |= 0; s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
 
-  // ---------- create UI if missing ----------
-  function ensureQuestPanel(){
-    let root = $('fg-questPanel');
-    if (root) return root;
-
-    root = doc.createElement('div');
-    root.id = 'fg-questPanel';
-    root.className = 'fg-questPanel';
-
-    // Minimal safe style inline (ไม่ต้องรอ css ก็เห็น)
-    Object.assign(root.style, {
-      position: 'fixed',
-      left: '12px',
-      bottom: '12px',
-      width: 'min(720px, calc(100vw - 24px))',
-      background: 'rgba(2,6,23,.58)',
-      border: '1px solid rgba(148,163,184,.18)',
-      borderRadius: '18px',
-      padding: '12px',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
-      color: '#e5e7eb',
-      zIndex: 50,
-      pointerEvents: 'none'
-    });
-
-    root.innerHTML = `
-      <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div id="fg-questGroupLabel" style="font-weight:700;opacity:.95">หมู่ปัจจุบัน: —</div>
-        <div id="fg-questWarn" style="font-size:12px;opacity:.8;display:none">⚠️ Quest not ready</div>
-      </div>
-
-      <div style="display:flex;gap:12px;flex-wrap:wrap">
-        <div style="flex:1;min-width:260px">
-          <div style="font-weight:800;letter-spacing:.5px;opacity:.9;margin-bottom:6px">GOAL</div>
-          <div id="fg-goalText" style="opacity:.92;margin-bottom:6px">—</div>
-          <div style="display:flex;gap:10px;align-items:center">
-            <div style="flex:1;height:10px;border-radius:999px;background:rgba(148,163,184,.16);overflow:hidden">
-              <div id="fg-goalBar" style="height:100%;width:0%;border-radius:999px;background:rgba(34,197,94,.95)"></div>
-            </div>
-            <div id="fg-goalCount" style="width:68px;text-align:right;opacity:.9">0/0</div>
-          </div>
-        </div>
-
-        <div style="flex:1;min-width:260px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-            <div style="font-weight:800;letter-spacing:.5px;opacity:.9">MINI</div>
-            <div id="fg-miniTimer" style="font-size:12px;opacity:.85"></div>
-          </div>
-          <div id="fg-miniText" style="opacity:.92;margin-bottom:6px">—</div>
-          <div style="display:flex;gap:10px;align-items:center">
-            <div style="flex:1;height:10px;border-radius:999px;background:rgba(148,163,184,.16);overflow:hidden">
-              <div id="fg-miniBar" style="height:100%;width:0%;border-radius:999px;background:rgba(59,130,246,.92)"></div>
-            </div>
-            <div id="fg-miniCount" style="width:68px;text-align:right;opacity:.9">0/0</div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    doc.body.appendChild(root);
-    return root;
+  function emit(name, detail){
+    try{ W.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
   }
 
-  function setTxt(id, t){
-    const el = $(id);
-    if (!el) return;
-    el.textContent = String(t == null ? '' : t);
-  }
-  function setBar(id, p){
-    const el = $(id);
-    if (!el) return;
-    el.style.width = Math.round(clamp(p,0,1)*100) + '%';
-  }
-  function show(id, on){
-    const el = $(id);
-    if (!el) return;
-    el.style.display = on ? '' : 'none';
-  }
+  // ------------------ quest defs ------------------
+  // NOTE: Groups = ยิงถูก “หมู่ปัจจุบัน” + เลี่ยง junk/ผิดหมู่ ให้ต่างจาก GoodJunk/Plate
 
-  // ---------- mapping (supports other HUD ids too) ----------
-  function applyQuestUpdate(d){
-    ensureQuestPanel();
+  const GOAL_DEFS = [
+    {
+      id:'g1',
+      label:'ยิงถูก “หมู่ปัจจุบัน” ให้ได้ 🎯',
+      targetByDiff:{ easy:18, normal:24, hard:30 },
+      eval:(S)=>S.correctHits|0,
+      pass:(v,t)=>v>=t
+    },
+    {
+      id:'g2',
+      label:'คอมโบสูงสุด 🔥',
+      targetByDiff:{ easy:6, normal:9, hard:12 },
+      eval:(S)=>S.comboMax|0,
+      pass:(v,t)=>v>=t
+    },
+    {
+      id:'g3',
+      label:'ความแม่น ≥ 70% ✅',
+      targetByDiff:{ easy:70, normal:75, hard:80 },
+      eval:(S)=>S.accuracy|0,
+      pass:(v,t)=>v>=t
+    }
+  ];
 
-    const questOk = !!(d && d.questOk);
-    const groupLabel = (d && d.groupLabel) ? String(d.groupLabel) : '';
+  // mini = ภารกิจสั้น ๆ เร้าใจ
+  const MINI_DEFS = [
+    {
+      id:'m1',
+      label:'Clean Streak ⚡ (ถูกหมู่ติดกัน)',
+      targetByDiff:{ easy:5, normal:7, hard:9 },
+      timeByDiff:{ easy:12, normal:11, hard:10 },
+      kind:'streak_correct'
+    },
+    {
+      id:'m2',
+      label:'No Wrong ❌ (ห้ามยิงผิดหมู่)',
+      targetByDiff:{ easy:10, normal:12, hard:14 },
+      timeByDiff:{ easy:14, normal:13, hard:12 },
+      kind:'avoid_wrong'
+    },
+    {
+      id:'m3',
+      label:'Anti-Junk 🚫 (ห้ามโดน junk)',
+      targetByDiff:{ easy:10, normal:12, hard:14 },
+      timeByDiff:{ easy:14, normal:13, hard:12 },
+      kind:'avoid_junk'
+    }
+  ];
 
-    show('fg-questWarn', !questOk);
-    setTxt('fg-questGroupLabel', groupLabel ? ('หมู่ปัจจุบัน: ' + groupLabel) : 'หมู่ปัจจุบัน: —');
+  // ------------------ factory ------------------
+  function createGroupsQuest(opts){
+    opts = opts || {};
+    const diff = String(opts.diff || 'normal').toLowerCase();
+    const runMode = String(opts.runMode || 'play').toLowerCase();
+    const seed = String(opts.seed || '');
 
-    const goal = d && d.goal ? d.goal : null;
-    const mini = d && d.mini ? d.mini : null;
+    // ✅ seed policy:
+    // - research: fix seed เสมอ
+    // - play: ถ้าไม่ส่ง seed มา ให้สุ่มตามเวลา
+    const finalSeed = (runMode === 'research')
+      ? (seed || 'HHA-GROUPS-RESEARCH-SEED')
+      : (seed || ('PLAY-' + Math.floor(Date.now()/1000)));
 
-    if (goal && goal.label){
-      setTxt('fg-goalText', goal.label);
-      setTxt('fg-goalCount', (goal.prog|0) + '/' + (goal.target|0));
-      setBar('fg-goalBar', pct(goal.prog, goal.target));
-    } else {
-      setTxt('fg-goalText', questOk ? '—' : '⚠️ ไม่พบ quest:update.goal');
-      setTxt('fg-goalCount', '0/0');
-      setBar('fg-goalBar', 0);
+    const rng = makeRng(finalSeed);
+
+    const state = {
+      diff, runMode, seed: finalSeed,
+
+      // main stats from engine
+      groupLabel: 'หมู่ ?',
+      correctHits: 0,
+      wrongHits: 0,
+      junkHits: 0,
+      totalShots: 0,
+      combo: 0,
+      comboMax: 0,
+      accuracy: 0,
+
+      // current goal / mini
+      goalIndex: 0,
+      activeGoal: null,
+
+      miniIndex: 0,
+      activeMini: null,
+      miniStartAt: 0,
+      miniTLeft: null,
+
+      questOk: false,
+      questsPassed: 0,
+      questsTotal: GOAL_DEFS.length + MINI_DEFS.length
+    };
+
+    function goalTarget(def){
+      const m = def.targetByDiff || {};
+      return (diff in m) ? (m[diff]|0) : (m.normal|0);
+    }
+    function miniTarget(def){
+      const m = def.targetByDiff || {};
+      return (diff in m) ? (m[diff]|0) : (m.normal|0);
+    }
+    function miniTime(def){
+      const m = def.timeByDiff || {};
+      return (diff in m) ? (m[diff]|0) : (m.normal|0);
     }
 
-    if (mini && mini.label){
-      setTxt('fg-miniText', mini.label);
+    function makeGoal(idx){
+      const def = GOAL_DEFS[idx] || GOAL_DEFS[0];
+      return {
+        id:def.id, label:def.label,
+        target: goalTarget(def),
+        prog: 0,
+        pass:false
+      };
+    }
 
-      if (typeof mini.tLeft === 'number'){
-        setTxt('fg-miniTimer', `⏱️ ${Math.max(0, mini.tLeft|0)}s`);
+    function pickMini(){
+      // research: fixed order
+      // play: seeded pseudo-random
+      let idx;
+      if (runMode === 'research'){
+        idx = state.miniIndex % MINI_DEFS.length;
       } else {
-        setTxt('fg-miniTimer', '');
+        idx = Math.floor(rng() * MINI_DEFS.length) % MINI_DEFS.length;
+      }
+      const def = MINI_DEFS[idx];
+      return {
+        id:def.id, label:def.label,
+        kind:def.kind,
+        target: miniTarget(def),
+        prog: 0,
+        tLimit: miniTime(def),
+        tLeft: miniTime(def),
+        fail:false,
+        pass:false
+      };
+    }
+
+    function computeAccuracy(){
+      const shots = Math.max(1, state.totalShots|0);
+      const good = state.correctHits|0;
+      state.accuracy = Math.round((good / shots) * 100);
+    }
+
+    function updateGoalProgress(){
+      const def = GOAL_DEFS[state.goalIndex] || GOAL_DEFS[0];
+      const t = goalTarget(def);
+      const v = def.eval(state)|0;
+      state.activeGoal.prog = v;
+      state.activeGoal.target = t;
+      state.activeGoal.pass = !!def.pass(v, t);
+    }
+
+    function updateMiniProgress(dtSec){
+      const m = state.activeMini;
+      if (!m) return;
+
+      // tick time
+      if (m.tLimit != null){
+        m.tLeft = Math.max(0, (m.tLeft||0) - (dtSec||0));
+        state.miniTLeft = Math.ceil(m.tLeft);
+        if (m.tLeft <= 0 && !m.pass){
+          m.fail = true;
+        }
       }
 
-      setTxt('fg-miniCount', (mini.prog|0) + '/' + (mini.target|0));
-      setBar('fg-miniBar', pct(mini.prog, mini.target));
-    } else {
-      setTxt('fg-miniText', questOk ? '—' : '⚠️ ไม่พบ quest:update.mini');
-      setTxt('fg-miniTimer', '');
-      setTxt('fg-miniCount', '0/0');
-      setBar('fg-miniBar', 0);
+      // pass check
+      if (!m.fail && (m.prog|0) >= (m.target|0)){
+        m.pass = true;
+      }
     }
 
-    // Compat mode: update HUD ids if exist (ไม่พังถ้าไม่มี)
-    try{
-      const compatGoalTitle = doc.querySelector('[data-hha-goal-title], #hud-goal-title, #goalTitle');
-      const compatGoalVal   = doc.querySelector('[data-hha-goal-val], #hud-goal-val, #goalVal');
-      const compatMiniTitle = doc.querySelector('[data-hha-mini-title], #hud-mini-title, #miniTitle');
-      const compatMiniVal   = doc.querySelector('[data-hha-mini-val], #hud-mini-val, #miniVal');
+    function emitQuestUpdate(){
+      const goal = state.activeGoal;
+      const mini = state.activeMini;
+      emit('quest:update', {
+        questOk: state.questOk,
+        groupLabel: state.groupLabel,
 
-      if (compatGoalTitle) compatGoalTitle.textContent = goal && goal.label ? goal.label : '—';
-      if (compatGoalVal)   compatGoalVal.textContent   = goal ? ((goal.prog|0)+'/'+(goal.target|0)) : '0/0';
-      if (compatMiniTitle) compatMiniTitle.textContent = mini && mini.label ? mini.label : '—';
-      if (compatMiniVal)   compatMiniVal.textContent   = mini ? ((mini.prog|0)+'/'+(mini.target|0)) : '0/0';
-    }catch(_){}
+        goal: goal ? {
+          id: goal.id, label: goal.label,
+          prog: goal.prog|0, target: goal.target|0,
+          pass: !!goal.pass
+        } : null,
+
+        mini: mini ? {
+          id: mini.id, label: mini.label,
+          prog: mini.prog|0, target: mini.target|0,
+          tLeft: (mini.tLeft != null) ? Math.ceil(mini.tLeft) : null,
+          pass: !!mini.pass,
+          fail: !!mini.fail
+        } : null
+      });
+    }
+
+    function emitQuestPct(){
+      const passed = state.questsPassed|0;
+      const total  = Math.max(1, state.questsTotal|0);
+      const pct = Math.round((passed / total) * 100);
+      emit('hha:rank', { questsPct: pct });
+    }
+
+    function start(){
+      state.questOk = true;
+      state.goalIndex = 0;
+      state.activeGoal = makeGoal(state.goalIndex);
+
+      state.miniIndex = 0;
+      state.activeMini = pickMini();
+      state.activeMini.tLeft = state.activeMini.tLimit;
+      state.miniStartAt = now();
+
+      emitQuestUpdate();
+      emitQuestPct();
+    }
+
+    function nextGoalIfPassed(){
+      if (!state.activeGoal) return;
+      if (!state.activeGoal.pass) return;
+
+      state.questsPassed++;
+      emit('hha:celebrate', { kind:'goal', text:'GOAL CLEAR!' });
+      emitQuestPct();
+
+      state.goalIndex++;
+      if (state.goalIndex >= GOAL_DEFS.length){
+        return;
+      }
+      state.activeGoal = makeGoal(state.goalIndex);
+      emitQuestUpdate();
+    }
+
+    function nextMini(){
+      state.questsPassed++;
+      emit('hha:celebrate', { kind:'mini', text:'MINI CLEAR!' });
+      emitQuestPct();
+
+      state.miniIndex++;
+      state.activeMini = pickMini();
+      state.activeMini.tLeft = state.activeMini.tLimit;
+      state.miniStartAt = now();
+      emitQuestUpdate();
+    }
+
+    function failMini(){
+      emit('hha:judge', { text:'MINI FAIL', kind:'warn' });
+      state.activeMini = pickMini();
+      state.activeMini.tLeft = state.activeMini.tLimit;
+      state.miniStartAt = now();
+      emitQuestUpdate();
+    }
+
+    // ------------------ engine hooks ------------------
+    function onGroupChange(label){
+      state.groupLabel = label || 'หมู่ ?';
+      emitQuestUpdate();
+    }
+
+    function onShot(result){
+      state.totalShots++;
+
+      if (result && result.correct){
+        state.correctHits++;
+        state.combo++;
+        if (state.combo > state.comboMax) state.comboMax = state.combo;
+
+        // mini progress
+        if (state.activeMini){
+          if (state.activeMini.kind === 'streak_correct') state.activeMini.prog++;
+          if (state.activeMini.kind === 'avoid_wrong')     state.activeMini.prog++;
+          if (state.activeMini.kind === 'avoid_junk')      state.activeMini.prog++;
+        }
+      } else {
+        state.combo = 0;
+
+        if (result && result.wrong) state.wrongHits++;
+        if (result && result.junk)  state.junkHits++;
+
+        // mini fail rules
+        if (state.activeMini){
+          if (state.activeMini.kind === 'avoid_wrong' && result.wrong) state.activeMini.fail = true;
+          if (state.activeMini.kind === 'avoid_junk'  && result.junk)  state.activeMini.fail = true;
+          if (state.activeMini.kind === 'streak_correct'){
+            // streak mini: ยิงผิด = reset streak
+            state.activeMini.prog = 0;
+          }
+        }
+      }
+
+      computeAccuracy();
+      updateGoalProgress();
+      emitQuestUpdate();
+      nextGoalIfPassed();
+    }
+
+    function tick(dtSec){
+      if (!state.questOk) return;
+
+      updateMiniProgress(dtSec);
+
+      if (state.activeMini){
+        if (state.activeMini.fail){
+          failMini();
+        } else if (state.activeMini.pass){
+          nextMini();
+        } else {
+          emitQuestUpdate();
+        }
+      }
+    }
+
+    function snapshot(){
+      return JSON.parse(JSON.stringify(state));
+    }
+
+    return {
+      start,
+      tick,
+      onShot,
+      onGroupChange,
+      snapshot,
+      get seed(){ return state.seed; },
+      get runMode(){ return state.runMode; }
+    };
   }
 
-  // ---------- bind event ----------
-  window.addEventListener('quest:update', (ev)=>{
-    const d = ev && ev.detail ? ev.detail : {};
-    applyQuestUpdate(d);
-  }, { passive:true });
+  // expose
+  W.GroupsVR.createGroupsQuest = createGroupsQuest;
 
-  // ---------- fallback: show panel immediately ----------
-  ensureQuestPanel();
-})();
+})(window);
