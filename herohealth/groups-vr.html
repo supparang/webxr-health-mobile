@@ -1,5 +1,288 @@
-<script src="./vr-groups/groups-quests.js?v=1"></script>
-<script src="./vr-groups/groups-fx.js?v=1"></script>   <!-- ✅ เพิ่ม -->
-<script src="./vr-groups/GameEngine.js?v=2"></script>
-<script src="./vr-groups/groups-hud-quest.js?v=1"></script>
-<script src="./vr-groups/groups-ui.js?v=2"></script>
+<!-- === /herohealth/groups-vr.html ===
+Food Groups VR (PRODUCTION) — Full HTML
+✅ HUD + Lock ring + Group banner + Start overlay
+✅ Loads quests -> fx -> engine -> quest binder -> ui binder
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Food Groups VR</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+
+  <!-- A-Frame core (scene layer) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="./vr-groups/groups-vr.css?v=9" />
+</head>
+
+<body>
+  <!-- A-Frame scene (background only) -->
+  <a-scene embedded vr-mode-ui="enabled: true">
+    <a-entity camera look-controls position="0 1.6 0"></a-entity>
+    <a-sky color="#020617"></a-sky>
+  </a-scene>
+
+  <!-- Gameplay DOM layer -->
+  <div id="fg-layer" class="fg-layer" aria-label="game layer"></div>
+
+  <!-- HUD -->
+  <div class="hud-top">
+    <div class="hud-card hud-left">
+      <div class="hud-row">
+        <div class="hud-title">SCORE</div>
+        <div class="hud-val" id="hud-score">0</div>
+      </div>
+      <div class="hud-row">
+        <div class="hud-title">COMBO</div>
+        <div class="hud-val" id="hud-combo">0</div>
+      </div>
+      <div class="hud-row">
+        <div class="hud-title">MISS</div>
+        <div class="hud-val" id="hud-miss">0</div>
+      </div>
+    </div>
+
+    <div class="hud-card hud-mid">
+      <div class="hud-group-row">
+        <div class="hud-group" id="hud-group">หมู่ 1</div>
+        <div class="hud-timer" id="hud-time">90</div>
+      </div>
+
+      <div class="power-wrap">
+        <div class="power-label">
+          <span>POWER</span>
+          <span id="hud-powerTxt">0/0</span>
+        </div>
+        <div class="power-bar">
+          <div class="power-fill" id="hud-powerFill"></div>
+        </div>
+      </div>
+
+      <div class="quest-wrap">
+        <div class="quest-line">
+          <div class="q-badge">GOAL</div>
+          <div class="q-text" id="hud-goalTitle">—</div>
+          <div class="q-num" id="hud-goalVal">0/0</div>
+        </div>
+        <div class="quest-line">
+          <div class="q-badge mini">MINI</div>
+          <div class="q-text" id="hud-miniTitle">—</div>
+          <div class="q-num" id="hud-miniVal">0/0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-card hud-right">
+      <div class="rank-box">
+        <div>
+          <div class="rank-title">RANK</div>
+          <div class="rank-grade" id="hud-grade">C</div>
+        </div>
+        <div style="text-align:right">
+          <div class="rank-title">ACCURACY</div>
+          <div class="hud-val" id="hud-acc">0%</div>
+        </div>
+      </div>
+      <div class="rank-sub">
+        <span id="hud-quests">Quest 0%</span>
+        <span id="hud-version">GroupsVR</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lock ring (UI binder will move it) -->
+  <div class="lock-ring" id="lockRing" style="display:none">
+    <div class="lock-prog" id="lockProg"></div>
+    <div class="lock-charge" id="lockCharge"></div>
+    <div class="lock-core"></div>
+  </div>
+
+  <!-- Group banner -->
+  <div class="group-banner" id="groupBanner" style="display:none">
+    <div class="group-banner-text" id="groupBannerText">หมู่ 1</div>
+    <div class="group-banner-sub" id="groupBannerSub">ยิงให้ถูก “หมู่ปัจจุบัน”</div>
+  </div>
+
+  <!-- Stun overlay -->
+  <div class="stun-overlay" id="stunOverlay" style="display:none">
+    <div class="stun-card">
+      <div class="stun-title">STUN!</div>
+      <div class="stun-sub">โดนของขยะ 🚫</div>
+    </div>
+  </div>
+
+  <!-- Start overlay -->
+  <div class="start-overlay" id="startOverlay">
+    <div class="start-card">
+      <div class="start-title">Food Groups VR 🍽️</div>
+      <div class="start-sub">
+        ยิง/แตะ “หมู่ปัจจุบัน” ให้ถูก 🎯<br/>
+        ระวังยิงผิดหมู่ ❌ และอย่าโดน junk 🚫
+      </div>
+
+      <div class="start-grid">
+        <div class="pill">GOAL + MINI</div>
+        <div class="pill">Lock ring</div>
+        <div class="pill">Boss / Decoy</div>
+        <div class="pill">Power swap</div>
+      </div>
+
+      <div class="start-actions">
+        <button class="btn ghost" id="btn-enterVR">Enter VR</button>
+        <button class="btn primary" id="btn-start">Start</button>
+      </div>
+
+      <div class="start-note" id="startNote">
+        Tip: แตะที่เป้าได้เลย (ไม่ต้องรอ lock) — หรือแตะใกล้ ๆ เพื่อให้ lock ดูดเป้า
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts (IMPORTANT ORDER) -->
+  <script src="./vr-groups/groups-quests.js?v=9"></script>
+  <script src="./vr-groups/groups-fx.js?v=2"></script>
+  <script src="./vr-groups/GameEngine.js?v=9"></script>
+  <script src="./vr-groups/groups-hud-quest.js?v=9"></script>
+
+  <!-- Minimal UI binder (built-in here) -->
+  <script>
+  (function(){
+    'use strict';
+
+    const $ = (id)=>document.getElementById(id);
+    const qs = new URLSearchParams(location.search);
+
+    const diff = (qs.get('diff') || 'normal').toLowerCase();
+    const time = parseInt(qs.get('time') || '90', 10) || 90;
+    const run  = (qs.get('run') || 'play').toLowerCase();
+    const seed = qs.get('seed') || undefined;
+
+    // --- HUD score binder ---
+    window.addEventListener('hha:score', (ev)=>{
+      const d = (ev && ev.detail) || {};
+      const score = d.score|0;
+      const combo = d.combo|0;
+      const misses = d.misses|0;
+      if ($('hud-score')) $('hud-score').textContent = score;
+      if ($('hud-combo')) $('hud-combo').textContent = combo;
+      if ($('hud-miss')) $('hud-miss').textContent = misses;
+    }, {passive:true});
+
+    // --- time binder ---
+    window.addEventListener('hha:time', (ev)=>{
+      const d = (ev && ev.detail) || {};
+      if ($('hud-time')) $('hud-time').textContent = (d.left|0);
+    }, {passive:true});
+
+    // --- rank binder ---
+    window.addEventListener('hha:rank', (ev)=>{
+      const d = (ev && ev.detail) || {};
+      if (d.grade && $('hud-grade')) $('hud-grade').textContent = d.grade;
+      if (typeof d.accuracy === 'number' && $('hud-acc')) $('hud-acc').textContent = (d.accuracy|0) + '%';
+      if (typeof d.questsPct === 'number' && $('hud-quests')) $('hud-quests').textContent = 'Quest ' + (d.questsPct|0) + '%';
+    }, {passive:true});
+
+    // --- power binder ---
+    window.addEventListener('groups:power', (ev)=>{
+      const d = (ev && ev.detail) || {};
+      const c = d.charge|0, th = Math.max(1, d.threshold|0);
+      const pct = Math.max(0, Math.min(1, c/th));
+      if ($('hud-powerTxt')) $('hud-powerTxt').textContent = c + '/' + th;
+      const fill = $('hud-powerFill');
+      if (fill){
+        fill.style.width = Math.round(pct*100) + '%';
+        fill.classList.add('pulse');
+        setTimeout(()=>fill.classList.remove('pulse'), 180);
+      }
+      if (d.groupName && $('hud-group')) $('hud-group').textContent = d.groupName;
+    }, {passive:true});
+
+    // --- group banner + group label ---
+    window.addEventListener('groups:group_change', (ev)=>{
+      const d = (ev && ev.detail) || {};
+      const label = d.label || '';
+      if ($('hud-group')) $('hud-group').textContent = label || 'หมู่ ?';
+
+      const banner = $('groupBanner');
+      if (banner){
+        $('groupBannerText').textContent = label || 'หมู่ ?';
+        banner.style.display = '';
+        banner.classList.remove('pop');
+        void banner.offsetWidth;
+        banner.classList.add('pop');
+        setTimeout(()=>{ try{ banner.style.display='none'; }catch(_){} }, 950);
+      }
+    }, {passive:true});
+
+    // --- stun overlay ---
+    window.addEventListener('groups:stun', (ev)=>{
+      const d = (ev && ev.detail) || {};
+      const on = !!d.on;
+      const el = $('stunOverlay');
+      if (!el) return;
+      el.style.display = on ? '' : 'none';
+      if (on){
+        el.classList.remove('pop');
+        void el.offsetWidth;
+        el.classList.add('pop');
+        setTimeout(()=>{ try{ el.style.display='none'; }catch(_){} }, Math.max(500, (d.ms|0)));
+      }
+    }, {passive:true});
+
+    // --- lock ring binder ---
+    window.addEventListener('groups:lock', (ev)=>{
+      const d = (ev && ev.detail) || {};
+      const ring = $('lockRing');
+      if (!ring) return;
+      if (!d.on){
+        ring.style.display = 'none';
+        return;
+      }
+      ring.style.display = '';
+      ring.style.left = (d.x|0) + 'px';
+      ring.style.top  = (d.y|0) + 'px';
+      ring.style.transform = 'translate(-50%,-50%)';
+
+      const p = Math.max(0, Math.min(1, Number(d.prog)||0));
+      const c = Math.max(0, Math.min(1, Number(d.charge)||0));
+      $('lockProg')?.style.setProperty('--p', p);
+      $('lockCharge')?.style.setProperty('--c', c);
+      $('lockProg')?.style.setProperty('--p', p);
+      $('lockCharge')?.style.setProperty('--c', c);
+      // also set as css var on elements
+      $('lockProg')?.style.setProperty('--p', String(p));
+      $('lockCharge')?.style.setProperty('--c', String(c));
+      ring.style.setProperty('--p', String(p));
+      ring.style.setProperty('--c', String(c));
+    }, {passive:true});
+
+    // --- start / enter VR ---
+    const overlay = $('startOverlay');
+    $('btn-enterVR')?.addEventListener('click', ()=>{
+      const scene = document.querySelector('a-scene');
+      if (scene && scene.enterVR) scene.enterVR();
+    });
+
+    $('btn-start')?.addEventListener('click', ()=>{
+      if (overlay) overlay.style.display = 'none';
+
+      const layer = $('fg-layer');
+      if (window.GroupsVR && window.GroupsVR.GameEngine){
+        window.GroupsVR.GameEngine.setLayerEl(layer);
+        window.GroupsVR.GameEngine.setTimeLeft(time);
+        window.GroupsVR.GameEngine.start(diff, { runMode: run, seed });
+      }
+    });
+
+    // auto-start if ?autostart=1
+    if ((qs.get('autostart')||'') === '1'){
+      setTimeout(()=>$('btn-start')?.click(), 60);
+    }
+  })();
+  </script>
+</body>
+</html>
