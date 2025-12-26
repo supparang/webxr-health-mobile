@@ -28,6 +28,26 @@
     html,body{height:100%; margin:0; background:var(--bg); color:var(--text); overflow:hidden;}
     a-scene{position:fixed; inset:0;}
 
+    /* ===== Start overlay ===== */
+    #startOverlay{
+      position:fixed; inset:0; z-index:1500;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(2,6,23,.74);
+      backdrop-filter: blur(10px);
+      pointer-events:auto;
+    }
+    #startCard{
+      width:min(560px,92vw);
+      background:rgba(2,6,23,.78);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:22px;
+      padding:16px;
+      box-shadow:0 26px 80px rgba(0,0,0,.55);
+    }
+    #startTitle{font-weight:1100; font-size:20px;}
+    #startHint{margin-top:8px; color:rgba(148,163,184,.95); font-weight:900; line-height:1.35;}
+    #startActions{display:flex; gap:10px; justify-content:flex-end; margin-top:14px;}
+
     /* ===== Minimal HUD (พื้นที่เล่นใหญ่ขึ้น) ===== */
     #hudTop{
       position:fixed; left:10px; right:10px; top:10px;
@@ -187,6 +207,20 @@
     <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
   </a-scene>
 
+  <!-- ✅ Start overlay -->
+  <div id="startOverlay">
+    <div id="startCard">
+      <div id="startTitle">🎮 พร้อมเล่น Plate VR?</div>
+      <div id="startHint">
+        แตะ “เริ่มเล่น” เพื่อเปิดเสียง/ขออนุญาต Motion (ถ้ามี) แล้วเริ่มเกมทันที<br/>
+        * ถ้าไม่อนุญาต Motion ยังเล่นได้ (แตะยิง + ลากมุมมอง)
+      </div>
+      <div id="startActions">
+        <button class="btn" id="btnStart">▶️ เริ่มเล่น</button>
+      </div>
+    </div>
+  </div>
+
   <!-- overlays -->
   <div id="hitFx"></div>
   <div id="crosshair" aria-hidden="true"></div>
@@ -199,10 +233,6 @@
         <span class="pill">🏆 <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
         <span class="pill">⚡ <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
         <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
-
-        <!-- ✅ NEW: LIVES -->
-        <span class="pill">❤️ <span class="k">LIVES</span> <span id="hudLives" class="v">3</span></span>
-
         <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
       </div>
     </div>
