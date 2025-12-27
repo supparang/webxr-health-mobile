@@ -1,8 +1,7 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
 HydrationVR — PRODUCTION
-✅ HUD + Quest + Mini Quest UI (checklist + pressure bar)
-✅ Storm warning pre-roll (flash + tick)
-✅ End summary
+✅ Mini quest UI (clear checklist + pressure bar)
+✅ Storm warning PRE-ROLL (vignette + stronger flash + stronger shake + tick accel)
 -->
 
 <!doctype html>
@@ -14,10 +13,8 @@ HydrationVR — PRODUCTION
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Optional: A-Frame core (บางเกมมี / บางเกมไม่ได้ใช้ แต่คงไว้เพื่อ compatibility) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX / compat / logger (ถ้ามีในโปรเจกต์) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
@@ -39,18 +36,41 @@ HydrationVR — PRODUCTION
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
 
-      /* edge fx intensity */
+      /* edge fx intensity (0..0.85) */
       --fx: 0;
+      /* storm warn amp (0..1) */
+      --warnamp: 0;
     }
 
     html,body{ margin:0; padding:0; width:100%; height:100%; background: radial-gradient(1200px 700px at 50% 25%, #0b1120 0%, #020617 60%, #020617 100%); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; overflow:hidden; }
     *{ box-sizing:border-box; }
 
-    /* main layout */
-    .stage{
-      position:fixed; inset:0;
-      display:flex; flex-direction:column;
+    /* ✅ STRONG Storm warning overlay */
+    body.storm-warn::before{
+      content:"";
+      position:fixed; inset:-20px;
+      pointer-events:none;
+      z-index:26;
+      opacity: calc(0.10 + (var(--warnamp) * 0.18));
+      background:
+        radial-gradient(700px 520px at 50% 40%,
+          rgba(239,68,68,.10) 0%,
+          rgba(239,68,68,.08) 22%,
+          rgba(2,6,23,0) 55%),
+        radial-gradient(1000px 800px at 50% 50%,
+          rgba(239,68,68,.10) 0%,
+          rgba(2,6,23,0) 65%);
+      animation: warnVignette .14s ease-in-out infinite;
+      filter: saturate(1.25) contrast(1.12);
     }
+    @keyframes warnVignette{
+      0%{ transform: translate3d(0,0,0); opacity: calc(0.10 + (var(--warnamp) * 0.14)); }
+      50%{ transform: translate3d(0.5px,-0.6px,0); opacity: calc(0.18 + (var(--warnamp) * 0.22)); }
+      100%{ transform: translate3d(0,0,0); opacity: calc(0.10 + (var(--warnamp) * 0.14)); }
+    }
+
+    /* main layout */
+    .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
 
     /* top HUD bar */
     .hud{
@@ -72,12 +92,7 @@ HydrationVR — PRODUCTION
     }
     .card h3{ margin:0 0 6px; font-size:12px; letter-spacing:.2px; opacity:.95; }
     .row{ display:flex; gap:10px; flex-wrap:wrap; }
-    .stat{
-      font-size:12px;
-      font-weight:950;
-      color: var(--text);
-      opacity:.95;
-    }
+    .stat{ font-size:12px; font-weight:950; color: var(--text); opacity:.95; }
     .stat b{ color: var(--cyan); font-weight:1000; }
     .muted{ color: var(--muted); font-weight:850; }
 
@@ -92,11 +107,9 @@ HydrationVR — PRODUCTION
       box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
       overflow:hidden;
       touch-action: manipulation;
+      will-change: transform, filter;
     }
-    #hvr-layer{
-      position:absolute; inset:0;
-      pointer-events:none; /* แต่ target เปิด pointer-events เอง */
-    }
+    #hvr-layer{ position:absolute; inset:0; pointer-events:none; }
 
     /* bottom HUD */
     .bottom{
@@ -113,23 +126,27 @@ HydrationVR — PRODUCTION
     .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
     .bar{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95)); box-shadow: 0 0 14px rgba(34,211,238,.28); transition: width .22s ease; }
     .bar.red{ background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(249,115,22,.95)); box-shadow: 0 0 16px rgba(239,68,68,.22); }
-    .bar.purple{ background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85)); box-shadow: 0 0 16px rgba(167,139,250,.18); }
 
     /* storm / edge fx */
     body.fx-low #playfield{ box-shadow: inset 0 0 0 1px rgba(56,189,248,.10), 0 24px 80px rgba(0,0,0,.55); }
     body.fx-high #playfield{ box-shadow: inset 0 0 0 1px rgba(249,115,22,.12), 0 24px 80px rgba(0,0,0,.55); }
-    body.fx-shake #playfield{ animation: nudge .18s ease-in-out infinite; }
+
+    /* ✅ stronger shake (base) */
+    body.fx-shake #playfield{ animation: nudge .11s ease-in-out infinite; }
     @keyframes nudge{
       0%{ transform: translate3d(0,0,0); }
-      50%{ transform: translate3d(0.6px,-0.8px,0); }
+      25%{ transform: translate3d(1.2px,-1.4px,0); }
+      55%{ transform: translate3d(-1.0px,1.1px,0); }
       100%{ transform: translate3d(0,0,0); }
     }
+
     body.storm #playfield{
       outline: 2px solid rgba(99,102,241,.22);
       box-shadow: inset 0 0 0 1px rgba(167,139,250,.12), 0 24px 80px rgba(0,0,0,.55);
+      filter: saturate(1.05);
     }
 
-    /* ✅ Storm warning before storm */
+    /* ✅ Storm warning banner (stronger) */
     .stormWarnBanner{
       position:fixed;
       top: calc(var(--sat) + 10px);
@@ -138,37 +155,35 @@ HydrationVR — PRODUCTION
       z-index: 30;
       pointer-events:none;
       opacity:0;
-      transition: opacity .12s ease;
+      transition: opacity .10s ease;
     }
     .stormWarnBanner .pill{
       display:inline-flex; align-items:center; gap:10px;
       padding: 10px 14px;
       border-radius: 999px;
-      background: rgba(239,68,68,.12);
-      border:1px solid rgba(239,68,68,.22);
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      background: rgba(239,68,68,.14);
+      border:1px solid rgba(239,68,68,.26);
+      box-shadow: 0 18px 70px rgba(0,0,0,.55);
       backdrop-filter: blur(10px);
-      font-weight: 1000;
+      font-weight: 1100;
       letter-spacing:.2px;
       color: var(--text);
+      filter: saturate(1.15);
     }
     body.storm-warn .stormWarnBanner{
       opacity: 1;
-      animation: warnPulse .22s ease-in-out infinite;
+      animation: warnPulse .12s ease-in-out infinite;
     }
     @keyframes warnPulse{
       0%{ transform: translateX(-50%) scale(1); filter: brightness(1); }
-      50%{ transform: translateX(-50%) scale(1.02); filter: brightness(1.15); }
+      50%{ transform: translateX(-50%) scale(1.04); filter: brightness(1.30); }
       100%{ transform: translateX(-50%) scale(1); filter: brightness(1); }
     }
+
+    /* ✅ stronger warning edge */
     body.storm-warn #playfield{
-      outline: 2px dashed rgba(239,68,68,.22);
-      animation: warnEdge .22s ease-in-out infinite;
-    }
-    @keyframes warnEdge{
-      0%{ filter: brightness(1); }
-      50%{ filter: brightness(1.18); }
-      100%{ filter: brightness(1); }
+      outline: 2px dashed rgba(239,68,68,.35);
+      filter: brightness(1.08) contrast(1.06);
     }
 
     /* quest UI */
@@ -184,7 +199,7 @@ HydrationVR — PRODUCTION
       margin-right:6px;
     }
 
-    /* ✅ Mini quest card (clear checklist + pressure bar) */
+    /* Mini quest card */
     .miniWrap{ margin-top:8px; padding-top:8px; border-top:1px solid rgba(148,163,184,.14); }
     .miniTitle{ font-size:12px; font-weight:1000; letter-spacing:.2px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .miniTitle .right{ font-size:11px; color:var(--muted); font-weight:950; }
@@ -198,18 +213,14 @@ HydrationVR — PRODUCTION
       border:1px solid rgba(148,163,184,.14);
     }
     .miniItem .left{ display:flex; align-items:center; gap:8px; }
-    .dot{
-      width:10px; height:10px; border-radius:999px;
-      background: rgba(148,163,184,.35);
-      box-shadow: 0 0 0 2px rgba(148,163,184,.10);
-    }
+    .dot{ width:10px; height:10px; border-radius:999px; background: rgba(148,163,184,.35); box-shadow: 0 0 0 2px rgba(148,163,184,.10); }
     .miniItem.ok .dot{ background: rgba(34,197,94,.95); box-shadow: 0 0 0 2px rgba(34,197,94,.18), 0 0 18px rgba(34,197,94,.25); }
     .miniItem.bad .dot{ background: rgba(239,68,68,.85); box-shadow: 0 0 0 2px rgba(239,68,68,.16); }
     .miniItem .val{ color: var(--muted); font-weight:1000; }
     .miniBarWrap{ margin-top:8px; }
     .miniBarLabel{ font-size:11px; font-weight:950; color:var(--muted); display:flex; justify-content:space-between; }
     .miniBar{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
-    .miniBar > div{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85)); transition: width .18s ease; box-shadow: 0 0 14px rgba(167,139,250,.18); }
+    .miniBar > div{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85)); transition: width .16s ease; box-shadow: 0 0 14px rgba(167,139,250,.18); }
 
     /* Start overlay + buttons */
     #start-overlay{
@@ -254,10 +265,7 @@ HydrationVR — PRODUCTION
       pointer-events:none;
       opacity:0;
     }
-    #hha-stamp.show{
-      opacity:1;
-      animation: stampPop .72s ease forwards;
-    }
+    #hha-stamp.show{ opacity:1; animation: stampPop .72s ease forwards; }
     @keyframes stampPop{
       0%{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
       20%{ transform: translate(-50%,-50%) scale(1.05); opacity:1; }
@@ -307,13 +315,11 @@ HydrationVR — PRODUCTION
 </head>
 
 <body>
-  <!-- ✅ Storm warning banner -->
   <div class="stormWarnBanner" aria-hidden="true">
     <div class="pill">⚠️ Storm กำลังมา… เตรียมตัว!</div>
   </div>
 
   <div class="stage">
-    <!-- TOP HUD -->
     <div class="hud">
       <div class="card">
         <h3>📊 Stats</h3>
@@ -333,12 +339,10 @@ HydrationVR — PRODUCTION
       </div>
     </div>
 
-    <!-- PLAYFIELD -->
     <div id="playfield">
       <div id="hvr-layer"></div>
     </div>
 
-    <!-- BOTTOM HUD -->
     <div class="bottom">
       <div class="card" style="min-width:280px">
         <h3>💧 Water Gauge</h3>
@@ -360,7 +364,6 @@ HydrationVR — PRODUCTION
         <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
         <div class="questLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
 
-        <!-- ✅ Mini UI: clear checklist + pressure -->
         <div class="miniWrap" id="mini-card">
           <div class="miniTitle">
             <div>🌪️ Storm Mini: Shield Timing (FULL)</div>
@@ -387,7 +390,6 @@ HydrationVR — PRODUCTION
     </div>
   </div>
 
-  <!-- Stamp -->
   <div id="hha-stamp" aria-hidden="true">
     <div class="stampBox">
       <div class="stampBig" id="stamp-big">—</div>
@@ -395,7 +397,6 @@ HydrationVR — PRODUCTION
     </div>
   </div>
 
-  <!-- Start overlay -->
   <div id="start-overlay">
     <div class="startCard">
       <div style="font-size:18px;font-weight:1100">💧 Hydration VR</div>
@@ -410,7 +411,6 @@ HydrationVR — PRODUCTION
     </div>
   </div>
 
-  <!-- End summary -->
   <div id="hvr-end">
     <div class="endCard">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
@@ -428,7 +428,6 @@ HydrationVR — PRODUCTION
     </div>
   </div>
 
-  <!-- Game logic -->
   <script type="module" src="./hydration-vr/hydration.safe.js"></script>
 </body>
 </html>
