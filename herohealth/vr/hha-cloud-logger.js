@@ -1,24 +1,11 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HeroHealth — Cloud Logger (Web App / Google Apps Script)
-// ✅ Batch queue (sendBeacon + fetch fallback)
-// ✅ Auto-captures URL params context (studyId/phase/conditionGroup/student...)
-// ✅ Listens to standard HeroHealth events:
-//    - hha:log_session  (start / end markers)
-//    - hha:log_event    (sparse events: spawn/hit/miss/boss/...)
-//    - hha:end          (final summary: scoreFinal, comboMax, misses, goals/minis...)
-// ✅ Optional passive snapshots:
-//    - hha:score / hha:time / quest:update  (เก็บ last known state; ไม่ยิงถี่)
-// ✅ Endpoint:
-//    - ?log=<WEB_APP_EXEC_URL>  (recommended)
-//    - or window.HHA_LOG_ENDPOINT = ".../exec"
-//
-// ✅ PATCH (สำคัญ):
-// - flatten data -> stringify object/array เพื่อกัน [object Object]
-// - FORCE bossJson ตอนจบ (end) เพื่อให้ลงชีทได้ชัวร์
-//
-// Notes:
-// - This file is pure IIFE (no module) for maximum compat.
-// - Server side (Code.gs) จะรับ {kind:'hha_batch', items:[...]}
+// HeroHealth — Cloud Logger (STANDARD v2) — Compatible with your Code.gs schema
+// ✅ Sends payload: {sessions:[...], events:[...], studentsProfile:[...]}
+// ✅ Supports kind-based events (GoodJunk/Plate/Groups/Hydration)
+// ✅ Computes timeFromStartMs
+// ✅ Flattens objects/arrays -> JSON string (no [object Object])
+// ✅ End session is written from hha:end (single row/session) + optional start marker event
+// ✅ Optional profile upsert once (students-profile)
 
 (function (root) {
   'use strict';
@@ -26,6 +13,7 @@
   const doc = root.document;
   const nav = root.navigator || {};
   const loc = root.location || { href: '' };
+
   const TZ = (Intl && Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions)
     ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
     : '';
@@ -35,19 +23,14 @@
 
   // ---------- Config ----------
   const CFG = {
-    // batching
     flushEveryMs: 2500,
-    maxQueue: 40,
-    maxPayloadBytes: 220 * 1024, // ~220KB safe-ish
-    // endpoints
+    maxQueue: 80,
+    maxPayloadBytes: 220 * 1024,
     endpoint: '',
-    // debug
     debug: false,
-    // optional: disable logger
     disabled: (Q.get('nolog') === '1'),
   };
 
-  // allow override via global before init
   if (typeof root.HHA_LOG_ENDPOINT === 'string' && root.HHA_LOG_ENDPOINT.trim()) {
     CFG.endpoint = root.HHA_LOG_ENDPOINT.trim();
   } else if (Q.get('log')) {
@@ -56,6 +39,8 @@
 
   // ---------- Helpers ----------
   const now = () => Date.now();
+
+  function logd(...args) { if (CFG.debug) console.log('[HHACloudLogger]', ...args); }
 
   function safeStr(v) {
     if (v === undefined || v === null) return '';
@@ -68,6 +53,13 @@
   function tryJson(v) {
     try { return JSON.stringify(v); } catch (_) { return ''; }
   }
+  function toIso(v) {
+    if (!v) return new Date().toISOString();
+    if (typeof v === 'string' && v.includes('T')) return v;
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 1000000000) return new Date(n).toISOString();
+    try { return new Date(v).toISOString(); } catch (_) { return new Date().toISOString(); }
+  }
   function pick(keys, fallback = '') {
     for (const k of keys) {
       const v = Q.get(k);
@@ -76,20 +68,16 @@
     return fallback;
   }
 
-  // ---------- Flatten for Sheet (stringify object/array) ----------
   function flatForSheet(obj){
     if (!obj || typeof obj !== 'object') return obj;
-
     const out = {};
     for (const k in obj){
       if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
       const v = obj[k];
-
       if (v === undefined) out[k] = '';
-      else if (v === null) out[k] = null;
+      else if (v === null) out[k] = '';
       else if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string') out[k] = v;
       else {
-        // array/object/date/etc -> JSON
         const s = tryJson(v);
         out[k] = (s !== '' ? s : safeStr(v));
       }
@@ -98,8 +86,6 @@
   }
 
   function deviceHint() {
-    // light heuristic
-    // if A-Frame scene in vr-mode -> 'vr'
     try {
       const scene = doc && doc.querySelector && doc.querySelector('a-scene');
       if (scene && scene.is && scene.is('vr-mode')) return 'vr';
@@ -110,11 +96,9 @@
     return 'desktop';
   }
 
-  // ---------- Context (from URL params) ----------
+  // ---------- Context from URL ----------
   const CTX = {
-    timestampIso: new Date().toISOString(),
-
-    // Experiment / project tags (รองรับหลาย alias)
+    // experiment
     projectTag: pick(['projectTag', 'project', 'tag'], ''),
     runMode: pick(['runMode', 'run', 'mode'], 'play'),
     studyId: pick(['studyId', 'study', 'sid'], ''),
@@ -126,10 +110,14 @@
     schoolYear: pick(['schoolYear', 'sy'], ''),
     semester: pick(['semester', 'sem'], ''),
 
-    // session / game
+    // game/session
     sessionId: pick(['sessionId'], ''),
     gameMode: pick(['gameMode', 'game'], ''),
     diff: pick(['diff'], 'normal'),
+    challenge: pick(['challenge'], ''),      // ✅ NEW
+    endPolicy: pick(['endPolicy','end'], ''),// ✅ NEW
+    seed: pick(['seed'], ''),                // ✅ NEW
+    seedRaw: pick(['seedRaw'], ''),          // ✅ NEW
     durationPlannedSec: safeNum(pick(['time', 'durationPlannedSec'], '')),
 
     // meta
@@ -139,7 +127,7 @@
     ua: nav.userAgent || '',
     tz: TZ,
 
-    // student profile (ถ้ามี)
+    // profile
     studentKey: pick(['studentKey'], ''),
     schoolCode: pick(['schoolCode'], ''),
     schoolName: pick(['schoolName'], ''),
@@ -159,83 +147,100 @@
     visionIssue: pick(['visionIssue'], ''),
     healthDetail: pick(['healthDetail'], ''),
     consentParent: pick(['consentParent'], ''),
+    consentTeacher: pick(['consentTeacher'], ''), // ✅ NEW
+
+    // research admin (optional)
+    profileSource: pick(['profileSource'], ''),
+    surveyKey: pick(['surveyKey'], ''),
+    excludeFlag: pick(['excludeFlag'], ''),
+    noteResearcher: pick(['noteResearcher'], ''),
   };
 
-  // ---------- Rolling state (snapshot) ----------
-  const STATE = {
-    startTimeIso: '',
-    endTimeIso: '',
-    durationPlayedSec: null,
-
-    scoreFinal: null,
-    comboMax: null,
-    misses: null,
-
-    goalsCleared: null,
-    goalsTotal: null,
-    miniCleared: null,
-    miniTotal: null,
-
-    // optional counters
-    nTargetGoodSpawned: 0,
-    nTargetJunkSpawned: 0,
-    nTargetStarSpawned: 0,
-    nTargetDiamondSpawned: 0,
-    nTargetShieldSpawned: 0,
-
-    nHitGood: 0,
-    nHitJunk: 0,
-    nHitJunkGuard: 0,
-    nExpireGood: 0,
-
-    // optional performance
-    accuracyGoodPct: null,
-    junkErrorPct: null,
-    avgRtGoodMs: null,
-    medianRtGoodMs: null,
-    fastHitRatePct: null,
-
-    reason: '',
+  // ---------- Rolling snapshot ----------
+  const SNAP = {
+    startIso: '',
+    startMs: 0,
+    lastScore: null,
+    lastCombo: null,
+    lastMiss: null,
+    lastFever: null,
+    lastQuest: null, // {goalsCleared,goalsTotal,minisCleared,minisTotal,...}
   };
 
-  // ---------- Queue / batching ----------
-  let queue = [];
+  // ---------- Queues (match Code.gs schema) ----------
+  let qSessions = [];
+  let qEvents = [];
+  let qProfiles = [];
   let flushTimer = null;
   let lastFlushAt = 0;
 
-  function logd(...args) {
-    if (CFG.debug) console.log('[HHACloudLogger]', ...args);
+  function capQueues_(){
+    const cap = CFG.maxQueue | 0;
+    if (qEvents.length > cap) qEvents.splice(0, qEvents.length - cap);
+    if (qSessions.length > Math.max(10, (cap/8)|0)) qSessions.splice(0, qSessions.length - Math.max(10,(cap/8)|0));
   }
 
-  function enqueue(type, data) {
-    if (CFG.disabled) return;
-    if (!CFG.endpoint) return;
-
-    const item = {
-      ts: now(),
-      type: type,
-      href: CTX.href,
-      ua: CTX.ua,
-      tz: CTX.tz,
-
-      // attach context (flat keys)
-      ...CTX,
-
-      // attach data (flatten for sheet)
-      data: flatForSheet(data || {})
-    };
-
-    queue.push(item);
-
-    // soft cap
-    if (queue.length > CFG.maxQueue) {
-      queue.splice(0, queue.length - CFG.maxQueue);
-    }
-
+  function enqueueSessionRow(row){
+    if (CFG.disabled || !CFG.endpoint) return;
+    qSessions.push(flatForSheet(row || {}));
+    capQueues_();
     scheduleFlush();
   }
 
-  function scheduleFlush() {
+  function enqueueEventRow(row){
+    if (CFG.disabled || !CFG.endpoint) return;
+    qEvents.push(flatForSheet(row || {}));
+    capQueues_();
+    scheduleFlush();
+  }
+
+  function enqueueProfileOnce_(){
+    // upsert only if studentKey exists
+    if (!CTX.studentKey) return;
+    // prevent duplicates
+    if (qProfiles.length) return;
+
+    const iso = new Date().toISOString();
+    const p = {
+      timestampIso: iso,
+      projectTag: CTX.projectTag,
+      runMode: CTX.runMode,
+
+      studentKey: CTX.studentKey,
+      schoolCode: CTX.schoolCode,
+      schoolName: CTX.schoolName,
+      classRoom: CTX.classRoom,
+      studentNo: CTX.studentNo,
+      nickName: CTX.nickName,
+
+      gender: CTX.gender,
+      age: CTX.age,
+      gradeLevel: CTX.gradeLevel,
+
+      heightCm: CTX.heightCm,
+      weightKg: CTX.weightKg,
+      bmi: CTX.bmi,
+      bmiGroup: CTX.bmiGroup,
+
+      vrExperience: CTX.vrExperience,
+      gameFrequency: CTX.gameFrequency,
+      handedness: CTX.handedness,
+      visionIssue: CTX.visionIssue,
+      healthDetail: CTX.healthDetail,
+
+      consentParent: CTX.consentParent,
+      consentTeacher: CTX.consentTeacher,
+
+      createdAtIso: iso,
+      updatedAtIso: iso,
+      source: CTX.profileSource || 'url'
+    };
+
+    qProfiles.push(flatForSheet(p));
+    scheduleFlush();
+  }
+
+  function scheduleFlush(){
     if (flushTimer) return;
     flushTimer = root.setTimeout(() => {
       flushTimer = null;
@@ -243,31 +248,40 @@
     }, CFG.flushEveryMs);
   }
 
-  function flush(force = false) {
-    if (CFG.disabled) return;
-    if (!CFG.endpoint) return;
-    if (!queue.length) return;
+  function flush(force=false){
+    if (CFG.disabled || !CFG.endpoint) return;
 
     const t = now();
     if (!force && (t - lastFlushAt) < 500) return;
 
-    // pack as batch
+    if (!qSessions.length && !qEvents.length && !qProfiles.length) return;
+
     const payload = {
-      kind: 'hha_batch',
-      v: 1,
-      items: queue.splice(0, queue.length)
+      projectTag: CTX.projectTag || null,
+      sessions: qSessions.splice(0, qSessions.length),
+      events: qEvents.splice(0, qEvents.length),
+      studentsProfile: qProfiles.splice(0, qProfiles.length),
     };
 
-    // attach a compact "final snapshot" occasionally (helps server mapping)
-    payload.snapshot = buildSnapshot_();
-
     const body = JSON.stringify(payload);
+
     if (body.length > CFG.maxPayloadBytes) {
-      // ถ้า payload ใหญ่ไป: แบ่งครึ่ง
-      const items = payload.items || [];
-      const mid = Math.max(1, (items.length / 2) | 0);
-      const a = { kind: 'hha_batch', v: 1, items: items.slice(0, mid), snapshot: payload.snapshot };
-      const b = { kind: 'hha_batch', v: 1, items: items.slice(mid), snapshot: payload.snapshot };
+      // split: keep sessions + profiles in first; chunk events
+      const eventsAll = payload.events || [];
+      const chunkSize = Math.max(10, (eventsAll.length / 2) | 0);
+
+      const a = {
+        projectTag: payload.projectTag,
+        sessions: payload.sessions,
+        studentsProfile: payload.studentsProfile,
+        events: eventsAll.slice(0, chunkSize)
+      };
+      const b = {
+        projectTag: payload.projectTag,
+        sessions: [],
+        studentsProfile: [],
+        events: eventsAll.slice(chunkSize)
+      };
       send_(JSON.stringify(a));
       send_(JSON.stringify(b));
     } else {
@@ -277,17 +291,15 @@
     lastFlushAt = t;
   }
 
-  function send_(bodyStr) {
+  function send_(bodyStr){
     try {
-      // prefer sendBeacon
       if (nav.sendBeacon) {
-        const ok = nav.sendBeacon(CFG.endpoint, new Blob([bodyStr], { type: 'application/json' }));
+        const ok = nav.sendBeacon(CFG.endpoint, new Blob([bodyStr], { type:'application/json' }));
         logd('beacon', ok, 'bytes', bodyStr.length);
         if (ok) return;
       }
-    } catch (_) {}
+    } catch(_) {}
 
-    // fallback fetch
     try {
       fetch(CFG.endpoint, {
         method: 'POST',
@@ -296,248 +308,350 @@
         keepalive: true
       }).then(() => logd('fetch ok'))
         .catch(err => logd('fetch fail', err));
-    } catch (err) {
+    } catch(err) {
       logd('send error', err);
     }
   }
 
-  // ---------- Snapshot building ----------
-  function buildSnapshot_() {
+  // ---------- Kind parsing -> standardized event row ----------
+  function parseKind_(k){
+    k = safeStr(k).toLowerCase();
+    // spawn_good / spawn_junk / spawn_power / spawn_gold ...
+    if (k.startsWith('spawn_')) return { eventType:'spawn', itemType: k.replace('spawn_','') };
+    if (k.startsWith('hit_')) return { eventType:'hit', itemType: k.replace('hit_','') };
+    if (k === 'expire_good') return { eventType:'miss_expire', itemType:'good' };
+    if (k === 'shoot_empty') return { eventType:'shoot', itemType:'empty' };
+
+    // hazards / boss
+    if (k.startsWith('boss_')) return { eventType:'boss', itemType:k };
+    if (k.startsWith('ring_')) return { eventType:'hazard', itemType:k };
+    if (k.startsWith('laser_')) return { eventType:'hazard', itemType:k };
+    if (k === 'hazard_hit' || k === 'hazard_block') return { eventType:'hazard', itemType:k };
+
+    return { eventType: k || 'event', itemType:'' };
+  }
+
+  function baseEventRow_(iso, tsMs){
+    const tf = (SNAP.startMs > 0 && tsMs) ? Math.max(0, tsMs - SNAP.startMs) : null;
+
+    const qp = SNAP.lastQuest || {};
     return {
-      // context
-      ...CTX,
+      timestampIso: iso,
+      projectTag: CTX.projectTag,
+      runMode: CTX.runMode,
+      studyId: CTX.studyId,
+      phase: CTX.phase,
+      conditionGroup: CTX.conditionGroup,
 
-      // state
-      startTimeIso: STATE.startTimeIso,
-      endTimeIso: STATE.endTimeIso,
-      durationPlayedSec: STATE.durationPlayedSec,
+      sessionId: CTX.sessionId,
+      eventType: '',
 
-      scoreFinal: STATE.scoreFinal,
-      comboMax: STATE.comboMax,
-      misses: STATE.misses,
+      gameMode: CTX.gameMode,
+      diff: CTX.diff,
 
-      goalsCleared: STATE.goalsCleared,
-      goalsTotal: STATE.goalsTotal,
-      miniCleared: STATE.miniCleared,
-      miniTotal: STATE.miniTotal,
+      timeFromStartMs: tf,
 
-      nTargetGoodSpawned: STATE.nTargetGoodSpawned,
-      nTargetJunkSpawned: STATE.nTargetJunkSpawned,
-      nTargetStarSpawned: STATE.nTargetStarSpawned,
-      nTargetDiamondSpawned: STATE.nTargetDiamondSpawned,
-      nTargetShieldSpawned: STATE.nTargetShieldSpawned,
+      targetId: '',
+      emoji: '',
+      itemType: '',
+      lane: '',
 
-      nHitGood: STATE.nHitGood,
-      nHitJunk: STATE.nHitJunk,
-      nHitJunkGuard: STATE.nHitJunkGuard,
-      nExpireGood: STATE.nExpireGood,
+      rtMs: null,
+      judgment: '',
 
-      accuracyGoodPct: STATE.accuracyGoodPct,
-      junkErrorPct: STATE.junkErrorPct,
-      avgRtGoodMs: STATE.avgRtGoodMs,
-      medianRtGoodMs: STATE.medianRtGoodMs,
-      fastHitRatePct: STATE.fastHitRatePct,
+      totalScore: (SNAP.lastScore != null ? SNAP.lastScore : null),
+      combo: (SNAP.lastCombo != null ? SNAP.lastCombo : null),
+      isGood: '',
 
-      device: CTX.device,
-      gameVersion: CTX.gameVersion,
-      reason: STATE.reason
+      feverState: '',
+      feverValue: (SNAP.lastFever != null ? SNAP.lastFever : null),
+
+      goalProgress: (qp.goalsCleared != null ? `${qp.goalsCleared}/${qp.goalsTotal||''}` : ''),
+      miniProgress: (qp.minisCleared != null ? `${qp.minisCleared}/${qp.minisTotal||''}` : ''),
+
+      extra: '',
+
+      studentKey: CTX.studentKey,
+      schoolCode: CTX.schoolCode,
+      classRoom: CTX.classRoom,
+      studentNo: CTX.studentNo,
+      nickName: CTX.nickName
     };
   }
 
-  // ---------- Event listeners ----------
-  function onSession(e) {
+  // ---------- Listeners ----------
+  function onSession(e){
     const d = (e && e.detail) ? e.detail : {};
-    // session start marker
-    if (!STATE.startTimeIso) STATE.startTimeIso = new Date().toISOString();
-
-    // allow sessionId override from engine
+    // update context if provided
     if (d.sessionId) CTX.sessionId = safeStr(d.sessionId);
+    if (d.gameMode) CTX.gameMode = safeStr(d.gameMode);
     if (d.game) CTX.gameMode = safeStr(d.game);
+    if (d.runMode) CTX.runMode = safeStr(d.runMode);
     if (d.mode) CTX.runMode = safeStr(d.mode);
     if (d.diff) CTX.diff = safeStr(d.diff);
+    if (d.challenge) CTX.challenge = safeStr(d.challenge);
+    if (d.endPolicy) CTX.endPolicy = safeStr(d.endPolicy);
     if (d.seed !== undefined) CTX.seed = safeStr(d.seed);
+    if (d.seedRaw !== undefined) CTX.seedRaw = safeStr(d.seedRaw);
 
-    enqueue('session', d);
+    // capture start time precisely when phase=start
+    const ph = safeStr(d.phase || '').toLowerCase();
+    const tsMs = Number(d.ts || now());
+    if (!SNAP.startIso) SNAP.startIso = toIso(d.timestampIso || tsMs);
+    if (!SNAP.startMs) SNAP.startMs = tsMs;
+
+    // optional: write a start marker into events (not sessions)
+    if (ph === 'start') {
+      const iso = toIso(d.timestampIso || tsMs);
+      const row = baseEventRow_(iso, tsMs);
+      row.eventType = 'session_start';
+      row.extra = tryJson({ phase:'start', ...d });
+      enqueueEventRow(row);
+    }
+
+    // profile upsert
+    enqueueProfileOnce_();
   }
 
-  function onEvent(e) {
+  function onScore(e){
     const d = (e && e.detail) ? e.detail : {};
-    // update rolling state quickly based on event type
-    // expected d: { sessionId, game, type, t, score, combo, miss, perfect, fever, shield, lives, data:{} }
+    if (d.score !== undefined) SNAP.lastScore = safeNum(d.score);
+    if (d.totalScore !== undefined) SNAP.lastScore = safeNum(d.totalScore);
+    if (d.combo !== undefined) SNAP.lastCombo = safeNum(d.combo);
+    if (d.misses !== undefined) SNAP.lastMiss = safeNum(d.misses);
+    if (d.fever !== undefined) SNAP.lastFever = safeNum(d.fever);
+  }
+
+  function onQuestUpdate(e){
+    const d = (e && e.detail) ? e.detail : {};
+    // normalize both naming styles
+    const qc = safeNum(d.goalsCleared ?? d.goals ?? null);
+    const qt = safeNum(d.goalsTotal ?? null);
+    const mc = safeNum(d.minisCleared ?? d.miniCleared ?? null);
+    const mt = safeNum(d.minisTotal ?? d.miniTotal ?? null);
+    SNAP.lastQuest = {
+      goalsCleared: qc,
+      goalsTotal: qt,
+      minisCleared: mc,
+      minisTotal: mt
+    };
+  }
+
+  function onEvent(e){
+    const d = (e && e.detail) ? e.detail : {};
+    // accept both kind/type
+    const kindRaw = safeStr(d.kind || d.eventType || d.type || '');
+    const tsMs = Number(d.ts || now());
+    const iso = toIso(d.timestampIso || tsMs);
+
     if (d.sessionId) CTX.sessionId = safeStr(d.sessionId);
+    if (d.gameMode) CTX.gameMode = safeStr(d.gameMode);
     if (d.game) CTX.gameMode = safeStr(d.game);
 
-    const et = safeStr(d.type || '');
-    const data = d.data || {};
+    if (!SNAP.startIso) SNAP.startIso = iso;
+    if (!SNAP.startMs) SNAP.startMs = tsMs;
 
-    // simple counters from eventType
-    if (et === 'spawn') {
-      const k = safeStr(data.kind || data.type || '');
-      if (k === 'good') STATE.nTargetGoodSpawned++;
-      else if (k === 'junk') STATE.nTargetJunkSpawned++;
-      else if (k === 'gold' || k === 'star') STATE.nTargetStarSpawned++;
-      else if (k === 'diamond') STATE.nTargetDiamondSpawned++;
-      else if (k === 'shield') STATE.nTargetShieldSpawned++;
-    }
-    if (et === 'hit') {
-      const k = safeStr(data.kind || '');
-      if (k === 'good' || k === 'gold') STATE.nHitGood++;
-      if (k === 'junk') STATE.nHitJunk++;
-    }
-    if (et === 'miss_expire') {
-      STATE.nExpireGood++;
-    }
-    if (et === 'shield_block') {
-      // count guarded junk hit
-      STATE.nHitJunkGuard++;
+    const pk = parseKind_(kindRaw);
+    const row = baseEventRow_(iso, tsMs);
+    row.eventType = pk.eventType;
+    row.itemType = pk.itemType;
+
+    // attempt fill common fields
+    row.rtMs = safeNum(d.rtMs ?? d.reactionMs ?? null);
+    row.targetId = safeStr(d.targetId ?? d.id ?? '');
+    row.emoji = safeStr(d.emoji ?? '');
+    row.judgment = safeStr(d.judgment ?? '');
+
+    // infer isGood (only if clear)
+    if (pk.eventType === 'hit' && pk.itemType) {
+      row.isGood = (pk.itemType === 'good' || pk.itemType === 'gold' || pk.itemType === 'star') ? 1 : 0;
     }
 
-    enqueue('event', d);
+    // attach full detail safely
+    row.extra = tryJson(d);
+
+    enqueueEventRow(row);
   }
 
-  function onEnd(e) {
+  function onEnd(e){
     const d = (e && e.detail) ? e.detail : {};
-    // normalize: accept both direct fields + nested
+    const tsMs = Number(d.ts || now());
+    const endIso = toIso(d.timestampIso || tsMs);
+
+    if (!SNAP.startIso) SNAP.startIso = toIso(d.startTimeIso || d.startedAtIso || '');
+    if (!SNAP.startIso) SNAP.startIso = endIso;
+    if (!SNAP.startMs) SNAP.startMs = Number(d.startTsMs || now());
+
     if (d.sessionId) CTX.sessionId = safeStr(d.sessionId);
+    if (d.gameMode) CTX.gameMode = safeStr(d.gameMode);
     if (d.game) CTX.gameMode = safeStr(d.game);
     if (d.diff) CTX.diff = safeStr(d.diff);
+    if (d.runMode) CTX.runMode = safeStr(d.runMode);
     if (d.mode) CTX.runMode = safeStr(d.mode);
+    if (d.challenge) CTX.challenge = safeStr(d.challenge);
+    if (d.endPolicy) CTX.endPolicy = safeStr(d.endPolicy);
+    if (d.seed !== undefined) CTX.seed = safeStr(d.seed);
+    if (d.seedRaw !== undefined) CTX.seedRaw = safeStr(d.seedRaw);
 
-    STATE.endTimeIso = new Date().toISOString();
-
-    // duration played
-    if (STATE.startTimeIso) {
+    // compute durationPlayedSec fallback
+    let played = safeNum(d.durationPlayedSec ?? null);
+    if (played == null && SNAP.startIso) {
       try {
-        const a = new Date(STATE.startTimeIso).getTime();
-        const b = new Date(STATE.endTimeIso).getTime();
-        if (Number.isFinite(a) && Number.isFinite(b) && b >= a) {
-          STATE.durationPlayedSec = Math.round((b - a) / 1000);
-        }
-      } catch (_) {}
+        const a = new Date(SNAP.startIso).getTime();
+        const b = new Date(endIso).getTime();
+        if (Number.isFinite(a) && Number.isFinite(b) && b >= a) played = Math.round((b - a)/1000);
+      } catch(_) {}
     }
 
-    // common summary fields (support multiple names)
-    STATE.scoreFinal = safeNum(d.scoreFinal ?? d.score ?? d.finalScore ?? null);
-    STATE.comboMax   = safeNum(d.comboMax ?? d.maxCombo ?? null);
-    STATE.misses     = safeNum(d.misses ?? d.miss ?? null);
+    // session row (matches HEADERS_SESSIONS)
+    const row = {
+      timestampIso: endIso,
+      projectTag: (CTX.projectTag || d.projectTag || CTX.gameMode || ''),
+      runMode: (CTX.runMode || d.runMode || 'play'),
+      studyId: CTX.studyId,
+      phase: CTX.phase,
+      conditionGroup: CTX.conditionGroup,
 
-    STATE.goalsCleared = safeNum(d.goalsCleared ?? d.goals ?? null);
-    STATE.goalsTotal   = safeNum(d.goalsTotal ?? null);
-    STATE.miniCleared  = safeNum(d.miniCleared ?? d.minisCleared ?? d.minis ?? null);
-    STATE.miniTotal    = safeNum(d.miniTotal ?? null);
+      sessionOrder: CTX.sessionOrder,
+      blockLabel: CTX.blockLabel,
+      siteCode: CTX.siteCode,
+      schoolYear: CTX.schoolYear,
+      semester: CTX.semester,
 
-    // optional performance fields if game emits them
-    STATE.accuracyGoodPct = safeNum(d.accuracyGoodPct ?? null);
-    STATE.junkErrorPct    = safeNum(d.junkErrorPct ?? null);
-    STATE.avgRtGoodMs     = safeNum(d.avgRtGoodMs ?? null);
-    STATE.medianRtGoodMs  = safeNum(d.medianRtGoodMs ?? null);
-    STATE.fastHitRatePct  = safeNum(d.fastHitRatePct ?? null);
+      sessionId: CTX.sessionId,
+      gameMode: (CTX.gameMode || d.gameMode || 'unknown'),
+      diff: (CTX.diff || d.diff || 'normal'),
 
-    STATE.reason = safeStr(d.reason || (d.gameOver ? 'gameover' : '') || '');
+      // ✅ NEW standard fields (add to HEADERS_SESSIONS in Code.gs)
+      challenge: (CTX.challenge || d.challenge || ''),
+      endPolicy: (CTX.endPolicy || d.endPolicy || ''),
+      seed: (CTX.seed || d.seed || ''),
+      seedRaw: (CTX.seedRaw || d.seedRaw || ''),
+      grade: safeStr(d.grade || ''),
 
-    // include final snapshot in data to help server write long schema
-    const merged = Object.assign({}, d, buildSnapshot_());
+      durationPlannedSec: safeNum(d.durationPlannedSec ?? CTX.durationPlannedSec ?? null),
+      durationPlayedSec: played,
 
-    // ---- FORCE bossJson ----
-    // รองรับทั้ง d.boss (object) หรือ d.bossJson (string)
-    const bossObj = merged.boss || d.boss || null;
-    const bossJson = safeStr(merged.bossJson || d.bossJson || (bossObj ? tryJson(bossObj) : ''));
+      scoreFinal: safeNum(d.scoreFinal ?? d.score ?? SNAP.lastScore ?? null),
+      comboMax: safeNum(d.comboMax ?? null),
+      misses: safeNum(d.misses ?? SNAP.lastMiss ?? null),
 
-    merged.bossJson = bossJson;
-    if (bossObj && typeof bossObj === 'object') merged.boss = bossJson;
+      goalsCleared: safeNum(d.goalsCleared ?? (SNAP.lastQuest && SNAP.lastQuest.goalsCleared) ?? null),
+      goalsTotal: safeNum(d.goalsTotal ?? (SNAP.lastQuest && SNAP.lastQuest.goalsTotal) ?? null),
+      miniCleared: safeNum(d.miniCleared ?? (SNAP.lastQuest && (SNAP.lastQuest.minisCleared ?? SNAP.lastQuest.miniCleared)) ?? null),
+      miniTotal: safeNum(d.miniTotal ?? (SNAP.lastQuest && (SNAP.lastQuest.minisTotal ?? SNAP.lastQuest.miniTotal)) ?? null),
 
-    const out = flatForSheet(merged);
+      nTargetGoodSpawned: safeNum(d.nTargetGoodSpawned ?? null),
+      nTargetJunkSpawned: safeNum(d.nTargetJunkSpawned ?? null),
+      nTargetStarSpawned: safeNum(d.nTargetStarSpawned ?? null),
+      nTargetDiamondSpawned: safeNum(d.nTargetDiamondSpawned ?? null),
+      nTargetShieldSpawned: safeNum(d.nTargetShieldSpawned ?? null),
 
-    enqueue('end', out);
+      nHitGood: safeNum(d.nHitGood ?? null),
+      nHitJunk: safeNum(d.nHitJunk ?? null),
+      nHitJunkGuard: safeNum(d.nHitJunkGuard ?? null),
+      nExpireGood: safeNum(d.nExpireGood ?? null),
 
-    // flush immediately at end
+      accuracyGoodPct: safeNum(d.accuracyGoodPct ?? null),
+      junkErrorPct: safeNum(d.junkErrorPct ?? null),
+      avgRtGoodMs: safeNum(d.avgRtGoodMs ?? null),
+      medianRtGoodMs: safeNum(d.medianRtGoodMs ?? null),
+      fastHitRatePct: safeNum(d.fastHitRatePct ?? null),
+
+      device: (d.device || CTX.device || ''),
+      gameVersion: (d.gameVersion || CTX.gameVersion || ''),
+      reason: safeStr(d.reason || ''),
+
+      startTimeIso: safeStr(d.startTimeIso || d.startedAtIso || SNAP.startIso || ''),
+      endTimeIso: safeStr(d.endTimeIso || d.endedAtIso || endIso),
+
+      studentKey: CTX.studentKey,
+      schoolCode: CTX.schoolCode,
+      schoolName: CTX.schoolName,
+      classRoom: CTX.classRoom,
+      studentNo: CTX.studentNo,
+      nickName: CTX.nickName,
+
+      gender: CTX.gender,
+      age: CTX.age,
+      gradeLevel: CTX.gradeLevel,
+
+      heightCm: CTX.heightCm,
+      weightKg: CTX.weightKg,
+      bmi: CTX.bmi,
+      bmiGroup: CTX.bmiGroup,
+
+      vrExperience: CTX.vrExperience,
+      gameFrequency: CTX.gameFrequency,
+      handedness: CTX.handedness,
+      visionIssue: CTX.visionIssue,
+      healthDetail: CTX.healthDetail,
+
+      consentParent: CTX.consentParent,
+      consentTeacher: CTX.consentTeacher,
+
+      profileSource: CTX.profileSource,
+      surveyKey: CTX.surveyKey,
+      excludeFlag: CTX.excludeFlag,
+      noteResearcher: CTX.noteResearcher,
+    };
+
+    // attach bossJson safely if exists
+    if (d.bossJson) row.bossJson = safeStr(d.bossJson);
+    if (d.boss && !d.bossJson) row.bossJson = tryJson(d.boss);
+
+    enqueueSessionRow(row);
+
+    // add end marker event
+    const er = baseEventRow_(endIso, tsMs);
+    er.eventType = 'session_end';
+    er.extra = tryJson({ reason: row.reason, grade: row.grade, scoreFinal: row.scoreFinal });
+    enqueueEventRow(er);
+
     flush(true);
-  }
-
-  // passive snapshots (optional — does NOT enqueue by default)
-  function onScore(e) {
-    const d = (e && e.detail) ? e.detail : {};
-    // keep last-known for end fallback
-    if (d.scoreFinal !== undefined) STATE.scoreFinal = safeNum(d.scoreFinal);
-    if (d.score !== undefined) STATE.scoreFinal = safeNum(d.score);
-    if (d.comboMax !== undefined) STATE.comboMax = safeNum(d.comboMax);
-    if (d.combo !== undefined) STATE.comboMax = Math.max(STATE.comboMax || 0, safeNum(d.combo) || 0);
-    if (d.misses !== undefined) STATE.misses = safeNum(d.misses);
-    if (d.miss !== undefined) STATE.misses = safeNum(d.miss);
-  }
-
-  function onTime(e) {
-    const d = (e && e.detail) ? e.detail : {};
-    // capture start time on first time event
-    if (!STATE.startTimeIso) STATE.startTimeIso = new Date().toISOString();
-    // no enqueue
-    if (d.sec !== undefined && CTX.durationPlannedSec == null) {
-      // leave planned from URL; not override
-    }
-  }
-
-  function onQuestUpdate(e) {
-    const d = (e && e.detail) ? e.detail : {};
-    // attempt parse: { goalsCleared, goalsTotal, minisCleared, minisTotal }
-    if (d.goalsCleared !== undefined) STATE.goalsCleared = safeNum(d.goalsCleared);
-    if (d.goalsTotal !== undefined) STATE.goalsTotal = safeNum(d.goalsTotal);
-    if (d.minisCleared !== undefined) STATE.miniCleared = safeNum(d.minisCleared);
-    if (d.miniTotal !== undefined) STATE.miniTotal = safeNum(d.miniTotal);
   }
 
   // ---------- Public API ----------
   const API = {
     init(opts = {}) {
       if (opts && typeof opts.debug === 'boolean') CFG.debug = opts.debug;
-      if (opts && typeof opts.endpoint === 'string' && opts.endpoint.trim()) {
-        CFG.endpoint = opts.endpoint.trim();
-      }
+      if (opts && typeof opts.endpoint === 'string' && opts.endpoint.trim()) CFG.endpoint = opts.endpoint.trim();
       if (opts && typeof opts.disabled === 'boolean') CFG.disabled = opts.disabled;
 
-      if (!CFG.endpoint) {
-        logd('No endpoint. Add ?log=WEB_APP_URL or set window.HHA_LOG_ENDPOINT');
-        return;
-      }
-      if (CFG.disabled) {
-        logd('Logger disabled via nolog=1');
-        return;
-      }
+      if (!CFG.endpoint) { logd('No endpoint. Add ?log=WEB_APP_URL or set window.HHA_LOG_ENDPOINT'); return; }
+      if (CFG.disabled) { logd('Logger disabled via nolog=1'); return; }
 
-      // bind events
+      // bind standard events
       root.addEventListener('hha:log_session', onSession);
       root.addEventListener('hha:log_event', onEvent);
       root.addEventListener('hha:end', onEnd);
 
-      // optional snapshot listeners
+      // optional snapshots
       root.addEventListener('hha:score', onScore);
-      root.addEventListener('hha:time', onTime);
       root.addEventListener('quest:update', onQuestUpdate);
 
-      // flush on pagehide/visibility
+      // lifecycle flush
       root.addEventListener('pagehide', () => flush(true));
       root.addEventListener('beforeunload', () => flush(true));
       doc && doc.addEventListener && doc.addEventListener('visibilitychange', () => {
         if (doc.visibilityState === 'hidden') flush(true);
       });
 
-      // mark start time
-      if (!STATE.startTimeIso) STATE.startTimeIso = new Date().toISOString();
+      // mark session start time baseline
+      if (!SNAP.startIso) SNAP.startIso = new Date().toISOString();
+      if (!SNAP.startMs) SNAP.startMs = now();
 
+      enqueueProfileOnce_(); // upsert profile once (if studentKey exists)
       logd('init ok', { endpoint: CFG.endpoint });
     },
 
     flushNow() { flush(true); },
-
-    // manual log helper (rare use)
-    log(type, data) { enqueue(type || 'event', data || {}); },
-
-    getContext() { return Object.assign({}, CTX); },
-    getSnapshot() { return buildSnapshot_(); }
+    getContext() { return Object.assign({}, CTX); }
   };
 
   root.HHACloudLogger = API;
 
-  // auto-init if endpoint exists
+  // auto init
   try {
     if (!CFG.disabled && CFG.endpoint) API.init({ debug: (Q.get('logdebug') === '1') });
   } catch (_) {}
