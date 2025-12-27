@@ -1,20 +1,18 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration Quest VR — Orb Identity + Cinematic Storm Pack (P0+P1)
-// ✅ Fix: water gauge not auto-climb / no random 100%
-// ✅ Fix: expire policy (GOOD expire hurts; BAD expire in PLAY no penalty)
-// ✅ Fix: Goal counts while in GREEN every second (with hysteresis)
-// ✅ NEW: Storm warning (3..2..1) + tick ramp + thunder (beep/tick/thunder only)
-// ✅ NEW: Mini-Quest (Storm Shield Timing) — block BAD at the right timing window
-// ✅ NEW: Hydration unique “ORB” targets via decorateTarget override
-// ✅ P1: End summary + Back HUB + store HHA_LAST_SUMMARY
-// ✅ Emits standard events + direct HUD update fallback
+// Hydration Quest VR — Orb Identity + Cinematic Storm + HUD Quest Fix (P0+P1)
+// ✅ Fix: Quest panel (bottom-right) not showing -> emit quest:update + hha:quest + cache replay
+// ✅ Fix: Hit has NO effect -> built-in FX layer (bubble burst + score pop + punch) (no dependency)
+// ✅ Fix: Expire policy: GOOD expire hurts; BAD expire in PLAY no penalty; STUDY penalty
+// ✅ Fix: Goal counts while in GREEN (sec-based, hysteresis)
+// ✅ Storm: warning (beep/tick) + thunder (ONLY beep/tick/thunder)
+// ✅ Mini-Quest Storm: Shield timing in laser-fire window (NOW!)
+// ✅ Keep Play mode “playable” แต่โหดแบบวิจัย (harsh tuning)
 
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
-import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
+import { ensureWaterGauge, setWaterGauge } from '../vr/ui-water.js';
 
-// -------------------- Root / helpers --------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
@@ -32,122 +30,242 @@ const DIFF     = String(getQS('diff','normal') || 'normal').toLowerCase();      
 const DURATION = clamp(getQS('time', getQS('durationPlannedSec', 70)), 20, 180) | 0;
 const HUB_URL  = String(getQS('hub','./hub.html') || './hub.html');
 
-// Unique seed (research reproducibility)
+// seed (repro)
 const SEED = String(getQS('sessionId','') || getQS('studentKey','') || '') + '|' + String(getQS('ts', Date.now()));
 
-// -------------------- DOM getters / safe refs --------------------
 const $ = (id) => DOC ? DOC.getElementById(id) : null;
-
-const EL = {
-  // HUD
-  waterZone: $('water-zone'),
-  waterPct: $('water-pct'),
-  waterBar: $('water-bar'),
-
-  statScore: $('stat-score'),
-  statCombo: $('stat-combo'),
-  statComboMax: $('stat-combo-max'),
-  statMiss: $('stat-miss'),
-  statTime: $('stat-time'),
-  statGrade: $('stat-grade'),
-
-  questTitle: $('quest-title'),
-  q1: $('quest-line1'),
-  q2: $('quest-line2'),
-  q3: $('quest-line3'),
-  q4: $('quest-line4'),
-
-  feverPct: $('fever-pct'),
-  feverBar: $('fever-bar'),
-
-  coachFace: $('coach-face'),
-  coachText: $('coach-text'),
-  coachSub: $('coach-sub'),
-
-  // Buttons / overlays
-  btnStart: $('btn-start'),
-  btnMotion: $('btn-motion'),
-  btnStop: $('btn-stop'),
-  btnVR: $('btn-vr'),
-
-  startOverlay: $('start-overlay'),
-  stamp: $('hha-stamp'),
-  stampBig: $('stamp-big'),
-  stampSmall: $('stamp-small'),
-
-  endOverlay: $('hvr-end'),
-  endScore: $('end-score'),
-  endGrade: $('end-grade'),
-  endCombo: $('end-combo'),
-  endMiss: $('end-miss'),
-  endGoals: $('end-goals'),
-  endMinis: $('end-minis'),
-  btnRetry: $('btn-retry'),
-  btnBack: $('btn-backhub')
+const pickEl = (ids=[]) => {
+  for (const id of ids){
+    const el = $(id);
+    if (el) return el;
+  }
+  return null;
 };
 
-// -------------------- Inject cinematic overlay (file-only patch) --------------------
+// -------------------- FX layer (built-in, no particles.js needed) --------------------
+function ensureFxLayer(){
+  if (!DOC) return null;
+  let layer = DOC.querySelector('.hy-fx-layer');
+  if (layer) return layer;
+
+  layer = DOC.createElement('div');
+  layer.className = 'hy-fx-layer';
+  Object.assign(layer.style, {
+    position:'fixed',
+    inset:'0',
+    pointerEvents:'none',
+    zIndex:'9997'
+  });
+  DOC.body.appendChild(layer);
+
+  if (!DOC.getElementById('hy-fx-style')){
+    const st = DOC.createElement('style');
+    st.id = 'hy-fx-style';
+    st.textContent = `
+      .hy-pop{
+        position:absolute;
+        transform: translate(-50%,-50%);
+        font-weight:1000;
+        letter-spacing:.2px;
+        padding:8px 10px;
+        border-radius:999px;
+        border:1px solid rgba(255,255,255,.18);
+        background: rgba(2,6,23,.62);
+        box-shadow: 0 20px 60px rgba(0,0,0,.55);
+        backdrop-filter: blur(10px);
+        opacity:0;
+        will-change: transform, opacity;
+        animation: hyPop 680ms ease-out both;
+      }
+      @keyframes hyPop{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.85); }
+        12%{ opacity:1; transform:translate(-50%,-52%) scale(1); }
+        100%{ opacity:0; transform:translate(-50%,-66%) scale(1.05); }
+      }
+      .hy-burst{
+        position:absolute;
+        width:10px;height:10px;
+        border-radius:999px;
+        transform: translate(-50%,-50%);
+        background: rgba(255,255,255,.18);
+        box-shadow:
+          0 0 0 2px rgba(34,211,238,.16),
+          0 0 22px rgba(59,130,246,.20);
+        opacity:0;
+        animation: hyBurst 520ms ease-out both;
+        will-change: transform, opacity;
+      }
+      @keyframes hyBurst{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.5); }
+        20%{ opacity:1; transform:translate(-50%,-50%) scale(1.2); }
+        100%{ opacity:0; transform:translate(-50%,-50%) scale(2.3); }
+      }
+      .hy-bubble{
+        position:absolute;
+        width:8px;height:8px;
+        border-radius:999px;
+        background: rgba(255,255,255,.22);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+        opacity:0;
+        animation: hyBubbleFly 600ms ease-out both;
+        will-change: transform, opacity;
+      }
+      @keyframes hyBubbleFly{
+        0%{ opacity:0; transform:translate3d(0,0,0) scale(.9); }
+        10%{ opacity:.95; }
+        100%{ opacity:0; transform:translate3d(var(--dx), var(--dy), 0) scale(1.2); }
+      }
+      .hy-punch{
+        position:fixed; inset:0;
+        pointer-events:none;
+        z-index:9996;
+        background: radial-gradient(900px 700px at 50% 45%, rgba(255,255,255,.18), rgba(0,0,0,0) 58%);
+        opacity:0;
+      }
+      .hy-punch.on{
+        animation: hyPunch 140ms ease-out both;
+      }
+      @keyframes hyPunch{
+        0%{ opacity:0; }
+        30%{ opacity:1; }
+        100%{ opacity:0; }
+      }
+    `;
+    DOC.head.appendChild(st);
+  }
+
+  if (!DOC.getElementById('hy-punch')){
+    const punch = DOC.createElement('div');
+    punch.id = 'hy-punch';
+    punch.className = 'hy-punch';
+    DOC.body.appendChild(punch);
+  }
+
+  return layer;
+}
+
+const FX = {
+  layer: null,
+  punchEl: null
+};
+
+function fxInit(){
+  FX.layer = ensureFxLayer();
+  FX.punchEl = DOC ? DOC.getElementById('hy-punch') : null;
+}
+fxInit();
+
+function fxPunch(){
+  if (!FX.punchEl) return;
+  FX.punchEl.classList.remove('on');
+  void FX.punchEl.offsetWidth;
+  FX.punchEl.classList.add('on');
+}
+
+function fxScorePop(x,y,text){
+  if (!FX.layer) return;
+  const el = DOC.createElement('div');
+  el.className = 'hy-pop';
+  el.style.left = x+'px';
+  el.style.top  = y+'px';
+  el.textContent = String(text||'');
+  FX.layer.appendChild(el);
+  ROOT.setTimeout(()=>{ try{ el.remove(); }catch{} }, 900);
+}
+
+function fxBurst(x,y,intensity=1){
+  if (!FX.layer) return;
+
+  const ring = DOC.createElement('div');
+  ring.className = 'hy-burst';
+  ring.style.left = x+'px';
+  ring.style.top  = y+'px';
+  ring.style.transform = 'translate(-50%,-50%) scale(' + (0.75 + 0.25*intensity).toFixed(2) + ')';
+  FX.layer.appendChild(ring);
+  ROOT.setTimeout(()=>{ try{ ring.remove(); }catch{} }, 900);
+
+  const n = Math.round(7 + 5*intensity);
+  for (let i=0;i<n;i++){
+    const b = DOC.createElement('div');
+    b.className = 'hy-bubble';
+    b.style.left = x+'px';
+    b.style.top  = y+'px';
+    const ang = Math.random()*Math.PI*2;
+    const r = (14 + Math.random()*24) * (0.9 + 0.35*intensity);
+    const dx = Math.cos(ang)*r;
+    const dy = Math.sin(ang)*r - (18 + Math.random()*26);
+    b.style.setProperty('--dx', dx.toFixed(1)+'px');
+    b.style.setProperty('--dy', dy.toFixed(1)+'px');
+    b.style.animationDelay = (Math.random()*40)+'ms';
+    b.style.width = b.style.height = (6 + Math.random()*6)+'px';
+    FX.layer.appendChild(b);
+    ROOT.setTimeout(()=>{ try{ b.remove(); }catch{} }, 900);
+  }
+}
+
+function centerFromEl(el){
+  try{
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }catch{
+    return { x: (ROOT.innerWidth||0)/2, y: (ROOT.innerHeight||0)/2 };
+  }
+}
+
+// Optional Particles (if loaded)
+const Particles =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+  ROOT.Particles ||
+  { scorePop(){}, burstAt(){} };
+
+// -------------------- Cinematic layer (storm) --------------------
 function ensureCinematicLayer(){
   if (!DOC || DOC.getElementById('hy-cine-style')) return;
 
   const s = DOC.createElement('style');
   s.id = 'hy-cine-style';
   s.textContent = `
-    .hy-cine-vignette{
-      position:fixed; inset:0;
-      pointer-events:none;
-      z-index:9996;
-      opacity:0;
-      transition: opacity .18s ease;
-      background:
-        radial-gradient(900px 600px at 50% 45%, rgba(0,0,0,0), rgba(0,0,0,.55) 60%, rgba(0,0,0,.88) 100%);
-      mix-blend-mode: normal;
+    .hy-vignette{
+      position:fixed; inset:0; pointer-events:none; z-index:9995;
+      opacity:0; transition: opacity .18s ease;
+      background: radial-gradient(900px 620px at 50% 45%, rgba(0,0,0,0), rgba(0,0,0,.55) 60%, rgba(0,0,0,.88) 100%);
     }
-    .hy-cine-vignette.on{ opacity: 1; }
-    .hy-cine-edge{
-      position:fixed; inset:0;
-      pointer-events:none;
-      z-index:9996;
+    .hy-vignette.on{ opacity:1; }
+    .hy-edge{
+      position:fixed; inset:0; pointer-events:none; z-index:9995;
       opacity:0;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.05), inset 0 0 90px rgba(255,80,96,.22);
       transition: opacity .12s ease;
-      box-shadow: inset 0 0 0 2px rgba(255,255,255,.05), inset 0 0 80px rgba(255, 80, 96, .22);
-      filter: drop-shadow(0 0 30px rgba(255,80,96,.15));
     }
-    .hy-cine-edge.pulse{
-      opacity: 1;
+    .hy-edge.pulse{
+      opacity:1;
       animation: hyEdgePulse .22s ease-in-out infinite;
     }
     @keyframes hyEdgePulse{
-      0%{ box-shadow: inset 0 0 0 2px rgba(255,255,255,.05), inset 0 0 70px rgba(255,80,96,.18); }
-      50%{ box-shadow: inset 0 0 0 2px rgba(255,255,255,.07), inset 0 0 120px rgba(255,80,96,.36); }
-      100%{ box-shadow: inset 0 0 0 2px rgba(255,255,255,.05), inset 0 0 85px rgba(255,80,96,.22); }
+      0%{ box-shadow: inset 0 0 0 2px rgba(255,255,255,.05), inset 0 0 78px rgba(255,80,96,.18); }
+      50%{ box-shadow: inset 0 0 0 2px rgba(255,255,255,.07), inset 0 0 140px rgba(255,80,96,.36); }
+      100%{ box-shadow: inset 0 0 0 2px rgba(255,255,255,.05), inset 0 0 95px rgba(255,80,96,.22); }
     }
-    .hy-cine-flash{
-      position:fixed; inset:0;
-      pointer-events:none;
-      z-index:9996;
+    .hy-flash{
+      position:fixed; inset:0; pointer-events:none; z-index:9995;
       opacity:0;
       background: radial-gradient(900px 700px at 50% 40%, rgba(255,255,255,.55), rgba(167,139,250,.22), rgba(0,0,0,0) 60%);
       transition: opacity .08s ease;
     }
-    .hy-cine-flash.on{ opacity: 1; }
-    .hy-cine-count{
-      position:fixed;
-      left:50%; top:45%;
+    .hy-flash.on{ opacity:1; }
+    .hy-count{
+      position:fixed; left:50%; top:45%;
       transform:translate(-50%,-50%);
-      z-index:9996;
-      pointer-events:none;
-      font-weight:1000;
-      letter-spacing:.6px;
-      padding:10px 14px;
-      border-radius:18px;
+      z-index:9995; pointer-events:none;
+      font-weight:1000; letter-spacing:.6px;
+      padding:10px 14px; border-radius:18px;
       border:1px solid rgba(148,163,184,.22);
       background: rgba(2,6,23,.62);
       box-shadow: 0 30px 90px rgba(0,0,0,.55);
       backdrop-filter: blur(10px);
       opacity:0;
     }
-    .hy-cine-count.show{
+    .hy-count.show{
       opacity:1;
       animation: hyCountPop .18s ease-out both;
     }
@@ -155,12 +273,33 @@ function ensureCinematicLayer(){
       from{ transform:translate(-50%,-50%) scale(.92); }
       to{ transform:translate(-50%,-50%) scale(1); }
     }
-    .hy-orb{
-      position:absolute;
-      inset:0;
-      border-radius:999px;
-      overflow:hidden;
+    .hy-now{
+      position:fixed;
+      left:50%; top:58%;
+      transform:translate(-50%,-50%);
+      z-index:9995;
       pointer-events:none;
+      font-weight:1000;
+      padding:10px 14px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,80,96,.12);
+      box-shadow: 0 0 0 1px rgba(255,80,96,.18), 0 24px 80px rgba(0,0,0,.55);
+      opacity:0;
+    }
+    .hy-now.on{
+      opacity:1;
+      animation: hyNowPulse .14s ease-in-out infinite;
+    }
+    @keyframes hyNowPulse{
+      0%{ transform:translate(-50%,-50%) scale(1); filter: brightness(1); }
+      50%{ transform:translate(-50%,-50%) scale(1.05); filter: brightness(1.2); }
+      100%{ transform:translate(-50%,-50%) scale(1); filter: brightness(1); }
+    }
+    /* Orb shimmer */
+    .hy-orb{
+      position:absolute; inset:0;
+      border-radius:999px; overflow:hidden; pointer-events:none;
     }
     .hy-orb::before{
       content:"";
@@ -169,11 +308,10 @@ function ensureCinematicLayer(){
         radial-gradient(140px 120px at 30% 20%, rgba(255,255,255,.35), rgba(255,255,255,0) 55%),
         radial-gradient(160px 140px at 70% 80%, rgba(34,211,238,.20), rgba(34,211,238,0) 60%),
         radial-gradient(160px 140px at 40% 70%, rgba(59,130,246,.16), rgba(59,130,246,0) 65%);
-      filter: blur(0px);
       opacity:.95;
-      animation: hyWaterDrift 1.6s ease-in-out infinite;
+      animation: hyDrift 1.5s ease-in-out infinite;
     }
-    @keyframes hyWaterDrift{
+    @keyframes hyDrift{
       0%{ transform: translate3d(-2%, -2%, 0) rotate(-6deg); }
       50%{ transform: translate3d(2%, 2%, 0) rotate(6deg); }
       100%{ transform: translate3d(-2%, -2%, 0) rotate(-6deg); }
@@ -192,36 +330,21 @@ function ensureCinematicLayer(){
       50%{ transform: translate3d(0,-6px,0) scale(1.02); opacity:.85; }
       100%{ transform: translate3d(0,0,0) scale(.92); opacity:.55; }
     }
-    .hy-now{
-      position:fixed;
-      left:50%; top:58%;
-      transform:translate(-50%,-50%);
-      z-index:9996;
-      pointer-events:none;
-      font-weight:1000;
-      padding:10px 14px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.18);
-      background: rgba(255,80,96,.12);
-      box-shadow: 0 0 0 1px rgba(255,80,96,.18), 0 24px 80px rgba(0,0,0,.55);
-      opacity:0;
+    .hy-hit{
+      animation: hyHit .14s ease-out both;
     }
-    .hy-now.on{
-      opacity:1;
-      animation: hyNowPulse .14s ease-in-out infinite;
-    }
-    @keyframes hyNowPulse{
-      0%{ transform:translate(-50%,-50%) scale(1); filter: brightness(1); }
-      50%{ transform:translate(-50%,-50%) scale(1.04); filter: brightness(1.15); }
-      100%{ transform:translate(-50%,-50%) scale(1); filter: brightness(1); }
+    @keyframes hyHit{
+      0%{ transform: translate3d(var(--x), var(--y), 0) scale(var(--s)); filter: brightness(1); }
+      50%{ transform: translate3d(var(--x), var(--y), 0) scale(calc(var(--s) * 1.10)); filter: brightness(1.2); }
+      100%{ transform: translate3d(var(--x), var(--y), 0) scale(var(--s)); filter: brightness(1); }
     }
   `;
   DOC.head.appendChild(s);
 
-  const vign = DOC.createElement('div'); vign.className='hy-cine-vignette'; vign.id='hy-cine-vignette';
-  const edge = DOC.createElement('div'); edge.className='hy-cine-edge'; edge.id='hy-cine-edge';
-  const flash = DOC.createElement('div'); flash.className='hy-cine-flash'; flash.id='hy-cine-flash';
-  const cnt = DOC.createElement('div'); cnt.className='hy-cine-count'; cnt.id='hy-cine-count'; cnt.textContent='';
+  const vign = DOC.createElement('div'); vign.className='hy-vignette'; vign.id='hy-vignette';
+  const edge = DOC.createElement('div'); edge.className='hy-edge'; edge.id='hy-edge';
+  const flash = DOC.createElement('div'); flash.className='hy-flash'; flash.id='hy-flash';
+  const cnt = DOC.createElement('div'); cnt.className='hy-count'; cnt.id='hy-count'; cnt.textContent='';
   const now = DOC.createElement('div'); now.className='hy-now'; now.id='hy-now'; now.textContent='🛡️ NOW! BLOCK THE BAD ⚡';
 
   DOC.body.appendChild(vign);
@@ -233,10 +356,10 @@ function ensureCinematicLayer(){
 ensureCinematicLayer();
 
 const CINE = {
-  vign: DOC ? DOC.getElementById('hy-cine-vignette') : null,
-  edge: DOC ? DOC.getElementById('hy-cine-edge') : null,
-  flash: DOC ? DOC.getElementById('hy-cine-flash') : null,
-  count: DOC ? DOC.getElementById('hy-cine-count') : null,
+  vign: DOC ? DOC.getElementById('hy-vignette') : null,
+  edge: DOC ? DOC.getElementById('hy-edge') : null,
+  flash: DOC ? DOC.getElementById('hy-flash') : null,
+  count: DOC ? DOC.getElementById('hy-count') : null,
   now: DOC ? DOC.getElementById('hy-now') : null
 };
 
@@ -291,15 +414,13 @@ function beep(freq=740, dur=0.06, gain=0.06){
   o.stop(t + dur + 0.02);
 }
 function tick(intensity=1.0){
-  // short clicky tick
-  const f = 520 + Math.round(220*intensity);
+  const f = 520 + Math.round(240*intensity);
   beep(f, 0.04, 0.05);
 }
 function thunder(intensity=1.0){
   const ctx = ensureAudio(); if (!ctx) return;
 
-  // noise burst + low sine
-  const dur = 0.55 + 0.20*clamp(intensity, 0.8, 1.4);
+  const dur = 0.55 + 0.25*clamp(intensity, 0.8, 1.4);
   const bufferSize = Math.floor(ctx.sampleRate * dur);
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -313,14 +434,14 @@ function thunder(intensity=1.0){
   const noise = ctx.createBufferSource();
   noise.buffer = buffer;
 
-  const bp = ctx.createBiquadFilter();
-  bp.type = 'lowpass';
-  bp.frequency.value = 180 + 40*intensity;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 180 + 40*intensity;
 
   const g = ctx.createGain();
   g.gain.value = 0.0001;
 
-  noise.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  noise.connect(lp); lp.connect(g); g.connect(ctx.destination);
 
   const t0 = ctx.currentTime;
   g.gain.setValueAtTime(0.0001, t0);
@@ -330,7 +451,6 @@ function thunder(intensity=1.0){
   noise.start(t0);
   noise.stop(t0 + dur + 0.02);
 
-  // low rumble
   const o = ctx.createOscillator();
   const g2 = ctx.createGain();
   o.type = 'sine';
@@ -344,76 +464,74 @@ function thunder(intensity=1.0){
   o.stop(t0 + dur + 0.03);
 }
 
-// -------------------- HUD update (direct + events) --------------------
-function setCoach(face, text, sub){
-  if (EL.coachFace) EL.coachFace.textContent = String(face || '🥦');
-  if (EL.coachText) EL.coachText.textContent = String(text || '');
-  if (EL.coachSub)  EL.coachSub.textContent  = String(sub || '');
-  try{ ROOT.dispatchEvent(new CustomEvent('hha:coach', { detail: { face, text, sub } })); }catch{}
+// -------------------- HUD elements (robust ids) --------------------
+const EL = {
+  waterZone: pickEl(['water-zone','hud-water-zone']),
+  waterPct:  pickEl(['water-pct','hud-water-pct']),
+  waterBar:  pickEl(['water-bar','hud-water-bar']),
+
+  statScore: pickEl(['stat-score','hud-score']),
+  statCombo: pickEl(['stat-combo','hud-combo']),
+  statComboMax: pickEl(['stat-combo-max','hud-combo-max']),
+  statMiss:  pickEl(['stat-miss','hud-miss']),
+  statTime:  pickEl(['stat-time','hud-time']),
+  statGrade: pickEl(['stat-grade','hud-grade']),
+
+  questTitle: pickEl(['quest-title','hud-quest-title','hudQuestTitle']),
+  q1: pickEl(['quest-line1','hud-quest-line1','quest-l1']),
+  q2: pickEl(['quest-line2','hud-quest-line2','quest-l2']),
+  q3: pickEl(['quest-line3','hud-quest-line3','quest-l3']),
+  q4: pickEl(['quest-line4','hud-quest-line4','quest-l4']),
+
+  feverPct: pickEl(['fever-pct','hud-fever-pct']),
+  feverBar: pickEl(['fever-bar','hud-fever-bar']),
+
+  coachFace: pickEl(['coach-face','hud-coach-face']),
+  coachText: pickEl(['coach-text','hud-coach-text']),
+  coachSub:  pickEl(['coach-sub','hud-coach-sub']),
+
+  // optional “Storm Mini FULL panel”
+  stormPressureBar: pickEl(['pressure-bar','storm-pressure-bar','mini-pressure-bar']),
+  stormPressurePct: pickEl(['pressure-pct','storm-pressure-pct']),
+
+  btnStart: $('btn-start'),
+  btnMotion: $('btn-motion'),
+  btnStop: $('btn-stop'),
+  btnVR: $('btn-vr'),
+
+  startOverlay: $('start-overlay'),
+
+  endOverlay: $('hvr-end'),
+  endScore: $('end-score'),
+  endGrade: $('end-grade'),
+  endCombo: $('end-combo'),
+  endMiss: $('end-miss'),
+  endGoals: $('end-goals'),
+  endMinis: $('end-minis'),
+  btnRetry: $('btn-retry'),
+  btnBack: $('btn-backhub')
+};
+
+// -------------------- Quest cache (fix right-bottom not showing) --------------------
+function cacheQuest(q){
+  try{ ROOT.__HHA_LAST_QUEST__ = q; }catch{}
 }
-
-function updateStatsUI(state){
-  if (EL.statScore) EL.statScore.textContent = String(state.score|0);
-  if (EL.statCombo) EL.statCombo.textContent = String(state.combo|0);
-  if (EL.statComboMax) EL.statComboMax.textContent = String(state.comboMax|0);
-  if (EL.statMiss) EL.statMiss.textContent = String(state.miss|0);
-  if (EL.statTime) EL.statTime.textContent = String(state.secLeft|0);
-  if (EL.statGrade) EL.statGrade.textContent = String(state.grade || 'C');
-
+function replayQuestCache(){
   try{
-    ROOT.dispatchEvent(new CustomEvent('hha:score', { detail: {
-      score: state.score|0,
-      combo: state.combo|0,
-      comboMax: state.comboMax|0,
-      miss: state.miss|0,
-      grade: state.grade || 'C',
-      waterPct: state.waterPct|0,
-      waterZone: state.zone
-    }}));
+    const q = ROOT.__HHA_LAST_QUEST__;
+    if (q) {
+      ROOT.dispatchEvent(new CustomEvent('quest:update', { detail: q }));
+      ROOT.dispatchEvent(new CustomEvent('hha:quest', { detail: q }));
+    }
   }catch{}
 }
 
-function updateFeverUI(pct){
-  pct = clamp(pct, 0, 100);
-  if (EL.feverPct) EL.feverPct.textContent = String(Math.round(pct)) + '%';
-  if (EL.feverBar) EL.feverBar.style.width = String(Math.round(pct)) + '%';
-  try{ ROOT.dispatchEvent(new CustomEvent('hha:fever', { detail: { pct } })); }catch{}
-}
-
-function updateWaterUI(pct, zone){
-  pct = clamp(pct, 0, 100);
-  if (EL.waterPct) EL.waterPct.textContent = String(Math.round(pct)) + '%';
-  if (EL.waterZone) EL.waterZone.textContent = String(zone || 'LOW');
-  if (EL.waterBar) EL.waterBar.style.width = String(Math.round(pct)) + '%';
-
-  // keep ui-water module in sync too
-  try{
-    ensureWaterGauge();
-    setWaterGauge(pct);
-  }catch{}
-
-  try{
-    ROOT.dispatchEvent(new CustomEvent('hha:water', { detail: { pct, zone } }));
-  }catch{}
-}
-
-function showStamp(big, small){
-  if (!EL.stamp) return;
-  if (EL.stampBig) EL.stampBig.textContent = String(big || 'OK!');
-  if (EL.stampSmall) EL.stampSmall.textContent = String(small || '');
-  EL.stamp.classList.remove('show');
-  // force reflow
-  void EL.stamp.offsetWidth;
-  EL.stamp.classList.add('show');
-}
-
-// -------------------- Water model (NO auto climb!) --------------------
+// -------------------- Game state --------------------
 const GREEN_BANDS = {
-  // hysteresis band to prevent flicker
-  lowToGreen: 42,
-  greenToLow: 38,
-  greenToHigh: 72,
-  highToGreen: 68
+  lowToGreen: 44,
+  greenToLow: 40,
+  greenToHigh: 70,
+  highToGreen: 66
 };
 
 function zoneFromPctHys(pct, prevZone){
@@ -429,53 +547,56 @@ function zoneFromPctHys(pct, prevZone){
     if (pct <= GREEN_BANDS.highToGreen) return 'GREEN';
     return 'HIGH';
   }
-  // LOW or unknown
   if (pct >= GREEN_BANDS.lowToGreen) return 'GREEN';
   return 'LOW';
 }
 
-// -------------------- Difficulty tuning (Play balanced but harsh like research) --------------------
-const TUNE = (function(){
-  // Base — keep “playable”, but penalties strong enough (as requested)
-  const base = {
-    goodHit:  +10,
-    goodPerfectBonus: +4,
-    badHit:   -14,
-    goodExpire: -8,      // ✅ good disappears hurts
-    badExpirePlay: 0,    // ✅ play = no penalty
-    badExpireStudy: -5,  // study = penalty
-    waterGood: +7,
-    waterGoodPerfect: +9,
-    waterBad: -11,
-    waterGoodExpire: -7,
-    waterBadExpireStudy: -4,
-    feverGood: +6,
-    feverBad: -10,
-    feverGoodExpire: -7,
-    feverDecayPerSec: 1.1,
-    shieldDurMs: 4200
-  };
-
-  // difficulty scalers
-  const mult = (DIFF === 'easy') ? 0.92 : (DIFF === 'hard') ? 1.12 : 1.0;
-  const harsh = (RUN_MODE === 'study') ? 1.10 : 1.00;
-
-  return {
-    ...base,
-    goodHit: Math.round(base.goodHit * mult),
-    badHit: Math.round(base.badHit * mult * harsh),
-    goodExpire: Math.round(base.goodExpire * harsh),
-    waterGood: Math.round(base.waterGood * mult),
-    waterBad: Math.round(base.waterBad * mult * harsh),
-    waterGoodExpire: Math.round(base.waterGoodExpire * harsh),
-    feverDecayPerSec: base.feverDecayPerSec * harsh
-  };
-})();
-
-// -------------------- Goals / Minis (Hydration identity) --------------------
-const GOAL_GREEN_NEED = (DIFF === 'easy') ? 10 : (DIFF === 'hard') ? 14 : 12; // seconds in GREEN
-// Keep it “research-hard” but still fair in Play
+const GOAL_GREEN_NEED = (DIFF === 'easy') ? 10 : (DIFF === 'hard') ? 14 : 12;
 const GOAL2_GREEN_NEED = (DIFF === 'easy') ? 12 : (DIFF === 'hard') ? 16 : 14;
+
+const baseTune = {
+  goodHit:  +10,
+  goodPerfectBonus: +4,
+
+  badHit:   -16,           // โหดขึ้น
+  goodExpire: -10,         // โหดขึ้น
+
+  // Water deltas (ลดการพุ่ง 100 ง่ายเกิน)
+  waterGood: +4,
+  waterGoodPerfect: +6,
+  waterBad: -9,
+  waterGoodExpire: -8,
+  badExpirePlay: 0,
+  badExpireStudy: -5,
+
+  feverGood: +6,
+  feverBad: -11,
+  feverGoodExpire: -8,
+  feverDecayPerSec: 1.15,
+
+  shieldDurMs: 4200,
+
+  // Cinematic / challenge
+  laserWindowMs: 720,      // “จังหวะ” ชัดขึ้น
+  stormWarnSec: 3,
+  stormActiveSecPlay: 7,
+  stormActiveSecStudy: 9,
+};
+
+const mult = (DIFF === 'easy') ? 0.92 : (DIFF === 'hard') ? 1.10 : 1.0;
+const harsh = (RUN_MODE === 'study') ? 1.12 : 1.00;
+
+const TUNE = {
+  ...baseTune,
+  goodHit: Math.round(baseTune.goodHit * mult),
+  badHit: Math.round(baseTune.badHit * mult * harsh),
+  goodExpire: Math.round(baseTune.goodExpire * harsh),
+  waterGood: Math.round(baseTune.waterGood * mult),
+  waterGoodPerfect: Math.round(baseTune.waterGoodPerfect * mult),
+  waterBad: Math.round(baseTune.waterBad * mult * harsh),
+  waterGoodExpire: Math.round(baseTune.waterGoodExpire * harsh),
+  feverDecayPerSec: baseTune.feverDecayPerSec * harsh
+};
 
 const state = {
   started:false,
@@ -486,25 +607,27 @@ const state = {
   combo:0,
   comboMax:0,
   miss:0,
+  grade:'C',
 
-  waterPct: 50,         // ✅ start from balanced
+  waterPct: 50,
   zone: 'GREEN',
   feverPct: 0,
 
   shieldUntil: 0,
-  lastLaserFireTs: 0,
-  laserWindowMs: 750,
 
-  // goals
+  lastLaserFireTs: 0,
+  laserWindowMs: TUNE.laserWindowMs,
+
   goalIndex: 0,
   greenSecAcc: 0,
   goalsDone: 0,
   goalsTotal: 2,
 
-  // minis
   minisDone: 0,
-  minisTotal: 999, // open-ended
-  stormMini: { active:false, need:2, got:0, done:false, stormId:0 },
+  minisTotal: 999,
+
+  // extra challenge: pressure (makes it more fun)
+  pressure: 0,
 
   // storm
   storm: {
@@ -513,11 +636,13 @@ const state = {
     active:false,
     warnLeft:0,
     activeLeft:0,
-    nextAtSec: Math.max(8, Math.floor(DURATION * 0.35)), // first storm mid-early
-    periodSec: (RUN_MODE === 'study') ? 14 : 18,
-    warnSec: 3,
-    activeSec: (RUN_MODE === 'study') ? 8 : 7
-  }
+    nextAtSec: Math.max(8, Math.floor(DURATION * 0.28)), // มาเร็วขึ้น = เร้าใจ
+    periodSec: (RUN_MODE === 'study') ? 13 : 16,
+    warnSec: TUNE.stormWarnSec,
+    activeSec: (RUN_MODE === 'study') ? TUNE.stormActiveSecStudy : TUNE.stormActiveSecPlay
+  },
+
+  stormMini: { active:false, need:2, got:0, done:false, stormId:0 }
 };
 
 function isShieldOn(nowMs=Date.now()){
@@ -526,32 +651,114 @@ function isShieldOn(nowMs=Date.now()){
 function setShield(ms){
   const now = Date.now();
   state.shieldUntil = Math.max(state.shieldUntil, now + Math.max(900, ms|0));
-  setCoach('🛡️','SHIELD ON!','กัน BAD ได้ — แต่ Storm timing ต้อง “จังหวะ” นะ');
+  setCoach('🛡️','SHIELD ON!','กัน BAD ได้ — แต่ Storm mini ต้อง “จังหวะ laser-fire”');
 }
 
-function applyWaterDelta(d){
-  // ✅ ONLY update when events happen (NO background auto-fill)
-  state.waterPct = clamp(state.waterPct + (Number(d)||0), 0, 100);
-  state.zone = zoneFromPctHys(state.waterPct, state.zone);
-  updateWaterUI(state.waterPct, state.zone);
+function setCoach(face, text, sub){
+  if (EL.coachFace) EL.coachFace.textContent = String(face || '🥦');
+  if (EL.coachText) EL.coachText.textContent = String(text || '');
+  if (EL.coachSub)  EL.coachSub.textContent  = String(sub || '');
+  try{ ROOT.dispatchEvent(new CustomEvent('hha:coach', { detail: { face, text, sub } })); }catch{}
 }
 
-function applyFeverDelta(d){
-  state.feverPct = clamp(state.feverPct + (Number(d)||0), 0, 100);
-  updateFeverUI(state.feverPct);
+function updateStatsUI(){
+  if (EL.statScore) EL.statScore.textContent = String(state.score|0);
+  if (EL.statCombo) EL.statCombo.textContent = String(state.combo|0);
+  if (EL.statComboMax) EL.statComboMax.textContent = String(state.comboMax|0);
+  if (EL.statMiss) EL.statMiss.textContent = String(state.miss|0);
+  if (EL.statTime) EL.statTime.textContent = String(state.secLeft|0);
+  if (EL.statGrade) EL.statGrade.textContent = String(state.grade || 'C');
 
-  // optional auto-shield at high fever (hydration identity)
-  if (state.feverPct >= 92) setShield(2600);
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:score', { detail: {
+      score: state.score|0,
+      combo: state.combo|0,
+      comboMax: state.comboMax|0,
+      miss: state.miss|0,
+      grade: state.grade || 'C',
+      waterPct: Math.round(state.waterPct),
+      waterZone: state.zone
+    }}));
+  }catch{}
 }
 
-function addMiss(n=1){
-  state.miss += (n|0);
+function updateFeverUI(){
+  const pct = clamp(state.feverPct,0,100);
+  if (EL.feverPct) EL.feverPct.textContent = String(Math.round(pct)) + '%';
+  if (EL.feverBar) EL.feverBar.style.width = String(Math.round(pct)) + '%';
+  try{ ROOT.dispatchEvent(new CustomEvent('hha:fever', { detail: { pct } })); }catch{}
 }
 
-function addScore(n){
-  state.score += (n|0);
+function updateWaterUI(){
+  const pct = clamp(state.waterPct,0,100);
+  if (EL.waterPct) EL.waterPct.textContent = String(Math.round(pct)) + '%';
+  if (EL.waterZone) EL.waterZone.textContent = String(state.zone || 'LOW');
+  if (EL.waterBar) EL.waterBar.style.width = String(Math.round(pct)) + '%';
+  try{
+    ensureWaterGauge();
+    setWaterGauge(pct);
+  }catch{}
+  try{ ROOT.dispatchEvent(new CustomEvent('hha:water', { detail: { pct, zone: state.zone } })); }catch{}
 }
 
+function updatePressureUI(){
+  const p = clamp(state.pressure, 0, 100);
+  if (EL.stormPressureBar) EL.stormPressureBar.style.width = Math.round(p) + '%';
+  if (EL.stormPressurePct) EL.stormPressurePct.textContent = Math.round(p) + '%';
+  try{ ROOT.dispatchEvent(new CustomEvent('hha:pressure', { detail: { pct: p } })); }catch{}
+}
+
+function cacheAndEmitQuest(detail){
+  cacheQuest(detail);
+  try{ ROOT.dispatchEvent(new CustomEvent('quest:update', { detail })); }catch{}
+  try{ ROOT.dispatchEvent(new CustomEvent('hha:quest', { detail })); }catch{}
+}
+
+function updateQuestUI(){
+  const goalNeed = (state.goalIndex === 0) ? GOAL_GREEN_NEED : GOAL2_GREEN_NEED;
+  const goalLine = (state.goalIndex === 0)
+    ? `Goal: อยู่ GREEN รวม ${GOAL_GREEN_NEED} วิ 🟢`
+    : `Goal: อยู่ GREEN รวม ${GOAL2_GREEN_NEED} วิ (เข้มขึ้น) 🟢`;
+
+  const mini = state.stormMini;
+  let miniLine = `Mini (Storm): ใช้ Shield block BAD “ถูกจังหวะ” ${mini.got}/${mini.need}`;
+  if (mini.done) miniLine = `Mini (Storm): สำเร็จ! ✅ ${mini.need}/${mini.need}`;
+
+  let stateLine = '';
+  if (state.storm.warning) stateLine = `⚠️ Storm warning: ${state.storm.warnLeft}s`;
+  else if (state.storm.active) stateLine = `🌪️ STORM ACTIVE: ${state.storm.activeLeft}s · Pressure ${Math.round(state.pressure)}%`;
+  else {
+    const elapsed = (DURATION - state.secLeft);
+    const eta = Math.max(0, state.storm.nextAtSec - elapsed);
+    stateLine = `Next storm in ~${eta}s · Pressure ${Math.round(state.pressure)}%`;
+  }
+
+  const goalsLine = `Goals done: ${state.goalsDone}/${state.goalsTotal} · Minis done: ${state.minisDone}`;
+  const progS = clamp(Math.round((state.goalsDone / Math.max(1,state.goalsTotal)) * 100), 0, 100);
+
+  if (EL.questTitle) EL.questTitle.textContent = `Hydration Quest ${state.goalIndex + 1}`;
+  if (EL.q1) EL.q1.textContent = goalLine;
+  if (EL.q2) EL.q2.textContent = `${miniLine}`;
+  if (EL.q3) EL.q3.textContent = `${stateLine} · ${goalsLine}`;
+  if (EL.q4) EL.q4.textContent = `Progress to S: ${progS}%`;
+
+  cacheAndEmitQuest({
+    title: `Hydration Quest ${state.goalIndex + 1}`,
+    line1: goalLine,
+    line2: miniLine,
+    line3: `${stateLine} · ${goalsLine}`,
+    line4: `Progress to S: ${progS}%`,
+    // extra (some HUD binders prefer structured fields)
+    goalTitle: `Goal ${state.goalIndex + 1}`,
+    goalText: goalLine,
+    goalProgress: `${state.greenSecAcc}/${goalNeed}s`,
+    miniTitle: `Storm Mini: Shield Timing`,
+    miniText: miniLine,
+    stateText: stateLine
+  });
+}
+
+// -------------------- Score / combo / grade --------------------
 function addCombo(){
   state.combo += 1;
   state.comboMax = Math.max(state.comboMax, state.combo);
@@ -559,10 +766,33 @@ function addCombo(){
 function breakCombo(){
   state.combo = 0;
 }
+function addMiss(n=1){
+  state.miss += (n|0);
+}
+function addScore(n=0){
+  state.score += (n|0);
+}
+
+function applyWaterDelta(d){
+  state.waterPct = clamp(state.waterPct + (Number(d)||0), 0, 100);
+  state.zone = zoneFromPctHys(state.waterPct, state.zone);
+  updateWaterUI();
+
+  // pressure mechanic: out-of-green builds pressure (more fun)
+  if (state.zone !== 'GREEN') state.pressure = clamp(state.pressure + 2.2, 0, 100);
+  else state.pressure = clamp(state.pressure - 3.0, 0, 100);
+  updatePressureUI();
+}
+
+function applyFeverDelta(d){
+  state.feverPct = clamp(state.feverPct + (Number(d)||0), 0, 100);
+  updateFeverUI();
+
+  // high fever auto shield (identity)
+  if (state.feverPct >= 92) setShield(2600);
+}
 
 function computeGrade(){
-  // harsh but readable (SSS..C not shown in hydration HUD by default; keep simple A..C)
-  // You can map to SSS later via global HUD if needed.
   const t = Math.max(1, DURATION);
   const scorePerSec = state.score / t;
   const missRate = state.miss / t;
@@ -573,42 +803,12 @@ function computeGrade(){
   return 'C';
 }
 
-function updateQuestUI(){
-  if (EL.questTitle) EL.questTitle.textContent = `Hydration Quest ${state.goalIndex + 1}`;
-  const goalName = (state.goalIndex === 0)
-    ? `Goal: อยู่ GREEN รวม ${GOAL_GREEN_NEED} วิ 🟢`
-    : `Goal: อยู่ GREEN รวม ${GOAL2_GREEN_NEED} วิ (เข้มขึ้น) 🟢`;
-
-  // miniquest line (Storm only)
-  const stormMini = state.stormMini;
-  let miniLine = `Mini (Storm): ใช้ Shield block BAD “ถูกจังหวะ” ${stormMini.got}/${stormMini.need}`;
-  if (stormMini.done) miniLine = `Mini (Storm): สำเร็จ! ✅ ${stormMini.need}/${stormMini.need}`;
-
-  let stormLine = '';
-  if (state.storm.warning) stormLine = `⚠️ Storm warning: ${state.storm.warnLeft}s`;
-  else if (state.storm.active) stormLine = `🌪️ STORM ACTIVE: ${state.storm.activeLeft}s`;
-  else stormLine = `Next storm in ~${Math.max(0, state.storm.nextAtSec - (DURATION - state.secLeft))}s`;
-
-  const goalsLine = `Goals done: ${state.goalsDone} / ${state.goalsTotal} · Minis done: ${state.minisDone}`;
-  const progToS = clamp(Math.round((state.goalsDone / state.goalsTotal) * 100), 0, 100);
-
-  if (EL.q1) EL.q1.textContent = goalName;
-  if (EL.q2) EL.q2.textContent = `${miniLine}`;
-  if (EL.q3) EL.q3.textContent = `${stormLine} · ${goalsLine}`;
-  if (EL.q4) EL.q4.textContent = `Progress to S: ${progToS}%`;
-
-  try{
-    ROOT.dispatchEvent(new CustomEvent('quest:update', { detail: {
-      title: EL.questTitle ? EL.questTitle.textContent : 'Hydration Quest',
-      line1: EL.q1 ? EL.q1.textContent : goalName,
-      line2: EL.q2 ? EL.q2.textContent : miniLine,
-      line3: EL.q3 ? EL.q3.textContent : goalsLine,
-      line4: EL.q4 ? EL.q4.textContent : ''
-    }}));
-  }catch{}
+// -------------------- Storm scheduling --------------------
+function withinLaserWindow(){
+  const now = Date.now();
+  return (now - state.lastLaserFireTs) <= state.laserWindowMs;
 }
 
-// -------------------- Storm scheduling --------------------
 function stormStartWarning(){
   if (state.storm.warning || state.storm.active) return;
   state.storm.warning = true;
@@ -618,19 +818,17 @@ function stormStartWarning(){
   cineEdgePulse(true);
   setCoach('⚠️','STORM WARNING!','อีก 3 วิพายุเข้า — เตรียม Shield + จังหวะ laser-fire!');
   cineCountShow('STORM IN 3');
+  tick(1.0);
 
-  // tick ramp: 3..2..1
   let k = 0;
   const id = ROOT.setInterval(()=>{
     if (!state.started || state.ended) { try{ ROOT.clearInterval(id); }catch{}; return; }
     k++;
     state.storm.warnLeft = Math.max(0, state.storm.warnSec - k);
+
     const left = state.storm.warnLeft;
-
-    // ramp tick intensity
-    tick(1.0 + (0.3*k));
+    tick(1.0 + 0.35*k);
     cineCountShow(left > 0 ? `STORM IN ${left}` : 'GO!');
-
     if (left <= 0){
       try{ ROOT.clearInterval(id); }catch{}
       state.storm.warning = false;
@@ -645,18 +843,17 @@ function stormBegin(){
   state.storm.active = true;
   state.storm.activeLeft = state.storm.activeSec;
 
-  // reset storm mini
   state.stormMini = { active:true, need:2, got:0, done:false, stormId: state.storm.id };
 
   cineFlash(140);
-  thunder(1.1);
-  setCoach('🌪️','STORM ACTIVE!','ตอน laser-fire ให้กด block BAD “จังหวะนั้น” ถึงนับ mini!');
+  thunder(1.15);
+  setCoach('🌪️','STORM ACTIVE!','ตอน laser-fire ให้ block BAD “จังหวะนั้น” ถึงนับ mini!');
   updateQuestUI();
 
-  // random lightning flashes (throttled)
-  const flashes = (RUN_MODE === 'study') ? 3 : 2;
+  // cinematic flashes
+  const flashes = (RUN_MODE === 'study') ? 4 : 3;
   for (let i=0;i<flashes;i++){
-    const t = 600 + Math.random()*1800;
+    const t = 520 + Math.random()*1900;
     ROOT.setTimeout(()=>{ if (state.storm.active && state.started && !state.ended) cineFlash(110); }, t);
   }
 }
@@ -667,33 +864,36 @@ function stormTickPerSecond(){
   // schedule next storm
   if (!state.storm.warning && !state.storm.active && elapsed >= state.storm.nextAtSec){
     stormStartWarning();
-    // plan next cycle
     state.storm.nextAtSec = elapsed + state.storm.periodSec;
   }
 
-  // storm active countdown
+  // active countdown + pressure spike
   if (state.storm.active){
     state.storm.activeLeft = Math.max(0, (state.storm.activeLeft|0) - 1);
-    // cinematic intensity (pulse on)
+
     cineVignette(true);
     cineEdgePulse(true);
+
+    // storm builds pressure fast (thrill)
+    state.pressure = clamp(state.pressure + 6.5, 0, 100);
+    updatePressureUI();
 
     if (state.storm.activeLeft <= 0){
       state.storm.active = false;
       cineEdgePulse(false);
       cineVignette(false);
+      cineNow(false);
 
       if (state.stormMini && state.stormMini.done){
         state.minisDone += 1;
-        showStamp('MINI!', `Storm Shield ${state.stormMini.need}/${state.stormMini.need}`);
+        fxScorePop((ROOT.innerWidth||0)/2, (ROOT.innerHeight||0)*0.62, 'MINI CLEAR ✅');
         setCoach('🤩','Storm mini ผ่านแล้ว!','คุมจังหวะได้ดีมาก!');
       } else {
         setCoach('😤','Storm จบแล้ว','รอบหน้า “จับจังหวะ laser-fire” ให้ตรงขึ้นนะ');
       }
       updateQuestUI();
     }
-  } else if (!state.storm.warning) {
-    // calm state
+  } else if (!state.storm.warning){
     cineEdgePulse(false);
     cineVignette(false);
   }
@@ -701,7 +901,6 @@ function stormTickPerSecond(){
 
 // -------------------- Goal counting (GREEN every second) --------------------
 function goalTickPerSecond(){
-  // ✅ must count while GREEN (with hysteresis)
   if (state.zone === 'GREEN'){
     state.greenSecAcc += 1;
   }
@@ -710,16 +909,14 @@ function goalTickPerSecond(){
 
   if (state.greenSecAcc >= need){
     state.goalsDone = Math.min(state.goalsTotal, state.goalsDone + 1);
-    showStamp('GOAL!', `GREEN ${need}s`);
-    setCoach('🥦','ดีมาก! GREEN สำเร็จ','ไปต่อ goal ถัดไป (เข้มขึ้น)');
-    cineFlash(120);
+    fxScorePop((ROOT.innerWidth||0)/2, (ROOT.innerHeight||0)*0.52, `GOAL ✅ GREEN ${need}s`);
+    cineFlash(110);
 
-    // advance goal
+    setCoach('🥦','ดีมาก! ผ่าน GOAL','ไปต่อ (เข้มขึ้น)');
     state.goalIndex = Math.min(state.goalsTotal-1, state.goalIndex + 1);
     state.greenSecAcc = 0;
     updateQuestUI();
 
-    // small celebration
     try{ ROOT.dispatchEvent(new CustomEvent('hha:celebrate', { detail: { kind:'goal', label:'GREEN' } })); }catch{}
   }
 }
@@ -729,17 +926,13 @@ ROOT.addEventListener('hha:tick', (ev)=>{
   const d = ev && ev.detail ? ev.detail : {};
   const kind = String(d.kind || '');
   const intensity = Number(d.intensity || 1.0);
-
   if (!state.started || state.ended) return;
 
   if (kind === 'laser-warn'){
-    // subtle pre-warning, not too spammy
-    tick(0.9);
+    tick(0.95);
   }
   if (kind === 'laser-fire'){
-    // ✅ timing window for storm mini
     state.lastLaserFireTs = Date.now();
-    // cinematic NOW indicator only during storm
     if (state.storm.active){
       cineNow(true);
       tick(1.15 * intensity);
@@ -748,31 +941,36 @@ ROOT.addEventListener('hha:tick', (ev)=>{
   }
 });
 
-// -------------------- Spawn mul hook (storm + warning) --------------------
+// -------------------- Spawn intensity (fun/challenge) --------------------
 function spawnIntervalMul(){
-  if (state.storm.active) return (RUN_MODE === 'study') ? 0.55 : 0.62;
-  if (state.storm.warning) return 0.90;
-  return 1.0;
+  if (state.storm.active) return (RUN_MODE === 'study') ? 0.52 : 0.60;
+  if (state.storm.warning) return 0.88;
+  // pressure makes it more intense even outside storm
+  const p = clamp(state.pressure, 0, 100);
+  return clamp(1.0 - (p/100)*0.22, 0.75, 1.0);
+}
+function goodRateDynamic(){
+  const base = (DIFF === 'easy') ? 0.68 : (DIFF === 'hard') ? 0.60 : 0.64;
+  if (state.storm.active) return clamp(base - 0.14, 0.44, 0.70);
+  if (state.storm.warning) return clamp(base - 0.08, 0.44, 0.75);
+  // pressure pushes more BAD
+  const p = clamp(state.pressure, 0, 100);
+  return clamp(base - (p/100)*0.10, 0.48, 0.74);
 }
 
-// -------------------- Target decorate (Hydration ORB identity) --------------------
+// -------------------- ORB decorate (hydration identity) --------------------
 function decorateOrb(el, parts, data, meta){
   try{
-    // hide emoji-ish feel (keep tiny icon only for power)
+    const sz = meta.size || 78;
+    const inner = (parts && parts.inner) ? parts.inner : el;
+
     if (parts && parts.icon){
-      if (data.itemType === 'power'){
-        parts.icon.textContent = '🛡️';
-      } else if (data.itemType === 'bad'){
-        parts.icon.textContent = '☠️';
-      } else {
-        parts.icon.textContent = ''; // orb-only
-      }
-      parts.icon.style.fontSize = Math.max(16, Math.round(meta.size * 0.22)) + 'px';
+      if (data.itemType === 'power') parts.icon.textContent = '🛡️';
+      else if (data.itemType === 'bad') parts.icon.textContent = '☠️';
+      else parts.icon.textContent = '';
+      parts.icon.style.fontSize = Math.max(16, Math.round(sz * 0.22)) + 'px';
       parts.icon.style.opacity = (data.itemType === 'bad' || data.itemType === 'power') ? '0.92' : '0.0';
     }
-
-    // override palette to “water orb”
-    const sz = meta.size || 78;
 
     if (data.itemType === 'bad'){
       el.style.background = 'radial-gradient(circle at 30% 25%, rgba(255,120,120,.95), rgba(234,88,12,.92))';
@@ -785,22 +983,21 @@ function decorateOrb(el, parts, data, meta){
       el.style.boxShadow = '0 16px 34px rgba(0,0,0,.55), 0 0 0 2px rgba(34,211,238,.22), 0 0 22px rgba(59,130,246,.22)';
     }
 
-    // add orb shimmer layer + bubbles
-    const orb = DOC.createElement('div');
-    orb.className = 'hy-orb';
+    // add shimmer orb if not exists
+    if (!inner.querySelector('.hy-orb')){
+      const orb = DOC.createElement('div');
+      orb.className = 'hy-orb';
+      const b1 = DOC.createElement('i'); b1.className='bubble';
+      b1.style.left='22%'; b1.style.top='58%'; b1.style.width=(sz*0.10)+'px'; b1.style.height=(sz*0.10)+'px';
+      b1.style.animationDelay = (Math.random()*0.35).toFixed(2)+'s';
+      const b2 = DOC.createElement('i'); b2.className='bubble';
+      b2.style.left='62%'; b2.style.top='42%'; b2.style.width=(sz*0.08)+'px'; b2.style.height=(sz*0.08)+'px';
+      b2.style.animationDelay = (Math.random()*0.35).toFixed(2)+'s';
+      orb.appendChild(b1); orb.appendChild(b2);
+      inner.appendChild(orb);
+    }
 
-    const b1 = DOC.createElement('i'); b1.className='bubble';
-    b1.style.left='22%'; b1.style.top='58%'; b1.style.width=(sz*0.10)+'px'; b1.style.height=(sz*0.10)+'px';
-    b1.style.animationDelay = (Math.random()*0.35).toFixed(2)+'s';
-
-    const b2 = DOC.createElement('i'); b2.className='bubble';
-    b2.style.left='62%'; b2.style.top='42%'; b2.style.width=(sz*0.08)+'px'; b2.style.height=(sz*0.08)+'px';
-    b2.style.animationDelay = (Math.random()*0.35).toFixed(2)+'s';
-
-    orb.appendChild(b1); orb.appendChild(b2);
-    (parts && parts.inner ? parts.inner : el).appendChild(orb);
-
-    // ring styling less “dashed”, more “fluid”
+    // ring style
     if (parts && parts.ring){
       parts.ring.style.border = '2px solid rgba(255,255,255,.22)';
       parts.ring.style.outline = '1px solid rgba(255,255,255,.08)';
@@ -810,89 +1007,111 @@ function decorateOrb(el, parts, data, meta){
   }catch{}
 }
 
-// -------------------- Judge / Expire --------------------
-function withinLaserWindow(){
-  const now = Date.now();
-  return (now - state.lastLaserFireTs) <= state.laserWindowMs;
+// -------------------- Judge / Expire + EFFECTS --------------------
+function animateHit(el){
+  if (!el) return;
+  try{
+    el.classList.remove('hy-hit');
+    void el.offsetWidth;
+    el.classList.add('hy-hit');
+    ROOT.setTimeout(()=>{ try{ el.classList.remove('hy-hit'); }catch{} }, 220);
+  }catch{}
 }
 
-function judge(ch, ctx){
-  // ctx: { itemType, hitPerfect, ... }
+function judge(_ch, ctx){
   const type = String(ctx.itemType || '');
   const perfect = !!ctx.hitPerfect;
+  const el = ctx.el || ctx.targetEl || null;
+  const c = el ? centerFromEl(el) : { x:(ROOT.innerWidth||0)/2, y:(ROOT.innerHeight||0)/2 };
 
-  // shield block logic
-  const shieldOn = isShieldOn(Date.now());
+  // helper: do common FX
+  const doFx = (txt, intensity=1.0) => {
+    animateHit(el);
+    fxBurst(c.x, c.y, intensity);
+    fxScorePop(c.x, c.y - 14, txt);
+    fxPunch();
+    try{ Particles.burstAt(c.x, c.y, { kind: type || 'hit' }); }catch{}
+    try{ Particles.scorePop(c.x, c.y, txt); }catch{}
+  };
 
   // BAD
   if (type === 'bad'){
-    if (shieldOn){
-      // blocked: no penalty
+    if (isShieldOn()){
       addScore(+2);
-      // mini counts only during storm & only if within timing window
-      if (state.storm.active && state.stormMini && state.stormMini.active && !state.stormMini.done){
+      doFx('BLOCK +2', 1.2);
+
+      if (state.storm.active && state.stormMini.active && !state.stormMini.done){
         if (withinLaserWindow()){
           state.stormMini.got += 1;
-          showStamp('BLOCK!', `${state.stormMini.got}/${state.stormMini.need}`);
-          cineFlash(90);
           if (state.stormMini.got >= state.stormMini.need){
             state.stormMini.done = true;
             state.stormMini.active = false;
-            setCoach('🤩','Perfect timing!','Storm mini สำเร็จแล้ว — รอดพายุให้ครบ!');
+            setCoach('🤩','Perfect timing!','Storm mini สำเร็จแล้ว — รอดให้ครบ!');
+            doFx('TIMED BLOCK ✅', 1.35);
           } else {
-            setCoach('😎','Nice block!','อีกนิดเดียว — รอ laser-fire แล้วค่อย block อีกที');
+            setCoach('😎','Nice timed block!','อีก 1 ครั้ง — รอ NOW แล้วค่อย block');
+            doFx('TIMED +1', 1.25);
           }
           updateQuestUI();
         } else {
-          // blocked but not “timed”
-          setCoach('😅','Block ได้ แต่ยังไม่ “จังหวะ”','ให้รอช่วง laser-fire (NOW!) ถึงจะนับ');
+          setCoach('😅','Block ได้ แต่ยังไม่ “จังหวะ”','รอ laser-fire (NOW!) ถึงจะนับ');
+          doFx('BLOCK (NOT TIMED)', 1.0);
         }
       }
-      return { good:true, scoreDelta:+2, kind:'bad-blocked', shield:true };
+      return { good:true, kind:'bad-blocked', shield:true };
     }
 
-    // hit bad (penalty)
+    // hit bad
     breakCombo();
     addMiss(1);
     addScore(TUNE.badHit);
     applyWaterDelta(TUNE.waterBad);
     applyFeverDelta(TUNE.feverBad);
 
-    setCoach('😟','โดน BAD!','ถ้ามี Shield จะกันได้ — และช่วง storm ต้องจับจังหวะ');
-    return { good:false, scoreDelta:TUNE.badHit, kind:'bad-hit' };
+    setCoach('😟','โดน BAD!','เอา Shield ช่วย แล้วคุม GREEN ให้ได้');
+    doFx(`${TUNE.badHit}`, 1.3);
+    return { good:false, kind:'bad-hit' };
   }
 
   // POWER
   if (type === 'power'){
     addCombo();
-    addScore(8);
-    applyWaterDelta(+5);
+    addScore(9);
+    applyWaterDelta(+4);
     applyFeverDelta(+12);
     setShield(TUNE.shieldDurMs);
-    showStamp('POWER!', '+SHIELD');
+    setCoach('🛡️','Power ได้ Shield!','เก็บไว้ใช้ตอน storm / NOW window');
+    doFx('POWER 🛡️', 1.25);
     updateQuestUI();
-    return { good:true, scoreDelta:+8, kind:'power' };
+    return { good:true, kind:'power' };
   }
 
-  // FAKEGOOD (soft reward; still “hydration orb”)
+  // FAKEGOOD
   if (type === 'fakeGood'){
     addCombo();
-    addScore(4);
-    applyWaterDelta(+2);
+    addScore(4 + (perfect ? 2 : 0));
+    applyWaterDelta(+1);
     applyFeverDelta(+3);
-    if (perfect) addScore(+2);
-    setCoach('🤨','นี่น้ำจริงไหมนะ…','ได้แต้มเล็กน้อย แต่ไม่แรงเท่าน้ำดี');
-    return { good:true, scoreDelta:+4, kind:'fakeGood' };
+    setCoach('🤨','น้ำลวงตา…','ได้แต้ม แต่ไม่ช่วยเท่าน้ำดี');
+    doFx(perfect ? 'FAKE +6' : 'FAKE +4', 0.95);
+    return { good:true, kind:'fakeGood' };
   }
 
   // GOOD
   addCombo();
-  addScore(TUNE.goodHit + (perfect ? TUNE.goodPerfectBonus : 0));
+  const sc = TUNE.goodHit + (perfect ? TUNE.goodPerfectBonus : 0);
+  addScore(sc);
   applyWaterDelta(perfect ? TUNE.waterGoodPerfect : TUNE.waterGood);
   applyFeverDelta(TUNE.feverGood);
-  if (perfect) showStamp('PERFECT!', '+BONUS');
 
-  return { good:true, scoreDelta:(TUNE.goodHit + (perfect?TUNE.goodPerfectBonus:0)), kind:'good-hit', perfect };
+  if (perfect){
+    setCoach('🤩','PERFECT!','คุมจังหวะดีมาก — รักษา GREEN ต่อ');
+    doFx(`+${sc} PERFECT`, 1.25);
+  } else {
+    doFx(`+${sc}`, 1.05);
+  }
+
+  return { good:true, kind:'good-hit', perfect };
 }
 
 function onExpire(info){
@@ -900,47 +1119,41 @@ function onExpire(info){
   if (!state.started || state.ended) return;
 
   if (type === 'good'){
-    // ✅ GOOD expire hurts
     breakCombo();
     addMiss(1);
     addScore(TUNE.goodExpire);
     applyWaterDelta(TUNE.waterGoodExpire);
     applyFeverDelta(TUNE.feverGoodExpire);
-    setCoach('😤','พลาดน้ำดี!','พยายามรักษา GREEN นะ');
+    setCoach('😤','พลาดน้ำดี!','พยายามรักษา GREEN');
     return;
   }
 
   if (type === 'bad'){
     if (RUN_MODE === 'study'){
-      // study is harsh
       breakCombo();
       addMiss(1);
       addScore(TUNE.badExpireStudy);
-      applyWaterDelta(TUNE.waterBadExpireStudy);
-      setCoach('😤','BAD หลุด! (study)','ในโหมดวิจัย BAD หลุดก็โดนด้วยนะ');
+      applyWaterDelta(-2);
+      setCoach('😤','BAD หลุด! (study)','โหมดวิจัย: BAD หลุดก็โดน');
     } else {
-      // play: no penalty
       setCoach('😎','หลบ BAD สำเร็จ','Play mode: ไม่โดนลงโทษจาก BAD expire');
     }
     return;
   }
 
   if (type === 'power'){
-    // power expire: small miss, but not harsh
     addScore(-2);
-    setCoach('😅','พลาด Power','ถ้าเก็บได้จะได้ Shield ช่วยตอน storm');
+    setCoach('😅','พลาด Power','ถ้าเก็บได้จะช่วยตอน storm');
     return;
   }
 
   if (type === 'fakeGood'){
-    // harmless
     addScore(-1);
   }
 }
 
-// -------------------- End summary + Back HUB (P1 standard) --------------------
+// -------------------- End summary (P1 standard) --------------------
 function makeSummary(){
-  const grade = computeGrade();
   return {
     timestampIso: new Date().toISOString(),
     projectTag: getQS('projectTag','HeroHealth'),
@@ -958,7 +1171,7 @@ function makeSummary(){
     miniCleared: state.minisDone|0,
     miniTotal: state.minisTotal|0,
     waterEndPct: Math.round(state.waterPct),
-    grade
+    grade: state.grade
   };
 }
 
@@ -973,13 +1186,14 @@ function showEnd(){
   if (state.ended) return;
   state.ended = true;
 
-  const grade = computeGrade();
-  state.grade = grade;
+  state.grade = computeGrade();
+  updateStatsUI();
 
   const sum = makeSummary();
   storeLastSummary(sum);
 
-  // update end overlay
+  try{ ROOT.dispatchEvent(new CustomEvent('hha:end', { detail: sum })); }catch{}
+
   if (EL.endScore) EL.endScore.textContent = String(sum.scoreFinal);
   if (EL.endGrade) EL.endGrade.textContent = String(sum.grade);
   if (EL.endCombo) EL.endCombo.textContent = String(sum.comboMax);
@@ -987,20 +1201,157 @@ function showEnd(){
   if (EL.endGoals) EL.endGoals.textContent = `${sum.goalsCleared}/${sum.goalsTotal}`;
   if (EL.endMinis) EL.endMinis.textContent = `${sum.miniCleared}/${sum.miniTotal}`;
 
-  updateStatsUI({ ...state, grade });
-
-  // emit
-  try{ ROOT.dispatchEvent(new CustomEvent('hha:end', { detail: sum })); }catch{}
-
-  if (EL.endOverlay){
-    EL.endOverlay.style.display = 'flex';
-  }
+  if (EL.endOverlay) EL.endOverlay.style.display = 'flex';
   setCoach('🥳','จบเกมแล้ว!','กด RETRY หรือกลับ HUB ได้เลย');
 }
 
-// -------------------- Boot game engine --------------------
+// -------------------- Engine boot --------------------
 let factory = null;
 
+function stopGame(){
+  try{ if (factory && factory.stop) factory.stop(); }catch{}
+  factory = null;
+  showEnd();
+}
+
+function resetState(){
+  state.started=false; state.ended=false;
+  state.secLeft=DURATION;
+  state.score=0; state.combo=0; state.comboMax=0; state.miss=0; state.grade='C';
+  state.waterPct=50; state.zone='GREEN'; state.feverPct=0;
+  state.shieldUntil=0;
+  state.lastLaserFireTs=0;
+  state.goalIndex=0; state.greenSecAcc=0; state.goalsDone=0;
+  state.minisDone=0;
+  state.pressure=0;
+
+  state.storm.id=0;
+  state.storm.warning=false; state.storm.active=false;
+  state.storm.warnLeft=0; state.storm.activeLeft=0;
+  state.storm.nextAtSec = Math.max(8, Math.floor(DURATION * 0.28));
+
+  state.stormMini = { active:false, need:2, got:0, done:false, stormId:0 };
+}
+
+async function startGame(){
+  if (state.started) return;
+  resetState();
+  state.started = true;
+
+  // unlock audio
+  ensureAudio();
+
+  try{ ensureWaterGauge(); }catch{}
+  updateWaterUI();
+  updateFeverUI();
+  updatePressureUI();
+
+  state.grade = computeGrade();
+  updateStatsUI();
+  updateQuestUI();
+  replayQuestCache();
+
+  setCoach('💧','Hydration เริ่ม!','รักษา GREEN + เตรียม Storm');
+
+  // per-second logic (listens to external timer if present, else local)
+  let localTimer = null;
+
+  const onTime = (ev)=>{
+    if (!state.started || state.ended) return;
+    const sec = (ev && ev.detail && Number.isFinite(ev.detail.sec)) ? (ev.detail.sec|0) : state.secLeft;
+    state.secLeft = clamp(sec, 0, DURATION)|0;
+
+    // fever decay
+    applyFeverDelta(-TUNE.feverDecayPerSec);
+
+    // pressure behavior: storm makes it rise
+    if (state.storm.active) state.pressure = clamp(state.pressure + 4.0, 0, 100);
+    updatePressureUI();
+
+    goalTickPerSecond();
+    stormTickPerSecond();
+
+    state.grade = computeGrade();
+    updateStatsUI();
+    updateQuestUI();
+
+    if (state.secLeft <= 0) stopGame();
+  };
+
+  // if some engine dispatches hha:time use it; else local interval fallback
+  let hasExternalTime = false;
+  const probe = (ev)=>{ hasExternalTime = true; onTime(ev); };
+  ROOT.addEventListener('hha:time', probe);
+
+  localTimer = ROOT.setInterval(()=>{
+    if (hasExternalTime) return;
+    if (!state.started || state.ended) return;
+    state.secLeft = Math.max(0, state.secLeft - 1);
+    onTime({ detail: { sec: state.secLeft } });
+  }, 1000);
+
+  const allowAdaptive = (RUN_MODE !== 'study');
+
+  const pools = { good:[''], bad:[''], trick:[''] };
+  const powerups = ['🛡️'];
+
+  factory = await factoryBoot({
+    modeKey: 'hydration',
+    difficulty: DIFF,
+    duration: DURATION,
+
+    spawnHost: '#hvr-layer',
+    boundsHost: '#playfield',
+
+    spawnAroundCrosshair: false,
+    spawnStrategy: 'grid9',
+    minSeparation: 1.05,
+    maxSpawnTries: 16,
+
+    playPadXFrac: 0.10,
+    playPadTopFrac: 0.14,
+    playPadBotFrac: 0.16,
+    autoRelaxSafezone: true,
+
+    seed: SEED,
+
+    goodRate: ()=> goodRateDynamic(),
+    spawnIntervalMul: ()=> spawnIntervalMul(),
+
+    powerups,
+    powerRate: (RUN_MODE === 'study') ? 0.11 : 0.13,
+    powerEvery: 7,
+    trickRate: (RUN_MODE === 'study') ? 0.11 : 0.08,
+
+    allowAdaptive,
+    pools,
+    decorateTarget: decorateOrb,
+
+    judge,
+    onExpire
+  });
+
+  // tap to shoot crosshair if mode-factory provides it
+  const onTapShoot = ()=>{
+    if (!state.started || state.ended) return;
+    ensureAudio();
+    try{
+      if (factory && typeof factory.shootCrosshair === 'function'){
+        factory.shootCrosshair();
+      }
+    }catch{}
+  };
+  DOC.addEventListener('pointerdown', onTapShoot, { passive:true });
+
+  const cleanup = ()=>{
+    try{ ROOT.removeEventListener('hha:time', probe); }catch{}
+    try{ DOC.removeEventListener('pointerdown', onTapShoot); }catch{}
+    try{ if (localTimer) ROOT.clearInterval(localTimer); }catch{}
+  };
+  ROOT.addEventListener('hha:stop', cleanup, { once:true });
+}
+
+// -------------------- Buttons (safe) --------------------
 function bindButtons(){
   if (EL.btnStop){
     EL.btnStop.addEventListener('click', ()=>{
@@ -1008,17 +1359,11 @@ function bindButtons(){
       stopGame();
     }, { passive:true });
   }
-
   if (EL.btnRetry){
-    EL.btnRetry.addEventListener('click', ()=>{
-      // keep same params but refresh
-      ROOT.location.reload();
-    }, { passive:true });
+    EL.btnRetry.addEventListener('click', ()=> ROOT.location.reload(), { passive:true });
   }
-
   if (EL.btnBack){
     EL.btnBack.addEventListener('click', ()=>{
-      // go hub, keep context
       try{
         const u = new URL(HUB_URL, ROOT.location.href);
         u.searchParams.set('ts', String(Date.now()));
@@ -1028,10 +1373,8 @@ function bindButtons(){
       }
     }, { passive:true });
   }
-
   if (EL.btnVR){
     EL.btnVR.addEventListener('click', ()=>{
-      // simple fullscreen helper (optional)
       try{
         const el = DOC.documentElement;
         if (DOC.fullscreenElement) DOC.exitFullscreen();
@@ -1039,15 +1382,13 @@ function bindButtons(){
       }catch{}
     }, { passive:true });
   }
-
   if (EL.btnStart){
-    EL.btnStart.addEventListener('click', async ()=>{
-      ensureAudio(); // unlock audio
+    EL.btnStart.addEventListener('click', ()=>{
+      ensureAudio();
       startGame();
+      if (EL.startOverlay) EL.startOverlay.style.display = 'none';
     }, { passive:true });
   }
-
-  // iOS motion permission (if needed)
   if (EL.btnMotion){
     EL.btnMotion.addEventListener('click', async ()=>{
       try{
@@ -1059,213 +1400,30 @@ function bindButtons(){
       }catch{}
     }, { passive:true });
   }
-
-  // show motion button only if requestPermission exists
-  try{
-    if (EL.btnMotion && ROOT.DeviceMotionEvent && typeof ROOT.DeviceMotionEvent.requestPermission === 'function'){
-      EL.btnMotion.style.display = 'inline-flex';
-    }
-  }catch{}
 }
 
-function setStartOverlay(show){
-  if (!EL.startOverlay) return;
-  EL.startOverlay.style.display = show ? 'flex' : 'none';
-}
-
-function resetState(){
-  state.started = false;
-  state.ended = false;
-
-  state.secLeft = DURATION;
-  state.score = 0;
-  state.combo = 0;
-  state.comboMax = 0;
-  state.miss = 0;
-
-  state.waterPct = 50;
-  state.zone = 'GREEN';
-  state.feverPct = 0;
-
-  state.shieldUntil = 0;
-  state.lastLaserFireTs = 0;
-
-  state.goalIndex = 0;
-  state.greenSecAcc = 0;
-  state.goalsDone = 0;
-
-  state.minisDone = 0;
-  state.stormMini = { active:false, need:2, got:0, done:false, stormId:0 };
-
-  state.storm = {
-    ...state.storm,
-    id:0,
-    warning:false,
-    active:false,
-    warnLeft:0,
-    activeLeft:0,
-    nextAtSec: Math.max(8, Math.floor(DURATION * 0.35))
-  };
-}
-
-function updateAllUI(){
-  updateWaterUI(state.waterPct, state.zone);
-  updateFeverUI(state.feverPct);
-  state.grade = computeGrade();
-  updateStatsUI({ ...state, grade: state.grade });
-  updateQuestUI();
-}
-
-function stopGame(){
-  try{ if (factory && factory.stop) factory.stop(); }catch{}
-  factory = null;
-  showEnd();
-}
-
-async function startGame(){
-  if (state.started) return;
-  resetState();
-  state.started = true;
-
-  setStartOverlay(false);
-
-  // Ensure water gauge exists & set initial
-  try{ ensureWaterGauge(); }catch{}
-  updateAllUI();
-
-  // Coach intro
-  setCoach('💧','Hydration 시작!','รักษา GREEN และเตรียมรับ STORM');
-
-  // Setup hha:time listener for per-second logic
-  const onTime = (ev)=>{
-    if (!state.started || state.ended) return;
-    const sec = (ev && ev.detail && Number.isFinite(ev.detail.sec)) ? (ev.detail.sec|0) : state.secLeft;
-    state.secLeft = clamp(sec, 0, DURATION)|0;
-
-    // fever decay only once per sec
-    applyFeverDelta(-TUNE.feverDecayPerSec);
-
-    // goal tick + storm tick
-    goalTickPerSecond();
-    stormTickPerSecond();
-
-    // grade refresh
-    state.grade = computeGrade();
-    updateStatsUI({ ...state, grade: state.grade });
-    updateQuestUI();
-
-    if (state.secLeft <= 0){
-      stopGame();
-    }
-  };
-  ROOT.addEventListener('hha:time', onTime);
-
-  // Spawn pools (hydration identity)
-  const pools = {
-    good: [''],         // we render orb (no emoji)
-    bad:  [''],         // orb with skull icon overlay
-    trick:['']          // fakeGood minimal
-  };
-  const powerups = ['🛡️'];
-
-  // In play: adaptive ON; in study: adaptive OFF
-  const allowAdaptive = (RUN_MODE !== 'study');
-
-  // Good rate: hydration should feel “manageable”, but storm makes it nasty
-  const baseGoodRate = (DIFF === 'easy') ? 0.68 : (DIFF === 'hard') ? 0.60 : 0.64;
-
-  function goodRateDynamic(){
-    if (state.storm.active) return clamp(baseGoodRate - 0.12, 0.45, 0.70);
-    if (state.storm.warning) return clamp(baseGoodRate - 0.06, 0.45, 0.75);
-    return baseGoodRate;
-  }
-
-  // Boot spawner
-  factory = await factoryBoot({
-    modeKey: 'hydration',
-    difficulty: DIFF,
-    duration: DURATION,
-
-    // hosts
-    spawnHost: '#hvr-layer',
-    boundsHost: '#playfield',
-
-    // spawn behavior
-    spawnAroundCrosshair: false,           // ✅ hydration = full-spread (distinct feel)
-    spawnStrategy: 'grid9',                // ✅ distribute on screen
-    minSeparation: 1.05,
-    maxSpawnTries: 16,
-
-    // safezone padding
-    playPadXFrac: 0.10,
-    playPadTopFrac: 0.14,
-    playPadBotFrac: 0.16,
-
-    autoRelaxSafezone: true,
-
-    // seeded rng for reproducible research
-    seed: SEED,
-
-    // dynamic rates / intervals
-    goodRate: goodRateDynamic(),
-    spawnIntervalMul: ()=> spawnIntervalMul(),
-
-    // make storms feel “heavier” by adding more BAD & more power pressure
-    powerups,
-    powerRate: (RUN_MODE === 'study') ? 0.10 : 0.12,
-    powerEvery: 7,
-    trickRate: (RUN_MODE === 'study') ? 0.10 : 0.08,
-
-    allowAdaptive,
-    rhythm: null,
-
-    pools,
-    decorateTarget: decorateOrb,
-
-    judge,
-    onExpire
-  });
-
-  // Touch middle screen to shoot crosshair (if you want)
-  const onTapShoot = (ev)=>{
-    if (!state.started || state.ended) return;
-    // allow audio
-    ensureAudio();
-    try{
-      if (factory && typeof factory.shootCrosshair === 'function'){
-        const ok = factory.shootCrosshair();
-        if (ok) return;
-      }
-    }catch{}
-  };
-  DOC.addEventListener('pointerdown', onTapShoot, { passive:true });
-
-  // Stop cleanup when end
-  const onStop = ()=>{
-    ROOT.removeEventListener('hha:time', onTime);
-    DOC.removeEventListener('pointerdown', onTapShoot);
-  };
-  ROOT.addEventListener('hha:stop', onStop, { once:true });
-
-  // Start: immediate storm plan update in UI
-  updateQuestUI();
-}
-
-// -------------------- Startup default UI (prevent “not showing”) --------------------
+// -------------------- Init --------------------
 (function init(){
   bindButtons();
 
-  // Force initial stable values (prevent random 100%)
+  // hard-set initial (prevents weird HUD empty)
   try{ ensureWaterGauge(); }catch{}
   state.waterPct = 50;
   state.zone = zoneFromPctHys(state.waterPct, 'GREEN');
   state.feverPct = 0;
+  state.pressure = 0;
 
-  updateAllUI();
+  updateWaterUI();
+  updateFeverUI();
+  updatePressureUI();
+
+  state.grade = computeGrade();
+  updateStatsUI();
+  updateQuestUI();
+  replayQuestCache();
+
   setCoach('🥦','พร้อมแล้ว เก็บน้ำดี ๆ นะ!','แตะเป้า หรือแตะกลางจอเพื่อยิง crosshair');
 
-  // If start overlay missing, just auto-start (failsafe)
-  if (!EL.startOverlay && EL.btnStart == null){
-    startGame();
-  }
+  // failsafe: if no overlay/start button, auto start
+  if (!EL.startOverlay && !EL.btnStart) startGame();
 })();
