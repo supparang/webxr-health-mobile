@@ -6,7 +6,9 @@
 // ✅ Start overlay + Stop + End summary
 // ✅ Miss = goodExpired + junkHit (shield-block junk NOT miss)
 // ✅ Events: hha:score / quest:update / hha:coach / hha:time / hha:end
+// ✅ P0 FIX: DO NOT dispatch hha:time again (listen only)
 // ✅ NEW: Regression-to-mean + Dehydrate drift (Play = พอดี, Research = โหด)
+// ✅ P1 NEW: Research only — If out of GREEN too long => score/fever penalty (discipline control)
 
 'use strict';
 
@@ -139,11 +141,17 @@ const S = {
 
   // tuning
   tune:null,
+  isResearch:false,
+
+  // P1: discipline control (research)
+  outZoneStreakSec:0,
+  outZonePenaltySec:0,
+  lastDisciplineCoachTs:0,
 
   // engine
   factory:null,
 
-  // listeners for cleanup (optional)
+  // listeners for cleanup
   _onTime:null,
   _onStop:null,
 };
@@ -162,7 +170,13 @@ const TUNE_PLAY = {
   badExtraDrop: -1.2,
   fakeAway: 4.6,
   fakeExtraDrop: -0.8,
-  shieldMs: 3200
+  shieldMs: 3200,
+
+  // discipline disabled
+  disciplineEnabled:false,
+  outZoneGraceSec: 999,
+  outZoneScorePenaltyPerSec: 0,
+  outZoneFeverPenaltyPerSec: 0
 };
 
 const TUNE_RESEARCH = {
@@ -175,7 +189,13 @@ const TUNE_RESEARCH = {
   badExtraDrop: -1.8,
   fakeAway: 5.6,
   fakeExtraDrop: -1.2,
-  shieldMs: 2400
+  shieldMs: 2400,
+
+  // ✅ P1: discipline enabled (โหดแบบวิจัย)
+  disciplineEnabled:true,
+  outZoneGraceSec: 4,                 // หลุด GREEN เกิน 4 วิ -> เริ่มโดนโทษ
+  outZoneScorePenaltyPerSec: 22,      // คะแนนลดต่อวินาทีหลังพ้น grace
+  outZoneFeverPenaltyPerSec: 3        // fever ลดต่อวินาทีหลังพ้น grace
 };
 
 function T(){ return S.tune || TUNE_PLAY; }
@@ -567,9 +587,50 @@ function onExpire(info){
     applyWater(T().expirePenalty);
 
     emitScore({ reason:'expireGood' });
-
-    // mini m1 rule (expire doesn't fail it; only junk hits fail)
   }
+}
+
+// ---------- P1 discipline (research only) ----------
+function applyResearchDiscipline(){
+  const tt = T();
+  if (!S.isResearch || !tt.disciplineEnabled) return;
+
+  if (S.waterZone === 'GREEN'){
+    S.outZoneStreakSec = 0;
+    S.outZonePenaltySec = 0;
+    return;
+  }
+
+  S.outZoneStreakSec++;
+
+  // grace time (no penalty yet)
+  if (S.outZoneStreakSec <= tt.outZoneGraceSec) {
+    // เตือนเบา ๆ เป็นระยะ (ไม่รบกวน)
+    if ((S.outZoneStreakSec === 2 || S.outZoneStreakSec === tt.outZoneGraceSec) && now() - S.lastDisciplineCoachTs > 900) {
+      S.lastDisciplineCoachTs = now();
+      coach('คุมให้อยู่ GREEN นะ 🟢', 'neutral', 650);
+    }
+    return;
+  }
+
+  // after grace => penalty per sec
+  S.outZonePenaltySec++;
+  const penScore = Math.max(0, Number(tt.outZoneScorePenaltyPerSec||0));
+  const penFever = Math.max(0, Number(tt.outZoneFeverPenaltyPerSec||0));
+
+  if (penScore > 0) {
+    S.score = Math.max(0, S.score - penScore);
+    try{ Particles.judgeText && Particles.judgeText(`-${penScore}`, (ROOT.innerWidth||360)*0.5, (ROOT.innerHeight||640)*0.58); }catch{}
+  }
+  if (penFever > 0) addFever(-penFever);
+
+  // โค้ชเตือนแบบมีจังหวะ ไม่สแปม
+  if (now() - S.lastDisciplineCoachTs > 1400) {
+    S.lastDisciplineCoachTs = now();
+    coach(`หลุด ${S.waterZone} นานไปแล้ว! กลับ GREEN 🟢`, 'sad', 850);
+  }
+
+  emitScore({ reason:'outZonePenalty', outZoneStreakSec:S.outZoneStreakSec, outZonePenaltySec:S.outZonePenaltySec });
 }
 
 // ---------- time tick (RTM + drift) ----------
@@ -580,6 +641,9 @@ function onSecondTick(){
 
   // green sec
   if (S.waterZone === 'GREEN') S.greenSec++;
+
+  // P1 discipline (research only)
+  applyResearchDiscipline();
 
   tickMini();
 
@@ -631,13 +695,16 @@ function endGame(reason='timeup'){
     nHitBad: S.hitBad,
     hitPerfect: S.hitPerfect,
     waterEnd: S.water,
-    greenSec: S.greenSec
+    greenSec: S.greenSec,
+    // P1
+    outZoneStreakSec: S.outZoneStreakSec,
+    outZonePenaltySec: S.outZonePenaltySec,
+    runMode: S.isResearch ? 'research' : 'play'
   };
 
   dispatch('hha:end', summary);
   showEndOverlay(summary);
 
-  // cleanup listeners (safe)
   try{ if (S._onTime) ROOT.removeEventListener('hha:time', S._onTime); }catch{}
   try{ if (S._onStop) ROOT.removeEventListener('hha:stop', S._onStop); }catch{}
   S._onTime = null;
@@ -655,7 +722,6 @@ function bindCenterTapShoot(){
     const t = ev.target;
     if (t && (t.closest && (t.closest('button') || t.closest('#hud') || t.closest('#start-overlay') || t.closest('#hvr-end')))) return;
 
-    // targets stopPropagation in mode-factory; this is for empty taps
     try{
       if (S.factory && typeof S.factory.shootCrosshair === 'function'){
         const ok = S.factory.shootCrosshair();
@@ -762,13 +828,19 @@ async function startGame(){
   const time = clamp(qnum('time', 60), 20, 180);
   const seed = String(qget('seed', qget('sessionId', qget('ts',''))) || '').trim();
 
+  S.isResearch = isResearch;
   S.tune = isResearch ? TUNE_RESEARCH : TUNE_PLAY;
 
   S.duration = time;
   S.secLeft  = time;
   S.t0 = now();
 
-  coach(isResearch ? 'โหมดวิจัย: โหดขึ้น + ไม่มี adaptive 🧪' : 'โหมดเล่น: พอดี + มี adaptive 😎', 'neutral', 1500);
+  // reset discipline counters
+  S.outZoneStreakSec = 0;
+  S.outZonePenaltySec = 0;
+  S.lastDisciplineCoachTs = 0;
+
+  coach(isResearch ? 'โหมดวิจัย: โหดขึ้น + คุม GREEN จริง 🧪' : 'โหมดเล่น: พอดี + มี adaptive 😎', 'neutral', 1500);
 
   // quest start
   S.goalIndex = 0; S.miniIndex = 0; S.activeMini = null;
