@@ -10,6 +10,7 @@ export function clamp01(v){
   return v;
 }
 
+// zone names (Hydration): LOW / BALANCED / HIGH
 export function zoneFromPct(pct){
   pct = Number(pct)||0;
   if (pct < 35) return 'LOW';
@@ -30,10 +31,8 @@ export function rankFromScore(scoreFinal, misses, comboMax){
   misses = Number(misses)||0;
   comboMax = Number(comboMax)||0;
 
-  // soft normalize
   const bonusCombo = Math.min(400, comboMax * 12);
   const penalty = misses * 120;
-
   const eff = scoreFinal + bonusCombo - penalty;
 
   if (eff >= 3200 && misses <= 2) return 'SSS';
@@ -42,12 +41,4 @@ export function rankFromScore(scoreFinal, misses, comboMax){
   if (eff >= 1500) return 'A';
   if (eff >= 900)  return 'B';
   return 'C';
-}
-
-// for Hydration: zone names
-export function zoneFromPct(pct){
-  pct = Number(pct)||0;
-  if (pct < 35) return 'LOW';
-  if (pct > 70) return 'HIGH';
-  return 'BALANCED';
 }
