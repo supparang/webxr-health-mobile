@@ -1,5 +1,7 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
+GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BUST
+✅ Grade realtime (via hha:score.detail.grade)
+✅ DBG hidden by default; show when ?dbg=1 or run=research
 ✅ Goal/Mini always visible: listen quest:update + hha:quest + repaint from cache
 ✅ Dynamic import goodjunk.safe.js with ?v=ts to kill caching issues
 ✅ End summary accuracy uses accuracyGoodPct
@@ -19,12 +21,12 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- Global FX + (optional) logger -->
-  <script src="./vr/particles.js?v=20251226" defer></script>
-  <script src="./vr/hha-cloud-logger.js?v=20251226" defer></script>
+  <script src="./vr/particles.js?v=20251227" defer></script>
+  <script src="./vr/hha-cloud-logger.js?v=20251227" defer></script>
 
   <!-- Global UI -->
-  <script src="./vr/ui-fever.js?v=20251226" defer></script>
-  <script src="./vr/hha-hud.js?v=20251226" defer></script>
+  <script src="./vr/ui-fever.js?v=20251227" defer></script>
+  <script src="./vr/hha-hud.js?v=20251227" defer></script>
 
   <style>
     :root{
@@ -434,7 +436,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
     .endbtns{ display:flex; gap:10px; margin-top: 12px; }
     .endbtns .btn{ width:100%; }
 
-    /* debug pill */
+    /* debug pill (hidden by default) */
     .debug{
       position:fixed;
       left: 12px;
@@ -443,6 +445,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
       pointer-events:none;
       opacity:.65;
       font-size: 11px;
+      display:none;
     }
   </style>
 </head>
@@ -552,7 +555,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
       </div>
 
       <div style="margin-top:12px;color:var(--muted);font-weight:850;font-size:11px;line-height:1.35">
-        Query params: <b>?diff=easy|normal|hard&time=80&run=play|research&challenge=rush|boss|survival</b>
+        Query params: <b>?diff=easy|normal|hard&time=80&run=play|research&challenge=rush|boss|survival&dbg=1</b>
       </div>
     </div>
   </div>
@@ -601,6 +604,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
     const run  = String(qp('run','play')).toLowerCase();
     const time = clamp(qp('time',80), 20, 180) | 0;
     const challenge = String(qp('challenge','rush')).toLowerCase();
+    const dbg = String(qp('dbg', (run === 'research' ? '1' : '0')));
 
     // cache-bust token (สำคัญมากสำหรับ GitHub pages + mobile)
     const tsToken = String(qp('ts', Date.now()));
@@ -616,7 +620,10 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
     const btnMotion = $('btnMotion');
     const btnHow = $('btnHow');
 
+    const dbgWrap = document.querySelector('.debug');
     const dbgLine = $('dbgLine');
+
+    if (dbg === '1' && dbgWrap) dbgWrap.style.display = 'inline-flex';
 
     // --- Maintain layer offset + aim point for engine ---
     function updateOffsets(){
@@ -635,7 +642,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
 
     const MAX_SHIFT = 120; // clamp safe
     function applyTransform(){
-      // smooth follow
       baseX += (targetX - baseX) * 0.12;
       baseY += (targetY - baseY) * 0.12;
 
@@ -742,9 +748,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
         if (ctx[k] != null && ctx[k] !== '' && !isNaN(ctx[k])) ctx[k] = Number(ctx[k]);
       });
 
-      // stamp version if missing
       if (!ctx.gameVersion) ctx.gameVersion = `goodjunk-html-${tsToken}`;
-
       return ctx;
     }
 
@@ -768,7 +772,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
       const ctx = readHubContext();
       emitProfileOnce(ctx);
 
-      // ✅ Dynamic import to kill cached old module
       const mod = await import(`./vr-goodjunk/goodjunk.safe.js?v=${encodeURIComponent(tsToken)}`);
       const goodjunkBoot = mod.boot;
 
@@ -800,13 +803,15 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
       applyTransform();
       updateOffsets();
 
-      if (game && game.getState){
-        const s = game.getState();
-        dbgLine.textContent =
-          `${diff}/${challenge} | score:${s.score} combo:${s.combo} miss:${s.misses} fever:${s.fever}% ` +
-          `sh:${s.shield} boss:${s.bossAlive?('P'+s.bossPhase+' '+s.bossHp+'/'+s.bossHpMax):'—'}`;
-      } else {
-        dbgLine.textContent = `${diff}/${challenge} | ready`;
+      if (dbg === '1') {
+        if (game && game.getState){
+          const s = game.getState();
+          dbgLine.textContent =
+            `${diff}/${challenge} | score:${s.score} combo:${s.combo} miss:${s.misses} fever:${s.fever}% ` +
+            `mag:${s.magnet} sh:${s.shield} grade:${s.grade} boss:${s.bossAlive?('P'+s.bossPhase+' '+s.bossHp+'/'+s.bossHpMax):'—'}`;
+        } else {
+          dbgLine.textContent = `${diff}/${challenge} | ready`;
+        }
       }
 
       requestAnimationFrame(raf);
@@ -830,7 +835,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
       setTxt('endMinis', d.miniCleared ?? d.minisCleared ?? 0);
       setTxt('endMinisTotal', d.miniTotal ?? d.minisTotal ?? 0);
 
-      // ✅ accuracy field fixed
       setTxt('endAcc', d.accuracyGoodPct ?? d.accuracy ?? 0);
 
       endBox.style.display = 'flex';
@@ -839,14 +843,12 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
     $('btnReplay').addEventListener('click', ()=>{ location.reload(); }, { passive:true });
     $('btnCloseEnd').addEventListener('click', ()=>{ endBox.style.display = 'none'; }, { passive:true });
 
-    // initial offsets
     updateOffsets();
     window.addEventListener('resize', updateOffsets, { passive:true });
 
-    // show desc with params
     $('startDesc').innerHTML =
       `โหมด: <b>${diff}</b> • เวลา: <b>${time}s</b> • challenge: <b>${challenge}</b> • run: <b>${run}</b><br/>` +
-      `ทิป: ลากจอเพื่อขยับสนามเหมือน VR (รองรับ gyro ถ้าอนุญาต)`;
+      `ทิป: ลากจอเพื่อขยับสนามเหมือน VR (รองรับ gyro ถ้าอนุญาต) • DBG: <b>${dbg==='1'?'ON':'OFF'}</b>`;
   </script>
 
   <!-- =========================================================
@@ -927,11 +929,9 @@ GoodJunkVR — FULL HTML (PRODUCTION) — QUEST/HUD FIX + CACHE-BUST (FINAL)
       else if (d.timeLeftSec != null) setText('hhaTime', Math.max(0, Math.round(d.timeLeftSec)));
     });
 
-    // ✅ listen both event names
     listen('quest:update', (ev)=> paintQuest(ev?.detail || {}));
     listen('hha:quest',   (ev)=> paintQuest(ev?.detail || {}));
 
-    // ✅ repaint from cache (late bind)
     setTimeout(()=>{
       try{
         if (window.__HHA_LAST_QUEST__) paintQuest(window.__HHA_LAST_QUEST__);
