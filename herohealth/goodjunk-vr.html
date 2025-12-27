@@ -1,10 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR — FULL HTML (PRODUCTION) — SOFT END + REALTIME GRADE + DETERMINISTIC(research)
-✅ Soft End when all goals complete (celebrate + toast + continue)
-✅ Hard End when time up (summary + logs)
-✅ Grade updates in real-time (top-right)
-✅ Deterministic in run=research (seedable) + play still random
-✅ HUD debug toggles: ?hud=0 (hide HUD), ?dbg=0 (hide DBG)
+GoodJunkVR (PRODUCTION) — HHA Standard
+✅ DOM emoji targets on #gj-layer
+✅ HUD + Quest + Coach + Fever/Shield
+✅ Ring/Laser hazards (boss) + world-shift dodge (touch-look-goodjunk.js)
+✅ Summary end overlay + back HUB + localStorage last summary
+✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
 -->
 
 <!doctype html>
@@ -16,928 +16,112 @@ GoodJunkVR — FULL HTML (PRODUCTION) — SOFT END + REALTIME GRADE + DETERMINIS
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- Global FX + HUD + Fever + Logger -->
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <script src="./vr/particles.js?v=20251227" defer></script>
-  <script src="./vr/hha-cloud-logger.js?v=20251227" defer></script>
-
-  <script src="./vr/ui-fever.js?v=20251227" defer></script>
-  <script src="./vr/hha-hud.js?v=20251227" defer></script>
-
-  <style>
-    :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.72);
-      --stroke:rgba(148,163,184,.22);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --danger:#ef4444;
-
-      --ringGapStart: 0deg;
-      --ringGapSize: 80deg;
-
-      --safeTop: 128px;
-      --safeBottom: 170px;
-      --safeSide: 26px;
-    }
-
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      background: radial-gradient(1200px 700px at 50% 10%, rgba(34,197,94,.12), transparent 55%),
-                  radial-gradient(900px 600px at 10% 80%, rgba(245,158,11,.10), transparent 55%),
-                  var(--bg);
-      color:var(--text);
-      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      overflow:hidden;
-      touch-action: none;
-    }
-
-    .vr-backdrop{
-      position:fixed; inset:0;
-      z-index:0;
-      pointer-events:none;
-      opacity:.95;
-    }
-    a-scene{ height:100%; width:100%; }
-
-    .hud{
-      position:fixed; inset:0;
-      z-index: 30;
-      pointer-events:none;
-    }
-
-    .topbar{
-      position:fixed;
-      left:12px; right:12px; top:10px;
-      display:flex;
-      gap:10px;
-      align-items:stretch;
-      justify-content:space-between;
-      pointer-events:none;
-      z-index: 40;
-    }
-    .card{
-      background: var(--panel);
-      border: 1px solid var(--stroke);
-      border-radius: 18px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.42);
-      backdrop-filter: blur(10px);
-    }
-    .card.pad{ padding: 10px 12px; }
-
-    .statrow{
-      display:flex; gap:10px; align-items:center;
-      font-weight:900;
-      letter-spacing:.2px;
-      flex-wrap: wrap;
-    }
-    .stat{
-      display:flex; align-items:center; gap:6px;
-      font-size: 13px;
-      color: var(--text);
-      opacity:.96;
-      white-space:nowrap;
-    }
-    .stat span{ color: var(--muted); font-weight:800; }
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding: 10px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--stroke);
-      background: var(--panel);
-      box-shadow: 0 18px 50px rgba(0,0,0,.42);
-      backdrop-filter: blur(10px);
-      font-weight: 950;
-      font-size: 12px;
-      opacity:.96;
-    }
-    .pill b{ font-size: 13px; }
-
-    .quest{
-      position:fixed;
-      left:12px;
-      bottom:12px;
-      width:min(460px, calc(100vw - 24px));
-      pointer-events:none;
-      z-index: 40;
-    }
-    .qwrap{ padding: 12px 12px; }
-    .qtitle{
-      font-weight: 950;
-      font-size: 13px;
-      letter-spacing:.2px;
-      margin-bottom: 10px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-    }
-    .qtitle small{
-      color: var(--muted);
-      font-weight: 850;
-      font-size: 11px;
-      opacity:.92;
-    }
-    .qline{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin: 8px 0; }
-    .qname{ font-weight: 950; font-size: 12px; color: var(--text); opacity:.95; }
-    .qcount{ font-weight: 950; font-size: 12px; color: var(--muted); }
-    .bar{
-      height: 10px;
-      border-radius: 999px;
-      overflow:hidden;
-      background: rgba(255,255,255,.10);
-      border: 1px solid rgba(255,255,255,.14);
-      margin-top: 6px;
-    }
-    .fill{
-      height:100%;
-      width:0%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(34,197,94,.92), rgba(245,158,11,.92));
-      transition: width .12s linear;
-    }
-
-    .coach{
-      position:fixed;
-      right:12px;
-      bottom:12px;
-      width: min(380px, calc(100vw - 24px));
-      pointer-events:none;
-      z-index: 40;
-    }
-    .coachwrap{
-      display:flex;
-      gap:10px;
-      align-items:flex-end;
-      padding: 10px 12px;
-    }
-    .coachimg{
-      width: 70px; height: 70px;
-      border-radius: 18px;
-      border: 1px solid var(--stroke);
-      background: rgba(255,255,255,.06);
-      object-fit: cover;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35);
-    }
-    .coachtext{
-      font-weight: 900;
-      font-size: 12px;
-      color: var(--text);
-      opacity:.95;
-      line-height: 1.25;
-    }
-    .coachtext .m{ color: var(--muted); font-weight: 850; display:block; margin-top: 2px; }
-
-    .crosshair{
-      position:fixed;
-      left:50%;
-      top:62%;
-      transform: translate(-50%,-50%);
-      width: 22px;
-      height: 22px;
-      border-radius: 999px;
-      border: 2px solid rgba(255,255,255,.78);
-      box-shadow: 0 0 0 3px rgba(34,197,94,.12);
-      z-index: 35;
-      pointer-events:none;
-    }
-    .crosshair:after{
-      content:'';
-      position:absolute;
-      left:50%; top:50%;
-      width: 3px; height: 3px;
-      border-radius: 99px;
-      background: rgba(255,255,255,.9);
-      transform: translate(-50%,-50%);
-    }
-
-    .shoot{
-      position:fixed;
-      right: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 36;
-      pointer-events:auto;
-    }
-    .shoot button{
-      width: 68px; height: 68px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.18);
-      background: rgba(2,6,23,.65);
-      backdrop-filter: blur(10px);
-      color: var(--text);
-      font-weight: 950;
-      box-shadow: 0 18px 50px rgba(0,0,0,.45);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .shoot button:active{ transform: scale(.98); }
-
-    #gj-layer{
-      position:fixed;
-      inset:0;
-      z-index: 20;
-      pointer-events:auto;
-      touch-action:none;
-      transform: translate3d(0px,0px,0);
-      will-change: transform;
-    }
-    .gj-target{
-      position:absolute;
-      transform: translate(-50%,-50%) scale(1);
-      font-size: 48px;
-      filter: drop-shadow(0 12px 22px rgba(0,0,0,.50));
-      user-select:none;
-      -webkit-user-select:none;
-      -webkit-tap-highlight-color: transparent;
-      cursor: pointer;
-      animation: floaty 1.05s ease-in-out infinite alternate;
-    }
-    .gj-target.spawn{ animation: pop .14s ease-out, floaty 1.05s ease-in-out infinite alternate; }
-    .gj-target.gone{ opacity: 0; transform: translate(-50%,-50%) scale(.75); transition: opacity .14s ease, transform .14s ease; }
-
-    .gj-junk{ filter: drop-shadow(0 14px 28px rgba(239,68,68,.18)) drop-shadow(0 12px 22px rgba(0,0,0,.52)); }
-    .gj-fake{ filter: drop-shadow(0 14px 28px rgba(245,158,11,.14)) drop-shadow(0 12px 22px rgba(0,0,0,.52)); }
-    .gj-gold{ filter: drop-shadow(0 18px 36px rgba(245,158,11,.24)) drop-shadow(0 12px 22px rgba(0,0,0,.52)); }
-    .gj-power{ filter: drop-shadow(0 18px 36px rgba(34,197,94,.18)) drop-shadow(0 12px 22px rgba(0,0,0,.52)); }
-    .gj-boss{ font-size: 64px; filter: drop-shadow(0 22px 44px rgba(255,255,255,.10)) drop-shadow(0 14px 28px rgba(0,0,0,.58)); }
-
-    @keyframes pop{
-      0%{ transform: translate(-50%,-50%) scale(.65); opacity: .2; }
-      100%{ transform: translate(-50%,-50%) scale(1.0); opacity: 1; }
-    }
-    @keyframes floaty{
-      0%{ transform: translate(-50%,-50%) scale(1.0) translateY(0px); }
-      100%{ transform: translate(-50%,-50%) scale(1.0) translateY(-6px); }
-    }
-
-    #atk-ring{
-      position:fixed;
-      left:50%;
-      top:50%;
-      width: 520px;
-      height: 520px;
-      border-radius: 999px;
-      transform: translate(-50%,-50%);
-      z-index: 33;
-      pointer-events:none;
-      opacity: 0;
-      transition: opacity .12s ease;
-      background:
-        radial-gradient(circle at 50% 50%,
-          transparent 58%,
-          rgba(239,68,68,.0) 58%,
-          rgba(239,68,68,.0) 62%,
-          transparent 62%
-        ),
-        conic-gradient(
-          from var(--ringGapStart),
-          rgba(239,68,68,.90) 0deg,
-          rgba(239,68,68,.90) calc(360deg - var(--ringGapSize)),
-          rgba(239,68,68,.0) 0deg
-        );
-      filter: drop-shadow(0 18px 50px rgba(239,68,68,.14));
-      mix-blend-mode: screen;
-    }
-    #atk-ring.show{ opacity: .95; }
-
-    #atk-laser{
-      position:fixed;
-      left:0;
-      width:100%;
-      height: 18px;
-      top: 50%;
-      z-index: 33;
-      pointer-events:none;
-      opacity: 0;
-      transition: opacity .10s ease;
-      background: linear-gradient(90deg, rgba(239,68,68,0), rgba(239,68,68,.9), rgba(239,68,68,0));
-      filter: drop-shadow(0 18px 50px rgba(239,68,68,.20));
-    }
-    #atk-laser.warn{ opacity: .55; }
-    #atk-laser.fire{ opacity: 1; height: 22px; }
-
-    .overlay{
-      position:fixed;
-      inset:0;
-      z-index: 60;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 18px;
-      background: radial-gradient(900px 500px at 50% 0%, rgba(34,197,94,.16), transparent 60%),
-                  rgba(2,6,23,.76);
-      backdrop-filter: blur(10px);
-    }
-    .panel{
-      width: min(520px, 100%);
-      border-radius: 22px;
-      border: 1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.78);
-      box-shadow: 0 18px 60px rgba(0,0,0,.55);
-      padding: 16px 16px;
-    }
-    .h1{
-      font-weight: 1000;
-      letter-spacing:.2px;
-      font-size: 18px;
-      margin: 0 0 6px;
-    }
-    .sub{
-      margin: 0 0 12px;
-      color: var(--muted);
-      font-weight: 850;
-      line-height: 1.35;
-      font-size: 12px;
-    }
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 12px;
-    }
-    .btn{
-      pointer-events:auto;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,.16);
-      background: rgba(15,23,42,.72);
-      color: var(--text);
-      font-weight: 950;
-      padding: 12px 12px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .btn.primary{
-      background: linear-gradient(180deg, rgba(34,197,94,.92), rgba(34,197,94,.68));
-      border-color: rgba(34,197,94,.26);
-      color:#03120a;
-    }
-    .btn.warn{
-      background: linear-gradient(180deg, rgba(245,158,11,.92), rgba(245,158,11,.62));
-      border-color: rgba(245,158,11,.26);
-      color:#1a1002;
-    }
-    .btn:active{ transform: scale(.99); }
-
-    #hhaEnd{
-      position:fixed;
-      inset:0;
-      z-index: 80;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding: 18px;
-      background: rgba(2,6,23,.78);
-      backdrop-filter: blur(10px);
-      pointer-events:auto;
-    }
-    #hhaEnd .panel{ width:min(560px, 100%); }
-    .endrow{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
-    .kpi{
-      flex: 1 1 160px;
-      padding: 10px 12px;
-      border-radius: 18px;
-      border: 1px solid rgba(148,163,184,.22);
-      background: rgba(15,23,42,.55);
-    }
-    .kpi .k{ color: var(--muted); font-weight: 900; font-size: 11px; }
-    .kpi .v{ font-weight: 1000; font-size: 18px; margin-top: 2px; }
-    .endbtns{ display:flex; gap:10px; margin-top: 12px; }
-    .endbtns .btn{ width:100%; }
-
-    .debug{
-      position:fixed;
-      left: 12px;
-      top: calc(10px + 64px);
-      z-index: 55;
-      pointer-events:none;
-      opacity:.65;
-      font-size: 11px;
-    }
-
-    /* ✅ Soft-end toast (center) */
-    #hhaToast{
-      position: fixed;
-      left: 50%;
-      top: 46%;
-      transform: translate(-50%,-50%);
-      z-index: 75;
-      pointer-events:none;
-      opacity: 0;
-      transition: opacity .12s ease, transform .12s ease;
-      background: rgba(2,6,23,.78);
-      border: 1px solid rgba(148,163,184,.22);
-      border-radius: 18px;
-      padding: 12px 14px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-      text-align:center;
-      width: min(520px, calc(100vw - 24px));
-    }
-    #hhaToast.show{
-      opacity: 1;
-      transform: translate(-50%,-50%) scale(1.02);
-    }
-    #hhaToast .t1{ font-weight: 1000; font-size: 16px; }
-    #hhaToast .t2{ margin-top: 4px; color: var(--muted); font-weight: 850; font-size: 12px; line-height:1.3; }
-
-    /* ✅ optional hide flags */
-    body.no-hud .hud{ display:none; }
-    body.no-dbg .debug{ display:none; }
-  </style>
+  <!-- Boot (ESM) -->
+  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
-
-  <div class="vr-backdrop">
-    <a-scene embedded renderer="colorManagement: true; antialias: true" vr-mode-ui="enabled: true">
-      <a-sky color="#050b1a"></a-sky>
-      <a-entity position="0 1.6 0">
-        <a-camera wasd-controls-enabled="false" look-controls="enabled: true"></a-camera>
-      </a-entity>
-    </a-scene>
-  </div>
-
-  <div id="gj-layer" aria-label="GoodJunk playfield"></div>
-
-  <div id="atk-ring" aria-hidden="true"></div>
-  <div id="atk-laser" aria-hidden="true"></div>
-
-  <div id="gj-crosshair" class="crosshair" aria-hidden="true"></div>
-
-  <div class="shoot">
-    <button id="btnShoot" type="button">🎯<span style="font-weight:1000">ยิง</span></button>
-  </div>
-
-  <!-- ✅ Soft-end toast -->
-  <div id="hhaToast" aria-hidden="true">
-    <div class="t1" id="toastTitle">✅ ผ่าน Goal แล้ว!</div>
-    <div class="t2" id="toastSub">เล่นต่อเพื่อทำเกรด/คะแนนได้จนหมดเวลา 🔥</div>
-  </div>
-
-  <div class="hud">
-    <div class="topbar">
-      <div class="card pad" style="flex:1">
-        <div class="statrow">
-          <div class="stat">🏁 <span>Score</span> <b id="hhaScore">0</b></div>
-          <div class="stat">🔥 <span>Combo</span> <b id="hhaCombo">0</b></div>
-          <div class="stat">💔 <span>Miss</span> <b id="hhaMiss">0</b></div>
-          <div class="stat">⏱️ <span>Time</span> <b id="hhaTime">0</b>s</div>
-        </div>
+  <!-- ===== HUD ===== -->
+  <div class="hha-hud">
+    <div class="hud-top">
+      <div class="hud-badge">
+        <div class="hud-title">GoodJunkVR</div>
+        <div class="hud-sub" id="hudMeta">—</div>
       </div>
 
-      <div class="pill">
-        🏅 Grade <b id="hhaGrade">—</b>
-      </div>
-    </div>
-
-    <div class="quest card">
-      <div class="qwrap">
-        <div class="qtitle">
-          <div>🎯 ภารกิจ</div>
-          <small id="hhaQuestMeta">—</small>
+      <div class="hud-stats">
+        <div class="hud-stat">
+          <div class="k">Score</div><div class="v" id="hhaScore">0</div>
         </div>
-
-        <div class="qline">
-          <div class="qname" id="qGoalTitle">Goal: —</div>
-          <div class="qcount"><span id="qGoalCur">0</span>/<span id="qGoalMax">0</span></div>
+        <div class="hud-stat">
+          <div class="k">Combo</div><div class="v" id="hhaCombo">0</div>
         </div>
-        <div class="bar"><div class="fill" id="qGoalFill"></div></div>
-
-        <div style="height:10px"></div>
-
-        <div class="qline">
-          <div class="qname" id="qMiniTitle">Mini: —</div>
-          <div class="qcount"><span id="qMiniCur">0</span>/<span id="qMiniMax">0</span></div>
+        <div class="hud-stat">
+          <div class="k">Miss</div><div class="v" id="hhaMiss">0</div>
         </div>
-        <div class="bar"><div class="fill" id="qMiniFill"></div></div>
-
-        <div style="margin-top:8px; color:var(--muted); font-weight:900; font-size:11px;">
-          ⏳ เหลือเวลา: <span id="qMiniTLeft">—</span>
+        <div class="hud-stat">
+          <div class="k">Time</div><div class="v" id="hhaTime">0</div>
+        </div>
+        <div class="hud-stat grade">
+          <div class="k">Grade</div><div class="v" id="hhaGrade">—</div>
         </div>
       </div>
     </div>
 
-    <div class="coach card">
-      <div class="coachwrap">
-        <img id="hhaCoachImg" class="coachimg" src="./img/coach-neutral.png" alt="Coach" />
-        <div class="coachtext">
-          <span id="hhaCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</span>
-          <span class="m" id="hhaCoachSub">ยิงที่เป้าตรงกลาง / ลากจอเพื่อ “เอียงโลก” แบบ VR</span>
+    <div class="hud-mid">
+      <div class="hud-quest">
+        <div class="q-row">
+          <div class="q-title" id="hudGoalTitle">Goal: —</div>
+          <div class="q-count" id="hudGoalCount">0/0</div>
+        </div>
+        <div class="q-row">
+          <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
+          <div class="q-count" id="hudMiniCount">0/0</div>
+          <div class="q-timer" id="hudMiniTimer"></div>
+        </div>
+        <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
+      </div>
+
+      <div class="hud-coach">
+        <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
+        <div class="coach-talk">
+          <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
+          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / ลากจอเพื่อ “เอียงโลก”</div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="debug pill">
-    <span>DBG</span>
-    <b id="dbgLine">—</b>
-  </div>
-
-  <div id="startOverlay" class="overlay">
-    <div class="panel">
-      <div class="h1">🥦 GoodJunk VR</div>
-      <p class="sub" id="startDesc"></p>
-
-      <div class="grid">
-        <button class="btn primary" id="btnStart2D" type="button">▶️ เริ่มเล่น (2D)</button>
-        <button class="btn warn" id="btnMotion" type="button">📱 อนุญาต Motion</button>
-        <button class="btn" id="btnStartVR" type="button">🕶️ เข้า VR แล้วเริ่ม</button>
-        <button class="btn" id="btnHow" type="button">❓ วิธีเล่น</button>
+  <!-- ===== Fever/Shield UI (ui-fever.js will ensure if missing) ===== -->
+  <div class="hha-fever" id="hhaFever">
+    <div class="fever-row">
+      <div class="fever-label">FEVER</div>
+      <div class="fever-bar">
+        <div class="fever-fill" id="feverBar"></div>
       </div>
-
-      <div style="margin-top:12px;color:var(--muted);font-weight:850;font-size:11px;line-height:1.35">
-        Query params: <b>?diff=easy|normal|hard&time=80&run=play|research&challenge=rush|boss|survival&seed=XXX&det=0|1</b>
-      </div>
+      <div class="fever-text" id="feverText">0%</div>
+    </div>
+    <div class="shield-row">
+      <div class="shield-label">SHIELD</div>
+      <div class="shield-pills" id="shieldPills"></div>
     </div>
   </div>
 
-  <div id="hhaEnd">
-    <div class="panel">
-      <div class="h1">🎉 สรุปผล</div>
-      <p class="sub">คะแนน + เปอร์เซ็นต์ภารกิจ + เกรด (SSS/SS/S/A/B/C)</p>
+  <!-- ===== Playfield ===== -->
+  <div id="gj-stage">
+    <div id="gj-layer" aria-label="targets layer"></div>
 
-      <div class="endrow">
-        <div class="kpi"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
-        <div class="kpi"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-        <div class="kpi"><div class="k">COMBO MAX</div><div class="v" id="endComboMax">0</div></div>
-        <div class="kpi"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
-      </div>
+    <!-- crosshair / aim point -->
+    <div id="gj-crosshair" aria-hidden="true"></div>
 
-      <div class="endrow">
-        <div class="kpi"><div class="k">GOALS</div><div class="v"><span id="endGoals">0</span>/<span id="endGoalsTotal">0</span></div></div>
-        <div class="kpi"><div class="k">MINIS</div><div class="v"><span id="endMinis">0</span>/<span id="endMinisTotal">0</span></div></div>
-        <div class="kpi"><div class="k">ACCURACY</div><div class="v"><span id="endAcc">0</span>%</div></div>
-      </div>
-
-      <div class="endbtns">
-        <button class="btn primary" id="btnReplay" type="button">🔁 เล่นอีกครั้ง</button>
-        <button class="btn" id="btnCloseEnd" type="button">ปิด</button>
-      </div>
-    </div>
+    <!-- Boss hazards -->
+    <div id="atk-ring" aria-hidden="true"></div>
+    <div id="atk-laser" aria-hidden="true"></div>
   </div>
 
-  <script type="module">
-    const $ = (id)=> document.getElementById(id);
+  <!-- ===== Controls ===== -->
+  <div class="hha-controls">
+    <button id="btnShoot" class="btn-shoot">ยิง</button>
+  </div>
 
-    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-    function qp(name, def=null){
-      const u = new URL(location.href);
-      const v = u.searchParams.get(name);
-      return (v==null || v==='') ? def : v;
-    }
-
-    // ✅ HUD toggles (ตอบรูป: มุมขวาบน/ซ้ายล่าง = HUD)
-    const hudOn = String(qp('hud','1')) !== '0';
-    const dbgOn = String(qp('dbg','1')) !== '0';
-    if (!hudOn) document.body.classList.add('no-hud');
-    if (!dbgOn) document.body.classList.add('no-dbg');
-
-    const diff = String(qp('diff','normal')).toLowerCase();
-    const run  = String(qp('run','play')).toLowerCase();
-    const time = clamp(qp('time',80), 20, 180) | 0;
-    const challenge = String(qp('challenge','rush')).toLowerCase();
-
-    const tsToken = String(qp('ts', Date.now()));
-
-    // ✅ Deterministic defaults:
-    // - research => det=1 auto
-    // - play => det=0 default (ยังสุ่มสนุก)
-    const det = (run === 'research') || (String(qp('det','0')) === '1');
-    const seed = String(qp('seed', qp('sessionId', tsToken) || tsToken));
-
-    const layer = $('gj-layer');
-    const cross = $('gj-crosshair');
-    const btnShoot = $('btnShoot');
-
-    const startOverlay = $('startOverlay');
-    const btnStart2D = $('btnStart2D');
-    const btnStartVR = $('btnStartVR');
-    const btnMotion = $('btnMotion');
-    const btnHow = $('btnHow');
-
-    const dbgLine = $('dbgLine');
-
-    function updateOffsets(){
-      const r = layer.getBoundingClientRect();
-      window.__GJ_LAYER_OFFSET__ = { x: r.left, y: r.top };
-      const c = cross.getBoundingClientRect();
-      window.__GJ_AIM_POINT__ = { x: (c.left + c.width/2), y: (c.top + c.height/2) };
-    }
-
-    let dragOn=false, sx=0, sy=0;
-    let baseX=0, baseY=0;
-    let targetX=0, targetY=0;
-    let gyroX=0, gyroY=0;
-    let motionEnabled=false;
-
-    const MAX_SHIFT = 120;
-    function applyTransform(){
-      baseX += (targetX - baseX) * 0.12;
-      baseY += (targetY - baseY) * 0.12;
-
-      const x = clamp(baseX + gyroX, -MAX_SHIFT, MAX_SHIFT);
-      const y = clamp(baseY + gyroY, -MAX_SHIFT, MAX_SHIFT);
-      layer.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-    }
-
-    function onPointerDown(e){
-      dragOn=true;
-      sx = e.clientX; sy = e.clientY;
-      layer.setPointerCapture?.(e.pointerId);
-    }
-    function onPointerMove(e){
-      if(!dragOn) return;
-      const dx = e.clientX - sx;
-      const dy = e.clientY - sy;
-      targetX = clamp(dx, -MAX_SHIFT, MAX_SHIFT);
-      targetY = clamp(dy, -MAX_SHIFT, MAX_SHIFT);
-    }
-    function onPointerUp(){
-      dragOn=false;
-      targetX *= 0.35;
-      targetY *= 0.35;
-    }
-
-    layer.addEventListener('pointerdown', onPointerDown, { passive:true });
-    layer.addEventListener('pointermove', onPointerMove, { passive:true });
-    layer.addEventListener('pointerup', onPointerUp, { passive:true });
-    layer.addEventListener('pointercancel', onPointerUp, { passive:true });
-
-    async function enableMotion(){
-      try{
-        if (typeof DeviceOrientationEvent !== 'undefined' &&
-            typeof DeviceOrientationEvent.requestPermission === 'function') {
-          const res = await DeviceOrientationEvent.requestPermission();
-          if (res !== 'granted') throw new Error('permission denied');
-        }
-        motionEnabled = true;
-
-        window.addEventListener('deviceorientation', (ev)=>{
-          if(!motionEnabled) return;
-          const g = clamp(ev.gamma ?? 0, -35, 35);
-          const b = clamp(ev.beta  ?? 0, -35, 35);
-          gyroX = clamp(g * 1.5, -MAX_SHIFT, MAX_SHIFT);
-          gyroY = clamp((b-10) * 1.2, -MAX_SHIFT, MAX_SHIFT);
-        }, { passive:true });
-
-        btnMotion.textContent = '✅ Motion เปิดแล้ว';
-      }catch(_){
-        btnMotion.textContent = '❌ Motion ไม่ได้';
-      }
-    }
-    btnMotion.addEventListener('click', enableMotion, { passive:true });
-
-    btnHow.addEventListener('click', ()=>{
-      alert(
-        'วิธีเล่น GoodJunkVR\n\n' +
-        '1) เล็งเป้ากลาง (วงกลม)\n' +
-        '2) แตะ “ยิง” หรือแตะพื้นที่ว่างเพื่อยิงใส่เป้าที่ใกล้ crosshair\n' +
-        '3) เก็บของดี 🥦/ทอง 🟡/พลัง 🧲⏳🛡️\n' +
-        '4) หลีกขยะ 🍟🍕 และกับดัก 😈🧨\n' +
-        '5) โหมด Boss จะมี Ring/Laser/Storm ให้หลบ\n\n' +
-        'ทิป: ลากจอเพื่อขยับสนามเหมือน VR (หรือเปิด Motion)'
-      );
-    }, { passive:true });
-
-    function readJSONStorage(key){
-      try{ const s = sessionStorage.getItem(key); if (s) return JSON.parse(s); }catch(_){}
-      try{ const s = localStorage.getItem(key); if (s) return JSON.parse(s); }catch(_){}
-      return null;
-    }
-    function readHubContext(){
-      const u = new URL(location.href);
-      const pick = (k)=>{ const v=u.searchParams.get(k); return (v==null||v==='')?undefined:v; };
-
-      const ctx = Object.assign(
-        {},
-        readJSONStorage('hha_context') || {},
-        readJSONStorage('hha_profile') || {}
-      );
-
-      [
-        'studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
-        'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel',
-        'heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
-        'sessionId','gameVersion'
-      ].forEach((k)=>{
-        const v = pick(k);
-        if (v !== undefined) ctx[k] = v;
-      });
-
-      ['age','gradeLevel','heightCm','weightKg','bmi','schoolYear','semester','sessionOrder'].forEach((k)=>{
-        if (ctx[k] != null && ctx[k] !== '' && !isNaN(ctx[k])) ctx[k] = Number(ctx[k]);
-      });
-
-      if (!ctx.gameVersion) ctx.gameVersion = `goodjunk-html-${tsToken}`;
-      return ctx;
-    }
-
-    let __HHA_PROFILE_SENT__ = false;
-    function emitProfileOnce(ctx){
-      if (__HHA_PROFILE_SENT__) return;
-      __HHA_PROFILE_SENT__ = true;
-      try{
-        window.dispatchEvent(new CustomEvent('hha:log_profile', { detail: { ts: Date.now(), ...ctx } }));
-      }catch(_){}
-    }
-
-    let game = null;
-
-    async function startGame(){
-      startOverlay.style.display = 'none';
-
-      const ctx = readHubContext();
-      emitProfileOnce(ctx);
-
-      // ✅ Dynamic import to kill caching
-      const mod = await import(`./vr-goodjunk/goodjunk.safe.js?v=${encodeURIComponent(tsToken)}`);
-      const goodjunkBoot = mod.boot;
-
-      game = goodjunkBoot({
-        diff,
-        run,
-        time,
-        challenge,
-
-        // ✅ determinism control
-        deterministic: det,
-        seed: seed,
-
-        context: ctx,
-        sessionId: ctx.sessionId || undefined,
-
-        layerEl: layer,
-        shootEl: btnShoot,
-        safeMargins: {
-          top: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safeTop')) || 128,
-          bottom: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safeBottom')) || 170,
-          left: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safeSide')) || 26,
-          right: parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safeSide')) || 26
-        }
-      });
-    }
-
-    btnStart2D.addEventListener('click', ()=>{ startGame(); }, { passive:true });
-    btnStartVR.addEventListener('click', ()=>{ startGame(); }, { passive:true });
-
-    // ✅ Soft-end toast listener
-    const toast = $('hhaToast');
-    const toastTitle = $('toastTitle');
-    const toastSub = $('toastSub');
-    window.addEventListener('hha:soft_end', (ev)=>{
-      const d = ev?.detail || {};
-      toastTitle.textContent = d.title || '✅ ผ่าน Goal แล้ว!';
-      toastSub.textContent = d.sub || 'เล่นต่อเพื่อทำเกรด/คะแนนได้จนหมดเวลา 🔥';
-      toast.classList.add('show');
-      setTimeout(()=> toast.classList.remove('show'), 1200);
-    }, { passive:true });
-
-    function raf(){
-      applyTransform();
-      updateOffsets();
-
-      if (dbgOn && game && game.getState){
-        const s = game.getState();
-        dbgLine.textContent =
-          `${diff}/${challenge} | score:${s.score} combo:${s.combo} miss:${s.misses} fever:${s.fever}% ` +
-          `mag:${s.magnet} sh:${s.shield} grade:${s.grade} goals:${s.goalsCleared}/${s.goalsTotal}`;
-      } else if (dbgOn) {
-        dbgLine.textContent = `${diff}/${challenge} | ready`;
-      }
-
-      requestAnimationFrame(raf);
-    }
-    requestAnimationFrame(raf);
-
-    const endBox = $('hhaEnd');
-    const setTxt = (id, v)=>{ const el=$(id); if(el) el.textContent = String(v); };
-
-    window.addEventListener('hha:end', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      setTxt('endGrade', d.grade ?? '—');
-      setTxt('endScore', d.scoreFinal ?? d.score ?? 0);
-      setTxt('endComboMax', d.comboMax ?? 0);
-      setTxt('endMiss', d.misses ?? 0);
-
-      setTxt('endGoals', d.goalsCleared ?? 0);
-      setTxt('endGoalsTotal', d.goalsTotal ?? 0);
-
-      setTxt('endMinis', d.miniCleared ?? d.minisCleared ?? 0);
-      setTxt('endMinisTotal', d.miniTotal ?? d.minisTotal ?? 0);
-
-      setTxt('endAcc', d.accuracyGoodPct ?? d.accuracy ?? 0);
-
-      endBox.style.display = 'flex';
-    });
-
-    $('btnReplay').addEventListener('click', ()=>{ location.reload(); }, { passive:true });
-    $('btnCloseEnd').addEventListener('click', ()=>{ endBox.style.display = 'none'; }, { passive:true });
-
-    updateOffsets();
-    window.addEventListener('resize', updateOffsets, { passive:true });
-
-    $('startDesc').innerHTML =
-      `โหมด: <b>${diff}</b> • เวลา: <b>${time}s</b> • challenge: <b>${challenge}</b> • run: <b>${run}</b><br/>` +
-      `deterministic: <b>${det ? 'ON' : 'OFF'}</b> • seed: <b>${seed}</b><br/>` +
-      `ทิป: ลากจอเพื่อขยับสนามเหมือน VR (รองรับ gyro ถ้าอนุญาต)`;
-  </script>
-
-  <!-- HUD+QUEST fallback (เหมือนเดิม) -->
-  <script>
-  (function () {
-    'use strict';
-    if (window.__GJ_HUD_FALLBACK_BOUND__) return;
-    window.__GJ_HUD_FALLBACK_BOUND__ = true;
-
-    const $ = (id)=> document.getElementById(id);
-
-    const setText = (id, v)=>{
-      const el=$(id);
-      if(!el) return;
-      el.textContent = (v==null?'—':String(v));
-    };
-    const setPct = (id, pct)=>{
-      const el=$(id);
-      if(!el) return;
-      const p = Math.max(0, Math.min(100, Number(pct)||0));
-      el.style.width = p.toFixed(1) + '%';
-    };
-
-    function listen(type, handler){
-      window.addEventListener(type, handler, { passive:true });
-      document.addEventListener(type, handler, { passive:true });
-    }
-
-    function paintQuest(d){
-      d = d || {};
-      try { window.__HHA_LAST_QUEST__ = d; } catch(_){}
-
-      const gTitle = d.goalTitle ?? d.goalName ?? d.goal ?? 'Goal: —';
-      const gCur   = d.goalCur ?? d.goalNow ?? d.goalProgress ?? 0;
-      const gMax   = d.goalMax ?? d.goalTotal ?? d.goalTarget ?? 0;
-
-      const mTitle = d.miniTitle ?? d.miniName ?? d.mini ?? 'Mini: —';
-      const mCur   = d.miniCur ?? d.miniNow ?? d.miniProgress ?? 0;
-      const mMax   = d.miniMax ?? d.miniTotal ?? d.miniTarget ?? 0;
-
-      setText('qGoalTitle', gTitle);
-      setText('qGoalCur', gCur);
-      setText('qGoalMax', gMax);
-      setPct('qGoalFill', (Number(gMax)||0) ? (100*Number(gCur)/Number(gMax)) : 0);
-
-      setText('qMiniTitle', mTitle);
-      setText('qMiniCur', mCur);
-      setText('qMiniMax', mMax);
-      setPct('qMiniFill', (Number(mMax)||0) ? (100*Number(mCur)/Number(mMax)) : 0);
-
-      if (d.miniTLeft != null) setText('qMiniTLeft', d.miniTLeft);
-
-      if (d.goalsCleared!=null && d.goalsTotal!=null && d.minisCleared!=null && d.minisTotal!=null){
-        const done = (Number(d.goalsCleared) >= Number(d.goalsTotal)) ? ' ✅' : '';
-        setText('hhaQuestMeta', `Goals ${d.goalsCleared}/${d.goalsTotal}${done} • Minis ${d.minisCleared}/${d.minisTotal}`);
-      }
-    }
-
-    listen('hha:score', (ev)=>{
-      const d = ev?.detail || {};
-      setText('hhaScore', d.score ?? d.scoreFinal ?? 0);
-      setText('hhaCombo', d.combo ?? 0);
-      setText('hhaMiss',  d.misses ?? d.miss ?? 0);
-      if (d.grade != null) setText('hhaGrade', d.grade);
-    });
-
-    listen('hha:time', (ev)=>{
-      const d = ev?.detail || {};
-      if (d.timeLeft != null) setText('hhaTime', Math.max(0, Math.round(d.timeLeft)));
-      else if (d.timeLeftSec != null) setText('hhaTime', Math.max(0, Math.round(d.timeLeftSec)));
-    });
-
-    listen('quest:update', (ev)=> paintQuest(ev?.detail || {}));
-    listen('hha:quest',   (ev)=> paintQuest(ev?.detail || {}));
-
-    setTimeout(()=>{
-      try{ if (window.__HHA_LAST_QUEST__) paintQuest(window.__HHA_LAST_QUEST__); }catch(_){}
-    }, 80);
-
-    console.log('[GoodJunk HUD Fallback] ready ✅');
-  })();
-  </script>
-
+  <!-- ===== Start Overlay ===== -->
+  <div id="startOverlay" class="start-overlay">
+    <div class="start-card">
+      <div class="start-title">GoodJunk VR</div>
+      <div class="start-desc">
+        เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
+        <span class="muted">ลาก/เอียงเพื่อ “เอียงโลก” หลบ Ring/Laser (ตอนบอส)</span>
+      </div>
+      <div class="start-meta" id="startMeta">—</div>
+      <button id="btnStart" class="btn-start">เริ่มเล่น</button>
+    </div>
+  </div>
 </body>
 </html>
