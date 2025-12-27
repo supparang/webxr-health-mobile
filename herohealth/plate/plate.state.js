@@ -2,8 +2,6 @@
 // PlateVR — State + Context helpers (HHA Standard)
 // - centralize: sessionId, reset, grade, lastSummary, logger context
 
-'use strict';
-
 export function clamp(v, a, b){
   v = Number(v); if(!Number.isFinite(v)) v = 0;
   return Math.max(a, Math.min(b, v));
@@ -19,7 +17,6 @@ export function makeSessionId(){
 
 // ✅ ดึง field งานวิจัยจาก query ให้ “เหมือนกันทุกเกม”
 export function buildHhaContextFromQuery(Q){
-  // Q = URLSearchParams
   const get = (k)=> {
     const v = Q.get(k);
     return (v === null) ? null : String(v);
