@@ -2,6 +2,7 @@
 // VR-look for GoodJunk (DOM/VR): drag-to-look + deviceorientation-to-look + light inertia
 // Works on #gj-camera (A-Frame entity). Blends drag + gyro. Smooth + clamp pitch.
 // ✅ PATCH: publish window.__GJ_CAM_OFFSET__ (+ __GJ_AIM_POINT__) for DOM targets to pan like VR
+// ✅ PATCH: publish window.__GJ_LAYER_SHIFT__ (HHA Standard) for hazards/world-shift in goodjunk.safe.js
 // ✅ PATCH: ignore drags on HUD/buttons/targets to keep clicks reliable
 
 'use strict';
@@ -102,12 +103,15 @@ export function attachTouchLook(cameraEl, opts = {}){
     S.camY = S.camY * (1 - camSmooth) + targetY * camSmooth;
 
     // publish globals used by goodjunk.safe.js
-    // cam offset = how much the "world" shifts due to look
+    // cam offset = how much the "world" shifts due to look (compat/legacy)
     window.__GJ_CAM_OFFSET__ = { x: S.camX, y: S.camY };
 
     // aim point stays as crosshair (center-ish) in DOM, like VR reticle
     const a = baseAim();
     window.__GJ_AIM_POINT__ = { x: a.x, y: a.y };
+
+    // ✅ HHA Standard: world shift used by hazards + transform syncing
+    window.__GJ_LAYER_SHIFT__ = { x: S.camX, y: S.camY };
   }
 
   function apply(){
@@ -293,6 +297,7 @@ export function attachTouchLook(cameraEl, opts = {}){
       // cleanup globals
       try{ delete window.__GJ_CAM_OFFSET__; }catch(_){}
       try{ delete window.__GJ_AIM_POINT__; }catch(_){}
+      try{ delete window.__GJ_LAYER_SHIFT__; }catch(_){}
     }
   };
 }
