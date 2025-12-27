@@ -67,7 +67,6 @@
   const DECOY_EMOJI = ['❓','🌀','🎭','🧩','🎲'];
   const BOSS_EMOJI  = ['👹','😈','🧟','🦂','🐲'];
 
-  // -------------------- Difficulty Profiles --------------------
   const DIFF = {
     easy: {
       spawnEveryMs: [520, 820],
@@ -82,7 +81,6 @@
       powerThreshold: 7,
       fever: { gainGood: 4.2, gainCombo: 0.55, loseBad: 10.0, decayPerSec: 1.15, burstAt: 92, burstMs: 5200 },
       score: { good: 120, wrong: -110, bossHit: 95, bossKill: 260, decoy: -80, junk: -120 },
-      missPenalty: 1,
       storm: { durSec: 5, shrink: 0.92, spawnMul: 0.70, stunMul: 1.25, badMissExtra: 1, goodBonus: 70 }
     },
     normal: {
@@ -98,7 +96,6 @@
       powerThreshold: 9,
       fever: { gainGood: 4.6, gainCombo: 0.65, loseBad: 12.0, decayPerSec: 1.25, burstAt: 90, burstMs: 5400 },
       score: { good: 130, wrong: -125, bossHit: 105, bossKill: 310, decoy: -95, junk: -150 },
-      missPenalty: 1,
       storm: { durSec: 5, shrink: 0.90, spawnMul: 0.62, stunMul: 1.35, badMissExtra: 1, goodBonus: 85 }
     },
     hard: {
@@ -114,7 +111,6 @@
       powerThreshold: 11,
       fever: { gainGood: 5.0, gainCombo: 0.75, loseBad: 14.0, decayPerSec: 1.35, burstAt: 88, burstMs: 5600 },
       score: { good: 140, wrong: -140, bossHit: 115, bossKill: 360, decoy: -110, junk: -180 },
-      missPenalty: 1,
       storm: { durSec: 5, shrink: 0.88, spawnMul: 0.58, stunMul: 1.45, badMissExtra: 1, goodBonus: 95 }
     }
   };
@@ -128,7 +124,6 @@
     return 'C';
   }
 
-  // -------------------- Engine --------------------
   const Engine = (function(){
     const state = {
       running:false,
@@ -168,22 +163,17 @@
       stunnedUntil:0,
       panicOn:false,
 
-      lockedId:null,
-      lockStartMs:0,
-      lockNeedMs:200,
-
       feverPct:0,
       feverBurstUntil:0,
 
       adaptLevel:0,
       adaptTick:0,
 
-      // ===== STORM =====
       stormActive:false,
       stormEndsAtMs:0,
       stormPlanIdx:0,
-      stormPlan:[],          // seconds-left markers
-      lastStormTickLeft:999  // for beep
+      stormPlan:[],
+      lastStormTickLeft:999
     };
 
     function cfg(){ return DIFF[state.diff] || DIFF.normal; }
@@ -193,7 +183,6 @@
       state.layerEl = el;
       if (el){
         el.addEventListener('pointerdown', onPointerDown, { passive:false });
-        el.addEventListener('pointermove', onPointerMove, { passive:true });
       }
     }
     function setTimeLeft(sec){
@@ -227,16 +216,12 @@
       state.stunnedUntil = 0;
       state.panicOn = false;
 
-      state.lockedId = null;
-      state.lockStartMs = 0;
-
       state.feverPct = 0;
       state.feverBurstUntil = 0;
 
       state.adaptLevel = 0;
       state.adaptTick = 0;
 
-      // storm reset
       state.stormActive = false;
       state.stormEndsAtMs = 0;
       state.stormPlanIdx = 0;
@@ -247,7 +232,6 @@
     }
 
     function planStorms(){
-      // fixed “4 waves” based on total time (works even if time!=90)
       const T = Math.max(30, state.timeTotal|0);
       const marks = [
         Math.round(T * 0.78),
@@ -255,10 +239,7 @@
         Math.round(T * 0.34),
         Math.round(T * 0.14)
       ].map(v => clamp(v, 6, T-6));
-
-      // unique + sort desc
-      const uniq = Array.from(new Set(marks)).sort((a,b)=>b-a);
-      state.stormPlan = uniq;
+      state.stormPlan = Array.from(new Set(marks)).sort((a,b)=>b-a);
       state.stormPlanIdx = 0;
     }
 
@@ -277,24 +258,16 @@
       const right = w - (10 + insets.sar + pad);
       const bottom = h - (10 + insets.sab + pad);
 
-      return {
-        left, top, right, bottom,
-        width: Math.max(10, right-left),
-        height: Math.max(10, bottom-top),
-        w, h
-      };
+      return { left, top, right, bottom, width: Math.max(10, right-left), height: Math.max(10, bottom-top) };
     }
 
     function isBurstOn(){ return Date.now() < state.feverBurstUntil; }
     function isStormOn(){ return state.stormActive && Date.now() < state.stormEndsAtMs; }
 
-    function feverEmit(){
-      const pct = clamp(state.feverPct, 0, 100);
-      emit('hha:fever', { pct });
-    }
+    function feverEmit(){ emit('hha:fever', { pct: clamp(state.feverPct, 0, 100) }); }
     function feverAdd(delta){
-      state.feverPct = clamp(state.feverPct + (Number(delta)||0), 0, 100);
       const c = cfg();
+      state.feverPct = clamp(state.feverPct + (Number(delta)||0), 0, 100);
       if (!isBurstOn() && state.feverPct >= (c.fever.burstAt||90)){
         state.feverBurstUntil = Date.now() + (c.fever.burstMs||5200);
         emit('hha:judge', { text:'FEVER BURST!', kind:'boss' });
@@ -309,14 +282,7 @@
 
     function emitScore(){
       state.comboMax = Math.max(state.comboMax, state.combo);
-
-      emit('hha:score', {
-        score: state.score|0,
-        combo: state.combo|0,
-        misses: state.misses|0,
-        comboMax: state.comboMax|0
-      });
-
+      emit('hha:score', { score: state.score|0, combo: state.combo|0, misses: state.misses|0, comboMax: state.comboMax|0 });
       const acc = calcAccuracy();
       emit('hha:rank', { grade: gradeFrom(acc, state.score|0), accuracy: acc|0 });
     }
@@ -330,12 +296,10 @@
     function powerAdd(n){
       const c = cfg();
       const th = state.powerThreshold || c.powerThreshold || 9;
-      const bonus = isBurstOn() ? 1 : 0;
-
-      // storm = faster charge
+      const burstBonus = isBurstOn() ? 1 : 0;
       const stormBonus = isStormOn() ? 1 : 0;
 
-      state.powerCharge = clamp(state.powerCharge + (n|0) + bonus + stormBonus, 0, th);
+      state.powerCharge = clamp(state.powerCharge + (n|0) + burstBonus + stormBonus, 0, th);
       emit('groups:power', { charge: state.powerCharge|0, threshold: th|0 });
 
       if (state.powerCharge >= th){
@@ -349,7 +313,6 @@
       const prev = currentGroup();
       state.groupIndex = (state.groupIndex + (dir|0) + GROUPS.length) % GROUPS.length;
       const g = currentGroup();
-
       FX.swapFlash();
       emit('groups:group_change', { groupId:g.id, label:g.label, from:prev.id });
       emit('groups:progress', { kind:'group_swap', groupId:g.id });
@@ -366,12 +329,10 @@
       state.stormActive = true;
       state.stormEndsAtMs = Date.now() + dur*1000;
       state.lastStormTickLeft = 999;
-
       FX.storm(true);
       emit('groups:storm', { on:true, durSec: dur });
       emit('hha:judge', { text:'STORM!', kind:'warn' });
     }
-
     function stopStorm(){
       if (!state.stormActive) return;
       state.stormActive = false;
@@ -382,11 +343,8 @@
 
     function effectiveRates(){
       const c = cfg();
-
       const allowAdaptive = (state.runMode !== 'study' && state.runMode !== 'research');
-      let adapt = 0;
-      if (allowAdaptive) adapt = clamp(state.adaptLevel, -2, 2);
-
+      let adapt = allowAdaptive ? clamp(state.adaptLevel, -2, 2) : 0;
       const burst = isBurstOn() ? 1 : 0;
 
       const add = (adapt > 0 ? 0.02*adapt : 0.015*adapt);
@@ -397,7 +355,6 @@
       let junkRate = clamp(c.junkRate + add + 0.03*burst, 0.10, 0.45);
       let wrongRate= clamp(c.wrongRate + add + 0.02*burst, 0.08, 0.40);
 
-      // STORM makes it nastier (more wrong+junk, slightly less boss)
       if (isStormOn()){
         bossRate *= 0.92;
         wrongRate = clamp(wrongRate * 1.18, 0.10, 0.50);
@@ -409,7 +366,6 @@
         const k = 0.82 / sum;
         bossRate *= k; decoyRate *= k; junkRate *= k; wrongRate *= k;
       }
-
       return { bossRate, decoyRate, junkRate, wrongRate };
     }
 
@@ -431,7 +387,6 @@
       else if (r < d) type = 'decoy';
       else if (r < j) type = 'junk';
       else if (r < w) type = 'wrong';
-      else type = 'good';
 
       const g = currentGroup();
       let emoji = pick(state.rng, g.good);
@@ -449,12 +404,7 @@
 
       let s = c.size[0] + state.rng()*(c.size[1]-c.size[0]);
       if (isBurstOn()) s *= 0.96;
-
-      // STORM shrink
-      if (isStormOn()){
-        const sh = (c.storm && c.storm.shrink) ? c.storm.shrink : 0.90;
-        s *= sh;
-      }
+      if (isStormOn()) s *= (c.storm && c.storm.shrink ? c.storm.shrink : 0.90);
 
       const half = (132 * s) * 0.5;
       const x = clamp(play.left + half + state.rng()*(play.width - 2*half), play.left + half, play.right - half);
@@ -471,17 +421,17 @@
       el.className = 'fg-target spawn';
       el.dataset.id = id;
       el.dataset.type = type;
+      el.setAttribute('data-emoji', emoji);     // ✅ ให้ CSS ::before ใช้
+      el.style.setProperty('--x', x.toFixed(1) + 'px');
+      el.style.setProperty('--y', y.toFixed(1) + 'px');
+      el.style.setProperty('--s', s.toFixed(3));
+      // ❌ ไม่ใส่ textContent กัน emoji ซ้อน
 
       if (type === 'good') el.classList.add('fg-good');
       if (type === 'wrong') el.classList.add('fg-wrong');
       if (type === 'junk') el.classList.add('fg-junk');
       if (type === 'decoy') el.classList.add('fg-decoy');
       if (type === 'boss') el.classList.add('fg-boss');
-
-      el.style.setProperty('--x', x.toFixed(1) + 'px');
-      el.style.setProperty('--y', y.toFixed(1) + 'px');
-      el.style.setProperty('--s', s.toFixed(3));
-      el.textContent = emoji;
 
       let bossHp = 0, bossHpMax = 0, bossFillEl = null;
       if (type === 'boss'){
@@ -499,32 +449,17 @@
 
       state.layerEl.appendChild(el);
 
-      if (type === 'good'){ state.goodSpawn++; }
-      if (type === 'wrong'){ state.wrongSpawn++; }
-      if (type === 'junk'){ state.junkSpawn++; }
+      if (type === 'good') state.goodSpawn++;
+      if (type === 'wrong') state.wrongSpawn++;
+      if (type === 'junk') state.junkSpawn++;
 
-      state.targets.set(id, {
-        id, el, type, emoji,
-        x, y, s,
-        expireAt, dead:false,
-        groupId: g.id,
-        wrongGroupId,
-        bossHp, bossHpMax, bossFillEl
-      });
-
-      emit('groups:spawn', { id, type, groupId:g.id, wrongGroupId, x, y });
-      if (type === 'boss') emit('groups:progress', { kind:'boss_spawn', id });
+      state.targets.set(id, { id, el, type, emoji, x, y, s, expireAt, dead:false, groupId:g.id, wrongGroupId, bossHp, bossHpMax, bossFillEl });
 
       setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch{} }, 220);
 
-      // next spawn speed
       const baseNext = randInt(state.rng, c.spawnEveryMs[0], c.spawnEveryMs[1]);
       let speed = isBurstOn() ? 0.70 : 1.0;
-
-      if (isStormOn()){
-        const mul = (c.storm && c.storm.spawnMul) ? c.storm.spawnMul : 0.62;
-        speed *= mul;
-      }
+      if (isStormOn()) speed *= (c.storm && c.storm.spawnMul ? c.storm.spawnMul : 0.62);
       const next = Math.max(150, Math.round(baseNext * speed));
       state.spawnTo = setTimeout(spawn, next);
     }
@@ -533,22 +468,13 @@
       if (!t || t.dead) return;
       t.dead = true;
       state.targets.delete(t.id);
-
-      const el = t.el;
-      if (el){
-        el.classList.add('out');
-        setTimeout(()=>{ try{ el.remove(); }catch{} }, 220);
+      if (t.el){
+        t.el.classList.add('out');
+        setTimeout(()=>{ try{ t.el.remove(); }catch{} }, 220);
       }
-
-      if (reason === 'expire'){
-        if (t.type === 'good'){
-          state.goodExpire++;
-          // storm expire hurts a bit more
-          addMiss(isStormOn() ? 1 : 0);
-          emit('groups:despawn', { id:t.id, type:t.type, reason:'expire' });
-        } else {
-          emit('groups:despawn', { id:t.id, type:t.type, reason:'expire' });
-        }
+      if (reason === 'expire' && t.type === 'good'){
+        state.goodExpire++;
+        addMiss(isStormOn() ? 1 : 0);
       }
     }
 
@@ -562,36 +488,27 @@
       }
     }
 
-    function findNearestTarget(px, py, radiusPx){
-      let best = null, bestD = 1e9;
-      const rad = radiusPx || 110;
-
+    function findNearest(px, py, radius){
+      let best=null, bestD=1e9;
+      const rad = radius || 110;
       state.targets.forEach((t)=>{
         if (!t || t.dead) return;
-        const dx = t.x - px;
-        const dy = t.y - py;
+        const dx = t.x - px, dy = t.y - py;
         const d = Math.sqrt(dx*dx + dy*dy);
-        if (d < bestD){
-          bestD = d;
-          best = t;
-        }
+        if (d < bestD){ bestD = d; best = t; }
       });
-
-      if (!best) return null;
-      return (bestD <= rad) ? best : null;
+      return (best && bestD <= rad) ? best : null;
     }
 
-    function onPointerMove(ev){
-      if (!state.running || !ev) return;
-      if (isStunned()) return;
-
-      const px = ev.clientX || 0;
-      const py = ev.clientY || 0;
-
-      // no heavy lock UI now (kept minimal)
-      state.lockedId = null;
-      state.lockStartMs = 0;
-      void px; void py;
+    function stormBadPunish(){
+      const c = cfg();
+      const st = c.storm || {};
+      const extraMiss = (st.badMissExtra|0);
+      const stunMul = Number(st.stunMul || 1.25);
+      FX.stormBadFlash();
+      state.stunnedUntil = Math.max(state.stunnedUntil, nowMs() + Math.round((c.stunMs|0) * stunMul));
+      addMiss(extraMiss);
+      feverAdd(-c.fever.loseBad * 0.70);
     }
 
     function hitGood(t){
@@ -601,31 +518,13 @@
 
       state.goodHit++;
       state.combo++;
-      const comboBonus = Math.min(260, state.combo * (isBurstOn()? 9 : 6));
-      state.score += c.score.good + comboBonus + bonus;
+      state.score += c.score.good + Math.min(260, state.combo * (isBurstOn()? 9 : 6)) + bonus;
 
       feverAdd(c.fever.gainGood + (storm ? 1.5 : 0));
       powerAdd(1);
-
       FX.afterimage(t.x, t.y, t.emoji);
-
       emit('hha:judge', { text: storm ? 'STORM GOOD!' : 'GOOD!', kind:'good' });
-      emit('groups:progress', { kind:'good_hit', groupId: t.groupId });
       emitScore();
-    }
-
-    function stormBadPunish(){
-      const c = cfg();
-      const st = c.storm || {};
-      const extraMiss = (st.badMissExtra|0);
-      const stunMul = Number(st.stunMul || 1.25);
-
-      FX.stormBadFlash();
-
-      // chain stun harder
-      state.stunnedUntil = Math.max(state.stunnedUntil, nowMs() + Math.round((c.stunMs|0) * stunMul));
-      addMiss(extraMiss);
-      feverAdd(-c.fever.loseBad * 0.70);
     }
 
     function hitWrong(t){
@@ -633,17 +532,10 @@
       state.wrongHit++;
       state.combo = 0;
       state.score += c.score.wrong;
-
-      if (isStormOn()){
-        stormBadPunish();
-      }else{
-        addMiss(0);
-        feverAdd(-c.fever.loseBad * 0.65);
-      }
-
+      if (isStormOn()) stormBadPunish();
+      else { addMiss(0); feverAdd(-c.fever.loseBad * 0.65); }
       FX.afterimage(t.x, t.y, '⚠️');
       emit('hha:judge', { text: isStormOn() ? 'WRONG! (STORM)' : 'WRONG GROUP!', kind:'warn' });
-      emit('groups:progress', { kind:'wrong_hit', wrongGroupId: t.wrongGroupId });
       emitScore();
     }
 
@@ -652,19 +544,10 @@
       state.junkHit++;
       state.combo = 0;
       state.score += c.score.junk;
-
-      if (isStormOn()){
-        stormBadPunish();
-      }else{
-        addMiss(0);
-        feverAdd(-c.fever.loseBad);
-        state.stunnedUntil = nowMs() + (c.stunMs|0);
-      }
-
+      if (isStormOn()) stormBadPunish();
+      else { addMiss(0); feverAdd(-c.fever.loseBad); state.stunnedUntil = nowMs() + (c.stunMs|0); }
       FX.stunFlash();
-      emit('groups:stun', { ms: c.stunMs|0 });
       emit('hha:judge', { text: isStormOn() ? 'STUN! (STORM)' : 'STUN!', kind:'bad' });
-      emit('groups:progress', { kind:'junk_hit' });
       emitScore();
     }
 
@@ -673,32 +556,21 @@
       state.decoyHit++;
       state.combo = 0;
       state.score += c.score.decoy;
-
-      if (isStormOn()){
-        stormBadPunish();
-      }else{
-        addMiss(0);
-        feverAdd(-c.fever.loseBad * 0.55);
-      }
-
+      if (isStormOn()) stormBadPunish();
+      else { addMiss(0); feverAdd(-c.fever.loseBad * 0.55); }
       state.powerCharge = Math.max(0, state.powerCharge - 2);
       emit('groups:power', { charge: state.powerCharge|0, threshold: (state.powerThreshold|0) });
-
       FX.afterimage(t.x, t.y, '🌀');
       emit('hha:judge', { text: isStormOn() ? 'DECOY! (STORM)' : 'DECOY!', kind:'warn' });
-      emit('groups:progress', { kind:'decoy_hit' });
       emitScore();
     }
 
     function hitBoss(t){
       const c = cfg();
       t.bossHp = Math.max(0, (t.bossHp|0) - 1);
-
       state.combo++;
-      const comboBonus = Math.min(300, state.combo * (isBurstOn()? 10 : 7));
-      state.score += c.score.bossHit + comboBonus;
-
-      feverAdd( (c.fever.gainGood*0.55) + (isStormOn()? 0.9 : 0) );
+      state.score += c.score.bossHit + Math.min(300, state.combo * (isBurstOn()? 10 : 7));
+      feverAdd((c.fever.gainGood*0.55) + (isStormOn()? 0.9 : 0));
 
       if (t.bossFillEl && t.bossHpMax){
         const pct = Math.max(0, (t.bossHp / t.bossHpMax) * 100);
@@ -714,7 +586,6 @@
         powerAdd(2);
         FX.afterimage(t.x, t.y, '💥');
         emit('hha:judge', { text:'BOSS DOWN!', kind:'boss' });
-        emit('groups:progress', { kind:'boss_kill' });
         hitRemove(t);
       } else {
         emit('hha:judge', { text:'HIT!', kind:'boss' });
@@ -725,19 +596,17 @@
     function onPointerDown(ev){
       if (!state.running || !ev) return;
       try{ ev.preventDefault(); }catch{}
-
       if (isStunned()) return;
 
       const px = ev.clientX || 0;
       const py = ev.clientY || 0;
 
-      const radius = isBurstOn() ? 135 : 110;
-      const t = findNearestTarget(px, py, radius);
+      const t = findNearest(px, py, isBurstOn() ? 135 : 110);
       if (!t) return;
 
       if (t.type === 'boss'){ hitBoss(t); return; }
-
       hitRemove(t);
+
       if (t.type === 'good') hitGood(t);
       else if (t.type === 'wrong') hitWrong(t);
       else if (t.type === 'junk') hitJunk(t);
@@ -746,7 +615,6 @@
 
     function adaptiveTick(){
       if (state.runMode === 'study' || state.runMode === 'research') return;
-
       state.adaptTick++;
       if (state.adaptTick % 5 !== 0) return;
 
@@ -759,16 +627,12 @@
 
     function stormTickLogic(){
       if (!isStormOn()) return;
-
       const left = Math.max(0, Math.ceil((state.stormEndsAtMs - Date.now())/1000));
       if (left !== state.lastStormTickLeft){
         state.lastStormTickLeft = left;
         FX.stormTick(left);
-        emit('groups:storm', { on:true, leftSec: left });
       }
-      if (Date.now() >= state.stormEndsAtMs){
-        stopStorm();
-      }
+      if (Date.now() >= state.stormEndsAtMs) stopStorm();
     }
 
     function tickSecond(){
@@ -777,7 +641,6 @@
       state.timeLeft = Math.max(0, (state.timeLeft|0) - 1);
       emit('hha:time', { left: state.timeLeft|0 });
 
-      // start storm at planned marks
       if (state.stormPlanIdx < state.stormPlan.length){
         const mark = state.stormPlan[state.stormPlanIdx]|0;
         if (state.timeLeft === mark){
@@ -785,24 +648,20 @@
           state.stormPlanIdx++;
         }
       }
-
       stormTickLogic();
 
-      // fever decay
       const c = cfg();
       state.feverPct = clamp(state.feverPct - (c.fever.decayPerSec||1.2), 0, 100);
       feverEmit();
 
       adaptiveTick();
 
-      // panic last 12s
       const panic = state.timeLeft <= 12 && state.timeLeft > 0;
       if (panic !== state.panicOn){
         state.panicOn = panic;
         FX.panic(panic);
       }
 
-      // expire sweep
       const tnow = nowMs();
       const exp = [];
       state.targets.forEach((t)=>{ if (t && !t.dead && tnow >= t.expireAt) exp.push(t); });
@@ -863,36 +722,27 @@
       if (ended){
         const acc = calcAccuracy();
         const grade = gradeFrom(acc, state.score|0);
-
         emit('hha:rank', { grade, accuracy: acc|0 });
 
         emit('hha:end', {
-          game: 'groups',
+          game:'groups',
           diff: state.diff,
           runMode: state.runMode,
           seed: state.seed,
-
           scoreFinal: state.score|0,
           comboMax: state.comboMax|0,
           misses: state.misses|0,
-
           goodHit: state.goodHit|0,
           goodSpawn: state.goodSpawn|0,
           goodExpire: state.goodExpire|0,
-
           wrongHit: state.wrongHit|0,
           wrongSpawn: state.wrongSpawn|0,
-
           junkHit: state.junkHit|0,
           junkSpawn: state.junkSpawn|0,
           decoyHit: state.decoyHit|0,
           bossKills: state.bossKills|0,
-
           accuracyGoodPct: acc|0,
-          grade: grade,
-
-          goalsCleared: 0, goalsTotal: 0,
-          miniCleared: 0, miniTotal: 0
+          grade
         });
       }
     }
