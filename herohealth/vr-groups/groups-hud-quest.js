@@ -1,29 +1,35 @@
-(function(root){
+/* === /herohealth/vr-groups/groups-hud-quest.js ===
+HUD Quest Binder (PRODUCTION)
+- listens: quest:update + hha:quest
+- updates GOAL/MINI text + bars + mini timer
+*/
+
+(function (root) {
   'use strict';
   const DOC = root.document;
   if (!DOC) return;
 
-  const $ = (id)=> DOC.getElementById(id);
+  const $ = (id) => DOC.getElementById(id);
 
   const E = {
     goalTitle: $('hud-goal-title'),
     goalVal: $('hud-goal-val'),
     goalBar: $('hud-goal-bar'),
 
-    miniLine: $('hud-mini-line'),
+    miniLine: $('hud-mini-line') || null,
     miniTitle: $('hud-mini-title'),
     miniVal: $('hud-mini-val'),
     miniBar: $('hud-mini-bar'),
     miniTimer: $('hud-mini-timer')
   };
 
-  function pct(n,d){
-    d = Math.max(1, d|0);
-    n = Math.max(0, n|0);
-    return Math.max(0, Math.min(100, (n/d)*100));
+  function pct(n, d) {
+    d = Math.max(1, d | 0);
+    n = Math.max(0, n | 0);
+    return Math.max(0, Math.min(100, (n / d) * 100));
   }
 
-  function apply(q){
+  function apply(q) {
     q = q || {};
 
     // GOAL
@@ -32,10 +38,10 @@
     if (E.goalBar) E.goalBar.style.width = pct(q.goalNow, q.goalNeed).toFixed(1) + '%';
 
     // MINI
-    const hasMini = !!q.miniTitle;
+    const hasMini = !!(q.miniTitle && String(q.miniTitle).trim());
     if (E.miniLine) E.miniLine.classList.toggle('mini-urgent', !!q.miniUrgent);
 
-    if (!hasMini){
+    if (!hasMini) {
       if (E.miniTitle) E.miniTitle.textContent = '—';
       if (E.miniVal) E.miniVal.textContent = '0/0';
       if (E.miniBar) E.miniBar.style.width = '0%';
@@ -47,17 +53,22 @@
     if (E.miniVal) E.miniVal.textContent = (q.miniNow ?? 0) + '/' + (q.miniNeed ?? 0);
     if (E.miniBar) E.miniBar.style.width = pct(q.miniNow, q.miniNeed).toFixed(1) + '%';
 
-    if (E.miniTimer){
-      if (typeof q.miniLeftSec === 'number'){
-        E.miniTimer.textContent = 'เหลือ ' + (q.miniLeftSec|0) + 's';
+    if (E.miniTimer) {
+      if (typeof q.miniLeftSec === 'number') {
+        E.miniTimer.textContent = 'เหลือ ' + (q.miniLeftSec | 0) + 's';
       } else {
         E.miniTimer.textContent = '';
       }
     }
   }
 
-  root.addEventListener('quest:update', (ev)=> apply(ev.detail || {}), { passive:true });
+  function onAnyQuest(ev) {
+    apply((ev && ev.detail) ? ev.detail : {});
+  }
+
+  root.addEventListener('quest:update', onAnyQuest, { passive: true });
+  root.addEventListener('hha:quest', onAnyQuest, { passive: true });
 
   // init blank
-  apply({ goalTitle:'—', goalNow:0, goalNeed:0, miniTitle:'—', miniNow:0, miniNeed:0 });
-})(window);
+  apply({ goalTitle: '—', goalNow: 0, goalNeed: 0, miniTitle: '', miniNow: 0, miniNeed: 0 });
+})(typeof window !== 'undefined' ? window : globalThis);
