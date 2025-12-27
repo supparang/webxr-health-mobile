@@ -1,7 +1,9 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
-✅ End-window cinematic: vignette + scanlines + RGB split + flash sync tick + tick accel
-✅ Uses ONLY sounds: beep + tick + thunder (soft thunder is still thunder)
+HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
+✅ Playfield bigger (mobile-first)
+✅ Quest as floating panel / mobile bottom-sheet + collapse toggle
+✅ VR/Cardboard mode (fullscreen + minimal UI) — HTML only
+✅ End-window cinematic driver preserved
 ✅ No changes to hydration.safe.js
 -->
 
@@ -45,6 +47,10 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
       /* ===== CINEMATIC end-window vars ===== */
       --endamp: 0;      /* 0..1 */
       --endflash: 0;    /* 0..1 */
+
+      /* ===== layout vars ===== */
+      --questW: 360px;
+      --gap: 10px;
     }
 
     html,body{
@@ -81,7 +87,7 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
     }
 
     /* main layout */
-    .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
+    .stage{ position:fixed; inset:0; display:flex; flex-direction:column; gap:0; }
 
     /* top HUD bar */
     .hud{
@@ -107,7 +113,7 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
     .stat b{ color: var(--cyan); font-weight:1000; }
     .muted{ color: var(--muted); font-weight:850; }
 
-    /* playfield */
+    /* playfield (bigger by removing quest from bottom row) */
     #playfield{
       position:relative;
       flex:1;
@@ -119,19 +125,20 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
       overflow:hidden;
       touch-action: manipulation;
       will-change: transform, filter;
+      min-height: 52vh; /* กันมือถือบางรุ่นที่โดน UI กิน */
     }
     #hvr-layer{ position:absolute; inset:0; pointer-events:none; }
 
-    /* bottom HUD */
+    /* bottom HUD: water only (quest moved out) */
     .bottom{
       padding: 10px 12px calc(var(--sab) + 12px);
       display:flex; gap:10px;
-      justify-content:space-between;
+      justify-content:flex-start;
       align-items:flex-end;
       pointer-events:none;
       z-index:20;
     }
-    .bottom .card{ min-width: 240px; }
+    .bottom .card{ min-width: 280px; }
 
     /* water gauge */
     .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
@@ -266,6 +273,9 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
     }
     .btn.secondary{ background: rgba(2,6,23,.55); }
     .btn.danger{ background: rgba(239,68,68,.18); }
+    .btn.ghost{
+      background: rgba(2,6,23,.35);
+    }
 
     /* Stamp */
     #hha-stamp{
@@ -324,15 +334,110 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
     .endItem .v{ margin-top:4px; font-size:16px; }
 
     /* =========================================================
-       ===== CINEMATIC END-WINDOW FX (HTML-only / no safe.js) ====
+       QUEST PANEL (NEW): floating / bottom-sheet + collapse
        ========================================================= */
+    #questPanel{
+      position: fixed;
+      right: 12px;
+      top: calc(var(--sat) + 10px + 86px); /* ใต้ HUD */
+      width: var(--questW);
+      max-width: calc(100vw - 24px);
+      z-index: 25; /* เหนือ playfield */
+      pointer-events: auto;
+    }
+    #questPanel .card{
+      pointer-events: auto; /* ให้กดปุ่ม/สกรอลล์ได้ */
+    }
+    .questHeaderRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:6px;
+    }
+    #questPanel.collapsed .questBody{
+      display:none;
+    }
+    #questPanel.collapsed{
+      width: min(var(--questW), calc(100vw - 24px));
+    }
 
-    /* scanlines + film noise (End-window only) */
+    /* Mobile: quest becomes bottom-sheet above water */
+    @media (max-width: 860px){
+      .hud{
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .hud .card{
+        width: 100%;
+        min-width: 0;
+      }
+      #playfield{
+        margin: 0 12px;
+        min-height: 58vh;
+      }
+      .bottom{
+        justify-content: stretch;
+      }
+      .bottom .card{
+        width: 100%;
+        min-width: 0;
+      }
+
+      #questPanel{
+        left: 12px;
+        right: 12px;
+        top: auto;
+        bottom: calc(var(--sab) + 12px + 122px); /* เหนือ water card */
+        width: auto;
+        max-height: 42vh;
+        overflow: hidden;
+      }
+      #questPanel .card{
+        max-height: 42vh;
+        overflow: auto;
+      }
+    }
+
+    /* =========================================================
+       VR / CARDBOARD MODE (minimal UI + fullscreen)
+       ========================================================= */
+    body.vrmode .stormWarnBanner{ display:none; }
+    body.vrmode #questPanel{ display:none; }      /* ซ่อน quest ยาว */
+    body.vrmode .bottom{ display:none; }          /* ซ่อน water card ยาว */
+    body.vrmode .hud{
+      padding: calc(var(--sat) + 8px) 10px 8px;
+      opacity: .92;
+    }
+    body.vrmode .hud .card{
+      padding: 8px 9px;
+      border-radius: 16px;
+    }
+    body.vrmode #playfield{
+      margin: 0;
+      border-radius: 0;
+      min-height: 78vh;
+    }
+
+    /* VR mini exit button */
+    #vr-exit{
+      position: fixed;
+      right: 12px;
+      top: calc(var(--sat) + 10px);
+      z-index: 70;
+      display:none;
+      pointer-events:auto;
+    }
+    body.vrmode #vr-exit{ display:block; }
+
+    /* =========================================================
+       ===== CINEMATIC END-WINDOW FX (unchanged) =================
+       ========================================================= */
     body.endwindow::after{
       content:"";
       position:fixed; inset:-26px;
       pointer-events:none;
-      z-index:27; /* เหนือ warn overlay (26), ใต้ HUD (20) ก็ได้เพราะเป็น fixed */
+      z-index:27;
       opacity: calc(0.10 + (var(--endamp) * 0.18));
       background:
         repeating-linear-gradient(
@@ -364,7 +469,6 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
       100%{ opacity: calc(0.10 + (var(--endamp) * 0.18)); }
     }
 
-    /* RGB split + high contrast on playfield (End-window only) */
     body.endwindow #playfield{
       outline: 2px dashed rgba(239,68,68,.55);
       filter:
@@ -373,10 +477,6 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
         brightness(calc(1.02 + (var(--endflash) * 0.12)))
         drop-shadow( 1.25px 0px 0px rgba(239,68,68, calc(0.10 + var(--endamp)*0.18)))
         drop-shadow(-1.25px 0px 0px rgba(34,211,238, calc(0.08 + var(--endamp)*0.14)));
-    }
-
-    /* End-window shake “แรงขึ้น” แยกจาก fx-shake */
-    body.endwindow #playfield{
       animation: endShake .085s ease-in-out infinite;
     }
     @keyframes endShake{
@@ -385,8 +485,6 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
       55%{ transform: translate3d(-1.6px,1.8px,0); }
       100%{ transform: translate3d(0,0,0); }
     }
-
-    /* flash class (เสริมให้เห็นชัดเวลาติ๊ก) */
     body.endflash #playfield{
       filter:
         saturate(1.20)
@@ -402,6 +500,9 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
   <div class="stormWarnBanner" aria-hidden="true">
     <div class="pill">⚠️ Storm กำลังมา… เตรียมตัว!</div>
   </div>
+
+  <!-- VR exit -->
+  <button id="vr-exit" class="btn danger" type="button">⏏ ออก VR</button>
 
   <div class="stage">
     <div class="hud">
@@ -428,7 +529,7 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
     </div>
 
     <div class="bottom">
-      <div class="card" style="min-width:280px">
+      <div class="card" style="width:min(560px, 100%); min-width:280px">
         <h3>💧 Water Gauge</h3>
         <div class="row" style="justify-content:space-between">
           <div class="stat">Zone <b id="water-zone">—</b></div>
@@ -440,9 +541,18 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
           <div class="stat">Storm <b id="storm-left">0</b> <span class="muted">s</span></div>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="card" style="min-width:340px">
-        <h3>🧩 Quest</h3>
+  <!-- QUEST PANEL (moved out of bottom row) -->
+  <div id="questPanel">
+    <div class="card">
+      <div class="questHeaderRow">
+        <h3 style="margin:0">🧩 Quest</h3>
+        <button class="btn ghost" id="btn-quest-toggle" type="button">ยุบ/ขยาย</button>
+      </div>
+
+      <div class="questBody">
         <div class="questLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
         <div class="questLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
         <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
@@ -470,7 +580,7 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
             <div class="miniBar"><div id="mini-pressure-bar"></div></div>
           </div>
         </div>
-      </div>
+      </div><!-- /questBody -->
     </div>
   </div>
 
@@ -489,7 +599,7 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
       </div>
       <div class="btnRow">
         <button class="btn" id="btn-start" type="button">🚀 START</button>
-        <button class="btn secondary" id="btn-vr" type="button">🥽 VR</button>
+        <button class="btn secondary" id="btn-vr" type="button">🥽 VR / Cardboard</button>
         <button class="btn danger" id="btn-stop" type="button">⛔ STOP</button>
       </div>
     </div>
@@ -514,6 +624,60 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
 
   <!-- ✅ IMPORTANT: correct relative path from /herohealth/hydration-vr.html -->
   <script type="module" src="./hydration-vr/hydration.safe.js"></script>
+
+  <!-- ===== Layout controls: Quest collapse + VR/Cardboard fullscreen (HTML only) ===== -->
+  <script>
+  (function(){
+    'use strict';
+    const D = document;
+
+    // Quest collapse
+    const qp = D.getElementById('questPanel');
+    const btnQT = D.getElementById('btn-quest-toggle');
+    btnQT?.addEventListener('click', ()=>{
+      qp?.classList.toggle('collapsed');
+    });
+
+    // VR/Cardboard mode: fullscreen + minimal UI
+    const btnVR = D.getElementById('btn-vr');
+    const btnExit = D.getElementById('vr-exit');
+
+    async function requestFS(){
+      try{
+        const el = D.documentElement;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      }catch(_){}
+    }
+    async function exitFS(){
+      try{
+        if (D.exitFullscreen) await D.exitFullscreen();
+        else if (D.webkitExitFullscreen) await D.webkitExitFullscreen();
+      }catch(_){}
+    }
+    function setVR(on){
+      D.body.classList.toggle('vrmode', !!on);
+    }
+
+    btnVR?.addEventListener('click', async ()=>{
+      // toggle on
+      setVR(true);
+      await requestFS();
+    });
+
+    btnExit?.addEventListener('click', async ()=>{
+      setVR(false);
+      await exitFS();
+    });
+
+    D.addEventListener('fullscreenchange', ()=>{
+      if (!D.fullscreenElement){
+        // ถ้า user ออกจาก fullscreen เอง -> ปิด vrmode ด้วย
+        setVR(false);
+      }
+    });
+  })();
+  </script>
 
   <!-- =========================================================
        HTML-ONLY CINEMATIC DRIVER (reads window.__HVR__.S/TUNE)
@@ -617,7 +781,6 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
         currentAmp = 0.25;
         D.body.classList.add('endwindow');
 
-        // เข้าช่วง End-window: tick 1 ที + flash
         EndAudio.resume();
         EndAudio.tick();
         flashPulse(0.85);
@@ -649,12 +812,10 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
       if (endOn){
         const elapsed = (t - tEnter) / 1000;
 
-        // amp ramp: 0 -> 1 (เร็วหน่อยให้รู้สึกเร่ง)
         const k = clamp(elapsed / 1.05, 0, 1);
         currentAmp = 0.25 + 0.75*k;
         setEndVars(currentAmp, 0);
 
-        // tick accel: 0.14s -> ~0.055s
         const rate = Math.max(0.055, 0.14 - (0.085 * k));
         acc += dt;
 
@@ -664,7 +825,6 @@ HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
           flashPulse(0.55 + 0.45*k);
         }
 
-        // rumble thunder เบา ๆ 1 ที ตอน amp สูงมาก (ยังเป็น thunder)
         if (!thundered && k > 0.82){
           thundered = true;
           EndAudio.thunder(0.06);
