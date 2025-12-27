@@ -1,10 +1,14 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR — ULTIMATE ALL-IN-ONE (START-GATED + HUB RETURN + UI FIXES)
-// ✅ แก้ “เล่นแป๊บเดียวจบ” : ไม่เริ่มนับเวลา/ไม่เริ่ม loop จนกด Start
-// ✅ แก้ปุ่ม “กลับ HUB / เล่นอีกครั้ง” : ใช้ document-level delegation (pointerup + click) กันทุกกรณี
-// ✅ รองรับ run=play|study และ runMode=play|study (map → MODE play|research)
-// ✅ บันทึก HHA_LAST_SUMMARY + กลับ HUB ด้วย hub=... + ส่ง query บางส่วนกลับไป
-// ✅ คงทุกระบบเดิม (spawn, safezone, boss, mini, goals, logger, fever, particles)
+// Plate VR — ULTIMATE ALL-IN-ONE (START-GATED + HUB RETURN + UI FIXES + HHA STANDARD PATCH)
+// ✅ Start-gated (กด Start ก่อนถึงเริ่มนับเวลา/loop)
+// ✅ ปุ่ม "กลับ HUB / เล่นอีกครั้ง" ใช้ document delegation (pointerup + click)
+// ✅ run=play|study และ runMode=play|study (map → MODE play|research)
+// ✅ HHA_LAST_SUMMARY + กลับ HUB ด้วย hub=... + ส่ง query บางส่วนกลับไป
+// ✅ Deterministic RNG (research strict) + play = Math.random
+// ✅ Mini Plate Rush: 5 หมู่ใน 8 วิ + ห้ามโดนขยะ, มี urgent tick + edge shake (via CSS class)
+// ✅ FIX: แยก "platesDone" ออกจาก "goalsDone" (กัน Goals นับผิด)
+// ✅ Logger: hha:log_event ส่ง schema กลางเพิ่ม (eventType/timeFromStartMs/rtMs/emoji/targetId/judgment/...)
+// ✅ Safezone: fallback แบบไม่สุ่มทับ HUD (grid fallback)
 
 'use strict';
 
@@ -145,6 +149,7 @@ const HUD = {
   rPerfect: $('rPerfect'),
   rGoals: $('rGoals'),
   rMinis: $('rMinis'),
+  rPlates: $('rPlates'),
   rG1: $('rG1'),
   rG2: $('rG2'),
   rG3: $('rG3'),
@@ -196,8 +201,11 @@ const S = {
   shield:0, shieldMax:1,
   lives:LIVES_START, livesMax:Math.max(1,LIVES_START),
 
-  goalsCleared:0, goalsTotal:2,
+  // ✅ FIX: platesDone แยกจาก goalsDone
+  platesDone:0,                // จำนวน “จานสมดุลครบ 5 หมู่” ที่ทำได้
+  goalsDone:0, goalsTotal:2,   // จำนวน “Goal” ที่ผ่านจริง ๆ (2 ข้อ)
   minisCleared:0, minisTotal:7,
+
   plateHave:new Set(), groupsTotal:5, groupCounts:[0,0,0,0,0],
 
   targets:[], aimedId:null,
@@ -207,7 +215,7 @@ const S = {
 
   stormUntil:0, slowUntil:0, noJunkUntil:0,
 
-  goalIndex:0, activeGoal:null,
+  goalIndex:0, activeGoal:null, goalCompleted:{},
   activeMini:null, miniEndsAt:0, miniUrgentArmed:false, miniTickAt:0,
 
   lowTimeLastSec:null,
@@ -297,8 +305,9 @@ function goHub(){
       maxCombo:S.maxCombo,
       miss:S.miss,
       perfect:S.perfectCount,
-      goals:`${Math.min(S.goalsCleared,2)}/2`,
-      minis:`${Math.min(S.minisCleared,7)}/7`,
+      goals:`${Math.min(S.goalsDone,S.goalsTotal)}/${S.goalsTotal}`,
+      minis:`${Math.min(S.minisCleared,S.minisTotal)}/${S.minisTotal}`,
+      platesDone:S.platesDone,
       groupCounts:[...S.groupCounts],
       ts: Date.now()
     };
@@ -379,6 +388,19 @@ function goHub(){
   @keyframes aimPulse{0%{filter:brightness(1);} 50%{filter:brightness(1.18);} 100%{filter:brightness(1);}}
   .plateTarget.aimed{animation: aimPulse 520ms ease-in-out infinite;}
 
+  /* ✅ idle floaty (VR feel) */
+  @keyframes floaty {
+    0%   { transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1)) translateY(0px); }
+    50%  { transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1)) translateY(-6px); }
+    100% { transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1)) translateY(0px); }
+  }
+  .plateTarget{
+    animation: floaty 2.6s ease-in-out infinite;
+    animation-delay: calc(var(--ph, 0) * -2.6s);
+  }
+  .plateTarget.spawn{animation: popIn 220ms ease-out both;}
+  .plateTarget.aimed{animation: aimPulse 520ms ease-in-out infinite;}
+
   body.hha-mini-urgent #miniPanel{
     border-color: rgba(250,204,21,.55)!important;
     box-shadow:0 18px 46px rgba(0,0,0,.35), 0 0 30px rgba(250,204,21,.12);
@@ -419,22 +441,87 @@ const AudioX = (function(){
   return { unlock, tick, warn, good, perfect, bad, bossHit, bossDown, power, shield, atk };
 })();
 
-// ---------- Logger ----------
+// ---------- Logger (HHA Standard schema) ----------
+function goalProgress(){
+  // goalIndex = current active goal
+  const g = S.activeGoal;
+  if(!g) return { key:'', text:'0' };
+  if(g.key === 'plates2') return { key:g.key, text:`${S.platesDone}/${g.target}` };
+  if(g.key === 'perfect6') return { key:g.key, text:`${S.perfectCount}/${g.target}` };
+  return { key:g.key, text:'0' };
+}
+function miniProgressText(){
+  const m=S.activeMini;
+  if(!m) return '';
+  if(typeof m.progress === 'function') return m.progress();
+  if(m.key === 'plateRush'){
+    const got = (S._mini && S._mini.got) ? S._mini.got.size : 0;
+    const fail = (S._mini && S._mini.fail) ? 1 : 0;
+    return `${got}/5${fail? ' (X)':''}`;
+  }
+  return '';
+}
+
 function logSession(phase){
   dispatchEvt('hha:log_session',{
     sessionId:S.sessionId, game:'PlateVR', phase,
     run: RUN_RAW, mode:MODE, diff:DIFF, timeTotal:TOTAL_TIME, lives:S.livesMax,
-    seed: SEED, ts:Date.now(), ua:navigator.userAgent
+    seed: SEED,
+    goalsCleared: S.goalsDone, goalsTotal: S.goalsTotal,
+    minisCleared: S.minisCleared, minisTotal: S.minisTotal,
+    platesDone: S.platesDone,
+    ts:Date.now(), ua:navigator.userAgent
   });
 }
+
 function logEvent(type, data){
-  dispatchEvt('hha:log_event',{
-    sessionId:S.sessionId, game:'PlateVR', type,
-    t: Math.round((now() - S.tStart) || 0),
-    score:S.score, combo:S.combo, miss:S.miss, perfect:S.perfectCount,
-    fever:Math.round(S.fever), shield:S.shield, lives:S.lives,
-    data:data||{}
-  });
+  // ✅ ส่งแบบ cloud-logger friendly: {type, data}
+  const tms = Math.round((now() - S.tStart) || 0);
+  const gp = goalProgress();
+  const mp = miniProgressText();
+
+  const payload = {
+    type: String(type||'event'),
+    data: Object.assign({
+      // --- HHA Standard-ish ---
+      eventType: String(type||'event'),
+      timeFromStartMs: tms,
+      sessionId: S.sessionId,
+      game: 'PlateVR',
+
+      rtMs: (data && Number.isFinite(data.rtMs)) ? Math.round(data.rtMs) : null,
+      itemType: data && (data.kind || data.itemType) ? String(data.kind || data.itemType) : null,
+      emoji: data && data.emoji ? String(data.emoji) : null,
+      targetId: data && data.targetId ? String(data.targetId) : null,
+      judgment: data && data.judgment ? String(data.judgment) : null,
+
+      totalScore: S.score,
+      combo: S.combo,
+      comboMax: S.maxCombo,
+      miss: S.miss,
+      perfect: S.perfectCount,
+
+      feverValue: Math.round(S.fever),
+      feverState: S.feverOn ? 'on' : 'off',
+      shield: S.shield,
+      lives: S.lives,
+
+      goalsCleared: S.goalsDone,
+      goalsTotal: S.goalsTotal,
+      goalKey: gp.key,
+      goalProgress: gp.text,
+
+      minisCleared: S.minisCleared,
+      minisTotal: S.minisTotal,
+      miniKey: S.activeMini ? S.activeMini.key : '',
+      miniProgress: mp,
+
+      platesDone: S.platesDone,
+      extra: data && data.extra ? data.extra : undefined
+    }, data || {})
+  };
+
+  dispatchEvt('hha:log_event', payload);
 }
 
 // ---------- Camera -> view offset ----------
@@ -487,6 +574,7 @@ function pickSafeXY(sizePx){
   const blocked=getBlockedRects();
   const tries=110;
   const off=viewOffset();
+
   for(let i=0;i<tries;i++){
     const sx=rnd(m+half, vw-m-half);
     const sy=rnd(m+half, vh-m-half);
@@ -498,7 +586,40 @@ function pickSafeXY(sizePx){
     if(overlapsExisting(cx,cy,sizePx)) continue;
     return { x:cx, y:cy };
   }
-  return { x:vw*0.5-off.x, y:vh*0.55-off.y };
+
+  // ✅ fallback: grid scan (ไม่ทับ HUD)
+  const gridX=[0.2,0.5,0.8], gridY=[0.25,0.5,0.75];
+  for(const gy of gridY){
+    for(const gx of gridX){
+      const sx = gx*vw;
+      const sy = gy*vh;
+      const rr={x:sx-half,y:sy-half,w:sizePx,h:sizePx};
+      let ok=true;
+      for(const br of blocked){ if(intersect(rr,br)){ ok=false; break; } }
+      if(!ok) continue;
+      const cx = sx-off.x, cy = sy-off.y;
+      if(overlapsExisting(cx,cy,sizePx)) continue;
+      return { x:cx, y:cy };
+    }
+  }
+
+  // last resort: clamp to center but shift away from blocked rects
+  let sx = vw*0.5, sy = vh*0.55;
+  for(const br of blocked){
+    const rr={x:sx-half,y:sy-half,w:sizePx,h:sizePx};
+    if(intersect(rr,br)){
+      // push down/up
+      const down = (br.y+br.h + half + 16);
+      const up   = (br.y - half - 16);
+      const canDown = (down + half) <= (vh - m);
+      const canUp   = (up - half) >= m;
+      if(canDown) sy = down;
+      else if(canUp) sy = up;
+    }
+  }
+  sx = clamp(sx, m+half, vw-m-half);
+  sy = clamp(sy, m+half, vh-m-half);
+  return { x:sx-off.x, y:sy-off.y };
 }
 
 // ---------- Content ----------
@@ -606,7 +727,7 @@ const MINIS=[
 function goalProgressText(){
   const g=S.activeGoal;
   if(!g) return '0';
-  if(g.key==='plates2') return `${S.goalsCleared}/${g.target}`;
+  if(g.key==='plates2') return `${S.platesDone}/${g.target}`;
   if(g.key==='perfect6') return `${S.perfectCount}/${g.target}`;
   return '0';
 }
@@ -617,17 +738,27 @@ function setGoal(i){
 }
 function checkGoalClear(){
   const g=S.activeGoal; if(!g) return false;
-  if(g.key==='plates2') return S.goalsCleared>=g.target;
+  if(g.key==='plates2') return S.platesDone>=g.target;
   if(g.key==='perfect6') return S.perfectCount>=g.target;
   return false;
 }
 function onGoalCleared(){
+  const g = S.activeGoal;
+  if(!g) return;
+  if(S.goalCompleted[g.key]) return;
+
+  S.goalCompleted[g.key] = true;
+  S.goalsDone = Object.keys(S.goalCompleted).filter(k=>S.goalCompleted[k]).length;
+
   fxCelebrate('GOAL CLEAR!', 1.25);
   flash('gold', 140);
   vibe(60);
-  logEvent('goal_clear',{goal:S.activeGoal && S.activeGoal.key});
+
+  logEvent('goal_clear',{ goal:g.key, goalsDone:S.goalsDone });
+
   if(S.goalIndex+1<GOALS.length) setGoal(S.goalIndex+1);
 }
+
 function startMini(){
   const idx=S.minisCleared % MINIS.length;
   const m=MINIS[idx];
@@ -693,13 +824,15 @@ function onGood(group){
   }
   setTxt(HUD.have, `${S.plateHave.size}/${S.groupsTotal}`);
   if(S.plateHave.size>=S.groupsTotal){
-    S.goalsCleared++;
+    S.platesDone++;
     S.plateHave.clear();
     setTxt(HUD.have, `0/5`);
     fxCelebrate('PLATE +1!', 1.0);
     flash('good', 120);
     vibe(35);
-    logEvent('plate_complete',{plates:S.goalsCleared});
+    logEvent('plate_complete',{platesDone:S.platesDone});
+
+    // update goal display + check goal
     setGoal(S.goalIndex);
     if(S.activeGoal && S.activeGoal.key==='plates2' && checkGoalClear()) onGoalCleared();
   }
@@ -775,6 +908,7 @@ function makeTarget(kind, group, opts={}){
   el.style.setProperty('--x', `${(pos.x - sizePx/2)}px`);
   el.style.setProperty('--y', `${(pos.y - sizePx/2)}px`);
   el.style.setProperty('--sc', `${sc2}`);
+  el.style.setProperty('--ph', String(R())); // ✅ floaty phase random
 
   let emoji='🍽️', tag='', hp=0, meta={};
 
@@ -809,7 +943,7 @@ function makeTarget(kind, group, opts={}){
   if(now()<S.slowUntil) life*=1.12;
 
   const rec={
-    el, kind, group,
+    el, kind, group, emoji,
     bornAt, dieAt:bornAt+life,
     cx:pos.x, cy:pos.y, size:sizePx,
     hp, hpMax:hp, dead:false,
@@ -837,7 +971,14 @@ function makeTarget(kind, group, opts={}){
   layer.appendChild(el);
   setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 260);
 
-  logEvent('spawn',{kind,group,size:sizePx,x:rec.cx,y:rec.cy,hp});
+  logEvent('spawn',{
+    kind, group,
+    emoji,
+    targetId: el.dataset.tid,
+    x:rec.cx, y:rec.cy,
+    size:sizePx,
+    hp
+  });
   return rec;
 }
 function removeTarget(rec){
@@ -866,7 +1007,12 @@ function expireTargets(){
         onMiss('expire_good',{kind:rec.kind,group:rec.group});
         fxJudge('MISS');
         flash('bad', 110);
-        logEvent('miss_expire',{kind:rec.kind,group:rec.group});
+        logEvent('miss_expire',{
+          kind: rec.kind,
+          group: rec.group,
+          emoji: rec.emoji,
+          targetId: rec.el && rec.el.dataset ? rec.el.dataset.tid : null
+        });
       }else if(rec.kind==='boss'){
         bossAttackPunish('boss_expire', true);
         S.bossActive=false;
@@ -896,7 +1042,7 @@ function onMiss(reason, extra={}){
 
   updateGrade();
   if(S.lives<=0) endGame(true);
-  logEvent('miss',{reason,...extra});
+  logEvent('miss',Object.assign({reason}, extra||{}));
 }
 function punishBad(reason){
   if(shieldBlock(reason)){ addScore(-60); addFever(-6); return; }
@@ -985,6 +1131,9 @@ function hitTarget(rec, direct, ev){
   }
 
   const dist = Math.hypot(tx-px, ty-py);
+  const rtMs = now() - rec.bornAt;
+
+  const targetId = rec.el && rec.el.dataset ? rec.el.dataset.tid : null;
 
   if(rec.kind==='slow'){
     const ms = (MODE==='research') ? Math.round((D.slowDurMs[0]+D.slowDurMs[1])*0.5) : rnd(D.slowDurMs[0],D.slowDurMs[1]);
@@ -992,7 +1141,10 @@ function hitTarget(rec, direct, ev){
     fxBurst(tx,ty,'power'); fxPop('+120',tx,ty);
     flash('good', 90);
     addScore(120); addFever(10);
-    logEvent('hit_power',{kind:'slow',dist,direct:!!direct});
+    logEvent('hit',{
+      kind:'slow', itemType:'slow', emoji:rec.emoji, targetId,
+      judgment:'POWER', rtMs, dist, direct:!!direct
+    });
     removeTarget(rec); updateGrade(); return;
   }
   if(rec.kind==='nojunk'){
@@ -1001,7 +1153,10 @@ function hitTarget(rec, direct, ev){
     fxBurst(tx,ty,'power'); fxPop('+160',tx,ty);
     flash('good', 90);
     addScore(160); addFever(10);
-    logEvent('hit_power',{kind:'nojunk',dist,direct:!!direct});
+    logEvent('hit',{
+      kind:'nojunk', itemType:'nojunk', emoji:rec.emoji, targetId,
+      judgment:'POWER', rtMs, dist, direct:!!direct
+    });
     removeTarget(rec); updateGrade(); return;
   }
   if(rec.kind==='storm'){
@@ -1010,7 +1165,10 @@ function hitTarget(rec, direct, ev){
     fxBurst(tx,ty,'power'); fxPop('+200',tx,ty);
     flash('gold', 95);
     addScore(200); addFever(12);
-    logEvent('hit_power',{kind:'storm',dist,direct:!!direct});
+    logEvent('hit',{
+      kind:'storm', itemType:'storm', emoji:rec.emoji, targetId,
+      judgment:'POWER', rtMs, dist, direct:!!direct
+    });
     removeTarget(rec); updateGrade(); return;
   }
 
@@ -1021,7 +1179,10 @@ function hitTarget(rec, direct, ev){
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'trap'},'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
     removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
-    logEvent('hit',{kind:'fake',dist,direct:!!direct});
+    logEvent('hit',{
+      kind:'fake', itemType:'fake', emoji:rec.emoji, targetId,
+      judgment:'BAD', rtMs, dist, direct:!!direct
+    });
     return;
   }
   if(rec.kind==='trap'){
@@ -1030,7 +1191,10 @@ function hitTarget(rec, direct, ev){
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
     removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
-    logEvent('hit',{kind:'trap',dist,direct:!!direct});
+    logEvent('hit',{
+      kind:'trap', itemType:'trap', emoji:rec.emoji, targetId,
+      judgment:'BAD', rtMs, dist, direct:!!direct
+    });
     return;
   }
   if(rec.kind==='junk'){
@@ -1039,7 +1203,10 @@ function hitTarget(rec, direct, ev){
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
     removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
-    logEvent('hit',{kind:'junk',dist,direct:!!direct});
+    logEvent('hit',{
+      kind:'junk', itemType:'junk', emoji:rec.emoji, targetId,
+      judgment:'BAD', rtMs, dist, direct:!!direct
+    });
     return;
   }
 
@@ -1052,7 +1219,12 @@ function hitTarget(rec, direct, ev){
     fxBurst(tx,ty,'boss'); fxPop('+120',tx,ty);
     flash('boss', 110);
     addScore(120); addFever(7);
-    logEvent('boss_hit',{hp:rec.hp,hpMax:rec.hpMax,phase:ph,dist,direct:!!direct});
+
+    logEvent('hit',{
+      kind:'boss', itemType:'boss', emoji:rec.emoji, targetId,
+      judgment:'HIT', rtMs, dist, direct:!!direct,
+      hp:rec.hp,hpMax:rec.hpMax,phase:ph
+    });
 
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'HIT');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('HIT');
@@ -1064,7 +1236,7 @@ function hitTarget(rec, direct, ev){
       addScore(1200); addFever(30);
       S.combo += 2; S.maxCombo=Math.max(S.maxCombo,S.combo); setTxt(HUD.combo,S.combo);
       fxPop('+1200',tx,ty);
-      logEvent('boss_down',{});
+      logEvent('boss_down',{ kind:'boss', targetId, emoji:rec.emoji });
       S.bossActive=false;
       removeTarget(rec);
     }
@@ -1115,7 +1287,14 @@ function hitTarget(rec, direct, ev){
 
   removeTarget(rec);
   updateGrade(); setGoal(S.goalIndex);
-  logEvent('hit',{kind:rec.kind,group:rec.group,judge,dist,direct:!!direct,delta});
+
+  logEvent('hit',{
+    kind:rec.kind, itemType:rec.kind, group:rec.group,
+    emoji:rec.emoji, targetId,
+    judgment:judge,
+    rtMs, dist, direct:!!direct,
+    delta
+  });
 }
 
 // ---------- Decide kind/group ----------
@@ -1314,7 +1493,12 @@ function restart(){
   S.score=0; S.combo=0; S.maxCombo=0; S.miss=0; S.perfectCount=0;
   S.fever=0; S.feverOn=false;
   setShield(0); setLives(S.livesMax);
-  S.goalsCleared=0; S.minisCleared=0;
+
+  S.platesDone=0;
+  S.goalsDone=0;
+  S.goalCompleted = {};
+
+  S.minisCleared=0;
   S.plateHave.clear();
   S.groupCounts=[0,0,0,0,0];
 
@@ -1350,8 +1534,10 @@ function endGame(isGameOver){
   setTxt(HUD.rMaxCombo, S.maxCombo);
   setTxt(HUD.rMiss, S.miss);
   setTxt(HUD.rPerfect, S.perfectCount);
-  setTxt(HUD.rGoals, `${Math.min(S.goalsCleared,2)}/2`);
-  setTxt(HUD.rMinis, `${Math.min(S.minisCleared,7)}/7`);
+  setTxt(HUD.rGoals, `${Math.min(S.goalsDone,S.goalsTotal)}/${S.goalsTotal}`);
+  setTxt(HUD.rMinis, `${Math.min(S.minisCleared,S.minisTotal)}/${S.minisTotal}`);
+  setTxt(HUD.rPlates, S.platesDone);
+
   setTxt(HUD.rG1, S.groupCounts[0]);
   setTxt(HUD.rG2, S.groupCounts[1]);
   setTxt(HUD.rG3, S.groupCounts[2]);
@@ -1432,6 +1618,7 @@ function refreshHUDRefs(){
   HUD.btnRestart = HUD.btnRestart || $('btnRestart');
   HUD.resultBackdrop = HUD.resultBackdrop || $('resultBackdrop');
   HUD.btnPlayAgain   = HUD.btnPlayAgain   || $('btnPlayAgain');
+  HUD.rPlates        = HUD.rPlates        || $('rPlates');
 }
 
 // ✅ PATCH: delegate handler ให้ปุ่มทำงานชัวร์ (pointerup + click)
