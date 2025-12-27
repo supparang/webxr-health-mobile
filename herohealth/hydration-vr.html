@@ -124,6 +124,8 @@
       width:34%;
       background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.55));
       border-radius:999px;
+      transition: width .18s ease;
+      will-change: width;
     }
 
     .hha-main-row{
@@ -328,6 +330,125 @@
     #hvr-end .panel .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:8px 10px; font-weight:800; }
     #hvr-end .panel .grid div{ padding:10px 10px; border-radius:16px; border:1px solid rgba(148,163,184,.14); background: rgba(15,23,42,.46); }
     #hvr-end .panel .actions{ margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+    /* ================================
+       ✅ PATCH: remove ring outline square
+       ================================ */
+    #hvr-layer .hvr-ring{
+      outline:none !important;
+      outline-offset:0 !important;
+    }
+
+    /* ✅ PATCH: emoji font fallback */
+    #hvr-layer, #hvr-layer .hvr-target span{
+      font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
+    }
+
+    /* ================================
+       ✅ Hydration FX layer (Splash)
+       ================================ */
+    #hydr-fx{
+      position:fixed;
+      inset:0;
+      z-index:75;
+      pointer-events:none;
+      overflow:hidden;
+    }
+    .hydr-splash{
+      position:absolute;
+      left:0; top:0;
+      width:140px; height:140px;
+      transform: translate(-50%,-50%) scale(.7);
+      border-radius:999px;
+      opacity:0;
+      filter: blur(.2px);
+      will-change: transform, opacity;
+    }
+    .hydr-splash.good{
+      background: radial-gradient(circle at 30% 25%,
+        rgba(255,255,255,.35),
+        rgba(34,211,238,.22) 35%,
+        rgba(59,130,246,.10) 65%,
+        rgba(0,0,0,0) 72%);
+      box-shadow: 0 0 28px rgba(34,211,238,.18);
+    }
+    .hydr-splash.bad{
+      background: radial-gradient(circle at 30% 25%,
+        rgba(255,255,255,.22),
+        rgba(251,113,133,.18) 40%,
+        rgba(244,63,94,.10) 65%,
+        rgba(0,0,0,0) 72%);
+      box-shadow: 0 0 28px rgba(251,113,133,.18);
+    }
+    .hydr-splash.power{
+      background: radial-gradient(circle at 30% 25%,
+        rgba(255,255,255,.42),
+        rgba(250,204,21,.22) 40%,
+        rgba(249,115,22,.10) 65%,
+        rgba(0,0,0,0) 72%);
+      box-shadow: 0 0 34px rgba(250,204,21,.18);
+    }
+    .hydr-splash.show{
+      opacity:1;
+      animation: hydrSplash .42s ease-out both;
+    }
+    @keyframes hydrSplash{
+      0%   { transform: translate(-50%,-50%) scale(.70); opacity:0; }
+      30%  { opacity:.95; }
+      100% { transform: translate(-50%,-50%) scale(1.25); opacity:0; }
+    }
+
+    /* ================================
+       ✅ Hydration signature orb skin
+       ================================ */
+    #hvr-layer .hvr-target.hydr-orb{
+      overflow: visible;
+    }
+    #hvr-layer .hvr-target.hydr-orb .hydr-core{
+      position:absolute;
+      inset:10%;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 30% 25%,
+          rgba(255,255,255,.35),
+          rgba(255,255,255,.10) 35%,
+          rgba(0,0,0,.10) 70%);
+      mix-blend-mode: screen;
+      pointer-events:none;
+    }
+    #hvr-layer .hvr-target.hydr-orb .hydr-bubbles{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      pointer-events:none;
+      opacity:.85;
+      mask-image: radial-gradient(circle, #000 55%, transparent 68%);
+    }
+    #hvr-layer .hvr-target.hydr-orb .hydr-bubbles i{
+      position:absolute;
+      border-radius:999px;
+      background: rgba(255,255,255,.22);
+      animation: hydrBubble 1.35s linear infinite;
+    }
+    @keyframes hydrBubble{
+      from{ transform: translateY(22px) scale(.9); opacity:.15; }
+      to  { transform: translateY(-32px) scale(1.05); opacity:.75; }
+    }
+    #hvr-layer .hvr-target.hydr-orb .hydr-ripple{
+      position:absolute;
+      left:50%; top:50%;
+      width:110%; height:110%;
+      transform: translate(-50%,-50%);
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,.16);
+      animation: hydrRipple .65s ease-in-out infinite;
+      pointer-events:none;
+    }
+    @keyframes hydrRipple{
+      0%{ transform:translate(-50%,-50%) scale(.98); opacity:.22; }
+      50%{ transform:translate(-50%,-50%) scale(1.04); opacity:.40; }
+      100%{ transform:translate(-50%,-50%) scale(.99); opacity:.20; }
+    }
   </style>
 </head>
 
@@ -336,6 +457,9 @@
     <div id="hvr-layer"></div>
     <div id="hvr-crosshair"></div>
   </div>
+
+  <!-- ✅ Hydration FX layer -->
+  <div id="hydr-fx" aria-hidden="true"></div>
 
   <!-- HUD -->
   <div id="hud">
@@ -352,7 +476,7 @@
             <span id="water-pct" style="font-weight:1000;">34%</span>
           </div>
         </div>
-        <div class="sub"><i id="water-bar"></i></div>
+        <div class="sub"><i id="water-bar" style="width:34%"></i></div>
       </div>
     </div>
 
@@ -483,7 +607,7 @@
   <script type="module" src="./vr/ui-water.js"></script>
   <script type="module" src="./vr/mode-factory.js"></script>
 
-  <!-- ✅ MAIN (ต้องเป็น module เท่านั้น) -->
+  <!-- ✅ MAIN -->
   <script type="module" src="./hydration-vr/hydration.safe.js"></script>
 </body>
 </html>
