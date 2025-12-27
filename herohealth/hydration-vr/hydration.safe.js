@@ -6,14 +6,15 @@
 // ✅ Start overlay + Stop + End summary
 // ✅ Miss = goodExpired + junkHit (shield-block junk NOT miss)
 // ✅ Events: hha:score / quest:update / hha:coach / hha:time / hha:end
-// ✅ P0 FIX: DO NOT dispatch hha:time again (listen only)
-// ✅ NEW: Regression-to-mean + Dehydrate drift (Play = พอดี, Research = โหด)
-// ✅ P1 NEW: Research only — If out of GREEN too long => score/fever penalty (discipline control)
+// ✅ PATCH 1+2: Canonical water zone (LOW|GREEN|HIGH) -> Goal GREEN sec counts 100%
+// ✅ PATCH: Prevent hha:time recursion + dedupe tick
+// ✅ PATCH: Fallback UI updates (stats/quest/water/fever/coach) even if hud binder fails
+// ✅ Hydration Identity: "ORB" targets (watery orb look)
 
 'use strict';
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
-import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
+import { ensureWaterGauge, setWaterGauge } from '../vr/ui-water.js';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
@@ -35,6 +36,11 @@ function setText(idOrEl, txt){
   const el = (typeof idOrEl === 'string') ? DOC.getElementById(idOrEl) : idOrEl;
   if (!el) return;
   el.textContent = String(txt ?? '');
+}
+function setStyle(elOrId, key, val){
+  const el = (typeof elOrId === 'string') ? DOC.getElementById(elOrId) : elOrId;
+  if (!el) return;
+  el.style[key] = val;
 }
 
 // ---------- external/global modules (optional) ----------
@@ -65,11 +71,16 @@ const EL = {
   stampBig:    () => DOC.getElementById('stamp-big'),
   stampSmall:  () => DOC.getElementById('stamp-small'),
 
-  // HUD ids (fallback updater)
-  waterPct:    () => DOC.getElementById('water-pct'),
+  // Water HUD ids (this page)
   waterZone:   () => DOC.getElementById('water-zone'),
+  waterPct:    () => DOC.getElementById('water-pct'),
   waterBar:    () => DOC.getElementById('water-bar'),
 
+  // Fever HUD ids (this page)
+  feverPct:    () => DOC.getElementById('fever-pct'),
+  feverBar:    () => DOC.getElementById('fever-bar'),
+
+  // Stats ids (this page)
   statScore:   () => DOC.getElementById('stat-score'),
   statCombo:   () => DOC.getElementById('stat-combo'),
   statComboMax:() => DOC.getElementById('stat-combo-max'),
@@ -77,25 +88,35 @@ const EL = {
   statTime:    () => DOC.getElementById('stat-time'),
   statGrade:   () => DOC.getElementById('stat-grade'),
 
-  coachText:   () => DOC.getElementById('coach-text'),
-  coachSub:    () => DOC.getElementById('coach-sub'),
-
-  questTitle:  () => DOC.getElementById('quest-title'),
+  // Quest ids (this page)
+  qTitle:      () => DOC.getElementById('quest-title'),
   q1:          () => DOC.getElementById('quest-line1'),
   q2:          () => DOC.getElementById('quest-line2'),
   q3:          () => DOC.getElementById('quest-line3'),
   q4:          () => DOC.getElementById('quest-line4'),
+
+  // Coach ids (this page)
+  coachFace:   () => DOC.getElementById('coach-face'),
+  coachText:   () => DOC.getElementById('coach-text'),
+  coachSub:    () => DOC.getElementById('coach-sub'),
 };
 
-// ---------- game pools ----------
+// ---------- pools ----------
 const POOLS_GOOD  = ['💧','🫗','🚰','🧊','🥛'];
 const POOLS_BAD   = ['🥤','🧋','🍹','🧃','🍾'];
 const POOLS_TRICK = ['🧊','🥛'];          // fakeGood
 const POWERUPS    = ['🛡️','⭐'];
 
-// water zone thresholds (fallback)
+// ---------- water zone thresholds ----------
 const Z_GREEN_MIN = 40;
 const Z_GREEN_MAX = 60;
+
+// ✅ canonical zone only (PATCH 1+2)
+function zoneFromPct(pct){
+  pct = clamp(pct, 0, 100);
+  if (pct >= Z_GREEN_MIN && pct <= Z_GREEN_MAX) return 'GREEN';
+  return (pct < Z_GREEN_MIN) ? 'LOW' : 'HIGH';
+}
 
 // ---------- state ----------
 const S = {
@@ -110,7 +131,7 @@ const S = {
   comboMax:0,
 
   // miss definition
-  miss:0,           // = goodExpired + junkHit (NOT include blocked junk)
+  miss:0,          // = goodExpired + junkHit (NOT include blocked junk)
   goodExpired:0,
   junkHit:0,
   junkHitGuard:0,
@@ -125,6 +146,9 @@ const S = {
   waterZone:'GREEN',
   greenSec:0,
 
+  // fever (fallback mirror)
+  feverPct:0,
+
   // shield
   shieldOn:false,
   shieldUntil:0,
@@ -133,83 +157,74 @@ const S = {
   // time
   duration:60,
   secLeft:60,
+  _lastSecSeen:null,
 
   // quest
   goalIndex:0,
   miniIndex:0,
   activeMini:null,
-
-  // tuning
-  tune:null,
-  isResearch:false,
-
-  // P1: discipline control (research)
-  outZoneStreakSec:0,
-  outZonePenaltySec:0,
-  lastDisciplineCoachTs:0,
+  _goalCur:0,
+  _miniCur:0,
 
   // engine
   factory:null,
 
-  // listeners for cleanup
-  _onTime:null,
-  _onStop:null,
+  // mode flags
+  diff:'normal',
+  isResearch:false,
+  hardcorePlay:true, // “โหมด Play แต่โหดแบบวิจัย” -> true by default
 };
 
-// ---------- tuning: Play พอดี / Research โหด ----------
-const WATER_MEAN = 50;
-const MEAN_DEADBAND = 1.2; // กันสั่นรอบ 50
-
-const TUNE_PLAY = {
-  meanPullPerSec: 0.85,
-  dehydratePerSec: -0.38,
-  expirePenalty: -2.4,
-  goodPull: 5.4,
-  goodPullPerfect: 7.2,
-  badAway: 6.2,
-  badExtraDrop: -1.2,
-  fakeAway: 4.6,
-  fakeExtraDrop: -0.8,
-  shieldMs: 3200,
-
-  // discipline disabled
-  disciplineEnabled:false,
-  outZoneGraceSec: 999,
-  outZoneScorePenaltyPerSec: 0,
-  outZoneFeverPenaltyPerSec: 0
-};
-
-const TUNE_RESEARCH = {
-  meanPullPerSec: 0.62,
-  dehydratePerSec: -0.58,
-  expirePenalty: -3.4,
-  goodPull: 4.6,
-  goodPullPerfect: 6.0,
-  badAway: 7.6,
-  badExtraDrop: -1.8,
-  fakeAway: 5.6,
-  fakeExtraDrop: -1.2,
-  shieldMs: 2400,
-
-  // ✅ P1: discipline enabled (โหดแบบวิจัย)
-  disciplineEnabled:true,
-  outZoneGraceSec: 4,                 // หลุด GREEN เกิน 4 วิ -> เริ่มโดนโทษ
-  outZoneScorePenaltyPerSec: 22,      // คะแนนลดต่อวินาทีหลังพ้น grace
-  outZoneFeverPenaltyPerSec: 3        // fever ลดต่อวินาทีหลังพ้น grace
-};
-
-function T(){ return S.tune || TUNE_PLAY; }
-
-function nudgeTowardMean(str){
-  const w = Number(S.water)||0;
-  if (Math.abs(w - WATER_MEAN) <= MEAN_DEADBAND) return;
-  const dir = (w < WATER_MEAN) ? +1 : -1;
-  applyWater(dir * Math.abs(str));
-}
-function nudgeAwayFromMean(str){
-  const w = Number(S.water)||0;
-  const dir = (w < WATER_MEAN) ? -1 : +1;
-  applyWater(dir * Math.abs(str));
+// ---------- ensure hydration-orb style ----------
+function ensureHydrationOrbStyle(){
+  if (!DOC || DOC.getElementById('hha-hydration-orb-style')) return;
+  const st = DOC.createElement('style');
+  st.id = 'hha-hydration-orb-style';
+  st.textContent = `
+    .hvr-target.hha-orb{ border-radius:999px !important; overflow:visible; }
+    .hvr-target.hha-orb .hha-orb-shell{
+      position:absolute; inset:-1px; border-radius:999px;
+      background:
+        radial-gradient(120% 120% at 30% 25%, rgba(255,255,255,.55), rgba(255,255,255,0) 42%),
+        radial-gradient(80% 80% at 65% 70%, rgba(0,255,255,.10), rgba(0,255,255,0) 60%);
+      pointer-events:none;
+      filter: drop-shadow(0 16px 28px rgba(0,0,0,.35));
+      mix-blend-mode: screen;
+      opacity:.92;
+    }
+    .hvr-target.hha-orb .hha-orb-ripple{
+      position:absolute; left:50%; top:50%;
+      width:112%; height:112%;
+      transform: translate(-50%,-50%);
+      border-radius:999px;
+      border:2px solid rgba(255,255,255,.12);
+      box-shadow: 0 0 0 8px rgba(34,197,94,.05);
+      pointer-events:none;
+      opacity:.85;
+      animation: hhaRipple 1.35s ease-in-out infinite;
+    }
+    @keyframes hhaRipple{
+      0%{ transform:translate(-50%,-50%) scale(.92); opacity:.55; }
+      50%{ transform:translate(-50%,-50%) scale(1.05); opacity:.95; }
+      100%{ transform:translate(-50%,-50%) scale(.92); opacity:.65; }
+    }
+    .hvr-target.hha-orb.bad .hha-orb-ripple{
+      box-shadow: 0 0 0 8px rgba(248,113,113,.06);
+      border-color: rgba(248,113,113,.14);
+      animation-duration: 1.05s;
+    }
+    .hvr-target.hha-orb.power .hha-orb-ripple{
+      box-shadow: 0 0 0 10px rgba(250,204,21,.08);
+      border-color: rgba(250,204,21,.18);
+      animation-duration: .95s;
+    }
+    .hvr-target.hha-orb.fake .hha-orb-ripple{
+      box-shadow: 0 0 0 10px rgba(167,139,250,.08);
+      border-color: rgba(167,139,250,.18);
+      animation-duration: 1.15s;
+    }
+  `;
+  DOC.head.appendChild(st);
 }
 
 // ---------- UI helpers ----------
@@ -223,66 +238,89 @@ function showStamp(big='GOAL!', small='+1'){
 }
 
 function coach(text, mood='neutral', ms=1500){
-  // fallback display (เผื่อ hud.js ไม่ทำงาน)
-  const ct = EL.coachText(); if (ct) ct.textContent = String(text||'');
   dispatch('hha:coach', { text, mood, ms });
+  // fallback UI
+  const face = EL.coachFace();
+  const t = EL.coachText();
+  if (t) t.textContent = String(text || '');
+  if (face){
+    face.textContent = (mood === 'happy') ? '🥦' : (mood === 'sad' ? '🥦' : '🥦');
+  }
 }
 
-function waterZoneFallback(pct){
-  if (pct >= Z_GREEN_MIN && pct <= Z_GREEN_MAX) return 'GREEN';
-  return (pct < Z_GREEN_MIN) ? 'LOW' : 'HIGH';
-}
-
+// ---------- fallback UI: water/fever/stats/quest ----------
 function updateWaterGaugeFallbackUI(){
-  const pct = clamp(S.water, 0, 100);
-  const zone = S.waterZone || 'GREEN';
-
-  const z = EL.waterZone(); if (z) z.textContent = zone;
-  const p = EL.waterPct();  if (p) p.textContent  = `${Math.round(pct)}%`;
-  const bar = EL.waterBar();
-  if (bar) bar.style.width = `${pct}%`;
+  const z = EL.waterZone(); if (z) z.textContent = S.waterZone;
+  const p = EL.waterPct();  if (p) p.textContent = `${Math.round(S.water)}%`;
+  const bar = EL.waterBar(); if (bar) bar.style.width = `${clamp(S.water,0,100)}%`;
 }
 
-function applyWater(delta){
-  S.water = clamp(S.water + delta, 0, 100);
-  S.waterZone = (typeof zoneFrom === 'function') ? zoneFrom(S.water) : waterZoneFallback(S.water);
-
-  // update shared gauge module (if present)
-  try{ setWaterGauge(S.water); }catch{}
-
-  // ✅ fallback update for THIS hydration-vr.html HUD ids
-  updateWaterGaugeFallbackUI();
+function updateFeverFallbackUI(pct){
+  const v = clamp(pct, 0, 100);
+  S.feverPct = v;
+  const p = EL.feverPct(); if (p) p.textContent = `${Math.round(v)}%`;
+  const b = EL.feverBar(); if (b) b.style.width = `${v}%`;
 }
 
-function setShield(on, ms=0){
-  S.shieldOn = !!on;
-  if (on) S.shieldUntil = now() + Math.max(250, ms||0);
-  else S.shieldUntil = 0;
+function computeGrade(){
+  // SSS/SS/S/A/B/C
+  const accGood = (S.hitGood + S.goodExpired) > 0 ? (S.hitGood / (S.hitGood + S.goodExpired)) : 0;
+  const denom = Math.max(1, S.hitGood + S.hitBad + S.goodExpired);
+  const missRate = S.miss / denom;
 
-  try{
-    if (FeverUI && typeof FeverUI.setShield === 'function') FeverUI.setShield(S.shieldOn, ms);
-    if (FeverUI && typeof FeverUI.shield === 'function' && S.shieldOn) FeverUI.shield(ms);
-  }catch{}
-}
-function updateShield(){
-  if (!S.shieldOn) return;
-  if (S.shieldUntil && now() > S.shieldUntil) setShield(false, 0);
-}
-function addFever(delta){
-  try{ if (FeverUI && typeof FeverUI.add === 'function') FeverUI.add(delta); }catch{}
+  let score = 0;
+  score += clamp(accGood, 0, 1) * 55;
+  score += clamp(S.comboMax / 10, 0, 1) * 20;
+  score += clamp(S.greenSec / 20, 0, 1) * 15;
+  score += clamp(1 - missRate, 0, 1) * 10;
+
+  if (score >= 92) return 'SSS';
+  if (score >= 84) return 'SS';
+  if (score >= 76) return 'S';
+  if (score >= 66) return 'A';
+  if (score >= 54) return 'B';
+  return 'C';
 }
 
-// ---------- score emit + HUD fallback ----------
+function updateStatsFallbackUI(){
+  const grade = computeGrade();
+  const sc = EL.statScore(); if (sc) sc.textContent = String(S.score|0);
+  const co = EL.statCombo(); if (co) co.textContent = String(S.combo|0);
+  const cm = EL.statComboMax(); if (cm) cm.textContent = String(S.comboMax|0);
+  const mi = EL.statMiss(); if (mi) mi.textContent = String(S.miss|0);
+  const ti = EL.statTime(); if (ti) ti.textContent = String(S.secLeft|0);
+  const gr = EL.statGrade(); if (gr) gr.textContent = grade;
+}
+
+function updateQuestFallbackUI(goalTitle, goalCur, goalTot, miniTitle, miniCur, miniTot){
+  const qt = EL.qTitle();
+  const q1 = EL.q1();
+  const q2 = EL.q2();
+  const q3 = EL.q3();
+  const q4 = EL.q4();
+
+  if (qt) qt.textContent = `Quest ${Math.min(S.goalIndex+1, GOALS.length)}`;
+
+  if (q1) q1.textContent = goalTitle ? `Goal: ${goalTitle}` : `Goal: —`;
+  if (q2){
+    if (goalTot > 0) q2.textContent = `ความคืบหน้า ${goalCur}/${goalTot}`;
+    else q2.textContent = `ความคืบหน้า —`;
+  }
+  if (q3){
+    const gd = Math.min(S.goalIndex, GOALS.length);
+    const md = Math.min(S.miniIndex, MINIS.length);
+    q3.textContent = `Goals done: ${gd} · Minis done: ${md}`;
+  }
+  if (q4){
+    q4.textContent = `Zone: ${S.waterZone} · GREEN sec: ${S.greenSec}/${(GOALS[2]||{}).total || 20}`;
+  }
+}
+
+// ---------- emit score (for global HUD binder + fallback) ----------
 function emitScore(extra={}){
   const accGood = (S.hitGood + S.goodExpired) > 0
     ? Math.round((S.hitGood / (S.hitGood + S.goodExpired)) * 100)
     : 0;
-
-  // fallback HUD stats
-  const ss = EL.statScore(); if (ss) ss.textContent = String(S.score);
-  const sc = EL.statCombo(); if (sc) sc.textContent = String(S.combo);
-  const sm = EL.statComboMax(); if (sm) sm.textContent = String(S.comboMax);
-  const ms = EL.statMiss(); if (ms) ms.textContent = String(S.miss);
 
   dispatch('hha:score', {
     modeKey:'hydration',
@@ -302,59 +340,94 @@ function emitScore(extra={}){
     shieldOn:S.shieldOn,
     ...extra
   });
+
+  // fallback UI
+  updateWaterGaugeFallbackUI();
+  updateStatsFallbackUI();
 }
 
-function computeGrade(){
-  const accGood = (S.hitGood + S.goodExpired) > 0 ? (S.hitGood / (S.hitGood + S.goodExpired)) : 0;
-  const missRate = S.miss / Math.max(1, S.hitGood + S.hitBad + S.goodExpired);
+// ---------- water mechanics (with regression-to-mean) ----------
+function applyWater(delta){
+  S.water = clamp(S.water + delta, 0, 100);
+  S.waterZone = zoneFromPct(S.water);
 
-  let score = 0;
-  score += clamp(accGood, 0, 1) * 55;
-  score += clamp(S.comboMax / 10, 0, 1) * 20;
-  score += clamp(S.greenSec / 20, 0, 1) * 15;
-  score += clamp(1 - missRate, 0, 1) * 10;
+  // shared gauge module
+  try { setWaterGauge(S.water, S.waterZone); } catch { try { setWaterGauge(S.water); } catch {} }
 
-  if (score >= 92) return 'SSS';
-  if (score >= 84) return 'SS';
-  if (score >= 76) return 'S';
-  if (score >= 66) return 'A';
-  if (score >= 54) return 'B';
-  return 'C';
+  updateWaterGaugeFallbackUI();
+}
+
+function waterDriftEachSecond(){
+  // regression-to-mean -> กันน้ำพุ่งไป 100/0 ค้าง
+  // โหมดโหด: ดึงกลับช้าลง (ควบคุมยากขึ้น)
+  const k = S.hardcorePlay ? 0.055 : 0.075; // 0..1
+  const target = 50;
+  const next = S.water + (target - S.water) * k;
+
+  // กัน “เด้ง” มากเกินในวินาทีเดียว
+  const maxStep = S.hardcorePlay ? 3.0 : 4.0;
+  const step = clamp(next - S.water, -maxStep, +maxStep);
+  applyWater(step);
+}
+
+// ---------- fever/shield ----------
+function setShield(on, ms=0){
+  S.shieldOn = !!on;
+  if (on) S.shieldUntil = now() + Math.max(250, ms||0);
+  else S.shieldUntil = 0;
+
+  try{
+    if (FeverUI && typeof FeverUI.setShield === 'function') FeverUI.setShield(S.shieldOn, ms);
+    if (FeverUI && typeof FeverUI.shield === 'function' && S.shieldOn) FeverUI.shield(ms);
+  }catch{}
+}
+function updateShield(){
+  if (!S.shieldOn) return;
+  if (S.shieldUntil && now() > S.shieldUntil) setShield(false, 0);
+}
+function addFever(delta){
+  try{
+    if (FeverUI && typeof FeverUI.add === 'function') FeverUI.add(delta);
+  }catch{}
+  // fallback mirror (ถ้า FeverUI ไม่ส่ง event)
+  updateFeverFallbackUI(clamp(S.feverPct + delta, 0, 100));
 }
 
 // ---------- quest ----------
 const GOALS = [
-  { key:'g1', title:'Goal 1: เก็บน้ำดี 15 ครั้ง 💧', total:15 },
-  { key:'g2', title:'Goal 2: คอมโบสูงสุด 8 🔥', total:8 },
-  { key:'g3', title:'Goal 3: อยู่โซน GREEN รวม 20 วิ 🟢', total:20 },
+  { key:'g1', title:'เก็บน้ำดี 15 ครั้ง 💧', total:15 },
+  { key:'g2', title:'คอมโบสูงสุด 8 🔥', total:8 },
+  { key:'g3', title:'อยู่โซน GREEN รวม 20 วิ 🟢', total:20 },
 ];
 
 const MINIS = [
-  { key:'m1', title:'Mini: Hydro Rush — 5 ภายใน 8 วิ (ห้ามโดนขยะ) ⚡', total:5, timeLimit:8, noJunk:true },
-  { key:'m2', title:'Mini: Perfect 3 — Perfect 3 ครั้ง 🎯', total:3 },
-  { key:'m3', title:'Mini: Shield Save — บล็อกขยะ 2 ครั้ง 🛡️', total:2 },
+  { key:'m1', title:'Hydro Rush — 5 ภายใน 8 วิ (ห้ามโดนขยะ) ⚡', total:5, timeLimit:8, noJunk:true },
+  { key:'m2', title:'Perfect 3 — Perfect 3 ครั้ง 🎯', total:3 },
+  { key:'m3', title:'Shield Save — บล็อกขยะ 2 ครั้ง 🛡️', total:2 },
 ];
 
 function questUpdate(kind, payload){
   dispatch('quest:update', { modeKey:'hydration', kind, ...payload });
 
-  // fallback minimal quest UI
-  const qt = EL.questTitle();
-  const q1 = EL.q1(), q2 = EL.q2(), q3 = EL.q3();
-  if (qt && payload && payload.title) qt.textContent = (kind === 'goal') ? 'GOAL' : 'MINI';
-  if (q1 && payload && payload.title) q1.textContent = payload.title;
-  if (q2 && payload && Number.isFinite(payload.current) && Number.isFinite(payload.total)){
-    q2.textContent = `ความคืบหน้า ${payload.current}/${payload.total}` + (payload.failed ? ` · ${payload.reason||'FAILED'}` : '');
-  }
-  if (q3){
-    q3.textContent = `Goals done: ${S.goalIndex} · Minis done: ${S.miniIndex}`;
-  }
+  // fallback: render on this page
+  const g = GOALS[S.goalIndex] || null;
+  const m = S.activeMini || null;
+  const gTitle = g ? g.title : '';
+  const gCur = clamp(payload && payload.current != null ? payload.current : S._goalCur, 0, 9999);
+  const gTot = g ? g.total : 0;
+
+  const mTitle = m ? m.title : '';
+  const mCur = m ? m.cur : 0;
+  const mTot = m ? m.total : 0;
+
+  updateQuestFallbackUI(gTitle, gCur, gTot, mTitle, mCur, mTot);
 }
 
 function startGoal(){
   const g = GOALS[S.goalIndex]; if (!g) return;
+  S._goalCur = 0;
   questUpdate('goal', { title:g.title, current:0, total:g.total, done:false });
-  coach(g.title, 'happy', 1200);
+  coach(`Goal: ${g.title}`, 'happy', 1100);
 }
 function completeGoal(){
   const g = GOALS[S.goalIndex]; if (!g) return;
@@ -366,17 +439,18 @@ function completeGoal(){
 }
 
 function startMini(){
-  const m = MINIS[S.miniIndex] || null;
+  const def = MINIS[S.miniIndex] || null;
   S.activeMini = null;
-  if (!m) return;
+  if (!def) return;
 
   S.activeMini = {
-    key:m.key, title:m.title, total:m.total, cur:0,
-    tStart: now(), timeLimit: m.timeLimit||0, noJunk: !!m.noJunk, failed:false
+    key:def.key, title:def.title, total:def.total, cur:0,
+    tStart: now(), timeLimit: def.timeLimit||0, noJunk: !!def.noJunk, failed:false
   };
-  questUpdate('mini', { title:m.title, current:0, total:m.total, done:false });
-  coach(m.title, 'neutral', 1300);
+  questUpdate('mini', { title:def.title, current:0, total:def.total, done:false });
+  coach(`Mini: ${def.title}`, 'neutral', 1200);
 }
+
 function completeMini(){
   const m = S.activeMini; if (!m) return;
   questUpdate('mini', { title:m.title, current:m.total, total:m.total, done:true });
@@ -386,15 +460,17 @@ function completeMini(){
   S.miniIndex++;
   setTimeout(startMini, 900);
 }
+
 function failMini(reason='พลาด!'){
   const m = S.activeMini; if (!m || m.failed) return;
   m.failed = true;
   questUpdate('mini', { title:m.title, current:m.cur, total:m.total, done:false, failed:true, reason });
-  coach('ไม่เป็นไร ลองใหม่รอบหน้า ✨', 'neutral', 1200);
+  coach('ไม่เป็นไร ลองใหม่รอบหน้า ✨', 'neutral', 1100);
   S.activeMini = null;
   S.miniIndex++;
   setTimeout(startMini, 900);
 }
+
 function tickMini(){
   const m = S.activeMini;
   if (!m || m.failed) return;
@@ -404,7 +480,7 @@ function tickMini(){
   }
 }
 
-// ---------- FX ----------
+// ---------- scoring / FX ----------
 function fxAtRect(r, type, txt=null){
   try{
     const x = r.left + r.width/2;
@@ -414,23 +490,27 @@ function fxAtRect(r, type, txt=null){
   }catch{}
 }
 
-// ---------- scoring ----------
 function scoreHitGood(ctx){
   const perfect = !!ctx.hitPerfect;
+
   const base = perfect ? 140 : 110;
   const comboBonus = Math.min(120, S.combo * 6);
   const delta = base + comboBonus;
 
   S.hitGood++;
   if (perfect) S.hitPerfect++;
+
   S.combo++;
   S.comboMax = Math.max(S.comboMax, S.combo);
 
-  // ✅ Hydration: good pulls toward mean (RTM)
-  const pull = perfect ? T().goodPullPerfect : T().goodPull;
-  nudgeTowardMean(pull);
+  // ✅ “โหดแบบวิจัย”: ดันน้ำเข้ากลางน้อยลงตอนอยู่ฝั่งสูง
+  // กันพุ่งไป 100 เร็วเกิน
+  const pullLow  = S.hardcorePlay ? 4.0 : 6.0;
+  const pullHigh = S.hardcorePlay ? 1.4 : 3.0;
+  applyWater((S.water < 50) ? pullLow : pullHigh);
 
   addFever(+6 + (perfect ? 3 : 0));
+
   S.score += delta;
 
   if (ctx.targetRect){
@@ -448,14 +528,13 @@ function scoreHitBad(ctx){
     S.shieldBlocks++;
     if (ctx.targetRect) fxAtRect(ctx.targetRect, 'shield', 'BLOCK!');
 
-    // mini m3 progress
+    // mini m3
     if (S.activeMini && S.activeMini.key === 'm3'){
       S.activeMini.cur = Math.min(S.activeMini.total, S.shieldBlocks);
       questUpdate('mini', { title:S.activeMini.title, current:S.activeMini.cur, total:S.activeMini.total, done:false });
       if (S.activeMini.cur >= S.activeMini.total) completeMini();
     }
 
-    // small reward
     S.score += 20;
     return { scoreDelta: 20, good:true, blocked:true };
   }
@@ -466,30 +545,28 @@ function scoreHitBad(ctx){
 
   S.hitBad++;
   S.junkHit++;
-  S.miss++;       // ✅ junkHit counts miss
+  S.miss++;      // ✅ junkHit counts miss
   S.combo = 0;
 
-  // ✅ Hydration: junk pushes away from mean + makes you thirstier
-  nudgeAwayFromMean(T().badAway);
-  applyWater(T().badExtraDrop);
+  // โหดแบบวิจัย: เขย่าน้ำแรงขึ้น
+  const swing = S.hardcorePlay ? 10 : 8;
+  applyWater((S.water < 50) ? -swing : +swing);
 
   addFever(-10);
-
   S.score = Math.max(0, S.score + delta);
+
   if (ctx.targetRect){
     try{ Particles.scorePop && Particles.scorePop(delta, ctx.targetRect.left+ctx.targetRect.width/2, ctx.targetRect.top+ctx.targetRect.height/2); }catch{}
     fxAtRect(ctx.targetRect, 'bad');
   }
 
-  // mini m1 rule
   if (S.activeMini && S.activeMini.noJunk) failMini('โดนขยะ ❌');
 
   return { scoreDelta: delta, good:false };
 }
 
 function scoreHitPower(ctx){
-  // power always gives shield
-  setShield(true, T().shieldMs);
+  setShield(true, 3200);
   addFever(+8);
 
   const delta = 80;
@@ -501,6 +578,7 @@ function scoreHitPower(ctx){
     try{ Particles.scorePop && Particles.scorePop(delta, ctx.targetRect.left+ctx.targetRect.width/2, ctx.targetRect.top+ctx.targetRect.height/2); }catch{}
     fxAtRect(ctx.targetRect, 'power');
   }
+
   coach('ได้โล่แล้ว! 🛡️', 'happy', 900);
   return { scoreDelta: delta, good:true };
 }
@@ -512,20 +590,21 @@ function scoreHitFakeGood(ctx){
   S.hitGood++;
   if (perfect) S.hitPerfect++;
 
-  // trick: reduce combo slightly
+  // trick: ลด combo
   S.combo = Math.max(0, S.combo - 2);
 
-  // ✅ Hydration: fakeGood misleads balance (away from mean) + thirst a bit
-  nudgeAwayFromMean(T().fakeAway);
-  applyWater(T().fakeExtraDrop);
+  // หลอก: เขย่าน้ำไปอีกฝั่ง
+  const swing = S.hardcorePlay ? 11 : 10;
+  applyWater((S.water < 50) ? +swing : -swing);
 
   addFever(+3);
-
   S.score += delta;
+
   if (ctx.targetRect){
     try{ Particles.scorePop && Particles.scorePop(delta, ctx.targetRect.left+ctx.targetRect.width/2, ctx.targetRect.top+ctx.targetRect.height/2); }catch{}
     fxAtRect(ctx.targetRect, 'trick');
   }
+
   coach('ระวัง! ของหลอก 😵‍💫', 'sad', 750);
   return { scoreDelta: delta, good:true, trick:true };
 }
@@ -543,10 +622,12 @@ function judge(ch, ctx){
   if (g){
     if (g.key === 'g1'){
       const cur = Math.min(S.hitGood, g.total);
+      S._goalCur = cur;
       questUpdate('goal', { title:g.title, current:cur, total:g.total, done:false });
       if (cur >= g.total) completeGoal();
     } else if (g.key === 'g2'){
       const cur = Math.min(S.comboMax, g.total);
+      S._goalCur = cur;
       questUpdate('goal', { title:g.title, current:cur, total:g.total, done:false });
       if (cur >= g.total) completeGoal();
     }
@@ -579,84 +660,41 @@ function onExpire(info){
   const itemType = String(info && info.itemType || '');
   if (itemType === 'good' || itemType === 'fakeGood'){
     S.goodExpired++;
-    S.miss++;           // ✅ expireGood counts miss
+    S.miss++;          // ✅ expire good counts miss
     S.combo = 0;
+
     addFever(-6);
 
-    // ✅ key fix: expire = dehydrate penalty (prevents "water jumps to 100")
-    applyWater(T().expirePenalty);
+    // expire: ดึงน้ำออกจากกลางเล็กน้อย
+    const nudge = S.hardcorePlay ? 3 : 2;
+    applyWater((S.water < 50) ? -nudge : +nudge);
 
     emitScore({ reason:'expireGood' });
   }
 }
 
-// ---------- P1 discipline (research only) ----------
-function applyResearchDiscipline(){
-  const tt = T();
-  if (!S.isResearch || !tt.disciplineEnabled) return;
-
-  if (S.waterZone === 'GREEN'){
-    S.outZoneStreakSec = 0;
-    S.outZonePenaltySec = 0;
-    return;
-  }
-
-  S.outZoneStreakSec++;
-
-  // grace time (no penalty yet)
-  if (S.outZoneStreakSec <= tt.outZoneGraceSec) {
-    // เตือนเบา ๆ เป็นระยะ (ไม่รบกวน)
-    if ((S.outZoneStreakSec === 2 || S.outZoneStreakSec === tt.outZoneGraceSec) && now() - S.lastDisciplineCoachTs > 900) {
-      S.lastDisciplineCoachTs = now();
-      coach('คุมให้อยู่ GREEN นะ 🟢', 'neutral', 650);
-    }
-    return;
-  }
-
-  // after grace => penalty per sec
-  S.outZonePenaltySec++;
-  const penScore = Math.max(0, Number(tt.outZoneScorePenaltyPerSec||0));
-  const penFever = Math.max(0, Number(tt.outZoneFeverPenaltyPerSec||0));
-
-  if (penScore > 0) {
-    S.score = Math.max(0, S.score - penScore);
-    try{ Particles.judgeText && Particles.judgeText(`-${penScore}`, (ROOT.innerWidth||360)*0.5, (ROOT.innerHeight||640)*0.58); }catch{}
-  }
-  if (penFever > 0) addFever(-penFever);
-
-  // โค้ชเตือนแบบมีจังหวะ ไม่สแปม
-  if (now() - S.lastDisciplineCoachTs > 1400) {
-    S.lastDisciplineCoachTs = now();
-    coach(`หลุด ${S.waterZone} นานไปแล้ว! กลับ GREEN 🟢`, 'sad', 850);
-  }
-
-  emitScore({ reason:'outZonePenalty', outZoneStreakSec:S.outZoneStreakSec, outZonePenaltySec:S.outZonePenaltySec });
-}
-
-// ---------- time tick (RTM + drift) ----------
+// ---------- time tick (called from hha:time sec change) ----------
 function onSecondTick(){
-  // ✅ regression-to-mean + dehydrate drift
-  nudgeTowardMean(T().meanPullPerSec);
-  applyWater(T().dehydratePerSec);
+  // ✅ regression-to-mean (กันพุ่ง 100/0)
+  waterDriftEachSecond();
 
-  // green sec
+  // ✅ GREEN sec counts using canonical zone
   if (S.waterZone === 'GREEN') S.greenSec++;
-
-  // P1 discipline (research only)
-  applyResearchDiscipline();
 
   tickMini();
 
-  // goal g3 (green sec)
+  // goal g3
   const g = GOALS[S.goalIndex];
   if (g && g.key === 'g3'){
     const cur = Math.min(S.greenSec, g.total);
+    S._goalCur = cur;
     questUpdate('goal', { title:g.title, current:cur, total:g.total, done:false });
     if (cur >= g.total) completeGoal();
   }
 
-  // grade fallback update
-  const gr = EL.statGrade(); if (gr) gr.textContent = computeGrade();
+  // refresh fallback stats/time
+  updateStatsFallbackUI();
+  updateWaterGaugeFallbackUI();
 }
 
 // ---------- end overlay ----------
@@ -669,8 +707,8 @@ function showEndOverlay(summary){
   setText('end-grade', grade);
   setText('end-combo', summary.comboMax ?? S.comboMax);
   setText('end-miss', summary.misses ?? S.miss);
-  setText('end-goals', `${S.goalIndex}/${GOALS.length}`);
-  setText('end-minis', `${S.miniIndex}/${MINIS.length}`);
+  setText('end-goals', `${Math.min(S.goalIndex, GOALS.length)}/${GOALS.length}`);
+  setText('end-minis', `${Math.min(S.miniIndex, MINIS.length)}/${MINIS.length}`);
 
   end.style.display = 'flex';
 }
@@ -683,6 +721,8 @@ function endGame(reason='timeup'){
   const summary = {
     modeKey: 'hydration',
     reason,
+    difficulty: S.diff,
+    runMode: S.isResearch ? 'research' : 'play',
     durationPlannedSec: S.duration,
     durationPlayedSec: played,
     scoreFinal: S.score,
@@ -695,20 +735,19 @@ function endGame(reason='timeup'){
     nHitBad: S.hitBad,
     hitPerfect: S.hitPerfect,
     waterEnd: S.water,
-    greenSec: S.greenSec,
-    // P1
-    outZoneStreakSec: S.outZoneStreakSec,
-    outZonePenaltySec: S.outZonePenaltySec,
-    runMode: S.isResearch ? 'research' : 'play'
+    waterZoneEnd: S.waterZone,
+    greenSec: S.greenSec
   };
 
   dispatch('hha:end', summary);
   showEndOverlay(summary);
 
-  try{ if (S._onTime) ROOT.removeEventListener('hha:time', S._onTime); }catch{}
-  try{ if (S._onStop) ROOT.removeEventListener('hha:stop', S._onStop); }catch{}
-  S._onTime = null;
-  S._onStop = null;
+  // cleanup time listener
+  try{
+    if (S._onTime) ROOT.removeEventListener('hha:time', S._onTime);
+    if (S._onStop) ROOT.removeEventListener('hha:stop', S._onStop);
+    if (S._onFever) ROOT.removeEventListener('hha:fever', S._onFever);
+  }catch{}
 }
 
 // ---------- center tap -> shoot crosshair ----------
@@ -753,12 +792,12 @@ function setupMotionButton(){
 
   btn.addEventListener('click', async () => {
     const ok = await requestMotionPermission();
-    coach(ok ? 'Motion พร้อมแล้ว ✅' : 'Motion ไม่อนุญาต (เล่นแบบลากจอได้) 🙂', ok ? 'happy' : 'neutral', 1300);
+    coach(ok ? 'Motion พร้อมแล้ว ✅' : 'Motion ไม่อนุญาต (เล่นแบบลากจอได้) 🙂', ok ? 'happy' : 'neutral', 1200);
     btn.style.display = 'none';
   });
 }
 
-// ---------- VR button (best-effort bridge) ----------
+// ---------- VR button ----------
 function setupVRButton(){
   const btn = EL.btnVR();
   if (!btn) return;
@@ -775,7 +814,7 @@ function setupVRButton(){
   });
 }
 
-// ---------- stop button ----------
+// ---------- stop ----------
 function setupStopButton(){
   const btn = EL.btnStop();
   if (!btn) return;
@@ -812,38 +851,90 @@ function setupStartOverlay(){
   });
 }
 
+// ---------- decorate target: Hydration ORB identity ----------
+function decorateHydrationOrb(el, parts, data, meta){
+  try{
+    ensureHydrationOrbStyle();
+
+    el.classList.add('hha-orb');
+
+    if (data.itemType === 'bad') el.classList.add('bad');
+    if (data.itemType === 'power') el.classList.add('power');
+    if (data.itemType === 'fakeGood') el.classList.add('fake');
+
+    // make the orb more watery (override gradients)
+    if (data.itemType === 'good'){
+      el.style.background = 'radial-gradient(circle at 30% 25%, rgba(56,189,248,.95), rgba(14,116,144,.92))';
+      el.style.boxShadow = '0 16px 34px rgba(15,23,42,0.90), 0 0 0 2px rgba(56,189,248,.28), 0 0 22px rgba(56,189,248,.30)';
+    } else if (data.itemType === 'bad'){
+      el.style.background = 'radial-gradient(circle at 30% 25%, rgba(251,113,133,.95), rgba(190,18,60,.92))';
+      el.style.boxShadow = '0 16px 34px rgba(15,23,42,0.90), 0 0 0 2px rgba(251,113,133,.28), 0 0 22px rgba(251,113,133,.30)';
+    } else if (data.itemType === 'power'){
+      el.style.background = 'radial-gradient(circle at 30% 25%, rgba(250,204,21,.98), rgba(245,158,11,.92))';
+      el.style.boxShadow = '0 16px 34px rgba(15,23,42,0.90), 0 0 0 2px rgba(250,204,21,.26), 0 0 24px rgba(250,204,21,.35)';
+    } else if (data.itemType === 'fakeGood'){
+      el.style.background = 'radial-gradient(circle at 30% 25%, rgba(167,139,250,.95), rgba(91,33,182,.92))';
+      el.style.boxShadow = '0 16px 34px rgba(15,23,42,0.90), 0 0 0 2px rgba(167,139,250,.26), 0 0 24px rgba(167,139,250,.32)';
+    }
+
+    // add orb overlays
+    const shell = DOC.createElement('div');
+    shell.className = 'hha-orb-shell';
+
+    const ripple = DOC.createElement('div');
+    ripple.className = 'hha-orb-ripple';
+
+    el.appendChild(shell);
+    el.appendChild(ripple);
+
+    // icon sizing
+    if (parts && parts.icon){
+      parts.icon.style.fontSize = (meta.size * 0.64) + 'px';
+      parts.icon.style.filter = 'drop-shadow(0 4px 6px rgba(0,0,0,.45))';
+    }
+  }catch{}
+}
+
 // ---------- core boot ----------
 async function startGame(){
   if (S.started) return;
   S.started = true;
 
-  // init gauge module + our HUD fallback
+  const layer = EL.layer();
+  if (layer) layer.style.pointerEvents = 'auto';
+
+  // init shared gauge + our canonical state
   try{ ensureWaterGauge(); }catch{}
-  applyWater(0);
+  S.water = clamp(Number(qnum('waterStart', 50)), 0, 100);
+  S.waterZone = zoneFromPct(S.water);
+  updateWaterGaugeFallbackUI();
+  try{ setWaterGauge(S.water, S.waterZone); }catch{ try{ setWaterGauge(S.water); }catch{} }
 
   // context
   const diff = String(qget('diff','normal')).toLowerCase();
   const run  = String(qget('run','play')).toLowerCase(); // play | research
   const isResearch = (run === 'research' || run === 'study');
+
+  // “โหมด Play แต่โหดแบบวิจัย”
+  const hardcorePlay = qbool('hardcore', true);
+
   const time = clamp(qnum('time', 60), 20, 180);
   const seed = String(qget('seed', qget('sessionId', qget('ts',''))) || '').trim();
 
+  S.diff = diff;
   S.isResearch = isResearch;
-  S.tune = isResearch ? TUNE_RESEARCH : TUNE_PLAY;
+  S.hardcorePlay = (!isResearch) ? hardcorePlay : true;
 
   S.duration = time;
   S.secLeft  = time;
+
   S.t0 = now();
 
-  // reset discipline counters
-  S.outZoneStreakSec = 0;
-  S.outZonePenaltySec = 0;
-  S.lastDisciplineCoachTs = 0;
-
-  coach(isResearch ? 'โหมดวิจัย: โหดขึ้น + คุม GREEN จริง 🧪' : 'โหมดเล่น: พอดี + มี adaptive 😎', 'neutral', 1500);
+  coach(isResearch ? 'โหมดวิจัย: ไม่มี adaptive 🧪' : (S.hardcorePlay ? 'โหมดเล่น: โหดแบบวิจัย 😈' : 'โหมดเล่น: มี adaptive 😎'), 'neutral', 1300);
 
   // quest start
   S.goalIndex = 0; S.miniIndex = 0; S.activeMini = null;
+  S.greenSec = 0;
   startGoal();
   setTimeout(startMini, 1200);
 
@@ -855,29 +946,26 @@ async function startGame(){
 
     pools: { good: POOLS_GOOD, bad: POOLS_BAD, trick: POOLS_TRICK },
 
-    // ratios
-    goodRate: isResearch ? 0.70 : 0.66,
-    trickRate: isResearch ? 0.06 : 0.08,
+    // ratios (โหมดโหด: bad/trick มากขึ้นนิด)
+    goodRate: isResearch ? 0.70 : (S.hardcorePlay ? 0.62 : 0.66),
+    trickRate: isResearch ? 0.06 : (S.hardcorePlay ? 0.10 : 0.08),
 
-    // powerups
     powerups: POWERUPS,
-    powerRate: isResearch ? 0.09 : 0.12,
-    powerEvery: isResearch ? 7 : 6,
+    powerRate: isResearch ? 0.10 : 0.12,
+    powerEvery: 6,
 
-    allowAdaptive: !isResearch,
-
-    // spread
+    allowAdaptive: (!isResearch) && (!S.hardcorePlay), // โหดแบบวิจัย -> ปิด adaptive
     spawnAroundCrosshair: false,
     spawnStrategy: 'grid9',
     minSeparation: 0.92,
     maxSpawnTries: 18,
 
-    // seed for reproducibility
     seed: seed || null,
 
-    // lock hosts
-    spawnHost: EL.layer() || '#hvr-layer',
+    spawnHost: layer || '#hvr-layer',
     boundsHost: EL.playfield() || '#playfield',
+
+    decorateTarget: decorateHydrationOrb,
 
     judge,
     onExpire
@@ -885,31 +973,45 @@ async function startGame(){
 
   S.factory = factory;
 
-  // ✅ P0 FIX: listen time only (DON'T dispatch hha:time again)
-  S._onTime = (ev) => {
+  // ✅ IMPORTANT: listen to hha:time from factory WITHOUT re-dispatch (no recursion)
+  S._lastSecSeen = null;
+  const onTime = (ev) => {
     const sec = Number(ev && ev.detail && ev.detail.sec);
     if (!Number.isFinite(sec)) return;
+
+    // dedupe per second
+    if (S._lastSecSeen === sec) return;
+    S._lastSecSeen = sec;
+
     S.secLeft = sec;
 
-    // fallback HUD time
-    const tEl = EL.statTime(); if (tEl) tEl.textContent = String(sec);
+    // fallback UI update
+    updateStatsFallbackUI();
 
     if (sec > 0) onSecondTick();
     else endGame('timeup');
   };
-  ROOT.addEventListener('hha:time', S._onTime);
+  S._onTime = onTime;
+  ROOT.addEventListener('hha:time', onTime);
 
-  // stop event
-  S._onStop = () => stop('stop');
-  ROOT.addEventListener('hha:stop', S._onStop);
+  const onStop = () => stop('stop');
+  S._onStop = onStop;
+  ROOT.addEventListener('hha:stop', onStop);
 
-  // bind controls
+  // optional fever mirror if FeverUI dispatches event
+  const onFever = (ev) => {
+    const pct = Number(ev && ev.detail && (ev.detail.pct ?? ev.detail.percent));
+    if (Number.isFinite(pct)) updateFeverFallbackUI(pct);
+    const sh = !!(ev && ev.detail && ev.detail.shieldOn);
+    if (ev && ev.detail && ('shieldOn' in ev.detail)) S.shieldOn = sh;
+  };
+  S._onFever = onFever;
+  ROOT.addEventListener('hha:fever', onFever);
+
   bindCenterTapShoot();
 
-  // initial emit
-  emitScore({ started:true, research:isResearch, seed: seed || '' });
+  emitScore({ started:true, research:isResearch, hardcore:S.hardcorePlay, seed: seed || '' });
 
-  // debug handle
   ROOT.HHA_HYDRATION = {
     stop(){ try{ ROOT.dispatchEvent(new CustomEvent('hha:stop')); }catch{} },
     shoot(){ try{ return factory && factory.shootCrosshair && factory.shootCrosshair(); }catch{ return false; } },
@@ -921,15 +1023,22 @@ async function startGame(){
 function init(){
   if (!DOC) return;
 
+  ensureHydrationOrbStyle();
+
   setupMotionButton();
   setupVRButton();
   setupStopButton();
   setupEndButtons();
   setupStartOverlay();
 
+  // initial UI sync
+  S.waterZone = zoneFromPct(S.water);
+  updateWaterGaugeFallbackUI();
+  updateStatsFallbackUI();
+  updateQuestFallbackUI((GOALS[0]||{}).title || '', 0, (GOALS[0]||{}).total || 0, '', 0, 0);
+
   coach('พร้อมแล้ว เก็บน้ำดี ๆ นะ! 💧', 'happy', 1400);
 
-  // allow autostart via ?autostart=1
   if (qbool('autostart', false)){
     const ov = EL.startOverlay();
     if (ov) ov.style.display = 'none';
