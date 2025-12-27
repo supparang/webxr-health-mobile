@@ -1,298 +1,299 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Balanced Plate VR</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
-  <!-- A-Frame -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Global FX + input compat + logger (defer สำคัญ) -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-compat-input.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-
-  <style>
-    :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.62);
-      --panel2:rgba(2,6,23,.52);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-    }
-    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); overflow:hidden;}
-    a-scene{position:fixed; inset:0;}
-
-    /* ===== Start Overlay ===== */
-    #startOverlay{
-      position:fixed; inset:0; z-index:1400;
-      display:flex; align-items:center; justify-content:center;
-      background:rgba(2,6,23,.72);
-      backdrop-filter: blur(10px);
-      pointer-events:auto;
-    }
-    #startCard{
-      width:min(720px,92vw);
-      background:rgba(2,6,23,.82);
-      border:1px solid rgba(148,163,184,.22);
-      border-radius:22px;
-      padding:16px;
-      box-shadow:0 26px 80px rgba(0,0,0,.55);
-    }
-    #startTitle{font-weight:1100; font-size:20px;}
-    #startDesc{color:rgba(148,163,184,.95); font-weight:900; margin-top:8px; line-height:1.35;}
-    #startBtns{display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;}
-
-    /* ===== Minimal HUD (พื้นที่เล่นใหญ่ขึ้น) ===== */
-    #hudTop{
-      position:fixed; left:10px; right:10px; top:10px;
-      z-index:900; pointer-events:none;
-      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
-    }
-    .hudCard{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:16px;
-      padding:10px 12px;
-      backdrop-filter: blur(8px);
-      box-shadow:0 18px 44px rgba(0,0,0,.30);
-      display:flex; gap:8px; align-items:center;
-      pointer-events:none;
-      min-width: 0;
-    }
-    .pill{
-      display:inline-flex; gap:8px; align-items:baseline;
-      padding:7px 10px; border-radius:999px;
-      background:rgba(15,23,42,.48);
-      border:1px solid rgba(148,163,184,.16);
-      font-weight:900;
-      white-space:nowrap;
-    }
-    .k{color:var(--muted); font-weight:900; font-size:11px;}
-    .v{font-size:15px; font-weight:1000;}
-    #hudLeftGroup{display:flex; gap:8px; flex-wrap:wrap;}
-    #hudRightGroup{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
-
-    /* ===== Crosshair (ช่วยความรู้สึก VR) ===== */
-    #crosshair{
-      position:fixed;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      z-index:420;
-      width:14px; height:14px;
-      border-radius:999px;
-      pointer-events:none;
-      box-shadow:
-        0 0 0 2px rgba(229,231,235,.28),
-        0 0 22px rgba(34,197,94,.10);
-      background:rgba(229,231,235,.07);
-      backdrop-filter: blur(6px);
-    }
-    #crosshair::after{
-      content:'';
-      position:absolute; inset:4px;
-      border-radius:999px;
-      background:rgba(229,231,235,.45);
-    }
-
-    /* ===== Hit flash overlay ===== */
-    #hitFx{
-      position:fixed; inset:0;
-      z-index:850;
-      pointer-events:none;
-      opacity:0;
-      background:
-        radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(2,6,23,.35) 70%, rgba(2,6,23,.65) 100%);
-      transition: opacity .08s linear;
-    }
-    #hitFx.show{ opacity:1; }
-    #hitFx[data-kind="bad"]{
-      background:
-        radial-gradient(circle at 50% 50%, rgba(251,113,133,0) 35%, rgba(251,113,133,.18) 70%, rgba(2,6,23,.70) 100%);
-    }
-    #hitFx[data-kind="boss"]{
-      background:
-        radial-gradient(circle at 50% 50%, rgba(248,113,113,0) 35%, rgba(248,113,113,.22) 70%, rgba(2,6,23,.74) 100%);
-    }
-    #hitFx[data-kind="good"]{
-      background:
-        radial-gradient(circle at 50% 50%, rgba(34,197,94,0) 35%, rgba(34,197,94,.14) 70%, rgba(2,6,23,.70) 100%);
-    }
-    #hitFx[data-kind="gold"]{
-      background:
-        radial-gradient(circle at 50% 50%, rgba(250,204,21,0) 35%, rgba(250,204,21,.16) 70%, rgba(2,6,23,.70) 100%);
-    }
-
-    /* ===== Buttons ===== */
-    #hudBtns{
-      position:fixed; right:10px; bottom:10px;
-      z-index:910; display:flex; gap:10px;
-    }
-    .btn{
-      pointer-events:auto;
-      background:rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.20);
-      color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:1000;
-      box-shadow:0 16px 36px rgba(0,0,0,.30);
-      backdrop-filter: blur(8px);
-      user-select:none;
-    }
-    .btn:active{transform:translateY(1px);}
-
-    /* ===== Mini/Goal panel ===== */
-    #miniPanel{
-      position:fixed; left:10px; right:10px; bottom:64px;
-      z-index:905;
-      pointer-events:none;
-      background:rgba(2,6,23,.58);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:16px;
-      padding:10px 12px;
-      backdrop-filter: blur(8px);
-      box-shadow:0 18px 44px rgba(0,0,0,.30);
-    }
-    #miniLine{font-weight:1000;}
-    #goalLine{margin-top:6px; color:rgba(229,231,235,.88); font-weight:900;}
-    #miniHint{margin-top:6px; color:rgba(148,163,184,.92); font-weight:900; font-size:13px; line-height:1.25;}
-
-    #hudPaused{
-      position:fixed; left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      z-index:980;
-      display:none;
-      padding:10px 14px;
-      border-radius:999px;
-      background:rgba(2,6,23,.75);
-      border:1px solid rgba(148,163,184,.25);
-      font-weight:1000;
-      pointer-events:none;
-    }
-
-    /* Result overlay */
-    #resultBackdrop{
-      position:fixed; inset:0; z-index:1200;
-      display:none; align-items:center; justify-content:center;
-      background:rgba(2,6,23,.72);
-      backdrop-filter: blur(10px);
-      pointer-events:auto;
-    }
-    #resultCard{
-      width:min(680px,92vw);
-      background:rgba(2,6,23,.78);
-      border:1px solid rgba(148,163,184,.22);
-      border-radius:22px;
-      padding:16px;
-      box-shadow:0 26px 80px rgba(0,0,0,.55);
-    }
-    .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px;}
-    .cell{background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px;}
-    .cell .k{display:block; margin-bottom:4px;}
-  </style>
-</head>
-
-<body>
-  <a-scene embedded vr-mode-ui="enabled: false">
-    <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
-  </a-scene>
-
-  <!-- overlays -->
-  <div id="hitFx"></div>
-  <div id="crosshair" aria-hidden="true"></div>
-
-  <!-- START overlay -->
-  <div id="startOverlay">
-    <div id="startCard">
-      <div id="startTitle">พร้อมเล่น Plate VR?</div>
-      <div id="startDesc">
-        แตะ “เริ่มเล่น” เพื่อเปิดเสียง/ขออนุญาต Motion (ถ้ามี) แล้วเริ่มเกมทันที<br>
-        * ถ้าไม่อนุญาต Motion ยังเล่นได้ (แตะยิง + ลากมุมมอง)
-      </div>
-      <div id="startBtns">
-        <button class="btn" id="btnStart">▶️ เริ่มเล่น</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- HUD -->
-  <div id="hudTop">
-    <div class="hudCard" style="flex:1">
-      <div id="hudLeftGroup">
-        <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
-        <span class="pill">🏆 <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
-        <span class="pill">⚡ <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
-        <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
-        <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
-      </div>
-    </div>
-
-    <div class="hudCard" style="flex:0 0 auto">
-      <div id="hudRightGroup">
-        <span class="pill">🔥 <span class="k">FEVER</span> <span id="hudFeverPct" class="v">0%</span></span>
-        <span class="pill">🎖️ <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
-
-        <!-- element ซ่อนไว้แต่ยังให้ JS อัปเดตได้ -->
-        <span class="pill" style="display:none">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
-        <span class="pill" style="display:none">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
-        <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Easy</span></span>
-      </div>
-    </div>
-  </div>
-
-  <div id="miniPanel">
-    <div id="miniLine">MINI: …</div>
-    <div id="goalLine">Goal: …</div>
-    <div id="miniHint">…</div>
-  </div>
-
-  <div id="hudBtns">
-    <button class="btn" id="btnEnterVR">🕶️ ENTER VR</button>
-    <button class="btn" id="btnPause">⏸️ PAUSE</button>
-    <button class="btn" id="btnRestart">🔁 RESTART</button>
-  </div>
-
-  <div id="hudPaused">⏸️ PAUSED</div>
-
-  <!-- Result -->
-  <div id="resultBackdrop">
-    <div id="resultCard">
-      <div style="font-weight:1100; font-size:20px">สรุปผลเกม (Plate VR)</div>
-      <div style="color:rgba(148,163,184,.95); font-weight:900; margin-top:6px">
-        Mode: <span id="rMode">—</span> • Grade: <span id="rGrade">—</span>
-      </div>
-
-      <div class="grid">
-        <div class="cell"><span class="k">Score</span><span id="rScore" class="v">0</span></div>
-        <div class="cell"><span class="k">Max Combo</span><span id="rMaxCombo" class="v">0</span></div>
-        <div class="cell"><span class="k">Miss</span><span id="rMiss" class="v">0</span></div>
-        <div class="cell"><span class="k">Perfect</span><span id="rPerfect" class="v">0</span></div>
-        <div class="cell"><span class="k">Goals</span><span id="rGoals" class="v">0/2</span></div>
-        <div class="cell"><span class="k">Minis</span><span id="rMinis" class="v">0/7</span></div>
-      </div>
-
-      <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
-        <div class="cell"><span class="k">G1</span><span id="rG1" class="v">0</span></div>
-        <div class="cell"><span class="k">G2</span><span id="rG2" class="v">0</span></div>
-        <div class="cell"><span class="k">G3</span><span id="rG3" class="v">0</span></div>
-        <div class="cell"><span class="k">G4</span><span id="rG4" class="v">0</span></div>
-        <div class="cell"><span class="k">G5</span><span id="rG5" class="v">0</span></div>
-        <div class="cell"><span class="k">Total</span><span id="rGTotal" class="v">0</span></div>
-      </div>
-
-      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px">
-        <button class="btn" id="btnPlayAgain">▶️ เล่นอีกครั้ง</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ✅ IMPORTANT: โหลดหลัง DOM เพื่อกัน “กดเริ่มไม่ได้/เข้าเกมไม่ไป” -->
-  <script type="module" src="./plate/plate.safe.js"></script>
-</body>
+<!doctype html>  
+<html lang="th">  
+<head>  
+  <meta charset="utf-8" />  
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />  
+  <title>HeroHealth — Balanced Plate VR</title>  
+  <meta name="color-scheme" content="dark" />  
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />  
+  
+  <!-- A-Frame -->  
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>  
+  
+  <!-- Global FX + input compat + logger -->  
+  <script src="./vr/particles.js" defer></script>  
+  <script src="./vr/hha-compat-input.js" defer></script>  
+  <script src="./vr/hha-cloud-logger.js" defer></script>  
+  
+  <style>  
+    :root{  
+      --bg:#020617;  
+      --panel:rgba(2,6,23,.62);  
+      --stroke:rgba(148,163,184,.18);  
+      --text:#e5e7eb;  
+      --muted:#94a3b8;  
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;  
+    }  
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); overflow:hidden;}  
+    a-scene{position:fixed; inset:0;}  
+  
+    /* ===== Start Overlay ===== */  
+    #startOverlay{  
+      position:fixed; inset:0; z-index:1400;  
+      display:flex; align-items:center; justify-content:center;  
+      background:rgba(2,6,23,.72);  
+      backdrop-filter: blur(10px);  
+      pointer-events:auto;  
+    }  
+    #startCard{  
+      width:min(720px,92vw);  
+      background:rgba(2,6,23,.82);  
+      border:1px solid rgba(148,163,184,.22);  
+      border-radius:22px;  
+      padding:16px;  
+      box-shadow:0 26px 80px rgba(0,0,0,.55);  
+    }  
+    #startTitle{font-weight:1100; font-size:20px;}  
+    #startDesc{color:rgba(148,163,184,.95); font-weight:900; margin-top:8px; line-height:1.35;}  
+    #startBtns{display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;}  
+  
+    /* ===== Minimal HUD ===== */  
+    #hudTop{  
+      position:fixed; left:10px; right:10px; top:10px;  
+      z-index:900; pointer-events:none;  
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;  
+    }  
+    .hudCard{  
+      background:var(--panel);  
+      border:1px solid var(--stroke);  
+      border-radius:16px;  
+      padding:10px 12px;  
+      backdrop-filter: blur(8px);  
+      box-shadow:0 18px 44px rgba(0,0,0,.30);  
+      display:flex; gap:8px; align-items:center;  
+      pointer-events:none;  
+      min-width: 0;  
+    }  
+    .pill{  
+      display:inline-flex; gap:8px; align-items:baseline;  
+      padding:7px 10px; border-radius:999px;  
+      background:rgba(15,23,42,.48);  
+      border:1px solid rgba(148,163,184,.16);  
+      font-weight:900;  
+      white-space:nowrap;  
+    }  
+    .k{color:var(--muted); font-weight:900; font-size:11px;}  
+    .v{font-size:15px; font-weight:1000;}  
+    #hudLeftGroup{display:flex; gap:8px; flex-wrap:wrap;}  
+    #hudRightGroup{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}  
+  
+    /* ===== Crosshair ===== */  
+    #crosshair{  
+      position:fixed;  
+      left:50%; top:50%;  
+      transform:translate(-50%,-50%);  
+      z-index:420;  
+      width:14px; height:14px;  
+      border-radius:999px;  
+      pointer-events:none;  
+      box-shadow:  
+        0 0 0 2px rgba(229,231,235,.28),  
+        0 0 22px rgba(34,197,94,.10);  
+      background:rgba(229,231,235,.07);  
+      backdrop-filter: blur(6px);  
+    }  
+    #crosshair::after{  
+      content:'';  
+      position:absolute; inset:4px;  
+      border-radius:999px;  
+      background:rgba(229,231,235,.45);  
+    }  
+  
+    /* ===== Hit flash overlay ===== */  
+    #hitFx{  
+      position:fixed; inset:0;  
+      z-index:850;  
+      pointer-events:none;  
+      opacity:0;  
+      background:  
+        radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(2,6,23,.35) 70%, rgba(2,6,23,.65) 100%);  
+      transition: opacity .08s linear;  
+    }  
+    #hitFx.show{ opacity:1; }  
+    #hitFx[data-kind="bad"]{  
+      background:  
+        radial-gradient(circle at 50% 50%, rgba(251,113,133,0) 35%, rgba(251,113,133,.18) 70%, rgba(2,6,23,.70) 100%);  
+    }  
+    #hitFx[data-kind="boss"]{  
+      background:  
+        radial-gradient(circle at 50% 50%, rgba(248,113,113,0) 35%, rgba(248,113,113,.22) 70%, rgba(2,6,23,.74) 100%);  
+    }  
+    #hitFx[data-kind="good"]{  
+      background:  
+        radial-gradient(circle at 50% 50%, rgba(34,197,94,0) 35%, rgba(34,197,94,.14) 70%, rgba(2,6,23,.70) 100%);  
+    }  
+    #hitFx[data-kind="gold"]{  
+      background:  
+        radial-gradient(circle at 50% 50%, rgba(250,204,21,0) 35%, rgba(250,204,21,.16) 70%, rgba(2,6,23,.70) 100%);  
+    }  
+  
+    /* ===== Buttons ===== */  
+    #hudBtns{  
+      position:fixed; right:10px; bottom:10px;  
+      z-index:910; display:flex; gap:10px;  
+    }  
+    .btn{  
+      pointer-events:auto;  
+      background:rgba(2,6,23,.72);  
+      border:1px solid rgba(148,163,184,.20);  
+      color:var(--text);  
+      border-radius:14px;  
+      padding:10px 12px;  
+      font-weight:1000;  
+      box-shadow:0 16px 36px rgba(0,0,0,.30);  
+      backdrop-filter: blur(8px);  
+      user-select:none;  
+    }  
+    .btn:active{transform:translateY(1px);}  
+  
+    /* ===== Mini/Goal panel ===== */  
+    #miniPanel{  
+      position:fixed; left:10px; right:10px; bottom:64px;  
+      z-index:905;  
+      pointer-events:none;  
+      background:rgba(2,6,23,.58);  
+      border:1px solid rgba(148,163,184,.18);  
+      border-radius:16px;  
+      padding:10px 12px;  
+      backdrop-filter: blur(8px);  
+      box-shadow:0 18px 44px rgba(0,0,0,.30);  
+    }  
+    #miniLine{font-weight:1000;}  
+    #goalLine{margin-top:6px; color:rgba(229,231,235,.88); font-weight:900;}  
+    #miniHint{margin-top:6px; color:rgba(148,163,184,.92); font-weight:900; font-size:13px; line-height:1.25;}  
+  
+    #hudPaused{  
+      position:fixed; left:50%; top:50%;  
+      transform:translate(-50%,-50%);  
+      z-index:980;  
+      display:none;  
+      padding:10px 14px;  
+      border-radius:999px;  
+      background:rgba(2,6,23,.75);  
+      border:1px solid rgba(148,163,184,.25);  
+      font-weight:1000;  
+      pointer-events:none;  
+    }  
+  
+    /* Result overlay */  
+    #resultBackdrop{  
+      position:fixed; inset:0; z-index:1200;  
+      display:none; align-items:center; justify-content:center;  
+      background:rgba(2,6,23,.72);  
+      backdrop-filter: blur(10px);  
+      pointer-events:auto;  
+    }  
+    #resultCard{  
+      width:min(680px,92vw);  
+      background:rgba(2,6,23,.78);  
+      border:1px solid rgba(148,163,184,.22);  
+      border-radius:22px;  
+      padding:16px;  
+      box-shadow:0 26px 80px rgba(0,0,0,.55);  
+    }  
+    .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px;}  
+    .cell{background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px;}  
+    .cell .k{display:block; margin-bottom:4px;}  
+  </style>  
+  
+  <!-- ✅ plate.safe.js -->  
+  <script type="module" src="./plate/plate.safe.js"></script>  
+</head>  
+  
+<body>  
+  <a-scene embedded vr-mode-ui="enabled: false">  
+    <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>  
+  </a-scene>  
+  
+  <!-- overlays -->  
+  <div id="hitFx"></div>  
+  <div id="crosshair" aria-hidden="true"></div>  
+  
+  <!-- START overlay -->  
+  <div id="startOverlay">  
+    <div id="startCard">  
+      <div id="startTitle">พร้อมเล่น Plate VR?</div>  
+      <div id="startDesc">  
+        แตะ “เริ่มเล่น” เพื่อเปิดเสียง/ขออนุญาต Motion (ถ้ามี) แล้วเริ่มเกมทันที<br>  
+        * ถ้าไม่อนุญาต Motion ยังเล่นได้ (แตะยิง + ลากมุมมอง)  
+      </div>  
+      <div id="startBtns">  
+        <button class="btn" id="btnStart">▶️ เริ่มเล่น</button>  
+      </div>  
+    </div>  
+  </div>  
+  
+  <!-- HUD -->  
+  <div id="hudTop">  
+    <div class="hudCard" style="flex:1">  
+      <div id="hudLeftGroup">  
+        <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>  
+        <span class="pill">🏆 <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>  
+        <span class="pill">⚡ <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>  
+        <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>  
+        <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>  
+      </div>  
+    </div>  
+  
+    <div class="hudCard" style="flex:0 0 auto">  
+      <div id="hudRightGroup">  
+        <span class="pill">🔥 <span class="k">FEVER</span> <span id="hudFeverPct" class="v">0%</span></span>  
+        <span class="pill">🎖️ <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>  
+  
+        <!-- element ซ่อนไว้แต่ยังให้ JS อัปเดตได้ -->  
+        <span class="pill" style="display:none">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>  
+        <span class="pill" style="display:none">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>  
+        <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Easy</span></span>  
+      </div>  
+    </div>  
+  </div>  
+  
+  <div id="miniPanel">  
+    <div id="miniLine">MINI: …</div>  
+    <div id="goalLine">Goal: …</div>  
+    <div id="miniHint">…</div>  
+  </div>  
+  
+  <div id="hudBtns">  
+    <button class="btn" id="btnEnterVR">🕶️ ENTER VR</button>  
+    <button class="btn" id="btnPause">⏸️ PAUSE</button>  
+    <button class="btn" id="btnRestart">🔁 RESTART</button>  
+  </div>  
+  
+  <div id="hudPaused">⏸️ PAUSED</div>  
+  
+  <!-- Result -->  
+  <div id="resultBackdrop">  
+    <div id="resultCard">  
+      <div style="font-weight:1100; font-size:20px">สรุปผลเกม (Plate VR)</div>  
+      <div style="color:rgba(148,163,184,.95); font-weight:900; margin-top:6px">  
+        Mode: <span id="rMode">—</span> • Grade: <span id="rGrade">—</span>  
+      </div>  
+  
+      <div class="grid">  
+        <div class="cell"><span class="k">Score</span><span id="rScore" class="v">0</span></div>  
+        <div class="cell"><span class="k">Max Combo</span><span id="rMaxCombo" class="v">0</span></div>  
+        <div class="cell"><span class="k">Miss</span><span id="rMiss" class="v">0</span></div>  
+        <div class="cell"><span class="k">Perfect</span><span id="rPerfect" class="v">0</span></div>  
+        <div class="cell"><span class="k">Goals</span><span id="rGoals" class="v">0/2</span></div>  
+        <div class="cell"><span class="k">Minis</span><span id="rMinis" class="v">0/7</span></div>  
+      </div>  
+  
+      <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">  
+        <div class="cell"><span class="k">G1</span><span id="rG1" class="v">0</span></div>  
+        <div class="cell"><span class="k">G2</span><span id="rG2" class="v">0</span></div>  
+        <div class="cell"><span class="k">G3</span><span id="rG3" class="v">0</span></div>  
+        <div class="cell"><span class="k">G4</span><span id="rG4" class="v">0</span></div>  
+        <div class="cell"><span class="k">G5</span><span id="rG5" class="v">0</span></div>  
+        <div class="cell"><span class="k">Total</span><span id="rGTotal" class="v">0</span></div>  
+      </div>  
+  
+      <!-- ✅ UPDATED: เพิ่มปุ่มกลับ HUB -->
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:14px">  
+        <button class="btn" id="btnBackHub">🏠 กลับหน้า HUB</button>  
+        <button class="btn" id="btnPlayAgain">▶️ เล่นอีกครั้ง</button>  
+      </div>  
+    </div>  
+  </div>  
+</body>  
 </html>
