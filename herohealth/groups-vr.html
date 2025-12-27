@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Launcher (Groups)</title>
+  <title>HeroHealth — Groups Launcher</title>
   <meta name="color-scheme" content="dark" />
 </head>
 <body>
@@ -13,20 +13,17 @@
 
   const u = new URL(location.href);
 
-  // --- defaults ---
-  const diff = (u.searchParams.get('diff') || 'normal').toLowerCase();
-  const run  = (u.searchParams.get('run') || u.searchParams.get('runMode') || 'play').toLowerCase();
-  const time = Math.max(30, Math.min(180, parseInt(u.searchParams.get('time') || '90',10) || 90));
+  const diff = String(u.searchParams.get('diff') || 'normal').toLowerCase();
+  const run  = String(u.searchParams.get('run') || u.searchParams.get('runMode') || 'play').toLowerCase();
+  const time = Math.max(30, Math.min(180, parseInt(u.searchParams.get('time') || '90', 10) || 90));
+
+  const hub = String(u.searchParams.get('hub') || '../hub.html');
 
   // deterministic-ish seed: sessionId/studentKey + ts
   const sid = String(u.searchParams.get('sessionId') || u.searchParams.get('studentKey') || '');
   const ts  = String(u.searchParams.get('ts') || Date.now());
   const seed = String(u.searchParams.get('seed') || (sid ? (sid + '|' + ts) : ts));
 
-  // hub pass-through
-  const hub = u.searchParams.get('hub') || '../hub.html';
-
-  // build runner url
   const r = new URL('./vr-groups/vr-groups.html', location.href);
   r.searchParams.set('diff', ['easy','normal','hard'].includes(diff) ? diff : 'normal');
   r.searchParams.set('run', (run === 'research') ? 'research' : 'play');
@@ -35,14 +32,19 @@
   r.searchParams.set('hub', hub);
   r.searchParams.set('ts', String(Date.now())); // cache-bust
 
-  // keep other params too (optional)
-  ['studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
-   'sessionId','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age',
-   'gradeLevel','heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue',
-   'healthDetail','consentParent'
+  // pass-through (ถ้ามี)
+  [
+    'studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
+    'sessionId','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age',
+    'gradeLevel','heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue',
+    'healthDetail','consentParent'
   ].forEach(k=>{
-    if (u.searchParams.has(k) && !r.searchParams.has(k)) r.searchParams.set(k, u.searchParams.get(k));
+    const v = u.searchParams.get(k);
+    if (v != null && v !== '' && !r.searchParams.has(k)) r.searchParams.set(k, v);
   });
+
+  // optional: allow autostart passthrough
+  if (u.searchParams.get('autostart') === '1') r.searchParams.set('autostart','1');
 
   location.replace(r.toString());
 })();
