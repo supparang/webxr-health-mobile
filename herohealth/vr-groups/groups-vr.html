@@ -10,12 +10,12 @@
   <!-- A-Frame (optional scene bg) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- CSS -->
+  <!-- correct path (this file is already in /vr-groups/) -->
   <link rel="stylesheet" href="./groups.css" />
 </head>
 
 <body>
-  <!-- Background scene -->
+  <!-- Optional background scene -->
   <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
     <a-sky color="#06101f"></a-sky>
     <a-entity id="cam" position="0 1.6 0" camera look-controls></a-entity>
@@ -52,11 +52,9 @@
           <div class="q-text" id="hud-goal-title">—</div>
           <div class="q-num" id="hud-goal-val">0/0</div>
         </div>
-        <div class="qbar">
-          <div class="qbar-track"><div class="qbar-fill goal" id="hud-goal-bar"></div></div>
-        </div>
+        <div class="qbar"><div class="qbar-track"><div class="qbar-fill goal" id="hud-goal-bar"></div></div></div>
 
-        <div class="quest-line" id="hud-mini-line">
+        <div class="quest-line">
           <div class="q-badge mini">MINI</div>
           <div class="q-text" id="hud-mini-title">—</div>
           <div class="q-num" id="hud-mini-val">0/0</div>
@@ -105,7 +103,7 @@
     </div>
   </div>
 
-  <!-- End Overlay -->
+  <!-- End Overlay (HHA standard-ish) -->
   <div class="result-overlay" id="endOverlay">
     <div class="result-card">
       <h2>สรุปผล — Food Groups VR</h2>
@@ -119,7 +117,7 @@
     </div>
   </div>
 
-  <!-- ===== Scripts (DEFER) ===== -->
+  <!-- Scripts -->
   <script src="../vr/ui-fever.js" defer></script>
   <script src="../vr/ui-karaoke.js" defer></script>
 
@@ -128,10 +126,9 @@
   <script src="./groups-quests.js" defer></script>
   <script src="./GameEngine.js" defer></script>
 
-  <!-- Boot wrapper -->
+  <!-- ✅ Boot wrapper (PRODUCTION) -->
   <script src="./groups.safe.js" defer></script>
 
-  <!-- ===== Runner ===== -->
   <script>
   (function(){
     'use strict';
@@ -146,134 +143,164 @@
     }
     function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-    function ready(fn){
-      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once:true });
-      else fn();
+    const diff = String(qs('diff','normal')).toLowerCase();
+    const time = clamp(int('time', 90), 30, 180);
+    const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
+
+    const hub  = String(qs('hub','../hub.html') || '../hub.html');
+    const sid  = String(qs('sessionId', qs('studentKey','')) || '');
+    const ts   = String(qs('ts', Date.now()));
+    const seed = String(qs('seed', sid ? (sid + '|' + ts) : ts));
+
+    document.getElementById('pill-diff').textContent = 'DIFF: ' + diff;
+    document.getElementById('pill-time').textContent = 'TIME: ' + time + 's';
+    document.getElementById('pill-mode').textContent = 'MODE: ' + run;
+
+    // --- Keep last quest numbers from quest:update (so end summary can show goals/minis) ---
+    const lastQuest = {
+      goalsCleared: 0, goalsTotal: 0,
+      miniCleared: 0,  miniTotal: 0
+    };
+    window.addEventListener('quest:update', (ev)=>{
+      const d = ev && ev.detail ? ev.detail : {};
+      if (Number.isFinite(d.goalsCleared)) lastQuest.goalsCleared = d.goalsCleared|0;
+      if (Number.isFinite(d.goalsTotal))   lastQuest.goalsTotal   = d.goalsTotal|0;
+      if (Number.isFinite(d.miniCleared))  lastQuest.miniCleared  = d.miniCleared|0;
+      if (Number.isFinite(d.miniTotal))    lastQuest.miniTotal    = d.miniTotal|0;
+    }, { passive:true });
+
+    // HUD listeners (cheap + robust)
+    window.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail || {};
+      const sEl = document.getElementById('hud-score'); if (sEl) sEl.textContent = (d.score|0);
+      const cEl = document.getElementById('hud-combo'); if (cEl) cEl.textContent = (d.combo|0);
+      const mEl = document.getElementById('hud-miss');  if (mEl) mEl.textContent = (d.misses|0);
+      const bEl = document.getElementById('hud-comboMax'); if (bEl) bEl.textContent = (d.comboMax|0);
+    }, { passive:true });
+
+    window.addEventListener('hha:rank', (ev)=>{
+      const d = ev.detail || {};
+      const rEl = document.getElementById('hud-rank'); if (rEl && d.grade) rEl.textContent = d.grade;
+      const aEl = document.getElementById('hud-acc'); if (aEl && typeof d.accuracy === 'number') aEl.textContent = (d.accuracy|0) + '%';
+    }, { passive:true });
+
+    window.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail || {};
+      const tEl = document.getElementById('hud-time'); if (tEl) tEl.textContent = (d.left|0);
+    }, { passive:true });
+
+    window.addEventListener('groups:group_change', (ev)=>{
+      const d = ev.detail || {};
+      const gEl = document.getElementById('hud-group'); if (gEl) gEl.textContent = d.label || 'หมู่ ?';
+    }, { passive:true });
+
+    window.addEventListener('groups:power', (ev)=>{
+      const d = ev.detail || {};
+      const th = Math.max(1, d.threshold|0);
+      const ch = Math.max(0, d.charge|0);
+      const p = Math.min(100, (ch/th)*100);
+
+      const fill = document.getElementById('hud-powerFill');
+      if (fill) fill.style.width = p.toFixed(1) + '%';
+
+      const txt = document.getElementById('fg-powerText');
+      if (txt) txt.textContent = `${ch}/${th}`;
+    }, { passive:true });
+
+    const overlay = document.getElementById('startOverlay');
+    const btnStart = document.getElementById('btnStart');
+    const btnRestart = document.getElementById('btnRestart');
+
+    function bootViaBoot(){
+      const boot = window.GroupsBoot;
+      if (!boot || !boot.start){
+        alert('GroupsBoot not found (groups.safe.js)');
+        return;
+      }
+
+      // tell boot to bind layer+camera+time and start engine
+      boot.start(run, { diff, time, seed });
+
+      // session start log (HHA standard-ish)
+      try{
+        window.dispatchEvent(new CustomEvent('hha:log_session', {
+          detail: {
+            phase: 'start',
+            game: 'groups',
+            diff,
+            runMode: run,
+            seed,
+            timePlannedSec: time|0,
+            hub
+          }
+        }));
+      }catch{}
     }
 
-    ready(function(){
-      // Params
-      const diff = String(qs('diff','normal')).toLowerCase();
-      const time = clamp(int('time', 90), 30, 180);
-      const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
+    btnStart.addEventListener('click', ()=>{
+      overlay.style.display = 'none';
+      bootViaBoot();
+    });
 
-      const hub  = String(qs('hub','../hub.html') || '../hub.html');
-      const sid  = String(qs('sessionId', qs('studentKey','')) || '');
-      const ts   = String(qs('ts', Date.now()));
-      const seed = String(qs('seed', sid ? (sid + '|' + ts) : ts));
+    btnRestart.addEventListener('click', ()=> location.reload());
 
-      // Pills
-      const pd = document.getElementById('pill-diff'); if (pd) pd.textContent = 'DIFF: ' + diff;
-      const pt = document.getElementById('pill-time'); if (pt) pt.textContent = 'TIME: ' + time + 's';
-      const pm = document.getElementById('pill-mode'); if (pm) pm.textContent = 'MODE: ' + run;
+    // End overlay + save last summary + back hub
+    const endOverlay = document.getElementById('endOverlay');
+    const btnRetry = document.getElementById('btnRetry');
+    const btnBack = document.getElementById('btnBackHub');
 
-      // HUD Events
-      window.addEventListener('hha:score', (ev)=>{
-        const d = ev.detail || {};
-        const sEl = document.getElementById('hud-score'); if (sEl) sEl.textContent = (d.score|0);
-        const cEl = document.getElementById('hud-combo'); if (cEl) cEl.textContent = (d.combo|0);
-        const mEl = document.getElementById('hud-miss');  if (mEl) mEl.textContent = (d.misses|0);
-        const bEl = document.getElementById('hud-comboMax'); if (bEl) bEl.textContent = (d.comboMax|0);
-      }, { passive:true });
-
-      window.addEventListener('hha:rank', (ev)=>{
-        const d = ev.detail || {};
-        const rEl = document.getElementById('hud-rank'); if (rEl && d.grade) rEl.textContent = d.grade;
-        const aEl = document.getElementById('hud-acc'); if (aEl && typeof d.accuracy === 'number') aEl.textContent = (d.accuracy|0) + '%';
-      }, { passive:true });
-
-      window.addEventListener('hha:time', (ev)=>{
-        const d = ev.detail || {};
-        const tEl = document.getElementById('hud-time'); if (tEl) tEl.textContent = (d.left|0);
-      }, { passive:true });
-
-      window.addEventListener('groups:group_change', (ev)=>{
-        const d = ev.detail || {};
-        const gEl = document.getElementById('hud-group'); if (gEl) gEl.textContent = d.label || 'หมู่ ?';
-      }, { passive:true });
-
-      window.addEventListener('groups:power', (ev)=>{
-        const d = ev.detail || {};
-        const th = Math.max(1, d.threshold|0);
-        const ch = Math.max(0, d.charge|0);
-        const p = Math.min(100, (ch/th)*100);
-
-        const fill = document.getElementById('hud-powerFill');
-        if (fill) fill.style.width = p.toFixed(1) + '%';
-
-        const txt = document.getElementById('fg-powerText');
-        if (txt) txt.textContent = `${ch}/${th}`;
-      }, { passive:true });
-
-      // Start controls
-      const overlay = document.getElementById('startOverlay');
-      const btnStart = document.getElementById('btnStart');
-      const btnRestart = document.getElementById('btnRestart');
-
-      function boot(){
-        if (!window.GroupsBoot || !window.GroupsBoot.start){
-          alert('GroupsBoot not found (groups.safe.js)');
-          return;
-        }
-        // resume audio for ticks
-        try{ window.GroupsVR?.FX?.resumeAudio?.(); }catch{}
-
-        // Start via Boot (bind layer + cam inside boot)
-        window.GroupsBoot.start(run, { diff, time, seed });
-      }
-
-      btnStart && btnStart.addEventListener('click', ()=>{
-        if (overlay) overlay.style.display = 'none';
-        boot();
-      }, { passive:true });
-
-      btnRestart && btnRestart.addEventListener('click', ()=> location.reload(), { passive:true });
-
-      // End overlay + save last summary + back hub
-      const endOverlay = document.getElementById('endOverlay');
-      const btnRetry = document.getElementById('btnRetry');
-      const btnBack = document.getElementById('btnBackHub');
-
-      btnRetry && btnRetry.addEventListener('click', ()=> location.reload(), { passive:true });
-
-      btnBack && btnBack.addEventListener('click', ()=>{
-        try{
-          const u = new URL(hub, location.href);
-          u.searchParams.set('ts', String(Date.now()));
-          location.href = u.toString();
-        }catch{
-          location.href = hub;
-        }
-      }, { passive:true });
-
-      window.addEventListener('hha:end', (ev)=>{
-        const d = (ev && ev.detail) ? ev.detail : {};
-        try{
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
-          localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
-        }catch{}
-
-        const s = document.getElementById('endScore'); if (s) s.textContent = String(d.scoreFinal ?? 0);
-        const r = document.getElementById('endRank'); if (r) r.textContent = String(d.grade ?? 'C');
-        const a = document.getElementById('endAcc');  if (a) a.textContent = String((d.accuracyGoodPct ?? 0) | 0) + '%';
-        const cm= document.getElementById('endComboMax'); if (cm) cm.textContent = String(d.comboMax ?? 0);
-        const ms= document.getElementById('endMiss'); if (ms) ms.textContent = String(d.misses ?? 0);
-
-        const gl= document.getElementById('endGoals');
-        if (gl) gl.textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0);
-
-        const mn= document.getElementById('endMinis');
-        if (mn) mn.textContent = String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0);
-
-        if (endOverlay) endOverlay.classList.add('show');
-      }, { passive:true });
-
-      // Autostart
-      if (qs('autostart','0') === '1'){
-        if (overlay) overlay.style.display = 'none';
-        boot();
+    btnRetry.addEventListener('click', ()=> location.reload());
+    btnBack.addEventListener('click', ()=>{
+      try{
+        const u = new URL(hub, location.href);
+        u.searchParams.set('ts', String(Date.now()));
+        location.href = u.toString();
+      }catch{
+        location.href = hub;
       }
     });
+
+    window.addEventListener('hha:end', (ev)=>{
+      const d0 = (ev && ev.detail) ? ev.detail : {};
+
+      // ✅ merge quest progress if engine didn't include
+      const d = Object.assign({}, d0);
+      if (d.goalsCleared == null) d.goalsCleared = lastQuest.goalsCleared|0;
+      if (d.goalsTotal   == null) d.goalsTotal   = lastQuest.goalsTotal|0;
+      if (d.miniCleared  == null) d.miniCleared  = lastQuest.miniCleared|0;
+      if (d.miniTotal    == null) d.miniTotal    = lastQuest.miniTotal|0;
+
+      try{
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
+        localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
+      }catch{}
+
+      const s = document.getElementById('endScore'); if (s) s.textContent = String(d.scoreFinal ?? 0);
+      const r = document.getElementById('endRank');  if (r) r.textContent = String(d.grade ?? 'C');
+      const a = document.getElementById('endAcc');   if (a) a.textContent = String((d.accuracyGoodPct ?? d.accuracy ?? 0) | 0) + '%';
+      const cm= document.getElementById('endComboMax'); if (cm) cm.textContent = String(d.comboMax ?? 0);
+      const ms= document.getElementById('endMiss'); if (ms) ms.textContent = String(d.misses ?? 0);
+
+      const gl= document.getElementById('endGoals');
+      if (gl) gl.textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0);
+
+      const mn= document.getElementById('endMinis');
+      if (mn) mn.textContent = String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0);
+
+      if (endOverlay) endOverlay.classList.add('show');
+
+      // ✅ session end log (HHA standard-ish)
+      try{
+        window.dispatchEvent(new CustomEvent('hha:log_session', {
+          detail: Object.assign({ phase: 'end', game:'groups', hub }, d)
+        }));
+      }catch{}
+    }, { passive:true });
+
+    if (qs('autostart','0') === '1'){
+      overlay.style.display = 'none';
+      bootViaBoot();
+    }
   })();
   </script>
 </body>
