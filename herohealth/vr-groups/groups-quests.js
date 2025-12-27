@@ -1,25 +1,68 @@
-export const GROUP_SONG_FULL = [
-  "อาหารหลัก 5 หมู่ของไทย ทุกคนจำไว้อย่าได้แปลผัน",
-  "หมู่ 1 กินเนื้อ นม ไข่ ถั่วเมล็ด ช่วยให้เติบโตแข็งขัน",
-  "หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล จะให้พลัง",
-  "หมู่ 3 กินผักต่างๆ สารอาหารมากมาย กินเป็นอาจิณ",
-  "หมู่ 4 กินผลไม้ สีเขียวเหลืองบ้าง มีวิตามิน",
-  "หมู่ 5 อย่าได้ลืมกิน ไขมันทั้งสิ้น อบอุ่นร่างกาย"
-];
+/* === /herohealth/vr-groups/groups-quests.js ===
+Food Groups — Quest Text Pack (PRODUCTION, classic script)
+- window.GroupsVR.QuestText.{GROUP_SONG_FULL, GROUP_SONG_SHORT, GROUP_CALL_RESPONSE}
+- helper: getSong2Lines(groupId), getCall(groupId)
+*/
 
-export const GROUP_SONG_SHORT = {
-  0: "อาหารหลัก 5 หมู่ของไทย จำไว้อย่าได้แปลผัน!",
-  1: "หมู่ 1 เนื้อ นม ไข่ ถั่วเมล็ด — โตแข็งแรง!",
-  2: "หมู่ 2 ข้าว แป้ง เผือก มัน น้ำตาล — เพิ่มพลัง!",
-  3: "หมู่ 3 ผักหลากสี — สารอาหารมากมาย!",
-  4: "หมู่ 4 ผลไม้หลากสี — วิตามินสดชื่น!",
-  5: "หมู่ 5 ไขมันพอดี — อบอุ่นร่างกาย!"
-};
+(function (root) {
+  'use strict';
+  const NS = (root.GroupsVR = root.GroupsVR || {});
 
-export const GROUP_CALL_RESPONSE = {
-  1: { q: "หมู่ 1 มีอะไรบ้าง?", a: "เนื้อ นม ไข่ ถั่วเมล็ด!" },
-  2: { q: "หมู่ 2 มีอะไรบ้าง?", a: "ข้าว แป้ง เผือก มัน น้ำตาล!" },
-  3: { q: "หมู่ 3 คือ?", a: "ผักต่าง ๆ!" },
-  4: { q: "หมู่ 4 คือ?", a: "ผลไม้หลากสี!" },
-  5: { q: "หมู่ 5 คือ?", a: "ไขมันพอดี!" }
-};
+  const GROUP_SONG_FULL = [
+    "อาหารหลัก 5 หมู่ของไทย ทุกคนจำไว้อย่าได้แปลผัน",
+    "หมู่ 1 กินเนื้อ นม ไข่ ถั่วเมล็ด ช่วยให้เติบโตแข็งขัน",
+    "หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล จะให้พลัง",
+    "หมู่ 3 กินผักต่างๆ สารอาหารมากมาย กินเป็นอาจิณ",
+    "หมู่ 4 กินผลไม้ สีเขียวเหลืองบ้าง มีวิตามิน",
+    "หมู่ 5 อย่าได้ลืมกิน ไขมันทั้งสิ้น อบอุ่นร่างกาย"
+  ];
+
+  const GROUP_SONG_SHORT = {
+    0: "อาหารหลัก 5 หมู่ของไทย จำไว้อย่าได้แปลผัน!",
+    1: "หมู่ 1 เนื้อ นม ไข่ ถั่วเมล็ด — โตแข็งแรง!",
+    2: "หมู่ 2 ข้าว แป้ง เผือก มัน น้ำตาล — เพิ่มพลัง!",
+    3: "หมู่ 3 ผักหลากสี — สารอาหารมากมาย!",
+    4: "หมู่ 4 ผลไม้หลากสี — วิตามินสดชื่น!",
+    5: "หมู่ 5 ไขมันพอดี — อบอุ่นร่างกาย!"
+  };
+
+  const GROUP_CALL_RESPONSE = {
+    1: { q: "หมู่ 1 มีอะไรบ้าง?", a: "เนื้อ นม ไข่ ถั่วเมล็ด!" },
+    2: { q: "หมู่ 2 มีอะไรบ้าง?", a: "ข้าว แป้ง เผือก มัน น้ำตาล!" },
+    3: { q: "หมู่ 3 คือ?", a: "ผักต่าง ๆ!" },
+    4: { q: "หมู่ 4 คือ?", a: "ผลไม้หลากสี!" },
+    5: { q: "หมู่ 5 คือ?", a: "ไขมันพอดี!" }
+  };
+
+  function splitTo2Lines(text) {
+    text = String(text || '').trim();
+    if (!text) return ["", ""];
+    // แยกแบบนุ่มนวล: ถ้ายาวมาก ให้ตัดกลางโดยประมาณ
+    if (text.length <= 26) return [text, ""];
+    const mid = Math.floor(text.length * 0.52);
+    // หา space ใกล้ ๆ mid
+    let cut = text.lastIndexOf(' ', mid);
+    if (cut < 10) cut = text.indexOf(' ', mid);
+    if (cut < 0) cut = mid;
+    return [text.slice(0, cut).trim(), text.slice(cut).trim()];
+  }
+
+  function getSong2Lines(groupId) {
+    const g = Number(groupId) || 0;
+    const full = GROUP_SONG_FULL[g] || GROUP_SONG_FULL[0] || '';
+    return splitTo2Lines(full);
+  }
+
+  function getCall(groupId) {
+    const g = Number(groupId) || 0;
+    return GROUP_CALL_RESPONSE[g] || { q: "", a: "" };
+  }
+
+  NS.QuestText = {
+    GROUP_SONG_FULL,
+    GROUP_SONG_SHORT,
+    GROUP_CALL_RESPONSE,
+    getSong2Lines,
+    getCall
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
