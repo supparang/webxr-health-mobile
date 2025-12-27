@@ -1,8 +1,9 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-Food Groups VR — PRODUCTION (classic scripts)
-✅ Uses /vr-groups/groups.css alias -> groups-vr.css
-✅ Load order safe: HUD quest binder -> quest -> fx -> engine -> boot
-✅ TOP layout: Goal/Mini shown in HUD only (with bars + mini timer)
+Food Groups VR — PRODUCTION (classic scripts) + VR-feel
+✅ CSS: groups.css alias -> groups-vr.css
+✅ HUD root wrapper fixed
+✅ Start overlay includes “Enable Motion” (iOS)
+✅ Boot binds HUD + engine + end summary overlay
 -->
 
 <!doctype html>
@@ -14,98 +15,96 @@ Food Groups VR — PRODUCTION (classic scripts)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional scene bg) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ IMPORTANT: alias loader -->
+  <!-- ✅ IMPORTANT: alias loader (keep your alias mapping groups.css -> groups-vr.css) -->
   <link rel="stylesheet" href="./groups.css" />
 </head>
 
 <body>
-  <!-- Optional background scene -->
   <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
     <a-sky color="#06101f"></a-sky>
     <a-entity position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
-  <!-- Gameplay layer (targets spawn here) -->
+  <!-- Gameplay layer -->
   <div class="fg-layer" id="fg-layer"></div>
 
-  <!-- HUD -->
-  <div class="hud-top">
-    <div class="hud-card hud-left">
-      <div class="hud-row">
-        <div class="hud-title">SCORE</div>
-        <div class="hud-val" id="hud-score">0</div>
-      </div>
-      <div class="hud-row">
-        <div class="hud-title">COMBO</div>
-        <div class="hud-val" id="hud-combo">0</div>
-      </div>
-      <div class="hud-row">
-        <div class="hud-title">MISS</div>
-        <div class="hud-val" id="hud-miss">0</div>
-      </div>
-    </div>
-
-    <div class="hud-card hud-mid">
-      <div class="hud-group-row">
-        <div class="hud-group" id="hud-group">หมู่ ?</div>
-        <div class="hud-timer" id="hud-time">90</div>
-      </div>
-
-      <div class="power-wrap">
-        <div class="power-label">
-          <div>POWER</div>
-          <div id="fg-powerText" style="font-weight:900;opacity:.9">0/0</div>
+  <!-- ✅ HUD root -->
+  <div class="hud-root">
+    <div class="hud-top">
+      <div class="hud-card hud-left">
+        <div class="hud-row">
+          <div class="hud-title">SCORE</div>
+          <div class="hud-val" id="hud-score">0</div>
         </div>
-        <div class="power-bar">
-          <div class="power-fill" id="hud-powerFill"></div>
+        <div class="hud-row">
+          <div class="hud-title">COMBO</div>
+          <div class="hud-val" id="hud-combo">0</div>
+        </div>
+        <div class="hud-row">
+          <div class="hud-title">MISS</div>
+          <div class="hud-val" id="hud-miss">0</div>
         </div>
       </div>
 
-      <div class="quest-wrap">
-        <!-- GOAL -->
-        <div class="quest-line">
-          <div class="q-badge">GOAL</div>
-          <div class="q-text" id="hud-goal-title">—</div>
-          <div class="q-num" id="hud-goal-val">0/0</div>
+      <div class="hud-card hud-mid">
+        <div class="hud-group-row">
+          <div class="hud-group" id="hud-group">หมู่ ?</div>
+          <div class="hud-timer" id="hud-time">90</div>
         </div>
-        <div class="qbar">
-          <div class="qbar-track">
-            <div class="qbar-fill goal" id="hud-goal-bar"></div>
+
+        <div class="power-wrap">
+          <div class="power-label">
+            <div>POWER</div>
+            <div id="fg-powerText" style="font-weight:900;opacity:.9">0/0</div>
+          </div>
+          <div class="power-bar">
+            <div class="power-fill" id="hud-powerFill"></div>
           </div>
         </div>
 
-        <!-- MINI -->
-        <div class="quest-line">
-          <div class="q-badge mini">MINI</div>
-          <div class="q-text" id="hud-mini-title">—</div>
-          <div class="q-num" id="hud-mini-val">0/0</div>
-        </div>
-        <div class="qbar">
-          <div class="qbar-track">
-            <div class="qbar-fill mini" id="hud-mini-bar"></div>
+        <div class="quest-wrap">
+          <div class="quest-line">
+            <div class="q-badge">GOAL</div>
+            <div class="q-text" id="hud-goal-title">—</div>
+            <div class="q-num" id="hud-goal-val">0/0</div>
           </div>
-          <div class="qbar-timer" id="hud-mini-timer"></div>
-        </div>
-      </div>
-    </div>
+          <div class="qbar">
+            <div class="qbar-track">
+              <div class="qbar-fill goal" id="hud-goal-bar"></div>
+            </div>
+          </div>
 
-    <div class="hud-card hud-right">
-      <div class="rank-box">
-        <div>
-          <div class="rank-title">RANK</div>
-          <div class="rank-sub">
-            <span>ACC</span>
-            <span id="hud-acc">0%</span>
+          <div class="quest-line">
+            <div class="q-badge mini">MINI</div>
+            <div class="q-text" id="hud-mini-title">—</div>
+            <div class="q-num" id="hud-mini-val">0/0</div>
+          </div>
+          <div class="qbar">
+            <div class="qbar-track">
+              <div class="qbar-fill mini" id="hud-mini-bar"></div>
+            </div>
+            <div class="qbar-timer" id="hud-mini-timer"></div>
           </div>
         </div>
-        <div class="rank-grade" id="hud-rank">C</div>
       </div>
-      <div class="rank-sub">
-        <span>BEST</span>
-        <span id="hud-comboMax">0</span>
+
+      <div class="hud-card hud-right">
+        <div class="rank-box">
+          <div>
+            <div class="rank-title">RANK</div>
+            <div class="rank-sub">
+              <span>ACC</span>
+              <span id="hud-acc">0%</span>
+            </div>
+          </div>
+          <div class="rank-grade" id="hud-rank">C</div>
+        </div>
+        <div class="rank-sub">
+          <span>BEST</span>
+          <span id="hud-comboMax">0</span>
+        </div>
       </div>
     </div>
   </div>
@@ -128,15 +127,29 @@ Food Groups VR — PRODUCTION (classic scripts)
       <div class="start-actions">
         <button class="btn primary" id="btnStart">เริ่มเล่น</button>
         <button class="btn ghost" id="btnRestart">รีเซ็ต</button>
+        <button class="btn ghost" id="btnMotion" style="display:none">Enable Motion 🎯</button>
       </div>
 
       <div class="start-note">
-        Tip: แตะเป้า = ยิงทันที / แตะใกล้เป้า = ล็อกยิงอัตโนมัติ
+        Tip: แตะ = ยิง / ลากจอ = มองรอบ ๆ (VR-feel) / ใกล้เป้า = ล็อกยิงอัตโนมัติ
       </div>
     </div>
   </div>
 
-  <!-- ===== Scripts (classic order) ===== -->
+  <!-- Result overlay (simple) -->
+  <div class="result-overlay" id="resultOverlay">
+    <div class="result-card">
+      <h2>สรุปผล 🎉</h2>
+      <p>Score: <b id="r-score">0</b></p>
+      <p>Rank: <b id="r-rank">C</b> · ACC <b id="r-acc">0%</b></p>
+      <p>ComboMax: <b id="r-combo">0</b> · Miss: <b id="r-miss">0</b></p>
+      <hr/>
+      <button id="r-retry">RETRY</button>
+      <button id="r-close">CLOSE</button>
+    </div>
+  </div>
+
+  <!-- ===== Scripts ===== -->
   <script src="./groups-hud-quest.js"></script>
   <script src="./groups-quests.js"></script>
   <script src="./groups-fx.js"></script>
@@ -159,14 +172,13 @@ Food Groups VR — PRODUCTION (classic scripts)
     const diff = String(qs('diff','normal')).toLowerCase();
     const time = int('time', 90);
     const run  = String(qs('run','play')).toLowerCase();
-    const seed = qs('seed', '');
+    const seed = qs('seed', '') || (qs('sessionId','') || '') || (qs('studentKey','') || '');
 
-    // pills
     document.getElementById('pill-diff').textContent = 'DIFF: ' + diff;
     document.getElementById('pill-time').textContent = 'TIME: ' + time + 's';
     document.getElementById('pill-mode').textContent = 'MODE: ' + run;
 
-    // HUD binders (score/rank/time/group/power)
+    // HUD binders
     window.addEventListener('hha:score', (ev)=>{
       const d = ev.detail || {};
       const score = (d.score|0);
@@ -214,35 +226,74 @@ Food Groups VR — PRODUCTION (classic scripts)
       if (txt) txt.textContent = `${ch}/${th}`;
     }, { passive:true });
 
+    // End overlay
+    const resultOverlay = document.getElementById('resultOverlay');
+    window.addEventListener('hha:end', (ev)=>{
+      const d = ev.detail || {};
+      document.getElementById('r-score').textContent = (d.scoreFinal|0);
+      document.getElementById('r-rank').textContent = d.grade || 'C';
+      document.getElementById('r-acc').textContent = (d.accuracyGoodPct|0) + '%';
+      document.getElementById('r-combo').textContent = (d.comboMax|0);
+      document.getElementById('r-miss').textContent = (d.misses|0);
+      resultOverlay.classList.add('show');
+    }, { passive:true });
+
+    document.getElementById('r-retry').addEventListener('click', ()=>location.reload());
+    document.getElementById('r-close').addEventListener('click', ()=>resultOverlay.classList.remove('show'));
+
     // Start controls
     const overlay = document.getElementById('startOverlay');
     const btnStart = document.getElementById('btnStart');
     const btnRestart = document.getElementById('btnRestart');
+    const btnMotion = document.getElementById('btnMotion');
 
-    function boot(){
-      const engine = window.GroupsVR && window.GroupsVR.GameEngine;
+    function engineRef(){
+      return (window.GroupsVR && window.GroupsVR.GameEngine) ? window.GroupsVR.GameEngine : null;
+    }
+
+    function boot(enableGyro){
+      const engine = engineRef();
       if (!engine){
         alert('GroupsVR.GameEngine not found');
         return;
       }
       engine.setLayerEl(document.getElementById('fg-layer'));
       engine.setTimeLeft(time);
-      engine.start(diff, { runMode: run, seed: seed });
+      engine.start(diff, { runMode: run, seed: seed, enableGyro: !!enableGyro });
     }
+
+    // iOS motion permission
+    (function setupMotionButton(){
+      try{
+        const needs =
+          (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function');
+        if (needs) btnMotion.style.display = 'inline-block';
+      }catch(e){}
+    })();
+
+    btnMotion.addEventListener('click', async ()=>{
+      try{
+        if (window.DeviceOrientationEvent && typeof window.DeviceOrientationEvent.requestPermission === 'function'){
+          const res = await window.DeviceOrientationEvent.requestPermission();
+          if (res === 'granted'){
+            const engine = engineRef();
+            if (engine && engine.enableGyro) engine.enableGyro();
+            btnMotion.style.display = 'none';
+          }
+        }
+      }catch(e){}
+    });
 
     btnStart.addEventListener('click', ()=>{
       overlay.style.display = 'none';
-      boot();
+      boot(false);
     });
 
-    btnRestart.addEventListener('click', ()=>{
-      location.reload();
-    });
+    btnRestart.addEventListener('click', ()=> location.reload());
 
-    // auto hide overlay if ?autostart=1
     if (qs('autostart','0') === '1'){
       overlay.style.display = 'none';
-      boot();
+      boot(false);
     }
   })();
   </script>
