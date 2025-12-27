@@ -519,3 +519,51 @@ a-scene{
   transform:none;
   z-index:90 !important;
 }
+/* ===== STORM (โหด+++) ===== */
+html.storm{
+  animation: stormPulse .28s ease-in-out infinite alternate;
+}
+@keyframes stormPulse{
+  from{ filter: brightness(1); }
+  to  { filter: brightness(1.12); }
+}
+
+html.storm body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:58;
+  box-shadow:
+    inset 0 0 0 2px rgba(56,189,248,0.18),
+    inset 0 0 0 22px rgba(56,189,248,0.10),
+    inset 0 0 60px rgba(34,197,94,0.14),
+    inset 0 0 120px rgba(251,113,133,0.10);
+  animation: stormEdge .22s ease-in-out infinite alternate;
+}
+@keyframes stormEdge{
+  from{ opacity:.65; }
+  to  { opacity:1; }
+}
+
+html.storm .hud-timer{
+  border-color: rgba(56,189,248,0.40);
+  box-shadow: 0 0 18px rgba(56,189,248,0.18);
+}
+
+/* STORM "bad hit" flash */
+html.storm-badflash body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:59;
+  box-shadow:
+    inset 0 0 0 2px rgba(251,113,133,0.30),
+    inset 0 0 0 90px rgba(251,113,133,0.08);
+  animation: stormBad .16s ease-out both;
+}
+@keyframes stormBad{
+  from{ opacity:0; }
+  to  { opacity:1; }
+}
