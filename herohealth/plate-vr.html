@@ -1,9 +1,10 @@
 <!-- === /herohealth/plate-vr.html ===
-Plate VR (PRODUCTION) — Full HTML
+Plate VR (PRODUCTION) — Full HTML (PATCHED: safe-area + urgent edge shake)
 ✅ Start Overlay (กดเริ่มแล้วค่อยเริ่มนับเวลา)
 ✅ HUD + Crosshair + FX overlays
 ✅ Result overlay มีปุ่ม "กลับหน้า HUB" + "เล่นอีกครั้ง"
-✅ ใช้คู่กับ /plate/plate.safe.js ตัวเต็มด้านบน
+✅ เพิ่ม safe-area (notch) + urgent edge shake ตอน mini ใกล้หมดเวลา
+✅ ใช้คู่กับ /plate/plate.safe.js (PATCHED) ด้านล่าง
 -->
 
 <!doctype html>
@@ -31,6 +32,12 @@ Plate VR (PRODUCTION) — Full HTML
       --text:#e5e7eb;
       --muted:#94a3b8;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+
+      /* ✅ safe-area */
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--text); overflow:hidden;}
     a-scene{position:fixed; inset:0;}
@@ -57,7 +64,9 @@ Plate VR (PRODUCTION) — Full HTML
 
     /* ===== Minimal HUD ===== */
     #hudTop{
-      position:fixed; left:10px; right:10px; top:10px;
+      position:fixed;
+      left:calc(10px + var(--sal)); right:calc(10px + var(--sar));
+      top:calc(10px + var(--sat));
       z-index:900; pointer-events:none;
       display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
     }
@@ -135,9 +144,30 @@ Plate VR (PRODUCTION) — Full HTML
         radial-gradient(circle at 50% 50%, rgba(250,204,21,0) 35%, rgba(250,204,21,.16) 70%, rgba(2,6,23,.70) 100%);
     }
 
+    /* ✅ Urgent edge shake overlay (mini ใกล้หมดเวลา) */
+    #urgentFx{
+      position:fixed; inset:0;
+      z-index:840;
+      pointer-events:none;
+      opacity:0;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(250,204,21,0) 45%, rgba(250,204,21,.10) 72%, rgba(2,6,23,.55) 100%);
+      transform:translate3d(0,0,0);
+    }
+    @keyframes edgePulse {
+      0%   { opacity:0.00; filter:brightness(1);   transform:translate3d(0,0,0); }
+      45%  { opacity:0.60; filter:brightness(1.12);transform:translate3d(0.8px,-0.6px,0); }
+      100% { opacity:0.05; filter:brightness(1);   transform:translate3d(-0.6px,0.7px,0); }
+    }
+    body.hha-mini-urgent #urgentFx{
+      animation: edgePulse .32s linear infinite;
+    }
+
     /* ===== Buttons ===== */
     #hudBtns{
-      position:fixed; right:10px; bottom:10px;
+      position:fixed;
+      right:calc(10px + var(--sar));
+      bottom:calc(10px + var(--sab));
       z-index:910; display:flex; gap:10px;
     }
     .btn{
@@ -157,7 +187,9 @@ Plate VR (PRODUCTION) — Full HTML
 
     /* ===== Mini/Goal panel ===== */
     #miniPanel{
-      position:fixed; left:10px; right:10px; bottom:64px;
+      position:fixed;
+      left:calc(10px + var(--sal)); right:calc(10px + var(--sar));
+      bottom:calc(64px + var(--sab));
       z-index:905;
       pointer-events:none;
       background:rgba(2,6,23,.58);
@@ -207,6 +239,9 @@ Plate VR (PRODUCTION) — Full HTML
     #resultActions{
       display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;
     }
+
+    /* little row inside goals cell */
+    .subline{margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:13px;}
   </style>
 
   <!-- ✅ plate.safe.js -->
@@ -220,6 +255,7 @@ Plate VR (PRODUCTION) — Full HTML
 
   <!-- overlays -->
   <div id="hitFx"></div>
+  <div id="urgentFx" aria-hidden="true"></div>
   <div id="crosshair" aria-hidden="true"></div>
 
   <!-- START overlay -->
@@ -288,7 +324,10 @@ Plate VR (PRODUCTION) — Full HTML
         <div class="cell"><span class="k">Max Combo</span><span id="rMaxCombo" class="v">0</span></div>
         <div class="cell"><span class="k">Miss</span><span id="rMiss" class="v">0</span></div>
         <div class="cell"><span class="k">Perfect</span><span id="rPerfect" class="v">0</span></div>
-        <div class="cell"><span class="k">Goals</span><span id="rGoals" class="v">0/2</span></div>
+        <div class="cell">
+          <span class="k">Goals</span><span id="rGoals" class="v">0/2</span>
+          <div class="subline">Plates: <span id="rPlates">0</span></div>
+        </div>
         <div class="cell"><span class="k">Minis</span><span id="rMinis" class="v">0/7</span></div>
       </div>
 
