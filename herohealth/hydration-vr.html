@@ -1,3 +1,8 @@
+<!-- === /herohealth/hydration-vr.html ===
+HydrationVR — FULL HTML (CINEMATIC + FAB + SHEET + CARDBOARD + SAFE LOADER)
+NOTE: ไม่แก้ hydration.safe.js
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,278 +12,973 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (for Cardboard/EnterVR events + VR mode) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Global FX + input compat + logger (IIFE / non-module) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Page CSS -->
-  <link rel="stylesheet" href="./hydration-vr/hydration-vr.css" />
+  <style>
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.65);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
 
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+
+      /* edge fx intensity (0..0.85) */
+      --fx: 0;
+      /* storm warn amp (0..1) */
+      --warnamp: 0;
+
+      /* FAB badge */
+      --badge: 0;
+    }
+
+    html,body{
+      margin:0; padding:0; width:100%; height:100%;
+      background: radial-gradient(1200px 700px at 50% 25%, #0b1120 0%, #020617 60%, #020617 100%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      overflow:hidden;
+    }
+    *{ box-sizing:border-box; }
+
+    /* ✅ STRONG Storm warning overlay */
+    body.storm-warn::before{
+      content:"";
+      position:fixed; inset:-20px;
+      pointer-events:none;
+      z-index:26;
+      opacity: calc(0.10 + (var(--warnamp) * 0.18));
+      background:
+        radial-gradient(700px 520px at 50% 40%,
+          rgba(239,68,68,.10) 0%,
+          rgba(239,68,68,.08) 22%,
+          rgba(2,6,23,0) 55%),
+        radial-gradient(1000px 800px at 50% 50%,
+          rgba(239,68,68,.10) 0%,
+          rgba(2,6,23,0) 65%);
+      animation: warnVignette .14s ease-in-out infinite;
+      filter: saturate(1.25) contrast(1.12);
+    }
+    @keyframes warnVignette{
+      0%{ transform: translate3d(0,0,0); opacity: calc(0.10 + (var(--warnamp) * 0.14)); }
+      50%{ transform: translate3d(0.5px,-0.6px,0); opacity: calc(0.18 + (var(--warnamp) * 0.22)); }
+      100%{ transform: translate3d(0,0,0); opacity: calc(0.10 + (var(--warnamp) * 0.14)); }
+    }
+
+    /* main layout */
+    .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
+
+    /* top HUD bar */
+    .hud{
+      position:relative;
+      padding: calc(var(--sat) + 10px) 12px 10px;
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
+      pointer-events:none;
+      z-index:20;
+    }
+    .card{
+      pointer-events:none;
+      background: var(--panel);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 18px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      padding: 10px 10px;
+      min-width: 200px;
+    }
+    .card h3{ margin:0 0 6px; font-size:12px; letter-spacing:.2px; opacity:.95; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .stat{ font-size:12px; font-weight:950; color: var(--text); opacity:.95; }
+    .stat b{ color: var(--cyan); font-weight:1000; }
+    .muted{ color: var(--muted); font-weight:850; }
+
+    /* playfield */
+    #playfield{
+      position:relative;
+      flex:1;
+      margin: 0 12px;
+      border-radius: 22px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
+      overflow:hidden;
+      touch-action: manipulation;
+      will-change: transform, filter;
+    }
+    #hvr-layer{ position:absolute; inset:0; pointer-events:none; }
+
+    /* bottom HUD */
+    .bottom{
+      padding: 10px 12px calc(var(--sab) + 12px);
+      display:flex; gap:10px;
+      justify-content:space-between;
+      align-items:flex-end;
+      pointer-events:none;
+      z-index:20;
+    }
+    .bottom .card{ min-width: 240px; }
+
+    /* water gauge */
+    .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
+    .bar{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95)); box-shadow: 0 0 14px rgba(34,211,238,.28); transition: width .22s ease; }
+    .bar.red{ background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(249,115,22,.95)); box-shadow: 0 0 16px rgba(239,68,68,.22); }
+
+    /* storm / edge fx */
+    body.fx-low #playfield{ box-shadow: inset 0 0 0 1px rgba(56,189,248,.10), 0 24px 80px rgba(0,0,0,.55); }
+    body.fx-high #playfield{ box-shadow: inset 0 0 0 1px rgba(249,115,22,.12), 0 24px 80px rgba(0,0,0,.55); }
+
+    /* ✅ stronger shake (base) */
+    body.fx-shake #playfield{ animation: nudge .11s ease-in-out infinite; }
+    @keyframes nudge{
+      0%{ transform: translate3d(0,0,0); }
+      25%{ transform: translate3d(1.2px,-1.4px,0); }
+      55%{ transform: translate3d(-1.0px,1.1px,0); }
+      100%{ transform: translate3d(0,0,0); }
+    }
+
+    body.storm #playfield{
+      outline: 2px solid rgba(99,102,241,.22);
+      box-shadow: inset 0 0 0 1px rgba(167,139,250,.12), 0 24px 80px rgba(0,0,0,.55);
+      filter: saturate(1.05);
+    }
+
+    /* ✅ Storm warning banner (stronger) */
+    .stormWarnBanner{
+      position:fixed;
+      top: calc(var(--sat) + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .10s ease;
+    }
+    .stormWarnBanner .pill{
+      display:inline-flex; align-items:center; gap:10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(239,68,68,.14);
+      border:1px solid rgba(239,68,68,.26);
+      box-shadow: 0 18px 70px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      font-weight: 1100;
+      letter-spacing:.2px;
+      color: var(--text);
+      filter: saturate(1.15);
+    }
+    body.storm-warn .stormWarnBanner{
+      opacity: 1;
+      animation: warnPulse .12s ease-in-out infinite;
+    }
+    @keyframes warnPulse{
+      0%{ transform: translateX(-50%) scale(1); filter: brightness(1); }
+      50%{ transform: translateX(-50%) scale(1.04); filter: brightness(1.30); }
+      100%{ transform: translateX(-50%) scale(1); filter: brightness(1); }
+    }
+
+    /* ✅ stronger warning edge */
+    body.storm-warn #playfield{
+      outline: 2px dashed rgba(239,68,68,.35);
+      filter: brightness(1.08) contrast(1.06);
+    }
+
+    /* quest UI */
+    .questLine{ margin: 3px 0; font-size:12px; font-weight:900; line-height:1.25; }
+    .questLine .tag{
+      display:inline-flex; align-items:center; gap:6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.45);
+      color: var(--muted);
+      font-weight:1000;
+      margin-right:6px;
+    }
+
+    /* Mini quest card */
+    .miniWrap{ margin-top:8px; padding-top:8px; border-top:1px solid rgba(148,163,184,.14); }
+    .miniTitle{ font-size:12px; font-weight:1000; letter-spacing:.2px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .miniTitle .right{ font-size:11px; color:var(--muted); font-weight:950; }
+    .miniList{ margin-top:8px; display:grid; gap:6px; }
+    .miniItem{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      font-size:12px; font-weight:950;
+      padding: 6px 8px;
+      border-radius: 14px;
+      background: rgba(15,23,42,.45);
+      border:1px solid rgba(148,163,184,.14);
+    }
+    .miniItem .left{ display:flex; align-items:center; gap:8px; }
+    .dot{ width:10px; height:10px; border-radius:999px; background: rgba(148,163,184,.35); box-shadow: 0 0 0 2px rgba(148,163,184,.10); }
+    .miniItem.ok .dot{ background: rgba(34,197,94,.95); box-shadow: 0 0 0 2px rgba(34,197,94,.18), 0 0 18px rgba(34,197,94,.25); }
+    .miniItem.bad .dot{ background: rgba(239,68,68,.85); box-shadow: 0 0 0 2px rgba(239,68,68,.16); }
+    .miniItem .val{ color: var(--muted); font-weight:1000; }
+    .miniBarWrap{ margin-top:8px; }
+    .miniBarLabel{ font-size:11px; font-weight:950; color:var(--muted); display:flex; justify-content:space-between; }
+    .miniBar{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
+    .miniBar > div{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85)); transition: width .16s ease; box-shadow: 0 0 14px rgba(167,139,250,.18); }
+
+    /* Start overlay + buttons */
+    #start-overlay{
+      position:fixed; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(2,6,23,.75);
+      z-index:50;
+    }
+    .startCard{
+      width:min(560px, calc(100% - 24px));
+      background: rgba(2,6,23,.88);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 20px;
+      padding: 14px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      text-align:left;
+    }
+    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .btn{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(34,197,94,.18);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 10px 12px;
+      font-weight: 1000;
+      letter-spacing:.2px;
+      cursor:pointer;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn.secondary{ background: rgba(2,6,23,.55); }
+    .btn.danger{ background: rgba(239,68,68,.18); }
+
+    /* Stamp */
+    #hha-stamp{
+      position:fixed;
+      left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      z-index:40;
+      pointer-events:none;
+      opacity:0;
+    }
+    #hha-stamp.show{ opacity:1; animation: stampPop .72s ease forwards; }
+    @keyframes stampPop{
+      0%{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
+      20%{ transform: translate(-50%,-50%) scale(1.05); opacity:1; }
+      100%{ transform: translate(-50%,-50%) scale(1); opacity:0; }
+    }
+    .stampBox{
+      background: rgba(2,6,23,.86);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 18px;
+      padding: 12px 14px;
+      box-shadow: 0 18px 70px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      text-align:center;
+      min-width: 240px;
+    }
+    .stampBig{ font-size: 20px; font-weight:1100; letter-spacing:.2px; }
+    .stampSmall{ margin-top:4px; font-size: 12px; color: var(--muted); font-weight:950; }
+
+    /* End screen */
+    #hvr-end{
+      position:fixed; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(2,6,23,.78);
+      z-index:60;
+    }
+    .endCard{
+      width:min(560px, calc(100% - 24px));
+      background: rgba(2,6,23,.90);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 20px;
+      padding: 14px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+    }
+    .endGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+    .endItem{
+      background: rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 16px;
+      padding: 10px;
+      font-weight: 1000;
+    }
+    .endItem .k{ font-size:11px; color:var(--muted); font-weight:950; }
+    .endItem .v{ margin-top:4px; font-size:16px; }
+
+    /* -------------------- ✅ CINEMATIC FAB + BADGE -------------------- */
+    .fab{
+      position: fixed;
+      right: 14px;
+      bottom: calc(var(--sab) + 14px);
+      z-index: 70;
+      pointer-events: auto;
+      width: 56px; height: 56px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.72);
+      color: var(--text);
+      box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(148,163,184,.08) inset;
+      backdrop-filter: blur(10px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transform: translateZ(0);
+      transition: transform .12s ease, filter .12s ease;
+    }
+    .fab:active{ transform: scale(.96); }
+
+    .fab .ico{ font-size: 22px; filter: drop-shadow(0 10px 20px rgba(0,0,0,.35)); }
+
+    .fabBadge{
+      position:absolute;
+      top: -7px;
+      right: -7px;
+      min-width: 24px;
+      height: 24px;
+      padding: 0 7px;
+      border-radius: 999px;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      font-size: 12px;
+      font-weight: 1100;
+      letter-spacing: .2px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.85);
+      box-shadow: 0 18px 60px rgba(0,0,0,.55);
+      transform: translateZ(0);
+    }
+    body.fab-badge .fabBadge{ display:inline-flex; }
+
+    /* pulse states */
+    body.fab-warn .fab{
+      animation: fabWarnPulse .14s ease-in-out infinite;
+      filter: saturate(1.15) brightness(1.05);
+    }
+    @keyframes fabWarnPulse{
+      0%{ transform: scale(1); box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(239,68,68,.18) inset; }
+      50%{ transform: scale(1.05); box-shadow: 0 24px 90px rgba(0,0,0,.62), 0 0 0 2px rgba(239,68,68,.26) inset, 0 0 40px rgba(239,68,68,.15); }
+      100%{ transform: scale(1); box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(239,68,68,.18) inset; }
+    }
+
+    body.fab-storm .fab{
+      animation: fabStormPulse .12s ease-in-out infinite;
+      filter: saturate(1.20) brightness(1.10);
+    }
+    @keyframes fabStormPulse{
+      0%{ transform: scale(1); box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(167,139,250,.22) inset; }
+      50%{ transform: scale(1.06); box-shadow: 0 24px 95px rgba(0,0,0,.65), 0 0 0 2px rgba(167,139,250,.30) inset, 0 0 46px rgba(167,139,250,.16); }
+      100%{ transform: scale(1); box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(167,139,250,.22) inset; }
+    }
+
+    /* badge levels: 4+ calm, 3 yellow, 2 orange, 1 red, NOW magenta */
+    .fabBadge[data-level="4"]{ background: rgba(15,23,42,.85); color: rgba(226,232,240,.95); }
+    .fabBadge[data-level="3"]{ background: rgba(245,158,11,.22); border-color: rgba(245,158,11,.30); color: rgba(255,255,255,.98); }
+    .fabBadge[data-level="2"]{ background: rgba(249,115,22,.24); border-color: rgba(249,115,22,.32); color: rgba(255,255,255,.98); }
+    .fabBadge[data-level="1"]{
+      background: rgba(239,68,68,.26);
+      border-color: rgba(239,68,68,.36);
+      color: rgba(255,255,255,.98);
+      animation: badgeRedBlink .12s ease-in-out infinite;
+    }
+    @keyframes badgeRedBlink{
+      0%{ transform: scale(1); filter: brightness(1); }
+      50%{ transform: scale(1.08); filter: brightness(1.35); }
+      100%{ transform: scale(1); filter: brightness(1); }
+    }
+    .fabBadge[data-level="now"]{
+      background: rgba(167,139,250,.30);
+      border-color: rgba(167,139,250,.40);
+      color: rgba(255,255,255,.98);
+      animation: badgeNow .10s ease-in-out infinite;
+    }
+    @keyframes badgeNow{
+      0%{ transform: scale(1); filter: brightness(1); }
+      50%{ transform: scale(1.10); filter: brightness(1.55); }
+      100%{ transform: scale(1); filter: brightness(1); }
+    }
+
+    /* -------------------- ✅ BOTTOM SHEET (Quest/Mini) on mobile -------------------- */
+    @media (max-width: 980px){
+      .hud{ flex-direction:column; align-items:stretch; gap:10px; }
+      .hud .card{ min-width: unset; width: 100%; }
+      .bottom{ align-items:stretch; }
+      .bottom .card{ min-width: unset; width: 100%; }
+      .bottom{
+        flex-direction: column;
+        gap: 10px;
+      }
+    }
+
+    /* sheet behavior: collapse quest card into bottom sheet */
+    .sheetWrap{
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(var(--sab) + 12px);
+      z-index: 65;
+      pointer-events:none;
+      display:none; /* enabled on small screens by JS */
+    }
+    .sheet{
+      pointer-events:auto;
+      background: rgba(2,6,23,.92);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 20px;
+      box-shadow: 0 28px 100px rgba(0,0,0,.72);
+      backdrop-filter: blur(10px);
+      overflow:hidden;
+      transform: translateY(120%);
+      transition: transform .16s ease;
+      max-height: min(62vh, 520px);
+    }
+    body.sheet-open .sheet{ transform: translateY(0); }
+
+    .sheetTop{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(148,163,184,.14);
+    }
+    .sheetTop .t{
+      font-weight:1100; letter-spacing:.2px;
+      font-size: 13px;
+    }
+    .sheetTop .sub{
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 900;
+    }
+    .sheetBody{
+      padding: 10px 10px 12px;
+      overflow:auto;
+      max-height: min(56vh, 480px);
+    }
+
+    /* cardboard assist mode */
+    body.cardboard #playfield{
+      filter: saturate(1.08) contrast(1.06);
+    }
+    body.cardboard .hud, body.cardboard .bottom{
+      opacity: .90;
+    }
+    body.cardboard .card{
+      border-radius: 22px;
+    }
+    body.cardboard .stormWarnBanner .pill{
+      padding: 12px 16px;
+      font-size: 13px;
+    }
+
+    /* simple vignette guide in cardboard */
+    body.cardboard::after{
+      content:"";
+      position:fixed; inset:-20px;
+      z-index: 15;
+      pointer-events:none;
+      opacity: .18;
+      background:
+        radial-gradient(520px 520px at 50% 50%, rgba(2,6,23,0) 0%, rgba(2,6,23,0.20) 55%, rgba(2,6,23,0.50) 100%);
+      mix-blend-mode: multiply;
+    }
+
+    /* loader error */
+    #loaderErr{
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: rgba(2,6,23,.82);
+      backdrop-filter: blur(10px);
+      padding: 16px;
+    }
+    .errCard{
+      width:min(680px, calc(100% - 24px));
+      background: rgba(2,6,23,.92);
+      border:1px solid rgba(239,68,68,.26);
+      border-radius: 20px;
+      padding: 14px;
+      box-shadow: 0 28px 100px rgba(0,0,0,.70);
+      color: var(--text);
+    }
+    .errCard .h{ font-size: 16px; font-weight: 1100; }
+    .errCard pre{
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12px;
+      margin: 10px 0 0;
+      color: rgba(226,232,240,.95);
+      background: rgba(15,23,42,.55);
+      border: 1px solid rgba(148,163,184,.14);
+      border-radius: 14px;
+      padding: 10px;
+    }
+  </style>
 </head>
+
 <body>
+  <div class="stormWarnBanner" aria-hidden="true">
+    <div class="pill">⚠️ Storm กำลังมา… เตรียมตัว!</div>
+  </div>
 
-  <!-- Minimal A-Frame scene to enable EnterVR / Cardboard -->
-  <a-scene id="vrscene"
-           embedded
-           vr-mode-ui="enabled:false"
-           renderer="antialias:true; colorManagement:true;"
-           style="position:fixed; inset:0; z-index:0; background:transparent;">
-    <a-entity camera position="0 1.6 0"></a-entity>
-  </a-scene>
+  <!-- ✅ FAB (open/close sheet + cinematic badge) -->
+  <button class="fab" id="fab" type="button" aria-label="Open quests">
+    <span class="ico">🌪️</span>
+    <span class="fabBadge" id="fabBadge" data-level="4"></span>
+  </button>
 
-  <!-- ======= VR HUD (2 lines) ======= -->
-  <div id="vrhud" aria-hidden="true">
-    <div class="vrhud-row">
-      <div class="vrhud-pill">⏱ <span id="vh-time">--</span></div>
-      <div class="vrhud-pill">🏁 <span id="vh-score">0</span></div>
-      <div class="vrhud-pill">💧 <span id="vh-zone">GREEN</span></div>
-      <div class="vrhud-pill">🛡️ <span id="vh-shield">0</span></div>
-      <div class="vrhud-pill">🌪️ <span id="vh-storm">--</span></div>
+  <div class="stage">
+    <div class="hud">
+      <div class="card">
+        <h3>📊 Stats</h3>
+        <div class="row">
+          <div class="stat">Score <b id="stat-score">0</b></div>
+          <div class="stat">Combo <b id="stat-combo">0</b> <span class="muted">(Max <span id="stat-combo-max">0</span>)</span></div>
+          <div class="stat">Miss <b id="stat-miss">0</b></div>
+          <div class="stat">Time <b id="stat-time">—</b></div>
+          <div class="stat">Grade <b id="stat-grade">C</b></div>
+        </div>
+      </div>
+
+      <div class="card" style="min-width:260px">
+        <h3>🧠 Coach</h3>
+        <div class="questLine" id="coach-text">แตะ START เพื่อเริ่ม</div>
+        <div class="questLine muted" id="coach-sub">Mini quest จะโผล่ตอน Storm</div>
+      </div>
     </div>
-    <div class="vrhud-row vrhud-row2">
-      <div class="vrhud-pill">Goal: <span id="vh-goal">--</span></div>
-      <div class="vrhud-pill">Mini: <span id="vh-mini">--</span></div>
+
+    <div id="playfield">
+      <div id="hvr-layer"></div>
+    </div>
+
+    <!-- desktop bottom -->
+    <div class="bottom" id="bottomRow">
+      <div class="card" style="min-width:280px">
+        <h3>💧 Water Gauge</h3>
+        <div class="row" style="justify-content:space-between">
+          <div class="stat">Zone <b id="water-zone">—</b></div>
+          <div class="stat"><b id="water-pct">0%</b></div>
+        </div>
+        <div class="barWrap"><div id="water-bar" class="bar"></div></div>
+        <div class="row" style="margin-top:8px; justify-content:space-between">
+          <div class="stat">Shield <b id="shield-count">0</b></div>
+          <div class="stat">Storm <b id="storm-left">0</b> <span class="muted">s</span></div>
+        </div>
+
+        <!-- ✅ live debug (ไม่โดน safe.js เขียนทับ) -->
+        <div class="questLine muted" style="margin-top:8px" id="dbg-live">
+          live: —
+        </div>
+      </div>
+
+      <div class="card" style="min-width:340px" id="questCard">
+        <h3>🧩 Quest</h3>
+        <div class="questLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
+        <div class="questLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
+        <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
+        <div class="questLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
+
+        <div class="miniWrap" id="mini-card">
+          <div class="miniTitle">
+            <div>🌪️ Storm Mini: Shield Timing (FULL)</div>
+            <div class="right">Storm in <span id="mini-storm-in">—</span>s</div>
+          </div>
+
+          <div class="miniList">
+            <div class="miniItem" id="mini-c-storm"><div class="left"><span class="dot"></span>อยู่ใน Storm</div><div class="val" id="mini-v-storm">—</div></div>
+            <div class="miniItem" id="mini-c-zone"><div class="left"><span class="dot"></span>น้ำต้อง LOW/HIGH (ห้าม GREEN)</div><div class="val" id="mini-v-zone">—</div></div>
+            <div class="miniItem" id="mini-c-pressure"><div class="left"><span class="dot"></span>Pressure ถึงเกณฑ์</div><div class="val" id="mini-v-pressure">—</div></div>
+            <div class="miniItem" id="mini-c-end"><div class="left"><span class="dot"></span>ท้ายพายุ (End-window)</div><div class="val" id="mini-v-end">—</div></div>
+            <div class="miniItem" id="mini-c-block"><div class="left"><span class="dot"></span>ต้อง “บล็อก BAD” ด้วย Shield</div><div class="val" id="mini-v-block">—</div></div>
+          </div>
+
+          <div class="miniBarWrap">
+            <div class="miniBarLabel">
+              <div>Pressure bar</div>
+              <div><span id="mini-pressure-pct">0</span>%</div>
+            </div>
+            <div class="miniBar"><div id="mini-pressure-bar"></div></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- ======= Main UI Layer ======= -->
-  <div id="app">
-
-    <!-- Top bar -->
-    <div id="topbar">
-      <div id="stats" class="panel">
-        <div class="panel-title">📊 Stats</div>
-        <div class="stats-row">
-          <div>Score <b id="stat-score">0</b></div>
-          <div>Combo <b id="stat-combo">0</b> (Max <b id="stat-combo-max">0</b>)</div>
-          <div>Miss <b id="stat-miss">0</b></div>
-          <div>Time <b id="stat-time">70</b></div>
-          <div>Grade <b id="stat-grade">C</b></div>
+  <!-- ✅ Bottom sheet for mobile -->
+  <div class="sheetWrap" id="sheetWrap" aria-hidden="false">
+    <div class="sheet" id="sheet">
+      <div class="sheetTop">
+        <div>
+          <div class="t">🧩 Quest / Mini</div>
+          <div class="sub" id="sheetSub">แตะ FAB 🌪️ เพื่อเปิด/ปิด • Badge = เวลาถอยหลัง</div>
         </div>
+        <button class="btn secondary" id="btnSheetClose" type="button">ปิด</button>
       </div>
-
-      <div id="coach-box" class="panel">
-        <div class="panel-title">💬 Coach</div>
-        <div id="coach-text" class="coach-text">แตะ START เพื่อเริ่ม</div>
-        <div id="coach-sub" class="coach-sub">Goal เป็นด่าน 1/3 → 2/3 → 3/3 แล้วเจอ Storm mini!</div>
-      </div>
-    </div>
-
-    <!-- Play area -->
-    <div id="main">
-      <div id="playfield-wrap">
-        <div id="playfield">
-          <div id="hvr-layer"></div>
+      <div class="sheetBody" id="sheetBody">
+        <!-- clone questCard content here by JS (no duplicate IDs!) -->
+        <div class="muted" style="font-weight:900;font-size:12px; margin-bottom:8px;">
+          (Mobile Sheet) — ใช้ข้อมูลจากแผงหลักด้านล่าง (ไม่สร้าง ID ซ้ำ)
         </div>
-      </div>
 
-      <!-- Right rail -->
-      <aside id="right-rail">
-        <div id="quest-panel" class="panel">
-          <div class="panel-title">🧩 Quest</div>
+        <div class="card" style="background:rgba(15,23,42,.35); border-color:rgba(148,163,184,.14); box-shadow:none">
+          <div class="questLine"><span class="tag">Goal</span><span id="sheet-q1">—</span></div>
+          <div class="questLine"><span class="tag">Progress</span><span id="sheet-q2">—</span></div>
+          <div class="questLine"><span class="tag">Mini</span><span id="sheet-q3">—</span></div>
+          <div class="questLine"><span class="tag">State</span><span id="sheet-q4">—</span></div>
 
-          <div class="quest-lines">
-            <div id="quest-line1" class="qline">—</div>
-            <div id="quest-line2" class="qline muted">—</div>
-            <div id="quest-line3" class="qline">—</div>
-            <div id="quest-line4" class="qline muted">—</div>
-          </div>
-
-          <div class="mini-card">
-            <div class="mini-head">
-              <div class="mini-title">🌪️ Storm Mini: Shield Timing (FULL)</div>
-              <div class="mini-meta">Storm in <span id="mini-storm-in">--</span>s</div>
+          <div class="miniWrap">
+            <div class="miniTitle">
+              <div>🌪️ Storm Mini</div>
+              <div class="right">in <span id="sheet-storm-in">—</span>s • left <span id="sheet-storm-left">—</span>s</div>
             </div>
 
-            <div class="mini-row">
-              <span class="mini-dot" id="mini-c-storm"></span>
-              <span class="mini-label">อยู่ใน Storm</span>
-              <span class="mini-val" id="mini-v-storm">—</span>
+            <div class="miniList">
+              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-storm"></span>Storm</div><div class="val" id="sheet-v-storm">—</div></div>
+              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-zone"></span>Zone</div><div class="val" id="sheet-v-zone">—</div></div>
+              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-pressure"></span>Pressure</div><div class="val" id="sheet-v-pressure">—</div></div>
+              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-end"></span>End-window</div><div class="val" id="sheet-v-end">—</div></div>
+              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-block"></span>Blocks</div><div class="val" id="sheet-v-block">—</div></div>
             </div>
 
-            <div class="mini-row">
-              <span class="mini-dot" id="mini-c-zone"></span>
-              <span class="mini-label">น้ำต้อง LOW/HIGH (ห้าม GREEN)</span>
-              <span class="mini-val" id="mini-v-zone">—</span>
-            </div>
-
-            <div class="mini-row">
-              <span class="mini-dot" id="mini-c-pressure"></span>
-              <span class="mini-label">Pressure ถึงเกณฑ์</span>
-              <span class="mini-val" id="mini-v-pressure">—</span>
-            </div>
-
-            <div class="mini-row">
-              <span class="mini-dot" id="mini-c-end"></span>
-              <span class="mini-label">ท้ายพายุ (End-window)</span>
-              <span class="mini-val" id="mini-v-end">—</span>
-            </div>
-
-            <div class="mini-row">
-              <span class="mini-dot" id="mini-c-block"></span>
-              <span class="mini-label">บล็อก BAD ด้วย Shield “ถูกจังหวะ”</span>
-              <span class="mini-val" id="mini-v-block">0/0</span>
-            </div>
-
-            <div class="mini-pressure">
-              <div class="mini-pressure-top">
-                <span>Pressure bar</span>
-                <span><b id="mini-pressure-pct">0</b>%</span>
+            <div class="miniBarWrap">
+              <div class="miniBarLabel">
+                <div>Pressure</div>
+                <div><span id="sheet-pressure-pct">0</span>%</div>
               </div>
-              <div class="mini-pressure-track">
-                <div id="mini-pressure-bar" class="mini-pressure-bar" style="width:0%"></div>
-              </div>
+              <div class="miniBar"><div id="sheet-pressure-bar" style="height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85));transition: width .16s ease; box-shadow:0 0 14px rgba(167,139,250,.18);"></div></div>
             </div>
           </div>
-
-        </div>
-      </aside>
-    </div>
-
-    <!-- Water gauge bottom-left -->
-    <div id="water-gauge" class="panel">
-      <div class="panel-title">💧 Water Gauge</div>
-      <div class="wg-row">
-        <div>Zone <b id="water-zone">GREEN</b></div>
-        <div><b id="water-pct">50%</b></div>
-      </div>
-      <div class="wg-track">
-        <div id="water-bar" class="wg-bar" style="width:50%"></div>
-      </div>
-      <div class="wg-row wg-row2">
-        <div>Shield <b id="shield-count">0</b></div>
-        <div>Storm <b id="storm-left">0</b>s</div>
-      </div>
-    </div>
-
-    <!-- Stamp -->
-    <div id="hha-stamp" aria-hidden="true">
-      <div id="stamp-big">OK</div>
-      <div id="stamp-small">—</div>
-    </div>
-
-    <!-- Start overlay -->
-    <div id="start-overlay">
-      <div class="start-card">
-        <div class="start-title">Hydration VR</div>
-        <div class="start-sub">คุมให้อยู่ GREEN เพื่อผ่าน Goal • เจอ Storm แล้วห้ามอยู่ GREEN</div>
-
-        <div class="start-actions">
-          <button id="btn-start" class="btn primary" type="button">▶ START</button>
-          <button id="btn-vr" class="btn" type="button">🕶️ Enter VR</button>
-          <button id="btn-stop" class="btn danger" type="button">⏹ Stop</button>
         </div>
 
-        <div class="start-hint">Tip: มือถือให้แตะจอ 1 ครั้งเพื่อเปิดเสียง แล้วค่อยเล่น</div>
+        <div class="questLine muted" style="margin-top:10px" id="sheetDbg">—</div>
       </div>
     </div>
+  </div>
 
-    <!-- End summary -->
-    <div id="hvr-end" style="display:none;">
-      <div class="endCard">
-        <div class="endTop">
-          <div class="endTitle">สรุปผล</div>
-          <div class="endBtns">
-            <button id="btn-retry" class="btn primary" type="button">🔁 Retry</button>
-            <!-- Back to HUB will be injected by safe.js -->
-          </div>
-        </div>
+  <div id="hha-stamp" aria-hidden="true">
+    <div class="stampBox">
+      <div class="stampBig" id="stamp-big">—</div>
+      <div class="stampSmall" id="stamp-small">—</div>
+    </div>
+  </div>
 
-        <div class="endGrid">
-          <div class="endBox"><div class="k">Score</div><div class="v" id="end-score">0</div></div>
-          <div class="endBox"><div class="k">Grade</div><div class="v" id="end-grade">C</div></div>
-          <div class="endBox"><div class="k">Combo Max</div><div class="v" id="end-combo">0</div></div>
-          <div class="endBox"><div class="k">Miss</div><div class="v" id="end-miss">0</div></div>
-          <div class="endBox"><div class="k">Goals</div><div class="v" id="end-goals">0/3</div></div>
-          <div class="endBox"><div class="k">Minis</div><div class="v" id="end-minis">0/0</div></div>
-        </div>
-
-        <div class="endNote muted">
-          หมายเหตุ: เกมจะบันทึกผลล่าสุดไว้ใน <code>localStorage:HHA_LAST_SUMMARY</code> และส่ง event <code>hha:end</code>
-        </div>
+  <div id="start-overlay">
+    <div class="startCard">
+      <div style="font-size:18px;font-weight:1100">💧 Hydration VR</div>
+      <div class="muted" style="margin-top:6px; font-size:12px; font-weight:900">
+        Goal: อยู่ใน GREEN ให้ครบ • Mini: Storm Shield Timing (FULL) • แตะกลางจอ = ยิง crosshair
+      </div>
+      <div class="muted" style="margin-top:6px; font-size:12px; font-weight:900">
+        ✅ FAB 🌪️: เปิด/ปิด Quest (มือถือ) • Badge: นับถอยหลัง 3→2→1 / NOW
+      </div>
+      <div class="btnRow">
+        <button class="btn" id="btn-start" type="button">🚀 START</button>
+        <button class="btn secondary" id="btn-cardboard" type="button">🕶 Cardboard</button>
+        <button class="btn secondary" id="btn-vr" type="button">🥽 VR</button>
+        <button class="btn danger" id="btn-stop" type="button">⛔ STOP</button>
       </div>
     </div>
+  </div>
 
-  </div><!-- /#app -->
+  <div id="hvr-end">
+    <div class="endCard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="font-size:18px; font-weight:1100">🏁 Summary</div>
+        <button class="btn" id="btn-retry" type="button">🔁 Retry</button>
+      </div>
+      <div class="endGrid">
+        <div class="endItem"><div class="k">Score</div><div class="v" id="end-score">0</div></div>
+        <div class="endItem"><div class="k">Grade</div><div class="v" id="end-grade">C</div></div>
+        <div class="endItem"><div class="k">Combo Max</div><div class="v" id="end-combo">0</div></div>
+        <div class="endItem"><div class="k">Miss</div><div class="v" id="end-miss">0</div></div>
+        <div class="endItem"><div class="k">Goals</div><div class="v" id="end-goals">0/1</div></div>
+        <div class="endItem"><div class="k">Minis</div><div class="v" id="end-minis">0</div></div>
+      </div>
+    </div>
+  </div>
 
-  <!-- ===== VR mode class toggles + VR HUD listeners ===== -->
-  <script>
-  (function(){
+  <!-- loader error overlay -->
+  <div id="loaderErr">
+    <div class="errCard">
+      <div class="h">❌ โหลดไฟล์เกมไม่สำเร็จ (import path)</div>
+      <div class="muted" style="margin-top:6px;font-weight:900">
+        ตรวจสอบว่าไฟล์อยู่ที่:
+        <b style="color:#e2e8f0">/herohealth/hydration-vr/hydration.safe.js</b>
+      </div>
+      <pre id="loaderErrText">—</pre>
+    </div>
+  </div>
+
+  <!-- ✅ Robust module loader (tries multiple paths) -->
+  <script type="module">
     const doc = document;
-    const root = doc.documentElement;
-    function isMobile(){ return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); }
+    const errWrap = doc.getElementById('loaderErr');
+    const errText = doc.getElementById('loaderErrText');
 
-    // Toggle classes on enter/exit VR (Cardboard uses enter-vr too)
-    function bindVrEvents(){
-      const scene = doc.querySelector('a-scene');
-      if(!scene) return;
+    const candidates = [
+      './hydration-vr/hydration.safe.js',
+      './hydration-vr/hydration.safe.mjs',
+      './hydration.safe.js'
+    ];
 
-      scene.addEventListener('enter-vr', ()=>{
-        root.classList.add('is-vr');
-        if (isMobile()) root.classList.add('is-cardboard');
-      });
-      scene.addEventListener('exit-vr', ()=>{
-        root.classList.remove('is-vr','is-cardboard');
-      });
+    let ok = false;
+    let lastErr = null;
+    for (const p of candidates){
+      try{
+        await import(p);
+        ok = true;
+        break;
+      }catch(e){
+        lastErr = e;
+      }
     }
 
-    // VR HUD updates (2 lines)
-    function bindVrHud(){
-      const $ = (id)=>doc.getElementById(id);
-      const el = {
-        time: $('vh-time'),
-        score:$('vh-score'),
-        zone: $('vh-zone'),
-        shield:$('vh-shield'),
-        storm:$('vh-storm'),
-        goal:$('vh-goal'),
-        mini:$('vh-mini'),
-      };
-
-      window.addEventListener('hha:time', (ev)=>{
-        const d = ev.detail || {};
-        if(el.time) el.time.textContent = String(d.secLeft ?? '--');
-      });
-
-      window.addEventListener('hha:score', (ev)=>{
-        const d = ev.detail || {};
-        if(el.score)  el.score.textContent  = String(d.score ?? 0);
-        if(el.zone)   el.zone.textContent   = String(d.zone ?? 'GREEN');
-        if(el.shield) el.shield.textContent = String(d.shield ?? 0);
-      });
-
-      window.addEventListener('quest:update', (ev)=>{
-        const q = ev.detail || {};
-        if(el.goal) el.goal.textContent = String(q.goalProg ?? '--');
-        if(el.mini) el.mini.textContent = String(q.miniProg ?? '--');
-
-        if(el.storm){
-          const s3 = String(q.line3 ?? '');
-          if (s3.includes('Storm อยู่')) { el.storm.textContent = 'NOW'; return; }
-          const m = s3.match(/~(\d+)s/i) || s3.match(/in\s*~?(\d+)s/i);
-          el.storm.textContent = m ? ('in ' + m[1] + 's') : '--';
-        }
-      });
+    if (!ok){
+      if (errWrap) errWrap.style.display = 'flex';
+      if (errText) errText.textContent =
+        `Tried:\n- ${candidates.join('\n- ')}\n\nError:\n${String(lastErr && (lastErr.stack || lastErr.message || lastErr) || 'unknown')}`;
+      console.error('[HydrationVR] import failed', lastErr);
     }
-
-    if (doc.readyState === 'loading'){
-      doc.addEventListener('DOMContentLoaded', ()=>{
-        bindVrEvents();
-        bindVrHud();
-      });
-    } else {
-      bindVrEvents();
-      bindVrHud();
-    }
-  })();
   </script>
 
-  <!-- ===== Loader (module) ===== -->
-  <script type="module" src="./hydration-vr/hydration-vr.js"></script>
+  <!-- ✅ Cinematic UI glue (FAB badge countdown + sheet + cardboard assist + debug mirror) -->
+  <script>
+    (function(){
+      const doc = document;
+      const body = doc.body;
 
+      const fab = doc.getElementById('fab');
+      const fabBadge = doc.getElementById('fabBadge');
+
+      const sheetWrap = doc.getElementById('sheetWrap');
+      const btnSheetClose = doc.getElementById('btnSheetClose');
+
+      const btnCardboard = doc.getElementById('btn-cardboard');
+
+      // mirror targets (from main HUD)
+      const q1 = doc.getElementById('quest-line1');
+      const q2 = doc.getElementById('quest-line2');
+      const q3 = doc.getElementById('quest-line3');
+      const q4 = doc.getElementById('quest-line4');
+
+      const miniStormIn = doc.getElementById('mini-storm-in');
+      const stormLeft = doc.getElementById('storm-left');
+
+      const waterZone = doc.getElementById('water-zone');
+      const waterPct  = doc.getElementById('water-pct');
+
+      const dbgLive = doc.getElementById('dbg-live');
+
+      // sheet mirror ids (separate, safe.js never touches)
+      const sq1 = doc.getElementById('sheet-q1');
+      const sq2 = doc.getElementById('sheet-q2');
+      const sq3 = doc.getElementById('sheet-q3');
+      const sq4 = doc.getElementById('sheet-q4');
+
+      const sStormIn = doc.getElementById('sheet-storm-in');
+      const sStormLeft = doc.getElementById('sheet-storm-left');
+
+      const sVStorm = doc.getElementById('sheet-v-storm');
+      const sVZone = doc.getElementById('sheet-v-zone');
+      const sVPressure = doc.getElementById('sheet-v-pressure');
+      const sVEnd = doc.getElementById('sheet-v-end');
+      const sVBlock = doc.getElementById('sheet-v-block');
+
+      const sDotStorm = doc.getElementById('sheet-dot-storm');
+      const sDotZone = doc.getElementById('sheet-dot-zone');
+      const sDotPressure = doc.getElementById('sheet-dot-pressure');
+      const sDotEnd = doc.getElementById('sheet-dot-end');
+      const sDotBlock = doc.getElementById('sheet-dot-block');
+
+      const sPressurePct = doc.getElementById('sheet-pressure-pct');
+      const sPressureBar = doc.getElementById('sheet-pressure-bar');
+      const sheetDbg = doc.getElementById('sheetDbg');
+
+      function isSmall(){
+        return window.matchMedia && window.matchMedia('(max-width: 980px)').matches;
+      }
+
+      function setDot(dot, ok){
+        if (!dot) return;
+        dot.style.background = ok ? 'rgba(34,197,94,.95)' : 'rgba(148,163,184,.35)';
+        dot.style.boxShadow = ok ? '0 0 0 2px rgba(34,197,94,.18), 0 0 18px rgba(34,197,94,.25)' : '0 0 0 2px rgba(148,163,184,.10)';
+      }
+
+      // sheet enabled on small screens
+      function applySheetVisibility(){
+        const small = isSmall();
+        if (sheetWrap) sheetWrap.style.display = small ? 'block' : 'none';
+        // auto close sheet when leaving small mode
+        if (!small) body.classList.remove('sheet-open');
+      }
+      applySheetVisibility();
+      window.addEventListener('resize', applySheetVisibility, { passive:true });
+
+      // FAB toggles sheet (on small screens)
+      function toggleSheet(force){
+        if (!isSmall()) return;
+        const on = (typeof force === 'boolean') ? force : !body.classList.contains('sheet-open');
+        body.classList.toggle('sheet-open', on);
+      }
+
+      fab?.addEventListener('click', ()=> toggleSheet(), { passive:true });
+      btnSheetClose?.addEventListener('click', ()=> toggleSheet(false), { passive:true });
+
+      // Cardboard assist toggle (UI only)
+      btnCardboard?.addEventListener('click', ()=>{
+        body.classList.toggle('cardboard');
+        // เปิด sheet ให้เลยบนมือถือ (ชัดขึ้น)
+        if (isSmall()) toggleSheet(true);
+      }, { passive:true });
+
+      // ---------- Cinematic badge logic ----------
+      let lastEndNow = false;
+
+      function setBadge(text, on){
+        if (!fabBadge) return;
+        body.classList.toggle('fab-badge', !!on && !!text);
+        fabBadge.textContent = on ? String(text) : '';
+      }
+
+      function setBadgeLevel(level){
+        if (!fabBadge) return;
+        fabBadge.setAttribute('data-level', String(level));
+      }
+
+      function computeLevelFromNumber(n){
+        if (!Number.isFinite(n)) return '4';
+        if (n <= 1) return '1';
+        if (n <= 2) return '2';
+        if (n <= 3) return '3';
+        return '4';
+      }
+
+      function syncBadge(){
+        const warn  = body.classList.contains('storm-warn');
+        const storm = body.classList.contains('storm');
+
+        const t4 = (q4 && q4.textContent) ? q4.textContent : '';
+        const endNow = /EndWindow:\s*NOW/i.test(t4);
+
+        const inNum = Math.max(0, parseInt((miniStormIn?.textContent || '0'), 10) || 0);
+        const leftNum = Math.max(0, parseInt((stormLeft?.textContent || '0'), 10) || 0);
+
+        if (endNow){
+          setBadge('NOW', true);
+          setBadgeLevel('now');
+        } else if (storm){
+          setBadge(String(leftNum), true);
+          setBadgeLevel(computeLevelFromNumber(leftNum));
+        } else if (warn){
+          const show = inNum > 0 ? inNum : 3; // fallback
+          setBadge(String(show), true);
+          setBadgeLevel(computeLevelFromNumber(show));
+        } else {
+          setBadge('', false);
+          setBadgeLevel('4');
+        }
+
+        body.classList.toggle('fab-warn', warn && !storm && !endNow);
+        body.classList.toggle('fab-storm', storm && !endNow);
+
+        // (optional) force open sheet when warn/storm on mobile
+        if (isSmall() && (warn || storm || endNow)){
+          body.classList.add('sheet-open');
+        }
+
+        lastEndNow = endNow;
+      }
+
+      // ---------- Mirror into sheet + debug ----------
+      function syncSheet(){
+        if (!isSmall()) return;
+
+        const warn  = body.classList.contains('storm-warn');
+        const storm = body.classList.contains('storm');
+
+        const zone = waterZone?.textContent || '—';
+        const water = waterPct?.textContent || '—';
+
+        const stormIn = (miniStormIn?.textContent || '—');
+        const stormL  = (stormLeft?.textContent || '—');
+
+        const t1 = q1?.textContent || '—';
+        const t2 = q2?.textContent || '—';
+        const t3 = q3?.textContent || '—';
+        const t4 = q4?.textContent || '—';
+
+        if (sq1) sq1.textContent = t1;
+        if (sq2) sq2.textContent = t2;
+        if (sq3) sq3.textContent = t3;
+        if (sq4) sq4.textContent = t4;
+
+        if (sStormIn) sStormIn.textContent = String(stormIn).trim();
+        if (sStormLeft) sStormLeft.textContent = String(stormL).trim();
+
+        // Try read live state from window.__HVR__.S (safe.js exports this)
+        const hvr = window.__HVR__;
+        const S = hvr && hvr.S ? hvr.S : null;
+
+        const pressure = S ? Math.round(S.pressure || 0) : null;
+        const thr = S ? Math.round((hvr.TUNE && hvr.TUNE.pressureThr) || 0) : null;
+        const blocks = S ? `${S.miniBlocksDone||0}/${S.miniBlocksNeed||0}` : null;
+
+        const endNow = /EndWindow:\s*NOW/i.test(t4);
+
+        const vStorm = storm ? 'YES' : (warn ? 'SOON' : '—');
+        const vZone = `${zone} (${water})`;
+        const vPressure = (pressure==null) ? '—' : `${pressure}% / ${thr}%`;
+        const vEnd = endNow ? 'NOW' : (storm ? 'WAIT' : '—');
+        const vBlock = blocks || '—';
+
+        if (sVStorm) sVStorm.textContent = vStorm;
+        if (sVZone) sVZone.textContent = vZone;
+        if (sVPressure) sVPressure.textContent = vPressure;
+        if (sVEnd) sVEnd.textContent = vEnd;
+        if (sVBlock) sVBlock.textContent = vBlock;
+
+        setDot(sDotStorm, storm);
+        setDot(sDotZone, storm && zone !== 'GREEN');
+        setDot(sDotPressure, storm && pressure!=null && thr!=null && pressure >= thr);
+        setDot(sDotEnd, endNow);
+        setDot(sDotBlock, storm && S && (S.miniBlocksDone >= S.miniBlocksNeed));
+
+        if (sPressurePct) sPressurePct.textContent = String(pressure==null ? 0 : pressure);
+        if (sPressureBar) sPressureBar.style.width = `${Math.max(0, Math.min(100, pressure==null ? 0 : pressure))}%`;
+
+        const dbg = S
+          ? `live: zone=${zone} water=${water} | stormIn=${stormIn}s stormLeft=${stormL}s | pressure=${pressure}% | blocks=${blocks} | shield=${S.shield||0}`
+          : `live: zone=${zone} water=${water} | stormIn=${stormIn}s stormLeft=${stormL}s`;
+
+        if (dbgLive) dbgLive.textContent = dbg;
+        if (sheetDbg) sheetDbg.textContent = dbg;
+      }
+
+      // loop
+      function tick(){
+        syncBadge();
+        syncSheet();
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    })();
+  </script>
 </body>
 </html>
