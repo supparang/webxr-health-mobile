@@ -1,9 +1,14 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// HydrationVR — PRODUCTION (P2-A/B/C + Storm Shield Mini)
+// HydrationVR — PRODUCTION (P2-A/B/C + Storm Shield Mini: FULL HARD RULES)
 // ✅ Play: BAD expire = avoid success (no miss, small reward)
 // ✅ Study: BAD expire penalized (research-hard)
-// ✅ Storm Mini: "Shield Timing" -> block BAD with Shield during Storm when pressure high (edgeIntensity >= 0.35)
-// ✅ Fix: guard NaN + clamp deltas (prevent water jump to 100)
+// ✅ Storm Mini (FULL): block BAD with Shield ONLY when
+//    - Storm active
+//    - NOT in GREEN zone (LOW/HIGH)
+//    - pressure high enough (edgeIntensity threshold)
+//    - near end of storm (stormLeftSec threshold)
+// ✅ Fix: no drift/timer before START (prevents gauge moving without play)
+// ✅ Fix: guard NaN + clamp deltas (prevents water jump to 100)
 // ✅ Goal GREEN time counts reliably (zoneFrom === 'GREEN')
 
 'use strict';
@@ -47,6 +52,16 @@ function emit(type, detail){
   try { ROOT.dispatchEvent(new CustomEvent(type, { detail })); } catch {}
 }
 
+function getZoneFromWater(w){
+  try{
+    if (typeof zoneFrom === 'function') return String(zoneFrom(w));
+  }catch{}
+  w = Number(w);
+  if (!Number.isFinite(w)) w = 0;
+  if (w >= 45 && w <= 65) return 'GREEN';
+  return (w < 45) ? 'LOW' : 'HIGH';
+}
+
 // -------------------------------------------------
 const S = {
   started:false,
@@ -77,16 +92,16 @@ const S = {
   // goal: green seconds
   greenSec:0,
   goalGreenSecTarget:18,
-  minisDone:0,     // ✅ count "real minis" only (storm mini etc.)
+  minisDone:0,
   goalsDone:0,
   lastCause:'init',
 
-  // P2-B Shield
+  // Shield
   shield:0,
   greenStreak:0,
   shieldMax:1,
 
-  // P2-C Storm
+  // Storm
   storm:false,
   stormLeftSec:0,
   stormNextInSec:0,
@@ -95,15 +110,14 @@ const S = {
   stormDurMin:4,
   stormDurMax:6,
 
-  // pressure intensity (for timing)
+  // pressure intensity (0..0.85)
   edgeIntensity:0,
 
-  // Storm mini quest: shield timing
+  // Storm mini quest
   stormMiniActive:false,
   stormMiniDone:false,
-  stormMiniAttempted:false,
 
-  // Audio (P2-A)
+  // Audio
   audioOK:false,
   audioCtx:null,
   beepGateMs:0,
@@ -123,16 +137,16 @@ function getDiff(){
   return DIFF[k] || DIFF.normal;
 }
 
-// ✅ Policy: Play vs Study for BAD expire
+// ✅ policy: penalize BAD expire only in study/research
 function penalizeBadExpire(){
-  return !!S.isResearch; // study/research only
+  return !!S.isResearch;
 }
 
 // -------------------------------------------------
 function gradeFrom(score, miss, water){
   const w = clamp(water,0,100);
   const green = (w >= 45 && w <= 65);
-  const base = score - miss*8 + (green ? 40 : -10);
+  const base = (Number(score)||0) - (Number(miss)||0)*8 + (green ? 40 : -10);
   if (base >= 260) return 'SSS';
   if (base >= 210) return 'SS';
   if (base >= 160) return 'S';
@@ -141,7 +155,7 @@ function gradeFrom(score, miss, water){
   return 'C';
 }
 
-// --- Audio helpers (P2-A) ---
+// --- Audio ---
 function ensureAudio(){
   if (S.audioOK) return;
   try{
@@ -182,7 +196,7 @@ function beep(freq=880, ms=55, gain=0.035){
   }catch{}
 }
 
-// --- UI: Shield / Storm / Edge FX ---
+// --- UI FX ---
 function setEdgeFX(zone, intensity){
   intensity = clamp(intensity, 0, 0.85);
   S.edgeIntensity = intensity;
@@ -234,6 +248,7 @@ function applyFeverDelta(delta, cause){
   delta = Number(delta);
   if (!Number.isFinite(delta) || delta === 0) return;
   S.fever = clamp(S.fever + delta, 0, 100);
+
   emit('hha:fever', { pct:S.fever, cause:String(cause||'') });
 
   setText('fever-pct', Math.round(S.fever) + '%');
@@ -252,16 +267,18 @@ function celebrateStamp(big, small){
 }
 
 function updateQuest(){
-  const z = (zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH')));
+  const z = getZoneFromWater(S.water);
 
   const goalLine1 = `Goal: อยู่ใน GREEN ให้ครบ 🟢`;
   const goalLine2 = `สะสม GREEN รวม ${Math.round(S.greenSec)}/${S.goalGreenSecTarget} วินาที`;
 
-  // storm mini status
-  let miniTxt = 'Mini: —';
-  if (S.stormMiniDone) miniTxt = 'Mini: ✅ Storm Shield Timing สำเร็จ';
-  else if (S.stormMiniActive) miniTxt = 'Mini: 🫧 บล็อก BAD ตอน Storm “จังหวะกดดัน”';
-  else miniTxt = 'Mini: — (รอ Storm)';
+  let miniTxt = 'Mini: — (รอ Storm)';
+  if (S.stormMiniDone) miniTxt = 'Mini: ✅ Storm Shield Timing (FULL) สำเร็จ';
+  else if (S.stormMiniActive) {
+    miniTxt = S.isResearch
+      ? 'Mini: 🧪 บล็อก BAD ท้าย Storm(≤1s) + LOW/HIGH + pressure≥0.55'
+      : 'Mini: 🫧 บล็อก BAD ท้าย Storm(≤2s) + LOW/HIGH + pressure≥0.45';
+  }
 
   const goalLine3 = `${miniTxt} · Minis done: ${S.minisDone}`;
   const goalLine4 = `Water: ${z} · Shield:${S.shield} · Storm:${S.storm ? (S.stormLeftSec+'s') : ('in '+S.stormNextInSec+'s')}`;
@@ -294,7 +311,7 @@ function pushHUD(){
   setText('stat-time', S.secLeft|0);
   setText('stat-grade', grade);
 
-  const z = (zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH')));
+  const z = getZoneFromWater(S.water);
   setText('water-zone', z);
   setText('water-pct', Math.round(S.water) + '%');
   const wb = $('water-bar');
@@ -337,7 +354,7 @@ function driftWaterToMean(){
 }
 
 // -------------------------------------------------
-// Storm (P2-C)
+// Storm scheduler
 function randInt(a,b){
   a = Math.floor(a); b = Math.floor(b);
   if (b < a) [a,b] = [b,a];
@@ -347,10 +364,8 @@ function scheduleNextStorm(){
   S.stormNextInSec = randInt(S.stormMinGap, S.stormMaxGap);
 }
 function armStormMini(){
-  // new attempt each storm
   S.stormMiniActive = true;
   S.stormMiniDone = false;
-  S.stormMiniAttempted = false;
 }
 function startStorm(){
   S.storm = true;
@@ -359,10 +374,13 @@ function startStorm(){
   updateStormUI();
 
   armStormMini();
-  celebrateStamp('STORM!', 'shield timing');
+  celebrateStamp('STORM!', 'FULL shield timing');
 
-  setText('coach-text', '🌪️ Storm มาแล้ว! รอ “จังหวะกดดัน” แล้วใช้ Shield บล็อก BAD 🫧');
-  setText('coach-sub', 'Tip: ให้ขอบจอแรง ๆ (pressure สูง) แล้วค่อยบล็อก = mini ผ่าน');
+  setText('coach-text', '🌪️ Storm มาแล้ว! Mini: บล็อก BAD “ท้ายพายุ” + ต้อง LOW/HIGH + pressure สูง');
+  setText('coach-sub', S.isResearch
+    ? 'โหมดวิจัย: ต้องบล็อกตอนเหลือ ≤1s และ pressure ≥0.55'
+    : 'โหมดเล่น: ต้องบล็อกตอนเหลือ ≤2s และ pressure ≥0.45'
+  );
   emit('hha:coach', { text: $('coach-text')?.textContent || '', mood:'neutral' });
 }
 function stopStorm(){
@@ -371,14 +389,14 @@ function stopStorm(){
   S.lastCause = 'storm(end)';
   updateStormUI();
 
-  // fail silently if not done (no penalty, just missed chance)
+  // end mini attempt window
   S.stormMiniActive = false;
 
   scheduleNextStorm();
 }
 
 // -------------------------------------------------
-// Hydro-Orb symbols
+// Hydro-Orb symbols (visual identity)
 function svgDroplet(){
   return `
   <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -416,7 +434,7 @@ function decorateTarget(el, refs, data){
     if (data.itemType === 'bad') el.classList.add('hy-bad');
     else el.classList.add('hy-good');
 
-    // random current vector per target
+    // subtle drift per orb
     const dx = (Math.random()*2 - 1) * 10;
     const dy = (Math.random()*2 - 1) * 10;
     el.style.setProperty('--dx', dx.toFixed(1) + 'px');
@@ -434,7 +452,7 @@ function decorateTarget(el, refs, data){
 }
 
 // -------------------------------------------------
-// Shield logic (P2-B)
+// Shield
 function grantShield(){
   if (S.shield >= S.shieldMax) return false;
   S.shield = Math.min(S.shieldMax, S.shield + 1);
@@ -442,6 +460,22 @@ function grantShield(){
   emit('hha:celebrate', { kind:'shield', at:Date.now(), shield:S.shield });
   updateShieldUI();
   return true;
+}
+
+function fullStormMiniConditionsMet(){
+  if (!S.storm) return false;
+  if (!S.stormMiniActive || S.stormMiniDone) return false;
+
+  const zone = getZoneFromWater(S.water);
+  const notGreen = (zone !== 'GREEN');
+
+  const needIntensity = S.isResearch ? 0.55 : 0.45;
+  const needEndSec    = S.isResearch ? 1 : 2;
+
+  const intensityOK = (S.edgeIntensity >= needIntensity);
+  const endOK = (Number(S.stormLeftSec||0) <= needEndSec);
+
+  return !!(notGreen && intensityOK && endOK);
 }
 
 function completeStormMini(){
@@ -453,15 +487,15 @@ function completeStormMini(){
   S.minisDone += 1;
 
   // bonus (หนัก ๆ)
-  S.score += 45;
-  applyWaterDelta(+7, 'mini(stormShield)');
-  applyFeverDelta(-14, 'mini(stormShield)');
+  S.score += S.isResearch ? 65 : 55;
+  applyWaterDelta(S.isResearch ? +9 : +8, 'mini(stormShieldFull)');
+  applyFeverDelta(S.isResearch ? -18 : -16, 'mini(stormShieldFull)');
 
-  celebrateStamp('STORM MINI!', '+Shield Timing');
-  emit('hha:celebrate', { kind:'mini', at:Date.now(), miniKey:'storm_shield_timing', minisDone:S.minisDone });
+  celebrateStamp('STORM MINI!', 'FULL ✓');
+  emit('hha:celebrate', { kind:'mini', at:Date.now(), miniKey:'storm_shield_timing_full', minisDone:S.minisDone });
 
-  setText('coach-text', '✅ จังหวะเป๊ะ! Shield บล็อกตอนกดดัน = mini ผ่าน! 🫧⚡');
-  setText('coach-sub', 'ได้โบนัส +water +score +cool');
+  setText('coach-text', '✅ FULL TIMING! บล็อกท้ายพายุ + นอก GREEN + pressure สูง = ผ่าน!');
+  setText('coach-sub', 'ได้โบนัสหนัก ๆ เลย 🫧⚡');
   emit('hha:coach', { text: $('coach-text')?.textContent || '', mood:'happy' });
 }
 
@@ -482,21 +516,22 @@ function onHitResult(itemType, hitPerfect){
 
   // Shield blocks BAD hits
   if (itemType === 'bad' && tryConsumeShieldForBadBlock()){
-    // ✅ mini quest condition: must be during storm AND pressure high
-    // "ถูกจังหวะ" = edgeIntensity >= 0.35 (ขอบจอแรง)
-    if (S.storm && S.stormMiniActive && !S.stormMiniDone){
-      if (S.edgeIntensity >= 0.35){
-        completeStormMini();
-      } else {
-        // not timing enough: still good block, but no mini
-        setText('coach-text', '🫧 บล็อกได้! แต่ยังไม่เข้าเงื่อนไข “จังหวะกดดัน”');
-        setText('coach-sub', 'รอขอบจอแรงขึ้นตอน Storm แล้วค่อยบล็อกอีกครั้ง');
-        emit('hha:coach', { text: $('coach-text')?.textContent || '', mood:'neutral' });
-      }
-      S.stormMiniAttempted = true;
+    // ✅ FULL mini quest: must satisfy ALL conditions
+    if (fullStormMiniConditionsMet()){
+      completeStormMini();
+    } else if (S.storm && S.stormMiniActive && !S.stormMiniDone){
+      const zone = getZoneFromWater(S.water);
+      const needIntensity = S.isResearch ? 0.55 : 0.45;
+      const needEndSec    = S.isResearch ? 1 : 2;
+
+      setText('coach-text', '🫧 บล็อกได้! แต่ยังไม่ครบเงื่อนไข FULL');
+      setText('coach-sub',
+        `ต้อง: ท้ายพายุ(≤${needEndSec}s) + LOW/HIGH (ตอนนี้ ${zone}) + pressure≥${needIntensity.toFixed(2)} (ตอนนี้ ${S.edgeIntensity.toFixed(2)})`
+      );
+      emit('hha:coach', { text: $('coach-text')?.textContent || '', mood:'neutral' });
     }
 
-    // no miss, no water loss
+    // reward small for correct defense
     S.combo = Math.max(0, S.combo - 1);
     applyFeverDelta(-6, 'shield(blockBad)');
     S.score += 4;
@@ -536,9 +571,8 @@ function onExpireResult(itemType){
     applyWaterDelta(T.goodExpire, 'expire(good)');
     applyFeverDelta(T.feverMiss, 'fever(missGood)');
   } else {
-    // ✅ HERE: BAD expire policy
+    // ✅ BAD expire policy
     if (penalizeBadExpire()){
-      // Study/research: penalize
       S.miss += 1;
       S.score = Math.max(0, S.score - 12);
       applyWaterDelta(T.badExpire, 'expire(bad)');
@@ -574,7 +608,7 @@ function tickSecond(){
   S.secLeft -= 1;
   emit('hha:time', { sec:S.secLeft });
 
-  const z = (zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH')));
+  const z = getZoneFromWater(S.water);
 
   // GREEN goal + streak for shield
   if (z === 'GREEN'){
@@ -587,7 +621,7 @@ function tickSecond(){
     S.greenStreak = 0;
   }
 
-  // Edge intensity based on deviation from green band
+  // Edge intensity (deviation from green band)
   const dev = (z === 'GREEN') ? 0 : (S.water < 45 ? (45 - S.water) : (S.water - 65));
   const intensity = clamp(dev / 22, 0, 0.85);
   setEdgeFX(z, intensity);
@@ -689,7 +723,6 @@ async function startGame(){
   // storm mini reset
   S.stormMiniActive = false;
   S.stormMiniDone = false;
-  S.stormMiniAttempted = false;
 
   // water start
   const waterStart = clamp(qnum('waterStart', 34), 0, 100);
@@ -714,7 +747,7 @@ async function startGame(){
   // init UI
   try { ensureWaterGauge && ensureWaterGauge(); } catch {}
   try { setWaterGauge && setWaterGauge(S.water); } catch {}
-  setEdgeFX((zoneFrom ? zoneFrom(S.water) : 'LOW'), 0);
+  setEdgeFX(getZoneFromWater(S.water), 0);
   applyFeverDelta(0, 'init');
   pushHUD();
 
@@ -777,8 +810,8 @@ async function startGame(){
   }
 
   setText('coach-text', S.isResearch
-    ? 'โหมดวิจัย: BAD expire “นับโทษ” + Storm ถี่กว่า 🧪🌪️'
-    : 'โหมดเล่น: BAD expire = หลบสำเร็จ (ไม่โดนลงโทษ) 💧'
+    ? 'โหมดวิจัย: BAD expire นับโทษ + Mini FULL โหดสุด 🧪'
+    : 'โหมดเล่น: BAD expire = หลบสำเร็จ + Mini FULL ท้าทาย 💧'
   );
   setText('coach-sub', 'แตะเป้า หรือ แตะกลางจอเพื่อยิง crosshair');
 
