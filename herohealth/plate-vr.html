@@ -1,10 +1,10 @@
 <!-- === /herohealth/plate-vr.html ===
-Plate VR (PRODUCTION++) — Full HTML
+Plate VR (PRODUCTION) — Full HTML (WITH COACH PANEL)
 ✅ Start Overlay (start-gated)
 ✅ HUD + Crosshair + FX overlays
-✅ Coach Panel (ใช้ /herohealth/img/coach-*.png)
-✅ Result overlay มีปุ่มกลับ HUB + เล่นอีกครั้ง
-✅ ใช้คู่กับ: ./plate/plate.safe.js
+✅ Coach panel (uses /img/coach-*.png)
+✅ Result overlay + Back HUB + Play again
+✅ Works with /plate/plate.safe.js + /plate/plate.state.js
 -->
 
 <!doctype html>
@@ -28,6 +28,7 @@ Plate VR (PRODUCTION++) — Full HTML
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.62);
+      --panel2:rgba(15,23,42,.58);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
@@ -156,39 +157,9 @@ Plate VR (PRODUCTION++) — Full HTML
     }
     .btn:active{transform:translateY(1px);}
 
-    /* ===== Coach Panel ===== */
-    #coachPanel{
-      position:fixed; left:10px; bottom:10px;
-      z-index:915;
-      display:flex; gap:10px; align-items:flex-end;
-      pointer-events:none;
-    }
-    #coachAvatar{
-      width:64px; height:64px; border-radius:18px;
-      background:rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.20);
-      box-shadow:0 18px 46px rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      display:grid; place-items:center;
-      overflow:hidden;
-    }
-    #coachAvatar img{width:100%; height:100%; object-fit:cover; transform:scale(1.05);}
-    #coachBubble{
-      max-width:min(62vw,520px);
-      background:rgba(2,6,23,.68);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
-      padding:10px 12px;
-      box-shadow:0 18px 46px rgba(0,0,0,.35);
-      backdrop-filter: blur(8px);
-      pointer-events:none;
-    }
-    #coachMsg{font-weight:1000; line-height:1.25;}
-    #coachSub{margin-top:6px; color:rgba(148,163,184,.92); font-weight:900; font-size:12px; line-height:1.25;}
-
     /* ===== Mini/Goal panel ===== */
     #miniPanel{
-      position:fixed; left:10px; right:10px; bottom:84px;
+      position:fixed; left:10px; right:10px; bottom:64px;
       z-index:905;
       pointer-events:none;
       background:rgba(2,6,23,.58);
@@ -215,6 +186,40 @@ Plate VR (PRODUCTION++) — Full HTML
       pointer-events:none;
     }
 
+    /* ===== Coach panel ===== */
+    #coachPanel{
+      position:fixed;
+      left:10px;
+      bottom:170px; /* กันทับ miniPanel + ปุ่ม */
+      z-index:906;
+      width:min(360px,56vw);
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding:10px 12px;
+      border-radius:16px;
+      background:rgba(2,6,23,.58);
+      border:1px solid rgba(148,163,184,.18);
+      backdrop-filter: blur(8px);
+      box-shadow:0 18px 44px rgba(0,0,0,.30);
+      pointer-events:none; /* ไม่บังการยิง */
+    }
+    #coachImg{
+      width:54px; height:54px;
+      border-radius:14px;
+      object-fit:cover;
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 10px 26px rgba(0,0,0,.28);
+      flex:0 0 auto;
+    }
+    #coachMsg{
+      font-weight:1000;
+      line-height:1.2;
+      color:rgba(229,231,235,.92);
+      word-break: break-word;
+    }
+
     /* Result overlay */
     #resultBackdrop{
       position:fixed; inset:0; z-index:1200;
@@ -234,7 +239,10 @@ Plate VR (PRODUCTION++) — Full HTML
     .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px;}
     .cell{background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px;}
     .cell .k{display:block; margin-bottom:4px;}
-    #resultActions{display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;}
+
+    #resultActions{
+      display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;
+    }
   </style>
 
   <!-- ✅ plate.safe.js -->
@@ -281,7 +289,7 @@ Plate VR (PRODUCTION++) — Full HTML
         <span class="pill">🔥 <span class="k">FEVER</span> <span id="hudFeverPct" class="v">0%</span></span>
         <span class="pill">🎖️ <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
 
-        <!-- element ซ่อนไว้แต่ยังให้ JS อัปเดตได้ -->
+        <!-- hidden but updatable -->
         <span class="pill" style="display:none">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
         <span class="pill" style="display:none">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
         <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Normal</span></span>
@@ -289,21 +297,16 @@ Plate VR (PRODUCTION++) — Full HTML
     </div>
   </div>
 
-  <!-- Coach -->
-  <div id="coachPanel" aria-hidden="true">
-    <div id="coachAvatar">
-      <img id="coachImg" src="./img/coach-neutral.png" alt="coach">
-    </div>
-    <div id="coachBubble">
-      <div id="coachMsg">พร้อมแล้ว! เก็บให้ครบ 5 หมู่ 💪</div>
-      <div id="coachSub">TIP: เล็งกลางจอแล้วแตะยิง / Space ก็ยิงได้</div>
-    </div>
-  </div>
-
   <div id="miniPanel">
     <div id="miniLine">MINI: …</div>
     <div id="goalLine">Goal: …</div>
     <div id="miniHint">…</div>
+  </div>
+
+  <!-- Coach -->
+  <div id="coachPanel">
+    <img id="coachImg" src="./img/coach-neutral.png" alt="Coach" />
+    <div id="coachMsg">พร้อมแล้ว! เก็บให้ครบ 5 หมู่ 💪</div>
   </div>
 
   <div id="hudBtns">
