@@ -1,12 +1,13 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration Quest VR — Orb Identity + Cinematic Storm + HUD Quest Fix (P0+P1)
-// ✅ Fix: Quest panel (bottom-right) not showing -> emit quest:update + hha:quest + cache replay
-// ✅ Fix: Hit has NO effect -> built-in FX layer (bubble burst + score pop + punch) (no dependency)
+// ✅ Fix: Quest panel not showing -> emit quest:update + hha:quest + cache replay
+// ✅ Fix: Hit has NO effect -> built-in FX layer (bubble burst + score pop + punch)
+// ✅ Fix: ONLY RED targets -> make rates numeric + non-empty pools + safe dynamic rate updates
 // ✅ Fix: Expire policy: GOOD expire hurts; BAD expire in PLAY no penalty; STUDY penalty
 // ✅ Fix: Goal counts while in GREEN (sec-based, hysteresis)
 // ✅ Storm: warning (beep/tick) + thunder (ONLY beep/tick/thunder)
-// ✅ Mini-Quest Storm: Shield timing in laser-fire window (NOW!)
-// ✅ Keep Play mode “playable” แต่โหดแบบวิจัย (harsh tuning)
+// ✅ Mini-Quest Storm: Shield timing counted ONLY inside laser-fire window
+// ✅ Play mode “playable” แต่โหดแบบวิจัย (harsh tuning)
 
 'use strict';
 
@@ -42,7 +43,7 @@ const pickEl = (ids=[]) => {
   return null;
 };
 
-// -------------------- FX layer (built-in, no particles.js needed) --------------------
+// -------------------- FX layer (built-in) --------------------
 function ensureFxLayer(){
   if (!DOC) return null;
   let layer = DOC.querySelector('.hy-fx-layer');
@@ -144,11 +145,7 @@ function ensureFxLayer(){
   return layer;
 }
 
-const FX = {
-  layer: null,
-  punchEl: null
-};
-
+const FX = { layer:null, punchEl:null };
 function fxInit(){
   FX.layer = ensureFxLayer();
   FX.punchEl = DOC ? DOC.getElementById('hy-punch') : null;
@@ -161,7 +158,6 @@ function fxPunch(){
   void FX.punchEl.offsetWidth;
   FX.punchEl.classList.add('on');
 }
-
 function fxScorePop(x,y,text){
   if (!FX.layer) return;
   const el = DOC.createElement('div');
@@ -172,7 +168,6 @@ function fxScorePop(x,y,text){
   FX.layer.appendChild(el);
   ROOT.setTimeout(()=>{ try{ el.remove(); }catch{} }, 900);
 }
-
 function fxBurst(x,y,intensity=1){
   if (!FX.layer) return;
 
@@ -202,7 +197,6 @@ function fxBurst(x,y,intensity=1){
     ROOT.setTimeout(()=>{ try{ b.remove(); }catch{} }, 900);
   }
 }
-
 function centerFromEl(el){
   try{
     const r = el.getBoundingClientRect();
@@ -296,7 +290,6 @@ function ensureCinematicLayer(){
       50%{ transform:translate(-50%,-50%) scale(1.05); filter: brightness(1.2); }
       100%{ transform:translate(-50%,-50%) scale(1); filter: brightness(1); }
     }
-    /* Orb shimmer */
     .hy-orb{
       position:absolute; inset:0;
       border-radius:999px; overflow:hidden; pointer-events:none;
@@ -464,7 +457,7 @@ function thunder(intensity=1.0){
   o.stop(t0 + dur + 0.03);
 }
 
-// -------------------- HUD elements (robust ids) --------------------
+// -------------------- HUD elements --------------------
 const EL = {
   waterZone: pickEl(['water-zone','hud-water-zone']),
   waterPct:  pickEl(['water-pct','hud-water-pct']),
@@ -490,7 +483,6 @@ const EL = {
   coachText: pickEl(['coach-text','hud-coach-text']),
   coachSub:  pickEl(['coach-sub','hud-coach-sub']),
 
-  // optional “Storm Mini FULL panel”
   stormPressureBar: pickEl(['pressure-bar','storm-pressure-bar','mini-pressure-bar']),
   stormPressurePct: pickEl(['pressure-pct','storm-pressure-pct']),
 
@@ -512,7 +504,7 @@ const EL = {
   btnBack: $('btn-backhub')
 };
 
-// -------------------- Quest cache (fix right-bottom not showing) --------------------
+// -------------------- Quest cache --------------------
 function cacheQuest(q){
   try{ ROOT.__HHA_LAST_QUEST__ = q; }catch{}
 }
@@ -558,10 +550,9 @@ const baseTune = {
   goodHit:  +10,
   goodPerfectBonus: +4,
 
-  badHit:   -16,           // โหดขึ้น
-  goodExpire: -10,         // โหดขึ้น
+  badHit:   -16,
+  goodExpire: -10,
 
-  // Water deltas (ลดการพุ่ง 100 ง่ายเกิน)
   waterGood: +4,
   waterGoodPerfect: +6,
   waterBad: -9,
@@ -576,8 +567,7 @@ const baseTune = {
 
   shieldDurMs: 4200,
 
-  // Cinematic / challenge
-  laserWindowMs: 720,      // “จังหวะ” ชัดขึ้น
+  laserWindowMs: 720,
   stormWarnSec: 3,
   stormActiveSecPlay: 7,
   stormActiveSecStudy: 9,
@@ -626,17 +616,15 @@ const state = {
   minisDone: 0,
   minisTotal: 999,
 
-  // extra challenge: pressure (makes it more fun)
   pressure: 0,
 
-  // storm
   storm: {
     id:0,
     warning:false,
     active:false,
     warnLeft:0,
     activeLeft:0,
-    nextAtSec: Math.max(8, Math.floor(DURATION * 0.28)), // มาเร็วขึ้น = เร้าใจ
+    nextAtSec: Math.max(8, Math.floor(DURATION * 0.28)),
     periodSec: (RUN_MODE === 'study') ? 13 : 16,
     warnSec: TUNE.stormWarnSec,
     activeSec: (RUN_MODE === 'study') ? TUNE.stormActiveSecStudy : TUNE.stormActiveSecPlay
@@ -654,6 +642,55 @@ function setShield(ms){
   setCoach('🛡️','SHIELD ON!','กัน BAD ได้ — แต่ Storm mini ต้อง “จังหวะ laser-fire”');
 }
 
+// -------------------- Dynamic rates (NUMERIC only) --------------------
+function calcRates(){
+  const baseGood = (DIFF === 'easy') ? 0.68 : (DIFF === 'hard') ? 0.60 : 0.64;
+
+  const p = clamp(state.pressure, 0, 100);
+  let good = baseGood - (p/100)*0.10;
+  if (state.storm.warning) good -= 0.08;
+  if (state.storm.active)  good -= 0.14;
+
+  good = clamp(good, 0.48, 0.78);
+
+  let mul = 1.0;
+  if (state.storm.active) mul = (RUN_MODE === 'study') ? 0.52 : 0.60;
+  else if (state.storm.warning) mul = 0.88;
+  else mul = clamp(1.0 - (p/100)*0.22, 0.75, 1.0);
+
+  const trick = (RUN_MODE === 'study') ? 0.11 : 0.08;
+  const power = (RUN_MODE === 'study') ? 0.11 : 0.13;
+
+  return {
+    goodRate: good,
+    spawnIntervalMul: mul,
+    trickRate: trick,
+    powerRate: power
+  };
+}
+
+let factory = null;
+
+function updateFactoryRates(reason=''){
+  if (!factory) return;
+  const r = calcRates();
+
+  // try common update APIs
+  try{
+    if (typeof factory.setRates === 'function') factory.setRates(r);
+    else if (typeof factory.setConfig === 'function') factory.setConfig(r);
+    else if (typeof factory.updateConfig === 'function') factory.updateConfig(r);
+    else if (factory.cfg && typeof factory.cfg === 'object') Object.assign(factory.cfg, r);
+    else if (factory.config && typeof factory.config === 'object') Object.assign(factory.config, r);
+  }catch(_){}
+
+  // optional debug hook
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:adaptive', { detail: { reason, ...r } }));
+  }catch(_){}
+}
+
+// -------------------- Coach + UI --------------------
 function setCoach(face, text, sub){
   if (EL.coachFace) EL.coachFace.textContent = String(face || '🥦');
   if (EL.coachText) EL.coachText.textContent = String(text || '');
@@ -748,7 +785,6 @@ function updateQuestUI(){
     line2: miniLine,
     line3: `${stateLine} · ${goalsLine}`,
     line4: `Progress to S: ${progS}%`,
-    // extra (some HUD binders prefer structured fields)
     goalTitle: `Goal ${state.goalIndex + 1}`,
     goalText: goalLine,
     goalProgress: `${state.greenSecAcc}/${goalNeed}s`,
@@ -759,36 +795,27 @@ function updateQuestUI(){
 }
 
 // -------------------- Score / combo / grade --------------------
-function addCombo(){
-  state.combo += 1;
-  state.comboMax = Math.max(state.comboMax, state.combo);
-}
-function breakCombo(){
-  state.combo = 0;
-}
-function addMiss(n=1){
-  state.miss += (n|0);
-}
-function addScore(n=0){
-  state.score += (n|0);
-}
+function addCombo(){ state.combo += 1; state.comboMax = Math.max(state.comboMax, state.combo); }
+function breakCombo(){ state.combo = 0; }
+function addMiss(n=1){ state.miss += (n|0); }
+function addScore(n=0){ state.score += (n|0); }
 
 function applyWaterDelta(d){
   state.waterPct = clamp(state.waterPct + (Number(d)||0), 0, 100);
   state.zone = zoneFromPctHys(state.waterPct, state.zone);
   updateWaterUI();
 
-  // pressure mechanic: out-of-green builds pressure (more fun)
   if (state.zone !== 'GREEN') state.pressure = clamp(state.pressure + 2.2, 0, 100);
   else state.pressure = clamp(state.pressure - 3.0, 0, 100);
   updatePressureUI();
+
+  updateFactoryRates('water/pressure');
 }
 
 function applyFeverDelta(d){
   state.feverPct = clamp(state.feverPct + (Number(d)||0), 0, 100);
   updateFeverUI();
 
-  // high fever auto shield (identity)
   if (state.feverPct >= 92) setShield(2600);
 }
 
@@ -813,6 +840,8 @@ function stormStartWarning(){
   if (state.storm.warning || state.storm.active) return;
   state.storm.warning = true;
   state.storm.warnLeft = state.storm.warnSec;
+
+  updateFactoryRates('storm-warning');
 
   cineVignette(true);
   cineEdgePulse(true);
@@ -845,12 +874,13 @@ function stormBegin(){
 
   state.stormMini = { active:true, need:2, got:0, done:false, stormId: state.storm.id };
 
+  updateFactoryRates('storm-begin');
+
   cineFlash(140);
   thunder(1.15);
   setCoach('🌪️','STORM ACTIVE!','ตอน laser-fire ให้ block BAD “จังหวะนั้น” ถึงนับ mini!');
   updateQuestUI();
 
-  // cinematic flashes
   const flashes = (RUN_MODE === 'study') ? 4 : 3;
   for (let i=0;i<flashes;i++){
     const t = 520 + Math.random()*1900;
@@ -861,20 +891,17 @@ function stormBegin(){
 function stormTickPerSecond(){
   const elapsed = (DURATION - state.secLeft);
 
-  // schedule next storm
   if (!state.storm.warning && !state.storm.active && elapsed >= state.storm.nextAtSec){
     stormStartWarning();
     state.storm.nextAtSec = elapsed + state.storm.periodSec;
   }
 
-  // active countdown + pressure spike
   if (state.storm.active){
     state.storm.activeLeft = Math.max(0, (state.storm.activeLeft|0) - 1);
 
     cineVignette(true);
     cineEdgePulse(true);
 
-    // storm builds pressure fast (thrill)
     state.pressure = clamp(state.pressure + 6.5, 0, 100);
     updatePressureUI();
 
@@ -883,6 +910,8 @@ function stormTickPerSecond(){
       cineEdgePulse(false);
       cineVignette(false);
       cineNow(false);
+
+      updateFactoryRates('storm-end');
 
       if (state.stormMini && state.stormMini.done){
         state.minisDone += 1;
@@ -913,7 +942,7 @@ function goalTickPerSecond(){
     cineFlash(110);
 
     setCoach('🥦','ดีมาก! ผ่าน GOAL','ไปต่อ (เข้มขึ้น)');
-    state.goalIndex = Math.min(state.goalsTotal-1, state.goalIndex + 1);
+    state.goalIndex = Math.min(state.goalsTotal-1, state.goalsTotal-1);
     state.greenSecAcc = 0;
     updateQuestUI();
 
@@ -941,33 +970,20 @@ ROOT.addEventListener('hha:tick', (ev)=>{
   }
 });
 
-// -------------------- Spawn intensity (fun/challenge) --------------------
-function spawnIntervalMul(){
-  if (state.storm.active) return (RUN_MODE === 'study') ? 0.52 : 0.60;
-  if (state.storm.warning) return 0.88;
-  // pressure makes it more intense even outside storm
-  const p = clamp(state.pressure, 0, 100);
-  return clamp(1.0 - (p/100)*0.22, 0.75, 1.0);
-}
-function goodRateDynamic(){
-  const base = (DIFF === 'easy') ? 0.68 : (DIFF === 'hard') ? 0.60 : 0.64;
-  if (state.storm.active) return clamp(base - 0.14, 0.44, 0.70);
-  if (state.storm.warning) return clamp(base - 0.08, 0.44, 0.75);
-  // pressure pushes more BAD
-  const p = clamp(state.pressure, 0, 100);
-  return clamp(base - (p/100)*0.10, 0.48, 0.74);
-}
-
 // -------------------- ORB decorate (hydration identity) --------------------
 function decorateOrb(el, parts, data, meta){
   try{
     const sz = meta.size || 78;
     const inner = (parts && parts.inner) ? parts.inner : el;
 
+    // hide any emoji label that comes from pools (we use orb visual)
+    if (parts && parts.emoji) parts.emoji.style.opacity = '0';
+    if (inner && inner.firstChild && inner.firstChild.nodeType === 3) inner.textContent = '';
+
     if (parts && parts.icon){
       if (data.itemType === 'power') parts.icon.textContent = '🛡️';
       else if (data.itemType === 'bad') parts.icon.textContent = '☠️';
-      else parts.icon.textContent = '';
+      else parts.icon.textContent = ''; // good/trick no icon
       parts.icon.style.fontSize = Math.max(16, Math.round(sz * 0.22)) + 'px';
       parts.icon.style.opacity = (data.itemType === 'bad' || data.itemType === 'power') ? '0.92' : '0.0';
     }
@@ -978,12 +994,15 @@ function decorateOrb(el, parts, data, meta){
     } else if (data.itemType === 'power'){
       el.style.background = 'radial-gradient(circle at 30% 25%, rgba(250,204,21,.95), rgba(249,115,22,.92))';
       el.style.boxShadow = '0 16px 34px rgba(0,0,0,.55), 0 0 0 2px rgba(250,204,21,.28), 0 0 24px rgba(250,204,21,.24)';
+    } else if (data.itemType === 'fakeGood'){
+      el.style.background = 'radial-gradient(circle at 30% 25%, rgba(203,213,225,.78), rgba(148,163,184,.72))';
+      el.style.boxShadow = '0 16px 34px rgba(0,0,0,.55), 0 0 0 2px rgba(148,163,184,.16), 0 0 18px rgba(148,163,184,.16)';
     } else {
+      // GOOD
       el.style.background = 'radial-gradient(circle at 30% 25%, rgba(34,211,238,.85), rgba(59,130,246,.85))';
       el.style.boxShadow = '0 16px 34px rgba(0,0,0,.55), 0 0 0 2px rgba(34,211,238,.22), 0 0 22px rgba(59,130,246,.22)';
     }
 
-    // add shimmer orb if not exists
     if (!inner.querySelector('.hy-orb')){
       const orb = DOC.createElement('div');
       orb.className = 'hy-orb';
@@ -997,7 +1016,6 @@ function decorateOrb(el, parts, data, meta){
       inner.appendChild(orb);
     }
 
-    // ring style
     if (parts && parts.ring){
       parts.ring.style.border = '2px solid rgba(255,255,255,.22)';
       parts.ring.style.outline = '1px solid rgba(255,255,255,.08)';
@@ -1024,7 +1042,6 @@ function judge(_ch, ctx){
   const el = ctx.el || ctx.targetEl || null;
   const c = el ? centerFromEl(el) : { x:(ROOT.innerWidth||0)/2, y:(ROOT.innerHeight||0)/2 };
 
-  // helper: do common FX
   const doFx = (txt, intensity=1.0) => {
     animateHit(el);
     fxBurst(c.x, c.y, intensity);
@@ -1034,7 +1051,6 @@ function judge(_ch, ctx){
     try{ Particles.scorePop(c.x, c.y, txt); }catch{}
   };
 
-  // BAD
   if (type === 'bad'){
     if (isShieldOn()){
       addScore(+2);
@@ -1061,7 +1077,6 @@ function judge(_ch, ctx){
       return { good:true, kind:'bad-blocked', shield:true };
     }
 
-    // hit bad
     breakCombo();
     addMiss(1);
     addScore(TUNE.badHit);
@@ -1073,7 +1088,6 @@ function judge(_ch, ctx){
     return { good:false, kind:'bad-hit' };
   }
 
-  // POWER
   if (type === 'power'){
     addCombo();
     addScore(9);
@@ -1086,7 +1100,6 @@ function judge(_ch, ctx){
     return { good:true, kind:'power' };
   }
 
-  // FAKEGOOD
   if (type === 'fakeGood'){
     addCombo();
     addScore(4 + (perfect ? 2 : 0));
@@ -1174,14 +1187,12 @@ function makeSummary(){
     grade: state.grade
   };
 }
-
 function storeLastSummary(sum){
   try{
     localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(sum || {}));
     localStorage.setItem('hha_last_summary', JSON.stringify(sum || {}));
   }catch{}
 }
-
 function showEnd(){
   if (state.ended) return;
   state.ended = true;
@@ -1204,16 +1215,13 @@ function showEnd(){
   if (EL.endOverlay) EL.endOverlay.style.display = 'flex';
   setCoach('🥳','จบเกมแล้ว!','กด RETRY หรือกลับ HUB ได้เลย');
 }
-
-// -------------------- Engine boot --------------------
-let factory = null;
-
 function stopGame(){
   try{ if (factory && factory.stop) factory.stop(); }catch{}
   factory = null;
   showEnd();
 }
 
+// -------------------- Reset --------------------
 function resetState(){
   state.started=false; state.ended=false;
   state.secLeft=DURATION;
@@ -1233,12 +1241,12 @@ function resetState(){
   state.stormMini = { active:false, need:2, got:0, done:false, stormId:0 };
 }
 
+// -------------------- Start --------------------
 async function startGame(){
   if (state.started) return;
   resetState();
   state.started = true;
 
-  // unlock audio
   ensureAudio();
 
   try{ ensureWaterGauge(); }catch{}
@@ -1253,20 +1261,15 @@ async function startGame(){
 
   setCoach('💧','Hydration เริ่ม!','รักษา GREEN + เตรียม Storm');
 
-  // per-second logic (listens to external timer if present, else local)
   let localTimer = null;
+  let hasExternalTime = false;
 
   const onTime = (ev)=>{
     if (!state.started || state.ended) return;
     const sec = (ev && ev.detail && Number.isFinite(ev.detail.sec)) ? (ev.detail.sec|0) : state.secLeft;
     state.secLeft = clamp(sec, 0, DURATION)|0;
 
-    // fever decay
     applyFeverDelta(-TUNE.feverDecayPerSec);
-
-    // pressure behavior: storm makes it rise
-    if (state.storm.active) state.pressure = clamp(state.pressure + 4.0, 0, 100);
-    updatePressureUI();
 
     goalTickPerSecond();
     stormTickPerSecond();
@@ -1275,11 +1278,11 @@ async function startGame(){
     updateStatsUI();
     updateQuestUI();
 
+    updateFactoryRates('tick');
+
     if (state.secLeft <= 0) stopGame();
   };
 
-  // if some engine dispatches hha:time use it; else local interval fallback
-  let hasExternalTime = false;
   const probe = (ev)=>{ hasExternalTime = true; onTime(ev); };
   ROOT.addEventListener('hha:time', probe);
 
@@ -1292,8 +1295,14 @@ async function startGame(){
 
   const allowAdaptive = (RUN_MODE !== 'study');
 
-  const pools = { good:[''], bad:[''], trick:[''] };
-  const powerups = ['🛡️'];
+  // ✅ IMPORTANT: pools must be non-empty (prevents fallback-to-bad)
+  const pools = {
+    good: ['💧'],
+    bad:  ['☠️'],
+    trick:['🫧']
+  };
+
+  const rates0 = calcRates();
 
   factory = await factoryBoot({
     modeKey: 'hydration',
@@ -1315,23 +1324,26 @@ async function startGame(){
 
     seed: SEED,
 
-    goodRate: ()=> goodRateDynamic(),
-    spawnIntervalMul: ()=> spawnIntervalMul(),
+    // ✅ numeric rates ONLY (fix "all red")
+    goodRate: rates0.goodRate,
+    trickRate: rates0.trickRate,
+    powerRate: rates0.powerRate,
+    spawnIntervalMul: rates0.spawnIntervalMul,
 
-    powerups,
-    powerRate: (RUN_MODE === 'study') ? 0.11 : 0.13,
+    powerups: ['🛡️'],
     powerEvery: 7,
-    trickRate: (RUN_MODE === 'study') ? 0.11 : 0.08,
 
     allowAdaptive,
     pools,
-    decorateTarget: decorateOrb,
 
+    decorateTarget: decorateOrb,
     judge,
     onExpire
   });
 
-  // tap to shoot crosshair if mode-factory provides it
+  updateFactoryRates('post-boot');
+
+  // tap to shoot crosshair (if supported)
   const onTapShoot = ()=>{
     if (!state.started || state.ended) return;
     ensureAudio();
@@ -1351,7 +1363,7 @@ async function startGame(){
   ROOT.addEventListener('hha:stop', cleanup, { once:true });
 }
 
-// -------------------- Buttons (safe) --------------------
+// -------------------- Buttons --------------------
 function bindButtons(){
   if (EL.btnStop){
     EL.btnStop.addEventListener('click', ()=>{
@@ -1406,7 +1418,6 @@ function bindButtons(){
 (function init(){
   bindButtons();
 
-  // hard-set initial (prevents weird HUD empty)
   try{ ensureWaterGauge(); }catch{}
   state.waterPct = 50;
   state.zone = zoneFromPctHys(state.waterPct, 'GREEN');
@@ -1424,6 +1435,6 @@ function bindButtons(){
 
   setCoach('🥦','พร้อมแล้ว เก็บน้ำดี ๆ นะ!','แตะเป้า หรือแตะกลางจอเพื่อยิง crosshair');
 
-  // failsafe: if no overlay/start button, auto start
+  // if no overlay/start button, auto start
   if (!EL.startOverlay && !EL.btnStart) startGame();
 })();
