@@ -1,11 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// HydrationVR — PRODUCTION (Continue Patch)
-// ✅ FIX: EXPIRE water delta correct
-// ✅ FIX: BAD expire penalizes (research-hard) (toggleable)
-// ✅ FIX: drift mean controlled (Play delayed, Study immediate)
-// ✅ ADD: Hydro-Orb identity via decorateTarget (no big emoji; SVG symbol)
-// ✅ ADD: Play = "research-hard vibe" (expire matters) but still playable
-// ✅ Emits: hha:score / hha:time / quest:update / hha:coach / hha:fever / hha:end
+// HydrationVR — PRODUCTION (P2-A/B/C FULL)
+// P2-A: LOW/HIGH Edge FX + soft shake + subtle beep (after START only)
+// P2-B: Green Stabilizer -> Bubble Shield (stay GREEN 5s => shield +1, max 1)
+//       Shield blocks BAD hit once (no miss, no water loss, cool fever)
+// P2-C: Storm Current -> targets drift (CSS vars --dx/--dy), storm cadence + overlay
+// ✅ Play mode but "research-hard vibe": expire matters + bad expire penalized
+// ✅ Fix: clamp deltas & guard NaN to prevent water jump to 100
+// ✅ Goal GREEN time counts reliably (zoneFrom === 'GREEN')
 
 'use strict';
 
@@ -18,7 +19,8 @@ const DOC  = ROOT.document;
 const $ = (id) => DOC.getElementById(id);
 
 function clamp(v, a, b){
-  v = Number(v)||0;
+  v = Number(v);
+  if (!Number.isFinite(v)) v = a;
   return v < a ? a : (v > b ? b : v);
 }
 function now(){
@@ -39,7 +41,6 @@ function truthy(s){
   s = String(s||'').toLowerCase();
   return (s==='1'||s==='true'||s==='yes'||s==='y'||s==='on');
 }
-
 function setText(id, txt){
   const el = $(id);
   if (el) el.textContent = String(txt ?? '');
@@ -48,6 +49,7 @@ function emit(type, detail){
   try { ROOT.dispatchEvent(new CustomEvent(type, { detail })); } catch {}
 }
 
+// -------------------------------------------------
 const S = {
   started:false,
   stopped:false,
@@ -68,21 +70,40 @@ const S = {
   mean:50,
   driftK:0.03,
   driftCap:0.9,
-  autoDriftDelayMs:3500,
+  autoDriftDelayMs:4200,
   tStartedAt:0,
   hasInteracted:false,
 
   fever:0,
 
+  // goal: green seconds
   greenSec:0,
   goalGreenSecTarget:18,
   minisDone:0,
   goalsDone:0,
   lastCause:'init',
 
+  // P2-B Shield
+  shield:0,
+  greenStreak:0,
+  shieldMax:1,
+
+  // P2-C Storm
+  storm:false,
+  stormLeftSec:0,
+  stormNextInSec:0,
+  stormMinGap:12,
+  stormMaxGap:18,
+  stormDurMin:4,
+  stormDurMax:6,
+
+  // Audio (P2-A)
+  audioOK:false,
+  audioCtx:null,
+  beepGateMs:0,
+
   controller:null,
-  raf:null,
-  lastTs:0,
+  _timer:null,
   secLeft:70
 };
 
@@ -96,9 +117,10 @@ function getDiff(){
   return DIFF[k] || DIFF.normal;
 }
 
-// Play แต่โหดแบบวิจัย: ให้ expire มีผลเสมอ + BAD หลุดโดนเสมอ
+// Play but research-hard vibe
 const PENALIZE_BAD_EXPIRE = true;
 
+// -------------------------------------------------
 function gradeFrom(score, miss, water){
   const w = clamp(water,0,100);
   const green = (w >= 45 && w <= 65);
@@ -111,9 +133,89 @@ function gradeFrom(score, miss, water){
   return 'C';
 }
 
+// --- Audio helpers (P2-A) ---
+function ensureAudio(){
+  if (S.audioOK) return;
+  try{
+    const Ctx = ROOT.AudioContext || ROOT.webkitAudioContext;
+    if (!Ctx) return;
+    S.audioCtx = new Ctx();
+    S.audioOK = true;
+  }catch{}
+}
+async function resumeAudio(){
+  try{
+    if (!S.audioCtx) return;
+    if (S.audioCtx.state === 'suspended') await S.audioCtx.resume();
+  }catch{}
+}
+function beep(freq=880, ms=55, gain=0.035){
+  // subtle beep; only after START click
+  if (!S.audioOK || !S.audioCtx) return;
+  const t = now();
+  if (t < S.beepGateMs) return;
+  S.beepGateMs = t + 220; // throttle
+
+  try{
+    const ctx = S.audioCtx;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.value = gain;
+
+    o.connect(g);
+    g.connect(ctx.destination);
+
+    const st = ctx.currentTime;
+    o.start(st);
+    g.gain.setValueAtTime(gain, st);
+    g.gain.exponentialRampToValueAtTime(0.0001, st + ms/1000);
+    o.stop(st + ms/1000 + 0.02);
+  }catch{}
+}
+
+// --- UI: Shield / Storm / Edge FX ---
+function setEdgeFX(zone, intensity){
+  intensity = clamp(intensity, 0, 0.85);
+  try{
+    DOC.body.style.setProperty('--fx', String(intensity.toFixed(3)));
+    DOC.body.classList.remove('fx-low','fx-high','fx-shake');
+
+    if (zone === 'LOW'){
+      DOC.body.classList.add('fx-low');
+      if (intensity > 0.30) DOC.body.classList.add('fx-shake');
+    } else if (zone === 'HIGH'){
+      DOC.body.classList.add('fx-high');
+      if (intensity > 0.30) DOC.body.classList.add('fx-shake');
+    }
+
+    // beep only when intensity high and after interaction
+    if (S.started && (S.hasInteracted || (now() - S.tStartedAt) > 1500) && intensity > 0.38){
+      beep(zone === 'HIGH' ? 740 : 880, 55, 0.028);
+    }
+  }catch{}
+}
+
+function updateShieldUI(){
+  setText('shield-count', String(S.shield|0));
+}
+function updateStormUI(){
+  setText('storm-left', String(Math.max(0, S.stormLeftSec|0)));
+  try{
+    if (S.storm) DOC.body.classList.add('storm');
+    else DOC.body.classList.remove('storm');
+  }catch{}
+}
+
 function applyWaterDelta(delta, cause){
-  delta = Number(delta)||0;
-  if (!Number.isFinite(delta) || delta === 0) return;
+  // guard big jumps => prevent "water to 100" glitches
+  delta = Number(delta);
+  if (!Number.isFinite(delta)) return;
+
+  // clamp event delta (per tick)
+  delta = clamp(delta, -28, +28);
+  if (delta === 0) return;
 
   S.water = clamp(S.water + delta, 0, 100);
   S.lastCause = String(cause||'');
@@ -123,7 +225,7 @@ function applyWaterDelta(delta, cause){
 }
 
 function applyFeverDelta(delta, cause){
-  delta = Number(delta)||0;
+  delta = Number(delta);
   if (!Number.isFinite(delta) || delta === 0) return;
   S.fever = clamp(S.fever + delta, 0, 100);
   emit('hha:fever', { pct:S.fever, cause:String(cause||'') });
@@ -134,7 +236,7 @@ function applyFeverDelta(delta, cause){
 }
 
 function updateQuest(){
-  const z = zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH'));
+  const z = (zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH')));
   const goalLine1 = `Goal: อยู่ใน GREEN ให้ครบ 🟢`;
   const goalLine2 = `สะสม GREEN รวม ${Math.round(S.greenSec)}/${S.goalGreenSecTarget} วินาที`;
   const goalLine3 = `Goals done: ${S.goalsDone} · Minis done: ${S.minisDone}`;
@@ -178,11 +280,14 @@ function pushHUD(){
   setText('stat-time', S.secLeft|0);
   setText('stat-grade', grade);
 
-  const z = zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH'));
+  const z = (zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH')));
   setText('water-zone', z);
   setText('water-pct', Math.round(S.water) + '%');
   const wb = $('water-bar');
   if (wb) wb.style.width = clamp(S.water,0,100) + '%';
+
+  updateShieldUI();
+  updateStormUI();
 
   emit('hha:score', {
     score:S.score|0,
@@ -194,25 +299,58 @@ function pushHUD(){
     waterPct:S.water,
     waterZone:z,
     feverPct:S.fever,
+    shield:S.shield|0,
+    storm:S.storm,
+    stormLeft:S.stormLeftSec|0,
     lastCause:S.lastCause
   });
 
   updateQuest();
 }
 
+// -------------------------------------------------
+// Drift regression-to-mean (controlled)
+function driftOk(){
+  if (S.isResearch) return true;
+  if (S.hasInteracted) return true;
+  return (now() - S.tStartedAt) >= S.autoDriftDelayMs;
+}
 function driftWaterToMean(){
   const d = (S.mean - S.water);
   if (Math.abs(d) < 0.05) return;
   const step = clamp(d * S.driftK, -S.driftCap, S.driftCap);
   applyWaterDelta(step, 'drift(mean)');
 }
-function driftOk(){
-  if (S.isResearch) return true;
-  if (S.hasInteracted) return true;
-  return (now() - S.tStartedAt) >= S.autoDriftDelayMs;
+
+// -------------------------------------------------
+// Storm (P2-C)
+function randInt(a,b){
+  a = Math.floor(a); b = Math.floor(b);
+  if (b < a) [a,b] = [b,a];
+  return (a + Math.floor(Math.random() * (b-a+1)));
+}
+function scheduleNextStorm(){
+  S.stormNextInSec = randInt(S.stormMinGap, S.stormMaxGap);
+}
+function startStorm(){
+  S.storm = true;
+  S.stormLeftSec = randInt(S.stormDurMin, S.stormDurMax);
+  S.lastCause = 'storm(start)';
+  updateStormUI();
+  celebrateStamp('STORM!', 'current push');
+  // during storm: make drift stronger & edge harsher
+  // (but still bounded by applyWaterDelta clamp)
+}
+function stopStorm(){
+  S.storm = false;
+  S.stormLeftSec = 0;
+  S.lastCause = 'storm(end)';
+  updateStormUI();
+  scheduleNextStorm();
 }
 
-// ---- Hydro-Orb SVG symbols ----
+// -------------------------------------------------
+// Hydro-Orb symbols
 function svgDroplet(){
   return `
   <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -238,8 +376,8 @@ function svgStar(){
   </svg>`;
 }
 
+// decorate target: build orb + set per-target current vector
 function decorateTarget(el, refs, data){
-  // remove big emoji and inject symbol
   try{
     const { inner, icon } = refs || {};
     if (icon){
@@ -251,32 +389,66 @@ function decorateTarget(el, refs, data){
     if (data.itemType === 'bad') el.classList.add('hy-bad');
     else el.classList.add('hy-good');
 
-    // make inner host symbol
+    // random current vector per target
+    const dx = (Math.random()*2 - 1) * 10;  // -10..10 px
+    const dy = (Math.random()*2 - 1) * 10;  // -10..10 px
+    el.style.setProperty('--dx', dx.toFixed(1) + 'px');
+    el.style.setProperty('--dy', dy.toFixed(1) + 'px');
+
     if (inner){
-      // clear previous content except we keep existing children but add symbol on top
       const sym = DOC.createElement('div');
       sym.className = 'hy-symbol';
-
       if (data.itemType === 'power') sym.innerHTML = svgStar();
       else if (data.itemType === 'bad') sym.innerHTML = svgBottle();
       else sym.innerHTML = svgDroplet();
-
       inner.appendChild(sym);
     }
   }catch{}
 }
 
+// -------------------------------------------------
+// Shield logic (P2-B)
+function grantShield(){
+  if (S.shield >= S.shieldMax) return false;
+  S.shield = Math.min(S.shieldMax, S.shield + 1);
+  S.minisDone += 1; // count as mini achievement
+  celebrateStamp('STABILIZER!', '+Shield');
+  emit('hha:celebrate', { kind:'shield', at:Date.now(), shield:S.shield });
+  updateShieldUI();
+  return true;
+}
+function tryConsumeShield(){
+  if (S.shield <= 0) return false;
+  S.shield -= 1;
+  celebrateStamp('SHIELD!', 'blocked');
+  emit('hha:shield', { at:Date.now(), left:S.shield });
+  updateShieldUI();
+  return true;
+}
+
+// -------------------------------------------------
 function onHitResult(itemType, hitPerfect){
   const T = getDiff();
   S.hasInteracted = true;
   S.total += 1;
+
+  // Shield blocks BAD hits (P2-B)
+  if (itemType === 'bad' && tryConsumeShield()){
+    // no miss, no water loss
+    S.combo = Math.max(0, S.combo - 1);
+    applyFeverDelta(-6, 'shield(blockBad)');
+    // small score for correct survival
+    S.score += 4;
+    pushHUD();
+    return;
+  }
 
   if (itemType === 'good' || itemType === 'fakeGood' || itemType === 'power'){
     S.hits += 1;
     S.combo += 1;
     S.comboMax = Math.max(S.comboMax, S.combo);
 
-    let delta = T.good + (hitPerfect ? T.perfect : 0);
+    const delta = T.good + (hitPerfect ? T.perfect : 0);
     S.score += (hitPerfect ? T.scorePerfect : T.scoreGood);
 
     applyWaterDelta(delta, hitPerfect ? 'hit(good,perfect)' : 'hit(good)');
@@ -332,33 +504,77 @@ function judge(ch, ctx){
   if (itemType === 'bad') return { good:false, scoreDelta:-1 };
   return { good:true, scoreDelta:+1 };
 }
-
 function onExpire(info){
   const itemType = String(info && info.itemType ? info.itemType : (info && info.isGood ? 'good' : 'bad'));
   onExpireResult(itemType);
 }
 
+// -------------------------------------------------
 function tickSecond(){
   if (S.secLeft <= 0) return;
 
   S.secLeft -= 1;
   emit('hha:time', { sec:S.secLeft });
 
-  const z = zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH'));
-  if (String(z).toUpperCase().includes('GREEN')){
+  const z = (zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH')));
+
+  // GREEN goal + streak for shield
+  if (z === 'GREEN'){
     S.greenSec += 1;
+    S.greenStreak += 1;
+    if (S.greenStreak === 5){
+      // grant shield at streak 5
+      grantShield();
+    }
+  } else {
+    S.greenStreak = 0;
   }
 
+  // P2-A edge intensity based on deviation from green band
+  const dev = (z === 'GREEN') ? 0 : (S.water < 45 ? (45 - S.water) : (S.water - 65));
+  const intensity = clamp(dev / 22, 0, 0.85);
+  setEdgeFX(z, intensity);
+
+  // extra pressure outside GREEN (research-hard vibe)
+  if (z !== 'GREEN'){
+    // fever creeps up slightly; stronger during storm
+    applyFeverDelta(S.storm ? 1.2 : 0.8, 'pressure(outsideGreen)');
+  } else {
+    // cool a bit if steady green
+    applyFeverDelta(-0.6, 'calm(green)');
+  }
+
+  // drift mean (controlled)
   if (driftOk()){
-    driftWaterToMean();
+    // during storm, drift stronger (more chaotic)
+    if (S.storm){
+      const oldK = S.driftK, oldCap = S.driftCap;
+      S.driftK = Math.max(S.driftK, 0.06);
+      S.driftCap = Math.max(S.driftCap, 1.8);
+      driftWaterToMean();
+      S.driftK = oldK; S.driftCap = oldCap;
+    } else {
+      driftWaterToMean();
+    }
+  }
+
+  // Storm scheduler
+  if (!S.storm){
+    S.stormNextInSec -= 1;
+    if (S.stormNextInSec <= 0){
+      startStorm();
+    }
+  } else {
+    S.stormLeftSec -= 1;
+    if (S.stormLeftSec <= 0){
+      stopStorm();
+    }
   }
 
   checkGoal();
   pushHUD();
 
-  if (S.secLeft <= 0){
-    endGame();
-  }
+  if (S.secLeft <= 0) endGame();
 }
 
 function endGame(){
@@ -387,7 +603,8 @@ function endGame(){
     miss:S.miss|0,
     goalsDone:S.goalsDone,
     goalsTotal:1,
-    minisDone:S.minisDone
+    minisDone:S.minisDone,
+    shieldLeft:S.shield|0
   });
 }
 
@@ -406,9 +623,14 @@ async function startGame(){
   S.timePlannedSec = time;
   S.secLeft = time;
 
+  // reset core
   S.score=0; S.combo=0; S.comboMax=0; S.miss=0; S.hits=0; S.total=0;
   S.fever=0; S.greenSec=0; S.goalsDone=0; S.minisDone=0;
   S.lastCause='init';
+
+  // shield reset
+  S.shield = 0;
+  S.greenStreak = 0;
 
   // water start
   const waterStart = clamp(qnum('waterStart', 34), 0, 100);
@@ -421,26 +643,35 @@ async function startGame(){
   S.driftK   = S.isResearch ? 0.075 : 0.028;
   S.driftCap = S.isResearch ? 2.4   : 0.85;
 
+  // storm cadence (P2-C)
+  S.storm = false;
+  S.stormMinGap = S.isResearch ? 10 : 12;
+  S.stormMaxGap = S.isResearch ? 15 : 18;
+  S.stormDurMin = S.isResearch ? 5  : 4;
+  S.stormDurMax = S.isResearch ? 7  : 6;
+  scheduleNextStorm();
+  updateStormUI();
+
   // init UI
   try { ensureWaterGauge && ensureWaterGauge(); } catch {}
   try { setWaterGauge && setWaterGauge(S.water); } catch {}
+  setEdgeFX((zoneFrom ? zoneFrom(S.water) : 'LOW'), 0);
   applyFeverDelta(0, 'init');
   pushHUD();
+
+  // audio (P2-A) — only after user gesture (START click)
+  ensureAudio();
+  await resumeAudio();
 
   // close start overlay
   const ov = $('start-overlay');
   if (ov) ov.style.display = 'none';
 
-  // pools
-  const pools = {
-    good: ['.'], // we intentionally hide emoji; symbol comes from decorateTarget
-    bad:  ['.'],
-    trick:[]
-  };
+  const pools = { good:['.'], bad:['.'], trick:[] };
 
-  // Play แต่โหดแบบวิจัย: เร่ง spawn นิด + มี trick เล็ก ๆ แต่ไม่เกิน
-  const trickRate = S.isResearch ? 0.12 : 0.09;
-  const spawnMul  = S.isResearch ? 0.92 : 0.96;
+  // Play but research-hard vibe: a bit faster + trick, but bounded
+  const trickRate = S.isResearch ? 0.14 : 0.10;
+  const spawnMul  = S.isResearch ? 0.90 : 0.95;
 
   S.controller = await factoryBoot({
     modeKey:'hydration',
@@ -450,7 +681,6 @@ async function startGame(){
     spawnHost: '#hvr-layer',
     boundsHost: '#playfield',
 
-    // Hydration identity: FULL FIELD spread + grid9
     spawnAroundCrosshair: false,
     spawnStrategy: 'grid9',
 
@@ -462,7 +692,7 @@ async function startGame(){
 
     pools,
     powerups: ['.'],
-    powerRate: S.isResearch ? 0.12 : 0.10,
+    powerRate: S.isResearch ? 0.14 : 0.11,
     powerEvery: 7,
 
     playPadXFrac: 0.10,
@@ -490,8 +720,8 @@ async function startGame(){
   }
 
   setText('coach-text', S.isResearch
-    ? 'โหมดวิจัย: โหดสุด! เป้าหายมีผล และ BAD หลุดก็โดน 🧪'
-    : 'โหมดเล่น: โหดแบบวิจัย แต่ยังลื่น — เป้าหายมีผลนะ 💧'
+    ? 'โหมดวิจัย: Storm ถี่กว่า + Shield ใช้ให้คุ้ม 🧪🌪️'
+    : 'โหมดเล่น: โหดแบบวิจัย—อยู่ GREEN 5 วิ รับ Shield 🫧'
   );
   setText('coach-sub', 'แตะเป้า หรือ แตะกลางจอเพื่อยิง crosshair');
 
@@ -534,11 +764,14 @@ function bindUI(){
   }
 }
 
+// Boot (no timers before START)
 (function boot(){
   if (!DOC) return;
   bindUI();
 
   try { ensureWaterGauge && ensureWaterGauge(); } catch {}
   try { setWaterGauge && setWaterGauge(S.water); } catch {}
+  updateShieldUI();
+  updateStormUI();
   pushHUD();
 })();
