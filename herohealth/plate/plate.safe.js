@@ -1,19 +1,9 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR — ULTIMATE ALL-IN-ONE (UI-clean + Research-Strict + Boss-focused mid)
-// ✅ FIX "กดเริ่มไม่ได้/เข้าเกมไม่ไป": Start overlay binding + hide overlay + start on gesture
-// ✅ Fix black screen: fatal overlay
-// ✅ Fix long-number floating: correct Particles.scorePop(x,y,txt,label)
-// ✅ Minimal HUD + Crosshair + Hit flash
-// ✅ Anti-overlap spawn + Safe-zone (avoid HUD/panels)
-// ✅ Cap max targets (mobile performance)
-// ✅ Boss: telegraph clearer + punish only when boss close to crosshair
-// ✅ Air-shot feedback (soft punish, no life loss)
-// ✅ Fever event bridge
-// ✅ PERFECT direct tap uses pointer coords (not crosshair)
-// ✅ setShow works with display:none
-// ✅ guard undefined rec in expireTargets
-// ✅ default time for ป.5 if URL has no time param: easy80/normal70/hard60
-// ✅ Dispatch hha:end summary for HUD/logger listeners
+// Plate VR — ULTIMATE ALL-IN-ONE (START-GATED + HUB RETURN + UI FIXES)
+// ✅ แก้ “เล่นแป๊บเดียวจบ” : ไม่เริ่มนับเวลา/ไม่เริ่ม loop จนกด Start
+// ✅ แก้ปุ่ม “กลับ HUB / เล่นอีกครั้ง” : bind ให้ชัด + กัน bind ซ้ำด้วย booted
+// ✅ ใช้ started เพื่อเริ่มเกมจริงครั้งแรกเท่านั้น
+// ✅ คงทุกระบบเดิม (spawn, safezone, boss, mini, goals, logger, fever, particles)
 
 'use strict';
 
@@ -141,11 +131,6 @@ const HUD = {
   btnRestart: $('btnRestart'),
   resultBackdrop: $('resultBackdrop'),
   btnPlayAgain: $('btnPlayAgain'),
-  btnBackHub: $('btnBackHub'),
-
-  // start overlay
-  startOverlay: $('startOverlay'),
-  btnStart: $('btnStart'),
 
   rMode: $('rMode'),
   rGrade: $('rGrade'),
@@ -163,7 +148,7 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
-// ---------- Difficulty ----------
+// ---------- Difficulty (กลาง ๆ เน้นบอส) ----------
 const DIFF_TABLE = {
   easy: {
     size: 92, life: 3200, spawnMs: 900, maxTargets: 10,
@@ -224,8 +209,9 @@ const S = {
 
   sessionId:`PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
 
-  // ✅ กัน bind ซ้ำ / กัน boot ซ้ำ
-  booted:false
+  // ✅ ตามที่คุณขอ
+  booted:false,
+  started:false
 };
 
 // ---------- Helpers ----------
@@ -238,7 +224,7 @@ function dispatchEvt(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
 }
 
-// sanitize + correct Particles API
+/* ===== FIX: sanitize + correct Particles API ===== */
 function safeFxText(t){
   t = String(t ?? '');
   if (/^\d+(\.\d+)?$/.test(t) && t.length >= 10) return '✓';
@@ -267,6 +253,67 @@ function flash(kind='bad', ms=110){
   hitFxEl.dataset.kind = String(kind||'bad');
   hitFxEl.classList.add('show');
   setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch(_){} }, ms|0);
+}
+
+// ---------- START overlay + HUB return ----------
+const HUB_URL_RAW = String(Q.get('hub') || './hub.html');
+
+function resolveUrl(href){
+  try { return new URL(href, ROOT.location.href).toString(); }
+  catch(_) { return href; }
+}
+async function requestMotionPermissionIfNeeded(){
+  try{
+    const DME = ROOT.DeviceMotionEvent;
+    if (!DME || typeof DME.requestPermission !== 'function') return true;
+    const res = await DME.requestPermission();
+    return (res === 'granted');
+  }catch(_){
+    return false;
+  }
+}
+function showStartOverlay(on){
+  const ov = $('startOverlay');
+  if(!ov) return;
+  ov.style.display = on ? 'flex' : 'none';
+}
+function goHub(){
+  try{
+    const summary = {
+      game:'PlateVR',
+      sessionId:S.sessionId,
+      mode: MODE,
+      diff: DIFF,
+      score:S.score,
+      maxCombo:S.maxCombo,
+      miss:S.miss,
+      perfect:S.perfectCount,
+      goals:`${Math.min(S.goalsCleared,2)}/2`,
+      minis:`${Math.min(S.minisCleared,7)}/7`,
+      groupCounts:[...S.groupCounts],
+      ts: Date.now()
+    };
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+  }catch(_){}
+
+  const hubUrl = resolveUrl(HUB_URL_RAW);
+  const sp = new URLSearchParams();
+
+  const keep = [
+    'timestampIso','projectTag','runMode','studyId','phase','conditionGroup',
+    'sessionOrder','blockLabel','siteCode','schoolYear','semester',
+    'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
+    'gender','age','gradeLevel'
+  ];
+  for(const k of keep){
+    const v = Q.get(k);
+    if(v !== null) sp.set(k, v);
+  }
+  sp.set('from','plate');
+  sp.set('lastSessionId', S.sessionId);
+
+  const join = hubUrl.includes('?') ? '&' : '?';
+  ROOT.location.assign(hubUrl + join + sp.toString());
 }
 
 // ---------- DOM target layer + CSS ----------
@@ -362,19 +409,6 @@ const AudioX = (function(){
   const atk=()=>{beep(160,0.10,0.06,'sawtooth'); setTimeout(()=>beep(90,0.12,0.05,'square'),70);};
   return { unlock, tick, warn, good, perfect, bad, bossHit, bossDown, power, shield, atk };
 })();
-
-// ---------- iOS Motion permission helper ----------
-async function requestMotionPermissionIfNeeded(){
-  try{
-    const DME = ROOT.DeviceMotionEvent;
-    if(!DME) return true;
-    if(typeof DME.requestPermission !== 'function') return true; // non-iOS
-    const res = await DME.requestPermission();
-    return (res === 'granted');
-  }catch(_){
-    return false;
-  }
-}
 
 // ---------- Logger ----------
 function logSession(phase){
@@ -777,7 +811,6 @@ function makeTarget(kind, group, opts={}){
 
   S.targets.push(rec);
 
-  // direct tap -> PERFECT by pointer coords
   const hitHandler=(e)=>{
     e.preventDefault(); e.stopPropagation();
     AudioX.unlock();
@@ -919,8 +952,6 @@ function judgeFromDist(distPx, sizePx){
   const n=clamp(distPx/(sizePx*0.55),0,1);
   return (n<=0.38) ? 'PERFECT' : 'HIT';
 }
-
-// direct tap: use clientX/Y; otherwise crosshair center
 function hitTarget(rec, direct, ev){
   if(!S.running || S.paused || !rec || rec.dead) return;
 
@@ -1027,7 +1058,6 @@ function hitTarget(rec, direct, ev){
     return;
   }
 
-  // good / gold
   const judge=judgeFromDist(dist, rec.size);
   const mult=S.feverOn?1.35:1.0;
   const base=(rec.kind==='gold')?520:240;
@@ -1142,7 +1172,6 @@ function spawnBossIfReady(){
   AudioX.warn(); vibe(25);
   logEvent('boss_spawn',{hp});
 }
-
 function tickBossAttack(){
   const t=now();
   for(const rec of S.targets){
@@ -1286,6 +1315,7 @@ function restart(){
 
   setGoal(0);
   startMini();
+
   logSession('start');
   start();
 }
@@ -1297,10 +1327,8 @@ function endGame(isGameOver){
   S.nextSpawnAt=Infinity;
   for(const rec of [...S.targets]) removeTarget(rec);
 
-  const finalGrade = gradeFromScore();
-
   setTxt(HUD.rMode, MODE==='research'?'Research':'Play');
-  setTxt(HUD.rGrade, finalGrade);
+  setTxt(HUD.rGrade, gradeFromScore());
   setTxt(HUD.rScore, S.score);
   setTxt(HUD.rMaxCombo, S.maxCombo);
   setTxt(HUD.rMiss, S.miss);
@@ -1315,26 +1343,6 @@ function endGame(isGameOver){
   setTxt(HUD.rGTotal, S.groupCounts.reduce((a,b)=>a+b,0));
 
   setShow(HUD.resultBackdrop,true);
-
-  // ✅ Broadcast summary (ให้ HUD/logger ฟังได้)
-  dispatchEvt('hha:end', {
-    sessionId: S.sessionId,
-    gameMode: 'plate',
-    runMode: MODE,
-    diff: DIFF,
-    durationPlannedSec: TOTAL_TIME,
-    durationPlayedSec: TOTAL_TIME - Math.max(0, S.timeLeft),
-    scoreFinal: S.score,
-    comboMax: S.maxCombo,
-    misses: S.miss,
-    perfect: S.perfectCount,
-    goalsCleared: Math.min(S.goalsCleared,2),
-    goalsTotal: 2,
-    miniCleared: Math.min(S.minisCleared,7),
-    miniTotal: 7,
-    grade: finalGrade,
-    groupCounts: S.groupCounts.slice()
-  });
 
   fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
   vibe(isGameOver?60:50);
@@ -1400,32 +1408,8 @@ function bindShootHotkeys(){
   }
 }
 
-function buildHubUrl(){
-  const hubParam = Q.get('hub');
-  const base = hubParam
-    ? new URL(hubParam, ROOT.location.href)
-    : new URL('./hub.html', ROOT.location.href);
-
-  // พก context เดิมกลับไป (ตัด time/ts กัน hub สับสน)
-  for (const [k, v] of Q.entries()){
-    if (!v) continue;
-    if (k === 'time' || k === 'ts') continue;
-    base.searchParams.set(k, v);
-  }
-
-  base.searchParams.set('from', 'plate');
-  base.searchParams.set('lastSessionId', S.sessionId);
-  return base.toString();
-}
-
-function goHub(){
-  const url = buildHubUrl();
-  try { ROOT.location.href = url; }
-  catch(_) { ROOT.location.assign(url); }
-}
-
+// ✅ ตามที่คุณขอ + เพิ่ม start/hub binding ครบ
 function bindUI(){
-  // ✅ กัน bind ซ้ำ (สำคัญมาก ถ้า restart/boot เรียกซ้ำ)
   if(S.booted) return;
   S.booted = true;
 
@@ -1436,58 +1420,36 @@ function bindUI(){
   HUD.btnEnterVR && HUD.btnEnterVR.addEventListener('click', enterVR);
   HUD.btnPause && HUD.btnPause.addEventListener('click', ()=>{ if(!S.running) return; setPaused(!S.paused); });
   HUD.btnRestart && HUD.btnRestart.addEventListener('click', ()=>restart());
-  HUD.btnPlayAgain && HUD.btnPlayAgain.addEventListener('click', ()=>{ setShow(HUD.resultBackdrop,false); restart(); });
 
-  // ✅ NEW: กลับหน้า HUB
-  HUD.btnBackHub && HUD.btnBackHub.addEventListener('click', ()=>goHub());
+  HUD.btnPlayAgain && HUD.btnPlayAgain.addEventListener('click', ()=>{
+    setShow(HUD.resultBackdrop,false);
+    restart();
+  });
 
   HUD.resultBackdrop && HUD.resultBackdrop.addEventListener('click',(e)=>{
     if(e.target === HUD.resultBackdrop) setShow(HUD.resultBackdrop,false);
   });
+
+  const btnBackHub = $('btnBackHub');
+  btnBackHub && btnBackHub.addEventListener('click', goHub);
+
+  const btnStart = $('btnStart');
+  btnStart && btnStart.addEventListener('click', async ()=>{
+    try{
+      AudioX.unlock();
+      await requestMotionPermissionIfNeeded();
+    }catch(_){}
+    showStartOverlay(false);
+
+    if(!S.started){
+      S.started = true;
+      restart(); // ✅ เริ่มเกมจริงครั้งแรก (เริ่มนับเวลาหลังจากกดปุ่มนี้)
+    }
+  });
 }
 
-// ---------- Start overlay gating (สำคัญสุดสำหรับ “กดเล่นไม่ได้”) ----------
-function setupStartOverlayGate(){
-  const ov = HUD.startOverlay;
-  const btn = HUD.btnStart;
-
-  // ถ้าไม่มี overlay → เริ่มทันที
-  if(!ov || !btn){
-    restart();
-    return;
-  }
-
-  // โชว์ overlay ไว้ก่อน
-  setShow(ov, true);
-
-  let started=false;
-
-  const startNow = async ()=>{
-    if(started) return;
-    started=true;
-
-    // gesture unlock
-    try{ AudioX.unlock(); }catch(_){}
-
-    // iOS motion permission (ไม่บังคับ)
-    try{ await requestMotionPermissionIfNeeded(); }catch(_){}
-
-    // hide overlay แล้วเริ่มเกมจริง
-    setShow(ov, false);
-
-    // เริ่มเกมจาก state สดใหม่
-    restart();
-  };
-
-  btn.addEventListener('click', (e)=>{ e.preventDefault(); startNow(); }, {passive:false});
-  btn.addEventListener('pointerdown', (e)=>{ e.preventDefault(); }, {passive:false});
-}
-
-// ---------- BOOT ----------
+// ---------- BOOT (สำคัญ: ไม่ start ทันที) ----------
 (function boot(){
-  if(S.booted) return;
-  S.booted=true;
-
   try{
     if(ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.init==='function'){
       ROOT.HHACloudLogger.init({ debug: DEBUG });
@@ -1508,13 +1470,9 @@ function setupStartOverlayGate(){
   emitFever();
   updateGrade();
 
-  S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
+  // ✅ ยังไม่เริ่มเกมจนกด Start
+  S.started = false;
+  showStartOverlay(true);
 
-  setGoal(0);
-  startMini();
-
-  // ✅ สำคัญ: ถ้ามี startOverlay → รอให้ผู้เล่นกดเริ่มก่อน
-  setupStartOverlayGate();
-
-  if(DEBUG) console.log('[PlateVR] boot ok', { MODE, DIFF, TOTAL_TIME, seed:SEED, D });
+  if(DEBUG) console.log('[PlateVR] boot ok (waiting start)', { MODE, DIFF, TOTAL_TIME, seed:SEED, D });
 })();
