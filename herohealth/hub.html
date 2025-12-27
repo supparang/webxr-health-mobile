@@ -1,9 +1,11 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
+HeroHealth HUB (PRODUCTION) — Profile Bridge + Last Summary Card Patch
 ✅ Save profile to localStorage/sessionStorage (hha_profile)
 ✅ Launch games with appended query params (fallback if storage blocked)
 ✅ Standard research context keys + student profile keys
-✅ Compatible with goodjunk-vr.html H++ (back-to-hub button reads hub=...)
+✅ NEW: Auto show last game summary from localStorage (HHA_LAST_SUMMARY)
+✅ NEW: Quick relaunch last game (same mode/diff/time if present)
+✅ FIX: Map runMode "study" -> "research" (compat)
 -->
 
 <!doctype html>
@@ -26,8 +28,13 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
       --accent:#22c55e;
       --warn:#f59e0b;
       --danger:#ef4444;
+      --ok:#22c55e;
     }
-    html,body{ margin:0; padding:0; width:100%; height:100%; background: radial-gradient(1200px 700px at 50% 25%, #0b1120 0%, #020617 60%, #020617 100%); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    html,body{
+      margin:0; padding:0; width:100%; height:100%;
+      background: radial-gradient(1200px 700px at 50% 25%, #0b1120 0%, #020617 60%, #020617 100%);
+      color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    }
     .wrap{ max-width: 1100px; margin: 0 auto; padding: 16px; }
     header{
       display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -69,6 +76,7 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
       letter-spacing:.2px;
     }
     textarea{ min-height: 72px; resize: vertical; }
+
     .btns{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
     .btn{
       border:1px solid rgba(148,163,184,.18);
@@ -81,9 +89,12 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
       cursor:pointer;
       box-shadow: 0 18px 50px rgba(0,0,0,.35);
       -webkit-tap-highlight-color: transparent;
+      user-select:none;
     }
     .btn.secondary{ background: rgba(2,6,23,.55); }
     .btn.danger{ background: rgba(239,68,68,.18); }
+    .btn:active{ transform: translateY(1px); }
+
     .hint{ font-size: 12px; color: var(--muted); font-weight: 850; line-height: 1.45; }
     .pill{
       display:inline-flex; align-items:center; gap:8px;
@@ -113,6 +124,41 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
     .game .inline{ display:flex; gap:10px; flex-wrap:wrap; }
     .game .inline > div{ flex: 1; min-width: 120px; }
     footer{ margin-top: 14px; padding: 10px 12px; font-size: 12px; color: var(--muted); font-weight: 850; }
+
+    /* ===== Summary card ===== */
+    #lastSummaryCard{ display:none; background: var(--panel2); }
+    .sumTop{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      margin-bottom:10px;
+    }
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      font-weight:1000; font-size:12px;
+    }
+    .badge.ok{ border-color: rgba(34,197,94,.35); }
+    .badge.warn{ border-color: rgba(245,158,11,.35); }
+    .badge.danger{ border-color: rgba(239,68,68,.35); }
+    .sumGrid{
+      display:grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+    .sumCell{
+      background: rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 16px;
+      padding:10px 12px;
+      box-shadow: 0 18px 44px rgba(0,0,0,.25);
+    }
+    .sumCell .k{ display:block; color: var(--muted); font-weight: 900; font-size: 11px; margin-bottom:4px; }
+    .sumCell .v{ font-weight: 1100; font-size: 15px; }
+    .sumRow3{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px; }
+    @media (max-width: 520px){
+      .sumGrid{ grid-template-columns: 1fr; }
+      .sumRow3{ grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 
@@ -134,57 +180,21 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
         <h2>🧾 ข้อมูลวิจัย + โปรไฟล์ผู้เล่น</h2>
 
         <div class="grid">
-          <div>
-            <label>projectTag</label>
-            <input id="projectTag" placeholder="HeroHealth" />
-          </div>
-          <div>
-            <label>studyId</label>
-            <input id="studyId" placeholder="เช่น HHA-CRU-2026-01" />
-          </div>
-          <div>
-            <label>phase</label>
-            <input id="phase" placeholder="เช่น pre / post / followup" />
-          </div>
+          <div><label>projectTag</label><input id="projectTag" placeholder="HeroHealth" /></div>
+          <div><label>studyId</label><input id="studyId" placeholder="เช่น HHA-CRU-2026-01" /></div>
+          <div><label>phase</label><input id="phase" placeholder="เช่น pre / post / followup" /></div>
 
-          <div>
-            <label>conditionGroup</label>
-            <input id="conditionGroup" placeholder="เช่น A / B / C" />
-          </div>
-          <div>
-            <label>sessionOrder</label>
-            <input id="sessionOrder" type="number" min="0" step="1" placeholder="1" />
-          </div>
-          <div>
-            <label>blockLabel</label>
-            <input id="blockLabel" placeholder="เช่น Block-1" />
-          </div>
+          <div><label>conditionGroup</label><input id="conditionGroup" placeholder="เช่น A / B / C" /></div>
+          <div><label>sessionOrder</label><input id="sessionOrder" type="number" min="0" step="1" placeholder="1" /></div>
+          <div><label>blockLabel</label><input id="blockLabel" placeholder="เช่น Block-1" /></div>
 
-          <div>
-            <label>siteCode</label>
-            <input id="siteCode" placeholder="เช่น CRU" />
-          </div>
-          <div>
-            <label>schoolCode</label>
-            <input id="schoolCode" placeholder="เช่น SCH-001" />
-          </div>
-          <div>
-            <label>schoolName</label>
-            <input id="schoolName" placeholder="ชื่อโรงเรียน" />
-          </div>
+          <div><label>siteCode</label><input id="siteCode" placeholder="เช่น CRU" /></div>
+          <div><label>schoolCode</label><input id="schoolCode" placeholder="เช่น SCH-001" /></div>
+          <div><label>schoolName</label><input id="schoolName" placeholder="ชื่อโรงเรียน" /></div>
 
-          <div>
-            <label>classRoom</label>
-            <input id="classRoom" placeholder="เช่น ป.5/1" />
-          </div>
-          <div>
-            <label>studentNo</label>
-            <input id="studentNo" type="number" min="0" step="1" placeholder="1" />
-          </div>
-          <div>
-            <label>nickName</label>
-            <input id="nickName" placeholder="ชื่อเล่น" />
-          </div>
+          <div><label>classRoom</label><input id="classRoom" placeholder="เช่น ป.5/1" /></div>
+          <div><label>studentNo</label><input id="studentNo" type="number" min="0" step="1" placeholder="1" /></div>
+          <div><label>nickName</label><input id="nickName" placeholder="ชื่อเล่น" /></div>
 
           <div>
             <label>gender</label>
@@ -195,23 +205,11 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
               <option value="other">other</option>
             </select>
           </div>
-          <div>
-            <label>age</label>
-            <input id="age" type="number" min="0" step="1" placeholder="10" />
-          </div>
-          <div>
-            <label>gradeLevel</label>
-            <input id="gradeLevel" type="number" min="0" step="1" placeholder="5" />
-          </div>
+          <div><label>age</label><input id="age" type="number" min="0" step="1" placeholder="10" /></div>
+          <div><label>gradeLevel</label><input id="gradeLevel" type="number" min="0" step="1" placeholder="5" /></div>
 
-          <div>
-            <label>heightCm</label>
-            <input id="heightCm" type="number" min="0" step="0.1" placeholder="140" />
-          </div>
-          <div>
-            <label>weightKg</label>
-            <input id="weightKg" type="number" min="0" step="0.1" placeholder="35" />
-          </div>
+          <div><label>heightCm</label><input id="heightCm" type="number" min="0" step="0.1" placeholder="140" /></div>
+          <div><label>weightKg</label><input id="weightKg" type="number" min="0" step="0.1" placeholder="35" /></div>
           <div>
             <label>handedness</label>
             <select id="handedness">
@@ -280,7 +278,7 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
             <label>run</label>
             <select id="runMode">
               <option value="play">play</option>
-              <option value="study">study</option>
+              <option value="research">study</option>
             </select>
           </div>
           <div>
@@ -324,7 +322,7 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
                 <label>mode</label>
                 <select id="hyMode">
                   <option value="play" selected>play</option>
-                  <option value="study">study</option>
+                  <option value="research">study</option>
                 </select>
               </div>
               <div style="display:flex;align-items:flex-end">
@@ -341,7 +339,7 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
                 <label>mode</label>
                 <select id="plMode">
                   <option value="play" selected>play</option>
-                  <option value="study">study</option>
+                  <option value="research">study</option>
                 </select>
               </div>
               <div style="display:flex;align-items:flex-end">
@@ -358,13 +356,51 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
                 <label>mode</label>
                 <select id="grMode">
                   <option value="play" selected>play</option>
-                  <option value="study">study</option>
+                  <option value="research">study</option>
                 </select>
               </div>
               <div style="display:flex;align-items:flex-end">
                 <button class="btn" id="btnGR" type="button" style="width:100%">🚀 START</button>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- ✅ NEW: Last Summary -->
+        <div class="card" id="lastSummaryCard" style="margin-top:12px;">
+          <div class="sumTop">
+            <div>
+              <h2 style="margin:2px 0 4px">📊 สรุปผลล่าสุด (Auto)</h2>
+              <div class="hint" id="lastSummaryHint">—</div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+              <span class="badge ok" id="badgeGame">Game: —</span>
+              <span class="badge" id="badgeGrade">Grade: —</span>
+            </div>
+          </div>
+
+          <div class="sumGrid">
+            <div class="sumCell"><span class="k">Score</span><span class="v mono" id="sumScore">—</span></div>
+            <div class="sumCell"><span class="k">Max Combo</span><span class="v mono" id="sumMaxCombo">—</span></div>
+            <div class="sumCell"><span class="k">Miss</span><span class="v mono" id="sumMiss">—</span></div>
+            <div class="sumCell"><span class="k">Perfect</span><span class="v mono" id="sumPerfect">—</span></div>
+            <div class="sumCell"><span class="k">Goals</span><span class="v mono" id="sumGoals">—</span></div>
+            <div class="sumCell"><span class="k">Minis</span><span class="v mono" id="sumMinis">—</span></div>
+          </div>
+
+          <div class="sumRow3">
+            <div class="sumCell"><span class="k">G1</span><span class="v mono" id="sumG1">—</span></div>
+            <div class="sumCell"><span class="k">G2</span><span class="v mono" id="sumG2">—</span></div>
+            <div class="sumCell"><span class="k">G3</span><span class="v mono" id="sumG3">—</span></div>
+            <div class="sumCell"><span class="k">G4</span><span class="v mono" id="sumG4">—</span></div>
+            <div class="sumCell"><span class="k">G5</span><span class="v mono" id="sumG5">—</span></div>
+            <div class="sumCell"><span class="k">Total</span><span class="v mono" id="sumGTotal">—</span></div>
+          </div>
+
+          <div class="btns" style="margin-top:10px">
+            <button class="btn" id="btnReplayLast" type="button">▶️ เล่นเกมเดิมอีกครั้ง</button>
+            <button class="btn secondary" id="btnCopyLast" type="button">🔗 คัดลอกลิงก์เดิม</button>
+            <button class="btn danger" id="btnClearLast" type="button">🧹 ล้างสรุป</button>
           </div>
         </div>
 
@@ -470,6 +506,14 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
       return Math.round(bmi * 10) / 10;
     }
 
+    function normalizeRunMode(v){
+      v = (v ?? '').toString().trim().toLowerCase();
+      // compat: hub เก่าใช้ "study"
+      if (v === 'study') return 'research';
+      if (v === 'research' || v === 'play') return v;
+      return 'play';
+    }
+
     function buildProfileFromForm(){
       const p = {};
       // research context
@@ -572,7 +616,6 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
       const p = collectProfile();
       writeStoredProfile(p);
       elSessionKey.textContent = p.sessionId || '—';
-      // fire event (if hub wants to log; safe even if no listener)
       try{
         window.dispatchEvent(new CustomEvent('hha:log_profile', { detail: { ts: Date.now(), ...p } }));
       }catch(_){}
@@ -586,7 +629,6 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
         sessionStorage.removeItem('hha_profile');
         sessionStorage.removeItem('HHA_PROFILE');
       }catch(_){}
-      // wipe form
       fillForm({
         projectTag:'HeroHealth', studyId:'', phase:'', conditionGroup:'', sessionOrder:'',
         blockLabel:'', siteCode:'', schoolCode:'', schoolName:'', classRoom:'',
@@ -599,8 +641,6 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
 
     function toQS(profile){
       const p = new URLSearchParams();
-
-      // keep only known keys (order stable)
       for (const k of QS_KEYS){
         if (profile[k] === undefined || profile[k] === null || profile[k] === '') continue;
         p.set(k, String(profile[k]));
@@ -615,27 +655,26 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
       const profile = saveProfile();
 
       // standard launch params
-      const runMode = $('runMode').value || 'play';
+      const runModeRaw = $('runMode').value || 'play';
+      const runMode = normalizeRunMode(runModeRaw);
+
       const diff = $('diff').value || 'normal';
       const time = clamp($('time').value || 70, 20, 180)|0;
 
-      // game-specific extras
       const p = toQS(profile);
       p.set('run', runMode);
-      p.set('runMode', runMode); // compat: some logs use runMode
+      p.set('runMode', runMode);
       p.set('diff', diff);
       p.set('time', String(time));
       p.set('durationPlannedSec', String(time));
       p.set('hub', './hub.html'); // important: games use this for back
 
-      // add extras
       for (const k of Object.keys(extraParams || {})){
         const v = extraParams[k];
         if (v === undefined || v === null || v === '') continue;
         p.set(k, String(v));
       }
 
-      // convenience tags
       p.set('projectTag', profile.projectTag || 'HeroHealth');
       p.set('ts', String(Date.now()));
 
@@ -647,13 +686,17 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
       const challenge = $('gjChallenge').value || 'rush';
       const u = buildLaunchUrl('goodjunk', { challenge, gameMode:'goodjunk' });
       elDebugUrl.textContent = u;
+      // store as lastLaunch (for replay button)
+      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
     }
 
     function bindLivePreview(){
-      const ids = ['projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
+      const ids = [
+        'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
         'schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel',
         'heightCm','weightKg','handedness','vrExperience','gameFrequency','consentParent','healthDetail',
-        'runMode','diff','time','gjChallenge'];
+        'runMode','diff','time','gjChallenge'
+      ];
       for (const id of ids){
         const el = $(id);
         if (!el) continue;
@@ -662,18 +705,176 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
       }
     }
 
+    // =========================
+    // ✅ NEW: Last Summary UI
+    // =========================
+    const SUM = {
+      card: $('lastSummaryCard'),
+      hint: $('lastSummaryHint'),
+      badgeGame: $('badgeGame'),
+      badgeGrade: $('badgeGrade'),
+
+      score: $('sumScore'),
+      maxCombo: $('sumMaxCombo'),
+      miss: $('sumMiss'),
+      perfect: $('sumPerfect'),
+      goals: $('sumGoals'),
+      minis: $('sumMinis'),
+
+      g1: $('sumG1'),
+      g2: $('sumG2'),
+      g3: $('sumG3'),
+      g4: $('sumG4'),
+      g5: $('sumG5'),
+      gTotal: $('sumGTotal'),
+
+      btnReplay: $('btnReplayLast'),
+      btnCopy: $('btnCopyLast'),
+      btnClear: $('btnClearLast'),
+    };
+
+    function readLastSummary(){
+      try{
+        const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
+        const obj = safeJsonParse(raw);
+        if (!obj || typeof obj !== 'object') return null;
+        if (!obj.game && !obj.gameTag) return obj; // allow minimal
+        return obj;
+      }catch(_){
+        return null;
+      }
+    }
+
+    function gradeBadgeClass(grade){
+      grade = String(grade||'').toUpperCase();
+      if (grade==='SSS' || grade==='SS' || grade==='S') return 'badge ok';
+      if (grade==='A' || grade==='B') return 'badge warn';
+      return 'badge danger';
+    }
+
+    function fmtTs(ts){
+      try{
+        const d = new Date(Number(ts) || Date.now());
+        return d.toLocaleString();
+      }catch(_){
+        return '';
+      }
+    }
+
+    function ensure2(x){
+      if (x==null) return '—';
+      if (typeof x === 'number') return String(x);
+      const s = String(x);
+      return s.trim() ? s : '—';
+    }
+
+    function renderLastSummary(){
+      const sum = readLastSummary();
+      if (!sum){
+        SUM.card.style.display = 'none';
+        return;
+      }
+
+      // best-effort fields
+      const game = sum.game || sum.gameTag || sum.gameMode || (qs.get('from') ? String(qs.get('from')).toUpperCase() : '—');
+      const sessionId = sum.sessionId || qs.get('lastSessionId') || '—';
+      const mode = sum.mode || sum.runMode || sum.run || '—';
+      const diff = sum.diff || '—';
+      const grade = sum.grade || sum.rGrade || '—';
+
+      SUM.badgeGame.textContent = `Game: ${game}`;
+      SUM.badgeGrade.textContent = `Grade: ${grade}`;
+      SUM.badgeGrade.className = gradeBadgeClass(grade);
+
+      SUM.score.textContent = ensure2(sum.score ?? sum.scoreFinal);
+      SUM.maxCombo.textContent = ensure2(sum.maxCombo ?? sum.comboMax);
+      SUM.miss.textContent = ensure2(sum.miss ?? sum.misses);
+      SUM.perfect.textContent = ensure2(sum.perfect ?? sum.perfectCount);
+      SUM.goals.textContent = ensure2(sum.goals ?? (sum.goalsCleared!=null && sum.goalsTotal!=null ? `${sum.goalsCleared}/${sum.goalsTotal}` : '—'));
+      SUM.minis.textContent = ensure2(sum.minis ?? (sum.minisCleared!=null && sum.minisTotal!=null ? `${sum.minisCleared}/${sum.minisTotal}` : '—'));
+
+      const gc = Array.isArray(sum.groupCounts) ? sum.groupCounts : [];
+      SUM.g1.textContent = ensure2(gc[0]);
+      SUM.g2.textContent = ensure2(gc[1]);
+      SUM.g3.textContent = ensure2(gc[2]);
+      SUM.g4.textContent = ensure2(gc[3]);
+      SUM.g5.textContent = ensure2(gc[4]);
+      const total = (gc && gc.length) ? gc.reduce((a,b)=>a+(Number(b)||0),0) : (sum.total ?? '—');
+      SUM.gTotal.textContent = ensure2(total);
+
+      const hintParts = [];
+      if (sessionId && sessionId!=='—') hintParts.push(`Session: ${sessionId}`);
+      hintParts.push(`Mode: ${mode}`);
+      hintParts.push(`Diff: ${diff}`);
+      if (sum.ts) hintParts.push(`At: ${fmtTs(sum.ts)}`);
+      SUM.hint.textContent = hintParts.join(' • ');
+
+      // show
+      SUM.card.style.display = 'block';
+
+      // store a replay link snapshot if available
+      try{
+        const lastLaunch = localStorage.getItem('HHA_LAST_LAUNCH_URL');
+        if (lastLaunch) { /* ok */ }
+      }catch(_){}
+    }
+
+    function clearLastSummary(){
+      try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
+      SUM.card.style.display = 'none';
+    }
+
+    function copyText(txt){
+      txt = String(txt||'');
+      if (!txt) return;
+      try{
+        navigator.clipboard.writeText(txt);
+      }catch(_){
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        document.body.appendChild(ta);
+        ta.select();
+        try{ document.execCommand('copy'); }catch(__){}
+        ta.remove();
+      }
+    }
+
+    function replayLast(){
+      // priority: exact last launch url (the last time hub generated a link)
+      let u = '';
+      try{ u = localStorage.getItem('HHA_LAST_LAUNCH_URL') || ''; }catch(_){}
+      if (u){
+        location.href = u;
+        return;
+      }
+
+      // fallback: infer from last summary game
+      const sum = readLastSummary();
+      const g = (sum && (sum.game || sum.gameMode || sum.gameTag)) ? String(sum.game || sum.gameMode || sum.gameTag) : '';
+      const key =
+        /goodjunk/i.test(g) ? 'goodjunk' :
+        /hydration/i.test(g) ? 'hydration' :
+        /groups/i.test(g) ? 'groups' :
+        /plate/i.test(g) ? 'plate' : 'goodjunk';
+
+      // reuse current form selections
+      const u2 = buildLaunchUrl(key, { gameMode: key });
+      location.href = u2;
+    }
+
     // --------- Button handlers ---------
-    $('btnSave').addEventListener('click', ()=>{ saveProfile(); previewGoodJunk(); }, { passive:true });
+    $('btnSave').addEventListener('click', ()=>{ saveProfile(); previewGoodJunk(); renderLastSummary(); }, { passive:true });
+
     $('btnLoad').addEventListener('click', ()=>{
       const stored = readStoredProfile();
       if (stored) fillForm(stored);
-      // also merge QS into it if present
       const merged = {};
       mergeProfile(merged, stored);
       mergeProfile(merged, pickQSProfile());
       if (Object.keys(merged).length) fillForm(merged);
       saveProfile();
       previewGoodJunk();
+      renderLastSummary();
     }, { passive:true });
 
     $('btnClear').addEventListener('click', ()=>{ clearAll(); }, { passive:true });
@@ -681,27 +882,40 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
     $('btnGJ').addEventListener('click', ()=>{
       const challenge = $('gjChallenge').value || 'rush';
       const u = buildLaunchUrl('goodjunk', { challenge, gameMode:'goodjunk' });
+      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
       location.href = u;
     }, { passive:true });
 
     $('btnHY').addEventListener('click', ()=>{
-      // hydration: respect its own mode selector if you want
-      $('runMode').value = ($('hyMode').value || $('runMode').value || 'play');
+      $('runMode').value = normalizeRunMode($('hyMode').value || $('runMode').value || 'play');
       const u = buildLaunchUrl('hydration', { gameMode:'hydration' });
+      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
       location.href = u;
     }, { passive:true });
 
     $('btnPL').addEventListener('click', ()=>{
-      $('runMode').value = ($('plMode').value || $('runMode').value || 'play');
+      $('runMode').value = normalizeRunMode($('plMode').value || $('runMode').value || 'play');
       const u = buildLaunchUrl('plate', { gameMode:'plate' });
+      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
       location.href = u;
     }, { passive:true });
 
     $('btnGR').addEventListener('click', ()=>{
-      $('runMode').value = ($('grMode').value || $('runMode').value || 'play');
+      $('runMode').value = normalizeRunMode($('grMode').value || $('runMode').value || 'play');
       const u = buildLaunchUrl('groups', { gameMode:'groups' });
+      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
       location.href = u;
     }, { passive:true });
+
+    // Summary buttons
+    SUM.btnReplay && SUM.btnReplay.addEventListener('click', ()=> replayLast(), { passive:true });
+    SUM.btnCopy && SUM.btnCopy.addEventListener('click', ()=>{
+      let u = '';
+      try{ u = localStorage.getItem('HHA_LAST_LAUNCH_URL') || ''; }catch(_){}
+      if (!u) u = elDebugUrl.textContent || '';
+      copyText(u);
+    }, { passive:true });
+    SUM.btnClear && SUM.btnClear.addEventListener('click', ()=> clearLastSummary(), { passive:true });
 
     // --------- Init ---------
     (function init(){
@@ -720,8 +934,25 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge Patch
       const profile = saveProfile();
       elSessionKey.textContent = profile.sessionId || '—';
 
+      // compat: if qs had runMode=study, normalize selection
+      const qsRun = normalizeRunMode(qs.get('runMode') || qs.get('run') || '');
+      if (qsRun) $('runMode').value = qsRun;
+
       bindLivePreview();
       previewGoodJunk();
+
+      // ✅ show last summary if exists
+      renderLastSummary();
+
+      // optional: if returned from a game, scroll to summary card
+      if (qs.get('from') || qs.get('lastSessionId')){
+        setTimeout(()=>{
+          try{
+            const el = $('lastSummaryCard');
+            if (el && el.style.display !== 'none') el.scrollIntoView({ behavior:'smooth', block:'start' });
+          }catch(_){}
+        }, 120);
+      }
     })();
   </script>
 </body>
