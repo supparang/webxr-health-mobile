@@ -1,9 +1,10 @@
 /* === /herohealth/vr-groups/groups-text.js ===
-Text pack (classic script) — NO export
-- window.GroupsVR.QuestText.*
+Food Groups — Quest Text Pack (PRODUCTION, classic script)
+- window.GroupsVR.QuestText.{GROUP_SONG_FULL, GROUP_SONG_SHORT, GROUP_CALL_RESPONSE}
+- helper: getSong2Lines(groupId), getCall(groupId)
 */
 
-(function(root){
+(function (root) {
   'use strict';
   const NS = (root.GroupsVR = root.GroupsVR || {});
 
@@ -33,9 +34,33 @@ Text pack (classic script) — NO export
     5: { q: "หมู่ 5 คือ?", a: "ไขมันพอดี!" }
   };
 
+  function splitTo2Lines(text) {
+    text = String(text || '').trim();
+    if (!text) return ["", ""];
+    if (text.length <= 26) return [text, ""];
+    const mid = Math.floor(text.length * 0.52);
+    let cut = text.lastIndexOf(' ', mid);
+    if (cut < 10) cut = text.indexOf(' ', mid);
+    if (cut < 0) cut = mid;
+    return [text.slice(0, cut).trim(), text.slice(cut).trim()];
+  }
+
+  function getSong2Lines(groupId) {
+    const g = Number(groupId) || 0;
+    const full = GROUP_SONG_FULL[g] || GROUP_SONG_FULL[0] || '';
+    return splitTo2Lines(full);
+  }
+
+  function getCall(groupId) {
+    const g = Number(groupId) || 0;
+    return GROUP_CALL_RESPONSE[g] || { q: "", a: "" };
+  }
+
   NS.QuestText = {
     GROUP_SONG_FULL,
     GROUP_SONG_SHORT,
-    GROUP_CALL_RESPONSE
+    GROUP_CALL_RESPONSE,
+    getSong2Lines,
+    getCall
   };
 })(typeof window !== 'undefined' ? window : globalThis);
