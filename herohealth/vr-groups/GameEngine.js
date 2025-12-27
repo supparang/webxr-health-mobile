@@ -1,3 +1,13 @@
+/* === /herohealth/vr-groups/GameEngine.js ===
+Food Groups VR — GameEngine (PRODUCTION)
+✅ Emits: hha:score / hha:rank / hha:time / hha:fever / hha:judge / hha:end
+✅ Includes Goals/Mini counts INSIDE hha:end (listens quest:update)
+✅ stop() accepts boolean OR reason string (compat with GroupsBoot.stop(reason))
+✅ End summary always emitted (reason included)
+✅ Adds HHA-ish fields: startTimeIso/endTimeIso/durationPlayedSec/durationPlannedSec
+✅ Deterministic RNG by seed
+*/
+
 (function (root) {
   'use strict';
 
@@ -7,10 +17,25 @@
   const NS = (root.GroupsVR = root.GroupsVR || {});
 
   // -------------------- Utilities --------------------
-  function nowMs() { return (root.performance && performance.now) ? performance.now() : Date.now(); }
+  function nowMs() { return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
   function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
   function randInt(rng, a, b){ return a + Math.floor(rng() * (b - a + 1)); }
   function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
+
+  function emit(name, detail){
+    try{ root.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch{}
+  }
+
+  function isoNow(){ try{ return new Date().toISOString(); }catch{ return ''; } }
+
+  function qs(name, def){
+    try{
+      const u = new URL(root.location.href);
+      return u.searchParams.get(name) ?? def;
+    }catch{
+      return def;
+    }
+  }
 
   function hashSeed(str){
     str = String(str || '');
@@ -30,10 +55,6 @@
     };
   }
 
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch{}
-  }
-
   function readSafeInsets(){
     const cs = getComputedStyle(DOC.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
@@ -43,6 +64,7 @@
     return { sat, sab, sal, sar };
   }
 
+  // -------------------- FX bridge --------------------
   const FX = NS.FX || {
     panic(on){ DOC.documentElement.classList.toggle('panic', !!on); },
     stunFlash(){ DOC.documentElement.classList.add('stunflash'); setTimeout(()=>DOC.documentElement.classList.remove('stunflash'), 220); },
@@ -124,6 +146,7 @@
     return 'C';
   }
 
+  // -------------------- Engine --------------------
   const Engine = (function(){
     const state = {
       running:false,
@@ -133,6 +156,8 @@
       rng: Math.random,
 
       layerEl:null,
+      cameraEl:null,
+
       targets:new Map(),
       nextId:1,
 
@@ -141,11 +166,13 @@
       timerInt:null,
       spawnTo:null,
 
+      // score
       score:0,
       combo:0,
       comboMax:0,
       misses:0,
 
+      // counters
       goodHit:0,
       goodSpawn:0,
       goodExpire:0,
@@ -156,24 +183,43 @@
       decoyHit:0,
       bossKills:0,
 
+      // group/power
       groupIndex:0,
       powerCharge:0,
       powerThreshold:9,
 
+      // status
       stunnedUntil:0,
       panicOn:false,
 
+      // fever
       feverPct:0,
       feverBurstUntil:0,
 
+      // adaptive
       adaptLevel:0,
       adaptTick:0,
 
+      // storm
       stormActive:false,
       stormEndsAtMs:0,
       stormPlanIdx:0,
       stormPlan:[],
-      lastStormTickLeft:999
+      lastStormTickLeft:999,
+
+      // quest progress (listens quest:update)
+      goalsCleared:0,
+      goalsTotal:0,
+      miniCleared:0,
+      miniTotal:0,
+
+      // timing
+      startTimeIso:'',
+      endTimeIso:'',
+      startAtMs:0,
+
+      // reason
+      stopReason:''
     };
 
     function cfg(){ return DIFF[state.diff] || DIFF.normal; }
@@ -185,10 +231,26 @@
         el.addEventListener('pointerdown', onPointerDown, { passive:false });
       }
     }
+    function setCameraEl(el){ state.cameraEl = el || null; }
+
     function setTimeLeft(sec){
       sec = Math.max(1, (sec|0));
       state.timeLeft = sec;
       state.timeTotal = sec;
+    }
+
+    // ---- quest:update listener (once) ----
+    let questBound = false;
+    function bindQuestListenerOnce(){
+      if (questBound) return;
+      questBound = true;
+      root.addEventListener('quest:update', (ev)=>{
+        const d = ev && ev.detail ? ev.detail : {};
+        if (Number.isFinite(d.goalsCleared)) state.goalsCleared = d.goalsCleared|0;
+        if (Number.isFinite(d.goalsTotal))   state.goalsTotal   = d.goalsTotal|0;
+        if (Number.isFinite(d.miniCleared))  state.miniCleared  = d.miniCleared|0;
+        if (Number.isFinite(d.miniTotal))    state.miniTotal    = d.miniTotal|0;
+      }, { passive:true });
     }
 
     function resetStats(){
@@ -226,6 +288,13 @@
       state.stormEndsAtMs = 0;
       state.stormPlanIdx = 0;
       state.lastStormTickLeft = 999;
+
+      state.goalsCleared = 0;
+      state.goalsTotal = 0;
+      state.miniCleared = 0;
+      state.miniTotal = 0;
+
+      state.stopReason = '';
 
       if (state.layerEl) state.layerEl.innerHTML = '';
       FX.storm(false);
@@ -276,8 +345,14 @@
     }
 
     function calcAccuracy(){
+      // good accuracy vs (good hit + good expire + wrong hit)
       const denom = Math.max(1, state.goodHit + state.goodExpire + state.wrongHit);
       return Math.round((state.goodHit / denom) * 100);
+    }
+
+    function calcJunkErrorPct(){
+      const denom = Math.max(1, state.goodHit + state.wrongHit + state.junkHit + state.decoyHit);
+      return Math.round((state.junkHit / denom) * 100);
     }
 
     function emitScore(){
@@ -309,6 +384,13 @@
       }
     }
 
+    function maybeKaraokeOnSwap(gid){
+      // optional — do not block gameplay
+      const K = root.KaraokeUI;
+      if (!K || !K.playGroup) return;
+      try{ K.playGroup(gid, { mode:'switch' }); }catch{}
+    }
+
     function swapGroup(dir){
       const prev = currentGroup();
       state.groupIndex = (state.groupIndex + (dir|0) + GROUPS.length) % GROUPS.length;
@@ -316,6 +398,8 @@
       FX.swapFlash();
       emit('groups:group_change', { groupId:g.id, label:g.label, from:prev.id });
       emit('groups:progress', { kind:'group_swap', groupId:g.id });
+
+      maybeKaraokeOnSwap(g.id);
     }
 
     function isStunned(){
@@ -421,11 +505,10 @@
       el.className = 'fg-target spawn';
       el.dataset.id = id;
       el.dataset.type = type;
-      el.setAttribute('data-emoji', emoji);     // ✅ ให้ CSS ::before ใช้
+      el.setAttribute('data-emoji', emoji);     // CSS ::before reads this
       el.style.setProperty('--x', x.toFixed(1) + 'px');
       el.style.setProperty('--y', y.toFixed(1) + 'px');
       el.style.setProperty('--s', s.toFixed(3));
-      // ❌ ไม่ใส่ textContent กัน emoji ซ้อน
 
       if (type === 'good') el.classList.add('fg-good');
       if (type === 'wrong') el.classList.add('fg-wrong');
@@ -667,11 +750,14 @@
       state.targets.forEach((t)=>{ if (t && !t.dead && tnow >= t.expireAt) exp.push(t); });
       for (let i=0;i<exp.length;i++) removeTarget(exp[i], 'expire');
 
-      if (state.timeLeft <= 0) stop(true);
+      if (state.timeLeft <= 0) stop(true, 'timeup');
     }
 
     function start(diff, opts){
       opts = opts || {};
+
+      bindQuestListenerOnce();
+
       state.diff = String(diff || 'normal').toLowerCase();
       if (!DIFF[state.diff]) state.diff = 'normal';
 
@@ -694,11 +780,23 @@
 
       state.running = true;
 
+      // timing
+      state.startTimeIso = isoNow();
+      state.endTimeIso = '';
+      state.startAtMs = nowMs();
+
+      // emit initial HUD
       emit('groups:group_change', { groupId: currentGroup().id, label: currentGroup().label, from: 0 });
       emit('groups:power', { charge:0, threshold: state.powerThreshold|0 });
       emit('hha:time', { left: state.timeLeft|0 });
       feverEmit();
       emitScore();
+
+      // optional karaoke intro on start (group 1)
+      try{
+        const K = root.KaraokeUI;
+        if (K && K.playGroup) K.playGroup(currentGroup().id, { mode:'switch' });
+      }catch{}
 
       clearInterval(state.timerInt);
       state.timerInt = setInterval(tickSecond, 1000);
@@ -707,9 +805,26 @@
       state.spawnTo = setTimeout(spawn, 260);
     }
 
-    function stop(ended){
+    // stop(ended:boolean, reason?:string) OR stop(reason:string)  (backward compat)
+    function stop(a, b){
       if (!state.running) return;
+
+      let ended = true;
+      let reason = 'stop';
+
+      if (typeof a === 'boolean'){
+        ended = a;
+        reason = String(b || (ended ? 'ended' : 'stop'));
+      } else if (typeof a === 'string'){
+        ended = true;           // Boot.stop(reason) should still show end summary
+        reason = a || 'stop';
+      } else {
+        ended = true;
+        reason = 'stop';
+      }
+
       state.running = false;
+      state.stopReason = reason;
 
       clearInterval(state.timerInt);
       clearTimeout(state.spawnTo);
@@ -719,36 +834,65 @@
       FX.panic(false);
       stopStorm();
 
-      if (ended){
-        const acc = calcAccuracy();
-        const grade = gradeFrom(acc, state.score|0);
-        emit('hha:rank', { grade, accuracy: acc|0 });
+      // always emit end summary (ended or forced stop)
+      const acc = calcAccuracy();
+      const grade = gradeFrom(acc, state.score|0);
 
-        emit('hha:end', {
-          game:'groups',
-          diff: state.diff,
-          runMode: state.runMode,
-          seed: state.seed,
-          scoreFinal: state.score|0,
-          comboMax: state.comboMax|0,
-          misses: state.misses|0,
-          goodHit: state.goodHit|0,
-          goodSpawn: state.goodSpawn|0,
-          goodExpire: state.goodExpire|0,
-          wrongHit: state.wrongHit|0,
-          wrongSpawn: state.wrongSpawn|0,
-          junkHit: state.junkHit|0,
-          junkSpawn: state.junkSpawn|0,
-          decoyHit: state.decoyHit|0,
-          bossKills: state.bossKills|0,
-          accuracyGoodPct: acc|0,
-          grade
-        });
-      }
+      state.endTimeIso = isoNow();
+      const durationPlayedSec = Math.max(0, Math.round((nowMs() - (state.startAtMs || nowMs())) / 1000));
+
+      emit('hha:rank', { grade, accuracy: acc|0 });
+
+      emit('hha:end', {
+        // --- core ---
+        game:'groups',
+        diff: state.diff,
+        runMode: state.runMode,
+        seed: state.seed,
+        reason: reason,
+
+        // --- timing ---
+        startTimeIso: state.startTimeIso || '',
+        endTimeIso: state.endTimeIso || '',
+        durationPlannedSec: state.timeTotal|0,
+        durationPlayedSec: durationPlayedSec|0,
+
+        // --- score ---
+        scoreFinal: state.score|0,
+        comboMax: state.comboMax|0,
+        misses: state.misses|0,
+        accuracyGoodPct: acc|0,
+        grade,
+
+        // --- quest progress (now inside engine) ---
+        goalsCleared: state.goalsCleared|0,
+        goalsTotal: state.goalsTotal|0,
+        miniCleared: state.miniCleared|0,
+        miniTotal: state.miniTotal|0,
+
+        // --- counters (HHA-ish mapping) ---
+        nTargetGoodSpawned: state.goodSpawn|0,
+        nTargetJunkSpawned: state.junkSpawn|0,
+        nHitGood: state.goodHit|0,
+        nHitJunk: state.junkHit|0,
+        nExpireGood: state.goodExpire|0,
+        junkErrorPct: calcJunkErrorPct()|0,
+
+        // keep raw counters too
+        goodHit: state.goodHit|0,
+        goodSpawn: state.goodSpawn|0,
+        goodExpire: state.goodExpire|0,
+        wrongHit: state.wrongHit|0,
+        wrongSpawn: state.wrongSpawn|0,
+        junkHit: state.junkHit|0,
+        junkSpawn: state.junkSpawn|0,
+        decoyHit: state.decoyHit|0,
+        bossKills: state.bossKills|0
+      });
     }
 
-    return { setLayerEl, setTimeLeft, start, stop };
+    return { setLayerEl, setCameraEl, setTimeLeft, start, stop };
   })();
 
   NS.GameEngine = Engine;
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
