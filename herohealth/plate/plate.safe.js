@@ -1,12 +1,13 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR — ULTIMATE ALL-IN-ONE (START-GATED + HUB RETURN + UI FIXES + COACH + STATE)
+// Plate VR — ULTIMATE ALL-IN-ONE (HHA Standard FINAL ++)
 // ✅ Start-gated
 // ✅ Delegated buttons (pointerup+click)
 // ✅ run=play|study + runMode map
-// ✅ HHA_LAST_SUMMARY (standard) + hub return keep params
-// ✅ Cloud logger context + event/session
+// ✅ HHA_LAST_SUMMARY (standard) auto-save at end + hub return keep params
+// ✅ Cloud logger context + event/session (FULL metrics)
 // ✅ Coach panel (uses /img/coach-*.png)
-// ✅ Deterministic research seed
+// ✅ Deterministic RNG: Research always; Play only when ?seed= present
+// ✅ Fun/Hard/Exciting: Boss + Powerups + Minis + urgency FX + aim assist
 
 import {
   makeInitialState,
@@ -95,18 +96,20 @@ const TOTAL_TIME = Math.max(
   parseInt(HAS_TIME_PARAM ? (Q.get('time') || '0') : String(DEFAULT_TIME_BY_DIFF), 10) || DEFAULT_TIME_BY_DIFF
 );
 
-// ---------- RNG (Research strict) ----------
+// ---------- RNG (Research strict; Play seeded only when ?seed= present) ----------
+const HAS_SEED_PARAM = Q.has('seed');
 let SEED = parseInt(Q.get('seed') || '', 10);
-if (!Number.isFinite(SEED)) SEED = 1337;
-let _seed = (SEED >>> 0) || 1337;
+if (!Number.isFinite(SEED)) SEED = (MODE === 'research') ? 1337 : 0;
 
+let _seed = (SEED >>> 0) || 1337;
 function srnd(){
   _seed ^= (_seed << 13); _seed >>>= 0;
   _seed ^= (_seed >>> 17); _seed >>>= 0;
   _seed ^= (_seed << 5); _seed >>>= 0;
   return (_seed >>> 0) / 4294967296;
 }
-const R = (MODE === 'research') ? srnd : Math.random;
+const USE_SEEDED = (MODE === 'research') || HAS_SEED_PARAM;
+const R = USE_SEEDED ? srnd : Math.random;
 
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 const now = ()=>performance.now();
@@ -246,12 +249,17 @@ function flash(kind='bad', ms=110){
   setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch(_){} }, ms|0);
 }
 
+// ---------- Metrics helpers ----------
+function bump(map, key, inc=1){
+  if(!map) return;
+  const k = String(key || 'unknown');
+  map[k] = (map[k] || 0) + inc;
+}
+
 // ---------- Coach (uses /img/coach-*.png) ----------
 const Coach = (function(){
   const img   = $('coachImg');
-
-  // ✅ PATCH: รองรับทั้ง coachMsg (ใหม่) และ coachText (เก่า)
-  const msgEl = $('coachMsg') || $('coachText');
+  const msgEl = $('coachMsg');
 
   const MOOD_IMG = {
     neutral: './img/coach-neutral.png',
@@ -310,15 +318,34 @@ function showStartOverlay(on){
   setShow(ov, !!on);
 }
 
-function goHub(){
+// ✅ Persist last summary (standard)
+function persistLastSummary(extraMeta={}){
   try{
-    const summary = buildLastSummary(S, { run: RUN_RAW, mode: MODE, diff: DIFF });
+    const durationPlayedSec = (S.tStart ? Math.max(0, Math.round((now() - S.tStart)/1000)) : 0);
+    const summary = buildLastSummary(S, {
+      run: RUN_RAW,
+      mode: MODE,
+      diff: DIFF,
+      seed: USE_SEEDED ? SEED : null,
+      grade: computeGradeFrom(S),
+      durationPlayedSec,
+      ...extraMeta
+    });
     localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-  }catch(_){}
+    return summary;
+  }catch(_){
+    return null;
+  }
+}
+
+function goHub(){
+  // ✅ save last summary even if player just leaves
+  persistLastSummary({ reason:'goHub' });
 
   const hubUrl = resolveUrl(HUB_URL_RAW);
   const sp = new URLSearchParams();
 
+  // keep research/identity fields
   const keep = [
     'timestampIso','projectTag','runMode','studyId','phase','conditionGroup',
     'sessionOrder','blockLabel','siteCode','schoolYear','semester',
@@ -329,8 +356,15 @@ function goHub(){
     const v = Q.get(k);
     if(v !== null) sp.set(k, v);
   }
+
+  // ✅ keep gameplay params too (for seamless replay)
   sp.set('from','plate');
   sp.set('lastSessionId', S.sessionId);
+  sp.set('run', RUN_RAW);
+  sp.set('diff', DIFF);
+  sp.set('time', String(TOTAL_TIME));
+  if (HAS_SEED_PARAM) sp.set('seed', String(SEED));
+  if (Q.get('hub')) sp.set('hub', Q.get('hub'));
 
   const join = hubUrl.includes('?') ? '&' : '?';
   ROOT.location.assign(hubUrl + join + sp.toString());
@@ -402,9 +436,6 @@ const layer = doc.createElement('div');
 layer.className = 'plate-layer';
 doc.body && doc.body.appendChild(layer);
 
-/* ===========================
-   ↓↓↓ ส่วนที่เหลือ = โค้ดคุณ “เหมือนเดิม”
-   =========================== */
 // ---------- Audio (tiny beeps) ----------
 const AudioX = (function(){
   let ctx=null;
@@ -434,18 +465,72 @@ const AudioX = (function(){
 })();
 
 // ---------- Logger ----------
-function logSession(phase){
-  dispatchEvt('hha:log_session',{
+function logSession(phase, extra={}){
+  const durationPlayedSec = (S.tStart ? Math.max(0, Math.round((now() - S.tStart)/1000)) : 0);
+
+  // Build a full session payload aligned with your sheet needs
+  const payload = {
     ...S.ctx,
-    sessionId:S.sessionId, game:'PlateVR', phase,
-    run: RUN_RAW, mode:MODE, diff:DIFF, timeTotal:TOTAL_TIME, lives:S.livesMax,
-    seed: SEED, ts:Date.now(), ua:navigator.userAgent
-  });
+    sessionId: S.sessionId,
+    game: 'PlateVR',
+    phase,
+
+    run: RUN_RAW,
+    mode: MODE,
+    diff: DIFF,
+    timeTotal: TOTAL_TIME,
+    durationPlayedSec,
+
+    livesMax: S.livesMax,
+    livesLeft: S.lives,
+
+    seed: USE_SEEDED ? SEED : null,
+    seeded: USE_SEEDED ? 1 : 0,
+
+    scoreFinal: S.score,
+    comboMax: S.maxCombo,
+    misses: S.miss,
+    perfect: S.perfectCount,
+
+    goalsCleared: Math.min(S.goalsCleared, 2),
+    goalsTotal: 2,
+    miniCleared: Math.min(S.minisCleared, 7),
+    miniTotal: 7,
+
+    g1: S.groupCounts[0],
+    g2: S.groupCounts[1],
+    g3: S.groupCounts[2],
+    g4: S.groupCounts[3],
+    g5: S.groupCounts[4],
+    gTotal: S.groupCounts.reduce((a,b)=>a+b,0),
+
+    // metrics bundles
+    metrics_spawn: S.metrics.spawn,
+    metrics_hit: S.metrics.hit,
+    metrics_expire: S.metrics.expire,
+    metrics_miss: S.metrics.miss,
+    metrics_shield_block: S.metrics.shield_block,
+    metrics_power: S.metrics.power,
+    air_shot: S.metrics.air_shot,
+    boss_attack: S.metrics.boss_attack,
+    boss_dodge: S.metrics.boss_dodge,
+
+    grade: computeGradeFrom(S),
+
+    ts: Date.now(),
+    ua: navigator.userAgent,
+
+    ...extra
+  };
+
+  dispatchEvt('hha:log_session', payload);
 }
+
 function logEvent(type, data){
   dispatchEvt('hha:log_event',{
     ...S.ctx,
-    sessionId:S.sessionId, game:'PlateVR', type,
+    sessionId:S.sessionId, game:'PlateVR',
+    type,
     t: Math.round((now() - S.tStart) || 0),
     score:S.score, combo:S.combo, miss:S.miss, perfect:S.perfectCount,
     fever:Math.round(S.fever), shield:S.shield, lives:S.lives,
@@ -479,7 +564,7 @@ function applyLayerTransform(){
 function intersect(a,b){ return !(a.x+a.w<b.x||b.x+b.w<a.x||a.y+a.h<b.y||b.y+b.h<a.y); }
 function getBlockedRects(){
   const rects=[];
-  const ids=['hudTop','hudBtns','miniPanel','coachPanel']; // ✅ add coachPanel
+  const ids=['hudTop','hudBtns','miniPanel','coachPanel'];
   for(const id of ids){
     const el=$(id); if(!el) continue;
     const r=el.getBoundingClientRect();
@@ -853,6 +938,8 @@ function makeTarget(kind, group, opts={}){
   layer.appendChild(el);
   setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 260);
 
+  // metrics + log
+  bump(S.metrics.spawn, kind, 1);
   logEvent('spawn',{kind,group,size:sizePx,x:rec.cx,y:rec.cy,hp});
   return rec;
 }
@@ -878,6 +965,8 @@ function expireTargets(){
     if(!rec || rec.dead) continue;
 
     if(t>=rec.dieAt){
+      bump(S.metrics.expire, rec.kind, 1);
+
       if(rec.kind==='good'||rec.kind==='gold'){
         onMiss('expire_good',{kind:rec.kind,group:rec.group});
         fxJudge('MISS');
@@ -899,12 +988,15 @@ function shieldBlock(reason){
   fxCelebrate('🛡️ BLOCK!', 1.05);
   flash('gold', 120);
   AudioX.shield(); vibe(30);
+
+  bump(S.metrics.shield_block, reason, 1);
   logEvent('shield_block',{reason,shield:S.shield});
   return true;
 }
 function onMiss(reason, extra={}){
   S.combo=0; setTxt(HUD.combo,0);
   S.miss++; setTxt(HUD.miss,S.miss);
+  bump(S.metrics.miss, reason, 1);
 
   const t=now();
   const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
@@ -943,15 +1035,22 @@ function bossAttackPunish(tag, forceHit=false){
   if(forceHit) close=true;
 
   AudioX.atk(); vibe(35);
+  bump(S.metrics.hit, 'boss_attack', 0); // keep structure (no-op)
+  bump(S.metrics.miss, 'boss_attack_check', 0);
   logEvent('boss_attack_punish',{tag, close});
+
+  bump(S.metrics.miss, 'boss_attack_roll', 0);
 
   if(!close){
     fxJudge('DODGED!');
     addScore(+40);
     addFever(+2);
+    S.metrics.boss_dodge++;
+    bump(S.metrics.miss, 'boss_dodged', 1);
     return;
   }
 
+  S.metrics.boss_attack++;
   if(shieldBlock(tag)){ addScore(-80); addFever(-8); return; }
   addScore(-320); addFever(-20);
   fxJudge('BOSS ATK!');
@@ -963,18 +1062,21 @@ function bossAttackPunish(tag, forceHit=false){
 function activateSlow(ms){
   S.slowUntil=Math.max(S.slowUntil, now()+ms);
   AudioX.power(); vibe(25); fxCelebrate('SLOW!', 1.0);
+  bump(S.metrics.power, 'slow', 1);
   logEvent('power_slow',{until:S.slowUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateNoJunk(ms){
   S.noJunkUntil=Math.max(S.noJunkUntil, now()+ms);
   AudioX.power(); vibe(25); fxCelebrate('NO-JUNK!', 1.0);
+  bump(S.metrics.power, 'nojunk', 1);
   logEvent('power_nojunk',{until:S.noJunkUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
 function activateStorm(ms){
   S.stormUntil=Math.max(S.stormUntil, now()+ms);
   AudioX.power(); vibe(30); fxCelebrate('STORM!', 1.05);
+  bump(S.metrics.power, 'storm', 1);
   logEvent('power_storm',{until:S.stormUntil});
   if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
 }
@@ -1004,12 +1106,14 @@ function hitTarget(rec, direct, ev){
 
   const dist = Math.hypot(tx-px, ty-py);
 
+  // power
   if(rec.kind==='slow'){
     const ms = (MODE==='research') ? Math.round((D.slowDurMs[0]+D.slowDurMs[1])*0.5) : rnd(D.slowDurMs[0],D.slowDurMs[1]);
     activateSlow(ms);
     fxBurst(tx,ty,'power'); fxPop('+120',tx,ty);
     flash('good', 90);
     addScore(120); addFever(10);
+    bump(S.metrics.hit, 'slow', 1);
     logEvent('hit_power',{kind:'slow',dist,direct:!!direct});
     removeTarget(rec); updateGrade(); return;
   }
@@ -1019,6 +1123,7 @@ function hitTarget(rec, direct, ev){
     fxBurst(tx,ty,'power'); fxPop('+160',tx,ty);
     flash('good', 90);
     addScore(160); addFever(10);
+    bump(S.metrics.hit, 'nojunk', 1);
     logEvent('hit_power',{kind:'nojunk',dist,direct:!!direct});
     removeTarget(rec); updateGrade(); return;
   }
@@ -1028,13 +1133,16 @@ function hitTarget(rec, direct, ev){
     fxBurst(tx,ty,'power'); fxPop('+200',tx,ty);
     flash('gold', 95);
     addScore(200); addFever(12);
+    bump(S.metrics.hit, 'storm', 1);
     logEvent('hit_power',{kind:'storm',dist,direct:!!direct});
     removeTarget(rec); updateGrade(); return;
   }
 
+  // fake/trap/junk
   if(rec.kind==='fake'){
     fxJudge('TRICK!');
     fxBurst(tx,ty,'trap'); fxPop('-220',tx,ty);
+    bump(S.metrics.hit, 'fake', 1);
     punishBad('trap');
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'trap'},'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
@@ -1044,6 +1152,7 @@ function hitTarget(rec, direct, ev){
   }
   if(rec.kind==='trap'){
     fxBurst(tx,ty,'trap'); fxPop('-240',tx,ty);
+    bump(S.metrics.hit, 'trap', 1);
     punishBad('trap');
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
@@ -1053,6 +1162,7 @@ function hitTarget(rec, direct, ev){
   }
   if(rec.kind==='junk'){
     fxBurst(tx,ty,'bad'); fxPop('-180',tx,ty);
+    bump(S.metrics.hit, 'junk', 1);
     punishBad('junk');
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
@@ -1061,6 +1171,7 @@ function hitTarget(rec, direct, ev){
     return;
   }
 
+  // boss
   if(rec.kind==='boss'){
     rec.hp = Math.max(0, (rec.hp|0)-1);
     bossHpSync(rec);
@@ -1070,6 +1181,7 @@ function hitTarget(rec, direct, ev){
     fxBurst(tx,ty,'boss'); fxPop('+120',tx,ty);
     flash('boss', 110);
     addScore(120); addFever(7);
+    bump(S.metrics.hit, 'boss', 1);
     logEvent('boss_hit',{hp:rec.hp,hpMax:rec.hpMax,phase:ph,dist,direct:!!direct});
 
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'HIT');
@@ -1091,6 +1203,7 @@ function hitTarget(rec, direct, ev){
     return;
   }
 
+  // good/gold
   const judge=judgeFromDist(dist, rec.size);
   const mult=S.feverOn?1.35:1.0;
   const base=(rec.kind==='gold')?520:240;
@@ -1114,6 +1227,8 @@ function hitTarget(rec, direct, ev){
 
   fxBurst(tx,ty,(rec.kind==='gold')?'gold':'good');
   fxPop(`+${delta}`,tx,ty);
+
+  bump(S.metrics.hit, rec.kind, 1);
 
   if(rec.kind==='good') onGood(rec.group);
   if(rec.kind==='gold'){
@@ -1288,13 +1403,18 @@ function isUIElement(target){
   return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop') || target.closest('#startOverlay')));
 }
 function airShot(){
+  // ✅ fun: counts as miss (scoreboard), but DOES NOT consume heart
   S.combo=0; setTxt(HUD.combo,0);
   addScore(-20);
   addFever(-2);
   fxJudge('WHIFF');
   flash('bad', 80);
   AudioX.tick();
+
   S.miss++; setTxt(HUD.miss, S.miss);
+  bump(S.metrics.miss, 'air_shot', 1);
+  S.metrics.air_shot++;
+
   updateGrade();
   logEvent('air_shot',{});
 }
@@ -1326,7 +1446,7 @@ function enterVR(){ try{ scene && scene.enterVR && scene.enterVR(); }catch(_){ }
 function restart(){
   for(const rec of [...S.targets]) removeTarget(rec);
 
-  // ✅ new sessionId ทุกครั้งที่เริ่มใหม่ (กัน logger ซ้ำ)
+  // ✅ new sessionId every restart
   S.sessionId = makeSessionId();
 
   // ✅ reset core
@@ -1345,7 +1465,7 @@ function restart(){
 
   Coach.say('เริ่มใหม่! ลุยต่อเลย 💪', 'neutral', 1200);
 
-  logSession('start');
+  logSession('start', { seeded: USE_SEEDED ? 1 : 0 });
   start();
 }
 
@@ -1356,8 +1476,11 @@ function endGame(isGameOver){
   S.nextSpawnAt=Infinity;
   for(const rec of [...S.targets]) removeTarget(rec);
 
+  const grade = gradeFromScore();
+  const durationPlayedSec = (S.tStart ? Math.max(0, Math.round((now() - S.tStart)/1000)) : 0);
+
   setTxt(HUD.rMode, MODE==='research'?'Research':'Play');
-  setTxt(HUD.rGrade, gradeFromScore());
+  setTxt(HUD.rGrade, grade);
   setTxt(HUD.rScore, S.score);
   setTxt(HUD.rMaxCombo, S.maxCombo);
   setTxt(HUD.rMiss, S.miss);
@@ -1371,12 +1494,23 @@ function endGame(isGameOver){
   setTxt(HUD.rG5, S.groupCounts[4]);
   setTxt(HUD.rGTotal, S.groupCounts.reduce((a,b)=>a+b,0));
 
+  // ✅ auto-save summary at end (HHA standard)
+  const summary = persistLastSummary({
+    reason: isGameOver ? 'gameover' : 'end',
+    grade,
+    durationPlayedSec
+  });
+
+  // ✅ end summary event (optional but standard-friendly)
+  logEvent('end_summary', { summary });
+
   setShow(HUD.resultBackdrop,true);
 
   fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
   vibe(isGameOver?60:50);
   Coach.say(isGameOver ? 'หมดหัวใจแล้ว! ลองใหม่ได้ 💥' : 'จบแล้ว! เก่งมาก 🎉', isGameOver?'sad':'happy', 1700);
-  logSession(isGameOver?'gameover':'end');
+
+  logSession(isGameOver?'gameover':'end', { grade });
 }
 
 // ---------- Main loop ----------
@@ -1463,7 +1597,7 @@ function bindUIDelegated(){
 
     if(!S.started){
       S.started = true;
-      restart(); // เริ่มเกมจริงครั้งแรกหลังเริ่มเล่นเท่านั้น
+      restart(); // start real game only after press Start
     }
   };
 
@@ -1579,5 +1713,7 @@ function bindUI(){
 
   Coach.say('พร้อมแล้ว! เก็บให้ครบ 5 หมู่ 💪', 'neutral', 2200);
 
-  if(DEBUG) console.log('[PlateVR] boot ok (waiting start)', { RUN_RAW, MODE, DIFF, TOTAL_TIME, seed:SEED, D });
+  if(DEBUG) console.log('[PlateVR] boot ok (waiting start)', {
+    RUN_RAW, MODE, DIFF, TOTAL_TIME, seed: (USE_SEEDED ? SEED : null), seeded: USE_SEEDED, D
+  });
 })();
