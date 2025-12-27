@@ -1,11 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BUST
-✅ Grade realtime (via hha:score.detail.grade)
-✅ DBG hidden by default; show when ?dbg=1 or run=research
-✅ Goal/Mini always visible: listen quest:update + hha:quest + repaint from cache
-✅ Dynamic import goodjunk.safe.js with ?v=ts to kill caching issues
-✅ End summary accuracy uses accuracyGoodPct
-✅ Keeps VR-feel drag+gyro playfield + ring/laser overlays + start overlay
+GoodJunkVR — FULL HTML (PRODUCTION) — SOFT END + REALTIME GRADE + DETERMINISTIC(research)
+✅ Soft End when all goals complete (celebrate + toast + continue)
+✅ Hard End when time up (summary + logs)
+✅ Grade updates in real-time (top-right)
+✅ Deterministic in run=research (seedable) + play still random
+✅ HUD debug toggles: ?hud=0 (hide HUD), ?dbg=0 (hide DBG)
 -->
 
 <!doctype html>
@@ -17,14 +16,11 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core (for VR button + sky feel) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + (optional) logger -->
   <script src="./vr/particles.js?v=20251227" defer></script>
   <script src="./vr/hha-cloud-logger.js?v=20251227" defer></script>
 
-  <!-- Global UI -->
   <script src="./vr/ui-fever.js?v=20251227" defer></script>
   <script src="./vr/hha-hud.js?v=20251227" defer></script>
 
@@ -60,7 +56,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       touch-action: none;
     }
 
-    /* --- A-Frame behind --- */
     .vr-backdrop{
       position:fixed; inset:0;
       z-index:0;
@@ -69,14 +64,12 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     }
     a-scene{ height:100%; width:100%; }
 
-    /* --- HUD overlay wrapper --- */
     .hud{
       position:fixed; inset:0;
       z-index: 30;
       pointer-events:none;
     }
 
-    /* topbar */
     .topbar{
       position:fixed;
       left:12px; right:12px; top:10px;
@@ -126,7 +119,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     }
     .pill b{ font-size: 13px; }
 
-    /* quest panel */
     .quest{
       position:fixed;
       left:12px;
@@ -171,7 +163,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       transition: width .12s linear;
     }
 
-    /* coach */
     .coach{
       position:fixed;
       right:12px;
@@ -203,7 +194,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     }
     .coachtext .m{ color: var(--muted); font-weight: 850; display:block; margin-top: 2px; }
 
-    /* crosshair */
     .crosshair{
       position:fixed;
       left:50%;
@@ -227,7 +217,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       transform: translate(-50%,-50%);
     }
 
-    /* shoot button (mobile) */
     .shoot{
       position:fixed;
       right: 16px;
@@ -254,7 +243,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     }
     .shoot button:active{ transform: scale(.98); }
 
-    /* playfield layer for DOM targets */
     #gj-layer{
       position:fixed;
       inset:0;
@@ -293,7 +281,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       100%{ transform: translate(-50%,-50%) scale(1.0) translateY(-6px); }
     }
 
-    /* Ring hazard overlay */
     #atk-ring{
       position:fixed;
       left:50%;
@@ -324,7 +311,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     }
     #atk-ring.show{ opacity: .95; }
 
-    /* Laser overlay */
     #atk-laser{
       position:fixed;
       left:0;
@@ -341,7 +327,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     #atk-laser.warn{ opacity: .55; }
     #atk-laser.fire{ opacity: 1; height: 22px; }
 
-    /* Start overlay */
     .overlay{
       position:fixed;
       inset:0;
@@ -409,7 +394,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     }
     .btn:active{ transform: scale(.99); }
 
-    /* End summary overlay (fallback + HUD) */
     #hhaEnd{
       position:fixed;
       inset:0;
@@ -436,7 +420,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     .endbtns{ display:flex; gap:10px; margin-top: 12px; }
     .endbtns .btn{ width:100%; }
 
-    /* debug pill (hidden by default) */
     .debug{
       position:fixed;
       left: 12px;
@@ -445,14 +428,42 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       pointer-events:none;
       opacity:.65;
       font-size: 11px;
-      display:none;
     }
+
+    /* ✅ Soft-end toast (center) */
+    #hhaToast{
+      position: fixed;
+      left: 50%;
+      top: 46%;
+      transform: translate(-50%,-50%);
+      z-index: 75;
+      pointer-events:none;
+      opacity: 0;
+      transition: opacity .12s ease, transform .12s ease;
+      background: rgba(2,6,23,.78);
+      border: 1px solid rgba(148,163,184,.22);
+      border-radius: 18px;
+      padding: 12px 14px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      text-align:center;
+      width: min(520px, calc(100vw - 24px));
+    }
+    #hhaToast.show{
+      opacity: 1;
+      transform: translate(-50%,-50%) scale(1.02);
+    }
+    #hhaToast .t1{ font-weight: 1000; font-size: 16px; }
+    #hhaToast .t2{ margin-top: 4px; color: var(--muted); font-weight: 850; font-size: 12px; line-height:1.3; }
+
+    /* ✅ optional hide flags */
+    body.no-hud .hud{ display:none; }
+    body.no-dbg .debug{ display:none; }
   </style>
 </head>
 
 <body>
 
-  <!-- A-Frame background -->
   <div class="vr-backdrop">
     <a-scene embedded renderer="colorManagement: true; antialias: true" vr-mode-ui="enabled: true">
       <a-sky color="#050b1a"></a-sky>
@@ -462,22 +473,23 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     </a-scene>
   </div>
 
-  <!-- DOM playfield -->
   <div id="gj-layer" aria-label="GoodJunk playfield"></div>
 
-  <!-- Boss hazards -->
   <div id="atk-ring" aria-hidden="true"></div>
   <div id="atk-laser" aria-hidden="true"></div>
 
-  <!-- Crosshair -->
   <div id="gj-crosshair" class="crosshair" aria-hidden="true"></div>
 
-  <!-- Shoot button (mobile assist) -->
   <div class="shoot">
     <button id="btnShoot" type="button">🎯<span style="font-weight:1000">ยิง</span></button>
   </div>
 
-  <!-- HUD -->
+  <!-- ✅ Soft-end toast -->
+  <div id="hhaToast" aria-hidden="true">
+    <div class="t1" id="toastTitle">✅ ผ่าน Goal แล้ว!</div>
+    <div class="t2" id="toastSub">เล่นต่อเพื่อทำเกรด/คะแนนได้จนหมดเวลา 🔥</div>
+  </div>
+
   <div class="hud">
     <div class="topbar">
       <div class="card pad" style="flex:1">
@@ -515,7 +527,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
         </div>
         <div class="bar"><div class="fill" id="qMiniFill"></div></div>
 
-        <!-- optional mini timer -->
         <div style="margin-top:8px; color:var(--muted); font-weight:900; font-size:11px;">
           ⏳ เหลือเวลา: <span id="qMiniTLeft">—</span>
         </div>
@@ -538,14 +549,10 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     <b id="dbgLine">—</b>
   </div>
 
-  <!-- Start overlay -->
   <div id="startOverlay" class="overlay">
     <div class="panel">
       <div class="h1">🥦 GoodJunk VR</div>
-      <p class="sub" id="startDesc">
-        เล่นแบบสนุกเร้าใจ: เก็บของดี / เลี่ยงขยะ / มี FEVER + BOSS + ลูกเล่น Ring/Laser ⚡
-        <br/>ทิป: ลากจอเพื่อขยับสนามเหมือน VR (รองรับ gyro ถ้าอนุญาต)
-      </p>
+      <p class="sub" id="startDesc"></p>
 
       <div class="grid">
         <button class="btn primary" id="btnStart2D" type="button">▶️ เริ่มเล่น (2D)</button>
@@ -555,18 +562,15 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       </div>
 
       <div style="margin-top:12px;color:var(--muted);font-weight:850;font-size:11px;line-height:1.35">
-        Query params: <b>?diff=easy|normal|hard&time=80&run=play|research&challenge=rush|boss|survival&dbg=1</b>
+        Query params: <b>?diff=easy|normal|hard&time=80&run=play|research&challenge=rush|boss|survival&seed=XXX&det=0|1</b>
       </div>
     </div>
   </div>
 
-  <!-- End summary (HUD may also use this) -->
   <div id="hhaEnd">
     <div class="panel">
       <div class="h1">🎉 สรุปผล</div>
-      <p class="sub">
-        คะแนน + เปอร์เซ็นต์ภารกิจ + เกรด (SSS/SS/S/A/B/C)
-      </p>
+      <p class="sub">คะแนน + เปอร์เซ็นต์ภารกิจ + เกรด (SSS/SS/S/A/B/C)</p>
 
       <div class="endrow">
         <div class="kpi"><div class="k">GRADE</div><div class="v" id="endGrade">—</div></div>
@@ -588,7 +592,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     </div>
   </div>
 
-  <!-- Boot module -->
   <script type="module">
     const $ = (id)=> document.getElementById(id);
 
@@ -599,17 +602,25 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       return (v==null || v==='') ? def : v;
     }
 
-    // --- Parse options ---
+    // ✅ HUD toggles (ตอบรูป: มุมขวาบน/ซ้ายล่าง = HUD)
+    const hudOn = String(qp('hud','1')) !== '0';
+    const dbgOn = String(qp('dbg','1')) !== '0';
+    if (!hudOn) document.body.classList.add('no-hud');
+    if (!dbgOn) document.body.classList.add('no-dbg');
+
     const diff = String(qp('diff','normal')).toLowerCase();
     const run  = String(qp('run','play')).toLowerCase();
     const time = clamp(qp('time',80), 20, 180) | 0;
     const challenge = String(qp('challenge','rush')).toLowerCase();
-    const dbg = String(qp('dbg', (run === 'research' ? '1' : '0')));
 
-    // cache-bust token (สำคัญมากสำหรับ GitHub pages + mobile)
     const tsToken = String(qp('ts', Date.now()));
 
-    // --- UI refs ---
+    // ✅ Deterministic defaults:
+    // - research => det=1 auto
+    // - play => det=0 default (ยังสุ่มสนุก)
+    const det = (run === 'research') || (String(qp('det','0')) === '1');
+    const seed = String(qp('seed', qp('sessionId', tsToken) || tsToken));
+
     const layer = $('gj-layer');
     const cross = $('gj-crosshair');
     const btnShoot = $('btnShoot');
@@ -620,12 +631,8 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     const btnMotion = $('btnMotion');
     const btnHow = $('btnHow');
 
-    const dbgWrap = document.querySelector('.debug');
     const dbgLine = $('dbgLine');
 
-    if (dbg === '1' && dbgWrap) dbgWrap.style.display = 'inline-flex';
-
-    // --- Maintain layer offset + aim point for engine ---
     function updateOffsets(){
       const r = layer.getBoundingClientRect();
       window.__GJ_LAYER_OFFSET__ = { x: r.left, y: r.top };
@@ -633,14 +640,13 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       window.__GJ_AIM_POINT__ = { x: (c.left + c.width/2), y: (c.top + c.height/2) };
     }
 
-    // --- VR-feel playfield: drag + gyro -> transform translate3d ---
     let dragOn=false, sx=0, sy=0;
     let baseX=0, baseY=0;
     let targetX=0, targetY=0;
     let gyroX=0, gyroY=0;
     let motionEnabled=false;
 
-    const MAX_SHIFT = 120; // clamp safe
+    const MAX_SHIFT = 120;
     function applyTransform(){
       baseX += (targetX - baseX) * 0.12;
       baseY += (targetY - baseY) * 0.12;
@@ -662,7 +668,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       targetX = clamp(dx, -MAX_SHIFT, MAX_SHIFT);
       targetY = clamp(dy, -MAX_SHIFT, MAX_SHIFT);
     }
-    function onPointerUp(e){
+    function onPointerUp(){
       dragOn=false;
       targetX *= 0.35;
       targetY *= 0.35;
@@ -691,11 +697,10 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
         }, { passive:true });
 
         btnMotion.textContent = '✅ Motion เปิดแล้ว';
-      }catch(err){
+      }catch(_){
         btnMotion.textContent = '❌ Motion ไม่ได้';
       }
     }
-
     btnMotion.addEventListener('click', enableMotion, { passive:true });
 
     btnHow.addEventListener('click', ()=>{
@@ -710,18 +715,9 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       );
     }, { passive:true });
 
-    // =========================
-    // Hub Context Bridge
-    // =========================
     function readJSONStorage(key){
-      try{
-        const s = sessionStorage.getItem(key);
-        if (s) return JSON.parse(s);
-      }catch(_){}
-      try{
-        const s = localStorage.getItem(key);
-        if (s) return JSON.parse(s);
-      }catch(_){}
+      try{ const s = sessionStorage.getItem(key); if (s) return JSON.parse(s); }catch(_){}
+      try{ const s = localStorage.getItem(key); if (s) return JSON.parse(s); }catch(_){}
       return null;
     }
     function readHubContext(){
@@ -757,13 +753,10 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       if (__HHA_PROFILE_SENT__) return;
       __HHA_PROFILE_SENT__ = true;
       try{
-        window.dispatchEvent(new CustomEvent('hha:log_profile', {
-          detail: { ts: Date.now(), ...ctx }
-        }));
+        window.dispatchEvent(new CustomEvent('hha:log_profile', { detail: { ts: Date.now(), ...ctx } }));
       }catch(_){}
     }
 
-    // --- Start game ---
     let game = null;
 
     async function startGame(){
@@ -772,6 +765,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       const ctx = readHubContext();
       emitProfileOnce(ctx);
 
+      // ✅ Dynamic import to kill caching
       const mod = await import(`./vr-goodjunk/goodjunk.safe.js?v=${encodeURIComponent(tsToken)}`);
       const goodjunkBoot = mod.boot;
 
@@ -780,6 +774,10 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
         run,
         time,
         challenge,
+
+        // ✅ determinism control
+        deterministic: det,
+        seed: seed,
 
         context: ctx,
         sessionId: ctx.sessionId || undefined,
@@ -798,27 +796,35 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     btnStart2D.addEventListener('click', ()=>{ startGame(); }, { passive:true });
     btnStartVR.addEventListener('click', ()=>{ startGame(); }, { passive:true });
 
-    // --- Debug / offsets loop ---
+    // ✅ Soft-end toast listener
+    const toast = $('hhaToast');
+    const toastTitle = $('toastTitle');
+    const toastSub = $('toastSub');
+    window.addEventListener('hha:soft_end', (ev)=>{
+      const d = ev?.detail || {};
+      toastTitle.textContent = d.title || '✅ ผ่าน Goal แล้ว!';
+      toastSub.textContent = d.sub || 'เล่นต่อเพื่อทำเกรด/คะแนนได้จนหมดเวลา 🔥';
+      toast.classList.add('show');
+      setTimeout(()=> toast.classList.remove('show'), 1200);
+    }, { passive:true });
+
     function raf(){
       applyTransform();
       updateOffsets();
 
-      if (dbg === '1') {
-        if (game && game.getState){
-          const s = game.getState();
-          dbgLine.textContent =
-            `${diff}/${challenge} | score:${s.score} combo:${s.combo} miss:${s.misses} fever:${s.fever}% ` +
-            `mag:${s.magnet} sh:${s.shield} grade:${s.grade} boss:${s.bossAlive?('P'+s.bossPhase+' '+s.bossHp+'/'+s.bossHpMax):'—'}`;
-        } else {
-          dbgLine.textContent = `${diff}/${challenge} | ready`;
-        }
+      if (dbgOn && game && game.getState){
+        const s = game.getState();
+        dbgLine.textContent =
+          `${diff}/${challenge} | score:${s.score} combo:${s.combo} miss:${s.misses} fever:${s.fever}% ` +
+          `mag:${s.magnet} sh:${s.shield} grade:${s.grade} goals:${s.goalsCleared}/${s.goalsTotal}`;
+      } else if (dbgOn) {
+        dbgLine.textContent = `${diff}/${challenge} | ready`;
       }
 
       requestAnimationFrame(raf);
     }
     requestAnimationFrame(raf);
 
-    // --- Fallback end summary (in case HUD overlay misses) ---
     const endBox = $('hhaEnd');
     const setTxt = (id, v)=>{ const el=$(id); if(el) el.textContent = String(v); };
 
@@ -848,12 +854,11 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
 
     $('startDesc').innerHTML =
       `โหมด: <b>${diff}</b> • เวลา: <b>${time}s</b> • challenge: <b>${challenge}</b> • run: <b>${run}</b><br/>` +
-      `ทิป: ลากจอเพื่อขยับสนามเหมือน VR (รองรับ gyro ถ้าอนุญาต) • DBG: <b>${dbg==='1'?'ON':'OFF'}</b>`;
+      `deterministic: <b>${det ? 'ON' : 'OFF'}</b> • seed: <b>${seed}</b><br/>` +
+      `ทิป: ลากจอเพื่อขยับสนามเหมือน VR (รองรับ gyro ถ้าอนุญาต)`;
   </script>
 
-  <!-- =========================================================
-       INLINE HUD+QUEST FALLBACK (guarantee Goal+Mini shows)
-       ========================================================= -->
+  <!-- HUD+QUEST fallback (เหมือนเดิม) -->
   <script>
   (function () {
     'use strict';
@@ -904,9 +909,8 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       if (d.miniTLeft != null) setText('qMiniTLeft', d.miniTLeft);
 
       if (d.goalsCleared!=null && d.goalsTotal!=null && d.minisCleared!=null && d.minisTotal!=null){
-        setText('hhaQuestMeta', `Goals ${d.goalsCleared}/${d.goalsTotal} • Minis ${d.minisCleared}/${d.minisTotal}`);
-      } else if (d.goalIndex!=null && d.goalsTotal!=null && d.miniIndex!=null && d.minisTotal!=null) {
-        setText('hhaQuestMeta', `Goal ${d.goalIndex}/${d.goalsTotal} • Mini ${d.miniIndex}/${d.minisTotal}`);
+        const done = (Number(d.goalsCleared) >= Number(d.goalsTotal)) ? ' ✅' : '';
+        setText('hhaQuestMeta', `Goals ${d.goalsCleared}/${d.goalsTotal}${done} • Minis ${d.minisCleared}/${d.minisTotal}`);
       }
     }
 
@@ -916,11 +920,6 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
       setText('hhaCombo', d.combo ?? 0);
       setText('hhaMiss',  d.misses ?? d.miss ?? 0);
       if (d.grade != null) setText('hhaGrade', d.grade);
-
-      if (d.run != null || d.diff != null || d.challenge != null){
-        const meta = [d.run, d.diff, d.challenge].filter(Boolean).join(' • ');
-        if (meta) setText('hhaQuestMeta', meta);
-      }
     });
 
     listen('hha:time', (ev)=>{
@@ -933,9 +932,7 @@ GoodJunkVR — FULL HTML (PRODUCTION) — REALTIME GRADE + DBG TOGGLE + CACHE-BU
     listen('hha:quest',   (ev)=> paintQuest(ev?.detail || {}));
 
     setTimeout(()=>{
-      try{
-        if (window.__HHA_LAST_QUEST__) paintQuest(window.__HHA_LAST_QUEST__);
-      }catch(_){}
+      try{ if (window.__HHA_LAST_QUEST__) paintQuest(window.__HHA_LAST_QUEST__); }catch(_){}
     }, 80);
 
     console.log('[GoodJunk HUD Fallback] ready ✅');
