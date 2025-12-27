@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — SAFE (PRODUCTION) — HHA Standard (FULL + PATCHED)
 // ✅ Cloud Logger compatible: hha:log_event uses {type:'spawn'|'hit'|'miss_expire'|'shield_block', data:{kind:...}}
-// ✅ Events sheet schema-ready: eventType, timeFromStartMs, rtMs, itemType, emoji, targetId, judgment, totalScore, combo, isGood, feverValue/state, goalProgress, miniProgress, extra
+// ✅ Events sheet schema-ready
 // ✅ End Summary overlay + Back HUB + localStorage(HHA_LAST_SUMMARY)
 // ✅ Deterministic RNG (research default) + optional play ?seed=
 // ✅ Boss hazards dodgeable (Ring gap + Laser line) using world-shift (drag/gyro)
@@ -9,6 +9,8 @@
 // ✅ Miss definition: miss = good expired + junk hit (only if NOT blocked by shield)
 // ✅ Quest emits: quest:update + hha:quest (cache: window.__HHA_LAST_QUEST__)
 // ✅ End policy: end=time (default) | end=all (play only)
+// ✅ PATCH: missLimit system (warn FX + tick sound + coach + endGame on miss_limit)
+// ✅ PATCH: survive goal truly binds to missLimit (no longer clears on a single good hit)
 
 'use strict';
 
@@ -82,7 +84,7 @@ function makeRng(seedAny){
   };
 }
 
-// --------------------------- Style injection (stun/panic/magnet) ---------------------------
+// --------------------------- Style injection (stun/panic/magnet + misswarn) ---------------------------
 function ensureFXStyles() {
   if (document.getElementById('gj-safe-fx-style')) return;
   const style = document.createElement('style');
@@ -175,6 +177,33 @@ function ensureFXStyles() {
       35%{ opacity:.95; }
       100%{ opacity:0; transform: translate3d(0,0,0) scaleX(1.02); }
     }
+
+    /* ---- Miss limit warning FX ---- */
+    body.gj-misswarn::after{
+      content:'';
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index: 9996;
+      background:
+        radial-gradient(900px 600px at 50% 50%, transparent 55%, rgba(239,68,68,.24) 78%, transparent 92%);
+      opacity: 0;
+      animation: gjMissWarn 1.05s ease-in-out infinite;
+      mix-blend-mode: screen;
+    }
+    @keyframes gjMissWarn{
+      0%{ opacity:.10; }
+      35%{ opacity:.55; }
+      100%{ opacity:.18; }
+    }
+
+    body.gj-misszero::after{
+      animation: gjMissZero .70s ease-in-out infinite;
+    }
+    @keyframes gjMissZero{
+      0%{ opacity:.20; }
+      45%{ opacity:.85; }
+      100%{ opacity:.25; }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -241,10 +270,12 @@ function makeQuestDirector(opts = {}) {
       goalTitle: g ? `Goal: ${g.title}` : 'Goal: —',
       goalCur: g ? (g.cur|0) : 0,
       goalMax: g ? (g.target|0) : 0,
+      goalKind: g ? String(g.kind || '') : '',
 
       miniTitle: m ? `Mini: ${m.title}` : 'Mini: —',
       miniCur: m ? (m.cur|0) : 0,
       miniMax: m ? (m.target|0) : 0,
+      miniKind: m ? String(m.kind || '') : '',
       miniTLeft: (m && m.tLeft != null) ? m.tLeft : null,
 
       goalsCleared: Q.goalsCleared|0,
@@ -321,6 +352,22 @@ function makeQuestDirector(opts = {}) {
     return { done:false };
   }
 
+  // PATCH: allow setting goal cur directly (for passive goals like "survive")
+  function setGoalCur(cur){
+    const g = Q.activeGoal;
+    if(!g || g.done || Q.allDone) return { done:false };
+    g.cur = clamp(Number(cur)||0, 0, g.target);
+    if(g.cur >= g.target){
+      g.done = true;
+      Q.goalsCleared++;
+      push('goal-complete');
+      checkAllDone();
+      return { done:true };
+    }
+    push('goal-progress');
+    return { done:false };
+  }
+
   function addMiniProgress(n=1){
     const m = Q.activeMini;
     if(!m || m.done || Q.allDone) return { done:false };
@@ -383,18 +430,21 @@ function makeQuestDirector(opts = {}) {
   }
 
   function getUIState(reason='state'){ return ui(reason); }
+  function getActiveGoal(){ return Q.activeGoal; }
 
-  return { start, tick, addGoalProgress, addMiniProgress, nextGoal, nextMini, failMini, onJunkHit, getUIState };
+  return { start, tick, addGoalProgress, setGoalCur, addMiniProgress, nextGoal, nextMini, failMini, onJunkHit, getUIState, getActiveGoal };
 }
 
 // --------------------------- Default quest defs (HHA Standard: 2 goals + 7 minis) ---------------------------
-function makeDefaultQuestDefs(diff='normal', challenge='rush') {
+function makeDefaultQuestDefs(diff='normal', challenge='rush', missLimit=4) {
   const d = String(diff).toLowerCase();
   const goalTarget = (d === 'easy') ? 12 : (d === 'hard' ? 20 : 16);
 
+  const ml = Math.max(0, Number(missLimit)||0);
+
   const goals = [
     { title: `เก็บของดีให้ได้ ${goalTarget} ชิ้น`, kind: 'good', target: goalTarget },
-    { title: `อยู่รอด! อย่าให้พลาดเกิน ${(d === 'easy') ? 6 : (d === 'hard' ? 3 : 4)} ครั้ง`, kind: 'survive', target: 1 }
+    { title: `อยู่รอด! อย่าให้พลาดเกิน ${ml} ครั้ง`, kind: 'survive', target: 1 }
   ];
 
   const minis = [
@@ -435,7 +485,6 @@ function saveLastSummary(payload){
   }catch(_){}
 }
 function showEndSummary(payload){
-  // If you have a shared UI pack, prefer it
   if (ROOT.HHA_UI && typeof ROOT.HHA_UI.showEndSummary === 'function'){
     try { ROOT.HHA_UI.showEndSummary(payload); return; } catch(_) {}
   }
@@ -465,7 +514,7 @@ function showEndSummary(payload){
   const lines = el.querySelector('#hha-end-lines');
   lines.innerHTML = `
     <div>เกรด: <b>${payload.grade ?? '—'}</b></div>
-    <div>คะแนน: <b>${payload.scoreFinal ?? 0}</b> • ComboMax: <b>${payload.comboMax ?? 0}</b> • Miss: <b>${payload.misses ?? 0}</b></div>
+    <div>คะแนน: <b>${payload.scoreFinal ?? 0}</b> • ComboMax: <b>${payload.comboMax ?? 0}</b> • Miss: <b>${payload.misses ?? 0}</b> (Limit <b>${payload.missLimit ?? '—'}</b>)</div>
     <div>Goals: <b>${payload.goalsCleared ?? 0}/${payload.goalsTotal ?? 0}</b> • Minis: <b>${payload.miniCleared ?? 0}/${payload.miniTotal ?? 0}</b></div>
     <div>Accuracy: <b>${payload.accuracyGoodPct ?? 0}%</b> • AvgRT: <b>${payload.avgRtGoodMs ?? 0}ms</b> • MedianRT: <b>${payload.medianRtGoodMs ?? 0}ms</b></div>
     <div style="margin-top:8px;color:#94a3b8;font-size:12px;">reason: ${payload.reason ?? ''} • seed: ${payload.seed ?? ''}</div>
@@ -496,7 +545,6 @@ export function boot(opts = {}) {
   if (!shootEl) throw new Error('[GoodJunk] shootEl missing (#btnShoot)');
 
   // ---------------- Seed policy (HHA Standard) ----------------
-  // research: deterministic by default; play: deterministic only if provided seed
   let seedStr = (opts.seed != null && opts.seed !== '') ? String(opts.seed) : null;
   if (!seedStr && run === 'research'){
     const key = [
@@ -508,8 +556,21 @@ export function boot(opts = {}) {
   if (!seedStr) seedStr = String(Date.now()); // play fallback
   const RNG = makeRng(seedStr);
 
-  // Quest defs
-  const defs = makeDefaultQuestDefs(diff, challenge);
+  // ---------------- Miss limit policy (HHA Standard) ----------------
+  let missLimit = null;
+  try{
+    const u = new URL(location.href);
+    const q = u.searchParams.get('missLimit');
+    if (q != null && q !== '') missLimit = Number(q);
+  }catch(_){}
+  if (opts.missLimit != null && opts.missLimit !== '') missLimit = Number(opts.missLimit);
+
+  const missLimitDefault = (diff === 'easy') ? 6 : (diff === 'hard' ? 3 : 4);
+  if (!isFinite(missLimit)) missLimit = missLimitDefault;
+  missLimit = clamp(missLimit, 0, 99) | 0;
+
+  // Quest defs (include missLimit in survive goal title)
+  const defs = makeDefaultQuestDefs(diff, challenge, missLimit);
 
   // ---------------- magnet line layer ----------------
   let mlineLayer = null;
@@ -566,6 +627,7 @@ export function boot(opts = {}) {
     comboMax: 0,
 
     misses: 0,           // ✅ miss = expire good + hit junk (no shield)
+    missLimit: missLimit,
 
     timeLeftSec: timeLimitSec,
 
@@ -593,7 +655,6 @@ export function boot(opts = {}) {
     bossHpMax: 0,
     bossSpawned: false,
 
-    // hazards tracked (NOT counted as miss per standard definition)
     bossHazardHit: 0,
     bossHazardGuard: 0,
     ringDodge: 0,
@@ -614,6 +675,76 @@ export function boot(opts = {}) {
     __magCoachCdMs: 0
   };
 
+  // ---------------- Miss warning system (FX + tick + coach) ----------------
+  let __tickCtx = null;
+  let __missWarnLevel = null; // null | 2 | 1 | 0
+  let __missTickNextMs = 0;
+
+  function playTick(freq = 760){
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!__tickCtx) __tickCtx = new AC();
+      if (__tickCtx.state === 'suspended'){ __tickCtx.resume().catch(()=>{}); }
+
+      const t = __tickCtx.currentTime;
+      const o = __tickCtx.createOscillator();
+      const g = __tickCtx.createGain();
+
+      o.type = 'square';
+      o.frequency.setValueAtTime(freq, t);
+
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.06, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+
+      o.connect(g);
+      g.connect(__tickCtx.destination);
+
+      o.start(t);
+      o.stop(t + 0.14);
+    }catch(_){}
+  }
+
+  function updateMissWarning(forceCoach=false){
+    if (S.missLimit == null){
+      document.body.classList.remove('gj-misswarn','gj-misszero');
+      __missWarnLevel = null;
+      return;
+    }
+
+    const rem = (S.missLimit|0) - (S.misses|0);
+
+    const level =
+      (rem <= 0) ? 0 :
+      (rem === 1) ? 1 :
+      (rem === 2) ? 2 : null;
+
+    if (level != null) document.body.classList.add('gj-misswarn');
+    else document.body.classList.remove('gj-misswarn');
+
+    if (level === 0) document.body.classList.add('gj-misszero');
+    else document.body.classList.remove('gj-misszero');
+
+    if (level !== __missWarnLevel){
+      __missWarnLevel = level;
+      if (forceCoach){
+        if (level === 2) coach(`ระวัง! เหลือพลาดได้อีก 2 ครั้ง`, 'neutral', 'อย่าโดนขยะ/อย่าปล่อยของดีหมดเวลา');
+        if (level === 1) coach(`ใกล้ตาย! เหลือพลาดได้อีก 1 ครั้ง`, 'sad', 'โฟกัสกลางจอ + ใช้แม่เหล็กช่วย');
+        if (level === 0) coach(`สุดท้ายแล้ว! พลาดอีกครั้งเกมจบ`, 'sad', 'หาโล่ 🛡️ หรือเก็บของดีแบบชัวร์ ๆ');
+      }
+    }
+
+    if (level === 1 || level === 0){
+      const n = nowMs();
+      const interval = (level === 0) ? 520 : 780;
+      if (n >= __missTickNextMs){
+        __missTickNextMs = n + interval;
+        playTick(level === 0 ? 900 : 760);
+      }
+    }
+  }
+
   function cacheQuest(ui){
     try { window.__HHA_LAST_QUEST__ = ui; } catch(_) {}
   }
@@ -631,8 +762,6 @@ export function boot(opts = {}) {
     const gPct = (S.goalsTotal > 0) ? (S.goalsCleared / S.goalsTotal) : 0;
     const mPct = (S.miniTotal > 0) ? (S.miniCleared / S.miniTotal) : 0;
 
-    // ✅ HHA Standard score blend:
-    // acc 60% + goals 20% + minis 20% - misses penalty
     let score = 0;
     score += Math.min(60, acc * 0.6);
     score += (gPct * 20);
@@ -672,7 +801,8 @@ export function boot(opts = {}) {
       diff: S.diff,
       run: S.run,
       challenge: S.challenge,
-      seed: S.seed
+      seed: S.seed,
+      missLimit: S.missLimit
     });
   }
 
@@ -708,7 +838,7 @@ export function boot(opts = {}) {
     else coach('โดนขยะ! ระวังนะ 😵', 'sad', 'เล็งดี ๆ เก็บของดีต่อคอมโบ');
   }
 
-  // ---------------- HHA Standard Event Emitter (Cloud Logger + Events schema) ----------------
+  // ---------------- HHA Standard Event Emitter ----------------
   const t0Ms = nowMs();
   function feverStateFrom(v){
     v = Number(v)||0;
@@ -720,19 +850,18 @@ export function boot(opts = {}) {
     const timeFromStartMs = Math.max(0, Math.round(nowMs() - t0Ms));
 
     const payload = {
-      // logger core
       sessionId,
       game: 'GoodJunkVR',
-      type: eventType,          // ✅ logger uses d.type
+      type: eventType,
       t: Date.now(),
 
       score: S.score,
       combo: S.combo,
       miss: S.misses,
+      missLimit: S.missLimit,
       fever: S.fever,
       shield: Math.ceil(S.shield),
 
-      // Events sheet core
       timestampIso: new Date().toISOString(),
       projectTag: 'GoodJunkVR',
       runMode: run,
@@ -762,10 +891,7 @@ export function boot(opts = {}) {
       studentNo: context.studentNo,
       nickName: context.nickName,
 
-      // per-event fields (schema)
       ...fields,
-
-      // detail data (logger will flatten/stringify)
       data: data || {}
     };
 
@@ -1106,7 +1232,7 @@ export function boot(opts = {}) {
       return;
     }
 
-    // ✅ standard: hazard does NOT count as "miss" (miss = expire good + hit junk)
+    // ✅ standard: hazard does NOT count as "miss"
     S.bossHazardHit += 1;
     S.combo = 0;
     setFever(S.fever - 14);
@@ -1124,7 +1250,7 @@ export function boot(opts = {}) {
 
     bossHazardAccMs += dtMs;
 
-    // Ring (deterministic cadence)
+    // Ring
     if (ringState.phase === 'idle' && bossHazardAccMs > 2500) {
       bossHazardAccMs = 0;
       ringState.phase = 'warn';
@@ -1164,7 +1290,7 @@ export function boot(opts = {}) {
       }
     }
 
-    // Laser (deterministic chance)
+    // Laser
     const pLaser = 0.11;
     if (laserState.phase === 'idle' && RNG.random() < (dtMs / 1000) * pLaser) {
       laserState.phase = 'warn';
@@ -1240,6 +1366,7 @@ export function boot(opts = {}) {
   cacheQuest(initUI);
   emitEvt('quest:update', initUI);
   emitEvt('hha:quest', initUI);
+
   setTimeout(() => {
     try {
       const u2 = Q.getUIState('init-reemit');
@@ -1248,6 +1375,22 @@ export function boot(opts = {}) {
       emitEvt('hha:quest', u2);
     } catch(_) {}
   }, 0);
+
+  // PATCH: Survive goal sync (passive goal bound to missLimit)
+  function syncSurviveGoal(){
+    const g = Q.getActiveGoal?.();
+    if (!g || g.done) return;
+    if (String(g.kind||'') !== 'survive') return;
+
+    const ok = (S.missLimit == null) ? true : (S.misses <= S.missLimit);
+    const done = Q.setGoalCur(ok ? 1 : 0).done;
+
+    if (done){
+      Particles.celebrate?.('GOAL');
+      coach('ผ่านเป้าหมายอยู่รอดแล้ว! 🔥', 'happy', 'ไปต่อเป้าถัดไป/เก็บแต้มเพิ่ม!');
+      Q.nextGoal();
+    }
+  }
 
   // ---------------- Input (shoot) ----------------
   function canAct() { return nowMs() >= S.stunnedUntilMs; }
@@ -1309,6 +1452,10 @@ export function boot(opts = {}) {
       S.nHitGood += 1;
       S.rtGood.push(rt);
 
+      // PATCH: don't progress survive goal by good hits
+      const g = Q.getActiveGoal?.();
+      const isSurviveGoal = (g && String(g.kind||'') === 'survive');
+
       S.score += 120 + Math.min(120, (S.combo * 6));
       S.combo += 1;
 
@@ -1331,7 +1478,14 @@ export function boot(opts = {}) {
       Particles.scorePop?.(t.xView, t.yView, '+');
       Particles.burstAt?.(t.xView, t.yView, 'GOOD');
 
-      const gDone = Q.addGoalProgress(1).done;
+      // only advance "good" goal, not survive goal
+      let gDone = false;
+      if (!isSurviveGoal){
+        gDone = Q.addGoalProgress(1).done;
+      } else {
+        syncSurviveGoal();
+      }
+
       const mDone = Q.addMiniProgress(1).done;
 
       if (gDone) { Particles.celebrate?.('GOAL'); coach('Goal ผ่านแล้ว! ไปต่อ 🔥', 'happy', 'เป้าถัดไปมาแล้ว!'); Q.nextGoal(); }
@@ -1386,7 +1540,6 @@ export function boot(opts = {}) {
         Particles.celebrate?.('POWER');
       }
 
-      // kind for counters: shield|diamond|star
       const k = (tag === 'shield') ? 'shield' : (tag === 'time' ? 'diamond' : 'star');
 
       logEvent('hit',
@@ -1415,6 +1568,9 @@ export function boot(opts = {}) {
       // ✅ miss: junk hit
       S.nHitJunk += 1;
       S.misses += 1;
+      updateMissWarning(true);
+      syncSurviveGoal();
+
       S.combo = 0;
       setFever(S.fever - 18);
       stun('junk');
@@ -1469,11 +1625,14 @@ export function boot(opts = {}) {
     seed: S.seed,
     seedRaw: S.seedRaw,
     durationPlannedSec: timeLimitSec,
+    missLimit: S.missLimit,
     sessionId: sessionId || undefined,
     ...context
   });
 
-  coach('พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫', 'neutral', 'เล็งกลางแล้วกดยิง / ลากจอเพื่อ “เอียงโลก” และหลบ Ring/Laser');
+  coach('พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫', 'neutral', `เล็งกลางแล้วกดยิง / ลากจอเพื่อ “เอียงโลก” และหลบ Ring/Laser • MissLimit ${S.missLimit}`);
+  updateMissWarning(true);
+  syncSurviveGoal();
   emitScore();
   emitTime();
 
@@ -1493,12 +1652,10 @@ export function boot(opts = {}) {
 
       const t = makeTarget('power', emoji, x, y, cfg.ttl + 0.5, { tag });
 
-      // local counters
       S.nTargetShieldSpawned += (tag === 'shield') ? 1 : 0;
       S.nTargetDiamondSpawned += (tag === 'time') ? 1 : 0;
       S.nTargetStarSpawned += (tag === 'magnet') ? 1 : 0;
 
-      // logger counter kind: shield|diamond|star
       const k = (tag === 'shield') ? 'shield' : (tag === 'time' ? 'diamond' : 'star');
 
       logEvent('spawn',
@@ -1527,7 +1684,6 @@ export function boot(opts = {}) {
       const t = makeTarget(isTrap ? 'trap' : 'junk', emoji, x, y, cfg.ttl, {});
       S.nTargetJunkSpawned += 1;
 
-      // ✅ count as junk spawn in logger
       logEvent('spawn',
         { targetId: t.id, emoji, itemType: isTrap ? 'trap' : 'junk', judgment:'SPAWN', isGood: 0 },
         { kind:'junk', trap: isTrap ? 1 : 0 }
@@ -1566,6 +1722,8 @@ export function boot(opts = {}) {
 
     document.body.classList.remove('gj-panic');
     document.body.classList.remove('gj-magnet');
+    document.body.classList.remove('gj-misswarn','gj-misszero');
+
     showRing(false);
     laserClass(null);
     laserState.yWorld = null;
@@ -1575,10 +1733,12 @@ export function boot(opts = {}) {
     const endIso = new Date().toISOString();
     S.endedAtIso = endIso;
 
+    // ensure survive goal sync one last time
+    syncSurviveGoal();
+
     const stats = computeStatsFinal();
     S.grade = computeGrade(stats, true);
 
-    // optional boss pack for session sheet (cloud logger will FORCE bossJson)
     const bossObj = {
       seed: S.seed,
       bossSpawned: !!S.bossSpawned,
@@ -1614,6 +1774,7 @@ export function boot(opts = {}) {
       scoreFinal: S.score,
       comboMax: S.comboMax,
       misses: S.misses,
+      missLimit: S.missLimit,
 
       goalsCleared: S.goalsCleared,
       goalsTotal: S.goalsTotal,
@@ -1636,12 +1797,10 @@ export function boot(opts = {}) {
       medianRtGoodMs: stats.medianRtGoodMs,
 
       grade: S.grade,
-
-      // keep as string for sheet safety
       bossJson: JSON.stringify(bossObj),
 
       device: (navigator.userAgent || 'unknown'),
-      gameVersion: (context.gameVersion || 'goodjunk.safe-final-pack'),
+      gameVersion: (context.gameVersion || 'goodjunk.safe-misslimit-pack'),
 
       reason,
       startTimeIso: S.startedAtIso,
@@ -1657,7 +1816,7 @@ export function boot(opts = {}) {
     showEndSummary(payload);
     try { ROOT.HHACloudLogger?.flushNow?.(); } catch(_) {}
 
-    coach(`จบเกม! เกรด ${S.grade} 🎉`, 'happy', `Accuracy ${stats.accuracyGoodPct}% • Miss ${S.misses} • ComboMax ${S.comboMax}`);
+    coach(`จบเกม! เกรด ${S.grade} 🎉`, 'happy', `Accuracy ${stats.accuracyGoodPct}% • Miss ${S.misses}/${S.missLimit} • ComboMax ${S.comboMax}`);
   }
 
   // ---------------- Main loop ----------------
@@ -1713,6 +1872,9 @@ export function boot(opts = {}) {
           // ✅ miss: good expired
           S.nExpireGood += 1;
           S.misses += 1;
+          updateMissWarning(true);
+          syncSurviveGoal();
+
           S.combo = 0;
           setFever(S.fever - 12);
 
@@ -1729,8 +1891,19 @@ export function boot(opts = {}) {
 
     tickBossHazards(dtMs);
     updateHazardTransforms();
+
+    // realtime warning + survive sync
+    updateMissWarning(false);
+    syncSurviveGoal();
+
     emitTime();
     emitScore();
+
+    // ✅ miss limit ends game immediately when exceeded
+    if (S.missLimit != null && S.misses > S.missLimit){
+      endGame('miss_limit');
+      return;
+    }
 
     // ✅ End policy
     if (run === 'play' && endPolicy === 'all'){
@@ -1747,7 +1920,7 @@ export function boot(opts = {}) {
 
     if (!ended) {
       update(dt);
-      if (S.timeLeftSec <= 0) endGame('time');
+      if (!ended && S.timeLeftSec <= 0) endGame('time');
     }
     rafId = requestAnimationFrame(raf);
   }
@@ -1759,6 +1932,7 @@ export function boot(opts = {}) {
       score: S.score,
       combo: S.combo,
       misses: S.misses,
+      missLimit: S.missLimit,
       fever: S.fever,
       shield: Math.ceil(S.shield),
       magnet: Math.ceil(S.magnet),
