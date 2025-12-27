@@ -1,8 +1,9 @@
 // === /herohealth/plate/plate.safe.js ===
 // Plate VR — ULTIMATE ALL-IN-ONE (START-GATED + HUB RETURN + UI FIXES)
 // ✅ แก้ “เล่นแป๊บเดียวจบ” : ไม่เริ่มนับเวลา/ไม่เริ่ม loop จนกด Start
-// ✅ แก้ปุ่ม “กลับ HUB / เล่นอีกครั้ง” : bind ให้ชัด + กัน bind ซ้ำด้วย booted
-// ✅ ใช้ started เพื่อเริ่มเกมจริงครั้งแรกเท่านั้น
+// ✅ แก้ปุ่ม “กลับ HUB / เล่นอีกครั้ง” : ใช้ document-level delegation (pointerup + click) กันทุกกรณี
+// ✅ รองรับ run=play|study และ runMode=play|study (map → MODE play|research)
+// ✅ บันทึก HHA_LAST_SUMMARY + กลับ HUB ด้วย hub=... + ส่ง query บางส่วนกลับไป
 // ✅ คงทุกระบบเดิม (spawn, safezone, boss, mini, goals, logger, fever, particles)
 
 'use strict';
@@ -17,12 +18,13 @@ function setTxt(el, t){ if(el) el.textContent = String(t); }
 function setShow(el, on){
   if(!el) return;
   if(on){
-    el.style.display = (el.id === 'resultBackdrop') ? 'flex' : 'block';
+    el.style.display = (el.id === 'resultBackdrop' || el.id === 'startOverlay') ? 'flex' : 'block';
   }else{
     el.style.display = 'none';
   }
 }
 
+// ---------- Fatal overlay ----------
 (function attachFatalOverlay(){
   if (!doc) return;
   const box = doc.createElement('div');
@@ -70,11 +72,13 @@ function setShow(el, on){
 const URLX = new URL(ROOT.location.href);
 const Q = URLX.searchParams;
 
-const MODE = String(Q.get('run') || 'play').toLowerCase();      // play | research
-const DIFF = String(Q.get('diff') || 'normal').toLowerCase();   // easy | normal | hard
+// ✅ รองรับทั้ง run และ runMode (hub ส่งมา 2 ตัว)
+const RUN_RAW = String(Q.get('run') || Q.get('runMode') || 'play').toLowerCase();
+const MODE = (RUN_RAW === 'study' || RUN_RAW === 'research') ? 'research' : 'play';  // play | research
+const DIFF = String(Q.get('diff') || 'normal').toLowerCase();                         // easy | normal | hard
 const DEBUG = (Q.get('debug') === '1');
 
-// ✅ PATCH: default time for ป.5 by diff IF no explicit time=
+// ✅ default time by diff if no explicit time=
 const HAS_TIME_PARAM = Q.has('time');
 const DEFAULT_TIME_BY_DIFF = (DIFF === 'easy') ? 80 : (DIFF === 'hard') ? 60 : 70;
 const TOTAL_TIME = Math.max(
@@ -100,6 +104,7 @@ const now = ()=>performance.now();
 const fmt = (n)=>String(Math.max(0, Math.floor(n)));
 const rnd = (a,b)=>a + R()*(b-a);
 function randFrom(arr){ return arr[(R()*arr.length)|0]; }
+function uid8(){ return Math.random().toString(16).slice(2,10); }
 
 // ---------- Modules ----------
 const Particles =
@@ -148,7 +153,7 @@ const HUD = {
   rGTotal: $('rGTotal'),
 };
 
-// ---------- Difficulty (กลาง ๆ เน้นบอส) ----------
+// ---------- Difficulty ----------
 const DIFF_TABLE = {
   easy: {
     size: 92, life: 3200, spawnMs: 900, maxTargets: 10,
@@ -207,11 +212,13 @@ const S = {
 
   lowTimeLastSec:null,
 
-  sessionId:`PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  sessionId:`PLATE-${Date.now()}-${uid8()}`,
 
-  // ✅ ตามที่คุณขอ
   booted:false,
-  started:false
+  started:false,
+
+  _uiDelegated:false,
+  _uiBindTries:0
 };
 
 // ---------- Helpers ----------
@@ -224,7 +231,7 @@ function dispatchEvt(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
 }
 
-/* ===== FIX: sanitize + correct Particles API ===== */
+/* ===== FX wrappers ===== */
 function safeFxText(t){
   t = String(t ?? '');
   if (/^\d+(\.\d+)?$/.test(t) && t.length >= 10) return '✓';
@@ -275,13 +282,15 @@ async function requestMotionPermissionIfNeeded(){
 function showStartOverlay(on){
   const ov = $('startOverlay');
   if(!ov) return;
-  ov.style.display = on ? 'flex' : 'none';
+  setShow(ov, !!on);
 }
+
 function goHub(){
   try{
     const summary = {
       game:'PlateVR',
       sessionId:S.sessionId,
+      run: RUN_RAW,
       mode: MODE,
       diff: DIFF,
       score:S.score,
@@ -380,7 +389,7 @@ function goHub(){
 
 const layer = doc.createElement('div');
 layer.className = 'plate-layer';
-doc.body.appendChild(layer);
+doc.body && doc.body.appendChild(layer);
 
 // ---------- Audio (tiny beeps) ----------
 const AudioX = (function(){
@@ -414,7 +423,7 @@ const AudioX = (function(){
 function logSession(phase){
   dispatchEvt('hha:log_session',{
     sessionId:S.sessionId, game:'PlateVR', phase,
-    mode:MODE, diff:DIFF, timeTotal:TOTAL_TIME, lives:S.livesMax,
+    run: RUN_RAW, mode:MODE, diff:DIFF, timeTotal:TOTAL_TIME, lives:S.livesMax,
     seed: SEED, ts:Date.now(), ua:navigator.userAgent
   });
 }
@@ -811,17 +820,22 @@ function makeTarget(kind, group, opts={}){
 
   S.targets.push(rec);
 
+  // ✅ ลด double-fire: ใช้ pointerdown เป็นหลัก, click เป็น fallback (กันนับซ้อน)
+  let fired = false;
   const hitHandler=(e)=>{
+    if (fired && e.type !== 'pointerdown') return;
+    fired = true;
+    setTimeout(()=>{ fired = false; }, 120);
+
     e.preventDefault(); e.stopPropagation();
     AudioX.unlock();
     hitTarget(rec, true, e);
   };
   el.addEventListener('pointerdown', hitHandler, {passive:false});
   el.addEventListener('click', hitHandler, {passive:false});
-  el.addEventListener('touchstart', hitHandler, {passive:false});
 
   layer.appendChild(el);
-  setTimeout(()=>el.classList.remove('spawn'), 260);
+  setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 260);
 
   logEvent('spawn',{kind,group,size:sizePx,x:rec.cx,y:rec.cy,hp});
   return rec;
@@ -1292,6 +1306,9 @@ function enterVR(){ try{ scene && scene.enterVR && scene.enterVR(); }catch(_){ }
 function restart(){
   for(const rec of [...S.targets]) removeTarget(rec);
 
+  // ✅ new sessionId ทุกครั้งที่เริ่มใหม่ (กัน logger ซ้ำ)
+  S.sessionId = `PLATE-${Date.now()}-${uid8()}`;
+
   S.running=false; S.paused=false;
   S.tStart=0; S.timeLeft=TOTAL_TIME;
   S.score=0; S.combo=0; S.maxCombo=0; S.miss=0; S.perfectCount=0;
@@ -1391,7 +1408,7 @@ function start(){
   ROOT.requestAnimationFrame(frame);
 }
 
-// ---------- Bind controls ----------
+// ---------- Hotkeys ----------
 function bindShootHotkeys(){
   ROOT.addEventListener('keydown',(e)=>{
     const k=String(e.key||'').toLowerCase();
@@ -1408,33 +1425,21 @@ function bindShootHotkeys(){
   }
 }
 
-// ✅ ตามที่คุณขอ + เพิ่ม start/hub binding ครบ
-function bindUI(){
-  if(S.booted) return;
-  S.booted = true;
+// ✅ PATCH: refresh HUD refs (กัน DOM timing)
+function refreshHUDRefs(){
+  HUD.btnEnterVR = HUD.btnEnterVR || $('btnEnterVR');
+  HUD.btnPause   = HUD.btnPause   || $('btnPause');
+  HUD.btnRestart = HUD.btnRestart || $('btnRestart');
+  HUD.resultBackdrop = HUD.resultBackdrop || $('resultBackdrop');
+  HUD.btnPlayAgain   = HUD.btnPlayAgain   || $('btnPlayAgain');
+}
 
-  layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
-  layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
-  layer.addEventListener('click', onGlobalPointerDown, {passive:false});
+// ✅ PATCH: delegate handler ให้ปุ่มทำงานชัวร์ (pointerup + click)
+function bindUIDelegated(){
+  if (S._uiDelegated) return;
+  S._uiDelegated = true;
 
-  HUD.btnEnterVR && HUD.btnEnterVR.addEventListener('click', enterVR);
-  HUD.btnPause && HUD.btnPause.addEventListener('click', ()=>{ if(!S.running) return; setPaused(!S.paused); });
-  HUD.btnRestart && HUD.btnRestart.addEventListener('click', ()=>restart());
-
-  HUD.btnPlayAgain && HUD.btnPlayAgain.addEventListener('click', ()=>{
-    setShow(HUD.resultBackdrop,false);
-    restart();
-  });
-
-  HUD.resultBackdrop && HUD.resultBackdrop.addEventListener('click',(e)=>{
-    if(e.target === HUD.resultBackdrop) setShow(HUD.resultBackdrop,false);
-  });
-
-  const btnBackHub = $('btnBackHub');
-  btnBackHub && btnBackHub.addEventListener('click', goHub);
-
-  const btnStart = $('btnStart');
-  btnStart && btnStart.addEventListener('click', async ()=>{
+  const actStart = async ()=>{
     try{
       AudioX.unlock();
       await requestMotionPermissionIfNeeded();
@@ -1443,9 +1448,91 @@ function bindUI(){
 
     if(!S.started){
       S.started = true;
-      restart(); // ✅ เริ่มเกมจริงครั้งแรก (เริ่มนับเวลาหลังจากกดปุ่มนี้)
+      restart(); // เริ่มเกมจริงครั้งแรกหลังเริ่มเล่นเท่านั้น
     }
+  };
+
+  const handler = (e)=>{
+    const el = e.target && e.target.closest
+      ? e.target.closest('#btnBackHub, #btnPlayAgain, #btnRestart, #btnPause, #btnEnterVR, #btnStart')
+      : null;
+    if(!el) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    refreshHUDRefs();
+
+    switch(el.id){
+      case 'btnBackHub':
+        goHub();
+        break;
+
+      case 'btnPlayAgain':
+        setShow(HUD.resultBackdrop, false);
+        S.started = true;
+        restart();
+        break;
+
+      case 'btnRestart':
+        S.started = true;
+        restart();
+        break;
+
+      case 'btnPause':
+        if(!S.running) return;
+        setPaused(!S.paused);
+        break;
+
+      case 'btnEnterVR':
+        enterVR();
+        break;
+
+      case 'btnStart':
+        actStart();
+        break;
+    }
+  };
+
+  doc.addEventListener('pointerup', handler, { passive:false });
+  doc.addEventListener('click', handler, { passive:false });
+}
+
+// ✅ PATCH: ensure binding (retry) กันบางจังหวะ DOM/overlay
+function ensureUIBindings(){
+  refreshHUDRefs();
+  bindUIDelegated();
+
+  const ok =
+    !!$('btnBackHub') &&
+    !!$('btnPlayAgain') &&
+    !!$('btnStart') &&
+    !!$('resultBackdrop') &&
+    !!$('startOverlay');
+
+  if(!ok && (S._uiBindTries++ < 12)){
+    setTimeout(ensureUIBindings, 250);
+  }
+}
+
+// ---------- Bind UI ----------
+function bindUI(){
+  if(S.booted) return;
+  S.booted = true;
+
+  // ยิง (layer)
+  layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
+  layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
+  layer.addEventListener('click', onGlobalPointerDown, {passive:false});
+
+  // click backdrop ปิดได้เมื่อแตะพื้นหลัง
+  const rb = $('resultBackdrop');
+  rb && rb.addEventListener('click', (e)=>{
+    if(e.target === rb) setShow(rb,false);
   });
+
+  // ✅ ทำให้ปุ่มทุกปุ่มทำงานชัวร์
+  ensureUIBindings();
 }
 
 // ---------- BOOT (สำคัญ: ไม่ start ทันที) ----------
@@ -1459,6 +1546,7 @@ function bindUI(){
   bindUI();
   bindShootHotkeys();
 
+  // init HUD
   setShield(0);
   setLives(S.livesMax);
 
@@ -1474,5 +1562,5 @@ function bindUI(){
   S.started = false;
   showStartOverlay(true);
 
-  if(DEBUG) console.log('[PlateVR] boot ok (waiting start)', { MODE, DIFF, TOTAL_TIME, seed:SEED, D });
+  if(DEBUG) console.log('[PlateVR] boot ok (waiting start)', { RUN_RAW, MODE, DIFF, TOTAL_TIME, seed:SEED, D });
 })();
