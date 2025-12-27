@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Redirect → Food Groups VR</title>
-  <meta http-equiv="refresh" content="0; url=./vr-groups/vr-groups.html" />
 </head>
 <body>
 <script>
@@ -12,17 +11,12 @@
   'use strict';
   try{
     const src = new URL(location.href);
-    const dst = new URL('./vr-groups/vr-groups.html', src);
-
-    // forward all params
+    const dst = new URL('./vr-groups.html', src);
     src.searchParams.forEach((v,k)=> dst.searchParams.set(k,v));
-
-    // cache bust (optional)
     if (!dst.searchParams.has('ts')) dst.searchParams.set('ts', String(Date.now()));
-
     location.replace(dst.toString());
   }catch(e){
-    location.href = './vr-groups/vr-groups.html?ts=' + Date.now();
+    location.href = './vr-groups.html?ts=' + Date.now();
   }
 })();
 </script>
