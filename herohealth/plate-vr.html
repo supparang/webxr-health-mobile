@@ -2,7 +2,8 @@
 Plate VR (PRODUCTION) — Full HTML
 ✅ Start Overlay (กดเริ่มแล้วค่อยเริ่มนับเวลา)
 ✅ HUD + Crosshair + FX overlays
-✅ Result overlay มีปุ่ม "กลับหน้า HUB" + "เล่นอีกครั้ง" (มี id สำหรับ bind)
+✅ Result overlay มีปุ่ม "กลับหน้า HUB" + "เล่นอีกครั้ง"
+✅ ใช้คู่กับ /plate/plate.safe.js ตัวเต็มด้านบน
 -->
 
 <!doctype html>
@@ -150,6 +151,7 @@ Plate VR (PRODUCTION) — Full HTML
       box-shadow:0 16px 36px rgba(0,0,0,.30);
       backdrop-filter: blur(8px);
       user-select:none;
+      -webkit-tap-highlight-color: transparent;
     }
     .btn:active{transform:translateY(1px);}
 
@@ -254,7 +256,7 @@ Plate VR (PRODUCTION) — Full HTML
         <!-- element ซ่อนไว้แต่ยังให้ JS อัปเดตได้ -->
         <span class="pill" style="display:none">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
         <span class="pill" style="display:none">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
-        <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Easy</span></span>
+        <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Normal</span></span>
       </div>
     </div>
   </div>
