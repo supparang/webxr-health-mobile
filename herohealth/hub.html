@@ -1,11 +1,9 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth HUB (PRODUCTION) — Profile Bridge + Last Summary Card Patch
-✅ Save profile to localStorage/sessionStorage (hha_profile)
-✅ Launch games with appended query params (fallback if storage blocked)
-✅ Standard research context keys + student profile keys
-✅ NEW: Auto show last game summary from localStorage (HHA_LAST_SUMMARY)
-✅ NEW: Quick relaunch last game (same mode/diff/time if present)
-✅ FIX: Map runMode "study" -> "research" (compat)
+HeroHealth HUB (PRODUCTION)
+✅ อ่าน localStorage: HHA_LAST_SUMMARY
+✅ โชว์ผลล่าสุดแบบสวย + ปุ่ม copy JSON + clear
+✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run, diff, time, seed, + research ctx)
+✅ Toggle Play/Research + preset time by diff
 -->
 
 <!doctype html>
@@ -19,941 +17,324 @@ HeroHealth HUB (PRODUCTION) — Profile Bridge + Last Summary Card Patch
 
   <style>
     :root{
+      color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.78);
+      --panel:rgba(2,6,23,.70);
       --panel2:rgba(15,23,42,.62);
-      --stroke:rgba(148,163,184,.22);
+      --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --accent:#22c55e;
+      --good:#22c55e;
       --warn:#f59e0b;
-      --danger:#ef4444;
-      --ok:#22c55e;
+      --bad:#ef4444;
+      --gold:#facc15;
+      --radius:18px;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
     }
-    html,body{
-      margin:0; padding:0; width:100%; height:100%;
-      background: radial-gradient(1200px 700px at 50% 25%, #0b1120 0%, #020617 60%, #020617 100%);
-      color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    }
-    .wrap{ max-width: 1100px; margin: 0 auto; padding: 16px; }
-    header{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding: 12px 12px;
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 18px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--text);}
+    .wrap{max-width:1000px; margin:0 auto; padding:14px 12px 28px;}
+    .topbar{
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      padding:12px;
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.55));
+      box-shadow:0 22px 70px rgba(0,0,0,.40);
       backdrop-filter: blur(10px);
     }
-    header h1{ margin:0; font-size: 16px; letter-spacing:.2px; }
-    header .sub{ font-size: 12px; color: var(--muted); font-weight: 850; }
-    .row{ display:grid; grid-template-columns: 1.1fr .9fr; gap: 14px; margin-top: 14px; }
-    @media (max-width: 980px){ .row{ grid-template-columns: 1fr; } }
-
-    .card{
-      background: var(--panel);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 18px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      padding: 12px;
+    .brand{display:flex; gap:10px; align-items:center;}
+    .logo{
+      width:44px; height:44px; border-radius:14px;
+      background:rgba(34,197,94,.14);
+      border:1px solid rgba(34,197,94,.25);
+      display:grid; place-items:center;
+      font-weight:1100;
+      box-shadow:0 16px 40px rgba(0,0,0,.35);
     }
-    .card h2{ margin: 2px 0 10px; font-size: 14px; letter-spacing:.2px; }
-    .grid{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-    @media (max-width: 900px){ .grid{ grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 560px){ .grid{ grid-template-columns: 1fr; } }
-
-    label{ display:block; font-size: 12px; color: var(--muted); font-weight: 850; margin: 0 0 6px; }
-    input, select, textarea{
-      width:100%;
-      border-radius: 14px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-      color: var(--text);
-      padding: 10px 10px;
-      outline: none;
-      font-weight: 900;
-      letter-spacing:.2px;
-    }
-    textarea{ min-height: 72px; resize: vertical; }
-
-    .btns{ display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
-    .btn{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(34,197,94,.18);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 10px 12px;
-      font-weight: 1000;
-      letter-spacing:.2px;
-      cursor:pointer;
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
-      -webkit-tap-highlight-color: transparent;
-      user-select:none;
-    }
-    .btn.secondary{ background: rgba(2,6,23,.55); }
-    .btn.danger{ background: rgba(239,68,68,.18); }
-    .btn:active{ transform: translateY(1px); }
-
-    .hint{ font-size: 12px; color: var(--muted); font-weight: 850; line-height: 1.45; }
+    .title{font-size:16px; font-weight:1100; line-height:1.1;}
+    .sub{color:rgba(148,163,184,.95); font-weight:900; font-size:12px; margin-top:2px;}
     .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding: 10px 12px;
-      border-radius: 999px;
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.18);
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 12px; border-radius:999px;
+      background:rgba(15,23,42,.58);
+      border:1px solid rgba(148,163,184,.16);
+      font-weight:1000;
+      white-space:nowrap;
+    }
+    .k{color:var(--muted); font-weight:900; font-size:11px;}
+    .v{font-weight:1100;}
+    .grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:12px;
+    }
+    @media (max-width:900px){
+      .grid{grid-template-columns:1fr; }
+    }
+    .card{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:12px;
+      box-shadow:0 20px 60px rgba(0,0,0,.35);
       backdrop-filter: blur(10px);
-      font-weight: 950;
-      font-size: 12px;
+    }
+    .card h3{
+      margin:0 0 8px 0;
+      font-size:14px;
+      font-weight:1100;
       letter-spacing:.2px;
-      color: var(--text);
-      margin-left: 10px;
     }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-weight: 900; }
-    .games{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 700px){ .games{ grid-template-columns: 1fr; } }
-    .game{
-      background: rgba(15,23,42,.55);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 18px;
-      padding: 12px;
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .row + .row{margin-top:10px;}
+    .btn{
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.20);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:1100;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+      box-shadow:0 16px 40px rgba(0,0,0,.32);
+      backdrop-filter: blur(10px);
+      cursor:pointer;
     }
-    .game h3{ margin:0 0 8px; font-size: 14px; letter-spacing:.2px; }
-    .game .meta{ font-size: 12px; color: var(--muted); font-weight: 850; margin-bottom: 10px; }
-    .game .inline{ display:flex; gap:10px; flex-wrap:wrap; }
-    .game .inline > div{ flex: 1; min-width: 120px; }
-    footer{ margin-top: 14px; padding: 10px 12px; font-size: 12px; color: var(--muted); font-weight: 850; }
-
-    /* ===== Summary card ===== */
-    #lastSummaryCard{ display:none; background: var(--panel2); }
-    .sumTop{
-      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
-      margin-bottom:10px;
+    .btn:active{transform:translateY(1px);}
+    .btn.primary{
+      background:rgba(34,197,94,.14);
+      border-color:rgba(34,197,94,.30);
     }
+    .btn.warn{
+      background:rgba(250,204,21,.12);
+      border-color:rgba(250,204,21,.30);
+    }
+    .btn.danger{
+      background:rgba(239,68,68,.12);
+      border-color:rgba(239,68,68,.28);
+    }
+    select,input{
+      background:rgba(15,23,42,.62);
+      border:1px solid rgba(148,163,184,.20);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:1000;
+      outline:none;
+    }
+    input{width:140px;}
+    .miniGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    @media (max-width:720px){
+      .miniGrid{grid-template-columns: repeat(2, minmax(0,1fr));}
+    }
+    .kv{
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:16px;
+      padding:10px 12px;
+    }
+    .kv .k{display:block; margin-bottom:4px;}
+    .kv .v{font-size:16px;}
     .badge{
       display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px; border-radius:999px;
+      padding:8px 12px; border-radius:999px;
       border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      font-weight:1000; font-size:12px;
+      background:rgba(15,23,42,.55);
+      font-weight:1100;
     }
-    .badge.ok{ border-color: rgba(34,197,94,.35); }
-    .badge.warn{ border-color: rgba(245,158,11,.35); }
-    .badge.danger{ border-color: rgba(239,68,68,.35); }
-    .sumGrid{
-      display:grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap:10px;
-    }
-    .sumCell{
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 16px;
+    .badge.good{border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.10);}
+    .badge.warn{border-color:rgba(250,204,21,.30); background:rgba(250,204,21,.10);}
+    .badge.bad{border-color:rgba(239,68,68,.28); background:rgba(239,68,68,.10);}
+    .muted{color:rgba(148,163,184,.95); font-weight:900;}
+    details{
+      margin-top:10px;
+      background:rgba(15,23,42,.42);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:16px;
       padding:10px 12px;
-      box-shadow: 0 18px 44px rgba(0,0,0,.25);
     }
-    .sumCell .k{ display:block; color: var(--muted); font-weight: 900; font-size: 11px; margin-bottom:4px; }
-    .sumCell .v{ font-weight: 1100; font-size: 15px; }
-    .sumRow3{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px; }
-    @media (max-width: 520px){
-      .sumGrid{ grid-template-columns: 1fr; }
-      .sumRow3{ grid-template-columns: 1fr; }
+    pre{
+      margin:8px 0 0 0;
+      white-space:pre-wrap;
+      word-break:break-word;
+      font-size:12px;
+      color:rgba(229,231,235,.92);
+    }
+    .games{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    @media (max-width:720px){
+      .games{grid-template-columns:1fr;}
+    }
+    .gameBtn{
+      display:flex; justify-content:space-between; align-items:center;
+      padding:12px; border-radius:18px;
+      background:rgba(2,6,23,.58);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 18px 44px rgba(0,0,0,.28);
+      cursor:pointer;
+      user-select:none;
+    }
+    .gameBtn:active{transform:translateY(1px);}
+    .gameName{font-weight:1100;}
+    .gameHint{color:rgba(148,163,184,.95); font-weight:900; font-size:12px; margin-top:4px;}
+    .rightTag{
+      font-weight:1100;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.52);
+      white-space:nowrap;
     }
   </style>
+
+  <script type="module" src="./hub.safe.js"></script>
 </head>
 
 <body>
   <div class="wrap">
-    <header>
-      <div>
-        <h1>🏠 HeroHealth HUB</h1>
-        <div class="sub">Profile Bridge Patch • ส่งข้อมูลวิจัยให้ทุกเกมแบบชัวร์ ๆ (Storage + Query)</div>
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">HHA</div>
+        <div>
+          <div class="title">HeroHealth HUB</div>
+          <div class="sub">ผลล่าสุด + เล่นต่อได้เลย (Play/Research) • ส่งพารามิเตอร์แบบมาตรฐาน</div>
+        </div>
       </div>
-      <div>
-        <span class="pill">Session: <span id="sessionKey" class="mono">—</span></span>
+      <div class="row" style="justify-content:flex-end">
+        <span class="pill"><span class="k">NOW</span> <span id="nowText" class="v">—</span></span>
       </div>
-    </header>
-
-    <div class="row">
-      <!-- LEFT: Profile -->
-      <section class="card">
-        <h2>🧾 ข้อมูลวิจัย + โปรไฟล์ผู้เล่น</h2>
-
-        <div class="grid">
-          <div><label>projectTag</label><input id="projectTag" placeholder="HeroHealth" /></div>
-          <div><label>studyId</label><input id="studyId" placeholder="เช่น HHA-CRU-2026-01" /></div>
-          <div><label>phase</label><input id="phase" placeholder="เช่น pre / post / followup" /></div>
-
-          <div><label>conditionGroup</label><input id="conditionGroup" placeholder="เช่น A / B / C" /></div>
-          <div><label>sessionOrder</label><input id="sessionOrder" type="number" min="0" step="1" placeholder="1" /></div>
-          <div><label>blockLabel</label><input id="blockLabel" placeholder="เช่น Block-1" /></div>
-
-          <div><label>siteCode</label><input id="siteCode" placeholder="เช่น CRU" /></div>
-          <div><label>schoolCode</label><input id="schoolCode" placeholder="เช่น SCH-001" /></div>
-          <div><label>schoolName</label><input id="schoolName" placeholder="ชื่อโรงเรียน" /></div>
-
-          <div><label>classRoom</label><input id="classRoom" placeholder="เช่น ป.5/1" /></div>
-          <div><label>studentNo</label><input id="studentNo" type="number" min="0" step="1" placeholder="1" /></div>
-          <div><label>nickName</label><input id="nickName" placeholder="ชื่อเล่น" /></div>
-
-          <div>
-            <label>gender</label>
-            <select id="gender">
-              <option value="">—</option>
-              <option value="female">female</option>
-              <option value="male">male</option>
-              <option value="other">other</option>
-            </select>
-          </div>
-          <div><label>age</label><input id="age" type="number" min="0" step="1" placeholder="10" /></div>
-          <div><label>gradeLevel</label><input id="gradeLevel" type="number" min="0" step="1" placeholder="5" /></div>
-
-          <div><label>heightCm</label><input id="heightCm" type="number" min="0" step="0.1" placeholder="140" /></div>
-          <div><label>weightKg</label><input id="weightKg" type="number" min="0" step="0.1" placeholder="35" /></div>
-          <div>
-            <label>handedness</label>
-            <select id="handedness">
-              <option value="">—</option>
-              <option value="right">right</option>
-              <option value="left">left</option>
-              <option value="both">both</option>
-            </select>
-          </div>
-
-          <div>
-            <label>vrExperience</label>
-            <select id="vrExperience">
-              <option value="">—</option>
-              <option value="never">never</option>
-              <option value="sometimes">sometimes</option>
-              <option value="often">often</option>
-            </select>
-          </div>
-          <div>
-            <label>gameFrequency</label>
-            <select id="gameFrequency">
-              <option value="">—</option>
-              <option value="rare">rare</option>
-              <option value="weekly">weekly</option>
-              <option value="daily">daily</option>
-            </select>
-          </div>
-          <div>
-            <label>consentParent</label>
-            <select id="consentParent">
-              <option value="">—</option>
-              <option value="yes">yes</option>
-              <option value="no">no</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="margin-top:10px">
-          <label>healthDetail (ถ้ามี)</label>
-          <textarea id="healthDetail" placeholder="เช่น สายตาสั้น / ภูมิแพ้ / ข้อจำกัดการเคลื่อนไหว"></textarea>
-        </div>
-
-        <div class="btns">
-          <button class="btn" id="btnSave" type="button">💾 SAVE PROFILE</button>
-          <button class="btn secondary" id="btnLoad" type="button">📥 LOAD SAVED</button>
-          <button class="btn danger" id="btnClear" type="button">🧹 CLEAR</button>
-        </div>
-
-        <div class="hint" style="margin-top:10px">
-          ✅ ระบบจะบันทึกลง <span class="mono">localStorage/sessionStorage</span> คีย์ <span class="mono">hha_profile</span><br/>
-          ✅ ตอนกดเข้าเกม จะ “แนบ query” ให้อีกชั้น เพื่อให้ logger เก็บได้ชัวร์แม้ storage โดนบล็อก
-        </div>
-      </section>
-
-      <!-- RIGHT: Launch -->
-      <section class="card">
-        <h2>🚀 Launch เกม</h2>
-
-        <div class="hint" style="margin-bottom:10px">
-          เลือกค่ามาตรฐาน แล้วกดเข้าเกมได้เลย (ทุกเกมจะได้รับโปรไฟล์ชุดเดียวกัน)
-        </div>
-
-        <div class="grid" style="grid-template-columns:1fr 1fr 1fr;">
-          <div>
-            <label>run</label>
-            <select id="runMode">
-              <option value="play">play</option>
-              <option value="research">study</option>
-            </select>
-          </div>
-          <div>
-            <label>diff</label>
-            <select id="diff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </div>
-          <div>
-            <label>time (sec)</label>
-            <input id="time" type="number" min="20" max="180" step="1" value="70" />
-          </div>
-        </div>
-
-        <div class="games" style="margin-top:12px">
-          <div class="game">
-            <h3>🥦🍟 GoodJunkVR</h3>
-            <div class="meta">มี Boss / Ring / Laser / Storm + Quest/Rank (SSS..C)</div>
-            <div class="inline">
-              <div>
-                <label>challenge</label>
-                <select id="gjChallenge">
-                  <option value="rush" selected>rush</option>
-                  <option value="survival">survival</option>
-                  <option value="boss">boss</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:flex-end">
-                <button class="btn" id="btnGJ" type="button" style="width:100%">🚀 START</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="game">
-            <h3>💧 HydrationVR</h3>
-            <div class="meta">น้ำสมดุล + Fever/Shield + Quest chain</div>
-            <div class="inline">
-              <div>
-                <label>mode</label>
-                <select id="hyMode">
-                  <option value="play" selected>play</option>
-                  <option value="research">study</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:flex-end">
-                <button class="btn" id="btnHY" type="button" style="width:100%">🚀 START</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="game">
-            <h3>🍽️ PlateVR</h3>
-            <div class="meta">จัดจานสมดุล + Mini “Plate Rush” + Clamp Safe Zone</div>
-            <div class="inline">
-              <div>
-                <label>mode</label>
-                <select id="plMode">
-                  <option value="play" selected>play</option>
-                  <option value="research">study</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:flex-end">
-                <button class="btn" id="btnPL" type="button" style="width:100%">🚀 START</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="game">
-            <h3>🥗 GroupsVR</h3>
-            <div class="meta">เกม 5 หมู่ + Goal/Mini + Coach</div>
-            <div class="inline">
-              <div>
-                <label>mode</label>
-                <select id="grMode">
-                  <option value="play" selected>play</option>
-                  <option value="research">study</option>
-                </select>
-              </div>
-              <div style="display:flex;align-items:flex-end">
-                <button class="btn" id="btnGR" type="button" style="width:100%">🚀 START</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ✅ NEW: Last Summary -->
-        <div class="card" id="lastSummaryCard" style="margin-top:12px;">
-          <div class="sumTop">
-            <div>
-              <h2 style="margin:2px 0 4px">📊 สรุปผลล่าสุด (Auto)</h2>
-              <div class="hint" id="lastSummaryHint">—</div>
-            </div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
-              <span class="badge ok" id="badgeGame">Game: —</span>
-              <span class="badge" id="badgeGrade">Grade: —</span>
-            </div>
-          </div>
-
-          <div class="sumGrid">
-            <div class="sumCell"><span class="k">Score</span><span class="v mono" id="sumScore">—</span></div>
-            <div class="sumCell"><span class="k">Max Combo</span><span class="v mono" id="sumMaxCombo">—</span></div>
-            <div class="sumCell"><span class="k">Miss</span><span class="v mono" id="sumMiss">—</span></div>
-            <div class="sumCell"><span class="k">Perfect</span><span class="v mono" id="sumPerfect">—</span></div>
-            <div class="sumCell"><span class="k">Goals</span><span class="v mono" id="sumGoals">—</span></div>
-            <div class="sumCell"><span class="k">Minis</span><span class="v mono" id="sumMinis">—</span></div>
-          </div>
-
-          <div class="sumRow3">
-            <div class="sumCell"><span class="k">G1</span><span class="v mono" id="sumG1">—</span></div>
-            <div class="sumCell"><span class="k">G2</span><span class="v mono" id="sumG2">—</span></div>
-            <div class="sumCell"><span class="k">G3</span><span class="v mono" id="sumG3">—</span></div>
-            <div class="sumCell"><span class="k">G4</span><span class="v mono" id="sumG4">—</span></div>
-            <div class="sumCell"><span class="k">G5</span><span class="v mono" id="sumG5">—</span></div>
-            <div class="sumCell"><span class="k">Total</span><span class="v mono" id="sumGTotal">—</span></div>
-          </div>
-
-          <div class="btns" style="margin-top:10px">
-            <button class="btn" id="btnReplayLast" type="button">▶️ เล่นเกมเดิมอีกครั้ง</button>
-            <button class="btn secondary" id="btnCopyLast" type="button">🔗 คัดลอกลิงก์เดิม</button>
-            <button class="btn danger" id="btnClearLast" type="button">🧹 ล้างสรุป</button>
-          </div>
-        </div>
-
-        <div class="card" style="margin-top:12px; background: var(--panel2);">
-          <h2 style="margin:2px 0 8px">🔗 Debug Link (auto)</h2>
-          <div class="hint">ลิงก์นี้คือ “ตัวอย่าง URL” ที่ hub จะพาไป พร้อมแนบ profile เป็น query</div>
-          <div class="hint mono" id="debugUrl" style="margin-top:8px; word-break:break-all;"></div>
-        </div>
-      </section>
     </div>
 
-    <footer>
-      Tip: ถ้าใช้ logger Google Sheet อยู่แล้ว เกมจะ emit <span class="mono">hha:log_profile</span> / <span class="mono">hha:log_session</span> / <span class="mono">hha:log_event</span> ต่อเอง
-    </footer>
+    <div class="grid">
+      <!-- Left: Launch / Settings -->
+      <div class="card">
+        <h3>เริ่มเกม</h3>
+
+        <div class="row">
+          <span class="pill"><span class="k">MODE</span>
+            <select id="selRun">
+              <option value="play">Play</option>
+              <option value="study">Research</option>
+            </select>
+          </span>
+
+          <span class="pill"><span class="k">DIFF</span>
+            <select id="selDiff">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+            </select>
+          </span>
+
+          <span class="pill"><span class="k">TIME</span>
+            <input id="inpTime" type="number" min="20" step="1" value="70" />
+          </span>
+
+          <span class="pill"><span class="k">SEED</span>
+            <input id="inpSeed" type="number" step="1" placeholder="(optional)" />
+          </span>
+
+          <button class="btn warn" id="btnApplyPreset">⚙️ ตั้งเวลาอัตโนมัติ</button>
+        </div>
+
+        <div class="muted" style="margin-top:8px; line-height:1.3">
+          • Research = deterministic เสมอ (ถ้าไม่ใส่ seed จะใช้ค่า default) <br>
+          • Play = random ปกติ (แต่ถ้าใส่ seed จะ deterministic)
+        </div>
+
+        <div class="games">
+          <div class="gameBtn" data-game="goodjunk">
+            <div>
+              <div class="gameName">🥦 GoodJunk VR</div>
+              <div class="gameHint">ของดี/ขยะ + FEVER/Shield + Boss</div>
+            </div>
+            <div class="rightTag">PLAY</div>
+          </div>
+
+          <div class="gameBtn" data-game="hydration">
+            <div>
+              <div class="gameName">💧 Hydration VR</div>
+              <div class="gameHint">น้ำสมดุล + Storm minis + Adaptive (Play)</div>
+            </div>
+            <div class="rightTag">PLAY</div>
+          </div>
+
+          <div class="gameBtn" data-game="plate">
+            <div>
+              <div class="gameName">🍽️ Plate VR</div>
+              <div class="gameHint">จานสมดุล 5 หมู่ + Plate Rush</div>
+            </div>
+            <div class="rightTag">PLAY</div>
+          </div>
+
+          <div class="gameBtn" data-game="groups">
+            <div>
+              <div class="gameName">🍎 Groups VR</div>
+              <div class="gameHint">เกมอาหาร 5 หมู่ + Boss/Decoy</div>
+            </div>
+            <div class="rightTag">PLAY</div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="btnCopyLink">🔗 คัดลอกลิงก์เกมที่เลือก</button>
+          <span class="muted" id="linkHint">เลือกเกมด้านบนก่อน</span>
+        </div>
+      </div>
+
+      <!-- Right: Last summary -->
+      <div class="card">
+        <h3>ผลล่าสุด (HHA_LAST_SUMMARY)</h3>
+
+        <div id="lastEmpty" class="muted" style="display:none; line-height:1.3">
+          ยังไม่มีผลล่าสุด — ไปเล่นสักเกมก่อน แล้วกลับมาดูได้เลย ✅
+        </div>
+
+        <div id="lastPanel" style="display:none">
+          <div class="row">
+            <span id="badgeGame" class="badge">—</span>
+            <span id="badgeGrade" class="badge">—</span>
+            <span class="pill"><span class="k">SESSION</span> <span id="lastSession" class="v">—</span></span>
+          </div>
+
+          <div class="miniGrid">
+            <div class="kv"><span class="k">Score</span><span id="lastScore" class="v">0</span></div>
+            <div class="kv"><span class="k">Max Combo</span><span id="lastCombo" class="v">0</span></div>
+            <div class="kv"><span class="k">Miss</span><span id="lastMiss" class="v">0</span></div>
+            <div class="kv"><span class="k">Goals</span><span id="lastGoals" class="v">0/0</span></div>
+            <div class="kv"><span class="k">Minis</span><span id="lastMinis" class="v">0/0</span></div>
+            <div class="kv"><span class="k">Played</span><span id="lastDur" class="v">0s</span></div>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <span class="pill"><span class="k">MODE</span> <span id="lastMode" class="v">—</span></span>
+            <span class="pill"><span class="k">DIFF</span> <span id="lastDiff" class="v">—</span></span>
+            <span class="pill"><span class="k">SEED</span> <span id="lastSeed" class="v">—</span></span>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn primary" id="btnReplayLast">▶️ เล่นเกมเดิม (ค่าล่าสุด)</button>
+            <button class="btn" id="btnCopyLastJson">📋 คัดลอก JSON</button>
+            <button class="btn danger" id="btnClearLast">🧹 ล้างผลล่าสุด</button>
+          </div>
+
+          <details>
+            <summary class="muted" style="cursor:pointer; font-weight:1000">ดูรายละเอียด (metrics/ctx)</summary>
+            <pre id="lastJson">—</pre>
+          </details>
+        </div>
+      </div>
+    </div>
   </div>
-
-  <script>
-    'use strict';
-
-    // ====== CONFIG: ปรับชื่อไฟล์เกมตรงนี้เท่านั้น ======
-    const GAMES = {
-      goodjunk: './goodjunk-vr.html',
-      hydration:'./hydration-vr.html',
-      plate:    './plate-vr.html',
-      groups:   './groups-vr.html'
-    };
-
-    const QS_KEYS = [
-      'timestampIso','projectTag','runMode','studyId','phase','conditionGroup','sessionOrder','blockLabel',
-      'siteCode','schoolYear','semester','sessionId','gameMode','diff','durationPlannedSec',
-      'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel',
-      'heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue','healthDetail',
-      'consentParent'
-    ];
-
-    const $ = (id)=> document.getElementById(id);
-
-    const elSessionKey = $('sessionKey');
-    const elDebugUrl = $('debugUrl');
-
-    const qs = new URLSearchParams(location.search);
-
-    function uid8(){ return Math.random().toString(16).slice(2,10); }
-    function safeJsonParse(s){ try{ return JSON.parse(s); }catch(_){ return null; } }
-    function clamp(n,a,b){ n = Number(n); if(!Number.isFinite(n)) return a; return Math.max(a, Math.min(b,n)); }
-
-    function readStoredProfile(){
-      const a = safeJsonParse(localStorage.getItem('hha_profile') || '');
-      const b = safeJsonParse(localStorage.getItem('HHA_PROFILE') || '');
-      const c = safeJsonParse(sessionStorage.getItem('hha_profile') || '');
-      const d = safeJsonParse(sessionStorage.getItem('HHA_PROFILE') || '');
-      return (a && typeof a==='object') ? a :
-             (b && typeof b==='object') ? b :
-             (c && typeof c==='object') ? c :
-             (d && typeof d==='object') ? d : null;
-    }
-
-    function writeStoredProfile(obj){
-      try{
-        const s = JSON.stringify(obj || {});
-        sessionStorage.setItem('hha_profile', s);
-        localStorage.setItem('hha_profile', s);
-      }catch(_){}
-    }
-
-    function pickQSProfile(){
-      const p = {};
-      for (const k of QS_KEYS){
-        if (!qs.has(k)) continue;
-        const v = qs.get(k);
-        if (v === null || v === '') continue;
-        p[k] = v;
-      }
-      // numeric normalize
-      const nums = ['sessionOrder','schoolYear','semester','studentNo','age','gradeLevel','heightCm','weightKg','bmi','durationPlannedSec'];
-      for (const nk of nums){
-        if (p[nk] != null){
-          const n = Number(p[nk]);
-          if (Number.isFinite(n)) p[nk] = n;
-        }
-      }
-      return p;
-    }
-
-    function getVal(id){
-      const el = $(id);
-      if (!el) return '';
-      return (el.value ?? '').toString().trim();
-    }
-
-    function setVal(id, v){
-      const el = $(id);
-      if (!el) return;
-      el.value = (v ?? '').toString();
-    }
-
-    function computeBMI(heightCm, weightKg){
-      const h = Number(heightCm);
-      const w = Number(weightKg);
-      if (!Number.isFinite(h) || !Number.isFinite(w) || h <= 0 || w <= 0) return '';
-      const m = h / 100;
-      const bmi = w / (m*m);
-      return Math.round(bmi * 10) / 10;
-    }
-
-    function normalizeRunMode(v){
-      v = (v ?? '').toString().trim().toLowerCase();
-      // compat: hub เก่าใช้ "study"
-      if (v === 'study') return 'research';
-      if (v === 'research' || v === 'play') return v;
-      return 'play';
-    }
-
-    function buildProfileFromForm(){
-      const p = {};
-      // research context
-      p.timestampIso = new Date().toISOString();
-      p.projectTag = getVal('projectTag') || 'HeroHealth';
-      p.studyId = getVal('studyId');
-      p.phase = getVal('phase');
-      p.conditionGroup = getVal('conditionGroup');
-      p.sessionOrder = Number(getVal('sessionOrder') || 0) || 0;
-      p.blockLabel = getVal('blockLabel');
-      p.siteCode = getVal('siteCode');
-
-      // school + student
-      p.schoolCode = getVal('schoolCode');
-      p.schoolName = getVal('schoolName');
-      p.classRoom = getVal('classRoom');
-      p.studentNo = Number(getVal('studentNo') || 0) || 0;
-      p.nickName = getVal('nickName');
-      p.gender = getVal('gender');
-      p.age = Number(getVal('age') || 0) || 0;
-      p.gradeLevel = Number(getVal('gradeLevel') || 0) || 0;
-
-      p.heightCm = Number(getVal('heightCm') || 0) || '';
-      p.weightKg = Number(getVal('weightKg') || 0) || '';
-      const bmi = computeBMI(p.heightCm, p.weightKg);
-      if (bmi !== '') p.bmi = bmi;
-
-      p.handedness = getVal('handedness');
-      p.vrExperience = getVal('vrExperience');
-      p.gameFrequency = getVal('gameFrequency');
-      p.consentParent = getVal('consentParent');
-      p.healthDetail = getVal('healthDetail');
-
-      // derive stable studentKey
-      const sc = (p.schoolCode || 'SCH').replace(/\s+/g,'');
-      const sn = String(p.studentNo || '0').padStart(3,'0');
-      const gl = String(p.gradeLevel || '0');
-      p.studentKey = `${sc}-G${gl}-${sn}`;
-
-      // sessionId at hub level (shared across games in same “launch set”)
-      p.sessionId = (readStoredProfile()?.sessionId) || `${Date.now()}-${uid8()}`;
-
-      return p;
-    }
-
-    function mergeProfile(base, patch){
-      if (!patch || typeof patch !== 'object') return base;
-      for (const k of Object.keys(patch)){
-        const v = patch[k];
-        if (v === undefined || v === null || v === '') continue;
-        base[k] = v;
-      }
-      return base;
-    }
-
-    function fillForm(profile){
-      if (!profile) return;
-      setVal('projectTag', profile.projectTag || 'HeroHealth');
-      setVal('studyId', profile.studyId || '');
-      setVal('phase', profile.phase || '');
-      setVal('conditionGroup', profile.conditionGroup || '');
-      setVal('sessionOrder', profile.sessionOrder ?? '');
-      setVal('blockLabel', profile.blockLabel || '');
-      setVal('siteCode', profile.siteCode || '');
-
-      setVal('schoolCode', profile.schoolCode || '');
-      setVal('schoolName', profile.schoolName || '');
-      setVal('classRoom', profile.classRoom || '');
-      setVal('studentNo', profile.studentNo ?? '');
-      setVal('nickName', profile.nickName || '');
-
-      setVal('gender', profile.gender || '');
-      setVal('age', profile.age ?? '');
-      setVal('gradeLevel', profile.gradeLevel ?? '');
-
-      setVal('heightCm', profile.heightCm ?? '');
-      setVal('weightKg', profile.weightKg ?? '');
-
-      setVal('handedness', profile.handedness || '');
-      setVal('vrExperience', profile.vrExperience || '');
-      setVal('gameFrequency', profile.gameFrequency || '');
-      setVal('consentParent', profile.consentParent || '');
-      setVal('healthDetail', profile.healthDetail || '');
-    }
-
-    function collectProfile(){
-      const stored = readStoredProfile();
-      const fromQS = pickQSProfile();
-      const fromForm = buildProfileFromForm();
-      const p = {};
-      mergeProfile(p, stored);
-      mergeProfile(p, fromQS);
-      mergeProfile(p, fromForm);
-      // ensure sessionId exists
-      p.sessionId = p.sessionId || `${Date.now()}-${uid8()}`;
-      return p;
-    }
-
-    function saveProfile(){
-      const p = collectProfile();
-      writeStoredProfile(p);
-      elSessionKey.textContent = p.sessionId || '—';
-      try{
-        window.dispatchEvent(new CustomEvent('hha:log_profile', { detail: { ts: Date.now(), ...p } }));
-      }catch(_){}
-      return p;
-    }
-
-    function clearAll(){
-      try{
-        localStorage.removeItem('hha_profile');
-        localStorage.removeItem('HHA_PROFILE');
-        sessionStorage.removeItem('hha_profile');
-        sessionStorage.removeItem('HHA_PROFILE');
-      }catch(_){}
-      fillForm({
-        projectTag:'HeroHealth', studyId:'', phase:'', conditionGroup:'', sessionOrder:'',
-        blockLabel:'', siteCode:'', schoolCode:'', schoolName:'', classRoom:'',
-        studentNo:'', nickName:'', gender:'', age:'', gradeLevel:'',
-        heightCm:'', weightKg:'', handedness:'', vrExperience:'', gameFrequency:'', consentParent:'', healthDetail:''
-      });
-      elSessionKey.textContent = '—';
-      elDebugUrl.textContent = '';
-    }
-
-    function toQS(profile){
-      const p = new URLSearchParams();
-      for (const k of QS_KEYS){
-        if (profile[k] === undefined || profile[k] === null || profile[k] === '') continue;
-        p.set(k, String(profile[k]));
-      }
-      return p;
-    }
-
-    function buildLaunchUrl(gameKey, extraParams = {}){
-      const base = GAMES[gameKey];
-      if (!base) throw new Error('Unknown game: ' + gameKey);
-
-      const profile = saveProfile();
-
-      // standard launch params
-      const runModeRaw = $('runMode').value || 'play';
-      const runMode = normalizeRunMode(runModeRaw);
-
-      const diff = $('diff').value || 'normal';
-      const time = clamp($('time').value || 70, 20, 180)|0;
-
-      const p = toQS(profile);
-      p.set('run', runMode);
-      p.set('runMode', runMode);
-      p.set('diff', diff);
-      p.set('time', String(time));
-      p.set('durationPlannedSec', String(time));
-      p.set('hub', './hub.html'); // important: games use this for back
-
-      for (const k of Object.keys(extraParams || {})){
-        const v = extraParams[k];
-        if (v === undefined || v === null || v === '') continue;
-        p.set(k, String(v));
-      }
-
-      p.set('projectTag', profile.projectTag || 'HeroHealth');
-      p.set('ts', String(Date.now()));
-
-      const url = base.includes('?') ? (base + '&' + p.toString()) : (base + '?' + p.toString());
-      return url;
-    }
-
-    function previewGoodJunk(){
-      const challenge = $('gjChallenge').value || 'rush';
-      const u = buildLaunchUrl('goodjunk', { challenge, gameMode:'goodjunk' });
-      elDebugUrl.textContent = u;
-      // store as lastLaunch (for replay button)
-      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
-    }
-
-    function bindLivePreview(){
-      const ids = [
-        'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
-        'schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel',
-        'heightCm','weightKg','handedness','vrExperience','gameFrequency','consentParent','healthDetail',
-        'runMode','diff','time','gjChallenge'
-      ];
-      for (const id of ids){
-        const el = $(id);
-        if (!el) continue;
-        el.addEventListener('input', ()=> previewGoodJunk(), { passive:true });
-        el.addEventListener('change', ()=> previewGoodJunk(), { passive:true });
-      }
-    }
-
-    // =========================
-    // ✅ NEW: Last Summary UI
-    // =========================
-    const SUM = {
-      card: $('lastSummaryCard'),
-      hint: $('lastSummaryHint'),
-      badgeGame: $('badgeGame'),
-      badgeGrade: $('badgeGrade'),
-
-      score: $('sumScore'),
-      maxCombo: $('sumMaxCombo'),
-      miss: $('sumMiss'),
-      perfect: $('sumPerfect'),
-      goals: $('sumGoals'),
-      minis: $('sumMinis'),
-
-      g1: $('sumG1'),
-      g2: $('sumG2'),
-      g3: $('sumG3'),
-      g4: $('sumG4'),
-      g5: $('sumG5'),
-      gTotal: $('sumGTotal'),
-
-      btnReplay: $('btnReplayLast'),
-      btnCopy: $('btnCopyLast'),
-      btnClear: $('btnClearLast'),
-    };
-
-    function readLastSummary(){
-      try{
-        const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
-        const obj = safeJsonParse(raw);
-        if (!obj || typeof obj !== 'object') return null;
-        if (!obj.game && !obj.gameTag) return obj; // allow minimal
-        return obj;
-      }catch(_){
-        return null;
-      }
-    }
-
-    function gradeBadgeClass(grade){
-      grade = String(grade||'').toUpperCase();
-      if (grade==='SSS' || grade==='SS' || grade==='S') return 'badge ok';
-      if (grade==='A' || grade==='B') return 'badge warn';
-      return 'badge danger';
-    }
-
-    function fmtTs(ts){
-      try{
-        const d = new Date(Number(ts) || Date.now());
-        return d.toLocaleString();
-      }catch(_){
-        return '';
-      }
-    }
-
-    function ensure2(x){
-      if (x==null) return '—';
-      if (typeof x === 'number') return String(x);
-      const s = String(x);
-      return s.trim() ? s : '—';
-    }
-
-    function renderLastSummary(){
-      const sum = readLastSummary();
-      if (!sum){
-        SUM.card.style.display = 'none';
-        return;
-      }
-
-      // best-effort fields
-      const game = sum.game || sum.gameTag || sum.gameMode || (qs.get('from') ? String(qs.get('from')).toUpperCase() : '—');
-      const sessionId = sum.sessionId || qs.get('lastSessionId') || '—';
-      const mode = sum.mode || sum.runMode || sum.run || '—';
-      const diff = sum.diff || '—';
-      const grade = sum.grade || sum.rGrade || '—';
-
-      SUM.badgeGame.textContent = `Game: ${game}`;
-      SUM.badgeGrade.textContent = `Grade: ${grade}`;
-      SUM.badgeGrade.className = gradeBadgeClass(grade);
-
-      SUM.score.textContent = ensure2(sum.score ?? sum.scoreFinal);
-      SUM.maxCombo.textContent = ensure2(sum.maxCombo ?? sum.comboMax);
-      SUM.miss.textContent = ensure2(sum.miss ?? sum.misses);
-      SUM.perfect.textContent = ensure2(sum.perfect ?? sum.perfectCount);
-      SUM.goals.textContent = ensure2(sum.goals ?? (sum.goalsCleared!=null && sum.goalsTotal!=null ? `${sum.goalsCleared}/${sum.goalsTotal}` : '—'));
-      SUM.minis.textContent = ensure2(sum.minis ?? (sum.minisCleared!=null && sum.minisTotal!=null ? `${sum.minisCleared}/${sum.minisTotal}` : '—'));
-
-      const gc = Array.isArray(sum.groupCounts) ? sum.groupCounts : [];
-      SUM.g1.textContent = ensure2(gc[0]);
-      SUM.g2.textContent = ensure2(gc[1]);
-      SUM.g3.textContent = ensure2(gc[2]);
-      SUM.g4.textContent = ensure2(gc[3]);
-      SUM.g5.textContent = ensure2(gc[4]);
-      const total = (gc && gc.length) ? gc.reduce((a,b)=>a+(Number(b)||0),0) : (sum.total ?? '—');
-      SUM.gTotal.textContent = ensure2(total);
-
-      const hintParts = [];
-      if (sessionId && sessionId!=='—') hintParts.push(`Session: ${sessionId}`);
-      hintParts.push(`Mode: ${mode}`);
-      hintParts.push(`Diff: ${diff}`);
-      if (sum.ts) hintParts.push(`At: ${fmtTs(sum.ts)}`);
-      SUM.hint.textContent = hintParts.join(' • ');
-
-      // show
-      SUM.card.style.display = 'block';
-
-      // store a replay link snapshot if available
-      try{
-        const lastLaunch = localStorage.getItem('HHA_LAST_LAUNCH_URL');
-        if (lastLaunch) { /* ok */ }
-      }catch(_){}
-    }
-
-    function clearLastSummary(){
-      try{ localStorage.removeItem('HHA_LAST_SUMMARY'); }catch(_){}
-      SUM.card.style.display = 'none';
-    }
-
-    function copyText(txt){
-      txt = String(txt||'');
-      if (!txt) return;
-      try{
-        navigator.clipboard.writeText(txt);
-      }catch(_){
-        const ta = document.createElement('textarea');
-        ta.value = txt;
-        document.body.appendChild(ta);
-        ta.select();
-        try{ document.execCommand('copy'); }catch(__){}
-        ta.remove();
-      }
-    }
-
-    function replayLast(){
-      // priority: exact last launch url (the last time hub generated a link)
-      let u = '';
-      try{ u = localStorage.getItem('HHA_LAST_LAUNCH_URL') || ''; }catch(_){}
-      if (u){
-        location.href = u;
-        return;
-      }
-
-      // fallback: infer from last summary game
-      const sum = readLastSummary();
-      const g = (sum && (sum.game || sum.gameMode || sum.gameTag)) ? String(sum.game || sum.gameMode || sum.gameTag) : '';
-      const key =
-        /goodjunk/i.test(g) ? 'goodjunk' :
-        /hydration/i.test(g) ? 'hydration' :
-        /groups/i.test(g) ? 'groups' :
-        /plate/i.test(g) ? 'plate' : 'goodjunk';
-
-      // reuse current form selections
-      const u2 = buildLaunchUrl(key, { gameMode: key });
-      location.href = u2;
-    }
-
-    // --------- Button handlers ---------
-    $('btnSave').addEventListener('click', ()=>{ saveProfile(); previewGoodJunk(); renderLastSummary(); }, { passive:true });
-
-    $('btnLoad').addEventListener('click', ()=>{
-      const stored = readStoredProfile();
-      if (stored) fillForm(stored);
-      const merged = {};
-      mergeProfile(merged, stored);
-      mergeProfile(merged, pickQSProfile());
-      if (Object.keys(merged).length) fillForm(merged);
-      saveProfile();
-      previewGoodJunk();
-      renderLastSummary();
-    }, { passive:true });
-
-    $('btnClear').addEventListener('click', ()=>{ clearAll(); }, { passive:true });
-
-    $('btnGJ').addEventListener('click', ()=>{
-      const challenge = $('gjChallenge').value || 'rush';
-      const u = buildLaunchUrl('goodjunk', { challenge, gameMode:'goodjunk' });
-      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
-      location.href = u;
-    }, { passive:true });
-
-    $('btnHY').addEventListener('click', ()=>{
-      $('runMode').value = normalizeRunMode($('hyMode').value || $('runMode').value || 'play');
-      const u = buildLaunchUrl('hydration', { gameMode:'hydration' });
-      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
-      location.href = u;
-    }, { passive:true });
-
-    $('btnPL').addEventListener('click', ()=>{
-      $('runMode').value = normalizeRunMode($('plMode').value || $('runMode').value || 'play');
-      const u = buildLaunchUrl('plate', { gameMode:'plate' });
-      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
-      location.href = u;
-    }, { passive:true });
-
-    $('btnGR').addEventListener('click', ()=>{
-      $('runMode').value = normalizeRunMode($('grMode').value || $('runMode').value || 'play');
-      const u = buildLaunchUrl('groups', { gameMode:'groups' });
-      try{ localStorage.setItem('HHA_LAST_LAUNCH_URL', u); }catch(_){}
-      location.href = u;
-    }, { passive:true });
-
-    // Summary buttons
-    SUM.btnReplay && SUM.btnReplay.addEventListener('click', ()=> replayLast(), { passive:true });
-    SUM.btnCopy && SUM.btnCopy.addEventListener('click', ()=>{
-      let u = '';
-      try{ u = localStorage.getItem('HHA_LAST_LAUNCH_URL') || ''; }catch(_){}
-      if (!u) u = elDebugUrl.textContent || '';
-      copyText(u);
-    }, { passive:true });
-    SUM.btnClear && SUM.btnClear.addEventListener('click', ()=> clearLastSummary(), { passive:true });
-
-    // --------- Init ---------
-    (function init(){
-      // prefer: stored -> qs
-      const stored = readStoredProfile();
-      const fromQS = pickQSProfile();
-      const merged = {};
-      mergeProfile(merged, stored);
-      mergeProfile(merged, fromQS);
-      if (Object.keys(merged).length) fillForm(merged);
-
-      // defaults
-      if (!getVal('projectTag')) setVal('projectTag','HeroHealth');
-
-      // ensure sessionId exists
-      const profile = saveProfile();
-      elSessionKey.textContent = profile.sessionId || '—';
-
-      // compat: if qs had runMode=study, normalize selection
-      const qsRun = normalizeRunMode(qs.get('runMode') || qs.get('run') || '');
-      if (qsRun) $('runMode').value = qsRun;
-
-      bindLivePreview();
-      previewGoodJunk();
-
-      // ✅ show last summary if exists
-      renderLastSummary();
-
-      // optional: if returned from a game, scroll to summary card
-      if (qs.get('from') || qs.get('lastSessionId')){
-        setTimeout(()=>{
-          try{
-            const el = $('lastSummaryCard');
-            if (el && el.style.display !== 'none') el.scrollIntoView({ behavior:'smooth', block:'start' });
-          }catch(_){}
-        }, 120);
-      }
-    })();
-  </script>
 </body>
 </html>
