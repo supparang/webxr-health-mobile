@@ -1,144 +1,172 @@
-// === /herohealth/plate/plate.safe.js ===
-// Plate VR — ULTIMATE ALL-IN-ONE (START-GATED + HUB RETURN + UI FIXES + HHA STANDARD PATCH)
-// ✅ Start-gated (กด Start ก่อนถึงเริ่มนับเวลา/loop)
-// ✅ ปุ่ม "กลับ HUB / เล่นอีกครั้ง" ใช้ document delegation (pointerup + click)
-// ✅ run=play|study และ runMode=play|study (map → MODE play|research)
-// ✅ HHA_LAST_SUMMARY + กลับ HUB ด้วย hub=... + ส่ง query บางส่วนกลับไป
-// ✅ Deterministic RNG (research strict) + play = Math.random
-// ✅ Mini Plate Rush: 5 หมู่ใน 8 วิ + ห้ามโดนขยะ, มี urgent tick + edge shake (via CSS class)
-// ✅ FIX: แยก "platesDone" ออกจาก "goalsDone" (กัน Goals นับผิด)
-// ✅ Logger: hha:log_event ส่ง schema กลางเพิ่ม (eventType/timeFromStartMs/rtMs/emoji/targetId/judgment/...)
-// ✅ Safezone: fallback แบบไม่สุ่มทับ HUD (grid fallback)
+/* === /herohealth/plate/plate.safe.js ===
+PlateVR — PRODUCTION (HHA Standard + ULTIMATE PACK)
+✅ Start overlay (กดเริ่มแล้วค่อยเริ่มนับเวลา)
+✅ HUD + Coach (ใช้รูปใน /herohealth/img: plate-neutral/happy/sad/fever.png)
+✅ Targets (DOM) + Crosshair shoot + Tap hit
+✅ Safe-zone clamp กันทับ HUD บน/ล่าง/ซ้าย/ขวา + coachPanel
+✅ View shift (drag + gyro) แล้ว "เป้าเลื่อนตาม" เหมือน VR
+✅ Miss+Lives (3/3) + Fever + Shield (จาก FEVER)
+✅ Boss hazards (Ring gap + Laser line + Double) “หลบได้จริง”
+✅ Screen shake/impact scale ตาม fever%
+✅ Explode / pop targets + particles.js burst/scorePop
+✅ Goals sequential + Minis chain (2 goals, 7 minis)
+✅ End summary overlay + Back HUB + Play again + localStorage(HHA_LAST_SUMMARY)
+✅ Deterministic RNG (research default) + optional ?seed=
+✅ Logging: dispatch 'hha:log_event' {type,data} + session summary via 'hha:end'
+*/
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const doc = ROOT.document;
+if (!doc) throw new Error('PlateVR requires document');
 
-function $(id){ return doc ? doc.getElementById(id) : null; }
-function setTxt(el, t){ if(el) el.textContent = String(t); }
+const qs = () => new URLSearchParams(ROOT.location.search || '');
+const clamp = (v, a, b) => { v = Number(v); if (!Number.isFinite(v)) v = 0; return Math.max(a, Math.min(b, v)); };
+const now = () => (ROOT.performance && performance.now) ? performance.now() : Date.now();
 
-// ✅ PATCH: make setShow work even when CSS has display:none
-function setShow(el, on){
-  if(!el) return;
-  if(on){
-    el.style.display = (el.id === 'resultBackdrop' || el.id === 'startOverlay') ? 'flex' : 'block';
-  }else{
-    el.style.display = 'none';
-  }
+function $(id){ return doc.getElementById(id); }
+function setTxt(el, s){ if(el) el.textContent = String(s); }
+
+function safeFxText(s){
+  return String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
 
-// ---------- Fatal overlay ----------
-(function attachFatalOverlay(){
-  if (!doc) return;
-  const box = doc.createElement('div');
-  box.id = 'hhaFatal';
-  Object.assign(box.style, {
-    position:'fixed', left:'12px', right:'12px', top:'12px',
-    zIndex:99999, display:'none',
-    background:'rgba(2,6,23,.86)',
-    border:'1px solid rgba(248,113,113,.35)',
-    borderRadius:'16px', padding:'12px',
-    color:'#e5e7eb', fontFamily:'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
-    boxShadow:'0 20px 60px rgba(0,0,0,.55)',
-    backdropFilter:'blur(8px)',
-    maxHeight:'70vh', overflow:'auto'
-  });
-  box.innerHTML = `<div style="font-weight:1000; font-size:16px">⚠️ PlateVR Crash</div>
-  <div id="hhaFatalMsg" style="margin-top:8px; color:rgba(229,231,235,.9); font-weight:900; white-space:pre-wrap"></div>
-  <div style="margin-top:10px; color:rgba(148,163,184,.95); font-weight:900">
-    แนะนำ: เปิด Console ดู error เพิ่ม และเช็กว่า plate-vr.html โหลด <b>./plate/plate.safe.js</b> ถูก path
-  </div>`;
-  doc.body && doc.body.appendChild(box);
-
-  function showErr(msg){
-    try{
-      const el = $('hhaFatalMsg');
-      if (el) el.textContent = msg;
-      box.style.display = 'block';
-    }catch(_){}
-  }
-
-  ROOT.addEventListener('error', (e)=>{
-    const m = (e && (e.message || (e.error && e.error.message))) || 'Unknown error';
-    const s = (e && e.error && e.error.stack) ? `\n\n${e.error.stack}` : '';
-    showErr(`${m}${s}`);
-  });
-  ROOT.addEventListener('unhandledrejection', (e)=>{
-    const r = e && e.reason;
-    const m = (r && (r.message || String(r))) || 'Unhandled rejection';
-    const s = (r && r.stack) ? `\n\n${r.stack}` : '';
-    showErr(`${m}${s}`);
-  });
-})();
-
-// ---------- URL params ----------
-const URLX = new URL(ROOT.location.href);
-const Q = URLX.searchParams;
-
-// ✅ รองรับทั้ง run และ runMode (hub ส่งมา 2 ตัว)
-const RUN_RAW = String(Q.get('run') || Q.get('runMode') || 'play').toLowerCase();
-const MODE = (RUN_RAW === 'study' || RUN_RAW === 'research') ? 'research' : 'play';  // play | research
-const DIFF = String(Q.get('diff') || 'normal').toLowerCase();                         // easy | normal | hard
-const DEBUG = (Q.get('debug') === '1');
-
-// ✅ default time by diff if no explicit time=
-const HAS_TIME_PARAM = Q.has('time');
-const DEFAULT_TIME_BY_DIFF = (DIFF === 'easy') ? 80 : (DIFF === 'hard') ? 60 : 70;
-const TOTAL_TIME = Math.max(
-  20,
-  parseInt(HAS_TIME_PARAM ? (Q.get('time') || '0') : String(DEFAULT_TIME_BY_DIFF), 10) || DEFAULT_TIME_BY_DIFF
-);
-
-// ---------- RNG (Research strict) ----------
-let SEED = parseInt(Q.get('seed') || '', 10);
-if (!Number.isFinite(SEED)) SEED = 1337;
-let _seed = (SEED >>> 0) || 1337;
-
-function srnd(){
-  _seed ^= (_seed << 13); _seed >>>= 0;
-  _seed ^= (_seed >>> 17); _seed >>>= 0;
-  _seed ^= (_seed << 5); _seed >>>= 0;
-  return (_seed >>> 0) / 4294967296;
-}
-const R = (MODE === 'research') ? srnd : Math.random;
-
-const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-const now = ()=>performance.now();
-const fmt = (n)=>String(Math.max(0, Math.floor(n)));
-const rnd = (a,b)=>a + R()*(b-a);
-function randFrom(arr){ return arr[(R()*arr.length)|0]; }
-function uid8(){ return Math.random().toString(16).slice(2,10); }
-
-// ---------- Modules ----------
+// ------------------------- modules (Particles / Logger) -------------------------
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, celebrate(){}, toast(){}, floatPop(){} };
+  { scorePop(){}, burstAt(){}, celebrate(){}, judgeText(){}, };
 
-const scene = doc ? doc.querySelector('a-scene') : null;
-const cam = doc ? doc.querySelector('#cam') : null;
+function logEvent(type, data){
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:log_event', { detail: { type, data: data||{} } }));
+  }catch(_){}
+}
 
-// ---------- HUD refs ----------
+function emitEndSummary(summary){
+  try{
+    ROOT.dispatchEvent(new CustomEvent('hha:end', { detail: summary || {} }));
+  }catch(_){}
+}
+
+function vibe(ms){
+  try{ if(navigator.vibrate) navigator.vibrate(ms|0); }catch(_){}
+}
+
+// ------------------------- audio (tiny) -------------------------
+const AudioX = (() => {
+  let ctx = null;
+  function ensure(){
+    if(ctx) return ctx;
+    const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
+    if(!AC) return null;
+    ctx = new AC();
+    return ctx;
+  }
+  function ping(freq=660, dur=0.06, gain=0.05){
+    const c = ensure(); if(!c) return;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.value = gain;
+    o.connect(g); g.connect(c.destination);
+    o.start();
+    o.stop(c.currentTime + dur);
+  }
+  function ok(){ ping(880, 0.05, 0.05); }
+  function good(){ ping(740, 0.06, 0.05); }
+  function gold(){ ping(1040, 0.08, 0.06); }
+  function bad(){ ping(220, 0.08, 0.07); }
+  function warn(){ ping(420, 0.10, 0.06); }
+  function tick(){ ping(520, 0.03, 0.03); }
+  async function unlock(){
+    const c = ensure(); if(!c) return;
+    if(c.state === 'suspended') try{ await c.resume(); }catch(_){}
+    // tiny silent
+    try{ ping(2, 0.01, 0.0001); }catch(_){}
+  }
+  return { unlock, ok, good, gold, bad, warn, tick };
+})();
+
+// ------------------------- params / mode -------------------------
+const P = qs();
+const MODE = String(P.get('run') || 'play').toLowerCase();          // play | research
+const DIFF = String(P.get('diff') || 'normal').toLowerCase();      // easy | normal | hard
+const TOTAL_TIME = clamp(P.get('time') || 80, 30, 600) | 0;
+const DEBUG = (String(P.get('debug')||'') === '1');
+
+const HUB_URL = String(P.get('hub') || '../index.html');
+const GAME_TAG = 'PlateVR';
+
+const STUDY = {
+  studyId: String(P.get('study') || ''),
+  phase: String(P.get('phase') || ''),
+  conditionGroup: String(P.get('cond') || ''),
+  sessionOrder: String(P.get('order') || ''),
+};
+
+// deterministic seed
+function hashSeed(str){
+  str = String(str || '');
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++){
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return (h >>> 0);
+}
+function mulberry32(a){
+  return function(){
+    let t = (a += 0x6D2B79F5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const DEFAULT_SEED = (MODE === 'research')
+  ? (P.get('seed') || `research-${DIFF}-${TOTAL_TIME}`)
+  : (P.get('seed') || `play-${Date.now()}`);
+
+const RNG = mulberry32(hashSeed(DEFAULT_SEED));
+const R = () => RNG();
+const rnd = (a,b)=> a + R()*(b-a);
+const rndi = (a,b)=> (a + Math.floor(R()*(b-a+1)))|0;
+
+function isTouch(){
+  return ('ontouchstart' in ROOT) || (navigator.maxTouchPoints > 0);
+}
+
+// ------------------------- DOM refs -------------------------
 const HUD = {
   time: $('hudTime'),
   score: $('hudScore'),
   combo: $('hudCombo'),
   miss: $('hudMiss'),
+  plate: $('hudGroupsHave'),
   feverPct: $('hudFeverPct'),
   grade: $('hudGrade'),
-  mode: $('hudMode'),
-  diff: $('hudDiff'),
-  have: $('hudGroupsHave'),
-  perfect: $('hudPerfectCount'),
-  goalLine: $('goalLine'),
+  lives: $('hudLives'),
+  shieldCount: $('hudShield'),
+
   miniLine: $('miniLine'),
+  goalLine: $('goalLine'),
   miniHint: $('miniHint'),
+
   paused: $('hudPaused'),
+  hitFx: $('hitFx'),
+
+  startOverlay: $('startOverlay'),
+  btnStart: $('btnStart'),
+
   btnEnterVR: $('btnEnterVR'),
   btnPause: $('btnPause'),
   btnRestart: $('btnRestart'),
+
   resultBackdrop: $('resultBackdrop'),
+  btnBackHub: $('btnBackHub'),
   btnPlayAgain: $('btnPlayAgain'),
 
   rMode: $('rMode'),
@@ -149,1605 +177,1565 @@ const HUD = {
   rPerfect: $('rPerfect'),
   rGoals: $('rGoals'),
   rMinis: $('rMinis'),
-  rPlates: $('rPlates'),
-  rG1: $('rG1'),
-  rG2: $('rG2'),
-  rG3: $('rG3'),
-  rG4: $('rG4'),
-  rG5: $('rG5'),
-  rGTotal: $('rGTotal'),
+  rG1: $('rG1'), rG2: $('rG2'), rG3: $('rG3'), rG4: $('rG4'), rG5: $('rG5'), rGTotal: $('rGTotal'),
+
+  coachImg: $('coachImg'),
+  coachText: $('coachText'),
+
+  bossRing: $('bossRing'),
+  bossLaser: $('bossLaser'),
 };
 
-// ---------- Difficulty ----------
-const DIFF_TABLE = {
-  easy: {
-    size: 92, life: 3200, spawnMs: 900, maxTargets: 10,
-    junkRate: 0.18, goldRate: 0.10, trapRate: 0.045, bossRate: 0.020, fakeRate: 0.020,
-    slowRate: 0.045, noJunkRate: 0.020, stormRate: 0.020,
-    aimAssist: 150,
-    bossHP: 3, bossAtkMs:[2600, 3400], bossPhase2At: 0.45, bossPhase3At: 0.22,
-    stormDurMs:[4200, 6500], slowDurMs:[3200, 5200], noJunkDurMs:[4200, 6200],
-  },
-  normal: {
-    size: 78, life: 2700, spawnMs: 780, maxTargets: 12,
-    junkRate: 0.24, goldRate: 0.12, trapRate: 0.070, bossRate: 0.040, fakeRate: 0.040,
-    slowRate: 0.050, noJunkRate: 0.026, stormRate: 0.032,
-    aimAssist: 135,
-    bossHP: 5, bossAtkMs:[1900, 2650], bossPhase2At: 0.55, bossPhase3At: 0.30,
-    stormDurMs:[4200, 7200], slowDurMs:[3200, 5600], noJunkDurMs:[4200, 6800],
-  },
-  hard: {
-    size: 66, life: 2300, spawnMs: 660, maxTargets: 14,
-    junkRate: 0.30, goldRate: 0.14, trapRate: 0.095, bossRate: 0.060, fakeRate: 0.070,
-    slowRate: 0.055, noJunkRate: 0.022, stormRate: 0.040,
-    aimAssist: 125,
-    bossHP: 6, bossAtkMs:[1550, 2300], bossPhase2At: 0.60, bossPhase3At: 0.34,
-    stormDurMs:[4800, 8200], slowDurMs:[3200, 5800], noJunkDurMs:[4200, 7200],
-  },
+function refreshHUDRefs(){
+  HUD.time ||= $('hudTime');
+  HUD.score ||= $('hudScore');
+  HUD.combo ||= $('hudCombo');
+  HUD.miss ||= $('hudMiss');
+  HUD.plate ||= $('hudGroupsHave');
+  HUD.feverPct ||= $('hudFeverPct');
+  HUD.grade ||= $('hudGrade');
+  HUD.lives ||= $('hudLives');
+  HUD.shieldCount ||= $('hudShield');
+
+  HUD.miniLine ||= $('miniLine');
+  HUD.goalLine ||= $('goalLine');
+  HUD.miniHint ||= $('miniHint');
+
+  HUD.paused ||= $('hudPaused');
+  HUD.hitFx ||= $('hitFx');
+
+  HUD.startOverlay ||= $('startOverlay');
+  HUD.btnStart ||= $('btnStart');
+
+  HUD.btnEnterVR ||= $('btnEnterVR');
+  HUD.btnPause ||= $('btnPause');
+  HUD.btnRestart ||= $('btnRestart');
+
+  HUD.resultBackdrop ||= $('resultBackdrop');
+  HUD.btnBackHub ||= $('btnBackHub');
+  HUD.btnPlayAgain ||= $('btnPlayAgain');
+
+  HUD.rMode ||= $('rMode');
+  HUD.rGrade ||= $('rGrade');
+  HUD.rScore ||= $('rScore');
+  HUD.rMaxCombo ||= $('rMaxCombo');
+  HUD.rMiss ||= $('rMiss');
+  HUD.rPerfect ||= $('rPerfect');
+  HUD.rGoals ||= $('rGoals');
+  HUD.rMinis ||= $('rMinis');
+  HUD.rG1 ||= $('rG1'); HUD.rG2 ||= $('rG2'); HUD.rG3 ||= $('rG3'); HUD.rG4 ||= $('rG4'); HUD.rG5 ||= $('rG5'); HUD.rGTotal ||= $('rGTotal');
+
+  HUD.coachImg ||= $('coachImg');
+  HUD.coachText ||= $('coachText');
+
+  HUD.bossRing ||= $('bossRing');
+  HUD.bossLaser ||= $('bossLaser');
+}
+
+// ------------------------- layers / view shift -------------------------
+let layer = null;
+function ensureLayer(){
+  if(layer) return layer;
+  layer = doc.createElement('div');
+  layer.className = 'plate-layer';
+  Object.assign(layer.style, {
+    position: 'fixed',
+    inset: '0',
+    zIndex: '520',
+    pointerEvents: 'none',
+    transform: 'translate3d(0px,0px,0px)',
+  });
+  doc.body.appendChild(layer);
+  return layer;
+}
+
+const VIEW = { x: 0, y: 0, tx: 0, ty: 0, dragging:false, sx:0, sy:0, gx:0, gy:0, hasGyro:false };
+function applyView(){
+  ensureLayer();
+  // smooth
+  VIEW.x += (VIEW.tx - VIEW.x) * 0.22;
+  VIEW.y += (VIEW.ty - VIEW.y) * 0.22;
+  layer.style.transform = `translate3d(${VIEW.x}px, ${VIEW.y}px, 0)`;
+}
+function viewOffset(){
+  return { x: VIEW.x, y: VIEW.y };
+}
+
+function bindViewControls(){
+  // drag
+  const onDown = (e)=>{
+    if(S.paused || S.ended) return;
+    VIEW.dragging = true;
+    const t = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    VIEW.sx = t.clientX; VIEW.sy = t.clientY;
+    VIEW.gx = VIEW.tx; VIEW.gy = VIEW.ty;
+  };
+  const onMove = (e)=>{
+    if(!VIEW.dragging) return;
+    const t = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    const dx = t.clientX - VIEW.sx;
+    const dy = t.clientY - VIEW.sy;
+    // feel like head-turn: small movement
+    VIEW.tx = clamp(VIEW.gx + dx*0.35, -220, 220);
+    VIEW.ty = clamp(VIEW.gy + dy*0.35, -160, 160);
+  };
+  const onUp = ()=>{
+    VIEW.dragging = false;
+    // keep a bit
+    VIEW.tx = clamp(VIEW.tx, -240, 240);
+    VIEW.ty = clamp(VIEW.ty, -180, 180);
+  };
+
+  doc.addEventListener('pointerdown', onDown, { passive:true });
+  doc.addEventListener('pointermove', onMove, { passive:true });
+  doc.addEventListener('pointerup', onUp, { passive:true });
+
+  doc.addEventListener('touchstart', onDown, { passive:true });
+  doc.addEventListener('touchmove', onMove, { passive:true });
+  doc.addEventListener('touchend', onUp, { passive:true });
+
+  // gyro
+  function onOri(e){
+    if(!e) return;
+    const g = clamp(e.gamma || 0, -35, 35); // left/right
+    const b = clamp(e.beta  || 0, -35, 35); // up/down
+    VIEW.hasGyro = true;
+    // merge with drag target
+    VIEW.tx = clamp(VIEW.tx + g*0.55, -240, 240);
+    VIEW.ty = clamp(VIEW.ty + b*0.22, -180, 180);
+  }
+  ROOT.addEventListener('deviceorientation', onOri, true);
+}
+
+// ------------------------- spawn / safe zones -------------------------
+function rectOf(el){
+  if(!el) return null;
+  const r = el.getBoundingClientRect();
+  if(!r || !Number.isFinite(r.left)) return null;
+  return { l:r.left, t:r.top, r:r.right, b:r.bottom };
+}
+
+function getBlockedRects(){
+  // HUD panels + buttons + mini + coach
+  const ids = ['hudTop','hudBtns','miniPanel','coachPanel'];
+  const out = [];
+  for(const id of ids){
+    const el = $(id);
+    const rr = rectOf(el);
+    if(rr) out.push(rr);
+  }
+  return out;
+}
+
+function pointInRect(x,y, rr){
+  return x>=rr.l && x<=rr.r && y>=rr.t && y<=rr.b;
+}
+
+function pickSpawnXY(sizePx){
+  const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
+
+  // clamp safe-area + edges
+  const pad = 10;
+  const safe = {
+    l: pad + sizePx*0.55,
+    r: vw - pad - sizePx*0.55,
+    t: pad + sizePx*0.55,
+    b: vh - pad - sizePx*0.55,
+  };
+
+  // extra: do not spawn too close to center crosshair safezone
+  const cx = vw/2, cy = vh/2;
+  let safeR = Math.min(170, Math.min(vw,vh)*0.18);
+  if(vw < 420 || vh < 700) safeR = Math.min(140, Math.min(vw,vh)*0.16);
+
+  const blocked = getBlockedRects();
+  const tries = 80;
+
+  for(let i=0;i<tries;i++){
+    const x = rnd(safe.l, safe.r);
+    const y = rnd(safe.t, safe.b);
+
+    // safezone around crosshair
+    const dx = x - cx, dy = y - cy;
+    if(Math.hypot(dx,dy) < safeR) continue;
+
+    // avoid blocked rects
+    let ok = true;
+    for(const rr of blocked){
+      if(pointInRect(x,y, rr)) { ok=false; break; }
+    }
+    if(!ok) continue;
+
+    return { x, y };
+  }
+
+  // fallback: relax safezone
+  return {
+    x: rnd(safe.l, safe.r),
+    y: rnd(safe.t, safe.b),
+  };
+}
+
+// ------------------------- game config (diff) -------------------------
+const DIFF_CFG = {
+  easy:   { spawnMs: 980, lifeMs: 2100, badBias: 0.18, goldBias: 0.05, bossEveryMs: 10500 },
+  normal: { spawnMs: 780, lifeMs: 1850, badBias: 0.26, goldBias: 0.06, bossEveryMs: 9000  },
+  hard:   { spawnMs: 640, lifeMs: 1650, badBias: 0.34, goldBias: 0.07, bossEveryMs: 7800  },
 };
-const D = DIFF_TABLE[DIFF] || DIFF_TABLE.normal;
 
-// ---------- State ----------
-const LIVES_PARAM = parseInt(Q.get('lives') || '', 10);
-const LIVES_START = (Number.isFinite(LIVES_PARAM) && LIVES_PARAM > 0) ? LIVES_PARAM : 3;
+const D0 = DIFF_CFG[DIFF] || DIFF_CFG.normal;
 
+// ------------------------- state -------------------------
 const S = {
-  running:false, paused:false,
-  tStart:0, timeLeft:TOTAL_TIME,
-  score:0, combo:0, maxCombo:0,
-  miss:0, perfectCount:0,
-  fever:0, feverOn:false,
+  started: false,
+  paused: false,
+  ended: false,
 
-  shield:0, shieldMax:1,
-  lives:LIVES_START, livesMax:Math.max(1,LIVES_START),
+  t0: 0,
+  lastFrame: 0,
+  elapsedMs: 0,
 
-  // ✅ FIX: platesDone แยกจาก goalsDone
-  platesDone:0,                // จำนวน “จานสมดุลครบ 5 หมู่” ที่ทำได้
-  goalsDone:0, goalsTotal:2,   // จำนวน “Goal” ที่ผ่านจริง ๆ (2 ข้อ)
-  minisCleared:0, minisTotal:7,
+  score: 0,
+  combo: 0,
+  comboMax: 0,
+  miss: 0,
+  perfect: 0,
 
-  plateHave:new Set(), groupsTotal:5, groupCounts:[0,0,0,0,0],
+  fever: 0,
+  feverOn: false,
 
-  targets:[], aimedId:null,
-  nextSpawnAt:0,
+  shield: 0,
+  shieldMax: 3,
 
-  bossActive:false, bossNextAt:0,
+  lives: 3,
+  livesMax: 3,
+  lifeStepMiss: 3,    // 1 heart ต่อ 3 miss (ท้าทายกำลังดี)
+  lifeLost: 0,
 
-  stormUntil:0, slowUntil:0, noJunkUntil:0,
+  plateHave: new Set(),      // groups 1..5 collected
+  gCount: { 1:0,2:0,3:0,4:0,5:0 },
 
-  goalIndex:0, activeGoal:null, goalCompleted:{},
-  activeMini:null, miniEndsAt:0, miniUrgentArmed:false, miniTickAt:0,
+  targets: [],
+  nextSpawnAt: 0,
+  nextBossAt: 0,
 
-  lowTimeLastSec:null,
+  // adaptive (play only)
+  adapt: {
+    spawnMul: 1.00,
+    lifeMul:  1.00,
+    junkBias: 0.00,
+    lastAt: 0,
+    ema: 0,
+    wHits:0,wBad:0,wWhiff:0,wMiss:0,wPerf:0,
+  },
 
-  sessionId:`PLATE-${Date.now()}-${uid8()}`,
-
-  booted:false,
-  started:false,
-
-  _uiDelegated:false,
-  _uiBindTries:0
+  // quest director
+  Q: null,
 };
 
-// ---------- Helpers ----------
-function inVR(){
-  try { return !!(scene && scene.is && scene.is('vr-mode')); } catch(_) { return false; }
-}
-function vibe(ms){ try { navigator.vibrate && navigator.vibrate(ms); } catch(_){} }
+// ------------------------- coach -------------------------
+const COACH_IMG = {
+  neutral: './img/plate-neutral.png',
+  happy:   './img/plate-happy.png',
+  sad:     './img/plate-sad.png',
+  fever:   './img/plate-fever.png',
+};
 
-function dispatchEvt(name, detail){
-  try{ ROOT.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
+let _coachTimer = 0;
+function gradeFromScore(){
+  // grade: SSS, SS, S, A, B, C
+  const s = S.score;
+  if(s >= 5600) return 'SSS';
+  if(s >= 4200) return 'SS';
+  if(s >= 3000) return 'S';
+  if(s >= 2000) return 'A';
+  if(s >= 1200) return 'B';
+  return 'C';
+}
+function coachHintBase(){
+  return `Grade: ${gradeFromScore()} • Lives: ${S.lives}/${S.livesMax} • Plate: ${S.plateHave.size}/5`;
+}
+function setCoach(mood, text, sub='', ms=1700){
+  refreshHUDRefs();
+  mood = String(mood||'neutral').toLowerCase();
+  if(!COACH_IMG[mood]) mood = 'neutral';
+  if(HUD.coachImg){
+    const src = COACH_IMG[mood] || COACH_IMG.neutral;
+    if(HUD.coachImg.getAttribute('src') !== src) HUD.coachImg.setAttribute('src', src);
+  }
+  if(HUD.coachText){
+    const s = sub ? `<span class="sub">${safeFxText(sub)}</span>` : '';
+    HUD.coachText.innerHTML = `${safeFxText(text||'')}${s}`;
+  }
+  if(_coachTimer) clearTimeout(_coachTimer);
+  if(ms > 0 && mood !== 'neutral'){
+    _coachTimer = setTimeout(()=>{
+      const back = S.feverOn ? 'fever' : 'neutral';
+      const backText = S.feverOn ? '🔥 FEVER! ยิงให้ไว! แต้มคูณมาแล้ว!' : 'โฟกัสกลางจอ แล้วกวาดให้ครบ 5 หมู่!';
+      setCoach(back, backText, coachHintBase(), 0);
+    }, ms|0);
+  }
 }
 
-/* ===== FX wrappers ===== */
-function safeFxText(t){
-  t = String(t ?? '');
-  if (/^\d+(\.\d+)?$/.test(t) && t.length >= 10) return '✓';
-  if (t.length > 18) return t.slice(0,18) + '…';
-  return t;
+// ------------------------- HUD helpers -------------------------
+function setShield(n){
+  S.shield = clamp(n, 0, S.shieldMax) | 0;
+  refreshHUDRefs();
+  if(HUD.shieldCount) setTxt(HUD.shieldCount, String(S.shield));
 }
-function fxPop(txt, x, y, label=''){
-  try{ Particles.scorePop && Particles.scorePop(x, y, safeFxText(txt), label ? safeFxText(label) : ''); }catch(_){}
+function setLives(n){
+  S.lives = clamp(n, 0, S.livesMax) | 0;
+  refreshHUDRefs();
+  if(HUD.lives) setTxt(HUD.lives, `${S.lives}/${S.livesMax}`);
 }
-function fxBurst(x,y,tag){
-  try{ Particles.burstAt && Particles.burstAt(x,y,String(tag||'good')); }catch(_){}
+function addScore(d){
+  S.score = Math.max(0, (S.score + (d|0))|0);
+  refreshHUDRefs();
+  if(HUD.score) setTxt(HUD.score, S.score);
 }
-function fxJudge(label){
-  dispatchEvt('hha:judge', { label: safeFxText(label) });
+function setCombo(n){
+  S.combo = Math.max(0, n|0);
+  S.comboMax = Math.max(S.comboMax, S.combo);
+  refreshHUDRefs();
+  if(HUD.combo) setTxt(HUD.combo, S.combo);
 }
-function fxCelebrate(kind, intensity=1.0){
+function addMiss(){
+  S.miss++;
+  refreshHUDRefs();
+  if(HUD.miss) setTxt(HUD.miss, S.miss);
+
+  // life loss every step misses
+  const wantLost = Math.floor(S.miss / S.lifeStepMiss);
+  const need = wantLost - S.lifeLost;
+  if(need > 0){
+    S.lifeLost += need;
+    setLives(S.lives - need);
+    if(S.lives <= 0){
+      endGame('หมดหัวใจ');
+    }else{
+      setCoach('sad', `เสียหัวใจ! เหลือ ${S.lives}/${S.livesMax} ❤️`, coachHintBase(), 1500);
+    }
+  }
+}
+
+function setFever(pct){
+  S.fever = clamp(pct, 0, 100);
+  refreshHUDRefs();
+  if(HUD.feverPct) setTxt(HUD.feverPct, `${Math.round(S.fever)}%`);
+
+  const on = (S.fever >= 100);
+  if(on && !S.feverOn){
+    S.feverOn = true;
+    // give shield charges
+    setShield(Math.max(S.shield, 2));
+    setCoach('fever', '🔥 FEVER! ได้โล่ป้องกันขยะ/บอส 2 ครั้ง!', coachHintBase(), 1800);
+    logEvent('fever_on', { fever: S.fever, shield: S.shield });
+  }
+  if(!on && S.feverOn && S.fever < 90){
+    S.feverOn = false;
+    logEvent('fever_off', { fever: S.fever, shield: S.shield });
+  }
+}
+
+function addFever(delta){
+  setFever(S.fever + delta);
+}
+
+// hit flash
+let _hitFxT = 0;
+function hitFlash(kind){
+  refreshHUDRefs();
+  const el = HUD.hitFx;
+  if(!el) return;
+  el.setAttribute('data-kind', kind || 'good');
+  el.classList.remove('show');
+  void el.offsetHeight;
+  el.classList.add('show');
+  if(_hitFxT) clearTimeout(_hitFxT);
+  _hitFxT = setTimeout(()=>{ try{ el.classList.remove('show'); }catch(_){} }, 90);
+}
+
+// screen shake (scale with fever)
+let _shakeT = 0;
+function shake(base=1.0, ms=160){
   try{
-    Particles.celebrate && Particles.celebrate({ kind: safeFxText(kind), intensity: clamp(intensity,0.6,2.2) });
+    const f = clamp((S.fever||0)/100, 0, 1);
+    const amp = clamp(base * (0.85 + f*1.25), 0.6, 2.6);
+
+    doc.body.style.setProperty('--shakeMs', `${Math.round(ms)}ms`);
+    doc.body.style.setProperty('--sx',  `${Math.round(-2*amp)}px`);
+    doc.body.style.setProperty('--sy',  `${Math.round( 1*amp)}px`);
+    doc.body.style.setProperty('--sx2', `${Math.round( 2*amp)}px`);
+    doc.body.style.setProperty('--sy2', `${Math.round(-2*amp)}px`);
+
+    doc.body.classList.remove('hha-shake');
+    void doc.body.offsetHeight;
+    doc.body.classList.add('hha-shake');
+
+    if(_shakeT) clearTimeout(_shakeT);
+    _shakeT = setTimeout(()=>{ try{ doc.body.classList.remove('hha-shake'); }catch(_){} }, Math.max(80, ms+40));
   }catch(_){}
 }
 
-// hit flash overlay
-const hitFxEl = $('hitFx');
-function flash(kind='bad', ms=110){
-  if(!hitFxEl) return;
-  hitFxEl.dataset.kind = String(kind||'bad');
-  hitFxEl.classList.add('show');
-  setTimeout(()=>{ try{ hitFxEl.classList.remove('show'); }catch(_){} }, ms|0);
+// ------------------------- targets / emojis -------------------------
+const GROUPS = [
+  { id:1, name:'โปรตีน', emoji:['🥩','🥚','🥛','🐟','🫘'] },
+  { id:2, name:'ข้าว-แป้ง', emoji:['🍚','🍞','🍜','🥔','🌽'] },
+  { id:3, name:'ผัก', emoji:['🥦','🥬','🥒','🥕','🌶️'] },
+  { id:4, name:'ผลไม้', emoji:['🍎','🍌','🍊','🍉','🍇'] },
+  { id:5, name:'ไขมันดี', emoji:['🥑','🫒','🥜','🧈','🧀'] },
+];
+
+const JUNK = ['🍟','🍔','🍕','🍩','🍰','🧋','🥤','🍭'];
+const TRAP = ['💣','🧨','☠️','🧪'];
+const FAKE = ['🎭','🌀','❌','⚠️'];
+const GOLD = ['⭐','🌟','💎'];
+const BOSS = ['👹','😈','🦾'];
+
+function pick(arr){ return arr[rndi(0, arr.length-1)]; }
+
+function makeTargetEl(emoji, size){
+  const el = doc.createElement('div');
+  el.className = 'plateTarget';
+  Object.assign(el.style, {
+    position: 'absolute',
+    width: `${size}px`,
+    height: `${size}px`,
+    transform: 'translate(-50%,-50%)',
+    display: 'grid',
+    placeItems: 'center',
+    fontSize: `${Math.round(size*0.60)}px`,
+    borderRadius: '999px',
+    pointerEvents: 'auto',
+    userSelect: 'none',
+    WebkitTapHighlightColor: 'transparent',
+    background: 'rgba(2,6,23,.35)',
+    border: '1px solid rgba(148,163,184,.18)',
+    boxShadow: '0 16px 38px rgba(0,0,0,.28)',
+    backdropFilter: 'blur(6px)',
+  });
+  el.textContent = emoji;
+  return el;
 }
 
-// ---------- START overlay + HUB return ----------
-const HUB_URL_RAW = String(Q.get('hub') || './hub.html');
-
-function resolveUrl(href){
-  try { return new URL(href, ROOT.location.href).toString(); }
-  catch(_) { return href; }
-}
-async function requestMotionPermissionIfNeeded(){
+function dieTarget(rec, kind='good'){
+  if(!rec || rec.dead || !rec.el) return;
   try{
-    const DME = ROOT.DeviceMotionEvent;
-    if (!DME || typeof DME.requestPermission !== 'function') return true;
-    const res = await DME.requestPermission();
-    return (res === 'granted');
-  }catch(_){
-    return false;
+    rec.el.classList.remove('die-good','die-bad');
+    rec.el.classList.add(kind==='bad' ? 'die-bad' : 'die-good');
+  }catch(_){}
+  setTimeout(()=>{ try{ rec.el && rec.el.remove(); }catch(_){} }, 175);
+}
+
+// ------------------------- adaptive (play only) -------------------------
+function adaptBump(evt){
+  if(MODE !== 'play') return;
+  switch(evt){
+    case 'hit_good': S.adapt.wHits++; break;
+    case 'hit_bad':  S.adapt.wBad++; break;
+    case 'whiff':    S.adapt.wWhiff++; break;
+    case 'miss':     S.adapt.wMiss++; break;
+    case 'perfect':  S.adapt.wPerf++; break;
   }
 }
+
+function adaptTick(){
+  if(MODE !== 'play') return;
+  const t = now();
+  if(!S.adapt.lastAt) S.adapt.lastAt = t;
+  if(t - S.adapt.lastAt < 2200) return;
+
+  const hits = S.adapt.wHits;
+  const bad  = S.adapt.wBad;
+  const whf  = S.adapt.wWhiff;
+  const mis  = S.adapt.wMiss;
+  const perf = S.adapt.wPerf;
+  const totalShots = Math.max(1, hits + bad + whf);
+
+  const hitRate   = hits / totalShots;
+  const badRate   = bad  / totalShots;
+  const perfRate  = perf / Math.max(1, hits);
+  const missRate  = mis  / Math.max(1, (mis+hits));
+
+  let skill =
+    0.55*hitRate +
+    0.20*perfRate -
+    0.35*badRate -
+    0.25*missRate;
+
+  skill = clamp(skill, 0, 1);
+  S.adapt.ema = (S.adapt.ema*0.70) + (skill*0.30);
+  const s = S.adapt.ema;
+
+  // เก่ง -> เร็วขึ้น, อายุสั้นลง, junk เพิ่ม
+  S.adapt.spawnMul = clamp(1.18 - s*0.52, 0.72, 1.22);
+  S.adapt.lifeMul  = clamp(1.14 - s*0.36, 0.78, 1.20);
+  S.adapt.junkBias = clamp(-0.05 + s*0.12, -0.06, 0.10);
+
+  S.adapt.wHits = S.adapt.wBad = S.adapt.wWhiff = S.adapt.wMiss = S.adapt.wPerf = 0;
+  S.adapt.lastAt = t;
+
+  if(DEBUG) console.log('[PlateVR][ADAPT]', {skill:s.toFixed(2), spawnMul:S.adapt.spawnMul.toFixed(2), lifeMul:S.adapt.lifeMul.toFixed(2), junkBias:S.adapt.junkBias.toFixed(2)});
+}
+
+// ------------------------- boss hazards (Ring gap + Laser + Double) -------------------------
+function showRingHaz(x, y, dPx, gapRad, gapWidthDeg=70, thPx=12){
+  refreshHUDRefs();
+  const host = HUD.bossRing || $('bossRing');
+  if(!host) return;
+  const ring = host.querySelector('.ring');
+  if(!ring) return;
+  host.style.display = 'block';
+  ring.style.setProperty('--x', `${x}px`);
+  ring.style.setProperty('--y', `${y}px`);
+  ring.style.setProperty('--d', `${dPx}px`);
+  ring.style.setProperty('--th', `${thPx}px`);
+  ring.style.setProperty('--gapA', String(gapRad));
+  ring.style.setProperty('--gapW', `${gapWidthDeg}deg`);
+}
+
+function showLaserHaz(x, y, angRad, wPx=16){
+  refreshHUDRefs();
+  const host = HUD.bossLaser || $('bossLaser');
+  if(!host) return;
+  const beam = host.querySelector('.beam');
+  if(!beam) return;
+  host.style.display = 'block';
+  beam.style.setProperty('--x', `${x}px`);
+  beam.style.setProperty('--y', `${y}px`);
+  beam.style.setProperty('--ang', `${angRad}rad`);
+  beam.style.setProperty('--w', `${wPx}px`);
+}
+
+function hideBossHaz(){
+  refreshHUDRefs();
+  if(HUD.bossRing) HUD.bossRing.style.display = 'none';
+  if(HUD.bossLaser) HUD.bossLaser.style.display = 'none';
+}
+
+function angleDistRad(a,b){
+  let d = a - b;
+  while(d > Math.PI) d -= Math.PI*2;
+  while(d < -Math.PI) d += Math.PI*2;
+  return Math.abs(d);
+}
+
+function bossPhase(){
+  const remain = S.elapsedMs / (TOTAL_TIME*1000);
+  // เริ่มอ่อน -> กลาง -> โหดท้ายเกม
+  if(remain < 0.33) return 1;
+  if(remain < 0.70) return 2;
+  return 3;
+}
+function bossStyleForPhase(ph){
+  if(ph === 1) return 'ring';
+  if(ph === 2) return (R()<0.65 ? 'laser' : 'ring');
+  return (R()<0.45 ? 'double' : (R()<0.72 ? 'laser' : 'ring'));
+}
+
+function bossHazardWarn(rec, style, phase){
+  const off = viewOffset();
+  const bx = rec.cx + off.x;
+  const by = rec.cy + off.y;
+
+  rec.meta ||= {};
+  rec.meta.haz = {
+    style,
+    bx, by,
+    ring: { gapA: R()*Math.PI*2, gapW: (phase===3?55:(phase===2?62:72)), rad: (phase===3?220:(phase===2?210:200)) },
+    laser:{ ang: (R()*Math.PI*2), w: (phase===3?18:16) }
+  };
+
+  hideBossHaz();
+
+  const dPx = rec.meta.haz.ring.rad*2;
+  const thPx = (phase===3)?14:12;
+
+  if(style === 'ring'){
+    showRingHaz(bx, by, dPx, rec.meta.haz.ring.gapA, rec.meta.haz.ring.gapW, thPx);
+    setCoach('fever', '⚠️ BOSS RING! เลื่อนมุมมองให้ “ช่องว่าง” ตรงกลางจอ!', coachHintBase(), 1400);
+  }else if(style === 'laser'){
+    showLaserHaz(bx, by, rec.meta.haz.laser.ang, rec.meta.haz.laser.w);
+    setCoach('fever', '⚠️ LASER! หลบเส้นเลเซอร์จากบอส!', coachHintBase(), 1400);
+  }else{
+    showRingHaz(bx, by, dPx, rec.meta.haz.ring.gapA, rec.meta.haz.ring.gapW, thPx);
+    showLaserHaz(bx, by, rec.meta.haz.laser.ang, rec.meta.haz.laser.w);
+    setCoach('fever', '☠️ DOUBLE! ต้องหลบทั้งวง + เลเซอร์!', coachHintBase(), 1600);
+  }
+
+  shake(0.85, 160);
+}
+
+function bossHazardHit(rec){
+  const hz = rec && rec.meta && rec.meta.haz;
+  if(!hz) return { hit:false };
+
+  const vw = ROOT.innerWidth, vh = ROOT.innerHeight;
+  const cx = vw/2, cy = vh/2;
+
+  let hitRing=false, hitLaser=false;
+
+  if(hz.style === 'ring' || hz.style === 'double'){
+    const dx = cx - hz.bx;
+    const dy = cy - hz.by;
+    const rr = Math.hypot(dx,dy);
+    const ang = Math.atan2(dy, dx);
+    const ringRad = hz.ring.rad;
+    const band = 18;
+    const inBand = (rr >= ringRad - band) && (rr <= ringRad + band);
+    const half = (hz.ring.gapW * Math.PI / 180) * 0.5;
+    const inGap = (angleDistRad(ang, hz.ring.gapA) <= half);
+    hitRing = inBand && !inGap;
+  }
+
+  if(hz.style === 'laser' || hz.style === 'double'){
+    const ang = hz.laser.ang;
+    const dx = cx - hz.bx;
+    const dy = cy - hz.by;
+    const dist = Math.abs(-Math.sin(ang)*dx + Math.cos(ang)*dy);
+    const thr = Math.max(10, (hz.laser.w||16)*0.62);
+    hitLaser = (dist <= thr);
+  }
+
+  return { hit:(hitRing||hitLaser), hitRing, hitLaser };
+}
+
+// ------------------------- quest (2 goals + 7 minis) -------------------------
+const GOALS = [
+  { id:'G1', title:'Goal 1: เก็บให้ครบ 5 หมู่', check:()=> S.plateHave.size>=5 },
+  { id:'G2', title:'Goal 2: ทำคะแนนให้ถึงเป้า', check:()=> S.score>= (DIFF==='hard'?2600:(DIFF==='easy'?1800:2200)) },
+];
+
+const MINIS = [
+  { id:'M1', title:'Mini: PERFECT 3 ครั้ง', hint:'เล็งกลางเป้าให้เป๊ะ', check:()=> S.perfect>=3 },
+  { id:'M2', title:'Mini: COMBO 12+', hint:'อย่าให้พลาดติดกัน', check:()=> S.comboMax>=12 },
+  { id:'M3', title:'Mini: เก็บหมู่ 3 (ผัก) 3 ครั้ง', hint:'สีเขียวช่วยมาก!', check:()=> (S.gCount[3]||0)>=3 },
+  { id:'M4', title:'Mini: Gold 2 ครั้ง', hint:'⭐/💎 ให้คะแนนสูง', check:()=> (S._goldHits||0)>=2 },
+  { id:'M5', title:'Mini: หลบบอส 2 ครั้ง', hint:'ดูวง/เลเซอร์ แล้วขยับมุมมอง', check:()=> (S._bossDodges||0)>=2 },
+  { id:'M6', title:'Mini: ห้ามโดนขยะ 10 วินาที', hint:'ถ้าโดนขยะ รีเซ็ต', windowSec:10 },
+  { id:'M7', title:'Mini: Plate Rush — ครบ 5 ใน 8 วิ & ห้ามโดนขยะ', hint:'เริ่มนับเมื่อเก็บหมู่แรก', rushSec:8 },
+];
+
+function makeQuestDirector(){
+  return {
+    goalIndex: 0,
+    goalsCleared: 0,
+    miniIndex: 0,
+    minisCleared: 0,
+
+    miniState: {
+      noJunkUntil: 0,
+      rushActive:false,
+      rushStartAt:0,
+      rushJunkHit:false,
+      rushStartPlateSize:0,
+      lastJunkAt:0,
+    },
+
+    updateHUD(){
+      refreshHUDRefs();
+      const g = GOALS[this.goalIndex] || GOALS[GOALS.length-1];
+      const m = MINIS[this.miniIndex] || MINIS[MINIS.length-1];
+      if(HUD.goalLine) setTxt(HUD.goalLine, `Goal: ${g ? g.title : '—'} (${this.goalsCleared}/${GOALS.length})`);
+      if(HUD.miniLine) setTxt(HUD.miniLine, `MINI: ${m ? m.title : '—'} (${this.minisCleared}/${MINIS.length})`);
+      if(HUD.miniHint) setTxt(HUD.miniHint, m && m.hint ? m.hint : 'ทำให้เต็มที่!');
+    },
+
+    tick(){
+      // goal
+      const g = GOALS[this.goalIndex];
+      if(g && g.check && g.check()){
+        this.goalsCleared++;
+        this.goalIndex = Math.min(GOALS.length-1, this.goalIndex+1);
+
+        Particles.celebrate && Particles.celebrate('GOAL');
+        setCoach('happy', 'ผ่าน GOAL! 🏆', coachHintBase(), 1400);
+        AudioX.ok(); vibe(25);
+        logEvent('quest_goal_clear', { goalId:g.id, goalsCleared:this.goalsCleared });
+      }
+
+      // mini special: M6 no-junk window
+      const m = MINIS[this.miniIndex];
+      if(m && m.id === 'M6'){
+        const t = now();
+        if(this.miniState.noJunkUntil <= 0){
+          this.miniState.noJunkUntil = t + (m.windowSec*1000);
+          this.miniState.lastJunkAt = 0;
+        }
+        // if junk happened, reset
+        if(this.miniState.lastJunkAt && this.miniState.lastJunkAt > t - (m.windowSec*1000)){
+          this.miniState.noJunkUntil = t + (m.windowSec*1000);
+          this.miniState.lastJunkAt = 0;
+          setCoach('sad', 'โดนขยะ! รีเซ็ตจับเวลาใหม่ 😵', coachHintBase(), 1200);
+        }
+        // if reached end
+        if(t >= this.miniState.noJunkUntil){
+          this._clearMini(m);
+        }
+      }
+
+      // mini special: M7 rush
+      if(m && m.id === 'M7'){
+        const t = now();
+        if(!this.miniState.rushActive){
+          // start when pick first group
+          if(S.plateHave.size >= 1){
+            this.miniState.rushActive = true;
+            this.miniState.rushStartAt = t;
+            this.miniState.rushJunkHit = false;
+            this.miniState.rushStartPlateSize = S.plateHave.size;
+          }
+        }else{
+          const elapsed = (t - this.miniState.rushStartAt);
+          const okPlate = (S.plateHave.size >= 5);
+          const inTime = (elapsed <= (m.rushSec*1000));
+          if(okPlate && inTime && !this.miniState.rushJunkHit){
+            this._clearMini(m);
+          }else if(elapsed > (m.rushSec*1000)){
+            // fail -> reset
+            this.miniState.rushActive = false;
+            this.miniState.rushStartAt = 0;
+            this.miniState.rushJunkHit = false;
+            setCoach('sad', 'Plate Rush ไม่ทัน! ลองใหม่ 💨', coachHintBase(), 1300);
+          }
+        }
+      }
+
+      // normal minis
+      if(m && m.check && m.check()){
+        this._clearMini(m);
+      }
+
+      this.updateHUD();
+    },
+
+    markJunkHit(){
+      const m = MINIS[this.miniIndex];
+      if(m && m.id === 'M6') this.miniState.lastJunkAt = now();
+      if(m && m.id === 'M7') this.miniState.rushJunkHit = true;
+    },
+
+    _clearMini(m){
+      this.minisCleared++;
+      this.miniIndex = Math.min(MINIS.length-1, this.miniIndex+1);
+
+      Particles.celebrate && Particles.celebrate('MINI');
+      setCoach('happy', 'ผ่าน MINI! ✨', coachHintBase(), 1400);
+      AudioX.ok(); vibe(20);
+      logEvent('quest_mini_clear', { miniId:m.id, minisCleared:this.minisCleared });
+
+      // reset mini states for next
+      this.miniState.noJunkUntil = 0;
+      this.miniState.rushActive = false;
+      this.miniState.rushStartAt = 0;
+      this.miniState.rushJunkHit = false;
+      this.miniState.rushStartPlateSize = 0;
+      this.miniState.lastJunkAt = 0;
+    }
+  };
+}
+
+// ------------------------- spawn logic / kind decide -------------------------
+function decideKind(){
+  // base rates
+  let gold = D0.goldBias;
+  let junk = D0.badBias;
+  let trap = (DIFF==='hard'?0.10:(DIFF==='easy'?0.05:0.08));
+  let fake = (DIFF==='hard'?0.08:(DIFF==='easy'?0.03:0.06));
+  let boss = 0.00;
+
+  // boss appears on schedule
+  // (spawnTick will override to boss sometimes)
+
+  // adaptive tweak (play only)
+  if(MODE==='play' && S.adapt){
+    const b = S.adapt.junkBias || 0;
+    junk = clamp(junk + b, 0.06, 0.52);
+    trap = clamp(trap + (b*0.55), 0.01, 0.28);
+    fake = clamp(fake + (b*0.35), 0.00, 0.26);
+  }
+
+  // fever on -> more good/gold, less junk
+  if(S.feverOn){
+    gold = clamp(gold + 0.03, 0.04, 0.18);
+    junk = clamp(junk - 0.06, 0.05, 0.40);
+    trap = clamp(trap - 0.02, 0.00, 0.22);
+  }
+
+  const r = R();
+  if(r < gold) return 'gold';
+  if(r < gold + junk) return 'junk';
+  if(r < gold + junk + trap) return 'trap';
+  if(r < gold + junk + trap + fake) return 'fake';
+  return 'good';
+}
+
+function spawnBoss(){
+  const ph = bossPhase();
+  const style = bossStyleForPhase(ph);
+  const size = (ph===3?96:(ph===2?92:88));
+  const {x,y} = pickSpawnXY(size);
+  const emoji = pick(BOSS);
+  const rec = {
+    id: `B${Date.now()}_${rndi(100,999)}`,
+    kind: 'boss',
+    emoji,
+    size,
+    cx: x, cy: y,
+    bornAt: now(),
+    dieAt: now() + (2200),
+    warned: false,
+    atkAt: now() + (ph===3?850:(ph===2?980:1100)),
+    style,
+    el: null,
+    dead:false,
+    meta:{}
+  };
+
+  const el = makeTargetEl(emoji, size);
+  el.style.left = `${x}px`;
+  el.style.top  = `${y}px`;
+  el.style.background = 'rgba(248,113,113,.10)';
+  el.style.border = '1px solid rgba(248,113,113,.30)';
+  el.style.boxShadow = '0 18px 44px rgba(248,113,113,.10), 0 18px 44px rgba(0,0,0,.25)';
+  el.dataset.kind = 'boss';
+  el.dataset.id = rec.id;
+
+  rec.el = el;
+  ensureLayer().appendChild(el);
+  S.targets.push(rec);
+
+  logEvent('spawn', { kind:'boss', emoji, x, y, phase:ph, style });
+}
+
+function spawnOne(){
+  const kind = decideKind();
+  const baseSize = (DIFF==='hard'?78:(DIFF==='easy'?90:84));
+  let size = baseSize;
+
+  // little variety
+  size = clamp(size + rndi(-8, 10), 64, 104);
+
+  const {x,y} = pickSpawnXY(size);
+  let emoji = '🍽️';
+  let groupId = 0;
+
+  if(kind === 'good'){
+    const g = pick(GROUPS);
+    groupId = g.id;
+    emoji = pick(g.emoji);
+  }else if(kind === 'gold'){
+    emoji = pick(GOLD);
+  }else if(kind === 'junk'){
+    emoji = pick(JUNK);
+  }else if(kind === 'trap'){
+    emoji = pick(TRAP);
+  }else if(kind === 'fake'){
+    emoji = pick(FAKE);
+  }
+
+  let life = D0.lifeMs;
+  if(MODE==='play' && S.adapt) life *= (S.adapt.lifeMul || 1.0);
+  // small jitter
+  life = clamp(life * rnd(0.92, 1.12), 900, 3600);
+
+  const rec = {
+    id: `${Date.now()}_${rndi(1000,9999)}`,
+    kind,
+    emoji,
+    groupId,
+    size,
+    cx: x, cy: y,
+    bornAt: now(),
+    dieAt: now() + life,
+    el: null,
+    dead:false,
+  };
+
+  const el = makeTargetEl(emoji, size);
+  el.style.left = `${x}px`;
+  el.style.top  = `${y}px`;
+  el.dataset.kind = kind;
+  el.dataset.id = rec.id;
+  if(kind==='gold'){
+    el.style.background = 'rgba(250,204,21,.10)';
+    el.style.border = '1px solid rgba(250,204,21,.28)';
+  }
+  if(kind==='junk' || kind==='trap' || kind==='fake'){
+    el.style.background = 'rgba(248,113,113,.08)';
+    el.style.border = '1px solid rgba(248,113,113,.22)';
+  }
+
+  rec.el = el;
+  ensureLayer().appendChild(el);
+  S.targets.push(rec);
+
+  logEvent('spawn', { kind, emoji, x, y, groupId, ttlMs: Math.round(life) });
+}
+
+function spawnTick(){
+  const t = now();
+  const base = D0.spawnMs * ((MODE==='play') ? (S.adapt.spawnMul || 1.0) : 1.0);
+
+  if(t >= S.nextSpawnAt){
+    S.nextSpawnAt = t + clamp(base * rnd(0.92, 1.14), 420, 1600);
+    spawnOne();
+  }
+
+  // boss schedule
+  if(t >= S.nextBossAt){
+    S.nextBossAt = t + clamp(D0.bossEveryMs * rnd(0.85, 1.25), 6500, 14000);
+    // not too many bosses alive
+    const nBoss = S.targets.filter(a=>a && !a.dead && a.kind==='boss').length;
+    if(nBoss < 1) spawnBoss();
+  }
+}
+
+// ------------------------- gameplay: hit / miss / shoot -------------------------
+function fxScore(x,y, text){
+  try{ Particles.scorePop && Particles.scorePop(x,y, text); }catch(_){}
+}
+function fxBurst(x,y, kind){
+  try{ Particles.burstAt && Particles.burstAt(x,y, kind); }catch(_){}
+}
+
+function perfectJudgeFromDist(dist, size){
+  const r = size*0.34;
+  if(dist <= r*0.52) return 'PERFECT';
+  if(dist <= r*0.95) return 'GREAT';
+  return 'GOOD';
+}
+
+function removeRec(rec){
+  if(!rec || rec.dead) return;
+  rec.dead = true;
+  try{ rec.el && rec.el.remove(); }catch(_){}
+}
+
+function onMiss(rec, why='expire'){
+  if(S.ended) return;
+
+  // miss definition:
+  // - good expire = miss
+  // - junk hit = miss (but shield block does NOT count as miss)
+  // - boss hazard hit => punishBad handles miss
+  addMiss();
+  adaptBump('miss');
+
+  if(why === 'expire'){
+    setCombo(0);
+    setCoach('sad', 'พลาดแล้ว! รีบกวาดให้ครบ 5 หมู่!', coachHintBase(), 1200);
+    shake(0.95, 170);
+    logEvent('miss_expire', { itemType: rec.kind, emoji: rec.emoji, id: rec.id });
+  }
+}
+
+function punishBad(reason='bad', isBoss=false){
+  if(S.ended) return;
+
+  // shield blocks bad hits
+  if(S.shield > 0){
+    setShield(S.shield - 1);
+    hitFlash('good');
+    fxScore(ROOT.innerWidth/2, ROOT.innerHeight/2, '🛡️ BLOCK!');
+    fxBurst(ROOT.innerWidth/2, ROOT.innerHeight/2, 'shield');
+    AudioX.ok(); vibe(10);
+    setCoach('happy', 'โล่กันได้! ไปต่อ! 🛡️', coachHintBase(), 1100);
+    logEvent('shield_block', { reason, boss:!!isBoss, shieldLeft:S.shield });
+    return;
+  }
+
+  hitFlash(isBoss?'boss':'bad');
+  AudioX.bad(); vibe(isBoss?35:25);
+  shake(isBoss?1.5:1.15, isBoss?210:180);
+
+  // count as miss (junk hit or boss hit)
+  addMiss();
+  adaptBump('hit_bad');
+  setCombo(0);
+
+  if(S.Q) S.Q.markJunkHit();
+
+  setCoach('sad', isBoss?'โดนบอส! หลบตอนเตือน ⚠️':'โดนขยะ/กับดัก! ระวัง!', coachHintBase(), 1500);
+  logEvent('hit_bad', { reason, boss:!!isBoss });
+}
+
+function hitGood(rec, judge){
+  const base = (judge==='PERFECT') ? 120 : (judge==='GREAT' ? 80 : 60);
+  const mult = 1 + Math.min(1.6, S.combo*0.06);
+  const add = Math.round(base * mult);
+
+  addScore(add);
+  setCombo(S.combo + 1);
+
+  if(judge==='PERFECT'){
+    S.perfect++;
+    adaptBump('perfect');
+    addFever(10);
+    AudioX.gold();
+  }else if(judge==='GREAT'){
+    addFever(6);
+    AudioX.good();
+  }else{
+    addFever(4);
+    AudioX.good();
+  }
+
+  adaptBump('hit_good');
+  hitFlash(judge==='PERFECT'?'gold':'good');
+
+  // plate group collect
+  if(rec.groupId >= 1 && rec.groupId <= 5){
+    S.plateHave.add(rec.groupId);
+    S.gCount[rec.groupId] = (S.gCount[rec.groupId]||0) + 1;
+  }
+
+  // HUD plate
+  refreshHUDRefs();
+  if(HUD.plate) setTxt(HUD.plate, `${S.plateHave.size}/5`);
+
+  // fx
+  const off = viewOffset();
+  const fxX = rec.cx + off.x;
+  const fxY = rec.cy + off.y;
+  fxScore(fxX, fxY, judge==='PERFECT'?'✨PERFECT':(judge==='GREAT'?'👍GREAT':'✅GOOD'));
+  fxBurst(fxX, fxY, judge==='PERFECT'?'gold':'good');
+
+  logEvent('hit', { itemType:'good', emoji:rec.emoji, groupId:rec.groupId, judgment:judge, scoreAdd:add, combo:S.combo });
+
+  if(S.Q) S.Q.tick();
+
+  // little coaching
+  if(judge==='PERFECT') setCoach('happy', 'PERFECT! โคตรคม! ✨', coachHintBase(), 900);
+}
+
+function hitGold(rec){
+  const base = 200;
+  const mult = 1 + Math.min(1.8, S.combo*0.07);
+  const add = Math.round(base * mult);
+  addScore(add);
+  setCombo(S.combo + 1);
+  S._goldHits = (S._goldHits||0) + 1;
+  addFever(14);
+  hitFlash('gold');
+  AudioX.gold(); vibe(16);
+
+  const off = viewOffset();
+  fxScore(rec.cx+off.x, rec.cy+off.y, '⭐ GOLD!');
+  fxBurst(rec.cx+off.x, rec.cy+off.y, 'gold');
+
+  logEvent('hit', { itemType:'gold', emoji:rec.emoji, judgment:'GOLD', scoreAdd:add, combo:S.combo });
+  if(S.Q) S.Q.tick();
+}
+
+function hitBoss(rec){
+  // hitting boss gives small points but schedules hazard
+  addScore(30);
+  setCombo(S.combo + 1);
+  addFever(4);
+  hitFlash('boss');
+  AudioX.warn(); vibe(10);
+
+  const off = viewOffset();
+  fxScore(rec.cx+off.x, rec.cy+off.y, '👹 BOSS!');
+  fxBurst(rec.cx+off.x, rec.cy+off.y, 'boss');
+
+  logEvent('hit', { itemType:'boss', emoji:rec.emoji, judgment:'HIT', scoreAdd:30, combo:S.combo });
+}
+
+function resolveHit(rec, shotX, shotY){
+  if(!rec || rec.dead) return;
+
+  const dx = shotX - (rec.cx + viewOffset().x);
+  const dy = shotY - (rec.cy + viewOffset().y);
+  const dist = Math.hypot(dx,dy);
+
+  if(rec.kind === 'good'){
+    const j = perfectJudgeFromDist(dist, rec.size);
+    hitGood(rec, j);
+    dieTarget(rec, 'good');
+    removeRec(rec);
+    return;
+  }
+  if(rec.kind === 'gold'){
+    hitGold(rec);
+    dieTarget(rec, 'good');
+    removeRec(rec);
+    return;
+  }
+  if(rec.kind === 'boss'){
+    hitBoss(rec);
+    // boss stays until ttl
+    return;
+  }
+
+  // bad
+  punishBad(rec.kind, false);
+  dieTarget(rec, 'bad');
+  removeRec(rec);
+}
+
+function findTargetAt(shotX, shotY){
+  // choose nearest visible target within radius
+  let best = null;
+  let bestD = 1e9;
+
+  const off = viewOffset();
+  for(const rec of S.targets){
+    if(!rec || rec.dead || !rec.el) continue;
+    const x = rec.cx + off.x;
+    const y = rec.cy + off.y;
+    const d = Math.hypot(shotX - x, shotY - y);
+    const hitR = rec.size * 0.46;
+    if(d <= hitR && d < bestD){
+      best = rec;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+function airShot(){
+  if(S.ended || !S.started || S.paused) return;
+  adaptBump('whiff');
+  AudioX.tick();
+  setCombo(Math.max(0, S.combo - 1));
+  setCoach('sad', 'WHIFF! ใกล้เป้ากว่านี้อีกนิด 🎯', coachHintBase(), 1100);
+  shake(0.55, 140);
+  logEvent('air_shot', {});
+}
+
+function shootAtCenter(){
+  const shotX = ROOT.innerWidth/2;
+  const shotY = ROOT.innerHeight/2;
+
+  const rec = findTargetAt(shotX, shotY);
+  if(rec){
+    resolveHit(rec, shotX, shotY);
+  }else{
+    airShot();
+  }
+}
+
+// tap hit directly (on element)
+function bindTargetClick(){
+  ensureLayer();
+  layer.addEventListener('pointerdown', (e)=>{
+    if(S.ended || !S.started || S.paused) return;
+    const t = e.target;
+    if(!(t instanceof HTMLElement)) return;
+    if(!t.classList.contains('plateTarget')) return;
+
+    // find rec by id
+    const id = t.dataset.id;
+    const rec = S.targets.find(a => a && a.id === id);
+    if(!rec) return;
+
+    const rect = t.getBoundingClientRect();
+    const shotX = rect.left + rect.width/2;
+    const shotY = rect.top + rect.height/2;
+
+    resolveHit(rec, shotX, shotY);
+  }, { passive:true });
+}
+
+// ------------------------- tick expire / boss attack -------------------------
+function tickExpire(){
+  const t = now();
+  for(const rec of S.targets){
+    if(!rec || rec.dead) continue;
+    if(rec.kind === 'boss'){
+      if(t >= rec.dieAt){
+        hideBossHaz();
+        dieTarget(rec,'bad');
+        removeRec(rec);
+      }
+      continue;
+    }
+    if(t >= rec.dieAt){
+      // good expire counts as miss, others just disappear
+      if(rec.kind === 'good') onMiss(rec, 'expire');
+      dieTarget(rec, rec.kind==='good'?'good':'bad');
+      removeRec(rec);
+    }
+  }
+  // compact
+  if(S.targets.length > 120){
+    S.targets = S.targets.filter(a=>a && !a.dead);
+  }
+}
+
+function tickBossAttack(){
+  const t = now();
+  for(const rec of S.targets){
+    if(!rec || rec.dead || rec.kind !== 'boss') continue;
+
+    const ph = bossPhase();
+    const style = rec.style || bossStyleForPhase(ph);
+    const warnLead = (style==='double') ? 720 : 560;
+
+    if(t >= rec.atkAt - warnLead && !rec.warned){
+      rec.warned = true;
+      bossHazardWarn(rec, style, ph);
+      AudioX.warn(); vibe(15);
+      logEvent('boss_warn', { phase:ph, style });
+    }
+
+    if(t >= rec.atkAt){
+      rec.warned = false;
+
+      const hz = bossHazardHit(rec);
+      if(!hz.hit){
+        // dodge reward
+        S._bossDodges = (S._bossDodges||0) + 1;
+        addScore(120);
+        addFever(8);
+        fxScore(ROOT.innerWidth/2, ROOT.innerHeight/2, 'DODGE!');
+        AudioX.ok(); vibe(18);
+        setCoach('happy', 'หลบได้! โคตรดี! 🔥', coachHintBase(), 1100);
+        logEvent('boss_attack_dodge', { phase:ph, style, hz });
+        if(S.Q) S.Q.tick();
+      }else{
+        punishBad('boss', true);
+        logEvent('boss_attack_hit', { phase:ph, style, hz });
+      }
+
+      hideBossHaz();
+
+      // schedule next
+      const phaseMul = (ph===3)?0.78:(ph===2)?0.90:1.0;
+      rec.atkAt = t + Math.round(rnd(900, 1400) * phaseMul);
+      // chain in phase3 sometimes
+      if(ph===3 && R()<0.22){
+        rec.atkAt = t + rndi(850, 1200);
+      }
+    }
+  }
+}
+
+// ------------------------- pause / restart / end -------------------------
 function showStartOverlay(on){
-  const ov = $('startOverlay');
-  if(!ov) return;
-  setShow(ov, !!on);
+  refreshHUDRefs();
+  if(HUD.startOverlay) HUD.startOverlay.style.display = on ? 'flex' : 'none';
+}
+function showPaused(on){
+  refreshHUDRefs();
+  if(HUD.paused) HUD.paused.style.display = on ? 'block' : 'none';
+}
+
+function endGame(reason='จบเกม'){
+  if(S.ended) return;
+  S.ended = true;
+  S.paused = true;
+
+  // remove remaining targets (soft)
+  for(const rec of S.targets){
+    try{
+      if(rec && !rec.dead) dieTarget(rec, rec.kind==='good'?'good':'bad');
+    }catch(_){}
+  }
+
+  const grade = gradeFromScore();
+
+  refreshHUDRefs();
+  if(HUD.resultBackdrop) HUD.resultBackdrop.style.display = 'flex';
+
+  setTxt(HUD.rMode, MODE);
+  setTxt(HUD.rGrade, grade);
+  setTxt(HUD.rScore, S.score);
+  setTxt(HUD.rMaxCombo, S.comboMax);
+  setTxt(HUD.rMiss, S.miss);
+  setTxt(HUD.rPerfect, S.perfect);
+
+  const goals = `${S.Q ? S.Q.goalsCleared : 0}/${GOALS.length}`;
+  const minis = `${S.Q ? S.Q.minisCleared : 0}/${MINIS.length}`;
+  setTxt(HUD.rGoals, goals);
+  setTxt(HUD.rMinis, minis);
+
+  setTxt(HUD.rG1, S.gCount[1]||0);
+  setTxt(HUD.rG2, S.gCount[2]||0);
+  setTxt(HUD.rG3, S.gCount[3]||0);
+  setTxt(HUD.rG4, S.gCount[4]||0);
+  setTxt(HUD.rG5, S.gCount[5]||0);
+  setTxt(HUD.rGTotal, (S.gCount[1]||0)+(S.gCount[2]||0)+(S.gCount[3]||0)+(S.gCount[4]||0)+(S.gCount[5]||0));
+
+  setCoach('neutral', `จบเกมแล้ว: ${reason}`, `Grade ${grade} • Score ${S.score} • Miss ${S.miss}`, 0);
+
+  // summary for storage
+  const summary = {
+    game: GAME_TAG,
+    mode: MODE,
+    diff: DIFF,
+    timeSec: TOTAL_TIME,
+    seed: DEFAULT_SEED,
+    reason,
+    score: S.score,
+    grade,
+    comboMax: S.comboMax,
+    miss: S.miss,
+    perfect: S.perfect,
+    goalsCleared: S.Q ? S.Q.goalsCleared : 0,
+    goalsTotal: GOALS.length,
+    minisCleared: S.Q ? S.Q.minisCleared : 0,
+    minisTotal: MINIS.length,
+    gCount: S.gCount,
+    plateHave: Array.from(S.plateHave),
+    startedAtMs: S.t0,
+    endedAtMs: now(),
+    durationPlayedSec: Math.round(S.elapsedMs/1000),
+    study: STUDY,
+  };
+
+  try{
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+  }catch(_){}
+
+  emitEndSummary(summary);
+  logEvent('end', summary);
+}
+
+function restartGame(){
+  // reload keeping query
+  ROOT.location.reload();
 }
 
 function goHub(){
   try{
-    const summary = {
-      game:'PlateVR',
-      sessionId:S.sessionId,
-      run: RUN_RAW,
-      mode: MODE,
-      diff: DIFF,
-      score:S.score,
-      maxCombo:S.maxCombo,
-      miss:S.miss,
-      perfect:S.perfectCount,
-      goals:`${Math.min(S.goalsDone,S.goalsTotal)}/${S.goalsTotal}`,
-      minis:`${Math.min(S.minisCleared,S.minisTotal)}/${S.minisTotal}`,
-      platesDone:S.platesDone,
-      groupCounts:[...S.groupCounts],
-      ts: Date.now()
-    };
-    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-  }catch(_){}
-
-  const hubUrl = resolveUrl(HUB_URL_RAW);
-  const sp = new URLSearchParams();
-
-  const keep = [
-    'timestampIso','projectTag','runMode','studyId','phase','conditionGroup',
-    'sessionOrder','blockLabel','siteCode','schoolYear','semester',
-    'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-    'gender','age','gradeLevel'
-  ];
-  for(const k of keep){
-    const v = Q.get(k);
-    if(v !== null) sp.set(k, v);
-  }
-  sp.set('from','plate');
-  sp.set('lastSessionId', S.sessionId);
-
-  const join = hubUrl.includes('?') ? '&' : '?';
-  ROOT.location.assign(hubUrl + join + sp.toString());
-}
-
-// ---------- DOM target layer + CSS ----------
-(function injectCss(){
-  if (!doc) return;
-  const st = doc.createElement('style');
-  st.textContent = `
-  .plate-layer{position:fixed; inset:0; z-index:400; pointer-events:auto; touch-action:none; will-change:transform; transform:translate3d(0,0,0);}
-  .plateTarget{
-    position:absolute; left:0; top:0;
-    width:var(--sz,80px); height:var(--sz,80px);
-    transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1));
-    border-radius:999px; display:grid; place-items:center;
-    font-weight:1000; user-select:none; -webkit-tap-highlight-color:transparent;
-    box-shadow:0 18px 46px rgba(0,0,0,.35); backdrop-filter: blur(8px);
-  }
-  .plateTarget::before{content:''; position:absolute; inset:-2px; border-radius:inherit; pointer-events:none; opacity:.95;}
-  .plateTarget.good{background:rgba(34,197,94,.16); border:1px solid rgba(34,197,94,.35);}
-  .plateTarget.good::before{border:3px solid rgba(34,197,94,.75); box-shadow:0 0 0 8px rgba(34,197,94,.12), 0 0 40px rgba(34,197,94,.18);}
-  .plateTarget.junk{background:rgba(251,113,133,.14); border:1px solid rgba(251,113,133,.35);}
-  .plateTarget.junk::before{border:3px solid rgba(251,113,133,.75); box-shadow:0 0 0 8px rgba(251,113,133,.10), 0 0 40px rgba(251,113,133,.16);}
-  .plateTarget.gold{background:rgba(250,204,21,.14); border:1px solid rgba(250,204,21,.42);}
-  .plateTarget.gold::before{border:3px solid rgba(250,204,21,.85); box-shadow:0 0 0 10px rgba(250,204,21,.12), 0 0 54px rgba(250,204,21,.18);}
-  .plateTarget.trap{background:rgba(147,51,234,.12); border:1px solid rgba(147,51,234,.38);}
-  .plateTarget.trap::before{border:3px solid rgba(147,51,234,.70); box-shadow:0 0 0 10px rgba(147,51,234,.12), 0 0 60px rgba(147,51,234,.14);}
-  .plateTarget.fake{background:rgba(34,197,94,.14); border:1px dashed rgba(34,197,94,.35);}
-  .plateTarget.fake::before{border:3px dashed rgba(34,197,94,.55); box-shadow:0 0 0 10px rgba(34,197,94,.10), 0 0 52px rgba(34,197,94,.14);}
-  .plateTarget.slow{background:rgba(56,189,248,.12); border:1px solid rgba(56,189,248,.38);}
-  .plateTarget.slow::before{border:3px solid rgba(56,189,248,.75); box-shadow:0 0 0 10px rgba(56,189,248,.10), 0 0 60px rgba(56,189,248,.14);}
-  .plateTarget.nojunk{background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.38);}
-  .plateTarget.nojunk::before{border:3px solid rgba(16,185,129,.75); box-shadow:0 0 0 10px rgba(16,185,129,.10), 0 0 60px rgba(16,185,129,.14);}
-  .plateTarget.storm{background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.38);}
-  .plateTarget.storm::before{border:3px solid rgba(249,115,22,.75); box-shadow:0 0 0 10px rgba(249,115,22,.10), 0 0 60px rgba(249,115,22,.14);}
-  .plateTarget.boss{background:rgba(2,6,23,.62); border:1px solid rgba(248,113,113,.35);}
-  .plateTarget.boss::before{border:3px solid rgba(248,113,113,.75); box-shadow:0 0 0 12px rgba(248,113,113,.10), 0 0 70px rgba(248,113,113,.18);}
-  .plateTarget.boss.warn::before{
-    box-shadow:0 0 0 12px rgba(248,113,113,.14), 0 0 95px rgba(248,113,113,.28);
-    filter: brightness(1.15);
-  }
-  .plateTarget .emoji{font-size:calc(var(--sz,80px) * 0.52); line-height:1; filter: drop-shadow(0 10px 18px rgba(0,0,0,.28));}
-  .plateTarget .tag{
-    position:absolute; bottom:-10px; left:50%; transform:translateX(-50%);
-    font-size:12px; font-weight:1000; padding:4px 10px; border-radius:999px;
-    background:rgba(2,6,23,.72); border:1px solid rgba(148,163,184,.20); color:#e5e7eb; white-space:nowrap;
-  }
-  .plateTarget .hp{
-    position:absolute; top:-10px; left:50%; transform:translateX(-50%);
-    width:70%; height:8px; border-radius:999px; background:rgba(148,163,184,.16);
-    border:1px solid rgba(148,163,184,.22); overflow:hidden;
-  }
-  .plateTarget .hp > div{height:100%; width:100%; background:rgba(248,113,113,.85); transform-origin:left; transform:scaleX(var(--hp,1)); transition:transform .08s linear;}
-  @keyframes popIn{0%{opacity:0; transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(.60);} 100%{opacity:1; transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1));}}
-  .plateTarget.spawn{animation: popIn 220ms ease-out both;}
-  @keyframes aimPulse{0%{filter:brightness(1);} 50%{filter:brightness(1.18);} 100%{filter:brightness(1);}}
-  .plateTarget.aimed{animation: aimPulse 520ms ease-in-out infinite;}
-
-  /* ✅ idle floaty (VR feel) */
-  @keyframes floaty {
-    0%   { transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1)) translateY(0px); }
-    50%  { transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1)) translateY(-6px); }
-    100% { transform:translate3d(var(--x,0px), var(--y,0px), 0) scale(var(--sc,1)) translateY(0px); }
-  }
-  .plateTarget{
-    animation: floaty 2.6s ease-in-out infinite;
-    animation-delay: calc(var(--ph, 0) * -2.6s);
-  }
-  .plateTarget.spawn{animation: popIn 220ms ease-out both;}
-  .plateTarget.aimed{animation: aimPulse 520ms ease-in-out infinite;}
-
-  body.hha-mini-urgent #miniPanel{
-    border-color: rgba(250,204,21,.55)!important;
-    box-shadow:0 18px 46px rgba(0,0,0,.35), 0 0 30px rgba(250,204,21,.12);
-  }
-  `;
-  doc.head.appendChild(st);
-})();
-
-const layer = doc.createElement('div');
-layer.className = 'plate-layer';
-doc.body && doc.body.appendChild(layer);
-
-// ---------- Audio (tiny beeps) ----------
-const AudioX = (function(){
-  let ctx=null;
-  function ensure(){ if(ctx) return ctx; try{ ctx=new (ROOT.AudioContext||ROOT.webkitAudioContext)(); }catch(_){ } return ctx; }
-  function unlock(){ const c=ensure(); if(!c) return; if(c.state==='suspended'){ try{ c.resume(); }catch(_){ } } }
-  function beep(freq=740, dur=0.06, gain=0.05, type='sine'){
-    const c=ensure(); if(!c) return;
-    const t0=c.currentTime;
-    const o=c.createOscillator(); const g=c.createGain();
-    o.type=type; o.frequency.setValueAtTime(freq,t0);
-    g.gain.setValueAtTime(gain,t0);
-    g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
-    o.connect(g); g.connect(c.destination);
-    o.start(t0); o.stop(t0+dur+0.01);
-  }
-  const tick=()=>beep(860,0.05,0.04,'square');
-  const warn=()=>beep(520,0.08,0.06,'sawtooth');
-  const good=()=>beep(980,0.045,0.035,'sine');
-  const perfect=()=>beep(1180,0.06,0.04,'triangle');
-  const bad=()=>beep(220,0.08,0.06,'sawtooth');
-  const bossHit=()=>beep(420,0.06,0.05,'square');
-  const bossDown=()=>{beep(240,0.11,0.06,'sawtooth'); setTimeout(()=>beep(760,0.08,0.05,'triangle'),60);};
-  const power=()=>{beep(720,0.08,0.04,'triangle'); setTimeout(()=>beep(1040,0.06,0.035,'sine'),50);};
-  const shield=()=>{beep(980,0.08,0.045,'triangle'); setTimeout(()=>beep(1320,0.06,0.04,'sine'),60);};
-  const atk=()=>{beep(160,0.10,0.06,'sawtooth'); setTimeout(()=>beep(90,0.12,0.05,'square'),70);};
-  return { unlock, tick, warn, good, perfect, bad, bossHit, bossDown, power, shield, atk };
-})();
-
-// ---------- Logger (HHA Standard schema) ----------
-function goalProgress(){
-  // goalIndex = current active goal
-  const g = S.activeGoal;
-  if(!g) return { key:'', text:'0' };
-  if(g.key === 'plates2') return { key:g.key, text:`${S.platesDone}/${g.target}` };
-  if(g.key === 'perfect6') return { key:g.key, text:`${S.perfectCount}/${g.target}` };
-  return { key:g.key, text:'0' };
-}
-function miniProgressText(){
-  const m=S.activeMini;
-  if(!m) return '';
-  if(typeof m.progress === 'function') return m.progress();
-  if(m.key === 'plateRush'){
-    const got = (S._mini && S._mini.got) ? S._mini.got.size : 0;
-    const fail = (S._mini && S._mini.fail) ? 1 : 0;
-    return `${got}/5${fail? ' (X)':''}`;
-  }
-  return '';
-}
-
-function logSession(phase){
-  dispatchEvt('hha:log_session',{
-    sessionId:S.sessionId, game:'PlateVR', phase,
-    run: RUN_RAW, mode:MODE, diff:DIFF, timeTotal:TOTAL_TIME, lives:S.livesMax,
-    seed: SEED,
-    goalsCleared: S.goalsDone, goalsTotal: S.goalsTotal,
-    minisCleared: S.minisCleared, minisTotal: S.minisTotal,
-    platesDone: S.platesDone,
-    ts:Date.now(), ua:navigator.userAgent
-  });
-}
-
-function logEvent(type, data){
-  // ✅ ส่งแบบ cloud-logger friendly: {type, data}
-  const tms = Math.round((now() - S.tStart) || 0);
-  const gp = goalProgress();
-  const mp = miniProgressText();
-
-  const payload = {
-    type: String(type||'event'),
-    data: Object.assign({
-      // --- HHA Standard-ish ---
-      eventType: String(type||'event'),
-      timeFromStartMs: tms,
-      sessionId: S.sessionId,
-      game: 'PlateVR',
-
-      rtMs: (data && Number.isFinite(data.rtMs)) ? Math.round(data.rtMs) : null,
-      itemType: data && (data.kind || data.itemType) ? String(data.kind || data.itemType) : null,
-      emoji: data && data.emoji ? String(data.emoji) : null,
-      targetId: data && data.targetId ? String(data.targetId) : null,
-      judgment: data && data.judgment ? String(data.judgment) : null,
-
-      totalScore: S.score,
-      combo: S.combo,
-      comboMax: S.maxCombo,
-      miss: S.miss,
-      perfect: S.perfectCount,
-
-      feverValue: Math.round(S.fever),
-      feverState: S.feverOn ? 'on' : 'off',
-      shield: S.shield,
-      lives: S.lives,
-
-      goalsCleared: S.goalsDone,
-      goalsTotal: S.goalsTotal,
-      goalKey: gp.key,
-      goalProgress: gp.text,
-
-      minisCleared: S.minisCleared,
-      minisTotal: S.minisTotal,
-      miniKey: S.activeMini ? S.activeMini.key : '',
-      miniProgress: mp,
-
-      platesDone: S.platesDone,
-      extra: data && data.extra ? data.extra : undefined
-    }, data || {})
-  };
-
-  dispatchEvt('hha:log_event', payload);
-}
-
-// ---------- Camera -> view offset ----------
-function getCamAngles(){
-  const r = cam && cam.object3D ? cam.object3D.rotation : null;
-  if(!r) return {yaw:0,pitch:0};
-  return { yaw: r.y || 0, pitch: r.x || 0 };
-}
-function viewOffset(){
-  if(inVR()) return {x:0,y:0};
-  const {yaw,pitch}=getCamAngles();
-  const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
-  const pxPerRadX=clamp(vw*0.55,180,720);
-  const pxPerRadY=clamp(vh*0.48,160,640);
-  return {
-    x: clamp(-yaw*pxPerRadX, -vw*1.2, vw*1.2),
-    y: clamp(+pitch*pxPerRadY, -vh*1.2, vh*1.2),
-  };
-}
-function applyLayerTransform(){
-  const off=viewOffset();
-  layer.style.transform = `translate3d(${off.x}px, ${off.y}px, 0)`;
-}
-
-// ---------- Safezone + Anti-overlap ----------
-function intersect(a,b){ return !(a.x+a.w<b.x||b.x+b.w<a.x||a.y+a.h<b.y||b.y+b.h<a.y); }
-function getBlockedRects(){
-  const rects=[];
-  const ids=['hudTop','hudBtns','miniPanel'];
-  for(const id of ids){
-    const el=$(id); if(!el) continue;
-    const r=el.getBoundingClientRect();
-    if(r.width>10 && r.height>10) rects.push({x:r.left,y:r.top,w:r.width,h:r.height});
-  }
-  return rects.map(b=>({x:b.x-10,y:b.y-10,w:b.w+20,h:b.h+20}));
-}
-function overlapsExisting(cx,cy,sizePx){
-  const minGap = 0.72;
-  for(const r of S.targets){
-    if(!r || r.dead) continue;
-    const d = Math.hypot(r.cx - cx, r.cy - cy);
-    const lim = (r.size*0.5 + sizePx*0.5) * minGap;
-    if(d < lim) return true;
-  }
-  return false;
-}
-function pickSafeXY(sizePx){
-  const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
-  const m=14, half=sizePx*0.5;
-  const blocked=getBlockedRects();
-  const tries=110;
-  const off=viewOffset();
-
-  for(let i=0;i<tries;i++){
-    const sx=rnd(m+half, vw-m-half);
-    const sy=rnd(m+half, vh-m-half);
-    const rr={x:sx-half,y:sy-half,w:sizePx,h:sizePx};
-    let ok=true;
-    for(const br of blocked){ if(intersect(rr,br)){ ok=false; break; } }
-    if(!ok) continue;
-    const cx = sx-off.x, cy = sy-off.y;
-    if(overlapsExisting(cx,cy,sizePx)) continue;
-    return { x:cx, y:cy };
-  }
-
-  // ✅ fallback: grid scan (ไม่ทับ HUD)
-  const gridX=[0.2,0.5,0.8], gridY=[0.25,0.5,0.75];
-  for(const gy of gridY){
-    for(const gx of gridX){
-      const sx = gx*vw;
-      const sy = gy*vh;
-      const rr={x:sx-half,y:sy-half,w:sizePx,h:sizePx};
-      let ok=true;
-      for(const br of blocked){ if(intersect(rr,br)){ ok=false; break; } }
-      if(!ok) continue;
-      const cx = sx-off.x, cy = sy-off.y;
-      if(overlapsExisting(cx,cy,sizePx)) continue;
-      return { x:cx, y:cy };
-    }
-  }
-
-  // last resort: clamp to center but shift away from blocked rects
-  let sx = vw*0.5, sy = vh*0.55;
-  for(const br of blocked){
-    const rr={x:sx-half,y:sy-half,w:sizePx,h:sizePx};
-    if(intersect(rr,br)){
-      // push down/up
-      const down = (br.y+br.h + half + 16);
-      const up   = (br.y - half - 16);
-      const canDown = (down + half) <= (vh - m);
-      const canUp   = (up - half) >= m;
-      if(canDown) sy = down;
-      else if(canUp) sy = up;
-    }
-  }
-  sx = clamp(sx, m+half, vw-m-half);
-  sy = clamp(sy, m+half, vh-m-half);
-  return { x:sx-off.x, y:sy-off.y };
-}
-
-// ---------- Content ----------
-const FOOD_BY_GROUP={
-  1:['🍗','🥩','🐟','🍳','🥛','🧀','🥜'],
-  2:['🍚','🍞','🥔','🌽','🥨','🍜','🍙'],
-  3:['🥦','🥕','🥬','🥒','🌶️','🍅'],
-  4:['🍎','🍌','🍊','🍉','🍍','🍇'],
-  5:['🥑','🧈','🫒','🥥','🧀'],
-};
-const JUNK=['🍩','🍟','🍔','🍕','🧋','🍭','🍫','🥤'];
-const TRAPS=['🎁','⭐','🍬','🍰','🧁'];
-
-function isPowerKind(kind){ return (kind==='slow'||kind==='nojunk'||kind==='storm'); }
-
-// ---------- Score/Fever/Grade ----------
-function addScore(delta){ S.score += delta; setTxt(HUD.score, S.score); }
-function addCombo(){ S.combo+=1; S.maxCombo=Math.max(S.maxCombo,S.combo); setTxt(HUD.combo,S.combo); }
-function setShield(n){ S.shield=clamp(n,0,S.shieldMax); }
-function setLives(n){ S.lives=clamp(n,0,S.livesMax); }
-
-function emitFever(){
-  dispatchEvt('hha:fever', { feverPct: Math.round(S.fever), fever: Math.round(S.fever) });
-}
-function addFever(v){
-  const prev=S.fever;
-  S.fever=clamp(S.fever+v,0,100);
-  const pct=Math.round(S.fever);
-  setTxt(HUD.feverPct, `${pct}%`);
-  emitFever();
-
-  if(!S.feverOn && S.fever>=100){
-    S.feverOn=true;
-    fxCelebrate('FEVER!', 1.2);
-    AudioX.shield(); vibe(40);
-    setShield(S.shield+1);
-    logEvent('fever_on',{});
-  }
-  if(S.feverOn && S.fever<=15){
-    S.feverOn=false;
-    logEvent('fever_off',{});
-  }
-  if(prev<100 && S.fever>=100) S.fever=100;
-}
-function gradeFromScore(){
-  const metric=S.score + S.perfectCount*120 + S.maxCombo*35 - S.miss*260 - (S.livesMax-S.lives)*180;
-  if(metric>=8200) return 'SSS';
-  if(metric>=6200) return 'SS';
-  if(metric>=4600) return 'S';
-  if(metric>=3000) return 'A';
-  if(metric>=1700) return 'B';
-  return 'C';
-}
-function updateGrade(){ setTxt(HUD.grade, gradeFromScore()); }
-
-// ---------- Goals / Minis ----------
-const GOALS=[
-  { key:'plates2', title:'🍽️ ทำ “จานสมดุล” ให้ได้ 2 ใบ', target:2 },
-  { key:'perfect6', title:'⭐ ทำ PERFECT ให้ได้ 6 ครั้ง', target:6 },
-];
-
-const MINIS=[
-  { key:'plateRush', title:'Plate Rush (8s)', hint:'ครบ 5 หมู่ใน 8 วิ • ห้ามโดนขยะระหว่างทำ', dur:8000,
-    init(){ S._mini={got:new Set(), fail:false}; },
-    onHit(rec){ if(rec.kind==='junk'||rec.kind==='trap'||rec.kind==='boss') S._mini.fail=true; if(rec.kind==='good') S._mini.got.add(rec.group); },
-    isClear(){ return S._mini.got.size>=5 && !S._mini.fail; }
-  },
-  { key:'perfectStreak', title:'Perfect Streak', hint:'PERFECT ติดกัน 5 ครั้ง', dur:11000,
-    init(){ S._mini={st:0}; },
-    onJudge(j){ if(j==='PERFECT') S._mini.st++; else if(j!=='HIT') S._mini.st=0; },
-    progress(){ return `${S._mini.st}/5`; },
-    isClear(){ return S._mini.st>=5; }
-  },
-  { key:'goldHunt', title:'Gold Hunt (12s)', hint:'เก็บ ⭐ Gold 2 อัน', dur:12000,
-    init(){ S._mini={g:0}; },
-    onHit(rec){ if(rec.kind==='gold') S._mini.g++; },
-    progress(){ return `${S._mini.g}/2`; },
-    isClear(){ return S._mini.g>=2; }
-  },
-  { key:'comboSprint', title:'Combo Sprint (15s)', hint:'คอมโบถึง 8 ภายใน 15 วิ', dur:15000,
-    init(){ S._mini={best:0}; },
-    tick(){ S._mini.best=Math.max(S._mini.best,S.combo); },
-    progress(){ return `${Math.max(S._mini.best,S.combo)}/8`; },
-    isClear(){ return Math.max(S._mini.best,S.combo)>=8; }
-  },
-  { key:'cleanAndCount', title:'Clean & Count (10s)', hint:'ของดี 4 ชิ้น • ห้ามโดนขยะ', dur:10000,
-    init(){ S._mini={good:0, fail:false}; },
-    onHit(rec){ if(rec.kind==='junk'||rec.kind==='trap'||rec.kind==='boss') S._mini.fail=true; if(rec.kind==='good'||rec.kind==='gold') S._mini.good++; },
-    progress(){ return `${S._mini.good}/4`; },
-    isClear(){ return S._mini.good>=4 && !S._mini.fail; }
-  },
-  { key:'noMiss', title:'No-Miss (12s)', hint:'12 วิ ห้ามพลาด (รวมหมดอายุ)', dur:12000,
-    init(){ S._mini={m:S.miss,l:S.lives}; },
-    isClear(){ return S.miss===S._mini.m && S.lives===S._mini.l; }
-  },
-  { key:'shine', title:'Shine (10s)', hint:'10 วิ PERFECT 2 หรือ Power 1 ก็ผ่าน', dur:10000,
-    init(){ S._mini={p:0, pow:false}; },
-    onJudge(j){ if(j==='PERFECT') S._mini.p++; },
-    onPower(){ S._mini.pow=true; },
-    progress(){ return `P:${S._mini.p}/2 • POWER:${S._mini.pow?'1':'0'}`; },
-    isClear(){ return S._mini.pow || S._mini.p>=2; }
-  },
-];
-
-function goalProgressText(){
-  const g=S.activeGoal;
-  if(!g) return '0';
-  if(g.key==='plates2') return `${S.platesDone}/${g.target}`;
-  if(g.key==='perfect6') return `${S.perfectCount}/${g.target}`;
-  return '0';
-}
-function setGoal(i){
-  S.goalIndex=clamp(i,0,GOALS.length-1);
-  S.activeGoal=GOALS[S.goalIndex];
-  setTxt(HUD.goalLine, `GOAL ${S.goalIndex+1}/2: ${S.activeGoal.title} (${goalProgressText()})`);
-}
-function checkGoalClear(){
-  const g=S.activeGoal; if(!g) return false;
-  if(g.key==='plates2') return S.platesDone>=g.target;
-  if(g.key==='perfect6') return S.perfectCount>=g.target;
-  return false;
-}
-function onGoalCleared(){
-  const g = S.activeGoal;
-  if(!g) return;
-  if(S.goalCompleted[g.key]) return;
-
-  S.goalCompleted[g.key] = true;
-  S.goalsDone = Object.keys(S.goalCompleted).filter(k=>S.goalCompleted[k]).length;
-
-  fxCelebrate('GOAL CLEAR!', 1.25);
-  flash('gold', 140);
-  vibe(60);
-
-  logEvent('goal_clear',{ goal:g.key, goalsDone:S.goalsDone });
-
-  if(S.goalIndex+1<GOALS.length) setGoal(S.goalIndex+1);
-}
-
-function startMini(){
-  const idx=S.minisCleared % MINIS.length;
-  const m=MINIS[idx];
-  S.activeMini=m;
-  S.miniEndsAt=now()+m.dur;
-  S.miniUrgentArmed=false;
-  S.miniTickAt=0;
-  if(typeof m.init==='function') m.init();
-  updateMiniHud();
-  logEvent('mini_start',{mini:m.key,dur:m.dur});
-}
-function updateMiniHud(){
-  const m=S.activeMini;
-  if(!m){ setTxt(HUD.miniLine,'MINI: …'); setTxt(HUD.miniHint,'…'); return; }
-  const left=Math.max(0,(S.miniEndsAt-now())/1000);
-  const prog=(typeof m.progress==='function') ? m.progress() : '';
-  const p = prog ? ` • ${prog}` : '';
-  setTxt(HUD.miniLine, `MINI: ${m.title}${p} • ${left.toFixed(1)}s`);
-  setTxt(HUD.miniHint, m.hint||'');
-}
-function tickMini(){
-  const m=S.activeMini; if(!m) return;
-  if(typeof m.tick==='function') m.tick();
-
-  const leftMs=S.miniEndsAt-now();
-  const urgent=(leftMs<=3000 && leftMs>0);
-
-  if(urgent && !S.miniUrgentArmed){
-    S.miniUrgentArmed=true;
-    doc.body.classList.add('hha-mini-urgent');
-    AudioX.warn(); vibe(20);
-  }
-  if(!urgent && S.miniUrgentArmed){
-    S.miniUrgentArmed=false;
-    doc.body.classList.remove('hha-mini-urgent');
-  }
-  if(urgent){
-    const sec=Math.ceil(leftMs/1000);
-    if(sec!==S.miniTickAt){ S.miniTickAt=sec; AudioX.tick(); }
-  }
-  if(leftMs<=0){
-    doc.body.classList.remove('hha-mini-urgent');
-    const ok=(typeof m.isClear==='function') ? !!m.isClear() : false;
-    if(ok){
-      S.minisCleared++; fxCelebrate('MINI CLEAR!', 1.15);
-      flash('good', 120);
-      addScore(450); addFever(18); vibe(50);
-      logEvent('mini_clear',{mini:m.key});
-    }else{
-      fxJudge('MINI FAIL');
-      addScore(-120); addFever(-12);
-      logEvent('mini_fail',{mini:m.key});
-    }
-    startMini();
-  }else updateMiniHud();
-}
-
-// ---------- Plate logic ----------
-function onGood(group){
-  if(group>=1 && group<=5){
-    S.plateHave.add(group);
-    S.groupCounts[group-1]+=1;
-  }
-  setTxt(HUD.have, `${S.plateHave.size}/${S.groupsTotal}`);
-  if(S.plateHave.size>=S.groupsTotal){
-    S.platesDone++;
-    S.plateHave.clear();
-    setTxt(HUD.have, `0/5`);
-    fxCelebrate('PLATE +1!', 1.0);
-    flash('good', 120);
-    vibe(35);
-    logEvent('plate_complete',{platesDone:S.platesDone});
-
-    // update goal display + check goal
-    setGoal(S.goalIndex);
-    if(S.activeGoal && S.activeGoal.key==='plates2' && checkGoalClear()) onGoalCleared();
+    const u = new URL(HUB_URL, ROOT.location.href);
+    // pass back
+    u.searchParams.set('from', 'plate');
+    u.searchParams.set('last', String(Date.now()));
+    ROOT.location.href = String(u);
+  }catch(_){
+    ROOT.location.href = HUB_URL;
   }
 }
 
-// ---------- Aim assist ----------
-function pickNearCrosshair(radiusPx){
-  const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
-  const cx=vw/2, cy=vh/2;
-  const off=viewOffset();
-  let best=null, bestD=Infinity;
-  for(const rec of S.targets){
-    if(!rec || rec.dead) continue;
-    const sx=rec.cx+off.x, sy=rec.cy+off.y;
-    const d=Math.hypot(sx-cx, sy-cy);
-    if(d<bestD){ bestD=d; best=rec; }
-  }
-  if(best && bestD<=radiusPx) return {rec:best, dist:bestD};
-  return null;
-}
-function updateAimHighlight(){
-  const assist = inVR()? Math.max(D.aimAssist,170) : D.aimAssist;
-  const picked=pickNearCrosshair(assist);
-  const tid=picked? picked.rec.el.dataset.tid : null;
-  if(tid===S.aimedId) return;
-  if(S.aimedId){
-    const prev=S.targets.find(r=>r && r.el && r.el.dataset.tid===S.aimedId);
-    prev && prev.el && prev.el.classList.remove('aimed');
-  }
-  S.aimedId=tid;
-  picked && picked.rec && picked.rec.el && picked.rec.el.classList.add('aimed');
-}
-
-// ---------- Target spawn/manage ----------
-let targetSeq=0;
-
-function computeSizePx(kind){
-  const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
-  const base=D.size;
-  const scale=clamp(Math.min(vw,vh)/820,0.86,1.12);
-  let sz=clamp(base*scale,52,118);
-  if(kind==='gold') sz=clamp(sz*1.05,56,128);
-  if(kind==='trap'||kind==='fake') sz=clamp(sz*1.06,56,132);
-  if(kind==='boss') sz=clamp(sz*1.38,84,168);
-  if(isPowerKind(kind)) sz=clamp(sz*1.10,62,150);
-  return sz;
-}
-function bossPhaseFor(rec){
-  if(!rec||rec.kind!=='boss') return 1;
-  const ratio=rec.hpMax ? (rec.hp/rec.hpMax) : 1;
-  if(ratio<=D.bossPhase3At) return 3;
-  if(ratio<=D.bossPhase2At) return 2;
-  return 1;
-}
-function bossAttackStyleForPhase(phase){
-  if(phase===3) return 'double';
-  if(phase===2) return 'laser';
-  return 'ring';
-}
-
-function makeTarget(kind, group, opts={}){
-  const sizePx=computeSizePx(kind);
-  const pos=pickSafeXY(sizePx);
-
-  const el=doc.createElement('div');
-  el.className=`plateTarget ${kind} spawn`;
-  el.dataset.tid=String(++targetSeq);
-
-  const sc=0.92 + R()*0.22;
-  const sc2=(kind==='gold'||kind==='boss'||isPowerKind(kind)) ? (sc*1.08) : sc;
-
-  el.style.setProperty('--sz', `${sizePx}px`);
-  el.style.setProperty('--x', `${(pos.x - sizePx/2)}px`);
-  el.style.setProperty('--y', `${(pos.y - sizePx/2)}px`);
-  el.style.setProperty('--sc', `${sc2}`);
-  el.style.setProperty('--ph', String(R())); // ✅ floaty phase random
-
-  let emoji='🍽️', tag='', hp=0, meta={};
-
-  if(kind==='junk'){ emoji=randFrom(JUNK); tag='JUNK'; }
-  else if(kind==='gold'){ emoji='⭐'; tag='GOLD'; }
-  else if(kind==='trap'){ emoji=randFrom(TRAPS); tag='TRAP'; }
-  else if(kind==='fake'){ emoji=randFrom(FOOD_BY_GROUP[group]||['🥗']); tag='???'; meta.fake=true; }
-  else if(kind==='slow'){ emoji='🐢'; tag='SLOW'; }
-  else if(kind==='nojunk'){ emoji='🟢'; tag='NO-JUNK'; }
-  else if(kind==='storm'){ emoji='🌪️'; tag='STORM'; }
-  else if(kind==='boss'){
-    emoji=(R()<0.5)?'🦠':'😈'; tag='BOSS';
-    hp=Math.max(2, opts.hp || D.bossHP || 5);
-    meta.phase=1; meta.atkStyle='ring';
-  } else {
-    emoji=randFrom(FOOD_BY_GROUP[group]||['🥗']);
-    tag=`G${group}`;
-  }
-
-  el.innerHTML = `
-    ${kind==='boss' ? `<div class="hp"><div></div></div>` : ``}
-    <div class="emoji">${emoji}</div>
-    ${tag ? `<div class="tag">${tag}</div>` : ``}
-  `;
-
-  const bornAt=now();
-  let life=D.life;
-  if(kind==='boss') life=clamp(D.life*1.8,3400,7800);
-  if(kind==='gold') life=D.life*0.92;
-  if(kind==='trap'||kind==='fake') life=D.life*0.95;
-  if(isPowerKind(kind)) life=clamp(D.life*0.95,1700,3200);
-  if(now()<S.slowUntil) life*=1.12;
-
-  const rec={
-    el, kind, group, emoji,
-    bornAt, dieAt:bornAt+life,
-    cx:pos.x, cy:pos.y, size:sizePx,
-    hp, hpMax:hp, dead:false,
-    meta,
-    atkAt:(kind==='boss') ? (bornAt + rnd(D.bossAtkMs[0], D.bossAtkMs[1])) : 0,
-    _warned:false,
-  };
-
-  S.targets.push(rec);
-
-  // ✅ ลด double-fire: ใช้ pointerdown เป็นหลัก, click เป็น fallback (กันนับซ้อน)
-  let fired = false;
-  const hitHandler=(e)=>{
-    if (fired && e.type !== 'pointerdown') return;
-    fired = true;
-    setTimeout(()=>{ fired = false; }, 120);
-
-    e.preventDefault(); e.stopPropagation();
-    AudioX.unlock();
-    hitTarget(rec, true, e);
-  };
-  el.addEventListener('pointerdown', hitHandler, {passive:false});
-  el.addEventListener('click', hitHandler, {passive:false});
-
-  layer.appendChild(el);
-  setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 260);
-
-  logEvent('spawn',{
-    kind, group,
-    emoji,
-    targetId: el.dataset.tid,
-    x:rec.cx, y:rec.cy,
-    size:sizePx,
-    hp
-  });
-  return rec;
-}
-function removeTarget(rec){
-  if(!rec||rec.dead) return;
-  rec.dead=true;
-  try{ rec.el.remove(); }catch(_){}
-  const i=S.targets.indexOf(rec);
-  if(i>=0) S.targets.splice(i,1);
-}
-function bossHpSync(rec){
-  if(!rec||rec.kind!=='boss') return;
-  const bar=rec.el.querySelector('.hp > div');
-  if(!bar) return;
-  const ratio=rec.hpMax ? clamp(rec.hp/rec.hpMax,0,1) : 0;
-  rec.el.style.setProperty('--hp', String(ratio));
-  bar.style.transform = `scaleX(${ratio})`;
-}
-function expireTargets(){
-  const t=now();
-  for(let i=S.targets.length-1;i>=0;i--){
-    const rec=S.targets[i];
-    if(!rec || rec.dead) continue;
-
-    if(t>=rec.dieAt){
-      if(rec.kind==='good'||rec.kind==='gold'){
-        onMiss('expire_good',{kind:rec.kind,group:rec.group});
-        fxJudge('MISS');
-        flash('bad', 110);
-        logEvent('miss_expire',{
-          kind: rec.kind,
-          group: rec.group,
-          emoji: rec.emoji,
-          targetId: rec.el && rec.el.dataset ? rec.el.dataset.tid : null
-        });
-      }else if(rec.kind==='boss'){
-        bossAttackPunish('boss_expire', true);
-        S.bossActive=false;
-      }
-      removeTarget(rec);
-    }
-  }
-}
-
-// ---------- MISS/LIFE ----------
-function shieldBlock(reason){
-  if(S.shield<=0) return false;
-  setShield(S.shield-1);
-  fxCelebrate('🛡️ BLOCK!', 1.05);
-  flash('gold', 120);
-  AudioX.shield(); vibe(30);
-  logEvent('shield_block',{reason,shield:S.shield});
-  return true;
-}
-function onMiss(reason, extra={}){
-  S.combo=0; setTxt(HUD.combo,0);
-  S.miss++; setTxt(HUD.miss,S.miss);
-
-  const t=now();
-  const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
-  if(!protectedNoJunk) setLives(S.lives-1);
-
-  updateGrade();
-  if(S.lives<=0) endGame(true);
-  logEvent('miss',Object.assign({reason}, extra||{}));
-}
-function punishBad(reason){
-  if(shieldBlock(reason)){ addScore(-60); addFever(-6); return; }
-  S.combo=0; setTxt(HUD.combo,0);
-  addFever(reason==='boss'?-22:-16);
-  addScore((now()<S.noJunkUntil)?-120:(reason==='trap'?-240:-180));
-  fxJudge((now()<S.noJunkUntil)?'BAD(SAFE)':'BAD');
-  flash(reason==='boss'?'boss':'bad', 120);
-  AudioX.bad(); vibe(reason==='boss'?75:45);
-  onMiss(reason,{});
-}
-function bossAttackPunish(tag, forceHit=false){
-  const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
-  const cx=vw/2, cy=vh/2;
-  const off=viewOffset();
-
-  let boss=null;
-  for(const r of S.targets){ if(r && !r.dead && r.kind==='boss'){ boss=r; break; } }
-  let close=false;
-  if(boss){
-    const sx=boss.cx+off.x, sy=boss.cy+off.y;
-    const d=Math.hypot(sx-cx, sy-cy);
-    const danger = inVR()? 240 : 210;
-    close = (d <= danger);
-  }
-  if(forceHit) close=true;
-
-  AudioX.atk(); vibe(35);
-  logEvent('boss_attack_punish',{tag, close});
-
-  if(!close){
-    fxJudge('DODGED!');
-    addScore(+40);
-    addFever(+2);
-    return;
-  }
-
-  if(shieldBlock(tag)){ addScore(-80); addFever(-8); return; }
-  addScore(-320); addFever(-20);
-  fxJudge('BOSS ATK!');
-  flash('boss', 140);
-  onMiss('boss_attack',{});
-}
-
-// ---------- Powerups ----------
-function activateSlow(ms){
-  S.slowUntil=Math.max(S.slowUntil, now()+ms);
-  AudioX.power(); vibe(25); fxCelebrate('SLOW!', 1.0);
-  logEvent('power_slow',{until:S.slowUntil});
-  if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
-}
-function activateNoJunk(ms){
-  S.noJunkUntil=Math.max(S.noJunkUntil, now()+ms);
-  AudioX.power(); vibe(25); fxCelebrate('NO-JUNK!', 1.0);
-  logEvent('power_nojunk',{until:S.noJunkUntil});
-  if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
-}
-function activateStorm(ms){
-  S.stormUntil=Math.max(S.stormUntil, now()+ms);
-  AudioX.power(); vibe(30); fxCelebrate('STORM!', 1.05);
-  logEvent('power_storm',{until:S.stormUntil});
-  if(S.activeMini && typeof S.activeMini.onPower==='function') S.activeMini.onPower();
-}
-
-// ---------- Hit handling ----------
-function judgeFromDist(distPx, sizePx){
-  const n=clamp(distPx/(sizePx*0.55),0,1);
-  return (n<=0.38) ? 'PERFECT' : 'HIT';
-}
-function hitTarget(rec, direct, ev){
-  if(!S.running || S.paused || !rec || rec.dead) return;
-
-  const off=viewOffset();
-  const tx = rec.cx + off.x;
-  const ty = rec.cy + off.y;
-
-  let px=null, py=null;
-  if(direct && ev){
-    if(typeof ev.clientX === 'number'){ px=ev.clientX; py=ev.clientY; }
-    else if(ev.touches && ev.touches[0]){ px=ev.touches[0].clientX; py=ev.touches[0].clientY; }
-    else if(ev.changedTouches && ev.changedTouches[0]){ px=ev.changedTouches[0].clientX; py=ev.changedTouches[0].clientY; }
-  }
-  if(px===null){
-    px = ROOT.innerWidth/2;
-    py = ROOT.innerHeight/2;
-  }
-
-  const dist = Math.hypot(tx-px, ty-py);
-  const rtMs = now() - rec.bornAt;
-
-  const targetId = rec.el && rec.el.dataset ? rec.el.dataset.tid : null;
-
-  if(rec.kind==='slow'){
-    const ms = (MODE==='research') ? Math.round((D.slowDurMs[0]+D.slowDurMs[1])*0.5) : rnd(D.slowDurMs[0],D.slowDurMs[1]);
-    activateSlow(ms);
-    fxBurst(tx,ty,'power'); fxPop('+120',tx,ty);
-    flash('good', 90);
-    addScore(120); addFever(10);
-    logEvent('hit',{
-      kind:'slow', itemType:'slow', emoji:rec.emoji, targetId,
-      judgment:'POWER', rtMs, dist, direct:!!direct
-    });
-    removeTarget(rec); updateGrade(); return;
-  }
-  if(rec.kind==='nojunk'){
-    const ms = (MODE==='research') ? Math.round((D.noJunkDurMs[0]+D.noJunkDurMs[1])*0.5) : rnd(D.noJunkDurMs[0],D.noJunkDurMs[1]);
-    activateNoJunk(ms);
-    fxBurst(tx,ty,'power'); fxPop('+160',tx,ty);
-    flash('good', 90);
-    addScore(160); addFever(10);
-    logEvent('hit',{
-      kind:'nojunk', itemType:'nojunk', emoji:rec.emoji, targetId,
-      judgment:'POWER', rtMs, dist, direct:!!direct
-    });
-    removeTarget(rec); updateGrade(); return;
-  }
-  if(rec.kind==='storm'){
-    const ms = (MODE==='research') ? Math.round((D.stormDurMs[0]+D.stormDurMs[1])*0.5) : rnd(D.stormDurMs[0],D.stormDurMs[1]);
-    activateStorm(ms);
-    fxBurst(tx,ty,'power'); fxPop('+200',tx,ty);
-    flash('gold', 95);
-    addScore(200); addFever(12);
-    logEvent('hit',{
-      kind:'storm', itemType:'storm', emoji:rec.emoji, targetId,
-      judgment:'POWER', rtMs, dist, direct:!!direct
-    });
-    removeTarget(rec); updateGrade(); return;
-  }
-
-  if(rec.kind==='fake'){
-    fxJudge('TRICK!');
-    fxBurst(tx,ty,'trap'); fxPop('-220',tx,ty);
-    punishBad('trap');
-    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'trap'},'BAD');
-    if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
-    removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
-    logEvent('hit',{
-      kind:'fake', itemType:'fake', emoji:rec.emoji, targetId,
-      judgment:'BAD', rtMs, dist, direct:!!direct
-    });
-    return;
-  }
-  if(rec.kind==='trap'){
-    fxBurst(tx,ty,'trap'); fxPop('-240',tx,ty);
-    punishBad('trap');
-    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
-    if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
-    removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
-    logEvent('hit',{
-      kind:'trap', itemType:'trap', emoji:rec.emoji, targetId,
-      judgment:'BAD', rtMs, dist, direct:!!direct
-    });
-    return;
-  }
-  if(rec.kind==='junk'){
-    fxBurst(tx,ty,'bad'); fxPop('-180',tx,ty);
-    punishBad('junk');
-    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD');
-    if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
-    removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
-    logEvent('hit',{
-      kind:'junk', itemType:'junk', emoji:rec.emoji, targetId,
-      judgment:'BAD', rtMs, dist, direct:!!direct
-    });
-    return;
-  }
-
-  if(rec.kind==='boss'){
-    rec.hp = Math.max(0, (rec.hp|0)-1);
-    bossHpSync(rec);
-    const ph=bossPhaseFor(rec);
-    AudioX.bossHit(); vibe(20);
-    fxJudge(ph===3?'BOSS RAGE!':'BOSS HIT!');
-    fxBurst(tx,ty,'boss'); fxPop('+120',tx,ty);
-    flash('boss', 110);
-    addScore(120); addFever(7);
-
-    logEvent('hit',{
-      kind:'boss', itemType:'boss', emoji:rec.emoji, targetId,
-      judgment:'HIT', rtMs, dist, direct:!!direct,
-      hp:rec.hp,hpMax:rec.hpMax,phase:ph
-    });
-
-    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'HIT');
-    if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('HIT');
-
-    if(rec.hp<=0){
-      AudioX.bossDown(); vibe(65);
-      fxCelebrate('BOSS DOWN!', 1.35);
-      flash('gold', 160);
-      addScore(1200); addFever(30);
-      S.combo += 2; S.maxCombo=Math.max(S.maxCombo,S.combo); setTxt(HUD.combo,S.combo);
-      fxPop('+1200',tx,ty);
-      logEvent('boss_down',{ kind:'boss', targetId, emoji:rec.emoji });
-      S.bossActive=false;
-      removeTarget(rec);
-    }
-    updateGrade(); setGoal(S.goalIndex);
-    return;
-  }
-
-  const judge=judgeFromDist(dist, rec.size);
-  const mult=S.feverOn?1.35:1.0;
-  const base=(rec.kind==='gold')?520:240;
-  const bonus=(judge==='PERFECT')?220:0;
-  const stormBonus=(now()<S.stormUntil)?60:0;
-  const delta=Math.round((base+bonus+stormBonus)*mult);
-
-  addScore(delta);
-  addCombo();
-
-  if(judge==='PERFECT'){
-    S.perfectCount++; setTxt(HUD.perfect,S.perfectCount);
-    addFever(14);
-    fxJudge('PERFECT'); AudioX.perfect(); vibe(30);
-    flash(rec.kind==='gold'?'gold':'good', 95);
-  }else{
-    addFever(8);
-    fxJudge('GOOD'); AudioX.good();
-    flash(rec.kind==='gold'?'gold':'good', 85);
-  }
-
-  fxBurst(tx,ty,(rec.kind==='gold')?'gold':'good');
-  fxPop(`+${delta}`,tx,ty);
-
-  if(rec.kind==='good') onGood(rec.group);
-  if(rec.kind==='gold'){
-    let g=1+((R()*5)|0);
-    for(let k=0;k<5;k++){
-      const gg=1+((g-1+k)%5);
-      if(!S.plateHave.has(gg)){ g=gg; break; }
-    }
-    onGood(g);
-  }
-
-  if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,judge);
-  if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge(judge);
-
-  if(S.activeGoal && S.activeGoal.key==='perfect6'){
-    if(checkGoalClear()) onGoalCleared();
-  }
-
-  removeTarget(rec);
-  updateGrade(); setGoal(S.goalIndex);
-
-  logEvent('hit',{
-    kind:rec.kind, itemType:rec.kind, group:rec.group,
-    emoji:rec.emoji, targetId,
-    judgment:judge,
-    rtMs, dist, direct:!!direct,
-    delta
-  });
-}
-
-// ---------- Decide kind/group ----------
-function decideGroup(){ return 1 + ((R()*5)|0); }
-function decideKind(){
-  const t=now();
-  const noJunk=(t<S.noJunkUntil);
-  const storm=(t<S.stormUntil);
-  const fever=S.feverOn;
-
-  let gold=D.goldRate + (fever?0.03:0);
-  let junk=D.junkRate + (storm?0.04:0);
-  let trap=D.trapRate + (storm?0.03:0);
-  let fake=D.fakeRate + (storm?0.02:0);
-  let slow=D.slowRate * (fever?1.05:1.0);
-  let nojunk=D.noJunkRate * (fever?1.10:1.0);
-  let stormP=D.stormRate * (fever?1.20:1.0);
-
-  gold=clamp(gold,0.06,0.22);
-  junk=clamp(junk,0.08,0.45);
-  trap=clamp(trap,0.02,0.25);
-  fake=clamp(fake,0.00,0.22);
-
-  if(noJunk){
-    junk*=0.12; trap*=0.12; fake*=0.10;
-    gold*=1.10; slow*=1.08; stormP*=0.60;
-  }
-  if(t<S.slowUntil){
-    junk*=0.86; trap*=0.86; fake*=0.86; gold*=1.05;
-  }
-
-  const r=R(); let acc=0;
-  acc+=slow; if(r<acc) return 'slow';
-  acc+=nojunk; if(r<acc) return 'nojunk';
-  acc+=stormP; if(r<acc) return 'storm';
-
-  acc+=gold; if(r<acc) return 'gold';
-  acc+=junk; if(r<acc) return 'junk';
-  acc+=trap; if(r<acc) return 'trap';
-  acc+=fake; if(r<acc) return 'fake';
-  return 'good';
-}
-
-// ---------- Boss spawn + attacks ----------
-function spawnBossIfReady(){
-  if(S.bossActive) return;
-  const t=now();
-
-  if(!S.bossNextAt){
-    S.bossNextAt = (MODE==='research') ? (t + 11000) : (t + rnd(9000,15000));
-  }
-  if(t < S.bossNextAt) return;
-
-  S.bossActive=true;
-
-  const hp = (S.feverOn ? Math.max(2, D.bossHP-1) : D.bossHP);
-  const boss = makeTarget('boss',0,{hp});
-  bossHpSync(boss);
-
-  const base = (MODE==='research')
-    ? (t + 14000)
-    : (t + (S.feverOn ? rnd(8500,12500) : rnd(10500,16500)));
-  S.bossNextAt = base;
-
-  fxJudge('BOSS!');
-  fxCelebrate('⚠️', 1.0);
-  flash('boss', 140);
-  AudioX.warn(); vibe(25);
-  logEvent('boss_spawn',{hp});
-}
-function tickBossAttack(){
-  const t=now();
-  for(const rec of S.targets){
-    if(!rec || rec.dead || rec.kind!=='boss') continue;
-    const ph=bossPhaseFor(rec);
-    const style=bossAttackStyleForPhase(ph);
-    const phaseMul=(ph===3)?0.78:(ph===2)?0.90:1.0;
-
-    const warnLead=(style==='double')?680:520;
-    if(t >= rec.atkAt - warnLead && !rec._warned){
-      rec._warned=true;
-      rec.el.classList.add('warn');
-      fxJudge(style==='double'?'☠️':'⚠️');
-      AudioX.warn(); vibe(15);
-    }
-    if(t >= rec.atkAt){
-      rec._warned=false;
-      rec.el.classList.remove('warn');
-
-      bossAttackPunish('boss_attack', false);
-      logEvent('boss_attack',{phase:ph,style});
-
-      const baseMin=D.bossAtkMs[0]*phaseMul;
-      const baseMax=D.bossAtkMs[1]*phaseMul;
-      rec.atkAt = t + ((MODE==='research') ? Math.round((baseMin+baseMax)*0.5) : rnd(baseMin,baseMax));
-
-      if(ph===3 && R()<0.22){
-        rec.atkAt = t + ((MODE==='research') ? 1100 : rnd(900,1400));
-        fxJudge('CHAIN!');
-      }
-    }
-  }
-}
-
-// ---------- Spawn tick ----------
-function spawnTick(){
-  const t=now();
-  if(t < S.nextSpawnAt) return;
-
-  const cap = D.maxTargets || 12;
-  if(S.targets.length >= cap){
-    S.nextSpawnAt = t + 180;
-    return;
-  }
-
-  spawnBossIfReady();
-
-  const stormOn=(t < S.stormUntil);
-  const slowOn=(t < S.slowUntil);
-
-  let interval=D.spawnMs;
-  if(S.feverOn) interval*=0.78;
-  if(stormOn) interval*=0.56;
-  if(slowOn) interval*=1.22;
-  if(t < S.noJunkUntil) interval*=0.92;
-
-  let burst = 1;
-  if(MODE !== 'research'){
-    if(stormOn) burst = (R()<0.65)?3:2;
-    else if(S.feverOn) burst = (R()<0.22)?2:1;
-    if(DIFF==='hard' && R()<0.10) burst += 1;
-  } else {
-    burst = stormOn ? 2 : 1;
-  }
-
-  for(let i=0;i<burst;i++){
-    if(S.targets.length >= cap) break;
-    const kind=decideKind();
-    const group=(kind==='good'||kind==='fake') ? decideGroup() : 0;
-    makeTarget(kind,group);
-  }
-
-  const jitter = (MODE==='research') ? 0 : rnd(-120,120);
-  S.nextSpawnAt = t + Math.max(240, interval + jitter);
-}
-
-// ---------- Tap-anywhere shooting ----------
-function isUIElement(target){
-  if(!target) return false;
-  return !!(target.closest && (target.closest('.btn') || target.closest('#resultBackdrop') || target.closest('#startOverlay')));
-}
-function airShot(){
-  S.combo=0; setTxt(HUD.combo,0);
-  addScore(-20);
-  addFever(-2);
-  fxJudge('WHIFF');
-  flash('bad', 80);
-  AudioX.tick();
-  S.miss++; setTxt(HUD.miss, S.miss);
-  updateGrade();
-  logEvent('air_shot',{});
-}
-function shootCrosshair(){
-  if(!S.running || S.paused) return;
-  AudioX.unlock();
-  const assist = inVR()? Math.max(D.aimAssist,170) : D.aimAssist;
-  const picked = pickNearCrosshair(assist);
-  if(picked && picked.rec) hitTarget(picked.rec,false,null);
-  else airShot();
-}
-function onGlobalPointerDown(e){
-  if(!S.running || S.paused) return;
-  if(isUIElement(e.target)) return;
-  e.preventDefault();
-  shootCrosshair();
-}
-
-// ---------- Pause/Restart/VR ----------
-function setPaused(on){
-  S.paused=!!on;
-  setShow(HUD.paused,S.paused);
-  if(HUD.btnPause) HUD.btnPause.textContent = S.paused ? '▶️ RESUME' : '⏸️ PAUSE';
-  logEvent('pause',{paused:S.paused});
-}
-function enterVR(){ try{ scene && scene.enterVR && scene.enterVR(); }catch(_){ } }
-
-// ---------- Restart / End ----------
-function restart(){
-  for(const rec of [...S.targets]) removeTarget(rec);
-
-  // ✅ new sessionId ทุกครั้งที่เริ่มใหม่ (กัน logger ซ้ำ)
-  S.sessionId = `PLATE-${Date.now()}-${uid8()}`;
-
-  S.running=false; S.paused=false;
-  S.tStart=0; S.timeLeft=TOTAL_TIME;
-  S.score=0; S.combo=0; S.maxCombo=0; S.miss=0; S.perfectCount=0;
-  S.fever=0; S.feverOn=false;
-  setShield(0); setLives(S.livesMax);
-
-  S.platesDone=0;
-  S.goalsDone=0;
-  S.goalCompleted = {};
-
-  S.minisCleared=0;
-  S.plateHave.clear();
-  S.groupCounts=[0,0,0,0,0];
-
-  S.bossActive=false;
-  S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
-
-  S.stormUntil=0; S.slowUntil=0; S.noJunkUntil=0;
-  S.lowTimeLastSec=null;
-
-  setTxt(HUD.score,0); setTxt(HUD.combo,0); setTxt(HUD.miss,0);
-  setTxt(HUD.perfect,0); setTxt(HUD.have,'0/5'); setTxt(HUD.feverPct,'0%');
-  emitFever();
-  updateGrade(); setPaused(false);
-  setShow(HUD.resultBackdrop,false);
-
-  setGoal(0);
-  startMini();
-
-  logSession('start');
-  start();
-}
-
-function endGame(isGameOver){
-  if(!S.running) return;
-  S.running=false;
-  doc.body.classList.remove('hha-mini-urgent');
-  S.nextSpawnAt=Infinity;
-  for(const rec of [...S.targets]) removeTarget(rec);
-
-  setTxt(HUD.rMode, MODE==='research'?'Research':'Play');
-  setTxt(HUD.rGrade, gradeFromScore());
-  setTxt(HUD.rScore, S.score);
-  setTxt(HUD.rMaxCombo, S.maxCombo);
-  setTxt(HUD.rMiss, S.miss);
-  setTxt(HUD.rPerfect, S.perfectCount);
-  setTxt(HUD.rGoals, `${Math.min(S.goalsDone,S.goalsTotal)}/${S.goalsTotal}`);
-  setTxt(HUD.rMinis, `${Math.min(S.minisCleared,S.minisTotal)}/${S.minisTotal}`);
-  setTxt(HUD.rPlates, S.platesDone);
-
-  setTxt(HUD.rG1, S.groupCounts[0]);
-  setTxt(HUD.rG2, S.groupCounts[1]);
-  setTxt(HUD.rG3, S.groupCounts[2]);
-  setTxt(HUD.rG4, S.groupCounts[3]);
-  setTxt(HUD.rG5, S.groupCounts[4]);
-  setTxt(HUD.rGTotal, S.groupCounts.reduce((a,b)=>a+b,0));
-
-  setShow(HUD.resultBackdrop,true);
-
-  fxCelebrate(isGameOver?'GAME OVER':'ALL DONE!', isGameOver?1.05:1.2);
-  vibe(isGameOver?60:50);
-  logSession(isGameOver?'gameover':'end');
-}
-
-// ---------- Main loop ----------
-function start(){
-  S.running=true;
-  S.tStart=now();
-  S.nextSpawnAt=now()+350;
-
-  setTxt(HUD.mode, MODE==='research'?'Research':'Play');
-  setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
-  setGoal(S.goalIndex);
-
-  function frame(){
-    if(!S.running) return;
-
-    applyLayerTransform();
-    updateAimHighlight();
-
-    if(!S.paused){
-      const elapsed=(now()-S.tStart)/1000;
-      S.timeLeft=Math.max(0, TOTAL_TIME - elapsed);
-      setTxt(HUD.time, fmt(S.timeLeft));
-
-      if(S.timeLeft<=10){
-        const sec=Math.ceil(S.timeLeft);
-        if(sec!==S.lowTimeLastSec){ S.lowTimeLastSec=sec; AudioX.tick(); }
-      }else S.lowTimeLastSec=null;
-
-      spawnTick();
-      tickBossAttack();
-      expireTargets();
-      tickMini();
-
-      addFever(S.feverOn ? -0.22 : -0.10);
-
-      setGoal(S.goalIndex);
-
-      if(S.timeLeft<=0) endGame(false);
-    }
-    ROOT.requestAnimationFrame(frame);
-  }
-  ROOT.requestAnimationFrame(frame);
-}
-
-// ---------- Hotkeys ----------
-function bindShootHotkeys(){
-  ROOT.addEventListener('keydown',(e)=>{
-    const k=String(e.key||'').toLowerCase();
-    if(k===' '||k==='enter'||k==='z'||k==='x') shootCrosshair();
-  });
-  if(scene){
-    const fire=()=>shootCrosshair();
-    scene.addEventListener('triggerdown', fire);
-    scene.addEventListener('abuttondown', fire);
-    scene.addEventListener('xbuttondown', fire);
-    scene.addEventListener('gripdown', fire);
-    scene.addEventListener('mousedown', fire);
-    scene.addEventListener('click', fire);
-  }
-}
-
-// ✅ PATCH: refresh HUD refs (กัน DOM timing)
-function refreshHUDRefs(){
-  HUD.btnEnterVR = HUD.btnEnterVR || $('btnEnterVR');
-  HUD.btnPause   = HUD.btnPause   || $('btnPause');
-  HUD.btnRestart = HUD.btnRestart || $('btnRestart');
-  HUD.resultBackdrop = HUD.resultBackdrop || $('resultBackdrop');
-  HUD.btnPlayAgain   = HUD.btnPlayAgain   || $('btnPlayAgain');
-  HUD.rPlates        = HUD.rPlates        || $('rPlates');
-}
-
-// ✅ PATCH: delegate handler ให้ปุ่มทำงานชัวร์ (pointerup + click)
-function bindUIDelegated(){
-  if (S._uiDelegated) return;
-  S._uiDelegated = true;
-
-  const actStart = async ()=>{
-    try{
-      AudioX.unlock();
-      await requestMotionPermissionIfNeeded();
-    }catch(_){}
-    showStartOverlay(false);
-
-    if(!S.started){
-      S.started = true;
-      restart(); // เริ่มเกมจริงครั้งแรกหลังเริ่มเล่นเท่านั้น
-    }
-  };
-
-  const handler = (e)=>{
-    const el = e.target && e.target.closest
-      ? e.target.closest('#btnBackHub, #btnPlayAgain, #btnRestart, #btnPause, #btnEnterVR, #btnStart')
-      : null;
-    if(!el) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    refreshHUDRefs();
-
-    switch(el.id){
-      case 'btnBackHub':
-        goHub();
-        break;
-
-      case 'btnPlayAgain':
-        setShow(HUD.resultBackdrop, false);
-        S.started = true;
-        restart();
-        break;
-
-      case 'btnRestart':
-        S.started = true;
-        restart();
-        break;
-
-      case 'btnPause':
-        if(!S.running) return;
-        setPaused(!S.paused);
-        break;
-
-      case 'btnEnterVR':
-        enterVR();
-        break;
-
-      case 'btnStart':
-        actStart();
-        break;
-    }
-  };
-
-  doc.addEventListener('pointerup', handler, { passive:false });
-  doc.addEventListener('click', handler, { passive:false });
-}
-
-// ✅ PATCH: ensure binding (retry) กันบางจังหวะ DOM/overlay
-function ensureUIBindings(){
-  refreshHUDRefs();
-  bindUIDelegated();
-
-  const ok =
-    !!$('btnBackHub') &&
-    !!$('btnPlayAgain') &&
-    !!$('btnStart') &&
-    !!$('resultBackdrop') &&
-    !!$('startOverlay');
-
-  if(!ok && (S._uiBindTries++ < 12)){
-    setTimeout(ensureUIBindings, 250);
-  }
-}
-
-// ---------- Bind UI ----------
+// ------------------------- UI binds -------------------------
 function bindUI(){
-  if(S.booted) return;
-  S.booted = true;
+  refreshHUDRefs();
 
-  // ยิง (layer)
-  layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
-  layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
-  layer.addEventListener('click', onGlobalPointerDown, {passive:false});
+  if(HUD.btnStart){
+    HUD.btnStart.addEventListener('click', async ()=>{
+      await AudioX.unlock();
+      await requestMotionIfNeeded();
+      showStartOverlay(false);
+      start();
+      setCoach('happy', 'ลุย! กวาดให้ครบ 5 หมู่เป็น “จานสมดุล”!', coachHintBase(), 1600);
+    }, { passive:true });
+  }
 
-  // click backdrop ปิดได้เมื่อแตะพื้นหลัง
-  const rb = $('resultBackdrop');
-  rb && rb.addEventListener('click', (e)=>{
-    if(e.target === rb) setShow(rb,false);
-  });
+  if(HUD.btnEnterVR){
+    HUD.btnEnterVR.addEventListener('click', ()=>{
+      const scene = doc.querySelector('a-scene');
+      if(scene && scene.enterVR) scene.enterVR();
+    }, { passive:true });
+  }
 
-  // ✅ ทำให้ปุ่มทุกปุ่มทำงานชัวร์
-  ensureUIBindings();
+  if(HUD.btnPause){
+    HUD.btnPause.addEventListener('click', ()=>{
+      if(!S.started || S.ended) return;
+      S.paused = !S.paused;
+      showPaused(S.paused);
+      if(!S.paused) S.lastFrame = now();
+      logEvent('pause', { paused:S.paused });
+    }, { passive:true });
+  }
+
+  if(HUD.btnRestart){
+    HUD.btnRestart.addEventListener('click', ()=>{
+      restartGame();
+    }, { passive:true });
+  }
+
+  if(HUD.btnBackHub){
+    HUD.btnBackHub.addEventListener('click', ()=> goHub(), { passive:true });
+  }
+  if(HUD.btnPlayAgain){
+    HUD.btnPlayAgain.addEventListener('click', ()=> restartGame(), { passive:true });
+  }
+
+  // crosshair shoot: tap anywhere OR click
+  doc.addEventListener('click', (e)=>{
+    if(!S.started || S.paused || S.ended) return;
+    // ignore clicks on buttons
+    const t = e.target;
+    if(t && t.closest && t.closest('button')) return;
+    shootAtCenter();
+  }, true);
+
+  // also on touchend
+  doc.addEventListener('touchend', (e)=>{
+    if(!S.started || S.paused || S.ended) return;
+    const t = e.target;
+    if(t && t.closest && t.closest('button')) return;
+    shootAtCenter();
+  }, { passive:true });
 }
 
-// ---------- BOOT (สำคัญ: ไม่ start ทันที) ----------
-(function boot(){
+// motion permission
+async function requestMotionIfNeeded(){
   try{
-    if(ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.init==='function'){
-      ROOT.HHACloudLogger.init({ debug: DEBUG });
+    const DMO = ROOT.DeviceMotionEvent;
+    if(DMO && typeof DMO.requestPermission === 'function'){
+      const res = await DMO.requestPermission();
+      if(res !== 'granted'){
+        if(DEBUG) console.log('Motion permission not granted');
+      }
     }
   }catch(_){}
+}
 
-  bindUI();
-  bindShootHotkeys();
+// ------------------------- loop / start -------------------------
+function start(){
+  if(S.started) return;
+  S.started = true;
+  S.paused = false;
+  S.ended = false;
 
-  // init HUD
+  ensureLayer();
+  bindTargetClick();
+
+  S.t0 = now();
+  S.lastFrame = S.t0;
+  S.elapsedMs = 0;
+
+  S.score = 0; S.combo = 0; S.comboMax = 0; S.miss = 0; S.perfect = 0;
+  S.fever = 0; S.feverOn = false;
+  S.shield = 0;
+  S.lives = 3; S.livesMax = 3; S.lifeLost = 0;
+  S.plateHave = new Set();
+  S.gCount = {1:0,2:0,3:0,4:0,5:0};
+  S.targets = [];
+  S.nextSpawnAt = now() + 250;
+  S.nextBossAt = now() + (DIFF==='hard'?6500:(DIFF==='easy'?9500:8000));
+
+  // quest
+  S.Q = makeQuestDirector();
+  S.Q.updateHUD();
+
+  // HUD init
+  refreshHUDRefs();
+  setTxt(HUD.time, 0);
+  setTxt(HUD.score, 0);
+  setTxt(HUD.combo, 0);
+  setTxt(HUD.miss, 0);
+  setTxt(HUD.plate, '0/5');
+  setTxt(HUD.feverPct, '0%');
+  setTxt(HUD.grade, gradeFromScore());
   setShield(0);
   setLives(S.livesMax);
 
-  setTxt(HUD.mode, MODE==='research'?'Research':'Play');
-  setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
-  setTxt(HUD.have,'0/5');
-  setTxt(HUD.score,0); setTxt(HUD.combo,0); setTxt(HUD.miss,0);
-  setTxt(HUD.perfect,0); setTxt(HUD.feverPct,'0%');
-  emitFever();
-  updateGrade();
+  setCoach('neutral', 'เริ่มแล้ว! เลื่อนมุมมอง + ยิงกลางจอ 🎯', `Mode: ${MODE} • Diff: ${DIFF.toUpperCase()} • Time: ${TOTAL_TIME}s`, 0);
 
-  // ✅ ยังไม่เริ่มเกมจนกด Start
-  S.started = false;
+  logEvent('start', {
+    game: GAME_TAG,
+    mode: MODE,
+    diff: DIFF,
+    timeSec: TOTAL_TIME,
+    seed: DEFAULT_SEED,
+    study: STUDY,
+    ua: navigator.userAgent || '',
+    device: isTouch() ? 'touch' : 'mouse',
+  });
+
+  function frame(){
+    if(S.ended) return;
+
+    const t = now();
+    const dt = Math.min(80, t - S.lastFrame);
+    S.lastFrame = t;
+
+    if(!S.paused){
+      S.elapsedMs = t - S.t0;
+
+      // time
+      const left = Math.max(0, (TOTAL_TIME*1000) - S.elapsedMs);
+      const sec = Math.ceil(left/1000);
+      refreshHUDRefs();
+      if(HUD.time) setTxt(HUD.time, sec);
+
+      // fever decay
+      if(S.fever > 0){
+        const decay = (S.feverOn ? 0.020 : 0.035) * dt;
+        setFever(S.fever - decay);
+      }
+
+      // grade update
+      if(HUD.grade) setTxt(HUD.grade, gradeFromScore());
+
+      // update view
+      applyView();
+
+      // spawn
+      spawnTick();
+
+      // expire
+      tickExpire();
+
+      // boss attack
+      tickBossAttack();
+
+      // quest tick
+      if(S.Q) S.Q.tick();
+
+      // adaptive tick
+      adaptTick();
+
+      // urgent mini hints (tick sfx when rush near end)
+      const m = MINIS[S.Q ? S.Q.miniIndex : 0];
+      if(m && m.id==='M7' && S.Q && S.Q.miniState.rushActive){
+        const tNow = now();
+        const remain = (m.rushSec*1000) - (tNow - S.Q.miniState.rushStartAt);
+        if(remain > 0 && remain < 2200){
+          doc.body.classList.add('hha-mini-urgent');
+          if(remain < 1200) AudioX.tick();
+        }else{
+          doc.body.classList.remove('hha-mini-urgent');
+        }
+      }else{
+        doc.body.classList.remove('hha-mini-urgent');
+      }
+
+      // end by time
+      if(left <= 0){
+        endGame('หมดเวลา');
+        return;
+      }
+    }
+
+    ROOT.requestAnimationFrame(frame);
+  }
+
+  ROOT.requestAnimationFrame(frame);
+}
+
+// ------------------------- boot -------------------------
+function boot(){
+  ensureLayer();
+  bindViewControls();
+  bindUI();
+
   showStartOverlay(true);
+  showPaused(false);
 
-  if(DEBUG) console.log('[PlateVR] boot ok (waiting start)', { RUN_RAW, MODE, DIFF, TOTAL_TIME, seed:SEED, D });
-})();
+  // initial HUD
+  refreshHUDRefs();
+  setTxt(HUD.time, 0);
+  setTxt(HUD.score, 0);
+  setTxt(HUD.combo, 0);
+  setTxt(HUD.miss, 0);
+  setTxt(HUD.plate, '0/5');
+  setTxt(HUD.feverPct, '0%');
+  setTxt(HUD.grade, 'C');
+  setShield(0);
+  setLives(3);
+
+  setCoach('neutral', 'พร้อมแล้วกด “เริ่มเล่น” ได้เลย!', `Diff: ${DIFF.toUpperCase()} • Time: ${TOTAL_TIME}s`, 0);
+
+  if(DEBUG){
+    console.log('[PlateVR] boot', { MODE, DIFF, TOTAL_TIME, seed: DEFAULT_SEED });
+  }
+}
+
+boot();
