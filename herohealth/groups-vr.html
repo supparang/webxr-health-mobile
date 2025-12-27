@@ -1,23 +1,20 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>HeroHealth — Groups Launcher</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Food Groups VR (Redirect)</title>
 </head>
 <body>
 <script>
 (function(){
-  const from = new URL(location.href);
-  const to = new URL('./vr-groups/vr-groups.html', location.href);
-
-  // ส่งต่อ query ทั้งหมด
-  from.searchParams.forEach((v,k)=>to.searchParams.set(k,v));
-
-  // กัน cache
-  to.searchParams.set('ts', String(Date.now()));
-
-  location.replace(to.toString());
+  const dest = new URL('./vr-groups/vr-groups.html', location.href);
+  // copy query params
+  const cur = new URL(location.href);
+  cur.searchParams.forEach((v,k)=> dest.searchParams.set(k,v));
+  // cache-bust
+  dest.searchParams.set('ts', String(Date.now()));
+  location.replace(dest.toString());
 })();
 </script>
 </body>
