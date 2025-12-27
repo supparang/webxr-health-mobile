@@ -7,10 +7,10 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional bg) -->
+  <!-- A-Frame (optional scene bg) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- correct path (this file is already in /vr-groups/) -->
+  <!-- CSS -->
   <link rel="stylesheet" href="./groups.css" />
 </head>
 
@@ -54,7 +54,8 @@
         </div>
         <div class="qbar"><div class="qbar-track"><div class="qbar-fill goal" id="hud-goal-bar"></div></div></div>
 
-        <div class="quest-line">
+        <!-- ✅ สำคัญ: ใส่ id="hud-mini-line" -->
+        <div class="quest-line" id="hud-mini-line">
           <div class="q-badge mini">MINI</div>
           <div class="q-text" id="hud-mini-title">—</div>
           <div class="q-num" id="hud-mini-val">0/0</div>
@@ -103,14 +104,13 @@
     </div>
   </div>
 
-  <!-- End Overlay (HHA standard-ish) -->
+  <!-- End Overlay -->
   <div class="result-overlay" id="endOverlay">
     <div class="result-card">
       <h2>สรุปผล — Food Groups VR</h2>
       <p>Score: <b id="endScore">0</b> · Rank: <b id="endRank">C</b> · Acc: <b id="endAcc">0%</b></p>
       <p>ComboMax: <b id="endComboMax">0</b> · Miss: <b id="endMiss">0</b></p>
       <p>Goals: <b id="endGoals">0/0</b> · Minis: <b id="endMinis">0/0</b></p>
-
       <div class="result-actions">
         <button class="btn primary" id="btnRetry">RETRY</button>
         <button class="btn ghost" id="btnBackHub">กลับ HUB</button>
@@ -118,19 +118,18 @@
     </div>
   </div>
 
-  <!-- ===== Scripts (local) ===== -->
+  <!-- Scripts (order matters) -->
   <script src="../vr/ui-fever.js" defer></script>
   <script src="../vr/ui-karaoke.js" defer></script>
 
   <script src="./groups-hud-quest.js" defer></script>
-  <script src="./groups-quests.js" defer></script>
+  <script src="./groups-text.js" defer></script>     <!-- ✅ ใหม่: เพลง/Call&Response ไม่ชน quests -->
+  <script src="./groups-quests.js" defer></script>    <!-- ✅ ไฟล์นี้ควรเป็น Quest logic -->
   <script src="./groups-fx.js" defer></script>
-  <script src="./GameEngine.js" defer></script>
 
-  <!-- Boot wrapper (IIFE): window.GroupsBoot.start/stop + hha:stop + URL autostart -->
+  <script src="./GameEngine.js" defer></script>
   <script src="./groups.safe.js" defer></script>
 
-  <!-- Runner glue -->
   <script>
   (function(){
     'use strict';
@@ -154,12 +153,11 @@
     const ts   = String(qs('ts', Date.now()));
     const seed = String(qs('seed', sid ? (sid + '|' + ts) : ts));
 
-    // pills
-    const pd = document.getElementById('pill-diff'); if (pd) pd.textContent = 'DIFF: ' + diff;
-    const pt = document.getElementById('pill-time'); if (pt) pt.textContent = 'TIME: ' + time + 's';
-    const pm = document.getElementById('pill-mode'); if (pm) pm.textContent = 'MODE: ' + run;
+    document.getElementById('pill-diff').textContent = 'DIFF: ' + diff;
+    document.getElementById('pill-time').textContent = 'TIME: ' + time + 's';
+    document.getElementById('pill-mode').textContent = 'MODE: ' + (run==='research'?'research':'play');
 
-    // HUD events
+    // HUD bindings
     window.addEventListener('hha:score', (ev)=>{
       const d = ev.detail || {};
       const sEl = document.getElementById('hud-score'); if (sEl) sEl.textContent = (d.score|0);
@@ -189,15 +187,17 @@
       const th = Math.max(1, d.threshold|0);
       const ch = Math.max(0, d.charge|0);
       const p = Math.min(100, (ch/th)*100);
-
       const fill = document.getElementById('hud-powerFill');
       if (fill) fill.style.width = p.toFixed(1) + '%';
-
       const txt = document.getElementById('fg-powerText');
       if (txt) txt.textContent = `${ch}/${th}`;
     }, { passive:true });
 
-    // audio resume helper (for beeps on mobile)
+    // Start overlay
+    const overlay = document.getElementById('startOverlay');
+    const btnStart = document.getElementById('btnStart');
+    const btnRestart = document.getElementById('btnRestart');
+
     async function resumeAudio(){
       try{
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -208,45 +208,29 @@
       }catch(e){}
     }
 
-    // start controls
-    const overlay = document.getElementById('startOverlay');
-    const btnStart = document.getElementById('btnStart');
-    const btnRestart = document.getElementById('btnRestart');
-
-    function boot(){
-      const Boot = window.GroupsBoot;
-      if (!Boot || !Boot.start){
-        alert('GroupsBoot not found');
+    function startGame(){
+      if (!window.GroupsBoot || !window.GroupsBoot.start){
+        alert('GroupsBoot not ready');
         return;
       }
-      Boot.start(run, { diff, time, seed });
-
-      // (optional) log hook for your cloud logger
-      try{
-        window.dispatchEvent(new CustomEvent('hha:log_session', {
-          detail: { phase:'start', game:'groups', diff, runMode:run, seed, time }
-        }));
-      }catch{}
+      window.GroupsBoot.start(run==='research'?'research':'play', { diff, time, seed });
     }
 
-    if (btnStart){
-      btnStart.addEventListener('click', async ()=>{
-        await resumeAudio();
-        if (overlay) overlay.style.display = 'none';
-        boot();
-      }, { passive:true });
-    }
-    if (btnRestart){
-      btnRestart.addEventListener('click', ()=> location.reload(), { passive:true });
-    }
+    btnStart.addEventListener('click', async ()=>{
+      await resumeAudio();
+      overlay.style.display = 'none';
+      startGame();
+    });
 
-    // End overlay wiring
+    btnRestart.addEventListener('click', ()=> location.reload());
+
+    // End overlay + last summary + back hub
     const endOverlay = document.getElementById('endOverlay');
     const btnRetry = document.getElementById('btnRetry');
     const btnBack = document.getElementById('btnBackHub');
 
-    if (btnRetry) btnRetry.addEventListener('click', ()=> location.reload(), { passive:true });
-    if (btnBack) btnBack.addEventListener('click', ()=>{
+    btnRetry.addEventListener('click', ()=> location.reload());
+    btnBack.addEventListener('click', ()=>{
       try{
         const u = new URL(hub, location.href);
         u.searchParams.set('ts', String(Date.now()));
@@ -254,12 +238,10 @@
       }catch{
         location.href = hub;
       }
-    }, { passive:true });
+    });
 
     window.addEventListener('hha:end', (ev)=>{
       const d = (ev && ev.detail) ? ev.detail : {};
-
-      // save last summary (HHA standard)
       try{
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
         localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
@@ -269,7 +251,7 @@
       const r = document.getElementById('endRank');  if (r) r.textContent = String(d.grade ?? 'C');
       const a = document.getElementById('endAcc');   if (a) a.textContent = String((d.accuracyGoodPct ?? 0)|0) + '%';
       const cm= document.getElementById('endComboMax'); if (cm) cm.textContent = String(d.comboMax ?? 0);
-      const ms= document.getElementById('endMiss');  if (ms) ms.textContent = String(d.misses ?? 0);
+      const ms= document.getElementById('endMiss');     if (ms) ms.textContent = String(d.misses ?? 0);
 
       const gl= document.getElementById('endGoals');
       if (gl) gl.textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0);
@@ -278,17 +260,12 @@
       if (mn) mn.textContent = String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0);
 
       if (endOverlay) endOverlay.classList.add('show');
-
-      // (optional) log hook
-      try{
-        window.dispatchEvent(new CustomEvent('hha:log_session', { detail: { phase:'end', ...d } }));
-      }catch{}
     }, { passive:true });
 
-    // autostart (only if requested)
+    // autostart: ต้องตั้ง autostart=1 ถึงจะข้าม overlay
     if (qs('autostart','0') === '1'){
-      if (overlay) overlay.style.display = 'none';
-      boot();
+      overlay.style.display = 'none';
+      startGame();
     }
   })();
   </script>
