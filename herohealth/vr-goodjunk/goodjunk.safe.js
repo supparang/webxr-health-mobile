@@ -1,17 +1,17 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE (PRODUCTION) — HHA Standard (FINAL PACK)
-// ✅ Real-time grade (provisional) + final grade at end
-// ✅ Deterministic RNG (seeded) for research (and optional for play via ?seed=)
+// GoodJunkVR — SAFE (PRODUCTION) — HHA Standard (FULL + PATCHED)
+// ✅ Cloud Logger compatible: hha:log_event uses {type:'spawn'|'hit'|'miss_expire'|'shield_block', data:{kind:...}}
+// ✅ Events sheet schema-ready: eventType, timeFromStartMs, rtMs, itemType, emoji, targetId, judgment, totalScore, combo, isGood, feverValue/state, goalProgress, miniProgress, extra
+// ✅ End Summary overlay + Back HUB + localStorage(HHA_LAST_SUMMARY)
+// ✅ Deterministic RNG (research default) + optional play ?seed=
 // ✅ Boss hazards dodgeable (Ring gap + Laser line) using world-shift (drag/gyro)
 // ✅ FEVER -> auto Shield (blocks junk/hazard; guarded junk does NOT count as miss)
 // ✅ Miss definition: miss = good expired + junk hit (only if NOT blocked by shield)
-// ✅ Magnet tuned (pull+repel+fx+bonus) "help not autoplay"
 // ✅ Quest emits: quest:update + hha:quest (cache: window.__HHA_LAST_QUEST__)
 // ✅ End policy: end=time (default) | end=all (play only)
 
 'use strict';
 
-// --------------------------- Utilities ---------------------------
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
 function clamp(v, a, b) { v = Number(v) || 0; return v < a ? a : (v > b ? b : v); }
@@ -413,6 +413,65 @@ function makeDefaultQuestDefs(diff='normal', challenge='rush') {
   return { goals, minis };
 }
 
+// --------------------------- End Summary (HHA Standard) ---------------------------
+function hubUrl(){
+  try{
+    const u = new URL(location.href);
+    const hub = u.searchParams.get('hub');
+    if (hub) return hub;
+  }catch(_){}
+  return '../hub.html';
+}
+function saveLastSummary(payload){
+  try{
+    localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+      savedAtIso: new Date().toISOString(),
+      gameMode: 'GoodJunkVR',
+      diff: payload.diff,
+      runMode: payload.runMode,
+      challenge: payload.challenge,
+      payload
+    }));
+  }catch(_){}
+}
+function showEndSummary(payload){
+  // If you have a shared UI pack, prefer it
+  if (ROOT.HHA_UI && typeof ROOT.HHA_UI.showEndSummary === 'function'){
+    try { ROOT.HHA_UI.showEndSummary(payload); return; } catch(_) {}
+  }
+
+  let el = document.getElementById('hha-end-summary');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'hha-end-summary';
+    el.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.86);padding:16px;';
+    el.innerHTML = `
+      <div style="width:min(560px,92vw);border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.94);border-radius:18px;padding:16px;color:#e5e7eb;font-family:system-ui;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">
+          <div style="font-size:20px;font-weight:900;">สรุปผลเกม</div>
+          <div style="font-size:13px;color:#94a3b8;">GoodJunkVR</div>
+        </div>
+        <div id="hha-end-lines" style="font-size:14px;line-height:1.55;color:#cbd5e1;"></div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button id="hha-retry" style="flex:1;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.22);background:#0b1220;color:#fff;font-weight:700;">เล่นใหม่</button>
+          <button id="hha-backhub" style="flex:1;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.22);background:#111827;color:#fff;font-weight:700;">กลับ HUB</button>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+    el.querySelector('#hha-retry').onclick = () => location.reload();
+    el.querySelector('#hha-backhub').onclick = () => location.href = hubUrl();
+  }
+
+  const lines = el.querySelector('#hha-end-lines');
+  lines.innerHTML = `
+    <div>เกรด: <b>${payload.grade ?? '—'}</b></div>
+    <div>คะแนน: <b>${payload.scoreFinal ?? 0}</b> • ComboMax: <b>${payload.comboMax ?? 0}</b> • Miss: <b>${payload.misses ?? 0}</b></div>
+    <div>Goals: <b>${payload.goalsCleared ?? 0}/${payload.goalsTotal ?? 0}</b> • Minis: <b>${payload.miniCleared ?? 0}/${payload.miniTotal ?? 0}</b></div>
+    <div>Accuracy: <b>${payload.accuracyGoodPct ?? 0}%</b> • AvgRT: <b>${payload.avgRtGoodMs ?? 0}ms</b> • MedianRT: <b>${payload.medianRtGoodMs ?? 0}ms</b></div>
+    <div style="margin-top:8px;color:#94a3b8;font-size:12px;">reason: ${payload.reason ?? ''} • seed: ${payload.seed ?? ''}</div>
+  `;
+}
+
 // --------------------------- Game boot ---------------------------
 export function boot(opts = {}) {
   ensureFXStyles();
@@ -506,7 +565,7 @@ export function boot(opts = {}) {
     combo: 0,
     comboMax: 0,
 
-    misses: 0,
+    misses: 0,           // ✅ miss = expire good + hit junk (no shield)
 
     timeLeftSec: timeLimitSec,
 
@@ -533,6 +592,12 @@ export function boot(opts = {}) {
     bossHp: 0,
     bossHpMax: 0,
     bossSpawned: false,
+
+    // hazards tracked (NOT counted as miss per standard definition)
+    bossHazardHit: 0,
+    bossHazardGuard: 0,
+    ringDodge: 0,
+    laserDodge: 0,
 
     stunnedUntilMs: 0,
 
@@ -574,7 +639,6 @@ export function boot(opts = {}) {
     score += (mPct * 20);
     score -= Math.min(25, miss * 3.0);
 
-    // final tighten a bit (optional): reward completion slightly
     if (isFinal && gPct >= 1 && mPct >= 1) score += 2;
 
     if (score >= 92) return 'SSS';
@@ -593,7 +657,6 @@ export function boot(opts = {}) {
     const stats = computeStatsLive();
     const g = computeGrade(stats, false);
     S.gradeProvisional = g;
-    // during play (not research UI) we can show it realtime
     if (run !== 'research') S.grade = g;
   }
 
@@ -605,7 +668,7 @@ export function boot(opts = {}) {
       misses: S.misses,
       fever: S.fever,
       shield: Math.max(0, Math.ceil(S.shield)),
-      grade: (run === 'research') ? undefined : (S.grade ?? S.gradeProvisional), // ✅ realtime grade
+      grade: (run === 'research') ? undefined : (S.grade ?? S.gradeProvisional),
       diff: S.diff,
       run: S.run,
       challenge: S.challenge,
@@ -643,6 +706,70 @@ export function boot(opts = {}) {
 
     if (kind === 'hazard') coach('โดนท่าไม้ตาย! ระวัง Ring/Laser 😵', 'sad', 'ลาก/เอียงเพื่อ “หลบช่องว่าง” หรือเลี่ยงแนวเลเซอร์');
     else coach('โดนขยะ! ระวังนะ 😵', 'sad', 'เล็งดี ๆ เก็บของดีต่อคอมโบ');
+  }
+
+  // ---------------- HHA Standard Event Emitter (Cloud Logger + Events schema) ----------------
+  const t0Ms = nowMs();
+  function feverStateFrom(v){
+    v = Number(v)||0;
+    if (v >= 80) return 'HIGH';
+    if (v >= 40) return 'MID';
+    return 'LOW';
+  }
+  function logEvent(eventType, fields = {}, data = {}) {
+    const timeFromStartMs = Math.max(0, Math.round(nowMs() - t0Ms));
+
+    const payload = {
+      // logger core
+      sessionId,
+      game: 'GoodJunkVR',
+      type: eventType,          // ✅ logger uses d.type
+      t: Date.now(),
+
+      score: S.score,
+      combo: S.combo,
+      miss: S.misses,
+      fever: S.fever,
+      shield: Math.ceil(S.shield),
+
+      // Events sheet core
+      timestampIso: new Date().toISOString(),
+      projectTag: 'GoodJunkVR',
+      runMode: run,
+      studyId: context.studyId,
+      phase: context.phase,
+      conditionGroup: context.conditionGroup,
+      sessionOrder: context.sessionOrder,
+      blockLabel: context.blockLabel,
+      siteCode: context.siteCode,
+
+      eventType,
+      gameMode: 'GoodJunkVR',
+      diff,
+      timeFromStartMs,
+
+      totalScore: S.score,
+      combo: S.combo,
+      feverValue: S.fever,
+      feverState: feverStateFrom(S.fever),
+
+      goalProgress: `${S.goalsCleared}/${S.goalsTotal}`,
+      miniProgress: `${S.miniCleared}/${S.miniTotal}`,
+
+      studentKey: context.studentKey,
+      schoolCode: context.schoolCode,
+      classRoom: context.classRoom,
+      studentNo: context.studentNo,
+      nickName: context.nickName,
+
+      // per-event fields (schema)
+      ...fields,
+
+      // detail data (logger will flatten/stringify)
+      data: data || {}
+    };
+
+    emitEvt('hha:log_event', payload);
   }
 
   // ---------------- Spawn system ----------------
@@ -731,11 +858,11 @@ export function boot(opts = {}) {
 
   // ---------------- Magnet physics (tuned) ----------------
   const MAGNET = {
-    durationSec: 7.0,       // ✅ tuned (was 8)
-    pullStrength: 3.6,      // ✅ tuned (was 4.2)
-    antiRadius: 240,        // ✅ tuned (was 260)
-    antiStrength: 5.0,      // ✅ tuned (was 6)
-    lockRadius: 220         // ✅ tuned (was 260)
+    durationSec: 7.0,
+    pullStrength: 3.6,
+    antiRadius: 240,
+    antiStrength: 5.0,
+    lockRadius: 220
   };
 
   function applyMagnetPull(dtMs){
@@ -846,7 +973,6 @@ export function boot(opts = {}) {
     const baseInterval = (diff === 'easy') ? 780 : (diff === 'hard' ? 520 : 640);
     const ttl = (diff === 'easy') ? 2.9 : (diff === 'hard' ? 1.9 : 2.3);
 
-    // ✅ research a bit more stable, less power variance
     const junkRatio = (challenge === 'survival') ? 0.40 : 0.30;
     const powerChance = (run === 'research') ? 0.10 : 0.14;
     const goldChance = (challenge === 'boss') ? 0.14 : 0.10;
@@ -889,7 +1015,6 @@ export function boot(opts = {}) {
     return d;
   }
   function inGap(angleDeg, gapStart, gapSize){
-    // gap sector is [gapStart, gapStart+gapSize] (wrap allowed)
     const a = normalizeDeg(angleDeg);
     const s = normalizeDeg(gapStart);
     const e = normalizeDeg(gapStart + gapSize);
@@ -903,7 +1028,6 @@ export function boot(opts = {}) {
     return { x: a.x - sh.x, y: a.y - sh.y };
   }
   function ringWouldHit(){
-    // compute angle from center to playerWorld
     const p = playerWorldPos();
     const cx = innerWidth / 2;
     const cy = innerHeight / 2;
@@ -914,7 +1038,7 @@ export function boot(opts = {}) {
   function laserWouldHit(){
     if (laserState.yWorld == null) return false;
     const p = playerWorldPos();
-    const th = 26; // hit thickness
+    const th = 26;
     return Math.abs(p.y - laserState.yWorld) <= th;
   }
 
@@ -929,16 +1053,21 @@ export function boot(opts = {}) {
     S.bossHp = hp;
 
     const p = randomSafeXY();
-    makeTarget('boss', RNG.pick(EMOJI_BOSS), p.x, p.y, 999, { hp });
+    const bEmoji = RNG.pick(EMOJI_BOSS);
+    const t = makeTarget('boss', bEmoji, p.x, p.y, 999, { hp });
 
     coach('บอสมาแล้ว! ยิงบอสให้แตกก่อนโดนไม้ตาย 😈', 'fever', 'ลาก/เอียงเพื่อหลบ Ring/Laser แล้วเร่งคอมโบ!');
-    emitEvt('hha:log_event', { kind:'boss_spawn', ts: Date.now(), hp, seed:S.seed });
+    logEvent('spawn', { targetId: t.id, emoji: bEmoji, itemType:'boss' }, { kind:'boss', hp, hpMax: S.bossHpMax, seed:S.seed });
   }
 
   function bossTakeHit(n=1) {
     if (!S.bossAlive) return;
     S.bossHp = Math.max(0, S.bossHp - (Number(n)||0));
-    emitEvt('hha:log_event', { kind:'boss_hit', ts: Date.now(), hp: S.bossHp, hpMax: S.bossHpMax });
+
+    logEvent('hit',
+      { targetId: null, emoji:'😈', itemType:'boss', judgment:'HIT', isGood: 1 },
+      { kind:'boss', hp: S.bossHp, hpMax: S.bossHpMax }
+    );
 
     const jitter = (diff === 'hard') ? 120 : (diff === 'easy' ? 70 : 95);
     for (const t of targets.values()) {
@@ -960,7 +1089,7 @@ export function boot(opts = {}) {
 
       Particles.celebrate?.('BOSS');
       coach('บอสแตกแล้ว! เก่งมาก 🔥', 'happy', 'กลับไปเก็บของดีต่อเลย!');
-      emitEvt('hha:log_event', { kind:'boss_down', ts: Date.now() });
+      logEvent('event', { itemType:'boss', judgment:'DOWN' }, { kind:'boss_down' });
 
       Q.addMiniProgress(1);
     }
@@ -968,16 +1097,26 @@ export function boot(opts = {}) {
 
   function hazardDamage(kind='hazard') {
     if (S.shield > 0) {
+      S.bossHazardGuard += 1;
       coach('โล่กันไว้! ปลอดภัย 🛡️', 'happy', 'รีบเก็บของดีต่อ!');
-      emitEvt('hha:log_event', { kind:'hazard_block', ts: Date.now(), hazard: kind });
+      logEvent('shield_block',
+        { itemType:'hazard', emoji:'🛡️', judgment:'BLOCK', isGood: 0 },
+        { kind:'hazard', hazard: kind }
+      );
       return;
     }
-    S.misses += 1;
+
+    // ✅ standard: hazard does NOT count as "miss" (miss = expire good + hit junk)
+    S.bossHazardHit += 1;
     S.combo = 0;
     setFever(S.fever - 14);
     stun('hazard');
     emitScore();
-    emitEvt('hha:log_event', { kind:'hazard_hit', ts: Date.now(), hazard: kind });
+
+    logEvent('hit',
+      { itemType:'hazard', judgment:'HIT', isGood: 0 },
+      { kind:'hazard', hazard: kind }
+    );
   }
 
   function tickBossHazards(dtMs) {
@@ -985,7 +1124,7 @@ export function boot(opts = {}) {
 
     bossHazardAccMs += dtMs;
 
-    // Ring (deterministic)
+    // Ring (deterministic cadence)
     if (ringState.phase === 'idle' && bossHazardAccMs > 2500) {
       bossHazardAccMs = 0;
       ringState.phase = 'warn';
@@ -994,49 +1133,74 @@ export function boot(opts = {}) {
       ringState.gapSize = RNG.rndi(70, 110);
       setRingGap(ringState.gapStart, ringState.gapSize);
       showRing(true);
-      emitEvt('hha:log_event', { kind:'ring_warn', ts: Date.now(), gapStart:ringState.gapStart, gapSize:ringState.gapSize });
+
+      logEvent('event',
+        { itemType:'hazard', emoji:'⭕', judgment:'WARN' },
+        { kind:'ring_warn', gapStart:ringState.gapStart, gapSize:ringState.gapSize }
+      );
     } else if (ringState.phase === 'warn') {
       if ((nowMs() - ringState.t0) > 650) {
         ringState.phase = 'fire';
         ringState.fireAt = nowMs();
-        emitEvt('hha:log_event', { kind:'ring_fire', ts: Date.now() });
+
+        logEvent('event',
+          { itemType:'hazard', emoji:'⭕', judgment:'FIRE' },
+          { kind:'ring_fire' }
+        );
       }
     } else if (ringState.phase === 'fire') {
       if ((nowMs() - ringState.fireAt) > 800) {
         ringState.phase = 'idle';
         showRing(false);
-        // ✅ dodgeable: hit only if NOT in gap
+
         if (ringWouldHit()) hazardDamage('ring');
-        else emitEvt('hha:log_event', { kind:'ring_dodge', ts: Date.now() });
+        else {
+          S.ringDodge += 1;
+          logEvent('event',
+            { itemType:'hazard', emoji:'⭕', judgment:'DODGE' },
+            { kind:'ring_dodge' }
+          );
+        }
       }
     }
 
     // Laser (deterministic chance)
-    const pLaser = 0.11; // per second-ish
+    const pLaser = 0.11;
     if (laserState.phase === 'idle' && RNG.random() < (dtMs / 1000) * pLaser) {
       laserState.phase = 'warn';
       laserState.warnAt = nowMs();
-
-      // choose world y inside safe
       const y = RNG.rnd(safeMargins.top + 80, innerHeight - safeMargins.bottom - 80);
       laserState.yWorld = y;
-
       laserClass('warn');
-      emitEvt('hha:log_event', { kind:'laser_warn', ts: Date.now(), y: Math.round(y) });
+
+      logEvent('event',
+        { itemType:'hazard', emoji:'⚡', judgment:'WARN' },
+        { kind:'laser_warn', y: Math.round(y) }
+      );
     } else if (laserState.phase === 'warn') {
       if ((nowMs() - laserState.warnAt) > 450) {
         laserState.phase = 'fire';
         laserState.fireAt = nowMs();
         laserClass('fire');
-        emitEvt('hha:log_event', { kind:'laser_fire', ts: Date.now() });
+
+        logEvent('event',
+          { itemType:'hazard', emoji:'⚡', judgment:'FIRE' },
+          { kind:'laser_fire' }
+        );
       }
     } else if (laserState.phase === 'fire') {
       if ((nowMs() - laserState.fireAt) > 520) {
         laserState.phase = 'idle';
         laserClass(null);
-        // ✅ dodgeable: hit only if crossing the line
+
         if (laserWouldHit()) hazardDamage('laser');
-        else emitEvt('hha:log_event', { kind:'laser_dodge', ts: Date.now() });
+        else {
+          S.laserDodge += 1;
+          logEvent('event',
+            { itemType:'hazard', emoji:'⚡', judgment:'DODGE' },
+            { kind:'laser_dodge' }
+          );
+        }
         laserState.yWorld = null;
       }
     }
@@ -1063,7 +1227,9 @@ export function boot(opts = {}) {
         S._celebratedAll = true;
         Particles.celebrate?.('ALL');
         emitEvt('hha:celebrate', { type:'ALL', ts: Date.now() });
-        coach('ครบทุกภารกิจแล้ว! 🔥 เข้า BONUS ได้เลย', 'happy', (endPolicy==='all' && run==='play') ? 'กำลังจบเกมแบบ All Complete' : 'เล่นต่อเพื่อเก็บคะแนนเพิ่มได้');
+        coach('ครบทุกภารกิจแล้ว! 🔥 เข้า BONUS ได้เลย', 'happy',
+          (endPolicy==='all' && run==='play') ? 'กำลังจบเกมแบบ All Complete' : 'เล่นต่อเพื่อเก็บคะแนนเพิ่มได้'
+        );
       }
     }
   });
@@ -1123,6 +1289,7 @@ export function boot(opts = {}) {
       S.comboMax = Math.max(S.comboMax, S.combo);
       setFever(S.fever + 5);
       Particles.burstAt?.(t.xView, t.yView, 'BOSS');
+
       bossTakeHit(1);
       removeTarget(t.id);
 
@@ -1171,7 +1338,18 @@ export function boot(opts = {}) {
       if (mDone) { Particles.celebrate?.('MINI'); coach('Mini ผ่าน! สุดจัด ⚡', 'happy', 'ต่ออีกอันเลย!'); Q.nextMini(); }
       else { if (S.combo % 7 === 0) coach('คอมโบมาแล้ว! ดีมาก 🔥', 'happy', 'รักษาจังหวะ!'); }
 
-      emitEvt('hha:log_event', { kind:'hit_good', ts: Date.now(), rtMs: Math.round(rt), direct: !!meta.direct, magnet: (S.magnet>0?1:0) });
+      logEvent('hit',
+        {
+          targetId: t.id,
+          emoji: t.emoji,
+          itemType: 'good',
+          rtMs: Math.round(rt),
+          judgment: 'HIT',
+          isGood: 1
+        },
+        { kind:'good', direct: !!meta.direct, magnet: (S.magnet>0?1:0) }
+      );
+
       emitScore();
       return;
     }
@@ -1184,7 +1362,12 @@ export function boot(opts = {}) {
       setFever(S.fever + 10);
       Particles.celebrate?.('GOLD');
       coach('เจอของพิเศษ! คะแนนพุ่ง ⭐', 'happy', 'รักษาคอมโบ!');
-      emitEvt('hha:log_event', { kind:'hit_gold', ts: Date.now(), magnet:(S.magnet>0?1:0) });
+
+      logEvent('hit',
+        { targetId: t.id, emoji: t.emoji, itemType:'gold', rtMs: null, judgment:'HIT', isGood: 1 },
+        { kind:'gold', magnet:(S.magnet>0?1:0) }
+      );
+
       emitScore();
       return;
     }
@@ -1202,7 +1385,15 @@ export function boot(opts = {}) {
         coach('พลังแม่เหล็ก! 🧲 ของดีจะไหลเข้าศูนย์กลาง', 'happy', 'ขยะจะโดนผลักออกด้วย!');
         Particles.celebrate?.('POWER');
       }
-      emitEvt('hha:log_event', { kind:'hit_power', ts: Date.now(), power: tag });
+
+      // kind for counters: shield|diamond|star
+      const k = (tag === 'shield') ? 'shield' : (tag === 'time' ? 'diamond' : 'star');
+
+      logEvent('hit',
+        { targetId: t.id, emoji: t.emoji, itemType:'power', rtMs: null, judgment:'HIT', isGood: 1 },
+        { kind: k, power: tag }
+      );
+
       emitScore();
       return;
     }
@@ -1211,18 +1402,28 @@ export function boot(opts = {}) {
       if (S.shield > 0) {
         S.nHitJunkGuard += 1;
         coach('โล่กันไว้! ไม่พลาด 🛡️', 'happy', 'ดีมาก!');
-        emitEvt('hha:log_event', { kind:'hit_junk_guard', ts: Date.now(), type: t.type });
+
+        logEvent('shield_block',
+          { targetId: t.id, emoji: t.emoji, itemType: t.type, rtMs: null, judgment:'BLOCK', isGood: 0 },
+          { kind:'junk', blocked: 1, type: t.type }
+        );
+
         emitScore();
         return;
       }
 
+      // ✅ miss: junk hit
       S.nHitJunk += 1;
       S.misses += 1;
       S.combo = 0;
       setFever(S.fever - 18);
       stun('junk');
       Particles.burstAt?.(t.xView, t.yView, 'JUNK');
-      emitEvt('hha:log_event', { kind:'hit_junk', ts: Date.now(), type: t.type });
+
+      logEvent('hit',
+        { targetId: t.id, emoji: t.emoji, itemType: t.type, rtMs: null, judgment:'HIT', isGood: 0 },
+        { kind:'junk', type: t.type }
+      );
 
       Q.onJunkHit();
       emitScore();
@@ -1234,7 +1435,7 @@ export function boot(opts = {}) {
     if (!canAct()) return;
     const radius = (S.magnet > 0) ? MAGNET.lockRadius : 120;
     const t = nearestTargetToAim(radius);
-    if (!t) { emitEvt('hha:log_event', { kind:'shoot_empty', ts: Date.now() }); return; }
+    if (!t) { logEvent('event', { itemType:'shoot', judgment:'EMPTY' }, { kind:'shoot_empty' }); return; }
     tryHitTarget(t.id, { direct: false });
   }
 
@@ -1280,9 +1481,9 @@ export function boot(opts = {}) {
   function spawnOne() {
     const cfg = spawnConfig();
     const { x, y } = randomSafeXY();
-
     const r = RNG.random();
 
+    // power
     if (r < cfg.powerChance) {
       const pr = RNG.random();
       let tag = 'magnet', emoji = '🧲';
@@ -1290,35 +1491,59 @@ export function boot(opts = {}) {
       else if (pr < 0.62) { tag = 'magnet'; emoji = '🧲'; }
       else { tag = 'time'; emoji = '⏳'; }
 
-      makeTarget('power', emoji, x, y, cfg.ttl + 0.5, { tag });
+      const t = makeTarget('power', emoji, x, y, cfg.ttl + 0.5, { tag });
+
+      // local counters
       S.nTargetShieldSpawned += (tag === 'shield') ? 1 : 0;
       S.nTargetDiamondSpawned += (tag === 'time') ? 1 : 0;
       S.nTargetStarSpawned += (tag === 'magnet') ? 1 : 0;
 
-      emitEvt('hha:log_event', { kind:'spawn_power', ts: Date.now(), power: tag });
+      // logger counter kind: shield|diamond|star
+      const k = (tag === 'shield') ? 'shield' : (tag === 'time' ? 'diamond' : 'star');
+
+      logEvent('spawn',
+        { targetId: t.id, emoji, itemType:'power', judgment:'SPAWN' },
+        { kind: k, power: tag }
+      );
       return;
     }
 
+    // gold
     if (r < cfg.powerChance + cfg.goldChance) {
       const emoji = (RNG.random() < 0.55) ? '⭐' : '💎';
-      makeTarget('gold', emoji, x, y, cfg.ttl + 0.8, {});
-      emitEvt('hha:log_event', { kind:'spawn_gold', ts: Date.now() });
+      const t = makeTarget('gold', emoji, x, y, cfg.ttl + 0.8, {});
+      logEvent('spawn',
+        { targetId: t.id, emoji, itemType:'gold', judgment:'SPAWN', isGood: 1 },
+        { kind:'gold' }
+      );
       return;
     }
 
+    // junk/trap
     const junk = (RNG.random() < cfg.junkRatio);
     if (junk) {
       const isTrap = (RNG.random() < 0.22);
       const emoji = isTrap ? RNG.pick(EMOJI_TRAP) : RNG.pick(EMOJI_JUNK);
-      makeTarget(isTrap ? 'trap' : 'junk', emoji, x, y, cfg.ttl, {});
+      const t = makeTarget(isTrap ? 'trap' : 'junk', emoji, x, y, cfg.ttl, {});
       S.nTargetJunkSpawned += 1;
-      emitEvt('hha:log_event', { kind:'spawn_junk', ts: Date.now(), trap: isTrap ? 1 : 0 });
+
+      // ✅ count as junk spawn in logger
+      logEvent('spawn',
+        { targetId: t.id, emoji, itemType: isTrap ? 'trap' : 'junk', judgment:'SPAWN', isGood: 0 },
+        { kind:'junk', trap: isTrap ? 1 : 0 }
+      );
       return;
     }
 
-    makeTarget('good', RNG.pick(EMOJI_GOOD), x, y, cfg.ttl, {});
+    // good
+    const g = RNG.pick(EMOJI_GOOD);
+    const t = makeTarget('good', g, x, y, cfg.ttl, {});
     S.nTargetGoodSpawned += 1;
-    emitEvt('hha:log_event', { kind:'spawn_good', ts: Date.now() });
+
+    logEvent('spawn',
+      { targetId: t.id, emoji: g, itemType:'good', judgment:'SPAWN', isGood: 1 },
+      { kind:'good' }
+    );
   }
 
   function computeStatsFinal() {
@@ -1331,6 +1556,9 @@ export function boot(opts = {}) {
 
     return { accuracyGoodPct, avgRtGoodMs: avgRt, medianRtGoodMs: medianRt };
   }
+
+  // ---------------- End ----------------
+  let ended = false;
 
   function endGame(reason = 'time') {
     if (ended) return;
@@ -1349,6 +1577,17 @@ export function boot(opts = {}) {
 
     const stats = computeStatsFinal();
     S.grade = computeGrade(stats, true);
+
+    // optional boss pack for session sheet (cloud logger will FORCE bossJson)
+    const bossObj = {
+      seed: S.seed,
+      bossSpawned: !!S.bossSpawned,
+      bossHpMax: S.bossHpMax,
+      bossHazardHit: S.bossHazardHit,
+      bossHazardGuard: S.bossHazardGuard,
+      ringDodge: S.ringDodge,
+      laserDodge: S.laserDodge
+    };
 
     const payload = {
       timestampIso: endIso,
@@ -1398,8 +1637,11 @@ export function boot(opts = {}) {
 
       grade: S.grade,
 
+      // keep as string for sheet safety
+      bossJson: JSON.stringify(bossObj),
+
       device: (navigator.userAgent || 'unknown'),
-      gameVersion: (context.gameVersion || 'safe-final-pack'),
+      gameVersion: (context.gameVersion || 'goodjunk.safe-final-pack'),
 
       reason,
       startTimeIso: S.startedAtIso,
@@ -1411,12 +1653,15 @@ export function boot(opts = {}) {
     emitEvt('hha:log_session', { phase: 'end', ts: Date.now(), ...payload });
     emitEvt('hha:end', payload);
 
+    saveLastSummary(payload);
+    showEndSummary(payload);
+    try { ROOT.HHACloudLogger?.flushNow?.(); } catch(_) {}
+
     coach(`จบเกม! เกรด ${S.grade} 🎉`, 'happy', `Accuracy ${stats.accuracyGoodPct}% • Miss ${S.misses} • ComboMax ${S.comboMax}`);
   }
 
   // ---------------- Main loop ----------------
   let rafId = 0;
-  let ended = false;
 
   function update(dtMs) {
     S.timeLeftSec = Math.max(0, S.timeLeftSec - (dtMs / 1000));
@@ -1465,11 +1710,17 @@ export function boot(opts = {}) {
 
       if (tNow >= t.expireMs) {
         if (t.type === 'good') {
+          // ✅ miss: good expired
           S.nExpireGood += 1;
           S.misses += 1;
           S.combo = 0;
           setFever(S.fever - 12);
-          emitEvt('hha:log_event', { kind:'expire_good', ts: Date.now() });
+
+          logEvent('miss_expire',
+            { targetId: t.id, emoji: t.emoji, itemType:'good', rtMs: null, judgment:'EXPIRE', isGood: 1 },
+            { kind:'good' }
+          );
+
           emitScore();
         }
         removeTarget(id);
@@ -1477,9 +1728,9 @@ export function boot(opts = {}) {
     }
 
     tickBossHazards(dtMs);
-    updateHazardTransforms(); // ✅ keep hazards aligned to world shift
+    updateHazardTransforms();
     emitTime();
-    emitScore(); // ✅ keep grade fresh + HUD fresh
+    emitScore();
 
     // ✅ End policy
     if (run === 'play' && endPolicy === 'all'){
