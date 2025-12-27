@@ -1,14 +1,21 @@
 // === /herohealth/hydration-vr/hydration.quest.js ===
-// Hydration Quest — Goals sequential + Minis chain (PRODUCTION)
+// Hydration Quest — Goals sequential + Minis chain (PRODUCTION) — PATCHED
 // Emits:
-// - onUpdate({goalTitle, miniTitle, goalsCleared, goalsTotal, miniCleared, miniTotal, goalProg, miniProg})
+// - onUpdate(payload)  -> now includes BOTH (old fields) + (quest:update friendly fields)
 // - onCelebrate(kind:'goal'|'mini', payload)
+//
+// ✅ Add: tick(nowSec?) for timer minis (call each second from engine)
+// ✅ Make timer minis deterministic even if Date.now jitter
+// ✅ Provide quest:update fields: title, line1..line4, goalText, goalProgress, miniText, stateText
 
 'use strict';
 
 export function createHydrationQuest(opts = {}){
   const onUpdate = typeof opts.onUpdate === 'function' ? opts.onUpdate : ()=>{};
   const onCelebrate = typeof opts.onCelebrate === 'function' ? opts.onCelebrate : ()=>{};
+
+  // optional: allow external clock (sec) for deterministic research mode
+  const useExternalClock = !!opts.useExternalClock;
 
   const goals = [
     { title:'เก็บน้ำดี 12 ครั้ง', need:12, kind:'good' },
@@ -33,38 +40,67 @@ export function createHydrationQuest(opts = {}){
     goalsCleared: 0,
     minisCleared: 0,
 
-    // runtime counters
     curGoalCount: 0,
     curMiniCount: 0,
 
-    // state
     combo: 0,
     noJunkUntil: 0,
     rushUntil: 0,
     rushStart: 0,
-    streakPerfect: 0
+    streakPerfect: 0,
+
+    // tick clock
+    lastTickSec: 0,
+    startedAtSec: 0,
   };
 
-  function activeGoal(){
-    return Q.goalsAll[Q.goalIndex] || null;
-  }
-  function activeMini(){
-    return Q.minisAll[Q.miniIndex] || null;
-  }
+  function activeGoal(){ return Q.goalsAll[Q.goalIndex] || null; }
+  function activeMini(){ return Q.minisAll[Q.miniIndex] || null; }
 
-  function emit(){
+  function buildCompatPayload(){
     const g = activeGoal();
     const m = activeMini();
-    onUpdate({
-      goalTitle: g ? g.title : 'ALL CLEAR',
-      miniTitle: m ? m.title : '—',
+
+    const goalTitle = g ? g.title : 'ALL CLEAR';
+    const miniTitle = m ? m.title : '—';
+
+    const goalProg = g ? `${Q.curGoalCount}/${g.need}` : `—`;
+    const miniProg = m ? `${Q.curMiniCount}/${m.need}` : `—`;
+
+    // quest:update friendly (line1..line4)
+    const title = `Hydration Quest`;
+    const line1 = g ? `Goal: ${g.title}` : `Goal: ALL CLEAR ✅`;
+    const line2 = g ? `Progress: ${goalProg}` : `Progress: —`;
+    const line3 = m ? `Mini: ${m.title}` : `Mini: —`;
+    const line4 = m ? `State: ${miniProg}` : `State: —`;
+
+    return {
+      // original fields
+      goalTitle,
+      miniTitle,
       goalsCleared: Q.goalsCleared,
       goalsTotal: Q.goalsAll.length,
       minisCleared: Q.minisCleared,
       miniTotal: Q.minisAll.length,
-      goalProg: g ? `${Q.curGoalCount}/${g.need}` : `—`,
-      miniProg: m ? `${Q.curMiniCount}/${m.need}` : `—`,
-    });
+      goalProg,
+      miniProg,
+
+      // compatibility fields for your HUD binder / cache system
+      title,
+      line1,
+      line2,
+      line3,
+      line4,
+
+      goalText: line1,
+      goalProgress: goalProg,
+      miniText: line3,
+      stateText: line4,
+    };
+  }
+
+  function emit(){
+    onUpdate(buildCompatPayload());
   }
 
   function clearGoal(){
@@ -84,7 +120,7 @@ export function createHydrationQuest(opts = {}){
     Q.miniIndex++;
     Q.curMiniCount = 0;
 
-    // reset some mini state
+    // reset mini state
     Q.rushUntil = 0;
     Q.noJunkUntil = 0;
     Q.streakPerfect = 0;
@@ -93,13 +129,23 @@ export function createHydrationQuest(opts = {}){
     emit();
   }
 
-  function tickTimers(){
-    const t = Date.now()/1000;
+  // ✅ tick with stable clock
+  function tick(nowSec){
     const m = activeMini();
     if (!m) return;
 
+    const t = (useExternalClock && Number.isFinite(nowSec))
+      ? Number(nowSec)
+      : (Date.now()/1000);
+
+    if (!Q.startedAtSec) Q.startedAtSec = t;
+    if (!Q.lastTickSec) Q.lastTickSec = t;
+
+    // guard
+    if (t < Q.lastTickSec) Q.lastTickSec = t;
+    Q.lastTickSec = t;
+
     if (m.kind === 'timerNoJunk'){
-      // progress only while timer active
       if (Q.noJunkUntil > 0){
         const left = Math.max(0, Q.noJunkUntil - t);
         Q.curMiniCount = Math.round((m.need - left));
@@ -121,12 +167,12 @@ export function createHydrationQuest(opts = {}){
   }
 
   function onHit(ev){
-    // ev: {kind:'good'|'junk'|'power', good:boolean, perfect:boolean}
+    // ev: {kind:'good'|'junk'|'power', perfect:boolean}
     const g = activeGoal();
     const m = activeMini();
     const now = Date.now()/1000;
 
-    // goal update
+    // ----- goals -----
     if (g){
       if (g.kind === 'good' && ev.kind === 'good'){
         Q.curGoalCount++;
@@ -136,12 +182,10 @@ export function createHydrationQuest(opts = {}){
         Q.curGoalCount++;
         if (Q.curGoalCount >= g.need) clearGoal(); else emit();
       }
-      if (g.kind === 'combo'){
-        // combo handled externally via setCombo
-      }
+      // combo handled via setCombo
     }
 
-    // mini update
+    // ----- minis -----
     if (m){
       if (m.kind === 'timerNoJunk'){
         // start timer when first good hit
@@ -177,17 +221,12 @@ export function createHydrationQuest(opts = {}){
         }
       }
 
-      if (m.kind === 'shieldBlock'){
-        // will be triggered via onSpecial('shieldBlock')
-      }
-
       if (m.kind === 'streakPerfect'){
         if (ev.perfect){
           Q.streakPerfect++;
           Q.curMiniCount = Q.streakPerfect;
           if (Q.curMiniCount >= m.need) clearMini(); else emit();
         } else if (ev.kind === 'good'){
-          // good but not perfect breaks streak
           Q.streakPerfect = 0;
           Q.curMiniCount = 0;
           emit();
@@ -198,13 +237,12 @@ export function createHydrationQuest(opts = {}){
           emit();
         }
       }
-
-      if (m.kind === 'combo'){
-        // combo handled via setCombo
-      }
+      // shieldBlock handled via onSpecial
+      // combo handled via setCombo
     }
 
-    tickTimers();
+    // keep timers updated
+    tick();
   }
 
   function onSpecial(name){
@@ -245,8 +283,9 @@ export function createHydrationQuest(opts = {}){
     get minisCleared(){ return Q.minisCleared; },
     get miniTotal(){ return Q.minisAll.length; },
 
+    tick,
     onHit,
     onSpecial,
-    setCombo
+    setCombo,
   };
 }
