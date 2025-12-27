@@ -1,11 +1,9 @@
-// === /herohealth/vr-groups/groups.safe.js ===
-// Boot wrapper for Groups VR (PRODUCTION)
-// IIFE -> window.GroupsBoot.start(mode, {diff,time,seed}) / stop()
-// ✅ Guards double-start
-// ✅ URL autostart: ?diff=easy&time=70&run=play&seed=xxx
-// ✅ Passes layer/camera refs into GameEngine
-// ✅ Emits stable flags: window.__FG_STARTED__
-// ✅ Safe stop via hha:stop event
+/* === /herohealth/vr-groups/groups.safe.js ===
+GroupsBoot — PRODUCTION
+- window.GroupsBoot.start(runMode, {diff,time,seed})
+- window.GroupsBoot.stop(reason)
+- URL autostart only when ?autostart=1 AND ?run=play|research
+*/
 
 (function () {
   'use strict';
@@ -23,16 +21,19 @@
   function parseParams() {
     let sp;
     try { sp = new URLSearchParams(location.search); } catch { sp = new URLSearchParams(''); }
+
     const diff = String(sp.get('diff') || 'normal').toLowerCase();
-    const run = String(sp.get('run') || sp.get('mode') || '').toLowerCase();
-    const time = parseInt(sp.get('time') || '70', 10);
+    const run  = String(sp.get('run') || sp.get('mode') || '').toLowerCase();
+    const time = parseInt(sp.get('time') || '90', 10);
     const seed = String(sp.get('seed') || '').trim();
+    const autostart = String(sp.get('autostart') || '0');
 
     return {
       diff: (['easy','normal','hard'].includes(diff) ? diff : 'normal'),
-      run: (run === 'research' ? 'research' : (run === 'play' ? 'play' : '')),
-      time: (Number.isFinite(time) ? Math.max(20, Math.min(600, time|0)) : 70),
-      seed
+      run:  (run === 'research' ? 'research' : (run === 'play' ? 'play' : '')),
+      time: (Number.isFinite(time) ? Math.max(20, Math.min(600, time|0)) : 90),
+      seed,
+      autostart
     };
   }
 
@@ -53,17 +54,18 @@
 
     const runMode = String(mode || opts.runMode || 'play').toLowerCase() === 'research' ? 'research' : 'play';
     const diff = String(opts.diff || 'normal').toLowerCase();
-    const time = Number.isFinite(opts.time) ? (opts.time|0) : parseInt(opts.time || '70', 10) || 70;
+    const time = Number.isFinite(opts.time) ? (opts.time|0) : parseInt(opts.time || '90', 10) || 90;
     const seed = String(opts.seed || '').trim();
 
     bindRefs(eng);
     if (eng.setTimeLeft) eng.setTimeLeft(time);
-    if (eng.setGaze) eng.setGaze(true);
 
     started = true;
     ROOT.__FG_STARTED__ = true;
 
-    try { eng.start(diff, { runMode, seed }); } catch (e) {
+    try {
+      eng.start(diff, { runMode, seed });
+    } catch (e) {
       console.error('[GroupsBoot] start failed', e);
       started = false;
       ROOT.__FG_STARTED__ = false;
@@ -81,9 +83,10 @@
   function onStop() { Boot.stop('hha_stop'); }
   ROOT.addEventListener('hha:stop', onStop);
 
-  // autostart from URL (after defer scripts settle)
+  // autostart (ONLY if autostart=1)
   (function autostart() {
     const p = parseParams();
+    if (p.autostart !== '1') return;
     if (!p.run) return;
 
     let tries = 0;
