@@ -141,6 +141,7 @@ const HUD = {
   btnRestart: $('btnRestart'),
   resultBackdrop: $('resultBackdrop'),
   btnPlayAgain: $('btnPlayAgain'),
+  btnBackHub: $('btnBackHub'),
 
   // start overlay
   startOverlay: $('startOverlay'),
@@ -223,6 +224,7 @@ const S = {
 
   sessionId:`PLATE-${Date.now()}-${Math.random().toString(16).slice(2)}`,
 
+  // ✅ กัน bind ซ้ำ / กัน boot ซ้ำ
   booted:false
 };
 
@@ -1398,7 +1400,35 @@ function bindShootHotkeys(){
   }
 }
 
+function buildHubUrl(){
+  const hubParam = Q.get('hub');
+  const base = hubParam
+    ? new URL(hubParam, ROOT.location.href)
+    : new URL('./hub.html', ROOT.location.href);
+
+  // พก context เดิมกลับไป (ตัด time/ts กัน hub สับสน)
+  for (const [k, v] of Q.entries()){
+    if (!v) continue;
+    if (k === 'time' || k === 'ts') continue;
+    base.searchParams.set(k, v);
+  }
+
+  base.searchParams.set('from', 'plate');
+  base.searchParams.set('lastSessionId', S.sessionId);
+  return base.toString();
+}
+
+function goHub(){
+  const url = buildHubUrl();
+  try { ROOT.location.href = url; }
+  catch(_) { ROOT.location.assign(url); }
+}
+
 function bindUI(){
+  // ✅ กัน bind ซ้ำ (สำคัญมาก ถ้า restart/boot เรียกซ้ำ)
+  if(S.booted) return;
+  S.booted = true;
+
   layer.addEventListener('pointerdown', onGlobalPointerDown, {passive:false});
   layer.addEventListener('touchstart', onGlobalPointerDown, {passive:false});
   layer.addEventListener('click', onGlobalPointerDown, {passive:false});
@@ -1407,6 +1437,9 @@ function bindUI(){
   HUD.btnPause && HUD.btnPause.addEventListener('click', ()=>{ if(!S.running) return; setPaused(!S.paused); });
   HUD.btnRestart && HUD.btnRestart.addEventListener('click', ()=>restart());
   HUD.btnPlayAgain && HUD.btnPlayAgain.addEventListener('click', ()=>{ setShow(HUD.resultBackdrop,false); restart(); });
+
+  // ✅ NEW: กลับหน้า HUB
+  HUD.btnBackHub && HUD.btnBackHub.addEventListener('click', ()=>goHub());
 
   HUD.resultBackdrop && HUD.resultBackdrop.addEventListener('click',(e)=>{
     if(e.target === HUD.resultBackdrop) setShow(HUD.resultBackdrop,false);
