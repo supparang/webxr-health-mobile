@@ -1,6 +1,8 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR — FULL HTML (CINEMATIC + FAB + SHEET + CARDBOARD + SAFE LOADER)
-NOTE: ไม่แก้ hydration.safe.js
+HydrationVR — PRODUCTION (HTML-ONLY CINEMATIC PATCH)
+✅ End-window cinematic: vignette + scanlines + RGB split + flash sync tick + tick accel
+✅ Uses ONLY sounds: beep + tick + thunder (soft thunder is still thunder)
+✅ No changes to hydration.safe.js
 -->
 
 <!doctype html>
@@ -13,6 +15,7 @@ NOTE: ไม่แก้ hydration.safe.js
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
@@ -39,8 +42,9 @@ NOTE: ไม่แก้ hydration.safe.js
       /* storm warn amp (0..1) */
       --warnamp: 0;
 
-      /* FAB badge */
-      --badge: 0;
+      /* ===== CINEMATIC end-window vars ===== */
+      --endamp: 0;      /* 0..1 */
+      --endflash: 0;    /* 0..1 */
     }
 
     html,body{
@@ -237,7 +241,7 @@ NOTE: ไม่แก้ hydration.safe.js
       z-index:50;
     }
     .startCard{
-      width:min(560px, calc(100% - 24px));
+      width:min(520px, calc(100% - 24px));
       background: rgba(2,6,23,.88);
       border:1px solid rgba(148,163,184,.18);
       border-radius: 20px;
@@ -300,7 +304,7 @@ NOTE: ไม่แก้ hydration.safe.js
       z-index:60;
     }
     .endCard{
-      width:min(560px, calc(100% - 24px));
+      width:min(520px, calc(100% - 24px));
       background: rgba(2,6,23,.90);
       border:1px solid rgba(148,163,184,.18);
       border-radius: 20px;
@@ -319,216 +323,77 @@ NOTE: ไม่แก้ hydration.safe.js
     .endItem .k{ font-size:11px; color:var(--muted); font-weight:950; }
     .endItem .v{ margin-top:4px; font-size:16px; }
 
-    /* -------------------- ✅ CINEMATIC FAB + BADGE -------------------- */
-    .fab{
-      position: fixed;
-      right: 14px;
-      bottom: calc(var(--sab) + 14px);
-      z-index: 70;
-      pointer-events: auto;
-      width: 56px; height: 56px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.72);
-      color: var(--text);
-      box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(148,163,184,.08) inset;
-      backdrop-filter: blur(10px);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      transform: translateZ(0);
-      transition: transform .12s ease, filter .12s ease;
-    }
-    .fab:active{ transform: scale(.96); }
+    /* =========================================================
+       ===== CINEMATIC END-WINDOW FX (HTML-only / no safe.js) ====
+       ========================================================= */
 
-    .fab .ico{ font-size: 22px; filter: drop-shadow(0 10px 20px rgba(0,0,0,.35)); }
-
-    .fabBadge{
-      position:absolute;
-      top: -7px;
-      right: -7px;
-      min-width: 24px;
-      height: 24px;
-      padding: 0 7px;
-      border-radius: 999px;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      font-size: 12px;
-      font-weight: 1100;
-      letter-spacing: .2px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.85);
-      box-shadow: 0 18px 60px rgba(0,0,0,.55);
-      transform: translateZ(0);
-    }
-    body.fab-badge .fabBadge{ display:inline-flex; }
-
-    /* pulse states */
-    body.fab-warn .fab{
-      animation: fabWarnPulse .14s ease-in-out infinite;
-      filter: saturate(1.15) brightness(1.05);
-    }
-    @keyframes fabWarnPulse{
-      0%{ transform: scale(1); box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(239,68,68,.18) inset; }
-      50%{ transform: scale(1.05); box-shadow: 0 24px 90px rgba(0,0,0,.62), 0 0 0 2px rgba(239,68,68,.26) inset, 0 0 40px rgba(239,68,68,.15); }
-      100%{ transform: scale(1); box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(239,68,68,.18) inset; }
-    }
-
-    body.fab-storm .fab{
-      animation: fabStormPulse .12s ease-in-out infinite;
-      filter: saturate(1.20) brightness(1.10);
-    }
-    @keyframes fabStormPulse{
-      0%{ transform: scale(1); box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(167,139,250,.22) inset; }
-      50%{ transform: scale(1.06); box-shadow: 0 24px 95px rgba(0,0,0,.65), 0 0 0 2px rgba(167,139,250,.30) inset, 0 0 46px rgba(167,139,250,.16); }
-      100%{ transform: scale(1); box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(167,139,250,.22) inset; }
-    }
-
-    /* badge levels: 4+ calm, 3 yellow, 2 orange, 1 red, NOW magenta */
-    .fabBadge[data-level="4"]{ background: rgba(15,23,42,.85); color: rgba(226,232,240,.95); }
-    .fabBadge[data-level="3"]{ background: rgba(245,158,11,.22); border-color: rgba(245,158,11,.30); color: rgba(255,255,255,.98); }
-    .fabBadge[data-level="2"]{ background: rgba(249,115,22,.24); border-color: rgba(249,115,22,.32); color: rgba(255,255,255,.98); }
-    .fabBadge[data-level="1"]{
-      background: rgba(239,68,68,.26);
-      border-color: rgba(239,68,68,.36);
-      color: rgba(255,255,255,.98);
-      animation: badgeRedBlink .12s ease-in-out infinite;
-    }
-    @keyframes badgeRedBlink{
-      0%{ transform: scale(1); filter: brightness(1); }
-      50%{ transform: scale(1.08); filter: brightness(1.35); }
-      100%{ transform: scale(1); filter: brightness(1); }
-    }
-    .fabBadge[data-level="now"]{
-      background: rgba(167,139,250,.30);
-      border-color: rgba(167,139,250,.40);
-      color: rgba(255,255,255,.98);
-      animation: badgeNow .10s ease-in-out infinite;
-    }
-    @keyframes badgeNow{
-      0%{ transform: scale(1); filter: brightness(1); }
-      50%{ transform: scale(1.10); filter: brightness(1.55); }
-      100%{ transform: scale(1); filter: brightness(1); }
-    }
-
-    /* -------------------- ✅ BOTTOM SHEET (Quest/Mini) on mobile -------------------- */
-    @media (max-width: 980px){
-      .hud{ flex-direction:column; align-items:stretch; gap:10px; }
-      .hud .card{ min-width: unset; width: 100%; }
-      .bottom{ align-items:stretch; }
-      .bottom .card{ min-width: unset; width: 100%; }
-      .bottom{
-        flex-direction: column;
-        gap: 10px;
-      }
-    }
-
-    /* sheet behavior: collapse quest card into bottom sheet */
-    .sheetWrap{
-      position: fixed;
-      left: 12px;
-      right: 12px;
-      bottom: calc(var(--sab) + 12px);
-      z-index: 65;
-      pointer-events:none;
-      display:none; /* enabled on small screens by JS */
-    }
-    .sheet{
-      pointer-events:auto;
-      background: rgba(2,6,23,.92);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 20px;
-      box-shadow: 0 28px 100px rgba(0,0,0,.72);
-      backdrop-filter: blur(10px);
-      overflow:hidden;
-      transform: translateY(120%);
-      transition: transform .16s ease;
-      max-height: min(62vh, 520px);
-    }
-    body.sheet-open .sheet{ transform: translateY(0); }
-
-    .sheetTop{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      padding: 10px 12px;
-      border-bottom: 1px solid rgba(148,163,184,.14);
-    }
-    .sheetTop .t{
-      font-weight:1100; letter-spacing:.2px;
-      font-size: 13px;
-    }
-    .sheetTop .sub{
-      font-size: 11px;
-      color: var(--muted);
-      font-weight: 900;
-    }
-    .sheetBody{
-      padding: 10px 10px 12px;
-      overflow:auto;
-      max-height: min(56vh, 480px);
-    }
-
-    /* cardboard assist mode */
-    body.cardboard #playfield{
-      filter: saturate(1.08) contrast(1.06);
-    }
-    body.cardboard .hud, body.cardboard .bottom{
-      opacity: .90;
-    }
-    body.cardboard .card{
-      border-radius: 22px;
-    }
-    body.cardboard .stormWarnBanner .pill{
-      padding: 12px 16px;
-      font-size: 13px;
-    }
-
-    /* simple vignette guide in cardboard */
-    body.cardboard::after{
+    /* scanlines + film noise (End-window only) */
+    body.endwindow::after{
       content:"";
-      position:fixed; inset:-20px;
-      z-index: 15;
+      position:fixed; inset:-26px;
       pointer-events:none;
-      opacity: .18;
+      z-index:27; /* เหนือ warn overlay (26), ใต้ HUD (20) ก็ได้เพราะเป็น fixed */
+      opacity: calc(0.10 + (var(--endamp) * 0.18));
       background:
-        radial-gradient(520px 520px at 50% 50%, rgba(2,6,23,0) 0%, rgba(2,6,23,0.20) 55%, rgba(2,6,23,0.50) 100%);
-      mix-blend-mode: multiply;
+        repeating-linear-gradient(
+          0deg,
+          rgba(255,255,255,0) 0px,
+          rgba(255,255,255,0) 2px,
+          rgba(255,255,255,0.018) 3px
+        ),
+        radial-gradient(900px 680px at 50% 42%,
+          rgba(239,68,68, calc(0.06 + (var(--endflash) * 0.22))) 0%,
+          rgba(239,68,68, calc(0.03 + (var(--endflash) * 0.14))) 22%,
+          rgba(2,6,23,0) 60%),
+        radial-gradient(1200px 920px at 50% 50%,
+          rgba(2,6,23,0) 35%,
+          rgba(2,6,23, calc(0.26 + (var(--endamp) * 0.38))) 78%,
+          rgba(2,6,23, calc(0.44 + (var(--endamp) * 0.40))) 100%);
+      mix-blend-mode: screen;
+      filter: saturate(1.25) contrast(1.10);
+      animation: endVigJitter .10s ease-in-out infinite, endFlicker .18s ease-in-out infinite;
+    }
+    @keyframes endVigJitter{
+      0%{ transform: translate3d(0,0,0); }
+      50%{ transform: translate3d(.6px,-.7px,0); }
+      100%{ transform: translate3d(0,0,0); }
+    }
+    @keyframes endFlicker{
+      0%{ opacity: calc(0.09 + (var(--endamp) * 0.16)); }
+      50%{ opacity: calc(0.14 + (var(--endamp) * 0.22)); }
+      100%{ opacity: calc(0.10 + (var(--endamp) * 0.18)); }
     }
 
-    /* loader error */
-    #loaderErr{
-      position: fixed;
-      inset: 0;
-      z-index: 90;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      background: rgba(2,6,23,.82);
-      backdrop-filter: blur(10px);
-      padding: 16px;
+    /* RGB split + high contrast on playfield (End-window only) */
+    body.endwindow #playfield{
+      outline: 2px dashed rgba(239,68,68,.55);
+      filter:
+        saturate(1.18)
+        contrast(1.18)
+        brightness(calc(1.02 + (var(--endflash) * 0.12)))
+        drop-shadow( 1.25px 0px 0px rgba(239,68,68, calc(0.10 + var(--endamp)*0.18)))
+        drop-shadow(-1.25px 0px 0px rgba(34,211,238, calc(0.08 + var(--endamp)*0.14)));
     }
-    .errCard{
-      width:min(680px, calc(100% - 24px));
-      background: rgba(2,6,23,.92);
-      border:1px solid rgba(239,68,68,.26);
-      border-radius: 20px;
-      padding: 14px;
-      box-shadow: 0 28px 100px rgba(0,0,0,.70);
-      color: var(--text);
+
+    /* End-window shake “แรงขึ้น” แยกจาก fx-shake */
+    body.endwindow #playfield{
+      animation: endShake .085s ease-in-out infinite;
     }
-    .errCard .h{ font-size: 16px; font-weight: 1100; }
-    .errCard pre{
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 12px;
-      margin: 10px 0 0;
-      color: rgba(226,232,240,.95);
-      background: rgba(15,23,42,.55);
-      border: 1px solid rgba(148,163,184,.14);
-      border-radius: 14px;
-      padding: 10px;
+    @keyframes endShake{
+      0%{ transform: translate3d(0,0,0); }
+      25%{ transform: translate3d(1.9px,-2.2px,0); }
+      55%{ transform: translate3d(-1.6px,1.8px,0); }
+      100%{ transform: translate3d(0,0,0); }
+    }
+
+    /* flash class (เสริมให้เห็นชัดเวลาติ๊ก) */
+    body.endflash #playfield{
+      filter:
+        saturate(1.20)
+        contrast(1.22)
+        brightness(1.16)
+        drop-shadow( 1.35px 0px 0px rgba(239,68,68,.22))
+        drop-shadow(-1.35px 0px 0px rgba(34,211,238,.18));
     }
   </style>
 </head>
@@ -537,12 +402,6 @@ NOTE: ไม่แก้ hydration.safe.js
   <div class="stormWarnBanner" aria-hidden="true">
     <div class="pill">⚠️ Storm กำลังมา… เตรียมตัว!</div>
   </div>
-
-  <!-- ✅ FAB (open/close sheet + cinematic badge) -->
-  <button class="fab" id="fab" type="button" aria-label="Open quests">
-    <span class="ico">🌪️</span>
-    <span class="fabBadge" id="fabBadge" data-level="4"></span>
-  </button>
 
   <div class="stage">
     <div class="hud">
@@ -568,8 +427,7 @@ NOTE: ไม่แก้ hydration.safe.js
       <div id="hvr-layer"></div>
     </div>
 
-    <!-- desktop bottom -->
-    <div class="bottom" id="bottomRow">
+    <div class="bottom">
       <div class="card" style="min-width:280px">
         <h3>💧 Water Gauge</h3>
         <div class="row" style="justify-content:space-between">
@@ -581,14 +439,9 @@ NOTE: ไม่แก้ hydration.safe.js
           <div class="stat">Shield <b id="shield-count">0</b></div>
           <div class="stat">Storm <b id="storm-left">0</b> <span class="muted">s</span></div>
         </div>
-
-        <!-- ✅ live debug (ไม่โดน safe.js เขียนทับ) -->
-        <div class="questLine muted" style="margin-top:8px" id="dbg-live">
-          live: —
-        </div>
       </div>
 
-      <div class="card" style="min-width:340px" id="questCard">
+      <div class="card" style="min-width:340px">
         <h3>🧩 Quest</h3>
         <div class="questLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
         <div class="questLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
@@ -621,57 +474,6 @@ NOTE: ไม่แก้ hydration.safe.js
     </div>
   </div>
 
-  <!-- ✅ Bottom sheet for mobile -->
-  <div class="sheetWrap" id="sheetWrap" aria-hidden="false">
-    <div class="sheet" id="sheet">
-      <div class="sheetTop">
-        <div>
-          <div class="t">🧩 Quest / Mini</div>
-          <div class="sub" id="sheetSub">แตะ FAB 🌪️ เพื่อเปิด/ปิด • Badge = เวลาถอยหลัง</div>
-        </div>
-        <button class="btn secondary" id="btnSheetClose" type="button">ปิด</button>
-      </div>
-      <div class="sheetBody" id="sheetBody">
-        <!-- clone questCard content here by JS (no duplicate IDs!) -->
-        <div class="muted" style="font-weight:900;font-size:12px; margin-bottom:8px;">
-          (Mobile Sheet) — ใช้ข้อมูลจากแผงหลักด้านล่าง (ไม่สร้าง ID ซ้ำ)
-        </div>
-
-        <div class="card" style="background:rgba(15,23,42,.35); border-color:rgba(148,163,184,.14); box-shadow:none">
-          <div class="questLine"><span class="tag">Goal</span><span id="sheet-q1">—</span></div>
-          <div class="questLine"><span class="tag">Progress</span><span id="sheet-q2">—</span></div>
-          <div class="questLine"><span class="tag">Mini</span><span id="sheet-q3">—</span></div>
-          <div class="questLine"><span class="tag">State</span><span id="sheet-q4">—</span></div>
-
-          <div class="miniWrap">
-            <div class="miniTitle">
-              <div>🌪️ Storm Mini</div>
-              <div class="right">in <span id="sheet-storm-in">—</span>s • left <span id="sheet-storm-left">—</span>s</div>
-            </div>
-
-            <div class="miniList">
-              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-storm"></span>Storm</div><div class="val" id="sheet-v-storm">—</div></div>
-              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-zone"></span>Zone</div><div class="val" id="sheet-v-zone">—</div></div>
-              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-pressure"></span>Pressure</div><div class="val" id="sheet-v-pressure">—</div></div>
-              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-end"></span>End-window</div><div class="val" id="sheet-v-end">—</div></div>
-              <div class="miniItem"><div class="left"><span class="dot" id="sheet-dot-block"></span>Blocks</div><div class="val" id="sheet-v-block">—</div></div>
-            </div>
-
-            <div class="miniBarWrap">
-              <div class="miniBarLabel">
-                <div>Pressure</div>
-                <div><span id="sheet-pressure-pct">0</span>%</div>
-              </div>
-              <div class="miniBar"><div id="sheet-pressure-bar" style="height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85));transition: width .16s ease; box-shadow:0 0 14px rgba(167,139,250,.18);"></div></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="questLine muted" style="margin-top:10px" id="sheetDbg">—</div>
-      </div>
-    </div>
-  </div>
-
   <div id="hha-stamp" aria-hidden="true">
     <div class="stampBox">
       <div class="stampBig" id="stamp-big">—</div>
@@ -685,12 +487,8 @@ NOTE: ไม่แก้ hydration.safe.js
       <div class="muted" style="margin-top:6px; font-size:12px; font-weight:900">
         Goal: อยู่ใน GREEN ให้ครบ • Mini: Storm Shield Timing (FULL) • แตะกลางจอ = ยิง crosshair
       </div>
-      <div class="muted" style="margin-top:6px; font-size:12px; font-weight:900">
-        ✅ FAB 🌪️: เปิด/ปิด Quest (มือถือ) • Badge: นับถอยหลัง 3→2→1 / NOW
-      </div>
       <div class="btnRow">
         <button class="btn" id="btn-start" type="button">🚀 START</button>
-        <button class="btn secondary" id="btn-cardboard" type="button">🕶 Cardboard</button>
         <button class="btn secondary" id="btn-vr" type="button">🥽 VR</button>
         <button class="btn danger" id="btn-stop" type="button">⛔ STOP</button>
       </div>
@@ -714,271 +512,170 @@ NOTE: ไม่แก้ hydration.safe.js
     </div>
   </div>
 
-  <!-- loader error overlay -->
-  <div id="loaderErr">
-    <div class="errCard">
-      <div class="h">❌ โหลดไฟล์เกมไม่สำเร็จ (import path)</div>
-      <div class="muted" style="margin-top:6px;font-weight:900">
-        ตรวจสอบว่าไฟล์อยู่ที่:
-        <b style="color:#e2e8f0">/herohealth/hydration-vr/hydration.safe.js</b>
-      </div>
-      <pre id="loaderErrText">—</pre>
-    </div>
-  </div>
+  <!-- ✅ IMPORTANT: correct relative path from /herohealth/hydration-vr.html -->
+  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
 
-  <!-- ✅ Robust module loader (tries multiple paths) -->
-  <script type="module">
-    const doc = document;
-    const errWrap = doc.getElementById('loaderErr');
-    const errText = doc.getElementById('loaderErrText');
-
-    const candidates = [
-      './hydration-vr/hydration.safe.js',
-      './hydration-vr/hydration.safe.mjs',
-      './hydration.safe.js'
-    ];
-
-    let ok = false;
-    let lastErr = null;
-    for (const p of candidates){
-      try{
-        await import(p);
-        ok = true;
-        break;
-      }catch(e){
-        lastErr = e;
-      }
-    }
-
-    if (!ok){
-      if (errWrap) errWrap.style.display = 'flex';
-      if (errText) errText.textContent =
-        `Tried:\n- ${candidates.join('\n- ')}\n\nError:\n${String(lastErr && (lastErr.stack || lastErr.message || lastErr) || 'unknown')}`;
-      console.error('[HydrationVR] import failed', lastErr);
-    }
-  </script>
-
-  <!-- ✅ Cinematic UI glue (FAB badge countdown + sheet + cardboard assist + debug mirror) -->
+  <!-- =========================================================
+       HTML-ONLY CINEMATIC DRIVER (reads window.__HVR__.S/TUNE)
+       - tick accel + flash sync + endamp ramp
+       - only beep/tick/thunder (soft thunder = thunder)
+       ========================================================= -->
   <script>
-    (function(){
-      const doc = document;
-      const body = doc.body;
+  (function(){
+    'use strict';
 
-      const fab = doc.getElementById('fab');
-      const fabBadge = doc.getElementById('fabBadge');
+    const D = document;
+    const root = window;
 
-      const sheetWrap = doc.getElementById('sheetWrap');
-      const btnSheetClose = doc.getElementById('btnSheetClose');
-
-      const btnCardboard = doc.getElementById('btn-cardboard');
-
-      // mirror targets (from main HUD)
-      const q1 = doc.getElementById('quest-line1');
-      const q2 = doc.getElementById('quest-line2');
-      const q3 = doc.getElementById('quest-line3');
-      const q4 = doc.getElementById('quest-line4');
-
-      const miniStormIn = doc.getElementById('mini-storm-in');
-      const stormLeft = doc.getElementById('storm-left');
-
-      const waterZone = doc.getElementById('water-zone');
-      const waterPct  = doc.getElementById('water-pct');
-
-      const dbgLive = doc.getElementById('dbg-live');
-
-      // sheet mirror ids (separate, safe.js never touches)
-      const sq1 = doc.getElementById('sheet-q1');
-      const sq2 = doc.getElementById('sheet-q2');
-      const sq3 = doc.getElementById('sheet-q3');
-      const sq4 = doc.getElementById('sheet-q4');
-
-      const sStormIn = doc.getElementById('sheet-storm-in');
-      const sStormLeft = doc.getElementById('sheet-storm-left');
-
-      const sVStorm = doc.getElementById('sheet-v-storm');
-      const sVZone = doc.getElementById('sheet-v-zone');
-      const sVPressure = doc.getElementById('sheet-v-pressure');
-      const sVEnd = doc.getElementById('sheet-v-end');
-      const sVBlock = doc.getElementById('sheet-v-block');
-
-      const sDotStorm = doc.getElementById('sheet-dot-storm');
-      const sDotZone = doc.getElementById('sheet-dot-zone');
-      const sDotPressure = doc.getElementById('sheet-dot-pressure');
-      const sDotEnd = doc.getElementById('sheet-dot-end');
-      const sDotBlock = doc.getElementById('sheet-dot-block');
-
-      const sPressurePct = doc.getElementById('sheet-pressure-pct');
-      const sPressureBar = doc.getElementById('sheet-pressure-bar');
-      const sheetDbg = doc.getElementById('sheetDbg');
-
-      function isSmall(){
-        return window.matchMedia && window.matchMedia('(max-width: 980px)').matches;
+    // --- Audio: tick + thunder only (beep not needed here) ---
+    const EndAudio = (() => {
+      let ctx = null;
+      function ensure(){
+        if (ctx) return ctx;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        ctx = new AC();
+        return ctx;
       }
-
-      function setDot(dot, ok){
-        if (!dot) return;
-        dot.style.background = ok ? 'rgba(34,197,94,.95)' : 'rgba(148,163,184,.35)';
-        dot.style.boxShadow = ok ? '0 0 0 2px rgba(34,197,94,.18), 0 0 18px rgba(34,197,94,.25)' : '0 0 0 2px rgba(148,163,184,.10)';
+      function resume(){
+        const c = ensure(); if (!c) return;
+        if (c.state === 'suspended') c.resume().catch(()=>{});
       }
-
-      // sheet enabled on small screens
-      function applySheetVisibility(){
-        const small = isSmall();
-        if (sheetWrap) sheetWrap.style.display = small ? 'block' : 'none';
-        // auto close sheet when leaving small mode
-        if (!small) body.classList.remove('sheet-open');
-      }
-      applySheetVisibility();
-      window.addEventListener('resize', applySheetVisibility, { passive:true });
-
-      // FAB toggles sheet (on small screens)
-      function toggleSheet(force){
-        if (!isSmall()) return;
-        const on = (typeof force === 'boolean') ? force : !body.classList.contains('sheet-open');
-        body.classList.toggle('sheet-open', on);
-      }
-
-      fab?.addEventListener('click', ()=> toggleSheet(), { passive:true });
-      btnSheetClose?.addEventListener('click', ()=> toggleSheet(false), { passive:true });
-
-      // Cardboard assist toggle (UI only)
-      btnCardboard?.addEventListener('click', ()=>{
-        body.classList.toggle('cardboard');
-        // เปิด sheet ให้เลยบนมือถือ (ชัดขึ้น)
-        if (isSmall()) toggleSheet(true);
-      }, { passive:true });
-
-      // ---------- Cinematic badge logic ----------
-      let lastEndNow = false;
-
-      function setBadge(text, on){
-        if (!fabBadge) return;
-        body.classList.toggle('fab-badge', !!on && !!text);
-        fabBadge.textContent = on ? String(text) : '';
-      }
-
-      function setBadgeLevel(level){
-        if (!fabBadge) return;
-        fabBadge.setAttribute('data-level', String(level));
-      }
-
-      function computeLevelFromNumber(n){
-        if (!Number.isFinite(n)) return '4';
-        if (n <= 1) return '1';
-        if (n <= 2) return '2';
-        if (n <= 3) return '3';
-        return '4';
-      }
-
-      function syncBadge(){
-        const warn  = body.classList.contains('storm-warn');
-        const storm = body.classList.contains('storm');
-
-        const t4 = (q4 && q4.textContent) ? q4.textContent : '';
-        const endNow = /EndWindow:\s*NOW/i.test(t4);
-
-        const inNum = Math.max(0, parseInt((miniStormIn?.textContent || '0'), 10) || 0);
-        const leftNum = Math.max(0, parseInt((stormLeft?.textContent || '0'), 10) || 0);
-
-        if (endNow){
-          setBadge('NOW', true);
-          setBadgeLevel('now');
-        } else if (storm){
-          setBadge(String(leftNum), true);
-          setBadgeLevel(computeLevelFromNumber(leftNum));
-        } else if (warn){
-          const show = inNum > 0 ? inNum : 3; // fallback
-          setBadge(String(show), true);
-          setBadgeLevel(computeLevelFromNumber(show));
-        } else {
-          setBadge('', false);
-          setBadgeLevel('4');
-        }
-
-        body.classList.toggle('fab-warn', warn && !storm && !endNow);
-        body.classList.toggle('fab-storm', storm && !endNow);
-
-        // (optional) force open sheet when warn/storm on mobile
-        if (isSmall() && (warn || storm || endNow)){
-          body.classList.add('sheet-open');
-        }
-
-        lastEndNow = endNow;
-      }
-
-      // ---------- Mirror into sheet + debug ----------
-      function syncSheet(){
-        if (!isSmall()) return;
-
-        const warn  = body.classList.contains('storm-warn');
-        const storm = body.classList.contains('storm');
-
-        const zone = waterZone?.textContent || '—';
-        const water = waterPct?.textContent || '—';
-
-        const stormIn = (miniStormIn?.textContent || '—');
-        const stormL  = (stormLeft?.textContent || '—');
-
-        const t1 = q1?.textContent || '—';
-        const t2 = q2?.textContent || '—';
-        const t3 = q3?.textContent || '—';
-        const t4 = q4?.textContent || '—';
-
-        if (sq1) sq1.textContent = t1;
-        if (sq2) sq2.textContent = t2;
-        if (sq3) sq3.textContent = t3;
-        if (sq4) sq4.textContent = t4;
-
-        if (sStormIn) sStormIn.textContent = String(stormIn).trim();
-        if (sStormLeft) sStormLeft.textContent = String(stormL).trim();
-
-        // Try read live state from window.__HVR__.S (safe.js exports this)
-        const hvr = window.__HVR__;
-        const S = hvr && hvr.S ? hvr.S : null;
-
-        const pressure = S ? Math.round(S.pressure || 0) : null;
-        const thr = S ? Math.round((hvr.TUNE && hvr.TUNE.pressureThr) || 0) : null;
-        const blocks = S ? `${S.miniBlocksDone||0}/${S.miniBlocksNeed||0}` : null;
-
-        const endNow = /EndWindow:\s*NOW/i.test(t4);
-
-        const vStorm = storm ? 'YES' : (warn ? 'SOON' : '—');
-        const vZone = `${zone} (${water})`;
-        const vPressure = (pressure==null) ? '—' : `${pressure}% / ${thr}%`;
-        const vEnd = endNow ? 'NOW' : (storm ? 'WAIT' : '—');
-        const vBlock = blocks || '—';
-
-        if (sVStorm) sVStorm.textContent = vStorm;
-        if (sVZone) sVZone.textContent = vZone;
-        if (sVPressure) sVPressure.textContent = vPressure;
-        if (sVEnd) sVEnd.textContent = vEnd;
-        if (sVBlock) sVBlock.textContent = vBlock;
-
-        setDot(sDotStorm, storm);
-        setDot(sDotZone, storm && zone !== 'GREEN');
-        setDot(sDotPressure, storm && pressure!=null && thr!=null && pressure >= thr);
-        setDot(sDotEnd, endNow);
-        setDot(sDotBlock, storm && S && (S.miniBlocksDone >= S.miniBlocksNeed));
-
-        if (sPressurePct) sPressurePct.textContent = String(pressure==null ? 0 : pressure);
-        if (sPressureBar) sPressureBar.style.width = `${Math.max(0, Math.min(100, pressure==null ? 0 : pressure))}%`;
-
-        const dbg = S
-          ? `live: zone=${zone} water=${water} | stormIn=${stormIn}s stormLeft=${stormL}s | pressure=${pressure}% | blocks=${blocks} | shield=${S.shield||0}`
-          : `live: zone=${zone} water=${water} | stormIn=${stormIn}s stormLeft=${stormL}s`;
-
-        if (dbgLive) dbgLive.textContent = dbg;
-        if (sheetDbg) sheetDbg.textContent = dbg;
-      }
-
-      // loop
       function tick(){
-        syncBadge();
-        syncSheet();
-        requestAnimationFrame(tick);
+        const c = ensure(); if(!c) return;
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'square';
+        o.frequency.value = 1200;
+        g.gain.value = 0.0001;
+        o.connect(g); g.connect(c.destination);
+        const t0 = c.currentTime;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.035, t0 + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.040);
+        o.start(t0);
+        o.stop(t0 + 0.05);
       }
-      requestAnimationFrame(tick);
+      function thunder(gain=0.10){
+        const c = ensure(); if(!c) return;
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(80, c.currentTime);
+        o.frequency.exponentialRampToValueAtTime(38, c.currentTime + 0.7);
+        g.gain.setValueAtTime(0.0001, c.currentTime);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.02, gain), c.currentTime + 0.04);
+        g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.85);
+        o.connect(g); g.connect(c.destination);
+        o.start();
+        o.stop(c.currentTime + 0.9);
+      }
+      return { resume, tick, thunder };
     })();
+
+    // --- CSS vars driver ---
+    function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+    function setEndVars(amp, flash){
+      amp = clamp(amp, 0, 1);
+      flash = clamp(flash, 0, 1);
+      D.documentElement.style.setProperty('--endamp', String(amp));
+      D.documentElement.style.setProperty('--endflash', String(flash));
+    }
+
+    let flashTimer = 0;
+    function flashPulse(strength){
+      strength = clamp(strength, 0, 1);
+      D.body.classList.add('endflash');
+      setEndVars(currentAmp, strength);
+      clearTimeout(flashTimer);
+      flashTimer = setTimeout(()=>{
+        D.body.classList.remove('endflash');
+        setEndVars(currentAmp, 0);
+      }, 70);
+    }
+
+    // --- State machine ---
+    let endOn = false;
+    let tEnter = 0;
+    let acc = 0;
+    let lastT = 0;
+    let thundered = false;
+    let currentAmp = 0;
+
+    // kick audio on first user gesture (safe)
+    window.addEventListener('pointerdown', ()=>EndAudio.resume(), { passive:true });
+
+    function setEnd(on){
+      on = !!on;
+      if (on === endOn) return;
+      endOn = on;
+
+      if (on){
+        tEnter = performance.now();
+        acc = 0;
+        thundered = false;
+        currentAmp = 0.25;
+        D.body.classList.add('endwindow');
+
+        // เข้าช่วง End-window: tick 1 ที + flash
+        EndAudio.resume();
+        EndAudio.tick();
+        flashPulse(0.85);
+      } else {
+        D.body.classList.remove('endwindow');
+        D.body.classList.remove('endflash');
+        currentAmp = 0;
+        setEndVars(0, 0);
+      }
+    }
+
+    function loop(t){
+      const dt = Math.min(0.05, Math.max(0.001, (t - (lastT||t)) / 1000));
+      lastT = t;
+
+      const H = root.__HVR__;
+      const S = H && H.S;
+      const TUNE = H && H.TUNE;
+
+      if (!S || !TUNE){
+        requestAnimationFrame(loop);
+        return;
+      }
+
+      // end-window definition: stormActive && stormLeftSec <= endWindowSec
+      const inEnd = !!(S.stormActive && (S.stormLeftSec <= (TUNE.endWindowSec + 0.02)));
+      setEnd(inEnd);
+
+      if (endOn){
+        const elapsed = (t - tEnter) / 1000;
+
+        // amp ramp: 0 -> 1 (เร็วหน่อยให้รู้สึกเร่ง)
+        const k = clamp(elapsed / 1.05, 0, 1);
+        currentAmp = 0.25 + 0.75*k;
+        setEndVars(currentAmp, 0);
+
+        // tick accel: 0.14s -> ~0.055s
+        const rate = Math.max(0.055, 0.14 - (0.085 * k));
+        acc += dt;
+
+        while (acc >= rate){
+          acc -= rate;
+          EndAudio.tick();
+          flashPulse(0.55 + 0.45*k);
+        }
+
+        // rumble thunder เบา ๆ 1 ที ตอน amp สูงมาก (ยังเป็น thunder)
+        if (!thundered && k > 0.82){
+          thundered = true;
+          EndAudio.thunder(0.06);
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+  })();
   </script>
 </body>
 </html>
