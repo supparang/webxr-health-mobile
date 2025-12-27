@@ -1,10 +1,5 @@
 <!-- === /herohealth/plate-vr.html ===
 Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
-✅ Start Overlay (กดเริ่มแล้วค่อยเริ่มนับเวลา)
-✅ HUD + Crosshair + FX overlays
-✅ Result overlay: กลับ HUB + เล่นอีกครั้ง
-✅ Coach panel: ใช้รูป ./img/plate-neutral|happy|sad|fever.png
-✅ ใช้คู่กับ /plate/plate.safe.js
 -->
 
 <!doctype html>
@@ -36,6 +31,16 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
       --bad:#fb7185;
       --gold:#facc15;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+
+      /* ✅ safe-area */
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+
+      /* ✅ reserve space for bottom-right buttons */
+      --btnReserveW: 240px;
+      --btnReserveH: 56px;
     }
     html,body{height:100%; margin:0; background:var(--bg); color:var(--text); overflow:hidden;}
     a-scene{position:fixed; inset:0;}
@@ -189,19 +194,30 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
       pointer-events:none;
     }
 
-    /* ===== Coach panel ===== */
+    /* ===== Coach panel (AUTO SAFE) ===== */
     #coachPanel{
-      position:fixed; left:10px; bottom:10px;
+      position:fixed;
       z-index:915;
-      display:flex; gap:10px; align-items:center;
-      width:min(520px, calc(100vw - 24px));
+      display:flex;
+      gap:10px;
+      align-items:center;
+
+      left: calc(10px + var(--sal));
+      bottom: calc(10px + var(--sab));
+
+      width: min(520px, calc(100vw - (24px + var(--sal) + var(--sar) + var(--btnReserveW))));
+      max-width: calc(100vw - (24px + var(--sal) + var(--sar) + var(--btnReserveW)));
+
       background:rgba(2,6,23,.62);
       border:1px solid rgba(148,163,184,.18);
       border-radius:18px;
       padding:10px 12px;
       backdrop-filter: blur(8px);
       box-shadow:0 18px 44px rgba(0,0,0,.30);
+
       pointer-events:none;
+      overflow:hidden;
+      transform: translateZ(0);
     }
     #coachImgWrap{
       width:54px; height:54px; flex:0 0 auto;
@@ -214,20 +230,10 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
     #coachImg{
       width:100%; height:100%;
       object-fit:cover;
-      image-rendering:auto;
       transform:scale(1.02);
     }
-    #coachText{
-      min-width:0;
-      display:flex; flex-direction:column;
-      gap:4px;
-    }
-    #coachTitle{
-      font-weight:1100;
-      font-size:13px;
-      color:rgba(229,231,235,.92);
-      opacity:.95;
-    }
+    #coachText{min-width:0; display:flex; flex-direction:column; gap:4px;}
+    #coachTitle{font-weight:1100; font-size:13px; color:rgba(229,231,235,.92); opacity:.95;}
     #coachMsg{
       font-weight:900;
       color:rgba(148,163,184,.98);
@@ -236,7 +242,23 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
-      max-width: 100%;
+      max-width:100%;
+    }
+    @media (max-width: 560px){
+      #coachPanel{
+        left: calc(10px + var(--sal));
+        right: calc(10px + var(--sar));
+        width:auto;
+        max-width:none;
+        bottom: calc(10px + var(--sab) + var(--btnReserveH) + 6px);
+      }
+      #coachMsg{
+        white-space:normal;
+        display:-webkit-box;
+        -webkit-line-clamp:2;
+        -webkit-box-orient:vertical;
+        overflow:hidden;
+      }
     }
 
     /* Result overlay */
@@ -258,13 +280,9 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
     .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px;}
     .cell{background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px;}
     .cell .k{display:block; margin-bottom:4px;}
-
-    #resultActions{
-      display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;
-    }
+    #resultActions{display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;}
   </style>
 
-  <!-- ✅ plate.safe.js -->
   <script type="module" src="./plate/plate.safe.js"></script>
 </head>
 
@@ -273,11 +291,9 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
     <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
   </a-scene>
 
-  <!-- overlays -->
   <div id="hitFx"></div>
   <div id="crosshair" aria-hidden="true"></div>
 
-  <!-- START overlay -->
   <div id="startOverlay">
     <div id="startCard">
       <div id="startTitle">พร้อมเล่น Plate VR?</div>
@@ -291,7 +307,6 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
     </div>
   </div>
 
-  <!-- HUD -->
   <div id="hudTop">
     <div class="hudCard" style="flex:1">
       <div id="hudLeftGroup">
@@ -308,7 +323,6 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
         <span class="pill">🔥 <span class="k">FEVER</span> <span id="hudFeverPct" class="v">0%</span></span>
         <span class="pill">🎖️ <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
 
-        <!-- element ซ่อนไว้แต่ยังให้ JS อัปเดตได้ -->
         <span class="pill" style="display:none">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
         <span class="pill" style="display:none">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
         <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Normal</span></span>
@@ -330,7 +344,7 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
 
   <div id="hudPaused">⏸️ PAUSED</div>
 
-  <!-- ✅ Coach Panel (ใช้รูปใน /img/plate-*.png) -->
+  <!-- Coach Panel -->
   <div id="coachPanel" aria-hidden="true">
     <div id="coachImgWrap">
       <img id="coachImg" src="./img/plate-neutral.png" alt="coach">
@@ -341,7 +355,6 @@ Plate VR (PRODUCTION) — Full HTML (Coach images: /img/plate-*.png)
     </div>
   </div>
 
-  <!-- Result -->
   <div id="resultBackdrop">
     <div id="resultCard">
       <div style="font-weight:1100; font-size:20px">สรุปผลเกม (Plate VR)</div>
