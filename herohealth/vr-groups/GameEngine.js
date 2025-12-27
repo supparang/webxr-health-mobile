@@ -1,12 +1,9 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
-Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Patch
-✅ window.GroupsVR.GameEngine (no module import)
-✅ hha:time compat {left, sec, secLeft}
-✅ hha:score compat {misses, miss}
-✅ start() respects opts time + QS fallback
-✅ Quest cache + replay (quest:update + hha:quest)
-✅ End summary + store HHA_LAST_SUMMARY
-✅ Optional logging hooks: hha:log_session / hha:log_event
+Food Groups VR — GameEngine (PRODUCTION / classic script) + VR-FEEL PATCH
+✅ data-emoji (CSS ::before) + left/top from --x/--y
+✅ VR-feel: parallax look (drag + gyro) updates --lookX/--lookY
+✅ Hit detection corrected with look offset
+✅ Spawn safe with look margins
 */
 
 (function (root) {
@@ -15,20 +12,13 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
   const DOC = root.document;
   if (!DOC) return;
 
-  // Namespace
   const NS = (root.GroupsVR = root.GroupsVR || {});
 
-  // -------------------- Query helpers (safe) --------------------
-  const qs = new URLSearchParams((root.location && root.location.search) ? root.location.search : '');
-  const getQS = (k, d='') => qs.has(k) ? String(qs.get(k) ?? '') : d;
-
-  // -------------------- Utilities --------------------
   function nowMs() { return (root.performance && performance.now) ? performance.now() : Date.now(); }
   function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
   function randInt(rng, a, b){ return a + Math.floor(rng() * (b - a + 1)); }
   function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)]; }
 
-  // Seeded RNG (mulberry32)
   function hashSeed(str){
     str = String(str || '');
     let h = 1779033703 ^ str.length;
@@ -46,14 +36,10 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-
   function emit(name, detail){
-    try{
-      root.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
-    }catch(e){}
+    root.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
   }
 
-  // safe-area insets from CSS vars env()
   function readSafeInsets(){
     const cs = getComputedStyle(DOC.documentElement);
     const sat = parseFloat(cs.getPropertyValue('--sat')) || 0;
@@ -63,19 +49,8 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
     return { sat, sab, sal, sar };
   }
 
-  function pickEl(ids){
-    for (let i=0;i<(ids||[]).length;i++){
-      const el = DOC.getElementById(ids[i]);
-      if (el) return el;
-    }
-    return null;
-  }
-
-  // -------------------- Minimal FX hooks (works even if groups-fx.js is missing) --------------------
   const FX = {
-    panic(on){
-      DOC.documentElement.classList.toggle('panic', !!on);
-    },
+    panic(on){ DOC.documentElement.classList.toggle('panic', !!on); },
     stunFlash(){
       DOC.documentElement.classList.add('stunflash');
       setTimeout(()=>DOC.documentElement.classList.remove('stunflash'), 220);
@@ -84,116 +59,10 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       DOC.documentElement.classList.add('swapflash');
       setTimeout(()=>DOC.documentElement.classList.remove('swapflash'), 220);
     },
-    afterimage(xpx, ypx, emoji){
-      const wrap = DOC.createElement('div');
-      wrap.className = 'fg-afterimage a1';
-      wrap.style.setProperty('--x', xpx + 'px');
-      wrap.style.setProperty('--y', ypx + 'px');
-      const inner = DOC.createElement('div');
-      inner.className = 'fg-afterimage-inner';
-      inner.textContent = emoji || '✨';
-      wrap.appendChild(inner);
-      DOC.body.appendChild(wrap);
-      setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, 240);
-
-      const wrap2 = DOC.createElement('div');
-      wrap2.className = 'fg-afterimage a2';
-      wrap2.style.setProperty('--x', xpx + 'px');
-      wrap2.style.setProperty('--y', ypx + 'px');
-      const inner2 = DOC.createElement('div');
-      inner2.className = 'fg-afterimage-inner';
-      inner2.textContent = emoji || '✨';
-      wrap2.appendChild(inner2);
-      DOC.body.appendChild(wrap2);
-      setTimeout(()=>{ try{ wrap2.remove(); }catch(e){} }, 300);
-    }
+    afterimage(){ /* optional */ }
   };
   NS.FX = NS.FX || FX;
 
-  // -------------------- HHA Standard: Quest cache + replay --------------------
-  function cacheQuest(q){ try{ root.__HHA_LAST_QUEST__ = q; }catch(e){} }
-  function replayQuest(){
-    try{
-      const q = root.__HHA_LAST_QUEST__;
-      if (q){
-        emit('quest:update', q);
-        emit('hha:quest', q);
-      }
-    }catch(e){}
-  }
-  function emitQuest(q){
-    cacheQuest(q);
-    emit('quest:update', q);
-    emit('hha:quest', q);
-  }
-
-  // -------------------- HHA Standard: last summary storage --------------------
-  function storeLastSummary(sum){
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(sum || {}));
-      localStorage.setItem('hha_last_summary', JSON.stringify(sum || {}));
-    }catch(e){}
-  }
-
-  // Optional: fallback end overlay wiring (if present in HTML)
-  const END_UI = {
-    overlay: pickEl(['gvr-end','hvr-end','end-overlay','endOverlay']),
-    score:   pickEl(['end-score','gvr-end-score']),
-    grade:   pickEl(['end-grade','gvr-end-grade']),
-    combo:   pickEl(['end-combo','gvr-end-combo']),
-    miss:    pickEl(['end-miss','gvr-end-miss']),
-    goals:   pickEl(['end-goals','gvr-end-goals']),
-    minis:   pickEl(['end-minis','gvr-end-minis']),
-    btnRetry: pickEl(['btn-retry','gvr-btn-retry']),
-    btnBack:  pickEl(['btn-backhub','btn-back','gvr-btn-backhub'])
-  };
-
-  function showEndOverlay(sum){
-    if (!END_UI.overlay) return;
-    if (END_UI.score) END_UI.score.textContent = String(sum.scoreFinal ?? 0);
-    if (END_UI.grade) END_UI.grade.textContent = String(sum.grade ?? 'C');
-    if (END_UI.combo) END_UI.combo.textContent = String(sum.comboMax ?? 0);
-    if (END_UI.miss)  END_UI.miss.textContent  = String(sum.misses ?? 0);
-    // groups ไม่มี goals/minis ก็แสดงเป็น "-" ได้
-    if (END_UI.goals) END_UI.goals.textContent = String(sum.goalsCleared ?? '-') + '/' + String(sum.goalsTotal ?? '-');
-    if (END_UI.minis) END_UI.minis.textContent = String(sum.miniCleared ?? '-') + '/' + String(sum.miniTotal ?? '-');
-    END_UI.overlay.style.display = 'flex';
-  }
-
-  // bind end buttons (safe)
-  if (END_UI.btnRetry){
-    END_UI.btnRetry.addEventListener('click', ()=>{ try{ root.location.reload(); }catch(e){} }, { passive:true });
-  }
-  if (END_UI.btnBack){
-    END_UI.btnBack.addEventListener('click', ()=>{
-      const HUB_URL = String(getQS('hub','./hub.html') || './hub.html');
-      try{
-        const u = new URL(HUB_URL, root.location.href);
-        u.searchParams.set('ts', String(Date.now()));
-        root.location.href = u.toString();
-      }catch(e){
-        root.location.href = HUB_URL;
-      }
-    }, { passive:true });
-  }
-
-  // -------------------- HHA Standard: logging hooks (optional) --------------------
-  function logSession(phase, extra){
-    emit('hha:log_session', Object.assign({
-      phase: phase || '',
-      gameMode: 'groups',
-      timestampIso: new Date().toISOString()
-    }, extra || {}));
-  }
-  function logEvent(kind, extra){
-    emit('hha:log_event', Object.assign({
-      kind: kind || '',
-      gameMode: 'groups',
-      timestampIso: new Date().toISOString()
-    }, extra || {}));
-  }
-
-  // -------------------- Content (Food Groups) --------------------
   const GROUPS = [
     { id:1, label:'หมู่ 1 โปรตีน 💪', good:['🥚','🥛','🐟','🥜','🍗','🧀'] },
     { id:2, label:'หมู่ 2 คาร์บ 🌾',   good:['🍚','🍞','🥔','🍠','🥨','🍜'] },
@@ -202,11 +71,10 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
     { id:5, label:'หมู่ 5 ไขมัน 🫒',   good:['🫒','🥑','🧈','🥥','🥜','🧀'] }
   ];
 
-  const JUNK_EMOJI = ['🍟','🍔','🍕','🍩','🍭','🧁','🥤','🍿','🍫','🍪'];
+  const JUNK_EMOJI  = ['🍟','🍔','🍕','🍩','🍭','🧁','🥤','🍿','🍫','🍪'];
   const DECOY_EMOJI = ['❓','🌀','🎭','🧩','🎲'];
   const BOSS_EMOJI  = ['👹','😈','🧟','🦂','🐲'];
 
-  // -------------------- Difficulty Profiles --------------------
   const DIFF = {
     easy: {
       timeDefault: 90,
@@ -261,12 +129,11 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
     return 'C';
   }
 
-  // -------------------- Engine --------------------
   const Engine = (function(){
     const state = {
       running:false,
       diff:'normal',
-      runMode:'play', // play / research
+      runMode:'play',
       seed:'',
       rng: Math.random,
 
@@ -274,19 +141,16 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       targets:new Map(),
       nextId:1,
 
-      // timing
       timeLeft:90,
       timeTotal:90,
       timerInt:null,
       spawnTo:null,
 
-      // score
       score:0,
       combo:0,
       comboMax:0,
       misses:0,
 
-      // accuracy core
       goodHit:0,
       goodSpawn:0,
       goodExpire:0,
@@ -295,34 +159,73 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       decoyHit:0,
       bossKills:0,
 
-      // group/power
       groupIndex:0,
       powerCharge:0,
       powerThreshold:9,
 
-      // stun
       stunnedUntil:0,
-
-      // panic
       panicOn:false,
 
-      // input
-      lastPointer: { x:0, y:0 },
-      lockedId: null,
-      lockStartMs: 0,
-      lockNeedMs: 220
+      /* ✅ VR LOOK */
+      lookX:0,
+      lookY:0,
+      lookTX:0,
+      lookTY:0,
+      lookMaxX:24,
+      lookMaxY:18,
+      lookRaf:0,
+
+      /* input */
+      pointerDown:false,
+      downX:0, downY:0,
+      moved:false,
+
+      lastPointer:{ x:0, y:0 },
+      lockedId:null,
+      lockStartMs:0,
+      lockNeedMs:220
     };
 
-    function cfg(){
-      return DIFF[state.diff] || DIFF.normal;
-    }
+    function cfg(){ return DIFF[state.diff] || DIFF.normal; }
 
     function setLayerEl(el){
       state.layerEl = el;
-      if (el){
-        el.addEventListener('pointerdown', onPointerDown, { passive:false });
-        el.addEventListener('pointermove', onPointerMove, { passive:true });
-      }
+      if (!el) return;
+
+      el.addEventListener('pointerdown', onPointerDown, { passive:false });
+      el.addEventListener('pointermove', onPointerMove, { passive:true });
+      el.addEventListener('pointerup', onPointerUp, { passive:true });
+      el.addEventListener('pointercancel', onPointerUp, { passive:true });
+    }
+
+    function applyLookVars(){
+      if (!state.layerEl) return;
+      DOC.documentElement.style.setProperty('--lookX', state.lookX.toFixed(1) + 'px');
+      DOC.documentElement.style.setProperty('--lookY', state.lookY.toFixed(1) + 'px');
+    }
+
+    function tickLook(){
+      if (!state.running) return;
+      const k = 0.14; // smoothing
+      state.lookX += (state.lookTX - state.lookX) * k;
+      state.lookY += (state.lookTY - state.lookY) * k;
+      applyLookVars();
+      state.lookRaf = root.requestAnimationFrame(tickLook);
+    }
+
+    function startLookLoop(){
+      if (state.lookRaf) return;
+      state.lookRaf = root.requestAnimationFrame(tickLook);
+    }
+    function stopLookLoop(){
+      if (!state.lookRaf) return;
+      try{ root.cancelAnimationFrame(state.lookRaf); }catch(e){}
+      state.lookRaf = 0;
+    }
+
+    function setLookTarget(x, y){
+      state.lookTX = clamp(x, -state.lookMaxX, state.lookMaxX);
+      state.lookTY = clamp(y, -state.lookMaxY, state.lookMaxY);
     }
 
     function setTimeLeft(sec){
@@ -357,6 +260,11 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       state.lockedId = null;
       state.lockStartMs = 0;
 
+      /* look reset */
+      state.lookX = 0; state.lookY = 0;
+      state.lookTX = 0; state.lookTY = 0;
+      applyLookVars();
+
       if (state.layerEl) state.layerEl.innerHTML = '';
     }
 
@@ -374,10 +282,15 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       const hudBottom = Math.max(0, hudRect.bottom || 0);
 
       const pad = 12;
-      const top = Math.min(h-140, Math.max(hudBottom + 10, 10 + insets.sat + 10));
-      const left = 10 + insets.sal + pad;
-      const right = w - (10 + insets.sar + pad);
-      const bottom = h - (10 + insets.sab + pad);
+
+      /* ✅ leave margins for look shift so targets won't slide under HUD/edges */
+      const mx = state.lookMaxX + 6;
+      const my = state.lookMaxY + 6;
+
+      const top = Math.min(h-140, Math.max(hudBottom + 10 + my, 10 + insets.sat + 10 + my));
+      const left = 10 + insets.sal + pad + mx;
+      const right = w - (10 + insets.sar + pad + mx);
+      const bottom = h - (10 + insets.sab + pad + my);
 
       return {
         left,
@@ -419,7 +332,7 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
 
       const id = String(state.nextId++);
       const el = DOC.createElement('div');
-      el.className = 'fg-target show spawn';
+      el.className = 'fg-target spawn';
       el.dataset.id = id;
       el.dataset.type = type;
 
@@ -428,10 +341,15 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       if (type === 'decoy') el.classList.add('fg-decoy');
       if (type === 'boss') el.classList.add('fg-boss');
 
+      /* ✅ IMPORTANT: map vars for CSS */
       el.style.setProperty('--x', x.toFixed(1) + 'px');
       el.style.setProperty('--y', y.toFixed(1) + 'px');
       el.style.setProperty('--s', s.toFixed(3));
-      el.textContent = emoji;
+      el.style.setProperty('--floatDur', (900 + Math.round(state.rng()*520)) + 'ms');
+
+      /* ✅ emoji via CSS ::before */
+      el.dataset.emoji = emoji;
+      el.textContent = '';
 
       let bossHp = 0;
       let bossHpMax = 0;
@@ -452,22 +370,24 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
 
       state.layerEl.appendChild(el);
 
-      if (type === 'good'){ state.goodSpawn++; }
-      if (type === 'junk'){ state.junkSpawn++; }
+      if (type === 'good') state.goodSpawn++;
+      if (type === 'junk') state.junkSpawn++;
 
       state.targets.set(id, {
-        id, el, type, emoji,
+        id,
+        el,
+        type,
+        emoji,
         x, y, s,
         expireAt,
         dead:false,
         groupId: g.id,
-        bossHp, bossHpMax, bossFillEl
+        bossHp,
+        bossHpMax,
+        bossFillEl
       });
 
-      // logging
-      logEvent('spawn', { id, type, emoji, x: +x.toFixed(1), y: +y.toFixed(1), s: +s.toFixed(3), groupId: g.id });
-
-      setTimeout(()=>{ if (el) el.classList.remove('spawn'); }, 220);
+      setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(e){} }, 200);
 
       const next = randInt(state.rng, c.spawnEveryMs[0], c.spawnEveryMs[1]);
       state.spawnTo = setTimeout(spawn, next);
@@ -480,14 +400,11 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
 
       const el = t.el;
       if (el){
-        el.classList.remove('spawn');
         el.classList.add('out');
         setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 220);
       }
 
       if (reason === 'expire'){
-        logEvent('expire', { id: t.id, type: t.type, groupId: t.groupId });
-
         if (t.type === 'good'){
           state.goodExpire++;
           addMiss();
@@ -503,21 +420,15 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
 
     function emitScore(){
       state.comboMax = Math.max(state.comboMax, state.combo);
-
       emit('hha:score', {
         score: state.score|0,
         combo: state.combo|0,
         misses: state.misses|0,
-        miss: state.misses|0,          // ✅ compat
         comboMax: state.comboMax|0
       });
 
       const acc = calcAccuracy();
-      const grade = gradeFrom(acc, state.score|0);
-      emit('hha:rank', { grade, accuracy: acc|0 });
-
-      // quest snapshot (lightweight)
-      emitQuest(makeQuestSnapshot());
+      emit('hha:rank', { grade: gradeFrom(acc, state.score|0), accuracy: acc|0 });
     }
 
     function calcAccuracy(){
@@ -535,8 +446,6 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
         state.powerCharge = 0;
         emit('groups:power', { charge: 0, threshold: th|0 });
         swapGroup(+1);
-      } else {
-        emitQuest(makeQuestSnapshot());
       }
     }
 
@@ -544,19 +453,16 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       const prev = currentGroup();
       state.groupIndex = (state.groupIndex + (dir|0) + GROUPS.length) % GROUPS.length;
       const g = currentGroup();
-
       (NS.FX || FX).swapFlash();
       emit('groups:group_change', { groupId: g.id, label: g.label, from: prev.id });
       emit('groups:progress', { kind:'group_swap', groupId:g.id });
-
-      logEvent('group_change', { from: prev.id, to: g.id });
-
-      emitQuest(makeQuestSnapshot());
     }
 
-    function isStunned(){
-      return nowMs() < state.stunnedUntil;
-    }
+    function isStunned(){ return nowMs() < state.stunnedUntil; }
+
+    /* ✅ Visible position = base + look */
+    function vx(t){ return (t.x + state.lookX); }
+    function vy(t){ return (t.y + state.lookY); }
 
     function hitTarget(t){
       if (!t || t.dead) return;
@@ -565,16 +471,11 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       const type = t.type;
 
       if (t.el){
-        t.el.classList.remove('spawn');
         t.el.classList.add('hit');
         setTimeout(()=>{ try{ t.el.remove(); }catch(e){} }, 220);
       }
       state.targets.delete(t.id);
       t.dead = true;
-
-      (NS.FX || FX).afterimage(t.x, t.y, t.emoji);
-
-      logEvent('hit', { id: t.id, type, emoji: t.emoji, groupId: t.groupId });
 
       if (type === 'good'){
         state.goodHit++;
@@ -624,8 +525,6 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
         t.el.classList.add('rage');
       }
 
-      logEvent('boss_hit', { id: t.id, hp: t.bossHp|0, hpMax: t.bossHpMax|0 });
-
       if (t.bossHp <= 0){
         state.bossKills++;
         state.score += c.score.bossKill;
@@ -640,8 +539,6 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
 
         emit('hha:judge', { text:'BOSS DOWN!', kind:'boss' });
         emit('groups:progress', { kind:'boss_kill' });
-
-        logEvent('boss_kill', { id: t.id });
       } else {
         emit('hha:judge', { text:'HIT!', kind:'boss' });
       }
@@ -655,13 +552,10 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
 
       state.targets.forEach((t)=>{
         if (!t || t.dead) return;
-        const dx = (t.x - px);
-        const dy = (t.y - py);
+        const dx = (vx(t) - px);
+        const dy = (vy(t) - py);
         const d = Math.sqrt(dx*dx + dy*dy);
-        if (d < bestD){
-          bestD = d;
-          best = t;
-        }
+        if (d < bestD){ bestD = d; best = t; }
       });
 
       if (!best) return null;
@@ -671,10 +565,15 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
     function tryLock(px, py){
       const t = findNearestTarget(px, py, 120);
       if (!t) {
+        if (state.lockedId && state.targets.has(state.lockedId)){
+          const old = state.targets.get(state.lockedId);
+          if (old && old.el) old.el.classList.remove('lock');
+        }
         state.lockedId = null;
         state.lockStartMs = 0;
         return null;
       }
+
       if (state.lockedId !== t.id){
         if (state.lockedId && state.targets.has(state.lockedId)){
           const old = state.targets.get(state.lockedId);
@@ -688,25 +587,64 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
     }
 
     function onPointerMove(ev){
-      if (!state.running) return;
-      if (!ev) return;
-      state.lastPointer.x = ev.clientX || 0;
-      state.lastPointer.y = ev.clientY || 0;
-
-      if (isStunned()) return;
-      tryLock(state.lastPointer.x, state.lastPointer.y);
-    }
-
-    function onPointerDown(ev){
-      if (!state.running) return;
-      if (!ev) return;
-
-      try { ev.preventDefault(); } catch(e) {}
+      if (!state.running || !ev) return;
 
       const px = ev.clientX || 0;
       const py = ev.clientY || 0;
       state.lastPointer.x = px;
       state.lastPointer.y = py;
+
+      if (state.pointerDown){
+        const dx = px - state.downX;
+        const dy = py - state.downY;
+        if (!state.moved && (Math.abs(dx) + Math.abs(dy)) > 10){
+          state.moved = true;
+        }
+        if (state.moved){
+          /* ✅ drag-to-look */
+          setLookTarget(dx * 0.22, dy * 0.18);
+          return;
+        }
+      }
+
+      if (isStunned()) return;
+      tryLock(px, py);
+    }
+
+    function onPointerDown(ev){
+      if (!state.running || !ev) return;
+      try{ ev.preventDefault(); }catch(e){}
+
+      const px = ev.clientX || 0;
+      const py = ev.clientY || 0;
+
+      state.pointerDown = true;
+      state.downX = px; state.downY = py;
+      state.moved = false;
+
+      state.lastPointer.x = px;
+      state.lastPointer.y = py;
+
+      if (isStunned()) return;
+      tryLock(px, py);
+    }
+
+    function onPointerUp(ev){
+      if (!state.running) return;
+
+      const wasMoved = state.moved;
+      state.pointerDown = false;
+      state.moved = false;
+
+      /* ✅ stop drag => relax look back a bit */
+      if (wasMoved){
+        setLookTarget(state.lookTX * 0.75, state.lookTY * 0.75);
+        return;
+      }
+
+      /* ✅ tap => shoot */
+      const px = (ev && ev.clientX) ? ev.clientX : state.lastPointer.x;
+      const py = (ev && ev.clientY) ? ev.clientY : state.lastPointer.y;
 
       if (isStunned()) return;
 
@@ -727,32 +665,11 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       }
     }
 
-    function makeQuestSnapshot(){
-      const g = currentGroup();
-      const acc = calcAccuracy();
-      const grade = gradeFrom(acc, state.score|0);
-      const th = state.powerThreshold|0;
-
-      return {
-        title: 'Food Groups VR',
-        line1: `Group: ${g.label}`,
-        line2: `Power: ${state.powerCharge|0}/${th} · Boss ${state.bossKills|0}`,
-        line3: `Acc: ${acc}% · Grade ${grade} · Combo ${state.combo|0}`,
-        line4: `Time: ${state.timeLeft|0}s · Miss ${state.misses|0}`
-      };
-    }
-
     function tickSecond(){
       if (!state.running) return;
 
       state.timeLeft = Math.max(0, (state.timeLeft|0) - 1);
-
-      // ✅ compat time payload
-      emit('hha:time', {
-        left: state.timeLeft|0,
-        sec: state.timeLeft|0,
-        secLeft: state.timeLeft|0
-      });
+      emit('hha:time', { left: state.timeLeft|0 });
 
       const panic = state.timeLeft <= 12 && state.timeLeft > 0;
       if (panic !== state.panicOn){
@@ -768,34 +685,44 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       });
       for (let i=0;i<exp.length;i++) removeTarget(exp[i], 'expire');
 
-      // keep quest alive even if nothing hits
-      emitQuest(makeQuestSnapshot());
-
       if (state.timeLeft <= 0){
         stop(true);
       }
     }
 
+    /* ✅ Gyro support (optional) */
+    let gyroOn = false;
+    function enableGyro(){
+      if (gyroOn) return;
+      gyroOn = true;
+
+      function onOri(e){
+        if (!state.running) return;
+
+        const g = Number(e.gamma || 0); // left-right [-90..90]
+        const b = Number(e.beta  || 0); // front-back [-180..180]
+        const gx = clamp(g / 35, -1, 1);
+        const by = clamp((b - 10) / 40, -1, 1);
+
+        const tx = gx * state.lookMaxX;
+        const ty = by * state.lookMaxY;
+
+        /* blend with current drag target */
+        state.lookTX = clamp(state.lookTX * 0.6 + tx * 0.4, -state.lookMaxX, state.lookMaxX);
+        state.lookTY = clamp(state.lookTY * 0.6 + ty * 0.4, -state.lookMaxY, state.lookMaxY);
+      }
+
+      root.addEventListener('deviceorientation', onOri, { passive:true });
+    }
+
     function start(diff, opts){
       opts = opts || {};
-      state.diff = String(diff || getQS('diff','normal') || 'normal').toLowerCase();
+      state.diff = String(diff || 'normal').toLowerCase();
       if (!DIFF[state.diff]) state.diff = 'normal';
 
-      state.runMode = String(opts.runMode || getQS('run', getQS('runMode','play')) || 'play').toLowerCase();
+      state.runMode = String(opts.runMode || 'play').toLowerCase();
+      state.seed = String(opts.seed || '');
 
-      // ✅ seed (deterministic) — QS fallback: sessionId/studentKey/ts
-      const seedFromQS =
-        String(getQS('sessionId','') || getQS('studentKey','') || '') + '|' + String(getQS('ts', Date.now()));
-      state.seed = String(opts.seed || getQS('seed','') || seedFromQS || '');
-
-      // ✅ respect time from opts OR query
-      const t =
-        Number(opts.time ?? opts.duration ?? opts.durationPlannedSec ??
-               getQS('time', getQS('durationPlannedSec', 0)));
-      if (Number.isFinite(t) && t > 5) setTimeLeft(t|0);
-      else setTimeLeft((cfg().timeDefault|0) || 90);
-
-      // rng
       const seedNum = state.seed ? hashSeed(state.seed) : (Math.random()*1e9)>>>0;
       state.rng = mulberry32(seedNum);
 
@@ -810,28 +737,21 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       resetStats();
       state.running = true;
 
-      // start session log
-      logSession('start', {
-        diff: state.diff,
-        runMode: state.runMode,
-        seed: state.seed,
-        durationPlannedSec: state.timeTotal|0
-      });
-
       emit('groups:group_change', { groupId: currentGroup().id, label: currentGroup().label, from: 0 });
       emit('groups:power', { charge:0, threshold: state.powerThreshold|0 });
-
-      // ✅ compat time initial
-      emit('hha:time', { left: state.timeLeft|0, sec: state.timeLeft|0, secLeft: state.timeLeft|0 });
-
-      emitScore();           // also emits quest
-      replayQuest();         // ✅ in case HUD loads late
+      emit('hha:time', { left: state.timeLeft|0 });
+      emitScore();
 
       clearInterval(state.timerInt);
       state.timerInt = setInterval(tickSecond, 1000);
 
       clearTimeout(state.spawnTo);
       state.spawnTo = setTimeout(spawn, 250);
+
+      startLookLoop();
+
+      /* auto enable gyro if opted */
+      if (opts.enableGyro) enableGyro();
     }
 
     function stop(ended){
@@ -844,6 +764,7 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       state.spawnTo = null;
 
       (NS.FX || FX).panic(false);
+      stopLookLoop();
 
       if (state.lockedId && state.targets.has(state.lockedId)){
         const t = state.targets.get(state.lockedId);
@@ -853,18 +774,13 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       if (ended){
         const acc = calcAccuracy();
         const grade = gradeFrom(acc, state.score|0);
+        emit('hha:rank', { grade, accuracy: acc|0 });
 
-        const summary = {
-          timestampIso: new Date().toISOString(),
-          projectTag: String(getQS('projectTag','HeroHealth') || 'HeroHealth'),
-
-          gameMode: 'groups',
+        emit('hha:end', {
+          game: 'groups',
           diff: state.diff,
           runMode: state.runMode,
           seed: state.seed,
-
-          durationPlannedSec: state.timeTotal|0,
-          durationPlayedSec: (state.timeTotal - state.timeLeft)|0,
 
           scoreFinal: state.score|0,
           comboMax: state.comboMax|0,
@@ -880,28 +796,7 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
 
           accuracyGoodPct: acc|0,
           grade: grade
-        };
-
-        storeLastSummary(summary);     // ✅ HHA standard
-        emit('hha:rank', { grade, accuracy: acc|0 });
-        emit('hha:end', summary);      // ✅ payload standard
-
-        // end session log
-        logSession('end', summary);
-
-        // fallback UI
-        showEndOverlay(summary);
-
-        // final quest snapshot
-        emitQuest({
-          title: 'Food Groups VR — END',
-          line1: `Score: ${summary.scoreFinal} · Grade: ${summary.grade}`,
-          line2: `Acc: ${summary.accuracyGoodPct}% · ComboMax: ${summary.comboMax}`,
-          line3: `Miss: ${summary.misses} · Boss: ${summary.bossKills}`,
-          line4: `Time: ${summary.durationPlayedSec}/${summary.durationPlannedSec}s`
         });
-      } else {
-        logSession('stop', { diff: state.diff, runMode: state.runMode, seed: state.seed });
       }
     }
 
@@ -909,7 +804,10 @@ Food Groups VR — GameEngine (PRODUCTION / classic script) — HHA Standard Pat
       setLayerEl,
       setTimeLeft,
       start,
-      stop
+      stop,
+
+      /* expose for overlay motion button */
+      enableGyro: enableGyro
     };
   })();
 
