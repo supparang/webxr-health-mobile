@@ -400,3 +400,45 @@ html.storm-badflash body::after{
     min-width:0;
   }
 }
+/* ===== STORM pulse (clock panic vibe) ===== */
+:root{
+  --stormPulse: 0; /* 0..1 */
+}
+
+html.storm.storm-pulse body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40; /* ให้ต่ำกว่า HUD แต่สูงกว่า bg */
+  /* vignette + ring glow */
+  background:
+    radial-gradient(ellipse at center,
+      rgba(0,0,0,0) 40%,
+      rgba(0,0,0, calc(0.45 + var(--stormPulse)*0.22)) 100%),
+    radial-gradient(circle at center,
+      rgba(239,68,68, calc(0.10 + var(--stormPulse)*0.10)) 0%,
+      rgba(239,68,68,0) 58%);
+  animation: stormPulsePop 140ms ease-out;
+  mix-blend-mode: screen;
+}
+
+@keyframes stormPulsePop{
+  0%   { opacity: 0; transform: scale(0.995); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* subtle shake ตอน pulse (เบามาก ไม่เวียนหัว) */
+html.storm.storm-pulse .hud-top,
+html.storm.storm-pulse .hud-root{
+  animation: stormMicroShake 140ms linear;
+  transform-origin: 50% 20%;
+}
+
+@keyframes stormMicroShake{
+  0%   { transform: translate3d(0,0,0); }
+  25%  { transform: translate3d(-0.6px, 0.2px, 0); }
+  50%  { transform: translate3d(0.6px, -0.2px, 0); }
+  75%  { transform: translate3d(-0.5px, 0.2px, 0); }
+  100% { transform: translate3d(0,0,0); }
+}
