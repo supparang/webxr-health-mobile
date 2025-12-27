@@ -1,65 +1,63 @@
-/* === /herohealth/vr-groups/groups-hud-quest.js ===
-Food Groups VR — HUD binder for quest/power/score/rank/time/group
-✅ รับ quest:update แล้วอัปเดต: goal/mini title + val + bar + mini timer
-✅ รับ hha:score/hha:rank/hha:time/groups:group_change/groups:power
-*/
 (function(root){
   'use strict';
-  const DOC = root.document; if(!DOC) return;
+  const DOC = root.document;
+  if (!DOC) return;
 
   const $ = (id)=> DOC.getElementById(id);
 
-  root.addEventListener('hha:score', (ev)=>{
-    const d = ev.detail || {};
-    if ($('hud-score')) $('hud-score').textContent = (d.score|0);
-    if ($('hud-combo')) $('hud-combo').textContent = (d.combo|0);
-    if ($('hud-miss'))  $('hud-miss').textContent  = (d.misses|0);
-    if ($('hud-comboMax')) $('hud-comboMax').textContent = (d.comboMax|0);
-  }, { passive:true });
+  const E = {
+    goalTitle: $('hud-goal-title'),
+    goalVal: $('hud-goal-val'),
+    goalBar: $('hud-goal-bar'),
 
-  root.addEventListener('hha:rank', (ev)=>{
-    const d = ev.detail || {};
-    if (d.grade && $('hud-rank')) $('hud-rank').textContent = d.grade;
-    if (typeof d.accuracy === 'number' && $('hud-acc')) $('hud-acc').textContent = (d.accuracy|0) + '%';
-  }, { passive:true });
+    miniLine: $('hud-mini-line'),
+    miniTitle: $('hud-mini-title'),
+    miniVal: $('hud-mini-val'),
+    miniBar: $('hud-mini-bar'),
+    miniTimer: $('hud-mini-timer')
+  };
 
-  root.addEventListener('hha:time', (ev)=>{
-    const d = ev.detail || {};
-    if ($('hud-time')) $('hud-time').textContent = (d.left|0);
-  }, { passive:true });
+  function pct(n,d){
+    d = Math.max(1, d|0);
+    n = Math.max(0, n|0);
+    return Math.max(0, Math.min(100, (n/d)*100));
+  }
 
-  root.addEventListener('groups:group_change', (ev)=>{
-    const d = ev.detail || {};
-    if ($('hud-group')) $('hud-group').textContent = d.label || 'หมู่ ?';
-  }, { passive:true });
+  function apply(q){
+    q = q || {};
 
-  root.addEventListener('groups:power', (ev)=>{
-    const d = ev.detail || {};
-    const th = Math.max(1, d.threshold|0);
-    const ch = Math.max(0, d.charge|0);
-    const p = Math.min(100, (ch/th)*100);
+    // GOAL
+    if (E.goalTitle) E.goalTitle.textContent = q.goalTitle || q.title || '—';
+    if (E.goalVal) E.goalVal.textContent = (q.goalNow ?? 0) + '/' + (q.goalNeed ?? 0);
+    if (E.goalBar) E.goalBar.style.width = pct(q.goalNow, q.goalNeed).toFixed(1) + '%';
 
-    if ($('hud-powerFill')) $('hud-powerFill').style.width = p.toFixed(1) + '%';
-    if ($('fg-powerText')) $('fg-powerText').textContent = `${ch}/${th}`;
-  }, { passive:true });
+    // MINI
+    const hasMini = !!q.miniTitle;
+    if (E.miniLine) E.miniLine.classList.toggle('mini-urgent', !!q.miniUrgent);
 
-  root.addEventListener('quest:update', (ev)=>{
-    const q = ev.detail || {};
-    // goal
-    if ($('hud-goal-title')) $('hud-goal-title').textContent = q.goalTitle || q.line1 || '—';
-    if ($('hud-goal-val')) $('hud-goal-val').textContent = q.goalProgressText || '0/0';
-    if ($('hud-goal-bar')) $('hud-goal-bar').style.width = (q.goalProgressPct ?? 0) + '%';
-
-    // mini
-    if ($('hud-mini-title')) $('hud-mini-title').textContent = q.miniTitle || q.line2 || '—';
-    if ($('hud-mini-val')) $('hud-mini-val').textContent = q.miniProgressText || '0/0';
-    if ($('hud-mini-bar')) $('hud-mini-bar').style.width = (q.miniProgressPct ?? 0) + '%';
-
-    // timer
-    const tEl = $('hud-mini-timer');
-    if (tEl){
-      tEl.textContent = q.miniTimerText || '';
-      tEl.classList.toggle('urgent', !!q.miniUrgent);
+    if (!hasMini){
+      if (E.miniTitle) E.miniTitle.textContent = '—';
+      if (E.miniVal) E.miniVal.textContent = '0/0';
+      if (E.miniBar) E.miniBar.style.width = '0%';
+      if (E.miniTimer) E.miniTimer.textContent = '';
+      return;
     }
-  }, { passive:true });
+
+    if (E.miniTitle) E.miniTitle.textContent = q.miniTitle || '—';
+    if (E.miniVal) E.miniVal.textContent = (q.miniNow ?? 0) + '/' + (q.miniNeed ?? 0);
+    if (E.miniBar) E.miniBar.style.width = pct(q.miniNow, q.miniNeed).toFixed(1) + '%';
+
+    if (E.miniTimer){
+      if (typeof q.miniLeftSec === 'number'){
+        E.miniTimer.textContent = 'เหลือ ' + (q.miniLeftSec|0) + 's';
+      } else {
+        E.miniTimer.textContent = '';
+      }
+    }
+  }
+
+  root.addEventListener('quest:update', (ev)=> apply(ev.detail || {}), { passive:true });
+
+  // init blank
+  apply({ goalTitle:'—', goalNow:0, goalNeed:0, miniTitle:'—', miniNow:0, miniNeed:0 });
 })(window);
