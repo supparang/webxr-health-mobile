@@ -54,8 +54,10 @@
   let pulseTo = null;
   function stormPulse(secLeft){
     const el = DOC.documentElement;
+    const s = (secLeft|0);
+
     // intensity: ใกล้หมดแรงขึ้น
-    const k = secLeft <= 1 ? 1.0 : secLeft <= 2 ? 0.85 : secLeft <= 3 ? 0.7 : 0.55;
+    const k = (s <= 1) ? 1.0 : (s <= 2) ? 0.85 : (s <= 3) ? 0.7 : 0.55;
     el.style.setProperty('--stormPulse', String(k));
 
     el.classList.add('storm-pulse');
@@ -65,14 +67,14 @@
     // tiny vibration (optional, safe)
     try{
       if (root.navigator && navigator.vibrate){
-        if (secLeft <= 2) navigator.vibrate(18);
-        else if (secLeft <= 3) navigator.vibrate(10);
+        if (s <= 2) navigator.vibrate(18);
+        else if (s <= 3) navigator.vibrate(10);
       }
     }catch(e){}
   }
 
   const FX = {
-    resumeAudio, // ✅ ให้ HTML เรียกตอนกด Start
+    resumeAudio,
 
     panic(on){ DOC.documentElement.classList.toggle('panic', !!on); },
 
@@ -100,17 +102,16 @@
       setTimeout(()=>DOC.documentElement.classList.remove('storm-badflash'), 180);
     },
 
-    // ✅ “ติ๊กๆ” แบบนาฬิกา + เข้มขึ้นช่วงท้าย
+    // ✅ “ติ๊กๆ” + pulse ขอบจอ + เข้มขึ้นช่วงท้าย
     stormTick(secLeft){
-      // pulse ขอบจอทุกวินาที
-      stormPulse(secLeft|0);
+      const s = (secLeft|0);
+      stormPulse(s);
 
-      // tick pattern
-      if (secLeft <= 2){
+      if (s <= 2){
         // double tick (เร่งใจ)
         beep(1220, 55, 0.060);
         setTimeout(()=>beep(1420, 40, 0.050), 95);
-      } else if (secLeft <= 3){
+      } else if (s <= 3){
         beep(1100, 55, 0.055);
       } else {
         beep(980, 55, 0.050);
@@ -144,7 +145,7 @@
     }
   };
 
-  // ✅ merge ปลอดภัย (กัน NS.FX เดิมเป็น {} แล้ว block ของใหม่)
+  // ✅ merge ปลอดภัย
   NS.FX = Object.assign(NS.FX || {}, FX);
 
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
