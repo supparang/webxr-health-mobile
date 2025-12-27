@@ -1,7 +1,5 @@
 <!-- === /herohealth/hydration-vr/hydration-vr.html ===
-HydrationVR — PRODUCTION
-✅ Mini quest UI (clear checklist + pressure bar)
-✅ Storm warning PRE-ROLL (vignette + stronger flash + stronger shake + tick accel)
+HydrationVR — PRODUCTION (paths fixed + back hub button)
 -->
 
 <!doctype html>
@@ -15,11 +13,13 @@ HydrationVR — PRODUCTION
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-compat-input.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
+  <!-- ✅ FIX: correct relative paths (we are in /hydration-vr/) -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-compat-input.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <style>
+    /* (คง style block ของคุณไว้ได้ตามเดิม — ถ้าจะย้ายไป .css ก็ได้) */
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.74);
@@ -36,16 +36,13 @@ HydrationVR — PRODUCTION
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
 
-      /* edge fx intensity (0..0.85) */
       --fx: 0;
-      /* storm warn amp (0..1) */
       --warnamp: 0;
     }
 
     html,body{ margin:0; padding:0; width:100%; height:100%; background: radial-gradient(1200px 700px at 50% 25%, #0b1120 0%, #020617 60%, #020617 100%); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; overflow:hidden; }
     *{ box-sizing:border-box; }
 
-    /* ✅ STRONG Storm warning overlay */
     body.storm-warn::before{
       content:"";
       position:fixed; inset:-20px;
@@ -69,10 +66,8 @@ HydrationVR — PRODUCTION
       100%{ transform: translate3d(0,0,0); opacity: calc(0.10 + (var(--warnamp) * 0.14)); }
     }
 
-    /* main layout */
     .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
 
-    /* top HUD bar */
     .hud{
       position:relative;
       padding: calc(var(--sat) + 10px) 12px 10px;
@@ -96,7 +91,6 @@ HydrationVR — PRODUCTION
     .stat b{ color: var(--cyan); font-weight:1000; }
     .muted{ color: var(--muted); font-weight:850; }
 
-    /* playfield */
     #playfield{
       position:relative;
       flex:1;
@@ -111,7 +105,6 @@ HydrationVR — PRODUCTION
     }
     #hvr-layer{ position:absolute; inset:0; pointer-events:none; }
 
-    /* bottom HUD */
     .bottom{
       padding: 10px 12px calc(var(--sab) + 12px);
       display:flex; gap:10px;
@@ -122,16 +115,9 @@ HydrationVR — PRODUCTION
     }
     .bottom .card{ min-width: 240px; }
 
-    /* water gauge */
     .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
     .bar{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95)); box-shadow: 0 0 14px rgba(34,211,238,.28); transition: width .22s ease; }
-    .bar.red{ background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(249,115,22,.95)); box-shadow: 0 0 16px rgba(239,68,68,.22); }
 
-    /* storm / edge fx */
-    body.fx-low #playfield{ box-shadow: inset 0 0 0 1px rgba(56,189,248,.10), 0 24px 80px rgba(0,0,0,.55); }
-    body.fx-high #playfield{ box-shadow: inset 0 0 0 1px rgba(249,115,22,.12), 0 24px 80px rgba(0,0,0,.55); }
-
-    /* ✅ stronger shake (base) */
     body.fx-shake #playfield{ animation: nudge .11s ease-in-out infinite; }
     @keyframes nudge{
       0%{ transform: translate3d(0,0,0); }
@@ -140,13 +126,6 @@ HydrationVR — PRODUCTION
       100%{ transform: translate3d(0,0,0); }
     }
 
-    body.storm #playfield{
-      outline: 2px solid rgba(99,102,241,.22);
-      box-shadow: inset 0 0 0 1px rgba(167,139,250,.12), 0 24px 80px rgba(0,0,0,.55);
-      filter: saturate(1.05);
-    }
-
-    /* ✅ Storm warning banner (stronger) */
     .stormWarnBanner{
       position:fixed;
       top: calc(var(--sat) + 10px);
@@ -180,13 +159,6 @@ HydrationVR — PRODUCTION
       100%{ transform: translateX(-50%) scale(1); filter: brightness(1); }
     }
 
-    /* ✅ stronger warning edge */
-    body.storm-warn #playfield{
-      outline: 2px dashed rgba(239,68,68,.35);
-      filter: brightness(1.08) contrast(1.06);
-    }
-
-    /* quest UI */
     .questLine{ margin: 3px 0; font-size:12px; font-weight:900; line-height:1.25; }
     .questLine .tag{
       display:inline-flex; align-items:center; gap:6px;
@@ -199,30 +171,6 @@ HydrationVR — PRODUCTION
       margin-right:6px;
     }
 
-    /* Mini quest card */
-    .miniWrap{ margin-top:8px; padding-top:8px; border-top:1px solid rgba(148,163,184,.14); }
-    .miniTitle{ font-size:12px; font-weight:1000; letter-spacing:.2px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .miniTitle .right{ font-size:11px; color:var(--muted); font-weight:950; }
-    .miniList{ margin-top:8px; display:grid; gap:6px; }
-    .miniItem{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      font-size:12px; font-weight:950;
-      padding: 6px 8px;
-      border-radius: 14px;
-      background: rgba(15,23,42,.45);
-      border:1px solid rgba(148,163,184,.14);
-    }
-    .miniItem .left{ display:flex; align-items:center; gap:8px; }
-    .dot{ width:10px; height:10px; border-radius:999px; background: rgba(148,163,184,.35); box-shadow: 0 0 0 2px rgba(148,163,184,.10); }
-    .miniItem.ok .dot{ background: rgba(34,197,94,.95); box-shadow: 0 0 0 2px rgba(34,197,94,.18), 0 0 18px rgba(34,197,94,.25); }
-    .miniItem.bad .dot{ background: rgba(239,68,68,.85); box-shadow: 0 0 0 2px rgba(239,68,68,.16); }
-    .miniItem .val{ color: var(--muted); font-weight:1000; }
-    .miniBarWrap{ margin-top:8px; }
-    .miniBarLabel{ font-size:11px; font-weight:950; color:var(--muted); display:flex; justify-content:space-between; }
-    .miniBar{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
-    .miniBar > div{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85)); transition: width .16s ease; box-shadow: 0 0 14px rgba(167,139,250,.18); }
-
-    /* Start overlay + buttons */
     #start-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -256,35 +204,6 @@ HydrationVR — PRODUCTION
     .btn.secondary{ background: rgba(2,6,23,.55); }
     .btn.danger{ background: rgba(239,68,68,.18); }
 
-    /* Stamp */
-    #hha-stamp{
-      position:fixed;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      z-index:40;
-      pointer-events:none;
-      opacity:0;
-    }
-    #hha-stamp.show{ opacity:1; animation: stampPop .72s ease forwards; }
-    @keyframes stampPop{
-      0%{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
-      20%{ transform: translate(-50%,-50%) scale(1.05); opacity:1; }
-      100%{ transform: translate(-50%,-50%) scale(1); opacity:0; }
-    }
-    .stampBox{
-      background: rgba(2,6,23,.86);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 18px;
-      padding: 12px 14px;
-      box-shadow: 0 18px 70px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-      text-align:center;
-      min-width: 240px;
-    }
-    .stampBig{ font-size: 20px; font-weight:1100; letter-spacing:.2px; }
-    .stampSmall{ margin-top:4px; font-size: 12px; color: var(--muted); font-weight:950; }
-
-    /* End screen */
     #hvr-end{
       position:fixed; inset:0;
       display:none;
@@ -360,40 +279,10 @@ HydrationVR — PRODUCTION
       <div class="card" style="min-width:340px">
         <h3>🧩 Quest</h3>
         <div class="questLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
-        <div class="questLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
-        <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
-        <div class="questLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
-
-        <div class="miniWrap" id="mini-card">
-          <div class="miniTitle">
-            <div>🌪️ Storm Mini: Shield Timing (FULL)</div>
-            <div class="right">Storm in <span id="mini-storm-in">—</span>s</div>
-          </div>
-
-          <div class="miniList">
-            <div class="miniItem" id="mini-c-storm"><div class="left"><span class="dot"></span>อยู่ใน Storm</div><div class="val" id="mini-v-storm">—</div></div>
-            <div class="miniItem" id="mini-c-zone"><div class="left"><span class="dot"></span>น้ำต้อง LOW/HIGH (ห้าม GREEN)</div><div class="val" id="mini-v-zone">—</div></div>
-            <div class="miniItem" id="mini-c-pressure"><div class="left"><span class="dot"></span>Pressure ถึงเกณฑ์</div><div class="val" id="mini-v-pressure">—</div></div>
-            <div class="miniItem" id="mini-c-end"><div class="left"><span class="dot"></span>ท้ายพายุ (End-window)</div><div class="val" id="mini-v-end">—</div></div>
-            <div class="miniItem" id="mini-c-block"><div class="left"><span class="dot"></span>ต้อง “บล็อก BAD” ด้วย Shield</div><div class="val" id="mini-v-block">—</div></div>
-          </div>
-
-          <div class="miniBarWrap">
-            <div class="miniBarLabel">
-              <div>Pressure bar</div>
-              <div><span id="mini-pressure-pct">0</span>%</div>
-            </div>
-            <div class="miniBar"><div id="mini-pressure-bar"></div></div>
-          </div>
-        </div>
+        <div class="questLine"><span class="tag">Mini</span><span id="quest-line2">—</span></div>
+        <div class="questLine"><span class="tag">State</span><span id="quest-line3">—</span></div>
+        <div class="questLine"><span class="tag">Info</span><span id="quest-line4">—</span></div>
       </div>
-    </div>
-  </div>
-
-  <div id="hha-stamp" aria-hidden="true">
-    <div class="stampBox">
-      <div class="stampBig" id="stamp-big">—</div>
-      <div class="stampSmall" id="stamp-small">—</div>
     </div>
   </div>
 
@@ -401,7 +290,7 @@ HydrationVR — PRODUCTION
     <div class="startCard">
       <div style="font-size:18px;font-weight:1100">💧 Hydration VR</div>
       <div class="muted" style="margin-top:6px; font-size:12px; font-weight:900">
-        Goal: อยู่ใน GREEN ให้ครบ • Mini: Storm Shield Timing (FULL) • แตะกลางจอ = ยิง crosshair
+        Goal: อยู่ใน GREEN ให้ครบ • Mini: Storm Shield Timing • แตะกลางจอ = ยิง crosshair
       </div>
       <div class="btnRow">
         <button class="btn" id="btn-start" type="button">🚀 START</button>
@@ -415,19 +304,23 @@ HydrationVR — PRODUCTION
     <div class="endCard">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
         <div style="font-size:18px; font-weight:1100">🏁 Summary</div>
-        <button class="btn" id="btn-retry" type="button">🔁 Retry</button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn secondary" id="btn-backhub" type="button">🏠 Back HUB</button>
+          <button class="btn" id="btn-retry" type="button">🔁 Retry</button>
+        </div>
       </div>
       <div class="endGrid">
         <div class="endItem"><div class="k">Score</div><div class="v" id="end-score">0</div></div>
         <div class="endItem"><div class="k">Grade</div><div class="v" id="end-grade">C</div></div>
         <div class="endItem"><div class="k">Combo Max</div><div class="v" id="end-combo">0</div></div>
         <div class="endItem"><div class="k">Miss</div><div class="v" id="end-miss">0</div></div>
-        <div class="endItem"><div class="k">Goals</div><div class="v" id="end-goals">0/1</div></div>
+        <div class="endItem"><div class="k">Goals</div><div class="v" id="end-goals">0/0</div></div>
         <div class="endItem"><div class="k">Minis</div><div class="v" id="end-minis">0</div></div>
       </div>
     </div>
   </div>
 
-  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
+  <!-- ✅ FIX: module path -->
+  <script type="module" src="./hydration.safe.js"></script>
 </body>
 </html>
