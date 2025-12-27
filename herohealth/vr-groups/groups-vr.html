@@ -7,97 +7,85 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame background (optional) -->
+  <!-- A-Frame (optional scene bg) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- CSS alias -->
+  <!-- ✅ correct path (this file is already in /vr-groups/) -->
   <link rel="stylesheet" href="./groups.css" />
 </head>
 
 <body>
-  <!-- Background scene -->
+  <!-- Optional background scene -->
   <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
     <a-sky color="#06101f"></a-sky>
-    <a-entity position="0 1.6 0" camera look-controls></a-entity>
+    <a-entity id="cam" position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
   <!-- Gameplay layer -->
-  <div id="fg-layer"></div>
+  <div class="fg-layer" id="fg-layer"></div>
 
   <!-- HUD -->
-  <div class="hud-root">
-    <div class="hud-top">
-      <div class="hud-card hud-left">
-        <div class="hud-row"><div class="hud-title">SCORE</div><div class="hud-val" id="hud-score">0</div></div>
-        <div class="hud-row"><div class="hud-title">COMBO</div><div class="hud-val" id="hud-combo">0</div></div>
-        <div class="hud-row"><div class="hud-title">MISS</div><div class="hud-val" id="hud-miss">0</div></div>
+  <div class="hud-top">
+    <div class="hud-card hud-left">
+      <div class="hud-row"><div class="hud-title">SCORE</div><div class="hud-val" id="hud-score">0</div></div>
+      <div class="hud-row"><div class="hud-title">COMBO</div><div class="hud-val" id="hud-combo">0</div></div>
+      <div class="hud-row"><div class="hud-title">MISS</div><div class="hud-val" id="hud-miss">0</div></div>
+    </div>
+
+    <div class="hud-card hud-mid">
+      <div class="hud-group-row">
+        <div class="hud-group" id="hud-group">หมู่ ?</div>
+        <div class="hud-timer" id="hud-time">90</div>
       </div>
 
-      <div class="hud-card hud-mid">
-        <div class="hud-group-row">
-          <div class="hud-group" id="hud-group">หมู่ ?</div>
-          <div class="hud-timer" id="hud-time">90</div>
+      <div class="power-wrap">
+        <div class="power-label">
+          <div>POWER</div>
+          <div id="fg-powerText" style="font-weight:900;opacity:.9">0/0</div>
         </div>
-
-        <div class="power-wrap">
-          <div class="power-label">
-            <div>POWER</div>
-            <div id="fg-powerText" style="font-weight:1000;opacity:.92">0/0</div>
-          </div>
-          <div class="power-bar"><div class="power-fill" id="hud-powerFill"></div></div>
-        </div>
-
-        <div class="quest-wrap">
-          <div class="quest-line">
-            <div class="q-badge">GOAL</div>
-            <div class="q-text" id="hud-goal-title">—</div>
-            <div class="q-num" id="hud-goal-val">0/0</div>
-          </div>
-          <div class="qbar"><div class="qbar-track"><div class="qbar-fill goal" id="hud-goal-bar"></div></div></div>
-
-          <div class="quest-line" id="hud-mini-line">
-            <div class="q-badge mini">MINI</div>
-            <div class="q-text" id="hud-mini-title">—</div>
-            <div class="q-num" id="hud-mini-val">0/0</div>
-          </div>
-          <div class="qbar">
-            <div class="qbar-track"><div class="qbar-fill mini" id="hud-mini-bar"></div></div>
-            <div class="qbar-timer" id="hud-mini-timer"></div>
-          </div>
-        </div>
+        <div class="power-bar"><div class="power-fill" id="hud-powerFill"></div></div>
       </div>
 
-      <div class="hud-card hud-right">
-        <div class="rank-box">
-          <div>
-            <div class="rank-title">RANK</div>
-            <div class="rank-sub"><span>ACC</span><span id="hud-acc">0%</span></div>
-          </div>
-          <div class="rank-grade" id="hud-rank">C</div>
+      <div class="quest-wrap">
+        <div class="quest-line">
+          <div class="q-badge">GOAL</div>
+          <div class="q-text" id="hud-goal-title">—</div>
+          <div class="q-num" id="hud-goal-val">0/0</div>
         </div>
-        <div class="rank-sub"><span>BEST</span><span id="hud-comboMax">0</span></div>
+        <div class="qbar"><div class="qbar-track"><div class="qbar-fill goal" id="hud-goal-bar"></div></div></div>
+
+        <div class="quest-line">
+          <div class="q-badge mini">MINI</div>
+          <div class="q-text" id="hud-mini-title">—</div>
+          <div class="q-num" id="hud-mini-val">0/0</div>
+        </div>
+        <div class="qbar">
+          <div class="qbar-track"><div class="qbar-fill mini" id="hud-mini-bar"></div></div>
+          <div class="qbar-timer" id="hud-mini-timer"></div>
+        </div>
       </div>
     </div>
 
-    <div class="hud-bottom">
-      <div class="coach-bubble" id="coachBubble">
-        <div class="coach-avatar" id="coachFace">🥦</div>
+    <div class="hud-card hud-right">
+      <div class="rank-box">
         <div>
-          <div class="coach-text" id="coachText">พร้อมแล้ว!</div>
-          <div class="coach-sub" id="coachSub">ยิงให้ถูก “หมู่ปัจจุบัน” และอย่าโดนหลอก 😈</div>
+          <div class="rank-title">RANK</div>
+          <div class="rank-sub"><span>ACC</span><span id="hud-acc">0%</span></div>
         </div>
+        <div class="rank-grade" id="hud-rank">C</div>
       </div>
+      <div class="rank-sub"><span>BEST</span><span id="hud-comboMax">0</span></div>
     </div>
   </div>
 
   <!-- Start Overlay -->
   <div class="start-overlay" id="startOverlay">
     <div class="start-card">
-      <div class="start-title">Food Groups VR 🍽️ (โหด+++)</div>
+      <div class="start-title">Food Groups VR 🍽️</div>
       <div class="start-sub">
-        ✅ ยิง “ถูกหมู่” = ได้แต้ม/คอมโบ/ชาร์จ POWER<br/>
-        ❌ ยิง “ผิดหมู่” (สีฟ้า) = ตัดคอมโบ + MISS (หลอกแบบเนียน!)<br/>
-        ☠️ ขยะ = STUN / ❓ decoy = หลอกแรง / 👹 boss = หลายฮิต
+        ยิงให้ถูก “หมู่ปัจจุบัน” 🎯 สะสมพลังเพื่อสลับหมู่ ✨<br/>
+        ระวังขยะ (STUN) 🚫 + ตัวหลอก (decoy) ❓ + ยิงผิดหมู่ (WRONG) ⚠️<br/>
+        <b>STORM โหด+++</b> จะมาเป็นช่วง ๆ: เป้าเล็กลง + spawn ถี่ + ติ๊กๆ 🔥
       </div>
 
       <div class="start-grid">
@@ -108,24 +96,20 @@
 
       <div class="start-actions">
         <button class="btn primary" id="btnStart">เริ่มเล่น</button>
-        <button class="btn ghost" id="btnRestart">รีโหลด</button>
+        <button class="btn ghost" id="btnRestart">รีเซ็ต</button>
       </div>
 
-      <div class="start-note">
-        Tip: แตะใกล้เป้า = auto-lock / boss ต้องฮิตหลายครั้ง
-      </div>
+      <div class="start-note">Tip: แตะเป้า = ยิงทันที (ระวัง WRONG/JUNK ตอน STORM)</div>
     </div>
   </div>
 
-  <!-- End Overlay -->
+  <!-- ✅ End Overlay (HHA standard-ish) -->
   <div class="result-overlay" id="endOverlay">
     <div class="result-card">
       <h2>สรุปผล — Food Groups VR</h2>
       <p>Score: <b id="endScore">0</b> · Rank: <b id="endRank">C</b> · Acc: <b id="endAcc">0%</b></p>
       <p>ComboMax: <b id="endComboMax">0</b> · Miss: <b id="endMiss">0</b></p>
-      <p>Goals: <b id="endGoals">0/0</b> · Minis: <b id="endMinis">0</b></p>
-      <hr/>
-      <p style="opacity:.9">Tip: โหมดนี้ “ผิดหมู่” โหดมาก—มอง HUD หมู่ให้ชิน แล้วค่อยยิง!</p>
+      <p>Goals: <b id="endGoals">0/0</b> · Minis: <b id="endMinis">0/0</b></p>
       <div class="result-actions">
         <button class="btn primary" id="btnRetry">RETRY</button>
         <button class="btn ghost" id="btnBackHub">กลับ HUB</button>
@@ -133,14 +117,15 @@
     </div>
   </div>
 
-  <!-- ===== Scripts (classic) ===== -->
-  <script src="../vr/ui-fever.js"></script>
-  <script src="./groups-fx.js"></script>
-  <script src="./groups-hud-quest.js"></script>
-  <script src="./groups-quests.js"></script>
-  <script src="./GameEngine.js"></script>
+  <!-- ===== Scripts (correct paths) ===== -->
+  <script src="../vr/ui-fever.js" defer></script>
+  <script src="../vr/ui-karaoke.js" defer></script>
 
-  <!-- Boot -->
+  <script src="./groups-hud-quest.js" defer></script>
+  <script src="./groups-quests.js" defer></script>
+  <script src="./groups-fx.js" defer></script>
+  <script src="./GameEngine.js" defer></script>
+
   <script>
   (function(){
     'use strict';
@@ -158,19 +143,53 @@
     const diff = String(qs('diff','normal')).toLowerCase();
     const time = clamp(int('time', 90), 30, 180);
     const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
-    const hub  = String(qs('hub','../hub.html') || '../hub.html');
 
-    // deterministic seed: sessionId/studentKey + ts
-    const sid = String(qs('sessionId', qs('studentKey','')) || '');
-    const ts  = String(qs('ts', Date.now()));
+    const hub  = String(qs('hub','../hub.html') || '../hub.html');
+    const sid  = String(qs('sessionId', qs('studentKey','')) || '');
+    const ts   = String(qs('ts', Date.now()));
     const seed = String(qs('seed', sid ? (sid + '|' + ts) : ts));
 
-    // pills
     document.getElementById('pill-diff').textContent = 'DIFF: ' + diff;
     document.getElementById('pill-time').textContent = 'TIME: ' + time + 's';
     document.getElementById('pill-mode').textContent = 'MODE: ' + run;
 
-    // start controls
+    window.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail || {};
+      const sEl = document.getElementById('hud-score'); if (sEl) sEl.textContent = (d.score|0);
+      const cEl = document.getElementById('hud-combo'); if (cEl) cEl.textContent = (d.combo|0);
+      const mEl = document.getElementById('hud-miss');  if (mEl) mEl.textContent = (d.misses|0);
+      const bEl = document.getElementById('hud-comboMax'); if (bEl) bEl.textContent = (d.comboMax|0);
+    }, { passive:true });
+
+    window.addEventListener('hha:rank', (ev)=>{
+      const d = ev.detail || {};
+      const rEl = document.getElementById('hud-rank'); if (rEl && d.grade) rEl.textContent = d.grade;
+      const aEl = document.getElementById('hud-acc'); if (aEl && typeof d.accuracy === 'number') aEl.textContent = (d.accuracy|0) + '%';
+    }, { passive:true });
+
+    window.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail || {};
+      const tEl = document.getElementById('hud-time'); if (tEl) tEl.textContent = (d.left|0);
+    }, { passive:true });
+
+    window.addEventListener('groups:group_change', (ev)=>{
+      const d = ev.detail || {};
+      const gEl = document.getElementById('hud-group'); if (gEl) gEl.textContent = d.label || 'หมู่ ?';
+    }, { passive:true });
+
+    window.addEventListener('groups:power', (ev)=>{
+      const d = ev.detail || {};
+      const th = Math.max(1, d.threshold|0);
+      const ch = Math.max(0, d.charge|0);
+      const p = Math.min(100, (ch/th)*100);
+
+      const fill = document.getElementById('hud-powerFill');
+      if (fill) fill.style.width = p.toFixed(1) + '%';
+
+      const txt = document.getElementById('fg-powerText');
+      if (txt) txt.textContent = `${ch}/${th}`;
+    }, { passive:true });
+
     const overlay = document.getElementById('startOverlay');
     const btnStart = document.getElementById('btnStart');
     const btnRestart = document.getElementById('btnRestart');
@@ -182,24 +201,24 @@
         return;
       }
       engine.setLayerEl(document.getElementById('fg-layer'));
+      if (engine.setCameraEl) engine.setCameraEl(document.getElementById('cam'));
       engine.setTimeLeft(time);
       engine.start(diff, { runMode: run, seed: seed });
-      try{ window.dispatchEvent(new CustomEvent('hha:log_session', { detail: { phase:'start', game:'groups', diff, runMode:run, seed, time } })); }catch{}
     }
 
     btnStart.addEventListener('click', ()=>{
       overlay.style.display = 'none';
       boot();
-    }, { passive:true });
+    });
 
-    btnRestart.addEventListener('click', ()=> location.reload(), { passive:true });
+    btnRestart.addEventListener('click', ()=> location.reload());
 
-    // End overlay wiring
+    // ✅ End overlay + save last summary + back hub
     const endOverlay = document.getElementById('endOverlay');
     const btnRetry = document.getElementById('btnRetry');
     const btnBack = document.getElementById('btnBackHub');
 
-    btnRetry.addEventListener('click', ()=> location.reload(), { passive:true });
+    btnRetry.addEventListener('click', ()=> location.reload());
     btnBack.addEventListener('click', ()=>{
       try{
         const u = new URL(hub, location.href);
@@ -208,18 +227,13 @@
       }catch{
         location.href = hub;
       }
-    }, { passive:true });
+    });
 
-    // Show coach bubble always
-    const coachBubble = document.getElementById('coachBubble');
-    if (coachBubble) coachBubble.classList.add('show');
-
-    // end summary listener (HHA standard-ish)
     window.addEventListener('hha:end', (ev)=>{
-      const d = ev.detail || {};
+      const d = (ev && ev.detail) ? ev.detail : {};
       try{
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d || {}));
-        localStorage.setItem('hha_last_summary', JSON.stringify(d || {}));
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
+        localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
       }catch{}
 
       const s = document.getElementById('endScore'); if (s) s.textContent = String(d.scoreFinal ?? 0);
@@ -227,14 +241,16 @@
       const a = document.getElementById('endAcc');  if (a) a.textContent = String((d.accuracyGoodPct ?? 0) | 0) + '%';
       const cm= document.getElementById('endComboMax'); if (cm) cm.textContent = String(d.comboMax ?? 0);
       const ms= document.getElementById('endMiss'); if (ms) ms.textContent = String(d.misses ?? 0);
-      const gl= document.getElementById('endGoals'); if (gl) gl.textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0);
-      const mn= document.getElementById('endMinis'); if (mn) mn.textContent = String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0);
+
+      const gl= document.getElementById('endGoals');
+      if (gl) gl.textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0);
+
+      const mn= document.getElementById('endMinis');
+      if (mn) mn.textContent = String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0);
 
       if (endOverlay) endOverlay.classList.add('show');
-      try{ window.dispatchEvent(new CustomEvent('hha:log_session', { detail: { phase:'end', ...d } })); }catch{}
     }, { passive:true });
 
-    // auto start if ?autostart=1
     if (qs('autostart','0') === '1'){
       overlay.style.display = 'none';
       boot();
