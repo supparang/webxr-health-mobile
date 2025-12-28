@@ -1,19 +1,10 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
-Food Groups VR — GameEngine (PRODUCTION A+B+C)
-Works with:
-- groups-hud-quest.js (quest binder)
-- groups-quests.js (QuestDirector)  [listens to events below]
-- groups-fx.js (candy fx)
-Emits:
-- groups:group_change {groupId,label,from}
-- groups:power {charge,threshold}
-- groups:storm {on,durSec}
-- groups:progress {kind:'group_swap'|'boss_spawn'|'boss_down'}
-- hha:score {score,combo,comboMax,misses}
-- hha:judge {kind:'good'|'bad'|'warn'|'boss', text}
-- hha:rank {grade, accuracy}
-- hha:time {left}
-- hha:end {scoreFinal, comboMax, misses, goalsCleared, goalsTotal, miniCleared, miniTotal, accuracyGoodPct, grade, ...metrics}
+Food Groups VR — GameEngine (Hardcore+FeelGood)
+Adds:
+- Storm tick SFX (WebAudio) + urgency
+- Powerups: Magnet⭐, Freeze❄️
+- Buff chips UI
+- Powerups do NOT count for quest (meta.noQuest)
 */
 
 (function(root){
@@ -27,7 +18,23 @@ Emits:
   const layer = DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer');
   if (!layer) return;
 
-  // ---------------- RNG (seeded) ----------------
+  // ---------- Buff chips UI ----------
+  let buffWrap = DOC.querySelector('.groups-buff');
+  if (!buffWrap){
+    buffWrap = DOC.createElement('div');
+    buffWrap.className = 'groups-buff';
+    buffWrap.innerHTML = `
+      <div class="chip" id="chipStorm" style="display:none">STORM 🔥</div>
+      <div class="chip" id="chipMag"  style="display:none">MAGNET ⭐</div>
+      <div class="chip" id="chipFrz"  style="display:none">FREEZE ❄️</div>
+    `;
+    DOC.body.appendChild(buffWrap);
+  }
+  const chipStorm = DOC.getElementById('chipStorm');
+  const chipMag   = DOC.getElementById('chipMag');
+  const chipFrz   = DOC.getElementById('chipFrz');
+
+  // ---------- Seeded RNG ----------
   function xmur3(str){
     str = String(str||'seed');
     let h = 1779033703 ^ str.length;
@@ -60,7 +67,7 @@ Emits:
     return sfc32(gen(), gen(), gen(), gen());
   }
 
-  // ---------------- Helpers ----------------
+  // ---------- Helpers ----------
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
   function qs(name, def){
     try{ return (new URL(root.location.href)).searchParams.get(name) ?? def; }
@@ -68,7 +75,53 @@ Emits:
   }
   function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
 
-  // ---------------- Content ----------------
+  // ---------- Simple SFX (WebAudio) ----------
+  const SFX = {
+    ctx:null,
+    nextTickAt:0,
+    ensure(){
+      if (this.ctx) return this.ctx;
+      const AC = root.AudioContext || root.webkitAudioContext;
+      if (!AC) return null;
+      try{
+        this.ctx = new AC();
+        return this.ctx;
+      }catch{ return null; }
+    },
+    beep(freq, dur, gain){
+      const ctx = this.ensure();
+      if (!ctx) return;
+      try{
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'triangle';
+        o.frequency.value = freq;
+        g.gain.value = 0.0001;
+        o.connect(g);
+        g.connect(ctx.destination);
+        const t0 = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.001, gain||0.05), t0+0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + (dur||0.06));
+        o.start(t0);
+        o.stop(t0 + (dur||0.06) + 0.02);
+      }catch{}
+    },
+    tickStorm(leftMs){
+      // ใกล้หมด => ถี่ขึ้น
+      const t = now();
+      if (t < this.nextTickAt) return;
+      const left = Math.max(0, leftMs);
+      const rate = (left <= 1200) ? 90 : (left <= 2200 ? 140 : 220); // ms
+      this.nextTickAt = t + rate;
+      this.beep(980, 0.045, 0.045);
+    },
+    good(){ this.beep(660, 0.045, 0.040); },
+    bad(){ this.beep(220, 0.065, 0.055); },
+    power(){ this.beep(820, 0.07, 0.050); this.beep(1040, 0.06, 0.045); }
+  };
+
+  // ---------- Content ----------
   const GROUPS = {
     1: { label:'หมู่ 1', emoji:['🥛','🥚','🍗','🐟','🥜','🫘'] },
     2: { label:'หมู่ 2', emoji:['🍚','🍞','🥔','🍠','🥖','🍜'] },
@@ -78,68 +131,51 @@ Emits:
   };
 
   const JUNK_EMOJI = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭'];
-  const DECOY_EMOJI = ['🎭','🌀','✨','🌈','🎈']; // น่ารัก หลอกแบบไม่หลอน
+  const DECOY_EMOJI = ['🎭','🌀','✨','🌈','🎈'];
 
-  // ---------------- Engine State ----------------
+  // ---------- State ----------
   const engine = {
-    running:false,
-    ended:false,
-    runMode:'play', // play | research
+    running:false, ended:false,
+    runMode:'play',
     diff:'normal',
     timeSec:90,
     seed:'seed',
     rng:Math.random,
 
-    // view move (VR feel)
     vx:0, vy:0,
-    dragOn:false,
-    dragX:0, dragY:0,
+    dragOn:false, dragX:0, dragY:0,
 
-    // gameplay
     left:90,
-    score:0,
-    combo:0,
-    comboMax:0,
-    misses:0,
+    score:0, combo:0, comboMax:0, misses:0,
+    hitGood:0, hitAll:0,
 
-    hitGood:0,
-    hitAll:0,
-
-    // group
-    groupId:1,
-    groupLabel:'หมู่ 1',
-    groupClean:true, // for PERFECT SWITCH
+    groupId:1, groupLabel:'หมู่ 1',
+    groupClean:true,
     groupStartMs:0,
 
-    // power
-    power:0,
-    powerThr:10,
+    power:0, powerThr:10,
 
-    // spawn tuning
-    baseSpawnMs: 780,
-    ttlMs: 1600,
-    sizeBase: 1.0,
+    ttlMs:1600,
+    sizeBase:1.0,
 
-    // adaptive (play only)
-    adapt: { spawnMs:780, ttl:1600, size:1.0, junkBias:0.12, decoyBias:0.10, bossEvery: 18000 },
+    adapt:{ spawnMs:780, ttl:1600, size:1.0, junkBias:0.12, decoyBias:0.10, bossEvery:18000 },
 
-    // storm
     storm:false,
     stormUntilMs:0,
     nextStormAtMs:0,
     stormDurSec:6,
 
-    // boss
     bossAlive:false,
-    bossHp:0,
-    bossHpMax:3,
+    bossHp:0, bossHpMax:3,
     nextBossAtMs:0,
 
-    // shield (C: CLEAN SHIELD)
     shield:0,
     cleanStreakMs:0,
 
-    // loops
+    // Buffs
+    magnetUntil:0,
+    freezeUntil:0,
+
     spawnTimer:0,
     tickTimer:0,
   };
@@ -164,19 +200,12 @@ Emits:
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
     emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
   }
-
   function updateScore(){
     emit('hha:score', { score: engine.score|0, combo: engine.combo|0, comboMax: engine.comboMax|0, misses: engine.misses|0 });
     updateRank();
   }
-
-  function updateTime(){
-    emit('hha:time', { left: engine.left|0 });
-  }
-
-  function updatePower(){
-    emit('groups:power', { charge: engine.power|0, threshold: engine.powerThr|0 });
-  }
+  function updateTime(){ emit('hha:time', { left: engine.left|0 }); }
+  function updatePower(){ emit('groups:power', { charge: engine.power|0, threshold: engine.powerThr|0 }); }
 
   function setGroup(id, from){
     engine.groupId = id;
@@ -186,45 +215,67 @@ Emits:
     emit('groups:group_change', { groupId:id, label: engine.groupLabel, from: from|0 });
   }
 
-  // ---------------- VR-feel move (drag+gyro) ----------------
+  // ---------- VR feel view ----------
   function applyView(){
     layer.style.setProperty('--vx', engine.vx.toFixed(1)+'px');
     layer.style.setProperty('--vy', engine.vy.toFixed(1)+'px');
   }
   function setupView(){
-    // drag
     layer.addEventListener('pointerdown', (e)=>{
-      engine.dragOn = true;
-      engine.dragX = e.clientX;
-      engine.dragY = e.clientY;
+      engine.dragOn = true; engine.dragX = e.clientX; engine.dragY = e.clientY;
     }, { passive:true });
     root.addEventListener('pointermove', (e)=>{
       if (!engine.dragOn) return;
       const dx = e.clientX - engine.dragX;
       const dy = e.clientY - engine.dragY;
-      engine.dragX = e.clientX;
-      engine.dragY = e.clientY;
+      engine.dragX = e.clientX; engine.dragY = e.clientY;
       engine.vx = clamp(engine.vx + dx*0.22, -90, 90);
       engine.vy = clamp(engine.vy + dy*0.22, -90, 90);
       applyView();
     }, { passive:true });
     root.addEventListener('pointerup', ()=>{ engine.dragOn=false; }, { passive:true });
 
-    // gyro (เบา ๆ)
     root.addEventListener('deviceorientation', (ev)=>{
-      const gx = Number(ev.gamma)||0; // left-right
-      const gy = Number(ev.beta)||0;  // front-back
-      // ผสมกับ drag (ไม่แย่งกัน)
+      const gx = Number(ev.gamma)||0;
+      const gy = Number(ev.beta)||0;
       engine.vx = clamp(engine.vx + gx*0.06, -90, 90);
       engine.vy = clamp(engine.vy + (gy-20)*0.02, -90, 90);
       applyView();
     }, { passive:true });
   }
 
-  // ---------------- Spawn utils ----------------
-  function pick(arr){
-    if (!arr || !arr.length) return '';
-    return arr[(engine.rng()*arr.length)|0];
+  // ---------- Spawn rect ----------
+  function safeSpawnRect(){
+    const W = root.innerWidth || 360;
+    const H = root.innerHeight || 640;
+    const top = 150;
+    const bot = 170;
+    const side = 16;
+    return { x0:side, x1:W-side, y0:top, y1:H-bot, W, H };
+  }
+  function randPos(){
+    const r = safeSpawnRect();
+    const x = r.x0 + engine.rng()*(r.x1 - r.x0);
+    const y = r.y0 + engine.rng()*(r.y1 - r.y0);
+    return { x, y };
+  }
+  function pick(arr){ return (!arr||!arr.length) ? '' : arr[(engine.rng()*arr.length)|0]; }
+
+  // ---------- DOM target helpers ----------
+  function setXY(el, x, y){
+    el.style.setProperty('--x', x.toFixed(1)+'px');
+    el.style.setProperty('--y', y.toFixed(1)+'px');
+    el.dataset._x = String(x);
+    el.dataset._y = String(y);
+  }
+  function getXY(el){
+    const x = Number(el.dataset._x);
+    const y = Number(el.dataset._y);
+    if (Number.isFinite(x) && Number.isFinite(y)) return {x,y};
+    // fallback parse style
+    const sx = (el.style.getPropertyValue('--x')||'').trim().replace('px','');
+    const sy = (el.style.getPropertyValue('--y')||'').trim().replace('px','');
+    return { x:Number(sx)||0, y:Number(sy)||0 };
   }
 
   function makeTarget(type, emoji, x, y, s){
@@ -232,27 +283,26 @@ Emits:
     el.className = 'fg-target spawn';
     el.dataset.emoji = emoji || '✨';
     el.dataset.type = type;
-    el.style.setProperty('--x', x.toFixed(1)+'px');
-    el.style.setProperty('--y', y.toFixed(1)+'px');
+    setXY(el, x, y);
     el.style.setProperty('--s', s.toFixed(3));
 
-    // type classes
     if (type === 'good') el.classList.add('fg-good');
     else if (type === 'wrong') el.classList.add('fg-wrong');
     else if (type === 'junk') el.classList.add('fg-junk');
     else if (type === 'decoy') el.classList.add('fg-decoy');
     else if (type === 'boss') el.classList.add('fg-boss');
+    else if (type === 'star'){ el.classList.add('fg-powerup','fg-star'); }
+    else if (type === 'ice'){ el.classList.add('fg-powerup','fg-ice'); }
 
-    // TTL
-    const born = now();
-    const ttl = engine.storm ? Math.max(850, engine.ttlMs*0.85) : engine.ttlMs;
-    const timer = root.setTimeout(()=>{
+    const ttlBase = engine.ttlMs;
+    const ttl = engine.storm ? Math.max(850, ttlBase*0.85) : ttlBase;
+
+    el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
-      // expire: only count miss for GOOD (เหมือนที่คุณใช้ในโปรเจกต์อื่น)
+
+      // expire miss: only GOOD counts
       if (type === 'good'){
-        engine.misses++;
-        engine.combo = 0;
-        engine.groupClean = false;
+        engine.misses++; engine.combo = 0; engine.groupClean = false;
         emit('hha:judge', { kind:'warn', text:'MISS!' });
         updateScore();
       }
@@ -260,10 +310,6 @@ Emits:
       root.setTimeout(()=> el.remove(), 220);
     }, ttl);
 
-    el._ttlTimer = timer;
-    el._born = born;
-
-    // click to shoot
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault?.();
       hitTarget(el);
@@ -272,106 +318,82 @@ Emits:
     return el;
   }
 
-  function safeSpawnRect(){
-    // กันทับ HUD: top/bottom/side
-    const W = root.innerWidth || 360;
-    const H = root.innerHeight || 640;
-    const top = 150;         // HUD top height
-    const bot = 170;         // end safe
-    const side = 16;
-
-    const x0 = side, x1 = W - side;
-    const y0 = top,  y1 = H - bot;
-    return { x0, x1, y0, y1, W, H };
+  function removeTarget(el){
+    try{ root.clearTimeout(el._ttlTimer); }catch{}
+    el.classList.add('hit');
+    root.setTimeout(()=> el.remove(), 220);
   }
 
-  function randPos(){
-    const r = safeSpawnRect();
-    const x = r.x0 + engine.rng()*(r.x1 - r.x0);
-    const y = r.y0 + engine.rng()*(r.y1 - r.y0);
-    return { x, y };
-  }
-
-  // ---------------- Core mechanics (A+B+C) ----------------
+  // ---------- Storm ----------
   function enterStorm(){
     engine.storm = true;
     engine.stormUntilMs = now() + engine.stormDurSec*1000;
     DOC.body.classList.add('groups-storm');
+    chipStorm.style.display = '';
     emit('groups:storm', { on:true, durSec: engine.stormDurSec|0 });
 
-    // เร้าใจ: เพิ่ม spawn/ลด size ใน storm (แต่ยุติธรรม)
     if (engine.runMode === 'play'){
       engine.adapt.spawnMs = Math.max(420, engine.adapt.spawnMs*0.78);
       engine.adapt.size = Math.max(0.82, engine.adapt.size*0.94);
       engine.adapt.junkBias = clamp(engine.adapt.junkBias + 0.05, 0.08, 0.25);
-      engine.adapt.decoyBias = clamp(engine.adapt.decoyBias + 0.03, 0.06, 0.22);
+      engine.adapt.decoyBias= clamp(engine.adapt.decoyBias + 0.03, 0.06, 0.22);
     }
   }
-
   function exitStorm(){
     engine.storm = false;
     engine.stormUntilMs = 0;
     DOC.body.classList.remove('groups-storm');
     DOC.body.classList.remove('groups-storm-urgent');
+    chipStorm.style.display = 'none';
     emit('groups:storm', { on:false, durSec: 0 });
   }
-
   function maybeStormTick(){
     if (!engine.storm) return;
     const leftMs = engine.stormUntilMs - now();
-    if (leftMs <= 0){
-      exitStorm();
-      // schedule next storm
-      engine.nextStormAtMs = now() + (16000 + engine.rng()*12000);
-      return;
-    }
+    if (leftMs <= 0){ exitStorm(); engine.nextStormAtMs = now() + (16000 + engine.rng()*12000); return; }
     if (leftMs <= 3200){
       DOC.body.classList.add('groups-storm-urgent');
+      SFX.tickStorm(leftMs);
     }
   }
 
+  // ---------- Boss ----------
   function tryBossSpawn(){
     if (engine.bossAlive) return;
     if (now() < engine.nextBossAtMs) return;
-    // spawn boss
+
     engine.bossAlive = true;
     engine.bossHpMax = engine.bossHpMax|0;
     engine.bossHp = engine.bossHpMax;
 
     const p = randPos();
-    const s = (engine.storm ? 1.25 : 1.35) * engine.sizeBase * (engine.runMode==='research'?1:engine.adapt.size);
-    const el = makeTarget('boss', '👑', p.x, p.y, s);
+    const s = (engine.storm ? 1.25 : 1.35) * engine.sizeBase * ((engine.runMode==='research')?1:engine.adapt.size);
+    const el = makeTarget('boss','👑',p.x,p.y,s);
     el.dataset.hp = String(engine.bossHp);
 
     layer.appendChild(el);
-    emit('groups:progress', { kind:'boss_spawn' });
-    emit('hha:judge', { kind:'boss', text:'BOSS!' });
-
-    // next boss schedule
+    emit('groups:progress',{kind:'boss_spawn'});
+    emit('hha:judge',{kind:'boss',text:'BOSS!'});
     engine.nextBossAtMs = now() + (engine.runMode==='research' ? 20000 : clamp(engine.adapt.bossEvery, 14000, 26000));
   }
 
+  // ---------- Feel-good bonuses ----------
   function perfectSwitchBonus(){
     if (!engine.groupClean) return;
-    // PERFECT SWITCH: ได้แต้ม + ฉลอง
     engine.score += 300 + Math.min(240, engine.combo*6);
     emit('hha:judge', { kind:'good', text:'PERFECT SWITCH!' });
     emit('hha:celebrate', { kind:'mini', title:'PERFECT SWITCH!' });
   }
 
   function switchGroupByPower(){
-    // bonus ถ้ากลุ่มนี้ “สะอาด”
     perfectSwitchBonus();
-
-    // สลับหมู่ถัดไป
     const next = (engine.groupId % 5) + 1;
     setGroup(next, 1);
     emit('groups:progress', { kind:'group_swap' });
 
-    // A: “Rainbow Rush” 6s หลังสลับหมู่ (คะแนน x1.5)
+    // Rainbow Rush 6s
     engine._rushUntil = now() + 6000;
 
-    // reset power
     engine.power = 0;
     updatePower();
   }
@@ -379,13 +401,10 @@ Emits:
   function addPower(n){
     engine.power = clamp(engine.power + (n|0), 0, engine.powerThr);
     updatePower();
-    if (engine.power >= engine.powerThr){
-      switchGroupByPower();
-    }
+    if (engine.power >= engine.powerThr) switchGroupByPower();
   }
 
   function addShieldIfClean(){
-    // C: ถ้าเล่นสะอาดต่อเนื่อง 12s ได้ shield 1 ครั้ง
     const t = now();
     if (!engine.cleanStreakMs) engine.cleanStreakMs = t;
     if ((t - engine.cleanStreakMs) >= 12000 && engine.shield < 1){
@@ -395,13 +414,51 @@ Emits:
     }
   }
 
-  // ---------------- Hit logic ----------------
-  function removeTarget(el){
-    try{ root.clearTimeout(el._ttlTimer); }catch{}
-    el.classList.add('hit');
-    root.setTimeout(()=> el.remove(), 220);
+  // ---------- Powerups ----------
+  function activateMagnet(){
+    engine.magnetUntil = now() + 6000;
+    DOC.body.classList.add('groups-magnet');
+    chipMag.style.display = '';
+    SFX.power();
+    emit('hha:celebrate', { kind:'mini', title:'MAGNET ⭐' });
+    root.setTimeout(()=>{
+      if (now() >= engine.magnetUntil){
+        DOC.body.classList.remove('groups-magnet');
+        chipMag.style.display = 'none';
+      }
+    }, 6100);
   }
 
+  function activateFreeze(){
+    engine.freezeUntil = now() + 4500;
+    DOC.body.classList.add('groups-freeze');
+    chipFrz.style.display = '';
+    SFX.power();
+    emit('hha:celebrate', { kind:'mini', title:'FREEZE ❄️' });
+    root.setTimeout(()=>{
+      if (now() >= engine.freezeUntil){
+        DOC.body.classList.remove('groups-freeze');
+        chipFrz.style.display = 'none';
+      }
+    }, 4600);
+  }
+
+  function magnetPullTick(){
+    if (now() >= engine.magnetUntil) return;
+    const r = safeSpawnRect();
+    const cx = r.W * 0.5;
+    const cy = (r.y0 + r.y1) * 0.5;
+    const list = layer.querySelectorAll('.fg-target.fg-good');
+    list.forEach(el=>{
+      const p = getXY(el);
+      // ดึงเบา ๆ ให้รู้สึก “ช่วย” แต่ไม่โกง
+      const nx = p.x + (cx - p.x) * 0.035;
+      const ny = p.y + (cy - p.y) * 0.035;
+      setXY(el, nx, ny);
+    });
+  }
+
+  // ---------- Hit logic ----------
   function hitBoss(el){
     engine.hitAll++;
     engine.combo = clamp(engine.combo + 1, 0, 9999);
@@ -410,7 +467,6 @@ Emits:
     engine.bossHp = Math.max(0, engine.bossHp - 1);
     emit('hha:judge', { kind:'boss', text:'HIT!' });
 
-    // แต้ม boss hit (เร้าใจ)
     const mult = (engine._rushUntil && now() < engine._rushUntil) ? 1.5 : 1.0;
     engine.score += Math.round((140 + engine.combo*2) * mult);
 
@@ -420,10 +476,8 @@ Emits:
       emit('groups:progress', { kind:'boss_down' });
       emit('hha:celebrate', { kind:'goal', title:'BOSS DOWN!' });
 
-      // รางวัล power + shield รีเฟรช
       engine.power = clamp(engine.power + 4, 0, engine.powerThr);
       engine.shield = 1;
-
       updatePower();
     }
 
@@ -437,41 +491,55 @@ Emits:
 
     const type = String(el.dataset.type||'').toLowerCase();
 
-    if (type === 'boss'){
-      hitBoss(el);
-      return;
-    }
-
-    engine.hitAll++;
-
-    // GOOD
-    if (type === 'good'){
-      engine.hitGood++;
+    // powerups (ไม่ควรนับ quest)
+    if (type === 'star'){
+      engine.hitAll++;
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
-
-      // A: Rush mult
-      const mult = (engine._rushUntil && now() < engine._rushUntil) ? 1.5 : 1.0;
-
-      // แต้ม + โยงคอมโบ
-      engine.score += Math.round((100 + engine.combo*3) * mult);
-
-      // power charge
-      addPower(engine.storm ? 2 : 1);
-
-      // clean shield tracker
-      addShieldIfClean();
-
-      emit('hha:judge', { kind:'good', text: (mult>1?'RAINBOW!':'GOOD!') });
+      engine.score += 120;
+      emit('hha:judge', { kind:'good', text:'MAGNET!', meta:{ noQuest:true } });
+      activateMagnet();
+      updateScore();
+      removeTarget(el);
+      return;
+    }
+    if (type === 'ice'){
+      engine.hitAll++;
+      engine.combo = clamp(engine.combo + 1, 0, 9999);
+      engine.comboMax = Math.max(engine.comboMax, engine.combo);
+      engine.score += 120;
+      emit('hha:judge', { kind:'good', text:'FREEZE!', meta:{ noQuest:true } });
+      activateFreeze();
       updateScore();
       removeTarget(el);
       return;
     }
 
-    // BAD / WRONG / DECOY / JUNK
+    if (type === 'boss'){ hitBoss(el); return; }
+
+    engine.hitAll++;
+
+    if (type === 'good'){
+      engine.hitGood++;
+      engine.combo = clamp(engine.combo + 1, 0, 9999);
+      engine.comboMax = Math.max(engine.comboMax, engine.combo);
+
+      const mult = (engine._rushUntil && now() < engine._rushUntil) ? 1.5 : 1.0;
+      engine.score += Math.round((100 + engine.combo*3) * mult);
+
+      addPower(engine.storm ? 2 : 1);
+      addShieldIfClean();
+
+      emit('hha:judge', { kind:'good', text: (mult>1?'RAINBOW!':'GOOD!') });
+      SFX.good();
+      updateScore();
+      removeTarget(el);
+      return;
+    }
+
+    // bad types
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
     if (badLike){
-      // shield blocks ONLY junk (น่ารัก+ยุติธรรม)
       if (type === 'junk' && engine.shield > 0){
         engine.shield = 0;
         engine.combo = Math.max(0, engine.combo - 1);
@@ -486,39 +554,45 @@ Emits:
       engine.groupClean = false;
       engine.cleanStreakMs = 0;
 
-      // ลงโทษ power
       engine.power = clamp(engine.power - (type==='junk'?3:2), 0, engine.powerThr);
       updatePower();
 
-      // “STUN” ฟีล (ไม่หลอน): สั่นเบา ๆ + storm vibe ยั่ว ๆ
       emit('hha:judge', { kind:'bad', text: (type==='junk'?'JUNK!':'WRONG!') });
+      SFX.bad();
 
-      // เพิ่มความเร้าใจ: ถ้าอยู่ STORM แล้วพลาด -> storm ยืดนิดนึง (โหด+++)
-      if (engine.storm){
-        engine.stormUntilMs += 650;
-      }
-
+      if (engine.storm){ engine.stormUntilMs += 650; } // โหด+++
       updateScore();
       removeTarget(el);
       return;
     }
   }
 
-  // ---------------- Spawning ----------------
+  // ---------- Spawn choose ----------
   function chooseType(){
-    // boss handled separately
-    const junkB = (engine.runMode==='research') ? diffParams(engine.diff).junk : engine.adapt.junkBias;
-    const decB  = (engine.runMode==='research') ? diffParams(engine.diff).decoy : engine.adapt.decoyBias;
+    // ถ้า freeze อยู่: ลด junk/decoy และชะลอความโหด
+    const freezing = now() < engine.freezeUntil;
 
-    // ใน storm: bias เพิ่มอีกนิด
-    const j = clamp(junkB + (engine.storm?0.05:0), 0.06, 0.30);
-    const d = clamp(decB  + (engine.storm?0.03:0), 0.05, 0.25);
+    const baseJ = (engine.runMode==='research') ? diffParams(engine.diff).junk : engine.adapt.junkBias;
+    const baseD = (engine.runMode==='research') ? diffParams(engine.diff).decoy : engine.adapt.decoyBias;
+
+    let j = clamp(baseJ + (engine.storm?0.05:0), 0.06, 0.30);
+    let d = clamp(baseD + (engine.storm?0.03:0), 0.05, 0.25);
+
+    if (freezing){
+      j = Math.max(0.03, j*0.35);
+      d = Math.max(0.03, d*0.35);
+    }
+
+    // powerup chance (น้อย แต่ “รู้สึกดี”)
+    const pu = engine.storm ? 0.018 : 0.012;  // ~1–2%
+    if (engine.rng() < pu){
+      return (engine.rng() < 0.5) ? 'star' : 'ice';
+    }
 
     const r = engine.rng();
     if (r < j) return 'junk';
     if (r < j + d) return 'decoy';
 
-    // wrong chance
     const w = engine.storm ? 0.18 : 0.14;
     if (engine.rng() < w) return 'wrong';
 
@@ -528,12 +602,11 @@ Emits:
   function chooseEmoji(type){
     if (type === 'junk') return pick(JUNK_EMOJI);
     if (type === 'decoy') return pick(DECOY_EMOJI);
+    if (type === 'star') return '⭐';
+    if (type === 'ice')  return '❄️';
+    if (type === 'good') return pick(GROUPS[engine.groupId].emoji);
 
-    if (type === 'good'){
-      return pick(GROUPS[engine.groupId].emoji);
-    }
-
-    // wrong: pick from other groups
+    // wrong: from other groups
     const other = [];
     for (let g=1; g<=5; g++){
       if (g === engine.groupId) continue;
@@ -545,7 +618,6 @@ Emits:
   function spawnOne(){
     if (!engine.running || engine.ended) return;
 
-    // boss schedule
     tryBossSpawn();
 
     const tp = chooseType();
@@ -554,7 +626,11 @@ Emits:
     const p = randPos();
 
     const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
-    const size = engine.sizeBase * base.size * (engine.storm ? 0.92 : 1.0) * (tp==='junk'?0.95:1.0);
+    const stormScale = engine.storm ? 0.92 : 1.0;
+
+    let size = engine.sizeBase * base.size * stormScale;
+    if (tp === 'junk') size *= 0.95;
+    if (tp === 'star' || tp === 'ice') size *= 0.98; // ไม่ใหญ่เกิน
 
     const el = makeTarget(tp, em, p.x, p.y, size);
     layer.appendChild(el);
@@ -566,40 +642,40 @@ Emits:
     spawnOne();
 
     const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
-    const sMs  = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0));
+    let sMs = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0));
+
+    if (now() < engine.freezeUntil){
+      sMs = sMs * 1.22; // freeze ช่วยหายใจ
+    }
 
     engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
   }
 
-  // ---------------- Main Tick ----------------
+  // ---------- Tick ----------
   function loopTick(){
     if (!engine.running || engine.ended) return;
 
-    // storm timing
-    if (!engine.storm && now() >= engine.nextStormAtMs){
-      enterStorm();
-    }
-    if (engine.storm){
-      maybeStormTick();
-    }
+    // storm schedule
+    if (!engine.storm && now() >= engine.nextStormAtMs) enterStorm();
+    if (engine.storm) maybeStormTick();
 
-    // adaptive (play only) — ท้าทายขึ้นตามความเก่ง
+    // magnet pull
+    magnetPullTick();
+
+    // adaptive (play only)
     if (engine.runMode === 'play'){
       const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
       const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
 
-      // เก่งขึ้น -> spawn ถี่ขึ้น + ttl สั้นลงนิด + size เล็กลงนิด (แต่ clamp ยุติธรรม)
       engine.adapt.spawnMs = clamp(820 - heat*260, 480, 880);
       engine.adapt.ttl     = clamp(1680 - heat*260, 1250, 1750);
       engine.ttlMs = engine.adapt.ttl;
       engine.adapt.size    = clamp(1.02 - heat*0.10, 0.86, 1.05);
 
-      // bias ปรับนิด ๆ
       engine.adapt.junkBias = clamp(0.11 + heat*0.06, 0.08, 0.22);
       engine.adapt.decoyBias= clamp(0.09 + heat*0.05, 0.06, 0.20);
       engine.adapt.bossEvery= clamp(20000 - heat*6000, 14000, 22000);
     } else {
-      // research fixed
       const dp = diffParams(engine.diff);
       engine.ttlMs = dp.ttl;
     }
@@ -609,10 +685,7 @@ Emits:
     updateTime();
 
     // end
-    if (engine.left <= 0){
-      endGame('time');
-      return;
-    }
+    if (engine.left <= 0){ endGame('time'); return; }
 
     engine.tickTimer = root.setTimeout(loopTick, 140);
   }
@@ -625,14 +698,13 @@ Emits:
     });
   }
 
-  // ---------------- End / Summary ----------------
   function endGame(reason){
     if (engine.ended) return;
     engine.ended = true;
     engine.running = false;
 
-    DOC.body.classList.remove('groups-storm');
-    DOC.body.classList.remove('groups-storm-urgent');
+    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-magnet','groups-freeze');
+    chipStorm.style.display='none'; chipMag.style.display='none'; chipFrz.style.display='none';
 
     try{ root.clearTimeout(engine.spawnTimer); }catch{}
     try{ root.clearTimeout(engine.tickTimer); }catch{}
@@ -641,7 +713,6 @@ Emits:
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
     const grade = rankFromAcc(acc);
 
-    // pull quest progress if available
     let q = null;
     try{ q = (NS.QuestDirector && NS.QuestDirector.getState) ? NS.QuestDirector.getState() : null; }catch{}
 
@@ -650,16 +721,12 @@ Emits:
       scoreFinal: engine.score|0,
       comboMax: engine.comboMax|0,
       misses: engine.misses|0,
-
       accuracyGoodPct: acc|0,
       grade,
-
       goalsCleared: q ? (q.goalsCleared|0) : 0,
       goalsTotal:   q ? (q.goalsTotal|0)   : 0,
       miniCleared:  q ? (q.miniCleared|0)  : 0,
       miniTotal:    q ? (q.miniTotal|0)    : 0,
-
-      // extra metrics (เผื่อ logger)
       nHitGood: engine.hitGood|0,
       nHitAll:  engine.hitAll|0,
       powerThr: engine.powerThr|0,
@@ -671,7 +738,7 @@ Emits:
     emit('hha:end', detail);
   }
 
-  // ---------------- Public Boot API ----------------
+  // ---------- Public start ----------
   function start(runMode, cfg){
     cfg = cfg || {};
     engine.runMode = (String(runMode||'play').toLowerCase() === 'research') ? 'research' : 'play';
@@ -680,41 +747,40 @@ Emits:
     engine.seed = String(cfg.seed || qs('seed', String(Date.now())));
     engine.rng = makeRng(engine.seed);
 
-    // reset state
+    // init audio (unlock is done by your start overlay resumeAudio)
+    SFX.ensure();
+
+    const dp = diffParams(engine.diff);
+
     engine.running = true;
     engine.ended = false;
 
     engine.left = engine.timeSec;
-    engine.score = 0;
-    engine.combo = 0;
-    engine.comboMax = 0;
-    engine.misses = 0;
+    engine.score = 0; engine.combo = 0; engine.comboMax = 0; engine.misses = 0;
+    engine.hitGood = 0; engine.hitAll = 0;
 
-    engine.hitGood = 0;
-    engine.hitAll = 0;
-
-    // params
-    const dp = diffParams(engine.diff);
-    engine.baseSpawnMs = dp.spawnMs;
-    engine.ttlMs = dp.ttl;
-    engine.sizeBase = dp.size;
     engine.powerThr = dp.powerThr;
-
     engine.power = 0;
-    engine.groupId = 1;
-    engine.groupClean = true;
-    engine.cleanStreakMs = now();
-    engine.shield = 0;
+
+    engine.sizeBase = dp.size;
+    engine.ttlMs = dp.ttl;
 
     engine.storm = false;
-    engine.nextStormAtMs = now() + (12000 + engine.rng()*11000);
     engine.stormDurSec = dp.stormDur;
+    engine.nextStormAtMs = now() + (12000 + engine.rng()*11000);
 
     engine.bossAlive = false;
     engine.bossHpMax = dp.bossHp;
     engine.nextBossAtMs = now() + 14000;
 
-    // adapt init
+    engine.groupId = 1;
+    engine.groupClean = true;
+    engine.cleanStreakMs = now();
+    engine.shield = 0;
+
+    engine.magnetUntil = 0;
+    engine.freezeUntil = 0;
+
     engine.adapt.spawnMs = dp.spawnMs;
     engine.adapt.ttl = dp.ttl;
     engine.adapt.size = dp.size;
@@ -722,28 +788,22 @@ Emits:
     engine.adapt.decoyBias = dp.decoy;
     engine.adapt.bossEvery = 18000;
 
-    // view reset
     engine.vx = 0; engine.vy = 0;
     applyView();
 
-    // notify group start (from=0) -> QuestDirector จะ reset เอง
-    setGroup(1, 0);
+    setGroup(1, 0); // QuestDirector reset
 
-    // push initial HUD
     updateTime();
     updatePower();
     updateScore();
 
-    // start loops
     loopSpawn();
     loopTick();
   }
 
-  // expose
   root.GroupsBoot = root.GroupsBoot || {};
   root.GroupsBoot.start = start;
 
-  // init view handlers once
   setupView();
 
 })(typeof window !== 'undefined' ? window : globalThis);
