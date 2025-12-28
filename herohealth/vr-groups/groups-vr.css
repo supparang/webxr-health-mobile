@@ -1851,3 +1851,230 @@ body.groups-overdrive .groups-buff #chipOver{ display:inline-flex; }
 @media (prefers-reduced-motion: reduce){
   .fg-spark-orbit,.fg-spark-orbit2,.fg-candy-ring,.fg-glitter-tail,.fg-slime{ animation:none !important; }
 }
+/* === Groups VR — Candy Targets + Sticky FX (append to groups-vr.css) === */
+
+:root{
+  --candyA: rgba(34,211,238,.22);
+  --candyB: rgba(167,139,250,.22);
+  --candyC: rgba(34,197,94,.22);
+  --candyD: rgba(244,114,182,.22);
+  --candyE: rgba(250,204,21,.22);
+
+  --spark1: rgba(255,255,255,.85);
+  --spark2: rgba(255,255,255,.45);
+
+  --goo1: rgba(14,165,233,.22);
+  --goo2: rgba(236,72,153,.18);
+}
+
+.fg-layer{
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: auto;
+
+  /* VR feel translate from engine */
+  transform: translate(var(--vx, 0px), var(--vy, 0px));
+  will-change: transform;
+}
+
+.fg-target{
+  position: fixed;
+  left: var(--x, 50vw);
+  top:  var(--y, 50vh);
+  width: 96px;
+  height: 96px;
+  border-radius: 26px;
+
+  display: grid;
+  place-items: center;
+
+  transform: translate(-50%, -50%) scale(var(--s, 1));
+  transform-origin: center;
+
+  border: 3px solid rgba(255,255,255,.82);
+  box-shadow:
+    0 18px 34px rgba(0,0,0,.45),
+    0 2px 0 rgba(2,6,23,.26) inset,
+    0 -10px 18px rgba(255,255,255,.10) inset;
+
+  /* 🍬 candy base pattern */
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,.30), rgba(255,255,255,0) 42%),
+    radial-gradient(circle at 78% 72%, rgba(255,255,255,.20), rgba(255,255,255,0) 45%),
+    repeating-linear-gradient(45deg,
+      rgba(255,255,255,.08) 0 8px,
+      rgba(255,255,255,0) 8px 16px);
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  overflow: hidden; /* ✅ required for sticky fx */
+  animation: fgFloat 1.28s ease-in-out infinite;
+}
+
+.fg-target::before{
+  content: attr(data-emoji);
+  font-size: 46px;
+  line-height: 1;
+  transform: translateY(-1px);
+  filter:
+    drop-shadow(0 2px 0 rgba(255,255,255,.22))
+    drop-shadow(0 10px 18px rgba(0,0,0,.35));
+}
+
+/* type colors */
+.fg-good{
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,.28), rgba(255,255,255,0) 44%),
+    linear-gradient(135deg, rgba(34,197,94,.30), rgba(34,211,238,.20)),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.10) 0 8px, rgba(255,255,255,0) 8px 16px);
+}
+.fg-junk{
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,.24), rgba(255,255,255,0) 44%),
+    linear-gradient(135deg, rgba(244,114,182,.28), rgba(248,113,113,.22)),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.10) 0 8px, rgba(255,255,255,0) 8px 16px);
+}
+.fg-wrong{
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,.22), rgba(255,255,255,0) 44%),
+    linear-gradient(135deg, rgba(250,204,21,.30), rgba(251,146,60,.20)),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.10) 0 8px, rgba(255,255,255,0) 8px 16px);
+}
+.fg-decoy{
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,.22), rgba(255,255,255,0) 44%),
+    linear-gradient(135deg, rgba(167,139,250,.28), rgba(34,211,238,.16)),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.10) 0 8px, rgba(255,255,255,0) 8px 16px);
+}
+.fg-boss{
+  border-color: rgba(34,211,238,.75);
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255,255,255,.26), rgba(255,255,255,0) 46%),
+    linear-gradient(135deg, rgba(148,163,184,.18), rgba(34,211,238,.12)),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.12) 0 8px, rgba(255,255,255,0) 8px 16px);
+  animation: fgBossFloat 1.03s ease-in-out infinite;
+}
+
+/* spawn/hit/out */
+.fg-target.spawn{ animation: fgPopIn .22s ease-out both, fgFloat 1.28s ease-in-out .22s infinite; }
+.fg-target.hit{ animation: fgHit .22s ease-out both; }
+.fg-target.out{ animation: fgOut .22s ease-in both; }
+
+/* freeze doll look */
+.fg-freeze-doll{
+  filter: saturate(0.65) brightness(1.06);
+  box-shadow:
+    0 12px 28px rgba(0,0,0,.35),
+    0 0 0 2px rgba(255,255,255,.22) inset,
+    0 0 18px rgba(255,255,255,.10);
+}
+
+/* ---------- Sticky FX host ---------- */
+.fg-fxhost{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+.fg-sparkle-layer,.fg-trail-layer,.fg-goo-layer{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+
+/* burst stars */
+.fg-burst{
+  position:absolute; inset:0;
+  pointer-events:none;
+  mix-blend-mode: screen;
+}
+.fg-star{
+  position:absolute;
+  font-size: 14px;
+  color: rgba(255,255,255,.92);
+  text-shadow: 0 6px 14px rgba(0,0,0,.35);
+  animation: fgStarFly var(--dur,520ms) ease-out both;
+}
+.fg-burst.is-hit .fg-star{ filter: drop-shadow(0 10px 16px rgba(34,211,238,.22)); }
+
+/* GOOD trail glitter */
+.fg-trail-dot{
+  position:absolute;
+  font-size: 12px;
+  color: rgba(255,255,255,.82);
+  text-shadow: 0 10px 16px rgba(0,0,0,.25);
+  animation: fgTrail var(--dur,720ms) ease-out both;
+  mix-blend-mode: screen;
+}
+
+/* JUNK goo bubbles */
+.fg-goo-bubble{
+  position:absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,.35), rgba(255,255,255,0) 55%),
+    linear-gradient(135deg, rgba(14,165,233,.22), rgba(236,72,153,.16));
+  filter: blur(.1px);
+  box-shadow: 0 10px 18px rgba(0,0,0,.25);
+  animation: fgGoo var(--dur,860ms) ease-out both;
+  opacity: .85;
+}
+
+/* state vibes */
+body.groups-storm .fg-layer{ filter: saturate(1.08) contrast(1.02); }
+body.groups-storm-urgent .fg-layer{ animation: fgUrgent 0.22s linear infinite; }
+body.groups-overdrive .fg-layer{ filter: saturate(1.18) brightness(1.06); }
+
+/* keyframes */
+@keyframes fgFloat{
+  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) translateY(0px); }
+  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) translateY(-6px); }
+}
+@keyframes fgBossFloat{
+  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) rotate(-1.5deg) translateY(0px); }
+  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) rotate( 1.5deg) translateY(-7px); }
+}
+@keyframes fgPopIn{
+  from{ transform: translate(-50%, -50%) scale(calc(var(--s,1) * 0.72)); opacity: 0; }
+  to  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity: 1; }
+}
+@keyframes fgHit{
+  0%  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity: 1; }
+  60% { transform: translate(-50%, -50%) scale(calc(var(--s,1) * 1.18)); opacity: .98; filter: brightness(1.18); }
+  100%{ transform: translate(-50%, -50%) scale(calc(var(--s,1) * 0.60)); opacity: 0; }
+}
+@keyframes fgOut{
+  from{ opacity: 1; }
+  to  { opacity: 0; transform: translate(-50%, -50%) scale(calc(var(--s,1) * 0.80)); }
+}
+@keyframes fgStarFly{
+  0%{ opacity:0; transform: translate(-50%,-50%) scale(.65); }
+  25%{ opacity:1; }
+  100%{ opacity:0; transform: translate(calc(-50% + var(--dx, 18px)), calc(-50% + var(--dy,-18px))) scale(1.15); }
+}
+@keyframes fgTrail{
+  0%{ opacity:.0; transform: translate(-50%,-50%) scale(.6); }
+  20%{ opacity:.95; }
+  100%{ opacity:0; transform: translate(-50%, calc(-50% + 22px)) scale(1.05); }
+}
+@keyframes fgGoo{
+  0%{ opacity:0; transform: translate(-50%,-50%) scale(.65); }
+  20%{ opacity:.9; }
+  100%{ opacity:0; transform: translate(calc(-50% + 6px), calc(-50% + 18px)) scale(1.25); }
+}
+@keyframes fgUrgent{
+  0%,100%{ filter: none; }
+  50%{ filter: drop-shadow(0 0 14px rgba(244,114,182,.18)); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
+  .fg-star, .fg-trail-dot, .fg-goo-bubble{ animation: none !important; }
+}
