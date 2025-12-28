@@ -1,300 +1,182 @@
 /* === /herohealth/vr-groups/groups-fx.js ===
-Food Groups VR — Candy FX Pack (PRODUCTION)
-✅ Sparkle stars on spawn/hit (วิ้ง ๆ)
-✅ GOOD: trail glitter while floating
-✅ JUNK/WRONG/DECOY: cute smoke/slime puff (ไม่หลอน)
-✅ Celebrate burst for goal/mini/all via hha:celebrate
-✅ Overdrive-aware: ถ้า body.groups-overdrive => วิ้งแรงขึ้น
-✅ Safe: ไม่พังถ้า element ไม่มี / bind ซ้ำ
+Groups FX — Sticky Candy Sparkles (PRODUCTION)
+- Sparkle burst on spawn + hit (attached to target)
+- GOOD: trail glitter
+- JUNK/WRONG/DECOY: cartoon smoke/goo
+- Intensity based on body class: groups-style-hard/feel/mix
 */
 
-(function (root) {
+(function(root){
   'use strict';
-
   const DOC = root.document;
   if (!DOC) return;
 
-  const NS = (root.GroupsVR = root.GroupsVR || {});
-  if (NS.__fxCandyInited) return;
-  NS.__fxCandyInited = true;
+  const layer = ()=> DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer');
+  const prefersReduce = ()=> root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ---------- locate layer ----------
-  const fgLayer = DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer');
-  // FX layer
-  let fx = DOC.querySelector('.fg-fx-layer');
-  if (!fx) {
-    fx = DOC.createElement('div');
-    fx.className = 'fg-fx-layer';
-    Object.assign(fx.style, {
-      position: 'fixed',
-      inset: '0',
-      pointerEvents: 'none',
-      zIndex: '9999',
-      overflow: 'hidden',
-      contain: 'layout paint style',
-    });
-    DOC.body.appendChild(fx);
+  function styleMode(){
+    const b = DOC.body;
+    if (!b) return 'mix';
+    if (b.classList.contains('groups-style-hard')) return 'hard';
+    if (b.classList.contains('groups-style-feel')) return 'feel';
+    return 'mix';
+  }
+  function intensity(){
+    const m = styleMode();
+    if (m === 'hard') return { burst: 10, trail: 5, goo: 6 };
+    if (m === 'feel') return { burst: 14, trail: 8, goo: 4 };
+    return { burst: 12, trail: 7, goo: 5 };
   }
 
-  // ---------- small CSS injection (only if missing) ----------
-  // (ทำไว้เผื่อยังไม่ได้ใส่บางคลาสใน CSS)
-  if (!DOC.getElementById('fg-fx-style')) {
-    const st = DOC.createElement('style');
-    st.id = 'fg-fx-style';
-    st.textContent = `
-      .fg-fx-layer .fx{ position:absolute; left:0; top:0; transform: translate(-9999px,-9999px); will-change: transform, opacity; }
-      .fg-fx-layer .fx-star{ font-size:14px; filter: drop-shadow(0 10px 14px rgba(0,0,0,.28)); opacity:.95; }
-      .fg-fx-layer .fx-puff{ width:10px; height:10px; border-radius:999px; opacity:.95; filter: blur(.15px); }
-      @keyframes fxStarPop{
-        0%   { transform: translate(var(--x),var(--y)) scale(.55) rotate(-8deg); opacity:0; }
-        20%  { opacity:1; }
-        100% { transform: translate(calc(var(--x) + var(--dx)), calc(var(--y) + var(--dy))) scale(1.1) rotate(var(--r)); opacity:0; }
-      }
-      @keyframes fxPuff{
-        0%   { transform: translate(var(--x),var(--y)) scale(.75); opacity:0; }
-        18%  { opacity:.95; }
-        100% { transform: translate(calc(var(--x) + var(--dx)), calc(var(--y) + var(--dy))) scale(1.55); opacity:0; }
-      }
+  function rnd(a,b){ return a + Math.random()*(b-a); }
+
+  function ensureFxHost(el){
+    if (!el || !el.isConnected) return null;
+    if (el._fxAttached) return el.querySelector('.fg-fxhost');
+    el._fxAttached = 1;
+
+    el.style.position = 'fixed'; // ensure relative for child absolute inside (CSS also helps)
+    el.style.overflow = 'hidden';
+
+    const fx = DOC.createElement('div');
+    fx.className = 'fg-fxhost';
+    fx.innerHTML = `
+      <div class="fg-sparkle-layer"></div>
+      <div class="fg-trail-layer"></div>
+      <div class="fg-goo-layer"></div>
     `;
-    DOC.head.appendChild(st);
+    el.appendChild(fx);
+    return fx;
   }
 
-  // ---------- helpers ----------
-  const clamp = (v, a, b) => (v < a ? a : (v > b ? b : v));
-  const rnd = () => Math.random(); // (FX ไม่ต้อง deterministic)
-  const overdrive = () => DOC.body.classList.contains('groups-overdrive');
+  function burst(el, kind){
+    if (prefersReduce()) return;
+    const fx = ensureFxHost(el);
+    if (!fx) return;
 
-  function getRectCenter(el) {
-    try {
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
-    } catch {
-      return { x: root.innerWidth / 2, y: root.innerHeight / 2, w: 0, h: 0 };
+    const { burst:count } = intensity();
+    const lay = fx.querySelector('.fg-sparkle-layer');
+    if (!lay) return;
+
+    const wrap = DOC.createElement('div');
+    wrap.className = 'fg-burst ' + (kind==='hit'?'is-hit':'is-spawn');
+
+    const n = (kind==='hit') ? count+2 : count;
+    for (let i=0;i<n;i++){
+      const s = DOC.createElement('span');
+      s.className = 'fg-star';
+      s.style.left = rnd(10, 90).toFixed(1) + '%';
+      s.style.top  = rnd(12, 88).toFixed(1) + '%';
+      s.style.transform = `translate(-50%,-50%) rotate(${rnd(-50,50).toFixed(1)}deg) scale(${rnd(0.65,1.15).toFixed(2)})`;
+      s.style.setProperty('--dx', rnd(-26, 26).toFixed(1) + 'px');
+      s.style.setProperty('--dy', rnd(-30, 30).toFixed(1) + 'px');
+      s.style.setProperty('--dur', rnd(380, 620).toFixed(0) + 'ms');
+      s.textContent = (Math.random()<0.72) ? '✦' : (Math.random()<0.5?'✧':'★');
+      wrap.appendChild(s);
     }
+    lay.appendChild(wrap);
+    setTimeout(()=>wrap.remove(), 680);
   }
 
-  function add(node, ms) {
-    fx.appendChild(node);
-    root.setTimeout(() => { try { node.remove(); } catch {} }, ms | 0);
-  }
+  function trailTick(){
+    if (prefersReduce()) return;
+    const L = layer(); if (!L) return;
+    const { trail:rate } = intensity();
 
-  // ---------- sparkle stars ----------
-  function sparkleAt(x, y, power, mode) {
-    power = Math.max(1, Math.min(30, power | 0));
-    const isOver = overdrive();
-    const extra = isOver ? 6 : 0;
-    const n = clamp(power + extra, 8, isOver ? 28 : 22);
+    const goods = L.querySelectorAll('.fg-target.fg-good');
+    goods.forEach(el=>{
+      const fx = ensureFxHost(el);
+      if (!fx) return;
+      const tl = fx.querySelector('.fg-trail-layer');
+      if (!tl) return;
 
-    // candy star set
-    const stars = isOver
-      ? ['✨', '⭐', '💫', '🌟', '🍬', '🍭', '🎇', '🧁']
-      : ['✨', '⭐', '💫', '🌟', '🍬', '🍭'];
-
-    const boost = (mode === 'spawn') ? 0.85 : 1.0;
-    const spread = isOver ? 92 : 74;
-
-    for (let i = 0; i < n; i++) {
-      const s = DOC.createElement('div');
-      s.className = 'fx fx-star fx-star-pop';
-      s.classList.add('fx-star');
-      s.textContent = stars[(rnd() * stars.length) | 0];
-
-      const a = rnd() * Math.PI * 2;
-      const dist = (22 + rnd() * spread) * boost;
-      const dx = Math.cos(a) * dist;
-      const dy = Math.sin(a) * dist;
-
-      const rot = ((rnd() * 140) - 70).toFixed(0) + 'deg';
-      const fs = (12 + rnd() * (isOver ? 18 : 12)).toFixed(0) + 'px';
-
-      s.style.setProperty('--x', x.toFixed(1) + 'px');
-      s.style.setProperty('--y', y.toFixed(1) + 'px');
-      s.style.setProperty('--dx', dx.toFixed(1) + 'px');
-      s.style.setProperty('--dy', dy.toFixed(1) + 'px');
-      s.style.setProperty('--r', rot);
-
-      s.style.fontSize = fs;
-      s.style.animation = `fxStarPop ${isOver ? 760 : 620}ms ease-out both`;
-      s.style.animationDelay = (rnd() * 0.06).toFixed(3) + 's';
-
-      add(s, isOver ? 860 : 720);
-    }
-  }
-
-  // ---------- junk cute smoke/slime puff ----------
-  function slimePuffAt(x, y, power, kind) {
-    power = clamp(power | 0, 4, 18);
-    const isOver = overdrive();
-    const n = clamp(power + (isOver ? 4 : 0), 8, isOver ? 20 : 16);
-
-    // สี “เมือก/ควันการ์ตูน” (ไม่หลอน)
-    // junk -> ชมพู+แดงอมส้ม / wrong -> เหลือง+ส้ม / decoy -> ม่วง+ฟ้า
-    let c1 = 'rgba(244,114,182,.42)', c2 = 'rgba(248,113,113,.34)';
-    if (kind === 'wrong') { c1 = 'rgba(250,204,21,.40)'; c2 = 'rgba(251,146,60,.30)'; }
-    if (kind === 'decoy') { c1 = 'rgba(167,139,250,.38)'; c2 = 'rgba(34,211,238,.26)'; }
-
-    const spread = isOver ? 92 : 70;
-
-    for (let i = 0; i < n; i++) {
-      const p = DOC.createElement('div');
-      p.className = 'fx fx-puff';
-      p.style.background = (rnd() < 0.55) ? c1 : c2;
-
-      const a = rnd() * Math.PI * 2;
-      const dist = 16 + rnd() * spread;
-      const dx = Math.cos(a) * dist;
-      const dy = Math.sin(a) * dist;
-
-      const size = (8 + rnd() * (isOver ? 18 : 14)).toFixed(0) + 'px';
-      p.style.width = size;
-      p.style.height = size;
-
-      p.style.setProperty('--x', x.toFixed(1) + 'px');
-      p.style.setProperty('--y', y.toFixed(1) + 'px');
-      p.style.setProperty('--dx', dx.toFixed(1) + 'px');
-      p.style.setProperty('--dy', dy.toFixed(1) + 'px');
-
-      p.style.animation = `fxPuff ${isOver ? 820 : 680}ms ease-out both`;
-      p.style.animationDelay = (rnd() * 0.05).toFixed(3) + 's';
-
-      add(p, isOver ? 940 : 780);
-    }
-  }
-
-  // ---------- GOOD trail glitter (เบา ๆ) ----------
-  let trailTimer = null;
-  function trailTick() {
-    // ถ้าไม่มี fgLayer ก็ไม่ต้องทำ
-    if (!fgLayer) return;
-
-    const goods = fgLayer.querySelectorAll('.fg-target.fg-good');
-    if (!goods || goods.length === 0) return;
-
-    // จำกัดไม่ให้หนัก
-    const maxTrail = overdrive() ? 9 : 6;
-    let budget = maxTrail;
-
-    goods.forEach(el => {
-      if (budget <= 0) return;
-
-      // โอกาสวิ้งต่อเฟรม
-      const chance = overdrive() ? 0.14 : 0.10;
-      if (rnd() > chance) return;
-
-      const c = getRectCenter(el);
-      const x = c.x + (rnd() * 18 - 9);
-      const y = c.y + (rnd() * 18 - 9);
-
-      sparkleAt(x, y, overdrive() ? 6 : 4, 'trail');
-      budget--;
-    });
-  }
-
-  function startTrail() {
-    if (trailTimer) return;
-    trailTimer = root.setInterval(trailTick, 120);
-  }
-  function stopTrail() {
-    if (trailTimer) { root.clearInterval(trailTimer); trailTimer = null; }
-  }
-
-  // ---------- observe target spawn/hit/out ----------
-  let mo = null;
-  function bindObserver() {
-    if (!fgLayer) return;
-
-    mo = new MutationObserver((mutList) => {
-      for (const m of mutList) {
-        if (!m.addedNodes) continue;
-        m.addedNodes.forEach(node => {
-          if (!node || node.nodeType !== 1) return;
-          const el = /** @type {HTMLElement} */ (node);
-          if (!el.classList || !el.classList.contains('fg-target')) return;
-
-          const tp = String(el.dataset.type || '').toLowerCase();
-          const c = getRectCenter(el);
-
-          // spawn sparkle
-          if (tp === 'good' || tp === 'boss' || tp === 'star' || tp === 'ice') {
-            sparkleAt(c.x, c.y, tp === 'boss' ? 12 : 7, 'spawn');
-          } else {
-            // junk / wrong / decoy
-            slimePuffAt(c.x, c.y, 7, tp || 'junk');
-          }
-        });
+      // spawn few glitter dots per tick
+      const dots = (styleMode()==='feel') ? 2 : 1;
+      for (let k=0;k<dots;k++){
+        const p = DOC.createElement('span');
+        p.className = 'fg-trail-dot';
+        p.style.left = rnd(32, 68).toFixed(1) + '%';
+        p.style.top  = rnd(44, 78).toFixed(1) + '%';
+        p.style.setProperty('--dur', rnd(520, 820).toFixed(0)+'ms');
+        p.textContent = (Math.random()<0.75) ? '✦' : '✧';
+        tl.appendChild(p);
+        setTimeout(()=>p.remove(), 900);
       }
+
+      // cap
+      while (tl.childElementCount > Math.max(18, rate*4)) tl.firstElementChild?.remove();
     });
-
-    try {
-      mo.observe(fgLayer, { childList: true, subtree: false });
-    } catch {}
   }
 
-  // ---------- listen judge + celebrate ----------
-  function onJudge(ev) {
-    const d = (ev && ev.detail) ? ev.detail : {};
-    const kind = String(d.kind || '').toLowerCase();
-    const text = String(d.text || '').toLowerCase();
+  function gooTick(){
+    if (prefersReduce()) return;
+    const L = layer(); if (!L) return;
+    const { goo:rate } = intensity();
 
-    // ใช้ตำแหน่งกลางจอเป็น fallback
-    const x = root.innerWidth * 0.5;
-    const y = root.innerHeight * 0.52;
+    const bads = L.querySelectorAll('.fg-target.fg-junk, .fg-target.fg-wrong, .fg-target.fg-decoy');
+    bads.forEach(el=>{
+      const fx = ensureFxHost(el);
+      if (!fx) return;
+      const gl = fx.querySelector('.fg-goo-layer');
+      if (!gl) return;
 
-    if (kind === 'good') {
-      // good sparkle
-      sparkleAt(x, y, overdrive() ? 14 : 10, 'hit');
-      return;
-    }
-    if (kind === 'boss') {
-      sparkleAt(x, y, overdrive() ? 18 : 14, 'hit');
-      return;
-    }
-    if (kind === 'bad' || kind === 'warn') {
-      // cute slime puff
-      const isWrong = text.includes('wrong');
-      slimePuffAt(x, y, overdrive() ? 16 : 12, isWrong ? 'wrong' : 'junk');
-      return;
-    }
+      const b = DOC.createElement('span');
+      b.className = 'fg-goo-bubble';
+      b.style.left = rnd(14, 86).toFixed(1) + '%';
+      b.style.top  = rnd(18, 86).toFixed(1) + '%';
+      b.style.setProperty('--dur', rnd(520, 980).toFixed(0)+'ms');
+      gl.appendChild(b);
+      setTimeout(()=>b.remove(), 1050);
+
+      while (gl.childElementCount > Math.max(14, rate*4)) gl.firstElementChild?.remove();
+    });
   }
 
-  function onCelebrate(ev) {
-    const d = (ev && ev.detail) ? ev.detail : {};
-    const k = String(d.kind || 'mini').toLowerCase();
+  // Observe new targets => spawn burst
+  function observe(){
+    const L = layer();
+    if (!L) return;
 
-    // burst center-ish
-    const x = root.innerWidth * 0.5;
-    const y = root.innerHeight * 0.38;
-
-    if (k === 'all') {
-      sparkleAt(x, y, 22, 'celebrate');
-      sparkleAt(x - 120, y + 30, 16, 'celebrate');
-      sparkleAt(x + 120, y + 30, 16, 'celebrate');
-      return;
-    }
-    if (k === 'goal') {
-      sparkleAt(x, y, 18, 'celebrate');
-      return;
-    }
-    // mini
-    sparkleAt(x, y, 14, 'celebrate');
+    const mo = new MutationObserver((muts)=>{
+      muts.forEach(m=>{
+        m.addedNodes && m.addedNodes.forEach(n=>{
+          if (!n || n.nodeType !== 1) return;
+          const el = n;
+          if (!el.classList || !el.classList.contains('fg-target')) return;
+          ensureFxHost(el);
+          burst(el,'spawn');
+        });
+      });
+    });
+    mo.observe(L, { childList:true });
   }
 
-  root.addEventListener('hha:judge', onJudge, { passive: true });
-  root.addEventListener('hha:celebrate', onCelebrate, { passive: true });
+  // Hit burst (capture)
+  function bindHit(){
+    const L = layer();
+    if (!L) return;
+    L.addEventListener('pointerdown', (e)=>{
+      const t = e.target && e.target.closest ? e.target.closest('.fg-target') : null;
+      if (!t) return;
+      burst(t,'hit');
+    }, { passive:true, capture:true });
+  }
 
-  // ---------- public api ----------
-  NS.FX = NS.FX || {};
-  NS.FX.sparkleAt = sparkleAt;
-  NS.FX.slimePuffAt = slimePuffAt;
+  // Boot when layer exists
+  let tries = 0;
+  const it = setInterval(()=>{
+    tries++;
+    const L = layer();
+    if (L){
+      clearInterval(it);
+      observe();
+      bindHit();
 
-  // ---------- init ----------
-  bindObserver();
-  startTrail();
-
-  // clean up on end (optional)
-  root.addEventListener('hha:end', () => {
-    stopTrail();
-    try { if (mo) mo.disconnect(); } catch {}
-  }, { passive: true });
+      // trails + goo
+      setInterval(trailTick, 140);
+      setInterval(gooTick, 220);
+    }
+    if (tries > 80) clearInterval(it);
+  }, 80);
 
 })(typeof window !== 'undefined' ? window : globalThis);
