@@ -7,115 +7,11 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional bg + VR button) -->
+  <!-- A-Frame (optional bg) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./groups.css?v=20251228" />
-
-  <style>
-    :root{ --gazeProg:0; }
-
-    /* Cardboard split */
-    #fgCbWrap{
-      position:fixed; inset:0;
-      display:none;
-      z-index:9999;
-      background:#000;
-    }
-    body.cardboard #fgCbWrap{ display:flex; }
-
-    .fgEye{
-      position:relative;
-      flex:1;
-      overflow:hidden;
-      border-left:1px solid rgba(255,255,255,.06);
-    }
-    .fgEye:first-child{ border-left:none; }
-
-    .fgView{
-      position:absolute; inset:10px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.12);
-      overflow:hidden;
-      background: rgba(2,6,23,.25);
-      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
-    }
-
-    /* hide normal UI in cardboard to avoid duplication */
-    body.cardboard a-scene,
-    body.cardboard .hud-top,
-    body.cardboard #startOverlay,
-    body.cardboard #endOverlay{
-      display:none !important;
-    }
-
-    /* gaze */
-    .gazeRing{
-      position:absolute; left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      width:56px; height:56px;
-      border-radius:999px;
-      background:
-        conic-gradient(rgba(34,197,94,.95) calc(var(--gazeProg)*360deg),
-                       rgba(148,163,184,.18) 0deg);
-      -webkit-mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
-      mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
-      filter: drop-shadow(0 0 14px rgba(34,197,94,.22));
-      pointer-events:none;
-      opacity:.95;
-      z-index:5;
-    }
-    .gazeRet{
-      position:absolute; left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      width:30px; height:30px;
-      border-radius:999px;
-      border:2px solid rgba(229,231,235,.58);
-      box-shadow: 0 0 0 10px rgba(2,6,23,.35);
-      pointer-events:none;
-      z-index:6;
-    }
-    .gazeRet::after{
-      content:'';
-      position:absolute; left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      width:6px; height:6px;
-      border-radius:999px;
-      background: rgba(34,211,238,.95);
-      box-shadow: 0 0 12px rgba(34,211,238,.35);
-    }
-
-    #fgCbControls{
-      position:fixed;
-      left:50%;
-      bottom: calc(10px + env(safe-area-inset-bottom,0px));
-      transform:translateX(-50%);
-      z-index:10000;
-      display:none;
-      gap:10px;
-    }
-    body.cardboard #fgCbControls{ display:flex; }
-    .cbBtn{
-      pointer-events:auto;
-      background:rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.20);
-      color:#e5e7eb;
-      border-radius:999px;
-      padding:10px 14px;
-      font-weight:1100;
-      backdrop-filter: blur(10px);
-      box-shadow:0 18px 60px rgba(0,0,0,.45);
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    /* Add a Cardboard button into start overlay */
-    .start-actions{ gap:10px; flex-wrap:wrap; }
-    .btn.cardboard{
-      background: rgba(2,6,23,.72);
-      border: 1px solid rgba(148,163,184,.20);
-    }
-  </style>
+  <!-- correct path (this file is already in /vr-groups/) -->
+  <link rel="stylesheet" href="./groups.css" />
 </head>
 
 <body>
@@ -158,7 +54,7 @@
         </div>
         <div class="qbar"><div class="qbar-track"><div class="qbar-fill goal" id="hud-goal-bar"></div></div></div>
 
-        <div class="quest-line" id="hud-mini-line">
+        <div class="quest-line">
           <div class="q-badge mini">MINI</div>
           <div class="q-text" id="hud-mini-title">—</div>
           <div class="q-num" id="hud-mini-val">0/0</div>
@@ -201,20 +97,20 @@
       <div class="start-actions">
         <button class="btn primary" id="btnStart">เริ่มเล่น</button>
         <button class="btn ghost" id="btnRestart">รีเซ็ต</button>
-        <button class="btn cardboard" id="btnCardboard" type="button">🕶️ Cardboard</button>
       </div>
 
-      <div class="start-note">Tip: แตะเป้า = ยิงทันที (ใน Cardboard จ้องค้างเพื่อยิง)</div>
+      <div class="start-note">Tip: แตะเป้า = ยิงทันที (ระวัง WRONG/JUNK ตอน STORM)</div>
     </div>
   </div>
 
-  <!-- End Overlay -->
+  <!-- End Overlay (HHA standard-ish) -->
   <div class="result-overlay" id="endOverlay">
     <div class="result-card">
       <h2>สรุปผล — Food Groups VR</h2>
       <p>Score: <b id="endScore">0</b> · Rank: <b id="endRank">C</b> · Acc: <b id="endAcc">0%</b></p>
       <p>ComboMax: <b id="endComboMax">0</b> · Miss: <b id="endMiss">0</b></p>
       <p>Goals: <b id="endGoals">0/0</b> · Minis: <b id="endMinis">0/0</b></p>
+
       <div class="result-actions">
         <button class="btn primary" id="btnRetry">RETRY</button>
         <button class="btn ghost" id="btnBackHub">กลับ HUB</button>
@@ -222,47 +118,26 @@
     </div>
   </div>
 
-  <!-- ===== Cardboard 2-eye split ===== -->
-  <div id="fgCbWrap" aria-hidden="true">
-    <div class="fgEye">
-      <div class="fgView" id="fgLeftView">
-        <div class="gazeRing"></div>
-        <div class="gazeRet"></div>
-      </div>
-    </div>
-    <div class="fgEye">
-      <div class="fgView" id="fgRightView">
-        <div id="fg-layer-r" style="position:absolute; inset:0; pointer-events:none;"></div>
-        <div class="gazeRing"></div>
-        <div class="gazeRet"></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="fgCbControls">
-    <button class="cbBtn" id="fgCbExit" type="button">⬅ Exit</button>
-    <button class="cbBtn" id="fgCbRecenter" type="button">🎯 Recenter</button>
-  </div>
-
-  <!-- Scripts (order matters) -->
-  <script src="../vr/particles.js" defer></script>
+  <!-- ===== Scripts (local) ===== -->
   <script src="../vr/ui-fever.js" defer></script>
   <script src="../vr/ui-karaoke.js" defer></script>
 
   <script src="./groups-hud-quest.js" defer></script>
-  <script src="./groups-text.js" defer></script>
   <script src="./groups-quests.js" defer></script>
   <script src="./groups-fx.js" defer></script>
-
   <script src="./GameEngine.js" defer></script>
+
+  <!-- Boot wrapper (IIFE): window.GroupsBoot.start/stop + hha:stop + URL autostart -->
   <script src="./groups.safe.js" defer></script>
 
+  <!-- Runner glue -->
   <script>
   (function(){
     'use strict';
 
     function qs(name, def){
-      try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch{ return def; }
+      const u = new URL(location.href);
+      return u.searchParams.get(name) ?? def;
     }
     function int(name, def){
       const v = parseInt(qs(name, def), 10);
@@ -271,7 +146,7 @@
     function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
     const diff = String(qs('diff','normal')).toLowerCase();
-    const time = clamp(int('time', 90), 30, 600);
+    const time = clamp(int('time', 90), 30, 180);
     const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
 
     const hub  = String(qs('hub','../hub.html') || '../hub.html');
@@ -279,11 +154,12 @@
     const ts   = String(qs('ts', Date.now()));
     const seed = String(qs('seed', sid ? (sid + '|' + ts) : ts));
 
-    document.getElementById('pill-diff').textContent = 'DIFF: ' + diff;
-    document.getElementById('pill-time').textContent = 'TIME: ' + time + 's';
-    document.getElementById('pill-mode').textContent = 'MODE: ' + (run==='research'?'research':'play');
+    // pills
+    const pd = document.getElementById('pill-diff'); if (pd) pd.textContent = 'DIFF: ' + diff;
+    const pt = document.getElementById('pill-time'); if (pt) pt.textContent = 'TIME: ' + time + 's';
+    const pm = document.getElementById('pill-mode'); if (pm) pm.textContent = 'MODE: ' + run;
 
-    // HUD bindings
+    // HUD events
     window.addEventListener('hha:score', (ev)=>{
       const d = ev.detail || {};
       const sEl = document.getElementById('hud-score'); if (sEl) sEl.textContent = (d.score|0);
@@ -313,17 +189,15 @@
       const th = Math.max(1, d.threshold|0);
       const ch = Math.max(0, d.charge|0);
       const p = Math.min(100, (ch/th)*100);
+
       const fill = document.getElementById('hud-powerFill');
       if (fill) fill.style.width = p.toFixed(1) + '%';
+
       const txt = document.getElementById('fg-powerText');
       if (txt) txt.textContent = `${ch}/${th}`;
     }, { passive:true });
 
-    // Start overlay
-    const overlay = document.getElementById('startOverlay');
-    const btnStart = document.getElementById('btnStart');
-    const btnRestart = document.getElementById('btnRestart');
-
+    // audio resume helper (for beeps on mobile)
     async function resumeAudio(){
       try{
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -334,37 +208,58 @@
       }catch(e){}
     }
 
-    function startGame(){
-      if (!window.GroupsBoot || !window.GroupsBoot.start){
-        alert('GroupsBoot not ready');
+    // start controls
+    const overlay = document.getElementById('startOverlay');
+    const btnStart = document.getElementById('btnStart');
+    const btnRestart = document.getElementById('btnRestart');
+
+    function boot(){
+      const Boot = window.GroupsBoot;
+      if (!Boot || !Boot.start){
+        alert('GroupsBoot not found');
         return;
       }
-      window.GroupsBoot.start(run==='research'?'research':'play', { diff, time, seed });
+      Boot.start(run, { diff, time, seed });
+
+      // (optional) log hook for your cloud logger
+      try{
+        window.dispatchEvent(new CustomEvent('hha:log_session', {
+          detail: { phase:'start', game:'groups', diff, runMode:run, seed, time }
+        }));
+      }catch{}
     }
 
-    btnStart.addEventListener('click', async ()=>{
-      await resumeAudio();
-      overlay.style.display = 'none';
-      startGame();
-    });
-    btnRestart.addEventListener('click', ()=> location.reload());
+    if (btnStart){
+      btnStart.addEventListener('click', async ()=>{
+        await resumeAudio();
+        if (overlay) overlay.style.display = 'none';
+        boot();
+      }, { passive:true });
+    }
+    if (btnRestart){
+      btnRestart.addEventListener('click', ()=> location.reload(), { passive:true });
+    }
 
-    // End overlay + last summary + back hub
+    // End overlay wiring
     const endOverlay = document.getElementById('endOverlay');
     const btnRetry = document.getElementById('btnRetry');
     const btnBack = document.getElementById('btnBackHub');
 
-    btnRetry.addEventListener('click', ()=> location.reload());
-    btnBack.addEventListener('click', ()=>{
+    if (btnRetry) btnRetry.addEventListener('click', ()=> location.reload(), { passive:true });
+    if (btnBack) btnBack.addEventListener('click', ()=>{
       try{
         const u = new URL(hub, location.href);
         u.searchParams.set('ts', String(Date.now()));
         location.href = u.toString();
-      }catch{ location.href = hub; }
-    });
+      }catch{
+        location.href = hub;
+      }
+    }, { passive:true });
 
     window.addEventListener('hha:end', (ev)=>{
       const d = (ev && ev.detail) ? ev.detail : {};
+
+      // save last summary (HHA standard)
       try{
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
         localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
@@ -374,7 +269,7 @@
       const r = document.getElementById('endRank');  if (r) r.textContent = String(d.grade ?? 'C');
       const a = document.getElementById('endAcc');   if (a) a.textContent = String((d.accuracyGoodPct ?? 0)|0) + '%';
       const cm= document.getElementById('endComboMax'); if (cm) cm.textContent = String(d.comboMax ?? 0);
-      const ms= document.getElementById('endMiss');     if (ms) ms.textContent = String(d.misses ?? 0);
+      const ms= document.getElementById('endMiss');  if (ms) ms.textContent = String(d.misses ?? 0);
 
       const gl= document.getElementById('endGoals');
       if (gl) gl.textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0);
@@ -383,205 +278,18 @@
       if (mn) mn.textContent = String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0);
 
       if (endOverlay) endOverlay.classList.add('show');
+
+      // (optional) log hook
+      try{
+        window.dispatchEvent(new CustomEvent('hha:log_session', { detail: { phase:'end', ...d } }));
+      }catch{}
     }, { passive:true });
 
-    // autostart=1 -> skip overlay
+    // autostart (only if requested)
     if (qs('autostart','0') === '1'){
-      overlay.style.display = 'none';
-      startGame();
+      if (overlay) overlay.style.display = 'none';
+      boot();
     }
-
-    /* =========================================================
-       Cardboard 2-eye + Gaze (NO safe.js edits)
-       ========================================================= */
-    const cbBtn = document.getElementById('btnCardboard');
-    const cbExit = document.getElementById('fgCbExit');
-    const cbRecenter = document.getElementById('fgCbRecenter');
-
-    const leftView = document.getElementById('fgLeftView');
-    const rightLayer = document.getElementById('fg-layer-r');
-    const srcLayer = document.getElementById('fg-layer');
-
-    function setProg(p){
-      document.documentElement.style.setProperty('--gazeProg', String(Math.max(0, Math.min(1, p))));
-    }
-
-    function enableCardboard(on){
-      on = !!on;
-      if (on){
-        document.body.classList.add('cardboard');
-        // move live fg-layer into left eye
-        if (srcLayer && leftView && srcLayer.parentElement !== leftView){
-          leftView.appendChild(srcLayer);
-          srcLayer.style.position = 'absolute';
-          srcLayer.style.inset = '0';
-        }
-        try{ localStorage.setItem('HHA_FG_CARDBOARD','1'); }catch(_){}
-      }else{
-        document.body.classList.remove('cardboard');
-        // move fg-layer back to body (after scene)
-        const scene = document.querySelector('a-scene');
-        if (srcLayer && srcLayer.parentElement !== document.body){
-          if (scene && scene.nextSibling) document.body.insertBefore(srcLayer, scene.nextSibling);
-          else document.body.appendChild(srcLayer);
-          srcLayer.style.position = '';
-          srcLayer.style.inset = '';
-        }
-        try{ rightLayer.innerHTML=''; }catch(_){}
-        cloneMap.clear();
-        try{ localStorage.setItem('HHA_FG_CARDBOARD','0'); }catch(_){}
-      }
-      setProg(0);
-    }
-
-    cbBtn?.addEventListener('click', ()=> enableCardboard(true), {passive:true});
-    cbExit?.addEventListener('click', ()=> enableCardboard(false), {passive:true});
-    cbRecenter?.addEventListener('click', ()=>{
-      try{
-        if (window.GroupsBoot && window.GroupsBoot.recenter) window.GroupsBoot.recenter();
-      }catch(_){}
-    }, {passive:true});
-
-    // auto
-    try{
-      const q = new URLSearchParams(location.search);
-      const want = (q.get('cardboard')==='1') || (localStorage.getItem('HHA_FG_CARDBOARD')==='1');
-      if (want) setTimeout(()=>enableCardboard(true), 50);
-    }catch(_){}
-
-    // mirror children (targets) to right eye
-    const cloneMap = new Map();
-    function syncStyle(src, dst){
-      const s = src.style, d = dst.style;
-      d.left = s.left; d.top = s.top;
-      d.width = s.width; d.height = s.height;
-      d.transform = s.transform;
-      d.opacity = s.opacity;
-      d.filter = s.filter;
-      d.pointerEvents = 'none';
-      dst.className = src.className;
-      try{ for (const k of Object.keys(src.dataset||{})) dst.dataset[k]=src.dataset[k]; }catch(_){}
-    }
-
-    let obs=null;
-    function startMirror(){
-      if (!srcLayer || !rightLayer || obs) return;
-      obs = new MutationObserver((muts)=>{
-        for (const m of muts){
-          for (const n of m.addedNodes){
-            if (!(n instanceof HTMLElement)) continue;
-            const c = n.cloneNode(true);
-            c.style.pointerEvents='none';
-            rightLayer.appendChild(c);
-            cloneMap.set(n,c);
-            syncStyle(n,c);
-          }
-          for (const n of m.removedNodes){
-            if (!(n instanceof HTMLElement)) continue;
-            const c = cloneMap.get(n);
-            if (c){ try{ c.remove(); }catch(_){} cloneMap.delete(n); }
-          }
-        }
-      });
-      obs.observe(srcLayer, { childList:true, subtree:false });
-    }
-    startMirror();
-
-    // gaze fuse (fast)
-    const DWELL_MS = 320;
-    const PICK_RADIUS = 92;
-    const DECAY = 1.8;
-
-    let hold=0, lastT=0, locked=null;
-
-    function centerOf(el){
-      const r = el.getBoundingClientRect();
-      return { x:r.left+r.width/2, y:r.top+r.height/2 };
-    }
-
-    function pickNearest(cx,cy){
-      const nodes = srcLayer ? Array.from(srcLayer.children) : [];
-      let best=null, bestD=Infinity;
-      for (const el of nodes){
-        if (!(el instanceof HTMLElement)) continue;
-        const st = getComputedStyle(el);
-        if (st.display==='none' || st.visibility==='hidden' || st.opacity==='0') continue;
-        const r = el.getBoundingClientRect();
-        if (r.width < 8 || r.height < 8) continue;
-        const x = r.left+r.width/2, y=r.top+r.height/2;
-        const d = Math.hypot(x-cx, y-cy);
-        if (d < bestD){ bestD=d; best=el; }
-      }
-      return {el:best, d:bestD};
-    }
-
-    function fireAt(el){
-      if (!el) return false;
-      try{
-        const r = el.getBoundingClientRect();
-        const ev = new PointerEvent('pointerdown', {
-          bubbles:true, cancelable:true,
-          clientX:r.left+r.width/2,
-          clientY:r.top+r.height/2,
-          pointerId:1, pointerType:'mouse'
-        });
-        el.dispatchEvent(ev);
-        return true;
-      }catch(_){
-        try{ el.click(); return true; }catch(__){}
-      }
-      return false;
-    }
-
-    function gazeLoop(t){
-      const dt = Math.min(60, Math.max(8, t-(lastT||t)));
-      lastT = t;
-
-      if (!document.body.classList.contains('cardboard')){
-        hold=0; locked=null; setProg(0);
-        requestAnimationFrame(gazeLoop);
-        return;
-      }
-
-      // sync clones
-      for (const [src,dst] of cloneMap.entries()){
-        if (!src.isConnected){
-          try{ dst.remove(); }catch(_){}
-          cloneMap.delete(src);
-          continue;
-        }
-        syncStyle(src,dst);
-      }
-
-      const c = centerOf(leftView);
-
-      if (locked && locked.isConnected){
-        const rr = locked.getBoundingClientRect();
-        const d = Math.hypot((rr.left+rr.width/2)-c.x, (rr.top+rr.height/2)-c.y);
-        if (d > PICK_RADIUS*1.15) locked=null;
-      } else locked=null;
-
-      if (!locked){
-        const p = pickNearest(c.x,c.y);
-        if (p.el && p.d <= PICK_RADIUS) locked = p.el;
-      }
-
-      if (locked){
-        hold += dt;
-        setProg(hold/DWELL_MS);
-        if (hold >= DWELL_MS){
-          fireAt(locked);
-          hold = 0; locked=null; setProg(0);
-        }
-      } else {
-        hold = Math.max(0, hold - dt*DECAY);
-        setProg(hold/DWELL_MS);
-      }
-
-      requestAnimationFrame(gazeLoop);
-    }
-    requestAnimationFrame(gazeLoop);
-
   })();
   </script>
 </body>
