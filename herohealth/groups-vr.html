@@ -5,232 +5,221 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Food Groups VR — Launcher</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" />
-
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
     :root{
+      color-scheme: dark;
       --bg:#020617;
       --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
+      --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
       --accent2:#22d3ee;
-      --warn:#f59e0b;
       --radius:22px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
     }
     *{ box-sizing:border-box; }
-    html,body{ height:100%; margin:0; background:radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
-                                radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
-                                var(--bg);
-              color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    body{
+      display:grid; place-items:center;
+      padding: calc(18px + var(--sat)) 16px calc(18px + var(--sab));
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
+        var(--bg);
+    }
     .wrap{
-      min-height:100%;
-      display:grid;
-      place-items:center;
-      padding: calc(20px + var(--sat)) 16px calc(24px + var(--sab));
-    }
-    .card{
-      width:min(980px, 96vw);
-      border:1px solid var(--stroke);
-      background:linear-gradient(180deg, rgba(2,6,23,.86), rgba(2,6,23,.70));
+      width:min(920px, 94vw);
+      background:rgba(2,6,23,.62);
+      border:1px solid rgba(148,163,184,.18);
       border-radius:var(--radius);
-      box-shadow:0 18px 50px rgba(0,0,0,.55);
-      padding:22px 22px 18px;
+      box-shadow:0 20px 60px rgba(0,0,0,.55);
+      padding:18px;
     }
-    h1{ margin:0 0 6px; font-size:28px; letter-spacing:.2px; }
-    .sub{ margin:0 0 18px; color:var(--muted); font-size:14px; }
+    h1{ margin:0 0 6px; font-size:22px; }
+    .sub{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.5; }
 
     .grid{
       display:grid;
       grid-template-columns: 1fr 1fr;
-      gap:14px 16px;
+      gap:12px;
     }
     @media (max-width: 820px){
       .grid{ grid-template-columns: 1fr; }
     }
-    label{ display:block; font-size:12px; color:var(--muted); margin:0 0 6px; }
-    .field{
-      background: rgba(15,23,42,.55);
+
+    .card{
+      background:var(--panel2);
       border:1px solid rgba(148,163,184,.16);
-      border-radius:16px;
-      padding:10px 12px;
-      display:flex;
-      gap:10px;
-      align-items:center;
+      border-radius:18px;
+      padding:14px;
     }
-    select,input{
+    label{ display:block; font-size:12px; color:var(--muted); margin:0 0 8px; }
+    input, select{
       width:100%;
-      background:transparent;
-      border:0;
-      outline:none;
+      height:44px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
       color:var(--text);
-      font-size:14px;
+      padding:0 12px;
+      outline:none;
     }
-    .row2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:14px 16px;
-      margin-top:14px;
-    }
-    @media (max-width: 820px){
-      .row2{ grid-template-columns:1fr; }
+    input::placeholder{ color:rgba(148,163,184,.70); }
+    .row2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    @media (max-width: 520px){
+      .row2{ grid-template-columns: 1fr; }
     }
 
-    .btns{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:14px;
-      margin-top:16px;
+    .actions{
+      margin-top:14px;
+      display:flex; gap:12px; flex-wrap:wrap;
+      align-items:center;
     }
-    @media (max-width: 820px){
-      .btns{ grid-template-columns:1fr; }
-    }
-    button{
-      border:0;
+    .btn{
+      height:46px;
+      padding:0 18px;
       border-radius:999px;
-      padding:14px 16px;
-      font-weight:700;
+      border:0;
       cursor:pointer;
-      color:#061018;
+      font-weight:900;
+      letter-spacing:.2px;
+      color:#07121a;
       background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-      box-shadow:0 14px 34px rgba(34,197,94,.18);
-      font-size:15px;
+      box-shadow:0 18px 48px rgba(34,211,238,.10);
     }
-    button.secondary{
-      color:var(--text);
-      background: rgba(15,23,42,.78);
+    .btn.secondary{
+      background:rgba(15,23,42,.78);
       border:1px solid rgba(148,163,184,.18);
+      color:var(--text);
       box-shadow:none;
     }
     .tip{
       margin-top:12px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px dashed rgba(148,163,184,.20);
       color:var(--muted);
       font-size:12px;
+      border-top:1px dashed rgba(148,163,184,.16);
+      padding-top:10px;
     }
-    .kbd{
-      padding:.08rem .45rem;
-      border-radius:10px;
-      border:1px solid rgba(148,163,184,.25);
-      background:rgba(2,6,23,.35);
-      color:var(--text);
-      font-weight:700;
+    .mini{
+      font-size:12px;
+      color:var(--muted);
+      margin-left:auto;
     }
+    a{ color:rgba(34,211,238,.95); text-decoration:none; }
+    a:hover{ text-decoration:underline; }
+    code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1>🍽️ Food Groups VR — Launcher</h1>
-      <p class="sub">เลือกโหมด/ระดับ/สไตล์ แล้วกด <span class="kbd">เข้าเกม</span> → จะไปหน้า Run แบบพารามิเตอร์ครบ ✨</p>
+    <h1>🍽️ Food Groups VR — Launcher</h1>
+    <p class="sub">เลือกโหมด/ระดับ/สไตล์ แล้วกด “เข้าเกม” → จะพาไปหน้า Run ที่ <code>/herohealth/vr-groups/groups-vr.html</code></p>
 
-      <div class="grid">
-        <div>
-          <label>Run mode</label>
-          <div class="field">
-            <select id="runMode">
-              <option value="play" selected>play</option>
-              <option value="research">research</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label>Style (คุม “ฟีล/โหด/ผสม”)</label>
-          <div class="field">
-            <select id="style">
-              <option value="feel">feel (ฟีลลื่น)</option>
-              <option value="mix" selected>mix (ผสม)</option>
-              <option value="hard">hard (โหด)</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label>Difficulty</label>
-          <div class="field">
-            <select id="diff">
-              <option value="easy">easy</option>
-              <option value="normal" selected>normal</option>
-              <option value="hard">hard</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label>Time (วินาที)</label>
-          <div class="field">
-            <input id="time" type="number" min="30" max="180" value="90" />
-          </div>
-        </div>
-
-        <div>
-          <label>Seed (เว้นว่าง = สุ่ม)</label>
-          <div class="field">
-            <input id="seed" placeholder="เช่น S01-CLASS5-001" />
-          </div>
-        </div>
-
-        <div>
-          <label>Hub URL (ปุ่มกลับ HUB)</label>
-          <div class="field">
-            <input id="hub" value="../index.html" />
-          </div>
-        </div>
+    <div class="grid">
+      <div class="card">
+        <label>Run mode</label>
+        <select id="runMode">
+          <option value="play" selected>play</option>
+          <option value="research">research</option>
+        </select>
       </div>
 
-      <div class="btns">
-        <button id="btnGo">🚀 เข้าเกม</button>
-        <button id="btnDemo" class="secondary">⚡ Demo (autostart)</button>
+      <div class="card">
+        <label>Style (สมดุล “ฟีลดี/โหด” + Quest)</label>
+        <select id="style">
+          <option value="mix" selected>mix (ผสม)</option>
+          <option value="feel">feel (ฟีลดี)</option>
+          <option value="hard">hard (โหด)</option>
+        </select>
       </div>
 
-      <div class="tip">
-        ถ้ากดเข้าเกมแล้ว “ยังอยู่หน้า Launcher” แปลว่าไฟล์ปลายทางไม่ตรงชื่อ/พาธผิด → ตัวนี้จะยิงไป <b>groups-run.html</b> (แก้ชื่อไฟล์ได้ในสคริปต์ท้ายหน้า)
+      <div class="card">
+        <label>Difficulty</label>
+        <select id="diff">
+          <option value="easy">easy</option>
+          <option value="normal" selected>normal</option>
+          <option value="hard">hard</option>
+        </select>
       </div>
+
+      <div class="card">
+        <label>Time (วินาที)</label>
+        <input id="time" type="number" min="30" max="180" step="5" value="90" />
+      </div>
+
+      <div class="card">
+        <label>Seed (เว้นว่าง = สุ่ม)</label>
+        <input id="seed" type="text" placeholder="เช่น S01-CLASS5-001" />
+      </div>
+
+      <div class="card">
+        <label>Hub URL (ปุ่มกลับ HUB ในหน้า Run)</label>
+        <!-- สำคัญ: ค่านี้ถูกใช้ “จากหน้า Run” (อยู่ใน /herohealth/vr-groups/) -->
+        <input id="hub" type="text" value="../index.html" />
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="btnGo">🚀 เข้าเกม</button>
+      <button class="btn secondary" id="btnDemo">⚡ Demo (autostart)</button>
+      <div class="mini">
+        ลิงก์ Run: <a id="runLink" href="./vr-groups/groups-vr.html">เปิดหน้า Run</a>
+      </div>
+    </div>
+
+    <div class="tip">
+      Tip: ถ้า “เข้าเกมไม่ได้” ให้เปิด DevTools → Network ดูว่า <code>GameEngine.js</code> ในหน้า Run ต้องได้ <b>Status 200</b> (GitHub Pages ตัวใหญ่/เล็กต้องตรง)
     </div>
   </div>
 
   <script>
     (function(){
       const $ = (id)=>document.getElementById(id);
-
-      // IMPORTANT: เปลี่ยนตรงนี้ถ้าชื่อไฟล์ run ของคุณไม่ใช่ groups-run.html
-      const RUN_FILE = './groups-run.html';
+      const RUN_PATH = './vr-groups/groups-vr.html'; // จาก /herohealth/ ไป /herohealth/vr-groups/
 
       function buildUrl(autostart){
-        const runMode = $('runMode').value;
-        const style = $('style').value;
-        const diff = $('diff').value;
-        const time = Number($('time').value || 90);
-        const seed = ($('seed').value || '').trim();
-        const hub  = ($('hub').value || '../index.html').trim();
+        const runMode = ($('runMode').value || 'play').toLowerCase();
+        const diff = ($('diff').value || 'normal').toLowerCase();
+        const style = ($('style').value || 'mix').toLowerCase();
+        const time = Math.max(30, Math.min(180, Number($('time').value || 90)));
+        const seedIn = ($('seed').value || '').trim();
+        const seed = seedIn || String(Date.now());
+        const hub = ($('hub').value || '../index.html').trim() || '../index.html';
 
-        const u = new URL(RUN_FILE, location.href);
-        u.searchParams.set('runMode', runMode);
-        u.searchParams.set('style', style);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', String(time));
-        if (seed) u.searchParams.set('seed', seed);
-        u.searchParams.set('hub', hub);
-        if (autostart) u.searchParams.set('autostart', '1');
-        // cache-bust ป้องกันเพจค้าง
-        u.searchParams.set('ts', String(Date.now()));
-        return u.toString();
+        const q = new URLSearchParams();
+        q.set('runMode', runMode);
+        q.set('diff', diff);
+        q.set('style', style);
+        q.set('time', String(time));
+        q.set('seed', seed);
+        q.set('hub', hub);
+        if (autostart) q.set('autostart', '1');
+        // cache-bust
+        q.set('v', String(Date.now()));
+
+        return RUN_PATH + '?' + q.toString();
       }
 
-      $('btnGo').addEventListener('click', ()=>{
-        location.href = buildUrl(false);
+      function repaintLink(){
+        const url = buildUrl(false);
+        $('runLink').href = url;
+      }
+
+      ['runMode','diff','style','time','seed','hub'].forEach(id=>{
+        $(id).addEventListener('input', repaintLink);
+        $(id).addEventListener('change', repaintLink);
       });
-      $('btnDemo').addEventListener('click', ()=>{
-        location.href = buildUrl(true);
-      });
+
+      $('btnGo').addEventListener('click', ()=> location.href = buildUrl(false));
+      $('btnDemo').addEventListener('click', ()=> location.href = buildUrl(true));
+
+      repaintLink();
     })();
   </script>
 </body>
