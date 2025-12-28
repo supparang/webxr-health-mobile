@@ -1,5 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard (PRODUCTION)
+// GoodJunkVR Boot — HHA Standard (layout-aware)
+// ✅ FIX: attachTouchLook export + hostEl (gj-stage) for drag
+// ✅ Auto layout: pc | mobile | vr (optional ?view=vr)
+// ✅ safeMargins tuned by layout/orientation
 
 'use strict';
 
@@ -17,14 +20,14 @@ function qp(name, fallback = null){
 function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
-function detectView(){
-  const v = (qp('view','')||'').toLowerCase();
-  if (v) return v;
-
-  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-  const isCardboard = (qp('vr','') === '1') || (qp('cardboard','') === '1');
-  if (isCardboard) return 'cardboard';
-  return isMobile ? 'mobile' : 'pc';
+function isMobileLike(){
+  const w = innerWidth || 360;
+  const h = innerHeight || 640;
+  const coarse = (matchMedia && matchMedia('(pointer: coarse)').matches);
+  return coarse || (Math.min(w,h) < 520);
+}
+function isLandscape(){
+  return (innerWidth || 0) > (innerHeight || 0);
 }
 
 function buildContext(){
@@ -66,6 +69,35 @@ function setHudMeta(text){
   if (el) el.textContent = text;
 }
 
+function detectView(){
+  const v = toStr(qp('view', ''), '').toLowerCase(); // pc|mobile|vr
+  if (v === 'pc' || v === 'mobile' || v === 'vr') return v;
+  // auto
+  return isMobileLike() ? 'mobile' : 'pc';
+}
+
+function computeSafeMargins(view){
+  // defaults
+  let m = { top: 128, bottom: 170, left: 26, right: 26 };
+
+  if (view === 'mobile'){
+    m = { top: 118, bottom: 162, left: 20, right: 20 };
+    if (isLandscape()) m = { top: 88, bottom: 120, left: 16, right: 16 };
+  }
+
+  if (view === 'vr'){
+    // cardboard-feel: maximize play area
+    m = { top: 78, bottom: 96, left: 14, right: 14 };
+    if (isLandscape()) m = { top: 68, bottom: 86, left: 12, right: 12 };
+  }
+
+  if (view === 'pc'){
+    if (isLandscape() && (innerHeight||0) < 520) m = { top: 96, bottom: 130, left: 22, right: 22 };
+  }
+
+  return m;
+}
+
 (async function main(){
   const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
   const time = toInt(qp('time', '80'), 80);
@@ -75,23 +107,25 @@ function setHudMeta(text){
 
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
-  const hub = toStr(qp('hub', '../hub.html'), '../hub.html');
 
   const view = detectView();
+  document.body.dataset.view = view;
+  const safeMargins = computeSafeMargins(view);
+
   const ctx = buildContext();
 
   setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • ${view}`);
 
-  // ✅ attach touch/drag -> world shift (does not block clicking targets)
+  // attach touch/gyro -> world shift
   attachTouchLook({
+    crosshairEl: document.getElementById('gj-crosshair'),
     layerEl: document.getElementById('gj-layer'),
-    ringEl: document.getElementById('atk-ring'),
-    laserEl: document.getElementById('atk-laser'),
+    hostEl: document.getElementById('gj-stage'), // ✅ สำคัญ (layer pointer-events:none)
     aimY: 0.62,
-    maxShiftPx: (view === 'mobile') ? 190 : 170,
+    maxShiftPx: (view === 'vr') ? 140 : 170,
     ease: 0.12,
-    gyro: false, // ปิดเพื่อกันโลกไหลเอง (อยากเปิดค่อยใส่ gyro=true)
-    drag: true
+    dragOnly: true,
+    gyro: (view === 'vr' || view === 'mobile')
   });
 
   const metaText =
@@ -100,7 +134,6 @@ function setHudMeta(text){
 
   await showStartOverlay(metaText);
 
-  // boot engine
   goodjunkBoot({
     diff,
     time,
@@ -109,11 +142,9 @@ function setHudMeta(text){
     challenge,
     seed,
     sessionId,
-    hub,
-    view,
     context: ctx,
     layerEl: document.getElementById('gj-layer'),
     shootEl: document.getElementById('btnShoot'),
-    safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
+    safeMargins
   });
 })();
