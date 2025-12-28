@@ -1,10 +1,7 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targets)
-- HUD อยู่เหนือ gameplay (ไม่โดน layer ทับ)
-- fg-layer รองรับ VR feel translate ด้วย --vx/--vy
-- Targets = absolute (เคลื่อนตาม fg-layer transform ได้จริง)
-- Candy sticker + badges + spawn/hit/out
-- Storm/Overdrive/Freeze + optional No-Junk ring
+Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets)
+✅ กัน emoji ซ้อน (font-size:0; color:transparent)
+✅ เพิ่ม .fg-star / .fg-ice
 */
 
 :root{
@@ -28,7 +25,6 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targ
   --radius-md:14px;
   --radius-pill:999px;
 
-  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
@@ -71,28 +67,17 @@ html, body{
     var(--bg);
 }
 
-/* A-Frame scene ไม่ให้บัง HUD */
-a-scene[embedded]{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:0 !important;
-}
-
-/* ======================
-   Gameplay Layer
-   ====================== */
+/* Gameplay Layer */
 .fg-layer{
   position: fixed;
   inset: 0;
-  z-index: 3;                 /* ✅ ต่ำกว่า HUD */
+  z-index: 3;
   pointer-events: auto;
-
-  /* VR feel translate from engine */
   transform: translate(var(--vx,0px), var(--vy,0px));
   will-change: transform;
 }
 
-/* Optional: No-Junk ring (set --nojunk-*) */
+/* Optional: No-Junk ring */
 .fg-layer::before{
   content:"";
   position:fixed;
@@ -108,270 +93,9 @@ a-scene[embedded]{
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
 }
 
-/* ======================
-   HUD
-   ====================== */
-.hud-top{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  top:calc(10px + var(--sat));
-  z-index: 8;                 /* ✅ เหนือ gameplay */
-  display:grid;
-  grid-template-columns: 1fr minmax(260px, 1.2fr) 1fr;
-  gap:10px;
-  align-items:start;
-}
-
-.hud-card{
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius-lg);
-  box-shadow:0 18px 60px rgba(0,0,0,.45);
-  padding:12px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.hud-left .hud-row{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  padding:6px 0;
-  border-bottom:1px dashed rgba(148,163,184,.18);
-}
-.hud-left .hud-row:last-child{ border-bottom:0; }
-
-.hud-title{
-  font-weight:900;
-  letter-spacing:.4px;
-  font-size:12px;
-  opacity:.9;
-}
-.hud-val{
-  font-weight:900;
-  font-size:16px;
-}
-
-.hud-mid .hud-group-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  margin-bottom:10px;
-}
-.hud-group{
-  font-weight:1000;
-  font-size:16px;
-  padding:6px 10px;
-  border-radius:var(--radius-pill);
-  border:1px solid rgba(34,211,238,.22);
-  background:rgba(2,6,23,.55);
-}
-.hud-timer{
-  font-weight:1000;
-  font-size:16px;
-  padding:6px 10px;
-  border-radius:var(--radius-pill);
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.55);
-}
-
-.power-wrap{
-  margin:8px 0 10px 0;
-  padding:10px;
-  border-radius:var(--radius-md);
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.35);
-}
-.power-label{
-  display:flex;
-  justify-content:space-between;
-  font-weight:900;
-  font-size:12px;
-  opacity:.9;
-  margin-bottom:8px;
-}
-.power-bar{
-  height:12px;
-  border-radius:999px;
-  background:rgba(148,163,184,.14);
-  overflow:hidden;
-}
-.power-fill{
-  height:100%;
-  width:0%;
-  border-radius:999px;
-  background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(34,211,238,.9));
-  box-shadow:0 10px 24px rgba(34,211,238,.18);
-}
-
-.quest-wrap{ display:grid; gap:8px; }
-.quest-line{
-  display:grid;
-  grid-template-columns:auto 1fr auto;
-  gap:8px;
-  align-items:center;
-}
-.q-badge{
-  font-weight:1000;
-  font-size:11px;
-  padding:5px 9px;
-  border-radius:999px;
-  border:1px solid rgba(34,197,94,.28);
-  background:rgba(34,197,94,.12);
-}
-.q-badge.mini{
-  border-color:rgba(167,139,250,.30);
-  background:rgba(167,139,250,.12);
-}
-.q-text{
-  font-weight:900;
-  font-size:12px;
-  opacity:.95;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.q-num{
-  font-weight:1000;
-  font-size:12px;
-  opacity:.95;
-}
-
-.qbar{ position:relative; }
-.qbar-track{
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.14);
-  overflow:hidden;
-}
-.qbar-fill{ height:100%; width:0%; border-radius:999px; }
-.qbar-fill.goal{ background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(34,211,238,.65)); }
-.qbar-fill.mini{ background:linear-gradient(90deg, rgba(167,139,250,.9), rgba(34,211,238,.55)); }
-.qbar-timer{
-  position:absolute;
-  right:0;
-  top:-18px;
-  font-size:11px;
-  font-weight:900;
-  color:var(--muted);
-}
-
-#hud-mini-line.mini-urgent .q-badge.mini{
-  border-color:rgba(239,68,68,.55);
-  background:rgba(239,68,68,.18);
-}
-#hud-mini-line.mini-urgent .q-text{
-  color:#fff;
-  text-shadow:0 0 14px rgba(239,68,68,.35);
-}
-
-/* Right rank */
-.rank-box{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-}
-.rank-title{
-  font-weight:1000;
-  font-size:12px;
-  opacity:.9;
-}
-.rank-sub{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  font-size:12px;
-  font-weight:900;
-  color:var(--muted);
-  margin-top:6px;
-}
-.rank-grade{
-  font-weight:1100;
-  font-size:26px;
-  line-height:1;
-  padding:10px 12px;
-  border-radius:14px;
-  border:1px solid rgba(34,211,238,.25);
-  background:rgba(2,6,23,.55);
-}
-
-/* ======================
-   Start / End overlays
-   ====================== */
-.start-overlay,
-.result-overlay{
-  position:fixed;
-  inset:0;
-  z-index:20;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background:rgba(2,6,23,.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.start-card,
-.result-card{
-  width:min(560px, 94vw);
-  background:rgba(15,23,42,.72);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:22px;
-  padding:16px;
-  box-shadow:0 22px 70px rgba(0,0,0,.55);
-}
-.start-title{ font-weight:1100; font-size:20px; margin:0 0 6px 0; }
-.start-sub{ margin:0; opacity:.92; line-height:1.35; font-weight:700; }
-
-.start-grid{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
-.pill{
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.20);
-  background:rgba(2,6,23,.55);
-  font-weight:900;
-  font-size:12px;
-}
-
-.start-actions,
-.result-actions{ display:grid; gap:10px; margin-top:12px; }
-
-.btn{
-  border:0;
-  border-radius:16px;
-  padding:12px 14px;
-  font-weight:1000;
-  cursor:pointer;
-}
-.btn.primary{
-  background:linear-gradient(135deg, rgba(34,197,94,.95), rgba(34,211,238,.80));
-  color:#04110a;
-}
-.btn.ghost{
-  background:transparent;
-  color:var(--text);
-  border:1px solid rgba(148,163,184,.22);
-}
-
-.start-note{
-  margin-top:10px;
-  font-size:12px;
-  color:var(--muted);
-  font-weight:800;
-}
-
-.result-overlay{ display:none; }
-.result-overlay.show{ display:flex; }
-
-/* ======================
-   TARGETS — Candy Stickers (Grade 5)
-   ====================== */
+/* TARGETS — Candy Stickers */
 .fg-target{
-  position:absolute; /* ✅ สำคัญ: ให้ขยับตาม fg-layer transform ได้ */
+  position:absolute;
   left: var(--x, 50vw);
   top:  var(--y, 50vh);
 
@@ -405,8 +129,12 @@ a-scene[embedded]{
   user-select:none;
   -webkit-tap-highlight-color: transparent;
 
-  overflow:hidden; /* รองรับ sticky fx ถ้ามี */
+  overflow:hidden;
   animation: fgFloat 1.15s ease-in-out infinite;
+
+  /* ✅ กัน emoji ซ้อน (JS textContent เป็น fallback เฉย ๆ) */
+  font-size:0;
+  color:transparent;
 }
 
 .fg-target::before{
@@ -460,11 +188,31 @@ a-scene[embedded]{
   animation: fgBossFloat 1.00s ease-in-out infinite;
 }
 
+/* ✅ powerups */
+.fg-star{
+  border-color: rgba(250,204,21,.86);
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(250,204,21,.34), rgba(34,211,238,.18));
+}
+.fg-ice{
+  border-color: rgba(34,211,238,.85);
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(34,211,238,.26), rgba(167,139,250,.18));
+}
+
 /* corner badges */
 .fg-wrong::after,
 .fg-decoy::after,
 .fg-junk::after,
-.fg-boss::after{
+.fg-boss::after,
+.fg-star::after,
+.fg-ice::after{
   position:absolute;
   right:8px;
   top:7px;
@@ -477,6 +225,8 @@ a-scene[embedded]{
 .fg-decoy::after{ content:"❓"; }
 .fg-junk::after { content:"🫧"; }
 .fg-boss::after { content:"👑"; }
+.fg-star::after { content:"⭐"; }
+.fg-ice::after  { content:"❄️"; }
 
 .fg-target:active{
   transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
@@ -490,7 +240,7 @@ a-scene[embedded]{
 .fg-target.hit{ animation: fgHit .22s ease-out both; }
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
-/* boss feedback states (optional classes from engine) */
+/* boss feedback states */
 .fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
 @keyframes bossHurt{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
@@ -534,31 +284,19 @@ a-scene[embedded]{
   to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
 }
 
-/* ======================
-   Mode vibes (optional)
-   ====================== */
+/* Mode vibes */
 body.groups-storm .hud-top{ filter: saturate(1.10) brightness(1.05); }
 body.groups-storm-urgent .hud-top{ animation: hudStormPulse .24s ease-in-out infinite; }
 @keyframes hudStormPulse{
   0%,100%{ transform: translateZ(0) scale(1.00); }
   50%{ transform: translateZ(0) scale(1.01); }
 }
-
 body.groups-overdrive .hud-card{
   box-shadow: 0 18px 60px rgba(34,211,238,.18);
   border-color: rgba(34,211,238,.30);
 }
 body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
 
-/* responsive */
-@media (max-width: 920px){
-  .hud-top{ grid-template-columns: 1fr; }
-  .hud-right{ order:3; }
-  .hud-mid{ order:2; }
-  .hud-left{ order:1; }
-}
-
-/* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
   body.groups-storm-urgent .hud-top{
