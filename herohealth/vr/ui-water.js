@@ -18,7 +18,6 @@ function clamp(v, a, b){
 
 export function zoneFrom(pct){
   pct = clamp(pct, 0, 100);
-  // ปรับ threshold ได้ทีหลัง แต่ค่านี้ “เล่นแล้วรู้สึกแฟร์”
   if (pct < 45) return 'LOW';
   if (pct > 65) return 'HIGH';
   return 'GREEN';
@@ -55,7 +54,6 @@ export function setWaterGauge(pct){
   pct = clamp(pct, 0, 100);
   const z = zoneFrom(pct);
 
-  // bar width
   try{
     if (UI.elBar){
       UI.elBar.style.width = pct.toFixed(2) + '%';
@@ -63,11 +61,9 @@ export function setWaterGauge(pct){
     }
   }catch{}
 
-  // labels
   try{ if (UI.elPct)  UI.elPct.textContent  = Math.round(pct) + '%'; }catch{}
   try{ if (UI.elZone) UI.elZone.textContent = z; }catch{}
 
-  // body class theme
   try{
     DOC.body.classList.remove('water-low','water-green','water-high');
     DOC.body.classList.add(z === 'LOW' ? 'water-low' : (z === 'HIGH' ? 'water-high' : 'water-green'));
