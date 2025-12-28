@@ -1,6 +1,7 @@
 /* === /herohealth/vr-groups/coach.js ===
 Coach bubble UI for GroupsVR
 - listens: hha:coach, hha:judge, hha:adaptive
+- image set: /herohealth/img/groups-*.png
 */
 
 (function(root){
@@ -10,10 +11,10 @@ Coach bubble UI for GroupsVR
 
   const IMG_BASE = '../img/'; // from /herohealth/vr-groups/ -> /herohealth/img/
   const MOOD_IMG = {
-    happy: IMG_BASE + 'coach-happy.png',
-    neutral: IMG_BASE + 'coach-neutral.png',
-    sad: IMG_BASE + 'coach-sad.png',
-    fever: IMG_BASE + 'coach-fever.png'
+    happy:   IMG_BASE + 'groups-happy.png',
+    neutral: IMG_BASE + 'groups-neutral.png',
+    sad:     IMG_BASE + 'groups-sad.png',
+    fever:   IMG_BASE + 'groups-fever.png'
   };
 
   function ensure(){
@@ -65,13 +66,15 @@ Coach bubble UI for GroupsVR
   root.addEventListener('hha:judge', (e)=>{
     const d = e.detail || {};
     if (d.kind === 'MISS') say('พลาดแล้ว! ตั้งสติ แล้วลุยใหม่ 💪', 'sad');
+    if (d.kind === 'BOSS') say('บอสมาแล้ว! กดให้ครบก่อนมันหนี! 👊', 'neutral');
+    if (d.kind === 'FEVER') say('เข้าโหมด FEVER! 🔥 คะแนนคูณ!', 'fever');
+    if (d.kind === 'STUN') say('โดนหลอก! มึนงงแป๊บ 😵', 'sad');
   });
 
-  // optional debug
+  // optional adaptive whisper
   root.addEventListener('hha:adaptive', (e)=>{
     const d = e.detail || {};
     if (!d.spawnEveryMs) return;
-    // ไม่รบกวนผู้เล่นมาก: โชว์เบามากๆ แค่บางครั้ง
     if (Math.random() < 0.12) say(`ปรับความยากอัตโนมัติ… (${d.spawnEveryMs}ms)`, 'neutral');
   });
 
