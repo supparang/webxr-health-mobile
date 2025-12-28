@@ -1,380 +1,103 @@
-/* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR — ALL-IN CSS (PC / Mobile / VR Cardboard stereo)
-✅ HUD + Coach + Quest
-✅ Targets layer (left + right eye mirror)
-✅ Crosshair x2 (stereo)
-✅ Touch-look vars: --lookX --lookY
-*/
+/* ===== Stereo VR UI (Cardboard) Patch ===== */
+body.gj-stereo .hha-hud{ display:none !important; }
+body.gj-stereo .hha-fever{ display:none !important; }
+body.gj-stereo .hha-controls{ display:none !important; } /* replace with dual VR controls */
 
-:root{
-  --bg:#020617;
-  --panel:rgba(2,6,23,.76);
-  --panel2:rgba(15,23,42,.68);
-  --stroke:rgba(148,163,184,.22);
-  --text:#e5e7eb;
-  --muted:#94a3b8;
-  --good:#22c55e;
-  --junk:#ef4444;
-  --gold:#fbbf24;
-  --power:#60a5fa;
-
-  --safeTop: env(safe-area-inset-top, 0px);
-  --safeBottom: env(safe-area-inset-bottom, 0px);
-
-  /* look shift set by touch-look-goodjunk.js */
-  --lookX: 0px;
-  --lookY: 0px;
-
-  /* stereo */
-  --eyeOffset: 0px;
+/* Start overlay split: 2 eyes */
+body.gj-stereo .start-overlay{
+  display:grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  padding: 14px;
+}
+body.gj-stereo .start-card{
+  width: min(92%, 520px);
+  margin: 0 auto;
+}
+body.gj-stereo .start-card.clone{
+  opacity: .995;
 }
 
-html,body{
-  margin:0; padding:0; width:100%; height:100%;
-  background: radial-gradient(1200px 900px at 50% 20%, #0b1220, #020617 60%);
-  color:var(--text);
-  overflow:hidden;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-}
-
-#gj-stage{
-  position:fixed;
-  inset:0;
-  overflow:hidden;
-  touch-action:none;
-}
-
-/* ===== LAYERS =====
-   In normal mode: only #gj-layer used
-   In stereo mode: both layers render (left & right)
-*/
-#gj-layer,
-#gj-layer-r{
-  position:fixed;
-  inset:0;
-  pointer-events:auto;
-  z-index: 10;
-  will-change: transform;
-}
-#gj-layer{
-  transform: translate(calc(var(--lookX) + var(--eyeOffset)), var(--lookY));
-}
-#gj-layer-r{
-  pointer-events:none; /* mirror eye: non-interactive */
-  opacity: 0;          /* hidden in non-stereo */
-  transform: translate(calc(var(--lookX) - var(--eyeOffset)), var(--lookY));
-}
-
-/* ===== Crosshair(s) ===== */
-#gj-crosshair,
-#gj-crosshair-r{
+/* VR HUD (minimal, duplicated) */
+.gj-vr-hud{
   position: fixed;
-  top: 62%;
-  width: 46px;
-  height: 46px;
-  border-radius: 999px;
-  transform: translate(-50%, -50%);
-  border: 2px solid rgba(255,255,255,.65);
-  box-shadow:
-    0 0 0 3px rgba(34,197,94,.12),
-    0 0 22px rgba(148,163,184,.14);
-  z-index: 40;
+  top: calc(10px + var(--safeTop));
+  left: 0;
+  right: 0;
+  z-index: 90;
   pointer-events:none;
+  display:none;
 }
-#gj-crosshair{ left: 50%; }
-#gj-crosshair::before,
-#gj-crosshair-r::before{
-  content:'';
-  position:absolute;
-  left:50%; top:50%;
-  width: 7px; height:7px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.85);
-  transform: translate(-50%,-50%);
-}
-#gj-crosshair::after,
-#gj-crosshair-r::after{
-  content:'';
-  position:absolute;
-  left:50%; top:50%;
-  width: 64px; height:64px;
-  border-radius: 999px;
-  border: 2px dashed rgba(148,163,184,.22);
-  transform: translate(-50%,-50%);
-  opacity:.85;
-}
+body.gj-stereo .gj-vr-hud{ display:block; }
 
-/* ===== Targets ===== */
-.gj-target{
+.gj-vr-hud .eye{
   position:absolute;
-  transform: translate(-50%, -50%);
-  user-select:none;
-  cursor: pointer;
-  will-change: transform, opacity, filter;
-  text-shadow:
-    0 2px 0 rgba(0,0,0,.35),
-    0 12px 24px rgba(0,0,0,.30);
-  filter: drop-shadow(0 14px 24px rgba(0,0,0,.22));
-  transition: transform .12s ease, opacity .16s ease;
+  top: 0;
+  width: 50vw;
+  padding: 10px 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(8px);
 }
-.gj-target.spawn{ transform: translate(-50%,-50%) scale(.25); opacity:0; }
-.gj-target.gone{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
-.gj-target:hover{ transform: translate(-50%,-50%) scale(1.06); }
+.gj-vr-hud .eye.l{ left: 10px; right: auto; max-width: calc(50vw - 20px); }
+.gj-vr-hud .eye.r{ right: 10px; left: auto; max-width: calc(50vw - 20px); }
 
-.gj-target.gj-junk{ filter: drop-shadow(0 18px 28px rgba(239,68,68,.22)); }
-.gj-target.gj-gold{ filter: drop-shadow(0 18px 32px rgba(251,191,36,.22)); }
-.gj-target.gj-power{ filter: drop-shadow(0 18px 32px rgba(96,165,250,.24)); }
-.gj-target.gj-boss{ filter: drop-shadow(0 22px 40px rgba(245,158,11,.20)); }
+.gj-vr-hud .row{
+  display:flex;
+  justify-content:space-between;
+  gap: 10px;
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 1.25;
+}
+.gj-vr-hud .k{ color: rgba(148,163,184,.95); }
+.gj-vr-hud .v{ color: #fff; }
 
-/* Controls */
-.hha-controls{
+/* VR controls (dual shoot buttons) */
+.gj-vr-controls{
   position: fixed;
   left: 0;
   right: 0;
   bottom: calc(14px + var(--safeBottom));
-  z-index: 60;
-  display:flex;
-  justify-content:center;
-  pointer-events:none;
+  z-index: 95;
+  display:none;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 10px;
 }
-.btn-shoot{
-  pointer-events:auto;
-  width: min(220px, 70vw);
-  height: 58px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.24);
-  background: rgba(2,6,23,.84);
-  color: #fff;
-  font-weight: 900;
-  letter-spacing: .5px;
-  font-size: 18px;
-  box-shadow: 0 16px 40px rgba(0,0,0,.35);
+body.gj-stereo .gj-vr-controls{
+  display:grid;
 }
-.btn-shoot:active{ transform: translateY(1px) scale(.99); }
-
-/* HUD */
-.hha-hud{
-  position: fixed;
-  left: 10px;
-  right: 10px;
-  top: calc(10px + var(--safeTop));
-  z-index: 80;
-  pointer-events:none;
-}
-.hud-top{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:10px;
-}
-.hud-badge{
-  min-width: 160px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: var(--panel);
-  box-shadow: 0 18px 44px rgba(0,0,0,.22);
-}
-.hud-title{ font-size: 14px; font-weight: 900; }
-.hud-sub{ font-size: 12px; color: var(--muted); margin-top:2px; }
-
-.hud-stats{
-  display:flex;
-  gap:8px;
-  flex-wrap: wrap;
-  justify-content:flex-end;
-  max-width: 62vw;
-}
-.hud-stat{
-  width: 74px;
-  padding: 8px 10px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: var(--panel);
-}
-.hud-stat .k{ font-size: 11px; color: var(--muted); }
-.hud-stat .v{ font-size: 18px; font-weight: 900; margin-top:2px; }
-
-.hud-mid{
-  margin-top: 10px;
-  display:flex;
-  gap:10px;
-  align-items:stretch;
-}
-.hud-quest{
-  flex: 1.1;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: var(--panel2);
-}
-.q-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.q-title{ font-weight:900; font-size: 13px; }
-.q-title.mini{ font-weight:900; opacity:.95; }
-.q-count{ font-weight:900; font-size: 13px; color:#fff; }
-.q-timer{ font-size: 12px; color: var(--gold); font-weight:900; min-width: 52px; text-align:right; }
-.q-progress{ margin-top:6px; font-size: 12px; color: var(--muted); }
-
-.hud-coach{
-  flex: 1;
-  display:flex;
-  gap:10px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: var(--panel2);
-}
-.coach-img{
-  width: 52px; height: 52px;
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.6);
-  object-fit: cover;
-}
-.coach-talk{ display:flex; flex-direction:column; gap:4px; }
-.coach-line{ font-size: 13px; font-weight: 900; }
-.coach-sub{ font-size: 12px; color: var(--muted); }
-
-/* Fever */
-.hha-fever{
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  bottom: calc(86px + var(--safeBottom));
-  z-index: 70;
-  pointer-events:none;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(8px);
-}
-.fever-row, .shield-row{ display:flex; align-items:center; gap:10px; }
-.fever-label, .shield-label{
-  width: 62px;
-  font-size: 12px;
-  font-weight: 900;
-  color: var(--muted);
-}
-.fever-bar{
-  position: relative;
-  flex: 1;
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(148,163,184,.14);
-  overflow:hidden;
-}
-.fever-fill{
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, rgba(34,197,94,.92), rgba(245,158,11,.92), rgba(239,68,68,.92));
-}
-.fever-text{
-  width: 52px;
-  text-align:right;
-  font-size: 12px;
-  font-weight: 900;
-  color:#fff;
-}
-.shield-row{ margin-top: 6px; }
-.shield-pills{ display:flex; gap:6px; flex-wrap: wrap; }
-.shield-pill{
-  width: 14px; height: 14px;
-  border-radius: 6px;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(96,165,250,.18);
-}
-.shield-pill.on{
-  background: rgba(96,165,250,.72);
-  box-shadow: 0 0 16px rgba(96,165,250,.24);
-}
-
-/* Start overlay */
-.start-overlay{
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: rgba(2,6,23,.86);
-  padding: 18px;
-}
-.start-card{
-  width: min(520px, 92vw);
-  border-radius: 22px;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.94);
-  box-shadow: 0 22px 70px rgba(0,0,0,.42);
-  padding: 16px 16px 14px;
-}
-.start-title{ font-size: 22px; font-weight: 1000; }
-.start-desc{ margin-top: 6px; color:#cbd5e1; line-height: 1.55; }
-.start-desc .muted{ color: var(--muted); font-size: 13px; }
-.start-meta{ margin-top: 10px; font-size: 12px; color: var(--muted); }
-.btn-start{
-  margin-top: 12px;
+.gj-vr-controls .btn-shoot.vr{
   width: 100%;
-  height: 52px;
-  border-radius: 18px;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(34,197,94,.16);
-  color:#fff;
-  font-weight: 1000;
-  font-size: 18px;
+  height: 66px;
+  border-radius: 20px;
+  font-size: 20px;
 }
-.btn-start:active{ transform: translateY(1px) scale(.99); }
 
-/* ===== Stereo (Cardboard) ===== */
-body.gj-stereo #gj-layer-r{
-  opacity: 1; /* show right-eye mirror layer */
-}
-body.gj-stereo #gj-crosshair{
-  left: 25%;
-}
+/* Bigger crosshair for cardboard */
+body.gj-stereo #gj-crosshair,
 body.gj-stereo #gj-crosshair-r{
-  left: 75%;
-  display:block;
+  width: 58px;
+  height: 58px;
+  border-width: 2px;
+  box-shadow:
+    0 0 0 4px rgba(34,197,94,.10),
+    0 0 30px rgba(148,163,184,.16);
 }
-#gj-crosshair-r{ display:none; }
+body.gj-stereo #gj-crosshair::after,
+body.gj-stereo #gj-crosshair-r::after{
+  width: 82px; height: 82px;
+  opacity: .9;
+}
 
-/* Add a subtle center divider in stereo */
+/* Center divider softer */
 body.gj-stereo::before{
-  content:'';
-  position: fixed;
-  top: 0; bottom: 0;
-  left: 50%;
-  width: 2px;
-  background: rgba(148,163,184,.14);
-  z-index: 55;
-  pointer-events:none;
+  opacity: .10 !important;
 }
 
-/* ===== Mobile tuning ===== */
-@media (max-width: 520px){
-  .hud-stats{ max-width: 58vw; }
-  .hud-stat{ width: 68px; padding: 7px 9px; border-radius: 14px; }
-  .hud-stat .v{ font-size: 17px; }
-  .hud-mid{ flex-direction: column; }
-  .hud-coach{ order: 2; }
-  .hud-quest{ order: 1; }
-  .hha-fever{
-    bottom: calc(80px + var(--safeBottom));
-    padding: 9px 10px;
-  }
-  .btn-shoot{
-    width: min(240px, 86vw);
-    height: 56px;
-  }
-}
-
-/* Extra tight height */
-@media (max-height: 620px){
-  .hud-mid{ display:none; }         /* keep playfield big */
-  .hha-fever{ bottom: calc(74px + var(--safeBottom)); }
+/* Prevent accidental scrolling */
+body.gj-stereo, body.gj-stereo #gj-stage{
+  touch-action: none;
 }
