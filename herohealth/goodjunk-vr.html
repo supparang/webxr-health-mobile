@@ -1,10 +1,9 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard (fixed ids)
-✅ DOM emoji targets on #gj-layer
+<!-- === /herohealth/goodjunk-vr.html === 
+GoodJunkVR (PRODUCTION) — HHA Standard
+✅ DOM emoji targets on #gj-layer (safe.js will move to body overlay)
 ✅ HUD + Quest + Coach + Fever/Shield
-✅ Shoot button + crosshair
-✅ Start overlay ids: startOverlay + btnStart
-✅ NEW: CARDBOARD 2-eye split + gaze/fuse (fast) + exit/recenter
+✅ Summary end overlay + back HUB + localStorage last summary
+✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
 -->
 
 <!doctype html>
@@ -16,147 +15,18 @@ GoodJunkVR (PRODUCTION) — HHA Standard (fixed ids)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- Global FX + HUD + Fever + Logger -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <style>
-    :root{ --gazeProg:0; }
-    /* Cardboard overlay (keeps original CSS intact) */
-    #gjCbWrap{
-      position:fixed; inset:0;
-      display:none;
-      z-index: 9999;
-      background:#000;
-    }
-    body.cardboard #gjCbWrap{ display:flex; }
-
-    .gjEye{
-      position:relative;
-      flex:1;
-      overflow:hidden;
-      border-left:1px solid rgba(255,255,255,.06);
-    }
-    .gjEye:first-child{ border-left:none; }
-
-    .gjView{
-      position:absolute; inset:10px;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.12);
-      overflow:hidden;
-      background: rgba(2,6,23,.25);
-      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
-    }
-
-    /* left eye = real stage moved here */
-    /* right eye = visual-only clone layer */
-    #gjRightStage{
-      position:absolute; inset:0;
-      pointer-events:none;
-    }
-    #gjRightStage #gj-layer-r{
-      position:absolute; inset:0;
-      pointer-events:none;
-    }
-
-    /* hide normal stage in cardboard (HUD can stay if you want; we hide to avoid duplication) */
-    body.cardboard .hha-hud,
-    body.cardboard .hha-fever,
-    body.cardboard .hha-controls,
-    body.cardboard #gj-stage,
-    body.cardboard #startOverlay{
-      display:none !important;
-    }
-
-    /* gaze reticle */
-    .gazeRing{
-      position:absolute;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      width:56px; height:56px;
-      border-radius:999px;
-      background:
-        conic-gradient(rgba(34,197,94,.95) calc(var(--gazeProg)*360deg),
-                       rgba(148,163,184,.18) 0deg);
-      -webkit-mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
-      mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
-      filter: drop-shadow(0 0 14px rgba(34,197,94,.22));
-      pointer-events:none;
-      opacity:.95;
-      z-index:5;
-    }
-    .gazeRet{
-      position:absolute;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      width:30px; height:30px;
-      border-radius:999px;
-      border:2px solid rgba(229,231,235,.58);
-      box-shadow: 0 0 0 10px rgba(2,6,23,.35);
-      pointer-events:none;
-      z-index:6;
-    }
-    .gazeRet::after{
-      content:'';
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      width:6px; height:6px;
-      border-radius:999px;
-      background: rgba(34,211,238,.95);
-      box-shadow: 0 0 12px rgba(34,211,238,.35);
-    }
-
-    #gjCbControls{
-      position:fixed;
-      left:50%;
-      bottom: calc(10px + env(safe-area-inset-bottom,0px));
-      transform:translateX(-50%);
-      z-index:10000;
-      display:none;
-      gap:10px;
-    }
-    body.cardboard #gjCbControls{ display:flex; }
-    .cbBtn{
-      pointer-events:auto;
-      background:rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.20);
-      color:#e5e7eb;
-      border-radius:999px;
-      padding:10px 14px;
-      font-weight:1100;
-      backdrop-filter: blur(10px);
-      box-shadow:0 18px 60px rgba(0,0,0,.45);
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    #gjEnterCardboard{
-      position:fixed;
-      right:12px;
-      top: calc(12px + env(safe-area-inset-top,0px));
-      z-index: 9998;
-      pointer-events:auto;
-      background:rgba(2,6,23,.72);
-      border:1px solid rgba(148,163,184,.20);
-      color:#e5e7eb;
-      border-radius: 999px;
-      padding:10px 12px;
-      font-weight:1100;
-      backdrop-filter: blur(10px);
-      box-shadow:0 16px 44px rgba(0,0,0,.35);
-      -webkit-tap-highlight-color: transparent;
-    }
-  </style>
-
+  <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
-  <!-- Quick enter button -->
-  <button id="gjEnterCardboard" type="button">🕶️ Cardboard</button>
-
   <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
@@ -192,7 +62,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard (fixed ids)
         <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
         <div class="coach-talk">
           <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
-          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / ลากจอเพื่อ “เอียงโลก”</div>
+          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
         </div>
       </div>
     </div>
@@ -215,10 +85,10 @@ GoodJunkVR (PRODUCTION) — HHA Standard (fixed ids)
   <div id="gj-stage">
     <div id="gj-layer" aria-label="targets layer"></div>
     <div id="gj-crosshair" aria-hidden="true"></div>
-
     <div id="atk-ring" aria-hidden="true"></div>
     <div id="atk-laser" aria-hidden="true"></div>
 
+    <!-- optional end summary container -->
     <div id="end-summary"></div>
   </div>
 
@@ -233,245 +103,11 @@ GoodJunkVR (PRODUCTION) — HHA Standard (fixed ids)
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
         เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ลากเพื่อ “เอียงโลก” (เฉพาะตอนลาก)</span>
+        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
       <button id="btnStart" class="btn-start">เริ่มเล่น</button>
     </div>
   </div>
-
-  <!-- ===== Cardboard 2-eye split ===== -->
-  <div id="gjCbWrap" aria-hidden="true">
-    <div class="gjEye">
-      <div class="gjView" id="gjLeftView">
-        <div class="gazeRing"></div>
-        <div class="gazeRet"></div>
-      </div>
-    </div>
-    <div class="gjEye">
-      <div class="gjView" id="gjRightView">
-        <div id="gjRightStage">
-          <div id="gj-layer-r"></div>
-        </div>
-        <div class="gazeRing"></div>
-        <div class="gazeRet"></div>
-      </div>
-    </div>
-  </div>
-
-  <div id="gjCbControls">
-    <button class="cbBtn" id="gjCbExit" type="button">⬅ Exit</button>
-    <button class="cbBtn" id="gjCbRecenter" type="button">🎯 Recenter</button>
-  </div>
-
-  <script>
-  (function(){
-    'use strict';
-    const D = document;
-
-    const enterBtn = D.getElementById('gjEnterCardboard');
-    const exitBtn  = D.getElementById('gjCbExit');
-    const recenterBtn = D.getElementById('gjCbRecenter');
-
-    const leftView  = D.getElementById('gjLeftView');
-    const rightLayer = D.getElementById('gj-layer-r');
-
-    const srcStage  = D.getElementById('gj-stage');
-    const srcLayer  = D.getElementById('gj-layer');
-    const btnShoot  = D.getElementById('btnShoot');
-
-    function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b, v)); }
-    function setProg(p){ D.documentElement.style.setProperty('--gazeProg', String(clamp(p,0,1))); }
-
-    function enable(on){
-      on = !!on;
-      if (on){
-        D.body.classList.add('cardboard');
-        // move live stage into left eye
-        if (srcStage && leftView && srcStage.parentElement !== leftView){
-          leftView.appendChild(srcStage);
-          srcStage.style.position = 'absolute';
-          srcStage.style.inset = '0';
-        }
-        try{ localStorage.setItem('HHA_GJ_CARDBOARD','1'); }catch(_){}
-      }else{
-        D.body.classList.remove('cardboard');
-        // move stage back to body (before controls)
-        if (srcStage && srcStage.parentElement !== D.body){
-          D.body.insertBefore(srcStage, D.querySelector('.hha-controls'));
-          srcStage.style.position = '';
-          srcStage.style.inset = '';
-        }
-        try{ rightLayer.innerHTML=''; }catch(_){}
-        cloneMap.clear();
-        try{ localStorage.setItem('HHA_GJ_CARDBOARD','0'); }catch(_){}
-      }
-      setProg(0);
-    }
-
-    // auto enable
-    try{
-      const qs = new URLSearchParams(location.search);
-      const want = (qs.get('cardboard')==='1') || (localStorage.getItem('HHA_GJ_CARDBOARD')==='1');
-      if (want) setTimeout(()=>enable(true), 50);
-    }catch(_){}
-
-    enterBtn?.addEventListener('click', ()=>enable(true), {passive:true});
-    exitBtn?.addEventListener('click', ()=>enable(false), {passive:true});
-    recenterBtn?.addEventListener('click', ()=>{
-      try{
-        if (window.__GJ__ && window.__GJ__.S){
-          window.__GJ__.S.lookX = 0; window.__GJ__.S.lookY = 0;
-        }
-      }catch(_){}
-    }, {passive:true});
-
-    // --- Mirror targets to right eye ---
-    const cloneMap = new Map();
-
-    function syncStyle(src, dst){
-      if (!src || !dst) return;
-      const s = src.style, d = dst.style;
-      d.left = s.left; d.top = s.top;
-      d.width = s.width; d.height = s.height;
-      d.transform = s.transform;
-      d.opacity = s.opacity;
-      d.filter = s.filter;
-      d.pointerEvents = 'none';
-      dst.className = src.className;
-      // copy important data attrs
-      try{
-        for (const k of Object.keys(src.dataset||{})){
-          dst.dataset[k] = src.dataset[k];
-        }
-      }catch(_){}
-    }
-
-    let obs = null;
-    function startMirror(){
-      if (!srcLayer || !rightLayer || obs) return;
-      obs = new MutationObserver((muts)=>{
-        for (const m of muts){
-          for (const n of m.addedNodes){
-            if (!(n instanceof HTMLElement)) continue;
-            // accept likely targets only
-            if (n.id){} // ok
-            const c = n.cloneNode(true);
-            c.style.pointerEvents='none';
-            rightLayer.appendChild(c);
-            cloneMap.set(n, c);
-            syncStyle(n, c);
-          }
-          for (const n of m.removedNodes){
-            if (!(n instanceof HTMLElement)) continue;
-            const c = cloneMap.get(n);
-            if (c){ try{ c.remove(); }catch(_){} cloneMap.delete(n); }
-          }
-        }
-      });
-      obs.observe(srcLayer, { childList:true, subtree:false });
-    }
-    startMirror();
-
-    // --- Gaze fuse (fast + accurate) ---
-    const DWELL_MS = 320;
-    const PICK_RADIUS = 92;
-    const DECAY = 1.8;
-
-    let hold = 0;
-    let lastT = 0;
-    let locked = null;
-
-    function centerOf(el){
-      const r = el.getBoundingClientRect();
-      return { x:r.left + r.width/2, y:r.top + r.height/2 };
-    }
-
-    function pickNearest(cx, cy){
-      const nodes = srcLayer ? Array.from(srcLayer.children) : [];
-      let best=null, bestD=Infinity;
-      for (const el of nodes){
-        if (!(el instanceof HTMLElement)) continue;
-        const st = getComputedStyle(el);
-        if (st.display==='none' || st.visibility==='hidden' || st.opacity==='0') continue;
-        const r = el.getBoundingClientRect();
-        if (r.width < 8 || r.height < 8) continue;
-        const x = r.left + r.width/2, y = r.top + r.height/2;
-        const d = Math.hypot(x - cx, y - cy);
-        if (d < bestD){ bestD=d; best=el; }
-      }
-      return { el:best, d:bestD };
-    }
-
-    function fireAt(el){
-      if (!el) return false;
-      try{
-        const r = el.getBoundingClientRect();
-        const ev = new PointerEvent('pointerdown', {
-          bubbles:true, cancelable:true,
-          clientX: r.left + r.width/2,
-          clientY: r.top + r.height/2,
-          pointerId:1, pointerType:'mouse'
-        });
-        el.dispatchEvent(ev);
-        return true;
-      }catch(_){
-        try{ el.click(); return true; }catch(__){}
-      }
-      return false;
-    }
-
-    function loop(t){
-      const dt = Math.min(60, Math.max(8, t - (lastT||t)));
-      lastT = t;
-
-      if (!D.body.classList.contains('cardboard')){
-        hold=0; locked=null; setProg(0);
-        requestAnimationFrame(loop);
-        return;
-      }
-
-      // sync clones
-      for (const [src, dst] of cloneMap.entries()){
-        if (!src.isConnected){
-          try{ dst.remove(); }catch(_){}
-          cloneMap.delete(src);
-          continue;
-        }
-        syncStyle(src, dst);
-      }
-
-      const c = centerOf(leftView);
-
-      // keep lock if near
-      if (locked && locked.isConnected){
-        const r = locked.getBoundingClientRect();
-        const d = Math.hypot((r.left+r.width/2)-c.x, (r.top+r.height/2)-c.y);
-        if (d > PICK_RADIUS*1.15) locked = null;
-      } else locked = null;
-
-      if (!locked){
-        const p = pickNearest(c.x, c.y);
-        if (p.el && p.d <= PICK_RADIUS) locked = p.el;
-      }
-
-      if (locked){
-        hold += dt;
-        setProg(hold / DWELL_MS);
-        if (hold >= DWELL_MS){
-          const ok = fireAt(locked);
-          if (!ok && btnShoot) btnShoot.click();
-          hold = 0; locked = null; setProg(0);
-        }
-      } else {
-        hold = Math.max(0, hold - dt*DECAY);
-        setProg(hold / DWELL_MS);
-      }
-
-      requestAnimationFrame(loop);
-    }
-    requestAnimationFrame(loop);
-  })();
-  </script>
 </body>
 </html>
