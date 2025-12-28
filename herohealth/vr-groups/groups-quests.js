@@ -15,7 +15,7 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
   const NS = (root.GroupsVR = root.GroupsVR || {});
   const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{ detail: detail||{} })); }catch{} };
 
-  // seeded rng (same approach as engine)
+  // seeded rng
   function xmur3(str){
     str = String(str||'seed');
     let h = 1779033703 ^ str.length;
@@ -159,7 +159,6 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
 
   function pickNextMini(st){
     const pool = st.miniPool;
-    // reset temp trackers for fresh mini
     st._comboNow = 0;
     st._ps = 0;
     st._bd = 0;
@@ -197,13 +196,7 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
       miniPool: makeMiniPool(),
       activeMini: null,
 
-      noJunk: {
-        active:false,
-        failed:false,
-        startedAt:0,
-        durMs:7000,
-        endsAt:0
-      },
+      noJunk: { active:false, failed:false, startedAt:0, durMs:7000, endsAt:0 },
 
       _timer: 0,
       _started:false
@@ -213,13 +206,10 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
       if (st._started) return;
       st._started = true;
 
-      // pick first mini
       pickNextMini(st);
 
-      // timer for No-Junk countdown updates
       st._timer = root.setInterval(()=>{
         if (st.noJunk.active){
-          // auto pass when time reaches 0 (engine will also send nojunk_off, but this is safety)
           const left = st.noJunk.endsAt - now();
           if (left <= 0 && !st.noJunk.failed){
             stopNoJunkMini(st, 'pass');
@@ -240,7 +230,6 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
     function onProgress(ev){
       const d = ev && ev.detail ? ev.detail : {};
 
-      // GOAL clear condition: group swap increments
       if (d.kind === 'group_swap'){
         st.goalsCleared = clamp(st.goalsCleared + 1, 0, st.goalsTotal);
         if (st.goalsCleared >= st.goalsTotal){
@@ -250,7 +239,7 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
         }
       }
 
-      // No-Junk mini lifecycle (interrupt)
+      // No-Junk lifecycle
       if (d.kind === 'nojunk_on'){
         startNoJunkMini(st, d.durMs || 7000);
       }
@@ -267,7 +256,6 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
         }
       }
 
-      // Normal mini progress only if not overridden by No-Junk
       if (!st.noJunk.active && st.activeMini && st.activeMini._base){
         const base = st.activeMini._base;
         const nowVal = base.progressFrom(ev, st);
@@ -276,8 +264,6 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
         if (st.activeMini.now >= st.activeMini.total){
           st.miniCleared++;
           emit('hha:celebrate', { kind:'mini', title:'MINI CLEAR!' });
-
-          // chain next mini
           pickNextMini(st);
         }
       }
