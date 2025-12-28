@@ -1,12 +1,9 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR — PRODUCTION (FULL HTML)
-✅ Correct module path: ./hydration-vr/hydration.safe.js
-✅ Desktop/Phone: HUD full + playfield
-✅ Cardboard STEREOSCOPIC: 2 eyes (L/R) + mirrored targets (no safe.js changes)
-✅ Cardboard MINI HUD (PILLS) per eye
-✅ Cardboard controls: BIG SHOOT button + GAZE dwell (fast + accurate)
-✅ VR button (if A-Frame enterVR exists)
-✅ Cinematic End-window driver (reads window.__HVR__.S/TUNE)
+HydrationVR — PRODUCTION (Stereo Cardboard + Gaze + Pill Mini HUD)
+✅ Mono mode + Cardboard stereo (2 eyes)
+✅ Gaze dwell shooting (default ON in Cardboard)
+✅ Uses ui-water.js (0–100 gauge) + hydration.safe.js engine
+✅ End summary + back HUB + localStorage HHA_LAST_SUMMARY
 -->
 
 <!doctype html>
@@ -17,9 +14,6 @@ HydrationVR — PRODUCTION (FULL HTML)
   <title>HeroHealth — Hydration VR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
-  <!-- A-Frame (optional for enterVR button) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- Global FX + input compat + logger -->
   <script src="./vr/particles.js" defer></script>
@@ -43,17 +37,15 @@ HydrationVR — PRODUCTION (FULL HTML)
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
 
-      /* edge fx intensity (0..0.85) */
-      --fx: 0;
-      /* storm warn amp (0..1) */
-      --warnamp: 0;
+      /* gaze */
+      --gaze: 0; /* 0..1 */
 
-      /* ===== CINEMATIC end-window vars ===== */
-      --endamp: 0;      /* 0..1 */
-      --endflash: 0;    /* 0..1 */
+      /* end-window cinematic */
+      --endamp: 0;
+      --endflash: 0;
 
-      /* ===== GAZE ===== */
-      --gazeProg: 0;    /* 0..1 */
+      /* water */
+      --water: 50;
     }
 
     html,body{
@@ -62,48 +54,94 @@ HydrationVR — PRODUCTION (FULL HTML)
       color:var(--text);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,"Noto Sans Thai",sans-serif;
       overflow:hidden;
-      -webkit-tap-highlight-color: transparent;
     }
     *{ box-sizing:border-box; }
 
-    /* Optional background scene (does not drive gameplay) */
-    a-scene#bgScene{ position:fixed; inset:0; z-index:0; pointer-events:none; }
-    body.cardboard a-scene#bgScene{ display:none; }
-
-    /* ✅ STRONG Storm warning overlay */
-    body.storm-warn::before{
-      content:"";
-      position:fixed; inset:-20px;
-      pointer-events:none;
-      z-index:26;
-      opacity: calc(0.10 + (var(--warnamp) * 0.18));
-      background:
-        radial-gradient(700px 520px at 50% 40%,
-          rgba(239,68,68,.10) 0%,
-          rgba(239,68,68,.08) 22%,
-          rgba(2,6,23,0) 55%),
-        radial-gradient(1000px 800px at 50% 50%,
-          rgba(239,68,68,.10) 0%,
-          rgba(2,6,23,0) 65%);
-      animation: warnVignette .14s ease-in-out infinite;
-      filter: saturate(1.25) contrast(1.12);
+    /* ---------- shared components ---------- */
+    .pill{
+      display:inline-flex; align-items:baseline; gap:8px;
+      padding:7px 10px;
+      border-radius:999px;
+      background: rgba(15,23,42,.55);
+      border: 1px solid rgba(148,163,184,.16);
+      font-weight:1000;
+      white-space:nowrap;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+      backdrop-filter: blur(10px);
     }
-    @keyframes warnVignette{
-      0%{ transform: translate3d(0,0,0); opacity: calc(0.10 + (var(--warnamp) * 0.14)); }
-      50%{ transform: translate3d(0.5px,-0.6px,0); opacity: calc(0.18 + (var(--warnamp) * 0.22)); }
-      100%{ transform: translate3d(0,0,0); opacity: calc(0.10 + (var(--warnamp) * 0.14)); }
+    .k{ color:var(--muted); font-weight:950; font-size:11px; }
+    .v{ font-size:14px; font-weight:1100; }
+    .muted{ color:var(--muted); font-weight:900; }
+
+    .btn{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(34,197,94,.18);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 10px 12px;
+      font-weight: 1100;
+      letter-spacing:.2px;
+      cursor:pointer;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    .btn.secondary{ background: rgba(2,6,23,.55); }
+    .btn.danger{ background: rgba(239,68,68,.18); }
+    .btn:active{ transform: translateY(1px); }
+
+    /* ---------- MONO LAYOUT ---------- */
+    #monoStage{
+      position:fixed; inset:0;
+      display:flex;
+      flex-direction:column;
     }
 
-    /* main layout */
-    .stage{ position:fixed; inset:0; display:flex; flex-direction:column; z-index:5; }
-
-    /* top HUD bar */
-    .hud{
+    #monoTop{
       position:relative;
+      z-index:20;
       padding: calc(var(--sat) + 10px) 12px 10px;
       display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
       pointer-events:none;
+    }
+    #monoTop .left{ display:flex; gap:8px; flex-wrap:wrap; }
+    #monoTop .right{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
+    #monoMiniPills{
+      position:fixed;
+      left:50%;
+      top: calc(var(--sat) + 62px);
+      transform: translateX(-50%);
+      z-index:21;
+      display:flex;
+      gap:8px;
+      pointer-events:none;
+      opacity:.96;
+    }
+
+    #playfield{
+      position:relative;
+      flex:1;
+      margin: 0 12px;
+      border-radius: 22px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.28);
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
+      overflow:hidden;
+      touch-action: manipulation;
+      will-change: transform, filter;
+    }
+    #hvr-layer{ position:absolute; inset:0; }
+
+    #monoBottom{
+      position:relative;
       z-index:20;
+      padding: 10px 12px calc(var(--sab) + 12px);
+      display:flex; gap:10px;
+      justify-content:space-between;
+      align-items:flex-end;
+      pointer-events:none;
     }
     .card{
       pointer-events:none;
@@ -113,158 +151,193 @@ HydrationVR — PRODUCTION (FULL HTML)
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
       backdrop-filter: blur(10px);
       padding: 10px 10px;
-      min-width: 200px;
+      min-width: 240px;
     }
     .card h3{ margin:0 0 6px; font-size:12px; letter-spacing:.2px; opacity:.95; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; }
-    .stat{ font-size:12px; font-weight:950; color: var(--text); opacity:.95; }
-    .stat b{ color: var(--cyan); font-weight:1000; }
-    .muted{ color: var(--muted); font-weight:850; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:baseline; justify-content:space-between; }
 
-    /* playfield */
-    #playfield{
-      position:relative;
-      flex:1;
-      margin: 0 12px;
-      border-radius: 22px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
-      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
-      overflow:hidden;
-      touch-action: manipulation;
-      will-change: transform, filter;
+    .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
+    .bar{ height:100%; width:0%; border-radius:999px; transition: width .16s ease; }
+
+    /* water theme */
+    body.water-low .bar{ background: linear-gradient(90deg, rgba(249,115,22,.95), rgba(239,68,68,.95)); box-shadow: 0 0 16px rgba(239,68,68,.18); }
+    body.water-green .bar{ background: linear-gradient(90deg, rgba(34,211,238,.90), rgba(34,197,94,.95)); box-shadow: 0 0 16px rgba(34,211,238,.18); }
+    body.water-high .bar{ background: linear-gradient(90deg, rgba(167,139,250,.92), rgba(34,211,238,.82)); box-shadow: 0 0 16px rgba(167,139,250,.16); }
+
+    /* ---------- TARGETS ---------- */
+    .tgt{
+      position:absolute;
+      left: var(--x, 50%);
+      top:  var(--y, 50%);
+      width: var(--s, 64px);
+      height: var(--s, 64px);
+      transform: translate(-50%,-50%);
+      display:grid;
+      place-items:center;
+      font-size: calc(var(--s,64px) * 0.56);
+      border-radius: 999px;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      filter: drop-shadow(0 14px 28px rgba(0,0,0,.35));
+      will-change: transform, opacity;
     }
-    #hvr-layer{ position:absolute; inset:0; pointer-events:none; }
-
-    /* bottom HUD */
-    .bottom{
-      padding: 10px 12px calc(var(--sab) + 12px);
-      display:flex; gap:10px;
-      justify-content:space-between;
-      align-items:flex-end;
-      pointer-events:none;
-      z-index:20;
-    }
-    .bottom .card{ min-width: 240px; }
-
-    /* water gauge */
-    .barWrap{ margin-top:6px; width:100%; height:12px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
-    .bar{
-      height:100%;
-      width:0%;
+    .tgt::before{
+      content:"";
+      position:absolute; inset:-6px;
       border-radius:999px;
       background:
-        linear-gradient(90deg,
-          rgba(239,68,68,.95) 0%,
-          rgba(249,115,22,.95) 20%,
-          rgba(34,197,94,.95) 50%,
-          rgba(34,211,238,.95) 80%,
-          rgba(167,139,250,.95) 100%);
-      box-shadow: 0 0 14px rgba(34,211,238,.20);
-      transition: width .16s linear;
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 50% 60%, rgba(34,211,238,.10), rgba(2,6,23,0) 62%);
+      border: 1px solid rgba(148,163,184,.16);
+      backdrop-filter: blur(6px);
+    }
+    .tgt.good::before{ box-shadow: 0 0 0 2px rgba(34,197,94,.12), 0 0 24px rgba(34,197,94,.10); }
+    .tgt.bad::before{ box-shadow: 0 0 0 2px rgba(239,68,68,.14), 0 0 26px rgba(239,68,68,.10); }
+    .tgt.shield::before{ box-shadow: 0 0 0 2px rgba(34,211,238,.14), 0 0 26px rgba(34,211,238,.10); }
+    .tgt.star::before{ box-shadow: 0 0 0 2px rgba(250,204,21,.14), 0 0 26px rgba(250,204,21,.10); }
+    .tgt.diamond::before{ box-shadow: 0 0 0 2px rgba(167,139,250,.14), 0 0 26px rgba(167,139,250,.10); }
+
+    .tgt.pop{ animation: pop .22s ease-out; }
+    @keyframes pop{
+      from{ transform: translate(-50%,-50%) scale(.92); opacity:.0; }
+      to  { transform: translate(-50%,-50%) scale(1); opacity:1; }
+    }
+    .tgt.out{ animation: out .18s ease-in forwards; }
+    @keyframes out{
+      to { transform: translate(-50%,-50%) scale(.75); opacity:0; }
     }
 
-    /* storm / edge fx */
-    body.fx-low #playfield{ box-shadow: inset 0 0 0 1px rgba(56,189,248,.10), 0 24px 80px rgba(0,0,0,.55); }
-    body.fx-high #playfield{ box-shadow: inset 0 0 0 1px rgba(249,115,22,.12), 0 24px 80px rgba(0,0,0,.55); }
-
-    /* ✅ stronger shake (base) */
-    body.fx-shake #playfield{ animation: nudge .11s ease-in-out infinite; }
-    @keyframes nudge{
-      0%{ transform: translate3d(0,0,0); }
-      25%{ transform: translate3d(1.2px,-1.4px,0); }
-      55%{ transform: translate3d(-1.0px,1.1px,0); }
-      100%{ transform: translate3d(0,0,0); }
-    }
-
-    body.storm #playfield{
-      outline: 2px solid rgba(99,102,241,.22);
-      box-shadow: inset 0 0 0 1px rgba(167,139,250,.12), 0 24px 80px rgba(0,0,0,.55);
-      filter: saturate(1.05);
-    }
-
-    /* ✅ Storm warning banner (stronger) */
-    .stormWarnBanner{
-      position:fixed;
-      top: calc(var(--sat) + 10px);
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 30;
+    /* ---------- CROSSHAIR (mono) ---------- */
+    #crosshair{
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:18px; height:18px;
+      border-radius:999px;
       pointer-events:none;
-      opacity:0;
-      transition: opacity .10s ease;
+      z-index:5;
+      box-shadow: 0 0 0 2px rgba(229,231,235,.28), 0 0 22px rgba(34,197,94,.10);
+      background:rgba(229,231,235,.07);
+      backdrop-filter: blur(6px);
     }
-    .stormWarnBanner .pill{
-      display:inline-flex; align-items:center; gap:10px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      background: rgba(239,68,68,.14);
-      border:1px solid rgba(239,68,68,.26);
-      box-shadow: 0 18px 70px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-      font-weight: 1100;
-      letter-spacing:.2px;
-      color: var(--text);
-      filter: saturate(1.15);
+    #crosshair::after{
+      content:'';
+      position:absolute; inset:5px;
+      border-radius:999px;
+      background:rgba(229,231,235,.50);
     }
-    body.storm-warn .stormWarnBanner{
-      opacity: 1;
-      animation: warnPulse .12s ease-in-out infinite;
-    }
-    @keyframes warnPulse{
-      0%{ transform: translateX(-50%) scale(1); filter: brightness(1); }
-      50%{ transform: translateX(-50%) scale(1.04); filter: brightness(1.30); }
-      100%{ transform: translateX(-50%) scale(1); filter: brightness(1); }
+    /* gaze ring */
+    #crosshair::before{
+      content:'';
+      position:absolute; inset:-10px;
+      border-radius:999px;
+      background: conic-gradient(rgba(34,211,238,.95) calc(var(--gaze) * 1turn), rgba(255,255,255,0) 0);
+      mask: radial-gradient(circle, transparent 62%, #000 63%);
+      opacity: .95;
+      filter: drop-shadow(0 0 14px rgba(34,211,238,.20));
     }
 
-    /* ✅ stronger warning edge */
-    body.storm-warn #playfield{
-      outline: 2px dashed rgba(239,68,68,.35);
-      filter: brightness(1.08) contrast(1.06);
+    /* ---------- CARDBOARD STEREO ---------- */
+    #cbStage{
+      position:fixed; inset:0;
+      display:none;
+      background:#000;
+      z-index:100;
+    }
+    body.cardboard #monoStage{ display:none; }
+    body.cardboard #cbStage{ display:flex; }
+
+    .eye{
+      position:relative;
+      flex:1;
+      overflow:hidden;
+      border-left:1px solid rgba(255,255,255,.06);
+    }
+    .eye:first-child{ border-left:none; }
+
+    .eyeHud{
+      position:absolute;
+      left:10px; right:10px;
+      top: calc(var(--sat) + 10px);
+      z-index:3;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:none;
+    }
+    .eyeMini{
+      position:absolute;
+      left:50%;
+      top: calc(var(--sat) + 58px);
+      transform: translateX(-50%);
+      z-index:3;
+      display:flex;
+      gap:8px;
+      pointer-events:none;
+      opacity:.96;
     }
 
-    /* quest UI */
-    .questLine{ margin: 3px 0; font-size:12px; font-weight:900; line-height:1.25; }
-    .questLine .tag{
-      display:inline-flex; align-items:center; gap:6px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.45);
-      color: var(--muted);
-      font-weight:1000;
-      margin-right:6px;
-    }
-
-    /* Mini quest card */
-    .miniWrap{ margin-top:8px; padding-top:8px; border-top:1px solid rgba(148,163,184,.14); }
-    .miniTitle{ font-size:12px; font-weight:1000; letter-spacing:.2px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .miniTitle .right{ font-size:11px; color:var(--muted); font-weight:950; }
-    .miniList{ margin-top:8px; display:grid; gap:6px; }
-    .miniItem{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-      font-size:12px; font-weight:950;
-      padding: 6px 8px;
-      border-radius: 14px;
-      background: rgba(15,23,42,.45);
+    .cbPlayfield{
+      position:absolute;
+      left:10px; right:10px;
+      top: calc(var(--sat) + 104px);
+      bottom: calc(var(--sab) + 104px);
+      border-radius: 22px;
       border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.26);
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06);
+      overflow:hidden;
     }
-    .miniItem .left{ display:flex; align-items:center; gap:8px; }
-    .dot{ width:10px; height:10px; border-radius:999px; background: rgba(148,163,184,.35); box-shadow: 0 0 0 2px rgba(148,163,184,.10); }
-    .miniItem.ok .dot{ background: rgba(34,197,94,.95); box-shadow: 0 0 0 2px rgba(34,197,94,.18), 0 0 18px rgba(34,197,94,.25); }
-    .miniItem.bad .dot{ background: rgba(239,68,68,.85); box-shadow: 0 0 0 2px rgba(239,68,68,.16); }
-    .miniItem .val{ color: var(--muted); font-weight:1000; }
-    .miniBarWrap{ margin-top:8px; }
-    .miniBarLabel{ font-size:11px; font-weight:950; color:var(--muted); display:flex; justify-content:space-between; }
-    .miniBar{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
-    .miniBar > div{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85)); transition: width .12s linear; box-shadow: 0 0 14px rgba(167,139,250,.18); }
+    .cbLayer{ position:absolute; inset:0; }
+    .cbCross{
+      position:absolute;
+      left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      width:18px; height:18px; border-radius:999px;
+      pointer-events:none;
+      z-index:4;
+      box-shadow: 0 0 0 2px rgba(229,231,235,.28), 0 0 22px rgba(34,197,94,.10);
+      background:rgba(229,231,235,.07);
+      backdrop-filter: blur(6px);
+    }
+    .cbCross::after{ content:''; position:absolute; inset:5px; border-radius:999px; background:rgba(229,231,235,.50); }
+    .cbCross::before{
+      content:'';
+      position:absolute; inset:-10px;
+      border-radius:999px;
+      background: conic-gradient(rgba(34,211,238,.95) calc(var(--gaze) * 1turn), rgba(255,255,255,0) 0);
+      mask: radial-gradient(circle, transparent 62%, #000 63%);
+      opacity: .95;
+      filter: drop-shadow(0 0 14px rgba(34,211,238,.20));
+    }
 
-    /* Start overlay + buttons */
+    .cbBottom{
+      position:absolute;
+      left:10px; right:10px;
+      bottom: calc(var(--sab) + 10px);
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:10px;
+      z-index:5;
+      pointer-events:none;
+    }
+    .cbBottom .pill{ pointer-events:none; }
+    .cbShoot{
+      pointer-events:auto;
+      padding:14px 16px;
+      border-radius:18px;
+      font-size:16px;
+      font-weight:1200;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+    }
+
+    /* ---------- START OVERLAY ---------- */
     #start-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
       background: rgba(2,6,23,.75);
-      z-index:50;
+      z-index:200;
     }
     .startCard{
       width:min(560px, calc(100% - 24px));
@@ -276,62 +349,18 @@ HydrationVR — PRODUCTION (FULL HTML)
       backdrop-filter: blur(10px);
       text-align:left;
     }
-    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-    .btn{
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(34,197,94,.18);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 10px 12px;
-      font-weight: 1000;
-      letter-spacing:.2px;
-      cursor:pointer;
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
-      -webkit-tap-highlight-color: transparent;
-      user-select:none;
-    }
-    .btn.secondary{ background: rgba(2,6,23,.55); }
-    .btn.danger{ background: rgba(239,68,68,.18); }
+    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
 
-    /* Stamp */
-    #hha-stamp{
-      position:fixed;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      z-index:40;
-      pointer-events:none;
-      opacity:0;
-    }
-    #hha-stamp.show{ opacity:1; animation: stampPop .72s ease forwards; }
-    @keyframes stampPop{
-      0%{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
-      20%{ transform: translate(-50%,-50%) scale(1.05); opacity:1; }
-      100%{ transform: translate(-50%,-50%) scale(1); opacity:0; }
-    }
-    .stampBox{
-      background: rgba(2,6,23,.86);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 18px;
-      padding: 12px 14px;
-      box-shadow: 0 18px 70px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-      text-align:center;
-      min-width: 240px;
-    }
-    .stampBig{ font-size: 20px; font-weight:1100; letter-spacing:.2px; }
-    .stampSmall{ margin-top:4px; font-size: 12px; color: var(--muted); font-weight:950; }
-
-    /* End screen */
+    /* ---------- END SUMMARY ---------- */
     #hvr-end{
       position:fixed; inset:0;
       display:none;
       align-items:center; justify-content:center;
       background: rgba(2,6,23,.78);
-      z-index:60;
+      z-index:300;
     }
     .endCard{
-      width:min(520px, calc(100% - 24px));
+      width:min(560px, calc(100% - 24px));
       background: rgba(2,6,23,.90);
       border:1px solid rgba(148,163,184,.18);
       border-radius: 20px;
@@ -345,19 +374,17 @@ HydrationVR — PRODUCTION (FULL HTML)
       border:1px solid rgba(148,163,184,.14);
       border-radius: 16px;
       padding: 10px;
-      font-weight: 1000;
+      font-weight: 1100;
     }
     .endItem .k{ font-size:11px; color:var(--muted); font-weight:950; }
     .endItem .v{ margin-top:4px; font-size:16px; }
 
-    /* =========================================================
-       ===== CINEMATIC END-WINDOW FX (HTML-only / no safe.js) ====
-       ========================================================= */
+    /* ---------- End-window cinematic (optional) ---------- */
     body.endwindow::after{
       content:"";
       position:fixed; inset:-26px;
       pointer-events:none;
-      z-index:27;
+      z-index:120;
       opacity: calc(0.10 + (var(--endamp) * 0.18));
       background:
         repeating-linear-gradient(
@@ -376,379 +403,169 @@ HydrationVR — PRODUCTION (FULL HTML)
           rgba(2,6,23, calc(0.44 + (var(--endamp) * 0.40))) 100%);
       mix-blend-mode: screen;
       filter: saturate(1.25) contrast(1.10);
-      animation: endVigJitter .10s ease-in-out infinite, endFlicker .18s ease-in-out infinite;
-    }
-    @keyframes endVigJitter{
-      0%{ transform: translate3d(0,0,0); }
-      50%{ transform: translate3d(.6px,-.7px,0); }
-      100%{ transform: translate3d(0,0,0); }
+      animation: endFlicker .18s ease-in-out infinite;
     }
     @keyframes endFlicker{
       0%{ opacity: calc(0.09 + (var(--endamp) * 0.16)); }
       50%{ opacity: calc(0.14 + (var(--endamp) * 0.22)); }
       100%{ opacity: calc(0.10 + (var(--endamp) * 0.18)); }
     }
-
-    body.endwindow #playfield{
-      outline: 2px dashed rgba(239,68,68,.55);
-      filter:
-        saturate(1.18)
-        contrast(1.18)
-        brightness(calc(1.02 + (var(--endflash) * 0.12)))
-        drop-shadow( 1.25px 0px 0px rgba(239,68,68, calc(0.10 + var(--endamp)*0.18)))
-        drop-shadow(-1.25px 0px 0px rgba(34,211,238, calc(0.08 + var(--endamp)*0.14)));
-      animation: endShake .085s ease-in-out infinite;
-    }
-    @keyframes endShake{
-      0%{ transform: translate3d(0,0,0); }
-      25%{ transform: translate3d(1.9px,-2.2px,0); }
-      55%{ transform: translate3d(-1.6px,1.8px,0); }
-      100%{ transform: translate3d(0,0,0); }
-    }
-    body.endflash #playfield{
-      filter:
-        saturate(1.20)
-        contrast(1.22)
-        brightness(1.16)
-        drop-shadow( 1.35px 0px 0px rgba(239,68,68,.22))
-        drop-shadow(-1.35px 0px 0px rgba(34,211,238,.18));
-    }
-
-    /* =========================================================
-       ================== CARDBOARD STEREO ======================
-       - show cbWrap (2 eyes)
-       - keep original stage running but hidden
-       - mirror targets from #hvr-layer -> #cbLayerL/#cbLayerR
-       ========================================================= */
-    #cbWrap{
-      position:fixed; inset:0;
-      display:none;
-      z-index:9999;
-      background:#000;
-    }
-    body.cardboard #cbWrap{ display:flex; }
-    body.cardboard .stage{ opacity:0; pointer-events:none; }
-    body.cardboard .stormWarnBanner{ display:none; } /* ไม่ต้องซ้อน */
-
-    .cbEye{
-      position:relative;
-      flex:1;
-      overflow:hidden;
-      border-left:1px solid rgba(255,255,255,.08);
-    }
-    .cbEye:first-child{ border-left:none; }
-
-    .cbPlay{
-      position:absolute;
-      inset:0;
-      padding:10px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .cbPlayfield{
-      position:relative;
-      flex:1;
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.40);
-      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 18px 60px rgba(0,0,0,.65);
-      overflow:hidden;
-    }
-    .cbLayer{ position:absolute; inset:0; pointer-events:none; }
-    .cbCross{
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      width:18px; height:18px;
-      border-radius:999px;
-      pointer-events:none;
-      box-shadow: 0 0 0 2px rgba(229,231,235,.30), 0 0 22px rgba(34,197,94,.14);
-      background:rgba(229,231,235,.06);
-      backdrop-filter: blur(6px);
-      z-index:5;
-    }
-    .cbCross::after{
-      content:'';
-      position:absolute; inset:5px;
-      border-radius:999px;
-      background:rgba(229,231,235,.46);
-    }
-
-    /* Gaze ring */
-    .gazeRing{
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      width:46px; height:46px;
-      border-radius:999px;
-      pointer-events:none;
-      z-index:6;
-      opacity:.95;
-      filter: drop-shadow(0 10px 24px rgba(0,0,0,.45));
-    }
-    .gazeRing::before{
-      content:"";
-      position:absolute; inset:0;
-      border-radius:999px;
-      background:
-        conic-gradient(
-          rgba(34,211,238,.95) calc(var(--gazeProg) * 360deg),
-          rgba(148,163,184,.14) 0deg
-        );
-      mask: radial-gradient(circle at 50% 50%, transparent 61%, #000 62%);
-      -webkit-mask: radial-gradient(circle at 50% 50%, transparent 61%, #000 62%);
-    }
-    .gazeRing::after{
-      content:"";
-      position:absolute; inset:12px;
-      border-radius:999px;
-      background: radial-gradient(circle at 50% 50%, rgba(34,211,238,.14), rgba(2,6,23,0) 60%);
-      opacity:.55;
-    }
-    body.gaze-off .gazeRing{ display:none; }
-
-    /* Mini HUD pills (per eye) */
-    .cbHud{
-      position:absolute;
-      left:10px; right:10px; top:10px;
-      display:flex; flex-wrap:wrap; gap:8px;
-      pointer-events:none;
-      z-index:10;
-    }
-    .cbPill{
-      display:inline-flex; align-items:baseline; gap:6px;
-      padding:7px 10px;
-      border-radius:999px;
-      background:rgba(2,6,23,.62);
-      border:1px solid rgba(148,163,184,.18);
-      box-shadow:0 14px 40px rgba(0,0,0,.35);
-      backdrop-filter: blur(10px);
-      font-weight:1000;
-      white-space:nowrap;
-    }
-    .cbPill .k{ opacity:.78; font-size:11px; font-weight:1000; }
-    .cbPill .v{ font-size:14px; font-weight:1100; }
-
-    /* Cardboard controls */
-    #cbControls{
-      position:fixed;
-      left:10px; right:10px; bottom: calc(var(--sab) + 10px);
-      z-index:10000;
-      display:none;
-      gap:10px;
-      justify-content:space-between;
-      align-items:flex-end;
-      pointer-events:none;
-    }
-    body.cardboard #cbControls{ display:flex; }
-
-    .cbBtnRow{
-      display:flex; gap:10px; flex-wrap:wrap;
-      pointer-events:auto;
-    }
-    .cbBtn{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.72);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 12px 14px;
-      font-weight: 1100;
-      letter-spacing:.2px;
-      cursor:pointer;
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .cbBtn.primary{ background: rgba(34,197,94,.18); }
-    .cbBtn.danger{ background: rgba(239,68,68,.18); }
-
-    /* Big Shoot */
-    #cbShoot{
-      font-size:18px;
-      padding:14px 18px;
-      border-radius:18px;
-    }
-
+    body.endwindow #playfield{ filter: contrast(1.12) saturate(1.10); }
   </style>
 </head>
 
-<body class="gaze-on">
-  <!-- Optional A-Frame background (enterVR helper only) -->
-  <a-scene id="bgScene" embedded vr-mode-ui="enabled: false" renderer="antialias:true">
-    <a-sky color="#06101f"></a-sky>
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
-  </a-scene>
-
-  <div class="stormWarnBanner" aria-hidden="true">
-    <div class="pill">⚠️ Storm กำลังมา… เตรียมตัว!</div>
-  </div>
-
-  <!-- ===== NORMAL (desktop/mobile) UI ===== -->
-  <div class="stage">
-    <div class="hud">
-      <div class="card">
-        <h3>📊 Stats</h3>
-        <div class="row">
-          <div class="stat">Score <b id="stat-score">0</b></div>
-          <div class="stat">Combo <b id="stat-combo">0</b> <span class="muted">(Max <span id="stat-combo-max">0</span>)</span></div>
-          <div class="stat">Miss <b id="stat-miss">0</b></div>
-          <div class="stat">Time <b id="stat-time">—</b></div>
-          <div class="stat">Grade <b id="stat-grade">C</b></div>
-        </div>
+<body class="water-green">
+  <!-- MONO -->
+  <div id="monoStage">
+    <div id="monoTop">
+      <div class="left">
+        <span class="pill">⏱️ <span class="k">TIME</span> <span class="v" id="stat-time" data-stat="time">—</span></span>
+        <span class="pill">🏆 <span class="k">SCORE</span> <span class="v" id="stat-score" data-stat="score">0</span></span>
+        <span class="pill">⚡ <span class="k">COMBO</span> <span class="v" id="stat-combo" data-stat="combo">0</span></span>
+        <span class="pill">💥 <span class="k">MISS</span> <span class="v" id="stat-miss" data-stat="miss">0</span></span>
+        <span class="pill">🎖️ <span class="k">GRADE</span> <span class="v" id="stat-grade" data-stat="grade">C</span></span>
       </div>
-
-      <div class="card" style="min-width:260px">
-        <h3>🧠 Coach</h3>
-        <div class="questLine" id="coach-text">แตะ START เพื่อเริ่ม</div>
-        <div class="questLine muted" id="coach-sub">Mini quest จะโผล่ตอน Storm</div>
+      <div class="right">
+        <span class="pill">💧 <span class="k">WATER</span> <span class="v" id="water-pct" data-water-pct>50%</span></span>
+        <span class="pill">🟩 <span class="k">ZONE</span> <span class="v" id="water-zone" data-water-zone>GREEN</span></span>
+        <span class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" id="shield-count" data-stat="shield">0</span></span>
       </div>
+    </div>
+
+    <!-- mini pill HUD -->
+    <div id="monoMiniPills" aria-hidden="true">
+      <span class="pill">🎯 <span class="k">GOAL</span> <span class="v" id="pill-goal" data-pill="goal">—</span></span>
+      <span class="pill">🌪️ <span class="k">STORM</span> <span class="v" id="pill-storm" data-pill="storm">0s</span></span>
+      <span class="pill">🧩 <span class="k">MINI</span> <span class="v" id="pill-mini" data-pill="mini">—</span></span>
     </div>
 
     <div id="playfield">
       <div id="hvr-layer"></div>
+      <div id="crosshair" aria-hidden="true"></div>
     </div>
 
-    <div class="bottom">
+    <div id="monoBottom">
       <div class="card" style="min-width:280px">
-        <h3>💧 Water Gauge</h3>
-        <div class="row" style="justify-content:space-between">
-          <div class="stat">Zone <b id="water-zone">—</b></div>
-          <div class="stat"><b id="water-pct">0%</b></div>
+        <h3>💧 Water Gauge (0–100)</h3>
+        <div class="row">
+          <div class="pill">ZONE <span class="v" data-water-zone>GREEN</span></div>
+          <div class="pill"><span class="v" data-water-pct>50%</span></div>
         </div>
-        <div class="barWrap"><div id="water-bar" class="bar"></div></div>
-        <div class="row" style="margin-top:8px; justify-content:space-between">
-          <div class="stat">Shield <b id="shield-count">0</b></div>
-          <div class="stat">Storm <b id="storm-left">0</b> <span class="muted">s</span></div>
+        <div class="barWrap" style="margin-top:10px">
+          <div class="bar" id="water-bar" data-water-bar style="width:50%"></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <div class="pill">🌪️ STORM <span class="v" id="storm-left" data-stat="storm">0</span>s</div>
+          <div class="pill">🧠 PRESS <span class="v" id="press-pct" data-stat="press">0%</span></div>
         </div>
       </div>
 
-      <div class="card" style="min-width:340px">
+      <div class="card" style="min-width:360px">
         <h3>🧩 Quest</h3>
-        <div class="questLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
-        <div class="questLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
-        <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
-        <div class="questLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
-
-        <div class="miniWrap" id="mini-card">
-          <div class="miniTitle">
-            <div>🌪️ Storm Mini: Shield Timing (FULL)</div>
-            <div class="right">Storm in <span id="mini-storm-in">—</span>s</div>
-          </div>
-
-          <div class="miniList">
-            <div class="miniItem" id="mini-c-storm"><div class="left"><span class="dot"></span>อยู่ใน Storm</div><div class="val" id="mini-v-storm">—</div></div>
-            <div class="miniItem" id="mini-c-zone"><div class="left"><span class="dot"></span>น้ำต้อง LOW/HIGH (ห้าม GREEN)</div><div class="val" id="mini-v-zone">—</div></div>
-            <div class="miniItem" id="mini-c-pressure"><div class="left"><span class="dot"></span>Pressure ถึงเกณฑ์</div><div class="val" id="mini-v-pressure">—</div></div>
-            <div class="miniItem" id="mini-c-end"><div class="left"><span class="dot"></span>ท้ายพายุ (End-window)</div><div class="val" id="mini-v-end">—</div></div>
-            <div class="miniItem" id="mini-c-block"><div class="left"><span class="dot"></span>ต้อง “บล็อก BAD” ด้วย Shield</div><div class="val" id="mini-v-block">—</div></div>
-          </div>
-
-          <div class="miniBarWrap">
-            <div class="miniBarLabel">
-              <div>Pressure bar</div>
-              <div><span id="mini-pressure-pct">0</span>%</div>
-            </div>
-            <div class="miniBar"><div id="mini-pressure-bar"></div></div>
-          </div>
+        <div class="row" style="justify-content:flex-start">
+          <div class="pill">Goal <span class="v" id="quest-line1" data-quest="goal">—</span></div>
+          <div class="pill">Prog <span class="v" id="quest-line2" data-quest="prog">—</span></div>
+        </div>
+        <div class="row" style="margin-top:8px; justify-content:flex-start">
+          <div class="pill">Mini <span class="v" id="quest-line3" data-quest="mini">—</span></div>
+          <div class="pill">State <span class="v" id="quest-line4" data-quest="state">—</span></div>
+        </div>
+        <div class="muted" style="margin-top:10px; font-size:12px; line-height:1.3">
+          เป้า: 💧(+น้ำ) / 🚻(-น้ำ) / 🍟(BAD) / 🛡️(Shield) / ⭐(Bonus) / 💎(Fever)<br/>
+          <b>Mini</b>: ช่วงท้าย Storm (End-window) ต้อง “บล็อก BAD” ด้วย Shield
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ===== CARDBOARD STEREO WRAP ===== -->
-  <div id="cbWrap" aria-hidden="true">
-    <!-- LEFT eye -->
-    <div class="cbEye" id="cbEyeL">
-      <div class="cbPlay">
-        <div class="cbPlayfield" id="cbPlayL">
-          <div class="cbLayer" id="cbLayerL"></div>
-          <div class="cbCross"></div>
-          <div class="gazeRing"></div>
-
-          <div class="cbHud">
-            <span class="cbPill">⏱️ <span class="k">TIME</span> <span class="v" id="cbTimeL">0</span></span>
-            <span class="cbPill">🏆 <span class="k">SCORE</span> <span class="v" id="cbScoreL">0</span></span>
-            <span class="cbPill">⚡ <span class="k">COMBO</span> <span class="v" id="cbComboL">0</span></span>
-            <span class="cbPill">💥 <span class="k">MISS</span> <span class="v" id="cbMissL">0</span></span>
-            <span class="cbPill">🎖️ <span class="k">GRADE</span> <span class="v" id="cbGradeL">C</span></span>
-            <span class="cbPill">🔥 <span class="k">FEVER</span> <span class="v" id="cbFeverL">0%</span></span>
-          </div>
-        </div>
+  <!-- CARDBOARD STEREO -->
+  <div id="cbStage" aria-hidden="true">
+    <div class="eye" id="eyeL">
+      <div class="eyeHud">
+        <span class="pill">⏱️ <span class="k">TIME</span> <span class="v" data-stat="time">—</span></span>
+        <span class="pill">🏆 <span class="k">SCORE</span> <span class="v" data-stat="score">0</span></span>
+        <span class="pill">💥 <span class="k">MISS</span> <span class="v" data-stat="miss">0</span></span>
+        <span class="pill">💧 <span class="k">WATER</span> <span class="v" data-water-pct>50%</span></span>
+        <span class="pill">🟩 <span class="k">ZONE</span> <span class="v" data-water-zone>GREEN</span></span>
+        <span class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" data-stat="shield">0</span></span>
+      </div>
+      <div class="eyeMini">
+        <span class="pill">🎯 <span class="k">GOAL</span> <span class="v" data-pill="goal">—</span></span>
+        <span class="pill">🌪️ <span class="k">STORM</span> <span class="v" data-pill="storm">0s</span></span>
+        <span class="pill">🧩 <span class="k">MINI</span> <span class="v" data-pill="mini">—</span></span>
+      </div>
+      <div class="cbPlayfield" id="cbPlayL">
+        <div class="cbLayer" id="hvr-layerL"></div>
+        <div class="cbCross" aria-hidden="true"></div>
+      </div>
+      <div class="cbBottom">
+        <span class="pill">🎖️ <span class="k">GRADE</span> <span class="v" data-stat="grade">C</span></span>
+        <button class="btn cbShoot" id="btnShootL" type="button">🎯 SHOOT</button>
       </div>
     </div>
 
-    <!-- RIGHT eye -->
-    <div class="cbEye" id="cbEyeR">
-      <div class="cbPlay">
-        <div class="cbPlayfield" id="cbPlayR">
-          <div class="cbLayer" id="cbLayerR"></div>
-          <div class="cbCross"></div>
-          <div class="gazeRing"></div>
-
-          <div class="cbHud">
-            <span class="cbPill">⏱️ <span class="k">TIME</span> <span class="v" id="cbTimeR">0</span></span>
-            <span class="cbPill">🏆 <span class="k">SCORE</span> <span class="v" id="cbScoreR">0</span></span>
-            <span class="cbPill">⚡ <span class="k">COMBO</span> <span class="v" id="cbComboR">0</span></span>
-            <span class="cbPill">💥 <span class="k">MISS</span> <span class="v" id="cbMissR">0</span></span>
-            <span class="cbPill">🎖️ <span class="k">GRADE</span> <span class="v" id="cbGradeR">C</span></span>
-            <span class="cbPill">🔥 <span class="k">FEVER</span> <span class="v" id="cbFeverR">0%</span></span>
-          </div>
-        </div>
+    <div class="eye" id="eyeR">
+      <div class="eyeHud">
+        <span class="pill">⏱️ <span class="k">TIME</span> <span class="v" data-stat="time">—</span></span>
+        <span class="pill">🏆 <span class="k">SCORE</span> <span class="v" data-stat="score">0</span></span>
+        <span class="pill">💥 <span class="k">MISS</span> <span class="v" data-stat="miss">0</span></span>
+        <span class="pill">💧 <span class="k">WATER</span> <span class="v" data-water-pct>50%</span></span>
+        <span class="pill">🟩 <span class="k">ZONE</span> <span class="v" data-water-zone>GREEN</span></span>
+        <span class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" data-stat="shield">0</span></span>
+      </div>
+      <div class="eyeMini">
+        <span class="pill">🎯 <span class="k">GOAL</span> <span class="v" data-pill="goal">—</span></span>
+        <span class="pill">🌪️ <span class="k">STORM</span> <span class="v" data-pill="storm">0s</span></span>
+        <span class="pill">🧩 <span class="k">MINI</span> <span class="v" data-pill="mini">—</span></span>
+      </div>
+      <div class="cbPlayfield" id="cbPlayR">
+        <div class="cbLayer" id="hvr-layerR"></div>
+        <div class="cbCross" aria-hidden="true"></div>
+      </div>
+      <div class="cbBottom">
+        <span class="pill">🧠 <span class="k">PRESS</span> <span class="v" data-stat="press">0%</span></span>
+        <button class="btn cbShoot" id="btnShootR" type="button">🎯 SHOOT</button>
       </div>
     </div>
   </div>
 
-  <!-- Cardboard controls -->
-  <div id="cbControls" aria-hidden="true">
-    <div class="cbBtnRow">
-      <button class="cbBtn primary" id="cbShoot" type="button">🎯 SHOOT</button>
-      <button class="cbBtn" id="cbGazeToggle" type="button">👁️ GAZE: ON</button>
-    </div>
-    <div class="cbBtnRow">
-      <button class="cbBtn" id="cbExit" type="button">⬅️ EXIT</button>
-      <button class="cbBtn danger" id="cbStop" type="button">⛔ STOP</button>
-    </div>
-  </div>
-
-  <div id="hha-stamp" aria-hidden="true">
-    <div class="stampBox">
-      <div class="stampBig" id="stamp-big">—</div>
-      <div class="stampSmall" id="stamp-small">—</div>
-    </div>
-  </div>
-
+  <!-- START OVERLAY -->
   <div id="start-overlay">
     <div class="startCard">
-      <div style="font-size:18px;font-weight:1100">💧 Hydration VR</div>
-      <div class="muted" style="margin-top:6px; font-size:12px; font-weight:900; line-height:1.35">
-        - เล็งกลางจอ + แตะ/คลิก = ยิง (crosshair)<br>
-        - Cardboard: มี 2 จอ L/R + ปุ่ม SHOOT + GAZE dwell<br>
-        - Mini quest จะมาในช่วง Storm
+      <div style="font-size:18px;font-weight:1200">💧 Hydration VR</div>
+      <div class="muted" style="margin-top:6px; font-size:12px; font-weight:950; line-height:1.35">
+        เล่นแบบยิงกลางจอ (crosshair) — เป้าโผล่ทั่วสนาม <br/>
+        <b>Cardboard</b>: มี 2 จอ + เปิด Gaze ให้ (เล็งค้าง = ยิงอัตโนมัติ)
       </div>
       <div class="btnRow">
-        <button class="btn" id="btn-start" type="button">🚀 START</button>
-        <button class="btn secondary" id="btn-cardboard" type="button">📦 CARDBOARD</button>
-        <button class="btn secondary" id="btn-vr" type="button">🥽 VR</button>
+        <button class="btn" id="btn-start-2d" type="button">🚀 START (2D)</button>
+        <button class="btn secondary" id="btn-start-vr" type="button">📦 START (VR/Cardboard)</button>
+        <button class="btn secondary" id="btn-toggle-gaze" type="button">👁️ GAZE: ON</button>
         <button class="btn danger" id="btn-stop" type="button">⛔ STOP</button>
+      </div>
+      <div class="muted" style="margin-top:10px; font-size:12px; font-weight:950">
+        Tip: โหมด Mini จะโหดตอนท้าย Storm — ต้องมี Shield แล้ว “บล็อก 🍟”
       </div>
     </div>
   </div>
 
+  <!-- END SUMMARY -->
   <div id="hvr-end">
     <div class="endCard">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-        <div style="font-size:18px; font-weight:1100">🏁 Summary</div>
-        <button class="btn" id="btn-retry" type="button">🔁 Retry</button>
+        <div style="font-size:18px; font-weight:1200">🏁 Summary</div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn secondary" id="btn-backhub" type="button">🏠 HUB</button>
+          <button class="btn" id="btn-retry" type="button">🔁 Retry</button>
+        </div>
       </div>
       <div class="endGrid">
         <div class="endItem"><div class="k">Score</div><div class="v" id="end-score">0</div></div>
         <div class="endItem"><div class="k">Grade</div><div class="v" id="end-grade">C</div></div>
         <div class="endItem"><div class="k">Combo Max</div><div class="v" id="end-combo">0</div></div>
         <div class="endItem"><div class="k">Miss</div><div class="v" id="end-miss">0</div></div>
-        <div class="endItem"><div class="k">Goals</div><div class="v" id="end-goals">0/1</div></div>
-        <div class="endItem"><div class="k">Minis</div><div class="v" id="end-minis">0</div></div>
+        <div class="endItem"><div class="k">Goal</div><div class="v" id="end-goals">0/1</div></div>
+        <div class="endItem"><div class="k">Mini</div><div class="v" id="end-minis">0</div></div>
       </div>
     </div>
   </div>
@@ -756,554 +573,116 @@ HydrationVR — PRODUCTION (FULL HTML)
   <!-- ✅ IMPORTANT: correct relative path from /herohealth/hydration-vr.html -->
   <script type="module" src="./hydration-vr/hydration.safe.js"></script>
 
-  <!-- ===== UI glue + Cardboard stereo mirror + Gaze shooting ===== -->
+  <!-- small helpers (toggle UI only; engine is in safe.js) -->
   <script>
-  (function(){
-    'use strict';
+    (function(){
+      'use strict';
+      const D = document;
 
-    const D = document;
-    const root = window;
-
-    function qs(name, def){
-      try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch{ return def; }
-    }
-
-    // ---- start/stop ----
-    const startOverlay = D.getElementById('start-overlay');
-    const btnStart = D.getElementById('btn-start');
-    const btnCardboard = D.getElementById('btn-cardboard');
-    const btnVR = D.getElementById('btn-vr');
-    const btnStop = D.getElementById('btn-stop');
-    const btnRetry = D.getElementById('btn-retry');
-
-    const cbExit = D.getElementById('cbExit');
-    const cbStop = D.getElementById('cbStop');
-    const cbShoot = D.getElementById('cbShoot');
-    const cbGazeToggle = D.getElementById('cbGazeToggle');
-
-    function goHubOrBack(){
-      const hub = qs('hub','./hub.html') || './hub.html';
-      try{
-        const u = new URL(hub, location.href);
-        u.searchParams.set('ts', String(Date.now()));
-        location.href = u.toString();
-      }catch{
-        location.href = hub;
+      function setGazeVar(v){
+        v = Math.max(0, Math.min(1, Number(v)||0));
+        D.documentElement.style.setProperty('--gaze', String(v));
       }
-    }
+      setGazeVar(0);
 
-    // iOS motion permission helper (safe)
-    async function requestMotion(){
-      try{
-        const DME = window.DeviceMotionEvent;
-        if (DME && typeof DME.requestPermission === 'function'){
-          const res = await DME.requestPermission();
-          return res === 'granted';
-        }
-      }catch(_){}
-      return false;
-    }
+      const btn2d  = D.getElementById('btn-start-2d');
+      const btnvr  = D.getElementById('btn-start-vr');
+      const btngz  = D.getElementById('btn-toggle-gaze');
+      const btnstop= D.getElementById('btn-stop');
+      const overlay= D.getElementById('start-overlay');
 
-    // Audio unlock (safe)
-    async function unlockAudio(){
-      try{
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        const ctx = new AC();
-        if (ctx.state === 'suspended') await ctx.resume();
-        await ctx.close();
-      }catch(_){}
-    }
+      let gazeOn = true;
+      function updateGazeBtn(){
+        btngz.textContent = '👁️ GAZE: ' + (gazeOn ? 'ON' : 'OFF');
+        D.body.classList.toggle('gaze-off', !gazeOn);
+        window.__HVR_GAZE_ON__ = gazeOn;
+      }
+      updateGazeBtn();
 
-    async function doStart(){
-      await unlockAudio();
-      await requestMotion();
-      if (startOverlay) startOverlay.style.display = 'none';
-      // ให้ safe.js ทำงานตามเดิม (เราไม่ยุ่ง)
-    }
+      btngz.addEventListener('click', ()=>{
+        gazeOn = !gazeOn;
+        updateGazeBtn();
+        setGazeVar(0);
+      });
 
-    btnStart?.addEventListener('click', doStart);
-    btnStop?.addEventListener('click', goHubOrBack);
-    btnRetry?.addEventListener('click', ()=> location.reload());
-
-    // ---- VR (optional) ----
-    btnVR?.addEventListener('click', async ()=>{
-      await doStart();
-      try{
-        const scene = D.getElementById('bgScene');
-        if (scene && typeof scene.enterVR === 'function') scene.enterVR();
-      }catch(_){}
-    });
-
-    // ---- Cardboard toggle ----
-    function setCardboard(on){
-      on = !!on;
-      D.body.classList.toggle('cardboard', on);
-      // reset gaze prog
-      D.documentElement.style.setProperty('--gazeProg', '0');
-    }
-
-    btnCardboard?.addEventListener('click', async ()=>{
-      await doStart();
-      setCardboard(true);
-    });
-    cbExit?.addEventListener('click', ()=> setCardboard(false));
-    cbStop?.addEventListener('click', goHubOrBack);
-
-    // ---- SHOOT synthesis: dispatch pointerdown at center of original #playfield ----
-    function synthShoot(){
-      const pf = D.getElementById('playfield');
-      if (!pf) return;
-
-      const r = pf.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-
-      // Try: elementFromPoint at center and dispatch
-      const el = D.elementFromPoint(cx, cy) || pf;
-
-      try{
-        const ev = new PointerEvent('pointerdown', {
-          bubbles:true,
-          cancelable:true,
-          pointerType:'touch',
-          clientX: cx,
-          clientY: cy
-        });
-        el.dispatchEvent(ev);
-      }catch(_){
+      function resumeAudio(){
         try{
-          const mev = new MouseEvent('mousedown', { bubbles:true, cancelable:true, clientX: cx, clientY: cy });
-          el.dispatchEvent(mev);
-        }catch(__){}
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return Promise.resolve();
+          const ctx = new AC();
+          if (ctx.state === 'suspended') return ctx.resume().finally(()=>ctx.close().catch(()=>{}));
+          return ctx.close().catch(()=>{});
+        }catch{ return Promise.resolve(); }
       }
 
-      // also click (some handlers bind click)
-      try{
-        const clk = new MouseEvent('click', { bubbles:true, cancelable:true, clientX: cx, clientY: cy });
-        el.dispatchEvent(clk);
-      }catch(_){}
-    }
-
-    cbShoot?.addEventListener('click', async ()=>{
-      await unlockAudio();
-      synthShoot();
-    });
-
-    // ---- GAZE dwell (fast + accurate) ----
-    let gazeOn = true;
-    function setGaze(on){
-      gazeOn = !!on;
-      D.body.classList.toggle('gaze-off', !gazeOn);
-      if (cbGazeToggle) cbGazeToggle.textContent = gazeOn ? '👁️ GAZE: ON' : '👁️ GAZE: OFF';
-      D.documentElement.style.setProperty('--gazeProg', '0');
-      gazeAcc = 0;
-      gazeCooldown = 0;
-    }
-    cbGazeToggle?.addEventListener('click', ()=> setGaze(!gazeOn));
-
-    // dwell tune
-    const GAZE_DWELL_SEC = 0.45;  // เร็วขึ้น
-    const GAZE_COOLDOWN_SEC = 0.22;
-
-    let gazeAcc = 0;
-    let gazeCooldown = 0;
-    let lastT = 0;
-
-    function gazeLoop(t){
-      const dt = Math.min(0.05, Math.max(0.001, (t - (lastT||t))/1000));
-      lastT = t;
-
-      const inCB = D.body.classList.contains('cardboard');
-      if (!inCB || !gazeOn){
-        D.documentElement.style.setProperty('--gazeProg', '0');
-        gazeAcc = 0;
-        gazeCooldown = 0;
-        requestAnimationFrame(gazeLoop);
-        return;
+      function start(mode){
+        // engine listens to this
+        window.__HVR_START_MODE__ = mode; // 'mono' | 'cardboard'
+        overlay.style.display = 'none';
+        window.dispatchEvent(new CustomEvent('hvr:start', { detail:{ mode } }));
       }
 
-      if (gazeCooldown > 0){
-        gazeCooldown = Math.max(0, gazeCooldown - dt);
-        D.documentElement.style.setProperty('--gazeProg', '0');
-        gazeAcc = 0;
-        requestAnimationFrame(gazeLoop);
-        return;
+      btn2d.addEventListener('click', async ()=>{
+        await resumeAudio();
+        document.body.classList.remove('cardboard');
+        start('mono');
+      });
+
+      btnvr.addEventListener('click', async ()=>{
+        await resumeAudio();
+        document.body.classList.add('cardboard');
+        start('cardboard');
+      });
+
+      btnstop.addEventListener('click', ()=>{
+        window.dispatchEvent(new CustomEvent('hvr:stop'));
+        location.reload();
+      });
+
+      // show gaze ring progress driven by engine (optional)
+      window.addEventListener('hvr:gaze', (ev)=>{
+        try{
+          const p = Math.max(0, Math.min(1, (ev.detail && ev.detail.p) || 0));
+          setGazeVar(p);
+        }catch{}
+      }, { passive:true });
+
+      // shoot buttons in cardboard
+      const sL = D.getElementById('btnShootL');
+      const sR = D.getElementById('btnShootR');
+      function shoot(){
+        window.dispatchEvent(new CustomEvent('hvr:shoot', { detail:{ src:'btn' } }));
       }
+      sL.addEventListener('click', shoot);
+      sR.addEventListener('click', shoot);
 
-      // Always centered (Cardboard): accumulate time -> fire
-      gazeAcc += dt;
-      const p = Math.max(0, Math.min(1, gazeAcc / GAZE_DWELL_SEC));
-      D.documentElement.style.setProperty('--gazeProg', String(p));
-
-      if (p >= 1){
-        synthShoot();
-        gazeCooldown = GAZE_COOLDOWN_SEC;
-        gazeAcc = 0;
-        D.documentElement.style.setProperty('--gazeProg', '0');
-      }
-
-      requestAnimationFrame(gazeLoop);
-    }
-    requestAnimationFrame(gazeLoop);
-
-    // ---- MINI HUD pill binder (Cardboard) ----
-    function setTxt(id, v){
-      const el = D.getElementById(id);
-      if (el) el.textContent = String(v ?? '');
-    }
-    function setBoth(base, v){
-      setTxt(base+'L', v);
-      setTxt(base+'R', v);
-    }
-    function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b, v)); }
-
-    window.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail || {};
-      if (typeof d.score === 'number') setBoth('cbScore', d.score|0);
-      if (typeof d.combo === 'number') setBoth('cbCombo', d.combo|0);
-      if (typeof d.misses === 'number') setBoth('cbMiss', d.misses|0);
-    }, {passive:true});
-
-    window.addEventListener('hha:time', (ev)=>{
-      const d = ev.detail || {};
-      const left = (typeof d.left === 'number') ? d.left
-                : (typeof d.t === 'number') ? d.t
-                : (typeof d.time === 'number') ? d.time
-                : null;
-      if (left != null) setBoth('cbTime', left|0);
-    }, {passive:true});
-
-    window.addEventListener('hha:rank', (ev)=>{
-      const d = ev.detail || {};
-      if (d.grade) setBoth('cbGrade', d.grade);
-    }, {passive:true});
-
-    window.addEventListener('hha:fever', (ev)=>{
-      const d = ev.detail || {};
-      const pct = (typeof d.pct === 'number') ? d.pct
-              : (typeof d.feverPct === 'number') ? d.feverPct
-              : (typeof d.value === 'number') ? d.value
-              : null;
-      if (pct != null) setBoth('cbFever', (clamp(pct,0,100)|0) + '%');
-    }, {passive:true});
-
-    // fallback (in case some events missing)
-    setInterval(()=>{
-      try{
-        if (!D.body.classList.contains('cardboard')) return;
-
-        const s = D.getElementById('stat-score')?.textContent;
-        const c = D.getElementById('stat-combo')?.textContent;
-        const m = D.getElementById('stat-miss')?.textContent;
-        const t = D.getElementById('stat-time')?.textContent;
-        const g = D.getElementById('stat-grade')?.textContent;
-
-        if (s) setBoth('cbScore', s);
-        if (c) setBoth('cbCombo', c);
-        if (m) setBoth('cbMiss', m);
-        if (t) setBoth('cbTime', t);
-        if (g) setBoth('cbGrade', g);
-      }catch(_){}
-    }, 200);
-
-    // ---- Mirror targets: #hvr-layer -> #cbLayerL/#cbLayerR ----
-    const srcLayer = D.getElementById('hvr-layer');
-    const dstL = D.getElementById('cbLayerL');
-    const dstR = D.getElementById('cbLayerR');
-
-    // map: source node -> {l,r}
-    const map = new WeakMap();
-
-    function cloneEl(src){
-      const c = src.cloneNode(true);
-      // remove duplicate IDs inside clones (important!)
-      if (c.nodeType === 1){
-        if (c.id) c.removeAttribute('id');
-        // also scrub ids in subtree
-        const ids = c.querySelectorAll?.('[id]');
-        if (ids && ids.length){
-          ids.forEach(n=>n.removeAttribute('id'));
-        }
-      }
-      return c;
-    }
-
-    function syncAttrs(src, dst){
-      if (!src || !dst || src.nodeType !== 1 || dst.nodeType !== 1) return;
-      // copy class + style attribute (fast + matches animations)
-      dst.className = src.className;
-      const st = src.getAttribute('style');
-      if (st != null) dst.setAttribute('style', st); else dst.removeAttribute('style');
-
-      // copy data-* (spawn systems often use)
-      for (const a of Array.from(src.attributes)){
-        const n = a.name;
-        if (n === 'id') continue;
-        if (n.startsWith('data-')) dst.setAttribute(n, a.value);
-      }
-      // remove stale data-* not in src
-      for (const a of Array.from(dst.attributes)){
-        const n = a.name;
-        if (n.startsWith('data-') && !src.hasAttribute(n)) dst.removeAttribute(n);
-      }
-    }
-
-    function attachMirrorNode(node){
-      if (!node || node.nodeType !== 1) return;
-      // mirror only element nodes (targets)
-      const l = cloneEl(node);
-      const r = cloneEl(node);
-      map.set(node, {l, r});
-      dstL && dstL.appendChild(l);
-      dstR && dstR.appendChild(r);
-
-      // initial sync subtree styles quickly
-      const srcAll = node.querySelectorAll('*');
-      const lAll = l.querySelectorAll('*');
-      const rAll = r.querySelectorAll('*');
-      for (let i=0;i<srcAll.length;i++){
-        syncAttrs(srcAll[i], lAll[i]);
-        syncAttrs(srcAll[i], rAll[i]);
-      }
-      syncAttrs(node, l);
-      syncAttrs(node, r);
-    }
-
-    function detachMirrorNode(node){
-      const pair = map.get(node);
-      if (pair){
-        try{ pair.l?.remove(); }catch(_){}
-        try{ pair.r?.remove(); }catch(_){}
-      }
-    }
-
-    // initial existing nodes
-    function seedMirror(){
-      if (!srcLayer || !dstL || !dstR) return;
-      dstL.innerHTML = '';
-      dstR.innerHTML = '';
-      for (const ch of Array.from(srcLayer.children)){
-        attachMirrorNode(ch);
-      }
-    }
-    seedMirror();
-
-    // observe changes
-    if (srcLayer && dstL && dstR){
-      const obs = new MutationObserver((muts)=>{
-        for (const m of muts){
-          if (m.type === 'childList'){
-            m.addedNodes && m.addedNodes.forEach(n=>{
-              if (n.nodeType === 1) attachMirrorNode(n);
-            });
-            m.removedNodes && m.removedNodes.forEach(n=>{
-              if (n.nodeType === 1) detachMirrorNode(n);
-            });
-          } else if (m.type === 'attributes'){
-            const src = m.target;
-            const pair = map.get(src);
-            if (pair){
-              syncAttrs(src, pair.l);
-              syncAttrs(src, pair.r);
-            }
-          }
+      // retry/backhub
+      const end = D.getElementById('hvr-end');
+      D.getElementById('btn-retry').addEventListener('click', ()=>location.reload());
+      D.getElementById('btn-backhub').addEventListener('click', ()=>{
+        try{
+          const u = new URL((new URL(location.href)).searchParams.get('hub') || './hub.html', location.href);
+          u.searchParams.set('ts', String(Date.now()));
+          location.href = u.toString();
+        }catch{
+          location.href = './hub.html';
         }
       });
 
-      obs.observe(srcLayer, {
-        childList:true,
-        subtree:true,
-        attributes:true,
-        attributeFilter:['class','style']
-      });
-
-      // mirror transforms (look/gyro translate) each frame
-      const srcPlay = D.getElementById('playfield');
-      const cbPlayL = D.getElementById('cbPlayL');
-      const cbPlayR = D.getElementById('cbPlayR');
-
-      function mirrorLoop(){
+      // engine will trigger this
+      window.addEventListener('hvr:endui', (ev)=>{
+        end.style.display = 'flex';
         try{
-          if (D.body.classList.contains('cardboard')){
-            // mirror transform/filter states from original playfield/layer
-            if (srcPlay && cbPlayL && cbPlayR){
-              cbPlayL.style.transform = srcPlay.style.transform || '';
-              cbPlayR.style.transform = srcPlay.style.transform || '';
-              cbPlayL.style.filter = srcPlay.style.filter || '';
-              cbPlayR.style.filter = srcPlay.style.filter || '';
-            }
-            if (srcLayer && dstL && dstR){
-              dstL.style.transform = srcLayer.style.transform || '';
-              dstR.style.transform = srcLayer.style.transform || '';
-            }
-          }
-        }catch(_){}
-        requestAnimationFrame(mirrorLoop);
-      }
-      requestAnimationFrame(mirrorLoop);
-    }
-
-    // --- Autostart helpers (optional) ---
-    if (qs('autostart','0') === '1'){
-      doStart();
-    }
-  })();
-  </script>
-
-  <!-- =========================================================
-       HTML-ONLY CINEMATIC DRIVER (reads window.__HVR__.S/TUNE)
-       - tick accel + flash sync + endamp ramp
-       - only tick + thunder
-       ========================================================= -->
-  <script>
-  (function(){
-    'use strict';
-
-    const D = document;
-    const root = window;
-
-    // --- Audio: tick + thunder only ---
-    const EndAudio = (() => {
-      let ctx = null;
-      function ensure(){
-        if (ctx) return ctx;
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return null;
-        ctx = new AC();
-        return ctx;
-      }
-      function resume(){
-        const c = ensure(); if (!c) return;
-        if (c.state === 'suspended') c.resume().catch(()=>{});
-      }
-      function tick(){
-        const c = ensure(); if(!c) return;
-        const o = c.createOscillator();
-        const g = c.createGain();
-        o.type = 'square';
-        o.frequency.value = 1200;
-        g.gain.value = 0.0001;
-        o.connect(g); g.connect(c.destination);
-        const t0 = c.currentTime;
-        g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(0.036, t0 + 0.006);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.040);
-        o.start(t0);
-        o.stop(t0 + 0.05);
-      }
-      function thunder(gain=0.10){
-        const c = ensure(); if(!c) return;
-        const o = c.createOscillator();
-        const g = c.createGain();
-        o.type = 'sine';
-        o.frequency.setValueAtTime(80, c.currentTime);
-        o.frequency.exponentialRampToValueAtTime(38, c.currentTime + 0.7);
-        g.gain.setValueAtTime(0.0001, c.currentTime);
-        g.gain.exponentialRampToValueAtTime(Math.max(0.02, gain), c.currentTime + 0.04);
-        g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.85);
-        o.connect(g); g.connect(c.destination);
-        o.start();
-        o.stop(c.currentTime + 0.9);
-      }
-      return { resume, tick, thunder };
+          const d = ev.detail || {};
+          D.getElementById('end-score').textContent = String(d.scoreFinal ?? 0);
+          D.getElementById('end-grade').textContent = String(d.grade ?? 'C');
+          D.getElementById('end-combo').textContent = String(d.comboMax ?? 0);
+          D.getElementById('end-miss').textContent  = String(d.misses ?? 0);
+          D.getElementById('end-goals').textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 1);
+          D.getElementById('end-minis').textContent = String(d.miniCleared ?? 0);
+        }catch{}
+      }, { passive:true });
     })();
-
-    function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-    function setEndVars(amp, flash){
-      amp = clamp(amp, 0, 1);
-      flash = clamp(flash, 0, 1);
-      D.documentElement.style.setProperty('--endamp', String(amp));
-      D.documentElement.style.setProperty('--endflash', String(flash));
-    }
-
-    let flashTimer = 0;
-    function flashPulse(strength){
-      strength = clamp(strength, 0, 1);
-      D.body.classList.add('endflash');
-      setEndVars(currentAmp, strength);
-      clearTimeout(flashTimer);
-      flashTimer = setTimeout(()=>{
-        D.body.classList.remove('endflash');
-        setEndVars(currentAmp, 0);
-      }, 70);
-    }
-
-    let endOn = false;
-    let tEnter = 0;
-    let acc = 0;
-    let lastT = 0;
-    let thundered = false;
-    let currentAmp = 0;
-
-    window.addEventListener('pointerdown', ()=>EndAudio.resume(), { passive:true });
-
-    function setEnd(on){
-      on = !!on;
-      if (on === endOn) return;
-      endOn = on;
-
-      if (on){
-        tEnter = performance.now();
-        acc = 0;
-        thundered = false;
-        currentAmp = 0.25;
-        D.body.classList.add('endwindow');
-
-        EndAudio.resume();
-        EndAudio.tick();
-        flashPulse(0.85);
-      } else {
-        D.body.classList.remove('endwindow');
-        D.body.classList.remove('endflash');
-        currentAmp = 0;
-        setEndVars(0, 0);
-      }
-    }
-
-    function loop(t){
-      const dt = Math.min(0.05, Math.max(0.001, (t - (lastT||t)) / 1000));
-      lastT = t;
-
-      const H = root.__HVR__;
-      const S = H && H.S;
-      const TUNE = H && H.TUNE;
-
-      if (!S || !TUNE){
-        requestAnimationFrame(loop);
-        return;
-      }
-
-      const inEnd = !!(S.stormActive && (S.stormLeftSec <= (TUNE.endWindowSec + 0.02)));
-      setEnd(inEnd);
-
-      if (endOn){
-        const elapsed = (t - tEnter) / 1000;
-
-        const k = clamp(elapsed / 1.05, 0, 1);
-        currentAmp = 0.25 + 0.75*k;
-        setEndVars(currentAmp, 0);
-
-        const rate = Math.max(0.055, 0.14 - (0.085 * k));
-        acc += dt;
-
-        while (acc >= rate){
-          acc -= rate;
-          EndAudio.tick();
-          flashPulse(0.55 + 0.45*k);
-        }
-
-        if (!thundered && k > 0.82){
-          thundered = true;
-          EndAudio.thunder(0.06);
-        }
-      }
-
-      requestAnimationFrame(loop);
-    }
-
-    requestAnimationFrame(loop);
-  })();
   </script>
 </body>
 </html>
