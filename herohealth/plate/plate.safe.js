@@ -1,17 +1,10 @@
 /* === /herohealth/plate/plate.safe.js ===
 Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED + ALL FUN PACK)
-- IIFE (NO export) ✅
-- catch(e) ✅
-- Fun Pack ALL: Storm waves + danger FX, Decoy/Trap, Boss + Laser dodge (world-shift), Perfect/Critical, ⭐⭐ Overdrive x2,
-  + No-Junk Zone (ring), + Perfect Streak Multiplier, + Boss Phase 2 (double lasers)
-- Goal3: accuracyGoodPct >= 88%
-- NEW 1-3:
-  (1) Boss HP HUD event: plate:boss
-  (2) Zone urgent class: plate-zone-urgent when zoneLeftMs <= 1200
-  (3) Risk-reward: streakLvl>=2 => RISK 4s (play only) affects spawn/ttl + plate:buff
-- Flush-hardened: before HUB/end/retry/pagehide/visibility/beforeunload
+✅ IIFE (NO export) / catch(e)
+✅ P0 FIX: wait/race-safe, accuracy excludes ⭐, boss HP not bloat
+✅ P1: dynamic safeRect from HUD, anti double-hit, storm clean logic real
+✅ P2: streak event, judge event richer, perf cap targets
 */
-
 (function (root) {
   'use strict';
 
@@ -145,10 +138,25 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var W = root.innerWidth || 360;
     var H = root.innerHeight || 640;
 
+    // HUD-aware top
+    var hud = DOC.querySelector('.hud-top');
     var top = 160;
-    var bot = 180;
+    try{
+      if (hud){
+        var r = hud.getBoundingClientRect();
+        top = Math.max(110, r.bottom + 14);
+      }
+    } catch(e){}
+
+    // bottom reserve (end overlay buttons zone / thumbs)
+    var bot = (W < 760) ? 150 : 130;
+
+    // side reserve
     var side = 16;
-    if (W < 760) top = 260;
+
+    // clamp to avoid negative play area on tiny screens
+    top = clamp(top, 96, H - 220);
+    bot = clamp(bot, 90, H - top - 60);
 
     return { W:W, H:H, x0:side, x1:W-side, y0:top, y1:H-bot };
   }
@@ -214,7 +222,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     zone.until = 0;
     DOC.body.classList.remove('plate-zoneOn');
     DOC.body.classList.remove('plate-zonePulse');
-    DOC.body.classList.remove('plate-zone-urgent'); // NEW
     logEvent('zone_end', { clean: !!clean });
   }
 
@@ -223,7 +230,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var cx = r.W * 0.5;
     var cy = r.H * 0.5;
 
-    // target is in "world layer"; layer is shifted by vx/vy => visual position is x+vx, y+vy
+    // targets are in shifted layer -> visual pos = x+vx, y+vy
     var vx = engine.vx || 0;
     var vy = engine.vy || 0;
 
@@ -237,7 +244,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var cx = r.W * 0.5 - (engine.vx||0);
     var cy = r.H * 0.5 - (engine.vy||0);
 
-    // rejection sampling (fast)
     for (var i=0;i<12;i++){
       var ang = rng() * Math.PI * 2;
       var rad = Math.sqrt(rng()) * (zone.radius * 0.92);
@@ -247,7 +253,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       if (x < r.x0+40 || x > r.x1-40 || y < r.y0+40 || y > r.y1-40) continue;
       return { x:x, y:y };
     }
-    // fallback
     return randPos(rng);
   }
 
@@ -324,6 +329,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     nHitGood:0,
     nHitJunk:0,
     nHitDecoy:0,
+    nHitStar:0,    // ✅ P0 FIX: track star separately
     nHitBoss:0,
 
     fever: 0,      // 0..100
@@ -348,11 +354,12 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     stormUntil:0,
     nextStormAt:0,
     stormDurSec:6,
+    stormDirty:false, // ✅ P1: real clean storm
 
     // boss + hazards
     bossAlive:false,
     bossHp:0,
-    bossHpMax:3,
+    bossHpBase:3,   // ✅ P0: base HP from diff
     bossDownCount:0,
     nextBossAt:0,
 
@@ -366,15 +373,18 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
     // Perfect streak multiplier
     streakLvl:0,     // 0..3
-    streakHits:0,    // perfect/crit chain count
-    streakUntil:0,   // decay timer
+    streakHits:0,
+    streakUntil:0,
 
-    // NEW (3): risk window
-    riskUntil:0,
+    // perf cap
+    maxTargets: 16,
 
     // timers
     spawnTimer:0,
-    tickTimer:0
+    tickTimer:0,
+
+    // combo finisher memory
+    lastComboTier: 0
   };
 
   function scoreMultBase(){
@@ -382,15 +392,15 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   }
 
   function streakMult(){
-    // L0=1.0, L1=1.2, L2=1.4, L3=1.6
     var lv = clamp(engine.streakLvl|0, 0, 3);
-    return 1 + lv * 0.2;
+    return 1 + lv * 0.2; // 1.0,1.2,1.4,1.6
   }
 
   function scoreMult(){
     return scoreMultBase() * streakMult();
   }
 
+  // ✅ P0 FIX: accuracy excludes ⭐ entirely
   function accPct(){
     var denom = engine.nHitGood + engine.nHitJunk + engine.nHitDecoy;
     if (denom <= 0) return 0;
@@ -405,57 +415,21 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       misses: engine.misses|0
     });
     emit('hha:rank', { grade: rankFromAcc(accPct()), accuracy: accPct() });
+
+    // P2: combo finisher pop
+    var tier = Math.floor((engine.combo||0)/10);
+    if (tier > engine.lastComboTier && (engine.combo % 10 === 0)){
+      engine.lastComboTier = tier;
+      try{
+        Particles.celebrate && Particles.celebrate('mini', 'COMBO x' + engine.combo);
+        Particles.burstAt(safeRect().W*0.5, safeRect().H*0.52, 'gold');
+      }catch(e){}
+      emit('hha:judge', { kind:'good', text:'COMBO +' + engine.combo + '!' });
+    }
   }
+
   function updateTime(){
     emit('hha:time', { left: engine.left|0 });
-  }
-
-  // --------------------------- NEW 1-3: HUD emit helpers ---------------------------
-  function riskActive(){
-    return (engine.runMode === 'play') && (nowMs() < (engine.riskUntil|0));
-  }
-
-  function emitBoss(){
-    emit('plate:boss', {
-      alive: !!engine.bossAlive,
-      hp: (engine.bossAlive ? (engine.bossHp|0) : 0),
-      max: (engine.bossAlive ? Math.max(1, engine.bossHpMax|0) : 0)
-    });
-  }
-
-  function emitBuff(){
-    var t = nowMs();
-    var zoneLeft = zone.on ? Math.max(0, (zone.until|0) - t) : 0;
-    var stormLeft = engine.storm ? Math.max(0, (engine.stormUntil|0) - t) : 0;
-    var overLeft = Math.max(0, (engine.overUntil|0) - t);
-    var riskLeft = Math.max(0, (engine.riskUntil|0) - t);
-    var riskOn = (engine.runMode === 'play') && (riskLeft > 0);
-
-    // (2) Zone urgent class
-    try{
-      if (zoneLeft > 0 && zoneLeft <= 1200) DOC.body.classList.add('plate-zone-urgent');
-      else DOC.body.classList.remove('plate-zone-urgent');
-    } catch(e){}
-
-    emit('plate:buff', {
-      fever: engine.fever|0,
-      shield: engine.shield|0,
-
-      zoneOn: !!zone.on,
-      zoneLeftMs: zoneLeft|0,
-
-      stormOn: !!engine.storm,
-      stormLeftMs: stormLeft|0,
-
-      overOn: (overLeft > 0),
-      overLeftMs: overLeft|0,
-
-      streakLvl: engine.streakLvl|0,
-      streakMult: Number(streakMult().toFixed(2)),
-
-      riskOn: !!riskOn,
-      riskLeftMs: riskLeft|0
-    });
   }
 
   // --------------------------- World-shift feel (drag + gyro) ---------------------------
@@ -564,7 +538,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     } catch (e) {}
   }
 
-  // --------------------------- Quest Director (Goals + Minis deterministic chain) ---------------------------
+  // --------------------------- Quest Director (Goals + Minis) ---------------------------
   var Quest = (function(){
     var goals = [
       { id:'goal1', title:'เติมจานให้ครบ (ครบตามสัดส่วน)', kind:'fill_plate' },
@@ -572,7 +546,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       { id:'goal3', title:'ความแม่นยำ ≥ 88%', kind:'acc_gate_88' }
     ];
 
-    // ✅ เพิ่ม mini: No-Junk Zone ให้มาแบบ “เฉลี่ยเท่า ๆ กัน”
     var minis = [
       { id:'mini_rush',  title:'Plate Rush: ครบ 5 ใน 8 วิ และห้ามโดนขยะ', kind:'rush', total:5, ms:8000, noJunk:true },
       { id:'mini_zone',  title:'No-Junk Zone: เก็บดี 6 ในวงภายใน 7 วิ', kind:'zone_collect', total:6, ms:7000 },
@@ -587,30 +560,14 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var st = {
       goalIndex: 0,
       miniIndex: 0,
-
       goalsCleared: 0,
       minisCleared: 0,
-
       activeGoal: null,
       activeMini: null,
-
       miniNow: 0,
       miniTotal: 0,
       miniEndAt: 0
     };
-
-    function reset(){
-      st.goalIndex = 0;
-      st.miniIndex = 0;
-      st.goalsCleared = 0;
-      st.minisCleared = 0;
-      st.activeGoal = goals[0];
-      st.activeMini = null;
-      st.miniNow = 0;
-      st.miniTotal = 0;
-      st.miniEndAt = 0;
-      pushUpdate();
-    }
 
     function pushUpdate(extra){
       var g = st.activeGoal || goals[0];
@@ -630,9 +587,23 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       });
     }
 
+    function reset(){
+      st.goalIndex = 0;
+      st.miniIndex = 0;
+      st.goalsCleared = 0;
+      st.minisCleared = 0;
+      st.activeGoal = goals[0];
+      st.activeMini = null;
+      st.miniNow = 0;
+      st.miniTotal = 0;
+      st.miniEndAt = 0;
+      pushUpdate();
+    }
+
     function startMini(idx){
       var m = minis[idx];
       if (!m) return false;
+
       st.activeMini = m;
       st.miniNow = 0;
       st.miniTotal = (m.total != null) ? (m.total|0) : 1;
@@ -642,7 +613,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       emit('hha:judge', { kind:'good', text:'MINI START!' });
       emit('hha:celebrate', { kind:'mini', title:m.title });
 
-      // Mini that turns on zone immediately
       if (m.kind === 'zone_collect'){
         setZoneOn(Math.ceil((m.ms|0)/1000));
       }
@@ -686,7 +656,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       logEvent('mini_fail', { miniId:m.id, reason: String(reason||'fail') });
 
       emit('hha:judge', { kind:'warn', text:'MINI FAIL!' });
-      Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'warn');
+      try { Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'warn'); } catch(e){}
 
       if (m.kind === 'zone_collect'){
         setZoneOff(false);
@@ -776,7 +746,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
             if (st.miniNow >= st.miniTotal) clearMini();
           }
         } else if (m.kind === 'zone_collect'){
-          // only count if inside zone at hit-time (strict)
           if (meta && meta.insideZone) {
             st.miniNow++;
             if (st.miniNow >= st.miniTotal) clearMini();
@@ -886,14 +855,16 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   // --------------------------- Perfect streak multiplier ---------------------------
   function bumpStreak(isPerfectOrCrit){
     var t = nowMs();
+    var prevLvl = engine.streakLvl|0;
+
     if (!isPerfectOrCrit){
       engine.streakLvl = 0;
       engine.streakHits = 0;
       engine.streakUntil = 0;
+      if (prevLvl !== 0) emit('hha:streak', { level:0, mult:1, hits:0 });
       return;
     }
 
-    // decay window: keep chain alive if next perfect within 2.6s
     if (t > engine.streakUntil){
       engine.streakHits = 0;
       engine.streakLvl = 0;
@@ -902,27 +873,24 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.streakHits++;
     engine.streakUntil = t + 2600;
 
-    // level up thresholds
     if (engine.streakHits >= 8) engine.streakLvl = 3;
     else if (engine.streakHits >= 5) engine.streakLvl = 2;
     else if (engine.streakHits >= 2) engine.streakLvl = 1;
     else engine.streakLvl = 0;
 
-    // NEW (3): trigger risk window when streak reaches >=2 (PLAY only)
-    if (engine.runMode === 'play' && (engine.streakLvl|0) >= 2){
-      engine.riskUntil = t + 4000;
-    }
-
-    if (engine.streakLvl > 0){
-      emit('hha:judge', { kind:'good', text:'STREAK x' + (streakMult().toFixed(1)) + '!' });
+    if (engine.streakLvl !== prevLvl){
+      emit('hha:streak', { level: engine.streakLvl|0, mult: streakMult(), hits: engine.streakHits|0 });
+      if (engine.streakLvl > 0){
+        emit('hha:judge', { kind:'good', text:'STREAK x' + (streakMult().toFixed(1)) + '!' });
+      }
     }
   }
 
   function breakStreak(){
+    if (engine.streakLvl !== 0) emit('hha:streak', { level:0, mult:1, hits:0 });
     engine.streakLvl = 0;
     engine.streakHits = 0;
     engine.streakUntil = 0;
-    // (ปล่อย risk ทำงานต่อได้ตามเวลา เพื่อให้เป็น “reward window”)
   }
 
   // --------------------------- Spawn / Types ---------------------------
@@ -1000,11 +968,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var ttlBase = engine.ttlMs;
     var ttl = engine.storm ? Math.max(880, ttlBase * 0.85) : ttlBase;
 
-    // NEW (3): risk reduces ttl slightly (PLAY only)
-    if (riskActive()){
-      ttl = Math.max(650, ttl * 0.92);
-    }
-
     el._ttlTimer = root.setTimeout(function(){
       if (!el.isConnected) return;
 
@@ -1012,12 +975,12 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         engine.misses++;
         engine.combo = 0;
         breakStreak();
+        if (engine.storm) engine.stormDirty = true; // ✅ storm real clean logic
 
         emit('hha:judge', { kind:'warn', text:'MISS!' });
-        Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'warn');
+        try { Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'warn'); } catch(e){}
         addFever(-10);
         updateScore();
-        emitBuff();
         logEvent('miss_expire', { kind: el.dataset.kind || '', emoji: el.dataset.emoji || '' });
 
         Quest.onBadHit({ reason:'expire' });
@@ -1049,7 +1012,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     DOC.body.classList.add('plate-overdrive');
     SFX.power();
     emit('hha:celebrate', { kind:'goal', title:'OVERDRIVE x2!' });
-    emitBuff();
 
     root.setTimeout(function(){
       if (nowMs() >= engine.overUntil){
@@ -1079,11 +1041,11 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   // --------------------------- Storm waves + danger FX ---------------------------
   function enterStorm(){
     engine.storm = true;
+    engine.stormDirty = false; // ✅ reset dirty at storm start
     engine.stormUntil = nowMs() + engine.stormDurSec * 1000;
     DOC.body.classList.add('plate-storm');
     emit('plate:storm', { on:true, durSec: engine.stormDurSec|0 });
     logEvent('storm_start', { durSec: engine.stormDurSec|0 });
-    emitBuff();
 
     if (engine.runMode === 'play'){
       engine.adapt.spawnMs = Math.max(430, engine.adapt.spawnMs * 0.78);
@@ -1100,7 +1062,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     DOC.body.classList.remove('plate-storm-urgent');
     emit('plate:storm', { on:false, durSec:0 });
     logEvent('storm_end', { clean: !!clean });
-    emitBuff();
 
     Quest.onStormEnd(!!clean);
   }
@@ -1110,7 +1071,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var leftMs = engine.stormUntil - nowMs();
     if (leftMs <= 0){
       DOC.body.classList.remove('plate-storm-urgent');
-      exitStorm(true);
+      exitStorm(!engine.stormDirty); // ✅ real clean
       engine.nextStormAt = nowMs() + (15000 + engine.rng() * 12000);
       return;
     }
@@ -1164,7 +1125,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   function startLaserBurst(){
     var r = safeRect();
 
-    var phase2 = (engine.bossDownCount >= 1); // ✅ boss phase 2 unlocked after first boss down
+    var phase2 = (engine.bossDownCount >= 1);
     var count = phase2 ? (engine.rng() < 0.60 ? 2 : 1) : (engine.rng() < 0.22 ? 2 : 1);
     if (engine.storm && phase2) count = 2;
 
@@ -1177,11 +1138,16 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     for (var i=0;i<count;i++){
       var y = r.y0 + engine.rng() * (r.y1 - r.y0);
 
+      var warnUntil = nowMs() + warnMs;
+      var graceMs = 140; // ✅ P1: fairness grace right after warn
+      var activeAt = warnUntil + graceMs;
+
       var L = {
         y: y,
         h: h,
-        warnUntil: nowMs() + warnMs,
-        until: nowMs() + warnMs + activeMs,
+        warnUntil: warnUntil,
+        activeAt: activeAt,
+        until: activeAt + activeMs,
         hit: false
       };
       engine.lasers.list.push(L);
@@ -1193,13 +1159,11 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       el.style.setProperty('--lh', h.toFixed(1) + 'px');
     }
 
-    // hide extra els
     for (var k=count;k<laserEls.length;k++){
       if (laserEls[k]) laserEls[k].style.display = 'none';
     }
 
     logEvent('hazard_spawn', { kind:'laser', count: count, phase2: phase2 });
-
     SFX.beep(520, 0.05, 0.04);
   }
 
@@ -1227,7 +1191,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       }
 
       if (t >= L.until){
-        // completed without hit
         if (!L.hit){
           Quest.onLaserDodged();
         }
@@ -1235,6 +1198,11 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       }
 
       anyAlive = true;
+
+      if (t < L.activeAt){
+        // grace window: show as active but no collision yet
+        continue;
+      }
 
       // ACTIVE collision (laser shifts by vy)
       var ly = L.y + (engine.vy||0);
@@ -1246,8 +1214,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
           engine.shield = 0;
           emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
           logEvent('shield_block', { kind:'laser' });
-          emitBuff();
-          L.hit = true; // still counts as “handled”
+          L.hit = true;
           continue;
         }
 
@@ -1257,8 +1224,9 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         engine.combo = 0;
         breakStreak();
         addFever(-16);
-
+        if (engine.storm) engine.stormDirty = true; // ✅ storm dirty
         emit('hha:judge', { kind:'bad', text:'LASER HIT!' });
+
         DOC.body.classList.add('plate-shake');
         root.setTimeout(function(){ DOC.body.classList.remove('plate-shake'); }, 220);
 
@@ -1268,7 +1236,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         Quest.onBadHit({ reason:'laser' });
 
         updateScore();
-        emitBuff();
       }
     }
 
@@ -1283,16 +1250,17 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     if (nowMs() < engine.nextBossAt) return;
 
     var phase2 = (engine.bossDownCount >= 1);
-    engine.bossAlive = true;
 
-    // NOTE: keep your original “phase2 increases max” behavior
-    engine.bossHpMax = phase2 ? (engine.bossHpMax + 1) : engine.bossHpMax;
-    engine.bossHp = phase2 ? (engine.bossHpMax) : engine.bossHpMax;
+    // ✅ P0 FIX: DO NOT bloat bossHpBase / bossHpMax over time
+    var hpMax = (engine.bossHpBase|0) + (phase2 ? 1 : 0);
+
+    engine.bossAlive = true;
+    engine.bossHp = hpMax;
 
     var p = zone.on ? pickPosInsideZone(engine.rng) : randPos(engine.rng);
     var s = (engine.storm ? 1.18 : 1.30) * engine.sizeBase * ((engine.runMode === 'research') ? 1 : engine.adapt.size);
 
-    var el = makeTarget('boss', { hp: engine.bossHp, phase: phase2 ? 2 : 1 }, p.x, p.y, s);
+    var el = makeTarget('boss', { hp: hpMax, phase: phase2 ? 2 : 1 }, p.x, p.y, s);
     layer.appendChild(el);
 
     engine.nSpawnBoss++;
@@ -1302,8 +1270,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     emit('hha:celebrate', { kind:'goal', title: phase2 ? 'BOSS PHASE 2!' : 'BOSS 등장!' });
 
     engine.nextBossAt = nowMs() + (engine.runMode === 'research' ? 21000 : clamp(engine.adapt.bossEvery, 14000, 25000));
-
-    emitBoss(); // NEW (1)
   }
 
   // --------------------------- Perfect / Critical ---------------------------
@@ -1327,8 +1293,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     updateScore();
     logEvent('hit', { kind:'boss', emoji:'👑', hpLeft: engine.bossHp });
 
-    emitBoss(); // NEW (1)
-
     if (engine.bossHp <= 0){
       engine.bossAlive = false;
       engine.bossDownCount++;
@@ -1345,11 +1309,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
       logEvent('boss_down', { bossDownCount: engine.bossDownCount|0 });
 
-      // Phase2 pacing: bring next boss a bit sooner
       engine.nextBossAt = nowMs() + (engine.bossDownCount >= 1 ? 16000 : 19000);
-
-      emitBoss(); // NEW (1)
-      emitBuff();
     }
 
     removeTarget(el);
@@ -1358,6 +1318,10 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   function hitTarget(el){
     if (!engine.running || engine.ended) return;
     if (!el || !el.isConnected) return;
+
+    // ✅ P1: anti double-trigger
+    if (el.dataset._hit === '1') return;
+    el.dataset._hit = '1';
 
     var tp = String(el.dataset.type || '').toLowerCase();
     var rt = Math.max(0, nowMs() - (Number(el._spawnAt) || nowMs()));
@@ -1368,27 +1332,25 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
 
     if (tp === 'star'){
-      engine.nHitGood++;
+      // ✅ P0 FIX: star is NOT a "good hit" for accuracy
+      engine.nHitStar++;
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
 
-      // ⭐ breaks nothing; keep streak as-is
       var multS = scoreMult();
       engine.score += Math.round(150 * multS);
 
       emit('hha:judge', { kind:'good', text:'⭐ STAR!' });
-      Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'good');
+      try { Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'good'); } catch(e){}
       SFX.power();
 
       onStarCollected();
       updateScore();
-      emitBuff();
       logEvent('hit', { kind:'star', emoji:'⭐', rtMs: rt|0 });
       removeTarget(el);
       return;
     }
 
-    // zone check at hit-time (strict)
     var xy = getXY(el);
     var insideZone = zone.on ? isInsideZoneXY(xy.x, xy.y) : false;
 
@@ -1433,7 +1395,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       } catch (e) {}
 
       updateScore();
-      emitBuff();
       logEvent('hit', {
         kind: kind, isGood:true, emoji: el.dataset.emoji || '',
         rtMs: rt|0, perfect: !!perfect, critical: !!critical,
@@ -1449,10 +1410,9 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       return;
     }
 
-    // junk / decoy (penalty)
+    // junk / decoy
     var badLike = (tp === 'junk' || tp === 'decoy');
     if (badLike){
-      // If NO-JUNK ZONE is on and you hit bad, punish harder (but still shieldable)
       var zonePunish = (zone.on ? 1 : 0);
 
       if (tp === 'junk' && engine.shield > 0){
@@ -1463,7 +1423,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
         logEvent('shield_block', { kind:'junk', emoji: el.dataset.emoji || '', zoneOn: zone.on });
         updateScore();
-        emitBuff();
         removeTarget(el);
         return;
       }
@@ -1472,6 +1431,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       engine.combo = 0;
       breakStreak();
       addFever(tp === 'junk' ? (-18 - zonePunish*6) : (-14 - zonePunish*5));
+      if (engine.storm) engine.stormDirty = true; // ✅ storm dirty
 
       if (tp === 'junk') engine.nHitJunk++;
       else engine.nHitDecoy++;
@@ -1489,7 +1449,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       Quest.onBadHit({ reason: tp });
 
       updateScore();
-      emitBuff();
       removeTarget(el);
       return;
     }
@@ -1507,16 +1466,22 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
 
     if (t >= zone.nextAt){
-      // appear as a “moment” (more often in play mode)
       var sec = engine.storm ? 6 : 7;
       setZoneOn(sec);
       zone.nextAt = t + (20000 + engine.rng() * 14000);
     }
   }
 
-  // --------------------------- Spawn loop (zone-aware) ---------------------------
+  // --------------------------- Spawn loop ---------------------------
+  function countTargets(){
+    try { return layer.querySelectorAll('.pl-target').length|0; } catch(e){ return 0; }
+  }
+
   function spawnOne(){
     if (!engine.running || engine.ended) return;
+
+    // perf cap: prevent too many targets
+    if (countTargets() >= engine.maxTargets) return;
 
     tryBossSpawn();
 
@@ -1530,7 +1495,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     if (tp === 'decoy') size *= 0.98;
     if (tp === 'star') size *= 0.98;
 
-    // ✅ Zone fairness: good/star/boss inside, bad outside
     var p;
     if (zone.on){
       if (tp === 'good' || tp === 'star') p = pickPosInsideZone(engine.rng);
@@ -1570,29 +1534,19 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var base = (engine.runMode === 'research') ? diffParams(engine.diff) : engine.adapt;
     var sMs = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0));
 
-    // NEW (3): risk makes spawns faster for a short window (PLAY only)
-    if (riskActive()){
-      sMs = Math.max(260, sMs * 0.82);
-    }
-
     engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
   }
 
-  // --------------------------- Tick loop (adaptive + storm + zone + lasers + quest) ---------------------------
+  // --------------------------- Tick loop ---------------------------
   function loopTick(){
     if (!engine.running || engine.ended) return;
 
-    // storm schedule
     if (!engine.storm && nowMs() >= engine.nextStormAt) enterStorm();
     if (engine.storm) maybeStormTick();
 
-    // zone schedule
     maybeZoneTick();
-
-    // lasers
     checkLaserTick();
 
-    // adaptive (play only)
     if (engine.runMode === 'play'){
       var denom = engine.nHitGood + engine.nHitJunk + engine.nHitDecoy;
       var acc = denom > 0 ? (engine.nHitGood / denom) : 0;
@@ -1610,23 +1564,17 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       engine.ttlMs = diffParams(engine.diff).ttl;
     }
 
-    // streak decay (soft)
     if (engine.streakUntil && nowMs() > engine.streakUntil){
       engine.streakHits = 0;
       engine.streakLvl = 0;
       engine.streakUntil = 0;
+      emit('hha:streak', { level:0, mult:1, hits:0 });
     }
 
-    // time
     engine.left = Math.max(0, engine.left - 0.14);
     updateTime();
 
-    // quest tick (mini timer)
     Quest.onTick();
-
-    // NEW: keep HUD refreshed
-    emitBuff();
-    emitBoss();
 
     if (engine.left <= 0){
       endGame('time');
@@ -1645,7 +1593,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
   }
 
-  // --------------------------- End overlay (reuse existing HTML) ---------------------------
+  // --------------------------- End overlay reuse ---------------------------
   function ensureEndOverlay(){
     var end = DOC.getElementById('endOverlay');
     if (!end) return null;
@@ -1729,7 +1677,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.ended = true;
     engine.running = false;
 
-    DOC.body.classList.remove('plate-storm','plate-storm-urgent','plate-overdrive','plate-zoneOn','plate-zonePulse','plate-zone-urgent');
+    DOC.body.classList.remove('plate-storm','plate-storm-urgent','plate-overdrive','plate-zoneOn','plate-zonePulse');
     try { root.clearTimeout(engine.spawnTimer); } catch (e) {}
     try { root.clearTimeout(engine.tickTimer); } catch (e) {}
     try { root.clearTimeout(engine.hazardTimer); } catch (e) {}
@@ -1737,9 +1685,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     stopLasers();
     clearAllTargets();
     setZoneOff(true);
-
-    engine.bossAlive = false; // NEW (1)
-    emitBoss();
 
     var acc = accPct();
     var grade = rankFromAcc(acc);
@@ -1759,7 +1704,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       miniCleared:  q ? (q.miniCleared|0)  : 0,
       miniTotal:    q ? (q.miniTotal|0)    : 0,
 
-      // stats
       nTargetGoodSpawned: engine.nSpawnGood|0,
       nTargetJunkSpawned: engine.nSpawnJunk|0,
       nTargetDecoySpawned: engine.nSpawnDecoy|0,
@@ -1769,6 +1713,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       nHitGood: engine.nHitGood|0,
       nHitJunk: engine.nHitJunk|0,
       nHitDecoy: engine.nHitDecoy|0,
+      nHitStar: engine.nHitStar|0,
       nHitBoss: engine.nHitBoss|0,
 
       bossDownCount: engine.bossDownCount|0,
@@ -1835,6 +1780,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.nHitGood = 0;
     engine.nHitJunk = 0;
     engine.nHitDecoy = 0;
+    engine.nHitStar = 0;
     engine.nHitBoss = 0;
 
     engine.fever = 0;
@@ -1857,10 +1803,11 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
     engine.storm = false;
     engine.stormDurSec = dp.stormDur;
+    engine.stormDirty = false;
     engine.nextStormAt = nowMs() + (12000 + engine.rng() * 11000);
 
     engine.bossAlive = false;
-    engine.bossHpMax = dp.bossHp;
+    engine.bossHpBase = dp.bossHp; // ✅ P0 FIX: base only
     engine.bossHp = dp.bossHp;
     engine.bossDownCount = 0;
     engine.nextBossAt = nowMs() + 15000;
@@ -1875,8 +1822,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.streakLvl = 0;
     engine.streakHits = 0;
     engine.streakUntil = 0;
-
-    engine.riskUntil = 0; // NEW (3)
+    emit('hha:streak', { level:0, mult:1, hits:0 });
 
     engine.vx = 0;
     engine.vy = 0;
@@ -1885,15 +1831,19 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     // zone schedule
     zone.on = false;
     zone.until = 0;
-    zone.nextAt = nowMs() + (15000 + engine.rng() * 9000); // first appearance soon
+    zone.nextAt = nowMs() + (15000 + engine.rng() * 9000);
     zone.radius = (root.innerWidth < 420) ? 150 : 170;
+
+    // perf cap by device
+    engine.maxTargets = (root.innerWidth < 420) ? 14 : 16;
+
+    // combo tier
+    engine.lastComboTier = 0;
 
     Quest.startAll();
 
     updateTime();
     updateScore();
-    emitBuff();
-    emitBoss();
 
     logEvent('session_start', {
       runMode: engine.runMode,
