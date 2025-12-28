@@ -41,16 +41,14 @@
       padding:18px;
     }
     h1{ margin:0 0 6px; font-size:22px; }
-    .sub{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.5; }
+    .sub{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.55; }
 
     .grid{
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:12px;
     }
-    @media (max-width: 820px){
-      .grid{ grid-template-columns: 1fr; }
-    }
+    @media (max-width: 820px){ .grid{ grid-template-columns: 1fr; } }
 
     .card{
       background:var(--panel2);
@@ -70,10 +68,6 @@
       outline:none;
     }
     input::placeholder{ color:rgba(148,163,184,.70); }
-    .row2{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    @media (max-width: 520px){
-      .row2{ grid-template-columns: 1fr; }
-    }
 
     .actions{
       margin-top:14px;
@@ -98,17 +92,18 @@
       color:var(--text);
       box-shadow:none;
     }
+    .mini{
+      font-size:12px;
+      color:var(--muted);
+      margin-left:auto;
+    }
     .tip{
       margin-top:12px;
       color:var(--muted);
       font-size:12px;
       border-top:1px dashed rgba(148,163,184,.16);
       padding-top:10px;
-    }
-    .mini{
-      font-size:12px;
-      color:var(--muted);
-      margin-left:auto;
+      line-height:1.6;
     }
     a{ color:rgba(34,211,238,.95); text-decoration:none; }
     a:hover{ text-decoration:underline; }
@@ -119,7 +114,10 @@
 <body>
   <div class="wrap">
     <h1>🍽️ Food Groups VR — Launcher</h1>
-    <p class="sub">เลือกโหมด/ระดับ/สไตล์ แล้วกด “เข้าเกม” → จะพาไปหน้า Run ที่ <code>/herohealth/vr-groups/groups-vr.html</code></p>
+    <p class="sub">
+      เลือกโหมด/ระดับ/สไตล์ แล้วกด “เข้าเกม” → จะพาไปหน้า Run ที่
+      <code>/herohealth/vr-groups/groups-vr.html</code>
+    </p>
 
     <div class="grid">
       <div class="card">
@@ -160,7 +158,7 @@
 
       <div class="card">
         <label>Hub URL (ปุ่มกลับ HUB ในหน้า Run)</label>
-        <!-- สำคัญ: ค่านี้ถูกใช้ “จากหน้า Run” (อยู่ใน /herohealth/vr-groups/) -->
+        <!-- ค่านี้จะถูกใช้จากหน้า Run (/herohealth/vr-groups/) -->
         <input id="hub" type="text" value="../index.html" />
       </div>
     </div>
@@ -174,7 +172,9 @@
     </div>
 
     <div class="tip">
-      Tip: ถ้า “เข้าเกมไม่ได้” ให้เปิด DevTools → Network ดูว่า <code>GameEngine.js</code> ในหน้า Run ต้องได้ <b>Status 200</b> (GitHub Pages ตัวใหญ่/เล็กต้องตรง)
+      Tip: ถ้า “เข้าเกมไม่ได้” ให้เปิด DevTools → Network ดูว่า
+      <code>/herohealth/vr-groups/GameEngine.js</code> ต้องได้ <b>Status 200</b>
+      (GitHub Pages ตัวพิมพ์ใหญ่/เล็กต้องตรง)
     </div>
   </div>
 
@@ -200,6 +200,7 @@
         q.set('seed', seed);
         q.set('hub', hub);
         if (autostart) q.set('autostart', '1');
+
         // cache-bust
         q.set('v', String(Date.now()));
 
@@ -207,8 +208,7 @@
       }
 
       function repaintLink(){
-        const url = buildUrl(false);
-        $('runLink').href = url;
+        $('runLink').href = buildUrl(false);
       }
 
       ['runMode','diff','style','time','seed','hub'].forEach(id=>{
