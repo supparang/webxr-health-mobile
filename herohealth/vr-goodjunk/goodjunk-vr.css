@@ -1,11 +1,7 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR — ALL-IN CSS (PRODUCTION)
-✅ HUD + Coach + Quest
-✅ Targets: use CSS vars --x --y --s (FIX: target position)
-✅ Layer pointer-events:none; targets pointer-events:auto (clean input)
-✅ Crosshair + safe-area
-✅ Boss hazards Ring/Laser
-✅ Responsive: mobile/landscape (cardboard-feel)
+GoodJunkVR — ALL-IN CSS (UPDATED)
+✅ PC / Mobile responsive
+✅ VR Cardboard: data-view="vr" => 2 eyes split left/right
 */
 
 :root{
@@ -23,7 +19,6 @@ GoodJunkVR — ALL-IN CSS (PRODUCTION)
   --safeTop: env(safe-area-inset-top, 0px);
   --safeBottom: env(safe-area-inset-bottom, 0px);
 
-  /* Ring gap (updated by JS if boss mode) */
   --ringGapStart: 40deg;
   --ringGapSize: 85deg;
 }
@@ -40,128 +35,104 @@ html,body{
   position:fixed;
   inset:0;
   overflow:hidden;
-  touch-action: none;
+  touch-action:none;
 }
 
-/* IMPORTANT:
-   - layer: pointer-events none (ไม่แย่งคลิก/ลาก)
-   - targets: pointer-events auto (คลิก/แตะได้)
-*/
-#gj-layer{
-  position:fixed;
+#gj-world{
+  position:absolute;
   inset:0;
-  pointer-events:none;
-  z-index: 30;
-  will-change: transform;
+  width:100%;
+  height:100%;
 }
 
-/* Crosshair / aim point */
-#gj-crosshair{
-  position: fixed;
-  left: 50%;
-  top: 62%;
-  width: 46px;
-  height: 46px;
-  border-radius: 999px;
+/* ===== Eyes ===== */
+.gj-eye{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+}
+
+.eye-r{ display:none; } /* default: hide right eye */
+
+/* VR split: two eyes */
+html[data-view="vr"] .eye-l,
+body[data-view="vr"] .eye-l{
+  left:0; right:auto; width:50vw; height:100vh;
+}
+html[data-view="vr"] .eye-r,
+body[data-view="vr"] .eye-r{
+  display:block;
+  left:50vw; right:0; width:50vw; height:100vh;
+  border-left: 2px solid rgba(148,163,184,.10);
+}
+
+/* ===== Layers ===== */
+#gj-layer, #gj-layer-r{
+  position:absolute;
+  inset:0;
+  pointer-events:auto;
+  z-index: 10;
+}
+
+/* ===== Crosshair (left uses your original id) ===== */
+#gj-crosshair,
+.gj-crosshair{
+  position:absolute;
+  left:50%;
+  top:62%;
+  width:46px;
+  height:46px;
+  border-radius:999px;
   transform: translate(-50%, -50%);
-  border: 2px solid rgba(255,255,255,.65);
-  box-shadow:
-    0 0 0 3px rgba(34,197,94,.12),
-    0 0 22px rgba(148,163,184,.14);
+  border:2px solid rgba(255,255,255,.65);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.12), 0 0 22px rgba(148,163,184,.14);
   z-index: 40;
   pointer-events:none;
 }
-#gj-crosshair::before{
+#gj-crosshair::before,
+.gj-crosshair::before{
   content:'';
   position:absolute;
   left:50%; top:50%;
-  width: 7px; height:7px;
-  border-radius: 999px;
+  width:7px; height:7px;
+  border-radius:999px;
   background: rgba(255,255,255,.85);
   transform: translate(-50%,-50%);
 }
-#gj-crosshair::after{
+#gj-crosshair::after,
+.gj-crosshair::after{
   content:'';
   position:absolute;
   left:50%; top:50%;
-  width: 64px; height:64px;
-  border-radius: 999px;
+  width:64px; height:64px;
+  border-radius:999px;
   border: 2px dashed rgba(148,163,184,.22);
   transform: translate(-50%,-50%);
   opacity:.85;
 }
 
-/* ===================== Targets ===================== */
-/* FIX: ใช้ตำแหน่งจาก --x/--y และสเกลจาก --s */
+/* ===== Targets ===== */
 .gj-target{
   position:absolute;
-  left: var(--x, 50vw);
-  top:  var(--y, 50vh);
-  transform: translate(-50%, -50%) scale(var(--s, 1));
-  width: 74px;
-  height: 74px;
-  border-radius: 999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
+  transform: translate(-50%, -50%);
   user-select:none;
-  -webkit-user-select:none;
-  cursor: pointer;
-
-  pointer-events:auto;           /* ✅ click/tap works */
-  touch-action: manipulation;
-
-  /* "glass bubble" base */
-  background: rgba(2,6,23,.52);
-  border: 1px solid rgba(148,163,184,.22);
-  box-shadow:
-    0 16px 50px rgba(0,0,0,.45),
-    0 0 0 1px rgba(255,255,255,.04) inset;
-  backdrop-filter: blur(8px);
-
-  font-size: 38px;
-  line-height: 1;
-
+  cursor:pointer;
   will-change: transform, opacity, filter;
-  text-shadow:
-    0 2px 0 rgba(0,0,0,.35),
-    0 12px 24px rgba(0,0,0,.30);
+  text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 12px 24px rgba(0,0,0,.30);
   filter: drop-shadow(0 14px 24px rgba(0,0,0,.22));
-  transition: transform .12s ease, opacity .16s ease, filter .16s ease;
+  transition: transform .12s ease, opacity .16s ease;
 }
 
-/* legacy classes (ถ้า engine เก่าใช้) */
 .gj-target.spawn{ transform: translate(-50%,-50%) scale(.25); opacity:0; }
-.gj-target.gone{  transform: translate(-50%,-50%) scale(.85); opacity:0; }
+.gj-target.gone{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
+.gj-target:hover{ transform: translate(-50%,-50%) scale(1.06); }
 
-/* new classes (engine ใหม่) */
-.gj-target.hit{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.25));
-  opacity:.18;
-  filter: blur(.7px) drop-shadow(0 12px 18px rgba(0,0,0,.22));
-}
-.gj-target.out{
-  opacity:0;
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * 0.85));
-}
-
-.gj-target:hover{
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06));
-}
-
-/* รองรับทั้ง "good/junk/shield/star" และ "gj-junk/gj-power/gj-gold" */
-.gj-target.good{   border-color: rgba(34,197,94,.28); }
-.gj-target.junk{   border-color: rgba(239,68,68,.30); filter: saturate(1.12) drop-shadow(0 18px 28px rgba(239,68,68,.22)); }
-.gj-target.shield{ border-color: rgba(96,165,250,.32); filter: drop-shadow(0 18px 32px rgba(96,165,250,.22)); }
-.gj-target.star{   border-color: rgba(251,191,36,.28); filter: drop-shadow(0 18px 32px rgba(251,191,36,.20)); }
-
-.gj-target.gj-junk{  filter: drop-shadow(0 18px 28px rgba(239,68,68,.22)); }
-.gj-target.gj-gold{  filter: drop-shadow(0 18px 32px rgba(251,191,36,.22)); }
+.gj-target.gj-good{ filter: drop-shadow(0 18px 28px rgba(34,197,94,.18)); }
+.gj-target.gj-junk{ filter: drop-shadow(0 18px 28px rgba(239,68,68,.22)); }
+.gj-target.gj-gold{ filter: drop-shadow(0 18px 32px rgba(251,191,36,.22)); }
 .gj-target.gj-power{ filter: drop-shadow(0 18px 32px rgba(96,165,250,.24)); }
-.gj-target.gj-boss{  filter: drop-shadow(0 22px 40px rgba(245,158,11,.20)); }
 
-/* ===================== Controls ===================== */
+/* ===== Controls ===== */
 .hha-controls{
   position: fixed;
   left: 0;
@@ -187,7 +158,7 @@ html,body{
 }
 .btn-shoot:active{ transform: translateY(1px) scale(.99); }
 
-/* ===================== HUD ===================== */
+/* ===== HUD ===== */
 .hha-hud{
   position: fixed;
   left: 10px;
@@ -196,14 +167,12 @@ html,body{
   z-index: 80;
   pointer-events:none;
 }
-
 .hud-top{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
   gap:10px;
 }
-
 .hud-badge{
   min-width: 160px;
   padding: 10px 12px;
@@ -231,7 +200,6 @@ html,body{
 }
 .hud-stat .k{ font-size: 11px; color: var(--muted); }
 .hud-stat .v{ font-size: 18px; font-weight: 900; margin-top:2px; }
-.hud-stat.grade .v{ color: #fff; }
 
 .hud-mid{
   margin-top: 10px;
@@ -278,7 +246,7 @@ html,body{
 .coach-line{ font-size: 13px; font-weight: 900; }
 .coach-sub{ font-size: 12px; color: var(--muted); }
 
-/* ===================== Fever ===================== */
+/* ===== Fever ===== */
 .hha-fever{
   position: fixed;
   left: 12px;
@@ -323,9 +291,8 @@ html,body{
   font-weight: 900;
   color:#fff;
 }
-
 .shield-row{ margin-top: 6px; }
-.shield-pills{ display:flex; gap:6px; flex-wrap: wrap; }
+.shield-pills{ display:flex; gap:6px; flex-wrap:wrap; }
 .shield-pill{
   width: 14px; height: 14px;
   border-radius: 6px;
@@ -337,7 +304,7 @@ html,body{
   box-shadow: 0 0 16px rgba(96,165,250,.24);
 }
 
-/* ===================== Start overlay ===================== */
+/* ===== Start overlay ===== */
 .start-overlay{
   position: fixed;
   inset: 0;
@@ -373,9 +340,19 @@ html,body{
 }
 .btn-start:active{ transform: translateY(1px) scale(.99); }
 
-/* ===================== Boss hazards ===================== */
-#atk-ring{
-  position: fixed;
+.start-hint{ margin-top:10px; display:flex; flex-wrap:wrap; gap:6px; }
+.pill{
+  font-size: 12px;
+  color: #e2e8f0;
+  border: 1px solid rgba(148,163,184,.20);
+  background: rgba(15,23,42,.50);
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+/* ===== Boss hazards (left) ===== */
+#atk-ring, .atk-ring{
+  position:absolute;
   left: 50%;
   top: 50%;
   width: min(520px, 92vw);
@@ -398,13 +375,11 @@ html,body{
     );
   mask: radial-gradient(circle at 50% 50%, transparent 56%, #000 58%, #000 76%, transparent 78%);
 }
-#atk-ring.show{ opacity: 1; }
-body.gj-panic #atk-ring.show{ opacity: .92; }
+#atk-ring.show, .atk-ring.show{ opacity:1; }
 
-#atk-laser{
-  position: fixed;
-  left: 0;
-  right: 0;
+#atk-laser, .atk-laser{
+  position:absolute;
+  left: 0; right: 0;
   height: 10px;
   top: 45%;
   z-index: 36;
@@ -413,35 +388,15 @@ body.gj-panic #atk-ring.show{ opacity: .92; }
   background: linear-gradient(90deg, rgba(239,68,68,0), rgba(239,68,68,.85), rgba(239,68,68,0));
   filter: drop-shadow(0 16px 26px rgba(239,68,68,.20));
 }
-#atk-laser.warn{
-  opacity: .45;
-  height: 8px;
-  animation: laserWarn .22s ease-in-out infinite alternate;
-}
-#atk-laser.fire{
-  opacity: .95;
-  height: 12px;
-  animation: laserFire .08s linear infinite alternate;
-}
+.atk-laser.warn, #atk-laser.warn{ opacity:.45; height:8px; animation: laserWarn .22s ease-in-out infinite alternate; }
+.atk-laser.fire, #atk-laser.fire{ opacity:.95; height:12px; animation: laserFire .08s linear infinite alternate; }
 @keyframes laserWarn { from{ transform: scaleX(.94); } to{ transform: scaleX(1.02); } }
 @keyframes laserFire { from{ transform: scaleX(.98); } to{ transform: scaleX(1.02); } }
 
-/* ===================== Responsive ===================== */
-@media (max-width: 520px){
-  .hud-stats{ max-width: 54vw; }
-  .hud-stat{ width: 72px; }
-  .hud-stat .v{ font-size: 17px; }
-  .coach-line{ font-size: 12.5px; }
-  .coach-sub{ font-size: 11.5px; }
-  .gj-target{ width: 70px; height: 70px; font-size: 36px; }
-}
-
-@media (orientation: landscape) and (max-height: 460px){
-  /* cardboard-feel landscape: compact HUD */
-  #gj-crosshair{ top: 55%; }
-  .hha-hud{ top: calc(6px + var(--safeTop)); left: 8px; right: 8px; }
-  .hud-mid{ margin-top: 8px; }
-  .hha-fever{ bottom: calc(72px + var(--safeBottom)); }
-  .btn-shoot{ height: 52px; }
-  .gj-target{ width: 66px; height: 66px; font-size: 34px; }
+/* ===== Mobile tweaks ===== */
+@media (max-width: 560px){
+  .hud-stats{ max-width: 68vw; }
+  .hud-stat{ width: 70px; }
+  .hud-mid{ flex-direction:column; }
+  .hha-fever{ bottom: calc(84px + var(--safeBottom)); }
 }
