@@ -1,10 +1,8 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Cardboard Stereo)
-// ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:end, hha:celebrate
-// ✅ Cardboard stereo: renders targets into L/R layers (if present)
-// ✅ Cardboard gaze supported by HTML (gaze reads center & pointerdown)
-// ✅ Research: run=research => adaptive OFF + deterministic seed
-// ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end
+// ✅ + (1) Storm Intro: emit hha:storm enter + urgency flags
+// ✅ + (2) Water splash burst at target position (Particles burstAt) if available
+// ✅ + (3) GREEN streak bonus: reward while holding GREEN continuously (play-mode friendly)
 
 'use strict';
 
@@ -22,6 +20,12 @@ function qs(name, def){
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
 }
+
+// Particles (optional, IIFE)
+const Particles =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+  ROOT.Particles ||
+  { burstAt(){}, scorePop(){} };
 
 // seeded RNG (deterministic for research)
 function hashStr(s){
@@ -65,7 +69,6 @@ const playfield =
 const layerMain = DOC.getElementById('hvr-layer');
 const layerL = DOC.getElementById('hvr-layerL');
 const layerR = DOC.getElementById('hvr-layerR');
-
 const LAYERS = (isStereo && layerL && layerR) ? [layerL, layerR] : [layerMain].filter(Boolean);
 
 const elScore = DOC.getElementById('stat-score');
@@ -166,6 +169,10 @@ const S = {
   greenHold: 0,
   greenTarget: 0,
 
+  // (3) GREEN streak
+  greenStreakSec: 0,     // continuous GREEN time
+  greenStreakLvl: 0,     // how many streak bonuses earned
+
   stormActive:false,
   stormLeftSec:0,
   stormDur: 0,
@@ -194,7 +201,7 @@ const S = {
   finalRush:false
 };
 
-// difficulty tuning (faster + tighter)
+// difficulty tuning
 const TUNE = (() => {
   const sizeBase =
     diff === 'easy' ? 78 :
@@ -213,6 +220,11 @@ const TUNE = (() => {
     diff === 'hard' ? 6.2 : 5.8;
 
   const g = clamp(Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)), 18, Math.max(18, timeLimit-8));
+
+  // (3) streak threshold (continuous GREEN seconds per bonus)
+  const streakEvery =
+    diff === 'easy' ? 4.2 :
+    diff === 'hard' ? 3.2 : 3.6;
 
   return {
     sizeBase,
@@ -235,7 +247,11 @@ const TUNE = (() => {
 
     greenTargetSec: g,
 
-    stereoParallaxPct: 1.15
+    stereoParallaxPct: 1.15,
+
+    // (3)
+    greenStreakEverySec: streakEvery,
+    greenStreakBonusBase: diff==='easy' ? 10 : diff==='hard' ? 16 : 13
   };
 })();
 
@@ -243,7 +259,7 @@ S.greenTarget = TUNE.greenTargetSec;
 S.endWindowSec = TUNE.endWindowSec;
 S.stormDur = TUNE.stormDurSec;
 
-// expose for cinematic/debug
+// expose for debug
 ROOT.__HVR__ = ROOT.__HVR__ || {};
 ROOT.__HVR__.S = S;
 ROOT.__HVR__.TUNE = TUNE;
@@ -253,7 +269,6 @@ function computeAccuracy(){
   const denom = Math.max(1, S.nGoodSpawn);
   return clamp((S.nHitGood / denom) * 100, 0, 100);
 }
-
 function computeGrade(){
   const acc = computeAccuracy();
   const miss = S.misses|0;
@@ -281,8 +296,12 @@ function syncHUD(){
   setText(elShieldCount, S.shield|0);
   setText(elStormLeft, S.stormActive ? (S.stormLeftSec|0) : 0);
 
+  const streakMsg = (run === 'research')
+    ? ''
+    : ` • streak ${S.greenStreakLvl|0}x`;
+
   setText(elQuest1, `คุม GREEN ให้ครบ ${S.greenTarget|0}s (สะสม)`);
-  setText(elQuest2, `GREEN: ${(S.greenHold).toFixed(1)} / ${(S.greenTarget).toFixed(0)}s`);
+  setText(elQuest2, `GREEN: ${(S.greenHold).toFixed(1)} / ${(S.greenTarget).toFixed(0)}s${streakMsg}`);
   setText(elQuest3, S.stormActive ? `Storm Mini: LOW/HIGH + BLOCK (End)` : `รอ Storm แล้วค่อยทำ Mini`);
 
   const m = S.miniState;
@@ -305,7 +324,7 @@ function syncHUD(){
     shield: S.shield|0,
     stormActive: !!S.stormActive,
     stormLeftSec: S.stormLeftSec,
-    stormInEndWindow: !!S.inEndWindow,   // ✅ HTML urgent tick uses this
+    stormInEndWindow: !!S.inEndWindow,
     finalRush: !!S.finalRush
   });
 
@@ -329,9 +348,7 @@ function syncHUD(){
 }
 
 // ------------------ water dynamics ------------------
-function updateZone(){
-  S.waterZone = zoneFrom(S.waterPct);
-}
+function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
 function nudgeWaterGood(){
   const mid = 55;
   const d = mid - S.waterPct;
@@ -347,7 +364,7 @@ function pushWaterBad(){
   updateZone();
 }
 
-// ------------------ spawn math (center bias + margins) ------------------
+// ------------------ spawn math ------------------
 function pickXY(){
   const r = playfield.getBoundingClientRect();
   const pad = 22;
@@ -380,11 +397,12 @@ function targetSize(){
   return clamp(s, 44, 86);
 }
 
-// ------------------ FX pop ------------------
+// ------------------ FX pop + burst ------------------
 function makePop(text, kind){
   const color =
     kind === 'good' ? 'rgba(34,197,94,.95)' :
     kind === 'shield' ? 'rgba(34,211,238,.95)' :
+    kind === 'warn' ? 'rgba(245,158,11,.95)' :
     'rgba(239,68,68,.95)';
 
   for (const host of LAYERS){
@@ -401,14 +419,19 @@ function makePop(text, kind){
   }
 }
 
-// ------------------ target lifecycle (stereo-safe) ------------------
+function burstAtClientXY(cx, cy, kind){
+  // best-effort: Particles.burstAt expects viewport coords in many implementations; if not, harmless
+  try{ Particles.burstAt(cx, cy, kind); }catch{}
+  try{ Particles.scorePop(kind === 'good' ? '+10' : kind === 'shield' ? '+6' : '-'); }catch{}
+}
+
+// ------------------ target lifecycle ------------------
 function spawn(kind){
   if (S.ended) return null;
 
   const { xPct, yPct } = pickXY();
   const s = targetSize();
 
-  // count
   if (kind === 'good') S.nGoodSpawn++;
   if (kind === 'bad') S.nBadSpawn++;
   if (kind === 'shield') S.nShieldSpawn++;
@@ -421,7 +444,6 @@ function spawn(kind){
   let killed = false;
   const els = [];
 
-  // parallax for stereo
   const shift = (isStereo ? clamp(TUNE.stereoParallaxPct * (s/66), 0.7, 1.6) : 0);
 
   function applyPos(el, eye){
@@ -451,6 +473,12 @@ function spawn(kind){
       ev.preventDefault();
       ev.stopPropagation();
       if (killed || S.ended) return;
+
+      // burst splash at hit position
+      const cx = ev.clientX || (window.innerWidth/2);
+      const cy = ev.clientY || (window.innerHeight/2);
+      burstAtClientXY(cx, cy, kind);
+
       kill('hit');
 
       if (kind === 'good'){
@@ -516,7 +544,6 @@ function spawn(kind){
     }
   }
 
-  // create in layers
   if (isStereo && LAYERS.length === 2){
     els.push(buildEl(LAYERS[0], 'L'));
     els.push(buildEl(LAYERS[1], 'R'));
@@ -534,33 +561,18 @@ let spawnTimer = 0;
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
 
-  if (S.adaptiveOn){
-    base *= (1.00 - 0.25 * S.adaptK);
-  }
-  if (S.stormActive){
-    base *= TUNE.stormSpawnMul;
-  }
-  if (S.finalRush){
-    base *= 0.72;
-  }
+  if (S.adaptiveOn) base *= (1.00 - 0.25 * S.adaptK);
+  if (S.stormActive) base *= TUNE.stormSpawnMul;
+  if (S.finalRush) base *= 0.72;
 
   return clamp(base, 210, 1200);
 }
 
 function pickKind(){
-  let pGood = 0.66;
-  let pBad  = 0.28;
-  let pSh   = 0.06;
+  let pGood = 0.66, pBad = 0.28, pSh = 0.06;
 
-  if (S.stormActive){
-    pGood = 0.50;
-    pBad  = 0.40;
-    pSh   = 0.10;
-  }
-  if (diff === 'hard'){
-    pBad += 0.04;
-    pGood -= 0.04;
-  }
+  if (S.stormActive){ pGood = 0.50; pBad = 0.40; pSh = 0.10; }
+  if (diff === 'hard'){ pBad += 0.04; pGood -= 0.04; }
 
   const r = rng();
   if (r < pSh) return 'shield';
@@ -585,11 +597,16 @@ function enterStorm(){
     endBadSpawned:false
   };
 
-  // shove out of GREEN sometimes (make mini fair)
   if (S.waterZone === 'GREEN'){
     S.waterPct = clamp(S.waterPct + (rng() < 0.5 ? -9 : +9), 0, 100);
     updateZone();
   }
+
+  // (1) tell UI to show intro + siren
+  emit('hha:storm', { state:'enter', cycle:S.stormCycle, dur:S.stormDur });
+
+  // also fire a judge tag (HTML beeps already)
+  emit('hha:judge', { kind:'storm-in' });
 
   syncHUD();
 }
@@ -611,6 +628,8 @@ function exitStorm(){
     }
   }
 
+  emit('hha:storm', { state:'exit', cycle:S.stormCycle });
+
   syncHUD();
 }
 
@@ -623,25 +642,54 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
-  // zone must be LOW/HIGH sometime during storm
   const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
-  // pressure build (faster when zoneOK)
   const pGain = zoneOK ? 0.56 : 0.26;
   S.miniState.pressure = clamp(S.miniState.pressure + dt * pGain, 0, 1);
   if (S.miniState.pressure >= 1) S.miniState.pressureOK = true;
 
-  // ✅ fairness: guarantee at least 1 BAD in End Window to allow BLOCK
   if (inEnd && !S.miniState.endBadSpawned){
     S.miniState.endBadSpawned = true;
-    // spawn 1-2 bad quickly
     spawn('bad');
     if (rng() < 0.55) setTimeout(()=>{ if(S.stormActive && !S.ended) spawn('bad'); }, 220);
   }
 
   if (S.stormLeftSec <= 0.001){
     exitStorm();
+  }
+}
+
+// ------------------ (3) GREEN streak bonus ------------------
+function tickGreenStreak(dt){
+  if (run === 'research') return;   // research mode = clean & stable
+  if (S.stormActive) return;        // ระหว่างพายุไม่ให้ streak โกง
+
+  if (S.waterZone === 'GREEN'){
+    S.greenStreakSec += dt;
+
+    const need = TUNE.greenStreakEverySec;
+    const nextLvl = Math.floor(S.greenStreakSec / need);
+
+    if (nextLvl > S.greenStreakLvl){
+      S.greenStreakLvl = nextLvl;
+
+      const bonus = Math.round(TUNE.greenStreakBonusBase + Math.min(24, S.greenStreakLvl * 2));
+      S.score += bonus;
+
+      makePop(`STREAK +${bonus}`, 'good');
+      emit('hha:judge', { kind:'streak' });
+
+      // tiny bonus shield chance (soft, not OP)
+      if (rng() < (diff === 'hard' ? 0.08 : 0.12)){
+        S.shield = clamp(S.shield + 1, 0, S.shieldMax);
+        makePop('+BONUS SHIELD', 'shield');
+      }
+    }
+  } else {
+    // reset quickly when leave GREEN (keeps it tense)
+    S.greenStreakSec = Math.max(0, S.greenStreakSec - dt * 3.2);
+    if (S.greenStreakSec < 0.25) S.greenStreakLvl = 0;
   }
 }
 
@@ -687,6 +735,9 @@ function update(dt){
     S.finalRush = true;
     emit('hha:judge', { kind:'rush' });
   }
+
+  // (3) streak
+  tickGreenStreak(dt);
 
   const elapsed = (now() - S.t0) / 1000;
 
@@ -760,7 +811,6 @@ async function endGame(reason){
   }catch{}
 
   emit('hha:end', summary);
-
   await sendLog(summary);
 }
 
