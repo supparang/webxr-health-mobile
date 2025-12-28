@@ -1,85 +1,80 @@
-// === /herohealth/vr/hha-cloud-logger.js ===
-// HeroHealth — Cloud Logger (Google Apps Script Web App)
-// Usage: add ?log=<WEB_APP_EXEC_URL>
-// Listens:
-//  - hha:log_session
-//  - hha:log_event
-//  - hha:end
-// Uses sendBeacon then fetch fallback
+// === PATCH in /herohealth/vr/hha-cloud-logger.js ===
+// Ensure event rows match Events sheet schema exactly.
 
-(function (root) {
-  'use strict';
+function safeJson(v){
+  try{
+    if (v == null) return '';
+    if (typeof v === 'string') return v;
+    return JSON.stringify(v);
+  }catch(_){ return ''; }
+}
 
-  const doc = root.document;
-  if (!doc) return;
+function normalizeEvent(detail){
+  const ctx = (detail && detail.ctx) || {};
+  const data = (detail && detail.data) || {};
+  const type = (detail && (detail.type || detail.eventType)) || data.eventType || 'event';
 
-  function getEndpoint(){
-    try{
-      const u = new URL(location.href);
-      const ep = u.searchParams.get('log');
-      return ep ? String(ep) : null;
-    }catch(_){ return null; }
-  }
+  // Build row EXACT columns (extra keys ok; Apps Script can map)
+  const row = {
+    // context columns
+    timestampIso: ctx.timestampIso || data.timestampIso || new Date().toISOString(),
+    projectTag: ctx.projectTag || data.projectTag || '',
+    runMode: ctx.runMode || data.runMode || '',
+    studyId: ctx.studyId || data.studyId || '',
+    phase: ctx.phase || data.phase || '',
+    conditionGroup: ctx.conditionGroup || data.conditionGroup || '',
+    sessionId: data.sessionId || ctx.sessionId || '',
 
-  const ENDPOINT = getEndpoint();
-  const Q = [];
-  let flushing = false;
+    // event columns
+    eventType: String(type),
+    gameMode: data.gameMode || ctx.gameMode || '',
+    diff: data.diff || ctx.diff || '',
+    timeFromStartMs: data.timeFromStartMs ?? '',
 
-  function post(payload){
-    if (!ENDPOINT) return;
+    targetId: data.targetId ?? '',
+    emoji: data.emoji ?? '',
+    itemType: data.itemType ?? data.kind ?? '',
+    lane: data.lane ?? '',
 
-    const body = JSON.stringify(payload);
-    try{
-      if (navigator.sendBeacon){
-        const ok = navigator.sendBeacon(ENDPOINT, new Blob([body], { type: 'application/json' }));
-        if (ok) return true;
-      }
-    }catch(_){}
-    return fetch(ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-      keepalive: true
-    }).then(()=>true).catch(()=>false);
-  }
+    rtMs: data.rtMs ?? '',
+    judgment: data.judgment ?? '',
+    totalScore: data.totalScore ?? data.score ?? '',
+    combo: data.combo ?? '',
 
-  function enqueue(type, detail){
-    if (!ENDPOINT) return;
-    Q.push({ type, detail, ts: Date.now() });
-    flushSoon();
-  }
+    isGood: (data.isGood === 1 || data.isGood === true) ? 1 : (data.isGood === 0 || data.isGood === false ? 0 : ''),
+    feverState: data.feverState ?? '',
+    feverValue: data.feverValue ?? '',
 
-  function flushSoon(){
-    if (flushing) return;
-    flushing = true;
-    setTimeout(async () => {
-      try{
-        while(Q.length){
-          const item = Q.shift();
-          await post(item.detail);
-        }
-      } finally {
-        flushing = false;
-      }
-    }, 120);
-  }
+    goalProgress: data.goalProgress ?? '',
+    miniProgress: data.miniProgress ?? '',
+    extra: safeJson(data.extra ?? data),
 
-  function flushNow(){
-    if (!ENDPOINT) return Promise.resolve();
-    return (async () => {
-      while(Q.length){
-        const item = Q.shift();
-        await post(item.detail);
-      }
-    })();
-  }
+    // lightweight profile columns needed by Events sheet
+    studentKey: ctx.studentKey || '',
+    schoolCode: ctx.schoolCode || '',
+    classRoom: ctx.classRoom || '',
+    studentNo: ctx.studentNo || '',
+    nickName: ctx.nickName || '',
+  };
 
-  root.addEventListener('hha:log_session', (e) => enqueue('session', e.detail || {}));
-  root.addEventListener('hha:log_event', (e) => enqueue('event', e.detail || {}));
-  root.addEventListener('hha:end', (e) => enqueue('end', e.detail || {}));
+  return row;
+}
 
-  root.HHACloudLogger = { flushNow };
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.HHACloudLogger = root.HHACloudLogger;
+function normalizeSession(detail){
+  // detail should already be flat session row (best)
+  // just ensure timestampIso exists
+  const row = Object.assign({}, detail || {});
+  if (!row.timestampIso) row.timestampIso = new Date().toISOString();
+  return row;
+}
 
-})(window);
+window.addEventListener('hha:log_event', (e) => {
+  const row = normalizeEvent(e.detail);
+  // send row to Apps Script (existing send function)
+  // sendToScript({ sheet: 'Events', row });
+});
+
+window.addEventListener('hha:log_session', (e) => {
+  const row = normalizeSession(e.detail);
+  // sendToScript({ sheet: 'Sessions', row });
+});
