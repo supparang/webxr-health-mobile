@@ -1,8 +1,10 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
 Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
-1) Magnet pulls ONLY correct-group GOOD targets
-2) Freeze turns bad targets into harmless "dolls" for 2s
-3) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
+FIX:
+- Expose instance at window.GroupsVR.GameEngine + window.GroupsVR.engine
+- DO NOT override root.GroupsBoot
+- Provide setLayerEl/setCameraEl/setTimeLeft + start() supports BOTH signatures:
+  (diff, {runMode,seed,time}) OR (runMode, {diff,seed,time})
 */
 
 (function(root){
@@ -13,12 +15,31 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
   const NS = (root.GroupsVR = root.GroupsVR || {});
   const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch{} };
 
-  const layer = DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer');
-  if (!layer) return;
+  // ---------- Helpers ----------
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function qs(name, def){
+    try{ return (new URL(root.location.href)).searchParams.get(name) ?? def; }
+    catch{ return def; }
+  }
+  function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
+  function isDiffToken(s){
+    s = String(s||'').toLowerCase();
+    return (s === 'easy' || s === 'normal' || s === 'hard');
+  }
+
+  // ---------- Layer / Camera refs (bindable by Boot) ----------
+  let layerEl = DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer') || null;
+  let cameraEl = DOC.querySelector('#cam') || null;
+
+  function mustLayer(){
+    layerEl = layerEl || DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer') || null;
+    return layerEl;
+  }
 
   // ---------- Buff chips UI ----------
   let buffWrap = DOC.querySelector('.groups-buff');
-  if (!buffWrap){
+  function ensureBuffUI(){
+    if (buffWrap) return;
     buffWrap = DOC.createElement('div');
     buffWrap.className = 'groups-buff';
     buffWrap.innerHTML = `
@@ -29,10 +50,8 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     `;
     DOC.body.appendChild(buffWrap);
   }
-  const chipStorm = DOC.getElementById('chipStorm');
-  const chipMag   = DOC.getElementById('chipMag');
-  const chipFrz   = DOC.getElementById('chipFrz');
-  const chipOver  = DOC.getElementById('chipOver');
+
+  function $id(id){ return DOC.getElementById(id); }
 
   // ---------- Seeded RNG ----------
   function xmur3(str){
@@ -66,14 +85,6 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     const gen = xmur3(seed);
     return sfc32(gen(), gen(), gen(), gen());
   }
-
-  // ---------- Helpers ----------
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-  function qs(name, def){
-    try{ return (new URL(root.location.href)).searchParams.get(name) ?? def; }
-    catch{ return def; }
-  }
-  function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
 
   // ---------- Simple SFX (WebAudio) ----------
   const SFX = {
@@ -123,16 +134,33 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     4: { label:'หมู่ 4', emoji:['🍎','🍌','🍊','🍉','🍓','🍍'] },
     5: { label:'หมู่ 5', emoji:['🥑','🫒','🧈','🥥','🧀','🌰'] }
   };
-
   const JUNK_EMOJI = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭'];
   const DECOY_EMOJI = ['🎭','🌀','✨','🌈','🎈'];
 
-  // ---------- State ----------
+  function diffParams(diff){
+    diff = String(diff||'normal').toLowerCase();
+    if (diff === 'easy') return { spawnMs:900, ttl:1750, size:1.05, powerThr:9,  junk:0.10, decoy:0.08, stormDur:6, bossHp:3 };
+    if (diff === 'hard') return { spawnMs:680, ttl:1450, size:0.92, powerThr:11, junk:0.16, decoy:0.12, stormDur:7, bossHp:4 };
+    return                 { spawnMs:780, ttl:1600, size:1.00, powerThr:10, junk:0.12, decoy:0.10, stormDur:6, bossHp:3 };
+  }
+
+  function rankFromAcc(acc){
+    if (acc >= 95) return 'SSS';
+    if (acc >= 90) return 'SS';
+    if (acc >= 85) return 'S';
+    if (acc >= 75) return 'A';
+    if (acc >= 60) return 'B';
+    return 'C';
+  }
+
+  // ---------- Engine state ----------
   const engine = {
     running:false, ended:false,
     runMode:'play',
     diff:'normal',
     timeSec:90,
+    _pendingTimeSec:null,
+
     seed:'seed',
     rng:Math.random,
 
@@ -169,30 +197,19 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     magnetUntil:0,
     freezeUntil:0,
 
-    // (3) Overdrive
+    // Overdrive
     overCharge:0,
     overWindowUntil:0,
     overUntil:0,
 
     spawnTimer:0,
     tickTimer:0,
+
+    // API for Boot
+    setLayerEl(el){ layerEl = el || layerEl; },
+    setCameraEl(el){ cameraEl = el || cameraEl; },
+    setTimeLeft(sec){ engine._pendingTimeSec = clamp(sec, 20, 600); }
   };
-
-  function diffParams(diff){
-    diff = String(diff||'normal').toLowerCase();
-    if (diff === 'easy') return { spawnMs:900, ttl:1750, size:1.05, powerThr:9,  junk:0.10, decoy:0.08, stormDur:6, bossHp:3 };
-    if (diff === 'hard') return { spawnMs:680, ttl:1450, size:0.92, powerThr:11, junk:0.16, decoy:0.12, stormDur:7, bossHp:4 };
-    return                 { spawnMs:780, ttl:1600, size:1.00, powerThr:10, junk:0.12, decoy:0.10, stormDur:6, bossHp:3 };
-  }
-
-  function rankFromAcc(acc){
-    if (acc >= 95) return 'SSS';
-    if (acc >= 90) return 'SS';
-    if (acc >= 85) return 'S';
-    if (acc >= 75) return 'A';
-    if (acc >= 60) return 'B';
-    return 'C';
-  }
 
   function scoreMult(){
     return (now() < engine.overUntil) ? 2 : 1;
@@ -219,13 +236,24 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
 
   // ---------- VR feel view ----------
   function applyView(){
-    layer.style.setProperty('--vx', engine.vx.toFixed(1)+'px');
-    layer.style.setProperty('--vy', engine.vy.toFixed(1)+'px');
+    const L = mustLayer();
+    if (!L) return;
+    L.style.setProperty('--vx', engine.vx.toFixed(1)+'px');
+    L.style.setProperty('--vy', engine.vy.toFixed(1)+'px');
   }
+
+  let viewBound = false;
   function setupView(){
-    layer.addEventListener('pointerdown', (e)=>{
+    if (viewBound) return;
+    viewBound = true;
+
+    const L = mustLayer();
+    if (!L) return;
+
+    L.addEventListener('pointerdown', (e)=>{
       engine.dragOn = true; engine.dragX = e.clientX; engine.dragY = e.clientY;
     }, { passive:true });
+
     root.addEventListener('pointermove', (e)=>{
       if (!engine.dragOn) return;
       const dx = e.clientX - engine.dragX;
@@ -235,6 +263,7 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
       engine.vy = clamp(engine.vy + dy*0.22, -90, 90);
       applyView();
     }, { passive:true });
+
     root.addEventListener('pointerup', ()=>{ engine.dragOn=false; }, { passive:true });
 
     root.addEventListener('deviceorientation', (ev)=>{
@@ -287,7 +316,8 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     return Number.isFinite(t) && now() < t;
   }
   function cleanupDolls(){
-    const list = layer.querySelectorAll('.fg-freeze-doll');
+    const L = mustLayer(); if (!L) return;
+    const list = L.querySelectorAll('.fg-freeze-doll');
     list.forEach(el=>{
       const t = Number(el.dataset.dollUntil);
       if (!Number.isFinite(t) || now() >= t){
@@ -298,12 +328,13 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
   }
 
   function makeTarget(type, emoji, x, y, s){
+    const L = mustLayer(); if (!L) return null;
+
     const el = DOC.createElement('div');
     el.className = 'fg-target spawn';
     el.dataset.emoji = emoji || '✨';
     el.dataset.type = type;
 
-    // ✅ (1) tag groupId on GOOD targets
     if (type === 'good') el.dataset.groupId = String(engine.groupId);
 
     setXY(el, x, y);
@@ -317,7 +348,7 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     else if (type === 'star'){ el.classList.add('fg-powerup','fg-star'); }
     else if (type === 'ice'){ el.classList.add('fg-powerup','fg-ice'); }
 
-    // ✅ (2) ถ้า freeze กำลังทำงาน: bad ใหม่เกิดมาเป็น doll 2s
+    // freeze active: bad spawns as doll
     if (now() < engine.freezeUntil && (type==='junk' || type==='decoy' || type==='wrong')){
       markFreezeDoll(el, 2000);
     }
@@ -327,8 +358,6 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
 
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
-
-      // expire miss: เฉพาะ GOOD ของ “หมู่ปัจจุบันตอนเกิด” เท่านั้น
       if (type === 'good'){
         engine.misses++; engine.combo = 0; engine.groupClean = false;
         emit('hha:judge', { kind:'warn', text:'MISS!' });
@@ -347,17 +376,27 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
   }
 
   function removeTarget(el){
+    if (!el) return;
     try{ root.clearTimeout(el._ttlTimer); }catch{}
     el.classList.add('hit');
     root.setTimeout(()=> el.remove(), 220);
   }
 
   // ---------- Storm ----------
+  let chipStorm, chipMag, chipFrz, chipOver;
+  function refreshChips(){
+    ensureBuffUI();
+    chipStorm = $id('chipStorm');
+    chipMag   = $id('chipMag');
+    chipFrz   = $id('chipFrz');
+    chipOver  = $id('chipOver');
+  }
+
   function enterStorm(){
     engine.storm = true;
     engine.stormUntilMs = now() + engine.stormDurSec*1000;
     DOC.body.classList.add('groups-storm');
-    chipStorm.style.display = '';
+    chipStorm && (chipStorm.style.display = '');
     emit('groups:storm', { on:true, durSec: engine.stormDurSec|0 });
 
     if (engine.runMode === 'play'){
@@ -372,7 +411,7 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     engine.stormUntilMs = 0;
     DOC.body.classList.remove('groups-storm');
     DOC.body.classList.remove('groups-storm-urgent');
-    chipStorm.style.display = 'none';
+    chipStorm && (chipStorm.style.display = 'none');
     emit('groups:storm', { on:false, durSec: 0 });
   }
   function maybeStormTick(){
@@ -396,9 +435,10 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     const p = randPos();
     const s = (engine.storm ? 1.25 : 1.35) * engine.sizeBase * ((engine.runMode==='research')?1:engine.adapt.size);
     const el = makeTarget('boss','👑',p.x,p.y,s);
+    if (!el) return;
     el.dataset.hp = String(engine.bossHp);
 
-    layer.appendChild(el);
+    mustLayer().appendChild(el);
     emit('groups:progress',{kind:'boss_spawn'});
     emit('hha:judge',{kind:'boss',text:'BOSS!'});
     engine.nextBossAtMs = now() + (engine.runMode==='research' ? 20000 : clamp(engine.adapt.bossEvery, 14000, 26000));
@@ -419,7 +459,7 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     setGroup(next, 1);
     emit('groups:progress', { kind:'group_swap' });
 
-    engine._rushUntil = now() + 6000; // rainbow rush
+    engine._rushUntil = now() + 6000;
     engine.power = 0;
     updatePower();
   }
@@ -440,32 +480,29 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     }
   }
 
-  // ---------- (3) Overdrive ----------
+  // ---------- Overdrive ----------
   function activateOverdrive(){
     engine.overUntil = now() + 5000;
     DOC.body.classList.add('groups-overdrive');
-    chipOver.style.display = '';
+    chipOver && (chipOver.style.display = '');
     SFX.power();
     emit('hha:celebrate', { kind:'goal', title:'OVERDRIVE x2!' });
 
     root.setTimeout(()=>{
       if (now() >= engine.overUntil){
         DOC.body.classList.remove('groups-overdrive');
-        chipOver.style.display = 'none';
+        chipOver && (chipOver.style.display = 'none');
       }
     }, 5100);
   }
 
   function onStarCollected(){
     const t = now();
-
-    // window 8s: ถ้ากดดาวครั้งแรก เปิดหน้าต่าง 8s
     if (t > engine.overWindowUntil){
       engine.overCharge = 0;
       engine.overWindowUntil = t + 8000;
     }
     engine.overCharge++;
-
     if (engine.overCharge >= 2){
       engine.overCharge = 0;
       engine.overWindowUntil = 0;
@@ -477,13 +514,13 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
   function activateMagnet(){
     engine.magnetUntil = now() + 6000;
     DOC.body.classList.add('groups-magnet');
-    chipMag.style.display = '';
+    chipMag && (chipMag.style.display = '');
     SFX.power();
     emit('hha:celebrate', { kind:'mini', title:'MAGNET ⭐' });
     root.setTimeout(()=>{
       if (now() >= engine.magnetUntil){
         DOC.body.classList.remove('groups-magnet');
-        chipMag.style.display = 'none';
+        chipMag && (chipMag.style.display = 'none');
       }
     }, 6100);
   }
@@ -491,40 +528,40 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
   function activateFreeze(){
     engine.freezeUntil = now() + 4500;
     DOC.body.classList.add('groups-freeze');
-    chipFrz.style.display = '';
+    chipFrz && (chipFrz.style.display = '');
     SFX.power();
     emit('hha:celebrate', { kind:'mini', title:'FREEZE ❄️' });
 
-    // ✅ (2) แปลง bad ที่อยู่บนจอเป็นตุ๊กตานิ่ง 2 วิ
-    const list = layer.querySelectorAll('.fg-target');
-    list.forEach(el=>{
-      const tp = String(el.dataset.type||'').toLowerCase();
-      if (tp==='junk' || tp==='decoy' || tp==='wrong'){
-        markFreezeDoll(el, 2000);
-      }
-    });
+    const L = mustLayer();
+    if (L){
+      const list = L.querySelectorAll('.fg-target');
+      list.forEach(el=>{
+        const tp = String(el.dataset.type||'').toLowerCase();
+        if (tp==='junk' || tp==='decoy' || tp==='wrong') markFreezeDoll(el, 2000);
+      });
+    }
 
     root.setTimeout(()=>{
       if (now() >= engine.freezeUntil){
         DOC.body.classList.remove('groups-freeze');
-        chipFrz.style.display = 'none';
+        chipFrz && (chipFrz.style.display = 'none');
       }
     }, 4600);
   }
 
-  // ✅ (1) Magnet pull เฉพาะ good ของหมู่ปัจจุบัน
+  // Magnet pulls only correct-group good
   function magnetPullTick(){
     if (now() >= engine.magnetUntil) return;
+    const L = mustLayer(); if (!L) return;
 
     const r = safeSpawnRect();
     const cx = r.W * 0.5;
     const cy = (r.y0 + r.y1) * 0.5;
 
-    const list = layer.querySelectorAll('.fg-target.fg-good');
+    const list = L.querySelectorAll('.fg-target.fg-good');
     list.forEach(el=>{
       const gid = Number(el.dataset.groupId)||0;
-      if (gid !== engine.groupId) return; // ✅ pull only correct-group good
-
+      if (gid !== engine.groupId) return;
       const p = getXY(el);
       const nx = p.x + (cx - p.x) * 0.040;
       const ny = p.y + (cy - p.y) * 0.040;
@@ -566,7 +603,7 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
 
     let type = String(el.dataset.type||'').toLowerCase();
 
-    // ---------- powerups ----------
+    // powerups
     if (type === 'star'){
       engine.hitAll++;
       engine.combo = clamp(engine.combo + 1, 0, 9999);
@@ -577,8 +614,6 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
 
       emit('hha:judge', { kind:'good', text:'MAGNET!', meta:{ noQuest:true } });
       activateMagnet();
-
-      // ✅ (3) star contributes to overdrive charge
       onStarCollected();
 
       updateScore();
@@ -604,17 +639,14 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
 
     if (type === 'boss'){ hitBoss(el); return; }
 
-    // ✅ (1) ถ้าเป็น "good" แต่ groupId ไม่ตรง => ถือว่า WRONG
+    // good but wrong group => wrong
     if (type === 'good'){
       const gid = Number(el.dataset.groupId)||0;
-      if (gid && gid !== engine.groupId){
-        type = 'wrong';
-      }
+      if (gid && gid !== engine.groupId) type = 'wrong';
     }
 
     engine.hitAll++;
 
-    // GOOD
     if (type === 'good'){
       engine.hitGood++;
       engine.combo = clamp(engine.combo + 1, 0, 9999);
@@ -634,11 +666,10 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
       return;
     }
 
-    // ---------- BAD-like ----------
+    // bad-like
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
 
     if (badLike){
-      // ✅ (2) ถ้าเป็น Freeze Doll (2 วิ) => ยิงทิ้งได้ ไม่มีโทษ + ได้แต้มเล็กน้อย
       if (isFreezeDoll(el) || (now() < engine.freezeUntil && (type==='junk' || type==='decoy' || type==='wrong'))){
         engine.combo = clamp(engine.combo + 1, 0, 9999);
         engine.comboMax = Math.max(engine.comboMax, engine.combo);
@@ -672,7 +703,7 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
       emit('hha:judge', { kind:'bad', text: (type==='junk'?'JUNK!':'WRONG!') });
       SFX.bad();
 
-      if (engine.storm){ engine.stormUntilMs += 650; } // โหด+++
+      if (engine.storm){ engine.stormUntilMs += 650; }
       updateScore();
       removeTarget(el);
       return;
@@ -694,7 +725,6 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
       d = Math.max(0.03, d*0.35);
     }
 
-    // powerup chance
     const pu = engine.storm ? 0.018 : 0.012;
     if (engine.rng() < pu){
       return (engine.rng() < 0.5) ? 'star' : 'ice';
@@ -741,12 +771,12 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     if (tp === 'star' || tp === 'ice') size *= 0.98;
 
     const el = makeTarget(tp, em, p.x, p.y, size);
-    layer.appendChild(el);
+    if (!el) return;
+    mustLayer().appendChild(el);
   }
 
   function loopSpawn(){
     if (!engine.running || engine.ended) return;
-
     spawnOne();
 
     const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
@@ -766,7 +796,6 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     magnetPullTick();
     cleanupDolls();
 
-    // adaptive (play only)
     if (engine.runMode === 'play'){
       const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
       const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
@@ -792,7 +821,8 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
   }
 
   function clearAllTargets(){
-    const list = layer.querySelectorAll('.fg-target');
+    const L = mustLayer(); if (!L) return;
+    const list = L.querySelectorAll('.fg-target');
     list.forEach(el=>{
       try{ root.clearTimeout(el._ttlTimer); }catch{}
       el.remove();
@@ -805,7 +835,10 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     engine.running = false;
 
     DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-magnet','groups-freeze','groups-overdrive');
-    chipStorm.style.display='none'; chipMag.style.display='none'; chipFrz.style.display='none'; chipOver.style.display='none';
+    if (chipStorm) chipStorm.style.display='none';
+    if (chipMag)   chipMag.style.display='none';
+    if (chipFrz)   chipFrz.style.display='none';
+    if (chipOver)  chipOver.style.display='none';
 
     try{ root.clearTimeout(engine.spawnTimer); }catch{}
     try{ root.clearTimeout(engine.tickTimer); }catch{}
@@ -817,7 +850,7 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     let q = null;
     try{ q = (NS.QuestDirector && NS.QuestDirector.getState) ? NS.QuestDirector.getState() : null; }catch{}
 
-    const detail = {
+    emit('hha:end', {
       reason: reason || 'end',
       scoreFinal: engine.score|0,
       comboMax: engine.comboMax|0,
@@ -834,20 +867,42 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
       diff: engine.diff,
       runMode: engine.runMode,
       seed: engine.seed,
-    };
-
-    emit('hha:end', detail);
+    });
   }
 
-  // ---------- Public start ----------
-  function start(runMode, cfg){
-    cfg = cfg || {};
-    engine.runMode = (String(runMode||'play').toLowerCase() === 'research') ? 'research' : 'play';
-    engine.diff = String(cfg.diff||qs('diff','normal')).toLowerCase();
-    engine.timeSec = clamp(cfg.time ?? Number(qs('time',90)), 30, 180);
-    engine.seed = String(cfg.seed || qs('seed', String(Date.now())));
+  // ---------- PUBLIC start/stop (supports 2 signatures) ----------
+  function start(a, b){
+    const arg1 = String(a||'').toLowerCase();
+    const cfg = b || {};
+
+    // signature A: start(diff, {runMode, seed, time})
+    let runMode, diff, time, seed;
+    if (isDiffToken(arg1)){
+      diff = arg1;
+      runMode = String(cfg.runMode || cfg.mode || qs('run','play') || 'play').toLowerCase();
+      time = cfg.time ?? cfg.timeSec ?? cfg.duration ?? engine._pendingTimeSec ?? Number(qs('time',90));
+      seed = String(cfg.seed || qs('seed', String(Date.now())));
+    } else {
+      // signature B: start(runMode, {diff, seed, time})
+      runMode = arg1 || String(qs('run','play') || 'play').toLowerCase();
+      diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
+      time = cfg.time ?? cfg.timeSec ?? cfg.duration ?? engine._pendingTimeSec ?? Number(qs('time',90));
+      seed = String(cfg.seed || qs('seed', String(Date.now())));
+    }
+
+    engine.runMode = (runMode === 'research') ? 'research' : 'play';
+    engine.diff = isDiffToken(diff) ? diff : String(qs('diff','normal')).toLowerCase();
+    engine.timeSec = clamp(time, 30, 180);
+    engine.seed = seed;
     engine.rng = makeRng(engine.seed);
 
+    // ensure UI + refs
+    if (!mustLayer()){
+      console.warn('[GroupsVR] fg-layer not found. Check #fg-layer exists in groups-vr.html');
+      return;
+    }
+    refreshChips();
+    setupView();
     SFX.ensure();
 
     const dp = diffParams(engine.diff);
@@ -896,7 +951,6 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     applyView();
 
     setGroup(1, 0); // QuestDirector reset
-
     updateTime();
     updatePower();
     updateScore();
@@ -905,9 +959,17 @@ Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
     loopTick();
   }
 
-  root.GroupsBoot = root.GroupsBoot || {};
-  root.GroupsBoot.start = start;
+  function stop(reason){
+    if (!engine.running && engine.ended) return;
+    endGame(reason || 'stop');
+  }
 
-  setupView();
+  // expose methods
+  engine.start = start;
+  engine.stop = stop;
+
+  // ✅ IMPORTANT: expose to Boot
+  NS.engine = engine;
+  NS.GameEngine = engine;
 
 })(typeof window !== 'undefined' ? window : globalThis);
