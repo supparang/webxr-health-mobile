@@ -1,10 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Research Logging)
 // ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:end
-// ✅ Cardboard gaze supported via HTML (shootAtCenter -> pointerdown)
 // ✅ Research: run=research => adaptive OFF + deterministic seed
 // ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end
-// ✅ NEW: HUB flush-hardened (sendBeacon + expose __HVR__.forceEnd(reason)->Promise)
+// ✅ NEW: target uid + __HVR__.forceEnd(reason) + richer hha:score payload
 
 'use strict';
 
@@ -108,7 +107,6 @@ function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
   .hvr-target.good{ outline: 2px solid rgba(34,197,94,.18); }
   .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
   .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
-
   .hvr-pop{
     position:absolute;
     left:50%; top:50%;
@@ -176,53 +174,40 @@ const S = {
     endWindow:false,
     blockedInEnd:false,
     doneThisStorm:false,
-
-    gavePreShield:false,
-    forcedEndBad:false,
-    forcedEndBad2:false
   },
 
   adaptiveOn: (run !== 'research'),
-  adaptK: 0.0,
-
-  spawnSeq: 0,
-
-  // NEW: end promise latch
-  endPromise: null
+  adaptK: 0.0
 };
 
-// difficulty tuning
+// difficulty tuning (faster + snappier)
 const TUNE = (() => {
   const sizeBase =
     diff === 'easy' ? 78 :
     diff === 'hard' ? 56 : 66;
 
   const spawnBase =
-    diff === 'easy' ? 620 :
-    diff === 'hard' ? 440 : 520;
+    diff === 'easy' ? 660 :
+    diff === 'hard' ? 470 : 560;
 
   const stormEvery =
     diff === 'easy' ? 18 :
     diff === 'hard' ? 14 : 16;
 
   const stormDur =
-    diff === 'easy' ? 5.2 :
+    diff === 'easy' ? 5.1 :
     diff === 'hard' ? 6.2 : 5.8;
 
-  const g = clamp(
-    Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)),
-    18,
-    Math.max(18, timeLimit-8)
-  );
+  const g = clamp(Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)), 18, Math.max(18, timeLimit-8));
 
   return {
     sizeBase,
     spawnBaseMs: spawnBase,
-    spawnJitter: 120,
+    spawnJitter: 170,
 
-    goodLifeMs: diff==='hard' ? 900 : 1040,
-    badLifeMs:  diff==='hard' ? 940 : 1100,
-    shieldLifeMs: 1400,
+    goodLifeMs: diff==='hard' ? 930 : 1080,
+    badLifeMs:  diff==='hard' ? 980 : 1120,
+    shieldLifeMs: 1350,
 
     stormEverySec: stormEvery,
     stormDurSec: stormDur,
@@ -230,10 +215,12 @@ const TUNE = (() => {
 
     stormSpawnMul: diff==='hard' ? 0.56 : 0.64,
 
-    nudgeToMid: 5.0,
-    badPush:    8.0,
-    missPenalty: 1,
+    // water dynamics (0–100 reachable)
+    goodPull: 6.0,
+    goodNoise: 1.2,
+    badPush:  10.0,
 
+    missPenalty: 1,
     greenTargetSec: g
   };
 })();
@@ -242,7 +229,7 @@ S.greenTarget = TUNE.greenTargetSec;
 S.endWindowSec = TUNE.endWindowSec;
 S.stormDur = TUNE.stormDurSec;
 
-// expose for HTML cinematic driver + HUB flush
+// expose for HTML driver
 ROOT.__HVR__ = ROOT.__HVR__ || {};
 ROOT.__HVR__.S = S;
 ROOT.__HVR__.TUNE = TUNE;
@@ -302,7 +289,15 @@ function syncHUD(){
     waterZone: S.waterZone,
     shield: S.shield|0,
     stormActive: !!S.stormActive,
-    stormLeftSec: S.stormLeftSec
+    stormLeftSec: S.stormLeftSec,
+
+    // ✅ extra counters for mini pills / telemetry
+    nHitGood: S.nHitGood|0,
+    nHitJunk: S.nHitBad|0,
+    nHitJunkGuard: S.nHitBadGuard|0,
+    nTargetGoodSpawned: S.nGoodSpawn|0,
+    nTargetJunkSpawned: S.nBadSpawn|0,
+    nTargetShieldSpawned: S.nShieldSpawn|0
   });
 
   emit('hha:time', { left: S.leftSec|0 });
@@ -325,23 +320,27 @@ function syncHUD(){
 }
 
 // ------------------ water dynamics ------------------
-function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
+function updateZone(){
+  S.waterZone = zoneFrom(S.waterPct);
+}
 function nudgeWaterGood(){
+  // ✅ ดึงเข้าโซน GREEN แต่ยังไปถึง 0–100 ได้เมื่อโดน bad ต่อเนื่อง
   const mid = 55;
   const d = mid - S.waterPct;
-  const step = Math.sign(d) * Math.min(Math.abs(d), TUNE.nudgeToMid);
-  S.waterPct = clamp(S.waterPct + step, 0, 100);
+  const step = Math.sign(d) * Math.min(Math.abs(d), TUNE.goodPull);
+  const noise = (rng() < 0.5 ? -1 : +1) * (TUNE.goodNoise * rng());
+  S.waterPct = clamp(S.waterPct + step + noise, 0, 100);
   updateZone();
 }
 function pushWaterBad(){
   const mid = 55;
-  const d = S.waterPct - mid;
-  const step = (d >= 0 ? +1 : -1) * TUNE.badPush;
-  S.waterPct = clamp(S.waterPct + step, 0, 100);
+  // ✅ bad จะ “ผลัก” ออกจาก mid ไปทางปลาย (ให้หลอดขึ้น/ลงแรง)
+  const dir = (S.waterPct >= mid) ? +1 : -1;
+  S.waterPct = clamp(S.waterPct + dir * TUNE.badPush, 0, 100);
   updateZone();
 }
 
-// ------------------ spawn math ------------------
+// ------------------ spawn math (center bias + margins) ------------------
 function pickXY(){
   const r = playfield.getBoundingClientRect();
   const pad = 22;
@@ -389,6 +388,8 @@ function makePop(text, kind){
 }
 
 // ------------------ target lifecycle ------------------
+let UID = 0;
+
 function spawn(kind){
   if (S.ended) return;
 
@@ -399,8 +400,8 @@ function spawn(kind){
   el.className = 'hvr-target ' + kind;
   el.dataset.kind = kind;
 
-  const uid = 't' + (++S.spawnSeq);
-  el.dataset.uid = uid;
+  // ✅ unique uid for gaze-lock stability
+  el.dataset.uid = String(++UID);
 
   el.style.setProperty('--x', xPct.toFixed(2) + '%');
   el.style.setProperty('--y', yPct.toFixed(2) + '%');
@@ -459,7 +460,7 @@ function spawn(kind){
       makePop('+SHIELD', 'shield');
       emit('hha:judge', { kind:'shield' });
     }
-    else {
+    else { // bad
       if (S.shield > 0){
         S.shield--;
         S.nHitBadGuard++;
@@ -503,7 +504,7 @@ function nextSpawnDelay(){
     base *= TUNE.stormSpawnMul;
   }
 
-  return clamp(base, 180, 1200);
+  return clamp(base, 210, 1200);
 }
 
 function pickKind(){
@@ -541,10 +542,6 @@ function enterStorm(){
     endWindow:false,
     blockedInEnd:false,
     doneThisStorm:false,
-
-    gavePreShield:false,
-    forcedEndBad:false,
-    forcedEndBad2:false
   };
 
   if (S.waterZone === 'GREEN'){
@@ -556,6 +553,10 @@ function enterStorm(){
 }
 
 function exitStorm(){
+  S.stormActive = false;
+  S.stormLeftSec = 0;
+  S.inEndWindow = false;
+
   if (!S.miniState.doneThisStorm){
     const m = S.miniState;
     const ok = !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
@@ -564,14 +565,8 @@ function exitStorm(){
       m.doneThisStorm = true;
       S.score += 35;
       makePop('MINI ✓', 'shield');
-    } else {
-      makePop('MINI …', 'bad');
     }
   }
-
-  S.stormActive = false;
-  S.stormLeftSec = 0;
-  S.inEndWindow = false;
 
   syncHUD();
 }
@@ -592,44 +587,14 @@ function tickStorm(dt){
   S.miniState.pressure = clamp(S.miniState.pressure + dt * pGain, 0, 1);
   if (S.miniState.pressure >= 1) S.miniState.pressureOK = true;
 
-  if (!S.miniState.gavePreShield && S.stormLeftSec <= (TUNE.endWindowSec + 1.35)){
-    S.miniState.gavePreShield = true;
-    if (S.shield <= 0){
-      spawn('shield');
-      spawnTimer = Math.min(spawnTimer, 120);
-    }
-  }
-
-  if (inEnd && !S.miniState.forcedEndBad){
-    S.miniState.forcedEndBad = true;
-    spawn('bad');
-    spawnTimer = Math.min(spawnTimer, 90);
-  }
-  if (inEnd && S.stormLeftSec <= (TUNE.endWindowSec * 0.55) && !S.miniState.forcedEndBad2){
-    S.miniState.forcedEndBad2 = true;
-    spawn('bad');
-    spawnTimer = Math.min(spawnTimer, 70);
-  }
-
   if (S.stormLeftSec <= 0.001){
     exitStorm();
   }
 }
 
-// ------------------ end logging (C) ------------------
+// ------------------ end logging ------------------
 async function sendLog(payload){
   if (!logEndpoint) return;
-
-  // ✅ 1) sendBeacon first (best for unload/navigation)
-  try{
-    if (navigator && typeof navigator.sendBeacon === 'function'){
-      const blob = new Blob([JSON.stringify(payload)], { type:'application/json' });
-      const ok = navigator.sendBeacon(logEndpoint, blob);
-      if (ok) return;
-    }
-  }catch{}
-
-  // ✅ 2) fetch keepalive
   try{
     await fetch(logEndpoint, {
       method:'POST',
@@ -637,19 +602,17 @@ async function sendLog(payload){
       body: JSON.stringify(payload),
       keepalive: true
     });
-    return;
-  }catch{}
-
-  // ✅ 3) minimal GET fallback
-  try{
-    const u = new URL(logEndpoint, location.href);
-    u.searchParams.set('projectTag', String(payload.projectTag||'HeroHealth'));
-    u.searchParams.set('gameMode', 'hydration');
-    u.searchParams.set('sessionId', String(payload.sessionId||''));
-    u.searchParams.set('scoreFinal', String(payload.scoreFinal||0));
-    u.searchParams.set('grade', String(payload.grade||'C'));
-    await fetch(u.toString(), { method:'GET', keepalive:true });
-  }catch{}
+  }catch(e){
+    try{
+      const u = new URL(logEndpoint, location.href);
+      u.searchParams.set('projectTag', String(payload.projectTag||'HeroHealth'));
+      u.searchParams.set('gameMode', 'hydration');
+      u.searchParams.set('sessionId', String(payload.sessionId||''));
+      u.searchParams.set('scoreFinal', String(payload.scoreFinal||0));
+      u.searchParams.set('grade', String(payload.grade||'C'));
+      await fetch(u.toString(), { method:'GET', keepalive:true });
+    }catch{}
+  }
 }
 
 // ------------------ main loop ------------------
@@ -688,11 +651,13 @@ function update(dt){
 }
 
 async function endGame(reason){
-  if (S.ended) return S.endPromise || Promise.resolve();
+  if (S.ended) return;
   S.ended = true;
 
   const grade = computeGrade();
   const acc = computeAccuracy();
+
+  const played = clamp(timeLimit - S.leftSec, 0, timeLimit);
 
   const summary = {
     timestampIso: qs('timestampIso', new Date().toISOString()),
@@ -702,7 +667,7 @@ async function endGame(reason){
     gameMode: 'hydration',
     diff,
     durationPlannedSec: timeLimit,
-    durationPlayedSec: timeLimit,
+    durationPlayedSec: played,
 
     scoreFinal: S.score|0,
     comboMax: S.comboMax|0,
@@ -725,10 +690,7 @@ async function endGame(reason){
 
     accuracyGoodPct: acc,
     grade,
-    reason: reason || 'end',
-
-    seed,
-    hub
+    reason: reason || 'end'
   };
 
   try{
@@ -738,23 +700,18 @@ async function endGame(reason){
 
   emit('hha:end', summary);
 
-  // latch promise so callers can await
-  S.endPromise = (async ()=> {
-    await sendLog(summary);
-  })();
-
-  return S.endPromise;
+  // both research/play can log if ?log=
+  await sendLog(summary);
 }
 
-// expose forceEnd for HTML (HUB flush)
-ROOT.__HVR__.forceEnd = function(reason){
-  try{ return endGame(reason || 'force'); }
-  catch(e){ return Promise.resolve(); }
+// ✅ expose forceEnd for HTML “Back HUB” flush
+ROOT.__HVR__.forceEnd = async function(reason){
+  try{ await endGame(reason || 'force'); }catch{}
 };
 
 // ------------------ start gating ------------------
 async function waitStartGate(){
-  const ov = DOC.getElementById('start-overlay') || DOC.getElementById('startOverlay');
+  const ov = DOC.getElementById('startOverlay') || DOC.getElementById('start-overlay');
   if (!ov) return;
 
   const isHidden = () => {
@@ -789,7 +746,7 @@ async function boot(){
   setWaterGauge(S.waterPct);
   updateZone();
 
-  spawnTimer = 260;
+  spawnTimer = 320;
 
   await waitStartGate();
 
@@ -812,13 +769,10 @@ async function boot(){
     if (document.hidden && !S.ended) endGame('hidden');
   });
 
-  // pagehide is often better than beforeunload on mobile
-  window.addEventListener('pagehide', ()=>{
-    if (!S.ended) { try{ endGame('pagehide'); }catch{} }
-  });
-
   window.addEventListener('beforeunload', ()=>{
-    if (!S.ended) { try{ endGame('unload'); }catch{} }
+    if (!S.ended) {
+      try{ endGame('unload'); }catch{}
+    }
   });
 
   window.addEventListener('hha:force_end', (ev)=>{
