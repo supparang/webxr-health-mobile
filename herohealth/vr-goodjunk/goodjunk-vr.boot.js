@@ -1,16 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — HHA Standard
-// Reads URL params, shows start overlay, boots safe engine + touch-look.
-// Params:
-//  - diff=easy|normal|hard
-//  - time=80
-//  - run=play|research
-//  - end=time|all
-//  - challenge=rush|boss|survival
-//  - hub=../hub.html
-//  - seed=...
-//  - sessionId=...
-//  - log=<GAS_WEBAPP_URL>  (cloud logger)
 
 'use strict';
 
@@ -29,7 +18,6 @@ function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
 function buildContext(){
-  // HHA context comes from hub.html params. Keep keys stable for logger sheets.
   const keys = [
     'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
     'schoolYear','semester','studentKey','schoolCode','schoolName','classRoom','studentNo',
@@ -43,7 +31,7 @@ function buildContext(){
     if (v != null) ctx[k] = v;
   }
   ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
-  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-27';
+  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-28';
   return ctx;
 }
 
@@ -82,19 +70,29 @@ function setHudMeta(text){
 
   setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge}`);
 
-  // attach touch/gyro -> world shift
-  attachTouchLook({
-    crosshairEl: document.getElementById('gj-crosshair'),
-    layerEl: document.getElementById('gj-layer'),
-    // aim point default: crosshair center
-    aimY: 0.62,
-    // feel like VR
+  // ✅ Touch/Mouse look -> world shift (DO NOT move crosshair; only shift layer/ring/laser)
+  const look = attachTouchLook({
+    stage: '#gj-stage',
+    layer: '#gj-layer',
+    ring:  '#atk-ring',
+    laser: '#atk-laser',
+
+    // feel: นุ่ม ๆ แต่ไม่หน่วงเกิน (เหมาะ ป.5)
     maxShiftPx: 170,
-    ease: 0.12
+    gain: 0.24,        // ความไวตอนลาก
+    friction: 0.86,    // หน่วง
+    spring: 0.18,      // เด้งกลับกลาง
+
+    // gyro: auto เฉพาะมือถือ (override ด้วย ?gyro=1|0)
+    // enableGyro: undefined
   });
 
-  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}`
-    + (seed ? ` • seed=${seed}` : '');
+  // optional: กดปุ่มยิงค้าง/ยิงถี่ ๆ ไม่ควรทำให้โลกไหล (ป้องกันซ้ำซ้อน)
+  // ถ้าต้องการรีเซ็นเตอร์จาก UI เพิ่มเองทีหลัง: look.recenter(true);
+
+  const metaText =
+    `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}` +
+    (seed ? ` • seed=${seed}` : '');
 
   await showStartOverlay(metaText);
 
