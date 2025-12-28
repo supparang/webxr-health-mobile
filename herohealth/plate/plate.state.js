@@ -1,287 +1,210 @@
 // === /herohealth/plate/plate.state.js ===
-// PlateVR — HHA Standard State + Context + Grade + LastSummary
-// ✅ makeInitialState / resetState
-// ✅ buildHhaContextFromQuery (context fields for logger)
-// ✅ computeGradeFrom (SSS, SS, S, A, B, C)
-// ✅ buildLastSummary (HHA_LAST_SUMMARY standard)
-// ✅ makeSessionId
+// PlateVR — State + Grade + Summary (HHA Standard-friendly)
 
 'use strict';
 
-const clamp = (v,a,b)=>Math.max(a, Math.min(b, v));
-const n2 = (x, d=0)=>{ const v=Number(x); return Number.isFinite(v)?v:d; };
-
 export function makeSessionId(){
-  // short + unique enough for sessions
-  const a = Date.now().toString(36);
-  const b = Math.random().toString(36).slice(2,8);
-  return `PLT_${a}_${b}`;
+  // short but unique-ish
+  return 'P' + Math.random().toString(16).slice(2) + '-' + Date.now().toString(16);
 }
 
 export function buildHhaContextFromQuery(Q){
-  // Keep aligned with your session sheet columns (safe if missing)
-  const get = (k, d='') => {
-    try{
-      const v = Q.get(k);
-      return (v===null || v===undefined) ? d : String(v);
-    }catch(_){ return d; }
-  };
-  const geti = (k, d=0)=> {
-    const v = parseInt(get(k,''), 10);
-    return Number.isFinite(v) ? v : d;
+  // Q = URLSearchParams
+  const pick = (k, d='') => {
+    const v = Q.get(k);
+    return (v === null || v === undefined) ? d : String(v);
   };
 
-  const ctx = {
-    timestampIso: get('timestampIso',''),
-    projectTag: get('projectTag','HeroHealth'),
-    runMode: get('runMode', get('run','play')),
-    studyId: get('studyId',''),
-    phase: get('phase',''),
-    conditionGroup: get('conditionGroup',''),
-    sessionOrder: get('sessionOrder',''),
-    blockLabel: get('blockLabel',''),
-    siteCode: get('siteCode',''),
-    schoolYear: get('schoolYear',''),
-    semester: get('semester',''),
-
-    studentKey: get('studentKey',''),
-    schoolCode: get('schoolCode',''),
-    schoolName: get('schoolName',''),
-    classRoom: get('classRoom',''),
-    studentNo: get('studentNo',''),
-    nickName: get('nickName',''),
-    gender: get('gender',''),
-    age: get('age',''),
-    gradeLevel: get('gradeLevel',''),
-
-    device: get('device',''),
-    gameVersion: get('gameVersion', get('ver','')),
-  };
-
-  // normalize some known variants
-  if(!ctx.runMode) ctx.runMode = get('run','play');
-
-  return ctx;
-}
-
-function zeroMetrics(){
+  // keep schema consistent with your logger sheet
   return {
-    // spawn/hit/expire by kind
-    spawn: Object.create(null),
-    hit: Object.create(null),
-    expire: Object.create(null),
-
-    // miss reasons + blocks
-    miss: Object.create(null),
-    shield_block: Object.create(null),
-
-    // other counters
-    air_shot: 0,
-    boss_attack: 0,
-    boss_dodge: 0,
-
-    // powerups
-    power: Object.create(null),
+    timestampIso: pick('timestampIso', ''),
+    projectTag: pick('projectTag', 'HeroHealth'),
+    runMode: pick('runMode', pick('run', 'play')),
+    studyId: pick('studyId', ''),
+    phase: pick('phase', ''),
+    conditionGroup: pick('conditionGroup', ''),
+    sessionOrder: pick('sessionOrder', ''),
+    blockLabel: pick('blockLabel', ''),
+    siteCode: pick('siteCode', ''),
+    schoolYear: pick('schoolYear', ''),
+    semester: pick('semester', ''),
+    studentKey: pick('studentKey', ''),
+    schoolCode: pick('schoolCode', ''),
+    schoolName: pick('schoolName', ''),
+    classRoom: pick('classRoom', ''),
+    studentNo: pick('studentNo', ''),
+    nickName: pick('nickName', ''),
+    gender: pick('gender', ''),
+    age: pick('age', ''),
+    gradeLevel: pick('gradeLevel', ''),
   };
 }
 
-export function makeInitialState(opts={}){
-  const totalTime = Math.max(20, n2(opts.totalTime, 70));
-  const livesMax  = Math.max(1, n2(opts.livesMax, 3));
-  const sessionId = String(opts.sessionId || makeSessionId());
-  const ctx       = (opts.ctx && typeof opts.ctx === 'object') ? opts.ctx : {};
+export function makeInitialState(opts = {}){
+  const totalTime = Math.max(20, Number(opts.totalTime || 70) || 70);
+  const livesMax  = Math.max(1, Number(opts.livesMax  || 3)  || 3);
 
-  const S = {
-    // core
+  return {
+    // run
+    booted:false,
+    started:false,
+    running:false,
+    paused:false,
+
+    // session/context
+    sessionId: String(opts.sessionId || makeSessionId()),
+    ctx: opts.ctx || {},
+
+    // time
     totalTime,
     timeLeft: totalTime,
     tStart: 0,
-    running: false,
-    paused: false,
-    started: false,
-    booted: false,
-
-    // gameplay
-    score: 0,
-    combo: 0,
-    maxCombo: 0,
-    miss: 0,
-    perfectCount: 0,
-
-    fever: 0,
-    feverOn: false,
-
-    shield: 0,
-    shieldMax: 3,
-
-    lives: livesMax,
-    livesMax,
-
-    groupsTotal: 5,
-    plateHave: new Set(),
-    groupCounts: [0,0,0,0,0],
-
-    // quests
-    goalsCleared: 0,
-    minisCleared: 0,
-    goalIndex: 0,
-    activeGoal: null,
-    activeMini: null,
-    miniEndsAt: 0,
-    miniUrgentArmed: false,
-    miniTickAt: 0,
-    _mini: null,
-
-    // targets
-    targets: [],
-    aimedId: null,
     nextSpawnAt: 0,
-
-    // boss/power
-    bossActive: false,
-    bossNextAt: 0,
-    slowUntil: 0,
-    noJunkUntil: 0,
-    stormUntil: 0,
-
-    // session + ctx
-    sessionId,
-    ctx,
-
-    // ui binding flags
-    _uiDelegated: false,
-    _uiBindTries: 0,
     lowTimeLastSec: null,
 
-    // metrics
-    metrics: zeroMetrics(),
-  };
+    // scoring
+    score:0,
+    combo:0,
+    maxCombo:0,
+    miss:0,
+    perfectCount:0,
 
-  return S;
+    // gameplay state
+    livesMax,
+    lives:livesMax,
+    shieldMax:3,
+    shield:0,
+    fever:0,
+    feverOn:false,
+
+    // plate / groups
+    groupsTotal:5,
+    plateHave: new Set(),
+    groupCounts:[0,0,0,0,0],
+
+    // targets
+    targets:[],
+    aimedId:null,
+
+    // powers
+    slowUntil:0,
+    noJunkUntil:0,
+    stormUntil:0,
+
+    // boss
+    bossActive:false,
+    bossNextAt:0,
+
+    // quest
+    goalsCleared:0,
+    goalIndex:0,
+    activeGoal:null,
+
+    minisCleared:0,
+    activeMini:null,
+    miniEndsAt:0,
+    miniUrgentArmed:false,
+    miniTickAt:0,
+    _mini:null,
+
+    // ui binding retries
+    _uiDelegated:false,
+    _uiBindTries:0,
+  };
 }
 
-export function resetState(S, opts={}){
-  const totalTime = Math.max(20, n2(opts.totalTime, S.totalTime || 70));
-  const livesMax  = Math.max(1, n2(opts.livesMax, S.livesMax || 3));
-  const sessionId = String(opts.sessionId || S.sessionId || makeSessionId());
+export function resetState(S, opts = {}){
+  const totalTime = Math.max(20, Number(opts.totalTime || S.totalTime || 70) || 70);
+  const livesMax  = Math.max(1, Number(opts.livesMax  || S.livesMax  || 3)  || 3);
 
-  // wipe dynamic
-  S.totalTime = totalTime;
-  S.timeLeft = totalTime;
-  S.tStart = 0;
   S.running = false;
-  S.paused = false;
+  S.paused  = false;
 
-  S.score = 0;
-  S.combo = 0;
-  S.maxCombo = 0;
-  S.miss = 0;
-  S.perfectCount = 0;
+  S.totalTime = totalTime;
+  S.timeLeft  = totalTime;
+  S.tStart = 0;
+  S.nextSpawnAt = 0;
+  S.lowTimeLastSec = null;
 
-  S.fever = 0;
-  S.feverOn = false;
-  S.shield = 0;
-  S.livesMax = livesMax;
-  S.lives = livesMax;
+  S.score=0; S.combo=0; S.maxCombo=0; S.miss=0; S.perfectCount=0;
 
-  S.groupsTotal = 5;
+  S.livesMax=livesMax;
+  S.lives=livesMax;
+  S.shield=0;
+
+  S.fever=0;
+  S.feverOn=false;
+
   S.plateHave = new Set();
   S.groupCounts = [0,0,0,0,0];
 
-  S.goalsCleared = 0;
-  S.minisCleared = 0;
-  S.goalIndex = 0;
-  S.activeGoal = null;
-  S.activeMini = null;
-  S.miniEndsAt = 0;
-  S.miniUrgentArmed = false;
-  S.miniTickAt = 0;
-  S._mini = null;
-
   S.targets = [];
   S.aimedId = null;
-  S.nextSpawnAt = 0;
 
-  S.bossActive = false;
-  S.bossNextAt = 0;
-  S.slowUntil = 0;
-  S.noJunkUntil = 0;
-  S.stormUntil = 0;
+  S.slowUntil=0;
+  S.noJunkUntil=0;
+  S.stormUntil=0;
 
-  S.sessionId = sessionId;
+  S.bossActive=false;
+  S.bossNextAt=0;
 
-  S.lowTimeLastSec = null;
+  S.goalsCleared=0;
+  S.goalIndex=0;
+  S.activeGoal=null;
 
-  S.metrics = zeroMetrics();
+  S.minisCleared=0;
+  S.activeMini=null;
+  S.miniEndsAt=0;
+  S.miniUrgentArmed=false;
+  S.miniTickAt=0;
+  S._mini=null;
 
-  return S;
+  if (opts.sessionId) S.sessionId = String(opts.sessionId);
 }
 
 export function computeGradeFrom(S){
-  // grade tiers: SSS, SS, S, A, B, C
-  const t = Math.max(1, n2(S.totalTime, 70));
-  const score = n2(S.score, 0);
-  const miss = n2(S.miss, 0);
-  const combo = n2(S.maxCombo, 0);
+  // Grade set: SSS, SS, S, A, B, C
+  // Heuristic: score + penalty for miss (and tiny bonus for perfect)
+  const score = Number(S.score||0);
+  const miss  = Number(S.miss||0);
+  const perf  = Number(S.perfectCount||0);
 
-  // normalize
-  let rate = score / t;              // points per sec
-  rate -= miss * 2.6;                // penalty
-  rate += Math.min(18, combo) * 0.7; // reward combo a bit
+  const adj = score + perf*40 - miss*240;
 
-  if (rate >= 130) return 'SSS';
-  if (rate >= 112) return 'SS';
-  if (rate >= 95)  return 'S';
-  if (rate >= 78)  return 'A';
-  if (rate >= 60)  return 'B';
+  if (adj >= 9000) return 'SSS';
+  if (adj >= 7200) return 'SS';
+  if (adj >= 5600) return 'S';
+  if (adj >= 3800) return 'A';
+  if (adj >= 2200) return 'B';
   return 'C';
 }
 
-export function buildLastSummary(S, meta={}){
-  const nowIso = ()=> new Date().toISOString();
-  const goalsTotal = 2;
-  const minisTotal = 7;
-
-  const sum = {
+export function buildLastSummary(S, meta = {}){
+  // Standard-ish summary object (stored to localStorage as HHA_LAST_SUMMARY)
+  return {
     game: 'PlateVR',
     ts: Date.now(),
-    startTimeIso: meta.startTimeIso || '',
-    endTimeIso: nowIso(),
-
-    sessionId: String(S.sessionId || ''),
-    run: String(meta.run || meta.runMode || ''),
-    mode: String(meta.mode || ''),
-    diff: String(meta.diff || ''),
-    seed: (meta.seed===undefined ? null : meta.seed),
-
-    timeTotal: n2(S.totalTime, 0),
-    durationPlayedSec: n2(meta.durationPlayedSec, 0),
-
-    scoreFinal: n2(S.score, 0),
-    comboMax: n2(S.maxCombo, 0),
-    misses: n2(S.miss, 0),
-    livesLeft: n2(S.lives, 0),
-
-    grade: String(meta.grade || computeGradeFrom(S)),
-
-    perfect: n2(S.perfectCount, 0),
-
-    goalsCleared: Math.min(goalsTotal, n2(S.goalsCleared, 0)),
-    goalsTotal,
-
-    miniCleared: Math.min(minisTotal, n2(S.minisCleared, 0)),
-    miniTotal: minisTotal,
-
-    g1: n2(S.groupCounts?.[0], 0),
-    g2: n2(S.groupCounts?.[1], 0),
-    g3: n2(S.groupCounts?.[2], 0),
-    g4: n2(S.groupCounts?.[3], 0),
-    g5: n2(S.groupCounts?.[4], 0),
-    gTotal: (Array.isArray(S.groupCounts) ? S.groupCounts.reduce((a,b)=>a+n2(b,0),0) : 0),
-
-    metrics: S.metrics || {},
-    ctx: S.ctx || {},
+    sessionId: S.sessionId,
+    run: meta.run || '',
+    mode: meta.mode || '',
+    diff: meta.diff || '',
+    score: S.score,
+    grade: computeGradeFrom(S),
+    maxCombo: S.maxCombo,
+    miss: S.miss,
+    perfect: S.perfectCount,
+    goalsCleared: S.goalsCleared,
+    goalsTotal: 2,
+    minisCleared: S.minisCleared,
+    minisTotal: 7,
+    groups: {
+      g1: S.groupCounts[0],
+      g2: S.groupCounts[1],
+      g3: S.groupCounts[2],
+      g4: S.groupCounts[3],
+      g5: S.groupCounts[4],
+      total: (S.groupCounts||[]).reduce((a,b)=>a+(Number(b)||0),0),
+    },
+    ctx: S.ctx || {}
   };
-
-  return sum;
 }
