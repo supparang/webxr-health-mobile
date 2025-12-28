@@ -1,215 +1,300 @@
 /* === /herohealth/vr-groups/groups-fx.js ===
-Candy FX Pack (Hardcore+FeelGood)
-- sparkle stars spawn/hit
-- GOOD: trail glitter
-- JUNK: cute smoke + slime splat
-- POWERUP: bigger burst
-- listens hha:celebrate => big candy fireworks
+Food Groups VR — Candy FX Pack (PRODUCTION)
+✅ Sparkle stars on spawn/hit (วิ้ง ๆ)
+✅ GOOD: trail glitter while floating
+✅ JUNK/WRONG/DECOY: cute smoke/slime puff (ไม่หลอน)
+✅ Celebrate burst for goal/mini/all via hha:celebrate
+✅ Overdrive-aware: ถ้า body.groups-overdrive => วิ้งแรงขึ้น
+✅ Safe: ไม่พังถ้า element ไม่มี / bind ซ้ำ
 */
 
 (function (root) {
   'use strict';
+
   const DOC = root.document;
   if (!DOC) return;
 
-  const layer = DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer');
-  if (!layer) return;
+  const NS = (root.GroupsVR = root.GroupsVR || {});
+  if (NS.__fxCandyInited) return;
+  NS.__fxCandyInited = true;
 
-  const STYLE_ID = 'groupsCandyFxStyleV2';
-  if (!DOC.getElementById(STYLE_ID)) {
-    const st = DOC.createElement('style');
-    st.id = STYLE_ID;
-    st.textContent = `
-.fg-fx-layer{ position:fixed; inset:0; pointer-events:none; z-index:70; }
-
-.fg-spark{ position:fixed; left:0; top:0; transform:translate(-50%,-50%); width:1px; height:1px; }
-.fg-star{
-  position:absolute; left:0; top:0; transform:translate(-50%,-50%);
-  font-size:14px; opacity:0;
-  filter: drop-shadow(0 10px 16px rgba(0,0,0,.30));
-  animation: starPop .55s ease-out forwards;
-}
-@keyframes starPop{
-  0%{ opacity:0; transform:translate(-50%,-50%) scale(.55) rotate(0deg); }
-  25%{ opacity:1; transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.15) rotate(18deg); }
-  100%{ opacity:0; transform:translate(calc(-50% + var(--dx2)), calc(-50% + var(--dy2))) scale(.90) rotate(52deg); }
-}
-
-.fg-trail{
-  position:absolute; left:50%; top:50%;
-  transform: translate(-50%, -50%);
-  width:125%; height:125%;
-  border-radius:32px;
-  pointer-events:none;
-  opacity:.9;
-  mix-blend-mode: screen;
-  background:
-    radial-gradient(circle at 30% 35%, rgba(255,255,255,.22), rgba(255,255,255,0) 45%),
-    radial-gradient(circle at 75% 70%, rgba(255,255,255,.18), rgba(255,255,255,0) 48%),
-    radial-gradient(circle at 55% 20%, rgba(34,211,238,.20), rgba(34,211,238,0) 50%),
-    radial-gradient(circle at 25% 75%, rgba(244,114,182,.18), rgba(244,114,182,0) 55%);
-  animation: trailWink .95s ease-in-out infinite;
-}
-@keyframes trailWink{
-  0%,100%{ opacity:.62; transform: translate(-50%,-50%) scale(1.00); }
-  50%{ opacity:.98; transform: translate(-50%,-50%) scale(1.08); }
-}
-
-.fg-puff{
-  position:fixed; transform: translate(-50%,-50%);
-  pointer-events:none;
-  width:24px; height:24px; border-radius:999px;
-  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), rgba(244,114,182,.20));
-  filter: drop-shadow(0 10px 16px rgba(0,0,0,.25));
-  opacity:0;
-  animation: puff .72s ease-out forwards;
-}
-@keyframes puff{
-  0%{ opacity:0; transform:translate(-50%,-50%) scale(.55); }
-  25%{ opacity:1; transform:translate(-50%,-50%) scale(1.00); }
-  100%{ opacity:0; transform:translate(-50%, calc(-50% - 18px)) scale(1.28); }
-}
-
-.fg-splat{
-  position:fixed; transform: translate(-50%,-50%);
-  pointer-events:none;
-  width:88px; height:60px; border-radius:999px;
-  opacity:0;
-  background:
-    radial-gradient(circle at 25% 50%, rgba(34,197,94,.28), rgba(34,197,94,0) 55%),
-    radial-gradient(circle at 65% 45%, rgba(34,211,238,.20), rgba(34,211,238,0) 60%),
-    radial-gradient(circle at 45% 65%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%);
-  filter: drop-shadow(0 14px 18px rgba(0,0,0,.25));
-  animation: splat .55s ease-out forwards;
-}
-@keyframes splat{
-  0%{ opacity:0; transform:translate(-50%,-50%) scale(.55) rotate(-6deg); }
-  30%{ opacity:1; transform:translate(-50%,-50%) scale(1.08) rotate(6deg); }
-  100%{ opacity:0; transform:translate(-50%, calc(-50% + 10px)) scale(.95) rotate(12deg); }
-}
-`;
-    DOC.head.appendChild(st);
-  }
-
+  // ---------- locate layer ----------
+  const fgLayer = DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer');
+  // FX layer
   let fx = DOC.querySelector('.fg-fx-layer');
   if (!fx) {
     fx = DOC.createElement('div');
     fx.className = 'fg-fx-layer';
+    Object.assign(fx.style, {
+      position: 'fixed',
+      inset: '0',
+      pointerEvents: 'none',
+      zIndex: '9999',
+      overflow: 'hidden',
+      contain: 'layout paint style',
+    });
     DOC.body.appendChild(fx);
   }
 
-  function centerOf(el){
-    const r = el.getBoundingClientRect();
-    return { x: r.left + r.width/2, y: r.top + r.height/2 };
-  }
-
-  function sparkle(x, y, power){
-    const host = DOC.createElement('div');
-    host.className = 'fg-spark';
-    host.style.left = x + 'px';
-    host.style.top  = y + 'px';
-
-    const n = Math.max(7, Math.min(18, (power|0)));
-    const stars = ['✨','⭐','💫','🌟','🍬'];
-    for (let i=0;i<n;i++){
-      const s = DOC.createElement('div');
-      s.className = 'fg-star';
-      s.textContent = stars[(Math.random()*stars.length)|0];
-
-      const a = Math.random()*Math.PI*2;
-      const r1 = 18 + Math.random()*26;
-      const r2 = 40 + Math.random()*44;
-      s.style.setProperty('--dx',  (Math.cos(a)*r1).toFixed(1)+'px');
-      s.style.setProperty('--dy',  (Math.sin(a)*r1).toFixed(1)+'px');
-      s.style.setProperty('--dx2', (Math.cos(a)*r2).toFixed(1)+'px');
-      s.style.setProperty('--dy2', (Math.sin(a)*r2).toFixed(1)+'px');
-      s.style.animationDelay = (Math.random()*0.06).toFixed(3)+'s';
-      s.style.fontSize = (12 + Math.random()*12).toFixed(0) + 'px';
-      host.appendChild(s);
-    }
-    fx.appendChild(host);
-    setTimeout(()=> host.remove(), 680);
-  }
-
-  function puff(x,y, n){
-    const k = Math.max(3, Math.min(8, n|0));
-    for (let i=0;i<k;i++){
-      const p = DOC.createElement('div');
-      p.className = 'fg-puff';
-      p.style.left = (x + (Math.random()*22-11)).toFixed(1) + 'px';
-      p.style.top  = (y + (Math.random()*16-8)).toFixed(1) + 'px';
-      p.style.animationDelay = (Math.random()*0.06).toFixed(3)+'s';
-      fx.appendChild(p);
-      setTimeout(()=> p.remove(), 780);
-    }
-  }
-
-  function splat(x,y){
-    const sp = DOC.createElement('div');
-    sp.className = 'fg-splat';
-    sp.style.left = x + 'px';
-    sp.style.top  = y + 'px';
-    fx.appendChild(sp);
-    setTimeout(()=> sp.remove(), 620);
-  }
-
-  function typeOfTarget(t){
-    if (!t || !t.classList) return 'other';
-    if (t.classList.contains('fg-boss')) return 'boss';
-    if (t.classList.contains('fg-star')) return 'star';
-    if (t.classList.contains('fg-ice'))  return 'ice';
-    if (t.classList.contains('fg-good')) return 'good';
-    if (t.classList.contains('fg-junk')) return 'junk';
-    if (t.classList.contains('fg-wrong'))return 'wrong';
-    if (t.classList.contains('fg-decoy'))return 'decoy';
-    return 'other';
-  }
-
-  function attachGoodTrail(t){
-    if (!t || t.querySelector('.fg-trail')) return;
-    const tr = DOC.createElement('div');
-    tr.className = 'fg-trail';
-    t.appendChild(tr);
-  }
-
-  const obs = new MutationObserver((muts)=>{
-    for (const m of muts){
-      for (const node of m.addedNodes){
-        if (!(node instanceof HTMLElement)) continue;
-        const t = node.classList && node.classList.contains('fg-target') ? node : null;
-        if (!t) continue;
-        const {x,y} = centerOf(t);
-        const tp = typeOfTarget(t);
-
-        // spawn sparkle
-        sparkle(x,y, tp==='boss'?16 : (tp==='star'||tp==='ice'?18:10));
-        if (tp === 'good') attachGoodTrail(t);
-        if (tp === 'junk') puff(x,y, 5);
+  // ---------- small CSS injection (only if missing) ----------
+  // (ทำไว้เผื่อยังไม่ได้ใส่บางคลาสใน CSS)
+  if (!DOC.getElementById('fg-fx-style')) {
+    const st = DOC.createElement('style');
+    st.id = 'fg-fx-style';
+    st.textContent = `
+      .fg-fx-layer .fx{ position:absolute; left:0; top:0; transform: translate(-9999px,-9999px); will-change: transform, opacity; }
+      .fg-fx-layer .fx-star{ font-size:14px; filter: drop-shadow(0 10px 14px rgba(0,0,0,.28)); opacity:.95; }
+      .fg-fx-layer .fx-puff{ width:10px; height:10px; border-radius:999px; opacity:.95; filter: blur(.15px); }
+      @keyframes fxStarPop{
+        0%   { transform: translate(var(--x),var(--y)) scale(.55) rotate(-8deg); opacity:0; }
+        20%  { opacity:1; }
+        100% { transform: translate(calc(var(--x) + var(--dx)), calc(var(--y) + var(--dy))) scale(1.1) rotate(var(--r)); opacity:0; }
       }
+      @keyframes fxPuff{
+        0%   { transform: translate(var(--x),var(--y)) scale(.75); opacity:0; }
+        18%  { opacity:.95; }
+        100% { transform: translate(calc(var(--x) + var(--dx)), calc(var(--y) + var(--dy))) scale(1.55); opacity:0; }
+      }
+    `;
+    DOC.head.appendChild(st);
+  }
+
+  // ---------- helpers ----------
+  const clamp = (v, a, b) => (v < a ? a : (v > b ? b : v));
+  const rnd = () => Math.random(); // (FX ไม่ต้อง deterministic)
+  const overdrive = () => DOC.body.classList.contains('groups-overdrive');
+
+  function getRectCenter(el) {
+    try {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
+    } catch {
+      return { x: root.innerWidth / 2, y: root.innerHeight / 2, w: 0, h: 0 };
     }
-  });
-  obs.observe(layer, { childList:true, subtree:true });
+  }
 
-  layer.addEventListener('pointerdown', (ev)=>{
-    const t = ev.target && ev.target.closest ? ev.target.closest('.fg-target') : null;
-    if (!t) return;
-    const {x,y} = centerOf(t);
-    const tp = typeOfTarget(t);
+  function add(node, ms) {
+    fx.appendChild(node);
+    root.setTimeout(() => { try { node.remove(); } catch {} }, ms | 0);
+  }
 
-    if (tp === 'junk'){ puff(x,y, 7); splat(x,y); sparkle(x,y, 10); return; }
-    if (tp === 'star' || tp === 'ice'){ sparkle(x,y, 22); return; }
-    if (tp === 'boss'){ sparkle(x,y, 18); return; }
-    if (tp === 'good'){ sparkle(x,y, 14); return; }
-    sparkle(x,y, 12);
-  }, { passive:true, capture:true });
+  // ---------- sparkle stars ----------
+  function sparkleAt(x, y, power, mode) {
+    power = Math.max(1, Math.min(30, power | 0));
+    const isOver = overdrive();
+    const extra = isOver ? 6 : 0;
+    const n = clamp(power + extra, 8, isOver ? 28 : 22);
 
-  // celebrate from quest / engine
-  root.addEventListener('hha:celebrate', (ev)=>{
-    const d = ev && ev.detail ? ev.detail : {};
-    const k = String(d.kind||'').toLowerCase();
-    const cx = (root.innerWidth||360) * 0.5;
-    const cy = (root.innerHeight||640) * 0.35;
-    sparkle(cx, cy, (k==='all')?26 : (k==='goal'?22:18));
-  }, { passive:true });
+    // candy star set
+    const stars = isOver
+      ? ['✨', '⭐', '💫', '🌟', '🍬', '🍭', '🎇', '🧁']
+      : ['✨', '⭐', '💫', '🌟', '🍬', '🍭'];
+
+    const boost = (mode === 'spawn') ? 0.85 : 1.0;
+    const spread = isOver ? 92 : 74;
+
+    for (let i = 0; i < n; i++) {
+      const s = DOC.createElement('div');
+      s.className = 'fx fx-star fx-star-pop';
+      s.classList.add('fx-star');
+      s.textContent = stars[(rnd() * stars.length) | 0];
+
+      const a = rnd() * Math.PI * 2;
+      const dist = (22 + rnd() * spread) * boost;
+      const dx = Math.cos(a) * dist;
+      const dy = Math.sin(a) * dist;
+
+      const rot = ((rnd() * 140) - 70).toFixed(0) + 'deg';
+      const fs = (12 + rnd() * (isOver ? 18 : 12)).toFixed(0) + 'px';
+
+      s.style.setProperty('--x', x.toFixed(1) + 'px');
+      s.style.setProperty('--y', y.toFixed(1) + 'px');
+      s.style.setProperty('--dx', dx.toFixed(1) + 'px');
+      s.style.setProperty('--dy', dy.toFixed(1) + 'px');
+      s.style.setProperty('--r', rot);
+
+      s.style.fontSize = fs;
+      s.style.animation = `fxStarPop ${isOver ? 760 : 620}ms ease-out both`;
+      s.style.animationDelay = (rnd() * 0.06).toFixed(3) + 's';
+
+      add(s, isOver ? 860 : 720);
+    }
+  }
+
+  // ---------- junk cute smoke/slime puff ----------
+  function slimePuffAt(x, y, power, kind) {
+    power = clamp(power | 0, 4, 18);
+    const isOver = overdrive();
+    const n = clamp(power + (isOver ? 4 : 0), 8, isOver ? 20 : 16);
+
+    // สี “เมือก/ควันการ์ตูน” (ไม่หลอน)
+    // junk -> ชมพู+แดงอมส้ม / wrong -> เหลือง+ส้ม / decoy -> ม่วง+ฟ้า
+    let c1 = 'rgba(244,114,182,.42)', c2 = 'rgba(248,113,113,.34)';
+    if (kind === 'wrong') { c1 = 'rgba(250,204,21,.40)'; c2 = 'rgba(251,146,60,.30)'; }
+    if (kind === 'decoy') { c1 = 'rgba(167,139,250,.38)'; c2 = 'rgba(34,211,238,.26)'; }
+
+    const spread = isOver ? 92 : 70;
+
+    for (let i = 0; i < n; i++) {
+      const p = DOC.createElement('div');
+      p.className = 'fx fx-puff';
+      p.style.background = (rnd() < 0.55) ? c1 : c2;
+
+      const a = rnd() * Math.PI * 2;
+      const dist = 16 + rnd() * spread;
+      const dx = Math.cos(a) * dist;
+      const dy = Math.sin(a) * dist;
+
+      const size = (8 + rnd() * (isOver ? 18 : 14)).toFixed(0) + 'px';
+      p.style.width = size;
+      p.style.height = size;
+
+      p.style.setProperty('--x', x.toFixed(1) + 'px');
+      p.style.setProperty('--y', y.toFixed(1) + 'px');
+      p.style.setProperty('--dx', dx.toFixed(1) + 'px');
+      p.style.setProperty('--dy', dy.toFixed(1) + 'px');
+
+      p.style.animation = `fxPuff ${isOver ? 820 : 680}ms ease-out both`;
+      p.style.animationDelay = (rnd() * 0.05).toFixed(3) + 's';
+
+      add(p, isOver ? 940 : 780);
+    }
+  }
+
+  // ---------- GOOD trail glitter (เบา ๆ) ----------
+  let trailTimer = null;
+  function trailTick() {
+    // ถ้าไม่มี fgLayer ก็ไม่ต้องทำ
+    if (!fgLayer) return;
+
+    const goods = fgLayer.querySelectorAll('.fg-target.fg-good');
+    if (!goods || goods.length === 0) return;
+
+    // จำกัดไม่ให้หนัก
+    const maxTrail = overdrive() ? 9 : 6;
+    let budget = maxTrail;
+
+    goods.forEach(el => {
+      if (budget <= 0) return;
+
+      // โอกาสวิ้งต่อเฟรม
+      const chance = overdrive() ? 0.14 : 0.10;
+      if (rnd() > chance) return;
+
+      const c = getRectCenter(el);
+      const x = c.x + (rnd() * 18 - 9);
+      const y = c.y + (rnd() * 18 - 9);
+
+      sparkleAt(x, y, overdrive() ? 6 : 4, 'trail');
+      budget--;
+    });
+  }
+
+  function startTrail() {
+    if (trailTimer) return;
+    trailTimer = root.setInterval(trailTick, 120);
+  }
+  function stopTrail() {
+    if (trailTimer) { root.clearInterval(trailTimer); trailTimer = null; }
+  }
+
+  // ---------- observe target spawn/hit/out ----------
+  let mo = null;
+  function bindObserver() {
+    if (!fgLayer) return;
+
+    mo = new MutationObserver((mutList) => {
+      for (const m of mutList) {
+        if (!m.addedNodes) continue;
+        m.addedNodes.forEach(node => {
+          if (!node || node.nodeType !== 1) return;
+          const el = /** @type {HTMLElement} */ (node);
+          if (!el.classList || !el.classList.contains('fg-target')) return;
+
+          const tp = String(el.dataset.type || '').toLowerCase();
+          const c = getRectCenter(el);
+
+          // spawn sparkle
+          if (tp === 'good' || tp === 'boss' || tp === 'star' || tp === 'ice') {
+            sparkleAt(c.x, c.y, tp === 'boss' ? 12 : 7, 'spawn');
+          } else {
+            // junk / wrong / decoy
+            slimePuffAt(c.x, c.y, 7, tp || 'junk');
+          }
+        });
+      }
+    });
+
+    try {
+      mo.observe(fgLayer, { childList: true, subtree: false });
+    } catch {}
+  }
+
+  // ---------- listen judge + celebrate ----------
+  function onJudge(ev) {
+    const d = (ev && ev.detail) ? ev.detail : {};
+    const kind = String(d.kind || '').toLowerCase();
+    const text = String(d.text || '').toLowerCase();
+
+    // ใช้ตำแหน่งกลางจอเป็น fallback
+    const x = root.innerWidth * 0.5;
+    const y = root.innerHeight * 0.52;
+
+    if (kind === 'good') {
+      // good sparkle
+      sparkleAt(x, y, overdrive() ? 14 : 10, 'hit');
+      return;
+    }
+    if (kind === 'boss') {
+      sparkleAt(x, y, overdrive() ? 18 : 14, 'hit');
+      return;
+    }
+    if (kind === 'bad' || kind === 'warn') {
+      // cute slime puff
+      const isWrong = text.includes('wrong');
+      slimePuffAt(x, y, overdrive() ? 16 : 12, isWrong ? 'wrong' : 'junk');
+      return;
+    }
+  }
+
+  function onCelebrate(ev) {
+    const d = (ev && ev.detail) ? ev.detail : {};
+    const k = String(d.kind || 'mini').toLowerCase();
+
+    // burst center-ish
+    const x = root.innerWidth * 0.5;
+    const y = root.innerHeight * 0.38;
+
+    if (k === 'all') {
+      sparkleAt(x, y, 22, 'celebrate');
+      sparkleAt(x - 120, y + 30, 16, 'celebrate');
+      sparkleAt(x + 120, y + 30, 16, 'celebrate');
+      return;
+    }
+    if (k === 'goal') {
+      sparkleAt(x, y, 18, 'celebrate');
+      return;
+    }
+    // mini
+    sparkleAt(x, y, 14, 'celebrate');
+  }
+
+  root.addEventListener('hha:judge', onJudge, { passive: true });
+  root.addEventListener('hha:celebrate', onCelebrate, { passive: true });
+
+  // ---------- public api ----------
+  NS.FX = NS.FX || {};
+  NS.FX.sparkleAt = sparkleAt;
+  NS.FX.slimePuffAt = slimePuffAt;
+
+  // ---------- init ----------
+  bindObserver();
+  startTrail();
+
+  // clean up on end (optional)
+  root.addEventListener('hha:end', () => {
+    stopTrail();
+    try { if (mo) mo.disconnect(); } catch {}
+  }, { passive: true });
 
 })(typeof window !== 'undefined' ? window : globalThis);
