@@ -1,10 +1,10 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
-✅ Playfield bigger (mobile-first)
-✅ Quest as floating panel / mobile bottom-sheet + collapse toggle
-✅ VR/Cardboard mode (fullscreen + minimal UI) — HTML only
-✅ End-window cinematic driver preserved
-✅ No changes to hydration.safe.js
+HydrationVR — PRODUCTION (HTML-ONLY PATCH)
+✅ Correct module path: ./hydration-vr/hydration.safe.js
+✅ Cardboard stereo (2 eyes L/R) via mirrored DOM render (no safe.js change)
+✅ Gaze dwell (faster + more accurate) -> synthetic center-fire (works with your crosshair/tap)
+✅ UI Compact toggle to increase gameplay area (especially mobile)
+✅ End-window cinematic FX driver (uses only tick + thunder)
 -->
 
 <!doctype html>
@@ -16,8 +16,10 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- A-Frame core (optional; kept for your VR/WebXR flow) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
+  <!-- Global FX + input compat + logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
@@ -48,9 +50,8 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
       --endamp: 0;      /* 0..1 */
       --endflash: 0;    /* 0..1 */
 
-      /* ===== layout vars ===== */
-      --questW: 360px;
-      --gap: 10px;
+      /* ===== GAZE progress (0..1) ===== */
+      --gp: 0;
     }
 
     html,body{
@@ -87,7 +88,7 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
     }
 
     /* main layout */
-    .stage{ position:fixed; inset:0; display:flex; flex-direction:column; gap:0; }
+    .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
 
     /* top HUD bar */
     .hud{
@@ -113,7 +114,31 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
     .stat b{ color: var(--cyan); font-weight:1000; }
     .muted{ color: var(--muted); font-weight:850; }
 
-    /* playfield (bigger by removing quest from bottom row) */
+    /* buttons */
+    .btn{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(34,197,94,.18);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 10px 12px;
+      font-weight: 1000;
+      letter-spacing:.2px;
+      cursor:pointer;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+    .btn.secondary{ background: rgba(2,6,23,.55); }
+    .btn.danger{ background: rgba(239,68,68,.18); }
+    .btn.tiny{
+      padding:6px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      box-shadow:none;
+    }
+
+    /* playfield */
     #playfield{
       position:relative;
       flex:1;
@@ -125,20 +150,19 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
       overflow:hidden;
       touch-action: manipulation;
       will-change: transform, filter;
-      min-height: 52vh; /* กันมือถือบางรุ่นที่โดน UI กิน */
     }
     #hvr-layer{ position:absolute; inset:0; pointer-events:none; }
 
-    /* bottom HUD: water only (quest moved out) */
+    /* bottom HUD */
     .bottom{
       padding: 10px 12px calc(var(--sab) + 12px);
       display:flex; gap:10px;
-      justify-content:flex-start;
+      justify-content:space-between;
       align-items:flex-end;
       pointer-events:none;
       z-index:20;
     }
-    .bottom .card{ min-width: 280px; }
+    .bottom .card{ min-width: 240px; }
 
     /* water gauge */
     .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
@@ -240,7 +264,7 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
     .miniBar{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
     .miniBar > div{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85)); transition: width .16s ease; box-shadow: 0 0 14px rgba(167,139,250,.18); }
 
-    /* Start overlay + buttons */
+    /* Start overlay */
     #start-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -248,7 +272,7 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
       z-index:50;
     }
     .startCard{
-      width:min(520px, calc(100% - 24px));
+      width:min(560px, calc(100% - 24px));
       background: rgba(2,6,23,.88);
       border:1px solid rgba(148,163,184,.18);
       border-radius: 20px;
@@ -258,24 +282,6 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
       text-align:left;
     }
     .btnRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
-    .btn{
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(34,197,94,.18);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 10px 12px;
-      font-weight: 1000;
-      letter-spacing:.2px;
-      cursor:pointer;
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
-      -webkit-tap-highlight-color: transparent;
-    }
-    .btn.secondary{ background: rgba(2,6,23,.55); }
-    .btn.danger{ background: rgba(239,68,68,.18); }
-    .btn.ghost{
-      background: rgba(2,6,23,.35);
-    }
 
     /* Stamp */
     #hha-stamp{
@@ -334,105 +340,9 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
     .endItem .v{ margin-top:4px; font-size:16px; }
 
     /* =========================================================
-       QUEST PANEL (NEW): floating / bottom-sheet + collapse
+       ===== CINEMATIC END-WINDOW FX (HTML-only / no safe.js) ====
        ========================================================= */
-    #questPanel{
-      position: fixed;
-      right: 12px;
-      top: calc(var(--sat) + 10px + 86px); /* ใต้ HUD */
-      width: var(--questW);
-      max-width: calc(100vw - 24px);
-      z-index: 25; /* เหนือ playfield */
-      pointer-events: auto;
-    }
-    #questPanel .card{
-      pointer-events: auto; /* ให้กดปุ่ม/สกรอลล์ได้ */
-    }
-    .questHeaderRow{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:6px;
-    }
-    #questPanel.collapsed .questBody{
-      display:none;
-    }
-    #questPanel.collapsed{
-      width: min(var(--questW), calc(100vw - 24px));
-    }
 
-    /* Mobile: quest becomes bottom-sheet above water */
-    @media (max-width: 860px){
-      .hud{
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .hud .card{
-        width: 100%;
-        min-width: 0;
-      }
-      #playfield{
-        margin: 0 12px;
-        min-height: 58vh;
-      }
-      .bottom{
-        justify-content: stretch;
-      }
-      .bottom .card{
-        width: 100%;
-        min-width: 0;
-      }
-
-      #questPanel{
-        left: 12px;
-        right: 12px;
-        top: auto;
-        bottom: calc(var(--sab) + 12px + 122px); /* เหนือ water card */
-        width: auto;
-        max-height: 42vh;
-        overflow: hidden;
-      }
-      #questPanel .card{
-        max-height: 42vh;
-        overflow: auto;
-      }
-    }
-
-    /* =========================================================
-       VR / CARDBOARD MODE (minimal UI + fullscreen)
-       ========================================================= */
-    body.vrmode .stormWarnBanner{ display:none; }
-    body.vrmode #questPanel{ display:none; }      /* ซ่อน quest ยาว */
-    body.vrmode .bottom{ display:none; }          /* ซ่อน water card ยาว */
-    body.vrmode .hud{
-      padding: calc(var(--sat) + 8px) 10px 8px;
-      opacity: .92;
-    }
-    body.vrmode .hud .card{
-      padding: 8px 9px;
-      border-radius: 16px;
-    }
-    body.vrmode #playfield{
-      margin: 0;
-      border-radius: 0;
-      min-height: 78vh;
-    }
-
-    /* VR mini exit button */
-    #vr-exit{
-      position: fixed;
-      right: 12px;
-      top: calc(var(--sat) + 10px);
-      z-index: 70;
-      display:none;
-      pointer-events:auto;
-    }
-    body.vrmode #vr-exit{ display:block; }
-
-    /* =========================================================
-       ===== CINEMATIC END-WINDOW FX (unchanged) =================
-       ========================================================= */
     body.endwindow::after{
       content:"";
       position:fixed; inset:-26px;
@@ -485,6 +395,7 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
       55%{ transform: translate3d(-1.6px,1.8px,0); }
       100%{ transform: translate3d(0,0,0); }
     }
+
     body.endflash #playfield{
       filter:
         saturate(1.20)
@@ -493,6 +404,130 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
         drop-shadow( 1.35px 0px 0px rgba(239,68,68,.22))
         drop-shadow(-1.35px 0px 0px rgba(34,211,238,.18));
     }
+
+    /* =========================================================
+       ===== FAST + ACCURATE GAZE (Dwell) RETICLE (Mono) ========
+       ========================================================= */
+    #gaze-reticle{
+      position:fixed;
+      left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      width: 44px; height: 44px;
+      z-index: 88;
+      pointer-events:none;
+      opacity: .95;
+      --gp: var(--gp);
+      display:block;
+    }
+    body.stereo #gaze-reticle{ display:none; }
+
+    #gaze-reticle .dot{
+      position:absolute; left:50%; top:50%;
+      width: 8px; height: 8px;
+      transform: translate(-50%,-50%);
+      border-radius:999px;
+      background: rgba(34,211,238,.95);
+      box-shadow: 0 0 0 6px rgba(34,211,238,.12);
+    }
+    #gaze-reticle .ring{
+      position:absolute; inset:0;
+      border-radius:999px;
+      background:
+        conic-gradient(rgba(34,197,94,.95) calc(var(--gp)*1turn), rgba(148,163,184,.18) 0);
+      -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%);
+              mask: radial-gradient(circle, transparent 62%, #000 63%);
+      filter: drop-shadow(0 0 12px rgba(34,197,94,.18));
+      transition: filter .12s ease;
+    }
+    body.gaze-lock #gaze-reticle .ring{
+      filter: drop-shadow(0 0 18px rgba(34,197,94,.28));
+    }
+
+    /* =========================================================
+       ===== CARDBOARD STEREO (2 eyes) — mirrored DOM render =====
+       ========================================================= */
+    #stereo-wrap{
+      position:absolute; inset:0;
+      display:none;
+      gap:0;
+      z-index: 5; /* under HUD, above background */
+      pointer-events:none;
+      background: rgba(2,6,23,.25);
+    }
+    body.stereo #stereo-wrap{ display:flex; }
+    body.stereo #hvr-layer{ opacity:0; } /* hide original targets visually (safe.js still runs) */
+
+    .eye{
+      width:50%;
+      height:100%;
+      overflow:hidden;
+      position:relative;
+      border-left: 1px solid rgba(148,163,184,.10);
+    }
+    .eye:first-child{ border-left:none; }
+
+    .eyeInner{
+      position:absolute; inset:0;
+      transform: translateZ(0);
+      will-change: transform;
+    }
+    .mirrorLayer{
+      position:absolute; inset:0;
+      pointer-events:none;
+    }
+    .mTarget{
+      position:absolute;
+      pointer-events:none;
+      transform: translate3d(0,0,0);
+      will-change: transform, left, top;
+    }
+
+    /* per-eye reticle (always on in stereo) */
+    .eyeReticle{
+      position:absolute;
+      left:50%; top:50%;
+      width: 46px; height: 46px;
+      transform: translate(-50%,-50%);
+      opacity:.95;
+      pointer-events:none;
+      z-index: 10;
+    }
+    .eyeReticle .dot{
+      position:absolute; left:50%; top:50%;
+      width: 7px; height: 7px;
+      transform: translate(-50%,-50%);
+      border-radius:999px;
+      background: rgba(34,211,238,.95);
+      box-shadow: 0 0 0 6px rgba(34,211,238,.10);
+    }
+    .eyeReticle .ring{
+      position:absolute; inset:0;
+      border-radius:999px;
+      background:
+        conic-gradient(rgba(34,197,94,.95) calc(var(--gp)*1turn), rgba(148,163,184,.18) 0);
+      -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%);
+              mask: radial-gradient(circle, transparent 62%, #000 63%);
+      filter: drop-shadow(0 0 12px rgba(34,197,94,.16));
+    }
+
+    /* =========================================================
+       ===== UI COMPACT (more gameplay area) =====
+       ========================================================= */
+    body.compact-ui .bottom{ padding-top: 8px; }
+    body.compact-ui .bottom .card{ padding: 8px 9px; border-radius: 16px; }
+    body.compact-ui .miniWrap{ display:none; }
+    body.compact-ui .questLine{ margin: 2px 0; font-size: 12px; }
+    body.compact-ui #playfield{ margin: 0 10px; border-radius: 20px; }
+
+    /* mobile tuning */
+    @media (max-width: 520px){
+      .hud{ padding: calc(var(--sat) + 8px) 10px 8px; gap:8px; }
+      .card{ min-width: 0; width: 100%; }
+      .hud{ flex-direction: column; align-items: stretch; }
+      .bottom{ flex-direction: column; align-items: stretch; gap:8px; }
+      .bottom .card{ min-width: 0; }
+      #playfield{ margin: 0 10px; }
+    }
   </style>
 </head>
 
@@ -500,9 +535,6 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
   <div class="stormWarnBanner" aria-hidden="true">
     <div class="pill">⚠️ Storm กำลังมา… เตรียมตัว!</div>
   </div>
-
-  <!-- VR exit -->
-  <button id="vr-exit" class="btn danger" type="button">⏏ ออก VR</button>
 
   <div class="stage">
     <div class="hud">
@@ -518,18 +550,38 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
       </div>
 
       <div class="card" style="min-width:260px">
-        <h3>🧠 Coach</h3>
+        <h3 style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span>🧠 Coach</span>
+          <button class="btn tiny secondary" id="btn-ui" type="button">🪄 Compact</button>
+        </h3>
         <div class="questLine" id="coach-text">แตะ START เพื่อเริ่ม</div>
         <div class="questLine muted" id="coach-sub">Mini quest จะโผล่ตอน Storm</div>
       </div>
     </div>
 
     <div id="playfield">
+      <!-- SAFE.JS HOST -->
       <div id="hvr-layer"></div>
+
+      <!-- CARDBOARD stereo render -->
+      <div id="stereo-wrap" aria-hidden="true">
+        <div class="eye" id="eyeL">
+          <div class="eyeInner">
+            <div class="mirrorLayer" id="mirrorL"></div>
+            <div class="eyeReticle"><div class="ring"></div><div class="dot"></div></div>
+          </div>
+        </div>
+        <div class="eye" id="eyeR">
+          <div class="eyeInner">
+            <div class="mirrorLayer" id="mirrorR"></div>
+            <div class="eyeReticle"><div class="ring"></div><div class="dot"></div></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="bottom">
-      <div class="card" style="width:min(560px, 100%); min-width:280px">
+      <div class="card" style="min-width:280px">
         <h3>💧 Water Gauge</h3>
         <div class="row" style="justify-content:space-between">
           <div class="stat">Zone <b id="water-zone">—</b></div>
@@ -541,18 +593,12 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
           <div class="stat">Storm <b id="storm-left">0</b> <span class="muted">s</span></div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- QUEST PANEL (moved out of bottom row) -->
-  <div id="questPanel">
-    <div class="card">
-      <div class="questHeaderRow">
-        <h3 style="margin:0">🧩 Quest</h3>
-        <button class="btn ghost" id="btn-quest-toggle" type="button">ยุบ/ขยาย</button>
-      </div>
-
-      <div class="questBody">
+      <div class="card" style="min-width:340px">
+        <h3 style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span>🧩 Quest</span>
+          <button class="btn tiny secondary" id="btn-gaze" type="button">👁️ Gaze: OFF</button>
+        </h3>
         <div class="questLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
         <div class="questLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
         <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
@@ -580,8 +626,14 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
             <div class="miniBar"><div id="mini-pressure-bar"></div></div>
           </div>
         </div>
-      </div><!-- /questBody -->
+      </div>
     </div>
+  </div>
+
+  <!-- Mono gaze reticle -->
+  <div id="gaze-reticle" aria-hidden="true">
+    <div class="ring"></div>
+    <div class="dot"></div>
   </div>
 
   <div id="hha-stamp" aria-hidden="true">
@@ -595,11 +647,12 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
     <div class="startCard">
       <div style="font-size:18px;font-weight:1100">💧 Hydration VR</div>
       <div class="muted" style="margin-top:6px; font-size:12px; font-weight:900">
-        Goal: อยู่ใน GREEN ให้ครบ • Mini: Storm Shield Timing (FULL) • แตะกลางจอ = ยิง crosshair
+        เล็งด้วยหัว (gyro) • ยิงด้วยแตะกลางจอ • เปิด Gaze เพื่อยิงอัตโนมัติ (มองค้าง) • Cardboard = 2 จอซ้าย/ขวา
       </div>
       <div class="btnRow">
         <button class="btn" id="btn-start" type="button">🚀 START</button>
-        <button class="btn secondary" id="btn-vr" type="button">🥽 VR / Cardboard</button>
+        <button class="btn secondary" id="btn-vr" type="button">🥽 VR (WebXR)</button>
+        <button class="btn secondary" id="btn-cardboard" type="button">🕶️ Cardboard (Stereo)</button>
         <button class="btn danger" id="btn-stop" type="button">⛔ STOP</button>
       </div>
     </div>
@@ -625,64 +678,385 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
   <!-- ✅ IMPORTANT: correct relative path from /herohealth/hydration-vr.html -->
   <script type="module" src="./hydration-vr/hydration.safe.js"></script>
 
-  <!-- ===== Layout controls: Quest collapse + VR/Cardboard fullscreen (HTML only) ===== -->
+  <!-- =========================================================
+       UI toggles: Compact + Cardboard stereo + Fullscreen helpers
+       ========================================================= -->
   <script>
   (function(){
     'use strict';
     const D = document;
 
-    // Quest collapse
-    const qp = D.getElementById('questPanel');
-    const btnQT = D.getElementById('btn-quest-toggle');
-    btnQT?.addEventListener('click', ()=>{
-      qp?.classList.toggle('collapsed');
-    });
+    // Compact UI (more play area)
+    const btnUI = D.getElementById('btn-ui');
+    const compactKey = 'HVR_UI_COMPACT';
+    function setCompact(on){
+      D.body.classList.toggle('compact-ui', !!on);
+      localStorage.setItem(compactKey, on ? '1' : '0');
+      if (btnUI) btnUI.textContent = on ? '🧾 Full UI' : '🪄 Compact';
+    }
+    setCompact(localStorage.getItem(compactKey) === '1');
+    btnUI?.addEventListener('click', ()=> setCompact(!D.body.classList.contains('compact-ui')));
 
-    // VR/Cardboard mode: fullscreen + minimal UI
-    const btnVR = D.getElementById('btn-vr');
-    const btnExit = D.getElementById('vr-exit');
-
-    async function requestFS(){
+    async function enterFullscreen(el){
+      el = el || D.documentElement;
       try{
-        const el = D.documentElement;
         if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-      }catch(_){}
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      }catch(e){}
     }
-    async function exitFS(){
+    async function lockLandscape(){
       try{
-        if (D.exitFullscreen) await D.exitFullscreen();
-        else if (D.webkitExitFullscreen) await D.webkitExitFullscreen();
-      }catch(_){}
-    }
-    function setVR(on){
-      D.body.classList.toggle('vrmode', !!on);
+        if (screen.orientation && screen.orientation.lock){
+          await screen.orientation.lock('landscape');
+        }
+      }catch(e){}
     }
 
-    btnVR?.addEventListener('click', async ()=>{
-      // toggle on
-      setVR(true);
-      await requestFS();
-    });
+    const btnCard = D.getElementById('btn-cardboard');
+    const stereoKey = 'HVR_STEREO';
+    function setStereo(on){
+      D.body.classList.toggle('stereo', !!on);
+      localStorage.setItem(stereoKey, on ? '1' : '0');
+      if (btnCard) btnCard.textContent = on ? '🕶️ Cardboard: ON' : '🕶️ Cardboard (Stereo)';
+    }
+    setStereo(localStorage.getItem(stereoKey) === '1');
 
-    btnExit?.addEventListener('click', async ()=>{
-      setVR(false);
-      await exitFS();
-    });
-
-    D.addEventListener('fullscreenchange', ()=>{
-      if (!D.fullscreenElement){
-        // ถ้า user ออกจาก fullscreen เอง -> ปิด vrmode ด้วย
-        setVR(false);
+    btnCard?.addEventListener('click', async ()=>{
+      const on = !D.body.classList.contains('stereo');
+      setStereo(on);
+      if (on){
+        await enterFullscreen(D.documentElement);
+        await lockLandscape();
       }
     });
+
+    // Also allow: long-press anywhere to toggle stereo (optional)
+    let lpT = 0;
+    window.addEventListener('pointerdown', ()=>{
+      lpT = window.setTimeout(()=>{
+        setStereo(!D.body.classList.contains('stereo'));
+      }, 700);
+    }, { passive:true });
+    window.addEventListener('pointerup', ()=>{ clearTimeout(lpT); }, { passive:true });
+  })();
+  </script>
+
+  <!-- =========================================================
+       FAST + ACCURATE GAZE DWELL
+       - Faster: dwell ~450ms
+       - More accurate: lock-on with stickiness + center based on playfield center
+       - Works in stereo (per-eye ring shows same progress)
+       ========================================================= -->
+  <script>
+  (function(){
+    'use strict';
+    const D = document;
+
+    const btn = D.getElementById('btn-gaze');
+    const playfield = D.getElementById('playfield');
+    const layer = D.getElementById('hvr-layer');
+
+    const CFG = {
+      enabled: (localStorage.getItem('HVR_GAZE_DWELL') === '1'),
+      dwellMs: 450,        // ✅ faster
+      radiusPx: 34,        // ✅ tighter = more precise
+      stickyPx: 52,        // keep lock if drift a bit
+      cooldownMs: 160,     // faster follow-up
+      minSizePx: 18
+    };
+
+    function setBtn(){
+      if (!btn) return;
+      btn.textContent = `👁️ Gaze: ${CFG.enabled ? 'ON' : 'OFF'}`;
+    }
+    setBtn();
+
+    btn?.addEventListener('click', ()=>{
+      CFG.enabled = !CFG.enabled;
+      localStorage.setItem('HVR_GAZE_DWELL', CFG.enabled ? '1' : '0');
+      setBtn();
+    });
+
+    function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+
+    function setGP(p){
+      p = clamp(p, 0, 1);
+      D.documentElement.style.setProperty('--gp', String(p));
+    }
+
+    // ยิง crosshair ด้วย "tap" ที่ศูนย์กลาง playfield (แม่นกว่ากึ่งกลางหน้าจอเมื่อมี margin)
+    function fireCenter(){
+      if (!playfield) return;
+      const r = playfield.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top  + r.height/2;
+
+      const down = new PointerEvent('pointerdown', { bubbles:true, clientX:cx, clientY:cy, pointerType:'touch', isPrimary:true });
+      const up   = new PointerEvent('pointerup',   { bubbles:true, clientX:cx, clientY:cy, pointerType:'touch', isPrimary:true });
+      const clk  = new MouseEvent('click',         { bubbles:true, clientX:cx, clientY:cy });
+
+      playfield.dispatchEvent(down);
+      playfield.dispatchEvent(up);
+      playfield.dispatchEvent(clk);
+    }
+
+    // คัดเฉพาะ candidate ที่น่าจะเป็นเป้า: child ของ layer, หรือคลาส/attr ที่พบบ่อย
+    function getCandidates(){
+      if (!layer) return [];
+      const direct = Array.from(layer.children || []);
+      if (direct.length) return direct;
+
+      // fallback
+      return Array.from(layer.querySelectorAll('[data-hha-target], .hha-target, .target, .emojiTarget, .orb, .ball, .bubble, button, div, span'));
+    }
+
+    function pickNearestTarget(){
+      if (!layer || !playfield) return null;
+      const pr = playfield.getBoundingClientRect();
+      const cx = pr.left + pr.width/2;
+      const cy = pr.top  + pr.height/2;
+
+      const nodes = getCandidates();
+      let best = null;
+      let bestD = 1e9;
+
+      for (const el of nodes){
+        if (!el || el.nodeType !== 1) continue;
+
+        const r = el.getBoundingClientRect();
+        if (!r || r.width < CFG.minSizePx || r.height < CFG.minSizePx) continue;
+
+        // ต้องอยู่ใน playfield
+        const midx = r.left + r.width/2;
+        const midy = r.top  + r.height/2;
+        if (midx < pr.left || midx > pr.right || midy < pr.top || midy > pr.bottom) continue;
+
+        // ต้องมองเห็น (กัน element opacity=0)
+        const cs = getComputedStyle(el);
+        if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) <= 0.02) continue;
+
+        const d = Math.hypot(midx - cx, midy - cy);
+        if (d < bestD){
+          bestD = d;
+          best = el;
+        }
+      }
+
+      if (best && bestD <= CFG.radiusPx) return best;
+      return null;
+    }
+
+    let lockEl = null;
+    let lockAt = 0;
+    let cooldownUntil = 0;
+
+    function isStillClose(el){
+      if (!el || !playfield) return false;
+      const pr = playfield.getBoundingClientRect();
+      const cx = pr.left + pr.width/2;
+      const cy = pr.top  + pr.height/2;
+      const r = el.getBoundingClientRect();
+      if (!r) return false;
+      const midx = r.left + r.width/2;
+      const midy = r.top  + r.height/2;
+      const d = Math.hypot(midx - cx, midy - cy);
+      return d <= CFG.stickyPx;
+    }
+
+    function loop(){
+      if (!CFG.enabled){
+        D.body.classList.remove('gaze-lock');
+        lockEl = null; lockAt = 0;
+        setGP(0);
+        requestAnimationFrame(loop);
+        return;
+      }
+
+      const now = performance.now();
+      if (now < cooldownUntil){
+        setGP(0);
+        requestAnimationFrame(loop);
+        return;
+      }
+
+      // ถ้า lock เดิมยังอยู่ใกล้ศูนย์ -> อย่ารีเซ็ตง่าย (แม่นขึ้น)
+      let target = null;
+      if (lockEl && isStillClose(lockEl)) target = lockEl;
+      else target = pickNearestTarget();
+
+      if (!target){
+        D.body.classList.remove('gaze-lock');
+        lockEl = null; lockAt = 0;
+        setGP(0);
+        requestAnimationFrame(loop);
+        return;
+      }
+
+      if (lockEl !== target){
+        lockEl = target;
+        lockAt = now;
+        setGP(0);
+      } else {
+        const p = (now - lockAt) / CFG.dwellMs;
+        setGP(p);
+        D.body.classList.add('gaze-lock');
+
+        if (p >= 1){
+          fireCenter();
+          cooldownUntil = now + CFG.cooldownMs;
+          lockAt = now + 999999;
+          setGP(0);
+          D.body.classList.remove('gaze-lock');
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+  })();
+  </script>
+
+  <!-- =========================================================
+       CARDBOARD STEREO MIRROR RENDER (no safe.js change)
+       - mirrors current targets from #hvr-layer into #mirrorL/#mirrorR
+       - adds small parallax shift to create stereoscopic feel
+       ========================================================= -->
+  <script>
+  (function(){
+    'use strict';
+    const D = document;
+    const playfield = D.getElementById('playfield');
+    const layer = D.getElementById('hvr-layer');
+    const L = D.getElementById('mirrorL');
+    const R = D.getElementById('mirrorR');
+
+    if (!playfield || !layer || !L || !R) return;
+
+    const STATE = {
+      idSeq: 0,
+      mapL: new Map(),
+      mapR: new Map(),
+      parallaxPx: 12   // stereo disparity (tweakable)
+    };
+
+    function keyFor(el){
+      if (!el.dataset) return null;
+      if (!el.dataset.hhaKey){
+        STATE.idSeq++;
+        el.dataset.hhaKey = 't' + STATE.idSeq;
+      }
+      return el.dataset.hhaKey;
+    }
+
+    function styleSnapshot(el, node){
+      // copy a few computed styles to make mirror close to original
+      const cs = getComputedStyle(el);
+      node.style.fontSize = cs.fontSize;
+      node.style.fontFamily = cs.fontFamily;
+      node.style.fontWeight = cs.fontWeight;
+      node.style.color = cs.color;
+      node.style.background = cs.background;
+      node.style.border = cs.border;
+      node.style.borderRadius = cs.borderRadius;
+      node.style.boxShadow = cs.boxShadow;
+      node.style.filter = cs.filter;
+      node.style.opacity = cs.opacity;
+      node.style.transformOrigin = cs.transformOrigin;
+    }
+
+    function ensureNode(map, parent, k, src){
+      let n = map.get(k);
+      if (!n){
+        n = document.createElement('div');
+        n.className = 'mTarget';
+        // keep inner visuals similar
+        n.innerHTML = src.innerHTML;
+        styleSnapshot(src, n);
+        parent.appendChild(n);
+        map.set(k, n);
+      } else {
+        // keep content updated if target swaps icon
+        if (n.innerHTML !== src.innerHTML) n.innerHTML = src.innerHTML;
+      }
+      return n;
+    }
+
+    function cleanup(map, used){
+      for (const [k,n] of map){
+        if (!used.has(k)){
+          n.remove();
+          map.delete(k);
+        }
+      }
+    }
+
+    function loop(){
+      if (!D.body.classList.contains('stereo')){
+        // if leaving stereo, clean mirrors to reduce cpu
+        if (STATE.mapL.size || STATE.mapR.size){
+          L.innerHTML = '';
+          R.innerHTML = '';
+          STATE.mapL.clear();
+          STATE.mapR.clear();
+        }
+        requestAnimationFrame(loop);
+        return;
+      }
+
+      const pr = playfield.getBoundingClientRect();
+      const used = new Set();
+
+      const kids = Array.from(layer.children || []);
+      for (let i=0; i<kids.length; i++){
+        const el = kids[i];
+        if (!el || el.nodeType !== 1) continue;
+
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) <= 0.02) continue;
+
+        const k = keyFor(el);
+        if (!k) continue;
+
+        const r = el.getBoundingClientRect();
+        const w = r.width, h = r.height;
+        if (w < 6 || h < 6) continue;
+
+        // position relative to playfield
+        const x = r.left - pr.left;
+        const y = r.top  - pr.top;
+
+        const nL = ensureNode(STATE.mapL, L, k, el);
+        const nR = ensureNode(STATE.mapR, R, k, el);
+
+        // subtle stereo shift
+        const dx = STATE.parallaxPx * 0.5;
+
+        nL.style.width = w + 'px';
+        nL.style.height = h + 'px';
+        nL.style.transform = `translate3d(${(x + dx).toFixed(2)}px, ${(y).toFixed(2)}px, 0)`;
+
+        nR.style.width = w + 'px';
+        nR.style.height = h + 'px';
+        nR.style.transform = `translate3d(${(x - dx).toFixed(2)}px, ${(y).toFixed(2)}px, 0)`;
+
+        used.add(k);
+      }
+
+      cleanup(STATE.mapL, used);
+      cleanup(STATE.mapR, used);
+
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
   })();
   </script>
 
   <!-- =========================================================
        HTML-ONLY CINEMATIC DRIVER (reads window.__HVR__.S/TUNE)
        - tick accel + flash sync + endamp ramp
-       - only beep/tick/thunder (soft thunder = thunder)
+       - only tick + thunder
        ========================================================= -->
   <script>
   (function(){
@@ -691,7 +1065,6 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
     const D = document;
     const root = window;
 
-    // --- Audio: tick + thunder only (beep not needed here) ---
     const EndAudio = (() => {
       let ctx = null;
       function ensure(){
@@ -737,7 +1110,6 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
       return { resume, tick, thunder };
     })();
 
-    // --- CSS vars driver ---
     function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
     function setEndVars(amp, flash){
       amp = clamp(amp, 0, 1);
@@ -747,6 +1119,7 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
     }
 
     let flashTimer = 0;
+    let currentAmp = 0;
     function flashPulse(strength){
       strength = clamp(strength, 0, 1);
       D.body.classList.add('endflash');
@@ -758,15 +1131,12 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
       }, 70);
     }
 
-    // --- State machine ---
     let endOn = false;
     let tEnter = 0;
     let acc = 0;
     let lastT = 0;
     let thundered = false;
-    let currentAmp = 0;
 
-    // kick audio on first user gesture (safe)
     window.addEventListener('pointerdown', ()=>EndAudio.resume(), { passive:true });
 
     function setEnd(on){
@@ -805,14 +1175,13 @@ HydrationVR — PRODUCTION (LAYOUT + VR/CARDBOARD PATCH)
         return;
       }
 
-      // end-window definition: stormActive && stormLeftSec <= endWindowSec
       const inEnd = !!(S.stormActive && (S.stormLeftSec <= (TUNE.endWindowSec + 0.02)));
       setEnd(inEnd);
 
       if (endOn){
         const elapsed = (t - tEnter) / 1000;
-
         const k = clamp(elapsed / 1.05, 0, 1);
+
         currentAmp = 0.25 + 0.75*k;
         setEndVars(currentAmp, 0);
 
