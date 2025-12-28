@@ -1,5 +1,8 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
-PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
+Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
+✅ events: groups:progress + hha:* + groups:reward hook
+✅ No-Junk ring hardened: always emits nojunk_off on disable
+✅ FX: shake by fever + storm urgent tick + flash/stun
 */
 
 (function(root){
@@ -232,7 +235,8 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
 
       emit('hha:judge', { kind:'good', text:'🎁 REWARD!' });
       emit('hha:celebrate', { kind:'mini', title:'REWARD!' });
-
+      DOC.body.classList.add('groups-bonusflash');
+      root.setTimeout(()=> DOC.body.classList.remove('groups-bonusflash'), 220);
     }, { passive:true });
   }
 
@@ -342,9 +346,8 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
     layer.style.setProperty('--nojunk-cy', engine.noJunk.cy + 'px');
     layer.style.setProperty('--nojunk-r',  engine.noJunk.r  + 'px');
 
-    // ✅ ensure off event
     if (wasOn && !engine.noJunk.on){
-      emitProgress({ kind:'nojunk_off' });
+      emitProgress({ kind:'nojunk_off' }); // ✅ always notify quest
     }
   }
 
@@ -549,6 +552,7 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
     engine.power = 0;
     updatePower();
 
+    // extra chance to start No-Junk right after switch
     if (!engine.noJunk.on && engine.rng() < 0.35){
       const rr = safeSpawnRect();
       setNoJunk(true, rr.W*0.5, (rr.y0+rr.y1)*0.55, Math.min(rr.W, rr.y1-rr.y0)*0.22, 7000);
@@ -617,7 +621,6 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
     el.classList.add('fg-boss');
     engine.layerEl.appendChild(el);
 
-    engine._bossEl = el;
     emitProgress({ kind:'boss_spawn' });
     emit('hha:judge', { kind:'boss', text:'BOSS!' });
 
@@ -735,7 +738,6 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
 
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
     if (badLike){
-      // shield blocks junk => no fail/miss
       if (type === 'junk' && engine.shield > 0){
         engine.shield = 0;
         emitFever();
@@ -748,12 +750,11 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
       emitProgress({ type:'hit', correct:false });
       emitProgress({ kind:'hit_bad' });
 
-      // No-junk fail
       if (engine.noJunk.on && type === 'junk'){
         emit('hha:judge', { kind:'bad', text:'NO-JUNK FAIL!' });
         emit('hha:celebrate', { kind:'mini', title:'NO-JUNK FAIL!' });
         emitProgress({ kind:'nojunk_fail' });
-        setNoJunk(false); // will emit nojunk_off via hardened logic
+        setNoJunk(false); // hardened => emits nojunk_off
       }
 
       engine.misses++;
@@ -855,35 +856,12 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
     const t = now();
     if (!engine.feverTickLast) engine.feverTickLast = t;
     const dt = Math.min(0.25, Math.max(0, (t - engine.feverTickLast)/1000));
-    engine.feverTickLast = t;
 
+    engine.feverTickLast = t;
     const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
     const cool = 7.5 * (0.6 + clamp(engine.combo/18,0,1)*0.6 + clamp(acc,0,1)*0.3);
     engine.fever = clamp(engine.fever - cool*dt, 0, 100);
     emitFever();
-  }
-
-  function tryBossSpawn(){
-    if (engine.bossAlive) return;
-    if (now() < engine.nextBossAtMs) return;
-
-    engine.bossAlive = true;
-    engine.bossHp = engine.bossHpMax;
-
-    const p = engine.storm ? stormPos() : randPos();
-    const s = 1.25 * engine.sizeBase;
-
-    const el = makeTarget('boss','👑',p.x,p.y,s);
-    if (!el) return;
-
-    el.dataset.hp = String(engine.bossHp);
-    el.classList.add('fg-boss');
-    engine.layerEl.appendChild(el);
-
-    emitProgress({ kind:'boss_spawn' });
-    emit('hha:judge', { kind:'boss', text:'BOSS!' });
-
-    engine.nextBossAtMs = now() + (engine.runMode==='research' ? 20000 : clamp(engine.adapt.bossEvery, 14000, 26000));
   }
 
   function loopTick(){
@@ -909,8 +887,7 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
 
     maybeStartNoJunk();
     if (engine.noJunk.on && now() > engine.noJunk.until){
-      // PASS path: just turn off (will emit nojunk_off)
-      setNoJunk(false);
+      setNoJunk(false); // PASS => nojunk_off emitted
     }
 
     if (engine.runMode === 'play'){
@@ -960,7 +937,10 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
     clearAllTargets();
     questStop();
 
-    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-overdrive','groups-freeze','groups-panic','groups-stun','groups-nojunk');
+    DOC.body.classList.remove(
+      'groups-storm','groups-storm-urgent','groups-overdrive','groups-freeze','groups-panic','groups-stun','groups-nojunk',
+      'groups-hitbad','groups-shieldflash','groups-swapflash','groups-bonusflash'
+    );
 
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
     const grade = rankFromAcc(acc);
@@ -1002,7 +982,7 @@ PATCH: No-Junk Mini Quest Reward + hardened nojunk_off emit
     engine.seed = String(cfg.seed || Date.now());
     engine.rng = makeRng(engine.seed);
 
-    bindReward(); // ✅
+    bindReward();
 
     const dp = diffParams(engine.diff);
 
