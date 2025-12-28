@@ -1,8 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard (layout-aware)
-// ✅ FIX: attachTouchLook export + hostEl (gj-stage) for drag
-// ✅ Auto layout: pc | mobile | vr (optional ?view=vr)
-// ✅ safeMargins tuned by layout/orientation
+// GoodJunkVR Boot — HHA Standard (UPDATED)
+// ✅ sets view mode: ?view=pc|mobile|vr  (auto if missing)
+// ✅ sets documentElement/body dataset.view for responsive CSS
+// ✅ requests motion permission on iOS inside Start button gesture (optional)
+// ✅ boots safe engine
 
 'use strict';
 
@@ -20,14 +21,18 @@ function qp(name, fallback = null){
 function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
-function isMobileLike(){
-  const w = innerWidth || 360;
-  const h = innerHeight || 640;
+function detectView(){
+  const forced = toStr(qp('view', ''), '').toLowerCase();
+  if (forced === 'pc' || forced === 'mobile' || forced === 'vr') return forced;
+
   const coarse = (matchMedia && matchMedia('(pointer: coarse)').matches);
-  return coarse || (Math.min(w,h) < 520);
+  const small = Math.min(innerWidth||360, innerHeight||640) < 520;
+  return (coarse || small) ? 'mobile' : 'pc';
 }
-function isLandscape(){
-  return (innerWidth || 0) > (innerHeight || 0);
+
+function setViewDataset(view){
+  try{ document.documentElement.dataset.view = view; }catch(_){}
+  try{ document.body.dataset.view = view; }catch(_){}
 }
 
 function buildContext(){
@@ -48,7 +53,7 @@ function buildContext(){
   return ctx;
 }
 
-function showStartOverlay(metaText){
+function showStartOverlay(metaText, onStartGesture){
   const overlay = document.getElementById('startOverlay');
   const btn = document.getElementById('btnStart');
   const meta = document.getElementById('startMeta');
@@ -57,7 +62,8 @@ function showStartOverlay(metaText){
 
   overlay.style.display = 'flex';
   return new Promise((resolve) => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
+      try{ await onStartGesture?.(); }catch(_){}
       overlay.style.display = 'none';
       resolve();
     };
@@ -67,35 +73,6 @@ function showStartOverlay(metaText){
 function setHudMeta(text){
   const el = document.getElementById('hudMeta');
   if (el) el.textContent = text;
-}
-
-function detectView(){
-  const v = toStr(qp('view', ''), '').toLowerCase(); // pc|mobile|vr
-  if (v === 'pc' || v === 'mobile' || v === 'vr') return v;
-  // auto
-  return isMobileLike() ? 'mobile' : 'pc';
-}
-
-function computeSafeMargins(view){
-  // defaults
-  let m = { top: 128, bottom: 170, left: 26, right: 26 };
-
-  if (view === 'mobile'){
-    m = { top: 118, bottom: 162, left: 20, right: 20 };
-    if (isLandscape()) m = { top: 88, bottom: 120, left: 16, right: 16 };
-  }
-
-  if (view === 'vr'){
-    // cardboard-feel: maximize play area
-    m = { top: 78, bottom: 96, left: 14, right: 14 };
-    if (isLandscape()) m = { top: 68, bottom: 86, left: 12, right: 12 };
-  }
-
-  if (view === 'pc'){
-    if (isLandscape() && (innerHeight||0) < 520) m = { top: 96, bottom: 130, left: 22, right: 22 };
-  }
-
-  return m;
 }
 
 (async function main(){
@@ -109,31 +86,37 @@ function computeSafeMargins(view){
   const sessionId = qp('sessionId', null) || qp('sid', null);
 
   const view = detectView();
-  document.body.dataset.view = view;
-  const safeMargins = computeSafeMargins(view);
+  setViewDataset(view);
 
   const ctx = buildContext();
 
   setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • ${view}`);
 
-  // attach touch/gyro -> world shift
-  attachTouchLook({
+  // prepare touch-look (drag works immediately; motion permission requested on Start)
+  const tl = attachTouchLook({
+    stageEl: document.getElementById('gj-stage'),
     crosshairEl: document.getElementById('gj-crosshair'),
     layerEl: document.getElementById('gj-layer'),
-    hostEl: document.getElementById('gj-stage'), // ✅ สำคัญ (layer pointer-events:none)
+    ringEl: document.getElementById('atk-ring'),
+    laserEl: document.getElementById('atk-laser'),
     aimY: 0.62,
-    maxShiftPx: (view === 'vr') ? 140 : 170,
+    maxShiftPx: (view === 'vr') ? 190 : 170,
     ease: 0.12,
-    dragOnly: true,
-    gyro: (view === 'vr' || view === 'mobile')
+    useMotion: false // ask permission on Start
   });
 
   const metaText =
     `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • ${view}`
     + (seed ? ` • seed=${seed}` : '');
 
-  await showStartOverlay(metaText);
+  await showStartOverlay(metaText, async ()=>{
+    // iOS motion permission needs gesture; only try if user wants VR-like mode or on mobile
+    if (view === 'vr' || view === 'mobile'){
+      await tl.requestMotionPermission();
+    }
+  });
 
+  // boot engine
   goodjunkBoot({
     diff,
     time,
@@ -145,6 +128,6 @@ function computeSafeMargins(view){
     context: ctx,
     layerEl: document.getElementById('gj-layer'),
     shootEl: document.getElementById('btnShoot'),
-    safeMargins
+    safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
   });
 })();
