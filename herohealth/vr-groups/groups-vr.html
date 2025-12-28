@@ -1,3 +1,9 @@
+<!-- === /herohealth/vr-groups/groups-vr.html ===
+Food Groups VR — Run (PRODUCTION)
+✅ load particles + logger
+✅ boot modules (groups-fx, audio, quests, GameEngine)
+✅ flush-hardened + last summary + hub back
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -6,18 +12,11 @@
   <title>Food Groups VR — Run</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
+  <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- ✅ cache-bust css (กันมือถือค้างเวอร์ชันเก่า) -->
-  <script>
-    (function(){
-      const q = new URLSearchParams(location.search);
-      const v = (q.get('v') || String(Date.now()));
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = './groups-vr.css?v=' + encodeURIComponent(v);
-      document.head.appendChild(link);
-    })();
-  </script>
+  <!-- Global FX + logger (เหมือนเกมอื่นใน HHA Standard) -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 
   <style>
     :root{
@@ -327,15 +326,7 @@
     const diff    = (q.get('diff') || 'normal').toLowerCase();
     const style   = (q.get('style') || 'mix').toLowerCase();
     const time    = Number(q.get('time') || 90);
-
-    // ✅ seed policy:
-    // - ถ้าผู้ใช้ส่ง seed มา → เคารพ seed นั้นเสมอ
-    // - ถ้าไม่ส่ง seed:
-    //   - play → ให้สุ่มใหม่ตอน replay (เพื่อความหลากหลาย)
-    //   - research → fix seed (deterministic)
-    const seedFromUrl = (q.get('seed') || '').trim();
-    let seed = seedFromUrl || String(Date.now());
-
+    const seed    = (q.get('seed') || '').trim() || String(Date.now());
     const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
     const autostart = q.get('autostart') === '1';
     const v = (q.get('v') || String(Date.now()));
@@ -348,12 +339,6 @@
       if (!box) return;
       box.style.display = 'block';
       box.textContent += (box.textContent ? '\n' : '') + String(msg);
-    }
-    function clearWarn(){
-      const box = $('warnBox');
-      if (!box) return;
-      box.style.display = 'none';
-      box.textContent = '';
     }
 
     async function safeImport(path){
@@ -389,11 +374,7 @@
 
     function goHub(){
       flushHardened('go_hub');
-      // ✅ ถ้า HUB อยากอ่าน hub=... หรือ last summary ต่อ
-      const u = new URL(hub, location.href);
-      // ส่งต่อ v เผื่อ hub ใช้ cache-bust เหมือนกัน (ไม่บังคับ)
-      if (!u.searchParams.get('v')) u.searchParams.set('v', v);
-      location.href = u.toString();
+      location.href = hub;
     }
     $('btnBack').addEventListener('click', goHub);
     $('btnHub2').addEventListener('click', goHub);
@@ -488,7 +469,7 @@
             game: 'GroupsVR',
             ts: new Date().toISOString(),
             ...d,
-            params: { runMode, diff, style, time, seed, hub, v }
+            params: { runMode, diff, style, time, seed, hub }
           };
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
@@ -512,7 +493,6 @@
             clearInterval(t);
             warn('❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า GameEngine.js โหลดได้ 200 และชื่อไฟล์ตัวใหญ่/เล็กตรง');
             $('dbgBoot').textContent = 'ENGINE NOT FOUND ❌';
-            resolve(null);
           }
         }, 80);
       });
@@ -521,35 +501,24 @@
     async function startGame(){
       $('btnStart').disabled = true;
       $('startDesc').textContent = 'กำลังเริ่มเกม…';
-      clearWarn();
 
       await boot();
       const GE = await waitEngineReady();
       if (!GE){ $('btnStart').disabled = false; return; }
 
-      // ✅ กัน start overlay โผล่ค้าง
-      $('startOverlay').style.display = 'none';
-      $('endOverlay').classList.remove('show');
-
       GE.setLayerEl($('fg-layer'));
       GE.start(diff, { runMode, style, time, seed });
 
+      $('startOverlay').style.display = 'none';
+      $('endOverlay').classList.remove('show');
       $('btnStart').disabled = false;
     }
 
     $('btnStart').addEventListener('click', startGame);
-
     $('btnReplay').addEventListener('click', ()=>{
       try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
-
-      // ✅ play: ถ้าไม่ได้ส่ง seed มาจาก URL → replay ใช้ seed ใหม่เพื่อความหลากหลาย
-      // ✅ research: fix seed เสมอ
-      if (!seedFromUrl && runMode === 'play') seed = String(Date.now());
-
-      $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
       $('endOverlay').classList.remove('show');
       $('startOverlay').style.display = 'grid';
-
       if (autostart) setTimeout(startGame, 250);
     });
 
