@@ -1,23 +1,20 @@
-/* === /herohealth/plate/plate.safe.js ===
-Balanced Plate VR — SAFE (PRODUCTION) — Concept 1–5 LOCKED
-PATCH:
-- Goal3 requires balance >= 88%
-- Minis evenly distributed (shuffle-bag / round-robin fairness)
-- IIFE (non-module) + exposes window.PlateBoot.start/goHub/recenter
-- Emits quest:update fields that match plate-vr.html handler:
-  { goalTitle, goalNow, goalTotal, miniTitle, miniNow, miniTotal, miniLeftMs }
-- Ensures end overlay reuse (#endOverlay) and binds retry/backhub with flush
-- Injects minimal target CSS if missing
-- Flush-hardened: end/backhub/pagehide/visibilitychange (best-effort)
------------------------------------------------------------- */
+/* === plate.safe.js (IIFE / NO export) — 20251228b ===
+Balanced Plate VR — PRODUCTION SAFE
+✅ Goal3 requires balance >= 88%
+✅ Minis evenly distributed (shuffle-bag fairness)
+✅ Emits quest:update compatible with plate-vr.html handler
+✅ End overlay reuse (#endOverlay) + binds retry/backhub (flush before leave)
+✅ VR-feel translate (drag + gyro) so targets flow with view
+✅ Mini warning FX: ticking + edge pulse + gentle shake near timeout
+✅ Flush-hardened: end/backhub/pagehide/visibilitychange
+-------------------------------------------------------- */
 
 (function (root) {
   'use strict';
-
   const DOC = root.document;
   if (!DOC) return;
 
-  // -------------------- helpers --------------------
+  // -------------------- utils --------------------
   const now = () => (root.performance && performance.now) ? performance.now() : Date.now();
   const clamp = (v, a, b) => { v = Number(v); if (!Number.isFinite(v)) v = 0; return Math.max(a, Math.min(b, v)); };
 
@@ -28,12 +25,11 @@ PATCH:
     const v = parseInt(qs(name, def), 10);
     return Number.isFinite(v) ? v : def;
   }
-
   function emit(name, detail){
     try{ root.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
   }
 
-  // -------------------- RNG (deterministic) --------------------
+  // -------------------- deterministic RNG --------------------
   function xmur3(str){
     str = String(str || '');
     let h = 1779033703 ^ str.length;
@@ -43,7 +39,7 @@ PATCH:
     }
     return function(){
       h = Math.imul(h ^ (h >>> 16), 2246822507);
-      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      h = Math.imul(h ^ (h >>> 13), 3266482507);
       h ^= (h >>> 16);
       return h >>> 0;
     };
@@ -74,20 +70,19 @@ PATCH:
   }
   function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
 
-  // -------------------- locate layer --------------------
+  // -------------------- layer --------------------
   const layer =
     DOC.getElementById('plate-layer') ||
-    DOC.getElementById('pl-layer') ||
-    DOC.getElementById('plateLayer') ||
     DOC.querySelector('.plate-layer') ||
+    DOC.getElementById('pl-layer') ||
     DOC.querySelector('.pl-layer');
 
   if (!layer){
-    console.warn('[PlateVR] layer not found (#plate-layer / .plate-layer)');
+    console.warn('[PlateVR] layer not found (#plate-layer/.plate-layer)');
     return;
   }
 
-  // -------------------- optional modules --------------------
+  // -------------------- modules (optional) --------------------
   const Particles =
     (root.GAME_MODULES && root.GAME_MODULES.Particles) ||
     root.Particles ||
@@ -96,7 +91,7 @@ PATCH:
   const FeverUI =
     (root.GAME_MODULES && root.GAME_MODULES.FeverUI) ||
     root.FeverUI ||
-    { set(){}, get(){ return { value:0, state:'low', shield:0 }; }, setShield(){} };
+    { setShield(){}, get(){ return { value:0, state:'low', shield:0 }; } };
 
   // -------------------- logger (best effort) --------------------
   function logEvent(type, data){
@@ -105,34 +100,128 @@ PATCH:
   }
   async function flushLogger(reason){
     emit('hha:flush', { reason: String(reason||'flush') });
-
     const fns = [];
     try{ if (root.HHA_CLOUD_LOGGER && typeof root.HHA_CLOUD_LOGGER.flush === 'function') fns.push(root.HHA_CLOUD_LOGGER.flush.bind(root.HHA_CLOUD_LOGGER)); }catch(_){}
     try{ if (root.HHACloudLogger && typeof root.HHACloudLogger.flush === 'function') fns.push(root.HHACloudLogger.flush.bind(root.HHACloudLogger)); }catch(_){}
     try{ if (root.GAME_MODULES && root.GAME_MODULES.CloudLogger && typeof root.GAME_MODULES.CloudLogger.flush === 'function') fns.push(root.GAME_MODULES.CloudLogger.flush.bind(root.GAME_MODULES.CloudLogger)); }catch(_){}
     try{ if (typeof root.hhaFlush === 'function') fns.push(root.hhaFlush.bind(root)); }catch(_){}
-
     const tasks = fns.map(fn=>{
-      try{
-        const r = fn({ reason:String(reason||'flush') });
-        return (r && typeof r.then === 'function') ? r : Promise.resolve();
-      }catch(_){ return Promise.resolve(); }
+      try{ const r = fn({ reason:String(reason||'flush') }); return (r && typeof r.then==='function') ? r : Promise.resolve(); }
+      catch(_){ return Promise.resolve(); }
     });
-
-    await Promise.race([
-      Promise.all(tasks),
-      new Promise(res=>setTimeout(res, 260))
-    ]);
+    await Promise.race([ Promise.all(tasks), new Promise(res=>setTimeout(res, 260)) ]);
   }
 
-  // -------------------- ensure minimal CSS for targets --------------------
+  // -------------------- FX: mini warning (tick + pulse + shake) --------------------
+  function ensureWarnFx(){
+    if (DOC.getElementById('plate-warnfx-style')) return;
+
+    const st = DOC.createElement('style');
+    st.id = 'plate-warnfx-style';
+    st.textContent = `
+      .plate-warnEdge{
+        position:fixed; inset:0; pointer-events:none; z-index:9996;
+        border-radius: 18px;
+        box-shadow: inset 0 0 0 0 rgba(239,68,68,0);
+        opacity:0;
+        transition: opacity .08s ease;
+      }
+      .plate-warnEdge.on{
+        opacity:1;
+        box-shadow:
+          inset 0 0 0 2px rgba(239,68,68,.22),
+          inset 0 0 60px rgba(239,68,68,.18),
+          0 0 40px rgba(239,68,68,.10);
+      }
+      .plate-shake{
+        animation: plateShake .22s ease-in-out infinite;
+      }
+      @keyframes plateShake{
+        0%{ transform: translate(0,0); }
+        25%{ transform: translate(0.6px,-0.8px); }
+        50%{ transform: translate(-0.8px,0.7px); }
+        75%{ transform: translate(0.7px,0.6px); }
+        100%{ transform: translate(0,0); }
+      }
+    `;
+    DOC.head.appendChild(st);
+
+    const edge = DOC.createElement('div');
+    edge.className = 'plate-warnEdge';
+    edge.id = 'plate-warnEdge';
+    DOC.body.appendChild(edge);
+  }
+  ensureWarnFx();
+  const warnEdge = DOC.getElementById('plate-warnEdge');
+
+  const AudioTick = (function(){
+    let ctx=null, osc=null, gain=null, lastBeepAt=0;
+    function ensure(){
+      const AC = root.AudioContext || root.webkitAudioContext;
+      if (!AC) return false;
+      if (!ctx) ctx = new AC();
+      if (ctx.state === 'suspended') { try{ ctx.resume(); }catch(_){ } }
+      if (!gain){
+        gain = ctx.createGain();
+        gain.gain.value = 0.0001;
+        gain.connect(ctx.destination);
+      }
+      return true;
+    }
+    function beep(strength){
+      const t = now();
+      if (t - lastBeepAt < 90) return; // cap rate
+      lastBeepAt = t;
+
+      if (!ensure()) return;
+      strength = clamp(strength, 0, 1);
+
+      try{
+        if (osc) { osc.stop(); osc.disconnect(); osc = null; }
+      }catch(_){}
+
+      osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = 520 + strength*180;
+
+      const g = ctx.createGain();
+      g.gain.value = 0.0001;
+      osc.connect(g); g.connect(gain);
+
+      const t0 = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.16 + strength*0.14, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08);
+
+      osc.start();
+      osc.stop(t0 + 0.09);
+    }catch(_){}
+    function stop(){
+      try{ if (osc){ osc.stop(); osc.disconnect(); osc=null; } }catch(_){}
+      try{ if (ctx && ctx.state !== 'closed') ctx.close(); }catch(_){}
+      ctx=null; gain=null;
+    }
+    return { beep, stop };
+  })();
+
+  function warnFx(on, intensity){
+    intensity = clamp(intensity, 0, 1);
+    if (warnEdge){
+      warnEdge.classList.toggle('on', !!on);
+    }
+    DOC.documentElement.classList.toggle('plate-shake', !!on && intensity > 0.35);
+    if (on){
+      AudioTick.beep(intensity);
+    }
+  }
+
+  // -------------------- ensure target CSS --------------------
   function ensureTargetStyles(){
     if (DOC.getElementById('plate-safe-style')) return;
-
     const st = DOC.createElement('style');
     st.id = 'plate-safe-style';
     st.textContent = `
-      #plate-layer, .plate-layer { position: fixed; inset:0; touch-action:none; }
+      #plate-layer, .plate-layer{ position:fixed; inset:0; touch-action:none; }
       .pl-target{
         position:absolute;
         left: var(--x, 50px);
@@ -168,15 +257,15 @@ PATCH:
   }
   ensureTargetStyles();
 
-  // -------------------- Difficulty params --------------------
+  // -------------------- Difficulty --------------------
   function diffParams(diff){
     diff = String(diff||'normal').toLowerCase();
-    if (diff === 'easy')   return { spawnMs:900, ttl:1900, size:1.05, junk:0.10, hint:0.020, shield:0.016, adapt:true };
-    if (diff === 'hard')   return { spawnMs:650, ttl:1450, size:0.92, junk:0.16, hint:0.012, shield:0.010, adapt:true };
-    return                  { spawnMs:760, ttl:1650, size:1.00, junk:0.12, hint:0.015, shield:0.012, adapt:true };
+    if (diff === 'easy') return { spawnMs:900, ttl:1900, size:1.05, junk:0.10, hint:0.020, shield:0.016 };
+    if (diff === 'hard') return { spawnMs:650, ttl:1450, size:0.92, junk:0.16, hint:0.012, shield:0.010 };
+    return { spawnMs:760, ttl:1650, size:1.00, junk:0.12, hint:0.015, shield:0.012 };
   }
 
-  // -------------------- Concept core: groups + target dist --------------------
+  // -------------------- Concept: groups + dist --------------------
   const GROUPS = {
     veg:     { key:'veg',     label:'ผัก',    emoji:['🥦','🥬','🥕','🌽','🥒','🍆'] },
     fruit:   { key:'fruit',   label:'ผลไม้',  emoji:['🍎','🍌','🍊','🍉','🍓','🍍'] },
@@ -189,23 +278,20 @@ PATCH:
   const JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭'];
   const DECOY= ['🎭','🌀','✨','🌈','🎈'];
 
-  // -------------------- Goals (Concept 1) --------------------
-  // ✅ Goal3 minBalance = 88
+  // -------------------- Goals (Goal3 >= 88) --------------------
   const GOALS = [
     { title:'จัดจานให้ “พอสมดุล”',  needFood:8,  minBalance:70, maxJunk:1 },
     { title:'จัดจานให้ “สมดุลขึ้น”', needFood:12, minBalance:78, maxJunk:1 },
-    { title:'จัดจานให้ “สมดุลสุด ๆ”', needFood:16, minBalance:88, maxJunk:0 }
+    { title:'จัดจานให้ “สมดุลสุด ๆ”', needFood:16, minBalance:88, maxJunk:0 } // ✅
   ];
 
-  // -------------------- Minis (Concept 2) --------------------
+  // -------------------- Minis (fair bag) --------------------
   const MINI_DEFS = [
-    { key:'rush',     title:'Plate Rush',      desc:'เก็บอาหาร 5 ชิ้นใน 8 วิ (ห้ามโดนขยะ)', need:5,  sec:8,  mode:'anyfood' },
-    { key:'fix',      title:'Fix Imbalance',   desc:'เติม “หมวดที่ขาด” 3 ชิ้นใน 10 วิ (ห้ามโดนขยะ)', need:3, sec:10, mode:'missing' },
-    { key:'rainbow',  title:'Rainbow Plate',   desc:'เก็บครบ 4 หมวดใน 12 วิ (ห้ามโดนขยะ)', need:4, sec:12, mode:'eachgroup' },
-    { key:'clean3',   title:'Clean Window',    desc:'ใน 6 วิ เก็บอาหาร 3 ชิ้นแบบไม่พลาด', need:3,  sec:6,  mode:'anyfood' }
+    { key:'rush',    title:'Plate Rush',    desc:'เก็บอาหาร 5 ชิ้นใน 8 วิ (ห้ามโดนขยะ)', need:5, sec:8,  mode:'anyfood' },
+    { key:'fix',     title:'Fix Imbalance', desc:'เติม “หมวดที่ขาด” 3 ชิ้นใน 10 วิ (ห้ามโดนขยะ)', need:3, sec:10, mode:'missing' },
+    { key:'rainbow', title:'Rainbow Plate', desc:'เก็บครบ 4 หมวดใน 12 วิ (ห้ามโดนขยะ)', need:4, sec:12, mode:'eachgroup' },
+    { key:'clean3',  title:'Clean Window',  desc:'ใน 6 วิ เก็บอาหาร 3 ชิ้นแบบไม่พลาด', need:3, sec:6,  mode:'anyfood' }
   ];
-
-  // ✅ mini fairness bag (เฉลี่ยเท่า ๆ กันจริง)
   const miniBag = { bag: [], idx: 0 };
   function nextMiniDef(rng){
     if (miniBag.bag.length !== MINI_DEFS.length || miniBag.idx >= miniBag.bag.length){
@@ -225,7 +311,7 @@ PATCH:
     return 'C';
   }
 
-  // -------------------- Engine state --------------------
+  // -------------------- state --------------------
   const S = {
     running:false,
     ended:false,
@@ -237,7 +323,7 @@ PATCH:
     seed:'seed',
     rng:Math.random,
 
-    // view translate (VR feel)
+    // view translate
     vx:0, vy:0,
     dragOn:false, dragX:0, dragY:0,
 
@@ -249,7 +335,7 @@ PATCH:
     score:0,
     combo:0,
     comboMax:0,
-    misses:0,          // miss = food expire + junk hit (if not blocked)
+    misses:0,
     hitAll:0,
     hitFood:0,
     hitJunk:0,
@@ -260,13 +346,24 @@ PATCH:
     counts:{ veg:0, fruit:0, protein:0, carb:0 },
     totalFood:0,
     balancePct:0,
-    lastBalanceBucket:-1,
     lastCoachAt:0,
+    lastBalanceBucket:-1,
+
+    // goal stage
+    goalIndex:0,
+    goalsCleared:0,
+    goalsTotal:GOALS.length,
+    goalJunkUnblocked:0,
+
+    // mini
+    miniActive:null,
+    miniCleared:0,
+    miniTotal:0,
 
     // shield
     shield:0,
 
-    // spawn
+    // spawn params
     spawnTimer:0,
     tickTimer:0,
     ttlMs:1650,
@@ -276,22 +373,10 @@ PATCH:
     // adaptive (play only)
     adapt:{ spawnMs:760, ttl:1650, size:1.0 },
 
-    // quests
-    goalIndex:0,
-    goalsCleared:0,
-    goalsTotal:GOALS.length,
-    // stage junk counter (per goal) to enforce maxJunk accurately
-    goalJunkUnblocked:0,
-
-    miniActive:null,
-    miniCleared:0,
-    miniTotal:0,
-
-    // hub
-    hub: '../hub.html'
+    hub:'../hub.html'
   };
 
-  // -------------------- Balance funcs (Concept 1+4) --------------------
+  // -------------------- balance --------------------
   function computeDist(){
     const t = Math.max(1, S.totalFood);
     return {
@@ -304,10 +389,7 @@ PATCH:
   function computeBalancePct(){
     const d = computeDist();
     let l1 = 0;
-    for (const k of GROUP_KEYS){
-      l1 += Math.abs((d[k]||0) - (TARGET_DIST[k]||0));
-    }
-    // map distance -> 0..100 (tuned)
+    for (const k of GROUP_KEYS) l1 += Math.abs((d[k]||0) - (TARGET_DIST[k]||0));
     return clamp(100 * (1 - (l1 / 1.2)), 0, 100);
   }
   function missingGroupKey(){
@@ -322,13 +404,11 @@ PATCH:
   }
   function emitBalance(){
     S.balancePct = computeBalancePct();
-    const d = computeDist();
     const missK = missingGroupKey();
-
     emit('plate:balance', {
       balancePct: Math.round(S.balancePct),
       missingKey: missK,
-      dist: d,
+      dist: computeDist(),
       counts: { ...S.counts, totalFood: S.totalFood },
       targetDist: { ...TARGET_DIST }
     });
@@ -338,38 +418,30 @@ PATCH:
     if (bucket !== S.lastBalanceBucket || (t - S.lastCoachAt) > 3200){
       S.lastBalanceBucket = bucket;
       S.lastCoachAt = t;
-
       const need = GROUPS[missK]?.label || 'หมวดที่ขาด';
       const mood = (S.balancePct >= 88) ? 'happy' : (S.balancePct >= 70 ? 'neutral' : 'sad');
       const msg =
-        (S.balancePct >= 88) ? `สุดยอด! สมดุลถึงเกณฑ์สูงแล้ว 🔥 คุม “ห้ามโดนขยะ” ให้ได้!` :
-        (S.balancePct >= 70) ? `ดีมาก! ตอนนี้ “ขาด${need}” นิดหน่อย` :
+        (S.balancePct >= 88) ? `สุดยอด! สมดุล ≥88% แล้ว 🔥 ระวัง “ห้ามโดนขยะ” ให้ได้!` :
+        (S.balancePct >= 70) ? `ดีมาก! ตอนนี้ยัง “ขาด${need}” นิดหน่อย` :
         `จานยังเอียงอยู่ 😅 เติม “${need}” ก่อนเลย`;
-
       emit('hha:coach', { mood, text: msg });
     }
   }
 
-  // -------------------- HUD events --------------------
+  // -------------------- HUD emit --------------------
   function updateScore(){
     emit('hha:score', { score:S.score|0, combo:S.combo|0, comboMax:S.comboMax|0, misses:S.misses|0, shield:S.shield|0 });
-
     const acc = S.hitAll > 0 ? Math.round((S.hitFood/S.hitAll)*100) : 0;
     emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
   }
-  function updateTime(){
-    emit('hha:time', { left: S.left|0 });
-  }
+  function updateTime(){ emit('hha:time', { left: S.left|0 }); }
 
-  // ✅ emit quest:update fields EXACTLY for your plate-vr.html handler
+  // ✅ quest:update matches plate-vr.html
   function emitQuestUpdate(){
     const g = GOALS[S.goalIndex] || GOALS[GOALS.length-1];
     const foodNow = S.totalFood|0;
     const foodNeed = g ? (g.needFood|0) : 0;
 
-    // goalNow/goalTotal => let HTML render progress bar
-    // We'll use 0..100 scale for goal, because your UI is generic.
-    // progress = min(foodPct, balancePctRatio, junkOkRatio)
     const foodPct = foodNeed > 0 ? clamp(foodNow/foodNeed, 0, 1) : 0;
     const balPct  = g ? clamp(S.balancePct/(g.minBalance||100), 0, 1) : 0;
     const junkOk  = g ? clamp(1 - (Math.max(0, S.goalJunkUnblocked - (g.maxJunk||0)) * 0.5), 0, 1) : 1;
@@ -392,7 +464,6 @@ PATCH:
       goalTitle,
       goalNow: Math.round(pct*100),
       goalTotal: 100,
-
       miniTitle,
       miniNow,
       miniTotal: miniTot,
@@ -400,31 +471,23 @@ PATCH:
     });
   }
 
-  // -------------------- VR feel view translate --------------------
-  function applyView(){
-    // translate layer so all targets "ไหลตาม" เหมือน VR
-    layer.style.transform = `translate(${S.vx.toFixed(1)}px, ${S.vy.toFixed(1)}px)`;
-  }
+  // -------------------- view translate (VR feel) --------------------
+  function applyView(){ layer.style.transform = `translate(${S.vx.toFixed(1)}px, ${S.vy.toFixed(1)}px)`; }
+  function recenter(){ S.vx=0; S.vy=0; applyView(); }
 
   function setupViewControls(){
-    layer.addEventListener('pointerdown', (e)=>{
-      S.dragOn = true; S.dragX = e.clientX; S.dragY = e.clientY;
-    }, { passive:true });
-
+    layer.addEventListener('pointerdown', (e)=>{ S.dragOn=true; S.dragX=e.clientX; S.dragY=e.clientY; }, { passive:true });
     root.addEventListener('pointermove', (e)=>{
       if (!S.dragOn) return;
-      const dx = e.clientX - S.dragX;
-      const dy = e.clientY - S.dragY;
-      S.dragX = e.clientX; S.dragY = e.clientY;
+      const dx=e.clientX-S.dragX, dy=e.clientY-S.dragY;
+      S.dragX=e.clientX; S.dragY=e.clientY;
       S.vx = clamp(S.vx + dx*0.22, -90, 90);
       S.vy = clamp(S.vy + dy*0.22, -90, 90);
       applyView();
     }, { passive:true });
-
-    root.addEventListener('pointerup', ()=>{ S.dragOn = false; }, { passive:true });
+    root.addEventListener('pointerup', ()=>{ S.dragOn=false; }, { passive:true });
 
     root.addEventListener('deviceorientation', (ev)=>{
-      // subtle drift
       const gx = Number(ev.gamma)||0;
       const gy = Number(ev.beta)||0;
       S.vx = clamp(S.vx + gx*0.06, -90, 90);
@@ -433,19 +496,13 @@ PATCH:
     }, { passive:true });
   }
 
-  function recenter(){
-    S.vx = 0; S.vy = 0;
-    applyView();
-  }
-
-  // -------------------- spawn safe rect (avoid HUD) --------------------
+  // -------------------- spawn safe rect --------------------
   const hudTop = DOC.querySelector('.hud-top');
   function safeSpawnRect(){
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
 
     let top = 140, bottom = 180, left = 18, right = 18;
-
     try{
       if (hudTop){
         const r = hudTop.getBoundingClientRect();
@@ -453,28 +510,22 @@ PATCH:
       }
     }catch(_){}
 
-    // relax if too small
-    if ((W - left - right) < 160){ left = 10; right = 10; }
-    if ((H - top - bottom) < 240){ top = Math.max(110, top-24); bottom = Math.max(150, bottom-24); }
+    if ((W - left - right) < 160){ left=10; right=10; }
+    if ((H - top - bottom) < 240){ top=Math.max(110, top-24); bottom=Math.max(150, bottom-24); }
 
     return { W, H, x0:left, x1:W-right, y0:top, y1:H-bottom };
   }
-
   function randPos(){
     const r = safeSpawnRect();
-    const x = r.x0 + S.rng()*(r.x1 - r.x0);
-    const y = r.y0 + S.rng()*(r.y1 - r.y0);
-    return { x, y };
+    return { x: r.x0 + S.rng()*(r.x1-r.x0), y: r.y0 + S.rng()*(r.y1-r.y0) };
   }
-
-  function setXY(el, x, y){
+  function setXY(el,x,y){
     el.style.setProperty('--x', x.toFixed(1)+'px');
     el.style.setProperty('--y', y.toFixed(1)+'px');
   }
 
-  // -------------------- Powerups --------------------
+  // -------------------- powerups --------------------
   const power = { guideUntil:0 };
-
   function guideActive(){ return now() < power.guideUntil; }
   function guideOn(){
     power.guideUntil = now() + 6000;
@@ -496,17 +547,16 @@ PATCH:
     el.dataset.emoji = emoji || '✨';
     if (meta && meta.group) el.dataset.group = meta.group;
 
-    if (type === 'food') el.classList.add('pl-food');
-    if (type === 'junk') el.classList.add('pl-junk');
-    if (type === 'decoy') el.classList.add('pl-decoy');
-    if (type === 'hint' || type === 'shield') el.classList.add('pl-powerup');
+    if (type==='food') el.classList.add('pl-food');
+    if (type==='junk') el.classList.add('pl-junk');
+    if (type==='decoy') el.classList.add('pl-decoy');
+    if (type==='hint' || type==='shield') el.classList.add('pl-powerup');
     if (meta && meta.guide) el.classList.add('pl-guide');
 
     setXY(el, x, y);
     el.style.setProperty('--s', Number(s||1).toFixed(3));
     el.textContent = String(emoji||'✨');
 
-    // TTL
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
       if (type === 'food'){
@@ -521,29 +571,24 @@ PATCH:
       root.setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 180);
     }, S.ttlMs);
 
-    el.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault?.();
-      hitTarget(el);
-    }, { passive:false });
+    el.addEventListener('pointerdown', (ev)=>{ ev.preventDefault?.(); hitTarget(el); }, { passive:false });
 
     logEvent('spawn', { kind:type, emoji, group:(meta&&meta.group)||'' });
     return el;
   }
-
   function removeTarget(el){
     try{ root.clearTimeout(el._ttlTimer); }catch(_){}
     el.classList.add('hit');
     root.setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
   }
-
   function burstAtEl(el){
     try{
       const r = el.getBoundingClientRect();
-      Particles.burstAt(r.left + r.width/2, r.top + r.height/2, String(el.dataset.type||''));
+      Particles.burstAt(r.left+r.width/2, r.top+r.height/2, String(el.dataset.type||''));
     }catch(_){}
   }
 
-  // -------------------- spawn choice (Concept 1–4) --------------------
+  // -------------------- spawn choice --------------------
   function chooseType(dp){
     const r = S.rng();
     if (r < dp.hint) return 'hint';
@@ -557,14 +602,12 @@ PATCH:
     if (r2 < junkP + decoyP) return 'decoy';
     return 'food';
   }
-
   function chooseFoodGroup(){
     const miss = missingGroupKey();
     if (guideActive() && S.rng() < 0.60) return miss;
     if (S.rng() < 0.30) return miss;
     return GROUP_KEYS[(S.rng()*GROUP_KEYS.length)|0];
   }
-
   function spawnOne(){
     if (!S.running || S.ended) return;
     const dp = diffParams(S.diff);
@@ -572,114 +615,79 @@ PATCH:
     const p = randPos();
     const size = S.sizeBase * S.adapt.size * (tp==='junk'?0.95:1.0);
 
-    if (tp === 'food'){
+    if (tp==='food'){
       const gk = chooseFoodGroup();
       const em = pick(S.rng, GROUPS[gk].emoji);
       const isGuide = guideActive() && (gk === missingGroupKey());
       layer.appendChild(makeTarget('food', em, p.x, p.y, size, { group:gk, guide:isGuide }));
       return;
     }
-    if (tp === 'junk'){
-      layer.appendChild(makeTarget('junk', pick(S.rng, JUNK), p.x, p.y, size));
-      return;
-    }
-    if (tp === 'decoy'){
-      layer.appendChild(makeTarget('decoy', pick(S.rng, DECOY), p.x, p.y, size*0.98));
-      return;
-    }
-    if (tp === 'hint'){
-      layer.appendChild(makeTarget('hint', '💡', p.x, p.y, size*1.02));
-      return;
-    }
-    if (tp === 'shield'){
-      layer.appendChild(makeTarget('shield', '🛡️', p.x, p.y, size*1.02));
-      return;
-    }
+    if (tp==='junk'){ layer.appendChild(makeTarget('junk', pick(S.rng, JUNK), p.x, p.y, size)); return; }
+    if (tp==='decoy'){ layer.appendChild(makeTarget('decoy', pick(S.rng, DECOY), p.x, p.y, size*0.98)); return; }
+    if (tp==='hint'){ layer.appendChild(makeTarget('hint', '💡', p.x, p.y, size*1.02)); return; }
+    if (tp==='shield'){ layer.appendChild(makeTarget('shield', '🛡️', p.x, p.y, size*1.02)); return; }
   }
-
   function loopSpawn(){
     if (!S.running || S.ended) return;
     spawnOne();
-
     const dp = diffParams(S.diff);
-    const sMs = (S.runMode==='research')
-      ? dp.spawnMs
-      : clamp(S.adapt.spawnMs, 460, 980);
-
+    const sMs = (S.runMode==='research') ? dp.spawnMs : clamp(S.adapt.spawnMs, 460, 980);
     S.spawnTimer = root.setTimeout(loopSpawn, sMs);
   }
 
-  // -------------------- Mini quest engine (Concept 2) --------------------
+  // -------------------- mini engine --------------------
   function startNextMini(){
     const def = nextMiniDef(S.rng);
     const t = now();
     S.miniTotal++;
-
     S.miniActive = {
-      key:def.key,
-      title:def.title,
-      desc:def.desc,
-      mode:def.mode,
-      max:def.need|0,
-      cur:0,
+      key:def.key, title:def.title, desc:def.desc, mode:def.mode,
+      max:def.need|0, cur:0,
       until: t + (def.sec*1000),
       seen:{ veg:false, fruit:false, protein:false, carb:false },
       targetKey: (def.mode==='missing') ? missingGroupKey() : null,
-      state:'running'
+      state:'running',
+      warnStage:0
     };
-
     emit('hha:coach', { mood:'neutral', text:`MINI: ${def.title} — ${def.desc}` });
     emit('hha:celebrate', { kind:'mini', title:`MINI START: ${def.title}` });
     emitQuestUpdate();
   }
-
   function failMini(reason){
     if (!S.miniActive) return;
+    warnFx(false, 0);
     emit('hha:judge', { kind:'bad', text:`MINI FAIL! ${reason||''}` });
     emit('hha:coach', { mood:'sad', text:'ไม่เป็นไร! มินิต่อไปมาใหม่ 💪' });
     S.miniActive = null;
     emitQuestUpdate();
     root.setTimeout(()=>{ if (S.running && !S.ended) startNextMini(); }, 900);
   }
-
   function passMini(){
     if (!S.miniActive) return;
+    warnFx(false, 0);
     const title = S.miniActive.title;
     S.miniCleared++;
     emit('hha:judge', { kind:'good', text:'MINI CLEAR!' });
     emit('hha:celebrate', { kind:'mini', title:`MINI CLEAR: ${title}` });
 
-    // bonus supports concept: scales with balance
     const bonus = Math.round(250 + S.balancePct*4);
     S.score += bonus;
 
     S.miniActive = null;
     updateScore();
     emitQuestUpdate();
-
     root.setTimeout(()=>{ if (S.running && !S.ended) startNextMini(); }, 800);
   }
-
-  function miniTick(){
-    const m = S.miniActive;
-    if (!m) return;
-    if (now() >= m.until){
-      failMini('หมดเวลา');
-      return;
-    }
-    emitQuestUpdate();
-  }
-
   function miniOnFoodHit(groupKey){
     const m = S.miniActive;
-    if (!m || m.state !== 'running') return;
+    if (!m || m.state!=='running') return;
 
-    if (m.mode === 'anyfood'){
+    if (m.mode==='anyfood'){
       m.cur++;
-    } else if (m.mode === 'missing'){
+    } else if (m.mode==='missing'){
       const need = m.targetKey || missingGroupKey();
       if (groupKey === need) m.cur++;
-    } else if (m.mode === 'eachgroup'){
+    } else if (m.mode==='eachgroup'){
       if (GROUPS[groupKey]){
         m.seen[groupKey] = true;
         m.cur = Object.values(m.seen).filter(Boolean).length;
@@ -689,16 +697,33 @@ PATCH:
     if (m.cur >= m.max) passMini();
     else emitQuestUpdate();
   }
-
   function miniOnBadHit(unblocked){
     const m = S.miniActive;
-    if (!m || m.state !== 'running') return;
+    if (!m || m.state!=='running') return;
     if (unblocked) failMini('โดนขยะ/หลอกระหว่างทำมินิ');
   }
+  function miniTick(){
+    const m = S.miniActive;
+    if (!m) { warnFx(false,0); return; }
 
-  // -------------------- Goal progression (Concept 1) --------------------
+    const left = Math.max(0, m.until - now());
+    if (left <= 0){ failMini('หมดเวลา'); return; }
+
+    // warning stages: <2.2s (stage1), <1.2s (stage2)
+    const sec = left/1000;
+    const intensity = sec < 1.2 ? 0.95 : (sec < 2.2 ? 0.55 : 0);
+
+    if (intensity > 0){
+      warnFx(true, intensity);
+    } else {
+      warnFx(false, 0);
+    }
+
+    emitQuestUpdate();
+  }
+
+  // -------------------- goals --------------------
   function currentGoal(){ return GOALS[S.goalIndex] || GOALS[GOALS.length-1]; }
-
   function checkGoalComplete(){
     const g = currentGoal();
     if (!g) return;
@@ -715,7 +740,6 @@ PATCH:
       const bonus = Math.round(400 + S.balancePct*6);
       S.score += bonus;
 
-      // advance goal and reset stage junk counter
       S.goalIndex = Math.min(GOALS.length-1, S.goalIndex + 1);
       S.goalJunkUnblocked = 0;
 
@@ -726,20 +750,18 @@ PATCH:
     }
   }
 
-  // -------------------- scoring core --------------------
-  function balanceMult(){
-    return 1 + (clamp(S.balancePct, 0, 100) / 100) * 0.6; // 1.0..1.6
-  }
+  // -------------------- scoring --------------------
+  function balanceMult(){ return 1 + (clamp(S.balancePct,0,100)/100)*0.6; } // 1..1.6
 
   function onFoodAdded(groupKey){
-    S.counts[groupKey] = (S.counts[groupKey]||0) + 1;
+    S.counts[groupKey] = (S.counts[groupKey]||0)+1;
     S.totalFood++;
     emitBalance();
   }
 
   function hitFood(el){
     S.hitAll++; S.hitFood++;
-    S.combo = clamp(S.combo + 1, 0, 9999);
+    S.combo = clamp(S.combo+1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
 
     const gk = String(el.dataset.group||'').toLowerCase();
@@ -760,32 +782,27 @@ PATCH:
     emitQuestUpdate();
     miniOnFoodHit(safeGk);
     checkGoalComplete();
-
     removeTarget(el);
   }
 
   function hitHint(el){
     S.hitAll++;
-    S.combo = clamp(S.combo + 1, 0, 9999);
+    S.combo = clamp(S.combo+1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
-
     guideOn();
     const pts = Math.round(80 * balanceMult());
     S.score += pts;
 
     emit('hha:judge', { kind:'good', text:`HINT! +${pts}` });
     burstAtEl(el);
-
     logEvent('hit', { kind:'hint', emoji:'💡', totalScore:S.score|0 });
-
-    updateScore();
-    emitQuestUpdate();
+    updateScore(); emitQuestUpdate();
     removeTarget(el);
   }
 
   function hitShield(el){
     S.hitAll++;
-    S.combo = clamp(S.combo + 1, 0, 9999);
+    S.combo = clamp(S.combo+1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
 
     giveShield();
@@ -794,34 +811,25 @@ PATCH:
 
     emit('hha:judge', { kind:'good', text:`SHIELD! +${pts}` });
     burstAtEl(el);
-
     logEvent('hit', { kind:'shield', emoji:'🛡️', totalScore:S.score|0, shield:S.shield|0 });
-
-    updateScore();
-    emitQuestUpdate();
+    updateScore(); emitQuestUpdate();
     removeTarget(el);
   }
 
   function hitJunk(el){
     S.hitAll++;
 
-    // shield blocks junk => NOT a miss
     if (S.shield > 0){
-      S.shield = Math.max(0, S.shield - 1);
+      S.shield = Math.max(0, S.shield-1);
       S.hitJunkGuard++;
-
       emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
       logEvent('shield_block', { kind:'junk', emoji:String(el.dataset.emoji||'') });
-
-      updateScore();
-      emitQuestUpdate();
+      updateScore(); emitQuestUpdate();
       miniOnBadHit(false);
-
       removeTarget(el);
       return;
     }
 
-    // unblocked junk => miss + stage junk count affects goal
     S.hitJunk++;
     S.goalJunkUnblocked++;
     S.misses++;
@@ -832,20 +840,17 @@ PATCH:
 
     emit('hha:judge', { kind:'bad', text:`JUNK! -${penalty}` });
     emit('hha:coach', { mood:'sad', text:'โดนขยะแล้ว 😵 คุมให้ดีขึ้นนะ!' });
-
     logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), judgment:'bad', totalScore:S.score|0 });
 
-    updateScore();
-    emitQuestUpdate();
+    updateScore(); emitQuestUpdate();
     miniOnBadHit(true);
-    // (goal completion will re-check on tick / next hit)
     removeTarget(el);
   }
 
   function hitDecoy(el){
     S.hitAll++;
     S.misses++;
-    S.combo = Math.max(0, S.combo - 1);
+    S.combo = Math.max(0, S.combo-1);
 
     const penalty = 70;
     S.score = Math.max(0, S.score - penalty);
@@ -853,37 +858,32 @@ PATCH:
     emit('hha:judge', { kind:'warn', text:`DECOY! -${penalty}` });
     logEvent('hit', { kind:'decoy', emoji:String(el.dataset.emoji||''), judgment:'warn', totalScore:S.score|0 });
 
-    updateScore();
-    emitQuestUpdate();
+    updateScore(); emitQuestUpdate();
     miniOnBadHit(true);
-
     removeTarget(el);
   }
 
   function hitTarget(el){
     if (!S.running || S.ended || !el || !el.isConnected) return;
     const tp = String(el.dataset.type||'').toLowerCase();
-    if (tp === 'food') return hitFood(el);
-    if (tp === 'junk') return hitJunk(el);
-    if (tp === 'decoy') return hitDecoy(el);
-    if (tp === 'hint') return hitHint(el);
-    if (tp === 'shield') return hitShield(el);
+    if (tp==='food') return hitFood(el);
+    if (tp==='junk') return hitJunk(el);
+    if (tp==='decoy') return hitDecoy(el);
+    if (tp==='hint') return hitHint(el);
+    if (tp==='shield') return hitShield(el);
   }
 
-  // -------------------- tick + adaptive --------------------
+  // -------------------- loops + adaptive --------------------
   function loopTick(){
     if (!S.running || S.ended) return;
 
-    // adaptive only in play (subtle)
     if (S.runMode === 'play'){
       const acc = S.hitAll > 0 ? (S.hitFood/S.hitAll) : 0;
       const heat = clamp((S.combo/20) + (acc-0.70), 0, 1);
-
       S.adapt.spawnMs = clamp(820 - heat*260, 480, 900);
       S.adapt.ttl     = clamp(1720 - heat*260, 1280, 1850);
       S.adapt.size    = clamp(1.02 - heat*0.10, 0.86, 1.06);
       S.junkBias      = clamp(0.11 + heat*0.06, 0.08, 0.22);
-
       S.ttlMs = S.adapt.ttl;
     } else {
       const dp = diffParams(S.diff);
@@ -893,21 +893,13 @@ PATCH:
       S.adapt.size = dp.size;
     }
 
-    // time
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
 
-    // mini tick
     miniTick();
-
-    // goal check tick
     checkGoalComplete();
 
-    if (S.left <= 0){
-      endGame('time');
-      return;
-    }
-
+    if (S.left <= 0){ endGame('time'); return; }
     S.tickTimer = root.setTimeout(loopTick, 140);
   }
 
@@ -919,12 +911,11 @@ PATCH:
     });
   }
 
-  // -------------------- end overlay (safe.js controls it) --------------------
+  // -------------------- end overlay --------------------
   function ensureEndOverlay(){
     const ov = DOC.getElementById('endOverlay');
     if (!ov) return null;
 
-    // bind once
     if (!ov._plateBound){
       ov._plateBound = true;
 
@@ -935,12 +926,9 @@ PATCH:
           root.location.reload();
         });
       }
-
       const btnBack = DOC.getElementById('btnBackHub');
       if (btnBack){
-        btnBack.addEventListener('click', async ()=>{
-          await goHub();
-        });
+        btnBack.addEventListener('click', async ()=>{ await goHub(); });
       }
     }
     return ov;
@@ -950,52 +938,42 @@ PATCH:
     const ov = ensureEndOverlay();
     if (!ov) return;
 
-    const set = (id, val) => {
-      const el = DOC.getElementById(id);
-      if (el) el.textContent = String(val);
-    };
-
+    const set = (id, val) => { const el = DOC.getElementById(id); if (el) el.textContent = String(val); };
     set('endScore', summary.scoreFinal ?? 0);
-    set('endRank', summary.grade ?? 'C');
-    set('endAcc',  (summary.accuracyGoodPct ?? 0) + '%');
+    set('endRank',  summary.grade ?? 'C');
+    set('endAcc',   (summary.accuracyGoodPct ?? 0) + '%');
     set('endComboMax', summary.comboMax ?? 0);
     set('endMiss', summary.misses ?? 0);
     set('endGoals', `${summary.goalsCleared ?? 0}/${summary.goalsTotal ?? 0}`);
     set('endMinis', `${summary.miniCleared ?? 0}/${summary.miniTotal ?? 0}`);
 
     ov.style.display = 'flex';
-    ov.setAttribute('aria-hidden', 'false');
+    ov.setAttribute('aria-hidden','false');
   }
 
-  // -------------------- flush-hardened (Concept 5) --------------------
+  // -------------------- flush hardened --------------------
   function makeSummary(reason){
     const acc = S.hitAll > 0 ? Math.round((S.hitFood/S.hitAll)*100) : 0;
     const grade = rankFromAcc(acc);
-
     return {
       reason: String(reason||'end'),
       scoreFinal: S.score|0,
       comboMax: S.comboMax|0,
       misses: S.misses|0,
-
       goalsCleared: S.goalsCleared|0,
       goalsTotal: S.goalsTotal|0,
       miniCleared: S.miniCleared|0,
       miniTotal: S.miniTotal|0,
-
       nHitFood: S.hitFood|0,
       nHitAll: S.hitAll|0,
       nHitJunk: S.hitJunk|0,
       nHitJunkGuard: S.hitJunkGuard|0,
       nExpireFood: S.expireFood|0,
-
       balancePct: Math.round(S.balancePct)|0,
       counts: { ...S.counts, totalFood: S.totalFood|0 },
       targetDist: { ...TARGET_DIST },
-
       accuracyGoodPct: acc|0,
       grade,
-
       diff: S.diff,
       runMode: S.runMode,
       seed: S.seed,
@@ -1010,7 +988,6 @@ PATCH:
         localStorage.setItem('hha_last_summary', JSON.stringify(summary));
       }
     }catch(_){}
-
     await flushLogger(reason);
   }
 
@@ -1018,6 +995,7 @@ PATCH:
     if (S.ended) return;
     S.ended = true;
     S.running = false;
+    warnFx(false, 0);
 
     try{ root.clearTimeout(S.spawnTimer); }catch(_){}
     try{ root.clearTimeout(S.tickTimer); }catch(_){}
@@ -1029,7 +1007,6 @@ PATCH:
       S.flushedEnd = true;
       await flushAll('end', summary);
     }
-
     emit('hha:end', summary);
     showEndOverlay(summary);
   }
@@ -1052,7 +1029,6 @@ PATCH:
     root.addEventListener('pagehide', ()=>{
       try{ flushAll('pagehide', makeSummary('pagehide')); }catch(_){}
     }, { passive:true });
-
     DOC.addEventListener('visibilitychange', ()=>{
       if (DOC.visibilityState === 'hidden'){
         try{ flushAll('hidden', makeSummary('hidden')); }catch(_){}
@@ -1060,10 +1036,60 @@ PATCH:
     }, { passive:true });
   }
 
-  // -------------------- choose type & start game --------------------
+  // -------------------- spawn loop --------------------
+  function chooseFoodGroup(){
+    const miss = missingGroupKey();
+    if (guideActive() && S.rng() < 0.60) return miss;
+    if (S.rng() < 0.30) return miss;
+    return GROUP_KEYS[(S.rng()*GROUP_KEYS.length)|0];
+  }
+
+  function guideActive(){ return now() < power.guideUntil; }
+
+  function chooseType(dp){
+    const r = S.rng();
+    if (r < dp.hint) return 'hint';
+    if (r < dp.hint + dp.shield) return 'shield';
+    const decoyP = (S.runMode==='play') ? 0.06 : 0.05;
+    const junkP = clamp(S.junkBias, 0.08, 0.24);
+    const r2 = S.rng();
+    if (r2 < junkP) return 'junk';
+    if (r2 < junkP + decoyP) return 'decoy';
+    return 'food';
+  }
+
+  function spawnOne(){
+    if (!S.running || S.ended) return;
+    const dp = diffParams(S.diff);
+    const tp = chooseType(dp);
+    const p = randPos();
+    const size = S.sizeBase * S.adapt.size * (tp==='junk'?0.95:1.0);
+
+    if (tp==='food'){
+      const gk = chooseFoodGroup();
+      const em = pick(S.rng, GROUPS[gk].emoji);
+      const isGuide = guideActive() && (gk === missingGroupKey());
+      layer.appendChild(makeTarget('food', em, p.x, p.y, size, { group:gk, guide:isGuide }));
+      return;
+    }
+    if (tp==='junk'){ layer.appendChild(makeTarget('junk', pick(S.rng, JUNK), p.x, p.y, size)); return; }
+    if (tp==='decoy'){ layer.appendChild(makeTarget('decoy', pick(S.rng, DECOY), p.x, p.y, size*0.98)); return; }
+    if (tp==='hint'){ layer.appendChild(makeTarget('hint', '💡', p.x, p.y, size*1.02)); return; }
+    if (tp==='shield'){ layer.appendChild(makeTarget('shield', '🛡️', p.x, p.y, size*1.02)); return; }
+  }
+
+  function loopSpawn(){
+    if (!S.running || S.ended) return;
+    spawnOne();
+    const dp = diffParams(S.diff);
+    const sMs = (S.runMode==='research') ? dp.spawnMs : clamp(S.adapt.spawnMs, 460, 980);
+    S.spawnTimer = root.setTimeout(loopSpawn, sMs);
+  }
+
+  // -------------------- start --------------------
   function start(runMode, cfg){
     cfg = cfg || {};
-    const mode = (String(runMode||cfg.runMode||qs('run','play')).toLowerCase() === 'research') ? 'research' : 'play';
+    const mode = (String(runMode||cfg.runMode||qs('run','play')).toLowerCase()==='research') ? 'research' : 'play';
     const diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
     const time = clamp(cfg.time ?? intQ('time', 90), 30, 600);
 
@@ -1081,7 +1107,7 @@ PATCH:
 
     const dp = diffParams(diff);
 
-    // reset
+    // reset state
     S.running = true;
     S.ended = false;
     S.flushedEnd = false;
@@ -1089,23 +1115,19 @@ PATCH:
     S.left = time;
     S.tStart = now();
 
-    S.score = 0; S.combo = 0; S.comboMax = 0; S.misses = 0;
-    S.hitAll = 0; S.hitFood = 0; S.hitJunk = 0; S.hitJunkGuard = 0; S.expireFood = 0;
+    S.score=0; S.combo=0; S.comboMax=0; S.misses=0;
+    S.hitAll=0; S.hitFood=0; S.hitJunk=0; S.hitJunkGuard=0; S.expireFood=0;
 
-    S.counts = { veg:0, fruit:0, protein:0, carb:0 };
-    S.totalFood = 0;
-    S.balancePct = 0;
-    S.goalIndex = 0;
-    S.goalsCleared = 0;
-    S.goalsTotal = GOALS.length;
-    S.goalJunkUnblocked = 0;
+    S.counts={ veg:0, fruit:0, protein:0, carb:0 };
+    S.totalFood=0;
+    S.balancePct=0;
 
-    S.miniActive = null;
-    S.miniCleared = 0;
-    S.miniTotal = 0;
+    S.goalIndex=0; S.goalsCleared=0; S.goalsTotal=GOALS.length; S.goalJunkUnblocked=0;
 
-    S.shield = 0;
-    power.guideUntil = 0;
+    S.miniActive=null; S.miniCleared=0; S.miniTotal=0;
+
+    S.shield=0;
+    power.guideUntil=0;
 
     S.sizeBase = dp.size;
     S.ttlMs = dp.ttl;
@@ -1114,31 +1136,25 @@ PATCH:
     S.adapt.size = dp.size;
     S.junkBias = dp.junk;
 
-    // view reset
     recenter();
 
-    // prime UI
     emitBalance();
     updateTime();
     updateScore();
     emitQuestUpdate();
-
     emit('hha:coach', { mood:'neutral', text:'เริ่มเลย! เป้าหมายคือ “สมดุลตามสัดส่วน” 💚' });
 
-    // minis begin after 1.2s breathing room
     root.setTimeout(()=>{ if (S.running && !S.ended) startNextMini(); }, 1200);
 
-    // loops
     loopSpawn();
     loopTick();
   }
 
-  // -------------------- init once --------------------
+  // -------------------- boot --------------------
   setupViewControls();
   bindPageHideFlush();
   ensureEndOverlay();
 
-  // expose global boot
   root.PlateBoot = root.PlateBoot || {};
   root.PlateBoot.start = start;
   root.PlateBoot.endGame = endGame;
