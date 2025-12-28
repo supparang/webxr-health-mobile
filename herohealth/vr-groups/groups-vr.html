@@ -20,12 +20,11 @@
       --sab: env(safe-area-inset-bottom, 0px);
     }
     html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text);
-               font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+      font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
 
     /* spawn layer */
     #fg-layer{
-      position:fixed;
-      inset:0;
+      position:fixed; inset:0;
       transform: translate(var(--vx,0px), var(--vy,0px));
       touch-action:none;
       user-select:none;
@@ -98,7 +97,7 @@
       z-index:200;
     }
     .panel{
-      width:min(720px, 92vw);
+      width:min(760px, 92vw);
       border:1px solid rgba(148,163,184,.20);
       border-radius:22px;
       background:rgba(2,6,23,.72);
@@ -106,7 +105,7 @@
       padding:18px 18px 14px;
     }
     .panel h2{ margin:0 0 8px; font-size:20px; }
-    .panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.5; }
+    .panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.55; }
     .panel .row{ display:flex; gap:10px; flex-wrap:wrap; }
     .panel button{
       border:0; border-radius:999px; padding:12px 14px;
@@ -221,11 +220,104 @@
     </div>
   </div>
 
-  <!-- สำคัญ: อยู่โฟลเดอร์เดียวกันกับ run -->
+  <!-- Engine (non-module) -->
   <script src="./GameEngine.js?v=3" defer
     onerror="(function(){var a=document.getElementById('startDesc'); if(a) a.textContent='❌ โหลด ./GameEngine.js ไม่ได้ (404/ชื่อไฟล์/พาธ)'; var b=document.getElementById('dbgEngine'); if(b) b.textContent='LOAD FAIL';})()">
   </script>
 
+  <!-- Optional modules (ไม่พังถ้าไม่มีไฟล์) -->
+  <script type="module">
+    const ver = new URLSearchParams(location.search).get('v') || String(Date.now());
+    const log = (...a)=>console.log('[GroupsRun]', ...a);
+
+    async function optImport(path){
+      try{
+        return await import(path + (path.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(ver));
+      }catch(e){
+        // ไม่ทำให้หน้าแตก
+        console.warn('[GroupsRun] skip', path, e?.message || e);
+        return null;
+      }
+    }
+
+    // โหลดสิ่งที่คุณมีในโฟลเดอร์ /vr-groups/
+    const Mods = {
+      ui:       await optImport('./ui.js'),
+      fever:    await optImport('./ui-fever.js'),
+      fx:       await optImport('./fx.js'),
+      gfx:      await optImport('./groups-fx.js'),
+      coach:    await optImport('./groups-coach-th.js'),
+      text:     await optImport('./groups-text.js'),
+      quests:   await optImport('./groups-quests.js'),
+      hudQuest: await optImport('./groups-hud-quest.js'),
+      logger:   await optImport('./logger-cloud.js'),
+      input:    await optImport('./input-adapter.js'),
+      qm:       await optImport('./quest-manager.js'),
+      qs:       await optImport('./quest-serial.js'),
+    };
+
+    // expose สำหรับ debug
+    window.GROUPS_MODS = Mods;
+    log('optional mods loaded');
+
+    // ---- QuestDirector binding (ยืดหยุ่นตาม export ที่มีจริง) ----
+    window.GroupsVR = window.GroupsVR || {};
+
+    // 1) สร้าง quest director จาก groups-quests.js (ถ้ามี)
+    const Q = Mods.quests || {};
+    let director = null;
+
+    // รองรับหลายชื่อที่เคยใช้/อาจมีในโปรเจกต์
+    const maker =
+      Q.createGroupsQuest || Q.createQuest || Q.makeQuestDirector || Q.makeDirector || Q.createQuestDirector;
+
+    if (typeof maker === 'function'){
+      try{
+        director = maker({
+          // ให้ quest ใช้ seed เดียวกับเกม (ถ้ามันรองรับ)
+          seed: new URLSearchParams(location.search).get('seed') || '',
+        });
+      }catch(e){
+        console.warn('[GroupsRun] quest maker error', e);
+      }
+    }
+
+    // ถ้า quest-serial / quest-manager อยู่ใน repo แล้วต้องใช้ ให้รองรับด้วย
+    if (!director && Mods.qm && typeof Mods.qm.createQuestManager === 'function'){
+      try{ director = Mods.qm.createQuestManager(); }catch{}
+    }
+
+    if (director){
+      window.GroupsVR.QuestDirector = director;
+
+      // hook: progress จาก GameEngine -> quest
+      const onProg =
+        director.onProgress || director.handleProgress || director.push || director.feed || director.tick;
+
+      if (typeof onProg === 'function'){
+        window.addEventListener('groups:progress', (e)=>{
+          try{ onProg.call(director, e.detail || {}); }catch(err){}
+        });
+      }
+
+      // ถ้า director มี start()
+      if (typeof director.start === 'function'){
+        try{ director.start(); }catch{}
+      }
+      log('QuestDirector ready ✅');
+    } else {
+      log('QuestDirector not found (ok)');
+    }
+
+    // 2) HUD Quest binder (ถ้ามี boot/init)
+    const HQ = Mods.hudQuest || {};
+    const hqBoot = HQ.boot || HQ.init || HQ.bind || HQ.mount;
+    if (typeof hqBoot === 'function'){
+      try{ hqBoot(); }catch(e){ console.warn('[GroupsRun] hudQuest boot error', e); }
+    }
+  </script>
+
+  <!-- Run-page wiring -->
   <script>
     (function(){
       const $ = (id)=>document.getElementById(id);
@@ -283,7 +375,7 @@
           $('endComboMax').textContent = String(d.comboMax ?? 0);
           $('uiGrade').textContent = String(d.grade ?? 'C');
 
-          // HHA Standard: เก็บผลล่าสุด
+          // HHA Standard: เก็บผลล่าสุด + ปุ่มกลับ HUB
           try{
             const payload = {
               game: 'GroupsVR',
