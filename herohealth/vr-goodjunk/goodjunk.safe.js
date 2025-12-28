@@ -1,7 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard
-// ✅ DOM targets on #gj-layer
-// ✅ FIX: targets not showing/clicking -> correct layer styles (pointer-events, fixed, z-index)
+// ✅ DOM targets on #gj-layer (+ right eye mirror #gj-layer-r when stereo)
+// ✅ FIX: targets not showing/clicking -> correct layer styles
 // ✅ Click/tap target + shoot-at-crosshair (btn / Space / Enter)
 // ✅ Adaptive only run=play ; run=research fixed by diff
 // ✅ miss = good expire + junk hit (shield block NOT miss)
@@ -18,7 +18,6 @@ function now(){ return (ROOT.performance && performance.now) ? performance.now()
 function emit(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
 }
-
 function qs(name, def){
   try{ return (new URL(ROOT.location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
 }
@@ -63,7 +62,6 @@ function isMobileLike(){
   return coarse || (Math.min(w,h) < 520);
 }
 
-// optional modules (best effort)
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
@@ -115,7 +113,7 @@ function diffBase(diff){
   return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
 }
 
-// -------------------- CSS injection (SAFE, ไม่ทำให้คลิกพัง) --------------------
+// -------------------- SAFE style injection (doesn't break your CSS) --------------------
 function ensureTargetStyles(){
   const DOC = ROOT.document;
   if (!DOC || DOC.getElementById('gj-safe-style')) return;
@@ -123,63 +121,44 @@ function ensureTargetStyles(){
   const st = DOC.createElement('style');
   st.id = 'gj-safe-style';
   st.textContent = `
-    /* Core stage/layer: must allow targets to render & click */
+    /* Ensure layers exist & clickable (fallback) */
     #gj-stage{ position:fixed; inset:0; overflow:hidden; touch-action:none; }
-    #gj-layer{
+    #gj-layer, #gj-layer-r{
       position:fixed; inset:0;
       z-index: 30;
-      pointer-events:auto;   /* IMPORTANT */
+      pointer-events:auto;
       touch-action:none;
     }
+    #gj-layer-r{ pointer-events:none; }
 
-    /* End summary overlay (fallback if CSS file missing) */
-    #end-summary{ position:fixed; inset:0; z-index:120; pointer-events:none; }
-    .gj-end{
-      position:absolute; inset:0;
+    /* Minimal target fallback if main css missing */
+    .gj-target{
+      position:absolute;
+      left: var(--x, 50vw);
+      top:  var(--y, 50vh);
+      transform: translate(-50%,-50%) scale(var(--s, 1));
+      width: 74px; height: 74px;
+      border-radius: 999px;
       display:flex; align-items:center; justify-content:center;
-      padding: 18px;
-      background: rgba(2,6,23,.86);
-      pointer-events:auto;
-    }
-    .gj-end-card{
-      width: min(560px, 94vw);
-      border-radius: 22px;
+      font-size: 38px; line-height:1;
+      user-select:none; -webkit-user-select:none;
+      pointer-events:auto; touch-action: manipulation;
+      background: rgba(2,6,23,.55);
       border: 1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.92);
-      box-shadow: 0 24px 80px rgba(0,0,0,.45);
-      padding: 14px 14px 12px;
-      color: #e5e7eb;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+      box-shadow: 0 16px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset;
+      backdrop-filter: blur(8px);
+      will-change: transform, opacity;
     }
-    .gj-end-title{ font-weight:1000; font-size: 20px; }
-    .gj-end-sub{ margin-top:4px; color:#94a3b8; font-size: 13px; }
-    .gj-end-grid{
-      margin-top: 10px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+    .gj-target.hit{
+      transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.25));
+      opacity:.18; filter: blur(.7px);
+      transition: transform 120ms ease, opacity 120ms ease, filter 120ms ease;
     }
-    .gj-end-item{
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-      border-radius: 16px;
-      padding: 10px 12px;
+    .gj-target.out{
+      opacity:0;
+      transform: translate(-50%,-50%) scale(calc(var(--s,1) * 0.85));
+      transition: transform 140ms ease, opacity 140ms ease;
     }
-    .gj-end-k{ color:#94a3b8; font-size: 12px; font-weight:900; }
-    .gj-end-v{ margin-top:2px; font-size: 18px; font-weight:1000; }
-    .gj-end-actions{ margin-top: 12px; display:flex; gap:10px; }
-    .gj-btn{
-      height: 52px;
-      border-radius: 18px;
-      border: 1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.85);
-      color:#fff;
-      font-weight:1000;
-      font-size: 16px;
-      width: 100%;
-    }
-    .gj-btn.primary{ background: rgba(34,197,94,.16); }
-    .gj-btn:active{ transform: translateY(1px) scale(.99); }
   `;
   DOC.head.appendChild(st);
 }
@@ -216,7 +195,6 @@ function randPos(rng, safeMargins){
   let left = safeMargins?.left ?? 22;
   let right = safeMargins?.right ?? 22;
 
-  // relax if too tight
   if ((W - left - right) < 180){ left = 12; right = 12; }
   if ((H - top - bottom) < 260){ top = Math.max(90, top - 24); bottom = Math.max(130, bottom - 24); }
 
@@ -251,8 +229,6 @@ function setXY(el, x, y){
   const py = y.toFixed(1) + 'px';
   el.style.setProperty('--x', px);
   el.style.setProperty('--y', py);
-
-  // fallback
   el.style.left = px;
   el.style.top  = py;
 }
@@ -270,13 +246,15 @@ function getCrosshairCenter(crosshairEl){
     return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
   }
 }
+
 function dist2(ax, ay, bx, by){
   const dx = ax - bx, dy = ay - by;
   return dx*dx + dy*dy;
 }
+
 function findTargetNear(layerEl, cx, cy, radiusPx){
   const r2max = radiusPx * radiusPx;
-  const list = layerEl.querySelectorAll('.gj-target');
+  const list = layerEl.querySelectorAll('.gj-target'); // left eye only
   let best = null;
   let bestD2 = 1e18;
 
@@ -346,17 +324,11 @@ async function flushAll(summary, reason){
 function renderEndOverlay(summary){
   const DOC = ROOT.document;
   if (!DOC) return;
-
   const host = DOC.getElementById('end-summary');
   if (!host) return;
 
   const hub = qs('hub', '../hub.html');
-  const u = new URL(location.href);
-  // preserve research params on replay
-  const replayUrl = u.pathname + u.search;
-
-  // hub return keeps params (standard): add hub=... already exists in URL from HUB; if not, just go hub
-  const hubUrl = hub;
+  const replayUrl = location.pathname + location.search;
 
   host.innerHTML = `
     <div class="gj-end" role="dialog" aria-label="สรุปผลการเล่น">
@@ -390,16 +362,12 @@ function renderEndOverlay(summary){
   const btnHub = DOC.getElementById('gjBackHub');
 
   if (btnReplay){
-    btnReplay.onclick = ()=>{
-      try{ location.href = replayUrl; }catch(_){ location.reload(); }
-    };
+    btnReplay.onclick = ()=>{ try{ location.href = replayUrl; }catch(_){ location.reload(); } };
   }
   if (btnHub){
     btnHub.onclick = async ()=>{
-      try{
-        await flushAll(summary, 'backhub');
-      }catch(_){}
-      try{ location.href = hubUrl; }catch(_){ location.assign(hubUrl); }
+      try{ await flushAll(summary, 'backhub'); }catch(_){}
+      try{ location.href = hub; }catch(_){ location.assign(hub); }
     };
   }
 }
@@ -411,9 +379,10 @@ export function boot(opts = {}) {
 
   ensureTargetStyles();
 
-  const layerEl = opts.layerEl || DOC.getElementById('gj-layer');
-  const shootEl = opts.shootEl || DOC.getElementById('btnShoot');
-  const crosshairEl = (opts.crosshairEl || DOC.getElementById('gj-crosshair'));
+  const layerEl  = opts.layerEl  || DOC.getElementById('gj-layer');
+  const layerElR = opts.layerElR || DOC.getElementById('gj-layer-r');
+  const shootEl  = opts.shootEl  || DOC.getElementById('btnShoot');
+  const crosshairEl = opts.crosshairEl || DOC.getElementById('gj-crosshair');
 
   if (!layerEl){
     console.warn('[GoodJunkVR] missing #gj-layer');
@@ -436,20 +405,17 @@ export function boot(opts = {}) {
 
   const ctx = opts.context || {};
 
+  const isStereo = document.body.classList.contains('gj-stereo') && !!layerElR;
+
   const S = {
-    running:false,
-    ended:false,
-    flushed:false,
+    running:false, ended:false, flushed:false,
 
     diff, runMode, timeSec, seed, rng: makeRng(seed),
     endPolicy,
 
-    tStart:0,
-    left: timeSec,
+    tStart:0, left: timeSec,
 
-    score:0,
-    combo:0,
-    comboMax:0,
+    score:0, combo:0, comboMax:0,
 
     misses:0,
     hitAll:0,
@@ -493,6 +459,18 @@ export function boot(opts = {}) {
     safeMargins.right = Math.max(18, safeMargins.right);
   }
 
+  // stereo mapping: compress X into halves
+  function mapX(x, eye){
+    const W = ROOT.innerWidth || 360;
+    if (!isStereo) return x;
+    const half = W * 0.5;
+    const lx = x * 0.5;         // 0..half
+    return (eye === 'r') ? (lx + half) : lx;
+  }
+  function mapY(y){
+    return y; // keep full height
+  }
+
   function coach(mood, text, sub){
     emit('hha:coach', { mood: mood || 'neutral', text: String(text||''), sub: sub ? String(sub) : undefined });
   }
@@ -526,14 +504,21 @@ export function boot(opts = {}) {
     try{ clearTimeout(S.tickTimer); }catch(_){}
   }
 
-  function removeTarget(el){
+  function removePair(el){
     try{ clearTimeout(el._ttl); }catch(_){}
     el.classList.add('hit');
+    const m = el._mirror;
+    if (m && m.isConnected){
+      try{ clearTimeout(m._ttl); }catch(_){}
+      m.classList.add('hit');
+      setTimeout(()=>{ try{ m.remove(); }catch(_){ } }, 140);
+    }
     setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 140);
   }
 
-  function expireTarget(el){
+  function expirePair(el){
     if (!el || !el.isConnected) return;
+
     const tp = String(el.dataset.type||'');
     if (tp === 'good'){
       S.misses++;
@@ -548,36 +533,42 @@ export function boot(opts = {}) {
       updateQuest();
       logEvent('miss_expire', { kind:'good', emoji: String(el.dataset.emoji||'') });
     }
+
     el.classList.add('out');
+    const m = el._mirror;
+    if (m && m.isConnected) m.classList.add('out');
+
     setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
+    setTimeout(()=>{ try{ m?.remove(); }catch(_){ } }, 160);
   }
 
-  function makeTarget(type, emoji, x, y, s){
+  function makeTarget(type, emoji, x, y, s, eye){
     const el = DOC.createElement('div');
-    el.className = `gj-target ${type}`;
+    el.className = `gj-target ${type}` + (eye === 'r' ? ' mirror' : '');
     el.dataset.type = type;
     el.dataset.emoji = String(emoji||'✨');
 
-    // IMPORTANT fallback styles
+    // fallback
     el.style.position = 'absolute';
-    el.style.pointerEvents = 'auto';
-    el.style.zIndex = '31'; // above layer base
+    el.style.pointerEvents = (eye === 'r') ? 'none' : 'auto';
+    el.style.zIndex = (eye === 'r') ? '10' : '31';
 
     setXY(el, x, y);
     el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
     el.textContent = String(emoji||'✨');
 
-    el._ttl = setTimeout(()=> expireTarget(el), S.ttlMs);
+    // TTL only on left; mirror removed with left
+    if (eye !== 'r'){
+      el._ttl = setTimeout(()=> expirePair(el), S.ttlMs);
+      const onHit = (ev)=>{
+        ev.preventDefault?.();
+        ev.stopPropagation?.();
+        hitTarget(el);
+      };
+      el.addEventListener('pointerdown', onHit, { passive:false });
+      el.addEventListener('click', onHit, { passive:false });
+    }
 
-    const onHit = (ev)=>{
-      ev.preventDefault?.();
-      ev.stopPropagation?.();
-      hitTarget(el);
-    };
-    el.addEventListener('pointerdown', onHit, { passive:false });
-    el.addEventListener('click', onHit, { passive:false });
-
-    logEvent('spawn', { kind:type, emoji:String(emoji||'') });
     return el;
   }
 
@@ -612,9 +603,8 @@ export function boot(opts = {}) {
     updateScore();
     updateQuest();
 
-    // minis by combo thresholds
     if (S.miniCleared < S.miniTotal){
-      const needCombo = 4 + (S.miniCleared * 2); // 4,6,8,10...
+      const needCombo = 4 + (S.miniCleared * 2);
       if (S.combo >= needCombo){
         S.miniCleared++;
         emit('hha:celebrate', { kind:'mini', title:`Mini ผ่าน! ${S.miniCleared}/${S.miniTotal}` });
@@ -622,23 +612,20 @@ export function boot(opts = {}) {
         updateQuest();
       }
     }
-
-    // goals by total good hits
     if (S.goalsCleared < S.goalsTotal){
-      const needGood = 10 + (S.goalsCleared * 8); // 10,18
+      const needGood = 10 + (S.goalsCleared * 8);
       if (S.hitGood >= needGood){
         S.goalsCleared++;
         emit('hha:celebrate', { kind:'goal', title:`Goal ผ่าน! ${S.goalsCleared}/${S.goalsTotal}` });
         coach('happy', `Goal ผ่านแล้ว!`, `คุมความแม่น + หลีกขยะ`);
         updateQuest();
-
-        if (S.endPolicy === 'all' && S.goalsCleared >= S.goalsTotal && S.miniCleared >= S.miniTotal){
+        if (endPolicy === 'all' && S.goalsCleared >= S.goalsTotal && S.miniCleared >= S.miniTotal){
           endGame('all_complete');
         }
       }
     }
 
-    removeTarget(el);
+    removePair(el);
   }
 
   function hitShield(el){
@@ -657,7 +644,7 @@ export function boot(opts = {}) {
 
     updateScore();
     updateQuest();
-    removeTarget(el);
+    removePair(el);
   }
 
   function hitStar(el){
@@ -674,13 +661,12 @@ export function boot(opts = {}) {
 
     updateScore();
     updateQuest();
-    removeTarget(el);
+    removePair(el);
   }
 
   function hitJunk(el){
     S.hitAll++;
 
-    // shield blocks junk -> NOT a miss
     if (S.shield > 0){
       S.shield = Math.max(0, S.shield - 1);
       S.hitJunkGuard++;
@@ -692,7 +678,7 @@ export function boot(opts = {}) {
 
       updateScore();
       updateQuest();
-      removeTarget(el);
+      removePair(el);
       return;
     }
 
@@ -714,7 +700,7 @@ export function boot(opts = {}) {
 
     updateScore();
     updateQuest();
-    removeTarget(el);
+    removePair(el);
   }
 
   function hitTarget(el){
@@ -748,10 +734,43 @@ export function boot(opts = {}) {
 
     const size = (inWarm ? (S.size * 1.06) : S.size);
 
-    if (tp === 'good')   return layerEl.appendChild(makeTarget('good',   pick(S.rng, GOOD),   p.x, p.y, size));
-    if (tp === 'junk')   return layerEl.appendChild(makeTarget('junk',   pick(S.rng, JUNK),   p.x, p.y, size*0.98));
-    if (tp === 'shield') return layerEl.appendChild(makeTarget('shield', SHIELD,              p.x, p.y, size*1.03));
-    if (tp === 'star')   return layerEl.appendChild(makeTarget('star',   pick(S.rng, STARS),  p.x, p.y, size*1.02));
+    const lx = mapX(p.x, 'l');
+    const ly = mapY(p.y);
+    const rx = mapX(p.x, 'r');
+    const ry = mapY(p.y);
+
+    // choose emoji
+    let emoji = '✨';
+    if (tp === 'good') emoji = pick(S.rng, GOOD);
+    if (tp === 'junk') emoji = pick(S.rng, JUNK);
+    if (tp === 'shield') emoji = SHIELD;
+    if (tp === 'star') emoji = pick(S.rng, STARS);
+
+    // left interactive
+    const left = makeTarget(tp, emoji, lx, ly, size * (tp==='junk'?0.98:1), 'l');
+    layerEl.appendChild(left);
+    logEvent('spawn', { kind:tp, emoji:String(emoji||'') });
+
+    // right mirror (if stereo)
+    if (isStereo && layerElR){
+      const right = makeTarget(tp, emoji, rx, ry, size * (tp==='junk'?0.98:1), 'r');
+      right.style.opacity = '0.96';
+      layerElR.appendChild(right);
+
+      // link pairs
+      left._mirror = right;
+      right._mirror = left;
+    }
+
+    // animate spawn class if your css supports it
+    try{
+      left.classList.add('spawn');
+      setTimeout(()=>left.classList.remove('spawn'), 18);
+      if (left._mirror){
+        left._mirror.classList.add('spawn');
+        setTimeout(()=>left._mirror.classList.remove('spawn'), 18);
+      }
+    }catch(_){}
   }
 
   function loopSpawn(){
@@ -771,9 +790,9 @@ export function boot(opts = {}) {
   function adaptiveTick(){
     if (!S.running || S.ended) return;
 
-    // time
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
+
     if (S.left <= 0){
       endGame('time');
       return;
@@ -871,6 +890,12 @@ export function boot(opts = {}) {
         try{ el.remove(); }catch(_){}
       });
     }catch(_){}
+    if (layerElR){
+      try{
+        const list2 = layerElR.querySelectorAll('.gj-target');
+        list2.forEach(el=>{ try{ el.remove(); }catch(_){ } });
+      }catch(_){}
+    }
   }
 
   async function endGame(reason){
@@ -922,8 +947,6 @@ export function boot(opts = {}) {
     S.miniCleared = 0;
 
     S.warmupUntil = now() + 3000;
-
-    // warmup caps
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
     coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
@@ -938,7 +961,8 @@ export function boot(opts = {}) {
       endPolicy: S.endPolicy,
       seed: S.seed,
       sessionId: sessionId || '',
-      timeSec: S.timeSec
+      timeSec: S.timeSec,
+      stereo: isStereo ? 1 : 0
     });
 
     loopSpawn();
