@@ -1,132 +1,161 @@
 // === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
-// Touch/gyro "world shift" for GoodJunkVR
-// ✅ ESM export attachTouchLook (fixes: does not provide export named attachTouchLook)
-// ✅ Mouse: shift only while dragging (prevents targets moving when just moving mouse)
-// ✅ Touch: drag-to-shift
-// ✅ Optional gyro drift for mobile (subtle)
-// Returns { recenter(), getShift(), destroy() }
+// Touch/Gyro world-shift for DOM VR feel (GoodJunkVR)
+// ✅ Named export: attachTouchLook (fix import error)
+// ✅ DOES NOT block clicking targets (.gj-target) or HUD/buttons
+// ✅ Emits window event: hha:shift {x,y} for hazard/minis
+// ✅ Drag-to-shift (default on). Gyro optional.
 
 'use strict';
 
-export function attachTouchLook(opts = {}){
-  const crosshairEl = opts.crosshairEl || null;
-  const layerEl = opts.layerEl || null;
-  const stageEl = opts.stageEl || null;
-  const view = String(opts.view || 'pc').toLowerCase();
+export function attachTouchLook(opts = {}) {
+  const layerEl = opts.layerEl || document.getElementById('gj-layer');
+  const ringEl  = opts.ringEl  || document.getElementById('atk-ring');
+  const laserEl = opts.laserEl || document.getElementById('atk-laser');
 
-  const aimY = Number.isFinite(opts.aimY) ? opts.aimY : 0.62;
-  const maxShiftPx = Number.isFinite(opts.maxShiftPx) ? opts.maxShiftPx : 160;
-  const ease = Number.isFinite(opts.ease) ? opts.ease : 0.12;
+  const maxShiftPx = Number(opts.maxShiftPx ?? 170);
+  const ease = clamp(Number(opts.ease ?? 0.12), 0.02, 0.35);
 
-  if (!layerEl) return { recenter(){}, getShift(){ return {x:0,y:0}; }, destroy(){} };
+  // default: drag enabled, gyro disabled (กัน "โลกไหลเอง")
+  const enableDrag = (opts.drag !== false);
+  const enableGyro = (opts.gyro === true);
 
-  const doc = document;
-  const root = window;
+  // For aiming reference (optional; engine uses its own aim anyway)
+  const aimY = clamp(Number(opts.aimY ?? 0.62), 0.1, 0.95);
+
+  if (!layerEl) {
+    console.warn('[touch-look] layerEl missing');
+    return { detach(){} };
+  }
 
   const state = {
-    x:0, y:0,
-    tx:0, ty:0,
     dragging:false,
-    px:0, py:0,
-    isFinePointer: matchMedia('(pointer:fine)').matches,
-    destroyed:false,
-    gyroOn: (view === 'mobile'), // เปิด gyro เฉพาะ mobile โดย default
-    lastOriAt: 0
+    lastX:0, lastY:0,
+
+    // target shift
+    tx:0, ty:0,
+
+    // current applied shift
+    x:0, y:0,
+
+    // gyro target add-on
+    gx:0, gy:0,
+
+    raf:0,
+    bound:false
   };
 
-  function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+  function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
-  function apply(){
-    // world shift: move LAYER (targets) relative to fixed crosshair
-    state.x += (state.tx - state.x) * ease;
-    state.y += (state.ty - state.y) * ease;
-    layerEl.style.transform = `translate(${state.x.toFixed(1)}px, ${state.y.toFixed(1)}px)`;
+  function shouldIgnorePointer(ev){
+    const t = ev.target;
+    if (!t) return false;
+
+    // IMPORTANT: do NOT intercept clicks on targets, HUD, controls
+    if (t.closest && t.closest('.gj-target')) return true;
+    if (t.closest && t.closest('.hha-hud')) return true;
+    if (t.closest && t.closest('.hha-controls')) return true;
+    if (t.closest && t.closest('button, a, input, textarea, select')) return true;
+
+    return false;
   }
 
-  let raf = 0;
-  function tick(){
-    if (state.destroyed) return;
-    apply();
-    raf = root.requestAnimationFrame(tick);
-  }
-  raf = root.requestAnimationFrame(tick);
+  function onDown(ev){
+    if (!enableDrag) return;
+    if (shouldIgnorePointer(ev)) return;
 
-  function recenter(){
-    state.tx = 0; state.ty = 0;
-  }
-
-  function onDown(e){
-    // Mouse: allow drag-shift (but NOT move-shift)
-    // Touch: drag-shift as usual
     state.dragging = true;
-    state.px = e.clientX;
-    state.py = e.clientY;
+    state.lastX = ev.clientX;
+    state.lastY = ev.clientY;
   }
 
-  function onMove(e){
+  function onMove(ev){
+    if (!enableDrag) return;
     if (!state.dragging) return;
 
-    const dx = e.clientX - state.px;
-    const dy = e.clientY - state.py;
-    state.px = e.clientX;
-    state.py = e.clientY;
+    const dx = (ev.clientX - state.lastX);
+    const dy = (ev.clientY - state.lastY);
+    state.lastX = ev.clientX;
+    state.lastY = ev.clientY;
 
-    // scale feel
-    const k = (view === 'mobile') ? 0.55 : 0.42;
-
-    state.tx = clamp(state.tx + dx * k, -maxShiftPx, maxShiftPx);
-    state.ty = clamp(state.ty + dy * k, -maxShiftPx, maxShiftPx);
+    // scale drag -> shift
+    state.tx = clamp(state.tx + dx * 0.35, -maxShiftPx, maxShiftPx);
+    state.ty = clamp(state.ty + dy * 0.35, -maxShiftPx, maxShiftPx);
   }
 
   function onUp(){
+    if (!enableDrag) return;
     state.dragging = false;
   }
 
-  function onOri(ev){
-    if (!state.gyroOn) return;
-    const t = (performance && performance.now) ? performance.now() : Date.now();
-    if (t - state.lastOriAt < 33) return; // ~30fps
-    state.lastOriAt = t;
+  function onGyro(ev){
+    if (!enableGyro) return;
+    // gamma: left/right, beta: front/back
+    const gamma = Number(ev.gamma)||0;
+    const beta  = Number(ev.beta)||0;
 
-    const gamma = Number(ev.gamma)||0; // left-right
-    const beta  = Number(ev.beta)||0;  // front-back
-
-    // subtle drift
-    const gx = clamp(gamma, -30, 30) / 30; // -1..1
-    const gy = clamp(beta - 20, -40, 40) / 40;
-
-    state.tx = clamp(state.tx + gx * 2.6, -maxShiftPx, maxShiftPx);
-    state.ty = clamp(state.ty + gy * 1.6, -maxShiftPx, maxShiftPx);
+    // map gyro to gentle shift (subtle, not auto-drift too much)
+    state.gx = clamp(gamma * 1.4, -maxShiftPx, maxShiftPx);
+    state.gy = clamp((beta - 20) * 0.8, -maxShiftPx, maxShiftPx);
   }
 
-  // Important: don't let "mouse move" shift world unless dragging
-  const moveTarget = root;
-  layerEl.addEventListener('pointerdown', onDown, { passive:true });
-  moveTarget.addEventListener('pointermove', onMove, { passive:true });
-  moveTarget.addEventListener('pointerup', onUp, { passive:true });
-  moveTarget.addEventListener('pointercancel', onUp, { passive:true });
+  function apply(){
+    // ease to target+gyro
+    const targetX = clamp(state.tx + state.gx, -maxShiftPx, maxShiftPx);
+    const targetY = clamp(state.ty + state.gy, -maxShiftPx, maxShiftPx);
 
-  // Optional: double tap/click crosshair to recenter
-  function onDbl(){
-    recenter();
+    state.x = state.x + (targetX - state.x) * ease;
+    state.y = state.y + (targetY - state.y) * ease;
+
+    // apply ONLY to world layers (targets + hazards), not HUD
+    const tr = `translate3d(${state.x.toFixed(2)}px, ${state.y.toFixed(2)}px, 0px)`;
+    layerEl.style.transform = tr;
+
+    if (ringEl)  ringEl.style.transform  = tr;
+    if (laserEl) laserEl.style.transform = tr;
+
+    // tell engine/hazards (dodge detection)
+    try{
+      window.dispatchEvent(new CustomEvent('hha:shift', { detail: { x: state.x, y: state.y, aimY } }));
+    }catch(_){}
+
+    state.raf = requestAnimationFrame(apply);
   }
-  if (crosshairEl) crosshairEl.addEventListener('dblclick', onDbl, { passive:true });
 
-  // gyro only if enabled
-  root.addEventListener('deviceorientation', onOri, { passive:true });
+  function bind(){
+    if (state.bound) return;
+    state.bound = true;
 
-  return {
-    recenter,
-    getShift(){ return { x: state.x, y: state.y, tx: state.tx, ty: state.ty }; },
-    destroy(){
-      state.destroyed = true;
-      try{ root.cancelAnimationFrame(raf); }catch(_){}
-      try{ layerEl.removeEventListener('pointerdown', onDown); }catch(_){}
-      try{ moveTarget.removeEventListener('pointermove', onMove); }catch(_){}
-      try{ moveTarget.removeEventListener('pointerup', onUp); }catch(_){}
-      try{ moveTarget.removeEventListener('pointercancel', onUp); }catch(_){}
-      try{ root.removeEventListener('deviceorientation', onOri); }catch(_){}
-      try{ if (crosshairEl) crosshairEl.removeEventListener('dblclick', onDbl); }catch(_){}
+    // use window events so it works even if layer doesn't cover whole screen
+    window.addEventListener('pointerdown', onDown, { passive:true });
+    window.addEventListener('pointermove', onMove, { passive:true });
+    window.addEventListener('pointerup', onUp, { passive:true });
+    window.addEventListener('pointercancel', onUp, { passive:true });
+
+    if (enableGyro){
+      window.addEventListener('deviceorientation', onGyro, { passive:true });
     }
-  };
+
+    state.raf = requestAnimationFrame(apply);
+  }
+
+  function detach(){
+    try{ cancelAnimationFrame(state.raf); }catch(_){}
+    state.raf = 0;
+
+    window.removeEventListener('pointerdown', onDown);
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
+    window.removeEventListener('deviceorientation', onGyro);
+
+    // reset transforms
+    try{ layerEl.style.transform=''; }catch(_){}
+    try{ if (ringEl) ringEl.style.transform=''; }catch(_){}
+    try{ if (laserEl) laserEl.style.transform=''; }catch(_){}
+  }
+
+  bind();
+  return { detach };
 }
+
+export default attachTouchLook;
