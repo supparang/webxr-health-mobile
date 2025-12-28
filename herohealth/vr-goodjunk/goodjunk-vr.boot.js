@@ -1,9 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard (UPDATED)
-// ✅ sets view mode: ?view=pc|mobile|vr  (auto if missing)
-// ✅ sets documentElement/body dataset.view for responsive CSS
-// ✅ requests motion permission on iOS inside Start button gesture (optional)
-// ✅ boots safe engine
+// GoodJunkVR Boot — HHA Standard (VR split UPDATED)
 
 'use strict';
 
@@ -49,7 +45,7 @@ function buildContext(){
     if (v != null) ctx[k] = v;
   }
   ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
-  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-28';
+  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-28.vr';
   return ctx;
 }
 
@@ -92,17 +88,17 @@ function setHudMeta(text){
 
   setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • ${view}`);
 
-  // prepare touch-look (drag works immediately; motion permission requested on Start)
+  // touch-look shifts #gj-world (ทั้ง 2 ตา)
   const tl = attachTouchLook({
     stageEl: document.getElementById('gj-stage'),
+    layerEl: document.getElementById('gj-world'),
     crosshairEl: document.getElementById('gj-crosshair'),
-    layerEl: document.getElementById('gj-layer'),
     ringEl: document.getElementById('atk-ring'),
     laserEl: document.getElementById('atk-laser'),
     aimY: 0.62,
     maxShiftPx: (view === 'vr') ? 190 : 170,
     ease: 0.12,
-    useMotion: false // ask permission on Start
+    useMotion: false
   });
 
   const metaText =
@@ -110,13 +106,16 @@ function setHudMeta(text){
     + (seed ? ` • seed=${seed}` : '');
 
   await showStartOverlay(metaText, async ()=>{
-    // iOS motion permission needs gesture; only try if user wants VR-like mode or on mobile
     if (view === 'vr' || view === 'mobile'){
       await tl.requestMotionPermission();
     }
   });
 
-  // boot engine
+  const leftLayer  = document.getElementById('gj-layer');
+  const rightLayer = document.getElementById('gj-layer-r');
+
+  const layerEls = (view === 'vr' && rightLayer) ? [leftLayer, rightLayer] : [leftLayer];
+
   goodjunkBoot({
     diff,
     time,
@@ -126,7 +125,8 @@ function setHudMeta(text){
     seed,
     sessionId,
     context: ctx,
-    layerEl: document.getElementById('gj-layer'),
+    layerEl: leftLayer,
+    layerEls,
     shootEl: document.getElementById('btnShoot'),
     safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
   });
