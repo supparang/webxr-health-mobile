@@ -1,10 +1,13 @@
 /* === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-GoodJunkVR — PRODUCTION SAFE (B: Pressure / Dodge / Rhythm)
+GoodJunkVR — PRODUCTION SAFE (B1+B2: Pressure ladder)
 ✅ Fix HUD events: hha:score(time/coach/quest) keys match hha-hud.js
 ✅ Fix mouse bug: world shift handled by touch-look (drag only)
 ✅ Warmup 2s + ramp faster (auto fun earlier)
 ✅ Shoot support: click targets OR press Shoot/Space (hit nearest to crosshair)
-✅ Pressure (B): Ring/Laser telegraph + dodge check (combo break + fever hit, NOT counted as miss)
+✅ Pressure ladder:
+   - B1 = fair pressure (clear telegraph, faster cadence)
+   - B2 = competitive (faster cadence + higher dodge threshold + HIT => shoot lock 0.6s + stronger penalty)
+   - Auto ramp B1→B2 during boss mini (time/HP/dodge streak), auto fall back if too many hits
 ✅ Miss definition unchanged: good expired + junk hit (shield-guard doesn't count)
 ✅ Grade: SSS, SS, S, A, B, C
 */
@@ -141,21 +144,17 @@ function makeQuestDirector(opts = {}){
 
     return {
       reason,
-
       goalTitle: g ? g.title : 'Goal: —',
       goalCur: g ? (g.cur|0) : 0,
       goalMax: g ? (g.max|0) : 0,
-
       miniTitle: m ? m.title : 'Mini: —',
       miniCur: m ? (m.cur|0) : 0,
       miniMax: m ? (m.max|0) : 0,
       miniTLeft: left,
-
       goalsCleared: Q.goalsCleared|0,
       goalsTotal: Q.goalsAll.length|0,
       minisCleared: Q.minisCleared|0,
       minisTotal: Q.minisAll.length|0,
-
       miniForbidJunk: m ? !!m.forbidJunk : false,
       miniSpecial: m ? m.special : '',
       allDone: !!Q.allDone
@@ -285,7 +284,7 @@ export function boot(opts = {}){
 
   const q = { ...parseQuery(), ...(opts.query||{}) };
 
-  const diff = String(q.diff || opts.diff || 'normal').toLowerCase();       // easy|normal|hard
+  const diff = String(q.diff || opts.diff || 'normal').toLowerCase();       // easy|normal|hard|auto (optional)
   const run  = String(q.run  || opts.run  || 'play').toLowerCase();        // play|study
   const durationPlannedSec = clamp(Number(q.time || opts.time || 80), 20, 600) | 0;
 
@@ -325,6 +324,12 @@ export function boot(opts = {}){
 
     // hazards (B pressure)
     nHazardHit:0,
+    hazardDodgeStreak:0,         // ✅ used to ramp B1→B2
+    hazardLevel:1,               // 1=B1, 2=B2 (auto)
+    bossStartMs:0,               // boss mini timing
+
+    // B2: shoot lock (competitive)
+    shootLockMs:0,
 
     // boss
     bossAlive:false, bossHp:0, bossHpMax:0, bossId:null,
@@ -347,7 +352,7 @@ export function boot(opts = {}){
     spawnAccMs:0,
     __coachCdMs:0,
 
-    gameVersion: String(opts.gameVersion || q.ver || 'goodjunk.safe.js@pressureB')
+    gameVersion: String(opts.gameVersion || q.ver || 'goodjunk.safe.js@B1B2')
   };
 
   // session id
@@ -569,6 +574,10 @@ export function boot(opts = {}){
     S.bossHpMax = (diff==='easy') ? 10 : (diff==='hard' ? 14 : 12);
     S.bossHp = S.bossHpMax;
 
+    S.bossStartMs = nowMs();
+    S.hazardDodgeStreak = 0;
+    S.hazardLevel = 1;
+
     const t = spawnTarget('boss');
     if (!t) return;
     S.bossId = t.id;
@@ -581,6 +590,9 @@ export function boot(opts = {}){
     if (S.bossId) removeTarget(S.bossId);
     S.bossAlive = false;
     S.bossId = null;
+    S.bossStartMs = 0;
+    S.hazardDodgeStreak = 0;
+    S.hazardLevel = 1;
   }
 
   // ------------------------------ Quest ------------------------------
@@ -616,7 +628,7 @@ export function boot(opts = {}){
     }catch(_){}
   }
 
-  // ------------------------------ Pressure B: Ring/Laser hazards ------------------------------
+  // ------------------------------ Pressure B1+B2: Ring/Laser hazards ------------------------------
   const HZ = {
     active:false,
     ringWarnAt:0, ringFireAt:0, ringNextAt:0,
@@ -627,14 +639,6 @@ export function boot(opts = {}){
   function getShift(){
     const s = ROOT.__HHA_VIEW_SHIFT__ || {x:0,y:0,pxX:0,pxY:0};
     return { x: clamp(s.x, -1, 1), y: clamp(s.y, -1, 1) };
-  }
-
-  function hazardCadenceScale(){
-    // pressure scales with adaptive factor + fever
-    const feverBoost = (S.fever >= 70) ? 0.90 : (S.fever >= 40 ? 0.96 : 1.0);
-    const af = clamp(S.__af, 0.90, 1.15);
-    // lower = faster
-    return clamp((1.10 - (af-1.0)*0.9) * feverBoost, 0.78, 1.05);
   }
 
   function ringShow(state){
@@ -665,25 +669,110 @@ export function boot(opts = {}){
     }
   }
 
-  function applyHazardHit(kind){
+  // ✅ ladder logic: B1->B2 (auto) and fallback
+  function computeHazardLevel(){
+    if (!isBossMiniActive()) return 1;
+
+    // time in boss
+    const tNow = nowMs();
+    const bossT = (S.bossStartMs>0) ? (tNow - S.bossStartMs) : 0;
+    const hpFrac = (S.bossHpMax>0) ? (S.bossHp / S.bossHpMax) : 1;
+
+    // promote conditions
+    const timePromote = bossT >= 6500;              // ~6.5s in boss
+    const hpPromote   = hpFrac <= 0.55;             // boss below 55%
+    const streakPromote = (S.hazardDodgeStreak|0) >= 2;
+
+    // fallback if getting hit too often
+    const hitTooMuch = (S.nHazardHit|0) >= 3 && (S.hazardDodgeStreak|0) === 0;
+
+    let lvl = S.hazardLevel|0;
+    if (hitTooMuch) lvl = 1;
+    else if (timePromote || hpPromote || streakPromote) lvl = 2;
+    else lvl = 1;
+
+    S.hazardLevel = lvl;
+    return lvl;
+  }
+
+  function hazardCadenceScale(level){
+    // base cadence from adaptive + fever
+    const feverBoost = (S.fever >= 70) ? 0.90 : (S.fever >= 40 ? 0.96 : 1.0);
+    const af = clamp(S.__af, 0.90, 1.15);
+
+    // lower = faster
+    let base = clamp((1.10 - (af-1.0)*0.9) * feverBoost, 0.78, 1.05);
+
+    // B1 faster, B2 faster+ (competitive)
+    if (level === 2) base *= 0.86;
+    else base *= 0.94;
+
+    return clamp(base, 0.68, 1.05);
+  }
+
+  function hazardNeed(level, kind){
+    // B2 needs more precise dodge
+    const add = (level===2) ? 0.05 : 0.0;
+
+    if (kind === 'ring'){
+      const base = (diff==='easy') ? 0.22 : (diff==='hard' ? 0.30 : 0.26);
+      return clamp(base + add, 0.18, 0.42);
+    }
+
+    // laser axis-specific
+    const base = (diff==='easy') ? 0.20 : (diff==='hard' ? 0.28 : 0.24);
+    return clamp(base + add, 0.16, 0.40);
+  }
+
+  function hazardWarnMs(level){
+    // B2 telegraph shorter (harder)
+    return (level===2) ? 420 : 520;
+  }
+
+  function applyHazardHit(kind, level){
     // IMPORTANT: do NOT count as miss (keep HHA miss definition stable)
     S.nHazardHit += 1;
+    S.hazardDodgeStreak = 0;
+
+    // competitive penalties (B2)
+    const scorePenalty = (level===2) ? -10 : -6;
+    const feverDrop = (level===2) ? 20 : 14;
+
     S.combo = 0;
-    setFever(S.fever - 14);
+    setFever(S.fever - feverDrop);
     stun(kind);
 
-    addScore(-6, 'HAZARD'); // small penalty, feels serious but not “fail”
+    // B2: lock shooting briefly
+    if (level===2){
+      S.shootLockMs = Math.max(S.shootLockMs|0, 650);
+      try{ DOC.body && DOC.body.classList.add('gj-shootlock'); }catch(_){}
+      coach('โดนหนัก! ยิงติดล็อก 0.6 วิ 😵', 'fever', 'ตั้งสติ แล้วหลบให้ทัน!');
+    } else {
+      coach('โดนแรงกดดัน! หลบด้วยการ “เอียงโลก” 😵‍💫', 'fever', 'ลากค้างแล้วดึงจอไปด้านข้าง/บนล่าง');
+    }
+
+    addScore(scorePenalty, 'HAZARD');
     Particles.burstAt?.((ROOT.innerWidth||360)/2, (ROOT.innerHeight||640)/2, 'TRAP');
 
-    logEvent('hazard', { itemType: kind, judgment:'HIT', isGood:0 }, { nHazardHit:S.nHazardHit|0 });
-    coach('โดนแรงกดดัน! หลบด้วยการ “เอียงโลก” 😵‍💫', 'fever', 'ลากค้างแล้วดึงจอไปด้านข้าง/บนล่าง');
+    logEvent('hazard', { itemType: kind, judgment:'HIT', isGood:0 }, { level, nHazardHit:S.nHazardHit|0 });
     emitScore('hazard');
   }
 
-  function applyHazardDodge(kind){
-    addScore(5, 'DODGE');
-    logEvent('hazard', { itemType: kind, judgment:'DODGE', isGood:1 }, {});
-    if ((S.comboMax|0) < 6) coach('หลบได้! โหดแบบเกมจริง 🔥', 'happy', 'หลบแล้วกลับมายิงต่อ!');
+  function applyHazardDodge(kind, level){
+    S.hazardDodgeStreak = clamp((S.hazardDodgeStreak|0) + 1, 0, 9);
+
+    // B2 gives a bit more reward (feel “pro”)
+    const pts = (level===2) ? 7 : 5;
+    addScore(pts, 'DODGE');
+
+    logEvent('hazard', { itemType: kind, judgment:'DODGE', isGood:1 }, { level, streak:S.hazardDodgeStreak|0 });
+
+    if (level===2){
+      coach('หลบโหด! ตอนนี้เป็น “B2” แล้ว 🔥', 'happy', 'เทเลกราฟสั้นลง—ต้องไว!');
+    } else if ((S.comboMax|0) < 6) {
+      coach('หลบได้! โหดแบบเกมจริง 🔥', 'happy', 'หลบแล้วกลับมายิงต่อ!');
+    }
+
     emitScore('dodge');
   }
 
@@ -699,35 +788,40 @@ export function boot(opts = {}){
       return;
     }
 
+    const level = computeHazardLevel();
+    const s = hazardCadenceScale(level);
+    const warnMs = hazardWarnMs(level);
+
     if (!HZ.active){
       HZ.active = true;
-      const s = hazardCadenceScale();
       HZ.ringNextAt  = tNow + 900 * s;
       HZ.laserNextAt = tNow + 1200 * s;
     }
 
-    const s = hazardCadenceScale();
-
     // ---- RING ----
     if (tNow >= HZ.ringNextAt && HZ.ringWarnAt === 0 && HZ.ringFireAt === 0){
       HZ.ringWarnAt = tNow;
-      HZ.ringFireAt = tNow + 520; // telegraph
+      HZ.ringFireAt = tNow + warnMs;
       ringShow('warn');
     }
     if (HZ.ringFireAt && tNow >= HZ.ringFireAt){
       ringShow('fire');
-      // dodge check: need some shift magnitude
+
       const sh = getShift();
       const mag = Math.hypot(sh.x, sh.y);
-      const need = (diff==='easy') ? 0.22 : (diff==='hard' ? 0.30 : 0.26);
-      if (mag >= need) applyHazardDodge('ring');
-      else applyHazardHit('ring');
+      const need = hazardNeed(level, 'ring');
 
-      // reset
+      if (mag >= need) applyHazardDodge('ring', level);
+      else applyHazardHit('ring', level);
+
       HZ.ringWarnAt = 0;
       HZ.ringFireAt = 0;
-      HZ.ringNextAt = tNow + (diff==='easy' ? 2400 : diff==='hard' ? 1800 : 2100) * s;
-      setTimeout(()=>ringShow('off'), 180);
+
+      // cadence (B2 faster)
+      const baseNext = (diff==='easy') ? 2400 : diff==='hard' ? 1800 : 2100;
+      HZ.ringNextAt = tNow + baseNext * s;
+
+      setTimeout(()=>ringShow('off'), 170);
     }
 
     // ---- LASER ----
@@ -735,32 +829,34 @@ export function boot(opts = {}){
       HZ.laserAxis = (Math.random() < 0.5) ? 'x' : 'y';
       HZ.laserDir  = (Math.random() < 0.5) ? 1 : -1;
       HZ.laserWarnAt = tNow;
-      HZ.laserFireAt = tNow + 480;
+      HZ.laserFireAt = tNow + warnMs;
       laserShow('warn');
     }
     if (HZ.laserFireAt && tNow >= HZ.laserFireAt){
       laserShow('fire');
 
-      // dodge check: axis-specific
       const sh = getShift();
       const axisVal = (HZ.laserAxis === 'x') ? Math.abs(sh.x) : Math.abs(sh.y);
-      const need = (diff==='easy') ? 0.20 : (diff==='hard' ? 0.28 : 0.24);
+      const need = hazardNeed(level, 'laser');
 
-      if (axisVal >= need) applyHazardDodge('laser');
-      else applyHazardHit('laser');
+      if (axisVal >= need) applyHazardDodge('laser', level);
+      else applyHazardHit('laser', level);
 
       HZ.laserWarnAt = 0;
       HZ.laserFireAt = 0;
-      HZ.laserNextAt = tNow + (diff==='easy' ? 2900 : diff==='hard' ? 2200 : 2550) * s;
-      setTimeout(()=>laserShow('off'), 170);
+
+      const baseNext = (diff==='easy') ? 2900 : diff==='hard' ? 2200 : 2550;
+      HZ.laserNextAt = tNow + baseNext * s;
+
+      setTimeout(()=>laserShow('off'), 160);
     }
   }
 
-  // ------------------------------ Adaptive (faster, B-style) ------------------------------
+  // ------------------------------ Adaptive (optional, faster) ------------------------------
   function adaptiveStep(dtMs){
-    if (run !== 'play' || diff !== 'auto') return; // (ถ้าคุณอยาก auto จริง ๆ: ใช้ diff=auto ได้)
+    if (run !== 'play' || diff !== 'auto') return;
     S.__adptT += dtMs;
-    if (S.__adptT < 2500) return; // ✅ quicker
+    if (S.__adptT < 2500) return; // quicker
     S.__adptT = 0;
 
     const played = (S.durationPlayedSec|0);
@@ -776,11 +872,9 @@ export function boot(opts = {}){
     const acc = nGood / denom;
     const missRate = (S.misses|0) / Math.max(1, (nGood + (S.nHitJunk|0) + nExpire));
 
-    // promote faster
     if (acc >= 0.76 && missRate <= 0.22 && (S.comboMax|0) >= 6) S.__profile = 'hero';
     else if (acc <= 0.64 || missRate >= 0.30) S.__profile = 'safe';
 
-    // B: keep density stable, but increase pressure cadence via __af
     let f = S.__af;
     if (acc >= 0.78 && missRate <= 0.22) f += 0.045;
     else if (acc <= 0.64 || missRate >= 0.30) f -= 0.055;
@@ -822,7 +916,6 @@ export function boot(opts = {}){
       const gUI = Q.addGoalProgress(1);
       const gDone = !!gUI && (gUI.reason === 'goal-done');
 
-      // boss mini: do not advance mini by good hits
       let mDone = false;
       const ui = Q.getUIState('peek');
       const miniIsBoss = !!(ui && ui.miniTitle && ui.miniTitle.indexOf('บอส') >= 0);
@@ -899,7 +992,6 @@ export function boot(opts = {}){
       { kind:'boss', hp:S.bossHp, hpMax:S.bossHpMax }
     );
 
-    // advance boss mini ONLY while boss mini active
     try{
       const ui = Q.getUIState('peek');
       const miniIsBoss = !!(ui && ui.miniTitle && ui.miniTitle.indexOf('บอส') >= 0);
@@ -930,20 +1022,16 @@ export function boot(opts = {}){
   function getSpawnPlan(){
     const played = S.durationPlayedSec|0;
 
-    // cap/rate by difficulty (keep moderate)
     let capBase  = (diff==='easy') ? 5 : (diff==='hard' ? 7 : 6);
     let rateBase = (diff==='easy') ? 0.85 : (diff==='hard' ? 1.05 : 0.95); // targets/sec
 
-    // warmup & ramp (faster)
     let cap = (played < S.warmupSec) ? S.warmupCap : capBase;
     const rampT = clamp((played - S.warmupSec) / Math.max(1, S.rampSec), 0, 1);
-    const rate = rateBase * (0.55 + 0.45*rampT); // start at 55% then ramp to full
+    const rate = rateBase * (0.55 + 0.45*rampT);
 
-    // B: adaptive factor affects a bit (not density heavy)
     const af = clamp(S.__af, 0.90, 1.15);
     const rate2 = clamp(rate * (0.92 + (af-1.0)*0.55), 0.55, 1.20);
 
-    // forbid-junk mini makes it fair
     const ui = Q.getUIState('peek');
     const forbidJunk = ui ? !!ui.miniForbidJunk : false;
 
@@ -957,7 +1045,6 @@ export function boot(opts = {}){
   function spawnOne(){
     if (S.ended || !S.started) return;
 
-    // boss mini: ensure boss exists, and keep few side targets
     if (isBossMiniActive()){
       if (!S.bossAlive) spawnBoss();
       if (targets.size < 5){
@@ -982,10 +1069,15 @@ export function boot(opts = {}){
   function shoot(){
     if (!S.started || S.ended) return;
 
+    // ✅ B2 shoot lock
+    if ((S.shootLockMs|0) > 0){
+      logEvent('shoot', { judgment:'LOCK' }, { lockMs:S.shootLockMs|0 });
+      return;
+    }
+
     const cx = (ROOT.innerWidth || 360) / 2;
     const cy = (ROOT.innerHeight || 640) / 2;
 
-    // radius by diff (kid-friendly)
     const baseR = (diff==='easy') ? 98 : (diff==='hard' ? 78 : 88);
     const r2 = baseR * baseR;
 
@@ -1005,13 +1097,11 @@ export function boot(opts = {}){
     if (best && bestD <= r2){
       tryHitTarget(best.id, { via:'shoot', dPx: Math.round(Math.sqrt(bestD)) });
     } else {
-      // tiny feedback (no penalty)
       logEvent('shoot', { judgment:'MISS' }, {});
     }
   }
 
   function bindInputs(){
-    // click targets
     layer.addEventListener('pointerup', (ev)=>{
       if (!S.started || S.ended) return;
       const el = ev.target && ev.target.closest ? ev.target.closest('.gj-target') : null;
@@ -1019,16 +1109,18 @@ export function boot(opts = {}){
       const id = Number(el.dataset.tid)||0;
       if (!id) return;
       ev.preventDefault(); ev.stopPropagation();
+
+      // ✅ respect shoot lock too (B2)
+      if ((S.shootLockMs|0) > 0) return;
+
       tryHitTarget(id, { via:'pointer' });
     }, { passive:false });
 
-    // shoot button
     if (btnShoot){
       btnShoot.addEventListener('pointerup', (e)=>{ e.preventDefault(); shoot(); }, { passive:false });
       btnShoot.addEventListener('click', (e)=>{ e.preventDefault(); shoot(); }, { passive:false });
     }
 
-    // keyboard
     DOC.addEventListener('keydown', (e)=>{
       if (!S.started || S.ended) return;
       if (e.code === 'Space' || e.code === 'Enter'){
@@ -1038,7 +1130,7 @@ export function boot(opts = {}){
     }, { passive:false });
   }
 
-  // ------------------------------ End / Stats / Grade ------------------------------
+  // ------------------------------ End / Stats / Grade (unchanged) ------------------------------
   function computeStatsFinal(){
     const nGood = S.nHitGood|0;
     const nExpire = S.nExpireGood|0;
@@ -1191,7 +1283,6 @@ export function boot(opts = {}){
 
     refreshSurviveGoal(true);
 
-    // final stats
     const stats = computeStatsFinal();
     const grade = computeGrade(stats);
     S.grade = grade;
@@ -1256,12 +1347,19 @@ export function boot(opts = {}){
 
     S.__coachCdMs = Math.max(0, (S.__coachCdMs|0) - (dtMs|0));
 
+    // ✅ decay shoot lock (B2)
+    if ((S.shootLockMs|0) > 0){
+      S.shootLockMs = Math.max(0, (S.shootLockMs|0) - (dtMs|0));
+      if (S.shootLockMs === 0){
+        try{ DOC.body && DOC.body.classList.remove('gj-shootlock'); }catch(_){}
+      }
+    }
+
     Q.tick();
 
     S.durationPlayedSec = clamp(Math.floor(S.durationPlannedSec - S.timeLeftSec), 0, S.durationPlannedSec);
     S.timeLeftSec = Math.max(0, S.timeLeftSec - (dtMs/1000));
 
-    // panic near end time OR near miss limit
     const leftMiss = (S.missLimit|0) - (S.misses|0);
     if ((S.timeLeftSec <= 8 && S.timeLeftSec > 0) || (leftMiss <= 1 && leftMiss >= 0)){
       try{ DOC.body && DOC.body.classList.add('gj-panic'); }catch(_){}
@@ -1269,10 +1367,8 @@ export function boot(opts = {}){
       try{ DOC.body && DOC.body.classList.remove('gj-panic'); }catch(_){}
     }
 
-    // adaptive (only if diff=auto)
     adaptiveStep(dtMs);
 
-    // spawn throttled
     const plan = getSpawnPlan();
     const intervalMs = 1000 / Math.max(0.001, plan.rate);
     S.spawnAccMs += dtMs;
@@ -1281,7 +1377,6 @@ export function boot(opts = {}){
       spawnOne();
     }
 
-    // expire targets
     const tNow = nowMs();
     for (const [id, t] of targets){
       if (t.type === 'boss') continue;
@@ -1300,10 +1395,9 @@ export function boot(opts = {}){
       }
     }
 
-    // pressure hazards update (B)
+    // ✅ B1+B2 hazards
     hazardUpdate(tNow);
 
-    // time + end
     emitTime();
     if (S.timeLeftSec <= 0) endGame('time');
   }
@@ -1335,7 +1429,6 @@ export function boot(opts = {}){
     emitTime();
     logEvent('start', { reason:'start' }, { durationPlannedSec:S.durationPlannedSec|0 });
 
-    // warmup: do NOT spawn too many
     spawnTarget('good');
     if (rng() < 0.35) spawnTarget('good');
     if (rng() < 0.25) spawnTarget('shield');
