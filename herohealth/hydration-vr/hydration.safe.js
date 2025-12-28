@@ -1,9 +1,10 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Research Logging)
-// ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:end
+// HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Cardboard Stereo)
+// ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:end, hha:celebrate
+// ✅ Cardboard stereo: renders targets into L/R layers (if present)
+// ✅ Cardboard gaze supported by HTML (gaze reads center & pointerdown)
 // ✅ Research: run=research => adaptive OFF + deterministic seed
 // ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end
-// ✅ NEW: target uid + __HVR__.forceEnd(reason) + richer hha:score payload
 
 'use strict';
 
@@ -56,8 +57,16 @@ const rng = makeRng(seed);
 const logEndpoint = String(qs('log','') || '');
 
 // ------------------ DOM bind ------------------
-const playfield = DOC.getElementById('playfield');
-const layer = DOC.getElementById('hvr-layer');
+const isStereo = !!(DOC.getElementById('hvr-layerL') && DOC.getElementById('hvr-layerR'));
+
+const playfield =
+  (isStereo ? (DOC.getElementById('cbPlayfieldL') || DOC.getElementById('playfield')) : DOC.getElementById('playfield'));
+
+const layerMain = DOC.getElementById('hvr-layer');
+const layerL = DOC.getElementById('hvr-layerL');
+const layerR = DOC.getElementById('hvr-layerR');
+
+const LAYERS = (isStereo && layerL && layerR) ? [layerL, layerR] : [layerMain].filter(Boolean);
 
 const elScore = DOC.getElementById('stat-score');
 const elCombo = DOC.getElementById('stat-combo');
@@ -76,7 +85,7 @@ const elShieldCount = DOC.getElementById('shield-count');
 
 function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
 
-// inject target styles (so targets always visible)
+// inject target styles
 (function injectStyle(){
   const id = 'hvr-target-style';
   if (DOC.getElementById(id)) return;
@@ -107,6 +116,7 @@ function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
   .hvr-target.good{ outline: 2px solid rgba(34,197,94,.18); }
   .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
   .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
+
   .hvr-pop{
     position:absolute;
     left:50%; top:50%;
@@ -161,7 +171,7 @@ const S = {
   stormDur: 0,
   stormCycle: 0,
 
-  endWindowSec: 1.2,
+  endWindowSec: 1.25,
   inEndWindow:false,
 
   miniCleared:0,
@@ -174,28 +184,32 @@ const S = {
     endWindow:false,
     blockedInEnd:false,
     doneThisStorm:false,
+    endBadSpawned:false
   },
 
   adaptiveOn: (run !== 'research'),
-  adaptK: 0.0
+  adaptK: 0.0,
+
+  goalCelebrated:false,
+  finalRush:false
 };
 
-// difficulty tuning (faster + snappier)
+// difficulty tuning (faster + tighter)
 const TUNE = (() => {
   const sizeBase =
     diff === 'easy' ? 78 :
     diff === 'hard' ? 56 : 66;
 
   const spawnBase =
-    diff === 'easy' ? 660 :
-    diff === 'hard' ? 470 : 560;
+    diff === 'easy' ? 650 :
+    diff === 'hard' ? 460 : 560;
 
   const stormEvery =
     diff === 'easy' ? 18 :
     diff === 'hard' ? 14 : 16;
 
   const stormDur =
-    diff === 'easy' ? 5.1 :
+    diff === 'easy' ? 5.2 :
     diff === 'hard' ? 6.2 : 5.8;
 
   const g = clamp(Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)), 18, Math.max(18, timeLimit-8));
@@ -203,25 +217,25 @@ const TUNE = (() => {
   return {
     sizeBase,
     spawnBaseMs: spawnBase,
-    spawnJitter: 170,
+    spawnJitter: 140,
 
-    goodLifeMs: diff==='hard' ? 930 : 1080,
-    badLifeMs:  diff==='hard' ? 980 : 1120,
+    goodLifeMs: diff==='hard' ? 920 : 1060,
+    badLifeMs:  diff==='hard' ? 960 : 1100,
     shieldLifeMs: 1350,
 
     stormEverySec: stormEvery,
     stormDurSec: stormDur,
-    endWindowSec: 1.2,
+    endWindowSec: 1.25,
 
     stormSpawnMul: diff==='hard' ? 0.56 : 0.64,
 
-    // water dynamics (0–100 reachable)
-    goodPull: 6.0,
-    goodNoise: 1.2,
-    badPush:  10.0,
-
+    nudgeToMid: 5.0,
+    badPush:    8.0,
     missPenalty: 1,
-    greenTargetSec: g
+
+    greenTargetSec: g,
+
+    stereoParallaxPct: 1.15
   };
 })();
 
@@ -229,7 +243,7 @@ S.greenTarget = TUNE.greenTargetSec;
 S.endWindowSec = TUNE.endWindowSec;
 S.stormDur = TUNE.stormDurSec;
 
-// expose for HTML driver
+// expose for cinematic/debug
 ROOT.__HVR__ = ROOT.__HVR__ || {};
 ROOT.__HVR__.S = S;
 ROOT.__HVR__.TUNE = TUNE;
@@ -269,10 +283,11 @@ function syncHUD(){
 
   setText(elQuest1, `คุม GREEN ให้ครบ ${S.greenTarget|0}s (สะสม)`);
   setText(elQuest2, `GREEN: ${(S.greenHold).toFixed(1)} / ${(S.greenTarget).toFixed(0)}s`);
-  setText(elQuest3, S.stormActive ? `Storm Mini: Shield Timing (โหมดโหด)` : `รอ Storm แล้วค่อยทำ Mini`);
+  setText(elQuest3, S.stormActive ? `Storm Mini: LOW/HIGH + BLOCK (End)` : `รอ Storm แล้วค่อยทำ Mini`);
+
   const m = S.miniState;
   setText(elQuest4, S.stormActive
-    ? `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
+    ? `Mini: zone=${m.zoneOK?'OK':'..'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
     : `State: เก็บคะแนน + สะสม Shield`
   );
 
@@ -290,14 +305,8 @@ function syncHUD(){
     shield: S.shield|0,
     stormActive: !!S.stormActive,
     stormLeftSec: S.stormLeftSec,
-
-    // ✅ extra counters for mini pills / telemetry
-    nHitGood: S.nHitGood|0,
-    nHitJunk: S.nHitBad|0,
-    nHitJunkGuard: S.nHitBadGuard|0,
-    nTargetGoodSpawned: S.nGoodSpawn|0,
-    nTargetJunkSpawned: S.nBadSpawn|0,
-    nTargetShieldSpawned: S.nShieldSpawn|0
+    stormInEndWindow: !!S.inEndWindow,   // ✅ HTML urgent tick uses this
+    finalRush: !!S.finalRush
   });
 
   emit('hha:time', { left: S.leftSec|0 });
@@ -324,19 +333,17 @@ function updateZone(){
   S.waterZone = zoneFrom(S.waterPct);
 }
 function nudgeWaterGood(){
-  // ✅ ดึงเข้าโซน GREEN แต่ยังไปถึง 0–100 ได้เมื่อโดน bad ต่อเนื่อง
   const mid = 55;
   const d = mid - S.waterPct;
-  const step = Math.sign(d) * Math.min(Math.abs(d), TUNE.goodPull);
-  const noise = (rng() < 0.5 ? -1 : +1) * (TUNE.goodNoise * rng());
-  S.waterPct = clamp(S.waterPct + step + noise, 0, 100);
+  const step = Math.sign(d) * Math.min(Math.abs(d), TUNE.nudgeToMid);
+  S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
 function pushWaterBad(){
   const mid = 55;
-  // ✅ bad จะ “ผลัก” ออกจาก mid ไปทางปลาย (ให้หลอดขึ้น/ลงแรง)
-  const dir = (S.waterPct >= mid) ? +1 : -1;
-  S.waterPct = clamp(S.waterPct + dir * TUNE.badPush, 0, 100);
+  const d = S.waterPct - mid;
+  const step = (d >= 0 ? +1 : -1) * TUNE.badPush;
+  S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
 
@@ -368,50 +375,40 @@ function targetSize(){
   }
 
   if (S.stormActive) s *= (diff==='hard' ? 0.78 : 0.82);
+  if (S.finalRush) s *= 0.92;
+
   return clamp(s, 44, 86);
 }
 
 // ------------------ FX pop ------------------
 function makePop(text, kind){
-  try{
-    const p = DOC.createElement('div');
-    p.className = 'hvr-pop';
-    p.textContent = text;
-    p.style.left = '50%';
-    p.style.top = '46%';
-    p.style.color = kind === 'good' ? 'rgba(34,197,94,.95)'
-                  : kind === 'shield' ? 'rgba(34,211,238,.95)'
-                  : 'rgba(239,68,68,.95)';
-    layer.appendChild(p);
-    setTimeout(()=>{ try{ p.remove(); }catch{} }, 600);
-  }catch{}
+  const color =
+    kind === 'good' ? 'rgba(34,197,94,.95)' :
+    kind === 'shield' ? 'rgba(34,211,238,.95)' :
+    'rgba(239,68,68,.95)';
+
+  for (const host of LAYERS){
+    try{
+      const p = DOC.createElement('div');
+      p.className = 'hvr-pop';
+      p.textContent = text;
+      p.style.left = '50%';
+      p.style.top = '46%';
+      p.style.color = color;
+      host.appendChild(p);
+      setTimeout(()=>{ try{ p.remove(); }catch{} }, 600);
+    }catch{}
+  }
 }
 
-// ------------------ target lifecycle ------------------
-let UID = 0;
-
+// ------------------ target lifecycle (stereo-safe) ------------------
 function spawn(kind){
-  if (S.ended) return;
+  if (S.ended) return null;
 
   const { xPct, yPct } = pickXY();
   const s = targetSize();
 
-  const el = DOC.createElement('div');
-  el.className = 'hvr-target ' + kind;
-  el.dataset.kind = kind;
-
-  // ✅ unique uid for gaze-lock stability
-  el.dataset.uid = String(++UID);
-
-  el.style.setProperty('--x', xPct.toFixed(2) + '%');
-  el.style.setProperty('--y', yPct.toFixed(2) + '%');
-  el.style.setProperty('--s', s.toFixed(0) + 'px');
-
-  el.textContent =
-    kind === 'good' ? '💧' :
-    kind === 'shield' ? '🛡️' :
-    '🥤';
-
+  // count
   if (kind === 'good') S.nGoodSpawn++;
   if (kind === 'bad') S.nBadSpawn++;
   if (kind === 'shield') S.nShieldSpawn++;
@@ -422,13 +419,96 @@ function spawn(kind){
     TUNE.badLifeMs;
 
   let killed = false;
+  const els = [];
+
+  // parallax for stereo
+  const shift = (isStereo ? clamp(TUNE.stereoParallaxPct * (s/66), 0.7, 1.6) : 0);
+
+  function applyPos(el, eye){
+    let x = xPct;
+    if (isStereo){
+      x = (eye === 'L') ? (xPct - shift) : (xPct + shift);
+      x = clamp(x, 2, 98);
+    }
+    el.style.setProperty('--x', x.toFixed(2) + '%');
+    el.style.setProperty('--y', yPct.toFixed(2) + '%');
+    el.style.setProperty('--s', s.toFixed(0) + 'px');
+  }
+
+  function buildEl(host, eye){
+    const el = DOC.createElement('div');
+    el.className = 'hvr-target ' + kind;
+    el.dataset.kind = kind;
+
+    applyPos(el, eye);
+
+    el.textContent =
+      kind === 'good' ? '💧' :
+      kind === 'shield' ? '🛡️' :
+      '🥤';
+
+    el.addEventListener('pointerdown', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (killed || S.ended) return;
+      kill('hit');
+
+      if (kind === 'good'){
+        S.nHitGood++;
+        S.score += 10 + Math.min(15, (S.combo|0));
+        S.combo++;
+        S.comboMax = Math.max(S.comboMax, S.combo);
+        nudgeWaterGood();
+        makePop('+GOOD', 'good');
+        emit('hha:judge', { kind:'good' });
+      }
+      else if (kind === 'shield'){
+        S.score += 6;
+        S.combo++;
+        S.comboMax = Math.max(S.comboMax, S.combo);
+        S.shield = clamp(S.shield + 1, 0, S.shieldMax);
+        makePop('+SHIELD', 'shield');
+        emit('hha:judge', { kind:'shield' });
+      }
+      else {
+        if (S.shield > 0){
+          S.shield--;
+          S.nHitBadGuard++;
+          S.score += 4;
+          makePop('BLOCK!', 'shield');
+          emit('hha:judge', { kind:'block' });
+
+          if (S.stormActive && S.inEndWindow && !S.miniState.doneThisStorm){
+            S.miniState.blockedInEnd = true;
+          }
+        } else {
+          S.nHitBad++;
+          S.misses++;
+          S.combo = 0;
+          S.score = Math.max(0, S.score - 6);
+          pushWaterBad();
+          makePop('BAD!', 'bad');
+          emit('hha:judge', { kind:'bad' });
+        }
+      }
+
+      syncHUD();
+    }, { passive:false });
+
+    host.appendChild(el);
+    return el;
+  }
 
   function kill(reason){
     if (killed) return;
     killed = true;
-    try{ el.remove(); }catch{}
+
+    for (const el of els){
+      try{ el.remove(); }catch{}
+    }
+
     if (reason === 'expire'){
-      if (kind === 'good') {
+      if (kind === 'good'){
         S.misses += TUNE.missPenalty;
         S.nExpireGood++;
         S.combo = 0;
@@ -436,59 +516,16 @@ function spawn(kind){
     }
   }
 
-  el.addEventListener('pointerdown', (ev)=>{
-    ev.preventDefault();
-    ev.stopPropagation();
-    if (killed || S.ended) return;
+  // create in layers
+  if (isStereo && LAYERS.length === 2){
+    els.push(buildEl(LAYERS[0], 'L'));
+    els.push(buildEl(LAYERS[1], 'R'));
+  } else {
+    els.push(buildEl(LAYERS[0], 'M'));
+  }
 
-    kill('hit');
-
-    if (kind === 'good'){
-      S.nHitGood++;
-      S.score += 10 + Math.min(15, (S.combo|0));
-      S.combo++;
-      S.comboMax = Math.max(S.comboMax, S.combo);
-      nudgeWaterGood();
-      makePop('+GOOD', 'good');
-      emit('hha:judge', { kind:'good' });
-    }
-    else if (kind === 'shield'){
-      S.score += 6;
-      S.combo++;
-      S.comboMax = Math.max(S.comboMax, S.combo);
-      S.shield = clamp(S.shield + 1, 0, S.shieldMax);
-      makePop('+SHIELD', 'shield');
-      emit('hha:judge', { kind:'shield' });
-    }
-    else { // bad
-      if (S.shield > 0){
-        S.shield--;
-        S.nHitBadGuard++;
-        S.score += 4;
-        makePop('BLOCK!', 'shield');
-        emit('hha:judge', { kind:'block' });
-
-        if (S.stormActive && S.inEndWindow && !S.miniState.doneThisStorm){
-          S.miniState.blockedInEnd = true;
-        }
-      } else {
-        S.nHitBad++;
-        S.misses++;
-        S.combo = 0;
-        S.score = Math.max(0, S.score - 6);
-        pushWaterBad();
-        makePop('BAD!', 'bad');
-        emit('hha:judge', { kind:'bad' });
-      }
-    }
-
-    syncHUD();
-  }, { passive:false });
-
-  layer.appendChild(el);
   setTimeout(()=>kill('expire'), life);
-
-  return el;
+  return { kind, kill };
 }
 
 // ------------------ spawner loop ------------------
@@ -503,6 +540,9 @@ function nextSpawnDelay(){
   if (S.stormActive){
     base *= TUNE.stormSpawnMul;
   }
+  if (S.finalRush){
+    base *= 0.72;
+  }
 
   return clamp(base, 210, 1200);
 }
@@ -513,8 +553,8 @@ function pickKind(){
   let pSh   = 0.06;
 
   if (S.stormActive){
-    pGood = 0.52;
-    pBad  = 0.38;
+    pGood = 0.50;
+    pBad  = 0.40;
     pSh   = 0.10;
   }
   if (diff === 'hard'){
@@ -542,10 +582,12 @@ function enterStorm(){
     endWindow:false,
     blockedInEnd:false,
     doneThisStorm:false,
+    endBadSpawned:false
   };
 
+  // shove out of GREEN sometimes (make mini fair)
   if (S.waterZone === 'GREEN'){
-    S.waterPct = clamp(S.waterPct + (rng() < 0.5 ? -7 : +7), 0, 100);
+    S.waterPct = clamp(S.waterPct + (rng() < 0.5 ? -9 : +9), 0, 100);
     updateZone();
   }
 
@@ -565,6 +607,7 @@ function exitStorm(){
       m.doneThisStorm = true;
       S.score += 35;
       makePop('MINI ✓', 'shield');
+      emit('hha:celebrate', { kind:'mini', title:'Storm Mini ✓' });
     }
   }
 
@@ -580,12 +623,22 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
+  // zone must be LOW/HIGH sometime during storm
   const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
-  const pGain = zoneOK ? 0.50 : 0.24;
+  // pressure build (faster when zoneOK)
+  const pGain = zoneOK ? 0.56 : 0.26;
   S.miniState.pressure = clamp(S.miniState.pressure + dt * pGain, 0, 1);
   if (S.miniState.pressure >= 1) S.miniState.pressureOK = true;
+
+  // ✅ fairness: guarantee at least 1 BAD in End Window to allow BLOCK
+  if (inEnd && !S.miniState.endBadSpawned){
+    S.miniState.endBadSpawned = true;
+    // spawn 1-2 bad quickly
+    spawn('bad');
+    if (rng() < 0.55) setTimeout(()=>{ if(S.stormActive && !S.ended) spawn('bad'); }, 220);
+  }
 
   if (S.stormLeftSec <= 0.001){
     exitStorm();
@@ -625,6 +678,16 @@ function update(dt){
     S.greenHold += dt;
   }
 
+  if (!S.goalCelebrated && S.greenHold >= S.greenTarget){
+    S.goalCelebrated = true;
+    emit('hha:celebrate', { kind:'goal', title:'GREEN Control ✓' });
+  }
+
+  if (!S.finalRush && S.leftSec <= 10 && run !== 'research'){
+    S.finalRush = true;
+    emit('hha:judge', { kind:'rush' });
+  }
+
   const elapsed = (now() - S.t0) / 1000;
 
   if (!S.stormActive){
@@ -657,8 +720,6 @@ async function endGame(reason){
   const grade = computeGrade();
   const acc = computeAccuracy();
 
-  const played = clamp(timeLimit - S.leftSec, 0, timeLimit);
-
   const summary = {
     timestampIso: qs('timestampIso', new Date().toISOString()),
     projectTag: qs('projectTag', 'HeroHealth'),
@@ -667,7 +728,7 @@ async function endGame(reason){
     gameMode: 'hydration',
     diff,
     durationPlannedSec: timeLimit,
-    durationPlayedSec: played,
+    durationPlayedSec: timeLimit,
 
     scoreFinal: S.score|0,
     comboMax: S.comboMax|0,
@@ -700,18 +761,12 @@ async function endGame(reason){
 
   emit('hha:end', summary);
 
-  // both research/play can log if ?log=
   await sendLog(summary);
 }
 
-// ✅ expose forceEnd for HTML “Back HUB” flush
-ROOT.__HVR__.forceEnd = async function(reason){
-  try{ await endGame(reason || 'force'); }catch{}
-};
-
 // ------------------ start gating ------------------
 async function waitStartGate(){
-  const ov = DOC.getElementById('startOverlay') || DOC.getElementById('start-overlay');
+  const ov = DOC.getElementById('start-overlay') || DOC.getElementById('startOverlay');
   if (!ov) return;
 
   const isHidden = () => {
@@ -737,8 +792,8 @@ async function waitStartGate(){
 
 // ------------------ init ------------------
 async function boot(){
-  if (!playfield || !layer){
-    console.warn('[Hydration] missing #playfield or #hvr-layer');
+  if (!playfield || !LAYERS.length){
+    console.warn('[Hydration] missing playfield or layer');
     return;
   }
 
