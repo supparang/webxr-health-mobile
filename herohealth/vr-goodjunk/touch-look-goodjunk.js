@@ -1,185 +1,217 @@
 // === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
-// Touch / Drag + (optional) DeviceOrientation "VR-feel" world shift
-// ✅ export attachTouchLook (แก้ error: does not provide an export named 'attachTouchLook')
-// - shifts: layerEl (+ optional siblings) with ease
-// - supports: mouse/touch drag on stage
-// - supports: deviceorientation (best effort; iOS permission only when called from user gesture)
+// Touch / Look helper for GoodJunkVR (ESM)
+// ✅ export attachTouchLook
+// ✅ Shift world element (#gj-world) with drag + optional gyro
+// ✅ requestMotionPermission() for iOS
+// ✅ Smooth easing
 
 'use strict';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-
 function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
-function getEl(x){
-  if (!x) return null;
-  if (typeof x === 'string') return document.querySelector(x);
-  return x;
-}
-
-function canUseMotion(){
-  return typeof ROOT.DeviceOrientationEvent !== 'undefined';
-}
-
-async function requestMotionPermissionIfNeeded(){
-  try{
-    const DOE = ROOT.DeviceOrientationEvent;
-    if (!DOE || typeof DOE.requestPermission !== 'function') return true; // not iOS gated
-    const r = await DOE.requestPermission();
-    return (r === 'granted');
-  }catch(_){
-    return false;
-  }
-}
-
 export function attachTouchLook(opts = {}){
-  const DOC = ROOT.document;
-  if (!DOC) return { detach(){}, requestMotionPermission: async()=>false };
+  const doc = (typeof document !== 'undefined') ? document : null;
+  const win = (typeof window !== 'undefined') ? window : null;
+  if (!doc || !win) return { requestMotionPermission: async()=>false };
 
-  const stageEl = getEl(opts.stageEl) || DOC.getElementById('gj-stage') || DOC.body;
-  const layerEl = getEl(opts.layerEl) || DOC.getElementById('gj-layer');
-  const crosshairEl = getEl(opts.crosshairEl) || DOC.getElementById('gj-crosshair');
+  const stageEl = opts.stageEl || doc.getElementById('gj-stage') || doc.body;
+  const layerEl = opts.layerEl || doc.getElementById('gj-world') || doc.getElementById('gj-layer') || doc.body;
 
-  // move these together to feel like "world"
-  const extraEls = []
-    .concat(getEl(opts.ringEl) || DOC.getElementById('atk-ring') || [])
-    .concat(getEl(opts.laserEl) || DOC.getElementById('atk-laser') || [])
-    .filter(Boolean);
+  const maxShiftPx = Number(opts.maxShiftPx ?? 170);
+  const ease = clamp(Number(opts.ease ?? 0.12), 0.02, 0.35);
 
-  const moveEls = [layerEl].filter(Boolean).concat(extraEls);
+  // crosshair is only used for “feel” (not required)
+  const crosshairEl = opts.crosshairEl || doc.getElementById('gj-crosshair');
 
-  const aimY = clamp(opts.aimY ?? 0.62, 0.2, 0.9);
-  const maxShiftPx = clamp(opts.maxShiftPx ?? 170, 40, 520);
-  const ease = clamp(opts.ease ?? 0.12, 0.02, 0.35);
-
-  // state
-  let alive = true;
+  // internal state
   let dragging = false;
   let startX = 0, startY = 0;
-  let baseTX = 0, baseTY = 0;
+  let dragDX = 0, dragDY = 0;
 
-  // desired shift
-  let tx = 0, ty = 0;
-  // smoothed
-  let sx = 0, sy = 0;
+  let tgtX = 0, tgtY = 0; // target shift
+  let curX = 0, curY = 0; // eased shift
+  let raf = 0;
 
-  // motion
-  let useMotion = !!opts.useMotion;
+  // gyro
+  let useMotion = !!opts.useMotion;  // default false in your boot, can be turned on later
   let motionGranted = false;
-  let gamma = 0, beta = 0;
+  let gyroX = 0, gyroY = 0;
+  let gyroBaseSet = false;
+  let baseGamma = 0, baseBeta = 0;
 
-  function apply(){
-    if (!alive) return;
-    // smooth
-    sx += (tx - sx) * ease;
-    sy += (ty - sy) * ease;
+  function applyTransform(){
+    // Ease toward target
+    curX += (tgtX - curX) * ease;
+    curY += (tgtY - curY) * ease;
 
-    const t = `translate3d(${sx.toFixed(2)}px, ${sy.toFixed(2)}px, 0)`;
-    for (const el of moveEls){
-      if (!el) continue;
-      el.style.transform = t;
-    }
+    const x = clamp(curX, -maxShiftPx, maxShiftPx);
+    const y = clamp(curY, -maxShiftPx, maxShiftPx);
 
-    ROOT.requestAnimationFrame(apply);
+    layerEl.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`;
+
+    raf = win.requestAnimationFrame(applyTransform);
   }
 
-  function setByDrag(dx, dy){
-    // invert a bit for "world shift"
-    tx = clamp(baseTX + dx * 0.65, -maxShiftPx, maxShiftPx);
-    ty = clamp(baseTY + dy * 0.65, -maxShiftPx, maxShiftPx);
+  function ensureRAF(){
+    if (!raf) raf = win.requestAnimationFrame(applyTransform);
+  }
+
+  function stopRAF(){
+    if (raf){ win.cancelAnimationFrame(raf); raf = 0; }
+  }
+
+  function setTargetFromInputs(){
+    // combine drag + gyro
+    const gx = useMotion ? gyroX : 0;
+    const gy = useMotion ? gyroY : 0;
+
+    tgtX = clamp(dragDX + gx, -maxShiftPx, maxShiftPx);
+    tgtY = clamp(dragDY + gy, -maxShiftPx, maxShiftPx);
   }
 
   function onPointerDown(e){
-    if (!alive) return;
-    // don't start drag on HUD buttons
-    const target = e.target;
-    if (target && (target.closest('.hha-controls') || target.closest('.hha-hud') || target.closest('#startOverlay'))) return;
-
+    if (!stageEl) return;
     dragging = true;
-    try{ stageEl.setPointerCapture?.(e.pointerId); }catch(_){}
-    startX = e.clientX; startY = e.clientY;
-    baseTX = tx; baseTY = ty;
+    const p = getPoint(e);
+    startX = p.x;
+    startY = p.y;
+    stageEl.setPointerCapture?.(e.pointerId);
   }
+
   function onPointerMove(e){
-    if (!alive || !dragging) return;
-    const dx = (e.clientX - startX);
-    const dy = (e.clientY - startY);
-    setByDrag(dx, dy);
+    if (!dragging) return;
+    const p = getPoint(e);
+    const dx = p.x - startX;
+    const dy = p.y - startY;
+
+    // invert a bit so drag “moves camera”
+    dragDX = clamp(dx * 0.55, -maxShiftPx, maxShiftPx);
+    dragDY = clamp(dy * 0.55, -maxShiftPx, maxShiftPx);
+
+    setTargetFromInputs();
+    ensureRAF();
   }
+
   function onPointerUp(e){
-    if (!alive) return;
     dragging = false;
-    try{ stageEl.releasePointerCapture?.(e.pointerId); }catch(_){}
+    stageEl.releasePointerCapture?.(e.pointerId);
+
+    // spring back a little (don’t snap to 0, feels VR-ish)
+    dragDX *= 0.35;
+    dragDY *= 0.35;
+
+    setTargetFromInputs();
+    ensureRAF();
   }
 
-  function onDeviceOrientation(e){
-    if (!alive) return;
-    gamma = Number(e.gamma)||0; // left-right (-90..90)
-    beta  = Number(e.beta)||0;  // front-back (-180..180)
-    // map to pixels
-    const gx = clamp(gamma / 25, -1, 1);
-    const by = clamp(beta  / 35, -1, 1);
-
-    // bias Y so that aim point feels stable around crosshair
-    const yBias = (aimY - 0.5) * 0.35;
-
-    const mx = gx * maxShiftPx;
-    const my = (by + yBias) * maxShiftPx;
-
-    // blend with drag if dragging; otherwise follow motion
-    if (!dragging){
-      tx = clamp(mx, -maxShiftPx, maxShiftPx);
-      ty = clamp(my, -maxShiftPx, maxShiftPx);
+  function getPoint(e){
+    if (e.touches && e.touches[0]){
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
     }
+    return { x: e.clientX ?? 0, y: e.clientY ?? 0 };
   }
 
-  // public: call this INSIDE a user gesture (e.g. start button) on iOS
+  function onDeviceOrientation(ev){
+    if (!useMotion) return;
+    // gamma: left-right tilt, beta: front-back tilt
+    const gamma = Number(ev.gamma ?? 0);
+    const beta  = Number(ev.beta  ?? 0);
+
+    if (!gyroBaseSet){
+      gyroBaseSet = true;
+      baseGamma = gamma;
+      baseBeta = beta;
+    }
+
+    // delta tilt from baseline
+    let dg = gamma - baseGamma;
+    let db = beta  - baseBeta;
+
+    // clamp to reasonable angles
+    dg = clamp(dg, -25, 25);
+    db = clamp(db, -25, 25);
+
+    // map angle -> px
+    gyroX = clamp(dg * (maxShiftPx / 28), -maxShiftPx, maxShiftPx);
+    gyroY = clamp(db * (maxShiftPx / 32), -maxShiftPx, maxShiftPx);
+
+    setTargetFromInputs();
+    ensureRAF();
+  }
+
   async function requestMotionPermission(){
-    if (!canUseMotion()) return false;
-    const ok = await requestMotionPermissionIfNeeded();
-    motionGranted = ok;
-    if (ok){
-      try{ ROOT.addEventListener('deviceorientation', onDeviceOrientation, { passive:true }); }catch(_){}
-    }
-    return ok;
-  }
-
-  // bind drag
-  try{
-    stageEl.addEventListener('pointerdown', onPointerDown, { passive:true });
-    stageEl.addEventListener('pointermove', onPointerMove, { passive:true });
-    stageEl.addEventListener('pointerup', onPointerUp, { passive:true });
-    stageEl.addEventListener('pointercancel', onPointerUp, { passive:true });
-  }catch(_){}
-
-  // auto motion if asked (non-iOS usually ok)
-  if (useMotion){
-    // this may not work on iOS unless permission is granted in gesture
     try{
-      ROOT.addEventListener('deviceorientation', onDeviceOrientation, { passive:true });
-      motionGranted = true;
-    }catch(_){}
+      // iOS 13+ requires user gesture + permission request
+      const DOE = win.DeviceOrientationEvent;
+      if (!DOE) return false;
+
+      if (typeof DOE.requestPermission === 'function'){
+        const res = await DOE.requestPermission();
+        motionGranted = (String(res).toLowerCase() === 'granted');
+      } else {
+        motionGranted = true;
+      }
+
+      if (motionGranted){
+        useMotion = true;
+        gyroBaseSet = false;
+        win.addEventListener('deviceorientation', onDeviceOrientation, { passive:true });
+        ensureRAF();
+        return true;
+      }
+      return false;
+    }catch(_){
+      return false;
+    }
   }
 
-  // kick RAF
-  ROOT.requestAnimationFrame(apply);
+  // Bind
+  if (stageEl){
+    stageEl.style.touchAction = 'none';
 
-  // return detach
+    stageEl.addEventListener('pointerdown', onPointerDown, { passive:false });
+    stageEl.addEventListener('pointermove', onPointerMove, { passive:false });
+    stageEl.addEventListener('pointerup', onPointerUp, { passive:false });
+    stageEl.addEventListener('pointercancel', onPointerUp, { passive:false });
+
+    // fallback touch
+    stageEl.addEventListener('touchstart', onPointerDown, { passive:false });
+    stageEl.addEventListener('touchmove', onPointerMove, { passive:false });
+    stageEl.addEventListener('touchend', onPointerUp, { passive:false });
+  }
+
+  // Start RAF (idle)
+  ensureRAF();
+
+  // Public API
   return {
     requestMotionPermission,
-    detach(){
-      alive = false;
+    setUseMotion(v){
+      useMotion = !!v;
+      if (!useMotion){
+        gyroX = 0; gyroY = 0;
+        setTargetFromInputs();
+      }
+    },
+    reset(){
+      dragDX = dragDY = 0;
+      gyroX = gyroY = 0;
+      tgtX = tgtY = 0;
+      curX = curY = 0;
+      layerEl.style.transform = 'translate3d(0px,0px,0)';
+    },
+    destroy(){
+      stopRAF();
       try{
         stageEl.removeEventListener('pointerdown', onPointerDown);
         stageEl.removeEventListener('pointermove', onPointerMove);
         stageEl.removeEventListener('pointerup', onPointerUp);
         stageEl.removeEventListener('pointercancel', onPointerUp);
+        stageEl.removeEventListener('touchstart', onPointerDown);
+        stageEl.removeEventListener('touchmove', onPointerMove);
+        stageEl.removeEventListener('touchend', onPointerUp);
       }catch(_){}
-      try{ ROOT.removeEventListener('deviceorientation', onDeviceOrientation); }catch(_){}
-      // reset transforms
-      for (const el of moveEls){
-        try{ el.style.transform = ''; }catch(_){}
-      }
+      try{ win.removeEventListener('deviceorientation', onDeviceOrientation); }catch(_){}
     }
   };
 }
