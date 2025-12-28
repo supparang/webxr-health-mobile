@@ -12,8 +12,7 @@ export function attachTouchLook(opts = {}){
 
   const stage = doc.getElementById(opts.stageId || 'gj-stage') || doc.querySelector('#gj-stage') || doc.body;
 
-  // config
-  const maxShiftPx = Number(opts.maxShiftPx ?? 26);   // gentle
+  const maxShiftPx = Number(opts.maxShiftPx ?? 26);
   const lerp = (a,b,t)=> a + (b-a)*t;
 
   let isDown = false;
@@ -23,14 +22,12 @@ export function attachTouchLook(opts = {}){
   let vx = 0, vy = 0;
 
   function apply(){
-    // smooth
     vx = lerp(vx, tx, 0.18);
     vy = lerp(vy, ty, 0.18);
     stage.style.transform = `translate3d(${vx.toFixed(2)}px, ${vy.toFixed(2)}px, 0)`;
   }
 
   function onDown(e){
-    // only primary pointer
     isDown = true;
     pid = e.pointerId;
     sx = e.clientX;
@@ -39,14 +36,12 @@ export function attachTouchLook(opts = {}){
   }
 
   function onMove(e){
-    // ✅ KEY: ignore move unless dragging
     if (!isDown) return;
     if (pid != null && e.pointerId !== pid) return;
 
     const dx = e.clientX - sx;
     const dy = e.clientY - sy;
 
-    // clamp
     tx = Math.max(-maxShiftPx, Math.min(maxShiftPx, dx * 0.08));
     ty = Math.max(-maxShiftPx, Math.min(maxShiftPx, dy * 0.08));
 
@@ -58,15 +53,12 @@ export function attachTouchLook(opts = {}){
     isDown = false;
     pid = null;
 
-    // ease back to center
     tx = 0; ty = 0;
-    // small smooth return
     const t0 = performance.now();
     const dur = 180;
+
     function back(t){
       const k = Math.min(1, (t - t0)/dur);
-      // toward 0
-      tx = 0; ty = 0;
       vx = lerp(vx, 0, 0.22);
       vy = lerp(vy, 0, 0.22);
       stage.style.transform = `translate3d(${vx.toFixed(2)}px, ${vy.toFixed(2)}px, 0)`;
@@ -78,7 +70,6 @@ export function attachTouchLook(opts = {}){
 
   stage.style.willChange = 'transform';
 
-  // pointer events
   stage.addEventListener('pointerdown', onDown, { passive:true });
   stage.addEventListener('pointermove', onMove, { passive:true });
   stage.addEventListener('pointerup', onUp, { passive:true });
