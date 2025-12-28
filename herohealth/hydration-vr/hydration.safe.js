@@ -1,8 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini)
-// Works with: /herohealth/hydration-vr.html (ids: playfield, hvr-layer, water-*, stat-*)
-// Uses: /herohealth/vr/ui-water.js
-// Optional: /herohealth/vr/mode-factory.js (if exists). Fallback engine included.
+// HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Research Logging)
+// ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:end
+// ✅ Cardboard gaze supported via HTML (shootAtCenter -> pointerdown)
+// ✅ Research: run=research => adaptive OFF + deterministic seed
+// ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end
 
 'use strict';
 
@@ -17,14 +18,9 @@ function now(){ return performance.now(); }
 function qs(name, def){
   try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch{ return def; }
 }
-function qn(name, def){
-  const v = Number(qs(name, def));
-  return Number.isFinite(v) ? v : def;
-}
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
 }
-function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
 // seeded RNG (deterministic for research)
 function hashStr(s){
@@ -39,7 +35,6 @@ function hashStr(s){
 function makeRng(seedStr){
   let x = hashStr(seedStr) || 123456789;
   return function(){
-    // xorshift32
     x ^= x << 13; x >>>= 0;
     x ^= x >> 17; x >>>= 0;
     x ^= x << 5;  x >>>= 0;
@@ -57,6 +52,8 @@ const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
 const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
 const rng = makeRng(seed);
+
+const logEndpoint = String(qs('log','') || '');
 
 // ------------------ DOM bind ------------------
 const playfield = DOC.getElementById('playfield');
@@ -77,9 +74,7 @@ const elQuest4 = DOC.getElementById('quest-line4');
 const elStormLeft = DOC.getElementById('storm-left');
 const elShieldCount = DOC.getElementById('shield-count');
 
-if (!playfield || !layer){
-  console.warn('[Hydration] missing #playfield or #hvr-layer');
-}
+function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
 
 // inject target styles (so targets always visible)
 (function injectStyle(){
@@ -112,14 +107,6 @@ if (!playfield || !layer){
   .hvr-target.good{ outline: 2px solid rgba(34,197,94,.18); }
   .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
   .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
-  .hvr-target::after{
-    content:"";
-    position:absolute; inset:-8px;
-    border-radius:999px;
-    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.08), rgba(255,255,255,0) 60%);
-    opacity:.35;
-    pointer-events:none;
-  }
   .hvr-pop{
     position:absolute;
     left:50%; top:50%;
@@ -133,8 +120,7 @@ if (!playfield || !layer){
     0%{ opacity:0; transform: translate(-50%,-50%) scale(.88); }
     15%{ opacity:1; }
     100%{ opacity:0; transform: translate(-50%,-70%) scale(1.05); }
-  }
-  `;
+  }`;
   DOC.head.appendChild(st);
 })();
 
@@ -145,7 +131,6 @@ const S = {
 
   t0:0,
   lastTick:0,
-
   leftSec: timeLimit,
 
   score:0,
@@ -165,55 +150,46 @@ const S = {
   waterPct: 50,
   waterZone: 'GREEN',
 
-  shield: 0,          // charges
+  shield: 0,
   shieldMax: 3,
 
-  // goal: stay GREEN for target seconds (cumulative)
   greenHold: 0,
   greenTarget: 0,
 
-  // storm cycle
   stormActive:false,
   stormLeftSec:0,
   stormDur: 0,
   stormCycle: 0,
 
-  // end-window (ท้ายพายุ)
   endWindowSec: 1.2,
   inEndWindow:false,
 
-  // mini progress / cleared
   miniCleared:0,
   miniTotal: 999,
   miniState: {
-    // per-storm flags
     inStorm:false,
-    zoneOK:false,        // LOW/HIGH (not GREEN)
-    pressure:0,          // 0..1
+    zoneOK:false,
+    pressure:0,
     pressureOK:false,
     endWindow:false,
     blockedInEnd:false,
     doneThisStorm:false,
   },
 
-  // adaptive
-  adaptiveOn: (run !== 'research'), // play = adaptive, research = fixed
+  adaptiveOn: (run !== 'research'),
   adaptK: 0.0
 };
 
-// difficulty tuning
+// difficulty tuning (slightly faster than previous)
 const TUNE = (() => {
-  // base target size
   const sizeBase =
     diff === 'easy' ? 78 :
     diff === 'hard' ? 56 : 66;
 
-  // spawn rates
   const spawnBase =
-    diff === 'easy' ? 720 :
-    diff === 'hard' ? 520 : 620;
+    diff === 'easy' ? 680 :
+    diff === 'hard' ? 480 : 580;
 
-  // storm
   const stormEvery =
     diff === 'easy' ? 18 :
     diff === 'hard' ? 14 : 16;
@@ -222,27 +198,25 @@ const TUNE = (() => {
     diff === 'easy' ? 5.2 :
     diff === 'hard' ? 6.2 : 5.8;
 
-  // goal target: percentage of game time, clamp
   const g = clamp(Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)), 18, Math.max(18, timeLimit-8));
 
   return {
     sizeBase,
     spawnBaseMs: spawnBase,
-    spawnJitter: 190,
-    goodLifeMs: diff==='hard' ? 980 : 1120,
-    badLifeMs:  diff==='hard' ? 1050 : 1200,
-    shieldLifeMs: 1400,
+    spawnJitter: 170,
+
+    goodLifeMs: diff==='hard' ? 930 : 1080,
+    badLifeMs:  diff==='hard' ? 980 : 1120,
+    shieldLifeMs: 1350,
 
     stormEverySec: stormEvery,
     stormDurSec: stormDur,
     endWindowSec: 1.2,
 
-    // storm spawn accel
-    stormSpawnMul: diff==='hard' ? 0.58 : 0.65,
+    stormSpawnMul: diff==='hard' ? 0.56 : 0.64,
 
-    // water delta
-    nudgeToMid: 5.0,     // good hit nudges toward 55
-    badPush:    8.0,     // bad hit pushes away from 55
+    nudgeToMid: 5.0,
+    badPush:    8.0,
     missPenalty: 1,
 
     greenTargetSec: g
@@ -253,14 +227,12 @@ S.greenTarget = TUNE.greenTargetSec;
 S.endWindowSec = TUNE.endWindowSec;
 S.stormDur = TUNE.stormDurSec;
 
-// expose debug for HTML cinematic driver (if any)
+// expose for HTML cinematic driver
 ROOT.__HVR__ = ROOT.__HVR__ || {};
 ROOT.__HVR__.S = S;
 ROOT.__HVR__.TUNE = TUNE;
 
-// ------------------ UI update ------------------
-function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
-
+// ------------------ computed ------------------
 function computeAccuracy(){
   const denom = Math.max(1, S.nGoodSpawn);
   return clamp((S.nHitGood / denom) * 100, 0, 100);
@@ -271,7 +243,6 @@ function computeGrade(){
   const miss = S.misses|0;
   const mini = S.miniCleared|0;
 
-  // โทน SSS,SS,S,A,B,C ตามที่ตกลง
   if (acc >= 95 && miss <= 2 && mini >= 1) return 'SSS';
   if (acc >= 90 && miss <= 4) return 'SS';
   if (acc >= 82) return 'S';
@@ -294,23 +265,17 @@ function syncHUD(){
   setText(elShieldCount, S.shield|0);
   setText(elStormLeft, S.stormActive ? (S.stormLeftSec|0) : 0);
 
-  // quest lines
   setText(elQuest1, `คุม GREEN ให้ครบ ${S.greenTarget|0}s (สะสม)`);
   setText(elQuest2, `GREEN: ${(S.greenHold).toFixed(1)} / ${(S.greenTarget).toFixed(0)}s`);
-  setText(elQuest3, S.stormActive
-    ? `Storm Mini: Shield Timing (โหมดโหด)`
-    : `รอ Storm แล้วค่อยทำ Mini (ผ่านแล้วจะได้โบนัส)`
-  );
+  setText(elQuest3, S.stormActive ? `Storm Mini: Shield Timing (โหมดโหด)` : `รอ Storm แล้วค่อยทำ Mini`);
   const m = S.miniState;
   setText(elQuest4, S.stormActive
     ? `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
-    : `State: สะสมคะแนน + เตรียม Shield`
+    : `State: เก็บคะแนน + สะสม Shield`
   );
 
-  // water gauge
   setWaterGauge(S.waterPct);
 
-  // emit global
   emit('hha:score', {
     score: S.score|0,
     combo: S.combo|0,
@@ -336,7 +301,7 @@ function syncHUD(){
 
     miniTitle: 'Storm Shield Timing',
     miniNow: (S.miniCleared|0),
-    miniNeed: (S.miniCleared|0) + 1,   // show incremental feel
+    miniNeed: (S.miniCleared|0) + 1,
     miniLeftSec: S.stormActive ? S.stormLeftSec : 0,
     miniUrgent: S.stormActive && S.inEndWindow,
     miniCleared: S.miniCleared|0,
@@ -348,18 +313,14 @@ function syncHUD(){
 function updateZone(){
   S.waterZone = zoneFrom(S.waterPct);
 }
-
 function nudgeWaterGood(){
-  // good “ดันเข้ากลาง” (ใกล้ 55)
   const mid = 55;
   const d = mid - S.waterPct;
   const step = Math.sign(d) * Math.min(Math.abs(d), TUNE.nudgeToMid);
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
-
 function pushWaterBad(){
-  // bad “ดันออกจากกลาง”
   const mid = 55;
   const d = S.waterPct - mid;
   const step = (d >= 0 ? +1 : -1) * TUNE.badPush;
@@ -367,14 +328,13 @@ function pushWaterBad(){
   updateZone();
 }
 
-// ------------------ spawn math (center bias + safe margins) ------------------
+// ------------------ spawn math (center bias + margins) ------------------
 function pickXY(){
   const r = playfield.getBoundingClientRect();
-  const pad = 22; // avoid edges
+  const pad = 22;
   const w = Math.max(1, r.width - pad*2);
   const h = Math.max(1, r.height - pad*2);
 
-  // center-bias: average of 2 randoms pulls toward center
   const rx = (rng()+rng())/2;
   const ry = (rng()+rng())/2;
 
@@ -387,7 +347,6 @@ function pickXY(){
 function targetSize(){
   let s = TUNE.sizeBase;
 
-  // adaptive in play mode: ถ้าเล่นแม่น/คอมโบสูง -> เล็กลงนิด + spawn ถี่ขึ้น
   if (S.adaptiveOn){
     const acc = computeAccuracy()/100;
     const c = clamp(S.combo/20, 0, 1);
@@ -396,13 +355,11 @@ function targetSize(){
     s = s * (1.02 - 0.22*k);
   }
 
-  // storm shrinks more
   if (S.stormActive) s *= (diff==='hard' ? 0.78 : 0.82);
-
   return clamp(s, 44, 86);
 }
 
-// ------------------ DOM target lifecycle ------------------
+// ------------------ FX pop ------------------
 function makePop(text, kind){
   try{
     const p = DOC.createElement('div');
@@ -418,6 +375,7 @@ function makePop(text, kind){
   }catch{}
 }
 
+// ------------------ target lifecycle ------------------
 function spawn(kind){
   if (S.ended) return;
 
@@ -432,25 +390,21 @@ function spawn(kind){
   el.style.setProperty('--y', yPct.toFixed(2) + '%');
   el.style.setProperty('--s', s.toFixed(0) + 'px');
 
-  // emoji
   el.textContent =
     kind === 'good' ? '💧' :
     kind === 'shield' ? '🛡️' :
     '🥤';
 
-  // counts
   if (kind === 'good') S.nGoodSpawn++;
   if (kind === 'bad') S.nBadSpawn++;
   if (kind === 'shield') S.nShieldSpawn++;
 
-  // life
   const life =
     kind === 'good' ? TUNE.goodLifeMs :
     kind === 'shield' ? TUNE.shieldLifeMs :
     TUNE.badLifeMs;
 
   let killed = false;
-  const born = now();
 
   function kill(reason){
     if (killed) return;
@@ -470,16 +424,16 @@ function spawn(kind){
     ev.stopPropagation();
     if (killed || S.ended) return;
 
-    // hit
     kill('hit');
 
     if (kind === 'good'){
       S.nHitGood++;
-      S.score += 10 + Math.min(15, (S.combo|0)); // combo scaling
+      S.score += 10 + Math.min(15, (S.combo|0));
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
       nudgeWaterGood();
       makePop('+GOOD', 'good');
+      emit('hha:judge', { kind:'good' });
     }
     else if (kind === 'shield'){
       S.score += 6;
@@ -487,16 +441,16 @@ function spawn(kind){
       S.comboMax = Math.max(S.comboMax, S.combo);
       S.shield = clamp(S.shield + 1, 0, S.shieldMax);
       makePop('+SHIELD', 'shield');
+      emit('hha:judge', { kind:'shield' });
     }
     else { // bad
-      // if shield available -> guard
       if (S.shield > 0){
         S.shield--;
         S.nHitBadGuard++;
         S.score += 4;
         makePop('BLOCK!', 'shield');
+        emit('hha:judge', { kind:'block' });
 
-        // ✅ mini condition: block bad in end-window
         if (S.stormActive && S.inEndWindow && !S.miniState.doneThisStorm){
           S.miniState.blockedInEnd = true;
         }
@@ -507,6 +461,7 @@ function spawn(kind){
         S.score = Math.max(0, S.score - 6);
         pushWaterBad();
         makePop('BAD!', 'bad');
+        emit('hha:judge', { kind:'bad' });
       }
     }
 
@@ -514,8 +469,6 @@ function spawn(kind){
   }, { passive:false });
 
   layer.appendChild(el);
-
-  // expire timer
   setTimeout(()=>kill('expire'), life);
 
   return el;
@@ -527,33 +480,26 @@ let spawnTimer = 0;
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
 
-  // adaptive faster
   if (S.adaptiveOn){
     base *= (1.00 - 0.25 * S.adaptK);
   }
-
-  // storm accel
   if (S.stormActive){
     base *= TUNE.stormSpawnMul;
   }
 
-  return clamp(base, 220, 1200);
+  return clamp(base, 210, 1200);
 }
 
 function pickKind(){
-  // baseline distribution
   let pGood = 0.66;
   let pBad  = 0.28;
   let pSh   = 0.06;
 
-  // storm: more bad + more shield
   if (S.stormActive){
     pGood = 0.52;
     pBad  = 0.38;
     pSh   = 0.10;
   }
-
-  // hard: slightly more bad
   if (diff === 'hard'){
     pBad += 0.04;
     pGood -= 0.04;
@@ -571,7 +517,6 @@ function enterStorm(){
   S.stormLeftSec = S.stormDur;
   S.stormCycle++;
 
-  // reset mini per storm
   S.miniState = {
     inStorm:true,
     zoneOK:false,
@@ -582,8 +527,6 @@ function enterStorm(){
     doneThisStorm:false,
   };
 
-  // force “ต้องเล่นเสี่ยง”: ให้คนดันออกจาก green
-  // (ไม่ทำแรงเกิน เดี๋ยวเสียบาลานซ์)
   if (S.waterZone === 'GREEN'){
     S.waterPct = clamp(S.waterPct + (rng() < 0.5 ? -7 : +7), 0, 100);
     updateZone();
@@ -597,14 +540,12 @@ function exitStorm(){
   S.stormLeftSec = 0;
   S.inEndWindow = false;
 
-  // if mini achieved this storm, count it once
   if (!S.miniState.doneThisStorm){
     const m = S.miniState;
     const ok = !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
     if (ok){
       S.miniCleared++;
       m.doneThisStorm = true;
-      // bonus
       S.score += 35;
       makePop('MINI ✓', 'shield');
     }
@@ -613,32 +554,48 @@ function exitStorm(){
   syncHUD();
 }
 
-// pressure accumulates in storm, faster when not green
 function tickStorm(dt){
   if (!S.stormActive) return;
 
   S.stormLeftSec = Math.max(0, S.stormLeftSec - dt);
 
-  // end-window flag
   const inEnd = (S.stormLeftSec <= (TUNE.endWindowSec + 0.02));
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
-  // conditions:
-  // 1) must be LOW/HIGH (not GREEN) sometime during storm
   const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
-  // 2) pressure builds when storm + not green
-  const pGain = zoneOK ? 0.48 : 0.22;
+  const pGain = zoneOK ? 0.50 : 0.24;
   S.miniState.pressure = clamp(S.miniState.pressure + dt * pGain, 0, 1);
-
   if (S.miniState.pressure >= 1) S.miniState.pressureOK = true;
-
-  // 3) final: block bad in end-window with shield (set in hit handler)
 
   if (S.stormLeftSec <= 0.001){
     exitStorm();
+  }
+}
+
+// ------------------ end logging (C) ------------------
+async function sendLog(payload){
+  if (!logEndpoint) return;
+  try{
+    await fetch(logEndpoint, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true
+    });
+  }catch(e){
+    // best-effort fallback: GET (may be too long; still try minimal)
+    try{
+      const u = new URL(logEndpoint, location.href);
+      u.searchParams.set('projectTag', String(payload.projectTag||'HeroHealth'));
+      u.searchParams.set('gameMode', 'hydration');
+      u.searchParams.set('sessionId', String(payload.sessionId||''));
+      u.searchParams.set('scoreFinal', String(payload.scoreFinal||0));
+      u.searchParams.set('grade', String(payload.grade||'C'));
+      await fetch(u.toString(), { method:'GET', keepalive:true });
+    }catch{}
   }
 }
 
@@ -646,21 +603,17 @@ function tickStorm(dt){
 function update(dt){
   if (!S.started || S.ended) return;
 
-  // time
   S.leftSec = Math.max(0, S.leftSec - dt);
 
-  // goal: accumulate green time
   if (S.waterZone === 'GREEN'){
     S.greenHold += dt;
   }
 
-  // storm schedule
   const elapsed = (now() - S.t0) / 1000;
-  // start storm at multiples
+
   if (!S.stormActive){
     const nextAt = Math.max(2, TUNE.stormEverySec);
     const phase = Math.floor(elapsed / nextAt);
-    // enter at phase change (but avoid entering too near end)
     if (phase > 0 && (elapsed - (phase*nextAt)) < 0.04 && S.leftSec > (S.stormDur + 2)){
       enterStorm();
     }
@@ -668,7 +621,6 @@ function update(dt){
     tickStorm(dt);
   }
 
-  // spawn
   spawnTimer -= dt * 1000;
   while (spawnTimer <= 0){
     spawn(pickKind());
@@ -682,7 +634,7 @@ function update(dt){
   }
 }
 
-function endGame(reason){
+async function endGame(reason){
   if (S.ended) return;
   S.ended = true;
 
@@ -729,16 +681,16 @@ function endGame(reason){
   }catch{}
 
   emit('hha:end', summary);
-  console.log('[Hydration] end', summary);
+
+  // ✅ research/play both can log if ?log=
+  await sendLog(summary);
 }
 
-// ------------------ start gating (wait start overlay hide) ------------------
+// ------------------ start gating ------------------
 async function waitStartGate(){
-  // if start overlay exists, wait until it's hidden or removed
   const ov = DOC.getElementById('start-overlay') || DOC.getElementById('startOverlay');
   if (!ov) return;
 
-  // if already hidden, ok
   const isHidden = () => {
     const cs = getComputedStyle(ov);
     return (cs.display === 'none' || cs.visibility === 'hidden' || ov.hidden);
@@ -753,8 +705,6 @@ async function waitStartGate(){
       }
     });
     mo.observe(ov, { attributes:true, attributeFilter:['style','class','hidden'] });
-
-    // fallback timeout (กันค้าง)
     setTimeout(()=>{
       try{ mo.disconnect(); }catch{}
       resolve();
@@ -764,24 +714,25 @@ async function waitStartGate(){
 
 // ------------------ init ------------------
 async function boot(){
+  if (!playfield || !layer){
+    console.warn('[Hydration] missing #playfield or #hvr-layer');
+    return;
+  }
+
   ensureWaterGauge();
   setWaterGauge(S.waterPct);
+  updateZone();
 
-  // initial spawn delay
-  spawnTimer = 350;
+  spawnTimer = 320;
 
-  // wait start gate
   await waitStartGate();
 
   S.started = true;
   S.t0 = now();
   S.lastTick = S.t0;
 
-  // prime HUD
-  updateZone();
   syncHUD();
 
-  // main RAF loop
   function raf(t){
     if (S.ended) return;
     const dt = Math.min(0.05, Math.max(0.001, (t - S.lastTick)/1000));
@@ -791,16 +742,20 @@ async function boot(){
   }
   requestAnimationFrame(raf);
 
-  // safety: stop on page hide
   window.addEventListener('visibilitychange', ()=>{
     if (document.hidden && !S.ended) endGame('hidden');
   });
 
-  // Back button safe end (optional)
   window.addEventListener('beforeunload', ()=>{
     if (!S.ended) {
       try{ endGame('unload'); }catch{}
     }
+  });
+
+  // optional force end
+  window.addEventListener('hha:force_end', (ev)=>{
+    const d = ev.detail || {};
+    if (!S.ended) endGame(d.reason || 'force');
   });
 }
 
