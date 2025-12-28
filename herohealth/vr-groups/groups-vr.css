@@ -1501,3 +1501,55 @@ body.groups-storm-urgent .hud-top{ animation: stormPulse .24s ease-in-out infini
   0%,100%{ transform: translateZ(0) scale(1.00); }
   50%{ transform: translateZ(0) scale(1.01); }
 }
+/* ===== Candy Hardcore+FeelGood Add-ons ===== */
+
+/* โหมดพิเศษ */
+body.groups-magnet .fg-good{ filter: saturate(1.15) brightness(1.05); }
+body.groups-freeze .fg-target{ animation-duration: 1.8s !important; } /* ลอยช้าลงนิด */
+body.groups-freeze .fg-junk,
+body.groups-freeze .fg-decoy{ filter: grayscale(.15) brightness(.95); opacity:.92; }
+
+/* Powerup target (ลูกอมพิเศษ) */
+.fg-powerup{
+  border-color: rgba(255,255,255,.92);
+  box-shadow:
+    0 22px 44px rgba(0,0,0,.40),
+    0 0 0 3px rgba(255,255,255,.18) inset,
+    0 0 26px rgba(34,211,238,.22);
+}
+
+.fg-star{
+  background:
+    radial-gradient(circle at 28% 22%, rgba(255,255,255,.32), transparent 44%),
+    radial-gradient(circle at 72% 76%, rgba(255,255,255,.16), transparent 48%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(250,204,21,.38), rgba(34,211,238,.20));
+}
+.fg-ice{
+  background:
+    radial-gradient(circle at 28% 22%, rgba(255,255,255,.30), transparent 44%),
+    radial-gradient(circle at 70% 78%, rgba(255,255,255,.18), transparent 50%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(34,211,238,.28), rgba(167,139,250,.18));
+}
+
+/* มงกุฎ/ดาว/เกล็ดหิมะมุมขวาบน */
+.fg-star::after{ content:"⭐"; }
+.fg-ice::after{ content:"❄️"; }
+
+/* ป้ายสถานะเล็ก ๆ บนจอ (optional) */
+.groups-buff{
+  position:fixed; z-index:80;
+  right:12px; top: calc(12px + env(safe-area-inset-top, 0px));
+  display:flex; gap:8px; flex-wrap:wrap;
+  pointer-events:none;
+}
+.groups-buff .chip{
+  padding:6px 10px; border-radius:999px;
+  background:rgba(2,6,23,.55);
+  border:1px solid rgba(148,163,184,.22);
+  color:#e5e7eb; font-weight:900; font-size:12px;
+  box-shadow:0 10px 22px rgba(0,0,0,.35);
+}
