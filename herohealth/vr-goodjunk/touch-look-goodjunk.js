@@ -1,110 +1,129 @@
 // === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
-// Touch + Gyro "VR-feel" world shift for DOM layer
-// Exposes globals for goodjunk.safe.js:
-//  - window.__GJ_LAYER_OFFSET__  (layer bounding rect)
-//  - window.__GJ_LAYER_SHIFT__   (world shift x/y)
-//  - window.__GJ_AIM_POINT__     (aim point in viewport)
-
-'use strict';
+// GoodJunk Touch/Look — PRODUCTION SAFE
+// ✅ ไม่เลื่อนโลกตาม mousemove เฉย ๆ
+// ✅ เลื่อนเฉพาะตอน "ลาก" (pointerdown+move)
+// ✅ แตะ/คลิกโดนเป้า (.gj-target) จะไม่ไปเลื่อนโลก
+// ✅ รองรับ gyro บนมือถือ (เปิด/ปิดได้)
 
 export function attachTouchLook(opts = {}) {
-  const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+  const root = (typeof window !== 'undefined') ? window : globalThis;
+  const doc  = root.document;
+  if (!doc) return { destroy(){} };
 
-  const layerEl = opts.layerEl || document.getElementById('gj-layer');
-  const crosshairEl = opts.crosshairEl || document.getElementById('gj-crosshair');
+  const q = (() => {
+    try{
+      const u = new URL(root.location.href);
+      const o = {};
+      u.searchParams.forEach((v,k)=> o[k]=v);
+      return o;
+    }catch(_){ return {}; }
+  })();
 
-  const aimY = (opts.aimY != null) ? Number(opts.aimY) : 0.62;
-  const maxShiftPx = (opts.maxShiftPx != null) ? Number(opts.maxShiftPx) : 170;
-  const ease = (opts.ease != null) ? Number(opts.ease) : 0.12;
+  // query toggles
+  // look=0 -> ปิดทั้งหมด
+  // mouseLook=0 -> ปิดเมาส์ลาก (desktop)
+  // gyro=0 -> ปิดไจโร
+  if (String(q.look ?? '1') === '0') return { destroy(){} };
 
-  let shiftX = 0, shiftY = 0;
-  let targetX = 0, targetY = 0;
+  const enableMouseDrag = (String(q.mouseLook ?? (opts.enableMouseDrag ?? '1')) !== '0');
+  const enableGyro      = (String(q.gyro ?? (opts.enableGyro ?? '1')) !== '0');
 
-  // touch drag
-  let drag = null;
+  const world =
+    opts.worldEl ||
+    doc.querySelector(opts.worldSelector || '#gj-world') ||
+    doc.querySelector('#playfield') ||
+    doc.querySelector('#gj-layer') ||  // fallback (แต่แนะนำให้มี #gj-world ครอบเป้า)
+    doc.body;
 
-  function updateOffsets(){
-    if (!layerEl) return;
-    const r = layerEl.getBoundingClientRect();
-    ROOT.__GJ_LAYER_OFFSET__ = { x: r.left, y: r.top, w: r.width, h: r.height };
+  let offX = 0, offY = 0;
+  const maxX = Number(opts.maxX ?? 120);
+  const maxY = Number(opts.maxY ?? 80);
+
+  let dragging = false;
+  let p0x = 0, p0y = 0;
+  let startX = 0, startY = 0;
+
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  function apply(){
+    offX = clamp(offX, -maxX, maxX);
+    offY = clamp(offY, -maxY, maxY);
+    try{
+      world.style.transform = `translate3d(${offX}px, ${offY}px, 0)`;
+      world.style.willChange = 'transform';
+    }catch(_){}
   }
 
-  function updateAim(){
-    const x = window.innerWidth / 2;
-    const y = window.innerHeight * aimY;
-    ROOT.__GJ_AIM_POINT__ = { x, y };
-
-    if (crosshairEl){
-      crosshairEl.style.left = `${x}px`;
-      crosshairEl.style.top  = `${y}px`;
-    }
+  function isOnTarget(ev){
+    const t = ev && ev.target;
+    return !!(t && t.closest && t.closest('.gj-target'));
   }
 
-  function applyShift(){
-    if (!layerEl) return;
-    // Move layer opposite => feels like camera panning
-    layerEl.style.transform = `translate3d(${shiftX.toFixed(1)}px, ${shiftY.toFixed(1)}px, 0)`;
-    ROOT.__GJ_LAYER_SHIFT__ = { x: shiftX, y: shiftY };
+  function onPointerDown(ev){
+    if (!enableMouseDrag) return;
+    if (isOnTarget(ev)) return;          // ✅ คลิกเป้า = ยิง ไม่ใช่เลื่อนโลก
+    dragging = true;
+    p0x = ev.clientX || 0;
+    p0y = ev.clientY || 0;
+    startX = offX; startY = offY;
   }
 
-  function tick(){
-    shiftX += (targetX - shiftX) * ease;
-    shiftY += (targetY - shiftY) * ease;
-    applyShift();
-    requestAnimationFrame(tick);
+  function onPointerMove(ev){
+    if (!enableMouseDrag) return;
+    if (!dragging) return;               // ✅ ไม่ลาก = ไม่เลื่อนโลก
+    const x = ev.clientX || 0;
+    const y = ev.clientY || 0;
+    offX = startX + (x - p0x);
+    offY = startY + (y - p0y);
+    apply();
   }
 
-  function onDown(ev){
-    drag = { x: ev.clientX, y: ev.clientY, tx: targetX, ty: targetY };
-  }
-  function onMove(ev){
-    if (!drag) return;
-    const dx = ev.clientX - drag.x;
-    const dy = ev.clientY - drag.y;
-    targetX = clamp(drag.tx + dx, -maxShiftPx, maxShiftPx);
-    targetY = clamp(drag.ty + dy, -maxShiftPx, maxShiftPx);
-  }
-  function onUp(){ drag = null; }
-
-  // gyro (optional)
-  let gyroEnabled = false;
-  function tryEnableGyro(){
-    if (gyroEnabled) return;
-    gyroEnabled = true;
-
-    window.addEventListener('deviceorientation', (e) => {
-      // gamma: left-right, beta: front-back
-      const g = Number(e.gamma) || 0;
-      const b = Number(e.beta) || 0;
-
-      const gx = clamp(g / 25, -1, 1) * (maxShiftPx * 0.62);
-      const gy = clamp((b - 10) / 25, -1, 1) * (maxShiftPx * 0.42);
-
-      // blend gyro gently into target
-      targetX = clamp(targetX + gx * 0.02, -maxShiftPx, maxShiftPx);
-      targetY = clamp(targetY + gy * 0.02, -maxShiftPx, maxShiftPx);
-    }, { passive: true });
+  function onPointerUp(){
+    dragging = false;
   }
 
-  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+  // --- Gyro (มือถือ) ---
+  let gyroX0 = null, gyroY0 = null;
+  function onDeviceOri(ev){
+    if (!enableGyro) return;
+    if (!ev) return;
+
+    // gamma: ซ้าย-ขวา, beta: หน้า-หลัง
+    const g = Number(ev.gamma);
+    const b = Number(ev.beta);
+    if (!Number.isFinite(g) || !Number.isFinite(b)) return;
+
+    if (gyroX0 == null){ gyroX0 = g; gyroY0 = b; }
+
+    const dx = (g - gyroX0);
+    const dy = (b - gyroY0);
+
+    // scale ให้นุ่ม ๆ
+    offX = clamp(dx * 2.2, -maxX, maxX);
+    offY = clamp(dy * 1.4, -maxY, maxY);
+    apply();
+  }
+
+  // bind
+  doc.addEventListener('pointerdown', onPointerDown, { passive:true });
+  doc.addEventListener('pointermove', onPointerMove, { passive:true });
+  doc.addEventListener('pointerup', onPointerUp, { passive:true });
+  doc.addEventListener('pointercancel', onPointerUp, { passive:true });
+
+  if (enableGyro){
+    root.addEventListener('deviceorientation', onDeviceOri, { passive:true });
+  }
 
   // init
-  updateOffsets();
-  updateAim();
-  applyShift();
-  requestAnimationFrame(tick);
+  apply();
 
-  window.addEventListener('resize', () => { updateOffsets(); updateAim(); }, { passive: true });
-  window.addEventListener('orientationchange', () => { setTimeout(() => { updateOffsets(); updateAim(); }, 200); }, { passive: true });
-
-  // pointer handlers on whole doc (feel like VR)
-  document.addEventListener('pointerdown', onDown, { passive: true });
-  document.addEventListener('pointermove', onMove, { passive: true });
-  document.addEventListener('pointerup', onUp, { passive: true });
-  document.addEventListener('pointercancel', onUp, { passive: true });
-
-  // optional: user gesture enables gyro on iOS
-  document.addEventListener('click', () => { tryEnableGyro(); }, { once: true, passive: true });
-
-  return { updateOffsets, updateAim };
+  return {
+    destroy(){
+      doc.removeEventListener('pointerdown', onPointerDown);
+      doc.removeEventListener('pointermove', onPointerMove);
+      doc.removeEventListener('pointerup', onPointerUp);
+      doc.removeEventListener('pointercancel', onPointerUp);
+      root.removeEventListener('deviceorientation', onDeviceOri);
+    }
+  };
 }
