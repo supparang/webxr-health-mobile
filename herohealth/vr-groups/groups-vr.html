@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
 
-  <!-- ใช้ CSS เดิมได้ -->
+  <!-- CSS เกมหลัก -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
   <style>
@@ -21,23 +21,25 @@
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
     }
-    html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    html,body{
+      margin:0; height:100%; overflow:hidden;
+      background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+    }
 
-    /* spawn layer (เลื่อนตาม drag/gyro) */
+    /* spawn layer */
     #fg-layer{
       position:fixed; inset:0;
       transform: translate(var(--vx,0px), var(--vy,0px));
-      touch-action:none;
-      user-select:none;
+      touch-action:none; user-select:none;
       pointer-events:auto;
       z-index:10;
     }
 
-    /* HUD top */
+    /* HUD */
     .hud{
       position:fixed; left:0; right:0; top:0;
-      padding: calc(12px + var(--sat)) 12px 8px;
+      padding: calc(12px + var(--sat)) 12px 10px;
       display:flex; justify-content:space-between; gap:10px;
       pointer-events:none; z-index:50;
     }
@@ -68,33 +70,33 @@
       box-shadow:0 16px 40px rgba(0,0,0,.35);
     }
 
-    /* Quest bar (Goal/Mini always visible) */
-    .questRow{
-      position:fixed;
-      left:12px; right:12px;
-      top: calc(58px + var(--sat));
-      z-index:56;
-      pointer-events:none;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:center;
+    /* Quest bars (fallback ถ้า groups-hud-quest.js ยังไม่อยู่) */
+    .questTop{
+      position:fixed; left:12px; right:12px;
+      top: calc(68px + var(--sat));
+      display:flex; gap:10px; flex-wrap:wrap;
+      z-index:58; pointer-events:none;
     }
-    .questPill{
-      background:rgba(2,6,23,.58);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:999px;
-      padding:8px 12px;
-      font-size:12px;
-      color:var(--text);
-      box-shadow:0 16px 40px rgba(0,0,0,.28);
-      max-width:min(560px, 92vw);
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
+    .qbar{
+      flex:1 1 240px;
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:16px;
+      padding:10px 12px;
+      box-shadow:0 16px 40px rgba(0,0,0,.25);
     }
-    .questPill b{ color:var(--text); }
-    .questPill i{ color:var(--muted); font-style:normal; }
+    .qbar .t{ font-size:12px; color:var(--muted); }
+    .qbar .b{ margin-top:2px; font-size:13px; font-weight:900; }
+    .qbar .p{
+      margin-top:8px; height:10px;
+      background:rgba(15,23,42,.65);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:999px; overflow:hidden;
+    }
+    .qbar .p > i{
+      display:block; height:100%; width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+    }
 
     /* Power bar */
     .powerWrap{
@@ -117,51 +119,73 @@
       display:flex; justify-content:space-between;
     }
 
-    /* Coach (Groups-only images) */
-    .coach{
+    /* Coach + Fever (fallback) */
+    .coachWrap{
       position:fixed;
-      right:10px;
-      bottom: calc(64px + var(--sab)); /* ลอยเหนือ power */
-      z-index:70;
+      right:12px;
+      bottom: calc(86px + var(--sab));
+      z-index:62;
       pointer-events:none;
       display:flex;
       gap:10px;
       align-items:flex-end;
-      filter: drop-shadow(0 18px 40px rgba(0,0,0,.45));
     }
-    .coach img{
-      width:86px; height:86px;
-      object-fit:contain;
-      border-radius:18px;
-      background:rgba(2,6,23,.35);
+    .coachCard{
+      width:220px;
+      background:rgba(2,6,23,.60);
       border:1px solid rgba(148,163,184,.14);
-      padding:6px;
+      border-radius:18px;
+      padding:10px 10px 10px;
+      box-shadow:0 16px 40px rgba(0,0,0,.25);
     }
-    .coach .bubble{
-      max-width:min(62vw, 520px);
-      background:rgba(2,6,23,.62);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:18px 18px 6px 18px;
-      padding:10px 12px;
-      color:var(--text);
-      font-size:13px;
-      line-height:1.35;
+    .coachLine{
+      font-size:12px;
+      color:rgba(226,232,240,.92);
+      line-height:1.45;
+      min-height:34px;
     }
-    .coach .bubble small{ color:var(--muted); display:block; margin-top:4px; font-size:12px; }
-    .coach.hide{ opacity:0; transform:translateY(6px); transition:.18s ease; }
-    .coach.show{ opacity:1; transform:translateY(0); transition:.18s ease; }
+    .feverMini{
+      margin-top:8px;
+      height:10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.65);
+      overflow:hidden;
+    }
+    .feverMini > i{ display:block; height:100%; width:0%; background:rgba(239,68,68,.85); }
+    .shieldTag{
+      margin-top:8px;
+      display:inline-flex;
+      gap:6px;
+      align-items:center;
+      font-size:12px;
+      color:rgba(226,232,240,.92);
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.60);
+    }
+    .coachImg{
+      width:74px; height:74px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.55);
+      overflow:hidden;
+      box-shadow:0 16px 40px rgba(0,0,0,.25);
+    }
+    .coachImg img{ width:100%; height:100%; object-fit:cover; display:block; }
 
     /* overlays */
     .overlay{
       position:fixed; inset:0;
       background:radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
-        rgba(2,6,23,.82);
+                 radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
+                 rgba(2,6,23,.82);
       display:grid; place-items:center;
       z-index:200;
     }
     .panel{
-      width:min(780px, 92vw);
+      width:min(760px, 92vw);
       border:1px solid rgba(148,163,184,.20);
       border-radius:22px;
       background:rgba(2,6,23,.72);
@@ -169,7 +193,7 @@
       padding:18px 18px 14px;
     }
     .panel h2{ margin:0 0 8px; font-size:20px; }
-    .panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.5; }
+    .panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; }
     .panel .row{ display:flex; gap:10px; flex-wrap:wrap; }
     .panel button{
       border:0; border-radius:999px; padding:12px 14px;
@@ -184,6 +208,17 @@
     }
     .dbg{ font-size:12px; color:var(--muted); opacity:.92; margin-top:6px; }
     .dbg b{ color:var(--text); }
+    .warn{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(239,68,68,.25);
+      background:rgba(239,68,68,.08);
+      color:rgba(254,226,226,.95);
+      font-size:12px;
+      display:none;
+      white-space:pre-wrap;
+    }
 
     /* End overlay */
     #endOverlay{ display:none; }
@@ -213,40 +248,10 @@
       font-size:34px;
       cursor:pointer;
       pointer-events:auto;
-      -webkit-tap-highlight-color: transparent;
     }
     .fg-target::before{ content: attr(data-emoji); }
     .fg-target.hit{ opacity:0; transform:translate(-50%,-50%) scale(calc(var(--s,1) * 1.3)); transition:.18s ease; }
     .fg-target.out{ opacity:0; transition:.18s ease; }
-
-    /* FX hooks */
-    .fg-flash-bad{ animation: fgBad .22s ease; }
-    .fg-stun{ animation: fgStun .26s ease; }
-    .fg-fever{ animation: fgFever .22s ease; }
-    .fg-mini{ animation: fgMini .18s ease; }
-    .fg-mini-urgent{ animation: fgUrgent .14s ease; }
-    .fg-mini-urgent2{ animation: fgUrgent2 .12s ease; }
-    .fg-mini-fail{ animation: fgBad .22s ease; }
-    .fg-mini-win{ animation: fgFever .26s ease; }
-    .fg-shield{ animation: fgShield .18s ease; }
-    .fg-rage{ animation: fgRage .18s ease; }
-    .fg-win{ animation: fgFever .28s ease; }
-
-    @keyframes fgBad{ 0%{filter:none} 50%{filter:brightness(1.25) saturate(1.2)} 100%{filter:none} }
-    @keyframes fgStun{ 0%{transform:translateX(0)} 25%{transform:translateX(-6px)} 50%{transform:translateX(6px)} 100%{transform:translateX(0)} }
-    @keyframes fgFever{ 0%{filter:none} 50%{filter:brightness(1.25) contrast(1.1)} 100%{filter:none} }
-    @keyframes fgMini{ 0%{filter:none} 50%{filter:brightness(1.18)} 100%{filter:none} }
-    @keyframes fgUrgent{ 0%{transform:translateX(0)} 50%{transform:translateX(-2px)} 100%{transform:translateX(0)} }
-    @keyframes fgUrgent2{ 0%{transform:translateX(0)} 50%{transform:translateX(2px)} 100%{transform:translateX(0)} }
-    @keyframes fgShield{ 0%{filter:none} 50%{filter:brightness(1.2)} 100%{filter:none} }
-    @keyframes fgRage{ 0%{filter:none} 50%{filter:brightness(1.25) saturate(1.4)} 100%{filter:none} }
-
-    .fg-target.is-star{ box-shadow:0 18px 52px rgba(251,191,36,.18), 0 16px 40px rgba(0,0,0,.40); }
-    .fg-target.is-diamond{ box-shadow:0 18px 52px rgba(34,211,238,.20), 0 16px 40px rgba(0,0,0,.40); }
-    .fg-target.is-shield{ box-shadow:0 18px 52px rgba(34,197,94,.18), 0 16px 40px rgba(0,0,0,.40); }
-    .fg-target.is-boss{ box-shadow:0 18px 60px rgba(244,63,94,.18), 0 16px 40px rgba(0,0,0,.45); }
-    .fg-target.is-decoy{ filter:saturate(0.85) contrast(1.02); }
-    .fg-target.is-junk{ filter:saturate(1.15); }
   </style>
 </head>
 
@@ -269,23 +274,22 @@
     <div class="pill">GRADE: <b id="uiGrade">C</b></div>
   </div>
 
-  <!-- Goal/Mini always visible -->
-  <div class="questRow">
-    <div class="questPill" id="uiGoalPill">🎯 <b>GOAL</b>: <i id="uiGoalText">—</i> <span id="uiGoalProg"></span></div>
-    <div class="questPill" id="uiMiniPill">⚡ <b>MINI</b>: <i id="uiMiniText">—</i> <span id="uiMiniProg"></span></div>
+  <!-- Quest (fallback visual; ถ้ามี groups-hud-quest.js จะทับ/อัปเดตเองได้) -->
+  <div class="questTop" aria-label="Quest">
+    <div class="qbar">
+      <div class="t">GOAL</div>
+      <div class="b" id="uiGoalTitle">—</div>
+      <div class="p"><i id="uiGoalBar"></i></div>
+    </div>
+    <div class="qbar">
+      <div class="t">MINI</div>
+      <div class="b" id="uiMiniTitle">—</div>
+      <div class="p"><i id="uiMiniBar"></i></div>
+    </div>
   </div>
 
   <!-- Spawn layer -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
-
-  <!-- Coach -->
-  <div class="coach hide" id="coachWrap" aria-label="Coach">
-    <img id="coachImg" src="../img/groups-neutral.png" alt="coach" />
-    <div class="bubble">
-      <div id="coachText">พร้อมแล้ว! 🎶</div>
-      <small id="coachHint">จำเพลง 5 หมู่ให้ได้!</small>
-    </div>
-  </div>
 
   <!-- Power -->
   <div class="powerWrap">
@@ -296,12 +300,25 @@
     </div>
   </div>
 
+  <!-- Coach + Fever (fallback) -->
+  <div class="coachWrap" aria-label="Coach">
+    <div class="coachCard">
+      <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
+      <div class="feverMini"><i id="uiFeverBar"></i></div>
+      <div class="shieldTag" id="uiShieldTag" style="display:none;">🛡️ SHIELD READY</div>
+    </div>
+    <div class="coachImg">
+      <img id="uiCoachImg" src="../img/coach-neutral.png" alt="Coach"/>
+    </div>
+  </div>
+
   <!-- START overlay -->
   <div class="overlay" id="startOverlay">
     <div class="panel">
       <h2>🚀 พร้อมเล่น Food Groups VR</h2>
       <p id="startDesc">กำลังเตรียมระบบ…</p>
-      <div class="dbg">Engine: <b id="dbgEngine">loading…</b></div>
+      <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
+      <div class="warn" id="warnBox"></div>
       <div class="row" style="margin-top:10px;">
         <button id="btnStart">Start</button>
         <button id="btnBack" class="secondary">กลับ HUB</button>
@@ -329,193 +346,211 @@
     </div>
   </div>
 
-  <!-- GameEngine -->
-  <script src="./GameEngine.js?v=1000" defer
-    onerror="(function(){
-      var a=document.getElementById('startDesc'); if(a) a.textContent='❌ โหลด ./GameEngine.js ไม่ได้ (404/พาธ/ตัวใหญ่เล็ก)';
-      var b=document.getElementById('dbgEngine'); if(b) b.textContent='LOAD FAIL';
-    })()"></script>
+  <script type="module">
+    const $ = (id)=>document.getElementById(id);
+    const q = new URLSearchParams(location.search);
 
-  <script>
-    (function(){
-      const $ = (id)=>document.getElementById(id);
-      const q = new URLSearchParams(location.search);
+    const runMode = (q.get('runMode') || 'play').toLowerCase();
+    const diff    = (q.get('diff') || 'normal').toLowerCase();
+    const style   = (q.get('style') || 'mix').toLowerCase();
+    const time    = Number(q.get('time') || 90);
+    const seed    = (q.get('seed') || '').trim() || String(Date.now());
+    const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
+    const autostart = q.get('autostart') === '1';
+    const v = (q.get('v') || String(Date.now()));
 
-      const runMode = (q.get('runMode') || 'play').toLowerCase();
-      const diff    = (q.get('diff') || 'normal').toLowerCase();
-      const style   = (q.get('style') || 'mix').toLowerCase();
-      const time    = Number(q.get('time') || 90);
-      const seed    = (q.get('seed') || '').trim() || String(Date.now());
-      const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
-      const autostart = q.get('autostart') === '1';
+    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
 
-      $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
+    function warn(msg){
+      console.warn(msg);
+      const box = $('warnBox');
+      if (!box) return;
+      box.style.display = 'block';
+      box.textContent += (box.textContent ? '\n' : '') + String(msg);
+    }
 
-      function goHub(){
-        try{ window.HHACloudLogger?.flush?.(); }catch{}
-        location.href = hub;
+    async function safeImport(path){
+      try{
+        await import(path + (path.includes('?') ? '' : ('?v='+encodeURIComponent(v))));
+        return true;
+      }catch(e){
+        warn(`⚠️ load fail: ${path}\n${e?.message || e}`);
+        return false;
       }
-      $('btnBack').addEventListener('click', goHub);
-      $('btnHub2').addEventListener('click', goHub);
+    }
 
-      // ----- Coach binder (Groups images) -----
-      const COACH_SRC = {
-        neutral: '../img/groups-neutral.png',
-        happy:   '../img/groups-happy.png',
-        sad:     '../img/groups-sad.png',
-        fever:   '../img/groups-fever.png'
-      };
-      let coachTimer = 0;
-      function setCoach(mood, text, hint, ttlMs){
-        const wrap = $('coachWrap');
-        const img  = $('coachImg');
-        const tEl  = $('coachText');
-        const hEl  = $('coachHint');
+    // โหลด “ของเดิมที่คุณมี” ในโฟลเดอร์นี้ (ขาดบางตัวเกมไม่ล่ม)
+    const BOOT_LIST = [
+      './audio.js',
+      './groups-fx.js',
+      './groups-ui.js',
+      './groups-hud-quest.js',
+      './quest-serial.js',
+      './quest-manager.js',
+      './groups-quests.js',
+      './GameEngine.js'
+    ];
 
-        const m = (mood || 'neutral').toLowerCase();
-        img.src = COACH_SRC[m] || COACH_SRC.neutral;
+    async function boot(){
+      $('dbgBoot').textContent = 'loading modules…';
+      for (const p of BOOT_LIST) await safeImport(p);
+      $('dbgBoot').textContent = (window.GroupsVR && window.GroupsVR.GameEngine) ? 'READY ✅' : 'ENGINE NOT FOUND ❌';
+    }
 
-        if (text != null) tEl.textContent = String(text);
-        if (hint != null) hEl.textContent = String(hint);
+    function flushHardened(reason){
+      try{ window.HHACloudLogger?.flush?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flushNow?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flushHardened?.({ reason }); }catch{}
+      try{ window.GroupsVR?.Logger?.flush?.({ reason }); }catch{}
+      try{ window.GroupsVR?.Logger?.flushNow?.({ reason }); }catch{}
+    }
 
-        wrap.classList.remove('hide');
-        wrap.classList.add('show');
+    function goHub(){
+      flushHardened('go_hub');
+      location.href = hub;
+    }
+    $('btnBack').addEventListener('click', goHub);
+    $('btnHub2').addEventListener('click', goHub);
 
-        clearTimeout(coachTimer);
-        const ttl = Math.max(300, Number(ttlMs || 1400));
-        coachTimer = setTimeout(()=>{
-          img.src = COACH_SRC.neutral;
-          wrap.classList.remove('show');
-          wrap.classList.add('hide');
-        }, ttl);
-      }
+    // flush-hardened ตอนเปลี่ยนหน้า/ปิด
+    addEventListener('pagehide', ()=>flushHardened('pagehide'));
+    addEventListener('beforeunload', ()=>flushHardened('beforeunload'));
+    document.addEventListener('visibilitychange', ()=>{
+      if (document.visibilityState === 'hidden') flushHardened('hidden');
+    });
 
-      function bindEvents(){
-        window.addEventListener('hha:score', (e)=>{
-          const d = e.detail||{};
-          $('uiScore').textContent = String(d.score ?? 0);
-          $('uiCombo').textContent = String(d.combo ?? 0);
-          $('uiComboMax').textContent = String(d.comboMax ?? 0);
-          $('uiMiss').textContent = String(d.misses ?? 0);
-        });
+    // HUD bindings (ขั้นต่ำ)
+    function bindEvents(){
+      addEventListener('hha:score', (e)=>{
+        const d = e.detail||{};
+        $('uiScore').textContent = String(d.score ?? 0);
+        $('uiCombo').textContent = String(d.combo ?? 0);
+        $('uiComboMax').textContent = String(d.comboMax ?? 0);
+        $('uiMiss').textContent = String(d.misses ?? 0);
+      });
+      addEventListener('hha:time', (e)=>{
+        const d = e.detail||{};
+        $('uiTime').textContent = String(d.left ?? 0);
+      });
+      addEventListener('groups:power', (e)=>{
+        const d = e.detail||{};
+        const ch = Number(d.charge||0);
+        const thr = Math.max(1, Number(d.threshold||10));
+        $('uiPower').textContent = String(ch);
+        $('uiPowerThr').textContent = String(thr);
+        $('uiPowerBar').style.width = (Math.min(1, ch/thr)*100).toFixed(1) + '%';
+      });
+      addEventListener('hha:rank', (e)=>{
+        const d = e.detail||{};
+        if (d.grade) $('uiGrade').textContent = String(d.grade);
+      });
 
-        window.addEventListener('hha:time', (e)=>{
-          const d = e.detail||{};
-          $('uiTime').textContent = String(d.left ?? 0);
-        });
+      // Quest fallback UI
+      addEventListener('quest:update', (e)=>{
+        const d = e.detail||{};
+        if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
+        if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
+        const gp = Number(d.goalPct||0);
+        const mp = Number(d.miniPct||0);
+        $('uiGoalBar').style.width = Math.max(0, Math.min(100, gp)).toFixed(1)+'%';
+        $('uiMiniBar').style.width = Math.max(0, Math.min(100, mp)).toFixed(1)+'%';
+      });
 
-        window.addEventListener('groups:power', (e)=>{
-          const d = e.detail||{};
-          const ch = Number(d.charge||0);
-          const thr = Math.max(1, Number(d.threshold||10));
-          $('uiPower').textContent = String(ch);
-          $('uiPowerThr').textContent = String(thr);
-          $('uiPowerBar').style.width = (Math.min(1, ch/thr)*100).toFixed(1) + '%';
-        });
+      // Coach/Fever fallback UI
+      addEventListener('hha:coach', (e)=>{
+        const d = e.detail||{};
+        if (d.text) $('uiCoachLine').textContent = String(d.text);
+        const mood = String(d.mood||'neutral');
+        const img = (mood==='happy') ? '../img/coach-happy.png'
+                 : (mood==='sad')   ? '../img/coach-sad.png'
+                 : (mood==='fever') ? '../img/coach-fever.png'
+                 : '../img/coach-neutral.png';
+        $('uiCoachImg').src = img;
+      });
+      addEventListener('hha:fever', (e)=>{
+        const d = e.detail||{};
+        const pct = Math.max(0, Math.min(100, Number(d.feverPct||0)));
+        $('uiFeverBar').style.width = pct.toFixed(1)+'%';
+        const shield = Number(d.shield||0) > 0;
+        $('uiShieldTag').style.display = shield ? 'inline-flex' : 'none';
+      });
 
-        window.addEventListener('hha:rank', (e)=>{
-          const d = e.detail||{};
-          if (d.grade) $('uiGrade').textContent = String(d.grade);
-        });
+      addEventListener('hha:end', (e)=>{
+        const d = e.detail||{};
+        $('endOverlay').classList.add('show');
+        $('endReason').textContent = `เหตุผล: ${d.reason || '-'}`;
+        $('endScore').textContent = String(d.scoreFinal ?? 0);
+        $('endGrade').textContent = String(d.grade ?? 'C');
+        $('endAcc').textContent = String(d.accuracyGoodPct ?? 0) + '%';
+        $('endComboMax').textContent = String(d.comboMax ?? 0);
+        $('uiGrade').textContent = String(d.grade ?? 'C');
 
-        window.addEventListener('quest:update', (e)=>{
-          const d = e.detail || {};
-          $('uiGoalText').textContent = d.goalText || '—';
-          $('uiGoalProg').textContent = (d.goalNow!=null && d.goalTotal!=null) ? `(${d.goalNow}/${d.goalTotal})` : '';
-          $('uiMiniText').textContent = d.miniText || '—';
-          const tt = (d.miniTimeLeftSec!=null) ? ` ⏱${d.miniTimeLeftSec}s` : '';
-          $('uiMiniProg').textContent =
-            (d.miniNow!=null && d.miniTotal!=null) ? `(${d.miniNow}/${d.miniTotal}${tt})` : (tt ? tt : '');
-        });
+        // HHA Standard: เก็บผลล่าสุด
+        try{
+          const payload = {
+            game: 'GroupsVR',
+            ts: new Date().toISOString(),
+            ...d,
+            params: { runMode, diff, style, time, seed, hub }
+          };
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+          localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
+        }catch{}
 
-        window.addEventListener('hha:coach', (e)=>{
-          const d = e.detail||{};
-          setCoach(d.mood, d.text, d.hint, d.ttlMs);
-        });
+        flushHardened('end');
+      });
+    }
 
-        window.addEventListener('hha:end', (e)=>{
-          const d = e.detail||{};
-          $('endOverlay').classList.add('show');
-          $('endReason').textContent = `เหตุผล: ${d.reason || '-'}`;
-          $('endScore').textContent = String(d.scoreFinal ?? 0);
-          $('endGrade').textContent = String(d.grade ?? 'C');
-          $('endAcc').textContent = String(d.accuracyGoodPct ?? 0) + '%';
-          $('endComboMax').textContent = String(d.comboMax ?? 0);
-          $('uiGrade').textContent = String(d.grade ?? 'C');
-
-          // HHA Standard: เก็บผลล่าสุด
-          try{
-            const payload = {
-              game: 'GroupsVR',
-              ts: new Date().toISOString(),
-              ...d,
-              params: { runMode, diff, style, time, seed, hub }
-            };
-            localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
-            localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
-          }catch{}
-        });
-      }
-
-      function waitEngineReady(cb){
+    function waitEngineReady(){
+      return new Promise((resolve)=>{
         let tries = 0;
         const t = setInterval(()=>{
           tries++;
           const GE = window.GroupsVR && window.GroupsVR.GameEngine;
-
           if (GE && typeof GE.start === 'function' && typeof GE.setLayerEl === 'function'){
             clearInterval(t);
-            $('dbgEngine').textContent = 'READY ✅';
-            cb && cb(GE);
-            return;
+            resolve(GE);
           }
-
-          if (tries % 5 === 0){
-            $('dbgEngine').textContent =
-              (window.GroupsVR ? 'GroupsVR OK, waiting GameEngine…' : 'waiting script…');
-          }
-
-          if (tries > 200){
+          if (tries > 250){
             clearInterval(t);
-            $('dbgEngine').textContent = 'NOT FOUND ❌';
-            $('startDesc').textContent =
-              '❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า ./GameEngine.js โหลด 200 และชื่อไฟล์ตัวใหญ่/เล็กตรงบน GitHub Pages';
+            warn('❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า GameEngine.js โหลดได้ 200 และชื่อไฟล์ตัวใหญ่/เล็กตรง');
+            $('dbgBoot').textContent = 'ENGINE NOT FOUND ❌';
           }
-        }, 100);
-      }
-
-      function startGame(){
-        $('btnStart').disabled = true;
-        $('startDesc').textContent = 'กำลังเริ่มเกม…';
-
-        waitEngineReady((GE)=>{
-          GE.setLayerEl($('fg-layer'));
-          GE.start(diff, { runMode, style, time, seed });
-
-          $('startOverlay').style.display = 'none';
-          $('endOverlay').classList.remove('show');
-          $('btnStart').disabled = false;
-
-          // โค้ชทัก
-          setCoach('neutral', 'ไปกันเลย! 🎶', 'แตะเป้าให้ถูก “หมู่” นะ', 1400);
-        });
-      }
-
-      $('btnStart').addEventListener('click', startGame);
-
-      $('btnReplay').addEventListener('click', ()=>{
-        try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
-        $('endOverlay').classList.remove('show');
-        $('startOverlay').style.display = 'grid';
-        $('btnStart').disabled = false;
-        if (autostart) setTimeout(startGame, 250);
+        }, 80);
       });
+    }
 
-      bindEvents();
-      waitEngineReady(()=>{});
+    async function startGame(){
+      $('btnStart').disabled = true;
+      $('startDesc').textContent = 'กำลังเริ่มเกม…';
 
-      if (autostart) setTimeout(()=> $('btnStart').click(), 350);
-    })();
+      // ensure boot
+      await boot();
+      const GE = await waitEngineReady();
+      if (!GE){ $('btnStart').disabled = false; return; }
+
+      // bind layer then start
+      const layer = $('fg-layer');
+      GE.setLayerEl(layer);
+      GE.start(diff, { runMode, style, time, seed });
+
+      $('startOverlay').style.display = 'none';
+      $('endOverlay').classList.remove('show');
+      $('btnStart').disabled = false;
+    }
+
+    $('btnStart').addEventListener('click', startGame);
+    $('btnReplay').addEventListener('click', ()=>{
+      try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
+      $('endOverlay').classList.remove('show');
+      $('startOverlay').style.display = 'grid';
+      if (autostart) setTimeout(startGame, 250);
+    });
+
+    bindEvents();
+    await boot();
+
+    if (autostart) setTimeout(()=> $('btnStart').click(), 350);
   </script>
 </body>
 </html>
