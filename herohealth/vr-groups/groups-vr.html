@@ -7,16 +7,122 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CSS alias -->
-  <link rel="stylesheet" href="./groups.css?v=20251228" />
-
-  <!-- fallback กันกรณี css ไม่โหลด -->
-  <style>
-    html,body{margin:0;height:100%;overflow:hidden;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-  </style>
-
-  <!-- A-Frame -->
+  <!-- A-Frame core (VR button + sky feel) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="./groups-vr.css" />
+
+  <style>
+    /* minimal overlay UI (safe even if css exists) */
+    .overlay{
+      position:fixed; inset:0; z-index:9999;
+      display:flex; align-items:center; justify-content:center;
+      padding:16px;
+      background:rgba(2,6,23,.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .panel{
+      width:min(720px, 100%);
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.80);
+      box-shadow:0 18px 46px rgba(0,0,0,.45);
+      padding:16px;
+      color:#e5e7eb;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    }
+    .panel h2{ margin:6px 0 8px; font-size:20px; }
+    .panel .sub{ margin:0 0 12px; color:#94a3b8; line-height:1.5; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .btn{
+      flex:1; min-width:150px;
+      padding:12px 14px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(34,197,94,.18);
+      color:#e5e7eb;
+      font-weight:800;
+      cursor:pointer;
+    }
+    .btn.secondary{ background:rgba(56,189,248,.16); }
+    .kv{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .kv div{ padding:10px 12px; border:1px solid rgba(148,163,184,.18); border-radius:14px; background:rgba(15,23,42,.58); }
+    .kv b{ display:block; font-size:12px; color:#94a3b8; margin-bottom:2px; }
+    .kv span{ font-size:14px; }
+    .endBox{ margin-top:12px; padding:12px; border-radius:14px; border:1px solid rgba(148,163,184,.18); background:rgba(15,23,42,.58); }
+    .mono{ font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; color:#94a3b8; }
+    #endOverlay{ display:none; }
+  </style>
+</head>
+
+<body class="groups-style-mix">
+  <!-- A-Frame tiny scene (sky + VR button) -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: true"
+    renderer="colorManagement:true"
+    style="position:fixed; inset:0; z-index:0;">
+    <a-sky color="#020617"></a-sky>
+    <a-entity id="cam" camera position="0 1.6 0"></a-entity>
+  </a-scene>
+
+  <!-- Gameplay layer -->
+  <div id="fg-layer" class="fg-layer" aria-label="targets layer"></div>
+
+  <!-- HUD (ให้ groups-hud-quest.js / hud binder มาเติมเอง) -->
+  <div id="hudRoot" class="hud-root"></div>
+
+  <!-- START overlay -->
+  <div id="startOverlay" class="overlay">
+    <div class="panel">
+      <h2>🍽️ Food Groups VR</h2>
+      <p class="sub">
+        ยิงอาหารให้ตรงหมู่ — โหมด <b id="uiRun">play</b> • diff <b id="uiDiff">normal</b> • style <b id="uiStyle">mix</b> • time <b id="uiTime">90</b>s
+      </p>
+
+      <div class="kv">
+        <div><b>Seed</b><span id="uiSeed">—</span></div>
+        <div><b>Hub</b><span id="uiHub">—</span></div>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="btnStart">▶️ Start</button>
+        <button class="btn secondary" id="btnBack">🏠 กลับ HUB</button>
+      </div>
+
+      <div class="endBox">
+        <div class="mono">Tip: ถ้ามี autostart=1 เกมจะเริ่มเองหลังโหลด script ครบ</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- END overlay -->
+  <div id="endOverlay" class="overlay">
+    <div class="panel">
+      <h2>🏁 สรุปผล</h2>
+      <p class="sub" id="endReason">จบเกม</p>
+
+      <div class="kv">
+        <div><b>คะแนน</b><span id="endScore">0</span></div>
+        <div><b>เกรด</b><span id="endGrade">C</span></div>
+        <div><b>ความแม่นยำ</b><span id="endAcc">0%</span></div>
+        <div><b>คอมโบสูงสุด</b><span id="endCombo">0</span></div>
+        <div><b>Miss</b><span id="endMiss">0</span></div>
+        <div><b>Quest</b><span id="endQuest">0/0 • 0/0</span></div>
+      </div>
+
+      <div class="endBox">
+        <div class="mono" id="endMeta">—</div>
+      </div>
+
+      <div class="row">
+        <button class="btn" id="btnRestart">🔄 เล่นอีกครั้ง</button>
+        <button class="btn secondary" id="btnBack2">🏠 กลับ HUB</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts (order matters) -->
   <script src="../vr/particles.js" defer></script>
@@ -30,196 +136,111 @@
 
   <script src="./GameEngine.js" defer></script>
   <script src="./groups.safe.js" defer></script>
-</head>
 
-<body>
-  <!-- Apply style class early (pure CSS/FX hook) -->
   <script>
     (function(){
-      try{
-        const sp = new URLSearchParams(location.search);
-        const style = String(sp.get('style')||'mix').toLowerCase();
-        document.body.classList.add(
-          style==='hard' ? 'groups-style-hard' :
-          style==='feel' ? 'groups-style-feel' :
-          'groups-style-mix'
-        );
-      }catch{}
-    })();
-  </script>
+      function qs(){ try{return new URLSearchParams(location.search);}catch{return new URLSearchParams('');} }
+      const p = qs();
 
-  <!-- A-Frame scene (camera id="cam" ให้ Boot bind) -->
-  <a-scene embedded
-           vr-mode-ui="enabled:true"
-           device-orientation-permission-ui="enabled:true"
-           renderer="colorManagement:true;">
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="cam" wasd-controls-enabled="false" look-controls="enabled:true"></a-camera>
-    </a-entity>
-    <a-sky color="#071022"></a-sky>
-  </a-scene>
+      const run  = String(p.get('run') || p.get('mode') || 'play').toLowerCase()==='research' ? 'research' : 'play';
+      const diff = ['easy','normal','hard'].includes(String(p.get('diff')||'normal').toLowerCase()) ? String(p.get('diff')||'normal').toLowerCase() : 'normal';
+      const style= ['hard','feel','mix'].includes(String(p.get('style')||'mix').toLowerCase()) ? String(p.get('style')||'mix').toLowerCase() : 'mix';
+      const time = Math.max(30, Math.min(180, parseInt(p.get('time')||'90',10)||90));
+      const seed = String(p.get('seed')||'').trim() || ('S'+Date.now());
+      const hub  = String(p.get('hub')||'../index.html').trim();
 
-  <!-- DOM target layer -->
-  <div id="fg-layer" class="fg-layer" aria-label="Food Groups layer"></div>
+      // body style class
+      document.body.classList.remove('groups-style-hard','groups-style-feel','groups-style-mix');
+      document.body.classList.add('groups-style-'+style);
 
-  <!-- HUD / Quest (ids ที่ groups-hud-quest.js ใช้) -->
-  <div class="hha-ui">
-    <!-- IDs for groups-hud-quest.js -->
-    <div id="hud-goal-title" style="display:none"></div>
-    <div id="hud-goal-val" style="display:none"></div>
-    <div id="hud-goal-bar" style="display:none"></div>
+      // UI
+      document.getElementById('uiRun').textContent = run;
+      document.getElementById('uiDiff').textContent = diff;
+      document.getElementById('uiStyle').textContent = style;
+      document.getElementById('uiTime').textContent = String(time);
+      document.getElementById('uiSeed').textContent = seed;
+      document.getElementById('uiHub').textContent  = hub;
 
-    <div id="hud-mini-line" style="display:none"></div>
-    <div id="hud-mini-title" style="display:none"></div>
-    <div id="hud-mini-val" style="display:none"></div>
-    <div id="hud-mini-bar" style="display:none"></div>
-    <div id="hud-mini-timer" style="display:none"></div>
+      function goHub(){ location.href = hub + (hub.includes('?') ? '&' : '?') + 'ts=' + Date.now(); }
 
-    <!-- คุณสามารถมี HUD จริงของคุณเองใน groups-vr.css ได้
-         (ที่นี่ให้มีโครง start/end ที่จำเป็น) -->
+      document.getElementById('btnBack').addEventListener('click', goHub);
+      document.getElementById('btnBack2').addEventListener('click', goHub);
 
-    <!-- Start overlay -->
-    <div class="overlay" id="startOverlay">
-      <div class="overlay-card">
-        <div class="overlay-title">Food Groups VR 🍭</div>
-        <div class="overlay-sub" id="overlaySub">พร้อมลุย! (autostart=1 จะเริ่มเอง)</div>
-        <div class="overlay-btns">
-          <button class="btn" id="btnPlay">▶️ เริ่ม (Play)</button>
-          <button class="btn secondary" id="btnResearch">🧪 เริ่ม (Research)</button>
-          <button class="btn secondary" id="btnVr">🕶️ VR Mode</button>
-        </div>
-        <div class="overlay-hint" id="overlayHint">Tip: เปิดเสียงเพื่อเอฟเฟกต์ / STORM tick</div>
-      </div>
-    </div>
+      // Start
+      function startGame(){
+        // ensure params for boot/autostart consistency
+        try{
+          const sp = new URLSearchParams(location.search);
+          sp.set('run', run);
+          sp.set('diff', diff);
+          sp.set('style', style);
+          sp.set('time', String(time));
+          sp.set('seed', seed);
+          sp.set('hub', hub);
+          history.replaceState(null,'', location.pathname + '?' + sp.toString());
+        }catch{}
 
-    <!-- End summary -->
-    <div class="end" id="endModal" style="display:none;">
-      <div class="end-card">
-        <div class="end-title" id="endTitle">สรุปผล</div>
+        // hide overlay
+        document.getElementById('startOverlay').style.display = 'none';
 
-        <div class="end-grid">
-          <div class="end-item"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
-          <div class="end-item"><div class="k">คอมโบสูงสุด</div><div class="v" id="endCombo">0</div></div>
-          <div class="end-item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
-          <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
-          <div class="end-item"><div class="k">Grade</div><div class="v" id="endGrade">—</div></div>
-          <div class="end-item"><div class="k">Goals</div><div class="v" id="endGoals">0/0</div></div>
-          <div class="end-item"><div class="k">Minis</div><div class="v" id="endMinis">0/0</div></div>
-        </div>
-
-        <div class="end-btns">
-          <a class="btn secondary" id="btnBackHub" href="../hub.html">⬅️ กลับ HUB</a>
-          <button class="btn" id="btnReplay">🔁 เล่นอีกครั้ง</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ✅ Glue script: wait GroupsBoot ready (แก้ not ready) -->
-  <script>
-    (function(){
-      'use strict';
-
-      function $(id){ return document.getElementById(id); }
-
-      function qs(){
-        try{ return new URLSearchParams(location.search); }
-        catch{ return new URLSearchParams(''); }
-      }
-
-      function pickDiff(sp){
-        const d = String(sp.get('diff')||'normal').toLowerCase();
-        return (d==='easy'||d==='normal'||d==='hard') ? d : 'normal';
-      }
-      function pickTime(sp){
-        const t = parseInt(sp.get('time')||'90',10);
-        return Number.isFinite(t) ? Math.max(30, Math.min(180, t|0)) : 90;
-      }
-      function pickSeed(sp){
-        const s = String(sp.get('seed')||'').trim();
-        return s ? s : String(Date.now());
-      }
-
-      function decodeHub(sp){
-        const hubEnc = sp.get('hub');
-        if (!hubEnc) return '../hub.html';
-        try{ return decodeURIComponent(hubEnc); }catch{ return '../hub.html'; }
-      }
-
-      function waitBoot(cb){
-        let tries = 0;
-        const it = setInterval(()=>{
-          tries++;
-          if (window.GroupsBoot && typeof window.GroupsBoot.start === 'function'){
-            clearInterval(it);
-            cb();
-          }
-          if (tries > 80){ clearInterval(it); console.warn('[Run] GroupsBoot not ready'); }
-        }, 80);
-      }
-
-      function start(mode){
-        const sp = qs();
-        const runMode = (String(mode||'play').toLowerCase()==='research') ? 'research' : 'play';
-        const diff = pickDiff(sp);
-        const time = pickTime(sp);
-        const seed = pickSeed(sp);
-
-        waitBoot(()=>{
-          try{
-            window.GroupsBoot.start(runMode, { diff, time, seed });
-          }catch(e){
-            console.warn('[Run] start failed', e);
-          }
-        });
-
-        const ov = $('startOverlay');
-        if (ov) ov.style.display = 'none';
-      }
-
-      window.addEventListener('DOMContentLoaded', ()=>{
-        const sp = qs();
-
-        // hub back
-        const hubUrl = decodeHub(sp);
-        const back = $('btnBackHub');
-        if (back) back.href = hubUrl;
-
-        // VR mode
-        $('btnVr')?.addEventListener('click', ()=>{
-          const scene = document.querySelector('a-scene');
-          try{ scene && scene.enterVR && scene.enterVR(); }catch{}
-        });
-
-        $('btnPlay')?.addEventListener('click', ()=>start('play'));
-        $('btnResearch')?.addEventListener('click', ()=>start('research'));
-
-        // end modal
-        window.addEventListener('hha:end', (ev)=>{
-          const d = ev && ev.detail ? ev.detail : {};
-          const m = $('endModal'); if (m) m.style.display = '';
-          $('endTitle').textContent = 'สรุปผล — ' + (d.reason || 'end');
-          $('endScore').textContent = (d.scoreFinal ?? 0);
-          $('endCombo').textContent = (d.comboMax ?? 0);
-          $('endMiss').textContent = (d.misses ?? 0);
-          $('endAcc').textContent = ((d.accuracyGoodPct ?? 0) + '%');
-          $('endGrade').textContent = (d.grade ?? '—');
-          $('endGoals').textContent = (d.goalsCleared ?? 0) + '/' + (d.goalsTotal ?? 0);
-          $('endMinis').textContent = (d.miniCleared ?? 0) + '/' + (d.miniTotal ?? 0);
-        }, { passive:true });
-
-        // replay (cache-bust)
-        $('btnReplay')?.addEventListener('click', ()=>{
-          const u = new URL(location.href);
-          u.searchParams.set('ts', String(Date.now()));
-          location.href = u.toString();
-        });
-
-        // autostart UX (overlay hide)
-        if (String(sp.get('autostart')||'0') === '1'){
-          setTimeout(()=>{ if ($('startOverlay')) $('startOverlay').style.display = 'none'; }, 650);
+        // Boot.start will also reset quest
+        if (window.GroupsBoot && typeof window.GroupsBoot.start === 'function'){
+          window.GroupsBoot.start(run, { diff, time, seed, style });
+        } else {
+          console.warn('[Run] GroupsBoot not ready yet');
         }
+      }
+
+      document.getElementById('btnStart').addEventListener('click', startGame);
+
+      // Restart
+      document.getElementById('btnRestart').addEventListener('click', ()=>{
+        document.getElementById('endOverlay').style.display = 'none';
+        // reload for clean state
+        const sp = new URLSearchParams(location.search);
+        sp.set('autostart','1');
+        sp.set('ts', String(Date.now()));
+        location.href = location.pathname + '?' + sp.toString();
       });
+
+      // End summary
+      window.addEventListener('hha:end', (ev)=>{
+        const d = (ev && ev.detail) ? ev.detail : {};
+        const q = d && d.goalsTotal != null ? d : null;
+
+        document.getElementById('endReason').textContent = 'เหตุผล: ' + String(d.reason||'end');
+        document.getElementById('endScore').textContent  = String(d.scoreFinal ?? 0);
+        document.getElementById('endGrade').textContent  = String(d.grade || 'C');
+        document.getElementById('endAcc').textContent    = String((d.accuracyGoodPct ?? 0) + '%');
+        document.getElementById('endCombo').textContent  = String(d.comboMax ?? 0);
+        document.getElementById('endMiss').textContent   = String(d.misses ?? 0);
+        document.getElementById('endQuest').textContent  =
+          `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0} • ${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
+
+        document.getElementById('endMeta').textContent =
+          `run=${d.runMode||run} • diff=${d.diff||diff} • style=${d.style||style} • seed=${d.seed||seed}`;
+
+        // store last summary
+        try{
+          const payload = {
+            game:'groups',
+            ts: Date.now(),
+            run, diff, style, time, seed,
+            summary: d
+          };
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+        }catch{}
+
+        document.getElementById('endOverlay').style.display = 'flex';
+      });
+
+      // Auto-start overlay: if autostart=1 we can hide overlay immediately after engine starts.
+      // Boot itself will autostart; we just keep overlay visible until manual or Boot hides it.
+      const autostart = String(p.get('autostart')||'0');
+      if (autostart === '1'){
+        // try start after small delay (Boot has retry too; this helps in fast devices)
+        setTimeout(()=>startGame(), 220);
+      }
     })();
   </script>
 </body>
