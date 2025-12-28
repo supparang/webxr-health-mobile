@@ -1,1706 +1,544 @@
-/* === /herohealth/hydration-vr/hydration.safe.js ===
-HydrationVR — PRODUCTION PATCH (P0+P1 + HHA Standard FINAL + Powerups Pack)
-✅ Goals as stages (1/3,2/3,3/3) + celebration + ALL GOALS
-✅ Storm mini fail state: hit BAD in end-window without shield => reset mini progress
-   + mini count requires End-window AND pressure>=thr
-✅ Adaptive difficulty (play mode only): spawnEveryMs / ttl / badBias adjust live
-✅ NEW Powerups (MEDIUM spawn): STAR (+60 score) + TIME (+2s, cap +15s)
-✅ Powerups suppressed during Storm End-window (กัน mini โดนทำให้ง่าย)
-✅ Summary logging: uses nTargetStarSpawned + nTargetDiamondSpawned (time) for schema compatibility
-*/
+// === /herohealth/hydration-vr/hydration.safe.js ===
+// HydrationVR — PRODUCTION (Continue Patch)
+// ✅ FIX: EXPIRE water delta correct
+// ✅ FIX: BAD expire penalizes (research-hard) (toggleable)
+// ✅ FIX: drift mean controlled (Play delayed, Study immediate)
+// ✅ ADD: Hydro-Orb identity via decorateTarget (no big emoji; SVG symbol)
+// ✅ ADD: Play = "research-hard vibe" (expire matters) but still playable
+// ✅ Emits: hha:score / hha:time / quest:update / hha:coach / hha:fever / hha:end
 
 'use strict';
 
-// ------------------------- helpers -------------------------
+import { boot as factoryBoot } from '../vr/mode-factory.js';
+import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
+
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
-function clamp(v, a, b){ v = Number(v); if(!Number.isFinite(v)) v = 0; return Math.max(a, Math.min(b, v)); }
-function now(){ return performance.now(); }
-function qs(){ return new URLSearchParams(location.search); }
-function pick(q, k, d){ const v = q.get(k); return (v==null || v==='') ? d : v; }
-function num(v, d=0){ v = Number(v); return Number.isFinite(v) ? v : d; }
-function $(id){ return DOC.getElementById(id); }
-function safeText(el, s){ if(el) el.textContent = String(s ?? ''); }
-function safeClass(el, cls, on){ if(!el) return; el.classList.toggle(cls, !!on); }
+const $ = (id) => DOC.getElementById(id);
 
-// ------------------------- seeded RNG (deterministic-ish) -------------------------
-function makeRng(seed){
-  let s = (seed >>> 0) || 0x12345678;
-  return function rng(){
-    s = (1664525 * s + 1013904223) >>> 0;
-    return (s / 4294967296);
-  };
+function clamp(v, a, b){
+  v = Number(v)||0;
+  return v < a ? a : (v > b ? b : v);
 }
-function hashStrToU32(str){
-  str = String(str ?? '');
-  let h = 2166136261 >>> 0;
-  for (let i=0;i<str.length;i++){
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h >>> 0;
+function now(){
+  return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+}
+function qs(){
+  try { return new URLSearchParams(location.search || ''); } catch { return new URLSearchParams(); }
+}
+function qget(k, d=''){
+  const p = qs();
+  return (p.has(k) ? String(p.get(k)||'') : d);
+}
+function qnum(k, d=0){
+  const v = Number(qget(k, d));
+  return Number.isFinite(v) ? v : d;
+}
+function truthy(s){
+  s = String(s||'').toLowerCase();
+  return (s==='1'||s==='true'||s==='yes'||s==='y'||s==='on');
 }
 
-// ------------------------- HHA event emitter + throttles -------------------------
-function emit(name, detail){
-  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+function setText(id, txt){
+  const el = $(id);
+  if (el) el.textContent = String(txt ?? '');
+}
+function emit(type, detail){
+  try { ROOT.dispatchEvent(new CustomEvent(type, { detail })); } catch {}
 }
 
-function pickContextFromURL(){
-  const q = qs();
-  const ctx = {
-    projectTag: 'hydration',
-    runMode: String(pick(q,'run', pick(q,'runMode','play'))),
-    studyId: String(pick(q,'studyId','')),
-    phase: String(pick(q,'phase','')),
-    conditionGroup: String(pick(q,'conditionGroup','')),
-    sessionOrder: String(pick(q,'sessionOrder','')),
-    blockLabel: String(pick(q,'blockLabel','')),
-    siteCode: String(pick(q,'siteCode','')),
-    schoolYear: String(pick(q,'schoolYear','')),
-    semester: String(pick(q,'semester','')),
-    sessionId: String(pick(q,'sessionId','')),
-    gameMode: 'hydration',
-    diff: String(pick(q,'diff','normal')),
-    durationPlannedSec: num(pick(q,'time', pick(q,'durationPlannedSec', 70)), 70),
-
-    // optional student profile
-    studentKey: String(pick(q,'studentKey','')),
-    schoolCode: String(pick(q,'schoolCode','')),
-    schoolName: String(pick(q,'schoolName','')),
-    classRoom: String(pick(q,'classRoom','')),
-    studentNo: String(pick(q,'studentNo','')),
-    nickName: String(pick(q,'nickName','')),
-    gender: String(pick(q,'gender','')),
-    age: String(pick(q,'age','')),
-    gradeLevel: String(pick(q,'gradeLevel','')),
-    heightCm: String(pick(q,'heightCm','')),
-    weightKg: String(pick(q,'weightKg','')),
-    bmi: String(pick(q,'bmi','')),
-    bmiGroup: String(pick(q,'bmiGroup','')),
-    vrExperience: String(pick(q,'vrExperience','')),
-    gameFrequency: String(pick(q,'gameFrequency','')),
-    handedness: String(pick(q,'handedness','')),
-    visionIssue: String(pick(q,'visionIssue','')),
-    healthDetail: String(pick(q,'healthDetail','')),
-    consentParent: String(pick(q,'consentParent','')),
-  };
-
-  ctx.runMode = String(ctx.runMode || 'play').toLowerCase();
-  ctx.diff = String(ctx.diff || 'normal').toLowerCase();
-  ctx.durationPlannedSec = clamp(ctx.durationPlannedSec, 20, 180);
-
-  return ctx;
-}
-
-function makeSessionSeed(ctx){
-  const q = qs();
-  const seedParam = pick(q,'seed','');
-  if (seedParam !== '') return hashStrToU32(seedParam);
-  if (ctx.sessionId) return hashStrToU32(ctx.sessionId);
-  return hashStrToU32(String(Date.now()));
-}
-
-// quest/update throttle
-let _lastQuestEmitAt = 0;
-function emitQuestUpdateThrottled(payload){
-  const t = now();
-  if (t - _lastQuestEmitAt < 160) return;
-  _lastQuestEmitAt = t;
-  emit('quest:update', payload);
-}
-
-// score throttle
-let _lastScoreEmitAt = 0;
-function emitScoreThrottled(payload){
-  const t = now();
-  if (t - _lastScoreEmitAt < 120) return;
-  _lastScoreEmitAt = t;
-  emit('hha:score', payload);
-}
-
-// time once/sec
-let _lastTimeEmitSec = -999;
-function emitTimeOncePerSec(secLeft, secPlayed){
-  const s = Math.floor(secPlayed);
-  if (s === _lastTimeEmitSec) return;
-  _lastTimeEmitSec = s;
-  emit('hha:time', { secLeft, secPlayed });
-}
-
-// ------------------------- audio (beep/tick/thunder only) -------------------------
-const AudioFX = (() => {
-  let ctx = null;
-  function ensure(){
-    if (ctx) return ctx;
-    const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
-    if (!AC) return null;
-    ctx = new AC();
-    return ctx;
-  }
-  function tone(type, freq, dur, gain){
-    const c = ensure(); if(!c) return;
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.type = type || 'sine';
-    o.frequency.value = freq;
-    g.gain.value = 0.0001;
-
-    o.connect(g);
-    g.connect(c.destination);
-
-    const t0 = c.currentTime;
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain || 0.05), t0 + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + (dur || 0.08));
-
-    o.start(t0);
-    o.stop(t0 + (dur || 0.08) + 0.02);
-  }
-  function beep(){ tone('sine', 780, 0.07, 0.06); }
-  function tick(){ tone('square', 1200, 0.035, 0.035); }
-  function thunder(){
-    const c = ensure(); if(!c) return;
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(80, c.currentTime);
-    o.frequency.exponentialRampToValueAtTime(38, c.currentTime + 0.7);
-    g.gain.setValueAtTime(0.0001, c.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.12, c.currentTime + 0.04);
-    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.85);
-    o.connect(g); g.connect(c.destination);
-    o.start();
-    o.stop(c.currentTime + 0.9);
-  }
-  function resume(){
-    const c = ensure(); if(!c) return;
-    if (c.state === 'suspended') c.resume().catch(()=>{});
-  }
-  return { resume, beep, tick, thunder };
-})();
-
-// ------------------------- Particles (optional) -------------------------
-const Particles =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-  ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, celebrate(){}, judgeText(){} };
-
-// ------------------------- DOM targets (orb) -------------------------
-function ensureCrosshair(playfield){
-  let ch = DOC.querySelector('.hvr-crosshair');
-  if (ch) return ch;
-  ch = DOC.createElement('div');
-  ch.className = 'hvr-crosshair';
-  Object.assign(ch.style, {
-    position:'absolute',
-    left:'50%', top:'50%',
-    width:'18px', height:'18px',
-    transform:'translate(-50%,-50%)',
-    borderRadius:'999px',
-    border:'2px solid rgba(226,232,240,.55)',
-    boxShadow:'0 0 0 6px rgba(2,6,23,.35)',
-    pointerEvents:'none',
-    zIndex:'8',
-  });
-  const dot = DOC.createElement('div');
-  Object.assign(dot.style, {
-    position:'absolute', left:'50%', top:'50%',
-    width:'4px', height:'4px',
-    transform:'translate(-50%,-50%)',
-    borderRadius:'999px',
-    background:'rgba(34,211,238,.95)',
-    boxShadow:'0 0 12px rgba(34,211,238,.35)'
-  });
-  ch.appendChild(dot);
-  playfield.appendChild(ch);
-  return ch;
-}
-
-function makeOrbEl(kind){
-  const el = DOC.createElement('div');
-  el.className = 'hvr-orb hvr-' + kind;
-  Object.assign(el.style, {
-    position:'absolute',
-    width:'86px', height:'86px',
-    borderRadius:'999px',
-    pointerEvents:'auto',
-    transform:'translate(-50%,-50%)',
-    zIndex:'6',
-    boxShadow:'0 16px 50px rgba(0,0,0,.35)',
-    willChange:'transform, left, top, filter, opacity'
-  });
-
-  const skin = DOC.createElement('div');
-  Object.assign(skin.style, {
-    position:'absolute', inset:'0',
-    borderRadius:'999px',
-    border:'1px solid rgba(226,232,240,.18)',
-    overflow:'hidden'
-  });
-
-  let g1, g2, glow, iconTxt, iconBG;
-
-  if (kind === 'good'){
-    g1 = 'rgba(34,211,238,.92)';
-    g2 = 'rgba(59,130,246,.82)';
-    glow = 'rgba(34,211,238,.22)';
-    iconTxt = '💧';
-    iconBG = 'rgba(2,6,23,.55)';
-  } else if (kind === 'bad'){
-    g1 = 'rgba(239,68,68,.90)';
-    g2 = 'rgba(249,115,22,.80)';
-    glow = 'rgba(239,68,68,.20)';
-    iconTxt = '☠️';
-    iconBG = 'rgba(2,6,23,.55)';
-  } else if (kind === 'shield'){
-    g1 = 'rgba(167,139,250,.92)';
-    g2 = 'rgba(34,211,238,.55)';
-    glow = 'rgba(167,139,250,.18)';
-    iconTxt = '🛡️';
-    iconBG = 'rgba(2,6,23,.55)';
-  } else if (kind === 'star'){
-    g1 = 'rgba(250,204,21,.95)';
-    g2 = 'rgba(249,115,22,.78)';
-    glow = 'rgba(250,204,21,.18)';
-    iconTxt = '⭐';
-    iconBG = 'rgba(2,6,23,.55)';
-  } else { // time
-    g1 = 'rgba(34,211,238,.92)';
-    g2 = 'rgba(167,139,250,.72)';
-    glow = 'rgba(34,211,238,.16)';
-    iconTxt = '⏱️';
-    iconBG = 'rgba(2,6,23,.55)';
-  }
-
-  skin.style.background =
-    `radial-gradient(28px 28px at 30% 30%, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 60%),
-     radial-gradient(90px 90px at 40% 35%, ${g1} 0%, ${g2} 62%, rgba(2,6,23,.25) 100%)`;
-  skin.style.boxShadow = `inset 0 0 0 1px rgba(255,255,255,.08), 0 0 22px ${glow}`;
-
-  const icon = DOC.createElement('div');
-  Object.assign(icon.style, {
-    position:'absolute', left:'50%', top:'110%',
-    transform:'translate(-50%,-50%)',
-    width:'34px', height:'34px',
-    borderRadius:'14px',
-    background: iconBG,
-    border:'1px solid rgba(148,163,184,.16)',
-    display:'flex', alignItems:'center', justifyContent:'center',
-    fontSize:'18px',
-    boxShadow:'0 16px 40px rgba(0,0,0,.35)'
-  });
-  icon.textContent = iconTxt;
-
-  el.appendChild(skin);
-  el.appendChild(icon);
-  return el;
-}
-
-function fallbackBurst(x, y, kind){
-  const layer = DOC.querySelector('.hha-fx-layer') || DOC.body;
-  const p = DOC.createElement('div');
-  const r =
-    (kind === 'bad') ? 'rgba(239,68,68,.55)' :
-    (kind === 'shield') ? 'rgba(167,139,250,.45)' :
-    (kind === 'star') ? 'rgba(250,204,21,.45)' :
-    (kind === 'time') ? 'rgba(34,211,238,.40)' :
-    'rgba(34,211,238,.45)';
-  Object.assign(p.style, {
-    position:'fixed',
-    left: `${x}px`, top:`${y}px`,
-    width:'10px', height:'10px',
-    borderRadius:'999px',
-    transform:'translate(-50%,-50%)',
-    boxShadow:`0 0 0 0 ${r}`,
-    border:`1px solid rgba(255,255,255,.12)`,
-    pointerEvents:'none',
-    zIndex:'9999',
-    opacity:'1'
-  });
-  layer.appendChild(p);
-  const t0 = now();
-  const dur = 420;
-  (function anim(){
-    const t = now() - t0;
-    const k = clamp(t/dur, 0, 1);
-    const s = 1 + 7*k;
-    p.style.transform = `translate(-50%,-50%) scale(${s})`;
-    p.style.opacity = String(1 - k);
-    p.style.boxShadow = `0 0 0 ${Math.round(40*k)}px ${r}`;
-    if (k < 1) requestAnimationFrame(anim);
-    else p.remove();
-  })();
-}
-function burstAtClient(x, y, kind){
-  try{ Particles.burstAt?.(x, y, kind); }catch(_){}
-  fallbackBurst(x, y, kind);
-}
-
-// ------------------------- constants + ctx/seed -------------------------
-const CTX = pickContextFromURL();
-const RUN = CTX.runMode;          // play|study
-const DIFF = CTX.diff;            // easy|normal|hard
-const HUB  = String(pick(qs(), 'hub', './hub.html'));
-const DUR_SEC = CTX.durationPlannedSec;
-
-const seed = makeSessionSeed(CTX);
-const rng = makeRng(seed);
-
-// ------------------------- base tuning -------------------------
-const TUNE = (() => {
-  const base = {
-    maxTargets: 2,
-    spawnEveryMs: 850,
-    ttlGoodMs: 2200,
-    ttlBadMs: 2600,
-    ttlShieldMs: 2400,
-    ttlStarMs: 2100,
-    ttlTimeMs: 2100,
-
-    waterStepGood: 9.5,
-    waterStepBad: 7.5,
-    greenHalfBand: 8,
-
-    // base requirement for goal stage 1 (stages will add)
-    goalGreenNeedSec: 12,
-
-    stormEverySec: 14,
-    stormDurSec: 5.5,
-    warnLeadSec: 2.2,
-    endWindowSec: 1.25,
-    pressureRisePerSec: 16,
-    pressureDropOnGood: 10,
-    pressureAddOnBad: 12,
-    pressureThr: 65,
-    miniBlocksNeed: 2,
-
-    // MEDIUM powerups (play only; study still ok แต่จะคุมด้วย maxTargets)
-    shieldSpawnChance: 0.06,
-    starSpawnChance: 0.05,
-    timeSpawnChance: 0.03,
-
-    // rewards
-    starScore: 60,
-    timeAddSec: 2,
-    timeMaxExtraSec: 15,
-
-    badBiasInStorm: 0.72
-  };
-
-  if (DIFF === 'easy'){
-    base.maxTargets = 2;
-    base.spawnEveryMs = 900;
-    base.ttlGoodMs = 2500;
-    base.ttlBadMs = 2900;
-    base.waterStepGood = 10.5;
-    base.waterStepBad = 6.5;
-    base.goalGreenNeedSec = 10;
-    base.pressureRisePerSec = 14;
-    base.pressureThr = 60;
-    base.miniBlocksNeed = 2;
-    base.badBiasInStorm = 0.64;
-
-    base.shieldSpawnChance = 0.07;
-    base.starSpawnChance = 0.06;
-    base.timeSpawnChance = 0.04;
-  } else if (DIFF === 'hard'){
-    base.maxTargets = 3;
-    base.spawnEveryMs = 760;
-    base.ttlGoodMs = 1950;
-    base.ttlBadMs = 2350;
-    base.waterStepGood = 8.5;
-    base.waterStepBad = 8.5;
-    base.goalGreenNeedSec = 14;
-    base.stormEverySec = 12;
-    base.stormDurSec = 6.2;
-    base.pressureRisePerSec = 18;
-    base.pressureThr = 70;
-    base.miniBlocksNeed = 3;
-    base.badBiasInStorm = 0.78;
-
-    base.shieldSpawnChance = 0.05;
-    base.starSpawnChance = 0.04;
-    base.timeSpawnChance = 0.02;
-  }
-
-  if (RUN === 'study'){
-    base.maxTargets = Math.max(base.maxTargets, 3);
-    base.spawnEveryMs = Math.max(640, base.spawnEveryMs - 80);
-    base.ttlGoodMs = Math.max(1600, base.ttlGoodMs - 200);
-    base.ttlBadMs = Math.max(1800, base.ttlBadMs - 150);
-    base.goalGreenNeedSec = Math.max(12, base.goalGreenNeedSec);
-  }
-
-  return base;
-})();
-
-// ------------------------- Goals as stages (1/3,2/3,3/3) -------------------------
-const GOAL_STAGES = 3;
-function goalNeedForStage(stageIndex){
-  const base = TUNE.goalGreenNeedSec;
-  const step = (DIFF === 'hard') ? 3 : 2;
-  return Math.max(6, Math.round(base + stageIndex * step));
-}
-
-// ------------------------- adaptive tuning (play only) -------------------------
-function computeTuneEff(){
-  const f = clamp(S.adaptive.factor, -0.35, 0.35); // + = harder
-  const spawnEveryMs = clamp(TUNE.spawnEveryMs * (1 - 0.28*f), 520, 1100);
-  const ttlGoodMs    = clamp(TUNE.ttlGoodMs   * (1 - 0.22*f), 1300, 3200);
-  const ttlBadMs     = clamp(TUNE.ttlBadMs    * (1 - 0.20*f), 1400, 3400);
-  const ttlShieldMs  = clamp(TUNE.ttlShieldMs * (1 - 0.18*f), 1400, 3400);
-  const ttlStarMs    = clamp(TUNE.ttlStarMs   * (1 - 0.18*f), 1200, 3200);
-  const ttlTimeMs    = clamp(TUNE.ttlTimeMs   * (1 - 0.18*f), 1200, 3200);
-  const badBiasInStorm = clamp(TUNE.badBiasInStorm + 0.12*f, 0.55, 0.90);
-  return { spawnEveryMs, ttlGoodMs, ttlBadMs, ttlShieldMs, ttlStarMs, ttlTimeMs, badBiasInStorm, factor:f };
-}
-
-// ------------------------- state -------------------------
 const S = {
   started:false,
-  ended:false,
+  stopped:false,
+
+  runMode:'play',
+  isResearch:false,
+  diff:'normal',
+  timePlannedSec:70,
 
   score:0,
   combo:0,
   comboMax:0,
-  miss:0, // miss = good expired + bad hit (unblocked). shield-block doesn't count miss.
+  miss:0,
+  hits:0,
+  total:0,
 
-  water: 45,
-  mean: 50,
-  zone: 'GREEN',
-  timeInGreen: 0,
+  water:34,
+  mean:50,
+  driftK:0.03,
+  driftCap:0.9,
+  autoDriftDelayMs:3500,
+  tStartedAt:0,
+  hasInteracted:false,
 
-  // goals as stages
-  goalsTotal: GOAL_STAGES,
-  goalStage: 0,
-  goalNeedSec: goalNeedForStage(0),
-  allGoalsCleared:false,
+  fever:0,
 
-  // storm + mini
-  stormActive:false,
-  stormLeftSec: 0,
-  nextStormInSec: TUNE.stormEverySec,
-  warnActive:false,
-  pressure: 0,
-  miniBlocksDone: 0,
-  miniBlocksNeed: TUNE.miniBlocksNeed,
-  miniDone: 0,
-  miniTotal: 0,
-  lastBlockedAt: 0,
+  greenSec:0,
+  goalGreenSecTarget:18,
+  minisDone:0,
+  goalsDone:0,
+  lastCause:'init',
 
-  shield: 0,
-
-  // time extend
-  extraTimeAddedSec: 0,
-
-  liveGood: 0,
-  liveBad: 0,
-  liveShield: 0,
-  liveStar: 0,
-  liveTime: 0,
-
-  tStart: 0,
-  tLast: 0,
-  tLeftSec: DUR_SEC,
-
-  // spawn counters
-  nSpawnGood: 0,
-  nSpawnBad: 0,
-  nSpawnShield: 0,
-  nSpawnStar: 0,
-  nSpawnTime: 0,
-
-  // hit counters
-  nHitGood: 0,
-  nHitBad: 0,
-  nHitShield: 0,
-  nHitStar: 0,
-  nHitTime: 0,
-
-  // expire counters
-  nExpireGood: 0,
-  nExpireBad: 0,
-  nExpireShield: 0,
-  nExpireStar: 0,
-  nExpireTime: 0,
-
-  spawnTimer: 0,
-
-  lookX: 0,
-  lookY: 0,
-
-  dragCandidate:false,
-  dragOn:false,
-  dragX: 0,
-  dragY: 0,
-  baseLookX: 0,
-  baseLookY: 0,
-
-  startTimeIso: '',
-  endTimeIso: '',
-
-  // adaptive (play only)
-  adaptive: {
-    enabled: (RUN === 'play'),
-    factor: 0,
-    lastCheckAt: 0,
-    lastHitGood: 0,
-    lastHitBad: 0,
-    lastMiss: 0,
-  },
-  tuneEff: { spawnEveryMs: TUNE.spawnEveryMs, ttlGoodMs: TUNE.ttlGoodMs, ttlBadMs: TUNE.ttlBadMs, ttlShieldMs: TUNE.ttlShieldMs, ttlStarMs: TUNE.ttlStarMs, ttlTimeMs: TUNE.ttlTimeMs, badBiasInStorm: TUNE.badBiasInStorm, factor:0 }
+  controller:null,
+  raf:null,
+  lastTs:0,
+  secLeft:70
 };
 
-function calcZone(){
-  const band = TUNE.greenHalfBand;
-  const v = S.water;
-  if (v < (S.mean - band)) return 'LOW';
-  if (v > (S.mean + band)) return 'HIGH';
-  return 'GREEN';
-}
-function setWater(v){
-  S.water = clamp(v, 0, 100);
-  S.zone = calcZone();
-}
-function regressionTowardMean(step){
-  const d = S.mean - S.water;
-  const n = S.water + clamp(d, -step, step);
-  setWater(n);
-}
-function pushAwayFromMean(step){
-  const d = S.water - S.mean;
-  const dir = (Math.abs(d) < 0.0001) ? (rng() < 0.5 ? -1 : 1) : (d > 0 ? 1 : -1);
-  setWater(S.water + dir * step);
-}
-
-// ------------------------- UI binding -------------------------
-const UI = {
-  score: $('stat-score'),
-  combo: $('stat-combo'),
-  comboMax: $('stat-combo-max'),
-  miss: $('stat-miss'),
-  time: $('stat-time'),
-  grade: $('stat-grade'),
-
-  coachText: $('coach-text'),
-  coachSub: $('coach-sub'),
-
-  waterZone: $('water-zone'),
-  waterPct: $('water-pct'),
-  waterBar: $('water-bar'),
-  shield: $('shield-count'),
-  stormLeft: $('storm-left'),
-
-  q1: $('quest-line1'),
-  q2: $('quest-line2'),
-  q3: $('quest-line3'),
-  q4: $('quest-line4'),
-
-  miniStormIn: $('mini-storm-in'),
-  miniPressurePct: $('mini-pressure-pct'),
-  miniPressureBar: $('mini-pressure-bar'),
-  cStorm: $('mini-c-storm'),
-  vStorm: $('mini-v-storm'),
-  cZone: $('mini-c-zone'),
-  vZone: $('mini-v-zone'),
-  cPressure: $('mini-c-pressure'),
-  vPressure: $('mini-v-pressure'),
-  cEnd: $('mini-c-end'),
-  vEnd: $('mini-v-end'),
-  cBlock: $('mini-c-block'),
-  vBlock: $('mini-v-block'),
-
-  startOverlay: $('start-overlay'),
-  btnStart: $('btn-start'),
-  btnVR: $('btn-vr'),
-  btnStop: $('btn-stop'),
-
-  endWrap: $('hvr-end'),
-  btnRetry: $('btn-retry'),
-  endScore: $('end-score'),
-  endGrade: $('end-grade'),
-  endCombo: $('end-combo'),
-  endMiss: $('end-miss'),
-  endGoals: $('end-goals'),
-  endMinis: $('end-minis'),
-
-  playfield: $('playfield'),
-  layer: $('hvr-layer'),
-
-  stamp: $('hha-stamp'),
-  stampBig: $('stamp-big'),
-  stampSmall: $('stamp-small'),
+const DIFF = {
+  easy:   { good:+8,  bad:-12, goodExpire:-6,  badExpire:-8,  perfect:+3, feverBad:+10, feverMiss:+6, scoreGood:14, scorePerfect:18 },
+  normal: { good:+7,  bad:-14, goodExpire:-7,  badExpire:-10, perfect:+3, feverBad:+12, feverMiss:+7, scoreGood:14, scorePerfect:18 },
+  hard:   { good:+6,  bad:-16, goodExpire:-8,  badExpire:-12, perfect:+4, feverBad:+14, feverMiss:+8, scoreGood:13, scorePerfect:18 }
 };
-
-function setWarnAmp(v){
-  v = clamp(v, 0, 1);
-  DOC.documentElement.style.setProperty('--warnamp', String(v));
-}
-function setEdgeFx(v){
-  v = clamp(v, 0, 0.85);
-  DOC.documentElement.style.setProperty('--fx', String(v));
-}
-function flashEdge(strength){
-  setEdgeFx(strength);
-  const t0 = now();
-  const dur = 420;
-  (function decay(){
-    const k = clamp((now()-t0)/dur, 0, 1);
-    setEdgeFx(strength * (1-k));
-    if (k < 1) requestAnimationFrame(decay);
-  })();
-}
-function setBodyFx(){
-  DOC.body.classList.toggle('fx-low', S.zone === 'LOW');
-  DOC.body.classList.toggle('fx-high', S.zone === 'HIGH');
-}
-function coachSay(main, sub){
-  safeText(UI.coachText, main);
-  safeText(UI.coachSub, sub || '');
-  emit('hha:coach', { text: String(main||''), sub: String(sub||''), mood: '' });
-}
-function stamp(textBig, textSmall){
-  if(!UI.stamp) return;
-  safeText(UI.stampBig, textBig);
-  safeText(UI.stampSmall, textSmall);
-  UI.stamp.classList.add('show');
-  setTimeout(()=> UI.stamp?.classList.remove('show'), 760);
+function getDiff(){
+  const k = String(S.diff||'normal').toLowerCase();
+  return DIFF[k] || DIFF.normal;
 }
 
-// ------------------------- grade / progress -------------------------
-function calcGrade(){
-  const base = S.score;
-  const goalBonus = (S.allGoalsCleared ? S.goalsTotal : (S.goalStage)) * 120;
-  const miniBonus = S.miniDone * 80;
-  const missPenalty = S.miss * 8;
-  const total = base + goalBonus + miniBonus - missPenalty;
+// Play แต่โหดแบบวิจัย: ให้ expire มีผลเสมอ + BAD หลุดโดนเสมอ
+const PENALIZE_BAD_EXPIRE = true;
 
-  if (total >= 900) return 'SSS';
-  if (total >= 720) return 'SS';
-  if (total >= 560) return 'S';
-  if (total >= 420) return 'A';
-  if (total >= 280) return 'B';
+function gradeFrom(score, miss, water){
+  const w = clamp(water,0,100);
+  const green = (w >= 45 && w <= 65);
+  const base = score - miss*8 + (green ? 40 : -10);
+  if (base >= 260) return 'SSS';
+  if (base >= 210) return 'SS';
+  if (base >= 160) return 'S';
+  if (base >= 110) return 'A';
+  if (base >= 70)  return 'B';
   return 'C';
 }
-function progressToS(){
-  const goalCleared = S.allGoalsCleared ? S.goalsTotal : S.goalStage;
-  const base = S.score + (goalCleared*120) + (S.miniDone*80) - (S.miss*8);
-  const pct = clamp((base / 560) * 100, 0, 100);
-  return Math.round(pct);
+
+function applyWaterDelta(delta, cause){
+  delta = Number(delta)||0;
+  if (!Number.isFinite(delta) || delta === 0) return;
+
+  S.water = clamp(S.water + delta, 0, 100);
+  S.lastCause = String(cause||'');
+
+  try { setWaterGauge(S.water); } catch {}
+  pushHUD();
 }
 
-// ------------------------- quest/update payload -------------------------
-function buildQuestPayload(){
-  const ns = S.stormActive ? 'Storm อยู่!' : `Next storm in ~${Math.max(0, Math.ceil(S.nextStormInSec))}s`;
-  const totalStorms = Math.max(0, S.miniTotal|0);
-  const endWindow = S.stormActive && (S.stormLeftSec <= TUNE.endWindowSec + 0.02);
+function applyFeverDelta(delta, cause){
+  delta = Number(delta)||0;
+  if (!Number.isFinite(delta) || delta === 0) return;
+  S.fever = clamp(S.fever + delta, 0, 100);
+  emit('hha:fever', { pct:S.fever, cause:String(cause||'') });
 
-  const goalLabel = S.allGoalsCleared
-    ? `GOAL: ALL CLEARED ✅`
-    : `Goal ${S.goalStage+1}/${S.goalsTotal}: อยู่ GREEN รวม ${S.goalNeedSec}s 🟢`;
-
-  const line1 = goalLabel;
-  const line2 = S.allGoalsCleared
-    ? `ยอดเยี่ยม! เคลียร์ครบทุกด่านแล้ว • เล่นต่อเพื่อคะแนน/mini ได้เลย`
-    : `สะสม GREEN: ${Math.floor(S.timeInGreen)} / ${S.goalNeedSec}s • ด่านที่เหลือ: ${S.goalsTotal-(S.goalStage)} ด่าน`;
-
-  const line3 = `Mini (Storm): บล็อก BAD “ท้ายพายุ” ${S.miniBlocksDone}/${S.miniBlocksNeed} • ${ns}`;
-  const adaptTxt = S.adaptive.enabled ? `Adaptive ${(S.tuneEff.factor>=0?'+':'')}${Math.round(S.tuneEff.factor*100)}%` : 'Adaptive OFF';
-  const line4 = `State: Pressure ${Math.round(S.pressure)}% (thr ${TUNE.pressureThr}%) • EndWindow: ${endWindow ? 'NOW' : '—'} • S:${progressToS()}% • ${adaptTxt}`;
-
-  return {
-    title: 'Hydration Quest',
-    line1, line2, line3, line4,
-    goalTitle: line1,
-    miniTitle: line3,
-
-    goalsCleared: (S.allGoalsCleared ? S.goalsTotal : S.goalStage)|0,
-    goalsTotal: S.goalsTotal|0,
-    miniCleared: S.miniDone|0,
-    miniTotal: totalStorms|0,
-
-    goalProg: S.allGoalsCleared ? 'DONE' : `${Math.floor(S.timeInGreen)}/${S.goalNeedSec}s`,
-    miniProg: `${S.miniBlocksDone}/${S.miniBlocksNeed}`,
-  };
+  setText('fever-pct', Math.round(S.fever) + '%');
+  const fb = $('fever-bar');
+  if (fb) fb.style.width = clamp(S.fever,0,100) + '%';
 }
 
-// ------------------------- ui update -------------------------
-function uiUpdate(){
-  safeText(UI.time, Math.max(0, Math.ceil(S.tLeftSec)));
+function updateQuest(){
+  const z = zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH'));
+  const goalLine1 = `Goal: อยู่ใน GREEN ให้ครบ 🟢`;
+  const goalLine2 = `สะสม GREEN รวม ${Math.round(S.greenSec)}/${S.goalGreenSecTarget} วินาที`;
+  const goalLine3 = `Goals done: ${S.goalsDone} · Minis done: ${S.minisDone}`;
+  const goalLine4 = `Water: ${z} · Cause: ${S.lastCause || '-'}`;
 
-  safeText(UI.score, S.score|0);
-  safeText(UI.combo, S.combo|0);
-  safeText(UI.comboMax, S.comboMax|0);
-  safeText(UI.miss, S.miss|0);
+  setText('quest-title', 'Quest 1');
+  setText('quest-line1', goalLine1);
+  setText('quest-line2', goalLine2);
+  setText('quest-line3', goalLine3);
+  setText('quest-line4', goalLine4);
 
-  safeText(UI.grade, calcGrade());
+  emit('quest:update', { title:'Quest 1', line1:goalLine1, line2:goalLine2, line3:goalLine3, line4:goalLine4 });
+}
 
-  safeText(UI.waterZone, S.zone);
-  safeText(UI.waterPct, `${Math.round(S.water)}%`);
-  if (UI.waterBar){
-    UI.waterBar.style.width = `${clamp(S.water,0,100)}%`;
-    UI.waterBar.classList.toggle('red', (S.zone !== 'GREEN'));
+function celebrateStamp(big, small){
+  const stamp = $('hha-stamp');
+  if (!stamp) return;
+  setText('stamp-big', big);
+  setText('stamp-small', small);
+  stamp.classList.remove('show');
+  void stamp.offsetWidth;
+  stamp.classList.add('show');
+}
+
+function checkGoal(){
+  if (S.goalsDone >= 1) return;
+  if (S.greenSec >= S.goalGreenSecTarget){
+    S.goalsDone = 1;
+    celebrateStamp('GOAL!', '+1');
+    emit('hha:celebrate', { kind:'goal', at:Date.now(), goalIndex:1 });
   }
-  safeText(UI.shield, S.shield|0);
-  safeText(UI.stormLeft, S.stormActive ? Math.ceil(S.stormLeftSec) : 0);
+}
 
-  const q = buildQuestPayload();
-  safeText(UI.q1, q.line1);
-  safeText(UI.q2, q.line2);
-  safeText(UI.q3, q.line3);
-  safeText(UI.q4, q.line4);
-  emitQuestUpdateThrottled(q);
+function pushHUD(){
+  const grade = gradeFrom(S.score, S.miss, S.water);
 
-  const stormIn = S.stormActive ? 0 : Math.max(0, Math.ceil(S.nextStormInSec));
-  safeText(UI.miniStormIn, (S.stormActive ? '0' : String(stormIn)));
+  setText('stat-score', S.score|0);
+  setText('stat-combo', S.combo|0);
+  setText('stat-combo-max', S.comboMax|0);
+  setText('stat-miss', S.miss|0);
+  setText('stat-time', S.secLeft|0);
+  setText('stat-grade', grade);
 
-  const okStorm = S.stormActive;
-  const okZone = (S.zone !== 'GREEN');
-  const okPressure = (S.pressure >= TUNE.pressureThr);
-  const endWindow = S.stormActive && (S.stormLeftSec <= TUNE.endWindowSec + 0.02);
-  const okBlock = (S.miniBlocksDone >= S.miniBlocksNeed);
+  const z = zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH'));
+  setText('water-zone', z);
+  setText('water-pct', Math.round(S.water) + '%');
+  const wb = $('water-bar');
+  if (wb) wb.style.width = clamp(S.water,0,100) + '%';
 
-  safeClass(UI.cStorm, 'ok', okStorm);
-  safeText(UI.vStorm, okStorm ? 'YES' : '—');
+  emit('hha:score', {
+    score:S.score|0,
+    combo:S.combo|0,
+    comboMax:S.comboMax|0,
+    miss:S.miss|0,
+    time:S.secLeft|0,
+    grade,
+    waterPct:S.water,
+    waterZone:z,
+    feverPct:S.fever,
+    lastCause:S.lastCause
+  });
 
-  safeClass(UI.cZone, 'ok', okZone && okStorm);
-  safeText(UI.vZone, okStorm ? S.zone : '—');
+  updateQuest();
+}
 
-  safeClass(UI.cPressure, 'ok', okPressure && okStorm);
-  safeText(UI.vPressure, okStorm ? `${Math.round(S.pressure)}% / ${TUNE.pressureThr}%` : '—');
+function driftWaterToMean(){
+  const d = (S.mean - S.water);
+  if (Math.abs(d) < 0.05) return;
+  const step = clamp(d * S.driftK, -S.driftCap, S.driftCap);
+  applyWaterDelta(step, 'drift(mean)');
+}
+function driftOk(){
+  if (S.isResearch) return true;
+  if (S.hasInteracted) return true;
+  return (now() - S.tStartedAt) >= S.autoDriftDelayMs;
+}
 
-  safeClass(UI.cEnd, 'ok', endWindow);
-  safeText(UI.vEnd, okStorm ? (endWindow ? 'NOW' : `${Math.max(0, Math.ceil(S.stormLeftSec - TUNE.endWindowSec))}s`) : '—');
+// ---- Hydro-Orb SVG symbols ----
+function svgDroplet(){
+  return `
+  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M32 6C24 18 14 28 14 40c0 10 8 18 18 18s18-8 18-18C50 28 40 18 32 6z"
+      fill="rgba(226,232,240,.92)"/>
+    <path d="M26 46c0 4 3 7 7 7" stroke="rgba(56,189,248,.95)" stroke-width="6" stroke-linecap="round"/>
+  </svg>`;
+}
+function svgBottle(){
+  return `
+  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="26" y="6" width="12" height="10" rx="3" fill="rgba(226,232,240,.9)"/>
+    <path d="M24 16h16v8c0 4 4 6 4 10v18c0 6-5 10-12 10H32c-7 0-12-4-12-10V34c0-4 4-6 4-10v-8z"
+      fill="rgba(226,232,240,.92)"/>
+    <path d="M22 40h20" stroke="rgba(239,68,68,.95)" stroke-width="6" stroke-linecap="round"/>
+  </svg>`;
+}
+function svgStar(){
+  return `
+  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M32 6l8 18 20 2-15 13 5 19-18-10-18 10 5-19L4 26l20-2 8-18z"
+      fill="rgba(250,204,21,.95)"/>
+  </svg>`;
+}
 
-  safeClass(UI.cBlock, 'ok', okBlock);
-  safeText(UI.vBlock, `${S.miniBlocksDone}/${S.miniBlocksNeed}`);
+function decorateTarget(el, refs, data){
+  // remove big emoji and inject symbol
+  try{
+    const { inner, icon } = refs || {};
+    if (icon){
+      icon.textContent = '';
+      icon.style.fontSize = '0px';
+    }
 
-  if (UI.miniPressureBar){
-    UI.miniPressureBar.style.width = `${clamp(S.pressure,0,100)}%`;
+    el.classList.add('hy-orb');
+    if (data.itemType === 'bad') el.classList.add('hy-bad');
+    else el.classList.add('hy-good');
+
+    // make inner host symbol
+    if (inner){
+      // clear previous content except we keep existing children but add symbol on top
+      const sym = DOC.createElement('div');
+      sym.className = 'hy-symbol';
+
+      if (data.itemType === 'power') sym.innerHTML = svgStar();
+      else if (data.itemType === 'bad') sym.innerHTML = svgBottle();
+      else sym.innerHTML = svgDroplet();
+
+      inner.appendChild(sym);
+    }
+  }catch{}
+}
+
+function onHitResult(itemType, hitPerfect){
+  const T = getDiff();
+  S.hasInteracted = true;
+  S.total += 1;
+
+  if (itemType === 'good' || itemType === 'fakeGood' || itemType === 'power'){
+    S.hits += 1;
+    S.combo += 1;
+    S.comboMax = Math.max(S.comboMax, S.combo);
+
+    let delta = T.good + (hitPerfect ? T.perfect : 0);
+    S.score += (hitPerfect ? T.scorePerfect : T.scoreGood);
+
+    applyWaterDelta(delta, hitPerfect ? 'hit(good,perfect)' : 'hit(good)');
+    applyFeverDelta(-2.2, 'cool(good)');
+
+    if (S.combo === 6){
+      S.minisDone += 1;
+      celebrateStamp('MINI!', '+1');
+      emit('hha:celebrate', { kind:'mini', at:Date.now(), miniIndex:S.minisDone });
+    }
+  } else {
+    S.combo = 0;
+    S.miss += 1;
+    S.score = Math.max(0, S.score - 18);
+    applyWaterDelta(T.bad, 'hit(bad)');
+    applyFeverDelta(T.feverBad, 'fever(bad)');
   }
-  safeText(UI.miniPressurePct, String(Math.round(S.pressure)));
 
-  setBodyFx();
+  pushHUD();
+}
 
-  emitScoreThrottled({
-    score: S.score|0,
-    combo: S.combo|0,
-    comboMax: S.comboMax|0,
-    misses: S.miss|0,
-    waterPct: Math.round(S.water),
-    zone: S.zone,
-    shield: S.shield|0,
-    goalsCleared: (S.allGoalsCleared ? S.goalsTotal : S.goalStage)|0,
-    goalsTotal: S.goalsTotal|0,
-    miniCleared: S.miniDone|0,
-    miniTotal: Math.max(0, S.miniTotal|0),
-    adaptiveFactor: S.tuneEff.factor
+function onExpireResult(itemType){
+  const T = getDiff();
+  S.total += 1;
+  S.combo = 0;
+
+  if (itemType === 'good' || itemType === 'fakeGood' || itemType === 'power'){
+    S.miss += 1;
+    S.score = Math.max(0, S.score - 10);
+    applyWaterDelta(T.goodExpire, 'expire(good)');
+    applyFeverDelta(T.feverMiss, 'fever(missGood)');
+  } else {
+    if (PENALIZE_BAD_EXPIRE){
+      S.miss += 1;
+      S.score = Math.max(0, S.score - 12);
+      applyWaterDelta(T.badExpire, 'expire(bad)');
+      applyFeverDelta(T.feverMiss + 2, 'fever(missBad)');
+    } else {
+      S.hits += 1;
+      S.score += 6;
+      applyWaterDelta(+2, 'avoid(bad)');
+      applyFeverDelta(-1.5, 'cool(avoidBad)');
+    }
+  }
+
+  pushHUD();
+}
+
+function judge(ch, ctx){
+  const itemType = String(ctx.itemType||'good');
+  const hitPerfect = !!ctx.hitPerfect;
+  onHitResult(itemType, hitPerfect);
+  if (itemType === 'bad') return { good:false, scoreDelta:-1 };
+  return { good:true, scoreDelta:+1 };
+}
+
+function onExpire(info){
+  const itemType = String(info && info.itemType ? info.itemType : (info && info.isGood ? 'good' : 'bad'));
+  onExpireResult(itemType);
+}
+
+function tickSecond(){
+  if (S.secLeft <= 0) return;
+
+  S.secLeft -= 1;
+  emit('hha:time', { sec:S.secLeft });
+
+  const z = zoneFrom ? zoneFrom(S.water) : (S.water>=45 && S.water<=65 ? 'GREEN' : (S.water<45?'LOW':'HIGH'));
+  if (String(z).toUpperCase().includes('GREEN')){
+    S.greenSec += 1;
+  }
+
+  if (driftOk()){
+    driftWaterToMean();
+  }
+
+  checkGoal();
+  pushHUD();
+
+  if (S.secLeft <= 0){
+    endGame();
+  }
+}
+
+function endGame(){
+  if (S.stopped) return;
+  S.stopped = true;
+
+  try { emit('hha:stop', { reason:'timeup' }); } catch {}
+
+  const grade = gradeFrom(S.score, S.miss, S.water);
+
+  const end = $('hvr-end');
+  if (end){
+    end.style.display = 'flex';
+    setText('end-score', S.score|0);
+    setText('end-grade', grade);
+    setText('end-combo', S.comboMax|0);
+    setText('end-miss', S.miss|0);
+    setText('end-goals', `${S.goalsDone}/1`);
+    setText('end-minis', `${S.minisDone}/∞`);
+  }
+
+  emit('hha:end', {
+    score:S.score|0,
+    grade,
+    comboMax:S.comboMax|0,
+    miss:S.miss|0,
+    goalsDone:S.goalsDone,
+    goalsTotal:1,
+    minisDone:S.minisDone
   });
 }
 
-// ------------------------- gameplay: spawning -------------------------
-const Live = new Map(); // id -> obj
-let nextId = 1;
-
-function playRect(){
-  const r = UI.playfield.getBoundingClientRect();
-  const pad = 60;
-  return {
-    left: r.left + pad,
-    top: r.top + pad,
-    w: Math.max(1, (r.width - pad*2)),
-    h: Math.max(1, (r.height - pad*2))
-  };
-}
-
-function canSpawnPower(kind){
-  // ไม่ให้ powerup ล้น: 1 ชิ้นต่อชนิดค้างได้ทีละ 1
-  if (kind === 'shield') return (S.liveShield <= 0 && S.shield < 2);
-  if (kind === 'star') return (S.liveStar <= 0);
-  if (kind === 'time') return (S.liveTime <= 0);
-  return true;
-}
-
-function spawnKind(){
-  const wantGood = (S.zone === 'LOW') ? 0.68 : (S.zone === 'HIGH') ? 0.68 : 0.56;
-  const inStorm = S.stormActive;
-  const inEndWindow = (inStorm && S.stormLeftSec <= TUNE.endWindowSec + 0.02);
-
-  // กัน mini พัง: powerups ไม่เกิดใน End-window
-  if (!inStorm){
-    // powerups (medium)
-    const roll = rng();
-    if (roll < TUNE.shieldSpawnChance && canSpawnPower('shield')) return 'shield';
-
-    const roll2 = rng();
-    if (roll2 < TUNE.starSpawnChance && canSpawnPower('star')) return 'star';
-
-    const roll3 = rng();
-    if (roll3 < TUNE.timeSpawnChance && canSpawnPower('time')) return 'time';
-  } else {
-    // ใน storm: ให้ focus ที่ good/bad/shield เป็นหลัก (shield ยังพอโผล่ได้แต่ไม่ถี่)
-    if (!inEndWindow && rng() < (TUNE.shieldSpawnChance * 0.55) && canSpawnPower('shield')) return 'shield';
-  }
-
-  if (inStorm){
-    if (S.liveGood <= 0) return 'good';
-    if (S.liveBad <= 0) return 'bad';
-    return (rng() < S.tuneEff.badBiasInStorm) ? 'bad' : 'good';
-  }
-
-  if (S.liveGood <= 0) return 'good';
-  if (S.liveBad <= 0) return 'bad';
-  return (rng() < wantGood) ? 'good' : 'bad';
-}
-
-function spawnOne(){
-  if (!UI.layer || !UI.playfield) return;
-  if (Live.size >= TUNE.maxTargets) return;
-
-  const kind = spawnKind();
-  const rect = playRect();
-  const x = rect.left + rng() * rect.w;
-  const y = rect.top + rng() * rect.h;
-
-  const id = nextId++;
-  const el = makeOrbEl(kind);
-  UI.layer.appendChild(el);
-
-  const pf = UI.playfield.getBoundingClientRect();
-  el.style.left = `${x - pf.left}px`;
-  el.style.top  = `${y - pf.top}px`;
-
-  const baseSize = (DIFF === 'easy') ? 92 : (DIFF === 'hard') ? 78 : 86;
-  const size =
-    (kind === 'star' || kind === 'time') ? Math.round(baseSize * 0.92) :
-    (kind === 'shield') ? Math.round(baseSize * 0.96) :
-    baseSize;
-
-  el.style.width = `${size}px`;
-  el.style.height = `${size}px`;
-
-  const bornAt = now();
-  const ttl =
-    (kind === 'good') ? S.tuneEff.ttlGoodMs :
-    (kind === 'bad') ? S.tuneEff.ttlBadMs :
-    (kind === 'shield') ? S.tuneEff.ttlShieldMs :
-    (kind === 'star') ? S.tuneEff.ttlStarMs :
-    S.tuneEff.ttlTimeMs;
-
-  const obj = {
-    id, kind, el,
-    bornAt,
-    ttl,
-    a: 6 + rng()*10,
-    b: 5 + rng()*8,
-    sp: 0.9 + rng()*0.9,
-    ph: rng()*Math.PI*2
-  };
-  Live.set(id, obj);
-
-  if (kind === 'good'){ S.liveGood++; S.nSpawnGood++; }
-  else if (kind === 'bad'){ S.liveBad++; S.nSpawnBad++; }
-  else if (kind === 'shield'){ S.liveShield++; S.nSpawnShield++; }
-  else if (kind === 'star'){ S.liveStar++; S.nSpawnStar++; }
-  else { S.liveTime++; S.nSpawnTime++; }
-
-  emit('hha:log_event', { type:'spawn', kind, id, t: Date.now(), secLeft: S.tLeftSec });
-
-  el.addEventListener('pointerdown', (e)=>{
-    e.preventDefault();
-    e.stopPropagation();
-    onHitOrb(obj, e);
-  }, { passive:false });
-}
-
-function removeOrb(obj, reason){
-  if (!obj || !obj.el) return;
-  if (!Live.has(obj.id)) return;
-  Live.delete(obj.id);
-  obj.el.remove();
-
-  if (obj.kind === 'good') S.liveGood = Math.max(0, S.liveGood - 1);
-  else if (obj.kind === 'bad') S.liveBad = Math.max(0, S.liveBad - 1);
-  else if (obj.kind === 'shield') S.liveShield = Math.max(0, S.liveShield - 1);
-  else if (obj.kind === 'star') S.liveStar = Math.max(0, S.liveStar - 1);
-  else S.liveTime = Math.max(0, S.liveTime - 1);
-
-  if (reason === 'expire'){
-    if (obj.kind === 'good') S.nExpireGood++;
-    else if (obj.kind === 'bad') S.nExpireBad++;
-    else if (obj.kind === 'shield') S.nExpireShield++;
-    else if (obj.kind === 'star') S.nExpireStar++;
-    else S.nExpireTime++;
-
-    emit('hha:log_event', { type:'expire', kind: obj.kind, id: obj.id, t: Date.now(), secLeft: S.tLeftSec });
-  }
-}
-
-function onExpire(obj){
-  if (obj.kind === 'good'){
-    S.miss++;
-    S.combo = 0;
-    pushAwayFromMean(TUNE.waterStepBad * 0.55);
-    flashEdge(0.22);
-    coachSay('พลาดน้ำดี! 💧', 'คุมให้อยู่ GREEN ให้นิ่งขึ้น');
-    emit('hha:judge', { type:'miss', reason:'expire_good' });
-    emit('hha:log_event', { type:'miss', reason:'expire_good', t: Date.now(), secLeft: S.tLeftSec });
-  } else if (obj.kind === 'bad'){
-    if (RUN === 'study'){
-      S.miss++;
-      S.combo = 0;
-      pushAwayFromMean(TUNE.waterStepBad * 0.25);
-      flashEdge(0.18);
-      emit('hha:judge', { type:'miss', reason:'expire_bad' });
-      emit('hha:log_event', { type:'miss', reason:'expire_bad', t: Date.now(), secLeft: S.tLeftSec });
-    }
-  } else {
-    // powerups expire: ไม่เป็น miss (แค่พลาดโอกาส)
-    emit('hha:log_event', { type:'power_expire', kind: obj.kind, t: Date.now(), secLeft: S.tLeftSec });
-  }
-  removeOrb(obj, 'expire');
-}
-
-// ------------------------- hits / scoring -------------------------
-function clientXYFromEvent(e, fallbackEl){
-  let x = 0, y = 0;
-  if (e && typeof e.clientX === 'number'){
-    x = e.clientX; y = e.clientY;
-  } else if (fallbackEl){
-    const r = fallbackEl.getBoundingClientRect();
-    x = r.left + r.width/2;
-    y = r.top + r.height/2;
-  }
-  return { x, y };
-}
-
-function onHitOrb(obj, e){
-  if (!S.started || S.ended) return;
-
-  const { x, y } = clientXYFromEvent(e, obj.el);
-  const inEndWindow = (S.stormActive && S.stormLeftSec <= TUNE.endWindowSec + 0.02);
-
-  if (obj.kind === 'good'){
-    AudioFX.beep();
-    S.nHitGood++;
-    S.combo++;
-    S.comboMax = Math.max(S.comboMax, S.combo);
-    S.score += 10 + Math.min(12, S.combo);
-
-    regressionTowardMean(TUNE.waterStepGood);
-    S.pressure = clamp(S.pressure - TUNE.pressureDropOnGood, 0, 100);
-
-    burstAtClient(x, y, 'good');
-    coachSay('ดีมาก! 💧', 'คุม GREEN เพื่อผ่านด่าน Goal');
-
-    emit('hha:judge', { type:'hit', kind:'good' });
-    emit('hha:log_event', { type:'hit', kind:'good', t: Date.now(), secLeft: S.tLeftSec });
-
-  } else if (obj.kind === 'shield'){
-    AudioFX.beep();
-    S.nHitShield++;
-    S.combo++;
-    S.comboMax = Math.max(S.comboMax, S.combo);
-    S.score += 14;
-
-    S.shield = clamp(S.shield + 1, 0, 9);
-    regressionTowardMean(TUNE.waterStepGood * 0.35);
-
-    burstAtClient(x, y, 'shield');
-    stamp('SHIELD +1', 'เก็บไว้บล็อก BAD ช่วงท้ายพายุ!');
-    coachSay('ได้ Shield แล้ว! 🛡️', 'บล็อก “ท้ายพายุ” + Pressure ถึง จะนับ mini');
-
-    emit('hha:judge', { type:'hit', kind:'shield' });
-    emit('hha:log_event', { type:'hit', kind:'shield', t: Date.now(), secLeft: S.tLeftSec });
-
-  } else if (obj.kind === 'star'){
-    AudioFX.beep();
-    S.nHitStar++;
-    S.combo++;
-    S.comboMax = Math.max(S.comboMax, S.combo);
-
-    S.score += (TUNE.starScore|0);
-    burstAtClient(x, y, 'star');
-    stamp('⭐ STAR!', `+${TUNE.starScore} คะแนน`);
-    coachSay('โบนัสมา! ⭐', `คะแนน +${TUNE.starScore}`);
-
-    emit('hha:judge', { type:'hit', kind:'star' });
-    emit('hha:log_event', { type:'hit', kind:'star', addScore: TUNE.starScore|0, t: Date.now(), secLeft: S.tLeftSec });
-
-  } else if (obj.kind === 'time'){
-    AudioFX.beep();
-    S.nHitTime++;
-    S.combo++;
-    S.comboMax = Math.max(S.comboMax, S.combo);
-
-    const maxExtra = TUNE.timeMaxExtraSec|0;
-    const add = TUNE.timeAddSec|0;
-    const canAdd = (S.extraTimeAddedSec + add) <= maxExtra;
-
-    if (canAdd){
-      S.extraTimeAddedSec += add;
-      S.tLeftSec = Math.min(DUR_SEC + maxExtra, S.tLeftSec + add);
-      stamp('⏱️ TIME +2s', `เพิ่มเวลา (+${add}s)`);
-      coachSay('ได้เวลาเพิ่ม! ⏱️', `เหลือเวลาเพิ่มได้อีก ${Math.max(0, maxExtra - S.extraTimeAddedSec)}s`);
-      emit('hha:log_event', { type:'hit', kind:'time', addSec: add, t: Date.now(), secLeft: S.tLeftSec });
-    } else {
-      // ถ้าเต็มเพดานแล้ว แปลงเป็นคะแนนเล็กน้อย
-      const conv = 25;
-      S.score += conv;
-      stamp('⏱️ TIME', `เต็มแล้ว → +${conv} คะแนน`);
-      coachSay('เวลาเต็มแล้ว ⏱️', `แปลงเป็นคะแนน +${conv}`);
-      emit('hha:log_event', { type:'hit', kind:'time', addSec: 0, convertedScore: conv, t: Date.now(), secLeft: S.tLeftSec });
-    }
-
-    burstAtClient(x, y, 'time');
-    emit('hha:judge', { type:'hit', kind:'time' });
-
-  } else { // bad
-    S.nHitBad++;
-
-    if (S.shield > 0 && S.stormActive){
-      // shield-block (no miss)
-      S.shield--;
-      AudioFX.beep();
-      S.score += 18;
-      S.combo++;
-      S.comboMax = Math.max(S.comboMax, S.combo);
-
-      S.pressure = clamp(S.pressure + (TUNE.pressureAddOnBad * 0.35), 0, 100);
-
-      burstAtClient(x, y, 'shield');
-
-      const canCount = inEndWindow && (S.pressure >= TUNE.pressureThr);
-      stamp('BLOCK!', canCount ? 'นับแต้ม mini ✅' : (inEndWindow ? 'Pressure ยังไม่ถึง' : 'ยังไม่ใช่ท้ายพายุ'));
-
-      emit('hha:log_event', { type:'block', timing: inEndWindow ? 'endwindow' : 'early', pressure: Math.round(S.pressure), counted: !!canCount, t: Date.now(), secLeft: S.tLeftSec });
-
-      if (canCount){
-        S.miniBlocksDone++;
-        S.lastBlockedAt = now();
-        coachSay('บล็อกถูกจังหวะ! ✅', `Mini: ${S.miniBlocksDone}/${S.miniBlocksNeed}`);
-        flashEdge(0.22);
-      } else {
-        coachSay('บล็อกได้ แต่ยังไม่นับ', inEndWindow ? 'ต้อง Pressure ≥ threshold ก่อน (ตาม checklist)' : 'รอ End-window แล้วค่อยบล็อก');
-      }
-
-      emit('hha:judge', { type:'hit', kind:'bad_blocked' });
-
-    } else {
-      // hit bad without shield = miss
-      AudioFX.beep();
-      S.combo = 0;
-      S.miss++;
-      S.score -= 12;
-      pushAwayFromMean(TUNE.waterStepBad);
-      S.pressure = clamp(S.pressure + TUNE.pressureAddOnBad, 0, 100);
-
-      burstAtClient(x, y, 'bad');
-      flashEdge(0.45);
-
-      // FAIL: hit BAD in end-window during storm without shield => reset mini progress
-      if (S.stormActive && inEndWindow){
-        S.miniBlocksDone = 0;
-        S.score -= 20;
-        flashEdge(0.70);
-        stamp('RESET!', 'ท้ายพายุโดน BAD → mini รีเซ็ต!');
-        coachSay('พังท้ายพายุ! ❌', 'โดน BAD ช่วง End-window: mini progress รีเซ็ตเป็น 0');
-        emit('hha:log_event', { type:'mini_reset', reason:'hit_bad_endwindow_no_shield', t: Date.now(), secLeft: S.tLeftSec });
-      } else {
-        coachSay('โดน BAD! ☠️', 'ถ้าเข้า Storm ให้เก็บ Shield ไว้บล็อกท้ายพายุ');
-      }
-
-      emit('hha:judge', { type:'miss', reason:'hit_bad' });
-      emit('hha:log_event', { type:'miss', reason:'hit_bad', t: Date.now(), secLeft: S.tLeftSec });
-    }
-
-    emit('hha:log_event', { type:'hit', kind:'bad', t: Date.now(), secLeft: S.tLeftSec });
-  }
-
-  removeOrb(obj, 'hit');
-  uiUpdate();
-}
-
-// ------------------------- storm system -------------------------
-let tickHandle = 0;
-
-function stormSet(on){
-  S.stormActive = !!on;
-  DOC.body.classList.toggle('storm', S.stormActive);
-
-  if (S.stormActive){
-    S.stormLeftSec = TUNE.stormDurSec;
-    S.miniTotal++;
-    AudioFX.thunder();
-    flashEdge(0.60);
-    DOC.body.classList.add('fx-shake');
-    coachSay('🌪️ Storm มาแล้ว!', 'คุม LOW/HIGH + ดัน Pressure แล้วท้ายพายุค่อยบล็อก');
-
-    emit('hha:log_event', { type:'storm_start', t: Date.now(), secLeft: S.tLeftSec });
-
-  } else {
-    DOC.body.classList.remove('fx-shake');
-    DOC.body.classList.remove('storm-warn');
-    setWarnAmp(0);
-    S.warnActive = false;
-
-    if (S.miniBlocksDone >= S.miniBlocksNeed){
-      S.miniDone++;
-      stamp('MINI CLEARED!', `ผ่าน Storm (${S.miniBlocksDone}/${S.miniBlocksNeed})`);
-      try{ Particles.celebrate?.('mini'); }catch(_){}
-      coachSay('Mini ผ่านแล้ว! 🎉', 'ไปต่อ…');
-      emit('hha:log_event', { type:'mini_clear', t: Date.now(), secLeft: S.tLeftSec });
-    } else {
-      coachSay('Storm จบแล้ว', `Mini ยังไม่ครบ (${S.miniBlocksDone}/${S.miniBlocksNeed}) ลองใหม่รอบหน้า`);
-      emit('hha:log_event', { type:'mini_fail', t: Date.now(), secLeft: S.tLeftSec });
-    }
-
-    S.miniBlocksDone = 0;
-    S.pressure = clamp(S.pressure * 0.35, 0, 100);
-
-    emit('hha:log_event', { type:'storm_end', t: Date.now(), secLeft: S.tLeftSec });
-  }
-
-  uiUpdate();
-}
-
-function setWarn(on){
-  S.warnActive = !!on;
-  DOC.body.classList.toggle('storm-warn', S.warnActive);
-  if (!S.warnActive) setWarnAmp(0);
-}
-
-// warn tick accel
-let warnTickT = 0;
-function warnTickUpdate(dt){
-  if (!S.warnActive) return;
-  warnTickT += dt;
-  const remain = Math.max(0.001, S.nextStormInSec);
-  const rate = clamp(0.22 - (0.14 * (1 - clamp(remain / TUNE.warnLeadSec, 0, 1))), 0.07, 0.22);
-  if (warnTickT >= rate){
-    warnTickT = 0;
-    AudioFX.tick();
-  }
-  const amp = clamp(1 - (remain / TUNE.warnLeadSec), 0, 1);
-  setWarnAmp(amp);
-}
-
-// ------------------------- goal stages logic -------------------------
-function onGoalCleared(){
-  stamp(`GOAL ${S.goalStage+1} CLEARED!`, `ด่านผ่าน ✅`);
-  try{ Particles.celebrate?.('goal'); }catch(_){}
-  S.score += 120;
-  flashEdge(0.35);
-
-  emit('hha:log_event', { type:'goal_clear', stage: S.goalStage+1, t: Date.now(), secLeft: S.tLeftSec });
-
-  S.goalStage++;
-  if (S.goalStage >= S.goalsTotal){
-    S.allGoalsCleared = true;
-    stamp('ALL GOALS!', 'เคลียร์ครบทุกด่านแล้ว! 🏆');
-    try{ Particles.celebrate?.('all'); }catch(_){}
-    coachSay('โหดมาก! 🏆', 'เคลียร์ครบทุก Goal แล้ว เล่นต่อเพื่อคะแนน/mini ได้!');
-    emit('hha:log_event', { type:'goal_all_clear', t: Date.now(), secLeft: S.tLeftSec });
-    S.timeInGreen = 0;
-  } else {
-    S.goalNeedSec = goalNeedForStage(S.goalStage);
-    coachSay('ต่อด่านถัดไป! 🟢', `Goal ${S.goalStage+1}/${S.goalsTotal}: อยู่ GREEN ${S.goalNeedSec}s`);
-    S.timeInGreen = 0;
-  }
-}
-
-function updateGreenTime(dtSec){
-  if (S.allGoalsCleared) return;
-  if (S.zone === 'GREEN'){
-    S.timeInGreen += dtSec;
-    if (S.timeInGreen >= S.goalNeedSec){
-      onGoalCleared();
-    }
-  }
-}
-
-// ------------------------- adaptive update (play only) -------------------------
-function adaptiveUpdate(t){
-  if (!S.adaptive.enabled) return;
-  if (t - S.adaptive.lastCheckAt < 2500) return;
-
-  const dg = (S.nHitGood - S.adaptive.lastHitGood);
-  const db = (S.nHitBad  - S.adaptive.lastHitBad);
-  const dm = (S.miss     - S.adaptive.lastMiss);
-
-  const perf = (dg * 1.0) - (db * 1.4) - (dm * 1.0);
-
-  if (perf > 2.2) S.adaptive.factor += 0.08;
-  else if (perf < -1.0) S.adaptive.factor -= 0.10;
-  else S.adaptive.factor *= 0.98;
-
-  S.adaptive.factor = clamp(S.adaptive.factor, -0.35, 0.35);
-
-  S.adaptive.lastCheckAt = t;
-  S.adaptive.lastHitGood = S.nHitGood;
-  S.adaptive.lastHitBad  = S.nHitBad;
-  S.adaptive.lastMiss    = S.miss;
-
-  const prev = S.tuneEff.factor;
-  S.tuneEff = computeTuneEff();
-
-  if (Math.abs(S.tuneEff.factor - prev) >= 0.02){
-    emit('hha:adaptive', {
-      factor: S.tuneEff.factor,
-      spawnEveryMs: Math.round(S.tuneEff.spawnEveryMs),
-      ttlGoodMs: Math.round(S.tuneEff.ttlGoodMs),
-      ttlBadMs: Math.round(S.tuneEff.ttlBadMs),
-      badBiasInStorm: Number(S.tuneEff.badBiasInStorm.toFixed(3))
-    });
-    emit('hha:log_event', { type:'adaptive', factor: S.tuneEff.factor, t: Date.now() });
-  }
-}
-
-// ------------------------- loop (movement + expire + storm + spawn) -------------------------
-function moveOrbs(t){
-  const lx = clamp(S.lookX, -1, 1);
-  const ly = clamp(S.lookY, -1, 1);
-  const tx = lx * 14;
-  const ty = ly * 10;
-  UI.playfield.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
-
-  for (const obj of Live.values()){
-    const age = (t - obj.bornAt) / 1000;
-    const wobX = Math.sin(age*obj.sp + obj.ph) * obj.a;
-    const wobY = Math.cos(age*(obj.sp*0.92) + obj.ph) * obj.b;
-    const pulse = 1 + (Math.sin(age*4.2 + obj.ph)*0.02);
-    obj.el.style.transform = `translate(-50%,-50%) translate3d(${wobX}px, ${wobY}px, 0) scale(${pulse})`;
-  }
-}
-
-function updateStorm(dtSec){
-  if (!S.stormActive){
-    S.nextStormInSec -= dtSec;
-
-    if (S.nextStormInSec <= TUNE.warnLeadSec && S.nextStormInSec > 0){
-      if (!S.warnActive){
-        setWarn(true);
-        coachSay('⚠️ Storm กำลังมา!', 'เตรียมตัว: เก็บ Shield + อย่าอยู่ GREEN ตอนพายุ');
-      }
-    }
-
-    if (S.warnActive){
-      warnTickUpdate(dtSec);
-      DOC.body.classList.add('fx-shake');
-    } else {
-      DOC.body.classList.remove('fx-shake');
-    }
-
-    if (S.nextStormInSec <= 0){
-      setWarn(false);
-      DOC.body.classList.remove('fx-shake');
-      stormSet(true);
-      S.nextStormInSec = TUNE.stormEverySec + (rng()*2.2 - 1.1);
-    }
-
-  } else {
-    S.stormLeftSec -= dtSec;
-    S.pressure = clamp(S.pressure + (TUNE.pressureRisePerSec * dtSec), 0, 100);
-
-    if (S.stormLeftSec <= 0){
-      stormSet(false);
-    }
-  }
-}
-
-function updateExpire(t){
-  for (const obj of Array.from(Live.values())){
-    if ((t - obj.bornAt) > obj.ttl){
-      onExpire(obj);
-    }
-  }
-}
-
-function spawnLoop(t){
-  if (!S.started || S.ended) return;
-  if (!S.spawnTimer) S.spawnTimer = t;
-
-  const cadence = S.tuneEff.spawnEveryMs;
-
-  while (t - S.spawnTimer >= cadence){
-    S.spawnTimer += cadence;
-    spawnOne();
-  }
-}
-
-function endGame(reason){
-  if (S.ended) return;
-  S.ended = true;
-  S.started = false;
-
-  DOC.body.classList.remove('storm-warn','storm','fx-shake');
-  setWarnAmp(0);
-  setEdgeFx(0);
-
-  if (UI.startOverlay) UI.startOverlay.style.display = 'none';
-  if (UI.endWrap) UI.endWrap.style.display = 'flex';
-
-  const totalStorms = Math.max(0, S.miniTotal|0);
-  const grade = calcGrade();
-
-  safeText(UI.endScore, S.score|0);
-  safeText(UI.endGrade, grade);
-  safeText(UI.endCombo, S.comboMax|0);
-  safeText(UI.endMiss, S.miss|0);
-
-  const goalsCleared = S.allGoalsCleared ? S.goalsTotal : S.goalStage;
-  safeText(UI.endGoals, `${goalsCleared}/${S.goalsTotal}`);
-  safeText(UI.endMinis, `${S.miniDone}/${totalStorms}`);
-
-  S.endTimeIso = new Date().toISOString();
-
-  const durationPlayedSec = Math.max(0, Math.round(DUR_SEC - S.tLeftSec + S.extraTimeAddedSec));
-
-  const nGoodSpawned   = S.nSpawnGood|0;
-  const nBadSpawned    = S.nSpawnBad|0;
-  const nShieldSpawned = S.nSpawnShield|0;
-  const nStarSpawned   = S.nSpawnStar|0;
-  const nTimeSpawned   = S.nSpawnTime|0;
-
-  const nGoodHit   = S.nHitGood|0;
-  const nBadHit    = S.nHitBad|0;
-  const nShieldHit = S.nHitShield|0;
-  const nStarHit   = S.nHitStar|0;
-  const nTimeHit   = S.nHitTime|0;
-
-  const nGoodExpire = S.nExpireGood|0;
-
-  const denomGood = Math.max(1, nGoodHit + nGoodExpire);
-  const accuracyGoodPct = Math.round((nGoodHit / denomGood) * 100);
-
-  const denomBad = Math.max(1, nBadHit + nBadSpawned);
-  const junkErrorPct = Math.round((nBadHit / denomBad) * 100);
-
-  const summary = {
-    timestampIso: S.endTimeIso,
-    projectTag: 'hydration',
-    runMode: RUN,
-    studyId: CTX.studyId,
-    phase: CTX.phase,
-    conditionGroup: CTX.conditionGroup,
-    sessionOrder: CTX.sessionOrder,
-    blockLabel: CTX.blockLabel,
-    siteCode: CTX.siteCode,
-    schoolYear: CTX.schoolYear,
-    semester: CTX.semester,
-    sessionId: CTX.sessionId,
-    gameMode: 'hydration',
-    diff: DIFF,
-    durationPlannedSec: DUR_SEC,
-    durationPlayedSec,
-    scoreFinal: S.score|0,
-    comboMax: S.comboMax|0,
-    misses: S.miss|0,
-
-    goalsCleared: goalsCleared|0,
-    goalsTotal: S.goalsTotal|0,
-    miniCleared: S.miniDone|0,
-    miniTotal: totalStorms|0,
-
-    // schema-compatible keys
-    nTargetGoodSpawned: nGoodSpawned,
-    nTargetJunkSpawned: nBadSpawned,
-    nTargetShieldSpawned: nShieldSpawned,
-    nTargetStarSpawned: nStarSpawned,
-    nTargetDiamondSpawned: nTimeSpawned, // time -> diamond slot
-
-    nHitGood: nGoodHit,
-    nHitJunk: nBadHit,
-    nHitShield: nShieldHit,
-    nHitStar: nStarHit,
-    nHitDiamond: nTimeHit, // time -> diamond slot
-
-    nExpireGood: nGoodExpire,
-
-    accuracyGoodPct,
-    junkErrorPct,
-
-    waterEndPct: Math.round(S.water),
-    grade,
-    reason,
-    seed,
-    startTimeIso: S.startTimeIso,
-    endTimeIso: S.endTimeIso,
-
-    adaptiveFactor: S.tuneEff.factor,
-    spawnEveryMsEff: Math.round(S.tuneEff.spawnEveryMs),
-    ttlGoodMsEff: Math.round(S.tuneEff.ttlGoodMs),
-    ttlBadMsEff: Math.round(S.tuneEff.ttlBadMs),
-    badBiasInStormEff: Number(S.tuneEff.badBiasInStorm.toFixed(3)),
-
-    extraTimeAddedSec: S.extraTimeAddedSec|0,
-    hub: HUB
-  };
-
-  try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
-
-  emit('hha:end', summary);
-  emit('hha:log_session', { action:'end', timestampIso: S.endTimeIso, reason, ...summary, ...CTX });
-  emit('hha:log_event', { type:'session_end', reason, t: Date.now() });
-
-  injectBackToHub();
-
-  coachSay('จบเกมแล้ว', 'กด Retry หรือกลับ HUB ได้เลย');
-  uiUpdate();
-}
-
-function injectBackToHub(){
-  if (!UI.endWrap) return;
-  if (UI.endWrap.querySelector('[data-hha-backhub="1"]')) return;
-
-  const btn = DOC.createElement('button');
-  btn.className = 'btn secondary';
-  btn.type = 'button';
-  btn.textContent = '🏠 Back to HUB';
-  btn.setAttribute('data-hha-backhub', '1');
-  btn.style.marginLeft = '8px';
-  btn.style.pointerEvents = 'auto';
-  btn.addEventListener('click', ()=>{ location.href = HUB || './hub.html'; });
-
-  const topRow = UI.endWrap.querySelector('.endCard > div');
-  if (topRow) topRow.appendChild(btn);
-}
-
-function mainLoop(t){
-  if (!S.started || S.ended){
-    tickHandle = requestAnimationFrame(mainLoop);
-    return;
-  }
-
-  const dt = Math.min(0.05, Math.max(0.001, (t - (S.tLast || t)) / 1000));
-  S.tLast = t;
-
-  S.tLeftSec = Math.max(0, S.tLeftSec - dt);
-  const played = Math.max(0, (DUR_SEC - S.tLeftSec));
-  emitTimeOncePerSec(Math.max(0, Math.ceil(S.tLeftSec)), played);
-
-  if (S.tLeftSec <= 0){
-    endGame('timeout');
-    tickHandle = requestAnimationFrame(mainLoop);
-    return;
-  }
-
-  adaptiveUpdate(t);
-
-  S.zone = calcZone();
-  updateGreenTime(dt);
-
-  updateStorm(dt);
-
-  if (S.stormActive && S.zone !== 'GREEN'){
-    S.pressure = clamp(S.pressure + (6*dt), 0, 100);
-  }
-
-  moveOrbs(t);
-  updateExpire(t);
-  spawnLoop(t);
-
-  uiUpdate();
-  tickHandle = requestAnimationFrame(mainLoop);
-}
-
-// ------------------------- input: drag + gyro (gated) -------------------------
-function bindLook(){
-  const pf = UI.playfield;
-  if (!pf) return;
-
-  const DRAG_THRESH = 10;
-
-  pf.addEventListener('pointerdown', (e)=>{
-    AudioFX.resume();
-    S.dragCandidate = true;
-    S.dragOn = false;
-    S.dragX = e.clientX;
-    S.dragY = e.clientY;
-    S.baseLookX = S.lookX;
-    S.baseLookY = S.lookY;
-  }, { passive:true });
-
-  pf.addEventListener('pointermove', (e)=>{
-    if (!S.dragCandidate) return;
-    const dxPx = (e.clientX - S.dragX);
-    const dyPx = (e.clientY - S.dragY);
-    if (!S.dragOn){
-      if (Math.hypot(dxPx, dyPx) >= DRAG_THRESH){
-        S.dragOn = true;
-      } else return;
-    }
-    const dx = dxPx / 220;
-    const dy = dyPx / 220;
-    S.lookX = clamp(S.baseLookX + dx, -1, 1);
-    S.lookY = clamp(S.baseLookY + dy, -1, 1);
-  }, { passive:true });
-
-  function endDrag(){
-    S.dragCandidate = false;
-    S.dragOn = false;
-  }
-  pf.addEventListener('pointerup', endDrag, { passive:true });
-  pf.addEventListener('pointercancel', endDrag, { passive:true });
-
-  ROOT.addEventListener('deviceorientation', (ev)=>{
-    const g = num(ev.gamma, 0) / 35;
-    const b = num(ev.beta, 0) / 45;
-    if (!S.dragOn){
-      S.lookX = clamp(g, -1, 1);
-      S.lookY = clamp(b, -1, 1);
-    }
-  }, { passive:true });
-}
-
-// ------------------------- lifecycle -------------------------
-function startGame(){
+async function startGame(){
   if (S.started) return;
   S.started = true;
-  S.ended = false;
+  S.stopped = false;
 
-  AudioFX.resume();
+  const run = (qget('run', qget('runMode', 'play')) || 'play');
+  const diff = (qget('diff', 'normal') || 'normal');
+  const time = clamp(qnum('time', qnum('durationPlannedSec', 70)), 20, 180);
 
-  // reset
-  S.score = 0; S.combo = 0; S.comboMax = 0; S.miss = 0;
-  setWater(45);
-  S.timeInGreen = 0;
+  S.runMode = run;
+  S.isResearch = (run === 'study' || truthy(qget('study','0')));
+  S.diff = diff;
+  S.timePlannedSec = time;
+  S.secLeft = time;
 
-  S.goalStage = 0;
-  S.goalNeedSec = goalNeedForStage(0);
-  S.allGoalsCleared = false;
+  S.score=0; S.combo=0; S.comboMax=0; S.miss=0; S.hits=0; S.total=0;
+  S.fever=0; S.greenSec=0; S.goalsDone=0; S.minisDone=0;
+  S.lastCause='init';
 
-  S.miniDone = 0;
-  S.miniTotal = 0;
-  S.miniBlocksDone = 0;
-  S.miniBlocksNeed = TUNE.miniBlocksNeed;
-  S.pressure = 0;
-  S.shield = 0;
+  // water start
+  const waterStart = clamp(qnum('waterStart', 34), 0, 100);
+  S.water = waterStart;
 
-  S.extraTimeAddedSec = 0;
+  // drift: Play delayed + softer; Study immediate + stronger
+  S.tStartedAt = now();
+  S.hasInteracted = false;
+  S.autoDriftDelayMs = S.isResearch ? 0 : 4200;
+  S.driftK   = S.isResearch ? 0.075 : 0.028;
+  S.driftCap = S.isResearch ? 2.4   : 0.85;
 
-  S.nSpawnGood = 0; S.nSpawnBad = 0; S.nSpawnShield = 0; S.nSpawnStar = 0; S.nSpawnTime = 0;
-  S.nHitGood = 0; S.nHitBad = 0; S.nHitShield = 0; S.nHitStar = 0; S.nHitTime = 0;
-  S.nExpireGood = 0; S.nExpireBad = 0; S.nExpireShield = 0; S.nExpireStar = 0; S.nExpireTime = 0;
+  // init UI
+  try { ensureWaterGauge && ensureWaterGauge(); } catch {}
+  try { setWaterGauge && setWaterGauge(S.water); } catch {}
+  applyFeverDelta(0, 'init');
+  pushHUD();
 
-  S.tLeftSec = DUR_SEC;
-  S.tStart = now();
-  S.tLast = now();
-  S.startTimeIso = new Date().toISOString();
-  S.endTimeIso = '';
+  // close start overlay
+  const ov = $('start-overlay');
+  if (ov) ov.style.display = 'none';
 
-  S.nextStormInSec = TUNE.stormEverySec;
-  setWarn(false);
-  stormSet(false);
+  // pools
+  const pools = {
+    good: ['.'], // we intentionally hide emoji; symbol comes from decorateTarget
+    bad:  ['.'],
+    trick:[]
+  };
 
-  // reset adaptive
-  S.adaptive.enabled = (RUN === 'play');
-  S.adaptive.factor = 0;
-  S.adaptive.lastCheckAt = 0;
-  S.adaptive.lastHitGood = 0;
-  S.adaptive.lastHitBad  = 0;
-  S.adaptive.lastMiss    = 0;
-  S.tuneEff = computeTuneEff();
+  // Play แต่โหดแบบวิจัย: เร่ง spawn นิด + มี trick เล็ก ๆ แต่ไม่เกิน
+  const trickRate = S.isResearch ? 0.12 : 0.09;
+  const spawnMul  = S.isResearch ? 0.92 : 0.96;
 
-  for (const obj of Array.from(Live.values())) removeOrb(obj, 'clear');
+  S.controller = await factoryBoot({
+    modeKey:'hydration',
+    difficulty:S.diff,
+    duration:S.secLeft,
 
-  emit('hha:log_session', {
-    action:'start',
-    timestampIso: S.startTimeIso,
-    seed,
-    device: (navigator && navigator.userAgent) ? navigator.userAgent : '',
-    ...CTX,
+    spawnHost: '#hvr-layer',
+    boundsHost: '#playfield',
+
+    // Hydration identity: FULL FIELD spread + grid9
+    spawnAroundCrosshair: false,
+    spawnStrategy: 'grid9',
+
+    goodRate: 0.62,
+    trickRate,
+
+    allowAdaptive: true,
+    spawnIntervalMul: () => spawnMul,
+
+    pools,
+    powerups: ['.'],
+    powerRate: S.isResearch ? 0.12 : 0.10,
+    powerEvery: 7,
+
+    playPadXFrac: 0.10,
+    playPadTopFrac: 0.12,
+    playPadBotFrac: 0.14,
+    autoRelaxSafezone:true,
+
+    decorateTarget,
+    judge,
+    onExpire
   });
-  emit('hha:log_event', { type:'session_start', t: Date.now(), seed });
 
-  coachSay('พร้อมแล้ว! 💧', `Goal 1/${S.goalsTotal}: อยู่ GREEN ${S.goalNeedSec}s • ⭐ +${TUNE.starScore} • ⏱️ +${TUNE.timeAddSec}s`);
-  uiUpdate();
-}
+  S._timer = ROOT.setInterval(tickSecond, 1000);
 
-// ------------------------- buttons + shooting crosshair -------------------------
-function bindButtons(){
-  UI.btnStart?.addEventListener('click', ()=>{
-    AudioFX.resume();
-    if (UI.startOverlay) UI.startOverlay.style.display = 'none';
-    if (UI.endWrap) UI.endWrap.style.display = 'none';
-    startGame();
-  }, { passive:true });
-
-  UI.btnStop?.addEventListener('click', ()=>{
-    AudioFX.resume();
-    endGame('stop');
-  }, { passive:true });
-
-  UI.btnRetry?.addEventListener('click', ()=>{
-    AudioFX.resume();
-    location.reload();
-  }, { passive:true });
-
-  UI.btnVR?.addEventListener('click', ()=>{
-    AudioFX.resume();
-    const scene = DOC.querySelector('a-scene');
-    if (scene && scene.enterVR) {
-      try{ scene.enterVR(); }catch(_){}
-    } else {
-      stamp('VR', 'อุปกรณ์นี้อาจไม่รองรับ WebXR เต็มรูปแบบ');
-    }
-  }, { passive:true });
-
-  // shoot on tap only if NOT dragging (ปรับให้ “แม่น+เร็ว” ขึ้น: radius มากขึ้นนิด + pick แบบตรงจุดกว่า)
-  UI.playfield?.addEventListener('pointerup', ()=>{
-    if (!S.started || S.ended) return;
-    if (S.dragOn) return;
-    AudioFX.resume();
-
-    const pf = UI.playfield.getBoundingClientRect();
-    const cx = pf.left + pf.width/2;
-    const cy = pf.top + pf.height/2;
-
-    let best = null;
-    let bestD = 999999;
-
-    for (const obj of Live.values()){
-      const r = obj.el.getBoundingClientRect();
-      const ox = r.left + r.width/2;
-      const oy = r.top + r.height/2;
-      const d = (ox-cx)*(ox-cx) + (oy-cy)*(oy-cy);
-      if (d < bestD){
-        bestD = d;
-        best = obj;
-      }
-    }
-
-    const R = 130; // เดิม ~110
-    if (best && bestD <= (R*R)){
-      onHitOrb(best, { clientX: cx, clientY: cy });
-    } else {
-      flashEdge(0.10);
-      emit('hha:judge', { type:'miss', reason:'shot_empty' });
-      emit('hha:log_event', { type:'miss', reason:'shot_empty', t: Date.now(), secLeft: S.tLeftSec });
-    }
-  }, { passive:true });
-}
-
-// ------------------------- init -------------------------
-(function init(){
-  if (!DOC || !UI.playfield || !UI.layer){
-    console.warn('[HydrationVR] missing DOM nodes');
-    return;
+  const pf = $('playfield');
+  if (pf){
+    const onTap = (ev) => {
+      if (!S.controller || !S.controller.shootCrosshair) return;
+      const t = ev && ev.target;
+      if (t && t.closest && t.closest('.btn')) return;
+      S.controller.shootCrosshair();
+    };
+    pf.addEventListener('pointerdown', onTap, { passive:true });
+    pf._hha_onTap = onTap;
   }
 
-  ensureCrosshair(UI.playfield);
+  setText('coach-text', S.isResearch
+    ? 'โหมดวิจัย: โหดสุด! เป้าหายมีผล และ BAD หลุดก็โดน 🧪'
+    : 'โหมดเล่น: โหดแบบวิจัย แต่ยังลื่น — เป้าหายมีผลนะ 💧'
+  );
+  setText('coach-sub', 'แตะเป้า หรือ แตะกลางจอเพื่อยิง crosshair');
 
-  coachSay('แตะ START เพื่อเริ่ม', 'Goal เป็นด่าน 1/3 → 2/3 → 3/3 แล้วเจอ Storm mini! (⭐/⏱️ โผล่กลาง ๆ)');
-  uiUpdate();
+  emit('hha:coach', { text: $('coach-text')?.textContent || '', mood:'neutral' });
+}
 
-  bindButtons();
-  bindLook();
+function stopGame(){
+  if (S.stopped) return;
+  S.stopped = true;
 
-  if (UI.endWrap) UI.endWrap.style.display = 'none';
+  try { if (S._timer) ROOT.clearInterval(S._timer); } catch {}
+  S._timer = null;
 
-  tickHandle = requestAnimationFrame(mainLoop);
+  try { if (S.controller && S.controller.stop) S.controller.stop(); } catch {}
+  S.controller = null;
 
-  ROOT.__HVR__ = { S, TUNE, CTX, seed };
+  const pf = $('playfield');
+  if (pf && pf._hha_onTap){
+    try { pf.removeEventListener('pointerdown', pf._hha_onTap); } catch {}
+    pf._hha_onTap = null;
+  }
+}
+
+function bindUI(){
+  const btnStart = $('btn-start');
+  if (btnStart) btnStart.addEventListener('click', startGame, { passive:true });
+
+  const btnStop = $('btn-stop');
+  if (btnStop) btnStop.addEventListener('click', () => {
+    stopGame();
+    endGame();
+  }, { passive:true });
+
+  const btnRetry = $('btn-retry');
+  if (btnRetry) btnRetry.addEventListener('click', () => location.reload(), { passive:true });
+
+  const btnVR = $('btn-vr');
+  if (btnVR){
+    btnVR.addEventListener('click', () => emit('hha:vr', { at:Date.now() }), { passive:true });
+  }
+}
+
+(function boot(){
+  if (!DOC) return;
+  bindUI();
+
+  try { ensureWaterGauge && ensureWaterGauge(); } catch {}
+  try { setWaterGauge && setWaterGauge(S.water); } catch {}
+  pushHUD();
 })();
