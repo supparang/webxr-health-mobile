@@ -1,10 +1,10 @@
 /* === /herohealth/plate/plate.safe.js ===
-Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED + Satisfying Pack)
-- IIFE (NO export) ✅ fixes "Unexpected token 'export'"
-- catch(e) everywhere ✅ avoids "Unexpected token 'catch'" on older parsers
-- HHA Standard: goal+mini chain, deterministic seed, end summary, last summary, rank SSS..C
-- FUN PACK: Storm waves + danger FX (tick/beep + flash + edge shake), Decoy/Trap, Boss + Laser dodge via world-shift, Perfect/Critical, ⭐⭐ Overdrive x2
-- Goal3 gate: accuracyGoodPct >= 88%
+Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED + ALL FUN PACK)
+- IIFE (NO export) ✅
+- catch(e) ✅
+- Fun Pack ALL: Storm waves + danger FX, Decoy/Trap, Boss + Laser dodge (world-shift), Perfect/Critical, ⭐⭐ Overdrive x2,
+  + No-Junk Zone (ring), + Perfect Streak Multiplier, + Boss Phase 2 (double lasers)
+- Goal3: accuracyGoodPct >= 88%
 - Flush-hardened: before HUB/end/retry/pagehide/visibility/beforeunload
 */
 
@@ -21,10 +21,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     celebrate: function(){}
   };
 
-  // FeverUI is optional — we still keep our own fever/shield logic
   var FeverUI = (root.GAME_MODULES && root.GAME_MODULES.FeverUI) || root.FeverUI || null;
 
-  // Optional cloud logger (any of these names)
   function getLogger(){
     return (root.GAME_MODULES && (root.GAME_MODULES.CloudLogger || root.GAME_MODULES.Logger)) ||
            root.HHACloudLogger || root.hhaCloudLogger || root.HHA_LOGGER || null;
@@ -143,12 +141,9 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var W = root.innerWidth || 360;
     var H = root.innerHeight || 640;
 
-    // Conservative: avoid HUD top + bottom + sides
     var top = 160;
     var bot = 180;
     var side = 16;
-
-    // If mobile single-column HUD, give more top
     if (W < 760) top = 260;
 
     return { W:W, H:H, x0:side, x1:W-side, y0:top, y1:H-bot };
@@ -159,6 +154,105 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var x = r.x0 + rng() * (r.x1 - r.x0);
     var y = r.y0 + rng() * (r.y1 - r.y0);
     return { x:x, y:y };
+  }
+
+  // --------------------------- No-Junk Zone (ring) ---------------------------
+  var zone = {
+    on: false,
+    until: 0,
+    nextAt: 0,
+    radius: 170,
+    el: null
+  };
+
+  function ensureZoneRing(){
+    if (zone.el) return zone.el;
+
+    var st = DOC.createElement('style');
+    st.id = 'plate-zone-css';
+    st.textContent =
+      '.plate-zoneRing{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);' +
+      'width:calc(var(--zr) * 2px);height:calc(var(--zr) * 2px);border-radius:999px;' +
+      'border:2px dashed rgba(34,211,238,.55);box-shadow:0 0 22px rgba(34,211,238,.16), inset 0 0 0 1px rgba(34,211,238,.10);' +
+      'pointer-events:none;z-index:6;opacity:.0;transition:opacity .18s ease;}' +
+      '.plate-zoneOn .plate-zoneRing{opacity:.92;}' +
+      '.plate-zonePulse{animation:plateZonePulse .9s ease-in-out infinite;}' +
+      '@keyframes plateZonePulse{0%{filter:brightness(1)}50%{filter:brightness(1.12)}100%{filter:brightness(1)}}';
+    DOC.head.appendChild(st);
+
+    var el = DOC.createElement('div');
+    el.className = 'plate-zoneRing';
+    DOC.body.appendChild(el);
+    zone.el = el;
+    return el;
+  }
+
+  function setZoneOn(sec){
+    sec = Math.max(3, sec|0);
+    ensureZoneRing();
+    zone.on = true;
+    zone.until = nowMs() + sec * 1000;
+    DOC.body.classList.add('plate-zoneOn');
+    DOC.body.classList.add('plate-zonePulse');
+    DOC.documentElement.style.setProperty('--zr', String(zone.radius|0));
+    emit('hha:judge', { kind:'good', text:'NO-JUNK ZONE!' });
+    emit('hha:celebrate', { kind:'mini', title:'NO-JUNK ZONE!' });
+    SFX.power();
+    logEvent('zone_start', { radius: zone.radius|0, sec: sec|0 });
+
+    root.setTimeout(function(){
+      DOC.body.classList.remove('plate-zonePulse');
+    }, 1600);
+  }
+
+  function setZoneOff(clean){
+    zone.on = false;
+    zone.until = 0;
+    DOC.body.classList.remove('plate-zoneOn');
+    DOC.body.classList.remove('plate-zonePulse');
+    logEvent('zone_end', { clean: !!clean });
+  }
+
+  function isInsideZoneXY(x, y){
+    var r = safeRect();
+    var cx = r.W * 0.5;
+    var cy = r.H * 0.5;
+
+    // target is in "world layer"; layer is shifted by vx/vy => visual position is x+vx, y+vy
+    var vx = engine.vx || 0;
+    var vy = engine.vy || 0;
+
+    var dx = (x + vx) - cx;
+    var dy = (y + vy) - cy;
+    return (dx*dx + dy*dy) <= (zone.radius * zone.radius);
+  }
+
+  function pickPosInsideZone(rng){
+    var r = safeRect();
+    var cx = r.W * 0.5 - (engine.vx||0);
+    var cy = r.H * 0.5 - (engine.vy||0);
+
+    // rejection sampling (fast)
+    for (var i=0;i<12;i++){
+      var ang = rng() * Math.PI * 2;
+      var rad = Math.sqrt(rng()) * (zone.radius * 0.92);
+      var x = cx + Math.cos(ang) * rad;
+      var y = cy + Math.sin(ang) * rad;
+
+      if (x < r.x0+40 || x > r.x1-40 || y < r.y0+40 || y > r.y1-40) continue;
+      return { x:x, y:y };
+    }
+    // fallback
+    return randPos(rng);
+  }
+
+  function pickPosOutsideZone(rng){
+    var r = safeRect();
+    for (var i=0;i<18;i++){
+      var p = randPos(rng);
+      if (!isInsideZoneXY(p.x, p.y)) return p;
+    }
+    return randPos(rng);
   }
 
   // --------------------------- Food sets (Plate portions) ---------------------------
@@ -235,7 +329,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
     // plate counters
     plate: { veg:0, fruit:0, prot:0, grain:0 },
-    plateNeed: { veg:5, fruit:3, prot:4, grain:4 }, // total 16 (tuned for 90s)
+    plateNeed: { veg:5, fruit:3, prot:4, grain:4 },
 
     // adaptive (play only)
     adapt: { spawnMs:790, ttl:1620, size:1.0, junk:0.12, decoy:0.10, bossEvery: 19000 },
@@ -250,29 +344,43 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     nextStormAt:0,
     stormDurSec:6,
 
-    // boss + hazard laser
+    // boss + hazards
     bossAlive:false,
     bossHp:0,
     bossHpMax:3,
+    bossDownCount:0,
     nextBossAt:0,
-    laser: { on:false, y:0, h:24, warnUntil:0, until:0 },
+
+    lasers: { list:[] }, // multiple lasers support
+    hazardTimer:0,
 
     // ⭐⭐ overdrive x2
     overCharge:0,
     overWindowUntil:0,
     overUntil:0,
 
+    // Perfect streak multiplier
+    streakLvl:0,     // 0..3
+    streakHits:0,    // perfect/crit chain count
+    streakUntil:0,   // decay timer
+
     // timers
     spawnTimer:0,
-    tickTimer:0,
-    hazardTimer:0,
-
-    // perf
-    startMs:0
+    tickTimer:0
   };
 
-  function scoreMult(){
+  function scoreMultBase(){
     return (nowMs() < engine.overUntil) ? 2 : 1;
+  }
+
+  function streakMult(){
+    // L0=1.0, L1=1.2, L2=1.4, L3=1.6
+    var lv = clamp(engine.streakLvl|0, 0, 3);
+    return 1 + lv * 0.2;
+  }
+
+  function scoreMult(){
+    return scoreMultBase() * streakMult();
   }
 
   function accPct(){
@@ -298,7 +406,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   function applyView(){
     layer.style.setProperty('--vx', engine.vx.toFixed(1) + 'px');
     layer.style.setProperty('--vy', engine.vy.toFixed(1) + 'px');
-    // also apply transform directly (in case CSS not set)
     layer.style.transform = 'translate(' + engine.vx.toFixed(1) + 'px,' + engine.vy.toFixed(1) + 'px)';
   }
 
@@ -375,7 +482,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       '.pl-junk{border-color:rgba(239,68,68,.30);box-shadow:0 18px 70px rgba(0,0,0,.35), 0 0 18px rgba(239,68,68,.14);}' +
       '.pl-decoy{border-color:rgba(245,158,11,.28);box-shadow:0 18px 70px rgba(0,0,0,.35), 0 0 18px rgba(245,158,11,.12);}' +
       '.pl-star{border-color:rgba(34,211,238,.30);box-shadow:0 18px 70px rgba(0,0,0,.35), 0 0 22px rgba(34,211,238,.14);}' +
-      '.pl-boss{width:92px;height:92px;font-size:42px;border-color:rgba(167,139,250,.28);box-shadow:0 18px 70px rgba(0,0,0,.35), 0 0 26px rgba(167,139,250,.14);}' +
+      '.pl-boss{width:96px;height:96px;font-size:44px;border-color:rgba(167,139,250,.28);box-shadow:0 18px 70px rgba(0,0,0,.35), 0 0 26px rgba(167,139,250,.14);}' +
       '.pl-target.hit{transform:translate(-50%,-50%) scale(calc(var(--s,1) * 1.06));filter:brightness(1.22);opacity:.92;}' +
       '.pl-target.out{opacity:0;transform:translate(-50%,-50%) scale(calc(var(--s,1) * 0.90));transition:opacity .18s ease, transform .18s ease;}' +
       '.plate-storm .pl-target{filter:saturate(1.25) contrast(1.05);}' +
@@ -384,7 +491,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       '.plate-overdrive .pl-target{box-shadow:0 18px 70px rgba(0,0,0,.35), 0 0 26px rgba(34,197,94,.18);}' +
       '.plate-shake{animation:plateShake .16s ease-in-out 1;}' +
       '@keyframes plateShake{0%{transform:translate(0,0)}25%{transform:translate(2px,-1px)}50%{transform:translate(-2px,1px)}75%{transform:translate(1px,2px)}100%{transform:translate(0,0)}}' +
-      '.plate-laser{position:absolute;left:50%;top:var(--ly);transform:translate(-50%,-50%);width: min(92vw, 860px);height: var(--lh);' +
+      '.plate-laser{position:absolute;left:50%;top:var(--ly);transform:translate(-50%,-50%);width:min(92vw,860px);height:var(--lh);' +
       'border-radius:999px;background:linear-gradient(90deg, rgba(239,68,68,.0), rgba(239,68,68,.55), rgba(239,68,68,.0));' +
       'box-shadow:0 0 24px rgba(239,68,68,.18);border:1px solid rgba(239,68,68,.22);opacity:.92;pointer-events:none;}' +
       '.plate-laser.warn{opacity:.55;filter:saturate(1.2);}';
@@ -392,10 +499,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   })();
 
   function logEvent(type, data){
-    // Fire a standard event (cloud logger can listen)
     emit('hha:log_event', { type: type, data: data || {} });
 
-    // If there is a logger object, try to pass it too
     var L = getLogger();
     try{
       if (L && typeof L.logEvent === 'function') L.logEvent(type, data || {});
@@ -403,24 +508,18 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     } catch (e) {}
   }
 
-  // --------------------------- Quest Director (Goals sequential + Minis chain) ---------------------------
+  // --------------------------- Quest Director (Goals + Minis deterministic chain) ---------------------------
   var Quest = (function(){
-    // Concept 1-5 mapping for Plate:
-    // 1) Fill plate counts (balanced target amounts)
-    // 2) Keep ratio within tolerance (no extreme skew)
-    // 3) Accuracy gate >= 88%  ✅ per user
-    // 4) Survive Storm + avoid junk
-    // 5) Beat Boss + dodge Laser (world-shift)
-
     var goals = [
       { id:'goal1', title:'เติมจานให้ครบ (ครบตามสัดส่วน)', kind:'fill_plate' },
       { id:'goal2', title:'สัดส่วนต้อง “บาลานซ์”', kind:'balance_ratio' },
       { id:'goal3', title:'ความแม่นยำ ≥ 88%', kind:'acc_gate_88' }
     ];
 
-    // Minis are deterministic chain (equal exposure => “เฉลี่ยเท่า ๆ กัน”)
+    // ✅ เพิ่ม mini: No-Junk Zone ให้มาแบบ “เฉลี่ยเท่า ๆ กัน”
     var minis = [
       { id:'mini_rush',  title:'Plate Rush: ครบ 5 ใน 8 วิ และห้ามโดนขยะ', kind:'rush', total:5, ms:8000, noJunk:true },
+      { id:'mini_zone',  title:'No-Junk Zone: เก็บดี 6 ในวงภายใน 7 วิ', kind:'zone_collect', total:6, ms:7000 },
       { id:'mini_clean', title:'Clean Streak: 10 วิห้าม MISS/โดนขยะ', kind:'clean', ms:10000 },
       { id:'mini_perfect', title:'Perfect x3: ยิงเร็วจัด 3 ครั้ง', kind:'perfect3', total:3, ms:9000 },
       { id:'mini_storm', title:'Storm Survivor: รอด Storm 1 รอบแบบไม่พลาด', kind:'storm_survive', total:1 },
@@ -441,12 +540,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
       miniNow: 0,
       miniTotal: 0,
-      miniEndAt: 0,
-      miniFailHard: false
+      miniEndAt: 0
     };
-
-    function goal(){ return st.activeGoal; }
-    function mini(){ return st.activeMini; }
 
     function reset(){
       st.goalIndex = 0;
@@ -458,7 +553,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       st.miniNow = 0;
       st.miniTotal = 0;
       st.miniEndAt = 0;
-      st.miniFailHard = false;
       pushUpdate();
     }
 
@@ -487,11 +581,15 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       st.miniNow = 0;
       st.miniTotal = (m.total != null) ? (m.total|0) : 1;
       st.miniEndAt = (m.ms != null) ? (nowMs() + (m.ms|0)) : 0;
-      st.miniFailHard = false;
 
       logEvent('mini_start', { miniId:m.id, title:m.title });
       emit('hha:judge', { kind:'good', text:'MINI START!' });
       emit('hha:celebrate', { kind:'mini', title:m.title });
+
+      // Mini that turns on zone immediately
+      if (m.kind === 'zone_collect'){
+        setZoneOn(Math.ceil((m.ms|0)/1000));
+      }
 
       pushUpdate({ miniStart:true });
       return true;
@@ -507,17 +605,18 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       emit('hha:judge', { kind:'good', text:'MINI CLEAR!' });
       emit('hha:celebrate', { kind:'mini', title:'MINI CLEAR!' });
 
+      if (m.kind === 'zone_collect'){
+        setZoneOff(true);
+      }
+
       st.activeMini = null;
       st.miniNow = 0;
       st.miniTotal = 0;
       st.miniEndAt = 0;
-      st.miniFailHard = false;
 
-      // Next mini (chain) if we still have time
       st.miniIndex++;
       pushUpdate({ miniEnd:true });
 
-      // Start next mini after a short beat (feels good)
       root.setTimeout(function(){
         if (!engine.running || engine.ended) return;
         if (st.miniIndex < minis.length) startMini(st.miniIndex);
@@ -533,13 +632,15 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       emit('hha:judge', { kind:'warn', text:'MINI FAIL!' });
       Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'warn');
 
+      if (m.kind === 'zone_collect'){
+        setZoneOff(false);
+      }
+
       st.activeMini = null;
       st.miniNow = 0;
       st.miniTotal = 0;
       st.miniEndAt = 0;
-      st.miniFailHard = false;
 
-      // Continue chain (but you lost one)
       st.miniIndex++;
       pushUpdate({ miniEnd:true });
 
@@ -577,7 +678,28 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       };
     }
 
-    // Called by engine on relevant events
+    function plateFilled(){
+      var need = engine.plateNeed;
+      var p = engine.plate;
+      return (p.veg >= need.veg && p.fruit >= need.fruit && p.prot >= need.prot && p.grain >= need.grain);
+    }
+
+    function plateBalanced(){
+      var need = engine.plateNeed;
+      var p = engine.plate;
+
+      var totalNeed = need.veg + need.fruit + need.prot + need.grain;
+      var totalNow = p.veg + p.fruit + p.prot + p.grain;
+      if (totalNow < Math.floor(totalNeed * 0.75)) return false;
+
+      function dist(now, target){
+        var t = Math.max(1, target);
+        return Math.abs(now - target) / t;
+      }
+      var d = dist(p.veg, need.veg) + dist(p.fruit, need.fruit) + dist(p.prot, need.prot) + dist(p.grain, need.grain);
+      return d <= 1.15;
+    }
+
     function onTick(){
       var m = st.activeMini;
       if (m && st.miniEndAt && nowMs() >= st.miniEndAt){
@@ -587,7 +709,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
 
     function onGoodHit(meta){
-      // Mini tracking
       var m = st.activeMini;
       if (m){
         if (m.kind === 'rush'){
@@ -598,10 +719,15 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
             st.miniNow++;
             if (st.miniNow >= st.miniTotal) clearMini();
           }
+        } else if (m.kind === 'zone_collect'){
+          // only count if inside zone at hit-time (strict)
+          if (meta && meta.insideZone) {
+            st.miniNow++;
+            if (st.miniNow >= st.miniTotal) clearMini();
+          }
         }
       }
 
-      // Goal tracking
       var g = st.activeGoal;
       if (!g) return;
 
@@ -624,6 +750,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         failMini('broke_clean');
       } else if (m.kind === 'storm_survive'){
         failMini('storm_miss');
+      } else if (m.kind === 'zone_collect'){
+        failMini('zone_broke');
       }
     }
 
@@ -668,35 +796,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       startMini(0);
     }
 
-    // Plate utilities (read engine state)
-    function plateFilled(){
-      var need = engine.plateNeed;
-      var p = engine.plate;
-      return (p.veg >= need.veg && p.fruit >= need.fruit && p.prot >= need.prot && p.grain >= need.grain);
-    }
-
-    function plateBalanced(){
-      // Balance rule: no category exceeds others by too much once filled
-      // Use normalized ratio distance to target proportions: veg 5, fruit 3, prot 4, grain 4
-      var need = engine.plateNeed;
-      var p = engine.plate;
-
-      // if not close to filled, don't gate too early
-      var totalNeed = need.veg + need.fruit + need.prot + need.grain;
-      var totalNow = p.veg + p.fruit + p.prot + p.grain;
-      if (totalNow < Math.floor(totalNeed * 0.75)) return false;
-
-      function dist(now, target){
-        var t = Math.max(1, target);
-        return Math.abs(now - target) / t;
-      }
-      var d = dist(p.veg, need.veg) + dist(p.fruit, need.fruit) + dist(p.prot, need.prot) + dist(p.grain, need.grain);
-      // tuned tolerance
-      return d <= 1.15;
-    }
-
     return {
-      reset: reset,
       startAll: startAll,
       onTick: onTick,
       onGoodHit: onGoodHit,
@@ -713,7 +813,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   function addFever(delta){
     engine.fever = clamp(engine.fever + (delta|0), 0, 100);
 
-    // sync optional UI
     try{
       if (FeverUI && typeof FeverUI.set === 'function') FeverUI.set(engine.fever);
       if (FeverUI && typeof FeverUI.setFever === 'function') FeverUI.setFever(engine.fever);
@@ -728,6 +827,42 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
   }
 
+  // --------------------------- Perfect streak multiplier ---------------------------
+  function bumpStreak(isPerfectOrCrit){
+    var t = nowMs();
+    if (!isPerfectOrCrit){
+      engine.streakLvl = 0;
+      engine.streakHits = 0;
+      engine.streakUntil = 0;
+      return;
+    }
+
+    // decay window: keep chain alive if next perfect within 2.6s
+    if (t > engine.streakUntil){
+      engine.streakHits = 0;
+      engine.streakLvl = 0;
+    }
+
+    engine.streakHits++;
+    engine.streakUntil = t + 2600;
+
+    // level up thresholds
+    if (engine.streakHits >= 8) engine.streakLvl = 3;
+    else if (engine.streakHits >= 5) engine.streakLvl = 2;
+    else if (engine.streakHits >= 2) engine.streakLvl = 1;
+    else engine.streakLvl = 0;
+
+    if (engine.streakLvl > 0){
+      emit('hha:judge', { kind:'good', text:'STREAK x' + (streakMult().toFixed(1)) + '!' });
+    }
+  }
+
+  function breakStreak(){
+    engine.streakLvl = 0;
+    engine.streakHits = 0;
+    engine.streakUntil = 0;
+  }
+
   // --------------------------- Spawn / Types ---------------------------
   function chooseType(){
     var base = (engine.runMode === 'research') ? diffParams(engine.diff) : engine.adapt;
@@ -735,11 +870,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var j = clamp(base.junk + (engine.storm ? 0.05 : 0), 0.06, 0.30);
     var d = clamp(base.decoy + (engine.storm ? 0.03 : 0), 0.05, 0.25);
 
-    // Powerup chance
     var pu = engine.storm ? 0.020 : 0.012;
     if (engine.rng() < pu) return 'star';
-
-    // Boss occasional (engine spawns separately)
 
     var r = engine.rng();
     if (r < j) return 'junk';
@@ -748,7 +880,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   }
 
   function chooseGoodKind(){
-    // weighted to encourage balance (pull toward missing portions)
     var need = engine.plateNeed;
     var p = engine.plate;
 
@@ -758,7 +889,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       {k:'prot',  w: Math.max(0.15, (need.prot  - p.prot)  / Math.max(1, need.prot))},
       {k:'grain', w: Math.max(0.15, (need.grain - p.grain) / Math.max(1, need.grain))}
     ];
-    // normalize
     var sum = 0;
     for (var i=0;i<weights.length;i++) sum += weights[i].w;
     var t = engine.rng() * sum;
@@ -802,26 +932,26 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       el.classList.add('pl-boss');
       el.textContent = '👑';
       el.dataset.hp = String(meta && meta.hp ? meta.hp : 3);
+      el.dataset.phase = String(meta && meta.phase ? meta.phase : 1);
     }
 
-    // TTL
     var ttlBase = engine.ttlMs;
     var ttl = engine.storm ? Math.max(880, ttlBase * 0.85) : ttlBase;
 
     el._ttlTimer = root.setTimeout(function(){
       if (!el.isConnected) return;
 
-      // Expire miss only for GOOD
       if (tp === 'good'){
         engine.misses++;
         engine.combo = 0;
+        breakStreak();
+
         emit('hha:judge', { kind:'warn', text:'MISS!' });
         Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'warn');
         addFever(-10);
         updateScore();
         logEvent('miss_expire', { kind: el.dataset.kind || '', emoji: el.dataset.emoji || '' });
 
-        // Mini/goal penalty
         Quest.onBadHit({ reason:'expire' });
       }
 
@@ -901,7 +1031,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     emit('plate:storm', { on:false, durSec:0 });
     logEvent('storm_end', { clean: !!clean });
 
-    // Mini storm-survive check
     Quest.onStormEnd(!!clean);
   }
 
@@ -915,11 +1044,9 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       return;
     }
 
-    // danger zone: last 3.2s
     if (leftMs <= 3200){
       DOC.body.classList.add('plate-storm-urgent');
       SFX.tick(leftMs);
-      // subtle edge shake
       if (leftMs <= 1200){
         DOC.body.classList.add('plate-shake');
         root.setTimeout(function(){ DOC.body.classList.remove('plate-shake'); }, 180);
@@ -929,149 +1056,183 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
   }
 
-  // --------------------------- Boss + Laser hazard (dodge via world-shift) ---------------------------
-  var laserEl = null;
-  function ensureLaser(){
-    if (laserEl) return laserEl;
-    laserEl = mkEl('div', 'plate-laser warn');
-    laserEl.style.setProperty('--ly', '50%');
-    laserEl.style.setProperty('--lh', '24px');
-    layer.appendChild(laserEl);
-    laserEl.style.display = 'none';
-    return laserEl;
+  // --------------------------- Laser hazard (supports multi lines) ---------------------------
+  var laserEls = [];
+
+  function ensureLaserEl(i){
+    if (laserEls[i]) return laserEls[i];
+    var el = mkEl('div', 'plate-laser warn');
+    el.style.setProperty('--ly', '50%');
+    el.style.setProperty('--lh', '24px');
+    el.style.display = 'none';
+    layer.appendChild(el);
+    laserEls[i] = el;
+    return el;
+  }
+
+  function stopLasers(){
+    engine.lasers.list = [];
+    for (var i=0;i<laserEls.length;i++){
+      if (!laserEls[i]) continue;
+      laserEls[i].style.display = 'none';
+      laserEls[i].classList.remove('warn');
+    }
   }
 
   function scheduleLaser(){
-    // laser appears more in storm / when boss alive
     var base = engine.storm ? 4600 : 6200;
     var jitter = engine.rng() * 2800;
     try { root.clearTimeout(engine.hazardTimer); } catch(e) {}
     engine.hazardTimer = root.setTimeout(function(){
       if (!engine.running || engine.ended) return;
-      startLaser();
+      startLaserBurst();
       scheduleLaser();
     }, base + jitter);
   }
 
-  function startLaser(){
+  function startLaserBurst(){
     var r = safeRect();
-    var y = r.y0 + engine.rng() * (r.y1 - r.y0);
+
+    var phase2 = (engine.bossDownCount >= 1); // ✅ boss phase 2 unlocked after first boss down
+    var count = phase2 ? (engine.rng() < 0.60 ? 2 : 1) : (engine.rng() < 0.22 ? 2 : 1);
+    if (engine.storm && phase2) count = 2;
+
     var h = engine.storm ? 26 : 22;
+    var warnMs = phase2 ? 420 : 520;
+    var activeMs = phase2 ? 900 : 1150;
 
-    engine.laser.on = true;
-    engine.laser.y = y;
-    engine.laser.h = h;
-    engine.laser.warnUntil = nowMs() + 520;
-    engine.laser.until = nowMs() + 1150;
+    engine.lasers.list = [];
 
-    var el = ensureLaser();
-    el.style.display = '';
-    el.classList.add('warn');
-    el.style.setProperty('--ly', y.toFixed(1) + 'px');
-    el.style.setProperty('--lh', h.toFixed(1) + 'px');
+    for (var i=0;i<count;i++){
+      var y = r.y0 + engine.rng() * (r.y1 - r.y0);
 
-    logEvent('hazard_spawn', { kind:'laser', y:y });
+      var L = {
+        y: y,
+        h: h,
+        warnUntil: nowMs() + warnMs,
+        until: nowMs() + warnMs + activeMs,
+        hit: false
+      };
+      engine.lasers.list.push(L);
 
-    // warning beep
+      var el = ensureLaserEl(i);
+      el.style.display = '';
+      el.classList.add('warn');
+      el.style.setProperty('--ly', y.toFixed(1) + 'px');
+      el.style.setProperty('--lh', h.toFixed(1) + 'px');
+    }
+
+    // hide extra els
+    for (var k=count;k<laserEls.length;k++){
+      if (laserEls[k]) laserEls[k].style.display = 'none';
+    }
+
+    logEvent('hazard_spawn', { kind:'laser', count: count, phase2: phase2 });
+
     SFX.beep(520, 0.05, 0.04);
   }
 
-  function stopLaser(){
-    engine.laser.on = false;
-    var el = ensureLaser();
-    el.style.display = 'none';
-    el.classList.remove('warn');
-  }
-
-  function checkLaserHit(){
-    if (!engine.laser.on) return;
+  function checkLaserTick(){
+    if (!engine.lasers.list || !engine.lasers.list.length) return;
 
     var t = nowMs();
-    var el = ensureLaser();
-
-    if (t < engine.laser.warnUntil){
-      el.classList.add('warn');
-      return;
-    }
-    el.classList.remove('warn');
-
-    if (t >= engine.laser.until){
-      // if survived (didn't get hit during active), count dodge
-      Quest.onLaserDodged();
-      stopLaser();
-      return;
-    }
-
-    // ACTIVE: compute crosshair (screen center) vs laser bar position (shifted with world)
-    // laser lives inside layer; since layer is translated by vx/vy, effective laser center is y + vy.
     var r = safeRect();
     var cx = r.W * 0.5;
     var cy = r.H * 0.5;
 
-    var ly = engine.laser.y + engine.vy; // shift affects hazard relative to center
-    var distY = Math.abs(cy - ly);
+    var anyAlive = false;
 
-    if (distY <= (engine.laser.h * 0.5)){
-      // hit by laser
-      if (engine.shield > 0){
-        engine.shield = 0;
-        emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
-        logEvent('shield_block', { kind:'laser' });
-        stopLaser();
-        return;
+    for (var i=0;i<engine.lasers.list.length;i++){
+      var L = engine.lasers.list[i];
+      if (!L) continue;
+
+      var el = ensureLaserEl(i);
+
+      if (t < L.warnUntil){
+        el.classList.add('warn');
+        anyAlive = true;
+        continue;
+      } else {
+        el.classList.remove('warn');
       }
 
-      engine.misses++;
-      engine.combo = 0;
-      addFever(-16);
+      if (t >= L.until){
+        // completed without hit
+        if (!L.hit){
+          Quest.onLaserDodged();
+        }
+        continue;
+      }
 
-      emit('hha:judge', { kind:'bad', text:'LASER HIT!' });
-      DOC.body.classList.add('plate-shake');
-      root.setTimeout(function(){ DOC.body.classList.remove('plate-shake'); }, 220);
+      anyAlive = true;
 
-      SFX.bad();
-      logEvent('hazard_hit', { kind:'laser' });
+      // ACTIVE collision (laser shifts by vy)
+      var ly = L.y + (engine.vy||0);
+      var distY = Math.abs(cy - ly);
 
-      // Mini penalty
-      Quest.onBadHit({ reason:'laser' });
+      if (!L.hit && distY <= (L.h * 0.5)){
+        // HIT
+        if (engine.shield > 0){
+          engine.shield = 0;
+          emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
+          logEvent('shield_block', { kind:'laser' });
+          L.hit = true; // still counts as “handled”
+          continue;
+        }
 
-      updateScore();
-      stopLaser();
+        L.hit = true;
+
+        engine.misses++;
+        engine.combo = 0;
+        breakStreak();
+        addFever(-16);
+
+        emit('hha:judge', { kind:'bad', text:'LASER HIT!' });
+        DOC.body.classList.add('plate-shake');
+        root.setTimeout(function(){ DOC.body.classList.remove('plate-shake'); }, 220);
+
+        SFX.bad();
+        logEvent('hazard_hit', { kind:'laser' });
+
+        Quest.onBadHit({ reason:'laser' });
+
+        updateScore();
+      }
+    }
+
+    if (!anyAlive){
+      stopLasers();
     }
   }
 
+  // --------------------------- Boss spawn (Phase 2) ---------------------------
   function tryBossSpawn(){
     if (engine.bossAlive) return;
     if (nowMs() < engine.nextBossAt) return;
 
+    var phase2 = (engine.bossDownCount >= 1);
     engine.bossAlive = true;
-    engine.bossHp = engine.bossHpMax;
+    engine.bossHpMax = phase2 ? (engine.bossHpMax + 1) : engine.bossHpMax;
+    engine.bossHp = phase2 ? (engine.bossHpMax) : engine.bossHpMax;
 
-    var p = randPos(engine.rng);
-    var s = (engine.storm ? 1.18 : 1.28) * engine.sizeBase * ((engine.runMode === 'research') ? 1 : engine.adapt.size);
+    var p = zone.on ? pickPosInsideZone(engine.rng) : randPos(engine.rng);
+    var s = (engine.storm ? 1.18 : 1.30) * engine.sizeBase * ((engine.runMode === 'research') ? 1 : engine.adapt.size);
 
-    var el = makeTarget('boss', { hp: engine.bossHp }, p.x, p.y, s);
+    var el = makeTarget('boss', { hp: engine.bossHp, phase: phase2 ? 2 : 1 }, p.x, p.y, s);
     layer.appendChild(el);
 
     engine.nSpawnBoss++;
-    logEvent('spawn', { kind:'boss', emoji:'👑' });
+    logEvent('spawn', { kind:'boss', emoji:'👑', phase: phase2 ? 2 : 1 });
 
-    emit('hha:judge', { kind:'boss', text:'BOSS!' });
-    emit('hha:celebrate', { kind:'goal', title:'BOSS 등장!' });
+    emit('hha:judge', { kind:'boss', text: phase2 ? 'BOSS P2!' : 'BOSS!' });
+    emit('hha:celebrate', { kind:'goal', title: phase2 ? 'BOSS PHASE 2!' : 'BOSS 등장!' });
 
-    // next boss (play: depends on adapt)
     engine.nextBossAt = nowMs() + (engine.runMode === 'research' ? 21000 : clamp(engine.adapt.bossEvery, 14000, 25000));
   }
 
   // --------------------------- Perfect / Critical ---------------------------
-  function judgePerfect(rtMs){
-    // Perfect: fast reaction
-    return (rtMs <= 330);
-  }
-  function judgeCritical(rtMs){
-    // Critical: ultra fast
-    return (rtMs <= 220);
-  }
+  function judgePerfect(rtMs){ return (rtMs <= 330); }
+  function judgeCritical(rtMs){ return (rtMs <= 220); }
 
   // --------------------------- Hit logic ---------------------------
   function hitBoss(el){
@@ -1083,7 +1244,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     el.dataset.hp = String(engine.bossHp);
 
     var mult = scoreMult();
-    engine.score += Math.round((160 + engine.combo * 2) * mult);
+    engine.score += Math.round((180 + engine.combo * 2) * mult);
 
     emit('hha:judge', { kind:'boss', text:'HIT!' });
     SFX.good();
@@ -1092,19 +1253,22 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
     if (engine.bossHp <= 0){
       engine.bossAlive = false;
+      engine.bossDownCount++;
+
       emit('hha:judge', { kind:'boss', text:'BOSS DOWN!' });
       emit('hha:celebrate', { kind:'goal', title:'BOSS DOWN!' });
       SFX.power();
       addFever(18);
 
-      // reward: shield + score burst
       engine.shield = 1;
-      engine.score += 420 * mult;
+      engine.score += Math.round(520 * mult);
 
-      // Mini boss down
       Quest.onBossDown();
 
-      logEvent('boss_down', { });
+      logEvent('boss_down', { bossDownCount: engine.bossDownCount|0 });
+
+      // Phase2 pacing: bring next boss a bit sooner
+      engine.nextBossAt = nowMs() + (engine.bossDownCount >= 1 ? 16000 : 19000);
     }
 
     removeTarget(el);
@@ -1117,23 +1281,24 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var tp = String(el.dataset.type || '').toLowerCase();
     var rt = Math.max(0, nowMs() - (Number(el._spawnAt) || nowMs()));
 
-    // boss
     if (tp === 'boss'){
       hitBoss(el);
       return;
     }
 
-    // star powerup
     if (tp === 'star'){
       engine.nHitGood++;
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
 
+      // ⭐ breaks nothing; keep streak as-is
       var multS = scoreMult();
-      engine.score += 140 * multS;
+      engine.score += Math.round(150 * multS);
+
       emit('hha:judge', { kind:'good', text:'⭐ STAR!' });
       Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'good');
       SFX.power();
+
       onStarCollected();
       updateScore();
       logEvent('hit', { kind:'star', emoji:'⭐', rtMs: rt|0 });
@@ -1141,12 +1306,18 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       return;
     }
 
-    // GOOD
+    // zone check at hit-time (strict)
+    var xy = getXY(el);
+    var insideZone = zone.on ? isInsideZoneXY(xy.x, xy.y) : false;
+
     if (tp === 'good'){
       engine.nHitGood++;
 
       var perfect = judgePerfect(rt);
       var critical = judgeCritical(rt);
+
+      if (perfect || critical) bumpStreak(true);
+      else bumpStreak(false);
 
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
@@ -1158,58 +1329,56 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
       engine.score += Math.round(base * mult);
 
-      // update plate counters
       var kind = String(el.dataset.kind || 'veg');
       if (engine.plate[kind] != null) engine.plate[kind]++;
 
-      // fever
       addFever(perfect ? 9 : 7);
 
-      // effects
       if (critical){
-        emit('hha:judge', { kind:'good', text:(mult>1?'CRIT x2!':'CRITICAL!') });
+        emit('hha:judge', { kind:'good', text:(scoreMultBase()>1?'CRIT x2!':'CRITICAL!') });
         SFX.perfect();
       } else if (perfect){
-        emit('hha:judge', { kind:'good', text:(mult>1?'PERF x2!':'PERFECT!') });
+        emit('hha:judge', { kind:'good', text:(scoreMultBase()>1?'PERF x2!':'PERFECT!') });
         SFX.perfect();
       } else {
-        emit('hha:judge', { kind:'good', text:(mult>1?'OVER x2!':'GOOD!') });
+        emit('hha:judge', { kind:'good', text:(scoreMultBase()>1?'OVER x2!':'GOOD!') });
         SFX.good();
       }
 
-      // particles (if available)
       try{
-        var pxy = getXY(el);
-        Particles.scorePop(pxy.x, pxy.y, '+' + Math.round(base * mult));
-        Particles.burstAt(pxy.x, pxy.y, critical ? 'boss' : (perfect ? 'gold' : 'good'));
+        Particles.scorePop(xy.x, xy.y, '+' + Math.round(base * mult));
+        Particles.burstAt(xy.x, xy.y, critical ? 'boss' : (perfect ? 'gold' : 'good'));
       } catch (e) {}
 
       updateScore();
       logEvent('hit', {
         kind: kind, isGood:true, emoji: el.dataset.emoji || '',
         rtMs: rt|0, perfect: !!perfect, critical: !!critical,
+        insideZone: !!insideZone,
         totalScore: engine.score|0, combo: engine.combo|0,
-        feverValue: engine.fever|0, shield: engine.shield|0
+        feverValue: engine.fever|0, shield: engine.shield|0,
+        scoreMult: mult
       });
 
-      // Quest updates
-      Quest.onGoodHit({ perfect: !!perfect, critical: !!critical });
+      Quest.onGoodHit({ perfect: !!perfect, critical: !!critical, insideZone: !!insideZone });
 
       removeTarget(el);
       return;
     }
 
-    // BAD-like: junk / decoy
+    // junk / decoy (penalty)
     var badLike = (tp === 'junk' || tp === 'decoy');
-
     if (badLike){
+      // If NO-JUNK ZONE is on and you hit bad, punish harder (but still shieldable)
+      var zonePunish = (zone.on ? 1 : 0);
+
       if (tp === 'junk' && engine.shield > 0){
         engine.shield = 0;
         engine.combo = Math.max(0, engine.combo - 1);
         emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
         SFX.power();
 
-        logEvent('shield_block', { kind:'junk', emoji: el.dataset.emoji || '' });
+        logEvent('shield_block', { kind:'junk', emoji: el.dataset.emoji || '', zoneOn: zone.on });
         updateScore();
         removeTarget(el);
         return;
@@ -1217,23 +1386,22 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
       engine.misses++;
       engine.combo = 0;
-      addFever(tp === 'junk' ? -18 : -14);
+      breakStreak();
+      addFever(tp === 'junk' ? (-18 - zonePunish*6) : (-14 - zonePunish*5));
 
       if (tp === 'junk') engine.nHitJunk++;
       else engine.nHitDecoy++;
 
-      emit('hha:judge', { kind:'bad', text: (tp === 'junk' ? 'JUNK!' : 'TRAP!') });
+      emit('hha:judge', { kind:'bad', text: (tp === 'junk' ? (zone.on ? 'JUNK IN ZONE!' : 'JUNK!') : 'TRAP!') });
       SFX.bad();
 
-      // storm harsher: extend a bit when you get hit
       if (engine.storm) engine.stormUntil += 650;
 
       DOC.body.classList.add('plate-shake');
       root.setTimeout(function(){ DOC.body.classList.remove('plate-shake'); }, 220);
 
-      logEvent('hit', { kind: tp, isGood:false, emoji: el.dataset.emoji || '', rtMs: rt|0 });
+      logEvent('hit', { kind: tp, isGood:false, emoji: el.dataset.emoji || '', rtMs: rt|0, zoneOn: zone.on });
 
-      // Mini penalty
       Quest.onBadHit({ reason: tp });
 
       updateScore();
@@ -1242,14 +1410,32 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
   }
 
-  // --------------------------- Spawn loop ---------------------------
+  // --------------------------- Zone schedule tick ---------------------------
+  function maybeZoneTick(){
+    var t = nowMs();
+    if (zone.on){
+      if (t >= zone.until){
+        setZoneOff(true);
+        zone.nextAt = t + (16000 + engine.rng() * 12000);
+      }
+      return;
+    }
+
+    if (t >= zone.nextAt){
+      // appear as a “moment” (more often in play mode)
+      var sec = engine.storm ? 6 : 7;
+      setZoneOn(sec);
+      zone.nextAt = t + (20000 + engine.rng() * 14000);
+    }
+  }
+
+  // --------------------------- Spawn loop (zone-aware) ---------------------------
   function spawnOne(){
     if (!engine.running || engine.ended) return;
 
     tryBossSpawn();
 
     var tp = chooseType();
-    var p = randPos(engine.rng);
 
     var base = (engine.runMode === 'research') ? diffParams(engine.diff) : engine.adapt;
     var stormScale = engine.storm ? 0.92 : 1.0;
@@ -1259,24 +1445,33 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     if (tp === 'decoy') size *= 0.98;
     if (tp === 'star') size *= 0.98;
 
+    // ✅ Zone fairness: good/star/boss inside, bad outside
+    var p;
+    if (zone.on){
+      if (tp === 'good' || tp === 'star') p = pickPosInsideZone(engine.rng);
+      else p = pickPosOutsideZone(engine.rng);
+    } else {
+      p = randPos(engine.rng);
+    }
+
     var el;
     if (tp === 'good'){
       var k = chooseGoodKind();
       el = makeTarget('good', { kind:k }, p.x, p.y, size);
       engine.nSpawnGood++;
-      logEvent('spawn', { kind:k, emoji: el.dataset.emoji || '', isGood:true });
+      logEvent('spawn', { kind:k, emoji: el.dataset.emoji || '', isGood:true, zoneOn: zone.on });
     } else if (tp === 'junk'){
       el = makeTarget('junk', null, p.x, p.y, size);
       engine.nSpawnJunk++;
-      logEvent('spawn', { kind:'junk', emoji: el.dataset.emoji || '', isGood:false });
+      logEvent('spawn', { kind:'junk', emoji: el.dataset.emoji || '', isGood:false, zoneOn: zone.on });
     } else if (tp === 'decoy'){
       el = makeTarget('decoy', null, p.x, p.y, size);
       engine.nSpawnDecoy++;
-      logEvent('spawn', { kind:'decoy', emoji: el.dataset.emoji || '', isGood:false });
+      logEvent('spawn', { kind:'decoy', emoji: el.dataset.emoji || '', isGood:false, zoneOn: zone.on });
     } else if (tp === 'star'){
       el = makeTarget('star', null, p.x, p.y, size);
       engine.nSpawnStar++;
-      logEvent('spawn', { kind:'star', emoji:'⭐', isGood:true });
+      logEvent('spawn', { kind:'star', emoji:'⭐', isGood:true, zoneOn: zone.on });
     }
 
     if (el) layer.appendChild(el);
@@ -1293,7 +1488,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
   }
 
-  // --------------------------- Tick loop (adaptive + storm + laser + quest) ---------------------------
+  // --------------------------- Tick loop (adaptive + storm + zone + lasers + quest) ---------------------------
   function loopTick(){
     if (!engine.running || engine.ended) return;
 
@@ -1301,8 +1496,11 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     if (!engine.storm && nowMs() >= engine.nextStormAt) enterStorm();
     if (engine.storm) maybeStormTick();
 
-    // laser checks
-    checkLaserHit();
+    // zone schedule
+    maybeZoneTick();
+
+    // lasers
+    checkLaserTick();
 
     // adaptive (play only)
     if (engine.runMode === 'play'){
@@ -1320,6 +1518,13 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       engine.adapt.bossEvery = clamp(20000 - heat * 6500, 14000, 23000);
     } else {
       engine.ttlMs = diffParams(engine.diff).ttl;
+    }
+
+    // streak decay (soft)
+    if (engine.streakUntil && nowMs() > engine.streakUntil){
+      engine.streakHits = 0;
+      engine.streakLvl = 0;
+      engine.streakUntil = 0;
     }
 
     // time
@@ -1351,7 +1556,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var end = DOC.getElementById('endOverlay');
     if (!end) return null;
 
-    // bind buttons once
     if (end.dataset.bound === '1') return end;
     end.dataset.bound = '1';
 
@@ -1360,7 +1564,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
     if (btnRetry){
       btnRetry.addEventListener('click', function(){
-        // flush then reload
         PlateBoot.flushThen(function(){
           try { root.location.reload(); } catch (e) {}
         }, 'retry');
@@ -1399,8 +1602,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   // --------------------------- Flush-hardened ---------------------------
   function flushNow(reason){
     reason = String(reason || 'flush');
-
-    // Allow any listeners to push final logs
     emit('hha:flush', { reason: reason });
 
     var L = getLogger();
@@ -1411,7 +1612,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       else if (L && typeof L.flushNow === 'function') p = L.flushNow({ reason: reason });
     } catch (e) { p = null; }
 
-    // Always resolve quickly (do not block)
     return new Promise(function(resolve){
       var done = false;
       function finish(){
@@ -1419,7 +1619,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         done = true;
         resolve(true);
       }
-      // timeout hard cap
       root.setTimeout(finish, 850);
 
       if (p && typeof p.then === 'function'){
@@ -1436,13 +1635,14 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.ended = true;
     engine.running = false;
 
-    DOC.body.classList.remove('plate-storm','plate-storm-urgent','plate-overdrive');
+    DOC.body.classList.remove('plate-storm','plate-storm-urgent','plate-overdrive','plate-zoneOn','plate-zonePulse');
     try { root.clearTimeout(engine.spawnTimer); } catch (e) {}
     try { root.clearTimeout(engine.tickTimer); } catch (e) {}
     try { root.clearTimeout(engine.hazardTimer); } catch (e) {}
 
-    stopLaser();
+    stopLasers();
     clearAllTargets();
+    setZoneOff(true);
 
     var acc = accPct();
     var grade = rankFromAcc(acc);
@@ -1462,7 +1662,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       miniCleared:  q ? (q.miniCleared|0)  : 0,
       miniTotal:    q ? (q.miniTotal|0)    : 0,
 
-      // spawn/hit stats
+      // stats
       nTargetGoodSpawned: engine.nSpawnGood|0,
       nTargetJunkSpawned: engine.nSpawnJunk|0,
       nTargetDecoySpawned: engine.nSpawnDecoy|0,
@@ -1474,7 +1674,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       nHitDecoy: engine.nHitDecoy|0,
       nHitBoss: engine.nHitBoss|0,
 
-      // plate state
+      bossDownCount: engine.bossDownCount|0,
+
       plate: {
         veg: engine.plate.veg|0,
         fruit: engine.plate.fruit|0,
@@ -1487,7 +1688,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       seed: engine.seed
     };
 
-    // persist last summary (both keys)
     try {
       root.localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(detail || {}));
       root.localStorage.setItem('hha_last_summary', JSON.stringify(detail || {}));
@@ -1496,7 +1696,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     logEvent('session_end', detail);
     emit('hha:end', detail);
 
-    // Flush BEFORE showing overlay (still quick-capped)
     PlateBoot.flushThen(function(){
       showEnd(detail);
     }, 'end');
@@ -1517,6 +1716,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.rng = makeRng(seed);
 
     SFX.ensure();
+    ensureZoneRing();
 
     var dp = diffParams(engine.diff);
 
@@ -1565,27 +1765,35 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.bossAlive = false;
     engine.bossHpMax = dp.bossHp;
     engine.bossHp = dp.bossHp;
+    engine.bossDownCount = 0;
     engine.nextBossAt = nowMs() + 15000;
 
-    engine.laser.on = false;
+    stopLasers();
 
     engine.overCharge = 0;
     engine.overWindowUntil = 0;
     engine.overUntil = 0;
     DOC.body.classList.remove('plate-overdrive');
 
+    engine.streakLvl = 0;
+    engine.streakHits = 0;
+    engine.streakUntil = 0;
+
     engine.vx = 0;
     engine.vy = 0;
     applyView();
 
-    // Quest reset + start minis chain (equal exposure)
+    // zone schedule
+    zone.on = false;
+    zone.until = 0;
+    zone.nextAt = nowMs() + (15000 + engine.rng() * 9000); // first appearance soon
+    zone.radius = (root.innerWidth < 420) ? 150 : 170;
+
     Quest.startAll();
 
-    // Initial UI
     updateTime();
     updateScore();
 
-    // Log session start
     logEvent('session_start', {
       runMode: engine.runMode,
       diff: engine.diff,
@@ -1593,14 +1801,12 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       seed: engine.seed
     });
 
-    // Start loops
     loopSpawn();
     loopTick();
     scheduleLaser();
   }
 
   function goHub(){
-    // use hub query param if present
     var hub = String(qs('hub', '../hub.html') || '../hub.html');
     PlateBoot.flushThen(function(){
       try{
@@ -1619,7 +1825,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     });
   }
 
-  // Expose API
   var PlateBoot = (root.PlateBoot = root.PlateBoot || {});
   PlateBoot.start = start;
   PlateBoot.goHub = goHub;
@@ -1628,7 +1833,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
   // --------------------------- Flush hooks (hardened) ---------------------------
   function hookFlush(){
-    // pagehide is the most reliable on mobile
     root.addEventListener('pagehide', function(){
       try { flushNow('pagehide'); } catch (e) {}
     }, { passive:true });
@@ -1643,7 +1847,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       try { flushNow('beforeunload'); } catch (e) {}
     });
 
-    // back button safety: flush quickly (do not block)
     root.addEventListener('popstate', function(){
       try { flushNow('popstate'); } catch (e) {}
     }, { passive:true });
@@ -1653,5 +1856,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   setupView();
   hookFlush();
   ensureEndOverlay();
+  ensureZoneRing();
 
 })(typeof window !== 'undefined' ? window : globalThis);
