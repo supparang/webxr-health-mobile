@@ -1,9 +1,12 @@
-<!-- === /herohealth/plate-vr/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (HHA Standard + Race-safe start)
-✅ waitForPlateBoot() (P0)
-✅ Judge Toast + Streak Badge UI (P2)
-✅ End overlay IDs match plate.safe.js
+<!-- === /herohealth/plate-vr.html ===
+Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
+✅ Cardboard: 2 eyes (left/right) stereoscopic via DOM clone
+✅ Fix for position:fixed => absolute per-eye (so HUD centers correctly per eye)
+✅ Big SHOOT + GAZE dwell (0.62s) + gaze rings
+✅ Start overlay + Result overlay + Back HUB + Play again (kept)
+✅ Works with ./plate/plate.safe.js (targets must be clickable DOM nodes)
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -13,598 +16,643 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + Race-safe start)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- A-Frame (optional bg + VR button) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Global FX + input compat + logger -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/hha-compat-input.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
 
   <style>
     :root{
-      color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.20);
+      --panel:rgba(2,6,23,.62);
+      --panel2:rgba(15,23,42,.58);
+      --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --cyan:#22d3ee;
-      --radius:18px;
-
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
 
-    html, body{
-      margin:0; padding:0;
+      --gaze: 0; /* 0..1 */
+    }
+    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); overflow:hidden;}
+    a-scene{position:fixed; inset:0;}
+
+    /* =========================================================
+       ✅ APP WRAP (important for Cardboard absolute layout)
+    ========================================================= */
+    #plateApp{
+      position:fixed; inset:0;
       width:100%; height:100%;
       overflow:hidden;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 60%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 60%),
-        var(--bg);
-      font-family: system-ui,-apple-system,"Segoe UI",sans-serif;
-      color: var(--text);
     }
 
-    a-scene{ position:fixed; inset:0; z-index:0; }
-    a-scene[embedded]{ height:100vh; width:100vw; }
-
-    #plate-layer{
-      position:fixed;
-      inset:0;
-      z-index:2;
-      touch-action: none;
-    }
-
-    .hud-top{
-      position:fixed;
-      top: calc(12px + var(--sat));
-      left: calc(12px + var(--sal));
-      right: calc(12px + var(--sar));
-      z-index:5;
-      display:grid;
-      grid-template-columns: 1fr 1.35fr 1fr;
-      gap: 10px;
-      pointer-events:none;
-    }
-    .hud-card{
-      pointer-events:none;
-      background: var(--panel);
-      border: 1px solid var(--stroke);
-      border-radius: var(--radius);
-      box-shadow: 0 18px 70px rgba(0,0,0,.45);
+    /* =========================================================
+       Start Overlay
+    ========================================================= */
+    #startOverlay{
+      position:fixed; inset:0; z-index:1400;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(2,6,23,.72);
       backdrop-filter: blur(10px);
-      padding: 10px 12px;
+      pointer-events:auto;
     }
-    .hud-row{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .hud-title{ font-size:12px; letter-spacing:.06em; opacity:.85; font-weight:900; }
-    .hud-val{ font-size:18px; font-weight:1000; }
-    .hud-mid .hud-row{ margin-bottom:6px; }
+    #startCard{
+      width:min(720px,92vw);
+      background:rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:22px;
+      padding:16px;
+      box-shadow:0 26px 80px rgba(0,0,0,.55);
+    }
+    #startTitle{font-weight:1100; font-size:20px;}
+    #startDesc{color:rgba(148,163,184,.95); font-weight:900; margin-top:8px; line-height:1.35;}
+    #startBtns{display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;}
 
-    .plate-row{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      margin-bottom:8px;
+    /* =========================================================
+       HUD
+    ========================================================= */
+    #hudTop{
+      position:fixed; left:10px; right:10px; top:10px;
+      z-index:900; pointer-events:none;
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
+      padding-top: var(--sat);
     }
-    .plate-label{
-      font-weight:1000;
-      font-size:14px;
-      opacity:.95;
-      display:flex;
-      gap:8px;
-      align-items:center;
-    }
-    .plate-pill{
-      font-weight:1000;
-      font-size:12px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.60);
-      opacity:.95;
-    }
-
-    .q-wrap{ margin-top:8px; display:grid; gap:8px; }
-    .q-line{
-      display:flex; gap:10px; align-items:center;
-      font-size:13px; opacity:.96;
-    }
-    .q-badge{
-      font-weight:1100;
-      font-size:11px;
-      padding:4px 10px;
-      border-radius:999px;
-      border:1px solid rgba(34,197,94,.30);
-      background: rgba(34,197,94,.14);
-      letter-spacing:.04em;
-    }
-    .q-badge.mini{
-      border-color: rgba(34,211,238,.28);
-      background: rgba(34,211,238,.12);
-    }
-    .q-text{ flex:1; font-weight:900; }
-    .q-num{ font-weight:1100; opacity:.95; }
-
-    .qbar{
-      height:10px;
-      border-radius:999px;
-      background: rgba(148,163,184,.14);
-      border: 1px solid rgba(148,163,184,.16);
-      overflow:hidden;
-      position:relative;
-    }
-    .qfill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-      transition: width .12s ease;
-    }
-    .qfill.mini{
-      background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(167,139,250,.90));
-    }
-    .q-timer{
-      position:absolute;
-      right:8px; top:50%;
-      transform:translateY(-50%);
-      font-size:11px;
-      font-weight:1000;
-      opacity:.92;
-      text-shadow: 0 2px 12px rgba(0,0,0,.4);
-    }
-
-    .rank-box{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .rank-title{ font-weight:1100; font-size:12px; opacity:.85; letter-spacing:.06em; }
-    .rank-sub{ display:flex; justify-content:space-between; opacity:.9; font-size:12px; margin-top:4px; }
-    .rank-grade{
-      font-weight:1200;
-      font-size:30px;
-      padding:6px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.55);
-      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06);
-      min-width:64px;
-      text-align:center;
-    }
-
-    /* P2: streak badge */
-    .streak-badge{
-      position:fixed;
-      top: calc(86px + var(--sat));
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 6;
-      padding: 7px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(34,197,94,.30);
-      background: rgba(34,197,94,.14);
-      font-weight: 1100;
-      font-size: 12px;
-      letter-spacing:.04em;
-      opacity: 0;
-      transition: opacity .12s ease, transform .12s ease;
+    .hudCard{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      padding:10px 12px;
+      backdrop-filter: blur(8px);
+      box-shadow:0 18px 44px rgba(0,0,0,.30);
+      display:flex; gap:8px; align-items:center;
       pointer-events:none;
-      box-shadow: 0 18px 70px rgba(0,0,0,.35);
+      min-width: 0;
     }
-    .streak-badge.on{
-      opacity: 1;
-      transform: translateX(-50%) translateY(-2px);
-    }
-
-    /* P2: judge toast */
-    .toast{
-      position:fixed;
-      left:50%;
-      bottom: calc(22px + var(--sab));
-      transform: translateX(-50%);
-      z-index: 9996;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.80);
-      box-shadow: 0 18px 70px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      font-weight: 1100;
-      letter-spacing:.04em;
-      opacity: 0;
-      transition: opacity .12s ease, transform .12s ease;
-      pointer-events:none;
-      max-width: 92vw;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .toast.on{ opacity: 1; transform: translateX(-50%) translateY(-3px); }
-    .toast.good{ border-color: rgba(34,197,94,.30); }
-    .toast.warn{ border-color: rgba(245,158,11,.35); }
-    .toast.bad{  border-color: rgba(239,68,68,.35); }
-    .toast.boss{ border-color: rgba(167,139,250,.35); }
-
-    .start-overlay{
-      position:fixed; inset:0;
-      display:flex;
-      align-items:center; justify-content:center;
-      z-index:9997;
-      background: rgba(0,0,0,.55);
-      padding: 22px;
-    }
-    .start-card{
-      width: min(680px, 92vw);
-      border-radius: 22px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.88);
-      box-shadow: 0 30px 140px rgba(0,0,0,.55);
-      backdrop-filter: blur(12px);
-      padding: 18px 18px 16px;
-    }
-    .start-title{ font-size:22px; font-weight:1200; margin-bottom:6px; }
-    .start-sub{ font-size:14px; opacity:.92; line-height:1.5; }
-    .start-grid{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
     .pill{
-      font-weight:1100;
-      font-size:12px;
-      padding:7px 12px;
-      border-radius:999px;
-      border: 1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.60);
-      opacity:.95;
+      display:inline-flex; gap:8px; align-items:baseline;
+      padding:7px 10px; border-radius:999px;
+      background:rgba(15,23,42,.48);
+      border:1px solid rgba(148,163,184,.16);
+      font-weight:900;
+      white-space:nowrap;
     }
-    .start-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      margin-top:12px;
+    .k{color:var(--muted); font-weight:900; font-size:11px;}
+    .v{font-size:15px; font-weight:1000;}
+    #hudLeftGroup{display:flex; gap:8px; flex-wrap:wrap;}
+    #hudRightGroup{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;}
+
+    /* =========================================================
+       Crosshair
+    ========================================================= */
+    #crosshair{
+      position:fixed;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      z-index:420;
+      width:14px; height:14px;
+      border-radius:999px;
+      pointer-events:none;
+      box-shadow:
+        0 0 0 2px rgba(229,231,235,.28),
+        0 0 22px rgba(34,197,94,.10);
+      background:rgba(229,231,235,.07);
+      backdrop-filter: blur(6px);
+    }
+    #crosshair::after{
+      content:'';
+      position:absolute; inset:4px;
+      border-radius:999px;
+      background:rgba(229,231,235,.45);
+    }
+
+    /* =========================================================
+       Hit FX overlay
+    ========================================================= */
+    #hitFx{
+      position:fixed; inset:0;
+      z-index:850;
+      pointer-events:none;
+      opacity:0;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(2,6,23,.35) 70%, rgba(2,6,23,.65) 100%);
+      transition: opacity .08s linear;
+    }
+    #hitFx.show{ opacity:1; }
+    #hitFx[data-kind="bad"]{
+      background:
+        radial-gradient(circle at 50% 50%, rgba(251,113,133,0) 35%, rgba(251,113,133,.18) 70%, rgba(2,6,23,.70) 100%);
+    }
+    #hitFx[data-kind="boss"]{
+      background:
+        radial-gradient(circle at 50% 50%, rgba(248,113,113,0) 35%, rgba(248,113,113,.22) 70%, rgba(2,6,23,.74) 100%);
+    }
+    #hitFx[data-kind="good"]{
+      background:
+        radial-gradient(circle at 50% 50%, rgba(34,197,94,0) 35%, rgba(34,197,94,.14) 70%, rgba(2,6,23,.70) 100%);
+    }
+    #hitFx[data-kind="gold"]{
+      background:
+        radial-gradient(circle at 50% 50%, rgba(250,204,21,0) 35%, rgba(250,204,21,.16) 70%, rgba(2,6,23,.70) 100%);
+    }
+
+    /* =========================================================
+       Buttons
+    ========================================================= */
+    #hudBtns{
+      position:fixed; right:10px; bottom:calc(var(--sab) + 10px);
+      z-index:910; display:flex; gap:10px;
+      pointer-events:auto;
     }
     .btn{
       pointer-events:auto;
-      border:none;
-      border-radius:999px;
-      padding: 11px 14px;
-      font-weight:1100;
-      color: var(--text);
-      background: rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.22);
-      box-shadow: 0 18px 70px rgba(0,0,0,.38);
+      background:rgba(2,6,23,.72);
+      border:1px solid rgba(148,163,184,.20);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:1000;
+      box-shadow:0 16px 36px rgba(0,0,0,.30);
+      backdrop-filter: blur(8px);
+      user-select:none;
       -webkit-tap-highlight-color: transparent;
+      cursor:pointer;
     }
-    .btn.primary{
-      border-color: rgba(34,197,94,.35);
-      background: rgba(34,197,94,.18);
-    }
-    .btn.danger{
-      border-color: rgba(239,68,68,.35);
-      background: rgba(239,68,68,.14);
-    }
-    .start-note{ margin-top:10px; font-size:12px; opacity:.85; }
+    .btn:active{transform:translateY(1px);}
 
-    #endOverlay{
-      position:fixed; inset:0;
-      z-index:9998;
+    /* =========================================================
+       Mini/Goal panel
+    ========================================================= */
+    #miniPanel{
+      position:fixed; left:10px; right:10px; bottom:calc(var(--sab) + 64px);
+      z-index:905;
+      pointer-events:none;
+      background:rgba(2,6,23,.58);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:16px;
+      padding:10px 12px;
+      backdrop-filter: blur(8px);
+      box-shadow:0 18px 44px rgba(0,0,0,.30);
+    }
+    #miniLine{font-weight:1000;}
+    #goalLine{margin-top:6px; color:rgba(229,231,235,.88); font-weight:900;}
+    #miniHint{margin-top:6px; color:rgba(148,163,184,.92); font-weight:900; font-size:13px; line-height:1.25;}
+
+    #hudPaused{
+      position:fixed; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      z-index:980;
       display:none;
-      align-items:center; justify-content:center;
-      background: rgba(0,0,0,.58);
-      padding: 22px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(2,6,23,.75);
+      border:1px solid rgba(148,163,184,.25);
+      font-weight:1000;
+      pointer-events:none;
     }
-    #endOverlay .result-card{
-      width: min(640px, 92vw);
-      border-radius: 22px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.90);
-      box-shadow: 0 30px 140px rgba(0,0,0,.58);
-      backdrop-filter: blur(12px);
-      padding: 18px 18px 16px;
-    }
-    #endOverlay h2{ margin:0 0 8px; font-size:20px; }
-    .result-actions{
+
+    /* =========================================================
+       Coach panel
+    ========================================================= */
+    #coachPanel{
+      position:fixed;
+      left:10px;
+      bottom:calc(var(--sab) + 170px);
+      z-index:906;
+      width:min(360px,56vw);
       display:flex;
       gap:10px;
-      justify-content:flex-end;
-      flex-wrap:wrap;
-      margin-top:12px;
+      align-items:center;
+      padding:10px 12px;
+      border-radius:16px;
+      background:rgba(2,6,23,.58);
+      border:1px solid rgba(148,163,184,.18);
+      backdrop-filter: blur(8px);
+      box-shadow:0 18px 44px rgba(0,0,0,.30);
+      pointer-events:none;
+    }
+    #coachImg{
+      width:54px; height:54px;
+      border-radius:14px;
+      object-fit:cover;
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 10px 26px rgba(0,0,0,.28);
+      flex:0 0 auto;
+    }
+    #coachMsg{
+      font-weight:1000;
+      line-height:1.2;
+      color:rgba(229,231,235,.92);
+      word-break: break-word;
     }
 
-    @media (max-width: 760px){
-      .hud-top{ grid-template-columns: 1fr; }
-      .hud-card{ padding: 10px 11px; }
-      .streak-badge{ top: calc(78px + var(--sat)); }
+    /* =========================================================
+       Result overlay
+    ========================================================= */
+    #resultBackdrop{
+      position:fixed; inset:0; z-index:1200;
+      display:none; align-items:center; justify-content:center;
+      background:rgba(2,6,23,.72);
+      backdrop-filter: blur(10px);
+      pointer-events:auto;
     }
+    #resultCard{
+      width:min(760px,92vw);
+      background:rgba(2,6,23,.78);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:22px;
+      padding:16px;
+      box-shadow:0 26px 80px rgba(0,0,0,.55);
+    }
+    .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px;}
+    .cell{background:rgba(15,23,42,.55); border:1px solid rgba(148,163,184,.16); border-radius:16px; padding:10px 12px;}
+    .cell .k{display:block; margin-bottom:4px;}
+    #resultActions{
+      display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;
+    }
+
+    /* =========================================================
+       ✅ CARDBOARD STEREO WRAPPER
+    ========================================================= */
+    #cbWrap{
+      position:fixed; inset:0;
+      display:none;
+      background:#000;
+      z-index:2000;
+    }
+    body.cardboard #cbWrap{ display:flex; }
+    body.cardboard #plateApp{ display:none; } /* ซ่อน view เดี่ยว */
+
+    .eye{
+      position:relative;
+      width:50%;
+      height:100%;
+      overflow:hidden;
+      border-left:1px solid rgba(255,255,255,.06);
+    }
+    .eye:first-child{ border-left:none; }
+
+    .eyeInner{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      transform: scale(1.04);
+      transform-origin: 50% 50%;
+      background: transparent;
+    }
+
+    /* divider */
+    #cbDivider{
+      position:fixed; top:0; bottom:0; left:50%;
+      width:2px; background: rgba(255,255,255,.08);
+      z-index:2050; pointer-events:none;
+      display:none;
+    }
+    body.cardboard #cbDivider{ display:block; }
+
+    /* IMPORTANT: In Cardboard, convert fixed -> absolute so each eye centers correctly */
+    body.cardboard .cbAbs{ position:absolute !important; }
+    body.cardboard #hudTop{ position:absolute !important; left:10px; right:10px; top:10px; }
+    body.cardboard #crosshair{ position:absolute !important; left:50%; top:50%; transform:translate(-50%,-50%); }
+    body.cardboard #hitFx{ position:absolute !important; inset:0; }
+    body.cardboard #miniPanel{ position:absolute !important; left:10px; right:10px; bottom:calc(var(--sab) + 64px); }
+    body.cardboard #coachPanel{ position:absolute !important; left:10px; bottom:calc(var(--sab) + 170px); }
+    body.cardboard #hudBtns{ position:absolute !important; right:10px; bottom:calc(var(--sab) + 86px); }
+    body.cardboard #startOverlay{ position:absolute !important; inset:0; }
+    body.cardboard #resultBackdrop{ position:absolute !important; inset:0; }
+    body.cardboard #hudPaused{ position:absolute !important; left:50%; top:50%; transform:translate(-50%,-50%); }
+
+    /* Cardboard shoot pad (inside BOTH eyes via clone) */
+    #shootPad{
+      position:fixed;
+      left:50%;
+      bottom:calc(var(--sab) + 10px);
+      transform:translateX(-50%);
+      z-index:2105;
+      display:none;
+      pointer-events:auto;
+      gap:10px;
+    }
+    body.cardboard #shootPad{ display:flex; }
+    #btnShoot{
+      padding:14px 18px;
+      border-radius:18px;
+      font-size:16px;
+      font-weight:1100;
+      box-shadow:0 18px 44px rgba(0,0,0,.36);
+    }
+    #btnGaze{
+      padding:14px 16px;
+      border-radius:18px;
+      font-size:16px;
+      font-weight:1100;
+      background:rgba(2,6,23,.62);
+    }
+
+    /* Gaze rings */
+    .gazeRing{
+      position:fixed;
+      width:56px; height:56px;
+      border-radius:999px;
+      z-index:2120;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+      box-shadow: 0 0 0 2px rgba(229,231,235,.16), 0 0 18px rgba(34,211,238,.10);
+      background:
+        conic-gradient(
+          rgba(34,211,238,.95) calc(var(--gaze)*360deg),
+          rgba(229,231,235,.10) 0
+        );
+      mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
+      -webkit-mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
+      display:none;
+    }
+    body.cardboard.gaze .gazeRing{ opacity:.95; display:block; }
+    #gazeL{ left:25%; top:50%; transform: translate(-50%,-50%); }
+    #gazeR{ left:75%; top:50%; transform: translate(-50%,-50%); }
+
+    /* right clone must not block */
+    #plateApp_r{ pointer-events:none !important; }
+    #plateApp_r *{ pointer-events:none !important; }
   </style>
+
+  <!-- ✅ plate.safe.js -->
+  <script type="module" src="./plate/plate.safe.js"></script>
 </head>
 
 <body>
-  <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
-    <a-sky color="#06101f"></a-sky>
-    <a-entity id="cam" position="0 1.6 0" camera look-controls></a-entity>
-  </a-scene>
-
-  <div id="plate-layer" class="plate-layer" aria-label="plate layer"></div>
-
-  <div class="hud-top">
-    <div class="hud-card hud-left">
-      <div class="hud-row"><div class="hud-title">SCORE</div><div class="hud-val" id="hud-score">0</div></div>
-      <div class="hud-row"><div class="hud-title">COMBO</div><div class="hud-val" id="hud-combo">0</div></div>
-      <div class="hud-row"><div class="hud-title">MISS</div><div class="hud-val" id="hud-miss">0</div></div>
-      <div class="hud-row"><div class="hud-title">BEST</div><div class="hud-val" id="hud-comboMax">0</div></div>
-    </div>
-
-    <div class="hud-card hud-mid">
-      <div class="plate-row">
-        <div class="plate-label">🍽️ Balanced Plate</div>
-        <div class="plate-pill">TIME: <span id="hud-time">90</span>s</div>
-      </div>
-
-      <div class="q-wrap">
-        <div class="q-line">
-          <div class="q-badge">GOAL</div>
-          <div class="q-text" id="hud-goal-title">—</div>
-          <div class="q-num" id="hud-goal-val">0/0</div>
-        </div>
-        <div class="qbar"><div class="qfill" id="hud-goal-bar"></div></div>
-
-        <div class="q-line" id="hud-mini-line">
-          <div class="q-badge mini">MINI</div>
-          <div class="q-text" id="hud-mini-title">—</div>
-          <div class="q-num" id="hud-mini-val">0/0</div>
-        </div>
-        <div class="qbar">
-          <div class="qfill mini" id="hud-mini-bar"></div>
-          <div class="q-timer" id="hud-mini-timer"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="hud-card hud-right">
-      <div class="rank-box">
-        <div>
-          <div class="rank-title">RANK</div>
-          <div class="rank-sub"><span>ACC</span><span id="hud-acc">0%</span></div>
-        </div>
-        <div class="rank-grade" id="hud-rank">C</div>
-      </div>
-      <div class="rank-sub" style="margin-top:8px;"><span>MODE</span><span id="hud-mode">play</span></div>
-      <div class="rank-sub"><span>DIFF</span><span id="hud-diff">normal</span></div>
-    </div>
+  <!-- Cardboard wrapper (eyes) -->
+  <div id="cbWrap" aria-hidden="true">
+    <div class="eye" id="eyeL"><div class="eyeInner" id="eyeInnerL"></div></div>
+    <div class="eye" id="eyeR"><div class="eyeInner" id="eyeInnerR"></div></div>
   </div>
+  <div id="cbDivider" aria-hidden="true"></div>
 
-  <!-- P2 UI -->
-  <div class="streak-badge" id="hud-streak">STREAK x1.2</div>
-  <div class="toast" id="hud-toast"></div>
+  <div class="gazeRing" id="gazeL" aria-hidden="true"></div>
+  <div class="gazeRing" id="gazeR" aria-hidden="true"></div>
 
-  <div class="start-overlay" id="startOverlay">
-    <div class="start-card">
-      <div class="start-title">Balanced Plate VR 🍽️</div>
-      <div class="start-sub">
-        ยิง “อาหารดี” ให้เติมจานครบตามสัดส่วน 🎯<br/>
-        ระวัง “ขยะ/กับดัก” 🚫 (โดนแล้วนับ MISS ถ้าไม่มีโล่)<br/>
-        FEVER เต็ม = ได้ 🛡️ กันพลาด 1 ครั้ง ✨<br/>
-        <b>Plate Rush</b> (MINI): ครบ 5 ภายใน 8 วิ และ “ห้ามโดนขยะ” ระหว่างทำ ⚡
-      </div>
+  <!-- ===== MAIN APP (single view) ===== -->
+  <div id="plateApp">
+    <a-scene embedded vr-mode-ui="enabled: false">
+      <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
+    </a-scene>
 
-      <div class="start-grid">
-        <div class="pill" id="pill-diff">DIFF: normal</div>
-        <div class="pill" id="pill-time">TIME: 90s</div>
-        <div class="pill" id="pill-mode">MODE: play</div>
-      </div>
+    <div id="hitFx"></div>
+    <div id="crosshair" aria-hidden="true"></div>
 
-      <div class="start-actions">
-        <button class="btn primary" id="btnStart" type="button">เริ่มเล่น</button>
-        <button class="btn" id="btnRestart" type="button">รีเซ็ต</button>
-        <button class="btn danger" id="btnBackHubTop" type="button">กลับ HUB</button>
-      </div>
-
-      <div class="start-note">Tip: ลาก/เอียงมือถือให้ “มุมมองเลื่อนแบบ VR” แล้วเลเซอร์จะขยับตาม — หลบให้ไว 👀</div>
-    </div>
-  </div>
-
-  <div id="endOverlay" class="result-overlay" aria-hidden="true">
-    <div class="result-card">
-      <h2>สรุปผล — Balanced Plate VR</h2>
-      <p style="opacity:.92;line-height:1.6;margin:0;">
-        Score: <b id="endScore">0</b> · Rank: <b id="endRank">C</b> · Acc: <b id="endAcc">0%</b><br/>
-        ComboMax: <b id="endComboMax">0</b> · Miss: <b id="endMiss">0</b><br/>
-        Goals: <b id="endGoals">0/0</b> · Minis: <b id="endMinis">0/0</b>
-      </p>
-      <div class="result-actions">
-        <button class="btn primary" id="btnRetry" type="button">RETRY</button>
-        <button class="btn" id="btnBackHub" type="button">กลับ HUB</button>
+    <!-- START overlay -->
+    <div id="startOverlay">
+      <div id="startCard">
+        <div id="startTitle">พร้อมเล่น Plate VR?</div>
+        <div id="startDesc">
+          แตะ “เริ่มเล่น” เพื่อเปิดเสียง/ขออนุญาต Motion (ถ้ามี) แล้วเริ่มเกมทันที<br>
+          * ถ้าไม่อนุญาต Motion ยังเล่นได้ (แตะยิง + ลากมุมมอง)
+        </div>
+        <div id="startBtns">
+          <button class="btn" id="btnStart">▶️ เริ่มเล่น</button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Scripts (order matters) -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/ui-fever.js" defer></script>
+    <!-- HUD -->
+    <div id="hudTop">
+      <div class="hudCard" style="flex:1">
+        <div id="hudLeftGroup">
+          <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
+          <span class="pill">🏆 <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
+          <span class="pill">⚡ <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
+          <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
+          <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
+        </div>
+      </div>
 
-  <!-- Plate Safe (IIFE) -->
-  <script src="./plate/plate.safe.js?v=20251228" defer></script>
+      <div class="hudCard" style="flex:0 0 auto">
+        <div id="hudRightGroup">
+          <span class="pill">🔥 <span class="k">FEVER</span> <span id="hudFeverPct" class="v">0%</span></span>
+          <span class="pill">🎖️ <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
+
+          <span class="pill" style="display:none">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
+          <span class="pill" style="display:none">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
+          <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Normal</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="miniPanel">
+      <div id="miniLine">MINI: …</div>
+      <div id="goalLine">Goal: …</div>
+      <div id="miniHint">…</div>
+    </div>
+
+    <!-- Coach -->
+    <div id="coachPanel">
+      <img id="coachImg" src="./img/coach-neutral.png" alt="Coach" />
+      <div id="coachMsg">พร้อมแล้ว! เก็บให้ครบ 5 หมู่ 💪</div>
+    </div>
+
+    <div id="hudBtns">
+      <button class="btn" id="btnCardboard">📦 CARDBOARD</button>
+      <button class="btn" id="btnEnterVR">🕶️ ENTER VR</button>
+      <button class="btn" id="btnPause">⏸️ PAUSE</button>
+      <button class="btn" id="btnRestart">🔁 RESTART</button>
+    </div>
+
+    <!-- big shoot + gaze (cardboard) -->
+    <div id="shootPad">
+      <button class="btn" id="btnShoot">🎯 SHOOT</button>
+      <button class="btn" id="btnGaze">👁️ GAZE</button>
+    </div>
+
+    <div id="hudPaused">⏸️ PAUSED</div>
+
+    <!-- Result -->
+    <div id="resultBackdrop">
+      <div id="resultCard">
+        <div style="font-weight:1100; font-size:20px">สรุปผลเกม (Plate VR)</div>
+        <div style="color:rgba(148,163,184,.95); font-weight:900; margin-top:6px">
+          Mode: <span id="rMode">—</span> • Grade: <span id="rGrade">—</span>
+        </div>
+
+        <div class="grid">
+          <div class="cell"><span class="k">Score</span><span id="rScore" class="v">0</span></div>
+          <div class="cell"><span class="k">Max Combo</span><span id="rMaxCombo" class="v">0</span></div>
+          <div class="cell"><span class="k">Miss</span><span id="rMiss" class="v">0</span></div>
+          <div class="cell"><span class="k">Perfect</span><span id="rPerfect" class="v">0</span></div>
+          <div class="cell"><span class="k">Goals</span><span id="rGoals" class="v">0/2</span></div>
+          <div class="cell"><span class="k">Minis</span><span id="rMinis" class="v">0/7</span></div>
+        </div>
+
+        <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+          <div class="cell"><span class="k">G1</span><span id="rG1" class="v">0</span></div>
+          <div class="cell"><span class="k">G2</span><span id="rG2" class="v">0</span></div>
+          <div class="cell"><span class="k">G3</span><span id="rG3" class="v">0</span></div>
+          <div class="cell"><span class="k">G4</span><span id="rG4" class="v">0</span></div>
+          <div class="cell"><span class="k">G5</span><span id="rG5" class="v">0</span></div>
+          <div class="cell"><span class="k">Total</span><span id="rGTotal" class="v">0</span></div>
+        </div>
+
+        <div id="resultActions">
+          <button class="btn" id="btnBackHub">🏠 กลับหน้า HUB</button>
+          <button class="btn" id="btnPlayAgain">▶️ เล่นอีกครั้ง</button>
+        </div>
+      </div>
+    </div>
+  </div><!-- /plateApp -->
 
   <script>
   (function(){
     'use strict';
+    const D = document;
 
-    function qs(name, def){
-      try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
-    }
-    function int(name, def){
-      const v = parseInt(qs(name, def), 10);
-      return Number.isFinite(v) ? v : def;
-    }
-    function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+    // ===============================
+    // Cardboard stereo: move #plateApp into left eye + clone to right
+    // ===============================
+    const btnCardboard = D.getElementById('btnCardboard');
+    const btnShoot = D.getElementById('btnShoot');
+    const btnGaze  = D.getElementById('btnGaze');
 
-    const diff = String(qs('diff','normal')).toLowerCase();
-    const time = clamp(int('time', 90), 30, 600);
-    const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
+    const plateApp = D.getElementById('plateApp');
+    const eyeInnerL = D.getElementById('eyeInnerL');
+    const eyeInnerR = D.getElementById('eyeInnerR');
 
-    const hub  = String(qs('hub','../hub.html') || '../hub.html');
-    const sid  = String(qs('sessionId', qs('studentKey','')) || '');
-    const ts   = String(qs('ts', Date.now()));
-    const seed = String(qs('seed', sid ? (sid + '|' + ts) : ts));
+    let cardboardOn = false;
+    let gazeOn = false;
 
-    // Pills
-    document.getElementById('pill-diff').textContent = 'DIFF: ' + diff;
-    document.getElementById('pill-time').textContent = 'TIME: ' + time + 's';
-    document.getElementById('pill-mode').textContent = 'MODE: ' + (run==='research'?'research':'play');
-
-    // HUD side labels
-    const hudMode = document.getElementById('hud-mode'); if (hudMode) hudMode.textContent = (run==='research'?'research':'play');
-    const hudDiff = document.getElementById('hud-diff'); if (hudDiff) hudDiff.textContent = diff;
-
-    // HUD bindings
-    window.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail || {};
-      const sEl = document.getElementById('hud-score'); if (sEl) sEl.textContent = (d.score|0);
-      const cEl = document.getElementById('hud-combo'); if (cEl) cEl.textContent = (d.combo|0);
-      const mEl = document.getElementById('hud-miss');  if (mEl) mEl.textContent = (d.misses|0);
-      const bEl = document.getElementById('hud-comboMax'); if (bEl) bEl.textContent = (d.comboMax|0);
-    }, { passive:true });
-
-    window.addEventListener('hha:rank', (ev)=>{
-      const d = ev.detail || {};
-      const rEl = document.getElementById('hud-rank'); if (rEl && d.grade) rEl.textContent = d.grade;
-      const aEl = document.getElementById('hud-acc'); if (aEl && typeof d.accuracy === 'number') aEl.textContent = (d.accuracy|0) + '%';
-    }, { passive:true });
-
-    window.addEventListener('hha:time', (ev)=>{
-      const d = ev.detail || {};
-      const tEl = document.getElementById('hud-time'); if (tEl) tEl.textContent = (d.left|0);
-    }, { passive:true });
-
-    window.addEventListener('quest:update', (ev)=>{
-      const d = ev.detail || {};
-
-      const gt = document.getElementById('hud-goal-title'); if (gt) gt.textContent = d.goalTitle || '—';
-      const gv = document.getElementById('hud-goal-val');
-      if (gv) gv.textContent = String(d.goalNow ?? 0) + '/' + String(d.goalTotal ?? 0);
-      const gb = document.getElementById('hud-goal-bar');
-      if (gb){
-        const tot = Math.max(1, Number(d.goalTotal)||1);
-        const now = Math.max(0, Number(d.goalNow)||0);
-        gb.style.width = Math.min(100, (now/tot)*100).toFixed(1) + '%';
+    function suffixIds(rootEl, suf){
+      const all = rootEl.querySelectorAll('[id]');
+      for (const el of all){
+        el.id = el.id + suf;
       }
-
-      const mt = document.getElementById('hud-mini-title'); if (mt) mt.textContent = d.miniTitle || '—';
-      const mv = document.getElementById('hud-mini-val');
-      if (mv) mv.textContent = String(d.miniNow ?? 0) + '/' + String(d.miniTotal ?? 0);
-      const mb = document.getElementById('hud-mini-bar');
-      if (mb){
-        const tot = Math.max(1, Number(d.miniTotal)||1);
-        const now = Math.max(0, Number(d.miniNow)||0);
-        mb.style.width = Math.min(100, (now/tot)*100).toFixed(1) + '%';
-      }
-      const mtm = document.getElementById('hud-mini-timer');
-      if (mtm){
-        const leftMs = Number(d.miniLeftMs)||0;
-        mtm.textContent = leftMs > 0 ? (Math.ceil(leftMs/100)/10).toFixed(1)+'s' : '';
-      }
-    }, { passive:true });
-
-    // P2: judge toast
-    const toast = document.getElementById('hud-toast');
-    let toastTimer = 0;
-    window.addEventListener('hha:judge', (ev)=>{
-      const d = ev.detail || {};
-      const text = String(d.text || '').trim();
-      if (!toast || !text) return;
-
-      const kind = String(d.kind || 'good').toLowerCase();
-      toast.className = 'toast on ' + (kind === 'bad' ? 'bad' : (kind === 'warn' ? 'warn' : (kind === 'boss' ? 'boss' : 'good')));
-      toast.textContent = text;
-
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(()=>{ toast.classList.remove('on'); }, 650);
-    }, { passive:true });
-
-    // P2: streak badge
-    const streakEl = document.getElementById('hud-streak');
-    let streakTimer = 0;
-    window.addEventListener('hha:streak', (ev)=>{
-      const d = ev.detail || {};
-      const mult = Number(d.mult || 1);
-      if (!streakEl) return;
-
-      if (mult <= 1.01){
-        streakEl.classList.remove('on');
-        return;
-      }
-      streakEl.textContent = 'STREAK x' + mult.toFixed(1);
-      streakEl.classList.add('on');
-      clearTimeout(streakTimer);
-      streakTimer = setTimeout(()=> streakEl.classList.remove('on'), 1200);
-    }, { passive:true });
-
-    // Start overlay
-    const overlay = document.getElementById('startOverlay');
-    const btnStart = document.getElementById('btnStart');
-    const btnRestart = document.getElementById('btnRestart');
-    const btnBackHubTop = document.getElementById('btnBackHubTop');
-
-    async function resumeAudio(){
-      try{
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        const ctx = new AC();
-        if (ctx.state === 'suspended') await ctx.resume();
-        await ctx.close();
-      }catch(_){}
     }
 
-    // ✅ P0: race-safe wait for PlateBoot
-    function waitForPlateBoot(maxMs=2500){
-      return new Promise((resolve, reject)=>{
-        const t0 = performance.now();
-        (function tick(){
-          if (window.PlateBoot && typeof window.PlateBoot.start === 'function'){
-            resolve(true);
-            return;
-          }
-          if ((performance.now()-t0) > maxMs){
-            reject(new Error('PlateBoot not ready'));
-            return;
-          }
-          setTimeout(tick, 25);
-        })();
-      });
+    function enableCardboard(){
+      if (cardboardOn) return;
+      cardboardOn = true;
+      D.body.classList.add('cardboard');
+
+      // move original app into left eye
+      eyeInnerL.appendChild(plateApp);
+
+      // clone to right eye
+      const clone = plateApp.cloneNode(true);
+      clone.id = 'plateApp_r';
+      suffixIds(clone, '_r');
+      eyeInnerR.appendChild(clone);
     }
 
-    async function startGame(){
-      try{
-        await waitForPlateBoot();
-      }catch(e){
-        alert('PlateBoot not ready (script load issue)');
-        return;
-      }
-      window.PlateBoot.start(run==='research'?'research':'play', { diff, time, seed });
+    function disableCardboard(){
+      if (!cardboardOn) return;
+      cardboardOn = false;
+      gazeOn = false;
+      D.body.classList.remove('cardboard','gaze');
+      D.documentElement.style.setProperty('--gaze','0');
+
+      // move original app back to body
+      document.body.appendChild(plateApp);
+
+      // clear right eye
+      eyeInnerR.innerHTML = '';
     }
 
-    btnStart.addEventListener('click', async ()=>{
-      await resumeAudio();
-      overlay.style.display = 'none';
-      startGame();
+    btnCardboard.addEventListener('click', ()=>{
+      if (!cardboardOn) enableCardboard();
+      else disableCardboard();
     });
 
-    btnRestart.addEventListener('click', ()=> location.reload());
+    // ===============================
+    // SHOOT: click nearest target around center of LEFT EYE
+    // ===============================
+    const TARGET_SEL = [
+      '.plate-target',      // ถ้า plate.safe.js ใส่คลาสนี้ (แนะนำ)
+      '.hha-target',
+      '.hvr-target',
+      '[data-target]',
+      '[data-kind]',
+      '.target'
+    ].join(',');
 
-    btnBackHubTop.addEventListener('click', async ()=>{
+    function shootAtCenter(){
+      const host = cardboardOn ? eyeInnerL : document;
+      const targets = host.querySelectorAll(TARGET_SEL);
+      if (!targets || !targets.length) return;
+
+      // center point (left-eye center)
+      const eyeRect = cardboardOn
+        ? document.getElementById('eyeL').getBoundingClientRect()
+        : { left:0, top:0, width:innerWidth, height:innerHeight };
+
+      const cx = eyeRect.left + eyeRect.width/2;
+      const cy = eyeRect.top + eyeRect.height/2;
+
+      let best=null, bestD=1e18, bestRect=null;
+
+      for (const t of targets){
+        const r = t.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) continue;
+        const tx = r.left + r.width/2;
+        const ty = r.top + r.height/2;
+        const dx = tx - cx, dy = ty - cy;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < bestD){ bestD = d2; best = t; bestRect = r; }
+      }
+
+      if (!best) return;
+
+      // aim assist threshold
+      const thr = Math.max(28, (bestRect ? bestRect.width * 0.65 : 44));
+      if (bestD > thr*thr) return;
+
       try{
-        const u = new URL(location.href);
-        u.searchParams.set('hub', hub);
-        history.replaceState(null,'',u.toString());
-      }catch(_){}
-      if (window.PlateBoot && window.PlateBoot.goHub) window.PlateBoot.goHub();
-      else location.href = hub;
+        best.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerId: 1 }));
+      }catch{
+        try{ best.click(); }catch{}
+      }
+    }
+
+    btnShoot.addEventListener('click', ()=>{
+      shootAtCenter();
     });
 
-    // autostart=1 -> skip overlay
-    if (qs('autostart','0') === '1'){
-      overlay.style.display = 'none';
-      startGame();
+    // ===============================
+    // GAZE dwell: 0.62s (faster)
+    // ===============================
+    function setGazeFill(v){
+      v = Math.max(0, Math.min(1, v));
+      D.documentElement.style.setProperty('--gaze', String(v));
     }
+    let gazeFill=0, last=0;
+    function gazeLoop(t){
+      const dt = Math.min(0.05, Math.max(0.001, (t - (last||t))/1000));
+      last = t;
+
+      if (cardboardOn && gazeOn){
+        const dwell = 0.62;
+        gazeFill += dt / dwell;
+        if (gazeFill >= 1){
+          gazeFill = 0;
+          shootAtCenter();
+        }
+        setGazeFill(gazeFill);
+      } else {
+        gazeFill = 0;
+        setGazeFill(0);
+      }
+
+      requestAnimationFrame(gazeLoop);
+    }
+    requestAnimationFrame(gazeLoop);
+
+    btnGaze.addEventListener('click', ()=>{
+      if (!cardboardOn) enableCardboard();
+      gazeOn = !gazeOn;
+      D.body.classList.toggle('gaze', gazeOn);
+    });
+
   })();
   </script>
 </body>
