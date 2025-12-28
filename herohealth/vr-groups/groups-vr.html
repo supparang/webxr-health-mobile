@@ -7,11 +7,11 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional scene bg) -->
+  <!-- A-Frame (optional bg + VR button) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./groups.css" />
+  <!-- CSS (เลือกไฟล์ที่มีจริงในโฟลเดอร์ vr-groups) -->
+  <link rel="stylesheet" href="./groups-vr.css" />
 </head>
 
 <body>
@@ -21,7 +21,7 @@
     <a-entity id="cam" position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
-  <!-- Gameplay layer -->
+  <!-- Gameplay layer (Engine จะ spawn target ลงในนี้) -->
   <div class="fg-layer" id="fg-layer"></div>
 
   <!-- HUD -->
@@ -54,7 +54,6 @@
         </div>
         <div class="qbar"><div class="qbar-track"><div class="qbar-fill goal" id="hud-goal-bar"></div></div></div>
 
-        <!-- ✅ สำคัญ: ใส่ id="hud-mini-line" -->
         <div class="quest-line" id="hud-mini-line">
           <div class="q-badge mini">MINI</div>
           <div class="q-text" id="hud-mini-title">—</div>
@@ -119,12 +118,13 @@
   </div>
 
   <!-- Scripts (order matters) -->
+  <script src="../vr/particles.js" defer></script>
   <script src="../vr/ui-fever.js" defer></script>
   <script src="../vr/ui-karaoke.js" defer></script>
 
   <script src="./groups-hud-quest.js" defer></script>
-  <script src="./groups-text.js" defer></script>     <!-- ✅ ใหม่: เพลง/Call&Response ไม่ชน quests -->
-  <script src="./groups-quests.js" defer></script>    <!-- ✅ ไฟล์นี้ควรเป็น Quest logic -->
+  <script src="./groups-text.js" defer></script>
+  <script src="./groups-quests.js" defer></script>
   <script src="./groups-fx.js" defer></script>
 
   <script src="./GameEngine.js" defer></script>
@@ -135,8 +135,7 @@
     'use strict';
 
     function qs(name, def){
-      const u = new URL(location.href);
-      return u.searchParams.get(name) ?? def;
+      try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch{ return def; }
     }
     function int(name, def){
       const v = parseInt(qs(name, def), 10);
@@ -145,7 +144,7 @@
     function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
     const diff = String(qs('diff','normal')).toLowerCase();
-    const time = clamp(int('time', 90), 30, 180);
+    const time = clamp(int('time', 90), 30, 600);
     const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
 
     const hub  = String(qs('hub','../hub.html') || '../hub.html');
@@ -235,9 +234,7 @@
         const u = new URL(hub, location.href);
         u.searchParams.set('ts', String(Date.now()));
         location.href = u.toString();
-      }catch{
-        location.href = hub;
-      }
+      }catch{ location.href = hub; }
     });
 
     window.addEventListener('hha:end', (ev)=>{
@@ -262,7 +259,7 @@
       if (endOverlay) endOverlay.classList.add('show');
     }, { passive:true });
 
-    // autostart: ต้องตั้ง autostart=1 ถึงจะข้าม overlay
+    // autostart=1 -> skip overlay
     if (qs('autostart','0') === '1'){
       overlay.style.display = 'none';
       startGame();
