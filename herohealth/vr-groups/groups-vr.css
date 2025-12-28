@@ -1113,3 +1113,199 @@ a-scene[embedded]{
 @media (prefers-reduced-motion: reduce){
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out{ animation: none !important; }
 }
+/* ================================
+   Food Groups VR — Candy Targets v2 (Grade 5)
+   drop-in override (paste near END of groups-vr.css)
+   ================================ */
+
+:root{
+  /* ลูกกวาดสดใส */
+  --candy-pink: rgba(244,114,182,.38);
+  --candy-cyan: rgba(34,211,238,.30);
+  --candy-lime: rgba(34,197,94,.30);
+  --candy-amber: rgba(250,204,21,.34);
+  --candy-violet: rgba(167,139,250,.30);
+
+  --stickerBorder: rgba(255,255,255,.85);
+  --stickerEdge: rgba(2,6,23,.24);
+  --stickerShadow: rgba(0,0,0,.42);
+
+  /* ลายลูกอม (stripes + polka) */
+  --candy-stripes:
+    repeating-linear-gradient(45deg,
+      rgba(255,255,255,.18) 0px,
+      rgba(255,255,255,.18) 8px,
+      rgba(255,255,255,0) 8px,
+      rgba(255,255,255,0) 16px);
+  --candy-polka:
+    radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
+    radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
+}
+
+/* ให้ layer ไม่เพี้ยน */
+.fg-layer{
+  position:fixed;
+  inset:0;
+  pointer-events:auto;
+}
+
+/* ---------- TARGET BASE (สติ๊กเกอร์ลูกกวาด) ---------- */
+.fg-target{
+  position:fixed;
+  left:var(--x,50vw);
+  top:var(--y,50vh);
+
+  width:92px;
+  height:92px;
+  border-radius:28px;
+
+  display:grid;
+  place-items:center;
+
+  transform:translate(-50%,-50%) scale(var(--s,1));
+  transform-origin:center;
+
+  border:3px solid var(--stickerBorder);
+  box-shadow:
+    0 18px 36px var(--stickerShadow),
+    0 2px 0 var(--stickerEdge) inset,
+    0 -10px 18px rgba(255,255,255,.10) inset;
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+
+  /* ลอยนุ่ม ๆ */
+  animation: fgFloat 1.25s ease-in-out infinite;
+}
+
+/* emoji คม+น่ารัก */
+.fg-target::before{
+  content: attr(data-emoji);
+  font-size: 46px;
+  line-height: 1;
+  transform: translateY(-1px);
+  filter:
+    drop-shadow(0 2px 0 rgba(255,255,255,.25))
+    drop-shadow(0 12px 18px rgba(0,0,0,.32));
+}
+
+/* ประกายวาวบนสติ๊กเกอร์ (คงไว้ทุกชนิด) */
+.fg-target{
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.25), rgba(255,255,255,0) 40%),
+    radial-gradient(circle at 76% 76%, rgba(255,255,255,.16), rgba(255,255,255,0) 45%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(15,23,42,.26), rgba(15,23,42,.10));
+}
+
+/* แตะแล้วเด้ง */
+.fg-target:active{
+  transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
+  filter: brightness(1.06);
+}
+
+/* ---------- TYPE THEMES ---------- */
+.fg-good{
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 40%),
+    radial-gradient(circle at 74% 78%, rgba(255,255,255,.18), rgba(255,255,255,0) 45%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, var(--candy-lime), var(--candy-cyan));
+}
+
+/* badge มุมขวาบน — ใช้ ::after เฉพาะชนิดที่ต้องมีสัญลักษณ์ */
+.fg-wrong::after,
+.fg-junk::after,
+.fg-decoy::after,
+.fg-boss::after{
+  content:"";
+  position:absolute;
+  right:8px;
+  top:7px;
+  font-size:16px;
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.35));
+  opacity:.98;
+}
+
+/* WRONG */
+.fg-wrong{
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.24), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, var(--candy-amber), rgba(251,146,60,.22));
+}
+.fg-wrong::after{ content:"⚠️"; }
+
+/* DECOY */
+.fg-decoy{
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, var(--candy-violet), var(--candy-cyan));
+}
+.fg-decoy::after{ content:"❓"; }
+
+/* JUNK (ชมพู/แดง แต่ทำให้น่ารักไม่หลอน) */
+.fg-junk{
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, var(--candy-pink), rgba(248,113,113,.26));
+}
+.fg-junk::after{ content:"🫧"; } /* ฟีลเมือก/ฟองน่ารัก */
+
+/* BOSS (มงกุฎวิ้ง) */
+.fg-boss{
+  border-color: rgba(34,211,238,.68);
+  background:
+    radial-gradient(circle at 28% 22%, rgba(255,255,255,.24), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(148,163,184,.22), rgba(34,211,238,.14));
+  animation: fgBossFloat 1.05s ease-in-out infinite;
+}
+.fg-boss::after{ content:"👑"; }
+
+/* ---------- spawn/hit/out ---------- */
+.fg-target.spawn{
+  animation: fgPopIn .20s ease-out both, fgFloat 1.25s ease-in-out .20s infinite;
+}
+.fg-target.hit{ animation: fgHit .22s ease-out both; }
+.fg-target.out{ animation: fgOut .22s ease-in both; }
+
+/* ---------- KEYFRAMES ---------- */
+@keyframes fgFloat{
+  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) translateY(0px); }
+  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) translateY(-7px); }
+}
+@keyframes fgBossFloat{
+  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) rotate(-1.8deg) translateY(0px); }
+  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) rotate( 1.8deg) translateY(-8px); }
+}
+@keyframes fgPopIn{
+  from{ transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.70)); opacity:0; }
+  to  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity:1; }
+}
+@keyframes fgHit{
+  0%  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity:1; }
+  60% { transform: translate(-50%, -50%) scale(calc(var(--s,1)*1.18)); opacity:.98; filter:brightness(1.16); }
+  100%{ transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.55)); opacity:0; }
+}
+@keyframes fgOut{
+  from{ opacity:1; }
+  to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
+}
+
+/* ลดการเคลื่อนไหว */
+@media (prefers-reduced-motion: reduce){
+  .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out{ animation:none !important; }
+}
