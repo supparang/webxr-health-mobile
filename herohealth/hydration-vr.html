@@ -1,8 +1,11 @@
 <!-- === /herohealth/hydration-vr.html ===
 HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
-✅ + Storm Intro siren + screen dim (1)
-✅ + Water splash burst FX hook (2)  [handled in hydration.safe.js]
-✅ + GREEN streak bonus (3)         [handled in hydration.safe.js]
+✅ Storm Intro siren + dim (1)
+✅ Water splash burst FX hook (2)
+✅ GREEN streak bonus (3)
+✅ Storm wind drift (4) [handled in hydration.safe.js via hha:score detail]
+✅ Perfect timing bonus (5) [handled in hydration.safe.js via hha:judge kind=perfect]
+✅ Summary adds TimeInGreen + StreakMax + StormRate (6)
 -->
 
 <!doctype html>
@@ -47,11 +50,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
     *{ box-sizing:border-box; }
 
-    /* ===== Layout ===== */
-    .stage{
-      position:fixed; inset:0;
-      display:flex; flex-direction:column;
-    }
+    .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
 
     /* ===== Mini HUD pills (top) ===== */
     .hudTop{
@@ -63,11 +62,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       justify-content:space-between;
       pointer-events:none;
     }
-
-    .pillRow{
-      display:flex; gap:8px; flex-wrap:wrap;
-      max-width: 70vw;
-    }
+    .pillRow{ display:flex; gap:8px; flex-wrap:wrap; max-width: 70vw; }
     .pill{
       pointer-events:none;
       display:inline-flex;
@@ -102,12 +97,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     .coachSub{ margin-top:6px; font-size:11px; font-weight:900; color:var(--muted); }
 
     /* ===== Play area ===== */
-    .playWrap{
-      position:relative;
-      flex:1;
-      padding: 0 12px;
-      display:flex;
-    }
+    .playWrap{ position:relative; flex:1; padding: 0 12px; display:flex; }
 
     #playfield{
       position:relative;
@@ -119,10 +109,10 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       overflow:hidden;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
+      will-change: transform;
     }
-    #hvr-layer{ position:absolute; inset:0; }
+    #hvr-layer{ position:absolute; inset:0; will-change: transform; }
 
-    /* Crosshair */
     #crosshair{
       position:fixed;
       left:50%; top:50%;
@@ -131,9 +121,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       width:14px; height:14px;
       border-radius:999px;
       pointer-events:none;
-      box-shadow:
-        0 0 0 2px rgba(229,231,235,.26),
-        0 0 26px rgba(34,211,238,.12);
+      box-shadow: 0 0 0 2px rgba(229,231,235,.26), 0 0 26px rgba(34,211,238,.12);
       background:rgba(229,231,235,.06);
       backdrop-filter: blur(8px);
     }
@@ -145,21 +133,11 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
 
     /* ===== Cardboard stereo wrapper ===== */
-    #cbWrap{
-      position:fixed; inset:0;
-      z-index:25;
-      display:none;
-      background:#000;
-    }
+    #cbWrap{ position:fixed; inset:0; z-index:25; display:none; background:#000; }
     body.cardboard #cbWrap{ display:flex; }
     body.cardboard .stage{ opacity:0; pointer-events:none; }
 
-    .cbEye{
-      position:relative;
-      flex:1;
-      overflow:hidden;
-      border-left:1px solid rgba(255,255,255,.08);
-    }
+    .cbEye{ position:relative; flex:1; overflow:hidden; border-left:1px solid rgba(255,255,255,.08); }
     .cbEye:first-child{ border-left:none; }
 
     .cbPlayfield{
@@ -170,8 +148,9 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       background: rgba(2,6,23,.35);
       box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
       overflow:hidden;
+      will-change: transform;
     }
-    #hvr-layerL, #hvr-layerR{ position:absolute; inset:0; }
+    #hvr-layerL, #hvr-layerR{ position:absolute; inset:0; will-change: transform; }
 
     .cbCross{
       position:absolute;
@@ -180,9 +159,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       width:18px; height:18px;
       border-radius:999px;
       pointer-events:none;
-      box-shadow:
-        0 0 0 2px rgba(229,231,235,.28),
-        0 0 28px rgba(34,211,238,.14);
+      box-shadow: 0 0 0 2px rgba(229,231,235,.28), 0 0 28px rgba(34,211,238,.14);
       background:rgba(229,231,235,.06);
     }
     .cbCross::after{
@@ -235,17 +212,11 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       backdrop-filter: blur(10px);
       min-width: 240px;
     }
-    .card h3{
-      margin:0 0 6px;
-      font-size:12px;
-      font-weight:1100;
-      letter-spacing:.2px;
-    }
+    .card h3{ margin:0 0 6px; font-size:12px; font-weight:1100; letter-spacing:.2px; }
     .row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; }
     .stat{ font-size:12px; font-weight:1000; }
     .stat b{ color:var(--cyan); font-weight:1200; }
 
-    /* Water tube */
     .waterWrap{ display:flex; gap:12px; align-items:center; }
     .tube{
       width:16px; height:92px;
@@ -283,7 +254,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       margin-right:6px;
     }
 
-    /* Controls (pointer enabled) */
+    /* Controls */
     .controls{
       position:fixed;
       right:10px;
@@ -321,35 +292,26 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     body.cardboard #shootPad{ display:block; }
     #btnShoot{ padding:14px 18px; border-radius:18px; font-size:16px; font-weight:1200; background: rgba(34,197,94,.16); }
 
-    /* ===== FX overlays ===== */
+    /* FX overlays */
     #hitFx{
       position:fixed; inset:0;
       z-index:55;
       pointer-events:none;
       opacity:0;
-      background:
-        radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(2,6,23,.35) 70%, rgba(2,6,23,.65) 100%);
+      background: radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(2,6,23,.35) 70%, rgba(2,6,23,.65) 100%);
       transition: opacity .08s linear;
     }
     #hitFx.show{ opacity:1; }
-    #hitFx[data-kind="bad"]{
-      background: radial-gradient(circle at 50% 50%, rgba(251,113,133,0) 35%, rgba(251,113,133,.18) 70%, rgba(2,6,23,.70) 100%);
-    }
-    #hitFx[data-kind="good"]{
-      background: radial-gradient(circle at 50% 50%, rgba(34,197,94,0) 35%, rgba(34,197,94,.14) 70%, rgba(2,6,23,.70) 100%);
-    }
-    #hitFx[data-kind="shield"]{
-      background: radial-gradient(circle at 50% 50%, rgba(34,211,238,0) 35%, rgba(34,211,238,.14) 70%, rgba(2,6,23,.70) 100%);
-    }
+    #hitFx[data-kind="bad"]{ background: radial-gradient(circle at 50% 50%, rgba(251,113,133,0) 35%, rgba(251,113,133,.18) 70%, rgba(2,6,23,.70) 100%); }
+    #hitFx[data-kind="good"]{ background: radial-gradient(circle at 50% 50%, rgba(34,197,94,0) 35%, rgba(34,197,94,.14) 70%, rgba(2,6,23,.70) 100%); }
+    #hitFx[data-kind="shield"]{ background: radial-gradient(circle at 50% 50%, rgba(34,211,238,0) 35%, rgba(34,211,238,.14) 70%, rgba(2,6,23,.70) 100%); }
 
-    /* Storm urgent edge */
     #stormEdge{
       position:fixed; inset:0;
       pointer-events:none;
       z-index:57;
       opacity:0;
-      background:
-        radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(34,211,238,.10) 70%, rgba(2,6,23,.72) 100%);
+      background: radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(34,211,238,.10) 70%, rgba(2,6,23,.72) 100%);
       transition: opacity .12s linear;
     }
     body.storm-urgent #stormEdge{
@@ -371,15 +333,14 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       100%{ transform:translate3d(0,0,0); }
     }
 
-    /* ===== (1) Storm Intro Siren + Dim ===== */
+    /* Storm Intro overlay */
     #stormIntro{
       position:fixed; inset:0;
       z-index:110;
       pointer-events:none;
       opacity:0;
       transition: opacity .16s ease;
-      background:
-        radial-gradient(circle at 50% 50%, rgba(34,211,238,0) 35%, rgba(34,211,238,.12) 70%, rgba(2,6,23,.82) 100%);
+      background: radial-gradient(circle at 50% 50%, rgba(34,211,238,0) 35%, rgba(34,211,238,.12) 70%, rgba(2,6,23,.82) 100%);
       backdrop-filter: blur(8px);
     }
     #stormIntro.show{
@@ -413,7 +374,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       text-align:center;
     }
 
-    /* ===== Start overlay ===== */
+    /* Start overlay */
     #startOverlay{
       position:fixed; inset:0;
       z-index:120;
@@ -435,7 +396,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     .startMeta{ margin-top:10px; font-size:12px; font-weight:1000; color:rgba(229,231,235,.92); }
     .btnRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:12px; }
 
-    /* ===== End summary ===== */
+    /* End summary */
     #endBackdrop{
       position:fixed; inset:0;
       z-index:130;
@@ -446,21 +407,19 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       pointer-events:auto;
     }
     .endCard{
-      width:min(720px, calc(100% - 24px));
+      width:min(820px, calc(100% - 24px));
       background: rgba(2,6,23,.90);
       border:1px solid rgba(148,163,184,.18);
       border-radius: 22px;
       padding: 14px;
       box-shadow: 0 22px 90px rgba(0,0,0,.60);
     }
-    .endTop{
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
-    }
+    .endTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .endTitle{ font-size:18px; font-weight:1200; }
     .endGrid{
       margin-top:12px;
       display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
+      grid-template-columns: repeat(3, minmax(0,1fr));
       gap:10px;
     }
     .endItem{
@@ -471,26 +430,20 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       font-weight:1100;
     }
     .endItem .k{ display:block; margin-bottom:4px; }
-    .endActions{
-      margin-top:12px;
-      display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
-    }
+    .endActions{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
   </style>
 </head>
 
 <body>
-  <!-- FX overlays -->
   <div id="hitFx"></div>
   <div id="stormEdge"></div>
 
-  <!-- (1) Storm Intro overlay -->
   <div id="stormIntro" aria-hidden="true">
     <div class="label">🌀 STORM INCOMING
       <div class="sub">ทำ Mini: ให้น้ำ LOW/HIGH + BLOCK BAD ตอนท้ายพายุ!</div>
     </div>
   </div>
 
-  <!-- Normal stage -->
   <div class="stage">
     <div class="hudTop">
       <div class="pillRow">
@@ -547,10 +500,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     </div>
   </div>
 
-  <!-- Center crosshair (normal mode) -->
   <div id="crosshair" aria-hidden="true"></div>
 
-  <!-- Cardboard stereoscopic -->
   <div id="cbWrap" aria-hidden="false">
     <div class="cbEye" id="cbEyeL">
       <div class="cbPlayfield" id="cbPlayfieldL">
@@ -569,7 +520,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     </div>
   </div>
 
-  <!-- Controls -->
   <div class="controls">
     <button class="btn" id="btnCardboard" type="button">📦 CARDBOARD</button>
     <button class="btn primary" id="btnShootCenter" type="button">🎯 SHOOT</button>
@@ -580,7 +530,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     <button class="btn" id="btnShoot" type="button">🎯 SHOOT</button>
   </div>
 
-  <!-- Start overlay -->
   <div id="startOverlay">
     <div class="startCard">
       <div class="startTitle">💧 Hydration VR</div>
@@ -599,7 +548,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     </div>
   </div>
 
-  <!-- End summary -->
   <div id="endBackdrop">
     <div class="endCard">
       <div class="endTop">
@@ -610,13 +558,23 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         </div>
       </div>
 
+      <!-- ✅ (6) added metrics -->
       <div class="endGrid">
         <div class="endItem"><span class="k">Score</span><span class="v" id="endScore">0</span></div>
         <div class="endItem"><span class="k">Grade</span><span class="v" id="endGrade">C</span></div>
+        <div class="endItem"><span class="k">Accuracy</span><span class="v" id="endAcc">0%</span></div>
+
         <div class="endItem"><span class="k">Combo Max</span><span class="v" id="endCombo">0</span></div>
         <div class="endItem"><span class="k">Miss</span><span class="v" id="endMiss">0</span></div>
         <div class="endItem"><span class="k">Goals</span><span class="v" id="endGoals">0/1</span></div>
+
         <div class="endItem"><span class="k">Minis</span><span class="v" id="endMinis">0/0</span></div>
+        <div class="endItem"><span class="k">Time in GREEN</span><span class="v" id="endGreen">0.0s</span></div>
+        <div class="endItem"><span class="k">Streak Max</span><span class="v" id="endStreak">0</span></div>
+
+        <div class="endItem"><span class="k">Storm Cycles</span><span class="v" id="endStorm">0</span></div>
+        <div class="endItem"><span class="k">Storm Success</span><span class="v" id="endStormOk">0</span></div>
+        <div class="endItem"><span class="k">Storm Rate</span><span class="v" id="endStormRate">0%</span></div>
       </div>
 
       <div class="endActions">
@@ -650,7 +608,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       startMeta.textContent = `MODE: ${run} • DIFF: ${diff} • TIME: ${time}s`;
     }
 
-    // ----- Audio helper (beep only) -----
+    // ----- Audio helper -----
     let AC = null;
     function ensureAC(){
       if (AC) return AC;
@@ -661,9 +619,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
     async function resumeAudio(){
       const c = ensureAC(); if(!c) return;
-      if (c.state === 'suspended'){
-        try{ await c.resume(); }catch(e){}
-      }
+      if (c.state === 'suspended'){ try{ await c.resume(); }catch(e){} }
     }
     function beep(freq=880, ms=40, gain=0.025){
       const c = ensureAC(); if(!c) return;
@@ -722,9 +678,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         const el = document.elementFromPoint(x,y);
         if (el && el.classList && el.classList.contains('hvr-target')){
           el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
-        } else {
-          beep(330, 18, 0.010);
-        }
+        } else beep(330, 18, 0.010);
         return;
       }
       const eye = D.getElementById('cbEyeL');
@@ -735,21 +689,11 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       const el = document.elementFromPoint(x,y);
       if (el && el.classList && el.classList.contains('hvr-target')){
         el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
-      } else {
-        beep(330, 18, 0.010);
-      }
+      } else beep(330, 18, 0.010);
     }
 
-    btnShootCenter.addEventListener('click', async ()=>{
-      await resumeAudio();
-      shootAtCenter();
-    });
-    if (btnShoot){
-      btnShoot.addEventListener('click', async ()=>{
-        await resumeAudio();
-        shootAtCenter();
-      });
-    }
+    btnShootCenter.addEventListener('click', async ()=>{ await resumeAudio(); shootAtCenter(); });
+    if (btnShoot){ btnShoot.addEventListener('click', async ()=>{ await resumeAudio(); shootAtCenter(); }); }
 
     btnStop.addEventListener('click', ()=>{
       window.dispatchEvent(new CustomEvent('hha:force_end', { detail:{ reason:'stop' } }));
@@ -780,6 +724,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       else if (k === 'rush'){ flash('shield'); beep(980, 70, 0.030); }
       else if (k === 'streak'){ flash('good'); beep(1040, 60, 0.030); }
       else if (k === 'storm-in'){ beep(520, 80, 0.030); }
+      else if (k === 'perfect'){ flash('shield'); beep(1240, 90, 0.040); beep(1560, 70, 0.030); }
     }, { passive:true });
 
     // ----- Storm urgent tick/pulse -----
@@ -816,36 +761,58 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
     requestAnimationFrame(urgentLoop);
 
+    // ----- (4) drift hook: apply transforms from hha:score detail -----
+    const pf = D.getElementById('playfield');
+    const lay = D.getElementById('hvr-layer');
+    const pfL = D.getElementById('cbPlayfieldL');
+    const pfR = D.getElementById('cbPlayfieldR');
+    const layL = D.getElementById('hvr-layerL');
+    const layR = D.getElementById('hvr-layerR');
+
+    function applyDrift(dx, dy, rot){
+      dx = Number(dx)||0; dy = Number(dy)||0; rot = Number(rot)||0;
+      if (pf && lay){
+        pf.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
+        lay.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+      }
+      if (pfL && layL){
+        pfL.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
+        layL.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+      }
+      if (pfR && layR){
+        pfR.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
+        layR.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+      }
+    }
+
     window.addEventListener('hha:score', (ev)=>{
       const d = ev.detail || {};
       stormActive = !!d.stormActive;
       stormLeft = Number(d.stormLeftSec || 0);
       stormUrgent = !!d.stormInEndWindow;
+
+      // drift values
+      applyDrift(d.driftX, d.driftY, d.driftRot);
     }, { passive:true });
 
-    // ----- (1) Storm Intro overlay + siren pattern -----
+    // ----- Storm Intro overlay + siren pattern -----
     const stormIntro = D.getElementById('stormIntro');
     let stormIntroUntil = 0;
     let stormSirenAt = 0;
-
     function showStormIntro(ms=900){
       if (!stormIntro) return;
       stormIntro.classList.add('show');
       stormIntroUntil = performance.now() + ms;
       stormSirenAt = performance.now();
     }
-
     function stormIntroLoop(t){
       if (stormIntro && stormIntro.classList.contains('show')){
         if (t >= stormSirenAt){
-          // siren: alternating two tones
           const phase = Math.floor((t - stormSirenAt) / 150) % 2;
           beep(phase ? 520 : 660, 70, 0.030);
           stormSirenAt = t + 160;
         }
-        if (t >= stormIntroUntil){
-          stormIntro.classList.remove('show');
-        }
+        if (t >= stormIntroUntil){ stormIntro.classList.remove('show'); }
       }
       requestAnimationFrame(stormIntroLoop);
     }
@@ -854,9 +821,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     window.addEventListener('hha:storm', async (ev)=>{
       await resumeAudio();
       const d = ev.detail || {};
-      if (d.state === 'enter'){
-        showStormIntro(900);
-      }
+      if (d.state === 'enter'){ showStormIntro(900); }
     }, { passive:true });
 
     // ----- Cardboard gaze-to-shoot -----
@@ -869,8 +834,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
     function gazeLoop(t){
       if (!body.classList.contains('cardboard')){
-        gazeEl = null; gazeT0 = 0;
-        setGazeProg(0);
+        gazeEl = null; gazeT0 = 0; setGazeProg(0);
         requestAnimationFrame(gazeLoop);
         return;
       }
@@ -926,23 +890,25 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       const set = (id,val)=>{ const el=D.getElementById(id); if(el) el.textContent=String(val); };
       set('endScore', d.scoreFinal ?? 0);
       set('endGrade', d.grade ?? 'C');
+      set('endAcc', ((Number(d.accuracyGoodPct||0)).toFixed(1)) + '%');
       set('endCombo', d.comboMax ?? 0);
       set('endMiss', d.misses ?? 0);
       set('endGoals', String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0));
       set('endMinis', String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0));
+
+      set('endGreen', (Number(d.timeInGreenSec||0).toFixed(1)) + 's');
+      set('endStreak', d.streakMax ?? 0);
+      set('endStorm', d.stormCycles ?? 0);
+      set('endStormOk', d.stormMiniSuccess ?? 0);
+      set('endStormRate', (Number(d.stormSuccessRatePct||0).toFixed(0)) + '%');
 
       if (endBackdrop) endBackdrop.style.display = 'flex';
     }, { passive:true });
 
     // keyboard (desktop)
     window.addEventListener('keydown', (e)=>{
-      if (e.code === 'Space'){
-        e.preventDefault();
-        shootAtCenter();
-      }
-      if (e.key && e.key.toLowerCase() === 'c'){
-        setCardboard(!body.classList.contains('cardboard'));
-      }
+      if (e.code === 'Space'){ e.preventDefault(); shootAtCenter(); }
+      if (e.key && e.key.toLowerCase() === 'c'){ setCardboard(!body.classList.contains('cardboard')); }
     }, { passive:false });
   })();
   </script>
