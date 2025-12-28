@@ -1,10 +1,9 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR — PRODUCTION (HTML-ONLY PATCH)
-✅ Correct module path: ./hydration-vr/hydration.safe.js
-✅ Cardboard stereo (2 eyes L/R) via mirrored DOM render (no safe.js change)
-✅ Gaze dwell (faster + more accurate) -> synthetic center-fire (works with your crosshair/tap)
-✅ UI Compact toggle to increase gameplay area (especially mobile)
-✅ End-window cinematic FX driver (uses only tick + thunder)
+HydrationVR — PRODUCTION (HTML PATCH: CARDBOARD STEREO + GAZE FUSE)
+✅ Cardboard stereoscopic split-screen (L/R)
+✅ Gaze/Fuse (dwell) with ring progress + fast & accurate tuning
+✅ No changes to hydration.safe.js
+✅ Keeps normal mode + touch/crosshair shooting
 -->
 
 <!doctype html>
@@ -16,10 +15,10 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame core (optional; kept for your VR/WebXR flow) -->
+  <!-- A-Frame (optional) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + input compat + logger -->
+  <!-- FX + compat + logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
@@ -46,12 +45,12 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       /* storm warn amp (0..1) */
       --warnamp: 0;
 
-      /* ===== CINEMATIC end-window vars ===== */
+      /* cinematic end-window vars */
       --endamp: 0;      /* 0..1 */
       --endflash: 0;    /* 0..1 */
 
-      /* ===== GAZE progress (0..1) ===== */
-      --gp: 0;
+      /* gaze UI */
+      --gazeProg: 0;    /* 0..1 */
     }
 
     html,body{
@@ -60,10 +59,11 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       color:var(--text);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
       overflow:hidden;
+      touch-action: manipulation;
     }
     *{ box-sizing:border-box; }
 
-    /* ✅ STRONG Storm warning overlay */
+    /* Strong storm warning overlay */
     body.storm-warn::before{
       content:"";
       position:fixed; inset:-20px;
@@ -87,10 +87,11 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       100%{ transform: translate3d(0,0,0); opacity: calc(0.10 + (var(--warnamp) * 0.14)); }
     }
 
-    /* main layout */
+    /* =========================
+       Layout (Normal mode)
+       ========================= */
     .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
 
-    /* top HUD bar */
     .hud{
       position:relative;
       padding: calc(var(--sat) + 10px) 12px 10px;
@@ -114,31 +115,7 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
     .stat b{ color: var(--cyan); font-weight:1000; }
     .muted{ color: var(--muted); font-weight:850; }
 
-    /* buttons */
-    .btn{
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(34,197,94,.18);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 10px 12px;
-      font-weight: 1000;
-      letter-spacing:.2px;
-      cursor:pointer;
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
-      -webkit-tap-highlight-color: transparent;
-      user-select:none;
-    }
-    .btn.secondary{ background: rgba(2,6,23,.55); }
-    .btn.danger{ background: rgba(239,68,68,.18); }
-    .btn.tiny{
-      padding:6px 10px;
-      border-radius: 12px;
-      font-size: 12px;
-      box-shadow:none;
-    }
-
-    /* playfield */
+    /* Playfield (source / left) */
     #playfield{
       position:relative;
       flex:1;
@@ -148,12 +125,10 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       background: rgba(2,6,23,.35);
       box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
       overflow:hidden;
-      touch-action: manipulation;
       will-change: transform, filter;
     }
     #hvr-layer{ position:absolute; inset:0; pointer-events:none; }
 
-    /* bottom HUD */
     .bottom{
       padding: 10px 12px calc(var(--sab) + 12px);
       display:flex; gap:10px;
@@ -164,16 +139,19 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
     }
     .bottom .card{ min-width: 240px; }
 
-    /* water gauge */
+    /* Water gauge */
     .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
-    .bar{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95)); box-shadow: 0 0 14px rgba(34,211,238,.28); transition: width .22s ease; }
-    .bar.red{ background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(249,115,22,.95)); box-shadow: 0 0 16px rgba(239,68,68,.22); }
+    .bar{ height:100%; width:0%; border-radius:999px;
+      background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95));
+      box-shadow: 0 0 14px rgba(34,211,238,.28);
+      transition: width .22s ease;
+    }
+    .bar.red{
+      background: linear-gradient(90deg, rgba(239,68,68,.95), rgba(249,115,22,.95));
+      box-shadow: 0 0 16px rgba(239,68,68,.22);
+    }
 
-    /* storm / edge fx */
-    body.fx-low #playfield{ box-shadow: inset 0 0 0 1px rgba(56,189,248,.10), 0 24px 80px rgba(0,0,0,.55); }
-    body.fx-high #playfield{ box-shadow: inset 0 0 0 1px rgba(249,115,22,.12), 0 24px 80px rgba(0,0,0,.55); }
-
-    /* ✅ stronger shake (base) */
+    /* Shake */
     body.fx-shake #playfield{ animation: nudge .11s ease-in-out infinite; }
     @keyframes nudge{
       0%{ transform: translate3d(0,0,0); }
@@ -188,7 +166,7 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       filter: saturate(1.05);
     }
 
-    /* ✅ Storm warning banner (stronger) */
+    /* Storm warning banner */
     .stormWarnBanner{
       position:fixed;
       top: calc(var(--sat) + 10px);
@@ -221,14 +199,12 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       50%{ transform: translateX(-50%) scale(1.04); filter: brightness(1.30); }
       100%{ transform: translateX(-50%) scale(1); filter: brightness(1); }
     }
-
-    /* ✅ stronger warning edge */
     body.storm-warn #playfield{
       outline: 2px dashed rgba(239,68,68,.35);
       filter: brightness(1.08) contrast(1.06);
     }
 
-    /* quest UI */
+    /* Quest */
     .questLine{ margin: 3px 0; font-size:12px; font-weight:900; line-height:1.25; }
     .questLine .tag{
       display:inline-flex; align-items:center; gap:6px;
@@ -264,7 +240,7 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
     .miniBar{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
     .miniBar > div{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.85)); transition: width .16s ease; box-shadow: 0 0 14px rgba(167,139,250,.18); }
 
-    /* Start overlay */
+    /* Start overlay + buttons */
     #start-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
@@ -282,6 +258,22 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       text-align:left;
     }
     .btnRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .btn{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(34,197,94,.18);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 10px 12px;
+      font-weight: 1000;
+      letter-spacing:.2px;
+      cursor:pointer;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn.secondary{ background: rgba(2,6,23,.55); }
+    .btn.danger{ background: rgba(239,68,68,.18); }
+    .btn.violet{ background: rgba(167,139,250,.16); }
 
     /* Stamp */
     #hha-stamp{
@@ -340,9 +332,134 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
     .endItem .v{ margin-top:4px; font-size:16px; }
 
     /* =========================================================
-       ===== CINEMATIC END-WINDOW FX (HTML-only / no safe.js) ====
+       CARDBOARD STEREO (2 views) + GAZE UI
        ========================================================= */
+    #cardboardWrap{
+      position:fixed; inset:0;
+      display:none;
+      z-index:12;
+      background: #000;
+    }
+    body.cardboard #cardboardWrap{ display:flex; }
+    body.cardboard .stage{ display:none; } /* hide normal UI stage in cardboard */
 
+    .cbView{
+      position:relative;
+      flex:1;
+      overflow:hidden;
+      border-left: 1px solid rgba(255,255,255,.06);
+    }
+    .cbView:first-child{ border-left:none; }
+
+    .cbHUDMini{
+      position:absolute;
+      left: 50%;
+      top: calc(var(--sat) + 10px);
+      transform: translateX(-50%);
+      z-index: 30;
+      pointer-events:none;
+      font-weight: 1000;
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(2,6,23,.55);
+      border: 1px solid rgba(148,163,184,.16);
+      backdrop-filter: blur(10px);
+      color: rgba(226,232,240,.95);
+      white-space: nowrap;
+    }
+
+    /* Each eye playfield */
+    .cbPlayfield{
+      position:absolute; inset: 10px 10px 10px 10px;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.12);
+      background: rgba(2,6,23,.35);
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+    .cbLayer{ position:absolute; inset:0; pointer-events:none; }
+
+    /* Reticle + fuse ring */
+    .gazeRet{
+      position:absolute;
+      left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      width: 30px; height: 30px;
+      border-radius: 999px;
+      border: 2px solid rgba(226,232,240,.60);
+      box-shadow: 0 0 0 8px rgba(2,6,23,.35);
+      z-index: 40;
+      pointer-events:none;
+    }
+    .gazeDot{
+      position:absolute;
+      left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      width: 5px; height: 5px;
+      border-radius: 999px;
+      background: rgba(34,211,238,.95);
+      box-shadow: 0 0 12px rgba(34,211,238,.35);
+    }
+    .gazeRing{
+      position:absolute;
+      left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      width: 46px; height: 46px;
+      border-radius: 999px;
+      background:
+        conic-gradient(rgba(34,197,94,.95) calc(var(--gazeProg)*360deg),
+                       rgba(148,163,184,.18) 0deg);
+      -webkit-mask: radial-gradient(circle at 50% 50%, transparent 58%, #000 60%);
+      mask: radial-gradient(circle at 50% 50%, transparent 58%, #000 60%);
+      z-index: 39;
+      pointer-events:none;
+      filter: drop-shadow(0 0 12px rgba(34,197,94,.22));
+      opacity: .95;
+    }
+
+    /* Small divider hint */
+    .cbDivider{
+      position:fixed;
+      left:50%; top:0; bottom:0;
+      width:1px;
+      background: rgba(255,255,255,.06);
+      z-index: 25;
+      pointer-events:none;
+      display:none;
+    }
+    body.cardboard .cbDivider{ display:block; }
+
+    /* Button overlay in cardboard (exit) */
+    #cbControls{
+      position:fixed;
+      left:50%;
+      bottom: calc(var(--sab) + 10px);
+      transform: translateX(-50%);
+      z-index: 80;
+      display:none;
+      gap:10px;
+    }
+    body.cardboard #cbControls{ display:flex; }
+    .cbBtn{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 1100;
+      letter-spacing:.2px;
+      cursor:pointer;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cbBtn.green{ background: rgba(34,197,94,.18); }
+
+    /* =========================================================
+       CINEMATIC END-WINDOW FX (unchanged)
+       ========================================================= */
     body.endwindow::after{
       content:"";
       position:fixed; inset:-26px;
@@ -378,7 +495,6 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       50%{ opacity: calc(0.14 + (var(--endamp) * 0.22)); }
       100%{ opacity: calc(0.10 + (var(--endamp) * 0.18)); }
     }
-
     body.endwindow #playfield{
       outline: 2px dashed rgba(239,68,68,.55);
       filter:
@@ -395,7 +511,6 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       55%{ transform: translate3d(-1.6px,1.8px,0); }
       100%{ transform: translate3d(0,0,0); }
     }
-
     body.endflash #playfield{
       filter:
         saturate(1.20)
@@ -403,130 +518,6 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
         brightness(1.16)
         drop-shadow( 1.35px 0px 0px rgba(239,68,68,.22))
         drop-shadow(-1.35px 0px 0px rgba(34,211,238,.18));
-    }
-
-    /* =========================================================
-       ===== FAST + ACCURATE GAZE (Dwell) RETICLE (Mono) ========
-       ========================================================= */
-    #gaze-reticle{
-      position:fixed;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      width: 44px; height: 44px;
-      z-index: 88;
-      pointer-events:none;
-      opacity: .95;
-      --gp: var(--gp);
-      display:block;
-    }
-    body.stereo #gaze-reticle{ display:none; }
-
-    #gaze-reticle .dot{
-      position:absolute; left:50%; top:50%;
-      width: 8px; height: 8px;
-      transform: translate(-50%,-50%);
-      border-radius:999px;
-      background: rgba(34,211,238,.95);
-      box-shadow: 0 0 0 6px rgba(34,211,238,.12);
-    }
-    #gaze-reticle .ring{
-      position:absolute; inset:0;
-      border-radius:999px;
-      background:
-        conic-gradient(rgba(34,197,94,.95) calc(var(--gp)*1turn), rgba(148,163,184,.18) 0);
-      -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%);
-              mask: radial-gradient(circle, transparent 62%, #000 63%);
-      filter: drop-shadow(0 0 12px rgba(34,197,94,.18));
-      transition: filter .12s ease;
-    }
-    body.gaze-lock #gaze-reticle .ring{
-      filter: drop-shadow(0 0 18px rgba(34,197,94,.28));
-    }
-
-    /* =========================================================
-       ===== CARDBOARD STEREO (2 eyes) — mirrored DOM render =====
-       ========================================================= */
-    #stereo-wrap{
-      position:absolute; inset:0;
-      display:none;
-      gap:0;
-      z-index: 5; /* under HUD, above background */
-      pointer-events:none;
-      background: rgba(2,6,23,.25);
-    }
-    body.stereo #stereo-wrap{ display:flex; }
-    body.stereo #hvr-layer{ opacity:0; } /* hide original targets visually (safe.js still runs) */
-
-    .eye{
-      width:50%;
-      height:100%;
-      overflow:hidden;
-      position:relative;
-      border-left: 1px solid rgba(148,163,184,.10);
-    }
-    .eye:first-child{ border-left:none; }
-
-    .eyeInner{
-      position:absolute; inset:0;
-      transform: translateZ(0);
-      will-change: transform;
-    }
-    .mirrorLayer{
-      position:absolute; inset:0;
-      pointer-events:none;
-    }
-    .mTarget{
-      position:absolute;
-      pointer-events:none;
-      transform: translate3d(0,0,0);
-      will-change: transform, left, top;
-    }
-
-    /* per-eye reticle (always on in stereo) */
-    .eyeReticle{
-      position:absolute;
-      left:50%; top:50%;
-      width: 46px; height: 46px;
-      transform: translate(-50%,-50%);
-      opacity:.95;
-      pointer-events:none;
-      z-index: 10;
-    }
-    .eyeReticle .dot{
-      position:absolute; left:50%; top:50%;
-      width: 7px; height: 7px;
-      transform: translate(-50%,-50%);
-      border-radius:999px;
-      background: rgba(34,211,238,.95);
-      box-shadow: 0 0 0 6px rgba(34,211,238,.10);
-    }
-    .eyeReticle .ring{
-      position:absolute; inset:0;
-      border-radius:999px;
-      background:
-        conic-gradient(rgba(34,197,94,.95) calc(var(--gp)*1turn), rgba(148,163,184,.18) 0);
-      -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%);
-              mask: radial-gradient(circle, transparent 62%, #000 63%);
-      filter: drop-shadow(0 0 12px rgba(34,197,94,.16));
-    }
-
-    /* =========================================================
-       ===== UI COMPACT (more gameplay area) =====
-       ========================================================= */
-    body.compact-ui .bottom{ padding-top: 8px; }
-    body.compact-ui .bottom .card{ padding: 8px 9px; border-radius: 16px; }
-    body.compact-ui .miniWrap{ display:none; }
-    body.compact-ui .questLine{ margin: 2px 0; font-size: 12px; }
-    body.compact-ui #playfield{ margin: 0 10px; border-radius: 20px; }
-
-    /* mobile tuning */
-    @media (max-width: 520px){
-      .hud{ padding: calc(var(--sat) + 8px) 10px 8px; gap:8px; }
-      .card{ min-width: 0; width: 100%; }
-      .hud{ flex-direction: column; align-items: stretch; }
-      .bottom{ flex-direction: column; align-items: stretch; gap:8px; }
-      .bottom .card{ min-width: 0; }
-      #playfield{ margin: 0 10px; }
     }
   </style>
 </head>
@@ -536,6 +527,9 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
     <div class="pill">⚠️ Storm กำลังมา… เตรียมตัว!</div>
   </div>
 
+  <!-- =======================
+       Normal stage (default)
+       ======================= -->
   <div class="stage">
     <div class="hud">
       <div class="card">
@@ -550,34 +544,14 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       </div>
 
       <div class="card" style="min-width:260px">
-        <h3 style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <span>🧠 Coach</span>
-          <button class="btn tiny secondary" id="btn-ui" type="button">🪄 Compact</button>
-        </h3>
+        <h3>🧠 Coach</h3>
         <div class="questLine" id="coach-text">แตะ START เพื่อเริ่ม</div>
         <div class="questLine muted" id="coach-sub">Mini quest จะโผล่ตอน Storm</div>
       </div>
     </div>
 
     <div id="playfield">
-      <!-- SAFE.JS HOST -->
       <div id="hvr-layer"></div>
-
-      <!-- CARDBOARD stereo render -->
-      <div id="stereo-wrap" aria-hidden="true">
-        <div class="eye" id="eyeL">
-          <div class="eyeInner">
-            <div class="mirrorLayer" id="mirrorL"></div>
-            <div class="eyeReticle"><div class="ring"></div><div class="dot"></div></div>
-          </div>
-        </div>
-        <div class="eye" id="eyeR">
-          <div class="eyeInner">
-            <div class="mirrorLayer" id="mirrorR"></div>
-            <div class="eyeReticle"><div class="ring"></div><div class="dot"></div></div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="bottom">
@@ -595,10 +569,7 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       </div>
 
       <div class="card" style="min-width:340px">
-        <h3 style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <span>🧩 Quest</span>
-          <button class="btn tiny secondary" id="btn-gaze" type="button">👁️ Gaze: OFF</button>
-        </h3>
+        <h3>🧩 Quest</h3>
         <div class="questLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
         <div class="questLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
         <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
@@ -630,10 +601,32 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
     </div>
   </div>
 
-  <!-- Mono gaze reticle -->
-  <div id="gaze-reticle" aria-hidden="true">
-    <div class="ring"></div>
-    <div class="dot"></div>
+  <!-- =======================
+       Cardboard stereo stage
+       ======================= -->
+  <div id="cardboardWrap" aria-hidden="true">
+    <div class="cbView" id="cbLeft">
+      <div class="cbHUDMini" id="cbHudLeft">💧 GAZE: จ้องค้างเพื่อยิง</div>
+      <div class="cbPlayfield" id="cbPlayL">
+        <!-- SOURCE is still #playfield in normal stage; we mirror it here visually by moving it into L when enabled -->
+        <div class="gazeRing" id="gazeRingL"></div>
+        <div class="gazeRet"><div class="gazeDot"></div></div>
+      </div>
+    </div>
+    <div class="cbView" id="cbRight">
+      <div class="cbHUDMini" id="cbHudRight">🕶️ CARDBOARD</div>
+      <div class="cbPlayfield" id="cbPlayR">
+        <div class="cbLayer" id="hvr-layer-r"></div>
+        <div class="gazeRing" id="gazeRingR"></div>
+        <div class="gazeRet"><div class="gazeDot"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="cbDivider" aria-hidden="true"></div>
+
+  <div id="cbControls">
+    <button class="cbBtn green" id="cbExit" type="button">⬅ Exit Cardboard</button>
+    <button class="cbBtn" id="cbRecenter" type="button">🎯 Recenter</button>
   </div>
 
   <div id="hha-stamp" aria-hidden="true">
@@ -647,13 +640,18 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
     <div class="startCard">
       <div style="font-size:18px;font-weight:1100">💧 Hydration VR</div>
       <div class="muted" style="margin-top:6px; font-size:12px; font-weight:900">
-        เล็งด้วยหัว (gyro) • ยิงด้วยแตะกลางจอ • เปิด Gaze เพื่อยิงอัตโนมัติ (มองค้าง) • Cardboard = 2 จอซ้าย/ขวา
+        เล่นจอเดียว: แตะกลางจอ = ยิง crosshair •
+        Cardboard: จ้องค้าง (Gaze/Fuse) เพื่อยิง •
+        Mini: บล็อก BAD ช่วงท้ายพายุ
       </div>
       <div class="btnRow">
         <button class="btn" id="btn-start" type="button">🚀 START</button>
-        <button class="btn secondary" id="btn-vr" type="button">🥽 VR (WebXR)</button>
-        <button class="btn secondary" id="btn-cardboard" type="button">🕶️ Cardboard (Stereo)</button>
+        <button class="btn secondary" id="btn-vr" type="button">🥽 VR</button>
+        <button class="btn violet" id="btn-cardboard" type="button">🕶️ Cardboard</button>
         <button class="btn danger" id="btn-stop" type="button">⛔ STOP</button>
+      </div>
+      <div class="muted" style="margin-top:8px; font-size:12px; font-weight:900">
+        Tip: เปิด Cardboard แบบ URL ได้ด้วย <span style="color:rgba(226,232,240,.95)">&cardboard=1</span>
       </div>
     </div>
   </div>
@@ -675,388 +673,349 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
     </div>
   </div>
 
-  <!-- ✅ IMPORTANT: correct relative path from /herohealth/hydration-vr.html -->
+  <!-- ✅ correct relative path from /herohealth/hydration-vr.html -->
   <script type="module" src="./hydration-vr/hydration.safe.js"></script>
 
   <!-- =========================================================
-       UI toggles: Compact + Cardboard stereo + Fullscreen helpers
+       Cardboard + Gaze driver (NO safe.js edits)
+       - Moves the live #playfield into Left eye container
+       - Mirrors orbs into Right eye layer via MutationObserver
+       - Gaze/Fuse hits the SOURCE orb by synthetic pointerdown
        ========================================================= -->
   <script>
   (function(){
     'use strict';
     const D = document;
+    const root = window;
 
-    // Compact UI (more play area)
-    const btnUI = D.getElementById('btn-ui');
-    const compactKey = 'HVR_UI_COMPACT';
-    function setCompact(on){
-      D.body.classList.toggle('compact-ui', !!on);
-      localStorage.setItem(compactKey, on ? '1' : '0');
-      if (btnUI) btnUI.textContent = on ? '🧾 Full UI' : '🪄 Compact';
-    }
-    setCompact(localStorage.getItem(compactKey) === '1');
-    btnUI?.addEventListener('click', ()=> setCompact(!D.body.classList.contains('compact-ui')));
-
-    async function enterFullscreen(el){
-      el = el || D.documentElement;
-      try{
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-      }catch(e){}
-    }
-    async function lockLandscape(){
-      try{
-        if (screen.orientation && screen.orientation.lock){
-          await screen.orientation.lock('landscape');
-        }
-      }catch(e){}
-    }
-
+    const qs = new URLSearchParams(location.search);
     const btnCard = D.getElementById('btn-cardboard');
-    const stereoKey = 'HVR_STEREO';
-    function setStereo(on){
-      D.body.classList.toggle('stereo', !!on);
-      localStorage.setItem(stereoKey, on ? '1' : '0');
-      if (btnCard) btnCard.textContent = on ? '🕶️ Cardboard: ON' : '🕶️ Cardboard (Stereo)';
-    }
-    setStereo(localStorage.getItem(stereoKey) === '1');
+    const btnExit = D.getElementById('cbExit');
+    const btnRecenter = D.getElementById('cbRecenter');
 
-    btnCard?.addEventListener('click', async ()=>{
-      const on = !D.body.classList.contains('stereo');
-      setStereo(on);
-      if (on){
-        await enterFullscreen(D.documentElement);
-        await lockLandscape();
-      }
-    });
+    const cardboardWrap = D.getElementById('cardboardWrap');
+    const cbPlayL = D.getElementById('cbPlayL');
+    const cbPlayR = D.getElementById('cbPlayR');
+    const rightLayer = D.getElementById('hvr-layer-r');
 
-    // Also allow: long-press anywhere to toggle stereo (optional)
-    let lpT = 0;
-    window.addEventListener('pointerdown', ()=>{
-      lpT = window.setTimeout(()=>{
-        setStereo(!D.body.classList.contains('stereo'));
-      }, 700);
-    }, { passive:true });
-    window.addEventListener('pointerup', ()=>{ clearTimeout(lpT); }, { passive:true });
-  })();
-  </script>
+    const ringL = D.getElementById('gazeRingL');
+    const ringR = D.getElementById('gazeRingR');
 
-  <!-- =========================================================
-       FAST + ACCURATE GAZE DWELL
-       - Faster: dwell ~450ms
-       - More accurate: lock-on with stickiness + center based on playfield center
-       - Works in stereo (per-eye ring shows same progress)
-       ========================================================= -->
-  <script>
-  (function(){
-    'use strict';
-    const D = document;
+    const STAGE_NORMAL = D.querySelector('.stage');
+    const SOURCE_PLAYFIELD = D.getElementById('playfield');
+    const SOURCE_LAYER = D.getElementById('hvr-layer');
 
-    const btn = D.getElementById('btn-gaze');
-    const playfield = D.getElementById('playfield');
-    const layer = D.getElementById('hvr-layer');
-
-    const CFG = {
-      enabled: (localStorage.getItem('HVR_GAZE_DWELL') === '1'),
-      dwellMs: 450,        // ✅ faster
-      radiusPx: 34,        // ✅ tighter = more precise
-      stickyPx: 52,        // keep lock if drift a bit
-      cooldownMs: 160,     // faster follow-up
-      minSizePx: 18
-    };
-
-    function setBtn(){
-      if (!btn) return;
-      btn.textContent = `👁️ Gaze: ${CFG.enabled ? 'ON' : 'OFF'}`;
-    }
-    setBtn();
-
-    btn?.addEventListener('click', ()=>{
-      CFG.enabled = !CFG.enabled;
-      localStorage.setItem('HVR_GAZE_DWELL', CFG.enabled ? '1' : '0');
-      setBtn();
-    });
+    const STORAGE_KEY = 'HHA_CARDBOARD';
 
     function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
-    function setGP(p){
-      p = clamp(p, 0, 1);
-      D.documentElement.style.setProperty('--gp', String(p));
+    // --- Toggle Cardboard ---
+    function enableCardboard(on){
+      on = !!on;
+
+      if (on){
+        // remember
+        try{ localStorage.setItem(STORAGE_KEY, '1'); }catch(_){}
+        D.body.classList.add('cardboard');
+
+        // Move source playfield into LEFT view (so game is actually live on left)
+        // Keep it as-is; just reparent DOM node.
+        if (SOURCE_PLAYFIELD && cbPlayL && SOURCE_PLAYFIELD.parentElement !== cbPlayL){
+          cbPlayL.appendChild(SOURCE_PLAYFIELD);
+          // in cardboard, make playfield fill the eye
+          SOURCE_PLAYFIELD.style.position = 'absolute';
+          SOURCE_PLAYFIELD.style.inset = '0';
+          SOURCE_PLAYFIELD.style.margin = '0';
+          SOURCE_PLAYFIELD.style.borderRadius = '18px';
+        }
+
+        // Hide start overlay if already started? (leave to safe)
+      } else {
+        try{ localStorage.removeItem(STORAGE_KEY); }catch(_){}
+        D.body.classList.remove('cardboard');
+
+        // Move source playfield back to normal stage (between HUD and bottom)
+        if (SOURCE_PLAYFIELD && STAGE_NORMAL && SOURCE_PLAYFIELD.parentElement !== STAGE_NORMAL){
+          // Find insertion point: after HUD
+          const hud = STAGE_NORMAL.querySelector('.hud');
+          if (hud && hud.nextSibling){
+            STAGE_NORMAL.insertBefore(SOURCE_PLAYFIELD, hud.nextSibling);
+          } else {
+            STAGE_NORMAL.appendChild(SOURCE_PLAYFIELD);
+          }
+          SOURCE_PLAYFIELD.style.position = 'relative';
+          SOURCE_PLAYFIELD.style.inset = '';
+          SOURCE_PLAYFIELD.style.margin = '0 12px';
+          SOURCE_PLAYFIELD.style.borderRadius = '22px';
+        }
+
+        // cleanup right clones
+        try{ rightLayer.innerHTML = ''; }catch(_){}
+        cloneMap.clear();
+      }
+
+      // reset gaze visuals
+      setGazeProg(0);
     }
 
-    // ยิง crosshair ด้วย "tap" ที่ศูนย์กลาง playfield (แม่นกว่ากึ่งกลางหน้าจอเมื่อมี margin)
-    function fireCenter(){
-      if (!playfield) return;
-      const r = playfield.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top  + r.height/2;
-
-      const down = new PointerEvent('pointerdown', { bubbles:true, clientX:cx, clientY:cy, pointerType:'touch', isPrimary:true });
-      const up   = new PointerEvent('pointerup',   { bubbles:true, clientX:cx, clientY:cy, pointerType:'touch', isPrimary:true });
-      const clk  = new MouseEvent('click',         { bubbles:true, clientX:cx, clientY:cy });
-
-      playfield.dispatchEvent(down);
-      playfield.dispatchEvent(up);
-      playfield.dispatchEvent(clk);
+    function wantCardboardByDefault(){
+      if (qs.get('cardboard') === '1') return true;
+      try{
+        return localStorage.getItem(STORAGE_KEY) === '1';
+      }catch(_){}
+      return false;
     }
 
-    // คัดเฉพาะ candidate ที่น่าจะเป็นเป้า: child ของ layer, หรือคลาส/attr ที่พบบ่อย
-    function getCandidates(){
-      if (!layer) return [];
-      const direct = Array.from(layer.children || []);
-      if (direct.length) return direct;
+    btnCard?.addEventListener('click', ()=> enableCardboard(true), { passive:true });
+    btnExit?.addEventListener('click', ()=> enableCardboard(false), { passive:true });
 
-      // fallback
-      return Array.from(layer.querySelectorAll('[data-hha-target], .hha-target, .target, .emojiTarget, .orb, .ball, .bubble, button, div, span'));
+    // recenter = reset look vars (best-effort)
+    btnRecenter?.addEventListener('click', ()=>{
+      try{
+        if (root.__HVR__ && root.__HVR__.S){
+          root.__HVR__.S.lookX = 0;
+          root.__HVR__.S.lookY = 0;
+          root.__HVR__.S.baseLookX = 0;
+          root.__HVR__.S.baseLookY = 0;
+        }
+      }catch(_){}
+    }, { passive:true });
+
+    // --- Mirror orbs to right eye ---
+    const cloneMap = new Map(); // sourceEl -> cloneEl
+
+    function syncStyle(src, dst){
+      if (!src || !dst) return;
+      const s = src.style;
+      const d = dst.style;
+
+      // copy the key inline styles used by game
+      d.left = s.left;
+      d.top = s.top;
+      d.width = s.width;
+      d.height = s.height;
+      d.transform = s.transform;
+      d.opacity = s.opacity;
+      d.filter = s.filter;
+      d.boxShadow = s.boxShadow;
+      d.borderRadius = s.borderRadius;
+      d.willChange = s.willChange;
+      d.pointerEvents = 'none'; // right eye is visual-only
+
+      // classes (for kind)
+      dst.className = src.className;
     }
 
-    function pickNearestTarget(){
-      if (!layer || !playfield) return null;
-      const pr = playfield.getBoundingClientRect();
-      const cx = pr.left + pr.width/2;
-      const cy = pr.top  + pr.height/2;
+    // observe additions/removals in SOURCE_LAYER
+    let obs = null;
+    function startMirror(){
+      if (!SOURCE_LAYER || !rightLayer) return;
+      if (obs) return;
 
-      const nodes = getCandidates();
+      obs = new MutationObserver((muts)=>{
+        for (const m of muts){
+          // added
+          for (const n of m.addedNodes){
+            if (!(n instanceof HTMLElement)) continue;
+            if (!n.classList.contains('hvr-orb')) continue;
+            // clone deep
+            const c = n.cloneNode(true);
+            c.style.pointerEvents = 'none';
+            rightLayer.appendChild(c);
+            cloneMap.set(n, c);
+            syncStyle(n, c);
+          }
+          // removed
+          for (const n of m.removedNodes){
+            if (!(n instanceof HTMLElement)) continue;
+            const c = cloneMap.get(n);
+            if (c){
+              try{ c.remove(); }catch(_){}
+              cloneMap.delete(n);
+            }
+          }
+        }
+      });
+      obs.observe(SOURCE_LAYER, { childList:true });
+    }
+
+    // also sync playfield transform to cbPlayR “visual playfield”
+    function syncPlayfieldToRight(){
+      // cbPlayR is the container; rightLayer is inside.
+      // mimic transform of source playfield by applying it to rightLayer’s parent (#cbPlayR)
+      try{
+        const t = SOURCE_PLAYFIELD.style.transform || '';
+        cbPlayR.style.transform = t;
+      }catch(_){}
+    }
+
+    // --- Gaze/Fuse (fast + accurate) ---
+    // Tuning (เร็วขึ้น + แม่นขึ้น):
+    const DWELL_MS = 360;       // faster fuse
+    const PICK_RADIUS = 92;     // tighter radius for accuracy
+    const STICKINESS = 0.65;    // keep same target unless much worse
+
+    let gazeEl = null;
+    let gazeHoldMs = 0;
+    let lastT = 0;
+    let currentProg = 0;
+
+    function setGazeProg(p){
+      currentProg = clamp(p, 0, 1);
+      D.documentElement.style.setProperty('--gazeProg', String(currentProg));
+    }
+
+    function isGameRunning(){
+      const H = root.__HVR__;
+      const S = H && H.S;
+      return !!(S && S.started && !S.ended);
+    }
+
+    function centerOf(el){
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width/2, y: r.top + r.height/2, r };
+    }
+
+    function findBestOrb(center){
+      // pick from SOURCE_LAYER only
+      const nodes = SOURCE_LAYER ? Array.from(SOURCE_LAYER.querySelectorAll('.hvr-orb')) : [];
       let best = null;
-      let bestD = 1e9;
+      let bestD = Infinity;
 
-      for (const el of nodes){
-        if (!el || el.nodeType !== 1) continue;
-
-        const r = el.getBoundingClientRect();
-        if (!r || r.width < CFG.minSizePx || r.height < CFG.minSizePx) continue;
-
-        // ต้องอยู่ใน playfield
-        const midx = r.left + r.width/2;
-        const midy = r.top  + r.height/2;
-        if (midx < pr.left || midx > pr.right || midy < pr.top || midy > pr.bottom) continue;
-
-        // ต้องมองเห็น (กัน element opacity=0)
-        const cs = getComputedStyle(el);
-        if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) <= 0.02) continue;
-
-        const d = Math.hypot(midx - cx, midy - cy);
+      for (const orb of nodes){
+        const rr = orb.getBoundingClientRect();
+        const ox = rr.left + rr.width/2;
+        const oy = rr.top + rr.height/2;
+        const dx = ox - center.x;
+        const dy = oy - center.y;
+        const d = dx*dx + dy*dy;
         if (d < bestD){
           bestD = d;
-          best = el;
+          best = orb;
         }
       }
 
-      if (best && bestD <= CFG.radiusPx) return best;
-      return null;
+      return { best, bestD: Math.sqrt(bestD) };
     }
 
-    let lockEl = null;
-    let lockAt = 0;
-    let cooldownUntil = 0;
-
-    function isStillClose(el){
-      if (!el || !playfield) return false;
-      const pr = playfield.getBoundingClientRect();
-      const cx = pr.left + pr.width/2;
-      const cy = pr.top  + pr.height/2;
-      const r = el.getBoundingClientRect();
-      if (!r) return false;
-      const midx = r.left + r.width/2;
-      const midy = r.top  + r.height/2;
-      const d = Math.hypot(midx - cx, midy - cy);
-      return d <= CFG.stickyPx;
+    function hitOrb(el){
+      if (!el) return;
+      // synthetic pointerdown (safe.js listens on orb pointerdown)
+      try{
+        const rr = el.getBoundingClientRect();
+        const ev = new PointerEvent('pointerdown', {
+          bubbles:true,
+          cancelable:true,
+          clientX: rr.left + rr.width/2,
+          clientY: rr.top + rr.height/2,
+          pointerId: 1,
+          pointerType: 'mouse'
+        });
+        el.dispatchEvent(ev);
+      }catch(_){
+        try{ el.click(); }catch(__){}
+      }
     }
 
-    function loop(){
-      if (!CFG.enabled){
-        D.body.classList.remove('gaze-lock');
-        lockEl = null; lockAt = 0;
-        setGP(0);
-        requestAnimationFrame(loop);
+    function gazeLoop(t){
+      const dtMs = Math.min(60, Math.max(8, (t - (lastT || t))));
+      lastT = t;
+
+      if (!D.body.classList.contains('cardboard') || !isGameRunning()){
+        gazeEl = null;
+        gazeHoldMs = 0;
+        setGazeProg(0);
+        requestAnimationFrame(gazeLoop);
         return;
       }
 
-      const now = performance.now();
-      if (now < cooldownUntil){
-        setGP(0);
-        requestAnimationFrame(loop);
+      // Prefer center of LEFT eye (source playfield is there)
+      const pf = SOURCE_PLAYFIELD;
+      if (!pf){
+        requestAnimationFrame(gazeLoop);
         return;
       }
+      const c = centerOf(pf);
 
-      // ถ้า lock เดิมยังอยู่ใกล้ศูนย์ -> อย่ารีเซ็ตง่าย (แม่นขึ้น)
-      let target = null;
-      if (lockEl && isStillClose(lockEl)) target = lockEl;
-      else target = pickNearestTarget();
+      // Find nearest orb to center
+      const { best, bestD } = findBestOrb(c);
 
-      if (!target){
-        D.body.classList.remove('gaze-lock');
-        lockEl = null; lockAt = 0;
-        setGP(0);
-        requestAnimationFrame(loop);
-        return;
-      }
+      // stickiness: keep current target if still close enough
+      if (gazeEl && gazeEl.isConnected){
+        const rr = gazeEl.getBoundingClientRect();
+        const ox = rr.left + rr.width/2;
+        const oy = rr.top + rr.height/2;
+        const dCur = Math.hypot(ox - c.x, oy - c.y);
 
-      if (lockEl !== target){
-        lockEl = target;
-        lockAt = now;
-        setGP(0);
+        // if current is within radius and not much worse, keep it
+        if (dCur <= PICK_RADIUS && (bestD >= dCur * (1 - STICKINESS))){
+          // keep gazeEl
+        } else {
+          // switch to best
+          gazeEl = best;
+          gazeHoldMs = 0;
+        }
       } else {
-        const p = (now - lockAt) / CFG.dwellMs;
-        setGP(p);
-        D.body.classList.add('gaze-lock');
+        gazeEl = best;
+        gazeHoldMs = 0;
+      }
 
-        if (p >= 1){
-          fireCenter();
-          cooldownUntil = now + CFG.cooldownMs;
-          lockAt = now + 999999;
-          setGP(0);
-          D.body.classList.remove('gaze-lock');
+      // progress only if within radius
+      let prog = 0;
+      if (gazeEl && gazeEl.isConnected){
+        const rr = gazeEl.getBoundingClientRect();
+        const ox = rr.left + rr.width/2;
+        const oy = rr.top + rr.height/2;
+        const d = Math.hypot(ox - c.x, oy - c.y);
+
+        if (d <= PICK_RADIUS){
+          gazeHoldMs += dtMs;
+          prog = gazeHoldMs / DWELL_MS;
+
+          if (gazeHoldMs >= DWELL_MS){
+            hitOrb(gazeEl);
+            gazeHoldMs = 0;
+            prog = 0;
+            gazeEl = null;
+          }
+        } else {
+          // decay quickly
+          gazeHoldMs = Math.max(0, gazeHoldMs - dtMs*1.6);
+          prog = gazeHoldMs / DWELL_MS;
         }
       }
 
-      requestAnimationFrame(loop);
+      setGazeProg(prog);
+
+      // mirror sync each frame when in cardboard
+      for (const [src, dst] of cloneMap.entries()){
+        if (!src.isConnected){
+          try{ dst.remove(); }catch(_){}
+          cloneMap.delete(src);
+          continue;
+        }
+        syncStyle(src, dst);
+      }
+      syncPlayfieldToRight();
+
+      requestAnimationFrame(gazeLoop);
     }
 
-    requestAnimationFrame(loop);
+    // --- Auto-enable if param/storage ---
+    if (wantCardboardByDefault()){
+      // defer until DOM is stable
+      setTimeout(()=> enableCardboard(true), 50);
+    }
+
+    // Mirror and gaze start (always safe)
+    startMirror();
+    requestAnimationFrame(gazeLoop);
+
   })();
   </script>
 
   <!-- =========================================================
-       CARDBOARD STEREO MIRROR RENDER (no safe.js change)
-       - mirrors current targets from #hvr-layer into #mirrorL/#mirrorR
-       - adds small parallax shift to create stereoscopic feel
-       ========================================================= -->
-  <script>
-  (function(){
-    'use strict';
-    const D = document;
-    const playfield = D.getElementById('playfield');
-    const layer = D.getElementById('hvr-layer');
-    const L = D.getElementById('mirrorL');
-    const R = D.getElementById('mirrorR');
-
-    if (!playfield || !layer || !L || !R) return;
-
-    const STATE = {
-      idSeq: 0,
-      mapL: new Map(),
-      mapR: new Map(),
-      parallaxPx: 12   // stereo disparity (tweakable)
-    };
-
-    function keyFor(el){
-      if (!el.dataset) return null;
-      if (!el.dataset.hhaKey){
-        STATE.idSeq++;
-        el.dataset.hhaKey = 't' + STATE.idSeq;
-      }
-      return el.dataset.hhaKey;
-    }
-
-    function styleSnapshot(el, node){
-      // copy a few computed styles to make mirror close to original
-      const cs = getComputedStyle(el);
-      node.style.fontSize = cs.fontSize;
-      node.style.fontFamily = cs.fontFamily;
-      node.style.fontWeight = cs.fontWeight;
-      node.style.color = cs.color;
-      node.style.background = cs.background;
-      node.style.border = cs.border;
-      node.style.borderRadius = cs.borderRadius;
-      node.style.boxShadow = cs.boxShadow;
-      node.style.filter = cs.filter;
-      node.style.opacity = cs.opacity;
-      node.style.transformOrigin = cs.transformOrigin;
-    }
-
-    function ensureNode(map, parent, k, src){
-      let n = map.get(k);
-      if (!n){
-        n = document.createElement('div');
-        n.className = 'mTarget';
-        // keep inner visuals similar
-        n.innerHTML = src.innerHTML;
-        styleSnapshot(src, n);
-        parent.appendChild(n);
-        map.set(k, n);
-      } else {
-        // keep content updated if target swaps icon
-        if (n.innerHTML !== src.innerHTML) n.innerHTML = src.innerHTML;
-      }
-      return n;
-    }
-
-    function cleanup(map, used){
-      for (const [k,n] of map){
-        if (!used.has(k)){
-          n.remove();
-          map.delete(k);
-        }
-      }
-    }
-
-    function loop(){
-      if (!D.body.classList.contains('stereo')){
-        // if leaving stereo, clean mirrors to reduce cpu
-        if (STATE.mapL.size || STATE.mapR.size){
-          L.innerHTML = '';
-          R.innerHTML = '';
-          STATE.mapL.clear();
-          STATE.mapR.clear();
-        }
-        requestAnimationFrame(loop);
-        return;
-      }
-
-      const pr = playfield.getBoundingClientRect();
-      const used = new Set();
-
-      const kids = Array.from(layer.children || []);
-      for (let i=0; i<kids.length; i++){
-        const el = kids[i];
-        if (!el || el.nodeType !== 1) continue;
-
-        const cs = getComputedStyle(el);
-        if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) <= 0.02) continue;
-
-        const k = keyFor(el);
-        if (!k) continue;
-
-        const r = el.getBoundingClientRect();
-        const w = r.width, h = r.height;
-        if (w < 6 || h < 6) continue;
-
-        // position relative to playfield
-        const x = r.left - pr.left;
-        const y = r.top  - pr.top;
-
-        const nL = ensureNode(STATE.mapL, L, k, el);
-        const nR = ensureNode(STATE.mapR, R, k, el);
-
-        // subtle stereo shift
-        const dx = STATE.parallaxPx * 0.5;
-
-        nL.style.width = w + 'px';
-        nL.style.height = h + 'px';
-        nL.style.transform = `translate3d(${(x + dx).toFixed(2)}px, ${(y).toFixed(2)}px, 0)`;
-
-        nR.style.width = w + 'px';
-        nR.style.height = h + 'px';
-        nR.style.transform = `translate3d(${(x - dx).toFixed(2)}px, ${(y).toFixed(2)}px, 0)`;
-
-        used.add(k);
-      }
-
-      cleanup(STATE.mapL, used);
-      cleanup(STATE.mapR, used);
-
-      requestAnimationFrame(loop);
-    }
-
-    requestAnimationFrame(loop);
-  })();
-  </script>
-
-  <!-- =========================================================
-       HTML-ONLY CINEMATIC DRIVER (reads window.__HVR__.S/TUNE)
-       - tick accel + flash sync + endamp ramp
-       - only tick + thunder
+       HTML-only cinematic driver (unchanged)
        ========================================================= -->
   <script>
   (function(){
@@ -1120,6 +1079,7 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
 
     let flashTimer = 0;
     let currentAmp = 0;
+
     function flashPulse(strength){
       strength = clamp(strength, 0, 1);
       D.body.classList.add('endflash');
@@ -1150,7 +1110,6 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
         thundered = false;
         currentAmp = 0.25;
         D.body.classList.add('endwindow');
-
         EndAudio.resume();
         EndAudio.tick();
         flashPulse(0.85);
@@ -1181,7 +1140,6 @@ HydrationVR — PRODUCTION (HTML-ONLY PATCH)
       if (endOn){
         const elapsed = (t - tEnter) / 1000;
         const k = clamp(elapsed / 1.05, 0, 1);
-
         currentAmp = 0.25 + 0.75*k;
         setEndVars(currentAmp, 0);
 
