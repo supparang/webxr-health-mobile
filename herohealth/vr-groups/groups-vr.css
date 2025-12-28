@@ -686,3 +686,158 @@ a-scene[embedded]{
   0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) rotate(-2deg) translateY(0px); }
   50%    { transform: translate(-50%, -50%) scale(var(--s,1)) rotate( 2deg) translateY(-9px); }
 }
+/* ================================
+   CANDY COLORS — Grade 5 Targets
+   Paste at END of /vr-groups/groups-vr.css
+   ================================ */
+
+:root{
+  /* ขอบสติ๊กเกอร์แบบลูกอม */
+  --candy-outline: rgba(255,255,255,.95);
+  --candy-ink: rgba(2,6,23,.55);
+  --candy-shadow: rgba(0,0,0,.50);
+
+  /* ลูกกวาดจัด ๆ (neon pastel) */
+  --t-good1: rgba( 80, 255, 190, .55); /* mint */
+  --t-good2: rgba( 80, 210, 255, .35); /* sky */
+
+  --t-wrong1: rgba(255, 235, 120, .65); /* lemon */
+  --t-wrong2: rgba(255, 155,  85, .38); /* orange sherbet */
+
+  --t-junk1: rgba(255, 120, 200, .55); /* strawberry */
+  --t-junk2: rgba(255,  95, 120, .40); /* cherry */
+
+  --t-decoy1: rgba(200, 140, 255, .55); /* grape */
+  --t-decoy2: rgba(120, 230, 255, .32); /* ice */
+
+  --t-boss1: rgba(190, 220, 255, .30);  /* icy */
+  --t-boss2: rgba( 70, 255, 240, .20);  /* neon ice */
+}
+
+/* ------- Base sticker: candy toy ------- */
+.fg-target{
+  width: 104px;
+  height: 104px;
+  border-radius: 34px;
+
+  border: 5px solid var(--candy-outline);
+
+  box-shadow:
+    0 0 0 4px var(--candy-ink),            /* ink ring */
+    0 26px 56px var(--candy-shadow),       /* deep shadow */
+    0 10px 0 rgba(255,255,255,.10) inset,  /* top shine */
+    0 -18px 26px rgba(255,255,255,.10) inset;
+
+  backdrop-filter: blur(10px) saturate(1.35) contrast(1.05);
+  -webkit-backdrop-filter: blur(10px) saturate(1.35) contrast(1.05);
+
+  animation: fgCandyFloat 0.92s ease-in-out infinite;
+}
+
+/* emoji คม+เด้ง */
+.fg-target::before{
+  font-size: 52px;
+  line-height: 1;
+  transform: translateY(-2px);
+  filter:
+    drop-shadow(0 4px 0 rgba(255,255,255,.35))
+    drop-shadow(0 14px 22px rgba(0,0,0,.38));
+}
+
+/* shiny + sprinkles (ลายเม็ดน้ำตาล) */
+.fg-target::after{
+  content:"";
+  position:absolute;
+  inset: 8px;
+  border-radius: 30px;
+  pointer-events:none;
+  opacity: .95;
+  background:
+    radial-gradient(circle at 26% 18%, rgba(255,255,255,.78), rgba(255,255,255,0) 44%),
+    radial-gradient(circle at 76% 78%, rgba(255,255,255,.22), rgba(255,255,255,0) 46%),
+    /* sprinkles */
+    radial-gradient(circle, rgba(255,255,255,.35) 0 2px, rgba(255,255,255,0) 3px) 0 0/18px 18px,
+    radial-gradient(circle, rgba(255,255,255,.22) 0 1.5px, rgba(255,255,255,0) 3px) 9px 9px/18px 18px;
+  mix-blend-mode: screen;
+}
+
+.fg-target:active{
+  transform: translate(-50%, -50%) scale(calc(var(--s,1) * 0.90)) rotate(-2.5deg);
+  filter: brightness(1.10) saturate(1.35);
+}
+
+/* ------- type candy gradients ------- */
+.fg-good{
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255,255,255,.32), transparent 52%),
+    linear-gradient(135deg, var(--t-good1), var(--t-good2));
+}
+.fg-wrong{
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255,255,255,.28), transparent 52%),
+    linear-gradient(135deg, var(--t-wrong1), var(--t-wrong2));
+}
+.fg-junk{
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255,255,255,.28), transparent 52%),
+    linear-gradient(135deg, var(--t-junk1), var(--t-junk2));
+}
+.fg-decoy{
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255,255,255,.28), transparent 52%),
+    linear-gradient(135deg, var(--t-decoy1), var(--t-decoy2));
+}
+.fg-boss{
+  border-color: rgba(70,255,240,.95);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255,255,255,.28), transparent 52%),
+    linear-gradient(135deg, var(--t-boss1), var(--t-boss2));
+  animation: fgCandyBoss 0.78s ease-in-out infinite;
+}
+
+/* ------- badge แบบลูกอม (มุมขวาบน) ------- */
+.fg-wrong::after, .fg-junk::after, .fg-decoy::after, .fg-boss::after{
+  content: attr(data-badge);
+  position:absolute;
+  right:-12px;
+  top:-12px;
+  width: 36px;
+  height: 36px;
+  display:grid;
+  place-items:center;
+  border-radius: 16px;
+  border: 4px solid var(--candy-outline);
+  box-shadow:
+    0 0 0 4px var(--candy-ink),
+    0 14px 22px rgba(0,0,0,.40);
+  background:
+    radial-gradient(circle at 25% 20%, rgba(255,255,255,.50), rgba(255,255,255,0) 55%),
+    linear-gradient(135deg, rgba(15,23,42,.65), rgba(15,23,42,.35));
+  font-size: 16px;
+  transform: rotate(10deg);
+}
+
+/* ใส่สัญลักษณ์ */
+.fg-wrong{ --badge:"⚠️"; }
+.fg-junk { --badge:"🚫"; }
+.fg-decoy{ --badge:"❓"; }
+.fg-boss { --badge:"👑"; }
+.fg-wrong::after{ content: var(--badge); }
+.fg-junk::after { content: var(--badge); }
+.fg-decoy::after{ content: var(--badge); }
+.fg-boss::after { content: var(--badge); }
+
+/* ------- candy float motion ------- */
+@keyframes fgCandyFloat{
+  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) translateY(0px) rotate(-1.2deg); }
+  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) translateY(-10px) rotate( 1.2deg); }
+}
+@keyframes fgCandyBoss{
+  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) rotate(-2deg) translateY(0px); }
+  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) rotate( 2deg) translateY(-12px); }
+}
+
+/* ลด motion สำหรับผู้แพ้ง่าย */
+@media (prefers-reduced-motion: reduce){
+  .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out{ animation: none !important; }
+}
