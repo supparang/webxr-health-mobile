@@ -101,3 +101,58 @@ body.gj-stereo::before{
 body.gj-stereo, body.gj-stereo #gj-stage{
   touch-action: none;
 }
+/* ===== Stereo / Cardboard layout ===== */
+#gj-stage{
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.gj-eye{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+body.gj-stereo #gj-stage{
+  display:flex;
+}
+
+body.gj-stereo .gj-eye{
+  position: relative;
+  inset:auto;
+  flex: 1 1 50%;
+  width: 50vw;
+  height: 100vh;
+}
+
+body.gj-stereo #gj-eyeR{
+  display:block;
+}
+
+body:not(.gj-stereo) #gj-eyeR{
+  display:none;
+}
+
+/* crosshair per eye */
+#gj-crosshair, #gj-crosshairR{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width: 12px;
+  height: 12px;
+  border-radius:999px;
+  transform: translate(-50%,-50%);
+  box-shadow: 0 0 0 2px rgba(34,211,238,.35), 0 0 26px rgba(34,211,238,.25);
+  opacity:.9;
+  pointer-events:none;
+  z-index: 60;
+}
+
+/* end summary container should sit above targets */
+#end-summary, #end-summaryR{
+  position:absolute;
+  inset:0;
+  z-index: 160;
+  pointer-events:auto;
+}
