@@ -4,6 +4,7 @@
 // ✅ Cardboard gaze supported via HTML (shootAtCenter -> pointerdown)
 // ✅ Research: run=research => adaptive OFF + deterministic seed
 // ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end
+// ✅ NEW: HUB flush-hardened (sendBeacon + expose __HVR__.forceEnd(reason)->Promise)
 
 'use strict';
 
@@ -176,7 +177,6 @@ const S = {
     blockedInEnd:false,
     doneThisStorm:false,
 
-    // NEW helpers: guarantee pass chance
     gavePreShield:false,
     forcedEndBad:false,
     forcedEndBad2:false
@@ -185,16 +185,18 @@ const S = {
   adaptiveOn: (run !== 'research'),
   adaptK: 0.0,
 
-  spawnSeq: 0
+  spawnSeq: 0,
+
+  // NEW: end promise latch
+  endPromise: null
 };
 
-// difficulty tuning (faster + tighter)
+// difficulty tuning
 const TUNE = (() => {
   const sizeBase =
     diff === 'easy' ? 78 :
     diff === 'hard' ? 56 : 66;
 
-  // ✅ faster
   const spawnBase =
     diff === 'easy' ? 620 :
     diff === 'hard' ? 440 : 520;
@@ -216,7 +218,7 @@ const TUNE = (() => {
   return {
     sizeBase,
     spawnBaseMs: spawnBase,
-    spawnJitter: 120, // ✅ tighter (more consistent)
+    spawnJitter: 120,
 
     goodLifeMs: diff==='hard' ? 900 : 1040,
     badLifeMs:  diff==='hard' ? 940 : 1100,
@@ -240,7 +242,7 @@ S.greenTarget = TUNE.greenTargetSec;
 S.endWindowSec = TUNE.endWindowSec;
 S.stormDur = TUNE.stormDurSec;
 
-// expose for HTML cinematic driver
+// expose for HTML cinematic driver + HUB flush
 ROOT.__HVR__ = ROOT.__HVR__ || {};
 ROOT.__HVR__.S = S;
 ROOT.__HVR__.TUNE = TUNE;
@@ -323,9 +325,7 @@ function syncHUD(){
 }
 
 // ------------------ water dynamics ------------------
-function updateZone(){
-  S.waterZone = zoneFrom(S.waterPct);
-}
+function updateZone(){ S.waterZone = zoneFrom(S.waterPct); }
 function nudgeWaterGood(){
   const mid = 55;
   const d = mid - S.waterPct;
@@ -341,14 +341,13 @@ function pushWaterBad(){
   updateZone();
 }
 
-// ------------------ spawn math (center bias + margins) ------------------
+// ------------------ spawn math ------------------
 function pickXY(){
   const r = playfield.getBoundingClientRect();
   const pad = 22;
   const w = Math.max(1, r.width - pad*2);
   const h = Math.max(1, r.height - pad*2);
 
-  // center-bias
   const rx = (rng()+rng())/2;
   const ry = (rng()+rng())/2;
 
@@ -400,7 +399,6 @@ function spawn(kind){
   el.className = 'hvr-target ' + kind;
   el.dataset.kind = kind;
 
-  // NEW: uid helps cardboard mirroring
   const uid = 't' + (++S.spawnSeq);
   el.dataset.uid = uid;
 
@@ -461,7 +459,7 @@ function spawn(kind){
       makePop('+SHIELD', 'shield');
       emit('hha:judge', { kind:'shield' });
     }
-    else { // bad
+    else {
       if (S.shield > 0){
         S.shield--;
         S.nHitBadGuard++;
@@ -505,7 +503,6 @@ function nextSpawnDelay(){
     base *= TUNE.stormSpawnMul;
   }
 
-  // ✅ allow faster low bound
   return clamp(base, 180, 1200);
 }
 
@@ -550,7 +547,6 @@ function enterStorm(){
     forcedEndBad2:false
   };
 
-  // kick out of green a bit (so zoneOK is achievable)
   if (S.waterZone === 'GREEN'){
     S.waterPct = clamp(S.waterPct + (rng() < 0.5 ? -7 : +7), 0, 100);
     updateZone();
@@ -560,7 +556,6 @@ function enterStorm(){
 }
 
 function exitStorm(){
-  // evaluate mini once per storm
   if (!S.miniState.doneThisStorm){
     const m = S.miniState;
     const ok = !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
@@ -570,7 +565,6 @@ function exitStorm(){
       S.score += 35;
       makePop('MINI ✓', 'shield');
     } else {
-      // small feedback (ไม่หักแรง เพื่อไม่ทำลาย flow)
       makePop('MINI …', 'bad');
     }
   }
@@ -598,16 +592,14 @@ function tickStorm(dt){
   S.miniState.pressure = clamp(S.miniState.pressure + dt * pGain, 0, 1);
   if (S.miniState.pressure >= 1) S.miniState.pressureOK = true;
 
-  // ✅ GUARANTEE: ก่อน end-window ถ้ายังไม่มี shield ให้ดรอป 1 ครั้ง
   if (!S.miniState.gavePreShield && S.stormLeftSec <= (TUNE.endWindowSec + 1.35)){
     S.miniState.gavePreShield = true;
     if (S.shield <= 0){
       spawn('shield');
-      spawnTimer = Math.min(spawnTimer, 120); // ให้เกิดถี่ขึ้นนิด
+      spawnTimer = Math.min(spawnTimer, 120);
     }
   }
 
-  // ✅ GUARANTEE: เข้า end-window บังคับเกิด bad อย่างน้อย 1–2 ตัว เพื่อให้มีจังหวะ BLOCK
   if (inEnd && !S.miniState.forcedEndBad){
     S.miniState.forcedEndBad = true;
     spawn('bad');
@@ -627,6 +619,17 @@ function tickStorm(dt){
 // ------------------ end logging (C) ------------------
 async function sendLog(payload){
   if (!logEndpoint) return;
+
+  // ✅ 1) sendBeacon first (best for unload/navigation)
+  try{
+    if (navigator && typeof navigator.sendBeacon === 'function'){
+      const blob = new Blob([JSON.stringify(payload)], { type:'application/json' });
+      const ok = navigator.sendBeacon(logEndpoint, blob);
+      if (ok) return;
+    }
+  }catch{}
+
+  // ✅ 2) fetch keepalive
   try{
     await fetch(logEndpoint, {
       method:'POST',
@@ -634,17 +637,19 @@ async function sendLog(payload){
       body: JSON.stringify(payload),
       keepalive: true
     });
-  }catch(e){
-    try{
-      const u = new URL(logEndpoint, location.href);
-      u.searchParams.set('projectTag', String(payload.projectTag||'HeroHealth'));
-      u.searchParams.set('gameMode', 'hydration');
-      u.searchParams.set('sessionId', String(payload.sessionId||''));
-      u.searchParams.set('scoreFinal', String(payload.scoreFinal||0));
-      u.searchParams.set('grade', String(payload.grade||'C'));
-      await fetch(u.toString(), { method:'GET', keepalive:true });
-    }catch{}
-  }
+    return;
+  }catch{}
+
+  // ✅ 3) minimal GET fallback
+  try{
+    const u = new URL(logEndpoint, location.href);
+    u.searchParams.set('projectTag', String(payload.projectTag||'HeroHealth'));
+    u.searchParams.set('gameMode', 'hydration');
+    u.searchParams.set('sessionId', String(payload.sessionId||''));
+    u.searchParams.set('scoreFinal', String(payload.scoreFinal||0));
+    u.searchParams.set('grade', String(payload.grade||'C'));
+    await fetch(u.toString(), { method:'GET', keepalive:true });
+  }catch{}
 }
 
 // ------------------ main loop ------------------
@@ -683,7 +688,7 @@ function update(dt){
 }
 
 async function endGame(reason){
-  if (S.ended) return;
+  if (S.ended) return S.endPromise || Promise.resolve();
   S.ended = true;
 
   const grade = computeGrade();
@@ -722,7 +727,6 @@ async function endGame(reason){
     grade,
     reason: reason || 'end',
 
-    // meta
     seed,
     hub
   };
@@ -734,9 +738,19 @@ async function endGame(reason){
 
   emit('hha:end', summary);
 
-  // ✅ best effort
-  await sendLog(summary);
+  // latch promise so callers can await
+  S.endPromise = (async ()=> {
+    await sendLog(summary);
+  })();
+
+  return S.endPromise;
 }
+
+// expose forceEnd for HTML (HUB flush)
+ROOT.__HVR__.forceEnd = function(reason){
+  try{ return endGame(reason || 'force'); }
+  catch(e){ return Promise.resolve(); }
+};
 
 // ------------------ start gating ------------------
 async function waitStartGate(){
@@ -775,7 +789,7 @@ async function boot(){
   setWaterGauge(S.waterPct);
   updateZone();
 
-  spawnTimer = 260; // ✅ quicker first spawn
+  spawnTimer = 260;
 
   await waitStartGate();
 
@@ -798,14 +812,15 @@ async function boot(){
     if (document.hidden && !S.ended) endGame('hidden');
   });
 
-  // NOTE: keepalive fetch helps, but unload is always best-effort
-  window.addEventListener('beforeunload', ()=>{
-    if (!S.ended) {
-      try{ endGame('unload'); }catch{}
-    }
+  // pagehide is often better than beforeunload on mobile
+  window.addEventListener('pagehide', ()=>{
+    if (!S.ended) { try{ endGame('pagehide'); }catch{} }
   });
 
-  // optional force end
+  window.addEventListener('beforeunload', ()=>{
+    if (!S.ended) { try{ endGame('unload'); }catch{} }
+  });
+
   window.addEventListener('hha:force_end', (ev)=>{
     const d = ev.detail || {};
     if (!S.ended) endGame(d.reason || 'force');
