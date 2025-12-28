@@ -1,122 +1,133 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot (ESM)
-// ✅ Start overlay gating (engine starts on click)
-// ✅ view=vr -> body.gj-vr + layerEls [#gj-layer, #gj-layer-r]
-// ✅ Touch-look (drag look) on #gj-world
-// ✅ Optional motion permission button
+// GoodJunkVR Boot — HHA Standard
+// ✅ Fix import/export attachTouchLook
+// ✅ Stereo/Cardboard: ?vr=cardboard OR ?stereo=1
+// ✅ Adds body class gj-stereo + sets CSS vars for eye offset
+// ✅ Boots touch-look then safe engine
 
 'use strict';
 
-import { boot as engineBoot } from './goodjunk.safe.js';
+import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
 
-function qs(name, def){
-  try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
-}
-function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-
-function isVRView(){
-  const view = String(qs('view','') || '').toLowerCase();
-  const cardboard = String(qs('cardboard','') || '').toLowerCase();
-  return view === 'vr' || cardboard === '1' || cardboard === 'true';
+function qp(name, fallback = null){
+  try{
+    const u = new URL(location.href);
+    const v = u.searchParams.get(name);
+    return (v == null || v === '') ? fallback : v;
+  }catch(_){ return fallback; }
 }
 
-function metaText(){
-  const diff = String(qs('diff','normal')).toLowerCase();
-  const run  = String(qs('run','play')).toLowerCase();
-  const time = clamp(Number(qs('time','80')), 30, 600);
-  const seed = qs('seed','(auto)');
-  const mode = isVRView() ? 'VR/Cardboard' : 'PC/Mobile';
-  return `${mode} • diff=${diff} • run=${run} • time=${time}s • seed=${seed}`;
+function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
+function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
+
+function buildContext(){
+  const keys = [
+    'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
+    'schoolYear','semester','studentKey','schoolCode','schoolName','classRoom','studentNo',
+    'nickName','gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup',
+    'vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
+    'gameVersion'
+  ];
+  const ctx = {};
+  for (const k of keys){
+    const v = qp(k, null);
+    if (v != null) ctx[k] = v;
+  }
+  ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
+  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-28';
+  return ctx;
 }
 
-function setTxt(id, t){
-  const el = document.getElementById(id);
-  if (el) el.textContent = String(t||'');
+function showStartOverlay(metaText){
+  const overlay = document.getElementById('startOverlay');
+  const btn = document.getElementById('btnStart');
+  const meta = document.getElementById('startMeta');
+  if (meta) meta.textContent = metaText || '—';
+  if (!overlay || !btn) return Promise.resolve();
+
+  overlay.style.display = 'flex';
+  return new Promise((resolve) => {
+    btn.onclick = async () => {
+      overlay.style.display = 'none';
+      resolve();
+    };
+  });
 }
 
-function hideStart(){
-  const ov = document.getElementById('startOverlay');
-  if (ov) ov.style.display = 'none';
+function setHudMeta(text){
+  const el = document.getElementById('hudMeta');
+  if (el) el.textContent = text;
 }
 
-function main(){
-  const stage = document.getElementById('gj-stage');
-  const world = document.getElementById('gj-world');
+function enableStereoIfRequested(){
+  const vr = toStr(qp('vr', ''), '').toLowerCase();
+  const stereo = toStr(qp('stereo', ''), '').toLowerCase();
+  const isStereo = (vr === 'cardboard') || (stereo === '1') || (stereo === 'true');
 
-  const btnStart = document.getElementById('btnStart');
-  const btnStartMotion = document.getElementById('btnStartMotion');
+  document.body.classList.toggle('gj-stereo', !!isStereo);
 
-  setTxt('startMeta', metaText());
-  setTxt('hudMeta', metaText());
+  // eye separation feel
+  const root = document.documentElement;
+  root.style.setProperty('--eyeOffset', isStereo ? '10px' : '0px');
 
-  const vr = isVRView();
-  document.body.classList.toggle('gj-vr', !!vr);
+  return isStereo;
+}
 
-  // touch-look always on (drag to look)
-  const look = attachTouchLook({
-    stageEl: stage,
-    layerEl: world,
-    maxShiftPx: vr ? 210 : 170,
+(async function main(){
+  const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
+  const time = toInt(qp('time', '80'), 80);
+  const run = toStr(qp('run', 'play'), 'play').toLowerCase();
+  const endPolicy = toStr(qp('end', 'time'), 'time').toLowerCase();
+  const challenge = toStr(qp('challenge', 'rush'), 'rush').toLowerCase();
+
+  const seed = qp('seed', null);
+  const sessionId = qp('sessionId', null) || qp('sid', null);
+
+  const ctx = buildContext();
+  const isStereo = enableStereoIfRequested();
+
+  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge}${isStereo ? ' • VR=cardboard' : ''}`);
+
+  // attach touch/gyro -> CSS vars (stage shift)
+  const touch = attachTouchLook({
+    stageEl: document.getElementById('gj-stage'),
+    aimY: 0.62,
+    maxShiftPx: 170,
     ease: 0.12,
-    useMotion: false
+    enableGyro: true
   });
 
-  // layers for engine (stereo if VR)
-  const layerL = document.getElementById('gj-layer');
-  const layerR = document.getElementById('gj-layer-r');
+  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}`
+    + (seed ? ` • seed=${seed}` : '')
+    + (isStereo ? ` • VR=cardboard` : '');
 
-  const layerEls = vr ? [layerL, layerR] : [layerL];
+  await showStartOverlay(metaText);
 
-  // build context for logger (optional)
-  const ctx = {
-    projectTag: 'GoodJunkVR',
-    gameVersion: '2025-12-28',
-  };
+  // (optional) iOS gyro permission after user gesture
+  try{
+    if (isStereo){
+      await touch.requestGyroPermission?.();
+    }
+  }catch(_){}
 
-  // Create engine but DO NOT autoStart yet
-  const api = engineBoot({
-    layerEls,
-    layerEl: layerL,
-    shootEl: document.getElementById('btnShoot'),
-    hub: qs('hub','../hub.html'),
-    diff: qs('diff','normal'),
-    run: qs('run','play'),
-    time: qs('time','80'),
-    seed: qs('seed', null),
-    sessionId: qs('sessionId', qs('sid','')),
+  goodjunkBoot({
+    diff,
+    time,
+    run,
+    endPolicy,
+    challenge,
+    seed,
+    sessionId,
     context: ctx,
-    autoStart: false,     // ✅ start-gated
+
+    layerEl: document.getElementById('gj-layer'),
+    layerElR: document.getElementById('gj-layer-r'),
+    crosshairEl: document.getElementById('gj-crosshair'),
+
+    shootEl: document.getElementById('btnShoot'),
+
+    // Keep away from HUD/fever/controls
+    safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
   });
-
-  function startNow(){
-    hideStart();
-    api?.start?.();
-  }
-
-  btnStart?.addEventListener('click', (e)=>{
-    e.preventDefault?.();
-    startNow();
-  });
-
-  btnStartMotion?.addEventListener('click', async (e)=>{
-    e.preventDefault?.();
-    // request gyro permission then start
-    const ok = await look.requestMotionPermission();
-    look.setUseMotion(!!ok);
-    startNow();
-  });
-
-  // optional: autostart=1
-  const autostart = String(qs('autostart','0')).toLowerCase();
-  if (autostart === '1' || autostart === 'true'){
-    startNow();
-  }
-}
-
-// DOM ready
-if (document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', main, { once:true });
-} else {
-  main();
-}
+})();
