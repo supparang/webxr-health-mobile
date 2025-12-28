@@ -1,11 +1,9 @@
 <!-- === /herohealth/plate-vr/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
-✅ Start overlay + Autostart
-✅ HUD binds: score/rank/time/quest/coach
-✅ End overlay ids match plate.safe.js ensureEndOverlay() (so safe.js will use this overlay, not create a duplicate)
-✅ Back HUB uses PlateBoot.goHub() => flush before leave
+Balanced Plate VR — PRODUCTION HTML (HHA Standard + Race-safe start)
+✅ waitForPlateBoot() (P0)
+✅ Judge Toast + Streak Badge UI (P2)
+✅ End overlay IDs match plate.safe.js
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -15,11 +13,7 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional bg + VR button) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Optional external CSS (if you already have it) -->
-  <!-- <link rel="stylesheet" href="./plate.css?v=20251228" /> -->
 
   <style>
     :root{
@@ -36,7 +30,6 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       --cyan:#22d3ee;
       --radius:18px;
 
-      /* safe-area */
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
@@ -55,20 +48,16 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       color: var(--text);
     }
 
-    /* Optional background scene */
     a-scene{ position:fixed; inset:0; z-index:0; }
     a-scene[embedded]{ height:100vh; width:100vw; }
 
-    /* Gameplay layer */
     #plate-layer{
       position:fixed;
       inset:0;
       z-index:2;
-      /* plate.safe.js will also set transform translate(vx,vy) */
       touch-action: none;
     }
 
-    /* HUD */
     .hud-top{
       position:fixed;
       top: calc(12px + var(--sat));
@@ -168,7 +157,6 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       text-shadow: 0 2px 12px rgba(0,0,0,.4);
     }
 
-    /* Rank card */
     .rank-box{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
     .rank-title{ font-weight:1100; font-size:12px; opacity:.85; letter-spacing:.06em; }
     .rank-sub{ display:flex; justify-content:space-between; opacity:.9; font-size:12px; margin-top:4px; }
@@ -184,7 +172,59 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       text-align:center;
     }
 
-    /* Start overlay */
+    /* P2: streak badge */
+    .streak-badge{
+      position:fixed;
+      top: calc(86px + var(--sat));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 6;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(34,197,94,.30);
+      background: rgba(34,197,94,.14);
+      font-weight: 1100;
+      font-size: 12px;
+      letter-spacing:.04em;
+      opacity: 0;
+      transition: opacity .12s ease, transform .12s ease;
+      pointer-events:none;
+      box-shadow: 0 18px 70px rgba(0,0,0,.35);
+    }
+    .streak-badge.on{
+      opacity: 1;
+      transform: translateX(-50%) translateY(-2px);
+    }
+
+    /* P2: judge toast */
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom: calc(22px + var(--sab));
+      transform: translateX(-50%);
+      z-index: 9996;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.80);
+      box-shadow: 0 18px 70px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      font-weight: 1100;
+      letter-spacing:.04em;
+      opacity: 0;
+      transition: opacity .12s ease, transform .12s ease;
+      pointer-events:none;
+      max-width: 92vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .toast.on{ opacity: 1; transform: translateX(-50%) translateY(-3px); }
+    .toast.good{ border-color: rgba(34,197,94,.30); }
+    .toast.warn{ border-color: rgba(245,158,11,.35); }
+    .toast.bad{  border-color: rgba(239,68,68,.35); }
+    .toast.boss{ border-color: rgba(167,139,250,.35); }
+
     .start-overlay{
       position:fixed; inset:0;
       display:flex;
@@ -243,7 +283,6 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
     }
     .start-note{ margin-top:10px; font-size:12px; opacity:.85; }
 
-    /* End overlay (IDs must match plate.safe.js) */
     #endOverlay{
       position:fixed; inset:0;
       z-index:9998;
@@ -270,27 +309,22 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       margin-top:12px;
     }
 
-    /* mobile */
     @media (max-width: 760px){
-      .hud-top{
-        grid-template-columns: 1fr;
-      }
+      .hud-top{ grid-template-columns: 1fr; }
       .hud-card{ padding: 10px 11px; }
+      .streak-badge{ top: calc(78px + var(--sat)); }
     }
   </style>
 </head>
 
 <body>
-  <!-- Optional background scene -->
   <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
     <a-sky color="#06101f"></a-sky>
     <a-entity id="cam" position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
-  <!-- Gameplay layer -->
   <div id="plate-layer" class="plate-layer" aria-label="plate layer"></div>
 
-  <!-- HUD -->
   <div class="hud-top">
     <div class="hud-card hud-left">
       <div class="hud-row"><div class="hud-title">SCORE</div><div class="hud-val" id="hud-score">0</div></div>
@@ -338,14 +372,17 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
     </div>
   </div>
 
-  <!-- Start Overlay -->
+  <!-- P2 UI -->
+  <div class="streak-badge" id="hud-streak">STREAK x1.2</div>
+  <div class="toast" id="hud-toast"></div>
+
   <div class="start-overlay" id="startOverlay">
     <div class="start-card">
       <div class="start-title">Balanced Plate VR 🍽️</div>
       <div class="start-sub">
         ยิง “อาหารดี” ให้เติมจานครบตามสัดส่วน 🎯<br/>
-        ระวัง “ขยะ” 🚫 (โดนแล้วนับ MISS ถ้าไม่มีโล่)<br/>
-        FEVER เต็ม = ได้ 🛡️ ช่วยกันพลาด 1 ครั้ง ✨<br/>
+        ระวัง “ขยะ/กับดัก” 🚫 (โดนแล้วนับ MISS ถ้าไม่มีโล่)<br/>
+        FEVER เต็ม = ได้ 🛡️ กันพลาด 1 ครั้ง ✨<br/>
         <b>Plate Rush</b> (MINI): ครบ 5 ภายใน 8 วิ และ “ห้ามโดนขยะ” ระหว่างทำ ⚡
       </div>
 
@@ -361,11 +398,10 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
         <button class="btn danger" id="btnBackHubTop" type="button">กลับ HUB</button>
       </div>
 
-      <div class="start-note">Tip: ลาก/เอียงมือถือให้ “มุมมองเลื่อนแบบ VR” แล้วเป้าจะไหลตาม 👀</div>
+      <div class="start-note">Tip: ลาก/เอียงมือถือให้ “มุมมองเลื่อนแบบ VR” แล้วเลเซอร์จะขยับตาม — หลบให้ไว 👀</div>
     </div>
   </div>
 
-  <!-- End Overlay (exists so plate.safe.js will reuse it) -->
   <div id="endOverlay" class="result-overlay" aria-hidden="true">
     <div class="result-card">
       <h2>สรุปผล — Balanced Plate VR</h2>
@@ -439,7 +475,6 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       const tEl = document.getElementById('hud-time'); if (tEl) tEl.textContent = (d.left|0);
     }, { passive:true });
 
-    // Quest bindings (from plate.safe.js emit quest:update)
     window.addEventListener('quest:update', (ev)=>{
       const d = ev.detail || {};
 
@@ -469,6 +504,40 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       }
     }, { passive:true });
 
+    // P2: judge toast
+    const toast = document.getElementById('hud-toast');
+    let toastTimer = 0;
+    window.addEventListener('hha:judge', (ev)=>{
+      const d = ev.detail || {};
+      const text = String(d.text || '').trim();
+      if (!toast || !text) return;
+
+      const kind = String(d.kind || 'good').toLowerCase();
+      toast.className = 'toast on ' + (kind === 'bad' ? 'bad' : (kind === 'warn' ? 'warn' : (kind === 'boss' ? 'boss' : 'good')));
+      toast.textContent = text;
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=>{ toast.classList.remove('on'); }, 650);
+    }, { passive:true });
+
+    // P2: streak badge
+    const streakEl = document.getElementById('hud-streak');
+    let streakTimer = 0;
+    window.addEventListener('hha:streak', (ev)=>{
+      const d = ev.detail || {};
+      const mult = Number(d.mult || 1);
+      if (!streakEl) return;
+
+      if (mult <= 1.01){
+        streakEl.classList.remove('on');
+        return;
+      }
+      streakEl.textContent = 'STREAK x' + mult.toFixed(1);
+      streakEl.classList.add('on');
+      clearTimeout(streakTimer);
+      streakTimer = setTimeout(()=> streakEl.classList.remove('on'), 1200);
+    }, { passive:true });
+
     // Start overlay
     const overlay = document.getElementById('startOverlay');
     const btnStart = document.getElementById('btnStart');
@@ -485,12 +554,31 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       }catch(_){}
     }
 
-    function startGame(){
-      if (!window.PlateBoot || !window.PlateBoot.start){
-        alert('PlateBoot not ready');
+    // ✅ P0: race-safe wait for PlateBoot
+    function waitForPlateBoot(maxMs=2500){
+      return new Promise((resolve, reject)=>{
+        const t0 = performance.now();
+        (function tick(){
+          if (window.PlateBoot && typeof window.PlateBoot.start === 'function'){
+            resolve(true);
+            return;
+          }
+          if ((performance.now()-t0) > maxMs){
+            reject(new Error('PlateBoot not ready'));
+            return;
+          }
+          setTimeout(tick, 25);
+        })();
+      });
+    }
+
+    async function startGame(){
+      try{
+        await waitForPlateBoot();
+      }catch(e){
+        alert('PlateBoot not ready (script load issue)');
         return;
       }
-      // start() reads seed/diff/time from cfg; seed also deterministically from sid+ts if provided
       window.PlateBoot.start(run==='research'?'research':'play', { diff, time, seed });
     }
 
@@ -499,12 +587,11 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       overlay.style.display = 'none';
       startGame();
     });
+
     btnRestart.addEventListener('click', ()=> location.reload());
 
-    // ✅ Back HUB from start overlay uses PlateBoot.goHub() => flush
     btnBackHubTop.addEventListener('click', async ()=>{
       try{
-        // ensure hub param is preserved
         const u = new URL(location.href);
         u.searchParams.set('hub', hub);
         history.replaceState(null,'',u.toString());
@@ -513,16 +600,11 @@ Balanced Plate VR — PRODUCTION HTML (HHA Standard + FLUSH before HUB/END)
       else location.href = hub;
     });
 
-    // End overlay buttons:
-    // btnRetry + btnBackHub are already bound inside plate.safe.js ensureEndOverlay()
-    // (it will flush before reload/hub)
-
     // autostart=1 -> skip overlay
     if (qs('autostart','0') === '1'){
       overlay.style.display = 'none';
       startGame();
     }
-
   })();
   </script>
 </body>
