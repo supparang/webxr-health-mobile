@@ -1,67 +1,84 @@
-// === /herohealth/vr-groups/logger-cloud.js ===
-// Food Groups VR — Cloud logger (Apps Script / no-cors)
-// 2025-12-06
+/* === /herohealth/vr-groups/logger-cloud.js ===
+Cloud Logger (batch) + flush hardened
+- endpoint from ?log= or localStorage.HHA_LOG_ENDPOINT
+- queues to localStorage on failure
+- flush on end / visibilitychange / beforeunload
+*/
 
-(function (root) {
+(function(root){
   'use strict';
+  const DOC = document;
 
-  let CONFIG = {
-    endpoint: '',
-    projectTag: 'HeroHealth-GroupsVR',
-    debug: false
+  function qs(k){
+    try{ return new URLSearchParams(location.search).get(k); }catch{ return null; }
+  }
+
+  const KEY_Q = 'HHA_LOG_QUEUE_GROUPS';
+  const endpoint =
+    (qs('log')||'').trim() ||
+    (localStorage.getItem('HHA_LOG_ENDPOINT')||'').trim();
+
+  const logger = {
+    endpoint,
+    queue: [],
+    busy:false,
+
+    load(){
+      try{
+        const raw = localStorage.getItem(KEY_Q);
+        if (raw){
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) this.queue = arr.concat(this.queue);
+        }
+      }catch{}
+    },
+    save(){
+      try{ localStorage.setItem(KEY_Q, JSON.stringify(this.queue.slice(-300))); }catch{}
+    },
+    push(payload){
+      if (!payload) return;
+      this.queue.push(payload);
+      this.save();
+    },
+    async flush(){
+      if (this.busy) return;
+      if (!this.endpoint) return;
+      if (!this.queue.length) return;
+
+      this.busy = true;
+      const batch = this.queue.slice(0, 40);
+      try{
+        const res = await fetch(this.endpoint, {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ rows: batch })
+        });
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        // success: drop sent
+        this.queue = this.queue.slice(batch.length);
+        this.save();
+      }catch(e){
+        // keep queue
+      }finally{
+        this.busy = false;
+      }
+    }
   };
 
-  function init(opts) {
-    opts = opts || {};
-    CONFIG.endpoint   = opts.endpoint   || CONFIG.endpoint;
-    CONFIG.projectTag = opts.projectTag || CONFIG.projectTag;
-    CONFIG.debug      = !!opts.debug;
+  logger.load();
 
-    if (CONFIG.debug) {
-      console.log('[GroupsVR-Logger] init', CONFIG);
+  root.HHACloudLogger = logger;
+
+  // auto flush on end
+  root.addEventListener('hha:end', ()=>{ try{ logger.flush(); }catch{} });
+
+  DOC.addEventListener('visibilitychange', ()=>{
+    if (DOC.visibilityState === 'hidden'){
+      try{ logger.flush(); }catch{}
     }
-  }
+  });
+  root.addEventListener('beforeunload', ()=>{
+    try{ logger.flush(); }catch{}
+  });
 
-  function send(sessionSummary, events) {
-    const endpoint = CONFIG.endpoint;
-    if (!endpoint || typeof fetch !== 'function') {
-      if (CONFIG.debug) {
-        console.warn('[GroupsVR-Logger] no endpoint or fetch not available');
-      }
-      return;
-    }
-
-    const payload = {
-      projectTag: CONFIG.projectTag,
-      session: sessionSummary,
-      events: Array.isArray(events) ? events : []
-    };
-
-    if (CONFIG.debug) {
-      console.log('[GroupsVR-Logger] send()', payload);
-    }
-
-    fetch(endpoint, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    }).then(function () {
-      if (CONFIG.debug) {
-        console.log('[GroupsVR-Logger] sent OK (no-cors)');
-      }
-    }).catch(function (err) {
-      if (CONFIG.debug) {
-        console.warn('[GroupsVR-Logger] send error', err);
-      }
-    });
-  }
-
-  const mod = { init, send };
-
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.foodGroupsCloudLogger = mod;
-
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);
