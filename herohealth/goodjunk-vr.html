@@ -1,10 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard
+GoodJunkVR (PRODUCTION) — HHA Standard (fixed ids)
 ✅ DOM emoji targets on #gj-layer
 ✅ HUD + Quest + Coach + Fever/Shield
-✅ Ring/Laser hazards (boss) + world-shift dodge (touch-look-goodjunk.js)
-✅ Summary end overlay + back HUB + localStorage last summary
-✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
+✅ Shoot button + crosshair
+✅ Start overlay ids: startOverlay + btnStart
 -->
 
 <!doctype html>
@@ -16,14 +15,12 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Global FX + HUD + Fever + Logger -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
@@ -37,21 +34,11 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       </div>
 
       <div class="hud-stats">
-        <div class="hud-stat">
-          <div class="k">Score</div><div class="v" id="hhaScore">0</div>
-        </div>
-        <div class="hud-stat">
-          <div class="k">Combo</div><div class="v" id="hhaCombo">0</div>
-        </div>
-        <div class="hud-stat">
-          <div class="k">Miss</div><div class="v" id="hhaMiss">0</div>
-        </div>
-        <div class="hud-stat">
-          <div class="k">Time</div><div class="v" id="hhaTime">0</div>
-        </div>
-        <div class="hud-stat grade">
-          <div class="k">Grade</div><div class="v" id="hhaGrade">—</div>
-        </div>
+        <div class="hud-stat"><div class="k">Score</div><div class="v" id="hhaScore">0</div></div>
+        <div class="hud-stat"><div class="k">Combo</div><div class="v" id="hhaCombo">0</div></div>
+        <div class="hud-stat"><div class="k">Miss</div><div class="v" id="hhaMiss">0</div></div>
+        <div class="hud-stat"><div class="k">Time</div><div class="v" id="hhaTime">0</div></div>
+        <div class="hud-stat grade"><div class="k">Grade</div><div class="v" id="hhaGrade">—</div></div>
       </div>
     </div>
 
@@ -79,13 +66,11 @@ GoodJunkVR (PRODUCTION) — HHA Standard
     </div>
   </div>
 
-  <!-- ===== Fever/Shield UI (ui-fever.js will ensure if missing) ===== -->
+  <!-- ===== Fever/Shield UI ===== -->
   <div class="hha-fever" id="hhaFever">
     <div class="fever-row">
       <div class="fever-label">FEVER</div>
-      <div class="fever-bar">
-        <div class="fever-fill" id="feverBar"></div>
-      </div>
+      <div class="fever-bar"><div class="fever-fill" id="feverBar"></div></div>
       <div class="fever-text" id="feverText">0%</div>
     </div>
     <div class="shield-row">
@@ -97,13 +82,13 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <!-- ===== Playfield ===== -->
   <div id="gj-stage">
     <div id="gj-layer" aria-label="targets layer"></div>
-
-    <!-- crosshair / aim point -->
     <div id="gj-crosshair" aria-hidden="true"></div>
 
-    <!-- Boss hazards -->
     <div id="atk-ring" aria-hidden="true"></div>
     <div id="atk-laser" aria-hidden="true"></div>
+
+    <!-- optional end summary mount -->
+    <div id="end-summary"></div>
   </div>
 
   <!-- ===== Controls ===== -->
@@ -117,7 +102,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
         เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ลาก/เอียงเพื่อ “เอียงโลก” หลบ Ring/Laser (ตอนบอส)</span>
+        <span class="muted">ลากเพื่อ “เอียงโลก” (เฉพาะตอนลาก)</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
       <button id="btnStart" class="btn-start">เริ่มเล่น</button>
