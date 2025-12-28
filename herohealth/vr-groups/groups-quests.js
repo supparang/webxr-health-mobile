@@ -1,12 +1,13 @@
 /* === /herohealth/vr-groups/groups-quests.js ===
-Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
+Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk L1/L2)
 ✅ Emits: quest:update (Goal/Mini title + progress bars + mini timer)
 ✅ Listens: groups:progress (from GameEngine)
 ✅ No-Junk Mini:
-   - starts on {kind:'nojunk_on'} (7s default)
+   - starts on {kind:'nojunk_on', level, durMs}
    - FAIL on {kind:'nojunk_fail'}
    - PASS on {kind:'nojunk_off'} (if not failed)
-   - PASS => dispatch 'groups:reward' (score bonus + shield + fever reduction)
+   - PASS => dispatch 'groups:reward' (score bonus + shield + fever reduction + gradeBoostSec)
+✅ Extra mini: "Streak 6 in 4s" (no miss during mini)
 */
 
 (function(root){
@@ -58,12 +59,14 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
     return 3;
   }
 
+  // ------------------ Mini pool ------------------
   function makeMiniPool(){
     return [
       {
         id:'combo8',
         title:'ทำคอมโบให้ถึง 8 ครั้งติด 🔥',
         total: 8,
+        reset(st){ st._comboNow = 0; },
         progressFrom(ev, st){
           if (ev?.detail?.kind === 'combo'){
             st._comboNow = Math.max(st._comboNow||0, Number(ev.detail.combo||0));
@@ -72,9 +75,56 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
         }
       },
       {
+        id:'streak6_4s',
+        title:'Streak: โดนถูก 6 ครั้งใน 4 วิ (ห้ามพลาด!) ⚡',
+        total: 6,
+        reset(st){
+          st._streakStartAt = 0;
+          st._streakNow = 0;
+          st._streakDead = false;
+        },
+        progressFrom(ev, st){
+          const k = ev?.detail?.kind;
+          const t = now();
+
+          if (k === 'hit_bad'){
+            st._streakDead = true;
+            st._streakNow = 0;
+            st._streakStartAt = 0;
+            return 0;
+          }
+
+          if (k === 'hit_good'){
+            if (st._streakDead) return 0;
+
+            if (!st._streakStartAt){
+              st._streakStartAt = t;
+              st._streakNow = 1;
+            } else {
+              const dt = t - st._streakStartAt;
+              if (dt > 4000){
+                st._streakStartAt = t;
+                st._streakNow = 1;
+              } else {
+                st._streakNow = (st._streakNow||0) + 1;
+              }
+            }
+          }
+
+          const dt = st._streakStartAt ? (t - st._streakStartAt) : 0;
+          if (dt > 4000){
+            st._streakStartAt = 0;
+            st._streakNow = 0;
+          }
+
+          return clamp(st._streakNow||0, 0, 6);
+        }
+      },
+      {
         id:'perfectSwitch',
-        title:'สลับหมู่แบบ Perfect (ห้ามพลาดก่อนสลับ) 🌟',
+        title:'สลับหมู่แบบ Perfect (ก่อนสลับห้ามพลาด) 🌟',
         total: 1,
+        reset(st){ st._ps = 0; },
         progressFrom(ev, st){
           if (ev?.detail?.kind === 'perfect_switch') st._ps = 1;
           return st._ps ? 1 : 0;
@@ -84,6 +134,7 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
         id:'bossDown',
         title:'โค่นบอสให้ได้ 1 ครั้ง 👑',
         total: 1,
+        reset(st){ st._bd = 0; },
         progressFrom(ev, st){
           if (ev?.detail?.kind === 'boss_down') st._bd = 1;
           return st._bd ? 1 : 0;
@@ -93,14 +144,17 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
   }
 
   // -------- No-Junk mini (special / interrupt) --------
-  function startNoJunkMini(st, durMs){
+  function startNoJunkMini(st, level, durMs){
     st.noJunk.active = true;
     st.noJunk.failed = false;
+    st.noJunk.level = clamp(level||1, 1, 2);
     st.noJunk.startedAt = now();
-    st.noJunk.durMs = Math.max(3000, Number(durMs||7000));
+
+    const base = (st.noJunk.level === 2) ? 9000 : 7000;
+    st.noJunk.durMs = Math.max(3000, Number(durMs||base));
     st.noJunk.endsAt = st.noJunk.startedAt + st.noJunk.durMs;
 
-    emit('hha:judge', { kind:'mini', text:'⛔ NO-JUNK CHALLENGE!' });
+    emit('hha:judge', { kind:'mini', text: (st.noJunk.level===2 ? '⛔ NO-JUNK L2!' : '⛔ NO-JUNK L1!') });
   }
 
   function stopNoJunkMini(st, result){
@@ -108,17 +162,23 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
 
     if (result === 'pass'){
       st.miniCleared++;
-      emit('hha:celebrate', { kind:'mini', title:'NO-JUNK PASS!' });
+      emit('hha:celebrate', { kind:'mini', title:(st.noJunk.level===2 ? 'NO-JUNK L2 PASS!' : 'NO-JUNK PASS!') });
 
-      // ✅ reward to engine
+      // ✅ reward to engine (bigger on L2)
+      const bonus = (st.noJunk.level===2) ? 680 : 420;
+      const feverDelta = (st.noJunk.level===2) ? -16 : -10;
+      const gradeBoostSec = (st.noJunk.level===2) ? 9 : 6;
+
       emit('groups:reward', {
         type: 'nojunk_pass',
-        scoreBonus: 420,
+        level: st.noJunk.level,
+        scoreBonus: bonus,
         giveShield: 1,
-        feverDelta: -10
+        feverDelta,
+        gradeBoostSec
       });
     } else if (result === 'fail'){
-      emit('hha:celebrate', { kind:'mini', title:'NO-JUNK FAIL!' });
+      emit('hha:celebrate', { kind:'mini', title:(st.noJunk.level===2 ? 'NO-JUNK L2 FAIL!' : 'NO-JUNK FAIL!') });
     }
   }
 
@@ -134,13 +194,18 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
     let miniTimeLeftSec = 0;
 
     if (st.noJunk.active){
-      miniTitle = 'NO-JUNK: อยู่รอด 7 วิ (ห้ามโดนขยะ) ⛔';
+      const lvl = st.noJunk.level || 1;
+      miniTitle = (lvl===2)
+        ? 'NO-JUNK L2: อยู่รอด 9 วิ (ห้ามโดนขยะ) ⛔🔥'
+        : 'NO-JUNK L1: อยู่รอด 7 วิ (ห้ามโดนขยะ) ⛔';
+
       const t = now();
       const leftMs = Math.max(0, st.noJunk.endsAt - t);
       miniTimeLeftSec = Math.ceil(leftMs/1000);
-      miniTotal = 7;
-      miniNow = clamp(((st.noJunk.durMs - leftMs)/1000), 0, 7);
-      miniPct = clamp((miniNow / 7) * 100, 0, 100);
+
+      miniTotal = (lvl===2) ? 9 : 7;
+      miniNow = clamp(((st.noJunk.durMs - leftMs)/1000), 0, miniTotal);
+      miniPct = clamp((miniNow / miniTotal) * 100, 0, 100);
     } else if (st.activeMini){
       miniTitle = st.activeMini.title;
       miniTotal = st.activeMini.total;
@@ -159,12 +224,13 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
 
   function pickNextMini(st){
     const pool = st.miniPool;
-    st._comboNow = 0;
-    st._ps = 0;
-    st._bd = 0;
+    for (const m of pool){
+      try{ m.reset && m.reset(st); }catch{}
+    }
 
     const idx = Math.floor(st.rng() * pool.length);
     const base = pool[idx];
+
     st.activeMini = {
       id: base.id,
       title: base.title,
@@ -172,6 +238,7 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
       now: 0,
       _base: base
     };
+
     pushUpdate(st);
   }
 
@@ -196,7 +263,7 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
       miniPool: makeMiniPool(),
       activeMini: null,
 
-      noJunk: { active:false, failed:false, startedAt:0, durMs:7000, endsAt:0 },
+      noJunk: { active:false, failed:false, level:1, startedAt:0, durMs:7000, endsAt:0 },
 
       _timer: 0,
       _started:false
@@ -232,16 +299,12 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
 
       if (d.kind === 'group_swap'){
         st.goalsCleared = clamp(st.goalsCleared + 1, 0, st.goalsTotal);
-        if (st.goalsCleared >= st.goalsTotal){
-          emit('hha:celebrate', { kind:'goal', title:'GOAL COMPLETE!' });
-        } else {
-          emit('hha:celebrate', { kind:'goal', title:`GOAL +1 (${st.goalsCleared}/${st.goalsTotal})` });
-        }
+        emit('hha:celebrate', { kind:'goal', title:`GOAL +1 (${st.goalsCleared}/${st.goalsTotal})` });
       }
 
       // No-Junk lifecycle
       if (d.kind === 'nojunk_on'){
-        startNoJunkMini(st, d.durMs || 7000);
+        startNoJunkMini(st, d.level || 1, d.durMs || undefined);
       }
       if (d.kind === 'nojunk_fail'){
         if (st.noJunk.active && !st.noJunk.failed){
@@ -256,6 +319,7 @@ Food Groups VR — Quest System (Goals sequential + Minis chain + No-Junk Mini)
         }
       }
 
+      // Active mini progress (skip while No-Junk running)
       if (!st.noJunk.active && st.activeMini && st.activeMini._base){
         const base = st.activeMini._base;
         const nowVal = base.progressFrom(ev, st);
