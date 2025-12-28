@@ -1,13 +1,9 @@
 /* === /herohealth/hydration-vr/hydration.safe.js ===
-HydrationVR — PRODUCTION PATCH (P0+P1 + HHA Standard FINAL ++ 1-3 + UI FIX)
-1) Goals as stages (1/3,2/3,3/3) + celebration + ALL GOALS
-2) Storm mini fail state: hit BAD in end-window without shield => reset mini progress
-   + mini count requires End-window AND pressure>=thr (align checklist)
-3) Adaptive difficulty (play mode only): spawnEveryMs / ttl / badBias adjust live
-
-UI FIX (ตามที่เจอในรูป):
-4) Checklist/values ไม่เป็น “—” แล้ว: แสดงสถานะตลอด (YES/NO, zone, pressure, next storm)
-5) Water gauge ไม่ “รู้สึกค้างที่ 50” เมื่ออยู่ GREEN: ใส่ micro-nudge ใกล้ mean
+HydrationVR — PRODUCTION PATCH (P0+P1 + HHA Standard FINAL ++ 1-3)
+UPDATED: Water gauge is REAL bar 0–100 (no mean-lock @50)
+✅ REAL water 0..100: good adds, bad subtracts, passive dehydrate/sec
+✅ Zone thresholds: LOW(<45) / GREEN(45..65) / HIGH(>65)
+✅ Bar color changes by zone (inline style; no HTML/CSS change required)
 */
 
 'use strict';
@@ -263,7 +259,7 @@ function makeOrbEl(kind){
 
   const icon = DOC.createElement('div');
   Object.assign(icon.style, {
-    position:'absolute', left:'50%', top:'108%',
+    position:'absolute', left:'50%', top:'110%',
     transform:'translate(-50%,-50%)',
     width:'34px', height:'34px',
     borderRadius:'14px',
@@ -333,10 +329,17 @@ const TUNE = (() => {
     ttlGoodMs: 2200,
     ttlBadMs: 2600,
     ttlShieldMs: 2400,
-    waterStepGood: 9.5,
-    waterStepBad: 7.5,
-    greenHalfBand: 8,
 
+    // REAL water (0..100)
+    waterStepGood: 9.5,
+    waterStepBad: 10.5,
+    dehydratePerSec: 1.25,     // ✅ passive drain/sec (ทำให้ goal “อยู่ GREEN” มีความหมาย)
+
+    // zone thresholds
+    lowThr: 45,
+    highThr: 65,
+
+    // base requirement for goal stage 1 (stages will add)
     goalGreenNeedSec: 12,
 
     stormEverySec: 14,
@@ -357,8 +360,9 @@ const TUNE = (() => {
     base.spawnEveryMs = 900;
     base.ttlGoodMs = 2500;
     base.ttlBadMs = 2900;
-    base.waterStepGood = 10.5;
-    base.waterStepBad = 6.5;
+    base.waterStepGood = 10.8;
+    base.waterStepBad  = 9.4;
+    base.dehydratePerSec = 1.05;
     base.goalGreenNeedSec = 10;
     base.pressureRisePerSec = 14;
     base.pressureThr = 60;
@@ -369,8 +373,9 @@ const TUNE = (() => {
     base.spawnEveryMs = 760;
     base.ttlGoodMs = 1950;
     base.ttlBadMs = 2350;
-    base.waterStepGood = 8.5;
-    base.waterStepBad = 8.5;
+    base.waterStepGood = 8.8;
+    base.waterStepBad  = 11.6;
+    base.dehydratePerSec = 1.55;
     base.goalGreenNeedSec = 14;
     base.stormEverySec = 12;
     base.stormDurSec = 6.2;
@@ -400,6 +405,17 @@ function goalNeedForStage(stageIndex){
 }
 
 // ------------------------- adaptive tuning (play only) -------------------------
+function computeTuneEff(){
+  const f = clamp(S.adaptive.factor, -0.35, 0.35); // + = harder
+  const spawnEveryMs = clamp(TUNE.spawnEveryMs * (1 - 0.28*f), 520, 1100);
+  const ttlGoodMs    = clamp(TUNE.ttlGoodMs   * (1 - 0.22*f), 1300, 3200);
+  const ttlBadMs     = clamp(TUNE.ttlBadMs    * (1 - 0.20*f), 1400, 3400);
+  const ttlShieldMs  = clamp(TUNE.ttlShieldMs * (1 - 0.18*f), 1400, 3400);
+  const badBiasInStorm = clamp(TUNE.badBiasInStorm + 0.12*f, 0.55, 0.90);
+  return { spawnEveryMs, ttlGoodMs, ttlBadMs, ttlShieldMs, badBiasInStorm, factor:f };
+}
+
+// ------------------------- state -------------------------
 const S = {
   started:false,
   ended:false,
@@ -407,18 +423,20 @@ const S = {
   score:0,
   combo:0,
   comboMax:0,
-  miss:0,
+  miss:0, // miss = good expired + bad hit (unblocked). shield-block doesn't count miss.
 
+  // ✅ REAL water (0..100)
   water: 45,
-  mean: 50,
   zone: 'GREEN',
   timeInGreen: 0,
 
+  // goals as stages
   goalsTotal: GOAL_STAGES,
   goalStage: 0,
   goalNeedSec: goalNeedForStage(0),
   allGoalsCleared:false,
 
+  // storm + mini
   stormActive:false,
   stormLeftSec: 0,
   nextStormInSec: TUNE.stormEverySec,
@@ -467,6 +485,7 @@ const S = {
   startTimeIso: '',
   endTimeIso: '',
 
+  // adaptive (play only)
   adaptive: {
     enabled: (RUN === 'play'),
     factor: 0,
@@ -478,43 +497,27 @@ const S = {
   tuneEff: { spawnEveryMs: TUNE.spawnEveryMs, ttlGoodMs: TUNE.ttlGoodMs, ttlBadMs: TUNE.ttlBadMs, ttlShieldMs: TUNE.ttlShieldMs, badBiasInStorm: TUNE.badBiasInStorm, factor:0 }
 };
 
-function computeTuneEff(){
-  const f = clamp(S.adaptive.factor, -0.35, 0.35);
-  const spawnEveryMs = clamp(TUNE.spawnEveryMs * (1 - 0.28*f), 520, 1100);
-  const ttlGoodMs    = clamp(TUNE.ttlGoodMs   * (1 - 0.22*f), 1300, 3200);
-  const ttlBadMs     = clamp(TUNE.ttlBadMs    * (1 - 0.20*f), 1400, 3400);
-  const ttlShieldMs  = clamp(TUNE.ttlShieldMs * (1 - 0.18*f), 1400, 3400);
-  const badBiasInStorm = clamp(TUNE.badBiasInStorm + 0.12*f, 0.55, 0.90);
-  return { spawnEveryMs, ttlGoodMs, ttlBadMs, ttlShieldMs, badBiasInStorm, factor:f };
-}
-
+// ------------------------- REAL water helpers -------------------------
 function calcZone(){
-  const band = TUNE.greenHalfBand;
-  const v = S.water;
-  if (v < (S.mean - band)) return 'LOW';
-  if (v > (S.mean + band)) return 'HIGH';
+  const v = clamp(S.water, 0, 100);
+  if (v < TUNE.lowThr) return 'LOW';
+  if (v > TUNE.highThr) return 'HIGH';
   return 'GREEN';
 }
 function setWater(v){
   S.water = clamp(v, 0, 100);
   S.zone = calcZone();
 }
+function addWater(delta){
+  delta = Number(delta) || 0;
 
-// ✅ FIX: ไม่ให้ “รู้สึกค้างที่ 50” — ถ้าเข้าใกล้ mean มาก ๆ ให้มี micro-nudge เล็กน้อย
-function regressionTowardMean(step){
-  const d = S.mean - S.water;
-  if (Math.abs(d) < 0.35){
-    const j = (rng() - 0.5) * Math.max(0.4, step * 0.14);
-    setWater(S.water + j);
-    return;
-  }
-  const n = S.water + clamp(d, -step, step);
-  setWater(n);
-}
-function pushAwayFromMean(step){
-  const d = S.water - S.mean;
-  const dir = (Math.abs(d) < 0.0001) ? (rng() < 0.5 ? -1 : 1) : (d > 0 ? 1 : -1);
-  setWater(S.water + dir * step);
+  // soft taper near ends to avoid “slam” feel
+  const w = S.water;
+  let k = 1;
+  if (delta > 0 && w >= 88) k = 0.55;
+  if (delta < 0 && w <= 12) k = 0.60;
+
+  setWater(w + delta * k);
 }
 
 // ------------------------- UI binding -------------------------
@@ -614,8 +617,7 @@ function stamp(textBig, textSmall){
 // ------------------------- grade / progress -------------------------
 function calcGrade(){
   const base = S.score;
-  const goalCleared = S.allGoalsCleared ? S.goalsTotal : S.goalStage;
-  const goalBonus = goalCleared * 120;
+  const goalBonus = (S.allGoalsCleared ? S.goalsTotal : (S.goalStage)) * 120;
   const miniBonus = S.miniDone * 80;
   const missPenalty = S.miss * 8;
   const total = base + goalBonus + miniBonus - missPenalty;
@@ -636,8 +638,7 @@ function progressToS(){
 
 // ------------------------- quest/update payload -------------------------
 function buildQuestPayload(){
-  const nextStorm = Math.max(0, Math.ceil(S.nextStormInSec));
-  const ns = S.stormActive ? 'Storm อยู่!' : `Next storm in ~${nextStorm}s`;
+  const ns = S.stormActive ? 'Storm อยู่!' : `Next storm in ~${Math.max(0, Math.ceil(S.nextStormInSec))}s`;
   const totalStorms = Math.max(0, S.miniTotal|0);
   const endWindow = S.stormActive && (S.stormLeftSec <= TUNE.endWindowSec + 0.02);
 
@@ -645,16 +646,14 @@ function buildQuestPayload(){
     ? `GOAL: ALL CLEARED ✅`
     : `Goal ${S.goalStage+1}/${S.goalsTotal}: อยู่ GREEN รวม ${S.goalNeedSec}s 🟢`;
 
-  const goalCleared = S.allGoalsCleared ? S.goalsTotal : S.goalStage;
-
   const line1 = goalLabel;
   const line2 = S.allGoalsCleared
     ? `ยอดเยี่ยม! เคลียร์ครบทุกด่านแล้ว • เล่นต่อเพื่อคะแนน/mini ได้เลย`
-    : `สะสม GREEN: ${Math.floor(S.timeInGreen)} / ${S.goalNeedSec}s • Goals: ${goalCleared}/${S.goalsTotal}`;
+    : `สะสม GREEN: ${Math.floor(S.timeInGreen)} / ${S.goalNeedSec}s • ด่านที่เหลือ: ${S.goalsTotal-(S.goalStage)} ด่าน`;
 
   const line3 = `Mini (Storm): บล็อก BAD “ท้ายพายุ” ${S.miniBlocksDone}/${S.miniBlocksNeed} • ${ns}`;
   const adaptTxt = S.adaptive.enabled ? `Adaptive ${(S.tuneEff.factor>=0?'+':'')}${Math.round(S.tuneEff.factor*100)}%` : 'Adaptive OFF';
-  const line4 = `State: Zone ${S.zone} • Pressure ${Math.round(S.pressure)}% (thr ${TUNE.pressureThr}%) • EndWindow: ${endWindow ? 'NOW' : 'WAIT'} • S:${progressToS()}% • ${adaptTxt}`;
+  const line4 = `State: Water ${Math.round(S.water)}% (${S.zone}) • Pressure ${Math.round(S.pressure)}% (thr ${TUNE.pressureThr}%) • EndWindow: ${endWindow ? 'NOW' : '—'} • S:${progressToS()}% • ${adaptTxt}`;
 
   return {
     title: 'Hydration Quest',
@@ -662,7 +661,7 @@ function buildQuestPayload(){
     goalTitle: line1,
     miniTitle: line3,
 
-    goalsCleared: goalCleared|0,
+    goalsCleared: (S.allGoalsCleared ? S.goalsTotal : S.goalStage)|0,
     goalsTotal: S.goalsTotal|0,
     miniCleared: S.miniDone|0,
     miniTotal: totalStorms|0,
@@ -685,10 +684,26 @@ function uiUpdate(){
 
   safeText(UI.waterZone, S.zone);
   safeText(UI.waterPct, `${Math.round(S.water)}%`);
+
+  // ✅ bar width + color by zone (inline -> no CSS edit needed)
   if (UI.waterBar){
-    UI.waterBar.style.width = `${clamp(S.water,0,100)}%`;
-    UI.waterBar.classList.toggle('red', (S.zone !== 'GREEN'));
+    const pct = clamp(S.water,0,100);
+    UI.waterBar.style.width = `${pct}%`;
+    UI.waterBar.classList.remove('red');
+
+    if (S.zone === 'LOW'){
+      UI.waterBar.style.background = 'linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95))';
+      UI.waterBar.style.boxShadow  = '0 0 14px rgba(34,211,238,.28)';
+    } else if (S.zone === 'GREEN'){
+      UI.waterBar.style.background = 'linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95))';
+      UI.waterBar.style.boxShadow  = '0 0 14px rgba(34,211,238,.28)';
+    } else { // HIGH
+      UI.waterBar.classList.add('red');
+      UI.waterBar.style.background = 'linear-gradient(90deg, rgba(249,115,22,.95), rgba(239,68,68,.95))';
+      UI.waterBar.style.boxShadow  = '0 0 16px rgba(239,68,68,.22)';
+    }
   }
+
   safeText(UI.shield, S.shield|0);
   safeText(UI.stormLeft, S.stormActive ? Math.ceil(S.stormLeftSec) : 0);
 
@@ -700,7 +715,7 @@ function uiUpdate(){
   emitQuestUpdateThrottled(q);
 
   const stormIn = S.stormActive ? 0 : Math.max(0, Math.ceil(S.nextStormInSec));
-  safeText(UI.miniStormIn, String(stormIn));
+  safeText(UI.miniStormIn, (S.stormActive ? '0' : String(stormIn)));
 
   const okStorm = S.stormActive;
   const okZone = (S.zone !== 'GREEN');
@@ -708,22 +723,17 @@ function uiUpdate(){
   const endWindow = S.stormActive && (S.stormLeftSec <= TUNE.endWindowSec + 0.02);
   const okBlock = (S.miniBlocksDone >= S.miniBlocksNeed);
 
-  // ✅ FIX: ไม่ใช้ “—” แล้ว -> ใช้ YES/NO, ค่าโซน/ค่า pressure แสดงตลอด
   safeClass(UI.cStorm, 'ok', okStorm);
-  safeText(UI.vStorm, okStorm ? 'YES' : 'NO');
+  safeText(UI.vStorm, okStorm ? 'YES' : '—');
 
-  safeClass(UI.cZone, 'ok', okStorm && okZone);
-  safeText(UI.vZone, S.zone);
+  safeClass(UI.cZone, 'ok', okZone && okStorm);
+  safeText(UI.vZone, okStorm ? S.zone : '—');
 
-  safeClass(UI.cPressure, 'ok', okStorm && okPressure);
-  safeText(UI.vPressure, `${Math.round(S.pressure)}% / ${TUNE.pressureThr}%`);
+  safeClass(UI.cPressure, 'ok', okPressure && okStorm);
+  safeText(UI.vPressure, okStorm ? `${Math.round(S.pressure)}% / ${TUNE.pressureThr}%` : '—');
 
   safeClass(UI.cEnd, 'ok', endWindow);
-  if (S.stormActive){
-    safeText(UI.vEnd, endWindow ? 'NOW' : `${Math.max(0, Math.ceil(S.stormLeftSec - TUNE.endWindowSec))}s`);
-  } else {
-    safeText(UI.vEnd, `in ~${stormIn}s`);
-  }
+  safeText(UI.vEnd, okStorm ? (endWindow ? 'NOW' : `${Math.max(0, Math.ceil(S.stormLeftSec - TUNE.endWindowSec))}s`) : '—');
 
   safeClass(UI.cBlock, 'ok', okBlock);
   safeText(UI.vBlock, `${S.miniBlocksDone}/${S.miniBlocksNeed}`);
@@ -752,7 +762,7 @@ function uiUpdate(){
 }
 
 // ------------------------- gameplay: spawning -------------------------
-const Live = new Map();
+const Live = new Map(); // id -> obj
 let nextId = 1;
 
 function playRect(){
@@ -767,7 +777,13 @@ function playRect(){
 }
 
 function spawnKind(){
-  const wantGood = (S.zone === 'LOW') ? 0.68 : (S.zone === 'HIGH') ? 0.68 : 0.56;
+  // ✅ REAL bar balancing:
+  // LOW -> prefer good, HIGH -> prefer bad, GREEN -> mixed
+  const wantGood =
+    (S.zone === 'LOW')  ? 0.74 :
+    (S.zone === 'HIGH') ? 0.28 :
+    0.56;
+
   const inStorm = S.stormActive;
 
   if (!inStorm && S.shield < 2 && rng() < TUNE.shieldSpawnChance) return 'shield';
@@ -853,16 +869,22 @@ function onExpire(obj){
   if (obj.kind === 'good'){
     S.miss++;
     S.combo = 0;
-    pushAwayFromMean(TUNE.waterStepBad * 0.55);
+
+    // ✅ missed good => lose water
+    addWater(-(TUNE.waterStepBad * 0.55));
+
     flashEdge(0.22);
-    coachSay('พลาดน้ำดี! 💧', 'คุมให้อยู่ GREEN ให้นิ่งขึ้น');
+    coachSay('พลาดน้ำดี! 💧', 'รักษาหลอดน้ำให้อยู่ GREEN จะผ่าน Goal');
     emit('hha:judge', { type:'miss', reason:'expire_good' });
     emit('hha:log_event', { type:'miss', reason:'expire_good', t: Date.now(), secLeft: S.tLeftSec });
   } else if (obj.kind === 'bad'){
     if (RUN === 'study'){
       S.miss++;
       S.combo = 0;
-      pushAwayFromMean(TUNE.waterStepBad * 0.25);
+
+      // study: bad expire still hurts a bit
+      addWater(-(TUNE.waterStepBad * 0.20));
+
       flashEdge(0.18);
       emit('hha:judge', { type:'miss', reason:'expire_bad' });
       emit('hha:log_event', { type:'miss', reason:'expire_bad', t: Date.now(), secLeft: S.tLeftSec });
@@ -897,11 +919,13 @@ function onHitOrb(obj, e){
     S.comboMax = Math.max(S.comboMax, S.combo);
     S.score += 10 + Math.min(12, S.combo);
 
-    regressionTowardMean(TUNE.waterStepGood);
+    // ✅ REAL water up
+    addWater(+TUNE.waterStepGood);
+
     S.pressure = clamp(S.pressure - TUNE.pressureDropOnGood, 0, 100);
 
     burstAtClient(x, y, 'good');
-    coachSay('ดีมาก! 💧', 'คุม GREEN เพื่อผ่านด่าน Goal');
+    coachSay('ดีมาก! 💧', 'คุมให้อยู่ GREEN จะผ่านด่าน Goal');
 
     emit('hha:judge', { type:'hit', kind:'good' });
     emit('hha:log_event', { type:'hit', kind:'good', t: Date.now(), secLeft: S.tLeftSec });
@@ -914,7 +938,9 @@ function onHitOrb(obj, e){
     S.score += 14;
 
     S.shield = clamp(S.shield + 1, 0, 9);
-    regressionTowardMean(TUNE.waterStepGood * 0.35);
+
+    // shield gives small water too
+    addWater(+TUNE.waterStepGood * 0.35);
 
     burstAtClient(x, y, 'shield');
     stamp('SHIELD +1', 'เก็บไว้บล็อก BAD ช่วงท้ายพายุ!');
@@ -927,6 +953,7 @@ function onHitOrb(obj, e){
     S.nHitBad++;
 
     if (S.shield > 0 && S.stormActive){
+      // shield-block (no miss)
       S.shield--;
       AudioFX.beep();
       S.score += 18;
@@ -954,16 +981,21 @@ function onHitOrb(obj, e){
       emit('hha:judge', { type:'hit', kind:'bad_blocked' });
 
     } else {
+      // hit bad without shield = miss
       AudioFX.beep();
       S.combo = 0;
       S.miss++;
       S.score -= 12;
-      pushAwayFromMean(TUNE.waterStepBad);
+
+      // ✅ REAL water down
+      addWater(-TUNE.waterStepBad);
+
       S.pressure = clamp(S.pressure + TUNE.pressureAddOnBad, 0, 100);
 
       burstAtClient(x, y, 'bad');
       flashEdge(0.45);
 
+      // FAIL STATE: hit BAD in end-window during storm without shield => reset mini progress
       if (S.stormActive && inEndWindow){
         S.miniBlocksDone = 0;
         S.score -= 20;
@@ -999,7 +1031,7 @@ function stormSet(on){
     AudioFX.thunder();
     flashEdge(0.60);
     DOC.body.classList.add('fx-shake');
-    coachSay('🌪️ Storm มาแล้ว!', 'คุม LOW/HIGH + ดัน Pressure แล้วท้ายพายุค่อยบล็อก');
+    coachSay('🌪️ Storm มาแล้ว!', 'ตอนพายุ: ห้าม GREEN • ดัน Pressure แล้วท้ายพายุค่อยบล็อก');
 
     emit('hha:log_event', { type:'storm_start', t: Date.now(), secLeft: S.tLeftSec });
 
@@ -1145,7 +1177,7 @@ function updateStorm(dtSec){
     if (S.nextStormInSec <= TUNE.warnLeadSec && S.nextStormInSec > 0){
       if (!S.warnActive){
         setWarn(true);
-        coachSay('⚠️ Storm กำลังมา!', 'เตรียมตัว: เก็บ Shield + อย่าอยู่ GREEN ตอนพายุ');
+        coachSay('⚠️ Storm กำลังมา!', 'เตรียมตัว: เก็บ Shield + ตอนพายุห้าม GREEN');
       }
     }
 
@@ -1212,6 +1244,9 @@ function mainLoop(t){
     return;
   }
 
+  // ✅ passive dehydrate (always)
+  addWater(-(TUNE.dehydratePerSec * dt));
+
   adaptiveUpdate(t);
 
   S.zone = calcZone();
@@ -1219,6 +1254,7 @@ function mainLoop(t){
 
   updateStorm(dt);
 
+  // storm rule: must be NOT GREEN to gain extra pressure
   if (S.stormActive && S.zone !== 'GREEN'){
     S.pressure = clamp(S.pressure + (6*dt), 0, 100);
   }
@@ -1288,8 +1324,12 @@ function startGame(){
 
   AudioFX.resume();
 
+  // reset
   S.score = 0; S.combo = 0; S.comboMax = 0; S.miss = 0;
-  setWater(45);
+
+  // ✅ start slightly LOW so player must “เติม”
+  setWater(42);
+
   S.timeInGreen = 0;
 
   S.goalStage = 0;
@@ -1317,6 +1357,7 @@ function startGame(){
   setWarn(false);
   stormSet(false);
 
+  // reset adaptive
   S.adaptive.enabled = (RUN === 'play');
   S.adaptive.factor = 0;
   S.adaptive.lastCheckAt = 0;
@@ -1423,6 +1464,7 @@ function endGame(reason){
     junkErrorPct,
 
     waterEndPct: Math.round(S.water),
+    zoneEnd: S.zone,
     grade,
     reason,
     seed,
@@ -1496,6 +1538,7 @@ function bindButtons(){
     }
   }, { passive:true });
 
+  // shoot on tap only if NOT dragging
   UI.playfield?.addEventListener('pointerup', ()=>{
     if (!S.started || S.ended) return;
     if (S.dragOn) return;
@@ -1531,7 +1574,7 @@ function bindButtons(){
 // ------------------------- init -------------------------
 (function init(){
   if (!DOC || !UI.playfield || !UI.layer){
-    console.warn('[HydrationVR] missing DOM nodes (check module path / ids)');
+    console.warn('[HydrationVR] missing DOM nodes');
     return;
   }
 
