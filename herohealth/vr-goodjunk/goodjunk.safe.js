@@ -1,19 +1,23 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard
-// ✅ DOM targets on #gj-layer (+ right eye mirror #gj-layer-r when stereo)
-// ✅ FIX: targets not showing/clicking -> correct layer styles
-// ✅ Click/tap target + shoot-at-crosshair (btn / Space / Enter)
-// ✅ Adaptive only run=play ; run=research fixed by diff
-// ✅ miss = good expire + junk hit (shield block NOT miss)
-// ✅ End summary overlay + Back HUB + localStorage last summary
-// ✅ flush-hardened: end/backhub/pagehide/visibilitychange
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard FINAL
+// ✅ DOM targets on #gj-layer (+ stereo mirror to #gj-layerR)
+// ✅ Warmup 3s "No-Junk Zone" (ยุติธรรมขึ้น: ช่วง warmup ไม่สุ่ม junk)
+// ✅ Adaptive เฉพาะ run=play; research run=research fixed by diff
+// ✅ click/tap target + shoot crosshair (button / Space / Enter)
+// ✅ FIX: targets visible + correct z-index + pointer events
+// ✅ HHA events: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
+// ✅ Miss definition: good expire + junk hit (shield block NOT miss)
+// ✅ End Summary = Research sheet (start/end ISO + spawn counts + RT + fast hit rate + junk error)
+// ✅ Replay 2 modes: keep seed / reseed
+// ✅ Back HUB: ?hub=... keep research params + flush-hardened
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
-function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b, v)); }
 function now(){ return (ROOT.performance && performance.now) ? performance.now() : Date.now(); }
+function isoNow(){ try{ return new Date().toISOString(); }catch(_){ return ''; } }
 
 function emit(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
@@ -62,13 +66,32 @@ function isMobileLike(){
   return coarse || (Math.min(w,h) < 520);
 }
 
+function deviceLabel(){
+  const ua = String(ROOT.navigator?.userAgent || '');
+  const w = ROOT.innerWidth || 0;
+  const h = ROOT.innerHeight || 0;
+  const coarse = (ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches) ? 'coarse' : 'fine';
+  let plat = 'web';
+  if (/android/i.test(ua)) plat = 'android';
+  else if (/iphone|ipad|ipod/i.test(ua)) plat = 'ios';
+  else if (/windows/i.test(ua)) plat = 'windows';
+  else if (/mac os/i.test(ua)) plat = 'mac';
+  const stereo = ROOT.document?.body?.classList?.contains('gj-stereo') ? 'stereo' : 'mono';
+  return `${plat}/${coarse}/${stereo}/${w}x${h}`;
+}
+
+// optional modules (best effort)
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
 
 const FeverUI =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
-  ROOT.FeverUI || { set(){}, get(){ return { value:0, state:'low', shield:0 }; }, setShield(){} };
+  ROOT.FeverUI || {
+    set(){},
+    get(){ return { value:0, state:'low', shield:0 }; },
+    setShield(){}
+  };
 
 async function flushLogger(reason){
   emit('hha:flush', { reason: String(reason||'flush') });
@@ -90,7 +113,6 @@ async function flushLogger(reason){
     new Promise(res=>setTimeout(res, 260))
   ]);
 }
-
 function logEvent(type, data){
   emit('hha:log_event', { type, data: data || {} });
   try{ if (typeof ROOT.hhaLogEvent === 'function') ROOT.hhaLogEvent(type, data||{}); }catch(_){}
@@ -105,15 +127,14 @@ function rankFromAcc(acc){
   if (acc >= 60) return 'B';
   return 'C';
 }
-
 function diffBase(diff){
   diff = String(diff||'normal').toLowerCase();
-  if (diff === 'easy')  return { spawnMs: 980, ttlMs: 2300, size: 1.08, junk: 0.12, power: 0.035, maxT: 7 };
-  if (diff === 'hard')  return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.18, power: 0.025, maxT: 9 };
+  if (diff === 'easy') return { spawnMs: 980, ttlMs: 2300, size: 1.08, junk: 0.12, power: 0.035, maxT: 7 };
+  if (diff === 'hard') return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.18, power: 0.025, maxT: 9 };
   return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
 }
 
-// -------------------- SAFE style injection (doesn't break your CSS) --------------------
+// -------------------- CSS injection (hard safety) --------------------
 function ensureTargetStyles(){
   const DOC = ROOT.document;
   if (!DOC || DOC.getElementById('gj-safe-style')) return;
@@ -121,17 +142,11 @@ function ensureTargetStyles(){
   const st = DOC.createElement('style');
   st.id = 'gj-safe-style';
   st.textContent = `
-    /* Ensure layers exist & clickable (fallback) */
-    #gj-stage{ position:fixed; inset:0; overflow:hidden; touch-action:none; }
-    #gj-layer, #gj-layer-r{
-      position:fixed; inset:0;
-      z-index: 30;
-      pointer-events:auto;
-      touch-action:none;
+    #gj-stage{ position:fixed; inset:0; overflow:hidden; }
+    #gj-layer, #gj-layerR{
+      position:absolute; inset:0; z-index:30;
+      pointer-events:auto; touch-action:none;
     }
-    #gj-layer-r{ pointer-events:none; }
-
-    /* Minimal target fallback if main css missing */
     .gj-target{
       position:absolute;
       left: var(--x, 50vw);
@@ -184,8 +199,9 @@ function buildAvoidRects(){
   }
   return rects;
 }
-function pointInRect(x, y, r){ return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }
-
+function pointInRect(x, y, r){
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
 function randPos(rng, safeMargins){
   const W = ROOT.innerWidth || 360;
   const H = ROOT.innerHeight || 640;
@@ -218,10 +234,10 @@ function randPos(rng, safeMargins){
   };
 }
 
-// -------------------- targets --------------------
-const GOOD   = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
-const JUNK   = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
-const STARS  = ['⭐','💎'];
+// -------------------- engine assets --------------------
+const GOOD = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
+const JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
+const STARS = ['⭐','💎'];
 const SHIELD = '🛡️';
 
 function setXY(el, x, y){
@@ -229,6 +245,7 @@ function setXY(el, x, y){
   const py = y.toFixed(1) + 'px';
   el.style.setProperty('--x', px);
   el.style.setProperty('--y', py);
+  // fallback
   el.style.left = px;
   el.style.top  = py;
 }
@@ -237,24 +254,19 @@ function countTargets(layerEl){
   try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
 }
 
-function getCrosshairCenter(crosshairEl){
-  if (!crosshairEl) return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
+function getCenter(el, fallbackX, fallbackY){
+  if (!el) return { x:fallbackX, y:fallbackY };
   try{
-    const r = crosshairEl.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
     return { x: r.left + r.width/2, y: r.top + r.height/2 };
-  }catch(_){
-    return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
-  }
+  }catch(_){ return { x:fallbackX, y:fallbackY }; }
 }
 
-function dist2(ax, ay, bx, by){
-  const dx = ax - bx, dy = ay - by;
-  return dx*dx + dy*dy;
-}
+function dist2(ax, ay, bx, by){ const dx=ax-bx, dy=ay-by; return dx*dx + dy*dy; }
 
 function findTargetNear(layerEl, cx, cy, radiusPx){
   const r2max = radiusPx * radiusPx;
-  const list = layerEl.querySelectorAll('.gj-target'); // left eye only
+  const list = layerEl.querySelectorAll('.gj-target');
   let best = null;
   let bestD2 = 1e18;
 
@@ -269,7 +281,6 @@ function findTargetNear(layerEl, cx, cy, radiusPx){
       }
     }catch(_){}
   });
-
   return best;
 }
 
@@ -278,98 +289,193 @@ function updateFever(shield, fever){
   try{ if (typeof FeverUI.setShield === 'function') FeverUI.setShield(clamp(shield,0,9)); }catch(_){}
 }
 
-function makeSummary(S, reason){
-  const acc = S.hitAll > 0 ? Math.round((S.hitGood / S.hitAll) * 100) : 0;
-  const grade = rankFromAcc(acc);
-  return {
-    reason: String(reason||'end'),
-    scoreFinal: S.score|0,
-    comboMax: S.comboMax|0,
-    misses: S.misses|0,
-
-    goalsCleared: S.goalsCleared|0,
-    goalsTotal: S.goalsTotal|0,
-    miniCleared: S.miniCleared|0,
-    miniTotal: S.miniTotal|0,
-
-    nHitGood: S.hitGood|0,
-    nHitJunk: S.hitJunk|0,
-    nHitJunkGuard: S.hitJunkGuard|0,
-    nExpireGood: S.expireGood|0,
-    nHitAll: S.hitAll|0,
-
-    accuracyGoodPct: acc|0,
-    grade,
-
-    feverEnd: Math.round(S.fever)|0,
-    shieldEnd: S.shield|0,
-
-    diff: S.diff,
-    runMode: S.runMode,
-    seed: S.seed,
-    durationPlayedSec: Math.round((now() - S.tStart)/1000)
-  };
+function avg(arr){
+  const n = arr.length;
+  if (!n) return 0;
+  let s=0; for (const v of arr) s += (Number(v)||0);
+  return s/n;
+}
+function median(arr){
+  const n = arr.length;
+  if (!n) return 0;
+  const a = arr.slice().sort((x,y)=>x-y);
+  const mid = (n/2)|0;
+  return (n%2) ? a[mid] : (a[mid-1]+a[mid])/2;
 }
 
-async function flushAll(summary, reason){
-  try{
-    if (summary){
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      localStorage.setItem('hha_last_summary', JSON.stringify(summary));
-    }
-  }catch(_){}
-  await flushLogger(reason || summary?.reason || 'flush');
-}
-
-function renderEndOverlay(summary){
+// -------------------- End Overlay (Research Sheet) --------------------
+function renderEndSummary(summary){
   const DOC = ROOT.document;
   if (!DOC) return;
-  const host = DOC.getElementById('end-summary');
-  if (!host) return;
 
-  const hub = qs('hub', '../hub.html');
-  const replayUrl = location.pathname + location.search;
+  const hostL = DOC.getElementById('end-summary');
+  const hostR = DOC.getElementById('end-summaryR');
+  if (!hostL) return;
 
-  host.innerHTML = `
-    <div class="gj-end" role="dialog" aria-label="สรุปผลการเล่น">
-      <div class="gj-end-card">
-        <div class="gj-end-title">สรุปผล 🎯</div>
-        <div class="gj-end-sub">Grade: <b>${summary.grade}</b> • Accuracy: <b>${summary.accuracyGoodPct}%</b> • Miss: <b>${summary.misses}</b></div>
+  const acc = summary.accuracyGoodPct|0;
+  const grade = summary.grade || '—';
+  const reason = String(summary.reason || 'end');
 
-        <div class="gj-end-grid">
-          <div class="gj-end-item"><div class="gj-end-k">Score</div><div class="gj-end-v">${summary.scoreFinal}</div></div>
-          <div class="gj-end-item"><div class="gj-end-k">Max Combo</div><div class="gj-end-v">${summary.comboMax}</div></div>
-          <div class="gj-end-item"><div class="gj-end-k">Good Hits</div><div class="gj-end-v">${summary.nHitGood}</div></div>
-          <div class="gj-end-item"><div class="gj-end-k">Junk Hits</div><div class="gj-end-v">${summary.nHitJunk}</div></div>
-          <div class="gj-end-item"><div class="gj-end-k">Shield Blocks</div><div class="gj-end-v">${summary.nHitJunkGuard}</div></div>
-          <div class="gj-end-item"><div class="gj-end-k">Good Expired</div><div class="gj-end-v">${summary.nExpireGood}</div></div>
+  const fmt = (n)=>{
+    n = Number(n)||0;
+    try{ return n.toLocaleString('en-US'); }catch(_){ return String(n); }
+  };
+
+  const tags = [
+    `diff:${summary.diff}`,
+    `run:${summary.runMode}`,
+    `end:${String(qs('end','time'))}`,
+    `challenge:${String(qs('challenge','rush'))}`,
+    `device:${summary.device||'-'}`
+  ];
+
+  const html = `
+    <div class="end-overlay show">
+      <div class="end-card">
+        <div class="end-head">
+          <div>
+            <div class="end-title">สรุปผล (Research Sheet)</div>
+            <div class="end-sub">
+              reason: ${reason} • played: ${fmt(summary.durationPlayedSec)}s
+              • start: ${String(summary.startTimeIso||'—')}
+              • end: ${String(summary.endTimeIso||'—')}
+            </div>
+          </div>
+          <div class="end-grade">
+            <div class="g">${grade}</div>
+            <div class="a">ACC ${acc}%</div>
+          </div>
         </div>
 
-        <div class="gj-end-sub" style="margin-top:10px;">
-          Goals ${summary.goalsCleared}/${summary.goalsTotal} • Minis ${summary.miniCleared}/${summary.miniTotal}
-          • Time ${summary.durationPlayedSec}s
+        <div class="end-grid">
+          <div class="end-item"><div class="k">Score</div><div class="v">${fmt(summary.scoreFinal)}</div></div>
+          <div class="end-item"><div class="k">Combo Max</div><div class="v">${fmt(summary.comboMax)}</div></div>
+          <div class="end-item"><div class="k">Miss</div><div class="v">${fmt(summary.misses)}</div></div>
+
+          <div class="end-item"><div class="k">Good Hit</div><div class="v">${fmt(summary.nHitGood)}</div></div>
+          <div class="end-item"><div class="k">Junk Hit</div><div class="v">${fmt(summary.nHitJunk)}</div></div>
+          <div class="end-item"><div class="k">Shield Blocks</div><div class="v">${fmt(summary.nHitJunkGuard)}</div></div>
+
+          <div class="end-item"><div class="k">Expire Good</div><div class="v">${fmt(summary.nExpireGood)}</div></div>
+          <div class="end-item"><div class="k">JunkError %</div><div class="v">${fmt(summary.junkErrorPct||0)}%</div></div>
+          <div class="end-item"><div class="k">Fever / Shield</div><div class="v">${fmt(summary.feverEnd||0)}% • ${fmt(summary.shieldEnd||0)}</div></div>
+
+          <div class="end-item"><div class="k">RT avg (ms)</div><div class="v">${fmt(summary.avgRtGoodMs||0)}</div></div>
+          <div class="end-item"><div class="k">RT median (ms)</div><div class="v">${fmt(summary.medianRtGoodMs||0)}</div></div>
+          <div class="end-item"><div class="k">FastHit %</div><div class="v">${fmt(summary.fastHitRatePct||0)}%</div></div>
+
+          <div class="end-item"><div class="k">Spawn GOOD</div><div class="v">${fmt(summary.nTargetGoodSpawned||0)}</div></div>
+          <div class="end-item"><div class="k">Spawn JUNK</div><div class="v">${fmt(summary.nTargetJunkSpawned||0)}</div></div>
+          <div class="end-item"><div class="k">Spawn STAR/SHIELD</div><div class="v">${fmt(summary.nTargetStarSpawned||0)} / ${fmt(summary.nTargetShieldSpawned||0)}</div></div>
         </div>
 
-        <div class="gj-end-actions">
-          <button class="gj-btn primary" id="gjReplay">เล่นใหม่</button>
-          <button class="gj-btn" id="gjBackHub">กลับ HUB</button>
+        <div class="end-row">
+          <div class="end-tags">
+            ${tags.map(t=>`<span class="tag">${t}</span>`).join('')}
+            <span class="tag">seed:${String(summary.seed||'—').slice(0,22)}</span>
+          </div>
+        </div>
+
+        <div class="end-actions">
+          <button class="end-btn primary" id="btnHub">กลับ HUB</button>
+          <button class="end-btn" id="btnReplayKeep">เล่นใหม่ (Seed เดิม)</button>
+          <button class="end-btn" id="btnReplayNew">เล่นใหม่ (Seed ใหม่)</button>
         </div>
       </div>
     </div>
   `;
 
-  const btnReplay = DOC.getElementById('gjReplay');
-  const btnHub = DOC.getElementById('gjBackHub');
+  hostL.innerHTML = html;
+  if (hostR) hostR.innerHTML = html
+    .replaceAll('btnHub','btnHubR')
+    .replaceAll('btnReplayKeep','btnReplayKeepR')
+    .replaceAll('btnReplayNew','btnReplayNewR');
 
-  if (btnReplay){
-    btnReplay.onclick = ()=>{ try{ location.href = replayUrl; }catch(_){ location.reload(); } };
-  }
-  if (btnHub){
-    btnHub.onclick = async ()=>{
-      try{ await flushAll(summary, 'backhub'); }catch(_){}
-      try{ location.href = hub; }catch(_){ location.assign(hub); }
-    };
-  }
+  const allowParams = [
+    'hub',
+    'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
+    'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel',
+    'heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
+    'gameVersion'
+  ];
+
+  const buildHubUrl = ()=>{
+    const hub = String(qs('hub','./index.html') || './index.html');
+    let u;
+    try{ u = new URL(hub, ROOT.location.href); }catch(_){ u = new URL('./index.html', ROOT.location.href); }
+
+    try{
+      const cur = new URL(ROOT.location.href);
+      const sp = cur.searchParams;
+
+      allowParams.forEach(k=>{
+        const v = sp.get(k);
+        if (v != null && v !== '') u.searchParams.set(k, v);
+      });
+
+      ['run','diff','vr','stereo'].forEach(k=>{
+        const v = sp.get(k);
+        if (v != null && v !== '') u.searchParams.set(k, v);
+      });
+
+      u.searchParams.set('hubFrom','goodjunk');
+      u.searchParams.set('last','1');
+    }catch(_){}
+
+    return u.toString();
+  };
+
+  const buildReplayUrl = (keepSeed)=>{
+    try{
+      const u = new URL(ROOT.location.href);
+      u.searchParams.set('ts', String(Date.now()));
+      if (keepSeed){
+        if (summary.seed) u.searchParams.set('seed', String(summary.seed));
+      } else {
+        u.searchParams.delete('seed');
+      }
+      return u.toString();
+    }catch(_){
+      return ROOT.location.href;
+    }
+  };
+
+  const disableAll = ()=>{
+    ['btnHub','btnReplayKeep','btnReplayNew','btnHubR','btnReplayKeepR','btnReplayNewR'].forEach(id=>{
+      const b = ROOT.document.getElementById(id);
+      if (b) b.disabled = true;
+    });
+  };
+
+  const goHub = async ()=>{
+    disableAll();
+    try{ await flushLogger('back_hub'); }catch(_){}
+    setTimeout(()=>{ ROOT.location.href = buildHubUrl(); }, 80);
+  };
+
+  const replayKeep = async ()=>{
+    disableAll();
+    try{ await flushLogger('replay_keep_seed'); }catch(_){}
+    setTimeout(()=>{ ROOT.location.href = buildReplayUrl(true); }, 80);
+  };
+
+  const replayNew = async ()=>{
+    disableAll();
+    try{ await flushLogger('replay_new_seed'); }catch(_){}
+    setTimeout(()=>{ ROOT.location.href = buildReplayUrl(false); }, 80);
+  };
+
+  const bind = (id, fn)=>{
+    const b = ROOT.document.getElementById(id);
+    if (b) b.onclick = (e)=>{ e.preventDefault?.(); fn(); };
+  };
+
+  bind('btnHub', goHub);
+  bind('btnReplayKeep', replayKeep);
+  bind('btnReplayNew', replayNew);
+  bind('btnHubR', goHub);
+  bind('btnReplayKeepR', replayKeep);
+  bind('btnReplayNewR', replayNew);
 }
 
 // -------------------- exported boot --------------------
@@ -379,17 +485,26 @@ export function boot(opts = {}) {
 
   ensureTargetStyles();
 
-  const layerEl  = opts.layerEl  || DOC.getElementById('gj-layer');
-  const layerElR = opts.layerElR || DOC.getElementById('gj-layer-r');
-  const shootEl  = opts.shootEl  || DOC.getElementById('btnShoot');
-  const crosshairEl = opts.crosshairEl || DOC.getElementById('gj-crosshair');
+  const layerEl = opts.layerEl || DOC.getElementById('gj-layer');
+  const layerElR = opts.layerElR || DOC.getElementById('gj-layerR');
+
+  const shootEl = opts.shootEl || DOC.getElementById('btnShoot');
+
+  const crosshairEl  = opts.crosshairEl  || DOC.getElementById('gj-crosshair');
+  const crosshairElR = opts.crosshairElR || DOC.getElementById('gj-crosshairR');
+
+  const ringEl  = opts.ringEl  || DOC.getElementById('atk-ring');
+  const ringElR = opts.ringElR || DOC.getElementById('atk-ringR');
+
+  const laserEl  = opts.laserEl  || DOC.getElementById('atk-laser');
+  const laserElR = opts.laserElR || DOC.getElementById('atk-laserR');
 
   if (!layerEl){
     console.warn('[GoodJunkVR] missing #gj-layer');
     return;
   }
 
-  const safeMargins = Object.assign({ top: 128, bottom: 170, left: 26, right: 26 }, (opts.safeMargins||{}));
+  const safeMargins = opts.safeMargins || { top: 138, bottom: 182, left: 26, right: 26 };
 
   const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
   const run  = String(opts.run  || qs('run','play')).toLowerCase();
@@ -397,6 +512,7 @@ export function boot(opts = {}) {
 
   const timeSec = clamp(Number(opts.time ?? qs('time','80')), 30, 600) | 0;
   const endPolicy = String(opts.endPolicy || qs('end','time')).toLowerCase();
+  const challenge = String(opts.challenge || qs('challenge','rush')).toLowerCase();
 
   const sessionId = String(opts.sessionId || qs('sessionId', qs('sid','')) || '');
   const seedIn = opts.seed || qs('seed', null);
@@ -405,70 +521,61 @@ export function boot(opts = {}) {
 
   const ctx = opts.context || {};
 
-  const isStereo = document.body.classList.contains('gj-stereo') && !!layerElR;
+  const base = diffBase(diff);
 
+  // -------- state --------
   const S = {
     running:false, ended:false, flushed:false,
 
     diff, runMode, timeSec, seed, rng: makeRng(seed),
-    endPolicy,
+    endPolicy, challenge,
 
-    tStart:0, left: timeSec,
+    tStart:0,
+    startTimeIso:'',
+    endTimeIso:'',
+    left: timeSec,
 
     score:0, combo:0, comboMax:0,
 
-    misses:0,
-    hitAll:0,
-    hitGood:0,
-    hitJunk:0,
-    hitJunkGuard:0,
-    expireGood:0,
+    misses:0,           // miss = good expire + junk hit (unblocked)
+    hitAll:0, hitGood:0, hitJunk:0, hitJunkGuard:0, expireGood:0,
 
     fever:0,
     shield:0,
 
-    goalsCleared:0,
-    goalsTotal:2,
-    miniCleared:0,
-    miniTotal:7,
+    goalsCleared:0, goalsTotal:2,
+    miniCleared:0,  miniTotal:7,
 
+    // pacing
     warmupUntil:0,
     spawnTimer:0,
     tickTimer:0,
 
-    spawnMs:900,
-    ttlMs:2000,
-    size:1.0,
-    junkP:0.15,
-    powerP:0.03,
-    maxTargets:8
+    // live params
+    spawnMs: base.spawnMs,
+    ttlMs:   base.ttlMs,
+    size:    base.size,
+    junkP:   base.junk,
+    powerP:  base.power,
+    maxTargets: base.maxT,
+
+    // research metrics
+    nTargetGoodSpawned:0,
+    nTargetJunkSpawned:0,
+    nTargetStarSpawned:0,
+    nTargetShieldSpawned:0,
+
+    rtGoodMs: [],
+    fastHitGood: 0,     // count of good hits under threshold
+    fastThresholdMs: 420,
   };
 
-  const base = diffBase(diff);
-  S.spawnMs = base.spawnMs;
-  S.ttlMs   = base.ttlMs;
-  S.size    = base.size;
-  S.junkP   = base.junk;
-  S.powerP  = base.power;
-  S.maxTargets = base.maxT;
-
+  // mobile tune
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
     S.size = Math.min(1.12, S.size + 0.03);
-    safeMargins.left = Math.max(18, safeMargins.left);
+    safeMargins.left  = Math.max(18, safeMargins.left);
     safeMargins.right = Math.max(18, safeMargins.right);
-  }
-
-  // stereo mapping: compress X into halves
-  function mapX(x, eye){
-    const W = ROOT.innerWidth || 360;
-    if (!isStereo) return x;
-    const half = W * 0.5;
-    const lx = x * 0.5;         // 0..half
-    return (eye === 'r') ? (lx + half) : lx;
-  }
-  function mapY(y){
-    return y; // keep full height
   }
 
   function coach(mood, text, sub){
@@ -504,19 +611,42 @@ export function boot(opts = {}) {
     try{ clearTimeout(S.tickTimer); }catch(_){}
   }
 
-  function removePair(el){
-    try{ clearTimeout(el._ttl); }catch(_){}
-    el.classList.add('hit');
-    const m = el._mirror;
-    if (m && m.isConnected){
-      try{ clearTimeout(m._ttl); }catch(_){}
-      m.classList.add('hit');
-      setTimeout(()=>{ try{ m.remove(); }catch(_){ } }, 140);
-    }
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 140);
+  // ---------- stereo target linking ----------
+  let idSeq = 1;
+  const map = new Map(); // id -> { L:el, R:el }
+
+  function removePair(id){
+    const p = map.get(id);
+    if (!p) return;
+    try{ if (p.L) p.L.remove(); }catch(_){}
+    try{ if (p.R) p.R.remove(); }catch(_){}
+    map.delete(id);
   }
 
-  function expirePair(el){
+  function markPairClass(id, cls){
+    const p = map.get(id);
+    if (!p) return;
+    try{ p.L && p.L.classList.add(cls); }catch(_){}
+    try{ p.R && p.R.classList.add(cls); }catch(_){}
+  }
+
+  function clearPairTTL(id){
+    const p = map.get(id);
+    if (!p) return;
+    try{ p.L && clearTimeout(p.L._ttl); }catch(_){}
+    try{ p.R && clearTimeout(p.R._ttl); }catch(_){}
+  }
+
+  function burstAtEl(el, kind){
+    try{
+      const r = el.getBoundingClientRect();
+      Particles.burstAt(r.left + r.width/2, r.top + r.height/2, kind || el.dataset.type || '');
+    }catch(_){}
+  }
+
+  function expireById(id){
+    const p = map.get(id);
+    const el = p?.L || p?.R;
     if (!el || !el.isConnected) return;
 
     const tp = String(el.dataset.type||'');
@@ -534,49 +664,8 @@ export function boot(opts = {}) {
       logEvent('miss_expire', { kind:'good', emoji: String(el.dataset.emoji||'') });
     }
 
-    el.classList.add('out');
-    const m = el._mirror;
-    if (m && m.isConnected) m.classList.add('out');
-
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
-    setTimeout(()=>{ try{ m?.remove(); }catch(_){ } }, 160);
-  }
-
-  function makeTarget(type, emoji, x, y, s, eye){
-    const el = DOC.createElement('div');
-    el.className = `gj-target ${type}` + (eye === 'r' ? ' mirror' : '');
-    el.dataset.type = type;
-    el.dataset.emoji = String(emoji||'✨');
-
-    // fallback
-    el.style.position = 'absolute';
-    el.style.pointerEvents = (eye === 'r') ? 'none' : 'auto';
-    el.style.zIndex = (eye === 'r') ? '10' : '31';
-
-    setXY(el, x, y);
-    el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
-    el.textContent = String(emoji||'✨');
-
-    // TTL only on left; mirror removed with left
-    if (eye !== 'r'){
-      el._ttl = setTimeout(()=> expirePair(el), S.ttlMs);
-      const onHit = (ev)=>{
-        ev.preventDefault?.();
-        ev.stopPropagation?.();
-        hitTarget(el);
-      };
-      el.addEventListener('pointerdown', onHit, { passive:false });
-      el.addEventListener('click', onHit, { passive:false });
-    }
-
-    return el;
-  }
-
-  function burstAtEl(el, kind){
-    try{
-      const r = el.getBoundingClientRect();
-      Particles.burstAt(r.left + r.width/2, r.top + r.height/2, kind || el.dataset.type || '');
-    }catch(_){}
+    markPairClass(id, 'out');
+    setTimeout(()=>{ removePair(id); }, 170);
   }
 
   function scoreGood(){
@@ -586,11 +675,20 @@ export function boot(opts = {}) {
     return pts;
   }
 
-  function hitGood(el){
+  function hitGood(id, el){
     S.hitAll++; S.hitGood++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
 
+    // RT
+    const t0 = Number(el._spawnAt)||0;
+    if (t0 > 0){
+      const rt = Math.max(0, now() - t0);
+      S.rtGoodMs.push(rt);
+      if (rt <= S.fastThresholdMs) S.fastHitGood++;
+    }
+
+    // fever down
     S.fever = clamp(S.fever - 2.2, 0, 100);
     updateFever(S.shield, S.fever);
 
@@ -603,6 +701,7 @@ export function boot(opts = {}) {
     updateScore();
     updateQuest();
 
+    // minis by combo thresholds
     if (S.miniCleared < S.miniTotal){
       const needCombo = 4 + (S.miniCleared * 2);
       if (S.combo >= needCombo){
@@ -612,6 +711,7 @@ export function boot(opts = {}) {
         updateQuest();
       }
     }
+    // goals by good hits
     if (S.goalsCleared < S.goalsTotal){
       const needGood = 10 + (S.goalsCleared * 8);
       if (S.hitGood >= needGood){
@@ -625,10 +725,13 @@ export function boot(opts = {}) {
       }
     }
 
-    removePair(el);
+    // remove pair
+    clearPairTTL(id);
+    markPairClass(id, 'hit');
+    setTimeout(()=>{ removePair(id); }, 140);
   }
 
-  function hitShield(el){
+  function hitShield(id, el){
     S.hitAll++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
@@ -642,12 +745,14 @@ export function boot(opts = {}) {
     burstAtEl(el, 'shield');
     logEvent('hit', { kind:'shield', emoji:'🛡️', shield:S.shield|0 });
 
-    updateScore();
-    updateQuest();
-    removePair(el);
+    updateScore(); updateQuest();
+
+    clearPairTTL(id);
+    markPairClass(id, 'hit');
+    setTimeout(()=>{ removePair(id); }, 140);
   }
 
-  function hitStar(el){
+  function hitStar(id, el){
     S.hitAll++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
@@ -659,12 +764,14 @@ export function boot(opts = {}) {
     burstAtEl(el, 'star');
     logEvent('hit', { kind:'star', emoji:String(el.dataset.emoji||'⭐') });
 
-    updateScore();
-    updateQuest();
-    removePair(el);
+    updateScore(); updateQuest();
+
+    clearPairTTL(id);
+    markPairClass(id, 'hit');
+    setTimeout(()=>{ removePair(id); }, 140);
   }
 
-  function hitJunk(el){
+  function hitJunk(id, el){
     S.hitAll++;
 
     if (S.shield > 0){
@@ -676,9 +783,11 @@ export function boot(opts = {}) {
       burstAtEl(el, 'guard');
       logEvent('shield_block', { kind:'junk', emoji:String(el.dataset.emoji||'') });
 
-      updateScore();
-      updateQuest();
-      removePair(el);
+      updateScore(); updateQuest();
+
+      clearPairTTL(id);
+      markPairClass(id, 'hit');
+      setTimeout(()=>{ removePair(id); }, 140);
       return;
     }
 
@@ -693,23 +802,57 @@ export function boot(opts = {}) {
     updateFever(S.shield, S.fever);
 
     judge('bad', `JUNK! -${penalty}`);
-    coach('sad', 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
+    coach('sad', 'โดนขยะแล้ว 😵', 'เล็งกลางแล้วกดยิง');
     burstAtEl(el, 'junk');
 
     logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
 
-    updateScore();
-    updateQuest();
-    removePair(el);
+    updateScore(); updateQuest();
+
+    clearPairTTL(id);
+    markPairClass(id, 'hit');
+    setTimeout(()=>{ removePair(id); }, 150);
   }
 
-  function hitTarget(el){
-    if (!S.running || S.ended || !el || !el.isConnected) return;
+  function hitById(id){
+    if (!S.running || S.ended) return;
+    const p = map.get(id);
+    const el = p?.L || p?.R;
+    if (!el || !el.isConnected) return;
+
     const tp = String(el.dataset.type||'');
-    if (tp === 'good') return hitGood(el);
-    if (tp === 'junk') return hitJunk(el);
-    if (tp === 'shield') return hitShield(el);
-    if (tp === 'star') return hitStar(el);
+    if (tp === 'good') return hitGood(id, el);
+    if (tp === 'junk') return hitJunk(id, el);
+    if (tp === 'shield') return hitShield(id, el);
+    if (tp === 'star') return hitStar(id, el);
+  }
+
+  function makeTargetEl(layer, id, type, emoji, x, y, s){
+    const el = DOC.createElement('div');
+    el.className = `gj-target ${type}`;
+    el.dataset.id = String(id);
+    el.dataset.type = type;
+    el.dataset.emoji = String(emoji||'✨');
+
+    el.style.position = 'absolute';
+    el.style.pointerEvents = 'auto';
+    el.style.zIndex = '30';
+
+    setXY(el, x, y);
+    el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
+    el.textContent = String(emoji||'✨');
+
+    el._spawnAt = now();
+
+    const onHit = (ev)=>{
+      ev.preventDefault?.();
+      ev.stopPropagation?.();
+      hitById(id);
+    };
+    el.addEventListener('pointerdown', onHit, { passive:false });
+    el.addEventListener('click', onHit, { passive:false });
+
+    return el;
   }
 
   function spawnOne(){
@@ -717,15 +860,15 @@ export function boot(opts = {}) {
     if (countTargets(layerEl) >= S.maxTargets) return;
 
     const p = randPos(S.rng, safeMargins);
-
     const t = now();
     const inWarm = (t < S.warmupUntil);
 
+    // choose type
     let tp = 'good';
     const r = S.rng();
 
-    const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
-    const junkP  = inWarm ? (S.junkP  * 0.55) : S.junkP;
+    const powerP = inWarm ? (S.powerP * 0.7) : S.powerP;
+    const junkP  = inWarm ? 0.0 : S.junkP; // ✅ No-Junk Zone: warmup no junk
 
     if (r < powerP) tp = 'shield';
     else if (r < powerP + 0.035) tp = 'star';
@@ -734,43 +877,37 @@ export function boot(opts = {}) {
 
     const size = (inWarm ? (S.size * 1.06) : S.size);
 
-    const lx = mapX(p.x, 'l');
-    const ly = mapY(p.y);
-    const rx = mapX(p.x, 'r');
-    const ry = mapY(p.y);
-
-    // choose emoji
+    const id = idSeq++;
     let emoji = '✨';
     if (tp === 'good') emoji = pick(S.rng, GOOD);
     if (tp === 'junk') emoji = pick(S.rng, JUNK);
     if (tp === 'shield') emoji = SHIELD;
     if (tp === 'star') emoji = pick(S.rng, STARS);
 
-    // left interactive
-    const left = makeTarget(tp, emoji, lx, ly, size * (tp==='junk'?0.98:1), 'l');
-    layerEl.appendChild(left);
-    logEvent('spawn', { kind:tp, emoji:String(emoji||'') });
+    // spawn counters
+    if (tp === 'good') S.nTargetGoodSpawned++;
+    if (tp === 'junk') S.nTargetJunkSpawned++;
+    if (tp === 'star') S.nTargetStarSpawned++;
+    if (tp === 'shield') S.nTargetShieldSpawned++;
 
-    // right mirror (if stereo)
-    if (isStereo && layerElR){
-      const right = makeTarget(tp, emoji, rx, ry, size * (tp==='junk'?0.98:1), 'r');
-      right.style.opacity = '0.96';
-      layerElR.appendChild(right);
+    const elL = makeTargetEl(layerEl, id, tp, emoji, p.x, p.y, (tp==='junk'?size*0.98: size));
+    layerEl.appendChild(elL);
 
-      // link pairs
-      left._mirror = right;
-      right._mirror = left;
+    // stereo mirror (optional)
+    let elR = null;
+    if (layerElR && DOC.body.classList.contains('gj-stereo')){
+      elR = makeTargetEl(layerElR, id, tp, emoji, p.x, p.y, (tp==='junk'?size*0.98: size));
+      layerElR.appendChild(elR);
     }
 
-    // animate spawn class if your css supports it
-    try{
-      left.classList.add('spawn');
-      setTimeout(()=>left.classList.remove('spawn'), 18);
-      if (left._mirror){
-        left._mirror.classList.add('spawn');
-        setTimeout(()=>left._mirror.classList.remove('spawn'), 18);
-      }
-    }catch(_){}
+    // shared TTL
+    const ttl = setTimeout(()=> expireById(id), S.ttlMs);
+    elL._ttl = ttl;
+    if (elR) elR._ttl = ttl;
+
+    map.set(id, { L: elL, R: elR });
+
+    logEvent('spawn', { id, kind:tp, emoji:String(emoji||''), x:p.x, y:p.y });
   }
 
   function loopSpawn(){
@@ -836,21 +973,33 @@ export function boot(opts = {}) {
   function shootAtCrosshair(){
     if (!S.running || S.ended) return;
 
-    const c = getCrosshairCenter(crosshairEl);
+    const W = ROOT.innerWidth || 360;
+    const H = ROOT.innerHeight || 640;
+
+    const cL = getCenter(crosshairEl, W*0.5, H*0.62);
     const r = isMobileLike() ? 62 : 52;
-    const el = findTargetNear(layerEl, c.x, c.y, r);
+
+    const el = findTargetNear(layerEl, cL.x, cL.y, r);
     if (el){
-      hitTarget(el);
-    } else {
-      if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
-      updateScore();
+      const id = Number(el.dataset.id)||0;
+      if (id) hitById(id);
+      return;
     }
+
+    // miss shoot doesn't count as miss (friendly)
+    if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
+    updateScore();
   }
 
   function bindInputs(){
     if (shootEl){
-      shootEl.addEventListener('click', (e)=>{ e.preventDefault?.(); shootAtCrosshair(); });
-      shootEl.addEventListener('pointerdown', (e)=>{ e.preventDefault?.(); }, { passive:false });
+      shootEl.addEventListener('click', (e)=>{
+        e.preventDefault?.();
+        shootAtCrosshair();
+      });
+      shootEl.addEventListener('pointerdown', (e)=>{
+        e.preventDefault?.();
+      }, { passive:false });
     }
 
     DOC.addEventListener('keydown', (e)=>{
@@ -872,30 +1021,95 @@ export function boot(opts = {}) {
 
   function bindFlushHard(){
     ROOT.addEventListener('pagehide', ()=>{
-      try{ flushAll(makeSummary(S,'pagehide'), 'pagehide'); }catch(_){}
+      try{ flushAll(makeSummary('pagehide'), 'pagehide'); }catch(_){}
     }, { passive:true });
 
     DOC.addEventListener('visibilitychange', ()=>{
       if (DOC.visibilityState === 'hidden'){
-        try{ flushAll(makeSummary(S,'hidden'), 'hidden'); }catch(_){}
+        try{ flushAll(makeSummary('hidden'), 'hidden'); }catch(_){}
       }
     }, { passive:true });
   }
 
   function clearAllTargets(){
     try{
-      const list = layerEl.querySelectorAll('.gj-target');
-      list.forEach(el=>{
-        try{ clearTimeout(el._ttl); }catch(_){}
-        try{ el.remove(); }catch(_){}
-      });
+      for (const [id,p] of map.entries()){
+        try{ p.L && clearTimeout(p.L._ttl); }catch(_){}
+        try{ p.R && clearTimeout(p.R._ttl); }catch(_){}
+      }
+      map.clear();
+      layerEl.querySelectorAll('.gj-target').forEach(el=>{ try{ el.remove(); }catch(_){ } });
+      if (layerElR) layerElR.querySelectorAll('.gj-target').forEach(el=>{ try{ el.remove(); }catch(_){ } });
     }catch(_){}
-    if (layerElR){
-      try{
-        const list2 = layerElR.querySelectorAll('.gj-target');
-        list2.forEach(el=>{ try{ el.remove(); }catch(_){ } });
-      }catch(_){}
-    }
+  }
+
+  function makeSummary(reason){
+    const acc = S.hitAll > 0 ? Math.round((S.hitGood / S.hitAll) * 100) : 0;
+    const grade = rankFromAcc(acc);
+
+    const junkErrorPct = S.hitAll > 0 ? Math.round((S.hitJunk / S.hitAll) * 100) : 0;
+    const avgRt = Math.round(avg(S.rtGoodMs));
+    const medRt = Math.round(median(S.rtGoodMs));
+    const fastPct = S.hitGood > 0 ? Math.round((S.fastHitGood / S.hitGood) * 100) : 0;
+
+    return {
+      reason: String(reason||'end'),
+
+      startTimeIso: S.startTimeIso || '',
+      endTimeIso: S.endTimeIso || isoNow(),
+
+      scoreFinal: S.score|0,
+      comboMax: S.comboMax|0,
+      misses: S.misses|0,
+
+      goalsCleared: S.goalsCleared|0,
+      goalsTotal: S.goalsTotal|0,
+      miniCleared: S.miniCleared|0,
+      miniTotal: S.miniTotal|0,
+
+      nTargetGoodSpawned: S.nTargetGoodSpawned|0,
+      nTargetJunkSpawned: S.nTargetJunkSpawned|0,
+      nTargetStarSpawned: S.nTargetStarSpawned|0,
+      nTargetShieldSpawned: S.nTargetShieldSpawned|0,
+
+      nHitGood: S.hitGood|0,
+      nHitJunk: S.hitJunk|0,
+      nHitJunkGuard: S.hitJunkGuard|0,
+      nExpireGood: S.expireGood|0,
+      nHitAll: S.hitAll|0,
+
+      accuracyGoodPct: acc|0,
+      junkErrorPct: junkErrorPct|0,
+
+      avgRtGoodMs: avgRt|0,
+      medianRtGoodMs: medRt|0,
+      fastHitRatePct: fastPct|0,
+
+      grade,
+
+      feverEnd: Math.round(S.fever)|0,
+      shieldEnd: S.shield|0,
+
+      diff: S.diff,
+      runMode: S.runMode,
+      seed: S.seed,
+
+      durationPlannedSec: S.timeSec|0,
+      durationPlayedSec: Math.round((now() - S.tStart)/1000),
+
+      device: deviceLabel(),
+      gameVersion: ctx.gameVersion || 'goodjunk.safe.final'
+    };
+  }
+
+  async function flushAll(summary, reason){
+    try{
+      if (summary){
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+        localStorage.setItem('hha_last_summary', JSON.stringify(summary));
+      }
+    }catch(_){}
+    await flushLogger(reason || (summary?.reason) || 'flush');
   }
 
   async function endGame(reason){
@@ -906,26 +1120,31 @@ export function boot(opts = {}) {
     clearTimers();
     clearAllTargets();
 
-    const summary = makeSummary(S, reason);
+    S.endTimeIso = isoNow();
+    const summary = makeSummary(reason);
 
     if (!S.flushed){
       S.flushed = true;
       await flushAll(summary, 'end');
     }
 
+    // show end overlay (research sheet)
+    renderEndSummary(summary);
+
     emit('hha:end', summary);
     emit('hha:celebrate', { kind:'end', title:'จบเกม!' });
-
     coach('neutral', 'จบเกมแล้ว!', 'กดกลับ HUB หรือเล่นใหม่ได้');
-    renderEndOverlay(summary);
   }
 
+  // -------------------- start --------------------
   function start(){
     S.running = true;
     S.ended = false;
     S.flushed = false;
 
     S.tStart = now();
+    S.startTimeIso = isoNow();
+    S.endTimeIso = '';
     S.left = timeSec;
 
     S.score = 0;
@@ -939,6 +1158,14 @@ export function boot(opts = {}) {
     S.hitJunkGuard = 0;
     S.expireGood = 0;
 
+    S.nTargetGoodSpawned = 0;
+    S.nTargetJunkSpawned = 0;
+    S.nTargetStarSpawned = 0;
+    S.nTargetShieldSpawned = 0;
+
+    S.rtGoodMs = [];
+    S.fastHitGood = 0;
+
     S.fever = 0;
     S.shield = 0;
     updateFever(S.shield, S.fever);
@@ -946,10 +1173,13 @@ export function boot(opts = {}) {
     S.goalsCleared = 0;
     S.miniCleared = 0;
 
+    // No-Junk warmup
     S.warmupUntil = now() + 3000;
+
+    // warmup caps
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
+    coach('neutral', 'พร้อมลุย! ช่วงแรก No-Junk Zone แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / แตะเป้าก็ได้');
     updateScore();
     updateTime();
     updateQuest();
@@ -959,10 +1189,12 @@ export function boot(opts = {}) {
       runMode: S.runMode,
       diff: S.diff,
       endPolicy: S.endPolicy,
+      challenge: S.challenge,
       seed: S.seed,
       sessionId: sessionId || '',
       timeSec: S.timeSec,
-      stereo: isStereo ? 1 : 0
+      device: deviceLabel(),
+      startTimeIso: S.startTimeIso
     });
 
     loopSpawn();
@@ -971,8 +1203,10 @@ export function boot(opts = {}) {
 
   bindInputs();
   bindFlushHard();
+
   start();
 
+  // expose minimal API
   try{
     ROOT.GoodJunkVR = ROOT.GoodJunkVR || {};
     ROOT.GoodJunkVR.endGame = endGame;
