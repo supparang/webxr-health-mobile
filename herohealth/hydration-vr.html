@@ -1,9 +1,10 @@
-<!-- === /herohealth/hydration-vr.html ===
-HydrationVR — PRODUCTION (Stereo Cardboard + Gaze + Pill Mini HUD)
-✅ Mono mode + Cardboard stereo (2 eyes)
-✅ Gaze dwell shooting (default ON in Cardboard)
-✅ Uses ui-water.js (0–100 gauge) + hydration.safe.js engine
-✅ End summary + back HUB + localStorage HHA_LAST_SUMMARY
+<!-- === /herohealth/hydration-vr/hydration-vr.html ===
+Hydration VR (PRODUCTION) — FULL HTML (Stereo Cardboard + Gaze + HUD Pills + WaterGauge + End Summary)
+Works with:
+- ./hydration.safe.js  (ESM)
+- ../vr/ui-water.js    (ESM, imported by hydration.safe.js)
+Optional:
+- ../vr/particles.js   (IIFE)
 -->
 
 <!doctype html>
@@ -13,675 +14,913 @@ HydrationVR — PRODUCTION (Stereo Cardboard + Gaze + Pill Mini HUD)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Hydration VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
-  <!-- Global FX + input compat + logger -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-compat-input.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.74);
-      --panel2:rgba(15,23,42,.65);
+      --panel:rgba(2,6,23,.62);
+      --panel2:rgba(15,23,42,.58);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --accent:#22c55e;
+      --good:#22c55e;
       --warn:#f59e0b;
-      --danger:#ef4444;
+      --bad:#ef4444;
       --cyan:#22d3ee;
       --violet:#a78bfa;
 
+      /* gaze progress 0..1 */
+      --gazeProg:0;
+
+      /* storm end-window FX */
+      --endamp:0;     /* 0..1 */
+      --endflash:0;   /* 0..1 */
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
 
-      /* gaze */
-      --gaze: 0; /* 0..1 */
-
-      /* end-window cinematic */
-      --endamp: 0;
-      --endflash: 0;
-
-      /* water */
-      --water: 50;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
     }
 
-    html,body{
-      margin:0; padding:0; width:100%; height:100%;
-      background: radial-gradient(1200px 700px at 50% 25%, #0b1120 0%, #020617 60%, #020617 100%);
-      color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,"Noto Sans Thai",sans-serif;
-      overflow:hidden;
-    }
     *{ box-sizing:border-box; }
-
-    /* ---------- shared components ---------- */
-    .pill{
-      display:inline-flex; align-items:baseline; gap:8px;
-      padding:7px 10px;
-      border-radius:999px;
-      background: rgba(15,23,42,.55);
-      border: 1px solid rgba(148,163,184,.16);
-      font-weight:1000;
-      white-space:nowrap;
-      box-shadow: 0 12px 40px rgba(0,0,0,.25);
-      backdrop-filter: blur(10px);
-    }
-    .k{ color:var(--muted); font-weight:950; font-size:11px; }
-    .v{ font-size:14px; font-weight:1100; }
-    .muted{ color:var(--muted); font-weight:900; }
-
-    .btn{
-      pointer-events:auto;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(34,197,94,.18);
-      color: var(--text);
-      border-radius: 16px;
-      padding: 10px 12px;
-      font-weight: 1100;
-      letter-spacing:.2px;
-      cursor:pointer;
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
-      -webkit-tap-highlight-color: transparent;
-      user-select:none;
-    }
-    .btn.secondary{ background: rgba(2,6,23,.55); }
-    .btn.danger{ background: rgba(239,68,68,.18); }
-    .btn:active{ transform: translateY(1px); }
-
-    /* ---------- MONO LAYOUT ---------- */
-    #monoStage{
-      position:fixed; inset:0;
-      display:flex;
-      flex-direction:column;
-    }
-
-    #monoTop{
-      position:relative;
-      z-index:20;
-      padding: calc(var(--sat) + 10px) 12px 10px;
-      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
-      pointer-events:none;
-    }
-    #monoTop .left{ display:flex; gap:8px; flex-wrap:wrap; }
-    #monoTop .right{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
-
-    #monoMiniPills{
-      position:fixed;
-      left:50%;
-      top: calc(var(--sat) + 62px);
-      transform: translateX(-50%);
-      z-index:21;
-      display:flex;
-      gap:8px;
-      pointer-events:none;
-      opacity:.96;
-    }
-
-    #playfield{
-      position:relative;
-      flex:1;
-      margin: 0 12px;
-      border-radius: 22px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.28);
-      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
+    html,body{
+      margin:0; width:100%; height:100%;
+      background:var(--bg); color:var(--text);
       overflow:hidden;
-      touch-action: manipulation;
-      will-change: transform, filter;
-    }
-    #hvr-layer{ position:absolute; inset:0; }
-
-    #monoBottom{
-      position:relative;
-      z-index:20;
-      padding: 10px 12px calc(var(--sab) + 12px);
-      display:flex; gap:10px;
-      justify-content:space-between;
-      align-items:flex-end;
-      pointer-events:none;
-    }
-    .card{
-      pointer-events:none;
-      background: var(--panel);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 18px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      padding: 10px 10px;
-      min-width: 240px;
-    }
-    .card h3{ margin:0 0 6px; font-size:12px; letter-spacing:.2px; opacity:.95; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:baseline; justify-content:space-between; }
-
-    .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
-    .bar{ height:100%; width:0%; border-radius:999px; transition: width .16s ease; }
-
-    /* water theme */
-    body.water-low .bar{ background: linear-gradient(90deg, rgba(249,115,22,.95), rgba(239,68,68,.95)); box-shadow: 0 0 16px rgba(239,68,68,.18); }
-    body.water-green .bar{ background: linear-gradient(90deg, rgba(34,211,238,.90), rgba(34,197,94,.95)); box-shadow: 0 0 16px rgba(34,211,238,.18); }
-    body.water-high .bar{ background: linear-gradient(90deg, rgba(167,139,250,.92), rgba(34,211,238,.82)); box-shadow: 0 0 16px rgba(167,139,250,.16); }
-
-    /* ---------- TARGETS ---------- */
-    .tgt{
-      position:absolute;
-      left: var(--x, 50%);
-      top:  var(--y, 50%);
-      width: var(--s, 64px);
-      height: var(--s, 64px);
-      transform: translate(-50%,-50%);
-      display:grid;
-      place-items:center;
-      font-size: calc(var(--s,64px) * 0.56);
-      border-radius: 999px;
-      user-select:none;
-      -webkit-tap-highlight-color: transparent;
-      filter: drop-shadow(0 14px 28px rgba(0,0,0,.35));
-      will-change: transform, opacity;
-    }
-    .tgt::before{
-      content:"";
-      position:absolute; inset:-6px;
-      border-radius:999px;
-      background:
-        radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
-        radial-gradient(circle at 50% 60%, rgba(34,211,238,.10), rgba(2,6,23,0) 62%);
-      border: 1px solid rgba(148,163,184,.16);
-      backdrop-filter: blur(6px);
-    }
-    .tgt.good::before{ box-shadow: 0 0 0 2px rgba(34,197,94,.12), 0 0 24px rgba(34,197,94,.10); }
-    .tgt.bad::before{ box-shadow: 0 0 0 2px rgba(239,68,68,.14), 0 0 26px rgba(239,68,68,.10); }
-    .tgt.shield::before{ box-shadow: 0 0 0 2px rgba(34,211,238,.14), 0 0 26px rgba(34,211,238,.10); }
-    .tgt.star::before{ box-shadow: 0 0 0 2px rgba(250,204,21,.14), 0 0 26px rgba(250,204,21,.10); }
-    .tgt.diamond::before{ box-shadow: 0 0 0 2px rgba(167,139,250,.14), 0 0 26px rgba(167,139,250,.10); }
-
-    .tgt.pop{ animation: pop .22s ease-out; }
-    @keyframes pop{
-      from{ transform: translate(-50%,-50%) scale(.92); opacity:.0; }
-      to  { transform: translate(-50%,-50%) scale(1); opacity:1; }
-    }
-    .tgt.out{ animation: out .18s ease-in forwards; }
-    @keyframes out{
-      to { transform: translate(-50%,-50%) scale(.75); opacity:0; }
     }
 
-    /* ---------- CROSSHAIR (mono) ---------- */
-    #crosshair{
-      position:absolute;
-      left:50%; top:50%;
-      transform:translate(-50%,-50%);
-      width:18px; height:18px;
-      border-radius:999px;
-      pointer-events:none;
-      z-index:5;
-      box-shadow: 0 0 0 2px rgba(229,231,235,.28), 0 0 22px rgba(34,197,94,.10);
-      background:rgba(229,231,235,.07);
-      backdrop-filter: blur(6px);
-    }
-    #crosshair::after{
-      content:'';
-      position:absolute; inset:5px;
-      border-radius:999px;
-      background:rgba(229,231,235,.50);
-    }
-    /* gaze ring */
-    #crosshair::before{
-      content:'';
-      position:absolute; inset:-10px;
-      border-radius:999px;
-      background: conic-gradient(rgba(34,211,238,.95) calc(var(--gaze) * 1turn), rgba(255,255,255,0) 0);
-      mask: radial-gradient(circle, transparent 62%, #000 63%);
-      opacity: .95;
-      filter: drop-shadow(0 0 14px rgba(34,211,238,.20));
-    }
-
-    /* ---------- CARDBOARD STEREO ---------- */
-    #cbStage{
+    /* ===== layout root ===== */
+    #app{
       position:fixed; inset:0;
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,.12), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,211,238,.12), transparent 55%);
+    }
+
+    /* ===== MONO ===== */
+    #monoWrap{
+      position:absolute; inset:0;
+      display:block;
+    }
+    body.cardboard #monoWrap{ display:none; }
+
+    /* ===== CARDBOARD ===== */
+    #cbWrap{
+      position:absolute; inset:0;
       display:none;
       background:#000;
-      z-index:100;
     }
-    body.cardboard #monoStage{ display:none; }
-    body.cardboard #cbStage{ display:flex; }
-
+    body.cardboard #cbWrap{ display:flex; }
     .eye{
       position:relative;
       flex:1;
       overflow:hidden;
-      border-left:1px solid rgba(255,255,255,.06);
+      border-left:1px solid rgba(255,255,255,.07);
     }
     .eye:first-child{ border-left:none; }
 
-    .eyeHud{
+    /* ===== Playfield bounds ===== */
+    .playfield{
       position:absolute;
+      left: max(10px, calc(10px + var(--sal)));
+      right:max(10px, calc(10px + var(--sar)));
+      top:  max(76px, calc(76px + var(--sat)));
+      bottom: max(116px, calc(116px + var(--sab)));
+      border-radius:20px;
+      border:1px solid rgba(148,163,184,.16);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(15,23,42,.48), rgba(2,6,23,.62));
+      box-shadow: 0 22px 70px rgba(0,0,0,.45);
+      overflow:hidden;
+      touch-action: none;
+    }
+
+    /* cardboard eyes: make bounds fit nicely */
+    body.cardboard .playfield{
       left:10px; right:10px;
-      top: calc(var(--sat) + 10px);
-      z-index:3;
+      top:  max(70px, calc(70px + var(--sat)));
+      bottom: max(106px, calc(106px + var(--sab)));
+      border-radius:16px;
+    }
+
+    /* ===== target layer ===== */
+    .layer{
+      position:absolute; inset:0;
+    }
+
+    /* ===== targets (DOM emoji) ===== */
+    .tgt{
+      position:absolute;
+      left: var(--x);
+      top:  var(--y);
+      width: var(--s);
+      height: var(--s);
+      transform: translate(-50%,-50%);
+      display:grid;
+      place-items:center;
+      font-size: calc(var(--s) * 0.56);
+      line-height:1;
+      user-select:none;
+      cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+      filter: drop-shadow(0 16px 26px rgba(0,0,0,.35));
+    }
+    .tgt::before{
+      content:'';
+      position:absolute; inset:0;
+      border-radius:999px;
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 55% 70%, rgba(34,197,94,.16), rgba(2,6,23,0) 60%);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:
+        0 0 0 3px rgba(34,197,94,.10),
+        0 0 30px rgba(34,197,94,.10);
+      backdrop-filter: blur(8px);
+    }
+    .tgt.good::before{
+      box-shadow:
+        0 0 0 3px rgba(34,197,94,.12),
+        0 0 32px rgba(34,197,94,.12);
+    }
+    .tgt.bad::before{
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 55% 70%, rgba(239,68,68,.18), rgba(2,6,23,0) 62%);
+      border:1px solid rgba(239,68,68,.22);
+      box-shadow:
+        0 0 0 3px rgba(239,68,68,.12),
+        0 0 34px rgba(239,68,68,.12);
+    }
+    .tgt.shield::before{
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 55% 70%, rgba(34,211,238,.18), rgba(2,6,23,0) 62%);
+      border:1px solid rgba(34,211,238,.25);
+      box-shadow:
+        0 0 0 3px rgba(34,211,238,.12),
+        0 0 34px rgba(34,211,238,.12);
+    }
+    .tgt.star::before{
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 55% 70%, rgba(250,204,21,.18), rgba(2,6,23,0) 62%);
+      border:1px solid rgba(250,204,21,.25);
+      box-shadow:
+        0 0 0 3px rgba(250,204,21,.12),
+        0 0 34px rgba(250,204,21,.12);
+    }
+    .tgt.diamond::before{
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 55% 70%, rgba(167,139,250,.18), rgba(2,6,23,0) 62%);
+      border:1px solid rgba(167,139,250,.25);
+      box-shadow:
+        0 0 0 3px rgba(167,139,250,.12),
+        0 0 34px rgba(167,139,250,.12);
+    }
+
+    /* spawn / despawn */
+    .tgt.pop{ animation: pop .12s ease-out; }
+    @keyframes pop{
+      from{ transform: translate(-50%,-50%) scale(.65); opacity:.0; }
+      to  { transform: translate(-50%,-50%) scale(1.0); opacity:1; }
+    }
+    .tgt.out{ animation: out .18s ease-in forwards; }
+    @keyframes out{
+      to{ transform: translate(-50%,-50%) scale(.80); opacity:0; }
+    }
+
+    /* ===== Boss target style (from patch) ===== */
+    .tgt.boss::before{
+      border: 1px solid rgba(239,68,68,.35);
+      box-shadow:
+        0 0 0 3px rgba(239,68,68,.18),
+        0 0 34px rgba(239,68,68,.18),
+        inset 0 0 0 2px rgba(250,204,21,.10);
+      background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), rgba(255,255,255,0) 55%),
+        radial-gradient(circle at 55% 70%, rgba(239,68,68,.16), rgba(2,6,23,0) 62%);
+    }
+    .tgt.boss{
+      filter: drop-shadow(0 18px 36px rgba(239,68,68,.28));
+      animation: bossPulse .42s ease-in-out infinite;
+    }
+    @keyframes bossPulse{
+      0%{ transform: translate(-50%,-50%) scale(1.00); }
+      50%{ transform: translate(-50%,-50%) scale(1.06); }
+      100%{ transform: translate(-50%,-50%) scale(1.00); }
+    }
+
+    /* ===== Crosshair + Gaze ring ===== */
+    .crosshair{
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:16px; height:16px;
+      border-radius:999px;
+      pointer-events:none;
+      z-index:30;
+      background:rgba(229,231,235,.06);
+      box-shadow: 0 0 0 2px rgba(229,231,235,.30), 0 0 22px rgba(34,197,94,.12);
+      backdrop-filter: blur(8px);
+    }
+    .crosshair::after{
+      content:'';
+      position:absolute; inset:5px;
+      border-radius:999px;
+      background:rgba(229,231,235,.48);
+    }
+
+    /* gaze ring uses conic-gradient progress */
+    .gazeRing{
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:62px; height:62px;
+      border-radius:999px;
+      pointer-events:none;
+      z-index:29;
+      background:
+        conic-gradient(
+          rgba(34,197,94,.95) calc(var(--gazeProg) * 1turn),
+          rgba(229,231,235,.12) 0
+        );
+      -webkit-mask: radial-gradient(circle, transparent 59%, #000 60%);
+              mask: radial-gradient(circle, transparent 59%, #000 60%);
+      filter: drop-shadow(0 14px 26px rgba(34,197,94,.12));
+      opacity: .0;
+      transition: opacity .08s linear;
+    }
+    body.cardboard .gazeRing{ opacity: .95; }
+    body.cardboard .crosshair{ width:18px; height:18px; }
+    body.cardboard .crosshair::after{ inset:6px; }
+
+    /* ===== HUD pills ===== */
+    .hudTop{
+      position:absolute;
+      left:max(10px, calc(10px + var(--sal)));
+      right:max(10px, calc(10px + var(--sar)));
+      top: max(10px, calc(10px + var(--sat)));
+      z-index:40;
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:space-between;
+      pointer-events:none;
+    }
+    body.cardboard .hudTop{
+      left:10px; right:10px;
+      top: max(8px, calc(8px + var(--sat)));
+      gap:8px;
+    }
+    .hudCard{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 52px rgba(0,0,0,.30);
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      pointer-events:none;
+      min-width:0;
+    }
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:baseline;
+      padding:7px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.46);
+      border:1px solid rgba(148,163,184,.14);
+      font-weight:1000;
+      white-space:nowrap;
+    }
+    .k{ color:var(--muted); font-weight:1000; font-size:11px; letter-spacing:.2px; }
+    .v{ font-weight:1100; font-size:15px; }
+
+    .hudTop .left{ flex:1; }
+    .hudTop .right{ flex:0 0 auto; justify-content:flex-end; }
+
+    /* ===== Mini HUD (pills) ===== */
+    .miniHud{
+      position:absolute;
+      left:max(10px, calc(10px + var(--sal)));
+      right:max(10px, calc(10px + var(--sar)));
+      bottom:max(90px, calc(90px + var(--sab)));
+      z-index:41;
       display:flex;
       gap:8px;
       flex-wrap:wrap;
       pointer-events:none;
     }
-    .eyeMini{
-      position:absolute;
-      left:50%;
-      top: calc(var(--sat) + 58px);
-      transform: translateX(-50%);
-      z-index:3;
-      display:flex;
-      gap:8px;
-      pointer-events:none;
-      opacity:.96;
+    body.cardboard .miniHud{
+      left:10px; right:10px;
+      bottom:max(86px, calc(86px + var(--sab)));
     }
 
-    .cbPlayfield{
+    /* ===== Quest panel ===== */
+    .questPanel{
       position:absolute;
+      left:max(10px, calc(10px + var(--sal)));
+      right:max(10px, calc(10px + var(--sar)));
+      bottom:max(14px, calc(14px + var(--sab)));
+      z-index:42;
+      background:rgba(2,6,23,.60);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:18px;
+      padding:10px 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 52px rgba(0,0,0,.30);
+      pointer-events:none;
+    }
+    body.cardboard .questPanel{
       left:10px; right:10px;
-      top: calc(var(--sat) + 104px);
-      bottom: calc(var(--sab) + 104px);
-      border-radius: 22px;
+    }
+    .qRow{ display:flex; gap:10px; flex-wrap:wrap; }
+    .qBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.50);
       border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.26);
-      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06);
+      font-weight:1100;
+    }
+    .qText{ font-weight:1000; color:rgba(229,231,235,.92); }
+    .qSub{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; line-height:1.25; }
+
+    /* ===== Water gauge ===== */
+    .waterHud{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 170px;
+    }
+    .waterBarWrap{
+      height:12px;
+      border-radius:999px;
+      background:rgba(15,23,42,.45);
+      border:1px solid rgba(148,163,184,.16);
       overflow:hidden;
     }
-    .cbLayer{ position:absolute; inset:0; }
-    .cbCross{
-      position:absolute;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      width:18px; height:18px; border-radius:999px;
-      pointer-events:none;
-      z-index:4;
-      box-shadow: 0 0 0 2px rgba(229,231,235,.28), 0 0 22px rgba(34,197,94,.10);
-      background:rgba(229,231,235,.07);
-      backdrop-filter: blur(6px);
-    }
-    .cbCross::after{ content:''; position:absolute; inset:5px; border-radius:999px; background:rgba(229,231,235,.50); }
-    .cbCross::before{
-      content:'';
-      position:absolute; inset:-10px;
+    #water-bar{
+      height:100%;
+      width:0%;
       border-radius:999px;
-      background: conic-gradient(rgba(34,211,238,.95) calc(var(--gaze) * 1turn), rgba(255,255,255,0) 0);
-      mask: radial-gradient(circle, transparent 62%, #000 63%);
-      opacity: .95;
-      filter: drop-shadow(0 0 14px rgba(34,211,238,.20));
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+      box-shadow: 0 0 26px rgba(34,197,94,.16);
+      transition: width .09s linear;
     }
-
-    .cbBottom{
-      position:absolute;
-      left:10px; right:10px;
-      bottom: calc(var(--sab) + 10px);
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-end;
+    .waterMeta{
+      display:flex; justify-content:space-between;
       gap:10px;
-      z-index:5;
-      pointer-events:none;
+      font-weight:1000;
+      color:rgba(229,231,235,.90);
     }
-    .cbBottom .pill{ pointer-events:none; }
-    .cbShoot{
+    .waterMeta span{ white-space:nowrap; }
+
+    body.water-low  #water-bar{ background: linear-gradient(90deg, rgba(239,68,68,.92), rgba(245,158,11,.92)); }
+    body.water-green #water-bar{ background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90)); }
+    body.water-high #water-bar{ background: linear-gradient(90deg, rgba(167,139,250,.92), rgba(34,211,238,.92)); }
+
+    /* ===== Controls ===== */
+    #controls{
+      position:absolute;
+      right:max(10px, calc(10px + var(--sar)));
+      bottom:max(110px, calc(110px + var(--sab)));
+      z-index:60;
+      display:flex;
+      gap:10px;
       pointer-events:auto;
-      padding:14px 16px;
+    }
+    body.cardboard #controls{
+      right:10px;
+      bottom:max(170px, calc(170px + var(--sab)));
+    }
+    .btn{
+      background:rgba(2,6,23,.72);
+      border:1px solid rgba(148,163,184,.20);
+      color:var(--text);
+      border-radius:16px;
+      padding:10px 12px;
+      font-weight:1100;
+      box-shadow: 0 18px 44px rgba(0,0,0,.34);
+      backdrop-filter: blur(10px);
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      cursor:pointer;
+    }
+    .btn:active{ transform: translateY(1px); }
+
+    /* big shoot pad (Cardboard) */
+    #shootPad{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:max(12px, calc(12px + var(--sab)));
+      z-index:70;
+      display:none;
+      pointer-events:auto;
+    }
+    body.cardboard #shootPad{ display:block; }
+    #btnShoot{
+      padding:14px 18px;
       border-radius:18px;
       font-size:16px;
       font-weight:1200;
-      box-shadow: 0 18px 60px rgba(0,0,0,.35);
     }
 
-    /* ---------- START OVERLAY ---------- */
-    #start-overlay{
-      position:fixed; inset:0;
-      display:flex; align-items:center; justify-content:center;
-      background: rgba(2,6,23,.75);
+    /* ===== Start overlay ===== */
+    #startOverlay{
+      position:absolute; inset:0;
       z-index:200;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(2,6,23,.74);
+      backdrop-filter: blur(12px);
+      pointer-events:auto;
     }
-    .startCard{
-      width:min(560px, calc(100% - 24px));
-      background: rgba(2,6,23,.88);
+    #startCard{
+      width:min(820px, 92vw);
+      background:rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:22px;
+      padding:16px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.55);
+    }
+    #startTitle{ font-size:20px; font-weight:1200; }
+    #startDesc{
+      margin-top:8px;
+      color:rgba(148,163,184,.96);
+      font-weight:900;
+      line-height:1.35;
+    }
+    #startGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+    .chip{
+      padding:10px 12px;
+      border-radius:16px;
       border:1px solid rgba(148,163,184,.18);
-      border-radius: 20px;
-      padding: 14px;
-      box-shadow: 0 22px 80px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
-      text-align:left;
+      background:rgba(15,23,42,.52);
+      font-weight:1100;
     }
-    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .chip b{ color:rgba(229,231,235,.92); }
+    #startActions{
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+    .btn.primary{
+      background:rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.30);
+    }
 
-    /* ---------- END SUMMARY ---------- */
-    #hvr-end{
-      position:fixed; inset:0;
+    /* ===== End overlay ===== */
+    #endOverlay{
+      position:absolute; inset:0;
+      z-index:220;
       display:none;
-      align-items:center; justify-content:center;
-      background: rgba(2,6,23,.78);
-      z-index:300;
+      align-items:center;
+      justify-content:center;
+      background:rgba(2,6,23,.72);
+      backdrop-filter: blur(12px);
+      pointer-events:auto;
     }
-    .endCard{
-      width:min(560px, calc(100% - 24px));
-      background: rgba(2,6,23,.90);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius: 20px;
-      padding: 14px;
-      box-shadow: 0 22px 80px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
+    #endCard{
+      width:min(860px, 92vw);
+      background:rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:22px;
+      padding:16px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.55);
     }
-    .endGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
-    .endItem{
-      background: rgba(15,23,42,.55);
-      border:1px solid rgba(148,163,184,.14);
-      border-radius: 16px;
-      padding: 10px;
-      font-weight: 1100;
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
     }
-    .endItem .k{ font-size:11px; color:var(--muted); font-weight:950; }
-    .endItem .v{ margin-top:4px; font-size:16px; }
+    .cell{
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:16px;
+      padding:10px 12px;
+    }
+    .cell .k{ display:block; margin-bottom:4px; }
+    #endActions{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap; }
 
-    /* ---------- End-window cinematic (optional) ---------- */
-    body.endwindow::after{
-      content:"";
-      position:fixed; inset:-26px;
+    /* ===== Storm end-window FX overlay ===== */
+    #stormFx{
+      position:absolute; inset:0;
       pointer-events:none;
-      z-index:120;
-      opacity: calc(0.10 + (var(--endamp) * 0.18));
+      z-index:80;
+      opacity:0;
+      transition: opacity .08s linear;
       background:
-        repeating-linear-gradient(
-          0deg,
-          rgba(255,255,255,0) 0px,
-          rgba(255,255,255,0) 2px,
-          rgba(255,255,255,0.018) 3px
-        ),
-        radial-gradient(900px 680px at 50% 42%,
-          rgba(239,68,68, calc(0.06 + (var(--endflash) * 0.22))) 0%,
-          rgba(239,68,68, calc(0.03 + (var(--endflash) * 0.14))) 22%,
-          rgba(2,6,23,0) 60%),
-        radial-gradient(1200px 920px at 50% 50%,
-          rgba(2,6,23,0) 35%,
-          rgba(2,6,23, calc(0.26 + (var(--endamp) * 0.38))) 78%,
-          rgba(2,6,23, calc(0.44 + (var(--endamp) * 0.40))) 100%);
+        radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(2,6,23,.30) 70%, rgba(2,6,23,.72) 100%);
+    }
+    body.endwindow #stormFx{
+      opacity: calc(0.18 + (var(--endamp) * 0.55));
+    }
+    #stormFx::after{
+      content:'';
+      position:absolute; inset:0;
+      opacity: calc(var(--endflash));
+      background:
+        radial-gradient(circle at 50% 50%, rgba(239,68,68,0) 40%, rgba(239,68,68,.12) 75%, rgba(2,6,23,.0) 100%);
       mix-blend-mode: screen;
-      filter: saturate(1.25) contrast(1.10);
-      animation: endFlicker .18s ease-in-out infinite;
     }
-    @keyframes endFlicker{
-      0%{ opacity: calc(0.09 + (var(--endamp) * 0.16)); }
-      50%{ opacity: calc(0.14 + (var(--endamp) * 0.22)); }
-      100%{ opacity: calc(0.10 + (var(--endamp) * 0.18)); }
+
+    /* small helper text */
+    .muted{ color:rgba(148,163,184,.96); font-weight:900; }
+
+    @media (max-width: 520px){
+      .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      #startGrid{ grid-template-columns: 1fr; }
+      .waterHud{ min-width: 150px; }
     }
-    body.endwindow #playfield{ filter: contrast(1.12) saturate(1.10); }
   </style>
+
+  <!-- Optional particles layer (safe if missing) -->
+  <script src="../vr/particles.js" defer></script>
+
+  <!-- Hydration engine -->
+  <script type="module" src="./hydration.safe.js"></script>
 </head>
 
-<body class="water-green">
-  <!-- MONO -->
-  <div id="monoStage">
-    <div id="monoTop">
-      <div class="left">
-        <span class="pill">⏱️ <span class="k">TIME</span> <span class="v" id="stat-time" data-stat="time">—</span></span>
-        <span class="pill">🏆 <span class="k">SCORE</span> <span class="v" id="stat-score" data-stat="score">0</span></span>
-        <span class="pill">⚡ <span class="k">COMBO</span> <span class="v" id="stat-combo" data-stat="combo">0</span></span>
-        <span class="pill">💥 <span class="k">MISS</span> <span class="v" id="stat-miss" data-stat="miss">0</span></span>
-        <span class="pill">🎖️ <span class="k">GRADE</span> <span class="v" id="stat-grade" data-stat="grade">C</span></span>
-      </div>
-      <div class="right">
-        <span class="pill">💧 <span class="k">WATER</span> <span class="v" id="water-pct" data-water-pct>50%</span></span>
-        <span class="pill">🟩 <span class="k">ZONE</span> <span class="v" id="water-zone" data-water-zone>GREEN</span></span>
-        <span class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" id="shield-count" data-stat="shield">0</span></span>
-      </div>
-    </div>
+<body>
+  <div id="app">
 
-    <!-- mini pill HUD -->
-    <div id="monoMiniPills" aria-hidden="true">
-      <span class="pill">🎯 <span class="k">GOAL</span> <span class="v" id="pill-goal" data-pill="goal">—</span></span>
-      <span class="pill">🌪️ <span class="k">STORM</span> <span class="v" id="pill-storm" data-pill="storm">0s</span></span>
-      <span class="pill">🧩 <span class="k">MINI</span> <span class="v" id="pill-mini" data-pill="mini">—</span></span>
-    </div>
+    <!-- ========== MONO ========== -->
+    <div id="monoWrap">
+      <div class="hudTop">
+        <div class="hudCard left">
+          <span class="pill">⏱️ <span class="k">TIME</span> <span class="v" data-stat="time">0</span></span>
+          <span class="pill">🏆 <span class="k">SCORE</span> <span class="v" data-stat="score">0</span></span>
+          <span class="pill">⚡ <span class="k">COMBO</span> <span class="v" data-stat="combo">0</span></span>
+          <span class="pill">💥 <span class="k">MISS</span> <span class="v" data-stat="miss">0</span></span>
 
-    <div id="playfield">
-      <div id="hvr-layer"></div>
-      <div id="crosshair" aria-hidden="true"></div>
-    </div>
-
-    <div id="monoBottom">
-      <div class="card" style="min-width:280px">
-        <h3>💧 Water Gauge (0–100)</h3>
-        <div class="row">
-          <div class="pill">ZONE <span class="v" data-water-zone>GREEN</span></div>
-          <div class="pill"><span class="v" data-water-pct>50%</span></div>
+          <span class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" data-stat="shield">0</span></span>
+          <span class="pill">✨ <span class="k">PERF</span> <span class="v" data-stat="perf">0</span></span>
         </div>
-        <div class="barWrap" style="margin-top:10px">
-          <div class="bar" id="water-bar" data-water-bar style="width:50%"></div>
-        </div>
-        <div class="row" style="margin-top:10px">
-          <div class="pill">🌪️ STORM <span class="v" id="storm-left" data-stat="storm">0</span>s</div>
-          <div class="pill">🧠 PRESS <span class="v" id="press-pct" data-stat="press">0%</span></div>
+
+        <div class="hudCard right">
+          <span class="pill">🎯 <span class="k">GRADE</span> <span class="v" data-stat="grade">C</span></span>
+          <span class="pill">⚠️ <span class="k">PRESS</span> <span class="v" data-stat="press">0%</span></span>
+
+          <div class="waterHud" style="pointer-events:none">
+            <div class="waterMeta">
+              <span>💧 <b id="water-pct">0%</b></span>
+              <span>ZONE <b id="water-zone">—</b></span>
+            </div>
+            <div class="waterBarWrap" aria-label="water gauge">
+              <div id="water-bar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="card" style="min-width:360px">
-        <h3>🧩 Quest</h3>
-        <div class="row" style="justify-content:flex-start">
-          <div class="pill">Goal <span class="v" id="quest-line1" data-quest="goal">—</span></div>
-          <div class="pill">Prog <span class="v" id="quest-line2" data-quest="prog">—</span></div>
+      <!-- mini pills -->
+      <div class="miniHud">
+        <span class="pill">🎯 <span class="k">GOAL</span> <span class="v" data-pill="goal">…</span></span>
+        <span class="pill">🌩️ <span class="k">STORM</span> <span class="v" data-pill="storm">…</span></span>
+        <span class="pill">👹 <span class="k">MINI</span> <span class="v" data-pill="mini">…</span></span>
+      </div>
+
+      <!-- playfield -->
+      <div class="playfield" id="playfield" aria-label="playfield">
+        <div id="stormFx" aria-hidden="true"></div>
+        <div class="layer" id="hvr-layer" aria-label="targets layer"></div>
+        <div class="gazeRing" aria-hidden="true"></div>
+        <div class="crosshair" aria-hidden="true"></div>
+      </div>
+
+      <!-- quest -->
+      <div class="questPanel">
+        <div class="qRow">
+          <span class="qBadge">GOAL</span>
+          <span class="qText" data-quest="goal">…</span>
+          <span class="qBadge">PROG</span>
+          <span class="qText" data-quest="prog">…</span>
         </div>
-        <div class="row" style="margin-top:8px; justify-content:flex-start">
-          <div class="pill">Mini <span class="v" id="quest-line3" data-quest="mini">—</span></div>
-          <div class="pill">State <span class="v" id="quest-line4" data-quest="state">—</span></div>
-        </div>
-        <div class="muted" style="margin-top:10px; font-size:12px; line-height:1.3">
-          เป้า: 💧(+น้ำ) / 🚻(-น้ำ) / 🍟(BAD) / 🛡️(Shield) / ⭐(Bonus) / 💎(Fever)<br/>
-          <b>Mini</b>: ช่วงท้าย Storm (End-window) ต้อง “บล็อก BAD” ด้วย Shield
+        <div class="qSub">
+          <b data-quest="state">…</b> • <span data-quest="mini">…</span>
         </div>
       </div>
     </div>
+
+    <!-- ========== CARDBOARD (stereoscopic L/R) ========== -->
+    <div id="cbWrap" aria-label="cardboard stereo">
+      <div class="eye" id="eyeL">
+        <div class="hudTop">
+          <div class="hudCard left">
+            <span class="pill">⏱️ <span class="k">TIME</span> <span class="v" data-stat="time">0</span></span>
+            <span class="pill">🏆 <span class="k">SCORE</span> <span class="v" data-stat="score">0</span></span>
+            <span class="pill">⚡ <span class="k">COMBO</span> <span class="v" data-stat="combo">0</span></span>
+            <span class="pill">💥 <span class="k">MISS</span> <span class="v" data-stat="miss">0</span></span>
+            <span class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" data-stat="shield">0</span></span>
+            <span class="pill">✨ <span class="k">PERF</span> <span class="v" data-stat="perf">0</span></span>
+          </div>
+          <div class="hudCard right">
+            <span class="pill">🎯 <span class="k">GRADE</span> <span class="v" data-stat="grade">C</span></span>
+            <span class="pill">⚠️ <span class="k">PRESS</span> <span class="v" data-stat="press">0%</span></span>
+          </div>
+        </div>
+
+        <div class="miniHud">
+          <span class="pill">🎯 <span class="k">GOAL</span> <span class="v" data-pill="goal">…</span></span>
+          <span class="pill">🌩️ <span class="k">STORM</span> <span class="v" data-pill="storm">…</span></span>
+          <span class="pill">👹 <span class="k">MINI</span> <span class="v" data-pill="mini">…</span></span>
+        </div>
+
+        <div class="playfield" id="cbPlayL" aria-label="left eye playfield">
+          <div id="stormFx" aria-hidden="true"></div>
+          <div class="layer" id="hvr-layerL"></div>
+          <div class="gazeRing" aria-hidden="true"></div>
+          <div class="crosshair" aria-hidden="true"></div>
+        </div>
+
+        <div class="questPanel">
+          <div class="qRow">
+            <span class="qBadge">GOAL</span>
+            <span class="qText" data-quest="goal">…</span>
+            <span class="qBadge">PROG</span>
+            <span class="qText" data-quest="prog">…</span>
+          </div>
+          <div class="qSub">
+            <b data-quest="state">…</b> • <span data-quest="mini">…</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="eye" id="eyeR">
+        <div class="hudTop">
+          <div class="hudCard left">
+            <span class="pill">⏱️ <span class="k">TIME</span> <span class="v" data-stat="time">0</span></span>
+            <span class="pill">🏆 <span class="k">SCORE</span> <span class="v" data-stat="score">0</span></span>
+            <span class="pill">⚡ <span class="k">COMBO</span> <span class="v" data-stat="combo">0</span></span>
+            <span class="pill">💥 <span class="k">MISS</span> <span class="v" data-stat="miss">0</span></span>
+            <span class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" data-stat="shield">0</span></span>
+            <span class="pill">✨ <span class="k">PERF</span> <span class="v" data-stat="perf">0</span></span>
+          </div>
+          <div class="hudCard right">
+            <span class="pill">🎯 <span class="k">GRADE</span> <span class="v" data-stat="grade">C</span></span>
+            <span class="pill">⚠️ <span class="k">PRESS</span> <span class="v" data-stat="press">0%</span></span>
+
+            <!-- show water gauge only once (right eye) -->
+            <div class="waterHud" style="pointer-events:none">
+              <div class="waterMeta">
+                <span>💧 <b id="water-pct">0%</b></span>
+                <span>ZONE <b id="water-zone">—</b></span>
+              </div>
+              <div class="waterBarWrap">
+                <div id="water-bar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="miniHud">
+          <span class="pill">🎯 <span class="k">GOAL</span> <span class="v" data-pill="goal">…</span></span>
+          <span class="pill">🌩️ <span class="k">STORM</span> <span class="v" data-pill="storm">…</span></span>
+          <span class="pill">👹 <span class="k">MINI</span> <span class="v" data-pill="mini">…</span></span>
+        </div>
+
+        <div class="playfield" id="cbPlayR" aria-label="right eye playfield">
+          <div id="stormFx" aria-hidden="true"></div>
+          <div class="layer" id="hvr-layerR"></div>
+          <div class="gazeRing" aria-hidden="true"></div>
+          <div class="crosshair" aria-hidden="true"></div>
+        </div>
+
+        <div class="questPanel">
+          <div class="qRow">
+            <span class="qBadge">GOAL</span>
+            <span class="qText" data-quest="goal">…</span>
+            <span class="qBadge">PROG</span>
+            <span class="qText" data-quest="prog">…</span>
+          </div>
+          <div class="qSub">
+            <b data-quest="state">…</b> • <span data-quest="mini">…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+      <button class="btn" id="btnCardboard">📦 CARDBOARD</button>
+      <button class="btn" id="btnGaze">👁️ GAZE: ON</button>
+      <button class="btn" id="btnRestart">🔁 RESTART</button>
+    </div>
+
+    <div id="shootPad">
+      <button class="btn primary" id="btnShoot">🎯 SHOOT</button>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="startOverlay">
+      <div id="startCard">
+        <div id="startTitle">Hydration VR 💧</div>
+        <div id="startDesc">
+          เก็บ 💧 / 🚻 เพื่อคุมน้ำให้อยู่โซน <b>GREEN</b> ให้นานพอ<br>
+          พอเข้าช่วง <b>STORM</b> จะโหดขึ้น และท้ายพายุจะมี <b>BOSS</b> ต้องใช้ <b>🛡️</b> บล็อกให้ครบ!<br>
+          <span class="muted">Cardboard แนะนำเปิด Gaze (เล็งค้างแล้วยิงอัตโนมัติ)</span>
+        </div>
+
+        <div id="startGrid">
+          <div class="chip">DIFF: <b id="chipDiff">—</b></div>
+          <div class="chip">TIME: <b id="chipTime">—</b></div>
+          <div class="chip">MODE: <b id="chipMode">—</b></div>
+        </div>
+
+        <div id="startActions">
+          <button class="btn" id="btnMotion">📱 ขออนุญาต Motion</button>
+          <button class="btn" id="btnStartMono">▶️ เริ่ม (MONO)</button>
+          <button class="btn primary" id="btnStartCardboard">🕶️ เริ่ม (CARDBOARD)</button>
+        </div>
+
+        <div class="muted" style="margin-top:10px">
+          Tip: แตะเป้าเพื่อยิงทันที / แตะพื้นว่างเพื่อยิงแบบเล็งกลาง • Cardboard มีปุ่มยิงใหญ่ด้านล่าง
+        </div>
+      </div>
+    </div>
+
+    <!-- End Overlay -->
+    <div id="endOverlay">
+      <div id="endCard">
+        <div style="font-weight:1200; font-size:20px">สรุปผล — Hydration VR</div>
+        <div class="muted" style="margin-top:6px">
+          Mode: <b id="eMode">—</b> • Diff: <b id="eDiff">—</b> • Grade: <b id="eGrade">—</b>
+        </div>
+
+        <div class="grid">
+          <div class="cell"><span class="k">Score</span><span class="v" id="eScore">0</span></div>
+          <div class="cell"><span class="k">Max Combo</span><span class="v" id="eComboMax">0</span></div>
+          <div class="cell"><span class="k">Miss</span><span class="v" id="eMiss">0</span></div>
+
+          <div class="cell"><span class="k">Accuracy</span><span class="v" id="eAcc">0%</span></div>
+          <div class="cell"><span class="k">Perfect</span><span class="v" id="ePerf">0</span></div>
+          <div class="cell"><span class="k">Avg RT</span><span class="v" id="eRt">0ms</span></div>
+
+          <div class="cell"><span class="k">Green Sec</span><span class="v" id="eGreen">0</span></div>
+          <div class="cell"><span class="k">Goal</span><span class="v" id="eGoal">0/1</span></div>
+          <div class="cell"><span class="k">Mini (Boss)</span><span class="v" id="eMini">0/1</span></div>
+        </div>
+
+        <div id="endActions">
+          <button class="btn" id="btnBackHub">🏠 กลับ HUB</button>
+          <button class="btn primary" id="btnPlayAgain">▶️ เล่นอีกครั้ง</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- CARDBOARD STEREO -->
-  <div id="cbStage" aria-hidden="true">
-    <div class="eye" id="eyeL">
-      <div class="eyeHud">
-        <span class="pill">⏱️ <span class="k">TIME</span> <span class="v" data-stat="time">—</span></span>
-        <span class="pill">🏆 <span class="k">SCORE</span> <span class="v" data-stat="score">0</span></span>
-        <span class="pill">💥 <span class="k">MISS</span> <span class="v" data-stat="miss">0</span></span>
-        <span class="pill">💧 <span class="k">WATER</span> <span class="v" data-water-pct>50%</span></span>
-        <span class="pill">🟩 <span class="k">ZONE</span> <span class="v" data-water-zone>GREEN</span></span>
-        <span class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" data-stat="shield">0</span></span>
-      </div>
-      <div class="eyeMini">
-        <span class="pill">🎯 <span class="k">GOAL</span> <span class="v" data-pill="goal">—</span></span>
-        <span class="pill">🌪️ <span class="k">STORM</span> <span class="v" data-pill="storm">0s</span></span>
-        <span class="pill">🧩 <span class="k">MINI</span> <span class="v" data-pill="mini">—</span></span>
-      </div>
-      <div class="cbPlayfield" id="cbPlayL">
-        <div class="cbLayer" id="hvr-layerL"></div>
-        <div class="cbCross" aria-hidden="true"></div>
-      </div>
-      <div class="cbBottom">
-        <span class="pill">🎖️ <span class="k">GRADE</span> <span class="v" data-stat="grade">C</span></span>
-        <button class="btn cbShoot" id="btnShootL" type="button">🎯 SHOOT</button>
-      </div>
-    </div>
-
-    <div class="eye" id="eyeR">
-      <div class="eyeHud">
-        <span class="pill">⏱️ <span class="k">TIME</span> <span class="v" data-stat="time">—</span></span>
-        <span class="pill">🏆 <span class="k">SCORE</span> <span class="v" data-stat="score">0</span></span>
-        <span class="pill">💥 <span class="k">MISS</span> <span class="v" data-stat="miss">0</span></span>
-        <span class="pill">💧 <span class="k">WATER</span> <span class="v" data-water-pct>50%</span></span>
-        <span class="pill">🟩 <span class="k">ZONE</span> <span class="v" data-water-zone>GREEN</span></span>
-        <span class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" data-stat="shield">0</span></span>
-      </div>
-      <div class="eyeMini">
-        <span class="pill">🎯 <span class="k">GOAL</span> <span class="v" data-pill="goal">—</span></span>
-        <span class="pill">🌪️ <span class="k">STORM</span> <span class="v" data-pill="storm">0s</span></span>
-        <span class="pill">🧩 <span class="k">MINI</span> <span class="v" data-pill="mini">—</span></span>
-      </div>
-      <div class="cbPlayfield" id="cbPlayR">
-        <div class="cbLayer" id="hvr-layerR"></div>
-        <div class="cbCross" aria-hidden="true"></div>
-      </div>
-      <div class="cbBottom">
-        <span class="pill">🧠 <span class="k">PRESS</span> <span class="v" data-stat="press">0%</span></span>
-        <button class="btn cbShoot" id="btnShootR" type="button">🎯 SHOOT</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- START OVERLAY -->
-  <div id="start-overlay">
-    <div class="startCard">
-      <div style="font-size:18px;font-weight:1200">💧 Hydration VR</div>
-      <div class="muted" style="margin-top:6px; font-size:12px; font-weight:950; line-height:1.35">
-        เล่นแบบยิงกลางจอ (crosshair) — เป้าโผล่ทั่วสนาม <br/>
-        <b>Cardboard</b>: มี 2 จอ + เปิด Gaze ให้ (เล็งค้าง = ยิงอัตโนมัติ)
-      </div>
-      <div class="btnRow">
-        <button class="btn" id="btn-start-2d" type="button">🚀 START (2D)</button>
-        <button class="btn secondary" id="btn-start-vr" type="button">📦 START (VR/Cardboard)</button>
-        <button class="btn secondary" id="btn-toggle-gaze" type="button">👁️ GAZE: ON</button>
-        <button class="btn danger" id="btn-stop" type="button">⛔ STOP</button>
-      </div>
-      <div class="muted" style="margin-top:10px; font-size:12px; font-weight:950">
-        Tip: โหมด Mini จะโหดตอนท้าย Storm — ต้องมี Shield แล้ว “บล็อก 🍟”
-      </div>
-    </div>
-  </div>
-
-  <!-- END SUMMARY -->
-  <div id="hvr-end">
-    <div class="endCard">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-        <div style="font-size:18px; font-weight:1200">🏁 Summary</div>
-        <div style="display:flex; gap:10px;">
-          <button class="btn secondary" id="btn-backhub" type="button">🏠 HUB</button>
-          <button class="btn" id="btn-retry" type="button">🔁 Retry</button>
-        </div>
-      </div>
-      <div class="endGrid">
-        <div class="endItem"><div class="k">Score</div><div class="v" id="end-score">0</div></div>
-        <div class="endItem"><div class="k">Grade</div><div class="v" id="end-grade">C</div></div>
-        <div class="endItem"><div class="k">Combo Max</div><div class="v" id="end-combo">0</div></div>
-        <div class="endItem"><div class="k">Miss</div><div class="v" id="end-miss">0</div></div>
-        <div class="endItem"><div class="k">Goal</div><div class="v" id="end-goals">0/1</div></div>
-        <div class="endItem"><div class="k">Mini</div><div class="v" id="end-minis">0</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ✅ IMPORTANT: correct relative path from /herohealth/hydration-vr.html -->
-  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
-
-  <!-- small helpers (toggle UI only; engine is in safe.js) -->
   <script>
     (function(){
       'use strict';
-      const D = document;
 
-      function setGazeVar(v){
-        v = Math.max(0, Math.min(1, Number(v)||0));
-        D.documentElement.style.setProperty('--gaze', String(v));
+      function qs(name, def){
+        try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch{ return def; }
       }
-      setGazeVar(0);
+      function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-      const btn2d  = D.getElementById('btn-start-2d');
-      const btnvr  = D.getElementById('btn-start-vr');
-      const btngz  = D.getElementById('btn-toggle-gaze');
-      const btnstop= D.getElementById('btn-stop');
-      const overlay= D.getElementById('start-overlay');
+      const diff = String(qs('diff','normal')).toLowerCase();
+      const time = clamp(parseInt(qs('time','70'),10)||70, 30, 600);
+      const run  = String(qs('run', qs('runMode','play'))).toLowerCase()==='research'?'research':'play';
+      const hub  = String(qs('hub','../hub.html') || '../hub.html');
 
+      // chips
+      document.getElementById('chipDiff').textContent = diff;
+      document.getElementById('chipTime').textContent = time + 's';
+      document.getElementById('chipMode').textContent = run;
+
+      // gaze global toggle flag consumed by hydration.safe.js
+      const gazeBtn = document.getElementById('btnGaze');
       let gazeOn = true;
-      function updateGazeBtn(){
-        btngz.textContent = '👁️ GAZE: ' + (gazeOn ? 'ON' : 'OFF');
-        D.body.classList.toggle('gaze-off', !gazeOn);
+      window.__HVR_GAZE_ON__ = true;
+      function syncGazeBtn(){
+        gazeBtn.textContent = '👁️ GAZE: ' + (gazeOn ? 'ON' : 'OFF');
         window.__HVR_GAZE_ON__ = gazeOn;
       }
-      updateGazeBtn();
+      syncGazeBtn();
 
-      btngz.addEventListener('click', ()=>{
-        gazeOn = !gazeOn;
-        updateGazeBtn();
-        setGazeVar(0);
-      });
-
-      function resumeAudio(){
+      // motion permission helper (iOS)
+      async function requestMotion(){
         try{
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if (!AC) return Promise.resolve();
-          const ctx = new AC();
-          if (ctx.state === 'suspended') return ctx.resume().finally(()=>ctx.close().catch(()=>{}));
-          return ctx.close().catch(()=>{});
-        }catch{ return Promise.resolve(); }
+          if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function'){
+            const p = await DeviceMotionEvent.requestPermission();
+            alert('Motion permission: ' + p);
+          } else {
+            alert('อุปกรณ์นี้ไม่ต้องขอ Motion permission (หรือไม่รองรับ)');
+          }
+        }catch(e){
+          alert('ขอ Motion ไม่สำเร็จ: ' + (e && e.message ? e.message : e));
+        }
       }
 
+      // toggle cardboard
+      function setCardboard(on){
+        document.body.classList.toggle('cardboard', !!on);
+      }
+
+      // start game
+      const startOverlay = document.getElementById('startOverlay');
       function start(mode){
-        // engine listens to this
-        window.__HVR_START_MODE__ = mode; // 'mono' | 'cardboard'
-        overlay.style.display = 'none';
+        startOverlay.style.display = 'none';
+        setCardboard(mode === 'cardboard');
+        // dispatch start for hydration.safe.js
         window.dispatchEvent(new CustomEvent('hvr:start', { detail:{ mode } }));
       }
 
-      btn2d.addEventListener('click', async ()=>{
-        await resumeAudio();
-        document.body.classList.remove('cardboard');
-        start('mono');
+      // restart
+      document.getElementById('btnRestart').addEventListener('click', ()=> location.reload());
+
+      // buttons
+      document.getElementById('btnMotion').addEventListener('click', requestMotion);
+      document.getElementById('btnStartMono').addEventListener('click', ()=> start('mono'));
+      document.getElementById('btnStartCardboard').addEventListener('click', ()=> start('cardboard'));
+
+      document.getElementById('btnCardboard').addEventListener('click', ()=>{
+        const on = !document.body.classList.contains('cardboard');
+        setCardboard(on);
       });
 
-      btnvr.addEventListener('click', async ()=>{
-        await resumeAudio();
-        document.body.classList.add('cardboard');
-        start('cardboard');
+      gazeBtn.addEventListener('click', ()=>{
+        gazeOn = !gazeOn;
+        syncGazeBtn();
       });
 
-      btnstop.addEventListener('click', ()=>{
-        window.dispatchEvent(new CustomEvent('hvr:stop'));
-        location.reload();
+      // shoot button (for cardboard)
+      document.getElementById('btnShoot').addEventListener('click', ()=>{
+        window.dispatchEvent(new CustomEvent('hvr:shoot'));
       });
 
-      // show gaze ring progress driven by engine (optional)
+      // gaze progress -> CSS var
       window.addEventListener('hvr:gaze', (ev)=>{
-        try{
-          const p = Math.max(0, Math.min(1, (ev.detail && ev.detail.p) || 0));
-          setGazeVar(p);
-        }catch{}
+        const p = (ev && ev.detail && typeof ev.detail.p === 'number') ? ev.detail.p : 0;
+        document.documentElement.style.setProperty('--gazeProg', String(Math.max(0, Math.min(1, p))));
       }, { passive:true });
 
-      // shoot buttons in cardboard
-      const sL = D.getElementById('btnShootL');
-      const sR = D.getElementById('btnShootR');
-      function shoot(){
-        window.dispatchEvent(new CustomEvent('hvr:shoot', { detail:{ src:'btn' } }));
-      }
-      sL.addEventListener('click', shoot);
-      sR.addEventListener('click', shoot);
+      // end overlay fill
+      const endOverlay = document.getElementById('endOverlay');
+      const $ = (id)=>document.getElementById(id);
 
-      // retry/backhub
-      const end = D.getElementById('hvr-end');
-      D.getElementById('btn-retry').addEventListener('click', ()=>location.reload());
-      D.getElementById('btn-backhub').addEventListener('click', ()=>{
+      window.addEventListener('hha:end', (ev)=>{
+        const d = (ev && ev.detail) ? ev.detail : {};
         try{
-          const u = new URL((new URL(location.href)).searchParams.get('hub') || './hub.html', location.href);
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
+          localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
+        }catch{}
+
+        $('eMode').textContent = String(d.runMode ?? d.runMode ?? run);
+        $('eDiff').textContent = String(d.diff ?? diff);
+        $('eGrade').textContent = String(d.grade ?? 'C');
+        $('eScore').textContent = String(d.scoreFinal ?? 0);
+        $('eComboMax').textContent = String(d.comboMax ?? 0);
+        $('eMiss').textContent = String(d.misses ?? 0);
+        $('eAcc').textContent = String((d.accuracyGoodPct ?? 0)|0) + '%';
+        $('ePerf').textContent = String(d.perfectCount ?? 0);
+        $('eRt').textContent = String(d.avgRtGoodMs ?? 0) + 'ms';
+        $('eGreen').textContent = String(d.greenSec ?? 0);
+        $('eGoal').textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 1);
+        $('eMini').textContent = String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 1);
+
+        endOverlay.style.display = 'flex';
+      }, { passive:true });
+
+      // back hub / play again
+      document.getElementById('btnBackHub').addEventListener('click', ()=>{
+        try{
+          const u = new URL(hub, location.href);
           u.searchParams.set('ts', String(Date.now()));
           location.href = u.toString();
         }catch{
-          location.href = './hub.html';
+          location.href = hub;
         }
       });
+      document.getElementById('btnPlayAgain').addEventListener('click', ()=> location.reload());
 
-      // engine will trigger this
-      window.addEventListener('hvr:endui', (ev)=>{
-        end.style.display = 'flex';
-        try{
-          const d = ev.detail || {};
-          D.getElementById('end-score').textContent = String(d.scoreFinal ?? 0);
-          D.getElementById('end-grade').textContent = String(d.grade ?? 'C');
-          D.getElementById('end-combo').textContent = String(d.comboMax ?? 0);
-          D.getElementById('end-miss').textContent  = String(d.misses ?? 0);
-          D.getElementById('end-goals').textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 1);
-          D.getElementById('end-minis').textContent = String(d.miniCleared ?? 0);
-        }catch{}
-      }, { passive:true });
+      // quick autostart support
+      if (qs('autostart','0') === '1'){
+        startOverlay.style.display = 'none';
+        start(qs('cardboard','0') === '1' ? 'cardboard' : 'mono');
+      }
     })();
   </script>
 </body>
