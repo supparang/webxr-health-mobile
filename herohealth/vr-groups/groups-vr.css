@@ -1583,3 +1583,75 @@ body.groups-overdrive .groups-buff #chipOver{ display:inline-flex; }
   background: transparent;
   inset:auto;
 }
+/* ================================
+   ATTACHED SPARKLES (ติดเป้า)
+   ================================ */
+
+.fg-target{
+  /* สำคัญ: ให้ลูก absolute วางทับได้ */
+  position: fixed;
+  isolation: isolate;
+}
+
+.fg-spark-wrap{
+  position:absolute;
+  inset:-14px;                 /* ให้วิ้งโผล่เกินขอบสติ๊กเกอร์นิด */
+  pointer-events:none;
+  z-index: 3;                  /* เหนือพื้นหลัง แต่ใต้ icon มุมขวาบน */
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.25));
+  opacity: .95;
+}
+
+/* ดาวเล็ก ๆ 4 จุดรอบเป้า + หมุนเบา ๆ */
+.fg-spark-orbit{
+  position:absolute;
+  inset:0;
+  animation: fgOrbit 1.15s linear infinite;
+  transform-origin: center;
+}
+
+.fg-spark{
+  position:absolute;
+  font-size: 14px;
+  line-height:1;
+  opacity:.95;
+  animation: fgTwinkle 0.9s ease-in-out infinite;
+  text-shadow: 0 6px 12px rgba(0,0,0,.22);
+}
+
+.fg-spark.s1{ left: 6%;  top: 18%; animation-delay: .00s; }
+.fg-spark.s2{ right: 6%; top: 22%; animation-delay: .12s; }
+.fg-spark.s3{ left: 14%; bottom: 6%; animation-delay: .22s; }
+.fg-spark.s4{ right: 12%; bottom: 10%; animation-delay: .33s; }
+
+/* GOOD วิ้งหวานกว่า */
+.fg-good .fg-spark-wrap{
+  filter:
+    drop-shadow(0 10px 14px rgba(0,0,0,.22))
+    drop-shadow(0 0 14px rgba(34,211,238,.20));
+}
+
+/* BOSS วิ้งแน่นกว่า */
+.fg-boss .fg-spark-wrap{
+  opacity: 1;
+  filter:
+    drop-shadow(0 14px 18px rgba(0,0,0,.28))
+    drop-shadow(0 0 18px rgba(34,211,238,.28));
+}
+.fg-boss .fg-spark-orbit{ animation-duration: .9s; }
+.fg-boss .fg-spark{ font-size: 16px; }
+
+@keyframes fgOrbit{
+  from{ transform: rotate(0deg); }
+  to  { transform: rotate(360deg); }
+}
+
+@keyframes fgTwinkle{
+  0%,100%{ transform: scale(.85); opacity:.55; }
+  50%    { transform: scale(1.15); opacity:1; }
+}
+
+/* ลดการเคลื่อนไหว */
+@media (prefers-reduced-motion: reduce){
+  .fg-spark-orbit, .fg-spark{ animation:none !important; }
+}
