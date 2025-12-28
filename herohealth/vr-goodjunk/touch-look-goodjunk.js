@@ -1,212 +1,174 @@
 // === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
-// Touch + Gyro "VR-feel look" for DOM overlay games (GoodJunk)
-// ✅ ESM export: attachTouchLook
-// ✅ gestureEl = รับลาก/gyro
-// ✅ applyEls = รายการ element ที่ต้องเลื่อนพร้อมกัน (stereo L/R)
-// ✅ safe on iOS (permission request helper)
+// Touch+Gyro Look (GoodJunk) — ESM
+// ✅ named export: attachTouchLook (แก้ error import)
+// ✅ drag on desktop/mobile -> shift playfield
+// ✅ deviceorientation (mobile) -> subtle shift
+// ✅ stereo: apply to both eyes/layers/crosshair/ring/laser if provided
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
 function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+function lerp(a,b,t){ return a + (b-a)*t; }
 
+function isMobileLike(){
+  const w = ROOT.innerWidth || 360;
+  const h = ROOT.innerHeight || 640;
+  const coarse = (ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches);
+  return coarse || (Math.min(w,h) < 520);
+}
+
+/**
+ * @param {Object} opts
+ * @param {HTMLElement} [opts.stageEl] optional
+ * @param {HTMLElement} [opts.layerEl] required (left)
+ * @param {HTMLElement} [opts.crosshairEl]
+ * @param {HTMLElement} [opts.ringEl]
+ * @param {HTMLElement} [opts.laserEl]
+ * @param {HTMLElement} [opts.layerElR] optional (stereo right)
+ * @param {HTMLElement} [opts.crosshairElR]
+ * @param {HTMLElement} [opts.ringElR]
+ * @param {HTMLElement} [opts.laserElR]
+ * @param {number} [opts.maxShiftPx=170]
+ * @param {number} [opts.ease=0.12]
+ * @param {number} [opts.aimY=0.62] (0..1) for crosshair baseline; used only if element absent
+ */
 export function attachTouchLook(opts = {}){
   const DOC = ROOT.document;
-  const gestureEl = opts.gestureEl || DOC?.getElementById('gj-gesture') || DOC?.body;
-  const applyEls = Array.isArray(opts.applyEls) && opts.applyEls.length
-    ? opts.applyEls.filter(Boolean)
-    : [ opts.applyEl || opts.stageEl || DOC?.getElementById('gj-stage') ].filter(Boolean);
+  if (!DOC) return { destroy(){} };
 
-  if (!gestureEl || !applyEls.length){
-    return {
-      requestGyroPermission: async()=>false,
-      destroy(){},
-      get(){ return { x:0, y:0 }; }
-    };
-  }
+  const layerEl = opts.layerEl || DOC.getElementById('gj-layer');
+  if (!layerEl) return { destroy(){} };
 
-  const maxShiftPx = clamp(opts.maxShiftPx ?? 170, 40, 360);
-  const ease = clamp(opts.ease ?? 0.12, 0.02, 0.4);
-  const enableGyro = (opts.enableGyro !== false);
-  const invertX = !!opts.invertX;
-  const invertY = !!opts.invertY;
+  const stageEl = opts.stageEl || DOC.getElementById('gj-stage');
 
-  // internal state
-  let running = true;
+  const left = {
+    layer: layerEl,
+    cross: opts.crosshairEl || DOC.getElementById('gj-crosshair'),
+    ring:  opts.ringEl || DOC.getElementById('atk-ring'),
+    laser: opts.laserEl || DOC.getElementById('atk-laser'),
+  };
 
-  // drag state
-  let dragging = false;
-  let p0x = 0, p0y = 0;
-  let dragBaseX = 0, dragBaseY = 0;
-  let dragTargetX = 0, dragTargetY = 0;
+  const right = {
+    layer: opts.layerElR || DOC.getElementById('gj-layerR'),
+    cross: opts.crosshairElR || DOC.getElementById('gj-crosshairR'),
+    ring:  opts.ringElR || DOC.getElementById('atk-ringR'),
+    laser: opts.laserElR || DOC.getElementById('atk-laserR'),
+  };
 
-  // gyro state
-  let gyroOn = false;
-  let gyroTargetX = 0, gyroTargetY = 0;
+  const useStereo = !!(right.layer && DOC.body.classList.contains('gj-stereo'));
 
-  // applied (smoothed)
+  const maxShift = clamp(opts.maxShiftPx ?? 170, 60, 360);
+  const ease = clamp(opts.ease ?? 0.12, 0.05, 0.35);
+
+  let targetX = 0, targetY = 0;
   let curX = 0, curY = 0;
 
-  // prep applyEls
-  for (const el of applyEls){
-    try{
-      el.style.willChange = 'transform';
-      el.style.transform = 'translate3d(0px,0px,0px)';
-      el.style.transformOrigin = '50% 50%';
-    }catch(_){}
+  let dragging = false;
+  let lastX = 0, lastY = 0;
+
+  // gyro baseline
+  let hasGyro = false;
+  let gyroZeroGamma = 0;
+  let gyroZeroBeta = 0;
+
+  function applyTo(el, x, y){
+    if (!el) return;
+    el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
   }
 
-  function apply(){
-    if (!running) return;
+  function applyAll(){
+    // layer shift gives the VR-feel
+    applyTo(left.layer, curX, curY);
+    applyTo(left.ring,  curX, curY);
+    applyTo(left.laser, curX, curY);
+    applyTo(left.cross, curX, curY);
 
-    const tx = clamp((dragTargetX + gyroTargetX), -maxShiftPx, maxShiftPx);
-    const ty = clamp((dragTargetY + gyroTargetY), -maxShiftPx, maxShiftPx);
-
-    curX += (tx - curX) * ease;
-    curY += (ty - curY) * ease;
-
-    // write css vars to <body> for FX usage
-    try{
-      DOC?.body?.style?.setProperty('--lookX', `${curX.toFixed(2)}px`);
-      DOC?.body?.style?.setProperty('--lookY', `${curY.toFixed(2)}px`);
-    }catch(_){}
-
-    // apply transform to all targets worlds (L/R)
-    for (const el of applyEls){
-      try{
-        el.style.transform = `translate3d(${curX.toFixed(2)}px, ${curY.toFixed(2)}px, 0)`;
-      }catch(_){}
+    if (useStereo){
+      applyTo(right.layer, curX, curY);
+      applyTo(right.ring,  curX, curY);
+      applyTo(right.laser, curX, curY);
+      applyTo(right.cross, curX, curY);
     }
-
-    ROOT.requestAnimationFrame(apply);
-  }
-  ROOT.requestAnimationFrame(apply);
-
-  function getPt(ev){
-    const x = (ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX) || 0;
-    const y = (ev.touches && ev.touches[0] ? ev.touches[0].clientY : ev.clientY) || 0;
-    return { x, y };
   }
 
-  function onDown(ev){
-    if (!running) return;
+  let raf = 0;
+  function tick(){
+    curX = lerp(curX, targetX, ease);
+    curY = lerp(curY, targetY, ease);
+    applyAll();
+    raf = ROOT.requestAnimationFrame(tick);
+  }
+  raf = ROOT.requestAnimationFrame(tick);
+
+  function setTargetFromDelta(dx, dy){
+    targetX = clamp(targetX + dx, -maxShift, maxShift);
+    targetY = clamp(targetY + dy, -maxShift, maxShift);
+  }
+
+  // ---------- Pointer drag ----------
+  function onDown(e){
     dragging = true;
-
-    const pt = getPt(ev);
-    p0x = pt.x; p0y = pt.y;
-    dragBaseX = dragTargetX;
-    dragBaseY = dragTargetY;
-
-    try{ gestureEl.setPointerCapture?.(ev.pointerId); }catch(_){}
+    lastX = e.clientX;
+    lastY = e.clientY;
   }
+  function onMove(e){
+    if (!dragging) return;
+    const x = e.clientX, y = e.clientY;
+    const dx = (x - lastX);
+    const dy = (y - lastY);
+    lastX = x; lastY = y;
 
-  function onMove(ev){
-    if (!running || !dragging) return;
-    const pt = getPt(ev);
-    const dx = pt.x - p0x;
-    const dy = pt.y - p0y;
-
-    const sx = invertX ? -dx : dx;
-    const sy = invertY ? -dy : dy;
-
-    dragTargetX = clamp(dragBaseX + sx, -maxShiftPx, maxShiftPx);
-    dragTargetY = clamp(dragBaseY + sy, -maxShiftPx, maxShiftPx);
+    // scale for mobile
+    const scale = isMobileLike() ? 0.85 : 1.0;
+    setTargetFromDelta(dx * scale, dy * scale);
   }
+  function onUp(){ dragging = false; }
 
-  function onUp(ev){
-    if (!running) return;
-    dragging = false;
+  const dragHost = stageEl || DOC.body;
+  dragHost.addEventListener('pointerdown', onDown, { passive:true });
+  ROOT.addEventListener('pointermove', onMove, { passive:true });
+  ROOT.addEventListener('pointerup', onUp, { passive:true });
+  ROOT.addEventListener('pointercancel', onUp, { passive:true });
 
-    // soften return a bit
-    dragTargetX *= 0.92;
-    dragTargetY *= 0.92;
+  // ---------- Gyro (mobile) ----------
+  function onOri(ev){
+    const gamma = Number(ev.gamma);
+    const beta  = Number(ev.beta);
+    if (!Number.isFinite(gamma) || !Number.isFinite(beta)) return;
 
-    try{ gestureEl.releasePointerCapture?.(ev.pointerId); }catch(_){}
-  }
-
-  gestureEl.addEventListener('pointerdown', onDown, { passive:true });
-  gestureEl.addEventListener('pointermove', onMove, { passive:true });
-  gestureEl.addEventListener('pointerup', onUp, { passive:true });
-  gestureEl.addEventListener('pointercancel', onUp, { passive:true });
-
-  // gyro mapping
-  function onOrientation(e){
-    if (!running || !gyroOn) return;
-
-    const g = Number(e.gamma);
-    const b = Number(e.beta);
-    if (!Number.isFinite(g) || !Number.isFinite(b)) return;
-
-    const nx = clamp(g / 30, -1, 1);
-    const ny = clamp((b - 15) / 30, -1, 1);
-
-    const sx = invertX ? -nx : nx;
-    const sy = invertY ? -ny : ny;
-
-    gyroTargetX = sx * (maxShiftPx * 0.70);
-    gyroTargetY = sy * (maxShiftPx * 0.55);
-  }
-
-  function startGyro(){
-    if (!enableGyro) return false;
-    if (gyroOn) return true;
-    gyroOn = true;
-    gyroTargetX = 0; gyroTargetY = 0;
-    ROOT.addEventListener('deviceorientation', onOrientation, { passive:true });
-    return true;
-  }
-
-  function stopGyro(){
-    if (!gyroOn) return;
-    gyroOn = false;
-    gyroTargetX = 0; gyroTargetY = 0;
-    try{ ROOT.removeEventListener('deviceorientation', onOrientation); }catch(_){}
-  }
-
-  async function requestGyroPermission(){
-    try{
-      const DOE = ROOT.DeviceOrientationEvent;
-      if (DOE && typeof DOE.requestPermission === 'function'){
-        const res = await DOE.requestPermission();
-        if (String(res).toLowerCase() === 'granted'){
-          startGyro();
-          return true;
-        }
-        return false;
-      }
-      startGyro();
-      return true;
-    }catch(_){
-      return false;
+    if (!hasGyro){
+      hasGyro = true;
+      gyroZeroGamma = gamma;
+      gyroZeroBeta = beta;
     }
+
+    // soft gyro contribution (don’t fight drag)
+    const dg = clamp(gamma - gyroZeroGamma, -25, 25);
+    const db = clamp(beta  - gyroZeroBeta,  -25, 25);
+
+    const gx = (dg / 25) * (maxShift * 0.55);
+    const gy = (db / 25) * (maxShift * 0.35);
+
+    // blend gyro into target
+    targetX = clamp(lerp(targetX, gx, 0.08), -maxShift, maxShift);
+    targetY = clamp(lerp(targetY, gy, 0.08), -maxShift, maxShift);
   }
 
-  // auto start gyro on non-iOS
+  // try attach gyro (safe)
   try{
-    const DOE = ROOT.DeviceOrientationEvent;
-    if (enableGyro && !(DOE && typeof DOE.requestPermission === 'function')){
-      startGyro();
-    }
+    ROOT.addEventListener('deviceorientation', onOri, { passive:true });
   }catch(_){}
 
-  return {
-    requestGyroPermission,
-    destroy(){
-      running = false;
-      stopGyro();
-      gestureEl.removeEventListener('pointerdown', onDown);
-      gestureEl.removeEventListener('pointermove', onMove);
-      gestureEl.removeEventListener('pointerup', onUp);
-      gestureEl.removeEventListener('pointercancel', onUp);
-      for (const el of applyEls){
-        try{ el.style.transform = 'translate3d(0px,0px,0px)'; }catch(_){}
-      }
-      try{
-        ROOT.document?.body?.style?.setProperty('--lookX', '0px');
-        ROOT.document?.body?.style?.setProperty('--lookY', '0px');
-      }catch(_){}
-    },
-    get(){ return { x:curX, y:curY, dragging, gyroOn }; }
-  };
+  function destroy(){
+    try{ ROOT.cancelAnimationFrame(raf); }catch(_){}
+    try{ dragHost.removeEventListener('pointerdown', onDown); }catch(_){}
+    try{ ROOT.removeEventListener('pointermove', onMove); }catch(_){}
+    try{ ROOT.removeEventListener('pointerup', onUp); }catch(_){}
+    try{ ROOT.removeEventListener('pointercancel', onUp); }catch(_){}
+    try{ ROOT.removeEventListener('deviceorientation', onOri); }catch(_){}
+  }
+
+  return { destroy };
 }
