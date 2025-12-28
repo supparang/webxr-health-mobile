@@ -2078,3 +2078,80 @@ body.groups-overdrive .fg-layer{ filter: saturate(1.18) brightness(1.06); }
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
   .fg-star, .fg-trail-dot, .fg-goo-bubble{ animation: none !important; }
 }
+/* ===== PATCH v3 (Boss Phase2 + Storm Pattern + No-Junk ring) ===== */
+
+/* NO-JUNK ring (optional visual) */
+.fg-layer::before{
+  content:"";
+  position:fixed;
+  left: var(--nojunk-cx, 50vw);
+  top:  var(--nojunk-cy, 50vh);
+  width: calc(var(--nojunk-r, 92px) * 2);
+  height: calc(var(--nojunk-r, 92px) * 2);
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  pointer-events:none;
+  opacity:.18;
+  border:2px dashed rgba(255,255,255,.35);
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+}
+
+/* Storm pattern vibes */
+body.groups-storm-wave  .fg-layer{ filter: saturate(1.05) brightness(1.02); }
+body.groups-storm-spiral .fg-layer{ filter: saturate(1.12) brightness(1.04); }
+body.groups-storm-burst .fg-layer{ filter: saturate(1.08) brightness(1.02); }
+
+body.groups-storm-urgent{
+  animation: stormPulse .22s ease-in-out infinite;
+}
+@keyframes stormPulse{
+  0%,100%{ filter: brightness(1); }
+  50%{ filter: brightness(1.08); }
+}
+
+/* Boss feedback */
+.fg-boss{
+  position:relative;
+}
+.fg-boss.fg-boss-hurt{
+  animation: bossHurt .20s ease-out both;
+}
+@keyframes bossHurt{
+  0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
+  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)) rotate(-1deg); filter: brightness(1.18); }
+  100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
+}
+
+/* Phase2 weak spot highlight */
+.fg-boss.fg-boss-weak{
+  box-shadow:
+    0 0 0 4px rgba(34,211,238,.35),
+    0 18px 36px rgba(0,0,0,.40),
+    0 0 26px rgba(34,211,238,.35);
+}
+.fg-boss.fg-boss-weak::after{
+  content:"🎯";
+  position:absolute;
+  right:10px;
+  bottom:10px;
+  font-size:18px;
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.45));
+}
+
+/* Feint flash */
+.fg-boss.fg-boss-feint{
+  outline: 3px solid rgba(251,146,60,.55);
+  animation: feintBlink .22s ease-in-out infinite;
+}
+@keyframes feintBlink{
+  0%,100%{ filter: brightness(1); }
+  50%{ filter: brightness(1.25); }
+}
+
+/* Crit pop */
+.fg-boss.fg-boss-crit{
+  box-shadow:
+    0 0 0 6px rgba(250,204,21,.35),
+    0 0 28px rgba(250,204,21,.35),
+    0 18px 36px rgba(0,0,0,.40);
+}
