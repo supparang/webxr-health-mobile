@@ -107,6 +107,7 @@ function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
   .hvr-target.good{ outline: 2px solid rgba(34,197,94,.18); }
   .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
   .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
+
   .hvr-pop{
     position:absolute;
     left:50%; top:50%;
@@ -174,21 +175,29 @@ const S = {
     endWindow:false,
     blockedInEnd:false,
     doneThisStorm:false,
+
+    // NEW helpers: guarantee pass chance
+    gavePreShield:false,
+    forcedEndBad:false,
+    forcedEndBad2:false
   },
 
   adaptiveOn: (run !== 'research'),
-  adaptK: 0.0
+  adaptK: 0.0,
+
+  spawnSeq: 0
 };
 
-// difficulty tuning (slightly faster than previous)
+// difficulty tuning (faster + tighter)
 const TUNE = (() => {
   const sizeBase =
     diff === 'easy' ? 78 :
     diff === 'hard' ? 56 : 66;
 
+  // ✅ faster
   const spawnBase =
-    diff === 'easy' ? 680 :
-    diff === 'hard' ? 480 : 580;
+    diff === 'easy' ? 620 :
+    diff === 'hard' ? 440 : 520;
 
   const stormEvery =
     diff === 'easy' ? 18 :
@@ -198,16 +207,20 @@ const TUNE = (() => {
     diff === 'easy' ? 5.2 :
     diff === 'hard' ? 6.2 : 5.8;
 
-  const g = clamp(Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)), 18, Math.max(18, timeLimit-8));
+  const g = clamp(
+    Math.round(timeLimit * (diff==='easy' ? 0.42 : diff==='hard' ? 0.55 : 0.48)),
+    18,
+    Math.max(18, timeLimit-8)
+  );
 
   return {
     sizeBase,
     spawnBaseMs: spawnBase,
-    spawnJitter: 170,
+    spawnJitter: 120, // ✅ tighter (more consistent)
 
-    goodLifeMs: diff==='hard' ? 930 : 1080,
-    badLifeMs:  diff==='hard' ? 980 : 1120,
-    shieldLifeMs: 1350,
+    goodLifeMs: diff==='hard' ? 900 : 1040,
+    badLifeMs:  diff==='hard' ? 940 : 1100,
+    shieldLifeMs: 1400,
 
     stormEverySec: stormEvery,
     stormDurSec: stormDur,
@@ -335,6 +348,7 @@ function pickXY(){
   const w = Math.max(1, r.width - pad*2);
   const h = Math.max(1, r.height - pad*2);
 
+  // center-bias
   const rx = (rng()+rng())/2;
   const ry = (rng()+rng())/2;
 
@@ -385,6 +399,10 @@ function spawn(kind){
   const el = DOC.createElement('div');
   el.className = 'hvr-target ' + kind;
   el.dataset.kind = kind;
+
+  // NEW: uid helps cardboard mirroring
+  const uid = 't' + (++S.spawnSeq);
+  el.dataset.uid = uid;
 
   el.style.setProperty('--x', xPct.toFixed(2) + '%');
   el.style.setProperty('--y', yPct.toFixed(2) + '%');
@@ -487,7 +505,8 @@ function nextSpawnDelay(){
     base *= TUNE.stormSpawnMul;
   }
 
-  return clamp(base, 210, 1200);
+  // ✅ allow faster low bound
+  return clamp(base, 180, 1200);
 }
 
 function pickKind(){
@@ -525,8 +544,13 @@ function enterStorm(){
     endWindow:false,
     blockedInEnd:false,
     doneThisStorm:false,
+
+    gavePreShield:false,
+    forcedEndBad:false,
+    forcedEndBad2:false
   };
 
+  // kick out of green a bit (so zoneOK is achievable)
   if (S.waterZone === 'GREEN'){
     S.waterPct = clamp(S.waterPct + (rng() < 0.5 ? -7 : +7), 0, 100);
     updateZone();
@@ -536,10 +560,7 @@ function enterStorm(){
 }
 
 function exitStorm(){
-  S.stormActive = false;
-  S.stormLeftSec = 0;
-  S.inEndWindow = false;
-
+  // evaluate mini once per storm
   if (!S.miniState.doneThisStorm){
     const m = S.miniState;
     const ok = !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
@@ -548,8 +569,15 @@ function exitStorm(){
       m.doneThisStorm = true;
       S.score += 35;
       makePop('MINI ✓', 'shield');
+    } else {
+      // small feedback (ไม่หักแรง เพื่อไม่ทำลาย flow)
+      makePop('MINI …', 'bad');
     }
   }
+
+  S.stormActive = false;
+  S.stormLeftSec = 0;
+  S.inEndWindow = false;
 
   syncHUD();
 }
@@ -570,6 +598,27 @@ function tickStorm(dt){
   S.miniState.pressure = clamp(S.miniState.pressure + dt * pGain, 0, 1);
   if (S.miniState.pressure >= 1) S.miniState.pressureOK = true;
 
+  // ✅ GUARANTEE: ก่อน end-window ถ้ายังไม่มี shield ให้ดรอป 1 ครั้ง
+  if (!S.miniState.gavePreShield && S.stormLeftSec <= (TUNE.endWindowSec + 1.35)){
+    S.miniState.gavePreShield = true;
+    if (S.shield <= 0){
+      spawn('shield');
+      spawnTimer = Math.min(spawnTimer, 120); // ให้เกิดถี่ขึ้นนิด
+    }
+  }
+
+  // ✅ GUARANTEE: เข้า end-window บังคับเกิด bad อย่างน้อย 1–2 ตัว เพื่อให้มีจังหวะ BLOCK
+  if (inEnd && !S.miniState.forcedEndBad){
+    S.miniState.forcedEndBad = true;
+    spawn('bad');
+    spawnTimer = Math.min(spawnTimer, 90);
+  }
+  if (inEnd && S.stormLeftSec <= (TUNE.endWindowSec * 0.55) && !S.miniState.forcedEndBad2){
+    S.miniState.forcedEndBad2 = true;
+    spawn('bad');
+    spawnTimer = Math.min(spawnTimer, 70);
+  }
+
   if (S.stormLeftSec <= 0.001){
     exitStorm();
   }
@@ -586,7 +635,6 @@ async function sendLog(payload){
       keepalive: true
     });
   }catch(e){
-    // best-effort fallback: GET (may be too long; still try minimal)
     try{
       const u = new URL(logEndpoint, location.href);
       u.searchParams.set('projectTag', String(payload.projectTag||'HeroHealth'));
@@ -672,7 +720,11 @@ async function endGame(reason){
 
     accuracyGoodPct: acc,
     grade,
-    reason: reason || 'end'
+    reason: reason || 'end',
+
+    // meta
+    seed,
+    hub
   };
 
   try{
@@ -682,7 +734,7 @@ async function endGame(reason){
 
   emit('hha:end', summary);
 
-  // ✅ research/play both can log if ?log=
+  // ✅ best effort
   await sendLog(summary);
 }
 
@@ -723,7 +775,7 @@ async function boot(){
   setWaterGauge(S.waterPct);
   updateZone();
 
-  spawnTimer = 320;
+  spawnTimer = 260; // ✅ quicker first spawn
 
   await waitStartGate();
 
@@ -746,6 +798,7 @@ async function boot(){
     if (document.hidden && !S.ended) endGame('hidden');
   });
 
+  // NOTE: keepalive fetch helps, but unload is always best-effort
   window.addEventListener('beforeunload', ()=>{
     if (!S.ended) {
       try{ endGame('unload'); }catch{}
