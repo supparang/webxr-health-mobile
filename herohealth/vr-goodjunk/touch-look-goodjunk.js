@@ -1,9 +1,9 @@
 // === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
-// GoodJunkVR — Touch/Mouse Look (World-Shift Dodge) — PRODUCTION
+// GoodJunkVR — Touch/Mouse Look (World-Shift Dodge) — PRODUCTION (FIXED)
 // ✅ Drag เฉพาะ "พื้นว่าง" เพื่อเอียงโลก (targets/hazards ขยับ แต่ crosshair ไม่ขยับ)
 // ✅ ไม่รบกวนการคลิกเป้า/ปุ่ม HUD
-// ✅ ไม่ไหลตามเมาส์ถ้าไม่ได้ลากจริง
-// ✅ Gyro (deviceorientation) เปิดเฉพาะ touch/coarse โดย default (บังคับด้วย ?gyro=1|0)
+// ✅ เมาส์ขยับเฉย ๆ ไม่ทำให้โลกไหล (ต้องลากจริง)
+// ✅ รองรับชื่อพารามิเตอร์ทั้งแบบใหม่ + แบบเดิมใน boot ของคุณ
 // ✅ Exports: named + default + window fallback
 
 'use strict';
@@ -14,6 +14,11 @@ function qs(name, def){
 function clamp(v, a, b){
   v = Number(v); if (!Number.isFinite(v)) v = 0;
   return Math.max(a, Math.min(b, v));
+}
+function safeEl(x){
+  if (!x) return null;
+  if (typeof x === 'string') return document.querySelector(x);
+  return x;
 }
 
 function defaultShouldEnableGyro(){
@@ -41,17 +46,20 @@ function isInteractiveEl(el){
   return !!(el.closest && el.closest(sel));
 }
 
-function isTargetEl(el){
-  if (!el) return false;
-  const sel = [
-    '.gj-target','.goodjunk-target','.target',
-    '[data-target]','.pl-target','.gr-target'
-  ].join(',');
-  return !!(el.closest && el.closest(sel));
-}
+function makeIsTargetFn(layerEl){
+  return function isTargetEl(el){
+    if (!el) return false;
 
-function safeEl(x){
-  return (typeof x === 'string') ? document.querySelector(x) : x;
+    // ✅ Robust: anything inside layer but not the layer itself => treat as target
+    if (layerEl && layerEl.contains(el) && el !== layerEl) return true;
+
+    // fallback selectors (เผื่อเกมอื่น)
+    const sel = [
+      '.gj-target','.goodjunk-target','.target',
+      '[data-target]','.pl-target','.gr-target'
+    ].join(',');
+    return !!(el.closest && el.closest(sel));
+  };
 }
 
 function applyTransform(els, x, y, z){
@@ -62,9 +70,13 @@ function applyTransform(els, x, y, z){
   }
 }
 
+// NOTE: attachTouchLook accepts BOTH styles:
+// - New: { stage, layer, ring, laser, maxShiftPx, gain, friction, spring, enableGyro }
+// - Old (your boot): { layerEl, crosshairEl, maxShiftPx, ease }
 function attachTouchLook(opts = {}){
-  const stage = safeEl(opts.stage || '#gj-stage') || document.body;
-  const layer = safeEl(opts.layer || '#gj-layer');
+  // ---- alias support (boot ของคุณใช้ layerEl/crosshairEl/ease) ----
+  const stage = safeEl(opts.stage || opts.stageEl || '#gj-stage') || document.body;
+  const layer = safeEl(opts.layer || opts.layerEl || '#gj-layer');
   const ring  = safeEl(opts.ring  || '#atk-ring');
   const laser = safeEl(opts.laser || '#atk-laser');
 
@@ -72,11 +84,15 @@ function attachTouchLook(opts = {}){
     ? opts.shiftEls.map(safeEl).filter(Boolean)
     : [layer, ring, laser].filter(Boolean);
 
-  const maxShift  = clamp(opts.maxShiftPx ?? 95, 40, 180);
-  const gain      = clamp(opts.gain ?? 0.24, 0.05, 0.70);
+  const maxShift  = clamp(opts.maxShiftPx ?? 95, 40, 220);
+
+  // opts.ease (0.08..0.2) -> map to gain/spring feel
+  const ease = (opts.ease != null) ? clamp(opts.ease, 0.05, 0.30) : null;
+
+  const gain      = clamp(opts.gain ?? (ease ? (0.18 + ease*0.6) : 0.24), 0.05, 0.80);
   const gyroGain  = clamp(opts.gyroGain ?? 0.055, 0.00, 0.25);
   const friction  = clamp(opts.friction ?? 0.86, 0.50, 0.98);
-  const spring    = clamp(opts.spring ?? 0.18, 0.00, 0.45);
+  const spring    = clamp(opts.spring ?? (ease ? clamp(0.10 + ease*0.8, 0.10, 0.35) : 0.18), 0.00, 0.45);
   const z         = Number(opts.z ?? 0);
 
   let enabled  = (opts.enabled !== false);
@@ -88,6 +104,7 @@ function attachTouchLook(opts = {}){
   let raf = 0;
 
   const enableGyro = (opts.enableGyro !== undefined) ? !!opts.enableGyro : defaultShouldEnableGyro();
+  const isTargetEl = makeIsTargetFn(layer);
 
   function sync(){
     applyTransform(shiftEls, px, py, z);
@@ -115,6 +132,7 @@ function attachTouchLook(opts = {}){
     px = clamp(px + vx, -maxShift, maxShift);
     py = clamp(py + vy, -maxShift, maxShift);
 
+    // snap to center when calm
     if (!dragging && Math.abs(px) < 0.12 && Math.abs(py) < 0.12 && Math.abs(vx) < 0.12 && Math.abs(vy) < 0.12){
       px = 0; py = 0; vx = 0; vy = 0;
       sync();
@@ -154,15 +172,13 @@ function attachTouchLook(opts = {}){
     vx += dx * gain;
     vy += dy * gain;
 
-    vx = clamp(vx, -22, 22);
-    vy = clamp(vy, -22, 22);
+    vx = clamp(vx, -26, 26);
+    vy = clamp(vy, -26, 26);
 
     ensureRAF();
   }
 
-  function endDrag(){
-    dragging = false;
-  }
+  function endDrag(){ dragging = false; }
 
   function recenter(hard = true){
     if (hard){
@@ -187,7 +203,7 @@ function attachTouchLook(opts = {}){
     }
   }
 
-  // ---------- pointer binds ----------
+  // pointer binds
   const onPointerDown = (e)=>{ beginDrag(e); };
   const onPointerMove = (e)=>{ moveDrag(e); };
   const onPointerUp   = ()=>{ endDrag(); };
@@ -208,7 +224,7 @@ function attachTouchLook(opts = {}){
     lastTap = t;
   }, { passive:true });
 
-  // ---------- gyro (optional) ----------
+  // gyro optional
   const onGyro = (ev)=>{
     if (!enabled || !enableGyro) return;
     if (dragging) return;
@@ -219,8 +235,8 @@ function attachTouchLook(opts = {}){
     vx += gx * gyroGain * 8;
     vy += (gy - 20) * gyroGain * 4;
 
-    vx = clamp(vx, -14, 14);
-    vy = clamp(vy, -14, 14);
+    vx = clamp(vx, -16, 16);
+    vy = clamp(vy, -16, 16);
 
     ensureRAF();
   };
@@ -245,13 +261,9 @@ function attachTouchLook(opts = {}){
   return { recenter, destroy, setEnabled, getOffset:()=>({ x:px, y:py, vx, vy, dragging, enabled }) };
 }
 
-// ✅ Named export (ตรงกับ import { attachTouchLook } ...)
 export { attachTouchLook };
-
-// ✅ Default export (กันบางคน import default)
 export default attachTouchLook;
 
-// ✅ Window fallback (เผื่อจะเรียกแบบ non-module / debug)
 try{
   if (typeof window !== 'undefined'){
     window.attachTouchLook = attachTouchLook;
