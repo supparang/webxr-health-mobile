@@ -1,11 +1,10 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
-Food Groups VR — GameEngine (PATCHED)
-✅ Fix: emoji always visible (textContent + dataset)
-✅ Fix: star/ice fully handled (no stuck targets, no acc pollution)
-✅ Fix: spawn positions compensate view offset (vx/vy) => VR feel
-✅ Fix: safe spawn rect reads real HUD/Quest/Power/Coach bounds (anti-overlap)
-✅ Add: Shield on fever >= 100 (UI tag works + blocks junk once)
-✅ Keep: goalNeed sync with powerThr (easy=6 normal=8 hard=10)
+Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
+✅ type->CSS class mapping: fg-good/fg-junk/fg-wrong/fg-decoy/fg-boss/fg-star/fg-ice
+✅ ⭐ / ❄️ hit works (no accuracy penalty)
+✅ toggle body classes: groups-overdrive / groups-freeze
+✅ spawn TTL bonus during freeze
+✅ Quest & Audio events unchanged (compatible)
 */
 
 (function(root){
@@ -156,10 +155,13 @@ Food Groups VR — GameEngine (PATCHED)
     bossHp:0,
     bossHpMax:3,
     nextBossAtMs:0,
+    bossPhase:1,
 
     // buffs
-    freezeUntil:0,   // slows spawn + increases ttl
-    overUntil:0,     // score x2
+    magnetUntil:0,
+    freezeUntil:0,
+    overUntil:0,
+    _rushUntil:0,
 
     // timers
     spawnTimer:0,
@@ -167,25 +169,13 @@ Food Groups VR — GameEngine (PATCHED)
 
     // quest instance
     quest:null,
-    _questBound:false,
-
-    // cache hud rect
-    _hudRectT:0,
-    _hudCache:null
+    _questBound:false
   };
 
   function scoreMult(){ return (now() < engine.overUntil) ? 2 : 1; }
 
   function emitCoach(text, mood){ emit('hha:coach', { text: String(text||''), mood: mood||'neutral' }); }
-  function emitFever(){
-    // auto shield when fever reaches 100 (one-time guard)
-    if (engine.fever >= 100 && engine.shield <= 0){
-      engine.shield = 1;
-      engine.fever = 0;
-      emitCoach('🛡️ ได้โล่แล้ว! โดนขยะครั้งถัดไปจะกันให้', 'happy');
-    }
-    emit('hha:fever', { feverPct: Math.round(engine.fever)|0, shield: engine.shield|0 });
-  }
+  function emitFever(){ emit('hha:fever', { feverPct: Math.round(engine.fever)|0, shield: engine.shield|0 }); }
 
   function updateRank(){
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
@@ -262,7 +252,6 @@ Food Groups VR — GameEngine (PATCHED)
 
       root.addEventListener('pointerup', ()=>{ engine.dragOn=false; }, { passive:true });
 
-      // gyro (best-effort)
       root.addEventListener('deviceorientation', (ev)=>{
         const gx = Number(ev.gamma)||0;
         const gy = Number(ev.beta)||0;
@@ -278,79 +267,31 @@ Food Groups VR — GameEngine (PATCHED)
     }, 80);
   }
 
-  // ---------- HUD-aware spawn rect ----------
-  function getHudSafeRect(){
-    const t = now();
-    if (engine._hudCache && (t - engine._hudRectT) < 240) return engine._hudCache;
-
+  // ---------- Spawn rect ----------
+  function safeSpawnRect(){
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
-
-    const hud     = DOC.querySelector('.hud');
-    const quest   = DOC.querySelector('.questTop');
-    const power   = DOC.querySelector('.powerWrap');
-    const coach   = DOC.querySelector('.coachWrap');
-
-    let topY = 0;
-    if (hud && hud.getBoundingClientRect)   topY = Math.max(topY, hud.getBoundingClientRect().bottom);
-    if (quest && quest.getBoundingClientRect) topY = Math.max(topY, quest.getBoundingClientRect().bottom);
-    topY = Math.max(topY + 12, 150); // fallback minimal
-
-    let botY = H;
-    if (power && power.getBoundingClientRect){
-      const r = power.getBoundingClientRect();
-      botY = Math.min(botY, r.top);
-    }
-    botY = Math.min(botY - 12, H - 170); // fallback minimal
-
-    let x0 = 16;
-    let x1 = W - 16;
-
-    // avoid coach area (visual overlap)
-    if (coach && coach.getBoundingClientRect){
-      const r = coach.getBoundingClientRect();
-      const avoidRight = clamp(W - r.left + 12, 0, 260);
-      x1 = Math.min(x1, W - avoidRight);
-    }
-
-    // relax if too small
-    if ((x1 - x0) < 140){
-      x0 = 12; x1 = W - 12;
-    }
-    if ((botY - topY) < 180){
-      topY = Math.max(120, topY - 40);
-      botY = Math.min(H - 140, botY + 40);
-    }
-
-    engine._hudRectT = t;
-    engine._hudCache = { W, H, x0, x1, y0: topY, y1: botY };
-    return engine._hudCache;
+    const top = 160, bot = 190, side = 16;
+    return { x0:side, x1:W-side, y0:top, y1:H-bot, W, H };
   }
 
-  // convert desired SCREEN position -> LAYER position (compensate view offset)
-  function screenToLayer(p){
-    return { x: p.x - engine.vx, y: p.y - engine.vy };
-  }
-
-  // ---------- DOM target positioning (support both CSS-var and explicit) ----------
+  // ---------- DOM target helpers ----------
   function setXY(el, x, y){
     el.style.setProperty('--x', x.toFixed(1)+'px');
     el.style.setProperty('--y', y.toFixed(1)+'px');
-    el.style.left = x.toFixed(1)+'px';
-    el.style.top  = y.toFixed(1)+'px';
     el.dataset._x = String(x);
     el.dataset._y = String(y);
   }
 
   function randPos(){
-    const r = getHudSafeRect();
-    const sx = r.x0 + engine.rng()*(r.x1 - r.x0);
-    const sy = r.y0 + engine.rng()*(r.y1 - r.y0);
-    return screenToLayer({ x:sx, y:sy });
+    const r = safeSpawnRect();
+    const x = r.x0 + engine.rng()*(r.x1 - r.x0);
+    const y = r.y0 + engine.rng()*(r.y1 - r.y0);
+    return { x, y };
   }
 
   function stormPos(){
-    const r = getHudSafeRect();
+    const r = safeSpawnRect();
     const cx = r.W * 0.5;
     const cy = (r.y0 + r.y1) * 0.5;
     const idx = (engine.stormSpawnIdx++);
@@ -358,35 +299,31 @@ Food Groups VR — GameEngine (PATCHED)
     const jx = (engine.rng()-0.5) * 26;
     const jy = (engine.rng()-0.5) * 22;
 
-    let sx, sy;
-
     if (engine.stormPattern === 'wave'){
       const t = (idx % 28) / 28;
-      sx = r.x0 + t*(r.x1 - r.x0);
-      sy = cy + Math.sin((idx*0.55)) * ((r.y1 - r.y0)*0.22);
-    } else if (engine.stormPattern === 'spiral'){
+      const x = r.x0 + t*(r.x1 - r.x0);
+      const y = cy + Math.sin((idx*0.55)) * ((r.y1 - r.y0)*0.22);
+      return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
+    }
+    if (engine.stormPattern === 'spiral'){
       const a = idx * 0.62;
       const rad = clamp(28 + idx*5.0, 28, Math.min(r.x1-r.x0, r.y1-r.y0)*0.40);
-      sx = cx + Math.cos(a)*rad;
-      sy = cy + Math.sin(a)*rad;
-    } else {
-      const corners = [
-        {x:r.x0+26, y:r.y0+26},
-        {x:r.x1-26, y:r.y0+26},
-        {x:r.x0+26, y:r.y1-26},
-        {x:r.x1-26, y:r.y1-26},
-        {x:cx, y:r.y0+22},
-        {x:cx, y:r.y1-22},
-      ];
-      const c = corners[(engine.rng()*corners.length)|0];
-      sx = c.x + (engine.rng()-0.5)*120;
-      sy = c.y + (engine.rng()-0.5)*110;
+      const x = cx + Math.cos(a)*rad;
+      const y = cy + Math.sin(a)*rad;
+      return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
     }
-
-    sx = clamp(sx + jx, r.x0, r.x1);
-    sy = clamp(sy + jy, r.y0, r.y1);
-
-    return screenToLayer({ x:sx, y:sy });
+    const corners = [
+      {x:r.x0+26, y:r.y0+26},
+      {x:r.x1-26, y:r.y0+26},
+      {x:r.x0+26, y:r.y1-26},
+      {x:r.x1-26, y:r.y1-26},
+      {x:cx, y:r.y0+22},
+      {x:cx, y:r.y1-22},
+    ];
+    const c = corners[(engine.rng()*corners.length)|0];
+    const x = c.x + (engine.rng()-0.5)*120;
+    const y = c.y + (engine.rng()-0.5)*110;
+    return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
   }
 
   function removeTarget(el){
@@ -396,20 +333,29 @@ Food Groups VR — GameEngine (PATCHED)
     root.setTimeout(()=> el.remove(), 220);
   }
 
-  function makeTarget(type, emoji, x, y, s){
+  function typeClass(tp){
+    tp = String(tp||'').toLowerCase();
+    if (tp === 'good')  return 'fg-good';
+    if (tp === 'junk')  return 'fg-junk';
+    if (tp === 'wrong') return 'fg-wrong';
+    if (tp === 'decoy') return 'fg-decoy';
+    if (tp === 'boss')  return 'fg-boss';
+    if (tp === 'star')  return 'fg-star';
+    if (tp === 'ice')   return 'fg-ice';
+    return '';
+  }
+
+  function makeTarget(type, emoji, x, y, s, ttlOverrideMs){
     const layer = engine.layerEl;
     if (!layer) return null;
 
     const el = DOC.createElement('div');
-    el.className = 'fg-target spawn';
-    el.style.position = 'absolute'; // ✅ make sure it positions even if CSS missing
-
-    // ✅ emoji always visible
-    const em = emoji || '✨';
-    el.dataset.emoji = em;
-    el.textContent = em;
-
+    el.className = 'fg-target spawn ' + typeClass(type);
+    el.dataset.emoji = emoji || '✨';
     el.dataset.type = type;
+
+    // fallback (กันบางเครื่องที่ pseudo content แปลก ๆ) — CSS จะซ่อนด้วย font-size:0
+    el.textContent = el.dataset.emoji;
 
     if (type === 'good') el.dataset.groupId = String(engine.groupId);
 
@@ -421,15 +367,14 @@ Food Groups VR — GameEngine (PATCHED)
       hitTarget(el);
     }, { passive:false });
 
-    const ttl = engine.ttlMs * ((now() < engine.freezeUntil) ? 1.25 : 1.0);
-
     // TTL expire -> miss only when GOOD expires
+    const ttl = Math.max(420, Number(ttlOverrideMs ?? engine.ttlMs) || engine.ttlMs);
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
       if (type === 'good'){
         engine.misses++; engine.combo = 0; engine.groupClean = false;
         engine.fever = clamp(engine.fever + 10, 0, 100);
-        emit('hha:judge', { kind:'MISS' }); // audio.js listens
+        emit('hha:judge', { kind:'MISS' });
         updateScore();
         emitFever();
       }
@@ -460,6 +405,7 @@ Food Groups VR — GameEngine (PATCHED)
     setGroup(next);
 
     emitProgress({ kind:'group_swap' });
+    engine._rushUntil = now() + 6000;
 
     engine.power = 0;
     updatePower();
@@ -485,6 +431,7 @@ Food Groups VR — GameEngine (PATCHED)
     engine.stormSpawnIdx = 0;
 
     DOC.body.classList.add('groups-storm');
+    DOC.body.classList.remove('groups-storm-urgent');
     emit('groups:storm', { on:true, durSec: engine.stormDurSec|0, pattern: engine.stormPattern });
     emitProgress({ kind:'storm_on' });
     emit('hha:judge', { kind:'boss', text:'STORM!' });
@@ -509,7 +456,7 @@ Food Groups VR — GameEngine (PATCHED)
     const p = engine.storm ? stormPos() : randPos();
     const s = 1.25 * engine.sizeBase;
 
-    const el = makeTarget('boss','👑',p.x,p.y,s);
+    const el = makeTarget('boss','👑',p.x,p.y,s, 3800); // boss อยู่ได้นานขึ้นนิด
     if (!el) return;
 
     el.dataset.hp = String(engine.bossHp);
@@ -524,7 +471,7 @@ Food Groups VR — GameEngine (PATCHED)
   }
 
   function hitBoss(el){
-    emitProgress({ type:'hit', correct:true }); // audio
+    emitProgress({ type:'hit', correct:true });
 
     engine.hitAll++;
     engine.combo = clamp(engine.combo + 1, 0, 9999);
@@ -545,26 +492,30 @@ Food Groups VR — GameEngine (PATCHED)
     } else {
       el.classList.add('fg-boss-hurt');
       setTimeout(()=> el.classList.remove('fg-boss-hurt'), 220);
+      if (engine.bossHp === 1) el.classList.add('fg-boss-weak');
     }
   }
 
-  // ---------- Power-ups ----------
+  // ---------- Powerups ----------
   function hitStar(el){
-    // ⭐ score x2 for 6s (no effect on accuracy/power sync)
-    emit('hha:judge', { kind:'good', text:'⭐ SCORE x2!' });
-    emit('hha:celebrate', { kind:'mini', title:'SCORE x2!' });
-    engine.overUntil = now() + 6000;
-    engine.score += 60;
+    // ไม่ให้นับใน accuracy (ไม่เพิ่ม hitAll/hitGood)
+    emitProgress({ type:'hit', correct:true }); // ให้เสียง/เอฟเฟกต์ได้
+    engine.score += Math.round(120 * scoreMult());
+    engine.overUntil = now() + 7000; // x2
+    engine.shield = Math.max(engine.shield, 1); // ให้โล่ 1 ครั้ง
+    emit('hha:judge', { kind:'good', text:'⭐ OVERDRIVE x2 + SHIELD!' });
+    emit('hha:celebrate', { kind:'mini', title:'OVERDRIVE!' });
+    emitFever();
     updateScore();
     removeTarget(el);
   }
 
   function hitIce(el){
-    // ❄️ slow spawns + longer ttl for 4.5s
+    emitProgress({ type:'hit', correct:true });
+    engine.score += Math.round(90 * scoreMult());
+    engine.freezeUntil = now() + 6000;
     emit('hha:judge', { kind:'good', text:'❄️ FREEZE!' });
     emit('hha:celebrate', { kind:'mini', title:'FREEZE!' });
-    engine.freezeUntil = now() + 4500;
-    engine.score += 45;
     updateScore();
     removeTarget(el);
   }
@@ -586,12 +537,12 @@ Food Groups VR — GameEngine (PATCHED)
       if (gid && gid !== engine.groupId) type = 'wrong';
     }
 
+    engine.hitAll++;
+
     // GOOD
     if (type === 'good'){
-      emitProgress({ type:'hit', correct:true });    // audio
-      emitProgress({ kind:'hit_good' });             // quest
-
-      engine.hitAll++;
+      emitProgress({ type:'hit', correct:true });
+      emitProgress({ kind:'hit_good' });
       engine.hitGood++;
 
       engine.combo = clamp(engine.combo + 1, 0, 9999);
@@ -604,7 +555,6 @@ Food Groups VR — GameEngine (PATCHED)
       updateScore();
       emitFever();
 
-      // sync goal->group: power +1 only
       addPower(1);
 
       removeTarget(el);
@@ -614,19 +564,18 @@ Food Groups VR — GameEngine (PATCHED)
     // BAD types
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
     if (badLike){
-      // shield blocks junk = no miss and NOT hit_bad (nojunk fairness)
+      // shield blocks junk = no miss and NOT hit_bad
       if (type === 'junk' && engine.shield > 0){
         engine.shield = 0;
         emitFever();
-        emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
+        emit('hha:judge', { kind:'good', text:'🛡️ SHIELD BLOCK!' });
         removeTarget(el);
         return;
       }
 
-      emitProgress({ type:'hit', correct:false }); // audio
-      emitProgress({ kind:'hit_bad' });            // quest
+      emitProgress({ type:'hit', correct:false });
+      emitProgress({ kind:'hit_bad' });
 
-      engine.hitAll++;
       engine.misses++;
       engine.combo = 0;
       engine.groupClean = false;
@@ -634,7 +583,7 @@ Food Groups VR — GameEngine (PATCHED)
       engine.fever = clamp(engine.fever + (type==='junk'?18:12), 0, 100);
       emitFever();
 
-      emit('hha:judge', { kind:'bad', text:(type==='junk'?'JUNK!':(type==='wrong'?'WRONG!':'DECOY!')) });
+      emit('hha:judge', { kind:'bad', text:(type==='junk'?'JUNK!':'WRONG!') });
 
       updateScore();
       removeTarget(el);
@@ -647,7 +596,6 @@ Food Groups VR — GameEngine (PATCHED)
     const baseJ = (engine.runMode==='research') ? diffParams(engine.diff).junk : engine.adapt.junkBias;
     const baseD = (engine.runMode==='research') ? diffParams(engine.diff).decoy : engine.adapt.decoyBias;
 
-    // powerups
     const pu = engine.storm ? 0.016 : 0.010;
     if (engine.rng() < pu) return (engine.rng() < 0.5) ? 'star' : 'ice';
 
@@ -685,9 +633,12 @@ Food Groups VR — GameEngine (PATCHED)
     const tp = chooseType();
     const em = chooseEmoji(tp);
     const p = engine.storm ? stormPos() : randPos();
-    const s = (tp === 'star' || tp === 'ice') ? (1.08 * engine.sizeBase) : engine.sizeBase;
+    const s = engine.sizeBase;
 
-    const el = makeTarget(tp, em, p.x, p.y, s);
+    const freezeOn = now() < engine.freezeUntil;
+    const ttlBonus = freezeOn ? 260 : 0;
+
+    const el = makeTarget(tp, em, p.x, p.y, s, engine.ttlMs + ttlBonus);
     if (el) layer.appendChild(el);
   }
 
@@ -696,10 +647,10 @@ Food Groups VR — GameEngine (PATCHED)
     spawnOne();
 
     const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
-
-    // freeze slows spawn, storm speeds up slightly
     let sMs = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0));
-    if (now() < engine.freezeUntil) sMs *= 1.35;
+
+    // freeze ทำให้ช้าลงนิด (อ่านง่ายขึ้น)
+    if (now() < engine.freezeUntil) sMs = sMs * 1.22;
 
     engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
   }
@@ -736,13 +687,17 @@ Food Groups VR — GameEngine (PATCHED)
     if (engine.runMode === 'play'){
       const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
       const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
-      engine.adapt.spawnMs  = clamp(820 - heat*260, 480, 880);
-      engine.adapt.ttl      = clamp(1680 - heat*260, 1250, 1750);
-      engine.ttlMs          = engine.adapt.ttl;
+      engine.adapt.spawnMs = clamp(820 - heat*260, 480, 880);
+      engine.adapt.ttl     = clamp(1680 - heat*260, 1250, 1750);
+      engine.ttlMs = engine.adapt.ttl;
       engine.adapt.junkBias = clamp(0.11 + heat*0.06, 0.08, 0.22);
       engine.adapt.decoyBias= clamp(0.09 + heat*0.05, 0.06, 0.20);
       engine.adapt.bossEvery= clamp(20000 - heat*6000, 14000, 22000);
     }
+
+    // toggle vibe classes (ให้ CSS ทำงานจริง)
+    DOC.body.classList.toggle('groups-overdrive', now() < engine.overUntil);
+    DOC.body.classList.toggle('groups-freeze',    now() < engine.freezeUntil);
 
     feverTick();
 
@@ -774,7 +729,7 @@ Food Groups VR — GameEngine (PATCHED)
     clearAllTargets();
     questStop();
 
-    DOC.body.classList.remove('groups-storm','groups-storm-urgent');
+    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-overdrive','groups-freeze');
 
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
     const grade = rankFromAcc(acc);
@@ -821,7 +776,7 @@ Food Groups VR — GameEngine (PATCHED)
     engine.score = 0; engine.combo = 0; engine.comboMax = 0;
     engine.misses = 0; engine.hitGood = 0; engine.hitAll = 0;
 
-    engine.powerThr = dp.powerThr;  // sync to quest goalNeed
+    engine.powerThr = dp.powerThr;
     engine.power = 0;
 
     engine.sizeBase = dp.size;
@@ -844,8 +799,8 @@ Food Groups VR — GameEngine (PATCHED)
     engine.shield = 0;
     engine.feverTickLast = 0;
 
-    engine.freezeUntil = 0;
     engine.overUntil = 0;
+    engine.freezeUntil = 0;
 
     engine.vx = 0; engine.vy = 0;
     applyView();
@@ -856,7 +811,6 @@ Food Groups VR — GameEngine (PATCHED)
     emitFever();
     emitCoach(SONG[1], 'neutral');
 
-    // start quest system
     questStart();
 
     emit('hha:celebrate', { kind:'goal', title:'เริ่มเกม! 🎵' });
