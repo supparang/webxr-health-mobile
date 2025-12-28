@@ -7,7 +7,8 @@ FX controller:
 
 (function(root){
   'use strict';
-  const DOC = document;
+  const DOC = root.document;
+  if (!DOC) return;
 
   const Particles =
     (root.GAME_MODULES && root.GAME_MODULES.Particles) ||
@@ -69,8 +70,7 @@ FX controller:
   function flash(){
     const el = ensureFlash();
     el.classList.remove('on');
-    // force reflow
-    void el.offsetWidth;
+    void el.offsetWidth; // reflow
     el.classList.add('on');
   }
 
@@ -98,4 +98,4 @@ FX controller:
     flash();
   }, { passive:true });
 
-})();
+})(typeof window !== 'undefined' ? window : globalThis);
