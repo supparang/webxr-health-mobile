@@ -1,8 +1,9 @@
 /* === /herohealth/vr-groups/audio.js ===
-Simple WebAudio SFX:
+Simple WebAudio SFX (PATCHED)
 - hit good: higher blip
-- hit bad / miss: lower buzz
-- last 5 sec tick
+- hit bad/miss: lower buzz
+- last 5 sec tick (debounced)
+- ✅ PATCH: judge kind MISS/miss
 */
 
 (function(root){
@@ -43,18 +44,13 @@ Simple WebAudio SFX:
     }catch{}
   }
 
-  function tick(){
-    beep(1150, 70, 'square', 0.03);
-  }
+  function tick(){ beep(1150, 70, 'square', 0.03); }
   function good(){
     beep(980, 90, 'sine', 0.06);
     setTimeout(()=>beep(1320, 70, 'sine', 0.04), 40);
   }
-  function bad(){
-    beep(220, 140, 'sawtooth', 0.05);
-  }
+  function bad(){ beep(220, 140, 'sawtooth', 0.05); }
 
-  // unlock on first user gesture
   function unlock(){
     const ac = ctx();
     if (ac && ac.state === 'suspended') ac.resume().catch(()=>{});
@@ -73,14 +69,20 @@ Simple WebAudio SFX:
 
   root.addEventListener('hha:judge', (e)=>{
     const d = e.detail || {};
-    if (d.kind === 'MISS') bad();
+    const k = String(d.kind || '').toLowerCase();
+    if (k === 'miss') bad();
   });
 
-  // tick last 5 seconds
+  // tick last 5 seconds (debounced by second)
+  let lastTickAt = -1;
   root.addEventListener('hha:time', (e)=>{
     const d = e.detail || {};
     const left = Number(d.left ?? 0);
-    if (left > 0 && left <= 5) tick();
+    if (left > 0 && left <= 5 && left !== lastTickAt){
+      lastTickAt = left;
+      tick();
+    }
+    if (left > 5) lastTickAt = -1;
   });
 
 })(typeof window !== 'undefined' ? window : globalThis);
