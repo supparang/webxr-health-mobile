@@ -1,62 +1,96 @@
-// === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
-// World-shift look for GoodJunk — FIXED
-// ✅ ไม่ขยับตามเมาส์ “เฉยๆ” อีกต่อไป
-// ✅ ขยับเฉพาะตอนลาก (pointerdown แล้วลาก)
-// ✅ ปิดได้ด้วย ?look=0
+/* === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
+PATCH: drag-to-shift ONLY (no mousemove drift)
+- world shift applies only while pointer is down (dragging)
+- mouse move without button does nothing
+*/
+'use strict';
 
 export function attachTouchLook(opts = {}){
   const root = (typeof window !== 'undefined') ? window : globalThis;
-  const doc = root.document;
+  const doc  = root.document;
   if (!doc) return () => {};
 
-  const q = new URL(root.location.href).searchParams;
-  if (String(q.get('look') ?? '1') === '0') return () => {};
+  const stage = doc.getElementById(opts.stageId || 'gj-stage') || doc.querySelector('#gj-stage') || doc.body;
 
-  const stage = doc.getElementById('gj-stage') || doc.querySelector('#gj-stage') || doc.body;
-  if (!stage) return () => {};
+  // config
+  const maxShiftPx = Number(opts.maxShiftPx ?? 26);   // gentle
+  const lerp = (a,b,t)=> a + (b-a)*t;
 
-  const maxShift = Number(opts.maxShift ?? 22); // px
-  const maxRot = Number(opts.maxRot ?? 2.0);    // deg
-
-  let down = false;
-  let p0x = 0, p0y = 0;
+  let isDown = false;
+  let pid = null;
   let sx = 0, sy = 0;
+  let tx = 0, ty = 0;
+  let vx = 0, vy = 0;
 
   function apply(){
-    stage.style.transform = `translate(${sx}px, ${sy}px) rotateY(${(-sx/maxShift)*maxRot}deg) rotateX(${(sy/maxShift)*maxRot}deg)`;
+    // smooth
+    vx = lerp(vx, tx, 0.18);
+    vy = lerp(vy, ty, 0.18);
+    stage.style.transform = `translate3d(${vx.toFixed(2)}px, ${vy.toFixed(2)}px, 0)`;
   }
 
   function onDown(e){
-    down = true;
-    p0x = e.clientX;
-    p0y = e.clientY;
-    stage.setPointerCapture?.(e.pointerId);
+    // only primary pointer
+    isDown = true;
+    pid = e.pointerId;
+    sx = e.clientX;
+    sy = e.clientY;
+    try{ stage.setPointerCapture(pid); }catch(_){}
   }
 
   function onMove(e){
-    if (!down) return; // ✅ สำคัญ: ไม่ขยับถ้าไม่ได้ลาก
-    const dx = e.clientX - p0x;
-    const dy = e.clientY - p0y;
-    sx = Math.max(-maxShift, Math.min(maxShift, dx * 0.12));
-    sy = Math.max(-maxShift, Math.min(maxShift, dy * 0.12));
+    // ✅ KEY: ignore move unless dragging
+    if (!isDown) return;
+    if (pid != null && e.pointerId !== pid) return;
+
+    const dx = e.clientX - sx;
+    const dy = e.clientY - sy;
+
+    // clamp
+    tx = Math.max(-maxShiftPx, Math.min(maxShiftPx, dx * 0.08));
+    ty = Math.max(-maxShiftPx, Math.min(maxShiftPx, dy * 0.08));
+
     apply();
   }
 
   function onUp(e){
-    down = false;
-    sx = 0; sy = 0;
-    apply();
+    if (pid != null && e.pointerId !== pid) return;
+    isDown = false;
+    pid = null;
+
+    // ease back to center
+    tx = 0; ty = 0;
+    // small smooth return
+    const t0 = performance.now();
+    const dur = 180;
+    function back(t){
+      const k = Math.min(1, (t - t0)/dur);
+      // toward 0
+      tx = 0; ty = 0;
+      vx = lerp(vx, 0, 0.22);
+      vy = lerp(vy, 0, 0.22);
+      stage.style.transform = `translate3d(${vx.toFixed(2)}px, ${vy.toFixed(2)}px, 0)`;
+      if (k < 1) requestAnimationFrame(back);
+      else stage.style.transform = 'translate3d(0,0,0)';
+    }
+    requestAnimationFrame(back);
   }
 
+  stage.style.willChange = 'transform';
+
+  // pointer events
   stage.addEventListener('pointerdown', onDown, { passive:true });
   stage.addEventListener('pointermove', onMove, { passive:true });
   stage.addEventListener('pointerup', onUp, { passive:true });
   stage.addEventListener('pointercancel', onUp, { passive:true });
+  stage.addEventListener('pointerleave', onUp, { passive:true });
 
-  return () => {
+  return function detach(){
     stage.removeEventListener('pointerdown', onDown);
     stage.removeEventListener('pointermove', onMove);
     stage.removeEventListener('pointerup', onUp);
     stage.removeEventListener('pointercancel', onUp);
+    stage.removeEventListener('pointerleave', onUp);
+    try{ stage.style.transform = 'translate3d(0,0,0)'; }catch(_){}
   };
 }
