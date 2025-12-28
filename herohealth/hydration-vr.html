@@ -1,547 +1,588 @@
-<!-- === /herohealth/hydration-vr/hydration-vr.html ===
-HydrationVR (PRODUCTION) — Hydro-Orb Identity + Full HUD
-✅ IDs match hydration.safe.js
-✅ WaterGauge + Fever + Quest + Stats
-✅ Safe-zone excludes for mode-factory
-✅ Start/End overlays + back-to-hub
--->
-
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Hydration VR</title>
+  <title>HeroHealth — Food Groups VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional; keeps consistency across games) -->
+  <!-- A-Frame (optional bg + VR button) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Logger (optional) -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
+  <!-- CSS -->
+  <link rel="stylesheet" href="./groups.css?v=20251228" />
 
   <style>
-    :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.62);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
+    :root{ --gazeProg:0; }
 
-      --green:#22c55e;
-      --low:#38bdf8;
-      --high:#f59e0b;
-      --danger:#ef4444;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    html,body{ margin:0; padding:0; width:100%; height:100%; background: radial-gradient(1200px 700px at 50% 20%, #0b1224 0%, #020617 60%, #020617 100%); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; overflow:hidden; }
-    *{ box-sizing:border-box; }
-
-    /* --- Layout --- */
-    .ui{
+    /* Cardboard split */
+    #fgCbWrap{
       position:fixed; inset:0;
-      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-      pointer-events:none;
-      z-index:20;
+      display:none;
+      z-index:9999;
+      background:#000;
     }
-    .top{
-      display:flex; align-items:center; justify-content:center;
-      gap:10px;
-      margin-bottom: 10px;
-    }
-    .barCard{
-      width:min(980px, 96vw);
-      background: rgba(2,6,23,.55);
-      border:1px solid var(--stroke);
-      border-radius: 999px;
-      padding: 10px 12px;
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
-      backdrop-filter: blur(10px);
-      display:flex; align-items:center; justify-content:space-between;
-      gap:12px;
-    }
-    .barLeft{ display:flex; align-items:center; gap:10px; font-weight:950; letter-spacing:.2px; }
-    .barRight{ display:flex; align-items:center; gap:12px; font-weight:950; color:var(--muted); }
-    .barTrack{
+    body.cardboard #fgCbWrap{ display:flex; }
+
+    .fgEye{
       position:relative;
       flex:1;
-      height: 10px;
-      background: rgba(148,163,184,.12);
-      border-radius: 999px;
       overflow:hidden;
-      border:1px solid rgba(148,163,184,.10);
+      border-left:1px solid rgba(255,255,255,.06);
     }
-    .barFill{
-      position:absolute; left:0; top:0; bottom:0;
-      width:34%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(34,197,94,.6), rgba(34,197,94,1));
-      box-shadow: 0 0 18px rgba(34,197,94,.35);
-      transition: width .22s ease;
-    }
+    .fgEye:first-child{ border-left:none; }
 
-    .row{
-      display:grid;
-      grid-template-columns: 1fr 1.1fr;
-      gap:12px;
-      width:min(1180px, 96vw);
-      margin: 0 auto;
-    }
-    @media (max-width: 920px){
-      .row{ grid-template-columns: 1fr; }
-    }
-    .card{
-      background: var(--panel);
-      border:1px solid var(--stroke);
-      border-radius: 18px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      padding: 12px;
-      pointer-events:none;
-    }
-    .title{
-      font-weight:1000;
-      letter-spacing:.2px;
-      color: var(--muted);
-      font-size: 12px;
-      margin-bottom: 8px;
-    }
-    .statsGrid{
-      display:grid;
-      grid-template-columns: 1fr auto;
-      gap:8px 10px;
-      font-weight:950;
-      letter-spacing:.2px;
-      font-size: 13px;
-    }
-    .statsGrid .k{ color: var(--muted); }
-    .statsGrid .v{ text-align:right; }
-
-    .questLines{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      font-weight:950;
-      letter-spacing:.2px;
-      line-height:1.25;
-    }
-    .questLines .big{ font-size: 16px; }
-    .questLines .muted{ color: var(--muted); }
-
-    /* --- Playfield --- */
-    #playfield{
-      position:fixed;
-      inset:0;
-      z-index:10;
+    .fgView{
+      position:absolute; inset:10px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.12);
       overflow:hidden;
-      /* hydration vibe */
-      background:
-        radial-gradient(900px 520px at 50% 55%, rgba(56,189,248,.08), rgba(2,6,23,0) 60%),
-        radial-gradient(1200px 700px at 50% 15%, rgba(34,197,94,.06), rgba(2,6,23,0) 60%);
+      background: rgba(2,6,23,.25);
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
     }
 
-    /* subtle “current” */
-    #playfield::before{
-      content:"";
-      position:absolute; inset:-20%;
-      background:
-        repeating-linear-gradient(120deg,
-          rgba(56,189,248,.06) 0px,
-          rgba(56,189,248,.02) 36px,
-          rgba(34,197,94,.04) 72px,
-          rgba(2,6,23,0) 110px);
-      filter: blur(14px);
-      opacity:.45;
-      animation: currentDrift 9s linear infinite;
-      transform: translate3d(0,0,0);
-      pointer-events:none;
-    }
-    @keyframes currentDrift{
-      from{ transform: translate3d(-6%, -2%, 0) rotate(0.001deg); }
-      to  { transform: translate3d(6%,  2%, 0) rotate(0.001deg); }
+    /* hide normal UI in cardboard to avoid duplication */
+    body.cardboard a-scene,
+    body.cardboard .hud-top,
+    body.cardboard #startOverlay,
+    body.cardboard #endOverlay{
+      display:none !important;
     }
 
-    /* target layer */
-    #hvr-layer{
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      z-index:12;
-    }
-    #hvr-layer .hvr-target{ pointer-events:auto; }
-
-    /* crosshair */
-    #hvr-crosshair{
-      position:absolute;
-      left:50%; top:52%;
-      transform: translate(-50%,-50%);
-      width: 22px; height: 22px;
-      border-radius: 999px;
-      border:2px solid rgba(226,232,240,.35);
-      box-shadow: 0 0 18px rgba(56,189,248,.25);
-      pointer-events:none;
-      z-index:13;
-    }
-    #hvr-crosshair::after{
-      content:"";
+    /* gaze */
+    .gazeRing{
       position:absolute; left:50%; top:50%;
-      width: 4px; height:4px;
-      border-radius:999px;
-      background: rgba(226,232,240,.6);
       transform: translate(-50%,-50%);
-    }
-
-    /* bottom strip */
-    .bottom{
-      width:min(1180px, 96vw);
-      margin: 10px auto 0;
-      display:grid;
-      grid-template-columns: 1.3fr .7fr;
-      gap:12px;
-    }
-    @media (max-width: 920px){
-      .bottom{ grid-template-columns: 1fr; }
-    }
-
-    .coachCard{
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .coachIcon{
-      width:42px; height:42px;
-      border-radius: 14px;
-      background: rgba(34,197,94,.16);
-      border:1px solid rgba(34,197,94,.22);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:22px;
-    }
-    .coachTxt{ display:flex; flex-direction:column; gap:2px; }
-    .coachTxt .t1{ font-weight:1100; }
-    .coachTxt .t2{ color: var(--muted); font-weight:900; font-size: 12px; }
-
-    /* fever */
-    .feverTrack{
-      position:relative;
-      height: 10px;
+      width:56px; height:56px;
       border-radius:999px;
-      overflow:hidden;
-      background: rgba(148,163,184,.12);
-      border:1px solid rgba(148,163,184,.10);
+      background:
+        conic-gradient(rgba(34,197,94,.95) calc(var(--gazeProg)*360deg),
+                       rgba(148,163,184,.18) 0deg);
+      -webkit-mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
+      mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
+      filter: drop-shadow(0 0 14px rgba(34,197,94,.22));
+      pointer-events:none;
+      opacity:.95;
+      z-index:5;
     }
-    .feverFill{
-      position:absolute; left:0; top:0; bottom:0;
-      width: 0%;
+    .gazeRet{
+      position:absolute; left:50%; top:50%;
+      transform: translate(-50%,-50%);
+      width:30px; height:30px;
       border-radius:999px;
-      background: linear-gradient(90deg, rgba(251,146,60,.65), rgba(239,68,68,1));
-      box-shadow: 0 0 18px rgba(239,68,68,.25);
-      transition: width .22s ease;
+      border:2px solid rgba(229,231,235,.58);
+      box-shadow: 0 0 0 10px rgba(2,6,23,.35);
+      pointer-events:none;
+      z-index:6;
+    }
+    .gazeRet::after{
+      content:'';
+      position:absolute; left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:6px; height:6px;
+      border-radius:999px;
+      background: rgba(34,211,238,.95);
+      box-shadow: 0 0 12px rgba(34,211,238,.35);
     }
 
-    /* Buttons row */
-    .btnRow{
+    #fgCbControls{
       position:fixed;
       left:50%;
-      bottom: calc(12px + var(--sab));
-      transform: translateX(-50%);
-      display:flex;
+      bottom: calc(10px + env(safe-area-inset-bottom,0px));
+      transform:translateX(-50%);
+      z-index:10000;
+      display:none;
       gap:10px;
-      z-index:30;
-      pointer-events:auto;
     }
-    .btn{
-      min-width: 96px;
-      border-radius: 16px;
-      padding: 10px 14px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      color: var(--text);
-      font-weight:1000;
-      letter-spacing:.2px;
-      cursor:pointer;
-      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+    body.cardboard #fgCbControls{ display:flex; }
+    .cbBtn{
+      pointer-events:auto;
+      background:rgba(2,6,23,.70);
+      border:1px solid rgba(148,163,184,.20);
+      color:#e5e7eb;
+      border-radius:999px;
+      padding:10px 14px;
+      font-weight:1100;
+      backdrop-filter: blur(10px);
+      box-shadow:0 18px 60px rgba(0,0,0,.45);
       -webkit-tap-highlight-color: transparent;
     }
-    .btn.primary{ background: rgba(56,189,248,.14); }
-    .btn.danger{ background: rgba(239,68,68,.14); }
 
-    /* Start overlay */
-    #start-overlay{
-      position:fixed; inset:0;
-      z-index:50;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 16px;
-      background: rgba(2,6,23,.65);
-      backdrop-filter: blur(10px);
-    }
-    .startCard{
-      width:min(720px, 94vw);
-      border-radius: 22px;
-      border:1px solid rgba(148,163,184,.18);
+    /* Add a Cardboard button into start overlay */
+    .start-actions{ gap:10px; flex-wrap:wrap; }
+    .btn.cardboard{
       background: rgba(2,6,23,.72);
-      box-shadow: 0 30px 90px rgba(0,0,0,.55);
-      padding: 16px;
+      border: 1px solid rgba(148,163,184,.20);
     }
-    .startCard h2{ margin:0 0 6px; font-size: 18px; letter-spacing:.2px; }
-    .startCard p{ margin:0; color: var(--muted); font-weight:850; line-height:1.4; }
-    .startBtns{ display:flex; gap:10px; margin-top: 12px; flex-wrap:wrap; }
-
-    /* End overlay */
-    #hvr-end{
-      position:fixed; inset:0;
-      z-index:60;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:16px;
-      background: rgba(2,6,23,.72);
-      backdrop-filter: blur(10px);
-      pointer-events:auto;
-    }
-    .endCard{
-      width:min(720px, 94vw);
-      border-radius: 22px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.78);
-      box-shadow: 0 30px 90px rgba(0,0,0,.55);
-      padding: 16px;
-    }
-    .endGrid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px 12px;
-      margin-top: 10px;
-      font-weight:1000;
-      letter-spacing:.2px;
-    }
-    .endGrid .k{ color: var(--muted); font-weight:900; }
-    .endGrid .v{ text-align:right; }
-
-    /* Hydration target identity (Hydro-Orb) */
-    .hy-orb{
-      --glow: rgba(56,189,248,.35);
-      --edge: rgba(226,232,240,.22);
-      --sheen: rgba(255,255,255,.22);
-      --core: rgba(56,189,248,.26);
-      border:1px solid rgba(226,232,240,.10) !important;
-      box-shadow:
-        0 18px 42px rgba(0,0,0,.45),
-        0 0 0 2px rgba(56,189,248,.12),
-        0 0 40px var(--glow) !important;
-      overflow:hidden;
-    }
-    .hy-orb.hy-good{ --glow: rgba(56,189,248,.35); }
-    .hy-orb.hy-bad{  --glow: rgba(239,68,68,.22); }
-
-    .hy-orb::before{
-      content:"";
-      position:absolute; inset:-20%;
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.22), rgba(255,255,255,0) 45%),
-        radial-gradient(circle at 55% 70%, rgba(56,189,248,.25), rgba(2,6,23,0) 55%);
-      filter: blur(1px);
-      opacity:.9;
-      pointer-events:none;
-      transform: translate3d(0,0,0);
-      animation: orbSheen 1.9s ease-in-out infinite;
-    }
-    @keyframes orbSheen{
-      0%{ transform: translate3d(-2%, -1%, 0); opacity:.78; }
-      50%{ transform: translate3d(2%, 1%, 0); opacity:1; }
-      100%{ transform: translate3d(-2%, -1%, 0); opacity:.78; }
-    }
-
-    .hy-symbol{
-      width: 52%;
-      height: 52%;
-      opacity:.95;
-      filter: drop-shadow(0 4px 10px rgba(0,0,0,.55));
-    }
-    .hy-symbol svg{ width:100%; height:100%; display:block; }
-
-    /* stamp animation (optional) */
-    #hha-stamp{
-      position:fixed; left:50%; top:46%;
-      transform: translate(-50%,-50%) scale(.88);
-      z-index:55;
-      pointer-events:none;
-      opacity:0;
-      transition: opacity .18s ease, transform .18s ease;
-    }
-    #hha-stamp.show{
-      opacity:1;
-      transform: translate(-50%,-50%) scale(1);
-    }
-    .stampBox{
-      border-radius: 18px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.65);
-      box-shadow: 0 30px 90px rgba(0,0,0,.55);
-      padding: 10px 14px;
-      text-align:center;
-      backdrop-filter: blur(10px);
-    }
-    .stampBig{ font-weight:1200; font-size: 18px; letter-spacing:.3px; }
-    .stampSmall{ color: var(--muted); font-weight:900; margin-top: 2px; font-size: 12px; }
-
-    /* Water zone theming */
-    body.water-low .barFill{ background: linear-gradient(90deg, rgba(56,189,248,.55), rgba(56,189,248,1)); box-shadow:0 0 18px rgba(56,189,248,.35); }
-    body.water-green .barFill{ background: linear-gradient(90deg, rgba(34,197,94,.6), rgba(34,197,94,1)); box-shadow:0 0 18px rgba(34,197,94,.35); }
-    body.water-high .barFill{ background: linear-gradient(90deg, rgba(245,158,11,.55), rgba(245,158,11,1)); box-shadow:0 0 18px rgba(245,158,11,.25); }
   </style>
 </head>
 
 <body>
+  <!-- Optional background scene -->
+  <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
+    <a-sky color="#06101f"></a-sky>
+    <a-entity id="cam" position="0 1.6 0" camera look-controls></a-entity>
+  </a-scene>
 
-  <!-- PLAYFIELD -->
-  <div id="playfield">
-    <div id="hvr-layer" aria-label="spawn-layer"></div>
-    <div id="hvr-crosshair" aria-label="crosshair"></div>
-  </div>
+  <!-- Gameplay layer -->
+  <div class="fg-layer" id="fg-layer"></div>
 
-  <!-- UI LAYER -->
-  <div class="ui">
-    <!-- TOP WATER -->
-    <div class="top" id="hha-water-header" data-hha-exclude="1">
-      <div class="barCard">
-        <div class="barLeft">
-          <span>💧</span>
-          <span>Water balance</span>
+  <!-- HUD -->
+  <div class="hud-top">
+    <div class="hud-card hud-left">
+      <div class="hud-row"><div class="hud-title">SCORE</div><div class="hud-val" id="hud-score">0</div></div>
+      <div class="hud-row"><div class="hud-title">COMBO</div><div class="hud-val" id="hud-combo">0</div></div>
+      <div class="hud-row"><div class="hud-title">MISS</div><div class="hud-val" id="hud-miss">0</div></div>
+    </div>
+
+    <div class="hud-card hud-mid">
+      <div class="hud-group-row">
+        <div class="hud-group" id="hud-group">หมู่ ?</div>
+        <div class="hud-timer" id="hud-time">90</div>
+      </div>
+
+      <div class="power-wrap">
+        <div class="power-label">
+          <div>POWER</div>
+          <div id="fg-powerText" style="font-weight:900;opacity:.9">0/0</div>
         </div>
+        <div class="power-bar"><div class="power-fill" id="hud-powerFill"></div></div>
+      </div>
 
-        <div class="barTrack" aria-label="water-bar-track">
-          <div class="barFill" id="water-bar" aria-valuemin="0" aria-valuemax="100"></div>
+      <div class="quest-wrap">
+        <div class="quest-line">
+          <div class="q-badge">GOAL</div>
+          <div class="q-text" id="hud-goal-title">—</div>
+          <div class="q-num" id="hud-goal-val">0/0</div>
         </div>
+        <div class="qbar"><div class="qbar-track"><div class="qbar-fill goal" id="hud-goal-bar"></div></div></div>
 
-        <div class="barRight">
-          <span id="water-zone">LOW</span>
-          <span id="water-pct">34%</span>
+        <div class="quest-line" id="hud-mini-line">
+          <div class="q-badge mini">MINI</div>
+          <div class="q-text" id="hud-mini-title">—</div>
+          <div class="q-num" id="hud-mini-val">0/0</div>
+        </div>
+        <div class="qbar">
+          <div class="qbar-track"><div class="qbar-fill mini" id="hud-mini-bar"></div></div>
+          <div class="qbar-timer" id="hud-mini-timer"></div>
         </div>
       </div>
     </div>
 
-    <!-- STATS + QUEST -->
-    <div class="row">
-      <section class="card" id="hha-card-left" data-hha-exclude="1">
-        <div class="title">STATS</div>
-        <div class="statsGrid">
-          <div class="k">SCORE</div><div class="v" id="stat-score">0</div>
-          <div class="k">COMBO</div><div class="v" id="stat-combo">0</div>
-          <div class="k">MAX</div><div class="v" id="stat-combo-max">0</div>
-          <div class="k">MISS</div><div class="v" id="stat-miss">0</div>
-          <div class="k">TIME</div><div class="v" id="stat-time">0</div>
-          <div class="k">GRADE</div><div class="v" id="stat-grade">C</div>
+    <div class="hud-card hud-right">
+      <div class="rank-box">
+        <div>
+          <div class="rank-title">RANK</div>
+          <div class="rank-sub"><span>ACC</span><span id="hud-acc">0%</span></div>
         </div>
-      </section>
-
-      <section class="card" id="hha-card-right" data-hha-exclude="1">
-        <div class="title">QUEST</div>
-        <div class="questLines">
-          <div class="big" id="quest-title">Quest 1</div>
-          <div id="quest-line1" class="muted">Goal: อยู่ใน GREEN ให้ครบ 🟢</div>
-          <div id="quest-line2" class="muted">สะสม GREEN รวม 0/18 วินาที</div>
-          <div id="quest-line3" class="muted">Goals done: 0 · Minis done: 0</div>
-          <div id="quest-line4" class="muted">Water: LOW · Cause: -</div>
-        </div>
-      </section>
-    </div>
-
-    <!-- BOTTOM -->
-    <div class="bottom">
-      <section class="card coachCard" data-hha-exclude="1">
-        <div class="coachIcon">🥦</div>
-        <div class="coachTxt">
-          <div class="t1" id="coach-text">พร้อมแล้ว เก็บน้ำดี ๆ นะ! 💧</div>
-          <div class="t2" id="coach-sub">แตะเป้า หรือ แตะกลางจอเพื่อยิง crosshair</div>
-        </div>
-      </section>
-
-      <section class="card" data-hha-exclude="1">
-        <div class="title" style="display:flex;align-items:center;justify-content:space-between">
-          <span>🔥 Fever</span>
-          <span id="fever-pct">0%</span>
-        </div>
-        <div class="feverTrack">
-          <div class="feverFill" id="fever-bar"></div>
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <!-- Buttons -->
-  <div class="btnRow" data-hha-exclude="1">
-    <button class="btn primary" id="btn-vr" type="button">VR</button>
-    <button class="btn danger" id="btn-stop" type="button">STOP</button>
-  </div>
-
-  <!-- START OVERLAY -->
-  <div id="start-overlay">
-    <div class="startCard">
-      <h2>💧 HydrationVR — Hydro-Orb</h2>
-      <p>
-        เป้าคือ “ลูกแก้วน้ำ” (Hydro-Orb) — เน้น <b>อยู่ใน GREEN</b> ให้ครบตามภารกิจ<br/>
-        โหมด Play ก็ยังโหดแบบวิจัย: <b>เป้าหายมีผล</b> และ <b>ปล่อย BAD หลุดก็โดน</b>
-      </p>
-      <div class="startBtns">
-        <button class="btn primary" id="btn-start" type="button">🚀 START</button>
-        <button class="btn" id="btn-backhub" type="button">🏠 HUB</button>
+        <div class="rank-grade" id="hud-rank">C</div>
       </div>
-      <p style="margin-top:10px">
-        Tip: ถ้าไม่กดอะไร น้ำจะค่อย ๆ “กลับสู่สมดุล” (regression-to-mean) แต่ใน Play จะหน่วงก่อน
-      </p>
+      <div class="rank-sub"><span>BEST</span><span id="hud-comboMax">0</span></div>
     </div>
   </div>
 
-  <!-- STAMP -->
-  <div id="hha-stamp">
-    <div class="stampBox">
-      <div class="stampBig" id="stamp-big">GOAL!</div>
-      <div class="stampSmall" id="stamp-small">+1</div>
-    </div>
-  </div>
-
-  <!-- END OVERLAY -->
-  <div id="hvr-end">
-    <div class="endCard">
-      <h2 style="margin:0">🏁 Summary</h2>
-      <div class="endGrid">
-        <div class="k">SCORE</div><div class="v" id="end-score">0</div>
-        <div class="k">GRADE</div><div class="v" id="end-grade">C</div>
-        <div class="k">COMBO MAX</div><div class="v" id="end-combo">0</div>
-        <div class="k">MISS</div><div class="v" id="end-miss">0</div>
-        <div class="k">GOALS</div><div class="v" id="end-goals">0/1</div>
-        <div class="k">MINIS</div><div class="v" id="end-minis">0/∞</div>
+  <!-- Start Overlay -->
+  <div class="start-overlay" id="startOverlay">
+    <div class="start-card">
+      <div class="start-title">Food Groups VR 🍽️</div>
+      <div class="start-sub">
+        ยิงให้ถูก “หมู่ปัจจุบัน” 🎯 สะสมพลังเพื่อสลับหมู่ ✨<br/>
+        ระวังขยะ (STUN) 🚫 + ตัวหลอก (decoy) ❓ + ยิงผิดหมู่ (WRONG) ⚠️<br/>
+        <b>STORM โหด+++</b> จะมาเป็นช่วง ๆ: เป้าเล็กลง + spawn ถี่ + ติ๊กๆ 🔥
       </div>
-      <div class="startBtns" style="margin-top:12px">
-        <button class="btn primary" id="btn-retry" type="button">🔁 RETRY</button>
-        <button class="btn" id="btn-backhub-2" type="button">🏠 HUB</button>
+
+      <div class="start-grid">
+        <div class="pill" id="pill-diff">DIFF: normal</div>
+        <div class="pill" id="pill-time">TIME: 90s</div>
+        <div class="pill" id="pill-mode">MODE: play</div>
+      </div>
+
+      <div class="start-actions">
+        <button class="btn primary" id="btnStart">เริ่มเล่น</button>
+        <button class="btn ghost" id="btnRestart">รีเซ็ต</button>
+        <button class="btn cardboard" id="btnCardboard" type="button">🕶️ Cardboard</button>
+      </div>
+
+      <div class="start-note">Tip: แตะเป้า = ยิงทันที (ใน Cardboard จ้องค้างเพื่อยิง)</div>
+    </div>
+  </div>
+
+  <!-- End Overlay -->
+  <div class="result-overlay" id="endOverlay">
+    <div class="result-card">
+      <h2>สรุปผล — Food Groups VR</h2>
+      <p>Score: <b id="endScore">0</b> · Rank: <b id="endRank">C</b> · Acc: <b id="endAcc">0%</b></p>
+      <p>ComboMax: <b id="endComboMax">0</b> · Miss: <b id="endMiss">0</b></p>
+      <p>Goals: <b id="endGoals">0/0</b> · Minis: <b id="endMinis">0/0</b></p>
+      <div class="result-actions">
+        <button class="btn primary" id="btnRetry">RETRY</button>
+        <button class="btn ghost" id="btnBackHub">กลับ HUB</button>
       </div>
     </div>
   </div>
 
-  <script type="module">
-    // wire end overlay hub button
-    const qs = new URLSearchParams(location.search||'');
-    const hub = qs.get('hub') || './hub.html';
-    const b1 = document.getElementById('btn-backhub');
-    const b2 = document.getElementById('btn-backhub-2');
-    if (b1) b1.addEventListener('click', ()=> location.href = hub);
-    if (b2) b2.addEventListener('click', ()=> location.href = hub);
+  <!-- ===== Cardboard 2-eye split ===== -->
+  <div id="fgCbWrap" aria-hidden="true">
+    <div class="fgEye">
+      <div class="fgView" id="fgLeftView">
+        <div class="gazeRing"></div>
+        <div class="gazeRet"></div>
+      </div>
+    </div>
+    <div class="fgEye">
+      <div class="fgView" id="fgRightView">
+        <div id="fg-layer-r" style="position:absolute; inset:0; pointer-events:none;"></div>
+        <div class="gazeRing"></div>
+        <div class="gazeRet"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="fgCbControls">
+    <button class="cbBtn" id="fgCbExit" type="button">⬅ Exit</button>
+    <button class="cbBtn" id="fgCbRecenter" type="button">🎯 Recenter</button>
+  </div>
+
+  <!-- Scripts (order matters) -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/ui-fever.js" defer></script>
+  <script src="../vr/ui-karaoke.js" defer></script>
+
+  <script src="./groups-hud-quest.js" defer></script>
+  <script src="./groups-text.js" defer></script>
+  <script src="./groups-quests.js" defer></script>
+  <script src="./groups-fx.js" defer></script>
+
+  <script src="./GameEngine.js" defer></script>
+  <script src="./groups.safe.js" defer></script>
+
+  <script>
+  (function(){
+    'use strict';
+
+    function qs(name, def){
+      try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch{ return def; }
+    }
+    function int(name, def){
+      const v = parseInt(qs(name, def), 10);
+      return Number.isFinite(v) ? v : def;
+    }
+    function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+
+    const diff = String(qs('diff','normal')).toLowerCase();
+    const time = clamp(int('time', 90), 30, 600);
+    const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
+
+    const hub  = String(qs('hub','../hub.html') || '../hub.html');
+    const sid  = String(qs('sessionId', qs('studentKey','')) || '');
+    const ts   = String(qs('ts', Date.now()));
+    const seed = String(qs('seed', sid ? (sid + '|' + ts) : ts));
+
+    document.getElementById('pill-diff').textContent = 'DIFF: ' + diff;
+    document.getElementById('pill-time').textContent = 'TIME: ' + time + 's';
+    document.getElementById('pill-mode').textContent = 'MODE: ' + (run==='research'?'research':'play');
+
+    // HUD bindings
+    window.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail || {};
+      const sEl = document.getElementById('hud-score'); if (sEl) sEl.textContent = (d.score|0);
+      const cEl = document.getElementById('hud-combo'); if (cEl) cEl.textContent = (d.combo|0);
+      const mEl = document.getElementById('hud-miss');  if (mEl) mEl.textContent = (d.misses|0);
+      const bEl = document.getElementById('hud-comboMax'); if (bEl) bEl.textContent = (d.comboMax|0);
+    }, { passive:true });
+
+    window.addEventListener('hha:rank', (ev)=>{
+      const d = ev.detail || {};
+      const rEl = document.getElementById('hud-rank'); if (rEl && d.grade) rEl.textContent = d.grade;
+      const aEl = document.getElementById('hud-acc'); if (aEl && typeof d.accuracy === 'number') aEl.textContent = (d.accuracy|0) + '%';
+    }, { passive:true });
+
+    window.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail || {};
+      const tEl = document.getElementById('hud-time'); if (tEl) tEl.textContent = (d.left|0);
+    }, { passive:true });
+
+    window.addEventListener('groups:group_change', (ev)=>{
+      const d = ev.detail || {};
+      const gEl = document.getElementById('hud-group'); if (gEl) gEl.textContent = d.label || 'หมู่ ?';
+    }, { passive:true });
+
+    window.addEventListener('groups:power', (ev)=>{
+      const d = ev.detail || {};
+      const th = Math.max(1, d.threshold|0);
+      const ch = Math.max(0, d.charge|0);
+      const p = Math.min(100, (ch/th)*100);
+      const fill = document.getElementById('hud-powerFill');
+      if (fill) fill.style.width = p.toFixed(1) + '%';
+      const txt = document.getElementById('fg-powerText');
+      if (txt) txt.textContent = `${ch}/${th}`;
+    }, { passive:true });
+
+    // Start overlay
+    const overlay = document.getElementById('startOverlay');
+    const btnStart = document.getElementById('btnStart');
+    const btnRestart = document.getElementById('btnRestart');
+
+    async function resumeAudio(){
+      try{
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        const ctx = new AC();
+        if (ctx.state === 'suspended') await ctx.resume();
+        await ctx.close();
+      }catch(e){}
+    }
+
+    function startGame(){
+      if (!window.GroupsBoot || !window.GroupsBoot.start){
+        alert('GroupsBoot not ready');
+        return;
+      }
+      window.GroupsBoot.start(run==='research'?'research':'play', { diff, time, seed });
+    }
+
+    btnStart.addEventListener('click', async ()=>{
+      await resumeAudio();
+      overlay.style.display = 'none';
+      startGame();
+    });
+    btnRestart.addEventListener('click', ()=> location.reload());
+
+    // End overlay + last summary + back hub
+    const endOverlay = document.getElementById('endOverlay');
+    const btnRetry = document.getElementById('btnRetry');
+    const btnBack = document.getElementById('btnBackHub');
+
+    btnRetry.addEventListener('click', ()=> location.reload());
+    btnBack.addEventListener('click', ()=>{
+      try{
+        const u = new URL(hub, location.href);
+        u.searchParams.set('ts', String(Date.now()));
+        location.href = u.toString();
+      }catch{ location.href = hub; }
+    });
+
+    window.addEventListener('hha:end', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      try{
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
+        localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
+      }catch{}
+
+      const s = document.getElementById('endScore'); if (s) s.textContent = String(d.scoreFinal ?? 0);
+      const r = document.getElementById('endRank');  if (r) r.textContent = String(d.grade ?? 'C');
+      const a = document.getElementById('endAcc');   if (a) a.textContent = String((d.accuracyGoodPct ?? 0)|0) + '%';
+      const cm= document.getElementById('endComboMax'); if (cm) cm.textContent = String(d.comboMax ?? 0);
+      const ms= document.getElementById('endMiss');     if (ms) ms.textContent = String(d.misses ?? 0);
+
+      const gl= document.getElementById('endGoals');
+      if (gl) gl.textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0);
+
+      const mn= document.getElementById('endMinis');
+      if (mn) mn.textContent = String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0);
+
+      if (endOverlay) endOverlay.classList.add('show');
+    }, { passive:true });
+
+    // autostart=1 -> skip overlay
+    if (qs('autostart','0') === '1'){
+      overlay.style.display = 'none';
+      startGame();
+    }
+
+    /* =========================================================
+       Cardboard 2-eye + Gaze (NO safe.js edits)
+       ========================================================= */
+    const cbBtn = document.getElementById('btnCardboard');
+    const cbExit = document.getElementById('fgCbExit');
+    const cbRecenter = document.getElementById('fgCbRecenter');
+
+    const leftView = document.getElementById('fgLeftView');
+    const rightLayer = document.getElementById('fg-layer-r');
+    const srcLayer = document.getElementById('fg-layer');
+
+    function setProg(p){
+      document.documentElement.style.setProperty('--gazeProg', String(Math.max(0, Math.min(1, p))));
+    }
+
+    function enableCardboard(on){
+      on = !!on;
+      if (on){
+        document.body.classList.add('cardboard');
+        // move live fg-layer into left eye
+        if (srcLayer && leftView && srcLayer.parentElement !== leftView){
+          leftView.appendChild(srcLayer);
+          srcLayer.style.position = 'absolute';
+          srcLayer.style.inset = '0';
+        }
+        try{ localStorage.setItem('HHA_FG_CARDBOARD','1'); }catch(_){}
+      }else{
+        document.body.classList.remove('cardboard');
+        // move fg-layer back to body (after scene)
+        const scene = document.querySelector('a-scene');
+        if (srcLayer && srcLayer.parentElement !== document.body){
+          if (scene && scene.nextSibling) document.body.insertBefore(srcLayer, scene.nextSibling);
+          else document.body.appendChild(srcLayer);
+          srcLayer.style.position = '';
+          srcLayer.style.inset = '';
+        }
+        try{ rightLayer.innerHTML=''; }catch(_){}
+        cloneMap.clear();
+        try{ localStorage.setItem('HHA_FG_CARDBOARD','0'); }catch(_){}
+      }
+      setProg(0);
+    }
+
+    cbBtn?.addEventListener('click', ()=> enableCardboard(true), {passive:true});
+    cbExit?.addEventListener('click', ()=> enableCardboard(false), {passive:true});
+    cbRecenter?.addEventListener('click', ()=>{
+      try{
+        if (window.GroupsBoot && window.GroupsBoot.recenter) window.GroupsBoot.recenter();
+      }catch(_){}
+    }, {passive:true});
+
+    // auto
+    try{
+      const q = new URLSearchParams(location.search);
+      const want = (q.get('cardboard')==='1') || (localStorage.getItem('HHA_FG_CARDBOARD')==='1');
+      if (want) setTimeout(()=>enableCardboard(true), 50);
+    }catch(_){}
+
+    // mirror children (targets) to right eye
+    const cloneMap = new Map();
+    function syncStyle(src, dst){
+      const s = src.style, d = dst.style;
+      d.left = s.left; d.top = s.top;
+      d.width = s.width; d.height = s.height;
+      d.transform = s.transform;
+      d.opacity = s.opacity;
+      d.filter = s.filter;
+      d.pointerEvents = 'none';
+      dst.className = src.className;
+      try{ for (const k of Object.keys(src.dataset||{})) dst.dataset[k]=src.dataset[k]; }catch(_){}
+    }
+
+    let obs=null;
+    function startMirror(){
+      if (!srcLayer || !rightLayer || obs) return;
+      obs = new MutationObserver((muts)=>{
+        for (const m of muts){
+          for (const n of m.addedNodes){
+            if (!(n instanceof HTMLElement)) continue;
+            const c = n.cloneNode(true);
+            c.style.pointerEvents='none';
+            rightLayer.appendChild(c);
+            cloneMap.set(n,c);
+            syncStyle(n,c);
+          }
+          for (const n of m.removedNodes){
+            if (!(n instanceof HTMLElement)) continue;
+            const c = cloneMap.get(n);
+            if (c){ try{ c.remove(); }catch(_){} cloneMap.delete(n); }
+          }
+        }
+      });
+      obs.observe(srcLayer, { childList:true, subtree:false });
+    }
+    startMirror();
+
+    // gaze fuse (fast)
+    const DWELL_MS = 320;
+    const PICK_RADIUS = 92;
+    const DECAY = 1.8;
+
+    let hold=0, lastT=0, locked=null;
+
+    function centerOf(el){
+      const r = el.getBoundingClientRect();
+      return { x:r.left+r.width/2, y:r.top+r.height/2 };
+    }
+
+    function pickNearest(cx,cy){
+      const nodes = srcLayer ? Array.from(srcLayer.children) : [];
+      let best=null, bestD=Infinity;
+      for (const el of nodes){
+        if (!(el instanceof HTMLElement)) continue;
+        const st = getComputedStyle(el);
+        if (st.display==='none' || st.visibility==='hidden' || st.opacity==='0') continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 8 || r.height < 8) continue;
+        const x = r.left+r.width/2, y=r.top+r.height/2;
+        const d = Math.hypot(x-cx, y-cy);
+        if (d < bestD){ bestD=d; best=el; }
+      }
+      return {el:best, d:bestD};
+    }
+
+    function fireAt(el){
+      if (!el) return false;
+      try{
+        const r = el.getBoundingClientRect();
+        const ev = new PointerEvent('pointerdown', {
+          bubbles:true, cancelable:true,
+          clientX:r.left+r.width/2,
+          clientY:r.top+r.height/2,
+          pointerId:1, pointerType:'mouse'
+        });
+        el.dispatchEvent(ev);
+        return true;
+      }catch(_){
+        try{ el.click(); return true; }catch(__){}
+      }
+      return false;
+    }
+
+    function gazeLoop(t){
+      const dt = Math.min(60, Math.max(8, t-(lastT||t)));
+      lastT = t;
+
+      if (!document.body.classList.contains('cardboard')){
+        hold=0; locked=null; setProg(0);
+        requestAnimationFrame(gazeLoop);
+        return;
+      }
+
+      // sync clones
+      for (const [src,dst] of cloneMap.entries()){
+        if (!src.isConnected){
+          try{ dst.remove(); }catch(_){}
+          cloneMap.delete(src);
+          continue;
+        }
+        syncStyle(src,dst);
+      }
+
+      const c = centerOf(leftView);
+
+      if (locked && locked.isConnected){
+        const rr = locked.getBoundingClientRect();
+        const d = Math.hypot((rr.left+rr.width/2)-c.x, (rr.top+rr.height/2)-c.y);
+        if (d > PICK_RADIUS*1.15) locked=null;
+      } else locked=null;
+
+      if (!locked){
+        const p = pickNearest(c.x,c.y);
+        if (p.el && p.d <= PICK_RADIUS) locked = p.el;
+      }
+
+      if (locked){
+        hold += dt;
+        setProg(hold/DWELL_MS);
+        if (hold >= DWELL_MS){
+          fireAt(locked);
+          hold = 0; locked=null; setProg(0);
+        }
+      } else {
+        hold = Math.max(0, hold - dt*DECAY);
+        setProg(hold/DWELL_MS);
+      }
+
+      requestAnimationFrame(gazeLoop);
+    }
+    requestAnimationFrame(gazeLoop);
+
+  })();
   </script>
-
-  <!-- GAME -->
-  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
-
 </body>
 </html>
