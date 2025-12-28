@@ -1,7 +1,7 @@
 /* === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
-FIX: allow mouse click on targets
-- world shift starts ONLY when dragging empty stage (not on .gj-target / buttons / HUD / overlays)
-- NO setPointerCapture (prevents stealing click)
+FIX: mouse click on targets must work
+- world-shift starts ONLY when dragging empty stage
+- no pointerCapture (prevents stealing click)
 */
 'use strict';
 
@@ -20,7 +20,6 @@ export function attachTouchLook(opts = {}) {
   let tx = 0, ty = 0;
   let vx = 0, vy = 0;
 
-  // Drag threshold: click != drag
   const DRAG_THRESHOLD_PX = Number(opts.dragThresholdPx ?? 6);
   let moved = false;
 
@@ -30,22 +29,20 @@ export function attachTouchLook(opts = {}) {
     stage.style.transform = `translate3d(${vx.toFixed(2)}px, ${vy.toFixed(2)}px, 0)`;
   }
 
-  function isInteractiveTarget(el){
+  function isInteractive(el){
     if (!el || !el.closest) return false;
     return !!el.closest(
-      '.gj-target,' +                 // targets
-      '#btnShoot,.btn-shoot,' +       // shoot button
-      '#startOverlay,#btnStart,.start-overlay,' + // start UI
-      '.hha-hud,.hha-controls,.hha-fever'         // HUD/controls
+      '.gj-target,' +
+      '#gj-layer,' +
+      '#btnShoot,.btn-shoot,' +
+      '#startOverlay,#btnStart,.start-overlay,' +
+      '.hha-hud,.hha-controls,.hha-fever'
     );
   }
 
   function onDown(e) {
-    // only left mouse / primary touch
     if (e.button != null && e.button !== 0) return;
-
-    // IMPORTANT: if clicked on target/UI => do NOT start world shift
-    if (isInteractiveTarget(e.target)) return;
+    if (isInteractive(e.target)) return;
 
     isDown = true;
     moved = false;
@@ -73,7 +70,6 @@ export function attachTouchLook(opts = {}) {
     if (!isDown) return;
     isDown = false;
 
-    // snap back
     tx = 0; ty = 0;
     const t0 = performance.now();
     const dur = 180;
