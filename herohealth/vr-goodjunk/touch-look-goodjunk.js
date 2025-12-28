@@ -1,217 +1,328 @@
 // === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
-// Touch / Look helper for GoodJunkVR (ESM)
-// ✅ export attachTouchLook
-// ✅ Shift world element (#gj-world) with drag + optional gyro
-// ✅ requestMotionPermission() for iOS
-// ✅ Smooth easing
+// Touch-Look (Drag + Gyro) — GoodJunkVR
+// ✅ ESM export: attachTouchLook
+// ✅ Works on PC (mouse drag) + Mobile (touch drag)
+// ✅ Optional Gyro (DeviceOrientation) with iOS permission request on first gesture
+// ✅ VR Cardboard stereo: supports layerEls [left,right] OR auto-detect #gj-layer-r
+// ✅ Moves "world" by translating layer(s) (crosshair stays fixed)
 
 'use strict';
 
 function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+function lerp(a,b,t){ return a + (b-a)*t; }
 
+function getEl(v){
+  if (!v) return null;
+  if (typeof v === 'string') return document.querySelector(v);
+  return v;
+}
+
+function isCoarse(){
+  try{ return matchMedia && matchMedia('(pointer: coarse)').matches; }catch(_){ return false; }
+}
+
+async function requestGyroPermissionIfNeeded(){
+  // iOS 13+ requires user gesture + requestPermission
+  try{
+    const DO = window.DeviceOrientationEvent;
+    if (!DO || typeof DO.requestPermission !== 'function') return true;
+    const res = await DO.requestPermission();
+    return res === 'granted';
+  }catch(_){
+    return false;
+  }
+}
+
+/**
+ * attachTouchLook({
+ *   stageEl, layerEl, layerEls:[L,R], crosshairEl,
+ *   maxShiftPx=170, ease=0.12, dragScale=1.0,
+ *   gyro=true, gyroScale=1.0, gyroClampDeg=18,
+ *   invertX=false, invertY=false
+ * })
+ */
 export function attachTouchLook(opts = {}){
-  const doc = (typeof document !== 'undefined') ? document : null;
-  const win = (typeof window !== 'undefined') ? window : null;
-  if (!doc || !win) return { requestMotionPermission: async()=>false };
+  const stageEl = getEl(opts.stageEl) || document.getElementById('gj-stage') || document.body;
 
-  const stageEl = opts.stageEl || doc.getElementById('gj-stage') || doc.body;
-  const layerEl = opts.layerEl || doc.getElementById('gj-world') || doc.getElementById('gj-layer') || doc.body;
+  const crosshairEl = getEl(opts.crosshairEl) || document.getElementById('gj-crosshair');
 
-  const maxShiftPx = Number(opts.maxShiftPx ?? 170);
-  const ease = clamp(Number(opts.ease ?? 0.12), 0.02, 0.35);
+  // layers: mono or stereo
+  const layerElsInput = Array.isArray(opts.layerEls) ? opts.layerEls.map(getEl).filter(Boolean) : null;
+  const layerEl = getEl(opts.layerEl) || document.getElementById('gj-layer');
+  const layerR = document.getElementById('gj-layer-r'); // auto detect
+  const layers = [];
 
-  // crosshair is only used for “feel” (not required)
-  const crosshairEl = opts.crosshairEl || doc.getElementById('gj-crosshair');
+  if (layerElsInput && layerElsInput.length){
+    for (const el of layerElsInput) layers.push(el);
+  } else {
+    if (layerEl) layers.push(layerEl);
+    // stereo: include right layer if exists
+    if (layerR) layers.push(layerR);
+  }
+
+  // If no layers found, do nothing safely
+  if (!layers.length){
+    console.warn('[touch-look] no layer elements found');
+    return {
+      destroy(){},
+      enableGyro(){},
+      disableGyro(){},
+      setEnabled(){},
+      setMaxShift(){},
+    };
+  }
+
+  const maxShiftPx = Number.isFinite(+opts.maxShiftPx) ? +opts.maxShiftPx : 170;
+  const ease = clamp(opts.ease ?? 0.12, 0.02, 0.35);
+
+  const dragScale = Number.isFinite(+opts.dragScale) ? +opts.dragScale : 1.0;
+
+  const gyroEnabledDefault = (opts.gyro === undefined) ? true : !!opts.gyro;
+  const gyroScale = Number.isFinite(+opts.gyroScale) ? +opts.gyroScale : 1.0;
+  const gyroClampDeg = clamp(opts.gyroClampDeg ?? 18, 6, 45);
+
+  const invertX = !!opts.invertX;
+  const invertY = !!opts.invertY;
 
   // internal state
+  let enabled = true;
   let dragging = false;
-  let startX = 0, startY = 0;
-  let dragDX = 0, dragDY = 0;
 
-  let tgtX = 0, tgtY = 0; // target shift
-  let curX = 0, curY = 0; // eased shift
+  let startX = 0, startY = 0;
+  let dragX = 0, dragY = 0;         // instantaneous drag shift
+  let dragTX = 0, dragTY = 0;       // target drag shift
+
+  let gyroOK = false;
+  let gyroOn = gyroEnabledDefault;
+  let gamma = 0; // left-right tilt
+  let beta  = 0; // front-back tilt
+
+  let outX = 0, outY = 0;           // smoothed output shift
   let raf = 0;
 
-  // gyro
-  let useMotion = !!opts.useMotion;  // default false in your boot, can be turned on later
-  let motionGranted = false;
-  let gyroX = 0, gyroY = 0;
-  let gyroBaseSet = false;
-  let baseGamma = 0, baseBeta = 0;
-
-  function applyTransform(){
-    // Ease toward target
-    curX += (tgtX - curX) * ease;
-    curY += (tgtY - curY) * ease;
-
-    const x = clamp(curX, -maxShiftPx, maxShiftPx);
-    const y = clamp(curY, -maxShiftPx, maxShiftPx);
-
-    layerEl.style.transform = `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0)`;
-
-    raf = win.requestAnimationFrame(applyTransform);
+  // Compute crosshair anchor (optional, used to make feel stable)
+  function getCrosshairNorm(){
+    if (!crosshairEl) return { nx: 0.5, ny: 0.62 };
+    try{
+      const r = crosshairEl.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top + r.height/2;
+      const W = window.innerWidth || 360;
+      const H = window.innerHeight || 640;
+      return { nx: clamp(cx/W, 0, 1), ny: clamp(cy/H, 0, 1) };
+    }catch(_){
+      return { nx: 0.5, ny: 0.62 };
+    }
   }
 
-  function ensureRAF(){
-    if (!raf) raf = win.requestAnimationFrame(applyTransform);
+  // Apply transform to layers
+  function applyShift(x, y){
+    // translate "world" opposite to look direction feels more VR-ish
+    const tx = (invertX ? +x : x);
+    const ty = (invertY ? +y : y);
+    const sx = clamp(tx, -maxShiftPx, maxShiftPx);
+    const sy = clamp(ty, -maxShiftPx, maxShiftPx);
+
+    for (const el of layers){
+      el.style.transform = `translate3d(${sx.toFixed(2)}px, ${sy.toFixed(2)}px, 0)`;
+      el.style.willChange = 'transform';
+    }
   }
 
-  function stopRAF(){
-    if (raf){ win.cancelAnimationFrame(raf); raf = 0; }
+  // Build gyro shift
+  function gyroShiftPx(){
+    if (!gyroOn || !gyroOK) return { x: 0, y: 0 };
+
+    // Normalize degrees -> [-1..1]
+    const g = clamp(gamma / gyroClampDeg, -1, 1);
+    const b = clamp(beta  / gyroClampDeg, -1, 1);
+
+    // Convert to pixels
+    // gamma: tilt left/right -> x
+    // beta:  tilt front/back -> y
+    // Use negative to feel like "camera look" (tilt right -> world shifts left)
+    const x = (-g) * maxShiftPx * 0.70 * gyroScale;
+    const y = (-b) * maxShiftPx * 0.55 * gyroScale;
+
+    return { x, y };
   }
 
-  function setTargetFromInputs(){
-    // combine drag + gyro
-    const gx = useMotion ? gyroX : 0;
-    const gy = useMotion ? gyroY : 0;
+  function tick(){
+    if (!enabled){
+      applyShift(0, 0);
+      raf = requestAnimationFrame(tick);
+      return;
+    }
 
-    tgtX = clamp(dragDX + gx, -maxShiftPx, maxShiftPx);
-    tgtY = clamp(dragDY + gy, -maxShiftPx, maxShiftPx);
+    // Smooth drag targets
+    dragX = lerp(dragX, dragTX, 0.18);
+    dragY = lerp(dragY, dragTY, 0.18);
+
+    const gs = gyroShiftPx();
+
+    // Optional: tiny bias to keep "anchor" feel around crosshair position
+    // (Makes world shift feel centered on crosshair, especially on wide screens)
+    const { nx, ny } = getCrosshairNorm();
+    const biasX = (nx - 0.5) * 8;     // small, not huge
+    const biasY = (ny - 0.62) * 8;
+
+    const targetX = (dragX + gs.x + biasX);
+    const targetY = (dragY + gs.y + biasY);
+
+    outX = lerp(outX, targetX, ease);
+    outY = lerp(outY, targetY, ease);
+
+    applyShift(outX, outY);
+
+    raf = requestAnimationFrame(tick);
   }
 
-  function onPointerDown(e){
-    if (!stageEl) return;
+  // Pointer handlers
+  function onDown(e){
+    if (!enabled) return;
+
     dragging = true;
     const p = getPoint(e);
     startX = p.x;
     startY = p.y;
-    stageEl.setPointerCapture?.(e.pointerId);
+
+    // request gyro permission on first gesture (iOS)
+    if (gyroOn && !gyroOK){
+      requestGyroPermissionIfNeeded().then(granted=>{
+        if (granted) gyroOK = true;
+      });
+    }
+
+    // capture pointer (mouse)
+    try{ stageEl.setPointerCapture && stageEl.setPointerCapture(e.pointerId); }catch(_){}
   }
 
-  function onPointerMove(e){
-    if (!dragging) return;
+  function onMove(e){
+    if (!enabled || !dragging) return;
+
     const p = getPoint(e);
-    const dx = p.x - startX;
-    const dy = p.y - startY;
+    const dx = (p.x - startX);
+    const dy = (p.y - startY);
 
-    // invert a bit so drag “moves camera”
-    dragDX = clamp(dx * 0.55, -maxShiftPx, maxShiftPx);
-    dragDY = clamp(dy * 0.55, -maxShiftPx, maxShiftPx);
+    // map to shift; clamp so it doesn't fly
+    // Drag should feel like "look": drag right -> world shifts left slightly
+    dragTX = clamp((-dx) * 0.65 * dragScale, -maxShiftPx, maxShiftPx);
+    dragTY = clamp((-dy) * 0.55 * dragScale, -maxShiftPx, maxShiftPx);
 
-    setTargetFromInputs();
-    ensureRAF();
+    // prevent page scroll on touch
+    if (e.cancelable) e.preventDefault();
   }
 
-  function onPointerUp(e){
+  function onUp(e){
     dragging = false;
-    stageEl.releasePointerCapture?.(e.pointerId);
 
-    // spring back a little (don’t snap to 0, feels VR-ish)
-    dragDX *= 0.35;
-    dragDY *= 0.35;
+    // spring back slightly (don’t snap to 0 instantly)
+    dragTX *= 0.25;
+    dragTY *= 0.25;
 
-    setTargetFromInputs();
-    ensureRAF();
+    if (e && e.cancelable) e.preventDefault();
   }
 
   function getPoint(e){
-    if (e.touches && e.touches[0]){
-      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }
+    // support touch/pointer/mouse
+    if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.changedTouches && e.changedTouches[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
     return { x: e.clientX ?? 0, y: e.clientY ?? 0 };
   }
 
-  function onDeviceOrientation(ev){
-    if (!useMotion) return;
-    // gamma: left-right tilt, beta: front-back tilt
-    const gamma = Number(ev.gamma ?? 0);
-    const beta  = Number(ev.beta  ?? 0);
-
-    if (!gyroBaseSet){
-      gyroBaseSet = true;
-      baseGamma = gamma;
-      baseBeta = beta;
-    }
-
-    // delta tilt from baseline
-    let dg = gamma - baseGamma;
-    let db = beta  - baseBeta;
-
-    // clamp to reasonable angles
-    dg = clamp(dg, -25, 25);
-    db = clamp(db, -25, 25);
-
-    // map angle -> px
-    gyroX = clamp(dg * (maxShiftPx / 28), -maxShiftPx, maxShiftPx);
-    gyroY = clamp(db * (maxShiftPx / 32), -maxShiftPx, maxShiftPx);
-
-    setTargetFromInputs();
-    ensureRAF();
+  // Gyro handler
+  function onDeviceOrientation(e){
+    // gamma: left-right, beta: front-back
+    const g = Number(e.gamma);
+    const b = Number(e.beta);
+    if (Number.isFinite(g)) gamma = clamp(g, -90, 90);
+    if (Number.isFinite(b)) beta  = clamp(b, -90, 90);
   }
 
-  async function requestMotionPermission(){
+  // Bind listeners
+  const passiveFalse = { passive:false };
+
+  // Use pointer events when possible
+  stageEl.addEventListener('pointerdown', onDown, passiveFalse);
+  stageEl.addEventListener('pointermove', onMove, passiveFalse);
+  stageEl.addEventListener('pointerup', onUp, passiveFalse);
+  stageEl.addEventListener('pointercancel', onUp, passiveFalse);
+
+  // Touch fallback
+  stageEl.addEventListener('touchstart', onDown, passiveFalse);
+  stageEl.addEventListener('touchmove', onMove, passiveFalse);
+  stageEl.addEventListener('touchend', onUp, passiveFalse);
+  stageEl.addEventListener('touchcancel', onUp, passiveFalse);
+
+  // Mouse fallback
+  stageEl.addEventListener('mousedown', onDown, passiveFalse);
+  window.addEventListener('mousemove', onMove, passiveFalse);
+  window.addEventListener('mouseup', onUp, passiveFalse);
+
+  // Gyro
+  function enableGyro(){
+    gyroOn = true;
+    // if no permission needed, mark ok immediately
     try{
-      // iOS 13+ requires user gesture + permission request
-      const DOE = win.DeviceOrientationEvent;
-      if (!DOE) return false;
-
-      if (typeof DOE.requestPermission === 'function'){
-        const res = await DOE.requestPermission();
-        motionGranted = (String(res).toLowerCase() === 'granted');
-      } else {
-        motionGranted = true;
-      }
-
-      if (motionGranted){
-        useMotion = true;
-        gyroBaseSet = false;
-        win.addEventListener('deviceorientation', onDeviceOrientation, { passive:true });
-        ensureRAF();
-        return true;
-      }
-      return false;
-    }catch(_){
-      return false;
-    }
+      const DO = window.DeviceOrientationEvent;
+      if (DO && typeof DO.requestPermission !== 'function') gyroOK = true;
+    }catch(_){}
+    window.addEventListener('deviceorientation', onDeviceOrientation, true);
   }
 
-  // Bind
-  if (stageEl){
-    stageEl.style.touchAction = 'none';
-
-    stageEl.addEventListener('pointerdown', onPointerDown, { passive:false });
-    stageEl.addEventListener('pointermove', onPointerMove, { passive:false });
-    stageEl.addEventListener('pointerup', onPointerUp, { passive:false });
-    stageEl.addEventListener('pointercancel', onPointerUp, { passive:false });
-
-    // fallback touch
-    stageEl.addEventListener('touchstart', onPointerDown, { passive:false });
-    stageEl.addEventListener('touchmove', onPointerMove, { passive:false });
-    stageEl.addEventListener('touchend', onPointerUp, { passive:false });
+  function disableGyro(){
+    gyroOn = false;
+    window.removeEventListener('deviceorientation', onDeviceOrientation, true);
   }
 
-  // Start RAF (idle)
-  ensureRAF();
+  if (gyroOn) enableGyro();
+
+  // Start loop
+  raf = requestAnimationFrame(tick);
 
   // Public API
   return {
-    requestMotionPermission,
-    setUseMotion(v){
-      useMotion = !!v;
-      if (!useMotion){
-        gyroX = 0; gyroY = 0;
-        setTargetFromInputs();
+    destroy(){
+      try{ cancelAnimationFrame(raf); }catch(_){}
+      raf = 0;
+
+      stageEl.removeEventListener('pointerdown', onDown, passiveFalse);
+      stageEl.removeEventListener('pointermove', onMove, passiveFalse);
+      stageEl.removeEventListener('pointerup', onUp, passiveFalse);
+      stageEl.removeEventListener('pointercancel', onUp, passiveFalse);
+
+      stageEl.removeEventListener('touchstart', onDown, passiveFalse);
+      stageEl.removeEventListener('touchmove', onMove, passiveFalse);
+      stageEl.removeEventListener('touchend', onUp, passiveFalse);
+      stageEl.removeEventListener('touchcancel', onUp, passiveFalse);
+
+      stageEl.removeEventListener('mousedown', onDown, passiveFalse);
+      window.removeEventListener('mousemove', onMove, passiveFalse);
+      window.removeEventListener('mouseup', onUp, passiveFalse);
+
+      disableGyro();
+
+      // reset transform
+      try{
+        for (const el of layers) el.style.transform = 'translate3d(0,0,0)';
+      }catch(_){}
+    },
+    enableGyro,
+    disableGyro,
+    setEnabled(v){
+      enabled = !!v;
+      if (!enabled){
+        dragTX = dragTY = dragX = dragY = 0;
+        outX = outY = 0;
+        applyShift(0, 0);
       }
     },
-    reset(){
-      dragDX = dragDY = 0;
-      gyroX = gyroY = 0;
-      tgtX = tgtY = 0;
-      curX = curY = 0;
-      layerEl.style.transform = 'translate3d(0px,0px,0)';
-    },
-    destroy(){
-      stopRAF();
-      try{
-        stageEl.removeEventListener('pointerdown', onPointerDown);
-        stageEl.removeEventListener('pointermove', onPointerMove);
-        stageEl.removeEventListener('pointerup', onPointerUp);
-        stageEl.removeEventListener('pointercancel', onPointerUp);
-        stageEl.removeEventListener('touchstart', onPointerDown);
-        stageEl.removeEventListener('touchmove', onPointerMove);
-        stageEl.removeEventListener('touchend', onPointerUp);
-      }catch(_){}
-      try{ win.removeEventListener('deviceorientation', onDeviceOrientation); }catch(_){}
+    setMaxShift(px){
+      if (Number.isFinite(+px)) {
+        // update closure variable via mutation
+        // (we keep it simple by writing to opts and reading when clamping)
+        opts.maxShiftPx = +px;
+      }
     }
   };
 }
