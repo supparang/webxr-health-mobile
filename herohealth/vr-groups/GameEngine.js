@@ -1,10 +1,8 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
-Food Groups VR — GameEngine (Hardcore+FeelGood)
-Adds:
-- Storm tick SFX (WebAudio) + urgency
-- Powerups: Magnet⭐, Freeze❄️
-- Buff chips UI
-- Powerups do NOT count for quest (meta.noQuest)
+Food Groups VR — GameEngine (Hardcore+FeelGood v2: A+B+C)
+1) Magnet pulls ONLY correct-group GOOD targets
+2) Freeze turns bad targets into harmless "dolls" for 2s
+3) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
 */
 
 (function(root){
@@ -27,12 +25,14 @@ Adds:
       <div class="chip" id="chipStorm" style="display:none">STORM 🔥</div>
       <div class="chip" id="chipMag"  style="display:none">MAGNET ⭐</div>
       <div class="chip" id="chipFrz"  style="display:none">FREEZE ❄️</div>
+      <div class="chip" id="chipOver" style="display:none">OVERDRIVE x2 ⚡</div>
     `;
     DOC.body.appendChild(buffWrap);
   }
   const chipStorm = DOC.getElementById('chipStorm');
   const chipMag   = DOC.getElementById('chipMag');
   const chipFrz   = DOC.getElementById('chipFrz');
+  const chipOver  = DOC.getElementById('chipOver');
 
   // ---------- Seeded RNG ----------
   function xmur3(str){
@@ -77,16 +77,12 @@ Adds:
 
   // ---------- Simple SFX (WebAudio) ----------
   const SFX = {
-    ctx:null,
-    nextTickAt:0,
+    ctx:null, nextTickAt:0,
     ensure(){
       if (this.ctx) return this.ctx;
       const AC = root.AudioContext || root.webkitAudioContext;
       if (!AC) return null;
-      try{
-        this.ctx = new AC();
-        return this.ctx;
-      }catch{ return null; }
+      try{ this.ctx = new AC(); return this.ctx; }catch{ return null; }
     },
     beep(freq, dur, gain){
       const ctx = this.ensure();
@@ -97,8 +93,7 @@ Adds:
         o.type = 'triangle';
         o.frequency.value = freq;
         g.gain.value = 0.0001;
-        o.connect(g);
-        g.connect(ctx.destination);
+        o.connect(g); g.connect(ctx.destination);
         const t0 = ctx.currentTime;
         g.gain.setValueAtTime(0.0001, t0);
         g.gain.exponentialRampToValueAtTime(Math.max(0.001, gain||0.05), t0+0.01);
@@ -108,11 +103,10 @@ Adds:
       }catch{}
     },
     tickStorm(leftMs){
-      // ใกล้หมด => ถี่ขึ้น
       const t = now();
       if (t < this.nextTickAt) return;
       const left = Math.max(0, leftMs);
-      const rate = (left <= 1200) ? 90 : (left <= 2200 ? 140 : 220); // ms
+      const rate = (left <= 1200) ? 90 : (left <= 2200 ? 140 : 220);
       this.nextTickAt = t + rate;
       this.beep(980, 0.045, 0.045);
     },
@@ -142,8 +136,7 @@ Adds:
     seed:'seed',
     rng:Math.random,
 
-    vx:0, vy:0,
-    dragOn:false, dragX:0, dragY:0,
+    vx:0, vy:0, dragOn:false, dragX:0, dragY:0,
 
     left:90,
     score:0, combo:0, comboMax:0, misses:0,
@@ -176,6 +169,11 @@ Adds:
     magnetUntil:0,
     freezeUntil:0,
 
+    // (3) Overdrive
+    overCharge:0,
+    overWindowUntil:0,
+    overUntil:0,
+
     spawnTimer:0,
     tickTimer:0,
   };
@@ -194,6 +192,10 @@ Adds:
     if (acc >= 75) return 'A';
     if (acc >= 60) return 'B';
     return 'C';
+  }
+
+  function scoreMult(){
+    return (now() < engine.overUntil) ? 2 : 1;
   }
 
   function updateRank(){
@@ -248,9 +250,7 @@ Adds:
   function safeSpawnRect(){
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
-    const top = 150;
-    const bot = 170;
-    const side = 16;
+    const top = 150, bot = 170, side = 16;
     return { x0:side, x1:W-side, y0:top, y1:H-bot, W, H };
   }
   function randPos(){
@@ -272,10 +272,29 @@ Adds:
     const x = Number(el.dataset._x);
     const y = Number(el.dataset._y);
     if (Number.isFinite(x) && Number.isFinite(y)) return {x,y};
-    // fallback parse style
     const sx = (el.style.getPropertyValue('--x')||'').trim().replace('px','');
     const sy = (el.style.getPropertyValue('--y')||'').trim().replace('px','');
     return { x:Number(sx)||0, y:Number(sy)||0 };
+  }
+
+  function markFreezeDoll(el, ms){
+    if (!el) return;
+    el.classList.add('fg-freeze-doll');
+    el.dataset.dollUntil = String(now() + (ms|0));
+  }
+  function isFreezeDoll(el){
+    const t = Number(el?.dataset?.dollUntil);
+    return Number.isFinite(t) && now() < t;
+  }
+  function cleanupDolls(){
+    const list = layer.querySelectorAll('.fg-freeze-doll');
+    list.forEach(el=>{
+      const t = Number(el.dataset.dollUntil);
+      if (!Number.isFinite(t) || now() >= t){
+        el.classList.remove('fg-freeze-doll');
+        el.dataset.dollUntil = '';
+      }
+    });
   }
 
   function makeTarget(type, emoji, x, y, s){
@@ -283,6 +302,10 @@ Adds:
     el.className = 'fg-target spawn';
     el.dataset.emoji = emoji || '✨';
     el.dataset.type = type;
+
+    // ✅ (1) tag groupId on GOOD targets
+    if (type === 'good') el.dataset.groupId = String(engine.groupId);
+
     setXY(el, x, y);
     el.style.setProperty('--s', s.toFixed(3));
 
@@ -294,13 +317,18 @@ Adds:
     else if (type === 'star'){ el.classList.add('fg-powerup','fg-star'); }
     else if (type === 'ice'){ el.classList.add('fg-powerup','fg-ice'); }
 
+    // ✅ (2) ถ้า freeze กำลังทำงาน: bad ใหม่เกิดมาเป็น doll 2s
+    if (now() < engine.freezeUntil && (type==='junk' || type==='decoy' || type==='wrong')){
+      markFreezeDoll(el, 2000);
+    }
+
     const ttlBase = engine.ttlMs;
     const ttl = engine.storm ? Math.max(850, ttlBase*0.85) : ttlBase;
 
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
 
-      // expire miss: only GOOD counts
+      // expire miss: เฉพาะ GOOD ของ “หมู่ปัจจุบันตอนเกิด” เท่านั้น
       if (type === 'good'){
         engine.misses++; engine.combo = 0; engine.groupClean = false;
         emit('hha:judge', { kind:'warn', text:'MISS!' });
@@ -363,7 +391,6 @@ Adds:
     if (now() < engine.nextBossAtMs) return;
 
     engine.bossAlive = true;
-    engine.bossHpMax = engine.bossHpMax|0;
     engine.bossHp = engine.bossHpMax;
 
     const p = randPos();
@@ -380,7 +407,8 @@ Adds:
   // ---------- Feel-good bonuses ----------
   function perfectSwitchBonus(){
     if (!engine.groupClean) return;
-    engine.score += 300 + Math.min(240, engine.combo*6);
+    const mult = scoreMult();
+    engine.score += (300 + Math.min(240, engine.combo*6)) * mult;
     emit('hha:judge', { kind:'good', text:'PERFECT SWITCH!' });
     emit('hha:celebrate', { kind:'mini', title:'PERFECT SWITCH!' });
   }
@@ -391,9 +419,7 @@ Adds:
     setGroup(next, 1);
     emit('groups:progress', { kind:'group_swap' });
 
-    // Rainbow Rush 6s
-    engine._rushUntil = now() + 6000;
-
+    engine._rushUntil = now() + 6000; // rainbow rush
     engine.power = 0;
     updatePower();
   }
@@ -411,6 +437,39 @@ Adds:
       engine.shield = 1;
       emit('hha:judge', { kind:'good', text:'SHIELD READY!' });
       emit('hha:celebrate', { kind:'mini', title:'SHIELD READY!' });
+    }
+  }
+
+  // ---------- (3) Overdrive ----------
+  function activateOverdrive(){
+    engine.overUntil = now() + 5000;
+    DOC.body.classList.add('groups-overdrive');
+    chipOver.style.display = '';
+    SFX.power();
+    emit('hha:celebrate', { kind:'goal', title:'OVERDRIVE x2!' });
+
+    root.setTimeout(()=>{
+      if (now() >= engine.overUntil){
+        DOC.body.classList.remove('groups-overdrive');
+        chipOver.style.display = 'none';
+      }
+    }, 5100);
+  }
+
+  function onStarCollected(){
+    const t = now();
+
+    // window 8s: ถ้ากดดาวครั้งแรก เปิดหน้าต่าง 8s
+    if (t > engine.overWindowUntil){
+      engine.overCharge = 0;
+      engine.overWindowUntil = t + 8000;
+    }
+    engine.overCharge++;
+
+    if (engine.overCharge >= 2){
+      engine.overCharge = 0;
+      engine.overWindowUntil = 0;
+      activateOverdrive();
     }
   }
 
@@ -435,6 +494,16 @@ Adds:
     chipFrz.style.display = '';
     SFX.power();
     emit('hha:celebrate', { kind:'mini', title:'FREEZE ❄️' });
+
+    // ✅ (2) แปลง bad ที่อยู่บนจอเป็นตุ๊กตานิ่ง 2 วิ
+    const list = layer.querySelectorAll('.fg-target');
+    list.forEach(el=>{
+      const tp = String(el.dataset.type||'').toLowerCase();
+      if (tp==='junk' || tp==='decoy' || tp==='wrong'){
+        markFreezeDoll(el, 2000);
+      }
+    });
+
     root.setTimeout(()=>{
       if (now() >= engine.freezeUntil){
         DOC.body.classList.remove('groups-freeze');
@@ -443,17 +512,22 @@ Adds:
     }, 4600);
   }
 
+  // ✅ (1) Magnet pull เฉพาะ good ของหมู่ปัจจุบัน
   function magnetPullTick(){
     if (now() >= engine.magnetUntil) return;
+
     const r = safeSpawnRect();
     const cx = r.W * 0.5;
     const cy = (r.y0 + r.y1) * 0.5;
+
     const list = layer.querySelectorAll('.fg-target.fg-good');
     list.forEach(el=>{
+      const gid = Number(el.dataset.groupId)||0;
+      if (gid !== engine.groupId) return; // ✅ pull only correct-group good
+
       const p = getXY(el);
-      // ดึงเบา ๆ ให้รู้สึก “ช่วย” แต่ไม่โกง
-      const nx = p.x + (cx - p.x) * 0.035;
-      const ny = p.y + (cy - p.y) * 0.035;
+      const nx = p.x + (cx - p.x) * 0.040;
+      const ny = p.y + (cy - p.y) * 0.040;
       setXY(el, nx, ny);
     });
   }
@@ -467,8 +541,9 @@ Adds:
     engine.bossHp = Math.max(0, engine.bossHp - 1);
     emit('hha:judge', { kind:'boss', text:'HIT!' });
 
-    const mult = (engine._rushUntil && now() < engine._rushUntil) ? 1.5 : 1.0;
-    engine.score += Math.round((140 + engine.combo*2) * mult);
+    const mult = scoreMult();
+    const rush = (engine._rushUntil && now() < engine._rushUntil) ? 1.5 : 1.0;
+    engine.score += Math.round((140 + engine.combo*2) * rush * mult);
 
     if (engine.bossHp <= 0){
       engine.bossAlive = false;
@@ -489,27 +564,39 @@ Adds:
     if (!engine.running || engine.ended) return;
     if (!el || !el.isConnected) return;
 
-    const type = String(el.dataset.type||'').toLowerCase();
+    let type = String(el.dataset.type||'').toLowerCase();
 
-    // powerups (ไม่ควรนับ quest)
+    // ---------- powerups ----------
     if (type === 'star'){
       engine.hitAll++;
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
-      engine.score += 120;
+
+      const mult = scoreMult();
+      engine.score += 120 * mult;
+
       emit('hha:judge', { kind:'good', text:'MAGNET!', meta:{ noQuest:true } });
       activateMagnet();
+
+      // ✅ (3) star contributes to overdrive charge
+      onStarCollected();
+
       updateScore();
       removeTarget(el);
       return;
     }
+
     if (type === 'ice'){
       engine.hitAll++;
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
-      engine.score += 120;
+
+      const mult = scoreMult();
+      engine.score += 120 * mult;
+
       emit('hha:judge', { kind:'good', text:'FREEZE!', meta:{ noQuest:true } });
       activateFreeze();
+
       updateScore();
       removeTarget(el);
       return;
@@ -517,29 +604,54 @@ Adds:
 
     if (type === 'boss'){ hitBoss(el); return; }
 
+    // ✅ (1) ถ้าเป็น "good" แต่ groupId ไม่ตรง => ถือว่า WRONG
+    if (type === 'good'){
+      const gid = Number(el.dataset.groupId)||0;
+      if (gid && gid !== engine.groupId){
+        type = 'wrong';
+      }
+    }
+
     engine.hitAll++;
 
+    // GOOD
     if (type === 'good'){
       engine.hitGood++;
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
 
-      const mult = (engine._rushUntil && now() < engine._rushUntil) ? 1.5 : 1.0;
-      engine.score += Math.round((100 + engine.combo*3) * mult);
+      const mult = scoreMult();
+      const rush = (engine._rushUntil && now() < engine._rushUntil) ? 1.5 : 1.0;
+      engine.score += Math.round((100 + engine.combo*3) * rush * mult);
 
       addPower(engine.storm ? 2 : 1);
       addShieldIfClean();
 
-      emit('hha:judge', { kind:'good', text: (mult>1?'RAINBOW!':'GOOD!') });
+      emit('hha:judge', { kind:'good', text: (mult>1?'OVER x2!':'GOOD!') });
       SFX.good();
       updateScore();
       removeTarget(el);
       return;
     }
 
-    // bad types
+    // ---------- BAD-like ----------
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
+
     if (badLike){
+      // ✅ (2) ถ้าเป็น Freeze Doll (2 วิ) => ยิงทิ้งได้ ไม่มีโทษ + ได้แต้มเล็กน้อย
+      if (isFreezeDoll(el) || (now() < engine.freezeUntil && (type==='junk' || type==='decoy' || type==='wrong'))){
+        engine.combo = clamp(engine.combo + 1, 0, 9999);
+        engine.comboMax = Math.max(engine.comboMax, engine.combo);
+
+        const mult = scoreMult();
+        engine.score += 40 * mult;
+
+        emit('hha:judge', { kind:'good', text:'POOF!' });
+        updateScore();
+        removeTarget(el);
+        return;
+      }
+
       if (type === 'junk' && engine.shield > 0){
         engine.shield = 0;
         engine.combo = Math.max(0, engine.combo - 1);
@@ -569,7 +681,6 @@ Adds:
 
   // ---------- Spawn choose ----------
   function chooseType(){
-    // ถ้า freeze อยู่: ลด junk/decoy และชะลอความโหด
     const freezing = now() < engine.freezeUntil;
 
     const baseJ = (engine.runMode==='research') ? diffParams(engine.diff).junk : engine.adapt.junkBias;
@@ -583,8 +694,8 @@ Adds:
       d = Math.max(0.03, d*0.35);
     }
 
-    // powerup chance (น้อย แต่ “รู้สึกดี”)
-    const pu = engine.storm ? 0.018 : 0.012;  // ~1–2%
+    // powerup chance
+    const pu = engine.storm ? 0.018 : 0.012;
     if (engine.rng() < pu){
       return (engine.rng() < 0.5) ? 'star' : 'ice';
     }
@@ -606,7 +717,6 @@ Adds:
     if (type === 'ice')  return '❄️';
     if (type === 'good') return pick(GROUPS[engine.groupId].emoji);
 
-    // wrong: from other groups
     const other = [];
     for (let g=1; g<=5; g++){
       if (g === engine.groupId) continue;
@@ -617,12 +727,10 @@ Adds:
 
   function spawnOne(){
     if (!engine.running || engine.ended) return;
-
     tryBossSpawn();
 
     const tp = chooseType();
     const em = chooseEmoji(tp);
-
     const p = randPos();
 
     const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
@@ -630,7 +738,7 @@ Adds:
 
     let size = engine.sizeBase * base.size * stormScale;
     if (tp === 'junk') size *= 0.95;
-    if (tp === 'star' || tp === 'ice') size *= 0.98; // ไม่ใหญ่เกิน
+    if (tp === 'star' || tp === 'ice') size *= 0.98;
 
     const el = makeTarget(tp, em, p.x, p.y, size);
     layer.appendChild(el);
@@ -643,10 +751,7 @@ Adds:
 
     const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
     let sMs = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0));
-
-    if (now() < engine.freezeUntil){
-      sMs = sMs * 1.22; // freeze ช่วยหายใจ
-    }
+    if (now() < engine.freezeUntil) sMs = sMs * 1.22;
 
     engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
   }
@@ -655,12 +760,11 @@ Adds:
   function loopTick(){
     if (!engine.running || engine.ended) return;
 
-    // storm schedule
     if (!engine.storm && now() >= engine.nextStormAtMs) enterStorm();
     if (engine.storm) maybeStormTick();
 
-    // magnet pull
     magnetPullTick();
+    cleanupDolls();
 
     // adaptive (play only)
     if (engine.runMode === 'play'){
@@ -676,15 +780,12 @@ Adds:
       engine.adapt.decoyBias= clamp(0.09 + heat*0.05, 0.06, 0.20);
       engine.adapt.bossEvery= clamp(20000 - heat*6000, 14000, 22000);
     } else {
-      const dp = diffParams(engine.diff);
-      engine.ttlMs = dp.ttl;
+      engine.ttlMs = diffParams(engine.diff).ttl;
     }
 
-    // time
     engine.left = Math.max(0, engine.left - 0.14);
     updateTime();
 
-    // end
     if (engine.left <= 0){ endGame('time'); return; }
 
     engine.tickTimer = root.setTimeout(loopTick, 140);
@@ -703,8 +804,8 @@ Adds:
     engine.ended = true;
     engine.running = false;
 
-    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-magnet','groups-freeze');
-    chipStorm.style.display='none'; chipMag.style.display='none'; chipFrz.style.display='none';
+    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-magnet','groups-freeze','groups-overdrive');
+    chipStorm.style.display='none'; chipMag.style.display='none'; chipFrz.style.display='none'; chipOver.style.display='none';
 
     try{ root.clearTimeout(engine.spawnTimer); }catch{}
     try{ root.clearTimeout(engine.tickTimer); }catch{}
@@ -747,7 +848,6 @@ Adds:
     engine.seed = String(cfg.seed || qs('seed', String(Date.now())));
     engine.rng = makeRng(engine.seed);
 
-    // init audio (unlock is done by your start overlay resumeAudio)
     SFX.ensure();
 
     const dp = diffParams(engine.diff);
@@ -780,6 +880,10 @@ Adds:
 
     engine.magnetUntil = 0;
     engine.freezeUntil = 0;
+
+    engine.overCharge = 0;
+    engine.overWindowUntil = 0;
+    engine.overUntil = 0;
 
     engine.adapt.spawnMs = dp.spawnMs;
     engine.adapt.ttl = dp.ttl;
