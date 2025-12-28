@@ -1,7 +1,9 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-GroupsBoot — PRODUCTION (PATCH)
+GroupsBoot — PRODUCTION (PATCH++ : Quest + Style)
 - Uses window.GroupsVR.GameEngine
 - Passes style + time + seed + runMode to engine.start(diff, cfg)
+- Resets QuestDirector when starting
+- Sets body class groups-style-hard/feel/mix
 */
 
 (function () {
@@ -15,6 +17,14 @@ GroupsBoot — PRODUCTION (PATCH)
 
   function safeEngine() {
     return (ROOT.GroupsVR && ROOT.GroupsVR.GameEngine) ? ROOT.GroupsVR.GameEngine : null;
+  }
+
+  function setBodyStyleClass(style){
+    const b = document.body;
+    if (!b) return;
+    b.classList.remove('groups-style-hard','groups-style-feel','groups-style-mix');
+    const st = (['hard','feel','mix'].includes(style) ? style : 'mix');
+    b.classList.add('groups-style-'+st);
   }
 
   function parseParams() {
@@ -45,6 +55,15 @@ GroupsBoot — PRODUCTION (PATCH)
     if (cam && eng.setCameraEl) eng.setCameraEl(cam);
   }
 
+  function resetQuest(runMode, diff, style){
+    try{
+      const Q = ROOT.GroupsVR && ROOT.GroupsVR.QuestDirector;
+      if (Q && typeof Q.reset === 'function'){
+        Q.reset({ runMode, diff, style });
+      }
+    }catch{}
+  }
+
   Boot.start = function (mode, opts = {}) {
     if (started) return;
 
@@ -59,6 +78,9 @@ GroupsBoot — PRODUCTION (PATCH)
     const time = Number.isFinite(opts.time) ? (opts.time|0) : (parseInt(opts.time || '90', 10) || 90);
     const seed = String(opts.seed || '').trim();
     const style= String(opts.style || (new URLSearchParams(location.search).get('style')||'mix')).toLowerCase();
+
+    setBodyStyleClass(style);
+    resetQuest(runMode, diff, style);
 
     bindRefs(eng);
     if (eng.setTimeLeft) eng.setTimeLeft(time);
@@ -90,6 +112,9 @@ GroupsBoot — PRODUCTION (PATCH)
     if (p.autostart !== '1') return;
     if (!p.run) return;
 
+    // set style class early
+    setBodyStyleClass(p.style);
+
     let tries = 0;
     const it = setInterval(() => {
       tries++;
@@ -98,7 +123,7 @@ GroupsBoot — PRODUCTION (PATCH)
         clearInterval(it);
         Boot.start(p.run, { diff: p.diff, time: p.time, seed: p.seed, style: p.style });
       }
-      if (tries > 80) clearInterval(it);
-    }, 100);
+      if (tries > 120) clearInterval(it);
+    }, 80);
   })();
 })();
