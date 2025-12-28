@@ -52,9 +52,13 @@ function hash32(str){
   return h >>> 0;
 }
 
+// ✅ PATCH: dispatch to BOTH document and window (HUD listens on window for score/time/coach/end)
 function dispatch(name, detail){
   try{
     DOC && DOC.dispatchEvent(new CustomEvent(name, { detail }));
+  }catch(_){}
+  try{
+    ROOT && ROOT.dispatchEvent && ROOT.dispatchEvent(new CustomEvent(name, { detail }));
   }catch(_){}
 }
 
@@ -162,21 +166,40 @@ function makeQuestDirector(opts = {}){
     return out.slice(0, maxMini);
   }
 
+  // ✅ PATCH: HUD expects goalMax/miniMax and miniTLeft
   function ui(reason='state'){
+    const goalCur = Q.activeGoal ? Q.activeGoal.cur : 0;
+    const goalMax = Q.activeGoal ? Q.activeGoal.target : 1;
+
+    const miniCur = Q.activeMini ? Q.activeMini.cur : 0;
+    const miniMax = Q.activeMini ? Q.activeMini.target : 1;
+
+    let miniTLeft = null;
+    if (Q.activeMini && Q.activeMini.timerSec > 0 && Q.miniEndsAtMs > 0){
+      miniTLeft = Math.max(0, Math.ceil((Q.miniEndsAtMs - nowMs()) / 1000));
+    }
+
     return {
       reason,
+
       goalIndex: Q.goalIndex,
       goalTitle: Q.activeGoal ? Q.activeGoal.title : '',
-      goalCur: Q.activeGoal ? Q.activeGoal.cur : 0,
-      goalTarget: Q.activeGoal ? Q.activeGoal.target : 1,
+      goalCur,
+      goalMax,
+
+      // keep old keys too (back-compat)
+      goalTarget: goalMax,
       goalDone: Q.activeGoal ? !!Q.activeGoal.done : false,
       goalsCleared: Q.goalsCleared,
       goalsTotal: Q.goalsAll.length,
 
       miniCount: Q.miniCount,
       miniTitle: Q.activeMini ? Q.activeMini.title : '',
-      miniCur: Q.activeMini ? Q.activeMini.cur : 0,
-      miniTarget: Q.activeMini ? Q.activeMini.target : 1,
+      miniCur,
+      miniMax,
+
+      // keep old keys too (back-compat)
+      miniTarget: miniMax,
       miniDone: Q.activeMini ? !!Q.activeMini.done : false,
       minisCleared: Q.minisCleared,
       minisTotal: Q.minisAll.length,
@@ -184,6 +207,9 @@ function makeQuestDirector(opts = {}){
       miniForbidJunk: Q.activeMini ? !!Q.activeMini.forbidJunk : false,
       miniTimerSec: Q.activeMini ? (Q.activeMini.timerSec|0) : 0,
       miniEndsAtMs: Q.miniEndsAtMs|0,
+
+      // HUD uses this
+      miniTLeft,
 
       allDone: !!Q.allDone
     };
@@ -205,7 +231,6 @@ function makeQuestDirector(opts = {}){
     Q.miniCount = clamp(Q.miniCount + 1, 0, Q.minisAll.length);
     Q.activeMini = Q.minisAll[Q.miniCount] || null;
 
-    // timer mini
     const sec = Q.activeMini ? (Q.activeMini.timerSec|0) : 0;
     Q.miniEndsAtMs = sec > 0 ? (nowMs() + sec*1000) : 0;
 
@@ -245,7 +270,6 @@ function makeQuestDirector(opts = {}){
     if (Q.activeMini && Q.activeMini.timerSec > 0 && Q.miniEndsAtMs > 0){
       const leftMs = Q.miniEndsAtMs - nowMs();
       if (leftMs <= 0 && !Q.activeMini.done){
-        // timer mini: succeed if "forbid junk" and no failure happened; we treat as done by time
         Q.activeMini.done = true;
         Q.minisCleared++;
         push('mini-time-done');
@@ -260,7 +284,6 @@ function makeQuestDirector(opts = {}){
   function failMini(reason='fail'){
     const m = Q.activeMini;
     if (!m || m.done || Q.allDone) return ui('fail-skip');
-    // reset progress but keep same mini active; (fair) just restart timer if any
     m.cur = 0;
     if (m.timerSec > 0){
       Q.miniEndsAtMs = nowMs() + m.timerSec*1000;
@@ -306,7 +329,6 @@ function makeQuestDirector(opts = {}){
     }
   }
 
-  // allow engine to drive goal progress externally (e.g., survive/miss limit)
   function setGoalExternal(cur, target, done=false){
     const g = Q.activeGoal;
     if(!g || Q.allDone) return;
@@ -344,14 +366,12 @@ export function boot(opts = {}){
   const run  = String(q.run  || opts.run  || 'play').toLowerCase(); // play|study
   const durationPlannedSec = clamp(Number(q.time || opts.time || 80), 20, 600) | 0;
 
-  // deterministic seed (study mode important)
   const seedStr = String(q.seed || q.studentKey || q.studyId || q.sid || q.nick || ('gj-'+Date.now()));
   const seed = (Number(q.seed)|0) || hash32(seedStr);
   const rng = mulberry32(seed);
 
   const layer = byId('gj-layer') || qs('#gj-layer') || byId('layer') || qs('.gj-layer') || DOC.body;
 
-  // HUD elements (optional; HUD binder also listens to events)
   const elScore = byId('hud-score') || byId('score') || byId('scoreVal');
   const elCombo = byId('hud-combo') || byId('combo') || byId('comboVal');
   const elMiss  = byId('hud-miss')  || byId('miss')  || byId('missVal');
@@ -360,11 +380,9 @@ export function boot(opts = {}){
   const elCoachImg  = byId('coach-img')  || qs('[data-coach-img]');
   const elEndWrap   = byId('end-summary') || byId('gj-end') || qs('.gj-end') || null;
 
-  // Start gate (optional)
   const startOverlay = byId('start-overlay') || byId('gj-start') || qs('.start-overlay') || null;
   const startBtn = byId('start-btn') || byId('btn-start') || qs('[data-start]') || null;
 
-  // state
   const S = {
     started: false,
     ended: false,
@@ -378,7 +396,6 @@ export function boot(opts = {}){
     comboMax: 0,
     misses: 0,
 
-    // counters (for logging)
     nTargetGoodSpawned: 0,
     nTargetJunkSpawned: 0,
     nTargetStarSpawned: 0,
@@ -390,61 +407,48 @@ export function boot(opts = {}){
     nHitJunkGuard: 0,
     nExpireGood: 0,
 
-    // RT tracking for good hits
     rtGood: [],
 
-    // fever/shield
     fever: 0,
     shield: 0,
     stunUntilMs: 0,
 
-    // boss
     bossAlive: false,
     bossHp: 0,
     bossHpMax: 0,
     bossId: null,
 
-    // diff
     diff,
 
-    // NEW: miss limit per diff (drives Survive goal)
     missLimit: (diff === 'easy') ? 6 : (diff === 'hard' ? 3 : 4),
 
-    // internal timing
     tLastMs: 0,
     tStartIso: '',
     tEndIso: '',
 
-    // version
     gameVersion: String(opts.gameVersion || q.ver || 'goodjunk.safe.js@prod'),
 
-    // run meta
     runMode: run,
 
-    // coach cooldown
     __coachCdMs: 0
   };
 
-  // playfield bounds + safe zones (avoid HUD)
   function getPlayRect(){
     const vw = ROOT.innerWidth || 360;
     const vh = ROOT.innerHeight || 640;
 
-    // reserve HUD safe zones (top/bottom/side)
-    const padTop = 96;   // goal+mini bars
-    const padBot = 86;   // bottom HUD/buttons
-    const padSide = 18;  // side HUD
+    const padTop = 96;
+    const padBot = 86;
+    const padSide = 18;
 
     const x0 = padSide;
     const y0 = padTop;
     const x1 = vw - padSide;
     const y1 = vh - padBot;
 
-    // clamp minimal
     const w = Math.max(120, x1 - x0);
     const h = Math.max(140, y1 - y0);
 
-    // if too small, relax automatically (avoid "spawn same spot")
     const relax = (w < 220 || h < 220) ? 0.6 : 1.0;
 
     return {
@@ -457,7 +461,6 @@ export function boot(opts = {}){
     };
   }
 
-  // targets map
   const targets = new Map();
   let nextId = 1;
 
@@ -468,10 +471,8 @@ export function boot(opts = {}){
     el.dataset.tid = String(t.id);
     el.setAttribute('aria-label', t.type);
 
-    // emoji visual
     el.textContent = t.emoji;
 
-    // layout
     el.style.position = 'absolute';
     el.style.left = t.xView + 'px';
     el.style.top  = t.yView + 'px';
@@ -482,7 +483,6 @@ export function boot(opts = {}){
     el.style.userSelect = 'none';
     el.style.touchAction = 'manipulation';
 
-    // minimal visual fallback (CSS can override)
     el.style.border = '1px solid rgba(148,163,184,.25)';
     el.style.background = 'rgba(2,6,23,.40)';
     el.style.backdropFilter = 'blur(6px)';
@@ -491,7 +491,6 @@ export function boot(opts = {}){
     el.style.textAlign = 'center';
     el.style.boxShadow = '0 10px 30px rgba(0,0,0,.35)';
 
-    // special styles
     if (t.type === 'junk' || t.type === 'trap'){
       el.style.borderColor = 'rgba(239,68,68,.45)';
       el.style.boxShadow = '0 10px 35px rgba(239,68,68,.18)';
@@ -523,7 +522,6 @@ export function boot(opts = {}){
     const baseSize = (diff === 'easy') ? 66 : (diff === 'hard' ? 54 : 60);
     let size = baseSize + (rng()*10 - 5);
 
-    // mini boss gets larger
     if (type === 'boss') size = (diff === 'easy') ? 120 : (diff === 'hard' ? 108 : 114);
 
     size = clamp(size, 44, 140);
@@ -564,7 +562,6 @@ export function boot(opts = {}){
 
     try{ layer.appendChild(t.el); }catch(_){}
 
-    // counters
     if (type === 'good') S.nTargetGoodSpawned++;
     if (type === 'junk' || type === 'trap') S.nTargetJunkSpawned++;
     if (type === 'star') S.nTargetStarSpawned++;
@@ -596,7 +593,6 @@ export function boot(opts = {}){
 
   // ------------------------------ Logging ------------------------------
   function makeSessionId(){
-    // stable per boot; include seed for deterministic trace
     const base = `${Date.now()}-${(Math.random()*1e9)|0}-${seed>>>0}`;
     return base.replace(/\./g,'');
   }
@@ -644,7 +640,6 @@ export function boot(opts = {}){
 
     if (elCoachText) setTxt(elCoachText, text);
     if (elCoachImg){
-      // support your standard coach images if present
       const map = {
         happy: './img/coach-happy.png',
         neutral: './img/coach-neutral.png',
@@ -656,7 +651,9 @@ export function boot(opts = {}){
         elCoachImg.setAttribute('src', src);
       }catch(_){}
     }
-    dispatch('hha:coach', { text, mood, sub });
+
+    // ✅ PATCH: HUD expects { line, sub, mood }
+    dispatch('hha:coach', { line: text, mood, sub });
   }
 
   function setFever(v){
@@ -684,22 +681,35 @@ export function boot(opts = {}){
   function emitScore(reason='score'){
     const payload = {
       reason,
-      scoreFinal: S.score|0,
+
+      // ✅ PATCH: HUD uses these
+      score: S.score|0,
       combo: S.combo|0,
-      comboMax: S.comboMax|0,
       misses: S.misses|0,
+
+      // keep extra fields
+      scoreFinal: S.score|0,
+      comboMax: S.comboMax|0,
       fever: S.fever|0,
       shield: S.shield|0
     };
-    if (elScore) setTxt(elScore, payload.scoreFinal);
+
+    if (elScore) setTxt(elScore, payload.score);
     if (elCombo) setTxt(elCombo, payload.combo);
     if (elMiss)  setTxt(elMiss,  payload.misses);
+
     dispatch('hha:score', payload);
   }
 
   function emitTime(){
-    const payload = { timeLeftSec: S.timeLeftSec|0, durationPlannedSec: S.durationPlannedSec|0 };
-    if (elTime) setTxt(elTime, payload.timeLeftSec);
+    const t = (S.timeLeftSec|0);
+    const payload = {
+      // ✅ PATCH: HUD uses timeLeft first
+      timeLeft: t,
+      timeLeftSec: t,
+      durationPlannedSec: S.durationPlannedSec|0
+    };
+    if (elTime) setTxt(elTime, t);
     dispatch('hha:time', payload);
   }
 
@@ -710,7 +720,6 @@ export function boot(opts = {}){
 
   // ------------------------------ Quest setup ------------------------------
   const goalDefs = (opts.goalDefs || DEFAULT_GOALS).map(g=>({ ...g }));
-  // sync survive goal target with missLimit, not fixed in defs
   for (const g of goalDefs){
     if ((g.title||'').indexOf('อยู่รอด') >= 0){
       g.targetByDiff = { easy:6, normal:4, hard:3 };
@@ -729,7 +738,6 @@ export function boot(opts = {}){
 
   Q.start();
 
-  // keep survive goal updated (Goal 2) by misses/max during play, finalize at endGame
   function refreshSurviveGoal(finalize=false){
     try{
       const ui = Q.getUIState('peek');
@@ -760,19 +768,16 @@ export function boot(opts = {}){
 
     const tNow = nowMs();
 
-    // boss hit
     if (t.type === 'boss'){
       bossTakeHit(1);
       return;
     }
 
-    // remove immediately (feel snappy)
     removeTarget(id);
 
     if (t.type === 'good'){
       S.nHitGood += 1;
 
-      // RT
       const rt = clamp(tNow - t.bornMs, 0, 9999);
       S.rtGood.push(rt);
 
@@ -790,7 +795,6 @@ export function boot(opts = {}){
 
       const gDone = Q.addGoalProgress(1).goalDone;
 
-      // do NOT advance mini if current mini is boss-related
       let mDone = false;
       try{
         const ui = Q.getUIState('peek');
@@ -800,7 +804,6 @@ export function boot(opts = {}){
         mDone = Q.addMiniProgress(1).miniDone;
       }
 
-      // celebrate / flow
       if (gDone){
         Particles.celebrate?.('GOAL');
         coach('Goal ผ่านแล้ว! ไปต่อ 🔥', 'happy', 'เป้าถัดไปมาแล้ว!');
@@ -815,10 +818,7 @@ export function boot(opts = {}){
       }
 
       emitScore();
-
-      // keep survive goal updated
       refreshSurviveGoal(false);
-
       return;
     }
 
@@ -832,7 +832,6 @@ export function boot(opts = {}){
     }
 
     if (t.type === 'junk' || t.type === 'trap'){
-      // shield blocks junk hit -> NOT a miss (HHA standard)
       if ((S.shield|0) > 0){
         S.nHitJunkGuard += 1;
         S.shield = Math.max(0, (S.shield|0) - 1);
@@ -844,7 +843,6 @@ export function boot(opts = {}){
         return;
       }
 
-      // miss: junk hit
       S.nHitJunk += 1;
       S.misses += 1;
       S.combo = 0;
@@ -855,10 +853,7 @@ export function boot(opts = {}){
 
       Q.onJunkHit();
       emitScore();
-
-      // keep survive goal updated
       refreshSurviveGoal(false);
-
       return;
     }
   }
@@ -876,7 +871,6 @@ export function boot(opts = {}){
       { kind:'boss', hp: S.bossHp, hpMax: S.bossHpMax }
     );
 
-    // boss mini progress (only if current mini is boss-related)
     try{
       const ui = Q.getUIState('peek');
       const miniIsBoss = !!(ui && ui.miniTitle && ui.miniTitle.indexOf('บอส') >= 0);
@@ -895,7 +889,6 @@ export function boot(opts = {}){
       logEvent('event', { itemType:'boss', judgment:'DOWN' }, { kind:'boss_down' });
       despawnBoss();
     } else {
-      // update boss target text size as HP feedback (optional)
       const t = (S.bossId && targets.get(S.bossId)) ? targets.get(S.bossId) : null;
       if (t && t.el){
         try{
@@ -910,28 +903,22 @@ export function boot(opts = {}){
     if (S.ended || !S.started) return;
 
     const ui = Q.getUIState('peek');
-    const mini = ui ? ui.miniTitle : '';
     const isBossMini = isBossMiniActive();
 
-    // boss mini: ensure boss exists
     if (isBossMini){
       if (!S.bossAlive) spawnBoss();
-      // also sprinkle fewer other targets for focus
       if (targets.size < 5){
         spawnTarget('good');
         if (rng() < 0.25) spawnTarget('junk');
       }
       return;
     } else {
-      // if boss leftover, remove
       if (S.bossAlive) despawnBoss();
     }
 
-    // normal mix
     const maxOnScreen = (diff === 'easy') ? 9 : (diff === 'hard' ? 10 : 9);
     if (targets.size >= maxOnScreen) return;
 
-    // fairness: if forbidJunk mini, reduce junk spawn strongly
     const forbidJunk = ui ? !!ui.miniForbidJunk : false;
     const junkRate = forbidJunk ? 0.08 : (diff === 'easy' ? 0.22 : (diff === 'hard' ? 0.28 : 0.24));
     const shieldRate = 0.07;
@@ -943,7 +930,6 @@ export function boot(opts = {}){
     } else if (r < goodRate + shieldRate){
       spawnTarget('shield');
     } else {
-      // junk
       spawnTarget((rng() < 0.12) ? 'trap' : 'junk');
     }
   }
@@ -959,23 +945,27 @@ export function boot(opts = {}){
     const denomJunk = Math.max(1, (S.nHitJunk|0) + (S.nHitJunkGuard|0));
     const junkErrorPct = Math.round((nJunkHit / denomJunk) * 100);
 
-    // RT
     const rts = S.rtGood.slice().filter(v=>Number.isFinite(v));
     rts.sort((a,b)=>a-b);
     const avgRt = rts.length ? Math.round(rts.reduce((s,x)=>s+x,0)/rts.length) : 0;
     const medRt = rts.length ? Math.round(rts[(rts.length/2)|0]) : 0;
-
     const fastHitRatePct = rts.length ? Math.round((rts.filter(x=>x<=420).length / rts.length)*100) : 0;
+
+    const ui = Q.getUIState('peek');
 
     return {
       scoreFinal: S.score|0,
       comboMax: S.comboMax|0,
       misses: S.misses|0,
 
-      goalsCleared: (Q.getUIState('peek').goalsCleared|0),
-      goalsTotal: (Q.getUIState('peek').goalsTotal|0),
-      miniCleared: (Q.getUIState('peek').minisCleared|0),
-      miniTotal: (Q.getUIState('peek').minisTotal|0),
+      goalsCleared: (ui.goalsCleared|0),
+      goalsTotal: (ui.goalsTotal|0),
+
+      // keep both spellings for downstream
+      minisCleared: (ui.minisCleared|0),
+      minisTotal: (ui.minisTotal|0),
+      miniCleared: (ui.minisCleared|0),
+      miniTotal: (ui.minisTotal|0),
 
       nTargetGoodSpawned: S.nTargetGoodSpawned|0,
       nTargetJunkSpawned: S.nTargetJunkSpawned|0,
@@ -1000,13 +990,11 @@ export function boot(opts = {}){
   }
 
   function computeGrade(stats){
-    // weighted grading (kid-friendly but strict)
     const acc = stats.accuracyGoodPct|0;
     const miss = stats.misses|0;
     const score = stats.scoreFinal|0;
     const combo = stats.comboMax|0;
 
-    // penalties
     const missPenalty = miss * 4;
     const scoreNorm = clamp(Math.round(score / 25), 0, 120);
 
@@ -1021,16 +1009,13 @@ export function boot(opts = {}){
   }
 
   function buildHubUrl(){
-    // keep query params if present
     const hub = String(q.hub || q.return || opts.hub || '../index.html');
     try{
       const u = new URL(hub, ROOT.location.href);
-      // keep important params for HUB context
       const keep = ['studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester','studentKey','schoolCode','nick','diff','run'];
       for (const k of keep){
         if (q[k] != null && !u.searchParams.has(k)) u.searchParams.set(k, String(q[k]));
       }
-      // mark that we return from game
       u.searchParams.set('from', 'goodjunk');
       return u.toString();
     }catch(_){
@@ -1047,7 +1032,6 @@ export function boot(opts = {}){
   function showEndSummary(payload){
     dispatch('hha:end', payload);
 
-    // optional end panel
     if (!elEndWrap) return;
 
     const hubUrl = buildHubUrl();
@@ -1091,7 +1075,6 @@ export function boot(opts = {}){
 
     setHtml(elEndWrap, html);
 
-    // restart handler
     const btn = elEndWrap.querySelector('[data-restart]');
     if (btn){
       btn.addEventListener('click', () => {
@@ -1118,14 +1101,11 @@ export function boot(opts = {}){
     S.ended = true;
     S.tEndIso = new Date().toISOString();
 
-    // finalize survive goal (pass only if misses <= limit)
     refreshSurviveGoal(true);
 
-    // stop everything
     try{ DOC.body && DOC.body.classList.remove('gj-panic'); }catch(_){}
     try{ DOC.body && DOC.body.classList.remove('gj-stun'); }catch(_){}
 
-    // compute final stats
     const stats = computeStatsFinal();
     const grade = computeGrade(stats);
 
@@ -1150,13 +1130,12 @@ export function boot(opts = {}){
       ...stats,
       grade,
 
-      device: String(q.device || (ROOT.navigator && ROOT.navigator.userAgent) ? 'web' : 'web'),
+      device: String(q.device || 'web'),
       gameVersion: S.gameVersion,
       reason,
       startTimeIso: S.tStartIso,
       endTimeIso: S.tEndIso,
 
-      // study profile fields (pass-through)
       studentKey: String(q.studentKey || ''),
       schoolCode: String(q.schoolCode || ''),
       schoolName: String(q.schoolName || ''),
@@ -1188,39 +1167,31 @@ export function boot(opts = {}){
   function update(dtMs){
     if (!S.started || S.ended) return;
 
-    // coach cooldown
     S.__coachCdMs = Math.max(0, (S.__coachCdMs|0) - (dtMs|0));
 
-    // quest tick (timer minis)
     Q.tick();
 
-    // time
     S.durationPlayedSec = Math.min(S.durationPlannedSec, Math.round(S.durationPlannedSec - S.timeLeftSec));
     S.timeLeftSec = Math.max(0, S.timeLeftSec - (dtMs/1000));
 
-    // panic near end time
     if (S.timeLeftSec <= 8 && S.timeLeftSec > 0){
       DOC.body && DOC.body.classList.add('gj-panic');
     } else {
       DOC.body && DOC.body.classList.remove('gj-panic');
     }
 
-    // NEW: extra pressure when close to miss limit (fair + readable)
     const leftMiss = (S.missLimit|0) - (S.misses|0);
     if (leftMiss <= 1 && leftMiss >= 0){
       DOC.body && DOC.body.classList.add('gj-panic');
     }
 
-    // spawn regularly
     spawnMix();
 
-    // expire targets
     const tNow = nowMs();
     for (const [id, t] of targets){
       if (t.type === 'boss') continue;
       if (tNow >= t.expireMs){
         if (t.type === 'good'){
-          // miss: good expired
           S.nExpireGood += 1;
           S.misses += 1;
           S.combo = 0;
@@ -1228,24 +1199,19 @@ export function boot(opts = {}){
           stun('expire');
           logEvent('miss', { targetId:id, emoji:t.emoji, itemType:'good', judgment:'EXPIRE', isGood:1 }, {});
           emitScore();
-
-          // keep survive goal updated
           refreshSurviveGoal(false);
         }
         removeTarget(id);
       }
     }
 
-    // show time
     emitTime();
 
-    // end?
     if (S.timeLeftSec <= 0){
       endGame('time');
     }
   }
 
-  // rAF loop
   function loop(tMs){
     if (!S.started || S.ended) return;
     const t = (typeof tMs === 'number') ? tMs : nowMs();
@@ -1276,7 +1242,6 @@ export function boot(opts = {}){
       tryHitTarget(id, { via:'pointer' });
     };
 
-    // support both click and pointerup (mobile sometimes needs pointerup)
     layer.addEventListener('pointerup', handler, { passive:false });
     layer.addEventListener('click', handler, { passive:false });
   }
@@ -1292,19 +1257,16 @@ export function boot(opts = {}){
     setFever(10);
     addShield(0);
 
-    // initial coach
     coach('พร้อมลุย! เก็บของดี เลี่ยงขยะ 💥', 'happy', (run === 'study') ? 'โหมดวิจัย: จับเวลา/ล็อกเงื่อนไข' : 'โหมดเล่น: สนุกเต็มที่!');
     emitScore('start');
     emitTime();
 
     logEvent('start', { reason:'start' }, { durationPlannedSec: S.durationPlannedSec|0 });
 
-    // prime: spawn few goods
     for (let i=0;i<3;i++) spawnTarget('good');
     if (rng() < 0.3) spawnTarget('shield');
     if (rng() < 0.2) spawnTarget('junk');
 
-    // keep survive goal current
     refreshSurviveGoal(false);
 
     ROOT.requestAnimationFrame(loop);
@@ -1316,7 +1278,6 @@ export function boot(opts = {}){
       return;
     }
 
-    // show overlay if present
     try{
       if (startOverlay) startOverlay.style.display = '';
     }catch(_){}
@@ -1343,7 +1304,6 @@ export function boot(opts = {}){
   bindLayerClicks();
   bindStart();
 
-  // expose minimal debug
   ROOT.GoodJunkVR = ROOT.GoodJunkVR || {};
   ROOT.GoodJunkVR.state = S;
   ROOT.GoodJunkVR.quest = Q;
@@ -1356,7 +1316,6 @@ export function boot(opts = {}){
 try{
   if (DOC && !ROOT.__HHA_GOODJUNK_BOOTED){
     ROOT.__HHA_GOODJUNK_BOOTED = true;
-    // Only auto-boot when explicitly asked via data attribute to avoid double-boot with boot.js
     const auto = DOC.documentElement && DOC.documentElement.hasAttribute('data-goodjunk-auto');
     if (auto) boot({});
   }
