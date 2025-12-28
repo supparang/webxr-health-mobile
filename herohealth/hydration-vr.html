@@ -1,10 +1,11 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
+HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + TRUE STEREO PARALLAX + FAST GAZE)
 ✅ FIX 404 paths: ./vr/* and ./hydration-vr/hydration.safe.js
-✅ Cardboard mode: 2 eyes (left/right split)
-✅ Gaze mode for Cardboard: dwell-to-shoot (fast + accurate)
-✅ Mini HUD pills (compact) + big SHOOT button in Cardboard
-✅ Keeps existing IDs: #playfield, #hvr-layer, #water-bar/#water-pct/#water-zone, etc.
+✅ Cardboard: 2 eyes (left/right split)
+✅ TRUE stereo parallax (per-target disparity heuristic; not just clone)
+✅ Gaze (Cardboard): dwell-to-shoot (faster + accurate)
+✅ Mini HUD pills + big SHOOT button in Cardboard
+✅ Keeps required IDs: #playfield, #hvr-layer, #water-bar/#water-pct/#water-zone etc.
 -->
 
 <!doctype html>
@@ -19,7 +20,7 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
   <!-- A-Frame (optional) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ FIXED PATHS (อยู่ใต้ /herohealth/) -->
+  <!-- ✅ FIXED PATHS (under /herohealth/) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
@@ -41,12 +42,11 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
 
-      /* Gaze progress 0..1 */
+      /* gaze progress 0..1 */
       --gazeProg:0;
 
-      /* End-window vars (keep from your cinematic patch if you want) */
-      --endamp: 0;
-      --endflash: 0;
+      /* stereo strength (px) */
+      --ipd: 9px; /* default, can override via ?ipd= */
     }
 
     *{ box-sizing:border-box; }
@@ -84,7 +84,7 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
     .grade{ background: rgba(99,102,241,.10); border-color: rgba(99,102,241,.24); }
     .water{ background: rgba(34,211,238,.08); border-color: rgba(34,211,238,.22); }
 
-    /* ===== Bottom HUD (quest + water gauge) ===== */
+    /* ===== Bottom HUD (cards) ===== */
     .hudBottom{
       position:fixed; left:10px; right:10px;
       bottom: calc(var(--sab) + 10px);
@@ -166,7 +166,8 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
     #playfield{ position:absolute; inset:0; }
     #hvr-layer, #hvr-layer-r{
       position:absolute; inset:0;
-      pointer-events:none; /* ยิงด้วยกลางจอ/ปุ่มยิง */
+      pointer-events:none;
+      will-change: transform;
     }
 
     /* Crosshair (each eye) */
@@ -265,10 +266,10 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
     }
     #btnShoot:active{ transform:translateY(1px); }
 
-    /* Hide heavy HUD in cardboard (อ่านยาก) -> ใช้ pillTop อย่างเดียว + shootPad */
+    /* Hide heavy HUD in cardboard */
     body.cardboard .hudBottom{ display:none; }
 
-    /* Optional: divider to help align */
+    /* center divider */
     body.cardboard::after{
       content:"";
       position:fixed;
@@ -279,6 +280,10 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
       z-index:10;
       pointer-events:none;
     }
+
+    /* subtle eye inward shift (comfort) */
+    body.cardboard .eye.left  .xhair{ transform: translate(calc(-50% + 2px), -50%); }
+    body.cardboard .eye.right .xhair{ transform: translate(calc(-50% - 2px), -50%); }
   </style>
 </head>
 
@@ -307,7 +312,7 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
       <h3>💧 Water Gauge</h3>
       <div class="barWrap"><div id="water-bar" class="bar" aria-valuemin="0" aria-valuemax="100"></div></div>
       <div class="questLine" style="margin-top:8px">
-        <span class="tag">Tip</span><span style="color:var(--muted);font-weight:900">เล่นให้คุมโซน GREEN แล้วลุยช่วง Storm</span>
+        <span class="tag">Tip</span><span style="color:var(--muted);font-weight:900">คุม GREEN ให้ดี แล้วจังหวะ Storm ค่อย “เสี่ยง”</span>
       </div>
     </div>
 
@@ -318,7 +323,7 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
       <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
       <div class="questLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
       <div class="questLine" style="margin-top:8px;color:var(--muted)">
-        ยิง = แตะกลางจอ / (Cardboard) กดปุ่ม SHOOT
+        ยิง = แตะกลางจอ / (Cardboard) กด SHOOT / (Gaze) มองค้างแล้วปล่อยให้ยิง
       </div>
     </div>
   </div>
@@ -326,7 +331,7 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
   <!-- PLAY STAGE -->
   <div class="stage">
     <div id="cbWrap">
-      <!-- LEFT EYE (real game) -->
+      <!-- LEFT EYE (real game host) -->
       <div class="eye left">
         <div class="pf" id="pfL">
           <div id="playfield">
@@ -336,7 +341,7 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
         </div>
       </div>
 
-      <!-- RIGHT EYE (mirror) -->
+      <!-- RIGHT EYE (stereo mirror + parallax) -->
       <div class="eye right">
         <div class="pf" id="pfR">
           <div id="playfieldR">
@@ -353,13 +358,14 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
     <div class="startCard">
       <div style="font-size:18px;font-weight:1100">💧 Hydration VR</div>
       <div style="margin-top:6px; color:var(--muted); font-size:12px; font-weight:900; line-height:1.35">
-        ✅ แก้ path แล้ว (ไม่ 404) • เล่นได้ทั้งปกติ/มือถือ/VR/Cardboard<br>
+        ✅ FIX path แล้ว (ไม่ 404) • Cardboard 2 จอ + “สเตอริโอ parallax” จริง<br>
         🎯 ยิง: แตะกลางจอ (ปกติ) หรือกด SHOOT (Cardboard)<br>
-        👁️ Gaze (Cardboard): มองค้างที่เป้าให้วงกลมเต็ม แล้วจะยิงอัตโนมัติ (เร็ว+แม่น)
+        👁️ Gaze: มองค้างที่เป้าให้วงเต็ม → ยิงอัตโนมัติ (ไว+แม่น)
       </div>
       <div class="btnRow">
         <button class="btn secondary" id="btnCardboard" type="button">📦 CARDBOARD</button>
         <button class="btn purple" id="btnGaze" type="button">👁️ GAZE: ON</button>
+        <button class="btn secondary" id="btnStereo" type="button">🧿 STEREO: ON</button>
         <button class="btn" id="btnStart" type="button">🚀 START</button>
       </div>
     </div>
@@ -383,18 +389,17 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
     const btnStart = D.getElementById('btnStart');
     const btnCardboard = D.getElementById('btnCardboard');
     const btnGaze = D.getElementById('btnGaze');
+    const btnStereo = D.getElementById('btnStereo');
     const startOverlay = D.getElementById('start-overlay');
     const btnShoot = D.getElementById('btnShoot');
 
     const pfL = D.getElementById('pfL');
-    const pfR = D.getElementById('pfR');
     const layerL = D.getElementById('hvr-layer');
     const layerR = D.getElementById('hvr-layer-r');
 
-    // --- small helpers ---
     function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
-    // --- audio unlock (for mobile) ---
+    // --- audio unlock (mobile) ---
     async function resumeAudio(){
       try{
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -410,20 +415,18 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
     function fire(){
       const now = performance.now();
       if (now < fireCd) return;
-      fireCd = now + 110; // ✅ faster, prevents double-trigger
+      fireCd = now + 95; // ✅ faster than before
 
       try{
         const r = pfL.getBoundingClientRect();
         const x = Math.round(r.left + r.width/2);
         const y = Math.round(r.top + r.height/2);
 
-        // pointerdown/up to mimic tap
         const evDown = new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:x, clientY:y, pointerType:'touch' });
         const evUp   = new PointerEvent('pointerup',   { bubbles:true, cancelable:true, clientX:x, clientY:y, pointerType:'touch' });
         pfL.dispatchEvent(evDown);
         pfL.dispatchEvent(evUp);
 
-        // also click (fallback)
         pfL.click();
       }catch(e){}
     }
@@ -432,12 +435,14 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
     function setCardboard(on){
       on = !!on;
       body.classList.toggle('cardboard', on);
+      // in cardboard we typically want stereo
+      if (on) setStereo(true);
     }
 
     // --- gaze toggle ---
-    let gazeOn = true;             // ✅ default ON (Cardboard)
-    let dwellMs = 340;             // ✅ faster (เดิมช้าเกิน) → ยิงไวขึ้น
-    let cooldownMs = 140;          // ✅ แม่นขึ้น: cooldown สั้น แต่กันรัว
+    let gazeOn = true;
+    let dwellMs = 260;          // ✅ faster
+    let cooldownMs = 120;       // ✅ snappier
     let gazeT = 0;
     let lastTarget = null;
     let lastTick = performance.now();
@@ -447,14 +452,24 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
       gazeOn = !!on;
       body.classList.toggle('gazeOn', gazeOn);
       btnGaze.textContent = gazeOn ? '👁️ GAZE: ON' : '👁️ GAZE: OFF';
-      // reset
-      gazeT = 0;
-      lastTarget = null;
+      gazeT = 0; lastTarget = null;
       D.documentElement.style.setProperty('--gazeProg', '0');
     }
 
-    // --- mirror sync (no safe.js edits): clone LEFT layer into RIGHT layer smartly ---
-    // ใช้ WeakMap เพื่อ map element -> mirror
+    // --- stereo toggle + strength ---
+    let stereoOn = true;
+    let ipdPx = 9;
+
+    function setStereo(on){
+      stereoOn = !!on;
+      btnStereo.textContent = stereoOn ? '🧿 STEREO: ON' : '🧿 STEREO: OFF';
+    }
+    function setIPD(px){
+      ipdPx = clamp(px, 0, 22);
+      D.documentElement.style.setProperty('--ipd', ipdPx.toFixed(2) + 'px');
+    }
+
+    // --- Mirror map (src element -> mirror element) ---
     const mirrorMap = new WeakMap();
 
     function ensureMirrorNode(src){
@@ -465,53 +480,98 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
       return m;
     }
 
+    // --- heuristics: compute disparity for a target (true parallax-ish) ---
+    // idea: bigger target = "closer" => larger disparity; smaller = "far" => smaller disparity
+    function disparityFor(srcEl){
+      try{
+        const r = srcEl.getBoundingClientRect();
+        const size = Math.max(10, Math.min(220, (r.width + r.height) * 0.5));
+        // map size -> depth factor (0..1)
+        // small -> 0.25, medium -> 0.6, large -> 1.0
+        const t = clamp((size - 18) / 86, 0, 1);
+        const depth = 0.25 + 0.75 * t;
+        return ipdPx * depth;
+      }catch(e){
+        return ipdPx * 0.65;
+      }
+    }
+
+    // apply stereo shift for mirrored node (RIGHT eye)
+    function applyStereoShift(src, mirror){
+      if (!stereoOn) {
+        // remove our injected translate if present
+        mirror.style.transform = src.style.transform || '';
+        return;
+      }
+
+      const dx = disparityFor(src);
+      const base = src.style.transform || '';
+      // Append an extra translateX for RIGHT eye (negative = shift left)
+      // (Left eye stays as-is; Right eye gets -dx)
+      // Add translate3d at end to preserve existing transforms.
+      mirror.style.transform = (base ? base + ' ' : '') + `translate3d(${-dx}px,0,0)`;
+    }
+
+    function copyCore(s, d){
+      // style/class/text/dataset (keep fast)
+      if (d.className !== s.className) d.className = s.className;
+      if (d.textContent !== s.textContent) d.textContent = s.textContent;
+
+      // copy inline style but we override transform for stereo
+      if (d.getAttribute('style') !== s.getAttribute('style')) d.setAttribute('style', s.getAttribute('style') || '');
+
+      // dataset
+      const sd = s.dataset || {};
+      const dd = d.dataset || {};
+      for (const k of Object.keys(sd)){
+        if (dd[k] !== sd[k]) dd[k] = sd[k];
+      }
+    }
+
+    // --- Mirror sync: clone LEFT targets into RIGHT + apply stereo disparity ---
     function syncMirrorTree(){
-      if (!body.classList.contains('cardboard')) {
+      if (!body.classList.contains('cardboard')){
         if (layerR.childNodes.length) layerR.innerHTML = '';
         return;
       }
-      // sync children
-      const srcKids = Array.from(layerL.children);
-      const dstKids = Array.from(layerR.children);
 
-      // rebuild if counts mismatch a lot (simple + robust)
-      if (Math.abs(srcKids.length - dstKids.length) >= 2){
+      const srcKids = Array.from(layerL.children);
+
+      // quick rebuild if big mismatch
+      if (layerR.children.length !== srcKids.length){
         layerR.innerHTML = '';
         for (const s of srcKids){
           const m = ensureMirrorNode(s);
+          copyCore(s, m);
+          applyStereoShift(s, m);
           layerR.appendChild(m);
         }
         return;
       }
 
-      // per index sync (fast)
+      // per index sync
       for (let i=0; i<srcKids.length; i++){
         const s = srcKids[i];
-        const d = layerR.children[i];
+        let d = layerR.children[i];
         const m = ensureMirrorNode(s);
 
         if (!d){
+          copyCore(s, m);
+          applyStereoShift(s, m);
           layerR.appendChild(m);
           continue;
         }
+
         // if tag differs -> replace
         if (d.tagName !== m.tagName){
+          copyCore(s, m);
+          applyStereoShift(s, m);
           d.replaceWith(m);
+          d = m;
         } else {
-          // copy style/class/attrs that matter (position vars live in style)
-          if (d.getAttribute('style') !== s.getAttribute('style')) d.setAttribute('style', s.getAttribute('style') || '');
-          if (d.className !== s.className) d.className = s.className;
-          // text (emoji)
-          if (d.textContent !== s.textContent) d.textContent = s.textContent;
-          // dataset (kind/type)
-          for (const k of Object.keys(s.dataset || {})){
-            if (d.dataset[k] !== s.dataset[k]) d.dataset[k] = s.dataset[k];
-          }
+          copyCore(s, d);
+          applyStereoShift(s, d);
         }
-      }
-      // trim extra
-      while (layerR.children.length > srcKids.length){
-        layerR.lastElementChild.remove();
       }
     }
 
@@ -523,7 +583,6 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
       const el = D.elementFromPoint(x, y);
       if (!el) return null;
 
-      // try closest inside layerL
       const t =
         el.closest('#hvr-layer [data-kind]') ||
         el.closest('#hvr-layer [data-role="target"]') ||
@@ -538,7 +597,7 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
       const dt = Math.min(0.05, Math.max(0.001, (now - lastTick)/1000));
       lastTick = now;
 
-      // keep mirror updated (cheap)
+      // keep mirror updated
       syncMirrorTree();
 
       if (body.classList.contains('cardboard') && gazeOn){
@@ -573,18 +632,21 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
     }
     requestAnimationFrame(gazeLoop);
 
-    // --- UI buttons ---
+    // --- buttons ---
     btnCardboard.addEventListener('click', async ()=>{
       await resumeAudio();
-      const on = !body.classList.contains('cardboard');
-      setCardboard(on);
-      // in cardboard: default gaze ON
-      if (on) setGaze(true);
+      setCardboard(!body.classList.contains('cardboard'));
+      if (body.classList.contains('cardboard')) setGaze(true);
     });
 
     btnGaze.addEventListener('click', async ()=>{
       await resumeAudio();
       setGaze(!gazeOn);
+    });
+
+    btnStereo.addEventListener('click', async ()=>{
+      await resumeAudio();
+      setStereo(!stereoOn);
     });
 
     btnShoot.addEventListener('click', async ()=>{
@@ -595,19 +657,30 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + GAZE)
     btnStart.addEventListener('click', async ()=>{
       await resumeAudio();
       startOverlay.style.display = 'none';
-      // ถ้าผู้ใช้เปิด cardboard ก่อน start ก็ให้คงไว้
     });
 
-    // default
+    // --- defaults & URL params ---
     setGaze(true);
+    setStereo(true);
+    setIPD(9);
 
-    // allow URL param ?cardboard=1 / ?gaze=0
     try{
       const u = new URL(location.href);
       if (u.searchParams.get('cardboard') === '1') setCardboard(true);
-      if (u.searchParams.get('gaze') === '0') setGaze(false);
+
+      const g = u.searchParams.get('gaze');
+      if (g === '0') setGaze(false);
+      if (g === '1') setGaze(true);
+
+      const st = u.searchParams.get('stereo');
+      if (st === '0') setStereo(false);
+      if (st === '1') setStereo(true);
+
       const dwell = Number(u.searchParams.get('gazedwell'));
       if (Number.isFinite(dwell) && dwell >= 150 && dwell <= 1200) dwellMs = dwell;
+
+      const ipd = Number(u.searchParams.get('ipd'));
+      if (Number.isFinite(ipd) && ipd >= 0 && ipd <= 22) setIPD(ipd);
     }catch(e){}
   })();
   </script>
