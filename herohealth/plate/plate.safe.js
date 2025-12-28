@@ -1,5 +1,5 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR — ULTIMATE ALL-IN-ONE (START-GATED + HUB RETURN + UI FIXES + COACH + STATE)
+// Plate VR — ULTIMATE ALL-IN-ONE (START-GATED + HUB RETURN + UI FIXES + COACH + STATE + MINI FIX + CARDBOARD)
 // ✅ Start-gated
 // ✅ Delegated buttons (pointerup+click)
 // ✅ run=play|study + runMode map
@@ -7,9 +7,8 @@
 // ✅ Cloud logger context + event/session
 // ✅ Coach panel (uses /img/coach-*.png)
 // ✅ Deterministic research seed
-// ✅ FIX: Mini quest “วนด่านเดิม” → ใช้ miniIndex แทน minisCleared
-// ✅ FIX: Plate Rush นับ ⭐Gold เป็นกลุ่ม (effectiveGroup)
-// ✅ IMPROVE: ผ่าน Mini ได้ทันทีเมื่อครบ (early clear) + ยังเลื่อนไป mini ถัดไปแม้ fail
+// ✅ PATCH: Mini quests pass correctly (early clear + gold counts + shield-block does not fail)
+// ✅ PATCH: Cardboard mode toggle + big shoot button support
 
 import {
   makeInitialState,
@@ -145,6 +144,8 @@ const HUD = {
   btnEnterVR: $('btnEnterVR'),
   btnPause: $('btnPause'),
   btnRestart: $('btnRestart'),
+  btnCardboard: $('btnCardboard'),
+  btnShoot: $('btnShoot'),
   resultBackdrop: $('resultBackdrop'),
   btnPlayAgain: $('btnPlayAgain'),
 
@@ -477,7 +478,7 @@ function applyLayerTransform(){
 function intersect(a,b){ return !(a.x+a.w<b.x||b.x+b.w<a.x||a.y+a.h<b.y||b.y+b.h<a.y); }
 function getBlockedRects(){
   const rects=[];
-  const ids=['hudTop','hudBtns','miniPanel','coachPanel']; // coachPanel optional
+  const ids=['hudTop','hudBtns','miniPanel','coachPanel','shootPad']; // ✅ add shootPad
   for(const id of ids){
     const el=$(id); if(!el) continue;
     const r=el.getBoundingClientRect();
@@ -570,58 +571,139 @@ const GOALS=[
   { key:'perfect6', title:'⭐ ทำ PERFECT ให้ได้ 6 ครั้ง', target:6 },
 ];
 
+/* ===========================
+   ✅ MINI FIX CORE
+   - early clear when condition met
+   - shield-block won't fail mini
+   - plateRush counts GOLD as filled group
+=========================== */
+function miniTryEarlyClear(){
+  const m=S.activeMini;
+  if(!m || S._miniResolving) return;
+  try{
+    if(typeof m.isClear === 'function' && m.isClear()){
+      finishMini(true, 'early');
+    }
+  }catch(_){}
+}
+function finishMini(ok, how='end'){
+  const m=S.activeMini;
+  if(!m || S._miniResolving) return;
+  S._miniResolving = true;
+
+  // clear urgent UI
+  doc.body.classList.remove('hha-mini-urgent');
+  S.miniUrgentArmed=false;
+
+  if(ok){
+    S.minisCleared++;
+    fxCelebrate('MINI CLEAR!', 1.15);
+    Coach.say(how==='early' ? 'MINI ผ่าน! จบไว โคตรดี 😎' : 'MINI ผ่าน! โหดมาก 😎', 'happy', 1400);
+    flash('good', 120);
+    addScore(450); addFever(18); vibe(50);
+    logEvent('mini_clear',{mini:m.key, how});
+  }else{
+    fxJudge('MINI FAIL');
+    Coach.say('พลาดนิดเดียว! ลองใหม่ เอาให้ผ่าน 💥', 'sad', 1500);
+    addScore(-120); addFever(-12);
+    logEvent('mini_fail',{mini:m.key, how});
+  }
+
+  // next mini
+  setTimeout(()=>{
+    S._miniResolving = false;
+    startMini();
+  }, 60);
+}
+
 const MINIS=[
   {
-    key:'plateRush', title:'Plate Rush (8s)', hint:'ครบ 5 หมู่ใน 8 วิ • ห้ามโดนขยะระหว่างทำ', dur:8000,
+    key:'plateRush',
+    title:'Plate Rush (8s)',
+    hint:'ครบ 5 หมู่ใน 8 วิ • ห้ามโดนขยะระหว่างทำ',
+    dur:8000,
     init(){ S._mini={got:new Set(), fail:false}; },
-    // ✅ FIX: นับ good + gold โดย gold รับ effectiveGroup
-    onHit(rec, _judge, extra){
-      if(rec.kind==='junk'||rec.kind==='trap'||rec.kind==='boss') S._mini.fail=true;
-      const g = (extra && Number.isFinite(extra.effectiveGroup)) ? extra.effectiveGroup : rec.group;
-      if((rec.kind==='good' || rec.kind==='gold') && g>=1 && g<=5){
-        S._mini.got.add(g);
+    onHit(rec, judge, meta){
+      // meta.blocked = true -> ไม่ถือว่า "โดนขยะ"
+      const blocked = !!(meta && meta.blocked);
+      const kind = String(rec && rec.kind || '');
+      const g = Number(rec && rec.group || 0);
+
+      if(!blocked && (kind==='junk'||kind==='trap'||kind==='boss'||kind==='boss_attack')){
+        S._mini.fail = true;
       }
+      if(kind==='good' || kind==='gold'){
+        if(g>=1 && g<=5) S._mini.got.add(g);
+      }
+
+      // ✅ early clear
+      miniTryEarlyClear();
     },
+    progress(){ return `${(S._mini && S._mini.got ? S._mini.got.size : 0)}/5${(S._mini && S._mini.fail)?' • FAIL':''}`; },
     isClear(){ return S._mini.got.size>=5 && !S._mini.fail; }
   },
   {
-    key:'perfectStreak', title:'Perfect Streak', hint:'PERFECT ติดกัน 5 ครั้ง', dur:11000,
+    key:'perfectStreak',
+    title:'Perfect Streak',
+    hint:'PERFECT ติดกัน 5 ครั้ง',
+    dur:11000,
     init(){ S._mini={st:0}; },
-    onJudge(j){ if(j==='PERFECT') S._mini.st++; else if(j!=='HIT') S._mini.st=0; },
+    onJudge(j){ if(j==='PERFECT') S._mini.st++; else if(j!=='HIT') S._mini.st=0; miniTryEarlyClear(); },
     progress(){ return `${S._mini.st}/5`; },
     isClear(){ return S._mini.st>=5; }
   },
   {
-    key:'goldHunt', title:'Gold Hunt (12s)', hint:'เก็บ ⭐ Gold 2 อัน', dur:12000,
+    key:'goldHunt',
+    title:'Gold Hunt (12s)',
+    hint:'เก็บ ⭐ Gold 2 อัน',
+    dur:12000,
     init(){ S._mini={g:0}; },
-    onHit(rec){ if(rec.kind==='gold') S._mini.g++; },
+    onHit(rec){ if(rec.kind==='gold') S._mini.g++; miniTryEarlyClear(); },
     progress(){ return `${S._mini.g}/2`; },
     isClear(){ return S._mini.g>=2; }
   },
   {
-    key:'comboSprint', title:'Combo Sprint (15s)', hint:'คอมโบถึง 8 ภายใน 15 วิ', dur:15000,
+    key:'comboSprint',
+    title:'Combo Sprint (15s)',
+    hint:'คอมโบถึง 8 ภายใน 15 วิ',
+    dur:15000,
     init(){ S._mini={best:0}; },
-    tick(){ S._mini.best=Math.max(S._mini.best,S.combo); },
+    tick(){ S._mini.best=Math.max(S._mini.best,S.combo); miniTryEarlyClear(); },
     progress(){ return `${Math.max(S._mini.best,S.combo)}/8`; },
     isClear(){ return Math.max(S._mini.best,S.combo)>=8; }
   },
   {
-    key:'cleanAndCount', title:'Clean & Count (10s)', hint:'ของดี 4 ชิ้น • ห้ามโดนขยะ', dur:10000,
+    key:'cleanAndCount',
+    title:'Clean & Count (10s)',
+    hint:'ของดี 4 ชิ้น • ห้ามโดนขยะ',
+    dur:10000,
     init(){ S._mini={good:0, fail:false}; },
-    onHit(rec){ if(rec.kind==='junk'||rec.kind==='trap'||rec.kind==='boss') S._mini.fail=true; if(rec.kind==='good'||rec.kind==='gold') S._mini.good++; },
+    onHit(rec, judge, meta){
+      const blocked = !!(meta && meta.blocked);
+      if(!blocked && (rec.kind==='junk'||rec.kind==='trap'||rec.kind==='boss')) S._mini.fail=true;
+      if(rec.kind==='good'||rec.kind==='gold') S._mini.good++;
+      miniTryEarlyClear();
+    },
     progress(){ return `${S._mini.good}/4`; },
     isClear(){ return S._mini.good>=4 && !S._mini.fail; }
   },
   {
-    key:'noMiss', title:'No-Miss (12s)', hint:'12 วิ ห้ามพลาด (รวมหมดอายุ)', dur:12000,
+    key:'noMiss',
+    title:'No-Miss (12s)',
+    hint:'12 วิ ห้ามพลาด (รวมหมดอายุ)',
+    dur:12000,
     init(){ S._mini={m:S.miss,l:S.lives}; },
+    tick(){ miniTryEarlyClear(); },
     isClear(){ return S.miss===S._mini.m && S.lives===S._mini.l; }
   },
   {
-    key:'shine', title:'Shine (10s)', hint:'10 วิ PERFECT 2 หรือ Power 1 ก็ผ่าน', dur:10000,
+    key:'shine',
+    title:'Shine (10s)',
+    hint:'10 วิ PERFECT 2 หรือ Power 1 ก็ผ่าน',
+    dur:10000,
     init(){ S._mini={p:0, pow:false}; },
-    onJudge(j){ if(j==='PERFECT') S._mini.p++; },
-    onPower(){ S._mini.pow=true; },
+    onJudge(j){ if(j==='PERFECT') S._mini.p++; miniTryEarlyClear(); },
+    onPower(){ S._mini.pow=true; miniTryEarlyClear(); },
     progress(){ return `P:${S._mini.p}/2 • POWER:${S._mini.pow?'1':'0'}`; },
     isClear(){ return S._mini.pow || S._mini.p>=2; }
   },
@@ -653,26 +735,18 @@ function onGoalCleared(){
   logEvent('goal_clear',{goal:S.activeGoal && S.activeGoal.key});
   if(S.goalIndex+1<GOALS.length) setGoal(S.goalIndex+1);
 }
-
-// ✅ FIX: miniIndex แทน minisCleared (ไม่วนด่านเดิมตอน fail)
 function startMini(){
-  S.miniIndex = (typeof S.miniIndex === 'number') ? S.miniIndex : 0;
-  const idx = (S.miniIndex % MINIS.length);
-  const m = MINIS[idx];
-
-  S.activeMini = m;
-  S.miniEndsAt = now()+m.dur;
+  const idx=S.minisCleared % MINIS.length;
+  const m=MINIS[idx];
+  S.activeMini=m;
+  S.miniEndsAt=now()+m.dur;
   S.miniUrgentArmed=false;
   S.miniTickAt=0;
-
-  S.miniDone = false;
-  S.miniStartedAt = now();
-
+  S._miniResolving=false;
   if(typeof m.init==='function') m.init();
   updateMiniHud();
-  logEvent('mini_start',{mini:m.key,dur:m.dur, idx});
+  logEvent('mini_start',{mini:m.key,dur:m.dur});
 }
-
 function updateMiniHud(){
   const m=S.activeMini;
   if(!m){ setTxt(HUD.miniLine,'MINI: …'); setTxt(HUD.miniHint,'…'); return; }
@@ -682,36 +756,6 @@ function updateMiniHud(){
   setTxt(HUD.miniLine, `MINI: ${m.title}${p} • ${left.toFixed(1)}s`);
   setTxt(HUD.miniHint, m.hint||'');
 }
-
-// ✅ NEW: จบ mini แบบรวม + เลื่อนไปด่านถัดไปเสมอ
-function finishMini(ok, how='timeout'){
-  const m=S.activeMini;
-  if(!m || S.miniDone) return;
-  S.miniDone = true;
-
-  doc.body.classList.remove('hha-mini-urgent');
-
-  // เลื่อนไป mini ถัดไปเสมอ (ผ่านหรือ fail)
-  S.miniIndex = (typeof S.miniIndex === 'number') ? (S.miniIndex + 1) : 1;
-
-  if(ok){
-    S.minisCleared++;
-    fxCelebrate('MINI CLEAR!', 1.15);
-    Coach.say('MINI ผ่าน! โหดมาก 😎', 'happy', 1400);
-    flash('good', 120);
-    addScore(450); addFever(18); vibe(50);
-    logEvent('mini_clear',{mini:m.key, how});
-  }else{
-    fxJudge('MINI FAIL');
-    Coach.say('พลาดนิดเดียว! ลองใหม่ เอาให้ผ่าน 💥', 'sad', 1500);
-    addScore(-120); addFever(-12);
-    logEvent('mini_fail',{mini:m.key, how});
-  }
-
-  startMini();
-}
-
-// ✅ FIX: early clear + ไม่ต้องรอหมดเวลา
 function tickMini(){
   const m=S.activeMini; if(!m) return;
   if(typeof m.tick==='function') m.tick();
@@ -728,23 +772,15 @@ function tickMini(){
     S.miniUrgentArmed=false;
     doc.body.classList.remove('hha-mini-urgent');
   }
-
-  // ผ่านทันทีเมื่อครบ (กันเผลอผ่านตอนเริ่ม 0ms)
-  if(leftMs > 0){
-    const okNow = (typeof m.isClear==='function') ? !!m.isClear() : false;
-    if(okNow && (now() - (S.miniStartedAt||0) > 250)){
-      finishMini(true, 'early');
-      return;
-    }
-  }
-
   if(urgent){
     const sec=Math.ceil(leftMs/1000);
     if(sec!==S.miniTickAt){ S.miniTickAt=sec; AudioX.tick(); }
   }
-  if(leftMs<=0){
+
+  // ✅ end-of-timer resolve
+  if(leftMs<=0 && !S._miniResolving){
     const ok=(typeof m.isClear==='function') ? !!m.isClear() : false;
-    finishMini(ok, 'timeout');
+    finishMini(ok, 'end');
     return;
   }
 
@@ -967,8 +1003,14 @@ function onMiss(reason, extra={}){
   if(S.lives<=0) endGame(true);
   logEvent('miss',{reason,...extra});
 }
+
+// ✅ PATCH: return blocked info so minis can ignore shield-block
 function punishBad(reason){
-  if(shieldBlock(reason)){ addScore(-60); addFever(-6); return; }
+  const blocked = shieldBlock(reason);
+  if(blocked){
+    addScore(-60); addFever(-6);
+    return { blocked:true };
+  }
   S.combo=0; setTxt(HUD.combo,0);
   addFever(reason==='boss'?-22:-16);
   addScore((now()<S.noJunkUntil)?-120:(reason==='trap'?-240:-180));
@@ -976,7 +1018,9 @@ function punishBad(reason){
   flash(reason==='boss'?'boss':'bad', 120);
   AudioX.bad(); vibe(reason==='boss'?75:45);
   onMiss(reason,{});
+  return { blocked:false };
 }
+
 function bossAttackPunish(tag, forceHit=false){
   const vw=ROOT.innerWidth, vh=ROOT.innerHeight;
   const cx=vw/2, cy=vh/2;
@@ -1035,7 +1079,6 @@ function judgeFromDist(distPx, sizePx){
   const n=clamp(distPx/(sizePx*0.55),0,1);
   return (n<=0.38) ? 'PERFECT' : 'HIT';
 }
-
 function hitTarget(rec, direct, ev){
   if(!S.running || S.paused || !rec || rec.dead) return;
 
@@ -1056,6 +1099,7 @@ function hitTarget(rec, direct, ev){
 
   const dist = Math.hypot(tx-px, ty-py);
 
+  // power targets
   if(rec.kind==='slow'){
     const ms = (MODE==='research') ? Math.round((D.slowDurMs[0]+D.slowDurMs[1])*0.5) : rnd(D.slowDurMs[0],D.slowDurMs[1]);
     activateSlow(ms);
@@ -1084,11 +1128,12 @@ function hitTarget(rec, direct, ev){
     removeTarget(rec); updateGrade(); return;
   }
 
+  // trick/bad targets
   if(rec.kind==='fake'){
     fxJudge('TRICK!');
     fxBurst(tx,ty,'trap'); fxPop('-220',tx,ty);
-    punishBad('trap');
-    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'trap'},'BAD',{effectiveGroup:0});
+    const rBad = punishBad('trap');
+    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'trap', group:0},'BAD',{blocked:rBad.blocked});
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
     removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
     logEvent('hit',{kind:'fake',dist,direct:!!direct});
@@ -1096,8 +1141,8 @@ function hitTarget(rec, direct, ev){
   }
   if(rec.kind==='trap'){
     fxBurst(tx,ty,'trap'); fxPop('-240',tx,ty);
-    punishBad('trap');
-    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD',{effectiveGroup:0});
+    const rBad = punishBad('trap');
+    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'trap', group:0},'BAD',{blocked:rBad.blocked});
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
     removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
     logEvent('hit',{kind:'trap',dist,direct:!!direct});
@@ -1105,14 +1150,15 @@ function hitTarget(rec, direct, ev){
   }
   if(rec.kind==='junk'){
     fxBurst(tx,ty,'bad'); fxPop('-180',tx,ty);
-    punishBad('junk');
-    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'BAD',{effectiveGroup:0});
+    const rBad = punishBad('junk');
+    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'junk', group:0},'BAD',{blocked:rBad.blocked});
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('BAD');
     removeTarget(rec); updateGrade(); setGoal(S.goalIndex);
     logEvent('hit',{kind:'junk',dist,direct:!!direct});
     return;
   }
 
+  // boss
   if(rec.kind==='boss'){
     rec.hp = Math.max(0, (rec.hp|0)-1);
     bossHpSync(rec);
@@ -1124,7 +1170,7 @@ function hitTarget(rec, direct, ev){
     addScore(120); addFever(7);
     logEvent('boss_hit',{hp:rec.hp,hpMax:rec.hpMax,phase:ph,dist,direct:!!direct});
 
-    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit(rec,'HIT',{effectiveGroup:0});
+    if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'boss', group:0},'HIT',{blocked:false});
     if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge('HIT');
 
     if(rec.hp<=0){
@@ -1143,6 +1189,7 @@ function hitTarget(rec, direct, ev){
     return;
   }
 
+  // good/gold
   const judge=judgeFromDist(dist, rec.size);
   const mult=S.feverOn?1.35:1.0;
   const base=(rec.kind==='gold')?520:240;
@@ -1167,33 +1214,22 @@ function hitTarget(rec, direct, ev){
   fxBurst(tx,ty,(rec.kind==='gold')?'gold':'good');
   fxPop(`+${delta}`,tx,ty);
 
-  // ✅ effectiveGroup สำหรับ mini (สำคัญกับ Plate Rush)
-  let effectiveGroup = rec.group;
-
+  // determine effective group (gold chooses group)
+  let effGroup = rec.group;
   if(rec.kind==='good'){
     onGood(rec.group);
-    effectiveGroup = rec.group;
   }
-
   if(rec.kind==='gold'){
     let g=1+((R()*5)|0);
     for(let k=0;k<5;k++){
       const gg=1+((g-1+k)%5);
       if(!S.plateHave.has(gg)){ g=gg; break; }
     }
+    effGroup = g;
     onGood(g);
-    effectiveGroup = g;
-
-    // ✅ ส่งเข้า mini ทันทีแบบรู้ group
-    if(S.activeMini && typeof S.activeMini.onHit==='function'){
-      S.activeMini.onHit(rec, judge, { effectiveGroup });
-    }
-  } else {
-    if(S.activeMini && typeof S.activeMini.onHit==='function'){
-      S.activeMini.onHit(rec, judge, { effectiveGroup });
-    }
   }
 
+  if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:rec.kind, group:effGroup},judge,{blocked:false});
   if(S.activeMini && typeof S.activeMini.onJudge==='function') S.activeMini.onJudge(judge);
 
   if(S.activeGoal && S.activeGoal.key==='perfect6'){
@@ -1202,7 +1238,7 @@ function hitTarget(rec, direct, ev){
 
   removeTarget(rec);
   updateGrade(); setGoal(S.goalIndex);
-  logEvent('hit',{kind:rec.kind,group:effectiveGroup,judge,dist,direct:!!direct,delta});
+  logEvent('hit',{kind:rec.kind,group:effGroup,judge,dist,direct:!!direct,delta});
 }
 
 // ---------- Decide kind/group ----------
@@ -1390,6 +1426,22 @@ function setPaused(on){
 }
 function enterVR(){ try{ scene && scene.enterVR && scene.enterVR(); }catch(_){ } }
 
+// ---------- Cardboard mode ----------
+async function toggleCardboard(){
+  S.cardboard = !S.cardboard;
+  try{
+    AudioX.unlock();
+    await requestMotionPermissionIfNeeded();
+  }catch(_){}
+
+  doc.body.classList.toggle('cardboard', !!S.cardboard);
+  if(HUD.btnCardboard){
+    HUD.btnCardboard.textContent = S.cardboard ? '🟦 EXIT CARDBOARD' : '📦 CARDBOARD';
+  }
+  Coach.say(S.cardboard ? 'Cardboard Mode: เล็งแล้วกด SHOOT 🎯' : 'ออกจาก Cardboard แล้ว ✅', 'neutral', 1400);
+  logEvent('cardboard', { on: !!S.cardboard });
+}
+
 // ---------- Restart / End ----------
 function restart(){
   for(const rec of [...S.targets]) removeTarget(rec);
@@ -1399,11 +1451,6 @@ function restart(){
 
   // ✅ reset core
   resetState(S, { totalTime: TOTAL_TIME, livesMax: S.livesMax, sessionId: S.sessionId });
-
-  // ✅ reset mini rotation every restart
-  S.miniIndex = 0;
-  S.miniDone = false;
-  S.miniStartedAt = 0;
 
   S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
 
@@ -1515,9 +1562,11 @@ function bindShootHotkeys(){
 
 // ✅ PATCH: refresh HUD refs (กัน DOM timing)
 function refreshHUDRefs(){
-  HUD.btnEnterVR = HUD.btnEnterVR || $('btnEnterVR');
-  HUD.btnPause   = HUD.btnPause   || $('btnPause');
-  HUD.btnRestart = HUD.btnRestart || $('btnRestart');
+  HUD.btnEnterVR   = HUD.btnEnterVR   || $('btnEnterVR');
+  HUD.btnPause     = HUD.btnPause     || $('btnPause');
+  HUD.btnRestart   = HUD.btnRestart   || $('btnRestart');
+  HUD.btnCardboard = HUD.btnCardboard || $('btnCardboard');
+  HUD.btnShoot     = HUD.btnShoot     || $('btnShoot');
   HUD.resultBackdrop = HUD.resultBackdrop || $('resultBackdrop');
   HUD.btnPlayAgain   = HUD.btnPlayAgain   || $('btnPlayAgain');
 }
@@ -1542,7 +1591,7 @@ function bindUIDelegated(){
 
   const handler = (e)=>{
     const el = e.target && e.target.closest
-      ? e.target.closest('#btnBackHub, #btnPlayAgain, #btnRestart, #btnPause, #btnEnterVR, #btnStart')
+      ? e.target.closest('#btnBackHub, #btnPlayAgain, #btnRestart, #btnPause, #btnEnterVR, #btnStart, #btnCardboard, #btnShoot')
       : null;
     if(!el) return;
 
@@ -1574,6 +1623,14 @@ function bindUIDelegated(){
 
       case 'btnEnterVR':
         enterVR();
+        break;
+
+      case 'btnCardboard':
+        toggleCardboard();
+        break;
+
+      case 'btnShoot':
+        shootCrosshair();
         break;
 
       case 'btnStart':
@@ -1645,11 +1702,6 @@ function bindUI(){
   setTxt(HUD.perfect,0); setTxt(HUD.feverPct,'0%');
   emitFever();
   updateGrade();
-
-  // mini system init
-  S.miniIndex = 0;
-  S.miniDone = false;
-  S.miniStartedAt = 0;
 
   // ✅ ยังไม่เริ่มเกมจนกด Start
   S.started = false;
