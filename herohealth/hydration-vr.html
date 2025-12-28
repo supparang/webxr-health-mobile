@@ -1,10 +1,8 @@
 <!-- === /herohealth/hydration-vr.html ===
 HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
-✅ Fix paths for /herohealth/ (no /vr 404)
-✅ Cardboard stereoscopic: two eyes L/R (DOM dual layers)
-✅ Cardboard gaze-to-shoot (hold center)
-✅ Storm End-window: tick accel + edge pulse + micro shake
-✅ Start overlay gated (hydration.safe.js waits)
+✅ + Storm Intro siren + screen dim (1)
+✅ + Water splash burst FX hook (2)  [handled in hydration.safe.js]
+✅ + GREEN streak bonus (3)         [handled in hydration.safe.js]
 -->
 
 <!doctype html>
@@ -36,6 +34,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+
+      --gazeProg:0;
     }
 
     html,body{
@@ -109,7 +109,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       display:flex;
     }
 
-    /* Normal playfield */
     #playfield{
       position:relative;
       flex:1;
@@ -153,7 +152,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       background:#000;
     }
     body.cardboard #cbWrap{ display:flex; }
-    body.cardboard .stage{ opacity:0; pointer-events:none; } /* ซ่อน layout ปกติ */
+    body.cardboard .stage{ opacity:0; pointer-events:none; }
 
     .cbEye{
       position:relative;
@@ -193,7 +192,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       background:rgba(229,231,235,.45);
     }
 
-    /* Gaze ring */
     .gazeRing{
       position:absolute;
       left:50%; top:50%;
@@ -248,9 +246,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     .stat b{ color:var(--cyan); font-weight:1200; }
 
     /* Water tube */
-    .waterWrap{
-      display:flex; gap:12px; align-items:center;
-    }
+    .waterWrap{ display:flex; gap:12px; align-items:center; }
     .tube{
       width:16px; height:92px;
       border-radius:999px;
@@ -271,12 +267,10 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     body.water-green .tubeFill{ background: linear-gradient(180deg, rgba(34,211,238,.95), rgba(34,197,94,.95)); }
     body.water-high .tubeFill{ background: linear-gradient(180deg, rgba(249,115,22,.95), rgba(239,68,68,.95)); }
 
-    /* Bar (optional) */
     .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
     .bar{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95)); box-shadow: 0 0 14px rgba(34,211,238,.22); transition: width .18s ease; }
     body.water-high .bar{ background: linear-gradient(90deg, rgba(249,115,22,.95), rgba(239,68,68,.95)); }
 
-    /* Quest lines */
     .qLine{ margin: 3px 0; font-size:12px; font-weight:1000; line-height:1.25; }
     .tag{
       display:inline-flex; align-items:center; gap:6px;
@@ -315,7 +309,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     .btn.primary{ background: rgba(34,197,94,.16); }
     .btn.danger{ background: rgba(239,68,68,.16); }
 
-    /* Cardboard shoot pad */
     #shootPad{
       position:fixed;
       left:50%;
@@ -326,13 +319,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       pointer-events:auto;
     }
     body.cardboard #shootPad{ display:block; }
-    #btnShoot{
-      padding:14px 18px;
-      border-radius:18px;
-      font-size:16px;
-      font-weight:1200;
-      background: rgba(34,197,94,.16);
-    }
+    #btnShoot{ padding:14px 18px; border-radius:18px; font-size:16px; font-weight:1200; background: rgba(34,197,94,.16); }
 
     /* ===== FX overlays ===== */
     #hitFx{
@@ -382,6 +369,48 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       50%{ transform:translate3d(-.4px,.3px,0); }
       75%{ transform:translate3d(.3px,.4px,0); }
       100%{ transform:translate3d(0,0,0); }
+    }
+
+    /* ===== (1) Storm Intro Siren + Dim ===== */
+    #stormIntro{
+      position:fixed; inset:0;
+      z-index:110;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .16s ease;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(34,211,238,0) 35%, rgba(34,211,238,.12) 70%, rgba(2,6,23,.82) 100%);
+      backdrop-filter: blur(8px);
+    }
+    #stormIntro.show{
+      opacity:1;
+      animation: stormIntroPulse .38s linear infinite;
+    }
+    @keyframes stormIntroPulse{
+      0%{ filter: saturate(1.0) brightness(1.0); }
+      50%{ filter: saturate(1.35) brightness(1.10); }
+      100%{ filter: saturate(1.0) brightness(1.0); }
+    }
+    #stormIntro .label{
+      position:absolute;
+      left:50%; top:18%;
+      transform:translateX(-50%);
+      padding:10px 14px;
+      border-radius:999px;
+      border:1px solid rgba(34,211,238,.22);
+      background: rgba(2,6,23,.62);
+      color: rgba(229,231,235,.96);
+      font-weight:1200;
+      letter-spacing:.6px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    }
+    #stormIntro .sub{
+      margin-top:6px;
+      font-size:12px;
+      font-weight:1000;
+      color: rgba(148,163,184,.95);
+      letter-spacing:.2px;
+      text-align:center;
     }
 
     /* ===== Start overlay ===== */
@@ -453,6 +482,13 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
   <!-- FX overlays -->
   <div id="hitFx"></div>
   <div id="stormEdge"></div>
+
+  <!-- (1) Storm Intro overlay -->
+  <div id="stormIntro" aria-hidden="true">
+    <div class="label">🌀 STORM INCOMING
+      <div class="sub">ทำ Mini: ให้น้ำ LOW/HIGH + BLOCK BAD ตอนท้ายพายุ!</div>
+    </div>
+  </div>
 
   <!-- Normal stage -->
   <div class="stage">
@@ -589,7 +625,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     </div>
   </div>
 
-  <!-- ✅ SAFE (ESM) - correct path from /herohealth/hydration-vr.html -->
+  <!-- ✅ SAFE (ESM) -->
   <script type="module" src="./hydration-vr/hydration.safe.js"></script>
 
   <script>
@@ -614,7 +650,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       startMeta.textContent = `MODE: ${run} • DIFF: ${diff} • TIME: ${time}s`;
     }
 
-    // ----- Audio helper (beep only, quick + reliable) -----
+    // ----- Audio helper (beep only) -----
     let AC = null;
     function ensureAC(){
       if (AC) return AC;
@@ -646,12 +682,10 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
 
     // ----- Cardboard toggle -----
-    const cbWrap = D.getElementById('cbWrap');
     function setCardboard(on){
       on = !!on;
       body.classList.toggle('cardboard', on);
       try{ localStorage.setItem('HVR_CARDBOARD', on ? '1' : '0'); }catch{}
-      // reset gaze progress
       D.documentElement.style.setProperty('--gazeProg', '0');
     }
     const saved = (function(){ try{ return localStorage.getItem('HVR_CARDBOARD')==='1'; }catch{ return false; } })();
@@ -682,7 +716,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     });
 
     function shootAtCenter(){
-      // In normal mode: just click element under center
       if (!body.classList.contains('cardboard')){
         const x = window.innerWidth/2;
         const y = window.innerHeight/2;
@@ -690,13 +723,10 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         if (el && el.classList && el.classList.contains('hvr-target')){
           el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
         } else {
-          // miss click feedback (soft)
           beep(330, 18, 0.010);
         }
         return;
       }
-
-      // Cardboard: choose LEFT eye center (safe + stable)
       const eye = D.getElementById('cbEyeL');
       if (!eye) return;
       const r = eye.getBoundingClientRect();
@@ -739,7 +769,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     btnStart.addEventListener('click', ()=> startNow(false));
     btnStartCardboard.addEventListener('click', ()=> startNow(true));
 
-    // ----- HUD + judge events -----
+    // ----- judge events -----
     window.addEventListener('hha:judge', (ev)=>{
       const d = ev.detail || {};
       const k = String(d.kind || '');
@@ -748,9 +778,11 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       else if (k === 'block'){ flash('shield'); beep(680, 22, 0.016); }
       else if (k === 'bad'){ flash('bad'); beep(320, 38, 0.020); }
       else if (k === 'rush'){ flash('shield'); beep(980, 70, 0.030); }
+      else if (k === 'streak'){ flash('good'); beep(1040, 60, 0.030); }
+      else if (k === 'storm-in'){ beep(520, 80, 0.030); }
     }, { passive:true });
 
-    // ----- Storm urgent tick/pulse (from safe.js flag stormInEndWindow) -----
+    // ----- Storm urgent tick/pulse -----
     let stormActive = false;
     let stormLeft = 0;
     let stormUrgent = false;
@@ -773,7 +805,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
           beep(780, 40, 0.020);
         }
         if (ts >= nextTickAt){
-          const t = Math.max(0, Math.min(2.0, stormLeft)); // 0..2
+          const t = Math.max(0, Math.min(2.0, stormLeft));
           const interval = (t <= 0.6) ? 120 : (t <= 1.2 ? 170 : 240);
           beep(620 + (t <= 0.6 ? 120 : 40), 16, 0.014);
           nextTickAt = ts + interval;
@@ -791,18 +823,50 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       stormUrgent = !!d.stormInEndWindow;
     }, { passive:true });
 
+    // ----- (1) Storm Intro overlay + siren pattern -----
+    const stormIntro = D.getElementById('stormIntro');
+    let stormIntroUntil = 0;
+    let stormSirenAt = 0;
+
+    function showStormIntro(ms=900){
+      if (!stormIntro) return;
+      stormIntro.classList.add('show');
+      stormIntroUntil = performance.now() + ms;
+      stormSirenAt = performance.now();
+    }
+
+    function stormIntroLoop(t){
+      if (stormIntro && stormIntro.classList.contains('show')){
+        if (t >= stormSirenAt){
+          // siren: alternating two tones
+          const phase = Math.floor((t - stormSirenAt) / 150) % 2;
+          beep(phase ? 520 : 660, 70, 0.030);
+          stormSirenAt = t + 160;
+        }
+        if (t >= stormIntroUntil){
+          stormIntro.classList.remove('show');
+        }
+      }
+      requestAnimationFrame(stormIntroLoop);
+    }
+    requestAnimationFrame(stormIntroLoop);
+
+    window.addEventListener('hha:storm', async (ev)=>{
+      await resumeAudio();
+      const d = ev.detail || {};
+      if (d.state === 'enter'){
+        showStormIntro(900);
+      }
+    }, { passive:true });
+
     // ----- Cardboard gaze-to-shoot -----
     let gazeEl = null;
     let gazeT0 = 0;
-    const gazeHoldMs = 520; // เร็วขึ้น + แม่นขึ้น
-    const ringL = D.getElementById('gazeRingL');
-    const ringR = D.getElementById('gazeRingR');
-
+    const gazeHoldMs = 520;
     function setGazeProg(p){
       p = Math.max(0, Math.min(1, p));
       D.documentElement.style.setProperty('--gazeProg', String(p));
     }
-
     function gazeLoop(t){
       if (!body.classList.contains('cardboard')){
         gazeEl = null; gazeT0 = 0;
@@ -810,13 +874,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         requestAnimationFrame(gazeLoop);
         return;
       }
-
       const eye = D.getElementById('cbEyeL');
-      if (!eye){
-        requestAnimationFrame(gazeLoop);
-        return;
-      }
-
+      if (!eye){ requestAnimationFrame(gazeLoop); return; }
       const r = eye.getBoundingClientRect();
       const x = r.left + r.width/2;
       const y = r.top + r.height/2;
@@ -825,23 +884,17 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       const ok = (el && el.classList && el.classList.contains('hvr-target')) ? el : null;
 
       if (ok !== gazeEl){
-        gazeEl = ok;
-        gazeT0 = t;
-        setGazeProg(0);
+        gazeEl = ok; gazeT0 = t; setGazeProg(0);
       } else if (gazeEl){
         const dt = t - gazeT0;
         const p = dt / gazeHoldMs;
         setGazeProg(p);
-
         if (p >= 1){
-          // ยิง
           gazeEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
-          gazeT0 = t + 220; // กันยิงรัว
+          gazeT0 = t + 220;
           setGazeProg(0);
         }
-      } else {
-        setGazeProg(0);
-      }
+      } else setGazeProg(0);
 
       requestAnimationFrame(gazeLoop);
     }
@@ -860,9 +913,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         const u = new URL(hub, location.href);
         u.searchParams.set('ts', String(Date.now()));
         location.href = u.toString();
-      }catch{
-        location.href = hub;
-      }
+      }catch{ location.href = hub; }
     });
 
     window.addEventListener('hha:end', (ev)=>{
