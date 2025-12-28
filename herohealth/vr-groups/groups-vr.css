@@ -1,7 +1,6 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets)
-✅ กัน emoji ซ้อน (font-size:0; color:transparent)
-✅ เพิ่ม .fg-star / .fg-ice
+Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targets)
++ Urgent FX / No-Junk ring / Stun / Swap flash / Panic vignette / Bonus targets
 */
 
 :root{
@@ -25,6 +24,7 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets)
   --radius-md:14px;
   --radius-pill:999px;
 
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
@@ -67,17 +67,24 @@ html, body{
     var(--bg);
 }
 
-/* Gameplay Layer */
+/* ======================
+   Gameplay Layer
+   ====================== */
 .fg-layer{
   position: fixed;
   inset: 0;
   z-index: 3;
   pointer-events: auto;
-  transform: translate(var(--vx,0px), var(--vy,0px));
+
+  /* ✅ VR feel + shake */
+  transform: translate(
+    calc(var(--vx,0px) + var(--sx,0px)),
+    calc(var(--vy,0px) + var(--sy,0px))
+  );
   will-change: transform;
 }
 
-/* Optional: No-Junk ring */
+/* Optional: No-Junk ring (set --nojunk-*) */
 .fg-layer::before{
   content:"";
   position:fixed;
@@ -88,12 +95,14 @@ html, body{
   transform: translate(-50%,-50%);
   border-radius:999px;
   pointer-events:none;
-  opacity: calc(var(--nojunk-on, 0) * 0.18);
-  border:2px dashed rgba(255,255,255,.35);
+  opacity: calc(var(--nojunk-on, 0) * 0.22);
+  border:2px dashed rgba(255,255,255,.40);
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
 }
 
-/* TARGETS — Candy Stickers */
+/* ======================
+   TARGETS — Candy Stickers (Grade 5)
+   ====================== */
 .fg-target{
   position:absolute;
   left: var(--x, 50vw);
@@ -131,10 +140,6 @@ html, body{
 
   overflow:hidden;
   animation: fgFloat 1.15s ease-in-out infinite;
-
-  /* ✅ กัน emoji ซ้อน (JS textContent เป็น fallback เฉย ๆ) */
-  font-size:0;
-  color:transparent;
 }
 
 .fg-target::before{
@@ -188,22 +193,30 @@ html, body{
   animation: fgBossFloat 1.00s ease-in-out infinite;
 }
 
-/* ✅ powerups */
+/* ⭐ / ❄️ bonus targets */
 .fg-star{
-  border-color: rgba(250,204,21,.86);
+  border-color: rgba(250,204,21,.85);
   background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), transparent 44%),
+    radial-gradient(circle at 28% 22%, rgba(255,255,255,.30), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
-    linear-gradient(135deg, rgba(250,204,21,.34), rgba(34,211,238,.18));
+    linear-gradient(135deg, rgba(250,204,21,.30), rgba(34,211,238,.16));
+  box-shadow:
+    0 0 0 4px rgba(250,204,21,.18),
+    0 18px 36px rgba(0,0,0,.42),
+    0 0 28px rgba(250,204,21,.22);
 }
 .fg-ice{
   border-color: rgba(34,211,238,.85);
   background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), transparent 44%),
+    radial-gradient(circle at 28% 22%, rgba(255,255,255,.30), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
-    linear-gradient(135deg, rgba(34,211,238,.26), rgba(167,139,250,.18));
+    linear-gradient(135deg, rgba(34,211,238,.28), rgba(167,139,250,.18));
+  box-shadow:
+    0 0 0 4px rgba(34,211,238,.18),
+    0 18px 36px rgba(0,0,0,.42),
+    0 0 28px rgba(34,211,238,.22);
 }
 
 /* corner badges */
@@ -240,25 +253,12 @@ html, body{
 .fg-target.hit{ animation: fgHit .22s ease-out both; }
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
-/* boss feedback states */
+/* boss feedback */
 .fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
 @keyframes bossHurt{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
   50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)) rotate(-1deg); filter: brightness(1.18); }
   100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-.fg-boss.fg-boss-weak{
-  box-shadow:
-    0 0 0 4px rgba(34,211,238,.35),
-    0 18px 36px rgba(0,0,0,.40),
-    0 0 26px rgba(34,211,238,.35);
-}
-.fg-boss.fg-boss-weak::after{
-  content:"🎯";
-  right:10px;
-  bottom:10px;
-  top:auto;
-  font-size:18px;
 }
 
 /* keyframes */
@@ -284,22 +284,127 @@ html, body{
   to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
 }
 
-/* Mode vibes */
-body.groups-storm .hud-top{ filter: saturate(1.10) brightness(1.05); }
-body.groups-storm-urgent .hud-top{ animation: hudStormPulse .24s ease-in-out infinite; }
-@keyframes hudStormPulse{
-  0%,100%{ transform: translateZ(0) scale(1.00); }
-  50%{ transform: translateZ(0) scale(1.01); }
-}
-body.groups-overdrive .hud-card{
-  box-shadow: 0 18px 60px rgba(34,211,238,.18);
-  border-color: rgba(34,211,238,.30);
-}
-body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
+/* ======================
+   Mode vibes + Screen FX (เร้าใจ)
+   ====================== */
 
+/* Storm urgent: pulse HUD/overall feel */
+body.groups-storm-urgent{
+  animation: stormPulse 0.26s ease-in-out infinite;
+}
+@keyframes stormPulse{
+  0%,100%{ filter: saturate(1.06) brightness(1.03); }
+  50%{ filter: saturate(1.12) brightness(1.06); }
+}
+
+/* Overdrive / Freeze visual hint */
+body.groups-overdrive .fg-target{
+  box-shadow:
+    0 18px 36px rgba(0,0,0,.42),
+    0 0 22px rgba(250,204,21,.12);
+}
+body.groups-freeze .fg-target{
+  animation-duration: 1.8s !important;
+  filter: saturate(1.05);
+}
+
+/* 🔥 Global overlay for hitbad / stun / panic / swap / bonus */
+body::after{
+  content:"";
+  position:fixed;
+  inset:-2px;
+  pointer-events:none;
+  z-index: 999;
+  opacity:0;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,0), rgba(0,0,0,.22) 55%, rgba(0,0,0,.50) 100%);
+  transition: opacity .08s linear;
+}
+
+/* hit bad flash */
+body.groups-hitbad::after{
+  opacity:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(239,68,68,.00), rgba(239,68,68,.18) 45%, rgba(0,0,0,.55) 100%);
+  animation: hitBadFlash .18s ease-out both;
+}
+@keyframes hitBadFlash{
+  0%{ opacity:0; }
+  30%{ opacity:1; }
+  100%{ opacity:.45; }
+}
+
+/* stun: blur + dark vignette */
+body.groups-stun{
+  filter: saturate(1.05) brightness(0.98);
+}
+body.groups-stun::after{
+  opacity:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,.10), rgba(0,0,0,.42) 55%, rgba(0,0,0,.72) 100%);
+  animation: stunPulse .32s ease-out both;
+}
+@keyframes stunPulse{
+  0%{ opacity:0; }
+  20%{ opacity:1; }
+  100%{ opacity:.60; }
+}
+
+/* panic vignette (storm + high fever) */
+body.groups-panic::after{
+  opacity:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,0), rgba(239,68,68,.20) 55%, rgba(0,0,0,.72) 100%);
+  animation: panicPulse .45s ease-in-out infinite;
+}
+@keyframes panicPulse{
+  0%,100%{ opacity:.55; }
+  50%{ opacity:.82; }
+}
+
+/* swap flash */
+body.groups-swapflash::after{
+  opacity:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(34,211,238,.16), rgba(34,211,238,.10) 40%, rgba(0,0,0,.60) 100%);
+  animation: swapFlash .22s ease-out both;
+}
+@keyframes swapFlash{
+  0%{ opacity:0; transform: scale(0.98); }
+  40%{ opacity:1; transform: scale(1.00); }
+  100%{ opacity:.35; transform: scale(1.02); }
+}
+
+/* bonus flash */
+body.groups-bonusflash::after{
+  opacity:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(250,204,21,.18), rgba(167,139,250,.10) 42%, rgba(0,0,0,.60) 100%);
+  animation: bonusFlash .22s ease-out both;
+}
+@keyframes bonusFlash{
+  0%{ opacity:0; }
+  40%{ opacity:1; }
+  100%{ opacity:.30; }
+}
+
+/* shield block flash */
+body.groups-shieldflash::after{
+  opacity:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(34,211,238,.18), rgba(34,211,238,.12) 42%, rgba(0,0,0,.60) 100%);
+  animation: shieldFlash .18s ease-out both;
+}
+@keyframes shieldFlash{
+  0%{ opacity:0; }
+  30%{ opacity:1; }
+  100%{ opacity:.25; }
+}
+
+/* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
-  body.groups-storm-urgent .hud-top{
+  body.groups-storm-urgent, body.groups-panic::after{
     animation:none !important;
   }
 }
