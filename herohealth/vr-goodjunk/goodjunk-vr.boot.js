@@ -1,4 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
+// GoodJunkVR Boot — HHA Standard (PRODUCTION)
+
 'use strict';
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
@@ -11,13 +13,17 @@ function qp(name, fallback = null){
     return (v == null || v === '') ? fallback : v;
   }catch(_){ return fallback; }
 }
+
 function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
 function detectView(){
-  const v = toStr(qp('view','auto'),'auto').toLowerCase();
-  if (v !== 'auto') return v;
-  const isMobile = matchMedia('(pointer:coarse)').matches || innerWidth < 900;
+  const v = (qp('view','')||'').toLowerCase();
+  if (v) return v;
+
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  const isCardboard = (qp('vr','') === '1') || (qp('cardboard','') === '1');
+  if (isCardboard) return 'cardboard';
   return isMobile ? 'mobile' : 'pc';
 }
 
@@ -60,25 +66,7 @@ function setHudMeta(text){
   if (el) el.textContent = text;
 }
 
-/** clone eyeL -> eyeR for cardboard */
-function enableCardboard(){
-  const wrap = document.getElementById('gj-vrwrap');
-  const eyeL = document.getElementById('eyeL');
-  const eyeR = document.getElementById('eyeR');
-  if (!wrap || !eyeL || !eyeR) return;
-
-  // clone whole left eye content into right eye (remove duplicate ids)
-  const clone = eyeL.cloneNode(true);
-  clone.id = 'eyeRContent';
-  clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
-  eyeR.innerHTML = '';
-  eyeR.appendChild(clone);
-}
-
 (async function main(){
-  const view = detectView();
-  document.documentElement.dataset.view = view;
-
   const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
   const time = toInt(qp('time', '80'), 80);
   const run = toStr(qp('run', 'play'), 'play').toLowerCase();
@@ -87,39 +75,32 @@ function enableCardboard(){
 
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
+  const hub = toStr(qp('hub', '../hub.html'), '../hub.html');
+
+  const view = detectView();
   const ctx = buildContext();
 
-  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=${view}`);
+  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • ${view}`);
 
-  if (view === 'cardboard'){
-    enableCardboard();
-  }
-
-  // attach touch/gyro -> world shift
+  // ✅ attach touch/drag -> world shift (does not block clicking targets)
   attachTouchLook({
-    view,
-    crosshairEl: document.getElementById('gj-crosshair'),
     layerEl: document.getElementById('gj-layer'),
-    stageEl: document.getElementById('gj-stage'),
+    ringEl: document.getElementById('atk-ring'),
+    laserEl: document.getElementById('atk-laser'),
     aimY: 0.62,
-    maxShiftPx: (view === 'mobile') ? 170 : 140,
-    ease: 0.12
+    maxShiftPx: (view === 'mobile') ? 190 : 170,
+    ease: 0.12,
+    gyro: false, // ปิดเพื่อกันโลกไหลเอง (อยากเปิดค่อยใส่ gyro=true)
+    drag: true
   });
 
-  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}`
-    + (seed ? ` • seed=${seed}` : '')
-    + ` • view=${view}`;
+  const metaText =
+    `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • ${view}`
+    + (seed ? ` • seed=${seed}` : '');
 
   await showStartOverlay(metaText);
 
-  // safe margins ตามหน้าจอ (มือถือกันทับ quest/controls มากขึ้น)
-  const safeMargins =
-    (view === 'mobile')
-      ? { top: 156, bottom: 230, left: 18, right: 18 }
-      : (view === 'cardboard')
-        ? { top: 140, bottom: 210, left: 18, right: 18 }
-        : { top: 132, bottom: 190, left: 24, right: 24 };
-
+  // boot engine
   goodjunkBoot({
     diff,
     time,
@@ -128,10 +109,11 @@ function enableCardboard(){
     challenge,
     seed,
     sessionId,
+    hub,
+    view,
     context: ctx,
     layerEl: document.getElementById('gj-layer'),
     shootEl: document.getElementById('btnShoot'),
-    safeMargins,
-    view
+    safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
   });
 })();
