@@ -3,51 +3,297 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Groups Launcher</title>
+  <title>HeroHealth — Food Groups VR (Launcher)</title>
   <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+
+  <style>
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.82);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --radius:20px;
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; background: radial-gradient(circle at 10% 15%, rgba(34,211,238,.14), transparent 45%),
+                               radial-gradient(circle at 90% 80%, rgba(167,139,250,.16), transparent 50%),
+                               radial-gradient(circle at 40% 90%, rgba(34,197,94,.12), transparent 45%),
+                               var(--bg);
+              color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+    a{ color:inherit; }
+    .wrap{ max-width:960px; margin:0 auto; padding:18px; }
+    .top{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      padding:14px 14px; border:1px solid var(--stroke); border-radius:var(--radius);
+      background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      backdrop-filter: blur(10px);
+    }
+    .brand{ display:flex; gap:10px; align-items:center; }
+    .logo{
+      width:42px; height:42px; border-radius:14px;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.30), transparent 45%),
+        linear-gradient(135deg, rgba(34,197,94,.35), rgba(34,211,238,.25));
+      border:1px solid rgba(255,255,255,.15);
+      box-shadow: 0 16px 30px rgba(0,0,0,.45);
+    }
+    .title{ font-weight:900; letter-spacing:.2px; line-height:1.1; }
+    .sub{ color:var(--muted); font-size:13px; margin-top:2px; }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:999px;
+      background: rgba(255,255,255,.06);
+      border:1px solid var(--stroke);
+      color:var(--muted);
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap:14px;
+    }
+    @media (max-width: 900px){
+      .grid{ grid-template-columns:1fr; }
+    }
+
+    .card{
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.68);
+      border-radius: var(--radius);
+      padding:14px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.40);
+    }
+    .h{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      margin-bottom:10px;
+    }
+    .h b{ font-size:14px; letter-spacing:.2px; }
+    .h span{ color:var(--muted); font-size:12px; }
+
+    .row{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width:520px){ .row{ grid-template-columns:1fr; } }
+
+    label{ display:block; font-size:12px; color:var(--muted); margin:0 0 6px; }
+    input, select{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.55);
+      color:var(--text);
+      outline:none;
+    }
+    input:focus, select:focus{
+      border-color: rgba(34,211,238,.55);
+      box-shadow: 0 0 0 3px rgba(34,211,238,.12);
+    }
+
+    .btns{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .btn{
+      appearance:none; border:0; cursor:pointer;
+      padding:12px 14px; border-radius:16px;
+      font-weight:900; letter-spacing:.2px;
+      background: linear-gradient(135deg, rgba(34,197,94,.34), rgba(34,211,238,.22));
+      color:var(--text);
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow: 0 18px 40px rgba(0,0,0,.35);
+    }
+    .btn.secondary{
+      background: rgba(255,255,255,.06);
+      border:1px solid var(--stroke);
+      color:var(--text);
+      box-shadow:none;
+    }
+    .btn.danger{
+      background: linear-gradient(135deg, rgba(244,114,182,.28), rgba(248,113,113,.18));
+    }
+
+    .hint{
+      margin-top:10px; color:var(--muted); font-size:12px; line-height:1.5;
+    }
+    .mono{
+      margin-top:10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:12px;
+      padding:12px;
+      border-radius:16px;
+      border:1px dashed rgba(148,163,184,.28);
+      background: rgba(0,0,0,.18);
+      overflow:auto;
+      color:#cbd5e1;
+    }
+
+    .chips{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .chip{
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(255,255,255,.06);
+      color:var(--muted);
+      font-size:12px;
+    }
+  </style>
 </head>
+
 <body>
-<script>
-(function(){
-  'use strict';
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div class="title">Food Groups VR</div>
+          <div class="sub">Launcher — สร้างลิงก์เข้าเกม (Play/Research) + ส่งกลับ HUB</div>
+        </div>
+      </div>
+      <div class="pill" id="nowPill">⏱️ —</div>
+    </div>
 
-  const u = new URL(location.href);
+    <div class="grid">
+      <div class="card">
+        <div class="h">
+          <b>ตั้งค่าการเล่น</b>
+          <span>จะเปิดไปที่ groups-vr.html</span>
+        </div>
 
-  const diff = String(u.searchParams.get('diff') || 'normal').toLowerCase();
-  const run  = String(u.searchParams.get('run') || u.searchParams.get('runMode') || 'play').toLowerCase();
-  const time = Math.max(30, Math.min(180, parseInt(u.searchParams.get('time') || '90', 10) || 90));
+        <div class="row">
+          <div>
+            <label>Run mode</label>
+            <select id="run">
+              <option value="play">play</option>
+              <option value="research">research</option>
+            </select>
+          </div>
+          <div>
+            <label>Difficulty</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+        </div>
 
-  const hub = String(u.searchParams.get('hub') || '../hub.html');
+        <div class="row" style="margin-top:10px;">
+          <div>
+            <label>Time (seconds)</label>
+            <input id="time" type="number" min="30" max="180" value="90" />
+          </div>
+          <div>
+            <label>Seed (เว้นว่าง = สุ่ม)</label>
+            <input id="seed" type="text" placeholder="เช่น 1766888025498" />
+          </div>
+        </div>
 
-  // deterministic-ish seed: sessionId/studentKey + ts
-  const sid = String(u.searchParams.get('sessionId') || u.searchParams.get('studentKey') || '');
-  const ts  = String(u.searchParams.get('ts') || Date.now());
-  const seed = String(u.searchParams.get('seed') || (sid ? (sid + '|' + ts) : ts));
+        <div style="margin-top:10px;">
+          <label>Hub URL (กลับหน้าฮับ)</label>
+          <input id="hub" type="text" placeholder="ใส่ลิงก์ hub.html?... (จะ encode ให้อัตโนมัติ)" />
+          <div class="hint">ถ้าเปิด launcher มาจาก hub อยู่แล้ว ระบบจะดึงค่า <code>hub=</code> จาก URL ให้เอง</div>
+        </div>
 
-  const r = new URL('./vr-groups/vr-groups.html', location.href);
-  r.searchParams.set('diff', ['easy','normal','hard'].includes(diff) ? diff : 'normal');
-  r.searchParams.set('run', (run === 'research') ? 'research' : 'play');
-  r.searchParams.set('time', String(time));
-  r.searchParams.set('seed', seed);
-  r.searchParams.set('hub', hub);
-  r.searchParams.set('ts', String(Date.now())); // cache-bust
+        <div class="chips">
+          <div class="chip">autostart=1 ✅</div>
+          <div class="chip">รองรับ ts เพื่อกันแคช</div>
+          <div class="chip">รองรับ seed เพื่อ research</div>
+        </div>
 
-  // pass-through (ถ้ามี)
-  [
-    'studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
-    'sessionId','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age',
-    'gradeLevel','heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue',
-    'healthDetail','consentParent'
-  ].forEach(k=>{
-    const v = u.searchParams.get(k);
-    if (v != null && v !== '' && !r.searchParams.has(k)) r.searchParams.set(k, v);
-  });
+        <div class="btns">
+          <button class="btn" id="goBtn">▶️ เข้าเกม (แท็บเดิม)</button>
+          <button class="btn secondary" id="goNewBtn">🪟 เปิดแท็บใหม่</button>
+          <button class="btn danger" id="clearBtn">🧹 ล้าง Seed</button>
+        </div>
 
-  // optional: allow autostart passthrough
-  if (u.searchParams.get('autostart') === '1') r.searchParams.set('autostart','1');
+        <div class="mono" id="outUrl">—</div>
+      </div>
 
-  location.replace(r.toString());
-})();
-</script>
+      <div class="card">
+        <div class="h">
+          <b>Tips (สั้น ๆ)</b>
+          <span>พร้อมใช้งานจริง</span>
+        </div>
+        <div class="hint">
+          • ถ้าอยากให้ “กดเข้าแล้วเริ่มเอง” ให้ใช้ <b>autostart=1</b> (ไฟล์ run รองรับแล้ว)<br/>
+          • ถ้าอยากบังคับให้ไม่ค้างแคช เพิ่ม <b>&ts=Date.now()</b> ตอนยิงลิงก์<br/>
+          • โหมด Research ใช้ seed เดิมเพื่อให้ผล deterministic ตามมาตรฐานงานวิจัย<br/>
+        </div>
+
+        <div class="hint" style="margin-top:10px;">
+          ตัวอย่าง URL ที่จะสร้าง (ปรับได้):<br/>
+          <code>vr-groups/groups-vr.html?run=play&diff=easy&time=80&seed=...&autostart=1&hub=...</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const $ = (id)=>document.getElementById(id);
+      const nowPill = $('nowPill');
+
+      function fmt2(n){ n = n|0; return (n<10?'0':'')+n; }
+      function tick(){
+        const d = new Date();
+        nowPill.textContent = '⏱️ ' + fmt2(d.getHours())+':'+fmt2(d.getMinutes())+':'+fmt2(d.getSeconds());
+      }
+      tick(); setInterval(tick, 500);
+
+      const sp = new URLSearchParams(location.search);
+      const hubFromUrl = sp.get('hub');
+      if (hubFromUrl && !$('hub').value) $('hub').value = decodeURIComponent(hubFromUrl);
+
+      function buildUrl(){
+        const run = String($('run').value||'play').toLowerCase();
+        const diff = String($('diff').value||'normal').toLowerCase();
+        const time = Math.max(30, Math.min(180, parseInt($('time').value||'90',10)||90));
+        const seedRaw = String($('seed').value||'').trim();
+        const seed = seedRaw ? seedRaw : String(Date.now());
+        const hub = String($('hub').value||'').trim();
+
+        const q = new URLSearchParams();
+        q.set('run', run);
+        q.set('diff', diff);
+        q.set('time', String(time));
+        q.set('seed', seed);
+        q.set('autostart','1');
+        q.set('ts', String(Date.now()));
+        if (hub) q.set('hub', encodeURIComponent(hub));
+
+        return './groups-vr.html?' + q.toString();
+      }
+
+      function repaint(){
+        const url = buildUrl();
+        $('outUrl').textContent = url;
+      }
+
+      ['run','diff','time','seed','hub'].forEach(id=>{
+        $(id).addEventListener('input', repaint);
+        $(id).addEventListener('change', repaint);
+      });
+
+      $('goBtn').addEventListener('click', ()=>{
+        location.href = buildUrl();
+      });
+
+      $('goNewBtn').addEventListener('click', ()=>{
+        window.open(buildUrl(), '_blank');
+      });
+
+      $('clearBtn').addEventListener('click', ()=>{
+        $('seed').value = '';
+        repaint();
+      });
+
+      repaint();
+    })();
+  </script>
 </body>
 </html>
