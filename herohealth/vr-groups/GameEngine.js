@@ -1,12 +1,8 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
-Food Groups VR — GameEngine (Hardcore+FeelGood v3: A+B+C + STYLE + BOOT FIX)
-A) Magnet pulls ONLY correct-group GOOD targets
-B) Freeze turns bad targets into harmless "dolls" for 2s
-C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
-
-✅ FIX: exposes window.GroupsVR.GameEngine for GroupsBoot
-✅ API: setLayerEl, setCameraEl, setTimeLeft, start(diff,{runMode,seed,time,style}), stop(reason)
-✅ style=hard|feel|mix influences spawn/powerups/storm/boss/penalties
+Food Groups VR — GameEngine (v3: 1-3 FINAL)
+1) Boss Phase 2: weak spot + feint (style-aware)
+2) Storm Patterns: wave / spiral / burst (style-aware)
+3) No-Junk Zone fair: prevents junk/decoy/wrong near center (deterministic in research)
 */
 
 (function(root){
@@ -52,14 +48,18 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
 
   // ---------- Helpers ----------
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-  function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
   function qs(name, def){
     try{ return (new URL(root.location.href)).searchParams.get(name) ?? def; }
     catch{ return def; }
   }
-  function pick(arr, rng){ return (!arr||!arr.length) ? '' : arr[(rng()*arr.length)|0]; }
+  function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
+  function pick(rng, arr){ return (!arr||!arr.length) ? '' : arr[(rng()*arr.length)|0]; }
+  function styleNorm(s){
+    s = String(s||'mix').toLowerCase();
+    return (s==='hard'||s==='feel'||s==='mix') ? s : 'mix';
+  }
 
-  // ---------- Simple SFX (WebAudio) ----------
+  // ---------- Simple SFX ----------
   const SFX = {
     ctx:null, nextTickAt:0,
     ensure(){
@@ -90,13 +90,15 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
       const t = now();
       if (t < this.nextTickAt) return;
       const left = Math.max(0, leftMs);
-      const rate = (left <= 1200) ? 90 : (left <= 2200 ? 140 : 220);
+      const rate = (left <= 1200) ? 85 : (left <= 2200 ? 135 : 210);
       this.nextTickAt = t + rate;
       this.beep(980, 0.045, 0.045);
     },
     good(){ this.beep(660, 0.045, 0.040); },
     bad(){ this.beep(220, 0.065, 0.055); },
-    power(){ this.beep(820, 0.07, 0.050); this.beep(1040, 0.06, 0.045); }
+    power(){ this.beep(820, 0.07, 0.050); this.beep(1040, 0.06, 0.045); },
+    bossWeak(){ this.beep(1200, 0.05, 0.040); },
+    bossFeint(){ this.beep(420, 0.045, 0.035); }
   };
 
   // ---------- Content ----------
@@ -107,60 +109,104 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     4: { label:'หมู่ 4', emoji:['🍎','🍌','🍊','🍉','🍓','🍍'] },
     5: { label:'หมู่ 5', emoji:['🥑','🫒','🧈','🥥','🧀','🌰'] }
   };
+
   const JUNK_EMOJI  = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭'];
   const DECOY_EMOJI = ['🎭','🌀','✨','🌈','🎈'];
+
+  // ---------- Engine State ----------
+  const engine = {
+    // refs
+    layerEl:null,
+    camEl:null,
+
+    // runtime
+    running:false,
+    ended:false,
+
+    runMode:'play',    // play/research
+    diff:'normal',
+    style:'mix',
+    timeSec:90,
+    seed:'seed',
+    rng:Math.random,
+
+    // view (VR feel)
+    vx:0, vy:0, dragOn:false, dragX:0, dragY:0,
+
+    // scoreboard
+    left:90,
+    score:0,
+    combo:0,
+    comboMax:0,
+    misses:0,
+    hitGood:0,
+    hitAll:0,
+
+    // group
+    groupId:1,
+    groupLabel:'หมู่ 1',
+    groupClean:true,
+    cleanStreakMs:0,
+
+    // power
+    power:0,
+    powerThr:10,
+
+    // spawn/ttl
+    ttlMs:1600,
+    sizeBase:1.0,
+
+    // adaptive (play only)
+    adapt:{ spawnMs:780, ttl:1600, size:1.0, junkBias:0.12, decoyBias:0.10, bossEvery:18000 },
+
+    // storm
+    storm:false,
+    stormUntilMs:0,
+    nextStormAtMs:0,
+    stormDurSec:6,
+    stormPattern:'wave',   // wave/spiral/burst
+    stormSpawnIdx:0,
+
+    // boss
+    bossAlive:false,
+    bossHp:0,
+    bossHpMax:3,
+    nextBossAtMs:0,
+
+    // boss phase2 mechanics
+    bossPhase:1,
+    bossWeakOpen:false,
+    bossWeakUntil:0,
+    bossNextWeakAt:0,
+    bossFeintUntil:0,
+    bossEl:null,
+
+    // shield
+    shield:0,
+
+    // buffs
+    magnetUntil:0,
+    freezeUntil:0,
+
+    // overdrive
+    overCharge:0,
+    overWindowUntil:0,
+    overUntil:0,
+
+    // no-junk zone
+    noJunkRadius:92,   // will update
+    noJunkUntil:0,     // optional pulse
+
+    // timers
+    spawnTimer:0,
+    tickTimer:0,
+  };
 
   function diffParams(diff){
     diff = String(diff||'normal').toLowerCase();
     if (diff === 'easy') return { spawnMs:900, ttl:1750, size:1.05, powerThr:9,  junk:0.10, decoy:0.08, stormDur:6, bossHp:3 };
     if (diff === 'hard') return { spawnMs:680, ttl:1450, size:0.92, powerThr:11, junk:0.16, decoy:0.12, stormDur:7, bossHp:4 };
     return                 { spawnMs:780, ttl:1600, size:1.00, powerThr:10, junk:0.12, decoy:0.10, stormDur:6, bossHp:3 };
-  }
-
-  // style factors: hard/feel/mix
-  function styleFactors(style){
-    style = String(style||'mix').toLowerCase();
-    if (style === 'hard'){
-      return {
-        stormFreqMul: 0.78,  // storm มาไวขึ้น
-        powerupMul:   0.72,  // ⭐/❄️ น้อยลง
-        ttlMul:       0.96,  // เป้าหายไวขึ้นนิด
-        junkMul:      1.22,
-        decoyMul:     1.14,
-        wrongPlus:    0.03,
-        bossHpAdd:    1,
-        scoreMul:     1.10,  // แต้มแรงขึ้น
-        powerLossMul: 1.12,  // โดนแล้วเจ็บกว่า
-        shieldDelayMs: 16000 // shield ช้ากว่า
-      };
-    }
-    if (style === 'feel'){
-      return {
-        stormFreqMul: 1.18,  // storm ช้าลง
-        powerupMul:   1.55,  // ⭐/❄️ เยอะขึ้น
-        ttlMul:       1.06,  // อยู่ให้นานขึ้น
-        junkMul:      0.86,
-        decoyMul:     0.90,
-        wrongPlus:   -0.02,
-        bossHpAdd:    0,
-        scoreMul:     1.00,
-        powerLossMul: 0.92,
-        shieldDelayMs: 10500 // shield เร็วขึ้น
-      };
-    }
-    // mix
-    return {
-      stormFreqMul: 1.00,
-      powerupMul:   1.18,
-      ttlMul:       1.00,
-      junkMul:      1.00,
-      decoyMul:     1.00,
-      wrongPlus:    0.00,
-      bossHpAdd:    0,
-      scoreMul:     1.03,
-      powerLossMul: 1.00,
-      shieldDelayMs: 12500
-    };
   }
 
   function rankFromAcc(acc){
@@ -172,66 +218,10 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     return 'C';
   }
 
-  // ---------- Engine state ----------
-  const engine = {
-    running:false, ended:false,
-    runMode:'play',
-    diff:'normal',
-    style:'mix',
-    timeSec:90,
-    seed:'seed',
-    rng:Math.random,
-
-    // view (VR feel)
-    vx:0, vy:0, dragOn:false, dragX:0, dragY:0,
-
-    left:90,
-    score:0, combo:0, comboMax:0, misses:0,
-    hitGood:0, hitAll:0,
-
-    groupId:1, groupLabel:'หมู่ 1',
-    groupClean:true,
-    groupStartMs:0,
-
-    power:0, powerThr:10,
-
-    ttlMs:1600,
-    sizeBase:1.0,
-
-    adapt:{ spawnMs:780, ttl:1600, size:1.0, junkBias:0.12, decoyBias:0.10, bossEvery:18000 },
-
-    storm:false,
-    stormUntilMs:0,
-    nextStormAtMs:0,
-    stormDurSec:6,
-
-    bossAlive:false,
-    bossHp:0, bossHpMax:3,
-    nextBossAtMs:0,
-
-    shield:0,
-    cleanStreakMs:0,
-
-    // Buffs
-    magnetUntil:0,
-    freezeUntil:0,
-
-    // Overdrive
-    overCharge:0,
-    overWindowUntil:0,
-    overUntil:0,
-
-    spawnTimer:0,
-    tickTimer:0,
-
-    // Refs (set by Boot)
-    layerEl:null,
-    camEl:null,
-  };
-
   function scoreMult(){
     return (now() < engine.overUntil) ? 2 : 1;
   }
+
   function updateRank(){
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
     emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
@@ -243,69 +233,120 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
   function updateTime(){ emit('hha:time', { left: engine.left|0 }); }
   function updatePower(){ emit('groups:power', { charge: engine.power|0, threshold: engine.powerThr|0 }); }
 
-  function ensureLayer(){
-    if (engine.layerEl && engine.layerEl.isConnected) return engine.layerEl;
-    engine.layerEl = DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer');
-    return engine.layerEl;
-  }
-
   function setGroup(id, from){
     engine.groupId = id;
     engine.groupLabel = (GROUPS[id] ? GROUPS[id].label : ('หมู่ '+id));
     engine.groupClean = true;
-    engine.groupStartMs = now();
     emit('groups:group_change', { groupId:id, label: engine.groupLabel, from: from|0 });
+  }
+
+  // ---------- Layer/cam setters (Boot calls these) ----------
+  function setLayerEl(el){ engine.layerEl = el || null; }
+  function setCameraEl(el){ engine.camEl = el || null; }
+  function setTimeLeft(sec){
+    sec = clamp(sec, 20, 600);
+    engine.timeSec = sec;
+    engine.left = sec;
+    updateTime();
   }
 
   // ---------- VR feel view ----------
   function applyView(){
-    const layer = ensureLayer();
+    const layer = engine.layerEl;
     if (!layer) return;
     layer.style.setProperty('--vx', engine.vx.toFixed(1)+'px');
     layer.style.setProperty('--vy', engine.vy.toFixed(1)+'px');
   }
-  function setupViewOnce(){
-    // bind once globally (safe)
-    if (engine._viewBound) return;
-    engine._viewBound = true;
 
-    const onDown = (e)=>{
-      const layer = ensureLayer(); if (!layer) return;
-      // allow drag on empty space too
-      engine.dragOn = true; engine.dragX = e.clientX; engine.dragY = e.clientY;
-    };
-    const onMove = (e)=>{
-      if (!engine.dragOn) return;
-      const dx = e.clientX - engine.dragX;
-      const dy = e.clientY - engine.dragY;
-      engine.dragX = e.clientX; engine.dragY = e.clientY;
-      engine.vx = clamp(engine.vx + dx*0.22, -90, 90);
-      engine.vy = clamp(engine.vy + dy*0.22, -90, 90);
-      applyView();
-    };
-    const onUp = ()=>{ engine.dragOn=false; };
+  function setupView(){
+    // bind once
+    let bound = false;
+    function bind(){
+      if (bound) return;
+      const layer = engine.layerEl;
+      if (!layer) return;
+      bound = true;
 
-    // layer might not exist at bind time; bind on body for safety
-    DOC.addEventListener('pointerdown', onDown, { passive:true });
-    root.addEventListener('pointermove', onMove, { passive:true });
-    root.addEventListener('pointerup', onUp, { passive:true });
+      layer.addEventListener('pointerdown', (e)=>{
+        engine.dragOn = true; engine.dragX = e.clientX; engine.dragY = e.clientY;
+      }, { passive:true });
 
-    root.addEventListener('deviceorientation', (ev)=>{
-      const gx = Number(ev.gamma)||0;
-      const gy = Number(ev.beta)||0;
-      engine.vx = clamp(engine.vx + gx*0.06, -90, 90);
-      engine.vy = clamp(engine.vy + (gy-20)*0.02, -90, 90);
-      applyView();
-    }, { passive:true });
+      root.addEventListener('pointermove', (e)=>{
+        if (!engine.dragOn) return;
+        const dx = e.clientX - engine.dragX;
+        const dy = e.clientY - engine.dragY;
+        engine.dragX = e.clientX; engine.dragY = e.clientY;
+        engine.vx = clamp(engine.vx + dx*0.22, -90, 90);
+        engine.vy = clamp(engine.vy + dy*0.22, -90, 90);
+        applyView();
+      }, { passive:true });
+
+      root.addEventListener('pointerup', ()=>{ engine.dragOn=false; }, { passive:true });
+
+      root.addEventListener('deviceorientation', (ev)=>{
+        const gx = Number(ev.gamma)||0;
+        const gy = Number(ev.beta)||0;
+        engine.vx = clamp(engine.vx + gx*0.06, -90, 90);
+        engine.vy = clamp(engine.vy + (gy-20)*0.02, -90, 90);
+        applyView();
+      }, { passive:true });
+    }
+    // poll until layer exists
+    const it = setInterval(()=>{
+      bind();
+      if (bound) clearInterval(it);
+    }, 80);
   }
 
-  // ---------- Spawn rect ----------
+  // ---------- Spawn rect + No-Junk Zone ----------
   function safeSpawnRect(){
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
+
+    // keep away from HUD top/bottom
     const top = 150, bot = 170, side = 16;
     return { x0:side, x1:W-side, y0:top, y1:H-bot, W, H };
   }
+
+  function updateNoJunkZone(){
+    const r = safeSpawnRect();
+    const cx = r.W * 0.5;
+    const cy = (r.y0 + r.y1) * 0.5;
+
+    // base by diff
+    const dp = diffParams(engine.diff);
+    let base = (engine.diff==='easy'? 98 : engine.diff==='hard'? 84 : 92);
+
+    // play mode: adapt fair zone slightly (good player => bigger safe center)
+    if (engine.runMode === 'play'){
+      const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
+      const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
+      base = clamp(base + heat*26, 78, 126);
+    } else {
+      // research: fixed per diff (deterministic, no adaptive)
+      base = clamp(base + (engine.diff==='hard'? -6 : engine.diff==='easy'? 10 : 0), 72, 120);
+    }
+
+    engine.noJunkRadius = base;
+
+    // expose to CSS ring (optional)
+    const layer = engine.layerEl;
+    if (layer){
+      layer.style.setProperty('--nojunk-cx', cx.toFixed(1)+'px');
+      layer.style.setProperty('--nojunk-cy', cy.toFixed(1)+'px');
+      layer.style.setProperty('--nojunk-r',  base.toFixed(1)+'px');
+    }
+  }
+
+  function inNoJunkZone(x,y){
+    const r = safeSpawnRect();
+    const cx = r.W * 0.5;
+    const cy = (r.y0 + r.y1) * 0.5;
+    const dx = x - cx;
+    const dy = y - cy;
+    return (dx*dx + dy*dy) <= (engine.noJunkRadius*engine.noJunkRadius);
+  }
+
   function randPos(){
     const r = safeSpawnRect();
     const x = r.x0 + engine.rng()*(r.x1 - r.x0);
@@ -313,7 +354,50 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     return { x, y };
   }
 
-  // ---------- DOM target helpers ----------
+  // Storm pattern positions (2)
+  function stormPos(){
+    const r = safeSpawnRect();
+    const cx = r.W * 0.5;
+    const cy = (r.y0 + r.y1) * 0.5;
+    const idx = (engine.stormSpawnIdx++);
+
+    // small deterministic jitter
+    const jx = (engine.rng()-0.5) * 26;
+    const jy = (engine.rng()-0.5) * 22;
+
+    if (engine.stormPattern === 'wave'){
+      // wave: sweep x left->right, y = sinus band
+      const t = (idx % 28) / 28;
+      const x = r.x0 + t*(r.x1 - r.x0);
+      const y = cy + Math.sin((idx*0.55)) * ((r.y1 - r.y0)*0.22);
+      return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
+    }
+
+    if (engine.stormPattern === 'spiral'){
+      // spiral around center
+      const a = idx * 0.62;
+      const rad = clamp(28 + idx*5.0, 28, Math.min(r.x1-r.x0, r.y1-r.y0)*0.40);
+      const x = cx + Math.cos(a)*rad;
+      const y = cy + Math.sin(a)*rad;
+      return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
+    }
+
+    // burst: corners/edges
+    const corners = [
+      {x:r.x0+26, y:r.y0+26},
+      {x:r.x1-26, y:r.y0+26},
+      {x:r.x0+26, y:r.y1-26},
+      {x:r.x1-26, y:r.y1-26},
+      {x:cx, y:r.y0+22},
+      {x:cx, y:r.y1-22},
+    ];
+    const c = corners[(engine.rng()*corners.length)|0];
+    const x = c.x + (engine.rng()-0.5)*120;
+    const y = c.y + (engine.rng()-0.5)*110;
+    return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
+  }
+
+  // ---------- DOM Target helpers ----------
   function setXY(el, x, y){
     el.style.setProperty('--x', x.toFixed(1)+'px');
     el.style.setProperty('--y', y.toFixed(1)+'px');
@@ -339,7 +423,8 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     return Number.isFinite(t) && now() < t;
   }
   function cleanupDolls(){
-    const layer = ensureLayer(); if (!layer) return;
+    const layer = engine.layerEl;
+    if (!layer) return;
     const list = layer.querySelectorAll('.fg-freeze-doll');
     list.forEach(el=>{
       const t = Number(el.dataset.dollUntil);
@@ -351,14 +436,15 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
   }
 
   function makeTarget(type, emoji, x, y, s){
-    const layer = ensureLayer(); if (!layer) return null;
+    const layer = engine.layerEl;
+    if (!layer) return null;
 
     const el = DOC.createElement('div');
     el.className = 'fg-target spawn';
     el.dataset.emoji = emoji || '✨';
     el.dataset.type = type;
 
-    // tag groupId on GOOD targets at spawn
+    // tag groupId for GOOD targets
     if (type === 'good') el.dataset.groupId = String(engine.groupId);
 
     setXY(el, x, y);
@@ -372,19 +458,17 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     else if (type === 'star'){ el.classList.add('fg-powerup','fg-star'); }
     else if (type === 'ice'){ el.classList.add('fg-powerup','fg-ice'); }
 
-    // Freeze active => new bad becomes doll for 2s
+    // freeze -> spawn bad as dolls
     if (now() < engine.freezeUntil && (type==='junk' || type==='decoy' || type==='wrong')){
       markFreezeDoll(el, 2000);
     }
 
-    // TTL
     const ttlBase = engine.ttlMs;
     const ttl = engine.storm ? Math.max(850, ttlBase*0.85) : ttlBase;
 
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
 
-      // expire miss: only good counts
       if (type === 'good'){
         engine.misses++; engine.combo = 0; engine.groupClean = false;
         emit('hha:judge', { kind:'warn', text:'MISS!' });
@@ -399,22 +483,39 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
       hitTarget(el);
     }, { passive:false });
 
-    layer.appendChild(el);
     return el;
   }
 
   function removeTarget(el){
+    if (!el) return;
     try{ root.clearTimeout(el._ttlTimer); }catch{}
     el.classList.add('hit');
     root.setTimeout(()=> el.remove(), 220);
   }
 
-  // ---------- Storm ----------
+  // ---------- Storm (2) ----------
+  function chooseStormPattern(){
+    // style-aware
+    // feel => wave, hard => spiral, mix => burst (alternate to keep variety)
+    const st = engine.style;
+    if (st === 'feel') return 'wave';
+    if (st === 'hard') return 'spiral';
+    // mix: alternate
+    return (engine.rng() < 0.5) ? 'burst' : 'wave';
+  }
+
   function enterStorm(){
     engine.storm = true;
     engine.stormUntilMs = now() + engine.stormDurSec*1000;
+    engine.stormPattern = chooseStormPattern();
+    engine.stormSpawnIdx = 0;
+
     DOC.body.classList.add('groups-storm');
-    emit('groups:storm', { on:true, durSec: engine.stormDurSec|0 });
+    DOC.body.classList.toggle('groups-storm-wave', engine.stormPattern==='wave');
+    DOC.body.classList.toggle('groups-storm-spiral', engine.stormPattern==='spiral');
+    DOC.body.classList.toggle('groups-storm-burst', engine.stormPattern==='burst');
+
+    emit('groups:storm', { on:true, durSec: engine.stormDurSec|0, pattern: engine.stormPattern });
 
     if (engine.runMode === 'play'){
       engine.adapt.spawnMs = Math.max(420, engine.adapt.spawnMs*0.78);
@@ -423,44 +524,117 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
       engine.adapt.decoyBias= clamp(engine.adapt.decoyBias + 0.03, 0.06, 0.22);
     }
   }
+
   function exitStorm(){
     engine.storm = false;
     engine.stormUntilMs = 0;
-    DOC.body.classList.remove('groups-storm');
-    DOC.body.classList.remove('groups-storm-urgent');
+    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-storm-wave','groups-storm-spiral','groups-storm-burst');
     emit('groups:storm', { on:false, durSec: 0 });
   }
-  function scheduleNextStorm(){
-    const sf = styleFactors(engine.style);
-    const base = 12000 + engine.rng()*11000;
-    engine.nextStormAtMs = now() + base * sf.stormFreqMul;
-  }
+
   function maybeStormTick(){
     if (!engine.storm) return;
     const leftMs = engine.stormUntilMs - now();
-    if (leftMs <= 0){ exitStorm(); scheduleNextStorm(); return; }
+    if (leftMs <= 0){
+      exitStorm();
+      engine.nextStormAtMs = now() + (16000 + engine.rng()*12000);
+      return;
+    }
     if (leftMs <= 3200){
       DOC.body.classList.add('groups-storm-urgent');
       SFX.tickStorm(leftMs);
     }
   }
 
-  // ---------- Boss ----------
+  // ---------- Boss Phase2 (1) ----------
+  function bossStyleParams(){
+    // hard: short open windows + more feints
+    // feel: longer windows + almost no penalty on wrong timing
+    const st = engine.style;
+    if (st === 'hard') return { openMs: 520, gapMs: 820, feintChance: 0.32, wrongPenalty: 'hard' };
+    if (st === 'feel') return { openMs: 820, gapMs: 900, feintChance: 0.14, wrongPenalty: 'soft' };
+    return                 { openMs: 680, gapMs: 860, feintChance: 0.22, wrongPenalty: 'mix' };
+  }
+
+  function bossWeakTick(){
+    if (!engine.bossAlive || !engine.bossEl) return;
+
+    // phase2 triggers when hp <= half
+    if (engine.bossPhase === 1 && engine.bossHp <= Math.ceil(engine.bossHpMax*0.5)){
+      engine.bossPhase = 2;
+      engine.bossNextWeakAt = now() + 420;
+      emit('hha:judge', { kind:'boss', text:'PHASE 2!' });
+      emit('hha:celebrate', { kind:'goal', title:'BOSS PHASE 2!' });
+    }
+
+    if (engine.bossPhase !== 2) return;
+
+    const P = bossStyleParams();
+    const t = now();
+
+    // close window
+    if (engine.bossWeakOpen && t >= engine.bossWeakUntil){
+      engine.bossWeakOpen = false;
+      engine.bossEl.classList.remove('fg-boss-weak');
+      engine.bossNextWeakAt = t + P.gapMs + engine.rng()*260;
+      return;
+    }
+
+    // open window
+    if (!engine.bossWeakOpen && t >= engine.bossNextWeakAt){
+      // feint?
+      const doFeint = (engine.rng() < P.feintChance);
+      if (doFeint){
+        engine.bossEl.classList.add('fg-boss-feint');
+        engine.bossFeintUntil = t + 220;
+        SFX.bossFeint();
+        root.setTimeout(()=>{
+          if (engine.bossEl) engine.bossEl.classList.remove('fg-boss-feint');
+        }, 240);
+
+        // after feint, real open a bit later
+        engine.bossNextWeakAt = t + 320 + engine.rng()*260;
+        return;
+      }
+
+      engine.bossWeakOpen = true;
+      engine.bossWeakUntil = t + P.openMs;
+      engine.bossEl.classList.add('fg-boss-weak');
+      SFX.bossWeak();
+      emit('groups:progress', { kind:'boss_weak_open' });
+    }
+  }
+
   function tryBossSpawn(){
     if (engine.bossAlive) return;
     if (now() < engine.nextBossAtMs) return;
 
+    const layer = engine.layerEl;
+    if (!layer) return;
+
     engine.bossAlive = true;
     engine.bossHp = engine.bossHpMax;
+    engine.bossPhase = 1;
+    engine.bossWeakOpen = false;
+    engine.bossWeakUntil = 0;
+    engine.bossNextWeakAt = 0;
+    engine.bossEl = null;
 
-    const p = randPos();
-    const s = (engine.storm ? 1.25 : 1.35) * engine.sizeBase * ((engine.runMode==='research')?1:engine.adapt.size);
+    const p = engine.storm ? stormPos() : randPos();
+    const s = (engine.storm ? 1.22 : 1.35) * engine.sizeBase * ((engine.runMode==='research')?1:engine.adapt.size);
     const el = makeTarget('boss','👑',p.x,p.y,s);
     if (!el) return;
+
     el.dataset.hp = String(engine.bossHp);
+    el.dataset.phase = '1';
+    el.classList.add('fg-boss-phase1');
+
+    engine.bossEl = el;
+    layer.appendChild(el);
 
     emit('groups:progress',{kind:'boss_spawn'});
     emit('hha:judge',{kind:'boss',text:'BOSS!'});
+
     engine.nextBossAtMs = now() + (engine.runMode==='research' ? 20000 : clamp(engine.adapt.bossEvery, 14000, 26000));
   }
 
@@ -468,8 +642,7 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
   function perfectSwitchBonus(){
     if (!engine.groupClean) return;
     const mult = scoreMult();
-    const sf = styleFactors(engine.style);
-    engine.score += Math.round((300 + Math.min(240, engine.combo*6)) * mult * sf.scoreMul);
+    engine.score += (300 + Math.min(240, engine.combo*6)) * mult;
     emit('hha:judge', { kind:'good', text:'PERFECT SWITCH!' });
     emit('hha:celebrate', { kind:'mini', title:'PERFECT SWITCH!' });
   }
@@ -492,10 +665,9 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
   }
 
   function addShieldIfClean(){
-    const sf = styleFactors(engine.style);
     const t = now();
     if (!engine.cleanStreakMs) engine.cleanStreakMs = t;
-    if ((t - engine.cleanStreakMs) >= (sf.shieldDelayMs|0) && engine.shield < 1){
+    if ((t - engine.cleanStreakMs) >= 12000 && engine.shield < 1){
       engine.shield = 1;
       emit('hha:judge', { kind:'good', text:'SHIELD READY!' });
       emit('hha:celebrate', { kind:'mini', title:'SHIELD READY!' });
@@ -530,11 +702,12 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     }
   }
 
-  // ---------- Powerups ----------
+  // ---------- Buffs ----------
   function activateMagnet(){
     engine.magnetUntil = now() + 6000;
     DOC.body.classList.add('groups-magnet');
     SFX.power();
+    emit('hha:judge', { kind:'good', text:'MAGNET!' });
     emit('hha:celebrate', { kind:'mini', title:'MAGNET ⭐' });
 
     root.setTimeout(()=>{
@@ -548,10 +721,11 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     engine.freezeUntil = now() + 4500;
     DOC.body.classList.add('groups-freeze');
     SFX.power();
+    emit('hha:judge', { kind:'good', text:'FREEZE!' });
     emit('hha:celebrate', { kind:'mini', title:'FREEZE ❄️' });
 
-    // turn existing bad into dolls for 2s
-    const layer = ensureLayer();
+    // transform existing bad targets into dolls
+    const layer = engine.layerEl;
     if (layer){
       const list = layer.querySelectorAll('.fg-target');
       list.forEach(el=>{
@@ -569,10 +743,10 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     }, 4600);
   }
 
-  // Magnet pull only correct-group good
   function magnetPullTick(){
     if (now() >= engine.magnetUntil) return;
-    const layer = ensureLayer(); if (!layer) return;
+    const layer = engine.layerEl;
+    if (!layer) return;
 
     const r = safeSpawnRect();
     const cx = r.W * 0.5;
@@ -581,8 +755,7 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     const list = layer.querySelectorAll('.fg-target.fg-good');
     list.forEach(el=>{
       const gid = Number(el.dataset.groupId)||0;
-      if (gid !== engine.groupId) return;
-
+      if (gid !== engine.groupId) return; // pull only correct-group good
       const p = getXY(el);
       const nx = p.x + (cx - p.x) * 0.040;
       const ny = p.y + (cy - p.y) * 0.040;
@@ -596,16 +769,60 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     engine.combo = clamp(engine.combo + 1, 0, 9999);
     engine.comboMax = Math.max(engine.comboMax, engine.combo);
 
-    engine.bossHp = Math.max(0, engine.bossHp - 1);
-    emit('hha:judge', { kind:'boss', text:'HIT!' });
+    // Phase2 timing requirement
+    if (engine.bossPhase === 2 && !engine.bossWeakOpen){
+      // wrong timing behavior depends on style
+      const P = bossStyleParams();
+      const mult = scoreMult();
+
+      if (P.wrongPenalty === 'soft'){
+        // feel: no punish, small score only (encourage)
+        engine.score += 60 * mult;
+        emit('hha:judge', { kind:'boss', text:'TOO EARLY!' });
+      } else {
+        // hard/mix: small punish (not brutal)
+        engine.misses++;
+        engine.combo = 0;
+        engine.groupClean = false;
+        engine.cleanStreakMs = 0;
+
+        engine.power = clamp(engine.power - 2, 0, engine.powerThr);
+        updatePower();
+
+        emit('hha:judge', { kind:'bad', text:'FEINT! 😵' });
+        SFX.bad();
+      }
+
+      updateScore();
+      // do NOT remove boss (it was a fake)
+      // small shake/flash via class
+      el.classList.add('fg-boss-hurt');
+      root.setTimeout(()=> el.classList.remove('fg-boss-hurt'), 220);
+      return;
+    }
+
+    // normal damage
+    let dmg = 1;
+    if (engine.bossPhase === 2 && engine.bossWeakOpen){
+      // reward accurate timing
+      dmg = (engine.style==='hard') ? 2 : 1;
+      el.classList.add('fg-boss-crit');
+      root.setTimeout(()=> el.classList.remove('fg-boss-crit'), 220);
+      emit('hha:judge', { kind:'boss', text:(dmg>1?'CRIT!':'HIT!') });
+    } else {
+      emit('hha:judge', { kind:'boss', text:'HIT!' });
+    }
+
+    engine.bossHp = Math.max(0, engine.bossHp - dmg);
+    el.dataset.hp = String(engine.bossHp);
 
     const mult = scoreMult();
     const rush = (engine._rushUntil && now() < engine._rushUntil) ? 1.5 : 1.0;
-    const sf = styleFactors(engine.style);
-    engine.score += Math.round((140 + engine.combo*2) * rush * mult * sf.scoreMul);
+    engine.score += Math.round((140 + engine.combo*2) * rush * mult * (dmg>1?1.25:1));
 
     if (engine.bossHp <= 0){
       engine.bossAlive = false;
+      engine.bossEl = null;
       emit('hha:judge', { kind:'boss', text:'BOSS DOWN!' });
       emit('groups:progress', { kind:'boss_down' });
       emit('hha:celebrate', { kind:'goal', title:'BOSS DOWN!' });
@@ -613,10 +830,14 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
       engine.power = clamp(engine.power + 4, 0, engine.powerThr);
       engine.shield = 1;
       updatePower();
-    }
 
-    updateScore();
-    removeTarget(el);
+      removeTarget(el);
+    } else {
+      // keep boss, but little feedback
+      el.classList.add('fg-boss-hurt');
+      root.setTimeout(()=> el.classList.remove('fg-boss-hurt'), 220);
+      updateScore();
+    }
   }
 
   function hitTarget(el){
@@ -632,10 +853,8 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
 
       const mult = scoreMult();
-      const sf = styleFactors(engine.style);
-      engine.score += Math.round(120 * mult * sf.scoreMul);
+      engine.score += 120 * mult;
 
-      emit('hha:judge', { kind:'good', text:'MAGNET!', meta:{ noQuest:true } });
       activateMagnet();
       onStarCollected();
 
@@ -650,10 +869,8 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
 
       const mult = scoreMult();
-      const sf = styleFactors(engine.style);
-      engine.score += Math.round(120 * mult * sf.scoreMul);
+      engine.score += 120 * mult;
 
-      emit('hha:judge', { kind:'good', text:'FREEZE!', meta:{ noQuest:true } });
       activateFreeze();
 
       updateScore();
@@ -663,7 +880,7 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
 
     if (type === 'boss'){ hitBoss(el); return; }
 
-    // if good but wrong group => treat as wrong
+    // good but wrong group => wrong
     if (type === 'good'){
       const gid = Number(el.dataset.groupId)||0;
       if (gid && gid !== engine.groupId) type = 'wrong';
@@ -679,8 +896,7 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
 
       const mult = scoreMult();
       const rush = (engine._rushUntil && now() < engine._rushUntil) ? 1.5 : 1.0;
-      const sf = styleFactors(engine.style);
-      engine.score += Math.round((100 + engine.combo*3) * rush * mult * sf.scoreMul);
+      engine.score += Math.round((100 + engine.combo*3) * rush * mult);
 
       addPower(engine.storm ? 2 : 1);
       addShieldIfClean();
@@ -694,15 +910,15 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
 
     // BAD-like
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
+
     if (badLike){
-      // freeze doll => harmless
+      // freeze doll => no penalty + small reward
       if (isFreezeDoll(el) || (now() < engine.freezeUntil && (type==='junk' || type==='decoy' || type==='wrong'))){
         engine.combo = clamp(engine.combo + 1, 0, 9999);
         engine.comboMax = Math.max(engine.comboMax, engine.combo);
 
         const mult = scoreMult();
-        const sf = styleFactors(engine.style);
-        engine.score += Math.round(40 * mult * sf.scoreMul);
+        engine.score += 40 * mult;
 
         emit('hha:judge', { kind:'good', text:'POOF!' });
         updateScore();
@@ -710,7 +926,6 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
         return;
       }
 
-      // shield blocks junk
       if (type === 'junk' && engine.shield > 0){
         engine.shield = 0;
         engine.combo = Math.max(0, engine.combo - 1);
@@ -725,16 +940,15 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
       engine.groupClean = false;
       engine.cleanStreakMs = 0;
 
-      const sf = styleFactors(engine.style);
-      const lossMul = sf.powerLossMul || 1.0;
-      const loss = (type==='junk' ? 3 : 2) * lossMul;
-      engine.power = clamp(engine.power - loss, 0, engine.powerThr);
+      engine.power = clamp(engine.power - (type==='junk'?3:2), 0, engine.powerThr);
       updatePower();
 
       emit('hha:judge', { kind:'bad', text: (type==='junk'?'JUNK!':'WRONG!') });
       SFX.bad();
 
-      if (engine.storm){ engine.stormUntilMs += (sf.stormFreqMul < 1 ? 800 : 650); } // โหด+++ (hard จะยืดแรง)
+      // storm punishes slightly
+      if (engine.storm && engine.style!=='feel'){ engine.stormUntilMs += 650; }
+
       updateScore();
       removeTarget(el);
       return;
@@ -743,15 +957,13 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
 
   // ---------- Spawn choose ----------
   function chooseType(){
-    const sf = styleFactors(engine.style);
     const freezing = now() < engine.freezeUntil;
 
-    const base = diffParams(engine.diff);
-    const baseJ = (engine.runMode==='research') ? base.junk : engine.adapt.junkBias;
-    const baseD = (engine.runMode==='research') ? base.decoy : engine.adapt.decoyBias;
+    const baseJ = (engine.runMode==='research') ? diffParams(engine.diff).junk : engine.adapt.junkBias;
+    const baseD = (engine.runMode==='research') ? diffParams(engine.diff).decoy : engine.adapt.decoyBias;
 
-    let j = clamp(baseJ * sf.junkMul + (engine.storm?0.05:0), 0.05, 0.32);
-    let d = clamp(baseD * sf.decoyMul + (engine.storm?0.03:0), 0.04, 0.28);
+    let j = clamp(baseJ + (engine.storm?0.05:0), 0.06, 0.30);
+    let d = clamp(baseD + (engine.storm?0.03:0), 0.05, 0.25);
 
     if (freezing){
       j = Math.max(0.03, j*0.35);
@@ -759,62 +971,77 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     }
 
     // powerup chance
-    const puBase = engine.storm ? 0.018 : 0.012;
-    const pu = clamp(puBase * sf.powerupMul, 0.006, 0.040);
+    const pu = engine.storm ? 0.018 : 0.012;
     if (engine.rng() < pu){
       return (engine.rng() < 0.5) ? 'star' : 'ice';
     }
 
-    // wrong chance
-    const wBase = engine.storm ? 0.18 : 0.14;
-    const w = clamp(wBase + sf.wrongPlus, 0.08, 0.24);
-
     const r = engine.rng();
     if (r < j) return 'junk';
     if (r < j + d) return 'decoy';
+
+    const w = engine.storm ? 0.18 : 0.14;
     if (engine.rng() < w) return 'wrong';
+
     return 'good';
   }
 
   function chooseEmoji(type){
-    if (type === 'junk') return pick(JUNK_EMOJI, engine.rng);
-    if (type === 'decoy') return pick(DECOY_EMOJI, engine.rng);
+    if (type === 'junk') return pick(engine.rng, JUNK_EMOJI);
+    if (type === 'decoy') return pick(engine.rng, DECOY_EMOJI);
     if (type === 'star') return '⭐';
     if (type === 'ice')  return '❄️';
-    if (type === 'good') return pick(GROUPS[engine.groupId].emoji, engine.rng);
+    if (type === 'good') return pick(engine.rng, GROUPS[engine.groupId].emoji);
 
-    // wrong = other groups
+    // wrong => other groups
     const other = [];
     for (let g=1; g<=5; g++){
       if (g === engine.groupId) continue;
       other.push(...GROUPS[g].emoji);
     }
-    return pick(other, engine.rng);
+    return pick(engine.rng, other);
+  }
+
+  function pickSpawnPosForType(tp){
+    // (3) No-Junk Zone: only applies to junk/decoy/wrong
+    updateNoJunkZone();
+
+    const avoid = (tp==='junk' || tp==='decoy' || tp==='wrong');
+    const maxTry = 10; // deterministic given rng sequence
+
+    for (let i=0;i<maxTry;i++){
+      const p = engine.storm ? stormPos() : randPos();
+      if (!avoid) return p;
+      if (!inNoJunkZone(p.x, p.y)) return p;
+    }
+    // fallback (rare): force edge
+    const r = safeSpawnRect();
+    const edge = (engine.rng() < 0.5)
+      ? { x: (engine.rng()<0.5 ? r.x0+22 : r.x1-22), y: r.y0 + engine.rng()*(r.y1-r.y0) }
+      : { x: r.x0 + engine.rng()*(r.x1-r.x0), y: (engine.rng()<0.5 ? r.y0+22 : r.y1-22) };
+    return edge;
   }
 
   function spawnOne(){
     if (!engine.running || engine.ended) return;
+    const layer = engine.layerEl;
+    if (!layer) return;
+
     tryBossSpawn();
 
     const tp = chooseType();
     const em = chooseEmoji(tp);
-    const p = randPos();
+    const p = pickSpawnPosForType(tp);
 
     const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
     const stormScale = engine.storm ? 0.92 : 1.0;
-    const sf = styleFactors(engine.style);
 
     let size = engine.sizeBase * base.size * stormScale;
     if (tp === 'junk') size *= 0.95;
     if (tp === 'star' || tp === 'ice') size *= 0.98;
 
-    // small feel-good bump
-    if (engine.style === 'feel' && tp === 'good') size *= 1.03;
-
-    makeTarget(tp, em, p.x, p.y, size);
-
-    // style TTL multiplier already applied in start
-    void sf;
+    const el = makeTarget(tp, em, p.x, p.y, size);
+    if (el) layer.appendChild(el);
   }
 
   function loopSpawn(){
@@ -833,9 +1060,14 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
   function loopTick(){
     if (!engine.running || engine.ended) return;
 
+    // storm scheduling
     if (!engine.storm && now() >= engine.nextStormAtMs) enterStorm();
     if (engine.storm) maybeStormTick();
 
+    // boss phase2 logic
+    bossWeakTick();
+
+    // magnet / dolls
     magnetPullTick();
     cleanupDolls();
 
@@ -852,18 +1084,21 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
       engine.adapt.junkBias = clamp(0.11 + heat*0.06, 0.08, 0.22);
       engine.adapt.decoyBias= clamp(0.09 + heat*0.05, 0.06, 0.20);
       engine.adapt.bossEvery= clamp(20000 - heat*6000, 14000, 22000);
+    } else {
+      engine.ttlMs = diffParams(engine.diff).ttl;
     }
 
+    // time
     engine.left = Math.max(0, engine.left - 0.14);
     updateTime();
-
     if (engine.left <= 0){ endGame('time'); return; }
 
     engine.tickTimer = root.setTimeout(loopTick, 140);
   }
 
   function clearAllTargets(){
-    const layer = ensureLayer(); if (!layer) return;
+    const layer = engine.layerEl;
+    if (!layer) return;
     const list = layer.querySelectorAll('.fg-target');
     list.forEach(el=>{
       try{ root.clearTimeout(el._ttlTimer); }catch{}
@@ -876,7 +1111,7 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     engine.ended = true;
     engine.running = false;
 
-    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-magnet','groups-freeze','groups-overdrive');
+    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-storm-wave','groups-storm-spiral','groups-storm-burst','groups-magnet','groups-freeze','groups-overdrive');
 
     try{ root.clearTimeout(engine.spawnTimer); }catch{}
     try{ root.clearTimeout(engine.tickTimer); }catch{}
@@ -904,36 +1139,26 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
       powerThr: engine.powerThr|0,
       diff: engine.diff,
       runMode: engine.runMode,
-      seed: engine.seed,
       style: engine.style,
+      seed: engine.seed,
     };
 
     emit('hha:end', detail);
   }
 
-  // ---------- Public API for Boot ----------
+  // ---------- Public API ----------
   function start(diff, cfg){
     cfg = cfg || {};
-
-    // refs
-    ensureLayer();
-
-    engine.runMode = (String(cfg.runMode||cfg.mode||'play').toLowerCase() === 'research') ? 'research' : 'play';
-    engine.diff = String(diff||cfg.diff||qs('diff','normal')).toLowerCase();
-    engine.style = String(cfg.style||qs('style','mix')).toLowerCase();
-    if (!['hard','feel','mix'].includes(engine.style)) engine.style = 'mix';
-
-    const timeFrom = (cfg.time != null) ? cfg.time : Number(qs('time', 90));
-    engine.timeSec = clamp(timeFrom, 30, 180);
-
+    engine.runMode = (String(cfg.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
+    engine.diff = String(diff || cfg.diff || qs('diff','normal')).toLowerCase();
+    engine.style = styleNorm(cfg.style || qs('style','mix'));
+    engine.timeSec = clamp(cfg.time ?? Number(qs('time',90)), 30, 180);
     engine.seed = String(cfg.seed || qs('seed', String(Date.now())));
     engine.rng = makeRng(engine.seed);
 
     SFX.ensure();
-    setupViewOnce();
 
     const dp = diffParams(engine.diff);
-    const sf = styleFactors(engine.style);
 
     engine.running = true;
     engine.ended = false;
@@ -946,15 +1171,20 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     engine.power = 0;
 
     engine.sizeBase = dp.size;
-    engine.ttlMs = Math.round(dp.ttl * sf.ttlMul);
+    engine.ttlMs = dp.ttl;
 
     engine.storm = false;
     engine.stormDurSec = dp.stormDur;
-    scheduleNextStorm();
+    engine.nextStormAtMs = now() + (12000 + engine.rng()*11000);
+    engine.stormPattern = (engine.style==='hard'?'spiral':engine.style==='feel'?'wave':'burst');
+    engine.stormSpawnIdx = 0;
 
     engine.bossAlive = false;
-    engine.bossHpMax = dp.bossHp + (sf.bossHpAdd|0);
+    engine.bossHpMax = dp.bossHp;
     engine.nextBossAtMs = now() + 14000;
+    engine.bossPhase = 1;
+    engine.bossWeakOpen = false;
+    engine.bossEl = null;
 
     engine.groupId = 1;
     engine.groupClean = true;
@@ -978,7 +1208,9 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
     engine.vx = 0; engine.vy = 0;
     applyView();
 
-    setGroup(1, 0); // QuestDirector reset
+    setGroup(1, 0); // QuestDirector reset trigger
+
+    updateNoJunkZone();
 
     updateTime();
     updatePower();
@@ -989,27 +1221,45 @@ C) Overdrive: collect ⭐ twice => 5s score x2 + stronger FX
   }
 
   function stop(reason){
-    if (!engine.running && engine.ended) return;
     endGame(reason || 'stop');
   }
 
-  function setLayerEl(el){ engine.layerEl = el || null; applyView(); }
-  function setCameraEl(el){ engine.camEl = el || null; }
-  function setTimeLeft(sec){ engine.timeSec = clamp(sec, 30, 180); engine.left = engine.timeSec; updateTime(); }
+  function getState(){
+    return {
+      running: !!engine.running,
+      ended: !!engine.ended,
+      runMode: engine.runMode,
+      diff: engine.diff,
+      style: engine.style,
+      seed: engine.seed,
+      left: engine.left|0,
+      score: engine.score|0,
+      combo: engine.combo|0,
+      comboMax: engine.comboMax|0,
+      misses: engine.misses|0,
+      hitGood: engine.hitGood|0,
+      hitAll: engine.hitAll|0,
+      groupId: engine.groupId|0,
+      power: engine.power|0,
+      powerThr: engine.powerThr|0,
+      storm: !!engine.storm,
+      stormPattern: engine.stormPattern,
+      bossAlive: !!engine.bossAlive,
+      bossHp: engine.bossHp|0,
+      bossHpMax: engine.bossHpMax|0,
+      bossPhase: engine.bossPhase|0,
+      noJunkRadius: engine.noJunkRadius|0,
+    };
+  }
 
-  // ✅ EXPOSE for Boot
+  // expose
   NS.GameEngine = {
-    start,
-    stop,
-    setLayerEl,
-    setCameraEl,
-    setTimeLeft,
-    getState: ()=>({
-      runMode:engine.runMode, diff:engine.diff, style:engine.style,
-      left:engine.left, score:engine.score, combo:engine.combo, misses:engine.misses,
-      hitGood:engine.hitGood, hitAll:engine.hitAll,
-      seed:engine.seed
-    })
+    start, stop,
+    setLayerEl, setCameraEl, setTimeLeft,
+    getState
   };
+
+  // init view binding
+  setupView();
 
 })(typeof window !== 'undefined' ? window : globalThis);
