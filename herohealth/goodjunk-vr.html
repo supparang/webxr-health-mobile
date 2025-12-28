@@ -1,7 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + PC/Mobile/VR Cardboard Split
-✅ view=pc|mobile|vr (auto if missing)
-✅ VR: 2 eyes (left/right) stereoscopic
+GoodJunkVR (PRODUCTION) — HHA Standard + VR Cardboard
+✅ PC/Mobile layout
+✅ VR Cardboard: split left/right eyes + stereo targets (#gj-layer + #gj-layer-r)
+✅ Start overlay gating (engine starts after click)
+✅ End summary overlay (#end-summary) + back HUB
 -->
 
 <!doctype html>
@@ -13,7 +15,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + PC/Mobile/VR Cardboard Split
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Global FX + HUD + Fever + Logger -->
+  <!-- Global FX + Fever + Logger + HUD binder -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
@@ -79,27 +81,35 @@ GoodJunkVR (PRODUCTION) — HHA Standard + PC/Mobile/VR Cardboard Split
     </div>
   </div>
 
-  <!-- ===== Playfield (PC/Mobile/VR) ===== -->
-  <div id="gj-stage">
-    <!-- world wrapper (touch-look shifts this) -->
+  <!-- ===== Playfield ===== -->
+  <div id="gj-stage" aria-label="GoodJunk stage">
+    <!-- ✅ world (touch-look moves this) -->
     <div id="gj-world">
-      <div class="gj-eye eye-l">
-        <div id="gj-layer" aria-label="targets layer"></div>
-        <div id="gj-crosshair" aria-hidden="true"></div>
-        <div id="atk-ring" aria-hidden="true"></div>
-        <div id="atk-laser" aria-hidden="true"></div>
-      </div>
+      <!-- ✅ eyes wrapper -->
+      <div class="gj-eyes" aria-hidden="false">
+        <!-- LEFT EYE -->
+        <div class="gj-eye gj-eye-l" aria-label="left eye">
+          <div id="gj-layer" aria-label="targets layer left"></div>
+          <div id="gj-crosshair" class="gj-crosshair" aria-hidden="true"></div>
 
-      <div class="gj-eye eye-r" aria-hidden="true">
-        <div id="gj-layer-r" aria-label="targets layer right"></div>
-        <div id="gj-crosshair-r" class="gj-crosshair" aria-hidden="true"></div>
-        <div id="atk-ring-r" class="atk-ring" aria-hidden="true"></div>
-        <div id="atk-laser-r" class="atk-laser" aria-hidden="true"></div>
-      </div>
+          <!-- hazards (visual only for now) -->
+          <div id="atk-ring" class="atk-ring" aria-hidden="true"></div>
+          <div id="atk-laser" class="atk-laser" aria-hidden="true"></div>
+        </div>
 
-      <!-- optional end summary container -->
-      <div id="end-summary"></div>
+        <!-- RIGHT EYE -->
+        <div class="gj-eye gj-eye-r" aria-label="right eye">
+          <div id="gj-layer-r" aria-label="targets layer right"></div>
+          <div class="gj-crosshair gj-crosshair-r" aria-hidden="true"></div>
+
+          <div id="atk-ring-r" class="atk-ring" aria-hidden="true"></div>
+          <div id="atk-laser-r" class="atk-laser" aria-hidden="true"></div>
+        </div>
+      </div>
     </div>
+
+    <!-- end summary container -->
+    <div id="end-summary"></div>
   </div>
 
   <!-- ===== Controls ===== -->
@@ -107,21 +117,22 @@ GoodJunkVR (PRODUCTION) — HHA Standard + PC/Mobile/VR Cardboard Split
     <button id="btnShoot" class="btn-shoot">ยิง</button>
   </div>
 
-  <!-- ===== Start Overlay ===== -->
+  <!-- ===== Start Overlay (start-gated) ===== -->
   <div id="startOverlay" class="start-overlay">
     <div class="start-card">
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
         เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
+        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
+
       <button id="btnStart" class="btn-start">เริ่มเล่น</button>
+      <button id="btnStartMotion" class="btn-start secondary">เริ่ม + เปิด Motion (มือถือ)</button>
 
       <div class="start-hint">
-        <span class="pill">PC: คลิกเป้า / Space ยิง</span>
-        <span class="pill">Mobile: แตะเป้า / ปุ่มยิง</span>
-        <span class="pill">VR: ?view=vr → Cardboard</span>
+        PC: คลิกเป้าหรือกดยิง • Mobile: แตะเป้าหรือกดปุ่มยิง<br/>
+        VR/Cardboard: ใส่ <span class="mono">?view=vr</span>
       </div>
     </div>
   </div>
