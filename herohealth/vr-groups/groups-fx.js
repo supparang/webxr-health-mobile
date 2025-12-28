@@ -1,8 +1,8 @@
 /* === /herohealth/vr-groups/groups-fx.js ===
 Candy FX Pack (Grade 5)
 - sparkle stars spawn/hit
-- GOOD: trail glitter (attached element)
-- JUNK: cute smoke/slime (non-scary)
+- GOOD: trail glitter
+- JUNK: cute smoke + slime splat
 - Works via MutationObserver + pointer capture (no engine changes required)
 */
 
@@ -14,30 +14,17 @@ Candy FX Pack (Grade 5)
   const layer = DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer');
   if (!layer) return;
 
-  // ---------- inject CSS for FX ----------
   const STYLE_ID = 'groupsCandyFxStyle';
   if (!DOC.getElementById(STYLE_ID)) {
     const st = DOC.createElement('style');
     st.id = STYLE_ID;
     st.textContent = `
-/* Candy FX overlay */
-.fg-fx-layer{
-  position:fixed; inset:0; pointer-events:none; z-index:60;
-}
-.fg-spark{
-  position:fixed;
-  left:0; top:0;
-  transform: translate(-50%,-50%);
-  pointer-events:none;
-  width:1px; height:1px;
-}
+.fg-fx-layer{ position:fixed; inset:0; pointer-events:none; z-index:60; }
+.fg-spark{ position:fixed; left:0; top:0; transform:translate(-50%,-50%); width:1px; height:1px; }
 .fg-star{
-  position:absolute;
-  left:0; top:0;
-  transform: translate(-50%,-50%);
-  font-size: 14px;
+  position:absolute; left:0; top:0; transform:translate(-50%,-50%);
+  font-size:14px; opacity:0;
   filter: drop-shadow(0 10px 16px rgba(0,0,0,.30));
-  opacity:0;
   animation: starPop .55s ease-out forwards;
 }
 @keyframes starPop{
@@ -48,16 +35,13 @@ Candy FX Pack (Grade 5)
 
 /* GOOD trail glitter */
 .fg-trail{
-  position:absolute;
-  left:50%; top:50%;
+  position:absolute; left:50%; top:50%;
   transform: translate(-50%, -50%);
-  width: 120%;
-  height: 120%;
-  border-radius: 30px;
+  width:120%; height:120%;
+  border-radius:30px;
   pointer-events:none;
   opacity:.85;
   mix-blend-mode: screen;
-  filter: blur(.2px);
   background:
     radial-gradient(circle at 30% 35%, rgba(255,255,255,.22), rgba(255,255,255,0) 45%),
     radial-gradient(circle at 75% 70%, rgba(255,255,255,.18), rgba(255,255,255,0) 48%),
@@ -75,8 +59,8 @@ Candy FX Pack (Grade 5)
   position:fixed;
   transform: translate(-50%,-50%);
   pointer-events:none;
-  width: 24px; height: 24px;
-  border-radius: 999px;
+  width:24px; height:24px;
+  border-radius:999px;
   background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.24), rgba(244,114,182,.20));
   filter: drop-shadow(0 10px 16px rgba(0,0,0,.25));
   opacity:0;
@@ -93,8 +77,8 @@ Candy FX Pack (Grade 5)
   position:fixed;
   transform: translate(-50%,-50%);
   pointer-events:none;
-  width: 86px; height: 58px;
-  border-radius: 999px;
+  width:86px; height:58px;
+  border-radius:999px;
   opacity:0;
   background:
     radial-gradient(circle at 25% 50%, rgba(34,197,94,.28), rgba(34,197,94,0) 55%),
@@ -112,7 +96,6 @@ Candy FX Pack (Grade 5)
     DOC.head.appendChild(st);
   }
 
-  // ---------- FX layer ----------
   let fx = DOC.querySelector('.fg-fx-layer');
   if (!fx) {
     fx = DOC.createElement('div');
@@ -141,14 +124,10 @@ Candy FX Pack (Grade 5)
       const a = Math.random()*Math.PI*2;
       const r1 = 16 + Math.random()*22;
       const r2 = 34 + Math.random()*36;
-      const dx = Math.cos(a)*r1;
-      const dy = Math.sin(a)*r1;
-      const dx2= Math.cos(a)*r2;
-      const dy2= Math.sin(a)*r2;
-      s.style.setProperty('--dx',  dx.toFixed(1)+'px');
-      s.style.setProperty('--dy',  dy.toFixed(1)+'px');
-      s.style.setProperty('--dx2', dx2.toFixed(1)+'px');
-      s.style.setProperty('--dy2', dy2.toFixed(1)+'px');
+      s.style.setProperty('--dx',  (Math.cos(a)*r1).toFixed(1)+'px');
+      s.style.setProperty('--dy',  (Math.sin(a)*r1).toFixed(1)+'px');
+      s.style.setProperty('--dx2', (Math.cos(a)*r2).toFixed(1)+'px');
+      s.style.setProperty('--dy2', (Math.sin(a)*r2).toFixed(1)+'px');
       s.style.animationDelay = (Math.random()*0.06).toFixed(3)+'s';
       s.style.fontSize = (12 + Math.random()*10).toFixed(0) + 'px';
       host.appendChild(s);
@@ -196,49 +175,32 @@ Candy FX Pack (Grade 5)
     t.appendChild(tr);
   }
 
-  // ---------- observe spawn ----------
   const obs = new MutationObserver((muts)=>{
     for (const m of muts){
       for (const node of m.addedNodes){
         if (!(node instanceof HTMLElement)) continue;
         const t = node.classList && node.classList.contains('fg-target') ? node : null;
         if (!t) continue;
-
         const {x,y} = centerOf(t);
         const tp = typeOfTarget(t);
-
-        // sparkle on spawn
         sparkle(x,y, tp==='boss' ? 14 : 9);
-
-        // good trail glitter
         if (tp === 'good') attachGoodTrail(t);
-
-        // junk cute smoke
         if (tp === 'junk') puff(x,y, 5);
       }
     }
   });
   obs.observe(layer, { childList:true, subtree:true });
 
-  // ---------- hit FX (capture click/touch) ----------
   layer.addEventListener('pointerdown', (ev)=>{
     const t = ev.target && ev.target.closest ? ev.target.closest('.fg-target') : null;
     if (!t) return;
-
     const {x,y} = centerOf(t);
     const tp = typeOfTarget(t);
 
-    if (tp === 'good'){
-      sparkle(x,y, 12);
-    } else if (tp === 'boss'){
-      sparkle(x,y, 14);
-    } else if (tp === 'junk'){
-      puff(x,y, 6);
-      splat(x,y);
-      sparkle(x,y, 8);
-    } else {
-      sparkle(x,y, 9);
-    }
+    if (tp === 'good') sparkle(x,y, 12);
+    else if (tp === 'boss') sparkle(x,y, 14);
+    else if (tp === 'junk'){ puff(x,y, 6); splat(x,y); sparkle(x,y, 8); }
+    else sparkle(x,y, 9);
   }, { passive:true, capture:true });
 
 })(typeof window !== 'undefined' ? window : globalThis);
