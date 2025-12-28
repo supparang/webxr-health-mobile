@@ -7,290 +7,224 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional bg) -->
+  <!-- ✅ CSS alias (keep stable links) -->
+  <link rel="stylesheet" href="./groups.css?v=20251228" />
+
+  <!-- Minimal base fallback (กันกรณี css ไม่โหลด) -->
+  <style>
+    html,body{margin:0;height:100%;overflow:hidden;background:#020617;color:#e5e7eb;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+    .sr-only{position:absolute;left:-9999px}
+  </style>
+
+  <!-- A-Frame core (สำหรับ VR button + sky feel) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- correct path (this file is already in /vr-groups/) -->
-  <link rel="stylesheet" href="./groups.css" />
-</head>
-
-<body>
-  <!-- Optional background scene -->
-  <a-scene embedded vr-mode-ui="enabled: true" renderer="antialias: true">
-    <a-sky color="#06101f"></a-sky>
-    <a-entity id="cam" position="0 1.6 0" camera look-controls></a-entity>
-  </a-scene>
-
-  <!-- Gameplay layer -->
-  <div class="fg-layer" id="fg-layer"></div>
-
-  <!-- HUD -->
-  <div class="hud-top">
-    <div class="hud-card hud-left">
-      <div class="hud-row"><div class="hud-title">SCORE</div><div class="hud-val" id="hud-score">0</div></div>
-      <div class="hud-row"><div class="hud-title">COMBO</div><div class="hud-val" id="hud-combo">0</div></div>
-      <div class="hud-row"><div class="hud-title">MISS</div><div class="hud-val" id="hud-miss">0</div></div>
-    </div>
-
-    <div class="hud-card hud-mid">
-      <div class="hud-group-row">
-        <div class="hud-group" id="hud-group">หมู่ ?</div>
-        <div class="hud-timer" id="hud-time">90</div>
-      </div>
-
-      <div class="power-wrap">
-        <div class="power-label">
-          <div>POWER</div>
-          <div id="fg-powerText" style="font-weight:900;opacity:.9">0/0</div>
-        </div>
-        <div class="power-bar"><div class="power-fill" id="hud-powerFill"></div></div>
-      </div>
-
-      <div class="quest-wrap">
-        <div class="quest-line">
-          <div class="q-badge">GOAL</div>
-          <div class="q-text" id="hud-goal-title">—</div>
-          <div class="q-num" id="hud-goal-val">0/0</div>
-        </div>
-        <div class="qbar"><div class="qbar-track"><div class="qbar-fill goal" id="hud-goal-bar"></div></div></div>
-
-        <div class="quest-line">
-          <div class="q-badge mini">MINI</div>
-          <div class="q-text" id="hud-mini-title">—</div>
-          <div class="q-num" id="hud-mini-val">0/0</div>
-        </div>
-        <div class="qbar">
-          <div class="qbar-track"><div class="qbar-fill mini" id="hud-mini-bar"></div></div>
-          <div class="qbar-timer" id="hud-mini-timer"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="hud-card hud-right">
-      <div class="rank-box">
-        <div>
-          <div class="rank-title">RANK</div>
-          <div class="rank-sub"><span>ACC</span><span id="hud-acc">0%</span></div>
-        </div>
-        <div class="rank-grade" id="hud-rank">C</div>
-      </div>
-      <div class="rank-sub"><span>BEST</span><span id="hud-comboMax">0</span></div>
-    </div>
-  </div>
-
-  <!-- Start Overlay -->
-  <div class="start-overlay" id="startOverlay">
-    <div class="start-card">
-      <div class="start-title">Food Groups VR 🍽️</div>
-      <div class="start-sub">
-        ยิงให้ถูก “หมู่ปัจจุบัน” 🎯 สะสมพลังเพื่อสลับหมู่ ✨<br/>
-        ระวังขยะ (STUN) 🚫 + ตัวหลอก (decoy) ❓ + ยิงผิดหมู่ (WRONG) ⚠️<br/>
-        <b>STORM โหด+++</b> จะมาเป็นช่วง ๆ: เป้าเล็กลง + spawn ถี่ + ติ๊กๆ 🔥
-      </div>
-
-      <div class="start-grid">
-        <div class="pill" id="pill-diff">DIFF: normal</div>
-        <div class="pill" id="pill-time">TIME: 90s</div>
-        <div class="pill" id="pill-mode">MODE: play</div>
-      </div>
-
-      <div class="start-actions">
-        <button class="btn primary" id="btnStart">เริ่มเล่น</button>
-        <button class="btn ghost" id="btnRestart">รีเซ็ต</button>
-      </div>
-
-      <div class="start-note">Tip: แตะเป้า = ยิงทันที (ระวัง WRONG/JUNK ตอน STORM)</div>
-    </div>
-  </div>
-
-  <!-- End Overlay (HHA standard-ish) -->
-  <div class="result-overlay" id="endOverlay">
-    <div class="result-card">
-      <h2>สรุปผล — Food Groups VR</h2>
-      <p>Score: <b id="endScore">0</b> · Rank: <b id="endRank">C</b> · Acc: <b id="endAcc">0%</b></p>
-      <p>ComboMax: <b id="endComboMax">0</b> · Miss: <b id="endMiss">0</b></p>
-      <p>Goals: <b id="endGoals">0/0</b> · Minis: <b id="endMinis">0/0</b></p>
-
-      <div class="result-actions">
-        <button class="btn primary" id="btnRetry">RETRY</button>
-        <button class="btn ghost" id="btnBackHub">กลับ HUB</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== Scripts (local) ===== -->
+  <!-- Scripts (order matters) -->
+  <script src="../vr/particles.js" defer></script>
   <script src="../vr/ui-fever.js" defer></script>
   <script src="../vr/ui-karaoke.js" defer></script>
 
   <script src="./groups-hud-quest.js" defer></script>
+  <script src="./groups-text.js" defer></script>
   <script src="./groups-quests.js" defer></script>
   <script src="./groups-fx.js" defer></script>
+
   <script src="./GameEngine.js" defer></script>
-
-  <!-- Boot wrapper (IIFE): window.GroupsBoot.start/stop + hha:stop + URL autostart -->
   <script src="./groups.safe.js" defer></script>
+</head>
 
-  <!-- Runner glue -->
+<body>
+  <!-- A-Frame scene (เบา ๆ แค่ให้ VR feel + camera id="cam" ให้ Boot bind) -->
+  <a-scene embedded
+           renderer="colorManagement:true; physicallyCorrectLights:false;"
+           vr-mode-ui="enabled:true"
+           device-orientation-permission-ui="enabled:true">
+
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="cam" wasd-controls-enabled="false" look-controls="enabled:true"></a-camera>
+    </a-entity>
+
+    <a-sky color="#071022"></a-sky>
+  </a-scene>
+
+  <!-- DOM Layer for targets -->
+  <div id="fg-layer" class="fg-layer" aria-label="groups layer"></div>
+
+  <!-- HUD / Quest -->
+  <div class="hha-ui" id="hha-ui">
+    <!-- Top Quest bars -->
+    <div class="quest-top">
+      <div class="quest-card">
+        <div class="quest-title" id="goalTitle">GOAL —</div>
+        <div class="quest-bar">
+          <div class="quest-fill" id="goalFill" style="width:0%"></div>
+        </div>
+        <div class="quest-meta">
+          <span id="goalNow">0</span>/<span id="goalNeed">0</span>
+          <span class="sep">•</span>
+          <span id="goalsCleared">0</span>/<span id="goalsTotal">0</span>
+        </div>
+      </div>
+
+      <div class="quest-card">
+        <div class="quest-title" id="miniTitle">MINI —</div>
+        <div class="quest-bar mini">
+          <div class="quest-fill" id="miniFill" style="width:0%"></div>
+        </div>
+        <div class="quest-meta">
+          <span id="miniNow">0</span>/<span id="miniNeed">0</span>
+          <span class="sep">•</span>
+          <span id="miniCleared">0</span>/<span id="miniTotal">0</span>
+          <span class="sep">•</span>
+          <span class="mini-timer" id="miniLeftSec" style="display:none;">0s</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main HUD -->
+    <div class="hud">
+      <div class="hud-left">
+        <div class="hud-chip">
+          <span class="k">⏱️</span><span id="timeLeft">0</span>s
+        </div>
+        <div class="hud-chip">
+          <span class="k">🏆</span><span id="score">0</span>
+        </div>
+        <div class="hud-chip">
+          <span class="k">🔥</span><span id="combo">0</span>
+        </div>
+        <div class="hud-chip">
+          <span class="k">💔</span><span id="misses">0</span>
+        </div>
+      </div>
+
+      <div class="hud-right">
+        <div class="rank-badge" id="rankBadge">—</div>
+        <div class="power-wrap" aria-label="power">
+          <div class="power-label">POWER</div>
+          <div class="power-bar"><div class="power-fill" id="powerFill" style="width:0%"></div></div>
+          <div class="power-meta"><span id="powerNow">0</span>/<span id="powerThr">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coach / Karaoke area (optional bind by scripts) -->
+    <div class="coach" id="coachBox" style="display:none;">
+      <div class="coach-emo" id="coachEmoji">🥦</div>
+      <div class="coach-text" id="coachText">—</div>
+    </div>
+
+    <!-- Start overlay -->
+    <div class="overlay" id="startOverlay">
+      <div class="overlay-card">
+        <div class="overlay-title">Food Groups VR 🍭</div>
+        <div class="overlay-sub" id="overlaySub">
+          พร้อมลุย! (ถ้ามี autostart=1 จะเริ่มเอง)
+        </div>
+        <div class="overlay-btns">
+          <button class="btn" id="btnPlay">▶️ เริ่ม (Play)</button>
+          <button class="btn secondary" id="btnResearch">🧪 เริ่ม (Research)</button>
+          <button class="btn secondary" id="btnVr">🕶️ VR Mode</button>
+        </div>
+        <div class="overlay-hint" id="overlayHint">Tip: เปิดเสียงเพื่อเอฟเฟกต์ติ๊ก ๆ ตอน STORM ใกล้หมด</div>
+      </div>
+    </div>
+
+    <!-- End Summary -->
+    <div class="end" id="endModal" style="display:none;">
+      <div class="end-card">
+        <div class="end-title" id="endTitle">สรุปผล</div>
+
+        <div class="end-grid">
+          <div class="end-item"><div class="k">คะแนน</div><div class="v" id="endScore">0</div></div>
+          <div class="end-item"><div class="k">คอมโบสูงสุด</div><div class="v" id="endCombo">0</div></div>
+          <div class="end-item"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
+          <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
+          <div class="end-item"><div class="k">Grade</div><div class="v" id="endGrade">—</div></div>
+          <div class="end-item"><div class="k">Goals</div><div class="v" id="endGoals">0/0</div></div>
+          <div class="end-item"><div class="k">Minis</div><div class="v" id="endMinis">0/0</div></div>
+        </div>
+
+        <div class="end-btns">
+          <a class="btn secondary" id="btnBackHub" href="../hub.html">⬅️ กลับ HUB</a>
+          <button class="btn" id="btnReplay">🔁 เล่นอีกครั้ง</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Small glue script: start buttons + hub back + end modal binding -->
   <script>
-  (function(){
-    'use strict';
+    (function(){
+      const $ = (id)=>document.getElementById(id);
+      const sp = new URLSearchParams(location.search);
+      const hubEnc = sp.get('hub');
+      const hubUrl = hubEnc ? decodeURIComponent(hubEnc) : '../hub.html';
 
-    function qs(name, def){
-      const u = new URL(location.href);
-      return u.searchParams.get(name) ?? def;
-    }
-    function int(name, def){
-      const v = parseInt(qs(name, def), 10);
-      return Number.isFinite(v) ? v : def;
-    }
-    function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+      // back button
+      const back = $('btnBackHub');
+      if (back) back.href = hubUrl;
 
-    const diff = String(qs('diff','normal')).toLowerCase();
-    const time = clamp(int('time', 90), 30, 180);
-    const run  = String(qs('run', qs('runMode','play'))).toLowerCase();
+      // VR mode button
+      $('btnVr')?.addEventListener('click', ()=>{
+        const scene = document.querySelector('a-scene');
+        try{ scene && scene.enterVR && scene.enterVR(); }catch{}
+      });
 
-    const hub  = String(qs('hub','../hub.html') || '../hub.html');
-    const sid  = String(qs('sessionId', qs('studentKey','')) || '');
-    const ts   = String(qs('ts', Date.now()));
-    const seed = String(qs('seed', sid ? (sid + '|' + ts) : ts));
-
-    // pills
-    const pd = document.getElementById('pill-diff'); if (pd) pd.textContent = 'DIFF: ' + diff;
-    const pt = document.getElementById('pill-time'); if (pt) pt.textContent = 'TIME: ' + time + 's';
-    const pm = document.getElementById('pill-mode'); if (pm) pm.textContent = 'MODE: ' + run;
-
-    // HUD events
-    window.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail || {};
-      const sEl = document.getElementById('hud-score'); if (sEl) sEl.textContent = (d.score|0);
-      const cEl = document.getElementById('hud-combo'); if (cEl) cEl.textContent = (d.combo|0);
-      const mEl = document.getElementById('hud-miss');  if (mEl) mEl.textContent = (d.misses|0);
-      const bEl = document.getElementById('hud-comboMax'); if (bEl) bEl.textContent = (d.comboMax|0);
-    }, { passive:true });
-
-    window.addEventListener('hha:rank', (ev)=>{
-      const d = ev.detail || {};
-      const rEl = document.getElementById('hud-rank'); if (rEl && d.grade) rEl.textContent = d.grade;
-      const aEl = document.getElementById('hud-acc'); if (aEl && typeof d.accuracy === 'number') aEl.textContent = (d.accuracy|0) + '%';
-    }, { passive:true });
-
-    window.addEventListener('hha:time', (ev)=>{
-      const d = ev.detail || {};
-      const tEl = document.getElementById('hud-time'); if (tEl) tEl.textContent = (d.left|0);
-    }, { passive:true });
-
-    window.addEventListener('groups:group_change', (ev)=>{
-      const d = ev.detail || {};
-      const gEl = document.getElementById('hud-group'); if (gEl) gEl.textContent = d.label || 'หมู่ ?';
-    }, { passive:true });
-
-    window.addEventListener('groups:power', (ev)=>{
-      const d = ev.detail || {};
-      const th = Math.max(1, d.threshold|0);
-      const ch = Math.max(0, d.charge|0);
-      const p = Math.min(100, (ch/th)*100);
-
-      const fill = document.getElementById('hud-powerFill');
-      if (fill) fill.style.width = p.toFixed(1) + '%';
-
-      const txt = document.getElementById('fg-powerText');
-      if (txt) txt.textContent = `${ch}/${th}`;
-    }, { passive:true });
-
-    // audio resume helper (for beeps on mobile)
-    async function resumeAudio(){
-      try{
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        const ctx = new AC();
-        if (ctx.state === 'suspended') await ctx.resume();
-        await ctx.close();
-      }catch(e){}
-    }
-
-    // start controls
-    const overlay = document.getElementById('startOverlay');
-    const btnStart = document.getElementById('btnStart');
-    const btnRestart = document.getElementById('btnRestart');
-
-    function boot(){
-      const Boot = window.GroupsBoot;
-      if (!Boot || !Boot.start){
-        alert('GroupsBoot not found');
-        return;
+      function pickSeed(){
+        const s = String(sp.get('seed')||'').trim();
+        return s ? s : String(Date.now());
       }
-      Boot.start(run, { diff, time, seed });
+      function pickDiff(){
+        const d = String(sp.get('diff')||'normal').toLowerCase();
+        return (d==='easy'||d==='normal'||d==='hard') ? d : 'normal';
+      }
+      function pickTime(){
+        const t = parseInt(sp.get('time')||'90',10);
+        return Number.isFinite(t) ? Math.max(30, Math.min(180, t|0)) : 90;
+      }
 
-      // (optional) log hook for your cloud logger
-      try{
-        window.dispatchEvent(new CustomEvent('hha:log_session', {
-          detail: { phase:'start', game:'groups', diff, runMode:run, seed, time }
-        }));
-      }catch{}
-    }
+      function start(mode){
+        const runMode = (String(mode||'play').toLowerCase()==='research') ? 'research' : 'play';
+        const diff = pickDiff();
+        const time = pickTime();
+        const seed = pickSeed();
+        try{
+          window.GroupsBoot && window.GroupsBoot.start && window.GroupsBoot.start(runMode, { diff, time, seed });
+        }catch(e){ console.warn('start failed', e); }
+        $('startOverlay') && ($('startOverlay').style.display='none');
+      }
 
-    if (btnStart){
-      btnStart.addEventListener('click', async ()=>{
-        await resumeAudio();
-        if (overlay) overlay.style.display = 'none';
-        boot();
-      }, { passive:true });
-    }
-    if (btnRestart){
-      btnRestart.addEventListener('click', ()=> location.reload(), { passive:true });
-    }
+      $('btnPlay')?.addEventListener('click', ()=>start('play'));
+      $('btnResearch')?.addEventListener('click', ()=>start('research'));
 
-    // End overlay wiring
-    const endOverlay = document.getElementById('endOverlay');
-    const btnRetry = document.getElementById('btnRetry');
-    const btnBack = document.getElementById('btnBackHub');
+      // End modal binding (listen hha:end)
+      window.addEventListener('hha:end', (ev)=>{
+        const d = ev && ev.detail ? ev.detail : {};
+        $('endModal').style.display = '';
+        $('endScore').textContent = (d.scoreFinal ?? 0);
+        $('endCombo').textContent = (d.comboMax ?? 0);
+        $('endMiss').textContent = (d.misses ?? 0);
+        $('endAcc').textContent = ((d.accuracyGoodPct ?? 0) + '%');
+        $('endGrade').textContent = (d.grade ?? '—');
+        $('endGoals').textContent = (d.goalsCleared ?? 0) + '/' + (d.goalsTotal ?? 0);
+        $('endMinis').textContent = (d.miniCleared ?? 0) + '/' + (d.miniTotal ?? 0);
+        $('endTitle').textContent = 'สรุปผล — ' + (d.reason || 'end');
+      });
 
-    if (btnRetry) btnRetry.addEventListener('click', ()=> location.reload(), { passive:true });
-    if (btnBack) btnBack.addEventListener('click', ()=>{
-      try{
-        const u = new URL(hub, location.href);
+      // Replay: reload without cache
+      $('btnReplay')?.addEventListener('click', ()=>{
+        const u = new URL(location.href);
         u.searchParams.set('ts', String(Date.now()));
         location.href = u.toString();
-      }catch{
-        location.href = hub;
+      });
+
+      // If autostart=1 -> hide overlay (game will start via groups.safe.js)
+      if (String(sp.get('autostart')||'0') === '1'){
+        // overlay still shown briefly; hide after a short moment
+        setTimeout(()=>{ if ($('startOverlay')) $('startOverlay').style.display='none'; }, 600);
       }
-    }, { passive:true });
-
-    window.addEventListener('hha:end', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-
-      // save last summary (HHA standard)
-      try{
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
-        localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
-      }catch{}
-
-      const s = document.getElementById('endScore'); if (s) s.textContent = String(d.scoreFinal ?? 0);
-      const r = document.getElementById('endRank');  if (r) r.textContent = String(d.grade ?? 'C');
-      const a = document.getElementById('endAcc');   if (a) a.textContent = String((d.accuracyGoodPct ?? 0)|0) + '%';
-      const cm= document.getElementById('endComboMax'); if (cm) cm.textContent = String(d.comboMax ?? 0);
-      const ms= document.getElementById('endMiss');  if (ms) ms.textContent = String(d.misses ?? 0);
-
-      const gl= document.getElementById('endGoals');
-      if (gl) gl.textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0);
-
-      const mn= document.getElementById('endMinis');
-      if (mn) mn.textContent = String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0);
-
-      if (endOverlay) endOverlay.classList.add('show');
-
-      // (optional) log hook
-      try{
-        window.dispatchEvent(new CustomEvent('hha:log_session', { detail: { phase:'end', ...d } }));
-      }catch{}
-    }, { passive:true });
-
-    // autostart (only if requested)
-    if (qs('autostart','0') === '1'){
-      if (overlay) overlay.style.display = 'none';
-      boot();
-    }
-  })();
+    })();
   </script>
 </body>
 </html>
