@@ -3,80 +3,50 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Groups VR (Launcher)</title>
+  <title>HeroHealth — Groups Launcher</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-  <style>
-    :root{ color-scheme:dark; }
-    body{ margin:0; height:100vh; display:grid; place-items:center;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-      background:#020617; color:#e5e7eb; }
-    .card{ width:min(520px,92vw); background:rgba(15,23,42,.65);
-      border:1px solid rgba(148,163,184,.18); border-radius:18px;
-      padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45); }
-    .t{ font-weight:900; font-size:18px; margin:0 0 6px 0; }
-    .s{ opacity:.85; margin:0 0 12px 0; line-height:1.35; }
-    .row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-    .pill{ padding:6px 10px; border-radius:999px; background:rgba(2,6,23,.65);
-      border:1px solid rgba(148,163,184,.18); font-weight:800; font-size:12px; }
-    .btn{ margin-top:14px; width:100%; border-radius:14px; border:0;
-      padding:12px 14px; font-weight:900; background:#22c55e; color:#04110a; }
-    .ghost{ background:transparent; color:#e5e7eb; border:1px solid rgba(148,163,184,.22); margin-top:10px; }
-  </style>
 </head>
 <body>
-  <div class="card">
-    <p class="t">กำลังเปิด Food Groups VR…</p>
-    <p class="s">Launcher จะพาไปยังตัวเกมในโฟลเดอร์ <b>/vr-groups/</b></p>
-    <div class="row" id="pills"></div>
-    <button class="btn" id="go">เข้าเกม</button>
-    <button class="btn ghost" id="back">กลับ HUB</button>
-  </div>
-
 <script>
 (function(){
   'use strict';
-  const sp = new URLSearchParams(location.search);
 
-  const diff = (sp.get('diff') || 'normal').toLowerCase();
-  const time = Math.max(30, Math.min(180, parseInt(sp.get('time') || '90', 10) || 90));
-  const run  = (sp.get('run') || sp.get('runMode') || 'play').toLowerCase();
+  const u = new URL(location.href);
 
-  // launcher อยู่ root -> hub อยู่ root เช่นกัน
-  const hub  = sp.get('hub') || './hub.html';
+  const diff = String(u.searchParams.get('diff') || 'normal').toLowerCase();
+  const run  = String(u.searchParams.get('run') || u.searchParams.get('runMode') || 'play').toLowerCase();
+  const time = Math.max(30, Math.min(180, parseInt(u.searchParams.get('time') || '90', 10) || 90));
 
-  // seed fallback
-  const sid  = sp.get('sessionId') || sp.get('studentKey') || '';
-  const ts   = sp.get('ts') || String(Date.now());
-  if (!sp.get('seed')) sp.set('seed', sid ? (sid + '|' + ts) : ts);
+  const hub = String(u.searchParams.get('hub') || '../hub.html');
 
-  // normalize + ส่ง hub ให้ “เกม” ใช้ (เกมอยู่ /vr-groups/ -> ต้องกลับ ../hub.html)
-  sp.set('diff', (['easy','normal','hard'].includes(diff) ? diff : 'normal'));
-  sp.set('time', String(time));
-  sp.set('run', (run === 'research' ? 'research' : 'play'));
-  sp.set('ts', ts);
-  sp.set('hub', sp.get('hub') || '../hub.html'); // ✅ สำคัญ
+  // deterministic-ish seed: sessionId/studentKey + ts
+  const sid = String(u.searchParams.get('sessionId') || u.searchParams.get('studentKey') || '');
+  const ts  = String(u.searchParams.get('ts') || Date.now());
+  const seed = String(u.searchParams.get('seed') || (sid ? (sid + '|' + ts) : ts));
 
-  const pills = document.getElementById('pills');
-  const mk = (k,v)=>{ const d=document.createElement('div'); d.className='pill'; d.textContent=`${k}: ${v}`; pills.appendChild(d); };
-  mk('DIFF', sp.get('diff'));
-  mk('TIME', sp.get('time')+'s');
-  mk('MODE', sp.get('run'));
-  mk('SEED', sp.get('seed').slice(0,24) + (sp.get('seed').length>24?'…':''));
+  const r = new URL('./vr-groups/vr-groups.html', location.href);
+  r.searchParams.set('diff', ['easy','normal','hard'].includes(diff) ? diff : 'normal');
+  r.searchParams.set('run', (run === 'research') ? 'research' : 'play');
+  r.searchParams.set('time', String(time));
+  r.searchParams.set('seed', seed);
+  r.searchParams.set('hub', hub);
+  r.searchParams.set('ts', String(Date.now())); // cache-bust
 
-  // ✅ ชี้ไปตัวเกมจริง
-  const target = './vr-groups/groups-vr.html?' + sp.toString();
+  // pass-through (ถ้ามี)
+  [
+    'studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
+    'sessionId','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age',
+    'gradeLevel','heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue',
+    'healthDetail','consentParent'
+  ].forEach(k=>{
+    const v = u.searchParams.get(k);
+    if (v != null && v !== '' && !r.searchParams.has(k)) r.searchParams.set(k, v);
+  });
 
-  document.getElementById('go').onclick = ()=> location.href = target;
-  document.getElementById('back').onclick = ()=>{
-    try{
-      const u = new URL(hub, location.href);
-      u.searchParams.set('ts', String(Date.now()));
-      location.href = u.toString();
-    }catch{ location.href = hub; }
-  };
+  // optional: allow autostart passthrough
+  if (u.searchParams.get('autostart') === '1') r.searchParams.set('autostart','1');
 
-  if (sp.get('autostart') === '1') location.href = target;
+  location.replace(r.toString());
 })();
 </script>
 </body>
