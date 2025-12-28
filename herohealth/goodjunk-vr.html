@@ -1,9 +1,7 @@
-<!-- === /herohealth/goodjunk-vr.html === 
-GoodJunkVR (PRODUCTION) — HHA Standard
-✅ DOM emoji targets on #gj-layer (safe.js will move to body overlay)
-✅ HUD + Quest + Coach + Fever/Shield
-✅ Summary end overlay + back HUB + localStorage last summary
-✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
+<!-- === /herohealth/goodjunk-vr.html ===
+GoodJunkVR (PRODUCTION) — HHA Standard + PC/Mobile/VR Cardboard Split
+✅ view=pc|mobile|vr (auto if missing)
+✅ VR: 2 eyes (left/right) stereoscopic
 -->
 
 <!doctype html>
@@ -81,15 +79,27 @@ GoodJunkVR (PRODUCTION) — HHA Standard
     </div>
   </div>
 
-  <!-- ===== Playfield ===== -->
+  <!-- ===== Playfield (PC/Mobile/VR) ===== -->
   <div id="gj-stage">
-    <div id="gj-layer" aria-label="targets layer"></div>
-    <div id="gj-crosshair" aria-hidden="true"></div>
-    <div id="atk-ring" aria-hidden="true"></div>
-    <div id="atk-laser" aria-hidden="true"></div>
+    <!-- world wrapper (touch-look shifts this) -->
+    <div id="gj-world">
+      <div class="gj-eye eye-l">
+        <div id="gj-layer" aria-label="targets layer"></div>
+        <div id="gj-crosshair" aria-hidden="true"></div>
+        <div id="atk-ring" aria-hidden="true"></div>
+        <div id="atk-laser" aria-hidden="true"></div>
+      </div>
 
-    <!-- optional end summary container -->
-    <div id="end-summary"></div>
+      <div class="gj-eye eye-r" aria-hidden="true">
+        <div id="gj-layer-r" aria-label="targets layer right"></div>
+        <div id="gj-crosshair-r" class="gj-crosshair" aria-hidden="true"></div>
+        <div id="atk-ring-r" class="atk-ring" aria-hidden="true"></div>
+        <div id="atk-laser-r" class="atk-laser" aria-hidden="true"></div>
+      </div>
+
+      <!-- optional end summary container -->
+      <div id="end-summary"></div>
+    </div>
   </div>
 
   <!-- ===== Controls ===== -->
@@ -107,6 +117,12 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       </div>
       <div class="start-meta" id="startMeta">—</div>
       <button id="btnStart" class="btn-start">เริ่มเล่น</button>
+
+      <div class="start-hint">
+        <span class="pill">PC: คลิกเป้า / Space ยิง</span>
+        <span class="pill">Mobile: แตะเป้า / ปุ่มยิง</span>
+        <span class="pill">VR: ?view=vr → Cardboard</span>
+      </div>
     </div>
   </div>
 </body>
