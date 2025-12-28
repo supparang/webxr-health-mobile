@@ -1,5 +1,9 @@
 // === /herohealth/plate/plate.safe.js ===
 // Plate VR — HHA Standard FULL (EVENTS+LOGGER+METRICS+MINI FIX+HUB RETURN+FLUSH)
+// ✅ Flush before leaving HUB / on end game
+// ✅ log session FINAL row matches Sessions schema (best-effort mapping)
+// ✅ goHub(): emitEnd + logSessionFinal + flush + navigate
+
 'use strict';
 
 import {
@@ -90,8 +94,6 @@ const TOTAL_TIME = Math.max(
 );
 
 // ---------- RNG (HHA Standard) ----------
-// research: always deterministic
-// play: deterministic if ?seed= is present (help reproduce bugs)
 let SEED = parseInt(Q.get('seed') || '', 10);
 const HAS_SEED = Number.isFinite(SEED);
 if (!HAS_SEED) SEED = 1337;
@@ -280,90 +282,121 @@ function persistLastSummary(reason){
 }
 
 function emitEnd(reason){
+  if (S._endedEmitted) return;
+  S._endedEmitted = true;
+
   const summary = persistLastSummary(reason);
   dispatchEvt('hha:end', { game:'PlateVR', sessionId:S.sessionId, reason: String(reason||''), summary });
 }
 
-// ---------- Logger (HHA Sheet Schema rows) ----------
-const GAME_MODE = 'plate';
-const GAME_VERSION = 'plate.safe.production';
+// ---------- Cloud logger flush helpers ----------
+function getCloudLogger(){
+  return (ROOT.GAME_MODULES && ROOT.GAME_MODULES.HHACloudLogger) || ROOT.HHACloudLogger || null;
+}
 
-function baseCtxRow(){
-  const c = (S.ctx && typeof S.ctx==='object') ? S.ctx : {};
-  const get = (k, d='') => (c[k]!==undefined && c[k]!==null) ? c[k] : d;
+async function flushLoggerNow(tag){
+  const L = getCloudLogger();
+  if (!L || typeof L.flushNow !== 'function') return;
+  try{
+    await Promise.race([
+      L.flushNow(),
+      new Promise(res => setTimeout(res, 1400))
+    ]);
+  }catch(_){}
+}
 
-  return {
-    timestampIso: new Date().toISOString(),
-    projectTag: get('projectTag','herohealth'),
-    runMode: (c.runMode || c.run || RUN_RAW || 'play'),
-    studyId: get('studyId',''),
-    phase: get('phase',''),
-    conditionGroup: get('conditionGroup',''),
+// Auto flush on navigation/hidden
+(function attachAutoFlush(){
+  if (!doc) return;
+  const fire = async (why)=>{
+    try{
+      // Safety: persist + end emit if leaving mid-game
+      if (S && S.running && !S._endedEmitted){
+        emitEnd(String(why||'pagehide'));
+        logSessionFinal(String(why||'pagehide'));
+      }
+    }catch(_){}
+    await flushLoggerNow(why);
+  };
+  ROOT.addEventListener('pagehide', ()=>{ fire('pagehide'); });
+  ROOT.addEventListener('beforeunload', ()=>{ fire('beforeunload'); });
+  doc.addEventListener('visibilitychange', ()=>{ if(doc.visibilityState==='hidden') fire('hidden'); });
+})();
 
-    sessionOrder: get('sessionOrder',''),
-    blockLabel: get('blockLabel',''),
-    siteCode: get('siteCode',''),
-    schoolYear: get('schoolYear',''),
-    semester: get('semester',''),
+// ---------- Logger (HHA Standard payload) ----------
+function logEvent(type, data){
+  const tMs = Math.round((now() - S.tStart) || 0);
+
+  dispatchEvt('hha:log_event',{
+    type: String(type||'event'),
+    data: {
+      ...((data && typeof data === 'object') ? data : {}),
+      game: 'PlateVR',
+      sessionId: S.sessionId,
+      mode: MODE,
+      diff: DIFF,
+      timeFromStartMs: tMs,
+
+      score: S.score,
+      combo: S.combo,
+      miss: S.miss,
+      perfect: S.perfectCount,
+      feverPct: Math.round(S.fever),
+      shield: S.shield,
+      lives: S.lives,
+
+      goalsCleared: Math.min(2, S.goalsCleared),
+      goalsTotal: 2,
+      minisCleared: Math.min(7, S.minisCleared),
+      minisTotal: 7,
+    },
+    ctx: S.ctx
+  });
+}
+
+// Build FINAL Sessions row aligned to your schema (best-effort mapping)
+function getDeviceTag(){
+  const ua = navigator.userAgent || '';
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+  return isMobile ? 'mobile' : 'pc';
+}
+
+function nowIso(){ return new Date().toISOString(); }
+
+function safeMedian(arr){
+  if(!arr || !arr.length) return '';
+  const a = [...arr].map(v=>Math.max(0, Number(v)||0)).sort((x,y)=>x-y);
+  const mid = Math.floor(a.length/2);
+  return (a.length%2) ? Math.round(a[mid]) : Math.round((a[mid-1]+a[mid])/2);
+}
+
+function logSessionFinal(reason){
+  // Avoid duplicate final session rows
+  if (S._sessionFinalLogged) return;
+  if (!S.tStart) return;
+
+  S._sessionFinalLogged = true;
+
+  const endIso = nowIso();
+  const startIso = S.startTimeIso || endIso;
+
+  const metrics = computeMetrics(S) || {};
+  const avgRt = (metrics.avgRtGoodMs!==undefined) ? metrics.avgRtGoodMs : '';
+  const medRt = (metrics.medianRtGoodMs!==undefined) ? metrics.medianRtGoodMs : safeMedian(S.rtGoodMs);
+  const fastRate = (metrics.fastHitRatePct!==undefined) ? metrics.fastHitRatePct : '';
+
+  // Map Plate counters -> common schema
+  const row = {
+    timestampIso: endIso,
+
+    ...S.ctx,
 
     sessionId: S.sessionId,
-    gameMode: GAME_MODE,
+    gameMode: 'PlateVR',
     diff: DIFF,
 
-    studentKey: get('studentKey',''),
-    schoolCode: get('schoolCode',''),
-    schoolName: get('schoolName',''),
-    classRoom: get('classRoom',''),
-    studentNo: get('studentNo',''),
-    nickName: get('nickName',''),
-
-    gender: get('gender',''),
-    age: get('age',''),
-    gradeLevel: get('gradeLevel',''),
-
-    heightCm: get('heightCm',''),
-    weightKg: get('weightKg',''),
-    bmi: get('bmi',''),
-    bmiGroup: get('bmiGroup',''),
-
-    vrExperience: get('vrExperience',''),
-    gameFrequency: get('gameFrequency',''),
-    handedness: get('handedness',''),
-    visionIssue: get('visionIssue',''),
-    healthDetail: get('healthDetail',''),
-
-    consentParent: get('consentParent',''),
-    consentTeacher: get('consentTeacher',''),
-
-    profileSource: get('profileSource',''),
-    surveyKey: get('surveyKey',''),
-    excludeFlag: get('excludeFlag',''),
-    noteResearcher: get('noteResearcher',''),
-  };
-}
-
-function goalProgStr(){
-  const key = S.activeGoal ? S.activeGoal.key : '';
-  const txt = goalProgressText();
-  return key ? `${key}:${txt}` : txt;
-}
-
-function miniProgStr(){
-  const m = S.activeMini;
-  if(!m) return '';
-  const p = (typeof m.progress==='function') ? m.progress() : '';
-  return `${m.key}:${p}`;
-}
-
-function logSession(phase){
-  const metrics = computeMetrics(S) || {};
-  const playedSec = Math.max(0, Math.round((now() - (S.tStart||now()))/1000));
-
-  const row = Object.assign(baseCtxRow(), {
-    phase,
-
     durationPlannedSec: TOTAL_TIME,
-    durationPlayedSec: (S.running ? (TOTAL_TIME - Math.max(0, Math.floor(S.timeLeft||0))) : playedSec),
+    durationPlayedSec: Math.max(0, Math.round(((S.endedAt || now()) - S.tStart)/1000)),
 
     scoreFinal: S.score,
     comboMax: S.maxCombo,
@@ -374,64 +407,34 @@ function logSession(phase){
     miniCleared: Math.min(7, S.minisCleared),
     miniTotal: 7,
 
+    // spawn counts (map STAR=gold; diamond=0; shield spawn=0)
     nTargetGoodSpawned: S.nTargetGoodSpawned || 0,
     nTargetJunkSpawned: S.nTargetJunkSpawned || 0,
-    nTargetStarSpawned: S.nTargetGoldSpawned || 0,        // gold -> star
-    nTargetDiamondSpawned: S.nTargetTrapSpawned || 0,      // trap -> diamond
+    nTargetStarSpawned: S.nTargetGoldSpawned || 0,
+    nTargetDiamondSpawned: 0,
     nTargetShieldSpawned: 0,
 
+    // hit counts
     nHitGood: S.nHitGood || 0,
     nHitJunk: S.nHitJunk || 0,
     nHitJunkGuard: S.nShieldBlock || 0,
     nExpireGood: S.nExpireGood || 0,
 
-    accuracyGoodPct: (metrics.accuracyGoodPct ?? ''),
-    junkErrorPct: (metrics.junkErrorPct ?? ''),
-    avgRtGoodMs: (metrics.avgRtGoodMs ?? ''),
-    medianRtGoodMs: (metrics.medianRtGoodMs ?? ''),
-    fastHitRatePct: (metrics.fastHitRatePct ?? ''),
+    accuracyGoodPct: (metrics.accuracyGoodPct!==undefined) ? metrics.accuracyGoodPct : '',
+    junkErrorPct: (metrics.junkErrorPct!==undefined) ? metrics.junkErrorPct : '',
+    avgRtGoodMs: avgRt,
+    medianRtGoodMs: medRt,
+    fastHitRatePct: fastRate,
 
-    device: (metrics.device || ''),
-    gameVersion: GAME_VERSION,
-    reason: (phase || ''),
+    device: getDeviceTag(),
+    gameVersion: String(Q.get('ver') || Q.get('v') || 'plate.safe.js'),
+    reason: String(reason||''),
 
-    startTimeIso: S.startTimeIso || '',
-    endTimeIso: S.endTimeIso || '',
-  });
+    startTimeIso: startIso,
+    endTimeIso: endIso,
+  };
 
   dispatchEvt('hha:log_session', row);
-}
-
-function logEvent(eventType, data){
-  const tMs = Math.round((now() - (S.tStart||now())) || 0);
-  const row = Object.assign(baseCtxRow(), {
-    sessionId: S.sessionId,
-    eventType: String(eventType||'event'),
-    gameMode: GAME_MODE,
-    diff: DIFF,
-
-    timeFromStartMs: tMs,
-    targetId: (data && data.targetId) || '',
-    emoji: (data && data.emoji) || '',
-    itemType: (data && (data.itemType || data.kind)) || '',
-    lane: (data && data.lane) || '',
-    rtMs: (data && (data.rtMs ?? '')),
-
-    judgment: (data && (data.judgment || data.judge)) || '',
-    totalScore: S.score,
-    combo: S.combo,
-    isGood: (data && (data.isGood ?? ((data.kind==='good'||data.kind==='gold') ? 1 : 0))) ? 1 : 0,
-
-    feverState: S.feverOn ? 'on' : 'off',
-    feverValue: Math.round(S.fever),
-
-    goalProgress: (data && data.goalProgress) || goalProgStr(),
-    miniProgress: (data && data.miniProgress) || miniProgStr(),
-
-    extra: (data && data.extra) ? data.extra : ''
-  });
-
-  dispatchEvt('hha:log_event', row);
 }
 
 // ---------- Helpers ----------
@@ -535,12 +538,14 @@ function showStartOverlay(on){
   setShow(ov, !!on);
 }
 
-function goHub(){
-  // save last summary ALWAYS (standard)
-  persistLastSummary('go_hub');
+async function goHub(){
+  // finalize + flush BEFORE navigation
+  try{
+    if (S.running && !S._endedEmitted) emitEnd('go_hub');
+    if (!S._sessionFinalLogged) logSessionFinal('go_hub');
+  }catch(_){}
 
-  // ✅ flush before navigate (avoid losing last logs)
-  try{ ROOT.HHACloudLogger && ROOT.HHACloudLogger.flushNow && ROOT.HHACloudLogger.flushNow(); }catch(_){}
+  await flushLoggerNow('go_hub');
 
   const hubUrl = resolveUrl(HUB_URL_RAW);
   const sp = new URLSearchParams();
@@ -783,23 +788,11 @@ const MINIS=[
       if(!evt) return;
       const kind = evt.kind;
       const blocked = !!evt.blocked;
-
       if((kind==='junk'||kind==='trap'||kind==='boss'||kind==='boss_attack') && !blocked) S._mini.fail=true;
-
-      if((kind==='good'||kind==='gold') && !blocked && evt.group>=1 && evt.group<=5){
-        S._mini.got.add(evt.group);
-      }
+      if(kind==='good' && !blocked) S._mini.got.add(evt.group);
+      if(kind==='gold' && !blocked) S._mini.got.add(evt.group);
     },
-    progress(){
-      const got = (S._mini && S._mini.got) ? S._mini.got.size : 0;
-      const f = (S._mini && S._mini.fail) ? ' FAIL' : '';
-      return `${got}/5${f}`;
-    },
-    isClear(){
-      const got = (S._mini && S._mini.got) ? S._mini.got.size : 0;
-      const fail = !!(S._mini && S._mini.fail);
-      return got>=5 && !fail;
-    }
+    isClear(){ return S._mini.got.size>=5 && !S._mini.fail; }
   },
   {
     key:'perfectStreak', title:'Perfect Streak',
@@ -900,12 +893,9 @@ function startMini(){
   S.miniUrgentArmed=false;
   S.miniTickAt=0;
   if(typeof m.init==='function') m.init();
-
-  S._miniProgLast = ''; // ✅ reset progress tracker
-
   updateMiniHud();
   emitQuestUpdate();
-  logEvent('mini_start',{mini:m.key,dur:m.dur, miniProgress: miniProgStr()});
+  logEvent('mini_start',{mini:m.key,dur:m.dur});
 }
 
 function updateMiniHud(){
@@ -947,28 +937,17 @@ function tickMini(){
       Coach.say('MINI ผ่าน! โหดมาก 😎', 'happy', 1400);
       flash('good', 120);
       addScore(450); addFever(18); vibe(50);
-      logEvent('mini_clear',{mini:m.key, miniProgress: miniProgStr()});
+      logEvent('mini_clear',{mini:m.key});
     }else{
       fxJudge('MINI FAIL');
       Coach.say('พลาดนิดเดียว! ลองใหม่ เอาให้ผ่าน 💥', 'sad', 1500);
       addScore(-120); addFever(-12);
-      logEvent('mini_fail',{mini:m.key, miniProgress: miniProgStr()});
+      logEvent('mini_fail',{mini:m.key});
     }
     emitScore();
     emitQuestUpdate();
     startMini();
   }else{
-    // ✅ log mini_update only when progress changed
-    try{
-      const prog = (typeof m.progress==='function') ? m.progress() : '';
-      const key = m.key || '';
-      const stamp = `${key}:${prog}`;
-      if(stamp && stamp !== S._miniProgLast){
-        S._miniProgLast = stamp;
-        logEvent('mini_update', { mini:key, miniProgress: stamp, judgment:'UPDATE', extra:{leftMs:leftMs} });
-      }
-    }catch(_){}
-
     updateMiniHud();
     emitQuestUpdate();
   }
@@ -1183,7 +1162,6 @@ function expireTargets(){
 
     if(t>=rec.dieAt){
       if(rec.kind==='good'||rec.kind==='gold'){
-        // MISS on good/gold expire (standard)
         S.nExpireGood++;
         onMiss('expire_good',{ kind:rec.kind, group:rec.group, targetId:rec.targetId, emoji:rec.emoji });
         fxJudge('MISS');
@@ -1216,10 +1194,8 @@ function shieldBlock(reason){
 function onMiss(reason, extra={}){
   S.combo=0; setTxt(HUD.combo,0);
 
-  // Standard: miss increments only when actually missed (not shield-block)
   S.miss++; setTxt(HUD.miss,S.miss);
 
-  // noJunk power protects life from bad sources
   const t=now();
   const protectedNoJunk=(t<S.noJunkUntil) && (reason==='junk'||reason==='trap'||reason==='boss'||reason==='boss_attack');
   if(!protectedNoJunk) setLives(S.lives-1);
@@ -1279,7 +1255,6 @@ function bossAttackPunish(tag, forceHit=false){
 
   if(shieldBlock(tag)){
     addScore(-80); addFever(-8);
-    // mini should know it was blocked (so it won't fail)
     if(S.activeMini && typeof S.activeMini.onHit==='function'){
       S.activeMini.onHit({kind:'boss_attack', blocked:true, group:0});
     }
@@ -1291,7 +1266,6 @@ function bossAttackPunish(tag, forceHit=false){
   fxJudge('BOSS ATK!');
   flash('boss', 140);
   onMiss('boss_attack',{});
-  // mini fail counts because not blocked
   if(S.activeMini && typeof S.activeMini.onHit==='function'){
     S.activeMini.onHit({kind:'boss_attack', blocked:false, group:0});
   }
@@ -1390,7 +1364,7 @@ function hitTarget(rec, direct, ev){
     return;
   }
 
-  // BAD targets (trap/fake/junk) with block-aware mini
+  // BAD targets
   if(rec.kind==='fake'){
     fxJudge('TRICK!');
     fxBurst(tx,ty,'trap'); fxPop('-220',tx,ty);
@@ -1493,20 +1467,16 @@ function hitTarget(rec, direct, ev){
   fxBurst(tx,ty,(rec.kind==='gold')?'gold':'good');
   fxPop(`+${delta}`,tx,ty);
 
-  // RT metrics (good hits only)
   pushRtIfGood(rec.kind, rtMs);
 
-  // plate progress
   if(rec.kind==='good') onGood(rec.group);
   if(rec.kind==='gold'){
-    // gold contributes to missing group if possible
     let g=1+((R()*5)|0);
     for(let k=0;k<5;k++){
       const gg=1+((g-1+k)%5);
       if(!S.plateHave.has(gg)){ g=gg; break; }
     }
     onGood(g);
-    // pass as group g for plateRush mini
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'gold', blocked:false, group:g});
   } else {
     if(S.activeMini && typeof S.activeMini.onHit==='function') S.activeMini.onHit({kind:'good', blocked:false, group:rec.group});
@@ -1687,7 +1657,7 @@ function airShot(){
   flash('bad', 80);
   AudioX.tick();
 
-  // In standard, we count WHIFF as miss but do NOT reduce life
+  // Count whiff as miss but do NOT reduce life
   S.miss++; setTxt(HUD.miss, S.miss);
   S.nAirShot++;
 
@@ -1728,11 +1698,10 @@ function restart(){
 
   // new sessionId each time
   S.sessionId = makeSessionId();
+  S._endedEmitted = false;
+  S._sessionFinalLogged = false;
 
   resetState(S, { totalTime: TOTAL_TIME, livesMax: S.livesMax, sessionId: S.sessionId });
-
-  S.startTimeIso = new Date().toISOString();
-  S.endTimeIso = '';
 
   S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
 
@@ -1746,7 +1715,6 @@ function restart(){
 
   Coach.say('เริ่มใหม่! ลุยต่อเลย 💪', 'neutral', 1200);
 
-  logSession('start');
   start();
 }
 
@@ -1756,7 +1724,6 @@ function endGame(isGameOver){
   doc.body.classList.remove('hha-mini-urgent');
 
   S.endedAt = now();
-  S.endTimeIso = new Date().toISOString();
   S.nextSpawnAt=Infinity;
 
   for(const rec of [...S.targets]) removeTarget(rec);
@@ -1786,20 +1753,20 @@ function endGame(isGameOver){
   // standard: save summary + emit end
   emitEnd(isGameOver ? 'gameover' : 'end');
 
-  logSession(isGameOver?'gameover':'end');
+  // ✅ log final sessions row + flush immediately (best effort)
+  logSessionFinal(isGameOver ? 'gameover' : 'end');
+  flushLoggerNow(isGameOver ? 'gameover' : 'end');
+
   emitScore({ ended:true, gameover: !!isGameOver });
   emitQuestUpdate();
-
-  // ✅ flush before staying on result screen / potential navigation
-  try{ ROOT.HHACloudLogger && ROOT.HHACloudLogger.flushNow && ROOT.HHACloudLogger.flushNow(); }catch(_){}
 }
 
 // ---------- Main loop ----------
 function start(){
   S.running=true;
   S.tStart=now();
+  S.startTimeIso = nowIso();
   S.nextSpawnAt=now()+350;
-  if(!S.startTimeIso) S.startTimeIso = new Date().toISOString();
 
   setTxt(HUD.mode, MODE==='research'?'Research':'Play');
   setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
@@ -1971,15 +1938,10 @@ function bindUI(){
 // ---------- BOOT (do not start until Start overlay) ----------
 (function boot(){
   try{
-    if(ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.init==='function'){
-      ROOT.HHACloudLogger.init({ debug: DEBUG });
+    const L = getCloudLogger();
+    if(L && typeof L.init==='function'){
+      L.init({ debug: DEBUG });
     }
-  }catch(_){}
-
-  // extra safety: flush on pagehide/unload (best-effort)
-  try{
-    ROOT.addEventListener('pagehide', ()=>{ try{ ROOT.HHACloudLogger && ROOT.HHACloudLogger.flushNow && ROOT.HHACloudLogger.flushNow(); }catch(_){ } });
-    ROOT.addEventListener('beforeunload', ()=>{ try{ ROOT.HHACloudLogger && ROOT.HHACloudLogger.flushNow && ROOT.HHACloudLogger.flushNow(); }catch(_){ } });
   }catch(_){}
 
   bindUI();
