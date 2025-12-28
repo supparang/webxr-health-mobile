@@ -1,13 +1,16 @@
 /* === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-GoodJunkVR — PRODUCTION SAFE (B1+B2: Pressure ladder)
+GoodJunkVR — PRODUCTION SAFE (B1+B2 ladder + B2+ + B2++)
 ✅ Fix HUD events: hha:score(time/coach/quest) keys match hha-hud.js
-✅ Fix mouse bug: world shift handled by touch-look (drag only)
-✅ Warmup 2s + ramp faster (auto fun earlier)
+✅ Fix mouse bug: world shift handled by touch-look (drag only)  (NOTE: touch-look-goodjunk.js)
+✅ Warmup 2s + ramp faster
 ✅ Shoot support: click targets OR press Shoot/Space (hit nearest to crosshair)
 ✅ Pressure ladder:
    - B1 = fair pressure (clear telegraph, faster cadence)
    - B2 = competitive (faster cadence + higher dodge threshold + HIT => shoot lock 0.6s + stronger penalty)
    - Auto ramp B1→B2 during boss mini (time/HP/dodge streak), auto fall back if too many hits
+✅ B2+ : if LASER hit at level B2 -> swap axis immediately + faster next laser
+✅ B2++: if hazard hit at level B2 -> -1s boss mini time (deadline)
+✅ Boss mini has deadline timer; timeout => fail (not auto pass)
 ✅ Miss definition unchanged: good expired + junk hit (shield-guard doesn't count)
 ✅ Grade: SSS, SS, S, A, B, C
 */
@@ -77,7 +80,12 @@ const DEFAULT_MINIS = [
   { id:'m_clean',  title:'โซนคลีน! ห้ามโดนขยะ 10 วิ', targetByDiff:{ easy:1, normal:1, hard:1 }, forbidJunk:true,  timerSecByDiff:{ easy:10, normal:10, hard:12 } },
   { id:'m_combo',  title:'คอมโบเดือด! ทำคอมโบ 8',    targetByDiff:{ easy:8, normal:9, hard:10 }, forbidJunk:false, special:'combo' },
   { id:'m_guard',  title:'โล่พร้อม! บล็อกขยะ 2 ครั้ง', targetByDiff:{ easy:2, normal:2, hard:3 }, forbidJunk:false, special:'guard' },
-  { id:'m_boss',   title:'บอสมาแล้ว! ตีบอสให้แตก',    targetByDiff:{ easy:8, normal:10, hard:12 }, forbidJunk:false, special:'boss' },
+
+  // ✅ Boss mini now has deadline timer (for B2++) and timeout should FAIL (not auto-pass)
+  //   เด็ก ป.5 ยังไหว: เวลาไม่สั้นเกิน + ยังผ่านได้ด้วยการตีบอส
+  { id:'m_boss',   title:'บอสมาแล้ว! ตีบอสให้แตก',    targetByDiff:{ easy:8, normal:10, hard:12 }, forbidJunk:false, special:'boss',
+    timerSecByDiff:{ easy:16, normal:14, hard:12 } },
+
   { id:'m_focus',  title:'โฟกัส! เก็บของดี 10 ชิ้น',   targetByDiff:{ easy:9, normal:10, hard:11 }, forbidJunk:false },
   { id:'m_clean2', title:'คลีนอีกรอบ! ห้ามโดนขยะ 12 วิ', targetByDiff:{ easy:1, normal:1, hard:1 }, forbidJunk:true, timerSecByDiff:{ easy:12, normal:12, hard:14 } }
 ];
@@ -211,9 +219,19 @@ function makeQuestDirector(opts = {}){
   function tick(){
     if (!Q.started || Q.allDone) return ui('tick-skip');
     const m = Q.activeMini;
+
     if (m && m.timerSec>0 && Q.miniEndsAtMs>0){
       const leftMs = Q.miniEndsAtMs - nowMs();
+
       if (leftMs <= 0 && !m.done){
+        // ✅ timed behavior:
+        // - forbidJunk timed minis => success when timer ends
+        // - boss timed mini => FAIL when timer ends (deadline)
+        if (m.special === 'boss'){
+          failMini('timeout');
+          return ui('mini-timeout-fail');
+        }
+
         m.done = true;
         Q.minisCleared++;
         push('mini-time-done');
@@ -273,9 +291,20 @@ function makeQuestDirector(opts = {}){
     } else push('goal-external');
   }
 
+  // ✅ B2++: adjust current mini timer (boss deadline -1s)
+  function adjustMiniTimer(deltaMs){
+    const m = Q.activeMini;
+    if (!m || m.timerSec<=0 || Q.miniEndsAtMs<=0) return;
+    const t = nowMs();
+    const next = Q.miniEndsAtMs + (Number(deltaMs)||0);
+    // keep at least 600ms remaining so UI doesn't instantly flip in same frame
+    Q.miniEndsAtMs = Math.max(t + 600, next);
+    push('mini-timer-adjust');
+  }
+
   function getUIState(reason='peek'){ return ui(reason); }
 
-  return { start, tick, nextGoal, nextMini, addGoalProgress, addMiniProgress, failMini, onJunkHit, setGoalExternal, getUIState };
+  return { start, tick, nextGoal, nextMini, addGoalProgress, addMiniProgress, failMini, onJunkHit, setGoalExternal, adjustMiniTimer, getUIState };
 }
 
 // ------------------------------ Main Boot ------------------------------
@@ -284,8 +313,8 @@ export function boot(opts = {}){
 
   const q = { ...parseQuery(), ...(opts.query||{}) };
 
-  const diff = String(q.diff || opts.diff || 'normal').toLowerCase();       // easy|normal|hard|auto (optional)
-  const run  = String(q.run  || opts.run  || 'play').toLowerCase();        // play|study
+  const diff = String(q.diff || opts.diff || 'normal').toLowerCase();
+  const run  = String(q.run  || opts.run  || 'play').toLowerCase();
   const durationPlannedSec = clamp(Number(q.time || opts.time || 80), 20, 600) | 0;
 
   // deterministic seed
@@ -324,9 +353,9 @@ export function boot(opts = {}){
 
     // hazards (B pressure)
     nHazardHit:0,
-    hazardDodgeStreak:0,         // ✅ used to ramp B1→B2
-    hazardLevel:1,               // 1=B1, 2=B2 (auto)
-    bossStartMs:0,               // boss mini timing
+    hazardDodgeStreak:0,
+    hazardLevel:1,
+    bossStartMs:0,
 
     // B2: shoot lock (competitive)
     shootLockMs:0,
@@ -337,22 +366,22 @@ export function boot(opts = {}){
     // survive
     missLimit: (diff==='easy') ? 6 : (diff==='hard' ? 3 : 4),
 
-    // pacing (faster auto)
+    // pacing (faster)
     warmupSec: 2,
     warmupCap: 2,
     rampSec: 14,
 
     // adaptive
     __adptT: 0,
-    __af: 1.0,          // adaptive factor (B keeps density stable; affects hazard cadence + little spawn rate)
-    __profile: 'safe',  // safe|hero in auto
+    __af: 1.0,
+    __profile: 'safe',
 
     // timers
     tStartIso:'', tEndIso:'', tLastMs:0,
     spawnAccMs:0,
     __coachCdMs:0,
 
-    gameVersion: String(opts.gameVersion || q.ver || 'goodjunk.safe.js@B1B2')
+    gameVersion: String(opts.gameVersion || q.ver || 'goodjunk.safe.js@B1B2plus')
   };
 
   // session id
@@ -394,7 +423,7 @@ export function boot(opts = {}){
   function coach(line, mood='neutral', sub=''){
     if (S.__coachCdMs > 0) return;
     S.__coachCdMs = 900;
-    dispatch('hha:coach', { line, mood, sub }); // ✅ matches hha-hud.js
+    dispatch('hha:coach', { line, mood, sub });
   }
 
   function setFever(v){
@@ -419,8 +448,8 @@ export function boot(opts = {}){
   function emitScore(reason='score'){
     const payload = {
       reason,
-      score: S.score|0,          // ✅ HUD reads d.score
-      scoreFinal: S.score|0,     // keep for summary/log
+      score: S.score|0,
+      scoreFinal: S.score|0,
       combo: S.combo|0,
       comboMax: S.comboMax|0,
       misses: S.misses|0,
@@ -447,8 +476,8 @@ export function boot(opts = {}){
     const vw = ROOT.innerWidth || 360;
     const vh = ROOT.innerHeight || 640;
 
-    const padTop  = 150; // top HUD
-    const padBot  = 110; // bottom controls
+    const padTop  = 150;
+    const padBot  = 110;
     const padSide = 20;
 
     const x0 = padSide;
@@ -609,7 +638,7 @@ export function boot(opts = {}){
   function isBossMiniActive(){
     try{
       const ui = Q.getUIState('peek');
-      return !!(ui && ui.miniTitle && ui.miniTitle.indexOf('บอส') >= 0);
+      return !!(ui && ui.miniSpecial === 'boss');
     }catch(_){}
     return false;
   }
@@ -669,21 +698,18 @@ export function boot(opts = {}){
     }
   }
 
-  // ✅ ladder logic: B1->B2 (auto) and fallback
+  // ladder logic: B1->B2 and fallback
   function computeHazardLevel(){
     if (!isBossMiniActive()) return 1;
 
-    // time in boss
     const tNow = nowMs();
     const bossT = (S.bossStartMs>0) ? (tNow - S.bossStartMs) : 0;
     const hpFrac = (S.bossHpMax>0) ? (S.bossHp / S.bossHpMax) : 1;
 
-    // promote conditions
-    const timePromote = bossT >= 6500;              // ~6.5s in boss
-    const hpPromote   = hpFrac <= 0.55;             // boss below 55%
+    const timePromote = bossT >= 6500;
+    const hpPromote   = hpFrac <= 0.55;
     const streakPromote = (S.hazardDodgeStreak|0) >= 2;
 
-    // fallback if getting hit too often
     const hitTooMuch = (S.nHazardHit|0) >= 3 && (S.hazardDodgeStreak|0) === 0;
 
     let lvl = S.hazardLevel|0;
@@ -696,45 +722,32 @@ export function boot(opts = {}){
   }
 
   function hazardCadenceScale(level){
-    // base cadence from adaptive + fever
     const feverBoost = (S.fever >= 70) ? 0.90 : (S.fever >= 40 ? 0.96 : 1.0);
     const af = clamp(S.__af, 0.90, 1.15);
-
-    // lower = faster
     let base = clamp((1.10 - (af-1.0)*0.9) * feverBoost, 0.78, 1.05);
-
-    // B1 faster, B2 faster+ (competitive)
     if (level === 2) base *= 0.86;
     else base *= 0.94;
-
     return clamp(base, 0.68, 1.05);
   }
 
   function hazardNeed(level, kind){
-    // B2 needs more precise dodge
     const add = (level===2) ? 0.05 : 0.0;
-
     if (kind === 'ring'){
       const base = (diff==='easy') ? 0.22 : (diff==='hard' ? 0.30 : 0.26);
       return clamp(base + add, 0.18, 0.42);
     }
-
-    // laser axis-specific
     const base = (diff==='easy') ? 0.20 : (diff==='hard' ? 0.28 : 0.24);
     return clamp(base + add, 0.16, 0.40);
   }
 
   function hazardWarnMs(level){
-    // B2 telegraph shorter (harder)
     return (level===2) ? 420 : 520;
   }
 
   function applyHazardHit(kind, level){
-    // IMPORTANT: do NOT count as miss (keep HHA miss definition stable)
     S.nHazardHit += 1;
     S.hazardDodgeStreak = 0;
 
-    // competitive penalties (B2)
     const scorePenalty = (level===2) ? -10 : -6;
     const feverDrop = (level===2) ? 20 : 14;
 
@@ -742,13 +755,19 @@ export function boot(opts = {}){
     setFever(S.fever - feverDrop);
     stun(kind);
 
-    // B2: lock shooting briefly
     if (level===2){
       S.shootLockMs = Math.max(S.shootLockMs|0, 650);
       try{ DOC.body && DOC.body.classList.add('gj-shootlock'); }catch(_){}
       coach('โดนหนัก! ยิงติดล็อก 0.6 วิ 😵', 'fever', 'ตั้งสติ แล้วหลบให้ทัน!');
     } else {
       coach('โดนแรงกดดัน! หลบด้วยการ “เอียงโลก” 😵‍💫', 'fever', 'ลากค้างแล้วดึงจอไปด้านข้าง/บนล่าง');
+    }
+
+    // ✅ B2++: boss mini time -1s on failed dodge
+    if (level===2 && isBossMiniActive()){
+      Q.adjustMiniTimer(-1000);
+      coach('พลาด! เวลามินิบอส -1 วิ ⏱️', 'fever', 'หลบให้แม่นขึ้น—เวลาจะบีบ!');
+      logEvent('boss-time-penalty', { itemType: kind, judgment:'TIME-1S' }, { level, deltaMs:-1000 });
     }
 
     addScore(scorePenalty, 'HAZARD');
@@ -761,7 +780,6 @@ export function boot(opts = {}){
   function applyHazardDodge(kind, level){
     S.hazardDodgeStreak = clamp((S.hazardDodgeStreak|0) + 1, 0, 9);
 
-    // B2 gives a bit more reward (feel “pro”)
     const pts = (level===2) ? 7 : 5;
     addScore(pts, 'DODGE');
 
@@ -811,13 +829,13 @@ export function boot(opts = {}){
       const mag = Math.hypot(sh.x, sh.y);
       const need = hazardNeed(level, 'ring');
 
-      if (mag >= need) applyHazardDodge('ring', level);
+      const wasHit = !(mag >= need);
+      if (!wasHit) applyHazardDodge('ring', level);
       else applyHazardHit('ring', level);
 
       HZ.ringWarnAt = 0;
       HZ.ringFireAt = 0;
 
-      // cadence (B2 faster)
       const baseNext = (diff==='easy') ? 2400 : diff==='hard' ? 1800 : 2100;
       HZ.ringNextAt = tNow + baseNext * s;
 
@@ -839,7 +857,8 @@ export function boot(opts = {}){
       const axisVal = (HZ.laserAxis === 'x') ? Math.abs(sh.x) : Math.abs(sh.y);
       const need = hazardNeed(level, 'laser');
 
-      if (axisVal >= need) applyHazardDodge('laser', level);
+      const wasHit = !(axisVal >= need);
+      if (!wasHit) applyHazardDodge('laser', level);
       else applyHazardHit('laser', level);
 
       HZ.laserWarnAt = 0;
@@ -847,6 +866,15 @@ export function boot(opts = {}){
 
       const baseNext = (diff==='easy') ? 2900 : diff==='hard' ? 2200 : 2550;
       HZ.laserNextAt = tNow + baseNext * s;
+
+      // ✅ B2+ : if LASER hit at level 2 -> swap axis immediately + faster next laser
+      if (wasHit && level===2){
+        HZ.laserAxis = (HZ.laserAxis === 'x') ? 'y' : 'x';
+        HZ.laserDir  = -HZ.laserDir;
+        HZ.laserNextAt = tNow + (650 * s); // faster re-attack
+        coach('โดนเลเซอร์! แกนสลับทันที ⚡', 'fever', 'หลบอีกด้านเร็ว!');
+        logEvent('b2plus', { itemType:'laser', judgment:'SWAP+FAST' }, { level, nextInMs:Math.round(650*s) });
+      }
 
       setTimeout(()=>laserShow('off'), 160);
     }
@@ -856,7 +884,7 @@ export function boot(opts = {}){
   function adaptiveStep(dtMs){
     if (run !== 'play' || diff !== 'auto') return;
     S.__adptT += dtMs;
-    if (S.__adptT < 2500) return; // quicker
+    if (S.__adptT < 2500) return;
     S.__adptT = 0;
 
     const played = (S.durationPlayedSec|0);
@@ -882,6 +910,9 @@ export function boot(opts = {}){
   }
 
   // ------------------------------ Hit Logic ------------------------------
+  const goalDefsLocal = goalDefs; // keep refs stable
+  const miniDefsLocal = miniDefs;
+
   function tryHitTarget(id, meta = {}){
     if (S.ended || !S.started) return;
     const t = targets.get(id);
@@ -918,7 +949,7 @@ export function boot(opts = {}){
 
       let mDone = false;
       const ui = Q.getUIState('peek');
-      const miniIsBoss = !!(ui && ui.miniTitle && ui.miniTitle.indexOf('บอส') >= 0);
+      const miniIsBoss = !!(ui && ui.miniSpecial === 'boss');
       if (!miniIsBoss){
         const mUI = Q.addMiniProgress(1);
         mDone = !!mUI && (mUI.reason === 'mini-done');
@@ -963,7 +994,6 @@ export function boot(opts = {}){
         return;
       }
 
-      // miss
       S.nHitJunk += 1;
       S.misses += 1;
       S.combo = 0;
@@ -994,7 +1024,7 @@ export function boot(opts = {}){
 
     try{
       const ui = Q.getUIState('peek');
-      const miniIsBoss = !!(ui && ui.miniTitle && ui.miniTitle.indexOf('บอส') >= 0);
+      const miniIsBoss = !!(ui && ui.miniSpecial === 'boss');
       if (miniIsBoss){
         const mUI = Q.addMiniProgress(1);
         const done = !!mUI && (mUI.reason === 'mini-done');
@@ -1018,12 +1048,12 @@ export function boot(opts = {}){
     }
   }
 
-  // ------------------------------ Spawn plan (NOT dense; B uses hazards) ------------------------------
+  // ------------------------------ Spawn plan ------------------------------
   function getSpawnPlan(){
     const played = S.durationPlayedSec|0;
 
     let capBase  = (diff==='easy') ? 5 : (diff==='hard' ? 7 : 6);
-    let rateBase = (diff==='easy') ? 0.85 : (diff==='hard' ? 1.05 : 0.95); // targets/sec
+    let rateBase = (diff==='easy') ? 0.85 : (diff==='hard' ? 1.05 : 0.95);
 
     let cap = (played < S.warmupSec) ? S.warmupCap : capBase;
     const rampT = clamp((played - S.warmupSec) / Math.max(1, S.rampSec), 0, 1);
@@ -1065,11 +1095,10 @@ export function boot(opts = {}){
     else spawnTarget((rng() < 0.12) ? 'trap' : 'junk');
   }
 
-  // ------------------------------ Shoot (button/space hits nearest to crosshair) ------------------------------
+  // ------------------------------ Shoot ------------------------------
   function shoot(){
     if (!S.started || S.ended) return;
 
-    // ✅ B2 shoot lock
     if ((S.shootLockMs|0) > 0){
       logEvent('shoot', { judgment:'LOCK' }, { lockMs:S.shootLockMs|0 });
       return;
@@ -1110,7 +1139,6 @@ export function boot(opts = {}){
       if (!id) return;
       ev.preventDefault(); ev.stopPropagation();
 
-      // ✅ respect shoot lock too (B2)
       if ((S.shootLockMs|0) > 0) return;
 
       tryHitTarget(id, { via:'pointer' });
@@ -1130,7 +1158,7 @@ export function boot(opts = {}){
     }, { passive:false });
   }
 
-  // ------------------------------ End / Stats / Grade (unchanged) ------------------------------
+  // ------------------------------ End / Stats / Grade ------------------------------
   function computeStatsFinal(){
     const nGood = S.nHitGood|0;
     const nExpire = S.nExpireGood|0;
@@ -1347,7 +1375,6 @@ export function boot(opts = {}){
 
     S.__coachCdMs = Math.max(0, (S.__coachCdMs|0) - (dtMs|0));
 
-    // ✅ decay shoot lock (B2)
     if ((S.shootLockMs|0) > 0){
       S.shootLockMs = Math.max(0, (S.shootLockMs|0) - (dtMs|0));
       if (S.shootLockMs === 0){
@@ -1395,7 +1422,6 @@ export function boot(opts = {}){
       }
     }
 
-    // ✅ B1+B2 hazards
     hazardUpdate(tNow);
 
     emitTime();
