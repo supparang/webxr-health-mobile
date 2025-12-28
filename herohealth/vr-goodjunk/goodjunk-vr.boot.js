@@ -1,25 +1,39 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard (Stereo + TouchLook)
+// GoodJunkVR Boot — HHA Standard (PRODUCTION)
+// ✅ Reads URL params, shows start overlay
+// ✅ Boots safe engine + touch-look
+// ✅ Sets layout mode: data-view="pc|mobile|cardboard"
+// Params:
+//  - diff=easy|normal|hard
+//  - time=80
+//  - run=play|research
+//  - end=time|all
+//  - challenge=rush|boss|survival
+//  - hub=../hub.html
+//  - seed=...
+//  - sessionId=... or sid=...
+//  - log=<GAS_WEBAPP_URL>
 
 'use strict';
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC = ROOT.document;
-
-function qs(name, def=null){
-  try{ return (new URL(ROOT.location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
+function qp(name, fallback = null){
+  try{
+    const u = new URL(location.href);
+    const v = u.searchParams.get(name);
+    return (v == null || v === '') ? fallback : v;
+  }catch(_){ return fallback; }
 }
-function toInt(v, d){ v=Number(v); return Number.isFinite(v) ? (v|0) : d; }
-function toStr(v, d){ v=String(v ?? '').trim(); return v ? v : d; }
-function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b, v)); }
+function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
+function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
-function isStereoWanted(){
-  const vr = String(qs('vr','')||'').toLowerCase();
-  const stereo = String(qs('stereo','')||'').toLowerCase();
-  return (vr === 'cardboard' || stereo === '1' || stereo === 'true');
+function isMobileLike(){
+  const w = window.innerWidth || 360;
+  const h = window.innerHeight || 640;
+  const coarse = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  return coarse || (Math.min(w,h) < 520);
 }
 
 function buildContext(){
@@ -32,34 +46,22 @@ function buildContext(){
   ];
   const ctx = {};
   for (const k of keys){
-    const v = qs(k, null);
-    if (v != null && v !== '') ctx[k] = v;
+    const v = qp(k, null);
+    if (v != null) ctx[k] = v;
   }
   ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
   ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-28';
   return ctx;
 }
 
-function setupLoggerFromQuery(){
-  const log = qs('log','');
-  if (!log) return;
-  try{
-    if (ROOT.HHA_CLOUD_LOGGER && typeof ROOT.HHA_CLOUD_LOGGER.setEndpoint === 'function'){
-      ROOT.HHA_CLOUD_LOGGER.setEndpoint(log);
-    } else if (ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.setEndpoint === 'function'){
-      ROOT.HHACloudLogger.setEndpoint(log);
-    }
-  }catch(_){}
-}
-
 function showStartOverlay(metaText){
-  const overlay = DOC.getElementById('startOverlay');
-  const btn = DOC.getElementById('btnStart');
-  const meta = DOC.getElementById('startMeta');
+  const overlay = document.getElementById('startOverlay');
+  const btn = document.getElementById('btnStart');
+  const meta = document.getElementById('startMeta');
   if (meta) meta.textContent = metaText || '—';
   if (!overlay || !btn) return Promise.resolve();
-
   overlay.style.display = 'flex';
+
   return new Promise((resolve) => {
     btn.onclick = () => {
       overlay.style.display = 'none';
@@ -69,81 +71,55 @@ function showStartOverlay(metaText){
 }
 
 function setHudMeta(text){
-  const el = DOC.getElementById('hudMeta');
+  const el = document.getElementById('hudMeta');
   if (el) el.textContent = text;
 }
 
-(async function main(){
-  if (!DOC) return;
+(function main(){
+  const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
+  const time = toInt(qp('time', '80'), 80);
+  const run = toStr(qp('run', 'play'), 'play').toLowerCase();
+  const endPolicy = toStr(qp('end', 'time'), 'time').toLowerCase();
+  const challenge = toStr(qp('challenge', 'rush'), 'rush').toLowerCase();
 
-  // Stereo mode toggle (Cardboard)
-  if (isStereoWanted()){
-    DOC.body.classList.add('gj-stereo');
-    const eyeR = DOC.getElementById('gj-eyeR');
-    if (eyeR) eyeR.setAttribute('aria-hidden','false');
-  } else {
-    DOC.body.classList.remove('gj-stereo');
-  }
-
-  setupLoggerFromQuery();
-
-  const diff = toStr(qs('diff', 'normal'), 'normal').toLowerCase();
-  const time = clamp(toInt(qs('time', '80'), 80), 30, 600);
-  const run = toStr(qs('run', 'play'), 'play').toLowerCase();
-  const endPolicy = toStr(qs('end', 'time'), 'time').toLowerCase();
-  const challenge = toStr(qs('challenge', 'rush'), 'rush').toLowerCase();
-  const seed = qs('seed', null);
-  const sessionId = qs('sessionId', null) || qs('sid', null);
+  const seed = qp('seed', null);
+  const sessionId = qp('sessionId', null) || qp('sid', null);
 
   const ctx = buildContext();
 
-  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge}`);
+  // layout view
+  const view = toStr(qp('view', ''), '').toLowerCase() || (isMobileLike() ? 'mobile' : 'pc');
+  document.body.dataset.view = view; // pc | mobile | cardboard (future)
+  document.body.classList.toggle('is-mobile', view === 'mobile');
 
-  // TouchLook (VR-feel)
+  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • ${view}`);
+
+  // attach touch/gyro -> world shift (VR-feel)
   attachTouchLook({
-    stageEl: DOC.getElementById('gj-stage'),
-    layerEl: DOC.getElementById('gj-layer'),
-    crosshairEl: DOC.getElementById('gj-crosshair'),
-    ringEl: DOC.getElementById('atk-ring'),
-    laserEl: DOC.getElementById('atk-laser'),
-
-    layerElR: DOC.getElementById('gj-layerR'),
-    crosshairElR: DOC.getElementById('gj-crosshairR'),
-    ringElR: DOC.getElementById('atk-ringR'),
-    laserElR: DOC.getElementById('atk-laserR'),
-
-    maxShiftPx: 170,
+    crosshairEl: document.getElementById('gj-crosshair'),
+    layerEl: document.getElementById('gj-layer'),
+    aimY: 0.62,
+    maxShiftPx: (view === 'mobile') ? 190 : 170,
     ease: 0.12
   });
 
   const metaText =
-    `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}`
-    + (seed ? ` • seed=${seed}` : '');
+    `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • ${view}` +
+    (seed ? ` • seed=${seed}` : '');
 
-  await showStartOverlay(metaText);
-
-  goodjunkBoot({
-    diff,
-    time,
-    run,
-    endPolicy,
-    challenge,
-    seed,
-    sessionId,
-    context: ctx,
-
-    // stereo refs
-    layerEl: DOC.getElementById('gj-layer'),
-    layerElR: DOC.getElementById('gj-layerR'),
-    crosshairEl: DOC.getElementById('gj-crosshair'),
-    crosshairElR: DOC.getElementById('gj-crosshairR'),
-    ringEl: DOC.getElementById('atk-ring'),
-    ringElR: DOC.getElementById('atk-ringR'),
-    laserEl: DOC.getElementById('atk-laser'),
-    laserElR: DOC.getElementById('atk-laserR'),
-
-    shootEl: DOC.getElementById('btnShoot'),
-
-    safeMargins: { top: 138, bottom: 182, left: 26, right: 26 }
+  showStartOverlay(metaText).then(() => {
+    goodjunkBoot({
+      diff,
+      time,
+      run,
+      endPolicy,
+      challenge,
+      seed,
+      sessionId,
+      context: ctx,
+      layerEl: document.getElementById('gj-layer'),
+      shootEl: document.getElementById('btnShoot'),
+      safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
+    });
   });
 })();
