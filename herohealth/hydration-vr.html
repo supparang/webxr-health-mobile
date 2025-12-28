@@ -1,11 +1,11 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + TRUE STEREO PARALLAX + FAST GAZE)
-✅ FIX 404 paths: ./vr/* and ./hydration-vr/hydration.safe.js
-✅ Cardboard: 2 eyes (left/right split)
-✅ TRUE stereo parallax (per-target disparity heuristic; not just clone)
-✅ Gaze (Cardboard): dwell-to-shoot (faster + accurate)
-✅ Mini HUD pills + big SHOOT button in Cardboard
-✅ Keeps required IDs: #playfield, #hvr-layer, #water-bar/#water-pct/#water-zone etc.
+HydrationVR — PRODUCTION (A+B+C)
+✅ Paths fixed (no leading /) to avoid 404 on GitHub Pages
+✅ Start overlay (start-gated) + End Summary + Retry + Back HUB + last summary save
+✅ Cardboard STEREO: two-eye (left/right) with mirrored HUD + mirrored targets
+✅ Gaze dwell shooting for Cardboard + big SHOOT button
+✅ Storm/Shield SFX + End-window tick accel (faster & tighter)
+✅ Works with: ./hydration-vr/hydration.safe.js + ./vr/ui-water.js
 -->
 
 <!doctype html>
@@ -17,10 +17,10 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + TRUE STEREO PARALL
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional) -->
+  <!-- Optional (kept): A-Frame (not required, but harmless if you use WebXR UI elsewhere) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ FIXED PATHS (under /herohealth/) -->
+  <!-- Global (optional) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
@@ -28,8 +28,8 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + TRUE STEREO PARALL
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.66);
-      --panel2:rgba(15,23,42,.58);
+      --panel:rgba(2,6,23,.74);
+      --panel2:rgba(15,23,42,.65);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
@@ -42,179 +42,149 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + TRUE STEREO PARALL
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
 
-      /* gaze progress 0..1 */
-      --gazeProg:0;
+      /* Cinematic end-window vars */
+      --endamp: 0;      /* 0..1 */
+      --endflash: 0;    /* 0..1 */
 
-      /* stereo strength (px) */
-      --ipd: 9px; /* default, can override via ?ipd= */
+      /* gaze ring (0..1) */
+      --gaze: 0;
     }
 
-    *{ box-sizing:border-box; }
     html,body{
       margin:0; padding:0; width:100%; height:100%;
-      overflow:hidden;
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",Arial,sans-serif;
-      color:var(--text);
       background: radial-gradient(1200px 700px at 50% 25%, #0b1120 0%, #020617 60%, #020617 100%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,"Noto Sans Thai",sans-serif;
+      overflow:hidden;
+    }
+    *{ box-sizing:border-box; }
+
+    /* ---------- stage ---------- */
+    #stereoRoot{
+      position:fixed; inset:0;
+      display:block;
+    }
+    .stage{
+      position:fixed; inset:0;
+      display:flex; flex-direction:column;
     }
 
-    /* ===== Top HUD (compact pills) ===== */
-    .hudTop{
-      position:fixed; left:10px; right:10px;
-      top: calc(var(--sat) + 10px);
-      z-index:50;
-      display:flex; gap:10px;
-      justify-content:space-between; align-items:flex-start;
+    /* ---------- HUD ---------- */
+    .hud{
+      position:relative;
+      padding: calc(var(--sat) + 10px) 12px 10px;
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
       pointer-events:none;
-    }
-    .pillRow{ display:flex; gap:8px; flex-wrap:wrap; }
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:7px 10px;
-      border-radius:999px;
-      background: rgba(2,6,23,.58);
-      border:1px solid rgba(148,163,184,.18);
-      box-shadow: 0 16px 42px rgba(0,0,0,.28);
-      backdrop-filter: blur(10px);
-      font-weight:950;
-      white-space:nowrap;
-    }
-    .k{ color:var(--muted); font-size:11px; font-weight:900; }
-    .v{ font-size:14px; font-weight:1100; }
-    .grade{ background: rgba(99,102,241,.10); border-color: rgba(99,102,241,.24); }
-    .water{ background: rgba(34,211,238,.08); border-color: rgba(34,211,238,.22); }
-
-    /* ===== Bottom HUD (cards) ===== */
-    .hudBottom{
-      position:fixed; left:10px; right:10px;
-      bottom: calc(var(--sab) + 10px);
-      z-index:50;
-      display:flex; gap:10px;
-      justify-content:space-between; align-items:flex-end;
-      pointer-events:none;
+      z-index:20;
     }
     .card{
-      pointer-events:none;
       background: var(--panel);
       border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
+      border-radius: 18px;
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
       backdrop-filter: blur(10px);
-      padding:10px 10px;
-      min-width: 240px;
-      max-width: min(520px, 48vw);
+      padding: 10px 10px;
+      min-width: 200px;
     }
     .card h3{ margin:0 0 6px; font-size:12px; letter-spacing:.2px; opacity:.95; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .stat{ font-size:12px; font-weight:950; color: var(--text); opacity:.95; }
+    .stat b{ color: var(--cyan); font-weight:1100; }
+    .muted{ color: var(--muted); font-weight:850; }
 
-    /* water gauge bar */
+    /* ---------- playfield ---------- */
+    #playfield{
+      position:relative;
+      flex:1;
+      margin: 0 12px;
+      border-radius: 22px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
+      overflow:hidden;
+      touch-action: manipulation;
+      will-change: transform, filter;
+    }
+    #hvr-layer{ position:absolute; inset:0; }
+
+    /* ---------- bottom HUD ---------- */
+    .bottom{
+      padding: 10px 12px calc(var(--sab) + 12px);
+      display:flex; gap:10px;
+      justify-content:space-between;
+      align-items:flex-end;
+      pointer-events:none;
+      z-index:20;
+    }
+    .bottom .card{ min-width: 240px; }
+
+    /* water gauge */
     .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
-    .bar{ height:100%; width:0%; border-radius:999px; transition: width .18s ease; }
-    body.water-low  .bar{ background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(59,130,246,.95)); box-shadow:0 0 14px rgba(34,211,238,.22); }
-    body.water-green .bar{ background: linear-gradient(90deg, rgba(34,211,238,.92), rgba(34,197,94,.95)); box-shadow:0 0 14px rgba(34,197,94,.18); }
-    body.water-high .bar{ background: linear-gradient(90deg, rgba(249,115,22,.95), rgba(239,68,68,.95)); box-shadow:0 0 16px rgba(239,68,68,.20); }
+    .bar{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95)); box-shadow: 0 0 14px rgba(34,211,238,.28); transition: width .18s ease; }
+    body.water-low  .bar{ background: linear-gradient(90deg, rgba(249,115,22,.95), rgba(239,68,68,.95)); box-shadow: 0 0 16px rgba(239,68,68,.20); }
+    body.water-high .bar{ background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.90)); box-shadow: 0 0 16px rgba(167,139,250,.18); }
 
-    .questLine{ margin: 3px 0; font-size:12px; font-weight:950; line-height:1.25; }
-    .tag{
+    /* quest UI */
+    .questLine{ margin: 3px 0; font-size:12px; font-weight:900; line-height:1.25; }
+    .questLine .tag{
       display:inline-flex; align-items:center; gap:6px;
       padding: 2px 8px;
       border-radius: 999px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.45);
       color: var(--muted);
-      font-weight:1000;
+      font-weight:1100;
       margin-right:6px;
     }
 
-    /* ===== Play area wrapper ===== */
-    .stage{
-      position:fixed; inset:0;
-      padding-top: calc(var(--sat) + 56px);
-      padding-bottom: calc(var(--sab) + 78px);
+    /* -------- MINI HUD pills (requested) -------- */
+    .pillRow{
+      display:flex; gap:8px; flex-wrap:wrap;
+      margin-top:8px;
     }
-
-    /* Cardboard wrap: two eyes */
-    #cbWrap{
-      position:absolute; inset:0;
-      display:flex;
-      gap:0;
-    }
-    .eye{
-      flex:1;
-      position:relative;
-      overflow:hidden;
-      border-left:1px solid rgba(148,163,184,.10);
-      background: rgba(2,6,23,.18);
-    }
-    .eye:first-child{ border-left:none; }
-
-    /* default (non-cardboard): show only left eye full width */
-    body:not(.cardboard) .eye.right{ display:none; }
-    body:not(.cardboard) .eye.left{ flex:1; width:100%; }
-
-    /* playfield surface inside each eye */
-    .pf{
-      position:absolute; inset:10px;
-      border-radius:22px;
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      background: rgba(15,23,42,.55);
       border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
-      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
-      overflow:hidden;
-      touch-action: manipulation;
+      box-shadow: 0 12px 34px rgba(0,0,0,.22);
+      font-weight:1000;
+      font-size:12px;
+      white-space:nowrap;
     }
+    .pill .k{ color: var(--muted); font-weight:950; font-size:11px; }
+    .pill .v{ font-weight:1100; }
 
-    /* ✅ Keep original id #playfield for the LEFT eye (safe.js expects this) */
-    #playfield{ position:absolute; inset:0; }
-    #hvr-layer, #hvr-layer-r{
-      position:absolute; inset:0;
-      pointer-events:none;
-      will-change: transform;
-    }
-
-    /* Crosshair (each eye) */
-    .xhair{
-      position:absolute;
+    /* ---------- crosshair ---------- */
+    #crosshair{
+      position:fixed;
       left:50%; top:50%;
-      transform: translate(-50%,-50%);
+      transform:translate(-50%,-50%);
       width:14px; height:14px;
       border-radius:999px;
+      z-index:35;
       pointer-events:none;
-      z-index:20;
       box-shadow:
-        0 0 0 2px rgba(229,231,235,.30),
-        0 0 22px rgba(34,197,94,.12);
-      background: rgba(229,231,235,.06);
+        0 0 0 2px rgba(229,231,235,.28),
+        0 0 22px rgba(34,197,94,.10);
+      background:rgba(229,231,235,.07);
       backdrop-filter: blur(6px);
     }
-    .xhair::after{
+    #crosshair::after{
       content:"";
       position:absolute; inset:4px;
       border-radius:999px;
-      background: rgba(229,231,235,.45);
+      background:rgba(229,231,235,.45);
     }
 
-    /* Gaze ring (progress) */
-    .xhair::before{
-      content:"";
-      position:absolute; inset:-10px;
-      border-radius:999px;
-      background:
-        conic-gradient(
-          rgba(34,211,238,.85) calc(var(--gazeProg) * 360deg),
-          rgba(148,163,184,.12) 0deg
-        );
-      -webkit-mask: radial-gradient(circle, transparent 62%, #000 64%);
-              mask: radial-gradient(circle, transparent 62%, #000 64%);
-      opacity: 0;
-      transition: opacity .08s ease;
-    }
-    body.gazeOn .xhair::before{ opacity: .95; }
-
-    /* ===== Start Overlay ===== */
+    /* ---------- start overlay ---------- */
     #start-overlay{
       position:fixed; inset:0;
       display:flex; align-items:center; justify-content:center;
       background: rgba(2,6,23,.75);
-      z-index:200;
+      z-index:50;
+      pointer-events:auto;
     }
     .startCard{
       width:min(560px, calc(100% - 24px));
@@ -226,7 +196,7 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + TRUE STEREO PARALL
       backdrop-filter: blur(10px);
       text-align:left;
     }
-    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; justify-content:flex-end; }
+    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; justify-content:flex-end; }
     .btn{
       pointer-events:auto;
       border:1px solid rgba(148,163,184,.18);
@@ -234,7 +204,7 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + TRUE STEREO PARALL
       color: var(--text);
       border-radius: 16px;
       padding: 10px 12px;
-      font-weight: 1000;
+      font-weight: 1100;
       letter-spacing:.2px;
       cursor:pointer;
       box-shadow: 0 18px 60px rgba(0,0,0,.35);
@@ -242,446 +212,774 @@ HydrationVR — PRODUCTION HTML (PATH FIX + CARDBOARD SPLIT + TRUE STEREO PARALL
       user-select:none;
     }
     .btn.secondary{ background: rgba(2,6,23,.55); }
-    .btn.purple{ background: rgba(99,102,241,.18); }
+    .btn.danger{ background: rgba(239,68,68,.18); }
     .btn:active{ transform: translateY(1px); }
 
-    /* ===== Controls (Cardboard) ===== */
+    /* ---------- end summary ---------- */
+    #hvr-end{
+      position:fixed; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(2,6,23,.78);
+      z-index:60;
+      pointer-events:auto;
+    }
+    .endCard{
+      width:min(620px, calc(100% - 24px));
+      background: rgba(2,6,23,.90);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 20px;
+      padding: 14px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+    }
+    .endGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+    .endItem{
+      background: rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 16px;
+      padding: 10px;
+      font-weight: 1100;
+    }
+    .endItem .k{ font-size:11px; color:var(--muted); font-weight:950; }
+    .endItem .v{ margin-top:4px; font-size:16px; }
+
+    /* ---------- cinematic end-window FX ---------- */
+    body.endwindow::after{
+      content:"";
+      position:fixed; inset:-26px;
+      pointer-events:none;
+      z-index:27;
+      opacity: calc(0.10 + (var(--endamp) * 0.20));
+      background:
+        repeating-linear-gradient(
+          0deg,
+          rgba(255,255,255,0) 0px,
+          rgba(255,255,255,0) 2px,
+          rgba(255,255,255,0.020) 3px
+        ),
+        radial-gradient(900px 680px at 50% 42%,
+          rgba(239,68,68, calc(0.07 + (var(--endflash) * 0.24))) 0%,
+          rgba(239,68,68, calc(0.03 + (var(--endflash) * 0.14))) 22%,
+          rgba(2,6,23,0) 60%),
+        radial-gradient(1200px 920px at 50% 50%,
+          rgba(2,6,23,0) 35%,
+          rgba(2,6,23, calc(0.28 + (var(--endamp) * 0.40))) 78%,
+          rgba(2,6,23, calc(0.46 + (var(--endamp) * 0.42))) 100%);
+      mix-blend-mode: screen;
+      filter: saturate(1.25) contrast(1.12);
+      animation: endVigJitter .085s ease-in-out infinite, endFlicker .16s ease-in-out infinite;
+    }
+    @keyframes endVigJitter{
+      0%{ transform: translate3d(0,0,0); }
+      50%{ transform: translate3d(.7px,-.8px,0); }
+      100%{ transform: translate3d(0,0,0); }
+    }
+    @keyframes endFlicker{
+      0%{ opacity: calc(0.09 + (var(--endamp) * 0.18)); }
+      50%{ opacity: calc(0.15 + (var(--endamp) * 0.24)); }
+      100%{ opacity: calc(0.10 + (var(--endamp) * 0.20)); }
+    }
+    body.endwindow #playfield{
+      outline: 2px dashed rgba(239,68,68,.55);
+      filter:
+        saturate(1.18)
+        contrast(1.18)
+        brightness(calc(1.02 + (var(--endflash) * 0.12)))
+        drop-shadow( 1.25px 0px 0px rgba(239,68,68, calc(0.10 + var(--endamp)*0.18)))
+        drop-shadow(-1.25px 0px 0px rgba(34,211,238, calc(0.08 + var(--endamp)*0.14)));
+      animation: endShake .075s ease-in-out infinite;
+    }
+    @keyframes endShake{
+      0%{ transform: translate3d(0,0,0); }
+      25%{ transform: translate3d(2.1px,-2.4px,0); }
+      55%{ transform: translate3d(-1.8px,2.0px,0); }
+      100%{ transform: translate3d(0,0,0); }
+    }
+
+    /* ---------- Cardboard STEREO layout ---------- */
+    body.cardboard #stereoRoot{
+      display:flex;
+    }
+    body.cardboard .eye{
+      position:relative;
+      width:50%;
+      height:100%;
+      overflow:hidden;
+      background:#000;
+    }
+    body.cardboard .eyeInner{
+      position:absolute;
+      left:0; top:0;
+      width:100%;
+      height:100%;
+      transform-origin: 50% 50%;
+      transform: scale(1.05); /* เล็กน้อยให้เต็มเลนส์ */
+    }
+    body.cardboard #divider{
+      position:fixed;
+      top:0; bottom:0;
+      left:50%;
+      width:2px;
+      background: rgba(255,255,255,.08);
+      z-index:200;
+      pointer-events:none;
+    }
+
+    /* right eye clone should not block input */
+    #rightClone{ pointer-events:none !important; }
+    #rightClone *{ pointer-events:none !important; }
+
+    /* Gaze ring (two eyes) */
+    .gazeRing{
+      position:fixed;
+      width:56px; height:56px;
+      border-radius:999px;
+      z-index:220;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+      box-shadow: 0 0 0 2px rgba(229,231,235,.16), 0 0 18px rgba(34,211,238,.10);
+      background:
+        conic-gradient(
+          rgba(34,211,238,.95) calc(var(--gaze)*360deg),
+          rgba(229,231,235,.10) 0
+        );
+      mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
+      -webkit-mask: radial-gradient(circle at 50% 50%, transparent 62%, #000 64%);
+    }
+    body.cardboard.gaze .gazeRing{ opacity:.95; }
+
+    /* centers */
+    #gazeL{ left:25%; top:50%; transform: translate(-50%,-50%); }
+    #gazeR{ left:75%; top:50%; transform: translate(-50%,-50%); }
+
+    /* big shoot pad (cardboard) */
     #shootPad{
       position:fixed;
       left:50%;
       bottom: calc(var(--sab) + 10px);
-      transform:translateX(-50%);
-      z-index:80;
+      transform: translateX(-50%);
+      z-index:230;
       display:none;
+      gap:10px;
       pointer-events:auto;
     }
-    body.cardboard #shootPad{ display:block; }
-    #btnShoot{
+    body.cardboard #shootPad{ display:flex; }
+    #btnShootBig{
       padding:14px 18px;
       border-radius:18px;
       font-size:16px;
-      font-weight:1100;
+      font-weight:1200;
       box-shadow:0 18px 44px rgba(0,0,0,.36);
-      background: rgba(2,6,23,.72);
+      background: rgba(34,197,94,.20);
     }
-    #btnShoot:active{ transform:translateY(1px); }
+    #btnGaze{
+      padding:14px 16px;
+      border-radius:18px;
+      font-size:16px;
+      font-weight:1200;
+      background: rgba(2,6,23,.62);
+    }
 
-    /* Hide heavy HUD in cardboard */
-    body.cardboard .hudBottom{ display:none; }
-
-    /* center divider */
-    body.cardboard::after{
-      content:"";
+    /* small controls */
+    #hudBtns{
       position:fixed;
-      top:0; bottom:0;
-      left:50%;
-      width:1px;
-      background: rgba(148,163,184,.14);
-      z-index:10;
-      pointer-events:none;
+      right:12px;
+      bottom: calc(var(--sab) + 12px);
+      z-index:90;
+      display:flex;
+      gap:10px;
+      pointer-events:auto;
     }
-
-    /* subtle eye inward shift (comfort) */
-    body.cardboard .eye.left  .xhair{ transform: translate(calc(-50% + 2px), -50%); }
-    body.cardboard .eye.right .xhair{ transform: translate(calc(-50% - 2px), -50%); }
+    body.cardboard #hudBtns{ bottom: calc(var(--sab) + 86px); } /* ยกหนี shootPad */
   </style>
 </head>
 
 <body>
-  <!-- HUD TOP (pill) -->
-  <div class="hudTop">
-    <div class="pillRow">
-      <div class="pill"><span class="k">SCORE</span><span class="v" id="stat-score">0</span></div>
-      <div class="pill"><span class="k">COMBO</span><span class="v" id="stat-combo">0</span></div>
-      <div class="pill"><span class="k">MISS</span><span class="v" id="stat-miss">0</span></div>
-      <div class="pill"><span class="k">TIME</span><span class="v" id="stat-time">—</span></div>
-      <div class="pill grade"><span class="k">GRADE</span><span class="v" id="stat-grade">C</span></div>
-    </div>
+  <div id="stereoRoot">
+    <div class="eye" id="eyeL" style="display:none"><div class="eyeInner" id="eyeInnerL"></div></div>
+    <div class="eye" id="eyeR" style="display:none"><div class="eyeInner" id="eyeInnerR"></div></div>
 
-    <div class="pillRow">
-      <div class="pill water"><span class="k">ZONE</span><span class="v" id="water-zone">—</span></div>
-      <div class="pill water"><span class="k">WATER</span><span class="v" id="water-pct">0%</span></div>
-      <div class="pill"><span class="k">SHIELD</span><span class="v" id="shield-count">0</span></div>
-      <div class="pill"><span class="k">STORM</span><span class="v"><span id="storm-left">0</span>s</span></div>
-    </div>
-  </div>
+    <!-- default single stage mount -->
+    <div id="singleMount">
+      <div class="stage" id="stageMain">
+        <div class="hud">
+          <div class="card">
+            <h3>📊 Stats</h3>
+            <div class="row">
+              <div class="stat">Score <b id="stat-score">0</b></div>
+              <div class="stat">Combo <b id="stat-combo">0</b> <span class="muted">(Max <span id="stat-combo-max">0</span>)</span></div>
+              <div class="stat">Miss <b id="stat-miss">0</b></div>
+              <div class="stat">Time <b id="stat-time">—</b></div>
+              <div class="stat">Grade <b id="stat-grade">C</b></div>
+            </div>
 
-  <!-- HUD BOTTOM (cards) -->
-  <div class="hudBottom">
-    <div class="card" style="min-width:280px">
-      <h3>💧 Water Gauge</h3>
-      <div class="barWrap"><div id="water-bar" class="bar" aria-valuemin="0" aria-valuemax="100"></div></div>
-      <div class="questLine" style="margin-top:8px">
-        <span class="tag">Tip</span><span style="color:var(--muted);font-weight:900">คุม GREEN ให้ดี แล้วจังหวะ Storm ค่อย “เสี่ยง”</span>
-      </div>
-    </div>
-
-    <div class="card" style="min-width:340px">
-      <h3>🧩 Quest</h3>
-      <div class="questLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
-      <div class="questLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
-      <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
-      <div class="questLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
-      <div class="questLine" style="margin-top:8px;color:var(--muted)">
-        ยิง = แตะกลางจอ / (Cardboard) กด SHOOT / (Gaze) มองค้างแล้วปล่อยให้ยิง
-      </div>
-    </div>
-  </div>
-
-  <!-- PLAY STAGE -->
-  <div class="stage">
-    <div id="cbWrap">
-      <!-- LEFT EYE (real game host) -->
-      <div class="eye left">
-        <div class="pf" id="pfL">
-          <div id="playfield">
-            <div id="hvr-layer"></div>
+            <!-- mini pills -->
+            <div class="pillRow">
+              <div class="pill">🛡️ <span class="k">SHIELD</span> <span class="v" id="shield-count">0</span></div>
+              <div class="pill">🌪️ <span class="k">STORM</span> <span class="v"><span id="storm-left">0</span>s</span></div>
+            </div>
           </div>
-          <div class="xhair" aria-hidden="true"></div>
+
+          <div class="card" style="min-width:260px">
+            <h3>🧠 Coach</h3>
+            <div class="questLine" id="coach-text">แตะ START เพื่อเริ่ม</div>
+            <div class="questLine muted" id="coach-sub">Cardboard: เปิด Gaze แล้วจ้องเป้าเพื่อยิง</div>
+          </div>
         </div>
-      </div>
 
-      <!-- RIGHT EYE (stereo mirror + parallax) -->
-      <div class="eye right">
-        <div class="pf" id="pfR">
-          <div id="playfieldR">
-            <div id="hvr-layer-r" aria-hidden="true"></div>
+        <div id="playfield">
+          <div id="hvr-layer"></div>
+        </div>
+
+        <div class="bottom">
+          <div class="card" style="min-width:280px">
+            <h3>💧 Water Gauge</h3>
+            <div class="row" style="justify-content:space-between">
+              <div class="stat">Zone <b id="water-zone">—</b></div>
+              <div class="stat"><b id="water-pct">0%</b></div>
+            </div>
+            <div class="barWrap"><div id="water-bar" class="bar"></div></div>
+            <div class="questLine muted" style="margin-top:8px">
+              Tip: Storm mini ต้อง “ออก LOW/HIGH” แล้วบล็อก BAD ตอนท้ายพายุ
+            </div>
           </div>
-          <div class="xhair" aria-hidden="true"></div>
+
+          <div class="card" style="min-width:360px">
+            <h3>🧩 Quest</h3>
+            <div class="questLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
+            <div class="questLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
+            <div class="questLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
+            <div class="questLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- START OVERLAY -->
+  <!-- overlays -->
+  <div id="crosshair" aria-hidden="true"></div>
+  <div id="divider" aria-hidden="true" style="display:none"></div>
+  <div class="gazeRing" id="gazeL" aria-hidden="true"></div>
+  <div class="gazeRing" id="gazeR" aria-hidden="true"></div>
+
+  <!-- controls -->
+  <div id="hudBtns">
+    <button class="btn secondary" id="btnCardboard" type="button">📦 CARDBOARD</button>
+    <button class="btn secondary" id="btnReset" type="button">🔁 RELOAD</button>
+  </div>
+
+  <div id="shootPad">
+    <button class="btn" id="btnShootBig" type="button">🎯 SHOOT</button>
+    <button class="btn secondary" id="btnGaze" type="button">👁️ GAZE</button>
+  </div>
+
+  <!-- start overlay -->
   <div id="start-overlay">
     <div class="startCard">
-      <div style="font-size:18px;font-weight:1100">💧 Hydration VR</div>
-      <div style="margin-top:6px; color:var(--muted); font-size:12px; font-weight:900; line-height:1.35">
-        ✅ FIX path แล้ว (ไม่ 404) • Cardboard 2 จอ + “สเตอริโอ parallax” จริง<br>
-        🎯 ยิง: แตะกลางจอ (ปกติ) หรือกด SHOOT (Cardboard)<br>
-        👁️ Gaze: มองค้างที่เป้าให้วงเต็ม → ยิงอัตโนมัติ (ไว+แม่น)
+      <div style="font-size:18px;font-weight:1200">💧 Hydration VR</div>
+      <div class="muted" style="margin-top:6px; font-size:12px; font-weight:900; line-height:1.35">
+        เป้า: GOOD 💧 / BAD 🥤 / SHIELD 🛡️<br>
+        Goal: คุมให้น้ำอยู่ GREEN ให้ครบ • Storm mini: ออก LOW/HIGH แล้วบล็อก BAD ตอนท้ายพายุ
       </div>
       <div class="btnRow">
-        <button class="btn secondary" id="btnCardboard" type="button">📦 CARDBOARD</button>
-        <button class="btn purple" id="btnGaze" type="button">👁️ GAZE: ON</button>
-        <button class="btn secondary" id="btnStereo" type="button">🧿 STEREO: ON</button>
-        <button class="btn" id="btnStart" type="button">🚀 START</button>
+        <button class="btn" id="btn-start" type="button">🚀 START</button>
+        <button class="btn secondary" id="btn-stop" type="button">⛔ STOP</button>
+      </div>
+      <div class="muted" style="margin-top:10px; font-size:12px; font-weight:900">
+        Tip (Cardboard): กด CARDBOARD → เปิด GAZE → จ้องเป้าเพื่อยิง (หรือกด SHOOT)
       </div>
     </div>
   </div>
 
-  <!-- Cardboard shoot pad -->
-  <div id="shootPad">
-    <button class="btn" id="btnShoot" type="button">🎯 SHOOT</button>
+  <!-- end summary -->
+  <div id="hvr-end">
+    <div class="endCard">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div style="font-size:18px; font-weight:1200">🏁 Summary</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn secondary" id="btn-back" type="button">🏠 Back HUB</button>
+          <button class="btn" id="btn-retry" type="button">🔁 Retry</button>
+        </div>
+      </div>
+      <div class="endGrid">
+        <div class="endItem"><div class="k">Score</div><div class="v" id="end-score">0</div></div>
+        <div class="endItem"><div class="k">Grade</div><div class="v" id="end-grade">C</div></div>
+        <div class="endItem"><div class="k">Combo Max</div><div class="v" id="end-combo">0</div></div>
+        <div class="endItem"><div class="k">Miss</div><div class="v" id="end-miss">0</div></div>
+        <div class="endItem"><div class="k">Goal</div><div class="v" id="end-goal">0/1</div></div>
+        <div class="endItem"><div class="k">Mini</div><div class="v" id="end-mini">0</div></div>
+      </div>
+      <div class="muted" style="margin-top:10px; font-size:12px; font-weight:900">
+        ผลล่าสุดถูกบันทึกที่ localStorage: <b>HHA_LAST_SUMMARY</b>
+      </div>
+    </div>
   </div>
 
-  <!-- ✅ IMPORTANT: module path must be inside /herohealth/hydration-vr/ -->
-  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
+  <!-- ✅ IMPORTANT: hydration.safe.js correct path -->
+  <script type="module" src="./hydration-vr/hydration.safe.js?v=20251228"></script>
 
   <script>
   (function(){
     'use strict';
 
     const D = document;
-    const body = D.body;
+    const root = window;
 
-    const btnStart = D.getElementById('btnStart');
-    const btnCardboard = D.getElementById('btnCardboard');
-    const btnGaze = D.getElementById('btnGaze');
-    const btnStereo = D.getElementById('btnStereo');
+    // ---------- URL helpers ----------
+    function qs(name, def){
+      try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch{ return def; }
+    }
+
+    // ---------- Start gating ----------
     const startOverlay = D.getElementById('start-overlay');
-    const btnShoot = D.getElementById('btnShoot');
+    const btnStart = D.getElementById('btn-start');
+    const btnStop  = D.getElementById('btn-stop');
 
-    const pfL = D.getElementById('pfL');
-    const layerL = D.getElementById('hvr-layer');
-    const layerR = D.getElementById('hvr-layer-r');
+    // ---------- End overlay ----------
+    const endWrap = D.getElementById('hvr-end');
+    const btnRetry = D.getElementById('btn-retry');
+    const btnBack  = D.getElementById('btn-back');
 
-    function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
-
-    // --- audio unlock (mobile) ---
-    async function resumeAudio(){
+    btnRetry.addEventListener('click', ()=>location.reload());
+    btnBack.addEventListener('click', ()=>{
+      const hub = String(qs('hub','./hub.html'));
       try{
+        const u = new URL(hub, location.href);
+        u.searchParams.set('ts', String(Date.now()));
+        location.href = u.toString();
+      }catch{
+        location.href = hub;
+      }
+    });
+
+    btnStop.addEventListener('click', ()=>{
+      // graceful end (hydration.safe.js also protects on unload)
+      try{
+        root.dispatchEvent(new CustomEvent('hha:force_end', { detail:{ reason:'stop' } }));
+      }catch{}
+      location.reload();
+    });
+
+    // ---------- Audio (beep / tick / thunder) ----------
+    const AudioFX = (() => {
+      let ctx = null;
+      function ensure(){
+        if (ctx) return ctx;
         const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        const ctx = new AC();
-        if (ctx.state === 'suspended') await ctx.resume();
-        await ctx.close();
-      }catch(e){}
+        if (!AC) return null;
+        ctx = new AC();
+        return ctx;
+      }
+      async function resume(){
+        const c = ensure(); if (!c) return;
+        if (c.state === 'suspended') { try{ await c.resume(); }catch{} }
+      }
+      function beep(freq=880, gain=0.03, dur=0.06){
+        const c = ensure(); if (!c) return;
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        g.gain.value = 0.0001;
+        o.connect(g); g.connect(c.destination);
+        const t0 = c.currentTime;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.01,gain), t0 + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.start(t0);
+        o.stop(t0 + dur + 0.01);
+      }
+      function tick(){
+        const c = ensure(); if(!c) return;
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'square';
+        o.frequency.value = 1250;
+        g.gain.value = 0.0001;
+        o.connect(g); g.connect(c.destination);
+        const t0 = c.currentTime;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.040, t0 + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.038);
+        o.start(t0);
+        o.stop(t0 + 0.05);
+      }
+      function thunder(gain=0.08){
+        const c = ensure(); if(!c) return;
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(85, c.currentTime);
+        o.frequency.exponentialRampToValueAtTime(36, c.currentTime + 0.75);
+        g.gain.setValueAtTime(0.0001, c.currentTime);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.02, gain), c.currentTime + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.95);
+        o.connect(g); g.connect(c.destination);
+        o.start();
+        o.stop(c.currentTime + 1.0);
+      }
+      return { resume, beep, tick, thunder };
+    })();
+
+    // resume audio on first gesture
+    window.addEventListener('pointerdown', ()=>AudioFX.resume(), { passive:true });
+
+    btnStart.addEventListener('click', async ()=>{
+      await AudioFX.resume();
+      startOverlay.style.display = 'none';
+      // hydration.safe.js waits for overlay hide automatically
+    });
+
+    // ---------- Cinematic end-window driver (faster & tighter) ----------
+    function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b, v)); }
+    function setEndVars(amp, flash){
+      amp = clamp(amp, 0, 1);
+      flash = clamp(flash, 0, 1);
+      D.documentElement.style.setProperty('--endamp', String(amp));
+      D.documentElement.style.setProperty('--endflash', String(flash));
     }
 
-    // --- fire: simulate a center tap on LEFT playfield (fast + consistent) ---
-    let fireCd = 0;
-    function fire(){
-      const now = performance.now();
-      if (now < fireCd) return;
-      fireCd = now + 95; // ✅ faster than before
-
-      try{
-        const r = pfL.getBoundingClientRect();
-        const x = Math.round(r.left + r.width/2);
-        const y = Math.round(r.top + r.height/2);
-
-        const evDown = new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:x, clientY:y, pointerType:'touch' });
-        const evUp   = new PointerEvent('pointerup',   { bubbles:true, cancelable:true, clientX:x, clientY:y, pointerType:'touch' });
-        pfL.dispatchEvent(evDown);
-        pfL.dispatchEvent(evUp);
-
-        pfL.click();
-      }catch(e){}
-    }
-
-    // --- cardboard toggle ---
-    function setCardboard(on){
+    let endOn=false, tEnter=0, acc=0, lastT=0, thundered=false, currentAmp=0;
+    function setEnd(on){
       on = !!on;
-      body.classList.toggle('cardboard', on);
-      // in cardboard we typically want stereo
-      if (on) setStereo(true);
-    }
+      if (on === endOn) return;
+      endOn = on;
 
-    // --- gaze toggle ---
-    let gazeOn = true;
-    let dwellMs = 260;          // ✅ faster
-    let cooldownMs = 120;       // ✅ snappier
-    let gazeT = 0;
-    let lastTarget = null;
-    let lastTick = performance.now();
-    let gazeCooldownUntil = 0;
-
-    function setGaze(on){
-      gazeOn = !!on;
-      body.classList.toggle('gazeOn', gazeOn);
-      btnGaze.textContent = gazeOn ? '👁️ GAZE: ON' : '👁️ GAZE: OFF';
-      gazeT = 0; lastTarget = null;
-      D.documentElement.style.setProperty('--gazeProg', '0');
-    }
-
-    // --- stereo toggle + strength ---
-    let stereoOn = true;
-    let ipdPx = 9;
-
-    function setStereo(on){
-      stereoOn = !!on;
-      btnStereo.textContent = stereoOn ? '🧿 STEREO: ON' : '🧿 STEREO: OFF';
-    }
-    function setIPD(px){
-      ipdPx = clamp(px, 0, 22);
-      D.documentElement.style.setProperty('--ipd', ipdPx.toFixed(2) + 'px');
-    }
-
-    // --- Mirror map (src element -> mirror element) ---
-    const mirrorMap = new WeakMap();
-
-    function ensureMirrorNode(src){
-      let m = mirrorMap.get(src);
-      if (m && m.isConnected) return m;
-      m = src.cloneNode(true);
-      mirrorMap.set(src, m);
-      return m;
-    }
-
-    // --- heuristics: compute disparity for a target (true parallax-ish) ---
-    // idea: bigger target = "closer" => larger disparity; smaller = "far" => smaller disparity
-    function disparityFor(srcEl){
-      try{
-        const r = srcEl.getBoundingClientRect();
-        const size = Math.max(10, Math.min(220, (r.width + r.height) * 0.5));
-        // map size -> depth factor (0..1)
-        // small -> 0.25, medium -> 0.6, large -> 1.0
-        const t = clamp((size - 18) / 86, 0, 1);
-        const depth = 0.25 + 0.75 * t;
-        return ipdPx * depth;
-      }catch(e){
-        return ipdPx * 0.65;
-      }
-    }
-
-    // apply stereo shift for mirrored node (RIGHT eye)
-    function applyStereoShift(src, mirror){
-      if (!stereoOn) {
-        // remove our injected translate if present
-        mirror.style.transform = src.style.transform || '';
-        return;
-      }
-
-      const dx = disparityFor(src);
-      const base = src.style.transform || '';
-      // Append an extra translateX for RIGHT eye (negative = shift left)
-      // (Left eye stays as-is; Right eye gets -dx)
-      // Add translate3d at end to preserve existing transforms.
-      mirror.style.transform = (base ? base + ' ' : '') + `translate3d(${-dx}px,0,0)`;
-    }
-
-    function copyCore(s, d){
-      // style/class/text/dataset (keep fast)
-      if (d.className !== s.className) d.className = s.className;
-      if (d.textContent !== s.textContent) d.textContent = s.textContent;
-
-      // copy inline style but we override transform for stereo
-      if (d.getAttribute('style') !== s.getAttribute('style')) d.setAttribute('style', s.getAttribute('style') || '');
-
-      // dataset
-      const sd = s.dataset || {};
-      const dd = d.dataset || {};
-      for (const k of Object.keys(sd)){
-        if (dd[k] !== sd[k]) dd[k] = sd[k];
-      }
-    }
-
-    // --- Mirror sync: clone LEFT targets into RIGHT + apply stereo disparity ---
-    function syncMirrorTree(){
-      if (!body.classList.contains('cardboard')){
-        if (layerR.childNodes.length) layerR.innerHTML = '';
-        return;
-      }
-
-      const srcKids = Array.from(layerL.children);
-
-      // quick rebuild if big mismatch
-      if (layerR.children.length !== srcKids.length){
-        layerR.innerHTML = '';
-        for (const s of srcKids){
-          const m = ensureMirrorNode(s);
-          copyCore(s, m);
-          applyStereoShift(s, m);
-          layerR.appendChild(m);
-        }
-        return;
-      }
-
-      // per index sync
-      for (let i=0; i<srcKids.length; i++){
-        const s = srcKids[i];
-        let d = layerR.children[i];
-        const m = ensureMirrorNode(s);
-
-        if (!d){
-          copyCore(s, m);
-          applyStereoShift(s, m);
-          layerR.appendChild(m);
-          continue;
-        }
-
-        // if tag differs -> replace
-        if (d.tagName !== m.tagName){
-          copyCore(s, m);
-          applyStereoShift(s, m);
-          d.replaceWith(m);
-          d = m;
-        } else {
-          copyCore(s, d);
-          applyStereoShift(s, d);
-        }
-      }
-    }
-
-    // --- find target under gaze point (center of LEFT eye) ---
-    function pickTargetAtCenter(){
-      const r = pfL.getBoundingClientRect();
-      const x = Math.round(r.left + r.width/2);
-      const y = Math.round(r.top + r.height/2);
-      const el = D.elementFromPoint(x, y);
-      if (!el) return null;
-
-      const t =
-        el.closest('#hvr-layer [data-kind]') ||
-        el.closest('#hvr-layer [data-role="target"]') ||
-        el.closest('#hvr-layer .target') ||
-        el.closest('#hvr-layer .hha-target') ||
-        null;
-
-      return t;
-    }
-
-    function gazeLoop(now){
-      const dt = Math.min(0.05, Math.max(0.001, (now - lastTick)/1000));
-      lastTick = now;
-
-      // keep mirror updated
-      syncMirrorTree();
-
-      if (body.classList.contains('cardboard') && gazeOn){
-        const t = pickTargetAtCenter();
-        if (now < gazeCooldownUntil){
-          D.documentElement.style.setProperty('--gazeProg', '0');
-        } else if (!t){
-          gazeT = 0;
-          lastTarget = null;
-          D.documentElement.style.setProperty('--gazeProg', '0');
-        } else {
-          if (t !== lastTarget){
-            lastTarget = t;
-            gazeT = 0;
-          }
-          gazeT += dt * 1000;
-          const prog = clamp(gazeT / dwellMs, 0, 1);
-          D.documentElement.style.setProperty('--gazeProg', String(prog));
-
-          if (prog >= 1){
-            fire();
-            gazeCooldownUntil = now + cooldownMs;
-            gazeT = 0;
-            D.documentElement.style.setProperty('--gazeProg', '0');
-          }
-        }
+      if (on){
+        tEnter = performance.now();
+        acc = 0;
+        thundered = false;
+        currentAmp = 0.28;
+        D.body.classList.add('endwindow');
+        AudioFX.tick();
+        setEndVars(currentAmp, 0.85);
+        setTimeout(()=>setEndVars(currentAmp, 0), 80);
       } else {
-        D.documentElement.style.setProperty('--gazeProg', '0');
+        D.body.classList.remove('endwindow');
+        currentAmp = 0;
+        setEndVars(0,0);
+      }
+    }
+
+    function loop(t){
+      const dt = Math.min(0.05, Math.max(0.001, (t - (lastT||t)) / 1000));
+      lastT = t;
+
+      const H = root.__HVR__;
+      const S = H && H.S;
+      const TUNE = H && H.TUNE;
+
+      if (S && TUNE){
+        const inEnd = !!(S.stormActive && (S.stormLeftSec <= (TUNE.endWindowSec + 0.02)));
+        setEnd(inEnd);
+
+        if (endOn){
+          const elapsed = (t - tEnter) / 1000;
+          const k = clamp(elapsed / 0.92, 0, 1);      // เร็วขึ้น
+          currentAmp = 0.28 + 0.72*k;
+          setEndVars(currentAmp, 0);
+
+          // tick accel: 0.12 -> ~0.045 (แม่นขึ้น/กระชับ)
+          const rate = Math.max(0.045, 0.12 - (0.075 * k));
+          acc += dt;
+
+          while (acc >= rate){
+            acc -= rate;
+            AudioFX.tick();
+            setEndVars(currentAmp, 0.55 + 0.45*k);
+            setTimeout(()=>setEndVars(currentAmp, 0), 70);
+          }
+
+          if (!thundered && k > 0.80){
+            thundered = true;
+            AudioFX.thunder(0.06);
+          }
+        }
+      }
+
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // ---------- Storm / hit SFX (from events) ----------
+    let lastStorm = false;
+    window.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail || {};
+      const storm = !!d.stormActive;
+      if (storm && !lastStorm){
+        AudioFX.thunder(0.07);
+      }
+      lastStorm = storm;
+    }, { passive:true });
+
+    window.addEventListener('hha:judge', (ev)=>{
+      const d = ev.detail || {};
+      if (d.kind === 'good')   AudioFX.beep(920, 0.025, 0.055);
+      if (d.kind === 'shield') AudioFX.beep(760, 0.028, 0.06);
+      if (d.kind === 'block')  AudioFX.beep(520, 0.032, 0.07);
+      if (d.kind === 'bad')    AudioFX.beep(260, 0.035, 0.08);
+    }, { passive:true });
+
+    // ---------- End summary binder ----------
+    window.addEventListener('hha:end', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      try{
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
+        localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
+      }catch{}
+
+      const s = D.getElementById('end-score'); if(s) s.textContent = String(d.scoreFinal ?? 0);
+      const g = D.getElementById('end-grade'); if(g) g.textContent = String(d.grade ?? 'C');
+      const c = D.getElementById('end-combo'); if(c) c.textContent = String(d.comboMax ?? 0);
+      const m = D.getElementById('end-miss');  if(m) m.textContent = String(d.misses ?? 0);
+      const gg= D.getElementById('end-goal');  if(gg) gg.textContent = String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0);
+      const mn= D.getElementById('end-mini');  if(mn) mn.textContent = String(d.miniCleared ?? 0);
+
+      endWrap.style.display = 'flex';
+    }, { passive:true });
+
+    // ---------- Cardboard stereo (true 2 stages: original + cloned mirror) ----------
+    const btnCardboard = D.getElementById('btnCardboard');
+    const btnReset = D.getElementById('btnReset');
+    const btnShootBig = D.getElementById('btnShootBig');
+    const btnGaze = D.getElementById('btnGaze');
+
+    const eyeL = D.getElementById('eyeL');
+    const eyeR = D.getElementById('eyeR');
+    const eyeInnerL = D.getElementById('eyeInnerL');
+    const eyeInnerR = D.getElementById('eyeInnerR');
+    const singleMount = D.getElementById('singleMount');
+    const divider = D.getElementById('divider');
+
+    const gazeL = D.getElementById('gazeL');
+    const gazeR = D.getElementById('gazeR');
+
+    btnReset.addEventListener('click', ()=>location.reload());
+
+    let cardboardOn = false;
+    let gazeOn = false;
+
+    // build right clone and id mapping
+    function suffixIds(rootEl, suf){
+      const all = rootEl.querySelectorAll('[id]');
+      for (const el of all){
+        el.id = el.id + suf;
+      }
+    }
+
+    // mirror HUD values to right clone (ids _r)
+    function mirrorText(id, val){
+      const el = D.getElementById(id + '_r');
+      if (el) el.textContent = String(val);
+    }
+    function mirrorWater(pct, zone){
+      const bar = D.getElementById('water-bar_r');
+      if (bar) bar.style.width = (Math.round(pct*100)/100) + '%';
+      mirrorText('water-pct', Math.round(pct) + '%');
+      mirrorText('water-zone', zone || '—');
+    }
+
+    let rightClone = null;
+    let mo = null;
+
+    function enableCardboard(){
+      if (cardboardOn) return;
+      cardboardOn = true;
+
+      D.body.classList.add('cardboard');
+
+      eyeL.style.display = 'block';
+      eyeR.style.display = 'block';
+      divider.style.display = 'block';
+
+      // move original stage into left eye
+      eyeInnerL.appendChild(singleMount.firstElementChild);
+
+      // clone stage for right eye
+      rightClone = eyeInnerL.firstElementChild.cloneNode(true);
+      rightClone.id = 'rightClone';
+      suffixIds(rightClone, '_r');
+      eyeInnerR.appendChild(rightClone);
+
+      // mirror live targets layer by syncing innerHTML (fast enough for this scale)
+      const leftLayer = D.getElementById('hvr-layer');
+      const rightLayer = D.getElementById('hvr-layer_r');
+
+      if (leftLayer && rightLayer){
+        const sync = ()=>{
+          try{ rightLayer.innerHTML = leftLayer.innerHTML; }catch{}
+        };
+        sync();
+
+        mo = new MutationObserver(()=>sync());
+        mo.observe(leftLayer, { childList:true, subtree:true, attributes:true });
+      }
+
+      // mirror HUD values via events
+      window.addEventListener('hha:score', onScoreMirror, { passive:true });
+      window.addEventListener('quest:update', onQuestMirror, { passive:true });
+      window.addEventListener('hha:time', onTimeMirror, { passive:true });
+
+      // also mirror start overlay visibility (right)
+      const so = D.getElementById('start-overlay');
+      const soR = D.getElementById('start-overlay_r');
+      if (so && soR){
+        const syncStart = ()=>{
+          const cs = getComputedStyle(so);
+          soR.style.display = cs.display;
+        };
+        const mo2 = new MutationObserver(syncStart);
+        mo2.observe(so, { attributes:true, attributeFilter:['style','class'] });
+        syncStart();
+        // store to disconnect? small so ok
+      }
+    }
+
+    function disableCardboard(){
+      if (!cardboardOn) return;
+      cardboardOn = false;
+
+      gazeOn = false;
+      D.body.classList.remove('cardboard','gaze');
+      D.documentElement.style.setProperty('--gaze','0');
+
+      divider.style.display = 'none';
+
+      // detach mirror observers
+      if (mo){ try{ mo.disconnect(); }catch{} mo = null; }
+
+      window.removeEventListener('hha:score', onScoreMirror);
+      window.removeEventListener('quest:update', onQuestMirror);
+      window.removeEventListener('hha:time', onTimeMirror);
+
+      // move original stage back to singleMount
+      const leftStage = eyeInnerL.firstElementChild;
+      if (leftStage) singleMount.appendChild(leftStage);
+
+      // clear right
+      eyeInnerR.innerHTML = '';
+      rightClone = null;
+
+      eyeL.style.display = 'none';
+      eyeR.style.display = 'none';
+    }
+
+    function onScoreMirror(ev){
+      const d = ev.detail || {};
+      mirrorText('stat-score', d.score|0);
+      mirrorText('stat-combo', d.combo|0);
+      mirrorText('stat-combo-max', d.comboMax|0);
+      mirrorText('stat-miss', d.misses|0);
+      mirrorText('stat-grade', d.grade || 'C');
+      mirrorText('shield-count', d.shield|0);
+      mirrorText('storm-left', d.stormActive ? (d.stormLeftSec|0) : 0);
+      mirrorWater(d.waterPct ?? 0, d.waterZone || '—');
+    }
+    function onQuestMirror(ev){
+      const d = ev.detail || {};
+      mirrorText('quest-line1', d.goalTitle ? `คุม GREEN ให้ครบ ${Math.round(d.goalNeed||0)}s (สะสม)` : '—');
+      mirrorText('quest-line2', `GREEN: ${(d.goalNow||0).toFixed ? (d.goalNow).toFixed(1) : (d.goalNow||0)} / ${(d.goalNeed||0).toFixed ? (d.goalNeed).toFixed(0) : (d.goalNeed||0)}s`);
+      mirrorText('quest-line3', d.miniTitle ? `Storm Mini: Shield Timing (โหมดโหด)` : '—');
+      mirrorText('quest-line4', d.miniUrgent ? 'State: END-WINDOW 🔥' : 'State: …');
+    }
+    function onTimeMirror(ev){
+      const d = ev.detail || {};
+      mirrorText('stat-time', d.left|0);
+    }
+
+    btnCardboard.addEventListener('click', ()=>{
+      if (!cardboardOn) enableCardboard();
+      else disableCardboard();
+    });
+
+    // ---------- Gaze + Shoot ----------
+    function shootAtCenter(){
+      // works on LEFT stage only
+      const leftRoot = cardboardOn ? eyeInnerL : document;
+      const layer = leftRoot.querySelector('#hvr-layer');
+      if (!layer) return;
+
+      const eyeRect = (cardboardOn ? eyeL.getBoundingClientRect() : { left:0, top:0, width:innerWidth, height:innerHeight });
+      const gx = eyeRect.left + (eyeRect.width/2);
+      const gy = eyeRect.top + (eyeRect.height/2);
+
+      // find nearest target
+      const targets = layer.querySelectorAll('.hvr-target');
+      let best = null;
+      let bestD = 1e9;
+
+      for (const t of targets){
+        const r = t.getBoundingClientRect();
+        const cx = r.left + r.width/2;
+        const cy = r.top + r.height/2;
+        const dx = cx - gx, dy = cy - gy;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < bestD){
+          bestD = d2;
+          best = t;
+        }
+      }
+
+      if (!best) return;
+
+      // threshold: allow some “aim assist” for gaze
+      const br = best.getBoundingClientRect();
+      const thr = Math.max(26, (br.width * 0.62));
+      if (bestD > thr*thr) return;
+
+      try{
+        best.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerId: 1 }));
+      }catch{
+        try{ best.click(); }catch{}
+      }
+    }
+
+    btnShootBig.addEventListener('click', async ()=>{
+      await AudioFX.resume();
+      shootAtCenter();
+    });
+
+    // gaze dwell
+    let gazeT = 0;
+    let gazeFill = 0;
+    let lastFrame = 0;
+
+    function setGazeFill(v){
+      v = Math.max(0, Math.min(1, v));
+      D.documentElement.style.setProperty('--gaze', String(v));
+    }
+
+    function gazeLoop(t){
+      const dt = Math.min(0.05, Math.max(0.001, (t - (lastFrame||t))/1000));
+      lastFrame = t;
+
+      if (cardboardOn && gazeOn){
+        // dwell time: 0.62s (เร็วขึ้น)
+        const dwell = 0.62;
+        gazeFill += dt / dwell;
+        if (gazeFill >= 1){
+          gazeFill = 0;
+          shootAtCenter();
+        }
+        setGazeFill(gazeFill);
+      } else {
+        gazeFill = 0;
+        setGazeFill(0);
       }
 
       requestAnimationFrame(gazeLoop);
     }
     requestAnimationFrame(gazeLoop);
 
-    // --- buttons ---
-    btnCardboard.addEventListener('click', async ()=>{
-      await resumeAudio();
-      setCardboard(!body.classList.contains('cardboard'));
-      if (body.classList.contains('cardboard')) setGaze(true);
-    });
-
     btnGaze.addEventListener('click', async ()=>{
-      await resumeAudio();
-      setGaze(!gazeOn);
+      await AudioFX.resume();
+      if (!cardboardOn) enableCardboard();
+      gazeOn = !gazeOn;
+      D.body.classList.toggle('gaze', gazeOn);
     });
 
-    btnStereo.addEventListener('click', async ()=>{
-      await resumeAudio();
-      setStereo(!stereoOn);
-    });
-
-    btnShoot.addEventListener('click', async ()=>{
-      await resumeAudio();
-      fire();
-    });
-
-    btnStart.addEventListener('click', async ()=>{
-      await resumeAudio();
-      startOverlay.style.display = 'none';
-    });
-
-    // --- defaults & URL params ---
-    setGaze(true);
-    setStereo(true);
-    setIPD(9);
-
-    try{
-      const u = new URL(location.href);
-      if (u.searchParams.get('cardboard') === '1') setCardboard(true);
-
-      const g = u.searchParams.get('gaze');
-      if (g === '0') setGaze(false);
-      if (g === '1') setGaze(true);
-
-      const st = u.searchParams.get('stereo');
-      if (st === '0') setStereo(false);
-      if (st === '1') setStereo(true);
-
-      const dwell = Number(u.searchParams.get('gazedwell'));
-      if (Number.isFinite(dwell) && dwell >= 150 && dwell <= 1200) dwellMs = dwell;
-
-      const ipd = Number(u.searchParams.get('ipd'));
-      if (Number.isFinite(ipd) && ipd >= 0 && ipd <= 22) setIPD(ipd);
-    }catch(e){}
   })();
   </script>
 </body>
