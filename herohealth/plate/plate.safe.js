@@ -1,59 +1,41 @@
 /* === /herohealth/plate-vr/plate.safe.js ===
 Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH PATCH)
+✅ DOM emoji targets on #plate-layer
+✅ Seeded RNG (research default) + optional ?seed=
+✅ Play mode: adaptive difficulty (spawn/ttl/size/junkBias live)
+✅ Research mode: fixed by diff (easy/normal/hard)
+✅ Miss definition: miss = good expired + junk hit (NOT blocked by shield)
+✅ FEVER -> Shield (blocks junk; guarded junk does NOT count as miss)
+✅ Quest: Goals stages (1/3,2/3,3/3) + Mini “Plate Rush” (5 in 8s + no junk during mini)
 ✅ End Summary overlay + Back HUB + localStorage(HHA_LAST_SUMMARY)
-✅ Deterministic RNG (research default) + optional play ?seed=
-✅ Events logger compatible: hha:log_event {type:'spawn'|'hit'|'miss_expire'|'shield_block', data:{...}}
-✅ Metrics computed during play + emitted in hha:end
-✅ VR-feel view shift (drag + gyro) + clamp safe zone (avoid HUD all sides)
-✅ Goals sequential + Minis chain (incl. Plate Rush: "ครบ 5 ภายใน 8 วินาที" + "ห้ามโดนขยะ")
-✅ FEVER -> auto Shield (blocks junk hit; blocked junk does NOT count as miss)
-✅ FLUSH: before END + before HUB + pagehide/visibilitychange best-effort
+✅ Cloud Logger compatible: hha:log_event({type:'spawn'|'hit'|'miss_expire'|'shield_block'|'end'... , data:{...}})
+✅ NEW: flushNowBestEffort() + flush before goHub / before end overlay / pagehide
 */
 
-(function (root) {
+(function(root){
   'use strict';
-
   const DOC = root.document;
   if (!DOC) return;
 
-  // ------------------------------------------------------------
-  // Root modules (Particles / FeverUI / Cloud Logger)
-  // ------------------------------------------------------------
-  const Particles =
-    (root.GAME_MODULES && root.GAME_MODULES.Particles) ||
-    root.Particles ||
-    { scorePop(){}, burstAt(){}, celebrate(){}, judgeText(){} };
+  // ------------------------- Globals -------------------------
+  const NS = (root.PlateVR = root.PlateVR || {});
+  const Boot = (root.PlateBoot = root.PlateBoot || {});
+  const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch(_){} };
 
-  const FeverUI =
-    (root.GAME_MODULES && root.GAME_MODULES.FeverUI) ||
-    root.FeverUI ||
-    { ensure(){}, set(){}, pulse(){}, setShield(){}, setFeverState(){} };
-
-  const CloudLogger =
-    (root.GAME_MODULES && root.GAME_MODULES.HHACloudLogger) ||
-    root.HHACloudLogger ||
-    null;
-
-  // ------------------------------------------------------------
-  // Utils
-  // ------------------------------------------------------------
-  function nowMs(){ return (root.performance && performance.now) ? performance.now() : Date.now(); }
-  function clamp(v, a, b){ v = Number(v); if(!Number.isFinite(v)) v = 0; return v<a?a:(v>b?b:v); }
-  function lerp(a,b,t){ return a + (b-a)*t; }
-
+  // ------------------------- Helpers -------------------------
+  function now(){ return (root.performance && performance.now) ? performance.now() : Date.now(); }
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
   function qs(name, def){
-    try{
-      const u = new URL(root.location.href);
-      const v = u.searchParams.get(name);
-      return (v === null || v === undefined || v === '') ? def : v;
-    }catch(_){ return def; }
+    try{ return (new URL(root.location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
   }
-  function qsInt(name, def){
-    const v = parseInt(qs(name, String(def)), 10);
+  function intQ(name, def){
+    const v = parseInt(qs(name, def), 10);
     return Number.isFinite(v) ? v : def;
   }
+  function strQ(name, def){ return String(qs(name, def) ?? def); }
+  function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
 
-  // deterministic RNG
+  // ------------------------- Seeded RNG -------------------------
   function xmur3(str){
     str = String(str||'seed');
     let h = 1779033703 ^ str.length;
@@ -82,206 +64,263 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH PATCH)
     };
   }
   function makeRng(seed){
-    const g = xmur3(seed);
-    return sfc32(g(), g(), g(), g());
-  }
-  function pick(rng, arr){
-    if (!arr || !arr.length) return '';
-    return arr[(rng()*arr.length)|0];
+    const gen = xmur3(seed);
+    return sfc32(gen(), gen(), gen(), gen());
   }
 
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
+  // ------------------------- External modules (safe fallbacks) -------------------------
+  const Particles =
+    (root.GAME_MODULES && root.GAME_MODULES.Particles) ||
+    root.Particles ||
+    { scorePop(){}, burstAt(){}, celebrate(){}, judgeText(){} };
+
+  const FeverUI =
+    (root.GAME_MODULES && root.GAME_MODULES.FeverUI) ||
+    root.FeverUI ||
+    {
+      ensure(){},
+      set(){},
+      add(){},
+      setShield(){},
+      get(){ return { value:0, state:'ok', shield:0 }; }
+    };
+
+  // ------------------------- Logger (cloud compatible) -------------------------
+  function hhaLogEvent(payload){
+    // expected: {type:'spawn'|'hit'|'miss_expire'|'shield_block'|'end'... , data:{...}}
+    try{
+      if (root.hha && typeof root.hha.log_event === 'function'){
+        root.hha.log_event(payload);
+        return;
+      }
+    }catch(_){}
+    try{
+      if (root.HHA && typeof root.HHA.log_event === 'function'){
+        root.HHA.log_event(payload);
+        return;
+      }
+    }catch(_){}
+    // no logger attached => silent
   }
 
-  // ------------------------------------------------------------
-  // Simple SFX (WebAudio) — light + safe
-  // ------------------------------------------------------------
-  const SFX = {
-    ctx:null, nextTickAt:0,
-    ensure(){
-      if (this.ctx) return this.ctx;
-      const AC = root.AudioContext || root.webkitAudioContext;
-      if (!AC) return null;
-      try{ this.ctx = new AC(); return this.ctx; }catch(_){ return null; }
-    },
-    beep(freq, dur, gain, type){
-      const ctx = this.ensure();
-      if (!ctx) return;
-      try{
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = type || 'triangle';
-        o.frequency.value = freq;
-        g.gain.value = 0.0001;
-        o.connect(g); g.connect(ctx.destination);
-
-        const t0 = ctx.currentTime;
-        g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(Math.max(0.001, gain||0.05), t0+0.01);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + (dur||0.06));
-        o.start(t0);
-        o.stop(t0 + (dur||0.06) + 0.02);
-      }catch(_){}
-    },
-    good(){ this.beep(740, 0.045, 0.040, 'triangle'); },
-    bad(){  this.beep(220, 0.065, 0.055, 'sawtooth'); },
-    ok(){   this.beep(520, 0.040, 0.030, 'triangle'); },
-    power(){
-      this.beep(820, 0.06, 0.05, 'triangle');
-      this.beep(1040,0.05, 0.045,'triangle');
-    },
-    tick(leftMs){
-      const t = nowMs();
-      if (t < this.nextTickAt) return;
-      const left = Math.max(0, leftMs);
-      const rate = (left <= 1200) ? 90 : (left <= 2200 ? 140 : 220);
-      this.nextTickAt = t + rate;
-      this.beep(980, 0.040, 0.045, 'triangle');
-    }
-  };
-
-  // ------------------------------------------------------------
-  // DOM layer + base CSS injection (safe)
-  // ------------------------------------------------------------
-  const layer =
-    DOC.getElementById('plate-layer') ||
-    DOC.getElementById('pl-layer') ||
-    DOC.querySelector('.plate-layer') ||
-    DOC.querySelector('.pl-layer');
-
-  if (!layer) {
-    // fail-soft: create a layer if missing
-    const div = DOC.createElement('div');
-    div.id = 'plate-layer';
-    div.className = 'plate-layer';
-    Object.assign(div.style, { position:'fixed', inset:'0', pointerEvents:'none' });
-    DOC.body.appendChild(div);
+  async function withTimeout(promise, ms){
+    ms = Math.max(80, ms|0);
+    return await Promise.race([
+      Promise.resolve().then(()=>promise),
+      new Promise((resolve)=> setTimeout(()=>resolve('timeout'), ms))
+    ]);
   }
 
-  const LAYER = layer || DOC.getElementById('plate-layer') || DOC.querySelector('.plate-layer');
-  if (!LAYER) return;
+  async function flushNowBestEffort(reason){
+    // Try multiple common flush hooks; never block too long.
+    const t0 = now();
+    try{ hhaLogEvent({ type:'flush_try', data:{ reason:String(reason||'') } }); }catch(_){}
+    let ok = false;
 
-  (function ensureBaseCss(){
-    if (DOC.getElementById('plate-safe-css')) return;
+    try{
+      if (root.hha && typeof root.hha.flush === 'function'){
+        const r = await withTimeout(root.hha.flush(), 750);
+        ok = (r !== 'timeout') || ok;
+      }
+    }catch(_){}
+
+    try{
+      if (!ok && root.HHA && typeof root.HHA.flush === 'function'){
+        const r = await withTimeout(root.HHA.flush(), 750);
+        ok = (r !== 'timeout') || ok;
+      }
+    }catch(_){}
+
+    try{
+      if (!ok && root.HHA_CloudLogger && typeof root.HHA_CloudLogger.flush === 'function'){
+        const r = await withTimeout(root.HHA_CloudLogger.flush(), 750);
+        ok = (r !== 'timeout') || ok;
+      }
+    }catch(_){}
+
+    try{
+      // If logger uses navigator.sendBeacon internally, pagehide may already flush.
+      // We still signal an event so sheet has a final marker.
+      hhaLogEvent({ type:'flush_done', data:{ ok:!!ok, reason:String(reason||''), durMs: Math.round(now()-t0) } });
+    }catch(_){}
+    return ok;
+  }
+
+  // ------------------------- DOM / Styles -------------------------
+  const layer = DOC.getElementById('plate-layer') || DOC.querySelector('.plate-layer');
+  if (!layer) return;
+
+  function ensureStyles(){
+    if (DOC.getElementById('plate-safe-style')) return;
     const st = DOC.createElement('style');
-    st.id = 'plate-safe-css';
+    st.id = 'plate-safe-style';
     st.textContent = `
-      .pl-target{
-        position:fixed;
-        left: var(--x, 50vw);
-        top:  var(--y, 50vh);
-        transform: translate(-50%,-50%) scale(var(--s,1));
-        width: 72px; height: 72px;
-        border-radius: 999px;
+      :root{ --plateVx:0px; --plateVy:0px; }
+
+      #plate-layer{
+        transform: translate(var(--plateVx), var(--plateVy));
+        will-change: transform;
+      }
+
+      .plate-target{
+        position:absolute;
+        left:0; top:0;
+        transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px)) scale(var(--s));
+        width: 74px; height: 74px;
         display:grid; place-items:center;
-        pointer-events:auto;
+        border-radius: 999px;
         user-select:none;
         -webkit-tap-highlight-color: transparent;
-        background: rgba(2,6,23,.55);
-        border: 1px solid rgba(148,163,184,.20);
-        box-shadow: 0 18px 60px rgba(0,0,0,.40), inset 0 0 0 1px rgba(148,163,184,.06);
-        backdrop-filter: blur(8px);
+        cursor: pointer;
+        font-size: 40px;
+        line-height:1;
+        filter: drop-shadow(0 10px 26px rgba(0,0,0,.55));
+        transition: transform .10s ease, opacity .16s ease, filter .16s ease;
       }
-      .pl-target::before{
-        content: attr(data-emoji);
-        font-size: 36px;
+      .plate-target::before{
+        content:'';
+        position:absolute; inset:-10px;
+        border-radius: 999px;
+        border: 2px solid rgba(148,163,184,.18);
+        box-shadow: inset 0 0 0 1px rgba(148,163,184,.08);
+        background: radial-gradient(circle at 35% 28%, rgba(255,255,255,.14), transparent 46%),
+                    radial-gradient(circle at 60% 80%, rgba(34,197,94,.10), transparent 55%);
+        opacity:.95;
+      }
+      .plate-target.good::before{ border-color: rgba(34,197,94,.32); }
+      .plate-target.junk::before{ border-color: rgba(239,68,68,.30); background:
+        radial-gradient(circle at 35% 28%, rgba(255,255,255,.12), transparent 46%),
+        radial-gradient(circle at 60% 80%, rgba(239,68,68,.14), transparent 55%);
+      }
+      .plate-target.star::before{ border-color: rgba(251,191,36,.40); }
+      .plate-target.diamond::before{ border-color: rgba(34,211,238,.40); }
+
+      .plate-target .em{
+        position:relative;
+        z-index:1;
         transform: translateZ(0);
-        filter: drop-shadow(0 6px 10px rgba(0,0,0,.35));
+        text-shadow: 0 8px 24px rgba(0,0,0,.45);
       }
-      .pl-target.pl-junk{ border-color: rgba(239,68,68,.35); box-shadow: 0 18px 70px rgba(239,68,68,.08), inset 0 0 0 1px rgba(239,68,68,.12); }
-      .pl-target.pl-good{ border-color: rgba(34,197,94,.28); box-shadow: 0 18px 70px rgba(34,197,94,.08), inset 0 0 0 1px rgba(34,197,94,.12); }
-      .pl-target.pl-star{ border-color: rgba(250,204,21,.35); }
-      .pl-target.pl-shield{ border-color: rgba(34,211,238,.35); }
-      .pl-target.hit{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.15)); opacity:0; transition: transform .18s ease, opacity .18s ease; }
-      .pl-target.out{ opacity:0; transition: opacity .16s ease; }
+
+      .plate-target.spawn{ animation: platePop .18s ease-out both; }
+      @keyframes platePop{
+        from{ transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px)) scale(calc(var(--s) * 0.72)); opacity:.0; }
+        to  { transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px)) scale(var(--s)); opacity:1; }
+      }
+      .plate-target.hit{
+        opacity:0;
+        transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px)) scale(calc(var(--s) * 1.22));
+        filter: drop-shadow(0 0 0 rgba(0,0,0,0));
+      }
+      .plate-target.out{
+        opacity:0;
+        transform: translate(calc(var(--x) * 1px), calc(var(--y) * 1px)) scale(calc(var(--s) * 0.85));
+      }
+
       body.plate-urgent{
-        animation: plateUrgent 0.22s linear infinite;
+        animation: plateUrgent .28s linear infinite;
       }
       @keyframes plateUrgent{
-        0%{ filter:none; }
-        50%{ filter: brightness(1.08) saturate(1.05); }
-        100%{ filter:none; }
+        0%,100%{ box-shadow: inset 0 0 0 0 rgba(239,68,68,0); }
+        50%{ box-shadow: inset 0 0 0 6px rgba(239,68,68,.08); }
       }
     `;
     DOC.head.appendChild(st);
-  })();
+  }
+  ensureStyles();
 
-  // ------------------------------------------------------------
-  // HHA Cloud Logger wrappers + FLUSH helpers
-  // ------------------------------------------------------------
-  function hhaLogEvent(type, data){
-    try{
-      emit('hha:log_event', { type, data: data || {} });
-      if (CloudLogger && typeof CloudLogger.log_event === 'function'){
-        CloudLogger.log_event({ type, data: data || {} });
-      }
-    }catch(_){}
+  function setXY(el, x, y){
+    el.style.setProperty('--x', String(x.toFixed(1)));
+    el.style.setProperty('--y', String(y.toFixed(1)));
+    el.dataset._x = String(x);
+    el.dataset._y = String(y);
+  }
+  function getXY(el){
+    const x = Number(el.dataset._x);
+    const y = Number(el.dataset._y);
+    return { x: (Number.isFinite(x)?x:0), y:(Number.isFinite(y)?y:0) };
   }
 
-  async function flushNowBestEffort(why){
-    try{
-      // prefer CloudLogger.flushNow()
-      const L = CloudLogger;
-      if (L && typeof L.flushNow === 'function'){
-        await Promise.race([ L.flushNow({ reason: why || 'flush' }), new Promise(r=>setTimeout(r, 1400)) ]);
-      } else {
-        // fallback: emit flush request
-        emit('hha:flush', { reason: why || 'flush' });
-      }
-    }catch(_){}
-  }
+  // ------------------------- Safe Spawn Rect (avoid HUD) -------------------------
+  function safeRect(){
+    const W = root.innerWidth || 360;
+    const H = root.innerHeight || 640;
 
-  // page lifecycle flush
-  (function bindLifecycleFlush(){
-    let did = false;
-    function once(reason){
-      if (did) return;
-      did = true;
-      flushNowBestEffort(reason);
-      // allow future flush again after a moment (pagehide may fire multiple times)
-      setTimeout(()=>{ did=false; }, 800);
+    // Prefer reading actual HUD size if exists
+    let topPad = 150, botPad = 170, sidePad = 16;
+    const hud = DOC.querySelector('.hud-top');
+    if (hud){
+      try{
+        const r = hud.getBoundingClientRect();
+        if (r && r.bottom) topPad = Math.max(topPad, Math.round(r.bottom + 12));
+      }catch(_){}
     }
-    root.addEventListener('pagehide', ()=>once('pagehide'), { passive:true });
-    root.addEventListener('beforeunload', ()=>once('beforeunload'), { passive:true });
-    DOC.addEventListener('visibilitychange', ()=>{
-      if (DOC.visibilityState === 'hidden') once('hidden');
-    }, { passive:true });
-  })();
 
-  // ------------------------------------------------------------
-  // Game content: Balanced Plate groups
-  // ------------------------------------------------------------
-  // 5 หมู่แบบ “จานสุขภาพ” (ปรับได้ตามงานคุณ)
-  const GROUPS = {
-    1: { key:'protein', label:'โปรตีน', emoji:['🍗','🐟','🥚','🥛','🫘','🥜'] },
-    2: { key:'grains',  label:'ข้าว-แป้ง', emoji:['🍚','🍞','🥖','🍜','🥔','🍠'] },
-    3: { key:'veg',     label:'ผัก', emoji:['🥦','🥬','🥕','🌽','🥒','🍆'] },
-    4: { key:'fruit',   label:'ผลไม้', emoji:['🍎','🍌','🍊','🍉','🍓','🍍'] },
-    5: { key:'fat',     label:'ไขมันดี', emoji:['🥑','🫒','🧈','🥥','🧀','🌰'] }
+    // safe-area insets (best-effort)
+    const cs = getComputedStyle(DOC.documentElement);
+    const sat = parseInt(cs.getPropertyValue('--sat')||'0',10) || 0;
+    const sab = parseInt(cs.getPropertyValue('--sab')||'0',10) || 0;
+    const sal = parseInt(cs.getPropertyValue('--sal')||'0',10) || 0;
+    const sar = parseInt(cs.getPropertyValue('--sar')||'0',10) || 0;
+
+    topPad += sat;
+    botPad += sab;
+    sidePad += Math.max(sal, sar);
+
+    // never allow tiny rect -> relax
+    const x0 = sidePad;
+    const x1 = Math.max(x0 + 140, W - sidePad);
+    const y0 = topPad;
+    const y1 = Math.max(y0 + 220, H - botPad);
+
+    return { W, H, x0, x1, y0, y1 };
+  }
+  function randPos(rng){
+    const r = safeRect();
+    const x = r.x0 + rng()*(r.x1 - r.x0);
+    const y = r.y0 + rng()*(r.y1 - r.y0);
+    return { x, y };
+  }
+
+  // ------------------------- Content: Plate groups -------------------------
+  const PLATE = {
+    veg:     { label:'ผัก',   emoji:['🥦','🥬','🥕','🌽','🥒','🍆','🍅','🥗'] },
+    fruit:   { label:'ผลไม้', emoji:['🍎','🍌','🍊','🍉','🍇','🍓','🍍','🥝'] },
+    grain:   { label:'ข้าว-แป้ง', emoji:['🍚','🍞','🍜','🥖','🥔','🍠','🥨','🥞'] },
+    protein: { label:'โปรตีน', emoji:['🥚','🍗','🐟','🥛','🫘','🥜','🍖','🧀'] },
+    junk:    { label:'ขยะ',   emoji:['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🥤'] }
   };
 
-  const JUNK = ['🍟','🍔','🍕','🍩','🍬','🍭','🧋'];
-  const STARS = ['⭐'];
-  const SHIELDS = ['🛡️'];
-
-  // ------------------------------------------------------------
-  // Difficulty params
-  // ------------------------------------------------------------
-  function diffParams(diff){
-    diff = String(diff||'normal').toLowerCase();
-    if (diff === 'easy') {
-      return { spawnMs: 900, ttlMs: 1850, size: 1.08, junkBias: 0.12, starBias:0.012, shieldBias:0.010, feverGain: 0.09, feverLoss: 0.14 };
-    }
-    if (diff === 'hard') {
-      return { spawnMs: 680, ttlMs: 1450, size: 0.92, junkBias: 0.20, starBias:0.014, shieldBias:0.010, feverGain: 0.08, feverLoss: 0.18 };
-    }
-    return { spawnMs: 780, ttlMs: 1650, size: 1.00, junkBias: 0.16, starBias:0.013, shieldBias:0.010, feverGain: 0.085, feverLoss: 0.16 };
+  // Balanced target ratio for full plate (12)
+  const PLATE_TOTAL = 12;
+  const NEED_FULL = { veg:4, fruit:2, grain:3, protein:3 }; // 4+2+3+3 = 12
+  function needForStage(stage){
+    // stage: 1..3 => 1/3, 2/3, 3/3
+    const m = clamp(stage,1,3);
+    const frac = (m===1? (1/3) : (m===2? (2/3) : 1));
+    const n = {
+      veg: Math.round(NEED_FULL.veg*frac),
+      fruit: Math.round(NEED_FULL.fruit*frac),
+      grain: Math.round(NEED_FULL.grain*frac),
+      protein: Math.round(NEED_FULL.protein*frac),
+    };
+    // ensure totals align nicely
+    const sum = n.veg+n.fruit+n.grain+n.protein;
+    const want = (m===1?4:(m===2?8:12));
+    // adjust by adding to veg/grain first
+    let diff = want - sum;
+    while(diff > 0){ n.veg++; diff--; if(diff<=0) break; n.grain++; diff--; }
+    while(diff < 0){ if(n.veg>0){ n.veg--; diff++; } else if(n.grain>0){ n.grain--; diff++; } else break; }
+    return n;
   }
 
-  // ------------------------------------------------------------
-  // Rank
-  // ------------------------------------------------------------
+  // ------------------------- Difficulty -------------------------
+  function diffParams(diff){
+    diff = String(diff||'normal').toLowerCase();
+    if (diff === 'easy') return { spawnMs:920, ttl:1750, size:1.06, junk:0.12, star:0.015, diamond:0.008 };
+    if (diff === 'hard') return { spawnMs:660, ttl:1400, size:0.92, junk:0.20, star:0.013, diamond:0.007 };
+    return                 { spawnMs:780, ttl:1580, size:1.00, junk:0.16, star:0.014, diamond:0.008 };
+  }
   function rankFromAcc(acc){
     if (acc >= 95) return 'SSS';
     if (acc >= 90) return 'SS';
@@ -291,135 +330,145 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH PATCH)
     return 'C';
   }
 
-  // ------------------------------------------------------------
-  // Safe spawn rect (avoid HUD all sides) + VR feel view offset
-  // ------------------------------------------------------------
-  function getSafeRect(){
-    const W = root.innerWidth || 360;
-    const H = root.innerHeight || 640;
-
-    // avoid top HUD + bottom area (end buttons / safe-area)
-    const top = 160 + (parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--sat')||'0',10)||0);
-    const bot = 190 + (parseInt(getComputedStyle(DOC.documentElement).getPropertyValue('--sab')||'0',10)||0);
-
-    // avoid left/right HUD edges
-    const side = 18;
-
-    const x0 = side;
-    const x1 = W - side;
-    const y0 = top;
-    const y1 = H - bot;
-
-    // relax if screen small
-    const minW = 220, minH = 260;
-    let rx0=x0, rx1=x1, ry0=y0, ry1=y1;
-    if ((rx1-rx0) < minW){ rx0 = 12; rx1 = W-12; }
-    if ((ry1-ry0) < minH){ ry0 = 120; ry1 = H-160; }
-
-    return { W,H, x0:rx0, x1:rx1, y0:ry0, y1:ry1 };
-  }
-
-  // ------------------------------------------------------------
-  // Engine state
-  // ------------------------------------------------------------
+  // ------------------------- Engine State -------------------------
   const engine = {
     running:false,
     ended:false,
+
     runMode:'play',
     diff:'normal',
     timeSec:90,
+    left:90,
 
     seed:'seed',
     rng:Math.random,
+    startMs:0,
 
-    // view offsets
-    vx:0, vy:0,
-    dragOn:false, dragX:0, dragY:0,
+    // view shift
+    vx:0, vy:0, dragOn:false, dragX:0, dragY:0,
 
-    // timers
-    tStartMs:0,
-    leftSec:90,
-    spawnTimer:0,
-    tickTimer:0,
-
-    // gameplay
+    // score
     score:0,
     combo:0,
     comboMax:0,
-
-    misses:0,            // miss = good expired + junk hit (not blocked)
-    nSpawnGood:0,
-    nSpawnJunk:0,
-    nSpawnStar:0,
-    nSpawnShield:0,
-
-    nHitGood:0,
-    nHitJunk:0,
-    nHitJunkGuard:0,
-    nExpireGood:0,
-
-    rtSum:0,
-    rtN:0,
-    rtList:[], // for median
-
-    // plate balance tracking: counts by group
-    groupNeed: {1:3,2:3,3:3,4:2,5:1}, // default “plate balance”
-    groupGot:  {1:0,2:0,3:0,4:0,5:0},
+    misses:0,
+    hitGood:0,
+    hitAll:0,
 
     // fever/shield
-    fever:0,             // 0..1
-    shield:0,            // 0/1
-    feverState:'cool',   // cool/warm/hot
-    feverGain:0.085,
-    feverLoss:0.16,
+    fever:0,
+    feverMax:100,
+    shield:0,
+
+    // plate progress
+    stage:1,
+    need: needForStage(1),
+    got: { veg:0, fruit:0, grain:0, protein:0 },
 
     // mini: Plate Rush
-    miniActive:null,
-    miniCount:0,
-    miniWindowEnd:0,
-    miniNoJunk:true,
-    urgent:false,
+    miniActive:false,
+    miniNow:0,
+    miniNeed:5,
+    miniStartMs:0,
+    miniWindowMs:8000,
+    miniNoJunkOk:true,
 
-    // goals
-    goalIndex:0,
-    goalsCleared:0,
-    goalsTotal:3,
-    miniCleared:0,
-    miniTotal:4,
+    // adaptive
+    adapt: { spawnMs:780, ttl:1580, size:1.00, junk:0.16, star:0.014, diamond:0.008 },
 
-    // adaptive (play only)
-    adapt: { spawnMs:780, ttlMs:1650, size:1.0, junkBias:0.16 }
+    // timers
+    tSpawn:0,
+    tTick:0,
+    tMini:0,
   };
 
-  function resetPlate(){
-    engine.groupGot = {1:0,2:0,3:0,4:0,5:0};
+  // ------------------------- HUD updates -------------------------
+  function updateScore(){
+    emit('hha:score', { score:engine.score|0, combo:engine.combo|0, comboMax:engine.comboMax|0, misses:engine.misses|0 });
+    updateRank();
   }
-  function totalNeed(){
-    let t=0; for (const k in engine.groupNeed) t += (engine.groupNeed[k]|0);
-    return t;
+  function updateRank(){
+    const acc = engine.hitAll>0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
+    emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
   }
-  function totalGot(){
-    let t=0; for (const k in engine.groupGot) t += (engine.groupGot[k]|0);
-    return t;
+  function updateTime(){ emit('hha:time', { left: engine.left|0 }); }
+
+  function goalTotalForStage(stage){
+    const need = needForStage(stage);
+    return need.veg + need.fruit + need.grain + need.protein;
+  }
+  function goalNowForStage(stage){
+    const need = needForStage(stage);
+    const got = engine.got;
+    // cap contributions to each need (so overshoot doesn't inflate)
+    return (
+      Math.min(got.veg, need.veg) +
+      Math.min(got.fruit, need.fruit) +
+      Math.min(got.grain, need.grain) +
+      Math.min(got.protein, need.protein)
+    );
+  }
+  function emitQuest(){
+    const goalTitle = (engine.stage===1?'เติมจานครบ 1/3':'') ||
+                      (engine.stage===2?'เติมจานครบ 2/3':'') ||
+                      'เติมจานครบ 3/3';
+
+    const goalTotal = goalTotalForStage(engine.stage);
+    const goalNow = goalNowForStage(engine.stage);
+
+    const miniTitle = engine.miniActive ? 'Plate Rush ⚡ (ห้ามโดนขยะ)' : '—';
+    const miniTotal = engine.miniActive ? engine.miniNeed : 0;
+    const miniNow   = engine.miniActive ? engine.miniNow : 0;
+    const miniLeftMs = engine.miniActive ? Math.max(0, (engine.miniStartMs + engine.miniWindowMs) - now()) : 0;
+
+    emit('quest:update', {
+      goalTitle,
+      goalNow, goalTotal,
+      miniTitle,
+      miniNow, miniTotal,
+      miniLeftMs
+    });
   }
 
+  // ------------------------- FEVER/SHIELD -------------------------
+  function feverState(v){
+    if (v >= 85) return 'hot';
+    if (v >= 60) return 'warm';
+    if (v >= 35) return 'ok';
+    return 'low';
+  }
+  function setFever(v){
+    engine.fever = clamp(v, 0, engine.feverMax);
+    try{ FeverUI.ensure?.(); }catch(_){}
+    try{ FeverUI.set?.(engine.fever, feverState(engine.fever)); }catch(_){}
+    emit('hha:fever', { value: engine.fever|0, state: feverState(engine.fever), shield: engine.shield|0 });
+  }
+  function addFever(delta){
+    setFever(engine.fever + (delta|0));
+    if (engine.fever >= engine.feverMax && engine.shield < 1){
+      engine.shield = 1;
+      try{ FeverUI.setShield?.(1); }catch(_){}
+      emit('hha:judge', { kind:'good', text:'SHIELD READY!' });
+      emit('hha:celebrate', { kind:'mini', title:'🛡️ SHIELD READY!' });
+    }
+  }
+  function consumeShield(){
+    if (engine.shield > 0){
+      engine.shield = 0;
+      try{ FeverUI.setShield?.(0); }catch(_){}
+    }
+  }
+
+  // ------------------------- View shift (VR feel) -------------------------
   function applyView(){
-    // allow CSS to use --vx/--vy if exists
-    try{
-      LAYER.style.setProperty('--vx', engine.vx.toFixed(1)+'px');
-      LAYER.style.setProperty('--vy', engine.vy.toFixed(1)+'px');
-      // also shift layer visually
-      LAYER.style.transform = `translate(${engine.vx.toFixed(1)}px, ${engine.vy.toFixed(1)}px)`;
-    }catch(_){}
+    DOC.documentElement.style.setProperty('--plateVx', engine.vx.toFixed(1)+'px');
+    DOC.documentElement.style.setProperty('--plateVy', engine.vy.toFixed(1)+'px');
   }
-
   function setupView(){
-    // drag
-    LAYER.addEventListener('pointerdown', (e)=>{
+    layer.addEventListener('pointerdown', (e)=>{
       engine.dragOn = true;
       engine.dragX = e.clientX; engine.dragY = e.clientY;
     }, { passive:true });
-
     root.addEventListener('pointermove', (e)=>{
       if (!engine.dragOn) return;
       const dx = e.clientX - engine.dragX;
@@ -429,323 +478,89 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH PATCH)
       engine.vy = clamp(engine.vy + dy*0.22, -90, 90);
       applyView();
     }, { passive:true });
-
     root.addEventListener('pointerup', ()=>{ engine.dragOn=false; }, { passive:true });
 
-    // gyro
     root.addEventListener('deviceorientation', (ev)=>{
-      const gx = Number(ev.gamma)||0; // left-right
-      const gy = Number(ev.beta)||0;  // front-back
+      const gx = Number(ev.gamma)||0;
+      const gy = Number(ev.beta)||0;
       engine.vx = clamp(engine.vx + gx*0.06, -90, 90);
       engine.vy = clamp(engine.vy + (gy-20)*0.02, -90, 90);
       applyView();
     }, { passive:true });
   }
+  setupView();
 
-  // optional external recenter
-  function recenter(){
-    engine.vx = 0; engine.vy = 0;
-    applyView();
-    emit('plate:recenter', {});
-  }
+  Boot.recenter = function(){ engine.vx = 0; engine.vy = 0; applyView(); };
 
-  // ------------------------------------------------------------
-  // HUD / progress emits (HHA Standard)
-  // ------------------------------------------------------------
-  function accPct(){
-    const denom = Math.max(1, (engine.nHitGood + engine.nHitJunk));
-    // accuracyGoodPct: good hits / (good hits + junk hits)
-    return Math.round((engine.nHitGood / denom) * 100);
-  }
-  function median(arr){
-    if (!arr || !arr.length) return 0;
-    const a = arr.slice().sort((x,y)=>x-y);
-    const mid = (a.length/2)|0;
-    return (a.length%2) ? a[mid] : Math.round((a[mid-1]+a[mid])/2);
-  }
-  function updateRank(){
-    emit('hha:rank', { grade: rankFromAcc(accPct()), accuracy: accPct() });
-  }
-  function updateScore(){
-    emit('hha:score', {
-      score: engine.score|0,
-      combo: engine.combo|0,
-      comboMax: engine.comboMax|0,
-      misses: engine.misses|0
-    });
-    updateRank();
-  }
-  function updateTime(){
-    emit('hha:time', { left: Math.max(0, engine.leftSec|0) });
-  }
-  function updateQuest(){
-    // Goal: complete one plate
-    const got = totalGot();
-    const need = totalNeed();
-    emit('quest:update', {
-      goalTitle: goalTitle(),
-      goalNow: got,
-      goalTotal: need,
-      miniTitle: miniTitle(),
-      miniNow: miniNow(),
-      miniTotal: miniTotalNow(),
-      miniLeftMs: miniLeftMs()
-    });
-  }
-  function updateFeverUI(){
-    try{
-      FeverUI.ensure && FeverUI.ensure();
-      FeverUI.set && FeverUI.set(engine.fever);
-      FeverUI.setShield && FeverUI.setShield(engine.shield>0);
-      FeverUI.setFeverState && FeverUI.setFeverState(engine.feverState);
-    }catch(_){}
-  }
+  // ------------------------- Targets -------------------------
+  let targetSeq = 0;
 
-  // ------------------------------------------------------------
-  // Goals + Minis (simple director)
-  // ------------------------------------------------------------
-  const GOALS = [
-    { id:'balance1', title:'เติมจานให้ครบ (รอบที่ 1)' },
-    { id:'balance2', title:'เติมจานให้ครบ (รอบที่ 2)' },
-    { id:'balance3', title:'เติมจานให้ครบ (รอบที่ 3)' },
-  ];
-
-  const MINIS = [
-    { id:'rush',  title:'Plate Rush: ครบ 5 ภายใน 8 วิ (ห้ามโดนขยะ)' },
-    { id:'clean', title:'Clean Streak: ห้ามโดนขยะ 10 วิ' },
-    { id:'combo', title:'Combo Burst: ทำคอมโบ 10' },
-    { id:'fever', title:'Fever Pop: ทำให้ FEVER เต็ม 1 ครั้ง' },
-  ];
-
-  function goalTitle(){
-    const g = GOALS[clamp(engine.goalIndex,0,GOALS.length-1)];
-    return g ? g.title : '—';
-  }
-
-  function miniTitle(){
-    const m = engine.miniActive;
-    return m ? m.title : '—';
-  }
-  function miniNow(){
-    if (!engine.miniActive) return 0;
-    if (engine.miniActive.id === 'rush')  return engine.miniCount|0;
-    if (engine.miniActive.id === 'clean') return Math.min(10, ((nowMs() - engine._cleanStartMs)/1000)|0) || 0;
-    if (engine.miniActive.id === 'combo') return Math.min(10, engine.combo|0);
-    if (engine.miniActive.id === 'fever') return engine._feverPopped ? 1 : 0;
-    return 0;
-  }
-  function miniTotalNow(){
-    if (!engine.miniActive) return 0;
-    if (engine.miniActive.id === 'rush')  return 5;
-    if (engine.miniActive.id === 'clean') return 10;
-    if (engine.miniActive.id === 'combo') return 10;
-    if (engine.miniActive.id === 'fever') return 1;
-    return 0;
-  }
-  function miniLeftMs(){
-    if (!engine.miniActive) return 0;
-    if (engine.miniActive.id === 'rush') return Math.max(0, engine.miniWindowEnd - nowMs());
-    return 0;
-  }
-
-  function startMini(idx){
-    idx = clamp(idx, 0, MINIS.length-1);
-    engine.miniActive = MINIS[idx];
-    engine.urgent = false;
-    DOC.body.classList.remove('plate-urgent');
-
-    if (engine.miniActive.id === 'rush'){
-      engine.miniCount = 0;
-      engine.miniNoJunk = true;
-      engine.miniWindowEnd = nowMs() + 8000;
-    } else if (engine.miniActive.id === 'clean'){
-      engine._cleanStartMs = nowMs();
-    } else if (engine.miniActive.id === 'combo'){
-      // just track engine.combo
-    } else if (engine.miniActive.id === 'fever'){
-      engine._feverPopped = false;
-    }
-
-    emit('hha:coach', { mood:'neutral', text:`MINI: ${engine.miniActive.title}` });
-    emit('hha:celebrate', { kind:'mini', title:'MINI START!' });
-    updateQuest();
-  }
-
-  function clearMini(){
-    engine.miniActive = null;
-    engine.urgent = false;
-    DOC.body.classList.remove('plate-urgent');
-    updateQuest();
-  }
-
-  function passMini(){
-    engine.miniCleared++;
-    emit('hha:judge', { kind:'good', text:'MINI COMPLETE!' });
-    emit('hha:celebrate', { kind:'mini', title:'MINI COMPLETE!' });
-    Particles.celebrate && Particles.celebrate('mini');
-    clearMini();
-
-    // chain: next mini (loop)
-    const next = (engine.miniCleared % engine.miniTotal);
-    startMini(next);
-  }
-
-  function failMini(reason){
-    // only Plate Rush has hard fail states
-    if (!engine.miniActive) return;
-    if (engine.miniActive.id !== 'rush') return;
-
-    emit('hha:judge', { kind:'warn', text: reason || 'MINI FAIL!' });
-    emit('hha:celebrate', { kind:'mini', title:'TRY AGAIN!' });
-
-    // reset rush state immediately (stay same mini)
-    engine.miniCount = 0;
-    engine.miniNoJunk = true;
-    engine.miniWindowEnd = nowMs() + 8000;
-    DOC.body.classList.remove('plate-urgent');
-    engine.urgent = false;
-    updateQuest();
-  }
-
-  function passGoal(){
-    engine.goalsCleared++;
-    emit('hha:judge', { kind:'good', text:'GOAL COMPLETE!' });
-    emit('hha:celebrate', { kind:'goal', title:'GOAL COMPLETE!' });
-    Particles.celebrate && Particles.celebrate('goal');
-
-    // next goal or end all
-    engine.goalIndex++;
-    resetPlate();
-    updateQuest();
-
-    if (engine.goalIndex >= engine.goalsTotal){
-      // all done
-      emit('hha:celebrate', { kind:'all', title:'ALL GOALS COMPLETE!' });
-      Particles.celebrate && Particles.celebrate('all');
-      endGame('all_goals');
-    } else {
-      emit('hha:coach', { mood:'happy', text:`เริ่มรอบใหม่! ${goalTitle()}` });
-    }
-  }
-
-  // ------------------------------------------------------------
-  // Fever + Shield
-  // ------------------------------------------------------------
-  function feverStateFrom(v){
-    if (v >= 0.92) return 'hot';
-    if (v >= 0.55) return 'warm';
-    return 'cool';
-  }
-
-  function addFever(delta){
-    engine.fever = clamp(engine.fever + delta, 0, 1);
-    const st = feverStateFrom(engine.fever);
-    if (st !== engine.feverState){
-      engine.feverState = st;
-      emit('hha:fever', { value: engine.fever, state: st });
-    }
-    // auto shield when full-ish
-    if (engine.fever >= 0.98 && engine.shield < 1){
-      engine.shield = 1;
-      emit('hha:judge', { kind:'good', text:'SHIELD READY!' });
-      emit('hha:celebrate', { kind:'mini', title:'SHIELD READY!' });
-      if (engine.miniActive && engine.miniActive.id === 'fever') engine._feverPopped = true;
-    }
-    updateFeverUI();
-  }
-
-  // ------------------------------------------------------------
-  // Spawning
-  // ------------------------------------------------------------
-  function randPos(){
-    const r = getSafeRect();
-    const x = r.x0 + engine.rng()*(r.x1 - r.x0);
-    const y = r.y0 + engine.rng()*(r.y1 - r.y0);
-    return { x, y };
-  }
-
-  function chooseType(){
-    const base = (engine.runMode === 'research') ? diffParams(engine.diff) : engine.adapt;
-
-    // powerups chance
-    if (engine.rng() < base.shieldBias) return 'shield';
-    if (engine.rng() < base.starBias) return 'star';
-
-    // junk vs good
-    const j = clamp(base.junkBias, 0.08, 0.30);
-    return (engine.rng() < j) ? 'junk' : 'good';
-  }
-
-  function chooseGoodGroupId(){
-    // pick the most-needed group to encourage balancing
-    let best = 1;
-    let bestNeed = -999;
-    for (let g=1; g<=5; g++){
-      const need = (engine.groupNeed[g]|0) - (engine.groupGot[g]|0);
-      const score = need + (engine.rng()*0.25); // small randomness
-      if (score > bestNeed){ bestNeed = score; best = g; }
-    }
-    // if already full, random group
-    if (bestNeed <= 0) best = 1 + ((engine.rng()*5)|0);
-    return best;
-  }
-
-  function makeTarget(tp, emoji, x, y, s, bornMs){
+  function makeTarget(kind, groupKey, emoji, x, y, s){
     const el = DOC.createElement('div');
-    el.className = 'pl-target spawn';
-    el.dataset.type = tp;
-    el.dataset.emoji = emoji || '✨';
-    el.dataset.born = String(bornMs|0);
+    el.className = 'plate-target spawn';
+    el.dataset.id = String(++targetSeq);
+    el.dataset.kind = String(kind); // 'good'|'junk'|'star'|'diamond'
+    el.dataset.group = String(groupKey||'');
+    el.dataset.emoji = String(emoji||'✨');
 
-    if (tp === 'good') el.classList.add('pl-good');
-    if (tp === 'junk') el.classList.add('pl-junk');
-    if (tp === 'star') el.classList.add('pl-star');
-    if (tp === 'shield') el.classList.add('pl-shield');
+    if (kind === 'good') el.classList.add('good');
+    if (kind === 'junk') el.classList.add('junk');
+    if (kind === 'star') el.classList.add('star');
+    if (kind === 'diamond') el.classList.add('diamond');
 
-    el.style.setProperty('--x', x.toFixed(1)+'px');
-    el.style.setProperty('--y', y.toFixed(1)+'px');
-    el.style.setProperty('--s', s.toFixed(3));
+    el.style.setProperty('--s', String((s||1).toFixed(3)));
+    setXY(el, x, y);
 
-    // click -> hit
-    el.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault?.();
-      hitTarget(el);
-    }, { passive:false });
+    const span = DOC.createElement('div');
+    span.className = 'em';
+    span.textContent = String(emoji||'✨');
+    el.appendChild(span);
 
     // TTL
-    const ttl = engine.ttlMs;
+    const ttl = engine.adapt.ttl;
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
 
-      // expire => miss only if GOOD
-      if (tp === 'good'){
+      // miss by expire: only GOOD
+      if (String(el.dataset.kind) === 'good'){
         engine.misses++;
-        engine.nExpireGood++;
         engine.combo = 0;
-        addFever(-engine.feverLoss);
-
+        engine.hitAll++;
+        // note: hitGood not incremented
+        addFever(-8);
         emit('hha:judge', { kind:'warn', text:'MISS!' });
-        Particles.judgeText && Particles.judgeText('MISS!');
         updateScore();
-        updateQuest();
 
-        hhaLogEvent('miss_expire', {
-          kind:'good',
-          itemType:'good',
-          emoji: el.dataset.emoji || '',
-          rtMs: null,
-          judgment:'miss_expire',
-          totalScore: engine.score|0,
-          combo: engine.combo|0,
-          feverValue: engine.fever,
-          feverState: engine.feverState,
-          shield: engine.shield|0
+        // log miss_expire
+        hhaLogEvent({
+          type:'miss_expire',
+          data:{
+            eventType:'miss_expire',
+            timeFromStartMs: Math.round(now()-engine.startMs),
+            rtMs: null,
+            itemType: 'good',
+            emoji: el.dataset.emoji,
+            targetId: el.dataset.id,
+            judgment: 'miss_expire',
+            totalScore: engine.score|0,
+            combo: engine.combo|0,
+            isGood: true,
+            feverValue: engine.fever|0,
+            feverState: feverState(engine.fever),
+            goalProgress: { stage: engine.stage, now: goalNowForStage(engine.stage), total: goalTotalForStage(engine.stage), need: engine.need, got: engine.got },
+            miniProgress: { active: !!engine.miniActive, now: engine.miniNow|0, total: engine.miniNeed|0, leftMs: engine.miniActive?Math.max(0,(engine.miniStartMs+engine.miniWindowMs)-now()):0 }
+          }
         });
       }
 
       el.classList.add('out');
-      root.setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 200);
+      root.setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
     }, ttl);
+
+    el.addEventListener('pointerdown', (ev)=>{
+      ev.preventDefault?.();
+      onHit(el);
+    }, { passive:false });
 
     return el;
   }
@@ -753,162 +568,278 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH PATCH)
   function removeTarget(el){
     try{ root.clearTimeout(el._ttlTimer); }catch(_){}
     el.classList.add('hit');
-    root.setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 180);
+    root.setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 220);
+  }
+
+  // ------------------------- Spawning logic -------------------------
+  function chooseKind(){
+    // powerups
+    if (engine.rng() < engine.adapt.diamond) return 'diamond';
+    if (engine.rng() < engine.adapt.star) return 'star';
+
+    // junk bias
+    if (engine.rng() < engine.adapt.junk) return 'junk';
+    return 'good';
+  }
+
+  function chooseEmoji(kind){
+    if (kind === 'junk') return pick(engine.rng, PLATE.junk.emoji);
+    if (kind === 'star') return '⭐';
+    if (kind === 'diamond') return '💎';
+
+    // good -> weighted by what we still need in current stage
+    const need = needForStage(engine.stage);
+    const got = engine.got;
+    const remain = {
+      veg: Math.max(0, need.veg - got.veg),
+      fruit: Math.max(0, need.fruit - got.fruit),
+      grain: Math.max(0, need.grain - got.grain),
+      protein: Math.max(0, need.protein - got.protein),
+    };
+    const pool = [];
+    function addMany(key, w){
+      const n = Math.max(1, w|0);
+      for (let i=0;i<n;i++) pool.push(key);
+    }
+    addMany('veg',     1 + remain.veg);
+    addMany('fruit',   1 + remain.fruit);
+    addMany('grain',   1 + remain.grain);
+    addMany('protein', 1 + remain.protein);
+
+    const groupKey = pool.length ? pick(engine.rng, pool) : 'veg';
+    return { groupKey, emoji: pick(engine.rng, PLATE[groupKey].emoji) };
   }
 
   function spawnOne(){
     if (!engine.running || engine.ended) return;
 
-    const base = (engine.runMode === 'research') ? diffParams(engine.diff) : engine.adapt;
-    const born = nowMs();
+    const kind = chooseKind();
+    const p = randPos(engine.rng);
+    const s = engine.adapt.size * (kind==='junk' ? 0.96 : 1.0);
 
-    const tp = chooseType();
-    const p = randPos();
-
-    let size = base.size;
-    if (tp === 'junk') size *= 0.95;
-    if (tp === 'star' || tp === 'shield') size *= 0.98;
-
+    let groupKey = '';
     let emoji = '✨';
-    if (tp === 'junk'){
-      emoji = pick(engine.rng, JUNK);
-      engine.nSpawnJunk++;
-    } else if (tp === 'star'){
-      emoji = pick(engine.rng, STARS);
-      engine.nSpawnStar++;
-    } else if (tp === 'shield'){
-      emoji = pick(engine.rng, SHIELDS);
-      engine.nSpawnShield++;
-    } else {
-      const gid = chooseGoodGroupId();
-      emoji = pick(engine.rng, GROUPS[gid].emoji);
-      engine.nSpawnGood++;
-      // tag group id
-      // (ใช้กับ analytics + plate balance)
-      // good items count to that group when hit
-      // note: if you prefer mapping by emoji, you can later.
-      // keep it explicit for logging.
-      // attach groupId on element
-      // eslint-disable-next-line no-self-assign
-      emoji = emoji;
+    if (kind === 'good'){
+      const g = chooseEmoji('good');
+      groupKey = g.groupKey;
+      emoji = g.emoji;
+    }else{
+      emoji = chooseEmoji(kind);
     }
 
-    const el = makeTarget(tp, emoji, p.x, p.y, size, born);
+    const el = makeTarget(kind, groupKey, emoji, p.x, p.y, s);
+    layer.appendChild(el);
 
-    if (tp === 'good'){
-      const gid = chooseGoodGroupId(); // keep same heuristic for count tracking
-      el.dataset.groupId = String(gid);
-    }
-
-    LAYER.appendChild(el);
-
-    hhaLogEvent('spawn', {
-      kind: tp,
-      itemType: tp,
-      emoji,
-      timeFromStartMs: Math.max(0, (born - engine.tStartMs)|0),
-      totalScore: engine.score|0,
-      combo: engine.combo|0,
-      feverValue: engine.fever,
-      feverState: engine.feverState,
-      shield: engine.shield|0
+    // log spawn
+    hhaLogEvent({
+      type:'spawn',
+      data:{
+        eventType:'spawn',
+        timeFromStartMs: Math.round(now()-engine.startMs),
+        itemType: kind,
+        emoji,
+        targetId: el.dataset.id,
+        group: groupKey,
+        totalScore: engine.score|0,
+        combo: engine.combo|0,
+        isGood: kind==='good',
+        feverValue: engine.fever|0,
+        feverState: feverState(engine.fever),
+        goalProgress: { stage: engine.stage, now: goalNowForStage(engine.stage), total: goalTotalForStage(engine.stage) },
+        miniProgress: { active: !!engine.miniActive, now: engine.miniNow|0, total: engine.miniNeed|0 }
+      }
     });
   }
 
   function loopSpawn(){
     if (!engine.running || engine.ended) return;
-
     spawnOne();
-
-    const base = (engine.runMode === 'research') ? diffParams(engine.diff) : engine.adapt;
-    let sMs = Math.max(420, base.spawnMs);
-
-    engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
+    engine.tSpawn = root.setTimeout(loopSpawn, Math.max(420, engine.adapt.spawnMs|0));
   }
 
-  // ------------------------------------------------------------
-  // Hit logic + Plate balance
-  // ------------------------------------------------------------
-  function addScore(base, x2){
-    const mult = x2 ? 2 : 1;
-    engine.score += Math.round(base * mult);
+  // ------------------------- Mini: Plate Rush -------------------------
+  function startMiniRush(){
+    engine.miniActive = true;
+    engine.miniNow = 0;
+    engine.miniStartMs = now();
+    engine.miniNoJunkOk = true;
+    emitQuest();
+
+    emit('hha:judge', { kind:'good', text:'PLATE RUSH!' });
+    emit('hha:celebrate', { kind:'mini', title:'Plate Rush ⚡' });
+
+    tickMini();
   }
 
-  function plateCompleted(){
-    // complete when all groups reached need
-    for (let g=1; g<=5; g++){
-      if ((engine.groupGot[g]|0) < (engine.groupNeed[g]|0)) return false;
+  function failMiniRush(reason){
+    engine.miniActive = false;
+    engine.miniNow = 0;
+    emitQuest();
+
+    emit('hha:judge', { kind:'warn', text:'MINI FAIL!' });
+    try{ DOC.body.classList.remove('plate-urgent'); }catch(_){}
+    // small penalty
+    addFever(-10);
+  }
+
+  function completeMiniRush(){
+    engine.miniActive = false;
+    engine.miniNow = 0;
+    emitQuest();
+
+    emit('hha:judge', { kind:'good', text:'MINI CLEAR!' });
+    emit('hha:celebrate', { kind:'goal', title:'MINI CLEAR!' });
+
+    // reward: score + fever
+    engine.score += 650;
+    addFever(+18);
+    updateScore();
+    try{ DOC.body.classList.remove('plate-urgent'); }catch(_){}
+  }
+
+  function tickMini(){
+    if (!engine.miniActive || engine.ended) return;
+    const left = (engine.miniStartMs + engine.miniWindowMs) - now();
+
+    // urgent FX in last 2.2s
+    if (left <= 2200){
+      try{ DOC.body.classList.add('plate-urgent'); }catch(_){}
+    }else{
+      try{ DOC.body.classList.remove('plate-urgent'); }catch(_){}
     }
-    return true;
+
+    if (left <= 0){
+      failMiniRush('timeout');
+      return;
+    }
+    emitQuest();
+    engine.tMini = root.setTimeout(tickMini, 120);
   }
 
-  function hitTarget(el){
+  // ------------------------- Goal progression -------------------------
+  function resetPlateProgress(){
+    engine.stage = 1;
+    engine.need = needForStage(1);
+    engine.got = { veg:0, fruit:0, grain:0, protein:0 };
+    emitQuest();
+  }
+
+  function stageCompleted(stage){
+    const need = needForStage(stage);
+    return (engine.got.veg >= need.veg &&
+            engine.got.fruit >= need.fruit &&
+            engine.got.grain >= need.grain &&
+            engine.got.protein >= need.protein);
+  }
+
+  function advanceStage(){
+    if (engine.stage === 1){
+      engine.stage = 2; engine.need = needForStage(2);
+      emit('hha:celebrate', { kind:'goal', title:'GOAL 1/3 CLEAR!' });
+    }else if (engine.stage === 2){
+      engine.stage = 3; engine.need = needForStage(3);
+      emit('hha:celebrate', { kind:'goal', title:'GOAL 2/3 CLEAR!' });
+    }else{
+      // all goals complete
+      emit('hha:celebrate', { kind:'all', title:'ALL GOALS CLEARED!' });
+      endGame('all_goals');
+      return;
+    }
+
+    emitQuest();
+
+    // trigger mini between stages (fun)
+    if (!engine.miniActive){
+      startMiniRush();
+    }
+  }
+
+  // ------------------------- Hit logic -------------------------
+  function onHit(el){
     if (!engine.running || engine.ended) return;
     if (!el || !el.isConnected) return;
 
-    const tp = String(el.dataset.type||'').toLowerCase();
-    const born = Number(el.dataset.born)||0;
-    const rt = born ? Math.max(0, (nowMs() - born)) : 0;
+    const kind = String(el.dataset.kind||'');
+    const id = String(el.dataset.id||'');
+    const emoji = String(el.dataset.emoji||'');
 
-    // STAR power: small bonus + fever boost + fx
-    if (tp === 'star'){
+    // measure RT if available
+    const spawnAt = Number(el.dataset.spawnAt)||0;
+    const rtMs = (spawnAt>0) ? Math.round(now()-spawnAt) : null;
+
+    engine.hitAll++;
+
+    // POWERUPS
+    if (kind === 'star'){
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
-      addScore(130 + Math.min(80, engine.combo*2), false);
-
-      addFever(+0.08);
+      engine.score += 180 + Math.min(220, engine.combo*4);
+      addFever(+10);
       emit('hha:judge', { kind:'good', text:'STAR!' });
-      Particles.burstAt && Particles.burstAt(el, { kind:'star' });
-      SFX.power();
-      updateScore(); updateQuest();
+      Particles.burstAt?.(el, { kind:'star' });
 
-      hhaLogEvent('hit', {
-        kind:'star',
-        itemType:'star',
-        emoji: el.dataset.emoji || '⭐',
-        rtMs: rt|0,
-        judgment:'hit',
-        totalScore: engine.score|0,
-        combo: engine.combo|0,
-        isGood:true,
-        feverValue: engine.fever,
-        feverState: engine.feverState,
-        shield: engine.shield|0
+      // bonus: quick mini progress (but only if mini active)
+      if (engine.miniActive){
+        engine.miniNow = Math.min(engine.miniNeed, engine.miniNow + 1);
+      }
+      emitQuest();
+      updateScore();
+
+      hhaLogEvent({
+        type:'hit',
+        data:{
+          eventType:'hit',
+          timeFromStartMs: Math.round(now()-engine.startMs),
+          rtMs,
+          itemType:'star',
+          emoji,
+          targetId:id,
+          judgment:'hit_star',
+          totalScore: engine.score|0,
+          combo: engine.combo|0,
+          isGood:true,
+          feverValue: engine.fever|0,
+          feverState: feverState(engine.fever),
+          goalProgress: { stage: engine.stage, now: goalNowForStage(engine.stage), total: goalTotalForStage(engine.stage) },
+          miniProgress: { active: !!engine.miniActive, now: engine.miniNow|0, total: engine.miniNeed|0, leftMs: engine.miniActive?Math.max(0,(engine.miniStartMs+engine.miniWindowMs)-now()):0 }
+        }
       });
 
       removeTarget(el);
       return;
     }
 
-    // SHIELD pickup
-    if (tp === 'shield'){
+    if (kind === 'diamond'){
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
+      engine.score += 260 + Math.min(240, engine.combo*5);
+      // diamond: instant shield
+      engine.fever = engine.feverMax;
       engine.shield = 1;
+      try{ FeverUI.set?.(engine.fever, feverState(engine.fever)); FeverUI.setShield?.(1); }catch(_){}
+      emit('hha:judge', { kind:'good', text:'DIAMOND! 🛡️' });
+      emit('hha:celebrate', { kind:'mini', title:'DIAMOND SHIELD!' });
+      emitQuest();
+      updateScore();
 
-      addScore(110, false);
-      addFever(+0.06);
-
-      emit('hha:judge', { kind:'good', text:'SHIELD!' });
-      emit('hha:celebrate', { kind:'mini', title:'SHIELD UP!' });
-      Particles.burstAt && Particles.burstAt(el, { kind:'shield' });
-      SFX.power();
-
-      updateFeverUI();
-      updateScore(); updateQuest();
-
-      hhaLogEvent('hit', {
-        kind:'shield',
-        itemType:'shield',
-        emoji: el.dataset.emoji || '🛡️',
-        rtMs: rt|0,
-        judgment:'hit',
-        totalScore: engine.score|0,
-        combo: engine.combo|0,
-        isGood:true,
-        feverValue: engine.fever,
-        feverState: engine.feverState,
-        shield: engine.shield|0
+      hhaLogEvent({
+        type:'hit',
+        data:{
+          eventType:'hit',
+          timeFromStartMs: Math.round(now()-engine.startMs),
+          rtMs,
+          itemType:'diamond',
+          emoji,
+          targetId:id,
+          judgment:'hit_diamond',
+          totalScore: engine.score|0,
+          combo: engine.combo|0,
+          isGood:true,
+          feverValue: engine.fever|0,
+          feverState: feverState(engine.fever),
+          goalProgress: { stage: engine.stage, now: goalNowForStage(engine.stage), total: goalTotalForStage(engine.stage) },
+          miniProgress: { active: !!engine.miniActive, now: engine.miniNow|0, total: engine.miniNeed|0 }
+        }
       });
 
       removeTarget(el);
@@ -916,490 +847,471 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH PATCH)
     }
 
     // GOOD
-    if (tp === 'good'){
-      engine.nHitGood++;
+    if (kind === 'good'){
+      engine.hitGood++;
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
 
-      // reaction time stats
-      if (rt > 0){
-        engine.rtSum += rt;
-        engine.rtN++;
-        engine.rtList.push(rt|0);
-      }
+      const group = String(el.dataset.group||'veg');
+      if (engine.got[group] == null) engine.got[group] = 0;
+      engine.got[group]++;
 
-      // plate group count
-      const gid = Number(el.dataset.groupId)||0;
-      if (gid >= 1 && gid <= 5){
-        engine.groupGot[gid] = clamp((engine.groupGot[gid]|0) + 1, 0, 99);
-      }
+      const mult = (engine.shield>0 && engine.fever>=85) ? 1.1 : 1.0;
+      engine.score += Math.round((110 + engine.combo*3) * mult);
 
-      // score
-      addScore(100 + Math.min(220, engine.combo*3), false);
+      addFever(+6);
 
-      addFever(+engine.feverGain);
-      emit('hha:judge', { kind:'good', text:'GOOD!' });
-      Particles.scorePop && Particles.scorePop(el, '+'+(100));
-      Particles.burstAt && Particles.burstAt(el, { kind:'good' });
-      SFX.good();
-
-      updateScore(); updateQuest();
-
-      hhaLogEvent('hit', {
-        kind:'good',
-        itemType:'good',
-        emoji: el.dataset.emoji || '',
-        rtMs: rt|0,
-        judgment:'hit',
-        totalScore: engine.score|0,
-        combo: engine.combo|0,
-        isGood:true,
-        feverValue: engine.fever,
-        feverState: engine.feverState,
-        shield: engine.shield|0,
-        groupId: gid|0
-      });
-
-      // mini: Plate Rush
-      if (engine.miniActive && engine.miniActive.id === 'rush'){
-        // within window and still no junk
-        const left = engine.miniWindowEnd - nowMs();
-        if (left > 0 && engine.miniNoJunk){
-          engine.miniCount = clamp(engine.miniCount + 1, 0, 99);
-          if (left <= 1700 && !engine.urgent){
-            engine.urgent = true;
-            DOC.body.classList.add('plate-urgent');
-          }
-          if (engine.miniCount >= 5){
-            DOC.body.classList.remove('plate-urgent');
-            engine.urgent = false;
-            passMini();
-          }
+      if (engine.miniActive){
+        engine.miniNow = Math.min(engine.miniNeed, engine.miniNow + 1);
+        emitQuest();
+        if (engine.miniNow >= engine.miniNeed && engine.miniNoJunkOk){
+          completeMiniRush();
         }
       }
 
-      // mini: combo
-      if (engine.miniActive && engine.miniActive.id === 'combo'){
-        if (engine.combo >= 10) passMini();
+      emit('hha:judge', { kind:'good', text:'GOOD!' });
+      Particles.scorePop?.(el, { text:'+'+String(40 + (engine.combo|0)), kind:'good' });
+      Particles.burstAt?.(el, { kind:'good' });
+
+      updateScore();
+
+      // check stage completion
+      if (stageCompleted(engine.stage)){
+        advanceStage();
+      }else{
+        emitQuest();
       }
 
-      // goal: plate complete
-      if (plateCompleted()){
-        passGoal();
-      }
+      hhaLogEvent({
+        type:'hit',
+        data:{
+          eventType:'hit',
+          timeFromStartMs: Math.round(now()-engine.startMs),
+          rtMs,
+          itemType:'good',
+          emoji,
+          targetId:id,
+          judgment:'hit_good',
+          totalScore: engine.score|0,
+          combo: engine.combo|0,
+          isGood:true,
+          feverValue: engine.fever|0,
+          feverState: feverState(engine.fever),
+          goalProgress: { stage: engine.stage, now: goalNowForStage(engine.stage), total: goalTotalForStage(engine.stage), got: engine.got, need: needForStage(engine.stage) },
+          miniProgress: { active: !!engine.miniActive, now: engine.miniNow|0, total: engine.miniNeed|0, leftMs: engine.miniActive?Math.max(0,(engine.miniStartMs+engine.miniWindowMs)-now()):0 }
+        }
+      });
 
       removeTarget(el);
       return;
     }
 
     // JUNK
-    if (tp === 'junk'){
-      engine.nHitJunk++;
-      // if shield active => block (no miss)
+    if (kind === 'junk'){
+      // mini rule: any junk during mini => fail mini (if not shield blocked)
       if (engine.shield > 0){
-        engine.shield = 0;
-        engine.nHitJunkGuard++;
-        emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
-        Particles.burstAt && Particles.burstAt(el, { kind:'shield_block' });
-        SFX.ok();
-        updateFeverUI();
-        updateScore(); updateQuest();
+        consumeShield();
+        engine.combo = Math.max(0, engine.combo - 1);
 
-        hhaLogEvent('shield_block', {
-          kind:'junk',
-          itemType:'junk',
-          emoji: el.dataset.emoji || '',
-          rtMs: rt|0,
-          judgment:'shield_block',
-          totalScore: engine.score|0,
-          combo: engine.combo|0,
-          isGood:false,
-          feverValue: engine.fever,
-          feverState: engine.feverState,
-          shield: engine.shield|0
+        emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
+        Particles.burstAt?.(el, { kind:'shield' });
+
+        updateScore();
+
+        hhaLogEvent({
+          type:'shield_block',
+          data:{
+            eventType:'shield_block',
+            timeFromStartMs: Math.round(now()-engine.startMs),
+            rtMs,
+            itemType:'junk',
+            emoji,
+            targetId:id,
+            judgment:'shield_block',
+            totalScore: engine.score|0,
+            combo: engine.combo|0,
+            isGood:false,
+            feverValue: engine.fever|0,
+            feverState: feverState(engine.fever),
+            goalProgress: { stage: engine.stage, now: goalNowForStage(engine.stage), total: goalTotalForStage(engine.stage) },
+            miniProgress: { active: !!engine.miniActive, now: engine.miniNow|0, total: engine.miniNeed|0 }
+          }
         });
 
         removeTarget(el);
         return;
       }
 
-      // count as MISS (miss def)
       engine.misses++;
       engine.combo = 0;
-      addFever(-engine.feverLoss);
-
+      addFever(-10);
       emit('hha:judge', { kind:'bad', text:'JUNK!' });
-      Particles.burstAt && Particles.burstAt(el, { kind:'junk' });
-      SFX.bad();
-      updateScore(); updateQuest();
 
-      hhaLogEvent('hit', {
-        kind:'junk',
-        itemType:'junk',
-        emoji: el.dataset.emoji || '',
-        rtMs: rt|0,
-        judgment:'hit_bad',
-        totalScore: engine.score|0,
-        combo: engine.combo|0,
-        isGood:false,
-        feverValue: engine.fever,
-        feverState: engine.feverState,
-        shield: engine.shield|0
-      });
+      if (engine.miniActive){
+        engine.miniNoJunkOk = false;
+        failMiniRush('junk_hit');
+      }
 
-      // mini: rush => fail if junk hit inside window
-      if (engine.miniActive && engine.miniActive.id === 'rush'){
-        const left = engine.miniWindowEnd - nowMs();
-        if (left > 0){
-          engine.miniNoJunk = false;
-          DOC.body.classList.remove('plate-urgent');
-          engine.urgent = false;
-          failMini('RUSH FAIL! (โดนขยะ)');
+      updateScore();
+
+      hhaLogEvent({
+        type:'hit',
+        data:{
+          eventType:'hit',
+          timeFromStartMs: Math.round(now()-engine.startMs),
+          rtMs,
+          itemType:'junk',
+          emoji,
+          targetId:id,
+          judgment:'hit_junk',
+          totalScore: engine.score|0,
+          combo: engine.combo|0,
+          isGood:false,
+          feverValue: engine.fever|0,
+          feverState: feverState(engine.fever),
+          goalProgress: { stage: engine.stage, now: goalNowForStage(engine.stage), total: goalTotalForStage(engine.stage) },
+          miniProgress: { active: !!engine.miniActive, now: engine.miniNow|0, total: engine.miniNeed|0 }
         }
-      }
-
-      // mini: clean streak => reset timer
-      if (engine.miniActive && engine.miniActive.id === 'clean'){
-        engine._cleanStartMs = nowMs();
-      }
+      });
 
       removeTarget(el);
       return;
     }
   }
 
-  // ------------------------------------------------------------
-  // Tick loop: time + minis timing + adaptive + urgent effects
-  // ------------------------------------------------------------
+  // ------------------------- Adaptive difficulty (play only) -------------------------
+  function adaptTick(){
+    if (engine.runMode !== 'play') return;
+
+    const acc = engine.hitAll>0 ? (engine.hitGood/engine.hitAll) : 0;
+    const heat = clamp((engine.combo/22) + (acc - 0.62), 0, 1);
+
+    // hotter => harder
+    engine.adapt.spawnMs = clamp(860 - heat*280, 460, 940);
+    engine.adapt.ttl     = clamp(1680 - heat*280, 1200, 1780);
+    engine.adapt.size    = clamp(1.03 - heat*0.12, 0.86, 1.06);
+
+    engine.adapt.junk    = clamp(0.14 + heat*0.08, 0.10, 0.26);
+    engine.adapt.star    = clamp(0.014 - heat*0.003, 0.010, 0.016);
+    engine.adapt.diamond = clamp(0.008 - heat*0.002, 0.005, 0.010);
+
+    emit('hha:adaptive', {
+      heat: Number(heat.toFixed(2)),
+      spawnMs: engine.adapt.spawnMs|0,
+      ttl: engine.adapt.ttl|0,
+      size: Number(engine.adapt.size.toFixed(2)),
+      junkBias: Number(engine.adapt.junk.toFixed(3))
+    });
+  }
+
+  // ------------------------- Main tick -------------------------
   function loopTick(){
     if (!engine.running || engine.ended) return;
 
-    const t = nowMs();
-    const elapsed = Math.max(0, (t - engine.tStartMs) / 1000);
-    const left = Math.max(0, engine.timeSec - elapsed);
-    engine.leftSec = left;
-
+    // time
+    engine.left = Math.max(0, engine.left - 0.14);
     updateTime();
 
-    // mini rush countdown + urgent tick + fail when time up
-    if (engine.miniActive && engine.miniActive.id === 'rush'){
-      const leftMs = engine.miniWindowEnd - t;
-      if (leftMs <= 0){
-        DOC.body.classList.remove('plate-urgent');
-        engine.urgent = false;
-        failMini('RUSH FAIL! (หมดเวลา)');
-      } else {
-        if (leftMs <= 2200){
-          SFX.tick(leftMs);
-        }
-        if (leftMs <= 1700 && !engine.urgent){
-          engine.urgent = true;
-          DOC.body.classList.add('plate-urgent');
-        }
-      }
-    }
+    // adapt
+    adaptTick();
 
-    // mini clean streak pass
-    if (engine.miniActive && engine.miniActive.id === 'clean'){
-      const sec = (t - (engine._cleanStartMs||t)) / 1000;
-      if (sec >= 10) passMini();
-    }
+    // mini quest tick display
+    if (engine.miniActive) emitQuest();
 
-    // mini fever pop pass
-    if (engine.miniActive && engine.miniActive.id === 'fever'){
-      if (engine._feverPopped) passMini();
-    }
-
-    // adaptive (play only)
-    if (engine.runMode === 'play'){
-      const denom = Math.max(1, engine.nHitGood + engine.nHitJunk);
-      const acc = engine.nHitGood / denom;
-      const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
-
-      // spawn faster when heat high, but keep safe
-      engine.adapt.spawnMs = clamp(840 - heat*280, 480, 900);
-      engine.adapt.ttlMs   = clamp(1750 - heat*280, 1250, 1900);
-      engine.adapt.size    = clamp(1.03 - heat*0.10, 0.86, 1.08);
-      engine.adapt.junkBias= clamp(0.14 + heat*0.08, 0.10, 0.26);
-
-      engine.ttlMs = engine.adapt.ttlMs;
-    }
-
-    // end by time
-    if (left <= 0){
+    // end
+    if (engine.left <= 0){
       endGame('time');
       return;
     }
 
-    engine.tickTimer = root.setTimeout(loopTick, 140);
+    engine.tTick = root.setTimeout(loopTick, 140);
   }
 
   function clearAllTargets(){
-    const list = Array.from(LAYER.querySelectorAll('.pl-target'));
+    const list = layer.querySelectorAll('.plate-target');
     list.forEach(el=>{
       try{ root.clearTimeout(el._ttlTimer); }catch(_){}
       try{ el.remove(); }catch(_){}
     });
   }
 
-  // ------------------------------------------------------------
-  // End summary overlay (ensure) + Back HUB
-  // ------------------------------------------------------------
+  // ------------------------- End overlay + summary -------------------------
   function ensureEndOverlay(){
-    let ov = DOC.getElementById('endOverlay');
-    if (ov) return ov;
+    let overlay = DOC.getElementById('endOverlay');
+    if (!overlay){
+      overlay = DOC.createElement('div');
+      overlay.id = 'endOverlay';
+      overlay.className = 'result-overlay';
+      overlay.innerHTML = `
+        <div class="result-card">
+          <h2>สรุปผล — Balanced Plate VR</h2>
+          <p>Score: <b id="endScore">0</b> · Rank: <b id="endRank">C</b> · Acc: <b id="endAcc">0%</b></p>
+          <p>ComboMax: <b id="endComboMax">0</b> · Miss: <b id="endMiss">0</b></p>
+          <p>Goals: <b id="endGoals">0/0</b> · Minis: <b id="endMinis">0/0</b></p>
+          <div class="result-actions">
+            <button class="btn primary" id="btnRetry" type="button">RETRY</button>
+            <button class="btn ghost" id="btnBackHub" type="button">กลับ HUB</button>
+          </div>
+        </div>
+      `;
+      DOC.body.appendChild(overlay);
+    }
 
-    ov = DOC.createElement('div');
-    ov.id = 'endOverlay';
-    ov.className = 'result-overlay';
-    Object.assign(ov.style, {
-      position:'fixed', inset:'0',
-      display:'none',
-      alignItems:'center', justifyContent:'center',
-      background:'rgba(0,0,0,.55)',
-      zIndex:'9998'
-    });
-
-    const card = DOC.createElement('div');
-    Object.assign(card.style, {
-      width:'min(560px, 92vw)',
-      borderRadius:'18px',
-      background:'rgba(2,6,23,.88)',
-      border:'1px solid rgba(148,163,184,.18)',
-      boxShadow:'0 30px 120px rgba(0,0,0,.55)',
-      padding:'18px 18px 16px',
-      color:'#e5e7eb',
-      fontFamily:'system-ui,-apple-system,Segoe UI,sans-serif'
-    });
-    card.innerHTML = `
-      <h2 style="margin:0 0 8px;font-size:20px;">สรุปผล — Balanced Plate VR</h2>
-      <div style="opacity:.9;line-height:1.5;font-size:14px;">
-        Score: <b id="endScore">0</b> · Rank: <b id="endRank">C</b> · Acc: <b id="endAcc">0%</b><br/>
-        ComboMax: <b id="endComboMax">0</b> · Miss: <b id="endMiss">0</b><br/>
-        Goals: <b id="endGoals">0/0</b> · Minis: <b id="endMinis">0/0</b>
-      </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;">
-        <button id="btnRetry" style="padding:10px 14px;border-radius:999px;border:1px solid rgba(34,197,94,.35);background:rgba(34,197,94,.18);color:#e5e7eb;font-weight:900;">RETRY</button>
-        <button id="btnBackHub" style="padding:10px 14px;border-radius:999px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.6);color:#e5e7eb;font-weight:900;">กลับ HUB</button>
-      </div>
-    `;
-    ov.appendChild(card);
-    DOC.body.appendChild(ov);
-
-    // bind buttons (flush before action)
-    const retry = DOC.getElementById('btnRetry');
-    const back  = DOC.getElementById('btnBackHub');
-    retry && retry.addEventListener('click', async ()=>{
-      await flushNowBestEffort('retry');
-      root.location.reload();
-    });
-    back && back.addEventListener('click', async ()=>{
-      PlateBoot.goHub();
-    });
-
-    return ov;
+    const btnRetry = DOC.getElementById('btnRetry');
+    const btnBack  = DOC.getElementById('btnBackHub');
+    if (btnRetry && !btnRetry._bound){
+      btnRetry._bound = 1;
+      btnRetry.addEventListener('click', async ()=>{
+        try{ await flushNowBestEffort('retry'); }catch(_){}
+        root.location.reload();
+      }, { passive:true });
+    }
+    if (btnBack && !btnBack._bound){
+      btnBack._bound = 1;
+      btnBack.addEventListener('click', async ()=>{
+        await Boot.goHub();
+      }, { passive:true });
+    }
+    return overlay;
   }
 
-  function showEndOverlay(detail){
-    const ov = ensureEndOverlay();
-    const s = DOC.getElementById('endScore'); if (s) s.textContent = String(detail.scoreFinal ?? 0);
-    const r = DOC.getElementById('endRank');  if (r) r.textContent = String(detail.grade ?? 'C');
-    const a = DOC.getElementById('endAcc');   if (a) a.textContent = String((detail.accuracyGoodPct ?? 0)|0) + '%';
-    const cm= DOC.getElementById('endComboMax'); if (cm) cm.textContent = String(detail.comboMax ?? 0);
-    const ms= DOC.getElementById('endMiss');     if (ms) ms.textContent = String(detail.misses ?? 0);
-    const gl= DOC.getElementById('endGoals');    if (gl) gl.textContent = String(detail.goalsCleared ?? 0) + '/' + String(detail.goalsTotal ?? 0);
-    const mn= DOC.getElementById('endMinis');    if (mn) mn.textContent = String(detail.miniCleared ?? 0) + '/' + String(detail.miniTotal ?? 0);
+  function buildEndDetail(reason){
+    const acc = engine.hitAll>0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
+    const grade = rankFromAcc(acc);
 
-    ov.style.display = 'flex';
+    const goalsCleared = (engine.stage>=3 && stageCompleted(3)) ? 3 : (engine.stage===3?2:(engine.stage===2?1:0));
+    const goalsTotal = 3;
+    // mini: count as cleared if last mini complete at least once; track via flag
+    const miniCleared = engine._miniClearedOnce ? 1 : 0;
+    const miniTotal = 1;
+
+    return {
+      reason: String(reason||'end'),
+      scoreFinal: engine.score|0,
+      comboMax: engine.comboMax|0,
+      misses: engine.misses|0,
+      accuracyGoodPct: acc|0,
+      grade,
+      goalsCleared, goalsTotal,
+      miniCleared, miniTotal,
+      nHitGood: engine.hitGood|0,
+      nHitAll:  engine.hitAll|0,
+      diff: engine.diff,
+      runMode: engine.runMode,
+      seed: engine.seed,
+      timeSec: engine.timeSec|0
+    };
   }
 
-  // ------------------------------------------------------------
-  // END GAME (✅ FLUSH BEFORE END + store summary)
-  // ------------------------------------------------------------
   async function endGame(reason){
     if (engine.ended) return;
     engine.ended = true;
     engine.running = false;
 
-    try{ root.clearTimeout(engine.spawnTimer); }catch(_){}
-    try{ root.clearTimeout(engine.tickTimer); }catch(_){}
+    try{ root.clearTimeout(engine.tSpawn); }catch(_){}
+    try{ root.clearTimeout(engine.tTick); }catch(_){}
+    try{ root.clearTimeout(engine.tMini); }catch(_){}
     clearAllTargets();
+    try{ DOC.body.classList.remove('plate-urgent'); }catch(_){}
 
-    DOC.body.classList.remove('plate-urgent');
+    const detail = buildEndDetail(reason);
 
-    // compute stats
-    const acc = accPct();
-    const grade = rankFromAcc(acc);
-    const avgRt = engine.rtN ? Math.round(engine.rtSum / engine.rtN) : 0;
-    const medRt = median(engine.rtList);
-
-    const detail = {
-      reason: reason || 'end',
-
-      scoreFinal: engine.score|0,
-      comboMax: engine.comboMax|0,
-      misses: engine.misses|0,
-
-      goalsCleared: engine.goalsCleared|0,
-      goalsTotal: engine.goalsTotal|0,
-      miniCleared: engine.miniCleared|0,
-      miniTotal: engine.miniTotal|0,
-
-      accuracyGoodPct: acc|0,
-      grade,
-
-      avgRtGoodMs: avgRt|0,
-      medianRtGoodMs: medRt|0,
-
-      nTargetGoodSpawned: engine.nSpawnGood|0,
-      nTargetJunkSpawned: engine.nSpawnJunk|0,
-      nTargetStarSpawned: engine.nSpawnStar|0,
-      nTargetShieldSpawned: engine.nSpawnShield|0,
-
-      nHitGood: engine.nHitGood|0,
-      nHitJunk: engine.nHitJunk|0,
-      nHitJunkGuard: engine.nHitJunkGuard|0,
-      nExpireGood: engine.nExpireGood|0,
-
-      diff: engine.diff,
-      runMode: engine.runMode,
-      seed: engine.seed,
-
-      feverValue: engine.fever,
-      feverState: engine.feverState
-    };
-
-    // save last summary
+    // log end
     try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(detail));
-      localStorage.setItem('hha_last_summary', JSON.stringify(detail));
+      hhaLogEvent({
+        type:'end',
+        data:{
+          eventType:'end',
+          timeFromStartMs: Math.round(now()-engine.startMs),
+          reason: detail.reason,
+          totalScore: detail.scoreFinal,
+          comboMax: detail.comboMax,
+          misses: detail.misses,
+          accuracyGoodPct: detail.accuracyGoodPct,
+          grade: detail.grade,
+          goalsCleared: detail.goalsCleared,
+          goalsTotal: detail.goalsTotal,
+          miniCleared: detail.miniCleared,
+          miniTotal: detail.miniTotal,
+          diff: detail.diff,
+          runMode: detail.runMode,
+          seed: detail.seed
+        }
+      });
     }catch(_){}
 
-    // emit end (HUD binder/HTML listeners)
+    // ✅ FLUSH before showing end overlay (best-effort, fast)
+    try{ await flushNowBestEffort('end_game'); }catch(_){}
+
+    // store last summary
+    try{
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(detail||{}));
+      localStorage.setItem('hha_last_summary', JSON.stringify(detail||{}));
+    }catch(_){}
+
+    // emit end
     emit('hha:end', detail);
 
-    // ✅ IMPORTANT: flush BEFORE we show overlay (so data is safe even if user closes)
-    await flushNowBestEffort('end');
+    // show overlay + fill values
+    const overlay = ensureEndOverlay();
+    const s = DOC.getElementById('endScore'); if (s) s.textContent = String(detail.scoreFinal||0);
+    const r = DOC.getElementById('endRank');  if (r) r.textContent = String(detail.grade||'C');
+    const a = DOC.getElementById('endAcc');   if (a) a.textContent = String(detail.accuracyGoodPct||0) + '%';
+    const cm= DOC.getElementById('endComboMax'); if (cm) cm.textContent = String(detail.comboMax||0);
+    const ms= DOC.getElementById('endMiss');     if (ms) ms.textContent = String(detail.misses||0);
+    const gl= DOC.getElementById('endGoals'); if (gl) gl.textContent = String(detail.goalsCleared||0)+'/'+String(detail.goalsTotal||0);
+    const mn= DOC.getElementById('endMinis'); if (mn) mn.textContent = String(detail.miniCleared||0)+'/'+String(detail.miniTotal||0);
 
-    // show overlay
-    showEndOverlay(detail);
+    if (overlay){
+      overlay.style.display = 'flex';
+      overlay.classList.add('show');
+    }
   }
 
-  // ------------------------------------------------------------
-  // HUB navigation (✅ FLUSH BEFORE LEAVE)
-  // ------------------------------------------------------------
-  function buildHubUrl(){
-    const hub = String(qs('hub', '../hub.html') || '../hub.html');
+  // ------------------------- Public: goHub (flush before leave) -------------------------
+  Boot.goHub = async function(){
+    // allow hub passed in URL ?hub=
+    const hub = String(qs('hub','../hub.html') || '../hub.html');
+
+    // signal + flush quickly
+    try{ hhaLogEvent({ type:'nav', data:{ where:'hub', timeFromStartMs: Math.round(now()-engine.startMs) } }); }catch(_){}
+    try{ await flushNowBestEffort('go_hub'); }catch(_){}
+
     try{
       const u = new URL(hub, root.location.href);
       u.searchParams.set('ts', String(Date.now()));
-      return u.toString();
+      root.location.href = u.toString();
     }catch(_){
-      return hub;
+      root.location.href = hub;
     }
+  };
+
+  // ------------------------- Start / Reset -------------------------
+  function resetAll(){
+    engine.score=0; engine.combo=0; engine.comboMax=0; engine.misses=0;
+    engine.hitGood=0; engine.hitAll=0;
+
+    engine.fever=0; engine.shield=0;
+    try{ FeverUI.ensure?.(); FeverUI.set?.(0,'low'); FeverUI.setShield?.(0); }catch(_){}
+
+    engine._miniClearedOnce = false;
+
+    resetPlateProgress();
+    emitQuest();
+    updateScore();
+    updateTime();
   }
 
-  async function goHub(){
-    // if not ended yet, end silently (no duplicate overlay glitch)
-    if (!engine.ended){
-      // end first => will flush too
-      await endGame('go_hub');
-    } else {
-      // ensure flush again (best-effort)
-      await flushNowBestEffort('go_hub');
-    }
-    root.location.href = buildHubUrl();
+  function spawnStamp(el){
+    try{ el.dataset.spawnAt = String(now()); }catch(_){}
   }
 
-  // ------------------------------------------------------------
-  // Start / Boot
-  // ------------------------------------------------------------
-  function start(runMode, cfg){
+  function loopSpawnStamped(){
+    if (!engine.running || engine.ended) return;
+
+    // spawnOne already logs; stamp spawnAt for RT
+    const beforeCount = layer.childElementCount;
+    spawnOne();
+    // stamp last inserted
+    const afterCount = layer.childElementCount;
+    if (afterCount > beforeCount){
+      const last = layer.lastElementChild;
+      if (last) spawnStamp(last);
+    }
+
+    engine.tSpawn = root.setTimeout(loopSpawnStamped, Math.max(420, engine.adapt.spawnMs|0));
+  }
+
+  async function start(runMode, cfg){
     cfg = cfg || {};
-
-    engine.runMode = (String(runMode||qs('run','play')).toLowerCase() === 'research') ? 'research' : 'play';
+    engine.runMode = (String(runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
     engine.diff = String(cfg.diff || qs('diff','normal')).toLowerCase();
-    engine.timeSec = clamp(Number(cfg.time ?? qsInt('time', 90)), 30, 600);
+    engine.timeSec = clamp(cfg.time ?? intQ('time', 90), 30, 180);
+    engine.left = engine.timeSec;
 
-    const sid  = String(qs('sessionId', qs('studentKey','')) || '');
-    const ts   = String(qs('ts', Date.now()));
-    const seed = String(cfg.seed || qs('seed', sid ? (sid + '|' + ts) : ts));
-    engine.seed = seed;
-
-    // deterministic rng:
-    // - research: always seeded
-    // - play: seeded if provided, else still seeded by ts for stability
-    engine.rng = makeRng(seed);
+    const sid = String(qs('sessionId', qs('studentKey','')) || '');
+    const ts  = String(qs('ts', Date.now()));
+    engine.seed = String(cfg.seed || qs('seed', sid ? (sid + '|' + ts) : ts));
+    engine.rng = makeRng(engine.seed);
 
     const dp = diffParams(engine.diff);
     engine.adapt.spawnMs = dp.spawnMs;
-    engine.adapt.ttlMs   = dp.ttlMs;
+    engine.adapt.ttl     = dp.ttl;
     engine.adapt.size    = dp.size;
-    engine.adapt.junkBias= dp.junkBias;
+    engine.adapt.junk    = dp.junk;
+    engine.adapt.star    = dp.star;
+    engine.adapt.diamond = dp.diamond;
 
-    engine.ttlMs = dp.ttlMs;
-    engine.feverGain = dp.feverGain;
-    engine.feverLoss = dp.feverLoss;
+    // research = fixed by diff (no adaptive changes)
+    if (engine.runMode === 'research'){
+      // still keep stable values
+    }
 
-    // reset gameplay
     engine.running = true;
     engine.ended = false;
-    engine.tStartMs = nowMs();
-    engine.leftSec = engine.timeSec;
+    engine.startMs = now();
 
-    engine.score=0; engine.combo=0; engine.comboMax=0;
-    engine.misses=0;
+    // reset view
+    engine.vx = 0; engine.vy = 0; applyView();
 
-    engine.nSpawnGood=0; engine.nSpawnJunk=0; engine.nSpawnStar=0; engine.nSpawnShield=0;
-    engine.nHitGood=0; engine.nHitJunk=0; engine.nHitJunkGuard=0; engine.nExpireGood=0;
+    resetAll();
 
-    engine.rtSum=0; engine.rtN=0; engine.rtList=[];
+    // start mini occasionally (fun) in play mode after 10s
+    if (engine.runMode === 'play'){
+      setTimeout(()=>{ if(engine.running && !engine.ended && !engine.miniActive) startMiniRush(); }, 10000);
+    }
 
-    engine.fever=0; engine.shield=0; engine.feverState='cool';
-    updateFeverUI();
+    // log session start marker
+    hhaLogEvent({
+      type:'start',
+      data:{
+        eventType:'start',
+        timeFromStartMs: 0,
+        diff: engine.diff,
+        runMode: engine.runMode,
+        seed: engine.seed,
+        timeSec: engine.timeSec|0
+      }
+    });
 
-    engine.goalIndex=0;
-    engine.goalsCleared=0;
-    engine.goalsTotal=3;
-
-    engine.miniCleared=0;
-    engine.miniTotal=4;
-
-    resetPlate();
-
-    // view
-    engine.vx=0; engine.vy=0;
-    applyView();
-
-    // ensure end overlay exists but hidden
-    ensureEndOverlay().style.display = 'none';
-
-    // start mini chain from 0
-    startMini(0);
-
-    // initial HUD
-    updateTime();
-    updateScore();
-    updateQuest();
-
-    emit('hha:coach', { mood:'happy', text:'เริ่มเลย! เติมจานให้สมดุล 🍽️' });
-
-    // kick loops
-    try{ root.clearTimeout(engine.spawnTimer); }catch(_){}
-    try{ root.clearTimeout(engine.tickTimer); }catch(_){}
-
-    loopSpawn();
+    emitQuest();
+    loopSpawnStamped();
     loopTick();
   }
 
-  // Expose Boot API (consistent style)
-  const PlateBoot = (root.PlateBoot = root.PlateBoot || {});
-  PlateBoot.start = start;
-  PlateBoot.endNow = (reason)=> endGame(reason || 'endNow');
-  PlateBoot.goHub = goHub;
-  PlateBoot.recenter = recenter;
+  Boot.start = start;
 
-  // bind view controls once
-  setupView();
+  // ------------------------- Mini clear flag -------------------------
+  const _completeMiniRush = completeMiniRush;
+  completeMiniRush = function(){
+    engine._miniClearedOnce = true;
+    _completeMiniRush();
+  };
+
+  // ------------------------- Safety: pagehide flush -------------------------
+  function onPageHide(){
+    // do not await (pagehide)
+    try{ flushNowBestEffort('pagehide'); }catch(_){}
+  }
+  try{
+    root.addEventListener('pagehide', onPageHide, { passive:true });
+    root.addEventListener('visibilitychange', ()=>{
+      if (DOC.visibilityState === 'hidden') onPageHide();
+    }, { passive:true });
+  }catch(_){}
+
+  // ------------------------- Autostart helper (optional) -------------------------
+  // If HTML calls PlateBoot.start itself, fine.
+  // If someone loads safe.js alone with ?autostart=1, we can start.
+  try{
+    if (qs('autostart','0') === '1' && !Boot._autoStarted){
+      Boot._autoStarted = true;
+      start(qs('run','play')==='research'?'research':'play', {
+        diff: qs('diff','normal'),
+        time: intQ('time', 90),
+        seed: qs('seed', '')
+      });
+    }
+  }catch(_){}
 
 })(typeof window !== 'undefined' ? window : globalThis);
