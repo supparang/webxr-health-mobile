@@ -1,5 +1,5 @@
 // === /herohealth/plate/plate.safe.js ===
-// Plate VR — HHA Standard FULL (EVENTS+LOGGER+METRICS+MINI FIX+HUB RETURN)
+// Plate VR — HHA Standard FULL (EVENTS+LOGGER+METRICS+MINI FIX+HUB RETURN+FLUSH)
 'use strict';
 
 import {
@@ -284,52 +284,154 @@ function emitEnd(reason){
   dispatchEvt('hha:end', { game:'PlateVR', sessionId:S.sessionId, reason: String(reason||''), summary });
 }
 
-// ---------- Logger (HHA Standard payload) ----------
-function logSession(phase){
-  // keep as-is for your sheet session schema; logger can flatten this
-  dispatchEvt('hha:log_session',{
-    ...S.ctx,
-    sessionId:S.sessionId,
-    game:'PlateVR',
-    phase,
-    run: RUN_RAW,
-    mode: MODE,
+// ---------- Logger (HHA Sheet Schema rows) ----------
+const GAME_MODE = 'plate';
+const GAME_VERSION = 'plate.safe.production';
+
+function baseCtxRow(){
+  const c = (S.ctx && typeof S.ctx==='object') ? S.ctx : {};
+  const get = (k, d='') => (c[k]!==undefined && c[k]!==null) ? c[k] : d;
+
+  return {
+    timestampIso: new Date().toISOString(),
+    projectTag: get('projectTag','herohealth'),
+    runMode: (c.runMode || c.run || RUN_RAW || 'play'),
+    studyId: get('studyId',''),
+    phase: get('phase',''),
+    conditionGroup: get('conditionGroup',''),
+
+    sessionOrder: get('sessionOrder',''),
+    blockLabel: get('blockLabel',''),
+    siteCode: get('siteCode',''),
+    schoolYear: get('schoolYear',''),
+    semester: get('semester',''),
+
+    sessionId: S.sessionId,
+    gameMode: GAME_MODE,
     diff: DIFF,
-    seed: USE_SEEDED ? SEED : undefined,
-    timeTotal:TOTAL_TIME,
-    lives:S.livesMax,
-    ts:Date.now(),
-    ua:navigator.userAgent
-  });
+
+    studentKey: get('studentKey',''),
+    schoolCode: get('schoolCode',''),
+    schoolName: get('schoolName',''),
+    classRoom: get('classRoom',''),
+    studentNo: get('studentNo',''),
+    nickName: get('nickName',''),
+
+    gender: get('gender',''),
+    age: get('age',''),
+    gradeLevel: get('gradeLevel',''),
+
+    heightCm: get('heightCm',''),
+    weightKg: get('weightKg',''),
+    bmi: get('bmi',''),
+    bmiGroup: get('bmiGroup',''),
+
+    vrExperience: get('vrExperience',''),
+    gameFrequency: get('gameFrequency',''),
+    handedness: get('handedness',''),
+    visionIssue: get('visionIssue',''),
+    healthDetail: get('healthDetail',''),
+
+    consentParent: get('consentParent',''),
+    consentTeacher: get('consentTeacher',''),
+
+    profileSource: get('profileSource',''),
+    surveyKey: get('surveyKey',''),
+    excludeFlag: get('excludeFlag',''),
+    noteResearcher: get('noteResearcher',''),
+  };
 }
 
-function logEvent(type, data){
-  // IMPORTANT: HHA Standard requires {type, data:{...}}
-  const tMs = Math.round((now() - S.tStart) || 0);
+function goalProgStr(){
+  const key = S.activeGoal ? S.activeGoal.key : '';
+  const txt = goalProgressText();
+  return key ? `${key}:${txt}` : txt;
+}
 
-  dispatchEvt('hha:log_event',{
-    type: String(type||'event'),
-    data: {
-      ...((data && typeof data === 'object') ? data : {}),
-      game: 'PlateVR',
-      sessionId: S.sessionId,
-      mode: MODE,
-      diff: DIFF,
-      timeFromStartMs: tMs,
+function miniProgStr(){
+  const m = S.activeMini;
+  if(!m) return '';
+  const p = (typeof m.progress==='function') ? m.progress() : '';
+  return `${m.key}:${p}`;
+}
 
-      score: S.score,
-      combo: S.combo,
-      miss: S.miss,
-      perfect: S.perfectCount,
-      feverPct: Math.round(S.fever),
-      shield: S.shield,
-      lives: S.lives,
+function logSession(phase){
+  const metrics = computeMetrics(S) || {};
+  const playedSec = Math.max(0, Math.round((now() - (S.tStart||now()))/1000));
 
-      goalsCleared: Math.min(2, S.goalsCleared),
-      minisCleared: Math.min(7, S.minisCleared),
-    },
-    ctx: S.ctx
+  const row = Object.assign(baseCtxRow(), {
+    phase,
+
+    durationPlannedSec: TOTAL_TIME,
+    durationPlayedSec: (S.running ? (TOTAL_TIME - Math.max(0, Math.floor(S.timeLeft||0))) : playedSec),
+
+    scoreFinal: S.score,
+    comboMax: S.maxCombo,
+    misses: S.miss,
+
+    goalsCleared: Math.min(2, S.goalsCleared),
+    goalsTotal: 2,
+    miniCleared: Math.min(7, S.minisCleared),
+    miniTotal: 7,
+
+    nTargetGoodSpawned: S.nTargetGoodSpawned || 0,
+    nTargetJunkSpawned: S.nTargetJunkSpawned || 0,
+    nTargetStarSpawned: S.nTargetGoldSpawned || 0,        // gold -> star
+    nTargetDiamondSpawned: S.nTargetTrapSpawned || 0,      // trap -> diamond
+    nTargetShieldSpawned: 0,
+
+    nHitGood: S.nHitGood || 0,
+    nHitJunk: S.nHitJunk || 0,
+    nHitJunkGuard: S.nShieldBlock || 0,
+    nExpireGood: S.nExpireGood || 0,
+
+    accuracyGoodPct: (metrics.accuracyGoodPct ?? ''),
+    junkErrorPct: (metrics.junkErrorPct ?? ''),
+    avgRtGoodMs: (metrics.avgRtGoodMs ?? ''),
+    medianRtGoodMs: (metrics.medianRtGoodMs ?? ''),
+    fastHitRatePct: (metrics.fastHitRatePct ?? ''),
+
+    device: (metrics.device || ''),
+    gameVersion: GAME_VERSION,
+    reason: (phase || ''),
+
+    startTimeIso: S.startTimeIso || '',
+    endTimeIso: S.endTimeIso || '',
   });
+
+  dispatchEvt('hha:log_session', row);
+}
+
+function logEvent(eventType, data){
+  const tMs = Math.round((now() - (S.tStart||now())) || 0);
+  const row = Object.assign(baseCtxRow(), {
+    sessionId: S.sessionId,
+    eventType: String(eventType||'event'),
+    gameMode: GAME_MODE,
+    diff: DIFF,
+
+    timeFromStartMs: tMs,
+    targetId: (data && data.targetId) || '',
+    emoji: (data && data.emoji) || '',
+    itemType: (data && (data.itemType || data.kind)) || '',
+    lane: (data && data.lane) || '',
+    rtMs: (data && (data.rtMs ?? '')),
+
+    judgment: (data && (data.judgment || data.judge)) || '',
+    totalScore: S.score,
+    combo: S.combo,
+    isGood: (data && (data.isGood ?? ((data.kind==='good'||data.kind==='gold') ? 1 : 0))) ? 1 : 0,
+
+    feverState: S.feverOn ? 'on' : 'off',
+    feverValue: Math.round(S.fever),
+
+    goalProgress: (data && data.goalProgress) || goalProgStr(),
+    miniProgress: (data && data.miniProgress) || miniProgStr(),
+
+    extra: (data && data.extra) ? data.extra : ''
+  });
+
+  dispatchEvt('hha:log_event', row);
 }
 
 // ---------- Helpers ----------
@@ -436,6 +538,9 @@ function showStartOverlay(on){
 function goHub(){
   // save last summary ALWAYS (standard)
   persistLastSummary('go_hub');
+
+  // ✅ flush before navigate (avoid losing last logs)
+  try{ ROOT.HHACloudLogger && ROOT.HHACloudLogger.flushNow && ROOT.HHACloudLogger.flushNow(); }catch(_){}
 
   const hubUrl = resolveUrl(HUB_URL_RAW);
   const sp = new URLSearchParams();
@@ -675,15 +780,26 @@ const MINIS=[
     dur:8000,
     init(){ S._mini={got:new Set(), fail:false}; },
     onHit(evt){
-      // FIX: if blocked by shield => should NOT fail
       if(!evt) return;
       const kind = evt.kind;
       const blocked = !!evt.blocked;
+
       if((kind==='junk'||kind==='trap'||kind==='boss'||kind==='boss_attack') && !blocked) S._mini.fail=true;
-      if(kind==='good' && !blocked) S._mini.got.add(evt.group);
-      if(kind==='gold' && !blocked) S._mini.got.add(evt.group);
+
+      if((kind==='good'||kind==='gold') && !blocked && evt.group>=1 && evt.group<=5){
+        S._mini.got.add(evt.group);
+      }
     },
-    isClear(){ return S._mini.got.size>=5 && !S._mini.fail; }
+    progress(){
+      const got = (S._mini && S._mini.got) ? S._mini.got.size : 0;
+      const f = (S._mini && S._mini.fail) ? ' FAIL' : '';
+      return `${got}/5${f}`;
+    },
+    isClear(){
+      const got = (S._mini && S._mini.got) ? S._mini.got.size : 0;
+      const fail = !!(S._mini && S._mini.fail);
+      return got>=5 && !fail;
+    }
   },
   {
     key:'perfectStreak', title:'Perfect Streak',
@@ -784,9 +900,12 @@ function startMini(){
   S.miniUrgentArmed=false;
   S.miniTickAt=0;
   if(typeof m.init==='function') m.init();
+
+  S._miniProgLast = ''; // ✅ reset progress tracker
+
   updateMiniHud();
   emitQuestUpdate();
-  logEvent('mini_start',{mini:m.key,dur:m.dur});
+  logEvent('mini_start',{mini:m.key,dur:m.dur, miniProgress: miniProgStr()});
 }
 
 function updateMiniHud(){
@@ -828,17 +947,28 @@ function tickMini(){
       Coach.say('MINI ผ่าน! โหดมาก 😎', 'happy', 1400);
       flash('good', 120);
       addScore(450); addFever(18); vibe(50);
-      logEvent('mini_clear',{mini:m.key});
+      logEvent('mini_clear',{mini:m.key, miniProgress: miniProgStr()});
     }else{
       fxJudge('MINI FAIL');
       Coach.say('พลาดนิดเดียว! ลองใหม่ เอาให้ผ่าน 💥', 'sad', 1500);
       addScore(-120); addFever(-12);
-      logEvent('mini_fail',{mini:m.key});
+      logEvent('mini_fail',{mini:m.key, miniProgress: miniProgStr()});
     }
     emitScore();
     emitQuestUpdate();
     startMini();
   }else{
+    // ✅ log mini_update only when progress changed
+    try{
+      const prog = (typeof m.progress==='function') ? m.progress() : '';
+      const key = m.key || '';
+      const stamp = `${key}:${prog}`;
+      if(stamp && stamp !== S._miniProgLast){
+        S._miniProgLast = stamp;
+        logEvent('mini_update', { mini:key, miniProgress: stamp, judgment:'UPDATE', extra:{leftMs:leftMs} });
+      }
+    }catch(_){}
+
     updateMiniHud();
     emitQuestUpdate();
   }
@@ -1601,6 +1731,9 @@ function restart(){
 
   resetState(S, { totalTime: TOTAL_TIME, livesMax: S.livesMax, sessionId: S.sessionId });
 
+  S.startTimeIso = new Date().toISOString();
+  S.endTimeIso = '';
+
   S.bossNextAt = (MODE==='research') ? (now()+11000) : (now()+rnd(8000,14000));
 
   setTxt(HUD.score,0); setTxt(HUD.combo,0); setTxt(HUD.miss,0);
@@ -1623,6 +1756,7 @@ function endGame(isGameOver){
   doc.body.classList.remove('hha-mini-urgent');
 
   S.endedAt = now();
+  S.endTimeIso = new Date().toISOString();
   S.nextSpawnAt=Infinity;
 
   for(const rec of [...S.targets]) removeTarget(rec);
@@ -1655,6 +1789,9 @@ function endGame(isGameOver){
   logSession(isGameOver?'gameover':'end');
   emitScore({ ended:true, gameover: !!isGameOver });
   emitQuestUpdate();
+
+  // ✅ flush before staying on result screen / potential navigation
+  try{ ROOT.HHACloudLogger && ROOT.HHACloudLogger.flushNow && ROOT.HHACloudLogger.flushNow(); }catch(_){}
 }
 
 // ---------- Main loop ----------
@@ -1662,6 +1799,7 @@ function start(){
   S.running=true;
   S.tStart=now();
   S.nextSpawnAt=now()+350;
+  if(!S.startTimeIso) S.startTimeIso = new Date().toISOString();
 
   setTxt(HUD.mode, MODE==='research'?'Research':'Play');
   setTxt(HUD.diff, DIFF[0].toUpperCase()+DIFF.slice(1));
@@ -1836,6 +1974,12 @@ function bindUI(){
     if(ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.init==='function'){
       ROOT.HHACloudLogger.init({ debug: DEBUG });
     }
+  }catch(_){}
+
+  // extra safety: flush on pagehide/unload (best-effort)
+  try{
+    ROOT.addEventListener('pagehide', ()=>{ try{ ROOT.HHACloudLogger && ROOT.HHACloudLogger.flushNow && ROOT.HHACloudLogger.flushNow(); }catch(_){ } });
+    ROOT.addEventListener('beforeunload', ()=>{ try{ ROOT.HHACloudLogger && ROOT.HHACloudLogger.flushNow && ROOT.HHACloudLogger.flushNow(); }catch(_){ } });
   }catch(_){}
 
   bindUI();
