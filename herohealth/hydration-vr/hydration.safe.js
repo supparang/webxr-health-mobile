@@ -936,5 +936,4 @@ function tryBindStartOverlay(){
 tryBindStartOverlay();
 updateHUD();
 updateMiniUI();
-``
 ::contentReference[oaicite:0]{index=0}
