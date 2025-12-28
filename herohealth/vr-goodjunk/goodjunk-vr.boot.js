@@ -1,6 +1,4 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard
-
 'use strict';
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
@@ -13,9 +11,15 @@ function qp(name, fallback = null){
     return (v == null || v === '') ? fallback : v;
   }catch(_){ return fallback; }
 }
-
 function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
+
+function detectView(){
+  const v = toStr(qp('view','auto'),'auto').toLowerCase();
+  if (v !== 'auto') return v;
+  const isMobile = matchMedia('(pointer:coarse)').matches || innerWidth < 900;
+  return isMobile ? 'mobile' : 'pc';
+}
 
 function buildContext(){
   const keys = [
@@ -56,7 +60,25 @@ function setHudMeta(text){
   if (el) el.textContent = text;
 }
 
+/** clone eyeL -> eyeR for cardboard */
+function enableCardboard(){
+  const wrap = document.getElementById('gj-vrwrap');
+  const eyeL = document.getElementById('eyeL');
+  const eyeR = document.getElementById('eyeR');
+  if (!wrap || !eyeL || !eyeR) return;
+
+  // clone whole left eye content into right eye (remove duplicate ids)
+  const clone = eyeL.cloneNode(true);
+  clone.id = 'eyeRContent';
+  clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+  eyeR.innerHTML = '';
+  eyeR.appendChild(clone);
+}
+
 (async function main(){
+  const view = detectView();
+  document.documentElement.dataset.view = view;
+
   const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
   const time = toInt(qp('time', '80'), 80);
   const run = toStr(qp('run', 'play'), 'play').toLowerCase();
@@ -65,38 +87,39 @@ function setHudMeta(text){
 
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
-
   const ctx = buildContext();
 
-  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge}`);
+  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=${view}`);
 
-  // ✅ Touch/Mouse look -> world shift (DO NOT move crosshair; only shift layer/ring/laser)
-  const look = attachTouchLook({
-    stage: '#gj-stage',
-    layer: '#gj-layer',
-    ring:  '#atk-ring',
-    laser: '#atk-laser',
+  if (view === 'cardboard'){
+    enableCardboard();
+  }
 
-    // feel: นุ่ม ๆ แต่ไม่หน่วงเกิน (เหมาะ ป.5)
-    maxShiftPx: 170,
-    gain: 0.24,        // ความไวตอนลาก
-    friction: 0.86,    // หน่วง
-    spring: 0.18,      // เด้งกลับกลาง
-
-    // gyro: auto เฉพาะมือถือ (override ด้วย ?gyro=1|0)
-    // enableGyro: undefined
+  // attach touch/gyro -> world shift
+  attachTouchLook({
+    view,
+    crosshairEl: document.getElementById('gj-crosshair'),
+    layerEl: document.getElementById('gj-layer'),
+    stageEl: document.getElementById('gj-stage'),
+    aimY: 0.62,
+    maxShiftPx: (view === 'mobile') ? 170 : 140,
+    ease: 0.12
   });
 
-  // optional: กดปุ่มยิงค้าง/ยิงถี่ ๆ ไม่ควรทำให้โลกไหล (ป้องกันซ้ำซ้อน)
-  // ถ้าต้องการรีเซ็นเตอร์จาก UI เพิ่มเองทีหลัง: look.recenter(true);
-
-  const metaText =
-    `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}` +
-    (seed ? ` • seed=${seed}` : '');
+  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}`
+    + (seed ? ` • seed=${seed}` : '')
+    + ` • view=${view}`;
 
   await showStartOverlay(metaText);
 
-  // boot engine
+  // safe margins ตามหน้าจอ (มือถือกันทับ quest/controls มากขึ้น)
+  const safeMargins =
+    (view === 'mobile')
+      ? { top: 156, bottom: 230, left: 18, right: 18 }
+      : (view === 'cardboard')
+        ? { top: 140, bottom: 210, left: 18, right: 18 }
+        : { top: 132, bottom: 190, left: 24, right: 24 };
+
   goodjunkBoot({
     diff,
     time,
@@ -108,6 +131,7 @@ function setHudMeta(text){
     context: ctx,
     layerEl: document.getElementById('gj-layer'),
     shootEl: document.getElementById('btnShoot'),
-    safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
+    safeMargins,
+    view
   });
 })();
