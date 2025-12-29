@@ -1,89 +1,50 @@
 // === /herohealth/vr/ui-water.js ===
-// Water Gauge UI (ESM) — PRODUCTION
-// ✅ ensureWaterGauge(): bind elements
-// ✅ setWaterGauge(pct): clamp + update bar + tube + labels + body class
-// ✅ zoneFrom(pct): LOW / GREEN / HIGH
-// ✅ guards NaN and weird values
+// Water Gauge UI helper (shared)
+// Exports: ensureWaterGauge(), setWaterGauge(pct), zoneFrom(pct)
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 const DOC  = ROOT.document;
 
-function clamp(v, a, b){
-  v = Number(v);
-  if (!Number.isFinite(v)) v = a;
-  return v < a ? a : (v > b ? b : v);
-}
-
-function zoneFrom(pct){
-  pct = clamp(pct, 0, 100);
+export function zoneFrom(pct){
+  pct = Number(pct)||0;
+  // GREEN sweetspot (tuneable)
+  if (pct >= 45 && pct <= 65) return 'GREEN';
   if (pct < 45) return 'LOW';
-  if (pct > 65) return 'HIGH';
-  return 'GREEN';
+  return 'HIGH';
 }
-
-const UI = {
-  inited:false,
-  elBar:null,   // horizontal fill (width %)
-  elFillV:null, // vertical fill (height %)
-  elPct:null,
-  elZone:null
-};
 
 export function ensureWaterGauge(){
-  if (!DOC) return UI;
-
-  UI.elBar   = DOC.getElementById('water-bar')
-            || DOC.querySelector('.hha-water-bar .bar')
-            || DOC.querySelector('.hha-water-bar');
-
-  UI.elFillV = DOC.getElementById('water-fill')
-            || DOC.querySelector('[data-water-fill]');
-
-  UI.elPct   = DOC.getElementById('water-pct')
-            || DOC.querySelector('[data-water-pct]');
-
-  UI.elZone  = DOC.getElementById('water-zone')
-            || DOC.querySelector('[data-water-zone]');
-
-  UI.inited = true;
-  return UI;
+  // Optional: just ensures ids exist; if not, no crash.
+  return {
+    fill: DOC.getElementById('water-fill'),
+    bar: DOC.getElementById('water-bar'),
+    pct: DOC.getElementById('water-pct'),
+    zone: DOC.getElementById('water-zone')
+  };
 }
 
 export function setWaterGauge(pct){
-  if (!DOC) return;
-  if (!UI.inited) ensureWaterGauge();
+  pct = Math.max(0, Math.min(100, Number(pct)||0));
 
-  pct = clamp(pct, 0, 100);
+  const elFill = DOC.getElementById('water-fill');
+  const elBar  = DOC.getElementById('water-bar');
+  const elPct  = DOC.getElementById('water-pct');
+  const elZone = DOC.getElementById('water-zone');
+
   const z = zoneFrom(pct);
 
-  // horizontal bar
-  try{
-    if (UI.elBar){
-      UI.elBar.style.width = pct.toFixed(2) + '%';
-      UI.elBar.setAttribute('aria-valuenow', String(Math.round(pct)));
-    }
-  }catch{}
+  if (elFill) elFill.style.height = pct.toFixed(0) + '%';
+  if (elBar)  elBar.style.width   = pct.toFixed(0) + '%';
+  if (elPct)  elPct.textContent   = pct.toFixed(0) + '%';
+  if (elZone) elZone.textContent  = z;
 
-  // vertical tube
-  try{
-    if (UI.elFillV){
-      UI.elFillV.style.height = pct.toFixed(2) + '%';
-      UI.elFillV.setAttribute('aria-valuenow', String(Math.round(pct)));
-    }
-  }catch{}
-
-  // labels
-  try{ if (UI.elPct)  UI.elPct.textContent  = Math.round(pct) + '%'; }catch{}
-  try{ if (UI.elZone) UI.elZone.textContent = z; }catch{}
-
-  // body class
-  try{
-    DOC.body.classList.remove('water-low','water-green','water-high');
-    DOC.body.classList.add(z === 'LOW' ? 'water-low' : (z === 'HIGH' ? 'water-high' : 'water-green'));
-  }catch{}
+  // body classes for theme
+  const b = DOC.body;
+  if (!b) return;
+  b.classList.remove('water-low','water-green','water-high');
+  if (z === 'LOW') b.classList.add('water-low');
+  else if (z === 'HIGH') b.classList.add('water-high');
+  else b.classList.add('water-green');
 }
-
-export { zoneFrom };
-export default { ensureWaterGauge, setWaterGauge, zoneFrom };
