@@ -1,7 +1,7 @@
 /* === /herohealth/vr-groups/groups-fx.js ===
-GroupsVR FX (PRODUCTION)
-✅ hha:judge => flash + shake
-✅ hha:celebrate => particle pop
+Groups VR — FX Layer (PRODUCTION)
+- React to hha:judge + hha:celebrate + storm urgent
+- Light shake + screen flash (safe)
 */
 
 (function(root){
@@ -10,69 +10,100 @@ GroupsVR FX (PRODUCTION)
   if (!DOC) return;
 
   const NS = (root.GroupsVR = root.GroupsVR || {});
+  const clamp = (v,a,b)=> (v<a?a:(v>b?b:v));
 
-  const Particles =
-    (root.GAME_MODULES && root.GAME_MODULES.Particles) ||
-    root.Particles || { scorePop(){}, burstAt(){} };
+  function pulseBody(cls, ms){
+    DOC.body.classList.add(cls);
+    setTimeout(()=>DOC.body.classList.remove(cls), ms|0);
+  }
 
+  // tiny overlay flash
+  let flashEl = null;
+  function ensureFlash(){
+    if (flashEl && flashEl.isConnected) return flashEl;
+    flashEl = DOC.createElement('div');
+    flashEl.style.cssText = [
+      'position:fixed','inset:0','z-index:30','pointer-events:none',
+      'background:rgba(34,211,238,.12)','opacity:0','transition:opacity .12s ease'
+    ].join(';');
+    DOC.body.appendChild(flashEl);
+    return flashEl;
+  }
   function flash(kind){
-    const el = DOC.createElement('div');
-    el.style.position = 'fixed';
-    el.style.inset = '0';
-    el.style.zIndex = '999';
-    el.style.pointerEvents = 'none';
-    el.style.opacity = '0';
-    el.style.transition = 'opacity 140ms ease';
+    const el = ensureFlash();
     el.style.background =
-      (kind==='bad')  ? 'rgba(239,68,68,.14)' :
-      (kind==='boss') ? 'rgba(34,211,238,.14)' :
-                        'rgba(34,197,94,.10)';
-    DOC.body.appendChild(el);
-    requestAnimationFrame(()=>{ el.style.opacity = '1'; });
+      kind==='bad'  ? 'rgba(239,68,68,.16)' :
+      kind==='boss' ? 'rgba(34,211,238,.14)' :
+      kind==='gold' ? 'rgba(250,204,21,.16)' :
+                      'rgba(34,211,238,.10)';
+    el.style.opacity = '1';
     setTimeout(()=>{ el.style.opacity = '0'; }, 120);
-    setTimeout(()=>{ el.remove(); }, 320);
   }
 
-  function shake(ms, strength){
-    ms = Math.max(120, ms||260);
-    strength = Math.max(2, strength||6);
-    const t0 = performance.now();
-    function step(){
-      const t = performance.now() - t0;
-      if (t >= ms){
-        DOC.body.style.transform = '';
-        return;
-      }
-      const k = (1 - t/ms);
-      const x = (Math.random()*2-1) * strength * k;
-      const y = (Math.random()*2-1) * strength * k;
-      DOC.body.style.transform = `translate(${x}px, ${y}px)`;
-      requestAnimationFrame(step);
-    }
-    step();
+  // shake via CSS var on body
+  let shakeT = 0;
+  function shake(power){
+    power = clamp(Number(power)||0, 0, 1);
+    DOC.body.style.setProperty('--fx-shake', String(power));
+    clearTimeout(shakeT);
+    shakeT = setTimeout(()=>DOC.body.style.removeProperty('--fx-shake'), 220);
   }
 
+  // bind
   root.addEventListener('hha:judge', (ev)=>{
-    const d = (ev && ev.detail) || {};
+    const d = ev.detail||{};
     const kind = String(d.kind||'').toLowerCase();
-    if (kind === 'bad' || kind === 'miss'){
-      flash('bad'); shake(260, 6);
+
+    if (kind === 'miss'){
+      shake(0.6);
+      flash('bad');
+    } else if (kind === 'bad'){
+      shake(0.45);
+      flash('bad');
     } else if (kind === 'boss'){
-      flash('boss'); shake(220, 4);
+      shake(0.35);
+      flash('boss');
     } else if (kind === 'good'){
-      flash('good');
+      flash('gold');
     }
-  }, { passive:true });
+
+    // particles integration (optional)
+    try{
+      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
+      if (P && typeof P.celebrate === 'function' && (kind==='boss' || kind==='miss')){
+        P.celebrate();
+      }
+    }catch{}
+  }, {passive:true});
 
   root.addEventListener('hha:celebrate', (ev)=>{
-    const d = (ev && ev.detail) || {};
-    const title = String(d.title||'');
+    const d = ev.detail||{};
+    const kind = String(d.kind||'').toLowerCase();
+    flash(kind==='goal'?'gold':(kind==='mini'?'boss':'gold'));
     try{
-      Particles.scorePop && Particles.scorePop(title || '🎉', root.innerWidth*0.5, root.innerHeight*0.45);
-      Particles.burstAt && Particles.burstAt(root.innerWidth*0.5, root.innerHeight*0.45, 24);
+      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
+      if (P && typeof P.celebrate === 'function') P.celebrate();
     }catch{}
-  }, { passive:true });
+  }, {passive:true});
+
+  // apply shake visually (simple)
+  const style = DOC.createElement('style');
+  style.textContent = `
+    body{
+      transform: translateZ(0);
+    }
+    body[style*="--fx-shake"] .fg-layer{
+      animation: fxShake .22s linear 1;
+    }
+    @keyframes fxShake{
+      0%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(0px); }
+      25%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(-3px); }
+      50%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(3px); }
+      75%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(-2px); }
+      100%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(0px); }
+    }
+  `;
+  DOC.head.appendChild(style);
 
   NS.FX = { flash, shake };
-
 })(typeof window !== 'undefined' ? window : globalThis);
