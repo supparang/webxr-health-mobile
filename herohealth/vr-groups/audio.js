@@ -1,7 +1,7 @@
 /* === /herohealth/vr-groups/audio.js ===
-GroupsVR Audio — WebAudio SFX (lightweight)
+GroupsVR Audio — WebAudio SFX (B+++++)
 ✅ init on first user gesture
-✅ tick() mini urgent + tickFast()
+✅ tick/tickFast (mini urgent), beat pulse
 ✅ good/bad/boss/bossHurt/bossHeal/power/freeze
 */
 
@@ -62,6 +62,7 @@ GroupsVR Audio — WebAudio SFX (lightweight)
 
   function tick(){ resume(); tone(880, 0.045, 'square', 0.12); }
   function tickFast(){ resume(); tone(980, 0.035, 'square', 0.12); }
+  function beat(){ resume(); tone(740, 0.03, 'triangle', 0.08); }
 
   function good(){ resume(); chirp(520, 980, 0.07, 'sine', 0.20); }
   function bad(){ resume(); chirp(420, 220, 0.08, 'sawtooth', 0.18); }
@@ -81,6 +82,7 @@ GroupsVR Audio — WebAudio SFX (lightweight)
   AudioNS.init = function(){ ensure(); resume(); };
   AudioNS.tick = tick;
   AudioNS.tickFast = tickFast;
+  AudioNS.beat = beat;
   AudioNS.good = good;
   AudioNS.bad = bad;
   AudioNS.boss = boss;
