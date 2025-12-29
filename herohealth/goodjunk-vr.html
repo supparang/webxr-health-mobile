@@ -1,12 +1,8 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + VR Buttons + Cardboard Stereo
-✅ DOM emoji targets on #gj-layer
-✅ Cardboard stereo: #gj-layerL/#gj-layerR
-✅ HUD + Quest + Coach + Fever/Shield
-✅ Start overlay
-✅ Controls: VR / Cardboard / Shoot
-✅ Summary end container (end-summary)
-✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
+GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo
+✅ Mono: #gj-layer + #gj-crosshair
+✅ Cardboard: #gj-layerL/#gj-layerR + #gj-crosshairL/#gj-crosshairR (2 จอซ้าย/ขวา)
+✅ ปุ่มเข้า VR/Cardboard (บน HUD + ใน Start Overlay)
 -->
 
 <!doctype html>
@@ -36,6 +32,13 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Buttons + Cardboard Stereo
       <div class="hud-badge">
         <div class="hud-title">GoodJunkVR</div>
         <div class="hud-sub" id="hudMeta">—</div>
+
+        <!-- ✅ VR/Cardboard button -->
+        <div class="hud-actions">
+          <button id="btnVr" class="btn-vr" type="button" aria-label="VR/Cardboard">
+            VR
+          </button>
+        </div>
       </div>
 
       <div class="hud-stats">
@@ -65,7 +68,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Buttons + Cardboard Stereo
         <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
         <div class="coach-talk">
           <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
-          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
+          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / แตะเป้าก็ได้</div>
         </div>
       </div>
     </div>
@@ -86,31 +89,34 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Buttons + Cardboard Stereo
 
   <!-- ===== Playfield ===== -->
   <div id="gj-stage">
-    <!-- Mono layer -->
-    <div id="gj-layer" aria-label="targets layer"></div>
-
-    <!-- Stereo layers for Cardboard -->
-    <div id="gj-stereo" aria-hidden="true">
-      <div class="gj-eye left"><div id="gj-layerL" class="eye-layer" aria-label="left eye targets"></div></div>
-      <div class="gj-eye right"><div id="gj-layerR" class="eye-layer" aria-label="right eye targets"></div></div>
+    <!-- MONO -->
+    <div id="gj-mono">
+      <div id="gj-layer" aria-label="targets layer"></div>
+      <div id="gj-crosshair" class="gj-crosshair" aria-hidden="true"></div>
     </div>
 
-    <!-- Crosshair (mono only; cardboard uses per-eye crosshair via CSS) -->
-    <div id="gj-crosshair" aria-hidden="true"></div>
+    <!-- STEREO (Cardboard) -->
+    <div id="gj-stereo" aria-label="stereo view">
+      <div class="eye eye-l" aria-label="left eye">
+        <div id="gj-layerL" aria-label="targets layer left"></div>
+        <div id="gj-crosshairL" class="gj-crosshair" aria-hidden="true"></div>
+      </div>
+      <div class="eye eye-r" aria-label="right eye">
+        <div id="gj-layerR" aria-label="targets layer right"></div>
+        <div id="gj-crosshairR" class="gj-crosshair" aria-hidden="true"></div>
+      </div>
+      <div class="stereo-divider" aria-hidden="true"></div>
+    </div>
 
-    <!-- Boss hazards -->
+    <!-- (reserve) hazards / summary -->
     <div id="atk-ring" aria-hidden="true"></div>
     <div id="atk-laser" aria-hidden="true"></div>
-
-    <!-- End summary container (safe.js / hud binder may render here) -->
     <div id="end-summary"></div>
   </div>
 
-  <!-- ===== Controls (VR / Cardboard / Shoot) ===== -->
+  <!-- ===== Controls ===== -->
   <div class="hha-controls">
-    <button id="btnVr" class="btn-vr" type="button">VR</button>
-    <button id="btnCardboard" class="btn-vr" type="button">Cardboard</button>
-    <button id="btnShoot" class="btn-shoot" type="button">ยิง</button>
+    <button id="btnShoot" class="btn-shoot">ยิง</button>
   </div>
 
   <!-- ===== Start Overlay ===== -->
@@ -122,7 +128,11 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Buttons + Cardboard Stereo
         <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
-      <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
+
+      <div class="start-actions">
+        <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
+        <button id="btnStartVr" class="btn-start btn-start-vr" type="button">เริ่มแบบ VR/Cardboard</button>
+      </div>
     </div>
   </div>
 </body>
