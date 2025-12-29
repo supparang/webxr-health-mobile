@@ -1,5 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo + End Summary + HUB
+GoodJunkVR (PRODUCTION) — HHA Standard + VR button + XR scene
+✅ DOM emoji targets on #gj-layer
+✅ HUD + Quest + Coach + Fever/Shield
+✅ Start overlay
+✅ VR button (calls A-Frame enterVR)
+✅ XR scene (background only) behind DOM layer
 -->
 
 <!doctype html>
@@ -10,6 +15,9 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo + End Summary + HUB
   <title>HeroHealth — GoodJunk VR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+
+  <!-- A-Frame (for Enter VR / Cardboard) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- Global FX + HUD + Fever + Logger -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
@@ -23,18 +31,26 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo + End Summary + HUB
 </head>
 
 <body>
+  <!-- ===== XR Scene (background only) ===== -->
+  <a-scene
+    id="gj-xr"
+    embedded
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: true"
+    renderer="antialias: true; colorManagement: true"
+  >
+    <a-sky color="#020617"></a-sky>
+    <a-entity id="gj-camrig" position="0 1.6 0">
+      <a-camera look-controls="enabled: true"></a-camera>
+    </a-entity>
+  </a-scene>
+
   <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
       <div class="hud-badge">
         <div class="hud-title">GoodJunkVR</div>
         <div class="hud-sub" id="hudMeta">—</div>
-
-        <!-- ✅ actions -->
-        <div class="hud-actions">
-          <button id="btnHub" class="btn-hub" type="button" aria-label="กลับ HUB">HUB</button>
-          <button id="btnVr" class="btn-vr" type="button" aria-label="VR/Cardboard">VR</button>
-        </div>
       </div>
 
       <div class="hud-stats">
@@ -64,11 +80,16 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo + End Summary + HUB
         <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
         <div class="coach-talk">
           <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
-          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / แตะเป้าก็ได้</div>
+          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- ===== VR Button (our own) ===== -->
+  <button id="btnEnterVR" class="btn-vr" type="button" aria-label="enter vr">
+    เข้า VR
+  </button>
 
   <!-- ===== Fever/Shield UI ===== -->
   <div class="hha-fever" id="hhaFever">
@@ -85,31 +106,13 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo + End Summary + HUB
 
   <!-- ===== Playfield ===== -->
   <div id="gj-stage">
-    <!-- MONO -->
-    <div id="gj-mono">
-      <div id="gj-layer" aria-label="targets layer"></div>
-      <div id="gj-crosshair" class="gj-crosshair" aria-hidden="true"></div>
-    </div>
-
-    <!-- STEREO (Cardboard) -->
-    <div id="gj-stereo" aria-label="stereo view">
-      <div class="eye eye-l" aria-label="left eye">
-        <div id="gj-layerL" aria-label="targets layer left"></div>
-        <div id="gj-crosshairL" class="gj-crosshair" aria-hidden="true"></div>
-      </div>
-      <div class="eye eye-r" aria-label="right eye">
-        <div id="gj-layerR" aria-label="targets layer right"></div>
-        <div id="gj-crosshairR" class="gj-crosshair" aria-hidden="true"></div>
-      </div>
-      <div class="stereo-divider" aria-hidden="true"></div>
-    </div>
-
-    <!-- reserve -->
+    <div id="gj-layer" aria-label="targets layer"></div>
+    <div id="gj-crosshair" aria-hidden="true"></div>
     <div id="atk-ring" aria-hidden="true"></div>
     <div id="atk-laser" aria-hidden="true"></div>
 
-    <!-- ✅ End Summary Overlay -->
-    <div id="end-summary" class="end-overlay" hidden></div>
+    <!-- optional end summary container -->
+    <div id="end-summary"></div>
   </div>
 
   <!-- ===== Controls ===== -->
@@ -126,11 +129,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo + End Summary + HUB
         <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
-
-      <div class="start-actions">
-        <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
-        <button id="btnStartVr" class="btn-start btn-start-vr" type="button">เริ่มแบบ VR/Cardboard</button>
-      </div>
+      <button id="btnStart" class="btn-start">เริ่มเล่น</button>
     </div>
   </div>
 </body>
