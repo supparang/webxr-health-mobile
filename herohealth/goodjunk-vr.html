@@ -4,7 +4,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
 ✅ VR = WebXR via A-Frame (Enter VR)
 ✅ cVR = Cardboard split (CSS)
 ✅ Rotate notice + fullscreen helper
-✅ DOM overlay wrapper (#domOverlay) for optional WebXR dom-overlay
+✅ FX Layer: vignette/flash/shake + shoot ring/laser
 -->
 
 <!doctype html>
@@ -55,7 +55,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       root.classList.toggle('view-cvr', v==='cvr');
     }
 
-    // Auto default if no view
     if(!view){
       const coarse = matchMedia && matchMedia('(pointer: coarse)').matches;
       const w = innerWidth||360, h = innerHeight||640;
@@ -69,7 +68,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       return root.classList.contains('view-vr') || root.classList.contains('view-cvr');
     }
 
-    // rotate notice for vr/cvr portrait
     function updateRotate(){
       const portrait = (innerHeight||0) > (innerWidth||0);
       const rot = document.getElementById('rotateNotice');
@@ -101,13 +99,10 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       if(btnM)  btnM.onclick  = ()=>setParam('view','mobile');
 
       if(btnVR) btnVR.onclick = async ()=>{
-        // switch to WebXR view
         if (String(qs('view','')).toLowerCase() !== 'vr') {
-          setParam('view','vr');
-          return;
+          setParam('view','vr'); return;
         }
         await enterFullscreenLandscape();
-        // Try enter WebXR (A-Frame)
         try{
           const scene = document.getElementById('xrScene');
           if (scene && scene.enterVR) scene.enterVR();
@@ -116,8 +111,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
 
       if(btnCVR) btnCVR.onclick = async ()=>{
         if (String(qs('view','')).toLowerCase() !== 'cvr') {
-          setParam('view','cvr');
-          return;
+          setParam('view','cvr'); return;
         }
         await enterFullscreenLandscape();
       };
@@ -145,7 +139,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
 
 <body>
 
-  <!-- ===== A-FRAME XR SCENE (background + enter-vr button) ===== -->
+  <!-- ===== A-FRAME XR SCENE ===== -->
   <a-scene
     id="xrScene"
     embedded
@@ -165,23 +159,26 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       </a-camera>
     </a-entity>
 
-    <!-- subtle light -->
     <a-entity light="type: ambient; intensity: 0.65"></a-entity>
     <a-entity light="type: directional; intensity: 0.75" position="1 2 1"></a-entity>
-
-    <!-- optional 3D target container (spawned by JS when XR active) -->
     <a-entity id="xrTargets"></a-entity>
 
-    <!-- a small hint plane (only visible in XR) -->
     <a-entity id="xrHint" position="0 1.15 -2.1" visible="false"
       text="value: ยิงด้วยการมองแล้วแตะ/คลิก ; align:center; width:3.2; color:#E5E7EB"
     ></a-entity>
   </a-scene>
 
-  <!-- ===== DOM Overlay wrapper (used by WebXR dom-overlay if supported) ===== -->
+  <!-- ===== DOM Overlay wrapper ===== -->
   <div id="domOverlay">
 
-    <!-- ===== Rotate Notice (VR/cVR portrait) ===== -->
+    <!-- ===== FX LAYER ===== -->
+    <div class="gj-fx" aria-hidden="true">
+      <div class="fx-vignette"></div>
+      <div class="fx-flash"></div>
+      <div class="fx-edge"></div>
+    </div>
+
+    <!-- ===== Rotate Notice ===== -->
     <div id="rotateNotice" class="rotate-notice" hidden>
       <div class="rotate-card">
         <div class="t">โหมด VR/การ์ดบอร์ด</div>
@@ -254,18 +251,16 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       </div>
     </div>
 
-    <!-- ===== Playfield (DOM targets) ===== -->
+    <!-- ===== Playfield ===== -->
     <div id="gj-stage">
       <div id="gj-layer" aria-label="targets layer"></div>
 
-      <!-- Crosshair: normal center; cVR has L/R -->
       <div id="gj-crosshair" aria-hidden="true"></div>
       <div id="gj-crosshair-r" aria-hidden="true"></div>
 
       <div id="atk-ring" aria-hidden="true"></div>
       <div id="atk-laser" aria-hidden="true"></div>
 
-      <!-- optional end summary container -->
       <div id="end-summary"></div>
     </div>
 
