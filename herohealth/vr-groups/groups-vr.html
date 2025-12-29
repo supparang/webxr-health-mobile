@@ -7,12 +7,10 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (optional background) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <link rel="stylesheet" href="./groups-vr.css?v=1" />
+  <link rel="stylesheet" href="./groups-vr.css?v=2" />
 
-  <!-- Scripts order: audio -> quests -> engine -->
   <script src="./audio.js?v=1" defer></script>
   <script src="./groups-quests.js?v=1" defer></script>
   <script src="./GameEngine.js?v=1" defer></script>
@@ -20,26 +18,20 @@
 
 <body>
 
-  <!-- A-Frame background (embedded) -->
   <a-scene embedded vr-mode-ui="enabled: true">
-    <a-entity position="0 1.6 -2">
-      <a-sky color="#020617"></a-sky>
-    </a-entity>
+    <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- Gameplay DOM layer -->
   <div id="fg-layer" class="fg-layer" aria-label="playfield"></div>
 
   <!-- HUD -->
   <div class="hud hud-top">
-    <!-- LEFT -->
     <div class="hud-card hud-left">
       <div class="hud-row"><span class="hud-title">SCORE</span><span id="hud-score" class="hud-val">0</span></div>
       <div class="hud-row"><span class="hud-title">COMBO</span><span id="hud-combo" class="hud-val">0</span></div>
       <div class="hud-row"><span class="hud-title">MISS</span><span id="hud-miss" class="hud-val">0</span></div>
     </div>
 
-    <!-- MID -->
     <div class="hud-card hud-mid">
       <div class="centerTop">
         <div id="hud-group" class="hud-group">หมู่ 1</div>
@@ -76,7 +68,6 @@
       </div>
     </div>
 
-    <!-- RIGHT -->
     <div class="hud-card hud-right">
       <div class="rank-box">
         <div class="rank-title">RANK</div>
@@ -85,6 +76,11 @@
       <div class="rank-sub">
         <span>ACC</span>
         <span id="hud-acc">0%</span>
+      </div>
+
+      <!-- ✅ layout tools -->
+      <div class="hud-tools">
+        <button id="btn-layout" class="hud-btn" type="button">LAYOUT: MIX</button>
       </div>
     </div>
   </div>
@@ -95,7 +91,7 @@
       <img id="coach-img" class="coachImg" alt="coach" src="../img/coach-neutral.png">
       <div>
         <div id="coach-text" class="coachText">พร้อมเล่นไหม? 🎮</div>
-        <div class="coachHint">ลาก/เอียงมือถือเพื่อ “VR feel” • ยิงให้ถูกหมู่!</div>
+        <div class="coachHint">ลาก/เอียงมือถือเพื่อ “VR feel” • แตะเพื่อให้ HUD โผล่ในโหมด cinema</div>
       </div>
     </div>
 
@@ -119,6 +115,7 @@
         <span class="pill">โหมด: <b id="pill-mode">play</b></span>
         <span class="pill">diff: <b id="pill-diff">normal</b></span>
         <span class="pill">time: <b id="pill-time">90</b>s</span>
+        <span class="pill">layout: <b id="pill-layout">mix</b></span>
       </div>
 
       <div class="start-actions">
@@ -126,7 +123,7 @@
         <button id="btn-back" class="btn ghost">กลับ HUB</button>
       </div>
 
-      <div class="start-note">ทิป: ช่วง Mini “Ring Guardian” ต้องยิงถูก “ในวง” เท่านั้นนะ!</div>
+      <div class="start-note">ทิป: Mini “Ring Guardian” ต้องยิงถูก “ในวง” เท่านั้น • โหมด cinema จะซ่อน HUD เพื่อให้เล่นลื่น!</div>
     </div>
   </div>
 
@@ -162,11 +159,72 @@
   const seed = String(params.get('seed') || Date.now());
   const hub = params.get('hub') || '../index.html';
 
+  // ✅ layout: URL param layout= | style=  (รองรับของเดิม style=mix)
+  const LS_KEY = 'HHA_GROUPS_LAYOUT';
+  const fromURL = (params.get('layout') || params.get('style') || '').toLowerCase().trim();
+  const fromLS  = (localStorage.getItem(LS_KEY) || '').toLowerCase().trim();
+  const LAYOUTS = ['mix','compact','cinema'];
+
+  function normLayout(v){
+    v = String(v||'').toLowerCase();
+    if (LAYOUTS.includes(v)) return v;
+    return 'mix';
+  }
+  let layout = normLayout(fromURL || fromLS || 'mix');
+
+  function applyLayout(l){
+    layout = normLayout(l);
+    localStorage.setItem(LS_KEY, layout);
+
+    document.body.classList.remove('groups-layout-mix','groups-layout-compact','groups-layout-cinema');
+    document.body.classList.add('groups-layout-' + layout);
+
+    $('#btn-layout').textContent = 'LAYOUT: ' + layout.toUpperCase();
+    $('#pill-layout').textContent = layout;
+
+    // cinema starts hidden after game starts; start overlay should show normally
+    if (layout !== 'cinema'){
+      document.body.classList.remove('groups-hud-hidden','groups-coach-hidden');
+    }
+  }
+
+  applyLayout(layout);
+
   $('#pill-mode').textContent = runMode;
   $('#pill-diff').textContent = diff;
   $('#pill-time').textContent = String(time);
 
-  // UI binders
+  function goHub(){ location.href = hub; }
+
+  // ---------- HUD / Coach auto-hide for cinema ----------
+  let revealTimer = null;
+  function revealHUD(ms=2200){
+    if (layout !== 'cinema') return;
+    document.body.classList.remove('groups-hud-hidden','groups-coach-hidden');
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(()=>{
+      // อย่าซ่อนถ้ายังอยู่หน้า start/result
+      const startOn = ($('#start') && getComputedStyle($('#start')).display !== 'none');
+      const resultOn = ($('#result') && $('#result').classList.contains('show'));
+      if (startOn || resultOn) return;
+      document.body.classList.add('groups-hud-hidden','groups-coach-hidden');
+    }, ms);
+  }
+
+  function hideHUDNow(){
+    if (layout !== 'cinema') return;
+    const startOn = ($('#start') && getComputedStyle($('#start')).display !== 'none');
+    const resultOn = ($('#result') && $('#result').classList.contains('show'));
+    if (startOn || resultOn) return;
+    document.body.classList.add('groups-hud-hidden','groups-coach-hidden');
+  }
+
+  // reveal on interactions
+  ['pointerdown','pointermove','touchstart','keydown'].forEach(evt=>{
+    window.addEventListener(evt, ()=>revealHUD(2400), {passive:true});
+  });
+
+  // ---------- UI binders ----------
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail || {};
     $('#hud-score').textContent = d.score ?? 0;
@@ -200,7 +258,6 @@
     const left = d.miniTimeLeftSec || 0;
     $('#hud-mini-timer').textContent = left ? `⏱ ${left}s` : '';
 
-    // mini urgent style
     if (left && left <= 4) $('#hud-mini-line').classList.add('mini-urgent');
     else $('#hud-mini-line').classList.remove('mini-urgent');
   }, {passive:true});
@@ -231,7 +288,6 @@
   window.addEventListener('groups:beat', ()=>{
     const bar = $('#lyric-bar');
     bar.classList.remove('beat');
-    // reflow
     void bar.offsetWidth;
     bar.classList.add('beat');
   }, {passive:true});
@@ -244,13 +300,23 @@
     $('#res-acc').textContent   = String(d.accuracyGoodPct ?? 0) + '%';
     $('#res-grade').textContent = d.grade ?? 'C';
     $('#result').classList.add('show');
+
+    // show HUD when result
+    document.body.classList.remove('groups-hud-hidden','groups-coach-hidden');
   }, {passive:true});
 
-  // Buttons
-  function goHub(){ location.href = hub; }
-
+  // ---------- buttons ----------
   $('#btn-back').addEventListener('click', goHub);
   $('#btn-back2').addEventListener('click', goHub);
+
+  // cycle layout
+  $('#btn-layout').addEventListener('click', ()=>{
+    const i = LAYOUTS.indexOf(layout);
+    const next = LAYOUTS[(i+1) % LAYOUTS.length];
+    applyLayout(next);
+    // reveal immediately
+    revealHUD(2600);
+  });
 
   function startGame(){
     $('#start').style.display = 'none';
@@ -258,7 +324,7 @@
 
     try{ window.GroupsVR?.Audio?.init?.(); }catch{}
 
-    // quest auto listens to groups:progress (inside quest) via engine events? (we bind here)
+    // Quest
     const q = window.GroupsVR?.createGroupsQuest?.({ diff, runMode, seed });
     if (q && q.onProgress){
       window._GQ = q;
@@ -266,6 +332,7 @@
       window.addEventListener('groups:progress', (ev)=>{ try{ q.onProgress(ev); }catch(e){} }, {passive:true});
     }
 
+    // Engine
     try{
       const eng = window.GroupsVR?.GameEngine;
       if (!eng) throw new Error('GameEngine missing');
@@ -274,6 +341,13 @@
     }catch(e){
       alert('Start fail: ' + e.message);
       console.error(e);
+      return;
+    }
+
+    // cinema: hide after short reveal
+    if (layout === 'cinema'){
+      revealHUD(1600);
+      setTimeout(hideHUDNow, 1800);
     }
   }
 
