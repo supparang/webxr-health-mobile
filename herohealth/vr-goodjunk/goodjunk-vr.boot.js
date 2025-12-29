@@ -1,8 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard (PRODUCTION)
-// ✅ Start overlay: 2D / VR(Cardboard Stereo)
-// ✅ attaches touch+gyro look
-// ✅ passes stereo flag into safe engine
+// GoodJunkVR Boot — HHA Standard + view switch (pc/mobile/vr)
+// ✅ unlock audio on start (mobile friendly)
+
 'use strict';
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
@@ -18,6 +17,15 @@ function qp(name, fallback = null){
 function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
+function setParamAndReload(key, val){
+  try{
+    const u = new URL(location.href);
+    if (val == null) u.searchParams.delete(key);
+    else u.searchParams.set(key, String(val));
+    location.href = u.toString();
+  }catch(_){}
+}
+
 function buildContext(){
   const keys = [
     'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
@@ -32,117 +40,105 @@ function buildContext(){
     if (v != null) ctx[k] = v;
   }
   ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
-  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-29';
+  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-29c';
   return ctx;
+}
+
+function showStartOverlay(metaText){
+  const overlay = document.getElementById('startOverlay');
+  const btn = document.getElementById('btnStart');
+  const meta = document.getElementById('startMeta');
+  if (meta) meta.textContent = metaText || '—';
+  if (!overlay || !btn) return Promise.resolve();
+
+  overlay.style.display = 'flex';
+  return new Promise((resolve) => {
+    btn.onclick = () => {
+      overlay.style.display = 'none';
+      // ✅ unlock audio while still in user gesture chain
+      try{ window.dispatchEvent(new CustomEvent('hha:unlock_audio', { detail:{ source:'start' } })); }catch(_){}
+      resolve();
+    };
+  });
 }
 
 function setHudMeta(text){
   const el = document.getElementById('hudMeta');
   if (el) el.textContent = text;
+
+  const ml = document.getElementById('vrMetaL');
+  const mr = document.getElementById('vrMetaR');
+  if (ml) ml.textContent = text;
+  if (mr) mr.textContent = text;
 }
 
-async function enterFullscreenBestEffort(){
-  try{
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen){
-      await document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(()=>{});
-    }
-  }catch(_){}
-  try{
-    if (screen && screen.orientation && screen.orientation.lock){
-      await screen.orientation.lock('landscape').catch(()=>{});
-    }
-  }catch(_){}
+function applyView(view){
+  view = String(view||'pc').toLowerCase();
+  document.body.classList.remove('view-pc','view-mobile','view-vr');
+  document.body.classList.add(view === 'vr' ? 'view-vr' : (view === 'mobile' ? 'view-mobile' : 'view-pc'));
 }
 
-function showStartOverlay(metaText){
-  const overlay = document.getElementById('startOverlay');
-  const meta = document.getElementById('startMeta');
-  const btn2D = document.getElementById('btnStart2D');
-  const btnVR = document.getElementById('btnStartVR');
-
-  if (meta) meta.textContent = metaText || '—';
-  if (!overlay || !btn2D || !btnVR) return Promise.resolve({ stereo:false });
-
-  overlay.style.display = 'flex';
-
-  return new Promise((resolve)=>{
-    btn2D.onclick = () => {
-      overlay.style.display = 'none';
-      resolve({ stereo:false });
-    };
-    btnVR.onclick = async () => {
-      document.body.classList.add('gj-vr', 'gj-stereo-on');
-      await enterFullscreenBestEffort();
-      overlay.style.display = 'none';
-      resolve({ stereo:true });
-    };
-  });
+function bindViewButtons(){
+  const bPC = document.getElementById('btnViewPC');
+  const bM  = document.getElementById('btnViewMobile');
+  const bV  = document.getElementById('btnViewVR');
+  if (bPC) bPC.onclick = ()=> setParamAndReload('view','pc');
+  if (bM)  bM.onclick  = ()=> setParamAndReload('view','mobile');
+  if (bV)  bV.onclick  = ()=> setParamAndReload('view','vr');
 }
 
-(function main(){
+(async function main(){
   const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
   const time = toInt(qp('time', '80'), 80);
   const run = toStr(qp('run', 'play'), 'play').toLowerCase();
   const endPolicy = toStr(qp('end', 'time'), 'time').toLowerCase();
   const challenge = toStr(qp('challenge', 'rush'), 'rush').toLowerCase();
 
+  const view = toStr(qp('view', null), '').toLowerCase()
+    || ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ? 'mobile' : 'pc');
+
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
-  const hub = qp('hub', null);
-
   const ctx = buildContext();
-  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge}`);
 
-  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}`
-    + (seed ? ` • seed=${seed}` : '');
+  applyView(view);
+  bindViewButtons();
 
-  // touch/gyro look (attach once)
-  const look = attachTouchLook({
-    crosshairEl: document.getElementById('gj-crosshair'),
-    layerEl: document.getElementById('gj-layer'),
-    stereo: false,
-    // aim point default (2D)
-    aimY: 0.62,
-    maxShiftPx: 170,
+  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=${view}`);
+
+  attachTouchLook({
+    stageEl: document.getElementById('gj-stage'),
+    aimY: (view === 'vr') ? 0.50 : 0.52,
+    maxShiftPx: (view === 'vr') ? 120 : 170,
     ease: 0.12
   });
 
-  // start overlay decision (2D / VR stereo)
-  showStartOverlay(metaText).then(({ stereo })=>{
-    // upgrade look for stereo if needed
-    if (stereo){
-      // re-attach with stereo targets
-      look?.destroy?.();
-      attachTouchLook({
-        stereo: true,
-        eyeWrapL: document.getElementById('gj-eyeL'),
-        eyeWrapR: document.getElementById('gj-eyeR'),
-        aimY: 0.52,           // ✅ VR ยกขึ้น (แก้ “เป้าต่ำไป”)
-        maxShiftPx: 150,
-        parallaxPx: 12,
-        ease: 0.10
-      });
-    }
+  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • view=${view}`
+    + (seed ? ` • seed=${seed}` : '');
 
-    goodjunkBoot({
-      diff,
-      time,
-      run,
-      endPolicy,
-      challenge,
-      seed,
-      sessionId,
-      hub,
-      context: ctx,
+  await showStartOverlay(metaText);
 
-      stereo: !!stereo,
+  goodjunkBoot({
+    diff,
+    time,
+    run,
+    endPolicy,
+    challenge,
+    view,
+    seed,
+    sessionId,
+    context: ctx,
 
-      layerEl: document.getElementById('gj-layer'),
-      layerL: document.getElementById('gj-layerL'),
-      layerR: document.getElementById('gj-layerR'),
+    layerEl: document.getElementById('gj-layer'),
+    crosshairEl: document.getElementById('gj-crosshair'),
 
-      shootEl: document.getElementById('btnShoot'),
-      safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
-    });
+    layerElL: document.getElementById('gj-layer-l'),
+    layerElR: document.getElementById('gj-layer-r'),
+    crosshairElL: document.getElementById('gj-crosshair-l'),
+    crosshairElR: document.getElementById('gj-crosshair-r'),
+
+    shootEl: document.getElementById('btnShoot'),
+
+    safeMargins: { top: 120, bottom: 170, left: 22, right: 22 }
   });
 })();
