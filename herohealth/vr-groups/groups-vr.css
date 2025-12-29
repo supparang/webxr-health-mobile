@@ -1,10 +1,11 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targets)
-✅ HUD อยู่เหนือ gameplay
-✅ fg-layer VR-feel translate ด้วย --vx/--vy
-✅ Goal RIGHT + Coach BOTTOM-RIGHT (lock)
-✅ Reduce HUD overlap risk (engine also avoids HUD rects)
-✅ Storm/Overdrive/Freeze states
+Food Groups VR — PRODUCTION CSS (Responsive PC/Mobile/VR-Cardboard)
+✅ HUD ไม่โดน layer ทับ
+✅ fg-layer รองรับ VR feel translate ด้วย --vx/--vy
+✅ Targets candy sticker + spawn/hit/out + boss hurt
+✅ Layout modes: body[data-layout="pc"|"mobile"|"vr"]
+✅ Mobile: Quest collapse/expand (class .is-collapsed)
+✅ VR: Quest ticker (class .vr-goal-only / .vr-mini-only) + HUD compact
 */
 
 :root{
@@ -71,141 +72,129 @@ html, body{
     var(--bg);
 }
 
-/* Gameplay Layer */
+/* A-Frame scene ไม่ให้บัง HUD */
+a-scene[embedded]{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:0 !important;
+}
+
+/* =========================================================
+   Gameplay Layer
+   ========================================================= */
 .fg-layer{
   position: fixed;
   inset: 0;
-  z-index: 3;                /* below HUD */
+  z-index: 3;                 /* ต่ำกว่า HUD */
   pointer-events: auto;
+
+  /* VR feel translate from engine */
   transform: translate(var(--vx,0px), var(--vy,0px));
   will-change: transform;
-  touch-action: none;
+  touch-action:none;
+  user-select:none;
 }
 
-/* HUD */
-.hud-top{
+/* Optional: No-Junk ring (set --nojunk-*) */
+.fg-layer::before{
+  content:"";
+  position:fixed;
+  left: var(--nojunk-cx, 50vw);
+  top:  var(--nojunk-cy, 50vh);
+  width: calc(var(--nojunk-r, 0px) * 2);
+  height: calc(var(--nojunk-r, 0px) * 2);
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  pointer-events:none;
+  opacity: calc(var(--nojunk-on, 0) * 0.18);
+  border:2px dashed rgba(255,255,255,.35);
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+}
+
+/* =========================================================
+   HUD (supports your current groups-vr.html structure)
+   - .hud        (Score/Time top)
+   - .centerTop  (Combo/Miss/Grade pills)
+   - .questTop   (Goal/Mini cards)
+   - .powerWrap  (bottom power)
+   - .coachWrap  (bottom-right coach)
+   ========================================================= */
+
+/* top mini HUD */
+.hud{
   position:fixed;
   left:calc(10px + var(--sal));
   right:calc(10px + var(--sar));
   top:calc(10px + var(--sat));
-  z-index: 8;
-  display:grid;
-  grid-template-columns: 1fr minmax(260px, 1.2fr) 1fr;
+  z-index: 50;
+  display:flex;
+  justify-content:space-between;
   gap:10px;
-  align-items:start;
   pointer-events:none;
 }
-
-.hud-card{
+.hud .box{
   background:var(--panel);
   border:1px solid var(--stroke);
-  border-radius:var(--radius-lg);
+  border-radius:16px;
+  padding:10px 12px;
   box-shadow:0 18px 60px rgba(0,0,0,.45);
-  padding:12px;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  min-width:120px;
 }
+.hud .big{ font-weight:1000; font-size:16px; }
+.hud .small{ font-size:12px; color:var(--muted); margin-top:2px; }
 
-.hud-left .hud-row{
+/* pills */
+.centerTop{
+  position:fixed;
+  left:50%;
+  transform:translateX(-50%);
+  top:calc(56px + var(--sat));
+  z-index: 55;
+  pointer-events:none;
   display:flex;
-  justify-content:space-between;
   gap:10px;
-  padding:6px 0;
-  border-bottom:1px dashed rgba(148,163,184,.18);
+  flex-wrap:wrap;
+  justify-content:center;
 }
-.hud-left .hud-row:last-child{ border-bottom:0; }
-
-.hud-title{ font-weight:900; letter-spacing:.4px; font-size:12px; opacity:.9; }
-.hud-val{ font-weight:900; font-size:16px; }
-
-.hud-mid .hud-group-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  margin-bottom:10px;
-}
-.hud-group{
-  font-weight:1000;
-  font-size:16px;
-  padding:6px 10px;
-  border-radius:var(--radius-pill);
-  border:1px solid rgba(34,211,238,.22);
-  background:rgba(2,6,23,.55);
-}
-.hud-timer{
-  font-weight:1000;
-  font-size:16px;
-  padding:6px 10px;
-  border-radius:var(--radius-pill);
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.55);
-}
-
-.power-wrap{
-  margin:8px 0 0 0;
-  padding:10px;
-  border-radius:var(--radius-md);
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.35);
-}
-.power-label{
-  display:flex;
-  justify-content:space-between;
-  font-weight:900;
+.pill{
+  background:rgba(15,23,42,.72);
+  border:1px solid rgba(148,163,184,.16);
+  border-radius:999px;
+  padding:8px 12px;
   font-size:12px;
-  opacity:.9;
-  margin-bottom:8px;
-}
-.power-bar{
-  height:12px;
-  border-radius:999px;
-  background:rgba(148,163,184,.14);
-  overflow:hidden;
-}
-.power-fill{
-  height:100%;
-  width:0%;
-  border-radius:999px;
-  background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(34,211,238,.9));
-  box-shadow:0 10px 24px rgba(34,211,238,.18);
+  color:var(--text);
+  box-shadow:0 16px 40px rgba(0,0,0,.35);
 }
 
-.rank-box{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
-.rank-title{ font-weight:1000; font-size:12px; opacity:.9; }
-.rank-sub{ display:flex; justify-content:space-between; gap:10px; font-size:12px; font-weight:900; color:var(--muted); margin-top:6px; }
-.rank-grade{
-  font-weight:1100;
-  font-size:26px;
-  line-height:1;
-  padding:10px 12px;
-  border-radius:14px;
-  border:1px solid rgba(34,211,238,.25);
-  background:rgba(2,6,23,.55);
-}
-
-/* ===== GOAL RIGHT ===== */
+/* quest cards — default = PC style (right side) */
 .questTop{
   position:fixed;
-  right:calc(10px + var(--sar));
-  top:  calc(84px + var(--sat));
-  left:auto;
-  width:min(340px, 50vw);
-  z-index: 9;
+  z-index: 58;
   pointer-events:none;
-  display:grid;
+  display:flex;
   gap:10px;
+  flex-wrap:wrap;
+
+  /* ✅ GOAL right by default */
+  right:calc(10px + var(--sar));
+  top:  calc(92px + var(--sat));
+  left:auto;
+  width:min(360px, 42vw);
 }
 .qbar{
+  flex:1 1 240px;
   background:rgba(2,6,23,.55);
   border:1px solid rgba(148,163,184,.14);
   border-radius:16px;
   padding:10px 12px;
   box-shadow:0 16px 40px rgba(0,0,0,.25);
-  position:relative;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-.qbar .t{ font-size:12px; color:var(--muted); font-weight:900; }
-.qbar .b{ margin-top:2px; font-size:13px; font-weight:1000; }
+.qbar .t{ font-size:12px; color:var(--muted); font-weight:900; letter-spacing:.3px; }
+.qbar .b{ margin-top:2px; font-size:13px; font-weight:1000; opacity:.98; }
 .qbar .p{
   margin-top:8px; height:10px;
   background:rgba(15,23,42,.65);
@@ -214,43 +203,71 @@ html, body{
 }
 .qbar .p > i{
   display:block; height:100%; width:0%;
-  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.70));
+  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
 }
 .qbar .time{
   margin-top:6px;
   font-size:12px;
   color:rgba(226,232,240,.85);
-}
-.qbar .qNum{
-  position:absolute;
-  right:10px;
-  top:10px;
-  font-size:12px;
-  color:rgba(226,232,240,.85);
-  font-weight:1000;
+  display:none;
 }
 
-/* Coach bottom-right */
+/* power bottom */
+.powerWrap{
+  position:fixed;
+  left:calc(12px + var(--sal));
+  right:calc(12px + var(--sar));
+  bottom:calc(14px + var(--sab));
+  z-index:60;
+  pointer-events:none;
+}
+.power{
+  height:14px; border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(15,23,42,.65);
+  overflow:hidden;
+}
+.power > i{
+  display:block; height:100%; width:0%;
+  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+}
+.powerLabel{
+  margin-top:8px;
+  font-size:12px;
+  color:var(--muted);
+  display:flex;
+  justify-content:space-between;
+  font-weight:900;
+}
+
+/* coach bottom-right (✅ coach lower-right as requested) */
 .coachWrap{
   position:fixed;
-  right:calc(10px + var(--sar));
-  bottom: calc(14px + var(--sab));
-  z-index: 10;
+  right:calc(12px + var(--sar));
+  bottom:calc(82px + var(--sab)); /* above power bar */
+  z-index:70;
   pointer-events:none;
   display:flex;
   gap:10px;
   align-items:flex-end;
 }
 .coachCard{
-  width:min(240px, 62vw);
+  width:240px;
   background:rgba(2,6,23,.60);
   border:1px solid rgba(148,163,184,.14);
   border-radius:18px;
-  padding:10px;
+  padding:10px 10px 10px;
   box-shadow:0 16px 40px rgba(0,0,0,.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-.coachLine{ font-size:12px; color:rgba(226,232,240,.92); line-height:1.45; min-height:34px; font-weight:900; }
-.coachHint{ margin-top:6px; font-size:11px; color:var(--muted); font-weight:900; }
+.coachLine{
+  font-size:12px;
+  color:rgba(226,232,240,.92);
+  line-height:1.45;
+  min-height:34px;
+  font-weight:900;
+}
 .feverMini{
   margin-top:8px;
   height:10px;
@@ -259,7 +276,12 @@ html, body{
   background:rgba(15,23,42,.65);
   overflow:hidden;
 }
-.feverMini > i{ display:block; height:100%; width:0%; background:rgba(239,68,68,.85); }
+.feverMini > i{
+  display:block;
+  height:100%;
+  width:0%;
+  background:rgba(239,68,68,.85);
+}
 .shieldTag{
   margin-top:8px;
   display:inline-flex;
@@ -283,65 +305,46 @@ html, body{
 }
 .coachImg img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-/* Start / End overlays */
-.start-overlay,
-.result-overlay{
+/* overlays (start/end) */
+.overlay{
   position:fixed;
   inset:0;
-  z-index:20;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background:rgba(2,6,23,.72);
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
+    rgba(2,6,23,.82);
+  display:grid;
+  place-items:center;
+  z-index:200;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
-.start-card,
-.result-card{
-  width:min(760px, 94vw);
-  background:rgba(15,23,42,.72);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:22px;
-  padding:16px;
-  box-shadow:0 22px 70px rgba(0,0,0,.55);
-}
-.start-title{ font-weight:1100; font-size:20px; margin:0 0 6px 0; }
-.start-sub{ margin:0; opacity:.92; line-height:1.35; font-weight:700; color:var(--muted); }
-.start-grid{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
-.pill{
-  padding:6px 10px;
-  border-radius:999px;
+.panel{
+  width:min(760px, 92vw);
   border:1px solid rgba(148,163,184,.20);
-  background:rgba(2,6,23,.55);
-  font-weight:900;
-  font-size:12px;
+  border-radius:22px;
+  background:rgba(2,6,23,.72);
+  box-shadow:0 18px 55px rgba(0,0,0,.55);
+  padding:18px 18px 14px;
 }
-.start-note{
-  margin-top:10px;
-  font-size:12px;
-  color:rgba(226,232,240,.88);
-  font-weight:800;
-  line-height:1.55;
-}
-.result-actions{ display:grid; gap:10px; margin-top:12px; }
-.btn{
+.panel h2{ margin:0 0 8px; font-size:20px; font-weight:1100; }
+.panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; font-weight:800; }
+.panel .row{ display:flex; gap:10px; flex-wrap:wrap; }
+.panel button{
   border:0;
-  border-radius:16px;
+  border-radius:999px;
   padding:12px 14px;
   font-weight:1000;
   cursor:pointer;
+  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+  color:#061018;
 }
-.btn.primary{
-  background:linear-gradient(135deg, rgba(34,197,94,.95), rgba(34,211,238,.80));
-  color:#04110a;
-}
-.btn.ghost{
-  background:transparent;
+.panel button.secondary{
+  background:rgba(15,23,42,.78);
+  border:1px solid rgba(148,163,184,.18);
   color:var(--text);
-  border:1px solid rgba(148,163,184,.22);
 }
-.dbg{ font-size:12px; color:var(--muted); opacity:.92; margin-top:10px; font-weight:900; }
+.dbg{ font-size:12px; color:var(--muted); opacity:.92; margin-top:6px; font-weight:900; }
 .warn{
   margin-top:10px;
   padding:10px 12px;
@@ -352,9 +355,12 @@ html, body{
   font-size:12px;
   display:none;
   white-space:pre-wrap;
+  font-weight:900;
 }
-.result-overlay{ display:none; }
-.result-overlay.show{ display:flex; }
+
+/* end overlay state */
+#endOverlay{ display:none; }
+#endOverlay.show{ display:grid; }
 .kv{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0 12px; }
 .kv .k{
   border:1px solid rgba(148,163,184,.16);
@@ -362,14 +368,18 @@ html, body{
   border-radius:16px;
   padding:10px 12px;
   font-size:13px;
+  font-weight:900;
 }
-.kv .k b{ display:block; font-size:16px; margin-top:2px; }
+.kv .k b{ display:block; font-size:16px; margin-top:2px; font-weight:1100; }
 
-/* TARGETS — Candy Stickers */
+/* =========================================================
+   TARGETS — Candy Stickers
+   ========================================================= */
 .fg-target{
-  position:absolute;
+  position:absolute; /* สำคัญ: ขยับตาม fg-layer transform ได้ */
   left: var(--x, 50vw);
   top:  var(--y, 50vh);
+
   width:92px;
   height:92px;
   border-radius:28px;
@@ -443,14 +453,6 @@ html, body{
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-pink), rgba(248,113,113,.26));
 }
-.fg-bonus{
-  border-color: rgba(250,204,21,.75);
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.25), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(250,204,21,.22), rgba(34,211,238,.16));
-}
 .fg-boss{
   border-color: rgba(34,211,238,.70);
   background:
@@ -465,8 +467,7 @@ html, body{
 .fg-wrong::after,
 .fg-decoy::after,
 .fg-junk::after,
-.fg-boss::after,
-.fg-bonus::after{
+.fg-boss::after{
   position:absolute;
   right:8px;
   top:7px;
@@ -479,7 +480,6 @@ html, body{
 .fg-decoy::after{ content:"❓"; }
 .fg-junk::after { content:"🫧"; }
 .fg-boss::after { content:"👑"; }
-.fg-bonus::after{ content:"✨"; }
 
 .fg-target:active{
   transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
@@ -487,7 +487,9 @@ html, body{
 }
 
 /* spawn/hit/out */
-.fg-target.spawn{ animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite; }
+.fg-target.spawn{
+  animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite;
+}
 .fg-target.hit{ animation: fgHit .22s ease-out both; }
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
@@ -522,38 +524,158 @@ html, body{
   to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
 }
 
-/* States */
-body.groups-storm .hud-top{ filter: saturate(1.10) brightness(1.05); }
-body.groups-storm-urgent .hud-top{ animation: hudStormPulse .24s ease-in-out infinite; }
+/* =========================================================
+   Mode vibes
+   ========================================================= */
+body.groups-storm .hud{ filter: saturate(1.10) brightness(1.05); }
+body.groups-storm-urgent .hud{ animation: hudStormPulse .24s ease-in-out infinite; }
 @keyframes hudStormPulse{
   0%,100%{ transform: translateZ(0) scale(1.00); }
   50%{ transform: translateZ(0) scale(1.01); }
 }
 
-body.groups-overdrive .hud-card{
-  box-shadow: 0 18px 60px rgba(34,211,238,.18);
-  border-color: rgba(34,211,238,.30);
-}
-body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
+/* =========================================================
+   ✅ Responsive layout modes
+   ========================================================= */
 
-/* Responsive */
-@media (max-width: 920px){
-  .hud-top{ grid-template-columns: 1fr; }
-  .hud-right{ order:3; }
-  .hud-mid{ order:2; }
-  .hud-left{ order:1; }
-  .questTop{
-    width: min(320px, 72vw);
-    top: calc(10px + var(--sat));
-    right: calc(10px + var(--sar));
+/* ---------- MOBILE ---------- */
+body[data-layout="mobile"] .hud{
+  top:calc(8px + var(--sat));
+  left:calc(8px + var(--sal));
+  right:calc(8px + var(--sar));
+}
+body[data-layout="mobile"] .hud .box{
+  padding:9px 10px;
+  min-width:110px;
+}
+body[data-layout="mobile"] .hud .big{ font-size:15px; }
+
+body[data-layout="mobile"] .centerTop{
+  top:calc(52px + var(--sat));
+  gap:8px;
+}
+body[data-layout="mobile"] .pill{
+  padding:7px 10px;
+  font-size:12px;
+}
+
+/* Quest becomes bottom tab zone (bigger play area) */
+body[data-layout="mobile"] .questTop{
+  top:auto;
+  left:calc(10px + var(--sal));
+  right:calc(10px + var(--sar));
+  bottom:calc(108px + var(--sab)); /* above coach */
+  width:auto;
+}
+body[data-layout="mobile"] .qbar{
+  padding:9px 10px;
+}
+body[data-layout="mobile"] .qbar .b{
+  font-size:12px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* collapsed quest (tap to toggle via JS) */
+body[data-layout="mobile"] .questTop.is-collapsed .qbar .b,
+body[data-layout="mobile"] .questTop.is-collapsed .qbar .p,
+body[data-layout="mobile"] .questTop.is-collapsed .qbar .time{
+  display:none !important;
+}
+body[data-layout="mobile"] .questTop.is-collapsed .qbar{
+  padding:8px 10px;
+}
+body[data-layout="mobile"] .questTop.is-collapsed .qbar .t{
+  font-size:12px;
+  color:rgba(226,232,240,.92);
+}
+
+/* power slightly thinner on mobile */
+body[data-layout="mobile"] .powerWrap{
+  left:calc(10px + var(--sal));
+  right:calc(10px + var(--sar));
+  bottom:calc(10px + var(--sab));
+}
+body[data-layout="mobile"] .power{ height:12px; }
+body[data-layout="mobile"] .powerLabel{ margin-top:7px; }
+
+/* coach tighter on mobile */
+body[data-layout="mobile"] .coachWrap{
+  right:calc(10px + var(--sar));
+  bottom:calc(76px + var(--sab));
+}
+body[data-layout="mobile"] .coachCard{
+  width:min(210px, 62vw);
+}
+
+/* smaller targets on small screens */
+@media (max-width: 520px){
+  body[data-layout="mobile"] .fg-target{
+    width:84px;
+    height:84px;
+    border-radius:26px;
   }
-  .coachWrap{ bottom: calc(10px + var(--sab)); }
+  body[data-layout="mobile"] .fg-target::before{ font-size:42px; }
 }
 
-/* Reduce motion */
+/* ---------- PC (landscape wide) ---------- */
+body[data-layout="pc"] .questTop{
+  right:calc(10px + var(--sar));
+  top:  calc(92px + var(--sat));
+  width:min(360px, 38vw);
+}
+body[data-layout="pc"] .coachWrap{
+  right:calc(12px + var(--sar));
+  bottom:calc(82px + var(--sab));
+}
+
+/* ---------- VR CARDBOARD ---------- */
+body[data-layout="vr"] .hud{
+  left:calc(14px + var(--sal));
+  right:calc(14px + var(--sar));
+  top:calc(10px + var(--sat));
+}
+body[data-layout="vr"] .hud .box{
+  padding:10px 12px;
+  border-radius:18px;
+}
+body[data-layout="vr"] .centerTop{
+  top:calc(58px + var(--sat));
+}
+body[data-layout="vr"] .pill{
+  padding:8px 12px;
+  font-size:12px;
+}
+
+/* VR: quest becomes ticker (show one at a time via JS classes) */
+body[data-layout="vr"] .questTop{
+  top:calc(92px + var(--sat));
+  left:calc(14px + var(--sal));
+  right:calc(14px + var(--sar));
+  width:auto;
+}
+body[data-layout="vr"] .qbar{
+  flex:1 1 auto;
+}
+body[data-layout="vr"] .questTop.vr-goal-only .qbar:nth-child(2){ display:none !important; }
+body[data-layout="vr"] .questTop.vr-mini-only .qbar:nth-child(1){ display:none !important; }
+
+/* VR: hide power bar to reduce clutter */
+body[data-layout="vr"] .powerWrap{ display:none !important; }
+
+/* VR: coach minimal (icon only) */
+body[data-layout="vr"] .coachCard{ display:none !important; }
+body[data-layout="vr"] .coachImg{ width:64px; height:64px; border-radius:18px; }
+body[data-layout="vr"] .coachWrap{
+  right:calc(14px + var(--sar));
+  bottom:calc(14px + var(--sab));
+}
+
+/* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
-  body.groups-storm-urgent .hud-top{
+  body.groups-storm-urgent .hud{
     animation:none !important;
   }
 }
