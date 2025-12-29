@@ -1,10 +1,9 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + VR Calibration Patch
-✅ view=pc|mobile|vr|cvr (UI toggles)
-✅ Enter Fullscreen + Enter VR (best effort)
-✅ HUD + Quest + Coach + Fever/Shield
-✅ Targets DOM on #gj-layer
-✅ End Summary + Back HUB
+<!-- === /herohealth/groups.html ===
+Food Groups VR — Launcher (PRODUCTION)
+✅ Launch -> /herohealth/vr-groups/groups-vr.html
+✅ Params: runMode diff style time seed hub autostart v
+✅ Remember last settings (localStorage)
+✅ Quick presets + Random seed
 -->
 
 <!doctype html>
@@ -12,139 +11,416 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Calibration Patch
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunk VR</title>
+  <title>HeroHealth — Food Groups VR (Launcher)</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --cyan:#22d3ee;
+      --warn:#f59e0b;
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
-
-  <!-- Global FX + Fever + HUD + Logger -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-hud.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-
-  <!-- Boot (ESM) -->
-  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --r:18px;
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; height:100%; overflow:hidden; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--text); background:var(--bg); }
+    body{
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 60%),
+        var(--bg);
+    }
+    .wrap{
+      height:100%;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .hero{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 10px 0 18px;
+    }
+    .title{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    h1{ margin:0; font-size:20px; letter-spacing:.2px; }
+    .sub{ color:var(--muted); font-size:13px; line-height:1.55; margin-top:4px; }
+    .pillrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .pill{
+      background: rgba(15,23,42,.70);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      color:var(--text);
+      box-shadow:0 14px 30px rgba(0,0,0,.25);
+    }
+    .card{
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: 22px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+      padding: 14px;
+      margin-top: 12px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+    .sec{
+      background: rgba(2,6,23,.45);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .sec h3{
+      margin:0 0 8px;
+      font-size:13px;
+      color: rgba(226,232,240,.92);
+      letter-spacing:.2px;
+    }
+    .row{
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center;
+      margin-top:8px;
+    }
+    label{
+      font-size:12px;
+      color: var(--muted);
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 150px;
+    }
+    select,input{
+      width:100%;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.62);
+      color: var(--text);
+      padding: 10px 10px;
+      outline:none;
+      box-shadow: 0 14px 30px rgba(0,0,0,.22);
+    }
+    input[type="checkbox"]{ width:auto; box-shadow:none; }
+    .actions{
+      display:flex; gap:10px; flex-wrap:wrap;
+      margin-top: 12px;
+    }
+    button{
+      border:0;
+      border-radius:999px;
+      padding: 12px 14px;
+      font-weight: 900;
+      cursor: pointer;
+      color:#061018;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+    }
+    button.secondary{
+      background: rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.18);
+      color: var(--text);
+    }
+    button.warn{
+      background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(34,211,238,.90));
+      color:#08121a;
+    }
+    .kv{
+      display:grid; grid-template-columns: 1fr;
+      gap:8px;
+      margin-top: 10px;
+      font-size:12px;
+      color: rgba(226,232,240,.92);
+    }
+    .kv .k{
+      background: rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 16px;
+      padding: 10px 12px;
+      overflow:auto;
+      white-space:nowrap;
+    }
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color: var(--muted);
+      line-height:1.55;
+    }
+    .badge{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.62);
+      font-size:12px;
+    }
+  </style>
 </head>
-
 <body>
-  <!-- ===== Quick Panel / View Switch ===== -->
-  <div class="gj-panel" id="gjPanel" aria-label="view panel">
-    <div class="gj-panel-title">GoodJunkVR</div>
-    <div class="gj-panel-sub" id="panelMeta">—</div>
-
-    <div class="gj-panel-row">
-      <button class="gj-pill" data-view="pc">PC</button>
-      <button class="gj-pill" data-view="mobile">Mobile</button>
-      <button class="gj-pill" data-view="vr">VR</button>
-      <button class="gj-pill" data-view="cvr">cVR</button>
-    </div>
-
-    <div class="gj-panel-row">
-      <button class="gj-pill gj-pill-ghost" id="btnFs">Enter Fullscreen</button>
-      <button class="gj-pill gj-pill-ghost" id="btnEnterVR">Enter VR</button>
-    </div>
-  </div>
-
-  <!-- ===== HUD ===== -->
-  <div class="hha-hud">
-    <div class="hud-top">
-      <div class="hud-badge">
-        <div class="hud-title">GoodJunkVR</div>
-        <div class="hud-sub" id="hudMeta">—</div>
-      </div>
-
-      <div class="hud-stats">
-        <div class="hud-stat"><div class="k">Score</div><div class="v" id="hhaScore">0</div></div>
-        <div class="hud-stat"><div class="k">Combo</div><div class="v" id="hhaCombo">0</div></div>
-        <div class="hud-stat"><div class="k">Miss</div><div class="v" id="hhaMiss">0</div></div>
-        <div class="hud-stat"><div class="k">Time</div><div class="v" id="hhaTime">0</div></div>
-        <div class="hud-stat grade"><div class="k">Grade</div><div class="v" id="hhaGrade">—</div></div>
-      </div>
-    </div>
-
-    <div class="hud-mid">
-      <div class="hud-quest">
-        <div class="q-row">
-          <div class="q-title" id="hudGoalTitle">Goal: —</div>
-          <div class="q-count" id="hudGoalCount">0/0</div>
+  <div class="wrap">
+    <div class="hero">
+      <div class="title">
+        <div>
+          <h1>🥗 Food Groups VR — Launcher</h1>
+          <div class="sub">
+            เปิดเกมจริงที่ <span class="badge">/herohealth/vr-groups/groups-vr.html</span><br/>
+            ปรับโหมด / ความยาก / style / เวลา / seed แล้วกด “Start”
+          </div>
+          <div class="pillrow">
+            <div class="pill">Goal ➜ ขวา</div>
+            <div class="pill">Coach ➜ ล่างขวา</div>
+            <div class="pill">⭐ Overdrive+Shield</div>
+            <div class="pill">❄️ Freeze</div>
+            <div class="pill">🌪️ Storm + 👑 Boss</div>
+          </div>
         </div>
-        <div class="q-row">
-          <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
-          <div class="q-count" id="hudMiniCount">0/0</div>
-          <div class="q-timer" id="hudMiniTimer"></div>
-        </div>
-        <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
-      </div>
-
-      <div class="hud-coach">
-        <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
-        <div class="coach-talk">
-          <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
-          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
+        <div class="row">
+          <button id="btnHub" class="secondary">กลับ HUB</button>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- ===== Fever/Shield UI ===== -->
-  <div class="hha-fever" id="hhaFever">
-    <div class="fever-row">
-      <div class="fever-label">FEVER</div>
-      <div class="fever-bar"><div class="fever-fill" id="feverBar"></div></div>
-      <div class="fever-text" id="feverText">0%</div>
-    </div>
-    <div class="shield-row">
-      <div class="shield-label">SHIELD</div>
-      <div class="shield-pills" id="shieldPills"></div>
-    </div>
-  </div>
+      <div class="card">
+        <div class="grid">
+          <div class="sec">
+            <h3>🎮 Mode & Difficulty</h3>
+            <div class="row">
+              <label>runMode
+                <select id="runMode">
+                  <option value="play">play (Adaptive ON)</option>
+                  <option value="research">research (Adaptive OFF)</option>
+                </select>
+              </label>
 
-  <!-- ===== Playfield ===== -->
-  <div id="gj-stage">
-    <div id="gj-layer" aria-label="targets layer"></div>
+              <label>diff
+                <select id="diff">
+                  <option value="easy">easy</option>
+                  <option value="normal" selected>normal</option>
+                  <option value="hard">hard</option>
+                </select>
+              </label>
 
-    <!-- Crosshair -->
-    <div id="gj-crosshair" aria-hidden="true"></div>
+              <label>style
+                <select id="style">
+                  <option value="mix" selected>mix (balanced)</option>
+                  <option value="feel">feel (wave focus)</option>
+                  <option value="hard">hard (spiral focus)</option>
+                </select>
+              </label>
+            </div>
 
-    <!-- Boss hazards (visual pressure) -->
-    <div id="atk-ring" aria-hidden="true"></div>
-    <div id="atk-laser" aria-hidden="true"></div>
+            <div class="row">
+              <label>time (sec)
+                <select id="time">
+                  <option value="70">70</option>
+                  <option value="90" selected>90</option>
+                  <option value="120">120</option>
+                </select>
+              </label>
 
-    <!-- end summary -->
-    <div id="end-summary"></div>
-  </div>
+              <label>seed
+                <input id="seed" placeholder="เช่น 1766994914755" />
+              </label>
 
-  <!-- ===== Controls ===== -->
-  <div class="hha-controls">
-    <button id="btnShoot" class="btn-shoot">ยิง</button>
-  </div>
+              <label>hub (return)
+                <input id="hub" placeholder="./index.html" />
+              </label>
+            </div>
 
-  <!-- ===== Start Overlay ===== -->
-  <div id="startOverlay" class="start-overlay">
-    <div class="start-card">
-      <div class="start-title">GoodJunk VR</div>
-      <div class="start-desc">
-        เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
+            <div class="row">
+              <label style="min-width:auto; flex-direction:row; align-items:center; gap:10px; color:rgba(226,232,240,.92);">
+                <input type="checkbox" id="autostart" />
+                autostart (เข้าเกมทันที)
+              </label>
+
+              <button id="btnRandom" class="secondary">สุ่ม seed</button>
+              <button id="btnNormal" class="secondary">Preset: Normal</button>
+              <button id="btnResearch" class="secondary">Preset: Research</button>
+            </div>
+
+            <div class="hint">
+              • play = มี adaptive ปรับ spawn/ttl ตามฝีมือ<br/>
+              • research = deterministic (seed) + ค่าตายตัวตาม diff เท่านั้น
+            </div>
+          </div>
+
+          <div class="sec">
+            <h3>🚀 Launch</h3>
+            <div class="actions">
+              <button id="btnStart">Start (Run)</button>
+              <button id="btnStartVR" class="warn">Start + autostart=1</button>
+              <button id="btnCopy" class="secondary">Copy URL</button>
+            </div>
+
+            <div class="kv">
+              <div class="k" id="outUrl">URL: —</div>
+            </div>
+
+            <div class="hint">
+              “Start + autostart=1” จะส่งเข้า run แล้วเริ่มให้เอง<br/>
+              ถ้าคุณมี HUB หลักอยู่แล้ว → ตั้ง hub ให้ตรง
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="start-meta" id="startMeta">—</div>
-      <button id="btnStart" class="btn-start">เริ่มเล่น</button>
+
+      <div class="card">
+        <div class="sec">
+          <h3>📌 Notes</h3>
+          <div class="hint">
+            • run เกม: <b>/herohealth/vr-groups/groups-vr.html</b><br/>
+            • cache-bust: <b>v=timestamp</b> (Launcher ทำให้แล้ว)<br/>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <!-- ===== VR Tip (optional) ===== -->
-  <div class="vr-tip" id="vrTip" hidden>
-    <div class="vr-tip-card">
-      <div class="vr-tip-title">โหมด VR/การ์ดบอร์ด</div>
-      <div class="vr-tip-text">
-        กรุณาหมุนจอเป็น <b>แนวนอน</b> เพื่อให้เป้าอยู่ระดับสายตา
-      </div>
-      <div class="vr-tip-sub">Tip: กด “Enter Fullscreen” ก่อนเข้า VR/cVR จะนิ่งกว่า</div>
-      <button class="vr-tip-btn" id="vrTipOk">โอเค</button>
-    </div>
-  </div>
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    const STORAGE_KEY = 'HHA_LAUNCH_GROUPS_V1';
+    function nowSeed(){ return String(Date.now()); }
+
+    function loadDefaults(){
+      const dflt = {
+        runMode: 'play',
+        diff: 'normal',
+        style: 'mix',
+        time: '90',
+        seed: nowSeed(),
+        hub: './index.html',
+        autostart: false
+      };
+      try{
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        if (saved && typeof saved === 'object') Object.assign(dflt, saved);
+      }catch{}
+      $('runMode').value = dflt.runMode;
+      $('diff').value = dflt.diff;
+      $('style').value = dflt.style;
+      $('time').value = dflt.time;
+      $('seed').value = dflt.seed || nowSeed();
+      $('hub').value  = dflt.hub || './index.html';
+      $('autostart').checked = !!dflt.autostart;
+      refreshUrl();
+    }
+
+    function saveDefaults(){
+      const payload = {
+        runMode: $('runMode').value,
+        diff: $('diff').value,
+        style: $('style').value,
+        time: $('time').value,
+        seed: ($('seed').value || '').trim(),
+        hub:  ($('hub').value || '').trim(),
+        autostart: $('autostart').checked
+      };
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); }catch{}
+    }
+
+    function buildUrl(forceAutostart=false){
+      const runMode = $('runMode').value;
+      const diff = $('diff').value;
+      const style = $('style').value;
+      const time = $('time').value;
+      const seed = ($('seed').value || '').trim() || nowSeed();
+      const hub  = ($('hub').value || '').trim() || './index.html';
+      const autostart = forceAutostart ? '1' : ($('autostart').checked ? '1' : '0');
+      const v = String(Date.now());
+
+      const base = './vr-groups/groups-vr.html';
+      const qs = new URLSearchParams();
+      qs.set('runMode', runMode);
+      qs.set('diff', diff);
+      qs.set('style', style);
+      qs.set('time', time);
+      qs.set('seed', seed);
+      qs.set('hub', hub);
+      if (autostart === '1') qs.set('autostart', '1');
+      qs.set('v', v);
+      return base + '?' + qs.toString();
+    }
+
+    function refreshUrl(){
+      saveDefaults();
+      const url = buildUrl(false);
+      $('outUrl').textContent = 'URL: ' + url;
+      return url;
+    }
+
+    function goHub(){
+      const hub = ($('hub').value || '').trim() || './index.html';
+      location.href = hub;
+    }
+    $('btnHub').addEventListener('click', goHub);
+
+    ['runMode','diff','style','time','seed','hub','autostart'].forEach(id=>{
+      $(id).addEventListener('change', refreshUrl);
+      $(id).addEventListener('input', ()=> { if (id==='seed'||id==='hub') refreshUrl(); });
+    });
+
+    $('btnRandom').addEventListener('click', ()=>{ $('seed').value = nowSeed(); refreshUrl(); });
+
+    $('btnNormal').addEventListener('click', ()=>{
+      $('runMode').value = 'play';
+      $('diff').value = 'normal';
+      $('style').value = 'mix';
+      $('time').value = '90';
+      $('seed').value = nowSeed();
+      $('autostart').checked = false;
+      refreshUrl();
+    });
+
+    $('btnResearch').addEventListener('click', ()=>{
+      $('runMode').value = 'research';
+      $('diff').value = 'normal';
+      $('style').value = 'mix';
+      $('time').value = '90';
+      $('seed').value = nowSeed();
+      $('autostart').checked = true;
+      refreshUrl();
+    });
+
+    $('btnStart').addEventListener('click', ()=>{ location.href = refreshUrl(); });
+
+    $('btnStartVR').addEventListener('click', ()=>{
+      saveDefaults();
+      const url = buildUrl(true);
+      $('outUrl').textContent = 'URL: ' + url;
+      location.href = url;
+    });
+
+    $('btnCopy').addEventListener('click', async ()=>{
+      const url = refreshUrl();
+      try{
+        await navigator.clipboard.writeText(url);
+        $('outUrl').textContent = '✅ Copied: ' + url;
+      }catch{
+        $('outUrl').textContent = '⚠️ Copy ไม่ได้ — ' + url;
+      }
+    });
+
+    loadDefaults();
+  </script>
 </body>
 </html>
