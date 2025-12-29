@@ -1,6 +1,19 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard + view switch (pc/mobile/vr)
-// ✅ unlock audio on start (mobile friendly)
+// GoodJunkVR Boot — HHA Standard
+// ✅ Fix: touch-look-goodjunk.js must export attachTouchLook
+// ✅ Start overlay user-gesture: requestFullscreen + screen.orientation.lock('landscape') when view=vr|cvr
+// ✅ Rotate hint overlay if lock not supported
+// Params:
+//  - diff=easy|normal|hard
+//  - time=80
+//  - run=play|research
+//  - end=time|all
+//  - challenge=rush|boss|survival
+//  - hub=../hub.html
+//  - seed=...
+//  - sessionId=...
+//  - log=<GAS_WEBAPP_URL>
+//  - view=pc|mobile|vr|cvr
 
 'use strict';
 
@@ -17,15 +30,6 @@ function qp(name, fallback = null){
 function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
-function setParamAndReload(key, val){
-  try{
-    const u = new URL(location.href);
-    if (val == null) u.searchParams.delete(key);
-    else u.searchParams.set(key, String(val));
-    location.href = u.toString();
-  }catch(_){}
-}
-
 function buildContext(){
   const keys = [
     'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
@@ -40,11 +44,71 @@ function buildContext(){
     if (v != null) ctx[k] = v;
   }
   ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
-  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-29c';
+  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-29';
   return ctx;
 }
 
-function showStartOverlay(metaText){
+function setHudMeta(text){
+  const el = document.getElementById('hudMeta');
+  if (el) el.textContent = text;
+}
+
+// ---------- VR landscape helpers ----------
+async function tryLockLandscape(){
+  // Must be called from user-gesture
+  // 1) Fullscreen (helps on some Android)
+  try{
+    const el = document.documentElement;
+    if (el.requestFullscreen && !document.fullscreenElement){
+      await el.requestFullscreen();
+    }
+  }catch(_){}
+
+  // 2) Screen orientation lock
+  try{
+    const ori = window.screen && window.screen.orientation;
+    if (ori && ori.lock){
+      await ori.lock('landscape');
+      return true;
+    }
+  }catch(_){}
+  return false;
+}
+
+function showRotateHint(show){
+  let el = document.getElementById('rotateHint');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'rotateHint';
+    el.className = 'rotate-hint';
+    el.innerHTML = `<div class="rotate-card">
+      <div class="rt-title">หมุนเป็นแนวนอน</div>
+      <div class="rt-sub">โหมด VR แนะนำให้เล่นแนวนอนเพื่อมุมมองเต็มจอ</div>
+    </div>`;
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? 'flex' : 'none';
+}
+
+function isLandscape(){
+  try{
+    return window.matchMedia && window.matchMedia('(orientation: landscape)').matches;
+  }catch(_){}
+  // fallback
+  return (window.innerWidth || 0) > (window.innerHeight || 0);
+}
+
+function applyViewClass(view){
+  const v = String(view || '').toLowerCase();
+  document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  if (v === 'vr') document.body.classList.add('view-vr');
+  else if (v === 'cvr') document.body.classList.add('view-cvr');
+  else if (v === 'mobile') document.body.classList.add('view-mobile');
+  else document.body.classList.add('view-pc');
+  return v || 'pc';
+}
+
+function showStartOverlay(metaText, view){
   const overlay = document.getElementById('startOverlay');
   const btn = document.getElementById('btnStart');
   const meta = document.getElementById('startMeta');
@@ -52,39 +116,38 @@ function showStartOverlay(metaText){
   if (!overlay || !btn) return Promise.resolve();
 
   overlay.style.display = 'flex';
+
   return new Promise((resolve) => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       overlay.style.display = 'none';
-      // ✅ unlock audio while still in user gesture chain
+
+      // unlock audio (if any module listens)
       try{ window.dispatchEvent(new CustomEvent('hha:unlock_audio', { detail:{ source:'start' } })); }catch(_){}
+
+      // If VR view: attempt lock landscape
+      const v = String(view || '').toLowerCase();
+      if (v === 'vr' || v === 'cvr'){
+        const ok = await tryLockLandscape();
+        if (!ok){
+          // show rotate hint until landscape detected
+          showRotateHint(!isLandscape());
+          const onCheck = ()=>{
+            if (isLandscape()){
+              showRotateHint(false);
+              window.removeEventListener('resize', onCheck);
+              window.removeEventListener('orientationchange', onCheck);
+            }
+          };
+          window.addEventListener('resize', onCheck, { passive:true });
+          window.addEventListener('orientationchange', onCheck, { passive:true });
+        } else {
+          showRotateHint(false);
+        }
+      }
+
       resolve();
     };
   });
-}
-
-function setHudMeta(text){
-  const el = document.getElementById('hudMeta');
-  if (el) el.textContent = text;
-
-  const ml = document.getElementById('vrMetaL');
-  const mr = document.getElementById('vrMetaR');
-  if (ml) ml.textContent = text;
-  if (mr) mr.textContent = text;
-}
-
-function applyView(view){
-  view = String(view||'pc').toLowerCase();
-  document.body.classList.remove('view-pc','view-mobile','view-vr');
-  document.body.classList.add(view === 'vr' ? 'view-vr' : (view === 'mobile' ? 'view-mobile' : 'view-pc'));
-}
-
-function bindViewButtons(){
-  const bPC = document.getElementById('btnViewPC');
-  const bM  = document.getElementById('btnViewMobile');
-  const bV  = document.getElementById('btnViewVR');
-  if (bPC) bPC.onclick = ()=> setParamAndReload('view','pc');
-  if (bM)  bM.onclick  = ()=> setParamAndReload('view','mobile');
-  if (bV)  bV.onclick  = ()=> setParamAndReload('view','vr');
 }
 
 (async function main(){
@@ -94,51 +157,44 @@ function bindViewButtons(){
   const endPolicy = toStr(qp('end', 'time'), 'time').toLowerCase();
   const challenge = toStr(qp('challenge', 'rush'), 'rush').toLowerCase();
 
-  const view = toStr(qp('view', null), '').toLowerCase()
-    || ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ? 'mobile' : 'pc');
-
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
+  const view = applyViewClass(qp('view', 'pc'));
+
   const ctx = buildContext();
-
-  applyView(view);
-  bindViewButtons();
-
   setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=${view}`);
 
+  // attach touch/gyro look -> world shift (feel like VR)
   attachTouchLook({
-    stageEl: document.getElementById('gj-stage'),
-    aimY: (view === 'vr') ? 0.50 : 0.52,
-    maxShiftPx: (view === 'vr') ? 120 : 170,
+    crosshairEl: document.getElementById('gj-crosshair'),
+    layerEl: document.getElementById('gj-layer'),
+    aimY: (view === 'vr' || view === 'cvr') ? 0.52 : 0.62, // ✅ VR: aim สูงขึ้นนิด
+    maxShiftPx: (view === 'vr' || view === 'cvr') ? 210 : 170,
     ease: 0.12
   });
 
-  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • view=${view}`
+  const metaText =
+    `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • view=${view}`
     + (seed ? ` • seed=${seed}` : '');
 
-  await showStartOverlay(metaText);
+  await showStartOverlay(metaText, view);
 
+  // boot engine
   goodjunkBoot({
     diff,
     time,
     run,
     endPolicy,
     challenge,
-    view,
     seed,
     sessionId,
     context: ctx,
-
     layerEl: document.getElementById('gj-layer'),
-    crosshairEl: document.getElementById('gj-crosshair'),
-
-    layerElL: document.getElementById('gj-layer-l'),
-    layerElR: document.getElementById('gj-layer-r'),
-    crosshairElL: document.getElementById('gj-crosshair-l'),
-    crosshairElR: document.getElementById('gj-crosshair-r'),
-
     shootEl: document.getElementById('btnShoot'),
 
-    safeMargins: { top: 120, bottom: 170, left: 22, right: 22 }
+    // ✅ VR: กันเป้าต่ำเกิน + กันไปชน HUD
+    safeMargins: (view === 'vr' || view === 'cvr')
+      ? { top: 70, bottom: 120, left: 22, right: 22 }
+      : { top: 128, bottom: 170, left: 26, right: 26 }
   });
 })();
