@@ -17,85 +17,31 @@
       --text:#e5e7eb;
       --muted:#94a3b8;
 
+      /* safe-area */
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
-
-      /* ✅ ให้ GameEngine ใช้กันทับ HUD (อ่านโดย safeSpawnRect ใหม่) */
-      --hha-safe-top: 96px;
-      --hha-safe-bot: 140px;
-      --hha-safe-side: 18px;
-
-      /* fever (set by JS) */
-      --fever-pct: 0;   /* 0..100 */
-      --fever-amp: 0px; /* shake amplitude */
     }
-
     html,body{
       margin:0; height:100%; overflow:hidden;
       background:var(--bg); color:var(--text);
       font-family:system-ui,-apple-system,Segoe UI,sans-serif;
     }
 
-    /* gameplay layer */
     #fg-layer{
       position:fixed; inset:0;
+      transform: translate(var(--vx,0px), var(--vy,0px));
       touch-action:none; user-select:none;
       pointer-events:auto;
       z-index:10;
-
-      transform: translate(var(--vx,0px), var(--vy,0px));
-      will-change: transform;
     }
 
-    /* fever shake (รวม vx/vy ได้ ไม่พัง VR-feel) */
-    body.fever-on #fg-layer{
-      animation: feverShake 0.18s linear infinite;
-    }
-    @keyframes feverShake{
-      0%{
-        transform: translate(
-          calc(var(--vx,0px) + var(--fever-amp,0px)),
-          calc(var(--vy,0px) - var(--fever-amp,0px))
-        );
-      }
-      50%{
-        transform: translate(
-          calc(var(--vx,0px) - var(--fever-amp,0px)),
-          calc(var(--vy,0px) + var(--fever-amp,0px))
-        );
-      }
-      100%{
-        transform: translate(
-          calc(var(--vx,0px) + var(--fever-amp,0px)),
-          calc(var(--vy,0px) - var(--fever-amp,0px))
-        );
-      }
-    }
-
-    /* fever vignette */
-    body::after{
-      content:"";
-      position:fixed; inset:0;
-      pointer-events:none;
-      z-index:45; /* ต่ำกว่า HUD แต่สูงกว่า gameplay */
-      opacity: calc(var(--fever-pct,0) * 0.0032);
-      background:
-        radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 45%, rgba(239,68,68,.22) 100%);
-      mix-blend-mode: screen;
-      transition: opacity .18s ease;
-    }
-
-    /* ---------- EDGE HUD: TOP SCORE/TIME ---------- */
     .hud{
-      position:fixed;
-      left:calc(10px + var(--sal));
-      right:calc(10px + var(--sar));
-      top:calc(10px + var(--sat));
-      padding:0;
+      position:fixed; left:0; right:0; top:0;
+      padding: calc(12px + var(--sat)) 12px 10px;
       display:flex; justify-content:space-between; gap:10px;
-      pointer-events:none; z-index:60;
+      pointer-events:none; z-index:50;
     }
     .hud .box{
       background:var(--panel);
@@ -103,65 +49,45 @@
       border-radius:16px;
       padding:10px 12px;
       box-shadow:0 16px 40px rgba(0,0,0,.35);
-      min-width:132px;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      min-width:120px;
     }
-    .hud .big{ font-weight:1000; font-size:16px; letter-spacing:.2px; }
-    .hud .small{ font-size:12px; color:var(--muted); margin-top:2px; font-weight:900; opacity:.95; }
+    .hud .big{ font-weight:900; font-size:16px; }
+    .hud .small{ font-size:12px; color:var(--muted); margin-top:2px; }
 
-    /* ---------- LEFT STACK (COMBO/MISS/GRADE) ---------- */
     .centerTop{
-      position:fixed;
-      left:calc(10px + var(--sal));
-      top:calc(62px + var(--sat));
-      z-index:62;
-      pointer-events:none;
-
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      align-items:stretch;
-      width:min(210px, 44vw);
+      position:fixed; left:50%; transform:translateX(-50%);
+      top: calc(10px + var(--sat));
+      z-index:55; pointer-events:none;
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
     }
     .pill{
       background:rgba(15,23,42,.72);
       border:1px solid rgba(148,163,184,.16);
-      border-radius:16px;
-      padding:10px 12px;
+      border-radius:999px;
+      padding:8px 12px;
       font-size:12px;
       color:var(--text);
-      box-shadow:0 16px 40px rgba(0,0,0,.30);
-      font-weight:900;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      box-shadow:0 16px 40px rgba(0,0,0,.35);
     }
-    .pill b{ font-weight:1100; }
 
-    /* ---------- RIGHT STACK (GOAL/MINI) ---------- */
+    /* Quest */
     .questTop{
       position:fixed;
-      right:calc(10px + var(--sar));
-      top:calc(62px + var(--sat));
-      z-index:64;
-      pointer-events:none;
-
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      width:min(320px, 46vw);
+      left:12px; right:12px;
+      top: calc(68px + var(--sat));
+      display:flex; gap:10px; flex-wrap:wrap;
+      z-index:58; pointer-events:none;
     }
     .qbar{
+      flex:1 1 240px;
       background:rgba(2,6,23,.55);
       border:1px solid rgba(148,163,184,.14);
       border-radius:16px;
       padding:10px 12px;
-      box-shadow:0 16px 40px rgba(0,0,0,.22);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      box-shadow:0 16px 40px rgba(0,0,0,.25);
     }
-    .qbar .t{ font-size:12px; color:var(--muted); font-weight:900; }
-    .qbar .b{ margin-top:2px; font-size:13px; font-weight:1100; letter-spacing:.15px; }
+    .qbar .t{ font-size:12px; color:var(--muted); }
+    .qbar .b{ margin-top:2px; font-size:13px; font-weight:900; }
     .qbar .p{
       margin-top:8px; height:10px;
       background:rgba(15,23,42,.65);
@@ -177,32 +103,18 @@
       font-size:12px;
       color:rgba(226,232,240,.85);
       display:none;
-      font-weight:1000;
-    }
-    .qbar .time.urgent{
-      color:#fff;
-      text-shadow:0 0 16px rgba(239,68,68,.35);
-      animation: miniUrgent .22s ease-in-out infinite;
-    }
-    @keyframes miniUrgent{
-      0%,100%{ transform: translateZ(0) scale(1.00); }
-      50%{ transform: translateZ(0) scale(1.02); }
     }
 
-    /* ---------- BOTTOM: POWER ---------- */
     .powerWrap{
-      position:fixed;
-      left:calc(10px + var(--sal));
-      right:calc(10px + var(--sar));
-      bottom:calc(12px + var(--sab));
-      z-index:66; pointer-events:none;
+      position:fixed; left:12px; right:12px;
+      bottom: calc(14px + var(--sab));
+      z-index:60; pointer-events:none;
     }
     .power{
       height:14px; border-radius:999px;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(15,23,42,.65);
       overflow:hidden;
-      box-shadow:0 16px 40px rgba(0,0,0,.25);
     }
     .power > i{
       display:block; height:100%; width:0%;
@@ -211,30 +123,31 @@
     .powerLabel{
       margin-top:8px; font-size:12px; color:var(--muted);
       display:flex; justify-content:space-between;
-      font-weight:900;
     }
 
-    /* ---------- COACH ---------- */
     .coachWrap{
       position:fixed;
-      right:calc(10px + var(--sar));
-      bottom:calc(66px + var(--sab));
-      z-index:68; pointer-events:none;
-      display:flex; gap:10px; align-items:flex-end;
+      right:12px;
+      bottom: calc(86px + var(--sab));
+      z-index:62;
+      pointer-events:none;
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
     }
     .coachCard{
-      width:min(240px, 52vw);
+      width:220px;
       background:rgba(2,6,23,.60);
       border:1px solid rgba(148,163,184,.14);
       border-radius:18px;
       padding:10px 10px 10px;
       box-shadow:0 16px 40px rgba(0,0,0,.25);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
     }
-    .coachLine{ font-size:12px; color:rgba(226,232,240,.92); line-height:1.45; min-height:34px; font-weight:900; }
+    .coachLine{ font-size:12px; color:rgba(226,232,240,.92); line-height:1.45; min-height:34px; }
     .feverMini{
-      margin-top:8px; height:10px; border-radius:999px;
+      margin-top:8px;
+      height:10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(15,23,42,.65);
       overflow:hidden;
@@ -242,15 +155,19 @@
     .feverMini > i{ display:block; height:100%; width:0%; background:rgba(239,68,68,.85); }
     .shieldTag{
       margin-top:8px;
-      display:inline-flex; gap:6px; align-items:center;
-      font-size:12px; color:rgba(226,232,240,.92);
-      padding:6px 10px; border-radius:999px;
+      display:inline-flex;
+      gap:6px;
+      align-items:center;
+      font-size:12px;
+      color:rgba(226,232,240,.92);
+      padding:6px 10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(15,23,42,.60);
-      font-weight:1000;
     }
     .coachImg{
-      width:74px; height:74px; border-radius:18px;
+      width:74px; height:74px;
+      border-radius:18px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(15,23,42,.55);
       overflow:hidden;
@@ -258,13 +175,11 @@
     }
     .coachImg img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-    /* overlays */
     .overlay{
       position:fixed; inset:0;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
-        rgba(2,6,23,.82);
+      background:radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
+                 radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
+                 rgba(2,6,23,.82);
       display:grid; place-items:center;
       z-index:200;
     }
@@ -276,12 +191,12 @@
       box-shadow:0 18px 55px rgba(0,0,0,.55);
       padding:18px 18px 14px;
     }
-    .panel h2{ margin:0 0 8px; font-size:20px; font-weight:1100; }
-    .panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; font-weight:800; }
+    .panel h2{ margin:0 0 8px; font-size:20px; }
+    .panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; }
     .panel .row{ display:flex; gap:10px; flex-wrap:wrap; }
     .panel button{
       border:0; border-radius:999px; padding:12px 14px;
-      font-weight:1000; cursor:pointer;
+      font-weight:900; cursor:pointer;
       background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
       color:#061018;
     }
@@ -301,7 +216,6 @@
       font-size:12px;
       display:none;
       white-space:pre-wrap;
-      font-weight:900;
     }
 
     #endOverlay{ display:none; }
@@ -313,38 +227,43 @@
       border-radius:16px;
       padding:10px 12px;
       font-size:13px;
-      font-weight:900;
     }
-    .kv .k b{ display:block; font-size:16px; margin-top:2px; font-weight:1100; }
+    .kv .k b{ display:block; font-size:16px; margin-top:2px; }
 
-    /* storm vibe for current HUD classes */
-    body.groups-storm .hud .box,
-    body.groups-storm .pill,
-    body.groups-storm .qbar,
-    body.groups-storm .coachCard{
-      filter: saturate(1.10) brightness(1.05);
-      box-shadow: 0 0 0 3px rgba(34,211,238,.10), 0 16px 40px rgba(0,0,0,.30);
+    /* =========================
+       ✅ PATCH: Goal RIGHT + Coach BOTTOM-RIGHT (LOCK)
+       ========================= */
+    .questTop{
+      right:calc(10px + var(--sar)) !important;
+      top:  calc(62px + var(--sat)) !important;
+      left: auto !important;
+      width: min(340px, 48vw) !important;
     }
-    body.groups-storm-urgent .hud,
-    body.groups-storm-urgent .centerTop,
-    body.groups-storm-urgent .questTop{
-      animation: stormPulse .24s ease-in-out infinite;
-    }
-    @keyframes stormPulse{
-      0%,100%{ transform: translateZ(0) scale(1.00); }
-      50%{ transform: translateZ(0) scale(1.01); }
+
+    .coachWrap{
+      right:calc(10px + var(--sar)) !important;
+      left:auto !important;
+      bottom: calc(82px + var(--sab)) !important; /* ลอยเหนือ Power bar */
+      z-index: 70 !important;
+      align-items:flex-end !important;
     }
 
     @media (max-width: 520px){
-      :root{
-        --hha-safe-top: 88px;
-        --hha-safe-bot: 150px;
-        --hha-safe-side: 14px;
+      .questTop{
+        width: min(300px, 56vw) !important;
+        top: calc(58px + var(--sat)) !important;
       }
-      .centerTop{ width:min(190px, 46vw); }
-      .questTop{ width:min(280px, 52vw); }
-      .hud .box{ min-width:124px; padding:9px 11px; }
-      .coachCard{ width:min(220px, 56vw); }
+      .coachWrap{
+        bottom: calc(90px + var(--sab)) !important;
+      }
+      .coachCard{
+        width: min(210px, 58vw) !important;
+      }
+    }
+
+    @media (max-height: 640px){
+      .coachCard{ padding: 8px 10px !important; }
+      .coachLine{ min-height: 28px !important; }
     }
   </style>
 </head>
@@ -509,12 +428,10 @@
         $('uiComboMax').textContent = String(d.comboMax ?? 0);
         $('uiMiss').textContent = String(d.misses ?? 0);
       });
-
       addEventListener('hha:time', (e)=>{
         const d = e.detail||{};
         $('uiTime').textContent = String(d.left ?? 0);
       });
-
       addEventListener('groups:power', (e)=>{
         const d = e.detail||{};
         const ch = Number(d.charge||0);
@@ -523,13 +440,11 @@
         $('uiPowerThr').textContent = String(thr);
         $('uiPowerBar').style.width = (Math.min(1, ch/thr)*100).toFixed(1) + '%';
       });
-
       addEventListener('hha:rank', (e)=>{
         const d = e.detail||{};
         if (d.grade) $('uiGrade').textContent = String(d.grade);
       });
 
-      // quest update
       addEventListener('quest:update', (e)=>{
         const d = e.detail||{};
         if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
@@ -550,10 +465,8 @@
         if (Number.isFinite(tLeft) && tLeft > 0){
           timeEl.style.display = 'block';
           timeEl.textContent = `⏳ ${tLeft}s`;
-          timeEl.classList.toggle('urgent', tLeft <= 3);
         } else {
           timeEl.style.display = 'none';
-          timeEl.classList.remove('urgent');
         }
       });
 
@@ -572,15 +485,8 @@
         const d = e.detail||{};
         const pct = Math.max(0, Math.min(100, Number(d.feverPct||0)));
         $('uiFeverBar').style.width = pct.toFixed(1)+'%';
-
         const shield = Number(d.shield||0) > 0;
         $('uiShieldTag').style.display = shield ? 'inline-flex' : 'none';
-
-        // ✅ fever effects -> css vars
-        const amp = Math.min(3.2, Math.pow(pct/100, 2) * 3.2);
-        document.documentElement.style.setProperty('--fever-pct', String(pct));
-        document.documentElement.style.setProperty('--fever-amp', amp.toFixed(2) + 'px');
-        document.body.classList.toggle('fever-on', pct >= 35);
       });
 
       addEventListener('hha:end', (e)=>{
