@@ -1,8 +1,6 @@
 <!-- === /herohealth/hydration-vr.html ===
 HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
-✅ Cardboard shows real targets (clone #hvr-layer -> #cbLayerL/#cbLayerR)
-✅ Mini HUD pills + Quest + WaterGauge + End summary
-✅ Gaze-to-shoot (hold) + Shoot button
+✅ Cardboard: show targets + show HUD/Quest in stereo (PATCH 1–3)
 -->
 
 <!doctype html>
@@ -130,40 +128,24 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
 
     /* ===== Cardboard stereo wrapper ===== */
-    #cbWrap{ position:fixed; inset:0; z-index:999; display:none; background:#000; }
+    #cbWrap{ position:fixed; inset:0; z-index:25; display:none; background:#000; }
     body.cardboard #cbWrap{ display:flex; }
     body.cardboard .stage{ opacity:0; pointer-events:none; }
 
     .cbEye{ position:relative; flex:1; overflow:hidden; border-left:1px solid rgba(255,255,255,.08); }
     .cbEye:first-child{ border-left:none; }
 
-    /* Cardboard Scene: where targets will appear */
-    .cbScene{
+    .cbPlayfield{
       position:absolute;
-      inset:0;
-      overflow:hidden;
-      pointer-events:none;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.08), transparent 60%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.08), transparent 60%),
-        #000;
-    }
-    .cbLayer{
-      position:absolute;
-      inset: calc(var(--sat) + 10px) 8px calc(var(--sab) + 116px) 8px;
+      inset: calc(var(--sat) + 10px) 8px calc(var(--sab) + 132px) 8px;
       border-radius: 18px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.35);
       box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
       overflow:hidden;
-      transform: translateZ(0);
+      will-change: transform;
     }
-    /* targets copied in cardboard */
-    .cbLayer .hvr-target{
-      pointer-events:none;
-      filter: saturate(1.05) contrast(1.05);
-      transform: translate(-50%,-50%) scale(1.06);
-    }
+    #hvr-layerL, #hvr-layerR{ position:absolute; inset:0; will-change: transform; }
 
     .cbCross{
       position:absolute;
@@ -192,7 +174,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       box-shadow: 0 0 22px rgba(34,211,238,.10);
       pointer-events:none;
       opacity:.95;
-      z-index:50;
     }
     .gazeRing::after{
       content:"";
@@ -203,6 +184,62 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       transform: rotate(-90deg);
       transform-origin:center;
       filter: drop-shadow(0 10px 26px rgba(34,211,238,.18));
+    }
+
+    /* ===== Cardboard HUD overlay (PATCH 1–3) ===== */
+    .cbHud{
+      position:absolute;
+      left:10px; right:10px;
+      bottom: calc(var(--sab) + 80px);
+      z-index:60;
+      pointer-events:none;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .cbHudRow{
+      display:flex; gap:8px; flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .cbPill{
+      display:inline-flex;
+      gap:8px;
+      align-items:baseline;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.62);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 60px rgba(0,0,0,.40);
+      font-weight:1100;
+      white-space:nowrap;
+      min-width: 118px;
+      justify-content:center;
+    }
+    .cbPill .k{ font-size:11px; color:rgba(148,163,184,.95); }
+    .cbPill .v{ font-size:14px; color:rgba(229,231,235,.96); }
+
+    .cbQuest{
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.62);
+      border-radius:16px;
+      padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.40);
+      backdrop-filter: blur(10px);
+      font-weight:1000;
+      line-height:1.25;
+    }
+    .cbQuest .line{ margin:2px 0; font-size:12px; }
+    .cbQuest .tag{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(15,23,42,.55);
+      color: rgba(148,163,184,.98);
+      font-weight:1100;
+      margin-right:6px;
     }
 
     /* ===== Bottom HUD ===== */
@@ -299,7 +336,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       left:50%;
       bottom:10px;
       transform:translateX(-50%);
-      z-index:1000;
+      z-index:90;
       display:none;
       pointer-events:auto;
     }
@@ -338,6 +375,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       100%{ filter:saturate(1.0) brightness(1.0); }
     }
     body.storm-urgent #playfield{ animation: microShake .20s linear infinite; }
+    body.storm-urgent .cbPlayfield{ animation: microShake .20s linear infinite; }
     @keyframes microShake{
       0%{ transform:translate3d(0,0,0); }
       25%{ transform:translate3d(.4px,-.3px,0); }
@@ -375,9 +413,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       background: rgba(2,6,23,.62);
       color: rgba(229,231,235,.96);
       font-weight:1200;
-      letter-spacing:.6px;
+      letter-wise: .6px;
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
-      text-align:center;
     }
     #stormIntro .sub{
       margin-top:6px;
@@ -385,6 +422,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       font-weight:1000;
       color: rgba(148,163,184,.95);
       letter-spacing:.2px;
+      text-align:center;
     }
 
     /* Start overlay */
@@ -405,9 +443,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       box-shadow: 0 22px 80px rgba(0,0,0,.55);
     }
     .startTitle{ font-size:18px; font-weight:1200; }
-    .startDesc{
-      margin-top:6px; font-size:12px; font-weight:950; color:rgba(148,163,184,.95); line-height:1.35;
-    }
+    .startDesc{ margin-top:6px; font-size:12px; font-weight:950; color:rgba(148,163,184,.95); line-height:1.35; }
     .startMeta{ margin-top:10px; font-size:12px; font-weight:1000; color:rgba(229,231,235,.92); }
     .btnRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:12px; }
 
@@ -455,7 +491,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
   <div id="stormIntro" aria-hidden="true">
     <div class="label">🌀 STORM INCOMING
-      <div class="sub">ทำ Mini: ให้น้ำ LOW/HIGH + BLOCK BAD ตอนท้ายพายุ! + BOSS 🌩️</div>
+      <div class="sub">ทำ Mini: ให้น้ำ LOW/HIGH + BLOCK BAD ตอนท้ายพายุ!</div>
     </div>
   </div>
 
@@ -474,7 +510,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       <div class="coachCard">
         <div class="coachTitle">🧠 Coach</div>
         <div class="coachText" id="coach-text">แตะ START เพื่อเริ่ม</div>
-        <div class="coachSub" id="coach-sub">Tip: Cardboard = ค้างเล็งจนวงเต็มยิง (gaze)</div>
+        <div class="coachSub" id="coach-sub">Tip: โหมด Cardboard = ค้างเล็งเพื่อยิง (gaze)</div>
       </div>
     </div>
 
@@ -499,7 +535,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
             <div class="barWrap"><div id="water-bar" class="bar"></div></div>
             <div class="row" style="margin-top:8px;">
               <div class="stat"><span class="k">Goal</span> <b>GREEN</b></div>
-              <div class="stat"><span class="k">Mini</span> <b>LOW/HIGH + BLOCK + BOSS</b></div>
+              <div class="stat"><span class="k">Mini</span> <b>LOW/HIGH + BLOCK</b></div>
             </div>
           </div>
         </div>
@@ -517,22 +553,59 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
   <div id="crosshair" aria-hidden="true"></div>
 
-  <!-- ===== CARDBOARD ===== -->
   <div id="cbWrap" aria-hidden="false">
     <div class="cbEye" id="cbEyeL">
-      <div class="cbScene" id="cbSceneL">
-        <div class="cbLayer" id="cbLayerL"></div>
+      <div class="cbPlayfield" id="cbPlayfieldL">
+        <div id="hvr-layerL"></div>
       </div>
       <div class="cbCross"></div>
       <div class="gazeRing" id="gazeRingL"></div>
+
+      <!-- PATCH 1–3: HUD in Cardboard (LEFT) -->
+      <div class="cbHud">
+        <div class="cbHudRow">
+          <div class="cbPill">⏱️ <span class="k">TIME</span> <span class="v" id="cb-timeL">—</span></div>
+          <div class="cbPill">🏆 <span class="k">SCORE</span> <span class="v" id="cb-scoreL">0</span></div>
+          <div class="cbPill">💥 <span class="k">MISS</span> <span class="v" id="cb-missL">0</span></div>
+        </div>
+        <div class="cbHudRow">
+          <div class="cbPill">⚡ <span class="k">COMBO</span> <span class="v" id="cb-comboL">0</span></div>
+          <div class="cbPill">🎖️ <span class="k">GRADE</span> <span class="v" id="cb-gradeL">C</span></div>
+          <div class="cbPill">🛡️ <span class="k">SHIELD</span> <span class="v" id="cb-shieldL">0</span></div>
+        </div>
+        <div class="cbQuest">
+          <div class="line"><span class="tag">Goal</span><span id="cb-q1L">—</span></div>
+          <div class="line"><span class="tag">Prog</span><span id="cb-q2L">—</span></div>
+          <div class="line"><span class="tag">Mini</span><span id="cb-q3L">—</span></div>
+        </div>
+      </div>
     </div>
 
     <div class="cbEye" id="cbEyeR">
-      <div class="cbScene" id="cbSceneR">
-        <div class="cbLayer" id="cbLayerR"></div>
+      <div class="cbPlayfield" id="cbPlayfieldR">
+        <div id="hvr-layerR"></div>
       </div>
       <div class="cbCross"></div>
       <div class="gazeRing" id="gazeRingR"></div>
+
+      <!-- PATCH 1–3: HUD in Cardboard (RIGHT) -->
+      <div class="cbHud">
+        <div class="cbHudRow">
+          <div class="cbPill">⏱️ <span class="k">TIME</span> <span class="v" id="cb-timeR">—</span></div>
+          <div class="cbPill">🏆 <span class="k">SCORE</span> <span class="v" id="cb-scoreR">0</span></div>
+          <div class="cbPill">💥 <span class="k">MISS</span> <span class="v" id="cb-missR">0</span></div>
+        </div>
+        <div class="cbHudRow">
+          <div class="cbPill">⚡ <span class="k">COMBO</span> <span class="v" id="cb-comboR">0</span></div>
+          <div class="cbPill">🎖️ <span class="k">GRADE</span> <span class="v" id="cb-gradeR">C</span></div>
+          <div class="cbPill">🛡️ <span class="k">SHIELD</span> <span class="v" id="cb-shieldR">0</span></div>
+        </div>
+        <div class="cbQuest">
+          <div class="line"><span class="tag">Goal</span><span id="cb-q1R">—</span></div>
+          <div class="line"><span class="tag">Prog</span><span id="cb-q2R">—</span></div>
+          <div class="line"><span class="tag">Mini</span><span id="cb-q3R">—</span></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -552,7 +625,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       <div class="startDesc">
         - ยิง 💧 เพื่อดันน้ำเข้าใกล้ <b>GREEN</b><br>
         - ระวัง 🥤 (BAD) / เก็บ 🛡️ (Shield)<br>
-        - ช่วง <b>Storm</b> ต้องทำ Mini: ให้น้ำเป็น <b>LOW/HIGH</b> และ <b>BLOCK BAD</b> ช่วงท้ายพายุ + <b>BOSS 🌩️</b>
+        - ช่วง <b>Storm</b> ต้องทำ Mini: ให้น้ำเป็น <b>LOW/HIGH</b> และ <b>BLOCK BAD</b> ในช่วงท้ายพายุ
       </div>
 
       <div class="startMeta" id="startMeta">—</div>
@@ -652,6 +725,19 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       o.stop(t0 + Math.max(0.03, ms/1000 + 0.02));
     }
 
+    // ----- Cardboard toggle -----
+    function setCardboard(on){
+      on = !!on;
+      body.classList.toggle('cardboard', on);
+      try{ localStorage.setItem('HVR_CARDBOARD', on ? '1' : '0'); }catch{}
+      D.documentElement.style.setProperty('--gazeProg', '0');
+      // inform engine
+      window.dispatchEvent(new CustomEvent('hha:cardboard', { detail:{ on } }));
+    }
+    const saved = (function(){ try{ return localStorage.getItem('HVR_CARDBOARD')==='1'; }catch{ return false; } })();
+    if (qs('cardboard','') === '1') setCardboard(true);
+    else if (saved) setCardboard(true);
+
     // ----- Hit flash -----
     const hitFx = D.getElementById('hitFx');
     let fxTimer = 0;
@@ -669,53 +755,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     const btnShoot = D.getElementById('btnShoot');
     const btnStop = D.getElementById('btnStop');
 
-    // ----- Cardboard Scene Clone (targets copy) -----
-    const cbLayerL = D.getElementById('cbLayerL');
-    const cbLayerR = D.getElementById('cbLayerR');
-    const hvrLayer = D.getElementById('hvr-layer');
-
-    let cbSyncTimer = 0;
-
-    function cloneTargetsTo(out){
-      if (!hvrLayer || !out) return;
-      out.innerHTML = '';
-      const list = hvrLayer.querySelectorAll('.hvr-target');
-      list.forEach(node=>{
-        const c = node.cloneNode(true);
-        c.style.pointerEvents = 'none';
-        out.appendChild(c);
-      });
-    }
-    function startCbSync(){
-      stopCbSync();
-      cbSyncTimer = setInterval(()=>{
-        cloneTargetsTo(cbLayerL);
-        cloneTargetsTo(cbLayerR);
-      }, 50); // 20fps
-    }
-    function stopCbSync(){
-      clearInterval(cbSyncTimer);
-      cbSyncTimer = 0;
-      if (cbLayerL) cbLayerL.innerHTML = '';
-      if (cbLayerR) cbLayerR.innerHTML = '';
-    }
-
-    // ----- Cardboard toggle -----
-    const coachText = D.getElementById('coach-text');
-    const coachSub  = D.getElementById('coach-sub');
-
-    function setCardboard(on){
-      on = !!on;
-      body.classList.toggle('cardboard', on);
-      try{ localStorage.setItem('HVR_CARDBOARD', on ? '1' : '0'); }catch{}
-      D.documentElement.style.setProperty('--gazeProg', '0');
-      if (on) startCbSync(); else stopCbSync();
-    }
-
-    const saved = (function(){ try{ return localStorage.getItem('HVR_CARDBOARD')==='1'; }catch{ return false; } })();
-    if (qs('cardboard','') === '1') setCardboard(true);
-    else if (saved) setCardboard(true);
-
     btnCardboard.addEventListener('click', async ()=>{
       await resumeAudio();
       setCardboard(!body.classList.contains('cardboard'));
@@ -723,7 +762,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     });
 
     function shootAtCenter(){
-      // NON-cardboard: shoot from screen center
       if (!body.classList.contains('cardboard')){
         const x = window.innerWidth/2;
         const y = window.innerHeight/2;
@@ -733,39 +771,15 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         } else beep(330, 18, 0.010);
         return;
       }
-      // CARDBOARD: still shoot using DOM center (left eye center)
       const eye = D.getElementById('cbEyeL');
       if (!eye) return;
       const r = eye.getBoundingClientRect();
       const x = r.left + r.width/2;
       const y = r.top + r.height/2;
-
-      // IMPORTANT: shoot should target real layer (not clone)
-      // We compute what element would be at center on real stage:
-      // Use viewport center as fallback if stage is hidden.
-      const el = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
+      const el = document.elementFromPoint(x,y);
       if (el && el.classList && el.classList.contains('hvr-target')){
         el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
-      } else {
-        // Fallback: try to hit any target near center by scanning
-        if (hvrLayer){
-          const list = hvrLayer.querySelectorAll('.hvr-target');
-          let best = null;
-          let bestD = 1e9;
-          list.forEach(t=>{
-            const rr = t.getBoundingClientRect();
-            const cx = rr.left + rr.width/2;
-            const cy = rr.top + rr.height/2;
-            const dx = cx - window.innerWidth/2;
-            const dy = cy - window.innerHeight/2;
-            const d2 = dx*dx + dy*dy;
-            if (d2 < bestD){ bestD = d2; best = t; }
-          });
-          if (best && bestD < (90*90)){
-            best.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
-          } else beep(330, 18, 0.010);
-        } else beep(330, 18, 0.010);
-      }
+      } else beep(330, 18, 0.010);
     }
 
     btnShootCenter.addEventListener('click', async ()=>{ await resumeAudio(); shootAtCenter(); });
@@ -784,10 +798,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       await resumeAudio();
       if (cardboard) setCardboard(true);
       if (startOverlay) startOverlay.style.display = 'none';
-      if (coachText) coachText.innerHTML = cardboard
-        ? 'Cardboard: <b>ค้างเล็งจนวงเต็ม</b> เพื่อยิง (gaze)'
-        : 'แตะ <b>SHOOT</b> หรือแตะเป้าเพื่อเล่น';
-      if (coachSub) coachSub.textContent = 'Mini: LOW/HIGH + BLOCK END + BOSS 🌩️';
       beep(880, 50, 0.025);
     }
     btnStart.addEventListener('click', ()=> startNow(false));
@@ -801,11 +811,108 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       else if (k === 'shield'){ flash('shield'); beep(760, 32, 0.018); }
       else if (k === 'block'){ flash('shield'); beep(680, 22, 0.016); }
       else if (k === 'bad'){ flash('bad'); beep(320, 38, 0.020); }
+      else if (k === 'rush'){ flash('shield'); beep(980, 70, 0.030); }
+      else if (k === 'streak'){ flash('good'); beep(1040, 60, 0.030); }
       else if (k === 'storm-in'){ beep(520, 80, 0.030); }
       else if (k === 'perfect'){ flash('shield'); beep(1240, 90, 0.040); beep(1560, 70, 0.030); }
     }, { passive:true });
 
-    // ----- Storm intro overlay -----
+    // ----- Storm urgent tick/pulse -----
+    let stormActive = false;
+    let stormLeft = 0;
+    let stormUrgent = false;
+    let nextTickAt = 0;
+    let lastUrgent = false;
+
+    function urgentLoop(ts){
+      if (stormUrgent){
+        body.classList.add('storm-urgent');
+      } else {
+        body.classList.remove('storm-urgent');
+        nextTickAt = 0;
+        lastUrgent = false;
+      }
+
+      if (stormUrgent && stormActive){
+        if (!lastUrgent){
+          lastUrgent = true;
+          nextTickAt = ts;
+          beep(780, 40, 0.020);
+        }
+        if (ts >= nextTickAt){
+          const t = Math.max(0, Math.min(2.0, stormLeft));
+          const interval = (t <= 0.6) ? 120 : (t <= 1.2 ? 170 : 240);
+          beep(620 + (t <= 0.6 ? 120 : 40), 16, 0.014);
+          nextTickAt = ts + interval;
+        }
+      }
+
+      requestAnimationFrame(urgentLoop);
+    }
+    requestAnimationFrame(urgentLoop);
+
+    // ----- (4) drift hook: apply transforms from hha:score detail -----
+    const pf = D.getElementById('playfield');
+    const lay = D.getElementById('hvr-layer');
+    const pfL = D.getElementById('cbPlayfieldL');
+    const pfR = D.getElementById('cbPlayfieldR');
+    const layL = D.getElementById('hvr-layerL');
+    const layR = D.getElementById('hvr-layerR');
+
+    function applyDrift(dx, dy, rot){
+      dx = Number(dx)||0; dy = Number(dy)||0; rot = Number(rot)||0;
+      if (pf && lay){
+        pf.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
+        lay.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+      }
+      if (pfL && layL){
+        pfL.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
+        layL.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+      }
+      if (pfR && layR){
+        pfR.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
+        layR.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+      }
+    }
+
+    // ----- PATCH 1–3: sync Cardboard HUD from hha:score/quest:update -----
+    function setTxt(id, v){ const el = D.getElementById(id); if(el) el.textContent = String(v); }
+
+    window.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail || {};
+      stormActive = !!d.stormActive;
+      stormLeft = Number(d.stormLeftSec || 0);
+      stormUrgent = !!d.stormInEndWindow;
+
+      applyDrift(d.driftX, d.driftY, d.driftRot);
+
+      // stereo HUD (both eyes)
+      setTxt('cb-timeL', d.leftSec ?? d.left ?? '—');
+      setTxt('cb-timeR', d.leftSec ?? d.left ?? '—');
+      setTxt('cb-scoreL', d.score ?? 0);
+      setTxt('cb-scoreR', d.score ?? 0);
+      setTxt('cb-comboL', d.combo ?? 0);
+      setTxt('cb-comboR', d.combo ?? 0);
+      setTxt('cb-missL', d.misses ?? 0);
+      setTxt('cb-missR', d.misses ?? 0);
+      setTxt('cb-gradeL', d.grade ?? 'C');
+      setTxt('cb-gradeR', d.grade ?? 'C');
+      setTxt('cb-shieldL', d.shield ?? 0);
+      setTxt('cb-shieldR', d.shield ?? 0);
+    }, { passive:true });
+
+    window.addEventListener('quest:update', (ev)=>{
+      const d = ev.detail || {};
+      // put short quest lines in cardboard
+      setTxt('cb-q1L', `GREEN ${Math.round(d.goalNeed||0)}s`);
+      setTxt('cb-q1R', `GREEN ${Math.round(d.goalNeed||0)}s`);
+      setTxt('cb-q2L', `${(Number(d.goalNow||0)).toFixed(1)} / ${Math.round(d.goalNeed||0)}s`);
+      setTxt('cb-q2R', `${(Number(d.goalNow||0)).toFixed(1)} / ${Math.round(d.goalNeed||0)}s`);
+      setTxt('cb-q3L', `Mini ✓ ${d.miniCleared||0}/${d.miniTotal||0}`);
+      setTxt('cb-q3R', `Mini ✓ ${d.miniCleared||0}/${d.miniTotal||0}`);
+    }, { passive:true });
+
+    // ----- Storm Intro overlay + siren pattern -----
     const stormIntro = D.getElementById('stormIntro');
     let stormIntroUntil = 0;
     let stormSirenAt = 0;
@@ -834,7 +941,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       if (d.state === 'enter'){ showStormIntro(900); }
     }, { passive:true });
 
-    // ----- Gaze-to-shoot (hold) -----
+    // ----- Cardboard gaze-to-shoot -----
     let gazeEl = null;
     let gazeT0 = 0;
     const gazeHoldMs = 520;
@@ -842,15 +949,12 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       p = Math.max(0, Math.min(1, p));
       D.documentElement.style.setProperty('--gazeProg', String(p));
     }
-
     function gazeLoop(t){
       if (!body.classList.contains('cardboard')){
         gazeEl = null; gazeT0 = 0; setGazeProg(0);
         requestAnimationFrame(gazeLoop);
         return;
       }
-
-      // gaze based on cloned scene center, but firing on real target via shootAtCenter()
       const eye = D.getElementById('cbEyeL');
       if (!eye){ requestAnimationFrame(gazeLoop); return; }
       const r = eye.getBoundingClientRect();
@@ -867,7 +971,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         const p = dt / gazeHoldMs;
         setGazeProg(p);
         if (p >= 1){
-          shootAtCenter();
+          gazeEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
           gazeT0 = t + 220;
           setGazeProg(0);
         }
@@ -923,10 +1027,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       if (e.code === 'Space'){ e.preventDefault(); shootAtCenter(); }
       if (e.key && e.key.toLowerCase() === 'c'){ setCardboard(!body.classList.contains('cardboard')); }
     }, { passive:false });
-
-    // init coach
-    if (coachText) coachText.innerHTML = 'แตะ START เพื่อเริ่ม';
-    if (coachSub) coachSub.textContent = 'Cardboard = ค้างเล็งจนวงเต็มยิง (gaze)';
   })();
   </script>
 </body>
