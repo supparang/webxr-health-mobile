@@ -864,4 +864,293 @@ export function boot(opts = {}) {
     if (!S.running || S.ended) return;
 
     S.xrActive = xrIsActive(sceneEl);
-    if (S.xrActive
+    if (S.xrActive) spawnXR();
+    else spawnDOM();
+
+    const t = now();
+    const inWarm = (t < S.warmupUntil);
+
+    let nextMs = S.spawnMs;
+    if (inWarm) nextMs = Math.max(980, S.spawnMs + 240);
+
+    S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 380, 1400));
+  }
+
+  /* -------------------- Shoot feedback (ring/laser + sound) -------------------- */
+  function shootFX(side){
+    const html = document.documentElement;
+    html.classList.remove('shoot','shootL','shootR');
+    void html.offsetWidth; // restart animation
+    if (side === 'L') html.classList.add('shoot','shootL');
+    else if (side === 'R') html.classList.add('shoot','shootR');
+    else html.classList.add('shoot');
+    setTimeout(()=>{ html.classList.remove('shoot','shootL','shootR'); }, 140);
+    beep(880, 0.04, 0.04);
+  }
+
+  // ยิงกลาง — DOM เท่านั้น
+  function shootAtCrosshair(){
+    if (!S.running || S.ended) return;
+    if (S.xrActive) return;
+
+    const W = ROOT.innerWidth || 360;
+    const H = ROOT.innerHeight || 640;
+
+    const cL = getCenterOf(crossL, W*0.5, H*0.55);
+    const cR = getCenterOf(crossR, W*0.75, H*0.55);
+
+    const r = isMobileLike() ? 66 : 56;
+
+    let best = null;
+    let bestD2 = 1e18;
+    let side = null;
+
+    const tL = findTargetNear(layerEl, cL.x, cL.y, r);
+    if (tL){
+      try{
+        const br = tL.getBoundingClientRect();
+        const tx = br.left+br.width/2, ty=br.top+br.height/2;
+        const d2 = dist2(cL.x,cL.y,tx,ty);
+        if (d2 < bestD2){ best = tL; bestD2 = d2; side = S.cvr ? 'L' : null; }
+      }catch(_){}
+    }
+
+    if (S.cvr){
+      const tR = findTargetNear(layerEl, cR.x, cR.y, r);
+      if (tR){
+        try{
+          const br = tR.getBoundingClientRect();
+          const tx = br.left+br.width/2, ty=br.top+br.height/2;
+          const d2 = dist2(cR.x,cR.y,tx,ty);
+          if (d2 < bestD2){ best = tR; bestD2 = d2; side = 'R'; }
+        }catch(_){}
+      }
+    }
+
+    shootFX(side);
+
+    if (best){
+      hitDomTarget(best);
+    } else {
+      if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
+      updateScore();
+    }
+  }
+
+  function adaptiveTick(){
+    if (!S.running || S.ended) return;
+
+    // time down
+    S.left = Math.max(0, S.left - 0.14);
+
+    // end-time danger
+    const leftWhole = Math.ceil(S.left);
+    updateTime();
+
+    // last 10 seconds: tick + pulse
+    const danger = (leftWhole <= 10 && leftWhole >= 1);
+    setDangerTime(danger);
+
+    if (danger && S.lastWholeSec !== leftWhole){
+      S.lastWholeSec = leftWhole;
+      addHtmlClassTemp('tick', 160);
+      beep(760, 0.035, 0.035);
+    }
+    if (!danger) S.lastWholeSec = leftWhole;
+
+    if (S.left <= 0){
+      endGame('time');
+      return;
+    }
+
+    if (S.runMode === 'play'){
+      const elapsed = (now() - S.tStart) / 1000;
+      const acc = S.hitAll > 0 ? (S.hitGood / S.hitAll) : 0;
+      const comboHeat = clamp(S.combo / 18, 0, 1);
+
+      const timeRamp = clamp((elapsed - 3) / 10, 0, 1);
+      const skill = clamp((acc - 0.65) * 1.2 + comboHeat * 0.8, 0, 1);
+      const heat = clamp(timeRamp * 0.55 + skill * 0.75, 0, 1);
+
+      S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
+      S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
+      S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.12);
+      S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
+      S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
+
+      const maxBase = base.maxT;
+      const maxBonus = Math.round(heat * 4);
+      S.maxTargets = clamp(maxBase + maxBonus, 5, isMobileLike() ? 11 : 13);
+
+      if (S.fever >= 70){
+        S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
+        S.size  = clamp(S.size + 0.03, 0.86, 1.15);
+      }
+    } else {
+      S.spawnMs = base.spawnMs;
+      S.ttlMs   = base.ttlMs;
+      S.size    = base.size;
+      S.junkP   = base.junk;
+      S.powerP  = base.power;
+      S.maxTargets = base.maxT;
+    }
+
+    S.tickTimer = setTimeout(adaptiveTick, 140);
+  }
+
+  function bindInputs(){
+    if (shootEl){
+      shootEl.addEventListener('click', (e)=>{
+        e.preventDefault?.();
+        shootAtCrosshair();
+      });
+      shootEl.addEventListener('pointerdown', (e)=>{ e.preventDefault?.(); }, { passive:false });
+    }
+
+    document.addEventListener('keydown', (e)=>{
+      const k = String(e.key||'').toLowerCase();
+      if (k === ' ' || k === 'spacebar' || k === 'enter'){
+        e.preventDefault?.();
+        shootAtCrosshair();
+      }
+    });
+  }
+
+  function bindFlushHard(){
+    ROOT.addEventListener('pagehide', ()=>{
+      try{ flushAll(rankSummary(S, 'pagehide'), 'pagehide'); }catch(_){}
+    }, { passive:true });
+
+    DOC.addEventListener('visibilitychange', ()=>{
+      if (DOC.visibilityState === 'hidden'){
+        try{ flushAll(rankSummary(S, 'hidden'), 'hidden'); }catch(_){}
+      }
+    }, { passive:true });
+  }
+
+  function clearAllTargets(){
+    try{
+      const list = layerEl.querySelectorAll('.gj-target');
+      list.forEach(el=>{
+        try{ clearTimeout(el._ttl); }catch(_){}
+        try{ el.remove(); }catch(_){}
+      });
+    }catch(_){}
+    S.twinMap.clear();
+
+    if (xrTargetsEl){
+      try{
+        for (const [el, tid] of S.xrTTL.entries()){
+          try{ clearTimeout(tid); }catch(_){}
+        }
+        S.xrTTL.clear();
+      }catch(_){}
+      clearXrTargets(xrTargetsEl);
+    }
+  }
+
+  async function endGame(reason){
+    if (S.ended) return;
+    S.ended = true;
+    S.running = false;
+
+    clearTimers();
+    clearAllTargets();
+    setDangerTime(false);
+
+    const summary = rankSummary(S, reason);
+
+    if (!S.flushed){
+      S.flushed = true;
+      await flushAll(summary, 'end');
+    }
+
+    emit('hha:end', summary);
+    emit('hha:celebrate', { kind:'end', title:'จบเกม!' });
+    coach('neutral', 'จบเกมแล้ว!', 'กดกลับ HUB หรือเล่นใหม่ได้');
+  }
+
+  function start(){
+    // enable audio after user gesture (start button clicked before boot is called)
+    ensureAudio();
+
+    S.running = true;
+    S.ended = false;
+    S.flushed = false;
+
+    S.tStart = now();
+    S.left = timeSec;
+
+    S.score = 0;
+    S.combo = 0;
+    S.comboMax = 0;
+
+    S.misses = 0;
+    S.hitAll = 0;
+    S.hitGood = 0;
+    S.hitJunk = 0;
+    S.hitJunkGuard = 0;
+    S.expireGood = 0;
+
+    S.fever = 0;
+    S.shield = 0;
+    updateFever(S.shield, S.fever);
+
+    S.goalsCleared = 0;
+    S.miniCleared = 0;
+
+    S.warmupUntil = now() + 3000;
+
+    S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
+
+    coach('neutral',
+      (S.cvr ? 'cVR: หมุนจอแนวนอนแล้วเล็งกลางแต่ละตา 👓' : 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈'),
+      (S.xrEnabled ? 'WebXR: เข้า VR ได้ถ้าเครื่องรองรับ' : 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้')
+    );
+
+    updateScore();
+    updateTime();
+    updateQuest();
+
+    logEvent('session_start', {
+      projectTag: 'GoodJunkVR',
+      runMode: S.runMode,
+      diff: S.diff,
+      endPolicy: S.endPolicy,
+      seed: S.seed,
+      sessionId: sessionId || '',
+      timeSec: S.timeSec,
+      view: S.cvr ? 'cvr' : (qs('view','')||'auto'),
+      xrEnabled: !!S.xrEnabled
+    });
+
+    loopSpawn();
+    adaptiveTick();
+  }
+
+  // XR enter/exit -> clear clutter
+  if (sceneEl){
+    sceneEl.addEventListener('enter-vr', ()=>{
+      S.xrActive = true;
+      document.documentElement.classList.add('xr-active');
+      try{ coach('happy','เข้าโหมด WebXR แล้ว 👓','มองแล้วแตะ/คลิกที่เป้า'); }catch(_){}
+      clearAllTargets();
+    });
+    sceneEl.addEventListener('exit-vr', ()=>{
+      S.xrActive = false;
+      document.documentElement.classList.remove('xr-active');
+      try{ coach('neutral','ออกจาก WebXR แล้ว','กลับมายิงแบบหน้าจอได้'); }catch(_){}
+      clearAllTargets();
+    });
+  }
+
+  bindInputs();
+  bindFlushHard();
+  start();
+
+  try{
+    ROOT.GoodJunkVR = ROOT.GoodJunkVR || {};
+    ROOT.GoodJunkVR.endGame = endGame;
+    ROOT.GoodJunkVR.shoot = shootAtCrosshair;
+  }catch(_){}
+}
