@@ -4,11 +4,8 @@
 // ✅ ตาราง 4 เกมล่าสุด + ปุ่ม replay/copy/export/clear
 // ✅ Export CSV (last / recent4)
 // ✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run/runMode, diff, time, seed, + research ctx)
-//
-// ✅ UX:
-// - แตะ 1 ครั้ง = Copy ลิงก์ (มี pulse เขียว)
-// - แตะ 2 ครั้ง = Play (มี pulse เหลือง)
-// ใช้กับ "ปุ่มเกม" และ "แถว History"
+// ✅ UX: แตะ 1 ครั้ง = Copy ลิงก์, แตะ 2 ครั้ง = Play (ทั้งปุ่มเกมและแถว history)
+// ✅ เพิ่ม Action ใน history: Play + Copy JSON (กดแล้วไม่ชน single/double tap)
 
 'use strict';
 
@@ -31,7 +28,7 @@ const GAME_MAP = {
   groups:    { tag:'groups',    name:'🍎 Groups VR',    path:'./vr-groups/groups-vr.html' }
 };
 
-const DEFAULT_RESEARCH_SEED = 777777; // deterministic default ถ้าไม่ใส่ seed ใน Research
+const DEFAULT_RESEARCH_SEED = 777777;
 const TAP_DELAY_MS = 260;
 
 // ---------------- helpers ----------------
@@ -113,13 +110,12 @@ function pulse(el, kind='good'){
   if (!el || !el.classList) return;
   const cls = (kind === 'warn') ? 'pulseWarn' : (kind === 'bad') ? 'pulseBad' : 'pulseGood';
   el.classList.remove('pulseGood','pulseWarn','pulseBad');
-  // force reflow to replay animation
   void el.offsetWidth;
   el.classList.add(cls);
-  setTimeout(()=>{ try{ el.classList.remove(cls); }catch{} }, 500);
+  setTimeout(()=>{ try{ el.classList.remove(cls); }catch{} }, 520);
 }
 
-// ---------- small hint ----------
+// ---------- hint ----------
 let _hintTimer = null;
 function setHint(targetId, msg){
   const el = $(targetId);
@@ -292,13 +288,13 @@ function computeGrade(summary){
 }
 
 // ------------- storage -------------
-function readLast(){ return safeJsonParse(localStorage.getItem(LS_LAST), null); }
+function readLast(){ return safeJsonParse(localStorage.getItem('HHA_LAST_SUMMARY'), null); }
 function readHist(){
-  const h = safeJsonParse(localStorage.getItem(LS_HIST), []);
+  const h = safeJsonParse(localStorage.getItem('HHA_SUMMARY_HISTORY'), []);
   return Array.isArray(h) ? h : [];
 }
-function clearLast(){ try{ localStorage.removeItem(LS_LAST); } catch {} }
-function clearHist(){ try{ localStorage.removeItem(LS_HIST); } catch {} }
+function clearLast(){ try{ localStorage.removeItem('HHA_LAST_SUMMARY'); } catch {} }
+function clearHist(){ try{ localStorage.removeItem('HHA_SUMMARY_HISTORY'); } catch {} }
 
 function collectStudyCtx(){
   const ctx = {};
@@ -308,7 +304,7 @@ function collectStudyCtx(){
     if (qp.has(k)) ctx[k] = qp.get(k);
   }
 
-  const stored = safeJsonParse(localStorage.getItem(LS_CTX), null);
+  const stored = safeJsonParse(localStorage.getItem('HHA_STUDY_CTX'), null);
   if (stored && typeof stored === 'object'){
     for (const k of PASS_KEYS){
       if (ctx[k] === undefined && stored[k] !== undefined && stored[k] !== null && stored[k] !== ''){
@@ -408,7 +404,7 @@ function setSelectedGame(tag){
 
   const hint = $('linkHint');
   if (hint){
-    hint.textContent = `เลือกแล้ว: ${GAME_MAP[selectedGame].name} • แตะ 1 ครั้ง=Copy / 2 ครั้ง=Play`;
+    hint.textContent = `เลือกแล้ว: ${GAME_MAP[selectedGame].name} • แตะ 1=Copy / 2=Play`;
   }
 }
 
@@ -443,7 +439,7 @@ async function copyRecentLinkByIndex(i){
   const u = buildGameUrlFromSummary(s);
   if (!u){ setHint('historyHint', 'สร้างลิงก์ไม่สำเร็จ'); return { ok:false, url:null }; }
   const ok = await copyText(u.toString());
-  setHint('historyHint', ok ? 'คัดลอกลิงก์รอบนี้แล้ว ✅ (แตะ 2 ครั้งเพื่อเล่น)' : 'คัดลอกไม่สำเร็จ');
+  setHint('historyHint', ok ? 'คัดลอกลิงก์รอบนี้แล้ว ✅' : 'คัดลอกไม่สำเร็จ');
   if (!ok) console.log(u.toString());
   return { ok, url:u };
 }
@@ -452,6 +448,13 @@ function playRecentByIndex(i){
   if (!s) return;
   const u = buildGameUrlFromSummary(s);
   if (u) location.href = u.toString();
+}
+async function copyRecentJsonByIndex(i){
+  const s = _recentCache[i];
+  if (!s) return false;
+  const ok = await copyText(JSON.stringify(s, null, 2));
+  setHint('historyHint', ok ? 'คัดลอก JSON ของรอบนี้แล้ว ✅' : 'คัดลอก JSON ไม่สำเร็จ');
+  return ok;
 }
 
 function applyPreset(){
@@ -544,22 +547,30 @@ function bindRecentRowInteractions(){
   const tbody = $('recentTbody');
   if (!tbody) return;
 
-  const rows = Array.from(tbody.querySelectorAll('tr[data-i]'));
-  for (const tr of rows){
-    const i = Number(tr.getAttribute('data-i'));
-    bindTap(
-      tr,
-      async (_e, meta) => {
-        const { ok } = await copyRecentLinkByIndex(i);
-        pulse(meta?.el || tr, ok ? 'good' : 'bad');
-      },
-      (_e, meta) => {
-        pulse(meta?.el || tr, 'warn');
-        playRecentByIndex(i);
-      },
-      { delayMs: TAP_DELAY_MS }
-    );
-  }
+  // delegate buttons: stopPropagation กันชน tap ของแถว
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target?.closest?.('.actBtn');
+    if (!btn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const i = Number(btn.getAttribute('data-i'));
+    const act = btn.getAttribute('data-act');
+
+    const tr = btn.closest('tr');
+
+    if (act === 'play'){
+      pulse(tr || btn, 'warn');
+      playRecentByIndex(i);
+      return;
+    }
+    if (act === 'json'){
+      const ok = await copyRecentJsonByIndex(i);
+      pulse(tr || btn, ok ? 'good' : 'bad');
+      return;
+    }
+  }, { passive:false });
 }
 
 function renderRecent(){
@@ -575,7 +586,7 @@ function renderRecent(){
   if (!recent.length){
     if (empty) empty.style.display = '';
     if (panel) panel.style.display = 'none';
-    if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="muted">—</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="muted">—</td></tr>`;
     return;
   }
 
@@ -583,7 +594,7 @@ function renderRecent(){
   if (panel) panel.style.display = '';
 
   if (hint){
-    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${hist.length} • แตะแถว 1=Copy / 2=Play`;
+    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${hist.length} • แตะแถว 1=Copy / 2=Play • หรือกดปุ่ม ▶ / JSON`;
   }
 
   if (!tbody) return;
@@ -606,6 +617,13 @@ function renderRecent(){
 
     const gradeHtml = `<span class="gradeTag ${gcls}">${grade}</span>`;
 
+    const actHtml = `
+      <div class="actWrap">
+        <span class="actBtn play" data-act="play" data-i="${idx}" title="Play">▶</span>
+        <span class="actBtn json" data-act="json" data-i="${idx}" title="Copy JSON">JSON</span>
+      </div>
+    `.trim();
+
     return `
       <tr data-i="${idx}" title="แตะ 1 ครั้ง=Copy ลิงก์ • แตะ 2 ครั้ง=Play">
         <td>${csvEscape(tText)}</td>
@@ -617,9 +635,28 @@ function renderRecent(){
         <td>${csvEscape(miss)}</td>
         <td>${csvEscape((gc||0) + '/' + (gt||0))}</td>
         <td>${csvEscape((mc||0) + '/' + (mt||0))}</td>
+        <td>${actHtml}</td>
       </tr>
     `.trim();
   }).join('\n');
+
+  // bind row taps (after rows exist)
+  const rows = Array.from(tbody.querySelectorAll('tr[data-i]'));
+  for (const tr of rows){
+    const i = Number(tr.getAttribute('data-i'));
+    bindTap(
+      tr,
+      async (_e, meta) => {
+        const { ok } = await copyRecentLinkByIndex(i);
+        pulse(meta?.el || tr, ok ? 'good' : 'bad');
+      },
+      (_e, meta) => {
+        pulse(meta?.el || tr, 'warn');
+        playRecentByIndex(i);
+      },
+      { delayMs: TAP_DELAY_MS }
+    );
+  }
 
   bindRecentRowInteractions();
 }
