@@ -1,9 +1,9 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR — ALL-IN CSS (LATEST)
-✅ PC / Mobile layout
-✅ VR/Cardboard stereo (2 eyes)
-✅ Targets (emoji) + FX fallback (score pop)
-✅ Crosshair aimY can be moved by JS (top:%)
+GoodJunkVR — ALL-IN CSS (PC/Mobile/Cardboard VR)
+✅ viewbar (PC/Mobile/VR)
+✅ VR split + VR mini HUD per eye
+✅ Targets + FX pulse
+✅ Crosshair + safe area
 */
 
 :root{
@@ -13,6 +13,7 @@ GoodJunkVR — ALL-IN CSS (LATEST)
   --stroke:rgba(148,163,184,.22);
   --text:#e5e7eb;
   --muted:#94a3b8;
+
   --good:#22c55e;
   --junk:#ef4444;
   --gold:#fbbf24;
@@ -25,90 +26,167 @@ GoodJunkVR — ALL-IN CSS (LATEST)
   --ringGapSize: 85deg;
 }
 
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
 html,body{
-  margin:0; padding:0; width:100%; height:100%;
+  margin:0; padding:0;
+  width:100%; height:100%;
   background: radial-gradient(1200px 900px at 50% 20%, #0b1220, #020617 60%);
   color:var(--text);
   overflow:hidden;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
 }
 
-#gj-stage{
+.stage{
   position:fixed;
   inset:0;
   overflow:hidden;
-  touch-action: none;
+  touch-action:none;
 }
 
-/* ===== Stereo wrapper (hidden by default) ===== */
-#gj-stereo{
+/* ---------- View switch bar ---------- */
+.viewbar{
+  position:fixed;
+  top: calc(10px + var(--safeTop));
+  right: 12px;
+  z-index: 95;
+  display:flex;
+  gap:8px;
+  pointer-events:auto;
+}
+.vb-btn{
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border:1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.58);
+  color:#fff;
+  font-weight: 900;
+  font-size: 13px;
+  backdrop-filter: blur(8px);
+}
+.vb-btn:active{ transform: translateY(1px); }
+body.view-vr .viewbar{ right: 50%; transform: translateX(50%); }
+
+/* ---------- Layers ---------- */
+.layer{
   position:absolute;
   inset:0;
+  z-index: 10;
+  pointer-events:auto;
+}
+.layer.vr{ inset:0; }
+
+.layer.mono{ display:block; }
+.crosshair.mono{ display:block; }
+
+.vrwrap{ display:none; }
+
+body.view-vr .layer.mono,
+body.view-vr .crosshair.mono{
   display:none;
+}
+body.view-vr .vrwrap{
+  display:flex;
+  position:absolute;
+  inset:0;
   z-index: 20;
 }
-body.gj-stereo-on #gj-stereo{ display:flex; }
-body.gj-stereo-on #gj-layer,
-body.gj-stereo-on #gj-crosshair{ display:none; }
 
-.gj-eye{
+/* eyes */
+.eye{
   position:relative;
   width:50%;
   height:100%;
   overflow:hidden;
-  border-left: 1px solid rgba(148,163,184,.10);
 }
-.gj-eye:first-child{ border-left:none; }
-
-#gj-eyeL, #gj-eyeR{
+.eye::after{
+  content:'';
   position:absolute;
-  inset:0;
-  will-change: transform;
+  top:0; bottom:0;
+  width: 2px;
+  right:-1px;
+  background: rgba(148,163,184,.18);
+  opacity:.7;
 }
-#gj-eyeR{}
+.eye-r::after{ display:none; }
 
-/* layers */
-#gj-layer, #gj-layerL, #gj-layerR{
+body.view-vr{
+  /* ช่วยให้จอคมขึ้นนิดในแว่น */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/* ---------- VR mini HUD ---------- */
+.vrhud{
   position:absolute;
-  inset:0;
-  pointer-events:auto;
+  left: 10px;
+  right: 10px;
+  top: calc(10px + var(--safeTop));
+  z-index: 40;
+  border-radius: 16px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.42);
+  backdrop-filter: blur(10px);
+  padding: 10px 12px;
+  pointer-events:none;
 }
-#gj-layer{ z-index: 22; }
-#gj-layerL{ z-index: 22; }
-#gj-layerR{ z-index: 22; }
+.vh-row{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+}
+.vh-title{ font-weight:1000; font-size: 14px; }
+.vh-meta{ color:var(--muted); font-size: 12px; }
 
-/* Crosshair */
-#gj-crosshair,
-#gj-crosshairL,
-#gj-crosshairR{
-  position: absolute;
-  left: 50%;
-  top: 62%;
+.vh-stats{
+  margin-top: 6px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  color:#cbd5e1;
+  font-size: 12px;
+}
+.vh-stats b{ font-weight:1000; color:#fff; }
+
+.vh-quest{
+  margin-top: 6px;
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---------- Crosshair ---------- */
+.crosshair{
+  position:absolute;
+  left:50%;
+  top:52%;
   width: 46px;
   height: 46px;
   border-radius: 999px;
-  transform: translate(-50%, -50%);
-  border: 2px solid rgba(255,255,255,.65);
+  transform: translate(-50%,-50%);
+  border: 2px solid rgba(255,255,255,.68);
   box-shadow:
     0 0 0 3px rgba(34,197,94,.12),
     0 0 22px rgba(148,163,184,.14);
+  z-index: 35;
   pointer-events:none;
-  z-index: 40;
 }
-#gj-crosshair::before,
-#gj-crosshairL::before,
-#gj-crosshairR::before{
+.crosshair::before{
   content:'';
   position:absolute;
   left:50%; top:50%;
   width: 7px; height:7px;
   border-radius: 999px;
-  background: rgba(255,255,255,.85);
+  background: rgba(255,255,255,.88);
   transform: translate(-50%,-50%);
 }
-#gj-crosshair::after,
-#gj-crosshairL::after,
-#gj-crosshairR::after{
+.crosshair::after{
   content:'';
   position:absolute;
   left:50%; top:50%;
@@ -116,64 +194,62 @@ body.gj-stereo-on #gj-crosshair{ display:none; }
   border-radius: 999px;
   border: 2px dashed rgba(148,163,184,.22);
   transform: translate(-50%,-50%);
-  opacity:.85;
+  opacity:.9;
 }
 
-body.gj-stereo-on #gj-crosshairL,
-body.gj-stereo-on #gj-crosshairR{
-  display:block;
+/* ยิงแล้วมี pulse */
+.crosshair.pulse{
+  animation: chPulse 140ms ease-out 1;
 }
-body.gj-stereo-on #gj-crosshairL,
-body.gj-stereo-on #gj-crosshairR{
-  top: 52%;
-  width: 44px; height: 44px;
-}
-body.gj-stereo-on #gj-crosshairL::after,
-body.gj-stereo-on #gj-crosshairR::after{
-  width: 60px; height:60px;
+@keyframes chPulse{
+  from{ transform: translate(-50%,-50%) scale(1); filter: brightness(1); }
+  to{ transform: translate(-50%,-50%) scale(1.06); filter: brightness(1.15); }
 }
 
-/* Targets */
+/* ---------- Targets ---------- */
 .gj-target{
   position:absolute;
-  transform: translate(-50%, -50%);
+  left: var(--x, 50%);
+  top:  var(--y, 50%);
+  transform: translate(-50%,-50%) scale(var(--s, 1));
   user-select:none;
   -webkit-user-select:none;
   cursor: pointer;
   will-change: transform, opacity, filter;
-  text-shadow:
-    0 2px 0 rgba(0,0,0,.35),
-    0 12px 24px rgba(0,0,0,.30);
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size: 38px;
+  line-height: 1;
+  background: rgba(2,6,23,.55);
+  border: 1px solid rgba(148,163,184,.22);
+  box-shadow: 0 16px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset;
+  backdrop-filter: blur(8px);
+  pointer-events:auto;
+  touch-action: manipulation;
+  text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 12px 24px rgba(0,0,0,.30);
   filter: drop-shadow(0 14px 24px rgba(0,0,0,.22));
-  transition: transform .12s ease, opacity .16s ease;
-  z-index: 25;
+  transition: transform .12s ease, opacity .16s ease, filter .16s ease;
 }
-.gj-target.spawn{ transform: translate(-50%,-50%) scale(.25); opacity:0; }
-.gj-target.gone{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
-.gj-target:hover{ transform: translate(-50%,-50%) scale(1.06); }
+.gj-target.good{ border-color: rgba(34,197,94,.28); }
+.gj-target.junk{ border-color: rgba(239,68,68,.30); filter: saturate(1.15) drop-shadow(0 18px 28px rgba(239,68,68,.20)); }
+.gj-target.star{ border-color: rgba(34,211,238,.32); }
+.gj-target.shield{ border-color: rgba(168,85,247,.32); }
 
-.gj-target.junk{ filter: drop-shadow(0 18px 28px rgba(239,68,68,.22)); }
-.gj-target.star{ filter: drop-shadow(0 18px 32px rgba(34,211,238,.22)); }
-.gj-target.shield{ filter: drop-shadow(0 18px 32px rgba(168,85,247,.22)); }
-
-/* FX fallback */
-.gj-fx{
-  position:absolute;
-  transform: translate(-50%,-50%);
-  font-weight: 1000;
-  font-size: 18px;
-  pointer-events:none;
-  z-index: 60;
-  text-shadow: 0 10px 30px rgba(0,0,0,.55);
-  animation: gjfx 520ms ease-out forwards;
+.gj-target.hit{
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.22));
+  opacity:.18;
+  filter: blur(.7px);
 }
-@keyframes gjfx{
-  from{ opacity:0; transform: translate(-50%,-50%) scale(.85); }
-  25%{ opacity:1; }
-  to{ opacity:0; transform: translate(-50%,-84%) scale(1.08); }
+.gj-target.out{
+  opacity:0;
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * 0.86));
 }
 
-/* Controls */
+/* ---------- Controls ---------- */
 .hha-controls{
   position: fixed;
   left: 0;
@@ -186,36 +262,38 @@ body.gj-stereo-on #gj-crosshairR::after{
 }
 .btn-shoot{
   pointer-events:auto;
-  width: min(240px, 78vw);
+  width: min(240px, 72vw);
   height: 58px;
   border-radius: 18px;
   border: 1px solid rgba(148,163,184,.24);
   background: rgba(2,6,23,.84);
   color: #fff;
-  font-weight: 900;
+  font-weight: 1000;
   letter-spacing: .5px;
   font-size: 18px;
   box-shadow: 0 16px 40px rgba(0,0,0,.35);
 }
 .btn-shoot:active{ transform: translateY(1px) scale(.99); }
 
-/* HUD */
+body.view-vr .btn-shoot{
+  width: min(280px, 78vw);
+}
+
+/* ---------- HUD (ใหญ่) ---------- */
 .hha-hud{
   position: fixed;
   left: 10px;
   right: 10px;
   top: calc(10px + var(--safeTop));
-  z-index: 100;
+  z-index: 80;
   pointer-events:none;
 }
-
 .hud-top{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
   gap:10px;
 }
-
 .hud-badge{
   min-width: 160px;
   padding: 10px 12px;
@@ -235,7 +313,7 @@ body.gj-stereo-on #gj-crosshairR::after{
   max-width: 62vw;
 }
 .hud-stat{
-  width: 74px;
+  width: 84px;
   padding: 8px 10px;
   border-radius: 16px;
   border:1px solid var(--stroke);
@@ -243,6 +321,7 @@ body.gj-stereo-on #gj-crosshairR::after{
 }
 .hud-stat .k{ font-size: 11px; color: var(--muted); }
 .hud-stat .v{ font-size: 18px; font-weight: 1000; margin-top:2px; }
+.hud-stat.grade .v{ color: #fff; }
 
 .hud-mid{
   margin-top: 10px;
@@ -264,7 +343,7 @@ body.gj-stereo-on #gj-crosshairR::after{
   gap:10px;
 }
 .q-title{ font-weight:1000; font-size: 13px; }
-.q-title.mini{ opacity:.95; }
+.q-title.mini{ font-weight:1000; opacity:.95; }
 .q-count{ font-weight:1000; font-size: 13px; color:#fff; }
 .q-timer{ font-size: 12px; color: var(--gold); font-weight:1000; min-width: 52px; text-align:right; }
 .q-progress{ margin-top:6px; font-size: 12px; color: var(--muted); }
@@ -289,13 +368,19 @@ body.gj-stereo-on #gj-crosshairR::after{
 .coach-line{ font-size: 13px; font-weight: 1000; }
 .coach-sub{ font-size: 12px; color: var(--muted); }
 
-/* Fever */
+/* VR: ซ่อน HUD ใหญ่ + Fever ใหญ่ */
+body.view-vr .hha-hud,
+body.view-vr .hha-fever{
+  display:none;
+}
+
+/* ---------- Fever (PC/Mobile) ---------- */
 .hha-fever{
   position: fixed;
   left: 12px;
   right: 12px;
   bottom: calc(86px + var(--safeBottom));
-  z-index: 95;
+  z-index: 70;
   pointer-events:none;
   padding: 10px 12px;
   border-radius: 16px;
@@ -315,6 +400,7 @@ body.gj-stereo-on #gj-crosshairR::after{
   color: var(--muted);
 }
 .fever-bar{
+  position: relative;
   flex: 1;
   height: 12px;
   border-radius: 999px;
@@ -334,7 +420,11 @@ body.gj-stereo-on #gj-crosshairR::after{
   color:#fff;
 }
 .shield-row{ margin-top: 6px; }
-.shield-pills{ display:flex; gap:6px; flex-wrap: wrap; }
+.shield-pills{
+  display:flex;
+  gap:6px;
+  flex-wrap: wrap;
+}
 .shield-pill{
   width: 14px; height: 14px;
   border-radius: 6px;
@@ -346,11 +436,11 @@ body.gj-stereo-on #gj-crosshairR::after{
   box-shadow: 0 0 16px rgba(96,165,250,.24);
 }
 
-/* Start overlay */
+/* ---------- Start overlay ---------- */
 .start-overlay{
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 100;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -358,7 +448,7 @@ body.gj-stereo-on #gj-crosshairR::after{
   padding: 18px;
 }
 .start-card{
-  width: min(560px, 92vw);
+  width: min(520px, 92vw);
   border-radius: 22px;
   border:1px solid rgba(148,163,184,.22);
   background: rgba(2,6,23,.94);
@@ -369,35 +459,29 @@ body.gj-stereo-on #gj-crosshairR::after{
 .start-desc{ margin-top: 6px; color:#cbd5e1; line-height: 1.55; }
 .start-desc .muted{ color: var(--muted); font-size: 13px; }
 .start-meta{ margin-top: 10px; font-size: 12px; color: var(--muted); }
-
-.start-actions{
-  margin-top: 12px;
-  display:flex;
-  gap:10px;
-}
 .btn-start{
+  margin-top: 12px;
   width: 100%;
   height: 52px;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.22);
+  background: rgba(34,197,94,.16);
   color:#fff;
   font-weight: 1000;
-  font-size: 16px;
+  font-size: 18px;
 }
-.btn-start.primary{ background: rgba(34,197,94,.16); }
-.btn-start.ghost{ background: rgba(59,130,246,.14); }
 .btn-start:active{ transform: translateY(1px) scale(.99); }
 
-/* Boss hazards (optional) */
+/* ---------- Boss hazards ---------- */
 #atk-ring{
-  position: fixed;
+  position: absolute;
   left: 50%;
   top: 50%;
   width: min(520px, 92vw);
   aspect-ratio: 1 / 1;
   border-radius: 999px;
   transform: translate(-50%, -50%);
-  z-index: 60;
+  z-index: 30;
   pointer-events:none;
   opacity: 0;
   filter: drop-shadow(0 30px 60px rgba(0,0,0,.35));
@@ -416,12 +500,12 @@ body.gj-stereo-on #gj-crosshairR::after{
 #atk-ring.show{ opacity: 1; }
 
 #atk-laser{
-  position: fixed;
+  position: absolute;
   left: 0;
   right: 0;
   height: 10px;
   top: 45%;
-  z-index: 61;
+  z-index: 31;
   pointer-events:none;
   opacity: 0;
   background: linear-gradient(90deg, rgba(239,68,68,0), rgba(239,68,68,.85), rgba(239,68,68,0));
@@ -440,15 +524,9 @@ body.gj-stereo-on #gj-crosshairR::after{
 @keyframes laserWarn { from{ transform: scaleX(.94); } to{ transform: scaleX(1.02); } }
 @keyframes laserFire { from{ transform: scaleX(.98); } to{ transform: scaleX(1.02); } }
 
-/* ===== Mobile layout ===== */
-@media (max-width: 640px){
-  .hud-stats{ max-width: 78vw; }
-  .hud-stat{ width: 70px; }
-  .hud-mid{ flex-direction: column; }
-  .hha-fever{ bottom: calc(84px + var(--safeBottom)); }
+/* ---------- Mobile tweaks ---------- */
+@media (max-width: 520px){
+  .hud-stat{ width: 74px; }
+  .hud-stats{ max-width: 72vw; }
+  .crosshair{ top: 56%; }
 }
-
-/* ===== VR stereo comfort ===== */
-body.gj-stereo-on .hud-mid{ display:none; }  /* ลดองค์ประกอบในแว่น */
-body.gj-stereo-on .hha-fever{ display:none; } /* กันลายตาในแว่น */
-body.gj-stereo-on .hha-controls{ bottom: calc(12px + var(--safeBottom)); }
