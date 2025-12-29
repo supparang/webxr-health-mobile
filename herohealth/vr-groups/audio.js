@@ -1,8 +1,6 @@
 /* === /herohealth/vr-groups/audio.js ===
 GroupsVR Audio (PRODUCTION)
-✅ groups:progress {type:'hit', correct:boolean} + kinds star_hit/ice_hit
-✅ hha:judge (bad/good/boss/MISS)
-✅ groups:storm_urgent => tick
+✅ Star melody (⭐) + still supports storm tick
 */
 
 (function(root){
@@ -53,8 +51,21 @@ GroupsVR Audio (PRODUCTION)
   function blipGood(){ beep(880, 65, 'triangle'); beep(1320, 50, 'sine'); }
   function blipBad(){  beep(180, 95, 'sawtooth'); }
   function blipBoss(){ beep(420, 80, 'square'); beep(260, 120, 'square'); }
-  function blipStar(){ beep(1200, 60, 'sine'); beep(1600, 70, 'triangle'); }
   function blipIce(){  beep(520, 60, 'sine'); beep(740, 70, 'triangle'); }
+
+  function starMelody(){
+    // short cute melody (4 notes + sparkle tail)
+    const seq = [
+      [1318, 55, 'triangle', 0],
+      [1567, 55, 'triangle', 90],
+      [1760, 70, 'sine',     170],
+      [2093, 75, 'sine',     260],
+      [2637, 45, 'sine',     360],
+    ];
+    seq.forEach(([f,d,t,delay])=>{
+      setTimeout(()=> beep(f,d,t), delay);
+    });
+  }
 
   let stormTickTimer = null;
   function startStormTick(){
@@ -76,8 +87,8 @@ GroupsVR Audio (PRODUCTION)
       if (d.correct) blipGood();
       else blipBad();
     }
-    if (d.kind === 'star_hit') blipStar();
-    if (d.kind === 'ice_hit') blipIce();
+    if (d.kind === 'star_hit') starMelody();
+    if (d.kind === 'ice_hit')  blipIce();
   }, { passive:true });
 
   root.addEventListener('hha:judge', (ev)=>{
