@@ -2,18 +2,18 @@
 Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
 ✅ Boss phases:
    - Phase 1: normal
-   - Phase 2: weak (<=50% HP) -> glow + harder pattern
-   - Phase 3: rage (HP==1) -> teleport + decoy burst + faster
+   - Phase 2: weak (<=50% HP) -> glow + harder vibe
+   - Phase 3: rage (HP==1) -> teleport + decoy burst + faster spawn
 ✅ No-Junk Ring Mini Quest (real):
    - "เก็บ GOOD ในวงให้ครบ N ภายใน T วินาที"
-   - FAIL ทันทีถ้าโดน junk/decoy/wrong ระหว่างทำ
-   - มี tick ๆ + กระพริบ + สั่นเบา ๆ ตอนใกล้หมดเวลา
+   - FAIL ทันทีถ้าโดน junk/decoy/wrong ระหว่างทำ (ยกเว้น shield block junk)
+   - tick ๆ + กระพริบ + สั่นเบา ๆ ตอนใกล้หมดเวลา
 ✅ FIX: ใส่ class ตาม type (fg-good/fg-junk/fg-decoy/fg-wrong/fg-boss/fg-star/fg-ice)
 ✅ ⭐ Star: Overdrive x2 + Magnet + No-Junk Aura + Shield
 ✅ ❄️ Ice: Freeze (spawn ช้าลง + TTL ยาวขึ้น)
 ✅ Rush 6s หลังสลับหมู่
 ✅ Metrics + RT ส่งใน hha:end
-✅ Safe spawn rect กันทับ HUD (อ่าน DOM จริง)
+✅ Safe spawn rect กันทับ HUD: อ่าน DOM ของ .hud-top จริง
 */
 
 (function(root){
@@ -78,7 +78,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     return (a.length%2) ? a[m] : Math.round((a[m-1]+a[m])/2);
   }
   function playSfx(name){
-    // audio.js อัปเดตให้มี GroupsVRAudio
     try{ root.GroupsVRAudio && root.GroupsVRAudio[name] && root.GroupsVRAudio[name](); }catch{}
   }
 
@@ -212,7 +211,7 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     noJunkUntil:0,
     _rushUntil:0,
 
-    // No-Junk ring data (center/r)
+    // No-Junk ring
     ring:{ on:false, cx:0, cy:0, r:0 },
 
     // REAL Mini Quest: No-Junk Zone
@@ -299,36 +298,19 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     }, 80);
   }
 
-  // ---------- Spawn rect (อ่าน DOM จริง กันทับ HUD) ----------
-  function getRect(el){
-    try{
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      if (!r || !isFinite(r.left)) return null;
-      return r;
-    }catch{ return null; }
-  }
+  // ---------- Safe spawn rect (อ่าน .hud-top จริง) ----------
   function safeSpawnRect(){
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
 
     let side = 16;
-    let top  = 110;
-    let bot  = 170;
+    let top  = 160;
+    let bot  = 190;
 
-    const questTop = DOC.querySelector('.questTop');
-    const powerWrap = DOC.querySelector('.powerWrap');
-    const coachWrap = DOC.querySelector('.coachWrap');
-
-    const rq = getRect(questTop);
-    if (rq) top = Math.max(top, rq.bottom + 12);
-
-    const rp = getRect(powerWrap);
-    if (rp) bot = Math.max(bot, (H - rp.top) + 12);
-
-    const rc = getRect(coachWrap);
-    if (rc){
-      bot = Math.max(bot, (H - rc.top) + 6);
+    const hudTop = DOC.querySelector('.hud-top');
+    if (hudTop && hudTop.getBoundingClientRect){
+      const r = hudTop.getBoundingClientRect();
+      if (r && isFinite(r.bottom)) top = Math.max(top, r.bottom + 14);
     }
 
     top = clamp(top, 80, H-220);
@@ -342,7 +324,7 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     return { x0, x1, y0, y1, W, H };
   }
 
-  // ---------- Ring + inRing ----------
+  // ---------- Ring ----------
   function ringApply(on){
     const layer = engine.layerEl;
     if (!layer) return;
@@ -385,10 +367,9 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
   }
 
   function randPosInRing(){
-    // rejection sampling
     const r = safeSpawnRect();
     let tries = 0;
-    while (tries++ < 20){
+    while (tries++ < 22){
       const a = engine.rng() * Math.PI * 2;
       const rr = Math.sqrt(engine.rng()) * engine.ring.r * 0.92;
       const x = engine.ring.cx + Math.cos(a)*rr;
@@ -488,8 +469,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
 
     setXY(el, x, y);
     el.style.setProperty('--s', s.toFixed(3));
-
-    // mark for mini (in ring)
     el.dataset.inRing = inRing(x, y) ? '1' : '0';
 
     el.addEventListener('pointerdown', (ev)=>{
@@ -497,13 +476,11 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       hitTarget(el);
     }, { passive:false });
 
-    // TTL
     const ttl = (type === 'boss') ? 9000 : engine.ttlMs;
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
 
       if (type === 'boss'){
-        // boss timeout = ไม่ลงโทษ แต่ boss หายไป และนัดใหม่
         engine.bossAlive = false;
         engine._bossEl = null;
         el.classList.add('out');
@@ -522,8 +499,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
         pulseBody('groups-hitshake', 180);
         updateScore();
         emitFever();
-
-        // mini fail if good expired inside mini? (ไม่ fail แต่ทำให้ยากขึ้น)
       }
 
       el.classList.add('out');
@@ -553,19 +528,15 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
   }
 
   function maybeStartNoJunkMini(trigger){
-    // trigger: 'swap' หรือ 'random'
     if (engine.mini.active) return;
-    if (engine.runMode === 'research') return; // โหมดวิจัยไม่สุ่ม mini แปลก ๆ (ถ้าต้องการค่อยเปิด)
-    const t = now();
+    if (engine.runMode === 'research') return;
 
-    // โอกาสเริ่ม: หลัง swap 35% / ระหว่างทาง 10%
     const p = (trigger === 'swap') ? 0.35 : 0.10;
     if (engine.rng() > p) return;
 
     const diff = String(engine.diff||'normal');
     const need = (diff==='easy') ? 4 : (diff==='hard') ? 6 : 5;
     const dur  = (diff==='hard') ? 6 : 6;
-
     startNoJunkMini(need, dur);
   }
 
@@ -581,7 +552,7 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     engine.mini.lastTickSec = -1;
 
     ringPick();
-    engine.noJunkUntil = engine.mini.endAt; // Aura ลด junk ในช่วง mini
+    engine.noJunkUntil = engine.mini.endAt;
 
     emit('hha:judge', { kind:'mini', text:'NO-JUNK ZONE!' });
     emit('hha:celebrate', { kind:'mini', title:'🛡️ No-Junk Zone!' });
@@ -596,10 +567,7 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     engine.mini.failed = !success;
     engine.mini.failReason = String(reason||'');
 
-    // UI off
     updateMiniUI(false);
-
-    // ring off
     ringApply(false);
 
     DOC.body.classList.remove('groups-mini-urgent');
@@ -609,7 +577,7 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       emit('hha:celebrate', { kind:'goal', title:'Mini Complete!' });
       emit('hha:judge', { kind:'good', text:'MINI CLEAR!' });
       emitCoach('เยี่ยมมาก! ผ่าน No-Junk Zone! 😎', 'happy');
-      // รางวัล: shield + score + fever down
+
       engine.shield = Math.max(engine.shield, 1);
       engine.fever = clamp(engine.fever - 10, 0, 100);
       engine.score += Math.round(220 * scoreMult());
@@ -664,7 +632,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     emit('hha:judge', { kind:'good', text:'RUSH!' });
     pulseBody('groups-rush', 900);
 
-    // ✅ โอกาสเริ่ม mini หลัง swap
     maybeStartNoJunkMini('swap');
   }
 
@@ -674,13 +641,11 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     DOC.body.classList.add('groups-overdrive');
     setTimeout(()=> DOC.body.classList.remove('groups-overdrive'), sec*1000 + 20);
   }
-
   function activateFreeze(sec){
     engine.freezeUntil = now() + sec*1000;
     DOC.body.classList.add('groups-freeze');
     setTimeout(()=> DOC.body.classList.remove('groups-freeze'), sec*1000 + 20);
   }
-
   function activateMagnet(sec){
     engine.magnetUntil = now() + sec*1000;
   }
@@ -718,8 +683,8 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     if (!engine.bossHpMax) return 1;
     const hp = engine.bossHp;
     const max = engine.bossHpMax;
-    if (hp <= 1) return 3;             // rage
-    if (hp <= Math.ceil(max/2)) return 2; // weak
+    if (hp <= 1) return 3;
+    if (hp <= Math.ceil(max/2)) return 2;
     return 1;
   }
 
@@ -743,7 +708,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
   function spawnDecoyBurst(n){
     const layer = engine.layerEl;
     if (!layer) return;
-    const r = safeSpawnRect();
     for (let i=0;i<n;i++){
       const p = randPos();
       const em = DECOY_EMOJI[(engine.rng()*DECOY_EMOJI.length)|0];
@@ -790,7 +754,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     engine.comboMax = Math.max(engine.comboMax, engine.combo);
     emitProgress({ kind:'combo', combo: engine.combo });
 
-    // hit score: phase-based
     const ph = bossPhase();
     const baseScore = (ph===1) ? 140 : (ph===2) ? 170 : 220;
     engine.score += Math.round(baseScore * scoreMult());
@@ -798,9 +761,7 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     engine.bossHp = Math.max(0, engine.bossHp - 1);
     el.dataset.hp = String(engine.bossHp);
 
-    // apply phase after damage
     bossApplyPhase(el);
-
     updateScore();
 
     if (engine.bossHp <= 0){
@@ -814,16 +775,12 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       return;
     }
 
-    // feedback
     el.classList.add('fg-boss-hurt');
     setTimeout(()=> el.classList.remove('fg-boss-hurt'), 220);
 
-    // phase effects
     if (bossPhase() === 2){
-      // weak: เพิ่มความกดดันเล็กน้อย
       pulseBody('groups-boss-weak', 240);
     } else if (bossPhase() === 3){
-      // rage: teleport + decoy burst + tick vibe
       pulseBody('groups-boss-rage', 260);
       playSfx('tick');
       spawnDecoyBurst(2);
@@ -831,13 +788,13 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     }
   }
 
-  // ---------- Magnet effect (ดูดเป้าใกล้จุดคลิก) ----------
+  // ---------- Magnet ----------
   function magnetPopNear(hitX, hitY){
     if (!isMagnet()) return;
     const layer = engine.layerEl;
     if (!layer) return;
 
-    const list = layer.querySelectorAll('.fg-target.fg-good, .fg-target.fg-wrong, .fg-target.fg-decoy, .fg-target.fg-junk');
+    const list = layer.querySelectorAll('.fg-target.fg-good');
     let popped = 0;
     list.forEach(el=>{
       if (popped >= 2) return;
@@ -847,7 +804,7 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       const dx = ex - hitX;
       const dy = ey - hitY;
       const d2 = dx*dx + dy*dy;
-      if (d2 < (120*120) && String(el.dataset.type) === 'good'){
+      if (d2 < (120*120)){
         engine.hitAll++;
         engine.hitGood++;
         engine.nHitGood++;
@@ -870,7 +827,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     });
   }
 
-  // ---------- No-Junk Mini: hit tracking ----------
   function miniBadHitFail(tp){
     if (!engine.mini.active) return false;
     if (engine.mini.kind !== 'nojunk_zone') return false;
@@ -888,10 +844,8 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
 
     let type = String(el.dataset.type||'').toLowerCase();
 
-    // boss
     if (type === 'boss'){ hitBoss(el); return; }
 
-    // good but wrong group => wrong
     if (type === 'good'){
       const gid = Number(el.dataset.groupId)||0;
       if (gid && gid !== engine.groupId) type = 'wrong';
@@ -899,7 +853,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
 
     engine.hitAll++;
 
-    // ⭐ / ❄️ pickups
     if (type === 'star'){
       emitProgress({ type:'hit', correct:true });
       emitProgress({ kind:'hit_good' });
@@ -914,8 +867,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
 
       activateOverdrive(6);
       activateMagnet(6);
-
-      // ทำ aura ลด junk 6 วิ (นอก mini ก็ได้)
       engine.noJunkUntil = Math.max(engine.noJunkUntil, now() + 6000);
 
       engine.shield = Math.max(engine.shield, 1);
@@ -955,10 +906,8 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       return;
     }
 
-    // BAD types
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
     if (badLike){
-      // shield blocks junk = no miss and NOT fail mini (ถือว่า block สำเร็จ)
       if (type === 'junk' && engine.shield > 0){
         engine.shield = 0;
         engine.nHitJunkGuard++;
@@ -970,7 +919,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
         return;
       }
 
-      // ✅ Mini fail (ถ้ากำลังทำ mini)
       if (miniBadHitFail(type)){
         removeTarget(el);
         return;
@@ -999,7 +947,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       return;
     }
 
-    // GOOD
     if (type === 'good'){
       emitProgress({ type:'hit', correct:true });
       emitProgress({ kind:'hit_good' });
@@ -1022,7 +969,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
 
       addPower(1);
 
-      // ✅ Mini progress: ต้องเป็น GOOD ที่อยู่ "ในวง"
       if (engine.mini.active && engine.mini.kind === 'nojunk_zone'){
         const inZ = (el.dataset.inRing === '1');
         if (inZ){
@@ -1036,7 +982,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
         }
       }
 
-      // magnet bonus pop near
       magnetPopNear(Number(el.dataset._x)||0, Number(el.dataset._y)||0);
 
       removeTarget(el);
@@ -1049,11 +994,9 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     const baseJ = (engine.runMode==='research') ? diffParams(engine.diff).junk : engine.adapt.junkBias;
     const baseD = (engine.runMode==='research') ? diffParams(engine.diff).decoy : engine.adapt.decoyBias;
 
-    // ⭐/❄️ โอกาสโผล่
     const pu = engine.storm ? 0.020 : 0.012;
     if (engine.rng() < pu) return (engine.rng() < 0.55) ? 'star' : 'ice';
 
-    // Aura ลด junk ชั่วคราว
     const jBias = isNoJunkAura() ? baseJ*0.45 : baseJ;
     const dBias = baseD;
 
@@ -1073,7 +1016,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     if (tp === 'ice')  return '❄️';
     if (tp === 'good') return GROUPS[engine.groupId].emoji[(engine.rng()*GROUPS[engine.groupId].emoji.length)|0];
 
-    // wrong
     const other = [];
     for (let g=1; g<=5; g++){
       if (g === engine.groupId) continue;
@@ -1089,20 +1031,16 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
 
     tryBossSpawn();
 
-    const tp = chooseType();
-    const em = chooseEmoji(tp);
-
-    // ✅ Mini mode: No-Junk -> spawn GOOD ในวงเยอะขึ้น
-    let p;
     if (engine.mini.active && engine.mini.kind === 'nojunk_zone'){
       DOC.body.classList.add('groups-mini-active');
-      const goodBias = 0.78; // ของดีในวงเยอะ
+      const goodBias = 0.78;
       const pickGood = engine.rng() < goodBias;
-      const realTp = pickGood ? 'good' : chooseType(); // ที่เหลือยังสุ่ม
+
+      const realTp = pickGood ? 'good' : chooseType();
       const finalTp = (realTp==='junk' || realTp==='decoy' || realTp==='wrong') ? realTp : 'good';
       const finalEm = chooseEmoji(finalTp);
 
-      p = pickGood ? randPosInRing() : (engine.storm ? stormPos() : randPos());
+      const p = pickGood ? randPosInRing() : (engine.storm ? stormPos() : randPos());
       const s = engine.sizeBase * ((finalTp==='star'||finalTp==='ice') ? 1.08 : 1.0);
 
       const el = makeTarget(finalTp, finalEm, p.x, p.y, s);
@@ -1110,14 +1048,13 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       return;
     }
 
-    p = engine.storm ? stormPos() : randPos();
+    const tp = chooseType();
+    const em = chooseEmoji(tp);
+    const p = engine.storm ? stormPos() : randPos();
     const s = engine.sizeBase * ((tp==='star'||tp==='ice') ? 1.08 : 1.0);
 
     const el = makeTarget(tp, em, p.x, p.y, s);
-    if (el){
-      countSpawn(tp);
-      layer.appendChild(el);
-    }
+    if (el){ countSpawn(tp); layer.appendChild(el); }
   }
 
   function loopSpawn(){
@@ -1129,11 +1066,7 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     let sMs = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0));
     if (isRush())   sMs *= 0.80;
     if (isFreeze()) sMs *= 1.18;
-
-    // ✅ mini -> เร้าใจขึ้นนิด (แต่ไม่โหดเกิน)
     if (engine.mini.active && engine.mini.kind === 'nojunk_zone') sMs *= 0.88;
-
-    // ✅ boss rage -> spawn ดุขึ้นเล็กน้อย
     if (engine.bossAlive && bossPhase() === 3) sMs *= 0.86;
 
     engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
@@ -1144,6 +1077,7 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     const t = now();
     if (!engine.feverTickLast) engine.feverTickLast = t;
     const dt = Math.min(0.25, Math.max(0, (t - engine.feverTickLast)/1000));
+
     engine.feverTickLast = t;
 
     const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
@@ -1158,11 +1092,9 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     const leftSec = Math.max(0, Math.ceil((engine.mini.endAt - now())/1000));
     updateMiniUI(true);
 
-    // urgent effects
     if (leftSec <= 3 && leftSec >= 1){
       DOC.body.classList.add('groups-mini-urgent');
       pulseBody('groups-mini-tremble', 220);
-      // tick once per second
       if (engine.mini.lastTickSec !== leftSec){
         engine.mini.lastTickSec = leftSec;
         playSfx('tick');
@@ -1171,7 +1103,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       DOC.body.classList.remove('groups-mini-urgent');
     }
 
-    // time out
     if (now() >= engine.mini.endAt){
       if (engine.mini.got >= engine.mini.need) endNoJunkMini(true, 'done');
       else endNoJunkMini(false, 'timeout');
@@ -1181,7 +1112,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
   function loopTick(){
     if (!engine.running || engine.ended) return;
 
-    // storm timing
     if (!engine.storm && now() >= engine.nextStormAtMs) enterStorm();
     if (engine.storm && now() >= engine.stormUntilMs){
       exitStorm();
@@ -1193,7 +1123,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       }
     }
 
-    // adaptive only in play
     if (engine.runMode === 'play'){
       const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
       const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
@@ -1210,16 +1139,12 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     }
 
     feverTick();
-
-    // ✅ mini tick
     tickMini();
 
-    // ✅ โอกาสเริ่ม mini แบบสุ่มระหว่างทาง (น้อย)
     if (!engine.mini.active && engine.runMode === 'play'){
       if (engine.rng() < 0.006) maybeStartNoJunkMini('random');
     }
 
-    // time
     engine.left = Math.max(0, engine.left - 0.14);
     updateTime();
     if (engine.left <= 0){ endGame('time'); return; }
@@ -1292,7 +1217,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
       avgRtGoodMs: avgRt|0,
       medianRtGoodMs: medRt|0,
 
-      // mini summary
       miniKind: engine.mini.kind || '',
       miniNeed: engine.mini.need|0,
       miniGot: engine.mini.got|0,
@@ -1325,7 +1249,6 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
 
     engine.left = engine.timeSec;
     engine.score = 0; engine.combo = 0; engine.comboMax = 0;
-
     engine.misses = 0;
     engine.hitGood = 0; engine.hitAll = 0;
 
@@ -1366,13 +1289,10 @@ Food Groups VR — GameEngine (PRODUCTION + BOSS PHASE + REAL NO-JUNK MINI)
     engine.noJunkUntil = 0;
     engine._rushUntil = 0;
 
-    // ring + mini reset
     engine.ring = { on:false, cx:0, cy:0, r:0 };
     ringApply(false);
 
-    engine.mini = {
-      active:false, kind:'', need:0, got:0, startedAt:0, endAt:0, failed:false, failReason:'', lastTickSec:-1
-    };
+    engine.mini = { active:false, kind:'', need:0, got:0, startedAt:0, endAt:0, failed:false, failReason:'', lastTickSec:-1 };
     updateMiniUI(false);
 
     engine.vx = 0; engine.vy = 0;
