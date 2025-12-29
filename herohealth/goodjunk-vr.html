@@ -1,9 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard (Stereo-ready)
-✅ HUD + Quest + Coach + Fever/Shield (IDs เดิม ไม่ซ้ำ)
-✅ Stereo stage: gj-eye L/R + layers/crosshair/ring/laser/end-summary L/R
-✅ Start Overlay
-✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
+GoodJunkVR (PRODUCTION) — HHA Standard
+✅ DOM emoji targets on #gj-layer
+✅ HUD + Quest + Coach + Fever/Shield
+✅ Start overlay
+✅ Boot module -> safe engine + touch-look
 -->
 
 <!doctype html>
@@ -15,8 +15,10 @@ GoodJunkVR (PRODUCTION) — HHA Standard (Stereo-ready)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Global FX + HUD + Fever + Logger -->
+  <!-- Main CSS (สำคัญมาก) -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
+
+  <!-- Global modules (IIFE) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
@@ -27,7 +29,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard (Stereo-ready)
 </head>
 
 <body>
-  <!-- ===== HUD (IDs ต้องไม่ซ้ำ) ===== -->
+  <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
       <div class="hud-badge">
@@ -62,7 +64,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard (Stereo-ready)
         <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
         <div class="coach-talk">
           <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
-          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / แตะเป้าก็ได้</div>
+          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
         </div>
       </div>
     </div>
@@ -81,25 +83,13 @@ GoodJunkVR (PRODUCTION) — HHA Standard (Stereo-ready)
     </div>
   </div>
 
-  <!-- ===== Playfield (Stereo-ready) ===== -->
+  <!-- ===== Playfield ===== -->
   <div id="gj-stage">
-    <!-- LEFT EYE -->
-    <div class="gj-eye" id="gj-eyeL">
-      <div id="gj-layer" aria-label="targets layer"></div>
-      <div id="gj-crosshair" aria-hidden="true"></div>
-      <div id="atk-ring" aria-hidden="true"></div>
-      <div id="atk-laser" aria-hidden="true"></div>
-      <div id="end-summary"></div>
-    </div>
-
-    <!-- RIGHT EYE -->
-    <div class="gj-eye" id="gj-eyeR" aria-hidden="true">
-      <div id="gj-layerR" aria-label="targets layer right"></div>
-      <div id="gj-crosshairR" aria-hidden="true"></div>
-      <div id="atk-ringR" aria-hidden="true"></div>
-      <div id="atk-laserR" aria-hidden="true"></div>
-      <div id="end-summaryR"></div>
-    </div>
+    <div id="gj-layer" aria-label="targets layer"></div>
+    <div id="gj-crosshair" aria-hidden="true"></div>
+    <div id="atk-ring" aria-hidden="true"></div>
+    <div id="atk-laser" aria-hidden="true"></div>
+    <div id="end-summary"></div>
   </div>
 
   <!-- ===== Controls ===== -->
@@ -113,7 +103,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard (Stereo-ready)
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
         เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ช่วงแรกนุ่ม ๆ (No-Junk Zone) แล้วค่อยโหดขึ้นเอง</span>
+        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
       <button id="btnStart" class="btn-start">เริ่มเล่น</button>
