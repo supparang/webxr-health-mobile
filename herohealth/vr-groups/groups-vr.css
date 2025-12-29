@@ -1,9 +1,9 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
 Food Groups VR — PRODUCTION CSS (Candy + HUD + Overlays + VR-feel Targets)
-✅ Layout B / Compact: body.ui-compact
-✅ Storm urgent: edge flash + pulse
+✅ B+++ No-Junk Ring (fg-layer::before) controlled via CSS vars
+✅ Urgency edge pulse + mini timer urgent + storm urgent already
 ✅ Overdrive / Freeze body classes
-✅ Targets: fg-good/fg-wrong/fg-decoy/fg-junk/fg-star/fg-ice/fg-boss
+✅ Layout B/Compact via body.ui-compact
 */
 
 :root{
@@ -46,11 +46,8 @@ Food Groups VR — PRODUCTION CSS (Candy + HUD + Overlays + VR-feel Targets)
 }
 
 *{ box-sizing:border-box; }
-
 html,body{
-  margin:0;
-  width:100%;
-  height:100%;
+  margin:0; width:100%; height:100%;
   overflow:hidden;
   color:var(--text);
   background:
@@ -66,26 +63,66 @@ html,body{
 .fg-layer{
   position:fixed;
   inset:0;
-  z-index:10; /* gameplay */
+  z-index:10;
   transform: translate(var(--vx,0px), var(--vy,0px));
   will-change: transform;
   pointer-events:auto;
 }
 
+/* ✅ B+++ No-Junk Ring (fair): engine sets these vars on #fg-layer
+   --nojunk-on: 0/1
+   --nojunk-cx, --nojunk-cy: center (screen px)
+   --nojunk-r : radius (px)
+*/
+.fg-layer::before{
+  content:"";
+  position:fixed;
+  left: var(--nojunk-cx, 50vw);
+  top:  var(--nojunk-cy, 50vh);
+  width: calc(var(--nojunk-r, 0px) * 2);
+  height: calc(var(--nojunk-r, 0px) * 2);
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  pointer-events:none;
+  opacity: calc(var(--nojunk-on, 0) * 0.85);
+  border:2px dashed rgba(255,255,255,.38);
+  box-shadow:
+    0 0 0 6px rgba(34,211,238,.10),
+    0 18px 40px rgba(0,0,0,.35);
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.30));
+  animation: ringPulse .45s ease-in-out infinite;
+}
+@keyframes ringPulse{
+  0%,100%{ transform: translate(-50%,-50%) scale(1); opacity: calc(var(--nojunk-on,0) * .85); }
+  50%{ transform: translate(-50%,-50%) scale(1.01); opacity: calc(var(--nojunk-on,0) * 1); }
+}
+
+/* ✅ (optional) inner glow for ring */
+.fg-layer::after{
+  content:"";
+  position:fixed;
+  left: var(--nojunk-cx, 50vw);
+  top:  var(--nojunk-cy, 50vh);
+  width: calc(var(--nojunk-r, 0px) * 2.10);
+  height: calc(var(--nojunk-r, 0px) * 2.10);
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  pointer-events:none;
+  opacity: calc(var(--nojunk-on, 0) * 0.22);
+  background: radial-gradient(circle at center, rgba(34,211,238,.20), transparent 60%);
+  mix-blend-mode: screen;
+}
+
 /* ======================
-   Targets (Candy Stickers)
+   Targets
 ====================== */
 .fg-target{
   position:absolute;
   left: var(--x, 50vw);
   top:  var(--y, 50vh);
-
-  width:92px;
-  height:92px;
+  width:92px; height:92px;
   border-radius:28px;
-
-  display:grid;
-  place-items:center;
+  display:grid; place-items:center;
 
   transform: translate(-50%,-50%) scale(var(--s,1));
   transform-origin:center;
@@ -109,22 +146,21 @@ html,body{
   cursor:pointer;
   user-select:none;
   -webkit-tap-highlight-color: transparent;
-
   overflow:hidden;
+
   animation: fgFloat 1.15s ease-in-out infinite;
 }
-
 .fg-target::before{
   content: attr(data-emoji);
-  font-size: 46px;
-  line-height: 1;
+  font-size:46px;
+  line-height:1;
   transform: translateY(-1px);
   filter:
     drop-shadow(0 2px 0 rgba(255,255,255,.25))
     drop-shadow(0 12px 18px rgba(0,0,0,.32));
 }
 
-/* Type skins */
+/* types */
 .fg-good{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 40%),
@@ -161,7 +197,7 @@ html,body{
     var(--candy-polka),
     var(--candy-stripes),
     linear-gradient(135deg, rgba(250,204,21,.35), rgba(34,211,238,.20));
-  animation: fgBossFloat 0.95s ease-in-out infinite;
+  animation: fgBossFloat .95s ease-in-out infinite;
 }
 .fg-ice{
   border-color: rgba(34,211,238,.85);
@@ -182,18 +218,10 @@ html,body{
   animation: fgBossFloat 1.00s ease-in-out infinite;
 }
 
-/* Corner badge */
-.fg-wrong::after,
-.fg-decoy::after,
-.fg-junk::after,
-.fg-boss::after,
-.fg-star::after,
-.fg-ice::after{
-  position:absolute;
-  right:8px;
-  top:7px;
-  font-size:16px;
-  opacity:.98;
+/* corner badge */
+.fg-wrong::after,.fg-decoy::after,.fg-junk::after,.fg-boss::after,.fg-star::after,.fg-ice::after{
+  position:absolute; right:8px; top:7px;
+  font-size:16px; opacity:.98;
   filter: drop-shadow(0 12px 16px rgba(0,0,0,.35));
   content:"";
 }
@@ -205,66 +233,47 @@ html,body{
 .fg-ice::after  { content:"❄️"; }
 
 .fg-target:active{
-  transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
+  transform: translate(-50%,-50%) scale(calc(var(--s,1)*0.96));
   filter: brightness(1.06);
 }
-
-.fg-target.spawn{
-  animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite;
-}
+.fg-target.spawn{ animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite; }
 .fg-target.hit{ animation: fgHit .22s ease-out both; }
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
-.fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
-@keyframes bossHurt{
-  0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
-  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)) rotate(-1deg); filter: brightness(1.18); }
-  100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-
 @keyframes fgFloat{
-  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) translateY(0px); }
-  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) translateY(-8px); }
+  0%,100%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(0px); }
+  50%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(-8px); }
 }
 @keyframes fgBossFloat{
-  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) rotate(-2deg) translateY(0px); }
-  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) rotate( 2deg) translateY(-9px); }
+  0%,100%{ transform: translate(-50%,-50%) scale(var(--s,1)) rotate(-2deg) translateY(0px); }
+  50%{ transform: translate(-50%,-50%) scale(var(--s,1)) rotate( 2deg) translateY(-9px); }
 }
 @keyframes fgPopIn{
-  from{ transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.70)); opacity:0; }
-  to  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity:1; }
+  from{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*0.70)); opacity:0; }
+  to{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
 }
 @keyframes fgHit{
-  0%  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity:1; }
-  60% { transform: translate(-50%, -50%) scale(calc(var(--s,1)*1.20)); opacity:.98; filter:brightness(1.18); }
-  100%{ transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.55)); opacity:0; }
+  0%{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
+  60%{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.20)); opacity:.98; filter:brightness(1.18); }
+  100%{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*0.55)); opacity:0; }
 }
 @keyframes fgOut{
   from{ opacity:1; }
-  to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
+  to{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1)*0.82)); }
 }
 
 /* ======================
-   Storm / Overdrive / Freeze vibes (Body classes)
+   Storm / Overdrive / Freeze vibes
 ====================== */
 body.groups-storm::before{
-  content:"";
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:120;
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:120;
   background:
     radial-gradient(circle at 50% 50%, rgba(34,211,238,.10), transparent 55%),
     radial-gradient(circle at 20% 20%, rgba(34,197,94,.10), transparent 55%);
   mix-blend-mode: screen;
 }
-
 body.groups-storm-urgent::after{
-  content:"";
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:130;
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:130;
   border-radius:18px;
   box-shadow:
     inset 0 0 0 3px rgba(239,68,68,.20),
@@ -272,19 +281,13 @@ body.groups-storm-urgent::after{
   animation: edgePulse .22s ease-in-out infinite;
 }
 @keyframes edgePulse{
-  0%,100%{ transform: translateZ(0) scale(1); opacity: .85; }
-  50%{ transform: translateZ(0) scale(1.006); opacity: 1; }
+  0%,100%{ transform: translateZ(0) scale(1); opacity:.85; }
+  50%{ transform: translateZ(0) scale(1.006); opacity:1; }
 }
 
-body.groups-overdrive .fg-target{
-  filter: saturate(1.12) brightness(1.04);
-}
+body.groups-overdrive .fg-target{ filter:saturate(1.12) brightness(1.04); }
 body.groups-overdrive::after{
-  content:"";
-  position:fixed;
-  inset:-20px;
-  pointer-events:none;
-  z-index:125;
+  content:""; position:fixed; inset:-20px; pointer-events:none; z-index:125;
   background:
     radial-gradient(circle at 50% 20%, rgba(250,204,21,.16), transparent 55%),
     radial-gradient(circle at 80% 80%, rgba(34,211,238,.12), transparent 60%);
@@ -292,89 +295,43 @@ body.groups-overdrive::after{
 }
 
 body.groups-freeze .fg-target{
-  animation-duration: 1.75s !important;
+  animation-duration:1.75s !important;
   filter: hue-rotate(8deg) saturate(1.05);
 }
 body.groups-freeze::after{
-  content:"";
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:125;
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:125;
   background:
     radial-gradient(circle at 55% 40%, rgba(34,211,238,.14), transparent 58%),
     radial-gradient(circle at 25% 75%, rgba(167,139,250,.10), transparent 60%);
   mix-blend-mode: screen;
 }
 
-/* ======================
-   Layout B / Compact (Overrides inline styles)
-   NOTE: inline CSS in HTML is earlier/later? In your file HTML has inline style after link,
-   so to override we use body.ui-compact + !important on key layout props.
-====================== */
-
-body.ui-compact .hud{
-  padding: calc(8px + var(--sat)) 10px 6px !important;
-  gap:8px !important;
+/* ✅ B+++ urgency edge (mini last 3s) */
+body.groups-mini-urgent::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:140;
+  box-shadow: inset 0 0 0 3px rgba(250,204,21,.12), inset 0 0 46px rgba(250,204,21,.10);
+  animation: edgePulse2 .22s ease-in-out infinite;
 }
-body.ui-compact .hud .box{
-  padding:8px 10px !important;
-  border-radius:14px !important;
-  min-width:110px !important;
-}
-body.ui-compact .hud .big{
-  font-size:15px !important;
+@keyframes edgePulse2{
+  0%,100%{ transform: translateZ(0) scale(1); opacity:.82; }
+  50%{ transform: translateZ(0) scale(1.006); opacity:1; }
 }
 
-body.ui-compact .centerTop{
-  top: calc(6px + var(--sat)) !important;
-  gap:8px !important;
-}
-body.ui-compact .centerTop .pill{
-  padding:7px 10px !important;
-  font-size:11px !important;
-}
-
-body.ui-compact .questTop{
-  top: calc(58px + var(--sat)) !important;
-  left:10px !important;
-  right:10px !important;
-  gap:8px !important;
-}
-body.ui-compact .qbar{
-  padding:9px 10px !important;
-  border-radius:14px !important;
-}
-body.ui-compact .qbar .b{
-  font-size:12.5px !important;
-}
-body.ui-compact .qbar .p{
-  height:9px !important;
-}
-
-body.ui-compact .powerWrap{
-  left:10px !important;
-  right:10px !important;
-  bottom: calc(10px + var(--sab)) !important;
-}
-body.ui-compact .power{
-  height:12px !important;
-}
-
-body.ui-compact .coachWrap{
-  right:10px !important;
-  bottom: calc(72px + var(--sab)) !important;
-  gap:8px !important;
-}
-body.ui-compact .coachCard{
-  width:200px !important;
-  border-radius:16px !important;
-}
-body.ui-compact .coachImg{
-  width:64px !important;
-  height:64px !important;
-  border-radius:16px !important;
-}
+/* Layout B/Compact overrides */
+body.ui-compact .hud{ padding: calc(8px + var(--sat)) 10px 6px !important; gap:8px !important; }
+body.ui-compact .hud .box{ padding:8px 10px !important; border-radius:14px !important; min-width:110px !important; }
+body.ui-compact .hud .big{ font-size:15px !important; }
+body.ui-compact .centerTop{ top: calc(6px + var(--sat)) !important; gap:8px !important; }
+body.ui-compact .centerTop .pill{ padding:7px 10px !important; font-size:11px !important; }
+body.ui-compact .questTop{ top: calc(58px + var(--sat)) !important; left:10px !important; right:10px !important; gap:8px !important; }
+body.ui-compact .qbar{ padding:9px 10px !important; border-radius:14px !important; }
+body.ui-compact .qbar .b{ font-size:12.5px !important; }
+body.ui-compact .qbar .p{ height:9px !important; }
+body.ui-compact .powerWrap{ left:10px !important; right:10px !important; bottom: calc(10px + var(--sab)) !important; }
+body.ui-compact .power{ height:12px !important; }
+body.ui-compact .coachWrap{ right:10px !important; bottom: calc(72px + var(--sab)) !important; gap:8px !important; }
+body.ui-compact .coachCard{ width:200px !important; border-radius:16px !important; }
+body.ui-compact .coachImg{ width:64px !important; height:64px !important; border-radius:16px !important; }
 
 /* Mini timer urgency */
 #uiMiniTime.urgent{
@@ -392,7 +349,9 @@ body.ui-compact .coachImg{
 @media (prefers-reduced-motion: reduce){
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
   body.groups-storm-urgent::after,
-  #uiMiniTime.urgent{
+  body.groups-mini-urgent::before,
+  #uiMiniTime.urgent,
+  .fg-layer::before{
     animation:none !important;
   }
 }
