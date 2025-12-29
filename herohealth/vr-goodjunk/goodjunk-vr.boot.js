@@ -1,4 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
+// GoodJunkVR Boot — HHA Standard (PRODUCTION)
+// ✅ attachTouchLook AFTER Start click (iOS gyro permission works)
+// ✅ set body data-view = pc|mobile|cardboard
+// ✅ keep params stable for logger & hub return
+
 'use strict';
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
@@ -11,14 +16,23 @@ function qp(name, fallback = null){
     return (v == null || v === '') ? fallback : v;
   }catch(_){ return fallback; }
 }
+
 function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
 function isMobileLike(){
-  const w = window.innerWidth || 360;
-  const h = window.innerHeight || 640;
-  const coarse = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const w = innerWidth || 360;
+  const h = innerHeight || 640;
+  const coarse = (matchMedia && matchMedia('(pointer: coarse)').matches);
   return coarse || (Math.min(w,h) < 520);
+}
+
+function detectView(){
+  const v = toStr(qp('view', ''), '').toLowerCase();
+  if (v === 'cardboard' || v === 'vr') return 'cardboard';
+  if (v === 'mobile') return 'mobile';
+  if (v === 'pc' || v === 'desktop') return 'pc';
+  return isMobileLike() ? 'mobile' : 'pc';
 }
 
 function buildContext(){
@@ -45,8 +59,8 @@ function showStartOverlay(metaText){
   const meta = document.getElementById('startMeta');
   if (meta) meta.textContent = metaText || '—';
   if (!overlay || !btn) return Promise.resolve();
-  overlay.style.display = 'flex';
 
+  overlay.style.display = 'flex';
   return new Promise((resolve) => {
     btn.onclick = () => {
       overlay.style.display = 'none';
@@ -60,7 +74,7 @@ function setHudMeta(text){
   if (el) el.textContent = text;
 }
 
-(function main(){
+(async function main(){
   const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
   const time = toInt(qp('time', '80'), 80);
   const run = toStr(qp('run', 'play'), 'play').toLowerCase();
@@ -70,41 +84,43 @@ function setHudMeta(text){
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
 
+  const hub = qp('hub', null);
+
+  const view = detectView();
+  document.body.dataset.view = view; // css: body[data-view="mobile"], etc.
+
   const ctx = buildContext();
+  if (hub) ctx.hub = hub;
 
-  // layout view: pc | mobile | cardboard (prep)
-  const view = toStr(qp('view', ''), '').toLowerCase() || (isMobileLike() ? 'mobile' : 'pc');
-  document.body.dataset.view = view;
-  document.body.classList.toggle('is-mobile', view === 'mobile');
+  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=${view}`);
 
-  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • ${view}`);
+  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • view=${view}`
+    + (seed ? ` • seed=${seed}` : '');
 
-  // touch/gyro -> world shift
+  // ✅ start overlay first (so click is a user gesture)
+  await showStartOverlay(metaText);
+
+  // ✅ attach touch/gyro AFTER start (iOS permission possible)
   attachTouchLook({
     crosshairEl: document.getElementById('gj-crosshair'),
     layerEl: document.getElementById('gj-layer'),
     aimY: 0.62,
-    maxShiftPx: (view === 'mobile') ? 190 : 170,
+    maxShiftPx: (view === 'cardboard') ? 210 : 170,
     ease: 0.12
   });
 
-  const metaText =
-    `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • ${view}` +
-    (seed ? ` • seed=${seed}` : '');
-
-  showStartOverlay(metaText).then(() => {
-    goodjunkBoot({
-      diff,
-      time,
-      run,
-      endPolicy,
-      challenge,
-      seed,
-      sessionId,
-      context: ctx,
-      layerEl: document.getElementById('gj-layer'),
-      shootEl: document.getElementById('btnShoot'),
-      safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
-    });
+  // boot engine
+  goodjunkBoot({
+    diff,
+    time,
+    run,
+    endPolicy,
+    challenge,
+    seed,
+    sessionId,
+    context: ctx,
+    layerEl: document.getElementById('gj-layer'),
+    shootEl: document.getElementById('btnShoot'),
+    safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
   });
 })();
