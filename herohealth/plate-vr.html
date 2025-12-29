@@ -1,10 +1,3 @@
-<!-- === /herohealth/plate-vr.html ===
-Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
-✅ Loads: particles.js + hha-compat-input + hha-cloud-logger + hha-hud
-✅ Works with: ./plate/plate.safe.js (IIFE)
-✅ Has #plate-layer (spawn host)
--->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -14,290 +7,332 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame -->
+  <!-- A-Frame (สำหรับปุ่ม Enter VR / Cardboard) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + input compat + logger + HUD binder -->
+  <!-- Global FX + Logger + HUD Binder (ถ้ามีในโปรเจกต์) -->
   <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
 
   <!-- UI CSS -->
-  <link rel="stylesheet" href="./plate/plate-vr.css" />
+  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251229" />
 
-  <!-- Plate engine -->
-  <script defer src="./plate/plate.safe.js"></script>
+  <!-- Plate SAFE (IIFE) -->
+  <script src="./plate/plate.safe.js?v=20251229" defer></script>
 </head>
 
 <body>
-  <!-- Cardboard wrapper (eyes) -->
-  <div id="cbWrap" aria-hidden="true">
-    <div class="eye" id="eyeL"><div class="eyeInner" id="eyeInnerL"></div></div>
-    <div class="eye" id="eyeR"><div class="eyeInner" id="eyeInnerR"></div></div>
+
+  <!-- A-Frame scene (อยู่ “หลังสุด”) -->
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: true"
+    renderer="antialias: true; alpha: true"
+    style="position:fixed; inset:0; z-index:0;"
+  >
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera wasd-controls-enabled="false" look-controls-enabled="true"></a-camera>
+    </a-entity>
+    <a-sky color="#020617"></a-sky>
+  </a-scene>
+
+  <!-- DOM play layer (เป้าเกิดที่นี่) -->
+  <div id="plate-layer" class="plate-layer" aria-label="Plate play layer"></div>
+
+  <!-- Hit FX overlay (plate.safe.js จะ pulse อันนี้) -->
+  <div id="hitFx" class="hha-hitfx" aria-hidden="true"></div>
+
+  <!-- HUD TOP (ใช้เป็น exclusion safe-zone ด้วย) -->
+  <div id="hudTop" class="hudTop">
+    <div class="hudRow">
+      <div class="hudPill">
+        <div class="hudLbl">⏱️</div>
+        <div class="hudVal" id="hudTime">90</div>
+      </div>
+
+      <div class="hudPill">
+        <div class="hudLbl">🏆</div>
+        <div class="hudVal" id="hudScore">0</div>
+      </div>
+
+      <div class="hudPill">
+        <div class="hudLbl">🔥</div>
+        <div class="hudVal" id="hudCombo">0</div>
+        <div class="hudSub">max <span id="hudComboMax">0</span></div>
+      </div>
+
+      <div class="hudPill danger">
+        <div class="hudLbl">❌</div>
+        <div class="hudVal" id="hudMiss">0</div>
+      </div>
+
+      <div class="hudPill plate">
+        <div class="hudLbl">🍽️</div>
+        <div class="hudVal"><span id="plateHave">0</span>/<span id="plateTotal">5</span></div>
+        <div class="hudSub">ครบ 5 หมู่</div>
+      </div>
+    </div>
+
+    <!-- Fever / Shield bar (เผื่อ HUD binder อัปเดต) -->
+    <div class="barRow">
+      <div class="barWrap">
+        <div class="barLbl">FEVER</div>
+        <div class="bar">
+          <div class="barFill" id="feverFill" style="width:0%"></div>
+        </div>
+        <div class="barTxt"><span id="feverVal">0</span>%</div>
+      </div>
+      <div class="shieldWrap">
+        <div class="shieldIcon" id="shieldIcon" title="Shield">🛡️</div>
+        <div class="shieldTxt" id="shieldTxt">0</div>
+      </div>
+    </div>
   </div>
-  <div id="cbDivider" aria-hidden="true"></div>
 
-  <div class="gazeRing" id="gazeL" aria-hidden="true"></div>
-  <div class="gazeRing" id="gazeR" aria-hidden="true"></div>
+  <!-- HUD Buttons (ใช้เป็น exclusion safe-zone ด้วย) -->
+  <div id="hudBtns" class="hudBtns">
+    <button id="btnPause" class="btn ghost" type="button">⏸️ พัก</button>
+    <button id="btnEnterVR" class="btn" type="button">🕶️ Enter VR</button>
+    <button id="btnRestart" class="btn warn" type="button">🔄 Restart</button>
+    <button id="btnBackHub" class="btn danger" type="button">🏠 HUB</button>
+  </div>
 
-  <!-- ===== MAIN APP (single view) ===== -->
-  <div id="plateApp">
-    <a-scene embedded vr-mode-ui="enabled: false">
-      <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
-    </a-scene>
+  <!-- Quest / Mini Panel (ใช้เป็น exclusion safe-zone ด้วย) -->
+  <div id="miniPanel" class="miniPanel">
+    <div class="qBlock">
+      <div class="qTitle">🎯 GOAL</div>
+      <div class="qMain" id="goalTitle">—</div>
+      <div class="qMeta"><span id="goalCount">0/0</span></div>
+    </div>
 
-    <!-- ✅ Spawn layer -->
-    <div id="plate-layer" aria-hidden="true"></div>
+    <div class="qBlock">
+      <div class="qTitle">⚡ MINI</div>
+      <div class="qMain" id="miniTitle">—</div>
+      <div class="qMeta">
+        <span id="miniCount">0/0</span>
+        <span class="dot">•</span>
+        <span id="miniTimer">00.0</span>
+      </div>
+      <div class="qHint" id="miniHint"> </div>
+    </div>
+  </div>
 
-    <div id="hitFx"></div>
-    <div id="crosshair" aria-hidden="true"></div>
+  <!-- Coach panel (ใช้เป็น exclusion safe-zone ด้วย) -->
+  <div id="coachPanel" class="coachPanel">
+    <img
+      id="coachImg"
+      class="coachImg"
+      src="./img/coach-neutral.png"
+      alt="Coach"
+      loading="lazy"
+    />
+    <div class="coachText" id="coachText">พร้อมแล้วกดเริ่มได้เลย 😊</div>
+  </div>
 
-    <!-- START overlay -->
-    <div id="startOverlay">
-      <div id="startCard">
-        <div id="startTitle">พร้อมเล่น Plate VR?</div>
-        <div id="startDesc">
-          แตะ “เริ่มเล่น” เพื่อเปิดเสียง/ขออนุญาต Motion (ถ้ามี) แล้วเริ่มเกมทันที<br>
-          * ถ้าไม่อนุญาต Motion ยังเล่นได้ (แตะยิง + ลากมุมมอง)
+  <!-- Paused badge -->
+  <div id="hudPaused" class="pausedBadge" style="display:none;">⏸️ PAUSED</div>
+
+  <!-- Start Overlay -->
+  <div id="startOverlay" class="startOverlay">
+    <div class="startCard">
+      <div class="startTitle">🍽️ Balanced Plate VR</div>
+      <div class="startSub">
+        เป้าหมาย: เก็บอาหารให้ครบ 5 หมู่ + ทำ Goal/Mini ให้ผ่าน<br/>
+        <span class="muted">Tip: ⭐ สะสม 2 ดวงเพื่อ OVERDRIVE x2</span>
+      </div>
+
+      <div class="startGrid">
+        <div class="startPill">
+          <div class="pillK">โหมด</div>
+          <div class="pillV"><span id="uiRunMode">play / research</span> (ใช้พารามิเตอร์ URL)</div>
         </div>
-        <div id="startBtns">
-          <button class="btn" id="btnStart">▶️ เริ่มเล่น</button>
+        <div class="startPill">
+          <div class="pillK">diff</div>
+          <div class="pillV"><span id="uiDiff">easy/normal/hard</span></div>
+        </div>
+        <div class="startPill">
+          <div class="pillK">time</div>
+          <div class="pillV"><span id="uiTime">30–600</span> วินาที</div>
+        </div>
+        <div class="startPill">
+          <div class="pillK">seed</div>
+          <div class="pillV"><span id="uiSeed">auto</span></div>
         </div>
       </div>
-    </div>
 
-    <!-- HUD -->
-    <div id="hudTop">
-      <div class="hudCard" style="flex:1">
-        <div id="hudLeftGroup">
-          <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
-          <span class="pill">🏆 <span class="k">SCORE</span> <span id="hudScore" class="v">0</span></span>
-          <span class="pill">⚡ <span class="k">COMBO</span> <span id="hudCombo" class="v">0</span></span>
-          <span class="pill">💥 <span class="k">MISS</span> <span id="hudMiss" class="v">0</span></span>
-          <span class="pill">🍽️ <span class="k">PLATE</span> <span id="hudGroupsHave" class="v">0/5</span></span>
+      <button id="btnStart" class="btnStart" type="button">🚀 เริ่มเล่น</button>
+
+      <div class="startFoot">
+        ตัวอย่าง URL:
+        <code>?run=play&diff=normal&time=70</code>
+        หรือ
+        <code>?run=research&diff=hard&time=70&seed=123</code>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Overlay -->
+  <div id="resultBackdrop" class="resultBackdrop" style="display:none;">
+    <div class="resultCard">
+      <div class="resultTop">
+        <div class="resultTitle">📊 สรุปผล</div>
+        <div class="resultBadge">
+          <span id="rMode">play</span>
+          <span class="sep">•</span>
+          Grade <b id="rGrade">C</b>
         </div>
       </div>
 
-      <div class="hudCard" style="flex:0 0 auto">
-        <div id="hudRightGroup">
-          <span class="pill">🔥 <span class="k">FEVER</span> <span id="hudFeverPct" class="v">0%</span></span>
-          <span class="pill">🎖️ <span class="k">GRADE</span> <span id="hudGrade" class="v">C</span></span>
+      <div class="resultGrid">
+        <div class="stat">
+          <div class="k">Score</div>
+          <div class="v" id="rScore">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">Max Combo</div>
+          <div class="v" id="rMaxCombo">0</div>
+        </div>
+        <div class="stat danger">
+          <div class="k">Miss</div>
+          <div class="v" id="rMiss">0</div>
+        </div>
+        <div class="stat">
+          <div class="k">Fast Hit</div>
+          <div class="v" id="rPerfect">0</div>
+        </div>
 
-          <span class="pill" style="display:none">⭐ <span class="k">PERF</span> <span id="hudPerfectCount" class="v">0</span></span>
-          <span class="pill" style="display:none">🧪 <span class="k">MODE</span> <span id="hudMode" class="v">Play</span></span>
-          <span class="pill" style="display:none">🎚️ <span class="k">DIFF</span> <span id="hudDiff" class="v">Normal</span></span>
+        <div class="stat wide">
+          <div class="k">Goals</div>
+          <div class="v"><span id="rGoals">0/0</span></div>
+        </div>
+        <div class="stat wide">
+          <div class="k">Minis</div>
+          <div class="v"><span id="rMinis">0/0</span></div>
+        </div>
+
+        <div class="plateBox">
+          <div class="plateHdr">🍽️ Plate (5 หมู่)</div>
+          <div class="plateRows">
+            <div class="row"><span>🥦 ผัก</span> <b id="rG1">0</b></div>
+            <div class="row"><span>🍎 ผลไม้</span> <b id="rG2">0</b></div>
+            <div class="row"><span>🍗 โปรตีน</span> <b id="rG3">0</b></div>
+            <div class="row"><span>🍚 แป้ง</span> <b id="rG4">0</b></div>
+            <div class="row"><span>🥑 ไขมัน</span> <b id="rG5">0</b></div>
+          </div>
+          <div class="plateSum">รวมทั้งหมด: <b id="rGTotal">0</b></div>
         </div>
       </div>
-    </div>
 
-    <div id="miniPanel">
-      <div id="miniLine">MINI: …</div>
-      <div id="goalLine">Goal: …</div>
-      <div id="miniHint">…</div>
-    </div>
+      <div class="resultBtns">
+        <button id="btnPlayAgain" class="btn" type="button">🔁 เล่นอีกครั้ง</button>
+        <button id="btnBackHub2" class="btn danger" type="button">🏠 กลับ HUB</button>
+      </div>
 
-    <!-- Coach -->
-    <div id="coachPanel">
-      <img id="coachImg" src="./img/coach-neutral.png" alt="Coach" />
-      <div id="coachMsg">พร้อมแล้ว! เก็บให้ครบ 5 หมู่ 💪</div>
-    </div>
-
-    <div id="hudBtns">
-      <button class="btn" id="btnCardboard">📦 CARDBOARD</button>
-      <button class="btn" id="btnEnterVR">🕶️ ENTER VR</button>
-      <button class="btn" id="btnPause">⏸️ PAUSE</button>
-      <button class="btn" id="btnRestart">🔁 RESTART</button>
-    </div>
-
-    <!-- big shoot + gaze (cardboard) -->
-    <div id="shootPad">
-      <button class="btn" id="btnShoot">🎯 SHOOT</button>
-      <button class="btn" id="btnGaze">👁️ GAZE</button>
-    </div>
-
-    <div id="hudPaused">⏸️ PAUSED</div>
-
-    <!-- Result -->
-    <div id="resultBackdrop">
-      <div id="resultCard">
-        <div style="font-weight:1100; font-size:20px">สรุปผลเกม (Plate VR)</div>
-        <div style="color:rgba(148,163,184,.95); font-weight:900; margin-top:6px">
-          Mode: <span id="rMode">—</span> • Grade: <span id="rGrade">—</span>
-        </div>
-
-        <div class="grid">
-          <div class="cell"><span class="k">Score</span><span id="rScore" class="v">0</span></div>
-          <div class="cell"><span class="k">Max Combo</span><span id="rMaxCombo" class="v">0</span></div>
-          <div class="cell"><span class="k">Miss</span><span id="rMiss" class="v">0</span></div>
-          <div class="cell"><span class="k">Perfect</span><span id="rPerfect" class="v">0</span></div>
-          <div class="cell"><span class="k">Goals</span><span id="rGoals" class="v">0/3</span></div>
-          <div class="cell"><span class="k">Minis</span><span id="rMinis" class="v">0/8</span></div>
-        </div>
-
-        <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">
-          <div class="cell"><span class="k">G1 ผัก</span><span id="rG1" class="v">0</span></div>
-          <div class="cell"><span class="k">G2 ผลไม้</span><span id="rG2" class="v">0</span></div>
-          <div class="cell"><span class="k">G3 โปรตีน</span><span id="rG3" class="v">0</span></div>
-          <div class="cell"><span class="k">G4 แป้ง</span><span id="rG4" class="v">0</span></div>
-          <div class="cell"><span class="k">G5 ไขมัน</span><span id="rG5" class="v">0</span></div>
-          <div class="cell"><span class="k">Total</span><span id="rGTotal" class="v">0</span></div>
-        </div>
-
-        <div id="resultActions">
-          <button class="btn" id="btnBackHub">🏠 กลับหน้า HUB</button>
-          <button class="btn" id="btnPlayAgain">▶️ เล่นอีกครั้ง</button>
-        </div>
+      <div class="resultNote muted">
+        * ระบบบันทึกผลล่าสุดไว้ใน <code>localStorage:HHA_LAST_SUMMARY</code>
       </div>
     </div>
-  </div><!-- /plateApp -->
+  </div>
 
+  <!-- Tiny glue: plate counter + quest/hud fallbacks (ปลอดภัย) -->
   <script>
-  (function(){
-    'use strict';
-    const D = document;
-
-    // ===============================
-    // Cardboard stereo: move #plateApp into left eye + clone to right
-    // ===============================
-    const btnCardboard = D.getElementById('btnCardboard');
-    const btnShoot = D.getElementById('btnShoot');
-    const btnGaze  = D.getElementById('btnGaze');
-
-    const plateApp = D.getElementById('plateApp');
-    const eyeInnerL = D.getElementById('eyeInnerL');
-    const eyeInnerR = D.getElementById('eyeInnerR');
-
-    let cardboardOn = false;
-    let gazeOn = false;
-
-    function suffixIds(rootEl, suf){
-      const all = rootEl.querySelectorAll('[id]');
-      for (const el of all){
-        el.id = el.id + suf;
-      }
-    }
-
-    function enableCardboard(){
-      if (cardboardOn) return;
-      cardboardOn = true;
-      D.body.classList.add('cardboard');
-
-      // move original app into left eye
-      eyeInnerL.appendChild(plateApp);
-
-      // clone to right eye
-      const clone = plateApp.cloneNode(true);
-      clone.id = 'plateApp_r';
-      suffixIds(clone, '_r');
-      eyeInnerR.appendChild(clone);
-    }
-
-    function disableCardboard(){
-      if (!cardboardOn) return;
-      cardboardOn = false;
-      gazeOn = false;
-      D.body.classList.remove('cardboard','gaze');
-      D.documentElement.style.setProperty('--gaze','0');
-
-      // move original app back to body
-      document.body.appendChild(plateApp);
-
-      // clear right eye
-      eyeInnerR.innerHTML = '';
-    }
-
-    btnCardboard.addEventListener('click', ()=>{
-      if (!cardboardOn) enableCardboard();
-      else disableCardboard();
+    // Plate counter (0/5) live
+    window.addEventListener('hha:plate', (e) => {
+      try {
+        const d = (e && e.detail) || {};
+        const have = (d.have ?? 0) | 0;
+        const total = (d.total ?? 5) | 0;
+        const a = document.getElementById('plateHave');
+        const b = document.getElementById('plateTotal');
+        if (a) a.textContent = have;
+        if (b) b.textContent = total;
+      } catch {}
     });
 
-    // ===============================
-    // SHOOT: click nearest target around center of LEFT EYE
-    // ===============================
-    const TARGET_SEL = [
-      '.pl-target',        // ✅ Plate targets
-      '.plate-target',
-      '.hha-target',
-      '.hvr-target',
-      '[data-target]',
-      '[data-kind]',
-      '.target'
-    ].join(',');
+    // Quest panel minimal binder (ถ้า hha-hud.js ไม่ได้ผูก)
+    window.addEventListener('quest:update', (e) => {
+      try {
+        const d = (e && e.detail) || {};
+        const gt = document.getElementById('goalTitle');
+        const gc = document.getElementById('goalCount');
+        const mt = document.getElementById('miniTitle');
+        const mc = document.getElementById('miniCount');
+        const tm = document.getElementById('miniTimer');
+        const hint = document.getElementById('miniHint');
 
-    function shootAtCenter(){
-      const host = cardboardOn ? eyeInnerL : document;
-      const targets = host.querySelectorAll(TARGET_SEL);
-      if (!targets || !targets.length) return;
+        if (gt) gt.textContent = d.goalTitle || '—';
+        if (gc) gc.textContent = ((d.goalNow|0) + '/' + (d.goalTotal|0));
+        if (mt) mt.textContent = d.miniTitle || '—';
+        if (mc) mc.textContent = ((d.miniNow|0) + '/' + (d.miniTotal|0));
 
-      const eyeRect = cardboardOn
-        ? document.getElementById('eyeL').getBoundingClientRect()
-        : { left:0, top:0, width:innerWidth, height:innerHeight };
+        const left = (d.miniLeftMs|0);
+        if (tm) tm.textContent = left ? (Math.max(0,left)/1000).toFixed(1) : '—';
+        if (hint) hint.textContent = (d.extra && d.extra.hint) ? d.extra.hint : '';
+      } catch {}
+    });
 
-      const cx = eyeRect.left + eyeRect.width/2;
-      const cy = eyeRect.top + eyeRect.height/2;
+    // Score/time minimal binder (ถ้า hha-hud.js ไม่ได้ผูก)
+    window.addEventListener('hha:score', (e) => {
+      try {
+        const d = (e && e.detail) || {};
+        const s = document.getElementById('hudScore');
+        const c = document.getElementById('hudCombo');
+        const m = document.getElementById('hudComboMax');
+        const x = document.getElementById('hudMiss');
+        if (s) s.textContent = (d.score|0);
+        if (c) c.textContent = (d.combo|0);
+        if (m) m.textContent = (d.comboMax|0);
+        if (x) x.textContent = (d.misses|0);
+      } catch {}
+    });
+    window.addEventListener('hha:time', (e) => {
+      try {
+        const d = (e && e.detail) || {};
+        const t = document.getElementById('hudTime');
+        if (t) t.textContent = (d.left|0);
+      } catch {}
+    });
+    window.addEventListener('hha:coach', (e) => {
+      try {
+        const d = (e && e.detail) || {};
+        const img = document.getElementById('coachImg');
+        const txt = document.getElementById('coachText');
+        if (txt && d.text) txt.textContent = d.text;
 
-      let best=null, bestD=1e18, bestRect=null;
-
-      for (const t of targets){
-        const r = t.getBoundingClientRect();
-        if (r.width <= 0 || r.height <= 0) continue;
-        const tx = r.left + r.width/2;
-        const ty = r.top + r.height/2;
-        const dx = tx - cx, dy = ty - cy;
-        const d2 = dx*dx + dy*dy;
-        if (d2 < bestD){ bestD = d2; best = t; bestRect = r; }
-      }
-
-      if (!best) return;
-
-      const thr = Math.max(28, (bestRect ? bestRect.width * 0.65 : 44));
-      if (bestD > thr*thr) return;
-
-      try{
-        best.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerId: 1 }));
-      }catch{
-        try{ best.click(); }catch{}
-      }
-    }
-
-    btnShoot.addEventListener('click', ()=> shootAtCenter());
-
-    // ===============================
-    // GAZE dwell: 0.62s
-    // ===============================
-    function setGazeFill(v){
-      v = Math.max(0, Math.min(1, v));
-      D.documentElement.style.setProperty('--gaze', String(v));
-    }
-    let gazeFill=0, last=0;
-    function gazeLoop(t){
-      const dt = Math.min(0.05, Math.max(0.001, (t - (last||t))/1000));
-      last = t;
-
-      if (cardboardOn && gazeOn){
-        const dwell = 0.62;
-        gazeFill += dt / dwell;
-        if (gazeFill >= 1){
-          gazeFill = 0;
-          shootAtCenter();
+        if (img && d.mood) {
+          const mood = String(d.mood);
+          const map = {
+            happy: './img/coach-happy.png',
+            sad: './img/coach-sad.png',
+            fever: './img/coach-fever.png',
+            neutral: './img/coach-neutral.png'
+          };
+          img.src = map[mood] || map.neutral;
         }
-        setGazeFill(gazeFill);
-      } else {
-        gazeFill = 0;
-        setGazeFill(0);
-      }
-      requestAnimationFrame(gazeLoop);
-    }
-    requestAnimationFrame(gazeLoop);
-
-    btnGaze.addEventListener('click', ()=>{
-      if (!cardboardOn) enableCardboard();
-      gazeOn = !gazeOn;
-      D.body.classList.toggle('gaze', gazeOn);
+      } catch {}
+    });
+    window.addEventListener('hha:fever', (e) => {
+      try {
+        const d = (e && e.detail) || {};
+        const v = Math.max(0, Math.min(100, (d.fever|0)));
+        const fill = document.getElementById('feverFill');
+        const val = document.getElementById('feverVal');
+        const shieldTxt = document.getElementById('shieldTxt');
+        if (fill) fill.style.width = v + '%';
+        if (val) val.textContent = v;
+        if (shieldTxt) shieldTxt.textContent = (d.shield|0);
+      } catch {}
     });
 
-  })();
+    // Result "Back HUB" button inside overlay
+    document.addEventListener('click', (ev) => {
+      const id = ev && ev.target && ev.target.id;
+      if (id === 'btnBackHub2') {
+        try { (window.PlateBoot && PlateBoot.goHub) ? PlateBoot.goHub() : (location.href = './hub.html'); } catch {}
+      }
+    });
   </script>
+
 </body>
 </html>
