@@ -1,16 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard + VR button
-// Params:
-//  - diff=easy|normal|hard
-//  - time=80
-//  - run=play|research
-//  - end=time|all
-//  - challenge=rush|boss|survival
-//  - hub=../hub.html
-//  - seed=...
-//  - sessionId=...
-//  - log=<GAS_WEBAPP_URL>
-
+// GoodJunkVR Boot — HHA Standard (PRODUCTION)
+// ✅ Start overlay: 2D / VR(Cardboard Stereo)
+// ✅ attaches touch+gyro look
+// ✅ passes stereo flag into safe engine
 'use strict';
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
@@ -44,56 +36,50 @@ function buildContext(){
   return ctx;
 }
 
-function showStartOverlay(metaText){
-  const overlay = document.getElementById('startOverlay');
-  const btn = document.getElementById('btnStart');
-  const meta = document.getElementById('startMeta');
-  if (meta) meta.textContent = metaText || '—';
-  if (!overlay || !btn) return Promise.resolve();
-
-  overlay.style.display = 'flex';
-  return new Promise((resolve) => {
-    btn.onclick = () => {
-      overlay.style.display = 'none';
-      resolve();
-    };
-  });
-}
-
 function setHudMeta(text){
   const el = document.getElementById('hudMeta');
   if (el) el.textContent = text;
 }
 
-function setupVRButton(){
-  const btn = document.getElementById('btnEnterVR');
-  const scene = document.getElementById('gj-xr'); // a-scene
-  if (!btn) return;
+async function enterFullscreenBestEffort(){
+  try{
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen){
+      await document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(()=>{});
+    }
+  }catch(_){}
+  try{
+    if (screen && screen.orientation && screen.orientation.lock){
+      await screen.orientation.lock('landscape').catch(()=>{});
+    }
+  }catch(_){}
+}
 
-  // if no scene, disable
-  if (!scene || typeof scene.enterVR !== 'function'){
-    btn.disabled = true;
-    btn.textContent = 'VR ไม่พร้อม';
-    return;
-  }
+function showStartOverlay(metaText){
+  const overlay = document.getElementById('startOverlay');
+  const meta = document.getElementById('startMeta');
+  const btn2D = document.getElementById('btnStart2D');
+  const btnVR = document.getElementById('btnStartVR');
 
-  // enter/exit events
-  scene.addEventListener('enter-vr', () => {
-    document.body.classList.add('is-vr');
-  });
-  scene.addEventListener('exit-vr', () => {
-    document.body.classList.remove('is-vr');
-  });
+  if (meta) meta.textContent = metaText || '—';
+  if (!overlay || !btn2D || !btnVR) return Promise.resolve({ stereo:false });
 
-  btn.addEventListener('click', async () => {
-    try{
-      // Some browsers require user gesture; this is a gesture.
-      scene.enterVR();
-    }catch(_){}
+  overlay.style.display = 'flex';
+
+  return new Promise((resolve)=>{
+    btn2D.onclick = () => {
+      overlay.style.display = 'none';
+      resolve({ stereo:false });
+    };
+    btnVR.onclick = async () => {
+      document.body.classList.add('gj-vr', 'gj-stereo-on');
+      await enterFullscreenBestEffort();
+      overlay.style.display = 'none';
+      resolve({ stereo:true });
+    };
   });
 }
 
-(async function main(){
+(function main(){
   const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
   const time = toInt(qp('time', '80'), 80);
   const run = toStr(qp('run', 'play'), 'play').toLowerCase();
@@ -102,64 +88,61 @@ function setupVRButton(){
 
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
+  const hub = qp('hub', null);
 
   const ctx = buildContext();
-
-  setupVRButton();
-
   setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge}`);
-
-  // base feel
-  const baseAimY = 0.62;
-
-  // touch/gyro -> world shift (moves ONLY layer)
-  const touch = attachTouchLook({
-    crosshairEl: document.getElementById('gj-crosshair'),
-    layerEl: document.getElementById('gj-layer'),
-    aimY: baseAimY,
-    maxShiftPx: 170,
-    ease: 0.12
-  });
-
-  // If user enters VR, reduce shift + lift aim feel
-  const scene = document.getElementById('gj-xr');
-  if (scene){
-    scene.addEventListener('enter-vr', () => {
-      // VR: less translation (avoid nausea)
-      try{
-        touch.setShift(0, 0);
-      }catch(_){}
-    });
-  }
 
   const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}`
     + (seed ? ` • seed=${seed}` : '');
 
-  await showStartOverlay(metaText);
-
-  // Decide runtime aim + margins (VR vs normal)
-  const isVRNow = document.body.classList.contains('is-vr');
-
-  // In VR, crosshair is lifted by CSS; we also bias spawn to that aimY
-  const aimY = isVRNow ? 0.54 : 0.58; // game-feel aim (spawn bias), not crosshair css
-
-  const safeMargins = isVRNow
-    ? { top: 112, bottom: 140, left: 24, right: 24 }
-    : { top: 128, bottom: 170, left: 26, right: 26 };
-
-  // boot engine
-  goodjunkBoot({
-    diff,
-    time,
-    run,
-    endPolicy,
-    challenge,
-    seed,
-    sessionId,
-    context: ctx,
+  // touch/gyro look (attach once)
+  const look = attachTouchLook({
+    crosshairEl: document.getElementById('gj-crosshair'),
     layerEl: document.getElementById('gj-layer'),
-    shootEl: document.getElementById('btnShoot'),
-    safeMargins,
-    aimY
+    stereo: false,
+    // aim point default (2D)
+    aimY: 0.62,
+    maxShiftPx: 170,
+    ease: 0.12
+  });
+
+  // start overlay decision (2D / VR stereo)
+  showStartOverlay(metaText).then(({ stereo })=>{
+    // upgrade look for stereo if needed
+    if (stereo){
+      // re-attach with stereo targets
+      look?.destroy?.();
+      attachTouchLook({
+        stereo: true,
+        eyeWrapL: document.getElementById('gj-eyeL'),
+        eyeWrapR: document.getElementById('gj-eyeR'),
+        aimY: 0.52,           // ✅ VR ยกขึ้น (แก้ “เป้าต่ำไป”)
+        maxShiftPx: 150,
+        parallaxPx: 12,
+        ease: 0.10
+      });
+    }
+
+    goodjunkBoot({
+      diff,
+      time,
+      run,
+      endPolicy,
+      challenge,
+      seed,
+      sessionId,
+      hub,
+      context: ctx,
+
+      stereo: !!stereo,
+
+      layerEl: document.getElementById('gj-layer'),
+      layerL: document.getElementById('gj-layerL'),
+      layerR: document.getElementById('gj-layerR'),
+
+      shootEl: document.getElementById('btnShoot'),
+      safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
+    });
   });
 })();
