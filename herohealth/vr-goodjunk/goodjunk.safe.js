@@ -6,15 +6,14 @@ const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
 function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 function now(){ return (ROOT.performance && performance.now) ? performance.now() : Date.now(); }
-
 function emit(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
 }
-
 function qs(name, def){
   try{ return (new URL(ROOT.location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
 }
 
+// ---- seeded RNG ----
 function xmur3(str){
   str = String(str || '');
   let h = 1779033703 ^ str.length;
@@ -58,42 +57,6 @@ function isLandscape(){
   return (ROOT.innerWidth||0) > (ROOT.innerHeight||0);
 }
 
-// optional modules (best effort)
-const Particles =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-  ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
-
-const FeverUI =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
-  ROOT.FeverUI || { set(){}, get(){ return { value:0, state:'low', shield:0 }; }, setShield(){} };
-
-async function flushLogger(reason){
-  emit('hha:flush', { reason: String(reason||'flush') });
-  const fns = [];
-  try{ if (ROOT.HHA_CLOUD_LOGGER && typeof ROOT.HHA_CLOUD_LOGGER.flush === 'function') fns.push(ROOT.HHA_CLOUD_LOGGER.flush.bind(ROOT.HHA_CLOUD_LOGGER)); }catch(_){}
-  try{ if (ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.flush === 'function') fns.push(ROOT.HHACloudLogger.flush.bind(ROOT.HHACloudLogger)); }catch(_){}
-  try{ if (ROOT.GAME_MODULES && ROOT.GAME_MODULES.CloudLogger && typeof ROOT.GAME_MODULES.CloudLogger.flush === 'function') fns.push(ROOT.GAME_MODULES.CloudLogger.flush.bind(ROOT.GAME_MODULES.CloudLogger)); }catch(_){}
-  try{ if (typeof ROOT.hhaFlush === 'function') fns.push(ROOT.hhaFlush.bind(ROOT)); }catch(_){}
-
-  const tasks = fns.map(fn=>{
-    try{
-      const r = fn({ reason:String(reason||'flush') });
-      return (r && typeof r.then === 'function') ? r : Promise.resolve();
-    }catch(_){ return Promise.resolve(); }
-  });
-
-  await Promise.race([
-    Promise.all(tasks),
-    new Promise(res=>setTimeout(res, 260))
-  ]);
-}
-
-function logEvent(type, data){
-  emit('hha:log_event', { type, data: data || {} });
-  try{ if (typeof ROOT.hhaLogEvent === 'function') ROOT.hhaLogEvent(type, data||{}); }catch(_){}
-}
-
-// -------------------- UI helpers --------------------
 function rankFromAcc(acc){
   if (acc >= 95) return 'SSS';
   if (acc >= 90) return 'SS';
@@ -110,7 +73,34 @@ function diffBase(diff){
   return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
 }
 
-// -------------------- CSS injection (กัน "เป้าไม่โผล่") --------------------
+// optional modules
+const Particles =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+  ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
+
+const FeverUI =
+  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
+  ROOT.FeverUI || { set(){}, get(){ return { value:0, state:'low', shield:0 }; }, setShield(){} };
+
+async function flushLogger(reason){
+  emit('hha:flush', { reason: String(reason||'flush') });
+  const fns = [];
+  try{ if (ROOT.HHA_CLOUD_LOGGER && typeof ROOT.HHA_CLOUD_LOGGER.flush === 'function') fns.push(ROOT.HHA_CLOUD_LOGGER.flush.bind(ROOT.HHA_CLOUD_LOGGER)); }catch(_){}
+  const tasks = fns.map(fn=>{
+    try{
+      const r = fn({ reason:String(reason||'flush') });
+      return (r && typeof r.then === 'function') ? r : Promise.resolve();
+    }catch(_){ return Promise.resolve(); }
+  });
+  await Promise.race([ Promise.all(tasks), new Promise(res=>setTimeout(res, 260)) ]);
+}
+
+function logEvent(type, data){
+  emit('hha:log_event', { type, data: data || {} });
+  try{ if (ROOT.HHA_CLOUD_LOGGER && typeof ROOT.HHA_CLOUD_LOGGER.logEvent === 'function') ROOT.HHA_CLOUD_LOGGER.logEvent(type, data||{}); }catch(_){}
+}
+
+// -------------------- CSS injection (targets) --------------------
 function ensureTargetStyles(){
   const DOC = ROOT.document;
   if (!DOC || DOC.getElementById('gj-safe-style')) return;
@@ -118,9 +108,6 @@ function ensureTargetStyles(){
   const st = DOC.createElement('style');
   st.id = 'gj-safe-style';
   st.textContent = `
-    #gj-stage{ position:fixed; inset:0; overflow:hidden; }
-    #gj-layer{ position:absolute; inset:0; z-index:30; pointer-events:none; touch-action:none; }
-
     .gj-target{
       position:absolute;
       left: var(--x, 50vw);
@@ -144,9 +131,8 @@ function ensureTargetStyles(){
       50%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(-6px); }
       100%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(0px); }
     }
-
     .gj-target.good{ border-color: rgba(34,197,94,.28); }
-    .gj-target.junk{ border-color: rgba(239,68,68,.30); filter: saturate(1.15); }
+    .gj-target.junk{ border-color: rgba(239,68,68,.30); filter:saturate(1.15); }
     .gj-target.star{ border-color: rgba(34,211,238,.32); }
     .gj-target.shield{ border-color: rgba(168,85,247,.32); }
 
@@ -164,7 +150,7 @@ function ensureTargetStyles(){
   DOC.head.appendChild(st);
 }
 
-// -------------------- spawn rect avoid HUD --------------------
+// avoid HUD areas
 function buildAvoidRects(){
   const DOC = ROOT.document;
   const rects = [];
@@ -188,27 +174,25 @@ function buildAvoidRects(){
   }
   return rects;
 }
-function pointInRect(x, y, r){
-  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-}
+function pointInRect(x, y, r){ return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }
 
 function randPos(rng, safeMargins){
   const W = ROOT.innerWidth || 360;
   const H = ROOT.innerHeight || 640;
 
-  // fallback margins if not provided
   const land = isLandscape();
   let top    = safeMargins?.top    ?? (land ? 86 : 120);
   let bottom = safeMargins?.bottom ?? (land ? 130 : 170);
   let left   = safeMargins?.left   ?? 22;
   let right  = safeMargins?.right  ?? 22;
 
-  // relax if too tight
   if ((W - left - right) < 180){ left = 12; right = 12; }
-  if ((H - top - bottom) < 220){ top = Math.max(52, top - 34); bottom = Math.max(84, bottom - 34); }
+  if ((H - top - bottom) < 220){
+    top = Math.max(52, top - 34);
+    bottom = Math.max(84, bottom - 34);
+  }
 
   const avoid = buildAvoidRects();
-
   for (let i=0;i<22;i++){
     const x = left + rng() * (W - left - right);
     const y = top + rng() * (H - top - bottom);
@@ -227,12 +211,6 @@ function randPos(rng, safeMargins){
   };
 }
 
-// -------------------- engine --------------------
-const GOOD  = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
-const JUNK  = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
-const STARS = ['⭐','💎'];
-const SHIELD = '🛡️';
-
 function setXY(el, x, y){
   const px = x.toFixed(1) + 'px';
   const py = y.toFixed(1) + 'px';
@@ -241,9 +219,11 @@ function setXY(el, x, y){
   el.style.left = px;
   el.style.top  = py;
 }
+
 function countTargets(layerEl){
   try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
 }
+
 function getCrosshairCenter(crosshairEl){
   if (!crosshairEl){
     return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
@@ -255,10 +235,12 @@ function getCrosshairCenter(crosshairEl){
     return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
   }
 }
+
 function dist2(ax, ay, bx, by){
   const dx=ax-bx, dy=ay-by;
   return dx*dx + dy*dy;
 }
+
 function findTargetNear(layerEl, cx, cy, radiusPx){
   const r2max = radiusPx * radiusPx;
   const list = layerEl.querySelectorAll('.gj-target');
@@ -281,6 +263,20 @@ function findTargetNear(layerEl, cx, cy, radiusPx){
 function updateFever(shield, fever){
   try{ FeverUI.set({ value: clamp(fever,0,100), shield: clamp(shield,0,9) }); }catch(_){}
   try{ if (typeof FeverUI.setShield === 'function') FeverUI.setShield(clamp(shield,0,9)); }catch(_){}
+}
+
+function fxPulse(cls, ms=140){
+  try{
+    ROOT.document.body.classList.add(cls);
+    setTimeout(()=>{ try{ ROOT.document.body.classList.remove(cls); }catch(_){ } }, ms);
+  }catch(_){}
+}
+function fxShake(){
+  try{
+    const b = ROOT.document.body;
+    b.classList.add('hha-shake');
+    setTimeout(()=>{ try{ b.classList.remove('hha-shake'); }catch(_){ } }, 220);
+  }catch(_){}
 }
 
 function makeSummary(S, reason){
@@ -321,21 +317,12 @@ async function flushAll(summary, reason){
   await flushLogger(reason || (summary?.reason) || 'flush');
 }
 
-function fxPulse(cls, ms=140){
-  try{
-    ROOT.document.body.classList.add(cls);
-    setTimeout(()=>{ try{ ROOT.document.body.classList.remove(cls); }catch(_){ } }, ms);
-  }catch(_){}
-}
-function fxShake(){
-  try{
-    const b = ROOT.document.body;
-    b.classList.add('hha-shake');
-    setTimeout(()=>{ try{ b.classList.remove('hha-shake'); }catch(_){ } }, 220);
-  }catch(_){}
-}
+// -------------------- Game boot --------------------
+const GOOD  = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
+const JUNK  = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
+const STARS = ['⭐','💎'];
+const SHIELD = '🛡️';
 
-// -------------------- exported boot --------------------
 export function boot(opts = {}){
   const DOC = ROOT.document;
   if (!DOC) return;
@@ -351,7 +338,6 @@ export function boot(opts = {}){
     return;
   }
 
-  // ✅ margins: if boot passes, use it. else auto by orientation
   const safeMargins = opts.safeMargins || {
     top: isLandscape() ? 86 : 128,
     bottom: isLandscape() ? 130 : 170,
@@ -373,6 +359,8 @@ export function boot(opts = {}){
   const seed = String(seedIn || (sessionId ? (sessionId + '|' + ts) : ts));
 
   const ctx = opts.context || {};
+
+  const base = diffBase(diff);
 
   const S = {
     running:false,
@@ -408,27 +396,17 @@ export function boot(opts = {}){
     spawnTimer: 0,
     tickTimer: 0,
 
-    spawnMs: 900,
-    ttlMs: 2000,
-    size: 1.0,
-    junkP: 0.15,
-    powerP: 0.03,
-    maxTargets: 8
+    spawnMs: base.spawnMs,
+    ttlMs: base.ttlMs,
+    size: base.size,
+    junkP: base.junk,
+    powerP: base.power,
+    maxTargets: base.maxT
   };
-
-  const base = diffBase(diff);
-  S.spawnMs = base.spawnMs;
-  S.ttlMs = base.ttlMs;
-  S.size = base.size;
-  S.junkP = base.junk;
-  S.powerP = base.power;
-  S.maxTargets = base.maxT;
 
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
     S.size = Math.min(1.12, S.size + 0.03);
-    safeMargins.left = Math.max(18, safeMargins.left);
-    safeMargins.right = Math.max(18, safeMargins.right);
   }
 
   function coach(mood, text, sub){
@@ -463,6 +441,16 @@ export function boot(opts = {}){
     try{ clearTimeout(S.spawnTimer); }catch(_){}
     try{ clearTimeout(S.tickTimer); }catch(_){}
   }
+  function clearAllTargets(){
+    try{
+      const list = layerEl.querySelectorAll('.gj-target');
+      list.forEach(el=>{
+        try{ clearTimeout(el._ttl); }catch(_){}
+        try{ el.remove(); }catch(_){}
+      });
+    }catch(_){}
+  }
+
   function removeTarget(el){
     try{ clearTimeout(el._ttl); }catch(_){}
     el.classList.add('hit');
@@ -494,11 +482,6 @@ export function boot(opts = {}){
     el.className = `gj-target ${type}`;
     el.dataset.type = type;
     el.dataset.emoji = String(emoji||'✨');
-
-    el.style.position = 'absolute';
-    el.style.pointerEvents = 'auto';
-    el.style.zIndex = '30';
-
     setXY(el, x, y);
     el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
     el.textContent = String(emoji||'✨');
@@ -663,16 +646,14 @@ export function boot(opts = {}){
     if (countTargets(layerEl) >= S.maxTargets) return;
 
     const p = randPos(S.rng, safeMargins);
-
     const t = now();
     const inWarm = (t < S.warmupUntil);
-
-    let tp = 'good';
-    const r = S.rng();
 
     const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
     const junkP  = inWarm ? (S.junkP * 0.55) : S.junkP;
 
+    let tp = 'good';
+    const r = S.rng();
     if (r < powerP) tp = 'shield';
     else if (r < powerP + 0.035) tp = 'star';
     else if (r < powerP + 0.035 + junkP) tp = 'junk';
@@ -680,10 +661,10 @@ export function boot(opts = {}){
 
     const size = (inWarm ? (S.size * 1.06) : S.size);
 
-    if (tp === 'good')   return void layerEl.appendChild(makeTarget('good',   pick(S.rng, GOOD),  p.x, p.y, size));
-    if (tp === 'junk')   return void layerEl.appendChild(makeTarget('junk',   pick(S.rng, JUNK),  p.x, p.y, size * 0.98));
-    if (tp === 'shield') return void layerEl.appendChild(makeTarget('shield', SHIELD,             p.x, p.y, size * 1.03));
-    if (tp === 'star')   return void layerEl.appendChild(makeTarget('star',   pick(S.rng, STARS), p.x, p.y, size * 1.02));
+    if (tp === 'good')   layerEl.appendChild(makeTarget('good',   pick(S.rng, GOOD),  p.x, p.y, size));
+    if (tp === 'junk')   layerEl.appendChild(makeTarget('junk',   pick(S.rng, JUNK),  p.x, p.y, size * 0.98));
+    if (tp === 'shield') layerEl.appendChild(makeTarget('shield', SHIELD,             p.x, p.y, size * 1.03));
+    if (tp === 'star')   layerEl.appendChild(makeTarget('star',   pick(S.rng, STARS), p.x, p.y, size * 1.02));
   }
 
   function loopSpawn(){
@@ -692,7 +673,6 @@ export function boot(opts = {}){
 
     const t = now();
     const inWarm = (t < S.warmupUntil);
-
     let nextMs = S.spawnMs;
     if (inWarm) nextMs = Math.max(980, S.spawnMs + 240);
 
@@ -725,9 +705,8 @@ export function boot(opts = {}){
       S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
       S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
 
-      const maxBase = base.maxT;
       const maxBonus = Math.round(heat * 4);
-      S.maxTargets = clamp(maxBase + maxBonus, 5, isMobileLike() ? 11 : 13);
+      S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
 
       if (S.fever >= 70){
         S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
@@ -768,9 +747,7 @@ export function boot(opts = {}){
         e.preventDefault?.();
         shootAtCrosshair();
       });
-      shootEl.addEventListener('pointerdown', (e)=>{
-        e.preventDefault?.();
-      }, { passive:false });
+      shootEl.addEventListener('pointerdown', (e)=> e.preventDefault?.(), { passive:false });
     }
 
     DOC.addEventListener('keydown', (e)=>{
@@ -780,14 +757,6 @@ export function boot(opts = {}){
         shootAtCrosshair();
       }
     });
-
-    const stage = DOC.getElementById('gj-stage');
-    if (stage){
-      stage.addEventListener('click', ()=>{
-        if (isMobileLike()) return;
-        shootAtCrosshair();
-      });
-    }
   }
 
   function bindFlushHard(){
@@ -800,16 +769,6 @@ export function boot(opts = {}){
         try{ flushAll(makeSummary(S, 'hidden'), 'hidden'); }catch(_){}
       }
     }, { passive:true });
-  }
-
-  function clearAllTargets(){
-    try{
-      const list = layerEl.querySelectorAll('.gj-target');
-      list.forEach(el=>{
-        try{ clearTimeout(el._ttl); }catch(_){}
-        try{ el.remove(); }catch(_){}
-      });
-    }catch(_){}
   }
 
   async function endGame(reason){
@@ -861,7 +820,7 @@ export function boot(opts = {}){
     S.warmupUntil = now() + 3000;
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
+    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / แตะเป้าก็ได้');
     updateScore();
     updateTime();
     updateQuest();
