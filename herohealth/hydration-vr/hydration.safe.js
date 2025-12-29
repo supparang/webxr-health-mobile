@@ -6,7 +6,7 @@
 // ✅ PATCH 10: Boss mini (ท้าย Storm) ต้อง BLOCK boss-bad >= bossNeed
 // ✅ PATCH 11: deterministic storm schedule (no frame-window race)
 // ✅ PATCH 12: input throttle + sanity (เร็วขึ้น/แม่นขึ้น/กัน spam)
-// ✅ PATCH 13: Cardboard spawn to L/R layers (fix "เข้า cardboard ไม่เห็นอะไร")
+// ✅ PATCH 14: Cardboard dual-layer spawn + robust center shoot (fix "เข้า cardboard ไม่เห็นอะไร")
 
 'use strict';
 
@@ -24,12 +24,6 @@ function qs(name, def){
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
 }
-
-// FX module (best-effort)
-const Particles =
-  (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
-  ROOT.Particles ||
-  { scorePop(){}, burstAt(){}, celebrate(){} };
 
 // seeded RNG (deterministic for research)
 function hashStr(s){
@@ -65,14 +59,15 @@ const rng = makeRng(seed);
 const logEndpoint = String(qs('log','') || '');
 
 // ------------------ DOM bind ------------------
-const playfield = DOC.getElementById('playfield');
+const body = DOC.body;
 
+const playfield = DOC.getElementById('playfield');
 const layerMain = DOC.getElementById('hvr-layer');
-const layerL = DOC.getElementById('hvr-layerL');
-const layerR = DOC.getElementById('hvr-layerR');
 
 const cbPlayfieldL = DOC.getElementById('cbPlayfieldL');
 const cbPlayfieldR = DOC.getElementById('cbPlayfieldR');
+const layerL = DOC.getElementById('hvr-layerL');
+const layerR = DOC.getElementById('hvr-layerR');
 
 const elScore = DOC.getElementById('stat-score');
 const elCombo = DOC.getElementById('stat-combo');
@@ -90,20 +85,14 @@ const elStormLeft = DOC.getElementById('storm-left');
 const elShieldCount = DOC.getElementById('shield-count');
 
 function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
-
-function isCardboard(){
-  try{ return DOC.body && DOC.body.classList.contains('cardboard'); }catch{ return false; }
-}
+function isCardboard(){ return !!(body && body.classList && body.classList.contains('cardboard')); }
 function getLayers(){
-  if (!isCardboard()) return { mode:'main', main: layerMain };
-  return { mode:'cb', left: layerL, right: layerR };
-}
-function getSpawnRect(){
-  // IMPORTANT: ใน Cardboard stage ถูกซ่อน แต่ cbPlayfield คือพื้นที่ที่เห็นจริง
-  if (isCardboard() && cbPlayfieldL){
-    return cbPlayfieldL.getBoundingClientRect();
-  }
-  return playfield ? playfield.getBoundingClientRect() : null;
+  return {
+    mode: isCardboard() ? 'cb' : 'main',
+    main: layerMain,
+    left: layerL,
+    right: layerR
+  };
 }
 
 // inject target styles (so targets always visible)
@@ -176,6 +165,10 @@ const S = {
   comboMax:0,
   misses:0,
 
+  // streak (แยกจาก combo) -> นับเฉพาะ "good hit ตอนอยู่ GREEN"
+  streak:0,
+  streakMax:0,
+
   nGoodSpawn:0,
   nBadSpawn:0,
   nShieldSpawn:0,
@@ -202,6 +195,15 @@ const S = {
   endWindowSec: 1.2,
   inEndWindow:false,
 
+  // storm success tracking
+  stormMiniSuccess: 0,   // count of storms where mini+b oss passed (see logic)
+
+  // drift (ส่งให้ HTML ทำ camera drift)
+  driftX: 0,
+  driftY: 0,
+  driftRot: 0,
+  driftT: 0,
+
   // ----- mini conditions (storm mini) -----
   miniCleared:0,
   miniTotal: 999,
@@ -226,7 +228,7 @@ const S = {
   adaptK: 0.0
 };
 
-// difficulty tuning (faster + tighter)
+// difficulty tuning
 const TUNE = (() => {
   const sizeBase =
     diff === 'easy' ? 78 :
@@ -263,18 +265,19 @@ const TUNE = (() => {
     stormDurSec: stormDur,
     endWindowSec: 1.2,
 
-    // storm spawn faster
     stormSpawnMul: diff==='hard' ? 0.56 : 0.64,
 
-    // water dynamics
     nudgeToMid: 5.0,
     badPush:    8.0,
     missPenalty: 1,
 
     greenTargetSec: g,
 
-    // PATCH 10
-    bossWindowSec: diff==='hard' ? 2.4 : 2.2
+    bossWindowSec: diff==='hard' ? 2.4 : 2.2,
+
+    // drift tuning
+    driftMaxPx: diff==='hard' ? 26 : 20,
+    driftMaxRot: diff==='hard' ? 6 : 4.5
   };
 })();
 
@@ -282,8 +285,9 @@ S.greenTarget = TUNE.greenTargetSec;
 S.endWindowSec = TUNE.endWindowSec;
 S.stormDur = TUNE.stormDurSec;
 S.bossWindowSec = TUNE.bossWindowSec;
+S.bossNeed = (diff === 'hard') ? 3 : 2;
 
-// expose for HTML cinematic driver (optional)
+// expose for HTML cinematic driver
 ROOT.__HVR__ = ROOT.__HVR__ || {};
 ROOT.__HVR__.S = S;
 ROOT.__HVR__.TUNE = TUNE;
@@ -324,7 +328,6 @@ function syncHUD(){
   setText(elQuest1, `คุม GREEN ให้ครบ ${S.greenTarget|0}s (สะสม)`);
   setText(elQuest2, `GREEN: ${(S.greenHold).toFixed(1)} / ${(S.greenTarget).toFixed(0)}s`);
 
-  // mini text
   if (S.stormActive){
     const bossTxt = S.bossActive ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
     setText(elQuest3, `Storm Mini: Shield Timing (โหมดโหด)${bossTxt}`);
@@ -353,7 +356,13 @@ function syncHUD(){
     waterZone: S.waterZone,
     shield: S.shield|0,
     stormActive: !!S.stormActive,
-    stormLeftSec: S.stormLeftSec
+    stormLeftSec: S.stormLeftSec,
+
+    // drift (HTML จะเอาไป apply transform)
+    driftX: S.driftX,
+    driftY: S.driftY,
+    driftRot: S.driftRot,
+    stormInEndWindow: !!S.inEndWindow
   });
 
   emit('hha:time', { left: S.leftSec|0 });
@@ -396,14 +405,12 @@ function pushWaterBad(){
 
 // ------------------ spawn math (center bias + margins) ------------------
 function pickXY(){
-  const r = getSpawnRect();
-  if (!r) return { xPct: 50, yPct: 50 };
-
+  const host = playfield;
+  const r = host.getBoundingClientRect();
   const pad = 22;
   const w = Math.max(1, r.width - pad*2);
   const h = Math.max(1, r.height - pad*2);
 
-  // bell-ish distribution via (rng+rng)/2
   const rx = (rng()+rng())/2;
   const ry = (rng()+rng())/2;
 
@@ -428,50 +435,72 @@ function targetSize(){
   return clamp(s, 44, 86);
 }
 
-// ------------------ FX pop (Cardboard aware) ------------------
+// ------------------ FX pop ------------------
 function makePop(text, kind){
-  const L = getLayers();
+  try{
+    const L = getLayers();
+    const host = (L.mode === 'cb' ? (L.left || layerMain) : (L.main || layerMain));
+    if (!host) return;
 
-  function addPop(host){
-    if(!host) return;
-    try{
-      const p = DOC.createElement('div');
-      p.className = 'hvr-pop';
-      p.textContent = text;
-      p.style.left = '50%';
-      p.style.top = '46%';
-      p.style.color = kind === 'good' ? 'rgba(34,197,94,.95)'
-                    : kind === 'shield' ? 'rgba(34,211,238,.95)'
-                    : kind === 'boss' ? 'rgba(168,85,247,.95)'
-                    : 'rgba(239,68,68,.95)';
-      host.appendChild(p);
-      setTimeout(()=>{ try{ p.remove(); }catch{} }, 600);
-    }catch{}
-  }
-
-  if (L.mode === 'cb'){
-    addPop(L.left);
-    addPop(L.right);
-  } else {
-    addPop(L.main);
-  }
+    const p = DOC.createElement('div');
+    p.className = 'hvr-pop';
+    p.textContent = text;
+    p.style.left = '50%';
+    p.style.top = '46%';
+    p.style.color = kind === 'good' ? 'rgba(34,197,94,.95)'
+                  : kind === 'shield' ? 'rgba(34,211,238,.95)'
+                  : 'rgba(239,68,68,.95)';
+    host.appendChild(p);
+    setTimeout(()=>{ try{ p.remove(); }catch{} }, 600);
+  }catch{}
 }
 
 // ------------------ PATCH 12: input sanity / anti-spam ------------------
-let lastHitAt = 0;               // ms
-const HIT_COOLDOWN_MS = 55;      // เร็วขึ้นแต่กัน spam
+let lastHitAt = 0;
+const HIT_COOLDOWN_MS = 55;
 
-// ------------------ target lifecycle (Cardboard: spawn pair L/R) ------------------
+// ------------------ target lifecycle (DUAL LAYERS) ------------------
+let UID = 0;
+
 function spawn(kind){
-  if (S.ended) return;
+  if (S.ended) return null;
 
-  const L = getLayers();
   const { xPct, yPct } = pickXY();
   const s = targetSize();
 
   const isBossBad = (kind === 'bad' && S.bossActive);
+  const emoji =
+    kind === 'good' ? '💧' :
+    kind === 'shield' ? '🛡️' :
+    (isBossBad ? '🌩️' : '🥤');
 
-  // นับ spawn แค่ครั้งเดียว (shared)
+  const cls = 'hvr-target ' + kind + (isBossBad ? ' bossbad' : '');
+
+  const uid = String(++UID);
+  const els = [];
+
+  const createOne = (host)=>{
+    if (!host) return null;
+    const el = DOC.createElement('div');
+    el.className = cls;
+    el.dataset.kind = kind;
+    el.dataset.uid = uid;
+    if (isBossBad) el.dataset.boss = '1';
+
+    el.style.setProperty('--x', xPct.toFixed(2) + '%');
+    el.style.setProperty('--y', yPct.toFixed(2) + '%');
+    el.style.setProperty('--s', s.toFixed(0) + 'px');
+    el.textContent = emoji;
+    host.appendChild(el);
+    els.push(el);
+    return el;
+  };
+
+  // spawn ลงทั้ง 3 ชั้น (main + L + R)
+  createOne(layerMain);
+  createOne(layerL);
+  createOne(layerR);
+
   if (kind === 'good') S.nGoodSpawn++;
   if (kind === 'bad') S.nBadSpawn++;
   if (kind === 'shield') S.nShieldSpawn++;
@@ -483,68 +512,53 @@ function spawn(kind){
 
   let killed = false;
 
-  function buildEl(){
-    const el = DOC.createElement('div');
-    el.className = 'hvr-target ' + kind + (isBossBad ? ' bossbad' : '');
-    el.dataset.kind = kind;
-    if (isBossBad) el.dataset.boss = '1';
-
-    el.style.setProperty('--x', xPct.toFixed(2) + '%');
-    el.style.setProperty('--y', yPct.toFixed(2) + '%');
-    el.style.setProperty('--s', s.toFixed(0) + 'px');
-
-    el.textContent =
-      kind === 'good' ? '💧' :
-      kind === 'shield' ? '🛡️' :
-      (isBossBad ? '🌩️' : '🥤');
-
-    return el;
-  }
-
-  let elA = null, elB = null; // A=main or left, B=right
-
   function killAll(reason){
     if (killed) return;
     killed = true;
 
-    try{ elA && elA.remove(); }catch{}
-    try{ elB && elB.remove(); }catch{}
+    for (const el of els){
+      try{ el.remove(); }catch{}
+    }
 
     if (reason === 'expire'){
       if (kind === 'good') {
         S.misses += TUNE.missPenalty;
         S.nExpireGood++;
         S.combo = 0;
+        S.streak = 0;
       }
     }
   }
 
-  function onHit(ev){
-    ev.preventDefault();
-    ev.stopPropagation();
+  function onHit(pointerEv){
     if (killed || S.ended) return;
 
     // multi-touch sanity
-    if (ev.pointerType === 'touch' && ev.isPrimary === false) return;
+    if (pointerEv && pointerEv.pointerType === 'touch' && pointerEv.isPrimary === false) return;
 
+    // anti-spam throttle
     const t = performance.now();
     if (t - lastHitAt < HIT_COOLDOWN_MS) return;
     lastHitAt = t;
 
     killAll('hit');
 
-    // small FX hook (center-ish)
-    try{ Particles.burstAt?.(50, 50, kind); }catch{}
-
     if (kind === 'good'){
       S.nHitGood++;
-      S.score += 10 + Math.min(18, (S.combo|0));
+      S.score += 10 + Math.min(15, (S.combo|0));
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
 
-      if (S.waterZone === 'GREEN') S.score += 1;
-
       nudgeWaterGood();
+
+      // streak นับเฉพาะตอนอยู่ GREEN หลังปรับน้ำ
+      if (S.waterZone === 'GREEN'){
+        S.streak++;
+        S.streakMax = Math.max(S.streakMax, S.streak);
+      } else {
+        S.streak = 0;
+      }
+
       makePop('+GOOD', 'good');
       emit('hha:judge', { kind:'good' });
     }
@@ -552,6 +566,8 @@ function spawn(kind){
       S.score += 6;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
+
+      // shield ไม่ทำลาย streak (คงไว้)
       S.shield = clamp(S.shield + 1, 0, S.shieldMax);
       makePop('+SHIELD', 'shield');
       emit('hha:judge', { kind:'shield' });
@@ -560,16 +576,13 @@ function spawn(kind){
       if (S.shield > 0){
         S.shield--;
         S.nHitBadGuard++;
-        S.score += 5;
+        S.score += 4;
         makePop('BLOCK!', 'shield');
         emit('hha:judge', { kind:'block' });
 
-        // mini condition: block in end-window
         if (S.stormActive && S.inEndWindow && !S.miniState.doneThisStorm){
           S.miniState.blockedInEnd = true;
         }
-
-        // boss block count
         if (isBossBad){
           S.bossBlocked++;
         }
@@ -577,6 +590,7 @@ function spawn(kind){
         S.nHitBad++;
         S.misses++;
         S.combo = 0;
+        S.streak = 0;
         S.score = Math.max(0, S.score - 6);
         pushWaterBad();
         makePop('BAD!', 'bad');
@@ -587,45 +601,34 @@ function spawn(kind){
     syncHUD();
   }
 
-  // render
-  if (L.mode === 'cb'){
-    // สร้าง 2 ตัว: ซ้าย/ขวา (mirror)
-    elA = buildEl(); // left
-    elB = buildEl(); // right
-
-    elA.addEventListener('pointerdown', onHit, { passive:false });
-    elB.addEventListener('pointerdown', onHit, { passive:false });
-
-    if (L.left) L.left.appendChild(elA);
-    if (L.right) L.right.appendChild(elB);
-  } else {
-    // main
-    elA = buildEl();
-    elA.addEventListener('pointerdown', onHit, { passive:false });
-    if (L.main) L.main.appendChild(elA);
+  // bind handler ให้ทุก clone
+  for (const el of els){
+    el.addEventListener('pointerdown', (ev)=>{
+      ev.preventDefault();
+      ev.stopPropagation();
+      onHit(ev);
+    }, { passive:false });
   }
 
   setTimeout(()=>killAll('expire'), life);
-  return elA;
+  return { uid, kind, els, killAll };
 }
 
 // ------------------ spawner loop ------------------
 let spawnTimer = 0;
 
-// PATCH 11: deterministic storm schedule (seconds since start)
+// deterministic storm schedule (seconds since start)
 let nextStormAt = 0;
 let stormIndex = 0;
 
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
-
   if (S.adaptiveOn){
     base *= (1.00 - 0.25 * S.adaptK);
   }
   if (S.stormActive){
     base *= TUNE.stormSpawnMul;
   }
-
   return clamp(base, 210, 1200);
 }
 
@@ -639,7 +642,6 @@ function pickKind(){
     pBad  = 0.38;
     pSh   = 0.10;
 
-    // boss window -> bad เพิ่ม / good ลด
     if (S.bossActive){
       pBad  += 0.10;
       pGood -= 0.10;
@@ -672,7 +674,6 @@ function enterStorm(){
     doneThisStorm:false,
   };
 
-  // reset boss per storm
   S.bossActive = false;
   S.bossBlocked = 0;
   S.bossDoneThisStorm = false;
@@ -683,6 +684,9 @@ function enterStorm(){
     updateZone();
   }
 
+  // แจ้ง HTML ทำ Storm intro (optional)
+  emit('hha:storm', { state:'enter', cycle:S.stormCycle });
+
   syncHUD();
 }
 
@@ -691,29 +695,41 @@ function exitStorm(){
   S.stormLeftSec = 0;
   S.inEndWindow = false;
 
-  // evaluate storm mini (ถ้ายังไม่ทำ)
+  // mini evaluate
+  let miniOk = false;
   if (!S.miniState.doneThisStorm){
     const m = S.miniState;
-    const ok = !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
-    if (ok){
+    miniOk = !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
+    if (miniOk){
       S.miniCleared++;
       m.doneThisStorm = true;
       S.score += 35;
       makePop('MINI ✓', 'shield');
     }
+  } else {
+    miniOk = true;
   }
 
-  // boss result
+  // boss evaluate
+  let bossOk = false;
   if (!S.bossDoneThisStorm){
     if (S.bossBlocked >= S.bossNeed){
       S.bossDoneThisStorm = true;
       S.miniCleared++;
       S.score += 45;
       makePop('BOSS ✓', 'shield');
+      bossOk = true;
     }
+  } else {
+    bossOk = true;
   }
-  S.bossActive = false;
 
+  // ถือว่า Storm success = ผ่านทั้ง mini และ boss
+  if (miniOk && bossOk){
+    S.stormMiniSuccess++;
+  }
+
+  S.bossActive = false;
   syncHUD();
 }
 
@@ -726,7 +742,6 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
-  // boss window (ท้ายพายุ)
   const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
   if (inBoss && !S.bossDoneThisStorm){
     S.bossActive = true;
@@ -740,6 +755,19 @@ function tickStorm(dt){
   const pGain = zoneOK ? 0.50 : 0.24;
   S.miniState.pressure = clamp(S.miniState.pressure + dt * pGain, 0, 1);
   if (S.miniState.pressure >= 1) S.miniState.pressureOK = true;
+
+  // ---- Drift update (ลมพายุ) ----
+  // ทำให้ drift ลื่น+ไม่เวียนหัวเกิน: low frequency + clamp
+  S.driftT += dt;
+  const t = S.driftT;
+  const amp = TUNE.driftMaxPx * (S.inEndWindow ? 1.25 : 1.0);
+  const ax = Math.sin(t*2.1) * 0.65 + Math.sin(t*0.9) * 0.35;
+  const ay = Math.cos(t*1.7) * 0.60 + Math.sin(t*1.1) * 0.40;
+  S.driftX = clamp(ax * amp, -amp, amp);
+  S.driftY = clamp(ay * amp, -amp, amp);
+
+  const rotAmp = TUNE.driftMaxRot * (S.inEndWindow ? 1.2 : 1.0);
+  S.driftRot = clamp(Math.sin(t*1.35) * rotAmp, -rotAmp, rotAmp);
 
   if (S.stormLeftSec <= 0.001){
     exitStorm();
@@ -757,7 +785,6 @@ async function sendLog(payload){
       keepalive: true
     });
   }catch(e){
-    // best-effort fallback: GET (minimal)
     try{
       const u = new URL(logEndpoint, location.href);
       u.searchParams.set('projectTag', String(payload.projectTag||'HeroHealth'));
@@ -768,6 +795,119 @@ async function sendLog(payload){
       await fetch(u.toString(), { method:'GET', keepalive:true });
     }catch{}
   }
+}
+
+// ------------------ PATCH 14: Cardboard robust center shoot ------------------
+function getShootCenter(){
+  const r = (isCardboard() && cbPlayfieldL) ? cbPlayfieldL.getBoundingClientRect()
+          : (playfield ? playfield.getBoundingClientRect() : null);
+  if (!r) return { cx: window.innerWidth/2, cy: window.innerHeight/2, rect:null };
+  const cx = r.left + r.width/2;
+  const cy = r.top  + r.height/2;
+  return { cx, cy, rect:r };
+}
+
+function nearestTargetToCenter(){
+  const L = getLayers();
+  const host = (L.mode === 'cb') ? (L.left || layerMain) : (L.main || layerMain);
+  if (!host) return null;
+
+  const { cx, cy } = getShootCenter();
+  const els = host.querySelectorAll('.hvr-target');
+  if (!els || !els.length) return null;
+
+  let best = null;
+  let bestD = 1e18;
+
+  for (const el of els){
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity||'1') <= 0.05) continue;
+
+    const r = el.getBoundingClientRect();
+    const ex = r.left + r.width/2;
+    const ey = r.top  + r.height/2;
+
+    const dx = ex - cx;
+    const dy = ey - cy;
+    const d2 = dx*dx + dy*dy;
+
+    const maxR = Math.max(44, Math.min(window.innerWidth, window.innerHeight) * 0.18);
+    if (d2 > maxR*maxR) continue;
+
+    if (d2 < bestD){
+      bestD = d2;
+      best = el;
+    }
+  }
+  return best;
+}
+
+function forceHitTarget(el){
+  if (!el || S.ended) return false;
+
+  const t = performance.now();
+  if (t - lastHitAt < HIT_COOLDOWN_MS) return false;
+  lastHitAt = t;
+
+  try{
+    const r = el.getBoundingClientRect();
+    const ev = new PointerEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 1,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: r.left + r.width/2,
+      clientY: r.top  + r.height/2
+    });
+    el.dispatchEvent(ev);
+    return true;
+  }catch{
+    try{ el.click(); return true; }catch{}
+  }
+  return false;
+}
+
+function shootNow(){
+  if (!S.started || S.ended) return false;
+  const el = nearestTargetToCenter();
+  if (!el) return false;
+  return forceHitTarget(el);
+}
+
+function bindShootControls(){
+  // ปุ่ม SHOOT ใน HTML นี้ใช้ id="btnShootCenter" และ id="btnShoot"
+  const btnShootCenter = DOC.getElementById('btnShootCenter');
+  const btnShoot = DOC.getElementById('btnShoot');
+
+  if (btnShootCenter){
+    btnShootCenter.addEventListener('click', (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      shootNow();
+    }, { passive:false });
+  }
+  if (btnShoot){
+    btnShoot.addEventListener('click', (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      shootNow();
+    }, { passive:false });
+  }
+
+  // tap บน cbPlayfield ยิงได้ทันที
+  const hosts = [];
+  if (cbPlayfieldL) hosts.push(cbPlayfieldL);
+  if (cbPlayfieldR) hosts.push(cbPlayfieldR);
+  for (const h of hosts){
+    h.addEventListener('pointerdown', (e)=>{
+      if (!isCardboard()) return;
+      if (e.pointerType === 'touch' && e.isPrimary === false) return;
+      shootNow();
+    }, { passive:true });
+  }
+
+  // event hook
+  window.addEventListener('hha:shoot', ()=> shootNow());
+  window.addEventListener('hha:gazeShoot', ()=> shootNow());
 }
 
 // ------------------ main loop ------------------
@@ -782,8 +922,10 @@ function update(dt){
 
   const elapsed = (now() - S.t0) / 1000;
 
-  // deterministic storm schedule
   if (!S.stormActive){
+    // drift reset นิ่ม ๆ เมื่อไม่ storm
+    S.driftX *= 0.86; S.driftY *= 0.86; S.driftRot *= 0.86;
+
     if (elapsed >= nextStormAt && S.leftSec > (S.stormDur + 2)){
       enterStorm();
       stormIndex++;
@@ -812,6 +954,10 @@ async function endGame(reason){
 
   const grade = computeGrade();
   const acc = computeAccuracy();
+
+  const stormRate = (S.stormCycle > 0)
+    ? (S.stormMiniSuccess / S.stormCycle) * 100
+    : 0;
 
   const summary = {
     timestampIso: qs('timestampIso', new Date().toISOString()),
@@ -842,13 +988,16 @@ async function endGame(reason){
     nHitJunkGuard: S.nHitBadGuard|0,
     nExpireGood: S.nExpireGood|0,
 
-    // extra storm stats (optional; UI summary page already reads some from hha:end)
-    stormCycles: S.stormCycle|0,
-    stormMiniSuccess: S.miniCleared|0,
-    stormSuccessRatePct: (S.stormCycle > 0 ? (S.miniCleared / S.stormCycle) * 100 : 0),
-
     accuracyGoodPct: acc,
     grade,
+
+    // ✅ added metrics for summary UI
+    timeInGreenSec: Number(S.greenHold||0),
+    streakMax: S.streakMax|0,
+    stormCycles: S.stormCycle|0,
+    stormMiniSuccess: S.stormMiniSuccess|0,
+    stormSuccessRatePct: Number(stormRate||0),
+
     reason: reason || 'end'
   };
 
@@ -858,8 +1007,6 @@ async function endGame(reason){
   }catch{}
 
   emit('hha:end', summary);
-
-  // research/play both can log if ?log=
   await sendLog(summary);
 }
 
@@ -912,6 +1059,9 @@ async function boot(){
   nextStormAt = TUNE.stormEverySec;
   stormIndex = 0;
 
+  // ✅ PATCH 14: bind shoot controls
+  bindShootControls();
+
   syncHUD();
 
   function raf(t){
@@ -933,7 +1083,6 @@ async function boot(){
     }
   });
 
-  // optional force end
   window.addEventListener('hha:force_end', (ev)=>{
     const d = ev.detail || {};
     if (!S.ended) endGame(d.reason || 'force');
