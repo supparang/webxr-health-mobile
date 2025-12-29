@@ -1,9 +1,9 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
-Food Groups VR — GameEngine (B+++)
-✅ Receives groups:directive -> nojunk/magnet/urgent/tick/shake
-✅ No-Junk Zone fair: junk cannot spawn inside ring
-✅ Magnet drift: targets slide toward safe center when enabled
-✅ Shake offset additive to vx/vy (no transform conflict)
+Food Groups VR — GameEngine (B++++)
+✅ groups:directive supports: nojunk/magnet/bossMini/storm/bonus/urgent/tickFast/shake
+✅ emits groups:progress with inRing for ring mini
+✅ Boss mini: multi-hit HP, wrong/junk heals boss
+✅ Storm: directive OR deterministic schedule (research) via seed
 */
 
 (function(root){
@@ -12,15 +12,15 @@ Food Groups VR — GameEngine (B+++)
   if (!DOC) return;
 
   const NS = (root.GroupsVR = root.GroupsVR || {});
-  const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{ detail: detail||{} })); }catch{} };
-  const emitProgress = (detail)=> emit('groups:progress', detail||{});
-  const emitCoach = (text,mood)=> emit('hha:coach', { text:String(text||''), mood:mood||'neutral' });
-  const emitFever = ()=> emit('hha:fever', { feverPct: Math.round(engine.fever)|0, shield: engine.shield|0 });
+  const emit = (n,d)=>{ try{ root.dispatchEvent(new CustomEvent(n,{detail:d||{}})); }catch{} };
+  const progress = (d)=> emit('groups:progress', d||{});
+  const coach = (text,mood)=> emit('hha:coach', { text:String(text||''), mood:mood||'neutral' });
+  const feverEmit = ()=> emit('hha:fever', { feverPct: Math.round(E.fever)|0, shield:E.shield|0 });
 
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
   function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
 
-  // ---------- Seeded RNG ----------
+  // RNG
   function xmur3(str){
     str = String(str||'seed');
     let h = 1779033703 ^ str.length;
@@ -58,12 +58,8 @@ Food Groups VR — GameEngine (B+++)
     const m = val.match(/-?\d+(\.\d+)?/);
     return m ? Number(m[0]) : 0;
   }
-  function styleNorm(s){
-    s = String(s||'mix').toLowerCase();
-    return (s==='hard'||s==='feel'||s==='mix') ? s : 'mix';
-  }
 
-  // ---------- Content ----------
+  // Content: เพลง 5 หมู่
   const SONG = {
     1:'หมู่ 1 กินเนื้อ นม ไข่ ถั่วเมล็ดช่วยให้เติบโตแข็งขัน 💪',
     2:'หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล จะให้พลัง ⚡',
@@ -89,13 +85,12 @@ Food Groups VR — GameEngine (B+++)
     if (diff==='hard') return 10;
     return 8;
   }
-
   function diffParams(diff){
     diff = String(diff||'normal').toLowerCase();
     const thr = goalNeed(diff);
-    if (diff === 'easy') return { spawnMs:900, ttl:1750, size:1.05, powerThr:thr, junk:0.10, decoy:0.08, stormDur:6, bossHp:3 };
-    if (diff === 'hard') return { spawnMs:680, ttl:1450, size:0.92, powerThr:thr, junk:0.16, decoy:0.12, stormDur:7, bossHp:4 };
-    return                 { spawnMs:780, ttl:1600, size:1.00, powerThr:thr, junk:0.12, decoy:0.10, stormDur:6, bossHp:3 };
+    if (diff==='easy') return { spawnMs:900, ttl:1750, size:1.05, powerThr:thr, junk:0.10, decoy:0.08, stormDur:6 };
+    if (diff==='hard') return { spawnMs:680, ttl:1450, size:0.92, powerThr:thr, junk:0.16, decoy:0.12, stormDur:7 };
+    return                 { spawnMs:780, ttl:1600, size:1.00, powerThr:thr, junk:0.12, decoy:0.10, stormDur:6 };
   }
 
   function rankFromAcc(acc){
@@ -107,27 +102,22 @@ Food Groups VR — GameEngine (B+++)
     return 'C';
   }
 
-  // ---------- State ----------
-  const engine = {
-    layerEl:null,
+  const E = {
+    layer:null,
     running:false,
     ended:false,
 
     runMode:'play',
     diff:'normal',
-    style:'mix',
     timeSec:90,
     seed:'seed',
     rng:Math.random,
 
-    // view (vx/vy) + shake
+    // view + shake
     vx:0, vy:0,
+    dragOn:false, dragX:0, dragY:0,
     shakeUntil:0,
     shakeStrength:0,
-    _shakeX:0,
-    _shakeY:0,
-
-    dragOn:false, dragX:0, dragY:0,
 
     left:90,
     score:0,
@@ -140,243 +130,73 @@ Food Groups VR — GameEngine (B+++)
     groupId:1,
     groupClean:true,
 
-    // fever/shield
     fever:0,
     shield:0,
     feverTickLast:0,
 
-    // power
     power:0,
     powerThr:8,
 
-    // spawn/ttl
     ttlMs:1600,
     sizeBase:1.0,
-    adapt:{ spawnMs:780, ttl:1600, size:1.0, junkBias:0.12, decoyBias:0.10, bossEvery:18000 },
 
-    // storm
-    storm:false,
-    stormUntilMs:0,
-    nextStormAtMs:0,
-    stormDurSec:6,
-    stormPattern:'wave',
-    stormSpawnIdx:0,
-
-    // boss
-    bossAlive:false,
-    bossHp:0,
-    bossHpMax:3,
-    nextBossAtMs:0,
+    adapt:{ spawnMs:780, ttl:1600, junkBias:0.12, decoyBias:0.10 },
 
     // buffs
     freezeUntil:0,
     overUntil:0,
 
-    // B+++ magnet / nojunk
+    // B++++ directives
+    bonusMult:1.0,
+
     magnetOn:false,
-    magnetStrength:0.0,
+    magnetStrength:0,
 
     nojunkOn:false,
     nojunkCx:0,
     nojunkCy:0,
-    nojunkR:0,
+    nojunkR:150,
+
+    // storm
+    stormOn:false,
+    stormUntil:0,
+    nextStormAt:0,
+
+    // boss mini
+    bossMiniOn:false,
+    bossHp:0,
+    bossHpMax:0,
+    bossEl:null,
 
     // timers
-    spawnTimer:0,
-    tickTimer:0,
+    spawnT:0,
+    tickT:0,
 
-    // quest
-    quest:null,
-    _questBound:false,
-
-    // B++ cache rect
+    // cache
     _rectCacheAt:0,
     _rectCache:null,
-
-    _dirBound:false
+    _dirBound:false,
   };
 
-  function scoreMult(){ return (now() < engine.overUntil) ? 2 : 1; }
+  function scoreMult(){
+    const over = (now() < E.overUntil) ? 2 : 1;
+    return over * (E.bonusMult || 1);
+  }
 
   function updateRank(){
-    const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
+    const acc = E.hitAll > 0 ? Math.round((E.hitGood/E.hitAll)*100) : 0;
     emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
   }
   function updateScore(){
-    emit('hha:score', { score: engine.score|0, combo: engine.combo|0, comboMax: engine.comboMax|0, misses: engine.misses|0 });
+    emit('hha:score', { score:E.score|0, combo:E.combo|0, comboMax:E.comboMax|0, misses:E.misses|0 });
     updateRank();
   }
-  function updateTime(){ emit('hha:time', { left: engine.left|0 }); }
-  function updatePower(){ emit('groups:power', { charge: engine.power|0, threshold: engine.powerThr|0 }); }
+  function updateTime(){ emit('hha:time', { left:E.left|0 }); }
+  function updatePower(){ emit('groups:power', { charge:E.power|0, threshold:E.powerThr|0 }); }
 
-  // ---------- directives (B+++) ----------
-  function bindDirectives(){
-    if (engine._dirBound) return;
-    engine._dirBound = true;
-
-    root.addEventListener('groups:directive', (ev)=>{
-      const d = ev && ev.detail ? ev.detail : {};
-
-      // urgent -> body class (edge pulse)
-      if (typeof d.urgent === 'boolean'){
-        if (d.urgent) DOC.body.classList.add('groups-mini-urgent');
-        else DOC.body.classList.remove('groups-mini-urgent');
-      }
-
-      // tick sound
-      if (d.tick){
-        try{ NS.Audio && NS.Audio.tick && NS.Audio.tick(); }catch{}
-      }
-
-      // shake
-      if (d.shake && typeof d.shake === 'object'){
-        const s = clamp(d.shake.strength, 0, 5);
-        const ms = clamp(d.shake.ms, 60, 400);
-        engine.shakeUntil = now() + ms;
-        engine.shakeStrength = Math.max(engine.shakeStrength, s);
-      }
-
-      // magnet
-      if (d.magnet && typeof d.magnet === 'object'){
-        engine.magnetOn = !!d.magnet.on;
-        engine.magnetStrength = clamp(d.magnet.strength, 0, 1);
-      }
-
-      // no-junk ring
-      if (d.nojunk && typeof d.nojunk === 'object'){
-        engine.nojunkOn = !!d.nojunk.on;
-        // center defaults to safe rect center if not provided
-        engine.nojunkR = clamp(d.nojunk.r ?? engine.nojunkR ?? 140, 90, 220);
-        // cx/cy in screen px (optional)
-        if (Number.isFinite(Number(d.nojunk.cx))) engine.nojunkCx = Number(d.nojunk.cx);
-        if (Number.isFinite(Number(d.nojunk.cy))) engine.nojunkCy = Number(d.nojunk.cy);
-
-        // apply css vars immediately
-        applyNoJunkVars();
-      }
-    }, { passive:true });
-  }
-
-  function applyNoJunkVars(){
-    const layer = engine.layerEl;
-    if (!layer) return;
-
-    // if cx/cy not set -> use safe rect center (screen coords)
-    const r = safeSpawnRect();
-    const cx = engine.nojunkCx || ((r.x0 + r.x1) * 0.5);
-    const cy = engine.nojunkCy || ((r.y0 + r.y1) * 0.5);
-
-    layer.style.setProperty('--nojunk-on', engine.nojunkOn ? '1' : '0');
-    layer.style.setProperty('--nojunk-cx', (cx).toFixed(1)+'px');
-    layer.style.setProperty('--nojunk-cy', (cy).toFixed(1)+'px');
-    layer.style.setProperty('--nojunk-r', (engine.nojunkR).toFixed(1)+'px');
-
-    engine.nojunkCx = cx;
-    engine.nojunkCy = cy;
-  }
-
-  // ---------- Quest bridge ----------
-  function ensureQuest(){
-    if (engine.quest) return engine.quest;
-    const maker = NS.createGroupsQuest;
-    if (typeof maker !== 'function') return null;
-
-    engine.quest = maker({
-      runMode: engine.runMode,
-      diff: engine.diff,
-      style: engine.style,
-      seed: engine.seed
-    });
-
-    if (!engine._questBound && engine.quest && typeof engine.quest.onProgress === 'function'){
-      engine._questBound = true;
-      root.addEventListener('groups:progress', (ev)=>{
-        try{ engine.quest && engine.quest.onProgress(ev); }catch{}
-      }, { passive:true });
-    }
-    return engine.quest;
-  }
-  function questStart(){
-    const q = ensureQuest();
-    try{ q && q.start && q.start(); }catch{}
-    try{ q && q.pushUpdate && q.pushUpdate(); }catch{}
-  }
-  function questStop(){
-    try{ engine.quest && engine.quest.stop && engine.quest.stop(); }catch{}
-  }
-
-  // ---------- View (vx/vy) + Shake additive ----------
-  function currentShake(){
-    const t = now();
-    if (t > engine.shakeUntil){
-      engine.shakeStrength = 0;
-      engine._shakeX = 0;
-      engine._shakeY = 0;
-      return { sx:0, sy:0 };
-    }
-    // small random
-    const s = engine.shakeStrength;
-    const sx = (engine.rng() - 0.5) * 2 * s;
-    const sy = (engine.rng() - 0.5) * 2 * s;
-    engine._shakeX = sx;
-    engine._shakeY = sy;
-    return { sx, sy };
-  }
-
-  function applyView(){
-    const layer = engine.layerEl;
-    if (!layer) return;
-
-    const sh = currentShake();
-    const vx = engine.vx + sh.sx;
-    const vy = engine.vy + sh.sy;
-
-    layer.style.setProperty('--vx', vx.toFixed(1)+'px');
-    layer.style.setProperty('--vy', vy.toFixed(1)+'px');
-  }
-
-  function setupView(){
-    let bound = false;
-    function bind(){
-      if (bound) return;
-      const layer = engine.layerEl;
-      if (!layer) return;
-      bound = true;
-
-      layer.addEventListener('pointerdown', (e)=>{
-        engine.dragOn = true; engine.dragX = e.clientX; engine.dragY = e.clientY;
-      }, { passive:true });
-
-      root.addEventListener('pointermove', (e)=>{
-        if (!engine.dragOn) return;
-        const dx = e.clientX - engine.dragX;
-        const dy = e.clientY - engine.dragY;
-        engine.dragX = e.clientX; engine.dragY = e.clientY;
-        engine.vx = clamp(engine.vx + dx*0.22, -90, 90);
-        engine.vy = clamp(engine.vy + dy*0.22, -90, 90);
-        applyView();
-      }, { passive:true });
-
-      root.addEventListener('pointerup', ()=>{ engine.dragOn=false; }, { passive:true });
-
-      root.addEventListener('deviceorientation', (ev)=>{
-        const gx = Number(ev.gamma)||0;
-        const gy = Number(ev.beta)||0;
-        engine.vx = clamp(engine.vx + gx*0.06, -90, 90);
-        engine.vy = clamp(engine.vy + (gy-20)*0.02, -90, 90);
-        applyView();
-      }, { passive:true });
-    }
-
-    const it = setInterval(()=>{
-      bind();
-      if (bound) clearInterval(it);
-    }, 80);
-  }
-
-  // ---------- SafeRect DOM (B++) ----------
+  // ----- safe rect -----
   function getUISafeInsets(){
-    let sal=0, sar=0, sat=0, sab=0;
+    let sal=0,sar=0,sat=0,sab=0;
     try{
       const cs = getComputedStyle(DOC.documentElement);
       sal = parsePx(cs.getPropertyValue('--sal'));
@@ -384,628 +204,780 @@ Food Groups VR — GameEngine (B+++)
       sat = parsePx(cs.getPropertyValue('--sat'));
       sab = parsePx(cs.getPropertyValue('--sab'));
     }catch{}
-    return { sal, sar, sat, sab };
+    return { sal,sar,sat,sab };
   }
   function rectOf(sel){
     try{
       const el = DOC.querySelector(sel);
       if (!el) return null;
       const r = el.getBoundingClientRect();
-      if (!r || !isFinite(r.left) || r.width <= 0 || r.height <= 0) return null;
-      return { l:r.left, t:r.top, r:r.right, b:r.bottom, w:r.width, h:r.height };
+      if (!r || !isFinite(r.left) || r.width<=0 || r.height<=0) return null;
+      return { l:r.left, t:r.top, r:r.right, b:r.bottom };
     }catch{ return null; }
   }
-  function clampRectToViewport(rc, W, H){
-    if (!rc) return null;
-    return {
-      l: clamp(rc.l, 0, W),
-      t: clamp(rc.t, 0, H),
-      r: clamp(rc.r, 0, W),
-      b: clamp(rc.b, 0, H),
-      w: clamp(rc.w, 0, W),
-      h: clamp(rc.h, 0, H)
-    };
+  function clampRect(rc,W,H){
+    if(!rc) return null;
+    return { l:clamp(rc.l,0,W), t:clamp(rc.t,0,H), r:clamp(rc.r,0,W), b:clamp(rc.b,0,H) };
   }
-  function pointInRect(px, py, rc){
-    return rc && px >= rc.l && px <= rc.r && py >= rc.t && py <= rc.b;
-  }
+  function pointInRect(x,y,rc){ return rc && x>=rc.l && x<=rc.r && y>=rc.t && y<=rc.b; }
 
-  function buildSafeRectAndExcludes(){
+  function safeSpawnRect(){
+    const t = now();
+    if (E._rectCache && (t - E._rectCacheAt) < 180) return E._rectCache;
+
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
     const ins = getUISafeInsets();
 
-    let sidePad = 14;
-    let topPad  = 10;
-    let botPad  = 12;
-
-    const rHud   = clampRectToViewport(rectOf('.hud'), W, H);
-    const rCT    = clampRectToViewport(rectOf('.centerTop'), W, H);
-    const rQuest = clampRectToViewport(rectOf('.questTop'), W, H);
-    const rPower = clampRectToViewport(rectOf('.powerWrap'), W, H);
-    const rCoach = clampRectToViewport(rectOf('.coachWrap'), W, H);
+    const rHud   = clampRect(rectOf('.hud'), W, H);
+    const rCT    = clampRect(rectOf('.centerTop'), W, H);
+    const rQuest = clampRect(rectOf('.questTop'), W, H);
+    const rPower = clampRect(rectOf('.powerWrap'), W, H);
+    const rCoach = clampRect(rectOf('.coachWrap'), W, H);
 
     let topClear = 0;
-    if (rHud)   topClear = Math.max(topClear, rHud.b);
-    if (rCT)    topClear = Math.max(topClear, rCT.b);
+    if (rHud) topClear = Math.max(topClear, rHud.b);
+    if (rCT) topClear = Math.max(topClear, rCT.b);
     if (rQuest) topClear = Math.max(topClear, rQuest.b);
     if (topClear <= 0) topClear = 160 + ins.sat;
-    topClear += (topPad + 6);
+    topClear += 16;
 
     let bottomClear = H;
     if (rPower) bottomClear = Math.min(bottomClear, rPower.t);
     if (bottomClear >= H) bottomClear = H - (190 + ins.sab);
-    bottomClear -= (botPad + 6);
+    bottomClear -= 16;
 
-    let x0 = sidePad + ins.sal;
-    let x1 = W - sidePad - ins.sar;
+    let x0 = 14 + ins.sal;
+    let x1 = W - 14 - ins.sar;
     let y0 = Math.max(18 + ins.sat, topClear);
     let y1 = Math.min(H - (18 + ins.sab), bottomClear);
 
-    const minW = 220, minH = 220;
+    // keep minimum play area
+    const minW=220, minH=220;
     if ((x1-x0) < minW){
-      const mid = (x0+x1)*0.5;
-      x0 = mid - minW*0.5;
-      x1 = mid + minW*0.5;
-      x0 = clamp(x0, 8+ins.sal, W-8-ins.sar);
-      x1 = clamp(x1, 8+ins.sal, W-8-ins.sar);
+      const mid=(x0+x1)*0.5;
+      x0=mid-minW*0.5; x1=mid+minW*0.5;
+      x0=clamp(x0,8+ins.sal,W-8-ins.sar);
+      x1=clamp(x1,8+ins.sal,W-8-ins.sar);
     }
     if ((y1-y0) < minH){
-      const mid = (y0+y1)*0.5;
-      y0 = mid - minH*0.5;
-      y1 = mid + minH*0.5;
-      y0 = clamp(y0, 18+ins.sat, H-18-ins.sab);
-      y1 = clamp(y1, 18+ins.sat, H-18-ins.sab);
+      const mid=(y0+y1)*0.5;
+      y0=mid-minH*0.5; y1=mid+minH*0.5;
+      y0=clamp(y0,18+ins.sat,H-18-ins.sab);
+      y1=clamp(y1,18+ins.sat,H-18-ins.sab);
     }
 
-    const excludes = [];
+    const excludes=[];
     if (rCoach){
-      const pad = 10;
-      excludes.push({
-        l: clamp(rCoach.l - pad, 0, W),
-        t: clamp(rCoach.t - pad, 0, H),
-        r: clamp(rCoach.r + pad, 0, W),
-        b: clamp(rCoach.b + pad, 0, H),
-      });
+      const pad=10;
+      excludes.push({ l:clamp(rCoach.l-pad,0,W), t:clamp(rCoach.t-pad,0,H), r:clamp(rCoach.r+pad,0,W), b:clamp(rCoach.b+pad,0,H) });
     }
 
-    return { W, H, x0, x1, y0, y1, excludes };
-  }
-
-  function safeSpawnRect(){
-    const t = now();
-    if (engine._rectCache && (t - engine._rectCacheAt) < 180){
-      return engine._rectCache;
-    }
-    const out = buildSafeRectAndExcludes();
-    engine._rectCacheAt = t;
-    engine._rectCache = out;
+    const out = { W,H,x0,x1,y0,y1,excludes };
+    E._rectCacheAt=t; E._rectCache=out;
     return out;
   }
 
-  function isBlocked(screenX, screenY, excludes){
-    if (!excludes || !excludes.length) return false;
-    for (const rc of excludes){
-      if (pointInRect(screenX, screenY, rc)) return true;
-    }
+  function isBlocked(sx,sy,ex){
+    if(!ex || !ex.length) return false;
+    for (const rc of ex){ if(pointInRect(sx,sy,rc)) return true; }
     return false;
   }
 
-  // ---- No-Junk circle test in SCREEN coords ----
-  function inNoJunk(screenX, screenY){
-    if (!engine.nojunkOn) return false;
-    const dx = screenX - engine.nojunkCx;
-    const dy = screenY - engine.nojunkCy;
-    return (dx*dx + dy*dy) <= (engine.nojunkR*engine.nojunkR);
+  function applyNoJunkVars(){
+    if (!E.layer) return;
+    const r = safeSpawnRect();
+    const cx = E.nojunkCx || ((r.x0+r.x1)*0.5);
+    const cy = E.nojunkCy || ((r.y0+r.y1)*0.5);
+    E.nojunkCx = cx; E.nojunkCy = cy;
+
+    E.layer.style.setProperty('--nojunk-on', E.nojunkOn ? '1':'0');
+    E.layer.style.setProperty('--nojunk-cx', cx.toFixed(1)+'px');
+    E.layer.style.setProperty('--nojunk-cy', cy.toFixed(1)+'px');
+    E.layer.style.setProperty('--nojunk-r',  (E.nojunkR||150).toFixed(1)+'px');
+  }
+
+  function inRingScreen(sx,sy){
+    if (!E.nojunkOn) return false;
+    const dx = sx - E.nojunkCx;
+    const dy = sy - E.nojunkCy;
+    return (dx*dx + dy*dy) <= (E.nojunkR*E.nojunkR);
   }
 
   function pickPos(type){
     const r = safeSpawnRect();
-    // apply ring if active (cx/cy)
-    if (engine.nojunkOn) applyNoJunkVars();
+    if (E.nojunkOn) applyNoJunkVars();
 
-    const x0w = r.x0 - engine.vx;
-    const x1w = r.x1 - engine.vx;
-    const y0w = r.y0 - engine.vy;
-    const y1w = r.y1 - engine.vy;
+    const x0w = r.x0 - E.vx;
+    const x1w = r.x1 - E.vx;
+    const y0w = r.y0 - E.vy;
+    const y1w = r.y1 - E.vy;
 
-    let x=0, y=0;
-    for (let i=0;i<14;i++){
-      x = x0w + engine.rng()*(x1w - x0w);
-      y = y0w + engine.rng()*(y1w - y0w);
+    let x=0,y=0;
+    for (let i=0;i<16;i++){
+      x = x0w + E.rng()*(x1w-x0w);
+      y = y0w + E.rng()*(y1w-y0w);
 
-      const sx = x + engine.vx;
-      const sy = y + engine.vy;
+      const sx = x + E.vx;
+      const sy = y + E.vy;
 
-      if (isBlocked(sx, sy, r.excludes)) continue;
+      if (isBlocked(sx,sy,r.excludes)) continue;
 
-      // ✅ fair No-Junk: if target is junk, forbid spawning inside ring
-      if (String(type)==='junk' && inNoJunk(sx, sy)) continue;
+      // fair ring: junk cannot spawn inside ring
+      if (String(type)==='junk' && inRingScreen(sx,sy)) continue;
 
-      return { x, y };
+      return {x,y};
     }
-
-    // fallback: just return center-ish
-    return { x: (x0w+x1w)*0.5, y: (y0w+y1w)*0.5 };
+    return { x:(x0w+x1w)*0.5, y:(y0w+y1w)*0.5 };
   }
 
-  // ---------- DOM target ----------
-  function setXY(el, x, y){
+  function applyView(){
+    if (!E.layer) return;
+    const t = now();
+    let sx=0, sy=0;
+    if (t <= E.shakeUntil){
+      const s = E.shakeStrength || 1;
+      sx = (E.rng()-0.5)*2*s;
+      sy = (E.rng()-0.5)*2*s;
+    } else {
+      E.shakeStrength = 0;
+    }
+    E.layer.style.setProperty('--vx', (E.vx+sx).toFixed(1)+'px');
+    E.layer.style.setProperty('--vy', (E.vy+sy).toFixed(1)+'px');
+  }
+
+  function setupView(){
+    let bound=false;
+    const it=setInterval(()=>{
+      if (bound || !E.layer) return;
+      bound=true;
+      const layer=E.layer;
+
+      layer.addEventListener('pointerdown',(e)=>{
+        E.dragOn=true; E.dragX=e.clientX; E.dragY=e.clientY;
+      },{passive:true});
+
+      root.addEventListener('pointermove',(e)=>{
+        if(!E.dragOn) return;
+        const dx=e.clientX-E.dragX, dy=e.clientY-E.dragY;
+        E.dragX=e.clientX; E.dragY=e.clientY;
+        E.vx = clamp(E.vx + dx*0.22, -90, 90);
+        E.vy = clamp(E.vy + dy*0.22, -90, 90);
+        applyView();
+      },{passive:true});
+
+      root.addEventListener('pointerup',()=>{ E.dragOn=false; },{passive:true});
+
+      root.addEventListener('deviceorientation',(ev)=>{
+        const gx=Number(ev.gamma)||0;
+        const gy=Number(ev.beta)||0;
+        E.vx = clamp(E.vx + gx*0.06, -90, 90);
+        E.vy = clamp(E.vy + (gy-20)*0.02, -90, 90);
+        applyView();
+      },{passive:true});
+    },80);
+  }
+
+  // ---------- DOM target helpers ----------
+  function setXY(el,x,y){
     el.style.setProperty('--x', x.toFixed(1)+'px');
     el.style.setProperty('--y', y.toFixed(1)+'px');
     el.dataset._x = String(x);
     el.dataset._y = String(y);
   }
+
   function removeTarget(el){
-    if (!el) return;
+    if(!el) return;
     try{ root.clearTimeout(el._ttlTimer); }catch{}
     el.classList.add('hit');
-    root.setTimeout(()=> el.remove(), 220);
+    root.setTimeout(()=>{ try{ el.remove(); }catch{} }, 220);
   }
+
   function typeClass(tp){
-    tp = String(tp||'').toLowerCase();
-    if (tp === 'good') return 'fg-good';
-    if (tp === 'wrong') return 'fg-wrong';
-    if (tp === 'decoy') return 'fg-decoy';
-    if (tp === 'junk') return 'fg-junk';
-    if (tp === 'star') return 'fg-star';
-    if (tp === 'ice') return 'fg-ice';
-    if (tp === 'boss') return 'fg-boss';
+    tp=String(tp||'').toLowerCase();
+    if(tp==='good') return 'fg-good';
+    if(tp==='wrong') return 'fg-wrong';
+    if(tp==='decoy') return 'fg-decoy';
+    if(tp==='junk') return 'fg-junk';
+    if(tp==='star') return 'fg-star';
+    if(tp==='ice')  return 'fg-ice';
+    if(tp==='boss') return 'fg-boss';
     return '';
   }
 
   function makeTarget(type, emoji, x, y, s){
-    const layer = engine.layerEl;
-    if (!layer) return null;
-
     const el = DOC.createElement('div');
     el.className = 'fg-target spawn';
+    el.dataset.type = String(type||'');
     el.dataset.emoji = emoji || '✨';
-    el.dataset.type = type;
+    el.setAttribute('data-emoji', el.dataset.emoji);
 
     const cls = typeClass(type);
     if (cls) el.classList.add(cls);
 
-    if (type === 'good') el.dataset.groupId = String(engine.groupId);
+    // badge default
+    if (type==='wrong') el.dataset.badge='⚠️';
+    if (type==='decoy') el.dataset.badge='❓';
+    if (type==='junk')  el.dataset.badge='🫧';
 
-    setXY(el, x, y);
+    if (type==='good') el.dataset.groupId = String(E.groupId);
+
+    setXY(el,x,y);
     el.style.setProperty('--s', s.toFixed(3));
 
-    el.addEventListener('pointerdown', (ev)=>{
+    el.addEventListener('pointerdown',(ev)=>{
       ev.preventDefault?.();
       hitTarget(el);
-    }, { passive:false });
+    },{passive:false});
 
-    const ttl = engine.ttlMs;
-    el._ttlTimer = root.setTimeout(()=>{
-      if (!el.isConnected) return;
-      if (type === 'good'){
-        engine.misses++; engine.combo = 0; engine.groupClean = false;
-        engine.fever = clamp(engine.fever + 10, 0, 100);
-        emit('hha:judge', { kind:'MISS' });
-        updateScore();
-        emitFever();
-        try{ NS.Audio && NS.Audio.bad && NS.Audio.bad(); }catch{}
-        emitProgress({ kind:'hit_bad' });
-      }
-      el.classList.add('out');
-      root.setTimeout(()=> el.remove(), 220);
-    }, ttl);
+    // ttl (boss mini: boss doesn't expire)
+    if (type !== 'boss'){
+      el._ttlTimer = root.setTimeout(()=>{
+        if (!el.isConnected) return;
+        if (type === 'good'){
+          E.misses++; E.combo=0; E.groupClean=false;
+          E.fever = clamp(E.fever + 10, 0, 100);
+          emit('hha:judge', { kind:'MISS' });
+          updateScore();
+          feverEmit();
+          try{ NS.Audio?.bad?.(); }catch{}
+          progress({ kind:'hit_bad' });
+        }
+        el.classList.add('out');
+        root.setTimeout(()=>{ try{ el.remove(); }catch{} },220);
+      }, E.ttlMs);
+    }
 
     return el;
   }
 
-  // ---------- Mechanics ----------
+  function addPower(n){
+    E.power = clamp(E.power + (n|0), 0, E.powerThr);
+    updatePower();
+    if (E.power >= E.powerThr) switchGroup();
+  }
+
   function setGroup(id){
-    engine.groupId = id;
-    engine.groupClean = true;
-    emitCoach(SONG[id] || `ต่อไป หมู่ ${id}!`, 'happy');
+    E.groupId=id;
+    E.groupClean=true;
+    coach(SONG[id] || `ต่อไป หมู่ ${id}!`,'happy');
   }
+
   function perfectSwitchBonus(){
-    if (!engine.groupClean) return;
-    emitProgress({ kind:'perfect_switch' });
-    emit('hha:celebrate', { kind:'mini', title:'Perfect Switch!' });
+    if (!E.groupClean) return;
+    emit('hha:celebrate',{kind:'mini',title:'Perfect Switch!'});
   }
+
   function switchGroup(){
     perfectSwitchBonus();
-    const next = (engine.groupId % 5) + 1;
-    setGroup(next);
-    emitProgress({ kind:'group_swap' });
-    engine.power = 0;
-    updatePower();
-  }
-  function addPower(n){
-    engine.power = clamp(engine.power + (n|0), 0, engine.powerThr);
-    updatePower();
-    if (engine.power >= engine.powerThr) switchGroup();
+    setGroup((E.groupId%5)+1);
+    progress({ kind:'group_swap' });
+    E.power=0; updatePower();
   }
 
-  // ---------- Boss / Powerups ----------
   function applyBuffClasses(){
-    const t = now();
-    if (t < engine.overUntil) DOC.body.classList.add('groups-overdrive');
-    else DOC.body.classList.remove('groups-overdrive');
-
-    if (t < engine.freezeUntil) DOC.body.classList.add('groups-freeze');
-    else DOC.body.classList.remove('groups-freeze');
+    const t=now();
+    if (t < E.overUntil) DOC.body.classList.add('groups-overdrive'); else DOC.body.classList.remove('groups-overdrive');
+    if (t < E.freezeUntil) DOC.body.classList.add('groups-freeze'); else DOC.body.classList.remove('groups-freeze');
+    if (E.stormOn) DOC.body.classList.add('groups-storm'); else DOC.body.classList.remove('groups-storm');
   }
 
   function pickupStar(el){
-    emitProgress({ type:'hit', correct:true });
-    emit('hha:judge', { kind:'good', text:'⭐ OVERDRIVE!' });
-
-    engine.overUntil = now() + 7000;
-    engine.shield = 1;
-    emitFever(); applyBuffClasses();
-
-    engine.combo = clamp(engine.combo + 1, 0, 9999);
-    engine.comboMax = Math.max(engine.comboMax, engine.combo);
-
-    engine.score += 120;
+    emit('hha:judge',{kind:'good',text:'⭐ OVERDRIVE!'});
+    E.overUntil = now()+7000;
+    E.shield=1;
+    feverEmit(); applyBuffClasses();
+    E.combo=clamp(E.combo+1,0,9999); E.comboMax=Math.max(E.comboMax,E.combo);
+    E.score += Math.round(120 * scoreMult());
     updateScore();
-
-    try{ NS.Audio && NS.Audio.power && NS.Audio.power(); }catch{}
+    try{ NS.Audio?.power?.(); }catch{}
     removeTarget(el);
   }
 
   function pickupIce(el){
-    emitProgress({ type:'hit', correct:true });
-    emit('hha:judge', { kind:'good', text:'❄️ FREEZE!' });
-
-    engine.freezeUntil = now() + 6000;
+    emit('hha:judge',{kind:'good',text:'❄️ FREEZE!'});
+    E.freezeUntil = now()+6000;
     applyBuffClasses();
-
-    engine.combo = clamp(engine.combo + 1, 0, 9999);
-    engine.comboMax = Math.max(engine.comboMax, engine.combo);
-
-    engine.score += 80;
+    E.combo=clamp(E.combo+1,0,9999); E.comboMax=Math.max(E.comboMax,E.combo);
+    E.score += Math.round(80 * scoreMult());
     updateScore();
-
-    try{ NS.Audio && NS.Audio.freeze && NS.Audio.freeze(); }catch{}
+    try{ NS.Audio?.freeze?.(); }catch{}
     removeTarget(el);
   }
 
-  // ---------- Hit logic ----------
+  // ----- boss mini helpers -----
+  function spawnBoss(){
+    if (!E.layer) return;
+    if (E.bossEl && E.bossEl.isConnected) return;
+
+    const p = pickPos('boss');
+    const el = makeTarget('boss','👑', p.x, p.y, 1.08);
+    E.bossEl = el;
+
+    el.dataset.badge = `👑${E.bossHp}`;
+    E.layer.appendChild(el);
+
+    try{ NS.Audio?.boss?.(); }catch{}
+  }
+
+  function bossHit(){
+    E.bossHp = clamp(E.bossHp - 1, 0, E.bossHpMax);
+    if (E.bossEl && E.bossEl.isConnected){
+      E.bossEl.classList.add('fg-boss-hurt');
+      E.bossEl.dataset.badge = `👑${E.bossHp}`;
+      setTimeout(()=>{ try{ E.bossEl.classList.remove('fg-boss-hurt'); }catch{} }, 220);
+      if (E.bossHp <= Math.ceil(E.bossHpMax*0.35)){
+        E.bossEl.classList.add('fg-boss-weak');
+      }
+    }
+    try{ NS.Audio?.bossHurt?.(); }catch{}
+    progress({ kind:'boss_hit', hpLeft:E.bossHp });
+    if (E.bossHp <= 0){
+      progress({ kind:'boss_down' });
+      emit('hha:celebrate',{kind:'mini',title:'BOSS DOWN!'});
+      try{ removeTarget(E.bossEl); }catch{}
+      E.bossEl=null;
+      // stop boss mini flag will be handled by directive end
+    }
+  }
+
+  function bossHeal(){
+    E.bossHp = clamp(E.bossHp + 1, 0, E.bossHpMax);
+    if (E.bossEl && E.bossEl.isConnected){
+      E.bossEl.dataset.badge = `👑${E.bossHp}`;
+    }
+    try{ NS.Audio?.bossHeal?.(); }catch{}
+    progress({ kind:'boss_heal', hpLeft:E.bossHp });
+  }
+
+  // ----- hit logic -----
   function hitTarget(el){
-    if (!engine.running || engine.ended) return;
+    if (!E.running || E.ended) return;
     if (!el || !el.isConnected) return;
 
     let type = String(el.dataset.type||'').toLowerCase();
 
     if (type === 'star'){ pickupStar(el); return; }
-    if (type === 'ice') { pickupIce(el);  return; }
+    if (type === 'ice'){ pickupIce(el); return; }
+
+    // ring info at hit moment (screen coords = world + vx/vy)
+    const x = Number(el.dataset._x||0), y = Number(el.dataset._y||0);
+    const sx = x + E.vx, sy = y + E.vy;
+    const inRing = inRingScreen(sx,sy);
+
+    // boss click
+    if (type === 'boss'){
+      bossHit();
+      // score small per hit
+      E.score += Math.round(90 * scoreMult());
+      E.combo = clamp(E.combo+1,0,9999); E.comboMax=Math.max(E.comboMax,E.combo);
+      updateScore();
+      return;
+    }
 
     // GOOD correctness by group
     if (type === 'good'){
       const gid = Number(el.dataset.groupId)||0;
-      if (gid && gid !== engine.groupId) type = 'wrong';
+      if (gid && gid !== E.groupId) type = 'wrong';
     }
 
-    engine.hitAll++;
+    E.hitAll++;
 
     if (type === 'good'){
-      emitProgress({ type:'hit', correct:true });
-      emitProgress({ kind:'hit_good', groupId: engine.groupId });
+      progress({ kind:'hit_good', groupId:E.groupId, inRing });
 
-      engine.hitGood++;
-      engine.combo = clamp(engine.combo + 1, 0, 9999);
-      engine.comboMax = Math.max(engine.comboMax, engine.combo);
+      E.hitGood++;
+      E.combo=clamp(E.combo+1,0,9999); E.comboMax=Math.max(E.comboMax,E.combo);
+      E.score += Math.round((100 + E.combo*3) * scoreMult());
+      E.fever = clamp(E.fever - 3, 0, 100);
 
-      engine.score += Math.round((100 + engine.combo*3) * scoreMult());
-      engine.fever = clamp(engine.fever - 3, 0, 100);
-
-      updateScore(); emitFever();
-      try{ NS.Audio && NS.Audio.good && NS.Audio.good(); }catch{}
-
+      updateScore(); feverEmit();
+      try{ NS.Audio?.good?.(); }catch{}
       addPower(1);
       removeTarget(el);
       return;
     }
 
     // bad hits
-    const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
+    const badLike = (type==='junk' || type==='wrong' || type==='decoy');
     if (badLike){
       // shield blocks junk once
-      if (type === 'junk' && engine.shield > 0){
-        engine.shield = 0;
-        emitFever();
-        emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
+      if (type==='junk' && E.shield>0){
+        E.shield=0; feverEmit();
+        emit('hha:judge',{kind:'good',text:'SHIELD BLOCK!'});
         removeTarget(el);
         return;
       }
 
-      emitProgress({ type:'hit', correct:false });
-      emitProgress({ kind:'hit_bad' });
+      progress({ kind:'hit_bad', inRing });
+      if (type==='junk') progress({ kind:'hit_junk' });
+      if (type==='wrong') progress({ kind:'hit_wrong' });
 
-      engine.misses++;
-      engine.combo = 0;
-      engine.groupClean = false;
+      E.misses++; E.combo=0; E.groupClean=false;
+      E.fever = clamp(E.fever + (type==='junk'?18:12), 0, 100);
+      feverEmit();
+      try{ NS.Audio?.bad?.(); }catch{}
+      emit('hha:judge',{kind:'bad',text:(type==='junk'?'JUNK!':'WRONG!')});
 
-      engine.fever = clamp(engine.fever + (type==='junk'?18:12), 0, 100);
-      emitFever();
-      try{ NS.Audio && NS.Audio.bad && NS.Audio.bad(); }catch{}
+      // boss mini: bad hit heals boss (กดดัน)
+      if (E.bossMiniOn && E.bossHp > 0) bossHeal();
 
-      emit('hha:judge', { kind:'bad', text:(type==='junk'?'JUNK!':'WRONG!') });
       updateScore();
       removeTarget(el);
       return;
     }
   }
 
-  // ---------- Spawn decision ----------
+  // ---------- magnet drift ----------
+  function safeCenterWorld(){
+    const r = safeSpawnRect();
+    const cxS = (r.x0+r.x1)*0.5;
+    const cyS = (r.y0+r.y1)*0.5;
+    return { cxW: cxS - E.vx, cyW: cyS - E.vy };
+  }
+
+  function magnetStep(){
+    const t=now();
+    const over = (t < E.overUntil);
+    const on = E.magnetOn || over;
+    if (!on || !E.layer) return;
+
+    const strength = clamp((E.magnetStrength||0.5) + (over?0.18:0), 0, 1);
+    const {cxW,cyW} = safeCenterWorld();
+
+    const list = E.layer.querySelectorAll('.fg-target');
+    list.forEach(el=>{
+      const tp = String(el.dataset.type||'').toLowerCase();
+      if (tp === 'boss') return; // boss stays more stable
+
+      const x = Number(el.dataset._x||0);
+      const y = Number(el.dataset._y||0);
+      if (!isFinite(x)||!isFinite(y)) return;
+
+      const dx = cxW - x, dy = cyW - y;
+      const dist = Math.max(1, Math.hypot(dx,dy));
+      const step = clamp(0.8 + strength*2.2, 0.8, 3.0);
+
+      setXY(el, x + (dx/dist)*step, y + (dy/dist)*step);
+    });
+  }
+
+  // ---------- storm ----------
+  function setStorm(on, durSec){
+    if (on){
+      E.stormOn = true;
+      const d = clamp(durSec||diffParams(E.diff).stormDur, 3, 12);
+      E.stormUntil = now() + d*1000;
+    }else{
+      E.stormOn = false;
+      E.stormUntil = 0;
+    }
+    applyBuffClasses();
+  }
+
+  function scheduleStormResearch(){
+    // deterministic by seed: every ~18s with small jitter (still deterministic)
+    const base = 18000;
+    const jit = Math.round((E.rng()-0.5)*2400); // ±1.2s
+    E.nextStormAt = now() + base + jit;
+  }
+
+  function stormTick(){
+    const t=now();
+    if (E.stormOn && E.stormUntil>0 && t >= E.stormUntil){
+      E.stormOn=false; E.stormUntil=0;
+      applyBuffClasses();
+    }
+
+    if (E.runMode==='research'){
+      if (!E.stormOn && E.nextStormAt>0 && t >= E.nextStormAt){
+        setStorm(true, diffParams(E.diff).stormDur);
+        scheduleStormResearch();
+      }
+    } else {
+      // play: small random storm if combo high or fever high
+      const acc = E.hitAll>0 ? (E.hitGood/E.hitAll) : 0;
+      const heat = clamp((E.combo/18) + (acc-0.65) + (E.fever/140), 0, 1);
+      if (!E.stormOn && heat>0.85 && E.rng()<0.035){
+        setStorm(true, diffParams(E.diff).stormDur);
+      }
+    }
+  }
+
+  // ---------- spawning ----------
   function chooseType(){
-    const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
-    const baseJ = (engine.runMode==='research') ? base.junk : base.junkBias;
-    const baseD = (engine.runMode==='research') ? base.decoy : base.decoyBias;
+    // boss mini: ensure boss exists; other spawns continue but lighter
+    if (E.bossMiniOn){
+      if (!E.bossEl || !E.bossEl.isConnected) spawnBoss();
+    }
 
-    // powerups
-    const pu = engine.storm ? 0.016 : 0.010;
-    if (engine.rng() < pu) return (engine.rng() < 0.5) ? 'star' : 'ice';
+    const base = (E.runMode==='research') ? diffParams(E.diff) : E.adapt;
+    const j = (E.runMode==='research') ? base.junk : base.junkBias;
+    const d = (E.runMode==='research') ? base.decoy : base.decoyBias;
 
-    const r = engine.rng();
-    if (r < baseJ) return 'junk';
-    if (r < baseJ + baseD) return 'decoy';
-    if (engine.rng() < (engine.storm ? 0.18 : 0.14)) return 'wrong';
+    // powerups reduced during boss mini
+    const pu = E.bossMiniOn ? 0.006 : (E.stormOn ? 0.016 : 0.010);
+    if (E.rng() < pu) return (E.rng() < 0.5) ? 'star' : 'ice';
+
+    const r = E.rng();
+    if (r < j) return 'junk';
+    if (r < j + d) return 'decoy';
+    if (E.rng() < (E.stormOn ? 0.18 : 0.14)) return 'wrong';
     return 'good';
   }
 
   function chooseEmoji(tp){
-    if (tp === 'junk') return JUNK_EMOJI[(engine.rng()*JUNK_EMOJI.length)|0];
-    if (tp === 'decoy') return DECOY_EMOJI[(engine.rng()*DECOY_EMOJI.length)|0];
-    if (tp === 'star') return '⭐';
-    if (tp === 'ice')  return '❄️';
-    if (tp === 'good') return GROUPS[engine.groupId].emoji[(engine.rng()*GROUPS[engine.groupId].emoji.length)|0];
+    if (tp==='junk') return JUNK_EMOJI[(E.rng()*JUNK_EMOJI.length)|0];
+    if (tp==='decoy') return DECOY_EMOJI[(E.rng()*DECOY_EMOJI.length)|0];
+    if (tp==='star') return '⭐';
+    if (tp==='ice') return '❄️';
+    if (tp==='good') return GROUPS[E.groupId].emoji[(E.rng()*GROUPS[E.groupId].emoji.length)|0];
 
-    const other = [];
-    for (let g=1; g<=5; g++){
-      if (g === engine.groupId) continue;
-      other.push(...GROUPS[g].emoji);
-    }
-    return other[(engine.rng()*other.length)|0] || '✨';
+    const other=[];
+    for (let g=1;g<=5;g++){ if(g!==E.groupId) other.push(...GROUPS[g].emoji); }
+    return other[(E.rng()*other.length)|0] || '✨';
   }
 
   function spawnOne(){
-    if (!engine.running || engine.ended) return;
-    const layer = engine.layerEl;
-    if (!layer) return;
+    if (!E.running || E.ended || !E.layer) return;
 
+    // boss mini: boss already spawned, but still spawn targets for chaos
     const tp = chooseType();
     const em = chooseEmoji(tp);
     const p = pickPos(tp);
-    const s = engine.sizeBase;
+    const s = E.sizeBase;
 
     const el = makeTarget(tp, em, p.x, p.y, s);
-    if (el) layer.appendChild(el);
+    if (el) E.layer.appendChild(el);
   }
 
   function loopSpawn(){
-    if (!engine.running || engine.ended) return;
+    if (!E.running || E.ended) return;
     spawnOne();
 
-    const t = now();
-    const frozen = (t < engine.freezeUntil);
-    const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
-    const mult = frozen ? 1.25 : 1.0;
+    const t=now();
+    const frozen = (t < E.freezeUntil);
+    const base = (E.runMode==='research') ? diffParams(E.diff) : E.adapt;
 
-    const sMs = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0) * mult);
-    engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
+    let ms = base.spawnMs;
+    if (E.stormOn) ms *= 0.82;
+    if (frozen) ms *= 1.25;
+    if (E.bossMiniOn) ms *= 0.85;
+
+    ms = Math.max(420, ms);
+    E.spawnT = root.setTimeout(loopSpawn, ms);
   }
 
-  // ---------- Magnet drift (B+++) ----------
-  function safeCenterWorld(){
-    const r = safeSpawnRect();
-    // center in SCREEN -> convert to WORLD by subtracting vx/vy
-    const cxS = (r.x0 + r.x1) * 0.5;
-    const cyS = (r.y0 + r.y1) * 0.5;
-    return { cxW: cxS - engine.vx, cyW: cyS - engine.vy };
-  }
-
-  function magnetStep(){
-    const layer = engine.layerEl;
-    if (!layer) return;
-
-    const t = now();
-    const over = (t < engine.overUntil);
-    const comboBoost = clamp(engine.combo/18, 0, 1) * 0.25;
-
-    const on = engine.magnetOn || over;
-    if (!on) return;
-
-    const strength = clamp((engine.magnetStrength || 0.45) + comboBoost + (over?0.18:0), 0, 1);
-
-    const { cxW, cyW } = safeCenterWorld();
-    const list = layer.querySelectorAll('.fg-target');
-    list.forEach(el=>{
-      const tp = String(el.dataset.type||'');
-      if (tp === 'boss') return; // don't drag boss too much
-
-      const x = Number(el.dataset._x || 0);
-      const y = Number(el.dataset._y || 0);
-      if (!isFinite(x) || !isFinite(y)) return;
-
-      const dx = cxW - x;
-      const dy = cyW - y;
-      const dist = Math.max(1, Math.hypot(dx,dy));
-      const step = clamp(0.8 + strength*2.4, 0.8, 3.2);
-
-      // move slightly toward center
-      const nx = x + (dx/dist)*step;
-      const ny = y + (dy/dist)*step;
-      setXY(el, nx, ny);
-    });
-  }
-
-  // ---------- Tick loop ----------
+  // ---------- tick loop ----------
   function feverTick(){
-    const t = now();
-    if (!engine.feverTickLast) engine.feverTickLast = t;
-    const dt = Math.min(0.25, Math.max(0, (t - engine.feverTickLast)/1000));
-    engine.feverTickLast = t;
+    const t=now();
+    if (!E.feverTickLast) E.feverTickLast=t;
+    const dt = Math.min(0.25, Math.max(0,(t-E.feverTickLast)/1000));
+    E.feverTickLast=t;
 
-    const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
-    const cool = 7.5 * (0.6 + clamp(engine.combo/18,0,1)*0.6 + clamp(acc,0,1)*0.3);
-    engine.fever = clamp(engine.fever - cool*dt, 0, 100);
-    emitFever();
+    const acc = E.hitAll>0 ? (E.hitGood/E.hitAll) : 0;
+    const cool = 7.5 * (0.6 + clamp(E.combo/18,0,1)*0.6 + clamp(acc,0,1)*0.3);
+    E.fever = clamp(E.fever - cool*dt, 0, 100);
+    feverEmit();
   }
 
   function loopTick(){
-    if (!engine.running || engine.ended) return;
+    if (!E.running || E.ended) return;
 
-    // ttl adjust with freeze
-    const t = now();
-    const frozen = (t < engine.freezeUntil);
-    const baseTTL = (engine.runMode==='research') ? diffParams(engine.diff).ttl : engine.adapt.ttl;
-    engine.ttlMs = frozen ? Math.round(baseTTL * 1.20) : baseTTL;
+    // ttl with freeze
+    const t=now();
+    const baseTTL = (E.runMode==='research') ? diffParams(E.diff).ttl : E.adapt.ttl;
+    E.ttlMs = (t < E.freezeUntil) ? Math.round(baseTTL*1.20) : baseTTL;
 
     // adaptive only in play
-    if (engine.runMode === 'play'){
-      const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
-      const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
-      engine.adapt.spawnMs = clamp(820 - heat*260, 480, 880);
-      engine.adapt.ttl     = clamp(1680 - heat*260, 1250, 1750);
-      engine.adapt.junkBias = clamp(0.11 + heat*0.06, 0.08, 0.22);
-      engine.adapt.decoyBias= clamp(0.09 + heat*0.05, 0.06, 0.20);
-      engine.adapt.bossEvery= clamp(20000 - heat*6000, 14000, 22000);
+    if (E.runMode==='play'){
+      const acc = E.hitAll>0 ? (E.hitGood/E.hitAll) : 0;
+      const heat = clamp((E.combo/18) + (acc-0.65), 0, 1);
+      E.adapt.spawnMs = clamp(820 - heat*260, 480, 880);
+      E.adapt.ttl     = clamp(1680 - heat*260, 1250, 1750);
+      E.adapt.junkBias = clamp(0.11 + heat*0.06, 0.08, 0.22);
+      E.adapt.decoyBias= clamp(0.09 + heat*0.05, 0.06, 0.20);
     }
 
     applyBuffClasses();
     feverTick();
 
-    // magnet drift
+    stormTick();
     magnetStep();
 
-    // time
-    engine.left = Math.max(0, engine.left - 0.14);
+    E.left = Math.max(0, E.left - 0.14);
     updateTime();
-    if (engine.left <= 0){ endGame('time'); return; }
+    if (E.left <= 0){ endGame('time'); return; }
 
-    // apply view with shake
     applyView();
-
-    engine.tickTimer = root.setTimeout(loopTick, 140);
+    E.tickT = root.setTimeout(loopTick, 140);
   }
 
   function clearAllTargets(){
-    const layer = engine.layerEl;
-    if (!layer) return;
-    const list = layer.querySelectorAll('.fg-target');
-    list.forEach(el=>{
-      try{ root.clearTimeout(el._ttlTimer); }catch{}
-      el.remove();
-    });
+    if (!E.layer) return;
+    const list = E.layer.querySelectorAll('.fg-target');
+    list.forEach(el=>{ try{ root.clearTimeout(el._ttlTimer); }catch{} try{ el.remove(); }catch{} });
+    E.bossEl=null;
   }
 
   function endGame(reason){
-    if (engine.ended) return;
-    engine.ended = true;
-    engine.running = false;
+    if (E.ended) return;
+    E.ended=true; E.running=false;
 
-    try{ root.clearTimeout(engine.spawnTimer); }catch{}
-    try{ root.clearTimeout(engine.tickTimer); }catch{}
+    try{ root.clearTimeout(E.spawnT); }catch{}
+    try{ root.clearTimeout(E.tickT); }catch{}
     clearAllTargets();
-    questStop();
 
-    DOC.body.classList.remove('groups-overdrive','groups-freeze','groups-mini-urgent');
+    DOC.body.classList.remove('groups-overdrive','groups-freeze','groups-mini-urgent','groups-storm');
 
-    const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
+    const acc = E.hitAll>0 ? Math.round((E.hitGood/E.hitAll)*100) : 0;
     const grade = rankFromAcc(acc);
 
-    let qs = null;
-    try{ qs = engine.quest && engine.quest.getState ? engine.quest.getState() : null; }catch{}
-
     emit('hha:end', {
-      reason: reason || 'end',
-      scoreFinal: engine.score|0,
-      comboMax: engine.comboMax|0,
-      misses: engine.misses|0,
-      accuracyGoodPct: acc|0,
+      reason: reason||'end',
+      scoreFinal:E.score|0,
+      comboMax:E.comboMax|0,
+      misses:E.misses|0,
+      accuracyGoodPct:acc|0,
       grade,
-      goalsCleared: qs ? (qs.goalsCleared|0) : 0,
-      goalsTotal:   qs ? (qs.goalsTotal|0)   : 0,
-      miniCleared:  qs ? (qs.miniCleared|0)  : 0,
-      miniTotal:    qs ? (qs.miniTotal|0)    : 0,
-      diff: engine.diff,
-      runMode: engine.runMode,
-      style: engine.style,
-      seed: engine.seed
+      diff:E.diff,
+      runMode:E.runMode,
+      seed:E.seed
     });
   }
 
-  // ---------- Public API ----------
+  // ---------- directives ----------
+  function bindDirectives(){
+    if (E._dirBound) return;
+    E._dirBound=true;
+
+    root.addEventListener('groups:directive',(ev)=>{
+      const d = ev && ev.detail ? ev.detail : {};
+
+      if (typeof d.urgent === 'boolean'){
+        if (d.urgent) DOC.body.classList.add('groups-mini-urgent');
+        else DOC.body.classList.remove('groups-mini-urgent');
+      }
+
+      if (d.tick){
+        try{
+          if (d.tickFast) NS.Audio?.tickFast?.();
+          else NS.Audio?.tick?.();
+        }catch{}
+      }
+
+      if (d.shake){
+        const s = clamp(d.shake.strength,0,5);
+        const ms= clamp(d.shake.ms,60,420);
+        E.shakeUntil = now()+ms;
+        E.shakeStrength = Math.max(E.shakeStrength, s);
+      }
+
+      if (d.bonus && typeof d.bonus === 'object'){
+        E.bonusMult = clamp(d.bonus.mult ?? 1, 1, 1.6);
+      }
+
+      if (d.magnet && typeof d.magnet === 'object'){
+        E.magnetOn = !!d.magnet.on;
+        E.magnetStrength = clamp(d.magnet.strength ?? 0.55, 0, 1);
+      }
+
+      if (d.nojunk && typeof d.nojunk === 'object'){
+        E.nojunkOn = !!d.nojunk.on;
+        E.nojunkR  = clamp(d.nojunk.r ?? 150, 90, 220);
+        applyNoJunkVars();
+      }
+
+      if (d.storm && typeof d.storm === 'object'){
+        if (d.storm.on) setStorm(true, d.storm.dur || diffParams(E.diff).stormDur);
+        else setStorm(false);
+      }
+
+      if (d.bossMini && typeof d.bossMini === 'object'){
+        E.bossMiniOn = !!d.bossMini.on;
+        if (E.bossMiniOn){
+          E.bossHpMax = clamp(d.bossMini.hp ?? 4, 2, 7);
+          E.bossHp = E.bossHpMax;
+          spawnBoss();
+        } else {
+          E.bossMiniOn = false;
+          E.bossHp = 0; E.bossHpMax = 0;
+          if (E.bossEl) { try{ removeTarget(E.bossEl); }catch{} }
+          E.bossEl = null;
+        }
+      }
+    },{passive:true});
+  }
+
+  // ---------- public ----------
   function setLayerEl(el){
-    engine.layerEl = el || null;
-    applyView();
-    setupView();
-    bindDirectives();
-    applyNoJunkVars();
+    E.layer = el || null;
+    if (E.layer){
+      applyNoJunkVars();
+      applyView();
+      setupView();
+      bindDirectives();
+    }
   }
 
   function start(diff, cfg){
     cfg = cfg || {};
-    engine.runMode = (String(cfg.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
-    engine.diff = String(diff || cfg.diff || 'normal').toLowerCase();
-    engine.style = styleNorm(cfg.style || 'mix');
-    engine.timeSec = clamp(cfg.time ?? 90, 30, 180);
-    engine.seed = String(cfg.seed || Date.now());
-    engine.rng = makeRng(engine.seed);
+    E.runMode = (String(cfg.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
+    E.diff = String(diff || cfg.diff || 'normal').toLowerCase();
+    E.timeSec = clamp(cfg.time ?? 90, 30, 180);
+    E.seed = String(cfg.seed || Date.now());
+    E.rng = makeRng(E.seed);
 
-    const dp = diffParams(engine.diff);
+    const dp = diffParams(E.diff);
 
-    engine.running = true;
-    engine.ended = false;
+    E.running=true; E.ended=false;
+    E.left=E.timeSec;
 
-    engine.left = engine.timeSec;
-    engine.score = 0; engine.combo = 0; engine.comboMax = 0;
-    engine.misses = 0; engine.hitGood = 0; engine.hitAll = 0;
+    E.score=0; E.combo=0; E.comboMax=0;
+    E.misses=0; E.hitGood=0; E.hitAll=0;
 
-    engine.powerThr = dp.powerThr;
-    engine.power = 0;
+    E.groupId=1; E.groupClean=true;
 
-    engine.sizeBase = dp.size;
-    engine.ttlMs = dp.ttl;
+    E.fever=0; E.shield=0; E.feverTickLast=0;
 
-    engine.groupId = 1;
-    engine.groupClean = true;
+    E.powerThr = dp.powerThr;
+    E.power=0;
 
-    engine.fever = 0;
-    engine.shield = 0;
-    engine.feverTickLast = 0;
+    E.sizeBase = dp.size;
+    E.ttlMs = dp.ttl;
 
-    engine.freezeUntil = 0;
-    engine.overUntil = 0;
+    E.freezeUntil=0; E.overUntil=0;
 
-    engine.magnetOn = false;
-    engine.magnetStrength = 0;
+    E.bonusMult=1.0;
+    E.magnetOn=false; E.magnetStrength=0.55;
+    E.nojunkOn=false; E.nojunkR=150; E.nojunkCx=0; E.nojunkCy=0;
 
-    engine.nojunkOn = false;
-    engine.nojunkCx = 0;
-    engine.nojunkCy = 0;
-    engine.nojunkR = 140;
+    E.stormOn=false; E.stormUntil=0;
+    E.nextStormAt=0;
 
-    engine.vx = 0; engine.vy = 0;
-    engine.shakeUntil = 0;
-    engine.shakeStrength = 0;
+    E.bossMiniOn=false; E.bossHp=0; E.bossHpMax=0; E.bossEl=null;
 
-    engine._rectCacheAt = 0;
-    engine._rectCache = null;
+    E.vx=0; E.vy=0;
+    E.shakeUntil=0; E.shakeStrength=0;
 
-    updateTime();
-    updatePower();
-    updateScore();
-    emitFever();
+    E._rectCacheAt=0; E._rectCache=null;
 
-    emitCoach(SONG[1], 'neutral');
-
-    // ensure vars clean
+    updateTime(); updatePower(); updateScore(); feverEmit();
+    coach(SONG[1],'neutral');
+    applyBuffClasses();
     applyNoJunkVars();
 
-    // start quest + loops
-    questStart();
+    // deterministic storm schedule in research
+    if (E.runMode==='research'){
+      // first storm around 12-16s (deterministic)
+      E.nextStormAt = now() + 12000 + Math.round(E.rng()*4000);
+    }
+
     loopSpawn();
     loopTick();
   }
 
-  function stop(reason){ endGame(reason || 'stop'); }
+  function stop(reason){ endGame(reason||'stop'); }
 
   NS.GameEngine = { start, stop, setLayerEl };
 
