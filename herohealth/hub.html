@@ -4,7 +4,8 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
 ✅ ตาราง 4 เกมล่าสุด
 ✅ Export CSV (last / recent4)
 ✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run, diff, time, seed, + research ctx)
-✅ NEW UX: Recent row tap (1 tap copy / 2 taps play) via hub.safe.js
+✅ UX: แตะ 1 ครั้ง = Copy, แตะ 2 ครั้ง = Play (ทั้งปุ่มเกมและแถว history)
+✅ เพิ่ม Action ใน history: Play + Copy JSON
 -->
 
 <!doctype html>
@@ -222,7 +223,6 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
       color:rgba(229,231,235,.92);
       font-weight:900;
       vertical-align:top;
-      transition: background .12s ease, transform .12s ease;
     }
     tbody tr:last-child td{border-bottom:none;}
     .tdGame{font-weight:1100;}
@@ -239,16 +239,55 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
     .gradeTag.warn{border-color:rgba(250,204,21,.28); background:rgba(250,204,21,.10);}
     .gradeTag.bad{border-color:rgba(239,68,68,.26); background:rgba(239,68,68,.10);}
 
-    /* ===== NEW: make rows feel tappable ===== */
-    #recentTbody tr{cursor:pointer; -webkit-tap-highlight-color:transparent;}
-    #recentTbody tr:hover td{background:rgba(34,197,94,.06);}
-    #recentTbody tr:active td{background:rgba(34,197,94,.10);}
-    .tapTip{
-      margin-top:8px;
-      font-size:12px;
-      color:rgba(148,163,184,.95);
-      font-weight:900;
-      line-height:1.35;
+    /* ===== Tap Feedback FX ===== */
+    .gameBtn, .btn { touch-action: manipulation; }
+
+    .gameBtn.pulseGood, tr.pulseGood { animation:hhaPulseGood .42s ease-out; }
+    .gameBtn.pulseWarn, tr.pulseWarn { animation:hhaPulseWarn .42s ease-out; }
+    .gameBtn.pulseBad,  tr.pulseBad  { animation:hhaPulseBad  .42s ease-out; }
+
+    @keyframes hhaPulseGood{
+      0%{ box-shadow:0 0 0 rgba(34,197,94,0); transform:translateY(0); }
+      35%{ box-shadow:0 0 0 6px rgba(34,197,94,.18), 0 18px 44px rgba(0,0,0,.28); }
+      100%{ box-shadow:0 18px 44px rgba(0,0,0,.28); transform:translateY(0); }
+    }
+    @keyframes hhaPulseWarn{
+      0%{ box-shadow:0 0 0 rgba(250,204,21,0); transform:translateY(0); }
+      35%{ box-shadow:0 0 0 6px rgba(250,204,21,.18), 0 18px 44px rgba(0,0,0,.28); }
+      100%{ box-shadow:0 18px 44px rgba(0,0,0,.28); transform:translateY(0); }
+    }
+    @keyframes hhaPulseBad{
+      0%{ box-shadow:0 0 0 rgba(239,68,68,0); transform:translateY(0); }
+      35%{ box-shadow:0 0 0 6px rgba(239,68,68,.16), 0 18px 44px rgba(0,0,0,.28); }
+      100%{ box-shadow:0 18px 44px rgba(0,0,0,.28); transform:translateY(0); }
+    }
+
+    /* ===== Make history rows clickable ===== */
+    tbody tr[data-i]{ cursor:pointer; }
+    tbody tr[data-i]:hover td{ background:rgba(34,197,94,.05); }
+
+    /* ===== history action buttons ===== */
+    .actWrap{display:flex; gap:8px; align-items:center;}
+    .actBtn{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.52);
+      color:rgba(229,231,235,.92);
+      font-weight:1100;
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .actBtn:active{transform:translateY(1px);}
+    .actBtn.play{
+      border-color:rgba(250,204,21,.28);
+      background:rgba(250,204,21,.10);
+    }
+    .actBtn.json{
+      border-color:rgba(34,197,94,.24);
+      background:rgba(34,197,94,.10);
     }
   </style>
 
@@ -262,7 +301,7 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
         <div class="logo">HHA</div>
         <div>
           <div class="title">HeroHealth HUB</div>
-          <div class="sub">ผลล่าสุด + 4 ล่าสุด + Export CSV • ส่งพารามิเตอร์แบบมาตรฐาน</div>
+          <div class="sub">ผลล่าสุด + 4 ล่าสุด + Export CSV • แตะ 1=Copy / 2=Play</div>
         </div>
       </div>
       <div class="row" style="justify-content:flex-end">
@@ -414,17 +453,13 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
                     <th>Miss</th>
                     <th>Goals</th>
                     <th>Minis</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody id="recentTbody">
-                  <tr><td colspan="9" class="muted">—</td></tr>
+                  <tr><td colspan="10" class="muted">—</td></tr>
                 </tbody>
               </table>
-            </div>
-
-            <div class="tapTip">
-              💡 แตะแถว 1 ครั้ง = Copy ลิงก์รอบนั้น • แตะแถว 2 ครั้ง = Play รอบนั้นทันที
-              <br> (บนคอม: คลิกขวา = Copy ทันที)
             </div>
           </div>
         </div>
