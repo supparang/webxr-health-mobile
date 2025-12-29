@@ -1,10 +1,7 @@
 /* === /herohealth/vr-groups/groups-fx.js ===
-FX controller (PATCHED)
-- storm border + urgent pulse
-- judge flash
-- celebrate trigger (Particles if exists)
-- ✅ PATCH: groups:storm supports d.urgent
-- ✅ PATCH: robust kind matching (case-insensitive: bad/miss/boss)
+GroupsVR FX (PRODUCTION)
+✅ listens: hha:judge, hha:celebrate
+✅ uses global Particles if present (../vr/particles.js) else fallback flash/shake
 */
 
 (function(root){
@@ -12,96 +9,74 @@ FX controller (PATCHED)
   const DOC = root.document;
   if (!DOC) return;
 
+  const NS = (root.GroupsVR = root.GroupsVR || {});
+
   const Particles =
     (root.GAME_MODULES && root.GAME_MODULES.Particles) ||
-    root.Particles || null;
+    root.Particles || { scorePop(){}, burstAt(){} };
 
-  if (!DOC.getElementById('groups-fx-css')){
-    const st = DOC.createElement('style');
-    st.id = 'groups-fx-css';
-    st.textContent = `
-      body.groups-storm::before{
-        content:"";
-        position:fixed; inset:0; pointer-events:none; z-index:80;
-        box-shadow: inset 0 0 0 2px rgba(34,211,238,.18),
-                    inset 0 0 35px rgba(34,211,238,.12);
-        opacity:.75;
-      }
-      body.groups-storm.groups-storm-urgent::before{
-        animation: stormPulse .22s ease-in-out infinite alternate;
-      }
-      @keyframes stormPulse{
-        from{ box-shadow: inset 0 0 0 2px rgba(249,115,115,.22), inset 0 0 42px rgba(249,115,115,.12); opacity:.82;}
-        to  { box-shadow: inset 0 0 0 2px rgba(34,211,238,.22), inset 0 0 42px rgba(34,211,238,.12); opacity:.95;}
-      }
-
-      .gflash{
-        position:fixed; inset:0; pointer-events:none;
-        z-index:90; opacity:0;
-        background: radial-gradient(circle at 50% 55%, rgba(255,255,255,.12), transparent 55%);
-      }
-      .gflash.on{ opacity:1; animation: flashOut .18s ease-out forwards; }
-      @keyframes flashOut{ to{ opacity:0; } }
-
-      body.gshake{ animation: gshake .12s linear infinite; }
-      @keyframes gshake{
-        0%{ transform:translate(0,0) }
-        25%{ transform:translate(1px,-1px) }
-        50%{ transform:translate(-1px,1px) }
-        75%{ transform:translate(1px,1px) }
-        100%{ transform:translate(0,0) }
-      }
-    `;
-    DOC.head.appendChild(st);
-  }
-
-  function ensureFlash(){
-    let el = DOC.querySelector('.gflash');
-    if (el) return el;
-    el = DOC.createElement('div');
-    el.className = 'gflash';
+  function flash(kind){
+    const el = DOC.createElement('div');
+    el.style.position = 'fixed';
+    el.style.inset = '0';
+    el.style.zIndex = '999';
+    el.style.pointerEvents = 'none';
+    el.style.opacity = '0';
+    el.style.transition = 'opacity 140ms ease';
+    el.style.background =
+      (kind==='bad')  ? 'rgba(239,68,68,.14)' :
+      (kind==='boss') ? 'rgba(34,211,238,.14)' :
+                        'rgba(34,197,94,.10)';
     DOC.body.appendChild(el);
-    return el;
+    requestAnimationFrame(()=>{ el.style.opacity = '1'; });
+    setTimeout(()=>{ el.style.opacity = '0'; }, 120);
+    setTimeout(()=>{ el.remove(); }, 320);
   }
 
-  function flash(){
-    const el = ensureFlash();
-    el.classList.remove('on');
-    void el.offsetWidth;
-    el.classList.add('on');
+  function shake(ms, strength){
+    ms = Math.max(120, ms||260);
+    strength = Math.max(2, strength||6);
+    const t0 = performance.now();
+    function step(){
+      const t = performance.now() - t0;
+      if (t >= ms){
+        DOC.body.style.transform = '';
+        return;
+      }
+      const k = (1 - t/ms);
+      const x = (Math.random()*2-1) * strength * k;
+      const y = (Math.random()*2-1) * strength * k;
+      DOC.body.style.transform = `translate(${x}px, ${y}px)`;
+      requestAnimationFrame(step);
+    }
+    step();
   }
 
-  function shake(ms){
-    DOC.body.classList.add('gshake');
-    setTimeout(()=>DOC.body.classList.remove('gshake'), Math.max(60, ms|0));
-  }
-
-  root.addEventListener('hha:judge', (e)=>{
-    const d = e.detail||{};
+  root.addEventListener('hha:judge', (ev)=>{
+    const d = (ev && ev.detail) || {};
     const kind = String(d.kind||'').toLowerCase();
 
     if (kind === 'bad' || kind === 'miss'){
-      flash(); shake(180);
+      flash('bad');
+      shake(260, 6);
     } else if (kind === 'boss'){
-      flash();
+      flash('boss');
+      shake(220, 4);
+    } else if (kind === 'good'){
+      flash('good');
     }
   }, { passive:true });
 
-  root.addEventListener('groups:storm', (e)=>{
-    const d = e.detail||{};
-    if (d.on){
-      DOC.body.classList.add('groups-storm');
-      if (d.urgent) DOC.body.classList.add('groups-storm-urgent');
-      else DOC.body.classList.remove('groups-storm-urgent');
-    } else {
-      DOC.body.classList.remove('groups-storm','groups-storm-urgent');
-    }
+  root.addEventListener('hha:celebrate', (ev)=>{
+    const d = (ev && ev.detail) || {};
+    const title = String(d.title||'');
+    // ยิง particle กลางจอ
+    try{
+      Particles.scorePop && Particles.scorePop(title || '🎉', root.innerWidth*0.5, root.innerHeight*0.45);
+      Particles.burstAt && Particles.burstAt(root.innerWidth*0.5, root.innerHeight*0.45, 24);
+    }catch{}
   }, { passive:true });
 
-  root.addEventListener('hha:celebrate', (e)=>{
-    const d = e.detail||{};
-    try{ Particles && Particles.celebrate && Particles.celebrate(d); }catch{}
-    flash();
-  }, { passive:true });
+  NS.FX = { flash, shake };
 
 })(typeof window !== 'undefined' ? window : globalThis);
