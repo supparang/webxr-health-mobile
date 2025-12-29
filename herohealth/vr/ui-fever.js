@@ -1,70 +1,66 @@
 // === /herohealth/vr/ui-fever.js ===
-// Fever UI (IIFE) — provides window.FeverUI { setFever, setShield }
-
-(function(root){
+// Global Fever UI (SAFE)
+// Provides window.FeverUI + window.GAME_MODULES.FeverUI
+(function (root) {
   'use strict';
   const doc = root.document;
   if (!doc) return;
 
-  function $(id){ return doc.getElementById(id); }
+  const S = { value:0, shield:0 };
 
-  function ensure(){
-    // If fever elements exist, OK
-    if ($('feverBar') && $('feverText') && $('shieldPills')) return;
+  function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
-    // Create minimal fallback if missing
-    let wrap = $('hhaFever');
-    if (!wrap){
-      wrap = doc.createElement('div');
-      wrap.id = 'hhaFever';
-      wrap.className = 'hha-fever';
-      wrap.innerHTML = `
-        <div class="fever-row">
-          <div class="fever-label">FEVER</div>
-          <div class="fever-bar"><div class="fever-fill" id="feverBar"></div></div>
-          <div class="fever-text" id="feverText">0%</div>
-        </div>
-        <div class="shield-row">
-          <div class="shield-label">SHIELD</div>
-          <div class="shield-pills" id="shieldPills"></div>
-        </div>`;
-      doc.body.appendChild(wrap);
+  function ensurePills(n=9){
+    const box = doc.getElementById('shieldPills');
+    if (!box) return null;
+    if (box._built) return box;
+    box._built = true;
+    box.innerHTML = '';
+    for (let i=0;i<n;i++){
+      const p = doc.createElement('div');
+      p.className = 'pill';
+      box.appendChild(p);
     }
+    return box;
   }
 
-  function setFever(v){
-    ensure();
-    v = Math.max(0, Math.min(100, Number(v)||0));
-    const bar = $('feverBar');
-    const txt = $('feverText');
-    if (bar) bar.style.width = `${v.toFixed(0)}%`;
-    if (txt) txt.textContent = `${v.toFixed(0)}%`;
-  }
+  function render(){
+    const bar = doc.getElementById('feverBar');
+    const txt = doc.getElementById('feverText');
+    if (bar) bar.style.width = clamp(S.value,0,100).toFixed(0) + '%';
+    if (txt) txt.textContent = clamp(S.value,0,100).toFixed(0) + '%';
 
-  function setShield(sec){
-    ensure();
-    sec = Math.max(0, Number(sec)||0);
-    const pills = $('shieldPills');
-    if (!pills) return;
-
-    const n = Math.max(0, Math.min(10, Math.ceil(sec)));
-    const old = pills.querySelectorAll('.shield-pill').length;
-
-    if (old !== 10){
-      pills.innerHTML = '';
-      for (let i=0;i<10;i++){
-        const p = doc.createElement('div');
-        p.className = 'shield-pill';
-        pills.appendChild(p);
+    const pills = ensurePills(9);
+    if (pills){
+      const kids = pills.children;
+      for (let i=0;i<kids.length;i++){
+        if (i < S.shield) kids[i].classList.add('on');
+        else kids[i].classList.remove('on');
       }
     }
-    const all = pills.querySelectorAll('.shield-pill');
-    all.forEach((p,i) => p.classList.toggle('on', i < n));
   }
 
-  const FeverUI = { setFever, setShield };
-  root.FeverUI = FeverUI;
-  root.GAME_MODULES = root.GAME_MODULES || {};
-  root.GAME_MODULES.FeverUI = FeverUI;
+  function set(payload){
+    payload = payload || {};
+    if (payload.value !== undefined) S.value = clamp(payload.value,0,100);
+    if (payload.shield !== undefined) S.shield = clamp(payload.shield,0,9);
+    render();
+  }
 
-})(window);
+  function setShield(v){
+    S.shield = clamp(v,0,9);
+    render();
+  }
+
+  function get(){
+    return { value:S.value, shield:S.shield };
+  }
+
+  const api = { set, setShield, get };
+  root.FeverUI = api;
+  root.GAME_MODULES = root.GAME_MODULES || {};
+  root.GAME_MODULES.FeverUI = api;
+
+  // init
+  render();
+})(typeof window !== 'undefined' ? window : globalThis);
