@@ -1,7 +1,7 @@
 /* === /herohealth/vr-groups/groups-fx.js ===
 GroupsVR FX (PRODUCTION)
-✅ listens: hha:judge, hha:celebrate
-✅ uses global Particles if present (../vr/particles.js) else fallback flash/shake
+✅ hha:judge => flash + shake
+✅ hha:celebrate => particle pop
 */
 
 (function(root){
@@ -55,13 +55,10 @@ GroupsVR FX (PRODUCTION)
   root.addEventListener('hha:judge', (ev)=>{
     const d = (ev && ev.detail) || {};
     const kind = String(d.kind||'').toLowerCase();
-
     if (kind === 'bad' || kind === 'miss'){
-      flash('bad');
-      shake(260, 6);
+      flash('bad'); shake(260, 6);
     } else if (kind === 'boss'){
-      flash('boss');
-      shake(220, 4);
+      flash('boss'); shake(220, 4);
     } else if (kind === 'good'){
       flash('good');
     }
@@ -70,7 +67,6 @@ GroupsVR FX (PRODUCTION)
   root.addEventListener('hha:celebrate', (ev)=>{
     const d = (ev && ev.detail) || {};
     const title = String(d.title||'');
-    // ยิง particle กลางจอ
     try{
       Particles.scorePop && Particles.scorePop(title || '🎉', root.innerWidth*0.5, root.innerHeight*0.45);
       Particles.burstAt && Particles.burstAt(root.innerWidth*0.5, root.innerHeight*0.45, 24);
