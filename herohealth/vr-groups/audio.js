@@ -1,42 +1,113 @@
 /* === /herohealth/vr-groups/audio.js ===
-Groups VR Audio — tiny WebAudio SFX
-Exports: window.GroupsVRAudio.{tick,ding,fail,roar}
+GroupsVR Audio (PRODUCTION)
+✅ WebAudio osc SFX (no assets needed)
+✅ listens:
+   - groups:progress {type:'hit', correct:boolean}
+   - hha:judge {kind:'bad'|'good'|'boss'|'MISS', text?:string}
+   - groups:storm_urgent {on:boolean, leftMs:number}
 */
 
 (function(root){
   'use strict';
+  const NS = (root.GroupsVR = root.GroupsVR || {});
 
-  function ctx(){
+  let ctx = null;
+  let master = null;
+  let unlocked = false;
+
+  function ensureCtx(){
+    if (ctx) return ctx;
     const AC = root.AudioContext || root.webkitAudioContext;
     if (!AC) return null;
-    if (!root.__HHA_AC) root.__HHA_AC = new AC();
-    return root.__HHA_AC;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = 0.22;
+    master.connect(ctx.destination);
+    return ctx;
   }
 
-  function beep(freq, durMs, type, gain){
-    const ac = ctx();
-    if (!ac) return;
-    try{ if (ac.state === 'suspended') ac.resume(); }catch{}
-    const o = ac.createOscillator();
-    const g = ac.createGain();
-    o.type = type || 'sine';
-    o.frequency.value = freq;
-    g.gain.value = Math.max(0.0001, gain ?? 0.06);
-    o.connect(g); g.connect(ac.destination);
+  function unlock(){
+    const c = ensureCtx();
+    if (!c) return;
+    if (unlocked) return;
+    try{ c.resume && c.resume(); }catch{}
+    unlocked = true;
+  }
 
-    const t0 = ac.currentTime;
-    const t1 = t0 + (durMs/1000);
-    g.gain.setValueAtTime(g.gain.value, t0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t1);
+  function beep(freq, durMs, type){
+    const c = ensureCtx();
+    if (!c || !master) return;
+    if (!unlocked) return;
+
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = Math.max(60, Number(freq)||220);
+
+    const t0 = c.currentTime;
+    const dur = Math.max(0.02, (Number(durMs)||80)/1000);
+
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.9, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+    o.connect(g);
+    g.connect(master);
 
     o.start(t0);
-    o.stop(t1 + 0.01);
+    o.stop(t0 + dur + 0.02);
   }
 
-  function tick(){ beep(880, 70, 'square', 0.04); }
-  function ding(){ beep(660, 110, 'sine', 0.07); setTimeout(()=>beep(990, 120, 'sine', 0.06), 90); }
-  function fail(){ beep(220, 160, 'sawtooth', 0.06); setTimeout(()=>beep(180, 160, 'sawtooth', 0.05), 120); }
-  function roar(){ beep(140, 180, 'triangle', 0.05); setTimeout(()=>beep(110, 220, 'triangle', 0.05), 120); }
+  function blipGood(){ beep(880, 65, 'triangle'); beep(1320, 50, 'sine'); }
+  function blipBad(){  beep(180, 95, 'sawtooth'); }
+  function blipBoss(){ beep(420, 80, 'square'); beep(260, 120, 'square'); }
+  function blipStar(){ beep(1200, 60, 'sine'); beep(1600, 70, 'triangle'); }
+  function blipIce(){  beep(520, 60, 'sine'); beep(740, 70, 'triangle'); }
 
-  root.GroupsVRAudio = { tick, ding, fail, roar };
+  // storm tick
+  let stormTickTimer = null;
+  function startStormTick(){
+    if (stormTickTimer) return;
+    stormTickTimer = setInterval(()=>{
+      // “ติ๊ก” เร็ว ๆ
+      beep(980, 30, 'square');
+    }, 240);
+  }
+  function stopStormTick(){
+    if (!stormTickTimer) return;
+    clearInterval(stormTickTimer);
+    stormTickTimer = null;
+  }
+
+  // --- event listeners ---
+  root.addEventListener('pointerdown', unlock, { passive:true });
+  root.addEventListener('touchstart', unlock, { passive:true });
+
+  root.addEventListener('groups:progress', (ev)=>{
+    const d = (ev && ev.detail) || {};
+    if (d.type === 'hit'){
+      if (d.correct) blipGood();
+      else blipBad();
+    }
+    if (d.kind === 'star_hit') blipStar();
+    if (d.kind === 'ice_hit') blipIce();
+  }, { passive:true });
+
+  root.addEventListener('hha:judge', (ev)=>{
+    const d = (ev && ev.detail) || {};
+    const k = String(d.kind||'').toLowerCase();
+    if (k === 'bad' || k === 'miss') blipBad();
+    else if (k === 'boss') blipBoss();
+    else if (k === 'good') blipGood();
+  }, { passive:true });
+
+  root.addEventListener('groups:storm_urgent', (ev)=>{
+    const d = (ev && ev.detail) || {};
+    const on = !!d.on;
+    if (on) startStormTick();
+    else stopStormTick();
+  }, { passive:true });
+
+  NS.Audio = { unlock };
+
 })(typeof window !== 'undefined' ? window : globalThis);
