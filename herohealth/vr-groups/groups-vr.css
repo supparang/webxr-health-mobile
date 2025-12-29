@@ -1,23 +1,16 @@
-:root{
-  color-scheme: dark;
+/* === /herohealth/vr-groups/groups-vr.css ===
+Food Groups VR — PRODUCTION CSS (Layout B)
+- ui-compact: ยุบ Quest/Coach เพิ่มพื้นที่เล่น (กด ☰ สลับได้)
+- Candy sticker targets + storm/freeeze/overdrive
+*/
 
+:root{
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.72);
-  --stroke:rgba(148,163,184,.22);
-
+  --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
-
-  --accent:#22c55e;
-  --warn:#f59e0b;
-  --bad:#ef4444;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
-
-  --radius-lg:18px;
-  --radius-md:14px;
-  --radius-pill:999px;
 
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
@@ -31,7 +24,7 @@
   --candy-amber: rgba(250,204,21,.34);
   --candy-violet: rgba(167,139,250,.30);
 
-  --stickerBorder: rgba(255,255,255,.85);
+  --stickerBorder: rgba(255,255,255,.86);
   --stickerEdge: rgba(2,6,23,.24);
   --stickerShadow: rgba(0,0,0,.42);
 
@@ -45,290 +38,159 @@
   --candy-polka:
     radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
     radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
-
-  --hudH: 126px; /* ใช้เป็น fallback ถ้า engine ยังไม่อ่าน DOM */
 }
 
 *{ box-sizing:border-box; }
-
-html, body{
-  margin:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-  color:var(--text);
+html,body{
+  margin:0; height:100%; overflow:hidden;
   background:
-    radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
+    radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 60%),
     var(--bg);
-}
-
-/* ======================
-   Layout B: Sticky HUD BAR
-   ====================== */
-.hudbar{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  top:calc(10px + var(--sat));
-  z-index:50;
-  pointer-events:auto;
-}
-
-.hudbar-card{
-  background:rgba(2,6,23,.62);
-  border:1px solid rgba(148,163,184,.20);
-  border-radius:22px;
-  box-shadow:0 18px 55px rgba(0,0,0,.55);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding:10px 10px 8px;
-}
-
-.hudrow{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-
-.hudrow1{ padding-bottom:8px; border-bottom:1px dashed rgba(148,163,184,.18); }
-.hudrow2{ padding-top:8px; }
-
-.hudleft{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  align-items:stretch;
-}
-
-.hudchip{
-  min-width:96px;
-  padding:8px 10px;
-  border-radius:16px;
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(15,23,42,.45);
-}
-.hudchip .k{ font-size:11px; color:var(--muted); font-weight:900; letter-spacing:.3px; }
-.hudchip .v{ font-size:16px; font-weight:1100; margin-top:2px; }
-.hudchip .muted{ font-size:12px; color:rgba(226,232,240,.70); font-weight:900; }
-
-.hudchip.danger{
-  border-color: rgba(239,68,68,.22);
-  background: rgba(239,68,68,.08);
-}
-
-.hudright{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-}
-
-.hudpill{
-  padding:8px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(15,23,42,.38);
-  font-weight:1000;
-  font-size:12px;
-  white-space:nowrap;
-}
-.hudpill.grade{
-  border-color: rgba(34,211,238,.22);
-  background: rgba(34,211,238,.08);
-}
-.hudpill.grade b{ font-size:14px; }
-
-.hudbtn{
-  border:0;
-  border-radius:14px;
-  padding:10px 12px;
-  font-weight:1100;
-  background:rgba(15,23,42,.55);
   color:var(--text);
-  border:1px solid rgba(148,163,184,.18);
-  cursor:pointer;
-}
-.hudbtn:active{ transform: scale(.98); }
-
-.powerMini{
-  flex: 1 1 260px;
-  min-width:240px;
-}
-.powerMiniTop{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  margin-bottom:7px;
-}
-.powerMiniTop .tag{
-  font-size:11px;
-  font-weight:1000;
-  color:var(--muted);
-  letter-spacing:.3px;
-}
-.powerMiniTop .num{
-  font-size:12px;
-  font-weight:1000;
-  color:rgba(226,232,240,.85);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 
-.powerMiniBar{
-  height:12px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(15,23,42,.55);
-  overflow:hidden;
-}
-.powerMiniBar i{
-  display:block;
-  height:100%;
-  width:0%;
-  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-  box-shadow:0 10px 24px rgba(34,211,238,.18);
-}
-
-.hintMini{
-  flex: 0 0 auto;
-  font-size:11px;
-  color:rgba(226,232,240,.78);
-  font-weight:900;
-  opacity:.92;
-  white-space:nowrap;
-}
-
-/* ======================
-   Quest Drawer (toggle)
-   ====================== */
-.questDrawer{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  top: calc(10px + var(--sat) + 118px);
-  z-index:48;
-  pointer-events:auto;
-  transition: transform .22s ease, opacity .22s ease;
-  transform: translateY(-8px);
-  opacity:1;
-}
-
-.questDrawer .questCard{
-  background:rgba(2,6,23,.55);
-  border:1px solid rgba(148,163,184,.16);
-  border-radius:20px;
-  box-shadow:0 18px 50px rgba(0,0,0,.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding:12px;
-}
-
-.questDrawer:not(.open){
-  opacity:0;
-  pointer-events:none;
-  transform: translateY(-18px);
-}
-
-.qrow{
-  display:grid;
-  grid-template-columns:auto 1fr auto;
-  gap:10px;
-  align-items:center;
-}
-
-.badge{
-  font-weight:1100;
-  font-size:11px;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.20);
-  background:rgba(15,23,42,.55);
-}
-.badge.goal{
-  border-color: rgba(34,197,94,.28);
-  background: rgba(34,197,94,.10);
-}
-.badge.mini{
-  border-color: rgba(167,139,250,.30);
-  background: rgba(167,139,250,.10);
-}
-
-.qt{
-  font-weight:1000;
-  font-size:12px;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.qn{
-  font-weight:1000;
-  font-size:12px;
-  color:rgba(226,232,240,.78);
-}
-
-.qbar{
-  margin-top:8px;
-  height:10px;
-  border-radius:999px;
-  overflow:hidden;
-  border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.55);
-}
-.qbar i{
-  display:block;
-  height:100%;
-  width:0%;
-  background:linear-gradient(90deg, rgba(34,197,94,.92), rgba(34,211,238,.75));
-}
-.qbar.mini i{
-  background:linear-gradient(90deg, rgba(167,139,250,.92), rgba(34,211,238,.60));
-}
-
-.qtime{
-  margin-top:8px;
-  font-size:12px;
-  font-weight:1000;
-  color:rgba(226,232,240,.86);
-}
-
-.questDrawer.mini-urgent .badge.mini{
-  border-color: rgba(239,68,68,.55);
-  background: rgba(239,68,68,.16);
-}
-.questDrawer.mini-urgent .qt{
-  color:#fff;
-  text-shadow:0 0 14px rgba(239,68,68,.35);
-}
-
-/* ======================
-   Gameplay Layer
-   ====================== */
-.fg-layer{
-  position: fixed;
-  inset: 0;
-  z-index: 3;
-  pointer-events: auto;
+/* Gameplay layer */
+#fg-layer{
+  position:fixed; inset:0;
   transform: translate(var(--vx,0px), var(--vy,0px));
   will-change: transform;
+  touch-action:none;
+  user-select:none;
+  pointer-events:auto;
+  z-index:10;
 }
 
-/* ======================
-   Coach (bottom-right)
-   ====================== */
+/* Top HUD */
+.hud{
+  position:fixed;
+  left:calc(12px + var(--sal));
+  right:calc(12px + var(--sar));
+  top:calc(10px + var(--sat));
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  pointer-events:none;
+  z-index:50;
+}
+.hud .box{
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:16px;
+  padding:10px 12px;
+  box-shadow:0 16px 40px rgba(0,0,0,.35);
+  min-width:120px;
+}
+.hud .box.right{ text-align:right; }
+.hud .big{ font-weight:900; font-size:16px; }
+.hud .small{ font-size:12px; color:var(--muted); margin-top:2px; }
+
+/* Pills row */
+.centerTop{
+  position:fixed;
+  left:50%;
+  transform:translateX(-50%);
+  top: calc(56px + var(--sat));
+  z-index:55;
+  pointer-events:none;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+.pill{
+  background:rgba(15,23,42,.72);
+  border:1px solid rgba(148,163,184,.16);
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:12px;
+  color:var(--text);
+  box-shadow:0 16px 40px rgba(0,0,0,.35);
+}
+.pillHint{ opacity:.92; }
+
+/* Quest bars */
+.questTop{
+  position:fixed;
+  left:calc(12px + var(--sal));
+  right:calc(12px + var(--sar));
+  top: calc(96px + var(--sat));
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  z-index:58;
+  pointer-events:none;
+}
+.qbar{
+  flex:1 1 240px;
+  background:rgba(2,6,23,.55);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:16px;
+  padding:10px 12px;
+  box-shadow:0 16px 40px rgba(0,0,0,.25);
+}
+.qbar .t{ font-size:12px; color:var(--muted); }
+.qbar .b{ margin-top:2px; font-size:13px; font-weight:900; }
+.qbar .p{
+  margin-top:8px; height:10px;
+  background:rgba(15,23,42,.65);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:999px; overflow:hidden;
+}
+.qbar .p > i{
+  display:block; height:100%; width:0%;
+  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+}
+.qbar .time{
+  margin-top:6px;
+  font-size:12px;
+  color:rgba(226,232,240,.88);
+  display:none;
+}
+body.mini-urgent .qbar .time{
+  text-shadow:0 0 14px rgba(239,68,68,.35);
+  color:#fff;
+}
+
+/* Power bar bottom */
+.powerWrap{
+  position:fixed;
+  left:calc(12px + var(--sal));
+  right:calc(12px + var(--sar));
+  bottom: calc(14px + var(--sab));
+  z-index:60;
+  pointer-events:none;
+}
+.power{
+  height:14px; border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(15,23,42,.65);
+  overflow:hidden;
+}
+.power > i{
+  display:block; height:100%; width:0%;
+  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+}
+.powerLabel{
+  margin-top:8px;
+  font-size:12px;
+  color:var(--muted);
+  display:flex;
+  justify-content:space-between;
+}
+
+/* Coach */
 .coachWrap{
   position:fixed;
-  right:calc(10px + var(--sar));
-  bottom:calc(14px + var(--sab));
-  z-index:40;
+  right:calc(12px + var(--sar));
+  bottom: calc(86px + var(--sab));
+  z-index:62;
   pointer-events:none;
   display:flex;
   gap:10px;
   align-items:flex-end;
 }
-
 .coachCard{
   width:220px;
   background:rgba(2,6,23,.60);
@@ -338,7 +200,6 @@ html, body{
   box-shadow:0 16px 40px rgba(0,0,0,.25);
 }
 .coachLine{ font-size:12px; color:rgba(226,232,240,.92); line-height:1.45; min-height:34px; }
-
 .feverMini{
   margin-top:8px;
   height:10px;
@@ -347,8 +208,7 @@ html, body{
   background:rgba(15,23,42,.65);
   overflow:hidden;
 }
-.feverMini i{ display:block; height:100%; width:0%; background:rgba(239,68,68,.85); }
-
+.feverMini > i{ display:block; height:100%; width:0%; background:rgba(239,68,68,.85); }
 .shieldTag{
   margin-top:8px;
   display:inline-flex;
@@ -361,7 +221,6 @@ html, body{
   border:1px solid rgba(148,163,184,.14);
   background:rgba(15,23,42,.60);
 }
-
 .coachImg{
   width:74px; height:74px;
   border-radius:18px;
@@ -372,12 +231,31 @@ html, body{
 }
 .coachImg img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-/* ======================
-   Overlays
-   ====================== */
-.overlay{
+/* UI Toggle Button */
+.uiMenuBtn{
   position:fixed;
-  inset:0;
+  right:calc(12px + var(--sar));
+  top:calc(10px + var(--sat));
+  z-index:70;
+  pointer-events:auto;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.55);
+  color:var(--text);
+  border-radius:14px;
+  padding:10px 12px;
+  font-weight:1000;
+  box-shadow:0 16px 40px rgba(0,0,0,.25);
+}
+
+/* Compact mode (Layout B default on mobile) */
+body.ui-compact .questTop{ display:none; }
+body.ui-compact .coachWrap{ display:none; }
+body.ui-compact .centerTop{ top: calc(56px + var(--sat)); }
+body.ui-compact .powerWrap{ bottom: calc(12px + var(--sab)); }
+
+/* Overlays */
+.overlay{
+  position:fixed; inset:0;
   background:
     radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
     radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
@@ -513,6 +391,22 @@ html, body{
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-pink), rgba(248,113,113,.26));
 }
+.fg-star{
+  border-color: rgba(250,204,21,.85);
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.26), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(250,204,21,.34), rgba(34,211,238,.18));
+}
+.fg-ice{
+  border-color: rgba(125,211,252,.85);
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.26), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(125,211,252,.26), rgba(167,139,250,.16));
+}
 .fg-boss{
   border-color: rgba(34,211,238,.70);
   background:
@@ -527,6 +421,8 @@ html, body{
 .fg-wrong::after,
 .fg-decoy::after,
 .fg-junk::after,
+.fg-star::after,
+.fg-ice::after,
 .fg-boss::after{
   position:absolute;
   right:8px;
@@ -539,6 +435,8 @@ html, body{
 .fg-wrong::after{ content:"⚠️"; }
 .fg-decoy::after{ content:"❓"; }
 .fg-junk::after { content:"🫧"; }
+.fg-star::after { content:"⭐"; }
+.fg-ice::after  { content:"❄️"; }
 .fg-boss::after { content:"👑"; }
 
 .fg-target:active{
@@ -584,35 +482,35 @@ html, body{
   to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
 }
 
-/* ======================
-   Mode vibes
-   ====================== */
-body.groups-storm .hudbar-card{ filter: saturate(1.10) brightness(1.05); }
-body.groups-storm-urgent .hudbar-card{ animation: hudStormPulse .24s ease-in-out infinite; }
+/* Mode vibes */
+body.groups-storm .hud{ filter: saturate(1.10) brightness(1.05); }
+body.groups-storm-urgent .hud{ animation: hudStormPulse .24s ease-in-out infinite; }
 @keyframes hudStormPulse{
   0%,100%{ transform: translateZ(0) scale(1.00); }
   50%{ transform: translateZ(0) scale(1.01); }
 }
 
-body.groups-overdrive .hudbar-card{
-  box-shadow: 0 18px 60px rgba(34,211,238,.18);
-  border-color: rgba(34,211,238,.30);
+body.groups-overdrive .pill,
+body.groups-overdrive .box{
+  box-shadow:0 0 0 1px rgba(250,204,21,.18), 0 18px 60px rgba(250,204,21,.14);
+  border-color: rgba(250,204,21,.22);
 }
-body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
+body.groups-freeze .fg-target{
+  animation-duration: 1.8s !important;
+  filter: saturate(0.95) brightness(1.02);
+}
 
 /* responsive */
-@media (max-width: 560px){
-  .hudbar-card{ border-radius:20px; padding:10px; }
-  .hudchip{ min-width:86px; padding:8px 9px; }
-  .hudchip .v{ font-size:15px; }
-  .hintMini{ display:none; } /* มือถือซ่อน hint ให้โล่ง */
-  .questDrawer{ top: calc(10px + var(--sat) + 122px); }
+@media (max-width: 920px){
+  .hud .box{ min-width:112px; padding:9px 11px; }
+  .centerTop{ top: calc(54px + var(--sat)); }
+  .pillHint{ display:none; } /* กันแน่นเกินบนมือถือ */
 }
 
 /* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
-  body.groups-storm-urgent .hudbar-card{
+  body.groups-storm-urgent .hud{
     animation:none !important;
   }
 }
