@@ -1,12 +1,20 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Boot — VR-safe layout + dynamic safeMargins + mini HUD
+// GoodJunkVR Boot — HHA Standard + VR button
+// Params:
+//  - diff=easy|normal|hard
+//  - time=80
+//  - run=play|research
+//  - end=time|all
+//  - challenge=rush|boss|survival
+//  - hub=../hub.html
+//  - seed=...
+//  - sessionId=...
+//  - log=<GAS_WEBAPP_URL>
 
 'use strict';
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
-
-const DOC = document;
 
 function qp(name, fallback = null){
   try{
@@ -17,22 +25,6 @@ function qp(name, fallback = null){
 }
 function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
-
-function isLandscape(){
-  return (innerWidth || 0) > (innerHeight || 0);
-}
-
-function computeSafeMargins({ view }){
-  // Portrait (mobile): กัน HUD+Fever+ปุ่มยิง
-  // Landscape/VR: ลด margin ลงให้เป้ากลับมากลางจอ
-  const land = isLandscape();
-  const isVr = (view === 'cardboard') || land;
-
-  if (isVr){
-    return { top: 56, bottom: 56, left: 22, right: 22 };
-  }
-  return { top: 128, bottom: 170, left: 26, right: 26 };
-}
 
 function buildContext(){
   const keys = [
@@ -53,30 +45,52 @@ function buildContext(){
 }
 
 function showStartOverlay(metaText){
-  const overlay = DOC.getElementById('startOverlay');
-  const btn = DOC.getElementById('btnStart');
-  const btnVr = DOC.getElementById('btnStartVr');
-  const meta = DOC.getElementById('startMeta');
-
+  const overlay = document.getElementById('startOverlay');
+  const btn = document.getElementById('btnStart');
+  const meta = document.getElementById('startMeta');
   if (meta) meta.textContent = metaText || '—';
-  if (!overlay || !btn) return Promise.resolve('mobile');
+  if (!overlay || !btn) return Promise.resolve();
 
   overlay.style.display = 'flex';
   return new Promise((resolve) => {
-    btn.onclick = () => { overlay.style.display = 'none'; resolve('mobile'); };
-    if (btnVr){
-      btnVr.onclick = () => { overlay.style.display = 'none'; resolve('cardboard'); };
-    }
+    btn.onclick = () => {
+      overlay.style.display = 'none';
+      resolve();
+    };
   });
 }
 
 function setHudMeta(text){
-  const el = DOC.getElementById('hudMeta');
+  const el = document.getElementById('hudMeta');
   if (el) el.textContent = text;
 }
 
-function setBodyView(view){
-  DOC.body.classList.toggle('view-cardboard', view === 'cardboard');
+function setupVRButton(){
+  const btn = document.getElementById('btnEnterVR');
+  const scene = document.getElementById('gj-xr'); // a-scene
+  if (!btn) return;
+
+  // if no scene, disable
+  if (!scene || typeof scene.enterVR !== 'function'){
+    btn.disabled = true;
+    btn.textContent = 'VR ไม่พร้อม';
+    return;
+  }
+
+  // enter/exit events
+  scene.addEventListener('enter-vr', () => {
+    document.body.classList.add('is-vr');
+  });
+  scene.addEventListener('exit-vr', () => {
+    document.body.classList.remove('is-vr');
+  });
+
+  btn.addEventListener('click', async () => {
+    try{
+      // Some browsers require user gesture; this is a gesture.
+      scene.enterVR();
+    }catch(_){}
+  });
 }
 
 (async function main(){
@@ -85,39 +99,53 @@ function setBodyView(view){
   const run = toStr(qp('run', 'play'), 'play').toLowerCase();
   const endPolicy = toStr(qp('end', 'time'), 'time').toLowerCase();
   const challenge = toStr(qp('challenge', 'rush'), 'rush').toLowerCase();
-  const viewIn = toStr(qp('view', 'mobile'), 'mobile').toLowerCase();
 
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
+
   const ctx = buildContext();
 
-  // view: mobile|cardboard
-  let view = (viewIn === 'cardboard') ? 'cardboard' : 'mobile';
-  setBodyView(view);
+  setupVRButton();
 
-  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=${view}`);
+  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge}`);
 
-  // touch/gyro shift + aim point
-  const aimY = (view === 'cardboard' || isLandscape()) ? 0.50 : 0.62;
+  // base feel
+  const baseAimY = 0.62;
 
-  attachTouchLook({
-    crosshairEl: DOC.getElementById('gj-crosshair'),
-    layerEl: DOC.getElementById('gj-layer'),
-    aimY,
-    maxShiftPx: (view === 'cardboard' || isLandscape()) ? 130 : 170,
+  // touch/gyro -> world shift (moves ONLY layer)
+  const touch = attachTouchLook({
+    crosshairEl: document.getElementById('gj-crosshair'),
+    layerEl: document.getElementById('gj-layer'),
+    aimY: baseAimY,
+    maxShiftPx: 170,
     ease: 0.12
   });
 
-  const metaText =
-    `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • view=${view}`
+  // If user enters VR, reduce shift + lift aim feel
+  const scene = document.getElementById('gj-xr');
+  if (scene){
+    scene.addEventListener('enter-vr', () => {
+      // VR: less translation (avoid nausea)
+      try{
+        touch.setShift(0, 0);
+      }catch(_){}
+    });
+  }
+
+  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}`
     + (seed ? ` • seed=${seed}` : '');
 
-  // overlay choose (mobile/cardboard)
-  const chosen = await showStartOverlay(metaText);
-  if (chosen === 'cardboard') view = 'cardboard';
-  setBodyView(view);
+  await showStartOverlay(metaText);
 
-  const safeMargins = computeSafeMargins({ view });
+  // Decide runtime aim + margins (VR vs normal)
+  const isVRNow = document.body.classList.contains('is-vr');
+
+  // In VR, crosshair is lifted by CSS; we also bias spawn to that aimY
+  const aimY = isVRNow ? 0.54 : 0.58; // game-feel aim (spawn bias), not crosshair css
+
+  const safeMargins = isVRNow
+    ? { top: 112, bottom: 140, left: 24, right: 24 }
+    : { top: 128, bottom: 170, left: 26, right: 26 };
 
   // boot engine
   goodjunkBoot({
@@ -128,35 +156,10 @@ function setBodyView(view){
     challenge,
     seed,
     sessionId,
-    view,
     context: ctx,
-    layerEl: DOC.getElementById('gj-layer'),
-    // (ถ้ายังไม่ใช้ stereo layers จริง ก็ปล่อยไว้ได้)
-    shootEl: DOC.getElementById('btnShoot'),
-    safeMargins
+    layerEl: document.getElementById('gj-layer'),
+    shootEl: document.getElementById('btnShoot'),
+    safeMargins,
+    aimY
   });
-
-  // HUD buttons
-  const btnHub = DOC.getElementById('btnHub');
-  if (btnHub){
-    btnHub.onclick = async () => {
-      try{
-        if (window.GoodJunkVR && typeof window.GoodJunkVR.endGame === 'function'){
-          await window.GoodJunkVR.endGame('hub');
-        }
-      }catch(_){}
-      const hub = qp('hub', '');
-      if (hub) location.href = hub;
-    };
-  }
-
-  const btnVr = DOC.getElementById('btnVr');
-  if (btnVr){
-    btnVr.onclick = () => {
-      const u = new URL(location.href);
-      const cur = (u.searchParams.get('view') || 'mobile').toLowerCase();
-      u.searchParams.set('view', cur === 'cardboard' ? 'mobile' : 'cardboard');
-      location.href = u.toString();
-    };
-  }
 })();
