@@ -1,10 +1,8 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + VR button + XR scene
-✅ DOM emoji targets on #gj-layer
+GoodJunkVR (PRODUCTION) — HHA Standard
 ✅ HUD + Quest + Coach + Fever/Shield
-✅ Start overlay
-✅ VR button (calls A-Frame enterVR)
-✅ XR scene (background only) behind DOM layer
+✅ Playfield: mono + stereo (VR/Cardboard)
+✅ Start overlay: 2D / VR(Cardboard)
 -->
 
 <!doctype html>
@@ -16,35 +14,16 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR button + XR scene
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (for Enter VR / Cardboard) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Global FX + HUD + Fever + Logger -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
-  <!-- ===== XR Scene (background only) ===== -->
-  <a-scene
-    id="gj-xr"
-    embedded
-    vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: true"
-    renderer="antialias: true; colorManagement: true"
-  >
-    <a-sky color="#020617"></a-sky>
-    <a-entity id="gj-camrig" position="0 1.6 0">
-      <a-camera look-controls="enabled: true"></a-camera>
-    </a-entity>
-  </a-scene>
-
   <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
@@ -86,11 +65,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR button + XR scene
     </div>
   </div>
 
-  <!-- ===== VR Button (our own) ===== -->
-  <button id="btnEnterVR" class="btn-vr" type="button" aria-label="enter vr">
-    เข้า VR
-  </button>
-
   <!-- ===== Fever/Shield UI ===== -->
   <div class="hha-fever" id="hhaFever">
     <div class="fever-row">
@@ -106,8 +80,26 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR button + XR scene
 
   <!-- ===== Playfield ===== -->
   <div id="gj-stage">
+    <!-- Stereo (VR/Cardboard) -->
+    <div id="gj-stereo" aria-hidden="true">
+      <div class="gj-eye">
+        <div id="gj-eyeL">
+          <div id="gj-layerL" aria-label="targets layer left"></div>
+          <div id="gj-crosshairL" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="gj-eye">
+        <div id="gj-eyeR">
+          <div id="gj-layerR" aria-label="targets layer right"></div>
+          <div id="gj-crosshairR" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mono (default) -->
     <div id="gj-layer" aria-label="targets layer"></div>
     <div id="gj-crosshair" aria-hidden="true"></div>
+
     <div id="atk-ring" aria-hidden="true"></div>
     <div id="atk-laser" aria-hidden="true"></div>
 
@@ -126,10 +118,14 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR button + XR scene
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
         เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
+        <span class="muted">เลือกโหมดเริ่มเล่น: ปกติ หรือ VR/Cardboard (สองจอ)</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
-      <button id="btnStart" class="btn-start">เริ่มเล่น</button>
+
+      <div class="start-actions">
+        <button id="btnStart2D" class="btn-start primary">เริ่มปกติ (2D)</button>
+        <button id="btnStartVR" class="btn-start ghost">เข้า VR/Cardboard</button>
+      </div>
     </div>
   </div>
 </body>
