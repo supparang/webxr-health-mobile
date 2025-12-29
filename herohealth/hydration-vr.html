@@ -23,6 +23,9 @@
 
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+
+      /* A) gaze hold time */
+      --gaze-ms: 480ms;
     }
 
     *{ box-sizing:border-box; }
@@ -123,6 +126,37 @@
       border-radius: 22px;
       overflow:hidden;
       box-shadow: 0 28px 110px rgba(0,0,0,.55);
+      transform: translateZ(0);
+    }
+
+    /* B) urgent fx: flash border + subtle shake */
+    body.storm-urgent #playfield{
+      animation: hvrUrgentShake 0.36s ease-in-out infinite;
+      box-shadow:
+        0 28px 110px rgba(0,0,0,.55),
+        0 0 0 2px rgba(239,68,68,.14),
+        0 0 26px rgba(239,68,68,.12);
+    }
+    body.storm-urgent #playfield::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      border-radius:22px;
+      box-shadow: inset 0 0 0 2px rgba(239,68,68,.22);
+      animation: hvrUrgentPulse .28s ease-in-out infinite;
+    }
+    @keyframes hvrUrgentPulse{
+      0%{ opacity:.18; }
+      50%{ opacity:.62; }
+      100%{ opacity:.18; }
+    }
+    @keyframes hvrUrgentShake{
+      0%{ transform: translate3d(0,0,0); }
+      25%{ transform: translate3d(-0.7px,0.3px,0); }
+      50%{ transform: translate3d(0.8px,-0.3px,0); }
+      75%{ transform: translate3d(-0.4px,-0.2px,0); }
+      100%{ transform: translate3d(0,0,0); }
     }
 
     #hvr-layer{
@@ -133,7 +167,7 @@
       touch-action: manipulation;
     }
 
-    /* center crosshair */
+    /* center crosshair + A) gaze ring */
     #crosshair{
       position:absolute;
       left:50%; top:50%;
@@ -151,6 +185,40 @@
       inset:4px;
       border-radius:999px;
       border:2px solid rgba(34,211,238,.35);
+    }
+
+    .gazeRing{
+      position:absolute;
+      left:50%; top:50%;
+      width:56px; height:56px;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,.45));
+    }
+    .gazeRing.on{ opacity:1; }
+    .gazeRing svg{
+      width:56px; height:56px;
+      transform: rotate(-90deg);
+    }
+    .gazeRing circle.bg{
+      stroke: rgba(148,163,184,.18);
+      stroke-width: 6;
+      fill: transparent;
+    }
+    .gazeRing circle.fg{
+      stroke: rgba(34,211,238,.72);
+      stroke-width: 6;
+      fill: transparent;
+      stroke-linecap: round;
+      stroke-dasharray: 157;
+      stroke-dashoffset: 157;
+      transition: stroke-dashoffset linear;
+    }
+    body.storm-urgent .gazeRing circle.fg{
+      stroke: rgba(239,68,68,.78);
     }
 
     /* ---------- Bottom HUD (Gauge + Quest + Controls) ---------- */
@@ -251,6 +319,7 @@
       font-weight:1100;
       line-height:1.25;
       min-height: 40px;
+      white-space: pre-line;
     }
 
     .controls{
@@ -332,6 +401,7 @@
       backdrop-filter: blur(14px);
     }
     #summaryOverlay.on{ display:flex; }
+
     .sumCard{
       width:min(880px, calc(100% - 18px));
       border-radius: 24px;
@@ -400,6 +470,38 @@
       justify-content:center;
     }
 
+    /* Cardboard crosshair + gaze ring per eye */
+    .cbCross{
+      position:relative;
+      width:18px;height:18px;
+      border-radius:999px;
+      border:2px solid rgba(148,163,184,.35);
+      box-shadow:0 0 0 10px rgba(2,6,23,.20);
+    }
+    .cbGazeRing{
+      position:absolute;
+      left:50%; top:50%;
+      width:64px; height:64px;
+      transform: translate(-50%,-50%);
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .12s ease;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
+    }
+    .cbGazeRing.on{ opacity:1; }
+    .cbGazeRing svg{ width:64px;height:64px; transform: rotate(-90deg); }
+    .cbGazeRing circle.bg{ stroke: rgba(148,163,184,.18); stroke-width: 6; fill: transparent; }
+    .cbGazeRing circle.fg{
+      stroke: rgba(34,211,238,.72);
+      stroke-width: 6;
+      fill: transparent;
+      stroke-linecap: round;
+      stroke-dasharray: 176;
+      stroke-dashoffset: 176;
+      transition: stroke-dashoffset linear;
+    }
+    body.storm-urgent .cbGazeRing circle.fg{ stroke: rgba(239,68,68,.78); }
+
     /* ---------- VR HUD (2D + Cardboard curved) ---------- */
     .vrHud{
       position:fixed;
@@ -436,6 +538,10 @@
       box-shadow: 0 16px 44px rgba(0,0,0,.40);
       backdrop-filter: blur(10px);
       font-size:12px;
+    }
+    body.storm-urgent .vrHudRow span{
+      border-color: rgba(239,68,68,.22);
+      box-shadow: 0 18px 56px rgba(239,68,68,.06), 0 16px 44px rgba(0,0,0,.40);
     }
 
     .cbHud{
@@ -479,6 +585,7 @@
       box-shadow: 0 18px 50px rgba(0,0,0,.45);
       backdrop-filter: blur(10px);
       font-size:12px;
+      white-space: pre-line;
     }
 
     /* ---------- VR Tutorial ---------- */
@@ -507,7 +614,6 @@
     .vrTutLine{ margin-top:10px; font-weight:1100; font-size:14px; line-height:1.25; }
     .vrTutHint{ margin-top:10px; font-weight:1000; font-size:12px; color: rgba(148,163,184,.95); }
 
-    /* responsive */
     @media (max-width: 560px){
       .topGrid{ grid-template-columns: 1fr; }
       .stats{ grid-template-columns: repeat(2, 1fr); }
@@ -521,15 +627,29 @@
   <div id="cbWrap" aria-hidden="true">
     <div id="cbEyeL" class="cbEye">
       <div class="cbPlay">
-        <div id="cbCrossL" style="width:18px;height:18px;border-radius:999px;border:2px solid rgba(148,163,184,.35);"></div>
+        <div class="cbCross" id="cbCrossL">
+          <div class="cbGazeRing" id="cbGazeL" aria-hidden="true">
+            <svg viewBox="0 0 64 64">
+              <circle class="bg" cx="32" cy="32" r="28"></circle>
+              <circle class="fg" cx="32" cy="32" r="28"></circle>
+            </svg>
+          </div>
+        </div>
       </div>
-      <!-- HUD will be mounted here -->
+      <!-- HUD mounted here -->
     </div>
     <div id="cbEyeR" class="cbEye">
       <div class="cbPlay">
-        <div id="cbCrossR" style="width:18px;height:18px;border-radius:999px;border:2px solid rgba(148,163,184,.35);"></div>
+        <div class="cbCross" id="cbCrossR">
+          <div class="cbGazeRing" id="cbGazeR" aria-hidden="true">
+            <svg viewBox="0 0 64 64">
+              <circle class="bg" cx="32" cy="32" r="28"></circle>
+              <circle class="fg" cx="32" cy="32" r="28"></circle>
+            </svg>
+          </div>
+        </div>
       </div>
-      <!-- HUD will be mounted here -->
+      <!-- HUD mounted here -->
     </div>
   </div>
 
@@ -548,7 +668,6 @@
         <div class="stat"><span class="k">🛡️ SHIELD</span><span id="shield-count" class="v">0</span></div>
         <div class="stat"><span class="k">🔥 STREAK</span><span id="stat-streak" class="v">0</span></div>
 
-        <!-- optional -->
         <div style="display:none" id="stat-combo-max">0</div>
       </div>
 
@@ -557,9 +676,9 @@
           <div class="coachTitle">🧠 Coach</div>
           <div class="coachText" id="coachText">
             แตะ <b>START</b> เพื่อเริ่ม<br/>
-            ในโหมด Cardboard = <b>ค้างเล็ง</b> เพื่อยิง (gaze)
+            โหมด Cardboard = <b>ค้างเล็งจนวงเต็ม</b> เพื่อยิง (gaze)
           </div>
-          <div class="coachTip">Tip: เข้า Storm 🌀 แล้วทำ Mini ให้ครบ “LOW/HIGH + BLOCK”</div>
+          <div class="coachTip">Mini ตอน 🌀 STORM: “ออก GREEN” + “สะสม pressure” + “BLOCK ตอนท้ายพายุ” + “BOSS 🌩️ ต้อง BLOCK ให้ครบ”</div>
         </div>
       </div>
     </div>
@@ -568,6 +687,14 @@
       <div id="playfield" class="panel" aria-label="playfield">
         <div id="hvr-layer"></div>
         <div id="crosshair" aria-hidden="true"></div>
+
+        <!-- A) gaze ring in 2D center (shown only in cardboard or when shooting) -->
+        <div class="gazeRing" id="gazeRing2D" aria-hidden="true">
+          <svg viewBox="0 0 56 56">
+            <circle class="bg" cx="28" cy="28" r="25"></circle>
+            <circle class="fg" cx="28" cy="28" r="25"></circle>
+          </svg>
+        </div>
       </div>
     </div>
 
@@ -587,7 +714,8 @@
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <span class="zonePill">Goal <b style="color:rgba(34,197,94,.95)">GREEN</b></span>
-            <span class="zonePill">Mini <b style="color:rgba(34,211,238,.95)">LOW/HIGH + BLOCK</b></span>
+            <span class="zonePill">Mini <b style="color:rgba(34,211,238,.95)">STORM</b></span>
+            <span class="zonePill">Boss <b style="color:rgba(239,68,68,.95)">🌩️</b></span>
           </div>
         </div>
       </div>
@@ -620,6 +748,7 @@
       <span id="vr2dTime">⏱️ 0</span>
       <span id="vr2dStorm">🌀 0s</span>
       <span id="vr2dShield">🛡️ 0</span>
+      <span id="vr2dUrgent" style="display:none">⏳ END!</span>
     </div>
     <div class="vrHudRow small">
       <span id="vr2dGoal">Goal: —</span>
@@ -629,7 +758,7 @@
     </div>
   </div>
 
-  <!-- Cardboard HUD left/right (mounted into cbEyeL/cbEyeR by JS) -->
+  <!-- Cardboard HUD left/right -->
   <div id="cbHudL" class="cbHud" aria-hidden="true">
     <div class="cbHudInner">
       <div class="cbHudRow">
@@ -642,6 +771,7 @@
         <span id="cblTime">⏱️ 0</span>
         <span id="cblStorm">🌀 0s</span>
         <span id="cblShield">🛡️ 0</span>
+        <span id="cblUrgent" style="display:none">⏳ END!</span>
       </div>
       <div class="cbHudRow small"><span id="cblGoal">Goal: —</span></div>
       <div class="cbHudRow small"><span id="cblMini">Mini: —</span></div>
@@ -660,6 +790,7 @@
         <span id="cbrTime">⏱️ 0</span>
         <span id="cbrStorm">🌀 0s</span>
         <span id="cbrShield">🛡️ 0</span>
+        <span id="cbrUrgent" style="display:none">⏳ END!</span>
       </div>
       <div class="cbHudRow small"><span id="cbrGoal">Goal: —</span></div>
       <div class="cbHudRow small"><span id="cbrMini">Mini: —</span></div>
@@ -671,7 +802,7 @@
     <div class="vrTutCard">
       <div class="vrTutTitle">🎮 วิธีเล่นเร็ว ๆ</div>
       <div class="vrTutLine" id="vrTutLine">—</div>
-      <div class="vrTutHint">Tip: Cardboard = “ค้างเล็ง” เพื่อยิง (gaze)</div>
+      <div class="vrTutHint">Tip: Cardboard = “ค้างเล็งจนวงเต็ม” เพื่อยิง (gaze)</div>
     </div>
   </div>
 
@@ -682,7 +813,8 @@
       <div class="startDesc">
         • ยิง <b>💧</b> เพื่อคุมโซนให้อยู่ <b style="color:rgba(34,197,94,.95)">GREEN</b> ให้สะสมครบ<br/>
         • เก็บ <b>🛡️</b> กัน <b>🥤</b> (BLOCK = ไม่เสีย MISS)<br/>
-        • ตอน <b>🌀 STORM</b> ทำ Mini: “LOW/HIGH + BLOCK ตอนท้ายพายุ”
+        • ตอน <b>🌀 STORM</b> ทำ Mini: <b>ออก GREEN</b> + <b>สะสม pressure</b> + <b>BLOCK ตอนท้ายพายุ</b><br/>
+        • ท้ายพายุมี <b>🌩️ BOSS</b> ต้อง <b>BLOCK ให้ครบ</b> (ใช้ Shield)
       </div>
       <div class="startBtns">
         <button id="btnStart" class="btn primary">▶ START (2D)</button>
@@ -727,7 +859,6 @@
   </div>
 
   <script>
-    // -------------------- helpers --------------------
     const D = document;
     const body = D.body;
 
@@ -786,6 +917,19 @@
 
     const coachText = D.getElementById('coachText');
 
+    // urgent tags
+    const vr2dUrgent = D.getElementById('vr2dUrgent');
+    const cblUrgent = D.getElementById('cblUrgent');
+    const cbrUrgent = D.getElementById('cbrUrgent');
+
+    // A) gaze rings
+    const ring2D = D.getElementById('gazeRing2D');
+    const ring2DFg = ring2D ? ring2D.querySelector('circle.fg') : null;
+    const cbGazeL = D.getElementById('cbGazeL');
+    const cbGazeR = D.getElementById('cbGazeR');
+    const cbLfg = cbGazeL ? cbGazeL.querySelector('circle.fg') : null;
+    const cbRfg = cbGazeR ? cbGazeR.querySelector('circle.fg') : null;
+
     // summary
     const sumOv = D.getElementById('summaryOverlay');
     const btnRetry = D.getElementById('btnRetry');
@@ -818,13 +962,13 @@
     function enterCardboard(){
       body.classList.add('cardboard');
       if (vrHud2D) vrHud2D.classList.remove('on');
-      if (coachText) coachText.innerHTML = 'โหมด Cardboard: <b>ค้างเล็ง</b> เพื่อยิง (gaze)<br/>ทำ Mini ตอน 🌀 STORM: LOW/HIGH + BLOCK ตอนท้ายพายุ';
+      if (coachText) coachText.innerHTML = 'โหมด Cardboard: <b>ค้างเล็งจนวงเต็ม</b> เพื่อยิง (gaze)<br/>Mini: ออก GREEN + pressure + BLOCK END + BOSS 🌩️';
       beep(660,70,0.03); beep(880,70,0.03);
     }
     function exitCardboard(){
       body.classList.remove('cardboard');
       if (vrHud2D) vrHud2D.classList.add('on');
-      if (coachText) coachText.innerHTML = 'แตะ <b>SHOOT</b> เพื่อเริ่มยิง<br/>เก็บ 🛡️ กัน 🥤 (BLOCK ไม่เสีย MISS)';
+      if (coachText) coachText.innerHTML = 'แตะ <b>SHOOT</b> เพื่อยิง<br/>Cardboard = ค้างเล็งจนวงเต็มยิงออโต้';
       beep(440,70,0.03);
     }
     function showHud(){
@@ -835,11 +979,7 @@
       }
     }
 
-    // -------------------- gaze shooting (simple + reliable) --------------------
-    let shooting = false;
-    let gazeHold = false;
-    let gazeTimer = 0;
-
+    // -------------------- center hit --------------------
     function centerHit(){
       const x = window.innerWidth / 2;
       const y = window.innerHeight / 2;
@@ -851,26 +991,89 @@
       }
     }
 
+    // -------------------- shooting state --------------------
+    let shooting = false;
     function setShooting(on){
       shooting = !!on;
       btnShoot.textContent = shooting ? '🎯 SHOOT (ON)' : '🎯 SHOOT';
       if (shooting) beep(980,60,0.03); else beep(420,60,0.03);
+      if (!shooting) stopGaze();
     }
 
-    // press-and-hold gaze for cardboard
-    function startGazeHold(){
-      gazeHold = true;
-      clearInterval(gazeTimer);
-      gazeTimer = setInterval(()=>{
-        if (shooting && body.classList.contains('cardboard') && gazeHold){
+    // -------------------- A) gaze hold ring + auto fire --------------------
+    const HOLD_MS = 480;
+    let gazeOn = false;
+    let gazeStart = 0;
+    let gazeRaf = 0;
+    let gazeLooping = false;
+
+    function setRingProgress(p){
+      // p: 0..1
+      const d2 = 157; // 2D dash
+      const dc = 176; // cardboard dash
+      if (ring2DFg) ring2DFg.style.strokeDashoffset = String(d2 * (1 - clamp(p,0,1)));
+      if (cbLfg) cbLfg.style.strokeDashoffset = String(dc * (1 - clamp(p,0,1)));
+      if (cbRfg) cbRfg.style.strokeDashoffset = String(dc * (1 - clamp(p,0,1)));
+    }
+
+    function ringShow(on){
+      if (ring2D) ring2D.classList.toggle('on', !!on && (body.classList.contains('cardboard') || shooting));
+      if (cbGazeL) cbGazeL.classList.toggle('on', !!on && body.classList.contains('cardboard'));
+      if (cbGazeR) cbGazeR.classList.toggle('on', !!on && body.classList.contains('cardboard'));
+      if (!on) setRingProgress(0);
+    }
+
+    function gazeTick(t){
+      if (!gazeOn) return;
+      const dt = t - gazeStart;
+      const p = clamp(dt / HOLD_MS, 0, 1);
+      setRingProgress(p);
+
+      if (p >= 1){
+        // fire once, then restart hold if still holding + shooting
+        if (shooting){
           centerHit();
+          beep(1240, 22, 0.02); // tiny "click"
         }
-      }, 120);
+        gazeStart = t;
+        setRingProgress(0);
+      }
+      gazeRaf = requestAnimationFrame(gazeTick);
     }
-    function stopGazeHold(){
-      gazeHold = false;
-      clearInterval(gazeTimer);
+
+    function startGaze(){
+      if (gazeOn) return;
+      gazeOn = true;
+      ringShow(true);
+      gazeStart = performance.now();
+      setRingProgress(0);
+      gazeRaf = requestAnimationFrame(gazeTick);
     }
+    function stopGaze(){
+      gazeOn = false;
+      ringShow(false);
+      try{ cancelAnimationFrame(gazeRaf); }catch{}
+      gazeRaf = 0;
+    }
+
+    // hold control (cardboard): touch hold = gaze active
+    function pointerDownHold(){
+      if (!body.classList.contains('cardboard')) return;
+      if (!shooting) return;
+      startGaze();
+    }
+    function pointerUpHold(){
+      if (!body.classList.contains('cardboard')) return;
+      stopGaze();
+    }
+
+    document.addEventListener('pointerdown', (e)=>{
+      if (e.pointerType === 'touch' && e.isPrimary === false) return;
+      pointerDownHold();
+    }, { passive:true });
+
+    document.addEventListener('pointerup', ()=> pointerUpHold(), { passive:true });
+    document.addEventListener('pointercancel', ()=> pointerUpHold(), { passive:true });
 
     // -------------------- tutorial (6 sec) --------------------
     function shouldShowTut(){
@@ -888,7 +1091,8 @@
       const steps = [
         'ยิง 💧 เพื่อปรับน้ำเข้า GREEN (คะแนนขึ้นเร็ว)',
         'เก็บ 🛡️ เพื่อกัน 🥤 (BLOCK = ไม่เสีย MISS)',
-        'พอเข้า 🌀 STORM: ทำ Mini ให้ “น้ำ LOW/HIGH” และ “BLOCK ตอนท้ายพายุ”'
+        'เข้า 🌀 STORM: ออก GREEN + สะสม pressure + BLOCK ตอน END',
+        'ท้ายพายุมี 🌩️ BOSS ต้อง BLOCK ให้ครบ'
       ];
       let i = 0;
       vrTutLine.textContent = steps[0];
@@ -897,13 +1101,36 @@
       tutInterval = setInterval(()=>{
         i++;
         vrTutLine.textContent = steps[Math.min(i, steps.length-1)];
-      }, 2000);
+      }, 1700);
 
       setTimeout(()=>{
         clearInterval(tutInterval);
         vrTut.hidden = true;
         markTutDone();
       }, 6200);
+    }
+
+    // -------------------- B) urgent FX + ticking --------------------
+    let urgentOn = false;
+    let tickTimer = 0;
+
+    function setUrgent(on){
+      const v = !!on;
+      if (v === urgentOn) return;
+      urgentOn = v;
+
+      body.classList.toggle('storm-urgent', urgentOn);
+      if (vr2dUrgent) vr2dUrgent.style.display = urgentOn ? 'inline-flex' : 'none';
+      if (cblUrgent) cblUrgent.style.display = urgentOn ? 'inline-flex' : 'none';
+      if (cbrUrgent) cbrUrgent.style.display = urgentOn ? 'inline-flex' : 'none';
+
+      clearInterval(tickTimer);
+      if (urgentOn){
+        tickTimer = setInterval(()=>{
+          // tick sound (soft)
+          beep(1040, 24, 0.02);
+        }, 260);
+      }
     }
 
     // -------------------- events from game --------------------
@@ -922,15 +1149,23 @@
       set(prefix+'Storm', `🌀 ${Math.max(0, Math.ceil(stormLeft))}s`);
       set(prefix+'Shield', `🛡️ ${d.shield ?? 0}`);
 
+      // C) richer goal + mini text (compact)
       const gHold = Number(d.timeInGreenSec ?? 0);
       const gNeed = Number(d.greenTargetSec ?? 0);
       set(prefix+'Goal', `Goal: GREEN ${gHold.toFixed(1)} / ${Math.round(gNeed)}s`);
 
-      const mC = d.miniCleared ?? 0;
-      const mT = d.miniTotal ?? 999;
-      const ok = d.stormMiniSuccess ?? 0;
-      const cyc = d.stormCycles ?? 0;
-      set(prefix+'Mini', `Mini: ${mC}/${mT} • StormOK ${ok}/${cyc}`);
+      const m = d.miniDetail || {};
+      const mLine =
+        d.stormActive
+          ? `Mini: outGreen ${m.zoneOK?'✓':'·'}  press ${m.pressureOK?'✓':'·'}  end ${m.endWindow?'✓':'·'}  blockEND ${m.blockedInEnd?'✓':'·'}`
+          : `Mini: รอ STORM`;
+
+      const bossLine =
+        d.stormActive
+          ? (m.bossActive ? ` | BOSS 🌩️ block ${m.bossBlocked||0}/${m.bossNeed||0}` : ` | BOSS —`)
+          : '';
+
+      set(prefix+'Mini', mLine + bossLine);
     }
 
     function updateGauge(pct, zone){
@@ -938,11 +1173,7 @@
       if (gaugeFill) gaugeFill.style.height = p + '%';
       if (zonePct) zonePct.textContent = Math.round(p);
       if (zoneName) zoneName.textContent = zone || '—';
-
-      // dot across line
-      if (zoneDot){
-        zoneDot.style.left = p + '%';
-      }
+      if (zoneDot) zoneDot.style.left = p + '%';
     }
 
     // audio cues
@@ -959,12 +1190,15 @@
       const d = ev.detail || {};
       showHud();
 
-      // gauge + top small stats
+      // gauge + top stats
       updateGauge(d.waterPct ?? 50, d.waterZone ?? '—');
       if (elAcc) elAcc.textContent = (Number(d.accuracyGoodPct||0).toFixed(1)) + '%';
       if (elStreak) elStreak.textContent = String(d.streakNow ?? 0);
 
-      // update both 2D + CB
+      // urgent end-window
+      setUrgent(!!(d.stormActive && d.stormInEndWindow));
+
+      // update HUDs
       setHud('vr2d', d);
       setHud('cbl', d);
       setHud('cbr', d);
@@ -988,7 +1222,6 @@
 
     window.addEventListener('hha:end', (ev)=>{
       const s = ev.detail || {};
-      // fill summary
       sumScore.textContent = String(s.scoreFinal ?? 0);
       sumGrade.textContent = String(s.grade ?? 'C');
       sumAcc.textContent   = (Number(s.accuracyGoodPct||0).toFixed(1)) + '%';
@@ -1005,6 +1238,8 @@
       sumStormOk.textContent = String(ok);
       sumStormRate.textContent = cyc>0 ? ( (ok/cyc*100).toFixed(0) + '%' ) : '0%';
 
+      setUrgent(false);
+
       sumOv.classList.add('on');
       sumOv.setAttribute('aria-hidden','false');
       beep(980,60,0.03); beep(1240,70,0.03);
@@ -1020,30 +1255,17 @@
       const ac = ensureAC();
       if (ac && ac.state === 'suspended'){ try{ await ac.resume(); }catch{} }
       setShooting(!shooting);
+      // show 2D ring only when shooting (optional)
+      ringShow(shooting && body.classList.contains('cardboard'));
     });
 
     btnStop.addEventListener('click', ()=>{
       setShooting(false);
+      setUrgent(false);
       window.dispatchEvent(new CustomEvent('hha:force_end', { detail:{ reason:'stop' } }));
     });
 
-    // gaze hold (cardboard): touch and hold anywhere to fire
-    document.addEventListener('pointerdown', (e)=>{
-      if (!body.classList.contains('cardboard')) return;
-      if (!shooting) return;
-      // only primary touch
-      if (e.pointerType === 'touch' && e.isPrimary === false) return;
-      startGazeHold();
-    }, { passive:true });
-
-    document.addEventListener('pointerup', (e)=>{
-      if (!body.classList.contains('cardboard')) return;
-      stopGazeHold();
-    }, { passive:true });
-
-    document.addEventListener('pointercancel', ()=> stopGazeHold(), { passive:true });
-
-    // start overlay: hide then tutorial
+    // start overlay
     function hideStart(){
       if (!startOv) return;
       startOv.style.display = 'none';
@@ -1068,11 +1290,7 @@
       sumOv.classList.remove('on');
       sumOv.setAttribute('aria-hidden','true');
     });
-
-    btnRetry.addEventListener('click', ()=>{
-      location.reload();
-    });
-
+    btnRetry.addEventListener('click', ()=> location.reload());
     btnBackHub.addEventListener('click', ()=>{
       const hub = qs('hub','./hub.html');
       location.href = hub;
