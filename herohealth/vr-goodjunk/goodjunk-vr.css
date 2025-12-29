@@ -3,7 +3,7 @@ GoodJunkVR — UI + Layout (PRODUCTION)
 ✅ HUD / Fever / Controls / Start overlay
 ✅ VR Tip overlay
 ✅ View bar (PC/Mobile/VR/cVR + Fullscreen)
-✅ Better landscape/VR spacing (กันเป้าหาย/ต่ำเกิน)
+✅ Better landscape/VR spacing
 ✅ Shoot / hit / miss FX (ring/laser + shake)
 */
 
@@ -44,9 +44,7 @@ html,body{
   color:var(--text);
 }
 
-body.hha-shake{
-  animation:hhaShake .18s linear 1;
-}
+body.hha-shake{ animation:hhaShake .18s linear 1; }
 @keyframes hhaShake{
   0%{ transform:translate(0,0); }
   25%{ transform:translate(2px,-1px); }
@@ -332,19 +330,9 @@ body.hha-shake{
   transform:translate(-50%,-62%);
 }
 
-body.fx-shoot #atk-ring{
-  animation: ringPop .16s ease-out 1;
-  opacity:1;
-}
-body.fx-shoot #atk-laser{
-  animation: laserPop .14s ease-out 1;
-  opacity:1;
-}
-body.fx-miss #atk-ring{
-  border-color: rgba(239,68,68,.65);
-  animation: ringPop .16s ease-out 1;
-  opacity:1;
-}
+body.fx-shoot #atk-ring{ animation: ringPop .16s ease-out 1; opacity:1; }
+body.fx-shoot #atk-laser{ animation: laserPop .14s ease-out 1; opacity:1; }
+body.fx-miss #atk-ring{ border-color: rgba(239,68,68,.65); animation: ringPop .16s ease-out 1; opacity:1; }
 
 @keyframes ringPop{
   0%{ transform:translate(-50%,-50%) scale(.82); opacity:.0; }
@@ -448,7 +436,7 @@ body.fx-miss #atk-ring{
   font:900 22px/1 system-ui;
 }
 
-/* ===== Responsive: Mobile ===== */
+/* ===== Responsive ===== */
 @media (max-width: 520px){
   .hud-stats{ grid-template-columns: 1fr 1fr; min-width:auto; }
   .hud-mid{ grid-template-columns: 1fr; }
@@ -457,28 +445,20 @@ body.fx-miss #atk-ring{
   #atk-ring{ width:98px; height:98px; }
   #atk-laser{ height:200px; }
 }
-
-/* ===== Landscape / VR comfort ===== */
 @media (orientation: landscape){
   .hha-hud{ top:calc(64px + var(--sat)); }
   .hha-fever{ bottom:calc(74px + var(--sab)); }
   #gj-crosshair{ top:50%; }
 }
 
-/* ===== VR / cVR modes (layout only) ===== */
+/* ===== VR / cVR (ลดของบังสายตา) ===== */
 body.view-vr .hud-mid,
-body.view-cvr .hud-mid{
-  display:none; /* ลดของบังสายตาใน VR */
-}
+body.view-cvr .hud-mid{ display:none; }
 body.view-vr .hha-fever,
-body.view-cvr .hha-fever{
-  bottom:calc(72px + var(--sab));
-}
+body.view-cvr .hha-fever{ bottom:calc(72px + var(--sab)); }
 body.view-vr #gj-crosshair,
 body.view-cvr #gj-crosshair,
 body.view-vr #atk-ring,
 body.view-cvr #atk-ring,
 body.view-vr #atk-laser,
-body.view-cvr #atk-laser{
-  top:50%;
-}
+body.view-cvr #atk-laser{ top:50%; }
