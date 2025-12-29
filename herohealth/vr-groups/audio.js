@@ -1,19 +1,15 @@
 /* === /herohealth/vr-groups/audio.js ===
 GroupsVR Audio (PRODUCTION)
-✅ WebAudio osc SFX (no assets needed)
-✅ listens:
-   - groups:progress {type:'hit', correct:boolean}
-   - hha:judge {kind:'bad'|'good'|'boss'|'MISS', text?:string}
-   - groups:storm_urgent {on:boolean, leftMs:number}
+✅ groups:progress {type:'hit', correct:boolean} + kinds star_hit/ice_hit
+✅ hha:judge (bad/good/boss/MISS)
+✅ groups:storm_urgent => tick
 */
 
 (function(root){
   'use strict';
   const NS = (root.GroupsVR = root.GroupsVR || {});
 
-  let ctx = null;
-  let master = null;
-  let unlocked = false;
+  let ctx = null, master = null, unlocked = false;
 
   function ensureCtx(){
     if (ctx) return ctx;
@@ -36,8 +32,7 @@ GroupsVR Audio (PRODUCTION)
 
   function beep(freq, durMs, type){
     const c = ensureCtx();
-    if (!c || !master) return;
-    if (!unlocked) return;
+    if (!c || !master || !unlocked) return;
 
     const o = c.createOscillator();
     const g = c.createGain();
@@ -51,11 +46,8 @@ GroupsVR Audio (PRODUCTION)
     g.gain.exponentialRampToValueAtTime(0.9, t0 + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
 
-    o.connect(g);
-    g.connect(master);
-
-    o.start(t0);
-    o.stop(t0 + dur + 0.02);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0 + dur + 0.02);
   }
 
   function blipGood(){ beep(880, 65, 'triangle'); beep(1320, 50, 'sine'); }
@@ -64,14 +56,10 @@ GroupsVR Audio (PRODUCTION)
   function blipStar(){ beep(1200, 60, 'sine'); beep(1600, 70, 'triangle'); }
   function blipIce(){  beep(520, 60, 'sine'); beep(740, 70, 'triangle'); }
 
-  // storm tick
   let stormTickTimer = null;
   function startStormTick(){
     if (stormTickTimer) return;
-    stormTickTimer = setInterval(()=>{
-      // “ติ๊ก” เร็ว ๆ
-      beep(980, 30, 'square');
-    }, 240);
+    stormTickTimer = setInterval(()=>{ beep(980, 30, 'square'); }, 240);
   }
   function stopStormTick(){
     if (!stormTickTimer) return;
@@ -79,7 +67,6 @@ GroupsVR Audio (PRODUCTION)
     stormTickTimer = null;
   }
 
-  // --- event listeners ---
   root.addEventListener('pointerdown', unlock, { passive:true });
   root.addEventListener('touchstart', unlock, { passive:true });
 
@@ -103,8 +90,7 @@ GroupsVR Audio (PRODUCTION)
 
   root.addEventListener('groups:storm_urgent', (ev)=>{
     const d = (ev && ev.detail) || {};
-    const on = !!d.on;
-    if (on) startStormTick();
+    if (d.on) startStormTick();
     else stopStormTick();
   }, { passive:true });
 
