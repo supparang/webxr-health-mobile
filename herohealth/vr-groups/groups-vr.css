@@ -1,329 +1,102 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (Candy + VR-feel Targets + FX)
-✅ เพิ่ม fg-star / fg-ice
-✅ เพิ่ม body FX: groups-hitshake, groups-spark, groups-iceflash, groups-shield, groups-rush
+ADD: Boss phases + No-Junk Mini FX
 */
 
-:root{
-  color-scheme: dark;
-
-  --bg:#020617;
-  --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.72);
-  --stroke:rgba(148,163,184,.22);
-
-  --text:#e5e7eb;
-  --muted:#94a3b8;
-
-  --accent:#22c55e;
-  --warn:#f59e0b;
-  --bad:#ef4444;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
-
-  --radius-lg:18px;
-  --radius-md:14px;
-  --radius-pill:999px;
-
-  --sat: env(safe-area-inset-top, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-
-  --candy-pink: rgba(244,114,182,.38);
-  --candy-cyan: rgba(34,211,238,.30);
-  --candy-lime: rgba(34,197,94,.30);
-  --candy-amber: rgba(250,204,21,.34);
-  --candy-violet: rgba(167,139,250,.30);
-
-  --stickerBorder: rgba(255,255,255,.85);
-  --stickerEdge: rgba(2,6,23,.24);
-  --stickerShadow: rgba(0,0,0,.42);
-
-  --candy-stripes:
-    repeating-linear-gradient(45deg,
-      rgba(255,255,255,.18) 0px,
-      rgba(255,255,255,.18) 8px,
-      rgba(255,255,255,0) 8px,
-      rgba(255,255,255,0) 16px);
-
-  --candy-polka:
-    radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
-    radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
-}
-
-*{ box-sizing:border-box; }
-html, body{
-  margin:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-  color:var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
-    var(--bg);
-}
-
-/* Gameplay layer */
-.fg-layer{
-  position: fixed;
-  inset: 0;
-  z-index: 3;
-  pointer-events: auto;
-  transform: translate(var(--vx,0px), var(--vy,0px));
-  will-change: transform;
-}
-
-/* No-Junk ring */
-.fg-layer::before{
-  content:"";
-  position:fixed;
-  left: var(--nojunk-cx, 50vw);
-  top:  var(--nojunk-cy, 50vh);
-  width: calc(var(--nojunk-r, 0px) * 2);
-  height: calc(var(--nojunk-r, 0px) * 2);
-  transform: translate(-50%,-50%);
-  border-radius:999px;
-  pointer-events:none;
-  opacity: calc(var(--nojunk-on, 0) * 0.22);
-  border:2px dashed rgba(255,255,255,.40);
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
-}
-
-/* TARGETS */
-.fg-target{
-  position:absolute;
-  left: var(--x, 50vw);
-  top:  var(--y, 50vh);
-
-  width:92px;
-  height:92px;
-  border-radius:28px;
-
-  display:grid;
-  place-items:center;
-
-  transform: translate(-50%,-50%) scale(var(--s,1));
-  transform-origin:center;
-
-  border:3px solid var(--stickerBorder);
+.fg-boss.fg-boss-weak{
   box-shadow:
-    0 18px 36px var(--stickerShadow),
-    0 2px 0 var(--stickerEdge) inset,
-    0 -10px 18px rgba(255,255,255,.10) inset;
-
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.25), rgba(255,255,255,0) 40%),
-    radial-gradient(circle at 76% 76%, rgba(255,255,255,.16), rgba(255,255,255,0) 45%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(15,23,42,.26), rgba(15,23,42,.10));
-
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-
-  cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-
-  overflow:hidden;
-  animation: fgFloat 1.15s ease-in-out infinite;
+    0 0 0 4px rgba(34,211,238,.22),
+    0 18px 36px rgba(0,0,0,.45),
+    0 0 28px rgba(34,211,238,.26);
+}
+.fg-boss.fg-boss-rage{
+  border-color: rgba(239,68,68,.85);
+  box-shadow:
+    0 0 0 5px rgba(239,68,68,.22),
+    0 18px 36px rgba(0,0,0,.45),
+    0 0 34px rgba(239,68,68,.28);
+  animation: fgBossRage .72s ease-in-out infinite;
+}
+@keyframes fgBossRage{
+  0%,100%{ transform: translate(-50%,-50%) scale(var(--s,1)) rotate(-3deg) translateY(0px); }
+  50%    { transform: translate(-50%,-50%) scale(var(--s,1)) rotate( 3deg) translateY(-10px); }
 }
 
-.fg-target::before{
-  content: attr(data-emoji);
-  font-size: 46px;
-  line-height: 1;
-  transform: translateY(-1px);
-  filter:
-    drop-shadow(0 2px 0 rgba(255,255,255,.25))
-    drop-shadow(0 12px 18px rgba(0,0,0,.32));
+/* teleport flash */
+.fg-target.fg-tele{
+  filter: brightness(1.16) saturate(1.12);
+  box-shadow:
+    0 0 0 6px rgba(250,204,21,.18),
+    0 18px 36px rgba(0,0,0,.45),
+    0 0 34px rgba(250,204,21,.22);
 }
 
-/* type fills */
-.fg-good{
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 40%),
-    radial-gradient(circle at 74% 78%, rgba(255,255,255,.18), rgba(255,255,255,0) 45%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-lime), var(--candy-cyan));
+/* === Mini Quest FX === */
+body.groups-mini-active .questTop .qbar:last-child{
+  border-color: rgba(34,197,94,.25);
+  box-shadow: 0 18px 60px rgba(34,197,94,.08);
 }
 
-.fg-wrong{
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.24), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-amber), rgba(251,146,60,.22));
+body.groups-mini-urgent .questTop .qbar:last-child{
+  animation: miniPulse .24s ease-in-out infinite;
 }
-.fg-decoy{
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-violet), var(--candy-cyan));
-}
-.fg-junk{
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-pink), rgba(248,113,113,.26));
-}
-.fg-boss{
-  border-color: rgba(34,211,238,.70);
-  background:
-    radial-gradient(circle at 28% 22%, rgba(255,255,255,.24), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(148,163,184,.22), rgba(34,211,238,.14));
-  animation: fgBossFloat 1.00s ease-in-out infinite;
-}
-
-/* ⭐/❄️ */
-.fg-star{
-  border-color: rgba(250,204,21,.85);
-  background:
-    radial-gradient(circle at 26% 18%, rgba(255,255,255,.30), transparent 45%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(250,204,21,.36), rgba(34,211,238,.22));
-  animation: fgBossFloat .95s ease-in-out infinite;
-}
-.fg-ice{
-  border-color: rgba(34,211,238,.85);
-  background:
-    radial-gradient(circle at 26% 18%, rgba(255,255,255,.28), transparent 45%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(34,211,238,.30), rgba(167,139,250,.18));
-  animation: fgFloat 1.35s ease-in-out infinite;
-}
-
-/* corner badges */
-.fg-wrong::after,
-.fg-decoy::after,
-.fg-junk::after,
-.fg-boss::after,
-.fg-star::after,
-.fg-ice::after{
-  position:absolute;
-  right:8px;
-  top:7px;
-  font-size:16px;
-  opacity:.98;
-  filter: drop-shadow(0 12px 16px rgba(0,0,0,.35));
-  content:"";
-}
-.fg-wrong::after{ content:"⚠️"; }
-.fg-decoy::after{ content:"❓"; }
-.fg-junk::after { content:"🫧"; }
-.fg-boss::after { content:"👑"; }
-.fg-star::after { content:"⭐"; }
-.fg-ice::after  { content:"❄️"; }
-
-.fg-target:active{
-  transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
-  filter: brightness(1.06);
-}
-
-/* spawn/hit/out */
-.fg-target.spawn{
-  animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite;
-}
-.fg-target.hit{ animation: fgHit .22s ease-out both; }
-.fg-target.out{ animation: fgOut .22s ease-in both; }
-
-/* boss hurt */
-.fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
-@keyframes bossHurt{
-  0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
-  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)) rotate(-1deg); filter: brightness(1.18); }
-  100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-
-/* keyframes */
-@keyframes fgFloat{
-  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) translateY(0px); }
-  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) translateY(-8px); }
-}
-@keyframes fgBossFloat{
-  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) rotate(-2deg) translateY(0px); }
-  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) rotate( 2deg) translateY(-9px); }
-}
-@keyframes fgPopIn{
-  from{ transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.70)); opacity:0; }
-  to  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity:1; }
-}
-@keyframes fgHit{
-  0%  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity:1; }
-  60% { transform: translate(-50%, -50%) scale(calc(var(--s,1)*1.20)); opacity:.98; filter:brightness(1.18); }
-  100%{ transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.55)); opacity:0; }
-}
-@keyframes fgOut{
-  from{ opacity:1; }
-  to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
-}
-
-/* vibe */
-body.groups-storm{ filter: saturate(1.05); }
-body.groups-storm-urgent{ animation: stormPulse .24s ease-in-out infinite; }
-@keyframes stormPulse{
+@keyframes miniPulse{
   0%,100%{ transform: translateZ(0) scale(1.00); }
   50%{ transform: translateZ(0) scale(1.01); }
 }
 
-body.groups-overdrive{
-  filter: saturate(1.10) brightness(1.03);
+/* ring pulse when urgent */
+body.groups-mini-urgent .fg-layer::before{
+  opacity: calc(var(--nojunk-on,0) * 0.34);
+  animation: ringPulse .22s ease-in-out infinite;
 }
-body.groups-freeze{
-  filter: saturate(0.96) brightness(1.02);
+@keyframes ringPulse{
+  0%,100%{ transform: translate(-50%,-50%) scale(1.00); }
+  50%{ transform: translate(-50%,-50%) scale(1.02); }
 }
 
-/* micro FX classes */
-body.groups-hitshake{ animation: hitShake .18s ease-in-out 1; }
-@keyframes hitShake{
+/* subtle screen tremble (เบา ๆ) */
+body.groups-mini-tremble{
+  animation: tremble .18s ease-in-out 1;
+}
+@keyframes tremble{
   0%{ transform: translate(0,0); }
-  25%{ transform: translate(-2px,1px); }
-  50%{ transform: translate(2px,-1px); }
-  75%{ transform: translate(-1px,-2px); }
+  25%{ transform: translate(-1px,0.5px); }
+  50%{ transform: translate(1px,-0.5px); }
+  75%{ transform: translate(-0.6px,-1px); }
   100%{ transform: translate(0,0); }
 }
 
-body.groups-spark{ animation: spark .50s ease-out 1; }
-@keyframes spark{
-  from{ filter: brightness(1.00); }
-  to{ filter: brightness(1.10); }
+body.groups-mini-fail{
+  animation: miniFail .42s ease-out 1;
+}
+@keyframes miniFail{
+  0%{ filter: brightness(1); }
+  60%{ filter: brightness(1.06) saturate(1.06); }
+  100%{ filter: brightness(1); }
 }
 
-body.groups-iceflash{ animation: iceflash .42s ease-out 1; }
-@keyframes iceflash{
-  0%{ filter: hue-rotate(0deg) brightness(1.02); }
-  100%{ filter: hue-rotate(12deg) brightness(1.04); }
+/* boss phase body vibe */
+body.groups-boss-weak{
+  animation: bossWeakPulse .22s ease-in-out 1;
 }
-
-body.groups-shield{ animation: shieldPop .36s ease-out 1; }
-@keyframes shieldPop{
-  0%{ filter: brightness(1.0); }
-  60%{ filter: brightness(1.08); }
-  100%{ filter: brightness(1.0); }
+@keyframes bossWeakPulse{
+  0%{ filter: brightness(1.00); }
+  100%{ filter: brightness(1.04); }
 }
-
-body.groups-rush{ animation: rush .90s ease-in-out 1; }
-@keyframes rush{
-  0%{ filter: brightness(1.0); }
-  40%{ filter: brightness(1.06) saturate(1.08); }
-  100%{ filter: brightness(1.0); }
+body.groups-boss-rage{
+  animation: bossRageFlash .26s ease-in-out 1;
+}
+@keyframes bossRageFlash{
+  0%{ filter: brightness(1.00); }
+  60%{ filter: brightness(1.06) saturate(1.10); }
+  100%{ filter: brightness(1.00); }
 }
 
 /* reduce motion */
 @media (prefers-reduced-motion: reduce){
-  .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
-  body.groups-storm-urgent, body.groups-hitshake, body.groups-spark,
-  body.groups-iceflash, body.groups-shield, body.groups-rush{
+  body.groups-mini-urgent .questTop .qbar:last-child,
+  body.groups-mini-urgent .fg-layer::before,
+  .fg-boss.fg-boss-rage{
     animation:none !important;
   }
 }
