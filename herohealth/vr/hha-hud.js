@@ -1,110 +1,242 @@
 // === /herohealth/vr/hha-hud.js ===
-// Hero Health Academy — Global HUD Binder (DOM/VR)
-// ✅ Updates HUD from events:
-// - hha:score      -> #hudScore #hudCombo #hudMiss
-// - hha:time       -> #hudTime
-// - hha:rank       -> #hudGrade
-// - hha:fever      -> #hudFeverPct
-// - quest:update   -> #miniLine #goalLine #miniHint
-// - hha:coach      -> #coachMsg #coachImg (coach-*.png)
-// - hha:plate      -> #hudGroupsHave (Plate 0/5)
-// Safe if elements missing.
-
+// Hero Health Academy — Global HUD Binder (DOM/VR) — SAFE
+// ✅ hha:score / hha:time / quest:update / hha:coach / hha:rank / hha:end
+// ✅ End Summary Overlay + Back HUB + Play Again
+// ✅ flush-hardened before navigation
 (function (root) {
   'use strict';
+  const doc = root.document;
+  if (!doc) return;
 
-  var DOC = root.document;
-  if (!DOC) return;
+  function $(id){ return doc.getElementById(id); }
+  function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
-  function byId(id){ return DOC.getElementById(id); }
-  function setText(id, v){
-    var el = byId(id);
+  function qs(k, d=null){
+    try{ return (new URL(root.location.href)).searchParams.get(k) ?? d; }catch(_){ return d; }
+  }
+
+  async function flushHard(reason){
+    try{ root.dispatchEvent(new CustomEvent('hha:flush', { detail:{ reason:String(reason||'flush') } })); }catch(_){}
+    try{
+      if (root.HHA_CLOUD_LOGGER && typeof root.HHA_CLOUD_LOGGER.flush === 'function'){
+        await Promise.race([
+          root.HHA_CLOUD_LOGGER.flush({ reason:String(reason||'flush') }),
+          new Promise(res=>setTimeout(res, 260))
+        ]);
+      } else {
+        await new Promise(res=>setTimeout(res, 80));
+      }
+    }catch(_){}
+  }
+
+  function setText(id, text){
+    const el = $(id);
     if (!el) return;
-    el.textContent = String(v);
+    el.textContent = String(text ?? '');
   }
 
-  function pickCoachImg(mood){
-    mood = String(mood || 'neutral').toLowerCase();
-    if (mood === 'happy') return './img/coach-happy.png';
-    if (mood === 'sad') return './img/coach-sad.png';
-    if (mood === 'fever' || mood === 'hot') return './img/coach-fever.png';
-    return './img/coach-neutral.png';
+  function onScore(e){
+    const d = (e && e.detail) || {};
+    setText('hhaScore', d.score ?? 0);
+    setText('hhaCombo', d.combo ?? 0);
+    setText('hhaMiss',  d.misses ?? 0);
   }
 
-  // --- SCORE ---
-  root.addEventListener('hha:score', function(ev){
-    var d = (ev && ev.detail) ? ev.detail : {};
-    if (d.score != null) setText('hudScore', d.score|0);
-    if (d.combo != null) setText('hudCombo', d.combo|0);
-    if (d.misses != null) setText('hudMiss', d.misses|0);
+  function onTime(e){
+    const d = (e && e.detail) || {};
+    setText('hhaTime', d.left ?? 0);
+  }
 
-    // optional fields
-    if (d.mode != null) setText('hudMode', d.mode);
-    if (d.diff != null) setText('hudDiff', d.diff);
-    if (d.perfect != null) setText('hudPerfectCount', d.perfect|0);
-  });
+  function onQuest(e){
+    const d = (e && e.detail) || {};
+    if (d.goalTitle) setText('hudGoalTitle', d.goalTitle);
+    if (d.goalNow !== undefined && d.goalTotal !== undefined) setText('hudGoalCount', `${d.goalNow}/${d.goalTotal}`);
 
-  // --- TIME ---
-  root.addEventListener('hha:time', function(ev){
-    var d = (ev && ev.detail) ? ev.detail : {};
-    if (d.left != null) setText('hudTime', d.left|0);
-  });
+    if (d.miniTitle) setText('hudMiniTitle', d.miniTitle);
+    if (d.miniNow !== undefined && d.miniTotal !== undefined) setText('hudMiniCount', `${d.miniNow}/${d.miniTotal}`);
 
-  // --- RANK / GRADE ---
-  root.addEventListener('hha:rank', function(ev){
-    var d = (ev && ev.detail) ? ev.detail : {};
-    if (d.grade != null) setText('hudGrade', d.grade);
-  });
-
-  // --- FEVER ---
-  root.addEventListener('hha:fever', function(ev){
-    var d = (ev && ev.detail) ? ev.detail : {};
-    if (d.fever != null) setText('hudFeverPct', (d.fever|0) + '%');
-  });
-
-  // --- QUEST PANEL ---
-  root.addEventListener('quest:update', function(ev){
-    var d = (ev && ev.detail) ? ev.detail : {};
-    if (d.miniTitle != null){
-      var left = (d.miniLeftMs != null) ? (d.miniLeftMs|0) : 0;
-      var sec = left ? Math.ceil(left/1000) : 0;
-      var prog = (d.miniTotal != null && d.miniTotal > 0)
-        ? ((d.miniNow|0) + '/' + (d.miniTotal|0))
-        : '—';
-      var tail = sec ? (' • ⏳ ' + sec + 's') : '';
-      setText('miniLine', 'MINI: ' + String(d.miniTitle || '—') + ' • ' + prog + tail);
+    if (d.miniLeftMs !== undefined){
+      const ms = clamp(d.miniLeftMs, 0, 999999);
+      setText('hudMiniTimer', ms > 0 ? `${Math.ceil(ms/1000)}s` : '');
     }
-    if (d.goalTitle != null){
-      var gprog = (d.goalTotal != null && d.goalTotal > 0)
-        ? ((d.goalNow|0) + '/' + (d.goalTotal|0))
-        : '—';
-      setText('goalLine', 'Goal: ' + String(d.goalTitle || '—') + ' • ' + gprog);
+  }
+
+  function onProgress(e){
+    const d = (e && e.detail) || {};
+    if (d.goalsCleared !== undefined && d.goalsTotal !== undefined && d.miniCleared !== undefined && d.miniTotal !== undefined){
+      setText('hudQProgress', `Goals ${d.goalsCleared}/${d.goalsTotal} • Minis ${d.miniCleared}/${d.miniTotal}`);
     }
+  }
 
-    // hint (optional)
-    if (d.extra && d.extra.hint){
-      setText('miniHint', d.extra.hint);
+  function onCoach(e){
+    const d = (e && e.detail) || {};
+    if (d.text) setText('hudCoachLine', d.text);
+    if (d.sub !== undefined) setText('hudCoachSub', d.sub);
+
+    const img = $('hudCoachImg');
+    if (img){
+      const mood = String(d.mood || 'neutral').toLowerCase();
+      // user memory: coach images fixed names
+      let file = 'coach-neutral.png';
+      if (mood === 'happy') file = 'coach-happy.png';
+      if (mood === 'sad') file = 'coach-sad.png';
+      if (mood === 'fever') file = 'coach-fever.png';
+      img.src = `./img/${file}`;
     }
-  });
+  }
 
-  // --- COACH ---
-  root.addEventListener('hha:coach', function(ev){
-    var d = (ev && ev.detail) ? ev.detail : {};
-    var msg = byId('coachMsg');
-    if (msg && d.text != null) msg.textContent = String(d.text);
+  function onRank(e){
+    const d = (e && e.detail) || {};
+    if (d.grade) setText('hhaGrade', d.grade);
+  }
 
-    var img = byId('coachImg');
-    if (img && d.mood != null){
-      img.src = pickCoachImg(d.mood);
-    }
-  });
+  function buildEndSummary(summary){
+    const box = $('end-summary');
+    if (!box) return;
 
-  // ✅ NEW: PLATE have/total
-  root.addEventListener('hha:plate', function(ev){
-    var d = (ev && ev.detail) ? ev.detail : {};
-    if (typeof d.have === 'number' && typeof d.total === 'number'){
-      setText('hudGroupsHave', (d.have|0) + '/' + (d.total|0));
-    }
-  });
+    box.innerHTML = '';
+    const wrap = doc.createElement('div');
+    wrap.className = 'hha-end';
 
+    const card = doc.createElement('div');
+    card.className = 'hha-end-card';
+
+    const title = doc.createElement('div');
+    title.className = 'hha-end-title';
+    title.textContent = 'สรุปผลการเล่น';
+
+    const sub = doc.createElement('div');
+    sub.className = 'hha-end-sub';
+    sub.textContent = `เหตุผล: ${summary.reason || 'end'} • diff=${summary.diff || '-'} • run=${summary.runMode || '-'}`;
+
+    const grid = doc.createElement('div');
+    grid.className = 'hha-end-grid';
+    grid.innerHTML = `
+      <div class="it"><div class="k">Grade</div><div class="v">${summary.grade || '—'}</div></div>
+      <div class="it"><div class="k">Score</div><div class="v">${summary.scoreFinal ?? 0}</div></div>
+      <div class="it"><div class="k">Combo Max</div><div class="v">${summary.comboMax ?? 0}</div></div>
+      <div class="it"><div class="k">Miss</div><div class="v">${summary.misses ?? 0}</div></div>
+      <div class="it"><div class="k">Accuracy</div><div class="v">${summary.accuracyGoodPct ?? 0}%</div></div>
+      <div class="it"><div class="k">Time</div><div class="v">${summary.durationPlayedSec ?? 0}s</div></div>
+    `;
+
+    const row = doc.createElement('div');
+    row.className = 'hha-end-actions';
+
+    const btnHub = doc.createElement('button');
+    btnHub.className = 'hha-end-btn';
+    btnHub.textContent = 'กลับหน้า HUB';
+
+    const btnAgain = doc.createElement('button');
+    btnAgain.className = 'hha-end-btn ghost';
+    btnAgain.textContent = 'เล่นใหม่';
+
+    btnHub.onclick = async ()=>{
+      await flushHard('back_to_hub');
+      const hub = qs('hub', './hub.html');
+      root.location.href = hub;
+    };
+
+    btnAgain.onclick = async ()=>{
+      await flushHard('restart');
+      const u = new URL(root.location.href);
+      u.searchParams.set('v', String(Date.now()));
+      root.location.href = u.toString();
+    };
+
+    row.appendChild(btnHub);
+    row.appendChild(btnAgain);
+
+    card.appendChild(title);
+    card.appendChild(sub);
+    card.appendChild(grid);
+    card.appendChild(row);
+
+    wrap.appendChild(card);
+    box.appendChild(wrap);
+  }
+
+  function onEnd(e){
+    const summary = (e && e.detail) || {};
+    // persist last summary
+    try{
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      localStorage.setItem('hha_last_summary', JSON.stringify(summary));
+    }catch(_){}
+
+    // show grade in HUD too
+    if (summary.grade) setText('hhaGrade', summary.grade);
+    buildEndSummary(summary);
+  }
+
+  // inject minimal CSS for end summary (SAFE)
+  (function ensureEndCss(){
+    if (doc.getElementById('hha-end-css')) return;
+    const st = doc.createElement('style');
+    st.id = 'hha-end-css';
+    st.textContent = `
+      .hha-end{
+        position:fixed; inset:0;
+        display:flex; align-items:center; justify-content:center;
+        background:rgba(2,6,23,.62);
+        backdrop-filter: blur(10px);
+        z-index:2000;
+      }
+      .hha-end-card{
+        width:min(820px, calc(100vw - 40px));
+        border-radius:22px;
+        padding:22px;
+        background:rgba(2,6,23,.82);
+        border:1px solid rgba(148,163,184,.18);
+        box-shadow:0 22px 80px rgba(0,0,0,.45);
+      }
+      .hha-end-title{ font:1000 26px/1.1 system-ui; color:#e5e7eb; }
+      .hha-end-sub{ margin-top:8px; font:700 12px/1.4 system-ui; color:#94a3b8; }
+      .hha-end-grid{
+        margin-top:14px;
+        display:grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap:10px;
+      }
+      .hha-end-grid .it{
+        padding:12px;
+        border-radius:16px;
+        background:rgba(2,6,23,.60);
+        border:1px solid rgba(148,163,184,.14);
+      }
+      .hha-end-grid .k{ font:800 12px/1 system-ui; color:#94a3b8; }
+      .hha-end-grid .v{ margin-top:6px; font:1000 18px/1 system-ui; color:#e5e7eb; }
+      .hha-end-actions{
+        margin-top:16px;
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+      }
+      .hha-end-btn{
+        border:1px solid rgba(34,197,94,.24);
+        background:rgba(34,197,94,.18);
+        color:#ecfdf5;
+        padding:14px 16px;
+        border-radius:16px;
+        font:1000 16px/1 system-ui;
+      }
+      .hha-end-btn.ghost{
+        border:1px solid rgba(148,163,184,.18);
+        background:rgba(2,6,23,.55);
+        color:#e5e7eb;
+      }
+      @media (max-width:520px){
+        .hha-end-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      }
+    `;
+    doc.head.appendChild(st);
+  })();
+
+  root.addEventListener('hha:score', onScore);
+  root.addEventListener('hha:time', onTime);
+  root.addEventListener('quest:update', onQuest);
+  root.addEventListener('quest:progress', onProgress);
+  root.addEventListener('hha:coach', onCoach);
+  root.addEventListener('hha:rank', onRank);
+  root.addEventListener('hha:end', onEnd);
 })(typeof window !== 'undefined' ? window : globalThis);
