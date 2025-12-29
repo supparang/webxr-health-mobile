@@ -1,10 +1,10 @@
 <!-- === /herohealth/plate-vr.html ===
-Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
-✅ Cardboard: 2 eyes (left/right) stereoscopic via DOM clone
-✅ Fix for position:fixed => absolute per-eye (so HUD centers correctly per eye)
-✅ Big SHOOT + GAZE dwell (0.62s) + gaze rings
-✅ Start overlay + Result overlay + Back HUB + Play again (kept)
-✅ Works with ./plate/plate.safe.js (targets must be clickable DOM nodes)
+Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE) — PATCHED 46–48
+✅ PATCH 46: Cardboard uses .cbAbs (works even after id suffix)
+✅ PATCH 47: (safe.js) flush de-dupe + freeze hook
+✅ PATCH 48: Start/VR/Motion/Audio unlock + Pause/Restart + works with PlateBoot.pause/resume/togglePause
+✅ Added #plate-layer (required by plate.safe.js)
+✅ Added ui-fever.js + hha-hud.js for HUD/FEVER binding
 -->
 
 <!doctype html>
@@ -19,10 +19,12 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
   <!-- A-Frame (optional bg + VR button) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + input compat + logger -->
+  <!-- Global FX + input compat + logger + fever + HUD binder -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
 
   <style>
     :root{
@@ -47,6 +49,14 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
       position:fixed; inset:0;
       width:100%; height:100%;
       overflow:hidden;
+    }
+
+    /* REQUIRED BY plate.safe.js */
+    #plate-layer{
+      position:fixed; inset:0;
+      z-index:2;
+      will-change: transform;
+      pointer-events:auto;
     }
 
     /* =========================================================
@@ -314,17 +324,8 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
     }
     body.cardboard #cbDivider{ display:block; }
 
-    /* IMPORTANT: In Cardboard, convert fixed -> absolute so each eye centers correctly */
+    /* ✅ PATCH 46: Works even if ids are suffixed in right-eye clone */
     body.cardboard .cbAbs{ position:absolute !important; }
-    body.cardboard #hudTop{ position:absolute !important; left:10px; right:10px; top:10px; }
-    body.cardboard #crosshair{ position:absolute !important; left:50%; top:50%; transform:translate(-50%,-50%); }
-    body.cardboard #hitFx{ position:absolute !important; inset:0; }
-    body.cardboard #miniPanel{ position:absolute !important; left:10px; right:10px; bottom:calc(var(--sab) + 64px); }
-    body.cardboard #coachPanel{ position:absolute !important; left:10px; bottom:calc(var(--sab) + 170px); }
-    body.cardboard #hudBtns{ position:absolute !important; right:10px; bottom:calc(var(--sab) + 86px); }
-    body.cardboard #startOverlay{ position:absolute !important; inset:0; }
-    body.cardboard #resultBackdrop{ position:absolute !important; inset:0; }
-    body.cardboard #hudPaused{ position:absolute !important; left:50%; top:50%; transform:translate(-50%,-50%); }
 
     /* Cardboard shoot pad (inside BOTH eyes via clone) */
     #shootPad{
@@ -382,7 +383,7 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
   </style>
 
   <!-- ✅ plate.safe.js -->
-  <script type="module" src="./plate/plate.safe.js"></script>
+  <script defer src="./plate/plate.safe.js"></script>
 </head>
 
 <body>
@@ -398,15 +399,18 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
 
   <!-- ===== MAIN APP (single view) ===== -->
   <div id="plateApp">
-    <a-scene embedded vr-mode-ui="enabled: false">
+    <a-scene class="cbAbs" embedded vr-mode-ui="enabled: false">
       <a-entity id="cam" camera look-controls position="0 1.6 0"></a-entity>
     </a-scene>
 
-    <div id="hitFx"></div>
-    <div id="crosshair" aria-hidden="true"></div>
+    <div id="hitFx" class="cbAbs"></div>
+    <div id="crosshair" class="cbAbs" aria-hidden="true"></div>
+
+    <!-- REQUIRED by plate.safe.js -->
+    <div id="plate-layer"></div>
 
     <!-- START overlay -->
-    <div id="startOverlay">
+    <div id="startOverlay" class="cbAbs">
       <div id="startCard">
         <div id="startTitle">พร้อมเล่น Plate VR?</div>
         <div id="startDesc">
@@ -420,7 +424,7 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
     </div>
 
     <!-- HUD -->
-    <div id="hudTop">
+    <div id="hudTop" class="cbAbs">
       <div class="hudCard" style="flex:1">
         <div id="hudLeftGroup">
           <span class="pill">⏱️ <span class="k">TIME</span> <span id="hudTime" class="v">0</span></span>
@@ -443,19 +447,19 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
       </div>
     </div>
 
-    <div id="miniPanel">
+    <div id="miniPanel" class="cbAbs">
       <div id="miniLine">MINI: …</div>
       <div id="goalLine">Goal: …</div>
       <div id="miniHint">…</div>
     </div>
 
     <!-- Coach -->
-    <div id="coachPanel">
+    <div id="coachPanel" class="cbAbs">
       <img id="coachImg" src="./img/coach-neutral.png" alt="Coach" />
       <div id="coachMsg">พร้อมแล้ว! เก็บให้ครบ 5 หมู่ 💪</div>
     </div>
 
-    <div id="hudBtns">
+    <div id="hudBtns" class="cbAbs">
       <button class="btn" id="btnCardboard">📦 CARDBOARD</button>
       <button class="btn" id="btnEnterVR">🕶️ ENTER VR</button>
       <button class="btn" id="btnPause">⏸️ PAUSE</button>
@@ -463,15 +467,15 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
     </div>
 
     <!-- big shoot + gaze (cardboard) -->
-    <div id="shootPad">
+    <div id="shootPad" class="cbAbs">
       <button class="btn" id="btnShoot">🎯 SHOOT</button>
       <button class="btn" id="btnGaze">👁️ GAZE</button>
     </div>
 
-    <div id="hudPaused">⏸️ PAUSED</div>
+    <div id="hudPaused" class="cbAbs">⏸️ PAUSED</div>
 
     <!-- Result -->
-    <div id="resultBackdrop">
+    <div id="resultBackdrop" class="cbAbs">
       <div id="resultCard">
         <div style="font-weight:1100; font-size:20px">สรุปผลเกม (Plate VR)</div>
         <div style="color:rgba(148,163,184,.95); font-weight:900; margin-top:6px">
@@ -508,6 +512,46 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
   (function(){
     'use strict';
     const D = document;
+
+    // -------------------------------
+    // Tiny helpers: haptic + microBeep
+    // -------------------------------
+    function haptic(pattern){
+      try{ if (navigator && navigator.vibrate) navigator.vibrate(pattern || [10]); }catch(_e){}
+    }
+    function microBeep(freq, dur, gain){
+      try{
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        const ctx = new AC();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'triangle';
+        o.frequency.value = freq || 880;
+        g.gain.value = 0.0001;
+        o.connect(g); g.connect(ctx.destination);
+        const t0 = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.001, gain||0.04), t0+0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0+(dur||0.05));
+        o.start(t0);
+        o.stop(t0+(dur||0.05)+0.02);
+        setTimeout(()=>{ try{ ctx.close(); }catch(_){ } }, 120);
+      }catch(_e){}
+    }
+
+    async function requestMotionIfNeeded(){
+      try{
+        if (typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function') {
+          await DeviceOrientationEvent.requestPermission().catch(()=>{});
+        }
+        if (typeof DeviceMotionEvent !== 'undefined' &&
+            typeof DeviceMotionEvent.requestPermission === 'function') {
+          await DeviceMotionEvent.requestPermission().catch(()=>{});
+        }
+      }catch(_e){}
+    }
 
     // ===============================
     // Cardboard stereo: move #plateApp into left eye + clone to right
@@ -560,28 +604,26 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
     }
 
     btnCardboard.addEventListener('click', ()=>{
+      microBeep(760,0.05,0.03); haptic([10]);
       if (!cardboardOn) enableCardboard();
       else disableCardboard();
-    });
+    }, { passive:true });
 
     // ===============================
     // SHOOT: click nearest target around center of LEFT EYE
     // ===============================
     const TARGET_SEL = [
-      '.plate-target',      // ถ้า plate.safe.js ใส่คลาสนี้ (แนะนำ)
-      '.hha-target',
-      '.hvr-target',
-      '[data-target]',
-      '[data-kind]',
-      '.target'
+      '.pl-target', '.plate-target', '.hha-target', '.hvr-target',
+      '[data-target]', '[data-kind]', '.target'
     ].join(',');
 
     function shootAtCenter(){
+      if (window.PlateBoot && typeof window.PlateBoot.isPaused === 'function' && window.PlateBoot.isPaused()) return;
+
       const host = cardboardOn ? eyeInnerL : document;
       const targets = host.querySelectorAll(TARGET_SEL);
       if (!targets || !targets.length) return;
 
-      // center point (left-eye center)
       const eyeRect = cardboardOn
         ? document.getElementById('eyeL').getBoundingClientRect()
         : { left:0, top:0, width:innerWidth, height:innerHeight };
@@ -603,7 +645,6 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
 
       if (!best) return;
 
-      // aim assist threshold
       const thr = Math.max(28, (bestRect ? bestRect.width * 0.65 : 44));
       if (bestD > thr*thr) return;
 
@@ -615,11 +656,12 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
     }
 
     btnShoot.addEventListener('click', ()=>{
+      microBeep(980,0.04,0.03); haptic([8]);
       shootAtCenter();
-    });
+    }, { passive:true });
 
     // ===============================
-    // GAZE dwell: 0.62s (faster)
+    // GAZE dwell: 0.62s
     // ===============================
     function setGazeFill(v){
       v = Math.max(0, Math.min(1, v));
@@ -647,11 +689,107 @@ Plate VR (PRODUCTION) — FULL (Cardboard STEREO + GAZE)
     }
     requestAnimationFrame(gazeLoop);
 
-    btnGaze.addEventListener('click', ()=>{
+    btnGaze.addEventListener('click', async ()=>{
+      microBeep(720,0.05,0.03); haptic([12,22,12]);
       if (!cardboardOn) enableCardboard();
+      await requestMotionIfNeeded();
       gazeOn = !gazeOn;
       D.body.classList.toggle('gaze', gazeOn);
-    });
+      // auto-start if not started
+      tryStart();
+    }, { passive:true });
+
+    // ===============================
+    // ✅ PATCH 48: Start / VR / Pause / Restart bindings
+    // ===============================
+    const btnStart   = D.getElementById('btnStart');
+    const btnEnterVR = D.getElementById('btnEnterVR');
+    const btnPause   = D.getElementById('btnPause');
+    const btnRestart = D.getElementById('btnRestart');
+    const startOverlay = D.getElementById('startOverlay');
+    const btnPlayAgain = D.getElementById('btnPlayAgain');
+    const btnBackHub = D.getElementById('btnBackHub');
+
+    const scene = D.querySelector('a-scene');
+
+    let _started = false;
+
+    function tryStart(){
+      if (_started) return;
+      if (!window.PlateBoot || typeof window.PlateBoot.start !== 'function') return;
+
+      _started = true;
+      if (startOverlay) startOverlay.style.display = 'none';
+
+      const q = new URLSearchParams(location.search);
+      const run = String(q.get('run') || q.get('runMode') || 'play').toLowerCase();
+      const mode = (run === 'research') ? 'research' : 'play';
+
+      window.PlateBoot.start(mode, {});
+    }
+
+    if (btnStart){
+      btnStart.addEventListener('click', async ()=>{
+        microBeep(880, 0.05, 0.04);
+        haptic([10]);
+        await requestMotionIfNeeded();
+        tryStart();
+      }, { passive:true });
+    }
+
+    if (btnPause){
+      btnPause.addEventListener('click', ()=>{
+        microBeep(520, 0.05, 0.03);
+        haptic([10]);
+        if (window.PlateBoot && typeof window.PlateBoot.togglePause === 'function'){
+          window.PlateBoot.togglePause();
+        }
+      }, { passive:true });
+    }
+
+    if (btnRestart){
+      btnRestart.addEventListener('click', ()=>{
+        microBeep(460, 0.06, 0.03);
+        haptic([12,30,12]);
+        if (window.PlateBoot && typeof window.PlateBoot.flushThen === 'function'){
+          window.PlateBoot.flushThen(()=>{ location.reload(); }, 'restart');
+        } else {
+          location.reload();
+        }
+      }, { passive:true });
+    }
+
+    if (btnEnterVR){
+      btnEnterVR.addEventListener('click', async ()=>{
+        microBeep(980, 0.05, 0.04);
+        haptic([12,30,12]);
+        await requestMotionIfNeeded();
+        tryStart();
+        try{ if (scene && typeof scene.enterVR === 'function') scene.enterVR(); }catch(_e){}
+      }, { passive:true });
+    }
+
+    if (btnPlayAgain){
+      btnPlayAgain.addEventListener('click', ()=>{
+        microBeep(880,0.05,0.04);
+        if (window.PlateBoot && typeof window.PlateBoot.flushThen === 'function'){
+          window.PlateBoot.flushThen(()=>{ location.reload(); }, 'play_again');
+        } else {
+          location.reload();
+        }
+      }, { passive:true });
+    }
+
+    if (btnBackHub){
+      btnBackHub.addEventListener('click', ()=>{
+        microBeep(620,0.06,0.04);
+        if (window.PlateBoot && typeof window.PlateBoot.goHub === 'function'){
+          window.PlateBoot.goHub();
+        } else {
+          location.href = '../hub.html';
+        }
+      }, { passive:true });
+    }
 
   })();
   </script>
