@@ -1,3 +1,10 @@
+<!-- === /herohealth/hydration-vr.html ===
+HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
+✅ Cardboard shows real targets (clone #hvr-layer -> #cbLayerL/#cbLayerR)
+✅ Mini HUD pills + Quest + WaterGauge + End summary
+✅ Gaze-to-shoot (hold) + Shoot button
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,858 +14,596 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- Global FX + compat input + logger (paths relative to /herohealth/) -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/hha-compat-input.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
+
   <style>
     :root{
       --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.68);
+      --panel:rgba(2,6,23,.70);
+      --panel2:rgba(15,23,42,.60);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --accent:#22c55e;
+      --good:#22c55e;
+      --cyan:#22d3ee;
       --warn:#f59e0b;
       --bad:#ef4444;
-      --cyan:#22d3ee;
-      --radius:18px;
 
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
 
-      /* A) gaze hold time */
-      --gaze-ms: 480ms;
+      --gazeProg:0;
     }
 
-    *{ box-sizing:border-box; }
     html,body{
-      margin:0; padding:0;
-      width:100%; height:100%;
-      overflow:hidden;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.10), transparent 60%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.10), transparent 60%),
-        var(--bg);
+      margin:0; padding:0; width:100%; height:100%;
+      background: radial-gradient(1200px 700px at 50% 25%, #0b1120 0%, #020617 60%, #020617 100%);
       color:var(--text);
-    }
-
-    /* ---------- Layout ---------- */
-    #app{
-      position:fixed; inset:0;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      padding: calc(var(--sat) + 10px) 10px calc(var(--sab) + 10px);
-    }
-
-    .topGrid{
-      display:grid;
-      grid-template-columns: 1.2fr .9fr;
-      gap:10px;
-      align-items:stretch;
-    }
-
-    .panel{
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.62);
-      border-radius:22px;
-      box-shadow:0 24px 90px rgba(0,0,0,.50);
-      backdrop-filter: blur(12px);
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       overflow:hidden;
     }
+    *{ box-sizing:border-box; }
 
-    .stats{
-      padding:10px;
-      display:grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap:10px;
-    }
+    .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
 
-    .stat{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
-      border-radius: 16px;
-      padding:10px;
-      min-height:56px;
-      display:flex;
-      align-items:center;
+    /* ===== Mini HUD pills (top) ===== */
+    .hudTop{
+      position:relative;
+      z-index:20;
+      padding: calc(var(--sat) + 10px) 12px 8px;
+      display:flex; gap:10px;
+      align-items:flex-start;
       justify-content:space-between;
-      gap:10px;
-      font-weight:1100;
+      pointer-events:none;
     }
-    .stat .k{ opacity:.9; font-weight:1100; }
-    .stat .v{ font-size:18px; letter-spacing:.3px; }
-
-    .coach{
-      padding:12px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .coachCard{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
-      border-radius:18px;
-      padding:12px;
-      min-height:120px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
+    .pillRow{ display:flex; gap:8px; flex-wrap:wrap; max-width: 70vw; }
+    .pill{
+      pointer-events:none;
+      display:inline-flex;
+      align-items:baseline;
       gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      font-weight:1000;
+      white-space:nowrap;
     }
-    .coachTitle{ font-weight:1200; display:flex; align-items:center; gap:8px; }
-    .coachText{ font-weight:1000; opacity:.95; line-height:1.25; }
-    .coachTip{ font-weight:1000; color: rgba(148,163,184,.95); }
+    .k{ color:var(--muted); font-weight:950; font-size:11px; }
+    .v{ font-weight:1100; font-size:14px; }
+    .grade{ padding-inline:12px; }
+    .grade .v{ font-size:15px; letter-spacing:.4px; }
 
-    /* ---------- Playfield ---------- */
-    #playWrap{
-      flex:1;
-      min-height: 260px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
+    .coachCard{
+      pointer-events:none;
+      width:min(360px, 36vw);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
     }
+    .coachTitle{ font-size:12px; font-weight:1100; opacity:.95; }
+    .coachText{ margin-top:6px; font-size:12px; font-weight:950; color:rgba(229,231,235,.92); line-height:1.25; }
+    .coachSub{ margin-top:6px; font-size:11px; font-weight:900; color:var(--muted); }
+
+    /* ===== Play area ===== */
+    .playWrap{ position:relative; flex:1; padding: 0 12px; display:flex; }
 
     #playfield{
       position:relative;
       flex:1;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.35);
       border-radius: 22px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
       overflow:hidden;
-      box-shadow: 0 28px 110px rgba(0,0,0,.55);
-      transform: translateZ(0);
-    }
-
-    /* B) urgent fx: flash border + subtle shake */
-    body.storm-urgent #playfield{
-      animation: hvrUrgentShake 0.36s ease-in-out infinite;
-      box-shadow:
-        0 28px 110px rgba(0,0,0,.55),
-        0 0 0 2px rgba(239,68,68,.14),
-        0 0 26px rgba(239,68,68,.12);
-    }
-    body.storm-urgent #playfield::after{
-      content:"";
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      border-radius:22px;
-      box-shadow: inset 0 0 0 2px rgba(239,68,68,.22);
-      animation: hvrUrgentPulse .28s ease-in-out infinite;
-    }
-    @keyframes hvrUrgentPulse{
-      0%{ opacity:.18; }
-      50%{ opacity:.62; }
-      100%{ opacity:.18; }
-    }
-    @keyframes hvrUrgentShake{
-      0%{ transform: translate3d(0,0,0); }
-      25%{ transform: translate3d(-0.7px,0.3px,0); }
-      50%{ transform: translate3d(0.8px,-0.3px,0); }
-      75%{ transform: translate3d(-0.4px,-0.2px,0); }
-      100%{ transform: translate3d(0,0,0); }
-    }
-
-    #hvr-layer{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      pointer-events:auto;
       touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      will-change: transform;
     }
+    #hvr-layer{ position:absolute; inset:0; will-change: transform; }
 
-    /* center crosshair + A) gaze ring */
     #crosshair{
-      position:absolute;
+      position:fixed;
       left:50%; top:50%;
-      width:18px; height:18px;
       transform:translate(-50%,-50%);
+      z-index:40;
+      width:14px; height:14px;
       border-radius:999px;
-      border:2px solid rgba(148,163,184,.35);
-      box-shadow:0 0 0 10px rgba(2,6,23,.20);
       pointer-events:none;
-      opacity:.85;
+      box-shadow: 0 0 0 2px rgba(229,231,235,.26), 0 0 26px rgba(34,211,238,.12);
+      background:rgba(229,231,235,.06);
+      backdrop-filter: blur(8px);
     }
     #crosshair::after{
       content:"";
-      position:absolute;
-      inset:4px;
+      position:absolute; inset:4px;
       border-radius:999px;
-      border:2px solid rgba(34,211,238,.35);
+      background:rgba(229,231,235,.45);
+    }
+
+    /* ===== Cardboard stereo wrapper ===== */
+    #cbWrap{ position:fixed; inset:0; z-index:999; display:none; background:#000; }
+    body.cardboard #cbWrap{ display:flex; }
+    body.cardboard .stage{ opacity:0; pointer-events:none; }
+
+    .cbEye{ position:relative; flex:1; overflow:hidden; border-left:1px solid rgba(255,255,255,.08); }
+    .cbEye:first-child{ border-left:none; }
+
+    /* Cardboard Scene: where targets will appear */
+    .cbScene{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.08), transparent 60%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.08), transparent 60%),
+        #000;
+    }
+    .cbLayer{
+      position:absolute;
+      inset: calc(var(--sat) + 10px) 8px calc(var(--sab) + 116px) 8px;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.35);
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06), 0 24px 80px rgba(0,0,0,.55);
+      overflow:hidden;
+      transform: translateZ(0);
+    }
+    /* targets copied in cardboard */
+    .cbLayer .hvr-target{
+      pointer-events:none;
+      filter: saturate(1.05) contrast(1.05);
+      transform: translate(-50%,-50%) scale(1.06);
+    }
+
+    .cbCross{
+      position:absolute;
+      left:50%; top:50%;
+      transform:translate(-50%,-50%);
+      width:18px; height:18px;
+      border-radius:999px;
+      pointer-events:none;
+      box-shadow: 0 0 0 2px rgba(229,231,235,.28), 0 0 28px rgba(34,211,238,.14);
+      background:rgba(229,231,235,.06);
+    }
+    .cbCross::after{
+      content:"";
+      position:absolute; inset:5px;
+      border-radius:999px;
+      background:rgba(229,231,235,.45);
     }
 
     .gazeRing{
       position:absolute;
       left:50%; top:50%;
-      width:56px; height:56px;
       transform:translate(-50%,-50%);
+      width:42px; height:42px;
       border-radius:999px;
+      border:2px solid rgba(34,211,238,.20);
+      box-shadow: 0 0 22px rgba(34,211,238,.10);
       pointer-events:none;
-      opacity:0;
-      transition: opacity .12s ease;
-      filter: drop-shadow(0 10px 20px rgba(0,0,0,.45));
+      opacity:.95;
+      z-index:50;
     }
-    .gazeRing.on{ opacity:1; }
-    .gazeRing svg{
-      width:56px; height:56px;
-      transform: rotate(-90deg);
-    }
-    .gazeRing circle.bg{
-      stroke: rgba(148,163,184,.18);
-      stroke-width: 6;
-      fill: transparent;
-    }
-    .gazeRing circle.fg{
-      stroke: rgba(34,211,238,.72);
-      stroke-width: 6;
-      fill: transparent;
-      stroke-linecap: round;
-      stroke-dasharray: 157;
-      stroke-dashoffset: 157;
-      transition: stroke-dashoffset linear;
-    }
-    body.storm-urgent .gazeRing circle.fg{
-      stroke: rgba(239,68,68,.78);
-    }
-
-    /* ---------- Bottom HUD (Gauge + Quest + Controls) ---------- */
-    .bottomGrid{
-      display:grid;
-      grid-template-columns: 1.2fr .9fr;
-      gap:10px;
-      align-items:stretch;
-    }
-
-    .gauge{
-      padding:12px;
-      display:grid;
-      grid-template-columns: 56px 1fr;
-      gap:12px;
-      align-items:center;
-    }
-    .gaugeBar{
-      position:relative;
-      height:110px;
+    .gazeRing::after{
+      content:"";
+      position:absolute; inset:0;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.35);
-      overflow:hidden;
+      border:3px solid rgba(34,211,238,.70);
+      clip-path: inset(calc(100% - (var(--gazeProg,0) * 100%)) 0 0 0);
+      transform: rotate(-90deg);
+      transform-origin:center;
+      filter: drop-shadow(0 10px 26px rgba(34,211,238,.18));
     }
-    .gaugeFill{
-      position:absolute;
-      left:0; right:0; bottom:0;
-      height:50%;
-      background: rgba(34,197,94,.30);
-      transition: height .15s ease;
-    }
-    .gaugeInfo{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      font-weight:1100;
-    }
-    .gaugeTitle{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-weight:1200;
-    }
-    .zoneRow{
-      display:flex;
+
+    /* ===== Bottom HUD ===== */
+    .hudBottom{
+      position:relative;
+      z-index:20;
+      padding: 10px 12px calc(var(--sab) + 12px);
+      display:flex; gap:10px;
+      align-items:flex-end;
       justify-content:space-between;
-      gap:10px;
-      color: rgba(148,163,184,.95);
+      pointer-events:none;
     }
-    .zonePill{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 10px;
+
+    .card{
+      pointer-events:none;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
+      min-width: 240px;
+    }
+    .card h3{ margin:0 0 6px; font-size:12px; font-weight:1100; letter-spacing:.2px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; }
+    .stat{ font-size:12px; font-weight:1000; }
+    .stat b{ color:var(--cyan); font-weight:1200; }
+
+    .waterWrap{ display:flex; gap:12px; align-items:center; }
+    .tube{
+      width:16px; height:92px;
+      border-radius:999px;
+      background: rgba(148,163,184,.12);
+      border:1px solid rgba(148,163,184,.16);
+      overflow:hidden;
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.06);
+    }
+    .tubeFill{
+      width:100%;
+      height:0%;
+      border-radius:999px;
+      background: linear-gradient(180deg, rgba(34,211,238,.95), rgba(34,197,94,.95));
+      box-shadow: 0 0 18px rgba(34,211,238,.18);
+      transition: height .18s ease;
+    }
+    body.water-low  .tubeFill{ background: linear-gradient(180deg, rgba(34,211,238,.95), rgba(59,130,246,.95)); }
+    body.water-green .tubeFill{ background: linear-gradient(180deg, rgba(34,211,238,.95), rgba(34,197,94,.95)); }
+    body.water-high .tubeFill{ background: linear-gradient(180deg, rgba(249,115,22,.95), rgba(239,68,68,.95)); }
+
+    .barWrap{ margin-top:6px; width:100%; height:10px; border-radius:999px; background: rgba(148,163,184,.12); overflow:hidden; }
+    .bar{ height:100%; width:0%; border-radius:999px; background: linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95)); box-shadow: 0 0 14px rgba(34,211,238,.22); transition: width .18s ease; }
+    body.water-high .bar{ background: linear-gradient(90deg, rgba(249,115,22,.95), rgba(239,68,68,.95)); }
+
+    .qLine{ margin: 3px 0; font-size:12px; font-weight:1000; line-height:1.25; }
+    .tag{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:2px 8px;
       border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.35);
-      color: rgba(229,231,235,.95);
-    }
-    .zoneLine{
-      height:12px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
-      overflow:hidden;
-      position:relative;
-    }
-    .zoneDot{
-      position:absolute;
-      top:50%;
-      width:12px; height:12px;
-      border-radius:999px;
-      transform:translate(-50%,-50%);
-      background: rgba(34,211,238,.65);
-      box-shadow:0 0 0 8px rgba(34,211,238,.12);
-      left:50%;
-      transition:left .15s ease;
-    }
-
-    .quest{
-      padding:12px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .questTitle{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-weight:1200;
-    }
-    .qLine{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
-      border-radius: 16px;
-      padding:10px;
+      background: rgba(2,6,23,.45);
+      color:var(--muted);
       font-weight:1100;
-      line-height:1.25;
-      min-height: 40px;
-      white-space: pre-line;
+      margin-right:6px;
     }
 
+    /* Controls */
     .controls{
-      display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      position:fixed;
+      right:10px;
+      bottom:10px;
+      z-index:80;
+      display:flex;
       gap:10px;
-      padding:12px;
+      pointer-events:auto;
     }
     .btn{
-      border:none;
-      border-radius: 999px;
-      padding:12px 12px;
-      font-weight:1200;
-      color: rgba(229,231,235,.95);
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.16);
-      box-shadow:0 20px 80px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
-      cursor:pointer;
-      touch-action: manipulation;
-    }
-    .btn.primary{
-      background: rgba(34,197,94,.18);
-      border-color: rgba(34,197,94,.28);
-    }
-    .btn.danger{
-      background: rgba(239,68,68,.16);
-      border-color: rgba(239,68,68,.25);
-    }
-
-    /* ---------- Start Overlay ---------- */
-    #start-overlay{
-      position:fixed;
-      inset:0;
-      z-index: 900;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      border:1px solid rgba(148,163,184,.20);
       background: rgba(2,6,23,.72);
-      backdrop-filter: blur(14px);
-    }
-    .startCard{
-      width:min(720px, calc(100% - 22px));
-      border-radius: 24px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.86);
-      box-shadow: 0 24px 120px rgba(0,0,0,.65);
-      padding: 14px;
-    }
-    .startTitle{
-      font-weight:1300;
-      font-size: 18px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .startDesc{
-      margin-top:8px;
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
       font-weight:1100;
-      color: rgba(148,163,184,.95);
-      line-height:1.35;
+      cursor:pointer;
+      box-shadow:0 16px 36px rgba(0,0,0,.30);
+      backdrop-filter: blur(8px);
+      -webkit-tap-highlight-color: transparent;
     }
-    .startBtns{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{ background: rgba(34,197,94,.16); }
+    .btn.danger{ background: rgba(239,68,68,.16); }
 
-    /* ---------- Summary Overlay ---------- */
-    #summaryOverlay{
-      position:fixed;
-      inset:0;
-      z-index: 950;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      background: rgba(2,6,23,.72);
-      backdrop-filter: blur(14px);
-    }
-    #summaryOverlay.on{ display:flex; }
-
-    .sumCard{
-      width:min(880px, calc(100% - 18px));
-      border-radius: 24px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.86);
-      box-shadow: 0 24px 120px rgba(0,0,0,.65);
-      padding: 14px;
-    }
-    .sumTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:12px;
-    }
-    .sumTitle{
-      font-weight:1300;
-      font-size:18px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .sumBtns{ display:flex; gap:10px; }
-    .sumGrid{
-      display:grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap:10px;
-    }
-    .sumCell{
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
-      border-radius: 18px;
-      padding: 12px;
-      min-height: 62px;
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-    }
-    .sumCell .k{ color: rgba(148,163,184,.95); font-weight:1100; }
-    .sumCell .v{ font-weight:1300; font-size:18px; }
-    .sumCloseRow{
-      display:flex; justify-content:flex-end; margin-top:12px;
-    }
-
-    /* ---------- Cardboard wrap ---------- */
-    #cbWrap{
-      position:fixed; inset:0;
-      display:none;
-      z-index: 999;
-      background:#000;
-    }
-    body.cardboard #cbWrap{ display:flex; }
-    .cbEye{
-      position:relative;
-      flex:1;
-      overflow:hidden;
-      border-left:1px solid rgba(148,163,184,.10);
-      background: #000;
-    }
-    .cbEye:first-child{ border-left:none; }
-    .cbPlay{
-      position:absolute;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    /* Cardboard crosshair + gaze ring per eye */
-    .cbCross{
-      position:relative;
-      width:18px;height:18px;
-      border-radius:999px;
-      border:2px solid rgba(148,163,184,.35);
-      box-shadow:0 0 0 10px rgba(2,6,23,.20);
-    }
-    .cbGazeRing{
-      position:absolute;
-      left:50%; top:50%;
-      width:64px; height:64px;
-      transform: translate(-50%,-50%);
-      pointer-events:none;
-      opacity:0;
-      transition: opacity .12s ease;
-      filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
-    }
-    .cbGazeRing.on{ opacity:1; }
-    .cbGazeRing svg{ width:64px;height:64px; transform: rotate(-90deg); }
-    .cbGazeRing circle.bg{ stroke: rgba(148,163,184,.18); stroke-width: 6; fill: transparent; }
-    .cbGazeRing circle.fg{
-      stroke: rgba(34,211,238,.72);
-      stroke-width: 6;
-      fill: transparent;
-      stroke-linecap: round;
-      stroke-dasharray: 176;
-      stroke-dashoffset: 176;
-      transition: stroke-dashoffset linear;
-    }
-    body.storm-urgent .cbGazeRing circle.fg{ stroke: rgba(239,68,68,.78); }
-
-    /* ---------- VR HUD (2D + Cardboard curved) ---------- */
-    .vrHud{
+    #shootPad{
       position:fixed;
       left:50%;
-      top: calc(var(--sat) + 10px);
-      transform: translateX(-50%);
-      z-index: 200;
+      bottom:10px;
+      transform:translateX(-50%);
+      z-index:1000;
+      display:none;
+      pointer-events:auto;
+    }
+    body.cardboard #shootPad{ display:block; }
+    #btnShoot{ padding:14px 18px; border-radius:18px; font-size:16px; font-weight:1200; background: rgba(34,197,94,.16); }
+
+    /* FX overlays */
+    #hitFx{
+      position:fixed; inset:0;
+      z-index:55;
       pointer-events:none;
       opacity:0;
-      transition: opacity .18s ease;
+      background: radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(2,6,23,.35) 70%, rgba(2,6,23,.65) 100%);
+      transition: opacity .08s linear;
     }
-    .vrHud.on{ opacity:1; }
+    #hitFx.show{ opacity:1; }
+    #hitFx[data-kind="bad"]{ background: radial-gradient(circle at 50% 50%, rgba(251,113,133,0) 35%, rgba(251,113,133,.18) 70%, rgba(2,6,23,.70) 100%); }
+    #hitFx[data-kind="good"]{ background: radial-gradient(circle at 50% 50%, rgba(34,197,94,0) 35%, rgba(34,197,94,.14) 70%, rgba(2,6,23,.70) 100%); }
+    #hitFx[data-kind="shield"]{ background: radial-gradient(circle at 50% 50%, rgba(34,211,238,0) 35%, rgba(34,211,238,.14) 70%, rgba(2,6,23,.70) 100%); }
 
-    .vrHudRow{
-      display:flex;
-      gap:8px;
-      justify-content:center;
-      flex-wrap:wrap;
-      margin: 6px 0;
+    #stormEdge{
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:57;
+      opacity:0;
+      background: radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 35%, rgba(34,211,238,.10) 70%, rgba(2,6,23,.72) 100%);
+      transition: opacity .12s linear;
     }
-    .vrHudRow.small{ opacity:.95; }
-
-    .vrHudRow span{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.55);
-      color: rgba(229,231,235,.95);
-      font-weight:1100;
-      letter-spacing:.2px;
-      box-shadow: 0 16px 44px rgba(0,0,0,.40);
-      backdrop-filter: blur(10px);
-      font-size:12px;
+    body.storm-urgent #stormEdge{
+      opacity:1;
+      animation: stormEdgePulse .45s linear infinite;
     }
-    body.storm-urgent .vrHudRow span{
-      border-color: rgba(239,68,68,.22);
-      box-shadow: 0 18px 56px rgba(239,68,68,.06), 0 16px 44px rgba(0,0,0,.40);
+    @keyframes stormEdgePulse{
+      0%{ filter:saturate(1.0) brightness(1.0); }
+      50%{ filter:saturate(1.22) brightness(1.12); }
+      100%{ filter:saturate(1.0) brightness(1.0); }
+    }
+    body.storm-urgent #playfield{ animation: microShake .20s linear infinite; }
+    @keyframes microShake{
+      0%{ transform:translate3d(0,0,0); }
+      25%{ transform:translate3d(.4px,-.3px,0); }
+      50%{ transform:translate3d(-.4px,.3px,0); }
+      75%{ transform:translate3d(.3px,.4px,0); }
+      100%{ transform:translate3d(0,0,0); }
     }
 
-    .cbHud{
+    /* Storm Intro overlay */
+    #stormIntro{
+      position:fixed; inset:0;
+      z-index:110;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .16s ease;
+      background: radial-gradient(circle at 50% 50%, rgba(34,211,238,0) 35%, rgba(34,211,238,.12) 70%, rgba(2,6,23,.82) 100%);
+      backdrop-filter: blur(8px);
+    }
+    #stormIntro.show{
+      opacity:1;
+      animation: stormIntroPulse .38s linear infinite;
+    }
+    @keyframes stormIntroPulse{
+      0%{ filter: saturate(1.0) brightness(1.0); }
+      50%{ filter: saturate(1.35) brightness(1.10); }
+      100%{ filter: saturate(1.0) brightness(1.0); }
+    }
+    #stormIntro .label{
       position:absolute;
-      top: 10px;
-      left: 0;
-      width: 100%;
-      z-index: 1200;
-      pointer-events:none;
-    }
-    .cbHudInner{
-      width: 100%;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      transform:
-        perspective(900px)
-        translateZ(70px)
-        rotateX(10deg)
-        scale(0.98);
-      transform-origin: center top;
-      opacity: .98;
-    }
-    .cbHudRow{
-      display:flex;
-      gap:8px;
-      justify-content:center;
-      flex-wrap:wrap;
-      margin: 6px 0;
-    }
-    .cbHudRow.small{ opacity:.95; }
-    .cbHudRow span{
-      display:inline-flex;
-      align-items:center;
-      padding:6px 10px;
+      left:50%; top:18%;
+      transform:translateX(-50%);
+      padding:10px 14px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.55);
-      color: rgba(229,231,235,.95);
-      font-weight:1100;
-      box-shadow: 0 18px 50px rgba(0,0,0,.45);
-      backdrop-filter: blur(10px);
+      border:1px solid rgba(34,211,238,.22);
+      background: rgba(2,6,23,.62);
+      color: rgba(229,231,235,.96);
+      font-weight:1200;
+      letter-spacing:.6px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      text-align:center;
+    }
+    #stormIntro .sub{
+      margin-top:6px;
       font-size:12px;
-      white-space: pre-line;
+      font-weight:1000;
+      color: rgba(148,163,184,.95);
+      letter-spacing:.2px;
     }
 
-    /* ---------- VR Tutorial ---------- */
-    .vrTut{
-      position:fixed;
-      inset:0;
-      z-index: 980;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background: rgba(2,6,23,.55);
-      backdrop-filter: blur(10px);
-      pointer-events:none;
+    /* Start overlay */
+    #startOverlay{
+      position:fixed; inset:0;
+      z-index:120;
+      display:flex; align-items:center; justify-content:center;
+      background: rgba(2,6,23,.75);
+      backdrop-filter: blur(12px);
+      pointer-events:auto;
     }
-    .vrTutCard{
-      width:min(620px, calc(100% - 24px));
-      background: rgba(2,6,23,.82);
-      border:1px solid rgba(148,163,184,.16);
+    .startCard{
+      width:min(560px, calc(100% - 24px));
+      background: rgba(2,6,23,.88);
+      border:1px solid rgba(148,163,184,.18);
       border-radius: 22px;
       padding: 14px;
-      box-shadow: 0 24px 90px rgba(0,0,0,.60);
-      text-align:center;
-      transform: perspective(900px) translateZ(80px) rotateX(10deg);
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
     }
-    .vrTutTitle{ font-weight:1200; font-size:18px; }
-    .vrTutLine{ margin-top:10px; font-weight:1100; font-size:14px; line-height:1.25; }
-    .vrTutHint{ margin-top:10px; font-weight:1000; font-size:12px; color: rgba(148,163,184,.95); }
+    .startTitle{ font-size:18px; font-weight:1200; }
+    .startDesc{
+      margin-top:6px; font-size:12px; font-weight:950; color:rgba(148,163,184,.95); line-height:1.35;
+    }
+    .startMeta{ margin-top:10px; font-size:12px; font-weight:1000; color:rgba(229,231,235,.92); }
+    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:12px; }
 
-    @media (max-width: 560px){
-      .topGrid{ grid-template-columns: 1fr; }
-      .stats{ grid-template-columns: repeat(2, 1fr); }
-      .sumGrid{ grid-template-columns: repeat(2, 1fr); }
+    /* End summary */
+    #endBackdrop{
+      position:fixed; inset:0;
+      z-index:130;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(2,6,23,.78);
+      backdrop-filter: blur(12px);
+      pointer-events:auto;
     }
+    .endCard{
+      width:min(820px, calc(100% - 24px));
+      background: rgba(2,6,23,.90);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 22px 90px rgba(0,0,0,.60);
+    }
+    .endTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .endTitle{ font-size:18px; font-weight:1200; }
+    .endGrid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:10px;
+    }
+    .endItem{
+      background: rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 16px;
+      padding: 10px 12px;
+      font-weight:1100;
+    }
+    .endItem .k{ display:block; margin-bottom:4px; }
+    .endActions{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
   </style>
 </head>
 
 <body>
-  <!-- Cardboard split world -->
-  <div id="cbWrap" aria-hidden="true">
-    <div id="cbEyeL" class="cbEye">
-      <div class="cbPlay">
-        <div class="cbCross" id="cbCrossL">
-          <div class="cbGazeRing" id="cbGazeL" aria-hidden="true">
-            <svg viewBox="0 0 64 64">
-              <circle class="bg" cx="32" cy="32" r="28"></circle>
-              <circle class="fg" cx="32" cy="32" r="28"></circle>
-            </svg>
-          </div>
-        </div>
-      </div>
-      <!-- HUD mounted here -->
-    </div>
-    <div id="cbEyeR" class="cbEye">
-      <div class="cbPlay">
-        <div class="cbCross" id="cbCrossR">
-          <div class="cbGazeRing" id="cbGazeR" aria-hidden="true">
-            <svg viewBox="0 0 64 64">
-              <circle class="bg" cx="32" cy="32" r="28"></circle>
-              <circle class="fg" cx="32" cy="32" r="28"></circle>
-            </svg>
-          </div>
-        </div>
-      </div>
-      <!-- HUD mounted here -->
+  <div id="hitFx"></div>
+  <div id="stormEdge"></div>
+
+  <div id="stormIntro" aria-hidden="true">
+    <div class="label">🌀 STORM INCOMING
+      <div class="sub">ทำ Mini: ให้น้ำ LOW/HIGH + BLOCK BAD ตอนท้ายพายุ! + BOSS 🌩️</div>
     </div>
   </div>
 
-  <div id="app">
-    <div class="topGrid">
-      <div class="panel stats" aria-label="stats">
-        <div class="stat"><span class="k">💧 TIME</span><span id="stat-time" class="v">70</span></div>
-        <div class="stat"><span class="k">🏆 SCORE</span><span id="stat-score" class="v">0</span></div>
-        <div class="stat"><span class="k">🎯 ACC</span><span id="stat-acc" class="v">0%</span></div>
-
-        <div class="stat"><span class="k">⚡ COMBO</span><span id="stat-combo" class="v">0</span></div>
-        <div class="stat"><span class="k">💥 MISS</span><span id="stat-miss" class="v">0</span></div>
-        <div class="stat"><span class="k">🌀 STORM</span><span id="storm-left" class="v">0s</span></div>
-
-        <div class="stat"><span class="k">🎖️ GRADE</span><span id="stat-grade" class="v">C</span></div>
-        <div class="stat"><span class="k">🛡️ SHIELD</span><span id="shield-count" class="v">0</span></div>
-        <div class="stat"><span class="k">🔥 STREAK</span><span id="stat-streak" class="v">0</span></div>
-
-        <div style="display:none" id="stat-combo-max">0</div>
+  <div class="stage">
+    <div class="hudTop">
+      <div class="pillRow">
+        <div class="pill">⏱️ <span class="k">TIME</span> <span class="v" id="stat-time">—</span></div>
+        <div class="pill">🏆 <span class="k">SCORE</span> <span class="v" id="stat-score">0</span></div>
+        <div class="pill">⚡ <span class="k">COMBO</span> <span class="v" id="stat-combo">0</span></div>
+        <div class="pill">💥 <span class="k">MISS</span> <span class="v" id="stat-miss">0</span></div>
+        <div class="pill grade">🎖️ <span class="k">GRADE</span> <span class="v" id="stat-grade">C</span></div>
+        <div class="pill" style="opacity:.92;">🌀 <span class="k">STORM</span> <span class="v"><span id="storm-left">0</span>s</span></div>
+        <div class="pill" style="opacity:.92;">🛡️ <span class="k">SHIELD</span> <span class="v" id="shield-count">0</span></div>
       </div>
 
-      <div class="panel coach">
-        <div class="coachCard">
-          <div class="coachTitle">🧠 Coach</div>
-          <div class="coachText" id="coachText">
-            แตะ <b>START</b> เพื่อเริ่ม<br/>
-            โหมด Cardboard = <b>ค้างเล็งจนวงเต็ม</b> เพื่อยิง (gaze)
-          </div>
-          <div class="coachTip">Mini ตอน 🌀 STORM: “ออก GREEN” + “สะสม pressure” + “BLOCK ตอนท้ายพายุ” + “BOSS 🌩️ ต้อง BLOCK ให้ครบ”</div>
-        </div>
+      <div class="coachCard">
+        <div class="coachTitle">🧠 Coach</div>
+        <div class="coachText" id="coach-text">แตะ START เพื่อเริ่ม</div>
+        <div class="coachSub" id="coach-sub">Tip: Cardboard = ค้างเล็งจนวงเต็มยิง (gaze)</div>
       </div>
     </div>
 
-    <div id="playWrap">
-      <div id="playfield" class="panel" aria-label="playfield">
-        <div id="hvr-layer"></div>
-        <div id="crosshair" aria-hidden="true"></div>
-
-        <!-- A) gaze ring in 2D center (shown only in cardboard or when shooting) -->
-        <div class="gazeRing" id="gazeRing2D" aria-hidden="true">
-          <svg viewBox="0 0 56 56">
-            <circle class="bg" cx="28" cy="28" r="25"></circle>
-            <circle class="fg" cx="28" cy="28" r="25"></circle>
-          </svg>
-        </div>
+    <div class="playWrap">
+      <div id="playfield" aria-label="playfield">
+        <div id="hvr-layer" aria-label="targets layer"></div>
       </div>
     </div>
 
-    <div class="bottomGrid">
-      <div class="panel gauge" aria-label="water gauge">
-        <div class="gaugeBar" aria-hidden="true">
-          <div id="gaugeFill" class="gaugeFill"></div>
-        </div>
-        <div class="gaugeInfo">
-          <div class="gaugeTitle">💧 Water Gauge (0–100)</div>
-          <div class="zoneRow">
-            <span class="zonePill">Zone <b id="zoneName">—</b></span>
-            <span class="zonePill"><b id="zonePct">50</b>%</span>
-          </div>
-          <div class="zoneLine" aria-hidden="true">
-            <div id="zoneDot" class="zoneDot"></div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <span class="zonePill">Goal <b style="color:rgba(34,197,94,.95)">GREEN</b></span>
-            <span class="zonePill">Mini <b style="color:rgba(34,211,238,.95)">STORM</b></span>
-            <span class="zonePill">Boss <b style="color:rgba(239,68,68,.95)">🌩️</b></span>
+    <div class="hudBottom">
+      <div class="card" style="min-width:260px;">
+        <h3>💧 Water Gauge (0–100)</h3>
+
+        <div class="waterWrap">
+          <div class="tube" aria-hidden="true"><div class="tubeFill" id="water-fill"></div></div>
+
+          <div style="flex:1; min-width:160px;">
+            <div class="row">
+              <div class="stat">Zone <b id="water-zone">—</b></div>
+              <div class="stat"><b id="water-pct">0%</b></div>
+            </div>
+            <div class="barWrap"><div id="water-bar" class="bar"></div></div>
+            <div class="row" style="margin-top:8px;">
+              <div class="stat"><span class="k">Goal</span> <b>GREEN</b></div>
+              <div class="stat"><span class="k">Mini</span> <b>LOW/HIGH + BLOCK + BOSS</b></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="panel quest" aria-label="quest">
-        <div class="questTitle">🧩 Quest</div>
-        <div id="quest-line1" class="qLine">Goal —</div>
-        <div id="quest-line2" class="qLine">Progress —</div>
-        <div id="quest-line3" class="qLine">Mini —</div>
-        <div id="quest-line4" class="qLine">State —</div>
+      <div class="card" style="min-width:360px;">
+        <h3>🧩 Quest</h3>
+        <div class="qLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
+        <div class="qLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
+        <div class="qLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
+        <div class="qLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
       </div>
-    </div>
-
-    <div class="panel controls" aria-label="controls">
-      <button id="btnCardboard" class="btn">📦 CARDBOARD</button>
-      <button id="btnShoot" class="btn primary">🎯 SHOOT</button>
-      <button id="btnStop" class="btn danger">⛔ STOP</button>
     </div>
   </div>
 
-  <!-- VR HUD (2D) -->
-  <div id="vrHud2D" class="vrHud vrHud2D" aria-hidden="true">
-    <div class="vrHudRow">
-      <span id="vr2dScore">🏆 0</span>
-      <span id="vr2dCombo">⚡ 0</span>
-      <span id="vr2dMiss">💥 0</span>
-      <span id="vr2dGrade">🎖️ C</span>
+  <div id="crosshair" aria-hidden="true"></div>
+
+  <!-- ===== CARDBOARD ===== -->
+  <div id="cbWrap" aria-hidden="false">
+    <div class="cbEye" id="cbEyeL">
+      <div class="cbScene" id="cbSceneL">
+        <div class="cbLayer" id="cbLayerL"></div>
+      </div>
+      <div class="cbCross"></div>
+      <div class="gazeRing" id="gazeRingL"></div>
     </div>
-    <div class="vrHudRow">
-      <span id="vr2dTime">⏱️ 0</span>
-      <span id="vr2dStorm">🌀 0s</span>
-      <span id="vr2dShield">🛡️ 0</span>
-      <span id="vr2dUrgent" style="display:none">⏳ END!</span>
-    </div>
-    <div class="vrHudRow small">
-      <span id="vr2dGoal">Goal: —</span>
-    </div>
-    <div class="vrHudRow small">
-      <span id="vr2dMini">Mini: —</span>
+
+    <div class="cbEye" id="cbEyeR">
+      <div class="cbScene" id="cbSceneR">
+        <div class="cbLayer" id="cbLayerR"></div>
+      </div>
+      <div class="cbCross"></div>
+      <div class="gazeRing" id="gazeRingR"></div>
     </div>
   </div>
 
-  <!-- Cardboard HUD left/right -->
-  <div id="cbHudL" class="cbHud" aria-hidden="true">
-    <div class="cbHudInner">
-      <div class="cbHudRow">
-        <span id="cblScore">🏆 0</span>
-        <span id="cblCombo">⚡ 0</span>
-        <span id="cblMiss">💥 0</span>
-        <span id="cblGrade">🎖️ C</span>
-      </div>
-      <div class="cbHudRow">
-        <span id="cblTime">⏱️ 0</span>
-        <span id="cblStorm">🌀 0s</span>
-        <span id="cblShield">🛡️ 0</span>
-        <span id="cblUrgent" style="display:none">⏳ END!</span>
-      </div>
-      <div class="cbHudRow small"><span id="cblGoal">Goal: —</span></div>
-      <div class="cbHudRow small"><span id="cblMini">Mini: —</span></div>
-    </div>
+  <div class="controls">
+    <button class="btn" id="btnCardboard" type="button">📦 CARDBOARD</button>
+    <button class="btn primary" id="btnShootCenter" type="button">🎯 SHOOT</button>
+    <button class="btn danger" id="btnStop" type="button">⛔ STOP</button>
   </div>
 
-  <div id="cbHudR" class="cbHud" aria-hidden="true">
-    <div class="cbHudInner">
-      <div class="cbHudRow">
-        <span id="cbrScore">🏆 0</span>
-        <span id="cbrCombo">⚡ 0</span>
-        <span id="cbrMiss">💥 0</span>
-        <span id="cbrGrade">🎖️ C</span>
-      </div>
-      <div class="cbHudRow">
-        <span id="cbrTime">⏱️ 0</span>
-        <span id="cbrStorm">🌀 0s</span>
-        <span id="cbrShield">🛡️ 0</span>
-        <span id="cbrUrgent" style="display:none">⏳ END!</span>
-      </div>
-      <div class="cbHudRow small"><span id="cbrGoal">Goal: —</span></div>
-      <div class="cbHudRow small"><span id="cbrMini">Mini: —</span></div>
-    </div>
+  <div id="shootPad">
+    <button class="btn" id="btnShoot" type="button">🎯 SHOOT</button>
   </div>
 
-  <!-- Tutorial overlay -->
-  <div id="vrTut" class="vrTut" hidden>
-    <div class="vrTutCard">
-      <div class="vrTutTitle">🎮 วิธีเล่นเร็ว ๆ</div>
-      <div class="vrTutLine" id="vrTutLine">—</div>
-      <div class="vrTutHint">Tip: Cardboard = “ค้างเล็งจนวงเต็ม” เพื่อยิง (gaze)</div>
-    </div>
-  </div>
-
-  <!-- Start overlay -->
-  <div id="start-overlay">
+  <div id="startOverlay">
     <div class="startCard">
-      <div class="startTitle">💧 Hydration VR — พร้อมเริ่ม!</div>
+      <div class="startTitle">💧 Hydration VR</div>
       <div class="startDesc">
-        • ยิง <b>💧</b> เพื่อคุมโซนให้อยู่ <b style="color:rgba(34,197,94,.95)">GREEN</b> ให้สะสมครบ<br/>
-        • เก็บ <b>🛡️</b> กัน <b>🥤</b> (BLOCK = ไม่เสีย MISS)<br/>
-        • ตอน <b>🌀 STORM</b> ทำ Mini: <b>ออก GREEN</b> + <b>สะสม pressure</b> + <b>BLOCK ตอนท้ายพายุ</b><br/>
-        • ท้ายพายุมี <b>🌩️ BOSS</b> ต้อง <b>BLOCK ให้ครบ</b> (ใช้ Shield)
+        - ยิง 💧 เพื่อดันน้ำเข้าใกล้ <b>GREEN</b><br>
+        - ระวัง 🥤 (BAD) / เก็บ 🛡️ (Shield)<br>
+        - ช่วง <b>Storm</b> ต้องทำ Mini: ให้น้ำเป็น <b>LOW/HIGH</b> และ <b>BLOCK BAD</b> ช่วงท้ายพายุ + <b>BOSS 🌩️</b>
       </div>
-      <div class="startBtns">
-        <button id="btnStart" class="btn primary">▶ START (2D)</button>
-        <button id="btnStartCardboard" class="btn">📦 START (Cardboard)</button>
+
+      <div class="startMeta" id="startMeta">—</div>
+
+      <div class="btnRow">
+        <button class="btn" id="btnStart" type="button">🚀 START</button>
+        <button class="btn" id="btnStartCardboard" type="button">📦 START (Cardboard)</button>
       </div>
     </div>
   </div>
 
-  <!-- Summary overlay -->
-  <div id="summaryOverlay" aria-hidden="true">
-    <div class="sumCard">
-      <div class="sumTop">
-        <div class="sumTitle">🏁 Summary</div>
-        <div class="sumBtns">
-          <button id="btnRetry" class="btn primary">🔁 Retry</button>
-          <button id="btnBackHub" class="btn">🏠 Back HUB</button>
+  <div id="endBackdrop">
+    <div class="endCard">
+      <div class="endTop">
+        <div class="endTitle">🏁 Summary</div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn" id="btnRetry" type="button">🔁 Retry</button>
+          <button class="btn" id="btnBackHub" type="button">🏠 Back HUB</button>
         </div>
       </div>
 
-      <div class="sumGrid">
-        <div class="sumCell"><div class="k">Score</div><div class="v" id="sumScore">0</div></div>
-        <div class="sumCell"><div class="k">Grade</div><div class="v" id="sumGrade">C</div></div>
-        <div class="sumCell"><div class="k">Accuracy</div><div class="v" id="sumAcc">0%</div></div>
+      <div class="endGrid">
+        <div class="endItem"><span class="k">Score</span><span class="v" id="endScore">0</span></div>
+        <div class="endItem"><span class="k">Grade</span><span class="v" id="endGrade">C</span></div>
+        <div class="endItem"><span class="k">Accuracy</span><span class="v" id="endAcc">0%</span></div>
 
-        <div class="sumCell"><div class="k">Combo Max</div><div class="v" id="sumComboMax">0</div></div>
-        <div class="sumCell"><div class="k">Miss</div><div class="v" id="sumMiss">0</div></div>
-        <div class="sumCell"><div class="k">Goals</div><div class="v" id="sumGoals">0/1</div></div>
+        <div class="endItem"><span class="k">Combo Max</span><span class="v" id="endCombo">0</span></div>
+        <div class="endItem"><span class="k">Miss</span><span class="v" id="endMiss">0</span></div>
+        <div class="endItem"><span class="k">Goals</span><span class="v" id="endGoals">0/1</span></div>
 
-        <div class="sumCell"><div class="k">Minis</div><div class="v" id="sumMinis">0/999</div></div>
-        <div class="sumCell"><div class="k">Time in GREEN</div><div class="v" id="sumGreen">0.0s</div></div>
-        <div class="sumCell"><div class="k">Streak Max</div><div class="v" id="sumStreak">0</div></div>
+        <div class="endItem"><span class="k">Minis</span><span class="v" id="endMinis">0/0</span></div>
+        <div class="endItem"><span class="k">Time in GREEN</span><span class="v" id="endGreen">0.0s</span></div>
+        <div class="endItem"><span class="k">Streak Max</span><span class="v" id="endStreak">0</span></div>
 
-        <div class="sumCell"><div class="k">Storm Cycles</div><div class="v" id="sumStormCycles">0</div></div>
-        <div class="sumCell"><div class="k">Storm Success</div><div class="v" id="sumStormOk">0</div></div>
-        <div class="sumCell"><div class="k">Storm Rate</div><div class="v" id="sumStormRate">0%</div></div>
+        <div class="endItem"><span class="k">Storm Cycles</span><span class="v" id="endStorm">0</span></div>
+        <div class="endItem"><span class="k">Storm Success</span><span class="v" id="endStormOk">0</span></div>
+        <div class="endItem"><span class="k">Storm Rate</span><span class="v" id="endStormRate">0%</span></div>
       </div>
 
-      <div class="sumCloseRow">
-        <button id="btnCloseSum" class="btn">ปิด</button>
+      <div class="endActions">
+        <button class="btn" id="btnCloseEnd" type="button">ปิด</button>
       </div>
     </div>
   </div>
+
+  <!-- ✅ SAFE (ESM) -->
+  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
 
   <script>
+  (function(){
+    'use strict';
     const D = document;
     const body = D.body;
 
@@ -867,440 +612,322 @@
     }
     function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-    // -------------------- beep audio --------------------
+    const hub = String(qs('hub','./hub.html') || './hub.html');
+    const diff = String(qs('diff','normal'));
+    const time = clamp(parseInt(qs('time', qs('durationPlannedSec', 70)),10) || 70, 20, 600);
+    const run  = String(qs('run', qs('runMode','play')));
+
+    // ----- Start meta -----
+    const startMeta = D.getElementById('startMeta');
+    if (startMeta){
+      startMeta.textContent = `MODE: ${run} • DIFF: ${diff} • TIME: ${time}s`;
+    }
+
+    // ----- Audio helper -----
     let AC = null;
     function ensureAC(){
       if (AC) return AC;
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return null;
-      AC = new Ctx();
+      const C = window.AudioContext || window.webkitAudioContext;
+      if (!C) return null;
+      AC = new C();
       return AC;
     }
-    function beep(freq=880, dur=70, gain=0.03){
-      const ac = ensureAC(); if (!ac) return;
-      const t0 = ac.currentTime;
-      const o = ac.createOscillator();
-      const g = ac.createGain();
+    async function resumeAudio(){
+      const c = ensureAC(); if(!c) return;
+      if (c.state === 'suspended'){ try{ await c.resume(); }catch(e){} }
+    }
+    function beep(freq=880, ms=40, gain=0.025){
+      const c = ensureAC(); if(!c) return;
+      const o = c.createOscillator();
+      const g = c.createGain();
       o.type = 'sine';
-      o.frequency.setValueAtTime(freq, t0);
+      o.frequency.value = freq;
+      g.gain.value = 0.0001;
+      o.connect(g); g.connect(c.destination);
+      const t0 = c.currentTime;
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(gain, t0+0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur/1000);
-      o.connect(g); g.connect(ac.destination);
+      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(0.02, ms/1000));
       o.start(t0);
-      o.stop(t0 + dur/1000 + 0.02);
+      o.stop(t0 + Math.max(0.03, ms/1000 + 0.02));
     }
 
-    // -------------------- UI refs --------------------
-    const startOv = D.getElementById('start-overlay');
-    const btnStart = D.getElementById('btnStart');
-    const btnStartCB = D.getElementById('btnStartCardboard');
+    // ----- Hit flash -----
+    const hitFx = D.getElementById('hitFx');
+    let fxTimer = 0;
+    function flash(kind){
+      if(!hitFx) return;
+      hitFx.dataset.kind = kind || '';
+      hitFx.classList.add('show');
+      clearTimeout(fxTimer);
+      fxTimer = setTimeout(()=> hitFx.classList.remove('show'), 90);
+    }
 
+    // ----- Buttons -----
     const btnCardboard = D.getElementById('btnCardboard');
+    const btnShootCenter = D.getElementById('btnShootCenter');
     const btnShoot = D.getElementById('btnShoot');
     const btnStop = D.getElementById('btnStop');
 
-    const vrHud2D = D.getElementById('vrHud2D');
+    // ----- Cardboard Scene Clone (targets copy) -----
+    const cbLayerL = D.getElementById('cbLayerL');
+    const cbLayerR = D.getElementById('cbLayerR');
+    const hvrLayer = D.getElementById('hvr-layer');
 
-    const cbEyeL = D.getElementById('cbEyeL');
-    const cbEyeR = D.getElementById('cbEyeR');
-    const cbHudL = D.getElementById('cbHudL');
-    const cbHudR = D.getElementById('cbHudR');
+    let cbSyncTimer = 0;
 
-    const gaugeFill = D.getElementById('gaugeFill');
-    const zoneName  = D.getElementById('zoneName');
-    const zonePct   = D.getElementById('zonePct');
-    const zoneDot   = D.getElementById('zoneDot');
-
-    const elAcc = D.getElementById('stat-acc');
-    const elStreak = D.getElementById('stat-streak');
-
-    const coachText = D.getElementById('coachText');
-
-    // urgent tags
-    const vr2dUrgent = D.getElementById('vr2dUrgent');
-    const cblUrgent = D.getElementById('cblUrgent');
-    const cbrUrgent = D.getElementById('cbrUrgent');
-
-    // A) gaze rings
-    const ring2D = D.getElementById('gazeRing2D');
-    const ring2DFg = ring2D ? ring2D.querySelector('circle.fg') : null;
-    const cbGazeL = D.getElementById('cbGazeL');
-    const cbGazeR = D.getElementById('cbGazeR');
-    const cbLfg = cbGazeL ? cbGazeL.querySelector('circle.fg') : null;
-    const cbRfg = cbGazeR ? cbGazeR.querySelector('circle.fg') : null;
-
-    // summary
-    const sumOv = D.getElementById('summaryOverlay');
-    const btnRetry = D.getElementById('btnRetry');
-    const btnBackHub = D.getElementById('btnBackHub');
-    const btnCloseSum = D.getElementById('btnCloseSum');
-
-    const sumScore = D.getElementById('sumScore');
-    const sumGrade = D.getElementById('sumGrade');
-    const sumAcc   = D.getElementById('sumAcc');
-    const sumComboMax = D.getElementById('sumComboMax');
-    const sumMiss  = D.getElementById('sumMiss');
-    const sumGoals = D.getElementById('sumGoals');
-    const sumMinis = D.getElementById('sumMinis');
-    const sumGreen = D.getElementById('sumGreen');
-    const sumStreak = D.getElementById('sumStreak');
-    const sumStormCycles = D.getElementById('sumStormCycles');
-    const sumStormOk = D.getElementById('sumStormOk');
-    const sumStormRate = D.getElementById('sumStormRate');
-
-    const vrTut = D.getElementById('vrTut');
-    const vrTutLine = D.getElementById('vrTutLine');
-
-    // mount per-eye HUD
-    (function mountCbHud(){
-      if (cbEyeL && cbHudL && !cbEyeL.contains(cbHudL)) cbEyeL.appendChild(cbHudL);
-      if (cbEyeR && cbHudR && !cbEyeR.contains(cbHudR)) cbEyeR.appendChild(cbHudR);
-    })();
-
-    // -------------------- mode toggles --------------------
-    function enterCardboard(){
-      body.classList.add('cardboard');
-      if (vrHud2D) vrHud2D.classList.remove('on');
-      if (coachText) coachText.innerHTML = 'โหมด Cardboard: <b>ค้างเล็งจนวงเต็ม</b> เพื่อยิง (gaze)<br/>Mini: ออก GREEN + pressure + BLOCK END + BOSS 🌩️';
-      beep(660,70,0.03); beep(880,70,0.03);
+    function cloneTargetsTo(out){
+      if (!hvrLayer || !out) return;
+      out.innerHTML = '';
+      const list = hvrLayer.querySelectorAll('.hvr-target');
+      list.forEach(node=>{
+        const c = node.cloneNode(true);
+        c.style.pointerEvents = 'none';
+        out.appendChild(c);
+      });
     }
-    function exitCardboard(){
-      body.classList.remove('cardboard');
-      if (vrHud2D) vrHud2D.classList.add('on');
-      if (coachText) coachText.innerHTML = 'แตะ <b>SHOOT</b> เพื่อยิง<br/>Cardboard = ค้างเล็งจนวงเต็มยิงออโต้';
-      beep(440,70,0.03);
+    function startCbSync(){
+      stopCbSync();
+      cbSyncTimer = setInterval(()=>{
+        cloneTargetsTo(cbLayerL);
+        cloneTargetsTo(cbLayerR);
+      }, 50); // 20fps
     }
-    function showHud(){
-      if (body.classList.contains('cardboard')){
-        if (vrHud2D) vrHud2D.classList.remove('on');
+    function stopCbSync(){
+      clearInterval(cbSyncTimer);
+      cbSyncTimer = 0;
+      if (cbLayerL) cbLayerL.innerHTML = '';
+      if (cbLayerR) cbLayerR.innerHTML = '';
+    }
+
+    // ----- Cardboard toggle -----
+    const coachText = D.getElementById('coach-text');
+    const coachSub  = D.getElementById('coach-sub');
+
+    function setCardboard(on){
+      on = !!on;
+      body.classList.toggle('cardboard', on);
+      try{ localStorage.setItem('HVR_CARDBOARD', on ? '1' : '0'); }catch{}
+      D.documentElement.style.setProperty('--gazeProg', '0');
+      if (on) startCbSync(); else stopCbSync();
+    }
+
+    const saved = (function(){ try{ return localStorage.getItem('HVR_CARDBOARD')==='1'; }catch{ return false; } })();
+    if (qs('cardboard','') === '1') setCardboard(true);
+    else if (saved) setCardboard(true);
+
+    btnCardboard.addEventListener('click', async ()=>{
+      await resumeAudio();
+      setCardboard(!body.classList.contains('cardboard'));
+      beep(720, 40, 0.020);
+    });
+
+    function shootAtCenter(){
+      // NON-cardboard: shoot from screen center
+      if (!body.classList.contains('cardboard')){
+        const x = window.innerWidth/2;
+        const y = window.innerHeight/2;
+        const el = document.elementFromPoint(x,y);
+        if (el && el.classList && el.classList.contains('hvr-target')){
+          el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
+        } else beep(330, 18, 0.010);
+        return;
+      }
+      // CARDBOARD: still shoot using DOM center (left eye center)
+      const eye = D.getElementById('cbEyeL');
+      if (!eye) return;
+      const r = eye.getBoundingClientRect();
+      const x = r.left + r.width/2;
+      const y = r.top + r.height/2;
+
+      // IMPORTANT: shoot should target real layer (not clone)
+      // We compute what element would be at center on real stage:
+      // Use viewport center as fallback if stage is hidden.
+      const el = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
+      if (el && el.classList && el.classList.contains('hvr-target')){
+        el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
       } else {
-        if (vrHud2D) vrHud2D.classList.add('on');
+        // Fallback: try to hit any target near center by scanning
+        if (hvrLayer){
+          const list = hvrLayer.querySelectorAll('.hvr-target');
+          let best = null;
+          let bestD = 1e9;
+          list.forEach(t=>{
+            const rr = t.getBoundingClientRect();
+            const cx = rr.left + rr.width/2;
+            const cy = rr.top + rr.height/2;
+            const dx = cx - window.innerWidth/2;
+            const dy = cy - window.innerHeight/2;
+            const d2 = dx*dx + dy*dy;
+            if (d2 < bestD){ bestD = d2; best = t; }
+          });
+          if (best && bestD < (90*90)){
+            best.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
+          } else beep(330, 18, 0.010);
+        } else beep(330, 18, 0.010);
       }
     }
 
-    // -------------------- center hit --------------------
-    function centerHit(){
-      const x = window.innerWidth / 2;
-      const y = window.innerHeight / 2;
-      const el = document.elementFromPoint(x, y);
-      if (!el) return;
-      if (el.classList && el.classList.contains('hvr-target')){
-        const ev = new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerType:'touch', isPrimary:true });
-        el.dispatchEvent(ev);
-      }
-    }
-
-    // -------------------- shooting state --------------------
-    let shooting = false;
-    function setShooting(on){
-      shooting = !!on;
-      btnShoot.textContent = shooting ? '🎯 SHOOT (ON)' : '🎯 SHOOT';
-      if (shooting) beep(980,60,0.03); else beep(420,60,0.03);
-      if (!shooting) stopGaze();
-    }
-
-    // -------------------- A) gaze hold ring + auto fire --------------------
-    const HOLD_MS = 480;
-    let gazeOn = false;
-    let gazeStart = 0;
-    let gazeRaf = 0;
-    let gazeLooping = false;
-
-    function setRingProgress(p){
-      // p: 0..1
-      const d2 = 157; // 2D dash
-      const dc = 176; // cardboard dash
-      if (ring2DFg) ring2DFg.style.strokeDashoffset = String(d2 * (1 - clamp(p,0,1)));
-      if (cbLfg) cbLfg.style.strokeDashoffset = String(dc * (1 - clamp(p,0,1)));
-      if (cbRfg) cbRfg.style.strokeDashoffset = String(dc * (1 - clamp(p,0,1)));
-    }
-
-    function ringShow(on){
-      if (ring2D) ring2D.classList.toggle('on', !!on && (body.classList.contains('cardboard') || shooting));
-      if (cbGazeL) cbGazeL.classList.toggle('on', !!on && body.classList.contains('cardboard'));
-      if (cbGazeR) cbGazeR.classList.toggle('on', !!on && body.classList.contains('cardboard'));
-      if (!on) setRingProgress(0);
-    }
-
-    function gazeTick(t){
-      if (!gazeOn) return;
-      const dt = t - gazeStart;
-      const p = clamp(dt / HOLD_MS, 0, 1);
-      setRingProgress(p);
-
-      if (p >= 1){
-        // fire once, then restart hold if still holding + shooting
-        if (shooting){
-          centerHit();
-          beep(1240, 22, 0.02); // tiny "click"
-        }
-        gazeStart = t;
-        setRingProgress(0);
-      }
-      gazeRaf = requestAnimationFrame(gazeTick);
-    }
-
-    function startGaze(){
-      if (gazeOn) return;
-      gazeOn = true;
-      ringShow(true);
-      gazeStart = performance.now();
-      setRingProgress(0);
-      gazeRaf = requestAnimationFrame(gazeTick);
-    }
-    function stopGaze(){
-      gazeOn = false;
-      ringShow(false);
-      try{ cancelAnimationFrame(gazeRaf); }catch{}
-      gazeRaf = 0;
-    }
-
-    // hold control (cardboard): touch hold = gaze active
-    function pointerDownHold(){
-      if (!body.classList.contains('cardboard')) return;
-      if (!shooting) return;
-      startGaze();
-    }
-    function pointerUpHold(){
-      if (!body.classList.contains('cardboard')) return;
-      stopGaze();
-    }
-
-    document.addEventListener('pointerdown', (e)=>{
-      if (e.pointerType === 'touch' && e.isPrimary === false) return;
-      pointerDownHold();
-    }, { passive:true });
-
-    document.addEventListener('pointerup', ()=> pointerUpHold(), { passive:true });
-    document.addEventListener('pointercancel', ()=> pointerUpHold(), { passive:true });
-
-    // -------------------- tutorial (6 sec) --------------------
-    function shouldShowTut(){
-      const q = qs('tutorial','');
-      if (q === '1') return true;
-      try{ return localStorage.getItem('HVR_TUT_DONE') !== '1'; }catch{ return true; }
-    }
-    function markTutDone(){ try{ localStorage.setItem('HVR_TUT_DONE','1'); }catch{} }
-
-    let tutInterval = 0;
-    function startTutorial(){
-      if (!vrTut || !shouldShowTut()) return;
-      vrTut.hidden = false;
-
-      const steps = [
-        'ยิง 💧 เพื่อปรับน้ำเข้า GREEN (คะแนนขึ้นเร็ว)',
-        'เก็บ 🛡️ เพื่อกัน 🥤 (BLOCK = ไม่เสีย MISS)',
-        'เข้า 🌀 STORM: ออก GREEN + สะสม pressure + BLOCK ตอน END',
-        'ท้ายพายุมี 🌩️ BOSS ต้อง BLOCK ให้ครบ'
-      ];
-      let i = 0;
-      vrTutLine.textContent = steps[0];
-
-      clearInterval(tutInterval);
-      tutInterval = setInterval(()=>{
-        i++;
-        vrTutLine.textContent = steps[Math.min(i, steps.length-1)];
-      }, 1700);
-
-      setTimeout(()=>{
-        clearInterval(tutInterval);
-        vrTut.hidden = true;
-        markTutDone();
-      }, 6200);
-    }
-
-    // -------------------- B) urgent FX + ticking --------------------
-    let urgentOn = false;
-    let tickTimer = 0;
-
-    function setUrgent(on){
-      const v = !!on;
-      if (v === urgentOn) return;
-      urgentOn = v;
-
-      body.classList.toggle('storm-urgent', urgentOn);
-      if (vr2dUrgent) vr2dUrgent.style.display = urgentOn ? 'inline-flex' : 'none';
-      if (cblUrgent) cblUrgent.style.display = urgentOn ? 'inline-flex' : 'none';
-      if (cbrUrgent) cbrUrgent.style.display = urgentOn ? 'inline-flex' : 'none';
-
-      clearInterval(tickTimer);
-      if (urgentOn){
-        tickTimer = setInterval(()=>{
-          // tick sound (soft)
-          beep(1040, 24, 0.02);
-        }, 260);
-      }
-    }
-
-    // -------------------- events from game --------------------
-    function setHud(prefix, d){
-      const set = (id, val)=>{ const el = D.getElementById(id); if(el) el.textContent = String(val); };
-
-      set(prefix+'Score', `🏆 ${d.score ?? 0}`);
-      set(prefix+'Combo', `⚡ ${d.combo ?? 0}`);
-      set(prefix+'Miss',  `💥 ${d.misses ?? 0}`);
-      set(prefix+'Grade', `🎖️ ${d.grade ?? 'C'}`);
-
-      const left = (d.leftSec ?? d.left ?? 0);
-      set(prefix+'Time',  `⏱️ ${Math.max(0, Math.ceil(left))}`);
-
-      const stormLeft = d.stormActive ? (d.stormLeftSec ?? 0) : 0;
-      set(prefix+'Storm', `🌀 ${Math.max(0, Math.ceil(stormLeft))}s`);
-      set(prefix+'Shield', `🛡️ ${d.shield ?? 0}`);
-
-      // C) richer goal + mini text (compact)
-      const gHold = Number(d.timeInGreenSec ?? 0);
-      const gNeed = Number(d.greenTargetSec ?? 0);
-      set(prefix+'Goal', `Goal: GREEN ${gHold.toFixed(1)} / ${Math.round(gNeed)}s`);
-
-      const m = d.miniDetail || {};
-      const mLine =
-        d.stormActive
-          ? `Mini: outGreen ${m.zoneOK?'✓':'·'}  press ${m.pressureOK?'✓':'·'}  end ${m.endWindow?'✓':'·'}  blockEND ${m.blockedInEnd?'✓':'·'}`
-          : `Mini: รอ STORM`;
-
-      const bossLine =
-        d.stormActive
-          ? (m.bossActive ? ` | BOSS 🌩️ block ${m.bossBlocked||0}/${m.bossNeed||0}` : ` | BOSS —`)
-          : '';
-
-      set(prefix+'Mini', mLine + bossLine);
-    }
-
-    function updateGauge(pct, zone){
-      const p = clamp(pct,0,100);
-      if (gaugeFill) gaugeFill.style.height = p + '%';
-      if (zonePct) zonePct.textContent = Math.round(p);
-      if (zoneName) zoneName.textContent = zone || '—';
-      if (zoneDot) zoneDot.style.left = p + '%';
-    }
-
-    // audio cues
-    let lastGoalCleared = 0;
-    let lastMiniCleared = 0;
-    let lastStormCycle  = 0;
-
-    function cueGoal(){ beep(1240,70,0.035); beep(1560,70,0.030); beep(1760,90,0.028); }
-    function cueMini(){ beep(980,60,0.030); beep(1320,80,0.035); }
-    function cueMiniFail(){ beep(260,90,0.030); beep(210,120,0.030); }
-    function cueStormEnter(){ beep(520,90,0.030); beep(660,90,0.030); }
-
-    window.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail || {};
-      showHud();
-
-      // gauge + top stats
-      updateGauge(d.waterPct ?? 50, d.waterZone ?? '—');
-      if (elAcc) elAcc.textContent = (Number(d.accuracyGoodPct||0).toFixed(1)) + '%';
-      if (elStreak) elStreak.textContent = String(d.streakNow ?? 0);
-
-      // urgent end-window
-      setUrgent(!!(d.stormActive && d.stormInEndWindow));
-
-      // update HUDs
-      setHud('vr2d', d);
-      setHud('cbl', d);
-      setHud('cbr', d);
-
-      // cues
-      const goalsCleared = Number(d.goalsCleared ?? 0);
-      if (goalsCleared > lastGoalCleared){ lastGoalCleared = goalsCleared; cueGoal(); }
-
-      const miniCleared = Number(d.miniCleared ?? 0);
-      if (miniCleared > lastMiniCleared){ lastMiniCleared = miniCleared; cueMini(); }
-
-      const sc = Number(d.stormCycles ?? 0);
-      if (sc > lastStormCycle){ lastStormCycle = sc; cueStormEnter(); }
-    }, { passive:true });
-
-    window.addEventListener('hha:mini', (ev)=>{
-      const d = ev.detail || {};
-      if (d.result === 'fail') cueMiniFail();
-      if (d.result === 'ok') cueMini();
-    }, { passive:true });
-
-    window.addEventListener('hha:end', (ev)=>{
-      const s = ev.detail || {};
-      sumScore.textContent = String(s.scoreFinal ?? 0);
-      sumGrade.textContent = String(s.grade ?? 'C');
-      sumAcc.textContent   = (Number(s.accuracyGoodPct||0).toFixed(1)) + '%';
-      sumComboMax.textContent = String(s.comboMax ?? 0);
-      sumMiss.textContent  = String(s.misses ?? 0);
-      sumGoals.textContent = `${s.goalsCleared ?? 0}/${s.goalsTotal ?? 1}`;
-      sumMinis.textContent = `${s.miniCleared ?? 0}/${s.miniTotal ?? 999}`;
-      sumGreen.textContent = `${Number(s.timeInGreenSec||0).toFixed(1)}s`;
-      sumStreak.textContent = String(s.streakMax ?? 0);
-
-      const cyc = Number(s.stormCycles||0);
-      const ok  = Number(s.stormMiniSuccess||0);
-      sumStormCycles.textContent = String(cyc);
-      sumStormOk.textContent = String(ok);
-      sumStormRate.textContent = cyc>0 ? ( (ok/cyc*100).toFixed(0) + '%' ) : '0%';
-
-      setUrgent(false);
-
-      sumOv.classList.add('on');
-      sumOv.setAttribute('aria-hidden','false');
-      beep(980,60,0.03); beep(1240,70,0.03);
-    }, { passive:true });
-
-    // -------------------- buttons --------------------
-    btnCardboard.addEventListener('click', ()=>{
-      if (body.classList.contains('cardboard')) exitCardboard();
-      else enterCardboard();
-    });
-
-    btnShoot.addEventListener('click', async ()=>{
-      const ac = ensureAC();
-      if (ac && ac.state === 'suspended'){ try{ await ac.resume(); }catch{} }
-      setShooting(!shooting);
-      // show 2D ring only when shooting (optional)
-      ringShow(shooting && body.classList.contains('cardboard'));
-    });
+    btnShootCenter.addEventListener('click', async ()=>{ await resumeAudio(); shootAtCenter(); });
+    if (btnShoot){ btnShoot.addEventListener('click', async ()=>{ await resumeAudio(); shootAtCenter(); }); }
 
     btnStop.addEventListener('click', ()=>{
-      setShooting(false);
-      setUrgent(false);
       window.dispatchEvent(new CustomEvent('hha:force_end', { detail:{ reason:'stop' } }));
     });
 
-    // start overlay
-    function hideStart(){
-      if (!startOv) return;
-      startOv.style.display = 'none';
-      showHud();
-      setTimeout(startTutorial, 120);
+    // ----- Start gating -----
+    const startOverlay = D.getElementById('startOverlay');
+    const btnStart = D.getElementById('btnStart');
+    const btnStartCardboard = D.getElementById('btnStartCardboard');
+
+    async function startNow(cardboard){
+      await resumeAudio();
+      if (cardboard) setCardboard(true);
+      if (startOverlay) startOverlay.style.display = 'none';
+      if (coachText) coachText.innerHTML = cardboard
+        ? 'Cardboard: <b>ค้างเล็งจนวงเต็ม</b> เพื่อยิง (gaze)'
+        : 'แตะ <b>SHOOT</b> หรือแตะเป้าเพื่อเล่น';
+      if (coachSub) coachSub.textContent = 'Mini: LOW/HIGH + BLOCK END + BOSS 🌩️';
+      beep(880, 50, 0.025);
     }
-    btnStart.addEventListener('click', async ()=>{
-      const ac = ensureAC();
-      if (ac && ac.state === 'suspended'){ try{ await ac.resume(); }catch{} }
-      exitCardboard();
-      hideStart();
-    });
-    btnStartCB.addEventListener('click', async ()=>{
-      const ac = ensureAC();
-      if (ac && ac.state === 'suspended'){ try{ await ac.resume(); }catch{} }
-      enterCardboard();
-      hideStart();
-    });
+    btnStart.addEventListener('click', ()=> startNow(false));
+    btnStartCardboard.addEventListener('click', ()=> startNow(true));
 
-    // summary buttons
-    btnCloseSum.addEventListener('click', ()=>{
-      sumOv.classList.remove('on');
-      sumOv.setAttribute('aria-hidden','true');
-    });
+    // ----- judge events -----
+    window.addEventListener('hha:judge', (ev)=>{
+      const d = ev.detail || {};
+      const k = String(d.kind || '');
+      if (k === 'good'){ flash('good'); beep(920, 26, 0.018); }
+      else if (k === 'shield'){ flash('shield'); beep(760, 32, 0.018); }
+      else if (k === 'block'){ flash('shield'); beep(680, 22, 0.016); }
+      else if (k === 'bad'){ flash('bad'); beep(320, 38, 0.020); }
+      else if (k === 'storm-in'){ beep(520, 80, 0.030); }
+      else if (k === 'perfect'){ flash('shield'); beep(1240, 90, 0.040); beep(1560, 70, 0.030); }
+    }, { passive:true });
+
+    // ----- Storm intro overlay -----
+    const stormIntro = D.getElementById('stormIntro');
+    let stormIntroUntil = 0;
+    let stormSirenAt = 0;
+    function showStormIntro(ms=900){
+      if (!stormIntro) return;
+      stormIntro.classList.add('show');
+      stormIntroUntil = performance.now() + ms;
+      stormSirenAt = performance.now();
+    }
+    function stormIntroLoop(t){
+      if (stormIntro && stormIntro.classList.contains('show')){
+        if (t >= stormSirenAt){
+          const phase = Math.floor((t - stormSirenAt) / 150) % 2;
+          beep(phase ? 520 : 660, 70, 0.030);
+          stormSirenAt = t + 160;
+        }
+        if (t >= stormIntroUntil){ stormIntro.classList.remove('show'); }
+      }
+      requestAnimationFrame(stormIntroLoop);
+    }
+    requestAnimationFrame(stormIntroLoop);
+
+    window.addEventListener('hha:storm', async (ev)=>{
+      await resumeAudio();
+      const d = ev.detail || {};
+      if (d.state === 'enter'){ showStormIntro(900); }
+    }, { passive:true });
+
+    // ----- Gaze-to-shoot (hold) -----
+    let gazeEl = null;
+    let gazeT0 = 0;
+    const gazeHoldMs = 520;
+    function setGazeProg(p){
+      p = Math.max(0, Math.min(1, p));
+      D.documentElement.style.setProperty('--gazeProg', String(p));
+    }
+
+    function gazeLoop(t){
+      if (!body.classList.contains('cardboard')){
+        gazeEl = null; gazeT0 = 0; setGazeProg(0);
+        requestAnimationFrame(gazeLoop);
+        return;
+      }
+
+      // gaze based on cloned scene center, but firing on real target via shootAtCenter()
+      const eye = D.getElementById('cbEyeL');
+      if (!eye){ requestAnimationFrame(gazeLoop); return; }
+      const r = eye.getBoundingClientRect();
+      const x = r.left + r.width/2;
+      const y = r.top + r.height/2;
+
+      const el = document.elementFromPoint(x,y);
+      const ok = (el && el.classList && el.classList.contains('hvr-target')) ? el : null;
+
+      if (ok !== gazeEl){
+        gazeEl = ok; gazeT0 = t; setGazeProg(0);
+      } else if (gazeEl){
+        const dt = t - gazeT0;
+        const p = dt / gazeHoldMs;
+        setGazeProg(p);
+        if (p >= 1){
+          shootAtCenter();
+          gazeT0 = t + 220;
+          setGazeProg(0);
+        }
+      } else setGazeProg(0);
+
+      requestAnimationFrame(gazeLoop);
+    }
+    requestAnimationFrame(gazeLoop);
+
+    // ----- End summary -----
+    const endBackdrop = D.getElementById('endBackdrop');
+    const btnRetry = D.getElementById('btnRetry');
+    const btnBackHub = D.getElementById('btnBackHub');
+    const btnCloseEnd = D.getElementById('btnCloseEnd');
+
     btnRetry.addEventListener('click', ()=> location.reload());
+    btnCloseEnd.addEventListener('click', ()=>{ if(endBackdrop) endBackdrop.style.display='none'; });
     btnBackHub.addEventListener('click', ()=>{
-      const hub = qs('hub','./hub.html');
-      location.href = hub;
+      try{
+        const u = new URL(hub, location.href);
+        u.searchParams.set('ts', String(Date.now()));
+        location.href = u.toString();
+      }catch{ location.href = hub; }
     });
 
-    // initial state
-    vrHud2D.classList.add('on');
-  </script>
+    window.addEventListener('hha:end', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      try{
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
+        localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
+      }catch{}
 
-  <!-- GAME LOGIC -->
-  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
+      const set = (id,val)=>{ const el=D.getElementById(id); if(el) el.textContent=String(val); };
+      set('endScore', d.scoreFinal ?? 0);
+      set('endGrade', d.grade ?? 'C');
+      set('endAcc', ((Number(d.accuracyGoodPct||0)).toFixed(1)) + '%');
+      set('endCombo', d.comboMax ?? 0);
+      set('endMiss', d.misses ?? 0);
+      set('endGoals', String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0));
+      set('endMinis', String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0));
+
+      set('endGreen', (Number(d.timeInGreenSec||0).toFixed(1)) + 's');
+      set('endStreak', d.streakMax ?? 0);
+      set('endStorm', d.stormCycles ?? 0);
+      set('endStormOk', d.stormMiniSuccess ?? 0);
+      set('endStormRate', (Number(d.stormSuccessRatePct||0).toFixed(0)) + '%');
+
+      if (endBackdrop) endBackdrop.style.display = 'flex';
+    }, { passive:true });
+
+    // keyboard (desktop)
+    window.addEventListener('keydown', (e)=>{
+      if (e.code === 'Space'){ e.preventDefault(); shootAtCenter(); }
+      if (e.key && e.key.toLowerCase() === 'c'){ setCardboard(!body.classList.contains('cardboard')); }
+    }, { passive:false });
+
+    // init coach
+    if (coachText) coachText.innerHTML = 'แตะ START เพื่อเริ่ม';
+    if (coachSub) coachSub.textContent = 'Cardboard = ค้างเล็งจนวงเต็มยิง (gaze)';
+  })();
+  </script>
 </body>
 </html>
