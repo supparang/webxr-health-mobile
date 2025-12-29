@@ -1,9 +1,10 @@
-<!-- === /herohealth/hub.html ===
+l<!-- === /herohealth/hub.html ===
 HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
 ✅ อ่าน localStorage: HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 ✅ ตาราง 4 เกมล่าสุด
 ✅ Export CSV (last / recent4)
-✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run, diff, time, seed, + research ctx)
+✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run/runMode, diff, time, seed, + research ctx)
+✅ รองรับ hub.safe.js (module)
 -->
 
 <!doctype html>
@@ -183,6 +184,7 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
       box-shadow:0 18px 44px rgba(0,0,0,.28);
       cursor:pointer;
       user-select:none;
+      -webkit-tap-highlight-color:transparent;
     }
     .gameBtn:active{transform:translateY(1px);}
     .gameName{font-weight:1100;}
@@ -237,6 +239,7 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
     .gradeTag.bad{border-color:rgba(239,68,68,.26); background:rgba(239,68,68,.10);}
   </style>
 
+  <!-- HUB controller (module) -->
   <script type="module" src="./hub.safe.js"></script>
 </head>
 
