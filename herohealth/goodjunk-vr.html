@@ -1,8 +1,5 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo
-✅ Mono: #gj-layer + #gj-crosshair
-✅ Cardboard: #gj-layerL/#gj-layerR + #gj-crosshairL/#gj-crosshairR (2 จอซ้าย/ขวา)
-✅ ปุ่มเข้า VR/Cardboard (บน HUD + ใน Start Overlay)
+GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo + End Summary + HUB
 -->
 
 <!doctype html>
@@ -33,11 +30,10 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo
         <div class="hud-title">GoodJunkVR</div>
         <div class="hud-sub" id="hudMeta">—</div>
 
-        <!-- ✅ VR/Cardboard button -->
+        <!-- ✅ actions -->
         <div class="hud-actions">
-          <button id="btnVr" class="btn-vr" type="button" aria-label="VR/Cardboard">
-            VR
-          </button>
+          <button id="btnHub" class="btn-hub" type="button" aria-label="กลับ HUB">HUB</button>
+          <button id="btnVr" class="btn-vr" type="button" aria-label="VR/Cardboard">VR</button>
         </div>
       </div>
 
@@ -108,10 +104,12 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo
       <div class="stereo-divider" aria-hidden="true"></div>
     </div>
 
-    <!-- (reserve) hazards / summary -->
+    <!-- reserve -->
     <div id="atk-ring" aria-hidden="true"></div>
     <div id="atk-laser" aria-hidden="true"></div>
-    <div id="end-summary"></div>
+
+    <!-- ✅ End Summary Overlay -->
+    <div id="end-summary" class="end-overlay" hidden></div>
   </div>
 
   <!-- ===== Controls ===== -->
