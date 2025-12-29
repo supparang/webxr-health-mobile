@@ -1,213 +1,162 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Boot: start overlay + VR/Cardboard toggle + HUB + End Summary renderer
+// Boot — VR-safe layout + dynamic safeMargins + mini HUD
 
-import { boot as safeBoot } from './goodjunk.safe.js';
+'use strict';
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC = ROOT.document;
+import { boot as goodjunkBoot } from './goodjunk.safe.js';
+import { attachTouchLook } from './touch-look-goodjunk.js';
 
-function qs(name, def){
-  try{ return (new URL(ROOT.location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
+const DOC = document;
+
+function qp(name, fallback = null){
+  try{
+    const u = new URL(location.href);
+    const v = u.searchParams.get(name);
+    return (v == null || v === '') ? fallback : v;
+  }catch(_){ return fallback; }
 }
-function setParam(url, k, v){
-  const u = new URL(url);
-  if (v === null || v === undefined) u.searchParams.delete(k);
-  else u.searchParams.set(k, String(v));
-  return u.toString();
-}
-function $(id){ return DOC ? DOC.getElementById(id) : null; }
+function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
+function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
-function applyViewClass(view){
+function isLandscape(){
+  return (innerWidth || 0) > (innerHeight || 0);
+}
+
+function computeSafeMargins({ view }){
+  // Portrait (mobile): กัน HUD+Fever+ปุ่มยิง
+  // Landscape/VR: ลด margin ลงให้เป้ากลับมากลางจอ
+  const land = isLandscape();
+  const isVr = (view === 'cardboard') || land;
+
+  if (isVr){
+    return { top: 56, bottom: 56, left: 22, right: 22 };
+  }
+  return { top: 128, bottom: 170, left: 26, right: 26 };
+}
+
+function buildContext(){
+  const keys = [
+    'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
+    'schoolYear','semester','studentKey','schoolCode','schoolName','classRoom','studentNo',
+    'nickName','gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup',
+    'vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
+    'gameVersion'
+  ];
+  const ctx = {};
+  for (const k of keys){
+    const v = qp(k, null);
+    if (v != null) ctx[k] = v;
+  }
+  ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
+  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-29';
+  return ctx;
+}
+
+function showStartOverlay(metaText){
+  const overlay = DOC.getElementById('startOverlay');
+  const btn = DOC.getElementById('btnStart');
+  const btnVr = DOC.getElementById('btnStartVr');
+  const meta = DOC.getElementById('startMeta');
+
+  if (meta) meta.textContent = metaText || '—';
+  if (!overlay || !btn) return Promise.resolve('mobile');
+
+  overlay.style.display = 'flex';
+  return new Promise((resolve) => {
+    btn.onclick = () => { overlay.style.display = 'none'; resolve('mobile'); };
+    if (btnVr){
+      btnVr.onclick = () => { overlay.style.display = 'none'; resolve('cardboard'); };
+    }
+  });
+}
+
+function setHudMeta(text){
+  const el = DOC.getElementById('hudMeta');
+  if (el) el.textContent = text;
+}
+
+function setBodyView(view){
   DOC.body.classList.toggle('view-cardboard', view === 'cardboard');
 }
 
-function metaText(p){
-  const a = [];
-  a.push(`diff=${p.diff}`);
-  a.push(`run=${p.run}`);
-  a.push(`time=${p.time}s`);
-  a.push(`end=${p.end}`);
-  a.push(`challenge=${p.challenge}`);
-  if (p.view) a.push(`view=${p.view}`);
-  return a.join(' • ');
-}
+(async function main(){
+  const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
+  const time = toInt(qp('time', '80'), 80);
+  const run = toStr(qp('run', 'play'), 'play').toLowerCase();
+  const endPolicy = toStr(qp('end', 'time'), 'time').toLowerCase();
+  const challenge = toStr(qp('challenge', 'rush'), 'rush').toLowerCase();
+  const viewIn = toStr(qp('view', 'mobile'), 'mobile').toLowerCase();
 
-function buildHubUrl(p){
-  const hub = String(p.hub||'').trim();
-  if (!hub) return '';
-  try{
-    const u = new URL(hub, ROOT.location.href);
-    // keep params you want (optional)
-    u.searchParams.set('from', 'goodjunk');
-    u.searchParams.set('run', p.run);
-    u.searchParams.set('diff', p.diff);
-    return u.toString();
-  }catch(_){
-    return hub;
-  }
-}
+  const seed = qp('seed', null);
+  const sessionId = qp('sessionId', null) || qp('sid', null);
+  const ctx = buildContext();
 
-async function goHub(p, reason='back_hub'){
-  // best: end game + flush then navigate
-  try{
-    if (ROOT.GoodJunkVR && typeof ROOT.GoodJunkVR.endGame === 'function'){
-      await ROOT.GoodJunkVR.endGame(reason);
-    }
-  }catch(_){}
-  const url = buildHubUrl(p);
-  if (url) ROOT.location.href = url;
-}
+  // view: mobile|cardboard
+  let view = (viewIn === 'cardboard') ? 'cardboard' : 'mobile';
+  setBodyView(view);
 
-function showEndSummary(summary, p){
-  const host = $('end-summary');
-  if (!host) return;
+  setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=${view}`);
 
-  const acc = Number(summary?.accuracyGoodPct ?? 0) || 0;
-  const grade = String(summary?.grade ?? '—');
-  const dur = Number(summary?.durationPlayedSec ?? 0) || 0;
+  // touch/gyro shift + aim point
+  const aimY = (view === 'cardboard' || isLandscape()) ? 0.50 : 0.62;
 
-  host.hidden = false;
-  host.innerHTML = `
-    <div class="end-card" role="dialog" aria-label="สรุปผล">
-      <div class="end-title">
-        <div class="t">สรุปผล GoodJunkVR</div>
-        <div class="pill">GRADE ${grade}</div>
-      </div>
-
-      <div class="end-grid">
-        <div class="end-item"><div class="k">Score</div><div class="v">${summary?.scoreFinal ?? 0}</div></div>
-        <div class="end-item"><div class="k">Combo Max</div><div class="v">${summary?.comboMax ?? 0}</div></div>
-        <div class="end-item"><div class="k">Miss</div><div class="v">${summary?.misses ?? 0}</div></div>
-
-        <div class="end-item"><div class="k">Accuracy</div><div class="v">${acc}%</div></div>
-        <div class="end-item"><div class="k">Good Hit</div><div class="v">${summary?.nHitGood ?? 0}</div></div>
-        <div class="end-item"><div class="k">Junk Hit</div><div class="v">${summary?.nHitJunk ?? 0}</div></div>
-
-        <div class="end-item"><div class="k">Junk Guard</div><div class="v">${summary?.nHitJunkGuard ?? 0}</div></div>
-        <div class="end-item"><div class="k">Good Expire</div><div class="v">${summary?.nExpireGood ?? 0}</div></div>
-        <div class="end-item"><div class="k">Time</div><div class="v">${dur}s</div></div>
-
-        <div class="end-item"><div class="k">Goals</div><div class="v">${summary?.goalsCleared ?? 0}/${summary?.goalsTotal ?? 0}</div></div>
-        <div class="end-item"><div class="k">Minis</div><div class="v">${summary?.miniCleared ?? 0}/${summary?.miniTotal ?? 0}</div></div>
-        <div class="end-item"><div class="k">Reason</div><div class="v">${String(summary?.reason ?? 'end')}</div></div>
-      </div>
-
-      <div class="end-sub">
-        โหมด: <b>${summary?.runMode ?? p.run}</b> • ระดับ: <b>${summary?.diff ?? p.diff}</b>
-        ${summary?.seed ? `• seed: <b>${summary.seed}</b>` : ''}
-      </div>
-
-      <div class="end-actions">
-        <button id="btnEndRetry" class="end-btn primary" type="button">เล่นใหม่</button>
-        <button id="btnEndHub" class="end-btn secondary" type="button">กลับ HUB</button>
-      </div>
-
-      <div class="end-actions" style="margin-top:10px;">
-        <button id="btnEndClose" class="end-btn ghost" type="button">ปิดหน้านี้</button>
-      </div>
-    </div>
-  `;
-
-  const btnRetry = $('btnEndRetry');
-  const btnHub = $('btnEndHub');
-  const btnClose = $('btnEndClose');
-
-  if (btnRetry){
-    btnRetry.addEventListener('click', ()=>{
-      // refresh with new ts (new seed) but keep params
-      const cur = ROOT.location.href;
-      ROOT.location.href = setParam(cur, 'ts', Date.now());
-    });
-  }
-  if (btnHub){
-    btnHub.addEventListener('click', ()=> goHub(p, 'end_hub'));
-  }
-  if (btnClose){
-    btnClose.addEventListener('click', ()=>{
-      host.hidden = true;
-      host.innerHTML = '';
-    });
-  }
-}
-
-function startGame(p){
-  applyViewClass(p.view);
-
-  const hudMeta = $('hudMeta');
-  if (hudMeta) hudMeta.textContent = metaText(p);
-
-  const overlay = $('startOverlay');
-  if (overlay) overlay.style.display = 'none';
-
-  safeBoot({
-    diff: p.diff,
-    run: p.run,
-    time: p.time,
-    endPolicy: p.end,
-    challenge: p.challenge,
-    view: p.view,
-    context: { projectTag: 'GoodJunkVR' }
+  attachTouchLook({
+    crosshairEl: DOC.getElementById('gj-crosshair'),
+    layerEl: DOC.getElementById('gj-layer'),
+    aimY,
+    maxShiftPx: (view === 'cardboard' || isLandscape()) ? 130 : 170,
+    ease: 0.12
   });
-}
 
-function boot(){
-  const p = {
-    diff: String(qs('diff','normal')).toLowerCase(),
-    run:  String(qs('run','play')).toLowerCase(),
-    time: Number(qs('time','80')) || 80,
-    end:  String(qs('end','time')).toLowerCase(),
-    challenge: String(qs('challenge','rush')).toLowerCase(),
-    view: String(qs('view','mobile')).toLowerCase(), // 'cardboard' or 'mobile'
-    hub: qs('hub','')
-  };
-  if (p.view !== 'cardboard') p.view = 'mobile';
-  applyViewClass(p.view);
+  const metaText =
+    `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • view=${view}`
+    + (seed ? ` • seed=${seed}` : '');
 
-  const startMeta = $('startMeta');
-  if (startMeta) startMeta.textContent = metaText(p);
+  // overlay choose (mobile/cardboard)
+  const chosen = await showStartOverlay(metaText);
+  if (chosen === 'cardboard') view = 'cardboard';
+  setBodyView(view);
 
-  const btnStart = $('btnStart');
-  const btnStartVr = $('btnStartVr');
-  const btnVr = $('btnVr');
-  const btnHub = $('btnHub');
+  const safeMargins = computeSafeMargins({ view });
 
-  if (btnStart) btnStart.addEventListener('click', ()=> startGame(p));
+  // boot engine
+  goodjunkBoot({
+    diff,
+    time,
+    run,
+    endPolicy,
+    challenge,
+    seed,
+    sessionId,
+    view,
+    context: ctx,
+    layerEl: DOC.getElementById('gj-layer'),
+    // (ถ้ายังไม่ใช้ stereo layers จริง ก็ปล่อยไว้ได้)
+    shootEl: DOC.getElementById('btnShoot'),
+    safeMargins
+  });
 
-  if (btnStartVr){
-    btnStartVr.addEventListener('click', ()=>{
-      const url = ROOT.location.href;
-      const next = setParam(url, 'view', 'cardboard');
-      if (next !== url) ROOT.location.href = next;
-      else startGame({ ...p, view:'cardboard' });
-    });
+  // HUD buttons
+  const btnHub = DOC.getElementById('btnHub');
+  if (btnHub){
+    btnHub.onclick = async () => {
+      try{
+        if (window.GoodJunkVR && typeof window.GoodJunkVR.endGame === 'function'){
+          await window.GoodJunkVR.endGame('hub');
+        }
+      }catch(_){}
+      const hub = qp('hub', '');
+      if (hub) location.href = hub;
+    };
   }
 
+  const btnVr = DOC.getElementById('btnVr');
   if (btnVr){
-    btnVr.addEventListener('click', ()=>{
-      const cur = ROOT.location.href;
-      const isCb = (String(qs('view','mobile')).toLowerCase() === 'cardboard');
-      ROOT.location.href = setParam(cur, 'view', isCb ? 'mobile' : 'cardboard');
-    });
+    btnVr.onclick = () => {
+      const u = new URL(location.href);
+      const cur = (u.searchParams.get('view') || 'mobile').toLowerCase();
+      u.searchParams.set('view', cur === 'cardboard' ? 'mobile' : 'cardboard');
+      location.href = u.toString();
+    };
   }
-
-  if (btnHub){
-    btnHub.addEventListener('click', ()=>{
-      // ถ้ายังไม่เริ่มเกม: กลับ hub ได้ทันที
-      // ถ้าเริ่มแล้ว: goHub จะ end+flush ให้
-      goHub(p, 'hud_hub');
-    });
-  }
-
-  // ✅ End summary listener
-  ROOT.addEventListener('hha:end', (ev)=>{
-    const summary = ev?.detail || {};
-    showEndSummary(summary, p);
-  });
-
-  // Auto-start? (ถ้าอยาก) — ตอนนี้ให้ผู้ใช้กดเริ่มเหมือนเดิม
-}
-
-if (DOC){
-  if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot);
-  else boot();
-}
+})();
