@@ -1,7 +1,9 @@
 <!-- === /herohealth/groups.html ===
-HeroHealth — Food Groups VR (Launcher)
-✅ Choose: runMode / diff / style / time / seed
-✅ Opens: /herohealth/vr-groups/groups-vr.html with query params
+Food Groups VR — Launcher (PRODUCTION)
+✅ Launch -> /herohealth/vr-groups/groups-vr.html
+✅ Params: runMode diff style time seed hub autostart v
+✅ Remember last settings (localStorage)
+✅ Quick presets + Random seed
 -->
 
 <!doctype html>
@@ -11,293 +13,435 @@ HeroHealth — Food Groups VR (Launcher)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Food Groups VR (Launcher)</title>
   <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
   <style>
     :root{
       color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.74);
-      --panel2:rgba(15,23,42,.68);
-      --stroke:rgba(148,163,184,.20);
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
       --cyan:#22d3ee;
-      --violet:#a78bfa;
-      --danger:#ef4444;
-      --radius:18px;
+      --warn:#f59e0b;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
+      --r:18px;
     }
-    *{box-sizing:border-box}
-    html,body{
-      margin:0; width:100%; height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-      color:var(--text);
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; height:100%; overflow:hidden; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--text); background:var(--bg); }
+    body{
       background:
         radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 60%),
         var(--bg);
     }
     .wrap{
-      min-height:100%;
-      padding: calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
-      display:grid;
-      place-items:center;
+      height:100%;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
     }
-    .card{
-      width:min(720px, 96vw);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      box-shadow:0 22px 70px rgba(0,0,0,.55);
-      padding:16px;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+    .hero{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 10px 0 18px;
     }
     .title{
-      font-weight:1000;
-      letter-spacing:.3px;
-      font-size:20px;
-      margin:0 0 6px 0;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
     }
-    .sub{
-      margin:0 0 14px 0;
-      color:var(--muted);
-      font-weight:800;
-      line-height:1.35;
+    h1{ margin:0; font-size:20px; letter-spacing:.2px; }
+    .sub{ color:var(--muted); font-size:13px; line-height:1.55; margin-top:4px; }
+    .pillrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .pill{
+      background: rgba(15,23,42,.70);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      color:var(--text);
+      box-shadow:0 14px 30px rgba(0,0,0,.25);
+    }
+    .card{
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: 22px;
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
+      padding: 14px;
+      margin-top: 12px;
     }
     .grid{
       display:grid;
       grid-template-columns: 1fr 1fr;
-      gap:12px;
+      gap: 12px;
+      margin-top: 10px;
     }
-    @media (max-width: 720px){
+    @media (max-width: 860px){
       .grid{ grid-template-columns: 1fr; }
     }
-    .field{
-      background:var(--panel2);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:16px;
-      padding:12px;
+    .sec{
+      background: rgba(2,6,23,.45);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 18px;
+      padding: 12px;
     }
-    label{
-      display:block;
-      font-weight:1000;
-      font-size:12px;
-      color:rgba(229,231,235,.95);
-      margin-bottom:8px;
+    .sec h3{
+      margin:0 0 8px;
+      font-size:13px;
+      color: rgba(226,232,240,.92);
       letter-spacing:.2px;
     }
-    select, input{
-      width:100%;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.22);
-      padding:12px 12px;
-      background:rgba(2,6,23,.55);
-      color:var(--text);
-      font-weight:900;
-      outline:none;
-    }
     .row{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      margin-top:10px;
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center;
+      margin-top:8px;
     }
-    .btns{
-      display:grid;
-      gap:10px;
-      margin-top:14px;
+    label{
+      font-size:12px;
+      color: var(--muted);
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 150px;
     }
-    .btn{
+    select,input{
+      width:100%;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.62);
+      color: var(--text);
+      padding: 10px 10px;
+      outline:none;
+      box-shadow: 0 14px 30px rgba(0,0,0,.22);
+    }
+    input[type="checkbox"]{ width:auto; box-shadow:none; }
+    .actions{
+      display:flex; gap:10px; flex-wrap:wrap;
+      margin-top: 12px;
+    }
+    button{
       border:0;
-      border-radius:16px;
-      padding:12px 14px;
-      font-weight:1000;
-      cursor:pointer;
+      border-radius:999px;
+      padding: 12px 14px;
+      font-weight: 900;
+      cursor: pointer;
+      color:#061018;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+      box-shadow: 0 18px 55px rgba(0,0,0,.35);
     }
-    .btn.primary{
-      background:linear-gradient(135deg, rgba(34,197,94,.95), rgba(34,211,238,.80));
-      color:#04110a;
+    button.secondary{
+      background: rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.18);
+      color: var(--text);
     }
-    .btn.ghost{
-      background:transparent;
-      border:1px solid rgba(148,163,184,.22);
-      color:var(--text);
+    button.warn{
+      background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(34,211,238,.90));
+      color:#08121a;
     }
-    .pillrow{
-      display:flex; flex-wrap:wrap;
+    .kv{
+      display:grid; grid-template-columns: 1fr;
       gap:8px;
-      margin-top:10px;
+      margin-top: 10px;
+      font-size:12px;
+      color: rgba(226,232,240,.92);
     }
-    .pill{
+    .kv .k{
+      background: rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 16px;
+      padding: 10px 12px;
+      overflow:auto;
+      white-space:nowrap;
+    }
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color: var(--muted);
+      line-height:1.55;
+    }
+    .badge{
+      display:inline-flex; align-items:center; gap:6px;
       padding:6px 10px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(2,6,23,.55);
-      font-weight:900;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.62);
       font-size:12px;
-      color:var(--muted);
     }
-    .note{
-      margin-top:12px;
-      font-size:12px;
-      font-weight:800;
-      color:var(--muted);
-      line-height:1.35;
-    }
-    .note b{ color:#fff; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1 class="title">🍽️ HeroHealth — Food Groups VR</h1>
-      <p class="sub">เลือกโหมด/ระดับ/สไตล์ แล้วกดเริ่มเกม (จะไปหน้า <b>vr-groups/groups-vr.html</b>)</p>
-
-      <div class="grid">
-        <div class="field">
-          <label for="runMode">โหมด (runMode)</label>
-          <select id="runMode">
-            <option value="play" selected>play (Adaptive ON)</option>
-            <option value="research">research (Deterministic)</option>
-          </select>
-
-          <div class="row">
-            <div>
-              <label for="diff">ความยาก (diff)</label>
-              <select id="diff">
-                <option value="easy">easy</option>
-                <option value="normal" selected>normal</option>
-                <option value="hard">hard</option>
-              </select>
-            </div>
-            <div>
-              <label for="style">สไตล์ (style)</label>
-              <select id="style">
-                <option value="mix" selected>mix</option>
-                <option value="feel">feel</option>
-                <option value="hard">hard</option>
-              </select>
-            </div>
+    <div class="hero">
+      <div class="title">
+        <div>
+          <h1>🥗 Food Groups VR — Launcher</h1>
+          <div class="sub">
+            เปิดเกมจริงที่ <span class="badge">/herohealth/vr-groups/groups-vr.html</span><br/>
+            ปรับโหมด / ความยาก / style / เวลา / seed แล้วกด “Start”
+          </div>
+          <div class="pillrow">
+            <div class="pill">Goal ➜ ขวา</div>
+            <div class="pill">Coach ➜ ล่างขวา</div>
+            <div class="pill">⭐ Overdrive+Shield</div>
+            <div class="pill">❄️ Freeze</div>
           </div>
         </div>
-
-        <div class="field">
-          <label for="time">เวลา (วินาที)</label>
-          <input id="time" type="number" min="30" max="180" value="90" />
-
-          <div class="row">
-            <div>
-              <label for="seed">seed</label>
-              <input id="seed" type="text" value="" placeholder="ปล่อยว่างเพื่อสุ่ม" />
-            </div>
-            <div>
-              <label for="hub">hub (กลับ HUB)</label>
-              <input id="hub" type="text" value="../index.html" />
-            </div>
-          </div>
+        <div class="row">
+          <button id="btnHub" class="secondary">กลับ HUB</button>
         </div>
       </div>
 
-      <div class="pillrow" id="previewPills"></div>
+      <div class="card">
+        <div class="grid">
+          <div class="sec">
+            <h3>🎮 Mode & Difficulty</h3>
+            <div class="row">
+              <label>runMode
+                <select id="runMode">
+                  <option value="play">play (Adaptive ON)</option>
+                  <option value="research">research (Adaptive OFF)</option>
+                </select>
+              </label>
 
-      <div class="btns">
-        <button class="btn primary" id="btnStart">▶️ เริ่มเกม</button>
-        <button class="btn ghost" id="btnCopy">📋 คัดลอกลิงก์</button>
+              <label>diff
+                <select id="diff">
+                  <option value="easy">easy</option>
+                  <option value="normal" selected>normal</option>
+                  <option value="hard">hard</option>
+                </select>
+              </label>
+
+              <label>style
+                <select id="style">
+                  <option value="mix" selected>mix (balanced)</option>
+                  <option value="feel">feel (wave focus)</option>
+                  <option value="hard">hard (spiral focus)</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="row">
+              <label>time (sec)
+                <select id="time">
+                  <option value="70">70</option>
+                  <option value="90" selected>90</option>
+                  <option value="120">120</option>
+                </select>
+              </label>
+
+              <label>seed
+                <input id="seed" placeholder="เช่น 1766994914755" />
+              </label>
+
+              <label>hub (return)
+                <input id="hub" placeholder="./index.html" />
+              </label>
+            </div>
+
+            <div class="row">
+              <label style="min-width:auto; flex-direction:row; align-items:center; gap:10px; color:rgba(226,232,240,.92);">
+                <input type="checkbox" id="autostart" />
+                autostart (เข้าเกมทันที)
+              </label>
+
+              <button id="btnRandom" class="secondary">สุ่ม seed</button>
+              <button id="btnNormal" class="secondary">Preset: Normal</button>
+              <button id="btnResearch" class="secondary">Preset: Research</button>
+            </div>
+
+            <div class="hint">
+              • play = มี adaptive ปรับ spawn/ttl ตามฝีมือ<br/>
+              • research = deterministic (seed) + ค่าตายตัวตาม diff เท่านั้น
+            </div>
+          </div>
+
+          <div class="sec">
+            <h3>🚀 Launch</h3>
+            <div class="actions">
+              <button id="btnStart">Start (Run)</button>
+              <button id="btnStartVR" class="warn">Start + autostart=1</button>
+              <button id="btnCopy" class="secondary">Copy URL</button>
+            </div>
+
+            <div class="kv">
+              <div class="k" id="outUrl">URL: —</div>
+            </div>
+
+            <div class="hint">
+              “Start + autostart=1” จะส่งเข้า run แล้วกดเริ่มให้เอง (กันหลายคลิก)<br/>
+              ถ้าคุณมี launcher อื่นใน HUB อยู่แล้ว → ตั้ง hub ให้ตรงได้เลย
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="note">
-        • โหมด <b>play</b> จะมี Adaptive (เร็ว/โหดตามฟอร์ม) <br/>
-        • โหมด <b>research</b> จะ deterministic ตาม seed (เหมาะทำวิจัย) <br/>
-        • ถ้าต้องการ VR/AR Mode ให้เข้าในหน้า run แล้วกดปุ่มของ A-Frame/Browser
+      <div class="card">
+        <div class="sec">
+          <h3>📌 Notes</h3>
+          <div class="hint">
+            • ไฟล์ run เกมอยู่ที่: <b>/herohealth/vr-groups/groups-vr.html</b><br/>
+            • ถ้าต้อง cache-bust ให้ส่งพารามิเตอร์ <b>v=timestamp</b> (Launcher ทำให้แล้ว)<br/>
+            • ถ้าจะลิงก์จาก HUB แนะนำรูปแบบ: <b>./vr-groups/groups-vr.html?runMode=play&diff=normal&style=mix&time=90&seed=...&hub=./index.html&v=...</b>
+          </div>
+        </div>
       </div>
+
     </div>
   </div>
 
   <script>
-    (function(){
-      const $ = (id)=>document.getElementById(id);
+    const $ = (id)=>document.getElementById(id);
 
-      const runModeEl = $('runMode');
-      const diffEl = $('diff');
-      const styleEl = $('style');
-      const timeEl = $('time');
-      const seedEl = $('seed');
-      const hubEl  = $('hub');
-      const pills  = $('previewPills');
+    const STORAGE_KEY = 'HHA_LAUNCH_GROUPS_V1';
 
-      function genSeed(){
-        return String(Date.now());
-      }
+    function nowSeed(){ return String(Date.now()); }
 
-      function buildUrl(){
-        const runMode = runModeEl.value || 'play';
-        const diff = diffEl.value || 'normal';
-        const style = styleEl.value || 'mix';
-        const time = Math.max(30, Math.min(180, Number(timeEl.value)||90));
-        const seed = (seedEl.value && seedEl.value.trim()) ? seedEl.value.trim() : genSeed();
-        const hub  = (hubEl.value && hubEl.value.trim()) ? hubEl.value.trim() : '../index.html';
-        // keep launcher and run separate
-        const base = './vr-groups/groups-vr.html';
-        const qs = new URLSearchParams({
-          runMode, diff, style,
-          time: String(time),
-          seed,
-          hub,
-          v: seed
-        });
-        return { url: base + '?' + qs.toString(), seed };
-      }
+    function loadDefaults(){
+      const dflt = {
+        runMode: 'play',
+        diff: 'normal',
+        style: 'mix',
+        time: '90',
+        seed: nowSeed(),
+        hub: './index.html',
+        autostart: false
+      };
 
-      function render(){
-        const { url } = buildUrl();
-        const u = new URL(url, location.href);
-        pills.innerHTML = '';
-        const show = (k,v)=>{
-          const d = document.createElement('div');
-          d.className = 'pill';
-          d.textContent = k + '=' + v;
-          pills.appendChild(d);
-        };
-        show('runMode', u.searchParams.get('runMode'));
-        show('diff', u.searchParams.get('diff'));
-        show('style', u.searchParams.get('style'));
-        show('time', u.searchParams.get('time'));
-        show('seed', u.searchParams.get('seed'));
-      }
-
-      ['change','input'].forEach(evt=>{
-        runModeEl.addEventListener(evt, render);
-        diffEl.addEventListener(evt, render);
-        styleEl.addEventListener(evt, render);
-        timeEl.addEventListener(evt, render);
-        seedEl.addEventListener(evt, render);
-        hubEl.addEventListener(evt, render);
-      });
-
-      $('btnStart').addEventListener('click', ()=>{
-        const built = buildUrl();
-        // freeze seed in input if it was empty
-        if (!seedEl.value.trim()) seedEl.value = built.seed;
-        location.href = built.url;
-      });
-
-      $('btnCopy').addEventListener('click', async ()=>{
-        const built = buildUrl();
-        try{
-          if (!seedEl.value.trim()) seedEl.value = built.seed;
-          await navigator.clipboard.writeText(new URL(built.url, location.href).href);
-          alert('คัดลอกลิงก์แล้ว ✅');
-        }catch(e){
-          prompt('คัดลอกลิงก์:', new URL(built.url, location.href).href);
+      try{
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        if (saved && typeof saved === 'object'){
+          Object.assign(dflt, saved);
         }
-      });
+      }catch{}
 
-      render();
-    })();
+      $('runMode').value = dflt.runMode;
+      $('diff').value = dflt.diff;
+      $('style').value = dflt.style;
+      $('time').value = dflt.time;
+      $('seed').value = dflt.seed || nowSeed();
+      $('hub').value  = dflt.hub || './index.html';
+      $('autostart').checked = !!dflt.autostart;
+
+      refreshUrl();
+    }
+
+    function saveDefaults(){
+      const payload = {
+        runMode: $('runMode').value,
+        diff: $('diff').value,
+        style: $('style').value,
+        time: $('time').value,
+        seed: ($('seed').value || '').trim(),
+        hub:  ($('hub').value || '').trim(),
+        autostart: $('autostart').checked
+      };
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); }catch{}
+    }
+
+    function buildUrl(forceAutostart=false){
+      const runMode = $('runMode').value;
+      const diff = $('diff').value;
+      const style = $('style').value;
+      const time = $('time').value;
+      const seed = ($('seed').value || '').trim() || nowSeed();
+      const hub  = ($('hub').value || '').trim() || './index.html';
+      const autostart = forceAutostart ? '1' : ($('autostart').checked ? '1' : '0');
+      const v = String(Date.now());
+
+      // launcher is /herohealth/groups.html
+      // run is /herohealth/vr-groups/groups-vr.html
+      const base = './vr-groups/groups-vr.html';
+
+      const qs = new URLSearchParams();
+      qs.set('runMode', runMode);
+      qs.set('diff', diff);
+      qs.set('style', style);
+      qs.set('time', time);
+      qs.set('seed', seed);
+      qs.set('hub', hub);
+      if (autostart === '1') qs.set('autostart', '1');
+      qs.set('v', v);
+
+      return base + '?' + qs.toString();
+    }
+
+    function refreshUrl(){
+      saveDefaults();
+      const url = buildUrl(false);
+      $('outUrl').textContent = 'URL: ' + url;
+      return url;
+    }
+
+    function goHub(){
+      const hub = ($('hub').value || '').trim() || './index.html';
+      location.href = hub;
+    }
+
+    $('btnHub').addEventListener('click', goHub);
+
+    ['runMode','diff','style','time','seed','hub','autostart'].forEach(id=>{
+      $(id).addEventListener('change', refreshUrl);
+      $(id).addEventListener('input', ()=> {
+        if (id === 'seed' || id === 'hub') refreshUrl();
+      });
+    });
+
+    $('btnRandom').addEventListener('click', ()=>{
+      $('seed').value = nowSeed();
+      refreshUrl();
+    });
+
+    $('btnNormal').addEventListener('click', ()=>{
+      $('runMode').value = 'play';
+      $('diff').value = 'normal';
+      $('style').value = 'mix';
+      $('time').value = '90';
+      $('seed').value = nowSeed();
+      $('autostart').checked = false;
+      refreshUrl();
+    });
+
+    $('btnResearch').addEventListener('click', ()=>{
+      $('runMode').value = 'research';
+      $('diff').value = 'normal';
+      $('style').value = 'mix';
+      $('time').value = '90';
+      $('seed').value = nowSeed();
+      $('autostart').checked = true;
+      refreshUrl();
+    });
+
+    $('btnStart').addEventListener('click', ()=>{
+      const url = refreshUrl();
+      location.href = url;
+    });
+
+    $('btnStartVR').addEventListener('click', ()=>{
+      // force autostart=1
+      saveDefaults();
+      const url = buildUrl(true);
+      $('outUrl').textContent = 'URL: ' + url;
+      location.href = url;
+    });
+
+    $('btnCopy').addEventListener('click', async ()=>{
+      const url = refreshUrl();
+      try{
+        await navigator.clipboard.writeText(url);
+        $('outUrl').textContent = '✅ Copied: ' + url;
+      }catch{
+        $('outUrl').textContent = '⚠️ Copy ไม่ได้ (browser block) — ' + url;
+      }
+    });
+
+    loadDefaults();
   </script>
 </body>
 </html>
