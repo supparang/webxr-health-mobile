@@ -1,9 +1,9 @@
 /* === /herohealth/vr-groups/groups-quests.js ===
-GroupsVR Quest System — Goals sequential + Minis chain (B++++)
-✅ Mini: Speed / NoJunk / Magnet / RingGuardian / MagnetBoss
-✅ Urgency <=4s: tickFast + shake + edge pulse
-✅ Directives -> groups:directive (nojunk/magnet/bossMini/storm/bonus/urgent)
-✅ Listens -> groups:progress (hit_good(inRing), hit_bad, boss_hit, boss_down, boss_heal)
+GroupsVR Quest System — Goals sequential + Minis chain (B+++++)
+✅ Mini: Speed / NoJunk / Magnet / RingGuardian(shrink) / MagnetBoss
+✅ Urgency <=4s: tick + tickFast + shake + mini-urgent class
+✅ Directives -> groups:directive (nojunk/magnet/bossMini/storm/bonus/urgent/tick/shake/ringR)
+✅ Listens -> groups:progress (hit_good(inRing), hit_bad/junk/wrong, group_swap, boss_hit/heal/down)
 */
 
 (function(root){
@@ -24,6 +24,7 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
 
   function miniList(diff){
     diff = String(diff||'normal').toLowerCase();
+
     const speedNeed = diff==='hard' ? 6 : 5;
     const speedTime = diff==='hard' ? 6 : 7;
 
@@ -37,7 +38,7 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
       { key:'speed', type:'hits', title:`สปีด! เก็บถูก ${speedNeed} ใน ${speedTime} วิ`, need:speedNeed, time:speedTime, forbidBad:false },
 
       { key:'nojunk', type:'hits', title:`No-Junk Zone! ห้ามโดนขยะ/ผิดใน 6 วิ`, need:4, time:6, forbidBad:true,
-        onStart(){ directive({ nojunk:{on:true,r:140,mode:'fair'}, bonus:{mult:1.10} }); },
+        onStart(){ directive({ nojunk:{on:true,r:150,mode:'fair'}, bonus:{mult:1.10} }); },
         onEnd(){ directive({ nojunk:{on:false}, bonus:{mult:1} }); }
       },
 
@@ -46,19 +47,19 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
         onEnd(){ directive({ magnet:{on:false}, bonus:{mult:1} }); }
       },
 
-      // ✅ B++++: Ring Guardian (ต้องเก็บ “ในวง” เท่านั้น)
+      // ✅ B+++++: Ring Guardian (ต้องเก็บ “ในวง” + วงค่อยๆหด)
       { key:'ring', type:'ring_hits', title:`RING GUARDIAN! เก็บถูก ${ringNeed} “ในวง” ใน ${ringTime} วิ`, need:ringNeed, time:ringTime, forbidBad:true,
-        onStart(){ directive({ nojunk:{on:true,r:150,mode:'fair'}, bonus:{mult:1.18} }); },
+        onStart(){ directive({ nojunk:{on:true,r:165,mode:'fair'}, bonus:{mult:1.18} }); },
         onEnd(){ directive({ nojunk:{on:false}, bonus:{mult:1} }); }
       },
 
-      // ✅ B++++: Magnet Boss
+      // ✅ B+++++: Magnet Boss + storm
       { key:'boss', type:'boss', title:`BOSS MAGNET! ตีบอสให้ครบ ${bossHp} ครั้ง ใน ${bossTime} วิ`, need:bossHp, time:bossTime, forbidBad:false,
         onStart(){
           directive({
             magnet:{on:true,strength:0.62},
             bossMini:{on:true,hp:bossHp},
-            storm:{on:true,dur:bossTime},        // บอส = มี storm เสริมเร้าใจ แต่ deterministic ได้ใน research
+            storm:{on:true,dur:bossTime},
             bonus:{mult:1.20}
           });
         },
@@ -75,20 +76,32 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
 
     const S = {
       started:false, stopped:false,
-      goalIndex:0, goalsTotal:5, goalsCleared:0,
-      goalNow:0, goalTotal:goalNeed(diff), goalTitle:'',
+
+      // goal sync
+      currentGroup:1,
+      goalsTotal:5,
+      goalsCleared:0,
+      goalNow:0,
+      goalTotal:goalNeed(diff),
+
       miniArr: miniList(diff),
-      miniIndex:0, mini:null,
-      miniNow:0, miniNeed:0,
-      miniStart:0, miniEnd:0,
-      miniCleared:0, miniTotalAll:999,
+      miniIndex:0,
+      mini:null,
+      miniNow:0,
+      miniNeed:0,
+      miniStart:0,
+      miniEnd:0,
+      miniCleared:0,
+      miniTotalAll:999,
       bossHpLeft:0,
+
       _timer:null,
       _lastTickSec:null
     };
 
-    function groupId(){ return (S.goalIndex % 5) + 1; }
-    function goalTitle(){ return `หมู่ ${groupId()}: เก็บให้ถูก ${S.goalTotal} ครั้ง`; }
+    function goalTitle(){
+      return `หมู่ ${S.currentGroup}: เก็บให้ถูก ${S.goalTotal} ครั้ง`;
+    }
 
     function pushUpdate(){
       const gp = (S.goalTotal>0) ? (S.goalNow/S.goalTotal)*100 : 0;
@@ -96,11 +109,13 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
       const left = S.mini ? Math.max(0, Math.ceil((S.miniEnd - now())/1000)) : 0;
 
       const miniTitle = S.mini
-        ? (S.mini.type==='boss' ? `${S.mini.title} (HP ${S.bossHpLeft}/${S.miniNeed})` : S.mini.title)
+        ? (S.mini.type==='boss'
+            ? `${S.mini.title} (HP ${S.bossHpLeft}/${S.miniNeed})`
+            : S.mini.title)
         : '—';
 
       emit('quest:update', {
-        goalTitle: S.goalTitle,
+        goalTitle: goalTitle(),
         goalNow: S.goalNow,
         goalTotal: S.goalTotal,
         goalPct: clamp(gp,0,100),
@@ -112,14 +127,25 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
         miniTimeLeftSec: left
       });
 
-      // urgency (<=4s): tick every second, last 2s = tickFast + shake stronger
+      // ring shrink (only in ring mini)
+      if (S.mini && S.mini.key === 'ring'){
+        const total = Math.max(1, Math.ceil((S.miniEnd - S.miniStart)/1000));
+        const frac = clamp(left/total, 0, 1);
+        const r0 = 170;
+        const r1 = 110;
+        const r = r1 + (r0-r1)*frac;
+        directive({ nojunk:{ on:true, r: r } });
+      }
+
+      // urgency (<=4s): tick + shake
       if (S.mini && left > 0 && left <= 4){
         const fast = (left <= 2);
+        directive({ urgent:true });
         if (S._lastTickSec !== left){
           directive({ tick:true, tickFast: fast });
           S._lastTickSec = left;
         }
-        directive({ urgent:true, shake:{ strength: fast ? 2.4 : 1.4, ms: 120 } });
+        directive({ shake:{ strength: fast ? 2.5 : 1.5, ms: 120 } });
       } else {
         directive({ urgent:false });
         S._lastTickSec = null;
@@ -160,14 +186,9 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
       setTimeout(()=>{ if (!S.stopped) startMini(); }, 420);
     }
 
-    function nextGoal(){
-      S.goalIndex++;
+    function onGoalCleared(){
       S.goalsCleared++;
-      S.goalNow = 0;
-      S.goalTotal = goalNeed(diff);
-      S.goalTitle = goalTitle();
-      emit('hha:celebrate', { kind:'goal', title:`GOAL CLEAR! ${S.goalTitle}` });
-      pushUpdate();
+      emit('hha:celebrate', { kind:'goal', title:'GOAL CLEAR!' });
     }
 
     function start(){
@@ -175,11 +196,10 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
       S.started = true;
       S.stopped = false;
 
-      S.goalIndex = 0;
+      S.currentGroup = 1;
       S.goalsCleared = 0;
       S.goalNow = 0;
       S.goalTotal = goalNeed(diff);
-      S.goalTitle = goalTitle();
 
       startMini();
 
@@ -187,8 +207,8 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
         if (S.stopped) return;
 
         if (S.mini){
-          const left = S.miniEnd - now();
-          if (left <= 0){
+          const leftMs = S.miniEnd - now();
+          if (leftMs <= 0){
             endMini(false, 'หมดเวลา');
             return;
           }
@@ -207,19 +227,19 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
     function onProgress(ev){
       const d = (ev && ev.detail) ? ev.detail : {};
 
-      // goal progress: correct hit with matching groupId
-      if (d.kind === 'hit_good' && Number(d.groupId) === groupId()){
-        S.goalNow++;
-        if (S.goalNow >= S.goalTotal) nextGoal();
+      // ✅ hard resync when engine swaps group
+      if (d.kind === 'group_swap' && d.groupId){
+        S.currentGroup = Number(d.groupId)||S.currentGroup;
+        S.goalNow = 0;
+        S.goalTotal = goalNeed(diff);
+        pushUpdate();
+        return;
       }
 
-      // mini
-      if (!S.mini) { pushUpdate(); return; }
-
-      // boss feedback
+      // boss
       if (d.kind === 'boss_hit'){
         S.bossHpLeft = clamp(d.hpLeft, 0, S.miniNeed);
-        if (S.bossHpLeft <= 0){
+        if (S.mini && S.mini.type==='boss' && S.bossHpLeft <= 0){
           endMini(true);
           return;
         }
@@ -229,14 +249,26 @@ GroupsVR Quest System — Goals sequential + Minis chain (B++++)
       }
       if (d.kind === 'boss_down'){
         S.bossHpLeft = 0;
-        endMini(true);
-        return;
+        if (S.mini && S.mini.type==='boss'){
+          endMini(true);
+          return;
+        }
       }
 
-      // hits counting
+      // goal progress (hit_good correct group)
+      if (d.kind === 'hit_good' && Number(d.groupId) === S.currentGroup){
+        S.goalNow++;
+        if (S.goalNow >= S.goalTotal){
+          onGoalCleared();
+          // engine will swap group; we wait for group_swap event to reset goalNow
+        }
+      }
+
+      // mini counting
+      if (!S.mini) { pushUpdate(); return; }
+
       if (d.kind === 'hit_good'){
         if (S.mini.type === 'ring_hits'){
-          // ✅ ต้อง “ในวง” เท่านั้น
           if (d.inRing){
             S.miniNow++;
           }
