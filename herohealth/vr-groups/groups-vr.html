@@ -1,3 +1,11 @@
+<!-- === /herohealth/vr-groups/groups-vr.html ===
+Food Groups VR — Run (PRODUCTION)
+✅ Layout: GOAL right, COACH bottom-right
+✅ HUD above gameplay, gameplay layer transforms by --vx/--vy
+✅ Boot modules: groups-fx.js, audio.js, groups-quests.js, GameEngine.js
+✅ HHA last summary saved + flush-hardened hooks
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -10,75 +18,110 @@
 </head>
 
 <body>
-  <div class="hud">
-    <div class="box">
-      <div class="big" id="uiScore">0</div>
-      <div class="small">SCORE</div>
+  <!-- HUD TOP -->
+  <div class="hud-top" aria-label="HUD">
+    <div class="hud-card hud-left">
+      <div class="hud-row"><span class="hud-title">SCORE</span><span class="hud-val" id="uiScore">0</span></div>
+      <div class="hud-row"><span class="hud-title">COMBO</span><span class="hud-val"><span id="uiCombo">0</span> <span style="opacity:.75;font-weight:900;">(MAX <span id="uiComboMax">0</span>)</span></span></div>
+      <div class="hud-row"><span class="hud-title">MISS</span><span class="hud-val" id="uiMiss">0</span></div>
+      <div class="hud-row"><span class="hud-title">GRADE</span><span class="hud-val" id="uiGrade">C</span></div>
     </div>
-    <div class="box" style="text-align:right;">
-      <div class="big"><span id="uiTime">90</span>s</div>
-      <div class="small">TIME</div>
+
+    <div class="hud-card hud-mid">
+      <div class="hud-group-row">
+        <div class="hud-group" id="uiGroup">หมู่ 1</div>
+        <div class="hud-timer"><span id="uiTime">90</span>s</div>
+      </div>
+
+      <div class="power-wrap">
+        <div class="power-label"><span>POWER</span><span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span></div>
+        <div class="power-bar"><div class="power-fill" id="uiPowerBar"></div></div>
+      </div>
+    </div>
+
+    <div class="hud-card hud-right">
+      <div class="rank-box">
+        <div>
+          <div class="rank-title">Status</div>
+          <div class="rank-sub"><span>Mode</span><b id="uiMode">play</b></div>
+          <div class="rank-sub"><span>Diff</span><b id="uiDiff">normal</b></div>
+        </div>
+        <div class="rank-grade" id="uiGradeBig">C</div>
+      </div>
     </div>
   </div>
 
-  <div class="centerTop">
-    <div class="pill">COMBO: <b id="uiCombo">0</b> (MAX <b id="uiComboMax">0</b>)</div>
-    <div class="pill">MISS: <b id="uiMiss">0</b></div>
-    <div class="pill">GRADE: <b id="uiGrade">C</b></div>
-  </div>
-
-  <div class="questTop" id="questTop" aria-label="Quest">
-    <div class="qbar goal">
+  <!-- QUEST (GOAL right) -->
+  <div class="questTop" aria-label="Quest">
+    <div class="qbar">
       <div class="t">GOAL</div>
       <div class="b" id="uiGoalTitle">—</div>
       <div class="p"><i id="uiGoalBar"></i></div>
+      <div class="qNum"><span id="uiGoalNow">0</span>/<span id="uiGoalTotal">0</span></div>
     </div>
-    <div class="qbar mini">
+    <div class="qbar">
       <div class="t">MINI</div>
       <div class="b" id="uiMiniTitle">—</div>
       <div class="p"><i id="uiMiniBar"></i></div>
-      <div class="time" id="uiMiniTime">⏳ 0s</div>
+      <div class="time" id="uiMiniTime" style="display:none;">⏳ 0s</div>
     </div>
   </div>
 
+  <!-- GAMEPLAY LAYER -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-  <div class="powerWrap">
-    <div class="power"><i id="uiPowerBar"></i></div>
-    <div class="powerLabel">
-      <span>POWER</span>
-      <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
-    </div>
-  </div>
-
+  <!-- COACH (bottom-right) -->
   <div class="coachWrap" aria-label="Coach">
     <div class="coachCard">
       <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
       <div class="feverMini"><i id="uiFeverBar"></i></div>
       <div class="shieldTag" id="uiShieldTag" style="display:none;">🛡️ SHIELD READY</div>
+      <div class="coachHint" id="uiCoachHint">แตะ ⭐ ได้ Overdrive+Shield / แตะ ❄️ ได้ Freeze</div>
     </div>
     <div class="coachImg">
       <img id="uiCoachImg" src="../img/coach-neutral.png" alt="Coach"/>
     </div>
   </div>
 
-  <div class="overlay" id="startOverlay">
-    <div class="panel">
-      <h2>🚀 พร้อมเล่น Food Groups VR</h2>
-      <p id="startDesc">กำลังเตรียมระบบ…</p>
-      <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
-      <div class="warn" id="warnBox"></div>
-      <div class="row" style="margin-top:10px;">
-        <button id="btnStart">Start</button>
-        <button id="btnBack" class="secondary">กลับ HUB</button>
+  <!-- START -->
+  <div class="start-overlay" id="startOverlay">
+    <div class="start-card">
+      <h2 class="start-title">🚀 พร้อมเล่น Food Groups VR</h2>
+      <p class="start-sub" id="startDesc">กำลังเตรียมระบบ…</p>
+
+      <div class="start-grid">
+        <span class="pill" id="pillMode">mode=play</span>
+        <span class="pill" id="pillDiff">diff=normal</span>
+        <span class="pill" id="pillStyle">style=mix</span>
+        <span class="pill" id="pillTime">time=90</span>
+        <span class="pill" id="pillSeed">seed=—</span>
       </div>
+
+      <div class="start-note">
+        เพลงอาหารหลัก 5 หมู่ (ท่องตามได้เลย):<br/>
+        อาหารหลัก 5 หมู่ของไทย ทุกคนจำไว้อย่าได้แปลผัน<br/>
+        หมู่ 1 กินเนื้อ นม ไข่ ถั่วเมล็ดช่วยให้เติบโตแข็งขัน<br/>
+        หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล จะให้พลัง<br/>
+        หมู่ 3 กินผักต่างๆ สารอาหารมากมายกินเป็นอาจิณ<br/>
+        หมู่ 4 กินผลไม้ สีเขียวเหลืองบ้างมีวิตามิน<br/>
+        หมู่ 5 อย่าได้ลืมกิน ไขมันทั้งสิ้น อบอุ่นร่างกาย
+      </div>
+
+      <div class="result-actions" style="margin-top:12px;">
+        <button class="btn primary" id="btnStart">Start</button>
+        <button class="btn ghost" id="btnBack">กลับ HUB</button>
+      </div>
+
+      <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
+      <pre class="warn" id="warnBox"></pre>
     </div>
   </div>
 
-  <div class="overlay" id="endOverlay">
-    <div class="panel">
-      <h2>🏁 สรุปผล</h2>
-      <p id="endReason"></p>
+  <!-- END -->
+  <div class="result-overlay" id="endOverlay">
+    <div class="result-card">
+      <h2 class="start-title">🏁 สรุปผล</h2>
+      <p class="start-sub" id="endReason">—</p>
 
       <div class="kv">
         <div class="k">SCORE<b id="endScore">0</b></div>
@@ -87,9 +130,9 @@
         <div class="k">COMBO MAX<b id="endComboMax">0</b></div>
       </div>
 
-      <div class="row">
-        <button id="btnReplay">เล่นอีกครั้ง</button>
-        <button id="btnHub2" class="secondary">กลับ HUB</button>
+      <div class="result-actions">
+        <button class="btn primary" id="btnReplay">เล่นอีกครั้ง</button>
+        <button class="btn ghost" id="btnHub2">กลับ HUB</button>
       </div>
     </div>
   </div>
@@ -106,6 +149,15 @@
     const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
     const autostart = q.get('autostart') === '1';
     const v = (q.get('v') || String(Date.now()));
+
+    $('uiMode').textContent = runMode;
+    $('uiDiff').textContent = diff;
+
+    $('pillMode').textContent = 'mode=' + runMode;
+    $('pillDiff').textContent = 'diff=' + diff;
+    $('pillStyle').textContent= 'style=' + style;
+    $('pillTime').textContent = 'time=' + time;
+    $('pillSeed').textContent = 'seed=' + seed;
 
     $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
 
@@ -186,45 +238,36 @@
 
       addEventListener('hha:rank', (e)=>{
         const d = e.detail||{};
-        if (d.grade) $('uiGrade').textContent = String(d.grade);
+        if (d.grade){
+          $('uiGrade').textContent = String(d.grade);
+          $('uiGradeBig').textContent = String(d.grade);
+        }
       });
 
-      // ✅ รองรับ quest:update 2 แบบ:
-      // - แบบเดิมของคุณ: { goalTitle, goalPct, miniTitle, miniPct, miniTimeLeftSec, miniUrgent }
-      // - แบบใหม่: { goal:{title,pct,...}, mini:{title,pct,leftSec,urgent,...} }
       addEventListener('quest:update', (e)=>{
         const d = e.detail||{};
-        const goalTitle = (d.goal && d.goal.title != null) ? d.goal.title : d.goalTitle;
-        const miniTitle = (d.mini && d.mini.title != null) ? d.mini.title : d.miniTitle;
-        if (goalTitle != null) $('uiGoalTitle').textContent = String(goalTitle);
-        if (miniTitle != null) $('uiMiniTitle').textContent = String(miniTitle);
+        if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
+        if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
 
-        let gp = (d.goal && d.goal.pct != null) ? Number(d.goal.pct)
-               : (d.goalPct != null) ? Number(d.goalPct)
+        if (d.goalNow != null) $('uiGoalNow').textContent = String(d.goalNow);
+        if (d.goalTotal != null) $('uiGoalTotal').textContent = String(d.goalTotal);
+
+        let gp = (d.goalPct != null) ? Number(d.goalPct)
                : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
                : 0;
-
-        let mp = (d.mini && d.mini.pct != null) ? Number(d.mini.pct)
-               : (d.miniPct != null) ? Number(d.miniPct)
+        let mp = (d.miniPct != null) ? Number(d.miniPct)
                : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100
                : 0;
 
         $('uiGoalBar').style.width = Math.max(0, Math.min(100, gp)).toFixed(1)+'%';
         $('uiMiniBar').style.width = Math.max(0, Math.min(100, mp)).toFixed(1)+'%';
 
-        const tLeft = (d.mini && d.mini.leftSec != null) ? Number(d.mini.leftSec)
-                   : Number(d.miniTimeLeftSec ?? 0);
-
-        const urgent = (d.mini && d.mini.urgent != null) ? !!d.mini.urgent
-                     : !!d.miniUrgent;
-
-        const qt = $('questTop');
-        qt.classList.toggle('mini-urgent', urgent);
-
+        const tLeft = Number(d.miniTimeLeftSec ?? 0);
         const timeEl = $('uiMiniTime');
         if (Number.isFinite(tLeft) && tLeft > 0){
           timeEl.style.display = 'block';
           timeEl.textContent = `⏳ ${tLeft}s`;
+          timeEl.classList.toggle('mini-urgent', tLeft <= 3);
         } else {
           timeEl.style.display = 'none';
         }
@@ -239,6 +282,11 @@
                  : (mood==='fever') ? '../img/coach-fever.png'
                  : '../img/coach-neutral.png';
         $('uiCoachImg').src = img;
+      });
+
+      addEventListener('hha:group', (e)=>{
+        const d = e.detail||{};
+        if (d.label) $('uiGroup').textContent = String(d.label);
       });
 
       addEventListener('hha:fever', (e)=>{
@@ -258,6 +306,7 @@
         $('endAcc').textContent = String(d.accuracyGoodPct ?? 0) + '%';
         $('endComboMax').textContent = String(d.comboMax ?? 0);
         $('uiGrade').textContent = String(d.grade ?? 'C');
+        $('uiGradeBig').textContent = String(d.grade ?? 'C');
 
         try{
           const payload = {
@@ -314,7 +363,7 @@
     $('btnReplay').addEventListener('click', ()=>{
       try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
       $('endOverlay').classList.remove('show');
-      $('startOverlay').style.display = 'grid';
+      $('startOverlay').style.display = 'flex';
       if (autostart) setTimeout(startGame, 250);
     });
 
