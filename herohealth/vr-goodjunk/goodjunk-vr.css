@@ -1,9 +1,8 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
 GoodJunkVR — ALL-IN CSS (PC/Mobile/Cardboard VR)
-✅ viewbar (PC/Mobile/VR)
-✅ VR split + VR mini HUD per eye
-✅ Targets + FX pulse
-✅ Crosshair + safe area
+✅ per-eye hazards + edgeFX
+✅ shake by fever (CSS var --shakePx)
+✅ time warning edge pulse
 */
 
 :root{
@@ -24,6 +23,9 @@ GoodJunkVR — ALL-IN CSS (PC/Mobile/Cardboard VR)
 
   --ringGapStart: 40deg;
   --ringGapSize: 85deg;
+
+  /* shake intensity set by JS */
+  --shakePx: 0px;
 }
 
 *,
@@ -44,6 +46,17 @@ html,body{
   inset:0;
   overflow:hidden;
   touch-action:none;
+  will-change: transform;
+}
+.stage.shake{
+  animation: hhaShake .12s linear infinite;
+}
+@keyframes hhaShake{
+  0%   { transform: translate3d(calc(var(--shakePx) * 0.40), calc(var(--shakePx) * -0.25), 0); }
+  25%  { transform: translate3d(calc(var(--shakePx) * -0.35), calc(var(--shakePx) * 0.30), 0); }
+  50%  { transform: translate3d(calc(var(--shakePx) * 0.28), calc(var(--shakePx) * 0.36), 0); }
+  75%  { transform: translate3d(calc(var(--shakePx) * -0.20), calc(var(--shakePx) * -0.32), 0); }
+  100% { transform: translate3d(calc(var(--shakePx) * 0.40), calc(var(--shakePx) * -0.25), 0); }
 }
 
 /* ---------- View switch bar ---------- */
@@ -112,12 +125,6 @@ body.view-vr .vrwrap{
   opacity:.7;
 }
 .eye-r::after{ display:none; }
-
-body.view-vr{
-  /* ช่วยให้จอคมขึ้นนิดในแว่น */
-  -webkit-font-smoothing: antialiased;
-  text-rendering: geometricPrecision;
-}
 
 /* ---------- VR mini HUD ---------- */
 .vrhud{
@@ -196,11 +203,7 @@ body.view-vr{
   transform: translate(-50%,-50%);
   opacity:.9;
 }
-
-/* ยิงแล้วมี pulse */
-.crosshair.pulse{
-  animation: chPulse 140ms ease-out 1;
-}
+.crosshair.pulse{ animation: chPulse 140ms ease-out 1; }
 @keyframes chPulse{
   from{ transform: translate(-50%,-50%) scale(1); filter: brightness(1); }
   to{ transform: translate(-50%,-50%) scale(1.06); filter: brightness(1.15); }
@@ -238,7 +241,6 @@ body.view-vr{
 .gj-target.junk{ border-color: rgba(239,68,68,.30); filter: saturate(1.15) drop-shadow(0 18px 28px rgba(239,68,68,.20)); }
 .gj-target.star{ border-color: rgba(34,211,238,.32); }
 .gj-target.shield{ border-color: rgba(168,85,247,.32); }
-
 .gj-target.hit{
   transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.22));
   opacity:.18;
@@ -274,10 +276,7 @@ body.view-vr{
   box-shadow: 0 16px 40px rgba(0,0,0,.35);
 }
 .btn-shoot:active{ transform: translateY(1px) scale(.99); }
-
-body.view-vr .btn-shoot{
-  width: min(280px, 78vw);
-}
+body.view-vr .btn-shoot{ width: min(280px, 78vw); }
 
 /* ---------- HUD (ใหญ่) ---------- */
 .hha-hud{
@@ -321,7 +320,6 @@ body.view-vr .btn-shoot{
 }
 .hud-stat .k{ font-size: 11px; color: var(--muted); }
 .hud-stat .v{ font-size: 18px; font-weight: 1000; margin-top:2px; }
-.hud-stat.grade .v{ color: #fff; }
 
 .hud-mid{
   margin-top: 10px;
@@ -336,12 +334,7 @@ body.view-vr .btn-shoot{
   border:1px solid var(--stroke);
   background: var(--panel2);
 }
-.q-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
+.q-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .q-title{ font-weight:1000; font-size: 13px; }
 .q-title.mini{ font-weight:1000; opacity:.95; }
 .q-count{ font-weight:1000; font-size: 13px; color:#fff; }
@@ -388,11 +381,7 @@ body.view-vr .hha-fever{
   background: rgba(2,6,23,.62);
   backdrop-filter: blur(8px);
 }
-.fever-row, .shield-row{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
+.fever-row, .shield-row{ display:flex; align-items:center; gap:10px; }
 .fever-label, .shield-label{
   width: 62px;
   font-size: 12px;
@@ -420,11 +409,7 @@ body.view-vr .hha-fever{
   color:#fff;
 }
 .shield-row{ margin-top: 6px; }
-.shield-pills{
-  display:flex;
-  gap:6px;
-  flex-wrap: wrap;
-}
+.shield-pills{ display:flex; gap:6px; flex-wrap: wrap; }
 .shield-pill{
   width: 14px; height: 14px;
   border-radius: 6px;
@@ -472,20 +457,22 @@ body.view-vr .hha-fever{
 }
 .btn-start:active{ transform: translateY(1px) scale(.99); }
 
-/* ---------- Boss hazards ---------- */
+/* ---------- Hazards (MONO) ---------- */
+#atk-ring, #atk-laser{
+  position:absolute;
+  pointer-events:none;
+  z-index: 31;
+}
 #atk-ring{
-  position: absolute;
   left: 50%;
   top: 50%;
   width: min(520px, 92vw);
   aspect-ratio: 1 / 1;
   border-radius: 999px;
   transform: translate(-50%, -50%);
-  z-index: 30;
-  pointer-events:none;
   opacity: 0;
-  filter: drop-shadow(0 30px 60px rgba(0,0,0,.35));
   transition: opacity .15s ease;
+  filter: drop-shadow(0 30px 60px rgba(0,0,0,.35));
   background:
     conic-gradient(
       rgba(239,68,68,.00) 0deg,
@@ -497,16 +484,14 @@ body.view-vr .hha-fever{
     );
   mask: radial-gradient(circle at 50% 50%, transparent 56%, #000 58%, #000 76%, transparent 78%);
 }
-#atk-ring.show{ opacity: 1; }
+#atk-ring.show{ opacity: 1; animation: ringSpin 2.6s linear infinite; }
+@keyframes ringSpin{ from{ transform: translate(-50%, -50%) rotate(0deg); } to{ transform: translate(-50%, -50%) rotate(360deg); } }
 
 #atk-laser{
-  position: absolute;
   left: 0;
   right: 0;
   height: 10px;
   top: 45%;
-  z-index: 31;
-  pointer-events:none;
   opacity: 0;
   background: linear-gradient(90deg, rgba(239,68,68,0), rgba(239,68,68,.85), rgba(239,68,68,0));
   filter: drop-shadow(0 16px 26px rgba(239,68,68,.20));
@@ -523,6 +508,87 @@ body.view-vr .hha-fever{
 }
 @keyframes laserWarn { from{ transform: scaleX(.94); } to{ transform: scaleX(1.02); } }
 @keyframes laserFire { from{ transform: scaleX(.98); } to{ transform: scaleX(1.02); } }
+
+/* ---------- Hazards (VR per-eye) ---------- */
+.atk-ring.vr, .atk-laser.vr{
+  position:absolute;
+  pointer-events:none;
+  z-index: 33;
+}
+.atk-ring.vr{
+  left:50%;
+  top:52%;
+  width: min(420px, 96vw);
+  aspect-ratio: 1/1;
+  border-radius: 999px;
+  transform: translate(-50%,-50%);
+  opacity:0;
+  transition: opacity .15s ease;
+  filter: drop-shadow(0 26px 46px rgba(0,0,0,.30));
+  background:
+    conic-gradient(
+      rgba(239,68,68,.00) 0deg,
+      rgba(239,68,68,.00) var(--ringGapStart),
+      rgba(239,68,68,.70) var(--ringGapStart),
+      rgba(239,68,68,.70) calc(var(--ringGapStart) + (360deg - var(--ringGapSize))),
+      rgba(239,68,68,.00) calc(var(--ringGapStart) + (360deg - var(--ringGapSize))),
+      rgba(239,68,68,.00) 360deg
+    );
+  mask: radial-gradient(circle at 50% 50%, transparent 56%, #000 58%, #000 76%, transparent 78%);
+}
+.atk-ring.vr.show{ opacity:1; animation: ringSpinVr 2.6s linear infinite; }
+@keyframes ringSpinVr{ from{ transform: translate(-50%,-50%) rotate(0deg);} to{ transform: translate(-50%,-50%) rotate(360deg);} }
+
+.atk-laser.vr{
+  left:0; right:0;
+  top: 46%;
+  height: 10px;
+  opacity: 0;
+  background: linear-gradient(90deg, rgba(239,68,68,0), rgba(239,68,68,.88), rgba(239,68,68,0));
+  filter: drop-shadow(0 16px 26px rgba(239,68,68,.20));
+}
+.atk-laser.vr.warn{ opacity:.45; height:8px; animation: laserWarn .22s ease-in-out infinite alternate; }
+.atk-laser.vr.fire{ opacity:.95; height:12px; animation: laserFire .08s linear infinite alternate; }
+
+/* ---------- Edge FX (Warn/Danger) ---------- */
+.edgefx{
+  position: fixed;
+  inset: 0;
+  z-index: 88;
+  pointer-events:none;
+  opacity: 0;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0);
+  transition: opacity .12s ease;
+}
+.edgefx.vr{
+  position:absolute;
+  inset: 0;
+  z-index: 90;
+}
+
+.edgefx.warn{
+  opacity: 1;
+  animation: edgeWarn .30s ease-in-out infinite alternate;
+  box-shadow:
+    inset 0 0 0 2px rgba(245,158,11,.55),
+    inset 0 0 46px rgba(245,158,11,.18);
+}
+.edgefx.danger{
+  opacity: 1;
+  animation: edgeDanger .12s ease-in-out infinite alternate;
+  box-shadow:
+    inset 0 0 0 2px rgba(239,68,68,.62),
+    inset 0 0 70px rgba(239,68,68,.22);
+}
+@keyframes edgeWarn{
+  from{ filter: brightness(1); }
+  to{ filter: brightness(1.2); }
+}
+@keyframes edgeDanger{
+  from{ filter: brightness(1); }
+  to{ filter: brightness(1.35); }
+}
 
 /* ---------- Mobile tweaks ---------- */
 @media (max-width: 520px){
