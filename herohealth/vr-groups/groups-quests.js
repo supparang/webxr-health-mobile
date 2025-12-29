@@ -1,8 +1,6 @@
 /* === /herohealth/vr-groups/groups-quests.js ===
 GroupsVR — Quest System (PRODUCTION)
-✅ window.GroupsVR.createGroupsQuest()
-✅ emits quest:update for HUD
-✅ No-Junk ring: groups:nojunk {on,cx,cy,r}
+✅ No-Junk ring shrinks over time (pressure)
 */
 
 (function(root){
@@ -25,24 +23,23 @@ GroupsVR — Quest System (PRODUCTION)
     return clamp((Number(nowv)||0) / total * 100, 0, 100);
   }
 
-  function makeNoJunkRing(on){
-    if (!on){
-      emit('groups:nojunk', { on:false, cx:0, cy:0, r:0 });
-      return;
-    }
+  function ringBase(){
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
     const cx = W * 0.5;
     const cy = H * 0.52;
-    const r  = Math.min(W, H) * 0.26;
-    emit('groups:nojunk', { on:true, cx, cy, r });
+    const r0 = Math.min(W, H) * 0.28;
+    return { cx, cy, r0 };
+  }
+
+  function setRing(on, cx, cy, r){
+    emit('groups:nojunk', { on: !!on, cx, cy, r });
   }
 
   NS.createGroupsQuest = function createGroupsQuest(opts){
     opts = opts || {};
     const diff = String(opts.diff||'normal').toLowerCase();
     const plan = miniPlan(diff);
-
     const goalTotal = (diff==='hard') ? 6 : (diff==='easy' ? 4 : 5);
 
     const state = {
@@ -56,6 +53,9 @@ GroupsVR — Quest System (PRODUCTION)
       miniNow:0,
       miniNeed:0,
       miniEndsAt:0,
+      miniStartsAt:0,
+
+      ring:{ on:false, cx:0, cy:0, r0:0 },
 
       stormOn:false,
       bossDown:0,
@@ -86,7 +86,9 @@ GroupsVR — Quest System (PRODUCTION)
       state.miniNow = 0;
       state.miniNeed = 0;
       state.miniEndsAt = 0;
-      makeNoJunkRing(false);
+      state.miniStartsAt = 0;
+      state.ring.on = false;
+      setRing(false, 0, 0, 0);
       pushUpdate();
     }
 
@@ -107,19 +109,45 @@ GroupsVR — Quest System (PRODUCTION)
       startNextMini(true);
     }
 
+    function updateRingShrink(){
+      if (!state.ring.on) return;
+      if (!state.miniStartsAt || !state.miniEndsAt) return;
+
+      const t = now();
+      const total = Math.max(1, state.miniEndsAt - state.miniStartsAt);
+      const left  = Math.max(0, state.miniEndsAt - t);
+      const frac  = clamp(left / total, 0, 1);
+
+      // shrink: 100% -> 72% (pressure!)
+      const r = state.ring.r0 * (0.72 + 0.28 * frac);
+      setRing(true, state.ring.cx, state.ring.cy, r);
+    }
+
     function startMini(def){
       state.miniActive = def;
       state.miniNow = 0;
       state.miniNeed = def.need || 1;
-      state.miniEndsAt = def.sec ? (now() + def.sec*1000) : 0;
 
-      makeNoJunkRing(!!def.ring);
+      state.miniStartsAt = def.sec ? now() : 0;
+      state.miniEndsAt = def.sec ? (state.miniStartsAt + def.sec*1000) : 0;
+
+      if (def.ring){
+        const b = ringBase();
+        state.ring = { on:true, cx:b.cx, cy:b.cy, r0:b.r0 };
+        setRing(true, b.cx, b.cy, b.r0);
+      } else {
+        state.ring.on = false;
+        setRing(false, 0, 0, 0);
+      }
+
       pushUpdate();
 
       if (def.sec){
         const timer = setInterval(()=>{
           if (!state.started || state.ended) { clearInterval(timer); return; }
           if (!state.miniActive || state.miniActive !== def) { clearInterval(timer); return; }
+
+          updateRingShrink();
 
           const left = state.miniEndsAt - now();
           if (left <= 0){
@@ -129,7 +157,7 @@ GroupsVR — Quest System (PRODUCTION)
           } else {
             pushUpdate();
           }
-        }, 180);
+        }, 160);
       }
     }
 
@@ -249,7 +277,7 @@ GroupsVR — Quest System (PRODUCTION)
       pushUpdate();
     }
 
-    function stop(){ state.ended = true; makeNoJunkRing(false); }
+    function stop(){ state.ended = true; setRing(false, 0, 0, 0); }
 
     function getState(){
       return {
