@@ -1,12 +1,12 @@
-<!-- === /herohealth/plate/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML
-✅ Works with plate.safe.js (SAFE + FLUSH-HARDENED + FUN PACK)
-✅ Provides ALL required DOM ids:
-  plate-layer, hitFx,
-  hudTop, miniPanel, hudBtns, coachPanel,
-  btnStart, startOverlay,
-  btnPause, hudPaused, btnRestart, btnBackHub, btnPlayAgain, btnEnterVR,
-  resultBackdrop (rScore/rG1..rG5 etc.)
+<!-- === /herohealth/plate-vr.html ===
+Balanced Plate VR — PRODUCTION HTML (ROOT)
+✅ Correct paths for repo structure in your screenshot:
+  - CSS:  ./plate/plate-vr.css
+  - Game: ./plate/plate.safe.js
+  - FX:   ./vr/particles.js
+  - Log:  ./vr/hha-cloud-logger.js
+  - Coach image: ./img/coach-neutral.png
+✅ Single tap = Copy, Double tap = Play (on start card)
 -->
 
 <!doctype html>
@@ -16,23 +16,41 @@ Balanced Plate VR — PRODUCTION HTML
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
 
   <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="./plate-vr.css?v=20251229" />
+  <!-- ✅ Styles (อยู่ใน /plate/) -->
+  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251229" />
 
-  <!-- Global FX + Logger (optional) -->
-  <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
+  <!-- Global FX + Logger -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder (this file) -->
-  <script src="./plate-hud.js?v=20251229" defer></script>
+  <!-- (ถ้ามี HUD binder เฉพาะ Plate จริง ๆ ให้ใช้บรรทัดนี้)
+  <script src="./plate/plate-hud.js?v=20251229" defer></script>
+  -->
 
   <!-- Game -->
-  <script src="./plate.safe.js?v=20251229" defer></script>
+  <script src="./plate/plate.safe.js?v=20251229" defer></script>
+
+  <style>
+    /* Toast เล็ก ๆ สำหรับ Copy */
+    .hha-toast{
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+      background:rgba(2,6,23,.86);
+      border:1px solid rgba(148,163,184,.22);
+      color:#e5e7eb;
+      padding:10px 12px;
+      border-radius:999px;
+      font:700 13px/1 system-ui;
+      z-index:9999;
+      opacity:0; pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+    .hha-toast.show{ opacity:1; transform:translateX(-50%) translateY(-6px); }
+  </style>
 </head>
 
 <body>
@@ -118,7 +136,7 @@ Balanced Plate VR — PRODUCTION HTML
   <aside id="coachPanel">
     <img
       id="coachImg"
-      src="../img/coach-neutral.png"
+      src="./img/coach-neutral.png"
       alt="Coach"
       draggable="false"
     />
@@ -171,7 +189,7 @@ Balanced Plate VR — PRODUCTION HTML
 
   <!-- START overlay (required: startOverlay + btnStart) -->
   <div id="startOverlay">
-    <div class="startCard">
+    <div class="startCard" id="startCardTap">
       <div class="startTitle">🥗 Balanced Plate VR</div>
       <div class="startSub">
         โหมดสนุก + ภารกิจโหด!<br/>
@@ -190,7 +208,7 @@ Balanced Plate VR — PRODUCTION HTML
       </div>
 
       <div class="startFoot">
-        Tip: บน iOS อาจต้องกด Start ก่อนเพื่อขอสิทธิ์ motion
+        Tip: แตะ “การ์ด” ครั้งเดียว = Copy link, แตะสองครั้ง = Play
       </div>
     </div>
   </div>
@@ -201,30 +219,14 @@ Balanced Plate VR — PRODUCTION HTML
       <div class="resultTitle">🏁 สรุปผล</div>
 
       <div class="resultGrid">
-        <div class="resultItem">
-          <div class="k">MODE</div><div class="v" id="rMode">play</div>
-        </div>
-        <div class="resultItem">
-          <div class="k">GRADE</div><div class="v" id="rGrade">C</div>
-        </div>
-        <div class="resultItem">
-          <div class="k">SCORE</div><div class="v" id="rScore">0</div>
-        </div>
-        <div class="resultItem">
-          <div class="k">MAX COMBO</div><div class="v" id="rMaxCombo">0</div>
-        </div>
-        <div class="resultItem">
-          <div class="k">MISS</div><div class="v" id="rMiss">0</div>
-        </div>
-        <div class="resultItem">
-          <div class="k">FAST HIT</div><div class="v" id="rPerfect">0</div>
-        </div>
-        <div class="resultItem">
-          <div class="k">GOALS</div><div class="v" id="rGoals">0/0</div>
-        </div>
-        <div class="resultItem">
-          <div class="k">MINIS</div><div class="v" id="rMinis">0/0</div>
-        </div>
+        <div class="resultItem"><div class="k">MODE</div><div class="v" id="rMode">play</div></div>
+        <div class="resultItem"><div class="k">GRADE</div><div class="v" id="rGrade">C</div></div>
+        <div class="resultItem"><div class="k">SCORE</div><div class="v" id="rScore">0</div></div>
+        <div class="resultItem"><div class="k">MAX COMBO</div><div class="v" id="rMaxCombo">0</div></div>
+        <div class="resultItem"><div class="k">MISS</div><div class="v" id="rMiss">0</div></div>
+        <div class="resultItem"><div class="k">FAST HIT</div><div class="v" id="rPerfect">0</div></div>
+        <div class="resultItem"><div class="k">GOALS</div><div class="v" id="rGoals">0/0</div></div>
+        <div class="resultItem"><div class="k">MINIS</div><div class="v" id="rMinis">0/0</div></div>
       </div>
 
       <div class="resultPlate">
@@ -245,19 +247,22 @@ Balanced Plate VR — PRODUCTION HTML
     </div>
   </div>
 
-  <script>
-    // Small helper: mirror EnterVR button in start overlay (optional)
-    (function(){
-      var b = document.getElementById('btnEnterVR2');
-      if (!b) return;
-      b.addEventListener('click', function(){
-        try{
-          var scene = document.querySelector('a-scene');
-          if (scene && scene.enterVR) scene.enterVR();
-        }catch(e){}
-      }, { passive:true });
+  <div class="hha-toast" id="toastCopy">📋 Copied link!</div>
 
-      // Preview query params
+  <script>
+    (function(){
+      // --- Enter VR (start overlay) ---
+      var b = document.getElementById('btnEnterVR2');
+      if (b){
+        b.addEventListener('click', function(){
+          try{
+            var scene = document.querySelector('a-scene');
+            if (scene && scene.enterVR) scene.enterVR();
+          }catch(e){}
+        }, { passive:true });
+      }
+
+      // --- Preview query params ---
       try{
         var u = new URL(location.href);
         var diff = u.searchParams.get('diff') || 'normal';
@@ -267,6 +272,72 @@ Balanced Plate VR — PRODUCTION HTML
         document.getElementById('uiTimePreview').textContent = String(time);
         document.getElementById('uiRunPreview').textContent  = String(run);
       }catch(e){}
+
+      // --- Single tap Copy, Double tap Play (on start card) ---
+      var card = document.getElementById('startCardTap');
+      var btnStart = document.getElementById('btnStart');
+      var toast = document.getElementById('toastCopy');
+
+      function showToast(msg){
+        if (!toast) return;
+        toast.textContent = msg || '📋 Copied link!';
+        toast.classList.add('show');
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(function(){ toast.classList.remove('show'); }, 900);
+      }
+
+      async function copyLink(){
+        var url = String(location.href);
+        try{
+          if (navigator.clipboard && navigator.clipboard.writeText){
+            await navigator.clipboard.writeText(url);
+          }else{
+            var ta = document.createElement('textarea');
+            ta.value = url;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+          }
+          showToast('📋 Copied link!');
+        }catch(e){
+          showToast('❗ Copy ไม่สำเร็จ');
+        }
+      }
+
+      // กันคลิกปุ่มใน card ไม่ไป trigger tap logic ซ้อน
+      function isInsideButton(ev){
+        var t = ev.target;
+        return !!(t && (t.closest && t.closest('button')));
+      }
+
+      if (card && btnStart){
+        var lastTapAt = 0;
+        var tapTimer = 0;
+        var dblGap = 320;
+
+        card.addEventListener('click', function(ev){
+          if (isInsideButton(ev)) return;
+
+          var now = Date.now();
+          if (now - lastTapAt <= dblGap){
+            // Double tap -> Play
+            lastTapAt = 0;
+            clearTimeout(tapTimer);
+            btnStart.click();
+            return;
+          }
+
+          // Single tap -> wait briefly to confirm not double, then copy
+          lastTapAt = now;
+          clearTimeout(tapTimer);
+          tapTimer = setTimeout(function(){
+            copyLink();
+          }, dblGap + 10);
+        }, { passive:true });
+      }
     })();
   </script>
 </body>
