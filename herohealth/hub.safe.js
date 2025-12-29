@@ -5,9 +5,10 @@
 // ✅ Export CSV (last / recent4)
 // ✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run/runMode, diff, time, seed, + research ctx)
 //
-// หมายเหตุเรื่องความเข้ากันได้:
-// - ส่งทั้ง run และ runMode (play / research) เผื่อแต่ละเกมอ่านคนละคีย์
-// - ส่งทั้ง time และ duration (บางเกมใช้ time, บางเกมอาจใช้ durationPlannedSec)
+// ✅ NEW UX (requested):
+// - แตะ 1 ครั้ง = Copy ลิงก์
+// - แตะ 2 ครั้ง = Play
+// ใช้กับ "ปุ่มเกม" และ "แถว History"
 
 'use strict';
 
@@ -16,7 +17,6 @@ const LS_HIST = 'HHA_SUMMARY_HISTORY';
 const LS_CTX  = 'HHA_STUDY_CTX';
 
 const PASS_KEYS = [
-  // research/session context (ถ้ามีติดมากับ URL หรือเก็บไว้ใน localStorage)
   'projectTag','studyId','phase','condition','conditionGroup','sessionOrder','blockLabel',
   'siteCode','schoolYear','semester',
   'sessionId','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
@@ -32,6 +32,9 @@ const GAME_MAP = {
 };
 
 const DEFAULT_RESEARCH_SEED = 777777; // deterministic default ถ้าไม่ใส่ seed ใน Research
+
+// double-tap window (ms) — ปรับได้ตามใจ
+const TAP_DELAY_MS = 260;
 
 // ---------------- helpers ----------------
 const $ = (id) => document.getElementById(id);
@@ -80,24 +83,12 @@ function getHubReturnUrl(){
   return u.toString();
 }
 
-// HTML escape (กันค่าใน localStorage แอบใส่ HTML)
-function htmlEscape(v){
-  const s = String(v ?? '');
-  return s
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
-    .replace(/'/g,'&#39;');
-}
-
 async function copyText(text){
   const t = String(text ?? '');
   try{
     await navigator.clipboard.writeText(t);
     return true;
   }catch{
-    // fallback
     try{
       const ta = document.createElement('textarea');
       ta.value = t;
@@ -123,6 +114,66 @@ function downloadText(filename, text){
   document.body.appendChild(a);
   a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 250);
+}
+
+// ------------- mini toast (ใช้ hint เดิมให้ไม่รก) -------------
+let _hintTimer = null;
+function setHint(targetId, msg, ms = 1200){
+  const el = $(targetId);
+  if (!el) return;
+  el.textContent = String(msg || '');
+  if (_hintTimer) clearTimeout(_hintTimer);
+  _hintTimer = setTimeout(()=>{}, ms);
+}
+
+// ------------- tap / double tap binder -------------
+const _tapState = new WeakMap();
+function bindTap(el, onSingle, onDouble, opts = {}){
+  if (!el) return;
+  const delay = Number(opts.delayMs ?? TAP_DELAY_MS);
+  _tapState.set(el, { last:0, timer:null });
+
+  function clearState(st){
+    if (st.timer) { clearTimeout(st.timer); st.timer = null; }
+    st.last = 0;
+  }
+
+  el.addEventListener('click', (e) => {
+    const st = _tapState.get(el) || { last:0, timer:null };
+    const now = Date.now();
+
+    // double tap?
+    if (st.last && (now - st.last) <= delay){
+      // cancel single
+      if (st.timer) clearTimeout(st.timer);
+      st.timer = null;
+      st.last = 0;
+      _tapState.set(el, st);
+
+      try{ onDouble && onDouble(e); }catch{}
+      return;
+    }
+
+    // first tap: schedule single after delay (กันชนกับ double tap)
+    clearState(st);
+    st.last = now;
+    st.timer = setTimeout(() => {
+      // fire single
+      clearState(st);
+      _tapState.set(el, st);
+      try{ onSingle && onSingle(e); }catch{}
+    }, delay);
+
+    _tapState.set(el, st);
+  }, { passive: false });
+
+  // context menu = copy now (desktop right click / mobile long press some browsers)
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const st = _tapState.get(el);
+    if (st) { if (st.timer) clearTimeout(st.timer); st.timer = null; st.last = 0; _tapState.set(el, st); }
+    try{ onSingle && onSingle(e, { immediate:true }); }catch{}
+  });
 }
 
 // ------------- CSV -------------
@@ -197,7 +248,6 @@ function flattenSummaryToRow(s){
   row.seed = seed || pick(ctx, ['seed'], '');
 
   if (!row.timestampIso) row.timestampIso = nowIso();
-
   return row;
 }
 
@@ -247,31 +297,13 @@ function computeGrade(summary){
 }
 
 // ------------- storage read/write -------------
-function readLast(){
-  return safeJsonParse(localStorage.getItem(LS_LAST), null);
-}
+function readLast(){ return safeJsonParse(localStorage.getItem(LS_LAST), null); }
 function readHist(){
   const h = safeJsonParse(localStorage.getItem(LS_HIST), []);
   return Array.isArray(h) ? h : [];
 }
-function clearLast(){
-  try{ localStorage.removeItem(LS_LAST); } catch {}
-}
-function clearHist(){
-  try{ localStorage.removeItem(LS_HIST); } catch {}
-}
-
-// history sort (เผื่อบางเกม push แบบท้าย/หัวไม่เหมือนกัน)
-function getSortedHistory(){
-  const hist = readHist();
-  const arr = Array.isArray(hist) ? hist.slice() : [];
-  arr.sort((a,b) => {
-    const ta = new Date(pick(a, ['timestampIso','endTimeIso','timeIso'], 0)).getTime();
-    const tb = new Date(pick(b, ['timestampIso','endTimeIso','timeIso'], 0)).getTime();
-    return (Number.isFinite(tb)?tb:0) - (Number.isFinite(ta)?ta:0);
-  });
-  return arr;
-}
+function clearLast(){ try{ localStorage.removeItem(LS_LAST); } catch {} }
+function clearHist(){ try{ localStorage.removeItem(LS_HIST); } catch {} }
 
 function collectStudyCtx(){
   const ctx = {};
@@ -363,8 +395,9 @@ function buildGameUrlFromSummary(summary){
   return u;
 }
 
-// ------------- UI bind -------------
+// ------------- UI state -------------
 let selectedGame = 'goodjunk';
+let _recentCache = []; // ล่าสุดที่ render เพื่อคลิก copy/play ได้
 
 function setSelectedGame(tag){
   if (!GAME_MAP[tag]) tag = 'goodjunk';
@@ -381,8 +414,56 @@ function setSelectedGame(tag){
 
   const hint = $('linkHint');
   if (hint){
-    hint.textContent = `เลือกแล้ว: ${GAME_MAP[selectedGame].name}`;
+    hint.textContent = `เลือกแล้ว: ${GAME_MAP[selectedGame].name} • แตะ 1 ครั้งเพื่อ Copy / 2 ครั้งเพื่อ Play`;
   }
+}
+
+function getCurrentBuildOpts(){
+  const selRun = $('selRun')?.value || 'play';
+  const selDiff= $('selDiff')?.value || 'normal';
+  const timeSec= Number($('inpTime')?.value || 70);
+  const seedRaw= String($('inpSeed')?.value || '').trim();
+  return {
+    selRun, selDiff,
+    timeSec,
+    seed: seedRaw ? Number(seedRaw) : ''
+  };
+}
+
+async function copyGameLink(gameTag){
+  const u = buildGameUrl(gameTag, getCurrentBuildOpts());
+  if (!u){
+    setHint('linkHint', 'สร้างลิงก์ไม่สำเร็จ');
+    return false;
+  }
+  const ok = await copyText(u.toString());
+  setHint('linkHint', ok ? `คัดลอกลิงก์แล้ว ✅ (${GAME_MAP[gameTag]?.name || gameTag})` : 'คัดลอกไม่สำเร็จ');
+  if (!ok) console.log(u.toString());
+  return ok;
+}
+function playGame(gameTag){
+  const u = buildGameUrl(gameTag, getCurrentBuildOpts());
+  if (u) location.href = u.toString();
+}
+
+async function copyRecentLinkByIndex(i){
+  const s = _recentCache[i];
+  if (!s) return false;
+  const u = buildGameUrlFromSummary(s);
+  if (!u){
+    setHint('historyHint', 'สร้างลิงก์ไม่สำเร็จ');
+    return false;
+  }
+  const ok = await copyText(u.toString());
+  setHint('historyHint', ok ? 'คัดลอกลิงก์รอบนี้แล้ว ✅ (แตะ 2 ครั้งเพื่อเล่น)' : 'คัดลอกไม่สำเร็จ');
+  if (!ok) console.log(u.toString());
+  return ok;
+}
+function playRecentByIndex(i){
+  const s = _recentCache[i];
+  if (!s) return;
+  const u = buildGameUrlFromSummary(s);
+  if (u) location.href = u.toString();
 }
 
 function applyPreset(){
@@ -484,9 +565,28 @@ function renderLast(){
   }
 }
 
+function bindRecentRowInteractions(){
+  const tbody = $('recentTbody');
+  if (!tbody) return;
+
+  const rows = Array.from(tbody.querySelectorAll('tr[data-i]'));
+  for (const tr of rows){
+    const i = Number(tr.getAttribute('data-i'));
+    bindTap(
+      tr,
+      async () => { await copyRecentLinkByIndex(i); },
+      () => { playRecentByIndex(i); },
+      { delayMs: TAP_DELAY_MS }
+    );
+  }
+}
+
 function renderRecent(){
-  const hist = getSortedHistory();
+  const hist = readHist();
   const recent = hist.slice(0, 4);
+
+  // cache เพื่อให้ row click ทำงาน
+  _recentCache = recent;
 
   const empty = $('recentEmpty');
   const panel = $('recentPanel');
@@ -504,7 +604,7 @@ function renderRecent(){
   if (panel) panel.style.display = '';
 
   if (hint){
-    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${hist.length}  (แตะ 1 ครั้ง = Copy / แตะ 2 ครั้ง = Play)`;
+    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${hist.length} • แตะแถว 1 ครั้ง=Copy / 2 ครั้ง=Play`;
   }
 
   if (!tbody) return;
@@ -525,161 +625,58 @@ function renderRecent(){
     const tIso     = pick(s, ['timestampIso','endTimeIso','timeIso'], '');
     const tText    = tIso ? fmtLocal(tIso) : '—';
 
-    const gradeHtml = `<span class="gradeTag ${htmlEscape(gcls)}">${htmlEscape(grade)}</span>`;
+    const gradeHtml = `<span class="gradeTag ${gcls}">${grade}</span>`;
 
     return `
-      <tr data-i="${idx}">
-        <td>${htmlEscape(tText)}</td>
-        <td class="tdGame">${htmlEscape(gameName)}</td>
-        <td>${htmlEscape(runMode)}</td>
-        <td>${htmlEscape(diff)}</td>
-        <td>${htmlEscape(score)}</td>
+      <tr data-i="${idx}" title="แตะ 1 ครั้ง=Copy ลิงก์ • แตะ 2 ครั้ง=Play">
+        <td>${csvEscape(tText)}</td>
+        <td class="tdGame">${csvEscape(gameName)}</td>
+        <td>${csvEscape(runMode)}</td>
+        <td>${csvEscape(diff)}</td>
+        <td>${csvEscape(score)}</td>
         <td>${gradeHtml}</td>
-        <td>${htmlEscape(miss)}</td>
-        <td>${htmlEscape((gc||0) + '/' + (gt||0))}</td>
-        <td>${htmlEscape((mc||0) + '/' + (mt||0))}</td>
+        <td>${csvEscape(miss)}</td>
+        <td>${csvEscape((gc||0) + '/' + (gt||0))}</td>
+        <td>${csvEscape((mc||0) + '/' + (mt||0))}</td>
       </tr>
     `.trim();
   }).join('\n');
+
+  // bind tap behaviors after render
+  bindRecentRowInteractions();
 }
 
 // ------------- actions -------------
-function bindRecentRowActions(){
-  const tbody = $('recentTbody');
-  if (!tbody) return;
-
-  let tapTimer = null;
-  let lastTapAt = 0;
-  let lastTapRowKey = '';
-  const DOUBLE_TAP_MS = 320;
-  const SINGLE_DELAY  = 240;
-
-  function getRowSummaryByIndex(i){
-    const recent = getSortedHistory().slice(0, 4);
-    return recent[i] || null;
-  }
-
-  async function copyRowLink(i){
-    const s = getRowSummaryByIndex(i);
-    if (!s) return false;
-    const u = buildGameUrlFromSummary(s);
-    if (!u) return false;
-
-    const ok = await copyText(u.toString());
-    const hint = $('historyHint');
-    if (hint){
-      hint.textContent = ok
-        ? 'คัดลอกลิงก์รอบนี้แล้ว ✅ (แตะ 2 ครั้งเพื่อเล่น)'
-        : 'คัดลอกไม่สำเร็จ — ลองคัดลอกเองจากแถบที่อยู่';
-    }
-    if (!ok) console.log(u.toString());
-    return ok;
-  }
-
-  function playRow(i){
-    const s = getRowSummaryByIndex(i);
-    if (!s) return;
-    const u = buildGameUrlFromSummary(s);
-    if (u) location.href = u.toString();
-  }
-
-  function rowKeyFromTr(tr){
-    const i = Number(tr.dataset.i);
-    if (!Number.isFinite(i)) return '';
-    const s = getRowSummaryByIndex(i);
-    const gameTag = pick(s, ['gameTag','game','tag'], '');
-    const ts = pick(s, ['timestampIso','endTimeIso','timeIso'], '');
-    return `${i}|${gameTag}|${ts}`;
-  }
-
-  // ✅ Single tap = copy (หลังหน่วงเล็กน้อยเพื่อรอดู double) / Double tap = play
-  tbody.addEventListener('click', (ev) => {
-    const tr = ev.target?.closest?.('tr');
-    if (!tr) return;
-
-    const i = Number(tr.dataset.i);
-    if (!Number.isFinite(i)) return;
-
-    const now = performance.now();
-    const key = rowKeyFromTr(tr);
-
-    if (tapTimer){
-      clearTimeout(tapTimer);
-      tapTimer = null;
-    }
-
-    const isDouble = (key === lastTapRowKey) && ((now - lastTapAt) <= DOUBLE_TAP_MS);
-
-    if (isDouble){
-      lastTapAt = 0;
-      lastTapRowKey = '';
-      playRow(i);
-      return;
-    }
-
-    lastTapAt = now;
-    lastTapRowKey = key;
-
-    tapTimer = setTimeout(() => {
-      tapTimer = null;
-      copyRowLink(i);
-    }, SINGLE_DELAY);
-  });
-
-  // ✅ Desktop-friendly: right click = copy ทันที
-  tbody.addEventListener('contextmenu', async (ev) => {
-    const tr = ev.target?.closest?.('tr');
-    if (!tr) return;
-    ev.preventDefault();
-    const i = Number(tr.dataset.i);
-    if (!Number.isFinite(i)) return;
-
-    if (tapTimer){
-      clearTimeout(tapTimer);
-      tapTimer = null;
-    }
-    await copyRowLink(i);
-  });
-
-  // ✅ ถ้าลาก/สกรอล ให้ยกเลิก single-tap ที่กำลังรอ
-  tbody.addEventListener('pointermove', () => {
-    if (tapTimer){
-      clearTimeout(tapTimer);
-      tapTimer = null;
-    }
-  }, { passive:true });
-}
-
 function bindButtons(){
-  // game select
+  // ✅ NEW: game buttons — tap 1 = copy link / tap 2 = play
   for (const el of Array.from(document.querySelectorAll('.gameBtn'))){
-    el.addEventListener('click', () => setSelectedGame(el.dataset.game));
+    const tag = el.dataset.game;
+
+    bindTap(
+      el,
+      async () => {
+        // single tap => select + copy
+        setSelectedGame(tag);
+        await copyGameLink(tag);
+      },
+      () => {
+        // double tap => select + play
+        setSelectedGame(tag);
+        playGame(tag);
+      },
+      { delayMs: TAP_DELAY_MS }
+    );
   }
 
+  // apply preset
   $('btnApplyPreset')?.addEventListener('click', applyPreset);
 
+  // copy link (selected) — ปุ่มยังอยู่ เผื่ออยากใช้
   $('btnCopyLink')?.addEventListener('click', async () => {
-    const selRun = $('selRun')?.value || 'play';
-    const selDiff= $('selDiff')?.value || 'normal';
-    const timeSec= Number($('inpTime')?.value || 70);
-    const seedRaw= String($('inpSeed')?.value || '').trim();
-
-    const u = buildGameUrl(selectedGame, {
-      selRun, selDiff,
-      timeSec,
-      seed: seedRaw ? Number(seedRaw) : ''
-    });
-
-    if (!u){
-      $('linkHint').textContent = 'สร้างลิงก์ไม่สำเร็จ';
-      return;
-    }
-
-    const ok = await copyText(u.toString());
-    $('linkHint').textContent = ok ? 'คัดลอกลิงก์แล้ว ✅' : 'คัดลอกไม่สำเร็จ (ลองคัดลอกเองจากแถบที่อยู่)';
-    if (!ok) console.log(u.toString());
+    await copyGameLink(selectedGame);
   });
 
+  // replay last
   $('btnReplayLast')?.addEventListener('click', () => {
     const last = readLast();
     if (!last) return;
@@ -687,29 +684,35 @@ function bindButtons(){
     if (u) location.href = u.toString();
   });
 
+  // copy last json
   $('btnCopyLastJson')?.addEventListener('click', async () => {
     const last = readLast();
     if (!last) return;
     await copyText(JSON.stringify(last, null, 2));
   });
 
+  // export last csv
   $('btnExportLastCsv')?.addEventListener('click', () => {
     const last = readLast();
     if (!last) return;
     exportCsvForSummaries('last', last);
   });
 
+  // export recent csv
   $('btnExportRecentCsv')?.addEventListener('click', () => {
-    const recent = getSortedHistory().slice(0, 4);
+    const hist = readHist();
+    const recent = hist.slice(0, 4);
     if (!recent.length) return;
     exportCsvForSummaries('recent4', recent);
   });
 
+  // clear last
   $('btnClearLast')?.addEventListener('click', () => {
     clearLast();
     renderLast();
   });
 
+  // clear history
   $('btnClearHistory')?.addEventListener('click', () => {
     clearHist();
     renderRecent();
@@ -717,29 +720,6 @@ function bindButtons(){
 
   $('selRun')?.addEventListener('change', applyPreset);
   $('selDiff')?.addEventListener('change', applyPreset);
-
-  // launch on game card double click (ไว้เหมือนเดิม)
-  for (const el of Array.from(document.querySelectorAll('.gameBtn'))){
-    el.addEventListener('dblclick', () => {
-      setSelectedGame(el.dataset.game);
-
-      const selRun = $('selRun')?.value || 'play';
-      const selDiff= $('selDiff')?.value || 'normal';
-      const timeSec= Number($('inpTime')?.value || 70);
-      const seedRaw= String($('inpSeed')?.value || '').trim();
-
-      const u = buildGameUrl(selectedGame, {
-        selRun, selDiff,
-        timeSec,
-        seed: seedRaw ? Number(seedRaw) : ''
-      });
-
-      if (u) location.href = u.toString();
-    });
-  }
-
-  // ✅ bind row actions once
-  bindRecentRowActions();
 }
 
 // ------------- init -------------
@@ -747,6 +727,7 @@ function bindButtons(){
   renderNow();
   setInterval(renderNow, 1000);
 
+  // default select first game
   setSelectedGame('goodjunk');
 
   const qp = new URLSearchParams(location.search);
