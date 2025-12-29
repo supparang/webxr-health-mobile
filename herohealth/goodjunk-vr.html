@@ -1,7 +1,12 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo
-✅ PC/mobile: legacy #gj-layer/#gj-crosshair
-✅ Cardboard: #gj-eyeL/#gj-eyeR + #gj-layerL/#gj-layerR + #gj-crosshairL/#gj-crosshairR
+GoodJunkVR (PRODUCTION) — HHA Standard + VR Buttons + Cardboard Stereo
+✅ DOM emoji targets on #gj-layer
+✅ Cardboard stereo: #gj-layerL/#gj-layerR
+✅ HUD + Quest + Coach + Fever/Shield
+✅ Start overlay
+✅ Controls: VR / Cardboard / Shoot
+✅ Summary end container (end-summary)
+✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
 -->
 
 <!doctype html>
@@ -81,35 +86,31 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo
 
   <!-- ===== Playfield ===== -->
   <div id="gj-stage">
-
-    <!-- PC/mobile legacy (single view) -->
+    <!-- Mono layer -->
     <div id="gj-layer" aria-label="targets layer"></div>
-    <div id="gj-crosshair" aria-hidden="true"></div>
 
-    <!-- Cardboard stereo (two eyes) -->
+    <!-- Stereo layers for Cardboard -->
     <div id="gj-stereo" aria-hidden="true">
-      <div id="gj-eyeL" class="gj-eye">
-        <div id="gj-layerL" class="gj-layer" aria-label="targets layer left"></div>
-        <div id="gj-crosshairL" class="gj-crosshair" aria-hidden="true"></div>
-      </div>
-      <div id="gj-eyeR" class="gj-eye">
-        <div id="gj-layerR" class="gj-layer" aria-label="targets layer right"></div>
-        <div id="gj-crosshairR" class="gj-crosshair" aria-hidden="true"></div>
-      </div>
-      <div class="gj-divider" aria-hidden="true"></div>
+      <div class="gj-eye left"><div id="gj-layerL" class="eye-layer" aria-label="left eye targets"></div></div>
+      <div class="gj-eye right"><div id="gj-layerR" class="eye-layer" aria-label="right eye targets"></div></div>
     </div>
 
-    <!-- Boss hazards (optional; not required by engine) -->
+    <!-- Crosshair (mono only; cardboard uses per-eye crosshair via CSS) -->
+    <div id="gj-crosshair" aria-hidden="true"></div>
+
+    <!-- Boss hazards -->
     <div id="atk-ring" aria-hidden="true"></div>
     <div id="atk-laser" aria-hidden="true"></div>
 
-    <!-- end summary host -->
+    <!-- End summary container (safe.js / hud binder may render here) -->
     <div id="end-summary"></div>
   </div>
 
-  <!-- ===== Controls ===== -->
+  <!-- ===== Controls (VR / Cardboard / Shoot) ===== -->
   <div class="hha-controls">
-    <button id="btnShoot" class="btn-shoot">ยิง</button>
+    <button id="btnVr" class="btn-vr" type="button">VR</button>
+    <button id="btnCardboard" class="btn-vr" type="button">Cardboard</button>
+    <button id="btnShoot" class="btn-shoot" type="button">ยิง</button>
   </div>
 
   <!-- ===== Start Overlay ===== -->
@@ -121,7 +122,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo
         <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
-      <button id="btnStart" class="btn-start">เริ่มเล่น</button>
+      <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
     </div>
   </div>
 </body>
