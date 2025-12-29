@@ -1,13 +1,9 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
 Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
-✅ Emits events expected by:
-   - audio.js: groups:progress { type:'hit', correct:boolean } + hha:judge {kind:'MISS'}
-   - groups-quests.js: groups:progress { kind:'hit_good'|'hit_bad'|'combo'|'group_swap'|'perfect_switch'|'storm_on'|'storm_off'|'boss_spawn'|'boss_down' }
-✅ Adds FUN PACK:
-   - ⭐ Star = Overdrive (double score 6.5s)
-   - ❄️ Ice  = Freeze (slow spawn + longer ttl 5s)
-   - Shield earned every 12 combo (blocks 1 junk hit)
-   - Spawn rect reads CSS vars: --hha-safe-top/bot/side (กันทับ HUD)
+✅ Types classes for CSS stickers
+✅ STAR/ICE pickups working
+✅ Overdrive / Freeze vibes
+✅ Safe spawn avoids HUD/Goal/Coach/Power
 */
 
 (function(root){
@@ -59,16 +55,9 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     s = String(s||'mix').toLowerCase();
     return (s==='hard'||s==='feel'||s==='mix') ? s : 'mix';
   }
-  function setBody(flagClass, on){
-    try{
-      if (on) DOC.body.classList.add(flagClass);
-      else DOC.body.classList.remove(flagClass);
-    }catch{}
-  }
 
   // ---------- Content ----------
   const SONG = {
-    0:'อาหารหลัก 5 หมู่ของไทย ทุกคนจำไว้อย่าได้แปลผัน 🎵',
     1:'หมู่ 1 กินเนื้อ นม ไข่ ถั่วเมล็ดช่วยให้เติบโตแข็งขัน 💪',
     2:'หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล จะให้พลัง ⚡',
     3:'หมู่ 3 กินผักต่างๆ สารอาหารมากมายกินเป็นอาจิณ 🥦',
@@ -167,8 +156,10 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     nextBossAtMs:0,
 
     // buffs
+    magnetUntil:0,
     freezeUntil:0,
     overUntil:0,
+    _rushUntil:0,
 
     // timers
     spawnTimer:0,
@@ -176,7 +167,11 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
 
     // quest instance
     quest:null,
-    _questBound:false
+    _questBound:false,
+
+    // safe rect cache
+    _rectCacheAt:0,
+    _forbid:[]
   };
 
   function scoreMult(){ return (now() < engine.overUntil) ? 2 : 1; }
@@ -195,7 +190,7 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
   function updateTime(){ emit('hha:time', { left: engine.left|0 }); }
   function updatePower(){ emit('groups:power', { charge: engine.power|0, threshold: engine.powerThr|0 }); }
 
-  // ---------- Quest bridge ----------
+  // ---------- Quest bridge (groups-quests.js) ----------
   function ensureQuest(){
     if (engine.quest) return engine.quest;
     const maker = NS.createGroupsQuest;
@@ -222,6 +217,7 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     try{ q && q.start && q.start(); }catch{}
     try{ q && q.pushUpdate && q.pushUpdate(); }catch{}
   }
+
   function questStop(){
     try{ engine.quest && engine.quest.stop && engine.quest.stop(); }catch{}
   }
@@ -273,32 +269,55 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     }, 80);
   }
 
-  // ---------- Spawn rect (HUD aware via CSS vars) ----------
-  function cssNum(name, fallback){
-    try{
-      const v = getComputedStyle(DOC.documentElement).getPropertyValue(name).trim();
-      if (!v) return fallback;
-      const n = Number(String(v).replace('px','').trim());
-      return (Number.isFinite(n) && n >= 0) ? n : fallback;
-    }catch{
-      return fallback;
-    }
+  // ---------- Safe Spawn (avoid HUD/Goal/Coach/Power) ----------
+  function getForbidRects(){
+    const t = now();
+    if (t - engine._rectCacheAt < 400 && engine._forbid && engine._forbid.length) return engine._forbid;
+    engine._rectCacheAt = t;
+
+    const pad = 10;
+    const ids = [
+      '.hud', '.centerTop', '.questTop', '.powerWrap', '.coachWrap',
+      '#startOverlay', '#endOverlay'
+    ];
+    const rects = [];
+    ids.forEach(sel=>{
+      const el = DOC.querySelector(sel);
+      if (!el) return;
+      const st = root.getComputedStyle(el);
+      if (st && st.display === 'none') return;
+      const r = el.getBoundingClientRect();
+      if (!r || !isFinite(r.left)) return;
+      if (r.width <= 8 || r.height <= 8) return;
+      rects.push({
+        x0: r.left - pad,
+        y0: r.top - pad,
+        x1: r.right + pad,
+        y1: r.bottom + pad
+      });
+    });
+
+    engine._forbid = rects;
+    return rects;
   }
 
-  function safeSpawnRect(){
+  function isInsideForbid(x,y){
+    const rects = getForbidRects();
+    for (let i=0;i<rects.length;i++){
+      const r = rects[i];
+      if (x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) return true;
+    }
+    return false;
+  }
+
+  function baseSpawnRect(){
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
-
-    const side = cssNum('--hha-safe-side', 16);
-    const top  = cssNum('--hha-safe-top',  120);
-    const bot  = cssNum('--hha-safe-bot',  170);
-
-    const x0 = Math.max(8, side);
-    const x1 = Math.max(x0 + 60, W - side);
-    const y0 = Math.max(60, top);
-    const y1 = Math.max(y0 + 120, H - bot);
-
-    return { x0, x1, y0, y1, W, H };
+    const side = 16;
+    // base safe margins; detailed avoid uses forbid rects
+    const top = 120;
+    const bot = 140;
+    return { x0:side, x1:W-side, y0:top, y1:H-bot, W, H };
   }
 
   // ---------- DOM target ----------
@@ -310,14 +329,27 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
   }
 
   function randPos(){
-    const r = safeSpawnRect();
-    const x = r.x0 + engine.rng()*(r.x1 - r.x0);
-    const y = r.y0 + engine.rng()*(r.y1 - r.y0);
-    return { x, y };
+    const r = baseSpawnRect();
+    const cx = r.W*0.5, cy = (r.y0+r.y1)*0.5;
+
+    for (let k=0;k<18;k++){
+      // magnet bias (เบา ๆ) ให้เข้ากลาง
+      let x = r.x0 + engine.rng()*(r.x1 - r.x0);
+      let y = r.y0 + engine.rng()*(r.y1 - r.y0);
+
+      if (now() < engine.magnetUntil){
+        x = (x*0.75 + cx*0.25);
+        y = (y*0.75 + cy*0.25);
+      }
+
+      if (!isInsideForbid(x,y)) return { x, y };
+    }
+    // fallback
+    return { x: cx, y: cy };
   }
 
   function stormPos(){
-    const r = safeSpawnRect();
+    const r = baseSpawnRect();
     const cx = r.W * 0.5;
     const cy = (r.y0 + r.y1) * 0.5;
     const idx = (engine.stormSpawnIdx++);
@@ -325,31 +357,36 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     const jx = (engine.rng()-0.5) * 26;
     const jy = (engine.rng()-0.5) * 22;
 
+    let pos;
     if (engine.stormPattern === 'wave'){
       const t = (idx % 28) / 28;
       const x = r.x0 + t*(r.x1 - r.x0);
       const y = cy + Math.sin((idx*0.55)) * ((r.y1 - r.y0)*0.22);
-      return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
-    }
-    if (engine.stormPattern === 'spiral'){
+      pos = { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
+    } else if (engine.stormPattern === 'spiral'){
       const a = idx * 0.62;
       const rad = clamp(28 + idx*5.0, 28, Math.min(r.x1-r.x0, r.y1-r.y0)*0.40);
       const x = cx + Math.cos(a)*rad;
       const y = cy + Math.sin(a)*rad;
-      return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
+      pos = { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
+    } else {
+      const corners = [
+        {x:r.x0+26, y:r.y0+26},
+        {x:r.x1-26, y:r.y0+26},
+        {x:r.x0+26, y:r.y1-26},
+        {x:r.x1-26, y:r.y1-26},
+        {x:cx, y:r.y0+22},
+        {x:cx, y:r.y1-22},
+      ];
+      const c = corners[(engine.rng()*corners.length)|0];
+      const x = c.x + (engine.rng()-0.5)*120;
+      const y = c.y + (engine.rng()-0.5)*110;
+      pos = { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
     }
-    const corners = [
-      {x:r.x0+26, y:r.y0+26},
-      {x:r.x1-26, y:r.y0+26},
-      {x:r.x0+26, y:r.y1-26},
-      {x:r.x1-26, y:r.y1-26},
-      {x:cx, y:r.y0+22},
-      {x:cx, y:r.y1-22},
-    ];
-    const c = corners[(engine.rng()*corners.length)|0];
-    const x = c.x + (engine.rng()-0.5)*120;
-    const y = c.y + (engine.rng()-0.5)*110;
-    return { x: clamp(x + jx, r.x0, r.x1), y: clamp(y + jy, r.y0, r.y1) };
+
+    // avoid forbid: if overlaps, resample to randPos
+    if (isInsideForbid(pos.x,pos.y)) return randPos();
+    return pos;
   }
 
   function removeTarget(el){
@@ -359,16 +396,16 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     root.setTimeout(()=> el.remove(), 220);
   }
 
-  function applyTypeClass(el, type){
-    // reset
-    el.classList.remove('fg-good','fg-wrong','fg-decoy','fg-junk','fg-boss','fg-star','fg-ice');
-    if (type === 'good') el.classList.add('fg-good');
-    else if (type === 'wrong') el.classList.add('fg-wrong');
-    else if (type === 'decoy') el.classList.add('fg-decoy');
-    else if (type === 'junk') el.classList.add('fg-junk');
-    else if (type === 'boss') el.classList.add('fg-boss');
-    else if (type === 'star') el.classList.add('fg-star');
-    else if (type === 'ice')  el.classList.add('fg-ice');
+  function typeClass(type){
+    type = String(type||'').toLowerCase();
+    if (type === 'good') return 'fg-good';
+    if (type === 'junk') return 'fg-junk';
+    if (type === 'wrong') return 'fg-wrong';
+    if (type === 'decoy') return 'fg-decoy';
+    if (type === 'boss') return 'fg-boss';
+    if (type === 'star') return 'fg-star';
+    if (type === 'ice')  return 'fg-ice';
+    return '';
   }
 
   function makeTarget(type, emoji, x, y, s){
@@ -377,10 +414,11 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
 
     const el = DOC.createElement('div');
     el.className = 'fg-target spawn';
+    const tc = typeClass(type);
+    if (tc) el.classList.add(tc);
+
     el.dataset.emoji = emoji || '✨';
     el.dataset.type = type;
-
-    applyTypeClass(el, type);
 
     if (type === 'good') el.dataset.groupId = String(engine.groupId);
 
@@ -393,7 +431,7 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     }, { passive:false });
 
     // TTL expire -> miss only when GOOD expires
-    const ttl = engine.ttlMs;
+    const ttl = engine.ttlMs + (now() < engine.freezeUntil ? 500 : 0);
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
       if (type === 'good'){
@@ -421,18 +459,14 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     if (!engine.groupClean) return;
     emitProgress({ kind:'perfect_switch' });
     emit('hha:celebrate', { kind:'mini', title:'Perfect Switch!' });
-    // bonus tiny heal
-    engine.fever = clamp(engine.fever - 6, 0, 100);
-    emitFever();
   }
 
   function switchGroup(){
     perfectSwitchBonus();
-
     const next = (engine.groupId % 5) + 1;
     setGroup(next);
-
     emitProgress({ kind:'group_swap' });
+    engine._rushUntil = now() + 6000;
     engine.power = 0;
     updatePower();
   }
@@ -441,35 +475,6 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     engine.power = clamp(engine.power + (n|0), 0, engine.powerThr);
     updatePower();
     if (engine.power >= engine.powerThr) switchGroup();
-  }
-
-  // ---------- Powerups ----------
-  function giveOverdrive(){
-    engine.overUntil = now() + 6500;
-    setBody('groups-overdrive', true);
-    emit('hha:judge', { kind:'good', text:'OVERDRIVE x2!' });
-    emitCoach('⭐ OVERDRIVE! ได้คะแนน x2 ชั่วคราว!', 'happy');
-    emit('hha:celebrate', { kind:'mini', title:'OVERDRIVE!' });
-  }
-
-  function giveFreeze(){
-    engine.freezeUntil = now() + 5000;
-    setBody('groups-freeze', true);
-    emit('hha:judge', { kind:'good', text:'FREEZE!' });
-    emitCoach('❄️ FREEZE! เป้าช้าลงชั่วคราว!', 'neutral');
-    emit('hha:celebrate', { kind:'mini', title:'FREEZE!' });
-  }
-
-  function maybeClearBuffs(){
-    const t = now();
-    if (engine.overUntil && t >= engine.overUntil){
-      engine.overUntil = 0;
-      setBody('groups-overdrive', false);
-    }
-    if (engine.freezeUntil && t >= engine.freezeUntil){
-      engine.freezeUntil = 0;
-      setBody('groups-freeze', false);
-    }
   }
 
   // ---------- Storm ----------
@@ -485,21 +490,31 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     engine.stormPattern = chooseStormPattern();
     engine.stormSpawnIdx = 0;
 
-    setBody('groups-storm', true);
+    DOC.body.classList.add('groups-storm');
     emit('groups:storm', { on:true, durSec: engine.stormDurSec|0, pattern: engine.stormPattern });
     emitProgress({ kind:'storm_on' });
     emit('hha:judge', { kind:'boss', text:'STORM!' });
-    emitCoach('🌪️ STORM! ระวังเป้าโผล่ไวขึ้น!', 'fever');
   }
 
   function exitStorm(){
     engine.storm = false;
     engine.stormUntilMs = 0;
-    setBody('groups-storm', false);
-    setBody('groups-storm-urgent', false);
+    DOC.body.classList.remove('groups-storm','groups-storm-urgent');
     emit('groups:storm', { on:false, durSec: 0 });
     emitProgress({ kind:'storm_off' });
-    emitCoach('ดีมาก! พายุหมดแล้ว ✨', 'happy');
+  }
+
+  // ---------- Buff toggles ----------
+  function setFreeze(ms){
+    engine.freezeUntil = Math.max(engine.freezeUntil, now() + (ms|0));
+    DOC.body.classList.add('groups-freeze');
+  }
+  function setOverdrive(ms){
+    engine.overUntil = Math.max(engine.overUntil, now() + (ms|0));
+    DOC.body.classList.add('groups-overdrive');
+  }
+  function setMagnet(ms){
+    engine.magnetUntil = Math.max(engine.magnetUntil, now() + (ms|0));
   }
 
   // ---------- Boss ----------
@@ -517,19 +532,20 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     if (!el) return;
 
     el.dataset.hp = String(engine.bossHp);
+    el.dataset.hpmax = String(engine.bossHpMax);
     el.classList.add('fg-boss');
-    engine.layerEl.appendChild(el);
 
+    engine.layerEl.appendChild(el);
     engine._bossEl = el;
+
     emitProgress({ kind:'boss_spawn' });
     emit('hha:judge', { kind:'boss', text:'BOSS!' });
-    emitCoach('👑 BOSS มาแล้ว! กดให้ร่วง!', 'fever');
 
     engine.nextBossAtMs = now() + (engine.runMode==='research' ? 20000 : clamp(engine.adapt.bossEvery, 14000, 26000));
   }
 
   function hitBoss(el){
-    emitProgress({ type:'hit', correct:true }); // audio
+    emitProgress({ type:'hit', correct:true });
 
     engine.hitAll++;
     engine.combo = clamp(engine.combo + 1, 0, 9999);
@@ -546,24 +562,53 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
       engine.bossAlive = false;
       emitProgress({ kind:'boss_down' });
       emit('hha:celebrate', { kind:'goal', title:'BOSS DOWN!' });
-      emitCoach('โหดมาก! 👑 BOSS DOWN!', 'happy');
       removeTarget(el);
     } else {
+      if (engine.bossHp <= 1) el.classList.add('fg-boss-weak');
       el.classList.add('fg-boss-hurt');
       setTimeout(()=> el.classList.remove('fg-boss-hurt'), 220);
     }
   }
 
   // ---------- Hit logic ----------
-  function awardShieldIfReady(){
-    if (engine.shield > 0) return;
-    if (engine.combo > 0 && (engine.combo % 12) === 0){
-      engine.shield = 1;
-      emitFever();
-      emit('hha:judge', { kind:'good', text:'SHIELD READY!' });
-      emitCoach('🛡️ ได้โล่แล้ว! กัน JUNK ได้ 1 ครั้ง', 'happy');
-      emit('hha:celebrate', { kind:'mini', title:'SHIELD!' });
-    }
+  function hitStar(el){
+    emitProgress({ type:'hit', correct:true });
+    engine.hitAll++;
+    engine.hitGood++;
+    engine.combo = clamp(engine.combo + 1, 0, 9999);
+    engine.comboMax = Math.max(engine.comboMax, engine.combo);
+    emitProgress({ kind:'combo', combo: engine.combo });
+
+    engine.shield = 1; // 1-hit block
+    engine.fever = clamp(engine.fever - 12, 0, 100);
+    engine.score += Math.round(220 * scoreMult());
+
+    emit('hha:judge', { kind:'good', text:'⭐ SHIELD!' });
+    emit('hha:celebrate', { kind:'mini', title:'STAR PICKUP!' });
+
+    emitFever();
+    updateScore();
+    removeTarget(el);
+  }
+
+  function hitIce(el){
+    emitProgress({ type:'hit', correct:true });
+    engine.hitAll++;
+    engine.hitGood++;
+    engine.combo = clamp(engine.combo + 1, 0, 9999);
+    engine.comboMax = Math.max(engine.comboMax, engine.combo);
+    emitProgress({ kind:'combo', combo: engine.combo });
+
+    setFreeze(5200);
+    engine.fever = clamp(engine.fever - 8, 0, 100);
+    engine.score += Math.round(180 * scoreMult());
+
+    emit('hha:judge', { kind:'good', text:'❄️ FREEZE!' });
+    emit('hha:celebrate', { kind:'mini', title:'ICE PICKUP!' });
+
+    emitFever();
+    updateScore();
+    removeTarget(el);
   }
 
   function hitTarget(el){
@@ -573,22 +618,8 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     let type = String(el.dataset.type||'').toLowerCase();
 
     if (type === 'boss'){ hitBoss(el); return; }
-
-    // powerups do NOT affect accuracy counters
-    if (type === 'star'){
-      giveOverdrive();
-      engine.score += 80;
-      updateScore();
-      removeTarget(el);
-      return;
-    }
-    if (type === 'ice'){
-      giveFreeze();
-      engine.score += 60;
-      updateScore();
-      removeTarget(el);
-      return;
-    }
+    if (type === 'star'){ hitStar(el); return; }
+    if (type === 'ice'){  hitIce(el);  return; }
 
     // good but wrong group => wrong
     if (type === 'good'){
@@ -596,18 +627,23 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
       if (gid && gid !== engine.groupId) type = 'wrong';
     }
 
-    // count as accuracy-related hit
     engine.hitAll++;
 
     // GOOD
     if (type === 'good'){
-      emitProgress({ type:'hit', correct:true });          // audio
-      emitProgress({ kind:'hit_good' });                   // quest
+      emitProgress({ type:'hit', correct:true });
+      emitProgress({ kind:'hit_good' });
       engine.hitGood++;
 
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
       emitProgress({ kind:'combo', combo: engine.combo });
+
+      // 🔥 เร้าใจ: every 10 combo -> magnet, every 15 combo -> overdrive
+      if (engine.runMode === 'play'){
+        if (engine.combo > 0 && engine.combo % 10 === 0) setMagnet(4200);
+        if (engine.combo > 0 && engine.combo % 15 === 0) setOverdrive(5200);
+      }
 
       engine.score += Math.round((100 + engine.combo*3) * scoreMult());
       engine.fever = clamp(engine.fever - 3, 0, 100);
@@ -615,8 +651,8 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
       updateScore();
       emitFever();
 
+      // sync goal->group power
       addPower(1);
-      awardShieldIfReady();
 
       removeTarget(el);
       return;
@@ -625,18 +661,17 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     // BAD types
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
     if (badLike){
-      // shield blocks junk = no miss and NOT hit_bad (fair for no-junk minis)
+      // shield blocks junk = no miss and NOT hit_bad
       if (type === 'junk' && engine.shield > 0){
         engine.shield = 0;
         emitFever();
         emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
-        emitCoach('🛡️ กัน JUNK สำเร็จ!', 'happy');
         removeTarget(el);
         return;
       }
 
-      emitProgress({ type:'hit', correct:false }); // audio
-      emitProgress({ kind:'hit_bad' });            // quest
+      emitProgress({ type:'hit', correct:false });
+      emitProgress({ kind:'hit_bad' });
 
       engine.misses++;
       engine.combo = 0;
@@ -646,7 +681,6 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
       emitFever();
 
       emit('hha:judge', { kind:'bad', text:(type==='junk'?'JUNK!':'WRONG!') });
-      emitCoach(type==='junk' ? 'โดน JUNK! ระวัง ๆ 😵' : 'ผิดหมู่! ตั้งใจอีกนิด 😅', 'sad');
 
       updateScore();
       removeTarget(el);
@@ -659,11 +693,9 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     const baseJ = (engine.runMode==='research') ? diffParams(engine.diff).junk : engine.adapt.junkBias;
     const baseD = (engine.runMode==='research') ? diffParams(engine.diff).decoy : engine.adapt.decoyBias;
 
-    // powerups a bit more frequent in storm, and also nice when fever high
-    const feverBoost = clamp(engine.fever/100, 0, 1) * 0.008;
-    const pu = (engine.storm ? 0.018 : 0.011) + feverBoost;
-
-    if (engine.rng() < pu) return (engine.rng() < 0.55) ? 'star' : 'ice';
+    // pickups: slightly more during storm for excitement
+    const pu = engine.storm ? 0.020 : 0.012;
+    if (engine.rng() < pu) return (engine.rng() < 0.52) ? 'star' : 'ice';
 
     const r = engine.rng();
     if (r < baseJ) return 'junk';
@@ -712,11 +744,10 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
 
     // freeze slows spawn
-    const freezeOn = now() < engine.freezeUntil;
-    const stormMul = engine.storm ? 0.82 : 1.0;
-    const freezeMul= freezeOn ? 1.22 : 1.0;
+    const freezeFactor = (now() < engine.freezeUntil) ? 1.25 : 1.0;
+    const stormFactor = engine.storm ? 0.82 : 1.0;
 
-    const sMs = Math.max(420, base.spawnMs * stormMul * freezeMul);
+    const sMs = Math.max(420, base.spawnMs * stormFactor * freezeFactor);
     engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
   }
 
@@ -736,8 +767,6 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
   function loopTick(){
     if (!engine.running || engine.ended) return;
 
-    maybeClearBuffs();
-
     // storm timing
     if (!engine.storm && now() >= engine.nextStormAtMs) enterStorm();
     if (engine.storm && now() >= engine.stormUntilMs){
@@ -745,30 +774,23 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
       engine.nextStormAtMs = now() + (16000 + engine.rng()*12000);
     } else if (engine.storm){
       const leftMs = engine.stormUntilMs - now();
-      if (leftMs <= 3200) setBody('groups-storm-urgent', true);
+      if (leftMs <= 3200) DOC.body.classList.add('groups-storm-urgent');
     }
+
+    // buff classes off when expired
+    if (now() >= engine.freezeUntil) DOC.body.classList.remove('groups-freeze');
+    if (now() >= engine.overUntil) DOC.body.classList.remove('groups-overdrive');
 
     // adaptive only in play
     if (engine.runMode === 'play'){
       const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
       const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
-
       engine.adapt.spawnMs = clamp(820 - heat*260, 480, 880);
       engine.adapt.ttl     = clamp(1680 - heat*260, 1250, 1750);
-
+      engine.ttlMs = engine.adapt.ttl;
       engine.adapt.junkBias = clamp(0.11 + heat*0.06, 0.08, 0.22);
       engine.adapt.decoyBias= clamp(0.09 + heat*0.05, 0.06, 0.20);
-
       engine.adapt.bossEvery= clamp(20000 - heat*6000, 14000, 22000);
-
-      // apply ttl (freeze adds buffer)
-      const freezeOn = now() < engine.freezeUntil;
-      engine.ttlMs = freezeOn ? clamp(engine.adapt.ttl + 260, 1300, 2100) : engine.adapt.ttl;
-    } else {
-      // research: freeze adds ttl too
-      const freezeOn = now() < engine.freezeUntil;
-      const dp = diffParams(engine.diff);
-      engine.ttlMs = freezeOn ? clamp(dp.ttl + 260, 1200, 2200) : dp.ttl;
     }
 
     feverTick();
@@ -801,10 +823,7 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     clearAllTargets();
     questStop();
 
-    setBody('groups-storm', false);
-    setBody('groups-storm-urgent', false);
-    setBody('groups-overdrive', false);
-    setBody('groups-freeze', false);
+    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-overdrive','groups-freeze');
 
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
     const grade = rankFromAcc(acc);
@@ -874,8 +893,9 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     engine.shield = 0;
     engine.feverTickLast = 0;
 
-    engine.overUntil = 0;
+    engine.magnetUntil = 0;
     engine.freezeUntil = 0;
+    engine.overUntil = 0;
 
     engine.vx = 0; engine.vy = 0;
     applyView();
@@ -884,8 +904,9 @@ Food Groups VR — GameEngine (CONNECTED to groups-quests.js + audio.js)
     updatePower();
     updateScore();
     emitFever();
-    emitCoach(SONG[0] + "\n" + SONG[1], 'neutral');
+    emitCoach(SONG[1], 'neutral');
 
+    // start quest system
     questStart();
 
     emit('hha:celebrate', { kind:'goal', title:'เริ่มเกม! 🎵' });
