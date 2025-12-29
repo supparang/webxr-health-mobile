@@ -1,11 +1,9 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (B+++++)
-✅ HUD เหนือ gameplay
-✅ fg-layer รองรับ VR feel translate (--vx/--vy) + NoJunk ring
-✅ Targets = absolute (ขยับตาม fg-layer transform ได้)
-✅ Candy sticker + badges + spawn/hit/out
-✅ Mini urgent + lyric karaoke bar + coach bar
-✅ data-badge override (Boss HP)
+Food Groups VR — PRODUCTION CSS (Layout Pack v2)
+✅ 3 layouts: mix / compact / cinema
+✅ Auto-hide HUD/Coach classes (groups-hud-hidden / groups-coach-hidden)
+✅ SafeRect friendly: hide via translate (getBoundingClientRect won't steal play area)
+✅ Keeps selectors: .hud .centerTop .questTop .powerWrap .coachWrap (engine safeRect)
 */
 
 :root{
@@ -35,7 +33,7 @@ Food Groups VR — PRODUCTION CSS (B+++++)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* Candy palette (v3) */
+  /* Candy palette */
   --candy-pink: rgba(244,114,182,.38);
   --candy-cyan: rgba(34,211,238,.30);
   --candy-lime: rgba(34,197,94,.30);
@@ -56,8 +54,50 @@ Food Groups VR — PRODUCTION CSS (B+++++)
   --candy-polka:
     radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
     radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
+
+  /* Layout knobs (default = mix) */
+  --hud-pad:12px;
+  --hud-gap:10px;
+  --hud-font:12px;
+  --hud-val:16px;
+
+  --bar-radius:18px;
+  --bar-pad:10px 12px;
+
+  --coach-img:48px;
+  --target-size:92px;
 }
 
+/* ---------------- layout presets ---------------- */
+body.groups-layout-mix{ /* default */ }
+
+body.groups-layout-compact{
+  --hud-pad:10px;
+  --hud-gap:8px;
+  --hud-font:11px;
+  --hud-val:15px;
+
+  --bar-radius:16px;
+  --bar-pad:9px 10px;
+
+  --coach-img:44px;
+  --target-size:88px;
+}
+
+body.groups-layout-cinema{
+  --hud-pad:10px;
+  --hud-gap:8px;
+  --hud-font:11px;
+  --hud-val:15px;
+
+  --bar-radius:16px;
+  --bar-pad:9px 10px;
+
+  --coach-img:44px;
+  --target-size:90px;
+}
+
+/* ---------------- base ---------------- */
 *{ box-sizing:border-box; }
 html, body{
   margin:0;
@@ -72,7 +112,7 @@ html, body{
     var(--bg);
 }
 
-/* A-Frame scene ไม่ให้บัง HUD */
+/* A-Frame scene behind */
 a-scene[embedded]{
   position:fixed !important;
   inset:0 !important;
@@ -85,15 +125,14 @@ a-scene[embedded]{
 .fg-layer{
   position: fixed;
   inset: 0;
-  z-index: 3;                 /* ต่ำกว่า HUD */
+  z-index: 3;
   pointer-events: auto;
 
-  /* VR feel translate from engine */
   transform: translate(var(--vx,0px), var(--vy,0px));
   will-change: transform;
 }
 
-/* Optional: No-Junk ring (set --nojunk-*) */
+/* No-Junk ring */
 .fg-layer::before{
   content:"";
   position:fixed;
@@ -108,8 +147,6 @@ a-scene[embedded]{
   border:2px dashed rgba(255,255,255,.38);
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
 }
-
-/* mini urgent ring pulse */
 body.groups-mini-urgent .fg-layer::before{
   opacity: calc(var(--nojunk-on, 0) * 0.28);
   animation: ringPulse .24s ease-in-out infinite;
@@ -120,22 +157,31 @@ body.groups-mini-urgent .fg-layer::before{
 }
 
 /* ======================
-   HUD
+   HUD (Top)
    ====================== */
-.hud{ /* alias for engine safe rect scan */
-  pointer-events:none;
-}
+.hud{ pointer-events:none; }
+
 .hud-top{
   position:fixed;
   left:calc(10px + var(--sal));
   right:calc(10px + var(--sar));
   top:calc(10px + var(--sat));
   z-index: 8;
+
   display:grid;
   grid-template-columns: 1fr minmax(260px, 1.2fr) 1fr;
-  gap:10px;
+  gap: var(--hud-gap);
   align-items:start;
+
   pointer-events:none;
+
+  transition: transform .22s ease, opacity .22s ease;
+}
+
+/* cinema autohide -> safeRect friendly (move out of viewport) */
+body.groups-layout-cinema.groups-hud-hidden .hud-top{
+  opacity:0;
+  transform: translateY(calc(-140% - var(--sat)));
 }
 
 .hud-card{
@@ -143,7 +189,7 @@ body.groups-mini-urgent .fg-layer::before{
   border:1px solid var(--stroke);
   border-radius:var(--radius-lg);
   box-shadow:0 18px 60px rgba(0,0,0,.45);
-  padding:12px;
+  padding: var(--hud-pad);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   pointer-events:auto;
@@ -159,43 +205,43 @@ body.groups-mini-urgent .fg-layer::before{
 .hud-left .hud-row:last-child{ border-bottom:0; }
 
 .hud-title{
-  font-weight:900;
+  font-weight:1000;
   letter-spacing:.4px;
-  font-size:12px;
+  font-size:var(--hud-font);
   opacity:.9;
 }
 .hud-val{
-  font-weight:900;
-  font-size:16px;
+  font-weight:1100;
+  font-size:var(--hud-val);
 }
 
-.centerTop{ /* engine uses for safeRect */
+.centerTop{
   display:flex;
   justify-content:space-between;
   align-items:center;
   gap:10px;
-  margin-bottom:10px;
+  margin-bottom:8px;
 }
 
 .hud-group{
-  font-weight:1000;
-  font-size:16px;
+  font-weight:1100;
+  font-size:15px;
   padding:6px 10px;
   border-radius:var(--radius-pill);
   border:1px solid rgba(34,211,238,.22);
   background:rgba(2,6,23,.55);
 }
 .hud-timer{
-  font-weight:1000;
-  font-size:16px;
+  font-weight:1100;
+  font-size:15px;
   padding:6px 10px;
   border-radius:var(--radius-pill);
   border:1px solid rgba(148,163,184,.22);
   background:rgba(2,6,23,.55);
 }
 
-.powerWrap{ /* engine uses for safeRect */
-  margin:8px 0 10px 0;
+.powerWrap{
+  margin:6px 0 8px 0;
   padding:10px;
   border-radius:var(--radius-md);
   border:1px solid rgba(148,163,184,.18);
@@ -204,13 +250,13 @@ body.groups-mini-urgent .fg-layer::before{
 .power-label{
   display:flex;
   justify-content:space-between;
-  font-weight:900;
-  font-size:12px;
+  font-weight:1000;
+  font-size:11px;
   opacity:.9;
   margin-bottom:8px;
 }
 .power-bar{
-  height:12px;
+  height:11px;
   border-radius:999px;
   background:rgba(148,163,184,.14);
   overflow:hidden;
@@ -223,9 +269,14 @@ body.groups-mini-urgent .fg-layer::before{
   box-shadow:0 10px 24px rgba(34,211,238,.18);
 }
 
-.questTop{ /* engine uses for safeRect */
+/* compact layout: quest becomes thinner */
+body.groups-layout-compact .powerWrap{ padding:9px; }
+body.groups-layout-compact .power-label{ margin-bottom:6px; }
+body.groups-layout-compact .power-bar{ height:10px; }
+
+.questTop{
   display:grid;
-  gap:8px;
+  gap:7px;
 }
 
 .quest-line{
@@ -235,8 +286,8 @@ body.groups-mini-urgent .fg-layer::before{
   align-items:center;
 }
 .q-badge{
-  font-weight:1000;
-  font-size:11px;
+  font-weight:1100;
+  font-size:10.5px;
   padding:5px 9px;
   border-radius:999px;
   border:1px solid rgba(34,197,94,.28);
@@ -247,22 +298,22 @@ body.groups-mini-urgent .fg-layer::before{
   background:rgba(167,139,250,.12);
 }
 .q-text{
-  font-weight:900;
-  font-size:12px;
+  font-weight:1000;
+  font-size:11.5px;
   opacity:.95;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
 }
 .q-num{
-  font-weight:1000;
-  font-size:12px;
+  font-weight:1100;
+  font-size:11px;
   opacity:.95;
 }
 
 .qbar{ position:relative; }
 .qbar-track{
-  height:10px;
+  height:9px;
   border-radius:999px;
   background:rgba(148,163,184,.14);
   overflow:hidden;
@@ -273,9 +324,9 @@ body.groups-mini-urgent .fg-layer::before{
 .qbar-timer{
   position:absolute;
   right:0;
-  top:-18px;
-  font-size:11px;
-  font-weight:900;
+  top:-16px;
+  font-size:10.5px;
+  font-weight:1000;
   color:var(--muted);
 }
 
@@ -296,21 +347,21 @@ body.groups-mini-urgent .fg-layer::before{
   gap:10px;
 }
 .rank-title{
-  font-weight:1000;
-  font-size:12px;
+  font-weight:1100;
+  font-size:var(--hud-font);
   opacity:.9;
 }
 .rank-sub{
   display:flex;
   justify-content:space-between;
   gap:10px;
-  font-size:12px;
-  font-weight:900;
+  font-size:11px;
+  font-weight:1000;
   color:var(--muted);
   margin-top:6px;
 }
 .rank-grade{
-  font-weight:1100;
+  font-weight:1200;
   font-size:26px;
   line-height:1;
   padding:10px 12px;
@@ -319,8 +370,28 @@ body.groups-mini-urgent .fg-layer::before{
   background:rgba(2,6,23,.55);
 }
 
+/* HUD util button */
+.hud-tools{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:8px;
+}
+.hud-btn{
+  pointer-events:auto;
+  font-weight:1100;
+  font-size:11px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.22);
+  background:rgba(2,6,23,.55);
+  color:var(--text);
+  cursor:pointer;
+}
+.hud-btn:active{ transform:scale(0.98); }
+
 /* ======================
-   Coach + Lyric bars (B+++++)
+   Coach + Lyric (Bottom)
    ====================== */
 .coachWrap{
   position:fixed;
@@ -333,6 +404,13 @@ body.groups-mini-urgent .fg-layer::before{
   gap:10px;
   align-items:center;
   pointer-events:none;
+  transition: transform .22s ease, opacity .22s ease;
+}
+
+/* cinema autohide -> move out of viewport */
+body.groups-layout-cinema.groups-coach-hidden .coachWrap{
+  opacity:0;
+  transform: translateY(calc(160% + var(--sab)));
 }
 
 .coachCard{
@@ -342,14 +420,15 @@ body.groups-mini-urgent .fg-layer::before{
   align-items:center;
   background:rgba(2,6,23,.60);
   border:1px solid rgba(148,163,184,.18);
-  border-radius:18px;
-  padding:10px 12px;
+  border-radius:var(--bar-radius);
+  padding: var(--bar-pad);
   box-shadow:0 18px 50px rgba(0,0,0,.40);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 .coachImg{
-  width:48px; height:48px;
+  width:var(--coach-img);
+  height:var(--coach-img);
   border-radius:16px;
   border:2px solid rgba(255,255,255,.75);
   background:rgba(255,255,255,.06);
@@ -357,25 +436,25 @@ body.groups-mini-urgent .fg-layer::before{
   box-shadow:0 10px 20px rgba(0,0,0,.35);
 }
 .coachText{
-  font-weight:1000;
-  font-size:12px;
+  font-weight:1100;
+  font-size:11.5px;
   line-height:1.25;
   opacity:.95;
 }
 .coachHint{
   font-weight:900;
-  font-size:11px;
+  font-size:10.5px;
   color:var(--muted);
   margin-top:2px;
 }
 
-/* Karaoke lyric bar */
 .lyricBar{
   pointer-events:auto;
+  position:relative;
   background:rgba(2,6,23,.58);
   border:1px solid rgba(148,163,184,.18);
-  border-radius:18px;
-  padding:10px 12px;
+  border-radius:var(--bar-radius);
+  padding: var(--bar-pad);
   box-shadow:0 18px 50px rgba(0,0,0,.40);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -389,8 +468,8 @@ body.groups-mini-urgent .fg-layer::before{
   margin-bottom:6px;
 }
 .lyricTag{
-  font-weight:1100;
-  font-size:11px;
+  font-weight:1200;
+  font-size:10.5px;
   padding:4px 8px;
   border-radius:999px;
   border:1px solid rgba(34,211,238,.22);
@@ -398,11 +477,11 @@ body.groups-mini-urgent .fg-layer::before{
 }
 .lyricBeat{
   font-weight:1100;
-  font-size:11px;
+  font-size:10.5px;
   color:var(--muted);
 }
 .lyricText{
-  font-weight:1100;
+  font-weight:1150;
   font-size:12px;
   letter-spacing:.2px;
   white-space:nowrap;
@@ -426,7 +505,7 @@ body.groups-mini-urgent .fg-layer::before{
 }
 
 /* ======================
-   Start / End overlays
+   Start / Result overlays
    ====================== */
 .start-overlay,
 .result-overlay{
@@ -441,7 +520,6 @@ body.groups-mini-urgent .fg-layer::before{
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
-
 .start-card,
 .result-card{
   width:min(560px, 94vw);
@@ -451,28 +529,24 @@ body.groups-mini-urgent .fg-layer::before{
   padding:16px;
   box-shadow:0 22px 70px rgba(0,0,0,.55);
 }
-
-.start-title{ font-weight:1100; font-size:20px; margin:0 0 6px 0; }
-.start-sub{ margin:0; opacity:.92; line-height:1.35; font-weight:700; }
-
+.start-title{ font-weight:1200; font-size:20px; margin:0 0 6px 0; }
+.start-sub{ margin:0; opacity:.92; line-height:1.35; font-weight:750; }
 .start-grid{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
 .pill{
   padding:6px 10px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.20);
   background:rgba(2,6,23,.55);
-  font-weight:900;
+  font-weight:950;
   font-size:12px;
 }
-
 .start-actions,
 .result-actions{ display:grid; gap:10px; margin-top:12px; }
-
 .btn{
   border:0;
   border-radius:16px;
   padding:12px 14px;
-  font-weight:1000;
+  font-weight:1100;
   cursor:pointer;
 }
 .btn.primary{
@@ -484,14 +558,6 @@ body.groups-mini-urgent .fg-layer::before{
   color:var(--text);
   border:1px solid rgba(148,163,184,.22);
 }
-
-.start-note{
-  margin-top:10px;
-  font-size:12px;
-  color:var(--muted);
-  font-weight:800;
-}
-
 .result-overlay{ display:none; }
 .result-overlay.show{ display:flex; }
 
@@ -503,8 +569,8 @@ body.groups-mini-urgent .fg-layer::before{
   left: var(--x, 50vw);
   top:  var(--y, 50vh);
 
-  width:92px;
-  height:92px;
+  width:var(--target-size);
+  height:var(--target-size);
   border-radius:28px;
 
   display:grid;
@@ -547,7 +613,6 @@ body.groups-mini-urgent .fg-layer::before{
     drop-shadow(0 12px 18px rgba(0,0,0,.32));
 }
 
-/* type fills */
 .fg-good{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 40%),
@@ -587,7 +652,6 @@ body.groups-mini-urgent .fg-layer::before{
   animation: fgBossFloat 1.00s ease-in-out infinite;
 }
 
-/* corner badges */
 .fg-wrong::after,
 .fg-decoy::after,
 .fg-junk::after,
@@ -605,24 +669,16 @@ body.groups-mini-urgent .fg-layer::before{
 .fg-junk::after { content:"🫧"; }
 .fg-boss::after { content:"👑"; }
 
-/* ✅ allow engine override corner badge text e.g. "👑3" */
-.fg-target[data-badge]::after{
-  content: attr(data-badge) !important;
-}
+.fg-target[data-badge]::after{ content: attr(data-badge) !important; }
 
 .fg-target:active{
   transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
   filter: brightness(1.06);
 }
-
-/* spawn/hit/out */
-.fg-target.spawn{
-  animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite;
-}
+.fg-target.spawn{ animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite; }
 .fg-target.hit{ animation: fgHit .22s ease-out both; }
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
-/* boss feedback states */
 .fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
 @keyframes bossHurt{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
@@ -635,15 +691,7 @@ body.groups-mini-urgent .fg-layer::before{
     0 18px 36px rgba(0,0,0,.40),
     0 0 26px rgba(34,211,238,.35);
 }
-.fg-boss.fg-boss-weak::after{
-  content:"🎯";
-  right:10px;
-  bottom:10px;
-  top:auto;
-  font-size:18px;
-}
 
-/* keyframes */
 @keyframes fgFloat{
   0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) translateY(0px); }
   50%    { transform: translate(-50%, -50%) scale(var(--s,1)) translateY(-8px); }
@@ -666,14 +714,13 @@ body.groups-mini-urgent .fg-layer::before{
   to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
 }
 
-/* mode vibes */
+/* storm + buffs */
 body.groups-storm .hud-top{ filter: saturate(1.10) brightness(1.05); }
 body.groups-storm-urgent .hud-top{ animation: hudStormPulse .24s ease-in-out infinite; }
 @keyframes hudStormPulse{
   0%,100%{ transform: translateZ(0) scale(1.00); }
   50%{ transform: translateZ(0) scale(1.01); }
 }
-
 body.groups-overdrive .hud-card{
   box-shadow: 0 18px 60px rgba(34,211,238,.18);
   border-color: rgba(34,211,238,.30);
