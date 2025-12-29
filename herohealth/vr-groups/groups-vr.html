@@ -1,10 +1,6 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
 Food Groups VR — PRODUCTION (FULL)
-✅ Loads: groups-vr.css + boot modules (cache-bust)
-✅ HUD: score/combo/miss + group + timer + power + goal/mini + rank
-✅ Start overlay with Thai 5-food-groups song (EXACT)
-✅ End overlay summary + Back HUB + Save last summary (HHA_LAST_SUMMARY)
-✅ Flush-hardened: pagehide/visibilitychange -> stop + persist last summary
+✅ End summary breakdown: Spawn/Hit/Expire
 -->
 
 <!doctype html>
@@ -17,31 +13,24 @@ Food Groups VR — PRODUCTION (FULL)
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- A-Frame (optional sky feel + VR button) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Global FX + (optional) logger -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 </head>
 
 <body>
 
-  <!-- A-Frame background (embedded) -->
   <a-scene embedded>
     <a-sky color="#06162f"></a-sky>
   </a-scene>
 
-  <!-- HUD -->
   <div class="hud-top" id="hudTop">
-    <!-- LEFT -->
     <div class="hud-card hud-left">
       <div class="hud-row"><div class="hud-title">SCORE</div><div class="hud-val" id="hudScore">0</div></div>
       <div class="hud-row"><div class="hud-title">COMBO</div><div class="hud-val" id="hudCombo">0</div></div>
       <div class="hud-row"><div class="hud-title">MISS</div><div class="hud-val" id="hudMiss">0</div></div>
     </div>
 
-    <!-- MID -->
     <div class="hud-card hud-mid">
       <div class="hud-group-row">
         <div class="hud-group" id="hudGroup">หมู่ 1</div>
@@ -59,7 +48,6 @@ Food Groups VR — PRODUCTION (FULL)
       </div>
 
       <div class="quest-wrap">
-        <!-- GOAL -->
         <div class="quest-line" id="hud-goal-line">
           <div class="q-badge">GOAL</div>
           <div class="q-text" id="hudGoalText">—</div>
@@ -69,7 +57,6 @@ Food Groups VR — PRODUCTION (FULL)
           <div class="qbar-track"><div class="qbar-fill goal" id="hudGoalFill"></div></div>
         </div>
 
-        <!-- MINI -->
         <div class="quest-line" id="hud-mini-line">
           <div class="q-badge mini">MINI</div>
           <div class="q-text" id="hudMiniText">—</div>
@@ -84,7 +71,6 @@ Food Groups VR — PRODUCTION (FULL)
       </div>
     </div>
 
-    <!-- RIGHT -->
     <div class="hud-card hud-right">
       <div class="rank-box">
         <div>
@@ -100,10 +86,8 @@ Food Groups VR — PRODUCTION (FULL)
     </div>
   </div>
 
-  <!-- Gameplay layer -->
   <div class="fg-layer" id="fgLayer" aria-label="playfield"></div>
 
-  <!-- Start overlay -->
   <div class="start-overlay" id="startOverlay">
     <div class="start-card">
       <h1 class="start-title">Food Groups VR 🎮</h1>
@@ -132,18 +116,20 @@ Food Groups VR — PRODUCTION (FULL)
       </div>
 
       <div class="start-note">
-        Tip: ลาก/เอียงเครื่อง = VR feel • ⭐ ได้พลังพิเศษ • STORM ช่วงท้ายกระพริบ+ติ๊กเร้าใจ
+        Tip: ลาก/เอียงเครื่อง = VR feel • ⭐ ได้พลังพิเศษ • STORM ท้ายเกมกระพริบ+ติ๊ก
       </div>
     </div>
   </div>
 
-  <!-- Result overlay -->
   <div class="result-overlay" id="resultOverlay">
     <div class="result-card">
       <h2 class="start-title" style="margin:0 0 6px 0;">สรุปผล 🎉</h2>
       <p class="start-sub" id="resultSubtitle">—</p>
 
       <div class="result-grid" id="resultGrid"></div>
+
+      <!-- (5) Breakdown -->
+      <div class="break-wrap" id="resultBreak"></div>
 
       <div class="result-actions">
         <button class="btn primary" id="btnRestart">เล่นอีกครั้ง</button>
@@ -165,7 +151,6 @@ Food Groups VR — PRODUCTION (FULL)
     const pick = (k,d)=> { const v = qs.get(k); return (v==null || v==='') ? d : v; };
     const clamp = (v,a,b)=> { v = Number(v); if(!Number.isFinite(v)) v = a; return Math.max(a, Math.min(b, v)); };
 
-    // params
     const diff = String(pick('diff','normal')).toLowerCase();
     const time = clamp(pick('time','90'), 30, 180);
     const runMode = String(pick('runMode', pick('run','play'))).toLowerCase()==='research' ? 'research' : 'play';
@@ -179,19 +164,10 @@ Food Groups VR — PRODUCTION (FULL)
       return '../index.html';
     })();
 
-    // show pills
-    const pills = [
-      `diff=${diff}`,
-      `time=${time}s`,
-      `runMode=${runMode}`,
-      `style=${style}`,
-      `seed=${seed}`
-    ];
+    const pills = [ `diff=${diff}`, `time=${time}s`, `runMode=${runMode}`, `style=${style}`, `seed=${seed}` ];
     $('startPills').innerHTML = pills.map(t=>`<div class="pill">${t}</div>`).join('');
-
     $('btnBackHubTop').onclick = ()=> { location.href = hubUrl; };
 
-    // Boot modules with cache-bust
     const TS = Date.now();
     const BOOT_LIST = [
       './groups-fx.js',
@@ -206,7 +182,6 @@ Food Groups VR — PRODUCTION (FULL)
       }
     }
 
-    // HUD bindings
     function setText(id, v){ const el = $(id); if (el) el.textContent = String(v); }
     function setFill(id, pct){
       const el = $(id);
@@ -232,6 +207,18 @@ Food Groups VR — PRODUCTION (FULL)
       }catch{}
     }
 
+    function breakCard(title, rows){
+      const items = rows.map(([k,v])=>(
+        `<div class="break-row"><div>${k}</div><span>${v}</span></div>`
+      )).join('');
+      return `
+        <div class="break-card">
+          <div class="break-head">${title}</div>
+          <div class="break-rows">${items}</div>
+        </div>
+      `;
+    }
+
     function renderResult(payload){
       lastEnd = payload || {};
       const acc = lastEnd.accuracyGoodPct ?? 0;
@@ -251,15 +238,42 @@ Food Groups VR — PRODUCTION (FULL)
         ['Goals', `${lastEnd.goalsCleared||0}/${lastEnd.goalsTotal||0}`],
         ['Minis', `${lastEnd.miniCleared||0}/${lastEnd.miniTotal||0}`],
       ];
-
       $('resultGrid').innerHTML = stats.map(([k,v])=>(
         `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`
       )).join('');
 
-      // save
+      // (5) Breakdown Spawn/Hit/Expire
+      const spawn = [
+        ['Good', lastEnd.nTargetGoodSpawned||0],
+        ['Junk', lastEnd.nTargetJunkSpawned||0],
+        ['Wrong', lastEnd.nTargetWrongSpawned||0],
+        ['Decoy', lastEnd.nTargetDecoySpawned||0],
+        ['Star', lastEnd.nTargetStarSpawned||0],
+        ['Ice', lastEnd.nTargetIceSpawned||0],
+        ['Boss', lastEnd.nTargetBossSpawned||0],
+        ['Expire Good', lastEnd.nExpireGood||0],
+      ];
+      const hit = [
+        ['Good', lastEnd.nHitGood||0],
+        ['Junk', lastEnd.nHitJunk||0],
+        ['Wrong', lastEnd.nHitWrong||0],
+        ['Decoy', lastEnd.nHitDecoy||0],
+        ['Star', lastEnd.nHitStar||0],
+        ['Ice', lastEnd.nHitIce||0],
+        ['Boss', lastEnd.nHitBoss||0],
+        ['Junk Guard', lastEnd.nHitJunkGuard||0],
+      ];
+
+      $('resultBreak').innerHTML = `
+        <div class="break-title">Breakdown (Spawn / Hit / Expire)</div>
+        <div class="break-grid">
+          ${breakCard('Spawn', spawn)}
+          ${breakCard('Hit', hit)}
+        </div>
+      `;
+
       saveLastSummary(lastEnd);
 
-      // optional cloud logger (if you have it)
       try{
         const L = ROOT.HHA_CloudLogger || (ROOT.GAME_MODULES && ROOT.GAME_MODULES.CloudLogger);
         if (L && typeof L.log === 'function'){
@@ -268,7 +282,6 @@ Food Groups VR — PRODUCTION (FULL)
       }catch{}
     }
 
-    // listen events from engine
     ROOT.addEventListener('hha:score', (ev)=>{
       const d = (ev && ev.detail) || {};
       setText('hudScore', d.score ?? 0);
@@ -292,7 +305,6 @@ Food Groups VR — PRODUCTION (FULL)
 
     ROOT.addEventListener('quest:update', (ev)=>{
       const d = (ev && ev.detail) || {};
-
       setText('hudGoalText', d.goalTitle || '—');
       setText('hudGoalNow', d.goalNow ?? 0);
       setText('hudGoalTot', d.goalTotal ?? 0);
@@ -306,7 +318,6 @@ Food Groups VR — PRODUCTION (FULL)
       const t = Number(d.miniTimeLeftSec)||0;
       setText('hudMiniTimer', t);
 
-      // urgent style
       const line = $('hud-mini-line');
       if (line){
         if (t > 0 && t <= 3) line.classList.add('mini-urgent');
@@ -324,7 +335,7 @@ Food Groups VR — PRODUCTION (FULL)
       const d = (ev && ev.detail) || {};
       const label = d.label || `หมู่ ${d.groupId||1}`;
       setText('hudGroup', label);
-      DOC.body.dataset.groupId = String(d.groupId||1);
+      // theme is driven by engine via body.dataset.groupId
     }, { passive:true });
 
     ROOT.addEventListener('hha:end', (ev)=>{
@@ -340,10 +351,8 @@ Food Groups VR — PRODUCTION (FULL)
       $('startOverlay').style.display = 'none';
 
       const layer = $('fgLayer');
-      if (!ROOT.GroupsVR || !ROOT.GroupsVR.GameEngine) {
-        console.warn('GroupsVR.GameEngine not ready');
-        return;
-      }
+      if (!ROOT.GroupsVR || !ROOT.GroupsVR.GameEngine) return;
+
       ROOT.GroupsVR.GameEngine.setLayerEl(layer);
       ROOT.GroupsVR.GameEngine.start(diff, { time, runMode, style, seed });
 
@@ -362,22 +371,15 @@ Food Groups VR — PRODUCTION (FULL)
       location.href = `${location.pathname}?diff=${encodeURIComponent(diff)}&time=${encodeURIComponent(time)}&runMode=${encodeURIComponent(runMode)}&style=${encodeURIComponent(style)}&seed=${encodeURIComponent(Date.now())}&hubUrl=${encodeURIComponent(hubUrl)}`;
     };
 
-    $('btnBackHub').onclick = ()=>{
-      // flush last summary (already saved)
-      location.href = hubUrl;
-    };
+    $('btnBackHub').onclick = ()=>{ location.href = hubUrl; };
 
-    // flush-hardened
     ROOT.addEventListener('pagehide', ()=>{ stopGame('pagehide'); }, { passive:true });
     DOC.addEventListener('visibilitychange', ()=>{
       if (DOC.visibilityState === 'hidden') stopGame('hidden');
     }, { passive:true });
 
-    // Boot and ready
     await bootAll();
-    // show default time
     setText('hudTime', time);
-
   </script>
 
 </body>
