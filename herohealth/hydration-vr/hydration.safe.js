@@ -1,9 +1,9 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Boss Mini + Research Logging)
-// ✅ PATCH 7–9 (NEW):
-// (7) Cardboard HUD mirror: update both eyes always
-// (8) Shoot event: center-ray shoot + touch fallback
-// (9) Cardboard quest compact + never disappear
+// HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Boss Mini)
+// ✅ PATCH 7–9: Cardboard HUD mirror + shoot center-ray + mirrored spawn layers
+// ✅ PATCH 10: Storm warning (2s) + beep + pulse + mild shake
+// ✅ PATCH 11: Rich end summary payload (timeInGreen, stormRate, etc) -> html overlay fills it
+// ✅ PATCH 12: Balance: Green streak bonus + storm bonuses tuned + grade mapping more fair
 
 'use strict';
 
@@ -41,7 +41,7 @@ function makeRng(seedStr){
   };
 }
 
-// audio (best-effort)
+// audio
 let _AC=null;
 function ensureAC(){
   try{
@@ -98,6 +98,8 @@ const elQuest2 = DOC.getElementById('quest-line2');
 const elQuest3 = DOC.getElementById('quest-line3');
 const elQuest4 = DOC.getElementById('quest-line4');
 
+const elCoachMsg = DOC.getElementById('coach-msg');
+
 // ------------------ DOM bind (cardboard mirror) ------------------
 const cb = {
   on: DOC.body.classList.contains('is-cardboard'),
@@ -126,12 +128,9 @@ const cb = {
     mini: DOC.getElementById('cbR-mini')
   }
 };
+window.addEventListener('hvr:cardboard', (ev)=>{ cb.on = !!(ev?.detail && ev.detail.on); });
 
-window.addEventListener('hvr:cardboard', (ev)=>{
-  cb.on = !!(ev?.detail && ev.detail.on);
-});
-
-// ------------------ inject target styles (for all layers) ------------------
+// ------------------ target styles ------------------
 (function injectStyle(){
   const id = 'hvr-target-style';
   if (DOC.getElementById(id)) return;
@@ -170,6 +169,20 @@ window.addEventListener('hvr:cardboard', (ev)=>{
   DOC.head.appendChild(st);
 })();
 
+(function ensurePopKeyframes(){
+  const id='hvr-pop-keyframes';
+  if (DOC.getElementById(id)) return;
+  const st=DOC.createElement('style');
+  st.id=id;
+  st.textContent=`
+    @keyframes hvrPop{
+      0%{ opacity:0; transform: translate(-50%,-50%) scale(.88); }
+      15%{ opacity:1; }
+      100%{ opacity:0; transform: translate(-50%,-70%) scale(1.05); }
+    }`;
+  DOC.head.appendChild(st);
+})();
+
 // ------------------ gameplay state ------------------
 const S = {
   started:false,
@@ -201,6 +214,10 @@ const S = {
 
   greenHold: 0,
   greenTarget: 0,
+
+  // PATCH 12: green streak bonus
+  greenStreak: 0,
+  greenStreakMax: 0,
 
   stormActive:false,
   stormLeftSec:0,
@@ -235,7 +252,11 @@ const S = {
   stormSuccess: 0,
 
   _tickMark: -1,
-  _vibeOn:false,
+
+  // PATCH 10: warning
+  stormWarnOn:false,
+  stormWarnLeft:0,
+  stormWarnStep:-1,
 
   adaptiveOn: (run !== 'research'),
   adaptK: 0.0
@@ -273,6 +294,9 @@ const TUNE = (() => {
     badPush:    8.0,
     missPenalty: 1,
 
+    // PATCH 10: warning lead time
+    stormWarnLeadSec: 2.0,
+
     greenTargetSec: g,
     bossWindowSec: diff==='hard' ? 2.4 : 2.2
   };
@@ -291,11 +315,6 @@ S.endBadNeed = (diff === 'hard' ? 2 : 1);
   S.miniTotal = approx;
 })();
 
-// expose
-ROOT.__HVR__ = ROOT.__HVR__ || {};
-ROOT.__HVR__.S = S;
-ROOT.__HVR__.TUNE = TUNE;
-
 // ------------------ computed ------------------
 function computeAccuracy(){
   const denom = Math.max(1, S.nGoodSpawn);
@@ -305,11 +324,13 @@ function computeGrade(){
   const acc = computeAccuracy();
   const miss = S.misses|0;
   const mini = S.miniCleared|0;
-  if (acc >= 95 && miss <= 2 && mini >= 1) return 'SSS';
-  if (acc >= 90 && miss <= 4) return 'SS';
-  if (acc >= 82) return 'S';
-  if (acc >= 70) return 'A';
-  if (acc >= 55) return 'B';
+
+  // PATCH 12: mapping ยุติธรรมขึ้น (ไม่โหดเกิน)
+  if (acc >= 94 && miss <= 4 && mini >= 1) return 'SSS';
+  if (acc >= 88 && miss <= 8) return 'SS';
+  if (acc >= 80) return 'S';
+  if (acc >= 68) return 'A';
+  if (acc >= 54) return 'B';
   return 'C';
 }
 
@@ -328,6 +349,59 @@ function pushWaterBad(){
   const step = (d >= 0 ? +1 : -1) * TUNE.badPush;
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
+}
+
+// ------------------ active layers ------------------
+function getActiveLayers(){
+  if (cb.on && cb.L.layer && cb.R.layer && cb.L.play && cb.R.play){
+    return [
+      { play: cb.L.play, layer: cb.L.layer },
+      { play: cb.R.play, layer: cb.R.layer }
+    ];
+  }
+  return [{ play: playfield, layer: layerMain }];
+}
+
+// ------------------ shoot (center ray) ------------------
+function shootAtCenter(){
+  const packs = getActiveLayers();
+  for (const p of packs){
+    if (!p.play || !p.layer) continue;
+    const r = p.play.getBoundingClientRect();
+    const x = r.left + r.width*0.5;
+    const y = r.top + r.height*0.5;
+    const hit = document.elementFromPoint(x, y);
+    if (hit && hit.classList && hit.classList.contains('hvr-target')){
+      try{ hit.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerType:'mouse', isPrimary:true })); }catch{}
+      return;
+    }
+  }
+}
+window.addEventListener('hvr:shoot', ()=>shootAtCenter());
+
+// ------------------ FX pop ------------------
+function makePop(text, kind){
+  const packs = getActiveLayers();
+  for (const p of packs){
+    try{
+      const wrap = p.layer;
+      if (!wrap) continue;
+      const el = DOC.createElement('div');
+      el.textContent = text;
+      el.style.cssText = `
+        position:absolute; left:50%; top:46%;
+        transform:translate(-50%,-50%);
+        font-weight:1100;
+        text-shadow: 0 10px 26px rgba(0,0,0,.55);
+        pointer-events:none;
+        z-index: 50;
+        animation: hvrPop .55s ease forwards;
+        color:${kind==='good'?'rgba(34,197,94,.95)':kind==='shield'?'rgba(34,211,238,.95)':'rgba(239,68,68,.95)'};
+      `;
+      wrap.appendChild(el);
+      setTimeout(()=>{ try{ el.remove(); }catch{} }, 600);
+    }catch{}
+  }
 }
 
 // ------------------ spawn math ------------------
@@ -358,90 +432,48 @@ function targetSize(){
   return clamp(s, 44, 86);
 }
 
-// ------------------ PATCH 8: shoot (center ray) ------------------
-function getActiveLayers(){
-  if (cb.on && cb.L.layer && cb.R.layer && cb.L.play && cb.R.play){
-    return [
-      { play: cb.L.play, layer: cb.L.layer },
-      { play: cb.R.play, layer: cb.R.layer }
-    ];
-  }
-  return [{ play: playfield, layer: layerMain }];
-}
-
-function shootAtCenter(){
-  const packs = getActiveLayers();
-  for (const p of packs){
-    if (!p.play || !p.layer) continue;
-    const r = p.play.getBoundingClientRect();
-    const x = r.left + r.width*0.5;
-    const y = r.top + r.height*0.5;
-    const hit = document.elementFromPoint(x, y);
-    if (hit && hit.classList && hit.classList.contains('hvr-target')){
-      // simulate click
-      try{ hit.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerType:'mouse', isPrimary:true })); }catch{}
-      return;
-    }
-  }
-}
-window.addEventListener('hvr:shoot', ()=>shootAtCenter());
-
-// ------------------ FX pop (per active layers) ------------------
-function makePop(text, kind){
-  const packs = getActiveLayers();
-  for (const p of packs){
-    try{
-      const wrap = p.layer;
-      if (!wrap) continue;
-      const el = DOC.createElement('div');
-      el.textContent = text;
-      el.style.cssText = `
-        position:absolute; left:50%; top:46%;
-        transform:translate(-50%,-50%);
-        font-weight:1100;
-        text-shadow: 0 10px 26px rgba(0,0,0,.55);
-        pointer-events:none;
-        z-index: 50;
-        animation: hvrPop .55s ease forwards;
-        color:${kind==='good'?'rgba(34,197,94,.95)':kind==='shield'?'rgba(34,211,238,.95)':'rgba(239,68,68,.95)'};
-      `;
-      wrap.appendChild(el);
-      setTimeout(()=>{ try{ el.remove(); }catch{} }, 600);
-    }catch{}
-  }
-}
-
-// ensure keyframes exist
-(function ensurePopKeyframes(){
-  const id='hvr-pop-keyframes';
-  if (DOC.getElementById(id)) return;
-  const st=DOC.createElement('style');
-  st.id=id;
-  st.textContent=`
-    @keyframes hvrPop{
-      0%{ opacity:0; transform: translate(-50%,-50%) scale(.88); }
-      15%{ opacity:1; }
-      100%{ opacity:0; transform: translate(-50%,-70%) scale(1.05); }
-    }`;
-  DOC.head.appendChild(st);
-})();
-
-// ------------------ input throttle ------------------
 let lastHitAt = 0;
 const HIT_COOLDOWN_MS = 55;
 
-// ------------------ spawn (mirrored when cardboard) ------------------
+function shieldBoostP(){
+  const low = (S.shield<=0)?0.08:(S.shield===1?0.04:0.00);
+  const storm = S.stormActive?0.04:0.00;
+  const endW = (S.stormActive && S.inEndWindow && S.shield<=1)?0.06:0.00;
+  return clamp(low+storm+endW,0,0.18);
+}
+function pickKind(){
+  let pGood=0.66, pBad=0.28, pSh=0.06;
+  if (S.stormActive){
+    pGood=0.52; pBad=0.38; pSh=0.10;
+    if (S.bossActive){ pBad+=0.10; pGood-=0.10; }
+  }
+  if (diff==='hard'){ pBad+=0.04; pGood-=0.04; }
+  pSh = clamp(pSh + shieldBoostP(), 0.06, 0.22);
+  const over = (pSh+pBad+pGood) - 1;
+  if (over>0) pGood = Math.max(0.22, pGood-over);
+
+  const r=rng();
+  if (r<pSh) return 'shield';
+  if (r<pSh+pBad) return 'bad';
+  return 'good';
+}
+
+function nextSpawnDelay(){
+  let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
+  if (S.adaptiveOn) base *= (1.00 - 0.25 * S.adaptK);
+  if (S.stormActive) base *= TUNE.stormSpawnMul;
+  return clamp(base, 210, 1200);
+}
+
+// ------------------ spawn mirrored (cardboard) ------------------
 function spawn(kind){
   if (S.ended) return;
 
   const packs = getActiveLayers();
   const s = targetSize();
 
-  // compute once (same position for both eyes, looks consistent)
   let rect = null;
-  for (const p of packs){
-    if (p.play){ rect = p.play.getBoundingClientRect(); break; }
-  }
+  for (const p of packs){ if (p.play){ rect = p.play.getBoundingClientRect(); break; } }
   if (!rect) return;
 
   const { xPct, yPct } = pickXY(rect);
@@ -477,9 +509,11 @@ function spawn(kind){
       try{ el.remove(); }catch{}
       if (reason === 'expire'){
         if (kind === 'good') {
-          S.misses += TUNE.missPenalty;
+          S.misses += 1;
           S.nExpireGood++;
           S.combo = 0;
+          // PATCH 12: streak drop
+          S.greenStreak = Math.max(0, S.greenStreak - 2);
         }
       }
     }
@@ -488,8 +522,6 @@ function spawn(kind){
       ev.preventDefault();
       ev.stopPropagation();
       if (killed || S.ended) return;
-
-      if (ev.pointerType === 'touch' && ev.isPrimary === false) return;
 
       const t = performance.now();
       if (t - lastHitAt < HIT_COOLDOWN_MS) return;
@@ -500,29 +532,39 @@ function spawn(kind){
 
       if (kind === 'good'){
         S.nHitGood++;
-        S.score += 10 + Math.min(15, (S.combo|0));
+
+        // PATCH 12: Green streak bonus
+        if (S.waterZone === 'GREEN') {
+          S.greenStreak++;
+          S.greenStreakMax = Math.max(S.greenStreakMax, S.greenStreak);
+        } else {
+          S.greenStreak = Math.max(0, S.greenStreak - 1);
+        }
+
+        const streakBonus = (S.waterZone === 'GREEN') ? Math.min(12, Math.floor(S.greenStreak/3)) : 0;
+        const comboBonus = Math.min(15, (S.combo|0));
+
+        S.score += 10 + comboBonus + streakBonus;
         S.combo++;
         S.comboMax = Math.max(S.comboMax, S.combo);
         nudgeWaterGood();
-        makePop('+GOOD', 'good');
-        emit('hha:judge', { kind:'good' });
+
+        makePop(streakBonus>0 ? `+GOOD +${streakBonus}` : '+GOOD', 'good');
       }
       else if (kind === 'shield'){
-        S.score += 6;
+        S.score += 7;
         S.combo++;
         S.comboMax = Math.max(S.comboMax, S.combo);
         S.shield = clamp(S.shield + 1, 0, S.shieldMax);
         makePop('+SHIELD', 'shield');
-        emit('hha:judge', { kind:'shield' });
       }
       else { // bad
         const isBossBadNow = (el.dataset.boss === '1');
         if (S.shield > 0){
           S.shield--;
           S.nHitBadGuard++;
-          S.score += 4;
+          S.score += 5;
           makePop('BLOCK!', 'shield');
-          emit('hha:judge', { kind:'block' });
 
           if (S.stormActive && !S.miniState.doneThisStorm){
             S.miniState.blockedAny = true;
@@ -540,7 +582,8 @@ function spawn(kind){
           S.score = Math.max(0, S.score - 6);
           pushWaterBad();
           makePop('BAD!', 'bad');
-          emit('hha:judge', { kind:'bad' });
+          // streak drop harder
+          S.greenStreak = Math.max(0, S.greenStreak - 3);
         }
       }
 
@@ -551,46 +594,10 @@ function spawn(kind){
     setTimeout(()=>kill('expire'), life);
   }
 
-  // count spawn once (not per-eye)
+  // count once
   if (kind === 'good') S.nGoodSpawn++;
   if (kind === 'bad') S.nBadSpawn++;
   if (kind === 'shield') S.nShieldSpawn++;
-}
-
-// ------------------ spawner loop ------------------
-let spawnTimer = 0;
-let nextStormAt = 0;
-let stormIndex = 0;
-
-function nextSpawnDelay(){
-  let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
-  if (S.adaptiveOn) base *= (1.00 - 0.25 * S.adaptK);
-  if (S.stormActive) base *= TUNE.stormSpawnMul;
-  return clamp(base, 210, 1200);
-}
-
-function shieldBoostP(){
-  const low = (S.shield<=0)?0.08:(S.shield===1?0.04:0.00);
-  const storm = S.stormActive?0.04:0.00;
-  const endW = (S.stormActive && S.inEndWindow && S.shield<=1)?0.06:0.00;
-  return clamp(low+storm+endW,0,0.18);
-}
-function pickKind(){
-  let pGood=0.66, pBad=0.28, pSh=0.06;
-  if (S.stormActive){
-    pGood=0.52; pBad=0.38; pSh=0.10;
-    if (S.bossActive){ pBad+=0.10; pGood-=0.10; }
-  }
-  if (diff==='hard'){ pBad+=0.04; pGood-=0.04; }
-
-  pSh = clamp(pSh + shieldBoostP(), 0.06, 0.22);
-  const over = (pSh+pBad+pGood) - 1;
-  if (over>0) pGood = Math.max(0.22, pGood-over);
-
-  const r=rng();
-  if (r<pSh) return 'shield';
-  if (r<pSh+pBad) return 'bad';
-  return 'good';
 }
 
 // ------------------ storm logic ------------------
@@ -598,6 +605,9 @@ function enterStorm(){
   S.stormActive=true;
   S.stormLeftSec=S.stormDur;
   S.stormCycle++;
+
+  DOC.body.classList.add('storm-now');
+  DOC.body.classList.remove('storm-warn');
 
   S.miniState = { zoneOK:false, pressure:0, pressureOK:false, endWindow:false, blockedInEnd:false, blockedAny:false, doneThisStorm:false };
   S.bossActive=false; S.bossBlocked=0; S.bossDoneThisStorm=false;
@@ -609,6 +619,7 @@ function enterStorm(){
   }
   if (S.shield===0 && rng()<0.65) spawn('shield');
 
+  if (elCoachMsg) elCoachMsg.textContent = '⚠️ STORM! ออก GREEN + ทำ Mini ให้ผ่าน!';
   syncHUD();
 }
 
@@ -619,38 +630,39 @@ function evalStormMini(){
   return !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
 }
 
-function celebrate(kind='mini'){
-  emit('hha:celebrate', { kind });
-  emit('hha:coach', { mood:'happy', text: kind==='boss' ? 'BOSS ผ่านแล้ว! 👏' : 'Mini สำเร็จ! ✅' });
-}
-
 function exitStorm(){
   S.stormActive=false;
   S.stormLeftSec=0;
   S.inEndWindow=false;
 
+  DOC.body.classList.remove('storm-now');
+
+  // mini success
   if (!S.miniState.doneThisStorm){
     const ok=evalStormMini();
     if (ok){
       S.miniCleared++;
       S.stormSuccess++;
       S.miniState.doneThisStorm=true;
-      S.score += 35;
+
+      // PATCH 12: โบนัสหนักขึ้นใน storm
+      S.score += (diff==='hard' ? 46 : 38);
       makePop('MINI ✓', 'shield');
-      celebrate('mini');
     }
   }
+
+  // boss success
   if (!S.bossDoneThisStorm){
     if (S.bossBlocked >= S.bossNeed){
       S.bossDoneThisStorm=true;
       S.miniCleared++;
-      S.score += 45;
+      S.score += (diff==='hard' ? 56 : 48);
       makePop('BOSS ✓', 'shield');
-      celebrate('boss');
     }
   }
   S.bossActive=false;
 
+  if (elCoachMsg) elCoachMsg.textContent = 'กลับมาโหมดปกติ! เก็บ 💧 คุม GREEN ต่อ';
   syncHUD();
 }
 
@@ -676,6 +688,10 @@ function tickStorm(dt){
       S._tickMark = mark;
       const f = (S.stormLeftSec <= 0.35) ? 1050 : (S.stormLeftSec <= 0.8 ? 940 : 860);
       beep(f, 0.03, 0.022);
+
+      // mild shake tick
+      DOC.body.classList.add('storm-shake');
+      setTimeout(()=>DOC.body.classList.remove('storm-shake'), 190);
     }
     guaranteeEndBad();
     if (diff==='hard' && rng()<0.55) guaranteeEndBad();
@@ -696,12 +712,55 @@ function tickStorm(dt){
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
 
-// ------------------ HUD sync (normal + cardboard mirror) ------------------
+// ------------------ PATCH 10: storm warning manager ------------------
+function setWarn(on){
+  S.stormWarnOn = !!on;
+  DOC.body.classList.toggle('storm-warn', !!on);
+  if (!on){
+    S.stormWarnLeft = 0;
+    S.stormWarnStep = -1;
+  }
+}
+
+function tickWarn(timeToStorm){
+  const lead = TUNE.stormWarnLeadSec;
+  if (timeToStorm <= 0){
+    setWarn(false);
+    return;
+  }
+  if (timeToStorm > lead){
+    setWarn(false);
+    return;
+  }
+
+  // enable warning
+  if (!S.stormWarnOn){
+    setWarn(true);
+    S.stormWarnLeft = timeToStorm;
+    if (elCoachMsg) elCoachMsg.textContent = '⚠️ STORM กำลังมา! เตรียมออก GREEN + เก็บ 🛡️';
+  } else {
+    S.stormWarnLeft = timeToStorm;
+  }
+
+  // beep 2..1.. (step per second)
+  const step = Math.ceil(timeToStorm); // 2,1
+  if (step !== S.stormWarnStep){
+    S.stormWarnStep = step;
+    beep(step===1 ? 980 : 820, 0.05, 0.028);
+
+    // tiny shake
+    DOC.body.classList.add('storm-shake');
+    setTimeout(()=>DOC.body.classList.remove('storm-shake'), 190);
+
+    makePop(`STORM ${step}`, 'bad');
+  }
+}
+
+// ------------------ HUD sync ------------------
 function syncHUD(){
   const grade = computeGrade();
   const acc = computeAccuracy();
 
-  // normal
   setText(elScore, S.score|0);
   setText(elCombo, S.combo|0);
   if (elComboMax) setText(elComboMax, S.comboMax|0);
@@ -712,7 +771,7 @@ function syncHUD(){
   setText(elStormLeft, S.stormActive ? (S.stormLeftSec|0) : 0);
 
   setText(elQuest1, `คุม GREEN ให้ครบ ${S.greenTarget|0}s (สะสม)`);
-  setText(elQuest2, `GREEN: ${(S.greenHold).toFixed(1)} / ${(S.greenTarget).toFixed(0)}s`);
+  setText(elQuest2, `GREEN: ${(S.greenHold).toFixed(1)} / ${(S.greenTarget).toFixed(0)}s  •  Streak ${S.greenStreak|0}`);
 
   const m = S.miniState;
   const z = m.zoneOK ? '✅' : '❌';
@@ -724,17 +783,17 @@ function syncHUD(){
   let ruleTxt = (diff==='easy') ? 'Block(anytime) 1 ครั้ง'
               : (diff==='normal') ? 'Block(end) 1 ครั้ง'
               : 'Block(end)+BOSS';
-  setText(elQuest3, S.stormActive ? `Storm Mini: ${ruleTxt}` : `รอ Storm แล้วค่อยทำ Mini`);
+  setText(elQuest3, S.stormActive ? `Storm Mini: ${ruleTxt}` : `รอ Storm แล้วค่อยทำ Mini (โบนัสใหญ่)`);
   setText(elQuest4, S.stormActive
     ? (diff==='easy'
         ? `Mini ✓ Zone ${z} Pressure ${p} Block(any) ${bAny}`
         : `Mini ✓ Zone ${z} Pressure ${p} End ${e} Block(end) ${bEnd}`)
-    : `State: เก็บคะแนน + สะสม Shield`
+    : `State: เก็บ Shield ไว้ Block ช่วงท้าย STORM`
   );
 
   setWaterGauge(S.waterPct);
 
-  // cardboard mirror (always update so “ไม่หาย”)
+  // cardboard mirror (always update)
   const goalTxt = `GREEN ${S.greenTarget|0}s`;
   const progTxt = `${S.greenHold.toFixed(1)} / ${S.greenTarget.toFixed(0)}s`;
   const miniTxt = `${S.miniCleared|0}/${S.miniTotal|0}`;
@@ -773,7 +832,8 @@ function syncHUD(){
     stormActive: !!S.stormActive,
     stormLeftSec: S.stormLeftSec,
     stormCycle: S.stormCycle|0,
-    stormSuccess: S.stormSuccess|0
+    stormSuccess: S.stormSuccess|0,
+    greenStreak: S.greenStreak|0
   });
 
   emit('hha:time', { left: S.leftSec|0 });
@@ -789,7 +849,7 @@ function syncHUD(){
   });
 }
 
-// ------------------ end logging ------------------
+// ------------------ end logging (optional endpoint) ------------------
 async function sendLog(payload){
   if (!logEndpoint) return;
   try{
@@ -803,17 +863,27 @@ async function sendLog(payload){
 }
 
 // ------------------ main loop ------------------
+let spawnTimer = 0;
+let nextStormAt = 0;
+let stormIndex = 0;
+
 function update(dt){
   if (!S.started || S.ended) return;
 
   S.leftSec = Math.max(0, S.leftSec - dt);
 
+  // green time
   if (S.waterZone === 'GREEN') S.greenHold += dt;
 
   const elapsed = (now() - S.t0) / 1000;
 
   if (!S.stormActive){
+    // PATCH 10: warning when close to storm
+    const timeToStorm = nextStormAt - elapsed;
+    tickWarn(timeToStorm);
+
     if (elapsed >= nextStormAt && S.leftSec > (S.stormDur + 2)){
+      setWarn(false);
       enterStorm();
       stormIndex++;
       nextStormAt = (stormIndex + 1) * TUNE.stormEverySec;
@@ -837,10 +907,13 @@ async function endGame(reason){
   if (S.ended) return;
   S.ended = true;
 
+  DOC.body.classList.remove('storm-warn','storm-now','storm-shake');
+
   const grade = computeGrade();
   const acc = computeAccuracy();
   const stormRate = (S.stormCycle > 0) ? (S.stormSuccess / S.stormCycle) : 0;
 
+  // PATCH 11: rich summary payload
   const summary = {
     timestampIso: qs('timestampIso', new Date().toISOString()),
     projectTag: qs('projectTag', 'HeroHealth'),
@@ -861,6 +934,10 @@ async function endGame(reason){
     miniCleared: S.miniCleared|0,
     miniTotal: S.miniTotal|0,
 
+    timeInGreenSec: Math.round(S.greenHold*10)/10,
+    greenTargetSec: S.greenTarget|0,
+    greenStreakMax: S.greenStreakMax|0,
+
     stormCycles: S.stormCycle|0,
     stormSuccess: S.stormSuccess|0,
     stormRatePct: Math.round(stormRate * 1000) / 10,
@@ -874,7 +951,7 @@ async function endGame(reason){
     nHitJunkGuard: S.nHitBadGuard|0,
     nExpireGood: S.nExpireGood|0,
 
-    accuracyGoodPct: acc,
+    accuracyGoodPct: Math.round(acc*10)/10,
     grade,
     reason: reason || 'end'
   };
@@ -900,7 +977,6 @@ async function waitStartGate(){
   if (isHidden()) return;
 
   await new Promise((resolve)=>{
-    // also resolve if user triggers explicit start event
     const onStart = ()=>{ cleanup(); resolve(); };
     const mo = new MutationObserver(()=>{
       if (!ov.isConnected || isHidden()){
@@ -911,10 +987,8 @@ async function waitStartGate(){
       try{ mo.disconnect(); }catch{}
       window.removeEventListener('hvr:user_start', onStart);
     }
-
     window.addEventListener('hvr:user_start', onStart);
     mo.observe(ov, { attributes:true, attributeFilter:['style','class','hidden'] });
-
     setTimeout(()=>{ cleanup(); resolve(); }, 25000);
   });
 }
@@ -941,6 +1015,7 @@ async function boot(){
   nextStormAt = TUNE.stormEverySec;
   stormIndex = 0;
 
+  if (elCoachMsg) elCoachMsg.textContent = 'เริ่มแล้ว! คุม GREEN + เก็บ 🛡️ ไว้ Block ช่วง STORM';
   syncHUD();
 
   function raf(t){
@@ -963,12 +1038,10 @@ async function boot(){
     if (!S.ended) endGame(d.reason || 'force');
   });
 
-  // Touch anywhere in cardboard = shoot (optional)
+  // touch anywhere in cardboard = shoot (optional)
   document.addEventListener('pointerdown', (ev)=>{
     if (!cb.on) return;
-    // allow only single primary touch
     if (ev.pointerType === 'touch' && ev.isPrimary === false) return;
-    // don’t steal button taps (they already call shoot)
     const t = ev.target;
     if (t && t.closest && t.closest('button')) return;
     window.dispatchEvent(new CustomEvent('hvr:shoot'));
