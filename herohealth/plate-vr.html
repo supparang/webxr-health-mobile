@@ -1,3 +1,14 @@
+<!-- === /herohealth/plate/plate-vr.html ===
+Balanced Plate VR — PRODUCTION HTML
+✅ Works with plate.safe.js (SAFE + FLUSH-HARDENED + FUN PACK)
+✅ Provides ALL required DOM ids:
+  plate-layer, hitFx,
+  hudTop, miniPanel, hudBtns, coachPanel,
+  btnStart, startOverlay,
+  btnPause, hudPaused, btnRestart, btnBackHub, btnPlayAgain, btnEnterVR,
+  resultBackdrop (rScore/rG1..rG5 etc.)
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -5,334 +16,258 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" />
 
-  <!-- A-Frame (สำหรับปุ่ม Enter VR / Cardboard) -->
+  <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + Logger + HUD Binder (ถ้ามีในโปรเจกต์) -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-  <script src="./vr/hha-hud.js" defer></script>
+  <!-- Styles -->
+  <link rel="stylesheet" href="./plate-vr.css?v=20251229" />
 
-  <!-- UI CSS -->
-  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251229" />
+  <!-- Global FX + Logger (optional) -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Plate SAFE (IIFE) -->
-  <script src="./plate/plate.safe.js?v=20251229" defer></script>
+  <!-- HUD binder (this file) -->
+  <script src="./plate-hud.js?v=20251229" defer></script>
+
+  <!-- Game -->
+  <script src="./plate.safe.js?v=20251229" defer></script>
 </head>
 
 <body>
-
-  <!-- A-Frame scene (อยู่ “หลังสุด”) -->
+  <!-- Background VR scene (minimal) -->
   <a-scene
+    id="scene"
     embedded
+    renderer="antialias: true; colorManagement: true"
     vr-mode-ui="enabled: true"
-    renderer="antialias: true; alpha: true"
-    style="position:fixed; inset:0; z-index:0;"
+    style="position:fixed; inset:0; z-index:1;"
   >
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera wasd-controls-enabled="false" look-controls-enabled="true"></a-camera>
-    </a-entity>
     <a-sky color="#020617"></a-sky>
+    <a-entity light="type: ambient; intensity: 0.85"></a-entity>
+    <a-entity light="type: directional; intensity: 0.55" position="1 2 1"></a-entity>
+
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera wasd-controls="enabled:false" look-controls="pointerLockEnabled:false"></a-camera>
+    </a-entity>
   </a-scene>
 
-  <!-- DOM play layer (เป้าเกิดที่นี่) -->
-  <div id="plate-layer" class="plate-layer" aria-label="Plate play layer"></div>
+  <!-- DOM Play layer for targets (required) -->
+  <div id="plate-layer" aria-label="plate-layer"></div>
 
-  <!-- Hit FX overlay (plate.safe.js จะ pulse อันนี้) -->
-  <div id="hitFx" class="hha-hitfx" aria-hidden="true"></div>
+  <!-- Hit FX overlay (required) -->
+  <div id="hitFx" aria-hidden="true"></div>
 
-  <!-- HUD TOP (ใช้เป็น exclusion safe-zone ด้วย) -->
-  <div id="hudTop" class="hudTop">
+  <!-- TOP HUD (required: hudTop) -->
+  <header id="hudTop">
     <div class="hudRow">
-      <div class="hudPill">
-        <div class="hudLbl">⏱️</div>
-        <div class="hudVal" id="hudTime">90</div>
+      <div class="hudStat">
+        <div class="k">SCORE</div>
+        <div class="v" id="uiScore">0</div>
       </div>
 
-      <div class="hudPill">
-        <div class="hudLbl">🏆</div>
-        <div class="hudVal" id="hudScore">0</div>
+      <div class="hudStat">
+        <div class="k">COMBO</div>
+        <div class="v"><span id="uiCombo">0</span> <span class="muted">/</span> <span id="uiComboMax">0</span></div>
       </div>
 
-      <div class="hudPill">
-        <div class="hudLbl">🔥</div>
-        <div class="hudVal" id="hudCombo">0</div>
-        <div class="hudSub">max <span id="hudComboMax">0</span></div>
+      <div class="hudStat">
+        <div class="k">MISS</div>
+        <div class="v" id="uiMiss">0</div>
       </div>
 
-      <div class="hudPill danger">
-        <div class="hudLbl">❌</div>
-        <div class="hudVal" id="hudMiss">0</div>
+      <div class="hudStat plateChip">
+        <div class="k">PLATE</div>
+        <div class="v"><span id="uiPlateHave">0</span><span class="muted">/5</span></div>
       </div>
 
-      <div class="hudPill plate">
-        <div class="hudLbl">🍽️</div>
-        <div class="hudVal"><span id="plateHave">0</span>/<span id="plateTotal">5</span></div>
-        <div class="hudSub">ครบ 5 หมู่</div>
+      <div class="hudStat gradeChip">
+        <div class="k">GRADE</div>
+        <div class="v"><span id="uiGrade">C</span> <span class="muted" id="uiAcc">0%</span></div>
+      </div>
+
+      <div class="hudStat timeChip">
+        <div class="k">TIME</div>
+        <div class="v"><span id="uiTime">90</span><span class="muted">s</span></div>
       </div>
     </div>
 
-    <!-- Fever / Shield bar (เผื่อ HUD binder อัปเดต) -->
-    <div class="barRow">
-      <div class="barWrap">
-        <div class="barLbl">FEVER</div>
-        <div class="bar">
-          <div class="barFill" id="feverFill" style="width:0%"></div>
+    <div class="hudRow2">
+      <div class="feverWrap">
+        <div class="feverLabel">FEVER</div>
+        <div class="feverBar">
+          <div class="feverFill" id="uiFeverFill"></div>
         </div>
-        <div class="barTxt"><span id="feverVal">0</span>%</div>
+        <div class="shieldPill" id="uiShield" title="Shield">
+          🛡️ <span id="uiShieldN">0</span>
+        </div>
       </div>
-      <div class="shieldWrap">
-        <div class="shieldIcon" id="shieldIcon" title="Shield">🛡️</div>
-        <div class="shieldTxt" id="shieldTxt">0</div>
+
+      <div class="plateCounts">
+        <span class="pill">🥦 <b id="uiG1">0</b></span>
+        <span class="pill">🍎 <b id="uiG2">0</b></span>
+        <span class="pill">🐟 <b id="uiG3">0</b></span>
+        <span class="pill">🍚 <b id="uiG4">0</b></span>
+        <span class="pill">🥑 <b id="uiG5">0</b></span>
       </div>
     </div>
-  </div>
+  </header>
 
-  <!-- HUD Buttons (ใช้เป็น exclusion safe-zone ด้วย) -->
-  <div id="hudBtns" class="hudBtns">
-    <button id="btnPause" class="btn ghost" type="button">⏸️ พัก</button>
-    <button id="btnEnterVR" class="btn" type="button">🕶️ Enter VR</button>
-    <button id="btnRestart" class="btn warn" type="button">🔄 Restart</button>
-    <button id="btnBackHub" class="btn danger" type="button">🏠 HUB</button>
-  </div>
-
-  <!-- Quest / Mini Panel (ใช้เป็น exclusion safe-zone ด้วย) -->
-  <div id="miniPanel" class="miniPanel">
-    <div class="qBlock">
-      <div class="qTitle">🎯 GOAL</div>
-      <div class="qMain" id="goalTitle">—</div>
-      <div class="qMeta"><span id="goalCount">0/0</span></div>
-    </div>
-
-    <div class="qBlock">
-      <div class="qTitle">⚡ MINI</div>
-      <div class="qMain" id="miniTitle">—</div>
-      <div class="qMeta">
-        <span id="miniCount">0/0</span>
-        <span class="dot">•</span>
-        <span id="miniTimer">00.0</span>
-      </div>
-      <div class="qHint" id="miniHint"> </div>
-    </div>
-  </div>
-
-  <!-- Coach panel (ใช้เป็น exclusion safe-zone ด้วย) -->
-  <div id="coachPanel" class="coachPanel">
+  <!-- COACH PANEL (required: coachPanel) -->
+  <aside id="coachPanel">
     <img
       id="coachImg"
-      class="coachImg"
-      src="./img/coach-neutral.png"
+      src="../img/coach-neutral.png"
       alt="Coach"
-      loading="lazy"
+      draggable="false"
     />
-    <div class="coachText" id="coachText">พร้อมแล้วกดเริ่มได้เลย 😊</div>
+    <div class="coachText">
+      <div class="coachName">Hero Coach</div>
+      <div class="coachMsg" id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+    </div>
+  </aside>
+
+  <!-- QUEST PANEL (required: miniPanel) -->
+  <section id="miniPanel">
+    <div class="questBlock">
+      <div class="questHdr">
+        <span class="badge badgeGoal">GOAL</span>
+        <span class="qTitle" id="uiGoalTitle">—</span>
+        <span class="qCount" id="uiGoalCount">0/0</span>
+      </div>
+      <div class="bar">
+        <div class="barFill" id="uiGoalFill"></div>
+      </div>
+    </div>
+
+    <div class="questBlock">
+      <div class="questHdr">
+        <span class="badge badgeMini">MINI</span>
+        <span class="qTitle" id="uiMiniTitle">—</span>
+        <span class="qCount"><span id="uiMiniCount">0/0</span> · <span id="uiMiniTime">--</span></span>
+      </div>
+      <div class="bar">
+        <div class="barFill mini" id="uiMiniFill"></div>
+      </div>
+      <div class="hint" id="uiHint">ทริค: เก็บให้ครบ 5 หมู่ไว ๆ แล้วคุมความแม่นยำ!</div>
+    </div>
+  </section>
+
+  <!-- BUTTONS (required: hudBtns) -->
+  <nav id="hudBtns">
+    <button class="btn ghost" id="btnPause" type="button">⏸ Pause</button>
+    <button class="btn ghost" id="btnRestart" type="button">🔁 Restart</button>
+    <button class="btn" id="btnEnterVR" type="button">🕶 Enter VR</button>
+  </nav>
+
+  <!-- PAUSED overlay (required: hudPaused) -->
+  <div id="hudPaused">
+    <div class="pausedCard">
+      <div class="pausedTitle">Paused</div>
+      <div class="pausedText">แตะปุ่ม Pause อีกครั้งเพื่อเล่นต่อ</div>
+    </div>
   </div>
 
-  <!-- Paused badge -->
-  <div id="hudPaused" class="pausedBadge" style="display:none;">⏸️ PAUSED</div>
-
-  <!-- Start Overlay -->
-  <div id="startOverlay" class="startOverlay">
+  <!-- START overlay (required: startOverlay + btnStart) -->
+  <div id="startOverlay">
     <div class="startCard">
-      <div class="startTitle">🍽️ Balanced Plate VR</div>
+      <div class="startTitle">🥗 Balanced Plate VR</div>
       <div class="startSub">
-        เป้าหมาย: เก็บอาหารให้ครบ 5 หมู่ + ทำ Goal/Mini ให้ผ่าน<br/>
-        <span class="muted">Tip: ⭐ สะสม 2 ดวงเพื่อ OVERDRIVE x2</span>
+        โหมดสนุก + ภารกิจโหด!<br/>
+        <span class="muted">Plate Rush: ครบ 5 หมู่ใน 8 วิ + ห้ามโดนขยะ</span>
       </div>
 
-      <div class="startGrid">
-        <div class="startPill">
-          <div class="pillK">โหมด</div>
-          <div class="pillV"><span id="uiRunMode">play / research</span> (ใช้พารามิเตอร์ URL)</div>
-        </div>
-        <div class="startPill">
-          <div class="pillK">diff</div>
-          <div class="pillV"><span id="uiDiff">easy/normal/hard</span></div>
-        </div>
-        <div class="startPill">
-          <div class="pillK">time</div>
-          <div class="pillV"><span id="uiTime">30–600</span> วินาที</div>
-        </div>
-        <div class="startPill">
-          <div class="pillK">seed</div>
-          <div class="pillV"><span id="uiSeed">auto</span></div>
-        </div>
+      <div class="startMeta">
+        <div class="metaPill">diff: <b id="uiDiffPreview">normal</b></div>
+        <div class="metaPill">time: <b id="uiTimePreview">90</b>s</div>
+        <div class="metaPill">run: <b id="uiRunPreview">play</b></div>
       </div>
 
-      <button id="btnStart" class="btnStart" type="button">🚀 เริ่มเล่น</button>
+      <div class="startBtns">
+        <button class="btn big" id="btnStart" type="button">▶ Start</button>
+        <button class="btn ghost big" id="btnEnterVR2" type="button">🕶 Enter VR</button>
+      </div>
 
       <div class="startFoot">
-        ตัวอย่าง URL:
-        <code>?run=play&diff=normal&time=70</code>
-        หรือ
-        <code>?run=research&diff=hard&time=70&seed=123</code>
+        Tip: บน iOS อาจต้องกด Start ก่อนเพื่อขอสิทธิ์ motion
       </div>
     </div>
   </div>
 
-  <!-- Result Overlay -->
-  <div id="resultBackdrop" class="resultBackdrop" style="display:none;">
+  <!-- RESULT overlay (required: resultBackdrop + rScore/rG1..rG5 etc.) -->
+  <div id="resultBackdrop" style="display:none;">
     <div class="resultCard">
-      <div class="resultTop">
-        <div class="resultTitle">📊 สรุปผล</div>
-        <div class="resultBadge">
-          <span id="rMode">play</span>
-          <span class="sep">•</span>
-          Grade <b id="rGrade">C</b>
+      <div class="resultTitle">🏁 สรุปผล</div>
+
+      <div class="resultGrid">
+        <div class="resultItem">
+          <div class="k">MODE</div><div class="v" id="rMode">play</div>
+        </div>
+        <div class="resultItem">
+          <div class="k">GRADE</div><div class="v" id="rGrade">C</div>
+        </div>
+        <div class="resultItem">
+          <div class="k">SCORE</div><div class="v" id="rScore">0</div>
+        </div>
+        <div class="resultItem">
+          <div class="k">MAX COMBO</div><div class="v" id="rMaxCombo">0</div>
+        </div>
+        <div class="resultItem">
+          <div class="k">MISS</div><div class="v" id="rMiss">0</div>
+        </div>
+        <div class="resultItem">
+          <div class="k">FAST HIT</div><div class="v" id="rPerfect">0</div>
+        </div>
+        <div class="resultItem">
+          <div class="k">GOALS</div><div class="v" id="rGoals">0/0</div>
+        </div>
+        <div class="resultItem">
+          <div class="k">MINIS</div><div class="v" id="rMinis">0/0</div>
         </div>
       </div>
 
-      <div class="resultGrid">
-        <div class="stat">
-          <div class="k">Score</div>
-          <div class="v" id="rScore">0</div>
+      <div class="resultPlate">
+        <div class="plateRow">
+          <span class="pill">🥦 หมู่1 <b id="rG1">0</b></span>
+          <span class="pill">🍎 หมู่2 <b id="rG2">0</b></span>
+          <span class="pill">🐟 หมู่3 <b id="rG3">0</b></span>
+          <span class="pill">🍚 หมู่4 <b id="rG4">0</b></span>
+          <span class="pill">🥑 หมู่5 <b id="rG5">0</b></span>
         </div>
-        <div class="stat">
-          <div class="k">Max Combo</div>
-          <div class="v" id="rMaxCombo">0</div>
-        </div>
-        <div class="stat danger">
-          <div class="k">Miss</div>
-          <div class="v" id="rMiss">0</div>
-        </div>
-        <div class="stat">
-          <div class="k">Fast Hit</div>
-          <div class="v" id="rPerfect">0</div>
-        </div>
-
-        <div class="stat wide">
-          <div class="k">Goals</div>
-          <div class="v"><span id="rGoals">0/0</span></div>
-        </div>
-        <div class="stat wide">
-          <div class="k">Minis</div>
-          <div class="v"><span id="rMinis">0/0</span></div>
-        </div>
-
-        <div class="plateBox">
-          <div class="plateHdr">🍽️ Plate (5 หมู่)</div>
-          <div class="plateRows">
-            <div class="row"><span>🥦 ผัก</span> <b id="rG1">0</b></div>
-            <div class="row"><span>🍎 ผลไม้</span> <b id="rG2">0</b></div>
-            <div class="row"><span>🍗 โปรตีน</span> <b id="rG3">0</b></div>
-            <div class="row"><span>🍚 แป้ง</span> <b id="rG4">0</b></div>
-            <div class="row"><span>🥑 ไขมัน</span> <b id="rG5">0</b></div>
-          </div>
-          <div class="plateSum">รวมทั้งหมด: <b id="rGTotal">0</b></div>
-        </div>
+        <div class="totalRow">รวมทั้งหมด: <b id="rGTotal">0</b></div>
       </div>
 
       <div class="resultBtns">
-        <button id="btnPlayAgain" class="btn" type="button">🔁 เล่นอีกครั้ง</button>
-        <button id="btnBackHub2" class="btn danger" type="button">🏠 กลับ HUB</button>
-      </div>
-
-      <div class="resultNote muted">
-        * ระบบบันทึกผลล่าสุดไว้ใน <code>localStorage:HHA_LAST_SUMMARY</code>
+        <button class="btn ghost" id="btnBackHub" type="button">↩ กลับ HUB</button>
+        <button class="btn" id="btnPlayAgain" type="button">🔁 เล่นอีกครั้ง</button>
       </div>
     </div>
   </div>
 
-  <!-- Tiny glue: plate counter + quest/hud fallbacks (ปลอดภัย) -->
   <script>
-    // Plate counter (0/5) live
-    window.addEventListener('hha:plate', (e) => {
-      try {
-        const d = (e && e.detail) || {};
-        const have = (d.have ?? 0) | 0;
-        const total = (d.total ?? 5) | 0;
-        const a = document.getElementById('plateHave');
-        const b = document.getElementById('plateTotal');
-        if (a) a.textContent = have;
-        if (b) b.textContent = total;
-      } catch {}
-    });
+    // Small helper: mirror EnterVR button in start overlay (optional)
+    (function(){
+      var b = document.getElementById('btnEnterVR2');
+      if (!b) return;
+      b.addEventListener('click', function(){
+        try{
+          var scene = document.querySelector('a-scene');
+          if (scene && scene.enterVR) scene.enterVR();
+        }catch(e){}
+      }, { passive:true });
 
-    // Quest panel minimal binder (ถ้า hha-hud.js ไม่ได้ผูก)
-    window.addEventListener('quest:update', (e) => {
-      try {
-        const d = (e && e.detail) || {};
-        const gt = document.getElementById('goalTitle');
-        const gc = document.getElementById('goalCount');
-        const mt = document.getElementById('miniTitle');
-        const mc = document.getElementById('miniCount');
-        const tm = document.getElementById('miniTimer');
-        const hint = document.getElementById('miniHint');
-
-        if (gt) gt.textContent = d.goalTitle || '—';
-        if (gc) gc.textContent = ((d.goalNow|0) + '/' + (d.goalTotal|0));
-        if (mt) mt.textContent = d.miniTitle || '—';
-        if (mc) mc.textContent = ((d.miniNow|0) + '/' + (d.miniTotal|0));
-
-        const left = (d.miniLeftMs|0);
-        if (tm) tm.textContent = left ? (Math.max(0,left)/1000).toFixed(1) : '—';
-        if (hint) hint.textContent = (d.extra && d.extra.hint) ? d.extra.hint : '';
-      } catch {}
-    });
-
-    // Score/time minimal binder (ถ้า hha-hud.js ไม่ได้ผูก)
-    window.addEventListener('hha:score', (e) => {
-      try {
-        const d = (e && e.detail) || {};
-        const s = document.getElementById('hudScore');
-        const c = document.getElementById('hudCombo');
-        const m = document.getElementById('hudComboMax');
-        const x = document.getElementById('hudMiss');
-        if (s) s.textContent = (d.score|0);
-        if (c) c.textContent = (d.combo|0);
-        if (m) m.textContent = (d.comboMax|0);
-        if (x) x.textContent = (d.misses|0);
-      } catch {}
-    });
-    window.addEventListener('hha:time', (e) => {
-      try {
-        const d = (e && e.detail) || {};
-        const t = document.getElementById('hudTime');
-        if (t) t.textContent = (d.left|0);
-      } catch {}
-    });
-    window.addEventListener('hha:coach', (e) => {
-      try {
-        const d = (e && e.detail) || {};
-        const img = document.getElementById('coachImg');
-        const txt = document.getElementById('coachText');
-        if (txt && d.text) txt.textContent = d.text;
-
-        if (img && d.mood) {
-          const mood = String(d.mood);
-          const map = {
-            happy: './img/coach-happy.png',
-            sad: './img/coach-sad.png',
-            fever: './img/coach-fever.png',
-            neutral: './img/coach-neutral.png'
-          };
-          img.src = map[mood] || map.neutral;
-        }
-      } catch {}
-    });
-    window.addEventListener('hha:fever', (e) => {
-      try {
-        const d = (e && e.detail) || {};
-        const v = Math.max(0, Math.min(100, (d.fever|0)));
-        const fill = document.getElementById('feverFill');
-        const val = document.getElementById('feverVal');
-        const shieldTxt = document.getElementById('shieldTxt');
-        if (fill) fill.style.width = v + '%';
-        if (val) val.textContent = v;
-        if (shieldTxt) shieldTxt.textContent = (d.shield|0);
-      } catch {}
-    });
-
-    // Result "Back HUB" button inside overlay
-    document.addEventListener('click', (ev) => {
-      const id = ev && ev.target && ev.target.id;
-      if (id === 'btnBackHub2') {
-        try { (window.PlateBoot && PlateBoot.goHub) ? PlateBoot.goHub() : (location.href = './hub.html'); } catch {}
-      }
-    });
+      // Preview query params
+      try{
+        var u = new URL(location.href);
+        var diff = u.searchParams.get('diff') || 'normal';
+        var time = u.searchParams.get('time') || '90';
+        var run  = u.searchParams.get('run') || u.searchParams.get('runMode') || 'play';
+        document.getElementById('uiDiffPreview').textContent = String(diff);
+        document.getElementById('uiTimePreview').textContent = String(time);
+        document.getElementById('uiRunPreview').textContent  = String(run);
+      }catch(e){}
+    })();
   </script>
-
 </body>
 </html>
