@@ -1,10 +1,13 @@
 // === /herohealth/hub.safe.js ===
-// HeroHealth HUB (PRODUCTION ++ HISTORY + CSV + Copy Link Row)
+// HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
 // ✅ อ่าน localStorage: HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-// ✅ ตาราง 4 เกมล่าสุด (เรียงตามเวลาใหม่สุดจริง) + คลิกแถวเพื่อ Replay
-// ✅ กดค้าง/คลิกขวาแถวเพื่อ Copy ลิงก์รอบนั้น
-// ✅ Export CSV (last / recent4 / history_all)
+// ✅ ตาราง 4 เกมล่าสุด + ปุ่ม replay/copy/export/clear
+// ✅ Export CSV (last / recent4)
 // ✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run/runMode, diff, time, seed, + research ctx)
+//
+// หมายเหตุเรื่องความเข้ากันได้:
+// - ส่งทั้ง run และ runMode (play / research) เผื่อแต่ละเกมอ่านคนละคีย์
+// - ส่งทั้ง time และ duration (บางเกมใช้ time, บางเกมอาจใช้ durationPlannedSec)
 
 'use strict';
 
@@ -13,6 +16,7 @@ const LS_HIST = 'HHA_SUMMARY_HISTORY';
 const LS_CTX  = 'HHA_STUDY_CTX';
 
 const PASS_KEYS = [
+  // research/session context (ถ้ามีติดมากับ URL หรือเก็บไว้ใน localStorage)
   'projectTag','studyId','phase','condition','conditionGroup','sessionOrder','blockLabel',
   'siteCode','schoolYear','semester',
   'sessionId','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
@@ -27,7 +31,7 @@ const GAME_MAP = {
   groups:    { tag:'groups',    name:'🍎 Groups VR',    path:'./vr-groups/groups-vr.html' }
 };
 
-const DEFAULT_RESEARCH_SEED = 777777;
+const DEFAULT_RESEARCH_SEED = 777777; // deterministic default ถ้าไม่ใส่ seed ใน Research
 
 // ---------------- helpers ----------------
 const $ = (id) => document.getElementById(id);
@@ -61,6 +65,8 @@ function pick(obj, keys, fallback){
   return fallback;
 }
 function normalizeRun(selRunValue){
+  // UI: play | study
+  // URL: play | research
   return (String(selRunValue || '').toLowerCase() === 'study') ? 'research' : 'play';
 }
 function normalizeDiff(v){
@@ -74,12 +80,24 @@ function getHubReturnUrl(){
   return u.toString();
 }
 
+// HTML escape (กันค่าใน localStorage แอบใส่ HTML)
+function htmlEscape(v){
+  const s = String(v ?? '');
+  return s
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
 async function copyText(text){
   const t = String(text ?? '');
   try{
     await navigator.clipboard.writeText(t);
     return true;
   }catch{
+    // fallback
     try{
       const ta = document.createElement('textarea');
       ta.value = t;
@@ -177,7 +195,9 @@ function flattenSummaryToRow(s){
   };
 
   row.seed = seed || pick(ctx, ['seed'], '');
+
   if (!row.timestampIso) row.timestampIso = nowIso();
+
   return row;
 }
 
@@ -241,17 +261,18 @@ function clearHist(){
   try{ localStorage.removeItem(LS_HIST); } catch {}
 }
 
-// ✅ NEW: sort history by timestamp (ใหม่สุดก่อน)
+// history sort (เผื่อบางเกม push แบบท้าย/หัวไม่เหมือนกัน)
 function getSortedHistory(){
   const hist = readHist();
-  return hist.slice().sort((a,b)=>{
-    const ta = Date.parse(pick(a, ['timestampIso','endTimeIso','timeIso'], '')) || 0;
-    const tb = Date.parse(pick(b, ['timestampIso','endTimeIso','timeIso'], '')) || 0;
-    return tb - ta;
+  const arr = Array.isArray(hist) ? hist.slice() : [];
+  arr.sort((a,b) => {
+    const ta = new Date(pick(a, ['timestampIso','endTimeIso','timeIso'], 0)).getTime();
+    const tb = new Date(pick(b, ['timestampIso','endTimeIso','timeIso'], 0)).getTime();
+    return (Number.isFinite(tb)?tb:0) - (Number.isFinite(ta)?ta:0);
   });
+  return arr;
 }
 
-// ------------- study ctx -------------
 function collectStudyCtx(){
   const ctx = {};
   const qp = new URLSearchParams(location.search);
@@ -271,25 +292,6 @@ function collectStudyCtx(){
 
   if (!ctx.projectTag) ctx.projectTag = 'HeroHealth';
   return ctx;
-}
-
-// ✅ NEW: ถ้าเข้า HUB ด้วย URL ที่มี ctx ให้ “จำ” ไว้ใน LS_CTX
-function saveStudyCtxFromUrl(){
-  try{
-    const qp = new URLSearchParams(location.search);
-    const ctx = {};
-    let hit = 0;
-    for (const k of PASS_KEYS){
-      if (qp.has(k)){
-        ctx[k] = qp.get(k);
-        hit++;
-      }
-    }
-    if (hit > 0){
-      if (!ctx.projectTag) ctx.projectTag = 'HeroHealth';
-      localStorage.setItem(LS_CTX, JSON.stringify(ctx));
-    }
-  }catch{}
 }
 
 // ------------- link builder / launcher -------------
@@ -394,6 +396,7 @@ function applyPreset(){
   if (diff === 'easy') t = 70;
   if (diff === 'normal') t = 70;
   if (diff === 'hard') t = 80;
+
   if (run === 'research') t = 70;
 
   const inpTime = $('inpTime');
@@ -482,8 +485,8 @@ function renderLast(){
 }
 
 function renderRecent(){
-  const sorted = getSortedHistory();
-  const recent = sorted.slice(0, 4);
+  const hist = getSortedHistory();
+  const recent = hist.slice(0, 4);
 
   const empty = $('recentEmpty');
   const panel = $('recentPanel');
@@ -501,12 +504,12 @@ function renderRecent(){
   if (panel) panel.style.display = '';
 
   if (hint){
-    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${sorted.length} • (คลิก=เล่น / กดค้าง=คัดลอกลิงก์)`;
+    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${hist.length}  (แตะ 1 ครั้ง = Copy / แตะ 2 ครั้ง = Play)`;
   }
 
   if (!tbody) return;
 
-  tbody.innerHTML = recent.map((s,i) => {
+  tbody.innerHTML = recent.map((s, idx) => {
     const gameTag = pick(s, ['gameTag','game','tag'], '');
     const gameName = GAME_MAP[gameTag]?.name || gameTag || '—';
     const runMode  = String(pick(s, ['runMode','run','mode'], '—')).toUpperCase();
@@ -522,26 +525,133 @@ function renderRecent(){
     const tIso     = pick(s, ['timestampIso','endTimeIso','timeIso'], '');
     const tText    = tIso ? fmtLocal(tIso) : '—';
 
-    const gradeHtml = `<span class="gradeTag ${gcls}">${grade}</span>`;
+    const gradeHtml = `<span class="gradeTag ${htmlEscape(gcls)}">${htmlEscape(grade)}</span>`;
 
     return `
-      <tr data-i="${i}">
-        <td>${csvEscape(tText)}</td>
-        <td class="tdGame">${csvEscape(gameName)}</td>
-        <td>${csvEscape(runMode)}</td>
-        <td>${csvEscape(diff)}</td>
-        <td>${csvEscape(score)}</td>
+      <tr data-i="${idx}">
+        <td>${htmlEscape(tText)}</td>
+        <td class="tdGame">${htmlEscape(gameName)}</td>
+        <td>${htmlEscape(runMode)}</td>
+        <td>${htmlEscape(diff)}</td>
+        <td>${htmlEscape(score)}</td>
         <td>${gradeHtml}</td>
-        <td>${csvEscape(miss)}</td>
-        <td>${csvEscape((gc||0) + '/' + (gt||0))}</td>
-        <td>${csvEscape((mc||0) + '/' + (mt||0))}</td>
+        <td>${htmlEscape(miss)}</td>
+        <td>${htmlEscape((gc||0) + '/' + (gt||0))}</td>
+        <td>${htmlEscape((mc||0) + '/' + (mt||0))}</td>
       </tr>
     `.trim();
   }).join('\n');
 }
 
 // ------------- actions -------------
+function bindRecentRowActions(){
+  const tbody = $('recentTbody');
+  if (!tbody) return;
+
+  let tapTimer = null;
+  let lastTapAt = 0;
+  let lastTapRowKey = '';
+  const DOUBLE_TAP_MS = 320;
+  const SINGLE_DELAY  = 240;
+
+  function getRowSummaryByIndex(i){
+    const recent = getSortedHistory().slice(0, 4);
+    return recent[i] || null;
+  }
+
+  async function copyRowLink(i){
+    const s = getRowSummaryByIndex(i);
+    if (!s) return false;
+    const u = buildGameUrlFromSummary(s);
+    if (!u) return false;
+
+    const ok = await copyText(u.toString());
+    const hint = $('historyHint');
+    if (hint){
+      hint.textContent = ok
+        ? 'คัดลอกลิงก์รอบนี้แล้ว ✅ (แตะ 2 ครั้งเพื่อเล่น)'
+        : 'คัดลอกไม่สำเร็จ — ลองคัดลอกเองจากแถบที่อยู่';
+    }
+    if (!ok) console.log(u.toString());
+    return ok;
+  }
+
+  function playRow(i){
+    const s = getRowSummaryByIndex(i);
+    if (!s) return;
+    const u = buildGameUrlFromSummary(s);
+    if (u) location.href = u.toString();
+  }
+
+  function rowKeyFromTr(tr){
+    const i = Number(tr.dataset.i);
+    if (!Number.isFinite(i)) return '';
+    const s = getRowSummaryByIndex(i);
+    const gameTag = pick(s, ['gameTag','game','tag'], '');
+    const ts = pick(s, ['timestampIso','endTimeIso','timeIso'], '');
+    return `${i}|${gameTag}|${ts}`;
+  }
+
+  // ✅ Single tap = copy (หลังหน่วงเล็กน้อยเพื่อรอดู double) / Double tap = play
+  tbody.addEventListener('click', (ev) => {
+    const tr = ev.target?.closest?.('tr');
+    if (!tr) return;
+
+    const i = Number(tr.dataset.i);
+    if (!Number.isFinite(i)) return;
+
+    const now = performance.now();
+    const key = rowKeyFromTr(tr);
+
+    if (tapTimer){
+      clearTimeout(tapTimer);
+      tapTimer = null;
+    }
+
+    const isDouble = (key === lastTapRowKey) && ((now - lastTapAt) <= DOUBLE_TAP_MS);
+
+    if (isDouble){
+      lastTapAt = 0;
+      lastTapRowKey = '';
+      playRow(i);
+      return;
+    }
+
+    lastTapAt = now;
+    lastTapRowKey = key;
+
+    tapTimer = setTimeout(() => {
+      tapTimer = null;
+      copyRowLink(i);
+    }, SINGLE_DELAY);
+  });
+
+  // ✅ Desktop-friendly: right click = copy ทันที
+  tbody.addEventListener('contextmenu', async (ev) => {
+    const tr = ev.target?.closest?.('tr');
+    if (!tr) return;
+    ev.preventDefault();
+    const i = Number(tr.dataset.i);
+    if (!Number.isFinite(i)) return;
+
+    if (tapTimer){
+      clearTimeout(tapTimer);
+      tapTimer = null;
+    }
+    await copyRowLink(i);
+  });
+
+  // ✅ ถ้าลาก/สกรอล ให้ยกเลิก single-tap ที่กำลังรอ
+  tbody.addEventListener('pointermove', () => {
+    if (tapTimer){
+      clearTimeout(tapTimer);
+      tapTimer = null;
+    }
+  }, { passive:true });
+}
+
 function bindButtons(){
+  // game select
   for (const el of Array.from(document.querySelectorAll('.gameBtn'))){
     el.addEventListener('click', () => setSelectedGame(el.dataset.game));
   }
@@ -590,17 +700,9 @@ function bindButtons(){
   });
 
   $('btnExportRecentCsv')?.addEventListener('click', () => {
-    const sorted = getSortedHistory();
-    const recent = sorted.slice(0, 4);
+    const recent = getSortedHistory().slice(0, 4);
     if (!recent.length) return;
     exportCsvForSummaries('recent4', recent);
-  });
-
-  // ✅ NEW: export all history
-  $('btnExportAllCsv')?.addEventListener('click', () => {
-    const hist = readHist();
-    if (!hist.length) return;
-    exportCsvForSummaries('history_all', hist);
   });
 
   $('btnClearLast')?.addEventListener('click', () => {
@@ -616,6 +718,7 @@ function bindButtons(){
   $('selRun')?.addEventListener('change', applyPreset);
   $('selDiff')?.addEventListener('change', applyPreset);
 
+  // launch on game card double click (ไว้เหมือนเดิม)
   for (const el of Array.from(document.querySelectorAll('.gameBtn'))){
     el.addEventListener('dblclick', () => {
       setSelectedGame(el.dataset.game);
@@ -635,96 +738,14 @@ function bindButtons(){
     });
   }
 
-  // ===== ✅ NEW: table row actions (click = replay, long-press/contextmenu = copy link) =====
-  const tbody = $('recentTbody');
-  if (!tbody) return;
-
-  let longPressed = false;
-  let pressTimer = null;
-
-  function getRowSummaryByIndex(i){
-    const sorted = getSortedHistory();
-    return sorted[i] || null;
-  }
-
-  async function copyRowLink(i){
-    const s = getRowSummaryByIndex(i);
-    if (!s) return false;
-    const u = buildGameUrlFromSummary(s);
-    if (!u) return false;
-    const ok = await copyText(u.toString());
-    const hint = $('historyHint');
-    if (hint){
-      hint.textContent = ok
-        ? 'คัดลอกลิงก์ของรอบนี้แล้ว ✅ (เอาไปแปะเปิดเล่นได้เลย)'
-        : 'คัดลอกไม่สำเร็จ — ลองกด Copy link ด้านซ้ายแทน';
-    }
-    return ok;
-  }
-
-  // click -> replay (ถ้าไม่ใช่ long-press)
-  tbody.addEventListener('click', (ev) => {
-    if (longPressed){
-      // กันไม่ให้กดค้างแล้วเด้งเข้าเกม
-      longPressed = false;
-      return;
-    }
-    const tr = ev.target?.closest?.('tr');
-    if (!tr) return;
-    const i = Number(tr.dataset.i);
-    if (!Number.isFinite(i)) return;
-
-    const s = getRowSummaryByIndex(i);
-    if (!s) return;
-
-    const u = buildGameUrlFromSummary(s);
-    if (u) location.href = u.toString();
-  });
-
-  // right-click / long-press that triggers contextmenu -> copy link
-  tbody.addEventListener('contextmenu', async (ev) => {
-    const tr = ev.target?.closest?.('tr');
-    if (!tr) return;
-    ev.preventDefault();
-    const i = Number(tr.dataset.i);
-    if (!Number.isFinite(i)) return;
-    longPressed = true;
-    await copyRowLink(i);
-    setTimeout(()=>{ longPressed = false; }, 350);
-  });
-
-  // touch long-press (มือถือชัวร์)
-  tbody.addEventListener('touchstart', (ev) => {
-    const tr = ev.target?.closest?.('tr');
-    if (!tr) return;
-    const i = Number(tr.dataset.i);
-    if (!Number.isFinite(i)) return;
-
-    longPressed = false;
-    clearTimeout(pressTimer);
-    pressTimer = setTimeout(async () => {
-      longPressed = true;
-      await copyRowLink(i);
-      setTimeout(()=>{ longPressed = false; }, 400);
-    }, 520); // กดค้าง ~0.5s
-  }, { passive:true });
-
-  tbody.addEventListener('touchmove', () => {
-    clearTimeout(pressTimer);
-  }, { passive:true });
-
-  tbody.addEventListener('touchend', () => {
-    clearTimeout(pressTimer);
-  }, { passive:true });
+  // ✅ bind row actions once
+  bindRecentRowActions();
 }
 
 // ------------- init -------------
 (function init(){
   renderNow();
   setInterval(renderNow, 1000);
-
-  // ✅ NEW: save ctx from URL once
-  saveStudyCtxFromUrl();
 
   setSelectedGame('goodjunk');
 
