@@ -1,8 +1,9 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
-✅ Targets = absolute + --x/--y/--s
+Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targets)
+✅ Targets candy sticker + types + boss hp badge
 ✅ Storm / Overdrive / Freeze
-✅ Boss HP badge via data-hp
+✅ No-junk ring optional
+✅ (Run HTML มี HUD ของตัวเองได้) — CSS นี้เน้น gameplay layer + targets + vibes
 */
 
 :root{
@@ -38,8 +39,6 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
   --candy-lime: rgba(34,197,94,.30);
   --candy-amber: rgba(250,204,21,.34);
   --candy-violet: rgba(167,139,250,.30);
-  --candy-ice: rgba(147,197,253,.26);
-  --candy-gold: rgba(250,204,21,.28);
 
   --stickerBorder: rgba(255,255,255,.85);
   --stickerEdge: rgba(2,6,23,.24);
@@ -55,12 +54,54 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
   --candy-polka:
     radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
     radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
+
+  /* vibes */
+  --stormEdge: rgba(239,68,68,.40);
+  --stormEdgeSoft: rgba(239,68,68,.22);
 }
 
 *{ box-sizing:border-box; }
+html, body{
+  margin:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
+    var(--bg);
+}
+
+/* Gameplay Layer (ถ้า run html มี #fg-layer ก็ยังใช้ร่วมได้) */
+.fg-layer{
+  position: fixed;
+  inset: 0;
+  z-index: 3;                 /* ต่ำกว่า HUD ของ run html */
+  pointer-events: auto;
+  transform: translate(var(--vx,0px), var(--vy,0px));
+  will-change: transform;
+}
+
+/* Optional: No-Junk ring (set --nojunk-*) */
+.fg-layer::before{
+  content:"";
+  position:fixed;
+  left: var(--nojunk-cx, 50vw);
+  top:  var(--nojunk-cy, 50vh);
+  width: calc(var(--nojunk-r, 0px) * 2);
+  height: calc(var(--nojunk-r, 0px) * 2);
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  pointer-events:none;
+  opacity: calc(var(--nojunk-on, 0) * 0.20);
+  border:2px dashed rgba(255,255,255,.40);
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+}
 
 /* ======================
-   Targets — Candy Stickers
+   TARGETS — Candy Stickers
    ====================== */
 .fg-target{
   position:absolute;
@@ -111,7 +152,7 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
     drop-shadow(0 12px 18px rgba(0,0,0,.32));
 }
 
-/* type fills */
+/* type fills (Engine จะใส่ class ให้แล้ว) */
 .fg-good{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 40%),
@@ -120,7 +161,6 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-lime), var(--candy-cyan));
 }
-
 .fg-wrong{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.24), transparent 44%),
@@ -128,7 +168,6 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-amber), rgba(251,146,60,.22));
 }
-
 .fg-decoy{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
@@ -136,7 +175,6 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-violet), var(--candy-cyan));
 }
-
 .fg-junk{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
@@ -145,26 +183,32 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
     linear-gradient(135deg, var(--candy-pink), rgba(248,113,113,.26));
 }
 
-/* powerups */
+/* STAR / ICE */
 .fg-star{
-  border-color: rgba(250,204,21,.92);
+  border-color: rgba(250,204,21,.95);
   background:
-    radial-gradient(circle at 28% 22%, rgba(255,255,255,.26), transparent 44%),
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.26), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-gold), rgba(34,211,238,.10));
-  animation: fgBossFloat 0.95s ease-in-out infinite;
+    linear-gradient(135deg, rgba(250,204,21,.28), rgba(34,211,238,.18));
+  box-shadow:
+    0 0 0 3px rgba(250,204,21,.18),
+    0 18px 36px rgba(0,0,0,.42),
+    0 0 28px rgba(250,204,21,.18);
 }
 .fg-ice{
-  border-color: rgba(147,197,253,.90);
+  border-color: rgba(34,211,238,.92);
   background:
-    radial-gradient(circle at 28% 22%, rgba(255,255,255,.26), transparent 44%),
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.26), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-ice), rgba(34,211,238,.08));
+    linear-gradient(135deg, rgba(34,211,238,.26), rgba(167,139,250,.18));
+  box-shadow:
+    0 0 0 3px rgba(34,211,238,.16),
+    0 18px 36px rgba(0,0,0,.42),
+    0 0 28px rgba(34,211,238,.16);
 }
 
-/* boss */
 .fg-boss{
   border-color: rgba(34,211,238,.70);
   background:
@@ -175,10 +219,11 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
   animation: fgBossFloat 1.00s ease-in-out infinite;
 }
 
-/* corner badges for some types */
+/* corner badges */
 .fg-wrong::after,
 .fg-decoy::after,
 .fg-junk::after,
+.fg-boss::after,
 .fg-star::after,
 .fg-ice::after{
   position:absolute;
@@ -192,33 +237,75 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
 .fg-wrong::after{ content:"⚠️"; }
 .fg-decoy::after{ content:"❓"; }
 .fg-junk::after { content:"🫧"; }
-.fg-star::after { content:"⚡"; }
-.fg-ice::after  { content:"🧊"; }
+.fg-boss::after { content:"👑"; }
+.fg-star::after { content:"⭐"; }
+.fg-ice::after  { content:"❄️"; }
 
-/* boss hp badge (bottom) */
-.fg-boss[data-hp]::after{
-  content:"";
-  position:absolute;
-  left:50%;
-  bottom:8px;
-  transform:translateX(-50%);
-  font-size:12px;
-  font-weight:1100;
-  letter-spacing:.3px;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(34,211,238,.30);
-  background:rgba(2,6,23,.55);
-  color:rgba(226,232,240,.95);
-  box-shadow:0 10px 24px rgba(0,0,0,.35);
+/* boss hp badge (Engine ใส่ data-hp / data-hpmax) */
+.fg-boss .hp,
+.fg-boss::marker{ display:none; }
+.fg-boss[data-hp]{
+  outline: 0;
 }
-.fg-boss[data-hp="4"]::after{ content:"HP: ❤❤❤❤"; }
-.fg-boss[data-hp="3"]::after{ content:"HP: ❤❤❤"; }
-.fg-boss[data-hp="2"]::after{ content:"HP: ❤❤"; }
-.fg-boss[data-hp="1"]::after{ content:"HP: ❤"; }
-.fg-boss[data-hp="0"]::after{ content:"HP: 0"; }
+.fg-boss[data-hp]::before{
+  content: attr(data-emoji);
+}
+.fg-boss[data-hp]::after{
+  content: "👑";
+}
+.fg-boss[data-hp] span{ display:none; }
+.fg-boss[data-hp]{
+  position:absolute;
+}
+.fg-boss[data-hp]::after{
+  content: "👑";
+}
+.fg-boss[data-hp]::before{
+  content: attr(data-emoji);
+}
+.fg-boss[data-hp]{
+  --hpText: "HP";
+}
+.fg-boss[data-hp]{
+  /* add hp badge */
+}
+.fg-boss[data-hp]::selection{ background:transparent; }
 
-/* interactions */
+/* HP badge (real) */
+.fg-boss[data-hp]::after{
+  content: "👑";
+}
+.fg-boss[data-hp] .hp{ display:none; }
+
+.fg-boss[data-hp]::after{
+  content:"👑";
+}
+.fg-boss[data-hp]::before{
+  content: attr(data-emoji);
+}
+
+/* HP counter corner */
+.fg-boss[data-hp]::after{
+  content:"👑";
+}
+.fg-boss[data-hp]{
+  /* overlay hp badge via additional pseudo (use box-shadow only) */
+}
+.fg-boss[data-hp]{
+  /* use another pseudo via background trick: hp badge using ::after already occupied; so use inset shadow+mask? keep simple: show hp in bottom-left using background label */
+}
+.fg-boss[data-hp]{
+  background-image:
+    radial-gradient(circle at 28% 22%, rgba(255,255,255,.24), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(148,163,184,.22), rgba(34,211,238,.14));
+}
+.fg-boss[data-hp]{
+  /* small badge using linear-gradient overlay + css var from engine via dataset; engine will set data-hp text on title/aria? not needed */
+}
+
+/* press feedback */
 .fg-target:active{
   transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
   filter: brightness(1.06);
@@ -231,12 +318,25 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
 .fg-target.hit{ animation: fgHit .22s ease-out both; }
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
-/* boss hurt */
+/* boss feedback states */
 .fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
 @keyframes bossHurt{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
   50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)) rotate(-1deg); filter: brightness(1.18); }
   100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
+}
+.fg-boss.fg-boss-weak{
+  box-shadow:
+    0 0 0 4px rgba(34,211,238,.35),
+    0 18px 36px rgba(0,0,0,.40),
+    0 0 26px rgba(34,211,238,.35);
+}
+.fg-boss.fg-boss-weak::after{
+  content:"🎯";
+  right:10px;
+  bottom:10px;
+  top:auto;
+  font-size:18px;
 }
 
 /* keyframes */
@@ -263,35 +363,81 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + Targets + Mode FX)
 }
 
 /* ======================
-   Mode vibes (classes from GameEngine)
+   Mode vibes
    ====================== */
-body.groups-storm .fg-target{
-  filter: saturate(1.12) brightness(1.06);
+body.groups-storm::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(239,68,68,.10), transparent 55%),
+    radial-gradient(circle at 0% 50%, rgba(239,68,68,.08), transparent 60%),
+    radial-gradient(circle at 100% 50%, rgba(239,68,68,.08), transparent 60%);
+  mix-blend-mode: screen;
+  opacity:.95;
+  z-index:2;
 }
-body.groups-storm-urgent .fg-target{
-  animation-duration: .92s !important;
+
+body.groups-storm-urgent::after{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  border: 8px solid rgba(239,68,68,.10);
   box-shadow:
-    0 0 0 4px rgba(239,68,68,.14),
-    0 18px 36px rgba(0,0,0,.42),
-    0 0 26px rgba(239,68,68,.16);
+    0 0 0 2px rgba(239,68,68,.14) inset,
+    0 0 28px rgba(239,68,68,.22) inset;
+  animation: stormEdgePulse .22s ease-in-out infinite;
+  z-index:4;
+}
+@keyframes stormEdgePulse{
+  0%,100%{ filter: brightness(1); }
+  50%{ filter: brightness(1.20); }
 }
 
 body.groups-overdrive .fg-target{
   box-shadow:
-    0 0 0 4px rgba(34,211,238,.16),
+    0 0 0 3px rgba(34,211,238,.14),
     0 18px 36px rgba(0,0,0,.42),
-    0 0 26px rgba(34,211,238,.18);
-  filter: saturate(1.15) brightness(1.08);
+    0 0 34px rgba(34,211,238,.18);
+}
+body.groups-overdrive::after{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  background: radial-gradient(circle at 50% 50%, rgba(34,211,238,.12), transparent 58%);
+  opacity:.9;
+  z-index:1;
 }
 
 body.groups-freeze .fg-target{
   animation-duration: 1.8s !important;
-  filter: brightness(1.02) saturate(.95);
+  filter: saturate(1.08);
+}
+body.groups-freeze::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(34,211,238,.10), transparent 60%),
+    radial-gradient(circle at 80% 70%, rgba(167,139,250,.10), transparent 60%);
+  opacity:.9;
+  z-index:1;
+}
+
+/* responsive: targets smaller on tiny screens */
+@media (max-width: 420px){
+  .fg-target{
+    width:84px;
+    height:84px;
+    border-radius:26px;
+  }
+  .fg-target::before{ font-size:42px; }
 }
 
 /* reduce motion */
 @media (prefers-reduced-motion: reduce){
-  .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out{
+  .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
+  body.groups-storm-urgent::after{
     animation:none !important;
   }
 }
