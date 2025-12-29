@@ -1,8 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard (PRODUCTION)
-// ✅ attachTouchLook AFTER Start click (iOS gyro permission works)
+// GoodJunkVR Boot — HHA Standard + Cardboard Stereo
+// ✅ attachTouchLook AFTER Start click (iOS gyro permission)
+// ✅ pass stereo layers/crosshairs to safe.js
 // ✅ set body data-view = pc|mobile|cardboard
-// ✅ keep params stable for logger & hub return
 
 'use strict';
 
@@ -33,24 +33,6 @@ function detectView(){
   if (v === 'mobile') return 'mobile';
   if (v === 'pc' || v === 'desktop') return 'pc';
   return isMobileLike() ? 'mobile' : 'pc';
-}
-
-function buildContext(){
-  const keys = [
-    'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
-    'schoolYear','semester','studentKey','schoolCode','schoolName','classRoom','studentNo',
-    'nickName','gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup',
-    'vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
-    'gameVersion'
-  ];
-  const ctx = {};
-  for (const k of keys){
-    const v = qp(k, null);
-    if (v != null) ctx[k] = v;
-  }
-  ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
-  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-29';
-  return ctx;
 }
 
 function showStartOverlay(metaText){
@@ -84,32 +66,34 @@ function setHudMeta(text){
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
 
-  const hub = qp('hub', null);
-
   const view = detectView();
-  document.body.dataset.view = view; // css: body[data-view="mobile"], etc.
-
-  const ctx = buildContext();
-  if (hub) ctx.hub = hub;
+  document.body.dataset.view = view;
 
   setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=${view}`);
 
   const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • view=${view}`
     + (seed ? ` • seed=${seed}` : '');
 
-  // ✅ start overlay first (so click is a user gesture)
   await showStartOverlay(metaText);
 
-  // ✅ attach touch/gyro AFTER start (iOS permission possible)
+  // pick elements by view
+  const legacyLayer = document.getElementById('gj-layer');
+  const legacyCross = document.getElementById('gj-crosshair');
+
+  const layerL = document.getElementById('gj-layerL');
+  const layerR = document.getElementById('gj-layerR');
+  const crossL = document.getElementById('gj-crosshairL');
+  const crossR = document.getElementById('gj-crosshairR');
+
+  // Touch-look: shift layers (works for both single & stereo)
   attachTouchLook({
-    crosshairEl: document.getElementById('gj-crosshair'),
-    layerEl: document.getElementById('gj-layer'),
-    aimY: 0.62,
-    maxShiftPx: (view === 'cardboard') ? 210 : 170,
+    stageEl: document.getElementById('gj-stage'),
+    layerEls: (view === 'cardboard' && layerL && layerR) ? [layerL, layerR] : [legacyLayer].filter(Boolean),
+    aimY: (view === 'cardboard') ? 0.58 : 0.62,
+    maxShiftPx: (view === 'cardboard') ? 220 : 170,
     ease: 0.12
   });
 
-  // boot engine
   goodjunkBoot({
     diff,
     time,
@@ -118,8 +102,16 @@ function setHudMeta(text){
     challenge,
     seed,
     sessionId,
-    context: ctx,
-    layerEl: document.getElementById('gj-layer'),
+
+    // ✅ pass both; safe.js will auto-use stereo if present
+    layerEl: legacyLayer,
+    crosshairEl: legacyCross,
+
+    layerElL: layerL,
+    layerElR: layerR,
+    crosshairElL: crossL,
+    crosshairElR: crossR,
+
     shootEl: document.getElementById('btnShoot'),
     safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
   });
