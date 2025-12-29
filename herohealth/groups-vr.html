@@ -1,212 +1,418 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard
-✅ view switcher: PC / Mobile / VR / cVR (Cardboard split)
-✅ Rotate notice for VR/cVR (portrait -> ask landscape)
-✅ Enter fullscreen helper for mobile cardboard
--->
-
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunk VR</title>
+  <title>HeroHealth — Food Groups (Launcher)</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --danger:#ef4444;
 
-  <!-- Global FX + Fever + HUD + Logger -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-hud.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-
-  <!-- Boot (ESM) -->
-  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
-
-  <!-- View mode / orientation helper -->
-  <script>
-  (function(){
-    function qs(name, def){
-      try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    function setParam(k,v){
-      const u = new URL(location.href);
-      if (v==null) u.searchParams.delete(k);
-      else u.searchParams.set(k, v);
-      // keep cache-bust v
-      if(!u.searchParams.get('v')) u.searchParams.set('v', Date.now());
-      location.href = u.toString();
-    }
-
-    const view = String(qs('view','')).toLowerCase(); // pc | mobile | vr | cvr
-    const body = document.documentElement;
-    body.classList.toggle('view-pc', view==='pc');
-    body.classList.toggle('view-mobile', view==='mobile');
-    body.classList.toggle('view-vr', view==='vr');
-    body.classList.toggle('view-cvr', view==='cvr');
-
-    // Default auto: if no view param -> mobile heuristic
-    if(!view){
-      const coarse = matchMedia && matchMedia('(pointer: coarse)').matches;
-      const w = innerWidth||360, h = innerHeight||640;
-      const auto = (coarse || Math.min(w,h)<520) ? 'mobile' : 'pc';
-      body.classList.toggle('view-mobile', auto==='mobile');
-      body.classList.toggle('view-pc', auto==='pc');
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; height:100%; overflow:hidden;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,sans-serif;
     }
 
-    // wire buttons
-    window.addEventListener('DOMContentLoaded', ()=>{
-      const btnPC = document.getElementById('btnViewPC');
-      const btnM  = document.getElementById('btnViewMobile');
-      const btnVR = document.getElementById('btnViewVR');
-      const btnCVR= document.getElementById('btnViewCVR');
-      const btnFS = document.getElementById('btnEnterFS');
-
-      if(btnPC) btnPC.onclick = ()=>setParam('view','pc');
-      if(btnM)  btnM.onclick  = ()=>setParam('view','mobile');
-      if(btnVR) btnVR.onclick = ()=>setParam('view','vr');
-      if(btnCVR)btnCVR.onclick= ()=>setParam('view','cvr');
-
-      if(btnFS){
-        btnFS.onclick = async ()=>{
-          try{
-            const el = document.documentElement;
-            if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen();
-          }catch(_){}
-          try{
-            if (screen.orientation && screen.orientation.lock){
-              await screen.orientation.lock('landscape');
-            }
-          }catch(_){}
-        };
-      }
-    });
-
-    // rotate notice for vr/cvr
-    function updateRotate(){
-      const isVR = body.classList.contains('view-vr') || body.classList.contains('view-cvr');
-      const portrait = (innerHeight||0) > (innerWidth||0);
-      const rot = document.getElementById('rotateNotice');
-      if(!rot) return;
-      rot.hidden = !(isVR && portrait);
+    .wrap{
+      position:fixed; inset:0;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
     }
-    window.addEventListener('resize', updateRotate);
-    window.addEventListener('orientationchange', updateRotate);
-    window.addEventListener('DOMContentLoaded', updateRotate);
-  })();
-  </script>
+
+    .card{
+      width:min(860px, 96vw);
+      margin:0 auto;
+      border:1px solid rgba(148,163,184,.20);
+      border-radius:22px;
+      background:rgba(2,6,23,.72);
+      box-shadow:0 18px 55px rgba(0,0,0,.55);
+      padding:18px 18px 14px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    h1{
+      margin:0 0 6px 0;
+      font-size:20px;
+      font-weight:1000;
+      letter-spacing:.2px;
+    }
+    .sub{
+      margin:0 0 14px 0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+      font-weight:700;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap:12px;
+      align-items:start;
+    }
+    @media (max-width: 880px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .panel{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.55);
+      border-radius:18px;
+      padding:12px;
+    }
+    .panel h3{
+      margin:0 0 10px;
+      font-size:13px;
+      font-weight:1000;
+      color:rgba(226,232,240,.92);
+      letter-spacing:.2px;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-bottom:10px;
+    }
+
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      margin-bottom:6px;
+    }
+    select, input{
+      width:100%;
+      padding:11px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
+      color:var(--text);
+      outline:none;
+      font-weight:900;
+    }
+    input::placeholder{ color: rgba(148,163,184,.6); font-weight:700; }
+
+    .col{
+      flex:1 1 220px;
+      min-width:220px;
+    }
+
+    .pillRow{
+      display:flex; flex-wrap:wrap; gap:8px;
+      margin-top:10px;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
+      font-size:12px;
+      font-weight:900;
+      color:rgba(226,232,240,.92);
+      user-select:none;
+    }
+    .pill b{ color:#fff; }
+
+    .btnRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+    .btn{
+      border:0;
+      border-radius:999px;
+      padding:12px 14px;
+      font-weight:1000;
+      cursor:pointer;
+      user-select:none;
+      background:rgba(15,23,42,.78);
+      border:1px solid rgba(148,163,184,.18);
+      color:var(--text);
+    }
+    .btn.primary{
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+      color:#061018;
+      border:0;
+    }
+    .btn.danger{
+      background:rgba(239,68,68,.12);
+      border:1px solid rgba(239,68,68,.25);
+      color:rgba(254,226,226,.95);
+    }
+
+    .note{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.6;
+      font-weight:750;
+    }
+
+    .song{
+      font-size:12px;
+      line-height:1.65;
+      color:rgba(226,232,240,.92);
+      white-space:pre-wrap;
+    }
+
+    .preview{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px dashed rgba(148,163,184,.20);
+      background:rgba(2,6,23,.45);
+      font-size:12px;
+      color:rgba(226,232,240,.92);
+      overflow:auto;
+    }
+
+    .ok{ color: rgba(34,197,94,.95); font-weight:1000; }
+    .warn{ color: rgba(250,204,21,.95); font-weight:1000; }
+  </style>
 </head>
 
 <body>
+  <div class="wrap">
+    <div class="card">
+      <h1>🍱 Food Groups VR — Launcher</h1>
+      <p class="sub">
+        หน้า <b>Launcher</b> ใช้เลือกโหมด/ความยาก/เวลา/seed แล้วส่งต่อไปหน้า <b>Run</b><br/>
+        Run path: <code>./vr-groups/groups-vr.html</code>
+      </p>
 
-  <!-- ===== Rotate Notice (VR/cVR portrait) ===== -->
-  <div id="rotateNotice" class="rotate-notice" hidden>
-    <div class="rotate-card">
-      <div class="t">โหมด VR/การ์ดบอร์ด</div>
-      <div class="d">กรุณาหมุนจอเป็น <b>แนวนอน</b> เพื่อให้เป้าอยู่ในระดับสายตา</div>
-      <div class="hint">Tip: กด “Enter Fullscreen” ก่อนเสียบ Cardboard จะนิ่งกว่า</div>
-    </div>
-  </div>
+      <div class="grid">
+        <!-- LEFT: settings -->
+        <div class="panel">
+          <h3>⚙️ ตั้งค่าเล่น</h3>
 
-  <!-- ===== View Switcher (top center) ===== -->
-  <div class="viewbar" aria-hidden="false">
-    <button id="btnViewPC" class="viewbtn">PC</button>
-    <button id="btnViewMobile" class="viewbtn">Mobile</button>
-    <button id="btnViewVR" class="viewbtn">VR</button>
-    <button id="btnViewCVR" class="viewbtn accent">cVR</button>
-    <button id="btnEnterFS" class="viewbtn ghost">Enter Fullscreen</button>
-  </div>
+          <div class="row">
+            <div class="col">
+              <label for="runMode">Run Mode</label>
+              <select id="runMode">
+                <option value="play">play (Adaptive ON)</option>
+                <option value="research">research (Deterministic)</option>
+              </select>
+            </div>
 
-  <!-- ===== HUD ===== -->
-  <div class="hha-hud">
-    <div class="hud-top">
-      <div class="hud-badge">
-        <div class="hud-title">GoodJunkVR</div>
-        <div class="hud-sub" id="hudMeta">—</div>
-      </div>
+            <div class="col">
+              <label for="diff">Difficulty</label>
+              <select id="diff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
 
-      <div class="hud-stats">
-        <div class="hud-stat"><div class="k">Score</div><div class="v" id="hhaScore">0</div></div>
-        <div class="hud-stat"><div class="k">Combo</div><div class="v" id="hhaCombo">0</div></div>
-        <div class="hud-stat"><div class="k">Miss</div><div class="v" id="hhaMiss">0</div></div>
-        <div class="hud-stat"><div class="k">Time</div><div class="v" id="hhaTime">0</div></div>
-        <div class="hud-stat grade"><div class="k">Grade</div><div class="v" id="hhaGrade">—</div></div>
-      </div>
-    </div>
+            <div class="col">
+              <label for="style">Style</label>
+              <select id="style">
+                <option value="mix" selected>mix</option>
+                <option value="feel">feel (wave bias)</option>
+                <option value="hard">hard (spiral bias)</option>
+              </select>
+            </div>
+          </div>
 
-    <div class="hud-mid">
-      <div class="hud-quest">
-        <div class="q-row">
-          <div class="q-title" id="hudGoalTitle">Goal: —</div>
-          <div class="q-count" id="hudGoalCount">0/0</div>
+          <div class="row">
+            <div class="col">
+              <label for="time">Time (sec)</label>
+              <input id="time" type="number" min="30" max="180" value="90" />
+            </div>
+
+            <div class="col">
+              <label for="seed">Seed (ว่าง=สุ่ม)</label>
+              <input id="seed" type="text" placeholder="เช่น 2025-12-29-A หรือปล่อยว่าง" />
+            </div>
+
+            <div class="col">
+              <label for="autostart">Auto-start</label>
+              <select id="autostart">
+                <option value="0" selected>0 (ต้องกด Start ในหน้า Run)</option>
+                <option value="1">1 (เข้าเกมอัตโนมัติ)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="hub">Hub URL (กลับ HUB)</label>
+              <input id="hub" type="text" value="./index.html" />
+            </div>
+          </div>
+
+          <div class="pillRow" id="pillRow"></div>
+
+          <div class="btnRow">
+            <button class="btn primary" id="btnGo">🚀 ไปหน้า Run</button>
+            <button class="btn" id="btnCopy">📎 Copy link</button>
+            <button class="btn" id="btnOpen">🔗 เปิด Run (แท็บใหม่)</button>
+            <button class="btn danger" id="btnHub">↩ กลับ HUB</button>
+          </div>
+
+          <div class="preview" id="previewUrl">กำลังสร้างลิงก์…</div>
+          <div class="note">
+            ✅ แนะนำ: ใช้ <b>v=Date.now()</b> กันแคชเวลาแก้ไฟล์ JS/CSS<br/>
+            - play: Adaptive ON<br/>
+            - research: Deterministic (ยึด seed + diff)
+          </div>
         </div>
-        <div class="q-row">
-          <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
-          <div class="q-count" id="hudMiniCount">0/0</div>
-          <div class="q-timer" id="hudMiniTimer"></div>
-        </div>
-        <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
-      </div>
 
-      <div class="hud-coach">
-        <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
-        <div class="coach-talk">
-          <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
-          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
+        <!-- RIGHT: song -->
+        <div class="panel">
+          <h3>🎵 เพลงอาหารหลัก 5 หมู่</h3>
+          <div class="song" id="songBox">กำลังโหลด…</div>
+
+          <div class="note">
+            Tip: ถ้าจะทำเสียงร้อง/อ่านในเกม ให้วางไฟล์ audio ไว้ใน <code>/herohealth/vr-groups/</code>
+            แล้วให้ <code>audio.js</code> เล่นตาม event ที่ GameEngine ยิงได้เลย
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ===== Fever/Shield UI ===== -->
-  <div class="hha-fever" id="hhaFever">
-    <div class="fever-row">
-      <div class="fever-label">FEVER</div>
-      <div class="fever-bar"><div class="fever-fill" id="feverBar"></div></div>
-      <div class="fever-text" id="feverText">0%</div>
-    </div>
-    <div class="shield-row">
-      <div class="shield-label">SHIELD</div>
-      <div class="shield-pills" id="shieldPills"></div>
-    </div>
-  </div>
+  <script>
+    const $ = (id)=>document.getElementById(id);
 
-  <!-- ===== Playfield ===== -->
-  <div id="gj-stage">
-    <div id="gj-layer" aria-label="targets layer"></div>
+    const SONG =
+`อาหารหลัก 5 หมู่ของไทย ทุกคนจำไว้อย่าได้แปลผัน
+หมู่ 1 กินเนื้อ นม ไข่ ถั่วเมล็ดช่วยให้เติบโตแข็งขัน
+หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล จะให้พลัง
+หมู่ 3 กินผักต่างๆ สารอาหารมากมายกินเป็นอาจิณ
+หมู่ 4 กินผลไม้ สีเขียวเหลืองบ้างมีวิตามิน
+หมู่ 5 อย่าได้ลืมกิน ไขมันทั้งสิ้น อบอุ่นร่างกาย`;
 
-    <!-- Crosshair: normal = center; cVR = left+right -->
-    <div id="gj-crosshair" aria-hidden="true"></div>
-    <div id="gj-crosshair-r" aria-hidden="true"></div>
+    $('songBox').textContent = SONG;
 
-    <div id="atk-ring" aria-hidden="true"></div>
-    <div id="atk-laser" aria-hidden="true"></div>
+    function clamp(v,min,max){
+      v = Number(v);
+      if (!Number.isFinite(v)) v = min;
+      return Math.max(min, Math.min(max, v));
+    }
 
-    <!-- optional end summary container -->
-    <div id="end-summary"></div>
-  </div>
+    function buildUrl(openV){
+      const runMode = String($('runMode').value || 'play').toLowerCase();
+      const diff    = String($('diff').value || 'normal').toLowerCase();
+      const style   = String($('style').value || 'mix').toLowerCase();
+      const time    = clamp($('time').value, 30, 180);
+      const hub     = String($('hub').value || './index.html').trim() || './index.html';
+      const autostart = String($('autostart').value || '0');
+      const rawSeed = String($('seed').value || '').trim();
 
-  <!-- ===== Controls ===== -->
-  <div class="hha-controls">
-    <button id="btnShoot" class="btn-shoot">ยิง</button>
-  </div>
+      // seed: ถ้าว่าง -> สร้างเองให้ deterministic-ish
+      const seed = rawSeed || String(Date.now());
 
-  <!-- ===== Start Overlay ===== -->
-  <div id="startOverlay" class="start-overlay">
-    <div class="start-card">
-      <div class="start-title">GoodJunk VR</div>
-      <div class="start-desc">
-        เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
-      </div>
-      <div class="start-meta" id="startMeta">—</div>
-      <button id="btnStart" class="btn-start">เริ่มเล่น</button>
-      <div class="start-minihelp">โหมด Cardboard: เลือก <b>cVR</b> → กด <b>Enter Fullscreen</b> → หมุนจอแนวนอน</div>
-    </div>
-  </div>
+      // v: กันแคช
+      const v = openV ? String(Date.now()) : String(Date.now());
 
+      const qs = new URLSearchParams();
+      qs.set('runMode', runMode);
+      qs.set('diff', diff);
+      qs.set('style', style);
+      qs.set('time', String(time));
+      qs.set('seed', seed);
+      qs.set('hub', hub);
+      qs.set('autostart', autostart);
+      qs.set('v', v);
+
+      // ✅ run path (จาก /herohealth/groups.html)
+      const url = './vr-groups/groups-vr.html?' + qs.toString();
+      return { url, runMode, diff, style, time, seed, hub, autostart };
+    }
+
+    function render(){
+      const x = buildUrl(false);
+      $('previewUrl').textContent = x.url;
+
+      const pills = [
+        ['Run', x.runMode],
+        ['Diff', x.diff],
+        ['Style', x.style],
+        ['Time', x.time + 's'],
+        ['Seed', x.seed],
+        ['Auto', x.autostart],
+      ];
+      $('pillRow').innerHTML = pills.map(([k,v])=>{
+        const cls = (k==='Run' && v==='research') ? 'warn' : 'ok';
+        return `<span class="pill">${k}: <b class="${cls}">${String(v)}</b></span>`;
+      }).join('');
+    }
+
+    function goHub(){
+      const hub = String($('hub').value || './index.html').trim() || './index.html';
+      location.href = hub;
+    }
+
+    $('btnGo').addEventListener('click', ()=>{
+      const x = buildUrl(true);
+      location.href = x.url;
+    });
+
+    $('btnOpen').addEventListener('click', ()=>{
+      const x = buildUrl(true);
+      window.open(x.url, '_blank', 'noopener,noreferrer');
+    });
+
+    $('btnCopy').addEventListener('click', async ()=>{
+      const x = buildUrl(true);
+      try{
+        await navigator.clipboard.writeText(location.origin ? (new URL(x.url, location.href)).href : x.url);
+        $('previewUrl').textContent = x.url + '\n\n✅ Copied!';
+      }catch{
+        // fallback
+        $('previewUrl').textContent = x.url + '\n\n(คัดลอกไม่สำเร็จบนอุปกรณ์นี้)';
+      }
+    });
+
+    $('btnHub').addEventListener('click', goHub);
+
+    // live update
+    ['runMode','diff','style','time','seed','hub','autostart'].forEach(id=>{
+      $(id).addEventListener('input', render);
+      $(id).addEventListener('change', render);
+    });
+
+    render();
+
+    // optional autostart for launcher itself (?go=1)
+    // example: /herohealth/groups.html?go=1
+    try{
+      const q = new URLSearchParams(location.search);
+      if (q.get('go') === '1'){
+        setTimeout(()=> $('btnGo').click(), 250);
+      }
+    }catch{}
+  </script>
 </body>
 </html>
