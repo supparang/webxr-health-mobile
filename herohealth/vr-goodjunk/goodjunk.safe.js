@@ -1,23 +1,18 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard
-// ✅ DOM emoji targets on #gj-layer
-// ✅ Warmup 3s (นุ่ม ๆ) แล้ว "เร่งขึ้นเร็ว" แบบเกมจริง (B1+B2)
-// ✅ Adaptive เฉพาะ run=play : spawn/ttl/size/maxTargets/junk เพิ่มตามความสามารถ
-// ✅ Research mode (run=research) : ยึดตาม diff (ไม่ adapt)
-// ✅ คลิก/แตะเป้าได้ + ยิงกลาง (ปุ่มยิง / Space / Enter)
-// ✅ FIX: target class ให้เข้ากับ goodjunk-vr.css (.gj-target.gj-junk ฯลฯ)
-// ✅ FIX: inject style แบบ "ไม่ชน" CSS หลัก (ไม่ override #gj-layer)
-// ✅ Spawn หลีก HUD (top/mid/controls/fever) + clamp safe zone
-// ✅ VR/Cardboard adjust: crosshair กลางขึ้น + spawn สูงขึ้นเมื่อ view=vr|cardboard
-// ✅ HHA events: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
-// ✅ miss definition: good expire + junk hit (shield block ไม่เป็น miss)
-// ✅ End summary overlay (#end-summary) + back HUB (?hub=...) + play again
-// ✅ last summary -> localStorage HHA_LAST_SUMMARY (and hha_last_summary)
-// ✅ flush-hardened: end/backhub/pagehide/visibilitychange/beforeunload (best effort)
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard + VR aim + FX fallback
+// ✅ DOM targets on #gj-layer
+// ✅ Warmup 3s แล้วเร่งเร็ว (B1+B2)
+// ✅ Adaptive เฉพาะ run=play ; Research fixed by diff
+// ✅ click/tap target + shoot crosshair (btn / space / enter)
+// ✅ FIX: layer pointer-events (no override to none)
+// ✅ VR aimY bias spawn so targets not too low
+// ✅ FX fallback (pop + burst) so "effect" always visible
+// ✅ End summary overlay (#end-summary) + Back HUB (flush-hardened)
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
 
 function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 function now(){ return (ROOT.performance && performance.now) ? performance.now() : Date.now(); }
@@ -25,15 +20,11 @@ function now(){ return (ROOT.performance && performance.now) ? performance.now()
 function emit(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
 }
-
 function qs(name, def){
   try{ return (new URL(ROOT.location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
 }
 
-function qsp(){
-  try{ return (new URL(ROOT.location.href)).searchParams; }catch(_){ return new URLSearchParams(); }
-}
-
+// ---- RNG ----
 function xmur3(str){
   str = String(str || '');
   let h = 1779033703 ^ str.length;
@@ -73,18 +64,8 @@ function isMobileLike(){
   const coarse = (ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches);
   return coarse || (Math.min(w,h) < 520);
 }
-function getViewMode(){
-  const v = String(qs('view','') || qs('mode','') || '').toLowerCase();
-  if (v.includes('card') || v.includes('stereo')) return 'cardboard';
-  if (v.includes('vr')) return 'vr';
-  return '';
-}
-function isVrLike(){
-  const v = getViewMode();
-  return (v === 'vr' || v === 'cardboard');
-}
 
-// optional modules (best effort)
+// ---- optional modules (best effort) ----
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
@@ -92,9 +73,7 @@ const Particles =
 const FeverUI =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
   ROOT.FeverUI || {
-    set(){},
-    get(){ return { value:0, state:'low', shield:0 }; },
-    setShield(){}
+    set(){}, get(){ return { value:0, state:'low', shield:0 }; }, setShield(){}
   };
 
 async function flushLogger(reason){
@@ -104,26 +83,20 @@ async function flushLogger(reason){
   try{ if (ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.flush === 'function') fns.push(ROOT.HHACloudLogger.flush.bind(ROOT.HHACloudLogger)); }catch(_){}
   try{ if (ROOT.GAME_MODULES && ROOT.GAME_MODULES.CloudLogger && typeof ROOT.GAME_MODULES.CloudLogger.flush === 'function') fns.push(ROOT.GAME_MODULES.CloudLogger.flush.bind(ROOT.GAME_MODULES.CloudLogger)); }catch(_){}
   try{ if (typeof ROOT.hhaFlush === 'function') fns.push(ROOT.hhaFlush.bind(ROOT)); }catch(_){}
-
   const tasks = fns.map(fn=>{
     try{
       const r = fn({ reason:String(reason||'flush') });
       return (r && typeof r.then === 'function') ? r : Promise.resolve();
     }catch(_){ return Promise.resolve(); }
   });
-
-  await Promise.race([
-    Promise.all(tasks),
-    new Promise(res=>setTimeout(res, 260))
-  ]);
+  await Promise.race([ Promise.all(tasks), new Promise(res=>setTimeout(res, 260)) ]);
 }
-
 function logEvent(type, data){
   emit('hha:log_event', { type, data: data || {} });
   try{ if (typeof ROOT.hhaLogEvent === 'function') ROOT.hhaLogEvent(type, data||{}); }catch(_){}
 }
 
-// -------------------- UI helpers --------------------
+// ---- Grade ----
 function rankFromAcc(acc){
   if (acc >= 95) return 'SSS';
   if (acc >= 90) return 'SS';
@@ -133,81 +106,138 @@ function rankFromAcc(acc){
   return 'C';
 }
 
+// ---- Diff base ----
 function diffBase(diff){
   diff = String(diff||'normal').toLowerCase();
-  if (diff === 'easy') {
-    return { spawnMs: 980, ttlMs: 2400, size: 1.10, junk: 0.12, power: 0.035, maxT: 7 };
-  }
-  if (diff === 'hard') {
-    return { spawnMs: 720, ttlMs: 1700, size: 0.94, junk: 0.18, power: 0.025, maxT: 9 };
-  }
-  return { spawnMs: 840, ttlMs: 2050, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
+  if (diff === 'easy')  return { spawnMs: 980, ttlMs: 2300, size: 1.08, junk: 0.12, power: 0.035, maxT: 7 };
+  if (diff === 'hard')  return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.18, power: 0.025, maxT: 9 };
+  return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
 }
 
-// -------------------- safe CSS injection (ไม่ override #gj-layer) --------------------
-function ensureTargetStyles(){
-  const DOC = ROOT.document;
+// ================== CSS safety + FX mount ==================
+function ensureSafeStyles(){
   if (!DOC || DOC.getElementById('gj-safe-style')) return;
-
   const st = DOC.createElement('style');
   st.id = 'gj-safe-style';
   st.textContent = `
-    /* only target fallback style — do NOT touch #gj-layer */
-    .gj-target{
-      position:absolute;
-      left: var(--x, 50vw);
-      top:  var(--y, 50vh);
-      transform: translate(-50%,-50%) scale(var(--s, 1));
-      width: 74px; height: 74px;
-      border-radius: 999px;
-      display:flex; align-items:center; justify-content:center;
-      font-size: 38px; line-height:1;
-      user-select:none; -webkit-user-select:none;
-      pointer-events:auto; touch-action: manipulation;
-      background: rgba(2,6,23,.55);
-      border: 1px solid rgba(148,163,184,.22);
-      box-shadow: 0 16px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset;
-      backdrop-filter: blur(8px);
-      will-change: transform, opacity, filter;
-    }
-    .gj-target.spawn{ transform: translate(-50%,-50%) scale(.25); opacity:0; }
-    .gj-target.gone{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
+    /* minimal safety — DO NOT override your main CSS */
+    #gj-stage{ position:fixed; inset:0; overflow:hidden; }
+    #gj-layer{ position:fixed; inset:0; z-index:30; pointer-events:auto; touch-action:none; }
 
-    .gj-target.gj-good{ border-color: rgba(34,197,94,.28); }
-    .gj-target.gj-junk{ border-color: rgba(239,68,68,.30); filter: saturate(1.15); }
-    .gj-target.gj-star{ border-color: rgba(34,211,238,.32); }
-    .gj-target.gj-shield{ border-color: rgba(96,165,250,.32); }
+    /* FX fallback mount */
+    #gj-fx{ position:fixed; inset:0; z-index:55; pointer-events:none; }
+    .gj-pop{
+      position:fixed;
+      transform: translate(-50%,-50%);
+      font-weight: 1000;
+      font-size: 20px;
+      text-shadow: 0 6px 18px rgba(0,0,0,.45);
+      opacity: 0;
+      animation: gjPop 520ms ease forwards;
+      will-change: transform, opacity;
+    }
+    @keyframes gjPop{
+      0%{ opacity:0; transform:translate(-50%,-40%) scale(.85); filter: blur(.2px); }
+      18%{ opacity:1; transform:translate(-50%,-58%) scale(1.02); }
+      100%{ opacity:0; transform:translate(-50%,-92%) scale(.98); filter: blur(.3px); }
+    }
+    .gj-burst{
+      position:fixed;
+      width: 10px; height:10px;
+      border-radius: 999px;
+      transform: translate(-50%,-50%);
+      opacity: 0;
+      animation: gjBurst 420ms ease-out forwards;
+      box-shadow:
+        0 0 0 10px rgba(34,197,94,.15),
+        0 0 0 22px rgba(34,197,94,.08);
+    }
+    .gj-burst.junk{
+      box-shadow:
+        0 0 0 10px rgba(239,68,68,.16),
+        0 0 0 22px rgba(239,68,68,.09);
+    }
+    .gj-burst.star{
+      box-shadow:
+        0 0 0 10px rgba(34,211,238,.16),
+        0 0 0 22px rgba(34,211,238,.09);
+    }
+    .gj-burst.shield{
+      box-shadow:
+        0 0 0 10px rgba(96,165,250,.16),
+        0 0 0 22px rgba(96,165,250,.09);
+    }
+    @keyframes gjBurst{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); }
+      15%{ opacity:1; }
+      100%{ opacity:0; transform:translate(-50%,-50%) scale(1.3); }
+    }
   `;
   DOC.head.appendChild(st);
 }
 
-// -------------------- spawn rect avoid HUD --------------------
+function ensureFxMount(){
+  if (!DOC) return null;
+  let fx = DOC.getElementById('gj-fx');
+  if (fx) return fx;
+  fx = DOC.createElement('div');
+  fx.id = 'gj-fx';
+  DOC.body.appendChild(fx);
+  return fx;
+}
+
+function fxPop(x, y, text, kind){
+  const fx = ensureFxMount();
+  if (!fx) return;
+  const el = DOC.createElement('div');
+  el.className = 'gj-pop';
+  el.textContent = String(text||'');
+  el.style.left = `${x}px`;
+  el.style.top  = `${y}px`;
+  // simple color by kind
+  if (kind === 'bad') el.style.color = 'rgba(239,68,68,.95)';
+  else if (kind === 'star') el.style.color = 'rgba(34,211,238,.95)';
+  else if (kind === 'shield') el.style.color = 'rgba(96,165,250,.95)';
+  else el.style.color = 'rgba(34,197,94,.95)';
+  fx.appendChild(el);
+  setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 650);
+}
+
+function fxBurst(x, y, kind){
+  const fx = ensureFxMount();
+  if (!fx) return;
+  const el = DOC.createElement('div');
+  el.className = 'gj-burst' + (kind ? ` ${kind}` : '');
+  el.style.left = `${x}px`;
+  el.style.top  = `${y}px`;
+  fx.appendChild(el);
+  setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 520);
+}
+
+// ================== spawn avoid HUD ==================
 function buildAvoidRects(){
-  const DOC = ROOT.document;
   const rects = [];
   if (!DOC) return rects;
-
   const els = [
     DOC.querySelector('.hud-top'),
     DOC.querySelector('.hud-mid'),
     DOC.querySelector('.hha-controls'),
     DOC.getElementById('hhaFever')
   ].filter(Boolean);
-
   for (const el of els){
     try{
       const r = el.getBoundingClientRect();
-      if (r && r.width > 0 && r.height > 0) rects.push(r);
+      if (r && r.width>0 && r.height>0) rects.push(r);
     }catch(_){}
   }
   return rects;
 }
-
 function pointInRect(x, y, r){
   return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 }
 
-function randPos(rng, safeMargins){
+// VR aim bias: y is centered around aimY and spread across play area
+function randPos(rng, safeMargins, aimY){
   const W = ROOT.innerWidth || 360;
   const H = ROOT.innerHeight || 640;
 
@@ -216,34 +246,42 @@ function randPos(rng, safeMargins){
   let left = safeMargins?.left ?? 22;
   let right = safeMargins?.right ?? 22;
 
-  // relax if too tight
   if ((W - left - right) < 180){ left = 12; right = 12; }
   if ((H - top - bottom) < 260){ top = Math.max(90, top - 24); bottom = Math.max(130, bottom - 24); }
 
   const avoid = buildAvoidRects();
 
-  for (let i=0;i<18;i++){
+  const spanY = Math.max(1, (H - top - bottom));
+  const aY = clamp(aimY ?? 0.58, 0.35, 0.72);
+  const centerY = top + aY * spanY;
+  const spread  = spanY * 0.48;
+
+  for (let i=0;i<22;i++){
     const x = left + rng() * (W - left - right);
-    const y = top + rng() * (H - top - bottom);
+
+    const y0 = centerY + (rng()*2 - 1) * spread;
+    const y = clamp(y0, top, H - bottom);
+
     let ok = true;
     for (const r of avoid){
-      if (pointInRect(x, y, { left:r.left-8, right:r.right+8, top:r.top-8, bottom:r.bottom+8 })){
+      if (pointInRect(x, y, { left:r.left-10, right:r.right+10, top:r.top-10, bottom:r.bottom+10 })){
         ok = false; break;
       }
     }
     if (ok) return { x, y };
   }
 
+  // fallback
   return {
     x: left + rng() * (W - left - right),
     y: top + rng() * (H - top - bottom)
   };
 }
 
-// -------------------- target helpers --------------------
-const GOOD = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
-const JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
-const STARS = ['⭐','💎'];
+// ================== gameplay ==================
+const GOOD   = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
+const JUNK   = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
+const STARS  = ['⭐','💎'];
 const SHIELD = '🛡️';
 
 function setXY(el, x, y){
@@ -251,7 +289,6 @@ function setXY(el, x, y){
   const py = y.toFixed(1) + 'px';
   el.style.setProperty('--x', px);
   el.style.setProperty('--y', py);
-  // fallback
   el.style.left = px;
   el.style.top  = py;
 }
@@ -261,54 +298,55 @@ function countTargets(layerEl){
 }
 
 function getCrosshairCenter(crosshairEl){
-  if (!crosshairEl) {
-    return { x: (ROOT.innerWidth||360)*0.5, y: (ROOT.innerHeight||640)*0.5 };
-  }
+  if (!crosshairEl) return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
   try{
     const r = crosshairEl.getBoundingClientRect();
-    return { x: r.left + r.width/2, y: r.top + r.height/2 };
+    return { x:r.left + r.width/2, y:r.top + r.height/2 };
   }catch(_){
-    return { x: (ROOT.innerWidth||360)*0.5, y: (ROOT.innerHeight||640)*0.5 };
+    return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
   }
 }
-
-function dist2(ax, ay, bx, by){
-  const dx = ax - bx, dy = ay - by;
-  return dx*dx + dy*dy;
-}
+function dist2(ax, ay, bx, by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 
 function findTargetNear(layerEl, cx, cy, radiusPx){
   const r2max = radiusPx * radiusPx;
   const list = layerEl.querySelectorAll('.gj-target');
   let best = null;
   let bestD2 = 1e18;
-
   list.forEach(el=>{
     try{
       const r = el.getBoundingClientRect();
       const tx = r.left + r.width/2;
       const ty = r.top + r.height/2;
       const d2 = dist2(cx, cy, tx, ty);
-      if (d2 <= r2max && d2 < bestD2){
-        best = el; bestD2 = d2;
-      }
+      if (d2 <= r2max && d2 < bestD2){ best = el; bestD2 = d2; }
     }catch(_){}
   });
-
   return best;
 }
 
 function updateFever(shield, fever){
-  try{ FeverUI.set({ value: clamp(fever, 0, 100), shield: clamp(shield, 0, 9) }); }catch(_){}
+  try{ FeverUI.set({ value: clamp(fever,0,100), shield: clamp(shield,0,9) }); }catch(_){}
   try{ if (typeof FeverUI.setShield === 'function') FeverUI.setShield(clamp(shield,0,9)); }catch(_){}
 }
 
 function burstAtEl(el, kind){
+  let x = (ROOT.innerWidth||360)*0.5;
+  let y = (ROOT.innerHeight||640)*0.5;
   try{
     const r = el.getBoundingClientRect();
-    Particles.burstAt(r.left + r.width/2, r.top + r.height/2, kind || '');
-    Particles.scorePop?.(r.left + r.width/2, r.top + r.height/2, kind || '');
+    x = r.left + r.width/2;
+    y = r.top  + r.height/2;
   }catch(_){}
+  // call Particles if present
+  try{ Particles.burstAt(x, y, kind || el.dataset.type || ''); }catch(_){}
+  // ALWAYS fallback burst
+  fxBurst(x, y, (kind==='guard')?'shield':(kind||el.dataset.type||''));
+}
+
+function popAt(x, y, text, kind){
+  try{ Particles.scorePop(x, y, text); }catch(_){}
+  fxPop(x, y, text, kind);
 }
 
 function makeSummary(S, reason){
@@ -355,28 +393,50 @@ async function flushAll(summary, reason){
   await flushLogger(reason || (summary?.reason) || 'flush');
 }
 
-// -------------------- End Summary UI --------------------
-function renderEndSummary(summary, opts){
-  const DOC = ROOT.document;
-  const wrap = DOC.getElementById('end-summary');
-  if (!wrap) return;
+// ================== END SUMMARY UI ==================
+function getHubUrl(optsHub){
+  const hub = optsHub || qs('hub', '');
+  return hub || '../hub.html';
+}
+function buildBackUrl(hubUrl){
+  try{
+    const u = new URL(hubUrl, location.href);
+    const cur = new URL(location.href);
 
-  const hub = String(opts?.hub || qs('hub','') || '').trim();
-  const canHub = !!hub;
+    // keep important params
+    const keep = [
+      'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
+      'schoolYear','semester','studentKey','schoolCode','schoolName','classRoom','studentNo',
+      'nickName','gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup',
+      'vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
+      'run','diff','time','end','challenge','seed','sessionId','sid','log'
+    ];
+    for (const k of keep){
+      const v = cur.searchParams.get(k);
+      if (v != null && v !== '') u.searchParams.set(k, v);
+    }
+    // stamp last summary marker
+    u.searchParams.set('from', 'goodjunk');
+    return u.toString();
+  }catch(_){
+    return hubUrl;
+  }
+}
 
-  wrap.innerHTML = '';
-  wrap.style.pointerEvents = 'auto';
+function showEndSummary(summary, hubUrl, onBack){
+  if (!DOC) return;
+  const host = DOC.getElementById('end-summary');
+  if (!host) return;
 
-  const el = DOC.createElement('div');
-  el.className = 'gj-end';
-  el.style.position = 'fixed';
-  el.style.inset = '0';
-  el.style.zIndex = '120';
-  el.style.display = 'flex';
-  el.style.alignItems = 'center';
-  el.style.justifyContent = 'center';
-  el.style.padding = '18px';
-  el.style.background = 'rgba(2,6,23,.82)';
+  host.innerHTML = '';
+  host.style.position = 'fixed';
+  host.style.inset = '0';
+  host.style.zIndex = '180';
+  host.style.display = 'flex';
+  host.style.alignItems = 'center';
+  host.style.justifyContent = 'center';
+  host.style.background = 'rgba(2,6,23,.86)';
+  host.style.padding = '18px';
 
   const card = DOC.createElement('div');
   card.style.width = 'min(560px, 94vw)';
@@ -384,139 +444,74 @@ function renderEndSummary(summary, opts){
   card.style.border = '1px solid rgba(148,163,184,.22)';
   card.style.background = 'rgba(2,6,23,.94)';
   card.style.boxShadow = '0 22px 70px rgba(0,0,0,.42)';
-  card.style.padding = '16px 16px 14px';
-  card.style.color = '#e5e7eb';
-  card.style.backdropFilter = 'blur(8px)';
+  card.style.padding = '16px';
 
   const title = DOC.createElement('div');
-  title.textContent = 'สรุปผล';
-  title.style.fontSize = '22px';
+  title.textContent = 'สรุปผล — GoodJunkVR';
   title.style.fontWeight = '1000';
+  title.style.fontSize = '20px';
 
   const meta = DOC.createElement('div');
-  meta.textContent = `Grade ${summary.grade} • Accuracy ${summary.accuracyGoodPct}% • Miss ${summary.misses}`;
   meta.style.marginTop = '6px';
-  meta.style.color = '#cbd5e1';
-  meta.style.fontWeight = '900';
+  meta.style.color = 'rgba(203,213,225,.95)';
+  meta.style.lineHeight = '1.55';
+  meta.innerHTML =
+    `คะแนน: <b>${summary.scoreFinal}</b> • คอมโบสูงสุด: <b>${summary.comboMax}</b> • Miss: <b>${summary.misses}</b><br/>` +
+    `ความแม่น: <b>${summary.accuracyGoodPct}%</b> • เกรด: <b>${summary.grade}</b><br/>` +
+    `Goal: <b>${summary.goalsCleared}/${summary.goalsTotal}</b> • Mini: <b>${summary.miniCleared}/${summary.miniTotal}</b>`;
 
-  const grid = DOC.createElement('div');
-  grid.style.display = 'grid';
-  grid.style.gridTemplateColumns = 'repeat(2, minmax(0,1fr))';
-  grid.style.gap = '10px';
-  grid.style.marginTop = '12px';
+  const row = DOC.createElement('div');
+  row.style.marginTop = '12px';
+  row.style.display = 'flex';
+  row.style.gap = '10px';
+  row.style.flexWrap = 'wrap';
 
-  function box(k, v){
-    const b = DOC.createElement('div');
-    b.style.border = '1px solid rgba(148,163,184,.18)';
-    b.style.borderRadius = '16px';
-    b.style.background = 'rgba(15,23,42,.55)';
-    b.style.padding = '10px 12px';
-    const kk = DOC.createElement('div');
-    kk.textContent = k;
-    kk.style.fontSize = '12px';
-    kk.style.color = '#94a3b8';
-    kk.style.fontWeight = '900';
-    const vv = DOC.createElement('div');
-    vv.textContent = String(v);
-    vv.style.fontSize = '20px';
-    vv.style.fontWeight = '1000';
-    vv.style.marginTop = '2px';
-    b.appendChild(kk); b.appendChild(vv);
-    return b;
-  }
+  const btnBack = DOC.createElement('button');
+  btnBack.textContent = 'กลับ HUB';
+  btnBack.style.flex = '1';
+  btnBack.style.height = '52px';
+  btnBack.style.borderRadius = '18px';
+  btnBack.style.border = '1px solid rgba(148,163,184,.22)';
+  btnBack.style.background = 'rgba(34,197,94,.16)';
+  btnBack.style.color = '#fff';
+  btnBack.style.fontWeight = '1000';
+  btnBack.style.fontSize = '18px';
+  btnBack.onclick = onBack;
 
-  grid.appendChild(box('Score', summary.scoreFinal));
-  grid.appendChild(box('Combo Max', summary.comboMax));
-  grid.appendChild(box('Goals', `${summary.goalsCleared}/${summary.goalsTotal}`));
-  grid.appendChild(box('Minis', `${summary.miniCleared}/${summary.miniTotal}`));
+  const btnRetry = DOC.createElement('button');
+  btnRetry.textContent = 'เล่นอีกครั้ง';
+  btnRetry.style.flex = '1';
+  btnRetry.style.height = '52px';
+  btnRetry.style.borderRadius = '18px';
+  btnRetry.style.border = '1px solid rgba(148,163,184,.22)';
+  btnRetry.style.background = 'rgba(2,6,23,.84)';
+  btnRetry.style.color = '#fff';
+  btnRetry.style.fontWeight = '1000';
+  btnRetry.style.fontSize = '18px';
+  btnRetry.onclick = ()=>{ location.reload(); };
 
-  const btnRow = DOC.createElement('div');
-  btnRow.style.display = 'flex';
-  btnRow.style.gap = '10px';
-  btnRow.style.marginTop = '12px';
-
-  const btnAgain = DOC.createElement('button');
-  btnAgain.textContent = 'เล่นอีกครั้ง';
-  btnAgain.style.flex = '1';
-  btnAgain.style.height = '52px';
-  btnAgain.style.borderRadius = '18px';
-  btnAgain.style.border = '1px solid rgba(148,163,184,.22)';
-  btnAgain.style.background = 'rgba(34,197,94,.16)';
-  btnAgain.style.color = '#fff';
-  btnAgain.style.fontWeight = '1000';
-  btnAgain.style.fontSize = '16px';
-
-  const btnHub = DOC.createElement('button');
-  btnHub.textContent = canHub ? 'กลับ HUB' : 'ปิด';
-  btnHub.style.flex = '1';
-  btnHub.style.height = '52px';
-  btnHub.style.borderRadius = '18px';
-  btnHub.style.border = '1px solid rgba(148,163,184,.22)';
-  btnHub.style.background = 'rgba(2,6,23,.84)';
-  btnHub.style.color = '#fff';
-  btnHub.style.fontWeight = '1000';
-  btnHub.style.fontSize = '16px';
-
-  btnRow.appendChild(btnAgain);
-  btnRow.appendChild(btnHub);
+  row.appendChild(btnBack);
+  row.appendChild(btnRetry);
 
   const hint = DOC.createElement('div');
-  hint.textContent = `เหตุผลจบ: ${summary.reason} • เวลาเล่น: ${summary.durationPlayedSec}s`;
-  hint.style.marginTop = '8px';
+  hint.style.marginTop = '10px';
   hint.style.fontSize = '12px';
-  hint.style.color = '#94a3b8';
-  hint.style.fontWeight = '900';
+  hint.style.color = 'rgba(148,163,184,.95)';
+  hint.textContent = `เหตุผลจบเกม: ${summary.reason} • เวลาเล่น: ${summary.durationPlayedSec}s`;
 
   card.appendChild(title);
   card.appendChild(meta);
-  card.appendChild(grid);
-  card.appendChild(btnRow);
+  card.appendChild(row);
   card.appendChild(hint);
-
-  el.appendChild(card);
-  wrap.appendChild(el);
-
-  btnAgain.onclick = () => {
-    // reload same URL (keep params)
-    try{ location.reload(); }catch(_){}
-  };
-
-  btnHub.onclick = async () => {
-    try{ await flushAll(summary, 'back_hub'); }catch(_){}
-    if (!canHub){
-      try{ el.remove(); }catch(_){}
-      return;
-    }
-    try{
-      // keep hub + context params (safe)
-      const cur = new URL(location.href);
-      const hubUrl = new URL(hub);
-      // ส่งต่อพารามิเตอร์หลักกลับ hub (ไม่ยัด summary ลง url)
-      const keepKeys = [
-        'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
-        'schoolYear','semester','studentKey','schoolCode','schoolName','classRoom','studentNo',
-        'nickName','gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup',
-        'vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
-        'gameVersion'
-      ];
-      keepKeys.forEach(k=>{
-        const v = cur.searchParams.get(k);
-        if (v != null && v !== '') hubUrl.searchParams.set(k, v);
-      });
-      hubUrl.searchParams.set('hubReturn', '1');
-      location.href = hubUrl.toString();
-    }catch(_){
-      location.href = hub;
-    }
-  };
+  host.appendChild(card);
 }
 
-// -------------------- exported boot --------------------
-export function boot(opts = {}) {
-  const DOC = ROOT.document;
+// ================== exported boot ==================
+export function boot(opts = {}){
   if (!DOC) return;
 
-  ensureTargetStyles();
+  ensureSafeStyles();
+  ensureFxMount();
 
   const layerEl = opts.layerEl || DOC.getElementById('gj-layer');
   const shootEl = opts.shootEl || DOC.getElementById('btnShoot');
@@ -527,8 +522,7 @@ export function boot(opts = {}) {
     return;
   }
 
-  // safe margins (will be tuned below)
-  const safeMargins = Object.assign({ top: 128, bottom: 170, left: 26, right: 26 }, (opts.safeMargins || {}));
+  const safeMargins = opts.safeMargins || { top: 128, bottom: 170, left: 26, right: 26 };
 
   const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
   const run  = String(opts.run || qs('run','play')).toLowerCase();
@@ -543,29 +537,14 @@ export function boot(opts = {}) {
   const ts = String(qs('ts', Date.now()));
   const seed = String(seedIn || (sessionId ? (sessionId + '|' + ts) : ts));
 
-  const ctx = opts.context || {};
-  const hub = String(opts.hub || qs('hub','') || '').trim();
+  // ✅ aimY from boot (VR lifts)
+  const aimY = clamp((typeof opts.aimY === 'number') ? opts.aimY : 0.58, 0.38, 0.70);
 
-  // VR/cardboard adjust: crosshair สูงขึ้น + spawn สูงขึ้นนิด
-  if (isVrLike()){
-    try{
-      if (crosshairEl) crosshairEl.style.top = '50%';
-    }catch(_){}
-    safeMargins.top = Math.max(90, safeMargins.top - 42);
-    safeMargins.bottom = Math.max(120, safeMargins.bottom - 46);
-  }
-
-  // mobile adjust
-  if (isMobileLike()){
-    safeMargins.left = Math.max(18, safeMargins.left);
-    safeMargins.right = Math.max(18, safeMargins.right);
-  }
+  const hubUrl = getHubUrl(opts.hub);
 
   // state
   const S = {
-    running:false,
-    ended:false,
-    flushed:false,
+    running:false, ended:false, flushed:false,
 
     diff, runMode, timeSec, seed, rng: makeRng(seed),
     endPolicy, challenge,
@@ -573,48 +552,34 @@ export function boot(opts = {}) {
     tStart:0,
     left: timeSec,
 
-    score:0,
-    combo:0,
-    comboMax:0,
+    score:0, combo:0, comboMax:0,
+    misses:0, hitAll:0, hitGood:0, hitJunk:0, hitJunkGuard:0, expireGood:0,
 
-    misses:0,           // miss = good expire + junk hit (unblocked)
-    hitAll:0,
-    hitGood:0,
-    hitJunk:0,
-    hitJunkGuard:0,
-    expireGood:0,
+    fever:0, shield:0,
 
-    fever: 0,
-    shield: 0,
+    goalsCleared:0, goalsTotal:2,
+    miniCleared:0,  miniTotal:7,
 
-    goalsCleared: 0,
-    goalsTotal: 2,
-    miniCleared: 0,
-    miniTotal: 7,
+    warmupUntil:0,
+    spawnTimer:0,
+    tickTimer:0,
 
-    warmupUntil: 0,
-    spawnTimer: 0,
-    tickTimer: 0,
-
-    spawnMs: 900,
-    ttlMs: 2000,
-    size: 1.0,
-    junkP: 0.15,
-    powerP: 0.03,
-    maxTargets: 8
+    spawnMs:900, ttlMs:2000, size:1.0, junkP:0.15, powerP:0.03, maxTargets:8
   };
 
   const base = diffBase(diff);
   S.spawnMs = base.spawnMs;
-  S.ttlMs = base.ttlMs;
-  S.size = base.size;
-  S.junkP = base.junk;
-  S.powerP = base.power;
+  S.ttlMs   = base.ttlMs;
+  S.size    = base.size;
+  S.junkP   = base.junk;
+  S.powerP  = base.power;
   S.maxTargets = base.maxT;
 
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
-    S.size = Math.min(1.14, S.size + 0.03);
+    S.size = Math.min(1.12, S.size + 0.03);
+    safeMargins.left = Math.max(18, safeMargins.left);
+    safeMargins.right = Math.max(18, safeMargins.right);
   }
 
   function coach(mood, text, sub){
@@ -623,15 +588,10 @@ export function boot(opts = {}) {
   function judge(kind, text){
     emit('hha:judge', { kind: kind || 'info', text: String(text||'') });
   }
-
-  function calcAcc(){
-    return S.hitAll > 0 ? Math.round((S.hitGood / S.hitAll) * 100) : 0;
-  }
   function updateScore(){
-    const acc = calcAcc();
-    const grade = rankFromAcc(acc);
-    emit('hha:score', { score:S.score|0, combo:S.combo|0, comboMax:S.comboMax|0, misses:S.misses|0, shield:S.shield|0, grade, accuracy: acc });
-    emit('hha:rank', { grade, accuracy: acc });
+    emit('hha:score', { score:S.score|0, combo:S.combo|0, comboMax:S.comboMax|0, misses:S.misses|0, shield:S.shield|0 });
+    const acc = S.hitAll > 0 ? Math.round((S.hitGood/S.hitAll)*100) : 0;
+    emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
   }
   function updateTime(){
     emit('hha:time', { left: Math.max(0, S.left|0) });
@@ -657,8 +617,8 @@ export function boot(opts = {}) {
 
   function removeTarget(el){
     try{ clearTimeout(el._ttl); }catch(_){}
-    el.classList.add('gone');
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
+    el.classList.add('hit');
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 140);
   }
 
   function expireTarget(el){
@@ -677,37 +637,24 @@ export function boot(opts = {}) {
       updateQuest();
       logEvent('miss_expire', { kind:'good', emoji: String(el.dataset.emoji||'') });
     }
-    el.classList.add('gone');
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 170);
-  }
-
-  function classForType(type){
-    if (type === 'good') return 'gj-good';
-    if (type === 'junk') return 'gj-junk';
-    if (type === 'star') return 'gj-star';
-    if (type === 'shield') return 'gj-shield';
-    return 'gj-good';
+    el.classList.add('out');
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
   }
 
   function makeTarget(type, emoji, x, y, s){
     const el = DOC.createElement('div');
-    el.className = `gj-target ${classForType(type)} spawn`;
+    el.className = `gj-target ${type}`;
     el.dataset.type = type;
     el.dataset.emoji = String(emoji||'✨');
 
-    // fallback safety
     el.style.position = 'absolute';
     el.style.pointerEvents = 'auto';
-    el.style.zIndex = (type === 'junk') ? '31' : (type === 'star' ? '32' : (type === 'shield' ? '33' : '30'));
+    el.style.zIndex = '40';
 
     setXY(el, x, y);
     el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
     el.textContent = String(emoji||'✨');
 
-    // animate in
-    requestAnimationFrame(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } });
-
-    // TTL
     el._ttl = setTimeout(()=> expireTarget(el), S.ttlMs);
 
     const onHit = (ev)=>{
@@ -741,27 +688,36 @@ export function boot(opts = {}) {
     judge('good', `+${pts}`);
     burstAtEl(el, 'good');
 
+    // ✅ POP effect always visible
+    try{
+      const r = el.getBoundingClientRect();
+      popAt(r.left + r.width/2, r.top + r.height/2, `+${pts}`, 'good');
+    }catch(_){}
+
     logEvent('hit', { kind:'good', emoji:String(el.dataset.emoji||''), score:S.score|0, combo:S.combo|0, fever:Math.round(S.fever) });
 
-    updateScore();
-    updateQuest();
+    updateScore(); updateQuest();
 
+    // minis by combo threshold
     if (S.miniCleared < S.miniTotal){
-      const needCombo = 4 + (S.miniCleared * 2); // 4,6,8,10...
+      const needCombo = 4 + (S.miniCleared * 2);
       if (S.combo >= needCombo){
         S.miniCleared++;
         emit('hha:celebrate', { kind:'mini', title:`Mini ผ่าน! ${S.miniCleared}/${S.miniTotal}` });
-        coach('happy', `คอมโบมาแล้ว! ดีมาก 🔥`, `ทำคอมโบต่อได้อีก!`);
+        coach('happy', `คอมโบมาแล้ว! 🔥`, `ทำคอมโบต่อได้อีก!`);
         updateQuest();
       }
     }
+
+    // goals by total good hits
     if (S.goalsCleared < S.goalsTotal){
-      const needGood = 10 + (S.goalsCleared * 8); // 10,18
+      const needGood = 10 + (S.goalsCleared * 8);
       if (S.hitGood >= needGood){
         S.goalsCleared++;
         emit('hha:celebrate', { kind:'goal', title:`Goal ผ่าน! ${S.goalsCleared}/${S.goalsTotal}` });
         coach('happy', `Goal ผ่านแล้ว!`, `คุมความแม่น + หลีกขยะ`);
         updateQuest();
+
         if (endPolicy === 'all' && S.goalsCleared >= S.goalsTotal && S.miniCleared >= S.miniTotal){
           endGame('all_complete');
         }
@@ -782,11 +738,16 @@ export function boot(opts = {}) {
     S.score += 70;
     judge('good', 'SHIELD +1');
     emit('hha:celebrate', { kind:'mini', title:'SHIELD 🛡️' });
-    burstAtEl(el, 'shield');
-    logEvent('hit', { kind:'shield', emoji:'🛡️', shield:S.shield|0 });
 
-    updateScore();
-    updateQuest();
+    burstAtEl(el, 'shield');
+
+    try{
+      const r = el.getBoundingClientRect();
+      popAt(r.left + r.width/2, r.top + r.height/2, `🛡️+1`, 'shield');
+    }catch(_){}
+
+    logEvent('hit', { kind:'shield', emoji:'🛡️', shield:S.shield|0 });
+    updateScore(); updateQuest();
     removeTarget(el);
   }
 
@@ -799,18 +760,22 @@ export function boot(opts = {}) {
     S.score += pts;
     judge('good', `BONUS +${pts}`);
     emit('hha:celebrate', { kind:'mini', title:'BONUS ✨' });
-    burstAtEl(el, 'star');
-    logEvent('hit', { kind:'star', emoji:String(el.dataset.emoji||'⭐') });
 
-    updateScore();
-    updateQuest();
+    burstAtEl(el, 'star');
+
+    try{
+      const r = el.getBoundingClientRect();
+      popAt(r.left + r.width/2, r.top + r.height/2, `+${pts}`, 'star');
+    }catch(_){}
+
+    logEvent('hit', { kind:'star', emoji:String(el.dataset.emoji||'⭐') });
+    updateScore(); updateQuest();
     removeTarget(el);
   }
 
   function hitJunk(el){
     S.hitAll++;
 
-    // shield blocks junk -> NOT a miss
     if (S.shield > 0){
       S.shield = Math.max(0, S.shield - 1);
       S.hitJunkGuard++;
@@ -818,15 +783,18 @@ export function boot(opts = {}) {
 
       judge('good', 'SHIELD BLOCK!');
       burstAtEl(el, 'guard');
-      logEvent('shield_block', { kind:'junk', emoji:String(el.dataset.emoji||'') });
 
-      updateScore();
-      updateQuest();
+      try{
+        const r = el.getBoundingClientRect();
+        popAt(r.left + r.width/2, r.top + r.height/2, `BLOCK`, 'shield');
+      }catch(_){}
+
+      logEvent('shield_block', { kind:'junk', emoji:String(el.dataset.emoji||'') });
+      updateScore(); updateQuest();
       removeTarget(el);
       return;
     }
 
-    // unblocked junk = miss
     S.hitJunk++;
     S.misses++;
     S.combo = 0;
@@ -838,13 +806,17 @@ export function boot(opts = {}) {
     updateFever(S.shield, S.fever);
 
     judge('bad', `JUNK! -${penalty}`);
-    coach('sad', 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
+    coach('sad', 'โดนขยะแล้ว 😵', 'เล็งกลางแล้วกดยิง');
+
     burstAtEl(el, 'junk');
 
-    logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
+    try{
+      const r = el.getBoundingClientRect();
+      popAt(r.left + r.width/2, r.top + r.height/2, `-${penalty}`, 'bad');
+    }catch(_){}
 
-    updateScore();
-    updateQuest();
+    logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
+    updateScore(); updateQuest();
     removeTarget(el);
   }
 
@@ -861,7 +833,7 @@ export function boot(opts = {}) {
     if (!S.running || S.ended) return;
     if (countTargets(layerEl) >= S.maxTargets) return;
 
-    const p = randPos(S.rng, safeMargins);
+    const p = randPos(S.rng, safeMargins, aimY);
 
     const t = now();
     const inWarm = (t < S.warmupUntil);
@@ -879,22 +851,10 @@ export function boot(opts = {}) {
 
     const size = (inWarm ? (S.size * 1.06) : S.size);
 
-    if (tp === 'good'){
-      layerEl.appendChild(makeTarget('good', pick(S.rng, GOOD), p.x, p.y, size));
-      return;
-    }
-    if (tp === 'junk'){
-      layerEl.appendChild(makeTarget('junk', pick(S.rng, JUNK), p.x, p.y, size * 0.98));
-      return;
-    }
-    if (tp === 'shield'){
-      layerEl.appendChild(makeTarget('shield', SHIELD, p.x, p.y, size * 1.03));
-      return;
-    }
-    if (tp === 'star'){
-      layerEl.appendChild(makeTarget('star', pick(S.rng, STARS), p.x, p.y, size * 1.02));
-      return;
-    }
+    if (tp === 'good')   layerEl.appendChild(makeTarget('good',   pick(S.rng, GOOD),  p.x, p.y, size));
+    if (tp === 'junk')   layerEl.appendChild(makeTarget('junk',   pick(S.rng, JUNK),  p.x, p.y, size * 0.98));
+    if (tp === 'shield') layerEl.appendChild(makeTarget('shield', SHIELD,            p.x, p.y, size * 1.03));
+    if (tp === 'star')   layerEl.appendChild(makeTarget('star',   pick(S.rng, STARS), p.x, p.y, size * 1.02));
   }
 
   function loopSpawn(){
@@ -932,8 +892,8 @@ export function boot(opts = {}) {
       const heat = clamp(timeRamp * 0.55 + skill * 0.75, 0, 1);
 
       S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
-      S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2800);
-      S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.16);
+      S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
+      S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.12);
       S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
       S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
 
@@ -943,7 +903,7 @@ export function boot(opts = {}) {
 
       if (S.fever >= 70){
         S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
-        S.size  = clamp(S.size + 0.03, 0.86, 1.18);
+        S.size  = clamp(S.size + 0.03, 0.86, 1.15);
       }
     } else {
       S.spawnMs = base.spawnMs;
@@ -963,11 +923,13 @@ export function boot(opts = {}) {
     const c = getCrosshairCenter(crosshairEl);
     const r = isMobileLike() ? 62 : 52;
     const el = findTargetNear(layerEl, c.x, c.y, r);
-    if (el) {
+    if (el){
       hitTarget(el);
     } else {
       if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
       updateScore();
+      // tiny feedback so user feels shot happened
+      fxBurst(c.x, c.y, 'star');
     }
   }
 
@@ -1000,17 +962,15 @@ export function boot(opts = {}) {
   }
 
   function bindFlushHard(){
-    const doFlush = (why)=>{
-      try{ flushAll(makeSummary(S, why), why); }catch(_){}
-    };
-
-    ROOT.addEventListener('pagehide', ()=>doFlush('pagehide'), { passive:true });
-
-    DOC.addEventListener('visibilitychange', ()=>{
-      if (DOC.visibilityState === 'hidden') doFlush('hidden');
+    ROOT.addEventListener('pagehide', ()=>{
+      try{ flushAll(makeSummary(S, 'pagehide'), 'pagehide'); }catch(_){}
     }, { passive:true });
 
-    ROOT.addEventListener('beforeunload', ()=>doFlush('beforeunload'), { passive:true });
+    DOC.addEventListener('visibilitychange', ()=>{
+      if (DOC.visibilityState === 'hidden'){
+        try{ flushAll(makeSummary(S, 'hidden'), 'hidden'); }catch(_){}
+      }
+    }, { passive:true });
   }
 
   function clearAllTargets(){
@@ -1043,11 +1003,16 @@ export function boot(opts = {}) {
 
     coach('neutral', 'จบเกมแล้ว!', 'กดกลับ HUB หรือเล่นใหม่ได้');
 
-    // render end overlay
-    renderEndSummary(summary, { hub });
+    // show summary overlay
+    const backUrl = buildBackUrl(hubUrl);
+    showEndSummary(summary, hubUrl, async ()=>{
+      try{
+        await flushAll(summary, 'back_hub');
+      }catch(_){}
+      location.href = backUrl;
+    });
   }
 
-  // -------------------- start --------------------
   function start(){
     S.running = true;
     S.ended = false;
@@ -1075,23 +1040,21 @@ export function boot(opts = {}) {
     S.miniCleared = 0;
 
     S.warmupUntil = now() + 3000;
+
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
-    updateScore();
-    updateTime();
-    updateQuest();
+    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / แตะเป้าได้');
+    updateScore(); updateTime(); updateQuest();
 
     logEvent('session_start', {
-      projectTag: ctx.projectTag || 'GoodJunkVR',
+      projectTag: (opts.context?.projectTag) || 'GoodJunkVR',
       runMode: S.runMode,
       diff: S.diff,
       endPolicy: S.endPolicy,
       challenge: S.challenge,
       seed: S.seed,
       sessionId: sessionId || '',
-      timeSec: S.timeSec,
-      view: getViewMode() || (isMobileLike() ? 'mobile' : 'pc')
+      timeSec: S.timeSec
     });
 
     loopSpawn();
@@ -1102,7 +1065,6 @@ export function boot(opts = {}) {
   bindFlushHard();
   start();
 
-  // expose minimal API
   try{
     ROOT.GoodJunkVR = ROOT.GoodJunkVR || {};
     ROOT.GoodJunkVR.endGame = endGame;
