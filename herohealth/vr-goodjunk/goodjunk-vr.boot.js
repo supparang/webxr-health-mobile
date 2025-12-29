@@ -1,19 +1,4 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard (PRODUCTION)
-// ✅ Reads URL params, shows start overlay
-// ✅ Boots safe engine + touch-look
-// ✅ Sets layout mode: data-view="pc|mobile|cardboard"
-// Params:
-//  - diff=easy|normal|hard
-//  - time=80
-//  - run=play|research
-//  - end=time|all
-//  - challenge=rush|boss|survival
-//  - hub=../hub.html
-//  - seed=...
-//  - sessionId=... or sid=...
-//  - log=<GAS_WEBAPP_URL>
-
 'use strict';
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
@@ -50,7 +35,7 @@ function buildContext(){
     if (v != null) ctx[k] = v;
   }
   ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
-  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-28';
+  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-29';
   return ctx;
 }
 
@@ -87,14 +72,14 @@ function setHudMeta(text){
 
   const ctx = buildContext();
 
-  // layout view
+  // layout view: pc | mobile | cardboard (prep)
   const view = toStr(qp('view', ''), '').toLowerCase() || (isMobileLike() ? 'mobile' : 'pc');
-  document.body.dataset.view = view; // pc | mobile | cardboard (future)
+  document.body.dataset.view = view;
   document.body.classList.toggle('is-mobile', view === 'mobile');
 
   setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • ${view}`);
 
-  // attach touch/gyro -> world shift (VR-feel)
+  // touch/gyro -> world shift
   attachTouchLook({
     crosshairEl: document.getElementById('gj-crosshair'),
     layerEl: document.getElementById('gj-layer'),
