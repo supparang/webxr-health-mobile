@@ -1,11 +1,11 @@
 <!-- === /herohealth/hydration-vr.html ===
 HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
-✅ Storm Intro siren + dim (1)
-✅ Water splash burst FX hook (2)
-✅ GREEN streak bonus (3)
-✅ Storm wind drift (4) [handled in hydration.safe.js via hha:score detail]
-✅ Perfect timing bonus (5) [handled in hydration.safe.js via hha:judge kind=perfect]
-✅ Summary adds TimeInGreen + StreakMax + StormRate (6)
+✅ Storm Intro siren + dim
+✅ Water splash burst FX hook (via window.Particles if exists)
+✅ GREEN streak bonus + StreakMax
+✅ Storm wind drift (from hydration.safe.js -> hha:score drift)
+✅ Perfect timing bonus (hha:judge kind=perfect)
+✅ Summary adds TimeInGreen + StreakMax + StormRate
 -->
 
 <!doctype html>
@@ -392,7 +392,13 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       box-shadow: 0 22px 80px rgba(0,0,0,.55);
     }
     .startTitle{ font-size:18px; font-weight:1200; }
-    .startDesc{ margin-top:6px; font-size:12px; font-weight:950; color:rgba(148,163,184,.95); line-height:1.35; }
+    .startDesc{
+      margin-top:6px;
+      font-size:12px;
+      font-weight:950;
+      color:rgba(148,163,184,.95);
+      line-height:1.35;
+    }
     .startMeta{ margin-top:10px; font-size:12px; font-weight:1000; color:rgba(229,231,235,.92); }
     .btnRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:12px; }
 
@@ -558,7 +564,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         </div>
       </div>
 
-      <!-- ✅ (6) added metrics -->
       <div class="endGrid">
         <div class="endItem"><span class="k">Score</span><span class="v" id="endScore">0</span></div>
         <div class="endItem"><span class="k">Grade</span><span class="v" id="endGrade">C</span></div>
@@ -568,7 +573,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         <div class="endItem"><span class="k">Miss</span><span class="v" id="endMiss">0</span></div>
         <div class="endItem"><span class="k">Goals</span><span class="v" id="endGoals">0/1</span></div>
 
-        <div class="endItem"><span class="k">Minis</span><span class="v" id="endMinis">0/0</span></div>
+        <div class="endItem"><span class="k">Minis</span><span class="v" id="endMinis">0/999</span></div>
         <div class="endItem"><span class="k">Time in GREEN</span><span class="v" id="endGreen">0.0s</span></div>
         <div class="endItem"><span class="k">Streak Max</span><span class="v" id="endStreak">0</span></div>
 
@@ -761,7 +766,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
     requestAnimationFrame(urgentLoop);
 
-    // ----- (4) drift hook: apply transforms from hha:score detail -----
+    // ----- drift hook: apply transforms from hha:score detail -----
     const pf = D.getElementById('playfield');
     const lay = D.getElementById('hvr-layer');
     const pfL = D.getElementById('cbPlayfieldL');
@@ -791,7 +796,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       stormLeft = Number(d.stormLeftSec || 0);
       stormUrgent = !!d.stormInEndWindow;
 
-      // drift values
       applyDrift(d.driftX, d.driftY, d.driftRot);
     }, { passive:true });
 
