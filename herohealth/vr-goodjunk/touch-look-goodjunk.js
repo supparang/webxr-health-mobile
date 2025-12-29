@@ -1,192 +1,152 @@
 // === /herohealth/vr-goodjunk/touch-look-goodjunk.js ===
-// Touch + Gyro "VR-feel" look shift for DOM layer (GoodJunkVR)
-// ✅ export attachTouchLook (ESM)
-// ✅ pointer drag (desktop + mobile)
-// ✅ deviceorientation (mobile, if permission granted)
-// ✅ smooth easing + clamp
-// ✅ returns cleanup()
+// Touch + Gyro look for GoodJunkVR (ESM)
+// ✅ export attachTouchLook
+// ✅ supports layerEl or layerEls[] (cardboard)
+// ✅ iOS DeviceOrientation permission helper
 
-'use strict';
+export function attachTouchLook(opts = {}) {
+  const DOC = document;
+  const layerEls = Array.isArray(opts.layerEls)
+    ? opts.layerEls.filter(Boolean)
+    : (opts.layerEl ? [opts.layerEl] : []);
+  const crosshairEl = opts.crosshairEl || null;
 
-function clamp(v, a, b){
-  v = Number(v) || 0;
-  return Math.max(a, Math.min(b, v));
-}
+  const maxShiftPx = Number(opts.maxShiftPx ?? 170);
+  const ease = Number(opts.ease ?? 0.12);
 
-function isCoarsePointer(){
-  try{ return matchMedia('(pointer: coarse)').matches; }catch(_){ return false; }
-}
-
-function isMobileLike(){
-  const w = innerWidth || 360;
-  const h = innerHeight || 640;
-  return isCoarsePointer() || Math.min(w, h) < 520;
-}
-
-function normalizeAngleDeg(a){
-  // keep in [-180, 180]
-  a = Number(a) || 0;
-  while (a > 180) a -= 360;
-  while (a < -180) a += 360;
-  return a;
-}
-
-export function attachTouchLook(opts = {}){
-  const layerEl = opts.layerEl || document.getElementById('gj-layer');
-  const crosshairEl = opts.crosshairEl || document.getElementById('gj-crosshair');
-
-  if (!layerEl) {
-    console.warn('[touch-look] missing layerEl');
-    return () => {};
-  }
-
-  const aimY = clamp(opts.aimY ?? 0.62, 0.2, 0.85);
-  const maxShiftPx = clamp(opts.maxShiftPx ?? (isMobileLike() ? 190 : 150), 60, 360);
-  const ease = clamp(opts.ease ?? 0.12, 0.04, 0.35);
-
-  // state
   let enabled = true;
 
-  // desired offsets (from input), and current offsets (smoothed)
-  let dxWant = 0, dyWant = 0;
-  let dx = 0, dy = 0;
-
-  // drag
+  // drag state
   let dragging = false;
-  let lastX = 0, lastY = 0;
+  let startX = 0, startY = 0;
+  let baseX = 0, baseY = 0;
 
-  // gyro baseline
-  let gyroReady = false;
-  let baseGamma = 0; // left/right
-  let baseBeta  = 0; // up/down
-  let useGyro = false;
+  // target shift (from drag + gyro)
+  let tX = 0, tY = 0;
+  let cX = 0, cY = 0;
 
-  // apply transforms
-  function apply(){
-    if (!enabled) return;
+  // gyro state
+  let gyroOn = false;
+  let gX = 0, gY = 0;
 
-    dx = dx + (dxWant - dx) * ease;
-    dy = dy + (dyWant - dy) * ease;
+  function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
-    // translate layer only (crosshair stays fixed -> feels like head look)
-    layerEl.style.transform = `translate3d(${dx.toFixed(2)}px, ${dy.toFixed(2)}px, 0)`;
-
-    // optional: keep an "aim point" for future use (not required by safe.js)
-    layerEl.style.setProperty('--aimY', String(aimY));
-
-    requestAnimationFrame(apply);
+  function applyShift(x, y){
+    for (const el of layerEls){
+      el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      el.style.willChange = 'transform';
+    }
   }
 
-  // pointer drag
   function onPointerDown(e){
     if (!enabled) return;
     dragging = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    try{ layerEl.setPointerCapture?.(e.pointerId); }catch(_){}
+    startX = e.clientX || 0;
+    startY = e.clientY || 0;
+    baseX = tX;
+    baseY = tY;
   }
-
   function onPointerMove(e){
     if (!enabled || !dragging) return;
-    const x = e.clientX, y = e.clientY;
-    const dxm = x - lastX;
-    const dym = y - lastY;
-    lastX = x; lastY = y;
-
-    // drag moves view (invert to feel like "swipe to look")
-    dxWant = clamp(dxWant + dxm * 0.9, -maxShiftPx, maxShiftPx);
-    dyWant = clamp(dyWant + dym * 0.9, -maxShiftPx, maxShiftPx);
+    const dx = (e.clientX||0) - startX;
+    const dy = (e.clientY||0) - startY;
+    // invert feel slightly VR-like (drag to “move world”)
+    tX = clamp(baseX + dx * 0.55, -maxShiftPx, maxShiftPx);
+    tY = clamp(baseY + dy * 0.55, -maxShiftPx, maxShiftPx);
   }
-
   function onPointerUp(){
     dragging = false;
   }
 
-  // gyro (best-effort)
-  function onOrientation(ev){
-    if (!enabled || !useGyro) return;
+  // Map device orientation -> shift
+  function onDeviceOri(e){
+    if (!enabled || !gyroOn) return;
 
-    const gamma = normalizeAngleDeg(ev.gamma); // L/R
-    const beta  = normalizeAngleDeg(ev.beta);  // U/D
+    // gamma: left/right [-90..90], beta: front/back [-180..180]
+    const gamma = Number(e.gamma || 0);
+    const beta  = Number(e.beta  || 0);
 
-    if (!gyroReady){
-      gyroReady = true;
-      baseGamma = gamma;
-      baseBeta  = beta;
-    }
+    // normalize to [-1..1] around comfortable range
+    const nx = clamp(gamma / 35, -1, 1);
+    const ny = clamp((beta - 15) / 35, -1, 1); // a bit forward bias
 
-    // delta
-    const dg = normalizeAngleDeg(gamma - baseGamma);
-    const db = normalizeAngleDeg(beta - baseBeta);
-
-    // map degrees -> pixels
-    // keep gentle so kids don't get motion sickness
-    const gx = clamp(dg / 25, -1, 1) * maxShiftPx;
-    const gy = clamp(-db / 28, -1, 1) * maxShiftPx;
-
-    // combine: gyro sets baseline, drag adds on top
-    // (drag already stored in dxWant/dyWant; so blend rather than overwrite)
-    dxWant = clamp(dxWant * 0.65 + gx * 0.35, -maxShiftPx, maxShiftPx);
-    dyWant = clamp(dyWant * 0.65 + gy * 0.35, -maxShiftPx, maxShiftPx);
+    gX = nx * maxShiftPx * 0.85;
+    gY = ny * maxShiftPx * 0.65;
   }
 
-  async function tryEnableGyro(){
-    // iOS requires permission gesture; Android usually just works.
+  function tick(){
+    // blend drag + gyro
+    const wantX = clamp(tX + gX, -maxShiftPx, maxShiftPx);
+    const wantY = clamp(tY + gY, -maxShiftPx, maxShiftPx);
+
+    cX += (wantX - cX) * ease;
+    cY += (wantY - cY) * ease;
+
+    applyShift(cX, cY);
+
+    raf = requestAnimationFrame(tick);
+  }
+
+  // iOS permission helper
+  async function requestGyroPermission(){
     try{
-      if (typeof DeviceOrientationEvent !== 'undefined' &&
-          typeof DeviceOrientationEvent.requestPermission === 'function') {
-        // must be called from a user gesture. If not, it will throw.
-        const res = await DeviceOrientationEvent.requestPermission();
-        useGyro = (res === 'granted');
-      } else {
-        useGyro = true;
+      const DOE = window.DeviceOrientationEvent;
+      if (!DOE) return true;
+
+      // iOS 13+
+      if (typeof DOE.requestPermission === 'function'){
+        const res = await DOE.requestPermission();
+        return res === 'granted';
       }
+      return true;
     }catch(_){
-      useGyro = false;
+      return false;
     }
   }
 
-  // Bind events
-  layerEl.style.willChange = 'transform';
-  layerEl.style.transform = 'translate3d(0,0,0)';
+  async function enableGyro(){
+    const ok = await requestGyroPermission();
+    if (!ok) return false;
 
-  // Use stage if exists (better drag area)
-  const stage = document.getElementById('gj-stage') || layerEl;
-
-  stage.addEventListener('pointerdown', onPointerDown, { passive:true });
-  stage.addEventListener('pointermove', onPointerMove, { passive:true });
-  stage.addEventListener('pointerup', onPointerUp, { passive:true });
-  stage.addEventListener('pointercancel', onPointerUp, { passive:true });
-  stage.addEventListener('pointerleave', onPointerUp, { passive:true });
-
-  // auto-try gyro on mobile; if needs permission, user will still be fine with drag
-  if (isMobileLike()){
-    tryEnableGyro().finally(()=>{
-      window.addEventListener('deviceorientation', onOrientation, { passive:true });
-    });
+    if (!gyroOn){
+      gyroOn = true;
+      window.addEventListener('deviceorientation', onDeviceOri, { passive:true });
+    }
+    return true;
   }
 
-  // If you want: tap crosshair to re-center drift
-  if (crosshairEl){
-    crosshairEl.addEventListener('click', ()=>{
-      // recenter smoothly
-      dxWant = 0; dyWant = 0;
-      gyroReady = false; // re-baseline gyro
-    }, { passive:true });
+  function disableGyro(){
+    gyroOn = false;
+    window.removeEventListener('deviceorientation', onDeviceOri);
+    gX = 0; gY = 0;
   }
 
-  requestAnimationFrame(apply);
+  function setEnabled(v){
+    enabled = !!v;
+    if (!enabled){
+      dragging = false;
+      disableGyro();
+      tX = 0; tY = 0;
+      gX = 0; gY = 0;
+    }
+  }
 
-  // cleanup
-  return function cleanup(){
-    enabled = false;
-    try{ window.removeEventListener('deviceorientation', onOrientation); }catch(_){}
-    try{
-      stage.removeEventListener('pointerdown', onPointerDown);
-      stage.removeEventListener('pointermove', onPointerMove);
-      stage.removeEventListener('pointerup', onPointerUp);
-      stage.removeEventListener('pointercancel', onPointerUp);
-      stage.removeEventListener('pointerleave', onPointerUp);
-    }catch(_){}
-  };
+  function destroy(){
+    setEnabled(false);
+    DOC.removeEventListener('pointerdown', onPointerDown);
+    DOC.removeEventListener('pointermove', onPointerMove);
+    DOC.removeEventListener('pointerup', onPointerUp);
+    DOC.removeEventListener('pointercancel', onPointerUp);
+    try{ cancelAnimationFrame(raf); }catch(_){}
+  }
+
+  // bind drag on whole doc (world drag feel)
+  DOC.addEventListener('pointerdown', onPointerDown, { passive:true });
+  DOC.addEventListener('pointermove', onPointerMove, { passive:true });
+  DOC.addEventListener('pointerup', onPointerUp, { passive:true });
+  DOC.addEventListener('pointercancel', onPointerUp, { passive:true });
+
+  let raf = requestAnimationFrame(tick);
+
+  return { enableGyro, disableGyro, setEnabled, destroy };
 }
