@@ -5,9 +5,9 @@
 // ✅ Export CSV (last / recent4)
 // ✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run/runMode, diff, time, seed, + research ctx)
 //
-// ✅ NEW UX (requested):
-// - แตะ 1 ครั้ง = Copy ลิงก์
-// - แตะ 2 ครั้ง = Play
+// ✅ UX:
+// - แตะ 1 ครั้ง = Copy ลิงก์ (มี pulse เขียว)
+// - แตะ 2 ครั้ง = Play (มี pulse เหลือง)
 // ใช้กับ "ปุ่มเกม" และ "แถว History"
 
 'use strict';
@@ -32,8 +32,6 @@ const GAME_MAP = {
 };
 
 const DEFAULT_RESEARCH_SEED = 777777; // deterministic default ถ้าไม่ใส่ seed ใน Research
-
-// double-tap window (ms) — ปรับได้ตามใจ
 const TAP_DELAY_MS = 260;
 
 // ---------------- helpers ----------------
@@ -46,18 +44,14 @@ function clamp(n, a, b){
   n = Number(n) || 0;
   return n < a ? a : (n > b ? b : n);
 }
-function nowIso(){
-  return new Date().toISOString();
-}
+function nowIso(){ return new Date().toISOString(); }
 function fmtLocal(dt){
   try{
     const d = (dt instanceof Date) ? dt : new Date(dt);
     if (Number.isNaN(d.getTime())) return String(dt || '—');
     const pad = (x)=>String(x).padStart(2,'0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  }catch{
-    return String(dt || '—');
-  }
+  }catch{ return String(dt || '—'); }
 }
 function pick(obj, keys, fallback){
   for (const k of keys){
@@ -68,8 +62,6 @@ function pick(obj, keys, fallback){
   return fallback;
 }
 function normalizeRun(selRunValue){
-  // UI: play | study
-  // URL: play | research
   return (String(selRunValue || '').toLowerCase() === 'study') ? 'research' : 'play';
 }
 function normalizeDiff(v){
@@ -116,14 +108,25 @@ function downloadText(filename, text){
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 250);
 }
 
-// ------------- mini toast (ใช้ hint เดิมให้ไม่รก) -------------
+// ---------- pulse feedback ----------
+function pulse(el, kind='good'){
+  if (!el || !el.classList) return;
+  const cls = (kind === 'warn') ? 'pulseWarn' : (kind === 'bad') ? 'pulseBad' : 'pulseGood';
+  el.classList.remove('pulseGood','pulseWarn','pulseBad');
+  // force reflow to replay animation
+  void el.offsetWidth;
+  el.classList.add(cls);
+  setTimeout(()=>{ try{ el.classList.remove(cls); }catch{} }, 500);
+}
+
+// ---------- small hint ----------
 let _hintTimer = null;
-function setHint(targetId, msg, ms = 1200){
+function setHint(targetId, msg){
   const el = $(targetId);
   if (!el) return;
   el.textContent = String(msg || '');
   if (_hintTimer) clearTimeout(_hintTimer);
-  _hintTimer = setTimeout(()=>{}, ms);
+  _hintTimer = setTimeout(()=>{}, 900);
 }
 
 // ------------- tap / double tap binder -------------
@@ -142,37 +145,31 @@ function bindTap(el, onSingle, onDouble, opts = {}){
     const st = _tapState.get(el) || { last:0, timer:null };
     const now = Date.now();
 
-    // double tap?
     if (st.last && (now - st.last) <= delay){
-      // cancel single
       if (st.timer) clearTimeout(st.timer);
       st.timer = null;
       st.last = 0;
       _tapState.set(el, st);
-
-      try{ onDouble && onDouble(e); }catch{}
+      try{ onDouble && onDouble(e, { el }); }catch{}
       return;
     }
 
-    // first tap: schedule single after delay (กันชนกับ double tap)
     clearState(st);
     st.last = now;
     st.timer = setTimeout(() => {
-      // fire single
       clearState(st);
       _tapState.set(el, st);
-      try{ onSingle && onSingle(e); }catch{}
+      try{ onSingle && onSingle(e, { el }); }catch{}
     }, delay);
 
     _tapState.set(el, st);
   }, { passive: false });
 
-  // context menu = copy now (desktop right click / mobile long press some browsers)
   el.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     const st = _tapState.get(el);
     if (st) { if (st.timer) clearTimeout(st.timer); st.timer = null; st.last = 0; _tapState.set(el, st); }
-    try{ onSingle && onSingle(e, { immediate:true }); }catch{}
+    try{ onSingle && onSingle(e, { el, immediate:true }); }catch{}
   });
 }
 
@@ -246,7 +243,6 @@ function flattenSummaryToRow(s){
   };
 
   row.seed = seed || pick(ctx, ['seed'], '');
-
   if (!row.timestampIso) row.timestampIso = nowIso();
   return row;
 }
@@ -270,8 +266,7 @@ function exportCsvForSummaries(kind, summaries){
 
   const csv = toCsv(rows, columns);
   const stamp = fmtLocal(new Date()).replace(/[:\s]/g,'-');
-  const filename = `HHA_${kind}_${stamp}.csv`;
-  downloadText(filename, csv);
+  downloadText(`HHA_${kind}_${stamp}.csv`, csv);
 }
 
 // ------------- grade tag -------------
@@ -296,7 +291,7 @@ function computeGrade(summary){
   return 'C';
 }
 
-// ------------- storage read/write -------------
+// ------------- storage -------------
 function readLast(){ return safeJsonParse(localStorage.getItem(LS_LAST), null); }
 function readHist(){
   const h = safeJsonParse(localStorage.getItem(LS_HIST), []);
@@ -333,7 +328,7 @@ function buildGameUrl(gameTag, opts = {}){
 
   const u = new URL(g.path, location.href);
 
-  const run = normalizeRun(opts.selRun);
+  const run  = normalizeRun(opts.selRun);
   const diff = normalizeDiff(opts.selDiff);
   const time = clamp(opts.timeSec, 20, 9999);
 
@@ -361,10 +356,9 @@ function buildGameUrl(gameTag, opts = {}){
 
 function buildGameUrlFromSummary(summary){
   const gameTag = pick(summary, ['gameTag','game','tag'], '');
-  const g = GAME_MAP[gameTag];
-  if (!g) return null;
+  if (!GAME_MAP[gameTag]) return null;
 
-  const u = new URL(g.path, location.href);
+  const u = new URL(GAME_MAP[gameTag].path, location.href);
 
   const run  = String(pick(summary, ['runMode','run','mode'], 'play')).toLowerCase() || 'play';
   const diff = normalizeDiff(pick(summary, ['diff'], 'normal'));
@@ -397,7 +391,7 @@ function buildGameUrlFromSummary(summary){
 
 // ------------- UI state -------------
 let selectedGame = 'goodjunk';
-let _recentCache = []; // ล่าสุดที่ render เพื่อคลิก copy/play ได้
+let _recentCache = [];
 
 function setSelectedGame(tag){
   if (!GAME_MAP[tag]) tag = 'goodjunk';
@@ -414,7 +408,7 @@ function setSelectedGame(tag){
 
   const hint = $('linkHint');
   if (hint){
-    hint.textContent = `เลือกแล้ว: ${GAME_MAP[selectedGame].name} • แตะ 1 ครั้งเพื่อ Copy / 2 ครั้งเพื่อ Play`;
+    hint.textContent = `เลือกแล้ว: ${GAME_MAP[selectedGame].name} • แตะ 1 ครั้ง=Copy / 2 ครั้ง=Play`;
   }
 }
 
@@ -432,14 +426,11 @@ function getCurrentBuildOpts(){
 
 async function copyGameLink(gameTag){
   const u = buildGameUrl(gameTag, getCurrentBuildOpts());
-  if (!u){
-    setHint('linkHint', 'สร้างลิงก์ไม่สำเร็จ');
-    return false;
-  }
+  if (!u){ setHint('linkHint', 'สร้างลิงก์ไม่สำเร็จ'); return { ok:false, url:null }; }
   const ok = await copyText(u.toString());
   setHint('linkHint', ok ? `คัดลอกลิงก์แล้ว ✅ (${GAME_MAP[gameTag]?.name || gameTag})` : 'คัดลอกไม่สำเร็จ');
   if (!ok) console.log(u.toString());
-  return ok;
+  return { ok, url:u };
 }
 function playGame(gameTag){
   const u = buildGameUrl(gameTag, getCurrentBuildOpts());
@@ -448,16 +439,13 @@ function playGame(gameTag){
 
 async function copyRecentLinkByIndex(i){
   const s = _recentCache[i];
-  if (!s) return false;
+  if (!s) return { ok:false, url:null };
   const u = buildGameUrlFromSummary(s);
-  if (!u){
-    setHint('historyHint', 'สร้างลิงก์ไม่สำเร็จ');
-    return false;
-  }
+  if (!u){ setHint('historyHint', 'สร้างลิงก์ไม่สำเร็จ'); return { ok:false, url:null }; }
   const ok = await copyText(u.toString());
   setHint('historyHint', ok ? 'คัดลอกลิงก์รอบนี้แล้ว ✅ (แตะ 2 ครั้งเพื่อเล่น)' : 'คัดลอกไม่สำเร็จ');
   if (!ok) console.log(u.toString());
-  return ok;
+  return { ok, url:u };
 }
 function playRecentByIndex(i){
   const s = _recentCache[i];
@@ -469,15 +457,11 @@ function playRecentByIndex(i){
 function applyPreset(){
   const selRun = $('selRun')?.value || 'play';
   const selDiff = $('selDiff')?.value || 'normal';
-
   const run = normalizeRun(selRun);
   const diff = normalizeDiff(selDiff);
 
   let t = 70;
-  if (diff === 'easy') t = 70;
-  if (diff === 'normal') t = 70;
   if (diff === 'hard') t = 80;
-
   if (run === 'research') t = 70;
 
   const inpTime = $('inpTime');
@@ -497,7 +481,6 @@ function renderNow(){
 
 function renderLast(){
   const last = readLast();
-
   const empty = $('lastEmpty');
   const panel = $('lastPanel');
 
@@ -506,7 +489,6 @@ function renderLast(){
     if (panel) panel.style.display = 'none';
     return;
   }
-
   if (empty) empty.style.display = 'none';
   if (panel) panel.style.display = '';
 
@@ -531,14 +513,10 @@ function renderLast(){
   const badgeGame = $('badgeGame');
   const badgeGrade= $('badgeGrade');
 
-  if (badgeGame){
-    badgeGame.textContent = gameName;
-    badgeGame.className = 'badge';
-  }
+  if (badgeGame){ badgeGame.textContent = gameName; badgeGame.className = 'badge'; }
   if (badgeGrade){
     badgeGrade.textContent = `Grade ${grade}`;
-    const cls = gradeClass(grade);
-    badgeGrade.className = `badge ${cls}`.trim();
+    badgeGrade.className = `badge ${gradeClass(grade)}`.trim();
   }
 
   const lastSession = $('lastSession');
@@ -548,7 +526,6 @@ function renderLast(){
   }
 
   const setText = (id, v) => { const el = $(id); if (el) el.textContent = String(v); };
-
   setText('lastScore', score);
   setText('lastCombo', combo);
   setText('lastMiss',  miss);
@@ -560,9 +537,7 @@ function renderLast(){
   setText('lastSeed',  seed === undefined ? '—' : String(seed));
 
   const lastJson = $('lastJson');
-  if (lastJson){
-    lastJson.textContent = JSON.stringify(last, null, 2);
-  }
+  if (lastJson){ lastJson.textContent = JSON.stringify(last, null, 2); }
 }
 
 function bindRecentRowInteractions(){
@@ -574,8 +549,14 @@ function bindRecentRowInteractions(){
     const i = Number(tr.getAttribute('data-i'));
     bindTap(
       tr,
-      async () => { await copyRecentLinkByIndex(i); },
-      () => { playRecentByIndex(i); },
+      async (_e, meta) => {
+        const { ok } = await copyRecentLinkByIndex(i);
+        pulse(meta?.el || tr, ok ? 'good' : 'bad');
+      },
+      (_e, meta) => {
+        pulse(meta?.el || tr, 'warn');
+        playRecentByIndex(i);
+      },
       { delayMs: TAP_DELAY_MS }
     );
   }
@@ -584,8 +565,6 @@ function bindRecentRowInteractions(){
 function renderRecent(){
   const hist = readHist();
   const recent = hist.slice(0, 4);
-
-  // cache เพื่อให้ row click ทำงาน
   _recentCache = recent;
 
   const empty = $('recentEmpty');
@@ -604,7 +583,7 @@ function renderRecent(){
   if (panel) panel.style.display = '';
 
   if (hint){
-    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${hist.length} • แตะแถว 1 ครั้ง=Copy / 2 ครั้ง=Play`;
+    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${hist.length} • แตะแถว 1=Copy / 2=Play`;
   }
 
   if (!tbody) return;
@@ -642,41 +621,38 @@ function renderRecent(){
     `.trim();
   }).join('\n');
 
-  // bind tap behaviors after render
   bindRecentRowInteractions();
 }
 
 // ------------- actions -------------
 function bindButtons(){
-  // ✅ NEW: game buttons — tap 1 = copy link / tap 2 = play
+  // game buttons: tap 1 copy / tap 2 play
   for (const el of Array.from(document.querySelectorAll('.gameBtn'))){
     const tag = el.dataset.game;
 
     bindTap(
       el,
-      async () => {
-        // single tap => select + copy
+      async (_e, meta) => {
         setSelectedGame(tag);
-        await copyGameLink(tag);
+        const { ok } = await copyGameLink(tag);
+        pulse(meta?.el || el, ok ? 'good' : 'bad');
       },
-      () => {
-        // double tap => select + play
+      (_e, meta) => {
         setSelectedGame(tag);
+        pulse(meta?.el || el, 'warn');
         playGame(tag);
       },
       { delayMs: TAP_DELAY_MS }
     );
   }
 
-  // apply preset
   $('btnApplyPreset')?.addEventListener('click', applyPreset);
 
-  // copy link (selected) — ปุ่มยังอยู่ เผื่ออยากใช้
   $('btnCopyLink')?.addEventListener('click', async () => {
-    await copyGameLink(selectedGame);
+    const { ok } = await copyGameLink(selectedGame);
+    pulse(document.querySelector(`.gameBtn[data-game="${selectedGame}"]`), ok ? 'good' : 'bad');
   });
 
-  // replay last
   $('btnReplayLast')?.addEventListener('click', () => {
     const last = readLast();
     if (!last) return;
@@ -684,21 +660,18 @@ function bindButtons(){
     if (u) location.href = u.toString();
   });
 
-  // copy last json
   $('btnCopyLastJson')?.addEventListener('click', async () => {
     const last = readLast();
     if (!last) return;
     await copyText(JSON.stringify(last, null, 2));
   });
 
-  // export last csv
   $('btnExportLastCsv')?.addEventListener('click', () => {
     const last = readLast();
     if (!last) return;
     exportCsvForSummaries('last', last);
   });
 
-  // export recent csv
   $('btnExportRecentCsv')?.addEventListener('click', () => {
     const hist = readHist();
     const recent = hist.slice(0, 4);
@@ -706,13 +679,11 @@ function bindButtons(){
     exportCsvForSummaries('recent4', recent);
   });
 
-  // clear last
   $('btnClearLast')?.addEventListener('click', () => {
     clearLast();
     renderLast();
   });
 
-  // clear history
   $('btnClearHistory')?.addEventListener('click', () => {
     clearHist();
     renderRecent();
@@ -727,7 +698,6 @@ function bindButtons(){
   renderNow();
   setInterval(renderNow, 1000);
 
-  // default select first game
   setSelectedGame('goodjunk');
 
   const qp = new URLSearchParams(location.search);
