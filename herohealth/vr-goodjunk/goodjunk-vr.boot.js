@@ -1,10 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard + Cardboard Stereo
-// ✅ attachTouchLook AFTER Start click (iOS gyro permission)
-// ✅ pass stereo layers/crosshairs to safe.js
-// ✅ set body data-view = pc|mobile|cardboard
-
-'use strict';
+// GoodJunkVR Boot — HHA Standard + VR buttons
 
 import { boot as goodjunkBoot } from './goodjunk.safe.js';
 import { attachTouchLook } from './touch-look-goodjunk.js';
@@ -16,23 +11,25 @@ function qp(name, fallback = null){
     return (v == null || v === '') ? fallback : v;
   }catch(_){ return fallback; }
 }
-
 function toInt(v, d){ v = Number(v); return Number.isFinite(v) ? (v|0) : d; }
 function toStr(v, d){ v = String(v ?? '').trim(); return v ? v : d; }
 
-function isMobileLike(){
-  const w = innerWidth || 360;
-  const h = innerHeight || 640;
-  const coarse = (matchMedia && matchMedia('(pointer: coarse)').matches);
-  return coarse || (Math.min(w,h) < 520);
-}
-
-function detectView(){
-  const v = toStr(qp('view', ''), '').toLowerCase();
-  if (v === 'cardboard' || v === 'vr') return 'cardboard';
-  if (v === 'mobile') return 'mobile';
-  if (v === 'pc' || v === 'desktop') return 'pc';
-  return isMobileLike() ? 'mobile' : 'pc';
+function buildContext(){
+  const keys = [
+    'projectTag','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
+    'schoolYear','semester','studentKey','schoolCode','schoolName','classRoom','studentNo',
+    'nickName','gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup',
+    'vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent',
+    'gameVersion'
+  ];
+  const ctx = {};
+  for (const k of keys){
+    const v = qp(k, null);
+    if (v != null) ctx[k] = v;
+  }
+  ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
+  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-29';
+  return ctx;
 }
 
 function showStartOverlay(metaText){
@@ -56,6 +53,29 @@ function setHudMeta(text){
   if (el) el.textContent = text;
 }
 
+async function tryFullscreen(el){
+  try{
+    const target = el || document.documentElement;
+    if (target.requestFullscreen) await target.requestFullscreen();
+  }catch(_){}
+}
+async function tryLandscape(){
+  try{
+    if (screen.orientation && screen.orientation.lock){
+      await screen.orientation.lock('landscape');
+    }
+  }catch(_){}
+}
+
+function setUrlParam(key, val){
+  try{
+    const u = new URL(location.href);
+    if (val == null) u.searchParams.delete(key);
+    else u.searchParams.set(key, String(val));
+    history.replaceState({}, '', u.toString());
+  }catch(_){}
+}
+
 (async function main(){
   const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
   const time = toInt(qp('time', '80'), 80);
@@ -65,35 +85,58 @@ function setHudMeta(text){
 
   const seed = qp('seed', null);
   const sessionId = qp('sessionId', null) || qp('sid', null);
+  const ctx = buildContext();
 
-  const view = detectView();
+  // view modes: pc | mobile | vr | cardboard
+  const view = toStr(qp('view', ''), '').toLowerCase() || (matchMedia('(pointer:coarse)').matches ? 'mobile' : 'pc');
   document.body.dataset.view = view;
 
   setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=${view}`);
 
-  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • view=${view}`
+  // Touch/Gyro look (apply to both mono layer and stereo layers)
+  const touch = attachTouchLook({
+    layerEls: [
+      document.getElementById('gj-layer'),
+      document.getElementById('gj-layerL'),
+      document.getElementById('gj-layerR'),
+    ].filter(Boolean),
+    crosshairEl: document.getElementById('gj-crosshair'),
+    maxShiftPx: 170,
+    ease: 0.12
+  });
+
+  // VR Buttons
+  const btnVr = document.getElementById('btnVr');
+  const btnCb = document.getElementById('btnCardboard');
+
+  async function enterVR(){
+    document.body.dataset.view = 'vr';
+    setUrlParam('view', 'vr');
+    setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=vr`);
+    await tryFullscreen(document.getElementById('gj-stage'));
+    await tryLandscape();
+    // enable gyro after user gesture
+    await touch.enableGyro();
+  }
+
+  async function enterCardboard(){
+    document.body.dataset.view = 'cardboard';
+    setUrlParam('view', 'cardboard');
+    setHudMeta(`diff=${diff} • run=${run} • end=${endPolicy} • ${challenge} • view=cardboard`);
+    await tryFullscreen(document.getElementById('gj-stage'));
+    await tryLandscape();
+    await touch.enableGyro();
+  }
+
+  if (btnVr) btnVr.onclick = () => { enterVR(); };
+  if (btnCb) btnCb.onclick = () => { enterCardboard(); };
+
+  const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}`
     + (seed ? ` • seed=${seed}` : '');
 
   await showStartOverlay(metaText);
 
-  // pick elements by view
-  const legacyLayer = document.getElementById('gj-layer');
-  const legacyCross = document.getElementById('gj-crosshair');
-
-  const layerL = document.getElementById('gj-layerL');
-  const layerR = document.getElementById('gj-layerR');
-  const crossL = document.getElementById('gj-crosshairL');
-  const crossR = document.getElementById('gj-crosshairR');
-
-  // Touch-look: shift layers (works for both single & stereo)
-  attachTouchLook({
-    stageEl: document.getElementById('gj-stage'),
-    layerEls: (view === 'cardboard' && layerL && layerR) ? [layerL, layerR] : [legacyLayer].filter(Boolean),
-    aimY: (view === 'cardboard') ? 0.58 : 0.62,
-    maxShiftPx: (view === 'cardboard') ? 220 : 170,
-    ease: 0.12
-  });
-
+  // boot engine (mono + stereo-ready)
   goodjunkBoot({
     diff,
     time,
@@ -102,15 +145,16 @@ function setHudMeta(text){
     challenge,
     seed,
     sessionId,
+    context: ctx,
 
-    // ✅ pass both; safe.js will auto-use stereo if present
-    layerEl: legacyLayer,
-    crosshairEl: legacyCross,
+    // mono layer
+    layerEl: document.getElementById('gj-layer'),
 
-    layerElL: layerL,
-    layerElR: layerR,
-    crosshairElL: crossL,
-    crosshairElR: crossR,
+    // stereo layers for cardboard
+    layerEls: [
+      document.getElementById('gj-layerL'),
+      document.getElementById('gj-layerR')
+    ],
 
     shootEl: document.getElementById('btnShoot'),
     safeMargins: { top: 128, bottom: 170, left: 26, right: 26 }
