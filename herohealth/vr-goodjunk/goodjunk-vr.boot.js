@@ -1,282 +1,218 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Bootper: view controls + start overlay + end summary + fullscreen/VR helpers
-// ✅ FIX: landscape detection (matchMedia)
-// ✅ FIX: VR tip shows only when needed + remember "OK" (no repeat)
-// ✅ FIX: on OK / EnterVR -> try fullscreen + lock landscape inside gesture
+// GoodJunkVR Boot (PRODUCTION)
+// ✅ Start overlay -> click to start
+// ✅ View switch PC/Mobile/VR/cVR + Fullscreen
+// ✅ VR Tip overlay (#vrTip + #vrTipOk) -> OK แล้วเข้าเกมแน่นอน
+// ✅ Safe margins per view (กันเป้าไปโผล่นอกจอ/ต่ำเกินใน landscape)
+// ✅ Optional logger: ?log=<WEB_APP_EXEC_URL>
 
-'use strict';
+import { boot as gameBoot } from './goodjunk.safe.js';
 
-import { boot as goodjunkBoot } from './goodjunk.safe.js';
+const ROOT = (typeof window !== 'undefined') ? window : globalThis;
+const DOC  = ROOT.document;
 
-const ROOT = window;
-
-function qs(name, def=null){
-  try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
+function qs(k, d=null){
+  try{ return (new URL(ROOT.location.href)).searchParams.get(k) ?? d; }
+  catch(_){ return d; }
 }
-function setParam(url, k, v){
-  const u = new URL(url);
-  if (v === null || v === undefined || v === '') u.searchParams.delete(k);
-  else u.searchParams.set(k, String(v));
-  return u.toString();
-}
-function clamp(n,a,b){ n=Number(n)||0; return Math.max(a, Math.min(b,n)); }
-
-function mmLandscape(){
-  try{ return !!(matchMedia && matchMedia('(orientation: landscape)').matches); }catch(_){ return false; }
-}
-function isLandscape(){
-  // use matchMedia first (more reliable in VR viewers)
-  const m = mmLandscape();
-  if (m) return true;
-  // fallback
-  return (innerWidth||1) > (innerHeight||1);
+function setQS(k, v){
+  try{
+    const u = new URL(ROOT.location.href);
+    if (v === null || v === undefined || v === '') u.searchParams.delete(k);
+    else u.searchParams.set(k, String(v));
+    history.replaceState({}, '', u.toString());
+  }catch(_){}
 }
 
-function isFullscreen(){
-  return !!document.fullscreenElement;
-}
+function $(sel){ return DOC.querySelector(sel); }
+function clamp(v,a,b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
 
 async function tryFullscreen(){
+  const el = DOC.documentElement;
   try{
-    if (!document.fullscreenElement){
-      await document.documentElement.requestFullscreen?.();
-    }
+    if (!DOC.fullscreenElement && el.requestFullscreen) await el.requestFullscreen();
   }catch(_){}
 }
-
+async function tryExitFullscreen(){
+  try{ if (DOC.fullscreenElement && DOC.exitFullscreen) await DOC.exitFullscreen(); }catch(_){}
+}
 async function tryLockLandscape(){
-  // Android Chrome: lock works only after fullscreen + inside user gesture
   try{
-    if (screen.orientation && screen.orientation.lock){
-      await screen.orientation.lock('landscape');
-    }
+    const o = ROOT.screen && ROOT.screen.orientation;
+    if (o && o.lock) await o.lock('landscape');
   }catch(_){}
 }
 
-async function tryEnterWebXR(){
-  // Best effort: DOM-game = fullscreen/lock is main; WebXR session optional
-  try{
-    if (!navigator.xr) return false;
-    const ok = await navigator.xr.isSessionSupported?.('immersive-vr');
-    if (!ok) return false;
-    await tryFullscreen();
-    await tryLockLandscape();
-    return true;
-  }catch(_){
-    return false;
+function isMobileLike(){
+  const w = ROOT.innerWidth || 360;
+  const h = ROOT.innerHeight || 640;
+  const coarse = (ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches);
+  return coarse || (Math.min(w,h) < 520);
+}
+
+function setView(view){
+  view = String(view||'').toLowerCase();
+  if (!['pc','mobile','vr','cvr'].includes(view)){
+    view = isMobileLike() ? 'mobile' : 'pc';
   }
+
+  DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  DOC.body.classList.add(`view-${view}`);
+  setQS('view', view);
+
+  const on = (id)=>{ const b = DOC.getElementById(id); if(b) b.classList.add('is-on'); };
+  const off = (id)=>{ const b = DOC.getElementById(id); if(b) b.classList.remove('is-on'); };
+  ['btnViewPC','btnViewMB','btnViewVR','btnViewCVR'].forEach(off);
+  if (view === 'pc') on('btnViewPC');
+  if (view === 'mobile') on('btnViewMB');
+  if (view === 'vr') on('btnViewVR');
+  if (view === 'cvr') on('btnViewCVR');
+
+  return view;
 }
 
-function applyBodyView(view){
-  document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  document.body.classList.add('view-' + view);
-}
-
-function showTip(show){
-  const tip = document.getElementById('vrTip');
+function showVrTip(show){
+  const tip = DOC.getElementById('vrTip');
   if (!tip) return;
   tip.hidden = !show;
 }
 
-function tipSeenKey(view){
-  return `HHA_VR_TIP_OK_${view}`;
-}
-function hasTipOk(view){
-  try{ return localStorage.getItem(tipSeenKey(view)) === '1'; }catch(_){ return false; }
-}
-function setTipOk(view){
-  try{ localStorage.setItem(tipSeenKey(view), '1'); }catch(_){}
-}
-
-function formatMeta({diff, run, end, challenge, view, time}){
-  return [
-    `diff=${diff}`,
-    `run=${run}`,
-    `end=${end}`,
-    `challenge=${challenge}`,
-    `view=${view}`,
-    `time=${time}s`
-  ].join(' • ');
+function metaText(){
+  const diff = String(qs('diff','normal'));
+  const run  = String(qs('run','play'));
+  const end  = String(qs('end','time'));
+  const ch   = String(qs('challenge','rush'));
+  const view = String(qs('view', isMobileLike()?'mobile':'pc'));
+  return `diff=${diff} • run=${run} • end=${end} • ${ch} • view=${view}`;
 }
 
-function safeMarginsFor(view){
-  const land = isLandscape();
-  let top = land ? 90 : 128;
-  let bottom = land ? 110 : 170;
-  let left = land ? 18 : 26;
-  let right = land ? 18 : 26;
+function bindViewBar(){
+  const chipSub = DOC.getElementById('chipSub');
+  const hudMeta = DOC.getElementById('hudMeta');
+  const startMeta = DOC.getElementById('startMeta');
 
+  const refreshMeta = ()=>{
+    const t = metaText();
+    if (chipSub) chipSub.textContent = t;
+    if (hudMeta) hudMeta.textContent = t;
+    if (startMeta) startMeta.textContent = t;
+  };
+  refreshMeta();
+
+  const bPC  = DOC.getElementById('btnViewPC');
+  const bMB  = DOC.getElementById('btnViewMB');
+  const bVR  = DOC.getElementById('btnViewVR');
+  const bCVR = DOC.getElementById('btnViewCVR');
+  const bFS  = DOC.getElementById('btnFullscreen');
+  const bEnterVR = DOC.getElementById('btnEnterVR');
+
+  if (bPC)  bPC.onclick  = ()=>{ setView('pc'); refreshMeta(); };
+  if (bMB)  bMB.onclick  = ()=>{ setView('mobile'); refreshMeta(); };
+  if (bVR)  bVR.onclick  = ()=>{ setView('vr'); showVrTip(true); refreshMeta(); };
+  if (bCVR) bCVR.onclick = ()=>{ setView('cvr'); showVrTip(true); refreshMeta(); };
+
+  if (bFS) bFS.onclick = async ()=>{
+    if (DOC.fullscreenElement) await tryExitFullscreen();
+    else await tryFullscreen();
+  };
+
+  // WebXR button (best effort): ในเกม DOM เราใช้แค่ fullscreen+landscape เป็นหลัก
+  if (bEnterVR) bEnterVR.onclick = async ()=>{
+    setView('vr');
+    showVrTip(true);
+    await tryFullscreen();
+    await tryLockLandscape();
+    refreshMeta();
+  };
+
+  // reflect URL initial
+  const initView = setView(qs('view', isMobileLike()?'mobile':'pc'));
+  if (initView === 'vr' || initView === 'cvr') showVrTip(true);
+
+  // update meta on resize/orientation
+  ROOT.addEventListener('resize', ()=> refreshMeta(), { passive:true });
+}
+
+function computeSafeMargins(view){
+  // ✅ สำคัญ: VR/landscape ต้องลด top/bottom ไม่งั้นเป้า “ไปโผล่ไหนนี่”
+  const isLand = (ROOT.innerWidth||0) > (ROOT.innerHeight||0);
   if (view === 'vr' || view === 'cvr'){
-    top = land ? 78 : 110;
-    bottom = land ? 120 : 160;
+    return {
+      top:  isLand ? 64 : 110,
+      bottom: isLand ? 110 : 170,
+      left:  22,
+      right: 22
+    };
   }
-
-  if ((innerWidth - left - right) < 220){ left = 12; right = 12; }
-  if ((innerHeight - top - bottom) < 260){ top = Math.max(70, top - 24); bottom = Math.max(95, bottom - 24); }
-
-  return { top, bottom, left, right };
-}
-
-function setAimVar(view){
-  let aim = '62%';
-  if (isLandscape()) aim = '52%';
-  if (view === 'vr' || view === 'cvr') aim = '50%';
-  document.documentElement.style.setProperty('--aimY', aim);
-}
-
-function renderEndSummary(sum, hubUrl){
-  const box = document.getElementById('end-summary');
-  if (!box) return;
-
-  const acc = Number(sum.accuracyGoodPct||0);
-  const grade = String(sum.grade||'—');
-  const dur = Number(sum.durationPlayedSec||0);
-
-  const html = `
-    <div class="start-overlay" style="background:rgba(2,6,23,.82);">
-      <div class="start-card">
-        <div class="start-title">สรุปผล</div>
-        <div class="start-desc">
-          <b>Grade:</b> ${grade} &nbsp; <b>Acc:</b> ${acc}%<br/>
-          <b>Score:</b> ${sum.scoreFinal||0} &nbsp; <b>ComboMax:</b> ${sum.comboMax||0} &nbsp; <b>Miss:</b> ${sum.misses||0}<br/>
-          <span class="muted">เวลาเล่น ${dur}s • Goals ${sum.goalsCleared||0}/${sum.goalsTotal||0} • Minis ${sum.miniCleared||0}/${sum.miniTotal||0}</span>
-        </div>
-        <div class="start-meta">${sum.reason || 'end'} • diff=${sum.diff} • run=${sum.runMode}</div>
-        <button class="btn-start" id="btnReplay">เล่นใหม่</button>
-        <button class="btn-start" id="btnBackHub" style="margin-top:10px;background:rgba(96,165,250,.16);">กลับ HUB</button>
-      </div>
-    </div>
-  `;
-  box.innerHTML = html;
-
-  const replay = document.getElementById('btnReplay');
-  const back = document.getElementById('btnBackHub');
-
-  if (replay) replay.onclick = ()=> location.reload();
-  if (back) back.onclick = ()=>{
-    if (hubUrl) location.href = hubUrl;
-    else location.href = './hub.html';
+  // pc/mobile
+  return {
+    top:  isLand ? 86 : 128,
+    bottom: isLand ? 140 : 170,
+    left:  26,
+    right: 26
   };
 }
 
-(async function main(){
-  const diff = String(qs('diff','normal')).toLowerCase();
-  const run  = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
-  const end  = String(qs('end','time')).toLowerCase();
-  const challenge = String(qs('challenge','rush')).toLowerCase();
-  const view = String(qs('view', 'mobile')).toLowerCase();
-  const time = clamp(Number(qs('time', qs('duration','70') || '70')), 30, 600);
-  const hub  = qs('hub', '');
+let started = false;
+function startGame(){
+  if (started) return;
+  started = true;
 
-  applyBodyView(view);
-  setAimVar(view);
+  const overlay = DOC.getElementById('startOverlay');
+  if (overlay) overlay.style.display = 'none';
 
-  const meta = formatMeta({diff, run, end, challenge, view, time});
-  const hudMeta = document.getElementById('hudMeta');
-  const panelMeta = document.getElementById('panelMeta');
-  const startMeta = document.getElementById('startMeta');
-  if (hudMeta) hudMeta.textContent = meta;
-  if (panelMeta) panelMeta.textContent = meta;
-  if (startMeta) startMeta.textContent = meta;
+  const view = String(qs('view', isMobileLike()?'mobile':'pc'));
+  const safeMargins = computeSafeMargins(view);
 
-  // activate pills
-  document.querySelectorAll('.gj-pill[data-view]').forEach(btn=>{
-    const v = btn.getAttribute('data-view');
-    if (v === view) btn.classList.add('active');
-    btn.addEventListener('click', ()=>{
-      const next = setParam(location.href, 'view', v);
-      location.href = next;
-    });
+  // optional logger
+  const logUrl = qs('log', '');
+  if (logUrl){
+    try{
+      if (ROOT.HHA_CLOUD_LOGGER && typeof ROOT.HHA_CLOUD_LOGGER.setEndpoint === 'function'){
+        ROOT.HHA_CLOUD_LOGGER.setEndpoint(logUrl);
+      } else {
+        ROOT.HHA_LOG_ENDPOINT = logUrl;
+      }
+    }catch(_){}
+  }
+
+  gameBoot({
+    diff: qs('diff','normal'),
+    run:  qs('run','play'),
+    time: clamp(Number(qs('time','70')), 30, 600),
+    endPolicy: qs('end','time'),
+    challenge: qs('challenge','rush'),
+    sessionId: qs('sessionId', qs('sid','')),
+    seed: qs('seed', null),
+    safeMargins,
+    context: { projectTag: qs('projectTag','GoodJunkVR') }
   });
+}
 
-  // fullscreen button
-  const btnFs = document.getElementById('btnFs');
-  if (btnFs) btnFs.onclick = async ()=>{
+function bindStartOverlay(){
+  const btn = DOC.getElementById('btnStart');
+  if (btn) btn.onclick = ()=> startGame();
+}
+
+function bindVrTipOk(){
+  const ok = DOC.getElementById('vrTipOk');
+  if (!ok) return;
+
+  ok.onclick = async ()=>{
+    showVrTip(false);
+    // VR comfort
     await tryFullscreen();
     await tryLockLandscape();
-    // after action, re-check tip
-    if ((view === 'vr' || view === 'cvr') && !hasTipOk(view)){
-      showTip(!isLandscape());
+
+    // ถ้ายังไม่เริ่มเกม ให้เริ่มให้เลย
+    const overlay = DOC.getElementById('startOverlay');
+    if (overlay && overlay.style.display !== 'none'){
+      overlay.style.display = 'none';
+      startGame();
     }
   };
+}
 
-  // Enter VR button (best effort)
-  const btnEnterVR = document.getElementById('btnEnterVR');
-  if (btnEnterVR) btnEnterVR.onclick = async ()=>{
-    await tryFullscreen();
-    await tryLockLandscape();
-    await tryEnterWebXR(); // optional; doesn't hurt
-
-    if ((view === 'vr' || view === 'cvr') && !hasTipOk(view)){
-      showTip(!isLandscape());
-    }
-  };
-
-  // Tip overlay OK
-  const tipOk = document.getElementById('vrTipOk');
-  if (tipOk) tipOk.onclick = async ()=>{
-    setTipOk(view);
-    showTip(false);
-    // also try to help user right away
-    await tryFullscreen();
-    await tryLockLandscape();
-  };
-
-  // show tip automatically if view=vr/cvr AND not landscape AND not OK yet
-  if ((view === 'vr' || view === 'cvr') && !hasTipOk(view)){
-    showTip(!isLandscape());
-  } else {
-    showTip(false);
-  }
-
-  // listen orientation/resize to auto-hide tip when landscape
-  const onOrient = ()=>{
-    setAimVar(view);
-    if ((view === 'vr' || view === 'cvr') && !hasTipOk(view)){
-      showTip(!isLandscape());
-    } else {
-      showTip(false);
-    }
-  };
-  window.addEventListener('resize', onOrient, { passive:true });
-  try{
-    screen.orientation?.addEventListener?.('change', onOrient);
-  }catch(_){}
-  window.addEventListener('orientationchange', onOrient, { passive:true });
-
-  // start overlay
-  const overlay = document.getElementById('startOverlay');
-  const btnStart = document.getElementById('btnStart');
-
-  // boot game but don't autostart until click
-  const api = goodjunkBoot({
-    diff, run, time,
-    endPolicy: end,
-    challenge,
-    view,
-    safeMargins: safeMarginsFor(view),
-    context: { projectTag: String(qs('projectTag','HeroHealth')) || 'HeroHealth' },
-    autoStart: false
-  });
-
-  function startGame(){
-    try{ overlay && (overlay.style.display = 'none'); }catch(_){}
-    try{ api && api.start && api.start(); }catch(_){}
-    if (view === 'vr' || view === 'cvr'){
-      // try to stabilize
-      // (must be inside gesture -> this is inside click)
-      tryFullscreen();
-      tryLockLandscape();
-    }
-  }
-
-  if (btnStart) btnStart.onclick = startGame;
-  else startGame();
-
-  // end summary
-  window.addEventListener('hha:end', (ev)=>{
-    const sum = ev?.detail || null;
-    if (!sum) return;
-    renderEndSummary(sum, hub);
-  }, { passive:true });
-})();
+bindViewBar();
+bindStartOverlay();
+bindVrTipOk();
