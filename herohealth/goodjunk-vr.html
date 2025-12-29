@@ -1,8 +1,11 @@
 <!-- === /herohealth/goodjunk-vr.html ===
 GoodJunkVR (PRODUCTION) — HHA Standard
-✅ view=pc|mobile|vr (cardboard split)
-✅ VR per-eye hazards + edge FX
+✅ HUD + Quest + Coach + Fever/Shield
+✅ Start overlay
+✅ PC/Mobile/VR/cVR view switch (split stereo for VR/cVR)
+✅ Keeps URL params (hub/run/diff/time/end/challenge/seed/sessionId/log/...)
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -12,30 +15,201 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- Game CSS -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
+  <!-- Global FX + Fever + HUD + Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
+  <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
+
+  <style>
+    /* --- Minimal view switch styles (safe) --- */
+    .view-switch{
+      margin-top:8px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      pointer-events:auto;
+    }
+    .view-btn{
+      height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color:#e5e7eb;
+      font-weight:900;
+      font-size:12px;
+      letter-spacing:.2px;
+      cursor:pointer;
+    }
+    .view-btn.on{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.35);
+    }
+
+    /* --- VR Split overlay (no dependency on external css) --- */
+    body.is-vr #gj-stage{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+    }
+    body.is-vr #gj-stage::before{
+      content:'';
+      position:fixed;
+      top:0; bottom:0;
+      left:50%;
+      width:2px;
+      transform:translateX(-1px);
+      background: rgba(255,255,255,.06);
+      pointer-events:none;
+      z-index: 9;
+    }
+    body.is-vr #gj-layer,
+    body.is-vr #gj-crosshair,
+    body.is-vr #atk-ring,
+    body.is-vr #atk-laser{
+      /* make sure playfield is under HUD */
+      z-index: 10;
+    }
+
+    /* Duplicate HUD text/blocks into both eyes (CSS-only mirror) */
+    body.is-vr .hha-hud,
+    body.is-vr .hha-fever,
+    body.is-vr .hha-controls{
+      width: calc(50vw - 18px);
+    }
+    body.is-vr .hha-hud{
+      left: 10px;
+      right: auto;
+    }
+    body.is-vr .hha-fever{
+      left: 12px;
+      right: auto;
+    }
+    body.is-vr .hha-controls{
+      left: 0;
+      right: auto;
+      justify-content:center;
+    }
+
+    body.is-vr .vr-eye-dup{
+      display:none;
+    }
+    body.is-vr .vr-eye-dup{
+      display:block;
+      position:fixed;
+      top:0; left:50vw;
+      width: calc(50vw - 18px);
+      pointer-events:none;
+      z-index: 80;
+    }
+    body.is-vr .vr-eye-dup .hha-hud{
+      position:fixed;
+      left: calc(50vw + 10px);
+      right:auto;
+      top: calc(10px + var(--safeTop, 0px));
+    }
+    body.is-vr .vr-eye-dup .hha-fever{
+      position:fixed;
+      left: calc(50vw + 12px);
+      right:auto;
+      bottom: calc(86px + var(--safeBottom, 0px));
+    }
+    body.is-vr .vr-eye-dup .hha-controls{
+      position:fixed;
+      left: 50vw;
+      right:auto;
+      bottom: calc(14px + var(--safeBottom, 0px));
+      width: 50vw;
+      display:flex;
+      justify-content:center;
+      pointer-events:none;
+      z-index: 90;
+    }
+    body.is-vr .vr-eye-dup .hha-controls .btn-shoot{
+      pointer-events:auto;
+    }
+
+    /* Crosshair duplicated by CSS: original at center of each half */
+    body.is-vr #gj-crosshair{
+      left: 25%;
+    }
+    body.is-vr #gj-crosshair.vr-right{
+      display:block;
+      position:fixed;
+      left: 75%;
+      top: 62%;
+      width: 46px;
+      height: 46px;
+      border-radius: 999px;
+      transform: translate(-50%,-50%);
+      border: 2px solid rgba(255,255,255,.65);
+      box-shadow: 0 0 0 3px rgba(34,197,94,.12), 0 0 22px rgba(148,163,184,.14);
+      z-index: 40;
+      pointer-events:none;
+    }
+    body.is-vr #gj-crosshair.vr-right::before{
+      content:'';
+      position:absolute;
+      left:50%; top:50%;
+      width:7px; height:7px;
+      border-radius:999px;
+      background: rgba(255,255,255,.85);
+      transform: translate(-50%,-50%);
+    }
+    body.is-vr #gj-crosshair.vr-right::after{
+      content:'';
+      position:absolute;
+      left:50%; top:50%;
+      width:64px; height:64px;
+      border-radius:999px;
+      border:2px dashed rgba(148,163,184,.22);
+      transform: translate(-50%,-50%);
+      opacity:.85;
+    }
+
+    /* In VR, keep targets inside each eye area via transform scaling on layer */
+    body.is-vr #gj-layer{
+      width: 50vw;
+      overflow: hidden;
+    }
+    body.is-vr #gj-layer{
+      left:0;
+    }
+    body.is-vr #gj-layer.vr-right-layer{
+      display:block;
+      position:fixed;
+      top:0; bottom:0;
+      left:50vw;
+      width:50vw;
+      overflow:hidden;
+      pointer-events:none; /* keep main layer interactive */
+      z-index: 10;
+    }
+  </style>
 </head>
 
 <body>
-  <!-- ===== View Switch ===== -->
-  <div class="viewbar" aria-label="view switch">
-    <button class="vb-btn" id="btnViewPC" type="button">PC</button>
-    <button class="vb-btn" id="btnViewMobile" type="button">Mobile</button>
-    <button class="vb-btn" id="btnViewVR" type="button">VR</button>
-  </div>
-
-  <!-- ===== HUD (ใหญ่) ===== -->
+  <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
       <div class="hud-badge">
         <div class="hud-title">GoodJunkVR</div>
         <div class="hud-sub" id="hudMeta">—</div>
+
+        <!-- View switch -->
+        <div class="view-switch" id="viewSwitch">
+          <button class="view-btn" data-view="pc">PC</button>
+          <button class="view-btn" data-view="mobile">Mobile</button>
+          <button class="view-btn" data-view="vr">VR</button>
+          <button class="view-btn" data-view="cvr">cVR</button>
+        </div>
       </div>
 
       <div class="hud-stats">
@@ -85,80 +259,31 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   </div>
 
   <!-- ===== Playfield ===== -->
-  <div id="gj-stage" class="stage">
-    <!-- Mono (PC/Mobile) -->
-    <div id="gj-layer" class="layer mono" aria-label="targets layer"></div>
-    <div id="gj-crosshair" class="crosshair mono" aria-hidden="true"></div>
+  <div id="gj-stage">
+    <div id="gj-layer" aria-label="targets layer"></div>
+    <div id="gj-crosshair" aria-hidden="true"></div>
 
-    <!-- Mono hazards + edge FX -->
+    <!-- VR-only clones -->
+    <div id="gj-layer-right" class="vr-right-layer" aria-hidden="true"></div>
+    <div id="gj-crosshair-right" class="vr-right" aria-hidden="true"></div>
+
     <div id="atk-ring" aria-hidden="true"></div>
     <div id="atk-laser" aria-hidden="true"></div>
-    <div id="edgefx" class="edgefx" aria-hidden="true"></div>
 
-    <!-- VR (Cardboard split) -->
-    <div id="gj-vr" class="vrwrap" aria-hidden="true">
-      <div class="eye eye-l" id="gj-eyeL">
-        <div class="vrhud">
-          <div class="vh-row">
-            <span class="vh-title">GoodJunkVR</span>
-            <span class="vh-meta" id="vrMetaL">—</span>
-          </div>
-          <div class="vh-stats">
-            <span>Score <b id="vrScoreL">0</b></span>
-            <span>Combo <b id="vrComboL">0</b></span>
-            <span>Miss <b id="vrMissL">0</b></span>
-            <span>Time <b id="vrTimeL">0</b></span>
-          </div>
-          <div class="vh-quest">
-            <span id="vrGoalL">Goal —</span>
-            <span id="vrMiniL">Mini —</span>
-          </div>
-        </div>
-
-        <div id="gj-layer-l" class="layer vr" aria-label="targets layer left"></div>
-        <div id="gj-crosshair-l" class="crosshair vr" aria-hidden="true"></div>
-
-        <!-- VR hazards (left) -->
-        <div class="atk-ring vr" id="atk-ring-l" aria-hidden="true"></div>
-        <div class="atk-laser vr" id="atk-laser-l" aria-hidden="true"></div>
-        <div class="edgefx vr" id="edgefx-l" aria-hidden="true"></div>
-      </div>
-
-      <div class="eye eye-r" id="gj-eyeR">
-        <div class="vrhud">
-          <div class="vh-row">
-            <span class="vh-title">GoodJunkVR</span>
-            <span class="vh-meta" id="vrMetaR">—</span>
-          </div>
-          <div class="vh-stats">
-            <span>Score <b id="vrScoreR">0</b></span>
-            <span>Combo <b id="vrComboR">0</b></span>
-            <span>Miss <b id="vrMissR">0</b></span>
-            <span>Time <b id="vrTimeR">0</b></span>
-          </div>
-          <div class="vh-quest">
-            <span id="vrGoalR">Goal —</span>
-            <span id="vrMiniR">Mini —</span>
-          </div>
-        </div>
-
-        <div id="gj-layer-r" class="layer vr" aria-label="targets layer right"></div>
-        <div id="gj-crosshair-r" class="crosshair vr" aria-hidden="true"></div>
-
-        <!-- VR hazards (right) -->
-        <div class="atk-ring vr" id="atk-ring-r" aria-hidden="true"></div>
-        <div class="atk-laser vr" id="atk-laser-r" aria-hidden="true"></div>
-        <div class="edgefx vr" id="edgefx-r" aria-hidden="true"></div>
-      </div>
-    </div>
-
-    <!-- end summary -->
+    <!-- optional end summary container -->
     <div id="end-summary"></div>
   </div>
 
   <!-- ===== Controls ===== -->
   <div class="hha-controls">
-    <button id="btnShoot" class="btn-shoot" type="button">ยิง</button>
+    <button id="btnShoot" class="btn-shoot">ยิง</button>
+  </div>
+
+  <!-- ===== Right-eye duplicated UI wrapper (VR) ===== -->
+  <div class="vr-eye-dup" id="vrEyeDup" aria-hidden="true">
+    <div class="hha-hud" id="hudDup"></div>
+    <div class="hha-fever" id="feverDup"></div>
+    <div class="hha-controls" id="controlsDup"></div>
   </div>
 
   <!-- ===== Start Overlay ===== -->
@@ -170,8 +295,108 @@ GoodJunkVR (PRODUCTION) — HHA Standard
         <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
-      <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
+      <button id="btnStart" class="btn-start">เริ่มเล่น</button>
     </div>
   </div>
+
+  <script>
+    // ---------- View / VR helpers (no module needed) ----------
+    function qp(name, fallback=null){
+      try{
+        const u = new URL(location.href);
+        const v = u.searchParams.get(name);
+        return (v == null || v === '') ? fallback : v;
+      }catch(_){ return fallback; }
+    }
+    function setParamAndReload(key, val){
+      const u = new URL(location.href);
+      u.searchParams.set(key, val);
+      // bump cache buster
+      u.searchParams.set('v', String(Date.now()));
+      location.href = u.toString();
+    }
+    function currentView(){
+      return String(qp('view', '') || '').toLowerCase() || (
+        matchMedia && matchMedia('(pointer: coarse)').matches ? 'mobile' : 'pc'
+      );
+    }
+
+    // Set view switch active
+    (function initViewSwitch(){
+      const v = currentView();
+      const wrap = document.getElementById('viewSwitch');
+      if (!wrap) return;
+      wrap.querySelectorAll('.view-btn').forEach(btn=>{
+        const tv = btn.getAttribute('data-view');
+        if (tv === v) btn.classList.add('on');
+        btn.addEventListener('click', ()=> setParamAndReload('view', tv));
+      });
+    })();
+
+    // Apply VR layout if view=vr or view=cvr
+    (function initVRMode(){
+      const v = currentView();
+      const isVR = (v === 'vr' || v === 'cvr');
+      if (!isVR) return;
+
+      document.body.classList.add('is-vr');
+
+      // Duplicate HUD blocks into right eye (simple DOM clone)
+      const hud = document.querySelector('.hha-hud');
+      const fever = document.getElementById('hhaFever');
+      const controls = document.querySelector('.hha-controls');
+
+      const hudDup = document.getElementById('hudDup');
+      const feverDup = document.getElementById('feverDup');
+      const controlsDup = document.getElementById('controlsDup');
+
+      if (hud && hudDup) hudDup.innerHTML = hud.innerHTML;
+      if (fever && feverDup) feverDup.innerHTML = fever.innerHTML;
+      if (controls && controlsDup) controlsDup.innerHTML = controls.innerHTML;
+
+      // Hide duplicated view switch buttons in right eye (avoid confusing double)
+      try{
+        const vs = hudDup && hudDup.querySelector('#viewSwitch');
+        if (vs) vs.style.display = 'none';
+      }catch(_){}
+
+      // Right-eye shoot button should trigger the real one
+      try{
+        const realShoot = document.getElementById('btnShoot');
+        const dupShoot = controlsDup && controlsDup.querySelector('#btnShoot');
+        if (dupShoot && realShoot){
+          dupShoot.onclick = ()=> realShoot.click();
+        }
+      }catch(_){}
+
+      // Create non-interactive mirror layer for right eye (visual only)
+      const leftLayer = document.getElementById('gj-layer');
+      const rightLayer = document.getElementById('gj-layer-right');
+      if (leftLayer && rightLayer){
+        // Mirror targets visually by cloning frequently (cheap & safe)
+        setInterval(()=>{
+          try{
+            rightLayer.innerHTML = leftLayer.innerHTML;
+          }catch(_){}
+        }, 120);
+      }
+
+      // Encourage landscape & fullscreen after Start
+      const btnStart = document.getElementById('btnStart');
+      if (btnStart){
+        btnStart.addEventListener('click', async ()=>{
+          try{
+            if (screen && screen.orientation && screen.orientation.lock){
+              await screen.orientation.lock('landscape');
+            }
+          }catch(_){}
+          try{
+            const el = document.documentElement;
+            if (el.requestFullscreen) await el.requestFullscreen();
+          }catch(_){}
+        }, { once:true });
+      }
+    })();
+  </script>
 </body>
 </html>
