@@ -1,10 +1,9 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR — ALL-IN CSS (LATEST + VR)
-✅ HUD + Coach + Quest
-✅ Targets (emoji) + FX-friendly
-✅ Crosshair + safe-area
-✅ VR button
-✅ XR scene behind
+GoodJunkVR — ALL-IN CSS (LATEST)
+✅ PC / Mobile layout
+✅ VR/Cardboard stereo (2 eyes)
+✅ Targets (emoji) + FX fallback (score pop)
+✅ Crosshair aimY can be moved by JS (top:%)
 */
 
 :root{
@@ -22,10 +21,6 @@ GoodJunkVR — ALL-IN CSS (LATEST + VR)
   --safeTop: env(safe-area-inset-top, 0px);
   --safeBottom: env(safe-area-inset-bottom, 0px);
 
-  /* VR aim point (default 62%) */
-  --aimTop: 62%;
-
-  /* Ring gap (updated by JS) */
   --ringGapStart: 40deg;
   --ringGapSize: 85deg;
 }
@@ -38,58 +33,57 @@ html,body{
   font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
 }
 
-/* ===== XR scene behind everything ===== */
-#gj-xr{
-  position:fixed !important;
-  inset:0 !important;
-  z-index: 1 !important;
-  pointer-events:none !important;
-}
-#gj-xr canvas{
-  position:fixed !important;
-  inset:0 !important;
-}
-
-/* When in VR/Cardboard: lift aim point a bit */
-body.is-vr{
-  --aimTop: 54%;
-}
-
-/* ===== Stage / Layer ===== */
 #gj-stage{
   position:fixed;
   inset:0;
   overflow:hidden;
   touch-action: none;
+}
+
+/* ===== Stereo wrapper (hidden by default) ===== */
+#gj-stereo{
+  position:absolute;
+  inset:0;
+  display:none;
   z-index: 20;
 }
+body.gj-stereo-on #gj-stereo{ display:flex; }
+body.gj-stereo-on #gj-layer,
+body.gj-stereo-on #gj-crosshair{ display:none; }
 
-#gj-layer{
-  position:fixed;
+.gj-eye{
+  position:relative;
+  width:50%;
+  height:100%;
+  overflow:hidden;
+  border-left: 1px solid rgba(148,163,184,.10);
+}
+.gj-eye:first-child{ border-left:none; }
+
+#gj-eyeL, #gj-eyeR{
+  position:absolute;
+  inset:0;
+  will-change: transform;
+}
+#gj-eyeR{}
+
+/* layers */
+#gj-layer, #gj-layerL, #gj-layerR{
+  position:absolute;
   inset:0;
   pointer-events:auto;
-  z-index: 30;
-  /* transformed by touch-look */
 }
+#gj-layer{ z-index: 22; }
+#gj-layerL{ z-index: 22; }
+#gj-layerR{ z-index: 22; }
 
-/* Try to keep any FX layers visible (particles.js varies by implementation) */
-#fx-layer,
-.fx-layer,
-.particles-layer,
-.hha-particles,
-#particles,
-#particleLayer{
-  position:fixed !important;
-  inset:0 !important;
-  pointer-events:none !important;
-  z-index: 55 !important;
-}
-
-/* ===== Crosshair / aim point ===== */
-#gj-crosshair{
-  position: fixed;
+/* Crosshair */
+#gj-crosshair,
+#gj-crosshairL,
+#gj-crosshairR{
+  position: absolute;
   left: 50%;
-  top: var(--aimTop);
+  top: 62%;
   width: 46px;
   height: 46px;
   border-radius: 999px;
@@ -98,10 +92,12 @@ body.is-vr{
   box-shadow:
     0 0 0 3px rgba(34,197,94,.12),
     0 0 22px rgba(148,163,184,.14);
-  z-index: 60;
   pointer-events:none;
+  z-index: 40;
 }
-#gj-crosshair::before{
+#gj-crosshair::before,
+#gj-crosshairL::before,
+#gj-crosshairR::before{
   content:'';
   position:absolute;
   left:50%; top:50%;
@@ -110,7 +106,9 @@ body.is-vr{
   background: rgba(255,255,255,.85);
   transform: translate(-50%,-50%);
 }
-#gj-crosshair::after{
+#gj-crosshair::after,
+#gj-crosshairL::after,
+#gj-crosshairR::after{
   content:'';
   position:absolute;
   left:50%; top:50%;
@@ -121,11 +119,26 @@ body.is-vr{
   opacity:.85;
 }
 
-/* ===== Targets ===== */
+body.gj-stereo-on #gj-crosshairL,
+body.gj-stereo-on #gj-crosshairR{
+  display:block;
+}
+body.gj-stereo-on #gj-crosshairL,
+body.gj-stereo-on #gj-crosshairR{
+  top: 52%;
+  width: 44px; height: 44px;
+}
+body.gj-stereo-on #gj-crosshairL::after,
+body.gj-stereo-on #gj-crosshairR::after{
+  width: 60px; height:60px;
+}
+
+/* Targets */
 .gj-target{
   position:absolute;
   transform: translate(-50%, -50%);
   user-select:none;
+  -webkit-user-select:none;
   cursor: pointer;
   will-change: transform, opacity, filter;
   text-shadow:
@@ -133,19 +146,34 @@ body.is-vr{
     0 12px 24px rgba(0,0,0,.30);
   filter: drop-shadow(0 14px 24px rgba(0,0,0,.22));
   transition: transform .12s ease, opacity .16s ease;
-  z-index: 40;
+  z-index: 25;
 }
 .gj-target.spawn{ transform: translate(-50%,-50%) scale(.25); opacity:0; }
 .gj-target.gone{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
-
 .gj-target:hover{ transform: translate(-50%,-50%) scale(1.06); }
 
-.gj-target.gj-junk{ filter: drop-shadow(0 18px 28px rgba(239,68,68,.22)); }
-.gj-target.gj-gold{ filter: drop-shadow(0 18px 32px rgba(251,191,36,.22)); }
-.gj-target.gj-power{ filter: drop-shadow(0 18px 32px rgba(96,165,250,.24)); }
-.gj-target.gj-boss{ filter: drop-shadow(0 22px 40px rgba(245,158,11,.20)); }
+.gj-target.junk{ filter: drop-shadow(0 18px 28px rgba(239,68,68,.22)); }
+.gj-target.star{ filter: drop-shadow(0 18px 32px rgba(34,211,238,.22)); }
+.gj-target.shield{ filter: drop-shadow(0 18px 32px rgba(168,85,247,.22)); }
 
-/* ===== Controls ===== */
+/* FX fallback */
+.gj-fx{
+  position:absolute;
+  transform: translate(-50%,-50%);
+  font-weight: 1000;
+  font-size: 18px;
+  pointer-events:none;
+  z-index: 60;
+  text-shadow: 0 10px 30px rgba(0,0,0,.55);
+  animation: gjfx 520ms ease-out forwards;
+}
+@keyframes gjfx{
+  from{ opacity:0; transform: translate(-50%,-50%) scale(.85); }
+  25%{ opacity:1; }
+  to{ opacity:0; transform: translate(-50%,-84%) scale(1.08); }
+}
+
+/* Controls */
 .hha-controls{
   position: fixed;
   left: 0;
@@ -158,7 +186,7 @@ body.is-vr{
 }
 .btn-shoot{
   pointer-events:auto;
-  width: min(220px, 70vw);
+  width: min(240px, 78vw);
   height: 58px;
   border-radius: 18px;
   border: 1px solid rgba(148,163,184,.24);
@@ -171,27 +199,7 @@ body.is-vr{
 }
 .btn-shoot:active{ transform: translateY(1px) scale(.99); }
 
-/* ===== VR button ===== */
-.btn-vr{
-  position: fixed;
-  right: 12px;
-  top: calc(12px + var(--safeTop));
-  z-index: 120;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(148,163,184,.24);
-  background: rgba(2,6,23,.78);
-  color: #fff;
-  font-weight: 900;
-  letter-spacing: .2px;
-  box-shadow: 0 14px 34px rgba(0,0,0,.35);
-  cursor: pointer;
-}
-.btn-vr:active{ transform: translateY(1px) scale(.99); }
-.btn-vr[disabled]{ opacity: .45; cursor: not-allowed; }
-
-/* ===== HUD ===== */
+/* HUD */
 .hha-hud{
   position: fixed;
   left: 10px;
@@ -200,14 +208,15 @@ body.is-vr{
   z-index: 100;
   pointer-events:none;
 }
+
 .hud-top{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
   gap:10px;
 }
+
 .hud-badge{
-  pointer-events:none;
   min-width: 160px;
   padding: 10px 12px;
   border-radius: 16px;
@@ -215,7 +224,7 @@ body.is-vr{
   background: var(--panel);
   box-shadow: 0 18px 44px rgba(0,0,0,.22);
 }
-.hud-title{ font-size: 14px; font-weight: 900; }
+.hud-title{ font-size: 14px; font-weight: 1000; }
 .hud-sub{ font-size: 12px; color: var(--muted); margin-top:2px; }
 
 .hud-stats{
@@ -226,7 +235,6 @@ body.is-vr{
   max-width: 62vw;
 }
 .hud-stat{
-  pointer-events:none;
   width: 74px;
   padding: 8px 10px;
   border-radius: 16px;
@@ -234,8 +242,7 @@ body.is-vr{
   background: var(--panel);
 }
 .hud-stat .k{ font-size: 11px; color: var(--muted); }
-.hud-stat .v{ font-size: 18px; font-weight: 900; margin-top:2px; }
-.hud-stat.grade .v{ color: #fff; }
+.hud-stat .v{ font-size: 18px; font-weight: 1000; margin-top:2px; }
 
 .hud-mid{
   margin-top: 10px;
@@ -256,10 +263,10 @@ body.is-vr{
   justify-content:space-between;
   gap:10px;
 }
-.q-title{ font-weight:900; font-size: 13px; }
-.q-title.mini{ font-weight:900; opacity:.95; }
-.q-count{ font-weight:900; font-size: 13px; color:#fff; }
-.q-timer{ font-size: 12px; color: var(--gold); font-weight:900; min-width: 52px; text-align:right; }
+.q-title{ font-weight:1000; font-size: 13px; }
+.q-title.mini{ opacity:.95; }
+.q-count{ font-weight:1000; font-size: 13px; color:#fff; }
+.q-timer{ font-size: 12px; color: var(--gold); font-weight:1000; min-width: 52px; text-align:right; }
 .q-progress{ margin-top:6px; font-size: 12px; color: var(--muted); }
 
 .hud-coach{
@@ -279,10 +286,10 @@ body.is-vr{
   object-fit: cover;
 }
 .coach-talk{ display:flex; flex-direction:column; gap:4px; }
-.coach-line{ font-size: 13px; font-weight: 900; }
+.coach-line{ font-size: 13px; font-weight: 1000; }
 .coach-sub{ font-size: 12px; color: var(--muted); }
 
-/* ===== Fever ===== */
+/* Fever */
 .hha-fever{
   position: fixed;
   left: 12px;
@@ -304,11 +311,10 @@ body.is-vr{
 .fever-label, .shield-label{
   width: 62px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 1000;
   color: var(--muted);
 }
 .fever-bar{
-  position: relative;
   flex: 1;
   height: 12px;
   border-radius: 999px;
@@ -324,16 +330,11 @@ body.is-vr{
   width: 52px;
   text-align:right;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 1000;
   color:#fff;
 }
-
 .shield-row{ margin-top: 6px; }
-.shield-pills{
-  display:flex;
-  gap:6px;
-  flex-wrap: wrap;
-}
+.shield-pills{ display:flex; gap:6px; flex-wrap: wrap; }
 .shield-pill{
   width: 14px; height: 14px;
   border-radius: 6px;
@@ -345,11 +346,11 @@ body.is-vr{
   box-shadow: 0 0 16px rgba(96,165,250,.24);
 }
 
-/* ===== Start overlay ===== */
+/* Start overlay */
 .start-overlay{
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 120;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -357,7 +358,7 @@ body.is-vr{
   padding: 18px;
 }
 .start-card{
-  width: min(520px, 92vw);
+  width: min(560px, 92vw);
   border-radius: 22px;
   border:1px solid rgba(148,163,184,.22);
   background: rgba(2,6,23,.94);
@@ -368,20 +369,26 @@ body.is-vr{
 .start-desc{ margin-top: 6px; color:#cbd5e1; line-height: 1.55; }
 .start-desc .muted{ color: var(--muted); font-size: 13px; }
 .start-meta{ margin-top: 10px; font-size: 12px; color: var(--muted); }
-.btn-start{
+
+.start-actions{
   margin-top: 12px;
+  display:flex;
+  gap:10px;
+}
+.btn-start{
   width: 100%;
   height: 52px;
   border-radius: 18px;
   border:1px solid rgba(148,163,184,.22);
-  background: rgba(34,197,94,.16);
   color:#fff;
   font-weight: 1000;
-  font-size: 18px;
+  font-size: 16px;
 }
+.btn-start.primary{ background: rgba(34,197,94,.16); }
+.btn-start.ghost{ background: rgba(59,130,246,.14); }
 .btn-start:active{ transform: translateY(1px) scale(.99); }
 
-/* Boss hazards */
+/* Boss hazards (optional) */
 #atk-ring{
   position: fixed;
   left: 50%;
@@ -390,7 +397,7 @@ body.is-vr{
   aspect-ratio: 1 / 1;
   border-radius: 999px;
   transform: translate(-50%, -50%);
-  z-index: 70;
+  z-index: 60;
   pointer-events:none;
   opacity: 0;
   filter: drop-shadow(0 30px 60px rgba(0,0,0,.35));
@@ -407,7 +414,6 @@ body.is-vr{
   mask: radial-gradient(circle at 50% 50%, transparent 56%, #000 58%, #000 76%, transparent 78%);
 }
 #atk-ring.show{ opacity: 1; }
-body.gj-panic #atk-ring.show{ opacity: .92; }
 
 #atk-laser{
   position: fixed;
@@ -415,7 +421,7 @@ body.gj-panic #atk-ring.show{ opacity: .92; }
   right: 0;
   height: 10px;
   top: 45%;
-  z-index: 71;
+  z-index: 61;
   pointer-events:none;
   opacity: 0;
   background: linear-gradient(90deg, rgba(239,68,68,0), rgba(239,68,68,.85), rgba(239,68,68,0));
@@ -433,3 +439,16 @@ body.gj-panic #atk-ring.show{ opacity: .92; }
 }
 @keyframes laserWarn { from{ transform: scaleX(.94); } to{ transform: scaleX(1.02); } }
 @keyframes laserFire { from{ transform: scaleX(.98); } to{ transform: scaleX(1.02); } }
+
+/* ===== Mobile layout ===== */
+@media (max-width: 640px){
+  .hud-stats{ max-width: 78vw; }
+  .hud-stat{ width: 70px; }
+  .hud-mid{ flex-direction: column; }
+  .hha-fever{ bottom: calc(84px + var(--safeBottom)); }
+}
+
+/* ===== VR stereo comfort ===== */
+body.gj-stereo-on .hud-mid{ display:none; }  /* ลดองค์ประกอบในแว่น */
+body.gj-stereo-on .hha-fever{ display:none; } /* กันลายตาในแว่น */
+body.gj-stereo-on .hha-controls{ bottom: calc(12px + var(--safeBottom)); }
