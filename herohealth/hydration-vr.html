@@ -1,11 +1,11 @@
 <!-- === /herohealth/hydration-vr.html ===
 HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 ✅ Storm Intro siren + dim
-✅ Water splash burst FX hook (via window.Particles if exists)
-✅ GREEN streak bonus + StreakMax
-✅ Storm wind drift (from hydration.safe.js -> hha:score drift)
-✅ Perfect timing bonus (hha:judge kind=perfect)
-✅ Summary adds TimeInGreen + StreakMax + StormRate
+✅ Hit splash burst FX hook (via particles / optional)
+✅ GREEN streak bonus (handled in hydration.safe.js)
+✅ Storm wind drift hook (handled in hydration.safe.js via hha:score detail)
+✅ Perfect timing bonus hook (hha:judge kind=perfect)
+✅ Summary adds TimeInGreen + StreakMax + StormRate + StormMini/Boss counters
 -->
 
 <!doctype html>
@@ -333,6 +333,28 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       100%{ transform:translate3d(0,0,0); }
     }
 
+    /* ✅ NEW: Storm clear / Boss clear flash */
+    #stormClearFx{
+      position:fixed; inset:0;
+      z-index:58;
+      pointer-events:none;
+      opacity:0;
+      background: radial-gradient(circle at 50% 50%, rgba(34,197,94,0) 35%, rgba(34,197,94,.18) 70%, rgba(2,6,23,.78) 100%);
+      transition: opacity .10s linear;
+    }
+    #stormClearFx.show{
+      opacity:1;
+      animation: clearPulse .42s ease-in-out infinite;
+    }
+    #stormClearFx[data-kind="boss"]{
+      background: radial-gradient(circle at 50% 50%, rgba(168,85,247,0) 35%, rgba(168,85,247,.20) 70%, rgba(2,6,23,.78) 100%);
+    }
+    @keyframes clearPulse{
+      0%{ filter:saturate(1.0) brightness(1.0); }
+      50%{ filter:saturate(1.35) brightness(1.10); }
+      100%{ filter:saturate(1.0) brightness(1.0); }
+    }
+
     /* Storm Intro overlay */
     #stormIntro{
       position:fixed; inset:0;
@@ -392,13 +414,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       box-shadow: 0 22px 80px rgba(0,0,0,.55);
     }
     .startTitle{ font-size:18px; font-weight:1200; }
-    .startDesc{
-      margin-top:6px;
-      font-size:12px;
-      font-weight:950;
-      color:rgba(148,163,184,.95);
-      line-height:1.35;
-    }
+    .startDesc{ margin-top:6px; font-size:12px; font-weight:950; color:rgba(148,163,184,.95); line-height:1.35; }
     .startMeta{ margin-top:10px; font-size:12px; font-weight:1000; color:rgba(229,231,235,.92); }
     .btnRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:12px; }
 
@@ -413,7 +429,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       pointer-events:auto;
     }
     .endCard{
-      width:min(820px, calc(100% - 24px));
+      width:min(860px, calc(100% - 24px));
       background: rgba(2,6,23,.90);
       border:1px solid rgba(148,163,184,.18);
       border-radius: 22px;
@@ -443,6 +459,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 <body>
   <div id="hitFx"></div>
   <div id="stormEdge"></div>
+  <div id="stormClearFx" aria-hidden="true"></div>
 
   <div id="stormIntro" aria-hidden="true">
     <div class="label">🌀 STORM INCOMING
@@ -458,7 +475,10 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         <div class="pill">⚡ <span class="k">COMBO</span> <span class="v" id="stat-combo">0</span></div>
         <div class="pill">💥 <span class="k">MISS</span> <span class="v" id="stat-miss">0</span></div>
         <div class="pill grade">🎖️ <span class="k">GRADE</span> <span class="v" id="stat-grade">C</span></div>
+
         <div class="pill" style="opacity:.92;">🌀 <span class="k">STORM</span> <span class="v"><span id="storm-left">0</span>s</span></div>
+        <div class="pill" style="opacity:.92;">✅ <span class="k">MINI</span> <span class="v"><span id="storm-mini-ok">0</span>/<span id="storm-cycles">0</span></span></div>
+        <div class="pill" style="opacity:.92;">🌩️ <span class="k">BOSS</span> <span class="v"><span id="boss-ok">0</span></span></div>
         <div class="pill" style="opacity:.92;">🛡️ <span class="k">SHIELD</span> <span class="v" id="shield-count">0</span></div>
       </div>
 
@@ -542,7 +562,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       <div class="startDesc">
         - ยิง 💧 เพื่อดันน้ำเข้าใกล้ <b>GREEN</b><br>
         - ระวัง 🥤 (BAD) / เก็บ 🛡️ (Shield)<br>
-        - ช่วง <b>Storm</b> ต้องทำ Mini: ให้น้ำเป็น <b>LOW/HIGH</b> และ <b>BLOCK BAD</b> ในช่วงท้ายพายุ
+        - ช่วง <b>Storm</b> ต้องทำ Mini: ให้น้ำเป็น <b>LOW/HIGH</b> และ <b>BLOCK BAD</b> ในช่วงท้ายพายุ<br>
+        - ปลาย Storm จะมี <b>BOSS 🌩️</b> (ถ้า BLOCK ครบ จะได้แต้มใหญ่)
       </div>
 
       <div class="startMeta" id="startMeta">—</div>
@@ -573,12 +594,12 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         <div class="endItem"><span class="k">Miss</span><span class="v" id="endMiss">0</span></div>
         <div class="endItem"><span class="k">Goals</span><span class="v" id="endGoals">0/1</span></div>
 
-        <div class="endItem"><span class="k">Minis</span><span class="v" id="endMinis">0/999</span></div>
+        <div class="endItem"><span class="k">Storm Cycles</span><span class="v" id="endStorm">0</span></div>
+        <div class="endItem"><span class="k">Storm Mini ✓</span><span class="v" id="endStormOk">0</span></div>
+        <div class="endItem"><span class="k">Boss ✓</span><span class="v" id="endBossOk">0</span></div>
+
         <div class="endItem"><span class="k">Time in GREEN</span><span class="v" id="endGreen">0.0s</span></div>
         <div class="endItem"><span class="k">Streak Max</span><span class="v" id="endStreak">0</span></div>
-
-        <div class="endItem"><span class="k">Storm Cycles</span><span class="v" id="endStorm">0</span></div>
-        <div class="endItem"><span class="k">Storm Success</span><span class="v" id="endStormOk">0</span></div>
         <div class="endItem"><span class="k">Storm Rate</span><span class="v" id="endStormRate">0%</span></div>
       </div>
 
@@ -664,6 +685,17 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       fxTimer = setTimeout(()=> hitFx.classList.remove('show'), 90);
     }
 
+    // ✅ NEW: clear FX
+    const clearFx = D.getElementById('stormClearFx');
+    let clearTimer = 0;
+    function flashClear(kind){
+      if(!clearFx) return;
+      clearFx.dataset.kind = kind || '';
+      clearFx.classList.add('show');
+      clearTimeout(clearTimer);
+      clearTimer = setTimeout(()=> clearFx.classList.remove('show'), 520);
+    }
+
     // ----- Buttons -----
     const btnCardboard = D.getElementById('btnCardboard');
     const btnShootCenter = D.getElementById('btnShootCenter');
@@ -730,6 +762,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       else if (k === 'streak'){ flash('good'); beep(1040, 60, 0.030); }
       else if (k === 'storm-in'){ beep(520, 80, 0.030); }
       else if (k === 'perfect'){ flash('shield'); beep(1240, 90, 0.040); beep(1560, 70, 0.030); }
+      else if (k === 'storm-clear'){ flashClear('storm'); beep(1480, 90, 0.040); beep(1880, 70, 0.032); }
+      else if (k === 'boss-clear'){ flashClear('boss'); beep(1320, 80, 0.040); beep(1760, 80, 0.035); beep(2200, 70, 0.030); }
     }, { passive:true });
 
     // ----- Storm urgent tick/pulse -----
@@ -790,6 +824,11 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       }
     }
 
+    // ✅ NEW: mini counters pills
+    const elStormMiniOk = D.getElementById('storm-mini-ok');
+    const elStormCycles = D.getElementById('storm-cycles');
+    const elBossOk = D.getElementById('boss-ok');
+
     window.addEventListener('hha:score', (ev)=>{
       const d = ev.detail || {};
       stormActive = !!d.stormActive;
@@ -797,6 +836,10 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       stormUrgent = !!d.stormInEndWindow;
 
       applyDrift(d.driftX, d.driftY, d.driftRot);
+
+      if (elStormMiniOk) elStormMiniOk.textContent = String(d.stormMiniSuccess ?? 0);
+      if (elStormCycles) elStormCycles.textContent = String(d.stormCycles ?? 0);
+      if (elBossOk) elBossOk.textContent = String(d.bossMiniSuccess ?? 0);
     }, { passive:true });
 
     // ----- Storm Intro overlay + siren pattern -----
@@ -898,12 +941,13 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       set('endCombo', d.comboMax ?? 0);
       set('endMiss', d.misses ?? 0);
       set('endGoals', String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0));
-      set('endMinis', String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0));
 
       set('endGreen', (Number(d.timeInGreenSec||0).toFixed(1)) + 's');
       set('endStreak', d.streakMax ?? 0);
+
       set('endStorm', d.stormCycles ?? 0);
       set('endStormOk', d.stormMiniSuccess ?? 0);
+      set('endBossOk', d.bossMiniSuccess ?? 0);
       set('endStormRate', (Number(d.stormSuccessRatePct||0).toFixed(0)) + '%');
 
       if (endBackdrop) endBackdrop.style.display = 'flex';
