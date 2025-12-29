@@ -1,9 +1,7 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + Stereo/Cardboard scaffolding
-✅ DOM emoji targets on #gj-layer
-✅ HUD + Quest + Coach + Fever/Shield (Normal mode)
-✅ Stereo mode (body.gj-stereo): uses split eyes + VR HUD + dual shoot
-✅ Boot module -> safe engine + touch-look
+GoodJunkVR (PRODUCTION) — HHA Standard + Cardboard Stereo
+✅ PC/mobile: legacy #gj-layer/#gj-crosshair
+✅ Cardboard: #gj-eyeL/#gj-eyeR + #gj-layerL/#gj-layerR + #gj-crosshairL/#gj-crosshairR
 -->
 
 <!doctype html>
@@ -15,10 +13,8 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Stereo/Cardboard scaffolding
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Main CSS (สำคัญมาก) -->
+  <!-- Global FX + HUD + Fever + Logger -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
-
-  <!-- Global modules (IIFE) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
@@ -29,7 +25,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Stereo/Cardboard scaffolding
 </head>
 
 <body>
-  <!-- ===== HUD (Normal mode) ===== -->
+  <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
       <div class="hud-badge">
@@ -70,7 +66,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Stereo/Cardboard scaffolding
     </div>
   </div>
 
-  <!-- ===== Fever/Shield UI (Normal mode) ===== -->
+  <!-- ===== Fever/Shield UI ===== -->
   <div class="hha-fever" id="hhaFever">
     <div class="fever-row">
       <div class="fever-label">FEVER</div>
@@ -83,57 +79,40 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Stereo/Cardboard scaffolding
     </div>
   </div>
 
-  <!-- ===== Stereo VR HUD (Cardboard) ===== -->
-  <div class="gj-vr-hud" aria-hidden="false">
-    <div class="eye l">
-      <div class="row"><span class="k">Score</span><span class="v" id="vrScoreL">0</span></div>
-      <div class="row"><span class="k">Combo</span><span class="v" id="vrComboL">0</span></div>
-      <div class="row"><span class="k">Miss</span><span class="v" id="vrMissL">0</span></div>
-      <div class="row"><span class="k">Time</span><span class="v" id="vrTimeL">0</span></div>
-      <div class="row"><span class="k">Grade</span><span class="v" id="vrGradeL">—</span></div>
-    </div>
-    <div class="eye r">
-      <div class="row"><span class="k">Score</span><span class="v" id="vrScoreR">0</span></div>
-      <div class="row"><span class="k">Combo</span><span class="v" id="vrComboR">0</span></div>
-      <div class="row"><span class="k">Miss</span><span class="v" id="vrMissR">0</span></div>
-      <div class="row"><span class="k">Time</span><span class="v" id="vrTimeR">0</span></div>
-      <div class="row"><span class="k">Grade</span><span class="v" id="vrGradeR">—</span></div>
-    </div>
-  </div>
-
-  <!-- ===== Playfield (Stereo-ready) ===== -->
+  <!-- ===== Playfield ===== -->
   <div id="gj-stage">
-    <!-- Left eye -->
-    <section class="gj-eye" id="gj-eyeL" aria-label="left eye">
-      <div id="gj-layer" aria-label="targets layer (L)"></div>
-      <div id="gj-crosshair" aria-hidden="true"></div>
-      <div id="atk-ring" aria-hidden="true"></div>
-      <div id="atk-laser" aria-hidden="true"></div>
-      <div id="end-summary"></div>
-    </section>
 
-    <!-- Right eye (shown only when body.gj-stereo) -->
-    <section class="gj-eye" id="gj-eyeR" aria-label="right eye">
-      <div id="gj-layerR" aria-label="targets layer (R)"></div>
-      <div id="gj-crosshairR" aria-hidden="true"></div>
-      <div id="atk-ringR" aria-hidden="true"></div>
-      <div id="atk-laserR" aria-hidden="true"></div>
-      <div id="end-summaryR"></div>
-    </section>
+    <!-- PC/mobile legacy (single view) -->
+    <div id="gj-layer" aria-label="targets layer"></div>
+    <div id="gj-crosshair" aria-hidden="true"></div>
+
+    <!-- Cardboard stereo (two eyes) -->
+    <div id="gj-stereo" aria-hidden="true">
+      <div id="gj-eyeL" class="gj-eye">
+        <div id="gj-layerL" class="gj-layer" aria-label="targets layer left"></div>
+        <div id="gj-crosshairL" class="gj-crosshair" aria-hidden="true"></div>
+      </div>
+      <div id="gj-eyeR" class="gj-eye">
+        <div id="gj-layerR" class="gj-layer" aria-label="targets layer right"></div>
+        <div id="gj-crosshairR" class="gj-crosshair" aria-hidden="true"></div>
+      </div>
+      <div class="gj-divider" aria-hidden="true"></div>
+    </div>
+
+    <!-- Boss hazards (optional; not required by engine) -->
+    <div id="atk-ring" aria-hidden="true"></div>
+    <div id="atk-laser" aria-hidden="true"></div>
+
+    <!-- end summary host -->
+    <div id="end-summary"></div>
   </div>
 
-  <!-- ===== Controls (Normal mode) ===== -->
+  <!-- ===== Controls ===== -->
   <div class="hha-controls">
     <button id="btnShoot" class="btn-shoot">ยิง</button>
   </div>
 
-  <!-- ===== Stereo VR Controls (Dual shoot buttons) ===== -->
-  <div class="gj-vr-controls" aria-hidden="false">
-    <button id="btnShootL" class="btn-shoot vr">ยิง ◀</button>
-    <button id="btnShootR" class="btn-shoot vr">ยิง ▶</button>
-  </div>
-
-  <!-- ===== Start Overlay (Stereo split via CSS patch) ===== -->
+  <!-- ===== Start Overlay ===== -->
   <div id="startOverlay" class="start-overlay">
     <div class="start-card">
       <div class="start-title">GoodJunk VR</div>
@@ -144,97 +123,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard + Stereo/Cardboard scaffolding
       <div class="start-meta" id="startMeta">—</div>
       <button id="btnStart" class="btn-start">เริ่มเล่น</button>
     </div>
-
-    <!-- clone for right eye (Stereo) -->
-    <div class="start-card clone" aria-hidden="true">
-      <div class="start-title">GoodJunk VR</div>
-      <div class="start-desc">
-        เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
-      </div>
-      <div class="start-meta" id="startMetaR">—</div>
-      <button id="btnStartR" class="btn-start">เริ่มเล่น</button>
-    </div>
   </div>
-
-  <!-- ===== Stereo glue (no boot changes) ===== -->
-  <script>
-  (function(){
-    const qs = new URLSearchParams(location.search);
-    const stereo = (qs.get('stereo') === '1' || qs.get('cardboard') === '1');
-
-    if (stereo) document.body.classList.add('gj-stereo');
-    else document.body.classList.remove('gj-stereo');
-
-    // Start (R) -> Start (main)
-    const btnStart = document.getElementById('btnStart');
-    const btnStartR = document.getElementById('btnStartR');
-    if (btnStart && btnStartR){
-      const go = ()=>{ try{ btnStart.click(); }catch(_){ } };
-      btnStartR.addEventListener('click', go, { passive:true });
-      btnStartR.addEventListener('pointerdown', (e)=>{ e.preventDefault(); go(); }, { passive:false });
-      btnStartR.addEventListener('touchstart', (e)=>{ e.preventDefault(); go(); }, { passive:false });
-    }
-
-    // Dual shoot -> original shoot
-    const btnShoot = document.getElementById('btnShoot');
-    const btnShootL = document.getElementById('btnShootL');
-    const btnShootR = document.getElementById('btnShootR');
-    const fire = ()=>{ try{ btnShoot && btnShoot.click(); }catch(_){ } };
-    [btnShootL, btnShootR].forEach(b=>{
-      if (!b) return;
-      b.addEventListener('click', fire, { passive:true });
-      b.addEventListener('pointerdown', (e)=>{ e.preventDefault(); fire(); }, { passive:false });
-      b.addEventListener('touchstart', (e)=>{ e.preventDefault(); fire(); }, { passive:false });
-    });
-
-    // Mirror end summary L -> R (so end overlay appears in both eyes)
-    const endL = document.getElementById('end-summary');
-    const endR = document.getElementById('end-summaryR');
-    if (endL && endR && window.MutationObserver){
-      const mo = new MutationObserver(()=>{ endR.innerHTML = endL.innerHTML; });
-      mo.observe(endL, { childList:true, subtree:true, attributes:true, characterData:true });
-    }
-
-    // Mirror startMeta -> startMetaR
-    const metaL = document.getElementById('startMeta');
-    const metaR = document.getElementById('startMetaR');
-    if (metaL && metaR && window.MutationObserver){
-      const mo2 = new MutationObserver(()=>{ metaR.textContent = metaL.textContent; });
-      mo2.observe(metaL, { childList:true, subtree:true, characterData:true });
-    }
-
-    // VR HUD listens to events
-    const set2 = (idL, idR, val)=>{
-      const a = document.getElementById(idL);
-      const b = document.getElementById(idR);
-      if (a) a.textContent = val;
-      if (b) b.textContent = val;
-    };
-
-    window.addEventListener('hha:score', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      set2('vrScoreL','vrScoreR', String(d.score ?? 0));
-
-      // combo: prefer current combo if present; else comboMax
-      const c = (d.combo != null) ? d.combo : (d.comboMax != null ? d.comboMax : 0);
-      set2('vrComboL','vrComboR', String(c));
-
-      const m = (d.misses != null) ? d.misses : (d.miss != null ? d.miss : 0);
-      set2('vrMissL','vrMissR', String(m));
-    });
-
-    window.addEventListener('hha:time', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      set2('vrTimeL','vrTimeR', String(d.sec ?? d.left ?? 0));
-    });
-
-    // grade event (ถ้ามี)
-    window.addEventListener('hha:rank', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      set2('vrGradeL','vrGradeR', String(d.grade ?? '—'));
-    });
-  })();
-  </script>
 </body>
 </html>
