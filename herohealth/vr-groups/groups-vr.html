@@ -9,82 +9,59 @@
   <link rel="stylesheet" href="./groups-vr.css" />
 </head>
 
-<body>
-
-  <!-- ===== Sticky HUD BAR (B) ===== -->
-  <header class="hudbar" id="hudbar" aria-label="HUD Bar">
-    <div class="hudbar-card">
-      <div class="hudrow hudrow1">
-        <div class="hudleft">
-          <div class="hudchip">
-            <div class="k">SCORE</div>
-            <div class="v" id="uiScore">0</div>
-          </div>
-          <div class="hudchip">
-            <div class="k">COMBO</div>
-            <div class="v"><span id="uiCombo">0</span> <span class="muted">(MAX <span id="uiComboMax">0</span>)</span></div>
-          </div>
-          <div class="hudchip danger">
-            <div class="k">MISS</div>
-            <div class="v" id="uiMiss">0</div>
-          </div>
-        </div>
-
-        <div class="hudright">
-          <div class="hudpill" id="uiGroup">หมู่ 1</div>
-          <div class="hudpill">
-            ⏱️ <span id="uiTime">90</span>s
-          </div>
-          <div class="hudpill grade">
-            GRADE <b id="uiGrade">C</b>
-          </div>
-
-          <button class="hudbtn" id="btnQuest" type="button" aria-expanded="false" title="พับ/กาง GOAL & MINI">
-            ☰
-          </button>
-        </div>
-      </div>
-
-      <div class="hudrow hudrow2">
-        <div class="powerMini" aria-label="Power">
-          <div class="powerMiniTop">
-            <span class="tag">POWER</span>
-            <span class="num"><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
-          </div>
-          <div class="powerMiniBar"><i id="uiPowerBar"></i></div>
-        </div>
-
-        <div class="hintMini" id="hudHint">
-          ⭐ = Overdrive+Magnet+Shield • ❄️ = Freeze • STORM ระวัง!
-        </div>
-      </div>
+<body class="layoutB ui-compact">
+  <!-- HUD (top) -->
+  <div class="hud">
+    <div class="box">
+      <div class="big" id="uiScore">0</div>
+      <div class="small">SCORE</div>
     </div>
-  </header>
 
-  <!-- ===== Quest Drawer (collapsible) ===== -->
-  <section class="questDrawer open" id="questDrawer" aria-label="Quest Drawer">
-    <div class="questCard">
-      <div class="qrow">
-        <div class="badge goal">GOAL</div>
-        <div class="qt" id="uiGoalTitle">—</div>
-        <div class="qn" id="uiGoalNum"></div>
-      </div>
-      <div class="qbar"><i id="uiGoalBar"></i></div>
-
-      <div class="qrow" style="margin-top:10px;">
-        <div class="badge mini">MINI</div>
-        <div class="qt" id="uiMiniTitle">—</div>
-        <div class="qn" id="uiMiniNum"></div>
-      </div>
-      <div class="qbar mini"><i id="uiMiniBar"></i></div>
-      <div class="qtime" id="uiMiniTime" style="display:none;">⏳ 0s</div>
+    <div class="box right">
+      <div class="big"><span id="uiTime">90</span>s</div>
+      <div class="small">TIME</div>
     </div>
-  </section>
+  </div>
 
-  <!-- ===== Gameplay layer ===== -->
+  <!-- Small pills row -->
+  <div class="centerTop">
+    <div class="pill">COMBO: <b id="uiCombo">0</b> (MAX <b id="uiComboMax">0</b>)</div>
+    <div class="pill">MISS: <b id="uiMiss">0</b></div>
+    <div class="pill">GRADE: <b id="uiGrade">C</b></div>
+    <div class="pill pillHint">⭐=Overdrive+Magnet+Shield • ❄️=Freeze • STORM ระวัง!</div>
+  </div>
+
+  <!-- Quest bars (collapsible) -->
+  <div class="questTop" aria-label="Quest">
+    <div class="qbar">
+      <div class="t">GOAL</div>
+      <div class="b" id="uiGoalTitle">—</div>
+      <div class="p"><i id="uiGoalBar"></i></div>
+    </div>
+    <div class="qbar">
+      <div class="t">MINI</div>
+      <div class="b" id="uiMiniTitle">—</div>
+      <div class="p"><i id="uiMiniBar"></i></div>
+      <div class="time" id="uiMiniTime">⏳ 0s</div>
+    </div>
+  </div>
+
+  <!-- UI menu toggle (pointer enabled) -->
+  <button class="uiMenuBtn" id="btnUiToggle" aria-label="Toggle HUD">☰</button>
+
+  <!-- Gameplay layer -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-  <!-- ===== Coach ===== -->
+  <!-- Power bar -->
+  <div class="powerWrap">
+    <div class="power"><i id="uiPowerBar"></i></div>
+    <div class="powerLabel">
+      <span>POWER</span>
+      <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
+    </div>
+  </div>
+
+  <!-- Coach -->
   <div class="coachWrap" aria-label="Coach">
     <div class="coachCard">
       <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
@@ -96,7 +73,7 @@
     </div>
   </div>
 
-  <!-- ===== Start overlay ===== -->
+  <!-- Start overlay -->
   <div class="overlay" id="startOverlay">
     <div class="panel">
       <h2>🚀 พร้อมเล่น Food Groups VR</h2>
@@ -110,7 +87,7 @@
     </div>
   </div>
 
-  <!-- ===== End overlay ===== -->
+  <!-- End overlay -->
   <div class="overlay" id="endOverlay">
     <div class="panel">
       <h2>🏁 สรุปผล</h2>
@@ -163,7 +140,7 @@
       }
     }
 
-    // โหลดของจริง
+    // ✅ production modules
     const BOOT_LIST = [
       './groups-fx.js',
       './audio.js',
@@ -198,15 +175,21 @@
       if (document.visibilityState === 'hidden') flushHardened('hidden');
     });
 
-    // Quest Drawer toggle
-    const questDrawer = $('questDrawer');
-    const btnQuest = $('btnQuest');
-    function setQuestOpen(open){
-      questDrawer.classList.toggle('open', !!open);
-      btnQuest.setAttribute('aria-expanded', open ? 'true' : 'false');
+    // ✅ Layout B toggle
+    function setCompact(on){
+      document.body.classList.toggle('ui-compact', !!on);
+      try{ localStorage.setItem('HHA_GROUPS_UI_COMPACT', on?'1':'0'); }catch{}
     }
-    btnQuest.addEventListener('click', ()=>{
-      setQuestOpen(!questDrawer.classList.contains('open'));
+    (function initCompact(){
+      const isMobile = matchMedia('(max-width: 920px)').matches;
+      let saved = null;
+      try{ saved = localStorage.getItem('HHA_GROUPS_UI_COMPACT'); }catch{}
+      if (saved === '0') setCompact(false);
+      else if (saved === '1') setCompact(true);
+      else setCompact(isMobile); // default compact on mobile
+    })();
+    $('btnUiToggle').addEventListener('click', ()=>{
+      setCompact(!document.body.classList.contains('ui-compact'));
     });
 
     function bindEvents(){
@@ -217,12 +200,10 @@
         $('uiComboMax').textContent = String(d.comboMax ?? 0);
         $('uiMiss').textContent = String(d.misses ?? 0);
       });
-
       addEventListener('hha:time', (e)=>{
         const d = e.detail||{};
         $('uiTime').textContent = String(d.left ?? 0);
       });
-
       addEventListener('groups:power', (e)=>{
         const d = e.detail||{};
         const ch = Number(d.charge||0);
@@ -231,19 +212,12 @@
         $('uiPowerThr').textContent = String(thr);
         $('uiPowerBar').style.width = (Math.min(1, ch/thr)*100).toFixed(1) + '%';
       });
-
-      addEventListener('groups:group', (e)=>{
-        const d = e.detail||{};
-        const gid = Number(d.groupId||1);
-        $('uiGroup').textContent = d.label ? String(d.label) : `หมู่ ${gid}`;
-      });
-
       addEventListener('hha:rank', (e)=>{
         const d = e.detail||{};
         if (d.grade) $('uiGrade').textContent = String(d.grade);
       });
 
-      // Quest update
+      // ✅ Quest update
       addEventListener('quest:update', (e)=>{
         const d = e.detail||{};
         if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
@@ -259,19 +233,16 @@
         $('uiGoalBar').style.width = Math.max(0, Math.min(100, gp)).toFixed(1)+'%';
         $('uiMiniBar').style.width = Math.max(0, Math.min(100, mp)).toFixed(1)+'%';
 
-        // optional numbers
-        $('uiGoalNum').textContent = (d.goalNow!=null && d.goalTotal!=null) ? `${d.goalNow}/${d.goalTotal}` : '';
-        $('uiMiniNum').textContent = (d.miniNow!=null && d.miniTotal!=null) ? `${d.miniNow}/${d.miniTotal}` : '';
-
         const tLeft = Number(d.miniTimeLeftSec ?? 0);
         const timeEl = $('uiMiniTime');
         if (Number.isFinite(tLeft) && tLeft > 0){
           timeEl.style.display = 'block';
           timeEl.textContent = `⏳ ${tLeft}s`;
-          questDrawer.classList.add('mini-urgent');
+          // urgent hint
+          document.body.classList.toggle('mini-urgent', tLeft <= 3);
         } else {
           timeEl.style.display = 'none';
-          questDrawer.classList.remove('mini-urgent');
+          document.body.classList.remove('mini-urgent');
         }
       });
 
@@ -333,6 +304,7 @@
             clearInterval(t);
             warn('❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า GameEngine.js โหลดได้ 200 และชื่อไฟล์ตัวใหญ่/เล็กตรง');
             $('dbgBoot').textContent = 'ENGINE NOT FOUND ❌';
+            resolve(null);
           }
         }, 80);
       });
