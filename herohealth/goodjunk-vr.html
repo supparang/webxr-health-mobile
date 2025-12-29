@@ -1,10 +1,8 @@
 <!-- === /herohealth/goodjunk-vr.html ===
 GoodJunkVR (PRODUCTION) — HHA Standard
-✅ HUD + Quest + Coach + Fever/Shield
-✅ Playfield: mono + stereo (VR/Cardboard)
-✅ Start overlay: 2D / VR(Cardboard)
+✅ view=pc|mobile|vr (cardboard split)
+✅ VR mini HUD per eye + FX
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -14,17 +12,28 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- Global UI/CSS -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
+
+  <!-- Global FX + Fever + HUD + Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
+  <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
-  <!-- ===== HUD ===== -->
+  <!-- ===== View Switch (PC / Mobile / VR) ===== -->
+  <div class="viewbar" aria-label="view switch">
+    <button class="vb-btn" id="btnViewPC" type="button">PC</button>
+    <button class="vb-btn" id="btnViewMobile" type="button">Mobile</button>
+    <button class="vb-btn" id="btnViewVR" type="button">VR</button>
+  </div>
+
+  <!-- ===== HUD (ใหญ่) — ซ่อนอัตโนมัติใน view=vr ===== -->
   <div class="hha-hud">
     <div class="hud-top">
       <div class="hud-badge">
@@ -65,7 +74,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
     </div>
   </div>
 
-  <!-- ===== Fever/Shield UI ===== -->
+  <!-- ===== Fever/Shield UI (ซ่อนอัตโนมัติใน view=vr) ===== -->
   <div class="hha-fever" id="hhaFever">
     <div class="fever-row">
       <div class="fever-label">FEVER</div>
@@ -79,27 +88,59 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   </div>
 
   <!-- ===== Playfield ===== -->
-  <div id="gj-stage">
-    <!-- Stereo (VR/Cardboard) -->
-    <div id="gj-stereo" aria-hidden="true">
-      <div class="gj-eye">
-        <div id="gj-eyeL">
-          <div id="gj-layerL" aria-label="targets layer left"></div>
-          <div id="gj-crosshairL" aria-hidden="true"></div>
+  <div id="gj-stage" class="stage">
+    <!-- Mono layer (PC/Mobile) -->
+    <div id="gj-layer" class="layer mono" aria-label="targets layer"></div>
+    <div id="gj-crosshair" class="crosshair mono" aria-hidden="true"></div>
+
+    <!-- VR (Cardboard split) eyes -->
+    <div id="gj-vr" class="vrwrap" aria-hidden="true">
+      <div class="eye eye-l" id="gj-eyeL">
+        <div class="vrhud">
+          <div class="vh-row">
+            <span class="vh-title">GoodJunkVR</span>
+            <span class="vh-meta" id="vrMetaL">—</span>
+          </div>
+          <div class="vh-stats">
+            <span>Score <b id="vrScoreL">0</b></span>
+            <span>Combo <b id="vrComboL">0</b></span>
+            <span>Miss <b id="vrMissL">0</b></span>
+            <span>Time <b id="vrTimeL">0</b></span>
+          </div>
+          <div class="vh-quest">
+            <span id="vrGoalL">Goal —</span>
+            <span id="vrMiniL">Mini —</span>
+          </div>
         </div>
+
+        <div id="gj-layer-l" class="layer vr" aria-label="targets layer left"></div>
+        <div id="gj-crosshair-l" class="crosshair vr" aria-hidden="true"></div>
       </div>
-      <div class="gj-eye">
-        <div id="gj-eyeR">
-          <div id="gj-layerR" aria-label="targets layer right"></div>
-          <div id="gj-crosshairR" aria-hidden="true"></div>
+
+      <div class="eye eye-r" id="gj-eyeR">
+        <div class="vrhud">
+          <div class="vh-row">
+            <span class="vh-title">GoodJunkVR</span>
+            <span class="vh-meta" id="vrMetaR">—</span>
+          </div>
+          <div class="vh-stats">
+            <span>Score <b id="vrScoreR">0</b></span>
+            <span>Combo <b id="vrComboR">0</b></span>
+            <span>Miss <b id="vrMissR">0</b></span>
+            <span>Time <b id="vrTimeR">0</b></span>
+          </div>
+          <div class="vh-quest">
+            <span id="vrGoalR">Goal —</span>
+            <span id="vrMiniR">Mini —</span>
+          </div>
         </div>
+
+        <div id="gj-layer-r" class="layer vr" aria-label="targets layer right"></div>
+        <div id="gj-crosshair-r" class="crosshair vr" aria-hidden="true"></div>
       </div>
     </div>
 
-    <!-- Mono (default) -->
-    <div id="gj-layer" aria-label="targets layer"></div>
-    <div id="gj-crosshair" aria-hidden="true"></div>
-
+    <!-- Boss hazards (shared, show in mono; in VR we duplicate by CSS overlay) -->
     <div id="atk-ring" aria-hidden="true"></div>
     <div id="atk-laser" aria-hidden="true"></div>
 
@@ -109,7 +150,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
 
   <!-- ===== Controls ===== -->
   <div class="hha-controls">
-    <button id="btnShoot" class="btn-shoot">ยิง</button>
+    <button id="btnShoot" class="btn-shoot" type="button">ยิง</button>
   </div>
 
   <!-- ===== Start Overlay ===== -->
@@ -118,14 +159,10 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
         เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">เลือกโหมดเริ่มเล่น: ปกติ หรือ VR/Cardboard (สองจอ)</span>
+        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
-
-      <div class="start-actions">
-        <button id="btnStart2D" class="btn-start primary">เริ่มปกติ (2D)</button>
-        <button id="btnStartVR" class="btn-start ghost">เข้า VR/Cardboard</button>
-      </div>
+      <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
     </div>
   </div>
 </body>
