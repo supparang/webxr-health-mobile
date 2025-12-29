@@ -1,8 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard
-// ✅ FIX cVR: spawn twin targets (L/R) + shoot checks both crosshairs
-// ✅ Rotate/landscape friendly (safe margins tuned)
-// ✅ Still supports normal PC/Mobile/VR view
+// GoodJunkVR — SAFE Engine (PRODUCTION) — DOM + WebXR(A-Frame)
+// ✅ DOM mode: PC/Mobile/cVR (split) + safe margins
+// ✅ XR mode: A-Frame targets in 3D when entering immersive VR
+// ✅ miss definition: good expire + junk hit (unblocked). Shield blocks don't count miss.
 
 'use strict';
 
@@ -62,7 +62,6 @@ function isCVR(){
   return v === 'cvr';
 }
 
-// optional modules (best effort)
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
@@ -101,7 +100,6 @@ function logEvent(type, data){
   try{ if (typeof ROOT.hhaLogEvent === 'function') ROOT.hhaLogEvent(type, data||{}); }catch(_){}
 }
 
-// -------------------- UI helpers --------------------
 function rankFromAcc(acc){
   if (acc >= 95) return 'SSS';
   if (acc >= 90) return 'SS';
@@ -118,7 +116,6 @@ function diffBase(diff){
   return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
 }
 
-// -------------------- spawn rect avoid HUD --------------------
 function buildAvoidRects(){
   const DOC = ROOT.document;
   const rects = [];
@@ -142,8 +139,6 @@ function buildAvoidRects(){
 function pointInRect(x, y, r){
   return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 }
-
-/** Random position in a rectangle region with HUD-avoid */
 function randPosInRect(rng, rect, safePad){
   const avoid = buildAvoidRects();
   const pad = safePad || 8;
@@ -162,23 +157,18 @@ function randPosInRect(rng, rect, safePad){
   return { x: rect.left + rng()*rect.width, y: rect.top + rng()*rect.height };
 }
 
-// -------------------- engine --------------------
 const GOOD = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
 const JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
 const STARS = ['⭐','💎'];
 const SHIELD = '🛡️';
 
 function setXY(el, x, y){
-  const px = x.toFixed(1) + 'px';
-  const py = y.toFixed(1) + 'px';
-  el.style.left = px;
-  el.style.top  = py;
+  el.style.left = x.toFixed(1) + 'px';
+  el.style.top  = y.toFixed(1) + 'px';
 }
-
 function countTargets(layerEl){
   try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
 }
-
 function getCenterOf(el, fallbackX, fallbackY){
   if (!el) return { x: fallbackX, y: fallbackY };
   try{
@@ -188,12 +178,10 @@ function getCenterOf(el, fallbackX, fallbackY){
     return { x: fallbackX, y: fallbackY };
   }
 }
-
 function dist2(ax, ay, bx, by){
   const dx = ax - bx, dy = ay - by;
   return dx*dx + dy*dy;
 }
-
 function findTargetNear(layerEl, cx, cy, radiusPx){
   const r2max = radiusPx * radiusPx;
   const list = layerEl.querySelectorAll('.gj-target');
@@ -263,7 +251,53 @@ async function flushAll(summary, reason){
   await flushLogger(reason || (summary?.reason) || 'flush');
 }
 
-// -------------------- exported boot --------------------
+/* -------------------- XR helpers (A-Frame) -------------------- */
+function xrAvailable(sceneEl){
+  return !!(sceneEl && sceneEl.isConnected && sceneEl.enterVR);
+}
+function xrIsActive(sceneEl){
+  try{
+    // A-Frame sets is('vr-mode') while in immersive (also for AR)
+    return !!(sceneEl && sceneEl.is && sceneEl.is('vr-mode'));
+  }catch(_){ return false; }
+}
+function clearXrTargets(xrTargetsEl){
+  if (!xrTargetsEl) return;
+  try{
+    while (xrTargetsEl.firstChild) xrTargetsEl.removeChild(xrTargetsEl.firstChild);
+  }catch(_){}
+}
+function makeXrTarget(AFRAME, type, emoji, pos, scale, twinId){
+  // clickable entity: plane/circle + text
+  const el = document.createElement('a-entity');
+  el.classList.add('xr-target');
+  el.setAttribute('data-type', type);
+  el.setAttribute('data-emoji', emoji);
+  if (twinId) el.setAttribute('data-twin', twinId);
+
+  el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+  el.setAttribute('scale', `${scale} ${scale} ${scale}`);
+
+  // background disc
+  el.setAttribute('geometry', 'primitive: circle; radius: 0.23');
+  el.setAttribute('material', 'color: #081226; opacity: 0.85; shader: standard; metalness: 0.1; roughness: 0.35');
+
+  // emoji text
+  const txt = document.createElement('a-entity');
+  txt.setAttribute('text', `value: ${emoji}; align: center; color: #FFFFFF; width: 2.2; baseline: center;`);
+  txt.setAttribute('position', `0 0 0.01`);
+  el.appendChild(txt);
+
+  // subtle ring
+  const ring = document.createElement('a-entity');
+  ring.setAttribute('geometry', 'primitive: ring; radiusInner: 0.25; radiusOuter: 0.275');
+  ring.setAttribute('material', 'color: #A3B1C6; opacity: 0.25; shader: flat');
+  ring.setAttribute('position', `0 0 0.005`);
+  el.appendChild(ring);
+
+  return el;
+}
+
 export function boot(opts = {}) {
   const DOC = ROOT.document;
   if (!DOC) return;
@@ -272,6 +306,11 @@ export function boot(opts = {}) {
   const shootEl = opts.shootEl || DOC.getElementById('btnShoot');
   const crossL  = DOC.getElementById('gj-crosshair');
   const crossR  = DOC.getElementById('gj-crosshair-r');
+
+  // XR hooks
+  const sceneEl = opts.sceneEl || DOC.getElementById('xrScene');
+  const xrTargetsEl = opts.xrTargetsEl || DOC.getElementById('xrTargets');
+  const xrCam = opts.xrCam || DOC.getElementById('xrCam');
 
   if (!layerEl){
     console.warn('[GoodJunkVR] missing #gj-layer');
@@ -291,11 +330,8 @@ export function boot(opts = {}) {
   const ts = String(qs('ts', Date.now()));
   const seed = String(seedIn || (sessionId ? (sessionId + '|' + ts) : ts));
 
-  const ctx = opts.context || {};
-
   const base = diffBase(diff);
 
-  // state
   const S = {
     running:false,
     ended:false,
@@ -311,7 +347,7 @@ export function boot(opts = {}) {
     combo:0,
     comboMax:0,
 
-    misses:0,           // miss = good expire + junk hit (unblocked)
+    misses:0,
     hitAll:0,
     hitGood:0,
     hitJunk:0,
@@ -339,26 +375,29 @@ export function boot(opts = {}) {
 
     cvr: isCVR(),
     twinSeq: 0,
-    twinMap: new Map() // twinId -> [elL, elR]
+    twinMap: new Map(),
+
+    // XR state
+    xrEnabled: xrAvailable(sceneEl),
+    xrActive: false,
+    xrTTL: new Map() // element -> timeout id
   };
 
-  // mobile adjust
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
     S.size = Math.min(1.12, S.size + 0.03);
   }
 
-  // safe margins (bigger top to avoid HUD + viewbar)
   const safeMargins = (function(){
     const portrait = (ROOT.innerHeight||0) > (ROOT.innerWidth||0);
     if (S.cvr){
       return portrait
-        ? { top: 260, bottom: 160, left: 18, right: 18 }
-        : { top: 170, bottom: 130, left: 18, right: 18 };
+        ? { top: 250, bottom: 150, left: 18, right: 18 }
+        : { top: 165, bottom: 120, left: 18, right: 18 };
     }
     return portrait
-      ? { top: 190, bottom: 170, left: 22, right: 22 }
-      : { top: 150, bottom: 140, left: 22, right: 22 };
+      ? { top: 185, bottom: 165, left: 22, right: 22 }
+      : { top: 145, bottom: 135, left: 22, right: 22 };
   })();
 
   function coach(mood, text, sub){
@@ -376,9 +415,8 @@ export function boot(opts = {}) {
     emit('hha:time', { left: Math.max(0, S.left|0) });
   }
   function updateQuest(){
-    const goalTitle = `เก็บของดีให้ครบ`;
     emit('quest:update', {
-      goalTitle: `Goal: ${goalTitle}`,
+      goalTitle: `Goal: เก็บของดีให้ครบ`,
       goalNow: S.goalsCleared,
       goalTotal: S.goalsTotal,
       miniTitle: `Mini: คอมโบมาแล้ว!`,
@@ -399,89 +437,11 @@ export function boot(opts = {}) {
     try{ clearTimeout(S.tickTimer); }catch(_){}
   }
 
-  function removeTarget(el){
-    try{ clearTimeout(el._ttl); }catch(_){}
-    el.classList.add('gone');
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 140);
-  }
-
-  function burstAtEl(el, kind){
+  function burstAtDomEl(el, kind){
     try{
       const r = el.getBoundingClientRect();
       Particles.burstAt(r.left + r.width/2, r.top + r.height/2, kind || el.dataset.type || '');
     }catch(_){}
-  }
-
-  function removeTwinById(twinId){
-    const pair = S.twinMap.get(twinId);
-    if (!pair) return;
-    S.twinMap.delete(twinId);
-    pair.forEach(x=>{ if (x && x.isConnected) removeTarget(x); });
-  }
-
-  function expireTarget(el){
-    if (!el || !el.isConnected) return;
-    const tp = String(el.dataset.type||'');
-    const twinId = el.dataset.twin || '';
-
-    if (tp === 'good'){
-      S.misses++;
-      S.expireGood++;
-      S.combo = 0;
-
-      S.fever = clamp(S.fever + 7, 0, 100);
-      updateFever(S.shield, S.fever);
-
-      judge('warn', 'MISS (หมดเวลา)!');
-      updateScore();
-      updateQuest();
-      logEvent('miss_expire', { kind:'good', emoji: String(el.dataset.emoji||'') });
-    }
-
-    if (S.cvr && twinId) removeTwinById(twinId);
-    else {
-      el.classList.add('gone');
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
-    }
-  }
-
-  function makeTarget(type, emoji, x, y, s, twinId){
-    const el = DOC.createElement('div');
-    el.className = `gj-target ${type}`;
-    el.dataset.type = type;
-    el.dataset.emoji = String(emoji||'✨');
-    if (twinId) el.dataset.twin = twinId;
-
-    el.style.position = 'absolute';
-    el.style.pointerEvents = 'auto';
-    el.style.zIndex = '30';
-    el.style.width = '74px';
-    el.style.height = '74px';
-    el.style.borderRadius = '999px';
-    el.style.display = 'flex';
-    el.style.alignItems = 'center';
-    el.style.justifyContent = 'center';
-    el.style.fontSize = '38px';
-    el.style.background = 'rgba(2,6,23,.55)';
-    el.style.border = '1px solid rgba(148,163,184,.22)';
-    el.style.backdropFilter = 'blur(8px)';
-    el.style.boxShadow = '0 16px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset';
-
-    setXY(el, x, y);
-    el.style.transform = `translate(-50%,-50%) scale(${Number(s||1).toFixed(3)})`;
-    el.textContent = String(emoji||'✨');
-
-    el._ttl = setTimeout(()=> expireTarget(el), S.ttlMs);
-
-    const onHit = (ev)=>{
-      ev.preventDefault?.();
-      ev.stopPropagation?.();
-      hitTarget(el);
-    };
-    el.addEventListener('pointerdown', onHit, { passive:false });
-    el.addEventListener('click', onHit, { passive:false });
-
-    return el;
   }
 
   function scoreGood(){
@@ -491,7 +451,7 @@ export function boot(opts = {}) {
     return pts;
   }
 
-  function hitGoodCore(el){
+  function hitGoodCommon(emoji){
     S.hitAll++; S.hitGood++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
@@ -501,9 +461,7 @@ export function boot(opts = {}) {
 
     const pts = scoreGood();
     judge('good', `+${pts}`);
-    burstAtEl(el, 'good');
-
-    logEvent('hit', { kind:'good', emoji:String(el.dataset.emoji||''), score:S.score|0, combo:S.combo|0, fever:Math.round(S.fever) });
+    logEvent('hit', { kind:'good', emoji:String(emoji||''), score:S.score|0, combo:S.combo|0, fever:Math.round(S.fever) });
 
     updateScore();
     updateQuest();
@@ -531,7 +489,7 @@ export function boot(opts = {}) {
     }
   }
 
-  function hitShieldCore(el){
+  function hitShieldCommon(){
     S.hitAll++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
@@ -542,14 +500,13 @@ export function boot(opts = {}) {
     S.score += 70;
     judge('good', 'SHIELD +1');
     emit('hha:celebrate', { kind:'mini', title:'SHIELD 🛡️' });
-    burstAtEl(el, 'shield');
     logEvent('hit', { kind:'shield', emoji:'🛡️', shield:S.shield|0 });
 
     updateScore();
     updateQuest();
   }
 
-  function hitStarCore(el){
+  function hitStarCommon(emoji){
     S.hitAll++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
@@ -558,14 +515,13 @@ export function boot(opts = {}) {
     S.score += pts;
     judge('good', `BONUS +${pts}`);
     emit('hha:celebrate', { kind:'mini', title:'BONUS ✨' });
-    burstAtEl(el, 'star');
-    logEvent('hit', { kind:'star', emoji:String(el.dataset.emoji||'⭐') });
+    logEvent('hit', { kind:'star', emoji:String(emoji||'⭐') });
 
     updateScore();
     updateQuest();
   }
 
-  function hitJunkCore(el){
+  function hitJunkCommon(emoji){
     S.hitAll++;
 
     if (S.shield > 0){
@@ -574,8 +530,7 @@ export function boot(opts = {}) {
       updateFever(S.shield, S.fever);
 
       judge('good', 'SHIELD BLOCK!');
-      burstAtEl(el, 'guard');
-      logEvent('shield_block', { kind:'junk', emoji:String(el.dataset.emoji||'') });
+      logEvent('shield_block', { kind:'junk', emoji:String(emoji||'') });
 
       updateScore();
       updateQuest();
@@ -594,125 +549,270 @@ export function boot(opts = {}) {
 
     judge('bad', `JUNK! -${penalty}`);
     coach('sad', 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
-    burstAtEl(el, 'junk');
-
-    logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
+    logEvent('hit', { kind:'junk', emoji:String(emoji||''), score:S.score|0, fever:Math.round(S.fever) });
 
     updateScore();
     updateQuest();
   }
 
-  function hitTarget(el){
-    if (!S.running || S.ended || !el || !el.isConnected) return;
+  /* -------------------- DOM target lifecycle -------------------- */
+  function removeDomTarget(el){
+    try{ clearTimeout(el._ttl); }catch(_){}
+    el.classList.add('gone');
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 140);
+  }
+
+  function removeDomTwinById(twinId){
+    const pair = S.twinMap.get(twinId);
+    if (!pair) return;
+    S.twinMap.delete(twinId);
+    pair.forEach(x=>{ if (x && x.isConnected) removeDomTarget(x); });
+  }
+
+  function expireDomTarget(el){
+    if (!el || !el.isConnected) return;
     const tp = String(el.dataset.type||'');
     const twinId = el.dataset.twin || '';
 
-    if (tp === 'good') hitGoodCore(el);
-    else if (tp === 'junk') hitJunkCore(el);
-    else if (tp === 'shield') hitShieldCore(el);
-    else if (tp === 'star') hitStarCore(el);
+    if (tp === 'good'){
+      S.misses++;
+      S.expireGood++;
+      S.combo = 0;
 
-    if (S.cvr && twinId) removeTwinById(twinId);
-    else removeTarget(el);
+      S.fever = clamp(S.fever + 7, 0, 100);
+      updateFever(S.shield, S.fever);
+
+      judge('warn', 'MISS (หมดเวลา)!');
+      updateScore();
+      updateQuest();
+      logEvent('miss_expire', { kind:'good', emoji: String(el.dataset.emoji||'') });
+    }
+
+    if (S.cvr && twinId) removeDomTwinById(twinId);
+    else {
+      el.classList.add('gone');
+      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
+    }
   }
 
-  function spawnOne(){
+  function makeDomTarget(type, emoji, x, y, s, twinId){
+    const el = DOC.createElement('div');
+    el.className = `gj-target ${type}`;
+    el.dataset.type = type;
+    el.dataset.emoji = String(emoji||'✨');
+    if (twinId) el.dataset.twin = twinId;
+
+    el.style.position = 'absolute';
+    el.style.pointerEvents = 'auto';
+    el.style.zIndex = '30';
+    el.style.width = '74px';
+    el.style.height = '74px';
+    el.style.borderRadius = '999px';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    el.style.fontSize = '38px';
+    el.style.background = 'rgba(2,6,23,.55)';
+    el.style.border = '1px solid rgba(148,163,184,.22)';
+    el.style.backdropFilter = 'blur(8px)';
+    el.style.boxShadow = '0 16px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset';
+
+    setXY(el, x, y);
+    el.style.transform = `translate(-50%,-50%) scale(${Number(s||1).toFixed(3)})`;
+    el.textContent = String(emoji||'✨');
+
+    el._ttl = setTimeout(()=> expireDomTarget(el), S.ttlMs);
+
+    const onHit = (ev)=>{
+      ev.preventDefault?.();
+      ev.stopPropagation?.();
+      hitDomTarget(el);
+    };
+    el.addEventListener('pointerdown', onHit, { passive:false });
+    el.addEventListener('click', onHit, { passive:false });
+
+    return el;
+  }
+
+  function hitDomTarget(el){
+    if (!S.running || S.ended || !el || !el.isConnected) return;
+    const tp = String(el.dataset.type||'');
+    const emoji = String(el.dataset.emoji||'');
+    const twinId = el.dataset.twin || '';
+
+    if (tp === 'good'){ hitGoodCommon(emoji); burstAtDomEl(el,'good'); }
+    else if (tp === 'junk'){ hitJunkCommon(emoji); burstAtDomEl(el,'junk'); }
+    else if (tp === 'shield'){ hitShieldCommon(); burstAtDomEl(el,'shield'); }
+    else if (tp === 'star'){ hitStarCommon(emoji); burstAtDomEl(el,'star'); }
+
+    if (S.cvr && twinId) removeDomTwinById(twinId);
+    else removeDomTarget(el);
+  }
+
+  /* -------------------- XR target lifecycle -------------------- */
+  function scheduleXrExpire(el){
+    if (!el) return;
+    const tid = setTimeout(()=>{
+      expireXrTarget(el);
+    }, S.ttlMs);
+    S.xrTTL.set(el, tid);
+  }
+  function clearXrExpire(el){
+    const tid = S.xrTTL.get(el);
+    if (tid) {
+      try{ clearTimeout(tid); }catch(_){}
+      S.xrTTL.delete(el);
+    }
+  }
+  function removeXrTarget(el){
+    if (!el) return;
+    clearXrExpire(el);
+    try{ el.parentNode && el.parentNode.removeChild(el); }catch(_){}
+  }
+  function expireXrTarget(el){
+    if (!el || !el.isConnected) return;
+    const tp = String(el.getAttribute('data-type')||'');
+    const emoji = String(el.getAttribute('data-emoji')||'');
+
+    if (tp === 'good'){
+      S.misses++;
+      S.expireGood++;
+      S.combo = 0;
+
+      S.fever = clamp(S.fever + 7, 0, 100);
+      updateFever(S.shield, S.fever);
+
+      judge('warn', 'MISS (หมดเวลา)!');
+      updateScore();
+      updateQuest();
+      logEvent('miss_expire', { kind:'good', emoji });
+    }
+
+    removeXrTarget(el);
+  }
+
+  function hitXrTarget(el){
+    if (!S.running || S.ended || !el || !el.isConnected) return;
+    const tp = String(el.getAttribute('data-type')||'');
+    const emoji = String(el.getAttribute('data-emoji')||'');
+
+    if (tp === 'good') hitGoodCommon(emoji);
+    else if (tp === 'junk') hitJunkCommon(emoji);
+    else if (tp === 'shield') hitShieldCommon();
+    else if (tp === 'star') hitStarCommon(emoji);
+
+    removeXrTarget(el);
+  }
+
+  /* -------------------- Spawning (DOM vs XR) -------------------- */
+  function pickType(r, inWarm){
+    const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
+    const junkP  = inWarm ? (S.junkP * 0.55)  : S.junkP;
+
+    if (r < powerP) return 'shield';
+    if (r < powerP + 0.035) return 'star';
+    if (r < powerP + 0.035 + junkP) return 'junk';
+    return 'good';
+  }
+
+  function pickEmoji(tp){
+    if (tp === 'good') return pick(S.rng, GOOD);
+    if (tp === 'junk') return pick(S.rng, JUNK);
+    if (tp === 'shield') return SHIELD;
+    return pick(S.rng, STARS);
+  }
+
+  function spawnDOM(){
     if (!S.running || S.ended) return;
     if (countTargets(layerEl) >= S.maxTargets) return;
 
     const W = ROOT.innerWidth || 360;
     const H = ROOT.innerHeight || 640;
 
-    // play rect (avoid edges + HUD)
-    const top = safeMargins.top;
-    const bottom = safeMargins.bottom;
-    const left = safeMargins.left;
-    const right = safeMargins.right;
-
+    const top = safeMargins.top, bottom = safeMargins.bottom, left = safeMargins.left, right = safeMargins.right;
     const usableH = Math.max(120, H - top - bottom);
     const usableW = Math.max(200, W - left - right);
 
-    // Warmup 3s
     const t = now();
     const inWarm = (t < S.warmupUntil);
 
-    let tp = 'good';
-    const r = S.rng();
-
-    const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
-    const junkP  = inWarm ? (S.junkP * 0.55)  : S.junkP;
-
-    if (r < powerP) tp = 'shield';
-    else if (r < powerP + 0.035) tp = 'star';
-    else if (r < powerP + 0.035 + junkP) tp = 'junk';
-    else tp = 'good';
-
+    const tp = pickType(S.rng(), inWarm);
+    const emoji = pickEmoji(tp);
     const size = (inWarm ? (S.size * 1.06) : S.size);
 
-    // If cVR: spawn twin (left/right halves) with same twinId
     if (S.cvr){
       const halfW = W * 0.5;
+      const rectL = { left: left, top: top, width: Math.max(140, halfW - left - right), height: usableH };
+      const rectR = { left: halfW + left, top: top, width: Math.max(140, halfW - left - right), height: usableH };
 
-      const rectL = {
-        left: left,
-        top: top,
-        width: Math.max(140, halfW - left - right),
-        height: usableH
-      };
-      const rectR = {
-        left: halfW + left,
-        top: top,
-        width: Math.max(140, halfW - left - right),
-        height: usableH
-      };
-
-      const pN = { u: S.rng(), v: S.rng() }; // normalized
+      const pN = { u: S.rng(), v: S.rng() };
       const pL = randPosInRect(()=>pN.u, rectL, 10);
       const pR = randPosInRect(()=>pN.u, rectR, 10);
-      // use same y distribution
       pL.y = rectL.top + pN.v * rectL.height;
       pR.y = rectR.top + pN.v * rectR.height;
 
       const twinId = 't' + (++S.twinSeq);
 
-      let emoji = '✨';
-      if (tp === 'good') emoji = pick(S.rng, GOOD);
-      else if (tp === 'junk') emoji = pick(S.rng, JUNK);
-      else if (tp === 'shield') emoji = SHIELD;
-      else if (tp === 'star') emoji = pick(S.rng, STARS);
-
-      const elL = makeTarget(tp, emoji, pL.x, pL.y, (tp==='junk' ? size*0.98 : size), twinId);
-      const elR = makeTarget(tp, emoji, pR.x, pR.y, (tp==='junk' ? size*0.98 : size), twinId);
+      const elL = makeDomTarget(tp, emoji, pL.x, pL.y, (tp==='junk' ? size*0.98 : size), twinId);
+      const elR = makeDomTarget(tp, emoji, pR.x, pR.y, (tp==='junk' ? size*0.98 : size), twinId);
 
       layerEl.appendChild(elL);
       layerEl.appendChild(elR);
-
       S.twinMap.set(twinId, [elL, elR]);
-      logEvent('spawn', { kind:tp, emoji:String(emoji||''), twin: twinId });
+
+      logEvent('spawn', { kind:tp, emoji:String(emoji||''), twin:twinId, mode:'cvr' });
       return;
     }
 
-    // Normal (single)
-    const rect = {
-      left: left,
-      top: top,
-      width: usableW,
-      height: usableH
-    };
+    const rect = { left: left, top: top, width: usableW, height: usableH };
     const p = randPosInRect(S.rng, rect, 10);
 
-    if (tp === 'good')   layerEl.appendChild(makeTarget('good',   pick(S.rng, GOOD),  p.x, p.y, size));
-    else if (tp === 'junk')   layerEl.appendChild(makeTarget('junk',   pick(S.rng, JUNK),  p.x, p.y, size*0.98));
-    else if (tp === 'shield') layerEl.appendChild(makeTarget('shield', SHIELD,            p.x, p.y, size*1.03));
-    else if (tp === 'star')   layerEl.appendChild(makeTarget('star',   pick(S.rng, STARS), p.x, p.y, size*1.02));
+    layerEl.appendChild(makeDomTarget(tp, emoji, p.x, p.y, (tp==='junk' ? size*0.98 : size)));
+    logEvent('spawn', { kind:tp, emoji:String(emoji||''), mode:'dom' });
+  }
 
-    logEvent('spawn', { kind:tp });
+  function xrTargetCount(){
+    try{ return xrTargetsEl ? xrTargetsEl.querySelectorAll('.xr-target').length : 0; }catch(_){ return 0; }
+  }
+
+  function spawnXR(){
+    if (!S.running || S.ended) return;
+    if (!S.xrEnabled || !xrTargetsEl || !ROOT.AFRAME) return;
+    if (xrTargetCount() >= S.maxTargets) return;
+
+    const t = now();
+    const inWarm = (t < S.warmupUntil);
+
+    const tp = pickType(S.rng(), inWarm);
+    const emoji = pickEmoji(tp);
+    const size = (inWarm ? (S.size * 1.06) : S.size);
+
+    // spawn in front of camera, within comfortable cone
+    // x: [-1.0..1.0], y:[-0.55..0.55], z:-2.0 (slightly vary z)
+    const x = (S.rng()*2 - 1) * 1.05;
+    const y = (S.rng()*2 - 1) * 0.62;
+    const z = -2.0 - S.rng()*0.35;
+
+    const el = makeXrTarget(ROOT.AFRAME, tp, emoji, {x, y: (y + 1.45), z}, (tp==='junk' ? size*0.96 : size), '');
+    xrTargetsEl.appendChild(el);
+
+    // click from cursor
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation?.();
+      hitXrTarget(el);
+    });
+
+    scheduleXrExpire(el);
+    logEvent('spawn', { kind:tp, emoji:String(emoji||''), mode:'xr' });
   }
 
   function loopSpawn(){
     if (!S.running || S.ended) return;
 
-    spawnOne();
+    // decide mode by XR active
+    S.xrActive = xrIsActive(sceneEl);
+    if (S.xrActive) spawnXR();
+    else spawnDOM();
 
     const t = now();
     const inWarm = (t < S.warmupUntil);
@@ -769,9 +869,10 @@ export function boot(opts = {}) {
     S.tickTimer = setTimeout(adaptiveTick, 140);
   }
 
-  // ยิงกลาง — cVR: เช็ค crosshair 2 อัน
+  // ยิงกลาง — ใช้สำหรับ DOM เท่านั้น (XR ใช้ cursor click)
   function shootAtCrosshair(){
     if (!S.running || S.ended) return;
+    if (S.xrActive) return;
 
     const W = ROOT.innerWidth || 360;
     const H = ROOT.innerHeight || 640;
@@ -784,7 +885,6 @@ export function boot(opts = {}) {
     let best = null;
     let bestD2 = 1e18;
 
-    // find near L
     const tL = findTargetNear(layerEl, cL.x, cL.y, r);
     if (tL){
       try{
@@ -795,7 +895,6 @@ export function boot(opts = {}) {
       }catch(_){}
     }
 
-    // find near R (only if cVR)
     if (S.cvr){
       const tR = findTargetNear(layerEl, cR.x, cR.y, r);
       if (tR){
@@ -809,7 +908,7 @@ export function boot(opts = {}) {
     }
 
     if (best){
-      hitTarget(best);
+      hitDomTarget(best);
     } else {
       if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
       updateScore();
@@ -832,14 +931,6 @@ export function boot(opts = {}) {
         shootAtCrosshair();
       }
     });
-
-    const stage = DOC.getElementById('gj-stage');
-    if (stage){
-      stage.addEventListener('click', (e)=>{
-        if (isMobileLike()) return;
-        shootAtCrosshair();
-      });
-    }
   }
 
   function bindFlushHard(){
@@ -855,6 +946,7 @@ export function boot(opts = {}) {
   }
 
   function clearAllTargets(){
+    // DOM
     try{
       const list = layerEl.querySelectorAll('.gj-target');
       list.forEach(el=>{
@@ -863,6 +955,18 @@ export function boot(opts = {}) {
       });
     }catch(_){}
     S.twinMap.clear();
+
+    // XR
+    if (xrTargetsEl){
+      try{
+        // clear TTL map
+        for (const [el, tid] of S.xrTTL.entries()){
+          try{ clearTimeout(tid); }catch(_){}
+        }
+        S.xrTTL.clear();
+      }catch(_){}
+      clearXrTargets(xrTargetsEl);
+    }
   }
 
   async function endGame(reason){
@@ -916,13 +1020,17 @@ export function boot(opts = {}) {
     // warmup caps
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    coach('neutral', S.cvr ? 'cVR: หมุนจอแนวนอนแล้วเล็งกลางแต่ละตา 👓' : 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
+    coach('neutral',
+      (S.cvr ? 'cVR: หมุนจอแนวนอนแล้วเล็งกลางแต่ละตา 👓' : 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈'),
+      (S.xrEnabled ? 'WebXR: เข้า VR ได้ถ้าเครื่องรองรับ' : 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้')
+    );
+
     updateScore();
     updateTime();
     updateQuest();
 
     logEvent('session_start', {
-      projectTag: ctx.projectTag || 'GoodJunkVR',
+      projectTag: 'GoodJunkVR',
       runMode: S.runMode,
       diff: S.diff,
       endPolicy: S.endPolicy,
@@ -930,11 +1038,26 @@ export function boot(opts = {}) {
       seed: S.seed,
       sessionId: sessionId || '',
       timeSec: S.timeSec,
-      view: S.cvr ? 'cvr' : (qs('view','')||'auto')
+      view: S.cvr ? 'cvr' : (qs('view','')||'auto'),
+      xrEnabled: !!S.xrEnabled
     });
 
     loopSpawn();
     adaptiveTick();
+  }
+
+  // XR enter/exit -> toggle behavior (targets switch automatically in loop)
+  if (sceneEl){
+    sceneEl.addEventListener('enter-vr', ()=>{
+      S.xrActive = true;
+      try{ coach('happy','เข้าโหมด WebXR แล้ว 👓','มองแล้วแตะ/คลิกที่เป้า'); }catch(_){}
+      clearAllTargets(); // clear DOM clutter when entering XR
+    });
+    sceneEl.addEventListener('exit-vr', ()=>{
+      S.xrActive = false;
+      try{ coach('neutral','ออกจาก WebXR แล้ว','กลับมายิงแบบหน้าจอได้'); }catch(_){}
+      clearAllTargets();
+    });
   }
 
   bindInputs();
