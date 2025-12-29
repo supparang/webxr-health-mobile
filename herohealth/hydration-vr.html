@@ -1,4 +1,3 @@
-<!-- === /herohealth/hydration-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -12,6 +11,7 @@
     :root{
       --bg:#020617;
       --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.68);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
@@ -20,476 +20,1069 @@
       --bad:#ef4444;
       --cyan:#22d3ee;
       --radius:18px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
     }
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:radial-gradient(circle at 20% 0%, rgba(34,211,238,.18), transparent 55%), radial-gradient(circle at 80% 100%, rgba(34,197,94,.12), transparent 55%), var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
 
-    /* ---------- Stage (ปกติ) ---------- */
-    .stage{
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; padding:0;
+      width:100%; height:100%;
+      overflow:hidden;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.10), transparent 60%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.10), transparent 60%),
+        var(--bg);
+      color:var(--text);
+    }
+
+    /* ---------- Layout ---------- */
+    #app{
       position:fixed; inset:0;
       display:flex;
       flex-direction:column;
-      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
       gap:10px;
+      padding: calc(var(--sat) + 10px) 10px calc(var(--sab) + 10px);
     }
-    body.cardboard .stage{ opacity:0; pointer-events:none; }
 
-    .topbar{
+    .topGrid{
       display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1.2fr .9fr;
       gap:10px;
       align-items:stretch;
     }
+
     .panel{
-      background:var(--panel);
-      border:1px solid rgba(148,163,184,.14);
-      border-radius: var(--radius);
-      box-shadow: 0 18px 80px rgba(0,0,0,.55);
-      backdrop-filter: blur(10px);
+      border:1px solid var(--stroke);
+      background:rgba(2,6,23,.62);
+      border-radius:22px;
+      box-shadow:0 24px 90px rgba(0,0,0,.50);
+      backdrop-filter: blur(12px);
+      overflow:hidden;
     }
-    .hud{
+
+    .stats{
       padding:10px;
       display:grid;
       grid-template-columns: repeat(3, 1fr);
       gap:10px;
     }
+
     .stat{
-      padding:10px;
-      border-radius: 14px;
-      border:1px solid rgba(148,163,184,.12);
+      border:1px solid rgba(148,163,184,.14);
       background: rgba(2,6,23,.35);
+      border-radius: 16px;
+      padding:10px;
+      min-height:56px;
       display:flex;
-      gap:10px;
       align-items:center;
       justify-content:space-between;
-      min-height:52px;
+      gap:10px;
+      font-weight:1100;
     }
-    .stat b{ font-size:14px; letter-spacing:.2px; }
-    .stat span{ font-size:18px; font-weight:900; }
+    .stat .k{ opacity:.9; font-weight:1100; }
+    .stat .v{ font-size:18px; letter-spacing:.3px; }
 
     .coach{
-      padding:10px;
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      justify-content:space-between;
-    }
-    .coach .bubble{
-      flex:1;
-      padding:10px;
-      border-radius: 14px;
-      border:1px solid rgba(148,163,184,.12);
-      background: rgba(2,6,23,.35);
-    }
-    .coach .bubble .title{ font-weight:900; color:var(--cyan); }
-    .coach .bubble .msg{ color:var(--text); opacity:.92; line-height:1.25; }
-    .coach .bubble .tip{ color:var(--muted); font-size:12px; margin-top:6px; }
-
-    .playwrap{
-      flex:1;
-      min-height:0;
-      display:flex;
-      gap:10px;
-    }
-    .playfieldWrap{
-      flex:1;
-      min-width:0;
-      position:relative;
-      overflow:hidden;
-      border-radius: var(--radius);
-    }
-    #playfield{
-      position:absolute; inset:0;
-      border-radius: var(--radius);
-      background: rgba(0,0,0,.10);
-    }
-    #hvr-layer{
-      position:absolute; inset:0;
-      border-radius: var(--radius);
-      overflow:hidden;
-    }
-    /* crosshair */
-    .crosshair{
-      position:absolute;
-      left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      width:14px; height:14px;
-      border-radius:999px;
-      border:2px solid rgba(226,232,240,.55);
-      box-shadow: 0 0 0 10px rgba(34,211,238,.08);
-      pointer-events:none;
-      opacity:.75;
-    }
-
-    .sidebar{
-      width:min(320px, 36vw);
+      padding:12px;
       display:flex;
       flex-direction:column;
       gap:10px;
     }
-    .gauge, .quest{
-      padding:10px;
-    }
-    .gauge .row, .quest .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
-    .muted{ color:var(--muted); }
-    .btnbar{
+    .coachCard{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      border-radius:18px;
+      padding:12px;
+      min-height:120px;
       display:flex;
-      gap:10px;
-      padding:10px;
+      flex-direction:column;
+      justify-content:center;
+      gap:8px;
     }
-    .btn{
+    .coachTitle{ font-weight:1200; display:flex; align-items:center; gap:8px; }
+    .coachText{ font-weight:1000; opacity:.95; line-height:1.25; }
+    .coachTip{ font-weight:1000; color: rgba(148,163,184,.95); }
+
+    /* ---------- Playfield ---------- */
+    #playWrap{
       flex:1;
-      padding:12px 12px;
-      border-radius: 999px;
+      min-height: 260px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    #playfield{
+      position:relative;
+      flex:1;
       border:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.35);
-      color:var(--text);
-      font-weight:900;
-      letter-spacing:.2px;
-      cursor:pointer;
-      user-select:none;
+      border-radius: 22px;
+      overflow:hidden;
+      box-shadow: 0 28px 110px rgba(0,0,0,.55);
     }
-    .btn.primary{ background: rgba(34,197,94,.22); border-color: rgba(34,197,94,.28); }
-    .btn.danger{ background: rgba(239,68,68,.16); border-color: rgba(239,68,68,.22); }
-    .btn:active{ transform: translateY(1px); }
 
-    /* ---------- Cardboard ---------- */
+    #hvr-layer{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      pointer-events:auto;
+      touch-action: manipulation;
+    }
+
+    /* center crosshair */
+    #crosshair{
+      position:absolute;
+      left:50%; top:50%;
+      width:18px; height:18px;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      border:2px solid rgba(148,163,184,.35);
+      box-shadow:0 0 0 10px rgba(2,6,23,.20);
+      pointer-events:none;
+      opacity:.85;
+    }
+    #crosshair::after{
+      content:"";
+      position:absolute;
+      inset:4px;
+      border-radius:999px;
+      border:2px solid rgba(34,211,238,.35);
+    }
+
+    /* ---------- Bottom HUD (Gauge + Quest + Controls) ---------- */
+    .bottomGrid{
+      display:grid;
+      grid-template-columns: 1.2fr .9fr;
+      gap:10px;
+      align-items:stretch;
+    }
+
+    .gauge{
+      padding:12px;
+      display:grid;
+      grid-template-columns: 56px 1fr;
+      gap:12px;
+      align-items:center;
+    }
+    .gaugeBar{
+      position:relative;
+      height:110px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.35);
+      overflow:hidden;
+    }
+    .gaugeFill{
+      position:absolute;
+      left:0; right:0; bottom:0;
+      height:50%;
+      background: rgba(34,197,94,.30);
+      transition: height .15s ease;
+    }
+    .gaugeInfo{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      font-weight:1100;
+    }
+    .gaugeTitle{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:1200;
+    }
+    .zoneRow{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      color: rgba(148,163,184,.95);
+    }
+    .zonePill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.35);
+      color: rgba(229,231,235,.95);
+    }
+    .zoneLine{
+      height:12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      overflow:hidden;
+      position:relative;
+    }
+    .zoneDot{
+      position:absolute;
+      top:50%;
+      width:12px; height:12px;
+      border-radius:999px;
+      transform:translate(-50%,-50%);
+      background: rgba(34,211,238,.65);
+      box-shadow:0 0 0 8px rgba(34,211,238,.12);
+      left:50%;
+      transition:left .15s ease;
+    }
+
+    .quest{
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .questTitle{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:1200;
+    }
+    .qLine{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      border-radius: 16px;
+      padding:10px;
+      font-weight:1100;
+      line-height:1.25;
+      min-height: 40px;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+      padding:12px;
+    }
+    .btn{
+      border:none;
+      border-radius: 999px;
+      padding:12px 12px;
+      font-weight:1200;
+      color: rgba(229,231,235,.95);
+      background: rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.16);
+      box-shadow:0 20px 80px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      cursor:pointer;
+      touch-action: manipulation;
+    }
+    .btn.primary{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.28);
+    }
+    .btn.danger{
+      background: rgba(239,68,68,.16);
+      border-color: rgba(239,68,68,.25);
+    }
+
+    /* ---------- Start Overlay ---------- */
+    #start-overlay{
+      position:fixed;
+      inset:0;
+      z-index: 900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(14px);
+    }
+    .startCard{
+      width:min(720px, calc(100% - 22px));
+      border-radius: 24px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.86);
+      box-shadow: 0 24px 120px rgba(0,0,0,.65);
+      padding: 14px;
+    }
+    .startTitle{
+      font-weight:1300;
+      font-size: 18px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .startDesc{
+      margin-top:8px;
+      font-weight:1100;
+      color: rgba(148,163,184,.95);
+      line-height:1.35;
+    }
+    .startBtns{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+
+    /* ---------- Summary Overlay ---------- */
+    #summaryOverlay{
+      position:fixed;
+      inset:0;
+      z-index: 950;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: rgba(2,6,23,.72);
+      backdrop-filter: blur(14px);
+    }
+    #summaryOverlay.on{ display:flex; }
+    .sumCard{
+      width:min(880px, calc(100% - 18px));
+      border-radius: 24px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.86);
+      box-shadow: 0 24px 120px rgba(0,0,0,.65);
+      padding: 14px;
+    }
+    .sumTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .sumTitle{
+      font-weight:1300;
+      font-size:18px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .sumBtns{ display:flex; gap:10px; }
+    .sumGrid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:10px;
+    }
+    .sumCell{
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(2,6,23,.35);
+      border-radius: 18px;
+      padding: 12px;
+      min-height: 62px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .sumCell .k{ color: rgba(148,163,184,.95); font-weight:1100; }
+    .sumCell .v{ font-weight:1300; font-size:18px; }
+    .sumCloseRow{
+      display:flex; justify-content:flex-end; margin-top:12px;
+    }
+
+    /* ---------- Cardboard wrap ---------- */
     #cbWrap{
       position:fixed; inset:0;
       display:none;
+      z-index: 999;
       background:#000;
-      z-index:9999;
     }
     body.cardboard #cbWrap{ display:flex; }
     .cbEye{
       position:relative;
       flex:1;
       overflow:hidden;
-      border-left:1px solid rgba(255,255,255,.08);
+      border-left:1px solid rgba(148,163,184,.10);
+      background: #000;
     }
     .cbEye:first-child{ border-left:none; }
-    .cbPlayfield{
-      position:absolute; inset:0;
-      overflow:hidden;
-      background: rgba(0,0,0,.08);
-    }
-    .cbLayer{
-      position:absolute; inset:0;
-      overflow:hidden;
-    }
-    .cbCross{
-      position:absolute; left:50%; top:50%;
-      transform: translate(-50%,-50%);
-      width:16px; height:16px;
-      border-radius:999px;
-      border:2px solid rgba(226,232,240,.55);
-      box-shadow: 0 0 0 10px rgba(34,211,238,.10);
-      pointer-events:none;
-      opacity:.8;
-    }
-    .cbHudHint{
+    .cbPlay{
       position:absolute;
-      left:10px; top:10px;
-      padding:8px 10px;
-      border-radius: 999px;
-      font-weight:900;
-      font-size:12px;
-      color:rgba(226,232,240,.92);
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.14);
-      backdrop-filter: blur(10px);
-      pointer-events:none;
-    }
-    /* ปุ่มด้านล่าง Cardboard */
-    #cbControls{
-      position:fixed;
-      left:0; right:0; bottom:0;
-      padding: 10px calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal));
-      display:none;
-      z-index:10000;
-      gap:10px;
-      justify-content:center;
-      align-items:center;
-    }
-    body.cardboard #cbControls{ display:flex; }
-
-    /* ---------- overlays ---------- */
-    #start-overlay, #end-overlay{
-      position:fixed; inset:0;
+      inset:0;
       display:flex;
       align-items:center;
       justify-content:center;
-      z-index:10001;
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(6px);
     }
-    #start-overlay[hidden], #end-overlay[hidden]{ display:none; }
-    .modal{
-      width:min(720px, 92vw);
-      border-radius: 22px;
-      background: rgba(2,6,23,.88);
-      border:1px solid rgba(148,163,184,.18);
-      box-shadow: 0 24px 120px rgba(0,0,0,.7);
-      padding:16px;
+
+    /* ---------- VR HUD (2D + Cardboard curved) ---------- */
+    .vrHud{
+      position:fixed;
+      left:50%;
+      top: calc(var(--sat) + 10px);
+      transform: translateX(-50%);
+      z-index: 200;
+      pointer-events:none;
+      opacity:0;
+      transition: opacity .18s ease;
     }
-    .modal h2{ margin:0 0 8px 0; }
-    .modal p{ margin:0 0 12px 0; color:var(--muted); line-height:1.35; }
-    .modal .row{ display:flex; gap:10px; flex-wrap:wrap; }
-    .pill{
-      padding:8px 10px;
-      border-radius: 999px;
+    .vrHud.on{ opacity:1; }
+
+    .vrHudRow{
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin: 6px 0;
+    }
+    .vrHudRow.small{ opacity:.95; }
+
+    .vrHudRow span{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.35);
-      font-weight:900;
-      font-size:13px;
+      background: rgba(2,6,23,.55);
+      color: rgba(229,231,235,.95);
+      font-weight:1100;
+      letter-spacing:.2px;
+      box-shadow: 0 16px 44px rgba(0,0,0,.40);
+      backdrop-filter: blur(10px);
+      font-size:12px;
     }
-    .summaryGrid{
-      margin-top:10px;
-      display:grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap:10px;
+
+    .cbHud{
+      position:absolute;
+      top: 10px;
+      left: 0;
+      width: 100%;
+      z-index: 1200;
+      pointer-events:none;
     }
-    .sumCard{
-      padding:12px;
-      border-radius: 16px;
-      border:1px solid rgba(148,163,184,.14);
-      background: rgba(2,6,23,.35);
+    .cbHudInner{
+      width: 100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      transform:
+        perspective(900px)
+        translateZ(70px)
+        rotateX(10deg)
+        scale(0.98);
+      transform-origin: center top;
+      opacity: .98;
     }
-    .sumCard .k{ color:var(--muted); font-size:12px; }
-    .sumCard .v{ font-weight:1000; font-size:18px; }
-    @media (max-width: 820px){
-      .topbar{ grid-template-columns: 1fr; }
-      .hud{ grid-template-columns: repeat(2, 1fr); }
-      .playwrap{ flex-direction:column; }
-      .sidebar{ width:100%; }
-      .summaryGrid{ grid-template-columns: repeat(2, 1fr); }
+    .cbHudRow{
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin: 6px 0;
+    }
+    .cbHudRow.small{ opacity:.95; }
+    .cbHudRow span{
+      display:inline-flex;
+      align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(2,6,23,.55);
+      color: rgba(229,231,235,.95);
+      font-weight:1100;
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+      backdrop-filter: blur(10px);
+      font-size:12px;
+    }
+
+    /* ---------- VR Tutorial ---------- */
+    .vrTut{
+      position:fixed;
+      inset:0;
+      z-index: 980;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(10px);
+      pointer-events:none;
+    }
+    .vrTutCard{
+      width:min(620px, calc(100% - 24px));
+      background: rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 24px 90px rgba(0,0,0,.60);
+      text-align:center;
+      transform: perspective(900px) translateZ(80px) rotateX(10deg);
+    }
+    .vrTutTitle{ font-weight:1200; font-size:18px; }
+    .vrTutLine{ margin-top:10px; font-weight:1100; font-size:14px; line-height:1.25; }
+    .vrTutHint{ margin-top:10px; font-weight:1000; font-size:12px; color: rgba(148,163,184,.95); }
+
+    /* responsive */
+    @media (max-width: 560px){
+      .topGrid{ grid-template-columns: 1fr; }
+      .stats{ grid-template-columns: repeat(2, 1fr); }
+      .sumGrid{ grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
 
 <body>
-
-  <!-- START OVERLAY -->
-  <div id="start-overlay">
-    <div class="modal">
-      <h2>💧 Hydration VR</h2>
-      <p>แตะ <b>START</b> เพื่อเริ่ม • เป้าดี = 💧 • เป้าแย่ = 🥤 • โล่ = 🛡️<br/>
-      ตอน Storm ให้ทำ Mini: <b>LOW/HIGH + BLOCK ช่วงท้าย</b> และปิดท้าย BOSS 🌩️</p>
-      <div class="row">
-        <span class="pill">diff: <b id="pill-diff">normal</b></span>
-        <span class="pill">time: <b id="pill-time">70</b>s</span>
-        <span class="pill">mode: <b id="pill-run">play</b></span>
+  <!-- Cardboard split world -->
+  <div id="cbWrap" aria-hidden="true">
+    <div id="cbEyeL" class="cbEye">
+      <div class="cbPlay">
+        <div id="cbCrossL" style="width:18px;height:18px;border-radius:999px;border:2px solid rgba(148,163,184,.35);"></div>
       </div>
-      <div class="row" style="margin-top:12px;">
-        <button class="btn primary" id="btnStart">▶ START</button>
-        <button class="btn" id="btnCardboard">📦 CARDBOARD</button>
-        <button class="btn danger" id="btnBackHub">🏠 BACK HUB</button>
+      <!-- HUD will be mounted here -->
+    </div>
+    <div id="cbEyeR" class="cbEye">
+      <div class="cbPlay">
+        <div id="cbCrossR" style="width:18px;height:18px;border-radius:999px;border:2px solid rgba(148,163,184,.35);"></div>
       </div>
-      <p class="muted" style="margin-top:10px;font-size:12px;">
-        Tip: เข้า Cardboard แล้วใช้ปุ่ม <b>SHOOT</b> ด้านล่าง หรือแตะหน้าจอเพื่อยิง “เป้าที่ใกล้กึ่งกลางที่สุด”
-      </p>
+      <!-- HUD will be mounted here -->
     </div>
   </div>
 
-  <!-- END / SUMMARY OVERLAY -->
-  <div id="end-overlay" hidden>
-    <div class="modal">
-      <h2>🏁 Summary</h2>
-      <div class="summaryGrid">
-        <div class="sumCard"><div class="k">Score</div><div class="v" id="sum-score">0</div></div>
-        <div class="sumCard"><div class="k">Grade</div><div class="v" id="sum-grade">C</div></div>
-        <div class="sumCard"><div class="k">Accuracy</div><div class="v" id="sum-acc">0%</div></div>
+  <div id="app">
+    <div class="topGrid">
+      <div class="panel stats" aria-label="stats">
+        <div class="stat"><span class="k">💧 TIME</span><span id="stat-time" class="v">70</span></div>
+        <div class="stat"><span class="k">🏆 SCORE</span><span id="stat-score" class="v">0</span></div>
+        <div class="stat"><span class="k">🎯 ACC</span><span id="stat-acc" class="v">0%</span></div>
 
-        <div class="sumCard"><div class="k">Combo Max</div><div class="v" id="sum-comboMax">0</div></div>
-        <div class="sumCard"><div class="k">Miss</div><div class="v" id="sum-miss">0</div></div>
-        <div class="sumCard"><div class="k">Goals</div><div class="v" id="sum-goals">0/1</div></div>
+        <div class="stat"><span class="k">⚡ COMBO</span><span id="stat-combo" class="v">0</span></div>
+        <div class="stat"><span class="k">💥 MISS</span><span id="stat-miss" class="v">0</span></div>
+        <div class="stat"><span class="k">🌀 STORM</span><span id="storm-left" class="v">0s</span></div>
 
-        <div class="sumCard"><div class="k">Minis</div><div class="v" id="sum-minis">0/999</div></div>
-        <div class="sumCard"><div class="k">Time in GREEN</div><div class="v" id="sum-green">0.0s</div></div>
-        <div class="sumCard"><div class="k">Streak Max</div><div class="v" id="sum-streak">0</div></div>
+        <div class="stat"><span class="k">🎖️ GRADE</span><span id="stat-grade" class="v">C</span></div>
+        <div class="stat"><span class="k">🛡️ SHIELD</span><span id="shield-count" class="v">0</span></div>
+        <div class="stat"><span class="k">🔥 STREAK</span><span id="stat-streak" class="v">0</span></div>
 
-        <div class="sumCard"><div class="k">Storm Cycles</div><div class="v" id="sum-stormCycles">0</div></div>
-        <div class="sumCard"><div class="k">Storm Success</div><div class="v" id="sum-stormOk">0</div></div>
-        <div class="sumCard"><div class="k">Storm Rate</div><div class="v" id="sum-stormRate">0%</div></div>
-      </div>
-      <div class="row" style="margin-top:12px;">
-        <button class="btn" id="btnRetry">🔁 Retry</button>
-        <button class="btn primary" id="btnBackHub2">🏠 Back HUB</button>
-        <button class="btn danger" id="btnCloseEnd">ปิด</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MAIN STAGE -->
-  <div class="stage">
-    <div class="topbar">
-      <div class="panel hud">
-        <div class="stat"><b>⏱ TIME</b><span id="stat-time">0</span></div>
-        <div class="stat"><b>🏆 SCORE</b><span id="stat-score">0</span></div>
-        <div class="stat"><b>⚡ COMBO</b><span id="stat-combo">0</span></div>
-        <div class="stat"><b>💥 MISS</b><span id="stat-miss">0</span></div>
-        <div class="stat"><b>🎖 GRADE</b><span id="stat-grade">C</span></div>
-        <div class="stat"><b>🌀 STORM</b><span id="storm-left">0</span>s</div>
-        <div class="stat"><b>🛡 SHIELD</b><span id="shield-count">0</span></div>
         <!-- optional -->
-        <div class="stat" style="display:none"><b>Combo Max</b><span id="stat-combo-max">0</span></div>
+        <div style="display:none" id="stat-combo-max">0</div>
       </div>
 
       <div class="panel coach">
-        <div class="bubble">
-          <div class="title">🧠 Coach</div>
-          <div class="msg" id="coach-msg">แตะ START เพื่อเริ่ม</div>
-          <div class="tip">Tip: โหมด Cardboard = ค้างเล็งเพื่อยิง (gaze) / ใช้ปุ่ม SHOOT</div>
+        <div class="coachCard">
+          <div class="coachTitle">🧠 Coach</div>
+          <div class="coachText" id="coachText">
+            แตะ <b>START</b> เพื่อเริ่ม<br/>
+            ในโหมด Cardboard = <b>ค้างเล็ง</b> เพื่อยิง (gaze)
+          </div>
+          <div class="coachTip">Tip: เข้า Storm 🌀 แล้วทำ Mini ให้ครบ “LOW/HIGH + BLOCK”</div>
         </div>
-      </div>
-
-      <div class="panel quest">
-        <div class="row"><b>🧩 Quest</b><span class="muted">Goal / Mini</span></div>
-        <div class="muted" id="quest-line1">—</div>
-        <div class="muted" id="quest-line2">—</div>
-        <div class="muted" id="quest-line3">—</div>
-        <div class="muted" id="quest-line4">—</div>
       </div>
     </div>
 
-    <div class="playwrap">
-      <div class="panel playfieldWrap">
-        <div id="playfield">
-          <div id="hvr-layer"></div>
-          <div class="crosshair"></div>
+    <div id="playWrap">
+      <div id="playfield" class="panel" aria-label="playfield">
+        <div id="hvr-layer"></div>
+        <div id="crosshair" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <div class="bottomGrid">
+      <div class="panel gauge" aria-label="water gauge">
+        <div class="gaugeBar" aria-hidden="true">
+          <div id="gaugeFill" class="gaugeFill"></div>
+        </div>
+        <div class="gaugeInfo">
+          <div class="gaugeTitle">💧 Water Gauge (0–100)</div>
+          <div class="zoneRow">
+            <span class="zonePill">Zone <b id="zoneName">—</b></span>
+            <span class="zonePill"><b id="zonePct">50</b>%</span>
+          </div>
+          <div class="zoneLine" aria-hidden="true">
+            <div id="zoneDot" class="zoneDot"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="zonePill">Goal <b style="color:rgba(34,197,94,.95)">GREEN</b></span>
+            <span class="zonePill">Mini <b style="color:rgba(34,211,238,.95)">LOW/HIGH + BLOCK</b></span>
+          </div>
         </div>
       </div>
 
-      <div class="sidebar">
-        <div class="panel gauge">
-          <div class="row"><b>💧 Water Gauge (0–100)</b><span class="muted" id="wg-pct">0%</span></div>
-          <div class="muted" style="margin-top:6px;">Zone <b id="wg-zone">—</b></div>
-          <!-- ui-water.js จะ inject gauge UI ลงใน DOM เอง -->
-          <div class="muted" style="margin-top:6px;">Goal <b style="color:var(--accent)">GREEN</b> • Mini <b style="color:var(--cyan)">LOW/HIGH + BLOCK</b></div>
-        </div>
+      <div class="panel quest" aria-label="quest">
+        <div class="questTitle">🧩 Quest</div>
+        <div id="quest-line1" class="qLine">Goal —</div>
+        <div id="quest-line2" class="qLine">Progress —</div>
+        <div id="quest-line3" class="qLine">Mini —</div>
+        <div id="quest-line4" class="qLine">State —</div>
+      </div>
+    </div>
 
-        <div class="panel btnbar">
-          <button class="btn" id="btnCardboard2">📦 CARDBOARD</button>
-          <button class="btn primary" id="btnShoot">🎯 SHOOT</button>
-          <button class="btn danger" id="btnStop">⛔ STOP</button>
-        </div>
+    <div class="panel controls" aria-label="controls">
+      <button id="btnCardboard" class="btn">📦 CARDBOARD</button>
+      <button id="btnShoot" class="btn primary">🎯 SHOOT</button>
+      <button id="btnStop" class="btn danger">⛔ STOP</button>
+    </div>
+  </div>
+
+  <!-- VR HUD (2D) -->
+  <div id="vrHud2D" class="vrHud vrHud2D" aria-hidden="true">
+    <div class="vrHudRow">
+      <span id="vr2dScore">🏆 0</span>
+      <span id="vr2dCombo">⚡ 0</span>
+      <span id="vr2dMiss">💥 0</span>
+      <span id="vr2dGrade">🎖️ C</span>
+    </div>
+    <div class="vrHudRow">
+      <span id="vr2dTime">⏱️ 0</span>
+      <span id="vr2dStorm">🌀 0s</span>
+      <span id="vr2dShield">🛡️ 0</span>
+    </div>
+    <div class="vrHudRow small">
+      <span id="vr2dGoal">Goal: —</span>
+    </div>
+    <div class="vrHudRow small">
+      <span id="vr2dMini">Mini: —</span>
+    </div>
+  </div>
+
+  <!-- Cardboard HUD left/right (mounted into cbEyeL/cbEyeR by JS) -->
+  <div id="cbHudL" class="cbHud" aria-hidden="true">
+    <div class="cbHudInner">
+      <div class="cbHudRow">
+        <span id="cblScore">🏆 0</span>
+        <span id="cblCombo">⚡ 0</span>
+        <span id="cblMiss">💥 0</span>
+        <span id="cblGrade">🎖️ C</span>
+      </div>
+      <div class="cbHudRow">
+        <span id="cblTime">⏱️ 0</span>
+        <span id="cblStorm">🌀 0s</span>
+        <span id="cblShield">🛡️ 0</span>
+      </div>
+      <div class="cbHudRow small"><span id="cblGoal">Goal: —</span></div>
+      <div class="cbHudRow small"><span id="cblMini">Mini: —</span></div>
+    </div>
+  </div>
+
+  <div id="cbHudR" class="cbHud" aria-hidden="true">
+    <div class="cbHudInner">
+      <div class="cbHudRow">
+        <span id="cbrScore">🏆 0</span>
+        <span id="cbrCombo">⚡ 0</span>
+        <span id="cbrMiss">💥 0</span>
+        <span id="cbrGrade">🎖️ C</span>
+      </div>
+      <div class="cbHudRow">
+        <span id="cbrTime">⏱️ 0</span>
+        <span id="cbrStorm">🌀 0s</span>
+        <span id="cbrShield">🛡️ 0</span>
+      </div>
+      <div class="cbHudRow small"><span id="cbrGoal">Goal: —</span></div>
+      <div class="cbHudRow small"><span id="cbrMini">Mini: —</span></div>
+    </div>
+  </div>
+
+  <!-- Tutorial overlay -->
+  <div id="vrTut" class="vrTut" hidden>
+    <div class="vrTutCard">
+      <div class="vrTutTitle">🎮 วิธีเล่นเร็ว ๆ</div>
+      <div class="vrTutLine" id="vrTutLine">—</div>
+      <div class="vrTutHint">Tip: Cardboard = “ค้างเล็ง” เพื่อยิง (gaze)</div>
+    </div>
+  </div>
+
+  <!-- Start overlay -->
+  <div id="start-overlay">
+    <div class="startCard">
+      <div class="startTitle">💧 Hydration VR — พร้อมเริ่ม!</div>
+      <div class="startDesc">
+        • ยิง <b>💧</b> เพื่อคุมโซนให้อยู่ <b style="color:rgba(34,197,94,.95)">GREEN</b> ให้สะสมครบ<br/>
+        • เก็บ <b>🛡️</b> กัน <b>🥤</b> (BLOCK = ไม่เสีย MISS)<br/>
+        • ตอน <b>🌀 STORM</b> ทำ Mini: “LOW/HIGH + BLOCK ตอนท้ายพายุ”
+      </div>
+      <div class="startBtns">
+        <button id="btnStart" class="btn primary">▶ START (2D)</button>
+        <button id="btnStartCardboard" class="btn">📦 START (Cardboard)</button>
       </div>
     </div>
   </div>
 
-  <!-- CARDBOARD WRAP -->
-  <div id="cbWrap" aria-hidden="true">
-    <div class="cbEye">
-      <div class="cbHudHint">CARDBOARD • LEFT</div>
-      <div class="cbPlayfield" id="cbPlayfieldL">
-        <div class="cbLayer" id="hvr-layerL"></div>
-        <div class="cbCross"></div>
+  <!-- Summary overlay -->
+  <div id="summaryOverlay" aria-hidden="true">
+    <div class="sumCard">
+      <div class="sumTop">
+        <div class="sumTitle">🏁 Summary</div>
+        <div class="sumBtns">
+          <button id="btnRetry" class="btn primary">🔁 Retry</button>
+          <button id="btnBackHub" class="btn">🏠 Back HUB</button>
+        </div>
       </div>
-    </div>
-    <div class="cbEye">
-      <div class="cbHudHint">CARDBOARD • RIGHT</div>
-      <div class="cbPlayfield" id="cbPlayfieldR">
-        <div class="cbLayer" id="hvr-layerR"></div>
-        <div class="cbCross"></div>
+
+      <div class="sumGrid">
+        <div class="sumCell"><div class="k">Score</div><div class="v" id="sumScore">0</div></div>
+        <div class="sumCell"><div class="k">Grade</div><div class="v" id="sumGrade">C</div></div>
+        <div class="sumCell"><div class="k">Accuracy</div><div class="v" id="sumAcc">0%</div></div>
+
+        <div class="sumCell"><div class="k">Combo Max</div><div class="v" id="sumComboMax">0</div></div>
+        <div class="sumCell"><div class="k">Miss</div><div class="v" id="sumMiss">0</div></div>
+        <div class="sumCell"><div class="k">Goals</div><div class="v" id="sumGoals">0/1</div></div>
+
+        <div class="sumCell"><div class="k">Minis</div><div class="v" id="sumMinis">0/999</div></div>
+        <div class="sumCell"><div class="k">Time in GREEN</div><div class="v" id="sumGreen">0.0s</div></div>
+        <div class="sumCell"><div class="k">Streak Max</div><div class="v" id="sumStreak">0</div></div>
+
+        <div class="sumCell"><div class="k">Storm Cycles</div><div class="v" id="sumStormCycles">0</div></div>
+        <div class="sumCell"><div class="k">Storm Success</div><div class="v" id="sumStormOk">0</div></div>
+        <div class="sumCell"><div class="k">Storm Rate</div><div class="v" id="sumStormRate">0%</div></div>
+      </div>
+
+      <div class="sumCloseRow">
+        <button id="btnCloseSum" class="btn">ปิด</button>
       </div>
     </div>
   </div>
 
-  <!-- Cardboard controls -->
-  <div id="cbControls">
-    <button class="btn" id="btnExitCardboard">⬅ Exit</button>
-    <button class="btn primary" id="btnShootCenter">🎯 SHOOT</button>
-    <button class="btn danger" id="btnStop2">⛔ STOP</button>
-  </div>
+  <script>
+    // -------------------- helpers --------------------
+    const D = document;
+    const body = D.body;
 
-  <!-- Load game module -->
-  <script type="module">
-    // -------- URL pills --------
-    const qs = (k,d)=>{ try{ return (new URL(location.href)).searchParams.get(k) ?? d; }catch{ return d; } };
-    document.getElementById('pill-diff').textContent = qs('diff','normal');
-    document.getElementById('pill-time').textContent = qs('time','70');
-    document.getElementById('pill-run').textContent  = qs('run', qs('runMode','play'));
+    function qs(name, def){
+      try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch{ return def; }
+    }
+    function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-    const hub = qs('hub','./hub.html');
+    // -------------------- beep audio --------------------
+    let AC = null;
+    function ensureAC(){
+      if (AC) return AC;
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      AC = new Ctx();
+      return AC;
+    }
+    function beep(freq=880, dur=70, gain=0.03){
+      const ac = ensureAC(); if (!ac) return;
+      const t0 = ac.currentTime;
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain, t0+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur/1000);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t0);
+      o.stop(t0 + dur/1000 + 0.02);
+    }
 
-    const startOv = document.getElementById('start-overlay');
-    const endOv   = document.getElementById('end-overlay');
+    // -------------------- UI refs --------------------
+    const startOv = D.getElementById('start-overlay');
+    const btnStart = D.getElementById('btnStart');
+    const btnStartCB = D.getElementById('btnStartCardboard');
 
-    const goHub = ()=>{ location.href = hub; };
-    const retry = ()=>{
-      const u = new URL(location.href);
-      u.searchParams.set('ts', String(Date.now()));
-      location.href = u.toString();
-    };
+    const btnCardboard = D.getElementById('btnCardboard');
+    const btnShoot = D.getElementById('btnShoot');
+    const btnStop = D.getElementById('btnStop');
 
-    // -------- buttons --------
-    document.getElementById('btnBackHub').onclick = goHub;
-    document.getElementById('btnBackHub2').onclick = goHub;
-    document.getElementById('btnRetry').onclick = retry;
-    document.getElementById('btnCloseEnd').onclick = ()=> endOv.hidden = true;
+    const vrHud2D = D.getElementById('vrHud2D');
 
-    const setCardboard = (on)=>{
-      document.body.classList.toggle('cardboard', !!on);
-      document.getElementById('cbWrap').setAttribute('aria-hidden', String(!on));
-    };
+    const cbEyeL = D.getElementById('cbEyeL');
+    const cbEyeR = D.getElementById('cbEyeR');
+    const cbHudL = D.getElementById('cbHudL');
+    const cbHudR = D.getElementById('cbHudR');
 
-    document.getElementById('btnCardboard').onclick = ()=> setCardboard(true);
-    document.getElementById('btnCardboard2').onclick = ()=> setCardboard(true);
-    document.getElementById('btnExitCardboard').onclick = ()=> setCardboard(false);
+    const gaugeFill = D.getElementById('gaugeFill');
+    const zoneName  = D.getElementById('zoneName');
+    const zonePct   = D.getElementById('zonePct');
+    const zoneDot   = D.getElementById('zoneDot');
 
-    document.getElementById('btnStart').onclick = ()=>{ startOv.hidden = true; };
-    document.getElementById('btnStop').onclick  = ()=> window.dispatchEvent(new CustomEvent('hha:force_end',{detail:{reason:'stop'}}));
-    document.getElementById('btnStop2').onclick = ()=> window.dispatchEvent(new CustomEvent('hha:force_end',{detail:{reason:'stop'}}));
+    const elAcc = D.getElementById('stat-acc');
+    const elStreak = D.getElementById('stat-streak');
 
-    // SHOOT button (hydration.safe.js จะ bind เพิ่มให้)
-    document.getElementById('btnShoot').onclick = ()=> window.dispatchEvent(new CustomEvent('hha:shoot'));
-    document.getElementById('btnShootCenter').onclick = ()=> window.dispatchEvent(new CustomEvent('hha:shoot'));
+    const coachText = D.getElementById('coachText');
 
-    // -------- Summary binding --------
-    window.addEventListener('hha:end', (ev)=>{
-      const d = ev.detail || {};
-      const acc = (Number(d.accuracyGoodPct)||0).toFixed(1) + '%';
+    // summary
+    const sumOv = D.getElementById('summaryOverlay');
+    const btnRetry = D.getElementById('btnRetry');
+    const btnBackHub = D.getElementById('btnBackHub');
+    const btnCloseSum = D.getElementById('btnCloseSum');
 
-      document.getElementById('sum-score').textContent = d.scoreFinal ?? 0;
-      document.getElementById('sum-grade').textContent = d.grade ?? 'C';
-      document.getElementById('sum-acc').textContent = acc;
+    const sumScore = D.getElementById('sumScore');
+    const sumGrade = D.getElementById('sumGrade');
+    const sumAcc   = D.getElementById('sumAcc');
+    const sumComboMax = D.getElementById('sumComboMax');
+    const sumMiss  = D.getElementById('sumMiss');
+    const sumGoals = D.getElementById('sumGoals');
+    const sumMinis = D.getElementById('sumMinis');
+    const sumGreen = D.getElementById('sumGreen');
+    const sumStreak = D.getElementById('sumStreak');
+    const sumStormCycles = D.getElementById('sumStormCycles');
+    const sumStormOk = D.getElementById('sumStormOk');
+    const sumStormRate = D.getElementById('sumStormRate');
 
-      document.getElementById('sum-comboMax').textContent = d.comboMax ?? 0;
-      document.getElementById('sum-miss').textContent = d.misses ?? 0;
-      document.getElementById('sum-goals').textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 1}`;
+    const vrTut = D.getElementById('vrTut');
+    const vrTutLine = D.getElementById('vrTutLine');
 
-      document.getElementById('sum-minis').textContent = `${d.miniCleared ?? 0}/${d.miniTotal ?? 999}`;
-      document.getElementById('sum-green').textContent = (Number(d.timeInGreenSec||0)).toFixed(1) + 's';
-      document.getElementById('sum-streak').textContent = d.streakMax ?? 0;
+    // mount per-eye HUD
+    (function mountCbHud(){
+      if (cbEyeL && cbHudL && !cbEyeL.contains(cbHudL)) cbEyeL.appendChild(cbHudL);
+      if (cbEyeR && cbHudR && !cbEyeR.contains(cbHudR)) cbEyeR.appendChild(cbHudR);
+    })();
 
-      document.getElementById('sum-stormCycles').textContent = d.stormCycles ?? 0;
-      document.getElementById('sum-stormOk').textContent = d.stormMiniSuccess ?? 0;
-      document.getElementById('sum-stormRate').textContent = (Number(d.stormSuccessRatePct||0)).toFixed(0) + '%';
+    // -------------------- mode toggles --------------------
+    function enterCardboard(){
+      body.classList.add('cardboard');
+      if (vrHud2D) vrHud2D.classList.remove('on');
+      if (coachText) coachText.innerHTML = 'โหมด Cardboard: <b>ค้างเล็ง</b> เพื่อยิง (gaze)<br/>ทำ Mini ตอน 🌀 STORM: LOW/HIGH + BLOCK ตอนท้ายพายุ';
+      beep(660,70,0.03); beep(880,70,0.03);
+    }
+    function exitCardboard(){
+      body.classList.remove('cardboard');
+      if (vrHud2D) vrHud2D.classList.add('on');
+      if (coachText) coachText.innerHTML = 'แตะ <b>SHOOT</b> เพื่อเริ่มยิง<br/>เก็บ 🛡️ กัน 🥤 (BLOCK ไม่เสีย MISS)';
+      beep(440,70,0.03);
+    }
+    function showHud(){
+      if (body.classList.contains('cardboard')){
+        if (vrHud2D) vrHud2D.classList.remove('on');
+      } else {
+        if (vrHud2D) vrHud2D.classList.add('on');
+      }
+    }
 
-      endOv.hidden = false;
-    });
+    // -------------------- gaze shooting (simple + reliable) --------------------
+    let shooting = false;
+    let gazeHold = false;
+    let gazeTimer = 0;
 
-    // -------- Optional: water gauge text mirror --------
+    function centerHit(){
+      const x = window.innerWidth / 2;
+      const y = window.innerHeight / 2;
+      const el = document.elementFromPoint(x, y);
+      if (!el) return;
+      if (el.classList && el.classList.contains('hvr-target')){
+        const ev = new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerType:'touch', isPrimary:true });
+        el.dispatchEvent(ev);
+      }
+    }
+
+    function setShooting(on){
+      shooting = !!on;
+      btnShoot.textContent = shooting ? '🎯 SHOOT (ON)' : '🎯 SHOOT';
+      if (shooting) beep(980,60,0.03); else beep(420,60,0.03);
+    }
+
+    // press-and-hold gaze for cardboard
+    function startGazeHold(){
+      gazeHold = true;
+      clearInterval(gazeTimer);
+      gazeTimer = setInterval(()=>{
+        if (shooting && body.classList.contains('cardboard') && gazeHold){
+          centerHit();
+        }
+      }, 120);
+    }
+    function stopGazeHold(){
+      gazeHold = false;
+      clearInterval(gazeTimer);
+    }
+
+    // -------------------- tutorial (6 sec) --------------------
+    function shouldShowTut(){
+      const q = qs('tutorial','');
+      if (q === '1') return true;
+      try{ return localStorage.getItem('HVR_TUT_DONE') !== '1'; }catch{ return true; }
+    }
+    function markTutDone(){ try{ localStorage.setItem('HVR_TUT_DONE','1'); }catch{} }
+
+    let tutInterval = 0;
+    function startTutorial(){
+      if (!vrTut || !shouldShowTut()) return;
+      vrTut.hidden = false;
+
+      const steps = [
+        'ยิง 💧 เพื่อปรับน้ำเข้า GREEN (คะแนนขึ้นเร็ว)',
+        'เก็บ 🛡️ เพื่อกัน 🥤 (BLOCK = ไม่เสีย MISS)',
+        'พอเข้า 🌀 STORM: ทำ Mini ให้ “น้ำ LOW/HIGH” และ “BLOCK ตอนท้ายพายุ”'
+      ];
+      let i = 0;
+      vrTutLine.textContent = steps[0];
+
+      clearInterval(tutInterval);
+      tutInterval = setInterval(()=>{
+        i++;
+        vrTutLine.textContent = steps[Math.min(i, steps.length-1)];
+      }, 2000);
+
+      setTimeout(()=>{
+        clearInterval(tutInterval);
+        vrTut.hidden = true;
+        markTutDone();
+      }, 6200);
+    }
+
+    // -------------------- events from game --------------------
+    function setHud(prefix, d){
+      const set = (id, val)=>{ const el = D.getElementById(id); if(el) el.textContent = String(val); };
+
+      set(prefix+'Score', `🏆 ${d.score ?? 0}`);
+      set(prefix+'Combo', `⚡ ${d.combo ?? 0}`);
+      set(prefix+'Miss',  `💥 ${d.misses ?? 0}`);
+      set(prefix+'Grade', `🎖️ ${d.grade ?? 'C'}`);
+
+      const left = (d.leftSec ?? d.left ?? 0);
+      set(prefix+'Time',  `⏱️ ${Math.max(0, Math.ceil(left))}`);
+
+      const stormLeft = d.stormActive ? (d.stormLeftSec ?? 0) : 0;
+      set(prefix+'Storm', `🌀 ${Math.max(0, Math.ceil(stormLeft))}s`);
+      set(prefix+'Shield', `🛡️ ${d.shield ?? 0}`);
+
+      const gHold = Number(d.timeInGreenSec ?? 0);
+      const gNeed = Number(d.greenTargetSec ?? 0);
+      set(prefix+'Goal', `Goal: GREEN ${gHold.toFixed(1)} / ${Math.round(gNeed)}s`);
+
+      const mC = d.miniCleared ?? 0;
+      const mT = d.miniTotal ?? 999;
+      const ok = d.stormMiniSuccess ?? 0;
+      const cyc = d.stormCycles ?? 0;
+      set(prefix+'Mini', `Mini: ${mC}/${mT} • StormOK ${ok}/${cyc}`);
+    }
+
+    function updateGauge(pct, zone){
+      const p = clamp(pct,0,100);
+      if (gaugeFill) gaugeFill.style.height = p + '%';
+      if (zonePct) zonePct.textContent = Math.round(p);
+      if (zoneName) zoneName.textContent = zone || '—';
+
+      // dot across line
+      if (zoneDot){
+        zoneDot.style.left = p + '%';
+      }
+    }
+
+    // audio cues
+    let lastGoalCleared = 0;
+    let lastMiniCleared = 0;
+    let lastStormCycle  = 0;
+
+    function cueGoal(){ beep(1240,70,0.035); beep(1560,70,0.030); beep(1760,90,0.028); }
+    function cueMini(){ beep(980,60,0.030); beep(1320,80,0.035); }
+    function cueMiniFail(){ beep(260,90,0.030); beep(210,120,0.030); }
+    function cueStormEnter(){ beep(520,90,0.030); beep(660,90,0.030); }
+
     window.addEventListener('hha:score', (ev)=>{
       const d = ev.detail || {};
-      document.getElementById('wg-pct').textContent = (Number(d.waterPct||0)).toFixed(0) + '%';
-      document.getElementById('wg-zone').textContent = d.waterZone || '—';
+      showHud();
 
-      // optional coach text
-      const msg = document.getElementById('coach-msg');
-      if (d.stormActive){
-        msg.textContent = d.stormInEndWindow ? '⏳ ท้ายพายุ! หาจังหวะ BLOCK + ปิด BOSS 🌩️' : '🌀 Storm! ทำให้โซนหลุด GREEN แล้วเตรียม BLOCK ตอนท้าย';
-      } else {
-        msg.textContent = 'ยิง 💧 ให้แม่น เก็บ 🛡️ ไว้กัน 🥤 / 🌩️ ตอนท้ายพายุ';
-      }
+      // gauge + top small stats
+      updateGauge(d.waterPct ?? 50, d.waterZone ?? '—');
+      if (elAcc) elAcc.textContent = (Number(d.accuracyGoodPct||0).toFixed(1)) + '%';
+      if (elStreak) elStreak.textContent = String(d.streakNow ?? 0);
+
+      // update both 2D + CB
+      setHud('vr2d', d);
+      setHud('cbl', d);
+      setHud('cbr', d);
+
+      // cues
+      const goalsCleared = Number(d.goalsCleared ?? 0);
+      if (goalsCleared > lastGoalCleared){ lastGoalCleared = goalsCleared; cueGoal(); }
+
+      const miniCleared = Number(d.miniCleared ?? 0);
+      if (miniCleared > lastMiniCleared){ lastMiniCleared = miniCleared; cueMini(); }
+
+      const sc = Number(d.stormCycles ?? 0);
+      if (sc > lastStormCycle){ lastStormCycle = sc; cueStormEnter(); }
+    }, { passive:true });
+
+    window.addEventListener('hha:mini', (ev)=>{
+      const d = ev.detail || {};
+      if (d.result === 'fail') cueMiniFail();
+      if (d.result === 'ok') cueMini();
+    }, { passive:true });
+
+    window.addEventListener('hha:end', (ev)=>{
+      const s = ev.detail || {};
+      // fill summary
+      sumScore.textContent = String(s.scoreFinal ?? 0);
+      sumGrade.textContent = String(s.grade ?? 'C');
+      sumAcc.textContent   = (Number(s.accuracyGoodPct||0).toFixed(1)) + '%';
+      sumComboMax.textContent = String(s.comboMax ?? 0);
+      sumMiss.textContent  = String(s.misses ?? 0);
+      sumGoals.textContent = `${s.goalsCleared ?? 0}/${s.goalsTotal ?? 1}`;
+      sumMinis.textContent = `${s.miniCleared ?? 0}/${s.miniTotal ?? 999}`;
+      sumGreen.textContent = `${Number(s.timeInGreenSec||0).toFixed(1)}s`;
+      sumStreak.textContent = String(s.streakMax ?? 0);
+
+      const cyc = Number(s.stormCycles||0);
+      const ok  = Number(s.stormMiniSuccess||0);
+      sumStormCycles.textContent = String(cyc);
+      sumStormOk.textContent = String(ok);
+      sumStormRate.textContent = cyc>0 ? ( (ok/cyc*100).toFixed(0) + '%' ) : '0%';
+
+      sumOv.classList.add('on');
+      sumOv.setAttribute('aria-hidden','false');
+      beep(980,60,0.03); beep(1240,70,0.03);
+    }, { passive:true });
+
+    // -------------------- buttons --------------------
+    btnCardboard.addEventListener('click', ()=>{
+      if (body.classList.contains('cardboard')) exitCardboard();
+      else enterCardboard();
     });
 
-    // -------- finally: load module --------
-    import './hydration-vr/hydration.safe.js';
+    btnShoot.addEventListener('click', async ()=>{
+      const ac = ensureAC();
+      if (ac && ac.state === 'suspended'){ try{ await ac.resume(); }catch{} }
+      setShooting(!shooting);
+    });
+
+    btnStop.addEventListener('click', ()=>{
+      setShooting(false);
+      window.dispatchEvent(new CustomEvent('hha:force_end', { detail:{ reason:'stop' } }));
+    });
+
+    // gaze hold (cardboard): touch and hold anywhere to fire
+    document.addEventListener('pointerdown', (e)=>{
+      if (!body.classList.contains('cardboard')) return;
+      if (!shooting) return;
+      // only primary touch
+      if (e.pointerType === 'touch' && e.isPrimary === false) return;
+      startGazeHold();
+    }, { passive:true });
+
+    document.addEventListener('pointerup', (e)=>{
+      if (!body.classList.contains('cardboard')) return;
+      stopGazeHold();
+    }, { passive:true });
+
+    document.addEventListener('pointercancel', ()=> stopGazeHold(), { passive:true });
+
+    // start overlay: hide then tutorial
+    function hideStart(){
+      if (!startOv) return;
+      startOv.style.display = 'none';
+      showHud();
+      setTimeout(startTutorial, 120);
+    }
+    btnStart.addEventListener('click', async ()=>{
+      const ac = ensureAC();
+      if (ac && ac.state === 'suspended'){ try{ await ac.resume(); }catch{} }
+      exitCardboard();
+      hideStart();
+    });
+    btnStartCB.addEventListener('click', async ()=>{
+      const ac = ensureAC();
+      if (ac && ac.state === 'suspended'){ try{ await ac.resume(); }catch{} }
+      enterCardboard();
+      hideStart();
+    });
+
+    // summary buttons
+    btnCloseSum.addEventListener('click', ()=>{
+      sumOv.classList.remove('on');
+      sumOv.setAttribute('aria-hidden','true');
+    });
+
+    btnRetry.addEventListener('click', ()=>{
+      location.reload();
+    });
+
+    btnBackHub.addEventListener('click', ()=>{
+      const hub = qs('hub','./hub.html');
+      location.href = hub;
+    });
+
+    // initial state
+    vrHud2D.classList.add('on');
   </script>
+
+  <!-- GAME LOGIC -->
+  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
 </body>
 </html>
