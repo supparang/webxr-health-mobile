@@ -1,13 +1,10 @@
 // === /herohealth/hub.safe.js ===
-// HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
+// HeroHealth HUB (PRODUCTION ++ HISTORY + CSV + Copy Link Row)
 // ✅ อ่าน localStorage: HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-// ✅ ตาราง 4 เกมล่าสุด + ปุ่ม replay/copy/export/clear
-// ✅ Export CSV (last / recent4)
+// ✅ ตาราง 4 เกมล่าสุด (เรียงตามเวลาใหม่สุดจริง) + คลิกแถวเพื่อ Replay
+// ✅ กดค้าง/คลิกขวาแถวเพื่อ Copy ลิงก์รอบนั้น
+// ✅ Export CSV (last / recent4 / history_all)
 // ✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run/runMode, diff, time, seed, + research ctx)
-//
-// หมายเหตุเรื่องความเข้ากันได้:
-// - ส่งทั้ง run และ runMode (play / research) เผื่อแต่ละเกมอ่านคนละคีย์
-// - ส่งทั้ง time และ duration (บางเกมใช้ time, บางเกมอาจใช้ durationPlannedSec)
 
 'use strict';
 
@@ -16,7 +13,6 @@ const LS_HIST = 'HHA_SUMMARY_HISTORY';
 const LS_CTX  = 'HHA_STUDY_CTX';
 
 const PASS_KEYS = [
-  // research/session context (ถ้ามีติดมากับ URL หรือเก็บไว้ใน localStorage)
   'projectTag','studyId','phase','condition','conditionGroup','sessionOrder','blockLabel',
   'siteCode','schoolYear','semester',
   'sessionId','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
@@ -31,7 +27,7 @@ const GAME_MAP = {
   groups:    { tag:'groups',    name:'🍎 Groups VR',    path:'./vr-groups/groups-vr.html' }
 };
 
-const DEFAULT_RESEARCH_SEED = 777777; // deterministic default ถ้าไม่ใส่ seed ใน Research
+const DEFAULT_RESEARCH_SEED = 777777;
 
 // ---------------- helpers ----------------
 const $ = (id) => document.getElementById(id);
@@ -50,7 +46,6 @@ function fmtLocal(dt){
   try{
     const d = (dt instanceof Date) ? dt : new Date(dt);
     if (Number.isNaN(d.getTime())) return String(dt || '—');
-    // แสดงแบบสั้น ๆ
     const pad = (x)=>String(x).padStart(2,'0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }catch{
@@ -66,8 +61,6 @@ function pick(obj, keys, fallback){
   return fallback;
 }
 function normalizeRun(selRunValue){
-  // UI: play | study
-  // URL: play | research
   return (String(selRunValue || '').toLowerCase() === 'study') ? 'research' : 'play';
 }
 function normalizeDiff(v){
@@ -87,7 +80,6 @@ async function copyText(text){
     await navigator.clipboard.writeText(t);
     return true;
   }catch{
-    // fallback
     try{
       const ta = document.createElement('textarea');
       ta.value = t;
@@ -184,12 +176,8 @@ function flattenSummaryToRow(s){
     reason:       pick(s, ['reason'], '')
   };
 
-  // ใส่ seed ท้าย ๆ (บางที summary เก็บอยู่ใน ctx)
   row.seed = seed || pick(ctx, ['seed'], '');
-
-  // ถ้า timestampIso ไม่มา ให้ใช้ตอนนี้
   if (!row.timestampIso) row.timestampIso = nowIso();
-
   return row;
 }
 
@@ -222,14 +210,12 @@ function gradeClass(grade){
   if (['SSS','SS','S','A'].includes(g)) return 'good';
   if (['B'].includes(g)) return 'warn';
   if (['C','D','F'].includes(g)) return 'bad';
-  return ''; // unknown
+  return '';
 }
 function computeGrade(summary){
-  // ถ้ามี grade อยู่แล้ว ใช้อันนั้น
   const g0 = pick(summary, ['grade'], '');
   if (g0) return String(g0).toUpperCase();
 
-  // fallback จาก accuracy (ถ้ามี)
   const acc = Number(pick(summary, ['accuracyGoodPct'], pick(summary?.metrics, ['accuracyGoodPct'], null)));
   if (!Number.isFinite(acc)) return '—';
   if (acc >= 95) return 'SSS';
@@ -248,9 +234,6 @@ function readHist(){
   const h = safeJsonParse(localStorage.getItem(LS_HIST), []);
   return Array.isArray(h) ? h : [];
 }
-function writeHist(arr){
-  try{ localStorage.setItem(LS_HIST, JSON.stringify(arr)); } catch {}
-}
 function clearLast(){
   try{ localStorage.removeItem(LS_LAST); } catch {}
 }
@@ -258,16 +241,25 @@ function clearHist(){
   try{ localStorage.removeItem(LS_HIST); } catch {}
 }
 
+// ✅ NEW: sort history by timestamp (ใหม่สุดก่อน)
+function getSortedHistory(){
+  const hist = readHist();
+  return hist.slice().sort((a,b)=>{
+    const ta = Date.parse(pick(a, ['timestampIso','endTimeIso','timeIso'], '')) || 0;
+    const tb = Date.parse(pick(b, ['timestampIso','endTimeIso','timeIso'], '')) || 0;
+    return tb - ta;
+  });
+}
+
+// ------------- study ctx -------------
 function collectStudyCtx(){
   const ctx = {};
   const qp = new URLSearchParams(location.search);
 
-  // 1) จาก URL ก่อน
   for (const k of PASS_KEYS){
     if (qp.has(k)) ctx[k] = qp.get(k);
   }
 
-  // 2) เติมจาก localStorage (ถ้ายังไม่มีคีย์นั้น)
   const stored = safeJsonParse(localStorage.getItem(LS_CTX), null);
   if (stored && typeof stored === 'object'){
     for (const k of PASS_KEYS){
@@ -277,10 +269,27 @@ function collectStudyCtx(){
     }
   }
 
-  // 3) projectTag default
   if (!ctx.projectTag) ctx.projectTag = 'HeroHealth';
-
   return ctx;
+}
+
+// ✅ NEW: ถ้าเข้า HUB ด้วย URL ที่มี ctx ให้ “จำ” ไว้ใน LS_CTX
+function saveStudyCtxFromUrl(){
+  try{
+    const qp = new URLSearchParams(location.search);
+    const ctx = {};
+    let hit = 0;
+    for (const k of PASS_KEYS){
+      if (qp.has(k)){
+        ctx[k] = qp.get(k);
+        hit++;
+      }
+    }
+    if (hit > 0){
+      if (!ctx.projectTag) ctx.projectTag = 'HeroHealth';
+      localStorage.setItem(LS_CTX, JSON.stringify(ctx));
+    }
+  }catch{}
 }
 
 // ------------- link builder / launcher -------------
@@ -294,30 +303,25 @@ function buildGameUrl(gameTag, opts = {}){
   const diff = normalizeDiff(opts.selDiff);
   const time = clamp(opts.timeSec, 20, 9999);
 
-  // seed: play -> optional, research -> default deterministic if empty
   let seed = opts.seed;
   if (seed === '' || seed === null || seed === undefined) seed = '';
   if (run === 'research' && !seed) seed = DEFAULT_RESEARCH_SEED;
 
-  // base params
   u.searchParams.set('hub', getHubReturnUrl());
   u.searchParams.set('run', run);
-  u.searchParams.set('runMode', run); // compatibility
+  u.searchParams.set('runMode', run);
   u.searchParams.set('diff', diff);
   u.searchParams.set('time', String(time));
-  u.searchParams.set('duration', String(time)); // compatibility
+  u.searchParams.set('duration', String(time));
   if (seed !== '') u.searchParams.set('seed', String(seed));
 
-  // pass research ctx
   const ctx = collectStudyCtx();
   for (const k of PASS_KEYS){
     const v = ctx[k];
     if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
   }
 
-  // cache-bust
   u.searchParams.set('v', String(Date.now()));
-
   return u;
 }
 
@@ -328,7 +332,6 @@ function buildGameUrlFromSummary(summary){
 
   const u = new URL(g.path, location.href);
 
-  // pull params
   const run  = String(pick(summary, ['runMode','run','mode'], 'play')).toLowerCase() || 'play';
   const diff = normalizeDiff(pick(summary, ['diff'], 'normal'));
   const time = Number(pick(summary, ['durationPlannedSec','time','duration'], 70)) || 70;
@@ -342,7 +345,6 @@ function buildGameUrlFromSummary(summary){
   u.searchParams.set('duration', String(clamp(time, 20, 9999)));
   if (seed !== '' && seed !== undefined && seed !== null) u.searchParams.set('seed', String(seed));
 
-  // ctx จาก summary > hub ctx (เติม)
   const ctx = { ...(collectStudyCtx() || {}) };
   const sctx = summary?.ctx || summary?.context || {};
   if (sctx && typeof sctx === 'object'){
@@ -388,19 +390,15 @@ function applyPreset(){
   const run = normalizeRun(selRun);
   const diff = normalizeDiff(selDiff);
 
-  // preset time (ปรับได้ตามสไตล์คุณ)
   let t = 70;
   if (diff === 'easy') t = 70;
   if (diff === 'normal') t = 70;
   if (diff === 'hard') t = 80;
-
-  // research: ให้คงที่เพื่อเทียบกันง่าย
   if (run === 'research') t = 70;
 
   const inpTime = $('inpTime');
   if (inpTime) inpTime.value = String(t);
 
-  // เติม seed ให้ research ถ้าว่าง
   const inpSeed = $('inpSeed');
   if (inpSeed && run === 'research' && !String(inpSeed.value || '').trim()){
     inpSeed.value = String(DEFAULT_RESEARCH_SEED);
@@ -484,8 +482,8 @@ function renderLast(){
 }
 
 function renderRecent(){
-  const hist = readHist();
-  const recent = hist.slice(0, 4); // เก็บ/แสดง 4 ล่าสุด
+  const sorted = getSortedHistory();
+  const recent = sorted.slice(0, 4);
 
   const empty = $('recentEmpty');
   const panel = $('recentPanel');
@@ -503,12 +501,12 @@ function renderRecent(){
   if (panel) panel.style.display = '';
 
   if (hint){
-    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${hist.length}`;
+    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${sorted.length} • (คลิก=เล่น / กดค้าง=คัดลอกลิงก์)`;
   }
 
   if (!tbody) return;
 
-  tbody.innerHTML = recent.map(s => {
+  tbody.innerHTML = recent.map((s,i) => {
     const gameTag = pick(s, ['gameTag','game','tag'], '');
     const gameName = GAME_MAP[gameTag]?.name || gameTag || '—';
     const runMode  = String(pick(s, ['runMode','run','mode'], '—')).toUpperCase();
@@ -527,7 +525,7 @@ function renderRecent(){
     const gradeHtml = `<span class="gradeTag ${gcls}">${grade}</span>`;
 
     return `
-      <tr>
+      <tr data-i="${i}">
         <td>${csvEscape(tText)}</td>
         <td class="tdGame">${csvEscape(gameName)}</td>
         <td>${csvEscape(runMode)}</td>
@@ -544,15 +542,12 @@ function renderRecent(){
 
 // ------------- actions -------------
 function bindButtons(){
-  // game select
   for (const el of Array.from(document.querySelectorAll('.gameBtn'))){
     el.addEventListener('click', () => setSelectedGame(el.dataset.game));
   }
 
-  // apply preset
   $('btnApplyPreset')?.addEventListener('click', applyPreset);
 
-  // copy link (selected)
   $('btnCopyLink')?.addEventListener('click', async () => {
     const selRun = $('selRun')?.value || 'play';
     const selDiff= $('selDiff')?.value || 'normal';
@@ -575,7 +570,6 @@ function bindButtons(){
     if (!ok) console.log(u.toString());
   });
 
-  // replay last
   $('btnReplayLast')?.addEventListener('click', () => {
     const last = readLast();
     if (!last) return;
@@ -583,48 +577,47 @@ function bindButtons(){
     if (u) location.href = u.toString();
   });
 
-  // copy last json
   $('btnCopyLastJson')?.addEventListener('click', async () => {
     const last = readLast();
     if (!last) return;
     await copyText(JSON.stringify(last, null, 2));
   });
 
-  // export last csv
   $('btnExportLastCsv')?.addEventListener('click', () => {
     const last = readLast();
     if (!last) return;
     exportCsvForSummaries('last', last);
   });
 
-  // export recent csv
   $('btnExportRecentCsv')?.addEventListener('click', () => {
-    const hist = readHist();
-    const recent = hist.slice(0, 4);
+    const sorted = getSortedHistory();
+    const recent = sorted.slice(0, 4);
     if (!recent.length) return;
     exportCsvForSummaries('recent4', recent);
   });
 
-  // clear last
+  // ✅ NEW: export all history
+  $('btnExportAllCsv')?.addEventListener('click', () => {
+    const hist = readHist();
+    if (!hist.length) return;
+    exportCsvForSummaries('history_all', hist);
+  });
+
   $('btnClearLast')?.addEventListener('click', () => {
     clearLast();
     renderLast();
   });
 
-  // clear history
   $('btnClearHistory')?.addEventListener('click', () => {
     clearHist();
     renderRecent();
   });
 
-  // quick: if user changes run/diff, we can auto-fill presets lightly
   $('selRun')?.addEventListener('change', applyPreset);
   $('selDiff')?.addEventListener('change', applyPreset);
 
-  // launch on game card click (secondary: double click)
   for (const el of Array.from(document.querySelectorAll('.gameBtn'))){
     el.addEventListener('dblclick', () => {
-      // launch selected (dblclick on any -> set + launch)
       setSelectedGame(el.dataset.game);
 
       const selRun = $('selRun')?.value || 'play';
@@ -641,6 +634,88 @@ function bindButtons(){
       if (u) location.href = u.toString();
     });
   }
+
+  // ===== ✅ NEW: table row actions (click = replay, long-press/contextmenu = copy link) =====
+  const tbody = $('recentTbody');
+  if (!tbody) return;
+
+  let longPressed = false;
+  let pressTimer = null;
+
+  function getRowSummaryByIndex(i){
+    const sorted = getSortedHistory();
+    return sorted[i] || null;
+  }
+
+  async function copyRowLink(i){
+    const s = getRowSummaryByIndex(i);
+    if (!s) return false;
+    const u = buildGameUrlFromSummary(s);
+    if (!u) return false;
+    const ok = await copyText(u.toString());
+    const hint = $('historyHint');
+    if (hint){
+      hint.textContent = ok
+        ? 'คัดลอกลิงก์ของรอบนี้แล้ว ✅ (เอาไปแปะเปิดเล่นได้เลย)'
+        : 'คัดลอกไม่สำเร็จ — ลองกด Copy link ด้านซ้ายแทน';
+    }
+    return ok;
+  }
+
+  // click -> replay (ถ้าไม่ใช่ long-press)
+  tbody.addEventListener('click', (ev) => {
+    if (longPressed){
+      // กันไม่ให้กดค้างแล้วเด้งเข้าเกม
+      longPressed = false;
+      return;
+    }
+    const tr = ev.target?.closest?.('tr');
+    if (!tr) return;
+    const i = Number(tr.dataset.i);
+    if (!Number.isFinite(i)) return;
+
+    const s = getRowSummaryByIndex(i);
+    if (!s) return;
+
+    const u = buildGameUrlFromSummary(s);
+    if (u) location.href = u.toString();
+  });
+
+  // right-click / long-press that triggers contextmenu -> copy link
+  tbody.addEventListener('contextmenu', async (ev) => {
+    const tr = ev.target?.closest?.('tr');
+    if (!tr) return;
+    ev.preventDefault();
+    const i = Number(tr.dataset.i);
+    if (!Number.isFinite(i)) return;
+    longPressed = true;
+    await copyRowLink(i);
+    setTimeout(()=>{ longPressed = false; }, 350);
+  });
+
+  // touch long-press (มือถือชัวร์)
+  tbody.addEventListener('touchstart', (ev) => {
+    const tr = ev.target?.closest?.('tr');
+    if (!tr) return;
+    const i = Number(tr.dataset.i);
+    if (!Number.isFinite(i)) return;
+
+    longPressed = false;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(async () => {
+      longPressed = true;
+      await copyRowLink(i);
+      setTimeout(()=>{ longPressed = false; }, 400);
+    }, 520); // กดค้าง ~0.5s
+  }, { passive:true });
+
+  tbody.addEventListener('touchmove', () => {
+    clearTimeout(pressTimer);
+  }, { passive:true });
+
+  tbody.addEventListener('touchend', () => {
+    clearTimeout(pressTimer);
+  }, { passive:true });
 }
 
 // ------------- init -------------
@@ -648,15 +723,15 @@ function bindButtons(){
   renderNow();
   setInterval(renderNow, 1000);
 
-  // default select first game
+  // ✅ NEW: save ctx from URL once
+  saveStudyCtxFromUrl();
+
   setSelectedGame('goodjunk');
 
-  // if URL has ?game=... allow preselect
   const qp = new URLSearchParams(location.search);
   const pre = qp.get('game');
   if (pre && GAME_MAP[pre]) setSelectedGame(pre);
 
-  // if URL has preset (run/diff/time/seed) apply to inputs
   const preRun = qp.get('run') || qp.get('runMode');
   const preDiff= qp.get('diff');
   const preTime= qp.get('time') || qp.get('duration');
@@ -675,8 +750,8 @@ function bindButtons(){
     $('inpSeed').value = String(Number(preSeed) || preSeed);
   }
 
-  applyPreset();     // เติมค่า default ให้สมเหตุสมผล
-  bindButtons();     // bind events
-  renderLast();      // show last
-  renderRecent();    // show recent
+  applyPreset();
+  bindButtons();
+  renderLast();
+  renderRecent();
 })();
