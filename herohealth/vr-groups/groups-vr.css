@@ -1,11 +1,9 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
 Food Groups VR — PRODUCTION CSS (Candy + HUD + Overlays + VR-feel Targets)
-✅ Supports BOTH layouts:
-   - New HTML: .hud / .centerTop / .questTop / .powerWrap / .coachWrap / .overlay
-   - Legacy HTML: .hud-top / .hud-card / ...
-✅ Targets style by data-type (good/wrong/decoy/junk/boss/star/ice) — matches GameEngine.js
-✅ Layout B (Compact): body.ui-compact (toggle from JS)
-✅ Storm/urgent vibe stronger (no JS change needed)
+✅ Layout B / Compact: body.ui-compact
+✅ Storm urgent: edge flash + pulse
+✅ Overdrive / Freeze body classes
+✅ Targets: fg-good/fg-wrong/fg-decoy/fg-junk/fg-star/fg-ice/fg-boss
 */
 
 :root{
@@ -14,22 +12,11 @@ Food Groups VR — PRODUCTION CSS (Candy + HUD + Overlays + VR-feel Targets)
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.72);
-  --stroke:rgba(148,163,184,.22);
+  --stroke:rgba(148,163,184,.18);
 
   --text:#e5e7eb;
   --muted:#94a3b8;
 
-  --accent:#22c55e;
-  --warn:#f59e0b;
-  --bad:#ef4444;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
-
-  --radius-lg:18px;
-  --radius-md:14px;
-  --radius-pill:999px;
-
-  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
@@ -56,154 +43,38 @@ Food Groups VR — PRODUCTION CSS (Candy + HUD + Overlays + VR-feel Targets)
   --candy-polka:
     radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
     radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
-
-  /* HUD reserved space hint (engine uses fixed values; CSS aligns visuals) */
-  --hud-top-reserve: 150px;
-  --hud-bot-reserve: 190px;
 }
 
 *{ box-sizing:border-box; }
-html, body{
+
+html,body{
   margin:0;
   width:100%;
   height:100%;
   overflow:hidden;
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
   color:var(--text);
   background:
     radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
     radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
     var(--bg);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 
 /* ======================
-   Gameplay Layer
-   ====================== */
+   Gameplay layer
+====================== */
 .fg-layer{
-  position: fixed;
-  inset: 0;
-  z-index: 10;               /* (your HTML sets z-index:10) */
-  pointer-events: auto;
-
+  position:fixed;
+  inset:0;
+  z-index:10; /* gameplay */
   transform: translate(var(--vx,0px), var(--vy,0px));
   will-change: transform;
-  touch-action:none;
-  user-select:none;
-}
-
-/* Optional: No-Junk ring (set --nojunk-*) */
-.fg-layer::before{
-  content:"";
-  position:fixed;
-  left: var(--nojunk-cx, 50vw);
-  top:  var(--nojunk-cy, 50vh);
-  width: calc(var(--nojunk-r, 0px) * 2);
-  height: calc(var(--nojunk-r, 0px) * 2);
-  transform: translate(-50%,-50%);
-  border-radius:999px;
-  pointer-events:none;
-  opacity: calc(var(--nojunk-on, 0) * 0.18);
-  border:2px dashed rgba(255,255,255,.35);
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+  pointer-events:auto;
 }
 
 /* ======================
-   NEW HTML HUD helpers
-   (your groups-vr.html inline CSS exists, but this improves + adds compact mode)
-   ====================== */
-
-/* Ensure HUD never blocks taps */
-.hud, .centerTop, .questTop, .powerWrap, .coachWrap,
-.hud *, .centerTop *, .questTop *, .powerWrap *, .coachWrap *{
-  pointer-events:none;
-}
-#btnStart, #btnBack, #btnReplay, #btnHub2{ pointer-events:auto; }
-
-/* Slight visual tune (if inline exists, this still helps via specificity) */
-.hud .box{
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.centerTop .pill{
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.questTop .qbar{
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.powerWrap .power{
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.coachWrap .coachCard,
-.coachWrap .coachImg{
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-/* ======================
-   Layout B (Compact)
-   Toggle by: body.ui-compact
-   ====================== */
-body.ui-compact .hud{
-  padding: calc(10px + var(--sat)) 10px 8px;
-  gap:8px;
-}
-body.ui-compact .hud .box{
-  min-width: 96px;
-  border-radius:14px;
-  padding:8px 10px;
-}
-body.ui-compact .hud .big{ font-size:15px; }
-body.ui-compact .hud .small{ font-size:11px; }
-
-body.ui-compact .centerTop{
-  top: calc(52px + var(--sat));
-  gap:6px;
-}
-body.ui-compact .centerTop .pill{
-  padding:6px 10px;
-  font-size:11px;
-}
-
-body.ui-compact .questTop{
-  top: calc(90px + var(--sat));
-  left:10px; right:10px;
-  gap:8px;
-}
-body.ui-compact .questTop .qbar{
-  border-radius:14px;
-  padding:8px 10px;
-}
-body.ui-compact .questTop .qbar .b{ font-size:12px; }
-body.ui-compact .questTop .qbar .t{ font-size:11px; }
-
-body.ui-compact .powerWrap{
-  left:10px; right:10px;
-  bottom: calc(12px + var(--sab));
-}
-body.ui-compact .powerWrap .power{ height:12px; }
-body.ui-compact .powerWrap .powerLabel{ font-size:11px; margin-top:6px; }
-
-body.ui-compact .coachWrap{
-  right:10px;
-  bottom: calc(78px + var(--sab));
-  gap:8px;
-}
-body.ui-compact .coachWrap .coachCard{ width:200px; border-radius:16px; }
-body.ui-compact .coachWrap .coachLine{ font-size:11px; min-height:32px; }
-body.ui-compact .coachWrap .coachImg{ width:66px; height:66px; border-radius:16px; }
-
-/* Optional: ถ้าจอเล็กมาก ให้ซ่อน pill บางตัวเพื่อลดแน่น */
-@media (max-width: 380px){
-  body.ui-compact .centerTop .pill:nth-child(2){ display:none; } /* hide MISS pill on tiny */
-}
-
-/* ======================
-   Targets — Candy Stickers (Grade 5)
-   IMPORTANT: style by [data-type] because GameEngine sets dataset.type
-   ====================== */
+   Targets (Candy Stickers)
+====================== */
 .fg-target{
   position:absolute;
   left: var(--x, 50vw);
@@ -253,8 +124,8 @@ body.ui-compact .coachWrap .coachImg{ width:66px; height:66px; border-radius:16p
     drop-shadow(0 12px 18px rgba(0,0,0,.32));
 }
 
-/* type fills by data-type */
-.fg-target[data-type="good"]{
+/* Type skins */
+.fg-good{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 40%),
     radial-gradient(circle at 74% 78%, rgba(255,255,255,.18), rgba(255,255,255,0) 45%),
@@ -262,28 +133,46 @@ body.ui-compact .coachWrap .coachImg{ width:66px; height:66px; border-radius:16p
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-lime), var(--candy-cyan));
 }
-.fg-target[data-type="wrong"]{
+.fg-wrong{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.24), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-amber), rgba(251,146,60,.22));
 }
-.fg-target[data-type="decoy"]{
+.fg-decoy{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-violet), var(--candy-cyan));
 }
-.fg-target[data-type="junk"]{
+.fg-junk{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-pink), rgba(248,113,113,.26));
 }
-.fg-target[data-type="boss"]{
+.fg-star{
+  border-color: rgba(250,204,21,.85);
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.30), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(250,204,21,.35), rgba(34,211,238,.20));
+  animation: fgBossFloat 0.95s ease-in-out infinite;
+}
+.fg-ice{
+  border-color: rgba(34,211,238,.85);
+  background:
+    radial-gradient(circle at 26% 20%, rgba(255,255,255,.30), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(34,211,238,.28), rgba(167,139,250,.18));
+  animation: fgBossFloat 1.05s ease-in-out infinite;
+}
+.fg-boss{
   border-color: rgba(34,211,238,.70);
   background:
     radial-gradient(circle at 28% 22%, rgba(255,255,255,.24), transparent 44%),
@@ -292,30 +181,14 @@ body.ui-compact .coachWrap .coachImg{ width:66px; height:66px; border-radius:16p
     linear-gradient(135deg, rgba(148,163,184,.22), rgba(34,211,238,.14));
   animation: fgBossFloat 1.00s ease-in-out infinite;
 }
-.fg-target[data-type="star"]{
-  border-color: rgba(250,204,21,.75);
-  background:
-    radial-gradient(circle at 30% 24%, rgba(255,255,255,.26), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(250,204,21,.32), rgba(34,211,238,.12));
-}
-.fg-target[data-type="ice"]{
-  border-color: rgba(125,211,252,.75);
-  background:
-    radial-gradient(circle at 30% 24%, rgba(255,255,255,.28), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(125,211,252,.26), rgba(167,139,250,.12));
-}
 
-/* corner badges */
-.fg-target[data-type="wrong"]::after,
-.fg-target[data-type="decoy"]::after,
-.fg-target[data-type="junk"]::after,
-.fg-target[data-type="boss"]::after,
-.fg-target[data-type="star"]::after,
-.fg-target[data-type="ice"]::after{
+/* Corner badge */
+.fg-wrong::after,
+.fg-decoy::after,
+.fg-junk::after,
+.fg-boss::after,
+.fg-star::after,
+.fg-ice::after{
   position:absolute;
   right:8px;
   top:7px;
@@ -324,35 +197,31 @@ body.ui-compact .coachWrap .coachImg{ width:66px; height:66px; border-radius:16p
   filter: drop-shadow(0 12px 16px rgba(0,0,0,.35));
   content:"";
 }
-.fg-target[data-type="wrong"]::after{ content:"⚠️"; }
-.fg-target[data-type="decoy"]::after{ content:"❓"; }
-.fg-target[data-type="junk"]::after { content:"🫧"; }
-/* boss shows HP number too (dataset.hp set by engine) */
-.fg-target[data-type="boss"]::after { content:"👑" attr(data-hp); }
-.fg-target[data-type="star"]::after{ content:"⭐"; }
-.fg-target[data-type="ice"]::after { content:"❄️"; }
+.fg-wrong::after{ content:"⚠️"; }
+.fg-decoy::after{ content:"❓"; }
+.fg-junk::after { content:"🫧"; }
+.fg-boss::after { content:"👑"; }
+.fg-star::after { content:"⭐"; }
+.fg-ice::after  { content:"❄️"; }
 
 .fg-target:active{
   transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
   filter: brightness(1.06);
 }
 
-/* spawn/hit/out */
 .fg-target.spawn{
   animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite;
 }
 .fg-target.hit{ animation: fgHit .22s ease-out both; }
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
-/* boss feedback states */
-.fg-target[data-type="boss"].fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
+.fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
 @keyframes bossHurt{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
   50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)) rotate(-1deg); filter: brightness(1.18); }
   100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-/* keyframes */
 @keyframes fgFloat{
   0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) translateY(0px); }
   50%    { transform: translate(-50%, -50%) scale(var(--s,1)) translateY(-8px); }
@@ -376,75 +245,154 @@ body.ui-compact .coachWrap .coachImg{ width:66px; height:66px; border-radius:16p
 }
 
 /* ======================
-   Storm / Urgent vibe (เร้าใจ)
-   ====================== */
+   Storm / Overdrive / Freeze vibes (Body classes)
+====================== */
 body.groups-storm::before{
   content:"";
-  position:fixed; inset:0;
+  position:fixed;
+  inset:0;
   pointer-events:none;
-  z-index: 40;
+  z-index:120;
   background:
-    radial-gradient(circle at 50% 30%, rgba(239,68,68,.10), transparent 55%),
-    radial-gradient(circle at 30% 80%, rgba(34,211,238,.10), transparent 55%);
+    radial-gradient(circle at 50% 50%, rgba(34,211,238,.10), transparent 55%),
+    radial-gradient(circle at 20% 20%, rgba(34,197,94,.10), transparent 55%);
   mix-blend-mode: screen;
-  opacity:.9;
-}
-body.groups-storm-urgent::before{
-  animation: stormPulse .22s ease-in-out infinite;
-}
-@keyframes stormPulse{
-  0%,100%{ opacity:.75; transform: translateZ(0) scale(1); }
-  50%{ opacity:1; transform: translateZ(0) scale(1.01); }
 }
 
-/* subtle shake gameplay only (not HUD) */
-body.groups-storm-urgent .fg-layer{
-  animation: stormShake .22s ease-in-out infinite;
+body.groups-storm-urgent::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:130;
+  border-radius:18px;
+  box-shadow:
+    inset 0 0 0 3px rgba(239,68,68,.20),
+    inset 0 0 40px rgba(239,68,68,.15);
+  animation: edgePulse .22s ease-in-out infinite;
 }
-@keyframes stormShake{
-  0%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(0,0); }
-  25%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(0.8px,-0.6px); }
-  50%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(-0.8px,0.6px); }
-  75%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(0.7px,0.5px); }
-  100%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(0,0); }
+@keyframes edgePulse{
+  0%,100%{ transform: translateZ(0) scale(1); opacity: .85; }
+  50%{ transform: translateZ(0) scale(1.006); opacity: 1; }
 }
 
-/* Optional mode classes */
-body.groups-overdrive .fg-target{ filter:saturate(1.12) brightness(1.06); }
-body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
+body.groups-overdrive .fg-target{
+  filter: saturate(1.12) brightness(1.04);
+}
+body.groups-overdrive::after{
+  content:"";
+  position:fixed;
+  inset:-20px;
+  pointer-events:none;
+  z-index:125;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(250,204,21,.16), transparent 55%),
+    radial-gradient(circle at 80% 80%, rgba(34,211,238,.12), transparent 60%);
+  mix-blend-mode: screen;
+}
+
+body.groups-freeze .fg-target{
+  animation-duration: 1.75s !important;
+  filter: hue-rotate(8deg) saturate(1.05);
+}
+body.groups-freeze::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:125;
+  background:
+    radial-gradient(circle at 55% 40%, rgba(34,211,238,.14), transparent 58%),
+    radial-gradient(circle at 25% 75%, rgba(167,139,250,.10), transparent 60%);
+  mix-blend-mode: screen;
+}
 
 /* ======================
-   Legacy layout support (if you use .hud-top etc)
-   ====================== */
-.hud-top{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  top:calc(10px + var(--sat));
-  z-index: 80;
-  display:grid;
-  grid-template-columns: 1fr minmax(260px, 1.2fr) 1fr;
-  gap:10px;
-  align-items:start;
+   Layout B / Compact (Overrides inline styles)
+   NOTE: inline CSS in HTML is earlier/later? In your file HTML has inline style after link,
+   so to override we use body.ui-compact + !important on key layout props.
+====================== */
+
+body.ui-compact .hud{
+  padding: calc(8px + var(--sat)) 10px 6px !important;
+  gap:8px !important;
 }
-.hud-card{
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius-lg);
-  box-shadow:0 18px 60px rgba(0,0,0,.45);
-  padding:12px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+body.ui-compact .hud .box{
+  padding:8px 10px !important;
+  border-radius:14px !important;
+  min-width:110px !important;
 }
-@media (max-width: 920px){
-  .hud-top{ grid-template-columns: 1fr; }
+body.ui-compact .hud .big{
+  font-size:15px !important;
+}
+
+body.ui-compact .centerTop{
+  top: calc(6px + var(--sat)) !important;
+  gap:8px !important;
+}
+body.ui-compact .centerTop .pill{
+  padding:7px 10px !important;
+  font-size:11px !important;
+}
+
+body.ui-compact .questTop{
+  top: calc(58px + var(--sat)) !important;
+  left:10px !important;
+  right:10px !important;
+  gap:8px !important;
+}
+body.ui-compact .qbar{
+  padding:9px 10px !important;
+  border-radius:14px !important;
+}
+body.ui-compact .qbar .b{
+  font-size:12.5px !important;
+}
+body.ui-compact .qbar .p{
+  height:9px !important;
+}
+
+body.ui-compact .powerWrap{
+  left:10px !important;
+  right:10px !important;
+  bottom: calc(10px + var(--sab)) !important;
+}
+body.ui-compact .power{
+  height:12px !important;
+}
+
+body.ui-compact .coachWrap{
+  right:10px !important;
+  bottom: calc(72px + var(--sab)) !important;
+  gap:8px !important;
+}
+body.ui-compact .coachCard{
+  width:200px !important;
+  border-radius:16px !important;
+}
+body.ui-compact .coachImg{
+  width:64px !important;
+  height:64px !important;
+  border-radius:16px !important;
+}
+
+/* Mini timer urgency */
+#uiMiniTime.urgent{
+  display:block !important;
+  animation: miniUrgent .22s ease-in-out infinite;
+  text-shadow: 0 0 14px rgba(239,68,68,.35);
+  color: rgba(254,226,226,.95) !important;
+}
+@keyframes miniUrgent{
+  0%,100%{ transform: translateZ(0) scale(1); opacity:.92; }
+  50%{ transform: translateZ(0) scale(1.02); opacity:1; }
 }
 
 /* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
-  body.groups-storm-urgent .fg-layer,
-  body.groups-storm-urgent::before{
+  body.groups-storm-urgent::after,
+  #uiMiniTime.urgent{
     animation:none !important;
   }
 }
