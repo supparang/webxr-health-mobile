@@ -1,5 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // Bootper: view controls + start overlay + end summary + fullscreen/VR helpers
+// ✅ FIX: landscape detection (matchMedia)
+// ✅ FIX: VR tip shows only when needed + remember "OK" (no repeat)
+// ✅ FIX: on OK / EnterVR -> try fullscreen + lock landscape inside gesture
 
 'use strict';
 
@@ -17,11 +20,20 @@ function setParam(url, k, v){
   return u.toString();
 }
 function clamp(n,a,b){ n=Number(n)||0; return Math.max(a, Math.min(b,n)); }
-function isLandscape(){ return (innerWidth||1) > (innerHeight||1); }
 
-function applyBodyView(view){
-  document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  document.body.classList.add('view-' + view);
+function mmLandscape(){
+  try{ return !!(matchMedia && matchMedia('(orientation: landscape)').matches); }catch(_){ return false; }
+}
+function isLandscape(){
+  // use matchMedia first (more reliable in VR viewers)
+  const m = mmLandscape();
+  if (m) return true;
+  // fallback
+  return (innerWidth||1) > (innerHeight||1);
+}
+
+function isFullscreen(){
+  return !!document.fullscreenElement;
 }
 
 async function tryFullscreen(){
@@ -33,6 +45,7 @@ async function tryFullscreen(){
 }
 
 async function tryLockLandscape(){
+  // Android Chrome: lock works only after fullscreen + inside user gesture
   try{
     if (screen.orientation && screen.orientation.lock){
       await screen.orientation.lock('landscape');
@@ -41,12 +54,11 @@ async function tryLockLandscape(){
 }
 
 async function tryEnterWebXR(){
-  // Best effort: only if supported
+  // Best effort: DOM-game = fullscreen/lock is main; WebXR session optional
   try{
     if (!navigator.xr) return false;
     const ok = await navigator.xr.isSessionSupported?.('immersive-vr');
     if (!ok) return false;
-    // เราเป็น DOM-game (ไม่ใช่ WebXR scene) => แค่ fullscreen + lock เป็นหลัก
     await tryFullscreen();
     await tryLockLandscape();
     return true;
@@ -55,26 +67,39 @@ async function tryEnterWebXR(){
   }
 }
 
+function applyBodyView(view){
+  document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  document.body.classList.add('view-' + view);
+}
+
 function showTip(show){
   const tip = document.getElementById('vrTip');
   if (!tip) return;
   tip.hidden = !show;
 }
 
+function tipSeenKey(view){
+  return `HHA_VR_TIP_OK_${view}`;
+}
+function hasTipOk(view){
+  try{ return localStorage.getItem(tipSeenKey(view)) === '1'; }catch(_){ return false; }
+}
+function setTipOk(view){
+  try{ localStorage.setItem(tipSeenKey(view), '1'); }catch(_){}
+}
+
 function formatMeta({diff, run, end, challenge, view, time}){
-  const parts = [
+  return [
     `diff=${diff}`,
     `run=${run}`,
     `end=${end}`,
     `challenge=${challenge}`,
     `view=${view}`,
     `time=${time}s`
-  ];
-  return parts.join(' • ');
+  ].join(' • ');
 }
 
 function safeMarginsFor(view){
-  // ให้สอดคล้องกับ safe.js (กันทับ HUD/ยิง)
   const land = isLandscape();
   let top = land ? 90 : 128;
   let bottom = land ? 110 : 170;
@@ -86,7 +111,6 @@ function safeMarginsFor(view){
     bottom = land ? 120 : 160;
   }
 
-  // relax for tiny screens
   if ((innerWidth - left - right) < 220){ left = 12; right = 12; }
   if ((innerHeight - top - bottom) < 260){ top = Math.max(70, top - 24); bottom = Math.max(95, bottom - 24); }
 
@@ -94,7 +118,6 @@ function safeMarginsFor(view){
 }
 
 function setAimVar(view){
-  // ยก crosshair ขึ้นสำหรับ VR/แนวนอน
   let aim = '62%';
   if (isLandscape()) aim = '52%';
   if (view === 'vr' || view === 'cvr') aim = '50%';
@@ -136,7 +159,7 @@ function renderEndSummary(sum, hubUrl){
   };
 }
 
-(function main(){
+(async function main(){
   const diff = String(qs('diff','normal')).toLowerCase();
   const run  = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
   const end  = String(qs('end','time')).toLowerCase();
@@ -148,7 +171,6 @@ function renderEndSummary(sum, hubUrl){
   applyBodyView(view);
   setAimVar(view);
 
-  // meta strings
   const meta = formatMeta({diff, run, end, challenge, view, time});
   const hudMeta = document.getElementById('hudMeta');
   const panelMeta = document.getElementById('panelMeta');
@@ -172,27 +194,55 @@ function renderEndSummary(sum, hubUrl){
   if (btnFs) btnFs.onclick = async ()=>{
     await tryFullscreen();
     await tryLockLandscape();
+    // after action, re-check tip
+    if ((view === 'vr' || view === 'cvr') && !hasTipOk(view)){
+      showTip(!isLandscape());
+    }
   };
 
   // Enter VR button (best effort)
   const btnEnterVR = document.getElementById('btnEnterVR');
   if (btnEnterVR) btnEnterVR.onclick = async ()=>{
-    // โหมด DOM game: ใช้ fullscreen+lock เป็นหลัก (ถ้า WebXR มี ก็ทำ)
     await tryFullscreen();
     await tryLockLandscape();
-    const ok = await tryEnterWebXR();
-    // ถ้าไม่ ok ก็ยังคง fullscreen/lock ที่ทำไว้
-    if (!isLandscape()) showTip(true);
+    await tryEnterWebXR(); // optional; doesn't hurt
+
+    if ((view === 'vr' || view === 'cvr') && !hasTipOk(view)){
+      showTip(!isLandscape());
+    }
   };
 
-  // Tip overlay
+  // Tip overlay OK
   const tipOk = document.getElementById('vrTipOk');
-  if (tipOk) tipOk.onclick = ()=> showTip(false);
+  if (tipOk) tipOk.onclick = async ()=>{
+    setTipOk(view);
+    showTip(false);
+    // also try to help user right away
+    await tryFullscreen();
+    await tryLockLandscape();
+  };
 
-  // show tip automatically if view=vr/cvr and not landscape
-  if ((view === 'vr' || view === 'cvr') && !isLandscape()){
-    showTip(true);
+  // show tip automatically if view=vr/cvr AND not landscape AND not OK yet
+  if ((view === 'vr' || view === 'cvr') && !hasTipOk(view)){
+    showTip(!isLandscape());
+  } else {
+    showTip(false);
   }
+
+  // listen orientation/resize to auto-hide tip when landscape
+  const onOrient = ()=>{
+    setAimVar(view);
+    if ((view === 'vr' || view === 'cvr') && !hasTipOk(view)){
+      showTip(!isLandscape());
+    } else {
+      showTip(false);
+    }
+  };
+  window.addEventListener('resize', onOrient, { passive:true });
+  try{
+    screen.orientation?.addEventListener?.('change', onOrient);
+  }catch(_){}
+  window.addEventListener('orientationchange', onOrient, { passive:true });
 
   // start overlay
   const overlay = document.getElementById('startOverlay');
@@ -212,8 +262,10 @@ function renderEndSummary(sum, hubUrl){
   function startGame(){
     try{ overlay && (overlay.style.display = 'none'); }catch(_){}
     try{ api && api.start && api.start(); }catch(_){}
-    // optional: lock landscape in VR/cVR
     if (view === 'vr' || view === 'cvr'){
+      // try to stabilize
+      // (must be inside gesture -> this is inside click)
+      tryFullscreen();
       tryLockLandscape();
     }
   }
@@ -225,12 +277,6 @@ function renderEndSummary(sum, hubUrl){
   window.addEventListener('hha:end', (ev)=>{
     const sum = ev?.detail || null;
     if (!sum) return;
-    // store already in safe.js
     renderEndSummary(sum, hub);
-  }, { passive:true });
-
-  // react to resize/orientation (re-aim + margins hint only)
-  window.addEventListener('resize', ()=>{
-    setAimVar(view);
   }, { passive:true });
 })();
