@@ -1,11 +1,11 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targets)
-✅ HUD อยู่เหนือ gameplay (ไม่โดน layer ทับ)
-✅ fg-layer รองรับ VR feel translate ด้วย --vx/--vy
-✅ Targets = absolute (เคลื่อนตาม fg-layer transform ได้จริง)
-✅ Candy sticker + badges + spawn/hit/out
-✅ Storm / Overdrive / Freeze + optional No-Junk ring
-✅ Layout B: mobile auto-compact + toggle with body.ui-compact
+Food Groups VR — PRODUCTION CSS (Candy + HUD + Overlays + VR-feel Targets)
+✅ Supports BOTH layouts:
+   - New HTML: .hud / .centerTop / .questTop / .powerWrap / .coachWrap / .overlay
+   - Legacy HTML: .hud-top / .hud-card / ...
+✅ Targets style by data-type (good/wrong/decoy/junk/boss/star/ice) — matches GameEngine.js
+✅ Layout B (Compact): body.ui-compact (toggle from JS)
+✅ Storm/urgent vibe stronger (no JS change needed)
 */
 
 :root{
@@ -35,7 +35,7 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targ
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* Candy palette (v3) */
+  /* Candy palette */
   --candy-pink: rgba(244,114,182,.38);
   --candy-cyan: rgba(34,211,238,.30);
   --candy-lime: rgba(34,197,94,.30);
@@ -56,6 +56,10 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targ
   --candy-polka:
     radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
     radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
+
+  /* HUD reserved space hint (engine uses fixed values; CSS aligns visuals) */
+  --hud-top-reserve: 150px;
+  --hud-bot-reserve: 190px;
 }
 
 *{ box-sizing:border-box; }
@@ -72,25 +76,19 @@ html, body{
     var(--bg);
 }
 
-/* A-Frame scene ไม่ให้บัง HUD */
-a-scene[embedded]{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:0 !important;
-}
-
 /* ======================
    Gameplay Layer
    ====================== */
 .fg-layer{
   position: fixed;
   inset: 0;
-  z-index: 3;                 /* ✅ ต่ำกว่า HUD */
+  z-index: 10;               /* (your HTML sets z-index:10) */
   pointer-events: auto;
 
-  /* VR feel translate from engine */
   transform: translate(var(--vx,0px), var(--vy,0px));
   will-change: transform;
+  touch-action:none;
+  user-select:none;
 }
 
 /* Optional: No-Junk ring (set --nojunk-*) */
@@ -110,299 +108,104 @@ a-scene[embedded]{
 }
 
 /* ======================
-   HUD
+   NEW HTML HUD helpers
+   (your groups-vr.html inline CSS exists, but this improves + adds compact mode)
    ====================== */
-.hud-top{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  top:calc(10px + var(--sat));
-  z-index: 8;                 /* ✅ เหนือ gameplay */
-  display:grid;
-  grid-template-columns: 1fr minmax(260px, 1.2fr) 1fr;
-  gap:10px;
-  align-items:start;
-  pointer-events:none; /* HUD ไม่จับคลิก */
-}
 
-.hud-card{
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius-lg);
-  box-shadow:0 18px 60px rgba(0,0,0,.45);
-  padding:12px;
+/* Ensure HUD never blocks taps */
+.hud, .centerTop, .questTop, .powerWrap, .coachWrap,
+.hud *, .centerTop *, .questTop *, .powerWrap *, .coachWrap *{
+  pointer-events:none;
+}
+#btnStart, #btnBack, #btnReplay, #btnHub2{ pointer-events:auto; }
+
+/* Slight visual tune (if inline exists, this still helps via specificity) */
+.hud .box{
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.centerTop .pill{
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.questTop .qbar{
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.powerWrap .power{
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.coachWrap .coachCard,
+.coachWrap .coachImg{
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* Left score panel */
-.hud-left .hud-row{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  padding:6px 0;
-  border-bottom:1px dashed rgba(148,163,184,.18);
-}
-.hud-left .hud-row:last-child{ border-bottom:0; }
-
-.hud-title{
-  font-weight:900;
-  letter-spacing:.4px;
-  font-size:12px;
-  opacity:.9;
-}
-.hud-val{
-  font-weight:900;
-  font-size:16px;
-}
-
-/* Mid: group+time + power + quest */
-.hud-mid .hud-group-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  margin-bottom:10px;
-}
-.hud-group{
-  font-weight:1000;
-  font-size:16px;
-  padding:6px 10px;
-  border-radius:var(--radius-pill);
-  border:1px solid rgba(34,211,238,.22);
-  background:rgba(2,6,23,.55);
-}
-.hud-timer{
-  font-weight:1000;
-  font-size:16px;
-  padding:6px 10px;
-  border-radius:var(--radius-pill);
-  border:1px solid rgba(148,163,184,.22);
-  background:rgba(2,6,23,.55);
-}
-
-/* Power */
-.power-wrap{
-  margin:8px 0 10px 0;
-  padding:10px;
-  border-radius:var(--radius-md);
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.35);
-}
-.power-label{
-  display:flex;
-  justify-content:space-between;
-  font-weight:900;
-  font-size:12px;
-  opacity:.9;
-  margin-bottom:8px;
-}
-.power-bar{
-  height:12px;
-  border-radius:999px;
-  background:rgba(148,163,184,.14);
-  overflow:hidden;
-}
-.power-fill{
-  height:100%;
-  width:0%;
-  border-radius:999px;
-  background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(34,211,238,.9));
-  box-shadow:0 10px 24px rgba(34,211,238,.18);
-}
-
-/* Quest rows */
-.quest-wrap{ display:grid; gap:8px; }
-.quest-line{
-  display:grid;
-  grid-template-columns:auto 1fr auto;
+/* ======================
+   Layout B (Compact)
+   Toggle by: body.ui-compact
+   ====================== */
+body.ui-compact .hud{
+  padding: calc(10px + var(--sat)) 10px 8px;
   gap:8px;
-  align-items:center;
 }
-.q-badge{
-  font-weight:1000;
-  font-size:11px;
-  padding:5px 9px;
-  border-radius:999px;
-  border:1px solid rgba(34,197,94,.28);
-  background:rgba(34,197,94,.12);
-}
-.q-badge.mini{
-  border-color:rgba(167,139,250,.30);
-  background:rgba(167,139,250,.12);
-}
-.q-text{
-  font-weight:900;
-  font-size:12px;
-  opacity:.95;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.q-num{
-  font-weight:1000;
-  font-size:12px;
-  opacity:.95;
-}
-.qbar{ position:relative; }
-.qbar-track{
-  height:10px;
-  border-radius:999px;
-  background:rgba(148,163,184,.14);
-  overflow:hidden;
-}
-.qbar-fill{ height:100%; width:0%; border-radius:999px; }
-.qbar-fill.goal{ background:linear-gradient(90deg, rgba(34,197,94,.9), rgba(34,211,238,.65)); }
-.qbar-fill.mini{ background:linear-gradient(90deg, rgba(167,139,250,.9), rgba(34,211,238,.55)); }
-.qbar-timer{
-  position:absolute;
-  right:0;
-  top:-18px;
-  font-size:11px;
-  font-weight:900;
-  color:var(--muted);
-}
-
-#hud-mini-line.mini-urgent .q-badge.mini{
-  border-color:rgba(239,68,68,.55);
-  background:rgba(239,68,68,.18);
-}
-#hud-mini-line.mini-urgent .q-text{
-  color:#fff;
-  text-shadow:0 0 14px rgba(239,68,68,.35);
-}
-
-/* Right rank */
-.rank-box{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-}
-.rank-title{
-  font-weight:1000;
-  font-size:12px;
-  opacity:.9;
-}
-.rank-sub{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  font-size:12px;
-  font-weight:900;
-  color:var(--muted);
-  margin-top:6px;
-}
-.rank-grade{
-  font-weight:1100;
-  font-size:26px;
-  line-height:1;
-  padding:10px 12px;
+body.ui-compact .hud .box{
+  min-width: 96px;
   border-radius:14px;
-  border:1px solid rgba(34,211,238,.25);
-  background:rgba(2,6,23,.55);
+  padding:8px 10px;
 }
+body.ui-compact .hud .big{ font-size:15px; }
+body.ui-compact .hud .small{ font-size:11px; }
 
-/* ======================
-   Layout B: Compact HUD (mobile friendly)
-   - body.ui-compact: ซ่อนบางส่วนให้พื้นที่เล่นโล่ง
-   ====================== */
-@media (max-width: 520px){
-  .hud-top{
-    grid-template-columns: 1fr;
-    gap:10px;
-  }
-  .hud-card{ padding:12px; }
-  .rank-grade{ font-size:24px; }
+body.ui-compact .centerTop{
+  top: calc(52px + var(--sat));
+  gap:6px;
 }
-
-/* compact mode: hide quest + reduce coach space (HTML มี questTop/coachWrap ก็ซ่อนได้) */
-body.ui-compact .questTop,
-body.ui-compact .coachWrap{
-  display:none !important;
-}
-body.ui-compact .hud-top{
-  top:calc(8px + var(--sat));
-}
-body.ui-compact .power-wrap{
-  margin-top:6px;
-}
-
-/* ======================
-   Start / End overlays
-   ====================== */
-.start-overlay,
-.result-overlay{
-  position:fixed;
-  inset:0;
-  z-index:20;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-  background:rgba(2,6,23,.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.start-card,
-.result-card{
-  width:min(560px, 94vw);
-  background:rgba(15,23,42,.72);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius:22px;
-  padding:16px;
-  box-shadow:0 22px 70px rgba(0,0,0,.55);
-}
-
-.start-title{ font-weight:1100; font-size:20px; margin:0 0 6px 0; }
-.start-sub{ margin:0; opacity:.92; line-height:1.35; font-weight:700; }
-
-.start-grid{ display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
-.pill{
+body.ui-compact .centerTop .pill{
   padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.20);
-  background:rgba(2,6,23,.55);
-  font-weight:900;
-  font-size:12px;
+  font-size:11px;
 }
 
-.start-actions,
-.result-actions{ display:grid; gap:10px; margin-top:12px; }
+body.ui-compact .questTop{
+  top: calc(90px + var(--sat));
+  left:10px; right:10px;
+  gap:8px;
+}
+body.ui-compact .questTop .qbar{
+  border-radius:14px;
+  padding:8px 10px;
+}
+body.ui-compact .questTop .qbar .b{ font-size:12px; }
+body.ui-compact .questTop .qbar .t{ font-size:11px; }
 
-.btn{
-  border:0;
-  border-radius:16px;
-  padding:12px 14px;
-  font-weight:1000;
-  cursor:pointer;
+body.ui-compact .powerWrap{
+  left:10px; right:10px;
+  bottom: calc(12px + var(--sab));
 }
-.btn.primary{
-  background:linear-gradient(135deg, rgba(34,197,94,.95), rgba(34,211,238,.80));
-  color:#04110a;
-}
-.btn.ghost{
-  background:transparent;
-  color:var(--text);
-  border:1px solid rgba(148,163,184,.22);
-}
+body.ui-compact .powerWrap .power{ height:12px; }
+body.ui-compact .powerWrap .powerLabel{ font-size:11px; margin-top:6px; }
 
-.start-note{
-  margin-top:10px;
-  font-size:12px;
-  color:var(--muted);
-  font-weight:800;
+body.ui-compact .coachWrap{
+  right:10px;
+  bottom: calc(78px + var(--sab));
+  gap:8px;
 }
+body.ui-compact .coachWrap .coachCard{ width:200px; border-radius:16px; }
+body.ui-compact .coachWrap .coachLine{ font-size:11px; min-height:32px; }
+body.ui-compact .coachWrap .coachImg{ width:66px; height:66px; border-radius:16px; }
 
-.result-overlay{ display:none; }
-.result-overlay.show{ display:flex; }
+/* Optional: ถ้าจอเล็กมาก ให้ซ่อน pill บางตัวเพื่อลดแน่น */
+@media (max-width: 380px){
+  body.ui-compact .centerTop .pill:nth-child(2){ display:none; } /* hide MISS pill on tiny */
+}
 
 /* ======================
-   TARGETS — Candy Stickers (Grade 5)
+   Targets — Candy Stickers (Grade 5)
+   IMPORTANT: style by [data-type] because GameEngine sets dataset.type
    ====================== */
 .fg-target{
-  position:absolute; /* ✅ สำคัญ: ให้ขยับตาม fg-layer transform ได้ */
+  position:absolute;
   left: var(--x, 50vw);
   top:  var(--y, 50vh);
 
@@ -450,8 +253,8 @@ body.ui-compact .power-wrap{
     drop-shadow(0 12px 18px rgba(0,0,0,.32));
 }
 
-/* type fills */
-.fg-good{
+/* type fills by data-type */
+.fg-target[data-type="good"]{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 40%),
     radial-gradient(circle at 74% 78%, rgba(255,255,255,.18), rgba(255,255,255,0) 45%),
@@ -459,29 +262,28 @@ body.ui-compact .power-wrap{
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-lime), var(--candy-cyan));
 }
-
-.fg-wrong{
+.fg-target[data-type="wrong"]{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.24), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-amber), rgba(251,146,60,.22));
 }
-.fg-decoy{
+.fg-target[data-type="decoy"]{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-violet), var(--candy-cyan));
 }
-.fg-junk{
+.fg-target[data-type="junk"]{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
     var(--candy-polka),
     var(--candy-stripes),
     linear-gradient(135deg, var(--candy-pink), rgba(248,113,113,.26));
 }
-.fg-boss{
+.fg-target[data-type="boss"]{
   border-color: rgba(34,211,238,.70);
   background:
     radial-gradient(circle at 28% 22%, rgba(255,255,255,.24), transparent 44%),
@@ -490,12 +292,30 @@ body.ui-compact .power-wrap{
     linear-gradient(135deg, rgba(148,163,184,.22), rgba(34,211,238,.14));
   animation: fgBossFloat 1.00s ease-in-out infinite;
 }
+.fg-target[data-type="star"]{
+  border-color: rgba(250,204,21,.75);
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255,255,255,.26), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(250,204,21,.32), rgba(34,211,238,.12));
+}
+.fg-target[data-type="ice"]{
+  border-color: rgba(125,211,252,.75);
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255,255,255,.28), transparent 44%),
+    var(--candy-polka),
+    var(--candy-stripes),
+    linear-gradient(135deg, rgba(125,211,252,.26), rgba(167,139,250,.12));
+}
 
 /* corner badges */
-.fg-wrong::after,
-.fg-decoy::after,
-.fg-junk::after,
-.fg-boss::after{
+.fg-target[data-type="wrong"]::after,
+.fg-target[data-type="decoy"]::after,
+.fg-target[data-type="junk"]::after,
+.fg-target[data-type="boss"]::after,
+.fg-target[data-type="star"]::after,
+.fg-target[data-type="ice"]::after{
   position:absolute;
   right:8px;
   top:7px;
@@ -504,10 +324,13 @@ body.ui-compact .power-wrap{
   filter: drop-shadow(0 12px 16px rgba(0,0,0,.35));
   content:"";
 }
-.fg-wrong::after{ content:"⚠️"; }
-.fg-decoy::after{ content:"❓"; }
-.fg-junk::after { content:"🫧"; }
-.fg-boss::after { content:"👑"; }
+.fg-target[data-type="wrong"]::after{ content:"⚠️"; }
+.fg-target[data-type="decoy"]::after{ content:"❓"; }
+.fg-target[data-type="junk"]::after { content:"🫧"; }
+/* boss shows HP number too (dataset.hp set by engine) */
+.fg-target[data-type="boss"]::after { content:"👑" attr(data-hp); }
+.fg-target[data-type="star"]::after{ content:"⭐"; }
+.fg-target[data-type="ice"]::after { content:"❄️"; }
 
 .fg-target:active{
   transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
@@ -522,24 +345,11 @@ body.ui-compact .power-wrap{
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
 /* boss feedback states */
-.fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
+.fg-target[data-type="boss"].fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
 @keyframes bossHurt{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
   50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)) rotate(-1deg); filter: brightness(1.18); }
   100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
-.fg-boss.fg-boss-weak{
-  box-shadow:
-    0 0 0 4px rgba(34,211,238,.35),
-    0 18px 36px rgba(0,0,0,.40),
-    0 0 26px rgba(34,211,238,.35);
-}
-.fg-boss.fg-boss-weak::after{
-  content:"🎯";
-  right:10px;
-  bottom:10px;
-  top:auto;
-  font-size:18px;
 }
 
 /* keyframes */
@@ -566,33 +376,75 @@ body.ui-compact .power-wrap{
 }
 
 /* ======================
-   Mode vibes (optional)
+   Storm / Urgent vibe (เร้าใจ)
    ====================== */
-body.groups-storm .hud-top{ filter: saturate(1.10) brightness(1.05); }
-body.groups-storm-urgent .hud-top{ animation: hudStormPulse .24s ease-in-out infinite; }
-@keyframes hudStormPulse{
-  0%,100%{ transform: translateZ(0) scale(1.00); }
-  50%{ transform: translateZ(0) scale(1.01); }
+body.groups-storm::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index: 40;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(239,68,68,.10), transparent 55%),
+    radial-gradient(circle at 30% 80%, rgba(34,211,238,.10), transparent 55%);
+  mix-blend-mode: screen;
+  opacity:.9;
+}
+body.groups-storm-urgent::before{
+  animation: stormPulse .22s ease-in-out infinite;
+}
+@keyframes stormPulse{
+  0%,100%{ opacity:.75; transform: translateZ(0) scale(1); }
+  50%{ opacity:1; transform: translateZ(0) scale(1.01); }
 }
 
-body.groups-overdrive .hud-card{
-  box-shadow: 0 18px 60px rgba(34,211,238,.18);
-  border-color: rgba(34,211,238,.30);
+/* subtle shake gameplay only (not HUD) */
+body.groups-storm-urgent .fg-layer{
+  animation: stormShake .22s ease-in-out infinite;
 }
+@keyframes stormShake{
+  0%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(0,0); }
+  25%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(0.8px,-0.6px); }
+  50%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(-0.8px,0.6px); }
+  75%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(0.7px,0.5px); }
+  100%{ transform: translate(var(--vx,0px), var(--vy,0px)) translate(0,0); }
+}
+
+/* Optional mode classes */
+body.groups-overdrive .fg-target{ filter:saturate(1.12) brightness(1.06); }
 body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
 
-/* responsive */
+/* ======================
+   Legacy layout support (if you use .hud-top etc)
+   ====================== */
+.hud-top{
+  position:fixed;
+  left:calc(10px + var(--sal));
+  right:calc(10px + var(--sar));
+  top:calc(10px + var(--sat));
+  z-index: 80;
+  display:grid;
+  grid-template-columns: 1fr minmax(260px, 1.2fr) 1fr;
+  gap:10px;
+  align-items:start;
+}
+.hud-card{
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--radius-lg);
+  box-shadow:0 18px 60px rgba(0,0,0,.45);
+  padding:12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
 @media (max-width: 920px){
   .hud-top{ grid-template-columns: 1fr; }
-  .hud-right{ order:3; }
-  .hud-mid{ order:2; }
-  .hud-left{ order:1; }
 }
 
 /* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
-  body.groups-storm-urgent .hud-top{
+  body.groups-storm-urgent .fg-layer,
+  body.groups-storm-urgent::before{
     animation:none !important;
   }
 }
