@@ -1,12 +1,16 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard + Cardboard view=vr
-// ✅ per-eye hazards (ring/laser) + edgeFX (warn/danger)
-// ✅ time warning tick (<=8s) + edge warn pulse
-// ✅ fever-based shake (intensity by fever%)
-// ✅ unlock audio event from boot
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (LATEST)
+// ✅ DOM targets on #gj-layer
+// ✅ Start overlay gating (ไม่เริ่มสปอนจนกดเริ่ม) แก้ "เป้าไม่โผล่" เพราะ overlay บัง/จับ event
+// ✅ Warmup 3s แล้ว "เร่งขึ้นเร็ว" แบบเกมจริง
+// ✅ Adaptive เฉพาะ run=play
+// ✅ Research mode ยึด diff (ไม่ adapt)
+// ✅ ยิงกลาง + แตะ/คลิกเป้า
+// ✅ VR view (view=vr|cvr): spawn แบบ "mirror" ซ้าย/ขวา + เลื่อนขึ้น (ไม่ต่ำ)
+// ✅ FX: flash good/bad + panic vignette + shake เบา ๆ
+// ✅ Quest emit field เผื่อ HUD binder คนละชื่อ (กัน 0/0)
 // ✅ miss = good expire + junk hit (shield block NOT miss)
-// ✅ adaptive only run=play ; research fixed by diff
-// ✅ flush-hardened: pagehide/visibilitychange
+// ✅ last summary + flush-hardened
 
 'use strict';
 
@@ -18,6 +22,7 @@ function now(){ return (ROOT.performance && performance.now) ? performance.now()
 function emit(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
 }
+
 function qs(name, def){
   try{ return (new URL(ROOT.location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
 }
@@ -55,24 +60,39 @@ function makeRng(seed){
 }
 function pick(rng, arr){ return arr[(rng()*arr.length)|0]; }
 
+function isLandscape(){
+  const w = ROOT.innerWidth || 360;
+  const h = ROOT.innerHeight || 640;
+  return w > h;
+}
+
+function viewMode(){
+  return String(qs('view','') || '').toLowerCase();
+}
+
+function isVRView(){
+  const v = viewMode();
+  return v === 'vr' || v === 'cvr';
+}
+
 function isMobileLike(){
+  const v = viewMode();
+  if (v === 'mobile') return true;
+  if (v === 'pc') return false;
   const w = ROOT.innerWidth || 360;
   const h = ROOT.innerHeight || 640;
   const coarse = (ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches);
   return coarse || (Math.min(w,h) < 520);
 }
 
+/* optional modules */
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
 
 const FeverUI =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.FeverUI) ||
-  ROOT.FeverUI || {
-    set(){},
-    get(){ return { value:0, state:'low', shield:0 }; },
-    setShield(){}
-  };
+  ROOT.FeverUI || { set(){}, get(){ return { value:0, state:'low', shield:0 }; }, setShield(){} };
 
 async function flushLogger(reason){
   emit('hha:flush', { reason: String(reason||'flush') });
@@ -100,64 +120,6 @@ function logEvent(type, data){
   try{ if (typeof ROOT.hhaLogEvent === 'function') ROOT.hhaLogEvent(type, data||{}); }catch(_){}
 }
 
-// ---------------- Audio (WebAudio no assets) ----------------
-const HHA_AUDIO = (function(){
-  let ctx = null;
-  let ok = false;
-
-  function ensure(){
-    if (ctx) return ctx;
-    const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
-    if (!AC) return null;
-    ctx = new AC();
-    return ctx;
-  }
-
-  async function unlock(){
-    const c = ensure();
-    if (!c) return false;
-    try{
-      if (c.state === 'suspended') await c.resume();
-      ok = (c.state === 'running');
-      return ok;
-    }catch(_){
-      return false;
-    }
-  }
-
-  function beep(freq=880, durMs=60, gain=0.06, type='square'){
-    const c = ensure();
-    if (!c || !ok) return;
-    try{
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.type = type;
-      o.frequency.value = freq;
-
-      g.gain.value = 0.0001;
-      o.connect(g);
-      g.connect(c.destination);
-
-      const t0 = c.currentTime;
-      const t1 = t0 + (durMs/1000);
-
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t0 + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t1);
-
-      o.start(t0);
-      o.stop(t1 + 0.02);
-    }catch(_){}
-  }
-
-  return { unlock, beep };
-})();
-
-ROOT.addEventListener('hha:unlock_audio', ()=>{
-  HHA_AUDIO.unlock();
-}, { passive:true });
-
-// ---------------- UI helpers ----------------
 function rankFromAcc(acc){
   if (acc >= 95) return 'SSS';
   if (acc >= 90) return 'SS';
@@ -166,14 +128,15 @@ function rankFromAcc(acc){
   if (acc >= 60) return 'B';
   return 'C';
 }
+
 function diffBase(diff){
   diff = String(diff||'normal').toLowerCase();
-  if (diff === 'easy') return { spawnMs: 980, ttlMs: 2300, size: 1.08, junk: 0.12, power: 0.035, maxT: 7 };
-  if (diff === 'hard') return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.18, power: 0.025, maxT: 9 };
+  if (diff === 'easy')  return { spawnMs: 980, ttlMs: 2300, size: 1.08, junk: 0.12, power: 0.035, maxT: 7 };
+  if (diff === 'hard')  return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.18, power: 0.025, maxT: 9 };
   return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
 }
 
-// --------------- avoid HUD rects ---------------
+/* ---- avoid HUD rects ---- */
 function buildAvoidRects(){
   const DOC = ROOT.document;
   const rects = [];
@@ -184,7 +147,6 @@ function buildAvoidRects(){
     DOC.querySelector('.hud-mid'),
     DOC.querySelector('.hha-controls'),
     DOC.getElementById('hhaFever'),
-    DOC.querySelector('.viewbar')
   ].filter(Boolean);
 
   for (const el of els){
@@ -195,125 +157,138 @@ function buildAvoidRects(){
   }
   return rects;
 }
+
 function pointInRect(x, y, r){
   return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 }
 
-function getPlayRect(layers, stereo){
-  if (stereo && layers && layers[0] && typeof layers[0].getBoundingClientRect === 'function'){
-    const r = layers[0].getBoundingClientRect();
-    return { w: Math.max(1, r.width), h: Math.max(1, r.height), ox: r.left, oy: r.top };
+/* ---- random position with view-aware bounds ---- */
+function randPos(rng, safeMargins, side){
+  const W = ROOT.innerWidth || 360;
+  const H = ROOT.innerHeight || 640;
+
+  const vr = isVRView();
+  const halfW = vr ? (W * 0.5) : W;
+
+  let top    = safeMargins?.top ?? 110;
+  let bottom = safeMargins?.bottom ?? 150;
+  let left   = safeMargins?.left ?? 22;
+  let right  = safeMargins?.right ?? 22;
+
+  // landscape: lift targets + reduce bottom deadzone
+  if (isLandscape()){
+    top = Math.max(64, top - 40);
+    bottom = Math.max(90, bottom - 40);
   }
-  return { w: (ROOT.innerWidth || 360), h: (ROOT.innerHeight || 640), ox: 0, oy: 0 };
-}
 
-function randPos(rng, safeMargins, playRect){
-  const W = playRect?.w || (ROOT.innerWidth || 360);
-  const H = playRect?.h || (ROOT.innerHeight || 640);
-  const ox = playRect?.ox || 0;
-  const oy = playRect?.oy || 0;
-
-  let top = safeMargins?.top ?? 120;
-  let bottom = safeMargins?.bottom ?? 170;
-  let left = safeMargins?.left ?? 22;
-  let right = safeMargins?.right ?? 22;
-
-  if ((W - left - right) < 160){ left = 10; right = 10; }
-  if ((H - top - bottom) < 220){
-    top = Math.max(70, top - 28);
-    bottom = Math.max(110, bottom - 28);
+  // VR: keep within one eye area & lift a bit more
+  if (vr){
+    top = Math.max(54, top - 18);
+    bottom = Math.max(80, bottom - 24);
+    right = Math.max(18, right);
+    left = Math.max(18, left);
   }
+
+  // relax if too tight
+  if ((halfW - left - right) < 180){ left = 12; right = 12; }
+  if ((H - top - bottom) < 240){ top = Math.max(52, top - 20); bottom = Math.max(70, bottom - 20); }
 
   const avoid = buildAvoidRects();
 
-  for (let i=0;i<22;i++){
-    const x = left + rng() * (W - left - right);
-    const y = top + rng() * (H - top - bottom);
-    const gx = ox + x;
-    const gy = oy + y;
+  // region X
+  const x0 = (vr && side === 'right') ? halfW : 0;
+  const xMin = x0 + left;
+  const xMax = x0 + (halfW - right);
 
+  for (let i=0;i<22;i++){
+    const x = xMin + rng() * Math.max(10, (xMax - xMin));
+    const y = top  + rng() * Math.max(10, (H - top - bottom));
     let ok = true;
     for (const r of avoid){
-      if (pointInRect(gx, gy, { left:r.left-8, right:r.right+8, top:r.top-8, bottom:r.bottom+8 })){
+      if (pointInRect(x, y, { left:r.left-8, right:r.right+8, top:r.top-8, bottom:r.bottom+8 })){
         ok = false; break;
       }
     }
-    if (ok) return { x, y, gx, gy };
+    if (ok) return { x, y };
   }
 
-  const x = left + rng() * (W - left - right);
-  const y = top + rng() * (H - top - bottom);
-  return { x, y, gx: ox + x, gy: oy + y };
+  return {
+    x: xMin + rng() * Math.max(10, (xMax - xMin)),
+    y: top  + rng() * Math.max(10, (H - top - bottom))
+  };
 }
 
-// ---------------- targets + engine ----------------
-const GOOD = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
-const JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
-const STARS = ['⭐','💎'];
+/* ---- gameplay defs ---- */
+const GOOD   = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
+const JUNK   = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
+const STARS  = ['⭐','💎'];
 const SHIELD = '🛡️';
 
 function setXY(el, x, y){
   const px = x.toFixed(1) + 'px';
   const py = y.toFixed(1) + 'px';
-  el.style.setProperty('--x', px);
-  el.style.setProperty('--y', py);
   el.style.left = px;
   el.style.top  = py;
 }
 
-function getCrosshairCenter(el){
-  if (!el) return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
-  try{
-    const r = el.getBoundingClientRect();
-    return { x:r.left + r.width/2, y:r.top + r.height/2 };
-  }catch(_){
-    return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
-  }
+function countTargets(layerEl){
+  try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
 }
+
+function getCrosshairCenter(xPct){
+  const W = ROOT.innerWidth || 360;
+  const H = ROOT.innerHeight || 640;
+  const x = W * xPct;
+  // keep crosshair a bit higher in landscape/VR
+  const y = H * (isLandscape() ? 0.56 : 0.58);
+  return { x, y };
+}
+
 function dist2(ax, ay, bx, by){
   const dx = ax - bx, dy = ay - by;
   return dx*dx + dy*dy;
 }
-function pulseCrosshair(ch){
-  if (!ch) return;
-  ch.classList.remove('pulse');
-  void ch.offsetWidth;
-  ch.classList.add('pulse');
+
+function findTargetNear(layerEl, cx, cy, radiusPx){
+  const r2max = radiusPx * radiusPx;
+  const list = layerEl.querySelectorAll('.gj-target');
+  let best = null;
+  let bestD2 = 1e18;
+
+  list.forEach(el=>{
+    try{
+      const r = el.getBoundingClientRect();
+      const tx = r.left + r.width/2;
+      const ty = r.top + r.height/2;
+      const d2 = dist2(cx, cy, tx, ty);
+      if (d2 <= r2max && d2 < bestD2){
+        best = el; bestD2 = d2;
+      }
+    }catch(_){}
+  });
+
+  return best;
 }
 
-function setEdgeFX(edgeEls, mode){
-  if (!edgeEls || !edgeEls.length) return;
-  for (const el of edgeEls){
-    if (!el) continue;
-    el.classList.remove('warn','danger');
-    if (mode === 'warn') el.classList.add('warn');
-    if (mode === 'danger') el.classList.add('danger');
-  }
-}
-function clearEdgeFX(edgeEls){
-  if (!edgeEls || !edgeEls.length) return;
-  for (const el of edgeEls){
-    if (!el) continue;
-    el.classList.remove('warn','danger');
-  }
-}
-
-function setShake(stageEl, fever, stereo){
-  if (!stageEl) return;
-  const f = clamp(fever, 0, 100) / 100;
-  const px = (stereo ? 1.9 : 2.4) * f; // VR เบากว่าเพื่อไม่เมา
-  stageEl.style.setProperty('--shakePx', px.toFixed(2) + 'px');
-  if (fever >= 45){
-    stageEl.classList.add('shake');
-  } else {
-    stageEl.classList.remove('shake');
-  }
-}
-
-function updateFever(shield, fever, stageEl, stereo){
+function updateFever(shield, fever){
   try{ FeverUI.set({ value: clamp(fever, 0, 100), shield: clamp(shield, 0, 9) }); }catch(_){}
   try{ if (typeof FeverUI.setShield === 'function') FeverUI.setShield(clamp(shield,0,9)); }catch(_){}
-  setShake(stageEl, fever, stereo);
+}
+
+/* ---- FX helpers ---- */
+let fxTO = { good:0, bad:0, panic:0, shake:0 };
+function fxClassOnce(cls, ms){
+  try{
+    document.body.classList.add(cls);
+    clearTimeout(fxTO[cls] || 0);
+    fxTO[cls] = setTimeout(()=>{ try{ document.body.classList.remove(cls); }catch(_){ } }, ms || 180);
+  }catch(_){}
+}
+function fxPanic(on){
+  try{
+    if (on) document.body.classList.add('gj-panic');
+    else document.body.classList.remove('gj-panic');
+  }catch(_){}
 }
 
 function makeSummary(S, reason){
@@ -346,6 +321,7 @@ function makeSummary(S, reason){
     diff: S.diff,
     runMode: S.runMode,
     seed: S.seed,
+    view: S.view,
     durationPlayedSec: Math.round((now() - S.tStart)/1000)
   };
 }
@@ -360,52 +336,20 @@ async function flushAll(summary, reason){
   await flushLogger(reason || (summary?.reason) || 'flush');
 }
 
-// ---------------- exported boot ----------------
-export function boot(opts = {}){
+/* -------------------- exported boot -------------------- */
+export function boot(opts = {}) {
   const DOC = ROOT.document;
   if (!DOC) return;
 
-  const view = String(opts.view || qs('view','pc') || 'pc').toLowerCase();
-  const stereo = (view === 'vr');
-
-  const monoLayer = opts.layerEl || DOC.getElementById('gj-layer');
-  const monoCh    = opts.crosshairEl || DOC.getElementById('gj-crosshair');
-
-  const layerL = opts.layerElL || DOC.getElementById('gj-layer-l');
-  const layerR = opts.layerElR || DOC.getElementById('gj-layer-r');
-  const chL    = opts.crosshairElL || DOC.getElementById('gj-crosshair-l');
-  const chR    = opts.crosshairElR || DOC.getElementById('gj-crosshair-r');
-
+  const layerEl = opts.layerEl || DOC.getElementById('gj-layer');
   const shootEl = opts.shootEl || DOC.getElementById('btnShoot');
+  const startOverlay = DOC.getElementById('startOverlay');
+  const btnStart = DOC.getElementById('btnStart');
 
-  const layers = stereo ? [layerL, layerR].filter(Boolean) : [monoLayer].filter(Boolean);
-  const crosshairs = stereo ? [chL, chR].filter(Boolean) : [monoCh].filter(Boolean);
-  const stageEl = DOC.getElementById('gj-stage');
-
-  if (!layers.length){
-    console.warn('[GoodJunkVR] missing layers');
+  if (!layerEl){
+    console.warn('[GoodJunkVR] missing #gj-layer');
     return;
   }
-
-  // hazards refs (mono + per-eye)
-  const ringMono = DOC.getElementById('atk-ring');
-  const laserMono = DOC.getElementById('atk-laser');
-  const edgeMono = DOC.getElementById('edgefx');
-
-  const ringL = DOC.getElementById('atk-ring-l');
-  const ringR = DOC.getElementById('atk-ring-r');
-  const laserL = DOC.getElementById('atk-laser-l');
-  const laserR = DOC.getElementById('atk-laser-r');
-  const edgeL = DOC.getElementById('edgefx-l');
-  const edgeR = DOC.getElementById('edgefx-r');
-
-  const ringEls = stereo ? [ringL, ringR].filter(Boolean) : [ringMono].filter(Boolean);
-  const laserEls = stereo ? [laserL, laserR].filter(Boolean) : [laserMono].filter(Boolean);
-  const edgeEls = stereo ? [edgeL, edgeR].filter(Boolean) : [edgeMono].filter(Boolean);
-
-  const playRect = getPlayRect(layers, stereo);
-
-  const safeMargins = Object.assign({ top: 120, bottom: 170, left: 22, right: 22 }, (opts.safeMargins || {}));
 
   const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
   const run  = String(opts.run || qs('run','play')).toLowerCase();
@@ -419,6 +363,13 @@ export function boot(opts = {}){
   const seedIn = opts.seed || qs('seed', null);
   const ts = String(qs('ts', Date.now()));
   const seed = String(seedIn || (sessionId ? (sessionId + '|' + ts) : ts));
+  const vmode = viewMode() || (isMobileLike() ? 'mobile' : 'pc');
+
+  // mark VR class for CSS
+  try{
+    if (isVRView()) DOC.body.classList.add('is-vr');
+    else DOC.body.classList.remove('is-vr');
+  }catch(_){}
 
   const ctx = opts.context || {};
 
@@ -427,8 +378,11 @@ export function boot(opts = {}){
     ended:false,
     flushed:false,
 
-    diff, runMode, timeSec, seed, rng: makeRng(seed),
-    endPolicy, challenge, view, stereo,
+    diff, runMode, timeSec,
+    seed, rng: makeRng(seed),
+    endPolicy, challenge,
+
+    view: vmode,
 
     tStart:0,
     left: timeSec,
@@ -462,53 +416,33 @@ export function boot(opts = {}){
     junkP: 0.15,
     powerP: 0.03,
     maxTargets: 8,
-
-    // time tick
-    lastTickSec: 9999,
-
-    // hazard
-    hzState: 'idle',      // idle | ring | laser
-    hzUntil: 0,
-    hzNextAt: 0,
-    hzPhase: 0
   };
 
   const base = diffBase(diff);
   S.spawnMs = base.spawnMs;
-  S.ttlMs = base.ttlMs;
-  S.size = base.size;
-  S.junkP = base.junk;
-  S.powerP = base.power;
+  S.ttlMs   = base.ttlMs;
+  S.size    = base.size;
+  S.junkP   = base.junk;
+  S.powerP  = base.power;
   S.maxTargets = base.maxT;
 
+  // mobile adjust
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
     S.size = Math.min(1.12, S.size + 0.03);
-    safeMargins.left = Math.max(18, safeMargins.left);
-    safeMargins.right = Math.max(18, safeMargins.right);
-  }
-  if (stereo){
-    S.maxTargets = Math.min(S.maxTargets, 9);
-    S.size = Math.min(1.12, S.size + 0.02);
-    safeMargins.top = Math.max(90, safeMargins.top - 10);
   }
 
-  // --------- VR mini HUD refs ----------
-  const vrRefs = stereo ? {
-    score:[DOC.getElementById('vrScoreL'), DOC.getElementById('vrScoreR')],
-    combo:[DOC.getElementById('vrComboL'), DOC.getElementById('vrComboR')],
-    miss: [DOC.getElementById('vrMissL'),  DOC.getElementById('vrMissR')],
-    time: [DOC.getElementById('vrTimeL'),  DOC.getElementById('vrTimeR')],
-    goal: [DOC.getElementById('vrGoalL'),  DOC.getElementById('vrGoalR')],
-    mini: [DOC.getElementById('vrMiniL'),  DOC.getElementById('vrMiniR')],
-  } : null;
-
-  function setBoth(list, text){
-    if (!list) return;
-    for (const el of list){
-      if (el) el.textContent = String(text);
+  // safe margins (landscape/VR => ลด bottom + ยกขึ้น)
+  const safeMargins = (() => {
+    if (isVRView()){
+      return isLandscape()
+        ? { top: 68,  bottom: 92,  left: 18, right: 18 }
+        : { top: 84,  bottom: 118, left: 18, right: 18 };
     }
-  }
+    return isLandscape()
+      ? { top: 78,  bottom: 115, left: 22, right: 22 }
+      : { top: 128, bottom: 170, left: 26, right: 26 };
+  })();
 
   function coach(mood, text, sub){
     emit('hha:coach', { mood: mood || 'neutral', text: String(text||''), sub: sub ? String(sub) : undefined });
@@ -516,43 +450,42 @@ export function boot(opts = {}){
   function judge(kind, text){
     emit('hha:judge', { kind: kind || 'info', text: String(text||'') });
   }
-
   function updateScore(){
     emit('hha:score', { score:S.score|0, combo:S.combo|0, comboMax:S.comboMax|0, misses:S.misses|0, shield:S.shield|0 });
     const acc = S.hitAll > 0 ? Math.round((S.hitGood/S.hitAll)*100) : 0;
     emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
-
-    if (stereo && vrRefs){
-      setBoth(vrRefs.score, S.score|0);
-      setBoth(vrRefs.combo, S.combo|0);
-      setBoth(vrRefs.miss,  S.misses|0);
-    }
   }
   function updateTime(){
     emit('hha:time', { left: Math.max(0, S.left|0) });
-    if (stereo && vrRefs){
-      setBoth(vrRefs.time, Math.max(0, S.left|0));
-    }
   }
   function updateQuest(){
-    emit('quest:update', {
-      goalTitle: `Goal: เก็บของดีให้ครบ`,
-      goalNow: S.goalsCleared, goalTotal: S.goalsTotal,
-      miniTitle: `Mini: คอมโบมาแล้ว!`,
-      miniNow: S.miniCleared, miniTotal: S.miniTotal,
+    const goalTitle = `เก็บของดีให้ครบ`;
+    const miniTitle = `คอมโบมาแล้ว!`;
+
+    // ✅ emit หลายชื่อ field กัน HUD binder คนละแบบ
+    const payload = {
+      goalTitle: `Goal: ${goalTitle}`,
+      goalNow: S.goalsCleared,
+      goalTotal: S.goalsTotal,
+      goalCur: S.goalsCleared,
+      goalTarget: S.goalsTotal,
+
+      miniTitle: `Mini: ${miniTitle}`,
+      miniNow: S.miniCleared,
+      miniTotal: S.miniTotal,
+      miniCur: S.miniCleared,
+      miniTarget: S.miniTotal,
+
       miniLeftMs: 0
-    });
+    };
+    emit('quest:update', payload);
+
     emit('quest:progress', {
       goalsCleared: S.goalsCleared,
       goalsTotal: S.goalsTotal,
       miniCleared: S.miniCleared,
       miniTotal: S.miniTotal
     });
-
-    if (stereo && vrRefs){
-      setBoth(vrRefs.goal, `Goal ${S.goalsCleared}/${S.goalsTotal}`);
-      setBoth(vrRefs.mini, `Mini ${S.miniCleared}/${S.miniTotal}`);
-    }
   }
 
   function clearTimers(){
@@ -560,74 +493,72 @@ export function boot(opts = {}){
     try{ clearTimeout(S.tickTimer); }catch(_){}
   }
 
-  // ---- stereo target table (tid -> record) ----
-  let tidSeq = 1;
-  const active = new Map(); // tid => {tid,type,emoji,els[],ttl}
-
-  function countTargets(){ return active.size; }
-
-  function removeTargetT(T){
-    if (!T) return;
-    try{ clearTimeout(T.ttl); }catch(_){}
-    for (const el of T.els){
-      if (!el || !el.isConnected) continue;
-      el.classList.add('hit');
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 140);
-    }
-    active.delete(T.tid);
+  function removeTarget(el){
+    try{ clearTimeout(el._ttl); }catch(_){}
+    el.classList.add('hit');
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 140);
   }
 
-  function expireTargetT(T){
-    if (!T || S.ended || !S.running) return;
-    if (T.type === 'good'){
+  function expireTarget(el){
+    if (!el || !el.isConnected) return;
+    const tp = String(el.dataset.type||'');
+    if (tp === 'good'){
       S.misses++;
       S.expireGood++;
       S.combo = 0;
 
       S.fever = clamp(S.fever + 7, 0, 100);
-      updateFever(S.shield, S.fever, stageEl, stereo);
+      updateFever(S.shield, S.fever);
 
       judge('warn', 'MISS (หมดเวลา)!');
+      fxClassOnce('gj-flash-bad', 140);
+      if (S.fever >= 70) fxPanic(true);
+
       updateScore();
       updateQuest();
-      logEvent('miss_expire', { kind:'good', emoji: String(T.emoji||'') });
+      logEvent('miss_expire', { kind:'good', emoji: String(el.dataset.emoji||'') });
     }
-
-    for (const el of T.els){
-      if (!el || !el.isConnected) continue;
-      el.classList.add('out');
-      setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
-    }
-    active.delete(T.tid);
+    el.classList.add('out');
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
   }
 
-  function makeTargetEls(type, emoji, x, y, s){
-    const list = [];
-    const mk = ()=>{
-      const el = DOC.createElement('div');
-      el.className = `gj-target ${type}`;
-      el.dataset.type = type;
-      el.dataset.emoji = String(emoji||'✨');
-      el.style.position = 'absolute';
-      el.style.pointerEvents = 'auto';
-      el.style.zIndex = '30';
-      setXY(el, x, y);
-      el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
-      el.textContent = String(emoji||'✨');
-      return el;
+  function makeTarget(type, emoji, x, y, s){
+    const el = DOC.createElement('div');
+    el.className = `gj-target ${type} spawn`;
+    el.dataset.type = type;
+    el.dataset.emoji = String(emoji||'✨');
+
+    el.style.position = 'absolute';
+    el.style.pointerEvents = 'auto';
+    el.style.zIndex = '30';
+
+    setXY(el, x, y);
+    el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
+    el.textContent = String(emoji||'✨');
+
+    // spawn anim
+    setTimeout(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } }, 30);
+
+    // TTL
+    el._ttl = setTimeout(()=> expireTarget(el), S.ttlMs);
+
+    const onHit = (ev)=>{
+      ev.preventDefault?.();
+      ev.stopPropagation?.();
+      hitTarget(el);
     };
+    el.addEventListener('pointerdown', onHit, { passive:false });
+    el.addEventListener('click', onHit, { passive:false });
 
-    if (stereo){
-      if (layers[0]) { const e = mk(); layers[0].appendChild(e); list.push(e); }
-      if (layers[1]) { const e = mk(); layers[1].appendChild(e); list.push(e); }
-    } else {
-      if (layers[0]) { const e = mk(); layers[0].appendChild(e); list.push(e); }
-    }
-    return list;
+    logEvent('spawn', { kind:type, emoji:String(emoji||'') });
+    return el;
   }
 
-  function burstAtXY(x, y, kind){
-    try{ Particles.burstAt(x, y, kind || ''); }catch(_){}
+  function burstAtEl(el, kind){
+    try{
+      const r = el.getBoundingClientRect();
+      Particles.burstAt(r.left + r.width/2, r.top + r.height/2, kind || el.dataset.type || '');
+    }catch(_){}
   }
 
   function scoreGood(){
@@ -637,18 +568,21 @@ export function boot(opts = {}){
     return pts;
   }
 
-  function hitGood(T, hitX, hitY){
+  function hitGood(el){
     S.hitAll++; S.hitGood++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
 
     S.fever = clamp(S.fever - 2.2, 0, 100);
-    updateFever(S.shield, S.fever, stageEl, stereo);
+    updateFever(S.shield, S.fever);
+    if (S.fever < 65) fxPanic(false);
 
     const pts = scoreGood();
     judge('good', `+${pts}`);
-    burstAtXY(hitX, hitY, 'good');
-    logEvent('hit', { kind:'good', emoji:String(T.emoji||''), score:S.score|0, combo:S.combo|0, fever:Math.round(S.fever) });
+    fxClassOnce('gj-flash-good', 120);
+    burstAtEl(el, 'good');
+
+    logEvent('hit', { kind:'good', emoji:String(el.dataset.emoji||''), score:S.score|0, combo:S.combo|0, fever:Math.round(S.fever) });
 
     updateScore();
     updateQuest();
@@ -675,29 +609,29 @@ export function boot(opts = {}){
       }
     }
 
-    removeTargetT(T);
+    removeTarget(el);
   }
 
-  function hitShield(T, hitX, hitY){
+  function hitShield(el){
     S.hitAll++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
 
     S.shield = clamp(S.shield + 1, 0, 9);
-    updateFever(S.shield, S.fever, stageEl, stereo);
+    updateFever(S.shield, S.fever);
 
     S.score += 70;
     judge('good', 'SHIELD +1');
     emit('hha:celebrate', { kind:'mini', title:'SHIELD 🛡️' });
-    burstAtXY(hitX, hitY, 'shield');
+    burstAtEl(el, 'shield');
     logEvent('hit', { kind:'shield', emoji:'🛡️', shield:S.shield|0 });
 
     updateScore();
     updateQuest();
-    removeTargetT(T);
+    removeTarget(el);
   }
 
-  function hitStar(T, hitX, hitY){
+  function hitStar(el){
     S.hitAll++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
@@ -706,29 +640,29 @@ export function boot(opts = {}){
     S.score += pts;
     judge('good', `BONUS +${pts}`);
     emit('hha:celebrate', { kind:'mini', title:'BONUS ✨' });
-    burstAtXY(hitX, hitY, 'star');
-    logEvent('hit', { kind:'star', emoji:String(T.emoji||'⭐') });
+    burstAtEl(el, 'star');
+    logEvent('hit', { kind:'star', emoji:String(el.dataset.emoji||'⭐') });
 
     updateScore();
     updateQuest();
-    removeTargetT(T);
+    removeTarget(el);
   }
 
-  function hitJunk(T, hitX, hitY){
+  function hitJunk(el){
     S.hitAll++;
 
     if (S.shield > 0){
       S.shield = Math.max(0, S.shield - 1);
       S.hitJunkGuard++;
-      updateFever(S.shield, S.fever, stageEl, stereo);
+      updateFever(S.shield, S.fever);
 
       judge('good', 'SHIELD BLOCK!');
-      burstAtXY(hitX, hitY, 'guard');
-      logEvent('shield_block', { kind:'junk', emoji:String(T.emoji||'') });
+      burstAtEl(el, 'guard');
+      logEvent('shield_block', { kind:'junk', emoji:String(el.dataset.emoji||'') });
 
       updateScore();
       updateQuest();
-      removeTargetT(T);
+      removeTarget(el);
       return;
     }
 
@@ -740,39 +674,37 @@ export function boot(opts = {}){
     S.score = Math.max(0, S.score - penalty);
 
     S.fever = clamp(S.fever + 12, 0, 100);
-    updateFever(S.shield, S.fever, stageEl, stereo);
+    updateFever(S.shield, S.fever);
+    fxClassOnce('gj-flash-bad', 160);
+    fxClassOnce('gj-shake', 240);
+    if (S.fever >= 70) fxPanic(true);
 
     judge('bad', `JUNK! -${penalty}`);
     coach('sad', 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
-    burstAtXY(hitX, hitY, 'junk');
+    burstAtEl(el, 'junk');
 
-    // danger edge flash
-    setEdgeFX(edgeEls, 'danger');
-    setTimeout(()=>clearEdgeFX(edgeEls), 220);
-
-    logEvent('hit', { kind:'junk', emoji:String(T.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
+    logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
 
     updateScore();
     updateQuest();
-    removeTargetT(T);
+    removeTarget(el);
   }
 
-  function hitTargetTid(tid, hitX, hitY){
-    if (!S.running || S.ended) return;
-    const T = active.get(String(tid));
-    if (!T) return;
-
-    if (T.type === 'good') return hitGood(T, hitX, hitY);
-    if (T.type === 'junk') return hitJunk(T, hitX, hitY);
-    if (T.type === 'shield') return hitShield(T, hitX, hitY);
-    if (T.type === 'star') return hitStar(T, hitX, hitY);
+  function hitTarget(el){
+    if (!S.running || S.ended || !el || !el.isConnected) return;
+    const tp = String(el.dataset.type||'');
+    if (tp === 'good') return hitGood(el);
+    if (tp === 'junk') return hitJunk(el);
+    if (tp === 'shield') return hitShield(el);
+    if (tp === 'star') return hitStar(el);
   }
 
-  function spawnOne(){
+  function spawnOne(side){
     if (!S.running || S.ended) return;
-    if (countTargets() >= S.maxTargets) return;
+    if (countTargets(layerEl) >= S.maxTargets) return;
 
-    const p = randPos(S.rng, safeMargins, playRect);
+    const p = randPos(S.rng, safeMargins, side);
+
     const t = now();
     const inWarm = (t < S.warmupUntil);
 
@@ -789,42 +721,22 @@ export function boot(opts = {}){
 
     const size = (inWarm ? (S.size * 1.06) : S.size);
 
-    const emoji =
-      (tp === 'good') ? pick(S.rng, GOOD) :
-      (tp === 'junk') ? pick(S.rng, JUNK) :
-      (tp === 'shield') ? SHIELD :
-      pick(S.rng, STARS);
-
-    const tid = String(tidSeq++);
-    const els = makeTargetEls(tp, emoji, p.x, p.y, size);
-
-    for (const el of els){
-      el.dataset.tid = tid;
-      const onHit = (ev)=>{
-        ev.preventDefault?.();
-        ev.stopPropagation?.();
-        try{
-          const rr = el.getBoundingClientRect();
-          hitTargetTid(tid, rr.left + rr.width/2, rr.top + rr.height/2);
-        }catch(_){
-          hitTargetTid(tid, p.gx, p.gy);
-        }
-      };
-      el.addEventListener('pointerdown', onHit, { passive:false });
-      el.addEventListener('click', onHit, { passive:false });
-    }
-
-    const T = { tid, type: tp, emoji, els, ttl: 0 };
-    T.ttl = setTimeout(()=>expireTargetT(T), S.ttlMs);
-    active.set(tid, T);
-
-    logEvent('spawn', { kind:tp, emoji:String(emoji||'') });
+    if (tp === 'good')   layerEl.appendChild(makeTarget('good',   pick(S.rng, GOOD),  p.x, p.y, size));
+    if (tp === 'junk')   layerEl.appendChild(makeTarget('junk',   pick(S.rng, JUNK),  p.x, p.y, size * 0.98));
+    if (tp === 'shield') layerEl.appendChild(makeTarget('shield', SHIELD,             p.x, p.y, size * 1.03));
+    if (tp === 'star')   layerEl.appendChild(makeTarget('star',   pick(S.rng, STARS), p.x, p.y, size * 1.02));
   }
 
   function loopSpawn(){
     if (!S.running || S.ended) return;
 
-    spawnOne();
+    if (isVRView()){
+      // spawn 1 in each eye region (mirror feel)
+      spawnOne('left');
+      spawnOne('right');
+    } else {
+      spawnOne('left');
+    }
 
     const t = now();
     const inWarm = (t < S.warmupUntil);
@@ -835,130 +747,11 @@ export function boot(opts = {}){
     S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 380, 1400));
   }
 
-  // ---------- Hazards controller ----------
-  function setRing(on){
-    for (const el of ringEls){
-      if (!el) continue;
-      el.classList.toggle('show', !!on);
-    }
-  }
-  function setLaser(mode){ // '' | warn | fire
-    for (const el of laserEls){
-      if (!el) continue;
-      el.classList.remove('warn','fire');
-      if (mode) el.classList.add(mode);
-    }
-  }
-  function setRingGap(startDeg, gapDeg){
-    try{
-      DOC.documentElement.style.setProperty('--ringGapStart', `${startDeg}deg`);
-      DOC.documentElement.style.setProperty('--ringGapSize', `${gapDeg}deg`);
-    }catch(_){}
-  }
-
-  function scheduleNextHazard(){
-    const t = now();
-    // ระยะห่าง: play -> ผันตามเวลา/ฝีมือ, research -> คงที่กว่า
-    const baseGap = (S.runMode === 'research') ? 8200 : (7200 - clamp((S.comboMax/25)*600, 0, 1600));
-    const jitter = (S.runMode === 'research') ? 400 : (900 + S.rng()*900);
-    S.hzNextAt = t + clamp(baseGap + jitter, 5200, 11000);
-  }
-
-  function startHazard(kind){
-    const t = now();
-    S.hzState = kind;
-    S.hzPhase++;
-    if (kind === 'ring'){
-      // random safe gap
-      const start = Math.floor(S.rng()*360);
-      const gap = clamp(70 + Math.floor(S.rng()*45), 70, 120);
-      setRingGap(start, gap);
-      setRing(true);
-      setLaser('');
-      setEdgeFX(edgeEls, 'warn');
-      // ring duration
-      S.hzUntil = t + 2400;
-      // sound (soft)
-      HHA_AUDIO.beep(520, 70, 0.04, 'sine');
-      logEvent('hazard_start', { kind:'ring', startDeg:start, gapDeg:gap, phase:S.hzPhase });
-    } else {
-      // laser: warn then fire
-      setRing(false);
-      setLaser('warn');
-      setEdgeFX(edgeEls, 'warn');
-      S.hzUntil = t + 2200; // total window includes fire stage inside tick loop
-      HHA_AUDIO.beep(620, 55, 0.05, 'square');
-      logEvent('hazard_start', { kind:'laser', phase:S.hzPhase });
-    }
-  }
-
-  function stopHazard(){
-    if (S.hzState === 'idle') return;
-    setRing(false);
-    setLaser('');
-    clearEdgeFX(edgeEls);
-    logEvent('hazard_end', { kind:S.hzState, phase:S.hzPhase });
-    S.hzState = 'idle';
-    S.hzUntil = 0;
-    scheduleNextHazard();
-  }
-
-  function hazardTick(){
-    if (!S.running || S.ended) return;
-
-    const t = now();
-
-    // start first hazard after warmup
-    if (!S.hzNextAt){
-      S.hzNextAt = S.tStart + 5200;
-    }
-
-    // launch hazard
-    if (S.hzState === 'idle' && t >= S.hzNextAt && S.left > 6){
-      // choose type
-      const k = (S.rng() < 0.52) ? 'laser' : 'ring';
-      startHazard(k);
-    }
-
-    // laser internal phase: warn -> fire at ~0.9s
-    if (S.hzState === 'laser'){
-      const remain = S.hzUntil - t;
-      if (remain < 1200 && remain > 0){
-        // fire window near end
-        setLaser('fire');
-        setEdgeFX(edgeEls, 'danger');
-      }
-      if (remain <= 0) stopHazard();
-    } else if (S.hzState === 'ring'){
-      if (t >= S.hzUntil) stopHazard();
-    }
-  }
-
-  // ---------- time warning (<=8s) ----------
-  function timeWarnTick(){
-    const leftSec = Math.max(0, Math.ceil(S.left));
-    if (leftSec <= 8){
-      if (leftSec !== S.lastTickSec){
-        S.lastTickSec = leftSec;
-        setEdgeFX(edgeEls, 'warn');
-        setTimeout(()=>{ if (S.left > 1) clearEdgeFX(edgeEls); }, 140);
-        // tick sound (higher near 0)
-        const f = 520 + (8-leftSec)*70;
-        HHA_AUDIO.beep(f, 55, 0.06, 'square');
-      }
-    } else {
-      S.lastTickSec = 9999;
-    }
-  }
-
   function adaptiveTick(){
     if (!S.running || S.ended) return;
 
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
-
-    hazardTick();
-    timeWarnTick();
 
     if (S.left <= 0){
       endGame('time');
@@ -982,7 +775,7 @@ export function boot(opts = {}){
 
       const maxBase = base.maxT;
       const maxBonus = Math.round(heat * 4);
-      S.maxTargets = clamp(maxBase + maxBonus, 5, (stereo ? 10 : (isMobileLike() ? 11 : 13)));
+      S.maxTargets = clamp(maxBase + maxBonus, 5, isMobileLike() ? 11 : 13);
 
       if (S.fever >= 70){
         S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
@@ -1000,47 +793,39 @@ export function boot(opts = {}){
     S.tickTimer = setTimeout(adaptiveTick, 140);
   }
 
-  // ยิงกลาง
   function shootAtCrosshair(){
     if (!S.running || S.ended) return;
 
-    // unlock audio on first active action
-    HHA_AUDIO.unlock();
+    const r = isMobileLike() ? 62 : 52;
 
-    const ch = crosshairs[0] || null;
-    const c = getCrosshairCenter(ch);
+    if (isVRView()){
+      const cL = getCrosshairCenter(0.25);
+      const cR = getCrosshairCenter(0.75);
+      const a = findTargetNear(layerEl, cL.x, cL.y, r);
+      const b = findTargetNear(layerEl, cR.x, cR.y, r);
 
-    pulseCrosshair(ch);
-    burstAtXY(c.x, c.y, 'shoot');
-
-    const radius = stereo ? 58 : (isMobileLike() ? 62 : 52);
-    let bestTid = null;
-    let bestD2 = 1e18;
-
-    for (const [tid, T] of active.entries()){
-      const el = (T.els && T.els[0]) ? T.els[0] : null;
-      if (!el || !el.isConnected) continue;
-
-      try{
-        const r = el.getBoundingClientRect();
-        const tx = r.left + r.width/2;
-        const ty = r.top + r.height/2;
-        const d2 = dist2(c.x, c.y, tx, ty);
-        if (d2 <= radius*radius && d2 < bestD2){
-          bestD2 = d2;
-          bestTid = tid;
-        }
-      }catch(_){}
-    }
-
-    if (bestTid){
-      hitTargetTid(bestTid, c.x, c.y);
+      // choose nearer if both exist
+      if (a && b){
+        const ra = a.getBoundingClientRect();
+        const rb = b.getBoundingClientRect();
+        const ax = ra.left + ra.width/2, ay = ra.top + ra.height/2;
+        const bx = rb.left + rb.width/2, by = rb.top + rb.height/2;
+        const da = dist2(cL.x,cL.y,ax,ay);
+        const db = dist2(cR.x,cR.y,bx,by);
+        hitTarget(da <= db ? a : b);
+        return;
+      }
+      if (a) return hitTarget(a);
+      if (b) return hitTarget(b);
     } else {
-      if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
-      judge('info', 'พลาด!');
-      updateScore();
-      HHA_AUDIO.beep(240, 40, 0.04, 'square');
+      const c = getCrosshairCenter(0.5);
+      const el = findTargetNear(layerEl, c.x, c.y, r);
+      if (el) return hitTarget(el);
     }
+
+    // ยิงพลาดไม่เป็น miss (ลดคอมโบนิด)
+    if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
+    updateScore();
   }
 
   function bindInputs(){
@@ -1049,6 +834,9 @@ export function boot(opts = {}){
         e.preventDefault?.();
         shootAtCrosshair();
       });
+      shootEl.addEventListener('pointerdown', (e)=>{
+        e.preventDefault?.();
+      }, { passive:false });
     }
 
     DOC.addEventListener('keydown', (e)=>{
@@ -1061,7 +849,7 @@ export function boot(opts = {}){
 
     const stage = DOC.getElementById('gj-stage');
     if (stage){
-      stage.addEventListener('click', ()=>{
+      stage.addEventListener('click', (e)=>{
         if (isMobileLike()) return;
         shootAtCrosshair();
       });
@@ -1081,13 +869,13 @@ export function boot(opts = {}){
   }
 
   function clearAllTargets(){
-    for (const T of active.values()){
-      try{ clearTimeout(T.ttl); }catch(_){}
-      for (const el of (T.els||[])){
+    try{
+      const list = layerEl.querySelectorAll('.gj-target');
+      list.forEach(el=>{
+        try{ clearTimeout(el._ttl); }catch(_){}
         try{ el.remove(); }catch(_){}
-      }
-    }
-    active.clear();
+      });
+    }catch(_){}
   }
 
   async function endGame(reason){
@@ -1097,9 +885,6 @@ export function boot(opts = {}){
 
     clearTimers();
     clearAllTargets();
-    stopHazard();
-    clearEdgeFX(edgeEls);
-    if (stageEl) stageEl.classList.remove('shake');
 
     const summary = makeSummary(S, reason);
 
@@ -1110,7 +895,26 @@ export function boot(opts = {}){
 
     emit('hha:end', summary);
     emit('hha:celebrate', { kind:'end', title:'จบเกม!' });
+
     coach('neutral', 'จบเกมแล้ว!', 'กดกลับ HUB หรือเล่นใหม่ได้');
+  }
+
+  function clearTimers(){
+    try{ clearTimeout(S.spawnTimer); }catch(_){}
+    try{ clearTimeout(S.tickTimer); }catch(_){}
+  }
+
+  async function tryLockLandscapeAndFullscreen(){
+    // ทำหลัง user gesture เท่านั้น (btnStart)
+    try{
+      if (screen && screen.orientation && screen.orientation.lock){
+        await screen.orientation.lock('landscape');
+      }
+    }catch(_){}
+    try{
+      const el = document.documentElement;
+      if (el.requestFullscreen) await el.requestFullscreen();
+    }catch(_){}
   }
 
   function start(){
@@ -1134,21 +938,16 @@ export function boot(opts = {}){
 
     S.fever = 0;
     S.shield = 0;
-    updateFever(S.shield, S.fever, stageEl, stereo);
+    fxPanic(false);
+    updateFever(S.shield, S.fever);
 
     S.goalsCleared = 0;
     S.miniCleared = 0;
 
     S.warmupUntil = now() + 3000;
-    S.maxTargets = Math.min(S.maxTargets, stereo ? 7 : (isMobileLike() ? 6 : 7));
+    S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    // hazard schedule
-    S.hzState = 'idle';
-    S.hzPhase = 0;
-    S.hzNextAt = S.tStart + 5200;
-    S.hzUntil = 0;
-
-    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วจะมีบอสเอฟเฟกต์มา 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
+    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
     updateScore();
     updateTime();
     updateQuest();
@@ -1160,23 +959,45 @@ export function boot(opts = {}){
       endPolicy: S.endPolicy,
       challenge: S.challenge,
       seed: S.seed,
+      view: S.view,
       sessionId: sessionId || '',
-      timeSec: S.timeSec,
-      view: S.view
+      timeSec: S.timeSec
     });
 
     loopSpawn();
     adaptiveTick();
   }
 
+  // ---------- Bind ----------
   bindInputs();
   bindFlushHard();
 
-  start();
+  // ---------- Start overlay gating ----------
+  if (startOverlay && btnStart){
+    // show meta
+    try{
+      const meta = DOC.getElementById('startMeta');
+      if (meta){
+        meta.textContent = `diff=${diff} • run=${runMode} • time=${timeSec}s • end=${endPolicy} • challenge=${challenge} • view=${vmode}`;
+      }
+    }catch(_){}
 
-  try{
-    ROOT.GoodJunkVR = ROOT.GoodJunkVR || {};
-    ROOT.GoodJunkVR.endGame = endGame;
-    ROOT.GoodJunkVR.shoot = shootAtCrosshair;
-  }catch(_){}
+    // pause interactions behind overlay
+    try{ layerEl.style.pointerEvents = 'none'; }catch(_){}
+    try{ shootEl && (shootEl.disabled = true); }catch(_){}
+
+    btnStart.addEventListener('click', async ()=>{
+      try{ startOverlay.style.display = 'none'; }catch(_){}
+      try{ layerEl.style.pointerEvents = 'auto'; }catch(_){}
+      try{ shootEl && (shootEl.disabled = false); }catch(_){}
+      if (isVRView()) await tryLockLandscapeAndFullscreen();
+      start();
+    }, { once:true });
+
+    // (ไม่ auto-start)
+    return;
+  }
+
+  // fallback (ถ้าไม่มี overlay)
+  start();
 }
