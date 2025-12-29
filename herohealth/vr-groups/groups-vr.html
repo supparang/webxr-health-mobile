@@ -1,174 +1,169 @@
-<!-- === /herohealth/vr-groups/groups-vr.html ===
-Food Groups VR — PRODUCTION (FULL)
-✅ End summary breakdown: Spawn/Hit/Expire
--->
-
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Food Groups VR</title>
+  <title>Food Groups VR — Run</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./groups-vr.css" />
-
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
 </head>
 
 <body>
 
-  <a-scene embedded>
-    <a-sky color="#06162f"></a-sky>
-  </a-scene>
-
-  <div class="hud-top" id="hudTop">
-    <div class="hud-card hud-left">
-      <div class="hud-row"><div class="hud-title">SCORE</div><div class="hud-val" id="hudScore">0</div></div>
-      <div class="hud-row"><div class="hud-title">COMBO</div><div class="hud-val" id="hudCombo">0</div></div>
-      <div class="hud-row"><div class="hud-title">MISS</div><div class="hud-val" id="hudMiss">0</div></div>
-    </div>
-
-    <div class="hud-card hud-mid">
-      <div class="hud-group-row">
-        <div class="hud-group" id="hudGroup">หมู่ 1</div>
-        <div class="hud-timer">⏳ <span id="hudTime">90</span>s</div>
-      </div>
-
-      <div class="power-wrap">
-        <div class="power-label">
-          <div>POWER</div>
-          <div><span id="hudPowerNow">0</span>/<span id="hudPowerThr">8</span></div>
-        </div>
-        <div class="power-bar">
-          <div class="power-fill" id="hudPowerFill"></div>
-        </div>
-      </div>
-
-      <div class="quest-wrap">
-        <div class="quest-line" id="hud-goal-line">
-          <div class="q-badge">GOAL</div>
-          <div class="q-text" id="hudGoalText">—</div>
-          <div class="q-num"><span id="hudGoalNow">0</span>/<span id="hudGoalTot">0</span></div>
-        </div>
-        <div class="qbar">
-          <div class="qbar-track"><div class="qbar-fill goal" id="hudGoalFill"></div></div>
-        </div>
-
-        <div class="quest-line" id="hud-mini-line">
-          <div class="q-badge mini">MINI</div>
-          <div class="q-text" id="hudMiniText">—</div>
-          <div class="q-num">
-            <span id="hudMiniNow">0</span>/<span id="hudMiniTot">0</span>
-            &nbsp;•&nbsp;<span id="hudMiniTimer">0</span>s
+  <!-- ===== Sticky HUD BAR (B) ===== -->
+  <header class="hudbar" id="hudbar" aria-label="HUD Bar">
+    <div class="hudbar-card">
+      <div class="hudrow hudrow1">
+        <div class="hudleft">
+          <div class="hudchip">
+            <div class="k">SCORE</div>
+            <div class="v" id="uiScore">0</div>
+          </div>
+          <div class="hudchip">
+            <div class="k">COMBO</div>
+            <div class="v"><span id="uiCombo">0</span> <span class="muted">(MAX <span id="uiComboMax">0</span>)</span></div>
+          </div>
+          <div class="hudchip danger">
+            <div class="k">MISS</div>
+            <div class="v" id="uiMiss">0</div>
           </div>
         </div>
-        <div class="qbar">
-          <div class="qbar-track"><div class="qbar-fill mini" id="hudMiniFill"></div></div>
+
+        <div class="hudright">
+          <div class="hudpill" id="uiGroup">หมู่ 1</div>
+          <div class="hudpill">
+            ⏱️ <span id="uiTime">90</span>s
+          </div>
+          <div class="hudpill grade">
+            GRADE <b id="uiGrade">C</b>
+          </div>
+
+          <button class="hudbtn" id="btnQuest" type="button" aria-expanded="false" title="พับ/กาง GOAL & MINI">
+            ☰
+          </button>
+        </div>
+      </div>
+
+      <div class="hudrow hudrow2">
+        <div class="powerMini" aria-label="Power">
+          <div class="powerMiniTop">
+            <span class="tag">POWER</span>
+            <span class="num"><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
+          </div>
+          <div class="powerMiniBar"><i id="uiPowerBar"></i></div>
+        </div>
+
+        <div class="hintMini" id="hudHint">
+          ⭐ = Overdrive+Magnet+Shield • ❄️ = Freeze • STORM ระวัง!
         </div>
       </div>
     </div>
+  </header>
 
-    <div class="hud-card hud-right">
-      <div class="rank-box">
-        <div>
-          <div class="rank-title">RANK</div>
-          <div class="rank-sub">
-            <div>ACC</div>
-            <div><span id="hudAcc">0</span>%</div>
-          </div>
-        </div>
-        <div class="rank-grade" id="hudGrade">C</div>
+  <!-- ===== Quest Drawer (collapsible) ===== -->
+  <section class="questDrawer open" id="questDrawer" aria-label="Quest Drawer">
+    <div class="questCard">
+      <div class="qrow">
+        <div class="badge goal">GOAL</div>
+        <div class="qt" id="uiGoalTitle">—</div>
+        <div class="qn" id="uiGoalNum"></div>
       </div>
-      <div class="start-note" id="hudHint">⭐=Overdrive+Magnet+Shield • ❄️=Freeze • STORM ระวัง!</div>
+      <div class="qbar"><i id="uiGoalBar"></i></div>
+
+      <div class="qrow" style="margin-top:10px;">
+        <div class="badge mini">MINI</div>
+        <div class="qt" id="uiMiniTitle">—</div>
+        <div class="qn" id="uiMiniNum"></div>
+      </div>
+      <div class="qbar mini"><i id="uiMiniBar"></i></div>
+      <div class="qtime" id="uiMiniTime" style="display:none;">⏳ 0s</div>
+    </div>
+  </section>
+
+  <!-- ===== Gameplay layer ===== -->
+  <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
+
+  <!-- ===== Coach ===== -->
+  <div class="coachWrap" aria-label="Coach">
+    <div class="coachCard">
+      <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
+      <div class="feverMini"><i id="uiFeverBar"></i></div>
+      <div class="shieldTag" id="uiShieldTag" style="display:none;">🛡️ SHIELD READY</div>
+    </div>
+    <div class="coachImg">
+      <img id="uiCoachImg" src="../img/coach-neutral.png" alt="Coach"/>
     </div>
   </div>
 
-  <div class="fg-layer" id="fgLayer" aria-label="playfield"></div>
-
-  <div class="start-overlay" id="startOverlay">
-    <div class="start-card">
-      <h1 class="start-title">Food Groups VR 🎮</h1>
-      <p class="start-sub">
-        เป้าหมาย: ตี “อาหารถูกหมู่” ให้แม่น สะสม POWER ให้ครบแล้วจะ “สลับหมู่” อัตโนมัติ<br/>
-        ระวัง: 🫧 ขยะ/ผิดหมู่/หลอก = MISS + fever พุ่ง!
-      </p>
-
-      <div class="start-grid" id="startPills"></div>
-
-      <div class="start-sub" style="margin-top:8px; font-weight:900; opacity:.95;">
-        เพลงอาหารหลัก 5 หมู่:
-      </div>
-      <div class="pill" style="width:100%; line-height:1.45; white-space:pre-wrap; font-weight:900;">
-อาหารหลัก 5 หมู่ของไทย ทุกคนจำไว้อย่าได้แปลผัน
-หมู่ 1 กินเนื้อ นม ไข่ ถั่วเมล็ดช่วยให้เติบโตแข็งขัน
-หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล จะให้พลัง
-หมู่ 3 กินผักต่างๆ สารอาหารมากมายกินเป็นอาจิณ
-หมู่ 4 กินผลไม้ สีเขียวเหลืองบ้างมีวิตามิน
-หมู่ 5 อย่าได้ลืมกิน ไขมันทั้งสิ้น อบอุ่นร่างกาย
-      </div>
-
-      <div class="start-actions">
-        <button class="btn primary" id="btnStart">เริ่มเล่น!</button>
-        <button class="btn ghost" id="btnBackHubTop">กลับ HUB</button>
-      </div>
-
-      <div class="start-note">
-        Tip: ลาก/เอียงเครื่อง = VR feel • ⭐ ได้พลังพิเศษ • STORM ท้ายเกมกระพริบ+ติ๊ก
+  <!-- ===== Start overlay ===== -->
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <h2>🚀 พร้อมเล่น Food Groups VR</h2>
+      <p id="startDesc">กำลังเตรียมระบบ…</p>
+      <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
+      <div class="warn" id="warnBox"></div>
+      <div class="row" style="margin-top:10px;">
+        <button id="btnStart">Start</button>
+        <button id="btnBack" class="secondary">กลับ HUB</button>
       </div>
     </div>
   </div>
 
-  <div class="result-overlay" id="resultOverlay">
-    <div class="result-card">
-      <h2 class="start-title" style="margin:0 0 6px 0;">สรุปผล 🎉</h2>
-      <p class="start-sub" id="resultSubtitle">—</p>
+  <!-- ===== End overlay ===== -->
+  <div class="overlay" id="endOverlay">
+    <div class="panel">
+      <h2>🏁 สรุปผล</h2>
+      <p id="endReason"></p>
 
-      <div class="result-grid" id="resultGrid"></div>
-
-      <!-- (5) Breakdown -->
-      <div class="break-wrap" id="resultBreak"></div>
-
-      <div class="result-actions">
-        <button class="btn primary" id="btnRestart">เล่นอีกครั้ง</button>
-        <button class="btn ghost" id="btnBackHub">กลับ HUB</button>
+      <div class="kv">
+        <div class="k">SCORE<b id="endScore">0</b></div>
+        <div class="k">GRADE<b id="endGrade">C</b></div>
+        <div class="k">ACCURACY<b id="endAcc">0%</b></div>
+        <div class="k">COMBO MAX<b id="endComboMax">0</b></div>
       </div>
 
-      <div class="start-note" id="resultNote">ระบบบันทึกผลล่าสุดไว้แล้ว (HHA_LAST_SUMMARY)</div>
+      <div class="row">
+        <button id="btnReplay">เล่นอีกครั้ง</button>
+        <button id="btnHub2" class="secondary">กลับ HUB</button>
+      </div>
     </div>
   </div>
 
   <script type="module">
-    'use strict';
+    const $ = (id)=>document.getElementById(id);
+    const q = new URLSearchParams(location.search);
 
-    const ROOT = window;
-    const DOC = document;
+    const runMode = (q.get('runMode') || 'play').toLowerCase();
+    const diff    = (q.get('diff') || 'normal').toLowerCase();
+    const style   = (q.get('style') || 'mix').toLowerCase();
+    const time    = Number(q.get('time') || 90);
+    const seed    = (q.get('seed') || '').trim() || String(Date.now());
+    const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
+    const autostart = q.get('autostart') === '1';
+    const v = (q.get('v') || String(Date.now()));
 
-    const $ = (id)=> DOC.getElementById(id);
-    const qs = new URLSearchParams(location.search);
-    const pick = (k,d)=> { const v = qs.get(k); return (v==null || v==='') ? d : v; };
-    const clamp = (v,a,b)=> { v = Number(v); if(!Number.isFinite(v)) v = a; return Math.max(a, Math.min(b, v)); };
+    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
 
-    const diff = String(pick('diff','normal')).toLowerCase();
-    const time = clamp(pick('time','90'), 30, 180);
-    const runMode = String(pick('runMode', pick('run','play'))).toLowerCase()==='research' ? 'research' : 'play';
-    const style = String(pick('style','mix')).toLowerCase();
-    const seed = String(pick('seed', pick('s', Date.now())));
-    const hubUrl = (()=>{
-      const u = pick('hubUrl', '');
-      if (u) return u;
-      const hub = pick('hub','');
-      if (hub) return hub;
-      return '../index.html';
-    })();
+    function warn(msg){
+      console.warn(msg);
+      const box = $('warnBox');
+      if (!box) return;
+      box.style.display = 'block';
+      box.textContent += (box.textContent ? '\n' : '') + String(msg);
+    }
 
-    const pills = [ `diff=${diff}`, `time=${time}s`, `runMode=${runMode}`, `style=${style}`, `seed=${seed}` ];
-    $('startPills').innerHTML = pills.map(t=>`<div class="pill">${t}</div>`).join('');
-    $('btnBackHubTop').onclick = ()=> { location.href = hubUrl; };
+    async function safeImport(path){
+      try{
+        await import(path + (path.includes('?') ? '' : ('?v='+encodeURIComponent(v))));
+        return true;
+      }catch(e){
+        warn(`⚠️ load fail: ${path}\n${e?.message || e}`);
+        return false;
+      }
+    }
 
-    const TS = Date.now();
+    // โหลดของจริง
     const BOOT_LIST = [
       './groups-fx.js',
       './audio.js',
@@ -176,211 +171,200 @@ Food Groups VR — PRODUCTION (FULL)
       './GameEngine.js',
     ];
 
-    async function bootAll(){
-      for (const m of BOOT_LIST){
-        await import(`${m}?v=${TS}`);
-      }
+    async function boot(){
+      $('dbgBoot').textContent = 'loading modules…';
+      for (const p of BOOT_LIST) await safeImport(p);
+      $('dbgBoot').textContent = (window.GroupsVR && window.GroupsVR.GameEngine) ? 'READY ✅' : 'ENGINE NOT FOUND ❌';
     }
 
-    function setText(id, v){ const el = $(id); if (el) el.textContent = String(v); }
-    function setFill(id, pct){
-      const el = $(id);
-      if (!el) return;
-      const p = Math.max(0, Math.min(100, Number(pct)||0));
-      el.style.width = p.toFixed(1)+'%';
+    function flushHardened(reason){
+      try{ window.HHACloudLogger?.flush?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flushNow?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flushHardened?.({ reason }); }catch{}
+      try{ window.GroupsVR?.Logger?.flush?.({ reason }); }catch{}
+      try{ window.GroupsVR?.Logger?.flushNow?.({ reason }); }catch{}
     }
 
-    let lastEnd = null;
-    let started = false;
-    let ending = false;
-
-    function saveLastSummary(payload){
-      try{
-        const obj = {
-          game: 'GroupsVR',
-          at: new Date().toISOString(),
-          hubUrl,
-          params: { diff, time, runMode, style, seed },
-          end: payload || {}
-        };
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(obj));
-      }catch{}
+    function goHub(){
+      flushHardened('go_hub');
+      location.href = hub;
     }
+    $('btnBack').addEventListener('click', goHub);
+    $('btnHub2').addEventListener('click', goHub);
 
-    function breakCard(title, rows){
-      const items = rows.map(([k,v])=>(
-        `<div class="break-row"><div>${k}</div><span>${v}</span></div>`
-      )).join('');
-      return `
-        <div class="break-card">
-          <div class="break-head">${title}</div>
-          <div class="break-rows">${items}</div>
-        </div>
-      `;
+    addEventListener('pagehide', ()=>flushHardened('pagehide'));
+    addEventListener('beforeunload', ()=>flushHardened('beforeunload'));
+    document.addEventListener('visibilitychange', ()=>{
+      if (document.visibilityState === 'hidden') flushHardened('hidden');
+    });
+
+    // Quest Drawer toggle
+    const questDrawer = $('questDrawer');
+    const btnQuest = $('btnQuest');
+    function setQuestOpen(open){
+      questDrawer.classList.toggle('open', !!open);
+      btnQuest.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
+    btnQuest.addEventListener('click', ()=>{
+      setQuestOpen(!questDrawer.classList.contains('open'));
+    });
 
-    function renderResult(payload){
-      lastEnd = payload || {};
-      const acc = lastEnd.accuracyGoodPct ?? 0;
-      const grade = lastEnd.grade ?? 'C';
+    function bindEvents(){
+      addEventListener('hha:score', (e)=>{
+        const d = e.detail||{};
+        $('uiScore').textContent = String(d.score ?? 0);
+        $('uiCombo').textContent = String(d.combo ?? 0);
+        $('uiComboMax').textContent = String(d.comboMax ?? 0);
+        $('uiMiss').textContent = String(d.misses ?? 0);
+      });
 
-      $('resultOverlay').classList.add('show');
-      $('resultSubtitle').textContent =
-        `GRADE ${grade} • ACC ${acc}% • SCORE ${lastEnd.scoreFinal||0} • MISS ${lastEnd.misses||0}`;
+      addEventListener('hha:time', (e)=>{
+        const d = e.detail||{};
+        $('uiTime').textContent = String(d.left ?? 0);
+      });
 
-      const stats = [
-        ['Score', lastEnd.scoreFinal||0],
-        ['Combo Max', lastEnd.comboMax||0],
-        ['Accuracy (Good)', `${acc||0}%`],
-        ['Junk Error', `${lastEnd.junkErrorPct||0}%`],
-        ['Avg RT (Good)', `${lastEnd.avgRtGoodMs||0} ms`],
-        ['Median RT (Good)', `${lastEnd.medianRtGoodMs||0} ms`],
-        ['Goals', `${lastEnd.goalsCleared||0}/${lastEnd.goalsTotal||0}`],
-        ['Minis', `${lastEnd.miniCleared||0}/${lastEnd.miniTotal||0}`],
-      ];
-      $('resultGrid').innerHTML = stats.map(([k,v])=>(
-        `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`
-      )).join('');
+      addEventListener('groups:power', (e)=>{
+        const d = e.detail||{};
+        const ch = Number(d.charge||0);
+        const thr = Math.max(1, Number(d.threshold||8));
+        $('uiPower').textContent = String(ch);
+        $('uiPowerThr').textContent = String(thr);
+        $('uiPowerBar').style.width = (Math.min(1, ch/thr)*100).toFixed(1) + '%';
+      });
 
-      // (5) Breakdown Spawn/Hit/Expire
-      const spawn = [
-        ['Good', lastEnd.nTargetGoodSpawned||0],
-        ['Junk', lastEnd.nTargetJunkSpawned||0],
-        ['Wrong', lastEnd.nTargetWrongSpawned||0],
-        ['Decoy', lastEnd.nTargetDecoySpawned||0],
-        ['Star', lastEnd.nTargetStarSpawned||0],
-        ['Ice', lastEnd.nTargetIceSpawned||0],
-        ['Boss', lastEnd.nTargetBossSpawned||0],
-        ['Expire Good', lastEnd.nExpireGood||0],
-      ];
-      const hit = [
-        ['Good', lastEnd.nHitGood||0],
-        ['Junk', lastEnd.nHitJunk||0],
-        ['Wrong', lastEnd.nHitWrong||0],
-        ['Decoy', lastEnd.nHitDecoy||0],
-        ['Star', lastEnd.nHitStar||0],
-        ['Ice', lastEnd.nHitIce||0],
-        ['Boss', lastEnd.nHitBoss||0],
-        ['Junk Guard', lastEnd.nHitJunkGuard||0],
-      ];
+      addEventListener('groups:group', (e)=>{
+        const d = e.detail||{};
+        const gid = Number(d.groupId||1);
+        $('uiGroup').textContent = d.label ? String(d.label) : `หมู่ ${gid}`;
+      });
 
-      $('resultBreak').innerHTML = `
-        <div class="break-title">Breakdown (Spawn / Hit / Expire)</div>
-        <div class="break-grid">
-          ${breakCard('Spawn', spawn)}
-          ${breakCard('Hit', hit)}
-        </div>
-      `;
+      addEventListener('hha:rank', (e)=>{
+        const d = e.detail||{};
+        if (d.grade) $('uiGrade').textContent = String(d.grade);
+      });
 
-      saveLastSummary(lastEnd);
+      // Quest update
+      addEventListener('quest:update', (e)=>{
+        const d = e.detail||{};
+        if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
+        if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
 
-      try{
-        const L = ROOT.HHA_CloudLogger || (ROOT.GAME_MODULES && ROOT.GAME_MODULES.CloudLogger);
-        if (L && typeof L.log === 'function'){
-          L.log({ gameTag:'GroupsVR', params:{diff,time,runMode,style,seed}, end:lastEnd });
+        let gp = (d.goalPct != null) ? Number(d.goalPct)
+               : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
+               : 0;
+        let mp = (d.miniPct != null) ? Number(d.miniPct)
+               : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100
+               : 0;
+
+        $('uiGoalBar').style.width = Math.max(0, Math.min(100, gp)).toFixed(1)+'%';
+        $('uiMiniBar').style.width = Math.max(0, Math.min(100, mp)).toFixed(1)+'%';
+
+        // optional numbers
+        $('uiGoalNum').textContent = (d.goalNow!=null && d.goalTotal!=null) ? `${d.goalNow}/${d.goalTotal}` : '';
+        $('uiMiniNum').textContent = (d.miniNow!=null && d.miniTotal!=null) ? `${d.miniNow}/${d.miniTotal}` : '';
+
+        const tLeft = Number(d.miniTimeLeftSec ?? 0);
+        const timeEl = $('uiMiniTime');
+        if (Number.isFinite(tLeft) && tLeft > 0){
+          timeEl.style.display = 'block';
+          timeEl.textContent = `⏳ ${tLeft}s`;
+          questDrawer.classList.add('mini-urgent');
+        } else {
+          timeEl.style.display = 'none';
+          questDrawer.classList.remove('mini-urgent');
         }
-      }catch{}
+      });
+
+      addEventListener('hha:coach', (e)=>{
+        const d = e.detail||{};
+        if (d.text) $('uiCoachLine').textContent = String(d.text);
+        const mood = String(d.mood||'neutral');
+        const img = (mood==='happy') ? '../img/coach-happy.png'
+                 : (mood==='sad')   ? '../img/coach-sad.png'
+                 : (mood==='fever') ? '../img/coach-fever.png'
+                 : '../img/coach-neutral.png';
+        $('uiCoachImg').src = img;
+      });
+
+      addEventListener('hha:fever', (e)=>{
+        const d = e.detail||{};
+        const pct = Math.max(0, Math.min(100, Number(d.feverPct||0)));
+        $('uiFeverBar').style.width = pct.toFixed(1)+'%';
+        const shield = Number(d.shield||0) > 0;
+        $('uiShieldTag').style.display = shield ? 'inline-flex' : 'none';
+      });
+
+      addEventListener('hha:end', (e)=>{
+        const d = e.detail||{};
+        $('endOverlay').classList.add('show');
+        $('endReason').textContent = `เหตุผล: ${d.reason || '-'}`;
+        $('endScore').textContent = String(d.scoreFinal ?? 0);
+        $('endGrade').textContent = String(d.grade ?? 'C');
+        $('endAcc').textContent = String(d.accuracyGoodPct ?? 0) + '%';
+        $('endComboMax').textContent = String(d.comboMax ?? 0);
+        $('uiGrade').textContent = String(d.grade ?? 'C');
+
+        try{
+          const payload = {
+            game: 'GroupsVR',
+            ts: new Date().toISOString(),
+            ...d,
+            params: { runMode, diff, style, time, seed, hub }
+          };
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+          localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
+        }catch{}
+
+        flushHardened('end');
+      });
     }
 
-    ROOT.addEventListener('hha:score', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      setText('hudScore', d.score ?? 0);
-      setText('hudCombo', d.combo ?? 0);
-      setText('hudMiss', d.misses ?? 0);
-    }, { passive:true });
+    function waitEngineReady(){
+      return new Promise((resolve)=>{
+        let tries = 0;
+        const t = setInterval(()=>{
+          tries++;
+          const GE = window.GroupsVR && window.GroupsVR.GameEngine;
+          if (GE && typeof GE.start === 'function' && typeof GE.setLayerEl === 'function'){
+            clearInterval(t);
+            resolve(GE);
+          }
+          if (tries > 250){
+            clearInterval(t);
+            warn('❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า GameEngine.js โหลดได้ 200 และชื่อไฟล์ตัวใหญ่/เล็กตรง');
+            $('dbgBoot').textContent = 'ENGINE NOT FOUND ❌';
+          }
+        }, 80);
+      });
+    }
 
-    ROOT.addEventListener('hha:time', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      setText('hudTime', d.left ?? time);
-    }, { passive:true });
+    async function startGame(){
+      $('btnStart').disabled = true;
+      $('startDesc').textContent = 'กำลังเริ่มเกม…';
 
-    ROOT.addEventListener('groups:power', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      const nowv = Number(d.charge)||0;
-      const thr = Math.max(1, Number(d.threshold)||1);
-      setText('hudPowerNow', nowv);
-      setText('hudPowerThr', thr);
-      setFill('hudPowerFill', (nowv/thr)*100);
-    }, { passive:true });
+      await boot();
+      const GE = await waitEngineReady();
+      if (!GE){ $('btnStart').disabled = false; return; }
 
-    ROOT.addEventListener('quest:update', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      setText('hudGoalText', d.goalTitle || '—');
-      setText('hudGoalNow', d.goalNow ?? 0);
-      setText('hudGoalTot', d.goalTotal ?? 0);
-      setFill('hudGoalFill', d.goalPct ?? 0);
+      GE.setLayerEl($('fg-layer'));
+      GE.start(diff, { runMode, style, time, seed });
 
-      setText('hudMiniText', d.miniTitle || '—');
-      setText('hudMiniNow', d.miniNow ?? 0);
-      setText('hudMiniTot', d.miniTotal ?? 0);
-      setFill('hudMiniFill', d.miniPct ?? 0);
-
-      const t = Number(d.miniTimeLeftSec)||0;
-      setText('hudMiniTimer', t);
-
-      const line = $('hud-mini-line');
-      if (line){
-        if (t > 0 && t <= 3) line.classList.add('mini-urgent');
-        else line.classList.remove('mini-urgent');
-      }
-    }, { passive:true });
-
-    ROOT.addEventListener('hha:rank', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      setText('hudGrade', d.grade || 'C');
-      setText('hudAcc', d.accuracy ?? 0);
-    }, { passive:true });
-
-    ROOT.addEventListener('groups:group', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      const label = d.label || `หมู่ ${d.groupId||1}`;
-      setText('hudGroup', label);
-      // theme is driven by engine via body.dataset.groupId
-    }, { passive:true });
-
-    ROOT.addEventListener('hha:end', (ev)=>{
-      if (ending) return;
-      ending = true;
-      const d = (ev && ev.detail) || {};
-      renderResult(d);
-    }, { passive:true });
-
-    function startGame(){
-      if (started) return;
-      started = true;
       $('startOverlay').style.display = 'none';
-
-      const layer = $('fgLayer');
-      if (!ROOT.GroupsVR || !ROOT.GroupsVR.GameEngine) return;
-
-      ROOT.GroupsVR.GameEngine.setLayerEl(layer);
-      ROOT.GroupsVR.GameEngine.start(diff, { time, runMode, style, seed });
-
-      try{ ROOT.GroupsVR.Audio && ROOT.GroupsVR.Audio.unlock && ROOT.GroupsVR.Audio.unlock(); }catch{}
+      $('endOverlay').classList.remove('show');
+      $('btnStart').disabled = false;
     }
 
-    function stopGame(reason){
-      try{
-        if (ROOT.GroupsVR && ROOT.GroupsVR.GameEngine) ROOT.GroupsVR.GameEngine.stop(reason || 'stop');
-      }catch{}
-    }
+    $('btnStart').addEventListener('click', startGame);
+    $('btnReplay').addEventListener('click', ()=>{
+      try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
+      $('endOverlay').classList.remove('show');
+      $('startOverlay').style.display = 'grid';
+      if (autostart) setTimeout(startGame, 250);
+    });
 
-    $('btnStart').onclick = startGame;
-
-    $('btnRestart').onclick = ()=>{
-      location.href = `${location.pathname}?diff=${encodeURIComponent(diff)}&time=${encodeURIComponent(time)}&runMode=${encodeURIComponent(runMode)}&style=${encodeURIComponent(style)}&seed=${encodeURIComponent(Date.now())}&hubUrl=${encodeURIComponent(hubUrl)}`;
-    };
-
-    $('btnBackHub').onclick = ()=>{ location.href = hubUrl; };
-
-    ROOT.addEventListener('pagehide', ()=>{ stopGame('pagehide'); }, { passive:true });
-    DOC.addEventListener('visibilitychange', ()=>{
-      if (DOC.visibilityState === 'hidden') stopGame('hidden');
-    }, { passive:true });
-
-    await bootAll();
-    setText('hudTime', time);
+    bindEvents();
+    await boot();
+    if (autostart) setTimeout(()=> $('btnStart').click(), 350);
   </script>
-
 </body>
 </html>
