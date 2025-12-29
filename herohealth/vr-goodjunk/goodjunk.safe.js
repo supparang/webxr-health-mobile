@@ -1,14 +1,16 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard
 // ✅ DOM targets on #gj-layer
-// ✅ Warmup 3s แล้วเร่งเร็ว
+// ✅ Warmup 3s แล้วเร่งไว (B1+B2)
 // ✅ Adaptive เฉพาะ run=play
-// ✅ Research mode run=research ไม่ adapt
-// ✅ Click/tap targets + ยิงกลาง (ปุ่มยิง / Space / Enter)
-// ✅ FIX: CSS ไม่โหลด -> fallback minimal (ไม่ทับ CSS หลัก)
-// ✅ miss definition: good expire + junk hit (shield block ไม่เป็น miss)
-// ✅ events: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
-// ✅ flush-hardened: pagehide / visibilitychange
+// ✅ Research mode (run=research) fixed by diff
+// ✅ Click/tap target + shoot at crosshair (button / Space / Enter)
+// ✅ FIX: "เป้าไม่โผล่/กดไม่ติด" -> ensureTargetStyles pointer-events:auto + fallback left/top
+// ✅ Class match with goodjunk-vr.css: gj-target gj-good/gj-junk/gj-shield/gj-star
+// ✅ End summary overlay fallback + Back HUB
+// ✅ miss definition: good expire + junk hit (shield block NOT miss)
+// ✅ last summary -> localStorage HHA_LAST_SUMMARY + hha_last_summary
+// ✅ flush-hardened: end/backhub/pagehide/visibilitychange
 
 'use strict';
 
@@ -20,6 +22,7 @@ function now(){ return (ROOT.performance && performance.now) ? performance.now()
 function emit(name, detail){
   try{ ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){}
 }
+
 function qs(name, def){
   try{ return (new URL(ROOT.location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
 }
@@ -64,7 +67,7 @@ function isMobileLike(){
   return coarse || (Math.min(w,h) < 520);
 }
 
-// optional modules
+// optional modules (best effort)
 const Particles =
   (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
   ROOT.Particles || { scorePop(){}, burstAt(){}, celebrate(){} };
@@ -79,6 +82,7 @@ const FeverUI =
 
 async function flushLogger(reason){
   emit('hha:flush', { reason: String(reason||'flush') });
+
   const fns = [];
   try{ if (ROOT.HHA_CLOUD_LOGGER && typeof ROOT.HHA_CLOUD_LOGGER.flush === 'function') fns.push(ROOT.HHA_CLOUD_LOGGER.flush.bind(ROOT.HHA_CLOUD_LOGGER)); }catch(_){}
   try{ if (ROOT.HHACloudLogger && typeof ROOT.HHACloudLogger.flush === 'function') fns.push(ROOT.HHACloudLogger.flush.bind(ROOT.HHACloudLogger)); }catch(_){}
@@ -97,6 +101,7 @@ async function flushLogger(reason){
     new Promise(res=>setTimeout(res, 260))
   ]);
 }
+
 function logEvent(type, data){
   emit('hha:log_event', { type, data: data || {} });
   try{ if (typeof ROOT.hhaLogEvent === 'function') ROOT.hhaLogEvent(type, data||{}); }catch(_){}
@@ -111,44 +116,55 @@ function rankFromAcc(acc){
   if (acc >= 60) return 'B';
   return 'C';
 }
+
 function diffBase(diff){
   diff = String(diff||'normal').toLowerCase();
-  if (diff === 'easy'){
+  if (diff === 'easy') {
     return { spawnMs: 980, ttlMs: 2300, size: 1.08, junk: 0.12, power: 0.035, maxT: 7 };
   }
-  if (diff === 'hard'){
+  if (diff === 'hard') {
     return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.18, power: 0.025, maxT: 9 };
   }
   return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
 }
 
-// -------------------- CSS fallback (เฉพาะกรณี CSS หลักไม่โหลด) --------------------
+// -------------------- CSS injection (fallback only; MUST NOT break clicks) --------------------
 function ensureTargetStyles(){
   const DOC = ROOT.document;
-  if (!DOC) return;
-
-  // check if main css likely loaded
-  let cssOk = true;
-  try{
-    const hud = DOC.querySelector('.hha-hud');
-    if (hud){
-      const pos = ROOT.getComputedStyle(hud).position;
-      if (pos !== 'fixed') cssOk = false;
-    }else{
-      cssOk = false;
-    }
-  }catch(_){ cssOk = false; }
-
-  if (cssOk) return; // ✅ อย่าไปทับ CSS หลัก
-  if (DOC.getElementById('gj-fallback-style')) return;
+  if (!DOC || DOC.getElementById('gj-safe-style')) return;
 
   const st = DOC.createElement('style');
-  st.id = 'gj-fallback-style';
+  st.id = 'gj-safe-style';
   st.textContent = `
-    #gj-stage{ position:fixed; inset:0; overflow:hidden; background:#020617; }
-    #gj-layer{ position:fixed; inset:0; z-index:30; pointer-events:auto; touch-action:none; }
-    #gj-crosshair{ position:fixed; left:50%; top:62%; width:46px; height:46px; transform:translate(-50%,-50%); border:2px solid rgba(255,255,255,.6); border-radius:999px; z-index:60; pointer-events:none; }
-    .gj-target{ position:absolute; left:var(--x,50vw); top:var(--y,50vh); transform:translate(-50%,-50%); font-size:44px; line-height:1; user-select:none; -webkit-user-select:none; pointer-events:auto; }
+    #gj-stage{ position:fixed; inset:0; overflow:hidden; }
+    /* ✅ IMPORTANT: pointer-events:auto (do NOT kill taps/clicks) */
+    #gj-layer{ position:absolute; inset:0; z-index:30; pointer-events:auto; touch-action:none; }
+
+    /* minimal fallback target styles (only if main css fails) */
+    .gj-target{
+      position:absolute;
+      left: var(--x, 50vw);
+      top:  var(--y, 50vh);
+      transform: translate(-50%,-50%) scale(var(--s, 1));
+      width: 74px; height: 74px;
+      border-radius: 999px;
+      display:flex; align-items:center; justify-content:center;
+      font-size: 38px; line-height:1;
+      user-select:none; -webkit-user-select:none;
+      pointer-events:auto; touch-action: manipulation;
+      background: rgba(2,6,23,.55);
+      border: 1px solid rgba(148,163,184,.22);
+      box-shadow: 0 16px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset;
+      backdrop-filter: blur(8px);
+      will-change: transform, opacity;
+    }
+    .gj-target.gj-good{ border-color: rgba(34,197,94,.28); }
+    .gj-target.gj-junk{ border-color: rgba(239,68,68,.30); filter: saturate(1.15); }
+    .gj-target.gj-star{ border-color: rgba(34,211,238,.32); }
+    .gj-target.gj-shield{ border-color: rgba(168,85,247,.32); }
+
+    .gj-target.spawn{ transform: translate(-50%,-50%) scale(.25); opacity:0; }
+    .gj-target.gone { transform: translate(-50%,-50%) scale(.85); opacity:0; }
   `;
   DOC.head.appendChild(st);
 }
@@ -174,9 +190,11 @@ function buildAvoidRects(){
   }
   return rects;
 }
+
 function pointInRect(x, y, r){
   return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
 }
+
 function randPos(rng, safeMargins){
   const W = ROOT.innerWidth || 360;
   const H = ROOT.innerHeight || 640;
@@ -186,6 +204,7 @@ function randPos(rng, safeMargins){
   let left = safeMargins?.left ?? 22;
   let right = safeMargins?.right ?? 22;
 
+  // relax if too tight
   if ((W - left - right) < 180){ left = 12; right = 12; }
   if ((H - top - bottom) < 260){ top = Math.max(90, top - 24); bottom = Math.max(130, bottom - 24); }
 
@@ -203,7 +222,10 @@ function randPos(rng, safeMargins){
     if (ok) return { x, y };
   }
 
-  return { x: left + rng() * (W - left - right), y: top + rng() * (H - top - bottom) };
+  return {
+    x: left + rng() * (W - left - right),
+    y: top + rng() * (H - top - bottom)
+  };
 }
 
 // -------------------- engine --------------------
@@ -215,29 +237,34 @@ const SHIELD = '🛡️';
 function setXY(el, x, y){
   const px = x.toFixed(1) + 'px';
   const py = y.toFixed(1) + 'px';
-  el.style.left = px;
-  el.style.top  = py;
   el.style.setProperty('--x', px);
   el.style.setProperty('--y', py);
+  // fallback
+  el.style.left = px;
+  el.style.top  = py;
 }
+
 function countTargets(layerEl){
   try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
 }
+
 function getCrosshairCenter(crosshairEl){
-  if (!crosshairEl){
-    return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
+  if (!crosshairEl) {
+    return { x: (ROOT.innerWidth||360)*0.5, y: (ROOT.innerHeight||640)*0.5 };
   }
   try{
     const r = crosshairEl.getBoundingClientRect();
-    return { x:r.left + r.width/2, y:r.top + r.height/2 };
+    return { x: r.left + r.width/2, y: r.top + r.height/2 };
   }catch(_){
-    return { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
+    return { x: (ROOT.innerWidth||360)*0.5, y: (ROOT.innerHeight||640)*0.5 };
   }
 }
+
 function dist2(ax, ay, bx, by){
   const dx = ax - bx, dy = ay - by;
   return dx*dx + dy*dy;
 }
+
 function findTargetNear(layerEl, cx, cy, radiusPx){
   const r2max = radiusPx * radiusPx;
   const list = layerEl.querySelectorAll('.gj-target');
@@ -267,6 +294,7 @@ function updateFever(shield, fever){
 function makeSummary(S, reason){
   const acc = S.hitAll > 0 ? Math.round((S.hitGood / S.hitAll) * 100) : 0;
   const grade = rankFromAcc(acc);
+
   return {
     reason: String(reason||'end'),
     scoreFinal: S.score|0,
@@ -307,8 +335,158 @@ async function flushAll(summary, reason){
   await flushLogger(reason || (summary?.reason) || 'flush');
 }
 
+function getHubUrl(){
+  const hub = qs('hub', '');
+  if (hub) return hub;
+  // fallback
+  return '../hub.html';
+}
+
+function buildHubReturn(summary){
+  const hub = getHubUrl();
+  try{
+    const u = new URL(hub, location.href);
+    // keep optional: pass last summary key reference
+    u.searchParams.set('from', 'GoodJunkVR');
+    u.searchParams.set('last', 'HHA_LAST_SUMMARY');
+    // keep original study params if present
+    const keep = ['studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel','gameVersion'];
+    for (const k of keep){
+      const v = qs(k, '');
+      if (v) u.searchParams.set(k, v);
+    }
+    if (summary?.reason) u.searchParams.set('reason', String(summary.reason));
+    return u.toString();
+  }catch(_){
+    return hub;
+  }
+}
+
+function renderEndOverlay(summary){
+  const DOC = ROOT.document;
+  if (!DOC) return;
+
+  const host = DOC.getElementById('end-summary');
+  if (!host) return;
+
+  host.innerHTML = '';
+  host.style.position = 'fixed';
+  host.style.inset = '0';
+  host.style.zIndex = '998';
+  host.style.display = 'flex';
+  host.style.alignItems = 'center';
+  host.style.justifyContent = 'center';
+  host.style.padding = '18px';
+  host.style.background = 'rgba(2,6,23,.86)';
+
+  const card = DOC.createElement('div');
+  card.style.width = 'min(560px, 92vw)';
+  card.style.borderRadius = '22px';
+  card.style.border = '1px solid rgba(148,163,184,.22)';
+  card.style.background = 'rgba(2,6,23,.94)';
+  card.style.boxShadow = '0 22px 70px rgba(0,0,0,.42)';
+  card.style.padding = '16px 16px 14px';
+  card.style.color = '#e5e7eb';
+
+  const title = DOC.createElement('div');
+  title.textContent = 'สรุปผล GoodJunkVR';
+  title.style.fontSize = '22px';
+  title.style.fontWeight = '1000';
+
+  const meta = DOC.createElement('div');
+  meta.style.marginTop = '8px';
+  meta.style.color = '#94a3b8';
+  meta.style.fontSize = '13px';
+  meta.textContent = `เหตุผลจบ: ${summary.reason} • diff=${summary.diff} • run=${summary.runMode}`;
+
+  const grid = DOC.createElement('div');
+  grid.style.marginTop = '12px';
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = 'repeat(2, minmax(0,1fr))';
+  grid.style.gap = '10px';
+
+  function box(k,v){
+    const b = DOC.createElement('div');
+    b.style.border = '1px solid rgba(148,163,184,.18)';
+    b.style.borderRadius = '16px';
+    b.style.background = 'rgba(15,23,42,.70)';
+    b.style.padding = '10px 12px';
+    const kk = DOC.createElement('div');
+    kk.textContent = k;
+    kk.style.fontSize = '12px';
+    kk.style.color = '#94a3b8';
+    const vv = DOC.createElement('div');
+    vv.textContent = String(v);
+    vv.style.fontSize = '18px';
+    vv.style.fontWeight = '1000';
+    vv.style.marginTop = '2px';
+    b.appendChild(kk); b.appendChild(vv);
+    return b;
+  }
+
+  grid.appendChild(box('Score', summary.scoreFinal));
+  grid.appendChild(box('Grade', summary.grade));
+  grid.appendChild(box('Accuracy', `${summary.accuracyGoodPct}%`));
+  grid.appendChild(box('Miss', summary.misses));
+  grid.appendChild(box('ComboMax', summary.comboMax));
+  grid.appendChild(box('Fever/Shield', `${summary.feverEnd}% / ${summary.shieldEnd}`));
+
+  const btnRow = DOC.createElement('div');
+  btnRow.style.display = 'flex';
+  btnRow.style.gap = '10px';
+  btnRow.style.marginTop = '14px';
+
+  const btnHub = DOC.createElement('button');
+  btnHub.textContent = 'กลับหน้า HUB';
+  btnHub.style.flex = '1';
+  btnHub.style.height = '52px';
+  btnHub.style.borderRadius = '18px';
+  btnHub.style.border = '1px solid rgba(148,163,184,.22)';
+  btnHub.style.background = 'rgba(96,165,250,.14)';
+  btnHub.style.color = '#fff';
+  btnHub.style.fontWeight = '1000';
+  btnHub.style.fontSize = '16px';
+
+  const btnReplay = DOC.createElement('button');
+  btnReplay.textContent = 'เล่นอีกครั้ง';
+  btnReplay.style.flex = '1';
+  btnReplay.style.height = '52px';
+  btnReplay.style.borderRadius = '18px';
+  btnReplay.style.border = '1px solid rgba(148,163,184,.22)';
+  btnReplay.style.background = 'rgba(34,197,94,.16)';
+  btnReplay.style.color = '#fff';
+  btnReplay.style.fontWeight = '1000';
+  btnReplay.style.fontSize = '16px';
+
+  btnHub.onclick = async () => {
+    try{ await flushAll(summary, 'backhub'); }catch(_){}
+    location.href = buildHubReturn(summary);
+  };
+  btnReplay.onclick = async () => {
+    try{ await flushAll(summary, 'replay'); }catch(_){}
+    // keep params but refresh ts
+    try{
+      const u = new URL(location.href);
+      u.searchParams.set('ts', String(Date.now()));
+      location.href = u.toString();
+    }catch(_){
+      location.reload();
+    }
+  };
+
+  btnRow.appendChild(btnHub);
+  btnRow.appendChild(btnReplay);
+
+  card.appendChild(title);
+  card.appendChild(meta);
+  card.appendChild(grid);
+  card.appendChild(btnRow);
+
+  host.appendChild(card);
+}
+
 // -------------------- exported boot --------------------
-export function boot(opts = {}){
+export function boot(opts = {}) {
   const DOC = ROOT.document;
   if (!DOC) return;
 
@@ -323,7 +501,10 @@ export function boot(opts = {}){
     return;
   }
 
-  const safeMargins = opts.safeMargins || { top:128, bottom:170, left:26, right:26 };
+  // hard safety: make sure layer clickable even if other css overrides
+  try{ layerEl.style.pointerEvents = 'auto'; }catch(_){}
+
+  const safeMargins = opts.safeMargins || { top: 128, bottom: 170, left: 26, right: 26 };
 
   const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
   const run  = String(opts.run || qs('run','play')).toLowerCase();
@@ -340,10 +521,10 @@ export function boot(opts = {}){
 
   const ctx = opts.context || {};
 
-  const base = diffBase(diff);
-
   const S = {
-    running:false, ended:false, flushed:false,
+    running:false,
+    ended:false,
+    flushed:false,
 
     diff, runMode, timeSec, seed, rng: makeRng(seed),
     endPolicy, challenge,
@@ -351,27 +532,44 @@ export function boot(opts = {}){
     tStart:0,
     left: timeSec,
 
-    score:0, combo:0, comboMax:0,
-    misses:0,
+    score:0,
+    combo:0,
+    comboMax:0,
 
-    hitAll:0, hitGood:0, hitJunk:0, hitJunkGuard:0, expireGood:0,
+    misses:0,           // miss = good expire + junk hit (unblocked)
+    hitAll:0,
+    hitGood:0,
+    hitJunk:0,
+    hitJunkGuard:0,
+    expireGood:0,
 
-    fever:0, shield:0,
+    fever: 0,
+    shield: 0,
 
-    goalsCleared:0, goalsTotal:2,
-    miniCleared:0, miniTotal:7,
+    goalsCleared: 0,
+    goalsTotal: 2,
+    miniCleared: 0,
+    miniTotal: 7,
 
-    warmupUntil:0,
-    spawnTimer:0,
-    tickTimer:0,
+    warmupUntil: 0,
+    spawnTimer: 0,
+    tickTimer: 0,
 
-    spawnMs: base.spawnMs,
-    ttlMs: base.ttlMs,
-    size: base.size,
-    junkP: base.junk,
-    powerP: base.power,
-    maxTargets: base.maxT
+    spawnMs: 900,
+    ttlMs: 2000,
+    size: 1.0,
+    junkP: 0.15,
+    powerP: 0.03,
+    maxTargets: 8
   };
+
+  const base = diffBase(diff);
+  S.spawnMs = base.spawnMs;
+  S.ttlMs = base.ttlMs;
+  S.size = base.size;
+  S.junkP = base.junk;
+  S.powerP = base.power;
+  S.maxTargets = base.maxT;
 
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
@@ -395,18 +593,27 @@ export function boot(opts = {}){
     emit('hha:time', { left: Math.max(0, S.left|0) });
   }
   function updateQuest(){
+    const goalTitle = `เก็บของดีให้ครบ`;
+    const goalNow = S.goalsCleared;
+    const goalTotal = S.goalsTotal;
+
+    const miniTitle = `คอมโบมาแล้ว!`;
+    const miniNow = S.miniCleared;
+    const miniTotal = S.miniTotal;
+
     emit('quest:update', {
-      goalTitle: `Goal: เก็บของดีให้ครบ`,
-      goalNow: S.goalsCleared,
-      goalTotal: S.goalsTotal,
-      miniTitle: `Mini: คอมโบมาแล้ว!`,
-      miniNow: S.miniCleared,
-      miniTotal: S.miniTotal,
+      goalTitle: `Goal: ${goalTitle}`,
+      goalNow, goalTotal,
+      miniTitle: `Mini: ${miniTitle}`,
+      miniNow, miniTotal,
       miniLeftMs: 0
     });
+
     emit('quest:progress', {
-      goalsCleared:S.goalsCleared, goalsTotal:S.goalsTotal,
-      miniCleared:S.miniCleared, miniTotal:S.miniTotal
+      goalsCleared: S.goalsCleared,
+      goalsTotal: S.goalsTotal,
+      miniCleared: S.miniCleared,
+      miniTotal: S.miniTotal
     });
   }
 
@@ -418,7 +625,7 @@ export function boot(opts = {}){
   function removeTarget(el){
     try{ clearTimeout(el._ttl); }catch(_){}
     el.classList.add('gone');
-    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 140);
+    setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 160);
   }
 
   function expireTarget(el){
@@ -443,17 +650,22 @@ export function boot(opts = {}){
 
   function makeTarget(type, emoji, x, y, s){
     const el = DOC.createElement('div');
-    el.className = `gj-target ${type}`;
+
+    // ✅ match your CSS: .gj-target.gj-junk / gj-shield / gj-star / gj-good
+    el.className = `gj-target ${type} gj-${type} spawn`;
     el.dataset.type = type;
     el.dataset.emoji = String(emoji||'✨');
 
     el.style.position = 'absolute';
     el.style.pointerEvents = 'auto';
-    el.style.zIndex = '20';
+    el.style.zIndex = '30';
 
     setXY(el, x, y);
-    el.style.fontSize = `${Math.round(40 * (Number(s||1)))}px`;
+    el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
     el.textContent = String(emoji||'✨');
+
+    // spawn anim
+    requestAnimationFrame(()=>{ try{ el.classList.remove('spawn'); }catch(_){ } });
 
     el._ttl = setTimeout(()=> expireTarget(el), S.ttlMs);
 
@@ -501,7 +713,7 @@ export function boot(opts = {}){
     updateQuest();
 
     if (S.miniCleared < S.miniTotal){
-      const needCombo = 4 + (S.miniCleared * 2);
+      const needCombo = 4 + (S.miniCleared * 2); // 4,6,8,10...
       if (S.combo >= needCombo){
         S.miniCleared++;
         emit('hha:celebrate', { kind:'mini', title:`Mini ผ่าน! ${S.miniCleared}/${S.miniTotal}` });
@@ -510,7 +722,7 @@ export function boot(opts = {}){
       }
     }
     if (S.goalsCleared < S.goalsTotal){
-      const needGood = 10 + (S.goalsCleared * 8);
+      const needGood = 10 + (S.goalsCleared * 8); // 10,18
       if (S.hitGood >= needGood){
         S.goalsCleared++;
         emit('hha:celebrate', { kind:'goal', title:`Goal ผ่าน! ${S.goalsCleared}/${S.goalsTotal}` });
@@ -622,7 +834,7 @@ export function boot(opts = {}){
     const r = S.rng();
 
     const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
-    const junkP  = inWarm ? (S.junkP * 0.55) : S.junkP;
+    const junkP  = inWarm ? (S.junkP * 0.55)  : S.junkP;
 
     if (r < powerP) tp = 'shield';
     else if (r < powerP + 0.035) tp = 'star';
@@ -631,10 +843,22 @@ export function boot(opts = {}){
 
     const size = (inWarm ? (S.size * 1.06) : S.size);
 
-    if (tp === 'good')   layerEl.appendChild(makeTarget('good',   pick(S.rng, GOOD),  p.x, p.y, size));
-    if (tp === 'junk')   layerEl.appendChild(makeTarget('junk',   pick(S.rng, JUNK),  p.x, p.y, size * 0.98));
-    if (tp === 'shield') layerEl.appendChild(makeTarget('shield', SHIELD,             p.x, p.y, size * 1.03));
-    if (tp === 'star')   layerEl.appendChild(makeTarget('star',   pick(S.rng, STARS), p.x, p.y, size * 1.02));
+    if (tp === 'good'){
+      layerEl.appendChild(makeTarget('good', pick(S.rng, GOOD), p.x, p.y, size));
+      return;
+    }
+    if (tp === 'junk'){
+      layerEl.appendChild(makeTarget('junk', pick(S.rng, JUNK), p.x, p.y, size * 0.98));
+      return;
+    }
+    if (tp === 'shield'){
+      layerEl.appendChild(makeTarget('shield', SHIELD, p.x, p.y, size * 1.03));
+      return;
+    }
+    if (tp === 'star'){
+      layerEl.appendChild(makeTarget('star', pick(S.rng, STARS), p.x, p.y, size * 1.02));
+      return;
+    }
   }
 
   function loopSpawn(){
@@ -699,12 +923,13 @@ export function boot(opts = {}){
 
   function shootAtCrosshair(){
     if (!S.running || S.ended) return;
+
     const c = getCrosshairCenter(crosshairEl);
     const r = isMobileLike() ? 62 : 52;
     const el = findTargetNear(layerEl, c.x, c.y, r);
-    if (el){
+    if (el) {
       hitTarget(el);
-    }else{
+    } else {
       if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
       updateScore();
     }
@@ -716,6 +941,9 @@ export function boot(opts = {}){
         e.preventDefault?.();
         shootAtCrosshair();
       });
+      shootEl.addEventListener('pointerdown', (e)=>{
+        e.preventDefault?.();
+      }, { passive:false });
     }
 
     DOC.addEventListener('keydown', (e)=>{
@@ -774,7 +1002,11 @@ export function boot(opts = {}){
 
     emit('hha:end', summary);
     emit('hha:celebrate', { kind:'end', title:'จบเกม!' });
-    coach('neutral', 'จบเกมแล้ว!', 'กลับ HUB หรือเล่นใหม่ได้');
+
+    coach('neutral', 'จบเกมแล้ว!', 'กดกลับ HUB หรือเล่นใหม่ได้');
+
+    // ✅ fallback end overlay (เผื่อ HUD ไม่โชว์)
+    try{ renderEndOverlay(summary); }catch(_){}
   }
 
   function start(){
@@ -785,18 +1017,26 @@ export function boot(opts = {}){
     S.tStart = now();
     S.left = timeSec;
 
-    S.score = 0; S.combo = 0; S.comboMax = 0;
+    S.score = 0;
+    S.combo = 0;
+    S.comboMax = 0;
+
     S.misses = 0;
+    S.hitAll = 0;
+    S.hitGood = 0;
+    S.hitJunk = 0;
+    S.hitJunkGuard = 0;
+    S.expireGood = 0;
 
-    S.hitAll = 0; S.hitGood = 0; S.hitJunk = 0; S.hitJunkGuard = 0; S.expireGood = 0;
-
-    S.fever = 0; S.shield = 0;
+    S.fever = 0;
+    S.shield = 0;
     updateFever(S.shield, S.fever);
 
     S.goalsCleared = 0;
     S.miniCleared = 0;
 
     S.warmupUntil = now() + 3000;
+
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
     coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
@@ -817,17 +1057,11 @@ export function boot(opts = {}){
 
     loopSpawn();
     adaptiveTick();
-
-    // ✅ debug safety: ถ้า 900ms ยังไม่มีเป้า -> force spawn 1 ตัว
-    setTimeout(()=>{
-      if (S.running && !S.ended && countTargets(layerEl) === 0){
-        spawnOne();
-      }
-    }, 900);
   }
 
   bindInputs();
   bindFlushHard();
+
   start();
 
   try{
