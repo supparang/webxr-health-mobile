@@ -1,5 +1,10 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR — ALL-IN CSS (LATEST + FX PACK)
+GoodJunkVR — ALL-IN CSS (VR Calibration Patch)
+✅ HUD + Coach + Quest
+✅ Targets (emoji) + FX-friendly
+✅ Crosshair level by CSS var --aimY
+✅ Landscape/VR safe-area + reduce overlap
+✅ Panic FX + hit/miss/junk shakes (subtle)
 */
 
 :root{
@@ -9,14 +14,20 @@ GoodJunkVR — ALL-IN CSS (LATEST + FX PACK)
   --stroke:rgba(148,163,184,.22);
   --text:#e5e7eb;
   --muted:#94a3b8;
+  --good:#22c55e;
+  --junk:#ef4444;
+  --gold:#fbbf24;
+  --power:#60a5fa;
 
   --safeTop: env(safe-area-inset-top, 0px);
   --safeBottom: env(safe-area-inset-bottom, 0px);
 
-  /* FX intensity */
-  --shake: 0px;        /* set by JS */
-  --fever: 0;          /* 0..100 set by JS */
-  --danger: 0;         /* 0..1 set by JS */
+  /* Aim (default mobile portrait) */
+  --aimY: 62%;
+
+  /* Ring gap (updated by JS) */
+  --ringGapStart: 40deg;
+  --ringGapSize: 85deg;
 }
 
 html,body{
@@ -27,155 +38,13 @@ html,body{
   font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
 }
 
-/* --- camera shake wrapper (whole page) --- */
-html.fx-shake body{
-  animation: gjShake 0.16s linear infinite;
-}
-@keyframes gjShake{
-  0%{ transform: translate(calc(var(--shake) * 0.18), calc(var(--shake) * -0.12)); }
-  25%{ transform: translate(calc(var(--shake) * -0.22), calc(var(--shake) * 0.15)); }
-  50%{ transform: translate(calc(var(--shake) * 0.20), calc(var(--shake) * 0.22)); }
-  75%{ transform: translate(calc(var(--shake) * -0.16), calc(var(--shake) * -0.20)); }
-  100%{ transform: translate(calc(var(--shake) * 0.18), calc(var(--shake) * -0.12)); }
-}
-
-/* A-Frame embedded takes full screen under DOM overlay */
-a-scene, canvas{ touch-action:none; }
-
-/* ---------- FX layer ---------- */
-.gj-fx{
-  position:fixed; inset:0;
-  z-index: 95;
-  pointer-events:none;
-}
-.fx-vignette{
-  position:absolute; inset:-2px;
-  background:
-    radial-gradient(circle at 50% 55%,
-      rgba(0,0,0,0) 45%,
-      rgba(0,0,0,0.30) 70%,
-      rgba(0,0,0,0.68) 100%);
-  opacity: 0.55;
-  transition: opacity .2s ease;
-}
-.fx-edge{
-  position:absolute; inset:0;
-  border-radius: 0;
-  box-shadow:
-    inset 0 0 0 2px rgba(148,163,184,.06),
-    inset 0 0 80px rgba(34,197,94,.00);
-  opacity: 0.9;
-  transition: box-shadow .18s ease, opacity .18s ease;
-}
-.fx-flash{
-  position:absolute; inset:0;
-  background: rgba(239,68,68,0);
-  opacity: 0;
-}
-
-/* fever vignette stronger */
-html.fever-hot .fx-vignette{ opacity: 0.80; }
-html.fever-hot .fx-edge{ box-shadow: inset 0 0 0 2px rgba(248,113,113,.14), inset 0 0 120px rgba(239,68,68,.10); }
-
-/* end-time danger pulse */
-html.danger-time .fx-edge{
-  animation: dangerPulse 0.85s ease-in-out infinite;
-}
-@keyframes dangerPulse{
-  0%{ box-shadow: inset 0 0 0 2px rgba(248,113,113,.12), inset 0 0 70px rgba(239,68,68,.10); }
-  50%{ box-shadow: inset 0 0 0 2px rgba(248,113,113,.26), inset 0 0 140px rgba(239,68,68,.16); }
-  100%{ box-shadow: inset 0 0 0 2px rgba(248,113,113,.12), inset 0 0 70px rgba(239,68,68,.10); }
-}
-
-/* flash variants (class toggled by JS on html) */
-html.flash-bad .fx-flash{
-  animation: flashBad .28s ease-out 1;
-}
-@keyframes flashBad{
-  0%{ opacity:.0; background: rgba(239,68,68,.0); }
-  18%{ opacity:.62; background: rgba(239,68,68,.42); }
-  100%{ opacity:0; background: rgba(239,68,68,0); }
-}
-
-html.flash-good .fx-flash{ animation: flashGood .22s ease-out 1; }
-@keyframes flashGood{
-  0%{ opacity:0; background: rgba(34,197,94,0); }
-  20%{ opacity:.36; background: rgba(34,197,94,.28); }
-  100%{ opacity:0; background: rgba(34,197,94,0); }
-}
-
-html.flash-shield .fx-flash{ animation: flashShield .22s ease-out 1; }
-@keyframes flashShield{
-  0%{ opacity:0; background: rgba(96,165,250,0); }
-  20%{ opacity:.42; background: rgba(96,165,250,.32); }
-  100%{ opacity:0; background: rgba(96,165,250,0); }
-}
-
-html.tick .fx-edge{
-  animation: tickPulse .16s ease-out 1;
-}
-@keyframes tickPulse{
-  0%{ opacity: 0.9; }
-  50%{ opacity: 0.55; }
-  100%{ opacity: 0.9; }
-}
-
-/* ---------- Viewbar ---------- */
-.viewbar{
-  position:fixed;
-  left:50%;
-  top: calc(8px + var(--safeTop));
-  transform: translateX(-50%);
-  z-index: 120;
-  display:flex;
-  gap:8px;
-  pointer-events:auto;
-}
-.viewbtn{
-  height: 38px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.72);
-  color: #fff;
-  font-weight: 900;
-}
-.viewbtn:active{ transform: translateY(1px); }
-.viewbtn.accent{ background: rgba(34,197,94,.18); border-color: rgba(34,197,94,.28); }
-.viewbtn.ghost{ opacity: .92; }
-
-/* XR active: hide viewbar */
-.xr-active .viewbar{ display:none; }
-
-/* ---------- Rotate Notice ---------- */
-.rotate-notice{
-  position:fixed; inset:0;
-  z-index: 200;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: rgba(2,6,23,.86);
-  padding: 16px;
-}
-.rotate-card{
-  width: min(520px, 92vw);
-  border-radius: 22px;
-  border: 1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.94);
-  box-shadow: 0 22px 70px rgba(0,0,0,.42);
-  padding: 16px;
-}
-.rotate-card .t{ font-size: 18px; font-weight: 1000; }
-.rotate-card .d{ margin-top: 6px; color:#cbd5e1; line-height:1.55; }
-.rotate-card .hint{ margin-top: 10px; font-size: 12px; color: var(--muted); }
-
-/* ---------- Stage & layer ---------- */
 #gj-stage{
   position:fixed;
   inset:0;
   overflow:hidden;
   touch-action: none;
 }
+
 #gj-layer{
   position:fixed;
   inset:0;
@@ -183,24 +52,56 @@ html.tick .fx-edge{
   z-index: 10;
 }
 
-/* ---------- Crosshair ---------- */
-#gj-crosshair,
-#gj-crosshair-r{
+/* ----- View panel ----- */
+.gj-panel{
   position: fixed;
-  top: 56%;
+  left: 10px;
+  top: calc(10px + var(--safeTop));
+  z-index: 85;
+  width: min(340px, 72vw);
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.58);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 44px rgba(0,0,0,.22);
+  pointer-events:auto;
+}
+.gj-panel-title{ font-weight: 1000; font-size: 14px; }
+.gj-panel-sub{ margin-top:2px; color: var(--muted); font-size: 12px; }
+.gj-panel-row{ display:flex; gap:8px; margin-top:8px; flex-wrap: wrap; }
+.gj-pill{
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.24);
+  background: rgba(2,6,23,.72);
+  color:#fff;
+  padding: 8px 12px;
+  font-weight: 900;
+  font-size: 12px;
+}
+.gj-pill.active{
+  border-color: rgba(34,197,94,.45);
+  box-shadow: 0 0 0 3px rgba(34,197,94,.12);
+}
+.gj-pill-ghost{ opacity:.92; }
+
+/* Crosshair / aim point */
+#gj-crosshair{
+  position: fixed;
+  left: 50%;
+  top: var(--aimY);
   width: 46px;
   height: 46px;
   border-radius: 999px;
   transform: translate(-50%, -50%);
   border: 2px solid rgba(255,255,255,.65);
-  box-shadow: 0 0 0 3px rgba(34,197,94,.12), 0 0 22px rgba(148,163,184,.14);
+  box-shadow:
+    0 0 0 3px rgba(34,197,94,.12),
+    0 0 22px rgba(148,163,184,.14);
   z-index: 40;
   pointer-events:none;
-  display:none;
 }
-#gj-crosshair{ left: 50%; display:block; }
-#gj-crosshair::before,
-#gj-crosshair-r::before{
+#gj-crosshair::before{
   content:'';
   position:absolute;
   left:50%; top:50%;
@@ -209,8 +110,7 @@ html.tick .fx-edge{
   background: rgba(255,255,255,.85);
   transform: translate(-50%,-50%);
 }
-#gj-crosshair::after,
-#gj-crosshair-r::after{
+#gj-crosshair::after{
   content:'';
   position:absolute;
   left:50%; top:50%;
@@ -219,79 +119,32 @@ html.tick .fx-edge{
   border: 2px dashed rgba(148,163,184,.22);
   transform: translate(-50%,-50%);
   opacity:.85;
+  animation: aimSpin 5.8s linear infinite;
 }
+@keyframes aimSpin { from{ transform: translate(-50%,-50%) rotate(0deg);} to{ transform: translate(-50%,-50%) rotate(360deg);} }
 
-/* cVR: show left+right crosshair */
-.view-cvr #gj-crosshair{ left: 25%; display:block; top:52%; }
-.view-cvr #gj-crosshair-r{ left: 75%; display:block; top:52%; }
-
-/* ---------- Attack Ring / Laser (shoot feedback) ---------- */
-#atk-ring{
-  position: fixed;
-  left: 50%;
-  top: 56%;
-  width: 88px;
-  height: 88px;
-  border-radius: 999px;
-  transform: translate(-50%,-50%) scale(.85);
-  border: 2px solid rgba(34,197,94,.0);
-  box-shadow: 0 0 0 6px rgba(34,197,94,.0);
-  opacity: 0;
-  z-index: 42;
-  pointer-events:none;
-}
-#atk-laser{
-  position: fixed;
-  left: 50%;
-  top: 56%;
-  width: 2px;
-  height: 170px;
-  transform: translate(-50%,-100%);
-  background: linear-gradient(to top, rgba(34,197,94,.0), rgba(34,197,94,.6), rgba(255,255,255,.0));
-  opacity: 0;
-  z-index: 41;
-  pointer-events:none;
-  filter: drop-shadow(0 0 10px rgba(34,197,94,.20));
-}
-
-/* shoot animation */
-html.shoot #atk-ring{
-  animation: ringPop .18s ease-out 1;
-}
-@keyframes ringPop{
-  0%{ opacity:0; transform: translate(-50%,-50%) scale(.75); border-color: rgba(34,197,94,.0); box-shadow: 0 0 0 6px rgba(34,197,94,.0); }
-  25%{ opacity:1; transform: translate(-50%,-50%) scale(1.00); border-color: rgba(34,197,94,.65); box-shadow: 0 0 0 6px rgba(34,197,94,.14); }
-  100%{ opacity:0; transform: translate(-50%,-50%) scale(1.10); border-color: rgba(34,197,94,.0); box-shadow: 0 0 0 18px rgba(34,197,94,.0); }
-}
-html.shoot #atk-laser{
-  animation: laser .12s ease-out 1;
-}
-@keyframes laser{
-  0%{ opacity:0; height:120px; }
-  30%{ opacity:1; height:200px; }
-  100%{ opacity:0; height:170px; }
-}
-
-/* cVR ring/laser left/right: duplicate by shifting via body class toggled by JS */
-html.shootL #atk-ring{ left:25%; top:52%; }
-html.shootL #atk-laser{ left:25%; top:52%; }
-html.shootR #atk-ring{ left:75%; top:52%; }
-html.shootR #atk-laser{ left:75%; top:52%; }
-
-/* ---------- Targets ---------- */
+/* Targets */
 .gj-target{
   position:absolute;
   transform: translate(-50%, -50%);
   user-select:none;
   cursor: pointer;
   will-change: transform, opacity, filter;
-  text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 12px 24px rgba(0,0,0,.30);
+  text-shadow:
+    0 2px 0 rgba(0,0,0,.35),
+    0 12px 24px rgba(0,0,0,.30);
   filter: drop-shadow(0 14px 24px rgba(0,0,0,.22));
   transition: transform .12s ease, opacity .16s ease;
 }
+.gj-target.spawn{ transform: translate(-50%,-50%) scale(.25); opacity:0; }
 .gj-target.gone{ transform: translate(-50%,-50%) scale(.85); opacity:0; }
+.gj-target:hover{ transform: translate(-50%,-50%) scale(1.06); }
 
-/* ---------- Controls ---------- */
+.gj-target.junk{ filter: drop-shadow(0 18px 28px rgba(239,68,68,.22)); }
+.gj-target.star{ filter: drop-shadow(0 18px 32px rgba(34,211,238,.22)); }
+.gj-target.shield{ filter: drop-shadow(0 18px 32px rgba(168,85,247,.22)); }
+
+/* Controls */
 .hha-controls{
   position: fixed;
   left: 0;
@@ -304,24 +157,25 @@ html.shootR #atk-laser{ left:75%; top:52%; }
 }
 .btn-shoot{
   pointer-events:auto;
-  width: min(320px, 78vw);
+  width: min(420px, 78vw);
   height: 58px;
   border-radius: 18px;
   border: 1px solid rgba(148,163,184,.24);
   background: rgba(2,6,23,.84);
   color: #fff;
-  font-weight: 900;
+  font-weight: 1000;
+  letter-spacing: .5px;
   font-size: 18px;
   box-shadow: 0 16px 40px rgba(0,0,0,.35);
 }
 .btn-shoot:active{ transform: translateY(1px) scale(.99); }
 
-/* ---------- HUD ---------- */
+/* HUD */
 .hha-hud{
   position: fixed;
   left: 10px;
   right: 10px;
-  top: calc(58px + var(--safeTop));
+  top: calc(10px + var(--safeTop));
   z-index: 80;
   pointer-events:none;
 }
@@ -332,14 +186,14 @@ html.shootR #atk-laser{ left:75%; top:52%; }
   gap:10px;
 }
 .hud-badge{
-  min-width: 170px;
+  min-width: 160px;
   padding: 10px 12px;
   border-radius: 16px;
   border:1px solid var(--stroke);
   background: var(--panel);
   box-shadow: 0 18px 44px rgba(0,0,0,.22);
 }
-.hud-title{ font-size: 14px; font-weight: 900; }
+.hud-title{ font-size: 14px; font-weight: 1000; }
 .hud-sub{ font-size: 12px; color: var(--muted); margin-top:2px; }
 
 .hud-stats{
@@ -350,14 +204,14 @@ html.shootR #atk-laser{ left:75%; top:52%; }
   max-width: 62vw;
 }
 .hud-stat{
-  width: 78px;
+  width: 74px;
   padding: 8px 10px;
   border-radius: 16px;
   border:1px solid var(--stroke);
   background: var(--panel);
 }
 .hud-stat .k{ font-size: 11px; color: var(--muted); }
-.hud-stat .v{ font-size: 18px; font-weight: 900; margin-top:2px; }
+.hud-stat .v{ font-size: 18px; font-weight: 1000; margin-top:2px; }
 
 .hud-mid{
   margin-top: 10px;
@@ -378,10 +232,10 @@ html.shootR #atk-laser{ left:75%; top:52%; }
   justify-content:space-between;
   gap:10px;
 }
-.q-title{ font-weight:900; font-size: 13px; }
-.q-title.mini{ opacity:.95; }
-.q-count{ font-weight:900; font-size: 13px; color:#fff; }
-.q-timer{ font-size: 12px; color: #fbbf24; font-weight:900; min-width: 52px; text-align:right; }
+.q-title{ font-weight:1000; font-size: 13px; }
+.q-title.mini{ font-weight:1000; opacity:.95; }
+.q-count{ font-weight:1000; font-size: 13px; color:#fff; }
+.q-timer{ font-size: 12px; color: var(--gold); font-weight:1000; min-width: 52px; text-align:right; }
 .q-progress{ margin-top:6px; font-size: 12px; color: var(--muted); }
 
 .hud-coach{
@@ -400,10 +254,11 @@ html.shootR #atk-laser{ left:75%; top:52%; }
   background: rgba(2,6,23,.6);
   object-fit: cover;
 }
-.coach-line{ font-size: 13px; font-weight: 900; }
+.coach-talk{ display:flex; flex-direction:column; gap:4px; }
+.coach-line{ font-size: 13px; font-weight: 1000; }
 .coach-sub{ font-size: 12px; color: var(--muted); }
 
-/* ---------- Fever ---------- */
+/* Fever */
 .hha-fever{
   position: fixed;
   left: 12px;
@@ -425,10 +280,11 @@ html.shootR #atk-laser{ left:75%; top:52%; }
 .fever-label, .shield-label{
   width: 62px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 1000;
   color: var(--muted);
 }
 .fever-bar{
+  position: relative;
   flex: 1;
   height: 12px;
   border-radius: 999px;
@@ -444,11 +300,16 @@ html.shootR #atk-laser{ left:75%; top:52%; }
   width: 52px;
   text-align:right;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 1000;
   color:#fff;
 }
+
 .shield-row{ margin-top: 6px; }
-.shield-pills{ display:flex; gap:6px; flex-wrap: wrap; }
+.shield-pills{
+  display:flex;
+  gap:6px;
+  flex-wrap: wrap;
+}
 .shield-pill{
   width: 14px; height: 14px;
   border-radius: 6px;
@@ -460,7 +321,7 @@ html.shootR #atk-laser{ left:75%; top:52%; }
   box-shadow: 0 0 16px rgba(96,165,250,.24);
 }
 
-/* ---------- Start overlay ---------- */
+/* Start overlay */
 .start-overlay{
   position: fixed;
   inset: 0;
@@ -495,32 +356,146 @@ html.shootR #atk-laser{ left:75%; top:52%; }
   font-size: 18px;
 }
 .btn-start:active{ transform: translateY(1px) scale(.99); }
-.start-minihelp{ margin-top: 10px; font-size: 12px; color: var(--muted); }
 
-/* ---------- Landscape tuning ---------- */
+/* Boss hazards (visual) */
+#atk-ring{
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: min(520px, 92vw);
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  z-index: 35;
+  pointer-events:none;
+  opacity: 0;
+  filter: drop-shadow(0 30px 60px rgba(0,0,0,.35));
+  transition: opacity .15s ease;
+  background:
+    conic-gradient(
+      rgba(239,68,68,.00) 0deg,
+      rgba(239,68,68,.00) var(--ringGapStart),
+      rgba(239,68,68,.75) var(--ringGapStart),
+      rgba(239,68,68,.75) calc(var(--ringGapStart) + (360deg - var(--ringGapSize))),
+      rgba(239,68,68,.00) calc(var(--ringGapStart) + (360deg - var(--ringGapSize))),
+      rgba(239,68,68,.00) 360deg
+    );
+  mask: radial-gradient(circle at 50% 50%, transparent 56%, #000 58%, #000 76%, transparent 78%);
+}
+#atk-ring.show{ opacity: 1; }
+body.gj-panic #atk-ring.show{ opacity: .92; }
+
+#atk-laser{
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 10px;
+  top: 45%;
+  z-index: 36;
+  pointer-events:none;
+  opacity: 0;
+  background: linear-gradient(90deg, rgba(239,68,68,0), rgba(239,68,68,.85), rgba(239,68,68,0));
+  filter: drop-shadow(0 16px 26px rgba(239,68,68,.20));
+}
+#atk-laser.warn{
+  opacity: .45;
+  height: 8px;
+  animation: laserWarn .22s ease-in-out infinite alternate;
+}
+#atk-laser.fire{
+  opacity: .95;
+  height: 12px;
+  animation: laserFire .08s linear infinite alternate;
+}
+@keyframes laserWarn { from{ transform: scaleX(.94);} to{ transform: scaleX(1.02);} }
+@keyframes laserFire { from{ transform: scaleX(.98);} to{ transform: scaleX(1.02);} }
+
+/* Panic FX (subtle) */
+body.gj-panic{
+  animation: panicPulse 1.0s ease-in-out infinite alternate;
+}
+@keyframes panicPulse{
+  from{ filter: saturate(1.0); }
+  to  { filter: saturate(1.08); }
+}
+body.gj-shake{
+  animation: screenShake .16s ease-in-out 1;
+}
+@keyframes screenShake{
+  0%{ transform: translate3d(0,0,0); }
+  25%{ transform: translate3d(-2px,1px,0); }
+  50%{ transform: translate3d(2px,-1px,0); }
+  75%{ transform: translate3d(-1px,-2px,0); }
+  100%{ transform: translate3d(0,0,0); }
+}
+
+/* VR Tip */
+.vr-tip{
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 18px;
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(10px);
+}
+.vr-tip-card{
+  width: min(760px, 94vw);
+  border-radius: 22px;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.84);
+  box-shadow: 0 26px 90px rgba(0,0,0,.45);
+  padding: 18px 18px 14px;
+}
+.vr-tip-title{ font-weight:1000; font-size: 18px; }
+.vr-tip-text{ margin-top:8px; color:#e2e8f0; line-height:1.6; }
+.vr-tip-sub{ margin-top:10px; color: var(--muted); font-size: 12px; }
+.vr-tip-btn{
+  margin-top: 12px;
+  width: 100%;
+  height: 48px;
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,.22);
+  background: rgba(34,197,94,.16);
+  color:#fff;
+  font-weight:1000;
+}
+
+/* --- Landscape tuning: make aim higher + reduce vertical overlap --- */
 @media (orientation: landscape){
-  .hha-hud{ top: calc(50px + var(--safeTop)); }
-  .hud-mid{ margin-top: 8px; }
-  .hud-stats{ max-width: 52vw; }
-  #gj-crosshair{ top: 54%; }
-  #atk-ring{ top: 54%; }
-  #atk-laser{ top: 54%; }
+  :root{ --aimY: 52%; }
 
-  .btn-shoot{ width: min(420px, 46vw); height: 54px; }
-  .hha-fever{ bottom: calc(74px + var(--safeBottom)); }
+  .hha-fever{
+    left: 12px;
+    right: 12px;
+    bottom: calc(70px + var(--safeBottom));
+  }
+
+  .btn-shoot{
+    width: min(520px, 58vw);
+    height: 54px;
+  }
+
+  /* HUD tighter in landscape */
+  .hud-stats{ max-width: 54vw; }
+  .hud-stat{ width: 70px; }
 }
 
-/* VR/cVR: ลด footprint */
-.view-vr .hha-hud,
-.view-cvr .hha-hud{
-  transform: scale(.92);
+/* --- VR view: aim at eye level + HUD slightly smaller --- */
+body.view-vr :root,
+body.view-cvr :root{ --aimY: 50%; }
+
+body.view-vr .hha-hud,
+body.view-cvr .hha-hud{
   transform-origin: top left;
-}
-.view-vr .hha-fever,
-.view-cvr .hha-fever{
   transform: scale(.92);
-  transform-origin: bottom center;
 }
 
-/* XR Active: hide shoot button (use gaze+click in XR) */
-.xr-active .hha-controls{ display:none; }
+body.view-vr .gj-panel,
+body.view-cvr .gj-panel{
+  opacity: .9;
+  transform-origin: top left;
+  transform: scale(.92);
+}
