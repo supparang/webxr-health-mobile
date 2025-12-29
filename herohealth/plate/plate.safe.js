@@ -1,10 +1,14 @@
 /* === /herohealth/plate/plate.safe.js ===
 Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED + ALL FUN PACK)
 ✅ IIFE (NO export)
-✅ 28–30 DONE: schema + session row + end chain + flush then show overlay
-✅ PATCH 47: flush de-dupe + freeze hook
-✅ PATCH 48A: pause/resume real + shiftTimers + PlateBoot.isPaused()
-✅ PATCH: end overlay binder uses #resultBackdrop (matches plate-vr.html)
+✅ Cardboard compatible (DOM targets)
+✅ hha:plate live update (0/5)
+✅ Plate Rush = "ครบ 5 หมู่ใน 8 วิ + ห้ามโดนขยะ"
+✅ Adds Group 5 (fat)
+✅ Result overlay uses #resultBackdrop (rScore/rG1..rG5)
+✅ Pause/Resume + EnterVR + Restart + Start overlay binding
+✅ Flush-hardened (pagehide/hidden/beforeunload/popstate)
+✅ 28–30 logging: targetId + session_row + session_end + last_summary + flush before show result
 */
 
 (function (root) {
@@ -19,8 +23,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     burstAt: function(){},
     celebrate: function(){}
   };
-
-  var FeverUI = (root.GAME_MODULES && root.GAME_MODULES.FeverUI) || root.FeverUI || null;
 
   function getLogger(){
     return (root.GAME_MODULES && (root.GAME_MODULES.CloudLogger || root.GAME_MODULES.Logger)) ||
@@ -46,9 +48,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       var u = new URL(root.location.href);
       var v = u.searchParams.get(name);
       return (v === null || v === undefined) ? def : v;
-    } catch (_e) {
-      return def;
-    }
+    } catch (_e) { return def; }
   }
 
   function intQ(name, def){
@@ -89,9 +89,20 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     return sfc32(gen(), gen(), gen(), gen());
   }
 
-  // --------------------------- Layer ---------------------------
+  // --------------------------- DOM refs ---------------------------
   var layer = DOC.getElementById('plate-layer') || DOC.querySelector('.plate-layer') || DOC.querySelector('#plateLayer');
   if (!layer) return;
+
+  var hitFxEl = DOC.getElementById('hitFx');
+  function pulseHitFx(kind){
+    if (!hitFxEl) return;
+    kind = String(kind || 'good');
+    hitFxEl.dataset.kind = kind;
+    hitFxEl.classList.add('show');
+    root.setTimeout(function(){
+      try { hitFxEl.classList.remove('show'); } catch(_e){}
+    }, 110);
+  }
 
   // --------------------------- Simple SFX (WebAudio) ---------------------------
   var SFX = {
@@ -102,6 +113,13 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       var AC = root.AudioContext || root.webkitAudioContext;
       if (!AC) return null;
       try { this.ctx = new AC(); return this.ctx; } catch (_e) { return null; }
+    },
+    resume: function(){
+      var ctx = this.ensure();
+      if (!ctx) return;
+      try{
+        if (ctx.state === 'suspended' && typeof ctx.resume === 'function') ctx.resume();
+      }catch(_e){}
     },
     beep: function(freq, dur, gain){
       var ctx = this.ensure();
@@ -135,34 +153,98 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
   };
 
-  // --------------------------- Spawn Rect (avoid HUD) ---------------------------
+  // --------------------------- Dynamic safe area: avoid HUD panels ---------------------------
+  function rectPad(r, pad){
+    return { left:r.left-pad, top:r.top-pad, right:r.right+pad, bottom:r.bottom+pad };
+  }
+  function inRect(x,y, r){
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }
+
+  function gatherExclusions(){
+    var out = [];
+    var ids = ['hudTop','miniPanel','hudBtns','coachPanel'];
+    for (var i=0;i<ids.length;i++){
+      var el = DOC.getElementById(ids[i]);
+      if (!el) continue;
+      var r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      out.push(rectPad(r, 12));
+    }
+    return out;
+  }
+
   function safeRect(){
     var W = root.innerWidth || 360;
     var H = root.innerHeight || 640;
 
-    var top = 160;
-    var bot = 180;
     var side = 16;
-    if (W < 760) top = 260;
+    var top = 16;
+    var bot = 16;
 
-    return { W:W, H:H, x0:side, x1:W-side, y0:top, y1:H-bot };
+    // fallback if HUD missing
+    if (W < 760) top = 220;
+
+    var x0 = side;
+    var x1 = W - side;
+    var y0 = top;
+    var y1 = H - bot;
+
+    // respect actual HUD bounds
+    var hud = DOC.getElementById('hudTop');
+    if (hud){
+      var hr = hud.getBoundingClientRect();
+      if (hr.height > 0) y0 = Math.max(y0, hr.bottom + 14);
+    }
+    var mini = DOC.getElementById('miniPanel');
+    if (mini){
+      var mr = mini.getBoundingClientRect();
+      if (mr.height > 0) y1 = Math.min(y1, mr.top - 14);
+    }
+
+    // keep playable
+    if (y1 < y0 + 180){
+      y0 = Math.max(90, y0 - 60);
+      y1 = Math.min(H-90, y1 + 60);
+    }
+
+    return { W:W, H:H, x0:x0, x1:x1, y0:y0, y1:y1 };
   }
 
-  function randPos(rng){
+  function randPos(rng, approxSize){
     var r = safeRect();
-    var x = r.x0 + rng() * (r.x1 - r.x0);
-    var y = r.y0 + rng() * (r.y1 - r.y0);
-    return { x:x, y:y };
+    var ex = gatherExclusions();
+    var tries = 22;
+
+    var vx = engine.vx || 0;
+    var vy = engine.vy || 0;
+
+    for (var i=0;i<tries;i++){
+      var x = r.x0 + rng() * (r.x1 - r.x0);
+      var y = r.y0 + rng() * (r.y1 - r.y0);
+
+      var sx = x + vx;
+      var sy = y + vy;
+
+      var ok = true;
+      if (ex && ex.length){
+        var pad = Math.max(32, (approxSize|0) * 0.55);
+        for (var k=0;k<ex.length;k++){
+          var e = rectPad(ex[k], pad);
+          if (inRect(sx, sy, e)){ ok = false; break; }
+        }
+      }
+      if (ok) return { x:x, y:y };
+    }
+
+    return {
+      x: r.x0 + rng() * (r.x1 - r.x0),
+      y: r.y0 + rng() * (r.y1 - r.y0)
+    };
   }
 
-  // --------------------------- No-Junk Zone (ring) ---------------------------
-  var zone = {
-    on: false,
-    until: 0,
-    nextAt: 0,
-    radius: 170,
-    el: null
-  };
+  // --------------------------- No-Junk Zone ring ---------------------------
+  var zone = { on:false, until:0, nextAt:0, radius:170, el:null };
 
   function ensureZoneRing(){
     if (zone.el) return zone.el;
@@ -186,12 +268,13 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     return el;
   }
 
-  // --------------------------- Food sets (Plate portions) ---------------------------
+  // --------------------------- Food sets (5 groups) ---------------------------
   var FOOD = {
     veg:   { key:'veg',   label:'ผัก',     emoji:['🥦','🥬','🥕','🌽','🥒','🍆'] },
     fruit: { key:'fruit', label:'ผลไม้',   emoji:['🍎','🍌','🍊','🍉','🍓','🍍'] },
     prot:  { key:'prot',  label:'โปรตีน',  emoji:['🐟','🍗','🥚','🥜','🫘','🥛'] },
-    grain: { key:'grain', label:'แป้ง',    emoji:['🍚','🍞','🍜','🥔','🍠','🥖'] }
+    grain: { key:'grain', label:'แป้ง',    emoji:['🍚','🍞','🍜','🥔','🍠','🥖'] },
+    fat:   { key:'fat',   label:'ไขมัน',   emoji:['🥑','🫒','🧈','🥥','🧀','🌰'] } // ✅ หมู่ 5
   };
 
   var JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭'];
@@ -226,11 +309,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   // --------------------------- Engine state ---------------------------
   var engine = {
     running:false,
-    ended:false,
-
-    // ✅ PATCH 48A
     paused:false,
-    pauseAtMs:0,
+    ended:false,
 
     runMode:'play',
     diff:'normal',
@@ -256,17 +336,14 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     nHitDecoy:0,
     nHitBoss:0,
 
-    // ✅ perfect count for overlay
-    perfectCount:0,
-
     fever: 0,
     shield: 0,
 
     ttlMs:1600,
     sizeBase:1.0,
 
-    plate: { veg:0, fruit:0, prot:0, grain:0 },
-    plateNeed: { veg:5, fruit:3, prot:4, grain:4 },
+    plate: { veg:0, fruit:0, prot:0, grain:0, fat:0 },
+    plateNeed: { veg:5, fruit:3, prot:4, grain:4, fat:2 },
 
     adapt: { spawnMs:790, ttl:1620, size:1.0, junk:0.12, decoy:0.10, bossEvery: 19000 },
 
@@ -277,6 +354,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     stormUntil:0,
     nextStormAt:0,
     stormDurSec:6,
+    stormDirty:false,
 
     bossAlive:false,
     bossHp:0,
@@ -309,29 +387,49 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     nHitJunkGuard: 0,
 
     gameVersion: '',
-    device: '',
-
-    // ✅ PATCH 47
-    _flushP: null
+    device: ''
   };
 
-  function scoreMultBase(){
-    return (nowMs() < engine.overUntil) ? 2 : 1;
-  }
-
-  function streakMult(){
-    var lv = clamp(engine.streakLvl|0, 0, 3);
-    return 1 + lv * 0.2;
-  }
-
-  function scoreMult(){
-    return scoreMultBase() * streakMult();
-  }
+  function scoreMultBase(){ return (nowMs() < engine.overUntil) ? 2 : 1; }
+  function streakMult(){ var lv = clamp(engine.streakLvl|0, 0, 3); return 1 + lv * 0.2; }
+  function scoreMult(){ return scoreMultBase() * streakMult(); }
 
   function accPct(){
     var denom = engine.nHitGood + engine.nHitJunk + engine.nHitDecoy;
     if (denom <= 0) return 0;
     return Math.round((engine.nHitGood / denom) * 100);
+  }
+
+  function computePlateHave(){
+    var p = engine.plate;
+    var have = 0;
+    if ((p.veg|0)   > 0) have++;
+    if ((p.fruit|0) > 0) have++;
+    if ((p.prot|0)  > 0) have++;
+    if ((p.grain|0) > 0) have++;
+    if ((p.fat|0)   > 0) have++;
+    return have;
+  }
+
+  function emitPlate(){
+    emit('hha:plate', {
+      have: computePlateHave(),
+      total: 5,
+      groups: {
+        veg: engine.plate.veg|0,
+        fruit: engine.plate.fruit|0,
+        prot: engine.plate.prot|0,
+        grain: engine.plate.grain|0,
+        fat: engine.plate.fat|0
+      },
+      need: {
+        veg: engine.plateNeed.veg|0,
+        fruit: engine.plateNeed.fruit|0,
+        prot: engine.plateNeed.prot|0,
+        grain: engine.plateNeed.grain|0,
+        fat: engine.plateNeed.fat|0
+      }
+    });
   }
 
   function updateScore(){
@@ -340,16 +438,15 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       combo: engine.combo|0,
       comboMax: engine.comboMax|0,
       misses: engine.misses|0,
-      perfectCount: engine.perfectCount|0
+      mode: engine.runMode,
+      diff: engine.diff
     });
     emit('hha:rank', { grade: rankFromAcc(accPct()), accuracy: accPct() });
   }
 
-  function updateTime(){
-    emit('hha:time', { left: engine.left|0 });
-  }
+  function updateTime(){ emit('hha:time', { left: engine.left|0 }); }
 
-  // --------------------------- 28) Standard schema: ctx + progress + logHHA ---------------------------
+  // --------------------------- 28) ctx + progress + logHHA ---------------------------
   function deviceLabel(){
     try{
       var ua = String(root.navigator && root.navigator.userAgent || '');
@@ -442,14 +539,11 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
   // --------------------------- World-shift feel (drag + gyro) ---------------------------
   function applyView(){
-    layer.style.setProperty('--vx', engine.vx.toFixed(1) + 'px');
-    layer.style.setProperty('--vy', engine.vy.toFixed(1) + 'px');
+    layer.style.willChange = 'transform';
     layer.style.transform = 'translate(' + engine.vx.toFixed(1) + 'px,' + engine.vy.toFixed(1) + 'px)';
   }
 
   function setupView(){
-    layer.style.willChange = 'transform';
-
     layer.addEventListener('pointerdown', function(e){
       engine.dragOn = true;
       engine.dragX = e.clientX;
@@ -472,7 +566,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }, { passive:true });
 
     root.addEventListener('deviceorientation', function(ev){
-      if (engine.paused) return;
       var gx = Number(ev.gamma) || 0;
       var gy = Number(ev.beta) || 0;
       engine.vx = clamp(engine.vx + gx * 0.06, -95, 95);
@@ -492,18 +585,15 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var x = Number(el.dataset._x);
     var y = Number(el.dataset._y);
     if (Number.isFinite(x) && Number.isFinite(y)) return {x:x, y:y};
-    var sx = (el.style.getPropertyValue('--x') || '').trim().replace('px','');
-    var sy = (el.style.getPropertyValue('--y') || '').trim().replace('px','');
-    return { x: Number(sx) || 0, y: Number(sy) || 0 };
+    return { x: 0, y: 0 };
   }
-
   function mkEl(tag, cls){
     var el = DOC.createElement(tag);
     el.className = cls;
     return el;
   }
 
-  // Minimal CSS for targets if you don't have external css
+  // Minimal CSS for targets
   (function ensureLocalCSS(){
     if (DOC.getElementById('plate-safe-css')) return;
     var st = DOC.createElement('style');
@@ -549,7 +639,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     return (dx*dx + dy*dy) <= (zone.radius * zone.radius);
   }
 
-  function pickPosInsideZone(rng){
+  function pickPosInsideZone(rng, approxSize){
     var r = safeRect();
     var cx = r.W * 0.5 - (engine.vx||0);
     var cy = r.H * 0.5 - (engine.vy||0);
@@ -559,20 +649,18 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       var rad = Math.sqrt(rng()) * (zone.radius * 0.92);
       var x = cx + Math.cos(ang) * rad;
       var y = cy + Math.sin(ang) * rad;
-
       if (x < r.x0+40 || x > r.x1-40 || y < r.y0+40 || y > r.y1-40) continue;
       return { x:x, y:y };
     }
-    return randPos(rng);
+    return randPos(rng, approxSize);
   }
 
-  function pickPosOutsideZone(rng){
-    var r = safeRect();
+  function pickPosOutsideZone(rng, approxSize){
     for (var i=0;i<18;i++){
-      var p = randPos(rng);
+      var p = randPos(rng, approxSize);
       if (!isInsideZoneXY(p.x, p.y)) return p;
     }
-    return randPos(rng);
+    return randPos(rng, approxSize);
   }
 
   function setZoneOn(sec){
@@ -586,13 +674,12 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
     emit('hha:judge', { kind:'good', text:'NO-JUNK ZONE!' });
     emit('hha:celebrate', { kind:'mini', title:'NO-JUNK ZONE!' });
-    SFX.power();
+    emit('hha:coach', { mood:'happy', text:'เข้าโหมด No-Junk Zone! ในวงมีแต่ของดี 💙' });
 
+    SFX.power();
     logHHA('zone_start', { itemType:'zone', judgment:'start', extra:{ radius: zone.radius|0, sec: sec|0 } });
 
-    root.setTimeout(function(){
-      DOC.body.classList.remove('plate-zonePulse');
-    }, 1600);
+    root.setTimeout(function(){ DOC.body.classList.remove('plate-zonePulse'); }, 1600);
   }
 
   function setZoneOff(clean){
@@ -603,8 +690,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     logHHA('zone_end', { itemType:'zone', judgment:'end', extra:{ clean: !!clean } });
   }
 
-  // --------------------------- Quest Director (unchanged from your latest) ---------------------------
-  // (คง logic mini/goals เดิมของคุณไว้)
+  // --------------------------- Quest Director (Goals + Minis) ---------------------------
   var Quest = (function(){
     var goals = [
       { id:'goal1', title:'เติมจานให้ครบ (ครบตามสัดส่วน)', kind:'fill_plate' },
@@ -613,7 +699,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     ];
 
     var minis = [
-      { id:'mini_rush',  title:'Plate Rush: ครบ 5 ใน 8 วิ และห้ามโดนขยะ', kind:'rush', total:5, ms:8000, noJunk:true },
+      { id:'mini_rush',  title:'Plate Rush: ครบ 5 หมู่ใน 8 วิ และห้ามโดนขยะ', kind:'rush', total:5, ms:8000, noJunk:true },
       { id:'mini_zone',  title:'No-Junk Zone: เก็บดี 6 ในวงภายใน 7 วิ', kind:'zone_collect', total:6, ms:7000 },
       { id:'mini_clean', title:'Clean Streak: 10 วิห้าม MISS/โดนขยะ', kind:'clean', ms:10000 },
       { id:'mini_perfect', title:'Perfect x3: ยิงเร็วจัด 3 ครั้ง', kind:'perfect3', total:3, ms:9000 },
@@ -635,6 +721,17 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       miniEndAt: 0
     };
 
+    function hintForMini(m){
+      if (!m) return '';
+      if (m.kind === 'rush') return 'ทริค: ต้องให้ครบ “5 หมู่” (ผัก/ผลไม้/โปรตีน/แป้ง/ไขมัน) ภายในเวลา!';
+      if (m.kind === 'zone_collect') return 'ของดีจะเกิดในวง — ขยะจะอยู่นอกวง!';
+      if (m.kind === 'clean') return 'ห้าม MISS/โดนขยะ 10 วิเต็ม!';
+      if (m.kind === 'perfect3') return 'ต้องได้ PERFECT/CRITICAL 3 ครั้ง';
+      if (m.kind === 'storm_survive') return 'ช่วง Storm ห้ามพลาดเลย!';
+      if (m.kind === 'laser2') return 'เลเซอร์ผ่านกลางจอ — อย่าโดน!';
+      return '';
+    }
+
     function pushUpdate(extra){
       var g = st.activeGoal || goals[0];
       var m = st.activeMini;
@@ -649,7 +746,11 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         miniTotal: st.miniTotal|0,
         miniLeftMs: (m && st.miniEndAt) ? Math.max(0, st.miniEndAt - nowMs()) : 0,
 
-        extra: extra || {}
+        extra: (function(){
+          var o = extra || {};
+          if (m) o.hint = hintForMini(m);
+          return o;
+        })()
       });
     }
 
@@ -678,6 +779,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       logHHA('mini_start', { itemType:'mini', judgment:'start', extra:{ miniId:m.id, title:m.title } });
       emit('hha:judge', { kind:'good', text:'MINI START!' });
       emit('hha:celebrate', { kind:'mini', title:m.title });
+      emit('hha:coach', { mood:'happy', text:'MINI เริ่มแล้ว! ' + m.title });
 
       if (m.kind === 'zone_collect'){
         setZoneOn(Math.ceil((m.ms|0)/1000));
@@ -696,10 +798,9 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
       emit('hha:judge', { kind:'good', text:'MINI CLEAR!' });
       emit('hha:celebrate', { kind:'mini', title:'MINI CLEAR!' });
+      emit('hha:coach', { mood:'happy', text:'สุดยอด! MINI ผ่านแล้ว 🎉' });
 
-      if (m.kind === 'zone_collect'){
-        setZoneOff(true);
-      }
+      if (m.kind === 'zone_collect') setZoneOff(true);
 
       st.activeMini = null;
       st.miniNow = 0;
@@ -710,7 +811,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       pushUpdate({ miniEnd:true });
 
       root.setTimeout(function(){
-        if (!engine.running || engine.ended || engine.paused) return;
+        if (!engine.running || engine.ended) return;
         if (st.miniIndex < minis.length) startMini(st.miniIndex);
       }, 650);
     }
@@ -723,10 +824,9 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
       emit('hha:judge', { kind:'warn', text:'MINI FAIL!' });
       Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'warn');
+      emit('hha:coach', { mood:'sad', text:'MINI ไม่ผ่าน 😅 ลองใหม่รอบหน้าก็ได้!' });
 
-      if (m.kind === 'zone_collect'){
-        setZoneOff(false);
-      }
+      if (m.kind === 'zone_collect') setZoneOff(false);
 
       st.activeMini = null;
       st.miniNow = 0;
@@ -737,7 +837,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       pushUpdate({ miniEnd:true });
 
       root.setTimeout(function(){
-        if (!engine.running || engine.ended || engine.paused) return;
+        if (!engine.running || engine.ended) return;
         if (st.miniIndex < minis.length) startMini(st.miniIndex);
       }, 650);
     }
@@ -751,6 +851,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
       emit('hha:judge', { kind:'good', text:'GOAL CLEAR!' });
       emit('hha:celebrate', { kind:'goal', title:g.title });
+      emit('hha:coach', { mood:'happy', text:'Goal ผ่านแล้ว! ' + g.title });
 
       st.goalIndex++;
       st.activeGoal = (st.goalIndex < goals.length) ? goals[st.goalIndex] : null;
@@ -773,23 +874,23 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     function plateFilled(){
       var need = engine.plateNeed;
       var p = engine.plate;
-      return (p.veg >= need.veg && p.fruit >= need.fruit && p.prot >= need.prot && p.grain >= need.grain);
+      return (p.veg >= need.veg && p.fruit >= need.fruit && p.prot >= need.prot && p.grain >= need.grain && p.fat >= need.fat);
     }
 
     function plateBalanced(){
       var need = engine.plateNeed;
       var p = engine.plate;
 
-      var totalNeed = need.veg + need.fruit + need.prot + need.grain;
-      var totalNow = p.veg + p.fruit + p.prot + p.grain;
+      var totalNeed = need.veg + need.fruit + need.prot + need.grain + need.fat;
+      var totalNow = p.veg + p.fruit + p.prot + p.grain + p.fat;
       if (totalNow < Math.floor(totalNeed * 0.75)) return false;
 
       function dist(now, target){
         var t = Math.max(1, target);
         return Math.abs(now - target) / t;
       }
-      var d = dist(p.veg, need.veg) + dist(p.fruit, need.fruit) + dist(p.prot, need.prot) + dist(p.grain, need.grain);
-      return d <= 1.15;
+      var d = dist(p.veg, need.veg) + dist(p.fruit, need.fruit) + dist(p.prot, need.prot) + dist(p.grain, need.grain) + dist(p.fat, need.fat);
+      return d <= 1.35;
     }
 
     function onTick(){
@@ -804,8 +905,9 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       var m = st.activeMini;
       if (m){
         if (m.kind === 'rush'){
-          st.miniNow++;
-          if (st.miniNow >= st.miniTotal) clearMini();
+          // ✅ Rush = ครบ 5 หมู่จริง
+          st.miniNow = computePlateHave()|0;
+          if (st.miniNow >= 5) clearMini();
         } else if (m.kind === 'perfect3'){
           if (meta && meta.perfect) {
             st.miniNow++;
@@ -900,25 +1002,27 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     };
   })();
 
-  // --------------------------- Fever / Shield logic ---------------------------
+  // --------------------------- Fever / Shield ---------------------------
   function addFever(delta){
     engine.fever = clamp(engine.fever + (delta|0), 0, 100);
 
-    try{
-      if (FeverUI && typeof FeverUI.set === 'function') FeverUI.set(engine.fever);
-      if (FeverUI && typeof FeverUI.setFever === 'function') FeverUI.setFever(engine.fever);
-    } catch (_e) {}
+    emit('hha:fever', { fever: engine.fever|0, shield: engine.shield|0 });
 
     if (engine.fever >= 100){
       engine.shield = 1;
       engine.fever = 42;
+      emit('hha:fever', { fever: engine.fever|0, shield: engine.shield|0 });
+
       emit('hha:judge', { kind:'good', text:'SHIELD READY!' });
       emit('hha:celebrate', { kind:'mini', title:'🛡️ SHIELD READY!' });
+      emit('hha:coach', { mood:'happy', text:'โล่พร้อมแล้ว! รอบหน้าบล็อกขยะ/เลเซอร์ได้ 1 ครั้ง 🛡️' });
+
       SFX.power();
+      pulseHitFx('gold');
     }
   }
 
-  // --------------------------- Perfect streak multiplier ---------------------------
+  // --------------------------- Streak multiplier ---------------------------
   function bumpStreak(isPerfectOrCrit){
     var t = nowMs();
     if (!isPerfectOrCrit){
@@ -976,7 +1080,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       {k:'veg',   w: Math.max(0.15, (need.veg   - p.veg)   / Math.max(1, need.veg))},
       {k:'fruit', w: Math.max(0.15, (need.fruit - p.fruit) / Math.max(1, need.fruit))},
       {k:'prot',  w: Math.max(0.15, (need.prot  - p.prot)  / Math.max(1, need.prot))},
-      {k:'grain', w: Math.max(0.15, (need.grain - p.grain) / Math.max(1, need.grain))}
+      {k:'grain', w: Math.max(0.15, (need.grain - p.grain) / Math.max(1, need.grain))},
+      {k:'fat',   w: Math.max(0.15, (need.fat   - p.fat)   / Math.max(1, need.fat))}
     ];
     var sum = 0;
     for (var i=0;i<weights.length;i++) sum += weights[i].w;
@@ -993,6 +1098,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var el = mkEl('div', 'pl-target');
     el.dataset.type = tp;
 
+    // ✅ targetId
     var tid = 't' + (++engine.targetSeq);
     el.dataset.tid = tid;
 
@@ -1032,7 +1138,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
     el._ttlTimer = root.setTimeout(function(){
       if (!el.isConnected) return;
-      if (engine.paused) return;
+      if (engine.paused || engine.ended) return;
 
       if (tp === 'good'){
         engine.misses++;
@@ -1040,8 +1146,10 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         breakStreak();
 
         engine.nExpireGood = (engine.nExpireGood|0) + 1;
+        if (engine.storm) engine.stormDirty = true;
 
         emit('hha:judge', { kind:'warn', text:'MISS!' });
+        pulseHitFx('bad');
         Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'warn');
         addFever(-10);
         updateScore();
@@ -1084,6 +1192,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     DOC.body.classList.add('plate-overdrive');
     SFX.power();
     emit('hha:celebrate', { kind:'goal', title:'OVERDRIVE x2!' });
+    emit('hha:coach', { mood:'happy', text:'OVERDRIVE x2! คะแนนพุ่ง 5 วินาที ⚡' });
 
     logHHA('powerup', { itemType:'overdrive', judgment:'on', extra:{ durMs:5000 } });
 
@@ -1113,14 +1222,15 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
   }
 
-  // --------------------------- Storm waves + danger FX ---------------------------
+  // --------------------------- Storm ---------------------------
   function enterStorm(){
     engine.storm = true;
+    engine.stormDirty = false;
     engine.stormUntil = nowMs() + engine.stormDurSec * 1000;
     DOC.body.classList.add('plate-storm');
-    emit('plate:storm', { on:true, durSec: engine.stormDurSec|0 });
 
     logHHA('storm_start', { itemType:'storm', judgment:'start', extra:{ durSec: engine.stormDurSec|0 } });
+    emit('hha:coach', { mood:'fever', text:'Storm มาแล้ว! เร็วขึ้น + ของลวงเยอะขึ้น 🌪️' });
 
     if (engine.runMode === 'play'){
       engine.adapt.spawnMs = Math.max(430, engine.adapt.spawnMs * 0.78);
@@ -1135,10 +1245,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.stormUntil = 0;
     DOC.body.classList.remove('plate-storm');
     DOC.body.classList.remove('plate-storm-urgent');
-    emit('plate:storm', { on:false, durSec:0 });
 
     logHHA('storm_end', { itemType:'storm', judgment:'end', extra:{ clean: !!clean } });
-
     Quest.onStormEnd(!!clean);
   }
 
@@ -1147,7 +1255,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var leftMs = engine.stormUntil - nowMs();
     if (leftMs <= 0){
       DOC.body.classList.remove('plate-storm-urgent');
-      exitStorm(true);
+      var clean = !engine.stormDirty;
+      exitStorm(clean);
       engine.nextStormAt = nowMs() + (15000 + engine.rng() * 12000);
       return;
     }
@@ -1192,7 +1301,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     var jitter = engine.rng() * 2800;
     try { root.clearTimeout(engine.hazardTimer); } catch(_e) {}
     engine.hazardTimer = root.setTimeout(function(){
-      if (!engine.running || engine.ended || engine.paused) return;
+      if (!engine.running || engine.ended) return;
+      if (engine.paused) { scheduleLaser(); return; }
       startLaserBurst();
       scheduleLaser();
     }, base + jitter);
@@ -1278,12 +1388,14 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         if (engine.shield > 0){
           engine.shield = 0;
           emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
+          pulseHitFx('gold');
           logHHA('shield_block', { itemType:'laser', judgment:'shield_block', extra:{ index:i } });
           L.hit = true;
           continue;
         }
 
         L.hit = true;
+        if (engine.storm) engine.stormDirty = true;
 
         engine.misses++;
         engine.combo = 0;
@@ -1291,6 +1403,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         addFever(-16);
 
         emit('hha:judge', { kind:'bad', text:'LASER HIT!' });
+        pulseHitFx('bad');
         DOC.body.classList.add('plate-shake');
         root.setTimeout(function(){ DOC.body.classList.remove('plate-shake'); }, 220);
 
@@ -1298,14 +1411,11 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         logHHA('hazard_hit', { itemType:'laser', judgment:'hit', extra:{ index:i } });
 
         Quest.onBadHit({ reason:'laser' });
-
         updateScore();
       }
     }
 
-    if (!anyAlive){
-      stopLasers();
-    }
+    if (!anyAlive) stopLasers();
   }
 
   // --------------------------- Boss spawn ---------------------------
@@ -1318,7 +1428,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.bossHpMax = phase2 ? (engine.bossHpMax + 1) : engine.bossHpMax;
     engine.bossHp = phase2 ? (engine.bossHpMax) : engine.bossHpMax;
 
-    var p = zone.on ? pickPosInsideZone(engine.rng) : randPos(engine.rng);
+    var sApprox = Math.round(96 * 1.2);
+    var p = zone.on ? pickPosInsideZone(engine.rng, sApprox) : randPos(engine.rng, sApprox);
     var s = (engine.storm ? 1.18 : 1.30) * engine.sizeBase * ((engine.runMode === 'research') ? 1 : engine.adapt.size);
 
     var el = makeTarget('boss', { hp: engine.bossHp, phase: phase2 ? 2 : 1 }, p.x, p.y, s);
@@ -1329,7 +1440,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     logHHA('spawn', { itemType:'boss', kind:'boss', emoji:'👑', isGood:false, targetId: el.dataset.tid, judgment:'spawn', extra:{ phase: phase2 ? 2 : 1 } });
 
     emit('hha:judge', { kind:'boss', text: phase2 ? 'BOSS P2!' : 'BOSS!' });
-    emit('hha:celebrate', { kind:'goal', title: phase2 ? 'BOSS PHASE 2!' : 'BOSS 등장!' });
+    emit('hha:celebrate', { kind:'goal', title: phase2 ? 'BOSS PHASE 2!' : 'BOSS!' });
+    emit('hha:coach', { mood:'fever', text:'บอสมาแล้ว! ยิงให้ล้ม 👑' });
 
     engine.nextBossAt = nowMs() + (engine.runMode === 'research' ? 21000 : clamp(engine.adapt.bossEvery, 14000, 25000));
   }
@@ -1351,6 +1463,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.score += Math.round((180 + engine.combo * 2) * mult);
 
     emit('hha:judge', { kind:'boss', text:'HIT!' });
+    pulseHitFx('boss');
     SFX.good();
     updateScore();
 
@@ -1362,14 +1475,17 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
       emit('hha:judge', { kind:'boss', text:'BOSS DOWN!' });
       emit('hha:celebrate', { kind:'goal', title:'BOSS DOWN!' });
+      emit('hha:coach', { mood:'happy', text:'ล้มบอสแล้ว! เก่งมาก 💥' });
+
       SFX.power();
       addFever(18);
 
       engine.shield = 1;
+      emit('hha:fever', { fever: engine.fever|0, shield: engine.shield|0 });
+
       engine.score += Math.round(520 * mult);
 
       Quest.onBossDown();
-
       logHHA('boss_down', { itemType:'boss', judgment:'down', extra:{ bossDownCount: engine.bossDownCount|0 } });
 
       engine.nextBossAt = nowMs() + (engine.bossDownCount >= 1 ? 16000 : 19000);
@@ -1401,6 +1517,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       engine.score += Math.round(150 * multS);
 
       emit('hha:judge', { kind:'good', text:'⭐ STAR!' });
+      pulseHitFx('gold');
       Particles.burstAt(safeRect().W*0.5, safeRect().H*0.55, 'good');
       SFX.power();
 
@@ -1419,6 +1536,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     if (tp === 'good'){
       engine.nHitGood++;
 
+      // RT stats
       engine.rtGoodList.push(rt|0);
       if (engine.rtGoodList.length > 240) engine.rtGoodList.splice(0, engine.rtGoodList.length - 240);
       if ((rt|0) <= 300) engine.fastHitGood = (engine.fastHitGood|0) + 1;
@@ -1426,10 +1544,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       var perfect = judgePerfect(rt);
       var critical = judgeCritical(rt);
 
-      if (perfect || critical) {
-        bumpStreak(true);
-        engine.perfectCount = (engine.perfectCount|0) + 1;
-      } else bumpStreak(false);
+      if (perfect || critical) bumpStreak(true);
+      else bumpStreak(false);
 
       engine.combo = clamp(engine.combo + 1, 0, 9999);
       engine.comboMax = Math.max(engine.comboMax, engine.combo);
@@ -1444,16 +1560,21 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       var kind = String(el.dataset.kind || 'veg');
       if (engine.plate[kind] != null) engine.plate[kind]++;
 
+      emitPlate();
+
       addFever(perfect ? 9 : 7);
 
       if (critical){
         emit('hha:judge', { kind:'good', text:(scoreMultBase()>1?'CRIT x2!':'CRITICAL!') });
+        pulseHitFx('gold');
         SFX.perfect();
       } else if (perfect){
         emit('hha:judge', { kind:'good', text:(scoreMultBase()>1?'PERF x2!':'PERFECT!') });
+        pulseHitFx('gold');
         SFX.perfect();
       } else {
         emit('hha:judge', { kind:'good', text:(scoreMultBase()>1?'OVER x2!':'GOOD!') });
+        pulseHitFx('good');
         SFX.good();
       }
 
@@ -1483,7 +1604,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       });
 
       Quest.onGoodHit({ perfect: !!perfect, critical: !!critical, insideZone: !!insideZone });
-
       removeTarget(el);
       return;
     }
@@ -1500,6 +1620,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         engine.nHitJunkGuard = (engine.nHitJunkGuard|0) + 1;
 
         emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
+        pulseHitFx('gold');
         SFX.power();
 
         logHHA('shield_block', { itemType:'junk', kind:'junk', emoji: el.dataset.emoji||'', isGood:false, targetId: tid, judgment:'shield_block', extra:{ zoneOn: zone.on } });
@@ -1508,6 +1629,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         removeTarget(el);
         return;
       }
+
+      if (engine.storm) engine.stormDirty = true;
 
       engine.misses++;
       engine.combo = 0;
@@ -1518,6 +1641,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       else engine.nHitDecoy++;
 
       emit('hha:judge', { kind:'bad', text: (tp === 'junk' ? (zone.on ? 'JUNK IN ZONE!' : 'JUNK!') : 'TRAP!') });
+      pulseHitFx('bad');
       SFX.bad();
 
       if (engine.storm) engine.stormUntil += 650;
@@ -1535,7 +1659,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
   }
 
-  // --------------------------- Zone schedule tick ---------------------------
+  // --------------------------- Zone schedule ---------------------------
   function maybeZoneTick(){
     var t = nowMs();
     if (zone.on){
@@ -1545,7 +1669,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       }
       return;
     }
-
     if (t >= zone.nextAt){
       var sec = engine.storm ? 6 : 7;
       setZoneOn(sec);
@@ -1553,7 +1676,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
   }
 
-  // --------------------------- Spawn loop (zone-aware) ---------------------------
+  // --------------------------- Spawn loop ---------------------------
   function spawnOne(){
     if (!engine.running || engine.ended) return;
     if (engine.paused) return;
@@ -1570,12 +1693,14 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     if (tp === 'decoy') size *= 0.98;
     if (tp === 'star') size *= 0.98;
 
+    var approxSize = Math.round(74 * size);
+
     var p;
     if (zone.on){
-      if (tp === 'good' || tp === 'star') p = pickPosInsideZone(engine.rng);
-      else p = pickPosOutsideZone(engine.rng);
+      if (tp === 'good' || tp === 'star') p = pickPosInsideZone(engine.rng, approxSize);
+      else p = pickPosOutsideZone(engine.rng, approxSize);
     } else {
-      p = randPos(engine.rng);
+      p = randPos(engine.rng, approxSize);
     }
 
     var el;
@@ -1584,14 +1709,17 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       el = makeTarget('good', { kind:k }, p.x, p.y, size);
       engine.nSpawnGood++;
       logHHA('spawn', { itemType:k, kind:k, emoji: el.dataset.emoji||'', isGood:true, targetId: el.dataset.tid, judgment:'spawn', extra:{ zoneOn: zone.on } });
+
     } else if (tp === 'junk'){
       el = makeTarget('junk', null, p.x, p.y, size);
       engine.nSpawnJunk++;
       logHHA('spawn', { itemType:'junk', kind:'junk', emoji: el.dataset.emoji||'', isGood:false, targetId: el.dataset.tid, judgment:'spawn', extra:{ zoneOn: zone.on } });
+
     } else if (tp === 'decoy'){
       el = makeTarget('decoy', null, p.x, p.y, size);
       engine.nSpawnDecoy++;
       logHHA('spawn', { itemType:'decoy', kind:'decoy', emoji: el.dataset.emoji||'', isGood:false, targetId: el.dataset.tid, judgment:'spawn', extra:{ zoneOn: zone.on } });
+
     } else if (tp === 'star'){
       el = makeTarget('star', null, p.x, p.y, size);
       engine.nSpawnStar++;
@@ -1603,58 +1731,62 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
 
   function loopSpawn(){
     if (!engine.running || engine.ended) return;
-    if (engine.paused) return;
 
-    spawnOne();
+    if (!engine.paused) spawnOne();
 
     var base = (engine.runMode === 'research') ? diffParams(engine.diff) : engine.adapt;
     var sMs = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0));
+    if (engine.paused) sMs = 140;
 
     engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
   }
 
-  // --------------------------- Tick loop (adaptive + storm + zone + lasers + quest) ---------------------------
+  // --------------------------- Tick loop ---------------------------
   function loopTick(){
     if (!engine.running || engine.ended) return;
-    if (engine.paused) return;
 
-    if (!engine.storm && nowMs() >= engine.nextStormAt) enterStorm();
-    if (engine.storm) maybeStormTick();
+    if (!engine.paused){
+      if (!engine.storm && nowMs() >= engine.nextStormAt) enterStorm();
+      if (engine.storm) maybeStormTick();
 
-    maybeZoneTick();
-    checkLaserTick();
+      maybeZoneTick();
+      checkLaserTick();
 
-    if (engine.runMode === 'play'){
-      var denom = engine.nHitGood + engine.nHitJunk + engine.nHitDecoy;
-      var acc = denom > 0 ? (engine.nHitGood / denom) : 0;
-      var heat = clamp((engine.combo / 18) + (acc - 0.65), 0, 1);
+      if (engine.runMode === 'play'){
+        var denom = engine.nHitGood + engine.nHitJunk + engine.nHitDecoy;
+        var acc = denom > 0 ? (engine.nHitGood / denom) : 0;
+        var heat = clamp((engine.combo / 18) + (acc - 0.65), 0, 1);
 
-      engine.adapt.spawnMs = clamp(830 - heat * 270, 480, 920);
-      engine.adapt.ttl = clamp(1700 - heat * 280, 1250, 1850);
-      engine.ttlMs = engine.adapt.ttl;
-      engine.adapt.size = clamp(1.02 - heat * 0.10, 0.86, 1.06);
+        engine.adapt.spawnMs = clamp(830 - heat * 270, 480, 920);
+        engine.adapt.ttl = clamp(1700 - heat * 280, 1250, 1850);
+        engine.ttlMs = engine.adapt.ttl;
+        engine.adapt.size = clamp(1.02 - heat * 0.10, 0.86, 1.06);
 
-      engine.adapt.junk = clamp(0.11 + heat * 0.06, 0.08, 0.22);
-      engine.adapt.decoy = clamp(0.09 + heat * 0.05, 0.06, 0.20);
-      engine.adapt.bossEvery = clamp(20000 - heat * 6500, 14000, 23000);
+        engine.adapt.junk = clamp(0.11 + heat * 0.06, 0.08, 0.22);
+        engine.adapt.decoy = clamp(0.09 + heat * 0.05, 0.06, 0.20);
+        engine.adapt.bossEvery = clamp(20000 - heat * 6500, 14000, 23000);
+      } else {
+        engine.ttlMs = diffParams(engine.diff).ttl;
+      }
+
+      if (engine.streakUntil && nowMs() > engine.streakUntil){
+        engine.streakHits = 0;
+        engine.streakLvl = 0;
+        engine.streakUntil = 0;
+      }
+
+      engine.left = Math.max(0, engine.left - 0.14);
+      updateTime();
+
+      Quest.onTick();
+
+      if (engine.left <= 0){
+        endGame('time');
+        return;
+      }
     } else {
-      engine.ttlMs = diffParams(engine.diff).ttl;
-    }
-
-    if (engine.streakUntil && nowMs() > engine.streakUntil){
-      engine.streakHits = 0;
-      engine.streakLvl = 0;
-      engine.streakUntil = 0;
-    }
-
-    engine.left = Math.max(0, engine.left - 0.14);
-    updateTime();
-
-    Quest.onTick();
-
-    if (engine.left <= 0){
-      endGame('time');
-      return;
+      // paused: still update quest panel timer countdown visually
+      Quest.onTick();
     }
 
     engine.tickTimer = root.setTimeout(loopTick, 140);
@@ -1669,79 +1801,9 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }
   }
 
-  // --------------------------- ✅ PATCH: Result overlay binder (matches plate-vr.html) ---------------------------
-  function ensureResultOverlay(){
-    var back = DOC.getElementById('resultBackdrop');
-    if (!back) return null;
-
-    if (back.dataset.bound === '1') return back;
-    back.dataset.bound = '1';
-
-    var btnAgain = DOC.getElementById('btnPlayAgain');
-    var btnBack = DOC.getElementById('btnBackHub');
-
-    if (btnAgain){
-      btnAgain.addEventListener('click', function(){
-        PlateBoot.flushThen(function(){
-          try { root.location.reload(); } catch (_e) {}
-        }, 'play_again');
-      }, { passive:true });
-    }
-
-    if (btnBack){
-      btnBack.addEventListener('click', function(){
-        PlateBoot.goHub();
-      }, { passive:true });
-    }
-
-    return back;
-  }
-
-  function showEnd(detail){
-    var back = ensureResultOverlay();
-    if (!back) return;
-
-    function setText(id, v){
-      var el = DOC.getElementById(id);
-      if (el) el.textContent = String(v);
-    }
-
-    setText('rMode', detail.runMode || 'play');
-    setText('rGrade', detail.grade || 'C');
-    setText('rScore', detail.scoreFinal || 0);
-    setText('rMaxCombo', detail.comboMax || 0);
-    setText('rMiss', detail.misses || 0);
-    setText('rPerfect', engine.perfectCount|0);
-
-    setText('rGoals', (detail.goalsCleared||0) + '/' + (detail.goalsTotal||0));
-    setText('rMinis', (detail.miniCleared||0) + '/' + (detail.miniTotal||0));
-
-    var p = detail.plate || {};
-    setText('rG1', p.veg|0);
-    setText('rG2', p.fruit|0);
-    setText('rG3', p.prot|0);
-    setText('rG4', p.grain|0);
-    setText('rG5', 0);
-    setText('rGTotal', ( (p.veg|0) + (p.fruit|0) + (p.prot|0) + (p.grain|0) ));
-
-    back.style.display = 'flex';
-  }
-
-  // --------------------------- ✅ PATCH 47: Flush-hardened + de-dupe ---------------------------
+  // --------------------------- Flush-hardened ---------------------------
   function flushNow(reason){
     reason = String(reason || 'flush');
-
-    // de-dupe flush calls (avoid storm)
-    if (engine._flushP && engine._flushP.inflight) return engine._flushP.promise;
-
-    engine._flushP = engine._flushP || { inflight:false, promise:null, lastAt:0 };
-    var tNow = nowMs();
-    if (tNow - (engine._flushP.lastAt||0) < 250) {
-      if (engine._flushP.promise) return engine._flushP.promise;
-    }
-    engine._flushP.lastAt = tNow;
-    engine._flushP.inflight = true;
-
     emit('hha:flush', { reason: reason });
     logHHA('flush', { itemType:'flush', judgment: reason });
 
@@ -1753,24 +1815,21 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       else if (L && typeof L.flushNow === 'function') p = L.flushNow({ reason: reason });
     } catch (_e) { p = null; }
 
-    engine._flushP.promise = new Promise(function(resolve){
+    return new Promise(function(resolve){
       var done = false;
-      function finish(){
-        if (done) return;
-        done = true;
-        engine._flushP.inflight = false;
-        resolve(true);
-      }
+      function finish(){ if (done) return; done = true; resolve(true); }
       root.setTimeout(finish, 850);
 
       if (p && typeof p.then === 'function'){
-        p.then(finish).catch(function(_e2){ finish(); });
-      } else {
-        finish();
-      }
+        p.then(finish).catch(function(){ finish(); });
+      } else finish();
     });
+  }
 
-    return engine._flushP.promise;
+  function flushThen(fn, reason){
+    flushNow(reason || 'flush').then(function(){
+      try { if (typeof fn === 'function') fn(); } catch (_e) {}
+    });
   }
 
   // --------------------------- 29) Session row helpers ---------------------------
@@ -1864,74 +1923,34 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     };
   }
 
-  // --------------------------- ✅ PATCH 48A: pause/resume with shiftTimers ---------------------------
-  function shiftTimers(delta){
-    delta = delta|0;
-    if (delta <= 0) return;
+  // --------------------------- Result overlay helpers ---------------------------
+  function showResult(detail){
+    var back = DOC.getElementById('resultBackdrop');
+    if (!back) return;
 
-    if (engine.stormUntil) engine.stormUntil += delta;
-    if (engine.nextStormAt) engine.nextStormAt += delta;
-    if (engine.nextBossAt) engine.nextBossAt += delta;
-
-    if (engine.overUntil) engine.overUntil += delta;
-    if (engine.overWindowUntil) engine.overWindowUntil += delta;
-
-    if (engine.streakUntil) engine.streakUntil += delta;
-
-    if (zone && zone.until) zone.until += delta;
-    if (zone && zone.nextAt) zone.nextAt += delta;
-
-    if (engine.lasers && engine.lasers.list && engine.lasers.list.length){
-      for (var i=0;i<engine.lasers.list.length;i++){
-        var L = engine.lasers.list[i];
-        if (!L) continue;
-        if (L.warnUntil) L.warnUntil += delta;
-        if (L.until) L.until += delta;
-      }
+    function setText(id, v){
+      var el = DOC.getElementById(id);
+      if (el) el.textContent = String(v);
     }
-  }
 
-  function pauseGame(){
-    if (!engine.running || engine.ended) return;
-    if (engine.paused) return;
-    engine.paused = true;
-    engine.pauseAtMs = nowMs();
+    setText('rMode', detail.runMode || 'play');
+    setText('rGrade', detail.grade || 'C');
+    setText('rScore', detail.scoreFinal || 0);
+    setText('rMaxCombo', detail.comboMax || 0);
+    setText('rMiss', detail.misses || 0);
+    setText('rPerfect', detail.fastHitGood || 0);
+    setText('rGoals', (detail.goalsCleared||0) + '/' + (detail.goalsTotal||0));
+    setText('rMinis', (detail.miniCleared||0) + '/' + (detail.miniTotal||0));
 
-    try { root.clearTimeout(engine.spawnTimer); } catch(_e){}
-    try { root.clearTimeout(engine.tickTimer); } catch(_e2){}
-    try { root.clearTimeout(engine.hazardTimer); } catch(_e3){}
+    var p = detail.plate || {};
+    setText('rG1', p.veg|0);
+    setText('rG2', p.fruit|0);
+    setText('rG3', p.prot|0);
+    setText('rG4', p.grain|0);
+    setText('rG5', p.fat|0);
+    setText('rGTotal', ( (p.veg|0)+(p.fruit|0)+(p.prot|0)+(p.grain|0)+(p.fat|0) ));
 
-    emit('hha:pause', { paused:true });
-    logHHA('pause', { itemType:'session', judgment:'pause' });
-
-    var p = DOC.getElementById('hudPaused');
-    if (p) p.style.display = 'block';
-  }
-
-  function resumeGame(){
-    if (!engine.running || engine.ended) return;
-    if (!engine.paused) return;
-
-    var delta = Math.max(0, (nowMs() - (engine.pauseAtMs||nowMs()))|0);
-    engine.paused = false;
-    engine.pauseAtMs = 0;
-
-    shiftTimers(delta);
-
-    emit('hha:pause', { paused:false });
-    logHHA('resume', { itemType:'session', judgment:'resume', extra:{ deltaMs: delta } });
-
-    var p = DOC.getElementById('hudPaused');
-    if (p) p.style.display = 'none';
-
-    loopSpawn();
-    loopTick();
-    scheduleLaser();
-  }
-
-  function togglePause(){
-    if (engine.paused) resumeGame();
-    else pauseGame();
+    back.style.display = 'flex';
   }
 
   // --------------------------- 30) End game chain ---------------------------
@@ -1993,21 +2012,27 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
         veg: engine.plate.veg|0,
         fruit: engine.plate.fruit|0,
         prot: engine.plate.prot|0,
-        grain: engine.plate.grain|0
+        grain: engine.plate.grain|0,
+        fat: engine.plate.fat|0
       },
 
       diff: engine.diff,
       runMode: engine.runMode,
       seed: engine.seed,
       gameVersion: engine.gameVersion || '',
-      device: engine.device || ''
+      device: engine.device || '',
+
+      fastHitGood: engine.fastHitGood|0
     };
+
+    emitPlate();
 
     try {
       root.localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(detail || {}));
       root.localStorage.setItem('hha_last_summary', JSON.stringify(detail || {}));
     } catch (_e5) {}
 
+    // session_row
     var row = buildSessionRow(detail);
     emit('hha:session_row', { row: row });
 
@@ -2017,15 +2042,115 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
       else logHHA('session_row', { itemType:'session', judgment:'row', extra: row });
     }catch(_e6){}
 
+    // session_end
     logHHA('session_end', { itemType:'session', judgment:'end', extra: detail });
     emit('hha:end', detail);
 
-    PlateBoot.flushThen(function(){
-      showEnd(detail);
+    flushThen(function(){
+      showResult(detail);
     }, 'end');
   }
 
-  // --------------------------- Public boot API ---------------------------
+  // --------------------------- Spawn schedules ---------------------------
+  function maybeZoneInit(){
+    zone.radius = (root.innerWidth < 420) ? 150 : 170;
+    zone.on = false;
+    zone.until = 0;
+    zone.nextAt = nowMs() + (15000 + engine.rng() * 9000);
+    ensureZoneRing();
+  }
+
+  // --------------------------- UI bindings ---------------------------
+  function bindUI(){
+    var btnStart = DOC.getElementById('btnStart');
+    var startOverlay = DOC.getElementById('startOverlay');
+
+    var btnPause = DOC.getElementById('btnPause');
+    var hudPaused = DOC.getElementById('hudPaused');
+
+    var btnRestart = DOC.getElementById('btnRestart');
+    var btnBackHub = DOC.getElementById('btnBackHub');
+    var btnPlayAgain = DOC.getElementById('btnPlayAgain');
+    var btnEnterVR = DOC.getElementById('btnEnterVR');
+
+    function setPaused(on){
+      if (!engine.running || engine.ended) return;
+      engine.paused = !!on;
+      if (hudPaused) hudPaused.style.display = engine.paused ? 'block' : 'none';
+      emit('hha:coach', { mood: engine.paused ? 'neutral' : 'happy', text: engine.paused ? 'พักก่อนก็ได้ 😊' : 'ไปต่อเลย!' });
+      if (!engine.paused) SFX.resume();
+    }
+
+    if (btnPause){
+      btnPause.addEventListener('click', function(){
+        setPaused(!engine.paused);
+      }, { passive:true });
+    }
+
+    if (btnRestart){
+      btnRestart.addEventListener('click', function(){
+        flushThen(function(){
+          try { root.location.reload(); } catch(_e){}
+        }, 'restart');
+      }, { passive:true });
+    }
+
+    if (btnBackHub){
+      btnBackHub.addEventListener('click', function(){
+        PlateBoot.goHub();
+      }, { passive:true });
+    }
+
+    if (btnPlayAgain){
+      btnPlayAgain.addEventListener('click', function(){
+        flushThen(function(){
+          try { root.location.reload(); } catch(_e){}
+        }, 'play_again');
+      }, { passive:true });
+    }
+
+    if (btnEnterVR){
+      btnEnterVR.addEventListener('click', function(){
+        try{
+          var scene = DOC.querySelector('a-scene');
+          if (scene && scene.enterVR) scene.enterVR();
+        }catch(_e){}
+      }, { passive:true });
+    }
+
+    function requestMotionPermIfNeeded(){
+      try{
+        var DOE = root.DeviceOrientationEvent;
+        if (DOE && typeof DOE.requestPermission === 'function'){
+          return DOE.requestPermission().then(function(){ return true; }).catch(function(){ return false; });
+        }
+      }catch(_e){}
+      return Promise.resolve(true);
+    }
+
+    function startFromUI(){
+      SFX.ensure();
+      SFX.resume();
+
+      requestMotionPermIfNeeded().finally(function(){
+        if (startOverlay) startOverlay.style.display = 'none';
+
+        var runMode = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
+        var cfg = {
+          diff: String(qs('diff','normal')).toLowerCase(),
+          time: intQ('time', 90),
+          seed: qs('seed', qs('ts', String(Date.now())))
+        };
+        PlateBoot.start(runMode, cfg);
+      });
+    }
+
+    if (btnStart){
+      btnStart.addEventListener('click', function(){ startFromUI(); }, { passive:true });
+    }
+  }
+
+  // --------------------------- Boot API ---------------------------
   function start(runMode, cfg){
     cfg = cfg || {};
     engine.runMode = (String(runMode || 'play').toLowerCase() === 'research') ? 'research' : 'play';
@@ -2045,15 +2170,14 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.gameVersion = String(qs('v', qs('ver','20251229')) || '20251229');
 
     SFX.ensure();
+    SFX.resume();
     ensureZoneRing();
-    ensureResultOverlay();
 
     var dp = diffParams(engine.diff);
 
     engine.running = true;
-    engine.ended = false;
     engine.paused = false;
-    engine.pauseAtMs = 0;
+    engine.ended = false;
 
     engine.left = engine.timeSec;
     engine.score = 0;
@@ -2072,10 +2196,9 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.nHitDecoy = 0;
     engine.nHitBoss = 0;
 
-    engine.perfectCount = 0;
-
     engine.fever = 0;
     engine.shield = 0;
+    emit('hha:fever', { fever: 0, shield: 0 });
 
     engine.ttlMs = dp.ttl;
     engine.sizeBase = dp.size;
@@ -2084,6 +2207,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.plate.fruit = 0;
     engine.plate.prot = 0;
     engine.plate.grain = 0;
+    engine.plate.fat = 0;
 
     engine.adapt.spawnMs = dp.spawnMs;
     engine.adapt.ttl = dp.ttl;
@@ -2093,6 +2217,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.adapt.bossEvery = 19000;
 
     engine.storm = false;
+    engine.stormDirty = false;
     engine.stormDurSec = dp.stormDur;
     engine.nextStormAt = nowMs() + (12000 + engine.rng() * 11000);
 
@@ -2117,10 +2242,7 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.vy = 0;
     applyView();
 
-    zone.on = false;
-    zone.until = 0;
-    zone.nextAt = nowMs() + (15000 + engine.rng() * 9000);
-    zone.radius = (root.innerWidth < 420) ? 150 : 170;
+    maybeZoneInit();
 
     engine.targetSeq = 0;
     engine.rtGoodList = [];
@@ -2128,12 +2250,16 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     engine.nExpireGood = 0;
     engine.nHitJunkGuard = 0;
 
-    Quest.startAll();
-
+    // initial emits
+    emitPlate();
     updateTime();
     updateScore();
 
+    emit('hha:coach', { mood:'neutral', text:'เริ่มแล้ว! เป้าหมาย: ทำให้ครบ 5 หมู่ และทำ Goal ให้ผ่าน 💪' });
+
     logHHA('session_start', { itemType:'session', judgment:'start', extra:{ runMode: engine.runMode, diff: engine.diff, timeSec: engine.timeSec|0, seed: engine.seed } });
+
+    Quest.startAll();
 
     loopSpawn();
     loopTick();
@@ -2141,8 +2267,8 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   }
 
   function goHub(){
-    var hub = String(qs('hub', '../hub.html') || '../hub.html');
-    PlateBoot.flushThen(function(){
+    var hub = String(qs('hub', './hub.html') || './hub.html');
+    flushThen(function(){
       try{
         var u = new URL(hub, root.location.href);
         u.searchParams.set('ts', String(Date.now()));
@@ -2153,12 +2279,6 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
     }, 'hub');
   }
 
-  function flushThen(fn, reason){
-    flushNow(reason || 'flush').then(function(){
-      try { if (typeof fn === 'function') fn(); } catch (_e) {}
-    });
-  }
-
   var PlateBoot = (root.PlateBoot = root.PlateBoot || {});
   PlateBoot.start = start;
   PlateBoot.goHub = goHub;
@@ -2166,42 +2286,20 @@ Balanced Plate VR — SAFE (PRODUCTION) — HHA Standard (FULL + FLUSH-HARDENED 
   PlateBoot.flushThen = flushThen;
   PlateBoot.endGame = endGame;
 
-  // ✅ PATCH 48A public controls
-  PlateBoot.pause = pauseGame;
-  PlateBoot.resume = resumeGame;
-  PlateBoot.togglePause = togglePause;
-  PlateBoot.isPaused = function(){ return !!engine.paused; };
-
-  // --------------------------- Flush hooks (hardened) ---------------------------
+  // --------------------------- Flush hooks ---------------------------
   function hookFlush(){
-    root.addEventListener('pagehide', function(){
-      try { flushNow('pagehide'); } catch (_e) {}
-    }, { passive:true });
-
+    root.addEventListener('pagehide', function(){ try { flushNow('pagehide'); } catch (_e) {} }, { passive:true });
     root.addEventListener('visibilitychange', function(){
-      try{
-        if (DOC.visibilityState === 'hidden') flushNow('hidden');
-      } catch (_e2) {}
+      try{ if (DOC.visibilityState === 'hidden') flushNow('hidden'); } catch (_e2) {}
     }, { passive:true });
-
-    // ✅ PATCH 47: freeze event
-    root.addEventListener('freeze', function(){
-      try { flushNow('freeze'); } catch (_e) {}
-    }, { passive:true });
-
-    root.addEventListener('beforeunload', function(){
-      try { flushNow('beforeunload'); } catch (_e3) {}
-    });
-
-    root.addEventListener('popstate', function(){
-      try { flushNow('popstate'); } catch (_e4) {}
-    }, { passive:true });
+    root.addEventListener('beforeunload', function(){ try { flushNow('beforeunload'); } catch (_e3) {} });
+    root.addEventListener('popstate', function(){ try { flushNow('popstate'); } catch (_e4) {} }, { passive:true });
   }
 
   // --------------------------- Boot once ---------------------------
   setupView();
   hookFlush();
-  ensureResultOverlay();
   ensureZoneRing();
+  bindUI();
 
 })(typeof window !== 'undefined' ? window : globalThis);
