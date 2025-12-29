@@ -191,6 +191,7 @@ Food Groups VR — Launcher (PRODUCTION)
             <div class="pill">Coach ➜ ล่างขวา</div>
             <div class="pill">⭐ Overdrive+Shield</div>
             <div class="pill">❄️ Freeze</div>
+            <div class="pill">🌪️ Storm + 👑 Boss</div>
           </div>
         </div>
         <div class="row">
@@ -275,8 +276,8 @@ Food Groups VR — Launcher (PRODUCTION)
             </div>
 
             <div class="hint">
-              “Start + autostart=1” จะส่งเข้า run แล้วกดเริ่มให้เอง (กันหลายคลิก)<br/>
-              ถ้าคุณมี launcher อื่นใน HUB อยู่แล้ว → ตั้ง hub ให้ตรงได้เลย
+              “Start + autostart=1” จะส่งเข้า run แล้วเริ่มให้เอง<br/>
+              ถ้าคุณมี HUB หลักอยู่แล้ว → ตั้ง hub ให้ตรง
             </div>
           </div>
         </div>
@@ -286,9 +287,8 @@ Food Groups VR — Launcher (PRODUCTION)
         <div class="sec">
           <h3>📌 Notes</h3>
           <div class="hint">
-            • ไฟล์ run เกมอยู่ที่: <b>/herohealth/vr-groups/groups-vr.html</b><br/>
-            • ถ้าต้อง cache-bust ให้ส่งพารามิเตอร์ <b>v=timestamp</b> (Launcher ทำให้แล้ว)<br/>
-            • ถ้าจะลิงก์จาก HUB แนะนำรูปแบบ: <b>./vr-groups/groups-vr.html?runMode=play&diff=normal&style=mix&time=90&seed=...&hub=./index.html&v=...</b>
+            • run เกม: <b>/herohealth/vr-groups/groups-vr.html</b><br/>
+            • cache-bust: <b>v=timestamp</b> (Launcher ทำให้แล้ว)<br/>
           </div>
         </div>
       </div>
@@ -298,9 +298,7 @@ Food Groups VR — Launcher (PRODUCTION)
 
   <script>
     const $ = (id)=>document.getElementById(id);
-
     const STORAGE_KEY = 'HHA_LAUNCH_GROUPS_V1';
-
     function nowSeed(){ return String(Date.now()); }
 
     function loadDefaults(){
@@ -313,14 +311,10 @@ Food Groups VR — Launcher (PRODUCTION)
         hub: './index.html',
         autostart: false
       };
-
       try{
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-        if (saved && typeof saved === 'object'){
-          Object.assign(dflt, saved);
-        }
+        if (saved && typeof saved === 'object') Object.assign(dflt, saved);
       }catch{}
-
       $('runMode').value = dflt.runMode;
       $('diff').value = dflt.diff;
       $('style').value = dflt.style;
@@ -328,7 +322,6 @@ Food Groups VR — Launcher (PRODUCTION)
       $('seed').value = dflt.seed || nowSeed();
       $('hub').value  = dflt.hub || './index.html';
       $('autostart').checked = !!dflt.autostart;
-
       refreshUrl();
     }
 
@@ -355,10 +348,7 @@ Food Groups VR — Launcher (PRODUCTION)
       const autostart = forceAutostart ? '1' : ($('autostart').checked ? '1' : '0');
       const v = String(Date.now());
 
-      // launcher is /herohealth/groups.html
-      // run is /herohealth/vr-groups/groups-vr.html
       const base = './vr-groups/groups-vr.html';
-
       const qs = new URLSearchParams();
       qs.set('runMode', runMode);
       qs.set('diff', diff);
@@ -368,7 +358,6 @@ Food Groups VR — Launcher (PRODUCTION)
       qs.set('hub', hub);
       if (autostart === '1') qs.set('autostart', '1');
       qs.set('v', v);
-
       return base + '?' + qs.toString();
     }
 
@@ -383,20 +372,14 @@ Food Groups VR — Launcher (PRODUCTION)
       const hub = ($('hub').value || '').trim() || './index.html';
       location.href = hub;
     }
-
     $('btnHub').addEventListener('click', goHub);
 
     ['runMode','diff','style','time','seed','hub','autostart'].forEach(id=>{
       $(id).addEventListener('change', refreshUrl);
-      $(id).addEventListener('input', ()=> {
-        if (id === 'seed' || id === 'hub') refreshUrl();
-      });
+      $(id).addEventListener('input', ()=> { if (id==='seed'||id==='hub') refreshUrl(); });
     });
 
-    $('btnRandom').addEventListener('click', ()=>{
-      $('seed').value = nowSeed();
-      refreshUrl();
-    });
+    $('btnRandom').addEventListener('click', ()=>{ $('seed').value = nowSeed(); refreshUrl(); });
 
     $('btnNormal').addEventListener('click', ()=>{
       $('runMode').value = 'play';
@@ -418,13 +401,9 @@ Food Groups VR — Launcher (PRODUCTION)
       refreshUrl();
     });
 
-    $('btnStart').addEventListener('click', ()=>{
-      const url = refreshUrl();
-      location.href = url;
-    });
+    $('btnStart').addEventListener('click', ()=>{ location.href = refreshUrl(); });
 
     $('btnStartVR').addEventListener('click', ()=>{
-      // force autostart=1
       saveDefaults();
       const url = buildUrl(true);
       $('outUrl').textContent = 'URL: ' + url;
@@ -437,7 +416,7 @@ Food Groups VR — Launcher (PRODUCTION)
         await navigator.clipboard.writeText(url);
         $('outUrl').textContent = '✅ Copied: ' + url;
       }catch{
-        $('outUrl').textContent = '⚠️ Copy ไม่ได้ (browser block) — ' + url;
+        $('outUrl').textContent = '⚠️ Copy ไม่ได้ — ' + url;
       }
     });
 
