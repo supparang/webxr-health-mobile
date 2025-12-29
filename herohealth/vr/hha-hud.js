@@ -1,85 +1,110 @@
 // === /herohealth/vr/hha-hud.js ===
-// HeroHealth — Global HUD Binder (DOM)
-// Listens: hha:score, hha:time, quest:update, hha:coach, hha:end
+// Hero Health Academy — Global HUD Binder (DOM/VR)
+// ✅ Updates HUD from events:
+// - hha:score      -> #hudScore #hudCombo #hudMiss
+// - hha:time       -> #hudTime
+// - hha:rank       -> #hudGrade
+// - hha:fever      -> #hudFeverPct
+// - quest:update   -> #miniLine #goalLine #miniHint
+// - hha:coach      -> #coachMsg #coachImg (coach-*.png)
+// - hha:plate      -> #hudGroupsHave (Plate 0/5)
+// Safe if elements missing.
 
 (function (root) {
   'use strict';
 
-  const doc = root.document;
-  if (!doc) return;
+  var DOC = root.document;
+  if (!DOC) return;
 
-  const $ = (id) => doc.getElementById(id);
-
+  function byId(id){ return DOC.getElementById(id); }
   function setText(id, v){
-    const el = $(id);
+    var el = byId(id);
     if (!el) return;
-    el.textContent = (v == null) ? '—' : String(v);
+    el.textContent = String(v);
   }
 
-  function onScore(e){
-    const d = (e && e.detail) ? e.detail : {};
-    setText('hhaScore', d.score ?? 0);
-    setText('hhaCombo', d.combo ?? 0);
-    setText('hhaMiss', d.misses ?? 0);
-    if (d.grade != null) setText('hhaGrade', d.grade);
-  }
-
-  function onTime(e){
-    const d = (e && e.detail) ? e.detail : {};
-    const t = (d.timeLeft != null) ? d.timeLeft : (d.timeLeftSec != null ? Math.ceil(d.timeLeftSec) : 0);
-    setText('hhaTime', t);
-  }
-
-  function onQuest(e){
-    const d = (e && e.detail) ? e.detail : {};
-    if (d.goalTitle) setText('hudGoalTitle', d.goalTitle);
-    if (d.goalMax != null) setText('hudGoalCount', `${d.goalCur ?? 0}/${d.goalMax ?? 0}`);
-    if (d.miniTitle) setText('hudMiniTitle', d.miniTitle);
-    if (d.miniMax != null) setText('hudMiniCount', `${d.miniCur ?? 0}/${d.miniMax ?? 0}`);
-
-    const mt = doc.getElementById('hudMiniTimer');
-    if (mt){
-      mt.textContent = (d.miniTLeft != null) ? `⏱ ${d.miniTLeft}s` : '';
-    }
-
-    const qp = doc.getElementById('hudQProgress');
-    if (qp){
-      qp.textContent = `Goals ${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0} • Minis ${d.minisCleared ?? 0}/${d.minisTotal ?? 0}`;
-    }
-  }
-
-  function coachImgForMood(m){
-    m = String(m || 'neutral').toLowerCase();
-    if (m === 'happy') return './img/coach-happy.png';
-    if (m === 'sad') return './img/coach-sad.png';
-    if (m === 'fever') return './img/coach-fever.png';
+  function pickCoachImg(mood){
+    mood = String(mood || 'neutral').toLowerCase();
+    if (mood === 'happy') return './img/coach-happy.png';
+    if (mood === 'sad') return './img/coach-sad.png';
+    if (mood === 'fever' || mood === 'hot') return './img/coach-fever.png';
     return './img/coach-neutral.png';
   }
 
-  function onCoach(e){
-    const d = (e && e.detail) ? e.detail : {};
-    if (d.line) setText('hudCoachLine', d.line);
-    if (d.sub != null) setText('hudCoachSub', d.sub);
+  // --- SCORE ---
+  root.addEventListener('hha:score', function(ev){
+    var d = (ev && ev.detail) ? ev.detail : {};
+    if (d.score != null) setText('hudScore', d.score|0);
+    if (d.combo != null) setText('hudCombo', d.combo|0);
+    if (d.misses != null) setText('hudMiss', d.misses|0);
 
-    const img = doc.getElementById('hudCoachImg');
-    if (img && d.mood){
-      img.src = coachImgForMood(d.mood);
+    // optional fields
+    if (d.mode != null) setText('hudMode', d.mode);
+    if (d.diff != null) setText('hudDiff', d.diff);
+    if (d.perfect != null) setText('hudPerfectCount', d.perfect|0);
+  });
+
+  // --- TIME ---
+  root.addEventListener('hha:time', function(ev){
+    var d = (ev && ev.detail) ? ev.detail : {};
+    if (d.left != null) setText('hudTime', d.left|0);
+  });
+
+  // --- RANK / GRADE ---
+  root.addEventListener('hha:rank', function(ev){
+    var d = (ev && ev.detail) ? ev.detail : {};
+    if (d.grade != null) setText('hudGrade', d.grade);
+  });
+
+  // --- FEVER ---
+  root.addEventListener('hha:fever', function(ev){
+    var d = (ev && ev.detail) ? ev.detail : {};
+    if (d.fever != null) setText('hudFeverPct', (d.fever|0) + '%');
+  });
+
+  // --- QUEST PANEL ---
+  root.addEventListener('quest:update', function(ev){
+    var d = (ev && ev.detail) ? ev.detail : {};
+    if (d.miniTitle != null){
+      var left = (d.miniLeftMs != null) ? (d.miniLeftMs|0) : 0;
+      var sec = left ? Math.ceil(left/1000) : 0;
+      var prog = (d.miniTotal != null && d.miniTotal > 0)
+        ? ((d.miniNow|0) + '/' + (d.miniTotal|0))
+        : '—';
+      var tail = sec ? (' • ⏳ ' + sec + 's') : '';
+      setText('miniLine', 'MINI: ' + String(d.miniTitle || '—') + ' • ' + prog + tail);
     }
-  }
+    if (d.goalTitle != null){
+      var gprog = (d.goalTotal != null && d.goalTotal > 0)
+        ? ((d.goalNow|0) + '/' + (d.goalTotal|0))
+        : '—';
+      setText('goalLine', 'Goal: ' + String(d.goalTitle || '—') + ' • ' + gprog);
+    }
 
-  function onEnd(e){
-    const d = (e && e.detail) ? e.detail : {};
-    // freeze grade if exists
-    if (d.grade != null) setText('hhaGrade', d.grade);
-    // also store last summary (optional)
-    try{ root.__HHA_LAST_END__ = d; } catch(_) {}
-  }
+    // hint (optional)
+    if (d.extra && d.extra.hint){
+      setText('miniHint', d.extra.hint);
+    }
+  });
 
-  // bind once
-  root.addEventListener('hha:score', onScore);
-  root.addEventListener('hha:time', onTime);
-  doc.addEventListener('quest:update', onQuest);
-  root.addEventListener('hha:coach', onCoach);
-  root.addEventListener('hha:end', onEnd);
+  // --- COACH ---
+  root.addEventListener('hha:coach', function(ev){
+    var d = (ev && ev.detail) ? ev.detail : {};
+    var msg = byId('coachMsg');
+    if (msg && d.text != null) msg.textContent = String(d.text);
 
-})(window);
+    var img = byId('coachImg');
+    if (img && d.mood != null){
+      img.src = pickCoachImg(d.mood);
+    }
+  });
+
+  // ✅ NEW: PLATE have/total
+  root.addEventListener('hha:plate', function(ev){
+    var d = (ev && ev.detail) ? ev.detail : {};
+    if (typeof d.have === 'number' && typeof d.total === 'number'){
+      setText('hudGroupsHave', (d.have|0) + '/' + (d.total|0));
+    }
+  });
+
+})(typeof window !== 'undefined' ? window : globalThis);
