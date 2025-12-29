@@ -1,222 +1,212 @@
+<!-- === /herohealth/goodjunk-vr.html ===
+GoodJunkVR (PRODUCTION) — HHA Standard
+✅ view switcher: PC / Mobile / VR / cVR (Cardboard split)
+✅ Rotate notice for VR/cVR (portrait -> ask landscape)
+✅ Enter fullscreen helper for mobile cardboard
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Food Groups VR — Launcher</title>
+  <title>HeroHealth — GoodJunk VR</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-  <style>
-    :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.72);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --accent2:#22d3ee;
-      --radius:22px;
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-    }
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
-    body{
-      display:grid; place-items:center;
-      padding: calc(18px + var(--sat)) 16px calc(18px + var(--sab));
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
-        var(--bg);
-    }
-    .wrap{
-      width:min(920px, 94vw);
-      background:rgba(2,6,23,.62);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:var(--radius);
-      box-shadow:0 20px 60px rgba(0,0,0,.55);
-      padding:18px;
-    }
-    h1{ margin:0 0 6px; font-size:22px; }
-    .sub{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.6; }
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-    }
-    @media (max-width: 820px){ .grid{ grid-template-columns: 1fr; } }
 
-    .card{
-      background:var(--panel2);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:18px;
-      padding:14px;
-    }
-    label{ display:block; font-size:12px; color:var(--muted); margin:0 0 8px; }
-    input, select{
-      width:100%;
-      height:44px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.55);
-      color:var(--text);
-      padding:0 12px;
-      outline:none;
-    }
-    input::placeholder{ color:rgba(148,163,184,.70); }
+  <!-- CSS -->
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
-    .actions{
-      margin-top:14px;
-      display:flex; gap:12px; flex-wrap:wrap;
-      align-items:center;
+  <!-- Global FX + Fever + HUD + Logger -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- Boot (ESM) -->
+  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
+
+  <!-- View mode / orientation helper -->
+  <script>
+  (function(){
+    function qs(name, def){
+      try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
     }
-    .btn{
-      height:46px;
-      padding:0 18px;
-      border-radius:999px;
-      border:0;
-      cursor:pointer;
-      font-weight:900;
-      letter-spacing:.2px;
-      color:#07121a;
-      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-      box-shadow:0 18px 48px rgba(34,211,238,.10);
+    function setParam(k,v){
+      const u = new URL(location.href);
+      if (v==null) u.searchParams.delete(k);
+      else u.searchParams.set(k, v);
+      // keep cache-bust v
+      if(!u.searchParams.get('v')) u.searchParams.set('v', Date.now());
+      location.href = u.toString();
     }
-    .btn.secondary{
-      background:rgba(15,23,42,.78);
-      border:1px solid rgba(148,163,184,.18);
-      color:var(--text);
-      box-shadow:none;
+
+    const view = String(qs('view','')).toLowerCase(); // pc | mobile | vr | cvr
+    const body = document.documentElement;
+    body.classList.toggle('view-pc', view==='pc');
+    body.classList.toggle('view-mobile', view==='mobile');
+    body.classList.toggle('view-vr', view==='vr');
+    body.classList.toggle('view-cvr', view==='cvr');
+
+    // Default auto: if no view param -> mobile heuristic
+    if(!view){
+      const coarse = matchMedia && matchMedia('(pointer: coarse)').matches;
+      const w = innerWidth||360, h = innerHeight||640;
+      const auto = (coarse || Math.min(w,h)<520) ? 'mobile' : 'pc';
+      body.classList.toggle('view-mobile', auto==='mobile');
+      body.classList.toggle('view-pc', auto==='pc');
     }
-    .mini{
-      font-size:12px;
-      color:var(--muted);
-      margin-left:auto;
+
+    // wire buttons
+    window.addEventListener('DOMContentLoaded', ()=>{
+      const btnPC = document.getElementById('btnViewPC');
+      const btnM  = document.getElementById('btnViewMobile');
+      const btnVR = document.getElementById('btnViewVR');
+      const btnCVR= document.getElementById('btnViewCVR');
+      const btnFS = document.getElementById('btnEnterFS');
+
+      if(btnPC) btnPC.onclick = ()=>setParam('view','pc');
+      if(btnM)  btnM.onclick  = ()=>setParam('view','mobile');
+      if(btnVR) btnVR.onclick = ()=>setParam('view','vr');
+      if(btnCVR)btnCVR.onclick= ()=>setParam('view','cvr');
+
+      if(btnFS){
+        btnFS.onclick = async ()=>{
+          try{
+            const el = document.documentElement;
+            if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen();
+          }catch(_){}
+          try{
+            if (screen.orientation && screen.orientation.lock){
+              await screen.orientation.lock('landscape');
+            }
+          }catch(_){}
+        };
+      }
+    });
+
+    // rotate notice for vr/cvr
+    function updateRotate(){
+      const isVR = body.classList.contains('view-vr') || body.classList.contains('view-cvr');
+      const portrait = (innerHeight||0) > (innerWidth||0);
+      const rot = document.getElementById('rotateNotice');
+      if(!rot) return;
+      rot.hidden = !(isVR && portrait);
     }
-    .tip{
-      margin-top:12px;
-      color:var(--muted);
-      font-size:12px;
-      border-top:1px dashed rgba(148,163,184,.16);
-      padding-top:10px;
-      line-height:1.55;
-    }
-    a{ color:rgba(34,211,238,.95); text-decoration:none; }
-    a:hover{ text-decoration:underline; }
-    code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-  </style>
+    window.addEventListener('resize', updateRotate);
+    window.addEventListener('orientationchange', updateRotate);
+    window.addEventListener('DOMContentLoaded', updateRotate);
+  })();
+  </script>
 </head>
 
 <body>
-  <div class="wrap">
-    <h1>🍽️ Food Groups VR — Launcher</h1>
-    <p class="sub">
-      เลือกโหมด/ระดับ/สไตล์ แล้วกด “เข้าเกม” → จะพาไปหน้า Run ที่
-      <code>/herohealth/vr-groups/groups-vr.html</code>
-    </p>
 
-    <div class="grid">
-      <div class="card">
-        <label>Run mode</label>
-        <select id="runMode">
-          <option value="play" selected>play</option>
-          <option value="research">research</option>
-        </select>
-      </div>
-
-      <div class="card">
-        <label>Style (สมดุล “ฟีลดี/โหด”)</label>
-        <select id="style">
-          <option value="mix" selected>mix (ผสม)</option>
-          <option value="feel">feel (ฟีลดี)</option>
-          <option value="hard">hard (โหด)</option>
-        </select>
-      </div>
-
-      <div class="card">
-        <label>Difficulty</label>
-        <select id="diff">
-          <option value="easy">easy</option>
-          <option value="normal" selected>normal</option>
-          <option value="hard">hard</option>
-        </select>
-      </div>
-
-      <div class="card">
-        <label>Time (วินาที)</label>
-        <input id="time" type="number" min="30" max="180" step="5" value="90" />
-      </div>
-
-      <div class="card">
-        <label>Seed (เว้นว่าง = สุ่ม)</label>
-        <input id="seed" type="text" placeholder="เช่น S01-CLASS5-001" />
-      </div>
-
-      <div class="card">
-        <label>Hub URL (ปุ่มกลับ HUB ในหน้า Run)</label>
-        <input id="hub" type="text" value="../index.html" />
-      </div>
-    </div>
-
-    <div class="actions">
-      <button class="btn" id="btnGo">🚀 เข้าเกม</button>
-      <button class="btn secondary" id="btnDemo">⚡ Demo (autostart)</button>
-      <div class="mini">
-        ลิงก์ Run: <a id="runLink" href="./vr-groups/groups-vr.html">เปิดหน้า Run</a>
-      </div>
-    </div>
-
-    <div class="tip">
-      ✅ ถ้า “เข้าเกมไม่ได้” ให้เปิด DevTools → Network ดูว่า
-      <code>/herohealth/vr-groups/GameEngine.js</code> และไฟล์เสริมต่าง ๆ ต้องได้ <b>200</b>
-      (GitHub Pages ตัวใหญ่/เล็กต้องตรง)<br/>
-      ✅ Run ใช้ระบบ import แบบปลอดภัย: ไฟล์เสริมขาดบางตัว เกมไม่ล่ม แต่จะขึ้น warning ใน console
+  <!-- ===== Rotate Notice (VR/cVR portrait) ===== -->
+  <div id="rotateNotice" class="rotate-notice" hidden>
+    <div class="rotate-card">
+      <div class="t">โหมด VR/การ์ดบอร์ด</div>
+      <div class="d">กรุณาหมุนจอเป็น <b>แนวนอน</b> เพื่อให้เป้าอยู่ในระดับสายตา</div>
+      <div class="hint">Tip: กด “Enter Fullscreen” ก่อนเสียบ Cardboard จะนิ่งกว่า</div>
     </div>
   </div>
 
-  <script>
-    (function(){
-      const $ = (id)=>document.getElementById(id);
-      const RUN_PATH = './vr-groups/groups-vr.html';
+  <!-- ===== View Switcher (top center) ===== -->
+  <div class="viewbar" aria-hidden="false">
+    <button id="btnViewPC" class="viewbtn">PC</button>
+    <button id="btnViewMobile" class="viewbtn">Mobile</button>
+    <button id="btnViewVR" class="viewbtn">VR</button>
+    <button id="btnViewCVR" class="viewbtn accent">cVR</button>
+    <button id="btnEnterFS" class="viewbtn ghost">Enter Fullscreen</button>
+  </div>
 
-      function buildUrl(autostart){
-        const runMode = ($('runMode').value || 'play').toLowerCase();
-        const diff = ($('diff').value || 'normal').toLowerCase();
-        const style = ($('style').value || 'mix').toLowerCase();
-        const time = Math.max(30, Math.min(180, Number($('time').value || 90)));
-        const seedIn = ($('seed').value || '').trim();
-        const seed = seedIn || String(Date.now());
-        const hub = ($('hub').value || '../index.html').trim() || '../index.html';
+  <!-- ===== HUD ===== -->
+  <div class="hha-hud">
+    <div class="hud-top">
+      <div class="hud-badge">
+        <div class="hud-title">GoodJunkVR</div>
+        <div class="hud-sub" id="hudMeta">—</div>
+      </div>
 
-        const q = new URLSearchParams();
-        q.set('runMode', runMode);
-        q.set('diff', diff);
-        q.set('style', style);
-        q.set('time', String(time));
-        q.set('seed', seed);
-        q.set('hub', hub);
-        if (autostart) q.set('autostart', '1');
-        q.set('v', String(Date.now())); // cache-bust
+      <div class="hud-stats">
+        <div class="hud-stat"><div class="k">Score</div><div class="v" id="hhaScore">0</div></div>
+        <div class="hud-stat"><div class="k">Combo</div><div class="v" id="hhaCombo">0</div></div>
+        <div class="hud-stat"><div class="k">Miss</div><div class="v" id="hhaMiss">0</div></div>
+        <div class="hud-stat"><div class="k">Time</div><div class="v" id="hhaTime">0</div></div>
+        <div class="hud-stat grade"><div class="k">Grade</div><div class="v" id="hhaGrade">—</div></div>
+      </div>
+    </div>
 
-        return RUN_PATH + '?' + q.toString();
-      }
+    <div class="hud-mid">
+      <div class="hud-quest">
+        <div class="q-row">
+          <div class="q-title" id="hudGoalTitle">Goal: —</div>
+          <div class="q-count" id="hudGoalCount">0/0</div>
+        </div>
+        <div class="q-row">
+          <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
+          <div class="q-count" id="hudMiniCount">0/0</div>
+          <div class="q-timer" id="hudMiniTimer"></div>
+        </div>
+        <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
+      </div>
 
-      function repaintLink(){
-        $('runLink').href = buildUrl(false);
-      }
+      <div class="hud-coach">
+        <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
+        <div class="coach-talk">
+          <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
+          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-      ['runMode','diff','style','time','seed','hub'].forEach(id=>{
-        $(id).addEventListener('input', repaintLink);
-        $(id).addEventListener('change', repaintLink);
-      });
+  <!-- ===== Fever/Shield UI ===== -->
+  <div class="hha-fever" id="hhaFever">
+    <div class="fever-row">
+      <div class="fever-label">FEVER</div>
+      <div class="fever-bar"><div class="fever-fill" id="feverBar"></div></div>
+      <div class="fever-text" id="feverText">0%</div>
+    </div>
+    <div class="shield-row">
+      <div class="shield-label">SHIELD</div>
+      <div class="shield-pills" id="shieldPills"></div>
+    </div>
+  </div>
 
-      $('btnGo').addEventListener('click', ()=> location.href = buildUrl(false));
-      $('btnDemo').addEventListener('click', ()=> location.href = buildUrl(true));
-      repaintLink();
-    })();
-  </script>
+  <!-- ===== Playfield ===== -->
+  <div id="gj-stage">
+    <div id="gj-layer" aria-label="targets layer"></div>
+
+    <!-- Crosshair: normal = center; cVR = left+right -->
+    <div id="gj-crosshair" aria-hidden="true"></div>
+    <div id="gj-crosshair-r" aria-hidden="true"></div>
+
+    <div id="atk-ring" aria-hidden="true"></div>
+    <div id="atk-laser" aria-hidden="true"></div>
+
+    <!-- optional end summary container -->
+    <div id="end-summary"></div>
+  </div>
+
+  <!-- ===== Controls ===== -->
+  <div class="hha-controls">
+    <button id="btnShoot" class="btn-shoot">ยิง</button>
+  </div>
+
+  <!-- ===== Start Overlay ===== -->
+  <div id="startOverlay" class="start-overlay">
+    <div class="start-card">
+      <div class="start-title">GoodJunk VR</div>
+      <div class="start-desc">
+        เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
+        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
+      </div>
+      <div class="start-meta" id="startMeta">—</div>
+      <button id="btnStart" class="btn-start">เริ่มเล่น</button>
+      <div class="start-minihelp">โหมด Cardboard: เลือก <b>cVR</b> → กด <b>Enter Fullscreen</b> → หมุนจอแนวนอน</div>
+    </div>
+  </div>
+
 </body>
 </html>
