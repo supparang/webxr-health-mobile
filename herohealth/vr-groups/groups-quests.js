@@ -1,294 +1,267 @@
 /* === /herohealth/vr-groups/groups-quests.js ===
-GroupsVR — Quest System (PRODUCTION)
-✅ No-Junk ring shrinks over time (pressure)
+GroupsVR Quest System — Goals sequential + Minis chain
+✅ Mini: Magnet Rush / No-Junk Ring / Speed 5
+✅ Mini urgency (<=3s): emits directive {urgent:true, tick:true, shake}
+✅ Exposes window.GroupsVR.createGroupsQuest(opts)
 */
 
 (function(root){
   'use strict';
   const NS = (root.GroupsVR = root.GroupsVR || {});
   const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{ detail: detail||{} })); }catch{} };
+  const directive = (detail)=> emit('groups:directive', detail||{});
 
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
   function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
 
-  function miniPlan(diff){
+  function goalNeed(diff){
     diff = String(diff||'normal').toLowerCase();
-    if (diff==='easy')  return { nojunkNeed:4, nojunkSec:9, stormNeed:4, perfectNeed:1, comboNeed:10 };
-    if (diff==='hard')  return { nojunkNeed:6, nojunkSec:7, stormNeed:6, perfectNeed:2, comboNeed:14 };
-    return               { nojunkNeed:5, nojunkSec:8, stormNeed:5, perfectNeed:2, comboNeed:12 };
+    if (diff==='easy') return 6;
+    if (diff==='hard') return 10;
+    return 8;
   }
 
-  function pct(nowv, total){
-    total = Math.max(1, Number(total)||1);
-    return clamp((Number(nowv)||0) / total * 100, 0, 100);
+  function makeMiniList(diff){
+    diff = String(diff||'normal').toLowerCase();
+    const speedNeed = diff==='hard' ? 6 : 5;
+    const speedTime = diff==='hard' ? 6 : 7;
+
+    return [
+      // A) speed burst
+      { key:'speed', title:`สปีด! เก็บถูก ${speedNeed} ใน ${speedTime} วิ`, need:speedNeed, time:speedTime, forbidJunk:false },
+
+      // B) No-Junk ring (fair): junk will spawn OUTSIDE ring (engine rule), but hitting any bad fails
+      { key:'nojunk', title:`No-Junk Zone! ห้ามโดนขยะ/ผิดใน 6 วิ`, need:4, time:6, forbidJunk:true },
+
+      // C) Magnet Rush: targets drift toward center; you must keep pace
+      { key:'magnet', title:`MAGNET RUSH! เก็บถูก 6 ใน 7 วิ`, need:6, time:7, forbidJunk:false },
+    ];
   }
 
-  function ringBase(){
-    const W = root.innerWidth || 360;
-    const H = root.innerHeight || 640;
-    const cx = W * 0.5;
-    const cy = H * 0.52;
-    const r0 = Math.min(W, H) * 0.28;
-    return { cx, cy, r0 };
-  }
-
-  function setRing(on, cx, cy, r){
-    emit('groups:nojunk', { on: !!on, cx, cy, r });
-  }
-
-  NS.createGroupsQuest = function createGroupsQuest(opts){
+  function createGroupsQuest(opts){
     opts = opts || {};
     const diff = String(opts.diff||'normal').toLowerCase();
-    const plan = miniPlan(diff);
-    const goalTotal = (diff==='hard') ? 6 : (diff==='easy' ? 4 : 5);
+    const runMode = String(opts.runMode||'play').toLowerCase();
+    const style = String(opts.style||'mix').toLowerCase();
 
     const state = {
-      started:false, ended:false,
-      goalsCleared:0, goalsTotal:goalTotal,
-      miniCleared:0, miniTotal:5,
-      swapCount:0,
+      started:false,
+      stopped:false,
 
+      // goal
+      goalIndex:0,
+      goalsTotal:5,
+      goalsCleared:0,
+      goalNow:0,
+      goalTotal:goalNeed(diff),
+      goalTitle:'',
+
+      // mini
+      minis: makeMiniList(diff),
       miniIndex:0,
       miniActive:null,
       miniNow:0,
-      miniNeed:0,
-      miniEndsAt:0,
-      miniStartsAt:0,
+      miniTotal:0,
+      miniStartAt:0,
+      miniEndAt:0,
+      miniCleared:0,
+      miniTotalAll: 999,
 
-      ring:{ on:false, cx:0, cy:0, r0:0 },
+      // tick helper
+      _lastUrgSec:null,
 
-      stormOn:false,
-      bossDown:0,
-      perfect:0,
-      comboMaxSeen:0
+      // timer
+      _timer:null,
     };
 
+    function curGroupId(){
+      // goalIndex 0..4 => group 1..5
+      return (state.goalIndex % 5) + 1;
+    }
+
+    function goalTitle(){
+      const g = curGroupId();
+      return `หมู่ ${g}: เก็บให้ถูก ${state.goalTotal} ครั้ง`;
+    }
+
     function pushUpdate(){
-      const miniTitle = state.miniActive ? state.miniActive.title : '—';
-      const tLeft = state.miniEndsAt ? Math.max(0, Math.ceil((state.miniEndsAt - now())/1000)) : 0;
+      const gp = (state.goalTotal>0) ? (state.goalNow/state.goalTotal)*100 : 0;
+      const mp = (state.miniActive && state.miniTotal>0) ? (state.miniNow/state.miniTotal)*100 : 0;
+
+      const leftSec = state.miniActive ? Math.max(0, Math.ceil((state.miniEndAt - now())/1000)) : 0;
 
       emit('quest:update', {
-        goalTitle: `สลับหมู่ให้ครบ ${state.goalsTotal} ครั้ง (สะสม POWER ให้ไว!)`,
-        goalNow: state.swapCount,
-        goalTotal: state.goalsTotal,
-        goalPct: pct(state.swapCount, state.goalsTotal),
+        goalTitle: state.goalTitle,
+        goalNow: state.goalNow,
+        goalTotal: state.goalTotal,
+        goalPct: clamp(gp,0,100),
 
-        miniTitle,
-        miniNow: state.miniNow,
-        miniTotal: state.miniNeed,
-        miniPct: pct(state.miniNow, state.miniNeed),
-        miniTimeLeftSec: tLeft
+        miniTitle: state.miniActive ? state.miniActive.title : '—',
+        miniNow: state.miniActive ? state.miniNow : 0,
+        miniTotal: state.miniActive ? state.miniTotal : 0,
+        miniPct: clamp(mp,0,100),
+        miniTimeLeftSec: leftSec
       });
-    }
 
-    function clearMini(){
-      state.miniActive = null;
-      state.miniNow = 0;
-      state.miniNeed = 0;
-      state.miniEndsAt = 0;
-      state.miniStartsAt = 0;
-      state.ring.on = false;
-      setRing(false, 0, 0, 0);
-      pushUpdate();
-    }
-
-    function winMini(){
-      state.miniCleared++;
-      emit('hha:celebrate', { kind:'mini', title:`MINI CLEARED! (${state.miniCleared}/${state.miniTotal})` });
-      clearMini();
-      startNextMini(false);
-    }
-
-    function failMini(reason){
-      emit('hha:judge', { kind:'bad', text:`MINI FAIL: ${String(reason||'fail')}` });
-      emit('hha:celebrate', { kind:'mini', title:'TRY AGAIN!' });
-
-      const keep = state.miniIndex;
-      clearMini();
-      state.miniIndex = keep;
-      startNextMini(true);
-    }
-
-    function updateRingShrink(){
-      if (!state.ring.on) return;
-      if (!state.miniStartsAt || !state.miniEndsAt) return;
-
-      const t = now();
-      const total = Math.max(1, state.miniEndsAt - state.miniStartsAt);
-      const left  = Math.max(0, state.miniEndsAt - t);
-      const frac  = clamp(left / total, 0, 1);
-
-      // shrink: 100% -> 72% (pressure!)
-      const r = state.ring.r0 * (0.72 + 0.28 * frac);
-      setRing(true, state.ring.cx, state.ring.cy, r);
-    }
-
-    function startMini(def){
-      state.miniActive = def;
-      state.miniNow = 0;
-      state.miniNeed = def.need || 1;
-
-      state.miniStartsAt = def.sec ? now() : 0;
-      state.miniEndsAt = def.sec ? (state.miniStartsAt + def.sec*1000) : 0;
-
-      if (def.ring){
-        const b = ringBase();
-        state.ring = { on:true, cx:b.cx, cy:b.cy, r0:b.r0 };
-        setRing(true, b.cx, b.cy, b.r0);
+      // mini urgency directives (<=3s)
+      if (state.miniActive){
+        if (leftSec > 0 && leftSec <= 3){
+          directive({ urgent:true, tick:true, shake:{ strength: 1 + (3-leftSec)*0.7, ms: 110 } });
+          state._lastUrgSec = leftSec;
+        } else {
+          directive({ urgent:false });
+          state._lastUrgSec = null;
+        }
       } else {
-        state.ring.on = false;
-        setRing(false, 0, 0, 0);
+        directive({ urgent:false });
+        state._lastUrgSec = null;
+      }
+    }
+
+    function startMini(){
+      const m = state.minis[state.miniIndex % state.minis.length];
+      state.miniActive = m;
+      state.miniNow = 0;
+      state.miniTotal = m.need;
+      const t = now();
+      state.miniStartAt = t;
+      state.miniEndAt = t + (m.time*1000);
+
+      // directives for special minis
+      if (m.key === 'nojunk'){
+        // fair ring: show ring, engine will spawn junk OUTSIDE ring only
+        directive({ nojunk: { on:true, r: 140 } });
+      } else {
+        directive({ nojunk: { on:false } });
+      }
+
+      if (m.key === 'magnet'){
+        directive({ magnet: { on:true, strength: 0.58 } });
+      } else {
+        directive({ magnet: { on:false } });
       }
 
       pushUpdate();
-
-      if (def.sec){
-        const timer = setInterval(()=>{
-          if (!state.started || state.ended) { clearInterval(timer); return; }
-          if (!state.miniActive || state.miniActive !== def) { clearInterval(timer); return; }
-
-          updateRingShrink();
-
-          const left = state.miniEndsAt - now();
-          if (left <= 0){
-            clearInterval(timer);
-            if (state.miniNow >= state.miniNeed) winMini();
-            else failMini('หมดเวลา');
-          } else {
-            pushUpdate();
-          }
-        }, 160);
-      }
     }
 
-    function startNextMini(retry){
-      const i = state.miniIndex;
-      const defs = [
-        {
-          key:'nojunk',
-          title:`No-Junk Zone: เก็บถูกหมู่ ${plan.nojunkNeed} ภายใน ${plan.nojunkSec} วิ (ห้ามโดนขยะ!)`,
-          need: plan.nojunkNeed,
-          sec: plan.nojunkSec,
-          ring:true
-        },
-        {
-          key:'storm',
-          title:`Storm Collector: ช่วง STORM เก็บถูกหมู่ ${plan.stormNeed} ครั้ง`,
-          need: plan.stormNeed
-        },
-        {
-          key:'boss',
-          title:`Boss Down: โค่นบอส 1 ตัว 👑`,
-          need: 1
-        },
-        {
-          key:'perfect',
-          title:`Perfect Switch: สลับหมู่แบบ Perfect ${plan.perfectNeed} ครั้ง`,
-          need: plan.perfectNeed
-        },
-        {
-          key:'combo',
-          title:`Combo Rush: ทำคอมโบให้ถึง ${plan.comboNeed}`,
-          need: plan.comboNeed
-        }
-      ];
+    function endMini(success, reason){
+      const m = state.miniActive;
+      if (!m) return;
 
-      if (i >= defs.length) return;
-      const def = defs[i];
-      if (!retry) state.miniIndex = i;
-      startMini(def);
+      // clear directives
+      directive({ nojunk: { on:false } });
+      directive({ magnet: { on:false } });
+      directive({ urgent:false });
+
+      if (success){
+        state.miniCleared++;
+        emit('hha:celebrate', { kind:'mini', title:'MINI CLEAR!' });
+      } else {
+        emit('hha:judge', { kind:'bad', text: reason || 'MINI FAIL' });
+      }
+
+      state.miniActive = null;
+      state.miniIndex++;
+      pushUpdate();
+
+      // next mini after short delay
+      setTimeout(()=>{ if (!state.stopped) startMini(); }, 420);
     }
 
-    function onProgress(ev){
-      const d = (ev && ev.detail) || {};
+    function nextGoal(){
+      state.goalIndex++;
+      state.goalsCleared++;
+      state.goalNow = 0;
+      state.goalTotal = goalNeed(diff);
+      state.goalTitle = goalTitle();
 
-      if (d.kind === 'group_swap'){
-        state.swapCount++;
-        if (state.swapCount >= state.goalsTotal && state.goalsCleared === 0){
-          state.goalsCleared = 1;
-          emit('hha:celebrate', { kind:'goal', title:'GOAL CLEARED! 🎯' });
-        }
-        pushUpdate();
-      }
-
-      if (d.kind === 'storm_on'){ state.stormOn = true; pushUpdate(); }
-      if (d.kind === 'storm_off'){ state.stormOn = false; pushUpdate(); }
-
-      if (d.kind === 'boss_down'){ state.bossDown++; pushUpdate(); }
-      if (d.kind === 'perfect_switch'){ state.perfect++; pushUpdate(); }
-
-      if (d.kind === 'combo' && d.combo != null){
-        state.comboMaxSeen = Math.max(state.comboMaxSeen, Number(d.combo)||0);
-        pushUpdate();
-      }
-
-      const mini = state.miniActive;
-      if (!mini) return;
-
-      if (mini.key === 'nojunk'){
-        if (d.kind === 'hit_good'){
-          state.miniNow++;
-          if (state.miniNow >= state.miniNeed) { winMini(); return; }
-          pushUpdate();
-        }
-        if (d.kind === 'hit_bad'){ failMini('โดนขยะ/ผิดหมู่'); return; }
-      }
-
-      if (mini.key === 'storm'){
-        if (d.kind === 'hit_good' && state.stormOn){
-          state.miniNow++;
-          if (state.miniNow >= state.miniNeed) { winMini(); return; }
-          pushUpdate();
-        }
-      }
-
-      if (mini.key === 'boss'){
-        if (d.kind === 'boss_down'){ state.miniNow = 1; winMini(); return; }
-      }
-
-      if (mini.key === 'perfect'){
-        if (d.kind === 'perfect_switch'){
-          state.miniNow++;
-          if (state.miniNow >= state.miniNeed) { winMini(); return; }
-          pushUpdate();
-        }
-      }
-
-      if (mini.key === 'combo'){
-        state.miniNow = Math.min(state.miniNeed, state.comboMaxSeen);
-        if (state.comboMaxSeen >= state.miniNeed) { winMini(); return; }
-        pushUpdate();
-      }
+      // on goal swap: light celebrate
+      emit('hha:celebrate', { kind:'goal', title:`GOAL CLEAR! ${state.goalTitle}` });
+      pushUpdate();
     }
 
     function start(){
-      state.started = true; state.ended = false;
-      state.goalsCleared = 0;
-      state.miniCleared = 0;
-      state.swapCount = 0;
-      state.miniIndex = 0;
-      state.stormOn = false;
-      state.bossDown = 0;
-      state.perfect = 0;
-      state.comboMaxSeen = 0;
+      if (state.started) return;
+      state.started = true;
+      state.stopped = false;
 
-      clearMini();
-      startNextMini(false);
+      state.goalIndex = 0;
+      state.goalsCleared = 0;
+      state.goalNow = 0;
+      state.goalTotal = goalNeed(diff);
+      state.goalTitle = goalTitle();
+
+      // start first mini
+      startMini();
+
+      state._timer = setInterval(()=>{
+        if (state.stopped) return;
+
+        // mini timeout
+        if (state.miniActive){
+          const left = state.miniEndAt - now();
+          if (left <= 0){
+            endMini(false, 'หมดเวลา');
+            return;
+          }
+        }
+
+        pushUpdate();
+      }, 120);
+    }
+
+    function stop(){
+      state.stopped = true;
+      try{ clearInterval(state._timer); }catch{}
+      state._timer = null;
+      directive({ nojunk:{on:false}, magnet:{on:false}, urgent:false });
+    }
+
+    function onProgress(ev){
+      const d = (ev && ev.detail) ? ev.detail : {};
+
+      // Goal progress: correct hit with groupId
+      if (d.kind === 'hit_good' && Number(d.groupId) === curGroupId()){
+        state.goalNow++;
+        if (state.goalNow >= state.goalTotal){
+          nextGoal();
+        }
+      }
+
+      // Mini progress
+      if (state.miniActive){
+        const m = state.miniActive;
+
+        if (d.kind === 'hit_good'){
+          state.miniNow++;
+          if (state.miniNow >= state.miniTotal){
+            endMini(true);
+            return;
+          }
+        }
+
+        // forbidJunk: any bad hit fails
+        if (m.forbidJunk && (d.kind === 'hit_bad' || d.kind === 'hit_wrong' || d.kind === 'hit_junk')){
+          endMini(false, 'โดนขยะ/ผิด');
+          return;
+        }
+      }
+
       pushUpdate();
     }
 
-    function stop(){ state.ended = true; setRing(false, 0, 0, 0); }
-
     function getState(){
       return {
-        goalsCleared: state.goalsCleared|0,
-        goalsTotal: state.goalsTotal|0,
-        miniCleared: state.miniCleared|0,
-        miniTotal: state.miniTotal|0
+        goalsCleared: state.goalsCleared,
+        goalsTotal: state.goalsTotal,
+        miniCleared: state.miniCleared,
+        miniTotal: state.miniTotalAll
       };
     }
 
     return { start, stop, onProgress, pushUpdate, getState };
-  };
+  }
+
+  NS.createGroupsQuest = createGroupsQuest;
 
 })(typeof window !== 'undefined' ? window : globalThis);
