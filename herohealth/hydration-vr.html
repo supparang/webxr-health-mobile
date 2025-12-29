@@ -1,6 +1,7 @@
 <!-- === /herohealth/hydration-vr.html ===
 HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
-✅ Cardboard: show targets + show HUD/Quest in stereo (PATCH 1–3)
+✅ Cardboard: show targets + show HUD/Quest in stereo
+✅ Drift/Storm urgent edge + End Summary
 -->
 
 <!doctype html>
@@ -12,10 +13,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Global FX + compat input + logger (paths relative to /herohealth/) -->
+  <!-- Global FX (optional but recommended) -->
   <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-compat-input.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
 
   <style>
     :root{
@@ -47,7 +46,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
     .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
 
-    /* ===== Mini HUD pills (top) ===== */
+    /* ===== TOP HUD ===== */
     .hudTop{
       position:relative;
       z-index:20;
@@ -91,7 +90,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     .coachText{ margin-top:6px; font-size:12px; font-weight:950; color:rgba(229,231,235,.92); line-height:1.25; }
     .coachSub{ margin-top:6px; font-size:11px; font-weight:900; color:var(--muted); }
 
-    /* ===== Play area ===== */
+    /* ===== PLAY AREA ===== */
     .playWrap{ position:relative; flex:1; padding: 0 12px; display:flex; }
 
     #playfield{
@@ -127,7 +126,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       background:rgba(229,231,235,.45);
     }
 
-    /* ===== Cardboard stereo wrapper ===== */
+    /* ===== CARDBOARD STEREO WRAP ===== */
     #cbWrap{ position:fixed; inset:0; z-index:25; display:none; background:#000; }
     body.cardboard #cbWrap{ display:flex; }
     body.cardboard .stage{ opacity:0; pointer-events:none; }
@@ -186,7 +185,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       filter: drop-shadow(0 10px 26px rgba(34,211,238,.18));
     }
 
-    /* ===== Cardboard HUD overlay (PATCH 1–3) ===== */
+    /* ===== CARDBOARD HUD ===== */
     .cbHud{
       position:absolute;
       left:10px; right:10px;
@@ -242,7 +241,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       margin-right:6px;
     }
 
-    /* ===== Bottom HUD ===== */
+    /* ===== BOTTOM HUD ===== */
     .hudBottom{
       position:relative;
       z-index:20;
@@ -413,7 +412,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       background: rgba(2,6,23,.62);
       color: rgba(229,231,235,.96);
       font-weight:1200;
-      letter-wise: .6px;
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
     }
     #stormIntro .sub{
@@ -421,7 +419,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       font-size:12px;
       font-weight:1000;
       color: rgba(148,163,184,.95);
-      letter-spacing:.2px;
       text-align:center;
     }
 
@@ -510,7 +507,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       <div class="coachCard">
         <div class="coachTitle">🧠 Coach</div>
         <div class="coachText" id="coach-text">แตะ START เพื่อเริ่ม</div>
-        <div class="coachSub" id="coach-sub">Tip: โหมด Cardboard = ค้างเล็งเพื่อยิง (gaze)</div>
+        <div class="coachSub" id="coach-sub">Tip: Cardboard = ค้างเล็งให้วงเต็มเพื่อยิง (gaze)</div>
       </div>
     </div>
 
@@ -561,7 +558,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       <div class="cbCross"></div>
       <div class="gazeRing" id="gazeRingL"></div>
 
-      <!-- PATCH 1–3: HUD in Cardboard (LEFT) -->
       <div class="cbHud">
         <div class="cbHudRow">
           <div class="cbPill">⏱️ <span class="k">TIME</span> <span class="v" id="cb-timeL">—</span></div>
@@ -588,7 +584,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       <div class="cbCross"></div>
       <div class="gazeRing" id="gazeRingR"></div>
 
-      <!-- PATCH 1–3: HUD in Cardboard (RIGHT) -->
       <div class="cbHud">
         <div class="cbHudRow">
           <div class="cbPill">⏱️ <span class="k">TIME</span> <span class="v" id="cb-timeR">—</span></div>
@@ -731,7 +726,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       body.classList.toggle('cardboard', on);
       try{ localStorage.setItem('HVR_CARDBOARD', on ? '1' : '0'); }catch{}
       D.documentElement.style.setProperty('--gazeProg', '0');
-      // inform engine
       window.dispatchEvent(new CustomEvent('hha:cardboard', { detail:{ on } }));
     }
     const saved = (function(){ try{ return localStorage.getItem('HVR_CARDBOARD')==='1'; }catch{ return false; } })();
@@ -846,12 +840,11 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
           nextTickAt = ts + interval;
         }
       }
-
       requestAnimationFrame(urgentLoop);
     }
     requestAnimationFrame(urgentLoop);
 
-    // ----- (4) drift hook: apply transforms from hha:score detail -----
+    // ----- Drift hook -----
     const pf = D.getElementById('playfield');
     const lay = D.getElementById('hvr-layer');
     const pfL = D.getElementById('cbPlayfieldL');
@@ -875,7 +868,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       }
     }
 
-    // ----- PATCH 1–3: sync Cardboard HUD from hha:score/quest:update -----
+    // ----- Sync Cardboard HUD from engine -----
     function setTxt(id, v){ const el = D.getElementById(id); if(el) el.textContent = String(v); }
 
     window.addEventListener('hha:score', (ev)=>{
@@ -886,9 +879,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
       applyDrift(d.driftX, d.driftY, d.driftRot);
 
-      // stereo HUD (both eyes)
-      setTxt('cb-timeL', d.leftSec ?? d.left ?? '—');
-      setTxt('cb-timeR', d.leftSec ?? d.left ?? '—');
+      setTxt('cb-timeL', d.leftSec ?? '—');
+      setTxt('cb-timeR', d.leftSec ?? '—');
       setTxt('cb-scoreL', d.score ?? 0);
       setTxt('cb-scoreR', d.score ?? 0);
       setTxt('cb-comboL', d.combo ?? 0);
@@ -903,16 +895,15 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
     window.addEventListener('quest:update', (ev)=>{
       const d = ev.detail || {};
-      // put short quest lines in cardboard
-      setTxt('cb-q1L', `GREEN ${Math.round(d.goalNeed||0)}s`);
-      setTxt('cb-q1R', `GREEN ${Math.round(d.goalNeed||0)}s`);
-      setTxt('cb-q2L', `${(Number(d.goalNow||0)).toFixed(1)} / ${Math.round(d.goalNeed||0)}s`);
-      setTxt('cb-q2R', `${(Number(d.goalNow||0)).toFixed(1)} / ${Math.round(d.goalNeed||0)}s`);
-      setTxt('cb-q3L', `Mini ✓ ${d.miniCleared||0}/${d.miniTotal||0}`);
-      setTxt('cb-q3R', `Mini ✓ ${d.miniCleared||0}/${d.miniTotal||0}`);
+      setTxt('cb-q1L', d.goalLine1 ?? '—');
+      setTxt('cb-q1R', d.goalLine1 ?? '—');
+      setTxt('cb-q2L', d.goalLine2 ?? '—');
+      setTxt('cb-q2R', d.goalLine2 ?? '—');
+      setTxt('cb-q3L', d.miniLine ?? '—');
+      setTxt('cb-q3R', d.miniLine ?? '—');
     }, { passive:true });
 
-    // ----- Storm Intro overlay + siren pattern -----
+    // ----- Storm intro overlay -----
     const stormIntro = D.getElementById('stormIntro');
     let stormIntroUntil = 0;
     let stormSirenAt = 0;
@@ -1012,9 +1003,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       set('endMiss', d.misses ?? 0);
       set('endGoals', String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0));
       set('endMinis', String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0));
-
       set('endGreen', (Number(d.timeInGreenSec||0).toFixed(1)) + 's');
-      set('endStreak', d.streakMax ?? 0);
+      set('endStreak', d.streakMax ?? d.comboMax ?? 0);
       set('endStorm', d.stormCycles ?? 0);
       set('endStormOk', d.stormMiniSuccess ?? 0);
       set('endStormRate', (Number(d.stormSuccessRatePct||0).toFixed(0)) + '%');
