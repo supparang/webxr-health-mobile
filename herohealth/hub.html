@@ -1,10 +1,10 @@
-l<!-- === /herohealth/hub.html ===
+<!-- === /herohealth/hub.html ===
 HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
 ✅ อ่าน localStorage: HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 ✅ ตาราง 4 เกมล่าสุด
 ✅ Export CSV (last / recent4)
-✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run/runMode, diff, time, seed, + research ctx)
-✅ รองรับ hub.safe.js (module)
+✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run, diff, time, seed, + research ctx)
+✅ NEW UX: Recent row tap (1 tap copy / 2 taps play) via hub.safe.js
 -->
 
 <!doctype html>
@@ -222,6 +222,7 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
       color:rgba(229,231,235,.92);
       font-weight:900;
       vertical-align:top;
+      transition: background .12s ease, transform .12s ease;
     }
     tbody tr:last-child td{border-bottom:none;}
     .tdGame{font-weight:1100;}
@@ -237,9 +238,20 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
     .gradeTag.good{border-color:rgba(34,197,94,.26); background:rgba(34,197,94,.10);}
     .gradeTag.warn{border-color:rgba(250,204,21,.28); background:rgba(250,204,21,.10);}
     .gradeTag.bad{border-color:rgba(239,68,68,.26); background:rgba(239,68,68,.10);}
+
+    /* ===== NEW: make rows feel tappable ===== */
+    #recentTbody tr{cursor:pointer; -webkit-tap-highlight-color:transparent;}
+    #recentTbody tr:hover td{background:rgba(34,197,94,.06);}
+    #recentTbody tr:active td{background:rgba(34,197,94,.10);}
+    .tapTip{
+      margin-top:8px;
+      font-size:12px;
+      color:rgba(148,163,184,.95);
+      font-weight:900;
+      line-height:1.35;
+    }
   </style>
 
-  <!-- HUB controller (module) -->
   <script type="module" src="./hub.safe.js"></script>
 </head>
 
@@ -408,6 +420,11 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
                   <tr><td colspan="9" class="muted">—</td></tr>
                 </tbody>
               </table>
+            </div>
+
+            <div class="tapTip">
+              💡 แตะแถว 1 ครั้ง = Copy ลิงก์รอบนั้น • แตะแถว 2 ครั้ง = Play รอบนั้นทันที
+              <br> (บนคอม: คลิกขวา = Copy ทันที)
             </div>
           </div>
         </div>
