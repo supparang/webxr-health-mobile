@@ -1,189 +1,158 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Food Groups VR (Launcher)</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Food Groups VR — Launcher</title>
+  <meta name="color-scheme" content="dark"/>
+  <link rel="icon" href="./favicon.ico" type="image/x-icon"/>
+
   <style>
     :root{
-      color-scheme: dark;
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --cyan:#22d3ee;
+      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
     }
-    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
     .wrap{
       min-height:100%;
-      padding:calc(18px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
-      display:grid;
-      place-items:center;
+      display:grid; place-items:center;
+      padding:calc(18px + var(--sat)) 16px calc(18px + var(--sab));
     }
     .card{
-      width:min(760px, 94vw);
-      background:var(--panel);
-      border:1px solid var(--stroke);
+      width:min(820px, 94vw);
+      background:rgba(2,6,23,.72);
+      border:1px solid rgba(148,163,184,.20);
       border-radius:22px;
-      padding:16px;
-      box-shadow:0 18px 60px rgba(0,0,0,.45);
+      padding:18px;
+      box-shadow:0 22px 70px rgba(0,0,0,.55);
     }
-    h1{ margin:0 0 6px; font-size:20px; }
-    p{ margin:0 0 14px; color:var(--muted); font-weight:800; line-height:1.5; }
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap:10px;
-    }
-    label{
-      display:grid;
-      gap:6px;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-    }
+    h1{ margin:0 0 8px; font-size:22px; }
+    p{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.6; }
+
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    label{ font-size:12px; color:var(--muted); font-weight:900; display:block; margin-bottom:6px; }
     select,input{
+      width:100%;
       padding:12px 12px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(15,23,42,.55);
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.72);
       color:var(--text);
-      font-weight:900;
       outline:none;
+      font-weight:800;
     }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
     .btn{
-      border:0;
-      border-radius:16px;
-      padding:12px 14px;
-      font-weight:1000;
-      cursor:pointer;
-      background:linear-gradient(135deg, rgba(34,197,94,.95), rgba(34,211,238,.80));
-      color:#04110a;
+      border:0; border-radius:16px; padding:12px 14px;
+      font-weight:1000; cursor:pointer;
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+      color:#061018;
     }
     .btn.ghost{
-      background:transparent;
+      background:rgba(15,23,42,.78);
+      border:1px solid rgba(148,163,184,.18);
       color:var(--text);
-      border:1px solid rgba(148,163,184,.22);
     }
-    .hint{
-      margin-top:10px;
-      font-size:12px;
-      color:rgba(226,232,240,.82);
-      font-weight:800;
-      white-space:pre-wrap;
-    }
-    @media (max-width: 720px){
-      .grid{ grid-template-columns: 1fr; }
-    }
+    .note{ margin-top:10px; font-size:12px; color:var(--muted); }
+    @media (max-width:720px){ .grid{ grid-template-columns:1fr; } }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>🍽️ Food Groups VR — Launcher</h1>
-      <p>เลือกโหมด/ความยาก/สไตล์ แล้วกด Start เพื่อเข้า <b>/herohealth/vr-groups/groups-vr.html</b></p>
+      <h1>🥦 Food Groups VR — Launcher</h1>
+      <p>เลือกโหมดเล่น แล้วกด Start / Enter VR ได้เลย (VR Cardboard = แตะที่ไหนก็ยิงกลางจอ)</p>
 
       <div class="grid">
-        <label>Run Mode
+        <div>
+          <label>View</label>
+          <select id="view">
+            <option value="pc">PC</option>
+            <option value="mobile">Mobile</option>
+            <option value="cvr">VR Cardboard (cVR)</option>
+          </select>
+        </div>
+        <div>
+          <label>Run Mode</label>
           <select id="runMode">
             <option value="play">play (adaptive)</option>
-            <option value="research">research (deterministic)</option>
+            <option value="research">research (fixed)</option>
           </select>
-        </label>
+        </div>
 
-        <label>Difficulty
+        <div>
+          <label>Difficulty</label>
           <select id="diff">
             <option value="easy">easy</option>
             <option value="normal" selected>normal</option>
             <option value="hard">hard</option>
           </select>
-        </label>
+        </div>
 
-        <label>Style
+        <div>
+          <label>Style</label>
           <select id="style">
             <option value="mix" selected>mix</option>
             <option value="feel">feel</option>
             <option value="hard">hard</option>
           </select>
-        </label>
+        </div>
 
-        <label>Time (sec)
-          <input id="time" type="number" min="30" max="180" value="90" />
-        </label>
+        <div>
+          <label>Time (sec)</label>
+          <input id="time" type="number" value="90" min="30" max="180"/>
+        </div>
 
-        <label>Seed (ปล่อยว่าง = auto)
-          <input id="seed" type="text" placeholder="เช่น 1766994914755" />
-        </label>
-
-        <label>Cardboard (crosshair/aim)
-          <select id="cardboard">
-            <option value="0" selected>OFF</option>
-            <option value="1">ON</option>
-          </select>
-        </label>
+        <div>
+          <label>Seed</label>
+          <input id="seed" type="text" placeholder="ปล่อยว่าง = auto"/>
+        </div>
       </div>
 
-      <div class="row">
-        <button class="btn" id="btnStart">Start</button>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn" id="btnGo">Start</button>
         <button class="btn ghost" id="btnHub">กลับ HUB</button>
       </div>
 
-      <div class="hint" id="hint"></div>
+      <div class="note">
+        TIP: ถ้าเลือก VR Cardboard (cVR) → ระบบจะเข้า fullscreen ในหน้า run และยิงด้วย “tap ยิงกลางจอ”
+      </div>
     </div>
   </div>
 
   <script>
     const $ = (id)=>document.getElementById(id);
-    const hub = './index.html';
 
-    $('btnHub').addEventListener('click', ()=> location.href = hub);
-
-    function buildUrl(){
+    function go(){
+      const view = $('view').value;
       const runMode = $('runMode').value;
       const diff = $('diff').value;
       const style = $('style').value;
-      const time = Number($('time').value || 90);
-      const seed = ($('seed').value || '').trim() || String(Date.now());
-      const cardboard = $('cardboard').value;
+      const time = Number($('time').value||90);
+      const seed = ($('seed').value||'').trim() || String(Date.now());
+      const v = String(Date.now());
 
-      const params = new URLSearchParams();
-      params.set('runMode', runMode);
-      params.set('diff', diff);
-      params.set('style', style);
-      params.set('time', String(time));
-      params.set('seed', seed);
-      params.set('hub', hub);
-      params.set('autostart', '1');
-      params.set('v', String(Date.now()));
-      params.set('cardboard', cardboard);
+      const url =
+        `./vr-groups/groups-vr.html?` +
+        `view=${encodeURIComponent(view)}` +
+        `&runMode=${encodeURIComponent(runMode)}` +
+        `&diff=${encodeURIComponent(diff)}` +
+        `&style=${encodeURIComponent(style)}` +
+        `&time=${encodeURIComponent(time)}` +
+        `&seed=${encodeURIComponent(seed)}` +
+        `&hub=${encodeURIComponent('./index.html')}` +
+        `&autostart=1` +
+        `&v=${encodeURIComponent(v)}`;
 
-      return './vr-groups/groups-vr.html?' + params.toString();
+      location.href = url;
     }
 
-    function updateHint(){
-      const url = buildUrl();
-      $('hint').textContent = 'URL:\n' + url;
-    }
-
-    ['runMode','diff','style','time','seed','cardboard'].forEach(id=>{
-      $(id).addEventListener('input', updateHint);
-      $(id).addEventListener('change', updateHint);
-    });
-
-    $('btnStart').addEventListener('click', ()=>{
-      location.href = buildUrl();
-    });
-
-    updateHint();
+    $('btnGo').addEventListener('click', go);
+    $('btnHub').addEventListener('click', ()=> location.href = './index.html');
   </script>
 </body>
 </html>
