@@ -6,165 +6,122 @@
   <title>HeroHealth — Food Groups (Launcher)</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
       color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.72);
+      --panel:rgba(2,6,23,.78);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --acc1:rgba(34,197,94,.95);
-      --acc2:rgba(34,211,238,.88);
+      --acc2:rgba(34,211,238,.90);
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0; height:100%;
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
-        var(--bg);
-      color:var(--text);
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-    }
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
     .wrap{
       min-height:100%;
-      display:grid;
-      place-items:center;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
+      display:grid; place-items:center;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 60%),
+        var(--bg);
     }
     .card{
-      width:min(860px, 96vw);
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.72);
-      border-radius:24px;
-      box-shadow:0 22px 70px rgba(0,0,0,.55);
+      width:min(920px, 94vw);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:22px;
+      box-shadow:0 18px 55px rgba(0,0,0,.55);
       padding:18px;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
     }
-    h1{ margin:0 0 6px; font-size:20px; letter-spacing:.2px; }
-    .sub{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.55; }
+    h1{ margin:0 0 6px; font-size:22px; }
+    p{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.6; }
+
     .grid{
       display:grid;
-      grid-template-columns: 1.25fr 1fr;
+      grid-template-columns: repeat(12, 1fr);
       gap:12px;
     }
     .box{
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.45);
+      grid-column: span 6;
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
       border-radius:18px;
       padding:12px;
     }
+    .box h3{ margin:0 0 10px; font-size:14px; color:#e2e8f0; }
     .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    label{ font-size:12px; color:var(--muted); font-weight:800; }
+    label{ font-size:12px; color:rgba(226,232,240,.88); font-weight:900; }
     select, input{
       width:100%;
-      padding:10px 12px;
+      padding:10px 10px;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.55);
+      background:rgba(2,6,23,.50);
       color:var(--text);
       outline:none;
-      font-weight:800;
+      font-weight:900;
     }
-    .cols{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-    }
-    .cols3{
-      display:grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap:10px;
-    }
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.45);
-      font-size:12px;
-      color:rgba(226,232,240,.92);
-      font-weight:800;
-    }
+    .field{ flex:1 1 160px; min-width:160px; }
     .actions{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
+      display:flex; gap:10px; flex-wrap:wrap;
+      margin-top:14px;
+      justify-content:flex-end;
     }
     button{
-      border:0;
-      border-radius:16px;
+      border:0; border-radius:999px;
       padding:12px 14px;
       font-weight:1000;
       cursor:pointer;
+      background:linear-gradient(90deg, var(--acc1), var(--acc2));
+      color:#061018;
     }
-    .primary{
-      background:linear-gradient(135deg, var(--acc1), var(--acc2));
-      color:#04110a;
-    }
-    .ghost{
-      background:transparent;
-      border:1px solid rgba(148,163,184,.22);
+    button.secondary{
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.18);
       color:var(--text);
-    }
-    .linkout{
-      margin-top:10px;
-      font-size:12px;
-      color:var(--muted);
-      line-height:1.45;
-      word-break: break-all;
     }
     .hint{
       margin-top:10px;
       font-size:12px;
-      color:rgba(226,232,240,.82);
-      line-height:1.55;
-      border-radius:16px;
+      color:rgba(226,232,240,.78);
       padding:10px 12px;
-      border:1px solid rgba(34,211,238,.18);
-      background:rgba(34,211,238,.06);
+      border-radius:16px;
+      border:1px dashed rgba(148,163,184,.18);
+      background:rgba(2,6,23,.35);
+      white-space:pre-wrap;
     }
-    .kbd{
-      font: 900 11px/1 system-ui;
-      padding:3px 7px;
-      border-radius:9px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.55);
-      display:inline-block;
-    }
-    @media (max-width: 880px){
-      .grid{ grid-template-columns: 1fr; }
-      .actions{ grid-template-columns: 1fr; }
+    @media (max-width: 760px){
+      .box{ grid-column: span 12; }
+      .actions{ justify-content:stretch; }
+      button{ width:100%; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>🥦 Food Groups VR — Launcher</h1>
-      <p class="sub">
-        เลือกโปรไฟล์การเล่น (PC / Mobile / VR Cardboard) + ความยาก + สไตล์ + ระบบยิง (gaze/tap)
-        แล้วกด Start เพื่อเข้า <b>/herohealth/vr-groups/groups-vr.html</b>
-      </p>
+      <h1>🥗 Food Groups VR — Launcher</h1>
+      <p>เลือกโหมด/ความยาก/เวลา/การเล็ง (TOUCH/GAZE/HYBRID) และ UI สำหรับ PC • Mobile • VR Cardboard</p>
 
       <div class="grid">
         <div class="box">
-          <div class="cols3">
-            <div>
+          <h3>🎮 Gameplay</h3>
+          <div class="row">
+            <div class="field">
               <label>Run Mode</label>
               <select id="runMode">
                 <option value="play" selected>play (adaptive ON)</option>
-                <option value="research">research (adaptive OFF)</option>
+                <option value="research">research (deterministic)</option>
               </select>
             </div>
-            <div>
+            <div class="field">
               <label>Difficulty</label>
               <select id="diff">
                 <option value="easy">easy</option>
@@ -172,106 +129,63 @@
                 <option value="hard">hard</option>
               </select>
             </div>
-            <div>
+            <div class="field">
               <label>Style</label>
               <select id="style">
                 <option value="mix" selected>mix</option>
-                <option value="feel">feel</option>
-                <option value="hard">hard</option>
+                <option value="feel">feel (wave feel)</option>
+                <option value="hard">hard (spiral feel)</option>
               </select>
             </div>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="cols3">
-            <div>
-              <label>Duration (sec)</label>
+            <div class="field">
+              <label>Time (sec)</label>
               <input id="time" type="number" min="30" max="180" value="90" />
             </div>
-            <div>
-              <label>Seed</label>
-              <input id="seed" type="text" placeholder="auto" />
-            </div>
-            <div>
-              <label>Auto-start</label>
-              <select id="autostart">
-                <option value="0" selected>off</option>
-                <option value="1">on</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="cols3">
-            <div>
-              <label>Profile UI</label>
-              <select id="ui">
-                <option value="auto" selected>auto</option>
-                <option value="pc">pc</option>
-                <option value="mobile">mobile</option>
-                <option value="vr">vr-cardboard</option>
-              </select>
-            </div>
-            <div>
-              <label>Shoot Mode</label>
-              <select id="shoot">
-                <option value="tap">tap-to-shoot (เร็ว)</option>
-                <option value="gaze" selected>gaze (VR มันส์สุด)</option>
-              </select>
-            </div>
-            <div>
-              <label>Lock Radius (px)</label>
-              <input id="radius" type="number" min="40" max="140" value="86" />
-            </div>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="cols">
-            <div>
-              <label>Lock (ms)</label>
-              <input id="lock" type="number" min="60" max="350" value="160" />
-            </div>
-            <div>
-              <label>Dwell (ms) — ใช้กับ gaze</label>
-              <input id="dwell" type="number" min="280" max="1200" value="620" />
-            </div>
-          </div>
-
-          <div style="height:10px"></div>
-
-          <div class="row">
-            <span class="pill">🎯 ยิงกลางจอ</span>
-            <span class="pill">🔒 lock-on</span>
-            <span class="pill">⚡ burst</span>
-            <span class="pill">⭐ overdrive</span>
-            <span class="pill">❄️ freeze</span>
-            <span class="pill">🛡️ shield</span>
           </div>
         </div>
 
         <div class="box">
-          <label>Hub (กลับหน้า HUB)</label>
-          <input id="hub" type="text" value="./index.html" />
-
-          <div style="height:10px"></div>
-
-          <label>Run URL (preview)</label>
-          <div class="linkout" id="urlOut">—</div>
-
-          <div class="actions">
-            <button class="primary" id="btnStart">Start ▶</button>
-            <button class="ghost" id="btnCopy">Copy URL</button>
-          </div>
-
-          <div class="hint">
-            <div><b>คำสั่งลัด</b></div>
-            <div>• VR cardboard แนะนำ: <span class="kbd">shoot=gaze</span>, <span class="kbd">dwell=520–650</span>, <span class="kbd">lock=140–170</span></div>
-            <div>• Mobile แอคชัน: <span class="kbd">shoot=tap</span>, <span class="kbd">lock=160–220</span></div>
+          <h3>🎯 Controls / UI</h3>
+          <div class="row">
+            <div class="field">
+              <label>Shoot Mode</label>
+              <select id="shoot">
+                <option value="hybrid" selected>hybrid (tap + gaze)</option>
+                <option value="touch">touch (tap only)</option>
+                <option value="gaze">gaze (cardboard)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>UI Mode</label>
+              <select id="ui">
+                <option value="" selected>default</option>
+                <option value="vr">vr (hide center/coach/quest)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Seed</label>
+              <input id="seed" type="text" placeholder="ปล่อยว่าง = auto" />
+            </div>
+            <div class="field">
+              <label>Auto Start</label>
+              <select id="autostart">
+                <option value="0" selected>0 (manual)</option>
+                <option value="1">1 (auto)</option>
+              </select>
+            </div>
           </div>
         </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnStart">Start Game</button>
+        <button class="secondary" id="btnHub">Back to HUB</button>
+      </div>
+
+      <div class="hint" id="hint">
+Tip:
+- Cardboard: ตั้ง Shoot = gaze และ UI = vr
+- research: ใส่ Seed เดิมเพื่อให้ run ซ้ำได้เหมือนกันทุกครั้ง
       </div>
     </div>
   </div>
@@ -279,80 +193,40 @@
   <script>
     const $ = (id)=>document.getElementById(id);
 
-    function inferUi(){
-      const w = innerWidth || 360;
-      const h = innerHeight || 640;
-      if (w <= 520) return 'mobile';
-      if (h <= 520) return 'mobile';
-      return 'pc';
+    function hubUrl(){
+      // adjust hub path if you want
+      return './index.html';
     }
 
-    function buildUrl(){
+    $('btnHub').addEventListener('click', ()=> location.href = hubUrl());
+
+    $('btnStart').addEventListener('click', ()=>{
       const runMode = $('runMode').value;
       const diff = $('diff').value;
       const style = $('style').value;
       const time = Math.max(30, Math.min(180, Number($('time').value||90)));
-      const seed = ($('seed').value||'').trim() || String(Date.now());
-      const hub = ($('hub').value||'./index.html').trim() || './index.html';
-      const autostart = $('autostart').value;
       const shoot = $('shoot').value;
-      const dwell = Math.max(280, Math.min(1200, Number($('dwell').value||620)));
-      const lock  = Math.max(60, Math.min(350, Number($('lock').value||160)));
-      const radius = Math.max(40, Math.min(140, Number($('radius').value||86)));
+      const ui = $('ui').value;
+      const autostart = $('autostart').value;
 
-      let ui = $('ui').value;
-      if (ui === 'auto') ui = inferUi();
+      let seed = String($('seed').value||'').trim();
+      if (!seed) seed = String(Date.now());
 
       const v = String(Date.now());
-      const base = './vr-groups/groups-vr.html';
+      const url = new URL('./vr-groups/groups-vr.html', location.href);
+      url.searchParams.set('runMode', runMode);
+      url.searchParams.set('diff', diff);
+      url.searchParams.set('style', style);
+      url.searchParams.set('time', String(time));
+      url.searchParams.set('seed', seed);
+      url.searchParams.set('shoot', shoot);
+      if (ui) url.searchParams.set('ui', ui);
+      url.searchParams.set('autostart', autostart);
+      url.searchParams.set('hub', hubUrl());
+      url.searchParams.set('v', v);
 
-      const p = new URLSearchParams();
-      p.set('runMode', runMode);
-      p.set('diff', diff);
-      p.set('style', style);
-      p.set('time', String(time));
-      p.set('seed', seed);
-      p.set('hub', hub);
-      p.set('autostart', autostart);
-      p.set('ui', ui);
-
-      p.set('shoot', shoot);
-      p.set('dwell', String(dwell));
-      p.set('lock', String(lock));
-      p.set('radius', String(radius));
-
-      p.set('v', v);
-      return base + '?' + p.toString();
-    }
-
-    function refresh(){
-      const url = buildUrl();
-      $('urlOut').textContent = url;
-      return url;
-    }
-
-    ['runMode','diff','style','time','seed','hub','autostart','ui','shoot','dwell','lock','radius']
-      .forEach(id=>{
-        $(id).addEventListener('input', refresh);
-        $(id).addEventListener('change', refresh);
-      });
-
-    $('btnStart').addEventListener('click', ()=>{
-      location.href = refresh();
+      location.href = url.toString();
     });
-
-    $('btnCopy').addEventListener('click', async ()=>{
-      const url = refresh();
-      try{
-        await navigator.clipboard.writeText(url);
-        $('btnCopy').textContent = 'Copied ✅';
-        setTimeout(()=> $('btnCopy').textContent = 'Copy URL', 900);
-      }catch{
-        alert(url);
-      }
-    });
-
-    refresh();
   </script>
 </body>
 </html>
