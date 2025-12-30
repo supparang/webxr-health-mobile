@@ -6,165 +6,105 @@
   <title>Food Groups VR — Run</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
-
-  <!-- ✅ Global unified layout (ใช้ร่วมทุกเกม) -->
-  <link rel="stylesheet" href="../vr/hha-layout.css" />
-  <script src="../vr/hha-layout.js" defer></script>
-
-  <!-- ✅ Game-specific -->
   <link rel="stylesheet" href="./groups-vr.css" />
+
+  <!-- ✅ Shared TapFire (ใช้ทุกเกม) -->
+  <script src="../vr/hha-vr-tapfire.js" defer></script>
 </head>
 
-<body>
-
-  <!-- ======================
-       HUD TOPBAR
-       ====================== -->
-  <div class="hha-topbar" aria-label="HUD Top">
-    <div class="hha-top-left hha-card">
-      <div class="row"><span class="hha-label">SCORE</span><span class="hha-value" id="uiScore">0</span></div>
-      <div class="row"><span class="hha-label">COMBO</span><span class="hha-value"><span id="uiCombo">0</span></span></div>
-      <div class="row"><span class="hha-label">MISS</span><span class="hha-value" id="uiMiss">0</span></div>
+<body class="view-pc">
+  <div class="hud">
+    <div class="box">
+      <div class="big" id="uiScore">0</div>
+      <div class="small">SCORE</div>
     </div>
-
-    <div class="hha-top-mid">
-      <div class="hha-pill">MAX: <b id="uiComboMax">0</b></div>
-      <div class="hha-pill">GRADE: <b id="uiGrade">C</b></div>
-    </div>
-
-    <div class="hha-top-right hha-card" style="text-align:right;">
-      <div class="row"><span class="hha-label">TIME</span><span class="hha-value"><span id="uiTime">90</span>s</span></div>
-      <div class="row"><span class="hha-label">MODE</span><span class="hha-value" id="uiMode">play</span></div>
-      <div class="row"><span class="hha-label">DIFF</span><span class="hha-value" id="uiDiff">normal</span></div>
+    <div class="box" style="text-align:right;">
+      <div class="big"><span id="uiTime">90</span>s</div>
+      <div class="small">TIME</div>
     </div>
   </div>
 
-  <!-- ======================
-       QUEST RIGHT
-       ====================== -->
-  <div class="hha-quest" aria-label="Quest Right">
-    <div class="hha-card hha-qline">
+  <div class="centerTop">
+    <div class="pill">COMBO: <b id="uiCombo">0</b> (MAX <b id="uiComboMax">0</b>)</div>
+    <div class="pill">MISS: <b id="uiMiss">0</b></div>
+    <div class="pill">GRADE: <b id="uiGrade">C</b></div>
+  </div>
+
+  <!-- ✅ Goal RIGHT -->
+  <div class="questTop" aria-label="Quest">
+    <div class="qbar">
       <div class="t">GOAL</div>
       <div class="b" id="uiGoalTitle">—</div>
-      <div class="hha-bar"><i id="uiGoalBar"></i></div>
+      <div class="p"><i id="uiGoalBar"></i></div>
     </div>
-
-    <div class="hha-card hha-qline" id="miniCard">
+    <div class="qbar">
       <div class="t">MINI</div>
       <div class="b" id="uiMiniTitle">—</div>
-      <div class="hha-bar"><i id="uiMiniBar"></i></div>
-      <div class="hha-mini-time" id="uiMiniTime">⏳ 0s</div>
+      <div class="p"><i id="uiMiniBar"></i></div>
+      <div class="time" id="uiMiniTime">⏳ 0s</div>
     </div>
   </div>
 
-  <!-- ======================
-       GAMEPLAY LAYER
-       ====================== -->
-  <div id="fg-layer" class="hha-layer" aria-label="Food Groups Layer"></div>
+  <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-  <!-- ======================
-       POWER BOTTOM
-       ====================== -->
-  <div class="hha-power">
-    <div class="hha-card">
-      <div class="bar"><i id="uiPowerBar"></i></div>
-      <div class="meta">
-        <span>POWER</span>
-        <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
-      </div>
+  <div class="powerWrap">
+    <div class="power"><i id="uiPowerBar"></i></div>
+    <div class="powerLabel">
+      <span>POWER</span>
+      <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
     </div>
   </div>
 
-  <!-- ======================
-       COACH BOTTOM-RIGHT
-       ====================== -->
-  <div class="hha-coach" aria-label="Coach">
-    <div class="hha-coach-card">
-      <div class="hha-coach-line" id="uiCoachLine">พร้อมเล่น! 🎵</div>
-      <div class="hha-fever"><i id="uiFeverBar"></i></div>
-      <div class="hha-shield" id="uiShieldTag">🛡️ SHIELD READY</div>
+  <!-- ✅ Coach bottom-right -->
+  <div class="coachWrap" aria-label="Coach">
+    <div class="coachCard">
+      <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
+      <div class="feverMini"><i id="uiFeverBar"></i></div>
+      <div class="shieldTag" id="uiShieldTag" style="display:none;">🛡️ SHIELD READY</div>
     </div>
-    <div class="hha-coach-img">
+    <div class="coachImg">
       <img id="uiCoachImg" src="../img/coach-neutral.png" alt="Coach"/>
     </div>
   </div>
 
-  <!-- ======================
-       Start Overlay
-       ====================== -->
-  <div class="hha-overlay" id="startOverlay">
+  <div class="overlay" id="startOverlay">
     <div class="panel">
-      <h2 style="margin:0 0 8px; font-size:20px;">🚀 พร้อมเล่น Food Groups VR</h2>
-      <p id="startDesc" style="margin:0 0 10px; color:var(--muted); font-size:13px; line-height:1.6;">กำลังเตรียมระบบ…</p>
+      <h2>🚀 พร้อมเล่น Food Groups VR</h2>
+      <p id="startDesc">กำลังเตรียมระบบ…</p>
+      <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
+      <div class="warn" id="warnBox"></div>
 
-      <div style="font-size:12px; color:var(--muted); opacity:.95;">
-        Boot: <b id="dbgBoot">loading…</b>
+      <div class="row" style="margin-top:10px;">
+        <button id="btnStart">Start (2D)</button>
+        <button id="btnEnterVR" class="secondary">Enter VR (Cardboard)</button>
+        <button id="btnBack" class="secondary">กลับ HUB</button>
       </div>
 
-      <div id="warnBox" style="
-        margin-top:10px; padding:10px 12px; border-radius:16px;
-        border:1px solid rgba(239,68,68,.25); background:rgba(239,68,68,.08);
-        color:rgba(254,226,226,.95); font-size:12px; display:none; white-space:pre-wrap;
-      "></div>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-        <button id="btnStart" style="
-          border:0; border-radius:999px; padding:12px 14px; font-weight:1000; cursor:pointer;
-          background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90)); color:#061018;
-        ">Start</button>
-
-        <button id="btnBack" style="
-          border-radius:999px; padding:12px 14px; font-weight:1000; cursor:pointer;
-          background:rgba(15,23,42,.78); border:1px solid rgba(148,163,184,.18); color:var(--text);
-        ">กลับ HUB</button>
-      </div>
-
-      <div style="margin-top:10px; font-size:12px; color:var(--muted); font-weight:900;">
-        ⭐ = Overdrive + Magnet + Shield • ❄️ = Freeze • STORM ระวัง!
+      <div class="dbg" style="margin-top:10px;">
+        ✅ ในโหมด VR (Cardboard): “แตะที่ไหนก็ยิงกลางจอ” (ไม่ต้องจิ้มเป้า)
       </div>
     </div>
   </div>
 
-  <!-- ======================
-       End Overlay
-       ====================== -->
-  <div class="hha-overlay" id="endOverlay" style="display:none;">
+  <div class="overlay" id="endOverlay">
     <div class="panel">
-      <h2 style="margin:0 0 8px; font-size:20px;">🏁 สรุปผล</h2>
-      <p id="endReason" style="margin:0 0 10px; color:var(--muted); font-size:13px;"></p>
+      <h2>🏁 สรุปผล</h2>
+      <p id="endReason"></p>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0 12px;">
-        <div style="border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.55); border-radius:16px; padding:10px 12px;">
-          SCORE<b id="endScore" style="display:block; font-size:18px; margin-top:2px;">0</b>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.55); border-radius:16px; padding:10px 12px;">
-          GRADE<b id="endGrade" style="display:block; font-size:18px; margin-top:2px;">C</b>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.55); border-radius:16px; padding:10px 12px;">
-          ACCURACY<b id="endAcc" style="display:block; font-size:18px; margin-top:2px;">0%</b>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.55); border-radius:16px; padding:10px 12px;">
-          COMBO MAX<b id="endComboMax" style="display:block; font-size:18px; margin-top:2px;">0</b>
-        </div>
+      <div class="kv">
+        <div class="k">SCORE<b id="endScore">0</b></div>
+        <div class="k">GRADE<b id="endGrade">C</b></div>
+        <div class="k">ACCURACY<b id="endAcc">0%</b></div>
+        <div class="k">COMBO MAX<b id="endComboMax">0</b></div>
       </div>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button id="btnReplay" style="
-          border:0; border-radius:999px; padding:12px 14px; font-weight:1000; cursor:pointer;
-          background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90)); color:#061018;
-        ">เล่นอีกครั้ง</button>
-
-        <button id="btnHub2" style="
-          border-radius:999px; padding:12px 14px; font-weight:1000; cursor:pointer;
-          background:rgba(15,23,42,.78); border:1px solid rgba(148,163,184,.18); color:var(--text);
-        ">กลับ HUB</button>
+      <div class="row">
+        <button id="btnReplay">เล่นอีกครั้ง</button>
+        <button id="btnHub2" class="secondary">กลับ HUB</button>
       </div>
     </div>
   </div>
 
-  <!-- ======================
-       Boot & Bind
-       ====================== -->
   <script type="module">
     const $ = (id)=>document.getElementById(id);
     const q = new URLSearchParams(location.search);
@@ -175,19 +115,25 @@
     const time    = Number(q.get('time') || 90);
     const seed    = (q.get('seed') || '').trim() || String(Date.now());
     const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
+    const view    = (q.get('view') || 'pc').toLowerCase();     // pc|mobile|cvr
     const autostart = q.get('autostart') === '1';
     const v = (q.get('v') || String(Date.now()));
 
-    $('uiMode').textContent = runMode;
-    $('uiDiff').textContent = diff;
+    function setView(mode){
+      const b = document.body;
+      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      b.classList.add(`view-${mode}`);
+    }
+    setView(view === 'cvr' ? 'cvr' : (view === 'mobile' ? 'mobile' : 'pc'));
 
-    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
+    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed} | view=${view}`;
 
     function warn(msg){
       console.warn(msg);
       const box = $('warnBox');
+      if (!box) return;
       box.style.display = 'block';
-      box.textContent += (box.textContent ? '\\n' : '') + String(msg);
+      box.textContent += (box.textContent ? '\n' : '') + String(msg);
     }
 
     async function safeImport(path){
@@ -195,7 +141,7 @@
         await import(path + (path.includes('?') ? '' : ('?v='+encodeURIComponent(v))));
         return true;
       }catch(e){
-        warn(`⚠️ load fail: ${path}\\n${e?.message || e}`);
+        warn(`⚠️ load fail: ${path}\n${e?.message || e}`);
         return false;
       }
     }
@@ -211,9 +157,6 @@
       $('dbgBoot').textContent = 'loading modules…';
       for (const p of BOOT_LIST) await safeImport(p);
       $('dbgBoot').textContent = (window.GroupsVR && window.GroupsVR.GameEngine) ? 'READY ✅' : 'ENGINE NOT FOUND ❌';
-
-      // ให้ layout วัด playRect หลัง HUD พร้อม
-      try{ window.HHALayout?.measure?.(); }catch{}
     }
 
     function flushHardened(reason){
@@ -245,12 +188,10 @@
         $('uiComboMax').textContent = String(d.comboMax ?? 0);
         $('uiMiss').textContent = String(d.misses ?? 0);
       });
-
       addEventListener('hha:time', (e)=>{
         const d = e.detail||{};
         $('uiTime').textContent = String(d.left ?? 0);
       });
-
       addEventListener('groups:power', (e)=>{
         const d = e.detail||{};
         const ch = Number(d.charge||0);
@@ -259,7 +200,6 @@
         $('uiPowerThr').textContent = String(thr);
         $('uiPowerBar').style.width = (Math.min(1, ch/thr)*100).toFixed(1) + '%';
       });
-
       addEventListener('hha:rank', (e)=>{
         const d = e.detail||{};
         if (d.grade) $('uiGrade').textContent = String(d.grade);
@@ -282,23 +222,12 @@
 
         const tLeft = Number(d.miniTimeLeftSec ?? 0);
         const timeEl = $('uiMiniTime');
-        const miniCard = $('miniCard');
-
         if (Number.isFinite(tLeft) && tLeft > 0){
           timeEl.style.display = 'block';
           timeEl.textContent = `⏳ ${tLeft}s`;
-
-          // urgent effect (<=3s)
-          const urgent = tLeft <= 3;
-          miniCard.classList.toggle('hha-mini-urgent', urgent);
-          timeEl.style.opacity = urgent ? '1' : '0.9';
         } else {
           timeEl.style.display = 'none';
-          miniCard.classList.remove('hha-mini-urgent');
         }
-
-        // playRect อัปเดตถ้า quest กล่องยืด
-        try{ window.HHALayout?.measure?.(); }catch{}
       });
 
       addEventListener('hha:coach', (e)=>{
@@ -310,8 +239,6 @@
                  : (mood==='fever') ? '../img/coach-fever.png'
                  : '../img/coach-neutral.png';
         $('uiCoachImg').src = img;
-
-        try{ window.HHALayout?.measure?.(); }catch{}
       });
 
       addEventListener('hha:fever', (e)=>{
@@ -324,7 +251,7 @@
 
       addEventListener('hha:end', (e)=>{
         const d = e.detail||{};
-        $('endOverlay').style.display = 'flex';
+        $('endOverlay').classList.add('show');
         $('endReason').textContent = `เหตุผล: ${d.reason || '-'}`;
         $('endScore').textContent = String(d.scoreFinal ?? 0);
         $('endGrade').textContent = String(d.grade ?? 'C');
@@ -337,7 +264,7 @@
             game: 'GroupsVR',
             ts: new Date().toISOString(),
             ...d,
-            params: { runMode, diff, style, time, seed, hub }
+            params: { runMode, diff, style, time, seed, hub, view }
           };
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
@@ -368,34 +295,45 @@
 
     async function startGame(){
       $('btnStart').disabled = true;
+      $('btnEnterVR').disabled = true;
       $('startDesc').textContent = 'กำลังเริ่มเกม…';
 
       await boot();
       const GE = await waitEngineReady();
-      if (!GE){ $('btnStart').disabled = false; return; }
-
-      // อัปเดต playRect ก่อน setLayer
-      try{ window.HHALayout?.measure?.(); }catch{}
+      if (!GE){ $('btnStart').disabled = false; $('btnEnterVR').disabled=false; return; }
 
       GE.setLayerEl($('fg-layer'));
       GE.start(diff, { runMode, style, time, seed });
 
       $('startOverlay').style.display = 'none';
-      $('endOverlay').style.display = 'none';
+      $('endOverlay').classList.remove('show');
+
       $('btnStart').disabled = false;
+      $('btnEnterVR').disabled = false;
+    }
+
+    async function enterVRAndStart(){
+      try{
+        // ✅ เข้า Cardboard/cVR + fullscreen + landscape + crosshair
+        await window.HHAVRTapFire?.enterCVR?.();
+        setView('cvr');
+      }catch(_){}
+      await startGame();
     }
 
     $('btnStart').addEventListener('click', startGame);
+    $('btnEnterVR').addEventListener('click', enterVRAndStart);
+
     $('btnReplay').addEventListener('click', ()=>{
       try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
-      $('endOverlay').style.display = 'none';
-      $('startOverlay').style.display = 'flex';
-      if (autostart) setTimeout(startGame, 250);
+      $('endOverlay').classList.remove('show');
+      $('startOverlay').style.display = 'grid';
+      if (autostart) setTimeout(()=> (view==='cvr' ? enterVRAndStart() : startGame()), 250);
     });
 
     bindEvents();
     await boot();
-    if (autostart) setTimeout(()=> $('btnStart').click(), 350);
+    if (autostart) setTimeout(()=> (view==='cvr' ? enterVRAndStart() : startGame()), 350);
   </script>
 </body>
 </html>
