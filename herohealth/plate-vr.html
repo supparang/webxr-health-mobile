@@ -1,8 +1,8 @@
 <!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (ROOT)
-✅ Loads /herohealth/plate/* assets
+Balanced Plate VR — PRODUCTION HTML (PATH-FIX)
+✅ ใช้ไฟล์ใน /herohealth/plate/*
 ✅ Works with /herohealth/plate/plate.safe.js
-✅ Path-fixed for HUB launches
+✅ Provides ALL required DOM ids
 -->
 
 <!doctype html>
@@ -12,12 +12,12 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles -->
+  <!-- Styles (PATH FIX) -->
   <link rel="stylesheet" href="./plate/plate-vr.css?v=20251230" />
 
   <!-- Global FX + Logger -->
@@ -27,20 +27,12 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
   <!-- HUD binder -->
   <script src="./plate/plate-hud.js?v=20251230" defer></script>
 
-  <!-- (Optional modular helpers - safe to include) -->
-  <script src="./plate/plate.state.js?v=20251230" defer></script>
-  <script src="./plate/plate.goals.js?v=20251230" defer></script>
-  <script src="./plate/plate.minis.js?v=20251230" defer></script>
-  <script src="./plate/plate.quest.js?v=20251230" defer></script>
-  <script src="./plate/plate.mode.js?v=20251230" defer></script>
-  <script src="./plate/plate.main.js?v=20251230" defer></script>
-
-  <!-- Game (SAFE) -->
+  <!-- Game -->
   <script src="./plate/plate.safe.js?v=20251230" defer></script>
 </head>
 
 <body>
-  <!-- Background VR scene -->
+  <!-- Background VR scene (minimal) -->
   <a-scene
     id="scene"
     embedded
@@ -57,13 +49,13 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
     </a-entity>
   </a-scene>
 
-  <!-- DOM layer -->
+  <!-- DOM Play layer for targets (required) -->
   <div id="plate-layer" aria-label="plate-layer"></div>
 
-  <!-- Hit FX -->
+  <!-- Hit FX overlay (required) -->
   <div id="hitFx" aria-hidden="true"></div>
 
-  <!-- TOP HUD -->
+  <!-- TOP HUD (required: hudTop) -->
   <header id="hudTop">
     <div class="hudRow">
       <div class="hudStat">
@@ -118,7 +110,7 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
     </div>
   </header>
 
-  <!-- COACH PANEL -->
+  <!-- COACH PANEL (required: coachPanel) -->
   <aside id="coachPanel">
     <img
       id="coachImg"
@@ -132,7 +124,7 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
     </div>
   </aside>
 
-  <!-- QUEST PANEL -->
+  <!-- QUEST PANEL (required: miniPanel) -->
   <section id="miniPanel">
     <div class="questBlock">
       <div class="questHdr">
@@ -158,14 +150,14 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
     </div>
   </section>
 
-  <!-- BUTTONS -->
+  <!-- BUTTONS (required: hudBtns) -->
   <nav id="hudBtns">
     <button class="btn ghost" id="btnPause" type="button">⏸ Pause</button>
     <button class="btn ghost" id="btnRestart" type="button">🔁 Restart</button>
     <button class="btn" id="btnEnterVR" type="button">🕶 Enter VR</button>
   </nav>
 
-  <!-- PAUSED overlay -->
+  <!-- PAUSED overlay (required: hudPaused) -->
   <div id="hudPaused">
     <div class="pausedCard">
       <div class="pausedTitle">Paused</div>
@@ -173,7 +165,7 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
     </div>
   </div>
 
-  <!-- START overlay -->
+  <!-- START overlay (required: startOverlay + btnStart) -->
   <div id="startOverlay">
     <div class="startCard">
       <div class="startTitle">🥗 Balanced Plate VR</div>
@@ -199,7 +191,7 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
     </div>
   </div>
 
-  <!-- RESULT overlay -->
+  <!-- RESULT overlay (required: resultBackdrop + rScore/rG1..rG5 etc.) -->
   <div id="resultBackdrop" style="display:none;">
     <div class="resultCard">
       <div class="resultTitle">🏁 สรุปผล</div>
