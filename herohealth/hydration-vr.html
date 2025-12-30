@@ -983,4 +983,193 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       dx = Number(dx)||0; dy = Number(dy)||0; rot = Number(rot)||0;
       if (pf && lay){
         pf.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
-        lay.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate
+        lay.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+      }
+      if (pfL && layL){
+        pfL.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
+        layL.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+      }
+      if (pfR && layR){
+        pfR.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
+        layR.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
+      }
+    }
+
+    // ----- Cardboard HUD binds -----
+    const cbTime  = D.getElementById('cb-stat-time');
+    const cbScore = D.getElementById('cb-stat-score');
+    const cbCombo = D.getElementById('cb-stat-combo');
+    const cbMiss  = D.getElementById('cb-stat-miss');
+    const cbGrade = D.getElementById('cb-stat-grade');
+    const cbStorm = D.getElementById('cb-storm-left');
+    const cbShield= D.getElementById('cb-shield-count');
+
+    const cbQ1 = D.getElementById('cb-quest-line1');
+    const cbQ2 = D.getElementById('cb-quest-line2');
+    const cbQ3 = D.getElementById('cb-quest-line3');
+    const cbQ4 = D.getElementById('cb-quest-line4');
+
+    const setT = (el, v)=>{ if(el) el.textContent = String(v); };
+
+    window.addEventListener('hha:time', (ev)=>{
+      const d = ev.detail || {};
+      setT(cbTime, d.left ?? '—');
+    }, { passive:true });
+
+    window.addEventListener('quest:update', (ev)=>{
+      const d = ev.detail || {};
+      setT(cbQ1, d.goalTitle ? `${d.goalTitle}: ${Number(d.goalNeed||0)|0}` : '—');
+      setT(cbQ2, `Goal: ${(Number(d.goalNow||0)).toFixed(1)} / ${(Number(d.goalNeed||0)).toFixed(0)}`);
+      setT(cbQ3, d.miniTitle ? `${d.miniTitle} • left ${Number(d.miniLeftSec||0)|0}s` : '—');
+      setT(cbQ4, d.miniUrgent ? '⚠️ URGENT: ช่วงท้ายพายุ!' : `Mini: ${Number(d.miniCleared||0)}/${Number(d.miniTotal||0)}`);
+    }, { passive:true });
+
+    window.addEventListener('hha:score', (ev)=>{
+      const d = ev.detail || {};
+      stormActive = !!d.stormActive;
+      stormLeft = Number(d.stormLeftSec || 0);
+      stormUrgent = !!d.stormInEndWindow;
+
+      // drift values
+      applyDrift(d.driftX, d.driftY, d.driftRot);
+
+      // sync Cardboard pills
+      setT(cbScore, d.score ?? 0);
+      setT(cbCombo, d.combo ?? 0);
+      setT(cbMiss,  d.misses ?? 0);
+      setT(cbGrade, d.grade ?? 'C');
+      setT(cbStorm, d.stormActive ? (Number(d.stormLeftSec||0)|0) : 0);
+      setT(cbShield, d.shield ?? 0);
+
+      // Coach hint (basic)
+      if (d.stormActive){
+        setCoach(d.stormInEndWindow ? 'fever' : 'happy',
+          d.stormInEndWindow ? 'ท้ายพายุ! เตรียม BLOCK ให้ทัน' : 'STORM มาแล้ว! ดันน้ำให้เป็น LOW/HIGH แล้วค่อย BLOCK',
+          'Tip: ค้างเล็ง = ยิง (gaze) / ยิงเร็วขึ้นช่วงท้าย'
+        );
+      } else {
+        setCoach('neutral', 'สะสม GREEN ให้ครบ + เก็บ Shield ไว้กันพายุ', 'Tip: Cardboard = ค้างเล็งเพื่อยิง (gaze)');
+      }
+    }, { passive:true });
+
+    // ----- Storm Intro overlay + siren pattern -----
+    const stormIntro = D.getElementById('stormIntro');
+    let stormIntroUntil = 0;
+    let stormSirenAt = 0;
+    function showStormIntro(ms=900){
+      if (!stormIntro) return;
+      stormIntro.classList.add('show');
+      stormIntroUntil = performance.now() + ms;
+      stormSirenAt = performance.now();
+    }
+    function stormIntroLoop(t){
+      if (stormIntro && stormIntro.classList.contains('show')){
+        if (t >= stormSirenAt){
+          const phase = Math.floor((t - stormSirenAt) / 150) % 2;
+          beep(phase ? 520 : 660, 70, 0.030);
+          stormSirenAt = t + 160;
+        }
+        if (t >= stormIntroUntil){ stormIntro.classList.remove('show'); }
+      }
+      requestAnimationFrame(stormIntroLoop);
+    }
+    requestAnimationFrame(stormIntroLoop);
+
+    window.addEventListener('hha:storm', async (ev)=>{
+      await resumeAudio();
+      const d = ev.detail || {};
+      if (d.state === 'enter'){ showStormIntro(900); }
+    }, { passive:true });
+
+    // ----- Cardboard gaze-to-shoot -----
+    let gazeEl = null;
+    let gazeT0 = 0;
+    const gazeHoldMs = 520;
+    function setGazeProg(p){
+      p = Math.max(0, Math.min(1, p));
+      D.documentElement.style.setProperty('--gazeProg', String(p));
+    }
+    function gazeLoop(t){
+      if (!body.classList.contains('cardboard')){
+        gazeEl = null; gazeT0 = 0; setGazeProg(0);
+        requestAnimationFrame(gazeLoop);
+        return;
+      }
+      const eye = D.getElementById('cbEyeL');
+      if (!eye){ requestAnimationFrame(gazeLoop); return; }
+      const r = eye.getBoundingClientRect();
+      const x = r.left + r.width/2;
+      const y = r.top + r.height/2;
+
+      const el = document.elementFromPoint(x,y);
+      const ok = (el && el.classList && el.classList.contains('hvr-target')) ? el : null;
+
+      if (ok !== gazeEl){
+        gazeEl = ok; gazeT0 = t; setGazeProg(0);
+      } else if (gazeEl){
+        const dt = t - gazeT0;
+        const p = dt / gazeHoldMs;
+        setGazeProg(p);
+        if (p >= 1){
+          gazeEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
+          gazeT0 = t + 220;
+          setGazeProg(0);
+        }
+      } else setGazeProg(0);
+
+      requestAnimationFrame(gazeLoop);
+    }
+    requestAnimationFrame(gazeLoop);
+
+    // ----- End summary -----
+    const endBackdrop = D.getElementById('endBackdrop');
+    const btnRetry = D.getElementById('btnRetry');
+    const btnBackHub = D.getElementById('btnBackHub');
+    const btnCloseEnd = D.getElementById('btnCloseEnd');
+
+    btnRetry.addEventListener('click', ()=> location.reload());
+    btnCloseEnd.addEventListener('click', ()=>{ if(endBackdrop) endBackdrop.style.display='none'; });
+    btnBackHub.addEventListener('click', ()=>{
+      try{
+        const u = new URL(hub, location.href);
+        u.searchParams.set('ts', String(Date.now()));
+        location.href = u.toString();
+      }catch{ location.href = hub; }
+    });
+
+    window.addEventListener('hha:end', (ev)=>{
+      const d = (ev && ev.detail) ? ev.detail : {};
+      try{
+        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
+        localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
+      }catch{}
+
+      const set = (id,val)=>{ const el=D.getElementById(id); if(el) el.textContent=String(val); };
+      set('endScore', d.scoreFinal ?? 0);
+      set('endGrade', d.grade ?? 'C');
+      set('endAcc', ((Number(d.accuracyGoodPct||0)).toFixed(1)) + '%');
+      set('endCombo', d.comboMax ?? 0);
+      set('endMiss', d.misses ?? 0);
+      set('endGoals', String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0));
+      set('endMinis', String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0));
+
+      set('endGreen', (Number(d.timeInGreenSec||0).toFixed(1)) + 's');
+      set('endStreak', d.streakMax ?? 0);
+      set('endStorm', d.stormCycles ?? 0);
+      set('endStormOk', d.stormMiniSuccess ?? 0);
+      set('endStormRate', (Number(d.stormSuccessRatePct||0).toFixed(0)) + '%');
+
+      if (endBackdrop) endBackdrop.style.display = 'flex';
+      setCoach('happy', 'จบเกมแล้ว! กด Retry หรือกลับ HUB ได้เลย', 'Tip: ลอง diff=hard ให้โหดขึ้น');
+    }, { passive:true });
+
+    // keyboard (desktop)
+    window.addEventListener('keydown', (e)=>{
+      if (e.code === 'Space'){ e.preventDefault(); shootAtCenter(); }
+      if (e.key && e.key.toLowerCase() === 'c'){ setCardboard(!body.classList.contains('cardboard')); }
+      if (e.key && e.key.toLowerCase() === 'h'){ setHudCollapsed(!body.classList.contains('hud-collapsed')); }
+    }, { passive:false });
+  })();
+  </script>
+</body>
+</html>
