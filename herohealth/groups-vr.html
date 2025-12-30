@@ -8,72 +8,91 @@
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
-      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.22);
+      --bg:#020617; --panel:rgba(2,6,23,.75); --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb; --muted:#94a3b8;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
-    .wrap{min-height:100%;display:grid;place-items:center;padding:16px;}
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+    .wrap{ min-height:100%; display:grid; place-items:center; padding:calc(18px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal)); }
     .card{
-      width:min(860px,94vw);
+      width:min(920px, 94vw);
+      background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:22px;
-      background:rgba(2,6,23,.68);
-      box-shadow:0 22px 70px rgba(0,0,0,.55);
+      box-shadow:0 18px 60px rgba(0,0,0,.55);
       padding:18px;
     }
-    h1{margin:0 0 6px;font-size:20px}
-    p{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.6}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .row{display:grid;gap:6px}
-    label{font-size:12px;color:var(--muted);font-weight:800}
-    select,input{
-      width:100%;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.20);
+    h1{ margin:0 0 6px; font-size:22px; }
+    p{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.65; }
+    .grid{ display:grid; gap:12px; grid-template-columns:1fr 1fr; }
+    @media (max-width: 720px){ .grid{ grid-template-columns:1fr; } }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:10px 12px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
       background:rgba(15,23,42,.65);
       color:var(--text);
+      font-weight:800; font-size:13px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .pill small{ font-weight:700; color:var(--muted); }
+    select, input{
+      width:100%;
       padding:12px 12px;
-      font-weight:900;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.65);
+      color:var(--text);
+      font-weight:800;
       outline:none;
     }
-    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    button{
-      border:0;border-radius:999px;padding:12px 14px;
-      font-weight:1000;cursor:pointer;
+    label{ display:block; font-size:12px; color:var(--muted); margin:8px 0 6px; }
+    .btn{
+      border:0; border-radius:999px;
+      padding:12px 14px;
+      font-weight:1000;
+      cursor:pointer;
       background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
       color:#061018;
     }
-    button.ghost{
-      background:transparent;border:1px solid rgba(148,163,184,.22);color:var(--text);
+    .btn.secondary{
+      background:rgba(15,23,42,.78);
+      border:1px solid rgba(148,163,184,.18);
+      color:var(--text);
     }
-    .hint{margin-top:10px;font-size:12px;color:rgba(226,232,240,.88);opacity:.9}
-    @media (max-width:760px){ .grid{grid-template-columns:1fr} }
+    .hint{ margin-top:10px; font-size:12px; color:rgba(226,232,240,.80); }
+    code{ color:#a7f3d0; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>🍽️ Food Groups VR — Launcher</h1>
-      <p>เลือกโหมด/ความยาก/สไตล์/เวลา และโหมดการแสดงผล (PC / Mobile / VR / Cardboard)</p>
+      <h1>🍱 Food Groups VR — Launcher</h1>
+      <p>
+        เล่นได้ทั้ง <b>PC</b>, <b>Mobile</b>, <b>VR Cardboard</b><br/>
+        โหมด <b>play</b> = AI adaptive, โหมด <b>research</b> = deterministic (seed คุมผล)
+      </p>
 
       <div class="grid">
-        <div class="row">
+        <div>
           <label>Run Mode</label>
           <select id="runMode">
-            <option value="play">play (adaptive)</option>
+            <option value="play">play (AI adaptive)</option>
             <option value="research">research (deterministic)</option>
           </select>
-        </div>
-        <div class="row">
+
           <label>Difficulty</label>
           <select id="diff">
             <option value="easy">easy</option>
             <option value="normal" selected>normal</option>
             <option value="hard">hard</option>
           </select>
-        </div>
 
-        <div class="row">
           <label>Style</label>
           <select id="style">
             <option value="mix" selected>mix</option>
@@ -81,79 +100,67 @@
             <option value="hard">hard</option>
           </select>
         </div>
-        <div class="row">
+
+        <div>
           <label>Time (sec)</label>
-          <input id="time" type="number" min="30" max="180" value="90" />
-        </div>
+          <input id="time" type="number" min="30" max="180" value="90"/>
 
-        <div class="row">
-          <label>View</label>
-          <select id="view">
-            <option value="pc" selected>pc</option>
-            <option value="mobile">mobile</option>
-            <option value="vr">vr</option>
-            <option value="cvr">cardboard (cVR)</option>
-          </select>
-        </div>
+          <label>Seed (เว้นว่าง = ใช้เวลาปัจจุบัน)</label>
+          <input id="seed" type="text" placeholder="เช่น 1766994914755"/>
 
-        <div class="row">
-          <label>Seed (blank = now)</label>
-          <input id="seed" placeholder="e.g. 1766994914755" />
-        </div>
-
-        <div class="row">
-          <label>TapShoot (for cVR)</label>
-          <select id="tapshoot">
-            <option value="0">off</option>
-            <option value="1" selected>on</option>
-          </select>
-        </div>
-
-        <div class="row">
-          <label>AutoStart</label>
-          <select id="autostart">
-            <option value="0">no</option>
-            <option value="1" selected>yes</option>
-          </select>
+          <label>Autostart</label>
+          <div class="row">
+            <div class="pill" id="aut0">⏸️ <span>OFF</span> <small>(กด Start)</small></div>
+            <div class="pill" id="aut1">▶️ <span>ON</span> <small>(เข้าแล้วเริ่ม)</small></div>
+          </div>
         </div>
       </div>
 
-      <div class="actions">
-        <button id="btnGo">🚀 Start</button>
-        <button id="btnCvr" class="ghost">🕶️ Start in Cardboard</button>
-        <button id="btnHub" class="ghost">⬅ กลับ HUB</button>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn" id="btnPlay">🚀 Start (Run)</button>
+        <button class="btn secondary" id="btnHub">⬅️ กลับ HUB</button>
       </div>
 
       <div class="hint">
-        • research = ล็อกค่า spawn/storm/boss ตาม seed (เหมาะงานวิจัย)<br/>
-        • cardboard = ยิงกลางจอ (TapShoot) + Aim Assist + Crosshair
+        ทิป: VR Cardboard ให้กด <code>ENTER VR</code> ในหน้ารันเกม และยิงด้วย “tap-to-shoot” / crosshair
       </div>
     </div>
   </div>
 
   <script>
     const $ = (id)=>document.getElementById(id);
-    function go(viewOverride){
+    const hub = './index.html';
+    let autostart = '0';
+
+    function setAut(v){
+      autostart = String(v);
+      $('aut0').style.opacity = (autostart==='0') ? '1' : '0.55';
+      $('aut1').style.opacity = (autostart==='1') ? '1' : '0.55';
+    }
+    $('aut0').onclick = ()=>setAut('0');
+    $('aut1').onclick = ()=>setAut('1');
+    setAut('0');
+
+    $('btnHub').onclick = ()=> location.href = hub;
+
+    $('btnPlay').onclick = ()=>{
       const runMode = $('runMode').value;
       const diff = $('diff').value;
       const style = $('style').value;
-      const time = Number($('time').value||90);
+      const time = Math.max(30, Math.min(180, Number($('time').value||90)));
       const seed = ($('seed').value||'').trim() || String(Date.now());
-      const view = viewOverride || $('view').value;
-      const tapshoot = $('tapshoot').value;
-      const autostart = $('autostart').value;
 
-      const hub = './index.html';
-      const v = Date.now();
-
-      const url =
-        `./vr-groups/groups-vr.html?runMode=${encodeURIComponent(runMode)}&diff=${encodeURIComponent(diff)}&style=${encodeURIComponent(style)}&time=${encodeURIComponent(time)}&seed=${encodeURIComponent(seed)}&hub=${encodeURIComponent(hub)}&view=${encodeURIComponent(view)}&tapshoot=${encodeURIComponent(tapshoot)}&autostart=${encodeURIComponent(autostart)}&v=${encodeURIComponent(v)}`;
-
-      location.href = url;
-    }
-    $('btnGo').addEventListener('click', ()=>go());
-    $('btnCvr').addEventListener('click', ()=>go('cvr'));
-    $('btnHub').addEventListener('click', ()=>location.href='./index.html');
+      const url = new URL('./vr-groups/groups-vr.html', location.href);
+      url.searchParams.set('runMode', runMode);
+      url.searchParams.set('diff', diff);
+      url.searchParams.set('style', style);
+      url.searchParams.set('time', String(time));
+      url.searchParams.set('seed', seed);
+      url.searchParams.set('hub', hub);
+      url.searchParams.set('autostart', autostart);
+      url.searchParams.set('v', String(Date.now()));
+      location.href = url.toString();
+    };
   </script>
 </body>
 </html>
