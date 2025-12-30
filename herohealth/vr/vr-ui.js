@@ -1,11 +1,10 @@
 /* === /herohealth/vr/vr-ui.js ===
-HeroHealth VR UI (DOM games) — Universal Module
-✅ Enter Cardboard VR (pseudo VR): fullscreen + cVR class + crosshair
-✅ Tap-to-shoot (dispatch hha:shoot) — in cVR shoot from center
-✅ PC/Mobile: optional tap-to-shoot (at tap position)
-✅ Recenter (dispatch hha:vr {state:'reset'})
-✅ LockPx aim assist configurable
-Expose: window.HHAVRUI = { init, enterVR, exitVR, recenter, setLockPx, isVR }
+Universal VR UI — ENTER VR / EXIT / RECENTER + Crosshair + Tap-to-Shoot
+- Works for DOM games (non A-Frame) using Cardboard mode = view-cvr
+- Always shows buttons (even if WebXR not available)
+- Emits:
+   - hha:shoot {x,y,lockPx,source}
+   - hha:vr {state:'enter'|'exit'|'reset'}
 */
 
 (function(root){
@@ -13,269 +12,174 @@ Expose: window.HHAVRUI = { init, enterVR, exitVR, recenter, setLockPx, isVR }
   const DOC = root.document;
   if (!DOC) return;
 
-  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const api = (root.HHAVRUI = root.HHAVRUI || {});
+  const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch{} };
 
-  function qs(k, def=null){
-    try{ return new URL(root.location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
-  }
+  let mounted = false;
+  let cfg = { lockPx: 96 };
 
-  function isFullscreen(){
+  function $(sel){ return DOC.querySelector(sel); }
+
+  function isFs(){
     return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
   }
-  async function requestFullscreen(){
+  async function enterFs(){
     try{
       const el = DOC.documentElement;
       if (el.requestFullscreen) await el.requestFullscreen();
       else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
     }catch(_){}
   }
-  async function exitFullscreen(){
+  async function exitFs(){
     try{
       if (DOC.exitFullscreen) await DOC.exitFullscreen();
       else if (DOC.webkitExitFullscreen) await DOC.webkitExitFullscreen();
     }catch(_){}
   }
 
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name,{ detail: detail||{} })); }catch{}
-  }
-
-  function ensureStylesOnce(){
-    if (ensureStylesOnce._done) return;
-    ensureStylesOnce._done = true;
-
+  function ensureStyles(){
+    if ($('#hha-vr-ui-style')) return;
     const st = DOC.createElement('style');
+    st.id = 'hha-vr-ui-style';
     st.textContent = `
-      .hha-vrbtns{
-        position:fixed; left:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px));
-        z-index:999; display:flex; gap:8px; align-items:center;
-        font-family:system-ui,-apple-system,Segoe UI,sans-serif;
-        pointer-events:auto;
+      .hha-vr-ui{
+        position:fixed; left:12px; top:calc(12px + env(safe-area-inset-top,0px));
+        z-index:9999; display:flex; gap:10px; align-items:center;
+        pointer-events:auto; user-select:none;
       }
-      .hha-vrbtns.right{ left:auto; right:12px; }
-      .hha-vrbtn{
+      .hha-vr-ui .btn{
         border:1px solid rgba(148,163,184,.18);
-        background:rgba(2,6,23,.72);
+        background:rgba(15,23,42,.72);
         color:#e5e7eb;
-        border-radius:999px;
         padding:10px 12px;
-        font-weight:900;
-        font-size:12px;
+        border-radius:999px;
+        font:900 12px/1 system-ui,-apple-system,Segoe UI,sans-serif;
         box-shadow:0 16px 40px rgba(0,0,0,.35);
         cursor:pointer;
-        user-select:none;
-        -webkit-tap-highlight-color: transparent;
       }
-      .hha-vrbtn.primary{
-        border:0;
+      .hha-vr-ui .btn.primary{
         background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
         color:#061018;
+        border:0;
       }
       .hha-crosshair{
         position:fixed; left:50%; top:50%;
-        width:26px; height:26px;
+        width:16px; height:16px;
         transform:translate(-50%,-50%);
-        z-index:998;
+        z-index:9998;
         pointer-events:none;
-        opacity:.92;
-        display:none;
+        opacity:.95;
       }
-      body.view-cvr .hha-crosshair{ display:block; }
-
-      .hha-crosshair::before,
-      .hha-crosshair::after{
+      .hha-crosshair:before,.hha-crosshair:after{
         content:"";
         position:absolute; left:50%; top:50%;
-        width:26px; height:26px;
+        background:rgba(226,232,240,.92);
         transform:translate(-50%,-50%);
-        border-radius:999px;
-        border:2px solid rgba(226,232,240,.75);
-        box-shadow:0 0 0 6px rgba(34,211,238,.12);
+        border-radius:2px;
       }
-      .hha-crosshair::after{
-        width:6px; height:6px;
-        border:0;
-        background:rgba(34,197,94,.92);
-        box-shadow:0 0 0 8px rgba(34,197,94,.10);
-      }
-
-      /* in cVR: prevent direct tapping targets, use shoot dispatch */
-      body.view-cvr .fg-target{ pointer-events:none !important; }
+      .hha-crosshair:before{ width:14px; height:2px; }
+      .hha-crosshair:after{ width:2px; height:14px; }
+      body.view-cvr .hha-crosshair{ opacity:1; filter:drop-shadow(0 8px 18px rgba(0,0,0,.55)); }
+      body:not(.view-cvr) .hha-crosshair{ opacity:.45; }
     `;
     DOC.head.appendChild(st);
   }
 
-  const S = {
-    inited:false,
-    isVR:false,
-    lockPx: 86,
-    tapAtCursorInVR:true,
-    tapShootOutsideVR:false,
-    buttonsSide:'left',
-    allowFullscreen:true,
-    rootEl:null,
-    crosshairEl:null,
-    btnWrap:null,
-    _bound:false
-  };
-
   function ensureUI(){
-    ensureStylesOnce();
+    ensureStyles();
 
-    if (!S.crosshairEl){
+    if (!$('#hha-vr-ui')){
+      const ui = DOC.createElement('div');
+      ui.className = 'hha-vr-ui';
+      ui.id = 'hha-vr-ui';
+      ui.innerHTML = `
+        <button class="btn primary" id="hhaEnterVr">ENTER VR</button>
+        <button class="btn" id="hhaExitVr">EXIT</button>
+        <button class="btn" id="hhaRecenter">RECENTER</button>
+      `;
+      DOC.body.appendChild(ui);
+    }
+    if (!$('#hha-crosshair')){
       const ch = DOC.createElement('div');
       ch.className = 'hha-crosshair';
+      ch.id = 'hha-crosshair';
       DOC.body.appendChild(ch);
-      S.crosshairEl = ch;
     }
+  }
 
-    if (!S.btnWrap){
-      const wrap = DOC.createElement('div');
-      wrap.className = 'hha-vrbtns' + (S.buttonsSide==='right' ? ' right' : '');
-      wrap.innerHTML = `
-        <button class="hha-vrbtn primary" data-act="enter">🕶️ ENTER VR</button>
-        <button class="hha-vrbtn" data-act="recenter">🎯 RECENTER</button>
-        <button class="hha-vrbtn" data-act="exit" style="display:none;">✖ EXIT</button>
-      `;
-      DOC.body.appendChild(wrap);
-      S.btnWrap = wrap;
+  function setViewCvr(on){
+    DOC.body.classList.toggle('view-cvr', !!on);
+    DOC.body.classList.toggle('view-vr', !!on); // เผื่อ CSS เดิมใช้ view-vr
+  }
 
-      wrap.addEventListener('click', async (e)=>{
-        const b = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
-        if (!b) return;
-        const act = b.dataset.act;
+  function shootFromCenter(source='tap'){
+    const x = (root.innerWidth || 0) * 0.5;
+    const y = (root.innerHeight || 0) * 0.5;
+    emit('hha:shoot', { x, y, lockPx: cfg.lockPx, source });
+  }
 
-        if (act === 'enter') await enterVR();
-        if (act === 'exit') await exitVR();
-        if (act === 'recenter') recenter();
+  function bind(){
+    const enterBtn = $('#hhaEnterVr');
+    const exitBtn  = $('#hhaExitVr');
+    const recBtn   = $('#hhaRecenter');
+
+    if (enterBtn && !enterBtn._bound){
+      enterBtn._bound = true;
+      enterBtn.addEventListener('click', async ()=>{
+        // DOM-Cardboard mode: set view-cvr + fullscreen (optional)
+        setViewCvr(true);
+        if (!isFs()) await enterFs();
+        emit('hha:vr', { state:'enter' });
       });
     }
-  }
 
-  function setButtonsState(){
-    if (!S.btnWrap) return;
-    const enter = S.btnWrap.querySelector('button[data-act="enter"]');
-    const exit  = S.btnWrap.querySelector('button[data-act="exit"]');
-    if (enter) enter.style.display = S.isVR ? 'none' : 'inline-flex';
-    if (exit)  exit.style.display  = S.isVR ? 'inline-flex' : 'none';
-  }
-
-  function setBodyVR(on){
-    DOC.body.classList.toggle('view-cvr', !!on);
-    S.isVR = !!on;
-    setButtonsState();
-  }
-
-  function recenter(){
-    emit('hha:vr', { state:'reset' });
-  }
-
-  function shootAt(x,y){
-    emit('hha:shoot', {
-      x: Number(x),
-      y: Number(y),
-      lockPx: S.lockPx
-    });
-  }
-
-  function centerXY(){
-    return { x: (root.innerWidth||360)*0.5, y: (root.innerHeight||640)*0.5 };
-  }
-
-  function bindOnce(){
-    if (S._bound) return;
-    S._bound = true;
-
-    // Tap anywhere:
-    // - in cVR => shoot from center (crosshair)
-    // - else if tapShootOutsideVR => shoot at tap position
-    DOC.addEventListener('pointerdown', (e)=>{
-      if (!S.inited) return;
-      if (S.isVR){
-        if (S.tapAtCursorInVR){
-          const c = centerXY();
-          shootAt(c.x, c.y);
-          return;
-        }
-      }else{
-        if (S.tapShootOutsideVR){
-          shootAt(e.clientX, e.clientY);
-        }
-      }
-    }, { passive:true });
-
-    // Keyboard shoot (space / enter) — aim at center
-    DOC.addEventListener('keydown', (e)=>{
-      if (!S.inited) return;
-      const k = String(e.key||'').toLowerCase();
-      if (k === ' ' || k === 'spacebar' || k === 'enter'){
-        const c = centerXY();
-        shootAt(c.x, c.y);
-      }
-      if (k === 'r') recenter();
-      if (k === 'v') (S.isVR ? exitVR() : enterVR());
-    });
-
-    // Keep in sync if fullscreen is exited by system
-    DOC.addEventListener('fullscreenchange', ()=>{
-      if (!isFullscreen() && S.isVR){
-        // user/system exited fullscreen -> still keep VR mode or exit?
-        // we keep VR mode but allow user to exit manually.
-      }
-    });
-  }
-
-  async function enterVR(){
-    ensureUI();
-    if (S.allowFullscreen) await requestFullscreen();
-    setBodyVR(true);
-    recenter();
-  }
-
-  async function exitVR(){
-    setBodyVR(false);
-    if (S.allowFullscreen && isFullscreen()) await exitFullscreen();
-    recenter();
-  }
-
-  function setLockPx(px){
-    S.lockPx = clamp(px, 40, 160);
-  }
-
-  function init(opts){
-    opts = opts || {};
-    S.inited = true;
-
-    S.lockPx = clamp(opts.lockPx ?? Number(qs('lockPx')||86), 40, 160);
-    S.tapAtCursorInVR = (opts.tapAtCursorInVR ?? true) !== false;
-    S.tapShootOutsideVR = !!opts.tapShootOutsideVR;
-    S.allowFullscreen = (opts.allowFullscreen ?? true) !== false;
-    S.buttonsSide = (opts.buttonsSide === 'right') ? 'right' : 'left';
-
-    ensureUI();
-    bindOnce();
-
-    // auto VR if ?cvr=1 or ?view=cvr
-    const auto = (String(qs('cvr')||'') === '1') || (String(qs('view')||'') === 'cvr');
-    if (auto){
-      // don’t force fullscreen automatically; user can press Enter VR
-      setBodyVR(true);
-      recenter();
-    }else{
-      setBodyVR(false);
+    if (exitBtn && !exitBtn._bound){
+      exitBtn._bound = true;
+      exitBtn.addEventListener('click', async ()=>{
+        setViewCvr(false);
+        if (isFs()) await exitFs();
+        emit('hha:vr', { state:'exit' });
+      });
     }
 
-    setButtonsState();
-    return { enterVR, exitVR, recenter, setLockPx };
+    if (recBtn && !recBtn._bound){
+      recBtn._bound = true;
+      recBtn.addEventListener('click', ()=>{
+        emit('hha:vr', { state:'reset' });
+      });
+    }
+
+    // Tap anywhere in view-cvr => shoot
+    if (!DOC.body._hhaShootBound){
+      DOC.body._hhaShootBound = true;
+      DOC.addEventListener('pointerdown', (ev)=>{
+        if (!DOC.body.classList.contains('view-cvr')) return;
+        // avoid clicking UI buttons
+        const t = ev.target;
+        if (t && (t.id==='hhaEnterVr' || t.id==='hhaExitVr' || t.id==='hhaRecenter' || t.closest?.('#hha-vr-ui'))) return;
+        shootFromCenter('tap');
+      }, { passive:true });
+    }
   }
 
-  root.HHAVRUI = {
-    init,
-    enterVR,
-    exitVR,
-    recenter,
-    setLockPx,
-    isVR: ()=>!!S.isVR
+  api.init = function(options={}){
+    cfg.lockPx = Math.max(40, Math.min(160, Number(options.lockPx || cfg.lockPx)));
+    if (mounted) return;
+    mounted = true;
+
+    const go = ()=>{
+      ensureUI();
+      bind();
+    };
+
+    if (DOC.readyState === 'loading'){
+      DOC.addEventListener('DOMContentLoaded', go, { once:true });
+    }else{
+      go();
+    }
   };
+
+  // auto-init (safe)
+  try{ api.init({ lockPx: 96 }); }catch{}
+
 })(typeof window!=='undefined'?window:globalThis);
