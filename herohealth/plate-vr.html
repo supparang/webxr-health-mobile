@@ -1,8 +1,10 @@
-<!-- === /herohealth/plate/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (PATH FIXED)
-✅ Works with plate.safe.js
-✅ FIX: coach image path -> ../plate-neutral.png (matches your folder screenshot)
+<!-- === /herohealth/plate-vr.html ===
+Balanced Plate VR — PRODUCTION HTML (ROOT PAGE)
+✅ HTML อยู่ที่ /herohealth/plate-vr.html
+✅ CSS/JS อยู่ที่ /herohealth/plate/*
+✅ Coach images อยู่ที่ /herohealth/plate-*.png
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -10,23 +12,23 @@ Balanced Plate VR — PRODUCTION HTML (PATH FIXED)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
 
-  <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="./plate-vr.css?v=20251230a" />
+  <!-- Styles (อยู่ใน /plate/) -->
+  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251230b" />
 
-  <!-- Global FX + Logger (optional) -->
-  <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
+  <!-- Global FX + Logger (อยู่ใน /vr/) -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder -->
-  <script src="./plate-hud.js?v=20251230a" defer></script>
+  <!-- HUD binder (อยู่ใน /plate/) -->
+  <script src="./plate/plate-hud.js?v=20251230b" defer></script>
 
-  <!-- Game -->
-  <script src="./plate.safe.js?v=20251230a" defer></script>
+  <!-- Game (อยู่ใน /plate/) -->
+  <script src="./plate/plate.safe.js?v=20251230b" defer></script>
 </head>
 
 <body>
@@ -108,11 +110,11 @@ Balanced Plate VR — PRODUCTION HTML (PATH FIXED)
     </div>
   </header>
 
-  <!-- COACH PANEL (required: coachPanel) -->
+  <!-- COACH PANEL -->
   <aside id="coachPanel">
     <img
       id="coachImg"
-      src="../plate-neutral.png"
+      src="./plate-neutral.png"
       alt="Coach"
       draggable="false"
     />
@@ -122,7 +124,7 @@ Balanced Plate VR — PRODUCTION HTML (PATH FIXED)
     </div>
   </aside>
 
-  <!-- QUEST PANEL (required: miniPanel) -->
+  <!-- QUEST PANEL -->
   <section id="miniPanel">
     <div class="questBlock">
       <div class="questHdr">
@@ -148,14 +150,14 @@ Balanced Plate VR — PRODUCTION HTML (PATH FIXED)
     </div>
   </section>
 
-  <!-- BUTTONS (required: hudBtns) -->
+  <!-- BUTTONS -->
   <nav id="hudBtns">
     <button class="btn ghost" id="btnPause" type="button">⏸ Pause</button>
     <button class="btn ghost" id="btnRestart" type="button">🔁 Restart</button>
     <button class="btn" id="btnEnterVR" type="button">🕶 Enter VR</button>
   </nav>
 
-  <!-- PAUSED overlay (required: hudPaused) -->
+  <!-- PAUSED overlay -->
   <div id="hudPaused">
     <div class="pausedCard">
       <div class="pausedTitle">Paused</div>
@@ -163,7 +165,7 @@ Balanced Plate VR — PRODUCTION HTML (PATH FIXED)
     </div>
   </div>
 
-  <!-- START overlay (required: startOverlay + btnStart) -->
+  <!-- START overlay -->
   <div id="startOverlay">
     <div class="startCard">
       <div class="startTitle">🥗 Balanced Plate VR</div>
@@ -183,13 +185,11 @@ Balanced Plate VR — PRODUCTION HTML (PATH FIXED)
         <button class="btn ghost big" id="btnEnterVR2" type="button">🕶 Enter VR</button>
       </div>
 
-      <div class="startFoot">
-        Tip: บน iOS อาจต้องกด Start ก่อนเพื่อขอสิทธิ์ motion
-      </div>
+      <div class="startFoot">Tip: บน iOS อาจต้องกด Start ก่อนเพื่อขอสิทธิ์ motion</div>
     </div>
   </div>
 
-  <!-- RESULT overlay (required: resultBackdrop + rScore/rG1..rG5 etc.) -->
+  <!-- RESULT overlay -->
   <div id="resultBackdrop" style="display:none;">
     <div class="resultCard">
       <div class="resultTitle">🏁 สรุปผล</div>
