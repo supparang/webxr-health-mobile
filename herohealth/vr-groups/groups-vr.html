@@ -1,9 +1,10 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-Food Groups VR — Run (PRODUCTION)
-✅ Layout: GOAL right, COACH bottom-right
-✅ HUD above gameplay, gameplay layer transforms by --vx/--vy
-✅ Boot modules: groups-fx.js, audio.js, groups-quests.js, GameEngine.js
-✅ HHA last summary saved + flush-hardened hooks
+Food Groups VR — RUN (PRODUCTION)
+✅ Uses ./groups-vr.css (single source of truth)
+✅ PC/Mobile/VR responsive layout selector
+✅ Mobile quest collapse toggle (tap quest)
+✅ VR quest ticker (goal/mini swap)
+✅ Flush hardened + last summary + hub back
 -->
 
 <!doctype html>
@@ -17,111 +18,88 @@ Food Groups VR — Run (PRODUCTION)
   <link rel="stylesheet" href="./groups-vr.css" />
 </head>
 
-<body>
-  <!-- HUD TOP -->
-  <div class="hud-top" aria-label="HUD">
-    <div class="hud-card hud-left">
-      <div class="hud-row"><span class="hud-title">SCORE</span><span class="hud-val" id="uiScore">0</span></div>
-      <div class="hud-row"><span class="hud-title">COMBO</span><span class="hud-val"><span id="uiCombo">0</span> <span style="opacity:.75;font-weight:900;">(MAX <span id="uiComboMax">0</span>)</span></span></div>
-      <div class="hud-row"><span class="hud-title">MISS</span><span class="hud-val" id="uiMiss">0</span></div>
-      <div class="hud-row"><span class="hud-title">GRADE</span><span class="hud-val" id="uiGrade">C</span></div>
+<body data-layout="pc">
+  <!-- Top HUD (Score / Time) -->
+  <div class="hud" aria-label="HUD Top">
+    <div class="box">
+      <div class="big" id="uiScore">0</div>
+      <div class="small">SCORE</div>
     </div>
-
-    <div class="hud-card hud-mid">
-      <div class="hud-group-row">
-        <div class="hud-group" id="uiGroup">หมู่ 1</div>
-        <div class="hud-timer"><span id="uiTime">90</span>s</div>
-      </div>
-
-      <div class="power-wrap">
-        <div class="power-label"><span>POWER</span><span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span></div>
-        <div class="power-bar"><div class="power-fill" id="uiPowerBar"></div></div>
-      </div>
-    </div>
-
-    <div class="hud-card hud-right">
-      <div class="rank-box">
-        <div>
-          <div class="rank-title">Status</div>
-          <div class="rank-sub"><span>Mode</span><b id="uiMode">play</b></div>
-          <div class="rank-sub"><span>Diff</span><b id="uiDiff">normal</b></div>
-        </div>
-        <div class="rank-grade" id="uiGradeBig">C</div>
-      </div>
+    <div class="box" style="text-align:right;">
+      <div class="big"><span id="uiTime">90</span>s</div>
+      <div class="small">TIME</div>
     </div>
   </div>
 
-  <!-- QUEST (GOAL right) -->
-  <div class="questTop" aria-label="Quest">
+  <!-- Pills (Combo / Miss / Grade) -->
+  <div class="centerTop" aria-label="HUD Pills">
+    <div class="pill">COMBO: <b id="uiCombo">0</b> (MAX <b id="uiComboMax">0</b>)</div>
+    <div class="pill">MISS: <b id="uiMiss">0</b></div>
+    <div class="pill">GRADE: <b id="uiGrade">C</b></div>
+  </div>
+
+  <!-- Quest (Goal / Mini) -->
+  <div class="questTop" id="questTop" aria-label="Quest">
     <div class="qbar">
       <div class="t">GOAL</div>
       <div class="b" id="uiGoalTitle">—</div>
       <div class="p"><i id="uiGoalBar"></i></div>
-      <div class="qNum"><span id="uiGoalNow">0</span>/<span id="uiGoalTotal">0</span></div>
     </div>
+
     <div class="qbar">
       <div class="t">MINI</div>
       <div class="b" id="uiMiniTitle">—</div>
       <div class="p"><i id="uiMiniBar"></i></div>
-      <div class="time" id="uiMiniTime" style="display:none;">⏳ 0s</div>
+      <div class="time" id="uiMiniTime">⏳ 0s</div>
     </div>
   </div>
 
-  <!-- GAMEPLAY LAYER -->
+  <!-- Gameplay layer -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-  <!-- COACH (bottom-right) -->
+  <!-- Power bottom -->
+  <div class="powerWrap" aria-label="Power">
+    <div class="power"><i id="uiPowerBar"></i></div>
+    <div class="powerLabel">
+      <span>POWER</span>
+      <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
+    </div>
+  </div>
+
+  <!-- Coach bottom-right -->
   <div class="coachWrap" aria-label="Coach">
     <div class="coachCard">
       <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
       <div class="feverMini"><i id="uiFeverBar"></i></div>
       <div class="shieldTag" id="uiShieldTag" style="display:none;">🛡️ SHIELD READY</div>
-      <div class="coachHint" id="uiCoachHint">แตะ ⭐ ได้ Overdrive+Shield / แตะ ❄️ ได้ Freeze</div>
     </div>
     <div class="coachImg">
       <img id="uiCoachImg" src="../img/coach-neutral.png" alt="Coach"/>
     </div>
   </div>
 
-  <!-- START -->
-  <div class="start-overlay" id="startOverlay">
-    <div class="start-card">
-      <h2 class="start-title">🚀 พร้อมเล่น Food Groups VR</h2>
-      <p class="start-sub" id="startDesc">กำลังเตรียมระบบ…</p>
-
-      <div class="start-grid">
-        <span class="pill" id="pillMode">mode=play</span>
-        <span class="pill" id="pillDiff">diff=normal</span>
-        <span class="pill" id="pillStyle">style=mix</span>
-        <span class="pill" id="pillTime">time=90</span>
-        <span class="pill" id="pillSeed">seed=—</span>
-      </div>
-
-      <div class="start-note">
-        เพลงอาหารหลัก 5 หมู่ (ท่องตามได้เลย):<br/>
-        อาหารหลัก 5 หมู่ของไทย ทุกคนจำไว้อย่าได้แปลผัน<br/>
-        หมู่ 1 กินเนื้อ นม ไข่ ถั่วเมล็ดช่วยให้เติบโตแข็งขัน<br/>
-        หมู่ 2 ข้าว แป้ง เผือก มัน และน้ำตาล จะให้พลัง<br/>
-        หมู่ 3 กินผักต่างๆ สารอาหารมากมายกินเป็นอาจิณ<br/>
-        หมู่ 4 กินผลไม้ สีเขียวเหลืองบ้างมีวิตามิน<br/>
-        หมู่ 5 อย่าได้ลืมกิน ไขมันทั้งสิ้น อบอุ่นร่างกาย
-      </div>
-
-      <div class="result-actions" style="margin-top:12px;">
-        <button class="btn primary" id="btnStart">Start</button>
-        <button class="btn ghost" id="btnBack">กลับ HUB</button>
-      </div>
-
+  <!-- Start overlay -->
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <h2>🚀 พร้อมเล่น Food Groups VR</h2>
+      <p id="startDesc">กำลังเตรียมระบบ…</p>
       <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
-      <pre class="warn" id="warnBox"></pre>
+      <div class="warn" id="warnBox"></div>
+      <div class="row" style="margin-top:10px;">
+        <button id="btnStart">Start</button>
+        <button id="btnBack" class="secondary">กลับ HUB</button>
+      </div>
+      <p class="dbg" style="margin-top:10px; opacity:.9;">
+        Mobile: แตะกล่อง GOAL/MINI เพื่อย่อ/ขยาย • VR: ระบบจะสลับ GOAL/MINI อัตโนมัติ
+      </p>
     </div>
   </div>
 
-  <!-- END -->
-  <div class="result-overlay" id="endOverlay">
-    <div class="result-card">
-      <h2 class="start-title">🏁 สรุปผล</h2>
-      <p class="start-sub" id="endReason">—</p>
+  <!-- End overlay -->
+  <div class="overlay" id="endOverlay">
+    <div class="panel">
+      <h2>🏁 สรุปผล</h2>
+      <p id="endReason"></p>
 
       <div class="kv">
         <div class="k">SCORE<b id="endScore">0</b></div>
@@ -130,9 +108,9 @@ Food Groups VR — Run (PRODUCTION)
         <div class="k">COMBO MAX<b id="endComboMax">0</b></div>
       </div>
 
-      <div class="result-actions">
-        <button class="btn primary" id="btnReplay">เล่นอีกครั้ง</button>
-        <button class="btn ghost" id="btnHub2">กลับ HUB</button>
+      <div class="row">
+        <button id="btnReplay">เล่นอีกครั้ง</button>
+        <button id="btnHub2" class="secondary">กลับ HUB</button>
       </div>
     </div>
   </div>
@@ -144,20 +122,12 @@ Food Groups VR — Run (PRODUCTION)
     const runMode = (q.get('runMode') || 'play').toLowerCase();
     const diff    = (q.get('diff') || 'normal').toLowerCase();
     const style   = (q.get('style') || 'mix').toLowerCase();
-    const time    = Number(q.get('time') || 90);
+    const time    = Math.max(10, Number(q.get('time') || 90));
     const seed    = (q.get('seed') || '').trim() || String(Date.now());
     const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
     const autostart = q.get('autostart') === '1';
     const v = (q.get('v') || String(Date.now()));
-
-    $('uiMode').textContent = runMode;
-    $('uiDiff').textContent = diff;
-
-    $('pillMode').textContent = 'mode=' + runMode;
-    $('pillDiff').textContent = 'diff=' + diff;
-    $('pillStyle').textContent= 'style=' + style;
-    $('pillTime').textContent = 'time=' + time;
-    $('pillSeed').textContent = 'seed=' + seed;
+    const wantVR = (q.get('vr') === '1') || (q.get('cardboard') === '1');
 
     $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
 
@@ -179,6 +149,74 @@ Food Groups VR — Run (PRODUCTION)
       }
     }
 
+    // =========================================================
+    // ✅ Layout selector: pc | mobile | vr
+    // =========================================================
+    function detectLayout(){
+      if (wantVR) return 'vr';
+      const portrait = matchMedia('(orientation: portrait)').matches;
+      const narrow   = matchMedia('(max-width: 920px)').matches;
+      return (portrait || narrow) ? 'mobile' : 'pc';
+    }
+
+    function applyLayout(){
+      const mode = detectLayout();
+      document.body.dataset.layout = mode;
+
+      const qt = $('questTop');
+      if (mode === 'mobile' && qt){
+        qt.classList.add('is-collapsed');     // start compact
+        qt.style.pointerEvents = 'auto';      // allow tap toggle
+      } else if (qt){
+        qt.classList.remove('is-collapsed');
+        qt.style.pointerEvents = 'none';
+      }
+    }
+
+    applyLayout();
+    addEventListener('resize', ()=>applyLayout(), { passive:true });
+
+    // Mobile: tap quest to collapse/expand
+    (function bindQuestToggle(){
+      const qt = $('questTop');
+      if (!qt) return;
+      qt.addEventListener('click', ()=>{
+        if (document.body.dataset.layout !== 'mobile') return;
+        qt.classList.toggle('is-collapsed');
+      }, { passive:true });
+    })();
+
+    // VR: quest ticker (goal/mini swap)
+    (function vrQuestTicker(){
+      let timer = 0;
+      function start(){
+        const qt = $('questTop');
+        if (!qt) return;
+
+        if (document.body.dataset.layout !== 'vr'){
+          qt.classList.remove('vr-goal-only','vr-mini-only');
+          if (timer) { clearInterval(timer); timer = 0; }
+          return;
+        }
+
+        qt.classList.add('vr-goal-only');
+        let showGoal = true;
+
+        if (timer) clearInterval(timer);
+        timer = setInterval(()=>{
+          if (document.body.dataset.layout !== 'vr') return;
+          showGoal = !showGoal;
+          qt.classList.toggle('vr-goal-only', showGoal);
+          qt.classList.toggle('vr-mini-only', !showGoal);
+        }, 2200);
+      }
+      start();
+      addEventListener('resize', start, { passive:true });
+    })();
+
+    // =========================================================
+    // Boot modules
+    // =========================================================
     const BOOT_LIST = [
       './groups-fx.js',
       './audio.js',
@@ -213,6 +251,9 @@ Food Groups VR — Run (PRODUCTION)
       if (document.visibilityState === 'hidden') flushHardened('hidden');
     });
 
+    // =========================================================
+    // Bind events
+    // =========================================================
     function bindEvents(){
       addEventListener('hha:score', (e)=>{
         const d = e.detail||{};
@@ -238,10 +279,7 @@ Food Groups VR — Run (PRODUCTION)
 
       addEventListener('hha:rank', (e)=>{
         const d = e.detail||{};
-        if (d.grade){
-          $('uiGrade').textContent = String(d.grade);
-          $('uiGradeBig').textContent = String(d.grade);
-        }
+        if (d.grade) $('uiGrade').textContent = String(d.grade);
       });
 
       addEventListener('quest:update', (e)=>{
@@ -249,12 +287,10 @@ Food Groups VR — Run (PRODUCTION)
         if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
         if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
 
-        if (d.goalNow != null) $('uiGoalNow').textContent = String(d.goalNow);
-        if (d.goalTotal != null) $('uiGoalTotal').textContent = String(d.goalTotal);
-
         let gp = (d.goalPct != null) ? Number(d.goalPct)
                : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
                : 0;
+
         let mp = (d.miniPct != null) ? Number(d.miniPct)
                : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100
                : 0;
@@ -267,7 +303,6 @@ Food Groups VR — Run (PRODUCTION)
         if (Number.isFinite(tLeft) && tLeft > 0){
           timeEl.style.display = 'block';
           timeEl.textContent = `⏳ ${tLeft}s`;
-          timeEl.classList.toggle('mini-urgent', tLeft <= 3);
         } else {
           timeEl.style.display = 'none';
         }
@@ -282,11 +317,6 @@ Food Groups VR — Run (PRODUCTION)
                  : (mood==='fever') ? '../img/coach-fever.png'
                  : '../img/coach-neutral.png';
         $('uiCoachImg').src = img;
-      });
-
-      addEventListener('hha:group', (e)=>{
-        const d = e.detail||{};
-        if (d.label) $('uiGroup').textContent = String(d.label);
       });
 
       addEventListener('hha:fever', (e)=>{
@@ -306,14 +336,13 @@ Food Groups VR — Run (PRODUCTION)
         $('endAcc').textContent = String(d.accuracyGoodPct ?? 0) + '%';
         $('endComboMax').textContent = String(d.comboMax ?? 0);
         $('uiGrade').textContent = String(d.grade ?? 'C');
-        $('uiGradeBig').textContent = String(d.grade ?? 'C');
 
         try{
           const payload = {
             game: 'GroupsVR',
             ts: new Date().toISOString(),
             ...d,
-            params: { runMode, diff, style, time, seed, hub }
+            params: { runMode, diff, style, time, seed, hub, vr: wantVR ? 1 : 0 }
           };
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
@@ -337,6 +366,7 @@ Food Groups VR — Run (PRODUCTION)
             clearInterval(t);
             warn('❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า GameEngine.js โหลดได้ 200 และชื่อไฟล์ตัวใหญ่/เล็กตรง');
             $('dbgBoot').textContent = 'ENGINE NOT FOUND ❌';
+            resolve(null);
           }
         }, 80);
       });
@@ -351,7 +381,7 @@ Food Groups VR — Run (PRODUCTION)
       if (!GE){ $('btnStart').disabled = false; return; }
 
       GE.setLayerEl($('fg-layer'));
-      GE.start(diff, { runMode, style, time, seed });
+      GE.start(diff, { runMode, style, time, seed, vr: wantVR });
 
       $('startOverlay').style.display = 'none';
       $('endOverlay').classList.remove('show');
@@ -363,10 +393,11 @@ Food Groups VR — Run (PRODUCTION)
     $('btnReplay').addEventListener('click', ()=>{
       try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
       $('endOverlay').classList.remove('show');
-      $('startOverlay').style.display = 'flex';
+      $('startOverlay').style.display = 'grid';
       if (autostart) setTimeout(startGame, 250);
     });
 
+    // init
     bindEvents();
     await boot();
     if (autostart) setTimeout(()=> $('btnStart').click(), 350);
