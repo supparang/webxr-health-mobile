@@ -1,5 +1,6 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (FIX: module + cache bust)
+Balanced Plate VR — PRODUCTION HTML
+✅ Works with plate.safe.js
 ✅ Provides ALL required DOM ids:
   plate-layer, hitFx,
   hudTop, miniPanel, hudBtns, coachPanel,
@@ -20,18 +21,18 @@ Balanced Plate VR — PRODUCTION HTML (FIX: module + cache bust)
   <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles (cache-bust) -->
+  <!-- Styles (UPDATED v) -->
   <link rel="stylesheet" href="./plate-vr.css?v=20251230" />
 
   <!-- Global FX + Logger (optional) -->
-  <script src="../vr/particles.js?v=20251230" defer></script>
-  <script src="../vr/hha-cloud-logger.js?v=20251230" defer></script>
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder (IIFE/defer ปกติได้) -->
+  <!-- HUD binder (UPDATED v) -->
   <script src="./plate-hud.js?v=20251230" defer></script>
 
-  <!-- Game (ถ้าในไฟล์มี import/export ต้องเป็น module) -->
-  <script type="module" src="./plate.safe.js?v=20251230"></script>
+  <!-- Game (UPDATED v) -->
+  <script src="./plate.safe.js?v=20251230" defer></script>
 </head>
 
 <body>
@@ -229,26 +230,28 @@ Balanced Plate VR — PRODUCTION HTML (FIX: module + cache bust)
   </div>
 
   <script>
-    // Helper: mirror EnterVR button in start overlay + preview query params
+    // Mirror EnterVR buttons + preview query params
     (function(){
-      var b = document.getElementById('btnEnterVR2');
-      if (b){
-        b.addEventListener('click', function(){
-          try{
-            var scene = document.querySelector('a-scene');
-            if (scene && scene.enterVR) scene.enterVR();
-          }catch(e){}
-        }, { passive:true });
+      function enterVR(){
+        try{
+          var scene = document.querySelector('a-scene');
+          if (scene && scene.enterVR) scene.enterVR();
+        }catch(e){}
       }
+      var b1 = document.getElementById('btnEnterVR');
+      var b2 = document.getElementById('btnEnterVR2');
+      if (b1) b1.addEventListener('click', enterVR, { passive:true });
+      if (b2) b2.addEventListener('click', enterVR, { passive:true });
 
       try{
         var u = new URL(location.href);
         var diff = u.searchParams.get('diff') || 'normal';
         var time = u.searchParams.get('time') || '90';
         var run  = u.searchParams.get('run') || u.searchParams.get('runMode') || 'play';
-        document.getElementById('uiDiffPreview').textContent = String(diff);
-        document.getElementById('uiTimePreview').textContent = String(time);
-        document.getElementById('uiRunPreview').textContent  = String(run);
+        var el;
+        el = document.getElementById('uiDiffPreview'); if(el) el.textContent = String(diff);
+        el = document.getElementById('uiTimePreview'); if(el) el.textContent = String(time);
+        el = document.getElementById('uiRunPreview');  if(el) el.textContent  = String(run);
       }catch(e){}
     })();
   </script>
