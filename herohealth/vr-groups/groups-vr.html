@@ -1,11 +1,3 @@
-<!-- === /herohealth/vr-groups/groups-vr.html ===
-RUN — Goal RIGHT + Coach BOTTOM-RIGHT + VR Shoot (gaze/tap)
-Params:
-- ui=auto|pc|mobile|vr
-- shoot=auto|off|tap|gaze   (auto: if ui=vr -> gaze)
-- dwell=650 (ms)            for gaze
-- lock=140 (px)             lock radius
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -18,64 +10,72 @@ Params:
 </head>
 
 <body>
+  <!-- HUD: left score/time, center quick pills, right goal/mini, coach bottom-right, power bottom -->
+  <div class="hudTop" aria-label="HUD">
+    <div class="hudBox hudLeft">
+      <div class="hudKV">
+        <div class="k">SCORE</div><div class="v" id="uiScore">0</div>
+      </div>
+      <div class="hudKV">
+        <div class="k">TIME</div><div class="v"><span id="uiTime">90</span>s</div>
+      </div>
+    </div>
+
+    <div class="hudCenter">
+      <div class="pill">COMBO: <b id="uiCombo">0</b> <span class="muted">(MAX <b id="uiComboMax">0</b>)</span></div>
+      <div class="pill">MISS: <b id="uiMiss">0</b></div>
+      <div class="pill">GRADE: <b id="uiGrade">C</b></div>
+      <div class="pill pillTiny" id="uiModePill">mode=play</div>
+    </div>
+
+    <div class="questRight" aria-label="Quest">
+      <div class="qbar">
+        <div class="t">GOAL</div>
+        <div class="b" id="uiGoalTitle">—</div>
+        <div class="p"><i id="uiGoalBar"></i></div>
+      </div>
+      <div class="qbar">
+        <div class="t">MINI</div>
+        <div class="b" id="uiMiniTitle">—</div>
+        <div class="p"><i id="uiMiniBar"></i></div>
+        <div class="time" id="uiMiniTime">⏳ 0s</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gameplay Layer -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-  <div class="hudRow" aria-label="HUD">
-    <div class="hudCard hudLeft">
-      <div class="hudItem"><span>SCORE</span><b id="uiScore">0</b></div>
-      <div class="hudItem"><span>COMBO</span><b><span id="uiCombo">0</span> <i class="muted">(MAX <span id="uiComboMax">0</span>)</i></b></div>
-      <div class="hudItem"><span>MISS</span><b id="uiMiss">0</b></div>
-      <div class="hudItem"><span>GRADE</span><b id="uiGrade">C</b></div>
-    </div>
+  <!-- Crosshair + lock ring -->
+  <div class="crosshair" aria-hidden="true">
+    <div class="chDot"></div>
+    <div class="chRing" id="uiLockRing"></div>
+    <div class="chLabel" id="uiAimLabel">gaze</div>
+  </div>
 
-    <div class="hudCard hudRight">
-      <div class="hudItem"><span>TIME</span><b><span id="uiTime">90</span>s</b></div>
-      <div class="hudItem"><span>MODE</span><b id="uiMode">play</b></div>
-      <div class="hudItem"><span>DIFF</span><b id="uiDiff">normal</b></div>
-      <div class="hudItem"><span>STYLE</span><b id="uiStyle">mix</b></div>
+  <!-- Power bar -->
+  <div class="powerWrap" aria-label="Power">
+    <div class="power"><i id="uiPowerBar"></i></div>
+    <div class="powerLabel">
+      <span>POWER</span>
+      <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
     </div>
   </div>
 
-  <div class="questDock" aria-label="Quest">
-    <div class="questCard">
-      <div class="qHead">GOAL <span class="qNum" id="uiGoalNum">0/0</span></div>
-      <div class="qTitle" id="uiGoalTitle">—</div>
-      <div class="qBar"><i id="uiGoalBar"></i></div>
-    </div>
-
-    <div class="questCard">
-      <div class="qHead">MINI <span class="qNum" id="uiMiniNum">0/0</span></div>
-      <div class="qTitle" id="uiMiniTitle">—</div>
-      <div class="qBar mini"><i id="uiMiniBar"></i></div>
-      <div class="qTime" id="uiMiniTime" style="display:none;">⏳ 0s</div>
-    </div>
-  </div>
-
-  <div class="powerDock" aria-label="Power">
-    <div class="powerCard">
-      <div class="powerTop">
-        <b>POWER</b>
-        <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
-      </div>
-      <div class="powerBar"><i id="uiPowerBar"></i></div>
-      <div class="powerHint" id="uiShootHint">⭐ = Overdrive+Magnet+Shield · ❄️ = Freeze · STORM ระวัง!</div>
-    </div>
-  </div>
-
-  <div class="coachDock" aria-label="Coach">
+  <!-- Coach bottom-right -->
+  <div class="coachWrap" aria-label="Coach">
     <div class="coachCard">
       <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
-      <div class="feverBar"><i id="uiFeverBar"></i></div>
+      <div class="feverMini"><i id="uiFeverBar"></i></div>
       <div class="shieldTag" id="uiShieldTag" style="display:none;">🛡️ SHIELD READY</div>
+      <div class="coachHint" id="uiCoachHint">ยิงกลางจอ: จ้องค้าง / แตะเพื่อยิง</div>
     </div>
     <div class="coachImg">
       <img id="uiCoachImg" src="../img/coach-neutral.png" alt="Coach"/>
     </div>
   </div>
 
-  <div id="reticle" class="reticle" aria-hidden="true"></div>
-  <button id="btnVR" class="btnVR" type="button">VR</button>
-
+  <!-- Start overlay -->
   <div class="overlay" id="startOverlay">
     <div class="panel">
       <h2>🚀 พร้อมเล่น Food Groups VR</h2>
@@ -89,7 +89,8 @@ Params:
     </div>
   </div>
 
-  <div class="overlay" id="endOverlay" style="display:none;">
+  <!-- End overlay -->
+  <div class="overlay" id="endOverlay">
     <div class="panel">
       <h2>🏁 สรุปผล</h2>
       <p id="endReason"></p>
@@ -120,19 +121,31 @@ Params:
     const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
     const autostart = q.get('autostart') === '1';
     const v = (q.get('v') || String(Date.now()));
-    const ui = (q.get('ui') || 'auto').toLowerCase(); // auto | pc | mobile | vr
 
-    // NEW: VR shooting params
-    const shoot = (q.get('shoot') || 'auto').toLowerCase(); // auto|off|tap|gaze
-    const dwell = Number(q.get('dwell') || 650);
-    const lock  = Number(q.get('lock')  || 140);
+    // ✅ Aim/shoot settings
+    const uiMode  = (q.get('ui') || 'auto').toLowerCase();     // auto|pc|mobile|vr
+    const shoot   = (q.get('shoot') || 'gaze').toLowerCase();  // gaze|tap
+    let dwellMs   = Math.max(280, Math.min(1200, Number(q.get('dwell') || 620)));
+    let lockMs    = Math.max(60,  Math.min(350,  Number(q.get('lock')  || 160)));
+    let radiusPx  = Math.max(40,  Math.min(140,  Number(q.get('radius')|| 86)));
 
-    $('uiMode').textContent = runMode;
-    $('uiDiff').textContent = diff;
-    $('uiStyle').textContent = style;
+    function inferUi(){
+      const w = innerWidth || 360;
+      const h = innerHeight || 640;
+      if (w <= 520 || h <= 520) return 'mobile';
+      return 'pc';
+    }
+
+    const ui = (uiMode === 'auto') ? inferUi() : uiMode;
+    document.body.classList.toggle('ui-pc', ui === 'pc');
+    document.body.classList.toggle('ui-mobile', ui === 'mobile');
+    document.body.classList.toggle('ui-vr', ui === 'vr');
+
+    $('uiModePill').textContent = `mode=${runMode} • ${diff} • ${style} • ui=${ui}`;
+    $('uiAimLabel').textContent = shoot;
 
     $('startDesc').textContent =
-      `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed} | ui=${ui} | shoot=${shoot}`;
+      `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed} | shoot=${shoot} | lock=${lockMs}ms | dwell=${dwellMs}ms`;
 
     function warn(msg){
       console.warn(msg);
@@ -141,28 +154,6 @@ Params:
       box.style.display = 'block';
       box.textContent += (box.textContent ? '\n' : '') + String(msg);
     }
-
-    function setUIMode(){
-      document.body.classList.remove('ui-pc','ui-mobile','ui-vr');
-      let m = ui;
-      if (m === 'auto'){
-        const isSmall = matchMedia('(max-width: 700px)').matches || matchMedia('(max-height: 700px)').matches;
-        m = isSmall ? 'mobile' : 'pc';
-      }
-      if (m === 'vr') document.body.classList.add('ui-vr');
-      else if (m === 'mobile') document.body.classList.add('ui-mobile');
-      else document.body.classList.add('ui-pc');
-
-      $('reticle').style.display = document.body.classList.contains('ui-vr') ? 'block' : 'none';
-
-      // hint
-      const isVR = document.body.classList.contains('ui-vr');
-      $('uiShootHint').textContent = isVR
-        ? `🎯 VR SHOOT: ${shoot} (dwell=${dwell}ms, lock=${lock}px) — จ้องค้าง/แตะจอ ยิงกลางจอ`
-        : `⭐ = Overdrive+Magnet+Shield · ❄️ = Freeze · STORM ระวัง!`;
-    }
-    setUIMode();
-    addEventListener('resize', ()=>{ setUIMode(); syncBlockedRects(); });
 
     async function safeImport(path){
       try{
@@ -208,32 +199,6 @@ Params:
       if (document.visibilityState === 'hidden') flushHardened('hidden');
     });
 
-    // blocked rects
-    function rectOf(el){
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      if (!r || r.width <= 2 || r.height <= 2) return null;
-      return { left:r.left, top:r.top, right:r.right, bottom:r.bottom };
-    }
-    function syncBlockedRects(){
-      const GE = window.GroupsVR?.GameEngine;
-      if (!GE || typeof GE.setBlockedRects !== 'function') return;
-
-      const rects = [];
-      rects.push(rectOf(document.querySelector('.hudRow')));
-      rects.push(rectOf(document.querySelector('.questDock')));
-      rects.push(rectOf(document.querySelector('.coachDock')));
-      rects.push(rectOf(document.querySelector('.powerDock')));
-
-      GE.setBlockedRects(rects.filter(Boolean));
-    }
-
-    // auto No-Junk on mini title
-    function isNoJunkTitle(t){
-      t = String(t||'').toLowerCase();
-      return t.includes('no-junk') || t.includes('nojunk') || (t.includes('ห้าม') && t.includes('ขยะ'));
-    }
-
     function bindEvents(){
       addEventListener('hha:score', (e)=>{
         const d = e.detail||{};
@@ -262,24 +227,19 @@ Params:
         if (d.grade) $('uiGrade').textContent = String(d.grade);
       });
 
+      // ✅ Quest update: รองรับ (goalPct/miniPct) หรือ (goalNow/goalTotal)
       addEventListener('quest:update', (e)=>{
         const d = e.detail||{};
-        const GE = window.GroupsVR?.GameEngine;
-
         if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
         if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
 
-        const gn = (d.goalNow!=null && d.goalTotal!=null) ? `${d.goalNow}/${d.goalTotal}` : '0/0';
-        const mn = (d.miniNow!=null && d.miniTotal!=null) ? `${d.miniNow}/${d.miniTotal}` : '0/0';
-        $('uiGoalNum').textContent = gn;
-        $('uiMiniNum').textContent = mn;
-
         let gp = (d.goalPct != null) ? Number(d.goalPct)
-              : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
-              : 0;
+               : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
+               : 0;
+
         let mp = (d.miniPct != null) ? Number(d.miniPct)
-              : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100
-              : 0;
+               : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100
+               : 0;
 
         $('uiGoalBar').style.width = Math.max(0, Math.min(100, gp)).toFixed(1)+'%';
         $('uiMiniBar').style.width = Math.max(0, Math.min(100, mp)).toFixed(1)+'%';
@@ -293,22 +253,6 @@ Params:
         } else {
           timeEl.style.display = 'none';
           document.body.classList.remove('mini-urgent');
-        }
-
-        // No-Junk Zone auto ON/OFF
-        if (GE && typeof GE.setNoJunk === 'function'){
-          const title = String(d.miniTitle||'');
-          const on = isNoJunkTitle(title) && (Number.isFinite(tLeft) ? tLeft>0 : true);
-          if (on){
-            const W = innerWidth || 360;
-            const H = innerHeight || 640;
-            const r = Math.max(110, Math.min(W,H) * (document.body.classList.contains('ui-vr') ? 0.26 : 0.22));
-            const cx = W * 0.50;
-            const cy = H * 0.56;
-            GE.setNoJunk({ on:true, cx, cy, r });
-          } else {
-            GE.setNoJunk({ on:false });
-          }
         }
       });
 
@@ -333,7 +277,7 @@ Params:
 
       addEventListener('hha:end', (e)=>{
         const d = e.detail||{};
-        $('endOverlay').style.display = 'grid';
+        $('endOverlay').classList.add('show');
         $('endReason').textContent = `เหตุผล: ${d.reason || '-'}`;
         $('endScore').textContent = String(d.scoreFinal ?? 0);
         $('endGrade').textContent = String(d.grade ?? 'C');
@@ -346,7 +290,7 @@ Params:
             game: 'GroupsVR',
             ts: new Date().toISOString(),
             ...d,
-            params: { runMode, diff, style, time, seed, hub, ui, shoot, dwell, lock }
+            params: { runMode, diff, style, time, seed, hub, ui, shoot, dwellMs, lockMs, radiusPx }
           };
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
@@ -375,6 +319,190 @@ Params:
       });
     }
 
+    // ===========================
+    // ✅ Aim/Shoot System (crosshair)
+    // - gaze: lock -> dwell -> fire
+    // - tap : tap anywhere -> fire at locked/closest
+    // ===========================
+    const Aim = {
+      running:false,
+      layer:null,
+      lockedEl:null,
+      lockT:0,
+      dwellT:0,
+      lastT:0,
+      burstUntil:0,
+      perfectStreak:0,
+      lastLockedId:'',
+      lastLockStable:false,
+    };
+
+    function getShift(){
+      const layer = Aim.layer;
+      if (!layer) return { vx:0, vy:0 };
+      const vx = parseFloat(layer.style.getPropertyValue('--vx')) || 0;
+      const vy = parseFloat(layer.style.getPropertyValue('--vy')) || 0;
+      return { vx, vy };
+    }
+
+    function center(){
+      return { cx:(innerWidth||360)*0.5, cy:(innerHeight||640)*0.5 };
+    }
+
+    function findCandidate(){
+      const layer = Aim.layer;
+      if (!layer) return null;
+
+      const { cx, cy } = center();
+      const { vx, vy } = getShift();
+      const list = layer.querySelectorAll('.fg-target');
+      let best = null;
+      let bestD = 1e9;
+
+      for (const el of list){
+        // อ่านตำแหน่งจาก dataset (ตั้งไว้ใน engine)
+        const x0 = parseFloat(el.dataset._x || el.dataset.x || 'NaN');
+        const y0 = parseFloat(el.dataset._y || el.dataset.y || 'NaN');
+        if (!Number.isFinite(x0) || !Number.isFinite(y0)) continue;
+
+        const x = x0 + vx;
+        const y = y0 + vy;
+        const dx = x - cx;
+        const dy = y - cy;
+        const d = Math.hypot(dx,dy);
+
+        if (d < bestD){
+          bestD = d;
+          best = el;
+        }
+      }
+
+      if (best && bestD <= radiusPx) return best;
+      return null;
+    }
+
+    function setLockVisual(p){
+      // p = 0..1
+      const ring = $('uiLockRing');
+      ring.style.setProperty('--p', String(Math.max(0,Math.min(1,p))));
+      document.body.classList.toggle('aim-lock', p >= 1);
+    }
+
+    function fire(el, source='gaze'){
+      if (!el || !el.isConnected) return false;
+
+      // perfect-lock bonus: ยิงหลัง lock เต็ม (ไม่หลุดเป้า)
+      if (Aim.lastLockStable){
+        Aim.perfectStreak++;
+        window.dispatchEvent(new CustomEvent('groups:progress',{ detail:{ kind:'perfect_lock', source } }));
+        window.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ kind:'good', text:'PERFECT LOCK!' } }));
+      } else {
+        Aim.perfectStreak = 0;
+      }
+
+      // burst: perfect 3 ครั้งติด -> ช่วงยิงโหด
+      if (Aim.perfectStreak >= 3){
+        Aim.burstUntil = performance.now() + 4500;
+        Aim.perfectStreak = 0;
+        document.body.classList.add('groups-burst');
+        setTimeout(()=>document.body.classList.remove('groups-burst'), 4700);
+        window.dispatchEvent(new CustomEvent('hha:judge',{ detail:{ kind:'boss', text:'BURST MODE!' } }));
+      }
+
+      // ยิงด้วยการ dispatch pointerdown (ใช้ handler เดิมของ target)
+      try{
+        const { cx, cy } = center();
+        el.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:cx, clientY:cy }));
+        return true;
+      }catch{
+        try{
+          el.dispatchEvent(new Event('pointerdown', { bubbles:true, cancelable:true }));
+          return true;
+        }catch{}
+      }
+      return false;
+    }
+
+    function shootNow(source='tap'){
+      const cand = Aim.lockedEl && Aim.lockedEl.isConnected ? Aim.lockedEl : findCandidate();
+      if (!cand) return;
+      // ยิงเมื่อ lock เต็มเท่านั้น (กันสแปม)
+      if (Aim.lockT < lockMs) return;
+      fire(cand, source);
+      Aim.dwellT = 0;
+      setLockVisual(0);
+    }
+
+    function aimLoop(ts){
+      if (!Aim.running) return;
+      const t = ts || performance.now();
+      const dt = Aim.lastT ? (t - Aim.lastT) : 16;
+      Aim.lastT = t;
+
+      const cand = findCandidate();
+      const same = (cand && Aim.lockedEl && cand === Aim.lockedEl);
+      const inBurst = (t < Aim.burstUntil);
+      const dwellEff = inBurst ? Math.max(220, dwellMs*0.55) : dwellMs;
+      const lockEff  = inBurst ? Math.max(80,  lockMs*0.70)  : lockMs;
+
+      if (!cand){
+        Aim.lockedEl = null;
+        Aim.lockT = 0;
+        Aim.dwellT = 0;
+        Aim.lastLockStable = false;
+        setLockVisual(0);
+        requestAnimationFrame(aimLoop);
+        return;
+      }
+
+      if (!same){
+        Aim.lockedEl = cand;
+        Aim.lockT = 0;
+        Aim.dwellT = 0;
+        Aim.lastLockedId = cand.dataset.uid || '';
+        Aim.lastLockStable = true;
+      } else {
+        Aim.lockT += dt;
+      }
+
+      // lock progress
+      const lp = Math.max(0, Math.min(1, Aim.lockT / lockEff));
+      setLockVisual(lp);
+
+      // when locked
+      if (Aim.lockT >= lockEff){
+        // gaze: dwell แล้วค่อยยิง
+        if (shoot === 'gaze'){
+          Aim.dwellT += dt;
+          const dp = Math.max(0, Math.min(1, Aim.dwellT / dwellEff));
+          document.body.style.setProperty('--aim-dwell', String(dp));
+          if (Aim.dwellT >= dwellEff){
+            fire(cand, 'gaze');
+            Aim.dwellT = 0;
+            Aim.lockT = 0;
+            setLockVisual(0);
+          }
+        }
+      } else {
+        Aim.dwellT = 0;
+        document.body.style.setProperty('--aim-dwell', '0');
+      }
+
+      requestAnimationFrame(aimLoop);
+    }
+
+    function bindShootControls(){
+      // tap-to-shoot: แตะที่ไหนก็ยิงกลางจอ (ถ้า lock เต็ม)
+      if (shoot === 'tap'){
+        document.addEventListener('pointerdown', (ev)=>{
+          // ถ้าแตะที่ปุ่ม/overlay ไม่ยิง
+          const t = ev.target;
+          if (t && (t.closest && t.closest('.overlay,button,input,select'))) return;
+          shootNow('tap');
+        }, { passive:true });
+      }
+    }
+
     async function startGame(){
       $('btnStart').disabled = true;
       $('startDesc').textContent = 'กำลังเริ่มเกม…';
@@ -383,39 +511,36 @@ Params:
       const GE = await waitEngineReady();
       if (!GE){ $('btnStart').disabled = false; return; }
 
-      GE.setLayerEl($('fg-layer'));
-      GE.setUIMode?.(document.body.classList.contains('ui-vr') ? 'vr' :
-                     document.body.classList.contains('ui-mobile') ? 'mobile' : 'pc');
+      const layer = $('fg-layer');
+      GE.setLayerEl(layer);
+      GE.start(diff, { runMode, style, time, seed });
 
-      syncBlockedRects();
-      setTimeout(syncBlockedRects, 120);
+      // Aim init
+      Aim.layer = layer;
+      Aim.running = true;
+      Aim.lockedEl = null;
+      Aim.lockT = 0; Aim.dwellT = 0; Aim.lastT = 0;
+      Aim.perfectStreak = 0; Aim.burstUntil = 0;
+      bindShootControls();
+      requestAnimationFrame(aimLoop);
 
-      // pass vr shoot settings
-      GE.start(diff, {
-        runMode, style, time, seed,
-        shoot, dwellMs: dwell, lockPx: lock
-      });
+      $('uiCoachHint').textContent =
+        (shoot === 'gaze')
+          ? `ยิงกลางจอ: ล็อก ${lockMs}ms + จ้อง ${dwellMs}ms`
+          : `แตะเพื่อยิง (ต้องล็อก ${lockMs}ms ก่อน)`;
 
       $('startOverlay').style.display = 'none';
-      $('endOverlay').style.display = 'none';
+      $('endOverlay').classList.remove('show');
       $('btnStart').disabled = false;
     }
 
     $('btnStart').addEventListener('click', startGame);
     $('btnReplay').addEventListener('click', ()=>{
       try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
-      $('endOverlay').style.display = 'none';
+      Aim.running = false;
+      $('endOverlay').classList.remove('show');
       $('startOverlay').style.display = 'grid';
       if (autostart) setTimeout(startGame, 250);
-    });
-
-    $('btnVR').addEventListener('click', ()=>{
-      const u = new URL(location.href);
-      const isVR = document.body.classList.contains('ui-vr');
-      u.searchParams.set('ui', isVR ? 'auto' : 'vr');
-      // if going to VR and shoot is auto -> keep auto (engine will default to gaze)
-      u.searchParams.set('v', String(Date.now()));
-      location.href = u.toString();
     });
 
     bindEvents();
