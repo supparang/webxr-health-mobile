@@ -1,14 +1,8 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML
+Balanced Plate VR — PRODUCTION HTML (PATH FIXED)
 ✅ Works with plate.safe.js
-✅ Provides ALL required DOM ids:
-  plate-layer, hitFx,
-  hudTop, miniPanel, hudBtns, coachPanel,
-  btnStart, startOverlay,
-  btnPause, hudPaused, btnRestart, btnBackHub, btnPlayAgain, btnEnterVR,
-  resultBackdrop (rScore/rG1..rG5 etc.)
+✅ FIX: coach image path -> ../plate-neutral.png (matches your folder screenshot)
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -21,18 +15,18 @@ Balanced Plate VR — PRODUCTION HTML
   <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles (UPDATED v) -->
-  <link rel="stylesheet" href="./plate-vr.css?v=20251230" />
+  <!-- Styles -->
+  <link rel="stylesheet" href="./plate-vr.css?v=20251230a" />
 
   <!-- Global FX + Logger (optional) -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder (UPDATED v) -->
-  <script src="./plate-hud.js?v=20251230" defer></script>
+  <!-- HUD binder -->
+  <script src="./plate-hud.js?v=20251230a" defer></script>
 
-  <!-- Game (UPDATED v) -->
-  <script src="./plate.safe.js?v=20251230" defer></script>
+  <!-- Game -->
+  <script src="./plate.safe.js?v=20251230a" defer></script>
 </head>
 
 <body>
@@ -118,7 +112,7 @@ Balanced Plate VR — PRODUCTION HTML
   <aside id="coachPanel">
     <img
       id="coachImg"
-      src="../img/coach-neutral.png"
+      src="../plate-neutral.png"
       alt="Coach"
       draggable="false"
     />
