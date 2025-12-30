@@ -1,14 +1,15 @@
 <!-- === /herohealth/hydration-vr.html ===
 HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
-✅ Layout ใหม่: ไม่ “เต็มไปหมด” / HUD ไม่ล้น
-✅ Cardboard => ขอ Fullscreen + Lock Landscape + มี Rotate Hint
-✅ Cardboard HUD + Quest Checklist (Zone/Pressure/End/Block + Boss)
-✅ Storm Intro siren + End-window tick + pulse + micro-shake
+✅ Mini HUD pills
+✅ Cardboard HUD — เห็น TIME/SCORE/COMBO/MISS/GRADE/STORM/SHIELD + Quest
+✅ Storm Intro siren + dim
+✅ Urgent storm pulse + micro-shake
 ✅ Drift hook (playfield translate/rotate)
 ✅ Gaze-to-shoot + Shoot button
 ✅ End Summary + Back HUB + Retry + save HHA_LAST_SUMMARY
+✅ Coach (PATCH A): #coach-img + coach-manager.js (per-game identity)
+✅ Landscape in Cardboard (best-effort)
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -22,6 +23,9 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- ✅ NEW: Coach manager (uses /herohealth/img/*.png) -->
+  <script src="./vr/coach-manager.js" defer></script>
 
   <style>
     :root{
@@ -53,7 +57,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
     .stage{ position:fixed; inset:0; display:flex; flex-direction:column; }
 
-    /* ===== TOP HUD: compact + wrap safely ===== */
+    /* ===== Mini HUD pills (top) ===== */
     .hudTop{
       position:relative;
       z-index:20;
@@ -63,11 +67,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       justify-content:space-between;
       pointer-events:none;
     }
-    .pillRow{
-      display:flex; gap:8px; flex-wrap:wrap;
-      max-width: 62vw; /* ลดความล้น */
-      align-content:flex-start;
-    }
+    .pillRow{ display:flex; gap:8px; flex-wrap:wrap; max-width: 70vw; }
     .pill{
       pointer-events:none;
       display:inline-flex;
@@ -87,9 +87,10 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     .grade{ padding-inline:12px; }
     .grade .v{ font-size:15px; letter-spacing:.4px; }
 
+    /* ✅ Coach card with image */
     .coachCard{
       pointer-events:none;
-      width:min(360px, 34vw);
+      width:min(360px, 36vw);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:18px;
@@ -97,8 +98,24 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       box-shadow: 0 18px 60px rgba(0,0,0,.35);
       backdrop-filter: blur(10px);
     }
+    .coachHead{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      margin-bottom:8px;
+    }
+    .coachImg{
+      width:52px;
+      height:52px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.35);
+      box-shadow: 0 16px 44px rgba(0,0,0,.35);
+      object-fit:cover;
+      flex:0 0 auto;
+    }
     .coachTitle{ font-size:12px; font-weight:1100; opacity:.95; }
-    .coachText{ margin-top:6px; font-size:12px; font-weight:950; color:rgba(229,231,235,.92); line-height:1.25; }
+    .coachText{ font-size:12px; font-weight:950; color:rgba(229,231,235,.92); line-height:1.25; }
     .coachSub{ margin-top:6px; font-size:11px; font-weight:900; color:var(--muted); }
 
     /* ===== Play area ===== */
@@ -147,7 +164,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
     .cbPlayfield{
       position:absolute;
-      inset: calc(var(--sat) + 10px) 8px calc(var(--sab) + 110px) 8px;
+      inset: calc(var(--sat) + 10px) 8px calc(var(--sab) + 116px) 8px;
       border-radius: 18px;
       border:1px solid rgba(148,163,184,.16);
       background: rgba(2,6,23,.35);
@@ -196,7 +213,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       filter: drop-shadow(0 10px 26px rgba(34,211,238,.18));
     }
 
-    /* ===== Cardboard HUD (compact + quest checklist) ===== */
+    /* ===== Cardboard HUD ===== */
     .cbHudTop{
       position:absolute;
       left:8px; right:8px;
@@ -211,7 +228,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       display:flex;
       gap:8px;
       flex-wrap:wrap;
-      max-width: 64vw;
+      max-width: 72vw;
     }
     .cbPill{
       display:inline-flex;
@@ -231,7 +248,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     .cbGrade .v{ font-size:15px; letter-spacing:.4px; }
 
     .cbQuest{
-      width:min(520px, 34vw);
+      width:min(520px, 40vw);
       background: rgba(2,6,23,.70);
       border:1px solid rgba(148,163,184,.18);
       border-radius:18px;
@@ -264,49 +281,11 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       font-weight:1100;
       margin-right:6px;
     }
-    .cbChecklist{
-      margin-top:6px;
-      display:flex; flex-wrap:wrap; gap:6px;
-    }
-    .chk{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:5px 8px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.45);
-      color:rgba(148,163,184,.95);
-      font-weight:1100;
-      font-size:11px;
-    }
-    .chk.on{
-      border-color: rgba(34,197,94,.26);
-      background: rgba(34,197,94,.10);
-      color: rgba(229,231,235,.96);
-    }
-    .chk.urgent{
-      border-color: rgba(245,158,11,.26);
-      background: rgba(245,158,11,.10);
-      color: rgba(229,231,235,.96);
-      animation: pulseChk .45s linear infinite;
-    }
-    @keyframes pulseChk{
-      0%{ filter:brightness(1); }
-      50%{ filter:brightness(1.12); }
-      100%{ filter:brightness(1); }
-    }
-    .chk.boss{
-      border-color: rgba(239,68,68,.28);
-      background: rgba(239,68,68,.08);
-      color: rgba(229,231,235,.96);
-      box-shadow: 0 0 22px rgba(239,68,68,.08);
-    }
     @media (max-width: 520px){
       .cbQuest{ display:none; }
     }
 
-    /* ===== Bottom HUD (desktop/phone normal mode only) ===== */
+    /* ===== Bottom HUD ===== */
     .hudBottom{
       position:relative;
       z-index:20;
@@ -368,10 +347,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       font-weight:1100;
       margin-right:6px;
     }
-    .checkRow{
-      margin-top:8px;
-      display:flex; flex-wrap:wrap; gap:6px;
-    }
 
     /* Controls */
     .controls{
@@ -383,7 +358,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       gap:10px;
       pointer-events:auto;
     }
-    body.cardboard .controls{ display:none; } /* เข้า VR แล้วไม่ให้ปุ่มล้น */
     .btn{
       border:1px solid rgba(148,163,184,.20);
       background: rgba(2,6,23,.72);
@@ -425,7 +399,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     #hitFx[data-kind="bad"]{ background: radial-gradient(circle at 50% 50%, rgba(251,113,133,0) 35%, rgba(251,113,133,.18) 70%, rgba(2,6,23,.70) 100%); }
     #hitFx[data-kind="good"]{ background: radial-gradient(circle at 50% 50%, rgba(34,197,94,0) 35%, rgba(34,197,94,.14) 70%, rgba(2,6,23,.70) 100%); }
     #hitFx[data-kind="shield"]{ background: radial-gradient(circle at 50% 50%, rgba(34,211,238,0) 35%, rgba(34,211,238,.14) 70%, rgba(2,6,23,.70) 100%); }
-    #hitFx[data-kind="boss"]{ background: radial-gradient(circle at 50% 50%, rgba(239,68,68,0) 35%, rgba(239,68,68,.22) 70%, rgba(2,6,23,.78) 100%); }
 
     #stormEdge{
       position:fixed; inset:0;
@@ -523,29 +496,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     .startMeta{ margin-top:10px; font-size:12px; font-weight:1000; color:rgba(229,231,235,.92); }
     .btnRow{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:12px; }
 
-    /* Rotate hint (Cardboard + portrait) */
-    #rotateHint{
-      position:fixed; inset:0;
-      z-index:200;
-      display:none;
-      align-items:center; justify-content:center;
-      background: rgba(0,0,0,.78);
-      backdrop-filter: blur(10px);
-      pointer-events:auto;
-    }
-    #rotateHint .box{
-      width:min(520px, calc(100% - 24px));
-      border-radius:22px;
-      background: rgba(2,6,23,.92);
-      border:1px solid rgba(148,163,184,.18);
-      box-shadow: 0 22px 90px rgba(0,0,0,.65);
-      padding: 16px;
-      text-align:center;
-    }
-    #rotateHint .t{ font-size:18px; font-weight:1200; }
-    #rotateHint .p{ margin-top:8px; font-size:12px; font-weight:950; color:rgba(148,163,184,.95); line-height:1.35; }
-    #rotateHint .actions{ margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
-
     /* End summary */
     #endBackdrop{
       position:fixed; inset:0;
@@ -557,7 +507,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       pointer-events:auto;
     }
     .endCard{
-      width:min(920px, calc(100% - 24px));
+      width:min(820px, calc(100% - 24px));
       background: rgba(2,6,23,.90);
       border:1px solid rgba(148,163,184,.18);
       border-radius: 22px;
@@ -590,7 +540,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
   <div id="stormIntro" aria-hidden="true">
     <div class="label">🌀 STORM INCOMING
-      <div class="sub">Mini: ทำให้น้ำเป็น LOW/HIGH + BLOCK BAD ตอนท้ายพายุ + BOSS 🌩️</div>
+      <div class="sub">ทำ Mini: ให้น้ำ LOW/HIGH + BLOCK BAD ตอนท้ายพายุ! + BOSS 🌩️</div>
     </div>
   </div>
 
@@ -606,10 +556,16 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         <div class="pill" style="opacity:.92;">🛡️ <span class="k">SHIELD</span> <span class="v" id="shield-count">0</span></div>
       </div>
 
+      <!-- ✅ UPDATED Coach -->
       <div class="coachCard">
-        <div class="coachTitle">🧠 Coach</div>
+        <div class="coachHead">
+          <img id="coach-img" class="coachImg" src="./img/coach-neutral.png" alt="coach">
+          <div>
+            <div class="coachTitle">🧠 Coach</div>
+            <div class="coachSub" id="coach-sub">Tip: โฟกัสกลางจอ</div>
+          </div>
+        </div>
         <div class="coachText" id="coach-text">แตะ START เพื่อเริ่ม</div>
-        <div class="coachSub" id="coach-sub">Tip: Cardboard = ค้างเล็งเพื่อยิง (gaze) • ถ้าแนวตั้งให้หมุนจอเป็นแนวนอน</div>
       </div>
     </div>
 
@@ -640,21 +596,12 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         </div>
       </div>
 
-      <div class="card" style="min-width:380px;">
+      <div class="card" style="min-width:360px;">
         <h3>🧩 Quest</h3>
         <div class="qLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
         <div class="qLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
         <div class="qLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
         <div class="qLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
-
-        <!-- ✅ Checklist mini ชัดขึ้น -->
-        <div class="checkRow">
-          <span class="chk" id="chkZone">✅ Zone (LOW/HIGH)</span>
-          <span class="chk" id="chkPressure">✅ Pressure</span>
-          <span class="chk" id="chkEnd">⏱️ End Window</span>
-          <span class="chk" id="chkBlock">🛡️ Block</span>
-          <span class="chk boss" id="chkBoss">🌩️ Boss</span>
-        </div>
       </div>
     </div>
   </div>
@@ -679,15 +626,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         <div class="cbQLine"><span class="cbTag">Progress</span><span id="cb-quest-line2">—</span></div>
         <div class="cbQLine"><span class="cbTag">Mini</span><span id="cb-quest-line3">—</span></div>
         <div class="cbQLine"><span class="cbTag">State</span><span id="cb-quest-line4">—</span></div>
-
-        <!-- ✅ Checklist ใน Cardboard -->
-        <div class="cbChecklist">
-          <span class="chk" id="cbChkZone">✅ Zone</span>
-          <span class="chk" id="cbChkPressure">✅ Pressure</span>
-          <span class="chk" id="cbChkEnd">⏱️ End</span>
-          <span class="chk" id="cbChkBlock">🛡️ Block</span>
-          <span class="chk boss" id="cbChkBoss">🌩️ Boss</span>
-        </div>
       </div>
     </div>
 
@@ -722,9 +660,9 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     <div class="startCard">
       <div class="startTitle">💧 Hydration VR</div>
       <div class="startDesc">
-        - ยิง 💧 เพื่อดันน้ำเข้า <b>GREEN</b> (Goal)<br>
+        - ยิง 💧 เพื่อดันน้ำเข้าใกล้ <b>GREEN</b><br>
         - ระวัง 🥤 (BAD) / เก็บ 🛡️ (Shield)<br>
-        - ช่วง <b>Storm</b> ต้องทำ Mini: <b>LOW/HIGH</b> + <b>BLOCK</b> ตอนท้ายพายุ + <b>BOSS 🌩️</b>
+        - ช่วง <b>Storm</b> ต้องทำ Mini: ให้น้ำเป็น <b>LOW/HIGH</b> และ <b>BLOCK BAD</b> ตอนท้ายพายุ + BOSS 🌩️
       </div>
 
       <div class="startMeta" id="startMeta">—</div>
@@ -732,21 +670,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       <div class="btnRow">
         <button class="btn" id="btnStart" type="button">🚀 START</button>
         <button class="btn" id="btnStartCardboard" type="button">📦 START (Cardboard)</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Rotate hint -->
-  <div id="rotateHint">
-    <div class="box">
-      <div class="t">📱 หมุนจอเป็นแนวนอน</div>
-      <div class="p">
-        โหมด Cardboard เหมาะกับ “แนวนอน” มากกว่า<br>
-        กด Fullscreen แล้วลองหมุนเครื่องเป็น Landscape
-      </div>
-      <div class="actions">
-        <button class="btn primary" id="btnTryLandscape" type="button">🔄 ลองล็อคแนวนอน</button>
-        <button class="btn" id="btnDismissRotate" type="button">รับทราบ</button>
       </div>
     </div>
   </div>
@@ -804,6 +727,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     const time = clamp(parseInt(qs('time', qs('durationPlannedSec', 70)),10) || 70, 20, 600);
     const run  = String(qs('run', qs('runMode','play')));
 
+    // ----- Start meta -----
     const startMeta = D.getElementById('startMeta');
     if (startMeta){
       startMeta.textContent = `MODE: ${run} • DIFF: ${diff} • TIME: ${time}s`;
@@ -838,61 +762,20 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       o.stop(t0 + Math.max(0.03, ms/1000 + 0.02));
     }
 
-    // ----- Fullscreen + landscape lock (best effort) -----
-    async function ensureFullscreen(){
-      try{
-        if (!document.fullscreenElement){
-          await document.documentElement.requestFullscreen({ navigationUI:"hide" });
-        }
-      }catch(e){}
-    }
-    async function lockLandscape(){
-      try{
-        if (screen && screen.orientation && screen.orientation.lock){
-          await screen.orientation.lock('landscape');
-        }
-      }catch(e){}
-    }
-
-    const rotateHint = D.getElementById('rotateHint');
-    const btnTryLandscape = D.getElementById('btnTryLandscape');
-    const btnDismissRotate = D.getElementById('btnDismissRotate');
-
-    function isPortrait(){
-      return (window.innerHeight > window.innerWidth);
-    }
-    function showRotateHint(on){
-      if (!rotateHint) return;
-      rotateHint.style.display = on ? 'flex' : 'none';
-    }
-    function updateRotateHint(){
-      const on = body.classList.contains('cardboard') && isPortrait();
-      showRotateHint(on);
-    }
-    window.addEventListener('resize', updateRotateHint, { passive:true });
-
-    if (btnTryLandscape){
-      btnTryLandscape.addEventListener('click', async ()=>{
-        await resumeAudio();
-        await ensureFullscreen();
-        await lockLandscape();
-        beep(820, 45, 0.020);
-        setTimeout(updateRotateHint, 120);
-      });
-    }
-    if (btnDismissRotate){
-      btnDismissRotate.addEventListener('click', ()=> showRotateHint(false));
-    }
-
     // ----- Cardboard toggle -----
     function setCardboard(on){
       on = !!on;
       body.classList.toggle('cardboard', on);
       try{ localStorage.setItem('HVR_CARDBOARD', on ? '1' : '0'); }catch{}
       D.documentElement.style.setProperty('--gazeProg', '0');
-      updateRotateHint();
-    }
 
+      // ✅ best-effort landscape lock (some browsers may deny)
+      try{
+        if (on && screen.orientation && screen.orientation.lock){
+          screen.orientation.lock('landscape').catch(()=>{});
+        }
+      }catch(e){}
+    }
     const saved = (function(){ try{ return localStorage.getItem('HVR_CARDBOARD')==='1'; }catch{ return false; } })();
     if (qs('cardboard','') === '1') setCardboard(true);
     else if (saved) setCardboard(true);
@@ -916,16 +799,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
     btnCardboard.addEventListener('click', async ()=>{
       await resumeAudio();
-      const on = !body.classList.contains('cardboard');
-      setCardboard(on);
+      setCardboard(!body.classList.contains('cardboard'));
       beep(720, 40, 0.020);
-
-      if (on){
-        // ✅ เข้า VR: ขอ fullscreen + lock landscape (best effort)
-        await ensureFullscreen();
-        await lockLandscape();
-        setTimeout(updateRotateHint, 120);
-      }
     });
 
     function shootAtCenter(){
@@ -963,14 +838,9 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
     async function startNow(cardboard){
       await resumeAudio();
-      if (cardboard){
-        setCardboard(true);
-        await ensureFullscreen();
-        await lockLandscape();
-      }
+      if (cardboard) setCardboard(true);
       if (startOverlay) startOverlay.style.display = 'none';
       beep(880, 50, 0.025);
-      setTimeout(updateRotateHint, 120);
     }
     btnStart.addEventListener('click', ()=> startNow(false));
     btnStartCardboard.addEventListener('click', ()=> startNow(true));
@@ -982,13 +852,10 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       if (k === 'good'){ flash('good'); beep(920, 26, 0.018); }
       else if (k === 'shield'){ flash('shield'); beep(760, 32, 0.018); }
       else if (k === 'block'){ flash('shield'); beep(680, 22, 0.016); }
-      else if (k === 'bossblock'){ flash('boss'); beep(520, 45, 0.030); beep(740, 40, 0.022); }
       else if (k === 'bad'){ flash('bad'); beep(320, 38, 0.020); }
       else if (k === 'storm-in'){ beep(520, 80, 0.030); }
       else if (k === 'perfect'){ flash('shield'); beep(1240, 90, 0.040); beep(1560, 70, 0.030); }
       else if (k === 'streak'){ flash('good'); beep(1040, 60, 0.030); }
-      else if (k === 'mini-pass'){ flash('shield'); beep(900, 90, 0.030); beep(1200, 70, 0.028); }
-      else if (k === 'boss-pass'){ flash('boss'); beep(520, 120, 0.040); beep(980, 90, 0.030); }
     }, { passive:true });
 
     // ----- Storm urgent tick/pulse -----
@@ -1078,25 +945,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       setT(cbQ4, d.miniUrgent ? '⚠️ URGENT: ช่วงท้ายพายุ!' : `Mini: ${Number(d.miniCleared||0)}/${Number(d.miniTotal||0)}`);
     }, { passive:true });
 
-    // checklist nodes (normal + cardboard)
-    const chkZone = D.getElementById('chkZone');
-    const chkPressure = D.getElementById('chkPressure');
-    const chkEnd = D.getElementById('chkEnd');
-    const chkBlock = D.getElementById('chkBlock');
-    const chkBoss = D.getElementById('chkBoss');
-
-    const cbChkZone = D.getElementById('cbChkZone');
-    const cbChkPressure = D.getElementById('cbChkPressure');
-    const cbChkEnd = D.getElementById('cbChkEnd');
-    const cbChkBlock = D.getElementById('cbChkBlock');
-    const cbChkBoss = D.getElementById('cbChkBoss');
-
-    function setChk(el, on, urgent=false){
-      if (!el) return;
-      el.classList.toggle('on', !!on);
-      el.classList.toggle('urgent', !!urgent);
-    }
-
     window.addEventListener('hha:score', (ev)=>{
       const d = ev.detail || {};
       stormActive = !!d.stormActive;
@@ -1106,26 +954,12 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       // drift values
       applyDrift(d.driftX, d.driftY, d.driftRot);
 
-      // sync Cardboard pills
       setT(cbScore, d.score ?? 0);
       setT(cbCombo, d.combo ?? 0);
       setT(cbMiss,  d.misses ?? 0);
       setT(cbGrade, d.grade ?? 'C');
       setT(cbStorm, d.stormActive ? (Number(d.stormLeftSec||0)|0) : 0);
       setT(cbShield, d.shield ?? 0);
-
-      // checklist
-      setChk(chkZone, !!d.miniZoneOK);
-      setChk(chkPressure, !!d.miniPressureOK);
-      setChk(chkEnd, !!d.miniEndWindow, !!d.stormInEndWindow);
-      setChk(chkBlock, !!d.miniBlockedInEnd, !!d.stormInEndWindow);
-      setChk(chkBoss, !!d.bossActive, !!d.bossActive);
-
-      setChk(cbChkZone, !!d.miniZoneOK);
-      setChk(cbChkPressure, !!d.miniPressureOK);
-      setChk(cbChkEnd, !!d.miniEndWindow, !!d.stormInEndWindow);
-      setChk(cbChkBlock, !!d.miniBlockedInEnd, !!d.stormInEndWindow);
-      setChk(cbChkBoss, !!d.bossActive, !!d.bossActive);
     }, { passive:true });
 
     // ----- Storm Intro overlay + siren pattern -----
@@ -1233,7 +1067,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       set('endStreak', d.streakMax ?? 0);
       set('endStorm', d.stormCycles ?? 0);
       set('endStormOk', d.stormMiniSuccess ?? 0);
-      set('endStormRate', (Number(d.stormSuccessRatePct||0)).toFixed(0) + '%');
+      set('endStormRate', (Number(d.stormSuccessRatePct||0).toFixed(0)) + '%');
 
       if (endBackdrop) endBackdrop.style.display = 'flex';
     }, { passive:true });
