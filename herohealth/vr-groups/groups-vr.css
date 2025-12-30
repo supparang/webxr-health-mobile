@@ -1,13 +1,14 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — FULL CSS (RESPONSIVE + cVR)
-✅ Targets via CSS vars --x --y --s
-✅ HUD/Quest/Power/Coach safe areas
-✅ cVR: crosshair + shoot, targets pointer-events:none
-✅ Storm/Overdrive/Freeze/Clutch visuals
+Food Groups VR — FULL CSS (Responsive PC/Mobile + Cardboard cVR)
+✅ Targets rendered by ::before attr(data-emoji)
+✅ Type styles: good/wrong/junk/decoy/boss + powerups
+✅ Storm / Overdrive / Freeze / Clutch / Mini-urgent effects
+✅ cVR mode: disable direct tapping targets (use vr-ui -> hha:shoot)
 */
 
 :root{
   color-scheme: dark;
+
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.72);
@@ -15,177 +16,199 @@ Food Groups VR — FULL CSS (RESPONSIVE + cVR)
   --text:#e5e7eb;
   --muted:#94a3b8;
 
-  /* safe-area */
+  --good: rgba(34,197,94,.95);
+  --bad: rgba(239,68,68,.92);
+  --warn: rgba(245,158,11,.95);
+  --cyan: rgba(34,211,238,.92);
+  --violet: rgba(167,139,250,.92);
+
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
-
-  /* target base */
-  --targetSize: 78px;
-  --targetRing: rgba(226,232,240,.20);
-  --goodGlow: rgba(34,197,94,.35);
-  --badGlow: rgba(239,68,68,.33);
-  --cyanGlow: rgba(34,211,238,.35);
-  --vioGlow: rgba(167,139,250,.35);
 }
 
-*{ box-sizing:border-box; }
 html,body{
-  margin:0; width:100%; height:100%;
+  margin:0;
+  height:100%;
   overflow:hidden;
   background:var(--bg);
   color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,sans-serif;
 }
 
-body{
-  background:
-    radial-gradient(circle at top left, rgba(56,189,248,.14), transparent 60%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 60%),
-    var(--bg);
-}
-
+/* game layer */
 .fg-layer{
-  position:fixed; inset:0;
+  position:fixed;
+  inset:0;
   transform: translate(var(--vx,0px), var(--vy,0px));
-  touch-action:none; user-select:none;
+  touch-action:none;
+  user-select:none;
   pointer-events:auto;
   z-index:10;
 }
 
-/* ===== TARGET ===== */
+/* Targets */
 .fg-target{
   position:absolute;
-  left: var(--x, 50%);
-  top:  var(--y, 50%);
+  left:var(--x, 50%);
+  top:var(--y, 50%);
   transform: translate(-50%,-50%) scale(var(--s,1));
-  width: var(--targetSize);
-  height: var(--targetSize);
-  border-radius: 24px;
+  width:64px;
+  height:64px;
+  border-radius:20px;
   display:grid;
   place-items:center;
-  font-size: 40px;
-  line-height:1;
-  background: rgba(2,6,23,.50);
-  border: 1px solid rgba(148,163,184,.20);
-  box-shadow: 0 18px 55px rgba(0,0,0,.45);
-  will-change: transform, opacity, filter;
+  pointer-events:auto;
+  -webkit-tap-highlight-color: transparent;
+
+  background: rgba(15,23,42,.62);
+  border: 1px solid rgba(148,163,184,.16);
+  box-shadow:
+    0 16px 40px rgba(0,0,0,.40),
+    0 0 0 0 rgba(34,211,238,0);
+
+  transition:
+    transform .16s ease,
+    opacity .16s ease,
+    filter .16s ease;
 }
 
-.fg-target::after{
-  content:'';
-  position:absolute; inset:-8px;
-  border-radius: 28px;
-  border: 1px solid rgba(226,232,240,.16);
-  box-shadow: 0 0 0 1px rgba(2,6,23,.20) inset;
-  opacity:.8;
+.fg-target::before{
+  content: attr(data-emoji);
+  font-size: 34px;
+  line-height: 1;
+  filter: drop-shadow(0 10px 16px rgba(0,0,0,.35));
 }
 
 .fg-target.spawn{
-  animation: fgPop .14s ease-out both;
+  animation: fgPop .16s ease-out both;
 }
 @keyframes fgPop{
-  from{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .70)); opacity:.0; filter: blur(2px); }
-  to  { transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; filter: blur(0); }
+  from{ transform:translate(-50%,-50%) scale(calc(var(--s,1)*.75)); opacity:.0; }
+  to  { transform:translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
 }
+
 .fg-target.hit{
-  animation: fgHit .20s ease-in both;
+  animation: fgHit .20s ease-out both;
 }
 @keyframes fgHit{
-  to{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.28)); opacity:0; filter: blur(1px); }
+  from{ transform:translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
+  to  { transform:translate(-50%,-50%) scale(calc(var(--s,1)*1.18)); opacity:0; }
 }
+
 .fg-target.out{
-  animation: fgOut .18s ease-in both;
-}
-@keyframes fgOut{
-  to{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .90)); opacity:0; filter: blur(1px); }
+  opacity:0;
+  transform:translate(-50%,-50%) scale(calc(var(--s,1)*.92));
+  filter: blur(1px);
 }
 
-/* type colors */
-.fg-good{ box-shadow: 0 22px 70px rgba(0,0,0,.45), 0 0 0 3px rgba(34,197,94,.16) inset, 0 0 45px var(--goodGlow); }
-.fg-wrong{ box-shadow: 0 22px 70px rgba(0,0,0,.45), 0 0 0 3px rgba(167,139,250,.16) inset, 0 0 45px var(--vioGlow); }
-.fg-junk{ box-shadow: 0 22px 70px rgba(0,0,0,.45), 0 0 0 3px rgba(239,68,68,.16) inset, 0 0 45px var(--badGlow); }
-.fg-decoy{ box-shadow: 0 22px 70px rgba(0,0,0,.45), 0 0 0 3px rgba(34,211,238,.16) inset, 0 0 45px var(--cyanGlow); }
+/* Type coloring */
+.fg-good{
+  border-color: rgba(34,197,94,.28);
+  box-shadow: 0 16px 40px rgba(0,0,0,.40), 0 0 0 7px rgba(34,197,94,.10);
+}
+.fg-wrong{
+  border-color: rgba(245,158,11,.30);
+  box-shadow: 0 16px 40px rgba(0,0,0,.40), 0 0 0 7px rgba(245,158,11,.10);
+}
+.fg-junk{
+  border-color: rgba(239,68,68,.30);
+  box-shadow: 0 16px 40px rgba(0,0,0,.40), 0 0 0 7px rgba(239,68,68,.10);
+}
+.fg-decoy{
+  border-color: rgba(167,139,250,.32);
+  box-shadow: 0 16px 40px rgba(0,0,0,.40), 0 0 0 7px rgba(167,139,250,.10);
+}
 
+/* Boss */
 .fg-boss{
-  border-radius: 30px;
-  font-size: 42px;
-  background: rgba(2,6,23,.60);
-  border: 1px solid rgba(250,204,21,.22);
-  box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 3px rgba(250,204,21,.14) inset, 0 0 60px rgba(250,204,21,.22);
+  width:78px;
+  height:78px;
+  border-radius:26px;
+  background: rgba(2,6,23,.62);
+  border-color: rgba(34,211,238,.30);
+  box-shadow:
+    0 18px 55px rgba(0,0,0,.55),
+    0 0 0 10px rgba(34,211,238,.12);
 }
-.fg-boss::after{
-  border-color: rgba(250,204,21,.22);
+.fg-boss::before{ font-size:38px; }
+.fg-boss-hurt{
+  animation: bossHurt .22s ease-out both;
 }
-.fg-boss-hurt{ animation: bossHurt .22s ease both; }
 @keyframes bossHurt{
-  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.12)); filter: saturate(1.25) brightness(1.12); }
+  from{ transform:translate(-50%,-50%) scale(var(--s,1)); }
+  to  { transform:translate(-50%,-50%) scale(calc(var(--s,1)*1.10)); filter: brightness(1.2); }
 }
 .fg-boss-weak{
-  box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 0 3px rgba(239,68,68,.14) inset, 0 0 70px rgba(239,68,68,.20);
+  outline: 2px dashed rgba(245,158,11,.60);
+  outline-offset: 4px;
 }
 
-/* ===== STATE FX ===== */
+/* Global states */
 body.groups-storm{
   background:
-    radial-gradient(circle at 20% 10%, rgba(59,130,246,.16), transparent 55%),
-    radial-gradient(circle at 80% 90%, rgba(34,197,94,.14), transparent 55%),
+    radial-gradient(circle at 20% 10%, rgba(34,211,238,.18), transparent 58%),
+    radial-gradient(circle at 85% 80%, rgba(167,139,250,.14), transparent 60%),
     var(--bg);
 }
-body.groups-storm-urgent::before{
-  content:'';
-  position:fixed; inset:0;
-  pointer-events:none;
-  box-shadow: 0 0 0 6px rgba(239,68,68,.22) inset;
-  animation: urgentPulse .55s linear infinite;
-  z-index:95;
+body.groups-storm .fg-target{
+  box-shadow:
+    0 18px 55px rgba(0,0,0,.55),
+    0 0 0 10px rgba(34,211,238,.10);
 }
-@keyframes urgentPulse{
-  50%{ box-shadow: 0 0 0 10px rgba(239,68,68,.32) inset; }
+
+body.groups-storm-urgent{
+  animation: stormPulse .55s ease-in-out infinite;
+}
+@keyframes stormPulse{
+  0%{ filter: none; }
+  50%{ filter: brightness(1.08) saturate(1.1); }
+  100%{ filter: none; }
 }
 
 body.groups-overdrive .fg-target{
-  filter: saturate(1.15) contrast(1.05);
+  box-shadow:
+    0 18px 55px rgba(0,0,0,.55),
+    0 0 0 10px rgba(34,197,94,.12);
 }
 body.groups-freeze .fg-target{
-  filter: saturate(.95) brightness(.98);
+  filter: saturate(.85) brightness(0.98);
 }
-body.clutch::before{
-  content:'';
-  position:fixed; inset:0;
-  pointer-events:none;
-  background: radial-gradient(circle at center, rgba(239,68,68,.10), transparent 60%);
-  z-index:90;
+body.clutch .fg-target{
+  animation: clutchWobble .65s ease-in-out infinite;
 }
-
-/* ===== HUD helpers (your HTML uses inline styles too; this ensures safe scaling) ===== */
-.hud, .centerTop, .questTop, .powerWrap, .coachWrap{
-  -webkit-user-select:none;
-  user-select:none;
+@keyframes clutchWobble{
+  0%{ transform:translate(-50%,-50%) scale(var(--s,1)); }
+  50%{ transform:translate(-50%,-50%) scale(calc(var(--s,1)*1.05)); }
+  100%{ transform:translate(-50%,-50%) scale(var(--s,1)); }
 }
 
-/* ===== cVR mode ===== */
-body.view-cvr .fg-layer{
-  /* in cardboard we shoot via hha:shoot aim-assist */
-  pointer-events:none;
+body.mini-urgent{
+  animation: miniUrgent .50s ease-in-out infinite;
 }
-body.view-cvr .fg-target{
-  /* keep visuals but avoid direct tapping */
-  pointer-events:none;
-}
-body.view-cvr .hud .box,
-body.view-cvr .pill,
-body.view-cvr .qbar,
-body.view-cvr .coachCard{
-  backdrop-filter: blur(6px);
+@keyframes miniUrgent{
+  0%{ box-shadow: none; }
+  50%{ box-shadow: inset 0 0 0 999px rgba(239,68,68,.04); }
+  100%{ box-shadow: none; }
 }
 
-/* ===== responsive tweaks ===== */
+/* Responsive tuning */
 @media (max-width: 520px){
-  :root{ --targetSize: 72px; }
-  .fg-target{ border-radius: 22px; }
+  .fg-target{
+    width:58px; height:58px; border-radius:18px;
+  }
+  .fg-target::before{ font-size:32px; }
+  .fg-boss{ width:74px; height:74px; border-radius:24px; }
+  .fg-boss::before{ font-size:36px; }
 }
-@media (max-height: 680px){
-  :root{ --targetSize: 70px; }
+
+@media (max-height: 620px){
+  .fg-target{ width:56px; height:56px; }
+  .fg-target::before{ font-size:30px; }
+}
+
+/* Cardboard VR: reduce motion sickness a bit */
+body.view-cvr .fg-layer{
+  transform: translate(var(--vx,0px), var(--vy,0px)) scale(1.02);
 }
