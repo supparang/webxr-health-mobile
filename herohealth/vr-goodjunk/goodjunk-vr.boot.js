@@ -1,8 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — HHA Standard (DUAL-EYE READY) — v2 Hardened
-// ✅ starts from Start button OR OK (vrHint) OR Shoot/Stage click (failsafe)
-// ✅ touch-look is OPTIONAL (dynamic import). If missing, game still runs.
-// ✅ on-screen debug (hudMeta) shows boot status.
+// GoodJunkVR Boot — HHA Standard (DUAL-EYE READY) — v3 Cache-Bust + VR OK starts
 
 'use strict';
 
@@ -31,11 +28,9 @@ function logMeta(step, extra=''){
   setHudMeta(`[BOOT] ${step}${extra ? ' • ' + extra : ''}`);
   try{ console.log('[GoodJunkBOOT]', step, extra||''); }catch(_){}
 }
-
 function hardFail(msg, err){
   console.error('[GoodJunkBOOT] FAIL:', msg, err || '');
   setHudMeta(`❌ ${msg}`);
-  // also show startOverlay with message if exists
   const overlay = document.getElementById('startOverlay');
   const meta = document.getElementById('startMeta');
   if (overlay){
@@ -94,7 +89,6 @@ function wireViewButtons(begin){
           await el.requestFullscreen?.();
         }
       }catch(_){}
-      // ✅ failsafe: entering VR usually implies "start"
       begin?.('enter_vr');
     };
   }
@@ -107,7 +101,6 @@ function showStartOverlay(metaText, begin){
   if (meta) meta.textContent = metaText || '—';
 
   if (!overlay || !btn){
-    // no overlay => autostart
     begin?.('no_start_overlay');
     return;
   }
@@ -124,18 +117,24 @@ function showVrHintIfNeeded(begin){
   const ok = document.getElementById('btnVrOk');
   if (!hint || !ok) return Promise.resolve();
 
-  const portrait = (window.matchMedia && window.matchMedia('(orientation: portrait)').matches);
-  if (!(portrait && isMobileLike())) return Promise.resolve();
+  // ✅ show once per device
+  try{
+    if (localStorage.getItem('GJ_VR_HINT_OK') === '1') return Promise.resolve();
+  }catch(_){}
 
   hint.hidden = false;
+
   return new Promise((resolve) => {
     ok.onclick = () => {
       hint.hidden = true;
-      // ✅ IMPORTANT: user said "กด OK แล้วเกมไม่เริ่ม"
-      // so OK now ALSO triggers begin (failsafe)
+      try{ localStorage.setItem('GJ_VR_HINT_OK', '1'); }catch(_){}
+      // ✅ critical: OK MUST start game
       begin?.('vr_ok');
       resolve();
     };
+
+    // ✅ extra failsafe: if something blocks click, autostart anyway
+    setTimeout(()=>{ begin?.('vr_autostart'); resolve(); }, 650);
   });
 }
 
@@ -153,13 +152,13 @@ function buildContext(){
     if (v != null) ctx[k] = v;
   }
   ctx.projectTag = ctx.projectTag || 'GoodJunkVR';
-  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.2025-12-30.hardened';
+  ctx.gameVersion = ctx.gameVersion || 'goodjunk-vr.boot.v3';
   return ctx;
 }
 
-async function dynamicTouchLookBind(stageEl, layerEls, hazardEls){
+async function dynamicTouchLookBind(stageEl, layerEls, hazardEls, v){
   try{
-    const mod = await import('./touch-look-goodjunk.js');
+    const mod = await import(`./touch-look-goodjunk.js?v=${encodeURIComponent(v)}`);
     if (!mod || typeof mod.attachTouchLook !== 'function') return null;
     const api = mod.attachTouchLook({
       stageEl,
@@ -171,7 +170,6 @@ async function dynamicTouchLookBind(stageEl, layerEls, hazardEls){
     try{ await api?.enableGyro?.(); }catch(_){}
     return api;
   }catch(err){
-    // optional: do not fail boot
     console.warn('[GoodJunkBOOT] touch-look optional import failed:', err);
     return null;
   }
@@ -180,6 +178,9 @@ async function dynamicTouchLookBind(stageEl, layerEls, hazardEls){
 (async function main(){
   try{
     logMeta('loading');
+
+    // ✅ use same v as HTML cache-buster
+    const v = (window.__HHA_V__ || qp('v', '') || String(Date.now()));
 
     const diff = toStr(qp('diff', 'normal'), 'normal').toLowerCase();
     const time = toInt(qp('time', '80'), 80);
@@ -191,7 +192,6 @@ async function dynamicTouchLookBind(stageEl, layerEls, hazardEls){
     const sessionId = qp('sessionId', null) || qp('sid', null);
     const ctx = buildContext();
 
-    // view
     const initial = qp('view', null);
     if (initial === 'vr' || initial === 'cvr' || initial === 'pc' || initial === 'mobile'){
       setView(initial);
@@ -199,7 +199,6 @@ async function dynamicTouchLookBind(stageEl, layerEls, hazardEls){
       setView(isMobileLike() ? 'mobile' : 'pc');
     }
 
-    // --- elements (dual-eye aware) ---
     const stageEl = document.getElementById('gj-stage');
     const layerL  = document.getElementById('gj-layer-l') || document.getElementById('gj-layer') || document.querySelector('.gj-layer');
     const layerR  = document.getElementById('gj-layer-r') || null;
@@ -216,15 +215,14 @@ async function dynamicTouchLookBind(stageEl, layerEls, hazardEls){
 
     if (!stageEl) return hardFail('missing #gj-stage');
     if (!layerL)  return hardFail('missing targets layer (gj-layer-l / gj-layer)');
-    if (!crossL && !crossR) console.warn('[GoodJunkBOOT] crosshair not found (will fallback to center).');
 
-    // import SAFE (required)
-    logMeta('import safe');
+    logMeta('import safe', `v=${v}`);
     let safeMod = null;
     try{
-      safeMod = await import('./goodjunk.safe.js');
+      // ✅ critical: cache-bust safe import
+      safeMod = await import(`./goodjunk.safe.js?v=${encodeURIComponent(v)}`);
     }catch(err){
-      return hardFail('cannot import ./goodjunk.safe.js (path or syntax error)', err);
+      return hardFail('cannot import ./goodjunk.safe.js (path/syntax/cache)', err);
     }
     if (!safeMod || typeof safeMod.boot !== 'function'){
       return hardFail('goodjunk.safe.js has no exported boot()');
@@ -237,9 +235,8 @@ async function dynamicTouchLookBind(stageEl, layerEls, hazardEls){
       logMeta('starting', why || '');
 
       // optional touch-look
-      await dynamicTouchLookBind(stageEl, [layerL, layerR].filter(Boolean), [ringL, ringR, laserL, laserR].filter(Boolean));
+      await dynamicTouchLookBind(stageEl, [layerL, layerR].filter(Boolean), [ringL, ringR, laserL, laserR].filter(Boolean), v);
 
-      // start SAFE engine
       safeMod.boot({
         diff, time, run, endPolicy, challenge,
         seed, sessionId,
@@ -261,19 +258,20 @@ async function dynamicTouchLookBind(stageEl, layerEls, hazardEls){
       logMeta('running', `dual=${!!layerR}`);
     };
 
-    // buttons (view + vr)
     wireViewButtons(begin);
 
-    // ✅ failsafe: any interaction can start
     if (shootEl){
       shootEl.addEventListener('pointerdown', ()=> begin('shoot_button'), { passive:true });
     }
     stageEl.addEventListener('pointerdown', ()=> begin('stage_touch'), { passive:true });
 
-    const metaText = `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge}` + (seed ? ` • seed=${seed}` : '');
+    const metaText =
+      `diff=${diff} • run=${run} • time=${time}s • end=${endPolicy} • ${challenge} • v=${v}` +
+      (seed ? ` • seed=${seed}` : '');
+
     showStartOverlay(metaText, begin);
 
-    // if already in VR/cVR -> hint; OK will also start
+    // If user already switched to VR/cVR, show hint once; OK starts.
     if (document.body.classList.contains('view-vr') || document.body.classList.contains('view-cvr')){
       await showVrHintIfNeeded(begin);
     }
