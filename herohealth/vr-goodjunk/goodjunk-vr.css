@@ -1,10 +1,11 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — PRODUCTION (Fullscreen + VR hardened)
-✅ dvh + visual viewport friendly layout
-✅ overlays respect [hidden] (important!)
-✅ VR/cVR split
-✅ Fullscreen class: body.is-fs
-✅ Harder mode visuals: drift animations classes for targets
+GoodJunkVR UI — SAFE layout (v3)
+✅ stage uses stable dvh-style offsets (reduce address-bar jump/flash)
+✅ reserves space for HUD(top) + fever + controls(bottom)
+✅ VR/cVR dual-eye split + HUD compact
+✅ Fullscreen (body.is-fs) layout tighten
+✅ Overlay gating: body.booting / body.overlay-open prevents "targets flash behind"
+✅ Fever FX: vignette + shake + stun flash classes
 */
 
 :root{
@@ -27,18 +28,19 @@ GoodJunkVR UI — PRODUCTION (Fullscreen + VR hardened)
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
-  /* reserved zones (default) */
+  /* reserved zones */
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
+
+  /* playfield padding helper */
+  --gap: 12px;
 }
 
 *{ box-sizing:border-box; }
-
 html,body{
   margin:0; padding:0;
-  width:100%;
-  height:100%;
+  width:100%; height:100%;
   background:
     radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
     radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
@@ -48,18 +50,9 @@ html,body{
   overflow:hidden;
 }
 
-/* dvh support */
-@supports (height: 100dvh){
-  html,body{ height:100dvh; }
-}
-
-/* ===== Critical: overlays obey hidden ===== */
-.start-overlay[hidden],
-.vr-hint[hidden]{
-  display:none !important;
-}
-
-/* ---------- HUD ---------- */
+/* ------------------------------------
+   HUD
+------------------------------------ */
 .hha-hud{
   position:fixed;
   left:0; right:0;
@@ -82,10 +75,10 @@ html,body{
   border-radius:var(--r-lg);
   padding:12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.35);
-  pointer-events:auto; /* buttons clickable */
+  pointer-events:auto;
 }
 .hud-title{ font-weight:900; letter-spacing:.2px; font-size:18px; }
-.hud-sub{ margin-top:4px; color:var(--muted); font-size:12px; }
+.hud-sub{ margin-top:4px; color:var(--muted); font-size:12px; font-weight:800; }
 
 .viewbar{
   margin-top:10px;
@@ -99,7 +92,7 @@ html,body{
   color:var(--text);
   padding:8px 12px;
   border-radius:999px;
-  font-weight:800;
+  font-weight:900;
   font-size:13px;
   cursor:pointer;
 }
@@ -120,8 +113,9 @@ html,body{
   padding:10px 12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
-.hud-stat .k{ color:var(--muted); font-size:12px; font-weight:700; }
-.hud-stat .v{ font-size:22px; font-weight:900; margin-top:2px; }
+.hud-stat .k{ color:var(--muted); font-size:12px; font-weight:800; }
+.hud-stat .v{ font-size:22px; font-weight:1000; margin-top:2px; }
+.hud-stat.grade .v{ letter-spacing:.3px; }
 
 .hud-mid{
   margin-top:10px;
@@ -139,11 +133,11 @@ html,body{
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
 .q-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.q-title{ font-weight:900; }
+.q-title{ font-weight:1000; }
 .q-title.mini{ color:var(--cyan); }
-.q-count{ font-weight:900; color:#fff; opacity:.95; }
-.q-timer{ color:var(--warn); font-weight:900; min-width:64px; text-align:right; }
-.q-progress{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:700; }
+.q-count{ font-weight:1000; color:#fff; opacity:.95; }
+.q-timer{ color:var(--warn); font-weight:1000; min-width:74px; text-align:right; }
+.q-progress{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:900; }
 
 .hud-coach{
   width:min(420px, 38vw);
@@ -157,10 +151,12 @@ html,body{
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
 .coach-img{ width:62px; height:62px; border-radius:16px; border:1px solid var(--stroke); background:#0b1120; }
-.coach-line{ font-weight:900; }
-.coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:700; }
+.coach-line{ font-weight:1000; }
+.coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:900; }
 
-/* ---------- FEVER ---------- */
+/* ------------------------------------
+   FEVER
+------------------------------------ */
 .hha-fever{
   position:fixed;
   left:12px; right:12px;
@@ -179,7 +175,7 @@ html,body{
   gap:10px;
   align-items:center;
 }
-.fever-label{ color:var(--muted); font-weight:900; letter-spacing:.3px; }
+.fever-label{ color:var(--muted); font-weight:1000; letter-spacing:.3px; }
 .fever-bar{
   height:14px;
   border-radius:999px;
@@ -188,7 +184,7 @@ html,body{
   overflow:hidden;
 }
 .fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
-.fever-text{ text-align:right; font-weight:900; }
+.fever-text{ text-align:right; font-weight:1000; }
 .shield-row{
   margin-top:8px;
   display:grid;
@@ -196,18 +192,74 @@ html,body{
   gap:10px;
   align-items:center;
 }
-.shield-label{ color:var(--muted); font-weight:900; }
+.shield-label{ color:var(--muted); font-weight:1000; }
 .shield-pills{ display:flex; flex-wrap:wrap; gap:6px; }
 
-/* ---------- PLAYFIELD ---------- */
+/* ------------------------------------
+   PLAYFIELD
+------------------------------------ */
 #gj-stage{
   position:fixed;
   left:0; right:0;
   top: calc(var(--hudH) + var(--sat));
-  bottom: calc(var(--ctrlH) + var(--feverH) + var(--sab) + 14px);
+  bottom: calc(var(--ctrlH) + var(--feverH) + var(--sab) + var(--gap));
   z-index:10;
   pointer-events:auto;
   overflow:hidden;
+}
+
+/* Vignette + fever pulse (pure CSS, driven by body classes) */
+#gj-stage::after{
+  content:"";
+  position:absolute; inset:-2px;
+  pointer-events:none;
+  opacity:0;
+  background:
+    radial-gradient(circle at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 92%),
+    radial-gradient(circle at 22% 15%, rgba(239,68,68,.16), transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(239,68,68,.12), transparent 58%);
+  transition: opacity 180ms ease;
+}
+body.fever-high #gj-stage::after{ opacity:.65; }
+body.fever-max #gj-stage::after{ opacity:.92; }
+
+@keyframes feverPulse{
+  0%{ filter:saturate(1) brightness(1); }
+  50%{ filter:saturate(1.2) brightness(1.06); }
+  100%{ filter:saturate(1) brightness(1); }
+}
+body.fever-high{ animation: feverPulse 900ms ease-in-out infinite; }
+
+@keyframes shake1{
+  0%{ transform: translate3d(0,0,0); }
+  20%{ transform: translate3d(-1px,1px,0); }
+  40%{ transform: translate3d(1px,-1px,0); }
+  60%{ transform: translate3d(-1px,-1px,0); }
+  80%{ transform: translate3d(1px,1px,0); }
+  100%{ transform: translate3d(0,0,0); }
+}
+@keyframes shake2{
+  0%{ transform: translate3d(0,0,0); }
+  20%{ transform: translate3d(-2px,1px,0); }
+  40%{ transform: translate3d(2px,-1px,0); }
+  60%{ transform: translate3d(-2px,-2px,0); }
+  80%{ transform: translate3d(2px,2px,0); }
+  100%{ transform: translate3d(0,0,0); }
+}
+@keyframes stunFlash{
+  0%{ opacity:0; }
+  18%{ opacity:.75; }
+  100%{ opacity:0; }
+}
+
+body.shake-1 #gj-stage{ animation: shake1 120ms linear 1; }
+body.shake-2 #gj-stage{ animation: shake2 160ms linear 1; }
+body.stun #gj-stage::before{
+  content:"";
+  position:absolute; inset:0;
+  pointer-events:none;
+  background: radial-gradient(circle at center, rgba(255,255,255,.32), rgba(255,255,255,0) 55%);
+  animation: stunFlash 420ms ease-out 1;
 }
 
 /* eyes */
@@ -217,7 +269,7 @@ html,body{
   width:100%;
 }
 .eye-l{ left:0; }
-.eye-r{ left:0; display:none; } /* default hidden */
+.eye-r{ left:0; display:none; }
 
 /* layers fill */
 .gj-layer, .gj-crosshair, .atk-ring, .atk-laser{
@@ -234,11 +286,28 @@ html,body{
   width:28px; height:28px;
   transform: translate(-50%,-50%);
   border-radius:999px;
-  border:2px solid rgba(229,231,235,.8);
+  border:2px solid rgba(229,231,235,.82);
   box-shadow: 0 0 0 6px rgba(34,197,94,.10);
 }
 
-/* ---------- CONTROLS ---------- */
+/* atk ring */
+.atk-ring{ pointer-events:none; }
+.atk-ring::before{
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:54px; height:54px;
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  border:2px dashed rgba(34,197,94,.45);
+  filter: drop-shadow(0 0 10px rgba(34,197,94,.20));
+  opacity:0;
+}
+.atk-laser{ pointer-events:none; opacity:0; }
+
+/* ------------------------------------
+   CONTROLS
+------------------------------------ */
 .hha-controls{
   position:fixed;
   left:12px; right:12px;
@@ -253,13 +322,15 @@ html,body{
   background: rgba(2,6,23,.72);
   color:var(--text);
   font-size:24px;
-  font-weight:900;
+  font-weight:1000;
   letter-spacing:.2px;
   box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
 .btn-shoot:active{ transform: translateY(1px); }
 
-/* ---------- OVERLAYS ---------- */
+/* ------------------------------------
+   OVERLAYS
+------------------------------------ */
 .start-overlay{
   position:fixed;
   inset:0;
@@ -279,9 +350,9 @@ html,body{
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
 .start-title{ font-size:26px; font-weight:1000; }
-.start-desc{ margin-top:6px; color:var(--text); font-weight:800; line-height:1.35; }
-.muted{ color:var(--muted); font-weight:800; }
-.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:800; }
+.start-desc{ margin-top:6px; color:var(--text); font-weight:900; line-height:1.35; }
+.muted{ color:var(--muted); font-weight:900; }
+.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:900; }
 .btn-start{
   margin-top:14px;
   width:100%;
@@ -314,15 +385,35 @@ html,body{
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
 .vr-title{ font-size:22px; font-weight:1000; }
-.vr-desc{ margin-top:8px; color:var(--text); font-weight:850; line-height:1.35; }
+.vr-desc{ margin-top:8px; color:var(--text); font-weight:900; line-height:1.35; }
 
-/* ---------- VIEW MODES ---------- */
+/* ------------------------------------
+   GATING / anti-flash
+------------------------------------ */
+/* ระหว่าง overlay เปิด: กันคลิก/ยิง และลดการเห็น "แว้บ" */
+body.overlay-open #gj-stage,
+body.overlay-open .hha-controls{
+  pointer-events:none !important;
+  filter: blur(8px);
+  opacity:.18;
+}
+/* ตอน booting (รอเริ่มเล่น): ซ่อน playfield ให้ชัวร์ */
+body.booting #gj-stage,
+body.booting .hha-controls{
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+/* ------------------------------------
+   VIEW MODES
+------------------------------------ */
 body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
 body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
 
+/* VR/cVR compact HUD */
 body.view-vr, body.view-cvr{
-  --hudH: 130px;
-  --feverH: 78px;
+  --hudH: 124px;
+  --feverH: 74px;
   --ctrlH: 86px;
 }
 
@@ -336,92 +427,53 @@ body.view-cvr .eye-l{ width:50%; left:0; }
 body.view-vr .eye-r,
 body.view-cvr .eye-r{ width:50%; left:50%; }
 
+/* VR crosshair smaller */
 body.view-vr .gj-crosshair::before,
-body.view-cvr .gj-crosshair::before{ width:26px; height:26px; }
+body.view-cvr .gj-crosshair::before{
+  width:26px; height:26px;
+}
 
+/* In VR: hide coach to clear space + tighten badge */
+body.view-vr .hud-coach,
+body.view-cvr .hud-coach{ display:none; }
+body.view-vr .hud-badge,
+body.view-cvr .hud-badge{
+  width:min(560px, 72vw);
+  padding:10px;
+}
+body.view-vr .hud-stats,
+body.view-cvr .hud-stats{
+  width:min(320px, 26vw);
+  grid-template-columns: repeat(2, minmax(86px, 1fr));
+  gap:8px;
+}
+body.view-vr .hud-mid,
+body.view-cvr .hud-mid{ margin-top:8px; }
+body.view-vr .hud-quest,
+body.view-cvr .hud-quest{
+  width:min(560px, 72vw);
+  padding:10px;
+}
+
+/* ------------------------------------
+   FULLSCREEN tuning
+------------------------------------ */
+body.is-fs{
+  --gap: 10px;
+}
+body.is-fs.view-mobile{ --hudH: 210px; --ctrlH: 86px; --feverH: 82px; }
+body.is-fs.view-vr,
+body.is-fs.view-cvr{ --hudH: 112px; --ctrlH: 82px; --feverH: 70px; }
+
+/* fullscreen: make buttons smaller */
+body.is-fs .pill{ padding:7px 10px; font-size:12px; }
+body.is-fs .btn-shoot{ height:68px; font-size:22px; }
+
+/* ------------------------------------
+   Small screens cleanup
+------------------------------------ */
 @media (max-width:520px){
   .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
   .hud-badge{ width: 60vw; }
   .hud-coach{ display:none; }
 }
-
-/* =========================================================
-   ✅ FULLSCREEN AWARE (auto tighten layout)
-   ========================================================= */
-body.is-fs.view-mobile{ --hudH: 220px; --ctrlH: 88px; --feverH: 88px; }
-body.is-fs.view-pc{     --hudH: 210px; --ctrlH: 88px; --feverH: 88px; }
-
-body.is-fs.view-vr,
-body.is-fs.view-cvr{
-  --hudH: 104px;
-  --feverH: 0px;   /* minimal in fullscreen VR */
-  --ctrlH: 78px;
-}
-
-/* In fullscreen VR/cVR: hide quest/coach/fever to free space */
-body.is-fs.view-vr .hud-mid,
-body.is-fs.view-cvr .hud-mid{ display:none !important; }
-
-body.is-fs.view-vr .hha-fever,
-body.is-fs.view-cvr .hha-fever{ display:none !important; }
-
-/* shrink top HUD */
-body.is-fs.view-vr .hha-hud,
-body.is-fs.view-cvr .hha-hud{
-  padding: calc(6px + var(--sat)) 10px 6px;
-}
-body.is-fs.view-vr .hud-badge,
-body.is-fs.view-cvr .hud-badge{
-  width:auto;
-  padding:8px 10px;
-  border-radius:16px;
-}
-body.is-fs.view-vr .hud-title,
-body.is-fs.view-cvr .hud-title{ font-size:15px; }
-body.is-fs.view-vr .hud-sub,
-body.is-fs.view-cvr .hud-sub{ display:none; }
-
-body.is-fs.view-vr .hud-stats,
-body.is-fs.view-cvr .hud-stats{
-  width:min(520px, 54vw);
-  grid-template-columns: repeat(4, minmax(72px, 1fr));
-  gap:8px;
-}
-body.is-fs.view-vr .hud-stat,
-body.is-fs.view-cvr .hud-stat{
-  padding:8px 10px;
-  border-radius:16px;
-}
-body.is-fs.view-vr .hud-stat .k,
-body.is-fs.view-cvr .hud-stat .k{ font-size:11px; }
-body.is-fs.view-vr .hud-stat .v,
-body.is-fs.view-cvr .hud-stat .v{ font-size:18px; }
-body.is-fs.view-vr .hud-stat.grade,
-body.is-fs.view-cvr .hud-stat.grade{ display:none !important; }
-
-/* maximize playfield in fullscreen VR */
-body.is-fs.view-vr #gj-stage,
-body.is-fs.view-cvr #gj-stage{
-  top: calc(var(--hudH) + var(--sat));
-  bottom: calc(var(--ctrlH) + var(--sab) + 10px);
-}
-
-body.is-fs.view-vr .btn-shoot,
-body.is-fs.view-cvr .btn-shoot{
-  height:62px;
-  font-size:22px;
-  border-radius:16px;
-}
-
-/* =========================================================
-   ✅ DRIFT ANIMS (Harder mode) — used by JS adding class drift-*
-   ========================================================= */
-@keyframes gjDrift1{ 0%{transform:translate(-50%,-50%) scale(var(--s,1));} 100%{transform:translate(calc(-50% + 16px), calc(-50% - 12px)) scale(var(--s,1));} }
-@keyframes gjDrift2{ 0%{transform:translate(-50%,-50%) scale(var(--s,1));} 100%{transform:translate(calc(-50% - 18px), calc(-50% + 10px)) scale(var(--s,1));} }
-@keyframes gjDrift3{ 0%{transform:translate(-50%,-50%) scale(var(--s,1));} 100%{transform:translate(calc(-50% + 10px), calc(-50% + 18px)) scale(var(--s,1));} }
-@keyframes gjDrift4{ 0%{transform:translate(-50%,-50%) scale(var(--s,1));} 100%{transform:translate(calc(-50% - 12px), calc(-50% - 18px)) scale(var(--s,1));} }
-
-.gj-target.drift-1{ animation: gjDrift1 1.8s ease-in-out infinite alternate; }
-.gj-target.drift-2{ animation: gjDrift2 2.0s ease-in-out infinite alternate; }
-.gj-target.drift-3{ animation: gjDrift3 1.6s ease-in-out infinite alternate; }
-.gj-target.drift-4{ animation: gjDrift4 2.2s ease-in-out infinite alternate; }
