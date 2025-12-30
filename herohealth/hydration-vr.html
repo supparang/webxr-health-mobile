@@ -1,5 +1,6 @@
 <!-- === /herohealth/hydration-vr.html ===
 HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
+✅ Layout PATCH (Dec 2025): more play area + bottom dock + center controls
 ✅ Mini HUD pills
 ✅ Cardboard HUD (PATCH 22) — เห็น TIME/SCORE/COMBO/MISS/GRADE/STORM/SHIELD + Quest
 ✅ Storm Intro siren + dim
@@ -38,6 +39,8 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
 
       --gazeProg:0;
     }
@@ -510,6 +513,130 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
     .endItem .k{ display:block; margin-bottom:4px; color:rgba(148,163,184,.95); font-size:11px; font-weight:950; }
     .endActions{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+
+    /* ==========================================================
+       ✅ LAYOUT PATCH (override) — more play area, less clutter
+       ========================================================== */
+
+    :root{
+      --gap:10px;
+      --hudH:92px;          /* estimated top strip */
+      --dockH:132px;        /* bottom dock height */
+      --ctrlH:62px;         /* buttons row */
+    }
+
+    /* top becomes compact + 2-line max for pills */
+    .hudTop{
+      position:fixed !important;
+      top:0; left:0; right:0;
+      padding: calc(var(--sat) + 10px) 12px 6px !important;
+      background: linear-gradient(to bottom, rgba(2,6,23,.48), rgba(2,6,23,0));
+    }
+    .pillRow{
+      max-width: 72vw !important;
+      max-height: 92px;
+      overflow:hidden;
+      align-content:flex-start;
+    }
+    .pill{
+      padding:7px 10px !important;
+      gap:7px !important;
+    }
+    .k{ font-size:10.5px !important; }
+    .v{ font-size:13.5px !important; }
+
+    /* coach compact + hide on narrow screens */
+    .coachCard{
+      width:min(340px, 34vw) !important;
+      padding:9px 11px !important;
+      max-height: 92px;
+      overflow:hidden;
+    }
+    .coachText{ font-size:11.5px !important; }
+    @media (max-width: 520px){
+      .coachCard{ display:none !important; }
+      .pillRow{ max-width: 100vw !important; }
+    }
+
+    /* stage spacing: playWrap must not be squeezed by bottom cards */
+    .stage{
+      padding-bottom: calc(var(--sab) + var(--dockH) + var(--ctrlH) + 10px);
+      padding-top: calc(var(--sat) + var(--hudH) + 8px);
+    }
+
+    /* play area becomes true viewport-based */
+    .playWrap{
+      position:fixed !important;
+      left: calc(var(--sal) + 12px);
+      right: calc(var(--sar) + 12px);
+      top: calc(var(--sat) + var(--hudH) + 10px);
+      bottom: calc(var(--sab) + var(--dockH) + var(--ctrlH) + 14px);
+      padding:0 !important;
+      z-index:12;
+    }
+    #playfield{
+      width:100%;
+      height:100%;
+    }
+
+    /* bottom dock: 2 columns, responsive, no huge min-width */
+    .hudBottom{
+      position:fixed !important;
+      left: calc(var(--sal) + 12px);
+      right: calc(var(--sar) + 12px);
+      bottom: calc(var(--sab) + var(--ctrlH) + 10px);
+      padding:0 !important;
+      display:grid !important;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+      align-items:stretch;
+      z-index:30;
+    }
+    .hudBottom .card{
+      min-width: 0 !important;           /* kill inline min-width */
+      width:100%;
+      padding:10px 12px !important;
+      pointer-events:none;
+    }
+    .hudBottom .card h3{ font-size:12px !important; }
+
+    @media (max-width: 520px){
+      .hudBottom{
+        grid-template-columns: 1fr;
+        bottom: calc(var(--sab) + var(--ctrlH) + 8px);
+      }
+      :root{ --dockH: 250px; } /* stack requires more height */
+    }
+
+    /* controls row -> bottom center (no overlap) */
+    .controls{
+      left:50% !important;
+      right:auto !important;
+      transform: translateX(-50%);
+      bottom: calc(var(--sab) + 10px) !important;
+      z-index:80;
+      gap:10px;
+    }
+    .controls .btn{
+      border-radius: 18px !important;
+      padding: 12px 14px !important;
+      min-width: 120px;
+      font-weight: 1200;
+    }
+
+    /* Cardboard: keep cbPlayfield clear under HUD + under shootPad */
+    .cbPlayfield{
+      inset: calc(var(--sat) + 64px) 8px calc(var(--sab) + 86px) 8px !important;
+    }
+    .cbHudTop{
+      top: calc(var(--sat) + 10px) !important;
+    }
+    #shootPad{
+      bottom: calc(var(--sab) + 10px) !important;
+    }
+
+    /* crosshair stays centered above everything */
+    #crosshair{ z-index: 90 !important; }
   </style>
 </head>
 
@@ -549,7 +676,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     </div>
 
     <div class="hudBottom">
-      <div class="card" style="min-width:260px;">
+      <div class="card">
         <h3>💧 Water Gauge (0–100)</h3>
 
         <div class="waterWrap">
@@ -569,7 +696,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         </div>
       </div>
 
-      <div class="card" style="min-width:360px;">
+      <div class="card">
         <h3>🧩 Quest</h3>
         <div class="qLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
         <div class="qLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
