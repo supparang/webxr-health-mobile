@@ -1,113 +1,56 @@
 // === /herohealth/plate/plate-hud.js ===
-// Balanced Plate VR — HUD Binder (A+B)
-// ✅ Listens: hha:score, quest:update, hha:coach, hha:judge, hha:celebrate, hha:end
-// ✅ Adds: judge toast, streak glow, perfect pop, damage vignette, grade chip data-grade
-// ✅ Safe: if elements missing, no crash
+// Plate HUD FX Binder — PRODUCTION (H++)
+// ✅ PERFECT spark burst at click point (hha:perfect)
+// ✅ Slow-mo visual vibe 0.25s (hha:slowmo)
+// ✅ Judge toast overlay (hha:judge)
+// ✅ Celebrate (hha:celebrate) fallback flash
 
-(function (root) {
+(function(root){
   'use strict';
   const doc = root.document;
-  if (!doc) return;
+  if(!doc) return;
 
-  function qs(id){ return doc.getElementById(id); }
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function setText(id, txt){
-    const el = qs(id);
-    if (el) el.textContent = String(txt);
-  }
+  const qs = (id)=>doc.getElementById(id);
 
-  const hudTop = qs('hudTop');
-  const coachMsg = qs('coachMsg');
-  const coachImg = qs('coachImg');
-  const feverFill = qs('uiFeverFill');
-  const gradeChip = (function(){
-    // In plate-vr.html, grade is inside .hudStat.gradeChip
-    const el = doc.querySelector('.hudStat.gradeChip');
-    return el || null;
-  })();
+  let lastPt = { x: innerWidth/2, y: innerHeight/2 };
 
-  // -------- Judge toast (auto DOM) --------
-  function ensureJudgeToast(){
-    let t = qs('hhaJudgeToast');
-    if (t) return t;
+  // Track pointer position for fallback perfect location
+  root.addEventListener('pointermove', (e)=>{
+    lastPt.x = e.clientX;
+    lastPt.y = e.clientY;
+  }, { passive:true });
 
-    t = doc.createElement('div');
-    t.id = 'hhaJudgeToast';
-    t.innerHTML = `
-      <div class="card">
-        <span class="tag" id="hhaJudgeTag">INFO</span>
-        <span id="hhaJudgeText">—</span>
-      </div>
-    `;
-    doc.body.appendChild(t);
-    return t;
+  root.addEventListener('pointerdown', (e)=>{
+    lastPt.x = e.clientX;
+    lastPt.y = e.clientY;
+  }, { passive:true });
+
+  // ---- Judge toast ----
+  let judgeEl = null;
+  function ensureJudge(){
+    if(judgeEl) return judgeEl;
+    judgeEl = doc.createElement('div');
+    judgeEl.className = 'hha-judge';
+    judgeEl.textContent = '';
+    doc.body.appendChild(judgeEl);
+    return judgeEl;
   }
 
   function showJudge(text, kind){
-    const toast = ensureJudgeToast();
-    const tag = qs('hhaJudgeTag');
-    const tx  = qs('hhaJudgeText');
-
-    if (tx) tx.textContent = String(text || '');
-    if (tag){
-      const k = String(kind || 'info').toLowerCase();
-      tag.textContent =
-        (k === 'good') ? 'GOOD' :
-        (k === 'warn') ? 'WARN' :
-        (k === 'bad')  ? 'BAD' :
-        (k === 'perfect') ? 'PERFECT' :
-        'INFO';
+    const el = ensureJudge();
+    el.classList.remove('good','warn','bad','perfect','info','show');
+    if(kind === 'good' || kind === 'warn' || kind === 'bad' || kind === 'perfect'){
+      el.classList.add(kind);
     }
-
-    toast.classList.remove('good','warn','bad','perfect','show');
-    const kk = String(kind||'info').toLowerCase();
-    if (kk === 'good' || kk === 'warn' || kk === 'bad' || kk === 'perfect') toast.classList.add(kk);
-
-    // pop
-    void toast.offsetWidth;
-    toast.classList.add('show');
-
+    el.textContent = String(text || '');
+    // animate
+    void el.offsetWidth;
+    el.classList.add('show');
     clearTimeout(showJudge._t);
-    showJudge._t = setTimeout(()=>{
-      toast.classList.remove('show','good','warn','bad','perfect');
-    }, 900);
+    showJudge._t = setTimeout(()=> el.classList.remove('show'), 620);
   }
 
-  // -------- HUD pulse helpers --------
-  function pulseHud(){
-    if(!hudTop) return;
-    hudTop.classList.remove('hha-streakPulse');
-    void hudTop.offsetWidth;
-    hudTop.classList.add('hha-streakPulse');
-    clearTimeout(pulseHud._t);
-    pulseHud._t = setTimeout(()=>hudTop && hudTop.classList.remove('hha-streakPulse'), 320);
-  }
-
-  function setStreakClass(combo, grade){
-    if(!hudTop) return;
-    hudTop.classList.remove('hha-streak','hha-streak-hot','hha-streak-ss','hha-streak-sss');
-
-    const c = Number(combo)||0;
-    const g = String(grade||'').toUpperCase();
-
-    // Combo-based hype
-    if (c >= 6) hudTop.classList.add('hha-streak');
-    if (c >= 12) hudTop.classList.add('hha-streak-hot');
-
-    // Grade-based premium
-    if (g === 'SS') hudTop.classList.add('hha-streak-ss');
-    if (g === 'SSS') hudTop.classList.add('hha-streak-sss');
-  }
-
-  function damageVignette(){
-    doc.body.classList.remove('hha-damage');
-    void doc.body.offsetWidth;
-    doc.body.classList.add('hha-damage');
-    clearTimeout(damageVignette._t);
-    damageVignette._t = setTimeout(()=>doc.body.classList.remove('hha-damage'), 320);
-  }
-
-  // -------- Perfect pop at pointer position --------
+  // ---- PERFECT pop + spark ----
   function perfectPop(x, y, label){
     const el = doc.createElement('div');
     el.className = 'hha-perfect';
@@ -118,180 +61,71 @@
     setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 650);
   }
 
-  // Track last mouse/touch position (fallback for PERFECT)
-  const lastPt = { x: (root.innerWidth||360)/2, y:(root.innerHeight||640)/2 };
-  root.addEventListener('pointermove', (e)=>{ lastPt.x=e.clientX; lastPt.y=e.clientY; }, { passive:true });
-  root.addEventListener('pointerdown', (e)=>{ lastPt.x=e.clientX; lastPt.y=e.clientY; }, { passive:true });
-
-  // -------- Score updates --------
-  const prev = { score:0, combo:0, miss:0, grade:'C' };
-
-  function onScore(d){
-    if(!d) return;
-
-    // Text updates (safe even if plate.safe.js already sets)
-    if (typeof d.score !== 'undefined') setText('uiScore', d.score);
-    if (typeof d.combo !== 'undefined') setText('uiCombo', d.combo);
-    if (typeof d.comboMax !== 'undefined') setText('uiComboMax', d.comboMax);
-    if (typeof d.miss !== 'undefined') setText('uiMiss', d.miss);
-    if (typeof d.plateHave !== 'undefined') setText('uiPlateHave', d.plateHave);
-
-    if (Array.isArray(d.gCount)){
-      setText('uiG1', d.gCount[0]||0);
-      setText('uiG2', d.gCount[1]||0);
-      setText('uiG3', d.gCount[2]||0);
-      setText('uiG4', d.gCount[3]||0);
-      setText('uiG5', d.gCount[4]||0);
-    }
-
-    if (typeof d.accuracyGoodPct !== 'undefined') setText('uiAcc', Math.round(d.accuracyGoodPct) + '%');
-    if (typeof d.grade !== 'undefined') setText('uiGrade', d.grade);
-    if (typeof d.timeLeftSec !== 'undefined') setText('uiTime', Math.ceil(d.timeLeftSec));
-
-    if (feverFill && typeof d.fever !== 'undefined'){
-      feverFill.style.width = clamp(d.fever,0,100) + '%';
-    }
-    if (typeof d.shield !== 'undefined') setText('uiShieldN', d.shield);
-
-    // Grade chip glow attr
-    if (gradeChip && typeof d.grade !== 'undefined'){
-      gradeChip.setAttribute('data-grade', String(d.grade||'C').toUpperCase());
-    }
-
-    // Pulse logic
-    const scoreUp = (Number(d.score||0) > prev.score);
-    const comboUp = (Number(d.combo||0) > prev.combo);
-
-    if (scoreUp || comboUp) pulseHud();
-
-    // Streak glow classes (combo+grade)
-    setStreakClass(d.combo, d.grade);
-
-    prev.score = Number(d.score||0);
-    prev.combo = Number(d.combo||0);
-    prev.miss  = Number(d.miss||0);
-    prev.grade = String(d.grade||prev.grade);
-  }
-
-  // -------- Quest update --------
-  function onQuest(d){
-    if(!d) return;
-
-    if (d.goal){
-      setText('uiGoalTitle', d.goal.title || '—');
-      setText('uiGoalCount', (d.goal.target!=null) ? `${d.goal.cur||0}/${d.goal.target||0}` : '0/0');
-      const gf = qs('uiGoalFill');
-      if(gf){
-        const pct = (d.goal.target>0) ? (Number(d.goal.cur||0)/Number(d.goal.target||1))*100 : 0;
-        gf.style.width = clamp(pct,0,100) + '%';
-      }
-    }
-
-    if (d.mini){
-      setText('uiMiniTitle', d.mini.title || '—');
-
-      // miniCount comes from plate.safe.js, but keep safe if absent
-      // uiMiniTime + uiMiniFill
-      const tl = (d.mini.timeLeft==null) ? null : Number(d.mini.timeLeft);
-      setText('uiMiniTime', (tl==null) ? '--' : `${Math.ceil(Math.max(0,tl))}s`);
-
-      const mf = qs('uiMiniFill');
-      if(mf){
-        const dur = Number(d.mini.target||0);
-        const pct = (dur>0 && tl!=null) ? ((dur - Math.max(0,tl))/dur)*100 : 0;
-        mf.style.width = clamp(pct,0,100) + '%';
-      }
-    }
-  }
-
-  // -------- Coach update --------
-  function onCoach(d){
-    if(!d) return;
-    if (coachMsg && d.msg) coachMsg.textContent = String(d.msg);
-
-    if (coachImg && d.mood){
-      const m = String(d.mood||'neutral');
-      const map = {
-        happy: './img/coach-happy.png',
-        neutral:'./img/coach-neutral.png',
-        sad: './img/coach-sad.png',
-        fever: './img/coach-fever.png',
-      };
-      coachImg.src = map[m] || map.neutral;
-    }
-  }
-
-  // -------- Celebrate (goal/mini/end) --------
-  function onCelebrate(d){
-    if(!d) return;
-    // Extra pulse + optional particles burst
-    pulseHud();
-
+  function perfectSpark(x,y){
     try{
-      const P = root.Particles;
-      if (P && typeof P.burst === 'function'){
-        // burst near top-center
-        P.burst((root.innerWidth||360)/2, (qs('hhaJudgeToast')? (qs('hhaJudgeToast').getBoundingClientRect().top+20):120));
-      }
+      const s = doc.createElement('div');
+      s.className = 'hha-spark';
+      s.style.left = Math.round(x) + 'px';
+      s.style.top  = Math.round(y) + 'px';
+      doc.body.appendChild(s);
+      setTimeout(()=>{ try{s.remove();}catch(e){} }, 520);
+    }catch(e){}
+
+    // If particles.js exposes helpers, use them
+    try{
+      const P = root.Particles || root.GAME_MODULES?.Particles;
+      if(P && typeof P.burst === 'function') P.burst(x,y);
+      if(P && typeof P.popText === 'function') P.popText(x,y,'⚡','');
     }catch(e){}
   }
 
-  // -------- PERFECT / STREAK / DAMAGE extra events (from plate.safe.js patch below) --------
   function onPerfect(d){
     const x = (d && typeof d.x==='number') ? d.x : lastPt.x;
     const y = (d && typeof d.y==='number') ? d.y : lastPt.y;
     perfectPop(x, y, '⚡ PERFECT!');
+    perfectSpark(x, y);
     showJudge('⚡ PERFECT!', 'perfect');
-    pulseHud();
   }
 
-  function onStreak(d){
-    if(!hudTop) return;
-    const tier = String((d && d.tier) || '').toLowerCase();
-    // just pulse + keep current class selection
-    pulseHud();
-    if (tier === 'ss' || tier === 'sss'){
-      // a little extra judge for hype
-      showJudge(tier === 'sss' ? '🌟🔥 STREAK SSS!' : '✨ STREAK SS!', 'perfect');
-    }else if (tier === 'hot'){
-      showJudge('🔥 HOT STREAK!', 'warn');
-    }else{
-      showJudge('✅ STREAK!', 'good');
-    }
+  // ---- Slowmo ----
+  function onSlowmo(d){
+    const dur = (d && Number(d.durationMs)) ? Number(d.durationMs) : 250;
+    doc.body.classList.add('hha-slowmo');
+    clearTimeout(onSlowmo._t);
+    onSlowmo._t = setTimeout(()=>doc.body.classList.remove('hha-slowmo'), Math.max(80, dur));
   }
 
-  function onDamage(){
-    damageVignette();
-  }
-
-  // -------- Judge event passthrough --------
-  function onJudge(d){
-    if(!d) return;
-    showJudge(d.text || '—', d.kind || 'info');
-    if (String(d.kind||'').toLowerCase() === 'bad') damageVignette();
-  }
-
-  // -------- End event (ensure grade chip stable) --------
-  function onEnd(d){
+  // ---- Celebrate fallback ----
+  function onCelebrate(d){
+    // Try particles celebrate if available
     try{
-      const s = d && d.summary;
-      if(s && gradeChip){
-        gradeChip.setAttribute('data-grade', String(s.grade||'C').toUpperCase());
+      const P = root.Particles || root.GAME_MODULES?.Particles;
+      if(P && typeof P.celebrate === 'function'){
+        P.celebrate();
+        return;
       }
+    }catch(e){}
+    // Fallback: quick judge pulse
+    const kind = (d && d.kind) ? String(d.kind) : 'celebrate';
+    if(kind === 'end') showJudge('🎉 CLEAR!', 'good');
+    else if(kind === 'goal') showJudge('🎯 GOAL!', 'good');
+    else if(kind === 'mini') showJudge('⚡ MINI!', 'warn');
+  }
+
+  // ---- Grade chip crown/shimmer driver (data-grade) ----
+  function onScore(d){
+    try{
+      const grade = String(d?.grade || '').toUpperCase();
+      const chip = doc.querySelector('.hudStat.gradeChip');
+      if(chip) chip.setAttribute('data-grade', grade || 'C');
     }catch(e){}
   }
 
-  // ---- bind ----
-  root.addEventListener('hha:score', (e)=> onScore(e.detail), { passive:true });
-  root.addEventListener('quest:update', (e)=> onQuest(e.detail), { passive:true });
-  root.addEventListener('hha:coach', (e)=> onCoach(e.detail), { passive:true });
-  root.addEventListener('hha:judge', (e)=> onJudge(e.detail), { passive:true });
-  root.addEventListener('hha:celebrate', (e)=> onCelebrate(e.detail), { passive:true });
-  root.addEventListener('hha:end', (e)=> onEnd(e.detail), { passive:true });
-
-  // extra hype events
+  // Bind events
   root.addEventListener('hha:perfect', (e)=> onPerfect(e.detail), { passive:true });
-  root.addEventListener('hha:streak', (e)=> onStreak(e.detail), { passive:true });
-  root.addEventListener('hha:damage', ()=> onDamage(), { passive:true });
+  root.addEventListener('hha:slowmo',  (e)=> onSlowmo(e.detail), { passive:true });
+  root.addEventListener('hha:judge',   (e)=> showJudge(e.detail?.text || e.detail?.msg || '', e.detail?.kind || 'info'), { passive:true });
+  root.addEventListener('hha:celebrate',(e)=> onCelebrate(e.detail), { passive:true });
+  root.addEventListener('hha:score',   (e)=> onScore(e.detail), { passive:true });
 
 })(window);
