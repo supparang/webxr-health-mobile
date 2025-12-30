@@ -1,12 +1,16 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Boss Mini + Research Logging)
-// ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:end
+// ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:storm, hha:end
 // ✅ Research: run=research => adaptive OFF + deterministic seed + deterministic storm schedule
-// ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end (พัก app script ได้ แต่โค้ดยังรองรับ)
+// ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end (best-effort)
 // ✅ PATCH 10: Boss mini (ท้าย Storm) ต้อง BLOCK boss-bad >= bossNeed
 // ✅ PATCH 11: deterministic storm schedule (no frame-window race)
 // ✅ PATCH 12: input throttle + sanity (เร็วขึ้น/แม่นขึ้น/กัน spam)
-// ✅ PATCH 23: Cardboard/Glassboard -> spawn targets into #hvr-layerL/#hvr-layerR (fix black screen + missing targets)
+// ✅ PATCH 23: Cardboard -> spawn targets into #hvr-layerL/#hvr-layerR (fix missing targets)
+// ✅ PATCH 24: Cardboard playfield rect = cbPlayfieldL/R (fix spawn/pickXY)
+// ✅ PATCH 25: hha:score includes stormInEndWindow + drift fields (HTML urgent/drift hooks work)
+// ✅ PATCH 26: Emit hha:storm enter/exit for Storm intro/siren
+// ✅ PATCH 27: End summary field names align with hydration-vr.html (stormMiniSuccess/stormSuccessRatePct)
 
 'use strict';
 
@@ -66,20 +70,23 @@ const layerMain = DOC.getElementById('hvr-layer');
 const layerL = DOC.getElementById('hvr-layerL');
 const layerR = DOC.getElementById('hvr-layerR');
 
-// Try find a cardboard playfield (visible in VR split)
+// ✅ PATCH 24: Cardboard playfield rect must be cbPlayfieldL/R (your HTML uses these ids)
 const cbPlayfield =
+  DOC.getElementById('cbPlayfieldL') ||
+  DOC.getElementById('cbPlayfieldR') ||
   DOC.getElementById('cb-playfield') ||
   DOC.getElementById('cbPlayfield') ||
   DOC.getElementById('cardboard-playfield') ||
-  DOC.querySelector('.cb-playfield') ||
   DOC.querySelector('.cbPlayfield') ||
-  DOC.getElementById('cb-left') || null;
+  DOC.querySelector('.cb-playfield') ||
+  DOC.getElementById('cb-left') ||
+  null;
 
 function isCardboard(){
   try{ return DOC.body && DOC.body.classList.contains('cardboard'); }catch{ return false; }
 }
 function activeLayers(){
-  // เข้า VR -> ต้องให้เป้าไปอยู่ใน cb layers
+  // เข้า Cardboard -> ต้องให้เป้าไปอยู่ใน cb layers
   if (isCardboard() && layerL && layerR) return [layerL, layerR];
   return [layerMain].filter(Boolean);
 }
@@ -231,10 +238,15 @@ const S = {
   bossWindowSec: 2.2,
 
   adaptiveOn: (run !== 'research'),
-  adaptK: 0.0
+  adaptK: 0.0,
+
+  // ✅ PATCH 25: drift placeholders for HTML driver (0 if not used)
+  driftX: 0,
+  driftY: 0,
+  driftRot: 0
 };
 
-// difficulty tuning (faster + tighter)
+// difficulty tuning
 const TUNE = (() => {
   const sizeBase =
     diff === 'easy' ? 78 :
@@ -349,6 +361,7 @@ function syncHUD(){
 
   setWaterGauge(S.waterPct);
 
+  // ✅ PATCH 25: include stormInEndWindow + drift fields
   emit('hha:score', {
     score: S.score|0,
     combo: S.combo|0,
@@ -360,7 +373,11 @@ function syncHUD(){
     waterZone: S.waterZone,
     shield: S.shield|0,
     stormActive: !!S.stormActive,
-    stormLeftSec: S.stormLeftSec
+    stormLeftSec: S.stormLeftSec,
+    stormInEndWindow: !!S.inEndWindow,
+    driftX: S.driftX || 0,
+    driftY: S.driftY || 0,
+    driftRot: S.driftRot || 0
   });
 
   emit('hha:time', { left: S.leftSec|0 });
@@ -461,7 +478,7 @@ function makePop(text, kind){
 let lastHitAt = 0;               // ms
 const HIT_COOLDOWN_MS = 55;      // เร็วขึ้นแต่กัน spam
 
-// ------------------ target lifecycle (PATCH 23: dual-eye cardboard spawn) ------------------
+// ------------------ target lifecycle (dual-eye cardboard spawn) ------------------
 function spawn(kind){
   if (S.ended) return;
 
@@ -526,8 +543,6 @@ function spawn(kind){
   function onHit(){
     if (killed || S.ended) return;
 
-    // multi-touch sanity
-    // (ถ้ามาจาก click ก็ไม่มี ev ให้เช็ก แต่ pointerdown มี)
     const t = performance.now();
     if (t - lastHitAt < HIT_COOLDOWN_MS) return;
     lastHitAt = t;
@@ -696,6 +711,10 @@ function enterStorm(){
   }
 
   syncHUD();
+
+  // ✅ PATCH 26: notify HTML storm intro/siren
+  emit('hha:storm', { state:'enter', cycle:S.stormCycle|0 });
+  emit('hha:judge', { kind:'storm-in' }); // optional (HTML maps this to beep)
 }
 
 function exitStorm(){
@@ -727,6 +746,9 @@ function exitStorm(){
   S.bossActive = false;
 
   syncHUD();
+
+  // ✅ PATCH 26: storm exit
+  emit('hha:storm', { state:'exit', cycle:S.stormCycle|0 });
 }
 
 function tickStorm(dt){
@@ -769,7 +791,6 @@ async function sendLog(payload){
       keepalive: true
     });
   }catch(e){
-    // best-effort fallback: GET (minimal)
     try{
       const u = new URL(logEndpoint, location.href);
       u.searchParams.set('projectTag', String(payload.projectTag||'HeroHealth'));
@@ -825,6 +846,8 @@ async function endGame(reason){
   const grade = computeGrade();
   const acc = computeAccuracy();
 
+  const playedSec = clamp(timeLimit - S.leftSec, 0, timeLimit);
+
   const summary = {
     timestampIso: qs('timestampIso', new Date().toISOString()),
     projectTag: qs('projectTag', 'HeroHealth'),
@@ -833,7 +856,7 @@ async function endGame(reason){
     gameMode: 'hydration',
     diff,
     durationPlannedSec: timeLimit,
-    durationPlayedSec: timeLimit,
+    durationPlayedSec: Number(playedSec.toFixed(2)),
 
     scoreFinal: S.score|0,
     comboMax: S.comboMax|0,
@@ -859,8 +882,16 @@ async function endGame(reason){
     streakMax: S.streakMax|0,
 
     stormCycles: S.stormCycle|0,
-    stormSuccess: (S.miniCleared|0),   // (มินิรวมที่ผ่าน)
+
+    // ✅ PATCH 27: align with hydration-vr.html end UI
+    stormMiniSuccess: (S.miniCleared|0),
+    stormSuccessRatePct: clamp(((S.miniCleared|0) / Math.max(1, S.stormCycle|0)) * 100, 0, 100),
+
+    // optional backward-compat
+    stormSuccess: (S.miniCleared|0),
     stormRatePct: clamp(((S.miniCleared|0) / Math.max(1, S.stormCycle|0)) * 100, 0, 100),
+
+    timeInGreenSec: Number(S.greenHold.toFixed(2)),
 
     reason: reason || 'end'
   };
