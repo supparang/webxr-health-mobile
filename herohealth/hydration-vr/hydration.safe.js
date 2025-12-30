@@ -1,13 +1,11 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Boss Mini + Research Logging)
+// HydrationVR — PRODUCTION v2 (STORM patterns + Perfect chain + Fair penalty/bonus)
 // ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:storm, hha:end
 // ✅ Research: run=research => adaptive OFF + deterministic seed + deterministic storm schedule
-// ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end (best effort)
-// ✅ Boss mini: ท้าย Storm ต้อง BLOCK boss-bad >= bossNeed
-// ✅ deterministic storm schedule
-// ✅ input throttle + sanity (กัน spam)
-// ✅ Cardboard spawn: targets into #hvr-layerL/#hvr-layerR (fix VR black/missing targets)
-// ✅ NEW: ส่ง checklist flags ไป hha:score เพื่อให้ HTML ทำ checklist UI ได้
+// ✅ Cardboard spawn: targets into #hvr-layerL/#hvr-layerR
+// ✅ NEW: storm patterns per cycle (fast/long/boss heavy/breath)
+// ✅ NEW: perfect chain in end-window (x score + shield drip)
+// ✅ NEW: fair penalty scaling in end-window (but reward for skill)
 
 'use strict';
 
@@ -26,7 +24,7 @@ function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch{}
 }
 
-// seeded RNG (deterministic for research)
+// seeded RNG (deterministic)
 function hashStr(s){
   s = String(s||'');
   let h = 2166136261;
@@ -73,7 +71,6 @@ function activeLayers(){
   return [layerMain].filter(Boolean);
 }
 function activePlayfield(){
-  // HTML มี cbPlayfieldL/R แต่เราคำนวณบน “ตัวหลัก” ก็พอ (spawn เป็น %)
   return playfield || (DOC.getElementById('cbPlayfieldL') || null);
 }
 function fxLayer(){
@@ -97,7 +94,7 @@ const elShieldCount = DOC.getElementById('shield-count');
 
 function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
 
-// inject target styles (so targets always visible)
+// inject target styles
 (function injectStyle(){
   const id = 'hvr-target-style';
   if (DOC.getElementById(id)) return;
@@ -129,16 +126,15 @@ function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
   .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
   .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
 
-  /* boss BAD: ให้เด่นชัด + เร้าใจ */
   .hvr-target.bossbad{
-    outline: 2px dashed rgba(239,68,68,.45);
+    outline: 2px dashed rgba(239,68,68,.48);
     box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 26px rgba(239,68,68,.14);
-    filter: saturate(1.2) contrast(1.08);
+    filter: saturate(1.25) contrast(1.10);
     animation: bossPulse .38s linear infinite;
   }
   @keyframes bossPulse{
     0%{ transform: translate(-50%,-50%) scale(1.00); }
-    50%{ transform: translate(-50%,-50%) scale(1.06); }
+    50%{ transform: translate(-50%,-50%) scale(1.07); }
     100%{ transform: translate(-50%,-50%) scale(1.00); }
   }
 
@@ -154,7 +150,7 @@ function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
   @keyframes hvrPop{
     0%{ opacity:0; transform: translate(-50%,-50%) scale(.88); }
     15%{ opacity:1; }
-    100%{ opacity:0; transform: translate(-50%,-70%) scale(1.05); }
+    100%{ opacity:0; transform: translate(-50%,-70%) scale(1.06); }
   }`;
   DOC.head.appendChild(st);
 })();
@@ -198,12 +194,15 @@ const S = {
   stormLeftSec:0,
   stormCycle: 0,
 
+  // NEW: pattern params per storm
+  stormPatternName: 'normal',
+  stormSpawnMul: 1.0,
   endWindowSec: 1.2,
   inEndWindow:false,
 
   // mini state (per storm)
   miniCleared:0,
-  miniPlanned: 0, // ✅ ใช้แทน 999 ใน summary
+  miniPlanned: 0,
   miniState: {
     zoneOK:false,
     pressure:0,
@@ -219,6 +218,12 @@ const S = {
   bossBlocked: 0,
   bossDoneThisStorm:false,
   bossWindowSec: 2.2,
+
+  // NEW: perfect chain (ท้ายพายุ)
+  perfectChain: 0,
+  perfectMax: 0,
+  perfectShieldGranted: 0, // กันแจกถี่
+  perfectWindowArmed:false,
 
   adaptiveOn: (run !== 'research'),
   adaptK: 0.0
@@ -259,9 +264,12 @@ const TUNE = (() => {
 
     stormEverySec: stormEvery,
     stormDurSec: stormDur,
-    endWindowSec: 1.2,
 
-    stormSpawnMul: diff==='hard' ? 0.56 : 0.64,
+    // base end-window (จะถูก pattern override)
+    endWindowSecBase: 1.2,
+
+    // base storm spawn mul (จะถูก pattern override)
+    stormSpawnMulBase: diff==='hard' ? 0.56 : 0.64,
 
     nudgeToMid: 5.0,
     badPush:    8.0,
@@ -269,12 +277,12 @@ const TUNE = (() => {
 
     greenTargetSec: g,
 
-    bossWindowSec: diff==='hard' ? 2.4 : 2.2
+    bossWindowSec: diff==='hard' ? 2.45 : 2.2
   };
 })();
 
 S.greenTarget = TUNE.greenTargetSec;
-S.endWindowSec = TUNE.endWindowSec;
+S.endWindowSec = TUNE.endWindowSecBase;
 S.bossWindowSec = TUNE.bossWindowSec;
 
 // ------------------ computed ------------------
@@ -287,7 +295,7 @@ function computeGrade(){
   const miss = S.misses|0;
   const mini = S.miniCleared|0;
 
-  if (acc >= 95 && miss <= 2 && mini >= 1) return 'SSS';
+  if (acc >= 95 && miss <= 2 && mini >= 2) return 'SSS';
   if (acc >= 90 && miss <= 4) return 'SS';
   if (acc >= 82) return 'S';
   if (acc >= 70) return 'A';
@@ -298,7 +306,6 @@ function computeGrade(){
 // ------------------ water dynamics ------------------
 function updateZone(){
   S.waterZone = zoneFrom(S.waterPct);
-  // sync body class for gauge coloring (optional)
   try{
     const b = DOC.body;
     b.classList.toggle('water-low',  S.waterZone === 'LOW');
@@ -313,15 +320,15 @@ function nudgeWaterGood(){
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
-function pushWaterBad(){
+function pushWaterBad(strengthMul=1){
   const mid = 55;
   const d = S.waterPct - mid;
-  const step = (d >= 0 ? +1 : -1) * TUNE.badPush;
+  const step = (d >= 0 ? +1 : -1) * (TUNE.badPush * strengthMul);
   S.waterPct = clamp(S.waterPct + step, 0, 100);
   updateZone();
 }
 
-// ------------------ spawn math (safe margins) ------------------
+// ------------------ spawn math ------------------
 function pickXY(){
   const pf = activePlayfield();
   const r = pf ? pf.getBoundingClientRect() : { width: 1, height: 1, left:0, top:0 };
@@ -377,11 +384,110 @@ function makePop(text, kind){
   }catch{}
 }
 
-// ------------------ input sanity / anti-spam ------------------
+// ------------------ anti-spam ------------------
 let lastHitAt = 0;
 const HIT_COOLDOWN_MS = 55;
 
-// ------------------ target lifecycle (dual-eye cardboard spawn) ------------------
+// ------------------ STORM PATTERNS (NEW) ------------------
+// deterministic pattern chooser by stormCycle + seed
+function chooseStormPattern(cycleIndex){
+  // 4 patterns: fast / long / boss-heavy / breath
+  // ใช้ rng แบบ deterministic: ผูกกับ seed + cycleIndex
+  const rr = makeRng(seed + '|storm|' + cycleIndex);
+  const r = rr();
+
+  // base
+  let name = 'normal';
+  let spawnMul = TUNE.stormSpawnMulBase;
+  let dur = TUNE.stormDurSec;
+  let endWin = TUNE.endWindowSecBase;
+  let bossWin = S.bossWindowSec;
+  let bossNeed = (diff === 'hard') ? 3 : 2;
+
+  if (r < 0.22){
+    name = 'fast';
+    dur *= 0.86;
+    spawnMul *= 0.84;     // เป้าโผล่ถี่ขึ้น
+    endWin = Math.max(1.0, endWin * 0.92);
+    bossWin *= 0.92;
+    bossNeed = (diff === 'hard') ? 3 : 2;
+  }
+  else if (r < 0.48){
+    name = 'long';
+    dur *= 1.16;
+    spawnMul *= 0.74;     // โผล่ถี่ขึ้นในพายุยาว
+    endWin = Math.min(1.45, endWin * 1.10);
+    bossWin *= 1.10;
+    bossNeed = (diff === 'hard') ? 4 : 3;
+  }
+  else if (r < 0.76){
+    name = 'boss-heavy';
+    dur *= 1.02;
+    spawnMul *= 0.78;
+    endWin = Math.min(1.50, endWin * 1.12);
+    bossWin *= 1.18;
+    bossNeed = (diff === 'hard') ? 4 : 3;
+  }
+  else {
+    name = 'breath';
+    dur *= 0.98;
+    spawnMul *= 0.92;     // ไม่ถี่มาก ให้หายใจได้
+    endWin = Math.max(1.1, endWin);
+    bossWin *= 1.00;
+    bossNeed = (diff === 'hard') ? 3 : 2;
+  }
+
+  // clamp
+  dur = clamp(dur, 4.2, 7.8);
+  spawnMul = clamp(spawnMul, 0.44, 0.95);
+  endWin = clamp(endWin, 1.0, 1.6);
+  bossWin = clamp(bossWin, 1.7, 3.2);
+  bossNeed = clamp(bossNeed, 2, 5) | 0;
+
+  return { name, dur, spawnMul, endWin, bossWin, bossNeed };
+}
+
+// ------------------ perfect chain (NEW) ------------------
+function resetPerfect(reason=''){
+  S.perfectChain = 0;
+  S.perfectWindowArmed = false;
+  S.perfectShieldGranted = 0;
+}
+function bumpPerfect(){
+  S.perfectChain++;
+  S.perfectMax = Math.max(S.perfectMax, S.perfectChain);
+
+  // reward: score multiplier-ish (flat bonus) + combo push
+  const bonus = 6 + Math.min(22, S.perfectChain * 4);
+  S.score += bonus;
+  S.combo += 1;
+  S.comboMax = Math.max(S.comboMax, S.combo);
+
+  if (S.perfectChain === 2){
+    makePop('PERFECT x2!', 'shield');
+    emit('hha:judge', { kind:'perfect' });
+  } else if (S.perfectChain === 3){
+    makePop('PERFECT x3!', 'shield');
+    emit('hha:judge', { kind:'perfect' });
+  } else if (S.perfectChain >= 4){
+    makePop('PERFECT 🔥', 'shield');
+    emit('hha:judge', { kind:'perfect' });
+  }
+
+  // shield drip: แจกไม่ถี่เกิน (แฟร์)
+  if (S.shield < S.shieldMax){
+    const want = (S.perfectChain >= 3 && S.perfectShieldGranted === 0) ||
+                 (S.perfectChain >= 5 && S.perfectShieldGranted === 1);
+    if (want){
+      S.shield = clamp(S.shield + 1, 0, S.shieldMax);
+      S.perfectShieldGranted++;
+      makePop('+SHIELD (PERF)', 'shield');
+      emit('hha:judge', { kind:'shield' });
+    }
+  }
+}
+
+// ------------------ target lifecycle ------------------
 function spawn(kind){
   if (S.ended) return;
 
@@ -437,6 +543,9 @@ function spawn(kind){
         S.nExpireGood++;
         S.combo = 0;
         S.streakGood = 0;
+
+        // แฟร์: ถ้าพลาดช่วงท้ายพายุ รีเซ็ต perfect
+        if (S.stormActive && S.inEndWindow) resetPerfect('expire-good');
       }
     }
   }
@@ -460,14 +569,9 @@ function spawn(kind){
       S.streakGood++;
       S.streakMax = Math.max(S.streakMax, S.streakGood);
 
-      if (S.streakGood > 0 && S.streakGood % 7 === 0){
-        S.score += 12;
-        makePop('STREAK!', 'good');
-        emit('hha:judge', { kind:'streak' });
-      } else {
-        makePop('+GOOD', 'good');
-        emit('hha:judge', { kind:'good' });
-      }
+      // ระหว่างท้ายพายุ ถ้ากำลังทำ perfect window, ยิง good ไม่รีเซ็ต
+      makePop('+GOOD', 'good');
+      emit('hha:judge', { kind:'good' });
     }
     else if (kind === 'shield'){
       S.score += 6;
@@ -495,23 +599,42 @@ function spawn(kind){
           emit('hha:judge', { kind:'block' });
         }
 
-        // mini condition: block in end-window
-        if (S.stormActive && S.inEndWindow && !S.miniState.doneThisStorm){
-          S.miniState.blockedInEnd = true;
+        // ---- PERFECT WINDOW: ท้ายพายุ (NEW)
+        if (S.stormActive && S.inEndWindow){
+          // arm window เมื่อเข้า end window แล้วค่อย chain
+          if (!S.perfectWindowArmed) S.perfectWindowArmed = true;
 
+          // เงื่อนไข perfect: ตอน block ต้องอยู่ LOW หรือ HIGH (ไม่ใช่ GREEN)
           if (S.waterZone !== 'GREEN'){
-            S.score += 8;
-            makePop('PERFECT!', 'shield');
-            emit('hha:judge', { kind:'perfect' });
+            bumpPerfect();
+          } else {
+            // ถ้า GREEN ถือว่าไม่ perfect แต่ไม่ลงโทษหนัก แค่ไม่ chain
+            resetPerfect('green-block');
           }
+
+          // mini condition: block in end-window
+          if (!S.miniState.doneThisStorm){
+            S.miniState.blockedInEnd = true;
+          }
+        } else {
+          // block นอก end window รีเซ็ต perfect
+          resetPerfect('block-outside');
         }
       } else {
+        // ---- FAIR PENALTY: ท้ายพายุเจ็บขึ้น (NEW)
         S.nHitBad++;
-        S.misses++;
+        const endPenalty = (S.stormActive && S.inEndWindow) ? 2 : 1;
+        S.misses += endPenalty;
         S.combo = 0;
-        S.score = Math.max(0, S.score - 6);
-        pushWaterBad();
-        makePop('BAD!', 'bad');
+        S.score = Math.max(0, S.score - (S.stormActive && S.inEndWindow ? 10 : 6));
+
+        // ช่วงท้ายพายุ bad push แรงขึ้นเล็กน้อย
+        pushWaterBad(S.stormActive && S.inEndWindow ? 1.25 : 1.0);
+
+        // ท้ายพายุโดน bad = รีเซ็ต perfect แน่ ๆ
+        if (S.stormActive && S.inEndWindow) resetPerfect('bad-hit-end');
+
+        makePop((S.stormActive && S.inEndWindow) ? 'BAD!!' : 'BAD!', 'bad');
         emit('hha:judge', { kind:'bad' });
       }
     }
@@ -553,12 +676,13 @@ function nextSpawnDelay(){
     base *= (1.00 - 0.25 * S.adaptK);
   }
   if (S.stormActive){
-    base *= TUNE.stormSpawnMul;
+    base *= (S.stormSpawnMul); // ✅ ใช้ pattern mul
   }
   return clamp(base, 210, 1200);
 }
 
 function pickKind(){
+  // base mix
   let pGood = 0.66;
   let pBad  = 0.28;
   let pSh   = 0.06;
@@ -568,15 +692,29 @@ function pickKind(){
     pBad  = 0.38;
     pSh   = 0.10;
 
-    if (S.bossActive){
-      pBad  += 0.10;
-      pGood -= 0.10;
+    // boss heavy => เพิ่ม bad
+    if (S.stormPatternName === 'boss-heavy'){
+      pBad += 0.06; pGood -= 0.06;
+    }
+
+    // end window => เพิ่ม shield เล็กน้อย (แฟร์)
+    if (S.inEndWindow){
+      pSh += 0.04; pGood -= 0.02; pBad -= 0.02;
     }
   }
+
   if (diff === 'hard'){
     pBad += 0.04;
     pGood -= 0.04;
   }
+
+  // clamp
+  pGood = Math.max(0.30, pGood);
+  pBad  = Math.max(0.18, pBad);
+  pSh   = Math.max(0.04, pSh);
+
+  const sum = pGood + pBad + pSh;
+  pGood/=sum; pBad/=sum; pSh/=sum;
 
   const r = rng();
   if (r < pSh) return 'shield';
@@ -587,7 +725,16 @@ function pickKind(){
 // ------------------ storm + mini logic ------------------
 function enterStorm(){
   S.stormActive = true;
-  S.stormLeftSec = TUNE.stormDurSec;
+
+  // ✅ apply pattern
+  const P = chooseStormPattern(S.stormCycle + 1);
+  S.stormPatternName = P.name;
+  S.stormLeftSec = P.dur;
+  S.stormSpawnMul = P.spawnMul;
+  S.endWindowSec = P.endWin;
+  S.bossWindowSec = P.bossWin;
+  S.bossNeed = P.bossNeed;
+
   S.stormCycle++;
 
   S.miniState = {
@@ -603,13 +750,16 @@ function enterStorm(){
   S.bossBlocked = 0;
   S.bossDoneThisStorm = false;
 
-  // force water off-green a bit so mini is feasible
+  resetPerfect('enter-storm');
+
+  // force water off-green a bit
   if (S.waterZone === 'GREEN'){
     S.waterPct = clamp(S.waterPct + (rng() < 0.5 ? -7 : +7), 0, 100);
     updateZone();
   }
 
-  emit('hha:storm', { state:'enter' });
+  emit('hha:storm', { state:'enter', pattern: S.stormPatternName });
+  emit('hha:judge', { kind:'storm-in' });
   syncHUD();
 }
 
@@ -643,6 +793,7 @@ function exitStorm(){
   }
 
   S.bossActive = false;
+  resetPerfect('exit-storm');
   syncHUD();
 }
 
@@ -651,26 +802,34 @@ function tickStorm(dt){
 
   S.stormLeftSec = Math.max(0, S.stormLeftSec - dt);
 
-  const inEnd = (S.stormLeftSec <= (TUNE.endWindowSec + 0.02));
+  const inEnd = (S.stormLeftSec <= (S.endWindowSec + 0.02));
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
+  // boss active in last bossWindowSec
   const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
   S.bossActive = !!(inBoss && !S.bossDoneThisStorm);
 
+  // mini: zone must be non-green at least once
   const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
-  const pGain = zoneOK ? 0.50 : 0.24;
+  // pressure accumulates faster when in end window (เพิ่มความเดือด)
+  const pGain = zoneOK ? (inEnd ? 0.72 : 0.50) : (inEnd ? 0.32 : 0.24);
   S.miniState.pressure = clamp(S.miniState.pressure + dt * pGain, 0, 1);
   if (S.miniState.pressure >= 1) S.miniState.pressureOK = true;
+
+  // end window but no perfect action for too long => reset chain
+  if (!inEnd) {
+    resetPerfect('not-end-window');
+  }
 
   if (S.stormLeftSec <= 0.001){
     exitStorm();
   }
 }
 
-// ------------------ HUD sync (ส่ง flags ไป HTML) ------------------
+// ------------------ HUD sync ------------------
 function syncHUD(){
   const grade = computeGrade();
   const acc = computeAccuracy();
@@ -689,7 +848,8 @@ function syncHUD(){
 
   if (S.stormActive){
     const bossTxt = S.bossActive ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
-    setText(elQuest3, `Storm Shield Timing${bossTxt}`);
+    const pTxt = (S.inEndWindow && S.perfectWindowArmed) ? ` • PERFECT x${S.perfectChain}` : '';
+    setText(elQuest3, `Storm (${S.stormPatternName})${bossTxt}${pTxt}`);
   } else {
     setText(elQuest3, `รอ Storm แล้วค่อยทำ Mini`);
   }
@@ -718,7 +878,7 @@ function syncHUD(){
     stormLeftSec: S.stormLeftSec,
     stormInEndWindow: !!S.inEndWindow,
 
-    // ✅ checklist flags
+    // checklist flags
     miniZoneOK: !!m.zoneOK,
     miniPressureOK: !!m.pressureOK,
     miniEndWindow: !!m.endWindow,
@@ -727,7 +887,10 @@ function syncHUD(){
     bossBlocked: S.bossBlocked|0,
     bossNeed: S.bossNeed|0,
 
-    // drift placeholders (HTML จะใช้ได้เลยถ้าใส่จาก engine อื่นในอนาคต)
+    // perfect info (optional debug UI ใช้ได้)
+    perfectChain: S.perfectChain|0,
+    perfectMax: S.perfectMax|0,
+
     driftX: 0, driftY: 0, driftRot: 0
   });
 
@@ -772,6 +935,10 @@ async function sendLog(payload){
 }
 
 // ------------------ main loop ------------------
+let spawnTimer = 0;
+let nextStormAt = 0;
+let stormIndex = 0;
+
 function update(dt){
   if (!S.started || S.ended) return;
 
@@ -783,6 +950,7 @@ function update(dt){
 
   const elapsed = (now() - S.t0) / 1000;
 
+  // storm schedule (deterministic)
   if (!S.stormActive){
     if (elapsed >= nextStormAt && S.leftSec > (TUNE.stormDurSec + 2)){
       enterStorm();
@@ -793,6 +961,7 @@ function update(dt){
     tickStorm(dt);
   }
 
+  // spawns
   spawnTimer -= dt * 1000;
   while (spawnTimer <= 0){
     spawn(pickKind());
@@ -813,7 +982,7 @@ async function endGame(reason){
   const grade = computeGrade();
   const acc = computeAccuracy();
 
-  // ✅ mini planned: 2 ต่อ storm (storm mini + boss mini)
+  // mini planned: 2 per storm (storm + boss)
   S.miniPlanned = Math.max(0, (S.stormCycle|0) * 2);
 
   const summary = {
@@ -855,6 +1024,9 @@ async function endGame(reason){
     stormMiniSuccess: (S.miniCleared|0),
     stormSuccessRatePct: clamp(((S.miniCleared|0) / Math.max(1, S.miniPlanned|0)) * 100, 0, 100),
 
+    // NEW metrics
+    perfectMax: S.perfectMax|0,
+
     reason: reason || 'end'
   };
 
@@ -867,7 +1039,7 @@ async function endGame(reason){
   await sendLog(summary);
 }
 
-// ------------------ start gating ------------------
+// ------------------ start gate ------------------
 async function waitStartGate(){
   const ov = DOC.getElementById('start-overlay') || DOC.getElementById('startOverlay');
   if (!ov) return;
