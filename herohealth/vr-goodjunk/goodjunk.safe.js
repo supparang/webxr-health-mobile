@@ -1,5 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v3 (Stage-Rect + Boss + FX + EndSummary)
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY)
+// v4: Stage-Rect spawn + Boss + FX + EndSummary + Decoy/Jammer + No-Junk Zone + InField Quest Strip
 
 'use strict';
 
@@ -89,9 +90,9 @@ function rankFromAcc(acc){
 }
 function diffBase(diff){
   diff = String(diff||'normal').toLowerCase();
-  if (diff === 'easy')  return { spawnMs: 980, ttlMs: 2300, size: 1.10, junk: 0.12, power: 0.035, maxT: 7, bossNeed: 6 };
-  if (diff === 'hard')  return { spawnMs: 720, ttlMs: 1650, size: 0.95, junk: 0.18, power: 0.025, maxT: 9, bossNeed: 9 };
-  return { spawnMs: 840, ttlMs: 1950, size: 1.02, junk: 0.15, power: 0.030, maxT: 8, bossNeed: 8 };
+  if (diff === 'easy')  return { spawnMs: 980, ttlMs: 2300, size: 1.10, junk: 0.12, power: 0.035, maxT: 7, bossNeed: 6, jammerP: 0.020 };
+  if (diff === 'hard')  return { spawnMs: 720, ttlMs: 1650, size: 0.95, junk: 0.18, power: 0.025, maxT: 9, bossNeed: 9, jammerP: 0.050 };
+  return { spawnMs: 840, ttlMs: 1950, size: 1.02, junk: 0.15, power: 0.030, maxT: 8, bossNeed: 8, jammerP: 0.035 };
 }
 
 /* -------------------- UI + Styles injection -------------------- */
@@ -119,9 +120,7 @@ function ensureTargetStyles(){
     body.fever-high #gj-stage::before{ opacity:.85; }
 
     /* stage shake */
-    #gj-stage.shake{
-      animation: gjShake 140ms linear 1;
-    }
+    #gj-stage.shake{ animation: gjShake 140ms linear 1; }
     @keyframes gjShake{
       0%{ transform: translate(0,0); }
       20%{ transform: translate(-2px, 1px); }
@@ -130,6 +129,41 @@ function ensureTargetStyles(){
       80%{ transform: translate(2px, 1px); }
       100%{ transform: translate(0,0); }
     }
+
+    /* in-field quest strip (shows even if HUD hidden) */
+    #gj-quest-mini{
+      position:absolute;
+      left:50%; top:10px;
+      transform: translateX(-50%);
+      z-index: 60;
+      pointer-events:none;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.62);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 12px 28px rgba(0,0,0,.35);
+      font: 900 13px/1.1 system-ui;
+      color: rgba(229,231,235,.94);
+      opacity:.0;
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+    #gj-quest-mini.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+    #gj-quest-mini .tag{
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.55);
+      font-weight: 1000;
+      white-space: nowrap;
+    }
+    #gj-quest-mini .tag.goal{ border-color: rgba(34,197,94,.28); }
+    #gj-quest-mini .tag.mini{ border-color: rgba(34,211,238,.28); }
+    #gj-quest-mini .tag.boss{ border-color: rgba(239,68,68,.30); }
+    body.nojunk #gj-quest-mini{ box-shadow: 0 0 0 2px rgba(34,197,94,.10), 0 16px 40px rgba(0,0,0,.40); }
 
     /* layers */
     .gj-layer{
@@ -160,6 +194,33 @@ function ensureTargetStyles(){
     .gj-target.star{ border-color: rgba(34,211,238,.36); }
     .gj-target.shield{ border-color: rgba(168,85,247,.36); }
 
+    /* decoy / jammer (fair tell) */
+    .gj-target.decoy{
+      border-color: rgba(245,158,11,.30);
+      box-shadow: 0 16px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset, 0 0 24px rgba(245,158,11,.10);
+      animation: decoyPulse .55s ease-in-out infinite alternate;
+    }
+    .gj-target.decoy::after{
+      content:"?!";
+      position:absolute;
+      right:8px; top:6px;
+      font: 1000 12px/1 system-ui;
+      opacity:.65;
+      color: rgba(245,158,11,.95);
+      text-shadow: 0 2px 10px rgba(0,0,0,.45);
+      transform: rotate(10deg);
+      pointer-events:none;
+    }
+    @keyframes decoyPulse{
+      from{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.00)); }
+      to{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)); }
+    }
+    .gj-target.swapflash{
+      outline: 3px solid rgba(239,68,68,.22);
+      box-shadow: 0 0 0 2px rgba(239,68,68,.10), 0 18px 60px rgba(0,0,0,.55);
+      filter: saturate(1.25);
+    }
+
     /* boss */
     .gj-target.boss{
       width: 112px; height: 112px;
@@ -169,18 +230,16 @@ function ensureTargetStyles(){
     }
     .gj-target.boss.good{ border-color: rgba(34,197,94,.48); }
     .gj-target.boss.junk{ border-color: rgba(239,68,68,.52); }
-    .gj-target.boss::after{
+    .gj-target.boss::before{
       content:"";
-      position:absolute; inset:-8px;
+      position:absolute; inset:-10px;
       border-radius: 999px;
       border: 2px dashed rgba(34,197,94,.30);
       opacity:.35;
       pointer-events:none;
-      animation: bossSpin 1.2s linear infinite;
+      animation: bossSpin 1.1s linear infinite;
     }
-    .gj-target.boss.junk::after{
-      border-color: rgba(239,68,68,.30);
-    }
+    .gj-target.boss.junk::before{ border-color: rgba(239,68,68,.30); }
     @keyframes bossSpin{ from{ transform: rotate(0deg); } to{ transform: rotate(360deg); } }
 
     .gj-target.hit{
@@ -215,17 +274,8 @@ function ensureTargetStyles(){
       box-shadow: 0 20px 70px rgba(0,0,0,.55);
       padding: 16px;
     }
-    .gj-end-title{
-      font-weight: 1100;
-      font-size: 22px;
-      letter-spacing: .2px;
-    }
-    .gj-end-sub{
-      margin-top: 6px;
-      color: rgba(229,231,235,.80);
-      font-weight: 900;
-      font-size: 13px;
-    }
+    .gj-end-title{ font-weight: 1100; font-size: 22px; letter-spacing: .2px; }
+    .gj-end-sub{ margin-top: 6px; color: rgba(229,231,235,.80); font-weight: 900; font-size: 13px; }
     .gj-end-grid{
       margin-top: 12px;
       display:grid;
@@ -238,16 +288,8 @@ function ensureTargetStyles(){
       border-radius: 16px;
       padding: 10px 12px;
     }
-    .gj-end-k{
-      color: rgba(148,163,184,.95);
-      font-weight: 900;
-      font-size: 12px;
-    }
-    .gj-end-v{
-      margin-top: 2px;
-      font-weight: 1100;
-      font-size: 20px;
-    }
+    .gj-end-k{ color: rgba(148,163,184,.95); font-weight: 900; font-size: 12px; }
+    .gj-end-v{ margin-top: 2px; font-weight: 1100; font-size: 20px; }
     .gj-end-actions{
       margin-top: 12px;
       display:flex;
@@ -273,6 +315,18 @@ function ensureTargetStyles(){
     .gj-end-btn:active{ transform: translateY(1px); }
   `;
   DOC.head.appendChild(st);
+}
+
+function ensureInFieldQuestStrip(){
+  const DOC = ROOT.document;
+  if (!DOC) return;
+  const stage = DOC.getElementById('gj-stage');
+  if (!stage) return;
+  if (DOC.getElementById('gj-quest-mini')) return;
+  const el = DOC.createElement('div');
+  el.id = 'gj-quest-mini';
+  el.innerHTML = `<span class="tag goal">Goal 0/0</span><span class="tag mini">Mini 0/0</span>`;
+  stage.appendChild(el);
 }
 
 /* -------------------- Spawn geometry (IMPORTANT FIX) -------------------- */
@@ -324,7 +378,6 @@ function getEyeRects(DOC, dual){
     const rR = eyeRel ? eyeRel.getBoundingClientRect() : null;
     if (rL && rR && rL.width > 20 && rR.width > 20) return { stageR, eyeL: rL, eyeR: rR };
   }catch(_){}
-  // fallback split from stage
   const mid = stageR.left + stageR.width/2;
   const eyeL = { left:stageR.left, top:stageR.top, right:mid, bottom:stageR.bottom, width:mid-stageR.left, height:stageR.bottom-stageR.top };
   const eyeR = { left:mid, top:stageR.top, right:stageR.right, bottom:stageR.bottom, width:stageR.right-mid, height:stageR.bottom-stageR.top };
@@ -338,7 +391,6 @@ function safeInnerRect(baseRect, margins){
   let top = baseRect.top + (m.top ?? 12);
   let bottom = baseRect.bottom - (m.bottom ?? 12);
 
-  // prevent collapse
   if ((right - left) < 180){
     const mid = (left + right) * 0.5;
     left = mid - 90;
@@ -358,7 +410,7 @@ function stereoPick(rng, eyeL, eyeR, margins, avoidRects){
   const avoid = (avoidRects||[]).map(r=>inflateRect(r, 10));
 
   for (let i=0;i<22;i++){
-    const u = rng(); // 0..1
+    const u = rng();
     const v = rng();
     const gxL = L.left + u * (L.right - L.left);
     const gxR = R.left + u * (R.right - R.left);
@@ -376,7 +428,6 @@ function stereoPick(rng, eyeL, eyeR, margins, avoidRects){
       };
     }
   }
-  // fallback
   const u = rng(), v = rng();
   const gxL = L.left + u * (L.right - L.left);
   const gxR = R.left + u * (R.right - R.left);
@@ -395,6 +446,9 @@ const STARS = ['⭐','💎'];
 const SHIELD = '🛡️';
 const BOSS_GOOD = ['🍉','🥗','🥦','🍓'];
 const BOSS_JUNK = ['🍔','🍕','🍟','🧋'];
+
+// decoy uses GOOD-like emojis but is risky; we add a visible “?!” tell via CSS
+const DECOY_EMOJIS = ['🍎','🍉','🍓','🍍','🥗','🍊'];
 
 function setXY(el, x, y){
   const px = x.toFixed(1) + 'px';
@@ -448,11 +502,9 @@ function shakeStage(DOC, strength=1){
   const stage = DOC.getElementById('gj-stage');
   if (!stage) return;
   stage.classList.remove('shake');
-  // reflow-ish
   void stage.offsetWidth;
   stage.classList.add('shake');
   if (strength >= 2){
-    // extra shake pulse
     setTimeout(()=>{ try{ stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }catch(_){ } }, 90);
   }
   setTimeout(()=>{ try{ stage.classList.remove('shake'); }catch(_){ } }, 220);
@@ -540,7 +592,6 @@ function showEndSummary(DOC, summary){
       await navigator.clipboard.writeText(txt);
       emit('hha:judge', { kind:'good', text:'คัดลอก JSON แล้ว!' });
     }catch(_){
-      // fallback: prompt
       try{ prompt('Copy JSON', JSON.stringify(summary||{})); }catch(__){}
     }
   });
@@ -557,6 +608,7 @@ export function boot(opts = {}) {
   if (!DOC) return;
 
   ensureTargetStyles();
+  ensureInFieldQuestStrip();
 
   const layerL = opts.layerEl
     || DOC.getElementById('gj-layer-l')
@@ -617,6 +669,7 @@ export function boot(opts = {}) {
     spawnTimer:0, tickTimer:0,
     spawnMs: base.spawnMs, ttlMs: base.ttlMs, size: base.size,
     junkP: base.junk, powerP: base.power, maxTargets: base.maxT,
+    jammerP: base.jammerP,
     uidSeq: 1,
 
     // boss
@@ -628,13 +681,20 @@ export function boot(opts = {}) {
 
     // rect cache
     rects:null,
-    rectCacheUntil:0
+    rectCacheUntil:0,
+
+    // no-junk zone (fair)
+    nojunkActive:false,
+    nojunkUntil:0,
+    nojunkNextAt:0,
+    nojunkLenMs: 3200,
+    nojunkGapMs: 11500, // average cadence
   };
 
-  // mild mobile tuning
+  // mobile tuning
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
-    S.size = Math.min(1.15, S.size + 0.04);
+    S.size = Math.min(1.18, S.size + 0.04);
   }
 
   function coach(mood, text, sub){
@@ -650,12 +710,28 @@ export function boot(opts = {}) {
   }
   function updateTime(){ emit('hha:time', { left: Math.max(0, S.left|0) }); }
 
+  function updateInFieldQuestStrip(goalNow, goalTot, miniNow, miniTot, isBoss=false){
+    const el = DOC.getElementById('gj-quest-mini');
+    if (!el) return;
+    el.classList.add('show');
+
+    const g = el.querySelector('.tag.goal');
+    const m = el.querySelector('.tag.mini');
+    if (g) g.textContent = `Goal ${goalNow}/${goalTot}`;
+    if (m){
+      m.classList.toggle('boss', !!isBoss);
+      m.textContent = isBoss ? `BOSS ${miniNow}/${miniTot}` : `Mini ${miniNow}/${miniTot}`;
+    }
+  }
+
   function updateQuest(extraMiniTitle=null){
-    // dynamic mini text
+    // for HUD events + in-field strip
     let miniTitle = extraMiniTitle || `Mini: คอมโบมาแล้ว!`;
     let miniNow = S.miniCleared, miniTotal = S.miniTotal;
+    let isBoss = false;
 
     if (S.bossActive){
+      isBoss = true;
       miniTitle = `BOSS: ต่อยบอสให้ครบ ${S.bossHits}/${S.bossNeed}`;
       miniNow = S.bossHits;
       miniTotal = S.bossNeed;
@@ -672,6 +748,8 @@ export function boot(opts = {}) {
       goalsCleared: S.goalsCleared, goalsTotal: S.goalsTotal,
       miniCleared: S.miniCleared, miniTotal: S.miniTotal
     });
+
+    updateInFieldQuestStrip(S.goalsCleared, S.goalsTotal, miniNow, miniTotal, isBoss);
   }
 
   function clearTimers(){
@@ -686,7 +764,7 @@ export function boot(opts = {}) {
     const avoid = buildAvoidRects();
     const { stageR, eyeL, eyeR } = getEyeRects(DOC, dual);
     S.rects = { stageR, eyeL, eyeR, avoid };
-    S.rectCacheUntil = t + 520; // refresh twice per second
+    S.rectCacheUntil = t + 520;
     return S.rects;
   }
 
@@ -704,10 +782,12 @@ export function boot(opts = {}) {
   function removeTargetBoth(el){
     if (!el) return;
     try{ clearTimeout(el._ttl); }catch(_){}
+    if (el._swapTimer){ try{ clearTimeout(el._swapTimer); }catch(_){ } }
     el.classList.add('hit');
     const mate = getMate(el);
     if (mate){
       try{ clearTimeout(mate._ttl); }catch(_){}
+      if (mate._swapTimer){ try{ clearTimeout(mate._swapTimer); }catch(_){ } }
       mate.classList.add('hit');
       setTimeout(()=>{ try{ mate.remove(); }catch(_){ } }, 140);
     }
@@ -717,8 +797,6 @@ export function boot(opts = {}) {
   function expireTargetBoth(el){
     if (!el || !el.isConnected) return;
     const tp = String(el.dataset.type||'');
-
-    // boss: don't expire too easily; but still can
     const isBoss = el.classList.contains('boss');
 
     if (tp === 'good'){
@@ -757,7 +835,6 @@ export function boot(opts = {}) {
     el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
     el.textContent = String(emoji||'✨');
 
-    // TTL
     const ttl = boss ? Math.max(900, S.ttlMs + 220) : S.ttlMs;
     el._ttl = setTimeout(()=> expireTargetBoth(el), ttl);
 
@@ -786,26 +863,28 @@ export function boot(opts = {}) {
     return pts;
   }
 
+  /* -------------------- Boss + No-Junk zone -------------------- */
   function maybeStartBoss(){
     if (S.bossActive || S.ended) return;
-    // start boss at ~last 18 sec (or last 22 sec if hard)
     const startAt = (diff === 'hard') ? 22 : 18;
     if (S.left <= startAt){
       S.bossActive = true;
       S.bossPhase = 1;
       S.bossHits = 0;
       S.bossStartedAt = now();
+      // stop nojunk during boss
+      S.nojunkActive = false;
+      DOC.body.classList.remove('nojunk');
+
       coach('neutral', 'บอสมาแล้ว! 😈', `ตีบอส (ของดี) ให้ครบ ${S.bossNeed} ครั้ง ห้ามโดนบอสขยะ!`);
       emit('hha:celebrate', { kind:'mini', title:'BOSS PHASE!' });
       updateQuest();
       logEvent('boss_start', { need:S.bossNeed, left:S.left|0 });
     }
   }
-
   function bossRageLevel(){
     if (!S.bossActive) return 0;
     const t = (now() - S.bossStartedAt) / 1000;
-    // phase2 after 6 sec OR when hits >= 60%
     if (S.bossPhase === 1 && (t >= 6 || S.bossHits >= Math.ceil(S.bossNeed*0.6))){
       S.bossPhase = 2;
       coach('happy', 'บอสคลั่งแล้ว! 🔥', 'เร็วขึ้น + โหดขึ้น ระวังขยะ!');
@@ -815,6 +894,48 @@ export function boot(opts = {}) {
     return (S.bossPhase === 2) ? 1 : 0;
   }
 
+  function maybeToggleNoJunk(){
+    if (S.runMode !== 'play') return;
+    if (S.bossActive) return;
+
+    const t = now();
+
+    if (S.nojunkActive && t >= S.nojunkUntil){
+      S.nojunkActive = false;
+      DOC.body.classList.remove('nojunk');
+      coach('neutral', 'หมดช่วงปลอดขยะ', 'ระวัง! ขยะกลับมาแล้ว');
+      logEvent('nojunk_end', {});
+      return;
+    }
+
+    if (!S.nojunkActive && t >= S.nojunkNextAt){
+      S.nojunkActive = true;
+      // length can vary slightly but deterministic
+      const jitter = (S.rng() * 600) - 200; // -200..+400
+      S.nojunkUntil = t + clamp(S.nojunkLenMs + jitter, 2400, 4200);
+
+      // schedule next
+      const gapJit = (S.rng()*1800) - 600; // -600..+1200
+      S.nojunkNextAt = t + clamp(S.nojunkGapMs + gapJit, 9000, 15000);
+
+      DOC.body.classList.add('nojunk');
+      coach('happy', 'No-Junk Zone!', 'ปลอดขยะชั่วคราว…แต่โหดขึ้นแทน 😈');
+      emit('hha:celebrate', { kind:'mini', title:'NO-JUNK ZONE' });
+      logEvent('nojunk_start', { untilMs: S.nojunkUntil - t });
+
+      return;
+    }
+  }
+
+  function applyNoJunkDifficulty(){
+    if (!S.nojunkActive) return { spawnMul: 1, ttlMul: 1 };
+    // fair tradeoff: no junk but harder speed/ttl
+    if (diff === 'hard') return { spawnMul: 0.70, ttlMul: 0.80 };
+    if (diff === 'easy') return { spawnMul: 0.78, ttlMul: 0.84 };
+    return { spawnMul: 0.74, ttlMul: 0.82 };
+  }
+
+  /* -------------------- Hits -------------------- */
   function hitGood(el){
     const isBoss = el.classList.contains('boss');
     S.hitAll++; S.hitGood++;
@@ -847,7 +968,6 @@ export function boot(opts = {}) {
     updateScore();
     if (!S.bossActive) updateQuest();
 
-    // mini via combo ladder (only before boss)
     if (!S.bossActive && S.miniCleared < S.miniTotal){
       const needCombo = 4 + (S.miniCleared * 2);
       if (S.combo >= needCombo){
@@ -858,7 +978,6 @@ export function boot(opts = {}) {
       }
     }
 
-    // goals via good count (only before boss)
     if (!S.bossActive && S.goalsCleared < S.goalsTotal){
       const needGood = 10 + (S.goalsCleared * 8);
       if (S.hitGood >= needGood){
@@ -911,6 +1030,8 @@ export function boot(opts = {}) {
 
   function hitJunk(el){
     const isBoss = el.classList.contains('boss');
+    const isDecoy = el.classList.contains('decoy');
+
     S.hitAll++;
 
     if (S.shield > 0){
@@ -920,7 +1041,7 @@ export function boot(opts = {}) {
 
       judge('good', 'SHIELD BLOCK!');
       burstAtEl(el, 'guard');
-      logEvent('shield_block', { kind:'junk', boss:isBoss?1:0, emoji:String(el.dataset.emoji||'') });
+      logEvent('shield_block', { kind:'junk', boss:isBoss?1:0, decoy:isDecoy?1:0, emoji:String(el.dataset.emoji||'') });
 
       updateScore(); if (!S.bossActive) updateQuest();
       removeTargetBoth(el);
@@ -929,24 +1050,23 @@ export function boot(opts = {}) {
 
     S.hitJunk++; S.misses++; S.combo = 0;
 
-    const penalty = isBoss ? 260 : 170;
+    const penalty = isBoss ? 260 : (isDecoy ? 210 : 170);
     S.score = Math.max(0, S.score - penalty);
 
-    S.fever = clamp(S.fever + (isBoss ? 18 : 12), 0, 100);
+    S.fever = clamp(S.fever + (isBoss ? 18 : (isDecoy ? 15 : 12)), 0, 100);
     updateFever(S.shield, S.fever);
     applyFeverFX(DOC, S.fever);
-    shakeStage(DOC, (isBoss || S.fever>=72) ? 2 : 1);
+    shakeStage(DOC, (isBoss || isDecoy || S.fever>=72) ? 2 : 1);
 
-    judge('bad', isBoss ? `BOSS JUNK! -${penalty}` : `JUNK! -${penalty}`);
-    coach('sad', 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
+    judge('bad', isBoss ? `BOSS JUNK! -${penalty}` : (isDecoy ? `DECOY! -${penalty}` : `JUNK! -${penalty}`));
+    coach('sad', isDecoy ? 'โดนเป้าหลอก! 😵' : 'โดนขยะแล้ว 😵', 'มองสัญญาณ ?! แล้วค่อยยิง');
     burstAtEl(el, 'junk');
 
-    logEvent('hit', { kind:'junk', boss:isBoss?1:0, emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
+    logEvent('hit', { kind:'junk', boss:isBoss?1:0, decoy:isDecoy?1:0, emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
 
     updateScore(); if (!S.bossActive) updateQuest();
     removeTargetBoth(el);
 
-    // optional: end by miss
     if (endPolicy === 'miss'){
       const missLimit = (diff === 'easy') ? 10 : (diff === 'hard') ? 7 : 8;
       if (S.misses >= missLimit){
@@ -964,10 +1084,44 @@ export function boot(opts = {}) {
     if (tp === 'star') return hitStar(el);
   }
 
+  /* -------------------- Decoy/Jammer logic -------------------- */
+  function maybeMakeJammer(el, mate){
+    // jammer = starts as good-looking (still good or decoy-looking), then flips to junk quickly
+    const flipMs = Math.round(420 + S.rng()*420); // 420..840
+    const toJunk = true;
+
+    el.classList.add('decoy');
+    if (mate) mate.classList.add('decoy');
+
+    el._swapTimer = setTimeout(()=>{
+      if (!el.isConnected) return;
+      // flip type to junk (visual tell stronger)
+      el.dataset.type = 'junk';
+      el.classList.remove('good');
+      el.classList.add('junk','swapflash');
+      el.classList.add('decoy');
+
+      if (mate && mate.isConnected){
+        mate.dataset.type = 'junk';
+        mate.classList.remove('good');
+        mate.classList.add('junk','swapflash');
+        mate.classList.add('decoy');
+      }
+
+      // fade swapflash quickly
+      setTimeout(()=>{
+        try{ el.classList.remove('swapflash'); }catch(_){}
+        if (mate) try{ mate.classList.remove('swapflash'); }catch(_){}
+      }, 220);
+
+      logEvent('jammer_flip', { uid: String(el.dataset.uid||''), to: toJunk ? 'junk' : 'good' });
+    }, flipMs);
+  }
+
+  /* -------------------- Spawning -------------------- */
   function spawnOne(){
     if (!S.running || S.ended) return;
 
-    // during boss: allow fewer total targets but bigger boss
     const maxT = S.bossActive ? Math.max(5, Math.min(S.maxTargets, 7)) : S.maxTargets;
     if (countTargets(layerL) >= maxT) return;
 
@@ -975,28 +1129,44 @@ export function boot(opts = {}) {
     const inWarm = (t < S.warmupUntil);
     const { eyeL, eyeR, avoid } = getRects();
 
-    // boss logic
     maybeStartBoss();
     const rage = bossRageLevel();
 
+    // toggle no-junk zone (play mode only)
+    maybeToggleNoJunk();
+
     let tp = 'good';
     let boss = false;
+    let isJammer = false;
 
     if (S.bossActive){
       boss = true;
-      // boss: mostly boss-good with some boss-junk
       const r = S.rng();
       const junkBossP = clamp((diff==='hard'?0.32:0.26) + rage*0.10, 0.18, 0.45);
       tp = (r < junkBossP) ? 'junk' : 'good';
     } else {
+      // normal spawn
       const r = S.rng();
       const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
-      const junkP  = inWarm ? (S.junkP * 0.55)  : S.junkP;
+
+      // no-junk zone forces junkP=0 but pressures via speed/ttl elsewhere
+      const junkPraw = inWarm ? (S.junkP * 0.55)  : S.junkP;
+      const junkP = S.nojunkActive ? 0 : junkPraw;
+
+      // jammer chance (only when NOT no-junk, otherwise it becomes unfair)
+      const jammerP = (S.nojunkActive ? 0 : clamp(S.jammerP + (S.fever>=70 ? 0.01 : 0), 0.0, 0.08));
+      const rJ = S.rng();
+      isJammer = (rJ < jammerP);
 
       if (r < powerP) tp = 'shield';
       else if (r < powerP + 0.035) tp = 'star';
       else if (r < powerP + 0.035 + junkP) tp = 'junk';
       else tp = 'good';
+
+      // if jammer triggers, force it to spawn as "good-looking" good at first
+      if (isJammer){
+        tp = 'good';
+      }
     }
 
     const uid = String(S.uidSeq++);
@@ -1005,10 +1175,11 @@ export function boot(opts = {}) {
     let size = (inWarm ? (S.size * 1.06) : S.size);
     if (S.bossActive) size = clamp((diff==='hard'?1.04:1.08) - rage*0.05, 0.92, 1.12);
 
+    // choose emoji
     const emoji =
       (S.bossActive && tp === 'good') ? pick(S.rng, BOSS_GOOD) :
       (S.bossActive && tp === 'junk') ? pick(S.rng, BOSS_JUNK) :
-      (tp === 'good') ? pick(S.rng, GOOD) :
+      (tp === 'good') ? (isJammer ? pick(S.rng, DECOY_EMOJIS) : pick(S.rng, GOOD)) :
       (tp === 'junk') ? pick(S.rng, JUNK) :
       (tp === 'star') ? pick(S.rng, STARS) :
       SHIELD;
@@ -1020,19 +1191,18 @@ export function boot(opts = {}) {
       (tp === 'star') ? (size * 1.02) :
       size;
 
+    let elL=null, elR=null;
+
     if (dual && eyeR){
       const pos = stereoPick(S.rng, eyeL, eyeR, { top: 10, bottom: 10, left: 10, right: 10 }, avoid);
-      const elL = makeTarget(tp, emoji, pos.lx, pos.ly, s, uid, boss);
+      elL = makeTarget(tp, emoji, pos.lx, pos.ly, s, uid, boss);
       layerL.appendChild(elL);
-      const elR = makeTarget(tp, emoji, pos.rx, pos.ry, s, uid, boss);
+      elR = makeTarget(tp, emoji, pos.rx, pos.ry, s, uid, boss);
       layerR.appendChild(elR);
     } else {
-      // single eye: use eyeL rect as base; convert to local via subtract left/top
       const rr = safeInnerRect(eyeL, { top:10, bottom:10, left:10, right:10 });
       let gx = rr.left + S.rng()*(rr.right-rr.left);
       let gy = rr.top  + S.rng()*(rr.bottom-rr.top);
-
-      // avoid HUD/controls even in single mode
       const avoid2 = (avoid||[]).map(r=>inflateRect(r, 10));
       for (let i=0;i<16;i++){
         let ok = true;
@@ -1041,12 +1211,18 @@ export function boot(opts = {}) {
         gx = rr.left + S.rng()*(rr.right-rr.left);
         gy = rr.top  + S.rng()*(rr.bottom-rr.top);
       }
-
-      const elL = makeTarget(tp, emoji, gx - eyeL.left, gy - eyeL.top, s, uid, boss);
+      elL = makeTarget(tp, emoji, gx - eyeL.left, gy - eyeL.top, s, uid, boss);
       layerL.appendChild(elL);
     }
 
-    logEvent('spawn', { kind:tp, boss:boss?1:0, emoji:String(emoji||''), uid });
+    // jammer flip (turns into junk mid-air)
+    if (isJammer && elL){
+      const mate = elR || null;
+      maybeMakeJammer(elL, mate);
+      logEvent('jammer_spawn', { uid, emoji:String(emoji||''), flip:1 });
+    }
+
+    logEvent('spawn', { kind:tp, boss:boss?1:0, jammer:isJammer?1:0, emoji:String(emoji||''), uid });
   }
 
   function loopSpawn(){
@@ -1058,28 +1234,33 @@ export function boot(opts = {}) {
 
     let nextMs = S.spawnMs;
 
-    if (S.bossActive){
-      const rage = bossRageLevel();
-      nextMs = clamp((diff==='hard'?520:580) - rage*120, 360, 900);
-    } else if (inWarm){
-      nextMs = Math.max(980, S.spawnMs + 240);
+    // no-junk zone makes spawn faster
+    const nz = applyNoJunkDifficulty();
+    if (S.nojunkActive && !S.bossActive){
+      nextMs = clamp(nextMs * nz.spawnMul, 300, 1100);
     }
 
-    S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 320, 1400));
+    if (S.bossActive){
+      const rage = bossRageLevel();
+      nextMs = clamp((diff==='hard'?520:580) - rage*120, 340, 900);
+    } else if (inWarm){
+      nextMs = Math.max(980, nextMs + 240);
+    }
+
+    S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 300, 1400));
   }
 
   function adaptiveTick(){
     if (!S.running || S.ended) return;
 
-    // time
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
-
     if (S.left <= 0){ endGame('time'); return; }
 
-    // boss triggers late
     maybeStartBoss();
+    maybeToggleNoJunk();
 
+    // adaptive params
     if (S.runMode === 'play' && !S.bossActive){
       const elapsed = (now() - S.tStart) / 1000;
       const acc = S.hitAll > 0 ? (S.hitGood / S.hitAll) : 0;
@@ -1091,20 +1272,18 @@ export function boot(opts = {}) {
 
       S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
       S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
-      S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.18);
+      S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.22);
       S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
       S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
 
       const maxBonus = Math.round(heat * 4);
       S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
 
-      // fairness: high fever → slightly reduce junk and slightly bigger targets
       if (S.fever >= 70){
         S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
-        S.size  = clamp(S.size + 0.03, 0.86, 1.22);
+        S.size  = clamp(S.size + 0.03, 0.86, 1.26);
       }
     } else if (!S.bossActive) {
-      // research fixed
       S.spawnMs = base.spawnMs;
       S.ttlMs   = base.ttlMs;
       S.size    = base.size;
@@ -1112,9 +1291,17 @@ export function boot(opts = {}) {
       S.powerP  = base.power;
       S.maxTargets = base.maxT;
     } else {
-      // boss keeps its own pacing (handled in loopSpawn), but we still clamp TTL a bit
       const rage = bossRageLevel();
       S.ttlMs = clamp((diff==='hard'?1300:1500) - rage*160, 980, 2000);
+    }
+
+    // apply no-junk zone TTL pressure (fair tradeoff)
+    if (S.nojunkActive && !S.bossActive){
+      const nz = applyNoJunkDifficulty();
+      S.ttlMs = clamp(S.ttlMs * nz.ttlMul, 900, 2600);
+      DOC.body.classList.add('nojunk');
+    } else {
+      DOC.body.classList.remove('nojunk');
     }
 
     S.tickTimer = setTimeout(adaptiveTick, 140);
@@ -1184,6 +1371,7 @@ export function boot(opts = {}) {
       try{
         layer.querySelectorAll('.gj-target').forEach(el=>{
           try{ clearTimeout(el._ttl); }catch(_){}
+          if (el._swapTimer){ try{ clearTimeout(el._swapTimer); }catch(_){ } }
           try{ el.remove(); }catch(_){}
         });
       }catch(_){}
@@ -1230,16 +1418,22 @@ export function boot(opts = {}) {
     S.goalsCleared = 0;
     S.miniCleared = 0;
 
-    // boss reset
     S.bossActive = false;
     S.bossPhase = 0;
     S.bossHits = 0;
     S.bossStartedAt = 0;
 
+    // schedule no-junk deterministically (even in play, based on seed)
+    const t0 = now();
+    const firstDelay = 6500 + (S.rng()*3200); // 6.5-9.7s
+    S.nojunkActive = false;
+    S.nojunkUntil = 0;
+    S.nojunkNextAt = t0 + firstDelay;
+
     S.warmupUntil = now() + 3000;
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
+    coach('neutral', 'พร้อมลุย! ระวังเป้าหลอก ?! + No-Junk Zone โหดขึ้น 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
     updateScore(); updateTime(); updateQuest();
 
     logEvent('session_start', {
