@@ -1,23 +1,71 @@
 <!-- === /herohealth/plate/plate-vr.html ===
-Compat Redirect — keeps old links working
-Redirects to /herohealth/plate-vr.html while preserving query string
+REDIRECT BRIDGE (PATH FIX)
+✅ รองรับลิงก์เก่า /herohealth/plate/plate-vr.html
+✅ Redirect ไป /herohealth/plate-vr.html
+✅ พาพารามิเตอร์ (?hub=...&run=...&diff=...&time=...&seed=...&v=...) และ #hash ไปด้วย
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Redirecting…</title>
+  <title>Redirecting… | HeroHealth Plate</title>
+
+  <!-- Fallback redirect (works even if JS blocked) -->
   <meta http-equiv="refresh" content="0; url=../plate-vr.html" />
+
+  <style>
+    :root{color-scheme:dark;}
+    body{
+      margin:0; min-height:100vh;
+      display:grid; place-items:center;
+      background:#020617; color:#e5e7eb;
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+      padding:18px;
+    }
+    .card{
+      max-width:720px;
+      width:100%;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.70);
+      border-radius:18px;
+      padding:16px;
+      box-shadow:0 22px 70px rgba(0,0,0,.40);
+    }
+    .t{font-weight:1100; font-size:16px;}
+    .m{margin-top:8px; color:rgba(148,163,184,.95); font-weight:900; line-height:1.4}
+    a{
+      color:#22c55e;
+      font-weight:1100;
+      word-break:break-all;
+    }
+  </style>
 </head>
+
 <body>
+  <div class="card">
+    <div class="t">กำลังพาไปหน้า Plate ใหม่… 🍽️</div>
+    <div class="m">
+      ถ้าไม่เด้งอัตโนมัติ ให้กดลิงก์นี้:
+      <br>
+      <a id="fallbackLink" href="../plate-vr.html">../plate-vr.html</a>
+    </div>
+  </div>
+
   <script>
     (function(){
       try{
-        var qs = location.search || '';
-        location.replace('../plate-vr.html' + qs);
+        // Preserve query + hash
+        var target = '../plate-vr.html' + (location.search || '') + (location.hash || '');
+        var a = document.getElementById('fallbackLink');
+        if (a) a.href = target;
+
+        // Replace history so Back button doesn't loop
+        location.replace(target);
       }catch(e){
-        location.href = '../plate-vr.html' + (location.search || '');
+        // Last resort
+        location.href = '../plate-vr.html';
       }
     })();
   </script>
