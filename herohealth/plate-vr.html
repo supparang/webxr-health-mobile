@@ -1,8 +1,8 @@
 <!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (ROOT PAGE)
-✅ HTML อยู่ที่ /herohealth/plate-vr.html
-✅ CSS/JS อยู่ที่ /herohealth/plate/*
-✅ Coach images อยู่ที่ /herohealth/plate-*.png
+Balanced Plate VR — PRODUCTION HTML (ROOT)
+✅ Loads /herohealth/plate/* assets
+✅ Works with /herohealth/plate/plate.safe.js
+✅ Path-fixed for HUB launches
 -->
 
 <!doctype html>
@@ -17,22 +17,30 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PAGE)
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles (อยู่ใน /plate/) -->
-  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251230b" />
+  <!-- Styles -->
+  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251230" />
 
-  <!-- Global FX + Logger (อยู่ใน /vr/) -->
+  <!-- Global FX + Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder (อยู่ใน /plate/) -->
-  <script src="./plate/plate-hud.js?v=20251230b" defer></script>
+  <!-- HUD binder -->
+  <script src="./plate/plate-hud.js?v=20251230" defer></script>
 
-  <!-- Game (อยู่ใน /plate/) -->
-  <script src="./plate/plate.safe.js?v=20251230b" defer></script>
+  <!-- (Optional modular helpers - safe to include) -->
+  <script src="./plate/plate.state.js?v=20251230" defer></script>
+  <script src="./plate/plate.goals.js?v=20251230" defer></script>
+  <script src="./plate/plate.minis.js?v=20251230" defer></script>
+  <script src="./plate/plate.quest.js?v=20251230" defer></script>
+  <script src="./plate/plate.mode.js?v=20251230" defer></script>
+  <script src="./plate/plate.main.js?v=20251230" defer></script>
+
+  <!-- Game (SAFE) -->
+  <script src="./plate/plate.safe.js?v=20251230" defer></script>
 </head>
 
 <body>
-  <!-- Background VR scene (minimal) -->
+  <!-- Background VR scene -->
   <a-scene
     id="scene"
     embedded
@@ -49,13 +57,13 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PAGE)
     </a-entity>
   </a-scene>
 
-  <!-- DOM Play layer for targets (required) -->
+  <!-- DOM layer -->
   <div id="plate-layer" aria-label="plate-layer"></div>
 
-  <!-- Hit FX overlay (required) -->
+  <!-- Hit FX -->
   <div id="hitFx" aria-hidden="true"></div>
 
-  <!-- TOP HUD (required: hudTop) -->
+  <!-- TOP HUD -->
   <header id="hudTop">
     <div class="hudRow">
       <div class="hudStat">
@@ -114,7 +122,7 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PAGE)
   <aside id="coachPanel">
     <img
       id="coachImg"
-      src="./plate-neutral.png"
+      src="./img/coach-neutral.png"
       alt="Coach"
       draggable="false"
     />
@@ -185,7 +193,9 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PAGE)
         <button class="btn ghost big" id="btnEnterVR2" type="button">🕶 Enter VR</button>
       </div>
 
-      <div class="startFoot">Tip: บน iOS อาจต้องกด Start ก่อนเพื่อขอสิทธิ์ motion</div>
+      <div class="startFoot">
+        Tip: บน iOS อาจต้องกด Start ก่อนเพื่อขอสิทธิ์ motion
+      </div>
     </div>
   </div>
 
