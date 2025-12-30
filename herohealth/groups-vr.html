@@ -1,6 +1,3 @@
-<!-- === /herohealth/groups.html ===
-Launcher — adds VR shoot controls
--->
 <!doctype html>
 <html lang="th">
 <head>
@@ -11,196 +8,351 @@ Launcher — adds VR shoot controls
   <link rel="icon" href="./favicon.ico" />
   <style>
     :root{
+      color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.76);
+      --panel:rgba(2,6,23,.72);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
+      --acc1:rgba(34,197,94,.95);
+      --acc2:rgba(34,211,238,.88);
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
-    .wrap{ min-height:100%; display:grid; place-items:center; padding: calc(14px + var(--sat)) 14px calc(14px + var(--sab)); }
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; height:100%;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    }
+    .wrap{
+      min-height:100%;
+      display:grid;
+      place-items:center;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+    }
     .card{
-      width:min(820px, 94vw);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      padding:16px;
+      width:min(860px, 96vw);
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.72);
+      border-radius:24px;
       box-shadow:0 22px 70px rgba(0,0,0,.55);
+      padding:18px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
     }
-    h1{ margin:0 0 6px; font-size:20px; }
-    p{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.6; }
-    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; }
-    label{ font-size:12px; color:rgba(226,232,240,.85); font-weight:900; display:block; margin-bottom:6px; }
+    h1{ margin:0 0 6px; font-size:20px; letter-spacing:.2px; }
+    .sub{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.55; }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap:12px;
+    }
+    .box{
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.45);
+      border-radius:18px;
+      padding:12px;
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    label{ font-size:12px; color:var(--muted); font-weight:800; }
     select, input{
       width:100%;
+      padding:10px 12px;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.65);
+      background:rgba(2,6,23,.55);
       color:var(--text);
-      padding:12px 12px;
-      font-weight:900;
       outline:none;
+      font-weight:800;
     }
-    .btn{
+    .cols{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .cols3{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+    }
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.45);
+      font-size:12px;
+      color:rgba(226,232,240,.92);
+      font-weight:800;
+    }
+    .actions{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    button{
       border:0;
       border-radius:16px;
       padding:12px 14px;
-      font-weight:1100;
+      font-weight:1000;
       cursor:pointer;
     }
-    .primary{ background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90)); color:#061018; }
-    .ghost{ background:transparent; border:1px solid rgba(148,163,184,.22); color:var(--text); }
-    .linkbox{
-      margin-top:12px;
-      border:1px dashed rgba(148,163,184,.22);
-      background:rgba(2,6,23,.45);
+    .primary{
+      background:linear-gradient(135deg, var(--acc1), var(--acc2));
+      color:#04110a;
+    }
+    .ghost{
+      background:transparent;
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+    }
+    .linkout{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.45;
+      word-break: break-all;
+    }
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color:rgba(226,232,240,.82);
+      line-height:1.55;
       border-radius:16px;
       padding:10px 12px;
-      font-size:12px;
-      color:rgba(226,232,240,.85);
-      word-break:break-all;
+      border:1px solid rgba(34,211,238,.18);
+      background:rgba(34,211,238,.06);
     }
-    @media (max-width:720px){
-      .grid{ grid-template-columns:1fr; }
+    .kbd{
+      font: 900 11px/1 system-ui;
+      padding:3px 7px;
+      border-radius:9px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.55);
+      display:inline-block;
+    }
+    @media (max-width: 880px){
+      .grid{ grid-template-columns: 1fr; }
+      .actions{ grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>🍱 Food Groups VR — Launcher</h1>
-      <p>เลือกโหมด/ระดับ/เวลา + โหมดยิง VR แล้วกด Start เพื่อเข้า <code>/herohealth/vr-groups/groups-vr.html</code></p>
+      <h1>🥦 Food Groups VR — Launcher</h1>
+      <p class="sub">
+        เลือกโปรไฟล์การเล่น (PC / Mobile / VR Cardboard) + ความยาก + สไตล์ + ระบบยิง (gaze/tap)
+        แล้วกด Start เพื่อเข้า <b>/herohealth/vr-groups/groups-vr.html</b>
+      </p>
 
       <div class="grid">
-        <div>
-          <label>Run mode</label>
-          <select id="runMode">
-            <option value="play">play (adaptive)</option>
-            <option value="research">research (deterministic)</option>
-          </select>
-        </div>
+        <div class="box">
+          <div class="cols3">
+            <div>
+              <label>Run Mode</label>
+              <select id="runMode">
+                <option value="play" selected>play (adaptive ON)</option>
+                <option value="research">research (adaptive OFF)</option>
+              </select>
+            </div>
+            <div>
+              <label>Difficulty</label>
+              <select id="diff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+            <div>
+              <label>Style</label>
+              <select id="style">
+                <option value="mix" selected>mix</option>
+                <option value="feel">feel</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+          </div>
 
-        <div>
-          <label>Difficulty</label>
-          <select id="diff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
-          </select>
-        </div>
+          <div style="height:10px"></div>
 
-        <div>
-          <label>Style</label>
-          <select id="style">
-            <option value="mix" selected>mix</option>
-            <option value="feel">feel</option>
-            <option value="hard">hard</option>
-          </select>
-        </div>
+          <div class="cols3">
+            <div>
+              <label>Duration (sec)</label>
+              <input id="time" type="number" min="30" max="180" value="90" />
+            </div>
+            <div>
+              <label>Seed</label>
+              <input id="seed" type="text" placeholder="auto" />
+            </div>
+            <div>
+              <label>Auto-start</label>
+              <select id="autostart">
+                <option value="0" selected>off</option>
+                <option value="1">on</option>
+              </select>
+            </div>
+          </div>
 
-        <div>
-          <label>UI layout</label>
-          <select id="ui">
-            <option value="auto" selected>auto</option>
-            <option value="pc">pc</option>
-            <option value="mobile">mobile</option>
-            <option value="vr">vr (cardboard)</option>
-          </select>
-        </div>
+          <div style="height:10px"></div>
 
-        <div>
-          <label>VR Shoot mode</label>
-          <select id="shoot">
-            <option value="auto" selected>auto (ui=vr → gaze)</option>
-            <option value="gaze">gaze (จ้องค้างยิง)</option>
-            <option value="tap">tap (แตะจอยิงกลางจอ)</option>
-            <option value="off">off</option>
-          </select>
-        </div>
+          <div class="cols3">
+            <div>
+              <label>Profile UI</label>
+              <select id="ui">
+                <option value="auto" selected>auto</option>
+                <option value="pc">pc</option>
+                <option value="mobile">mobile</option>
+                <option value="vr">vr-cardboard</option>
+              </select>
+            </div>
+            <div>
+              <label>Shoot Mode</label>
+              <select id="shoot">
+                <option value="tap">tap-to-shoot (เร็ว)</option>
+                <option value="gaze" selected>gaze (VR มันส์สุด)</option>
+              </select>
+            </div>
+            <div>
+              <label>Lock Radius (px)</label>
+              <input id="radius" type="number" min="40" max="140" value="86" />
+            </div>
+          </div>
 
-        <div>
-          <label>Dwell (ms) / Lock (px)</label>
-          <div class="row" style="gap:12px;">
-            <input id="dwell" type="number" min="250" max="1200" value="650" />
-            <input id="lock" type="number" min="80" max="280" value="140" />
+          <div style="height:10px"></div>
+
+          <div class="cols">
+            <div>
+              <label>Lock (ms)</label>
+              <input id="lock" type="number" min="60" max="350" value="160" />
+            </div>
+            <div>
+              <label>Dwell (ms) — ใช้กับ gaze</label>
+              <input id="dwell" type="number" min="280" max="1200" value="620" />
+            </div>
+          </div>
+
+          <div style="height:10px"></div>
+
+          <div class="row">
+            <span class="pill">🎯 ยิงกลางจอ</span>
+            <span class="pill">🔒 lock-on</span>
+            <span class="pill">⚡ burst</span>
+            <span class="pill">⭐ overdrive</span>
+            <span class="pill">❄️ freeze</span>
+            <span class="pill">🛡️ shield</span>
           </div>
         </div>
 
-        <div>
-          <label>Time (sec)</label>
-          <input id="time" type="number" min="30" max="180" value="90" />
-        </div>
+        <div class="box">
+          <label>Hub (กลับหน้า HUB)</label>
+          <input id="hub" type="text" value="./index.html" />
 
-        <div>
-          <label>Seed</label>
-          <input id="seed" placeholder="ปล่อยว่าง = เวลาเครื่อง" />
+          <div style="height:10px"></div>
+
+          <label>Run URL (preview)</label>
+          <div class="linkout" id="urlOut">—</div>
+
+          <div class="actions">
+            <button class="primary" id="btnStart">Start ▶</button>
+            <button class="ghost" id="btnCopy">Copy URL</button>
+          </div>
+
+          <div class="hint">
+            <div><b>คำสั่งลัด</b></div>
+            <div>• VR cardboard แนะนำ: <span class="kbd">shoot=gaze</span>, <span class="kbd">dwell=520–650</span>, <span class="kbd">lock=140–170</span></div>
+            <div>• Mobile แอคชัน: <span class="kbd">shoot=tap</span>, <span class="kbd">lock=160–220</span></div>
+          </div>
         </div>
       </div>
-
-      <div class="row" style="margin-top:14px;">
-        <button class="btn primary" id="btnStart">Start</button>
-        <button class="btn ghost" id="btnCopy">Copy link</button>
-        <button class="btn ghost" id="btnHub">Back HUB</button>
-      </div>
-
-      <div class="linkbox" id="linkBox">—</div>
     </div>
   </div>
 
   <script>
     const $ = (id)=>document.getElementById(id);
 
-    function buildLink(){
+    function inferUi(){
+      const w = innerWidth || 360;
+      const h = innerHeight || 640;
+      if (w <= 520) return 'mobile';
+      if (h <= 520) return 'mobile';
+      return 'pc';
+    }
+
+    function buildUrl(){
       const runMode = $('runMode').value;
       const diff = $('diff').value;
       const style = $('style').value;
-      const ui = $('ui').value;
-      const shoot = $('shoot').value;
-      const dwell = Number($('dwell').value||650);
-      const lock = Number($('lock').value||140);
-      const time = Number($('time').value||90);
+      const time = Math.max(30, Math.min(180, Number($('time').value||90)));
       const seed = ($('seed').value||'').trim() || String(Date.now());
-      const hub = './index.html';
+      const hub = ($('hub').value||'./index.html').trim() || './index.html';
+      const autostart = $('autostart').value;
+      const shoot = $('shoot').value;
+      const dwell = Math.max(280, Math.min(1200, Number($('dwell').value||620)));
+      const lock  = Math.max(60, Math.min(350, Number($('lock').value||160)));
+      const radius = Math.max(40, Math.min(140, Number($('radius').value||86)));
 
-      const url = new URL('./vr-groups/groups-vr.html', location.href);
-      url.searchParams.set('runMode', runMode);
-      url.searchParams.set('diff', diff);
-      url.searchParams.set('style', style);
-      url.searchParams.set('ui', ui);
-      url.searchParams.set('shoot', shoot);
-      url.searchParams.set('dwell', String(dwell));
-      url.searchParams.set('lock', String(lock));
-      url.searchParams.set('time', String(time));
-      url.searchParams.set('seed', seed);
-      url.searchParams.set('hub', hub);
-      url.searchParams.set('v', String(Date.now()));
-      return url.toString();
+      let ui = $('ui').value;
+      if (ui === 'auto') ui = inferUi();
+
+      const v = String(Date.now());
+      const base = './vr-groups/groups-vr.html';
+
+      const p = new URLSearchParams();
+      p.set('runMode', runMode);
+      p.set('diff', diff);
+      p.set('style', style);
+      p.set('time', String(time));
+      p.set('seed', seed);
+      p.set('hub', hub);
+      p.set('autostart', autostart);
+      p.set('ui', ui);
+
+      p.set('shoot', shoot);
+      p.set('dwell', String(dwell));
+      p.set('lock', String(lock));
+      p.set('radius', String(radius));
+
+      p.set('v', v);
+      return base + '?' + p.toString();
     }
 
-    function sync(){
-      const link = buildLink();
-      $('linkBox').textContent = link;
-      return link;
+    function refresh(){
+      const url = buildUrl();
+      $('urlOut').textContent = url;
+      return url;
     }
 
-    ['runMode','diff','style','ui','shoot','dwell','lock','time','seed'].forEach(id=>{
-      $(id).addEventListener('input', sync);
-      $(id).addEventListener('change', sync);
+    ['runMode','diff','style','time','seed','hub','autostart','ui','shoot','dwell','lock','radius']
+      .forEach(id=>{
+        $(id).addEventListener('input', refresh);
+        $(id).addEventListener('change', refresh);
+      });
+
+    $('btnStart').addEventListener('click', ()=>{
+      location.href = refresh();
     });
-    sync();
-
-    $('btnStart').addEventListener('click', ()=> location.href = sync());
 
     $('btnCopy').addEventListener('click', async ()=>{
-      const link = sync();
-      try{ await navigator.clipboard.writeText(link); $('linkBox').textContent = '✅ Copied!\n' + link; }
-      catch{ $('linkBox').textContent = '⚠️ Copy ไม่ได้\n' + link; }
+      const url = refresh();
+      try{
+        await navigator.clipboard.writeText(url);
+        $('btnCopy').textContent = 'Copied ✅';
+        setTimeout(()=> $('btnCopy').textContent = 'Copy URL', 900);
+      }catch{
+        alert(url);
+      }
     });
 
-    $('btnHub').addEventListener('click', ()=> location.href = './index.html');
+    refresh();
   </script>
 </body>
 </html>
