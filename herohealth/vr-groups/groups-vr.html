@@ -1,9 +1,10 @@
 <!-- === /herohealth/vr-groups/groups-vr.html ===
-Food Groups VR — RUN (PRODUCTION)
-✅ Goal RIGHT + Coach BOTTOM-RIGHT
-✅ Responsive: PC / Mobile / VR(Cardboard)
-✅ Auto blocked rects -> spawn ไม่ทับ HUD/Quest/Coach/Power
-✅ Auto No-Junk Zone toggle from mini title
+RUN — Goal RIGHT + Coach BOTTOM-RIGHT + VR Shoot (gaze/tap)
+Params:
+- ui=auto|pc|mobile|vr
+- shoot=auto|off|tap|gaze   (auto: if ui=vr -> gaze)
+- dwell=650 (ms)            for gaze
+- lock=140 (px)             lock radius
 -->
 <!doctype html>
 <html lang="th">
@@ -17,10 +18,8 @@ Food Groups VR — RUN (PRODUCTION)
 </head>
 
 <body>
-  <!-- Gameplay layer -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-  <!-- HUD top left/right -->
   <div class="hudRow" aria-label="HUD">
     <div class="hudCard hudLeft">
       <div class="hudItem"><span>SCORE</span><b id="uiScore">0</b></div>
@@ -37,7 +36,6 @@ Food Groups VR — RUN (PRODUCTION)
     </div>
   </div>
 
-  <!-- Quest RIGHT -->
   <div class="questDock" aria-label="Quest">
     <div class="questCard">
       <div class="qHead">GOAL <span class="qNum" id="uiGoalNum">0/0</span></div>
@@ -53,7 +51,6 @@ Food Groups VR — RUN (PRODUCTION)
     </div>
   </div>
 
-  <!-- Power bottom -->
   <div class="powerDock" aria-label="Power">
     <div class="powerCard">
       <div class="powerTop">
@@ -61,11 +58,10 @@ Food Groups VR — RUN (PRODUCTION)
         <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
       </div>
       <div class="powerBar"><i id="uiPowerBar"></i></div>
-      <div class="powerHint">⭐ = Overdrive+Magnet+Shield · ❄️ = Freeze · STORM ระวัง!</div>
+      <div class="powerHint" id="uiShootHint">⭐ = Overdrive+Magnet+Shield · ❄️ = Freeze · STORM ระวัง!</div>
     </div>
   </div>
 
-  <!-- Coach bottom-right -->
   <div class="coachDock" aria-label="Coach">
     <div class="coachCard">
       <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
@@ -77,13 +73,9 @@ Food Groups VR — RUN (PRODUCTION)
     </div>
   </div>
 
-  <!-- Reticle for VR (toggle by ui=vr) -->
   <div id="reticle" class="reticle" aria-hidden="true"></div>
-
-  <!-- Small controls -->
   <button id="btnVR" class="btnVR" type="button">VR</button>
 
-  <!-- Start overlay -->
   <div class="overlay" id="startOverlay">
     <div class="panel">
       <h2>🚀 พร้อมเล่น Food Groups VR</h2>
@@ -97,7 +89,6 @@ Food Groups VR — RUN (PRODUCTION)
     </div>
   </div>
 
-  <!-- End overlay -->
   <div class="overlay" id="endOverlay" style="display:none;">
     <div class="panel">
       <h2>🏁 สรุปผล</h2>
@@ -131,12 +122,17 @@ Food Groups VR — RUN (PRODUCTION)
     const v = (q.get('v') || String(Date.now()));
     const ui = (q.get('ui') || 'auto').toLowerCase(); // auto | pc | mobile | vr
 
+    // NEW: VR shooting params
+    const shoot = (q.get('shoot') || 'auto').toLowerCase(); // auto|off|tap|gaze
+    const dwell = Number(q.get('dwell') || 650);
+    const lock  = Number(q.get('lock')  || 140);
+
     $('uiMode').textContent = runMode;
     $('uiDiff').textContent = diff;
     $('uiStyle').textContent = style;
 
     $('startDesc').textContent =
-      `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed} | ui=${ui}`;
+      `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed} | ui=${ui} | shoot=${shoot}`;
 
     function warn(msg){
       console.warn(msg);
@@ -156,7 +152,14 @@ Food Groups VR — RUN (PRODUCTION)
       if (m === 'vr') document.body.classList.add('ui-vr');
       else if (m === 'mobile') document.body.classList.add('ui-mobile');
       else document.body.classList.add('ui-pc');
+
       $('reticle').style.display = document.body.classList.contains('ui-vr') ? 'block' : 'none';
+
+      // hint
+      const isVR = document.body.classList.contains('ui-vr');
+      $('uiShootHint').textContent = isVR
+        ? `🎯 VR SHOOT: ${shoot} (dwell=${dwell}ms, lock=${lock}px) — จ้องค้าง/แตะจอ ยิงกลางจอ`
+        : `⭐ = Overdrive+Magnet+Shield · ❄️ = Freeze · STORM ระวัง!`;
     }
     setUIMode();
     addEventListener('resize', ()=>{ setUIMode(); syncBlockedRects(); });
@@ -205,7 +208,7 @@ Food Groups VR — RUN (PRODUCTION)
       if (document.visibilityState === 'hidden') flushHardened('hidden');
     });
 
-    // --- blocked rects: spawn กันทับ HUD/Quest/Coach/Power ---
+    // blocked rects
     function rectOf(el){
       if (!el) return null;
       const r = el.getBoundingClientRect();
@@ -225,10 +228,10 @@ Food Groups VR — RUN (PRODUCTION)
       GE.setBlockedRects(rects.filter(Boolean));
     }
 
-    // --- auto No-Junk Zone bridge (จาก mini title) ---
+    // auto No-Junk on mini title
     function isNoJunkTitle(t){
       t = String(t||'').toLowerCase();
-      return t.includes('no-junk') || t.includes('nojunk') || t.includes('ห้าม') && t.includes('ขยะ');
+      return t.includes('no-junk') || t.includes('nojunk') || (t.includes('ห้าม') && t.includes('ขยะ'));
     }
 
     function bindEvents(){
@@ -266,13 +269,11 @@ Food Groups VR — RUN (PRODUCTION)
         if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
         if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
 
-        // numbers
         const gn = (d.goalNow!=null && d.goalTotal!=null) ? `${d.goalNow}/${d.goalTotal}` : '0/0';
         const mn = (d.miniNow!=null && d.miniTotal!=null) ? `${d.miniNow}/${d.miniTotal}` : '0/0';
         $('uiGoalNum').textContent = gn;
         $('uiMiniNum').textContent = mn;
 
-        // percent
         let gp = (d.goalPct != null) ? Number(d.goalPct)
               : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
               : 0;
@@ -345,7 +346,7 @@ Food Groups VR — RUN (PRODUCTION)
             game: 'GroupsVR',
             ts: new Date().toISOString(),
             ...d,
-            params: { runMode, diff, style, time, seed, hub, ui }
+            params: { runMode, diff, style, time, seed, hub, ui, shoot, dwell, lock }
           };
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
@@ -386,11 +387,14 @@ Food Groups VR — RUN (PRODUCTION)
       GE.setUIMode?.(document.body.classList.contains('ui-vr') ? 'vr' :
                      document.body.classList.contains('ui-mobile') ? 'mobile' : 'pc');
 
-      // initial blocked rects (then keep syncing)
       syncBlockedRects();
       setTimeout(syncBlockedRects, 120);
 
-      GE.start(diff, { runMode, style, time, seed });
+      // pass vr shoot settings
+      GE.start(diff, {
+        runMode, style, time, seed,
+        shoot, dwellMs: dwell, lockPx: lock
+      });
 
       $('startOverlay').style.display = 'none';
       $('endOverlay').style.display = 'none';
@@ -405,10 +409,11 @@ Food Groups VR — RUN (PRODUCTION)
       if (autostart) setTimeout(startGame, 250);
     });
 
-    // VR toggle button
     $('btnVR').addEventListener('click', ()=>{
       const u = new URL(location.href);
-      u.searchParams.set('ui', document.body.classList.contains('ui-vr') ? 'auto' : 'vr');
+      const isVR = document.body.classList.contains('ui-vr');
+      u.searchParams.set('ui', isVR ? 'auto' : 'vr');
+      // if going to VR and shoot is auto -> keep auto (engine will default to gaze)
       u.searchParams.set('v', String(Date.now()));
       location.href = u.toString();
     });
