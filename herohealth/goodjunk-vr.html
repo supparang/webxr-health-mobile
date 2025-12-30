@@ -1,7 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard
-✅ HUD toggle: FULL/COMPACT/HIDE + Hold-to-Peek
-✅ Start-gated boot
+GoodJunkVR (PRODUCTION) — HHA Standard + BOSS MINI
+✅ DOM emoji targets (dual-eye for VR/cVR)
+✅ HUD + Quest + Coach + Fever/Shield
+✅ HUD modes: Full/Compact/Hide + Hold-to-Peek
+✅ Boss bar UI
+✅ Start-gate: starts AFTER pressing "เริ่มเล่น"
 -->
 
 <!doctype html>
@@ -13,7 +16,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- UI -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
   <!-- Global FX + Fever + HUD + Logger -->
@@ -26,7 +28,12 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
-<body class="hud-full">
+<body>
+  <!-- ===== HUD PEEK button (shown in HUD-HIDE mode) ===== -->
+  <div class="hud-peek" id="hudPeek" aria-label="peek hud">
+    <button class="peek-btn" id="btnPeekHud" type="button">กดค้างดูภารกิจ</button>
+  </div>
+
   <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
@@ -40,11 +47,13 @@ GoodJunkVR (PRODUCTION) — HHA Standard
           <button class="pill" id="btnViewVR" type="button">VR</button>
           <button class="pill" id="btnViewCVR" type="button">cVR</button>
 
-          <!-- ✅ HUD toggle -->
-          <button class="pill ghost" id="btnHudMode" type="button">HUD: Full</button>
-
           <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
           <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
+
+          <!-- HUD modes -->
+          <button class="pill" id="btnHudFull" type="button">HUD: Full</button>
+          <button class="pill" id="btnHudCompact" type="button">HUD: Compact</button>
+          <button class="pill" id="btnHudHide" type="button">HUD: Hide</button>
         </div>
       </div>
 
@@ -79,11 +88,25 @@ GoodJunkVR (PRODUCTION) — HHA Standard
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ✅ Peek button (only shown in HUD:HIDE) -->
-  <div id="hudPeek" class="hud-peek" hidden>
-    <button id="btnHudPeek" class="peek-btn" type="button">👁️ กดค้างเพื่อดูภารกิจ</button>
+    <!-- ===== Boss Bar (optional) ===== -->
+    <div class="bossbar" id="bossBar" hidden>
+      <div class="bossrow">
+        <div class="bosslabel">BOSS</div>
+        <div class="bossmeter">
+          <div class="bossfill" id="bossFill"></div>
+        </div>
+        <div class="bosstext" id="bossText">0/0</div>
+      </div>
+      <div class="bossrow sub">
+        <div class="bosslabel bad">BAD</div>
+        <div class="bossmeter bad">
+          <div class="bossfill bad" id="bossBadFill"></div>
+        </div>
+        <div class="bosstext bad" id="bossBadText">0/0</div>
+      </div>
+      <div class="bossnote" id="bossNote">ยิง GOOD ให้ครบ • ถ้าโดน BAD ถึงลิมิต = แพ้ทันที</div>
+    </div>
   </div>
 
   <!-- ===== Fever/Shield UI ===== -->
@@ -129,7 +152,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
         เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
+        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง + มีบอสท้ายเกม</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
       <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
