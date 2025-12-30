@@ -1,27 +1,31 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (FULL)
+// GoodJunkVR Boot — PRODUCTION (DOM Engine)
+// ✅ Boot gate: starts engine AFTER pressing "เริ่มเล่น" (fix "flash then gone")
 // ✅ View modes: PC / Mobile / VR / cVR
+// ✅ Enter VR = Fullscreen + cVR + try lock landscape + show hint
 // ✅ Fullscreen handling + body.is-fs
-// ✅ VR hint overlay OK -> hide (does NOT start game)
-// ✅ START GATE: starts engine only after pressing "เริ่มเล่น"
-// ✅ HUD Peek: tap to toggle HUD in VR/cVR
+// ✅ Meta + start meta
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
+const ROOT = window;
 const DOC = document;
 
 function qs(k, def=null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 }
+
 function setBodyView(view){
   const b = DOC.body;
   b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
   b.classList.add(`view-${view}`);
 }
+
 function isFs(){
   return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
 }
+
 async function enterFs(){
   try{
     const el = DOC.documentElement;
@@ -29,131 +33,98 @@ async function enterFs(){
     else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
   }catch(_){}
 }
+
 function syncFsClass(){
   DOC.body.classList.toggle('is-fs', isFs());
 }
-function syncMeta(){
-  const hudMeta = DOC.getElementById('hudMeta');
-  if (!hudMeta) return;
-  const dual = !!DOC.getElementById('gj-layer-r');
-  const v = qs('v','');
-  hudMeta.textContent = `[BOOT] ready • dual=${dual} • v=${v}`;
+
+async function lockLandscape(){
+  try{
+    if (screen?.orientation?.lock) await screen.orientation.lock('landscape');
+  }catch(_){}
 }
 
-function ensureHudPeek(){
-  let el = DOC.querySelector('.hud-peek');
-  if (el) return el;
-
-  el = DOC.createElement('div');
-  el.className = 'hud-peek';
-  el.innerHTML = `
-    <span class="tag good" id="peekGood">GOOD 0</span>
-    <span class="tag bad" id="peekBad" style="display:none;">BAD 0</span>
-    <span class="p" id="peekMini">Mini —</span>
-    <span class="m" id="peekTime">Time 0</span>
-    <span class="m">• แตะเพื่อซ่อน/โชว์ HUD</span>
-  `;
-  DOC.body.appendChild(el);
-
-  el.addEventListener('click', ()=>{
-    DOC.body.classList.toggle('hud-hidden');
-  });
-
-  // bind via events
-  window.addEventListener('hha:score', (ev)=>{
-    const d = ev?.detail || {};
-    const g = DOC.getElementById('peekGood');
-    if (g) g.textContent = `Score ${(d.score ?? 0)|0}`;
-  });
-
-  window.addEventListener('quest:update', (ev)=>{
-    const d = ev?.detail || {};
-    const mini = DOC.getElementById('peekMini');
-    if (mini) mini.textContent = String(d.miniTitle || 'Mini —');
-
-    // show boss bad counter only during boss
-    const bad = DOC.getElementById('peekBad');
-    const txt = String(d.miniTitle || '');
-    const isBoss = txt.includes('BOSS');
-    if (bad){
-      bad.style.display = isBoss ? 'inline-flex' : 'none';
-      // best effort: parse "≥ N"
-      const m = txt.match(/≥\s*(\d+)/);
-      if (isBoss && m) bad.textContent = `BAD < ${m[1]}`;
-      else if (!isBoss) bad.textContent = 'BAD 0';
-    }
-  });
-
-  window.addEventListener('hha:time', (ev)=>{
-    const d = ev?.detail || {};
-    const t = DOC.getElementById('peekTime');
-    if (t) t.textContent = `Time ${(d.left ?? 0)|0}`;
-  });
-
-  return el;
-}
-
-function hookViewButtons(){
-  const btnPC = DOC.getElementById('btnViewPC');
-  const btnM  = DOC.getElementById('btnViewMobile');
-  const btnV  = DOC.getElementById('btnViewVR');
-  const btnC  = DOC.getElementById('btnViewCVR');
-  const btnFS = DOC.getElementById('btnEnterFS');
-  const btnVR = DOC.getElementById('btnEnterVR');
-
-  const vrHint = DOC.getElementById('vrHint');
-  const vrOk   = DOC.getElementById('btnVrOk');
-
-  function showVrHint(){ if (vrHint) vrHint.hidden = false; }
-  function hideVrHint(){ if (vrHint) vrHint.hidden = true; }
-
-  btnPC && btnPC.addEventListener('click', ()=>{ setBodyView('pc'); hideVrHint(); });
-  btnM  && btnM.addEventListener('click',  ()=>{ setBodyView('mobile'); hideVrHint(); });
-  btnV  && btnV.addEventListener('click',  ()=>{ setBodyView('vr'); showVrHint(); });
-  btnC  && btnC.addEventListener('click',  ()=>{ setBodyView('cvr'); showVrHint(); });
-
-  vrOk && vrOk.addEventListener('click', ()=> hideVrHint());
-
-  btnFS && btnFS.addEventListener('click', async ()=>{
-    await enterFs();
-    syncFsClass();
-  });
-
-  btnVR && btnVR.addEventListener('click', ()=>{
-    // placeholder for future A-Frame
-  });
+function mobileLike(){
+  const w = ROOT.innerWidth || 360;
+  const h = ROOT.innerHeight || 640;
+  const coarse = (ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches);
+  return coarse || (Math.min(w,h) < 520);
 }
 
 function pickInitialView(){
   const v = String(qs('view','') || '').toLowerCase();
   if (v === 'vr') return 'vr';
   if (v === 'cvr') return 'cvr';
-
-  const coarse = matchMedia && matchMedia('(pointer: coarse)').matches;
-  const w = innerWidth || 360;
-  const h = innerHeight || 640;
-  const mobileLike = coarse || Math.min(w,h) < 520;
-  return mobileLike ? 'mobile' : 'pc';
+  return mobileLike() ? 'mobile' : 'pc';
 }
 
-function prepareStartOverlay(){
+function syncMeta(){
+  const hudMeta = DOC.getElementById('hudMeta');
+  if (!hudMeta) return;
+  const dual = !!DOC.getElementById('gj-layer-r');
+  const v = qs('v','');
+  const diff = qs('diff','normal');
+  const run  = qs('run', qs('runMode','play')) || 'play';
+  const time = qs('time', qs('duration','70'));
+  hudMeta.textContent = `diff=${diff} • run=${run} • time=${time}s • dual=${dual}${v?` • v=${v}`:''}`;
+}
+
+function syncStartMeta(){
+  const el = DOC.getElementById('startMeta');
+  if (!el) return;
+  const diff = qs('diff','normal');
+  const run  = qs('run', qs('runMode','play')) || 'play';
+  const time = qs('time', qs('duration','70'));
+  const end  = qs('end','time');
+  el.textContent = `โหมด: ${run} • ระดับ: ${diff} • เวลา: ${time}s • end=${end}`;
+}
+
+function showStartOverlay(){
   const ov = DOC.getElementById('startOverlay');
-  const btn = DOC.getElementById('btnStart');
-  const meta = DOC.getElementById('startMeta');
-
-  if (meta){
-    const diff = qs('diff','normal');
-    const time = qs('time', qs('duration','70'));
-    const run  = qs('run','play');
-    meta.textContent = `diff=${diff} • time=${time}s • run=${run}`;
-  }
-
-  if (ov) ov.hidden = false;
-
-  return { ov, btn };
+  if (!ov) return;
+  ov.hidden = false;
+  // make sure it renders even if CSS toggles display
+  ov.style.display = 'flex';
 }
 
-function bootEngineStartGated(){
+function hideStartOverlay(){
+  const ov = DOC.getElementById('startOverlay');
+  if (!ov) return;
+  ov.hidden = true;
+  ov.style.display = 'none';
+}
+
+function showVrHint(){
+  const vrHint = DOC.getElementById('vrHint');
+  if (!vrHint) return;
+  vrHint.hidden = false;
+}
+function hideVrHint(){
+  const vrHint = DOC.getElementById('vrHint');
+  if (!vrHint) return;
+  vrHint.hidden = true;
+}
+
+function getSafeMargins(){
+  // IMPORTANT: our targets are inside #gj-stage already (HUD/controls excluded by layout),
+  // so margins should be "small" and tuned per view.
+  const b = DOC.body;
+  const isVR = b.classList.contains('view-vr') || b.classList.contains('view-cvr');
+  if (isVR){
+    return { top: 18, bottom: 18, left: 14, right: 14 };
+  }
+  if (b.classList.contains('view-mobile')){
+    return { top: 18, bottom: 20, left: 14, right: 14 };
+  }
+  return { top: 16, bottom: 18, left: 16, right: 16 };
+}
+
+let started = false;
+
+function bootEngineOnce(){
+  if (started) return;
+  started = true;
+
   const layerL = DOC.getElementById('gj-layer-l') || DOC.getElementById('gj-layer');
   const layerR = DOC.getElementById('gj-layer-r');
 
@@ -163,13 +134,14 @@ function bootEngineStartGated(){
   const shootEl = DOC.getElementById('btnShoot');
 
   const diff = qs('diff','normal');
-  const run  = qs('run','play');
+  const run  = qs('run', qs('runMode','play')) || 'play';
   const time = Number(qs('time', qs('duration','70'))) || 70;
 
-  const endPolicy = qs('end','time');   // time | all | miss
+  // end policies: time | all | miss
+  const endPolicy = qs('end','time');
   const challenge = qs('challenge','rush');
 
-  const api = engineBoot({
+  engineBoot({
     layerEl: layerL,
     layerElR: layerR,
     crosshairEl: crossL,
@@ -180,42 +152,75 @@ function bootEngineStartGated(){
     time,
     endPolicy,
     challenge,
-    autoStart: false, // IMPORTANT
-    context: { projectTag: qs('projectTag','HeroHealth') }
+    safeMargins: getSafeMargins(),
+    context: {
+      projectTag: qs('projectTag','HeroHealth')
+    }
+  });
+}
+
+function hookViewButtons(){
+  const btnPC = DOC.getElementById('btnViewPC');
+  const btnM  = DOC.getElementById('btnViewMobile');
+  const btnV  = DOC.getElementById('btnViewVR');
+  const btnC  = DOC.getElementById('btnViewCVR');
+  const btnFS = DOC.getElementById('btnEnterFS');
+  const btnVR = DOC.getElementById('btnEnterVR');
+
+  const vrOk = DOC.getElementById('btnVrOk');
+  vrOk && vrOk.addEventListener('click', ()=> hideVrHint());
+
+  btnPC && btnPC.addEventListener('click', ()=>{ setBodyView('pc'); hideVrHint(); });
+  btnM  && btnM.addEventListener('click',  ()=>{ setBodyView('mobile'); hideVrHint(); });
+  btnV  && btnV.addEventListener('click',  ()=>{ setBodyView('vr'); showVrHint(); });
+  btnC  && btnC.addEventListener('click',  ()=>{ setBodyView('cvr'); showVrHint(); });
+
+  btnFS && btnFS.addEventListener('click', async ()=>{
+    await enterFs();
+    syncFsClass();
   });
 
-  return api;
+  // ✅ ENTER VR (A-mode): Fullscreen + cVR + landscape lock + hint
+  btnVR && btnVR.addEventListener('click', async ()=>{
+    await enterFs();
+    syncFsClass();
+    setBodyView('cvr');
+    await lockLandscape();
+    showVrHint();
+  });
+}
+
+function hookStartButton(){
+  const btnStart = DOC.getElementById('btnStart');
+  if (!btnStart) return;
+
+  btnStart.addEventListener('click', async ()=>{
+    hideStartOverlay();
+    // if user is going VR, try make it stable
+    const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
+    if (isVR){
+      await enterFs();
+      syncFsClass();
+      await lockLandscape();
+    }
+    bootEngineOnce();
+  });
 }
 
 function main(){
   hookViewButtons();
+  hookStartButton();
+
   setBodyView(pickInitialView());
   syncMeta();
+  syncStartMeta();
   syncFsClass();
 
   DOC.addEventListener('fullscreenchange', syncFsClass);
   DOC.addEventListener('webkitfullscreenchange', syncFsClass);
 
-  // ensure peek (for VR/cVR)
-  ensureHudPeek();
-
-  // start overlay gate
-  const { ov, btn } = prepareStartOverlay();
-
-  const api = bootEngineStartGated();
-
-  btn && btn.addEventListener('click', async ()=>{
-    // hide overlay then start
-    if (ov) ov.hidden = true;
-
-    // optional: if in VR/cVR and not fullscreen, suggest FS first but do not block
-    if ((DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr')) && !isFs()){
-      // soft: do nothing; user can press Enter Fullscreen
-    }
-
-    try{ api && api.start && api.start(); }catch(_){}
-    syncMeta();
-  });
+  // ✅ show start overlay ALWAYS and do NOT auto-start engine
+  showStartOverlay();
 }
 
 if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', main);
