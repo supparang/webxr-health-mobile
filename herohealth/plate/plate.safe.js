@@ -1,11 +1,11 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION (HHA Standard + VR-feel + Plate Rush + Safe Spawn)
+// Balanced Plate VR — PRODUCTION (HHA Standard + VR-feel + Plate Rush + Safe Spawn + H++)
 // ✅ Play: adaptive ON
 // ✅ Study/Research: deterministic seed + adaptive OFF
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
+// ✅ H++: hha:perfect (spark) + hha:slowmo (combo 25+)
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 // ✅ Flush-hardened: before end/back hub/reload
-// ✅ PATCH: Grade SSS/SS/S -> data-grade on HUD + Result for CSS glow
 
 'use strict';
 
@@ -76,9 +76,9 @@ const rng = mulberry32(seed);
 
 // ------------------------- Difficulty tuning -------------------------
 const DIFF = {
-  easy:   { size: 64, lifeMs: 1800, spawnPerSec: 1.5, junkRate: 0.18, feverUpJunk: 12, feverUpMiss: 8, feverDownGood: 2.8 },
-  normal: { size: 56, lifeMs: 1600, spawnPerSec: 1.85, junkRate: 0.24, feverUpJunk: 14, feverUpMiss: 9, feverDownGood: 2.4 },
-  hard:   { size: 48, lifeMs: 1400, spawnPerSec: 2.2, junkRate: 0.30, feverUpJunk: 16, feverUpMiss: 10, feverDownGood: 2.0 },
+  easy:   { size: 64, lifeMs: 1800, spawnPerSec: 1.5,  junkRate: 0.18, feverUpJunk: 12, feverUpMiss: 8,  feverDownGood: 2.8 },
+  normal: { size: 56, lifeMs: 1600, spawnPerSec: 1.85, junkRate: 0.24, feverUpJunk: 14, feverUpMiss: 9,  feverDownGood: 2.4 },
+  hard:   { size: 48, lifeMs: 1400, spawnPerSec: 2.2,  junkRate: 0.30, feverUpJunk: 16, feverUpMiss: 10, feverDownGood: 2.0 },
 };
 const base = DIFF[diff] || DIFF.normal;
 
@@ -353,6 +353,8 @@ function calcGrade(){
 }
 
 function updateHUD(){
+  const grade = calcGrade();
+
   emit('hha:score', {
     game:'plate',
     runMode,
@@ -367,8 +369,14 @@ function updateHUD(){
     fever,
     shield,
     accuracyGoodPct: accuracyPct(),
-    grade: calcGrade(),
+    grade,
   });
+
+  // drive crown/shimmer via data-grade
+  try{
+    const chip = DOC.querySelector('.hudStat.gradeChip');
+    if(chip) chip.setAttribute('data-grade', grade);
+  }catch(e){}
 
   setText('uiScore', score);
   setText('uiCombo', combo);
@@ -377,18 +385,11 @@ function updateHUD(){
   setText('uiPlateHave', plateHave.filter(Boolean).length);
   setText('uiG1', gCount[0]); setText('uiG2', gCount[1]); setText('uiG3', gCount[2]); setText('uiG4', gCount[3]); setText('uiG5', gCount[4]);
   setText('uiAcc', fmtPct(accuracyPct()));
-  setText('uiGrade', calcGrade());
-  setText('uiTime', tLeftSec);
+  setText('uiGrade', grade);
+  setText('uiTime', Math.ceil(tLeftSec));
   const ff = qs('uiFeverFill');
   if(ff) ff.style.width = `${clamp(fever,0,100)}%`;
   setText('uiShieldN', shield);
-
-  // ✅ PATCH: grade -> CSS data-grade (HUD)
-  try{
-    const g = calcGrade();
-    const chip = DOC.querySelector('.gradeChip');
-    if(chip) chip.setAttribute('data-grade', g);
-  }catch(e){}
 }
 
 function coach(msg, mood){
@@ -410,6 +411,16 @@ function coach(msg, mood){
 
 function judge(text, kind){
   emit('hha:judge', { game:'plate', text, kind: kind||'info' });
+}
+
+// ------------------------- H++ Slow-mo -------------------------
+let slowmoUntilMs = 0;
+function triggerSlowmo(ms){
+  slowmoUntilMs = Math.max(slowmoUntilMs, nowMs() + (Number(ms)||250));
+  emit('hha:slowmo', { game:'plate', durationMs: Number(ms)||250 });
+}
+function slowmoFactor(){
+  return (nowMs() < slowmoUntilMs) ? 0.35 : 1.0; // spawn density slow only (timer stays real)
 }
 
 // ------------------------- Mini quests -------------------------
@@ -688,6 +699,14 @@ function onHit(id){
   const t = targets.get(id);
   if(!t) return;
 
+  // capture click center BEFORE remove
+  let cx = null, cy = null;
+  try{
+    const r = t.el.getBoundingClientRect();
+    cx = r.left + r.width/2;
+    cy = r.top  + r.height/2;
+  }catch(e){}
+
   const rt = Math.max(0, nowMs() - t.bornMs);
   const kind = t.kind;
 
@@ -697,6 +716,11 @@ function onHit(id){
     nHitGood++;
     combo++;
     comboMax = Math.max(comboMax, combo);
+
+    // H++ slow-mo at high combo milestones
+    if(combo === 25 || combo === 35 || combo === 45){
+      triggerSlowmo(250);
+    }
 
     const gi = Number(t.groupIdx);
     if(gi>=0 && gi<5){
@@ -708,8 +732,14 @@ function onHit(id){
     }
 
     let add = 50;
-    if(rt <= 420){ add += 35; perfectHits++; }
-    else if(rt <= 650){ add += 20; }
+    if(rt <= 420){
+      add += 35;
+      perfectHits++;
+      // H++ perfect spark at hit point
+      emit('hha:perfect', { game:'plate', x: cx, y: cy, rtMs: Math.round(rt), combo });
+    } else if(rt <= 650){
+      add += 20;
+    }
     add += Math.min(40, combo * 2);
 
     score += add;
@@ -860,7 +890,7 @@ function tick(){
   }
 
   const tune = currentTunings();
-  spawnAccum += dt * tune.spawnPerSec;
+  spawnAccum += dt * tune.spawnPerSec * slowmoFactor(); // H++ density slow only
   while(spawnAccum >= 1){
     spawnAccum -= 1;
     spawnTarget();
@@ -979,6 +1009,8 @@ function resetState(){
 
   activeGoal = null;
   activeMini = null;
+
+  slowmoUntilMs = 0;
 
   clearAllTargets();
   if(resultBackdrop) resultBackdrop.style.display = 'none';
@@ -1111,14 +1143,6 @@ function showResult(summary){
   setText('rG4', summary.plate.counts[3]||0);
   setText('rG5', summary.plate.counts[4]||0);
   setText('rGTotal', summary.plate.total||0);
-
-  // ✅ PATCH: grade -> CSS data-grade (Result)
-  try{
-    const g = summary.grade;
-    const gradeEl = qs('rGrade');
-    const box = gradeEl ? gradeEl.closest('.resultItem') : null;
-    if(box) box.setAttribute('data-grade', g);
-  }catch(e){}
 }
 
 function storeSummary(summary){
