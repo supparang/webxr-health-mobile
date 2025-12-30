@@ -1,10 +1,11 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard
+GoodJunkVR (PRODUCTION) — HHA Standard (FULL)
 ✅ DOM emoji targets (dual-eye for VR/cVR)
 ✅ HUD + Quest + Coach + Fever/Shield
-✅ HUD Peek (show objectives while HUD hidden)
-✅ BossBar (phase + bad limit)
-✅ Start overlay gate (press start -> engine.start)
+✅ HUD Peek (VR-friendly) + tap toggle HUD
+✅ Summary end overlay placeholder
+✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
+✅ Start Gate: starts AFTER pressing "เริ่มเล่น"
 -->
 
 <!doctype html>
@@ -16,50 +17,20 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
+  <!-- UI -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
+  <!-- Global FX + Fever + HUD + Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
+  <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
-  <!-- ===== HUD Peek (always usable) ===== -->
-  <div id="hudPeek" class="hud-peek" aria-label="peek objectives">
-    <div class="peek-row">
-      <span class="peek-pill" id="hudPeekGoal">GOOD 0/0</span>
-      <span class="peek-pill cyan" id="hudPeekMini">—</span>
-      <span class="peek-pill warn" id="hudPeekTime">0s</span>
-    </div>
-    <div class="peek-boss" id="hudPeekBoss"></div>
-    <div class="peek-hint">แตะเพื่อโชว์/ซ่อน HUD</div>
-  </div>
-
-  <!-- ===== Boss Bar ===== -->
-  <div id="bossBar" class="bossbar" hidden>
-    <div class="boss-top">
-      <div class="boss-title">BOSS</div>
-      <div class="boss-text" id="bossText">P1 0/0</div>
-    </div>
-
-    <div class="boss-track">
-      <div class="boss-fill" id="bossFill"></div>
-    </div>
-
-    <div class="boss-bad">
-      <div class="bad-label">BAD</div>
-      <div class="bad-track">
-        <div class="bad-fill" id="bossBadFill"></div>
-      </div>
-      <div class="bad-text" id="bossBadText">0/0</div>
-    </div>
-
-    <div class="boss-note" id="bossNote">—</div>
-  </div>
-
   <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
@@ -73,6 +44,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
           <button class="pill" id="btnViewVR" type="button">VR</button>
           <button class="pill" id="btnViewCVR" type="button">cVR</button>
           <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
+          <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
         </div>
       </div>
 
@@ -108,6 +80,8 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       </div>
     </div>
   </div>
+
+  <!-- HUD Peek injected by boot.js -->
 
   <!-- ===== Fever/Shield UI ===== -->
   <div class="hha-fever" id="hhaFever">
@@ -152,7 +126,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
         เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">บอส Phase 2 = ONE-HIT NO-JUNK 😈</span>
+        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
       <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
