@@ -5,6 +5,12 @@
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 // ✅ Flush-hardened: before end/back hub/reload
+//
+// PATCH 2025-12-30
+// ✅ FIX: targets must move with VR-feel layer transform (use position:absolute not fixed)
+// ✅ ADD: coach image auto-fallback plate-*.png -> coach-*.png
+// ✅ FIX: summary goals/minis deterministic + correct totals
+// ✅ FIX: safe iteration over targets map while deleting
 
 'use strict';
 
@@ -108,6 +114,20 @@ const hudBtns = qs('hudBtns');
 if(!layer){
   console.error('[PlateVR] missing #plate-layer');
 }
+
+// ✅ PATCH: ensure plate-layer is a full-screen fixed stage (so absolute children move w/ transform)
+function ensureLayerStage(){
+  if(!layer) return;
+  if(layer.__hhaStage) return;
+  layer.__hhaStage = true;
+  const s = layer.style;
+  if(!s.position) s.position = 'fixed';
+  if(!s.inset) s.inset = '0';
+  if(!s.zIndex) s.zIndex = '6';
+  // keep stage non-blocking except its children
+  s.pointerEvents = 'none';
+}
+ensureLayerStage();
 
 // ------------------------- Minimal FX (CSS injection fallback) -------------------------
 (function ensureFxCss(){
@@ -218,11 +238,16 @@ function requestGyroPermission(){
 }
 function bindDragLook(){
   if(!layer) return;
-  on(layer, 'pointerdown', (e)=>{
+  // allow drag even though layer is pointerEvents:none -> we bind on window
+  on(ROOT, 'pointerdown', (e)=>{
+    // only start drag if press is not on HUD buttons (rough guard)
+    const t = e.target;
+    if(t && (t.closest && (t.closest('#hudTop,#miniPanel,#coachPanel,#hudBtns,#resultBackdrop,#startOverlay')))) return;
     look.dragging = true;
     look.lastX = e.clientX;
     look.lastY = e.clientY;
   }, { passive:true });
+
   on(ROOT, 'pointermove', (e)=>{
     if(!look.dragging) return;
     const dx = (e.clientX - look.lastX);
@@ -233,6 +258,7 @@ function bindDragLook(){
     look.y = clamp(look.y + dy*0.10, -24, 24);
     applyLook();
   }, { passive:true });
+
   on(ROOT, 'pointerup', ()=>{ look.dragging = false; }, { passive:true });
 }
 
@@ -318,11 +344,12 @@ let perfectHits = 0;
 const targets = new Map();
 let spawnAccum = 0;
 
-let goalsTotal = 2;
-let goalsCleared = 0;
+const goalsTotal = 2;
+let goalsClearedLive = 0;
 
-let minisTotal = 999;
+const minisTotal = 1;        // ✅ PATCH: Plate Rush only
 let miniCleared = 0;
+let miniStarted = 0;
 
 let activeGoal = null;
 let activeMini = null;
@@ -377,10 +404,27 @@ function updateHUD(){
   setText('uiG1', gCount[0]); setText('uiG2', gCount[1]); setText('uiG3', gCount[2]); setText('uiG4', gCount[3]); setText('uiG5', gCount[4]);
   setText('uiAcc', fmtPct(accuracyPct()));
   setText('uiGrade', calcGrade());
-  setText('uiTime', tLeftSec);
+  setText('uiTime', Math.ceil(tLeftSec));
   const ff = qs('uiFeverFill');
   if(ff) ff.style.width = `${clamp(fever,0,100)}%`;
   setText('uiShieldN', shield);
+}
+
+// ------------------------- Coach image (plate unique + fallback) -------------------------
+function setCoachImgSrc(imgEl, mood){
+  if(!imgEl) return;
+  const m = (mood || 'neutral');
+  const primary = `./img/plate-${m}.png`;
+  const fallback = `./img/coach-${m}.png`;
+
+  // attach one-time fallback per mood
+  imgEl.onerror = function(){
+    if(imgEl.__hhaFellBack) return;
+    imgEl.__hhaFellBack = true;
+    imgEl.src = fallback;
+  };
+  imgEl.__hhaFellBack = false;
+  imgEl.src = primary;
 }
 
 function coach(msg, mood){
@@ -388,16 +432,7 @@ function coach(msg, mood){
   const cm = qs('coachMsg');
   if(cm) cm.textContent = msg;
   const img = qs('coachImg');
-  if(img){
-    const m = mood || 'neutral';
-    const map = {
-      happy: './img/coach-happy.png',
-      neutral:'./img/coach-neutral.png',
-      sad: './img/coach-sad.png',
-      fever: './img/coach-fever.png',
-    };
-    img.src = map[m] || map.neutral;
-  }
+  setCoachImgSrc(img, mood || 'neutral');
 }
 
 function judge(text, kind){
@@ -423,11 +458,14 @@ function startMini(mini){
   activeMini = mini;
   activeMini.startedMs = nowMs();
   activeMini.snapPlateHave = [...plateHave];
+  miniStarted++;
+
   emit('quest:update', {
     game:'plate',
     goal: activeGoal ? { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done } : null,
     mini: { title: activeMini.title, cur:0, target:activeMini.durationSec, timeLeft: activeMini.durationSec, done:false }
   });
+
   setText('uiMiniTitle', activeMini.title);
   setText('uiMiniTime', `${activeMini.durationSec}s`);
   setText('uiHint', 'ทริค: เร่งเก็บหมู่ที่ยังขาด! ระวังขยะห้ามโดน!');
@@ -441,7 +479,7 @@ function finishMini(ok, reason){
   activeMini.reason = reason || (ok ? 'ok' : 'fail');
 
   if(ok){
-    miniCleared++;
+    miniCleared = Math.min(minisTotal, miniCleared + 1);
     emit('hha:celebrate', { game:'plate', kind:'mini' });
     coach('สุดยอด! Plate Rush ผ่าน! 🔥', 'happy');
     judge('✅ MINI COMPLETE!', 'good');
@@ -475,11 +513,12 @@ function emitQuestUpdate(){
     if(gf) gf.style.width = `${(activeGoal.target? (activeGoal.cur/activeGoal.target*100):0)}%`;
   }else{
     setText('uiGoalTitle', '—'); setText('uiGoalCount', '0/0');
+    const gf = qs('uiGoalFill'); if(gf) gf.style.width = `0%`;
   }
 
   if(activeMini){
     setText('uiMiniTitle', activeMini.title);
-    setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal, miniCleared+1)}`);
+    setText('uiMiniCount', `${miniCleared}/${minisTotal}`);
     const tl = miniTimeLeft();
     setText('uiMiniTime', tl==null?'--':`${Math.ceil(tl)}s`);
     const mf = qs('uiMiniFill');
@@ -489,6 +528,7 @@ function emitQuestUpdate(){
     }
   }else{
     setText('uiMiniTitle','—');
+    setText('uiMiniCount', `${miniCleared}/${minisTotal}`);
     setText('uiMiniTime','--');
     const mf = qs('uiMiniFill'); if(mf) mf.style.width = `0%`;
   }
@@ -496,7 +536,7 @@ function emitQuestUpdate(){
 
 // ------------------------- Goals -------------------------
 function startGoals(){
-  goalsCleared = 0;
+  goalsClearedLive = 0;
   activeGoal = { ...GOALS[0] };
   emitQuestUpdate();
 }
@@ -507,7 +547,7 @@ function updateGoals(){
     activeGoal.cur = plateHave.filter(Boolean).length;
     if(activeGoal.cur >= activeGoal.target){
       activeGoal.done = true;
-      goalsCleared++;
+      goalsClearedLive++;
       emit('hha:celebrate', { game:'plate', kind:'goal' });
       coach('ครบ 5 หมู่แล้ว! ต่อไปคุมความแม่นยำ 😎', 'happy');
       judge('🎯 GOAL COMPLETE!', 'good');
@@ -571,8 +611,9 @@ function maybeSpawnShield(){
 
 function spawnTarget(forcedKind){
   if(!layer) return;
-  const tune = currentTunings();
+  ensureLayerStage();
 
+  const tune = currentTunings();
   const playRect = getPlayRect();
   const noRects = buildNoSpawnRects();
 
@@ -620,7 +661,8 @@ function spawnTarget(forcedKind){
   if(spec.kind === 'good') el.setAttribute('data-group', String(spec.groupIdx));
   el.textContent = spec.emoji;
 
-  el.style.position = 'fixed';
+  // ✅ PATCH: absolute (NOT fixed) so it follows layer translate()
+  el.style.position = 'absolute';
   el.style.left = `${Math.round(box.x)}px`;
   el.style.top  = `${Math.round(box.y)}px`;
   el.style.width = `${size}px`;
@@ -636,9 +678,11 @@ function spawnTarget(forcedKind){
   el.style.userSelect = 'none';
   el.style.webkitTapHighlightColor = 'transparent';
   el.style.transform = 'translateZ(0)';
+  el.style.pointerEvents = 'auto'; // because layer is pointerEvents:none
 
   on(el, 'pointerdown', (e)=>{
     e.preventDefault();
+    e.stopPropagation();
     if(!running || paused) return;
     onHit(id);
   }, { passive:false });
@@ -672,7 +716,7 @@ function despawn(id){
   try{ t.el.remove(); }catch(e){}
 }
 function clearAllTargets(){
-  for(const [id] of targets) despawn(id);
+  for(const id of Array.from(targets.keys())) despawn(id);
 }
 
 // ------------------------- Hit / Miss handling -------------------------
@@ -859,7 +903,10 @@ function tick(){
     maybeSpawnShield();
   }
 
-  for(const [id, tObj] of targets){
+  // ✅ PATCH: safe iterate
+  for(const id of Array.from(targets.keys())){
+    const tObj = targets.get(id);
+    if(!tObj) continue;
     if((t - tObj.bornMs) >= tObj.lifeMs){
       onExpireTarget(id);
     }
@@ -965,12 +1012,14 @@ function resetState(){
   adapt.junkMul  = 1.0;
   adaptiveOn = !isStudy;
 
-  goalsTotal = 2;
-  goalsCleared = 0;
+  goalsClearedLive = 0;
   miniCleared = 0;
+  miniStarted = 0;
 
   activeGoal = null;
   activeMini = null;
+
+  playTickSound._lastSec = null;
 
   clearAllTargets();
   if(resultBackdrop) resultBackdrop.style.display = 'none';
@@ -1030,13 +1079,10 @@ function buildSummary(reason){
   const medRt = rtGood.length ? median(rtGood) : 0;
   const fastHitRatePct = (nHitGood>0) ? (perfectHits/nHitGood*100) : 0;
 
-  if(activeGoal && activeGoal.key === 'accuracy'){
-    activeGoal.cur = Math.round(acc);
-    if(acc >= activeGoal.target){
-      activeGoal.done = true;
-      goalsCleared++;
-    }
-  }
+  // ✅ PATCH: deterministic goals at end (no double-count / no miss)
+  const g1Done = (plateHave.filter(Boolean).length >= 5);
+  const g2Done = (acc >= 80);
+  const goalsCleared = (g1Done?1:0) + (g2Done?1:0);
 
   const grade = calcGrade();
   const sessionId = `PLATE_${Date.now()}_${uid().slice(0,6)}`;
@@ -1057,7 +1103,7 @@ function buildSummary(reason){
     goalsCleared,
     goalsTotal,
     miniCleared,
-    miniTotal: miniCleared,
+    miniTotal: minisTotal,   // ✅ PATCH
     nTargetGoodSpawned,
     nTargetJunkSpawned,
     nTargetShieldSpawned,
@@ -1161,6 +1207,9 @@ async function endGame(reason){
   setText('uiDiffPreview', diff);
   setText('uiTimePreview', timePlannedSec);
   setText('uiRunPreview', runMode);
+
+  // ✅ ensure coach image starts with plate-neutral but fallback works
+  setCoachImgSrc(qs('coachImg'), 'neutral');
 
   resetState();
   updateHUD();
