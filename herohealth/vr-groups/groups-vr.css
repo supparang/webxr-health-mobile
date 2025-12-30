@@ -1,9 +1,10 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targets)
-✅ Responsive: PC / Mobile / VR Cardboard
-✅ Quest RIGHT + Coach BOTTOM-RIGHT
-✅ Cardboard: crosshair + HUD mini mode (body.hud-mini)
-✅ Targets: absolute on .fg-layer (moves with --vx/--vy)
+Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + Cardboard-ready)
+✅ Goal RIGHT + Coach BOTTOM-RIGHT (responsive)
+✅ Cardboard: crosshair + aim highlight + HUD mini
+✅ mini urgent pulse (tick hook from JS)
+✅ fg-layer supports VR feel translate + shake vars
+✅ FX layer/flash for groups-fx.js
 */
 
 :root{
@@ -54,18 +55,6 @@ Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targ
   --candy-polka:
     radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
     radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
-
-  /* HUD sizing knobs */
-  --hud-pad: 10px;
-  --hud-gap: 10px;
-  --questW: 340px;
-  --coachW: 230px;
-  --pillFS: 12px;
-  --boxFS: 16px;
-
-  /* Cardboard knobs */
-  --crosshairSize: 22px;
-  --aimRing: rgba(34,211,238,.55);
 }
 
 *{ box-sizing:border-box; }
@@ -82,29 +71,97 @@ html, body{
     var(--bg);
 }
 
-/* A-Frame scene (ถ้ามี) ไม่ให้บัง HUD */
-a-scene[embedded]{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:0 !important;
+/* ======================
+   Cardboard Crosshair + HUD Toggle
+   ====================== */
+.crosshair{
+  position:fixed;
+  left:50%;
+  top:50%;
+  width:22px;
+  height:22px;
+  transform:translate(-50%,-50%);
+  z-index:120;
+  pointer-events:none;
+  display:none;
+  filter: drop-shadow(0 12px 22px rgba(0,0,0,.45));
+}
+.crosshair::before,
+.crosshair::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+}
+.crosshair::before{
+  width:22px; height:22px;
+  border:2px solid rgba(226,232,240,.62);
+  background: radial-gradient(circle at 50% 50%, rgba(34,211,238,.08), rgba(34,211,238,0) 60%);
+}
+.crosshair::after{
+  width:4px; height:4px;
+  background:rgba(226,232,240,.85);
+}
+
+.hudToggle{
+  position:fixed;
+  right:calc(10px + var(--sar));
+  top:calc(10px + var(--sat));
+  z-index:125;
+  display:none;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.56);
+  color:var(--text);
+  font-weight:1000;
+  border-radius:999px;
+  padding:10px 12px;
+  box-shadow:0 16px 40px rgba(0,0,0,.35);
+}
+
+body.cardboard .crosshair{ display:block; }
+body.cardboard .hudToggle{ display:inline-flex; }
+
+/* HUD mini mode (สำหรับ VR/เล็ก) */
+body.hud-mini .hud,
+body.hud-mini .centerTop{
+  opacity:.0;
+  pointer-events:none;
+  transform: translateY(-8px);
+}
+body.hud-mini .questTop{
+  width: min(320px, 62vw) !important;
+}
+body.hud-mini .powerWrap{
+  opacity:.92;
+}
+body.hud-mini .coachCard{
+  width:min(200px, 62vw);
 }
 
 /* ======================
    Gameplay Layer
    ====================== */
-.fg-layer{
+.fg-layer,
+#fg-layer{
   position: fixed;
   inset: 0;
-  z-index: 3;                 /* ต่ำกว่า HUD */
+  z-index: 10;                 /* gameplay ต่ำกว่า HUD/overlays */
   pointer-events: auto;
 
-  /* VR feel translate from engine */
-  transform: translate(var(--vx,0px), var(--vy,0px));
+  /* VR feel translate from engine + shake from FX */
+  transform:
+    translate(var(--vx,0px), var(--vy,0px))
+    translate(var(--shakeX,0px), var(--shakeY,0px));
   will-change: transform;
+  touch-action:none;
+  user-select:none;
 }
 
 /* Optional: No-Junk ring (set --nojunk-*) */
-.fg-layer::before{
+.fg-layer::before,
+#fg-layer::before{
   content:"";
   position:fixed;
   left: var(--nojunk-cx, 50vw);
@@ -120,103 +177,76 @@ a-scene[embedded]{
 }
 
 /* ======================
-   Crosshair (Cardboard)
-   ====================== */
-.crosshair{
-  position:fixed;
-  left:50%;
-  top:50%;
-  width:var(--crosshairSize);
-  height:var(--crosshairSize);
-  transform:translate(-50%,-50%);
-  z-index:120;
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .18s ease;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,.45));
-}
-.crosshair::before,
-.crosshair::after{
-  content:"";
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
-  border-radius:999px;
-}
-.crosshair::before{
-  width:var(--crosshairSize);
-  height:var(--crosshairSize);
-  border:2px solid rgba(226,232,240,.85);
-  box-shadow: 0 0 0 2px rgba(34,211,238,.12) inset;
-}
-.crosshair::after{
-  width:6px;
-  height:6px;
-  background: rgba(34,211,238,.90);
-}
-body.cardboard .crosshair{ opacity:.95; }
-
-/* ======================
-   HUD blocks
+   HUD (รองรับ markup .hud/.box และ legacy .hud-top)
    ====================== */
 .hud{
   position:fixed;
-  left:calc(var(--hud-pad) + var(--sal));
-  right:calc(var(--hud-pad) + var(--sar));
-  top:calc(var(--hud-pad) + var(--sat));
-  z-index:60;
+  left:0; right:0;
+  top:0;
+  padding: calc(12px + var(--sat)) 12px 10px;
   display:flex;
   justify-content:space-between;
-  gap:var(--hud-gap);
+  gap:10px;
   pointer-events:none;
+  z-index: 70;
 }
+
 .hud .box{
   background:var(--panel);
-  border:1px solid var(--stroke);
+  border:1px solid rgba(148,163,184,.18);
   border-radius:16px;
   padding:10px 12px;
   box-shadow:0 16px 40px rgba(0,0,0,.35);
   min-width:120px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-.hud .big{ font-weight:900; font-size:var(--boxFS); }
+.hud .big{ font-weight:1000; font-size:16px; }
 .hud .small{ font-size:12px; color:var(--muted); margin-top:2px; }
 
+/* center pills */
 .centerTop{
   position:fixed;
   left:50%;
   transform:translateX(-50%);
   top: calc(10px + var(--sat));
-  z-index:65;
+  z-index:75;
   pointer-events:none;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
   justify-content:center;
 }
+
 .pill{
   background:rgba(15,23,42,.72);
   border:1px solid rgba(148,163,184,.16);
   border-radius:999px;
   padding:8px 12px;
-  font-size:var(--pillFS);
+  font-size:12px;
   color:var(--text);
   box-shadow:0 16px 40px rgba(0,0,0,.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-/* Quest (RIGHT) */
+/* ======================
+   Quest (Goal/mini)
+   ✅ GOAL RIGHT
+   ====================== */
 .questTop{
   position:fixed;
   right:calc(10px + var(--sar));
   top:  calc(62px + var(--sat));
-  left:auto;
-  width: min(var(--questW), 48vw);
+  left: auto;
+  width: min(340px, 46vw);
   display:flex;
   gap:10px;
   flex-wrap:wrap;
-  z-index:68;
+  z-index:78;
   pointer-events:none;
 }
+
 .qbar{
   flex:1 1 240px;
   background:rgba(2,6,23,.55);
@@ -224,19 +254,27 @@ body.cardboard .crosshair{ opacity:.95; }
   border-radius:16px;
   padding:10px 12px;
   box-shadow:0 16px 40px rgba(0,0,0,.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-.qbar .t{ font-size:12px; color:var(--muted); font-weight:900; letter-spacing:.2px; }
-.qbar .b{ margin-top:2px; font-size:13px; font-weight:1000; }
+
+.qbar .t{ font-size:12px; color:var(--muted); font-weight:900; letter-spacing:.3px; }
+.qbar .b{ margin-top:2px; font-size:13px; font-weight:1000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .qbar .p{
-  margin-top:8px; height:10px;
+  margin-top:8px;
+  height:10px;
   background:rgba(15,23,42,.65);
   border:1px solid rgba(148,163,184,.14);
-  border-radius:999px; overflow:hidden;
+  border-radius:999px;
+  overflow:hidden;
 }
 .qbar .p > i{
-  display:block; height:100%; width:0%;
+  display:block;
+  height:100%;
+  width:0%;
   background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
 }
+
 .qbar .time{
   margin-top:6px;
   font-size:12px;
@@ -244,28 +282,36 @@ body.cardboard .crosshair{ opacity:.95; }
   display:none;
 }
 
-/* mini urgent */
-body.mini-urgent .qbar:nth-child(2){
-  border-color: rgba(239,68,68,.28);
-  box-shadow: 0 0 0 3px rgba(239,68,68,.10), 0 16px 40px rgba(0,0,0,.25);
+/* mini urgent pulse */
+body.mini-urgent .questTop .qbar:nth-child(2){
+  border-color: rgba(239,68,68,.38);
+  box-shadow: 0 0 0 3px rgba(239,68,68,.14), 0 16px 40px rgba(0,0,0,.25);
+  animation: miniPulse .24s ease-in-out infinite;
 }
-body.mini-urgent .qbar:nth-child(2) .b{
+body.mini-urgent .questTop .qbar:nth-child(2) .t{
+  color: rgba(254,226,226,.92);
+}
+body.mini-urgent .questTop .qbar:nth-child(2) .b{
   color:#fff;
-  text-shadow:0 0 14px rgba(239,68,68,.35);
+  text-shadow:0 0 18px rgba(239,68,68,.22);
 }
-body.mini-urgent .qbar:nth-child(2) .time{
-  color: rgba(254,226,226,.95);
+@keyframes miniPulse{
+  0%,100%{ transform: translateZ(0) scale(1.00); }
+  50%{ transform: translateZ(0) scale(1.01); }
 }
 
-/* Power bottom */
+/* ======================
+   Power bar (bottom)
+   ====================== */
 .powerWrap{
   position:fixed;
-  left:calc(12px + var(--sal));
-  right:calc(12px + var(--sar));
+  left:12px;
+  right:12px;
   bottom: calc(14px + var(--sab));
-  z-index:70;
+  z-index:80;
   pointer-events:none;
 }
+
 .power{
   height:14px;
   border-radius:999px;
@@ -278,6 +324,7 @@ body.mini-urgent .qbar:nth-child(2) .time{
   height:100%;
   width:0%;
   background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+  box-shadow:0 12px 26px rgba(34,211,238,.14);
 }
 .powerLabel{
   margin-top:8px;
@@ -288,32 +335,40 @@ body.mini-urgent .qbar:nth-child(2) .time{
   font-weight:900;
 }
 
-/* Coach bottom-right */
+/* ======================
+   Coach (bottom-right)
+   ✅ COACH BOTTOM-RIGHT (LOCK)
+   ====================== */
 .coachWrap{
   position:fixed;
   right:calc(10px + var(--sar));
-  bottom: calc(82px + var(--sab)); /* ลอยเหนือ Power */
-  z-index:72;
+  left:auto;
+  bottom: calc(82px + var(--sab)); /* ลอยเหนือ power bar */
+  z-index:85;
   pointer-events:none;
   display:flex;
   gap:10px;
   align-items:flex-end;
 }
+
 .coachCard{
-  width:var(--coachW);
+  width:220px;
   background:rgba(2,6,23,.60);
   border:1px solid rgba(148,163,184,.14);
   border-radius:18px;
-  padding:10px;
+  padding:10px 10px 10px;
   box-shadow:0 16px 40px rgba(0,0,0,.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .coachLine{
   font-size:12px;
   color:rgba(226,232,240,.92);
   line-height:1.45;
   min-height:34px;
-  font-weight:800;
+  font-weight:900;
 }
+
 .feverMini{
   margin-top:8px;
   height:10px;
@@ -322,7 +377,13 @@ body.mini-urgent .qbar:nth-child(2) .time{
   background:rgba(15,23,42,.65);
   overflow:hidden;
 }
-.feverMini > i{ display:block; height:100%; width:0%; background:rgba(239,68,68,.85); }
+.feverMini > i{
+  display:block;
+  height:100%;
+  width:0%;
+  background:rgba(239,68,68,.85);
+}
+
 .shieldTag{
   margin-top:8px;
   display:inline-flex;
@@ -334,8 +395,9 @@ body.mini-urgent .qbar:nth-child(2) .time{
   border-radius:999px;
   border:1px solid rgba(148,163,184,.14);
   background:rgba(15,23,42,.60);
-  font-weight:900;
+  font-weight:1000;
 }
+
 .coachImg{
   width:74px;
   height:74px;
@@ -347,30 +409,12 @@ body.mini-urgent .qbar:nth-child(2) .time{
 }
 .coachImg img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-/* HUD toggle button (Cardboard) */
-.hudToggle{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  bottom:calc(92px + var(--sab));
-  z-index:95;
-  pointer-events:auto;
-  display:none;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.70);
-  color:rgba(226,232,240,.92);
-  border-radius:999px;
-  padding:10px 12px;
-  font-weight:1000;
-  font-size:12px;
-  box-shadow:0 18px 55px rgba(0,0,0,.45);
-}
-body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
-
 /* ======================
    Start / End overlays
    ====================== */
 .overlay{
-  position:fixed; inset:0;
+  position:fixed;
+  inset:0;
   background:
     radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
     radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
@@ -382,6 +426,7 @@ body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+
 .panel{
   width:min(760px, 92vw);
   border:1px solid rgba(148,163,184,.20);
@@ -390,9 +435,10 @@ body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
   box-shadow:0 18px 55px rgba(0,0,0,.55);
   padding:18px 18px 14px;
 }
-.panel h2{ margin:0 0 8px; font-size:20px; }
-.panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; }
+.panel h2{ margin:0 0 8px; font-size:20px; font-weight:1100; }
+.panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; font-weight:800; }
 .panel .row{ display:flex; gap:10px; flex-wrap:wrap; }
+
 .panel button{
   border:0;
   border-radius:999px;
@@ -407,7 +453,8 @@ body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
   border:1px solid rgba(148,163,184,.18);
   color:var(--text);
 }
-.dbg{ font-size:12px; color:var(--muted); opacity:.92; margin-top:6px; }
+
+.dbg{ font-size:12px; color:var(--muted); opacity:.92; margin-top:6px; font-weight:900; }
 .warn{
   margin-top:10px;
   padding:10px 12px;
@@ -418,25 +465,38 @@ body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
   font-size:12px;
   display:none;
   white-space:pre-wrap;
+  font-weight:900;
 }
 
 #endOverlay{ display:none; }
 #endOverlay.show{ display:grid; }
-.kv{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0 12px; }
+
+.kv{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin:10px 0 12px;
+}
 .kv .k{
   border:1px solid rgba(148,163,184,.16);
   background:rgba(15,23,42,.55);
   border-radius:16px;
   padding:10px 12px;
   font-size:13px;
+  font-weight:900;
 }
-.kv .k b{ display:block; font-size:16px; margin-top:2px; }
+.kv .k b{
+  display:block;
+  font-size:16px;
+  margin-top:2px;
+  font-weight:1100;
+}
 
 /* ======================
-   TARGETS — Candy Stickers
+   TARGETS — Candy Stickers (Grade 5)
    ====================== */
 .fg-target{
-  position:absolute;
+  position:absolute; /* ✅ ขยับตาม fg-layer transform ได้ */
   left: var(--x, 50vw);
   top:  var(--y, 50vh);
 
@@ -473,6 +533,7 @@ body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
   overflow:hidden;
   animation: fgFloat 1.15s ease-in-out infinite;
 }
+
 .fg-target::before{
   content: attr(data-emoji);
   font-size: 46px;
@@ -481,6 +542,20 @@ body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
   filter:
     drop-shadow(0 2px 0 rgba(255,255,255,.25))
     drop-shadow(0 12px 18px rgba(0,0,0,.32));
+}
+
+/* Aim highlight (Cardboard) */
+.fg-target.aim{
+  outline: 4px solid rgba(34,211,238,.35);
+  box-shadow:
+    0 0 0 6px rgba(34,211,238,.12),
+    0 18px 36px rgba(0,0,0,.40),
+    0 0 28px rgba(34,211,238,.22);
+  animation: aimPulse .36s ease-in-out infinite;
+}
+@keyframes aimPulse{
+  0%,100%{ transform: translate(-50%,-50%) scale(var(--s,1)) translateY(0px); }
+  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.02)) translateY(-7px); }
 }
 
 /* type fills */
@@ -553,16 +628,6 @@ body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
 .fg-target.hit{ animation: fgHit .22s ease-out both; }
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
-/* ✅ Aim highlight (Cardboard lock) */
-.fg-target.aim{
-  outline: 4px solid var(--aimRing);
-  box-shadow:
-    0 0 0 6px rgba(34,211,238,.18),
-    0 18px 36px rgba(0,0,0,.40),
-    0 0 34px rgba(34,211,238,.32);
-  transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06));
-}
-
 /* boss feedback states */
 .fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
 @keyframes bossHurt{
@@ -607,85 +672,106 @@ body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
   to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
 }
 
-/* vibes */
+/* ======================
+   Mode vibes (optional classes from engine)
+   ====================== */
 body.groups-storm .hud,
 body.groups-storm .centerTop,
-body.groups-storm .questTop,
-body.groups-storm .coachWrap{ filter: saturate(1.10) brightness(1.05); }
+body.groups-storm .questTop{
+  filter: saturate(1.10) brightness(1.05);
+}
 
-body.groups-storm-urgent .questTop{ animation: hudStormPulse .24s ease-in-out infinite; }
+body.groups-storm-urgent .questTop{
+  animation: hudStormPulse .24s ease-in-out infinite;
+}
 @keyframes hudStormPulse{
   0%,100%{ transform: translateZ(0) scale(1.00); }
   50%{ transform: translateZ(0) scale(1.01); }
 }
 
 body.groups-overdrive .hud .box,
-body.groups-overdrive .qbar,
+body.groups-overdrive .questTop .qbar,
 body.groups-overdrive .coachCard{
   box-shadow: 0 18px 60px rgba(34,211,238,.18);
-  border-color: rgba(34,211,238,.30);
+  border-color: rgba(34,211,238,.26);
 }
-body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
+
+body.groups-freeze .fg-target{
+  animation-duration: 1.8s !important;
+  filter: saturate(.92) brightness(.98);
+}
 
 /* ======================
-   Responsive
+   FX: screen flash + pop layer (for groups-fx.js)
    ====================== */
-@media (max-width: 920px){
-  :root{
-    --questW: 320px;
-    --coachW: 220px;
-  }
-  .centerTop{ top: calc(56px + var(--sat)); }
+.fx-flash{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:115;
+  opacity:0;
+  transition: opacity .12s ease;
 }
+.fx-flash.show{ opacity:1; }
+.fx-flash.good{ background: radial-gradient(circle at 50% 50%, rgba(34,197,94,.18), rgba(34,197,94,0) 60%); }
+.fx-flash.bad { background: radial-gradient(circle at 50% 50%, rgba(239,68,68,.20), rgba(239,68,68,0) 60%); }
+.fx-flash.cyan{ background: radial-gradient(circle at 50% 50%, rgba(34,211,238,.18), rgba(34,211,238,0) 60%); }
+
+.fx-layer{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:114;
+  overflow:hidden;
+}
+
+.fx-pop{
+  position:absolute;
+  transform: translate(-50%,-50%);
+  font: 1000 16px/1 system-ui;
+  color:#fff;
+  text-shadow: 0 2px 0 rgba(0,0,0,.35);
+  opacity:0;
+  will-change: transform, opacity;
+  animation: fxPop .55s ease-out both;
+}
+@keyframes fxPop{
+  0%{ opacity:0; transform: translate(-50%,-50%) scale(.75); }
+  20%{ opacity:1; transform: translate(-50%,-62%) scale(1.05); }
+  100%{ opacity:0; transform: translate(-50%,-92%) scale(1.02); }
+}
+
+/* ======================
+   Responsive tuning
+   ====================== */
 @media (max-width: 520px){
-  :root{
-    --pillFS: 11px;
-    --boxFS: 15px;
-    --questW: 300px;
-    --coachW: 210px;
-  }
   .questTop{
-    width: min(var(--questW), 56vw);
+    width: min(300px, 64vw);
     top: calc(58px + var(--sat));
   }
   .coachWrap{
     bottom: calc(90px + var(--sab));
   }
+  .coachCard{
+    width: min(210px, 66vw);
+  }
+  .pill{ padding:8px 10px; }
 }
+
 @media (max-height: 640px){
   .coachCard{ padding: 8px 10px; }
   .coachLine{ min-height: 28px; }
-}
-
-/* ======================
-   Cardboard HUD Mini
-   ====================== */
-body.cardboard{
-  --pillFS: 11px;
-  --boxFS: 15px;
-}
-body.hud-mini .questTop,
-body.hud-mini .coachWrap,
-body.hud-mini .powerWrap{
-  opacity:0;
-  pointer-events:none;
-  transform: translateZ(0) scale(.98);
-}
-body.hud-mini .centerTop{
-  top: calc(8px + var(--sat));
-}
-body.hud-mini .pill{
-  padding:6px 10px;
-}
-body.hud-mini .hud .box{
-  padding:8px 10px;
-  min-width:108px;
+  .questTop{ top: calc(52px + var(--sat)); }
 }
 
 /* reduce motion */
 @media (prefers-reduced-motion: reduce){
-  .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
-  body.groups-storm-urgent .questTop{
+  .fg-target,
+  .fg-target.spawn,
+  .fg-target.hit,
+  .fg-target.out,
+  body.groups-storm-urgent .questTop,
+  body.mini-urgent .questTop .qbar:nth-child(2){
     animation:none !important;
   }
 }
