@@ -1,7 +1,7 @@
 <!-- === /herohealth/plate-vr.html ===
 Balanced Plate VR — PRODUCTION HTML (ROOT)
-✅ Loads CSS/JS from /herohealth/plate/
-✅ Works with plate.safe.js + plate-hud.js (HHA Standard)
+✅ Loads CSS/JS from /plate/
+✅ Works with /plate/plate.safe.js (VR-feel + safezone clamp + PlateRush + End summary + Flush-hardened)
 ✅ Provides ALL required DOM ids:
   plate-layer, hitFx,
   hudTop, miniPanel, hudBtns, coachPanel,
@@ -17,7 +17,7 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="./favicon.ico" />
 
   <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -29,10 +29,8 @@ Balanced Plate VR — PRODUCTION HTML (ROOT)
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder (from /plate/) -->
+  <!-- HUD binder + Game (from /plate/) -->
   <script src="./plate/plate-hud.js?v=20251229" defer></script>
-
-  <!-- Game (from /plate/) -->
   <script src="./plate/plate.safe.js?v=20251229" defer></script>
 </head>
 
