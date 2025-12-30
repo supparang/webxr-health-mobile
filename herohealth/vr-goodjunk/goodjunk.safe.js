@@ -1,5 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v2 Hardened
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard — v3 (Fullscreen/VR + HARDER PACK)
+// ✅ Rage Waves + Drift targets + end=miss option
+// ✅ Miss definition preserved: miss = expire good + junk hit (shield-block does NOT count)
 
 'use strict';
 
@@ -73,7 +75,6 @@ async function flushLogger(reason){
   });
   await Promise.race([ Promise.all(tasks), new Promise(res=>setTimeout(res, 260)) ]);
 }
-
 function logEvent(type, data){
   emit('hha:log_event', { type, data: data || {} });
   try{ if (typeof ROOT.hhaLogEvent === 'function') ROOT.hhaLogEvent(type, data||{}); }catch(_){}
@@ -89,9 +90,9 @@ function rankFromAcc(acc){
 }
 function diffBase(diff){
   diff = String(diff||'normal').toLowerCase();
-  if (diff === 'easy')  return { spawnMs: 980, ttlMs: 2300, size: 1.08, junk: 0.12, power: 0.035, maxT: 7 };
-  if (diff === 'hard')  return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.18, power: 0.025, maxT: 9 };
-  return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
+  if (diff === 'easy')  return { spawnMs: 980, ttlMs: 2300, size: 1.08, junk: 0.12, power: 0.035, maxT: 7, missLimit: 28 };
+  if (diff === 'hard')  return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.18, power: 0.025, maxT: 9, missLimit: 18 };
+  return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8, missLimit: 22 };
 }
 
 function ensureTargetStyles(){
@@ -129,6 +130,7 @@ function ensureTargetStyles(){
     .gj-target.junk{ border-color: rgba(239,68,68,.30); filter: saturate(1.15); }
     .gj-target.star{ border-color: rgba(34,211,238,.32); }
     .gj-target.shield{ border-color: rgba(168,85,247,.32); }
+
     .gj-target.hit{
       transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.25));
       opacity:.18; filter: blur(.7px);
@@ -195,7 +197,6 @@ function randPosEye(rng, safeMargins, eye, dual){
     }
     if (ok) return { x: lx, y };
   }
-
   return { x: left + rng() * (eyeW - left - right), y: top + rng() * (H - top - bottom) };
 }
 
@@ -203,6 +204,7 @@ const GOOD = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','�
 const JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
 const STARS = ['⭐','💎'];
 const SHIELD = '🛡️';
+const DRIFTS = ['drift-1','drift-2','drift-3','drift-4'];
 
 function setXY(el, x, y){
   const px = x.toFixed(1) + 'px';
@@ -322,7 +324,7 @@ export function boot(opts = {}) {
   const runMode = (run === 'research') ? 'research' : 'play';
 
   const timeSec = clamp(Number(opts.time ?? qs('time','80')), 30, 600) | 0;
-  const endPolicy = String(opts.endPolicy || qs('end','time')).toLowerCase();
+  const endPolicy = String(opts.endPolicy || qs('end','time')).toLowerCase();   // time | all | miss
   const challenge = String(opts.challenge || qs('challenge','rush')).toLowerCase();
 
   const sessionId = String(opts.sessionId || qs('sessionId', qs('sid','')) || '');
@@ -331,7 +333,6 @@ export function boot(opts = {}) {
   const seed = String(seedIn || (sessionId ? (sessionId + '|' + ts) : ts));
 
   const ctx = opts.context || {};
-
   const base = diffBase(diff);
 
   const S = {
@@ -348,6 +349,11 @@ export function boot(opts = {}) {
     spawnTimer:0, tickTimer:0,
     spawnMs: base.spawnMs, ttlMs: base.ttlMs, size: base.size,
     junkP: base.junk, powerP: base.power, maxTargets: base.maxT,
+    missLimit: base.missLimit,
+    heat:0,
+    rageNext:0,
+    rageUntil:0,
+    lastHitAt:0,
     uidSeq: 1
   };
 
@@ -369,7 +375,7 @@ export function boot(opts = {}) {
     const acc = S.hitAll > 0 ? Math.round((S.hitGood/S.hitAll)*100) : 0;
     emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
   }
-  function updateTime(){ emit('hha:time', { left: Math.max(0, S.left|0) }); }
+  function updateTime(){ emit('hha:time,', { left: Math.max(0, S.left|0) }); emit('hha:time', { left: Math.max(0, S.left|0) }); }
   function updateQuest(){
     emit('quest:update', {
       goalTitle: `Goal: เก็บของดีให้ครบ`,
@@ -423,6 +429,10 @@ export function boot(opts = {}) {
       judge('warn', 'MISS (หมดเวลา)!');
       updateScore(); updateQuest();
       logEvent('miss_expire', { kind:'good', emoji: String(el.dataset.emoji||'') });
+
+      if (endPolicy === 'miss' && S.misses >= S.missLimit){
+        endGame('miss_limit');
+      }
     }
     el.classList.add('out');
     const mate = getMate(el);
@@ -433,9 +443,9 @@ export function boot(opts = {}) {
     }, 160);
   }
 
-  function makeTarget(type, emoji, x, y, s, uid){
+  function makeTarget(type, emoji, x, y, s, uid, motionCls){
     const el = DOC.createElement('div');
-    el.className = `gj-target ${type}`;
+    el.className = `gj-target ${type}${motionCls ? ` ${motionCls}` : ''}`;
     el.dataset.type = type;
     el.dataset.emoji = String(emoji||'✨');
     el.dataset.uid = String(uid||'');
@@ -486,6 +496,7 @@ export function boot(opts = {}) {
     const pts = scoreGood();
     judge('good', `+${pts}`);
     burstAtEl(el, 'good');
+    S.lastHitAt = now();
 
     logEvent('hit', { kind:'good', emoji:String(el.dataset.emoji||''), score:S.score|0, combo:S.combo|0, fever:Math.round(S.fever) });
 
@@ -496,7 +507,7 @@ export function boot(opts = {}) {
       if (S.combo >= needCombo){
         S.miniCleared++;
         emit('hha:celebrate', { kind:'mini', title:`Mini ผ่าน! +${S.miniCleared}/${S.miniTotal}` });
-        coach('happy', `คอมโบมาแล้ว! ดีมาก 🔥`, `ทำคอมโบต่อได้อีก!`);
+        coach('happy', `คอมโบมาแล้ว! ดีมาก 🔥`, `Rage จะมาเป็นช่วง ๆ นะ!`);
         updateQuest();
       }
     }
@@ -505,7 +516,7 @@ export function boot(opts = {}) {
       if (S.hitGood >= needGood){
         S.goalsCleared++;
         emit('hha:celebrate', { kind:'goal', title:`Goal ผ่าน! ${S.goalsCleared}/${S.goalsTotal}` });
-        coach('happy', `Goal ผ่านแล้ว!`, `คุมความแม่น + หลีกขยะ`);
+        coach('happy', `Goal ผ่านแล้ว!`, `เตรียมรับ Rage Wave 😈`);
         updateQuest();
         if (endPolicy === 'all' && S.goalsCleared >= S.goalsTotal && S.miniCleared >= S.miniTotal){
           endGame('all_complete');
@@ -528,6 +539,7 @@ export function boot(opts = {}) {
     judge('good', 'SHIELD +1');
     emit('hha:celebrate', { kind:'mini', title:'SHIELD 🛡️' });
     burstAtEl(el, 'shield');
+    S.lastHitAt = now();
     logEvent('hit', { kind:'shield', emoji:'🛡️', shield:S.shield|0 });
 
     updateScore(); updateQuest();
@@ -544,6 +556,7 @@ export function boot(opts = {}) {
     judge('good', `BONUS +${pts}`);
     emit('hha:celebrate', { kind:'mini', title:'BONUS ✨' });
     burstAtEl(el, 'star');
+    S.lastHitAt = now();
     logEvent('hit', { kind:'star', emoji:String(el.dataset.emoji||'⭐') });
 
     updateScore(); updateQuest();
@@ -560,6 +573,7 @@ export function boot(opts = {}) {
 
       judge('good', 'SHIELD BLOCK!');
       burstAtEl(el, 'guard');
+      S.lastHitAt = now();
       logEvent('shield_block', { kind:'junk', emoji:String(el.dataset.emoji||'') });
 
       updateScore(); updateQuest();
@@ -576,13 +590,17 @@ export function boot(opts = {}) {
     updateFever(S.shield, S.fever);
 
     judge('bad', `JUNK! -${penalty}`);
-    coach('sad', 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
+    coach('sad', 'โดนขยะแล้ว 😵', `MISS ${S.misses}/${S.missLimit}`);
     burstAtEl(el, 'junk');
 
     logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
 
     updateScore(); updateQuest();
     removeTargetBoth(el);
+
+    if (endPolicy === 'miss' && S.misses >= S.missLimit){
+      endGame('miss_limit');
+    }
   }
 
   function hitTarget(el){
@@ -600,11 +618,14 @@ export function boot(opts = {}) {
 
     const t = now();
     const inWarm = (t < S.warmupUntil);
+    const inRage = (t < S.rageUntil);
 
     let tp = 'good';
     const r = S.rng();
+
     const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
-    const junkP  = inWarm ? (S.junkP * 0.55)  : S.junkP;
+    let junkP  = inWarm ? (S.junkP * 0.55)  : S.junkP;
+    if (inRage) junkP = clamp(junkP + 0.08, 0.08, 0.33);
 
     if (r < powerP) tp = 'shield';
     else if (r < powerP + 0.035) tp = 'star';
@@ -627,26 +648,44 @@ export function boot(opts = {}) {
       (tp === 'star') ? (size * 1.02) :
       size;
 
-    const elL = makeTarget(tp, emoji, pL.x, pL.y, s, uid);
+    // drift probability increases with heat (play only, not research, not warmup)
+    let motion = '';
+    if (S.runMode === 'play' && !inWarm){
+      const p = clamp(0.10 + (S.heat * 0.45), 0, 0.55);
+      if (S.rng() < p) motion = pick(S.rng, DRIFTS);
+    }
+
+    const elL = makeTarget(tp, emoji, pL.x, pL.y, s, uid, motion);
     layerL.appendChild(elL);
 
     if (dual && layerR){
       const pR = randPosEye(S.rng, safeMargins, 1, dual);
-      const elR = makeTarget(tp, emoji, pR.x, pL.y, s, uid);
+      const elR = makeTarget(tp, emoji, pR.x, pL.y, s, uid, motion);
       layerR.appendChild(elR);
     }
 
-    logEvent('spawn', { kind:tp, emoji:String(emoji||''), uid });
+    logEvent('spawn', { kind:tp, emoji:String(emoji||''), uid, rage: inRage ? 1 : 0 });
   }
 
   function loopSpawn(){
     if (!S.running || S.ended) return;
+
     spawnOne();
+
+    // Rage wave makes density spike
+    if (now() < S.rageUntil){
+      if (S.rng() < 0.70) spawnOne();
+      if (S.rng() < 0.35) spawnOne();
+    }
+
     const t = now();
     const inWarm = (t < S.warmupUntil);
+
     let nextMs = S.spawnMs;
     if (inWarm) nextMs = Math.max(980, S.spawnMs + 240);
-    S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 380, 1400));
+    if (t < S.rageUntil) nextMs = clamp(nextMs - 220, 260, 900);
+
+    S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 260, 1400));
   }
 
   function adaptiveTick(){
@@ -655,7 +694,10 @@ export function boot(opts = {}) {
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
 
-    if (S.left <= 0){ endGame('time'); return; }
+    if (S.endPolicy !== 'miss' && S.left <= 0){
+      endGame('time');
+      return;
+    }
 
     if (S.runMode === 'play'){
       const elapsed = (now() - S.tStart) / 1000;
@@ -665,21 +707,48 @@ export function boot(opts = {}) {
       const timeRamp = clamp((elapsed - 3) / 10, 0, 1);
       const skill = clamp((acc - 0.65) * 1.2 + comboHeat * 0.8, 0, 1);
       const heat = clamp(timeRamp * 0.55 + skill * 0.75, 0, 1);
+      S.heat = heat;
 
-      S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
-      S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
-      S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.12);
-      S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
+      S.spawnMs = clamp(base.spawnMs - heat * 340, 380, 1200);
+      S.ttlMs   = clamp(base.ttlMs   - heat * 460, 1080, 2600);
+      S.size    = clamp(base.size    - heat * 0.14, 0.84, 1.12);
+      S.junkP   = clamp(base.junk    + heat * 0.08, 0.08, 0.26);
       S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
 
       const maxBonus = Math.round(heat * 4);
       S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
 
+      // combo decay if no hit for a while (adds pressure)
+      if (S.combo > 0 && S.lastHitAt > 0){
+        const idle = (now() - S.lastHitAt) / 1000;
+        if (idle >= 2.1){
+          S.combo = Math.max(0, S.combo - 1);
+          updateScore();
+          S.lastHitAt = now();
+        }
+      }
+
+      // Rage schedule (every ~8–15 sec depending on heat)
+      if (!S.rageNext) S.rageNext = now() + 9000;
+      if (now() >= S.rageNext){
+        const dur = clamp(1600 + heat*900, 1500, 2600);
+        S.rageUntil = now() + dur;
+
+        const gap = clamp(13000 - heat*5000, 7500, 15000);
+        S.rageNext = now() + gap;
+
+        judge('warn', 'RAGE WAVE!');
+        coach('happy', 'Rage มาแล้ว! เล็งเร็วขึ้น 😈', 'หลบขยะให้ได้!');
+        logEvent('rage_start', { durMs: dur|0, gapMs: gap|0, heat: Math.round(heat*100) });
+      }
+
+      // if fever too high: slightly help (fair)
       if (S.fever >= 70){
         S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
-        S.size  = clamp(S.size + 0.03, 0.86, 1.15);
+        S.size  = clamp(S.size + 0.03, 0.84, 1.16);
       }
     } else {
+      S.heat = 0;
       S.spawnMs = base.spawnMs;
       S.ttlMs   = base.ttlMs;
       S.size    = base.size;
@@ -716,7 +785,15 @@ export function boot(opts = {}) {
     }
 
     if (best) hitTarget(best);
-    else { if (S.combo > 0) S.combo = Math.max(0, S.combo - 1); updateScore(); }
+    else {
+      if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
+      // missed shot increases fever slightly in hard mode
+      if (S.runMode === 'play' && (S.diff === 'hard' || S.heat > 0.65)){
+        S.fever = clamp(S.fever + 1.5, 0, 100);
+        updateFever(S.shield, S.fever);
+      }
+      updateScore();
+    }
   }
 
   function bindInputs(){
@@ -800,7 +877,11 @@ export function boot(opts = {}) {
     S.warmupUntil = now() + 3000;
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
+    S.rageNext = now() + 9000;
+    S.rageUntil = 0;
+    S.lastHitAt = now();
+
+    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้ว “Rage” จะมาเป็นระลอก 😈', `โหมดจบ: ${endPolicy} • MISS ${S.missLimit}`);
     updateScore(); updateTime(); updateQuest();
 
     logEvent('session_start', {
@@ -811,7 +892,8 @@ export function boot(opts = {}) {
       challenge: S.challenge,
       seed: S.seed,
       sessionId: sessionId || '',
-      timeSec: S.timeSec
+      timeSec: S.timeSec,
+      missLimit: S.missLimit
     });
 
     loopSpawn();
