@@ -1,277 +1,199 @@
 // === /herohealth/plate/plate.quest.js ===
-// PlateVR Quest Director (Goals sequential + Minis chain)
-// แยก logic Quest ออกจาก plate.safe.js ให้แก้ง่าย/เพิ่มง่าย
-//
-// Required opts (callbacks):
-// - getState(): state object (S)
-// - now(): ms
-// - setTxt(el, text)
-// - HUD: { goalLine, miniLine, miniHint }
-// - logEvent(type, data)
-// - fxCelebrate(kind, intensity)
-// - fxJudge(label)
-// - flash(kind, ms)
-// - vibe(ms)
-// - AudioX: { warn(), tick() }
-// - dispatchEvt(name, detail)  (for quest:update optional)
-// - doc (for body class urgent)
-// - clamp(v,a,b)
+// Quest Director (Goals sequential + Mini chain) for Plate
+// Provides window.GAME_MODULES.createPlateQuestDirector
 
-'use strict';
+(function (root) {
+  'use strict';
+  const W = root;
 
-import { PLATE_GOALS } from './plate.goals.js';
-import { PLATE_MINIS } from './plate.minis.js';
-
-export function createPlateQuestDirector(opts = {}){
-  const getState = opts.getState || (()=>({}));
-  const now = opts.now || (()=>Date.now());
-  const setTxt = opts.setTxt || (()=>{});
-  const HUD = opts.HUD || {};
-  const logEvent = opts.logEvent || (()=>{});
-  const fxCelebrate = opts.fxCelebrate || (()=>{});
-  const fxJudge = opts.fxJudge || (()=>{});
-  const flash = opts.flash || (()=>{});
-  const vibe = opts.vibe || (()=>{});
-  const AudioX = opts.AudioX || {};
-  const dispatchEvt = opts.dispatchEvt || (()=>{});
-  const doc = opts.doc || null;
-  const clamp = opts.clamp || ((v,a,b)=>Math.max(a,Math.min(b,v)));
-
-  const Q = {
-    goals: PLATE_GOALS,
-    minis: PLATE_MINIS,
-
-    goalIndex: 0,
-    activeGoal: null,
-
-    activeMini: null,
-    miniEndsAt: 0,
-    miniUrgentArmed: false,
-    miniTickAt: 0,
-    mctx: null, // per-mini context
-
-    // public mirror
-    goalsTotal: 2,
-    minisTotal: 7,
-  };
-
-  function goalProgressText(){
-    const S = getState();
-    const g = Q.activeGoal;
-    if(!g) return '0';
-    if(typeof g.progressText === 'function') return g.progressText(S);
-    return '0';
+  function emit(name, detail){
+    try{ W.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
   }
+  function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
 
-  function emitUpdate(){
-    const S = getState();
-    const g = Q.activeGoal;
-    const m = Q.activeMini;
+  function createPlateQuestDirector(opts){
+    opts = opts || {};
+    const state = opts.state; // REQUIRED
+    const onCoach = opts.onCoach || null;
+    const onJudge = opts.onJudge || null;
+    const onCelebrate = opts.onCelebrate || null;
 
-    const leftMs = Math.max(0, Q.miniEndsAt - now());
-    const leftSec = leftMs / 1000;
+    const PlateState = W.GAME_MODULES && W.GAME_MODULES.PlateState;
+    const PlateGoals = W.GAME_MODULES && W.GAME_MODULES.PlateGoals;
+    const PlateMinis = W.GAME_MODULES && W.GAME_MODULES.PlateMinis;
 
-    const goalText = g
-      ? `GOAL ${Q.goalIndex+1}/${Q.goalsTotal}: ${g.title} (${goalProgressText()})`
-      : `GOAL: …`;
+    const Q = {
+      goals: PlateGoals ? PlateGoals.startGoals() : null,
+      activeMini: null,
+      miniCleared: 0,
+      miniTotal: 0
+    };
 
-    let prog = '';
-    if(m && typeof m.progress === 'function'){
-      try{ prog = m.progress(Q.mctx || {}, S) || ''; }catch(_){}
+    function coach(msg, mood){
+      if(typeof onCoach === 'function') onCoach(msg, mood);
+      emit('hha:coach', { game:'plate', msg, mood: mood || 'neutral' });
     }
-    const p = prog ? ` • ${prog}` : '';
-    const miniText = m
-      ? `MINI: ${m.title}${p} • ${leftSec.toFixed(1)}s`
-      : `MINI: …`;
-
-    setTxt(HUD.goalLine, goalText);
-    setTxt(HUD.miniLine, miniText);
-    setTxt(HUD.miniHint, (m && m.hint) ? m.hint : '…');
-
-    // optional event for HUD binder / logging
-    dispatchEvt('quest:update', {
-      goalIndex: Q.goalIndex,
-      goalsTotal: Q.goalsTotal,
-      goalKey: g ? g.key : null,
-      goalTitle: g ? g.title : null,
-      goalProgressText: goalProgressText(),
-
-      miniKey: m ? m.key : null,
-      miniTitle: m ? m.title : null,
-      miniHint: m ? m.hint : null,
-      miniLeftMs: leftMs,
-      miniProgressText: prog,
-      minisCleared: S.minisCleared || 0,
-      minisTotal: Q.minisTotal
-    });
-  }
-
-  function setGoal(i){
-    Q.goalIndex = clamp(i, 0, Q.goals.length-1);
-    Q.activeGoal = Q.goals[Q.goalIndex] || null;
-    emitUpdate();
-  }
-
-  function checkGoalClear(){
-    const S = getState();
-    const g = Q.activeGoal;
-    if(!g) return false;
-    if(typeof g.isClear === 'function') return !!g.isClear(S);
-    return false;
-  }
-
-  function onGoalCleared(){
-    fxCelebrate('GOAL CLEAR!', 1.25);
-    flash('gold', 140);
-    vibe(60);
-    logEvent('goal_clear', { goal: Q.activeGoal ? Q.activeGoal.key : null });
-
-    if(Q.goalIndex + 1 < Q.goals.length) setGoal(Q.goalIndex + 1);
-    else emitUpdate();
-  }
-
-  function startMini(){
-    const S = getState();
-    const idx = (S.minisCleared || 0) % Q.minis.length;
-    const m = Q.minis[idx];
-
-    Q.activeMini = m;
-    Q.mctx = {};
-    Q.miniEndsAt = now() + (m.dur || 8000);
-    Q.miniUrgentArmed = false;
-    Q.miniTickAt = 0;
-
-    try{
-      if(typeof m.init === 'function') m.init(Q.mctx, S);
-    }catch(_){}
-
-    logEvent('mini_start', { mini: m.key, dur: m.dur });
-    emitUpdate();
-  }
-
-  function setUrgent(on){
-    if(!doc || !doc.body) return;
-    if(on) doc.body.classList.add('hha-mini-urgent');
-    else doc.body.classList.remove('hha-mini-urgent');
-  }
-
-  function tick(){
-    const S = getState();
-    const m = Q.activeMini;
-    if(!m) return;
-
-    // mini tick hook
-    try{
-      if(typeof m.tick === 'function') m.tick(Q.mctx || {}, S);
-    }catch(_){}
-
-    const leftMs = Q.miniEndsAt - now();
-    const urgent = (leftMs <= 3000 && leftMs > 0);
-
-    if(urgent && !Q.miniUrgentArmed){
-      Q.miniUrgentArmed = true;
-      setUrgent(true);
-      try{ AudioX.warn && AudioX.warn(); }catch(_){}
-      vibe(20);
+    function judge(text, kind){
+      if(typeof onJudge === 'function') onJudge(text, kind);
+      emit('hha:judge', { game:'plate', text, kind: kind || 'info' });
     }
-    if(!urgent && Q.miniUrgentArmed){
-      Q.miniUrgentArmed = false;
-      setUrgent(false);
+    function celebrate(kind){
+      if(typeof onCelebrate === 'function') onCelebrate(kind);
+      emit('hha:celebrate', { game:'plate', kind: kind || 'ok' });
     }
-    if(urgent){
-      const sec = Math.ceil(leftMs/1000);
-      if(sec !== Q.miniTickAt){
-        Q.miniTickAt = sec;
-        try{ AudioX.tick && AudioX.tick(); }catch(_){}
+
+    function getGoal(){
+      if(!Q.goals || !PlateGoals) return null;
+      return PlateGoals.getActive(Q.goals);
+    }
+
+    function emitUpdate(){
+      const g = getGoal();
+      const m = Q.activeMini;
+
+      const goalPayload = g ? {
+        title: g.title || '—',
+        cur: g.cur || 0,
+        target: g.target || 0,
+        done: !!g.done
+      } : { title:'—', cur:0, target:0, done:false };
+
+      let miniPayload = null;
+      if(m && PlateMinis){
+        const tl = PlateMinis.timeLeft(m);
+        miniPayload = {
+          title: m.title || '—',
+          cur: 0,
+          target: m.durationSec || 0,
+          timeLeft: tl,
+          done: !!m.done
+        };
+      } else {
+        miniPayload = { title:'—', cur:0, target:0, timeLeft:null, done:false };
       }
+
+      emit('quest:update', {
+        game:'plate',
+        goal: goalPayload,
+        mini: miniPayload,
+        miniCountText: `${Q.miniCleared}/${Math.max(Q.miniTotal, Q.miniCleared)}`
+      });
     }
 
-    if(leftMs <= 0){
-      setUrgent(false);
+    function start(){
+      if(state){
+        state.goalsTotal = 2;
+        state.goalsCleared = 0;
+        state.miniCleared = 0;
+        state.miniTotal = 0;
+      }
+      coach('พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪', 'neutral');
+      emitUpdate();
+    }
 
-      let ok = false;
-      try{
-        ok = (typeof m.isClear === 'function') ? !!m.isClear(Q.mctx || {}, S) : false;
-      }catch(_){ ok = false; }
+    function startMiniPlateRush(){
+      if(!PlateMinis) return;
+      const mini = PlateMinis.startMini(PlateMinis.makePlateRush());
+      Q.activeMini = mini;
+      Q.miniTotal = Math.max(Q.miniTotal, Q.miniCleared + 1);
+
+      if(state){
+        state.miniTotal = Q.miniTotal;
+      }
+
+      judge('⚡ MINI START', 'warn');
+      coach('⚡ Plate Rush เริ่มแล้ว! เร่งให้ครบ 5 หมู่!', 'neutral');
+      emitUpdate();
+    }
+
+    function finishMini(ok, reason){
+      const m = Q.activeMini;
+      if(!m || m.done) return;
+      m.done = true;
 
       if(ok){
-        // ผลลัพธ์ mini ผ่าน/ไม่ผ่าน ให้ plate.safe.js เป็นคนให้คะแนน/fever
-        logEvent('mini_clear', { mini: m.key });
+        Q.miniCleared++;
+        if(state){
+          state.miniCleared = Q.miniCleared;
+          state.miniTotal = Q.miniTotal;
+        }
+        celebrate('mini');
+        coach('สุดยอด! Plate Rush ผ่าน! 🔥', 'happy');
       }else{
-        logEvent('mini_fail', { mini: m.key });
+        coach('พลาดนิดเดียว! ลองใหม่ได้ 💪', 'sad');
+        judge(`❌ MINI FAIL (${reason||'fail'})`, 'bad');
       }
 
-      // ปล่อย event ให้ plate.safe.js รับไปให้รางวัล/ลงโทษ (รวมไว้ที่เดียว)
-      dispatchEvt('hha:quest_mini_end', { miniKey: m.key, ok });
-
-      startMini();
-      return;
+      Q.activeMini = null;
+      emitUpdate();
     }
 
-    emitUpdate();
-  }
-
-  // --- External hooks from game ---
-  function onHit(hit, judge){
-    const S = getState();
-    const m = Q.activeMini;
-    if(m && typeof m.onHit === 'function'){
-      try{ m.onHit(Q.mctx || {}, S, hit, judge); }catch(_){}
+    function tickMini(){
+      if(!Q.activeMini || !PlateMinis) return;
+      const tl = PlateMinis.timeLeft(Q.activeMini);
+      if(tl != null && tl <= 0) finishMini(false, 'timeout');
+      emitUpdate();
     }
-    emitUpdate();
-  }
 
-  function onJudge(judge){
-    const S = getState();
-    const m = Q.activeMini;
-    if(m && typeof m.onJudge === 'function'){
-      try{ m.onJudge(Q.mctx || {}, S, judge); }catch(_){}
+    // Call when state changes (hit/expire etc.)
+    function update(){
+      if(!state || !PlateState || !PlateGoals) { emitUpdate(); return; }
+
+      // update goals sequentially
+      PlateGoals.updateGoals(Q.goals, state, {
+        onGoalComplete: (goal)=>{
+          celebrate('goal');
+          if(goal.key === 'fill-plate'){
+            coach('ครบ 5 หมู่แล้ว! ต่อไปคุมความแม่นยำ 😎', 'happy');
+            // trigger Plate Rush once
+            if(!Q.activeMini) startMiniPlateRush();
+          }
+        }
+      });
+
+      // live update accuracy goal cur (display only)
+      const g = getGoal();
+      if(g && g.key === 'accuracy'){
+        g.cur = Math.round(PlateState.accuracyPct(state));
+      }
+
+      emitUpdate();
     }
-    emitUpdate();
 
-    // goal check (perfect goal)
-    if(checkGoalClear()) onGoalCleared();
-  }
-
-  function onPower(kind){
-    const S = getState();
-    const m = Q.activeMini;
-    if(m && typeof m.onPower === 'function'){
-      try{ m.onPower(Q.mctx || {}, S, kind); }catch(_){}
+    // Helpers for “forbid junk”
+    function onJunkHitBlockedByShield(){
+      // nothing special, still update UI
+      emitUpdate();
     }
-    emitUpdate();
+    function onJunkHitNoShield(){
+      // if active mini forbids junk, fail it
+      if(Q.activeMini && Q.activeMini.forbidJunk) finishMini(false, 'hit-junk');
+      emitUpdate();
+    }
+    function onPlateNowComplete5(){
+      // if active mini plate rush and still time left, success
+      if(Q.activeMini && PlateMinis){
+        const tl = PlateMinis.timeLeft(Q.activeMini);
+        if(tl != null && tl > 0) finishMini(true, 'rush-complete');
+      }
+      emitUpdate();
+    }
+
+    return {
+      start,
+      update,
+      tickMini,
+      getGoal,
+      getMini: ()=>Q.activeMini,
+      startMiniPlateRush,
+      finishMini,
+      onJunkHitBlockedByShield,
+      onJunkHitNoShield,
+      onPlateNowComplete5
+    };
   }
 
-  function onPlateCompleted(){
-    // plate.safe.js จะเพิ่ม goalsCleared อยู่แล้ว — ที่นี่แค่เช็ก goal
-    if(checkGoalClear()) onGoalCleared();
-    else emitUpdate();
-  }
+  W.GAME_MODULES = W.GAME_MODULES || {};
+  W.GAME_MODULES.createPlateQuestDirector = createPlateQuestDirector;
 
-  function reset(){
-    Q.goalIndex = 0;
-    Q.activeGoal = null;
-    Q.activeMini = null;
-    Q.mctx = null;
-    Q.miniEndsAt = 0;
-    Q.miniUrgentArmed = false;
-    Q.miniTickAt = 0;
-
-    setGoal(0);
-    startMini();
-  }
-
-  // init
-  setGoal(0);
-  startMini();
-
-  return {
-    reset,
-    tick,
-    onHit,
-    onJudge,
-    onPower,
-    onPlateCompleted,
-    setGoal, // เผื่ออยากบังคับ
-  };
-}
+})(window);
