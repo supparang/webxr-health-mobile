@@ -1,4 +1,695 @@
-/* ===== Plate VR: Brutal+++ visuals ===== */
+/* === /herohealth/plate/plate-vr.css ===
+Balanced Plate VR — PRODUCTION CSS (ROOT)
+✅ Responsive: PC / Mobile / VR Cardboard (landscape)
+✅ Safe-area: iOS notch + Android
+✅ HUD: top stats + fever/shield + plate counts
+✅ Quest: GOAL + MINI bars + hint
+✅ Coach panel + buttons + start/pause/result overlays
+✅ Targets: emoji bubble + pop + hover + tap feel
+✅ Brutal+++: Decoy Junk + Fake Shield visuals (no extra JS required)
+*/
+
+:root{
+  color-scheme: dark;
+
+  /* Palette */
+  --bg:#020617;
+  --panel:rgba(2,6,23,.78);
+  --panel2:rgba(15,23,42,.72);
+  --stroke:rgba(148,163,184,.20);
+  --stroke2:rgba(148,163,184,.14);
+
+  --text:#e5e7eb;
+  --muted:#94a3b8;
+  --muted2:#64748b;
+
+  --accent:#22c55e;
+  --accent2:#34d399;
+  --warn:#f59e0b;
+  --bad:#ef4444;
+  --good:#22c55e;
+
+  --cyan:#22d3ee;
+  --violet:#a78bfa;
+
+  --radius-lg:18px;
+  --radius-md:14px;
+  --radius-sm:12px;
+  --pill:999px;
+
+  --shadow: 0 22px 70px rgba(0,0,0,.40);
+  --shadow2: 0 16px 44px rgba(0,0,0,.32);
+
+  /* Safe area */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+
+  /* Layout */
+  --pad: 12px;
+  --hudMaxW: 980px;
+
+  /* Target */
+  --targetStroke: rgba(148,163,184,.18);
+  --targetBg: rgba(2,6,23,.55);
+  --targetGlow: rgba(34,197,94,.12);
+}
+
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
+html, body{
+  width:100%;
+  height:100%;
+  margin:0;
+  padding:0;
+  overflow:hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+}
+
+a{ color:inherit; }
+
+button{
+  font-family:inherit;
+}
+
+#plate-layer{
+  position:fixed;
+  inset:0;
+  z-index:8;
+  pointer-events:none; /* allow targets to be clickable via pointer-events:auto on them */
+  transform: translateZ(0);
+}
+
+#hitFx{
+  position:fixed;
+  inset:0;
+  z-index:9;
+  opacity:0;
+  pointer-events:none;
+  transition: opacity .12s ease;
+}
+
+/* ---------- HUD TOP ---------- */
+#hudTop{
+  position:fixed;
+  top: calc(var(--sat) + var(--pad));
+  left: calc(var(--sal) + var(--pad));
+  right: calc(var(--sar) + var(--pad));
+  z-index:20;
+
+  max-width: var(--hudMaxW);
+  margin: 0 auto;
+
+  background: linear-gradient(180deg, rgba(2,6,23,.82), rgba(2,6,23,.62));
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  padding: 10px 10px 8px;
+}
+
+.hudRow{
+  display:grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1.1fr .9fr;
+  gap: 8px;
+  align-items:stretch;
+}
+
+.hudRow2{
+  margin-top: 8px;
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+}
+
+.hudStat{
+  border: 1px solid var(--stroke2);
+  background: rgba(15,23,42,.34);
+  border-radius: 14px;
+  padding: 8px 10px;
+  min-height: 52px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+.hudStat .k{
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  color: rgba(148,163,184,.95);
+}
+
+.hudStat .v{
+  font-size: 18px;
+  font-weight: 1000;
+  margin-top: 2px;
+  line-height: 1.1;
+}
+
+.muted{ color: var(--muted); font-weight: 900; }
+
+.plateChip .v,
+.timeChip .v,
+.gradeChip .v{ font-size: 17px; }
+
+.gradeChip .v #uiGrade{
+  font-size: 20px;
+  letter-spacing: .02em;
+  text-shadow: 0 2px 0 rgba(0,0,0,.18);
+}
+
+.timeChip .v{
+  display:flex;
+  gap:4px;
+  align-items:baseline;
+}
+
+/* Fever + Shield */
+.feverWrap{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  flex-wrap:wrap;
+}
+
+.feverLabel{
+  font-weight: 1100;
+  font-size: 12px;
+  letter-spacing: .05em;
+  color: rgba(148,163,184,.92);
+}
+
+.feverBar{
+  width: 240px;
+  height: 12px;
+  background: rgba(148,163,184,.14);
+  border-radius: var(--pill);
+  overflow:hidden;
+  border: 1px solid var(--stroke2);
+}
+
+.feverFill{
+  height:100%;
+  width:0%;
+  background: linear-gradient(90deg, rgba(34,197,94,.88), rgba(245,158,11,.88), rgba(239,68,68,.92));
+  border-radius: var(--pill);
+  transition: width .12s linear;
+}
+
+.shieldPill{
+  display:inline-flex;
+  align-items:center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--pill);
+  border: 1px solid var(--stroke2);
+  background: rgba(15,23,42,.38);
+  font-weight: 1000;
+  box-shadow: 0 10px 24px rgba(0,0,0,.18);
+}
+
+/* Plate counts */
+.plateCounts{
+  display:flex;
+  gap: 8px;
+  align-items:center;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--pill);
+  border: 1px solid var(--stroke2);
+  background: rgba(15,23,42,.32);
+  font-weight: 1000;
+  color: rgba(226,232,240,.96);
+}
+
+.pill b{
+  font-weight: 1200;
+}
+
+/* ---------- COACH PANEL ---------- */
+#coachPanel{
+  position:fixed;
+  left: calc(var(--sal) + var(--pad));
+  top: calc(var(--sat) + 112px);
+  z-index:19;
+
+  display:flex;
+  gap: 10px;
+  align-items:center;
+
+  width: min(420px, calc(100vw - var(--sal) - var(--sar) - 2*var(--pad)));
+  padding: 10px 10px;
+  border-radius: var(--radius-lg);
+
+  background: rgba(2,6,23,.70);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+#coachPanel img{
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  border: 1px solid var(--stroke2);
+  background: rgba(15,23,42,.32);
+  object-fit: cover;
+  user-select:none;
+  -webkit-user-drag:none;
+}
+
+.coachText{
+  display:flex;
+  flex-direction:column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.coachName{
+  font-weight: 1100;
+  font-size: 12px;
+  letter-spacing: .04em;
+  color: rgba(148,163,184,.96);
+}
+
+.coachMsg{
+  font-weight: 1000;
+  font-size: 14px;
+  line-height: 1.25;
+  color: rgba(226,232,240,.98);
+  overflow:hidden;
+  text-overflow: ellipsis;
+  display:-webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* ---------- QUEST / MINI PANEL ---------- */
+#miniPanel{
+  position:fixed;
+  right: calc(var(--sar) + var(--pad));
+  top: calc(var(--sat) + 112px);
+  z-index:19;
+
+  width: min(420px, calc(100vw - var(--sal) - var(--sar) - 2*var(--pad)));
+  padding: 10px 10px;
+  border-radius: var(--radius-lg);
+
+  background: rgba(2,6,23,.70);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.questBlock{
+  padding: 8px 8px;
+  border-radius: 14px;
+  border: 1px solid var(--stroke2);
+  background: rgba(15,23,42,.30);
+}
+
+.questBlock + .questBlock{
+  margin-top: 8px;
+}
+
+.questHdr{
+  display:flex;
+  gap: 8px;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.qTitle{
+  flex:1;
+  min-width:0;
+  font-weight: 1100;
+  font-size: 13px;
+  color: rgba(226,232,240,.98);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.qCount{
+  font-weight: 1000;
+  font-size: 12px;
+  color: rgba(148,163,184,.96);
+}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: var(--pill);
+  font-weight: 1200;
+  font-size: 11px;
+  letter-spacing: .06em;
+  border: 1px solid var(--stroke2);
+}
+
+.badgeGoal{
+  background: rgba(34,197,94,.14);
+  color: rgba(187,247,208,.98);
+}
+
+.badgeMini{
+  background: rgba(245,158,11,.14);
+  color: rgba(253,230,138,.98);
+}
+
+.bar{
+  margin-top: 8px;
+  height: 10px;
+  border-radius: var(--pill);
+  overflow:hidden;
+  background: rgba(148,163,184,.12);
+  border: 1px solid var(--stroke2);
+}
+
+.barFill{
+  height:100%;
+  width:0%;
+  border-radius: var(--pill);
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,197,94,.65));
+  transition: width .12s linear;
+}
+
+.barFill.mini{
+  background: linear-gradient(90deg, rgba(245,158,11,.95), rgba(245,158,11,.65));
+}
+
+.hint{
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(148,163,184,.96);
+  line-height: 1.3;
+}
+
+/* ---------- BUTTONS ---------- */
+#hudBtns{
+  position:fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--sab) + var(--pad));
+  z-index:21;
+
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  justify-content:center;
+
+  padding: 10px 12px;
+  border-radius: var(--pill);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.72);
+  box-shadow: var(--shadow2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.btn{
+  border: 1px solid rgba(34,197,94,.28);
+  background: rgba(34,197,94,.12);
+  color: rgba(226,232,240,.98);
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-weight: 1100;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 14px 30px rgba(0,0,0,.18);
+  transition: transform .08s ease, filter .12s ease, background .12s ease, border-color .12s ease;
+}
+
+.btn:hover{ filter: brightness(1.06); }
+.btn:active{ transform: translateY(1px) scale(.99); }
+
+.btn.ghost{
+  border-color: rgba(148,163,184,.24);
+  background: rgba(15,23,42,.30);
+}
+
+.btn.big{
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 15px;
+}
+
+/* ---------- PAUSE OVERLAY ---------- */
+#hudPaused{
+  position:fixed;
+  inset:0;
+  z-index:40;
+  display:none;
+  place-items:center;
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.pausedCard{
+  width: min(520px, calc(100vw - 2*var(--pad)));
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.80);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  text-align:center;
+}
+
+.pausedTitle{
+  font-weight: 1200;
+  font-size: 18px;
+}
+
+.pausedText{
+  margin-top: 6px;
+  font-weight: 900;
+  color: rgba(148,163,184,.96);
+}
+
+/* ---------- START OVERLAY ---------- */
+#startOverlay{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:none;
+  place-items:center;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(56,189,248,.14), transparent 55%),
+    radial-gradient(circle at 80% 70%, rgba(34,197,94,.14), transparent 55%),
+    rgba(2,6,23,.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.startCard{
+  width: min(620px, calc(100vw - 2*var(--pad)));
+  border-radius: 22px;
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.82);
+  box-shadow: var(--shadow);
+  padding: 18px 16px;
+}
+
+.startTitle{
+  font-weight: 1300;
+  font-size: 22px;
+  letter-spacing: .01em;
+}
+
+.startSub{
+  margin-top: 8px;
+  font-weight: 900;
+  color: rgba(226,232,240,.92);
+  line-height: 1.35;
+}
+
+.startMeta{
+  margin-top: 12px;
+  display:flex;
+  gap: 8px;
+  flex-wrap:wrap;
+}
+
+.metaPill{
+  padding: 7px 10px;
+  border-radius: var(--pill);
+  border: 1px solid var(--stroke2);
+  background: rgba(15,23,42,.34);
+  font-weight: 1000;
+  color: rgba(148,163,184,.98);
+}
+
+.metaPill b{
+  color: rgba(226,232,240,.98);
+}
+
+.startBtns{
+  margin-top: 14px;
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.startFoot{
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(148,163,184,.92);
+}
+
+/* ---------- RESULT OVERLAY ---------- */
+#resultBackdrop{
+  position:fixed;
+  inset:0;
+  z-index:60;
+  display:none;
+  place-items:center;
+  background: rgba(2,6,23,.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.resultCard{
+  width: min(760px, calc(100vw - 2*var(--pad)));
+  border-radius: 22px;
+  border: 1px solid var(--stroke);
+  background: rgba(2,6,23,.84);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.resultTitle{
+  font-weight: 1300;
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.resultGrid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 8px;
+}
+
+.resultItem{
+  border: 1px solid var(--stroke2);
+  background: rgba(15,23,42,.30);
+  border-radius: 14px;
+  padding: 10px;
+  min-height: 56px;
+}
+
+.resultItem .k{
+  font-weight: 1000;
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: rgba(148,163,184,.96);
+}
+
+.resultItem .v{
+  margin-top: 4px;
+  font-weight: 1300;
+  font-size: 18px;
+}
+
+.resultPlate{
+  margin-top: 10px;
+  border: 1px solid var(--stroke2);
+  background: rgba(15,23,42,.22);
+  border-radius: 16px;
+  padding: 10px;
+}
+
+.plateRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap: 8px;
+}
+
+.totalRow{
+  margin-top: 8px;
+  font-weight: 1100;
+  color: rgba(226,232,240,.92);
+}
+
+.resultBtns{
+  margin-top: 12px;
+  display:flex;
+  gap: 10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+
+/* ---------- TARGETS ---------- */
+.plateTarget{
+  position:fixed; /* JS sets */
+  z-index: 10; /* above hitFx background but below HUD panels */
+  pointer-events:auto;
+
+  border-radius: var(--pill);
+  border: 1px solid var(--targetStroke);
+  background: var(--targetBg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  box-shadow: 0 18px 44px rgba(0,0,0,.28), 0 0 0 0 rgba(34,197,94,0);
+  transform: translateZ(0);
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+
+  transition:
+    transform .09s ease,
+    filter .10s ease,
+    box-shadow .12s ease,
+    border-color .12s ease;
+}
+
+.plateTarget:hover{
+  filter: brightness(1.08) saturate(1.05);
+  border-color: rgba(34,197,94,.22);
+  box-shadow: 0 18px 44px rgba(0,0,0,.28), 0 0 0 7px rgba(34,197,94,.10);
+}
+
+.plateTarget:active{
+  transform: translateZ(0) scale(.98);
+  filter: brightness(1.10);
+}
+
+@keyframes platePopIn{
+  from{ transform: translateZ(0) scale(.90); opacity: .0; }
+  to{ transform: translateZ(0) scale(1.0); opacity: 1; }
+}
+
+/* (Optional) If you want pop-in, uncomment next line and add in JS via class */
+/* .plateTarget{ animation: platePopIn .10s ease; } */
+
+/* ---------- Brutal+++ VISUALS ---------- */
+/* Decoy Junk = show as good-looking then flips to junk (JS changes textContent) */
 .plateTarget.is-decoy{
   outline: 2px dashed rgba(250,204,21,.35);
   animation: plateDecoyFlicker .28s ease-in-out infinite;
@@ -7,11 +698,110 @@
   0%,100%{ filter:brightness(1.08) saturate(1.15); }
   50%{ filter:brightness(1.28) saturate(1.35); }
 }
+
+/* Fake shield trap */
 .plateTarget[data-kind="fakeShield"]{
+  border-color: rgba(239,68,68,.25);
   box-shadow: 0 18px 44px rgba(0,0,0,.28), 0 0 0 7px rgba(239,68,68,.10);
   animation: plateFakeShield .55s ease-in-out infinite;
 }
 @keyframes plateFakeShield{
   0%,100%{ filter:brightness(1.02) contrast(1); }
   50%{ filter:brightness(1.24) contrast(1.08); }
+}
+
+/* Real shield highlight */
+.plateTarget[data-kind="shield"]{
+  border-color: rgba(34,211,238,.22);
+  box-shadow: 0 18px 44px rgba(0,0,0,.28), 0 0 0 7px rgba(34,211,238,.10);
+}
+
+/* ---------- Small screen adjustments ---------- */
+@media (max-width: 520px){
+  :root{ --pad: 10px; }
+
+  #hudTop{
+    padding: 10px 10px 8px;
+  }
+
+  .hudRow{
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .hudStat{
+    min-height: 50px;
+  }
+
+  .hudStat .v{ font-size: 17px; }
+
+  .feverBar{ width: 200px; }
+
+  #coachPanel{
+    top: calc(var(--sat) + 152px);
+    width: min(420px, calc(100vw - 2*var(--pad)));
+  }
+
+  #miniPanel{
+    top: calc(var(--sat) + 232px);
+    width: min(420px, calc(100vw - 2*var(--pad)));
+  }
+
+  #hudBtns{
+    gap: 8px;
+    padding: 10px 10px;
+  }
+
+  .btn{
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+}
+
+/* ---------- Landscape / VR Cardboard feel ---------- */
+@media (orientation: landscape) and (max-height: 520px){
+  #hudTop{
+    top: calc(var(--sat) + 8px);
+    padding: 8px 8px 6px;
+  }
+
+  .hudRow{
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
+    gap: 6px;
+  }
+  .hudStat{ min-height: 44px; padding: 6px 8px; }
+  .hudStat .v{ font-size: 16px; }
+
+  /* Move coach+quest down less (tight height) */
+  #coachPanel{
+    top: calc(var(--sat) + 86px);
+    left: calc(var(--sal) + 8px);
+    padding: 8px;
+    width: min(360px, calc(100vw * .42));
+  }
+  #coachPanel img{ width: 46px; height: 46px; border-radius: 14px; }
+
+  #miniPanel{
+    top: calc(var(--sat) + 86px);
+    right: calc(var(--sar) + 8px);
+    padding: 8px;
+    width: min(380px, calc(100vw * .46));
+  }
+
+  #hudBtns{
+    bottom: calc(var(--sab) + 8px);
+    padding: 8px 10px;
+  }
+
+  .btn{ padding: 9px 12px; border-radius: 14px; }
+}
+
+/* ---------- Accessibility / reduce motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  *{
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
