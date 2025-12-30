@@ -1,8 +1,11 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard (VR Ultra-Compact HUD)
-✅ Quest moved into HUD badge (so VR can be single-bar)
-✅ Dual-eye playfield for VR/cVR
-✅ Start gate overlay (boot.js starts engine only after Start)
+GoodJunkVR (PRODUCTION) — HHA Standard
+✅ DOM emoji targets (dual-eye for VR/cVR)
+✅ HUD + Quest + Coach + Fever/Shield
+✅ Quest Peek (stealth HUD helper)
+✅ Start gate: starts AFTER pressing "เริ่มเล่น"
+✅ VR hint overlay OK -> hide (does NOT start game)
+✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
 -->
 
 <!doctype html>
@@ -28,7 +31,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard (VR Ultra-Compact HUD)
 </head>
 
 <body>
-  <!-- ===== HUD (single stack; VR uses compact styles) ===== -->
+  <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
       <div class="hud-badge">
@@ -42,20 +45,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard (VR Ultra-Compact HUD)
           <button class="pill" id="btnViewCVR" type="button">cVR</button>
           <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
           <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
-        </div>
-
-        <!-- ✅ Quest moved here for VR compact -->
-        <div class="hud-quest-mini" aria-label="quest-mini">
-          <div class="q-row">
-            <div class="q-title" id="hudGoalTitle">Goal: —</div>
-            <div class="q-count" id="hudGoalCount">0/0</div>
-          </div>
-          <div class="q-row">
-            <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
-            <div class="q-count" id="hudMiniCount">0/0</div>
-            <div class="q-timer" id="hudMiniTimer"></div>
-          </div>
-          <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
+          <button class="pill ghost" id="btnHudToggle" type="button">HUD</button>
         </div>
       </div>
 
@@ -66,8 +56,22 @@ GoodJunkVR (PRODUCTION) — HHA Standard (VR Ultra-Compact HUD)
         <div class="hud-stat"><div class="k">Time</div><div class="v" id="hhaTime">0</div></div>
         <div class="hud-stat grade"><div class="k">Grade</div><div class="v" id="hhaGrade">—</div></div>
       </div>
+    </div>
 
-      <!-- Coach stays for PC/Mobile; VR hides via CSS -->
+    <div class="hud-mid">
+      <div class="hud-quest">
+        <div class="q-row">
+          <div class="q-title" id="hudGoalTitle">Goal: —</div>
+          <div class="q-count" id="hudGoalCount">0/0</div>
+        </div>
+        <div class="q-row">
+          <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
+          <div class="q-count" id="hudMiniCount">0/0</div>
+          <div class="q-timer" id="hudMiniTimer"></div>
+        </div>
+        <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
+      </div>
+
       <div class="hud-coach">
         <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
         <div class="coach-talk">
@@ -109,6 +113,13 @@ GoodJunkVR (PRODUCTION) — HHA Standard (VR Ultra-Compact HUD)
 
     <!-- end summary placeholder -->
     <div id="end-summary"></div>
+  </div>
+
+  <!-- ===== Quest Peek (stealth helper) ===== -->
+  <div id="questPeek" class="quest-peek" hidden>
+    <div class="qp-title" id="qpTitle">Goal: —</div>
+    <div class="qp-sub" id="qpSub">Mini: —</div>
+    <div class="qp-count" id="qpCount">0/0 • 0/0</div>
   </div>
 
   <!-- ===== Controls ===== -->
