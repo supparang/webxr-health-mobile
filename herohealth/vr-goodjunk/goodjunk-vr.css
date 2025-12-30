@@ -1,11 +1,9 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SAFE layout (v3)
-✅ stage uses stable dvh-style offsets (reduce address-bar jump/flash)
-✅ reserves space for HUD(top) + fever + controls(bottom)
-✅ VR/cVR dual-eye split + HUD compact
-✅ Fullscreen (body.is-fs) layout tighten
-✅ Overlay gating: body.booting / body.overlay-open prevents "targets flash behind"
-✅ Fever FX: vignette + shake + stun flash classes
+GoodJunkVR UI — SAFE layout (v4 HELL)
+✅ dvh-style reserved zones
+✅ VR/cVR split + fullscreen tighten
+✅ Overlay gating: body.booting / body.overlay-open prevents target flash behind
+✅ HELL FX: fever vignette + shake + crosshair jitter + danger pulse
 */
 
 :root{
@@ -28,12 +26,9 @@ GoodJunkVR UI — SAFE layout (v3)
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
-  /* reserved zones */
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
-
-  /* playfield padding helper */
   --gap: 12px;
 }
 
@@ -50,9 +45,7 @@ html,body{
   overflow:hidden;
 }
 
-/* ------------------------------------
-   HUD
------------------------------------- */
+/* ---------- HUD ---------- */
 .hha-hud{
   position:fixed;
   left:0; right:0;
@@ -67,7 +60,6 @@ html,body{
   align-items:flex-start;
   justify-content:space-between;
 }
-
 .hud-badge{
   width:min(520px, 58vw);
   background:var(--panel);
@@ -79,7 +71,6 @@ html,body{
 }
 .hud-title{ font-weight:900; letter-spacing:.2px; font-size:18px; }
 .hud-sub{ margin-top:4px; color:var(--muted); font-size:12px; font-weight:800; }
-
 .viewbar{
   margin-top:10px;
   display:flex;
@@ -154,9 +145,7 @@ html,body{
 .coach-line{ font-weight:1000; }
 .coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:900; }
 
-/* ------------------------------------
-   FEVER
------------------------------------- */
+/* ---------- FEVER ---------- */
 .hha-fever{
   position:fixed;
   left:12px; right:12px;
@@ -195,9 +184,7 @@ html,body{
 .shield-label{ color:var(--muted); font-weight:1000; }
 .shield-pills{ display:flex; flex-wrap:wrap; gap:6px; }
 
-/* ------------------------------------
-   PLAYFIELD
------------------------------------- */
+/* ---------- PLAYFIELD ---------- */
 #gj-stage{
   position:fixed;
   left:0; right:0;
@@ -208,27 +195,27 @@ html,body{
   overflow:hidden;
 }
 
-/* Vignette + fever pulse (pure CSS, driven by body classes) */
+/* Fever vignette */
 #gj-stage::after{
   content:"";
   position:absolute; inset:-2px;
   pointer-events:none;
   opacity:0;
   background:
-    radial-gradient(circle at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 92%),
-    radial-gradient(circle at 22% 15%, rgba(239,68,68,.16), transparent 55%),
-    radial-gradient(circle at 85% 85%, rgba(239,68,68,.12), transparent 58%);
+    radial-gradient(circle at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.58) 94%),
+    radial-gradient(circle at 22% 15%, rgba(239,68,68,.18), transparent 55%),
+    radial-gradient(circle at 85% 85%, rgba(239,68,68,.14), transparent 58%);
   transition: opacity 180ms ease;
 }
-body.fever-high #gj-stage::after{ opacity:.65; }
-body.fever-max #gj-stage::after{ opacity:.92; }
+body.fever-high #gj-stage::after{ opacity:.66; }
+body.fever-max  #gj-stage::after{ opacity:.92; }
 
-@keyframes feverPulse{
+@keyframes dangerPulse{
   0%{ filter:saturate(1) brightness(1); }
-  50%{ filter:saturate(1.2) brightness(1.06); }
+  50%{ filter:saturate(1.22) brightness(1.07); }
   100%{ filter:saturate(1) brightness(1); }
 }
-body.fever-high{ animation: feverPulse 900ms ease-in-out infinite; }
+body.fever-high{ animation: dangerPulse 880ms ease-in-out infinite; }
 
 @keyframes shake1{
   0%{ transform: translate3d(0,0,0); }
@@ -246,36 +233,29 @@ body.fever-high{ animation: feverPulse 900ms ease-in-out infinite; }
   80%{ transform: translate3d(2px,2px,0); }
   100%{ transform: translate3d(0,0,0); }
 }
-@keyframes stunFlash{
-  0%{ opacity:0; }
-  18%{ opacity:.75; }
-  100%{ opacity:0; }
-}
-
 body.shake-1 #gj-stage{ animation: shake1 120ms linear 1; }
 body.shake-2 #gj-stage{ animation: shake2 160ms linear 1; }
-body.stun #gj-stage::before{
-  content:"";
-  position:absolute; inset:0;
-  pointer-events:none;
-  background: radial-gradient(circle at center, rgba(255,255,255,.32), rgba(255,255,255,0) 55%);
-  animation: stunFlash 420ms ease-out 1;
+
+@keyframes crossJitter{
+  0%{ transform: translate(-50%,-50%) rotate(0deg); }
+  20%{ transform: translate(-50%,-50%) rotate(-4deg) translate(-1px,1px); }
+  40%{ transform: translate(-50%,-50%) rotate(3deg) translate(1px,-1px); }
+  60%{ transform: translate(-50%,-50%) rotate(-3deg) translate(-1px,-1px); }
+  80%{ transform: translate(-50%,-50%) rotate(4deg) translate(1px,1px); }
+  100%{ transform: translate(-50%,-50%) rotate(0deg); }
+}
+body.fever-max .gj-crosshair::before{
+  animation: crossJitter 260ms linear infinite;
+  box-shadow: 0 0 0 6px rgba(239,68,68,.10);
 }
 
 /* eyes */
-.gj-eye{
-  position:absolute;
-  top:0; bottom:0;
-  width:100%;
-}
+.gj-eye{ position:absolute; top:0; bottom:0; width:100%; }
 .eye-l{ left:0; }
 .eye-r{ left:0; display:none; }
 
 /* layers fill */
-.gj-layer, .gj-crosshair, .atk-ring, .atk-laser{
-  position:absolute;
-  inset:0;
-}
+.gj-layer, .gj-crosshair, .atk-ring, .atk-laser{ position:absolute; inset:0; }
 
 /* crosshair */
 .gj-crosshair{ pointer-events:none; }
@@ -305,9 +285,7 @@ body.stun #gj-stage::before{
 }
 .atk-laser{ pointer-events:none; opacity:0; }
 
-/* ------------------------------------
-   CONTROLS
------------------------------------- */
+/* ---------- CONTROLS ---------- */
 .hha-controls{
   position:fixed;
   left:12px; right:12px;
@@ -328,9 +306,7 @@ body.stun #gj-stage::before{
 }
 .btn-shoot:active{ transform: translateY(1px); }
 
-/* ------------------------------------
-   OVERLAYS
------------------------------------- */
+/* ---------- OVERLAYS ---------- */
 .start-overlay{
   position:fixed;
   inset:0;
@@ -387,30 +363,23 @@ body.stun #gj-stage::before{
 .vr-title{ font-size:22px; font-weight:1000; }
 .vr-desc{ margin-top:8px; color:var(--text); font-weight:900; line-height:1.35; }
 
-/* ------------------------------------
-   GATING / anti-flash
------------------------------------- */
-/* ระหว่าง overlay เปิด: กันคลิก/ยิง และลดการเห็น "แว้บ" */
+/* ---------- GATING / anti-flash ---------- */
 body.overlay-open #gj-stage,
 body.overlay-open .hha-controls{
   pointer-events:none !important;
   filter: blur(8px);
   opacity:.18;
 }
-/* ตอน booting (รอเริ่มเล่น): ซ่อน playfield ให้ชัวร์ */
 body.booting #gj-stage,
 body.booting .hha-controls{
   opacity:0 !important;
   pointer-events:none !important;
 }
 
-/* ------------------------------------
-   VIEW MODES
------------------------------------- */
+/* ---------- VIEW MODES ---------- */
 body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
 body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
 
-/* VR/cVR compact HUD */
 body.view-vr, body.view-cvr{
   --hudH: 124px;
   --feverH: 74px;
@@ -420,20 +389,12 @@ body.view-vr, body.view-cvr{
 /* VR/cVR split */
 body.view-vr .eye-r,
 body.view-cvr .eye-r{ display:block; }
-
 body.view-vr .eye-l,
 body.view-cvr .eye-l{ width:50%; left:0; }
-
 body.view-vr .eye-r,
 body.view-cvr .eye-r{ width:50%; left:50%; }
 
-/* VR crosshair smaller */
-body.view-vr .gj-crosshair::before,
-body.view-cvr .gj-crosshair::before{
-  width:26px; height:26px;
-}
-
-/* In VR: hide coach to clear space + tighten badge */
+/* In VR: hide coach, tighten hud */
 body.view-vr .hud-coach,
 body.view-cvr .hud-coach{ display:none; }
 body.view-vr .hud-badge,
@@ -455,23 +416,15 @@ body.view-cvr .hud-quest{
   padding:10px;
 }
 
-/* ------------------------------------
-   FULLSCREEN tuning
------------------------------------- */
-body.is-fs{
-  --gap: 10px;
-}
+/* ---------- FULLSCREEN tuning ---------- */
+body.is-fs{ --gap: 10px; }
 body.is-fs.view-mobile{ --hudH: 210px; --ctrlH: 86px; --feverH: 82px; }
 body.is-fs.view-vr,
 body.is-fs.view-cvr{ --hudH: 112px; --ctrlH: 82px; --feverH: 70px; }
-
-/* fullscreen: make buttons smaller */
 body.is-fs .pill{ padding:7px 10px; font-size:12px; }
 body.is-fs .btn-shoot{ height:68px; font-size:22px; }
 
-/* ------------------------------------
-   Small screens cleanup
------------------------------------- */
+/* ---------- Small screens ---------- */
 @media (max-width:520px){
   .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
   .hud-badge{ width: 60vw; }
