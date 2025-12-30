@@ -1,10 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + BOSS MINI
+GoodJunkVR (PRODUCTION) — HHA Standard
 ✅ DOM emoji targets (dual-eye for VR/cVR)
 ✅ HUD + Quest + Coach + Fever/Shield
-✅ HUD modes: Full/Compact/Hide + Hold-to-Peek
-✅ Boss bar UI
-✅ Start-gate: starts AFTER pressing "เริ่มเล่น"
+✅ HUD Peek (show objectives while HUD hidden)
+✅ BossBar (phase + bad limit)
+✅ Start overlay gate (press start -> engine.start)
 -->
 
 <!doctype html>
@@ -18,20 +18,46 @@ GoodJunkVR (PRODUCTION) — HHA Standard + BOSS MINI
 
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
-  <!-- Global FX + Fever + HUD + Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
-  <!-- ===== HUD PEEK button (shown in HUD-HIDE mode) ===== -->
-  <div class="hud-peek" id="hudPeek" aria-label="peek hud">
-    <button class="peek-btn" id="btnPeekHud" type="button">กดค้างดูภารกิจ</button>
+  <!-- ===== HUD Peek (always usable) ===== -->
+  <div id="hudPeek" class="hud-peek" aria-label="peek objectives">
+    <div class="peek-row">
+      <span class="peek-pill" id="hudPeekGoal">GOOD 0/0</span>
+      <span class="peek-pill cyan" id="hudPeekMini">—</span>
+      <span class="peek-pill warn" id="hudPeekTime">0s</span>
+    </div>
+    <div class="peek-boss" id="hudPeekBoss"></div>
+    <div class="peek-hint">แตะเพื่อโชว์/ซ่อน HUD</div>
+  </div>
+
+  <!-- ===== Boss Bar ===== -->
+  <div id="bossBar" class="bossbar" hidden>
+    <div class="boss-top">
+      <div class="boss-title">BOSS</div>
+      <div class="boss-text" id="bossText">P1 0/0</div>
+    </div>
+
+    <div class="boss-track">
+      <div class="boss-fill" id="bossFill"></div>
+    </div>
+
+    <div class="boss-bad">
+      <div class="bad-label">BAD</div>
+      <div class="bad-track">
+        <div class="bad-fill" id="bossBadFill"></div>
+      </div>
+      <div class="bad-text" id="bossBadText">0/0</div>
+    </div>
+
+    <div class="boss-note" id="bossNote">—</div>
   </div>
 
   <!-- ===== HUD ===== -->
@@ -46,14 +72,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + BOSS MINI
           <button class="pill" id="btnViewMobile" type="button">Mobile</button>
           <button class="pill" id="btnViewVR" type="button">VR</button>
           <button class="pill" id="btnViewCVR" type="button">cVR</button>
-
           <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
-          <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
-
-          <!-- HUD modes -->
-          <button class="pill" id="btnHudFull" type="button">HUD: Full</button>
-          <button class="pill" id="btnHudCompact" type="button">HUD: Compact</button>
-          <button class="pill" id="btnHudHide" type="button">HUD: Hide</button>
         </div>
       </div>
 
@@ -87,25 +106,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard + BOSS MINI
           <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
         </div>
       </div>
-    </div>
-
-    <!-- ===== Boss Bar (optional) ===== -->
-    <div class="bossbar" id="bossBar" hidden>
-      <div class="bossrow">
-        <div class="bosslabel">BOSS</div>
-        <div class="bossmeter">
-          <div class="bossfill" id="bossFill"></div>
-        </div>
-        <div class="bosstext" id="bossText">0/0</div>
-      </div>
-      <div class="bossrow sub">
-        <div class="bosslabel bad">BAD</div>
-        <div class="bossmeter bad">
-          <div class="bossfill bad" id="bossBadFill"></div>
-        </div>
-        <div class="bosstext bad" id="bossBadText">0/0</div>
-      </div>
-      <div class="bossnote" id="bossNote">ยิง GOOD ให้ครบ • ถ้าโดน BAD ถึงลิมิต = แพ้ทันที</div>
     </div>
   </div>
 
@@ -152,7 +152,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + BOSS MINI
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
         เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง + มีบอสท้ายเกม</span>
+        <span class="muted">บอส Phase 2 = ONE-HIT NO-JUNK 😈</span>
       </div>
       <div class="start-meta" id="startMeta">—</div>
       <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
