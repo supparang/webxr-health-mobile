@@ -1,3 +1,12 @@
+<!-- === /herohealth/hydration-vr/hydration-vr.html ===
+Hydration Quest VR — PRODUCTION
+✅ PC/Mobile view + Cardboard view (dual-eye)
+✅ Buttons: CARDBOARD / SHOOT / STOP
+✅ Summary: Retry / Back HUB / Copy JSON / Download CSV
+✅ Coach: #coach-img + text/sub
+✅ Loads coach-manager.js to auto-pick hydration-* images in /herohealth/img
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -5,204 +14,445 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Hydration VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="../favicon.ico" />
 
-  <link rel="stylesheet" href="./hydration-vr/hydration-vr.css" />
+  <!-- Global FX / Logger (optional) -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- FX + Logger (optional) -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
+  <!-- Coach Manager: auto per-game images (hydration-*) -->
+  <script src="../vr/coach-manager.js" defer></script>
+
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel: rgba(2,6,23,.78);
+      --panel2: rgba(15,23,42,.72);
+      --stroke: rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --radius: 18px;
+      --pill: 999px;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{
+      width:100%; height:100%; margin:0; overflow:hidden;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(34,211,238,.16), transparent 55%),
+        radial-gradient(circle at 80% 88%, rgba(34,197,94,.14), transparent 55%),
+        linear-gradient(180deg, #050a1a 0%, #020617 70%);
+      color:var(--text);
+    }
+
+    .wrap{ position:fixed; inset:0; display:flex; flex-direction:column; }
+    .top{
+      padding: calc(10px + var(--sat)) 12px 10px;
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:flex-start;
+    }
+    .pill{
+      min-width: 140px;
+      padding: 10px 12px;
+      border-radius: var(--pill);
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      display:flex; gap:10px; align-items:center;
+    }
+    .pill b{ font-weight:900; letter-spacing:.3px; }
+    .pill .k{ opacity:.9; font-weight:800; }
+    .pill .v{ font-weight:950; margin-left:auto; }
+    .pill.small{ min-width: 120px; }
+
+    .main{
+      position:relative;
+      flex:1;
+      padding: 8px 12px calc(10px + var(--sab));
+      display:grid;
+      grid-template-columns: 1fr 380px;
+      gap: 12px;
+      align-items:stretch;
+    }
+
+    /* playfield (normal) */
+    #playfield{
+      position:relative;
+      border-radius: 26px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(0,0,0,.18);
+      overflow:hidden;
+      min-height: 220px;
+    }
+    #hvr-layer{ position:absolute; inset:0; }
+
+    /* Cardboard playfield */
+    .cardboard #playfield{ display:none; }
+    #cb-playfield{
+      display:none;
+      position:relative;
+      border-radius: 26px;
+      border:1px solid rgba(148,163,184,.14);
+      background: rgba(0,0,0,.20);
+      overflow:hidden;
+      min-height: 220px;
+    }
+    .cardboard #cb-playfield{ display:block; }
+
+    .cb-eyes{
+      position:absolute; inset:0;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+    .eye{
+      position:relative; overflow:hidden;
+      border-right:1px solid rgba(148,163,184,.08);
+    }
+    .eye:last-child{ border-right:none; }
+    .reticle{
+      position:absolute; left:50%; top:50%;
+      width: 12px; height:12px;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      border:2px solid rgba(148,163,184,.55);
+      box-shadow: 0 0 22px rgba(148,163,184,.18);
+      pointer-events:none;
+    }
+    #hvr-layerL, #hvr-layerR{ position:absolute; inset:0; }
+
+    /* Right panel */
+    .side{
+      display:flex; flex-direction:column; gap:12px;
+      min-width: 300px;
+    }
+    .card{
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      border-radius: 24px;
+      padding: 12px 14px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    }
+    .card h3{
+      margin: 0 0 10px;
+      font-size: 16px;
+      letter-spacing:.2px;
+      display:flex; align-items:center; gap:10px;
+    }
+    .muted{ color: var(--muted); }
+
+    /* Water Gauge block (ui-water.js will fill inside if you already have it) */
+    #water-panel{
+      display:flex; flex-direction:column; gap:8px;
+    }
+    #water-gauge{
+      height: 14px;
+      border-radius: 999px;
+      background: rgba(148,163,184,.16);
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.14);
+    }
+    #water-bar{
+      height:100%;
+      width:50%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.75));
+    }
+    #water-meta{ display:flex; justify-content:space-between; gap:10px; font-weight:800; }
+
+    /* Quest */
+    #quest-line1,#quest-line2,#quest-line3,#quest-line4{
+      font-weight:800;
+      line-height:1.35;
+      margin: 4px 0;
+    }
+    #quest-line4{ font-size: 12.5px; opacity:.9; }
+
+    /* Coach */
+    .coachRow{ display:flex; gap:12px; align-items:center; }
+    #coach-img{
+      width: 64px; height:64px; border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(255,255,255,.04);
+      object-fit: cover;
+      flex: 0 0 auto;
+    }
+    #coach-text{ font-weight:950; }
+    #coach-sub{ font-weight:800; color: var(--muted); margin-top:2px; font-size: 12.5px; }
+
+    /* Bottom buttons */
+    .bottom{
+      padding: 0 12px calc(10px + var(--sab));
+      display:flex; gap:10px; justify-content:center; align-items:center;
+    }
+    .btn{
+      min-width: 160px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.78);
+      color: var(--text);
+      font-weight:950;
+      letter-spacing:.2px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      display:flex; gap:10px; justify-content:center; align-items:center;
+      touch-action: manipulation;
+      user-select:none;
+    }
+    .btn.primary{ background: rgba(34,197,94,.22); border-color: rgba(34,197,94,.28); }
+    .btn.danger{ background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.24); }
+    .btn.holding{ transform: scale(.98); filter: brightness(1.05); }
+
+    /* Summary */
+    #resultBackdrop{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(8px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+      z-index: 200;
+    }
+    #resultPanel{
+      width: min(980px, 92vw);
+      background: rgba(2,6,23,.86);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 28px;
+      box-shadow: 0 30px 120px rgba(0,0,0,.65);
+      padding: 14px;
+    }
+    .resultTop{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      padding: 4px 4px 10px;
+    }
+    .resultTop h2{
+      margin:0; font-size: 20px; letter-spacing:.2px; display:flex; gap:10px; align-items:center;
+    }
+    .resultBtns{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      padding: 6px 2px 10px;
+    }
+    .tile{
+      background: rgba(15,23,42,.62);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: 20px;
+      padding: 12px 12px;
+      min-height: 66px;
+    }
+    .tile .lab{ color: var(--muted); font-weight:800; font-size: 12.5px; }
+    .tile .val{ font-weight:950; font-size: 18px; margin-top:4px; }
+
+    .tipsRow{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 10px;
+      padding: 0 2px 10px;
+    }
+    .tips{
+      white-space:pre-line;
+      font-weight:850;
+      color: rgba(229,231,235,.92);
+      line-height:1.35;
+    }
+
+    /* Responsive */
+    @media (max-width: 980px){
+      .main{ grid-template-columns: 1fr; }
+      .side{ min-width: auto; }
+      .btn{ min-width: 140px; }
+      .grid{ grid-template-columns: 1fr 1fr; }
+      .tipsRow{ grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 
-<body class="view-mobile">
-  <!-- START OVERLAY -->
-  <div id="start-overlay" class="startOverlay">
-    <div class="startCard">
-      <div class="startTitle">💧 Hydration VR</div>
-      <div class="startSub">
-        Goal: คุมโซน <b>GREEN</b> ให้สะสมครบตามเป้า<br>
-        Mini: ตอน <b>STORM</b> ให้ทำ <b>LOW/HIGH + BLOCK</b> ช่วงท้ายพายุ
+<body>
+  <!-- start overlay (optional) -->
+  <div id="start-overlay" style="
+    position:fixed; inset:0; z-index:180;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(0,0,0,.65); backdrop-filter: blur(10px);
+  ">
+    <div style="
+      width:min(720px,92vw);
+      background: rgba(2,6,23,.86);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 26px;
+      padding: 16px;
+      box-shadow: 0 30px 120px rgba(0,0,0,.65);
+      text-align:center;
+    ">
+      <div style="font-weight:950; font-size:22px;">Hydration VR 💧</div>
+      <div style="margin-top:8px; color:rgba(148,163,184,.95); font-weight:800;">
+        เป้าหมาย: คุม WATER ให้เข้าโซน GREEN และเก็บ 🛡️ ไว้ BLOCK ตอนท้ายพายุ
       </div>
-
-      <div class="startRow">
-        <button id="btnStart" class="btn primary">▶ Start</button>
-        <button id="btnHow" class="btn">❓ วิธีเล่น</button>
+      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:14px;">
+        <button id="btnStart" class="btn primary" style="min-width:180px">▶ เริ่มเล่น</button>
+        <button id="btnStartVR" class="btn" style="min-width:180px">📦 Cardboard (แนวนอน)</button>
       </div>
-
-      <div class="startHints">
-        <div class="hint">🎯 เล็งกลางจอ แล้วกด <b>SHOOT</b> หรือแตะเป้า</div>
-        <div class="hint">🛡️ เก็บโล่ไว้ “BLOCK” ช่วงท้ายพายุ</div>
-        <div class="hint">📌 โหมด: <code>?mode=focus|challenge|training|endless</code></div>
-      </div>
-    </div>
-
-    <div id="howPanel" class="howPanel" hidden>
-      <div class="howCard">
-        <div class="howTitle">วิธีเล่น</div>
-        <ul>
-          <li>ยิง 💧 เพื่อคุมโซนให้อยู่ GREEN (สะสมเวลา)</li>
-          <li>หลบ 🥤 ถ้าโดนจะ MISS และดันน้ำออกจาก GREEN</li>
-          <li>เก็บ 🛡️ เพื่อ BLOCK ตอนท้าย STORM (Mini)</li>
-          <li>Cardboard: กดปุ่ม <b>CARDBOARD</b> แล้วหมุนเครื่องเป็นแนวนอน</li>
-        </ul>
-        <button id="btnHowClose" class="btn primary">เข้าใจแล้ว</button>
+      <div style="margin-top:10px; color:rgba(148,163,184,.85); font-weight:800; font-size:12.5px;">
+        * โหมด Cardboard แนะนำให้หมุนจอเป็นแนวนอน
       </div>
     </div>
   </div>
 
-  <!-- TOP HUD -->
-  <div id="hudTop" class="hudTop">
-    <div class="hudPills">
-      <div class="pill"><span>⏱️</span><b>TIME</b><i id="stat-time">70</i></div>
-      <div class="pill"><span>🏆</span><b>SCORE</b><i id="stat-score">0</i></div>
-      <div class="pill"><span>⚡</span><b>COMBO</b><i id="stat-combo">0</i></div>
-      <div class="pill"><span>💥</span><b>MISS</b><i id="stat-miss">0</i></div>
-      <div class="pill"><span>🎖️</span><b>GRADE</b><i id="stat-grade">C</i></div>
-      <div class="pill"><span>🌀</span><b>STORM</b><i id="storm-left">0</i>s</div>
-      <div class="pill"><span>🛡️</span><b>SHIELD</b><i id="shield-count">0</i></div>
+  <div class="wrap">
+    <div class="top">
+      <div class="pill small"><span class="k">⏱ TIME</span><span class="v" id="stat-time">0</span></div>
+      <div class="pill small"><span class="k">🏆 SCORE</span><span class="v" id="stat-score">0</span></div>
+      <div class="pill small"><span class="k">⚡ COMBO</span><span class="v" id="stat-combo">0</span></div>
+      <div class="pill small"><span class="k">💥 MISS</span><span class="v" id="stat-miss">0</span></div>
+      <div class="pill small"><span class="k">🎖 GRADE</span><span class="v" id="stat-grade">C</span></div>
+      <div class="pill small"><span class="k">🌀 STORM</span><span class="v" id="storm-left">0</span></div>
+      <div class="pill small"><span class="k">🛡 SHIELD</span><span class="v" id="shield-count">0</span></div>
     </div>
-  </div>
 
-  <!-- MAIN STAGE -->
-  <div class="stage">
-    <div class="playWrap">
-
+    <div class="main">
       <!-- Normal playfield -->
-      <div id="playfield" class="playfield">
-        <div id="hvr-layer" class="hvr-layer"></div>
-        <div class="crosshair" aria-hidden="true"></div>
+      <div id="playfield">
+        <div id="hvr-layer"></div>
       </div>
 
-      <!-- Cardboard playfield (split) -->
-      <div id="cb-playfield" class="cbPlayfield" hidden>
-        <div class="cbEye">
-          <div id="hvr-layerL" class="hvr-layer cbLayer"></div>
-          <div class="crosshair" aria-hidden="true"></div>
-        </div>
-        <div class="cbEye">
-          <div id="hvr-layerR" class="hvr-layer cbLayer"></div>
-          <div class="crosshair" aria-hidden="true"></div>
-        </div>
-      </div>
-
-      <!-- Bottom panels -->
-      <div class="bottomPanels">
-
-        <!-- Water Gauge Panel (your ui-water.js will render inside if needed) -->
-        <div class="panel waterPanel">
-          <div class="panelTitle">💧 Water Gauge (0–100)</div>
-          <div id="waterGaugeHost" class="waterGaugeHost"></div>
-          <div class="panelHint">Goal: อยู่ GREEN • Mini: ทำ LOW/HIGH + BLOCK ช่วงท้ายพายุ</div>
-        </div>
-
-        <!-- Quest -->
-        <div class="panel questPanel">
-          <div class="panelTitle">🧩 Quest</div>
-          <div class="questLines">
-            <div id="quest-line1" class="qLine">-</div>
-            <div id="quest-line2" class="qLine">-</div>
-            <div id="quest-line3" class="qLine">-</div>
-            <div id="quest-line4" class="qLine">-</div>
+      <!-- Cardboard playfield -->
+      <div id="cb-playfield">
+        <div class="cb-eyes">
+          <div class="eye">
+            <div id="hvr-layerL"></div>
+            <div class="reticle"></div>
           </div>
-          <div class="tierRow">
-            <span class="tag" id="stat-tier">Tier: Beginner</span>
-            <span class="tag" id="stat-mode">Mode: play</span>
+          <div class="eye">
+            <div id="hvr-layerR"></div>
+            <div class="reticle"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card" id="water-panel">
+          <h3>💧 Water Gauge <span class="muted">(0–100)</span></h3>
+          <div id="water-gauge"><div id="water-bar"></div></div>
+          <div id="water-meta">
+            <div><span class="muted">Zone</span> <b id="water-zone">GREEN</b></div>
+            <div><b id="water-pct">50</b>%</div>
+          </div>
+          <div class="muted" style="font-weight:850;">
+            Goal: GREEN (สะสม) • Mini: LOW/HIGH + BLOCK
           </div>
         </div>
 
-        <!-- Coach -->
-        <div class="panel coachPanel">
-          <div class="panelTitle">🧠 Coach</div>
+        <div class="card">
+          <h3>🧩 Quest</h3>
+          <div id="quest-line1">...</div>
+          <div id="quest-line2" class="muted">...</div>
+          <div id="quest-line3">...</div>
+          <div id="quest-line4" class="muted">...</div>
+        </div>
+
+        <div class="card">
+          <h3>🧠 Coach</h3>
           <div class="coachRow">
-            <img id="coach-img" class="coachImg" alt="coach" src="./img/hydration-neutral.png" />
-            <div class="coachText">
-              <div id="coach-text" class="coachMain">เล็งกลางจอแล้วเริ่มยิงได้เลย!</div>
-              <div id="coach-sub" class="coachSub">Tip: คุม GREEN ก่อน แล้วค่อยลุย STORM</div>
+            <img id="coach-img" alt="coach" />
+            <div>
+              <div id="coach-text">เล็งกลางจอ แล้วค่อยยิง 💧</div>
+              <div id="coach-sub">Tip: เก็บ 🛡️ ก่อนพายุ</div>
             </div>
           </div>
         </div>
-
       </div>
     </div>
 
-    <!-- Controls -->
-    <div class="controls">
-      <button id="btnCardboard" class="btn">📦 CARDBOARD</button>
-      <button id="btnShoot" class="btn primary">🎯 SHOOT</button>
-      <button id="btnStop" class="btn danger">⛔ STOP</button>
-    </div>
-
-  </div>
-
-  <!-- SUMMARY MODAL -->
-  <div id="resultBackdrop" class="resultBackdrop" hidden>
-    <div class="resultCard">
-      <div class="resultHead">
-        <div class="resultTitle">🏁 Summary</div>
-        <div class="resultActions">
-          <button id="btnRetry" class="btn">🔁 Retry (Hold)</button>
-          <button id="btnBackHub" class="btn">🏠 Back HUB (Hold)</button>
-        </div>
-      </div>
-
-      <div class="resultGrid">
-        <div class="rBox"><b>Score</b><div id="rScore">0</div></div>
-        <div class="rBox"><b>Grade</b><div id="rGrade">C</div></div>
-        <div class="rBox"><b>Accuracy</b><div id="rAcc">0%</div></div>
-
-        <div class="rBox"><b>Combo Max</b><div id="rComboMax">0</div></div>
-        <div class="rBox"><b>Miss</b><div id="rMiss">0</div></div>
-        <div class="rBox"><b>Goals</b><div id="rGoals">0/1</div></div>
-
-        <div class="rBox"><b>Minis</b><div id="rMinis">0/999</div></div>
-        <div class="rBox"><b>Time in GREEN</b><div id="rGreen">0.0s</div></div>
-        <div class="rBox"><b>Streak Max</b><div id="rStreak">0</div></div>
-
-        <div class="rBox"><b>Storm Cycles</b><div id="rStormCycles">0</div></div>
-        <div class="rBox"><b>Storm Success</b><div id="rStormOk">0</div></div>
-        <div class="rBox"><b>Storm Rate</b><div id="rStormRate">0%</div></div>
-      </div>
-
-      <div class="resultTips">
-        <div class="tipsTitle">🤖 AI Tips (อัตโนมัติ)</div>
-        <div id="rTips" class="tipsBody">-</div>
-        <div class="tipsMeta">
-          <span class="tag" id="rTier">Tier: -</span>
-          <span class="tag" id="rNext">Next Focus: -</span>
-        </div>
-      </div>
-
-      <div class="resultTools">
-        <button id="btnCopyJSON" class="btn">📋 Copy JSON</button>
-        <button id="btnDownloadCSV" class="btn">⬇️ Download CSV</button>
-        <button id="btnCloseSummary" class="btn primary">ปิด</button>
-      </div>
-
-      <div class="holdHint">* ปุ่ม Retry/Back HUB ต้อง “กดค้าง” เพื่อกันกดพลาด</div>
+    <div class="bottom">
+      <button class="btn" id="btnCardboard">📦 CARDBOARD</button>
+      <button class="btn primary" id="btnShoot">🎯 SHOOT</button>
+      <button class="btn danger" id="btnStop">⛔ STOP</button>
     </div>
   </div>
 
-  <!-- Modules -->
-  <script src="./vr/coach-manager.js" defer></script>
-  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
+  <!-- Summary -->
+  <div id="resultBackdrop" hidden>
+    <div id="resultPanel">
+      <div class="resultTop">
+        <h2>🏁 Summary</h2>
+        <div class="resultBtns">
+          <button class="btn" id="btnRetry">🔁 Retry</button>
+          <button class="btn" id="btnBackHub">🏠 Back HUB</button>
+          <button class="btn" id="btnCopyJSON">📋 Copy JSON</button>
+          <button class="btn" id="btnDownloadCSV">⬇️ Download CSV</button>
+        </div>
+      </div>
 
+      <div class="grid">
+        <div class="tile"><div class="lab">Score</div><div class="val" id="rScore">0</div></div>
+        <div class="tile"><div class="lab">Grade</div><div class="val" id="rGrade">C</div></div>
+        <div class="tile"><div class="lab">Accuracy</div><div class="val" id="rAcc">0%</div></div>
+
+        <div class="tile"><div class="lab">Combo Max</div><div class="val" id="rComboMax">0</div></div>
+        <div class="tile"><div class="lab">Miss</div><div class="val" id="rMiss">0</div></div>
+        <div class="tile"><div class="lab">Goals</div><div class="val" id="rGoals">0/0</div></div>
+
+        <div class="tile"><div class="lab">Minis</div><div class="val" id="rMinis">0/0</div></div>
+        <div class="tile"><div class="lab">Time in GREEN</div><div class="val" id="rGreen">0.0s</div></div>
+        <div class="tile"><div class="lab">Streak Max</div><div class="val" id="rStreak">0</div></div>
+
+        <div class="tile"><div class="lab">Storm Cycles</div><div class="val" id="rStormCycles">0</div></div>
+        <div class="tile"><div class="lab">Storm Success</div><div class="val" id="rStormOk">0</div></div>
+        <div class="tile"><div class="lab">Storm Rate</div><div class="val" id="rStormRate">0%</div></div>
+      </div>
+
+      <div class="tipsRow">
+        <div class="tile">
+          <div class="lab">AI Tips</div>
+          <div class="tips" id="rTips">• ...</div>
+        </div>
+        <div class="tile">
+          <div class="lab">Next Focus</div>
+          <div class="val" id="rNext">...</div>
+          <div class="muted" style="font-weight:850; margin-top:6px;" id="rTier">Tier: ...</div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end;">
+        <button class="btn" id="btnCloseSummary" style="min-width:140px;">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start overlay wiring -->
   <script>
-    // Start overlay wiring (simple)
     (function(){
       const ov = document.getElementById('start-overlay');
-      const btnStart = document.getElementById('btnStart');
-      const btnHow = document.getElementById('btnHow');
-      const howPanel = document.getElementById('howPanel');
-      const btnHowClose = document.getElementById('btnHowClose');
-      const btnHowClose2 = document.getElementById('btnHowClose');
+      const btn = document.getElementById('btnStart');
+      const btnVR = document.getElementById('btnStartVR');
+      const cardBtn = document.getElementById('btnCardboard');
 
-      btnHow?.addEventListener('click', ()=>{ howPanel.hidden = false; });
-      btnHowClose?.addEventListener('click', ()=>{ howPanel.hidden = true; });
-
-      btnStart?.addEventListener('click', ()=>{
-        ov.style.display = 'none';
+      function hide(){ if(ov) ov.style.display='none'; }
+      btn?.addEventListener('click', hide);
+      btnVR?.addEventListener('click', ()=>{
+        // toggle cardboard early
+        document.body.classList.add('cardboard');
+        hide();
+      });
+      cardBtn?.addEventListener('click', ()=>{
+        document.body.classList.toggle('cardboard');
       });
     })();
   </script>
+
+  <!-- Main game module -->
+  <script type="module" src="./hydration.safe.js"></script>
 </body>
 </html>
