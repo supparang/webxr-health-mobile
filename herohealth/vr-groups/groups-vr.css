@@ -1,13 +1,9 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (Responsive PC/Mobile/VR + Candy + HUD + Overlays + VR-feel Targets)
-✅ HUD อยู่เหนือ gameplay (ไม่โดน layer ทับ)
-✅ fg-layer รองรับ VR feel translate ด้วย --vx/--vy
-✅ Targets absolute เคลื่อนตาม fg-layer
-✅ Candy sticker + spawn/hit/out
-✅ Storm/Overdrive/Freeze
-✅ PACK X: No-Junk ring vars (--nojunk-*)
-✅ PACK Z: Rival Ghost styles
-✅ PACK W: Remix styles
+Food Groups VR — PRODUCTION CSS (Grade 5 Candy + HUD + Overlays + VR-feel Targets)
+✅ Responsive: PC / Mobile / VR Cardboard
+✅ Quest RIGHT + Coach BOTTOM-RIGHT
+✅ Cardboard: crosshair + HUD mini mode (body.hud-mini)
+✅ Targets: absolute on .fg-layer (moves with --vx/--vy)
 */
 
 :root{
@@ -16,7 +12,8 @@ Food Groups VR — PRODUCTION CSS (Responsive PC/Mobile/VR + Candy + HUD + Overl
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.72);
-  --stroke:rgba(148,163,184,.18);
+  --stroke:rgba(148,163,184,.22);
+
   --text:#e5e7eb;
   --muted:#94a3b8;
 
@@ -36,7 +33,7 @@ Food Groups VR — PRODUCTION CSS (Responsive PC/Mobile/VR + Candy + HUD + Overl
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* Candy palette */
+  /* Candy palette (v3) */
   --candy-pink: rgba(244,114,182,.38);
   --candy-cyan: rgba(34,211,238,.30);
   --candy-lime: rgba(34,197,94,.30);
@@ -57,46 +54,57 @@ Food Groups VR — PRODUCTION CSS (Responsive PC/Mobile/VR + Candy + HUD + Overl
   --candy-polka:
     radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
     radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
+
+  /* HUD sizing knobs */
+  --hud-pad: 10px;
+  --hud-gap: 10px;
+  --questW: 340px;
+  --coachW: 230px;
+  --pillFS: 12px;
+  --boxFS: 16px;
+
+  /* Cardboard knobs */
+  --crosshairSize: 22px;
+  --aimRing: rgba(34,211,238,.55);
 }
 
 *{ box-sizing:border-box; }
-html,body{
+html, body{
   margin:0;
   width:100%;
   height:100%;
   overflow:hidden;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  color:var(--text);
   background:
     radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
     radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
     var(--bg);
-  color:var(--text);
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 
-/* A-Frame scene (ถ้ามี) อย่าบัง HUD */
+/* A-Frame scene (ถ้ามี) ไม่ให้บัง HUD */
 a-scene[embedded]{
   position:fixed !important;
   inset:0 !important;
   z-index:0 !important;
 }
 
-/* =============== Gameplay layer =============== */
-.fg-layer,
-#fg-layer{
-  position:fixed;
-  inset:0;
-  z-index:10;               /* ต่ำกว่า HUD */
-  pointer-events:auto;
-  touch-action:none;
-  user-select:none;
+/* ======================
+   Gameplay Layer
+   ====================== */
+.fg-layer{
+  position: fixed;
+  inset: 0;
+  z-index: 3;                 /* ต่ำกว่า HUD */
+  pointer-events: auto;
 
+  /* VR feel translate from engine */
   transform: translate(var(--vx,0px), var(--vy,0px));
   will-change: transform;
 }
 
-/* PACK X: No-Junk ring (optional) */
-.fg-layer::before,
-#fg-layer::before{
+/* Optional: No-Junk ring (set --nojunk-*) */
+.fg-layer::before{
   content:"";
   position:fixed;
   left: var(--nojunk-cx, 50vw);
@@ -111,16 +119,57 @@ a-scene[embedded]{
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
 }
 
-/* =============== HUD (top) =============== */
+/* ======================
+   Crosshair (Cardboard)
+   ====================== */
+.crosshair{
+  position:fixed;
+  left:50%;
+  top:50%;
+  width:var(--crosshairSize);
+  height:var(--crosshairSize);
+  transform:translate(-50%,-50%);
+  z-index:120;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity .18s ease;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,.45));
+}
+.crosshair::before,
+.crosshair::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+}
+.crosshair::before{
+  width:var(--crosshairSize);
+  height:var(--crosshairSize);
+  border:2px solid rgba(226,232,240,.85);
+  box-shadow: 0 0 0 2px rgba(34,211,238,.12) inset;
+}
+.crosshair::after{
+  width:6px;
+  height:6px;
+  background: rgba(34,211,238,.90);
+}
+body.cardboard .crosshair{ opacity:.95; }
+
+/* ======================
+   HUD blocks
+   ====================== */
 .hud{
   position:fixed;
-  left:0; right:0; top:0;
+  left:calc(var(--hud-pad) + var(--sal));
+  right:calc(var(--hud-pad) + var(--sar));
+  top:calc(var(--hud-pad) + var(--sat));
   z-index:60;
-  pointer-events:none;
-  padding: calc(12px + var(--sat)) 12px 10px;
   display:flex;
   justify-content:space-between;
-  gap:10px;
+  gap:var(--hud-gap);
+  pointer-events:none;
 }
 .hud .box{
   background:var(--panel);
@@ -130,10 +179,9 @@ a-scene[embedded]{
   box-shadow:0 16px 40px rgba(0,0,0,.35);
   min-width:120px;
 }
-.hud .big{ font-weight:1000; font-size:16px; }
+.hud .big{ font-weight:900; font-size:var(--boxFS); }
 .hud .small{ font-size:12px; color:var(--muted); margin-top:2px; }
 
-/* top center pills */
 .centerTop{
   position:fixed;
   left:50%;
@@ -151,46 +199,42 @@ a-scene[embedded]{
   border:1px solid rgba(148,163,184,.16);
   border-radius:999px;
   padding:8px 12px;
-  font-size:12px;
+  font-size:var(--pillFS);
   color:var(--text);
   box-shadow:0 16px 40px rgba(0,0,0,.35);
-  font-weight:900;
 }
 
-/* Quest (Goal/Mini) — ✅ DEFAULT: right side */
+/* Quest (RIGHT) */
 .questTop{
   position:fixed;
   right:calc(10px + var(--sar));
+  top:  calc(62px + var(--sat));
   left:auto;
-  top: calc(62px + var(--sat));
-  width: min(360px, 52vw);
+  width: min(var(--questW), 48vw);
   display:flex;
-  flex-direction:column;
   gap:10px;
-  z-index:70;
+  flex-wrap:wrap;
+  z-index:68;
   pointer-events:none;
 }
 .qbar{
+  flex:1 1 240px;
   background:rgba(2,6,23,.55);
   border:1px solid rgba(148,163,184,.14);
   border-radius:16px;
   padding:10px 12px;
   box-shadow:0 16px 40px rgba(0,0,0,.25);
 }
-.qbar .t{ font-size:12px; color:var(--muted); font-weight:1000; }
+.qbar .t{ font-size:12px; color:var(--muted); font-weight:900; letter-spacing:.2px; }
 .qbar .b{ margin-top:2px; font-size:13px; font-weight:1000; }
 .qbar .p{
-  margin-top:8px;
-  height:10px;
+  margin-top:8px; height:10px;
   background:rgba(15,23,42,.65);
   border:1px solid rgba(148,163,184,.14);
-  border-radius:999px;
-  overflow:hidden;
+  border-radius:999px; overflow:hidden;
 }
 .qbar .p > i{
-  display:block;
-  height:100%;
-  width:0%;
+  display:block; height:100%; width:0%;
   background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
 }
 .qbar .time{
@@ -200,19 +244,26 @@ a-scene[embedded]{
   display:none;
 }
 
-/* Mini urgent styling */
-#uiMiniTitle.urgent{ color:#fff; text-shadow:0 0 14px rgba(239,68,68,.35); }
-.questTop.mini-urgent .qbar:nth-child(2){
-  border-color:rgba(239,68,68,.28);
-  box-shadow:0 0 0 1px rgba(239,68,68,.18) inset, 0 16px 40px rgba(0,0,0,.25);
+/* mini urgent */
+body.mini-urgent .qbar:nth-child(2){
+  border-color: rgba(239,68,68,.28);
+  box-shadow: 0 0 0 3px rgba(239,68,68,.10), 0 16px 40px rgba(0,0,0,.25);
+}
+body.mini-urgent .qbar:nth-child(2) .b{
+  color:#fff;
+  text-shadow:0 0 14px rgba(239,68,68,.35);
+}
+body.mini-urgent .qbar:nth-child(2) .time{
+  color: rgba(254,226,226,.95);
 }
 
 /* Power bottom */
 .powerWrap{
   position:fixed;
-  left:12px; right:12px;
+  left:calc(12px + var(--sal));
+  right:calc(12px + var(--sar));
   bottom: calc(14px + var(--sab));
-  z-index:75;
+  z-index:70;
   pointer-events:none;
 }
 .power{
@@ -241,19 +292,19 @@ a-scene[embedded]{
 .coachWrap{
   position:fixed;
   right:calc(10px + var(--sar));
-  bottom: calc(82px + var(--sab)); /* ลอยเหนือ power bar */
-  z-index:80;
+  bottom: calc(82px + var(--sab)); /* ลอยเหนือ Power */
+  z-index:72;
   pointer-events:none;
   display:flex;
   gap:10px;
   align-items:flex-end;
 }
 .coachCard{
-  width:220px;
+  width:var(--coachW);
   background:rgba(2,6,23,.60);
   border:1px solid rgba(148,163,184,.14);
   border-radius:18px;
-  padding:10px 10px 10px;
+  padding:10px;
   box-shadow:0 16px 40px rgba(0,0,0,.25);
 }
 .coachLine{
@@ -261,7 +312,7 @@ a-scene[embedded]{
   color:rgba(226,232,240,.92);
   line-height:1.45;
   min-height:34px;
-  font-weight:900;
+  font-weight:800;
 }
 .feverMini{
   margin-top:8px;
@@ -283,10 +334,11 @@ a-scene[embedded]{
   border-radius:999px;
   border:1px solid rgba(148,163,184,.14);
   background:rgba(15,23,42,.60);
-  font-weight:1000;
+  font-weight:900;
 }
 .coachImg{
-  width:74px; height:74px;
+  width:74px;
+  height:74px;
   border-radius:18px;
   border:1px solid rgba(148,163,184,.14);
   background:rgba(15,23,42,.55);
@@ -295,49 +347,38 @@ a-scene[embedded]{
 }
 .coachImg img{ width:100%; height:100%; object-fit:cover; display:block; }
 
-/* Remix badge (optional show/hide by JS) */
-#uiRemixPill{
-  border-color: rgba(34,211,238,.28);
-  background: rgba(34,211,238,.12);
-}
-
-/* =============== Toast / Judge pop =============== */
-.toast{
+/* HUD toggle button (Cardboard) */
+.hudToggle{
   position:fixed;
-  left:50%;
-  transform:translateX(-50%);
-  top: calc(122px + var(--sat));
-  z-index:90;
-  pointer-events:none;
-  padding:10px 14px;
-  border-radius:999px;
+  left:calc(10px + var(--sal));
+  bottom:calc(92px + var(--sab));
+  z-index:95;
+  pointer-events:auto;
+  display:none;
   border:1px solid rgba(148,163,184,.18);
-  background:rgba(2,6,23,.60);
-  box-shadow:0 18px 60px rgba(0,0,0,.35);
+  background:rgba(2,6,23,.70);
+  color:rgba(226,232,240,.92);
+  border-radius:999px;
+  padding:10px 12px;
   font-weight:1000;
-  opacity:0;
-  filter: blur(0px);
-  transition: opacity .18s ease, transform .18s ease;
+  font-size:12px;
+  box-shadow:0 18px 55px rgba(0,0,0,.45);
 }
-.toast.show{
-  opacity:1;
-  transform:translateX(-50%) translateY(0);
-}
-.toast.good{ border-color: rgba(34,197,94,.28); }
-.toast.bad{ border-color: rgba(239,68,68,.28); }
+body.cardboard .hudToggle{ display:inline-flex; gap:8px; align-items:center; }
 
-/* =============== Overlays (start/end) =============== */
+/* ======================
+   Start / End overlays
+   ====================== */
 .overlay{
-  position:fixed;
-  inset:0;
-  z-index:200;
-  display:grid;
-  place-items:center;
-  padding:calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+  position:fixed; inset:0;
   background:
     radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
     radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
     rgba(2,6,23,.82);
+  display:grid;
+  place-items:center;
+  z-index:200;
+  padding:calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -349,8 +390,8 @@ a-scene[embedded]{
   box-shadow:0 18px 55px rgba(0,0,0,.55);
   padding:18px 18px 14px;
 }
-.panel h2{ margin:0 0 8px; font-size:20px; font-weight:1100; }
-.panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; font-weight:800; }
+.panel h2{ margin:0 0 8px; font-size:20px; }
+.panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; }
 .panel .row{ display:flex; gap:10px; flex-wrap:wrap; }
 .panel button{
   border:0;
@@ -366,7 +407,7 @@ a-scene[embedded]{
   border:1px solid rgba(148,163,184,.18);
   color:var(--text);
 }
-.dbg{ font-size:12px; color:var(--muted); opacity:.92; margin-top:6px; font-weight:900; }
+.dbg{ font-size:12px; color:var(--muted); opacity:.92; margin-top:6px; }
 .warn{
   margin-top:10px;
   padding:10px 12px;
@@ -377,28 +418,23 @@ a-scene[embedded]{
   font-size:12px;
   display:none;
   white-space:pre-wrap;
-  font-weight:900;
 }
 
 #endOverlay{ display:none; }
 #endOverlay.show{ display:grid; }
-.kv{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin:10px 0 12px;
-}
+.kv{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0 12px; }
 .kv .k{
   border:1px solid rgba(148,163,184,.16);
   background:rgba(15,23,42,.55);
   border-radius:16px;
   padding:10px 12px;
   font-size:13px;
-  font-weight:900;
 }
 .kv .k b{ display:block; font-size:16px; margin-top:2px; }
 
-/* =============== Targets (Candy Stickers) =============== */
+/* ======================
+   TARGETS — Candy Stickers
+   ====================== */
 .fg-target{
   position:absolute;
   left: var(--x, 50vw);
@@ -433,20 +469,21 @@ a-scene[embedded]{
   cursor:pointer;
   user-select:none;
   -webkit-tap-highlight-color: transparent;
-  overflow:hidden;
 
+  overflow:hidden;
   animation: fgFloat 1.15s ease-in-out infinite;
 }
 .fg-target::before{
   content: attr(data-emoji);
-  font-size:46px;
-  line-height:1;
+  font-size: 46px;
+  line-height: 1;
   transform: translateY(-1px);
   filter:
     drop-shadow(0 2px 0 rgba(255,255,255,.25))
     drop-shadow(0 12px 18px rgba(0,0,0,.32));
 }
 
+/* type fills */
 .fg-good{
   background:
     radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 40%),
@@ -510,11 +547,23 @@ a-scene[embedded]{
 }
 
 /* spawn/hit/out */
-.fg-target.spawn{ animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite; }
+.fg-target.spawn{
+  animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite;
+}
 .fg-target.hit{ animation: fgHit .22s ease-out both; }
 .fg-target.out{ animation: fgOut .22s ease-in both; }
 
-/* boss feedback */
+/* ✅ Aim highlight (Cardboard lock) */
+.fg-target.aim{
+  outline: 4px solid var(--aimRing);
+  box-shadow:
+    0 0 0 6px rgba(34,211,238,.18),
+    0 18px 36px rgba(0,0,0,.40),
+    0 0 34px rgba(34,211,238,.32);
+  transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06));
+}
+
+/* boss feedback states */
 .fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
 @keyframes bossHurt{
   0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
@@ -558,100 +607,85 @@ a-scene[embedded]{
   to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
 }
 
-/* Mode vibes */
+/* vibes */
 body.groups-storm .hud,
-body.groups-storm .centerTop{ filter: saturate(1.10) brightness(1.05); }
-body.groups-storm-urgent .hud{ animation: hudStormPulse .24s ease-in-out infinite; }
+body.groups-storm .centerTop,
+body.groups-storm .questTop,
+body.groups-storm .coachWrap{ filter: saturate(1.10) brightness(1.05); }
+
+body.groups-storm-urgent .questTop{ animation: hudStormPulse .24s ease-in-out infinite; }
 @keyframes hudStormPulse{
   0%,100%{ transform: translateZ(0) scale(1.00); }
   50%{ transform: translateZ(0) scale(1.01); }
 }
+
 body.groups-overdrive .hud .box,
-body.groups-overdrive .coachCard{ box-shadow: 0 18px 60px rgba(34,211,238,.18); border-color: rgba(34,211,238,.30); }
-body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
-
-/* PACK Z: Rival Ghost */
-.fg-target.fg-ghost{
-  border-color: rgba(147,197,253,.92);
-  box-shadow:
-    0 18px 36px rgba(0,0,0,.42),
-    0 0 0 3px rgba(59,130,246,.18) inset,
-    0 0 28px rgba(59,130,246,.22);
-  background:
-    radial-gradient(circle at 24% 18%, rgba(255,255,255,.18), rgba(255,255,255,0) 44%),
-    radial-gradient(circle at 76% 76%, rgba(255,255,255,.10), rgba(255,255,255,0) 50%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(59,130,246,.22), rgba(167,139,250,.18));
-}
-.fg-target.fg-ghost::after{
-  content:"👻";
-  position:absolute;
-  left:9px; top:7px;
-  font-size:16px;
-  filter: drop-shadow(0 12px 16px rgba(0,0,0,.35));
-}
-.fg-target.fg-ghost.fg-ghost-blink{ animation: ghostBlink .16s ease-out both; }
-@keyframes ghostBlink{
-  0%{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
-  40%{ opacity:.55; transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.05)); filter: brightness(1.35); }
-  100%{ opacity:1; transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
-}
-
-/* PACK W: Remix */
-body.groups-remix .hud,
-body.groups-remix .centerTop,
-body.groups-remix .questTop{
-  filter: saturate(1.12) brightness(1.06);
-}
-body.groups-remix .hud .box,
-body.groups-remix .coachCard,
-body.groups-remix .qbar{
+body.groups-overdrive .qbar,
+body.groups-overdrive .coachCard{
   box-shadow: 0 18px 60px rgba(34,211,238,.18);
   border-color: rgba(34,211,238,.30);
 }
-body.groups-remix .fg-target{
-  box-shadow:
-    0 18px 36px rgba(0,0,0,.42),
-    0 0 26px rgba(34,211,238,.18);
-}
+body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
 
-/* =============== Responsive =============== */
-@media (max-width: 520px){
-  .hud{ padding: calc(10px + var(--sat)) 10px 8px; }
-  .hud .box{ min-width:110px; padding:9px 10px; }
-
-  .centerTop{ top: calc(56px + var(--sat)); gap:8px; }
-  .pill{ padding:7px 10px; font-size:12px; }
-
-  .questTop{
-    width: min(300px, 58vw);
-    top: calc(100px + var(--sat));
+/* ======================
+   Responsive
+   ====================== */
+@media (max-width: 920px){
+  :root{
+    --questW: 320px;
+    --coachW: 220px;
   }
-  .coachWrap{ bottom: calc(92px + var(--sab)); }
-  .coachCard{ width:min(210px, 58vw); }
-  .toast{ top: calc(156px + var(--sat)); }
+  .centerTop{ top: calc(56px + var(--sat)); }
+}
+@media (max-width: 520px){
+  :root{
+    --pillFS: 11px;
+    --boxFS: 15px;
+    --questW: 300px;
+    --coachW: 210px;
+  }
+  .questTop{
+    width: min(var(--questW), 56vw);
+    top: calc(58px + var(--sat));
+  }
+  .coachWrap{
+    bottom: calc(90px + var(--sab));
+  }
 }
 @media (max-height: 640px){
-  .coachCard{ padding:8px 10px; }
-  .coachLine{ min-height:28px; }
-  .toast{ top: calc(112px + var(--sat)); }
+  .coachCard{ padding: 8px 10px; }
+  .coachLine{ min-height: 28px; }
 }
 
-/* VR / Cardboard UI mode: เพิ่มพื้นที่เล่น ลดของรก */
-body.ui-vr .hud .box{ opacity:.94; }
-body.ui-vr .centerTop{ top: calc(8px + var(--sat)); }
-body.ui-vr .questTop{ width: min(320px, 46vw); top: calc(54px + var(--sat)); }
-body.ui-vr .powerWrap{ opacity:.92; }
-body.ui-vr .powerLabel{ display:none; }
-body.ui-vr .coachCard{ width:200px; }
-body.ui-vr .toast{ top: calc(110px + var(--sat)); }
+/* ======================
+   Cardboard HUD Mini
+   ====================== */
+body.cardboard{
+  --pillFS: 11px;
+  --boxFS: 15px;
+}
+body.hud-mini .questTop,
+body.hud-mini .coachWrap,
+body.hud-mini .powerWrap{
+  opacity:0;
+  pointer-events:none;
+  transform: translateZ(0) scale(.98);
+}
+body.hud-mini .centerTop{
+  top: calc(8px + var(--sat));
+}
+body.hud-mini .pill{
+  padding:6px 10px;
+}
+body.hud-mini .hud .box{
+  padding:8px 10px;
+  min-width:108px;
+}
 
 /* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
-  body.groups-storm-urgent .hud{
+  body.groups-storm-urgent .questTop{
     animation:none !important;
-    transition:none !important;
   }
 }
