@@ -8,11 +8,16 @@
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- ✅ Shared TapFire (ใช้ทุกเกม) -->
-  <script src="../vr/hha-vr-tapfire.js" defer></script>
+  <!-- ✅ Shared VR UI (Enter VR / TapShoot / Crosshair) -->
+  <script src="../vr/vr-ui.js" defer></script>
+
+  <!-- (optional) global particles/logger if you already use across games -->
+  <script src="../vr/particles.js" defer></script>
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 </head>
 
 <body class="view-pc">
+  <!-- TOP HUD -->
   <div class="hud">
     <div class="box">
       <div class="big" id="uiScore">0</div>
@@ -24,13 +29,14 @@
     </div>
   </div>
 
+  <!-- CENTER PILLS -->
   <div class="centerTop">
     <div class="pill">COMBO: <b id="uiCombo">0</b> (MAX <b id="uiComboMax">0</b>)</div>
     <div class="pill">MISS: <b id="uiMiss">0</b></div>
     <div class="pill">GRADE: <b id="uiGrade">C</b></div>
   </div>
 
-  <!-- ✅ Goal RIGHT -->
+  <!-- QUEST (RIGHT) -->
   <div class="questTop" aria-label="Quest">
     <div class="qbar">
       <div class="t">GOAL</div>
@@ -45,8 +51,10 @@
     </div>
   </div>
 
+  <!-- GAMEPLAY LAYER -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
+  <!-- POWER (BOTTOM) -->
   <div class="powerWrap">
     <div class="power"><i id="uiPowerBar"></i></div>
     <div class="powerLabel">
@@ -55,7 +63,7 @@
     </div>
   </div>
 
-  <!-- ✅ Coach bottom-right -->
+  <!-- COACH (BOTTOM-RIGHT) -->
   <div class="coachWrap" aria-label="Coach">
     <div class="coachCard">
       <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
@@ -67,25 +75,21 @@
     </div>
   </div>
 
+  <!-- START OVERLAY -->
   <div class="overlay" id="startOverlay">
     <div class="panel">
       <h2>🚀 พร้อมเล่น Food Groups VR</h2>
       <p id="startDesc">กำลังเตรียมระบบ…</p>
       <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
       <div class="warn" id="warnBox"></div>
-
       <div class="row" style="margin-top:10px;">
-        <button id="btnStart">Start (2D)</button>
-        <button id="btnEnterVR" class="secondary">Enter VR (Cardboard)</button>
+        <button id="btnStart">Start</button>
         <button id="btnBack" class="secondary">กลับ HUB</button>
-      </div>
-
-      <div class="dbg" style="margin-top:10px;">
-        ✅ ในโหมด VR (Cardboard): “แตะที่ไหนก็ยิงกลางจอ” (ไม่ต้องจิ้มเป้า)
       </div>
     </div>
   </div>
 
+  <!-- END OVERLAY -->
   <div class="overlay" id="endOverlay">
     <div class="panel">
       <h2>🏁 สรุปผล</h2>
@@ -115,18 +119,12 @@
     const time    = Number(q.get('time') || 90);
     const seed    = (q.get('seed') || '').trim() || String(Date.now());
     const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
-    const view    = (q.get('view') || 'pc').toLowerCase();     // pc|mobile|cvr
     const autostart = q.get('autostart') === '1';
     const v = (q.get('v') || String(Date.now()));
+    const view = (q.get('view') || '').toLowerCase();
+    if (view) document.body.className = `view-${view}`;
 
-    function setView(mode){
-      const b = document.body;
-      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-      b.classList.add(`view-${mode}`);
-    }
-    setView(view === 'cvr' ? 'cvr' : (view === 'mobile' ? 'mobile' : 'pc'));
-
-    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed} | view=${view}`;
+    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
 
     function warn(msg){
       console.warn(msg);
@@ -225,8 +223,10 @@
         if (Number.isFinite(tLeft) && tLeft > 0){
           timeEl.style.display = 'block';
           timeEl.textContent = `⏳ ${tLeft}s`;
+          document.body.classList.toggle('mini-urgent', tLeft <= 3);
         } else {
           timeEl.style.display = 'none';
+          document.body.classList.remove('mini-urgent');
         }
       });
 
@@ -268,6 +268,13 @@
           };
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
+
+          // ✅ history (same standard as HUB)
+          const keyHist = 'HHA_SUMMARY_HISTORY';
+          const arr = JSON.parse(localStorage.getItem(keyHist) || '[]');
+          arr.unshift(payload);
+          while (arr.length > 24) arr.pop();
+          localStorage.setItem(keyHist, JSON.stringify(arr));
         }catch{}
 
         flushHardened('end');
@@ -295,45 +302,31 @@
 
     async function startGame(){
       $('btnStart').disabled = true;
-      $('btnEnterVR').disabled = true;
       $('startDesc').textContent = 'กำลังเริ่มเกม…';
 
       await boot();
       const GE = await waitEngineReady();
-      if (!GE){ $('btnStart').disabled = false; $('btnEnterVR').disabled=false; return; }
+      if (!GE){ $('btnStart').disabled = false; return; }
 
       GE.setLayerEl($('fg-layer'));
       GE.start(diff, { runMode, style, time, seed });
 
       $('startOverlay').style.display = 'none';
       $('endOverlay').classList.remove('show');
-
       $('btnStart').disabled = false;
-      $('btnEnterVR').disabled = false;
-    }
-
-    async function enterVRAndStart(){
-      try{
-        // ✅ เข้า Cardboard/cVR + fullscreen + landscape + crosshair
-        await window.HHAVRTapFire?.enterCVR?.();
-        setView('cvr');
-      }catch(_){}
-      await startGame();
     }
 
     $('btnStart').addEventListener('click', startGame);
-    $('btnEnterVR').addEventListener('click', enterVRAndStart);
-
     $('btnReplay').addEventListener('click', ()=>{
       try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
       $('endOverlay').classList.remove('show');
       $('startOverlay').style.display = 'grid';
-      if (autostart) setTimeout(()=> (view==='cvr' ? enterVRAndStart() : startGame()), 250);
+      if (autostart) setTimeout(startGame, 250);
     });
 
     bindEvents();
     await boot();
-    if (autostart) setTimeout(()=> (view==='cvr' ? enterVRAndStart() : startGame()), 350);
+    if (autostart) setTimeout(()=> $('btnStart').click(), 350);
   </script>
 </body>
 </html>
