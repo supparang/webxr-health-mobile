@@ -94,7 +94,6 @@
   // simple heuristics from score/judge
   let lastScore = 0;
   let lastMiss = 0;
-  let lastFever = 0;
 
   function setMood(m){
     m = String(m||'neutral');
@@ -111,7 +110,6 @@
       say('โอ๊ย! ระวัง BAD 🥤', `โฟกัส + เก็บ 🛡️ ไว้กัน`);
     }
     if (k === 'good') {
-      // micro happy but don’t spam text
       setMood('happy');
       const t = performance.now();
       if (t - lastSayAt > 1200) say('ดีมาก! ยิง 💧 ต่อ!', `รักษาโซน GREEN`);
@@ -150,7 +148,6 @@
 
     lastScore = score;
     lastMiss = miss;
-    lastFever = fever;
 
     // gentle coaching text occasionally
     const t = performance.now();
