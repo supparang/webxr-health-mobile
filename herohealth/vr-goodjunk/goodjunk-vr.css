@@ -1,10 +1,10 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SAFE layout (PRODUCTION)
-✅ stage uses fixed top/bottom + dvh support (fix address-bar jump / "flash then gone")
-✅ reserves space for HUD(top) + fever + controls(bottom)
+GoodJunkVR UI — PRODUCTION (Minimal VR HUD)
+✅ dvh support (fix address-bar jump / "flash then gone")
+✅ reserves space for HUD(top) + controls(bottom)
 ✅ VR/cVR dual-eye split
 ✅ IMPORTANT FIX: overlays respect [hidden] (was blocking play)
-✅ VR Layout Patch: declutter in VR
+✅ Minimal VR HUD: only Score/Time/Miss/Combo + big playfield (no FEVER/QUEST/COACH overlay)
 */
 
 :root{
@@ -27,7 +27,7 @@ GoodJunkVR UI — SAFE layout (PRODUCTION)
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
-  /* reserved zones (approx) */
+  /* reserved zones (default) */
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
@@ -48,7 +48,7 @@ html,body{
   overflow:hidden;
 }
 
-/* dvh support to reduce address-bar jump */
+/* dvh support */
 @supports (height: 100dvh){
   html,body{ height:100dvh; }
 }
@@ -252,10 +252,7 @@ html,body{
 }
 
 /* laser (optional) */
-.atk-laser{
-  pointer-events:none;
-  opacity:0;
-}
+.atk-laser{ pointer-events:none; opacity:0; }
 
 /* ---------- CONTROLS ---------- */
 .hha-controls{
@@ -340,16 +337,15 @@ body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
 body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
 
 body.view-vr, body.view-cvr{
-  --hudH: 130px;
-  --feverH: 78px;
-  --ctrlH: 86px;
+  --hudH: 104px;
+  --feverH: 0px;      /* MINIMAL: hide fever */
+  --ctrlH: 78px;
 }
 
 /* VR/cVR split */
 body.view-vr .eye-r,
-body.view-cvr .eye-r{
-  display:block;
-}
+body.view-cvr .eye-r{ display:block; }
+
 body.view-vr .eye-l,
 body.view-cvr .eye-l{
   width:50%;
@@ -372,49 +368,69 @@ body.view-cvr .gj-crosshair::before{
   .hud-coach{ display:none; }
 }
 
-/* =========================
-   VR LAYOUT PATCH (v1)
-   ========================= */
+/* =========================================================
+   ✅ MINIMAL VR HUD (THE MAIN PATCH)
+   ========================================================= */
 
-/* VR mode: hide extra view pills (keep only FS + Enter VR) */
+/* 1) In VR: remove clutter (quest/coach/fever) */
+body.view-vr .hud-mid,
+body.view-cvr .hud-mid{
+  display:none !important;
+}
+
+body.view-vr .hha-fever,
+body.view-cvr .hha-fever{
+  display:none !important;
+}
+
+/* 2) In VR: keep only FS + Enter VR buttons */
 body.view-vr .viewbar .pill:not(#btnEnterFS):not(#btnEnterVR),
 body.view-cvr .viewbar .pill:not(#btnEnterFS):not(#btnEnterVR){
-  display:none;
+  display:none !important;
 }
 
-/* HUD compact in VR */
+/* 3) In VR: HUD top becomes slim bar */
 body.view-vr .hha-hud,
 body.view-cvr .hha-hud{
-  padding: calc(8px + var(--sat)) 10px 8px;
+  padding: calc(6px + var(--sat)) 10px 6px;
 }
 
+body.view-vr .hha-hud .hud-top,
+body.view-cvr .hha-hud .hud-top{
+  align-items:center;
+  gap:10px;
+}
+
+/* badge shrinks */
 body.view-vr .hud-badge,
 body.view-cvr .hud-badge{
   width:auto;
-  max-width:none;
-  padding:10px 12px;
+  padding:8px 10px;
+  border-radius:16px;
 }
 
 body.view-vr .hud-title,
-body.view-cvr .hud-title{ font-size:16px; }
+body.view-cvr .hud-title{
+  font-size:15px;
+}
 
 body.view-vr .hud-sub,
 body.view-cvr .hud-sub{
-  font-size:11px;
-  opacity:.85;
+  display:none; /* reduce text */
 }
 
-/* stats: single row + smaller cards */
-body.view-vr .hud-stats,
-body.view-cvr .hud-stats{
-  width:min(520px, 46vw);
-  grid-template-columns: repeat(4, minmax(78px, 1fr));
+body.view-vr .viewbar,
+body.view-cvr .viewbar{
+  margin-top:8px;
   gap:8px;
 }
 
-body.view-vr .hud-stat.grade,
-body.view-cvr .hud-stat.grade{
-  display:none; /* grade during play not needed in VR */
+/* stats become a single row (Score/Time/Miss/Combo) */
+body.view-vr .hud-stats,
+body.view-cvr .hud-stats{
+  width:min(520px, 54vw);
+  grid-template-columns: repeat(4, minmax(72px, 1fr));
+  gap:8px;
 }
 
 body.view-vr .hud-stat,
@@ -423,54 +439,30 @@ body.view-cvr .hud-stat{
   border-radius:16px;
 }
 
+body.view-vr .hud-stat .k,
+body.view-cvr .hud-stat .k{
+  font-size:11px;
+}
+
 body.view-vr .hud-stat .v,
 body.view-cvr .hud-stat .v{
   font-size:18px;
 }
 
-/* hide coach box in VR */
-body.view-vr .hud-coach,
-body.view-cvr .hud-coach{
-  display:none;
+/* hide Grade while playing in VR */
+body.view-vr .hud-stat.grade,
+body.view-cvr .hud-stat.grade{
+  display:none !important;
 }
 
-/* quest slim */
-body.view-vr .hud-quest,
-body.view-cvr .hud-quest{
-  width:min(560px, 70vw);
-  padding:10px 12px;
-  border-radius:16px;
-  opacity:.92;
+/* 4) In VR: maximize playfield (no fever reserved) */
+body.view-vr #gj-stage,
+body.view-cvr #gj-stage{
+  top: calc(var(--hudH) + var(--sat));
+  bottom: calc(var(--ctrlH) + var(--sab) + 10px);
 }
 
-/* fever slimmer */
-body.view-vr .hha-fever,
-body.view-cvr .hha-fever{
-  left:10px; right:10px;
-  padding:8px 10px;
-  border-radius:16px;
-  bottom: calc(var(--ctrlH) + var(--sab) + 8px);
-}
-
-body.view-vr .fever-row,
-body.view-cvr .fever-row{
-  grid-template-columns: 64px 1fr 46px;
-}
-
-body.view-vr .fever-bar,
-body.view-cvr .fever-bar{ height:10px; }
-
-body.view-vr .shield-row,
-body.view-cvr .shield-row{ margin-top:6px; }
-
-/* increase playfield area in VR */
-body.view-vr, body.view-cvr{
-  --hudH: 104px;
-  --feverH: 64px;
-  --ctrlH: 78px;
-}
-
-/* controls smaller in VR */
+/* 5) VR controls slightly smaller */
 body.view-vr .btn-shoot,
 body.view-cvr .btn-shoot{
   height:62px;
@@ -478,7 +470,7 @@ body.view-cvr .btn-shoot{
   border-radius:16px;
 }
 
-/* crosshair slightly cleaner */
+/* 6) crosshair cleaner */
 body.view-vr .gj-crosshair::before,
 body.view-cvr .gj-crosshair::before{
   border-width:2px;
