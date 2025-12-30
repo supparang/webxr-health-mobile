@@ -1,292 +1,185 @@
 // === /herohealth/plate/plate.state.js ===
-// PlateVR — HHA Standard State + Metrics + Grade + LastSummary
-'use strict';
+// PlateState — shared state helpers (global, non-module)
+// Provides window.GAME_MODULES.PlateState
 
-export function makeSessionId() {
-  // stable-ish unique, no crypto required
-  const t = Date.now().toString(36);
-  const r = Math.floor(Math.random() * 1e9).toString(36);
-  return `PL-${t}-${r}`;
-}
+(function (root) {
+  'use strict';
+  const W = root;
 
-export function buildHhaContextFromQuery(Q) {
-  // Keep the same “research context” keys across games
-  const get = (k, d = '') => (Q && Q.get(k) != null ? String(Q.get(k)) : d);
+  function clamp(v, min, max){ v = Number(v)||0; return v < min ? min : (v > max ? max : v); }
 
-  // Normalize runMode if hub sends runMode but game uses run
-  const runMode = get('runMode', get('run', 'play'));
+  function median(arr){
+    if(!arr || !arr.length) return 0;
+    const a = arr.slice().sort((x,y)=>x-y);
+    const m = Math.floor(a.length/2);
+    return (a.length % 2) ? a[m] : (a[m-1] + a[m]) / 2;
+  }
 
-  return {
-    timestampIso: get('timestampIso', new Date().toISOString()),
-    projectTag: get('projectTag', 'HeroHealth'),
-    runMode,
+  function accuracyPct(s){
+    const denom = (s.nHitGood + s.nHitJunk + s.nExpireGood);
+    if(denom <= 0) return 0;
+    return (s.nHitGood / denom) * 100;
+  }
 
-    studyId: get('studyId', ''),
-    phase: get('phase', ''),
-    conditionGroup: get('conditionGroup', ''),
-    sessionOrder: get('sessionOrder', ''),
-    blockLabel: get('blockLabel', ''),
-    siteCode: get('siteCode', ''),
-    schoolYear: get('schoolYear', ''),
-    semester: get('semester', ''),
+  function junkErrorPct(s){
+    const denom = (s.nHitGood + s.nHitJunk);
+    if(denom <= 0) return 0;
+    return (s.nHitJunk / denom) * 100;
+  }
 
-    studentKey: get('studentKey', ''),
-    schoolCode: get('schoolCode', ''),
-    schoolName: get('schoolName', ''),
-    classRoom: get('classRoom', ''),
-    studentNo: get('studentNo', ''),
-    nickName: get('nickName', ''),
-    gender: get('gender', ''),
-    age: get('age', ''),
-    gradeLevel: get('gradeLevel', ''),
+  // grade mapping (ตามที่ตกลง SSS/SS/S/A/B/C)
+  function calcGrade(s){
+    const acc = accuracyPct(s);
+    const m = s.miss || 0;
+    const baseScore = s.score || 0;
+
+    if(acc >= 95 && m <= 1 && baseScore >= 2200) return 'SSS';
+    if(acc >= 92 && m <= 2 && baseScore >= 1800) return 'SS';
+    if(acc >= 88 && m <= 3) return 'S';
+    if(acc >= 82 && m <= 5) return 'A';
+    if(acc >= 72 && m <= 8) return 'B';
+    return 'C';
+  }
+
+  function createState(opts){
+    opts = opts || {};
+    const timePlannedSec = Number(opts.timePlannedSec)||90;
+    const seed = Number(opts.seed)||0;
+
+    return {
+      // meta
+      game: 'plate',
+      runMode: String(opts.runMode||'play'),
+      diff: String(opts.diff||'normal'),
+      seed,
+
+      // time
+      timePlannedSec,
+      tStartMs: 0,
+      timeLeftSec: timePlannedSec,
+
+      // score
+      score: 0,
+      combo: 0,
+      comboMax: 0,
+      miss: 0,
+
+      // plate counts (5 หมู่)
+      gCount: [0,0,0,0,0],
+      plateHave: [false,false,false,false,false],
+
+      // fever/shield
+      fever: 0,
+      shield: 0,
+
+      // stats
+      nTargetGoodSpawned: 0,
+      nTargetJunkSpawned: 0,
+      nTargetShieldSpawned: 0,
+
+      nHitGood: 0,
+      nHitJunk: 0,
+      nHitJunkGuard: 0,
+      nExpireGood: 0,
+
+      rtGoodMs: [],
+      perfectHits: 0,
+
+      // quest summary
+      goalsTotal: 2,
+      goalsCleared: 0,
+      miniTotal: 0,
+      miniCleared: 0
+    };
+  }
+
+  function resetState(s){
+    const base = createState({
+      timePlannedSec: s.timePlannedSec,
+      seed: s.seed,
+      runMode: s.runMode,
+      diff: s.diff
+    });
+    Object.keys(base).forEach(k => { s[k] = base[k]; });
+    return s;
+  }
+
+  function plateHaveCount(s){
+    let n = 0;
+    for(let i=0;i<5;i++) if(!!s.plateHave[i]) n++;
+    return n;
+  }
+
+  function buildSummary(s, reason){
+    const playedSec = Math.max(0, ((root.performance && performance.now) ? performance.now() : Date.now()) - (s.tStartMs||0)) / 1000;
+    const acc = accuracyPct(s);
+    const jerr = junkErrorPct(s);
+    const rtN = s.rtGoodMs.length;
+    const avgRt = rtN ? (s.rtGoodMs.reduce((a,b)=>a+b,0)/rtN) : 0;
+    const medRt = rtN ? median(s.rtGoodMs) : 0;
+    const fastHitRatePct = (s.nHitGood>0) ? (s.perfectHits/s.nHitGood*100) : 0;
+
+    const grade = calcGrade(s);
+
+    return {
+      timestampIso: new Date().toISOString(),
+      projectTag: 'HHA',
+      game: 'plate',
+      gameMode: 'plate',
+      runMode: s.runMode,
+      diff: s.diff,
+      seed: s.seed,
+      durationPlannedSec: Number(s.timePlannedSec)||0,
+      durationPlayedSec: Math.round(playedSec),
+
+      scoreFinal: s.score,
+      comboMax: s.comboMax,
+      misses: s.miss,
+
+      goalsCleared: s.goalsCleared,
+      goalsTotal: s.goalsTotal,
+      miniCleared: s.miniCleared,
+      miniTotal: s.miniTotal,
+
+      nTargetGoodSpawned: s.nTargetGoodSpawned,
+      nTargetJunkSpawned: s.nTargetJunkSpawned,
+      nTargetShieldSpawned: s.nTargetShieldSpawned,
+
+      nHitGood: s.nHitGood,
+      nHitJunk: s.nHitJunk,
+      nHitJunkGuard: s.nHitJunkGuard,
+      nExpireGood: s.nExpireGood,
+
+      accuracyGoodPct: Math.round(acc*10)/10,
+      junkErrorPct: Math.round(jerr*10)/10,
+      avgRtGoodMs: Math.round(avgRt),
+      medianRtGoodMs: Math.round(medRt),
+      fastHitRatePct: Math.round(fastHitRatePct*10)/10,
+
+      grade,
+      reason: reason || 'end',
+
+      plate: {
+        have: s.plateHave.map(Boolean),
+        counts: s.gCount.slice(),
+        total: s.gCount.reduce((a,b)=>a+(b||0),0)
+      },
+
+      device: (navigator && navigator.userAgent) ? navigator.userAgent : ''
+    };
+  }
+
+  // export
+  W.GAME_MODULES = W.GAME_MODULES || {};
+  W.GAME_MODULES.PlateState = {
+    clamp,
+    createState,
+    resetState,
+    accuracyPct,
+    junkErrorPct,
+    calcGrade,
+    plateHaveCount,
+    buildSummary
   };
-}
 
-export function makeInitialState(opts = {}) {
-  const totalTime = Math.max(20, Number(opts.totalTime) || 70);
-  const livesMax = Math.max(1, Number(opts.livesMax) || 3);
-
-  return {
-    // meta
-    game: 'PlateVR',
-    ctx: opts.ctx || {},
-    sessionId: String(opts.sessionId || makeSessionId()),
-    version: 'plate.safe.hha-standard.v1',
-
-    // runtime flags
-    booted: false,
-    started: false,
-    running: false,
-    paused: false,
-
-    // time
-    totalTime,
-    timeLeft: totalTime,
-    tStart: 0,
-    endedAt: 0,
-
-    // core scoring
-    score: 0,
-    combo: 0,
-    maxCombo: 0,
-    miss: 0,
-    perfectCount: 0,
-
-    // lives/shield/fever
-    livesMax,
-    lives: livesMax,
-    shieldMax: 5,
-    shield: 0,
-    fever: 0,
-    feverOn: false,
-
-    // plate (groups)
-    groupsTotal: 5,
-    plateHave: new Set(),
-    groupCounts: [0, 0, 0, 0, 0],
-
-    // goals/minis
-    goalsCleared: 0,
-    minisCleared: 0,
-    goalIndex: 0,
-    activeGoal: null,
-    activeMini: null,
-    miniEndsAt: 0,
-    miniUrgentArmed: false,
-    miniTickAt: 0,
-    _mini: null,
-
-    // spawn/targets
-    targets: [],
-    nextSpawnAt: 0,
-    aimedId: null,
-
-    // power timers
-    slowUntil: 0,
-    noJunkUntil: 0,
-    stormUntil: 0,
-
-    // boss
-    bossActive: false,
-    bossNextAt: 0,
-
-    // UI binding tries
-    _uiDelegated: false,
-    _uiBindTries: 0,
-
-    // low-time tick
-    lowTimeLastSec: null,
-
-    // ---------- Research metrics (HHA Standard) ----------
-    // spawn counts
-    nTargetGoodSpawned: 0,
-    nTargetJunkSpawned: 0,
-    nTargetGoldSpawned: 0,
-    nTargetTrapSpawned: 0,
-    nTargetFakeSpawned: 0,
-    nTargetSlowSpawned: 0,
-    nTargetNoJunkSpawned: 0,
-    nTargetStormSpawned: 0,
-    nTargetBossSpawned: 0,
-
-    // hit counts
-    nHitGood: 0,
-    nHitGold: 0,
-    nHitJunk: 0,
-    nHitTrap: 0,
-    nHitFake: 0,
-    nHitBoss: 0,
-    nHitBossDown: 0,
-    nHitPower: 0,
-
-    // blocks/expire/miss types
-    nShieldBlock: 0,
-    nExpireGood: 0,   // good/gold expired
-    nAirShot: 0,
-
-    // RT samples (good hits only; includes gold)
-    rtGoodMs: [],
-
-    // for fast hit rate
-    fastHitUnderMs: 500,
-  };
-}
-
-export function resetState(S, opts = {}) {
-  const keep = {
-    game: S.game,
-    ctx: S.ctx,
-    version: S.version,
-  };
-
-  const next = makeInitialState({
-    totalTime: opts.totalTime ?? S.totalTime,
-    livesMax: opts.livesMax ?? S.livesMax,
-    sessionId: opts.sessionId ?? S.sessionId,
-    ctx: S.ctx,
-  });
-
-  // restore keep
-  next.game = keep.game;
-  next.ctx = keep.ctx;
-  next.version = keep.version;
-
-  // mutate original reference
-  for (const k of Object.keys(S)) delete S[k];
-  Object.assign(S, next);
-  return S;
-}
-
-export function computeGradeFrom(S) {
-  // Simple, stable across devices.
-  // Reward score + perfect + combo, penalize miss.
-  const base = Number(S.score) || 0;
-  const bonus = (Number(S.perfectCount) || 0) * 80 + (Number(S.maxCombo) || 0) * 50;
-  const penalty = (Number(S.miss) || 0) * 250;
-  const p = Math.max(0, base + bonus - penalty);
-
-  // Tune thresholds to your current scoring scale
-  if (p >= 15000) return 'SSS';
-  if (p >= 12000) return 'SS';
-  if (p >= 9000) return 'S';
-  if (p >= 6500) return 'A';
-  if (p >= 4000) return 'B';
-  return 'C';
-}
-
-function avg(arr) {
-  if (!arr || !arr.length) return 0;
-  let s = 0;
-  for (const v of arr) s += Number(v) || 0;
-  return s / arr.length;
-}
-
-function median(arr) {
-  if (!arr || !arr.length) return 0;
-  const a = arr.slice().map(v => Number(v) || 0).sort((x, y) => x - y);
-  const m = Math.floor(a.length / 2);
-  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
-}
-
-export function computeMetrics(S) {
-  const goodSpawn = (S.nTargetGoodSpawned || 0) + (S.nTargetGoldSpawned || 0);
-  const goodHit = (S.nHitGood || 0) + (S.nHitGold || 0);
-
-  // "junk error" = hit junk/trap/fake + boss attack hits counted as misses elsewhere
-  const junkErr = (S.nHitJunk || 0) + (S.nHitTrap || 0) + (S.nHitFake || 0);
-
-  const accuracyGoodPct = goodSpawn > 0 ? (goodHit / goodSpawn) * 100 : 0;
-  const junkErrorPct = (goodHit + junkErr) > 0 ? (junkErr / (goodHit + junkErr)) * 100 : 0;
-
-  const rtArr = Array.isArray(S.rtGoodMs) ? S.rtGoodMs : [];
-  const avgRtGoodMs = Math.round(avg(rtArr));
-  const medianRtGoodMs = Math.round(median(rtArr));
-  const fastHitRatePct = rtArr.length
-    ? (rtArr.filter(x => (Number(x) || 0) <= (S.fastHitUnderMs || 500)).length / rtArr.length) * 100
-    : 0;
-
-  return {
-    accuracyGoodPct: round1(accuracyGoodPct),
-    junkErrorPct: round1(junkErrorPct),
-    avgRtGoodMs,
-    medianRtGoodMs,
-    fastHitRatePct: round1(fastHitRatePct),
-
-    // counts
-    goodSpawn,
-    goodHit,
-    junkErr,
-    shieldBlocks: S.nShieldBlock || 0,
-    expireGood: S.nExpireGood || 0,
-    airShot: S.nAirShot || 0,
-  };
-}
-
-function round1(x) {
-  const n = Number(x) || 0;
-  return Math.round(n * 10) / 10;
-}
-
-export function buildLastSummary(S, meta = {}) {
-  const metrics = computeMetrics(S);
-
-  return {
-    timestampIso: new Date().toISOString(),
-    projectTag: S.ctx?.projectTag || 'HeroHealth',
-    game: 'PlateVR',
-
-    runMode: meta.runMode || meta.run || S.ctx?.runMode || 'play',
-    mode: meta.mode || 'play',
-    diff: meta.diff || 'normal',
-    seed: meta.seed,
-
-    sessionId: S.sessionId,
-    durationPlannedSec: S.totalTime,
-    durationPlayedSec: Math.round((S.endedAt && S.tStart) ? (Math.max(0, S.endedAt - S.tStart) / 1000) : (S.totalTime - S.timeLeft)),
-
-    scoreFinal: S.score,
-    comboMax: S.maxCombo,
-    misses: S.miss,
-    perfect: S.perfectCount,
-    grade: computeGradeFrom(S),
-
-    goalsCleared: Math.min(2, S.goalsCleared || 0),
-    goalsTotal: 2,
-    miniCleared: Math.min(7, S.minisCleared || 0),
-    miniTotal: 7,
-
-    groupCounts: {
-      g1: S.groupCounts?.[0] || 0,
-      g2: S.groupCounts?.[1] || 0,
-      g3: S.groupCounts?.[2] || 0,
-      g4: S.groupCounts?.[3] || 0,
-      g5: S.groupCounts?.[4] || 0,
-      total: (S.groupCounts || []).reduce((a, b) => a + (Number(b) || 0), 0),
-    },
-
-    metrics,
-
-    // attach research context (flat)
-    ...S.ctx,
-  };
-}
+})(window);
