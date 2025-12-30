@@ -1,15 +1,15 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
 Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
-✅ TapShoot anywhere (VR/Cardboard friendly): tap screen => aim-assist pick nearest target near crosshair
 ✅ Enter VR / TapShoot: listens to hha:shoot (from vr-ui.js)
 ✅ Aim Assist: shoot picks nearest target near center
-✅ Perfect / Clutch / Boss phases / Powerups (star/ice/diamond/shield)
+✅ Audio hooks: GroupsVR.Audio (good/bad/boss/storm/overdrive/tick)
+✅ Mini urgent: quest:update miniTimeLeftSec <= 3 -> body.mini-urgent + tick sfx
+✅ No-Junk ring: quest:update miniTitle match -> sets --nojunk-* vars on fg-layer
 ✅ Adaptive only in play, deterministic in research (seeded RNG)
 ✅ Dynamic safe spawn rect (avoid HUD/quest/power/coach)
 ✅ Metrics: rt avg/median/fastHitRate + spawned/hit counters
-✅ Emits:
-   - hha:score, hha:time, hha:rank, hha:fever, hha:coach, hha:judge, hha:end, hha:celebrate
-   - groups:power, groups:progress
+✅ Emits: hha:score, hha:time, hha:rank, hha:fever, hha:coach, hha:judge, hha:end, hha:celebrate
+        groups:power, groups:progress
 */
 (function(root){
   'use strict';
@@ -59,6 +59,14 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
   function styleNorm(s){
     s = String(s||'mix').toLowerCase();
     return (s==='hard'||s==='feel'||s==='mix') ? s : 'mix';
+  }
+
+  // ---------- Audio helper ----------
+  function SFX(name){
+    try{
+      const A = NS.Audio;
+      if (A && typeof A[name] === 'function') A[name]();
+    }catch{}
   }
 
   // ---------- Content ----------
@@ -206,10 +214,14 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     quest:null,
     _questBound:false,
 
-    // listeners bound once
+    // shared event binds
     _boundShoot:false,
     _boundVr:false,
-    _boundTapShoot:false
+    _boundQuestUi:false,
+
+    // mini urgent ticking
+    _miniUrgent:false,
+    _miniTickT:0,
   };
 
   function scoreMult(){ return (now() < engine.overUntil) ? 2 : 1; }
@@ -227,6 +239,62 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
   }
   function updateTime(){ emit('hha:time', { left: engine.left|0 }); }
   function updatePower(){ emit('groups:power', { charge: engine.power|0, threshold: engine.powerThr|0 }); }
+
+  // ---------- Mini urgent + No-junk ring (via quest:update) ----------
+  function setMiniUrgent(on){
+    on = !!on;
+    if (engine._miniUrgent === on) return;
+    engine._miniUrgent = on;
+
+    DOC.body.classList.toggle('mini-urgent', on);
+
+    try{ clearInterval(engine._miniTickT); }catch{}
+    engine._miniTickT = 0;
+
+    if (on){
+      // tick faster near zero
+      engine._miniTickT = setInterval(()=>{ SFX('tick'); }, 260);
+    }
+  }
+
+  function setNoJunkRing(on){
+    const layer = engine.layerEl;
+    if (!layer) return;
+    const r = safeSpawnRect();
+    const cx = (r.W||innerWidth) * 0.5;
+    const cy = ((r.y0 + r.y1) * 0.5) || (innerHeight * 0.5);
+    const rr = Math.min(r.x1-r.x0, r.y1-r.y0, (r.W||innerWidth), (r.H||innerHeight)) * 0.34;
+
+    layer.style.setProperty('--nojunk-on', on ? '1' : '0');
+    layer.style.setProperty('--nojunk-cx', String(cx.toFixed(1)));
+    layer.style.setProperty('--nojunk-cy', String(cy.toFixed(1)));
+    layer.style.setProperty('--nojunk-r',  String(Math.max(120, rr).toFixed(1)));
+  }
+
+  function bindQuestUiOnce(){
+    if (engine._boundQuestUi) return;
+    engine._boundQuestUi = true;
+
+    root.addEventListener('quest:update', (ev)=>{
+      if (!engine.running || engine.ended) return;
+      const d = (ev && ev.detail) ? ev.detail : {};
+      const tLeft = Number(d.miniTimeLeftSec ?? 0);
+      const title = String(d.miniTitle || '');
+
+      // urgent if time-based and near end
+      const urgent = (isFinite(tLeft) && tLeft > 0 && tLeft <= 3);
+      setMiniUrgent(urgent);
+
+      // no-junk ring detect (nojunk / sprint titles contain these keywords)
+      const nojunk = /ห้ามพลาด|ห้ามโดนขยะ|NO\s*JUNK|nojunk/i.test(title);
+      setNoJunkRing(nojunk);
+    }, { passive:true });
+
+    root.addEventListener('resize', ()=>{
+      // keep ring centered when resize
+      setNoJunkRing(engine._miniUrgent ? true : false);
+    }, { passive:true });
+  }
 
   // ---------- Quest bridge ----------
   function ensureQuest(){
@@ -255,6 +323,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     try{ q && q.start && q.start(); }catch{}
     try{ q && q.pushUpdate && q.pushUpdate(); }catch{}
   }
+
   function questStop(){
     try{ engine.quest && engine.quest.stop && engine.quest.stop(); }catch{}
   }
@@ -292,7 +361,6 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
       root.addEventListener('pointerup', ()=>{ engine.dragOn=false; }, { passive:true });
 
       root.addEventListener('deviceorientation', (ev)=>{
-        // ช่วย VR feel (มือถือ)
         const gx = Number(ev.gamma)||0;
         const gy = Number(ev.beta)||0;
         engine.vx = clamp(engine.vx + gx*0.06, -90, 90);
@@ -307,7 +375,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     }, 80);
   }
 
-  // ---------- Dynamic safe spawn rect ----------
+  // ---------- Dynamic safe spawn rect (avoid HUD) ----------
   function rectOf(sel){
     const el = DOC.querySelector(sel);
     if (!el) return null;
@@ -336,7 +404,6 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     if (power) bot = Math.max(bot, (H - power.top) + 12);
     if (coach) bot = Math.max(bot, (H - coach.top) + 12);
 
-    // shrink right space if quest/coach is right-side
     if (quest) right = Math.max(right, (W - quest.left) + 12);
     if (coach) right = Math.max(right, (W - coach.left) + 12);
 
@@ -435,13 +502,13 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     setXY(el, x, y);
     el.style.setProperty('--s', s.toFixed(3));
 
-    // direct click (PC/mobile)
+    // direct tap/click (PC/Mobile)
     el.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault?.();
-      ev.stopPropagation?.();
       hitTarget(el, 'tap');
     }, { passive:false });
 
+    // TTL expire -> miss only when GOOD expires
     const ttl = engine.ttlMs;
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
@@ -450,6 +517,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
         engine.misses++; engine.combo = 0; engine.groupClean = false;
         engine.fever = clamp(engine.fever + 10, 0, 100);
         emit('hha:judge', { kind:'MISS' });
+        SFX('bad');
         updateScore();
         emitFever();
       }
@@ -475,10 +543,8 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
 
   function switchGroup(){
     perfectSwitchBonus();
-
     const next = (engine.groupId % 5) + 1;
     setGroup(next);
-
     emitProgress({ kind:'group_swap' });
     engine.power = 0;
     updatePower();
@@ -506,6 +572,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     DOC.body.classList.add('groups-storm');
     emitProgress({ kind:'storm_on' });
     emit('hha:judge', { kind:'boss', text:'STORM!' });
+    SFX('storm');
   }
 
   function exitStorm(){
@@ -543,6 +610,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     engine.nTargetBossSpawned++;
     emitProgress({ kind:'boss_spawn' });
     emit('hha:judge', { kind:'boss', text:'BOSS!' });
+    SFX('boss');
 
     const base = (engine.runMode==='research') ? 20000 : clamp(engine.adapt.bossEvery, 14000, 26000);
     engine.nextBossAtMs = now() + base;
@@ -555,14 +623,17 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     const bx = br.left + br.width*0.5;
     const by = br.top + br.height*0.5;
     const n = (engine.rng() < 0.55) ? 1 : 2;
+
     for (let i=0;i<n;i++){
       const ang = engine.rng()*Math.PI*2;
       const rad = 90 + engine.rng()*70;
       const x = bx + Math.cos(ang)*rad;
       const y = by + Math.sin(ang)*rad;
+
       const p = safeSpawnRect();
       const ex = clamp(x, p.x0, p.x1);
       const ey = clamp(y, p.y0, p.y1);
+
       const el = makeTarget('decoy', DECOY_EMOJI[(engine.rng()*DECOY_EMOJI.length)|0], ex, ey, engine.sizeBase*0.95);
       if (el){
         engine.layerEl.appendChild(el);
@@ -582,9 +653,6 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
   }
 
   function hitBoss(el){
-    // ✅ ทำให้ event สม่ำเสมอ: ถือเป็น hit_good (เพื่อเสียง/สถิติ) แต่ยังคง boss flow
-    emitProgress({ kind:'hit_good' });
-
     engine.hitAll++;
     engine.combo = clamp(engine.combo + 1, 0, 9999);
     engine.comboMax = Math.max(engine.comboMax, engine.combo);
@@ -596,6 +664,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     engine.score += Math.round(160 * scoreMult());
     engine.nHitBoss++;
     updateScore();
+    SFX('boss');
 
     if (engine.bossHp === Math.max(1, engine.bossHpMax-1) && engine.bossPhase < 2){
       engine.bossPhase = 2;
@@ -630,27 +699,27 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     const t = now();
     if (tp === 'star'){
       engine.overUntil = t + 8000;
-      emit('groups:buff', { type:'overdrive', durSec:8 });
       emit('hha:judge', { kind:'good', text:'OVERDRIVE x2!' });
       emit('hha:celebrate', { kind:'mini', title:'OVERDRIVE!' });
+      SFX('overdrive');
     }else if (tp === 'ice'){
       engine.freezeUntil = t + 7000;
-      emit('groups:buff', { type:'freeze', durSec:7 });
       emit('hha:judge', { kind:'good', text:'FREEZE!' });
+      SFX('good');
     }else if (tp === 'diamond'){
       engine.magnetUntil = t + 7000;
-      emit('groups:buff', { type:'magnet', durSec:7 });
       emit('hha:judge', { kind:'good', text:'MAGNET!' });
+      SFX('good');
     }else if (tp === 'shield'){
       engine.shield = clamp(engine.shield + 1, 0, 2);
-      emit('groups:buff', { type:'shield', durSec:999 });
       emitFever();
       emit('hha:judge', { kind:'good', text:'SHIELD +' });
+      SFX('good');
     }
     setBuffClass();
   }
 
-  // ---------- Aim assist ----------
+  // ---------- Aim assist (TapShoot) ----------
   function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 
   function pickTargetNear(x,y, lockPx){
@@ -674,34 +743,14 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
         best = el;
       }
     });
+
     return best;
-  }
-
-  // ✅ สำคัญมาก: “แตะที่ไหนก็ยิงได้” (VR/Cardboard)
-  function bindTapShootAnywhereOnce(){
-    if (engine._boundTapShoot) return;
-    engine._boundTapShoot = true;
-
-    root.addEventListener('pointerdown', (ev)=>{
-      if (!engine.running || engine.ended) return;
-      // ถ้ากดที่ตัวเป้าเอง -> handler ของเป้าจะ stopPropagation แล้ว
-      const x = (typeof ev.clientX === 'number') ? ev.clientX : (root.innerWidth*0.5);
-      const y = (typeof ev.clientY === 'number') ? ev.clientY : (root.innerHeight*0.5);
-
-      // ถ้าอยู่โหมด cVR ให้ยิงที่ “กลางจอ” เป็นหลัก (นิ้วแตะอาจเพี้ยน)
-      const isCVR = DOC.body.classList.contains('view-cvr');
-      const sx = isCVR ? (root.innerWidth*0.5) : x;
-      const sy = isCVR ? (root.innerHeight*0.5) : y;
-
-      const el = pickTargetNear(sx, sy, isCVR ? 120 : 92);
-      if (el) hitTarget(el, 'tapshoot');
-      else emit('hha:judge', { kind:'MISS', text:'MISS!' });
-    }, true);
   }
 
   function bindShootOnce(){
     if (engine._boundShoot) return;
     engine._boundShoot = true;
+
     root.addEventListener('hha:shoot', (ev)=>{
       if (!engine.running || engine.ended) return;
       const d = ev.detail||{};
@@ -709,9 +758,13 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
       const y = Number(d.y);
       const lockPx = clamp(Number(d.lockPx||86), 40, 160);
       if (!isFinite(x) || !isFinite(y)) return;
+
       const el = pickTargetNear(x,y, lockPx);
       if (el) hitTarget(el, 'shoot');
-      else emit('hha:judge', { kind:'MISS', text:'MISS!' });
+      else{
+        emit('hha:judge', { kind:'MISS', text:'MISS!' });
+        SFX('tick');
+      }
     }, { passive:true });
   }
 
@@ -746,7 +799,6 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     if (!el || !el.isConnected) return;
 
     let type = String(el.dataset.type||'').toLowerCase();
-
     if (type === 'boss'){ hitBoss(el); return; }
 
     if (type === 'star' || type === 'ice' || type === 'diamond' || type === 'shield'){
@@ -766,8 +818,10 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     const spawnedAt = Number(el.dataset.spawnAt||0);
     const rt = spawnedAt ? (now() - spawnedAt) : 0;
 
+    // GOOD
     if (type === 'good'){
       emitProgress({ kind:'hit_good' });
+
       engine.hitGood++;
       engine.nHitGood++;
 
@@ -790,10 +844,12 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
 
       addPower(1);
 
+      SFX('good');
       removeTarget(el);
       return;
     }
 
+    // BAD types
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
     if (badLike){
       if (type === 'junk' && engine.shield > 0){
@@ -801,6 +857,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
         engine.nHitJunkGuard++;
         emitFever();
         emit('hha:judge', { kind:'good', text:'SHIELD BLOCK!' });
+        SFX('good');
         removeTarget(el);
         return;
       }
@@ -821,6 +878,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
       emit('hha:judge', { kind:'bad', text:(type==='junk'?'JUNK!':(type==='wrong'?'WRONG!':'DECOY!')) });
 
       updateScore();
+      SFX('bad');
       removeTarget(el);
       return;
     }
@@ -849,6 +907,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     const r = engine.rng();
     if (r < j) return 'junk';
     if (r < j + d) return 'decoy';
+
     if (engine.rng() < (engine.storm ? 0.20 : 0.14)) return 'wrong';
     return 'good';
   }
@@ -990,6 +1049,11 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     clearAllTargets();
     questStop();
 
+    try{ clearInterval(engine._miniTickT); }catch{}
+    engine._miniTickT = 0;
+    setMiniUrgent(false);
+    setNoJunkRing(false);
+
     DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-overdrive','groups-freeze','clutch','mini-urgent');
 
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
@@ -1001,6 +1065,7 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     const avgRt = engine.rtList.length ? Math.round(engine.rtList.reduce((a,b)=>a+b,0)/engine.rtList.length) : 0;
     const medRt = engine.rtList.length ? Math.round(median(engine.rtList)) : 0;
     const fastRate = engine.rtList.length ? Math.round((engine.fastHits/engine.rtList.length)*100) : 0;
+
     const junkErrorPct = engine.hitAll > 0 ? Math.round((engine.nHitJunk/engine.hitAll)*100) : 0;
 
     emit('hha:end', {
@@ -1054,6 +1119,8 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     engine.layerEl = el || null;
     applyView();
     setupView();
+    // init ring vars
+    setNoJunkRing(false);
   }
 
   function start(diff, cfg){
@@ -1064,9 +1131,6 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     engine.timeSec = clamp(cfg.time ?? 90, 30, 180);
     engine.seed = String(cfg.seed || Date.now());
     engine.rng = makeRng(engine.seed);
-
-    // ✅ unlock audio safe (ถ้ามี)
-    try{ NS.Audio?.unlock?.(); }catch{}
 
     const dp = diffParams(engine.diff);
 
@@ -1115,11 +1179,13 @@ Food Groups VR — GameEngine (MAX PATCH: FUN + FAIR + VR Cardboard)
     engine.vx = 0; engine.vy = 0;
     applyView();
 
+    // bind shared events
     bindShootOnce();
     bindVrEventsOnce();
+    bindQuestUiOnce();
 
-    // ✅ เพิ่มตัวนี้: “แตะที่ไหนก็ยิงได้” (VR/Cardboard)
-    bindTapShootAnywhereOnce();
+    // unlock audio (still needs gesture; safe)
+    try{ NS.Audio && NS.Audio.unlock && NS.Audio.unlock(); }catch{}
 
     updateTime();
     updatePower();
