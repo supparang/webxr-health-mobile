@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Food Groups (Launcher)</title>
+  <title>HeroHealth — Food Groups VR (Launcher)</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
 
@@ -15,113 +15,143 @@
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --acc1:rgba(34,197,94,.95);
-      --acc2:rgba(34,211,238,.90);
+      --accent:#22c55e;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
-    .wrap{
-      min-height:100%;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(18px + var(--sab)) calc(16px + var(--sal));
-      display:grid; place-items:center;
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
       background:
         radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 60%),
+        radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
         var(--bg);
+      color:var(--text);
+    }
+    .wrap{
+      min-height:100%;
+      display:grid;
+      place-items:center;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
     }
     .card{
-      width:min(920px, 94vw);
-      background:var(--panel);
+      width:min(900px, 96vw);
+      background:rgba(2,6,23,.72);
       border:1px solid var(--stroke);
       border-radius:22px;
-      box-shadow:0 18px 55px rgba(0,0,0,.55);
-      padding:18px;
+      box-shadow:0 22px 70px rgba(0,0,0,.55);
+      padding:16px;
     }
-    h1{ margin:0 0 6px; font-size:22px; }
-    p{ margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.6; }
+    h1{ margin:0 0 6px; font-size:22px; font-weight:1100; }
+    p{ margin:0 0 12px; color:var(--muted); font-weight:800; line-height:1.5; }
 
     .grid{
       display:grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap:12px;
+      grid-template-columns: 1.2fr 1fr;
+      gap:14px;
+      align-items:start;
     }
     .box{
-      grid-column: span 6;
-      background:rgba(15,23,42,.55);
-      border:1px solid rgba(148,163,184,.14);
+      background:var(--panel);
+      border:1px solid var(--stroke);
       border-radius:18px;
       padding:12px;
     }
-    .box h3{ margin:0 0 10px; font-size:14px; color:#e2e8f0; }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-    label{ font-size:12px; color:rgba(226,232,240,.88); font-weight:900; }
-    select, input{
+    .box h3{ margin:0 0 10px; font-size:14px; font-weight:1100; color:rgba(226,232,240,.92); }
+    .row{ display:flex; flex-wrap:wrap; gap:10px; }
+
+    .opt{
+      flex:1 1 160px;
+      display:grid;
+      gap:6px;
+    }
+    label{
+      font-size:12px;
+      color:rgba(226,232,240,.88);
+      font-weight:1000;
+    }
+    select,input{
       width:100%;
-      padding:10px 10px;
+      padding:10px 12px;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.50);
+      background:rgba(15,23,42,.65);
       color:var(--text);
-      outline:none;
       font-weight:900;
+      outline:none;
     }
-    .field{ flex:1 1 160px; min-width:160px; }
-    .actions{
-      display:flex; gap:10px; flex-wrap:wrap;
-      margin-top:14px;
-      justify-content:flex-end;
-    }
-    button{
-      border:0; border-radius:999px;
+    .btnrow{ display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+    button,a.btn{
+      appearance:none;
+      border:0;
+      border-radius:16px;
       padding:12px 14px;
-      font-weight:1000;
+      font-weight:1100;
       cursor:pointer;
-      background:linear-gradient(90deg, var(--acc1), var(--acc2));
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+    }
+    .primary{
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
       color:#061018;
     }
-    button.secondary{
-      background:rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.18);
+    .ghost{
+      background:transparent;
       color:var(--text);
+      border:1px solid rgba(148,163,184,.22);
     }
-    .hint{
-      margin-top:10px;
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.55);
       font-size:12px;
-      color:rgba(226,232,240,.78);
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px dashed rgba(148,163,184,.18);
-      background:rgba(2,6,23,.35);
-      white-space:pre-wrap;
+      font-weight:1000;
+      color:rgba(226,232,240,.92);
     }
-    @media (max-width: 760px){
-      .box{ grid-column: span 12; }
-      .actions{ justify-content:stretch; }
-      button{ width:100%; }
+
+    .tips{
+      display:grid;
+      gap:10px;
+    }
+    .tips .pill{ justify-content:flex-start; }
+    .small{ font-size:12px; color:var(--muted); font-weight:900; line-height:1.5; }
+
+    @media (max-width: 860px){
+      .grid{ grid-template-columns:1fr; }
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>🥗 Food Groups VR — Launcher</h1>
-      <p>เลือกโหมด/ความยาก/เวลา/การเล็ง (TOUCH/GAZE/HYBRID) และ UI สำหรับ PC • Mobile • VR Cardboard</p>
+      <h1>🍱 Food Groups VR — Launcher</h1>
+      <p>เลือกโหมด/ระดับ/เวลา/สไตล์ แล้วกด Start เพื่อเข้าเกม <b>vr-groups/groups-vr.html</b></p>
 
       <div class="grid">
         <div class="box">
-          <h3>🎮 Gameplay</h3>
+          <h3>⚙️ ตั้งค่าเล่น</h3>
+
           <div class="row">
-            <div class="field">
+            <div class="opt">
               <label>Run Mode</label>
               <select id="runMode">
-                <option value="play" selected>play (adaptive ON)</option>
-                <option value="research">research (deterministic)</option>
+                <option value="play">play (adaptive ON)</option>
+                <option value="research">research (deterministic + no cheat)</option>
               </select>
             </div>
-            <div class="field">
+
+            <div class="opt">
               <label>Difficulty</label>
               <select id="diff">
                 <option value="easy">easy</option>
@@ -129,63 +159,56 @@
                 <option value="hard">hard</option>
               </select>
             </div>
-            <div class="field">
+
+            <div class="opt">
               <label>Style</label>
               <select id="style">
                 <option value="mix" selected>mix</option>
-                <option value="feel">feel (wave feel)</option>
-                <option value="hard">hard (spiral feel)</option>
+                <option value="feel">feel (VR feel)</option>
+                <option value="hard">hard (pattern โหด)</option>
               </select>
             </div>
-            <div class="field">
+
+            <div class="opt">
               <label>Time (sec)</label>
               <input id="time" type="number" min="30" max="180" value="90" />
             </div>
-          </div>
-        </div>
 
-        <div class="box">
-          <h3>🎯 Controls / UI</h3>
-          <div class="row">
-            <div class="field">
-              <label>Shoot Mode</label>
-              <select id="shoot">
-                <option value="hybrid" selected>hybrid (tap + gaze)</option>
-                <option value="touch">touch (tap only)</option>
-                <option value="gaze">gaze (cardboard)</option>
-              </select>
+            <div class="opt">
+              <label>Seed</label>
+              <input id="seed" type="text" placeholder="auto" />
             </div>
-            <div class="field">
+
+            <div class="opt">
               <label>UI Mode</label>
               <select id="ui">
-                <option value="" selected>default</option>
-                <option value="vr">vr (hide center/coach/quest)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Seed</label>
-              <input id="seed" type="text" placeholder="ปล่อยว่าง = auto" />
-            </div>
-            <div class="field">
-              <label>Auto Start</label>
-              <select id="autostart">
-                <option value="0" selected>0 (manual)</option>
-                <option value="1">1 (auto)</option>
+                <option value="auto" selected>auto</option>
+                <option value="vr">vr (cardboard)</option>
               </select>
             </div>
           </div>
+
+          <div class="btnrow">
+            <button class="primary" id="btnStart">🚀 Start</button>
+            <a class="btn ghost" href="./index.html">🏠 กลับ HUB</a>
+            <button class="ghost" id="btnRandSeed">🎲 random seed</button>
+          </div>
+
+          <div class="small" style="margin-top:10px;">
+            Tip: โหมด <b>research</b> จะ “คงที่” และปิดความโกง (Remix/Ghost) เพื่อใช้เก็บข้อมูลวิจัย
+          </div>
         </div>
-      </div>
 
-      <div class="actions">
-        <button id="btnStart">Start Game</button>
-        <button class="secondary" id="btnHub">Back to HUB</button>
-      </div>
-
-      <div class="hint" id="hint">
-Tip:
-- Cardboard: ตั้ง Shoot = gaze และ UI = vr
-- research: ใส่ Seed เดิมเพื่อให้ run ซ้ำได้เหมือนกันทุกครั้ง
+        <div class="box tips">
+          <h3>🔥 ของมันส์ที่มีในเกม (สรุป)</h3>
+          <div class="pill">✅ No-Junk Zone (บังคับ mini “ห้ามโดนขยะ” ให้ยุติธรรม)</div>
+          <div class="pill">✅ Combo rewards: ⭐Shield / ❄Freeze / 💎Overdrive</div>
+          <div class="pill">👻 Rival Ghost (หลอกเหมือนของดี + teleport)</div>
+          <div class="pill">⚡ Remix (Perfect switch 2 รอบติด → Power x2)</div>
+          <div class="small">
+            เปิด VR cardboard แนะนำเลือก UI=vr เพื่อให้พื้นที่เล่นโล่งขึ้น + HUD ลดรก
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -193,39 +216,36 @@ Tip:
   <script>
     const $ = (id)=>document.getElementById(id);
 
-    function hubUrl(){
-      // adjust hub path if you want
-      return './index.html';
+    function randSeed(){
+      return String(Date.now()) + String(Math.floor(Math.random()*1000)).padStart(3,'0');
     }
 
-    $('btnHub').addEventListener('click', ()=> location.href = hubUrl());
+    $('btnRandSeed').addEventListener('click', ()=>{
+      $('seed').value = randSeed();
+    });
 
     $('btnStart').addEventListener('click', ()=>{
       const runMode = $('runMode').value;
       const diff = $('diff').value;
       const style = $('style').value;
       const time = Math.max(30, Math.min(180, Number($('time').value||90)));
-      const shoot = $('shoot').value;
+      const seed = ($('seed').value||'').trim() || randSeed();
       const ui = $('ui').value;
-      const autostart = $('autostart').value;
 
-      let seed = String($('seed').value||'').trim();
-      if (!seed) seed = String(Date.now());
+      const hub = './index.html';
+      const url =
+        `./vr-groups/groups-vr.html?` +
+        `runMode=${encodeURIComponent(runMode)}` +
+        `&diff=${encodeURIComponent(diff)}` +
+        `&style=${encodeURIComponent(style)}` +
+        `&time=${encodeURIComponent(time)}` +
+        `&seed=${encodeURIComponent(seed)}` +
+        `&ui=${encodeURIComponent(ui)}` +
+        `&hub=${encodeURIComponent(hub)}` +
+        `&autostart=1` +
+        `&v=${encodeURIComponent(Date.now())}`;
 
-      const v = String(Date.now());
-      const url = new URL('./vr-groups/groups-vr.html', location.href);
-      url.searchParams.set('runMode', runMode);
-      url.searchParams.set('diff', diff);
-      url.searchParams.set('style', style);
-      url.searchParams.set('time', String(time));
-      url.searchParams.set('seed', seed);
-      url.searchParams.set('shoot', shoot);
-      if (ui) url.searchParams.set('ui', ui);
-      url.searchParams.set('autostart', autostart);
-      url.searchParams.set('hub', hubUrl());
-      url.searchParams.set('v', v);
-
-      location.href = url.toString();
+      location.href = url;
     });
   </script>
 </body>
