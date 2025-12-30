@@ -1,11 +1,8 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard
-✅ DOM emoji targets (dual-eye for VR/cVR)
-✅ HUD + Quest + Coach + Fever/Shield
-✅ End summary overlay (moved OUTSIDE playfield)
-✅ Fullscreen state: body.is-fs
-✅ Overlay state: body.overlay-open / body.booting (prevent "flash behind")
-✅ Boot gate: starts AFTER pressing "เริ่มเล่น"
+GoodJunkVR (PRODUCTION) — HHA Standard (VR Ultra-Compact HUD)
+✅ Quest moved into HUD badge (so VR can be single-bar)
+✅ Dual-eye playfield for VR/cVR
+✅ Start gate overlay (boot.js starts engine only after Start)
 -->
 
 <!doctype html>
@@ -30,8 +27,8 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
-<body class="view-mobile booting overlay-open">
-  <!-- ===== HUD ===== -->
+<body>
+  <!-- ===== HUD (single stack; VR uses compact styles) ===== -->
   <div class="hha-hud">
     <div class="hud-top">
       <div class="hud-badge">
@@ -46,6 +43,20 @@ GoodJunkVR (PRODUCTION) — HHA Standard
           <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
           <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
         </div>
+
+        <!-- ✅ Quest moved here for VR compact -->
+        <div class="hud-quest-mini" aria-label="quest-mini">
+          <div class="q-row">
+            <div class="q-title" id="hudGoalTitle">Goal: —</div>
+            <div class="q-count" id="hudGoalCount">0/0</div>
+          </div>
+          <div class="q-row">
+            <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
+            <div class="q-count" id="hudMiniCount">0/0</div>
+            <div class="q-timer" id="hudMiniTimer"></div>
+          </div>
+          <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
+        </div>
       </div>
 
       <div class="hud-stats">
@@ -55,22 +66,8 @@ GoodJunkVR (PRODUCTION) — HHA Standard
         <div class="hud-stat"><div class="k">Time</div><div class="v" id="hhaTime">0</div></div>
         <div class="hud-stat grade"><div class="k">Grade</div><div class="v" id="hhaGrade">—</div></div>
       </div>
-    </div>
 
-    <div class="hud-mid">
-      <div class="hud-quest">
-        <div class="q-row">
-          <div class="q-title" id="hudGoalTitle">Goal: —</div>
-          <div class="q-count" id="hudGoalCount">0/0</div>
-        </div>
-        <div class="q-row">
-          <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
-          <div class="q-count" id="hudMiniCount">0/0</div>
-          <div class="q-timer" id="hudMiniTimer"></div>
-        </div>
-        <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
-      </div>
-
+      <!-- Coach stays for PC/Mobile; VR hides via CSS -->
       <div class="hud-coach">
         <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
         <div class="coach-talk">
@@ -78,17 +75,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard
           <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ===== Boss Bar (reserve + no layout shift) ===== -->
-  <div id="gjBossBar" class="gj-bossbar" aria-hidden="true">
-    <div class="gj-boss-card">
-      <div class="gj-boss-top">
-        <div class="gj-boss-name" id="gjBossName">BOSS WAVE</div>
-        <div class="gj-boss-time" id="gjBossTime">0.0s</div>
-      </div>
-      <div class="gj-boss-hp"><div class="gj-boss-fill" id="gjBossFill"></div></div>
     </div>
   </div>
 
@@ -120,10 +106,10 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="atk-ring" id="atk-ring-r" aria-hidden="true"></div>
       <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
     </div>
-  </div>
 
-  <!-- ===== End summary overlay (moved OUTSIDE stage) ===== -->
-  <div id="end-summary" class="end-overlay" hidden></div>
+    <!-- end summary placeholder -->
+    <div id="end-summary"></div>
+  </div>
 
   <!-- ===== Controls ===== -->
   <div class="hha-controls">
@@ -131,7 +117,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   </div>
 
   <!-- ===== Start Overlay ===== -->
-  <div id="startOverlay" class="start-overlay">
+  <div id="startOverlay" class="start-overlay" hidden>
     <div class="start-card">
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
@@ -154,50 +140,5 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
     </div>
   </div>
-
-  <!-- ===== Tiny state helpers (fullscreen + overlay flags) ===== -->
-  <script>
-    (function(){
-      const b = document.body;
-      const so = document.getElementById('startOverlay');
-      const vh = document.getElementById('vrHint');
-      const btnStart = document.getElementById('btnStart');
-      const btnOk = document.getElementById('btnVrOk');
-
-      function syncFS(){
-        b.classList.toggle('is-fs', !!document.fullscreenElement);
-      }
-      document.addEventListener('fullscreenchange', syncFS);
-      syncFS();
-
-      function syncOverlayFlag(){
-        const open = (so && !so.hidden) || (vh && !vh.hidden);
-        b.classList.toggle('overlay-open', !!open);
-      }
-
-      // startOverlay is visible by default (no hidden)
-      syncOverlayFlag();
-
-      if (vh){
-        const mo = new MutationObserver(syncOverlayFlag);
-        mo.observe(vh, { attributes:true, attributeFilter:['hidden'] });
-      }
-
-      if (btnStart){
-        btnStart.addEventListener('click', ()=>{
-          // Boot gate: hide overlay, allow stage/controls to render without flash
-          so.hidden = true;
-          b.classList.remove('booting');
-          syncOverlayFlag();
-        }, { passive:true });
-      }
-      if (btnOk){
-        btnOk.addEventListener('click', ()=>{
-          vh.hidden = true;
-          syncOverlayFlag();
-        }, { passive:true });
-      }
-    })();
-  </script>
 </body>
 </html>
