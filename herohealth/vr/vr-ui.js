@@ -1,228 +1,203 @@
 /* === /herohealth/vr/vr-ui.js ===
-HHA VR UI (Shared) — Enter VR + Exit + Gyro permission + Crosshair + Tap-to-Shoot
-✅ Works for ALL games (DOM-based) by emitting events:
-   - hha:vr {state:'enter'|'exit'|'reset'}
-   - hha:shoot {x,y, lockPx}
-✅ Adds floating buttons + crosshair overlay automatically
-✅ Reads URL params:
-   - view = pc | mobile | vr | cvr
-   - cvr=1 => view=cvr
-   - tapshoot=1 => enable tap-to-shoot
+HHA Universal VR UI (DOM/VR Cardboard Friendly)
+✅ Fullscreen button + "Enter VR" (Cardboard mode)
+✅ Crosshair overlay
+✅ Tap anywhere => emit hha:shoot (aim assist handled by engine)
+✅ Reset view button => emit hha:vr {state:'reset'}
+✅ Auto unlock audio on gesture (calls GroupsVR.Audio.unlock / HHA audio if exists)
+Usage:
+  <script src="../vr/vr-ui.js" defer></script>
+  window.HHAVRUI.mount({ lockPx: 92 });
 */
+
 (function(root){
   'use strict';
   const DOC = root.document;
   if (!DOC) return;
 
-  const $ = (sel, el=DOC)=> el.querySelector(sel);
+  const API = (root.HHAVRUI = root.HHAVRUI || {});
   const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch{} };
 
   function qs(k, def=null){
-    try{ return new URL(root.location.href).searchParams.get(k) ?? def; }
-    catch{ return def; }
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
   }
 
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-
-  // ---------- View mode ----------
-  function getView(){
-    const v = String(qs('view','')||'').toLowerCase();
-    if (v) return v;
-    if (qs('cvr','0') === '1') return 'cvr';
-    // auto guess
-    const w = root.innerWidth||360;
-    return (w <= 520) ? 'mobile' : 'pc';
-  }
-
-  function setBodyView(view){
-    const b = DOC.body;
-    if (!b) return;
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    b.classList.add(`view-${view}`);
-  }
-
-  // ---------- Fullscreen helpers ----------
-  function isFs(){
+  function isFS(){
     return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
   }
-  async function enterFs(){
+  async function enterFS(){
     try{
       const el = DOC.documentElement;
-      if (el.requestFullscreen) await el.requestFullscreen({ navigationUI:'hide' });
+      if (el.requestFullscreen) await el.requestFullscreen();
       else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-    }catch(_){}
+    }catch{}
   }
-  async function exitFs(){
+  async function exitFS(){
     try{
       if (DOC.exitFullscreen) await DOC.exitFullscreen();
       else if (DOC.webkitExitFullscreen) await DOC.webkitExitFullscreen();
-    }catch(_){}
+    }catch{}
   }
 
-  async function lockLandscape(){
-    try{
-      const so = root.screen && root.screen.orientation;
-      if (so && so.lock) await so.lock('landscape');
-    }catch(_){}
+  function unlockAudio(){
+    try{ root.GroupsVR?.Audio?.unlock?.(); }catch{}
+    try{ root.HHAudio?.unlock?.(); }catch{}
   }
 
-  async function requestGyro(){
-    // iOS requires permission from user gesture
-    try{
-      const DOE = root.DeviceOrientationEvent;
-      if (DOE && typeof DOE.requestPermission === 'function'){
-        const r = await DOE.requestPermission();
-        return (r === 'granted');
-      }
-      return true;
-    }catch(_){
-      return false;
-    }
-  }
-
-  // ---------- UI inject ----------
-  function ensureCss(){
-    if ($('#hha-vrui-style')) return;
+  function ensureStyles(){
+    if (DOC.getElementById('hha-vr-ui-style')) return;
     const st = DOC.createElement('style');
-    st.id = 'hha-vrui-style';
+    st.id = 'hha-vr-ui-style';
     st.textContent = `
-      .hha-vrui{
-        position:fixed; left:12px; bottom:12px;
-        z-index:999; display:flex; gap:8px; flex-wrap:wrap;
-        pointer-events:auto;
+      .hha-vr-ui{ position:fixed; inset:0; pointer-events:none; z-index:140; }
+      .hha-vr-bar{
+        position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px));
+        display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+        pointer-events:none; z-index:141;
       }
-      .hha-vbtn{
-        border:1px solid rgba(148,163,184,.22);
+      .hha-vr-btn{
+        pointer-events:auto;
+        border:1px solid rgba(148,163,184,.18);
         background:rgba(2,6,23,.72);
         color:#e5e7eb;
-        padding:10px 12px;
         border-radius:999px;
-        font:900 12px/1 system-ui;
-        box-shadow:0 16px 40px rgba(0,0,0,.35);
+        padding:10px 14px;
+        font: 900 13px/1 system-ui;
+        box-shadow:0 18px 50px rgba(0,0,0,.35);
         cursor:pointer;
-        -webkit-tap-highlight-color:transparent;
+        user-select:none;
       }
-      .hha-vbtn.primary{
+      .hha-vr-btn.primary{
         background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-        color:#061018;
-        border:0;
-      }
-      .hha-vbtn.on{
-        border-color:rgba(34,211,238,.45);
-        box-shadow:0 0 0 3px rgba(34,211,238,.12), 0 16px 40px rgba(0,0,0,.35);
+        color:#061018; border:0;
       }
       .hha-crosshair{
         position:fixed; left:50%; top:50%;
+        width:26px; height:26px;
         transform:translate(-50%,-50%);
-        z-index:950; pointer-events:none;
-        width:26px; height:26px; border-radius:999px;
+        border-radius:999px;
         border:2px solid rgba(226,232,240,.85);
-        box-shadow:0 0 0 3px rgba(34,211,238,.12), 0 12px 28px rgba(0,0,0,.35);
-        display:none;
+        box-shadow:0 0 0 6px rgba(34,211,238,.10);
+        pointer-events:none; z-index:142;
       }
-      .hha-crosshair:before{
-        content:"";
-        position:absolute; left:50%; top:50%;
-        transform:translate(-50%,-50%);
-        width:4px; height:4px; border-radius:999px;
-        background:rgba(34,211,238,.95);
+      .hha-crosshair::after{
+        content:""; position:absolute; left:50%; top:50%;
+        width:6px; height:6px; transform:translate(-50%,-50%);
+        border-radius:999px; background:rgba(226,232,240,.85);
       }
-      body.view-cvr .hha-crosshair{ display:block; }
-      body.view-cvr .hha-vrui{ left:12px; right:12px; bottom:12px; justify-content:center; }
+      body.view-cvr .hha-crosshair{ box-shadow:0 0 0 10px rgba(34,197,94,.10); }
     `;
     DOC.head.appendChild(st);
   }
 
-  function ensureUI(){
-    ensureCss();
-    if ($('#hha-vrui')) return;
+  function mount(opts){
+    opts = opts || {};
+    const lockPx = Math.max(40, Math.min(160, Number(opts.lockPx||92)));
+    const tapMode = (qs('view','') || '').toLowerCase(); // optional
+    const allowReset = opts.allowReset !== false;
 
-    const wrap = DOC.createElement('div');
-    wrap.id = 'hha-vrui';
-    wrap.className = 'hha-vrui';
+    ensureStyles();
 
-    const btnEnter = DOC.createElement('button');
-    btnEnter.className = 'hha-vbtn primary';
-    btnEnter.textContent = '🕶️ Enter VR';
+    let wrap = DOC.querySelector('.hha-vr-ui');
+    if (!wrap){
+      wrap = DOC.createElement('div');
+      wrap.className = 'hha-vr-ui';
+      DOC.body.appendChild(wrap);
+    }
+
+    let cross = DOC.querySelector('.hha-crosshair');
+    if (!cross){
+      cross = DOC.createElement('div');
+      cross.className = 'hha-crosshair';
+      wrap.appendChild(cross);
+    }
+
+    let bar = DOC.querySelector('.hha-vr-bar');
+    if (!bar){
+      bar = DOC.createElement('div');
+      bar.className = 'hha-vr-bar';
+      DOC.body.appendChild(bar);
+    }else{
+      bar.innerHTML = '';
+    }
+
+    const btnFS = DOC.createElement('button');
+    btnFS.className = 'hha-vr-btn primary';
+    btnFS.textContent = '⛶ Fullscreen / Enter VR';
+    btnFS.addEventListener('click', async ()=>{
+      unlockAudio();
+      if (!isFS()) await enterFS();
+      DOC.body.classList.add('view-cvr');
+      emit('hha:vr', { state:'enter' });
+    });
 
     const btnExit = DOC.createElement('button');
-    btnExit.className = 'hha-vbtn';
-    btnExit.textContent = '⤴ Exit';
-
-    const btnGyro = DOC.createElement('button');
-    btnGyro.className = 'hha-vbtn';
-    btnGyro.textContent = '🧭 Gyro';
-
-    const btnReset = DOC.createElement('button');
-    btnReset.className = 'hha-vbtn';
-    btnReset.textContent = '🎯 Reset';
-
-    const btnTap = DOC.createElement('button');
-    btnTap.className = 'hha-vbtn';
-    btnTap.textContent = '🔫 TapShoot';
-
-    wrap.append(btnEnter, btnExit, btnGyro, btnReset, btnTap);
-    DOC.body.appendChild(wrap);
-
-    const cross = DOC.createElement('div');
-    cross.className = 'hha-crosshair';
-    cross.id = 'hha-crosshair';
-    DOC.body.appendChild(cross);
-
-    let tapShoot = (qs('tapshoot','0') === '1') || (getView()==='cvr');
-    if (tapShoot) btnTap.classList.add('on');
-
-    btnEnter.addEventListener('click', async ()=>{
-      await enterFs();
-      await lockLandscape();
-      setBodyView('cvr');
-      emit('hha:vr', { state:'enter', view:'cvr' });
-    });
-
+    btnExit.className = 'hha-vr-btn';
+    btnExit.textContent = '⤫ Exit';
     btnExit.addEventListener('click', async ()=>{
+      unlockAudio();
+      DOC.body.classList.remove('view-cvr');
       emit('hha:vr', { state:'exit' });
-      await exitFs();
+      if (isFS()) await exitFS();
     });
 
-    btnGyro.addEventListener('click', async ()=>{
-      const ok = await requestGyro();
-      btnGyro.classList.toggle('on', !!ok);
-      emit('hha:vr', { state:'gyro', granted: !!ok });
-    });
+    bar.appendChild(btnFS);
+    if (allowReset){
+      const btnReset = DOC.createElement('button');
+      btnReset.className = 'hha-vr-btn';
+      btnReset.textContent = '🎯 Reset View';
+      btnReset.addEventListener('click', ()=>{
+        unlockAudio();
+        emit('hha:vr', { state:'reset' });
+      });
+      bar.appendChild(btnReset);
+    }
+    bar.appendChild(btnExit);
 
-    btnReset.addEventListener('click', ()=>{
-      emit('hha:vr', { state:'reset' });
-    });
-
-    btnTap.addEventListener('click', ()=>{
-      tapShoot = !tapShoot;
-      btnTap.classList.toggle('on', tapShoot);
-    });
-
-    // tap-to-shoot (center)
-    DOC.addEventListener('pointerdown', (ev)=>{
-      if (!tapShoot) return;
-      if (!DOC.body.classList.contains('view-cvr')) return;
-      // ignore clicks on buttons
-      const t = ev.target;
-      if (t && (t.closest && t.closest('#hha-vrui'))) return;
-
-      const x = (root.innerWidth||0) * 0.5;
-      const y = (root.innerHeight||0) * 0.5;
-      const lockPx = clamp(Number(qs('lockPx','86')||86), 40, 160);
-
+    // Tap anywhere => shoot at tap coords (engine will pick nearest)
+    // VR/Cardboard: ผู้ใช้ “จิ้มจอ” ที่ไหนก็ได้ ยิงได้แน่นอน
+    function onShoot(e){
+      unlockAudio();
+      const x = (e && typeof e.clientX === 'number') ? e.clientX : (root.innerWidth*0.5);
+      const y = (e && typeof e.clientY === 'number') ? e.clientY : (root.innerHeight*0.5);
       emit('hha:shoot', { x, y, lockPx });
+    }
+
+    // capture phase ให้ยิงได้แม้ element อื่นกัน event
+    root.addEventListener('pointerdown', (e)=>{
+      // กันยิงตอนกดปุ่ม UI
+      const t = e.target;
+      if (t && t.classList && (t.classList.contains('hha-vr-btn'))) return;
+      onShoot(e);
+    }, true);
+
+    // touchstart fallback
+    root.addEventListener('touchstart', (e)=>{
+      const t = e.touches && e.touches[0];
+      if (!t) return;
+      onShoot({ clientX:t.clientX, clientY:t.clientY, target:e.target });
     }, { passive:true });
+
+    // shortcut: double click => toggle cVR
+    root.addEventListener('dblclick', async ()=>{
+      unlockAudio();
+      if (!DOC.body.classList.contains('view-cvr')){
+        if (!isFS()) await enterFS();
+        DOC.body.classList.add('view-cvr');
+        emit('hha:vr', { state:'enter' });
+      }else{
+        DOC.body.classList.remove('view-cvr');
+        emit('hha:vr', { state:'exit' });
+        if (isFS()) await exitFS();
+      }
+    });
+
+    // optional: start in cVR if ?cvr=1
+    if (qs('cvr','0') === '1'){
+      setTimeout(()=> btnFS.click(), 300);
+    }
   }
 
-  function boot(){
-    setBodyView(getView());
-    ensureUI();
-  }
+  API.mount = mount;
 
-  if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', boot, { once:true });
-  else boot();
-
-  root.HHAVRUI = { boot };
-
-})(typeof window!=='undefined'?window:globalThis);
+})(typeof window !== 'undefined' ? window : globalThis);
