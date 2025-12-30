@@ -10,13 +10,11 @@
 </head>
 
 <body>
-  <!-- ✅ Crosshair (Cardboard) -->
-  <div class="crosshair" id="uiCrosshair" aria-hidden="true"></div>
+  <!-- Cardboard crosshair -->
+  <div class="crosshair" aria-hidden="true"></div>
+  <button class="hudToggle" id="btnHudToggle" type="button">HUD</button>
 
-  <!-- ✅ Cardboard HUD Toggle -->
-  <button class="hudToggle" id="btnHudToggle" type="button">👁️ HUD</button>
-
-  <div class="hud" aria-label="HUD">
+  <div class="hud">
     <div class="box">
       <div class="big" id="uiScore">0</div>
       <div class="small">SCORE</div>
@@ -27,13 +25,12 @@
     </div>
   </div>
 
-  <div class="centerTop" aria-label="Stats">
+  <div class="centerTop">
     <div class="pill">COMBO: <b id="uiCombo">0</b> (MAX <b id="uiComboMax">0</b>)</div>
     <div class="pill">MISS: <b id="uiMiss">0</b></div>
     <div class="pill">GRADE: <b id="uiGrade">C</b></div>
   </div>
 
-  <!-- ✅ Quest RIGHT -->
   <div class="questTop" aria-label="Quest">
     <div class="qbar">
       <div class="t">GOAL</div>
@@ -48,11 +45,9 @@
     </div>
   </div>
 
-  <!-- ✅ Gameplay Layer -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-  <!-- ✅ Power bottom -->
-  <div class="powerWrap" aria-label="Power">
+  <div class="powerWrap">
     <div class="power"><i id="uiPowerBar"></i></div>
     <div class="powerLabel">
       <span>POWER</span>
@@ -60,7 +55,6 @@
     </div>
   </div>
 
-  <!-- ✅ Coach bottom-right -->
   <div class="coachWrap" aria-label="Coach">
     <div class="coachCard">
       <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
@@ -72,7 +66,6 @@
     </div>
   </div>
 
-  <!-- Start Overlay -->
   <div class="overlay" id="startOverlay">
     <div class="panel">
       <h2>🚀 พร้อมเล่น Food Groups VR</h2>
@@ -83,11 +76,9 @@
         <button id="btnStart">Start</button>
         <button id="btnBack" class="secondary">กลับ HUB</button>
       </div>
-      <div class="dbg" id="dbgCardboard" style="margin-top:10px; opacity:.9;"></div>
     </div>
   </div>
 
-  <!-- End Overlay -->
   <div class="overlay" id="endOverlay">
     <div class="panel">
       <h2>🏁 สรุปผล</h2>
@@ -119,23 +110,13 @@
     const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
     const autostart = q.get('autostart') === '1';
     const v = (q.get('v') || String(Date.now()));
-
-    // ✅ Cardboard mode
-    const cardboard = (q.get('cardboard') === '1');
-    const dwellMs = Math.max(180, Math.min(1200, Number(q.get('dwell') || 420)));
-    const aimPx   = Math.max(70,  Math.min(260,  Number(q.get('aim')   || 140)));
-    const hudMode = (q.get('hud') || (cardboard ? 'mini' : 'full')).toLowerCase();
+    const cardboard = q.get('cardboard') === '1';
 
     if (cardboard) document.body.classList.add('cardboard');
-    if (hudMode === 'mini') document.body.classList.add('hud-mini');
 
-    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
-    $('dbgCardboard').textContent = cardboard
-      ? `🕶️ Cardboard=ON | aim=${aimPx}px | dwell=${dwellMs}ms | ยิงได้: แตะจอ/Space/Enter + เล็งค้างยิงออโต้`
-      : `🧩 Cardboard=OFF (DOM VR-feel)`;
-
-    // HUD toggle (เฉพาะ cardboard)
+    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}` + (cardboard?' | CARD‍BOARD':'');
     $('btnHudToggle').style.display = cardboard ? 'inline-flex' : 'none';
+
     $('btnHudToggle').addEventListener('click', ()=>{
       document.body.classList.toggle('hud-mini');
     });
@@ -158,7 +139,6 @@
       }
     }
 
-    // ✅ Boot list
     const BOOT_LIST = [
       './groups-fx.js',
       './audio.js',
@@ -226,10 +206,10 @@
         if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
         if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
 
-        let gp = (d.goalPct != null) ? Number(d.goalPct)
+        const gp = (d.goalPct != null) ? Number(d.goalPct)
                : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
                : 0;
-        let mp = (d.miniPct != null) ? Number(d.miniPct)
+        const mp = (d.miniPct != null) ? Number(d.miniPct)
                : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100
                : 0;
 
@@ -238,11 +218,11 @@
 
         const tLeft = Number(d.miniTimeLeftSec ?? 0);
         const timeEl = $('uiMiniTime');
+
+        // ✅ urgent <= 3s
         if (Number.isFinite(tLeft) && tLeft > 0){
           timeEl.style.display = 'block';
           timeEl.textContent = `⏳ ${tLeft}s`;
-
-          // ✅ urgent effect
           if (tLeft <= 3) document.body.classList.add('mini-urgent');
           else document.body.classList.remove('mini-urgent');
         } else {
@@ -285,7 +265,7 @@
             game: 'GroupsVR',
             ts: new Date().toISOString(),
             ...d,
-            params: { runMode, diff, style, time, seed, hub, cardboard, dwellMs, aimPx, hudMode }
+            params: { runMode, diff, style, time, seed, hub, cardboard }
           };
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
@@ -307,7 +287,7 @@
           }
           if (tries > 250){
             clearInterval(t);
-            warn('❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า GameEngine.js โหลดได้ 200 และชื่อไฟล์ตัวใหญ่/เล็กตรง');
+            warn('❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า GameEngine.js โหลดได้ 200 และชื่อไฟล์ตรง');
             $('dbgBoot').textContent = 'ENGINE NOT FOUND ❌';
           }
         }, 80);
@@ -323,7 +303,7 @@
       if (!GE){ $('btnStart').disabled = false; return; }
 
       GE.setLayerEl($('fg-layer'));
-      GE.start(diff, { runMode, style, time, seed, cardboard, dwellMs, aimPx });
+      GE.start(diff, { runMode, style, time, seed });
 
       $('startOverlay').style.display = 'none';
       $('endOverlay').classList.remove('show');
