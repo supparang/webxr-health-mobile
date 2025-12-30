@@ -1,16 +1,13 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // HydrationVR — PRODUCTION (DOM Engine + WaterGauge + Shield + Storm Mini + Boss Mini + Research Logging)
-// ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:storm, hha:end
+// ✅ Emits: hha:score, hha:time, quest:update, hha:judge, hha:end
 // ✅ Research: run=research => adaptive OFF + deterministic seed + deterministic storm schedule
-// ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end (best-effort)
+// ✅ Logging: ?log=<WEB_APP_EXEC_URL> => POST JSON on end
 // ✅ PATCH 10: Boss mini (ท้าย Storm) ต้อง BLOCK boss-bad >= bossNeed
 // ✅ PATCH 11: deterministic storm schedule (no frame-window race)
-// ✅ PATCH 12: input throttle + sanity (เร็วขึ้น/แม่นขึ้น/กัน spam)
-// ✅ PATCH 23: Cardboard -> spawn targets into #hvr-layerL/#hvr-layerR (fix missing targets)
-// ✅ PATCH 24: Cardboard playfield rect = cbPlayfieldL/R (fix spawn/pickXY)
-// ✅ PATCH 25: hha:score includes stormInEndWindow + drift fields (HTML urgent/drift hooks work)
-// ✅ PATCH 26: Emit hha:storm enter/exit for Storm intro/siren
-// ✅ PATCH 27: End summary field names align with hydration-vr.html (stormMiniSuccess/stormSuccessRatePct)
+// ✅ PATCH 12: input throttle + sanity
+// ✅ PATCH 23: Cardboard -> spawn targets into #hvr-layerL/#hvr-layerR (fix black screen + missing targets)
+// ✅ PATCH 24: Cardboard playfield rect bind (#cbPlayfieldL/#cbPlayfieldR) for correct spawn geometry
 
 'use strict';
 
@@ -70,32 +67,32 @@ const layerMain = DOC.getElementById('hvr-layer');
 const layerL = DOC.getElementById('hvr-layerL');
 const layerR = DOC.getElementById('hvr-layerR');
 
-// ✅ PATCH 24: Cardboard playfield rect must be cbPlayfieldL/R (your HTML uses these ids)
-const cbPlayfield =
-  DOC.getElementById('cbPlayfieldL') ||
-  DOC.getElementById('cbPlayfieldR') ||
+// PATCH 24: Cardboard playfield rect
+const cbPlayfieldL = DOC.getElementById('cbPlayfieldL');
+const cbPlayfieldR = DOC.getElementById('cbPlayfieldR');
+const cbPlayfieldAny =
+  cbPlayfieldL ||
+  cbPlayfieldR ||
   DOC.getElementById('cb-playfield') ||
   DOC.getElementById('cbPlayfield') ||
   DOC.getElementById('cardboard-playfield') ||
-  DOC.querySelector('.cbPlayfield') ||
   DOC.querySelector('.cb-playfield') ||
-  DOC.getElementById('cb-left') ||
-  null;
+  DOC.querySelector('.cbPlayfield') ||
+  DOC.getElementById('cb-left') || null;
 
 function isCardboard(){
   try{ return DOC.body && DOC.body.classList.contains('cardboard'); }catch{ return false; }
 }
 function activeLayers(){
-  // เข้า Cardboard -> ต้องให้เป้าไปอยู่ใน cb layers
   if (isCardboard() && layerL && layerR) return [layerL, layerR];
   return [layerMain].filter(Boolean);
 }
 function activePlayfield(){
-  if (isCardboard() && cbPlayfield) return cbPlayfield;
-  return playfield || cbPlayfield;
+  // ✅ ใช้ cbPlayfieldL เป็นหลักตอน Cardboard เพื่อให้ rect ถูกต้อง
+  if (isCardboard() && cbPlayfieldAny) return cbPlayfieldAny;
+  return playfield || cbPlayfieldAny;
 }
 function fxLayer(){
-  // pop text ควรไปที่เลเยอร์ที่มองเห็นเสมอ
   return (layerMain || layerL || layerR);
 }
 
@@ -149,7 +146,6 @@ function setText(el, t){ try{ if(el) el.textContent = String(t); }catch{} }
   .hvr-target.bad { outline: 2px solid rgba(239,68,68,.18); }
   .hvr-target.shield{ outline: 2px solid rgba(34,211,238,.18); }
 
-  /* boss BAD */
   .hvr-target.bossbad{
     outline: 2px dashed rgba(239,68,68,.35);
     box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 22px rgba(239,68,68,.10);
@@ -196,7 +192,6 @@ const S = {
   nHitBadGuard:0,
   nExpireGood:0,
 
-  // streak (โชว์ใน summary ได้)
   streakGood:0,
   streakMax:0,
 
@@ -217,7 +212,6 @@ const S = {
   endWindowSec: 1.2,
   inEndWindow:false,
 
-  // ----- mini conditions (storm mini) -----
   miniCleared:0,
   miniTotal: 999,
   miniState: {
@@ -230,7 +224,6 @@ const S = {
     doneThisStorm:false,
   },
 
-  // ----- Boss mini (ท้ายพายุ) -----
   bossActive:false,
   bossNeed: 2,
   bossBlocked: 0,
@@ -238,12 +231,7 @@ const S = {
   bossWindowSec: 2.2,
 
   adaptiveOn: (run !== 'research'),
-  adaptK: 0.0,
-
-  // ✅ PATCH 25: drift placeholders for HTML driver (0 if not used)
-  driftX: 0,
-  driftY: 0,
-  driftRot: 0
+  adaptK: 0.0
 };
 
 // difficulty tuning
@@ -283,10 +271,8 @@ const TUNE = (() => {
     stormDurSec: stormDur,
     endWindowSec: 1.2,
 
-    // storm spawn faster
     stormSpawnMul: diff==='hard' ? 0.56 : 0.64,
 
-    // water dynamics
     nudgeToMid: 5.0,
     badPush:    8.0,
     missPenalty: 1,
@@ -302,7 +288,6 @@ S.endWindowSec = TUNE.endWindowSec;
 S.stormDur = TUNE.stormDurSec;
 S.bossWindowSec = TUNE.bossWindowSec;
 
-// expose for HTML cinematic driver
 ROOT.__HVR__ = ROOT.__HVR__ || {};
 ROOT.__HVR__.S = S;
 ROOT.__HVR__.TUNE = TUNE;
@@ -312,7 +297,6 @@ function computeAccuracy(){
   const denom = Math.max(1, S.nGoodSpawn);
   return clamp((S.nHitGood / denom) * 100, 0, 100);
 }
-
 function computeGrade(){
   const acc = computeAccuracy();
   const miss = S.misses|0;
@@ -343,7 +327,6 @@ function syncHUD(){
   setText(elQuest1, `คุม GREEN ให้ครบ ${S.greenTarget|0}s (สะสม)`);
   setText(elQuest2, `GREEN: ${(S.greenHold).toFixed(1)} / ${(S.greenTarget).toFixed(0)}s`);
 
-  // mini text
   if (S.stormActive){
     const bossTxt = S.bossActive ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
     setText(elQuest3, `Storm Mini: Shield Timing (โหมดโหด)${bossTxt}`);
@@ -361,7 +344,6 @@ function syncHUD(){
 
   setWaterGauge(S.waterPct);
 
-  // ✅ PATCH 25: include stormInEndWindow + drift fields
   emit('hha:score', {
     score: S.score|0,
     combo: S.combo|0,
@@ -374,10 +356,7 @@ function syncHUD(){
     shield: S.shield|0,
     stormActive: !!S.stormActive,
     stormLeftSec: S.stormLeftSec,
-    stormInEndWindow: !!S.inEndWindow,
-    driftX: S.driftX || 0,
-    driftY: S.driftY || 0,
-    driftRot: S.driftRot || 0
+    // (ถ้าอยากส่ง drift ต่อไปให้ HTML ก็เติมเพิ่มได้)
   });
 
   emit('hha:time', { left: S.leftSec|0 });
@@ -418,7 +397,7 @@ function pushWaterBad(){
   updateZone();
 }
 
-// ------------------ spawn math (center bias + margins) ------------------
+// ------------------ spawn math ------------------
 function pickXY(){
   const pf = activePlayfield();
   const r = pf ? pf.getBoundingClientRect() : { width: 1, height: 1, left:0, top:0 };
@@ -427,14 +406,12 @@ function pickXY(){
   const w = Math.max(1, r.width - pad*2);
   const h = Math.max(1, r.height - pad*2);
 
-  // bell-ish distribution via (rng+rng)/2
   const rx = (rng()+rng())/2;
   const ry = (rng()+rng())/2;
 
   const x = pad + rx * w;
   const y = pad + ry * h;
 
-  // % relative to that playfield rect
   const xPct = (x / Math.max(1, r.width)) * 100;
   const yPct = (y / Math.max(1, r.height)) * 100;
 
@@ -474,11 +451,11 @@ function makePop(text, kind){
   }catch{}
 }
 
-// ------------------ PATCH 12: input sanity / anti-spam ------------------
-let lastHitAt = 0;               // ms
-const HIT_COOLDOWN_MS = 55;      // เร็วขึ้นแต่กัน spam
+// ------------------ anti-spam ------------------
+let lastHitAt = 0;
+const HIT_COOLDOWN_MS = 55;
 
-// ------------------ target lifecycle (dual-eye cardboard spawn) ------------------
+// ------------------ target lifecycle ------------------
 function spawn(kind){
   if (S.ended) return;
 
@@ -488,10 +465,8 @@ function spawn(kind){
   const { xPct, yPct } = pickXY();
   const s = targetSize();
 
-  // boss bad marker
   const isBossBad = (kind === 'bad' && S.bossActive);
 
-  // นับ spawn ครั้งเดียว
   if (kind === 'good') S.nGoodSpawn++;
   if (kind === 'bad') S.nBadSpawn++;
   if (kind === 'shield') S.nShieldSpawn++;
@@ -576,7 +551,7 @@ function spawn(kind){
       makePop('+SHIELD', 'shield');
       emit('hha:judge', { kind:'shield' });
     }
-    else { // bad
+    else {
       S.streakGood = 0;
 
       if (S.shield > 0){
@@ -586,11 +561,8 @@ function spawn(kind){
         makePop('BLOCK!', 'shield');
         emit('hha:judge', { kind:'block' });
 
-        // mini condition: block in end-window
         if (S.stormActive && S.inEndWindow && !S.miniState.doneThisStorm){
           S.miniState.blockedInEnd = true;
-
-          // perfect bonus ถ้า block ใน end-window + อยู่ LOW/HIGH (ไม่ใช่ GREEN)
           if (S.waterZone !== 'GREEN'){
             S.score += 8;
             makePop('PERFECT!', 'shield');
@@ -598,7 +570,6 @@ function spawn(kind){
           }
         }
 
-        // boss block count
         if (isBossBad){
           S.bossBlocked++;
         }
@@ -616,7 +587,6 @@ function spawn(kind){
     syncHUD();
   }
 
-  // สร้าง node ตามจำนวนเลเยอร์ที่ active (normal: 1, cardboard: 2)
   for (const L of layers){
     const el = buildNode();
 
@@ -639,8 +609,6 @@ function spawn(kind){
 
 // ------------------ spawner loop ------------------
 let spawnTimer = 0;
-
-// deterministic storm schedule (seconds since start)
 let nextStormAt = 0;
 let stormIndex = 0;
 
@@ -699,22 +667,17 @@ function enterStorm(){
     doneThisStorm:false,
   };
 
-  // reset boss per storm
   S.bossActive = false;
   S.bossBlocked = 0;
   S.bossDoneThisStorm = false;
 
-  // force water off-green a bit so mini is feasible
   if (S.waterZone === 'GREEN'){
     S.waterPct = clamp(S.waterPct + (rng() < 0.5 ? -7 : +7), 0, 100);
     updateZone();
   }
 
   syncHUD();
-
-  // ✅ PATCH 26: notify HTML storm intro/siren
-  emit('hha:storm', { state:'enter', cycle:S.stormCycle|0 });
-  emit('hha:judge', { kind:'storm-in' }); // optional (HTML maps this to beep)
+  emit('hha:storm', { state:'enter' });
 }
 
 function exitStorm(){
@@ -722,7 +685,6 @@ function exitStorm(){
   S.stormLeftSec = 0;
   S.inEndWindow = false;
 
-  // evaluate storm mini (ถ้ายังไม่ทำ)
   if (!S.miniState.doneThisStorm){
     const m = S.miniState;
     const ok = !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
@@ -734,7 +696,6 @@ function exitStorm(){
     }
   }
 
-  // boss result
   if (!S.bossDoneThisStorm){
     if (S.bossBlocked >= S.bossNeed){
       S.bossDoneThisStorm = true;
@@ -746,9 +707,7 @@ function exitStorm(){
   S.bossActive = false;
 
   syncHUD();
-
-  // ✅ PATCH 26: storm exit
-  emit('hha:storm', { state:'exit', cycle:S.stormCycle|0 });
+  emit('hha:storm', { state:'exit' });
 }
 
 function tickStorm(dt){
@@ -760,7 +719,6 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
-  // boss window (ท้ายพายุ)
   const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
   if (inBoss && !S.bossDoneThisStorm){
     S.bossActive = true;
@@ -780,7 +738,7 @@ function tickStorm(dt){
   }
 }
 
-// ------------------ end logging (still optional) ------------------
+// ------------------ end logging ------------------
 async function sendLog(payload){
   if (!logEndpoint) return;
   try{
@@ -815,7 +773,6 @@ function update(dt){
 
   const elapsed = (now() - S.t0) / 1000;
 
-  // deterministic storm schedule
   if (!S.stormActive){
     if (elapsed >= nextStormAt && S.leftSec > (S.stormDur + 2)){
       enterStorm();
@@ -846,8 +803,6 @@ async function endGame(reason){
   const grade = computeGrade();
   const acc = computeAccuracy();
 
-  const playedSec = clamp(timeLimit - S.leftSec, 0, timeLimit);
-
   const summary = {
     timestampIso: qs('timestampIso', new Date().toISOString()),
     projectTag: qs('projectTag', 'HeroHealth'),
@@ -856,7 +811,7 @@ async function endGame(reason){
     gameMode: 'hydration',
     diff,
     durationPlannedSec: timeLimit,
-    durationPlayedSec: Number(playedSec.toFixed(2)),
+    durationPlayedSec: timeLimit,
 
     scoreFinal: S.score|0,
     comboMax: S.comboMax|0,
@@ -882,16 +837,8 @@ async function endGame(reason){
     streakMax: S.streakMax|0,
 
     stormCycles: S.stormCycle|0,
-
-    // ✅ PATCH 27: align with hydration-vr.html end UI
     stormMiniSuccess: (S.miniCleared|0),
     stormSuccessRatePct: clamp(((S.miniCleared|0) / Math.max(1, S.stormCycle|0)) * 100, 0, 100),
-
-    // optional backward-compat
-    stormSuccess: (S.miniCleared|0),
-    stormRatePct: clamp(((S.miniCleared|0) / Math.max(1, S.stormCycle|0)) * 100, 0, 100),
-
-    timeInGreenSec: Number(S.greenHold.toFixed(2)),
 
     reason: reason || 'end'
   };
@@ -902,7 +849,6 @@ async function endGame(reason){
   }catch{}
 
   emit('hha:end', summary);
-
   await sendLog(summary);
 }
 
@@ -938,7 +884,7 @@ async function boot(){
   if (!pf || !activeLayers().length){
     console.warn('[Hydration] missing playfield or layers', {
       playfield: !!playfield,
-      cbPlayfield: !!cbPlayfield,
+      cbPlayfield: !!cbPlayfieldAny,
       layerMain: !!layerMain,
       layerL: !!layerL,
       layerR: !!layerR
@@ -958,7 +904,6 @@ async function boot(){
   S.t0 = now();
   S.lastTick = S.t0;
 
-  // init deterministic storm schedule
   nextStormAt = TUNE.stormEverySec;
   stormIndex = 0;
 
@@ -983,7 +928,6 @@ async function boot(){
     }
   });
 
-  // optional force end
   window.addEventListener('hha:force_end', (ev)=>{
     const d = ev.detail || {};
     if (!S.ended) endGame(d.reason || 'force');
