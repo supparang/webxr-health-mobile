@@ -1,7 +1,8 @@
 /* === /herohealth/vr-groups/groups-fx.js ===
-Groups VR — FX Layer (PRODUCTION)
-- React to hha:judge + hha:celebrate + storm urgent
-- Light shake + screen flash (safe)
+GroupsVR FX overlay
+- zone indicator (No-Junk Zone)
+- edge pulse / shake
+- small text pops
 */
 
 (function(root){
@@ -9,101 +10,107 @@ Groups VR — FX Layer (PRODUCTION)
   const DOC = root.document;
   if (!DOC) return;
 
-  const NS = (root.GroupsVR = root.GroupsVR || {});
-  const clamp = (v,a,b)=> (v<a?a:(v>b?b:v));
-
-  function pulseBody(cls, ms){
-    DOC.body.classList.add(cls);
-    setTimeout(()=>DOC.body.classList.remove(cls), ms|0);
+  function ensureLayer(){
+    let el = DOC.querySelector('.groups-fx-layer');
+    if (el) return el;
+    el = DOC.createElement('div');
+    el.className = 'groups-fx-layer';
+    el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:120;overflow:hidden;';
+    DOC.body.appendChild(el);
+    return el;
   }
 
-  // tiny overlay flash
-  let flashEl = null;
-  function ensureFlash(){
-    if (flashEl && flashEl.isConnected) return flashEl;
-    flashEl = DOC.createElement('div');
-    flashEl.style.cssText = [
-      'position:fixed','inset:0','z-index:30','pointer-events:none',
-      'background:rgba(34,211,238,.12)','opacity:0','transition:opacity .12s ease'
-    ].join(';');
-    DOC.body.appendChild(flashEl);
-    return flashEl;
-  }
-  function flash(kind){
-    const el = ensureFlash();
-    el.style.background =
-      kind==='bad'  ? 'rgba(239,68,68,.16)' :
-      kind==='boss' ? 'rgba(34,211,238,.14)' :
-      kind==='gold' ? 'rgba(250,204,21,.16)' :
-                      'rgba(34,211,238,.10)';
-    el.style.opacity = '1';
-    setTimeout(()=>{ el.style.opacity = '0'; }, 120);
+  function ensureEdge(){
+    let el = DOC.querySelector('.groups-edge');
+    if (el) return el;
+    el = DOC.createElement('div');
+    el.className = 'groups-edge';
+    el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:121;';
+    DOC.body.appendChild(el);
+    return el;
   }
 
-  // shake via CSS var on body
-  let shakeT = 0;
-  function shake(power){
-    power = clamp(Number(power)||0, 0, 1);
-    DOC.body.style.setProperty('--fx-shake', String(power));
-    clearTimeout(shakeT);
-    shakeT = setTimeout(()=>DOC.body.style.removeProperty('--fx-shake'), 220);
+  function ensureZone(){
+    let z = DOC.getElementById('groupsZone');
+    if (z) return z;
+    z = DOC.createElement('div');
+    z.id = 'groupsZone';
+    z.className = 'groups-zone';
+    DOC.body.appendChild(z);
+    return z;
   }
 
-  // bind
-  root.addEventListener('hha:judge', (ev)=>{
-    const d = ev.detail||{};
-    const kind = String(d.kind||'').toLowerCase();
+  function popText(text){
+    const layer = ensureLayer();
+    const el = DOC.createElement('div');
+    el.textContent = text;
+    const x = (root.innerWidth||360) * (0.5 + (Math.random()*0.06-0.03));
+    const y = (root.innerHeight||640) * (0.44 + (Math.random()*0.06-0.03));
+    el.style.cssText =
+      `position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
+       font:1000 14px/1 system-ui;color:#fff;
+       text-shadow:0 2px 0 rgba(0,0,0,.28),0 18px 40px rgba(0,0,0,.35);
+       opacity:0;`;
+    layer.appendChild(el);
+    el.animate([
+      { transform:'translate(-50%,-50%) scale(0.85)', opacity:0 },
+      { transform:'translate(-50%,-60%) scale(1.05)', opacity:1, offset:0.22 },
+      { transform:'translate(-50%,-90%) scale(0.98)', opacity:0 }
+    ], { duration: 720, easing:'cubic-bezier(.2,.9,.2,1)' });
+    setTimeout(()=>el.remove(), 760);
+  }
 
-    if (kind === 'miss'){
-      shake(0.6);
-      flash('bad');
-    } else if (kind === 'bad'){
-      shake(0.45);
-      flash('bad');
-    } else if (kind === 'boss'){
-      shake(0.35);
-      flash('boss');
-    } else if (kind === 'good'){
-      flash('gold');
-    }
+  function edge(kind='warn', ms=420){
+    ensureEdge();
+    DOC.body.dataset.edge = kind;
+    DOC.body.classList.add('groups-edge-on');
+    setTimeout(()=> DOC.body.classList.remove('groups-edge-on'), ms);
+  }
 
-    // particles integration (optional)
-    try{
-      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
-      if (P && typeof P.celebrate === 'function' && (kind==='boss' || kind==='miss')){
-        P.celebrate();
-      }
-    }catch{}
-  }, {passive:true});
+  function shake(ms=260){
+    DOC.body.classList.add('groups-shake');
+    setTimeout(()=> DOC.body.classList.remove('groups-shake'), ms);
+  }
 
-  root.addEventListener('hha:celebrate', (ev)=>{
-    const d = ev.detail||{};
-    const kind = String(d.kind||'').toLowerCase();
-    flash(kind==='goal'?'gold':(kind==='mini'?'boss':'gold'));
-    try{
-      const P = root.Particles || (root.GAME_MODULES && root.GAME_MODULES.Particles);
-      if (P && typeof P.celebrate === 'function') P.celebrate();
-    }catch{}
-  }, {passive:true});
+  function zoneShow(x,y,r){
+    const z = ensureZone();
+    z.style.setProperty('--zx', x+'px');
+    z.style.setProperty('--zy', y+'px');
+    z.style.setProperty('--zr', r+'px');
+    z.classList.add('show');
+  }
+  function zoneHide(){
+    const z = ensureZone();
+    z.classList.remove('show');
+  }
 
-  // apply shake visually (simple)
-  const style = DOC.createElement('style');
-  style.textContent = `
-    body{
-      transform: translateZ(0);
-    }
-    body[style*="--fx-shake"] .fg-layer{
-      animation: fxShake .22s linear 1;
-    }
-    @keyframes fxShake{
-      0%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(0px); }
-      25%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(-3px); }
-      50%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(3px); }
-      75%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(-2px); }
-      100%{ transform: translate(var(--vx,0px), var(--vy,0px)) translateX(0px); }
-    }
-  `;
-  DOC.head.appendChild(style);
+  // events
+  root.addEventListener('groups:zone', (e)=>{
+    const d = e.detail||{};
+    if (!d.on){ zoneHide(); return; }
+    zoneShow(Number(d.x||0), Number(d.y||0), Number(d.r||140));
+  });
 
-  NS.FX = { flash, shake };
+  root.addEventListener('groups:mini_urgent', ()=>{ edge('danger', 320); });
+
+  root.addEventListener('groups:tick', (e)=>{
+    const d = e.detail||{};
+    // tick = subtle shake when close to fire
+    if (Number(d.rate||1) >= 1.7) shake(140);
+  });
+
+  root.addEventListener('groups:progress', (e)=>{
+    const d = e.detail||{};
+    const k = String(d.kind||'');
+    if (k === 'powerup_star') { popText('⭐ OVERDRIVE!'); edge('good', 380); }
+    if (k === 'powerup_ice') { popText('❄️ FREEZE!'); edge('info', 380); }
+    if (k === 'powerup_shield') { popText('🛡️ SHIELD!'); edge('good', 380); }
+    if (k === 'boss_spawn') { popText('👑 BOSS!'); edge('warn', 520); }
+    if (k === 'boss_weak_on') { popText('🎯 WEAK SPOT!'); edge('info', 520); }
+    if (k === 'boss_teleport') { popText('💨 BOSS ESCAPE!'); edge('danger', 520); }
+    if (k === 'burst_on') { popText('⚡ BURST MODE!'); edge('good', 520); }
+    if (k === 'nojunk_fail') { popText('🚫 NO-JUNK FAIL'); edge('danger', 520); }
+    if (k === 'nojunk_clear') { popText('✅ NO-JUNK CLEAR'); edge('good', 520); }
+  });
+
 })(typeof window !== 'undefined' ? window : globalThis);
