@@ -1,12 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY)
-// v5: Laser Sweep + Magnet/Slip + Hardcore End Policy (end=boss) + HUD Hide (H)
+// v6: FIX "targets behind" (eye overflow hidden via CSS) + Quest Strip per-eye + Laser per-eye
+//     Laser alternates X/Y + Rage double sweep, Hardcore end=boss supported
 
 'use strict';
 
 const ROOT = (typeof window !== 'undefined') ? window : globalThis;
 
-function clamp(v, a, b){ v = Number(v)||0; return Math.max(a, Math.min(b, v)); }
+function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b, v)); }
 function now(){ return (ROOT.performance && performance.now) ? performance.now() : Date.now(); }
 function emit(name, detail){ try{ ROOT.dispatchEvent(new CustomEvent(name, { detail: detail || {} })); }catch(_){} }
 function qs(name, def){ try{ return (new URL(ROOT.location.href)).searchParams.get(name) ?? def; }catch(_){ return def; } }
@@ -95,7 +96,7 @@ function diffBase(diff){
   return { spawnMs: 840, ttlMs: 1950, size: 1.02, junk: 0.15, power: 0.030, maxT: 8, bossNeed: 8, jammerP: 0.035, laserGap: 11000 };
 }
 
-/* -------------------- UI + Styles injection -------------------- */
+/* -------------------- CSS injection (adds quest strip + laser skins + end summary) -------------------- */
 function ensureTargetStyles(){
   const DOC = ROOT.document;
   if (!DOC || DOC.getElementById('gj-safe-style')) return;
@@ -103,12 +104,9 @@ function ensureTargetStyles(){
   const st = DOC.createElement('style');
   st.id = 'gj-safe-style';
   st.textContent = `
-    /* HUD hide mode (press H) */
     body.hud-hidden .hha-hud{ display:none !important; }
     body.hud-hidden .hha-fever{ display:none !important; }
-    body.hud-hidden .hha-controls{ opacity:.85; }
 
-    /* FX overlay (fever vignette + subtle film) */
     #gj-stage::before{
       content:"";
       position:absolute; inset:-2px;
@@ -124,7 +122,6 @@ function ensureTargetStyles(){
     body.fever-mid #gj-stage::before{ opacity:.55; }
     body.fever-high #gj-stage::before{ opacity:.85; }
 
-    /* stage shake */
     #gj-stage.shake{ animation: gjShake 140ms linear 1; }
     @keyframes gjShake{
       0%{ transform: translate(0,0); }
@@ -135,8 +132,8 @@ function ensureTargetStyles(){
       100%{ transform: translate(0,0); }
     }
 
-    /* in-field quest strip (shows even if HUD hidden) */
-    #gj-quest-mini{
+    /* Quest strip base */
+    .gj-quest-mini{
       position:absolute;
       left:50%; top:10px;
       transform: translateX(-50%);
@@ -157,21 +154,21 @@ function ensureTargetStyles(){
       transition: opacity 160ms ease, transform 160ms ease;
       white-space: nowrap;
     }
-    #gj-quest-mini.show{ opacity:1; transform: translateX(-50%) translateY(0); }
-    #gj-quest-mini .tag{
+    .gj-quest-mini.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+    .gj-quest-mini .tag{
       padding: 6px 10px;
       border-radius: 999px;
       border: 1px solid rgba(148,163,184,.18);
       background: rgba(15,23,42,.55);
       font-weight: 1000;
     }
-    #gj-quest-mini .tag.goal{ border-color: rgba(34,197,94,.28); }
-    #gj-quest-mini .tag.mini{ border-color: rgba(34,211,238,.28); }
-    #gj-quest-mini .tag.boss{ border-color: rgba(239,68,68,.30); }
-    #gj-quest-mini .tag.warn{ border-color: rgba(245,158,11,.35); box-shadow: 0 0 0 2px rgba(245,158,11,.10); }
+    .gj-quest-mini .tag.goal{ border-color: rgba(34,197,94,.28); }
+    .gj-quest-mini .tag.mini{ border-color: rgba(34,211,238,.28); }
+    .gj-quest-mini .tag.boss{ border-color: rgba(239,68,68,.30); }
+    .gj-quest-mini .tag.warn{ border-color: rgba(245,158,11,.35); box-shadow: 0 0 0 2px rgba(245,158,11,.10); }
 
-    /* LASER SWEEP */
-    #gj-laser{
+    /* Laser overlay (axis X default; axis Y will be height:120px and width:100% by JS) */
+    .gj-laser{
       position:absolute;
       left:0; top:0;
       width:120px;
@@ -190,8 +187,8 @@ function ensureTargetStyles(){
       );
       filter: drop-shadow(0 0 22px rgba(239,68,68,.18));
     }
-    #gj-laser.on{ opacity:1; }
-    #gj-laser.warn{
+    .gj-laser.on{ opacity:1; }
+    .gj-laser.warn{
       opacity: .65;
       background: linear-gradient(90deg,
         rgba(245,158,11,0) 0%,
@@ -209,7 +206,6 @@ function ensureTargetStyles(){
       pointer-events:auto !important;
       touch-action:none;
     }
-
     .gj-target{
       position:absolute;
       transform: translate(-50%,-50%) scale(var(--s, 1));
@@ -231,7 +227,6 @@ function ensureTargetStyles(){
     .gj-target.star{ border-color: rgba(34,211,238,.36); }
     .gj-target.shield{ border-color: rgba(168,85,247,.36); }
 
-    /* decoy / jammer (fair tell) */
     .gj-target.decoy{
       border-color: rgba(245,158,11,.30);
       box-shadow: 0 16px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset, 0 0 24px rgba(245,158,11,.10);
@@ -258,7 +253,6 @@ function ensureTargetStyles(){
       filter: saturate(1.25);
     }
 
-    /* boss */
     .gj-target.boss{
       width: 112px; height: 112px;
       font-size: 56px;
@@ -290,7 +284,6 @@ function ensureTargetStyles(){
       transition: transform 140ms ease, opacity 140ms ease;
     }
 
-    /* end summary */
     #end-summary{
       position:fixed;
       inset:0;
@@ -354,39 +347,46 @@ function ensureTargetStyles(){
   DOC.head.appendChild(st);
 }
 
-function ensureInFieldQuestStrip(){
-  const DOC = ROOT.document;
-  if (!DOC) return;
+/* -------------------- UI helpers -------------------- */
+function updateFever(shield, fever){
+  try{ FeverUI.set({ value: clamp(fever,0,100), shield: clamp(shield,0,9) }); }catch(_){}
+  try{ if (typeof FeverUI.setShield === 'function') FeverUI.setShield(clamp(shield,0,9)); }catch(_){}
+}
+function applyFeverFX(DOC, fever){
+  const b = DOC.body;
+  const f = clamp(fever, 0, 100);
+  b.classList.toggle('fever-mid', f >= 45);
+  b.classList.toggle('fever-high', f >= 72);
+}
+function shakeStage(DOC, strength=1){
   const stage = DOC.getElementById('gj-stage');
   if (!stage) return;
-
-  if (!DOC.getElementById('gj-quest-mini')){
-    const el = DOC.createElement('div');
-    el.id = 'gj-quest-mini';
-    el.innerHTML = `<span class="tag goal">Goal 0/0</span><span class="tag mini">Mini 0/0</span>`;
-    stage.appendChild(el);
+  stage.classList.remove('shake');
+  void stage.offsetWidth;
+  stage.classList.add('shake');
+  if (strength >= 2){
+    setTimeout(()=>{ try{ stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }catch(_){ } }, 90);
   }
-
-  if (!DOC.getElementById('gj-laser')){
-    const laser = DOC.createElement('div');
-    laser.id = 'gj-laser';
-    stage.appendChild(laser);
-  }
+  setTimeout(()=>{ try{ stage.classList.remove('shake'); }catch(_){ } }, 220);
+}
+function burstAtEl(el, kind){
+  try{
+    const r = el.getBoundingClientRect();
+    Particles.burstAt(r.left + r.width/2, r.top + r.height/2, kind || el.dataset.type || '');
+  }catch(_){}
 }
 
-/* -------------------- Spawn geometry -------------------- */
+/* -------------------- geometry -------------------- */
 function buildAvoidRects(){
   const DOC = ROOT.document;
   const rects = [];
   if (!DOC) return rects;
-
   const els = [
     DOC.querySelector('.hud-top'),
     DOC.querySelector('.hud-mid'),
     DOC.querySelector('.hha-controls'),
     DOC.getElementById('hhaFever')
   ].filter(Boolean);
-
   for (const el of els){
     try{
       const r = el.getBoundingClientRect();
@@ -395,13 +395,8 @@ function buildAvoidRects(){
   }
   return rects;
 }
-function pointInRect(x, y, r){
-  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-}
-function inflateRect(r, pad=8){
-  return { left:r.left-pad, right:r.right+pad, top:r.top-pad, bottom:r.bottom+pad };
-}
-
+function pointInRect(x, y, r){ return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }
+function inflateRect(r, pad=8){ return { left:r.left-pad, right:r.right+pad, top:r.top-pad, bottom:r.bottom+pad }; }
 function getStageRect(DOC){
   const stage = DOC.getElementById('gj-stage');
   if (stage){
@@ -428,63 +423,45 @@ function getEyeRects(DOC, dual){
   const eyeR = { left:mid, top:stageR.top, right:stageR.right, bottom:stageR.bottom, width:stageR.right-mid, height:stageR.bottom-stageR.top };
   return { stageR, eyeL, eyeR };
 }
-
 function safeInnerRect(baseRect, margins){
   const m = margins || {};
   let left = baseRect.left + (m.left ?? 12);
   let right = baseRect.right - (m.right ?? 12);
   let top = baseRect.top + (m.top ?? 12);
   let bottom = baseRect.bottom - (m.bottom ?? 12);
-
   if ((right - left) < 180){
-    const mid = (left + right) * 0.5;
-    left = mid - 90;
-    right = mid + 90;
+    const mid = (left + right) * 0.5; left = mid - 90; right = mid + 90;
   }
   if ((bottom - top) < 220){
-    const mid = (top + bottom) * 0.5;
-    top = mid - 110;
-    bottom = mid + 110;
+    const mid = (top + bottom) * 0.5; top = mid - 110; bottom = mid + 110;
   }
   return { left, right, top, bottom };
 }
-
 function stereoPick(rng, eyeL, eyeR, margins, avoidRects){
   const L = safeInnerRect(eyeL, margins);
   const R = safeInnerRect(eyeR, margins);
   const avoid = (avoidRects||[]).map(r=>inflateRect(r, 10));
-
   for (let i=0;i<22;i++){
-    const u = rng();
-    const v = rng();
+    const u = rng(), v = rng();
     const gxL = L.left + u * (L.right - L.left);
     const gxR = R.left + u * (R.right - R.left);
     const gy  = L.top  + v * (L.bottom - L.top);
-
     let ok = true;
     for (const rr of avoid){
       if (pointInRect(gxL, gy, rr) || pointInRect(gxR, gy, rr)){ ok = false; break; }
     }
     if (ok){
-      return {
-        gxL, gxR, gy,
-        lx: gxL - eyeL.left, ly: gy - eyeL.top,
-        rx: gxR - eyeR.left, ry: gy - eyeR.top
-      };
+      return { lx: gxL - eyeL.left, ly: gy - eyeL.top, rx: gxR - eyeR.left, ry: gy - eyeR.top };
     }
   }
   const u = rng(), v = rng();
   const gxL = L.left + u * (L.right - L.left);
-  const gxR = R.left + u * (R.right - R.left);
+  const gxR = R.left + u * (R.right - R.right);
   const gy  = L.top  + v * (L.bottom - L.top);
-  return {
-    gxL, gxR, gy,
-    lx: gxL - eyeL.left, ly: gy - eyeL.top,
-    rx: gxR - eyeR.left, ry: gy - eyeR.top
-  };
+  return { lx: gxL - eyeL.left, ly: gy - eyeL.top, rx: (R.left + u*(R.right-R.left)) - eyeR.left, ry: gy - eyeR.top };
 }
 
-/* -------------------- Target helpers -------------------- */
+/* -------------------- target sets -------------------- */
 const GOOD = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
 const JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
 const STARS = ['⭐','💎'];
@@ -501,9 +478,8 @@ function setXY(el, x, y){
   el.style.setProperty('--x', px);
   el.style.setProperty('--y', py);
 }
-function countTargets(layerEl){
-  try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
-}
+function countTargets(layerEl){ try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; } }
+
 function getCenter(el){
   try{
     const r = el.getBoundingClientRect();
@@ -512,10 +488,7 @@ function getCenter(el){
     return { x: (ROOT.innerWidth||360)*0.5, y: (ROOT.innerHeight||640)*0.5 };
   }
 }
-function dist2(ax, ay, bx, by){
-  const dx = ax - bx, dy = ay - by;
-  return dx*dx + dy*dy;
-}
+function dist2(ax, ay, bx, by){ const dx=ax-bx, dy=ay-by; return dx*dx + dy*dy; }
 function findTargetNear(layerEl, cx, cy, radiusPx){
   const r2max = radiusPx * radiusPx;
   const list = layerEl.querySelectorAll('.gj-target');
@@ -531,28 +504,8 @@ function findTargetNear(layerEl, cx, cy, radiusPx){
   });
   return best;
 }
-function updateFever(shield, fever){
-  try{ FeverUI.set({ value: clamp(fever, 0, 100), shield: clamp(shield, 0, 9) }); }catch(_){}
-  try{ if (typeof FeverUI.setShield === 'function') FeverUI.setShield(clamp(shield,0,9)); }catch(_){}
-}
-function applyFeverFX(DOC, fever){
-  const b = DOC.body;
-  const f = clamp(fever, 0, 100);
-  b.classList.toggle('fever-mid', f >= 45);
-  b.classList.toggle('fever-high', f >= 72);
-}
-function shakeStage(DOC, strength=1){
-  const stage = DOC.getElementById('gj-stage');
-  if (!stage) return;
-  stage.classList.remove('shake');
-  void stage.offsetWidth;
-  stage.classList.add('shake');
-  if (strength >= 2){
-    setTimeout(()=>{ try{ stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake'); }catch(_){ } }, 90);
-  }
-  setTimeout(()=>{ try{ stage.classList.remove('shake'); }catch(_){ } }, 220);
-}
 
+/* -------------------- End Summary -------------------- */
 function makeSummary(S, reason){
   const acc = S.hitAll > 0 ? Math.round((S.hitGood / S.hitAll) * 100) : 0;
   return {
@@ -592,34 +545,26 @@ async function flushAll(summary, reason){
   }catch(_){}
   await flushLogger(reason || (summary?.reason) || 'flush');
 }
-
-/* -------------------- End Summary UI -------------------- */
 function showEndSummary(DOC, summary){
   const box = DOC.getElementById('end-summary');
   if (!box) return;
-
   const hub = String(qs('hub','') || '');
   const canBack = !!hub;
-
   const acc = summary?.accuracyGoodPct ?? 0;
   const grade = summary?.grade ?? '—';
-
   const extra = (summary?.laserHits || summary?.laserBlocks)
     ? ` • Laser ${summary.laserHits||0} hit / ${summary.laserBlocks||0} block`
     : '';
-
   box.innerHTML = `
     <div class="gj-end-card" role="dialog" aria-label="end summary">
       <div class="gj-end-title">สรุปผล GoodJunkVR • เกรด ${grade}</div>
       <div class="gj-end-sub">Accuracy ${acc}% • Miss ${summary?.misses ?? 0} • Boss ${summary?.bossHits ?? 0}/${summary?.bossNeed ?? 0}${extra}</div>
-
       <div class="gj-end-grid">
         <div class="gj-end-item"><div class="gj-end-k">Score</div><div class="gj-end-v">${summary?.scoreFinal ?? 0}</div></div>
         <div class="gj-end-item"><div class="gj-end-k">Max Combo</div><div class="gj-end-v">${summary?.comboMax ?? 0}</div></div>
         <div class="gj-end-item"><div class="gj-end-k">Good Hits</div><div class="gj-end-v">${summary?.nHitGood ?? 0}</div></div>
         <div class="gj-end-item"><div class="gj-end-k">Junk Hits</div><div class="gj-end-v">${summary?.nHitJunk ?? 0}</div></div>
       </div>
-
       <div class="gj-end-actions">
         <button class="gj-end-btn primary" id="btnPlayAgain" type="button">เล่นอีกครั้ง</button>
         <button class="gj-end-btn" id="btnCopyJson" type="button">Copy JSON</button>
@@ -628,14 +573,8 @@ function showEndSummary(DOC, summary){
     </div>
   `;
   box.classList.add('show');
-
-  const btnAgain = DOC.getElementById('btnPlayAgain');
-  const btnCopy  = DOC.getElementById('btnCopyJson');
-  const btnHub   = DOC.getElementById('btnBackHub');
-
-  btnAgain && btnAgain.addEventListener('click', ()=>{ ROOT.location.reload(); });
-
-  btnCopy && btnCopy.addEventListener('click', async ()=>{
+  DOC.getElementById('btnPlayAgain')?.addEventListener('click', ()=> ROOT.location.reload());
+  DOC.getElementById('btnCopyJson')?.addEventListener('click', async ()=>{
     try{
       const txt = JSON.stringify(summary || {}, null, 2);
       await navigator.clipboard.writeText(txt);
@@ -644,8 +583,7 @@ function showEndSummary(DOC, summary){
       try{ prompt('Copy JSON', JSON.stringify(summary||{})); }catch(__){}
     }
   });
-
-  btnHub && btnHub.addEventListener('click', ()=>{
+  DOC.getElementById('btnBackHub')?.addEventListener('click', ()=>{
     if (!hub) return;
     ROOT.location.href = hub;
   });
@@ -657,58 +595,95 @@ export function boot(opts = {}) {
   if (!DOC) return;
 
   ensureTargetStyles();
-  ensureInFieldQuestStrip();
 
-  const layerL = opts.layerEl
-    || DOC.getElementById('gj-layer-l')
-    || DOC.getElementById('gj-layer')
-    || DOC.querySelector('.gj-layer');
+  const layerL = opts.layerEl || DOC.getElementById('gj-layer-l') || DOC.getElementById('gj-layer') || DOC.querySelector('.gj-layer');
+  const layerR = opts.layerElR || DOC.getElementById('gj-layer-r') || null;
 
-  const layerR = opts.layerElR
-    || DOC.getElementById('gj-layer-r')
-    || null;
-
-  const crossL = opts.crosshairEl
-    || DOC.getElementById('gj-crosshair-l')
-    || DOC.getElementById('gj-crosshair')
-    || DOC.querySelector('.gj-crosshair');
-
-  const crossR = opts.crosshairElR
-    || DOC.getElementById('gj-crosshair-r')
-    || null;
+  const crossL = opts.crosshairEl || DOC.getElementById('gj-crosshair-l') || DOC.getElementById('gj-crosshair') || DOC.querySelector('.gj-crosshair');
+  const crossR = opts.crosshairElR || DOC.getElementById('gj-crosshair-r') || null;
 
   const shootEl = opts.shootEl || DOC.getElementById('btnShoot');
 
   if (!layerL){
-    console.warn('[GoodJunkVR] missing layer (gj-layer-l / gj-layer)');
+    console.warn('[GoodJunkVR] missing layer');
     return;
   }
 
   const dual = !!layerR;
+  const stage = DOC.getElementById('gj-stage');
+  const eyeLel = DOC.getElementById('eyeL');
+  const eyeRel = DOC.getElementById('eyeR');
+
+  // Quest strips + lasers per-eye
+  let qL=null, qR=null, qS=null;
+  let laserL=null, laserR=null, laserS=null;
+
+  function ensurePerEyeHUD(){
+    if (!DOC) return;
+
+    const makeStrip = (id)=>{
+      let el = DOC.getElementById(id);
+      if (!el){
+        el = DOC.createElement('div');
+        el.id = id;
+        el.className = 'gj-quest-mini';
+        el.innerHTML = `<span class="tag goal">Goal 0/0</span><span class="tag mini">Mini 0/0</span>`;
+      }
+      return el;
+    };
+    const makeLaser = (id)=>{
+      let el = DOC.getElementById(id);
+      if (!el){
+        el = DOC.createElement('div');
+        el.id = id;
+        el.className = 'gj-laser';
+      }
+      return el;
+    };
+
+    if (dual && eyeLel && eyeRel){
+      qL = makeStrip('gj-quest-mini-l');
+      qR = makeStrip('gj-quest-mini-r');
+      if (!qL.isConnected) eyeLel.appendChild(qL);
+      if (!qR.isConnected) eyeRel.appendChild(qR);
+
+      // position strips centered in each eye
+      qL.style.left = '50%'; qR.style.left = '50%';
+
+      laserL = makeLaser('gj-laser-l');
+      laserR = makeLaser('gj-laser-r');
+      if (!laserL.isConnected) eyeLel.appendChild(laserL);
+      if (!laserR.isConnected) eyeRel.appendChild(laserR);
+    } else if (stage){
+      qS = makeStrip('gj-quest-mini');
+      if (!qS.isConnected) stage.appendChild(qS);
+
+      laserS = makeLaser('gj-laser');
+      if (!laserS.isConnected) stage.appendChild(laserS);
+    }
+  }
+  ensurePerEyeHUD();
 
   const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
   const run  = String(opts.run || qs('run','play')).toLowerCase();
   const runMode = (run === 'research') ? 'research' : 'play';
-
   const timeSec = clamp(Number(opts.time ?? qs('time','80')), 30, 600) | 0;
 
-  // end policy:
-  // time | all | miss | boss   (boss = hardcore, must win boss, else lose at time=0)
-  const endPolicy = String(opts.endPolicy || qs('end','time')).toLowerCase();
-
+  const endPolicy = String(opts.endPolicy || qs('end','time')).toLowerCase(); // time|all|miss|boss
   const challenge = String(opts.challenge || qs('challenge','rush')).toLowerCase();
   const sessionId = String(opts.sessionId || qs('sessionId', qs('sid','')) || '');
 
   const seedIn = opts.seed || qs('seed', null);
   const ts = String(qs('ts', Date.now()));
   const seed = String(seedIn || (sessionId ? (sessionId + '|' + ts) : ts));
+  const rng = makeRng(seed);
 
   const ctx = opts.context || {};
   const base = diffBase(diff);
 
   const S = {
     running:false, ended:false, flushed:false,
-    diff, runMode, timeSec, seed, rng: makeRng(seed),
+    diff, runMode, timeSec, seed, rng,
     endPolicy, challenge,
     tStart:0, left: timeSec,
     score:0, combo:0, comboMax:0,
@@ -719,50 +694,37 @@ export function boot(opts = {}) {
     miniCleared:0, miniTotal:7,
 
     warmupUntil:0,
-    spawnTimer:0, tickTimer:0, motionTimer:0, laserTimer:0,
+    spawnTimer:0, tickTimer:0, motionTimer:0, rafLaser:0,
+
     spawnMs: base.spawnMs, ttlMs: base.ttlMs, size: base.size,
     junkP: base.junk, powerP: base.power, maxTargets: base.maxT,
     jammerP: base.jammerP,
+
     uidSeq: 1,
 
-    // boss
-    bossActive:false,
-    bossPhase:0,
-    bossHits:0,
-    bossNeed: base.bossNeed,
-    bossStartedAt:0,
+    bossActive:false, bossPhase:0, bossHits:0, bossNeed: base.bossNeed, bossStartedAt:0,
 
-    // rect cache
-    rects:null,
-    rectCacheUntil:0,
+    rects:null, rectCacheUntil:0,
 
-    // no-junk zone (fair)
-    nojunkActive:false,
-    nojunkUntil:0,
-    nojunkNextAt:0,
-    nojunkLenMs: 3200,
-    nojunkGapMs: 11500,
+    nojunkActive:false, nojunkUntil:0, nojunkNextAt:0, nojunkLenMs: 3200, nojunkGapMs: 11500,
 
-    // laser sweep
+    // laser
     laserActive:false,
     laserWarn:false,
     laserStartAt:0,
     nextLaserAt:0,
     laserDurMs: 1200,
     laserWarnMs: 520,
-    laserHitThis: false,
+    laserHitThis:false,
     laserHits:0,
-    laserBlocks:0
+    laserBlocks:0,
+    laserAxisNext: 'x' // alternate x/y
   };
 
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
     S.size = Math.min(1.18, S.size + 0.04);
   }
-
-  const stage = DOC.getElementById('gj-stage');
-  const laserEl = DOC.getElementById('gj-laser');
-  const stripEl = DOC.getElementById('gj-quest-mini');
 
   function coach(mood, text, sub){
     emit('hha:coach', { mood: mood || 'neutral', text: String(text||''), sub: sub ? String(sub) : undefined });
@@ -777,13 +739,12 @@ export function boot(opts = {}) {
   }
   function updateTime(){ emit('hha:time', { left: Math.max(0, S.left|0) }); }
 
-  function updateInFieldQuestStrip(goalNow, goalTot, miniNow, miniTot, isBoss=false, warnTxt=''){
-    if (!stripEl) return;
-    stripEl.classList.add('show');
+  function setStrip(el, goalNow, goalTot, miniNow, miniTot, isBoss=false, warnTxt=''){
+    if (!el) return;
+    el.classList.add('show');
 
-    const tags = stripEl.querySelectorAll('.tag');
-    const g = stripEl.querySelector('.tag.goal');
-    const m = stripEl.querySelector('.tag.mini') || tags[1];
+    const g = el.querySelector('.tag.goal');
+    const m = el.querySelector('.tag.mini');
 
     if (g) g.textContent = `Goal ${goalNow}/${goalTot}`;
     if (m){
@@ -791,13 +752,12 @@ export function boot(opts = {}) {
       m.textContent = isBoss ? `BOSS ${miniNow}/${miniTot}` : `Mini ${miniNow}/${miniTot}`;
     }
 
-    // warning tag (laser/nojunk)
-    let w = stripEl.querySelector('.tag.warn');
+    let w = el.querySelector('.tag.warn');
     if (warnTxt){
       if (!w){
         w = DOC.createElement('span');
         w.className = 'tag warn';
-        stripEl.appendChild(w);
+        el.appendChild(w);
       }
       w.textContent = warnTxt;
     } else {
@@ -831,20 +791,24 @@ export function boot(opts = {}) {
       miniCleared: S.miniCleared, miniTotal: S.miniTotal
     });
 
-    updateInFieldQuestStrip(S.goalsCleared, S.goalsTotal, miniNow, miniTotal, isBoss, warn);
+    if (dual){
+      setStrip(qL, S.goalsCleared, S.goalsTotal, miniNow, miniTotal, isBoss, warn);
+      setStrip(qR, S.goalsCleared, S.goalsTotal, miniNow, miniTotal, isBoss, warn);
+    } else {
+      setStrip(qS, S.goalsCleared, S.goalsTotal, miniNow, miniTotal, isBoss, warn);
+    }
   }
 
   function clearTimers(){
     try{ clearTimeout(S.spawnTimer); }catch(_){}
     try{ clearTimeout(S.tickTimer); }catch(_){}
     try{ clearTimeout(S.motionTimer); }catch(_){}
-    try{ clearTimeout(S.laserTimer); }catch(_){}
+    try{ if (S.rafLaser) cancelAnimationFrame(S.rafLaser); }catch(_){}
   }
 
   function getRects(){
     const t = now();
     if (S.rects && t < S.rectCacheUntil) return S.rects;
-
     const avoid = buildAvoidRects();
     const { stageR, eyeL, eyeR } = getEyeRects(DOC, dual);
     S.rects = { stageR, eyeL, eyeR, avoid };
@@ -858,8 +822,8 @@ export function boot(opts = {}) {
     if (!uid) return null;
     const inR = el.parentElement === layerR;
     const mate = inR
-      ? layerL.querySelector(`.gj-target[data-uid="${uid}"]`)
-      : layerR.querySelector(`.gj-target[data-uid="${uid}"]`);
+      ? layerL.querySelector(\`.gj-target[data-uid="\${uid}"]\`)
+      : layerR.querySelector(\`.gj-target[data-uid="\${uid}"]\`);
     return mate || null;
   }
 
@@ -906,12 +870,10 @@ export function boot(opts = {}) {
 
   function makeTarget(type, emoji, x, y, s, uid, boss=false){
     const el = DOC.createElement('div');
-    el.className = `gj-target ${type}` + (boss ? ' boss' : '');
+    el.className = \`gj-target \${type}\` + (boss ? ' boss' : '');
     el.dataset.type = type;
     el.dataset.emoji = String(emoji||'✨');
     el.dataset.uid = String(uid||'');
-
-    // motion
     el.dataset.vx = '0';
     el.dataset.vy = '0';
 
@@ -933,13 +895,6 @@ export function boot(opts = {}) {
     return el;
   }
 
-  function burstAtEl(el, kind){
-    try{
-      const r = el.getBoundingClientRect();
-      Particles.burstAt(r.left + r.width/2, r.top + r.height/2, kind || el.dataset.type || '');
-    }catch(_){}
-  }
-
   function scoreGood(multBase=90){
     const mult = 1 + clamp(S.combo/40, 0, 0.6);
     const pts = Math.round(multBase * mult);
@@ -947,7 +902,7 @@ export function boot(opts = {}) {
     return pts;
   }
 
-  /* -------------------- Boss + No-Junk zone -------------------- */
+  /* -------------------- Boss + No-Junk -------------------- */
   function maybeStartBoss(){
     if (S.bossActive || S.ended) return;
     const startAt = (diff === 'hard') ? 22 : 18;
@@ -959,7 +914,7 @@ export function boot(opts = {}) {
       S.nojunkActive = false;
       DOC.body.classList.remove('nojunk');
 
-      coach('neutral', 'บอสมาแล้ว! 😈', `ตีบอส (ของดี) ให้ครบ ${S.bossNeed} ครั้ง ห้ามโดนบอสขยะ!`);
+      coach('neutral', 'บอสมาแล้ว! 😈', \`ตีบอส (ของดี) ให้ครบ \${S.bossNeed} ครั้ง ห้ามโดนบอสขยะ!\`);
       emit('hha:celebrate', { kind:'mini', title:'BOSS PHASE!' });
       updateQuest();
       logEvent('boss_start', { need:S.bossNeed, left:S.left|0 });
@@ -970,7 +925,7 @@ export function boot(opts = {}) {
     const t = (now() - S.bossStartedAt) / 1000;
     if (S.bossPhase === 1 && (t >= 6 || S.bossHits >= Math.ceil(S.bossNeed*0.6))){
       S.bossPhase = 2;
-      coach('happy', 'บอสคลั่งแล้ว! 🔥', 'เร็วขึ้น + โหดขึ้น ระวังขยะ!');
+      coach('happy', 'บอสคลั่งแล้ว! 🔥', 'Laser สองแกน + เป้าไหลแรงขึ้น');
       emit('hha:celebrate', { kind:'mini', title:'RAGE MODE' });
       logEvent('boss_phase2', { t:Math.round(t*10)/10, hits:S.bossHits });
     }
@@ -980,7 +935,6 @@ export function boot(opts = {}) {
   function maybeToggleNoJunk(){
     if (S.runMode !== 'play') return;
     if (S.bossActive) return;
-
     const t = now();
 
     if (S.nojunkActive && t >= S.nojunkUntil){
@@ -991,7 +945,6 @@ export function boot(opts = {}) {
       updateQuest();
       return;
     }
-
     if (!S.nojunkActive && t >= S.nojunkNextAt){
       S.nojunkActive = true;
       const jitter = (S.rng() * 600) - 200;
@@ -1005,10 +958,8 @@ export function boot(opts = {}) {
       emit('hha:celebrate', { kind:'mini', title:'NO-JUNK ZONE' });
       logEvent('nojunk_start', { untilMs: S.nojunkUntil - t });
       updateQuest();
-      return;
     }
   }
-
   function applyNoJunkDifficulty(){
     if (!S.nojunkActive) return { spawnMul: 1, ttlMul: 1 };
     if (diff === 'hard') return { spawnMul: 0.70, ttlMul: 0.80 };
@@ -1016,32 +967,53 @@ export function boot(opts = {}) {
     return { spawnMul: 0.74, ttlMul: 0.82 };
   }
 
-  /* -------------------- LASER SWEEP (hardcore pressure) -------------------- */
+  /* -------------------- Laser (X/Y + Rage double sweep) -------------------- */
   function scheduleInitialLaser(){
     const t0 = now();
-    const firstDelay = (runMode === 'research')
-      ? 10500
-      : (6800 + (S.rng()*3600)); // 6.8–10.4s
+    const firstDelay = (runMode === 'research') ? 10500 : (6800 + (S.rng()*3600));
     S.nextLaserAt = t0 + firstDelay;
   }
-
+  function lasers(){ return dual ? [laserL, laserR] : [laserS]; }
   function laserSetClass(mode){
-    if (!laserEl) return;
-    laserEl.classList.remove('on','warn');
-    if (mode === 'warn') laserEl.classList.add('warn','on');
-    if (mode === 'on') laserEl.classList.add('on');
+    lasers().forEach(el=>{
+      if (!el) return;
+      el.classList.remove('on','warn');
+      if (mode === 'warn') el.classList.add('warn','on');
+      if (mode === 'on') el.classList.add('on');
+    });
   }
-
-  function laserMoveToX(xPx){
-    if (!laserEl) return;
-    laserEl.style.transform = `translateX(${xPx.toFixed(1)}px)`;
+  function laserResetStyles(axis){
+    lasers().forEach(el=>{
+      if (!el) return;
+      if (axis === 'x'){
+        el.style.width = '120px';
+        el.style.height = '100%';
+        el.style.transform = 'translateX(-140px)';
+        el.style.left = '0px';
+        el.style.top = '0px';
+        el.style.background = '';
+      } else {
+        el.style.width = '100%';
+        el.style.height = '120px';
+        el.style.transform = 'translateY(-140px)';
+        el.style.left = '0px';
+        el.style.top = '0px';
+        // reuse same gradient but rotate effect by using vertical translate (OK)
+      }
+    });
+  }
+  function laserMove(axis, xPx, yPx){
+    lasers().forEach(el=>{
+      if (!el) return;
+      if (axis === 'x') el.style.transform = \`translateX(\${xPx.toFixed(1)}px)\`;
+      else el.style.transform = \`translateY(\${yPx.toFixed(1)}px)\`;
+    });
   }
 
   function applyLaserDamage(){
     if (S.laserHitThis) return;
     S.laserHitThis = true;
 
-    // shield can block, consumes 1
     if (S.shield > 0){
       S.shield = Math.max(0, S.shield - 1);
       S.laserBlocks++;
@@ -1053,7 +1025,6 @@ export function boot(opts = {}) {
       return;
     }
 
-    // punishment
     S.laserHits++;
     S.misses++;
     S.combo = 0;
@@ -1065,92 +1036,108 @@ export function boot(opts = {}) {
     updateFever(S.shield, S.fever);
     applyFeverFX(DOC, S.fever);
 
-    judge('bad', `LASER! -${penalty}`);
+    judge('bad', \`LASER! -\${penalty}\`);
     coach('sad', 'โดนเลเซอร์! ⚡', 'มี Shield จะกันได้ (กิน 1)');
     shakeStage(DOC, 2);
 
     logEvent('laser_hit', { fever:Math.round(S.fever), score:S.score|0 });
     updateScore(); updateQuest();
 
-    // hardcore miss end (optional)
     if (endPolicy === 'miss'){
       const missLimit = (diff === 'easy') ? 10 : (diff === 'hard') ? 7 : 8;
       if (S.misses >= missLimit) endGame('miss_limit');
     }
   }
 
-  function startLaser(){
+  function startLaser(axis='x'){
     if (S.laserActive || S.ended) return;
     S.laserActive = true;
     S.laserWarn = false;
     S.laserHitThis = false;
     S.laserStartAt = now();
 
+    laserResetStyles(axis);
     laserSetClass('on');
 
-    // animate from left->right across stage
-    const { stageR } = getRects();
-    const width = stageR.width || (ROOT.innerWidth||360);
-    const startX = -140;
-    const endX = width + 140;
-
-    const dur = S.laserDurMs;
+    const { stageR, eyeL } = getRects();
     const t0 = now();
+    const dur = S.laserDurMs;
+
+    // compute center threshold
+    const isDual = dual && eyeL;
+    const stageW = stageR.width || (ROOT.innerWidth||360);
+    const stageH = stageR.height || (ROOT.innerHeight||640);
+    const centerX = isDual ? (eyeL.width * 0.5) : (stageW * 0.5);
+    const centerY = stageH * 0.5;
 
     const step = ()=>{
       if (!S.laserActive || S.ended) return;
       const t = now();
       const p = clamp((t - t0) / dur, 0, 1);
-      const x = startX + (endX - startX) * p;
-      laserMoveToX(x);
 
-      // when passing center, apply once
-      const centerX = width * 0.5;
-      if (!S.laserHitThis && Math.abs(x - centerX) < 46){
-        applyLaserDamage();
+      if (axis === 'x'){
+        const startX = -140;
+        const endX = (isDual ? eyeL.width : stageW) + 140;
+        const x = startX + (endX - startX) * p;
+        laserMove('x', x, 0);
+        if (!S.laserHitThis && Math.abs(x - centerX) < 46) applyLaserDamage();
+      } else {
+        const startY = -140;
+        const endY = stageH + 140;
+        const y = startY + (endY - startY) * p;
+        laserMove('y', 0, y);
+        if (!S.laserHitThis && Math.abs(y - centerY) < 46) applyLaserDamage();
       }
 
       if (p < 1){
-        S.laserTimer = requestAnimationFrame(step);
+        S.rafLaser = requestAnimationFrame(step);
       } else {
         S.laserActive = false;
         laserSetClass('off');
-        try{ laserMoveToX(-140); }catch(_){}
+        laserResetStyles(axis);
       }
     };
-
-    S.laserTimer = requestAnimationFrame(step);
+    S.rafLaser = requestAnimationFrame(step);
     updateQuest();
   }
 
   function maybeLaser(){
     if (S.ended || !S.running) return;
 
-    // boss = more frequent laser
     const rage = bossRageLevel();
     const baseGap = base.laserGap;
     const heatGap = clamp(baseGap - rage*1800 - clamp(S.fever,0,100)*10, 7200, 14000);
 
     const t = now();
 
-    // warning window
     if (!S.laserActive && !S.laserWarn && t >= (S.nextLaserAt - S.laserWarnMs)){
       S.laserWarn = true;
       laserSetClass('warn');
-      coach('neutral', '⚠️ เลเซอร์กำลังมา!', 'มี Shield กันได้ / ไม่มีก็เตรียมโดน');
+      coach('neutral', '⚠️ เลเซอร์กำลังมา!', 'Shield กันได้ / ไม่มี = โดนหนัก');
       updateQuest();
       logEvent('laser_warn', {});
     }
 
     if (!S.laserActive && t >= S.nextLaserAt){
       S.laserWarn = false;
-      startLaser();
 
-      // schedule next deterministic-ish
+      // alternate axis x/y
+      const axis = (S.laserAxisNext === 'x') ? 'x' : 'y';
+      S.laserAxisNext = (axis === 'x') ? 'y' : 'x';
+
+      startLaser(axis);
+
+      // Rage double sweep: schedule second sweep quickly with opposite axis
+      if (rage){
+        setTimeout(()=>{
+          if (S.ended) return;
+          if (!S.laserActive) startLaser(axis === 'x' ? 'y' : 'x');
+        }, 520);
+      }
+
       const jitter = (runMode === 'research') ? 0 : ((S.rng()*1600) - 600);
       S.nextLaserAt = t + clamp(heatGap + jitter, 6500, 16000);
 
-      // reset warn state
       setTimeout(()=>{
         S.laserWarn = false;
         if (!S.laserActive) laserSetClass('off');
@@ -1159,9 +1146,38 @@ export function boot(opts = {}) {
     }
   }
 
+  /* -------------------- Jammer flip -------------------- */
+  function maybeMakeJammer(el, mate, flipMsOverride=null){
+    const flipMs = flipMsOverride ?? Math.round(420 + S.rng()*420);
+    el.classList.add('decoy');
+    if (mate) mate.classList.add('decoy');
+
+    el._swapTimer = setTimeout(()=>{
+      if (!el.isConnected) return;
+
+      el.dataset.type = 'junk';
+      el.classList.remove('good');
+      el.classList.add('junk','swapflash','decoy');
+
+      if (mate && mate.isConnected){
+        mate.dataset.type = 'junk';
+        mate.classList.remove('good');
+        mate.classList.add('junk','swapflash','decoy');
+      }
+
+      setTimeout(()=>{
+        try{ el.classList.remove('swapflash'); }catch(_){}
+        if (mate) try{ mate.classList.remove('swapflash'); }catch(_){}
+      }, 220);
+
+      logEvent('jammer_flip', { uid: String(el.dataset.uid||''), to: 'junk' });
+    }, flipMs);
+  }
+
   /* -------------------- Hits -------------------- */
   function hitGood(el){
     const isBoss = el.classList.contains('boss');
+
     S.hitAll++; S.hitGood++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
@@ -1293,9 +1309,7 @@ export function boot(opts = {}) {
 
     if (endPolicy === 'miss'){
       const missLimit = (diff === 'easy') ? 10 : (diff === 'hard') ? 7 : 8;
-      if (S.misses >= missLimit){
-        endGame('miss_limit');
-      }
+      if (S.misses >= missLimit) endGame('miss_limit');
     }
   }
 
@@ -1308,37 +1322,7 @@ export function boot(opts = {}) {
     if (tp === 'star') return hitStar(el);
   }
 
-  /* -------------------- Decoy/Jammer logic -------------------- */
-  function maybeMakeJammer(el, mate){
-    const flipMs = Math.round(420 + S.rng()*420);
-    el.classList.add('decoy');
-    if (mate) mate.classList.add('decoy');
-
-    el._swapTimer = setTimeout(()=>{
-      if (!el.isConnected) return;
-
-      el.dataset.type = 'junk';
-      el.classList.remove('good');
-      el.classList.add('junk','swapflash');
-      el.classList.add('decoy');
-
-      if (mate && mate.isConnected){
-        mate.dataset.type = 'junk';
-        mate.classList.remove('good');
-        mate.classList.add('junk','swapflash');
-        mate.classList.add('decoy');
-      }
-
-      setTimeout(()=>{
-        try{ el.classList.remove('swapflash'); }catch(_){}
-        if (mate) try{ mate.classList.remove('swapflash'); }catch(_){}
-      }, 220);
-
-      logEvent('jammer_flip', { uid: String(el.dataset.uid||''), to: 'junk' });
-    }, flipMs);
-  }
-
-  /* -------------------- Motion (Magnet/Slip) -------------------- */
+  /* -------------------- Motion (magnet/slip) -------------------- */
   function applyMotion(layer, dt){
     if (!layer) return;
     const kids = layer.querySelectorAll('.gj-target');
@@ -1353,26 +1337,21 @@ export function boot(opts = {}) {
     const laserPressure = (S.laserWarn || S.laserActive) ? 1 : 0;
     const feverPressure = clamp(S.fever / 100, 0, 1);
 
-    // drift strength
     const drift = 10 + 36*rage + 34*laserPressure + 18*feverPressure;
 
     kids.forEach(el=>{
       try{
-        // ignore end state
         if (!el.isConnected) return;
 
-        // base pos
         const x = parseFloat(el.style.left || '0') || 0;
         const y = parseFloat(el.style.top  || '0') || 0;
 
-        // current v
         let vx = parseFloat(el.dataset.vx || '0') || 0;
         let vy = parseFloat(el.dataset.vy || '0') || 0;
 
         const tp = String(el.dataset.type||'');
         const isBoss = el.classList.contains('boss');
 
-        // magnet: during warning/laser/rage => junk tends to center, good tends to slip outward (creates risk)
         let ax = 0, ay = 0;
         if (laserPressure || rage){
           const dx = (cx - x);
@@ -1381,31 +1360,19 @@ export function boot(opts = {}) {
           const mx = dx * inv;
           const my = dy * inv;
 
-          if (tp === 'junk'){
-            ax += mx * drift * 0.9;
-            ay += my * drift * 0.9;
-          } else if (tp === 'good'){
-            ax -= mx * drift * 0.55;
-            ay -= my * drift * 0.55;
-          } else {
-            // powerups slight drift
-            ax += mx * drift * 0.15;
-            ay += my * drift * 0.15;
-          }
+          if (tp === 'junk'){ ax += mx * drift * 0.9; ay += my * drift * 0.9; }
+          else if (tp === 'good'){ ax -= mx * drift * 0.55; ay -= my * drift * 0.55; }
+          else { ax += mx * drift * 0.15; ay += my * drift * 0.15; }
         }
 
-        // slip: small random jitter (deterministic)
         const jit = (S.rng()*2 - 1) * (2.2 + 3.0*laserPressure + 2.0*rage);
         ax += jit;
         ay += (S.rng()*2 - 1) * (2.2 + 3.0*laserPressure + 2.0*rage);
 
-        // boss heavier inertia
         const damp = isBoss ? 0.88 : 0.82;
-
         vx = (vx + ax*dt) * damp;
         vy = (vy + ay*dt) * damp;
 
-        // clamp speed
         const sp = Math.sqrt(vx*vx + vy*vy);
         const vmax = isBoss ? 140 : 160;
         if (sp > vmax){
@@ -1413,11 +1380,9 @@ export function boot(opts = {}) {
           vx *= k; vy *= k;
         }
 
-        // update pos
         let nx = x + vx * dt;
         let ny = y + vy * dt;
 
-        // bounds (keep within stage)
         const pad = isBoss ? 70 : 44;
         nx = clamp(nx, pad, w - pad);
         ny = clamp(ny, pad + 10, h - pad);
@@ -1431,7 +1396,6 @@ export function boot(opts = {}) {
 
   function motionTick(){
     if (!S.running || S.ended) return;
-    // dt ~ 0.06 sec
     const dt = 0.06;
     applyMotion(layerL, dt);
     if (dual) applyMotion(layerR, dt);
@@ -1465,7 +1429,6 @@ export function boot(opts = {}) {
     } else {
       const r = S.rng();
       const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
-
       const junkPraw = inWarm ? (S.junkP * 0.55)  : S.junkP;
       const junkP = S.nojunkActive ? 0 : junkPraw;
 
@@ -1524,10 +1487,23 @@ export function boot(opts = {}) {
       layerL.appendChild(elL);
     }
 
+    // jammer on normal target
     if (isJammer && elL){
       const mate = elR || null;
       maybeMakeJammer(elL, mate);
       logEvent('jammer_spawn', { uid, emoji:String(emoji||''), flip:1 });
+    }
+
+    // boss fake-out (phase2): good boss flips to junk after short warning
+    if (S.bossActive && S.bossPhase === 2 && tp === 'good' && elL){
+      const p = (diff==='hard') ? 0.16 : 0.12;
+      if (S.rng() < p){
+        elL.classList.add('decoy','swapflash');
+        if (elR) elR.classList.add('decoy','swapflash');
+        judge('warn', 'BOSS FAKE-OUT!');
+        maybeMakeJammer(elL, elR || null, 360); // faster flip
+        logEvent('boss_fakeout', { uid, flipMs:360 });
+      }
     }
 
     logEvent('spawn', { kind:tp, boss:boss?1:0, jammer:isJammer?1:0, emoji:String(emoji||''), uid });
@@ -1543,9 +1519,7 @@ export function boot(opts = {}) {
     let nextMs = S.spawnMs;
 
     const nz = applyNoJunkDifficulty();
-    if (S.nojunkActive && !S.bossActive){
-      nextMs = clamp(nextMs * nz.spawnMul, 300, 1100);
-    }
+    if (S.nojunkActive && !S.bossActive) nextMs = clamp(nextMs * nz.spawnMul, 300, 1100);
 
     if (S.bossActive){
       const rage = bossRageLevel();
@@ -1563,12 +1537,8 @@ export function boot(opts = {}) {
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
 
-    // HARDCORE END (boss)
     if (S.left <= 0){
-      if (endPolicy === 'boss'){
-        endGame('boss_fail'); // must win boss
-        return;
-      }
+      if (endPolicy === 'boss') { endGame('boss_fail'); return; }
       endGame('time');
       return;
     }
@@ -1600,12 +1570,8 @@ export function boot(opts = {}) {
         S.size  = clamp(S.size + 0.03, 0.86, 1.26);
       }
     } else if (!S.bossActive) {
-      S.spawnMs = base.spawnMs;
-      S.ttlMs   = base.ttlMs;
-      S.size    = base.size;
-      S.junkP   = base.junk;
-      S.powerP  = base.power;
-      S.maxTargets = base.maxT;
+      S.spawnMs = base.spawnMs; S.ttlMs = base.ttlMs; S.size = base.size;
+      S.junkP = base.junk; S.powerP = base.power; S.maxTargets = base.maxT;
     } else {
       const rage = bossRageLevel();
       S.ttlMs = clamp((diff==='hard'?1300:1500) - rage*160, 980, 2000);
@@ -1651,10 +1617,8 @@ export function boot(opts = {}) {
   }
 
   function bindInputs(){
-    if (shootEl){
-      shootEl.addEventListener('click', (e)=>{ e.preventDefault?.(); shootAtCrosshair(); });
-      shootEl.addEventListener('pointerdown', (e)=>{ e.preventDefault?.(); }, { passive:false });
-    }
+    shootEl?.addEventListener('click', (e)=>{ e.preventDefault?.(); shootAtCrosshair(); });
+    shootEl?.addEventListener('pointerdown', (e)=>{ e.preventDefault?.(); }, { passive:false });
 
     DOC.addEventListener('keydown', (e)=>{
       const k = String(e.key||'').toLowerCase();
@@ -1668,12 +1632,7 @@ export function boot(opts = {}) {
       }
     });
 
-    if (stage){
-      stage.addEventListener('click', ()=>{
-        if (isMobileLike()) return;
-        shootAtCrosshair();
-      });
-    }
+    stage?.addEventListener('click', ()=>{ if (!isMobileLike()) shootAtCrosshair(); });
   }
 
   function bindFlushHard(){
@@ -1705,14 +1664,7 @@ export function boot(opts = {}) {
 
     clearTimers();
     clearAllTargets();
-
-    // reset laser visual
-    try{
-      if (laserEl){
-        laserEl.classList.remove('on','warn');
-        laserEl.style.transform = 'translateX(-140px)';
-      }
-    }catch(_){}
+    laserSetClass('off');
 
     const summary = makeSummary(S, reason);
     if (!S.flushed){
@@ -1743,6 +1695,7 @@ export function boot(opts = {}) {
     S.score = 0; S.combo = 0; S.comboMax = 0;
     S.misses = 0; S.hitAll = 0; S.hitGood = 0; S.hitJunk = 0; S.hitJunkGuard = 0; S.expireGood = 0;
     S.fever = 0; S.shield = 0;
+
     updateFever(S.shield, S.fever);
     applyFeverFX(DOC, S.fever);
 
@@ -1754,27 +1707,24 @@ export function boot(opts = {}) {
     S.bossHits = 0;
     S.bossStartedAt = 0;
 
-    // schedule no-junk deterministically
     const t0 = now();
-    const firstDelay = (runMode === 'research')
-      ? 7200
-      : (6500 + (S.rng()*3200));
+    const firstDelay = (runMode === 'research') ? 7200 : (6500 + (S.rng()*3200));
     S.nojunkActive = false;
     S.nojunkUntil = 0;
     S.nojunkNextAt = t0 + firstDelay;
 
-    // laser schedule
     S.laserActive = false;
     S.laserWarn = false;
     S.laserHitThis = false;
     S.laserHits = 0;
     S.laserBlocks = 0;
+    S.laserAxisNext = 'x';
     scheduleInitialLaser();
 
     S.warmupUntil = now() + 3000;
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    coach('neutral', 'พร้อมลุย! ⚠️ LASER + เป้าหลอก ?! + Magnet/Slip 😈', `กด H ซ่อน HUD ได้ แต่ยังเห็นภารกิจบนสนาม`);
+    coach('neutral', 'พร้อมลุย! (Laser X/Y + Boss Rage + Fake-out) 😈', 'กด H ซ่อน HUD ได้ แต่ยังเห็นภารกิจบนสนาม');
     updateScore(); updateTime(); updateQuest();
 
     logEvent('session_start', {
