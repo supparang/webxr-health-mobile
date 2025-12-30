@@ -1,6 +1,11 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — PRODUCTION (SAFE layout + HUD toggle 3 levels)
-✅ FULL / COMPACT / HIDE + Hold-to-Peek
+GoodJunkVR UI — SAFE layout (FULL)
+✅ stage uses dvh (fix address-bar jump / "flash then gone")
+✅ reserves space for HUD(top) + fever + controls(bottom)
+✅ VR/cVR dual-eye split with stable center
+✅ HUD Peek (VR-friendly) + tap to toggle HUD
+✅ Fullscreen class: body.is-fs
+✅ Boss last5 FX: border + heartbeat + micro shake
 */
 
 :root{
@@ -23,7 +28,7 @@ GoodJunkVR UI — PRODUCTION (SAFE layout + HUD toggle 3 levels)
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
-  /* reserved zones (tuned by view + hud mode) */
+  /* reserved zones (approx) */
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
@@ -33,13 +38,17 @@ GoodJunkVR UI — PRODUCTION (SAFE layout + HUD toggle 3 levels)
 html,body{
   margin:0; padding:0;
   width:100%; height:100%;
-  background:
-    radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
-    radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
-    var(--bg);
+  background: radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
+              radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
+              var(--bg);
   color:var(--text);
   font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   overflow:hidden;
+}
+
+/* use dvh to avoid mobile address bar jump */
+@supports (height: 100dvh){
+  html, body{ height:100dvh; }
 }
 
 /* ---------- HUD ---------- */
@@ -49,7 +58,7 @@ html,body{
   top:0;
   padding: calc(10px + var(--sat)) 12px 10px;
   z-index:80;
-  pointer-events:none;
+  pointer-events:none; /* HUD should not block playfield */
 }
 .hha-hud .hud-top{
   display:flex;
@@ -64,7 +73,7 @@ html,body{
   border-radius:var(--r-lg);
   padding:12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.35);
-  pointer-events:auto;
+  pointer-events:auto; /* buttons clickable */
 }
 .hud-title{ font-weight:900; letter-spacing:.2px; font-size:18px; }
 .hud-sub{ margin-top:4px; color:var(--muted); font-size:12px; }
@@ -81,16 +90,12 @@ html,body{
   color:var(--text);
   padding:8px 12px;
   border-radius:999px;
-  font-weight:900;
+  font-weight:800;
   font-size:13px;
   cursor:pointer;
 }
 .pill.ghost{ opacity:.92; }
 .pill:active{ transform: translateY(1px); }
-.pill.on{
-  border-color: rgba(34,197,94,.38);
-  background: rgba(34,197,94,.14);
-}
 
 .hud-stats{
   display:grid;
@@ -106,8 +111,8 @@ html,body{
   padding:10px 12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
-.hud-stat .k{ color:var(--muted); font-size:12px; font-weight:800; }
-.hud-stat .v{ font-size:22px; font-weight:1000; margin-top:2px; }
+.hud-stat .k{ color:var(--muted); font-size:12px; font-weight:700; }
+.hud-stat .v{ font-size:22px; font-weight:900; margin-top:2px; }
 
 .hud-mid{
   margin-top:10px;
@@ -125,11 +130,11 @@ html,body{
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
 .q-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.q-title{ font-weight:1000; }
+.q-title{ font-weight:900; }
 .q-title.mini{ color:var(--cyan); }
-.q-count{ font-weight:1000; color:#fff; opacity:.95; }
-.q-timer{ color:var(--warn); font-weight:1000; min-width:64px; text-align:right; }
-.q-progress{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:900; }
+.q-count{ font-weight:900; color:#fff; opacity:.95; }
+.q-timer{ color:var(--warn); font-weight:900; min-width:64px; text-align:right; }
+.q-progress{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:700; }
 
 .hud-coach{
   width:min(420px, 38vw);
@@ -143,8 +148,44 @@ html,body{
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
 .coach-img{ width:62px; height:62px; border-radius:16px; border:1px solid var(--stroke); background:#0b1120; }
-.coach-line{ font-weight:1000; }
-.coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:900; }
+.coach-line{ font-weight:900; }
+.coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:700; }
+
+/* ---------- HUD PEEK (VR-friendly) ---------- */
+.hud-peek{
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--sat) + 8px);
+  z-index: 95;
+  background: rgba(2,6,23,.58);
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 999px;
+  padding: 8px 12px;
+  display: none;
+  gap: 10px;
+  align-items: center;
+  pointer-events: auto;
+  box-shadow: 0 10px 28px rgba(0,0,0,.28);
+  backdrop-filter: blur(10px);
+}
+.hud-peek .p{
+  font-weight: 950;
+  font-size: 13px;
+  letter-spacing: .1px;
+}
+.hud-peek .m{ color: var(--muted); font-weight: 850; font-size: 12px; }
+.hud-peek .tag{
+  border:1px solid rgba(148,163,184,.22);
+  background: rgba(2,6,23,.50);
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 950;
+  font-size: 12px;
+}
+.hud-peek .tag.bad{ border-color: rgba(239,68,68,.25); }
+.hud-peek .tag.good{ border-color: rgba(34,197,94,.25); }
+.hud-peek:active{ transform: translateX(-50%) translateY(1px); }
 
 /* ---------- FEVER ---------- */
 .hha-fever{
@@ -165,7 +206,7 @@ html,body{
   gap:10px;
   align-items:center;
 }
-.fever-label{ color:var(--muted); font-weight:1000; letter-spacing:.3px; }
+.fever-label{ color:var(--muted); font-weight:900; letter-spacing:.3px; }
 .fever-bar{
   height:14px;
   border-radius:999px;
@@ -174,7 +215,7 @@ html,body{
   overflow:hidden;
 }
 .fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
-.fever-text{ text-align:right; font-weight:1000; }
+.fever-text{ text-align:right; font-weight:900; }
 .shield-row{
   margin-top:8px;
   display:grid;
@@ -182,7 +223,7 @@ html,body{
   gap:10px;
   align-items:center;
 }
-.shield-label{ color:var(--muted); font-weight:1000; }
+.shield-label{ color:var(--muted); font-weight:900; }
 .shield-pills{ display:flex; flex-wrap:wrap; gap:6px; }
 
 /* ---------- PLAYFIELD ---------- */
@@ -194,20 +235,27 @@ html,body{
   z-index:10;
   pointer-events:auto;
   overflow:hidden;
-  transform: translateZ(0);
-  contain: paint layout style;
 }
 
 /* eyes */
-.gj-eye{ position:absolute; inset:0; width:100%; }
+.gj-eye{
+  position:absolute;
+  top:0; bottom:0;
+  width:100%;
+}
 .eye-l{ left:0; }
-.eye-r{ left:0; display:none; opacity:0; }
+.eye-r{ left:0; display:none; } /* default hidden; shown in view-vr/cvr */
 
 /* layers fill */
-.gj-layer, .gj-crosshair, .atk-ring, .atk-laser{ position:absolute; inset:0; }
+.gj-layer, .gj-crosshair, .atk-ring, .atk-laser{
+  position:absolute;
+  inset:0;
+}
 
-/* crosshair */
-.gj-crosshair{ pointer-events:none; }
+/* crosshair (simple) */
+.gj-crosshair{
+  pointer-events:none;
+}
 .gj-crosshair::before{
   content:"";
   position:absolute;
@@ -215,12 +263,14 @@ html,body{
   width:28px; height:28px;
   transform: translate(-50%,-50%);
   border-radius:999px;
-  border:2px solid rgba(229,231,235,.82);
+  border:2px solid rgba(229,231,235,.8);
   box-shadow: 0 0 0 6px rgba(34,197,94,.10);
 }
 
-/* ring/laser placeholders */
-.atk-ring{ pointer-events:none; }
+/* atk ring (optional) */
+.atk-ring{
+  pointer-events:none;
+}
 .atk-ring::before{
   content:"";
   position:absolute;
@@ -232,7 +282,12 @@ html,body{
   filter: drop-shadow(0 0 10px rgba(34,197,94,.20));
   opacity:0;
 }
-.atk-laser{ pointer-events:none; opacity:0; }
+
+/* laser (optional) */
+.atk-laser{
+  pointer-events:none;
+  opacity:0;
+}
 
 /* ---------- CONTROLS ---------- */
 .hha-controls{
@@ -249,7 +304,7 @@ html,body{
   background: rgba(2,6,23,.72);
   color:var(--text);
   font-size:24px;
-  font-weight:1100;
+  font-weight:900;
   letter-spacing:.2px;
   box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
@@ -266,7 +321,6 @@ html,body{
   background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
-.start-overlay[hidden]{ display:none; }
 .start-card{
   width:min(560px, 92vw);
   background: rgba(2,6,23,.80);
@@ -275,10 +329,10 @@ html,body{
   padding:18px;
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
-.start-title{ font-size:26px; font-weight:1100; }
-.start-desc{ margin-top:6px; color:var(--text); font-weight:900; line-height:1.35; }
-.muted{ color:var(--muted); font-weight:900; }
-.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:900; }
+.start-title{ font-size:26px; font-weight:1000; }
+.start-desc{ margin-top:6px; color:var(--text); font-weight:800; line-height:1.35; }
+.muted{ color:var(--muted); font-weight:800; }
+.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:800; }
 .btn-start{
   margin-top:14px;
   width:100%;
@@ -288,7 +342,7 @@ html,body{
   background: rgba(34,197,94,.18);
   color:#eafff3;
   font-size:18px;
-  font-weight:1100;
+  font-weight:1000;
 }
 .btn-start:active{ transform: translateY(1px); }
 
@@ -302,7 +356,6 @@ html,body{
   background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
-.vr-hint[hidden]{ display:none; }
 .vr-card{
   width:min(720px, 92vw);
   background: rgba(2,6,23,.82);
@@ -311,74 +364,106 @@ html,body{
   padding:18px;
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
-.vr-title{ font-size:22px; font-weight:1100; }
-.vr-desc{ margin-top:8px; color:var(--text); font-weight:950; line-height:1.35; }
+.vr-title{ font-size:22px; font-weight:1000; }
+.vr-desc{ margin-top:8px; color:var(--text); font-weight:850; line-height:1.35; }
 
 /* ---------- VIEW MODES ---------- */
 body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
 body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
 
-body.view-vr, body.view-cvr{ --hudH: 128px; --feverH: 74px; --ctrlH: 78px; }
-body.is-fs.view-vr, body.is-fs.view-cvr{ --hudH: 108px; --feverH: 70px; --ctrlH: 72px; }
+body.view-vr, body.view-cvr{
+  --hudH: 130px;     /* VR keep HUD smaller */
+  --feverH: 78px;
+  --ctrlH: 86px;
+}
 
 /* VR/cVR split */
-body.view-vr .eye-r, body.view-cvr .eye-r{ display:block; opacity:1; }
-body.view-vr .eye-l, body.view-cvr .eye-l{ width:50%; left:0; }
-body.view-vr .eye-r, body.view-cvr .eye-r{ width:50%; left:50%; }
-body.view-vr .gj-crosshair::before, body.view-cvr .gj-crosshair::before{ width:26px; height:26px; }
+body.view-vr .eye-r,
+body.view-cvr .eye-r{ display:block; }
 
-/* ---------- HUD MODE: FULL / COMPACT / HIDE ---------- */
-/* FULL = default */
-
-body.hud-compact{
-  --hudH: 150px;
+body.view-vr .eye-l,
+body.view-cvr .eye-l{
+  width:50%;
+  left:0;
 }
-body.hud-compact .hud-coach{ display:none; }
-body.hud-compact .hud-mid{ margin-top:8px; }
-body.hud-compact .hud-stats{
-  grid-template-columns: repeat(5, minmax(74px, 1fr));
-  width:min(720px, 52vw);
+body.view-vr .eye-r,
+body.view-cvr .eye-r{
+  width:50%;
+  left:50%;
 }
-body.hud-compact .hud-stat .v{ font-size:18px; }
-body.hud-compact .hud-badge{ width:min(520px, 52vw); }
-
-/* HIDE = hide HUD + Fever, keep controls; show Peek button */
-.hud-peek{
-  position:fixed;
-  left:12px;
-  top: calc(12px + var(--sat));
-  z-index:130;
-  display:none;
-}
-.peek-btn{
-  border-radius: 999px;
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.72);
-  color: var(--text);
-  font-weight:1000;
-  padding:10px 14px;
-  box-shadow: 0 10px 28px rgba(0,0,0,.35);
-}
-.peek-btn:active{ transform: translateY(1px); }
-
-body.hud-hide .hha-hud,
-body.hud-hide .hha-fever{
-  display:none;
-}
-body.hud-hide .hud-peek{
-  display:block;
+body.view-vr .gj-crosshair::before,
+body.view-cvr .gj-crosshair::before{
+  width:26px; height:26px;
 }
 
-/* Hold-to-Peek: temporarily show HUD/Fever while pressed */
-body.hud-hide.hud-peek-on .hha-hud,
-body.hud-hide.hud-peek-on .hha-fever{
-  display:block;
-  opacity:.98;
-}
+/* In VR/cVR show HUD peek, optionally hide big HUD */
+body.view-vr .hud-peek,
+body.view-cvr .hud-peek{ display:flex; }
 
-/* mobile narrow */
+body.hud-hidden .hha-hud{ display:none; }
+body.hud-hidden .hha-fever{ display:none; }
+
+/* Fullscreen slight tighten */
+body.is-fs.view-vr{ --hudH: 118px; --feverH: 72px; }
+body.is-fs.view-cvr{ --hudH: 118px; --feverH: 72px; }
+
 @media (max-width:520px){
   .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
   .hud-badge{ width: 60vw; }
-  .hud-coach{ display:none; }
+  .hud-coach{ display:none; } /* mobile reduce clutter */
+}
+
+/* ===== LAST5 BOSS: red border + heartbeat + shake ===== */
+body.boss-last5::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 96;
+  box-shadow:
+    inset 0 0 0 2px rgba(239,68,68,.55),
+    inset 0 0 30px rgba(239,68,68,.22);
+  opacity: .92;
+  animation: bossBorderPulse 260ms linear infinite;
+}
+@keyframes bossBorderPulse{
+  0%{ box-shadow: inset 0 0 0 2px rgba(239,68,68,.45), inset 0 0 26px rgba(239,68,68,.18); }
+  50%{ box-shadow: inset 0 0 0 2px rgba(239,68,68,.70), inset 0 0 44px rgba(239,68,68,.30); }
+  100%{ box-shadow: inset 0 0 0 2px rgba(239,68,68,.45), inset 0 0 26px rgba(239,68,68,.18); }
+}
+
+@keyframes bossHeart{
+  0%{ transform: translateY(0) scale(1); }
+  18%{ transform: translateY(0) scale(1.05); }
+  36%{ transform: translateY(0) scale(1); }
+  58%{ transform: translateY(0) scale(1.03); }
+  100%{ transform: translateY(0) scale(1); }
+}
+body.boss-last5 .btn-shoot,
+body.boss-last5 .hud-peek{
+  animation: bossHeart 820ms ease-in-out infinite;
+  border-color: rgba(239,68,68,.35);
+}
+body.boss-p2.boss-last5 .btn-shoot,
+body.boss-p2.boss-last5 .hud-peek{
+  animation-duration: 520ms;
+}
+
+@keyframes gj-microShake{
+  0%{ transform: translate3d(0,0,0); }
+  25%{ transform: translate3d(-.6px,.3px,0); }
+  50%{ transform: translate3d(.7px,-.4px,0); }
+  75%{ transform: translate3d(-.4px,-.6px,0); }
+  100%{ transform: translate3d(0,0,0); }
+}
+@keyframes gj-panicPulse{
+  0%{ filter: saturate(1); }
+  50%{ filter: saturate(1.08); }
+  100%{ filter: saturate(1); }
+}
+body.boss-last5 #gj-stage{
+  animation: gj-panicPulse 220ms linear infinite;
+}
+body.boss-p2.boss-last5 #gj-stage{
+  animation: gj-panicPulse 220ms linear infinite, gj-microShake 110ms linear infinite;
 }
