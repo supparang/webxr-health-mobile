@@ -1,11 +1,14 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
-Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
+Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE + VR SHOOT)
 ✅ ⭐ Star = Overdrive + Magnet + Shield
-✅ ❄️ Ice  = Freeze (slower spawn + longer TTL + delay storm)
-✅ No-Junk Zone API: setNoJunk({on,cx,cy,r}) + anti-spawn-junk-in-ring
+✅ ❄️ Ice  = Freeze
+✅ No-Junk Zone API: setNoJunk({on,cx,cy,r})
 ✅ Blocked rects API: setBlockedRects(rects) => spawn avoids HUD/Quest/Coach/Power
-✅ Type classes wired: fg-good / fg-junk / fg-wrong / fg-decoy / fg-boss / fg-star / fg-ice
-✅ Fever shake + urgent FX (mini<=3s, storm urgent)
+✅ VR SHOOT:
+   - uiMode='vr' enables:
+     (1) gaze dwell auto shoot (shoot=gaze)
+     (2) tap-to-shoot at center (shoot=tap)
+   - lock-on highlight + dwell progress -> CSS vars on :root
 ✅ Emits events expected by audio.js + groups-quests.js + run HUD
 */
 
@@ -119,6 +122,13 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     seed:'seed',
     rng:Math.random,
 
+    // VR shoot
+    shootMode:'off',        // off | tap | gaze
+    lockPx:140,
+    dwellMs:650,
+    _lockEl:null,
+    _lockMs:0,
+
     // VR feel
     vx:0, vy:0, dragOn:false, dragX:0, dragY:0,
 
@@ -193,6 +203,13 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
   function emitCoach(text, mood){ emit('hha:coach', { text: String(text||''), mood: mood||'neutral' }); }
   function emitFever(){ emit('hha:fever', { feverPct: Math.round(engine.fever)|0, shield: engine.shield|0 }); }
 
+  function setRootVar(name, val){
+    try{ DOC.documentElement.style.setProperty(name, val); }catch{}
+  }
+  function setRootClass(cls, on){
+    try{ DOC.body.classList.toggle(cls, !!on); }catch{}
+  }
+
   function updateRank(){
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
     emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
@@ -235,18 +252,14 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
   }
 
   // ---------- View / Shake ----------
-  function setBodyClass(cls, on){
-    try{ DOC.body.classList.toggle(cls, !!on); }catch{}
-  }
-
   function applyView(){
     const layer = engine.layerEl;
     if (!layer) return;
 
-    // fever-based micro shake (only on gameplay layer)
+    // fever shake
     let shake = 0;
     if (engine.fever >= 60){
-      shake = clamp((engine.fever - 55) / 100, 0, 0.28) * 1.6; // px-ish
+      shake = clamp((engine.fever - 55) / 100, 0, 0.28) * 1.6;
       const j = (engine.rng() - 0.5) * shake * 2;
       layer.style.setProperty('--shake', j.toFixed(2) + 'px');
     } else {
@@ -276,9 +289,16 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
       if (!layer) return;
       bound = true;
 
+      // Tap-to-shoot on layer in VR mode
       layer.addEventListener('pointerdown', (e)=>{
+        if (engine.uiMode === 'vr' && engine.shootMode !== 'off'){
+          e.preventDefault?.();
+          shootAtCenter('tap');
+          return;
+        }
+        // otherwise drag
         engine.dragOn = true; engine.dragX = e.clientX; engine.dragY = e.clientY;
-      }, { passive:true });
+      }, { passive:false });
 
       root.addEventListener('pointermove', (e)=>{
         if (!engine.dragOn) return;
@@ -316,7 +336,6 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
 
-    // base margins (still keep play area)
     const top = (engine.uiMode === 'vr') ? 170 : 150;
     const bot = (engine.uiMode === 'vr') ? 210 : 185;
     const side = 16;
@@ -386,7 +405,6 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
       return { x: clamp(cx + jx, r.x0, r.x1), y: clamp(cy + jy, r.y0, r.y1) };
     }
 
-    // burst
     const corners = [
       {x:r.x0+26, y:r.y0+26},
       {x:r.x1-26, y:r.y0+26},
@@ -455,16 +473,20 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
 
     setXY(el, x, y);
 
-    // magnet: enlarge slightly for easier hits
     if (hasMagnet()) s *= 1.06;
     el.style.setProperty('--s', s.toFixed(3));
 
+    // direct click (pc/mobile)
     el.addEventListener('pointerdown', (ev)=>{
+      // if VR mode: ignore direct touching target (ใช้ยิงกลางจอแทน)
+      if (engine.uiMode === 'vr' && engine.shootMode !== 'off'){
+        ev.preventDefault?.();
+        return;
+      }
       ev.preventDefault?.();
       hitTarget(el);
     }, { passive:false });
 
-    // TTL expire -> MISS only when GOOD expires
     const ttl = ttlNow();
     el._ttlTimer = root.setTimeout(()=>{
       if (!el.isConnected) return;
@@ -482,11 +504,109 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     return el;
   }
 
+  // ---------- VR shoot: lock & fire ----------
+  function centerPoint(){
+    const W = root.innerWidth || 360;
+    const H = root.innerHeight || 640;
+    return { cx: W*0.5, cy: H*0.5 };
+  }
+  function listTargets(){
+    const layer = engine.layerEl;
+    if (!layer) return [];
+    return Array.from(layer.querySelectorAll('.fg-target'));
+  }
+  function dist2(ax,ay,bx,by){
+    const dx = ax-bx, dy = ay-by;
+    return dx*dx + dy*dy;
+  }
+
+  function pickLockTarget(){
+    if (!engine.layerEl) return null;
+    const { cx, cy } = centerPoint();
+    const max = Math.max(80, Number(engine.lockPx||140));
+    const max2 = max*max;
+
+    let best = null;
+    let bestD2 = 1e18;
+
+    const arr = listTargets();
+    for (let i=0;i<arr.length;i++){
+      const el = arr[i];
+      if (!el || !el.isConnected) continue;
+      const x = Number(el.dataset._x)||0;
+      const y = Number(el.dataset._y)||0;
+      const d2 = dist2(x,y,cx,cy);
+      if (d2 <= max2 && d2 < bestD2){
+        bestD2 = d2;
+        best = el;
+      }
+    }
+    return best;
+  }
+
+  function setLock(el, pct){
+    if (engine._lockEl && engine._lockEl !== el){
+      engine._lockEl.classList.remove('lock');
+    }
+    engine._lockEl = el || null;
+
+    if (el) el.classList.add('lock');
+
+    setRootClass('lock-on', !!el);
+    setRootVar('--lockPct', (clamp(pct,0,100)).toFixed(1)+'%');
+  }
+
+  function shootAtCenter(source){
+    if (!engine.running || engine.ended) return;
+    if (engine.uiMode !== 'vr') return;
+    if (engine.shootMode === 'off') return;
+
+    const target = pickLockTarget();
+    if (target){
+      emit('hha:judge', { kind:'good', text: (source==='gaze'?'GAZE HIT':'TAP HIT') });
+      hitTarget(target);
+      engine._lockMs = 0;
+      setLock(null, 0);
+      return;
+    } else {
+      emit('hha:judge', { kind:'bad', text:'NO TARGET' });
+      engine._lockMs = 0;
+      setLock(null, 0);
+    }
+  }
+
+  function tickLock(dtMs){
+    if (engine.uiMode !== 'vr') { setLock(null,0); return; }
+    if (engine.shootMode === 'off') { setLock(null,0); return; }
+
+    const el = pickLockTarget();
+    const dwell = Math.max(250, Number(engine.dwellMs||650));
+
+    if (!el){
+      engine._lockMs = 0;
+      setLock(null, 0);
+      return;
+    }
+
+    // same target keeps charging
+    if (engine._lockEl === el){
+      engine._lockMs = clamp(engine._lockMs + dtMs, 0, dwell);
+    } else {
+      engine._lockMs = 0;
+    }
+
+    const pct = (engine._lockMs / dwell) * 100;
+    setLock(el, pct);
+
+    if (engine.shootMode === 'gaze' && engine._lockMs >= dwell){
+      shootAtCenter('gaze');
+    }
+  }
+
   // ---------- Game mechanics ----------
   function setGroup(id){
     engine.groupId = id;
     engine.groupClean = true;
-    // coach: show head + line
     emitCoach(`${SONG[0]}\n${SONG[id] || `ต่อไป หมู่ ${id}!`}`, 'happy');
   }
 
@@ -506,11 +626,9 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
 
     emitProgress({ kind:'group_swap' });
 
-    // reset power
     engine.power = 0;
     updatePower();
 
-    // tiny cool-down reward
     engine.fever = clamp(engine.fever - 6, 0, 100);
     emitFever();
   }
@@ -523,8 +641,8 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
 
   // ---------- Buffs ----------
   function setBuffClasses(){
-    setBodyClass('groups-overdrive', hasOver());
-    setBodyClass('groups-freeze', hasFreeze());
+    setRootClass('groups-overdrive', hasOver());
+    setRootClass('groups-freeze', hasFreeze());
   }
 
   function grantStar(){
@@ -542,11 +660,9 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
   function grantIce(){
     const dur = Math.round((engine._powDur || 5000) * 1.05);
     engine.freezeUntil = now() + dur;
-    // if storm running -> soften / shorten
     if (engine.storm){
       engine.stormUntilMs = Math.min(engine.stormUntilMs, now() + 800);
     }
-    // delay next storm
     engine.nextStormAtMs = Math.max(engine.nextStormAtMs, now() + 9000);
 
     engine.fever = clamp(engine.fever - 10, 0, 100);
@@ -565,7 +681,6 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
   }
 
   function enterStorm(){
-    // freeze delays storm
     if (hasFreeze()) return;
 
     engine.storm = true;
@@ -707,7 +822,6 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     // BAD types
     const badLike = (type === 'junk' || type === 'wrong' || type === 'decoy');
     if (badLike){
-      // shield blocks junk = no miss and NOT hit_bad
       if (type === 'junk' && engine.shield > 0){
         engine.shield = 0;
         emitFever();
@@ -740,7 +854,6 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     const baseJ = (engine.runMode==='research') ? diffParams(engine.diff).junk : engine.adapt.junkBias;
     const baseD = (engine.runMode==='research') ? diffParams(engine.diff).decoy : engine.adapt.decoyBias;
 
-    // power-up chance
     const pu = engine.storm ? 0.018 : 0.012;
     if (engine.rng() < pu) return (engine.rng() < 0.5) ? 'star' : 'ice';
 
@@ -759,7 +872,6 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     if (tp === 'ice')  return '❄️';
     if (tp === 'good') return GROUPS[engine.groupId].emoji[(engine.rng()*GROUPS[engine.groupId].emoji.length)|0];
 
-    // wrong
     const other = [];
     for (let g=1; g<=5; g++){
       if (g === engine.groupId) continue;
@@ -785,10 +897,8 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     let tp = chooseType();
     const em = chooseEmoji(tp);
 
-    // position
     let p = engine.storm ? stormPos() : randPos();
 
-    // Fair No-Junk: junk should avoid ring area (so mini is fair)
     if (engine.noJunkOn && (tp === 'junk')){
       for (let k=0;k<18;k++){
         const pp = engine.storm ? stormPos() : randPos();
@@ -808,7 +918,7 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
 
     const base = (engine.runMode==='research') ? diffParams(engine.diff) : engine.adapt;
     let sMs = Math.max(420, base.spawnMs * (engine.storm ? 0.82 : 1.0));
-    if (hasFreeze()) sMs *= 1.35; // slower spawns
+    if (hasFreeze()) sMs *= 1.35;
     engine.spawnTimer = root.setTimeout(loopSpawn, sMs);
   }
 
@@ -830,7 +940,7 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
 
     setBuffClasses();
 
-    // storm timing
+    // storm
     if (!engine.storm && now() >= engine.nextStormAtMs) enterStorm();
     if (engine.storm && now() >= engine.stormUntilMs){
       exitStorm();
@@ -842,7 +952,7 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
       }
     }
 
-    // adaptive only in play
+    // adaptive (play only)
     if (engine.runMode === 'play'){
       const acc = engine.hitAll > 0 ? (engine.hitGood/engine.hitAll) : 0;
       const heat = clamp((engine.combo/18) + (acc-0.65), 0, 1);
@@ -857,8 +967,14 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     feverTick();
     applyView();
 
-    // time (dt-based)
+    // VR lock tick
     const t = now();
+    if (!engine._lockLast) engine._lockLast = t;
+    const dtMs = clamp(t - engine._lockLast, 16, 80);
+    engine._lockLast = t;
+    tickLock(dtMs);
+
+    // time
     if (!engine._tLast) engine._tLast = t;
     const dt = Math.min(0.35, Math.max(0.05, (t - engine._tLast)/1000));
     engine._tLast = t;
@@ -890,7 +1006,9 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     clearAllTargets();
     questStop();
 
-    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-overdrive','groups-freeze');
+    DOC.body.classList.remove('groups-storm','groups-storm-urgent','groups-overdrive','groups-freeze','lock-on');
+
+    setRootVar('--lockPct','0%');
 
     const acc = engine.hitAll > 0 ? Math.round((engine.hitGood/engine.hitAll)*100) : 0;
     const grade = rankFromAcc(acc);
@@ -953,6 +1071,14 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     engine.seed = String(cfg.seed || Date.now());
     engine.rng = makeRng(engine.seed);
 
+    // VR shoot config
+    engine.shootMode = String(cfg.shoot || 'off').toLowerCase(); // off | tap | gaze
+    engine.lockPx = clamp(Number(cfg.lockPx ?? 140), 80, 280);
+    engine.dwellMs = clamp(Number(cfg.dwellMs ?? 650), 250, 1200);
+    engine._lockEl = null;
+    engine._lockMs = 0;
+    setRootVar('--lockPct','0%');
+
     const dp = diffParams(engine.diff);
 
     engine.running = true;
@@ -995,6 +1121,7 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
 
     engine.vx = 0; engine.vy = 0;
     engine._tLast = 0;
+    engine._lockLast = 0;
 
     applyView();
 
@@ -1003,6 +1130,11 @@ Food Groups VR — GameEngine (FULL FUN + FAIR + RESPONSIVE SAFE)
     updateScore();
     emitFever();
     emitCoach(`${SONG[0]}\n${SONG[1]}`, 'neutral');
+
+    // auto: if uiMode=vr and shoot=auto => gaze default
+    if (engine.uiMode === 'vr' && engine.shootMode === 'auto'){
+      engine.shootMode = 'gaze';
+    }
 
     questStart();
     emit('hha:celebrate', { kind:'goal', title:'เริ่มเกม! 🎵' });
