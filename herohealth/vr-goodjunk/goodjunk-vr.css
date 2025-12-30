@@ -1,10 +1,10 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SAFE layout (VR/FS patched)
-✅ stage uses dvh (fix address-bar jump / "flash then gone")
-✅ reserves space for HUD(top) + controls(bottom)
+GoodJunkVR UI — PRODUCTION (SAFE layout)
+✅ stage uses dvh/svh (fix address-bar jump / "flash then gone")
+✅ reserves space for HUD(top) + fever + controls(bottom)
 ✅ VR/cVR dual-eye split with stable center
-✅ FIX: no "targets flashing behind" (eye overflow hidden)
-✅ FS: compact HUD/fever/controls
+✅ fullscreen tweaks (body.is-fs)
+✅ VR layout: compact HUD, targets sit higher, coach auto-hide
 */
 
 :root{
@@ -20,6 +20,7 @@ GoodJunkVR UI — SAFE layout (VR/FS patched)
   --warn:#f59e0b;
   --bad:#ef4444;
   --cyan:#22d3ee;
+  --violet:#a78bfa;
 
   --r-lg:18px;
   --r-pill:999px;
@@ -27,22 +28,28 @@ GoodJunkVR UI — SAFE layout (VR/FS patched)
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
-  /* reserved zones */
+  /* reserved zones (tuned by view classes) */
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
+
+  /* playfield padding inside stage */
+  --pfPadT: 8px;
+  --pfPadB: 8px;
 }
 
 *{ box-sizing:border-box; }
 html,body{
   margin:0; padding:0;
-  width:100%; height:100%;
-  background: radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
-              radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
-              var(--bg);
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
+    radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
+    var(--bg);
   color:var(--text);
   font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  overflow:hidden;
 }
 
 /* ---------- HUD ---------- */
@@ -52,7 +59,7 @@ html,body{
   top:0;
   padding: calc(10px + var(--sat)) 12px 10px;
   z-index:80;
-  pointer-events:none;
+  pointer-events:none; /* HUD should not block playfield */
 }
 .hha-hud .hud-top{
   display:flex;
@@ -67,7 +74,7 @@ html,body{
   border-radius:var(--r-lg);
   padding:12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.35);
-  pointer-events:auto;
+  pointer-events:auto; /* buttons clickable */
 }
 .hud-title{ font-weight:900; letter-spacing:.2px; font-size:18px; }
 .hud-sub{ margin-top:4px; color:var(--muted); font-size:12px; }
@@ -84,12 +91,16 @@ html,body{
   color:var(--text);
   padding:8px 12px;
   border-radius:999px;
-  font-weight:800;
+  font-weight:900;
   font-size:13px;
   cursor:pointer;
 }
 .pill.ghost{ opacity:.92; }
 .pill:active{ transform: translateY(1px); }
+.pill.on{
+  border-color: rgba(34,197,94,.38);
+  background: rgba(34,197,94,.14);
+}
 
 .hud-stats{
   display:grid;
@@ -105,8 +116,8 @@ html,body{
   padding:10px 12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
-.hud-stat .k{ color:var(--muted); font-size:12px; font-weight:700; }
-.hud-stat .v{ font-size:22px; font-weight:900; margin-top:2px; }
+.hud-stat .k{ color:var(--muted); font-size:12px; font-weight:800; }
+.hud-stat .v{ font-size:22px; font-weight:1000; margin-top:2px; }
 
 .hud-mid{
   margin-top:10px;
@@ -124,11 +135,11 @@ html,body{
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
 .q-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.q-title{ font-weight:900; }
+.q-title{ font-weight:1000; }
 .q-title.mini{ color:var(--cyan); }
-.q-count{ font-weight:900; color:#fff; opacity:.95; }
-.q-timer{ color:var(--warn); font-weight:900; min-width:64px; text-align:right; }
-.q-progress{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:700; }
+.q-count{ font-weight:1000; color:#fff; opacity:.95; }
+.q-timer{ color:var(--warn); font-weight:1000; min-width:64px; text-align:right; }
+.q-progress{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:900; }
 
 .hud-coach{
   width:min(420px, 38vw);
@@ -141,9 +152,14 @@ html,body{
   padding:12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
-.coach-img{ width:62px; height:62px; border-radius:16px; border:1px solid var(--stroke); background:#0b1120; }
-.coach-line{ font-weight:900; }
-.coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:700; }
+.coach-img{
+  width:62px; height:62px;
+  border-radius:16px;
+  border:1px solid var(--stroke);
+  background:#0b1120;
+}
+.coach-line{ font-weight:1000; }
+.coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:900; }
 
 /* ---------- FEVER ---------- */
 .hha-fever{
@@ -164,7 +180,7 @@ html,body{
   gap:10px;
   align-items:center;
 }
-.fever-label{ color:var(--muted); font-weight:900; letter-spacing:.3px; }
+.fever-label{ color:var(--muted); font-weight:1000; letter-spacing:.3px; }
 .fever-bar{
   height:14px;
   border-radius:999px;
@@ -173,7 +189,7 @@ html,body{
   overflow:hidden;
 }
 .fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
-.fever-text{ text-align:right; font-weight:900; }
+.fever-text{ text-align:right; font-weight:1000; }
 .shield-row{
   margin-top:8px;
   display:grid;
@@ -181,43 +197,44 @@ html,body{
   gap:10px;
   align-items:center;
 }
-.shield-label{ color:var(--muted); font-weight:900; }
+.shield-label{ color:var(--muted); font-weight:1000; }
 .shield-pills{ display:flex; flex-wrap:wrap; gap:6px; }
 
-/* ---------- PLAYFIELD ---------- */
+/* ---------- PLAYFIELD (uses dvh/svh) ---------- */
 #gj-stage{
   position:fixed;
   left:0; right:0;
   top: calc(var(--hudH) + var(--sat));
   bottom: calc(var(--ctrlH) + var(--feverH) + var(--sab) + 14px);
   z-index:10;
-  pointer-events:auto;
   overflow:hidden;
+  pointer-events:auto;
+  transform: translateZ(0);
+  contain: paint layout style;
 }
 
-/* VR divider line (purely visual) */
-body.view-vr #gj-stage::after,
-body.view-cvr #gj-stage::after{
+/* inner padding helper */
+#gj-stage::before{
   content:"";
-  position:absolute;
-  left:50%;
-  top:0; bottom:0;
-  width:2px;
-  transform: translateX(-1px);
-  background: rgba(148,163,184,.10);
-  z-index: 12;
+  position:absolute; inset:0;
   pointer-events:none;
+  border-radius: 0;
 }
 
 /* eyes */
 .gj-eye{
   position:absolute;
-  top:0; bottom:0;
+  inset:0;
   width:100%;
-  overflow:hidden; /* ✅ FIX: stop "targets behind" */
+  overflow:hidden;
 }
 .eye-l{ left:0; }
-.eye-r{ left:0; display:none; }
+.eye-r{
+  left:0;
+  display:none;           /* hidden unless VR/cVR */
+  opacity:0;
+  pointer-events:none;
+}
 
 /* layers fill */
 .gj-layer, .gj-crosshair, .atk-ring, .atk-laser{
@@ -225,8 +242,8 @@ body.view-cvr #gj-stage::after{
   inset:0;
 }
 
-/* crosshair (simple) */
-.gj-crosshair{ pointer-events:none; z-index: 20; }
+/* crosshair */
+.gj-crosshair{ pointer-events:none; }
 .gj-crosshair::before{
   content:"";
   position:absolute;
@@ -234,12 +251,12 @@ body.view-cvr #gj-stage::after{
   width:28px; height:28px;
   transform: translate(-50%,-50%);
   border-radius:999px;
-  border:2px solid rgba(229,231,235,.8);
+  border:2px solid rgba(229,231,235,.82);
   box-shadow: 0 0 0 6px rgba(34,197,94,.10);
 }
 
-/* atk ring */
-.atk-ring{ pointer-events:none; z-index: 19; }
+/* atk ring (optional) */
+.atk-ring{ pointer-events:none; }
 .atk-ring::before{
   content:"";
   position:absolute;
@@ -249,7 +266,7 @@ body.view-cvr #gj-stage::after{
   border-radius:999px;
   border:2px dashed rgba(34,197,94,.45);
   filter: drop-shadow(0 0 10px rgba(34,197,94,.20));
-  opacity:.0;
+  opacity:0;
 }
 .atk-laser{ pointer-events:none; opacity:0; }
 
@@ -268,7 +285,7 @@ body.view-cvr #gj-stage::after{
   background: rgba(2,6,23,.72);
   color:var(--text);
   font-size:24px;
-  font-weight:900;
+  font-weight:1000;
   letter-spacing:.2px;
   box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
@@ -278,13 +295,15 @@ body.view-cvr #gj-stage::after{
 .start-overlay{
   position:fixed;
   inset:0;
-  display:none;
+  display:flex;
   align-items:center;
   justify-content:center;
   z-index:120;
   background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
+.start-overlay[hidden]{ display:none; }
+
 .start-card{
   width:min(560px, 92vw);
   background: rgba(2,6,23,.80);
@@ -293,10 +312,11 @@ body.view-cvr #gj-stage::after{
   padding:18px;
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
-.start-title{ font-size:26px; font-weight:1000; }
-.start-desc{ margin-top:6px; color:var(--text); font-weight:800; line-height:1.35; }
-.muted{ color:var(--muted); font-weight:800; }
-.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:800; }
+.start-title{ font-size:26px; font-weight:1100; }
+.start-desc{ margin-top:6px; color:var(--text); font-weight:900; line-height:1.35; }
+.muted{ color:var(--muted); font-weight:900; }
+.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:900; }
+
 .btn-start{
   margin-top:14px;
   width:100%;
@@ -306,7 +326,7 @@ body.view-cvr #gj-stage::after{
   background: rgba(34,197,94,.18);
   color:#eafff3;
   font-size:18px;
-  font-weight:1000;
+  font-weight:1100;
 }
 .btn-start:active{ transform: translateY(1px); }
 
@@ -320,6 +340,7 @@ body.view-cvr #gj-stage::after{
   background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
+.vr-hint[hidden]{ display:none; }
 .vr-card{
   width:min(720px, 92vw);
   background: rgba(2,6,23,.82);
@@ -328,49 +349,77 @@ body.view-cvr #gj-stage::after{
   padding:18px;
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
-.vr-title{ font-size:22px; font-weight:1000; }
-.vr-desc{ margin-top:8px; color:var(--text); font-weight:850; line-height:1.35; }
+.vr-title{ font-size:22px; font-weight:1100; }
+.vr-desc{ margin-top:8px; color:var(--text); font-weight:950; line-height:1.35; }
 
 /* ---------- VIEW MODES ---------- */
-body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
-body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
+body.view-mobile{
+  --hudH: 240px;
+  --ctrlH: 92px;
+  --feverH: 92px;
+}
+body.view-pc{
+  --hudH: 220px;
+  --ctrlH: 92px;
+  --feverH: 92px;
+}
 
+/* VR/cVR: compact HUD + targets higher */
 body.view-vr, body.view-cvr{
-  --hudH: 130px;
-  --feverH: 78px;
-  --ctrlH: 86px;
+  --hudH: 128px;
+  --feverH: 74px;
+  --ctrlH: 78px;
+}
+
+/* Fullscreen: free more space */
+body.is-fs.view-vr, body.is-fs.view-cvr{
+  --hudH: 108px;
+  --feverH: 70px;
+  --ctrlH: 72px;
 }
 
 /* VR/cVR split */
-body.view-vr #gj-stage,
-body.view-cvr #gj-stage{
-  top: calc(var(--hudH) + var(--sat));
-  bottom: calc(var(--ctrlH) + var(--feverH) + var(--sab) + 12px);
+body.view-vr .eye-r,
+body.view-cvr .eye-r{
+  display:block;
+  opacity:1;
+  pointer-events:auto;
+}
+body.view-vr .eye-l,
+body.view-cvr .eye-l{
+  width:50%;
+  left:0;
 }
 body.view-vr .eye-r,
-body.view-cvr .eye-r{ display:block; }
-
-body.view-vr .eye-l,
-body.view-cvr .eye-l{ width:50%; left:0; }
-
-body.view-vr .eye-r,
-body.view-cvr .eye-r{ width:50%; left:50%; }
-
+body.view-cvr .eye-r{
+  width:50%;
+  left:50%;
+}
 body.view-vr .gj-crosshair::before,
 body.view-cvr .gj-crosshair::before{
   width:26px; height:26px;
 }
 
-/* ---------- FULLSCREEN tweaks ---------- */
-body.is-fs.view-pc{ --hudH: 200px; --feverH: 84px; --ctrlH: 86px; }
-body.is-fs.view-mobile{ --hudH: 220px; --feverH: 84px; --ctrlH: 86px; }
-body.is-fs.view-vr, body.is-fs.view-cvr{
-  --hudH: 116px;
-  --feverH: 70px;
-  --ctrlH: 82px;
+/* In VR: reduce clutter */
+body.view-vr .hud-coach,
+body.view-cvr .hud-coach{
+  display:none;
+}
+body.view-vr .hud-stats,
+body.view-cvr .hud-stats{
+  grid-template-columns: repeat(5, minmax(74px, 1fr));
+  width:min(720px, 52vw);
+}
+body.view-vr .hud-stat .v,
+body.view-cvr .hud-stat .v{
+  font-size:18px;
+}
+body.view-vr .hud-badge,
+body.view-cvr .hud-badge{
+  width:min(540px, 46vw);
 }
 
-/* Mobile small screen reduce clutter */
+/* Mobile narrow */
 @media (max-width:520px){
   .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
   .hud-badge{ width: 60vw; }
