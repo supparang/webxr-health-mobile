@@ -12,7 +12,6 @@ REDIRECT BRIDGE (PATH FIX)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Redirecting… | HeroHealth Plate</title>
 
-  <!-- Fallback redirect (works even if JS blocked) -->
   <meta http-equiv="refresh" content="0; url=../plate-vr.html" />
 
   <style>
@@ -56,15 +55,11 @@ REDIRECT BRIDGE (PATH FIX)
   <script>
     (function(){
       try{
-        // Preserve query + hash
         var target = '../plate-vr.html' + (location.search || '') + (location.hash || '');
         var a = document.getElementById('fallbackLink');
         if (a) a.href = target;
-
-        // Replace history so Back button doesn't loop
         location.replace(target);
       }catch(e){
-        // Last resort
         location.href = '../plate-vr.html';
       }
     })();
