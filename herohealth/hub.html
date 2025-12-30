@@ -1,11 +1,12 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
-✅ อ่าน localStorage: HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-✅ ตาราง 4 เกมล่าสุด
+HeroHealth HUB (PRODUCTION ++ HISTORY + CSV) — PATH FIXED
+✅ ใช้ hub.safe.js (path mapping ถูกต้อง)
+✅ Plate -> /herohealth/plate-vr.html
+✅ GoodJunk -> /herohealth/goodjunk-vr.html
+✅ Hydration -> /herohealth/hydration-vr.html
+✅ Groups -> /herohealth/vr-groups/groups-vr.html
+✅ แตะ 1=Copy / 2=Play (ทั้งปุ่มเกมและแถว history)
 ✅ Export CSV (last / recent4)
-✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run, diff, time, seed, + research ctx)
-✅ UX: แตะ 1 ครั้ง = Copy, แตะ 2 ครั้ง = Play (ทั้งปุ่มเกมและแถว history)
-✅ เพิ่ม Action ใน history: Play + Copy JSON
 -->
 
 <!doctype html>
@@ -241,7 +242,6 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
 
     /* ===== Tap Feedback FX ===== */
     .gameBtn, .btn { touch-action: manipulation; }
-
     .gameBtn.pulseGood, tr.pulseGood { animation:hhaPulseGood .42s ease-out; }
     .gameBtn.pulseWarn, tr.pulseWarn { animation:hhaPulseWarn .42s ease-out; }
     .gameBtn.pulseBad,  tr.pulseBad  { animation:hhaPulseBad  .42s ease-out; }
@@ -291,7 +291,8 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
     }
   </style>
 
-  <script type="module" src="./hub.safe.js"></script>
+  <!-- ✅ PATH FIX script -->
+  <script type="module" src="./hub.safe.js?v=20251230"></script>
 </head>
 
 <body>
@@ -342,7 +343,7 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
         </div>
 
         <div class="muted" style="margin-top:8px; line-height:1.3">
-          • Research = deterministic เสมอ (ถ้าไม่ใส่ seed จะใช้ค่า default) <br>
+          • Research = deterministic เสมอ (ถ้าไม่ใส่ seed เกมจะใช้ค่า default) <br>
           • Play = random ปกติ (แต่ถ้าใส่ seed จะ deterministic)
         </div>
 
@@ -366,7 +367,7 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
           <div class="gameBtn" data-game="plate">
             <div>
               <div class="gameName">🍽️ Plate VR</div>
-              <div class="gameHint">จานสมดุล 5 หมู่ + Plate Rush</div>
+              <div class="gameHint">จานสมดุล 5 หมู่ + Plate Rush (ไฟล์ใหม่ plate-vr.html)</div>
             </div>
             <div class="rightTag">PLAY</div>
           </div>
@@ -462,7 +463,7 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
               </table>
             </div>
           </div>
-        </div>
+        </div><!-- lastPanel -->
       </div>
     </div><!-- grid -->
   </div><!-- wrap -->
