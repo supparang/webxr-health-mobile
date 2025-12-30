@@ -1,257 +1,421 @@
-<!-- === /herohealth/plate/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (IN /plate)
-✅ Loads CSS/JS from current folder
-✅ Uses ../ for shared assets (img / vr / favicon)
-✅ Works with plate.safe.js (SAFE + FLUSH-HARDENED + FUN PACK)
-✅ Provides ALL required DOM ids:
-  plate-layer, hitFx,
-  hudTop, miniPanel, hudBtns, coachPanel,
-  btnStart, startOverlay,
-  btnPause, hudPaused, btnRestart, btnBackHub, btnPlayAgain, btnEnterVR,
-  resultBackdrop (rScore/rG1..rG5 etc.)
+<!-- === /herohealth/vr-groups/groups-vr.html ===
+Food Groups VR — RUN (PRODUCTION)
+✅ Goal RIGHT + Coach BOTTOM-RIGHT
+✅ Responsive: PC / Mobile / VR(Cardboard)
+✅ Auto blocked rects -> spawn ไม่ทับ HUD/Quest/Coach/Power
+✅ Auto No-Junk Zone toggle from mini title
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Balanced Plate VR</title>
+  <title>Food Groups VR — Run</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
-
-  <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Styles (local) -->
-  <link rel="stylesheet" href="./plate-vr.css?v=20251229" />
-
-  <!-- Global FX + Logger (optional) -->
-  <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
-
-  <!-- HUD binder + Game (local) -->
-  <script src="./plate-hud.js?v=20251229" defer></script>
-  <script src="./plate.safe.js?v=20251229" defer></script>
+  <link rel="stylesheet" href="./groups-vr.css" />
 </head>
 
 <body>
-  <!-- Background VR scene (minimal) -->
-  <a-scene
-    id="scene"
-    embedded
-    renderer="antialias: true; colorManagement: true"
-    vr-mode-ui="enabled: true"
-    style="position:fixed; inset:0; z-index:1;"
-  >
-    <a-sky color="#020617"></a-sky>
-    <a-entity light="type: ambient; intensity: 0.85"></a-entity>
-    <a-entity light="type: directional; intensity: 0.55" position="1 2 1"></a-entity>
+  <!-- Gameplay layer -->
+  <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera wasd-controls="enabled:false" look-controls="pointerLockEnabled:false"></a-camera>
-    </a-entity>
-  </a-scene>
-
-  <!-- DOM Play layer for targets (required) -->
-  <div id="plate-layer" aria-label="plate-layer"></div>
-
-  <!-- Hit FX overlay (required) -->
-  <div id="hitFx" aria-hidden="true"></div>
-
-  <!-- TOP HUD (required: hudTop) -->
-  <header id="hudTop">
-    <div class="hudRow">
-      <div class="hudStat">
-        <div class="k">SCORE</div>
-        <div class="v" id="uiScore">0</div>
-      </div>
-
-      <div class="hudStat">
-        <div class="k">COMBO</div>
-        <div class="v"><span id="uiCombo">0</span> <span class="muted">/</span> <span id="uiComboMax">0</span></div>
-      </div>
-
-      <div class="hudStat">
-        <div class="k">MISS</div>
-        <div class="v" id="uiMiss">0</div>
-      </div>
-
-      <div class="hudStat plateChip">
-        <div class="k">PLATE</div>
-        <div class="v"><span id="uiPlateHave">0</span><span class="muted">/5</span></div>
-      </div>
-
-      <div class="hudStat gradeChip">
-        <div class="k">GRADE</div>
-        <div class="v"><span id="uiGrade">C</span> <span class="muted" id="uiAcc">0%</span></div>
-      </div>
-
-      <div class="hudStat timeChip">
-        <div class="k">TIME</div>
-        <div class="v"><span id="uiTime">90</span><span class="muted">s</span></div>
-      </div>
+  <!-- HUD top left/right -->
+  <div class="hudRow" aria-label="HUD">
+    <div class="hudCard hudLeft">
+      <div class="hudItem"><span>SCORE</span><b id="uiScore">0</b></div>
+      <div class="hudItem"><span>COMBO</span><b><span id="uiCombo">0</span> <i class="muted">(MAX <span id="uiComboMax">0</span>)</i></b></div>
+      <div class="hudItem"><span>MISS</span><b id="uiMiss">0</b></div>
+      <div class="hudItem"><span>GRADE</span><b id="uiGrade">C</b></div>
     </div>
 
-    <div class="hudRow2">
-      <div class="feverWrap">
-        <div class="feverLabel">FEVER</div>
-        <div class="feverBar">
-          <div class="feverFill" id="uiFeverFill"></div>
-        </div>
-        <div class="shieldPill" id="uiShield" title="Shield">
-          🛡️ <span id="uiShieldN">0</span>
-        </div>
-      </div>
-
-      <div class="plateCounts">
-        <span class="pill">🥦 <b id="uiG1">0</b></span>
-        <span class="pill">🍎 <b id="uiG2">0</b></span>
-        <span class="pill">🐟 <b id="uiG3">0</b></span>
-        <span class="pill">🍚 <b id="uiG4">0</b></span>
-        <span class="pill">🥑 <b id="uiG5">0</b></span>
-      </div>
-    </div>
-  </header>
-
-  <!-- COACH PANEL (required: coachPanel) -->
-  <aside id="coachPanel">
-    <img
-      id="coachImg"
-      src="../img/coach-neutral.png"
-      alt="Coach"
-      draggable="false"
-    />
-    <div class="coachText">
-      <div class="coachName">Hero Coach</div>
-      <div class="coachMsg" id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
-    </div>
-  </aside>
-
-  <!-- QUEST PANEL (required: miniPanel) -->
-  <section id="miniPanel">
-    <div class="questBlock">
-      <div class="questHdr">
-        <span class="badge badgeGoal">GOAL</span>
-        <span class="qTitle" id="uiGoalTitle">—</span>
-        <span class="qCount" id="uiGoalCount">0/0</span>
-      </div>
-      <div class="bar">
-        <div class="barFill" id="uiGoalFill"></div>
-      </div>
-    </div>
-
-    <div class="questBlock">
-      <div class="questHdr">
-        <span class="badge badgeMini">MINI</span>
-        <span class="qTitle" id="uiMiniTitle">—</span>
-        <span class="qCount"><span id="uiMiniCount">0/0</span> · <span id="uiMiniTime">--</span></span>
-      </div>
-      <div class="bar">
-        <div class="barFill mini" id="uiMiniFill"></div>
-      </div>
-      <div class="hint" id="uiHint">ทริค: เก็บให้ครบ 5 หมู่ไว ๆ แล้วคุมความแม่นยำ!</div>
-    </div>
-  </section>
-
-  <!-- BUTTONS (required: hudBtns) -->
-  <nav id="hudBtns">
-    <button class="btn ghost" id="btnPause" type="button">⏸ Pause</button>
-    <button class="btn ghost" id="btnRestart" type="button">🔁 Restart</button>
-    <button class="btn" id="btnEnterVR" type="button">🕶 Enter VR</button>
-  </nav>
-
-  <!-- PAUSED overlay (required: hudPaused) -->
-  <div id="hudPaused">
-    <div class="pausedCard">
-      <div class="pausedTitle">Paused</div>
-      <div class="pausedText">แตะปุ่ม Pause อีกครั้งเพื่อเล่นต่อ</div>
+    <div class="hudCard hudRight">
+      <div class="hudItem"><span>TIME</span><b><span id="uiTime">90</span>s</b></div>
+      <div class="hudItem"><span>MODE</span><b id="uiMode">play</b></div>
+      <div class="hudItem"><span>DIFF</span><b id="uiDiff">normal</b></div>
+      <div class="hudItem"><span>STYLE</span><b id="uiStyle">mix</b></div>
     </div>
   </div>
 
-  <!-- START overlay (required: startOverlay + btnStart) -->
-  <div id="startOverlay">
-    <div class="startCard">
-      <div class="startTitle">🥗 Balanced Plate VR</div>
-      <div class="startSub">
-        โหมดสนุก + ภารกิจโหด!<br/>
-        <span class="muted">Plate Rush: ครบ 5 หมู่ใน 8 วิ + ห้ามโดนขยะ</span>
-      </div>
+  <!-- Quest RIGHT -->
+  <div class="questDock" aria-label="Quest">
+    <div class="questCard">
+      <div class="qHead">GOAL <span class="qNum" id="uiGoalNum">0/0</span></div>
+      <div class="qTitle" id="uiGoalTitle">—</div>
+      <div class="qBar"><i id="uiGoalBar"></i></div>
+    </div>
 
-      <div class="startMeta">
-        <div class="metaPill">diff: <b id="uiDiffPreview">normal</b></div>
-        <div class="metaPill">time: <b id="uiTimePreview">90</b>s</div>
-        <div class="metaPill">run: <b id="uiRunPreview">play</b></div>
-      </div>
+    <div class="questCard">
+      <div class="qHead">MINI <span class="qNum" id="uiMiniNum">0/0</span></div>
+      <div class="qTitle" id="uiMiniTitle">—</div>
+      <div class="qBar mini"><i id="uiMiniBar"></i></div>
+      <div class="qTime" id="uiMiniTime" style="display:none;">⏳ 0s</div>
+    </div>
+  </div>
 
-      <div class="startBtns">
-        <button class="btn big" id="btnStart" type="button">▶ Start</button>
-        <button class="btn ghost big" id="btnEnterVR2" type="button">🕶 Enter VR</button>
+  <!-- Power bottom -->
+  <div class="powerDock" aria-label="Power">
+    <div class="powerCard">
+      <div class="powerTop">
+        <b>POWER</b>
+        <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
       </div>
+      <div class="powerBar"><i id="uiPowerBar"></i></div>
+      <div class="powerHint">⭐ = Overdrive+Magnet+Shield · ❄️ = Freeze · STORM ระวัง!</div>
+    </div>
+  </div>
 
-      <div class="startFoot">
-        Tip: บน iOS อาจต้องกด Start ก่อนเพื่อขอสิทธิ์ motion
+  <!-- Coach bottom-right -->
+  <div class="coachDock" aria-label="Coach">
+    <div class="coachCard">
+      <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
+      <div class="feverBar"><i id="uiFeverBar"></i></div>
+      <div class="shieldTag" id="uiShieldTag" style="display:none;">🛡️ SHIELD READY</div>
+    </div>
+    <div class="coachImg">
+      <img id="uiCoachImg" src="../img/coach-neutral.png" alt="Coach"/>
+    </div>
+  </div>
+
+  <!-- Reticle for VR (toggle by ui=vr) -->
+  <div id="reticle" class="reticle" aria-hidden="true"></div>
+
+  <!-- Small controls -->
+  <button id="btnVR" class="btnVR" type="button">VR</button>
+
+  <!-- Start overlay -->
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <h2>🚀 พร้อมเล่น Food Groups VR</h2>
+      <p id="startDesc">กำลังเตรียมระบบ…</p>
+      <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
+      <div class="warn" id="warnBox"></div>
+      <div class="row" style="margin-top:10px;">
+        <button id="btnStart">Start</button>
+        <button id="btnBack" class="secondary">กลับ HUB</button>
       </div>
     </div>
   </div>
 
-  <!-- RESULT overlay (required: resultBackdrop + rScore/rG1..rG5 etc.) -->
-  <div id="resultBackdrop" style="display:none;">
-    <div class="resultCard">
-      <div class="resultTitle">🏁 สรุปผล</div>
+  <!-- End overlay -->
+  <div class="overlay" id="endOverlay" style="display:none;">
+    <div class="panel">
+      <h2>🏁 สรุปผล</h2>
+      <p id="endReason"></p>
 
-      <div class="resultGrid">
-        <div class="resultItem"><div class="k">MODE</div><div class="v" id="rMode">play</div></div>
-        <div class="resultItem"><div class="k">GRADE</div><div class="v" id="rGrade">C</div></div>
-        <div class="resultItem"><div class="k">SCORE</div><div class="v" id="rScore">0</div></div>
-        <div class="resultItem"><div class="k">MAX COMBO</div><div class="v" id="rMaxCombo">0</div></div>
-        <div class="resultItem"><div class="k">MISS</div><div class="v" id="rMiss">0</div></div>
-        <div class="resultItem"><div class="k">FAST HIT</div><div class="v" id="rPerfect">0</div></div>
-        <div class="resultItem"><div class="k">GOALS</div><div class="v" id="rGoals">0/0</div></div>
-        <div class="resultItem"><div class="k">MINIS</div><div class="v" id="rMinis">0/0</div></div>
+      <div class="kv">
+        <div class="k">SCORE<b id="endScore">0</b></div>
+        <div class="k">GRADE<b id="endGrade">C</b></div>
+        <div class="k">ACCURACY<b id="endAcc">0%</b></div>
+        <div class="k">COMBO MAX<b id="endComboMax">0</b></div>
       </div>
 
-      <div class="resultPlate">
-        <div class="plateRow">
-          <span class="pill">🥦 หมู่1 <b id="rG1">0</b></span>
-          <span class="pill">🍎 หมู่2 <b id="rG2">0</b></span>
-          <span class="pill">🐟 หมู่3 <b id="rG3">0</b></span>
-          <span class="pill">🍚 หมู่4 <b id="rG4">0</b></span>
-          <span class="pill">🥑 หมู่5 <b id="rG5">0</b></span>
-        </div>
-        <div class="totalRow">รวมทั้งหมด: <b id="rGTotal">0</b></div>
-      </div>
-
-      <div class="resultBtns">
-        <button class="btn ghost" id="btnBackHub" type="button">↩ กลับ HUB</button>
-        <button class="btn" id="btnPlayAgain" type="button">🔁 เล่นอีกครั้ง</button>
+      <div class="row">
+        <button id="btnReplay">เล่นอีกครั้ง</button>
+        <button id="btnHub2" class="secondary">กลับ HUB</button>
       </div>
     </div>
   </div>
 
-  <script>
-    // Mirror EnterVR button in start overlay + preview query params
-    (function(){
-      var b = document.getElementById('btnEnterVR2');
-      if (b){
-        b.addEventListener('click', function(){
-          try{
-            var scene = document.querySelector('a-scene');
-            if (scene && scene.enterVR) scene.enterVR();
-          }catch(e){}
-        }, { passive:true });
+  <script type="module">
+    const $ = (id)=>document.getElementById(id);
+    const q = new URLSearchParams(location.search);
+
+    const runMode = (q.get('runMode') || 'play').toLowerCase();
+    const diff    = (q.get('diff') || 'normal').toLowerCase();
+    const style   = (q.get('style') || 'mix').toLowerCase();
+    const time    = Number(q.get('time') || 90);
+    const seed    = (q.get('seed') || '').trim() || String(Date.now());
+    const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
+    const autostart = q.get('autostart') === '1';
+    const v = (q.get('v') || String(Date.now()));
+    const ui = (q.get('ui') || 'auto').toLowerCase(); // auto | pc | mobile | vr
+
+    $('uiMode').textContent = runMode;
+    $('uiDiff').textContent = diff;
+    $('uiStyle').textContent = style;
+
+    $('startDesc').textContent =
+      `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed} | ui=${ui}`;
+
+    function warn(msg){
+      console.warn(msg);
+      const box = $('warnBox');
+      if (!box) return;
+      box.style.display = 'block';
+      box.textContent += (box.textContent ? '\n' : '') + String(msg);
+    }
+
+    function setUIMode(){
+      document.body.classList.remove('ui-pc','ui-mobile','ui-vr');
+      let m = ui;
+      if (m === 'auto'){
+        const isSmall = matchMedia('(max-width: 700px)').matches || matchMedia('(max-height: 700px)').matches;
+        m = isSmall ? 'mobile' : 'pc';
       }
+      if (m === 'vr') document.body.classList.add('ui-vr');
+      else if (m === 'mobile') document.body.classList.add('ui-mobile');
+      else document.body.classList.add('ui-pc');
+      $('reticle').style.display = document.body.classList.contains('ui-vr') ? 'block' : 'none';
+    }
+    setUIMode();
+    addEventListener('resize', ()=>{ setUIMode(); syncBlockedRects(); });
 
+    async function safeImport(path){
       try{
-        var u = new URL(location.href);
-        var diff = u.searchParams.get('diff') || 'normal';
-        var time = u.searchParams.get('time') || '90';
-        var run  = u.searchParams.get('run') || u.searchParams.get('runMode') || 'play';
-        document.getElementById('uiDiffPreview').textContent = String(diff);
-        document.getElementById('uiTimePreview').textContent = String(time);
-        document.getElementById('uiRunPreview').textContent  = String(run);
-      }catch(e){}
-    })();
+        await import(path + (path.includes('?') ? '' : ('?v='+encodeURIComponent(v))));
+        return true;
+      }catch(e){
+        warn(`⚠️ load fail: ${path}\n${e?.message || e}`);
+        return false;
+      }
+    }
+
+    const BOOT_LIST = [
+      './groups-fx.js',
+      './audio.js',
+      './groups-quests.js',
+      './GameEngine.js',
+    ];
+
+    async function boot(){
+      $('dbgBoot').textContent = 'loading modules…';
+      for (const p of BOOT_LIST) await safeImport(p);
+      $('dbgBoot').textContent = (window.GroupsVR && window.GroupsVR.GameEngine) ? 'READY ✅' : 'ENGINE NOT FOUND ❌';
+    }
+
+    function flushHardened(reason){
+      try{ window.HHACloudLogger?.flush?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flushNow?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flushHardened?.({ reason }); }catch{}
+      try{ window.GroupsVR?.Logger?.flush?.({ reason }); }catch{}
+      try{ window.GroupsVR?.Logger?.flushNow?.({ reason }); }catch{}
+    }
+
+    function goHub(){
+      flushHardened('go_hub');
+      location.href = hub;
+    }
+    $('btnBack').addEventListener('click', goHub);
+    $('btnHub2').addEventListener('click', goHub);
+
+    addEventListener('pagehide', ()=>flushHardened('pagehide'));
+    addEventListener('beforeunload', ()=>flushHardened('beforeunload'));
+    document.addEventListener('visibilitychange', ()=>{
+      if (document.visibilityState === 'hidden') flushHardened('hidden');
+    });
+
+    // --- blocked rects: spawn กันทับ HUD/Quest/Coach/Power ---
+    function rectOf(el){
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (!r || r.width <= 2 || r.height <= 2) return null;
+      return { left:r.left, top:r.top, right:r.right, bottom:r.bottom };
+    }
+    function syncBlockedRects(){
+      const GE = window.GroupsVR?.GameEngine;
+      if (!GE || typeof GE.setBlockedRects !== 'function') return;
+
+      const rects = [];
+      rects.push(rectOf(document.querySelector('.hudRow')));
+      rects.push(rectOf(document.querySelector('.questDock')));
+      rects.push(rectOf(document.querySelector('.coachDock')));
+      rects.push(rectOf(document.querySelector('.powerDock')));
+
+      GE.setBlockedRects(rects.filter(Boolean));
+    }
+
+    // --- auto No-Junk Zone bridge (จาก mini title) ---
+    function isNoJunkTitle(t){
+      t = String(t||'').toLowerCase();
+      return t.includes('no-junk') || t.includes('nojunk') || t.includes('ห้าม') && t.includes('ขยะ');
+    }
+
+    function bindEvents(){
+      addEventListener('hha:score', (e)=>{
+        const d = e.detail||{};
+        $('uiScore').textContent = String(d.score ?? 0);
+        $('uiCombo').textContent = String(d.combo ?? 0);
+        $('uiComboMax').textContent = String(d.comboMax ?? 0);
+        $('uiMiss').textContent = String(d.misses ?? 0);
+      });
+
+      addEventListener('hha:time', (e)=>{
+        const d = e.detail||{};
+        $('uiTime').textContent = String(d.left ?? 0);
+      });
+
+      addEventListener('groups:power', (e)=>{
+        const d = e.detail||{};
+        const ch = Number(d.charge||0);
+        const thr = Math.max(1, Number(d.threshold||8));
+        $('uiPower').textContent = String(ch);
+        $('uiPowerThr').textContent = String(thr);
+        $('uiPowerBar').style.width = (Math.min(1, ch/thr)*100).toFixed(1) + '%';
+      });
+
+      addEventListener('hha:rank', (e)=>{
+        const d = e.detail||{};
+        if (d.grade) $('uiGrade').textContent = String(d.grade);
+      });
+
+      addEventListener('quest:update', (e)=>{
+        const d = e.detail||{};
+        const GE = window.GroupsVR?.GameEngine;
+
+        if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
+        if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
+
+        // numbers
+        const gn = (d.goalNow!=null && d.goalTotal!=null) ? `${d.goalNow}/${d.goalTotal}` : '0/0';
+        const mn = (d.miniNow!=null && d.miniTotal!=null) ? `${d.miniNow}/${d.miniTotal}` : '0/0';
+        $('uiGoalNum').textContent = gn;
+        $('uiMiniNum').textContent = mn;
+
+        // percent
+        let gp = (d.goalPct != null) ? Number(d.goalPct)
+              : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
+              : 0;
+        let mp = (d.miniPct != null) ? Number(d.miniPct)
+              : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100
+              : 0;
+
+        $('uiGoalBar').style.width = Math.max(0, Math.min(100, gp)).toFixed(1)+'%';
+        $('uiMiniBar').style.width = Math.max(0, Math.min(100, mp)).toFixed(1)+'%';
+
+        const tLeft = Number(d.miniTimeLeftSec ?? 0);
+        const timeEl = $('uiMiniTime');
+        if (Number.isFinite(tLeft) && tLeft > 0){
+          timeEl.style.display = 'block';
+          timeEl.textContent = `⏳ ${tLeft}s`;
+          document.body.classList.toggle('mini-urgent', tLeft <= 3);
+        } else {
+          timeEl.style.display = 'none';
+          document.body.classList.remove('mini-urgent');
+        }
+
+        // No-Junk Zone auto ON/OFF
+        if (GE && typeof GE.setNoJunk === 'function'){
+          const title = String(d.miniTitle||'');
+          const on = isNoJunkTitle(title) && (Number.isFinite(tLeft) ? tLeft>0 : true);
+          if (on){
+            const W = innerWidth || 360;
+            const H = innerHeight || 640;
+            const r = Math.max(110, Math.min(W,H) * (document.body.classList.contains('ui-vr') ? 0.26 : 0.22));
+            const cx = W * 0.50;
+            const cy = H * 0.56;
+            GE.setNoJunk({ on:true, cx, cy, r });
+          } else {
+            GE.setNoJunk({ on:false });
+          }
+        }
+      });
+
+      addEventListener('hha:coach', (e)=>{
+        const d = e.detail||{};
+        if (d.text) $('uiCoachLine').textContent = String(d.text);
+        const mood = String(d.mood||'neutral');
+        const img = (mood==='happy') ? '../img/coach-happy.png'
+                 : (mood==='sad')   ? '../img/coach-sad.png'
+                 : (mood==='fever') ? '../img/coach-fever.png'
+                 : '../img/coach-neutral.png';
+        $('uiCoachImg').src = img;
+      });
+
+      addEventListener('hha:fever', (e)=>{
+        const d = e.detail||{};
+        const pct = Math.max(0, Math.min(100, Number(d.feverPct||0)));
+        $('uiFeverBar').style.width = pct.toFixed(1)+'%';
+        const shield = Number(d.shield||0) > 0;
+        $('uiShieldTag').style.display = shield ? 'inline-flex' : 'none';
+      });
+
+      addEventListener('hha:end', (e)=>{
+        const d = e.detail||{};
+        $('endOverlay').style.display = 'grid';
+        $('endReason').textContent = `เหตุผล: ${d.reason || '-'}`;
+        $('endScore').textContent = String(d.scoreFinal ?? 0);
+        $('endGrade').textContent = String(d.grade ?? 'C');
+        $('endAcc').textContent = String(d.accuracyGoodPct ?? 0) + '%';
+        $('endComboMax').textContent = String(d.comboMax ?? 0);
+        $('uiGrade').textContent = String(d.grade ?? 'C');
+
+        try{
+          const payload = {
+            game: 'GroupsVR',
+            ts: new Date().toISOString(),
+            ...d,
+            params: { runMode, diff, style, time, seed, hub, ui }
+          };
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
+          localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
+        }catch{}
+
+        flushHardened('end');
+      });
+    }
+
+    function waitEngineReady(){
+      return new Promise((resolve)=>{
+        let tries = 0;
+        const t = setInterval(()=>{
+          tries++;
+          const GE = window.GroupsVR && window.GroupsVR.GameEngine;
+          if (GE && typeof GE.start === 'function' && typeof GE.setLayerEl === 'function'){
+            clearInterval(t);
+            resolve(GE);
+          }
+          if (tries > 250){
+            clearInterval(t);
+            warn('❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า GameEngine.js โหลดได้ 200 และชื่อไฟล์ตัวใหญ่/เล็กตรง');
+            $('dbgBoot').textContent = 'ENGINE NOT FOUND ❌';
+          }
+        }, 80);
+      });
+    }
+
+    async function startGame(){
+      $('btnStart').disabled = true;
+      $('startDesc').textContent = 'กำลังเริ่มเกม…';
+
+      await boot();
+      const GE = await waitEngineReady();
+      if (!GE){ $('btnStart').disabled = false; return; }
+
+      GE.setLayerEl($('fg-layer'));
+      GE.setUIMode?.(document.body.classList.contains('ui-vr') ? 'vr' :
+                     document.body.classList.contains('ui-mobile') ? 'mobile' : 'pc');
+
+      // initial blocked rects (then keep syncing)
+      syncBlockedRects();
+      setTimeout(syncBlockedRects, 120);
+
+      GE.start(diff, { runMode, style, time, seed });
+
+      $('startOverlay').style.display = 'none';
+      $('endOverlay').style.display = 'none';
+      $('btnStart').disabled = false;
+    }
+
+    $('btnStart').addEventListener('click', startGame);
+    $('btnReplay').addEventListener('click', ()=>{
+      try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
+      $('endOverlay').style.display = 'none';
+      $('startOverlay').style.display = 'grid';
+      if (autostart) setTimeout(startGame, 250);
+    });
+
+    // VR toggle button
+    $('btnVR').addEventListener('click', ()=>{
+      const u = new URL(location.href);
+      u.searchParams.set('ui', document.body.classList.contains('ui-vr') ? 'auto' : 'vr');
+      u.searchParams.set('v', String(Date.now()));
+      location.href = u.toString();
+    });
+
+    bindEvents();
+    await boot();
+    if (autostart) setTimeout(()=> $('btnStart').click(), 350);
   </script>
 </body>
 </html>
