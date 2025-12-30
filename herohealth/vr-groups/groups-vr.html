@@ -8,34 +8,20 @@
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- ✅ UNIVERSAL VR UI + ✅ AI PACK -->
-  <script src="../vr/hha-vr-ui.js" defer></script>
-  <script src="../ai/hha-ai.js" defer></script>
-
   <style>
     :root{
-      --bg:#020617;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
       --panel:rgba(2,6,23,.78);
       --panel2:rgba(15,23,42,.72);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
-
-    #fg-layer{
-      position:fixed; inset:0;
-      transform: translate(var(--vx,0px), var(--vy,0px));
-      touch-action:none; user-select:none;
-      pointer-events:auto;
-      z-index:10;
     }
 
+    /* HUD */
     .hud{
       position:fixed; left:0; right:0; top:0;
       padding: calc(12px + var(--sat)) 12px 10px;
@@ -74,7 +60,6 @@
       position:fixed;
       right:calc(10px + var(--sar));
       top:  calc(62px + var(--sat));
-      left: auto;
       width: min(340px, 48vw);
       display:flex; gap:10px; flex-wrap:wrap;
       z-index:58; pointer-events:none;
@@ -99,8 +84,14 @@
       display:block; height:100%; width:0%;
       background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
     }
-    .qbar .time{ margin-top:6px; font-size:12px; color:rgba(226,232,240,.85); display:none; }
+    .qbar .time{
+      margin-top:6px;
+      font-size:12px;
+      color:rgba(226,232,240,.85);
+      display:none;
+    }
 
+    /* Power bottom */
     .powerWrap{
       position:fixed; left:12px; right:12px;
       bottom: calc(14px + var(--sab));
@@ -121,10 +112,10 @@
       display:flex; justify-content:space-between;
     }
 
-    /* Coach BOTTOM-RIGHT */
+    /* Coach bottom-right */
     .coachWrap{
       position:fixed;
-      right:calc(10px + var(--sar));
+      right:12px;
       bottom: calc(82px + var(--sab)); /* above power bar */
       z-index:62;
       pointer-events:none;
@@ -142,7 +133,9 @@
     }
     .coachLine{ font-size:12px; color:rgba(226,232,240,.92); line-height:1.45; min-height:34px; }
     .feverMini{
-      margin-top:8px; height:10px; border-radius:999px;
+      margin-top:8px;
+      height:10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(15,23,42,.65);
       overflow:hidden;
@@ -150,9 +143,13 @@
     .feverMini > i{ display:block; height:100%; width:0%; background:rgba(239,68,68,.85); }
     .shieldTag{
       margin-top:8px;
-      display:inline-flex; gap:6px; align-items:center;
-      font-size:12px; color:rgba(226,232,240,.92);
-      padding:6px 10px; border-radius:999px;
+      display:inline-flex;
+      gap:6px;
+      align-items:center;
+      font-size:12px;
+      color:rgba(226,232,240,.92);
+      padding:6px 10px;
+      border-radius:999px;
       border:1px solid rgba(148,163,184,.14);
       background:rgba(15,23,42,.60);
     }
@@ -166,16 +163,18 @@
     }
     .coachImg img{ width:100%; height:100%; object-fit:cover; display:block; }
 
+    /* overlays */
     .overlay{
       position:fixed; inset:0;
-      background:radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
-                 radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
-                 rgba(2,6,23,.82);
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
+        rgba(2,6,23,.82);
       display:grid; place-items:center;
       z-index:200;
     }
     .panel{
-      width:min(820px, 92vw);
+      width:min(760px, 92vw);
       border:1px solid rgba(148,163,184,.20);
       border-radius:22px;
       background:rgba(2,6,23,.72);
@@ -184,7 +183,6 @@
     }
     .panel h2{ margin:0 0 8px; font-size:20px; }
     .panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; }
-
     .panel .row{ display:flex; gap:10px; flex-wrap:wrap; }
     .panel button{
       border:0; border-radius:999px; padding:12px 14px;
@@ -222,28 +220,19 @@
     }
     .kv .k b{ display:block; font-size:16px; margin-top:2px; }
 
-    .aiBox{
-      margin-top:10px;
-      padding:12px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.50);
-      color:rgba(226,232,240,.92);
-      font-size:12px;
-      line-height:1.6;
-    }
-    .aiBox b{ color:#e5e7eb; }
-
     @media (max-width: 520px){
-      .questTop{ width:min(300px, 56vw); top: calc(58px + var(--sat)); }
+      .questTop{ width: min(300px, 56vw); top: calc(58px + var(--sat)); }
       .coachWrap{ bottom: calc(90px + var(--sab)); }
-      .coachCard{ width:min(210px, 58vw); }
+      .coachCard{ width: min(210px, 58vw); }
     }
     @media (max-height: 640px){
       .coachCard{ padding: 8px 10px; }
       .coachLine{ min-height: 28px; }
     }
   </style>
+
+  <!-- ✅ Universal VR UI (use in all games) -->
+  <script src="../vr/vr-ui.js" defer></script>
 </head>
 
 <body>
@@ -305,12 +294,12 @@
       <p id="startDesc">กำลังเตรียมระบบ…</p>
       <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
       <div class="warn" id="warnBox"></div>
-
       <div class="row" style="margin-top:10px;">
         <button id="btnStart">Start</button>
-        <button id="btnEnterVR" class="secondary">🕶️ Enter VR</button>
-        <button id="btnFS" class="secondary">⛶ Fullscreen</button>
         <button id="btnBack" class="secondary">กลับ HUB</button>
+      </div>
+      <div class="dbg" style="margin-top:8px;">
+        VR: กด <b>ENTER VR</b> มุมล่างซ้าย แล้ว “แตะหน้าจอ” เพื่อยิงตาม crosshair 🎯
       </div>
     </div>
   </div>
@@ -327,11 +316,8 @@
         <div class="k">COMBO MAX<b id="endComboMax">0</b></div>
       </div>
 
-      <div class="aiBox" id="aiBox" style="display:none;"></div>
-
       <div class="row">
         <button id="btnReplay">เล่นอีกครั้ง</button>
-        <button id="btnNextAI" style="display:none;">เล่นต่อ (ตามคำแนะนำ AI)</button>
         <button id="btnHub2" class="secondary">กลับ HUB</button>
       </div>
     </div>
@@ -352,8 +338,10 @@
 
     $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
 
-    // ✅ init universal UI (VR buttons + shoot)
-    window.HHAVRUI?.init?.({ hub });
+    // ✅ init universal VR UI (works across all games)
+    // - in cVR: tap shoots from center crosshair
+    // - lockPx aim-assist radius
+    window.HHAVRUI?.init?.({ lockPx: 92, buttonsSide: 'left', tapAtCursorInVR: true, tapShootOutsideVR: false });
 
     function warn(msg){
       console.warn(msg);
@@ -374,7 +362,6 @@
     }
 
     const BOOT_LIST = [
-      './groups-fx.js',
       './audio.js',
       './groups-quests.js',
       './GameEngine.js',
@@ -401,19 +388,49 @@
     $('btnBack').addEventListener('click', goHub);
     $('btnHub2').addEventListener('click', goHub);
 
-    $('btnEnterVR').addEventListener('click', ()=> window.HHAVRUI?.enterCardboard?.());
-    $('btnFS').addEventListener('click', async ()=>{
-      try{
-        if (document.fullscreenElement) await document.exitFullscreen();
-        else await document.documentElement.requestFullscreen();
-      }catch{}
-    });
-
     addEventListener('pagehide', ()=>flushHardened('pagehide'));
     addEventListener('beforeunload', ()=>flushHardened('beforeunload'));
     document.addEventListener('visibilitychange', ()=>{
       if (document.visibilityState === 'hidden') flushHardened('hidden');
     });
+
+    // ===== Audio wiring (make it feel alive) =====
+    function bindAudio(){
+      const A = window.GroupsVR?.Audio;
+      if (!A) return;
+
+      // hits / boss / storm / overdrive
+      addEventListener('groups:progress', (e)=>{
+        const d = e.detail||{};
+        if (d.type === 'hit'){
+          if (d.correct) A.good?.();
+          else A.bad?.();
+        }
+        if (d.kind === 'boss_spawn' || d.kind === 'boss_down') A.boss?.();
+        if (d.kind === 'storm_on') A.storm?.();
+      }, { passive:true });
+
+      addEventListener('groups:buff', (e)=>{
+        const d = e.detail||{};
+        if (d.type === 'overdrive') A.overdrive?.();
+      }, { passive:true });
+    }
+
+    // ===== Mini urgent tick =====
+    let _urgentTick = 0;
+    function setMiniUrgent(on){
+      document.body.classList.toggle('mini-urgent', !!on);
+      const A = window.GroupsVR?.Audio;
+      if (!A) return;
+
+      if (on && !_urgentTick){
+        _urgentTick = setInterval(()=> A.tick?.(), 520);
+      }
+      if (!on && _urgentTick){
+        clearInterval(_urgentTick);
+        _urgentTick = 0;
+      }
+    }
 
     function bindEvents(){
       addEventListener('hha:score', (e)=>{
@@ -460,8 +477,12 @@
         if (Number.isFinite(tLeft) && tLeft > 0){
           timeEl.style.display = 'block';
           timeEl.textContent = `⏳ ${tLeft}s`;
+
+          // ✅ urgent last 3s
+          setMiniUrgent(tLeft <= 3);
         } else {
           timeEl.style.display = 'none';
+          setMiniUrgent(false);
         }
       });
 
@@ -484,33 +505,6 @@
         $('uiShieldTag').style.display = shield ? 'inline-flex' : 'none';
       });
 
-      addEventListener('hha:ai:recommend', (e)=>{
-        const r = e.detail || {};
-        const box = $('aiBox');
-        if (!box) return;
-
-        const focus = Array.isArray(r.focus) ? r.focus.join(' • ') : '';
-        box.style.display = 'block';
-        box.innerHTML = `
-          <b>AI แนะนำ</b><br/>
-          - รอบถัดไป: <b>${r.nextDiff || '-'}</b><br/>
-          - โฟกัส: ${focus || '-'}<br/>
-          ${(r.insight && r.insight.length) ? ('- Insight: ' + r.insight.join(' • ') + '<br/>') : ''}
-        `;
-
-        const btn = $('btnNextAI');
-        if (btn && r.nextDiff){
-          btn.style.display = 'inline-block';
-          btn.onclick = ()=>{
-            // replay with recommended diff
-            const u = new URL(location.href);
-            u.searchParams.set('diff', r.nextDiff);
-            u.searchParams.set('autostart', '1');
-            location.href = u.toString();
-          };
-        }
-      });
-
       addEventListener('hha:end', (e)=>{
         const d = e.detail||{};
         $('endOverlay').classList.add('show');
@@ -521,6 +515,7 @@
         $('endComboMax').textContent = String(d.comboMax ?? 0);
         $('uiGrade').textContent = String(d.grade ?? 'C');
 
+        // ✅ store last summary
         try{
           const payload = {
             game: 'GroupsVR',
@@ -532,6 +527,7 @@
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
         }catch{}
 
+        setMiniUrgent(false);
         flushHardened('end');
       });
     }
@@ -560,19 +556,19 @@
       $('startDesc').textContent = 'กำลังเริ่มเกม…';
 
       await boot();
+      bindAudio();
+
+      // unlock audio on start gesture
+      try{ window.GroupsVR?.Audio?.unlock?.(); }catch{}
+
       const GE = await waitEngineReady();
       if (!GE){ $('btnStart').disabled = false; return; }
-
-      // ✅ start AI session (works all games)
-      window.HHAAI?.startSession?.({ game:'GroupsVR', runMode, diff, seed, timeSec: time });
 
       GE.setLayerEl($('fg-layer'));
       GE.start(diff, { runMode, style, time, seed });
 
       $('startOverlay').style.display = 'none';
       $('endOverlay').classList.remove('show');
-      $('aiBox').style.display = 'none';
-      $('btnNextAI').style.display = 'none';
       $('btnStart').disabled = false;
     }
 
