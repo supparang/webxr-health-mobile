@@ -1,10 +1,11 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — ULTIMATE PRODUCTION (HHA Standard + VR-feel + Plate Rush + Boss Rage + Gold Trap)
+// Balanced Plate VR — ULTIMATE+ “แตก” PRODUCTION
 // ✅ Play: adaptive ON
 // ✅ Study/Research: deterministic seed + adaptive OFF
-// ✅ Adds: Boss Rage meter (pressure) + Edge danger overlay via CSS var --rage
-// ✅ Adds: Gold (bonus) + GoldFake/Trap (stun+slow+pressure)
-// ✅ Adds: Boss mini after Plate Rush success (hit GOOD targetHits in time; no junk/no miss)
+// ✅ Adds: Rage meter (pressure) + Rage Break “Storm” when rage hits 100
+// ✅ Adds: Gold (bonus) + GoldFake/Trap (stun+slow)
+// ✅ Adds: Boss Phase REAL: pattern-based required group sequence + HP (progress) in MINI bar
+// ✅ Uses existing HTML ids only (no markup changes)
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate, hha:adaptive
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 // ✅ Flush-hardened: before end/back hub/reload
@@ -306,10 +307,17 @@ let fever = 0;
 let shield = 0;
 let shieldActive = false;
 
-// ✅ NEW: Rage meter + status (slow/stun)
+// ✅ Pressure: Rage + statuses + RageBreak storm
 let rage = 0;              // 0..100
-let slowUntilMs = 0;       // reduce spawn for a while
-let stunUntilMs = 0;       // heavy penalty (hits still possible but pressure high)
+let slowUntilMs = 0;
+let stunUntilMs = 0;
+
+let rageBreakUntilMs = 0;
+let rageBreakCount = 0;
+
+function isSlow(){ return nowMs() < slowUntilMs; }
+function isStun(){ return nowMs() < stunUntilMs; }
+function isRageBreak(){ return nowMs() < rageBreakUntilMs; }
 
 // metrics
 let nTargetGoodSpawned = 0;
@@ -366,21 +374,22 @@ function calcGrade(){
   return 'C';
 }
 
-// ------------------------- Rage / status helpers -------------------------
-function isSlow(){ return nowMs() < slowUntilMs; }
-function isStun(){ return nowMs() < stunUntilMs; }
-
+// ------------------------- CSS Vars / classes -------------------------
 function setCssVars(){
-  // Rage drives edge glow (CSS reads --rage)
   DOC.body.style.setProperty('--rage', String(clamp(rage,0,100)));
   DOC.body.style.setProperty('--fever', String(clamp(fever,0,100)));
   DOC.body.classList.toggle('is-slow', isSlow());
   DOC.body.classList.toggle('is-stun', isStun());
+  DOC.body.classList.toggle('is-ragebreak', isRageBreak());
 }
 
 function addRage(amount){
   rage = clamp(rage + (Number(amount)||0), 0, 100);
-  if(rage >= 80) coach('RAGE ใกล้แตกแล้ว! ระวังพลาด! 😈', 'fever');
+  if(!isStudy && rage >= 100){
+    triggerRageBreak();
+  }else if(rage >= 80){
+    coach('RAGE ใกล้แตกแล้ว! ระวังพลาด! 😈', 'fever');
+  }
   setCssVars();
 }
 function coolRage(amount){
@@ -396,6 +405,25 @@ function applyStun(ms){
   stunUntilMs = Math.max(stunUntilMs, nowMs() + (Number(ms)||0));
   judge('💫 STUN!', 'bad');
   fxShake();
+  setCssVars();
+}
+
+// ✅ Rage Break Storm
+function triggerRageBreak(){
+  if(isRageBreak()) return;
+  rageBreakCount++;
+  const dur = (diff === 'hard') ? 4.8 : (diff === 'easy' ? 3.8 : 4.2);
+  rageBreakUntilMs = nowMs() + dur*1000;
+
+  // back off rage a bit so it isn't infinite loop, but still scary
+  rage = 68;
+
+  // give tiny mercy on shield sometimes
+  if(shield <= 0 && rng() < 0.55) shield = 1;
+
+  coach('💥 RAGE BREAK! STORM มาแล้ว!!', 'fever');
+  judge('💥 RAGE BREAK STORM!', 'bad');
+  fxBlink(); fxShake();
   setCssVars();
 }
 
@@ -417,6 +445,7 @@ function updateHUD(){
     fever,
     shield,
     rage,
+    rageBreak: isRageBreak(),
     status: { slow: isSlow(), stun: isStun() },
     accuracyGoodPct: accuracyPct(),
     grade: calcGrade(),
@@ -458,7 +487,7 @@ function judge(text, kind){
   emit('hha:judge', { game:'plate', text, kind: kind||'info' });
 }
 
-// ------------------------- Mini quests (ULTIMATE chain) -------------------------
+// ------------------------- Mini quests (chain: Rush -> Boss Phase REAL) -------------------------
 function makeMiniPlateRush(){
   return {
     key:'plate-rush',
@@ -475,18 +504,27 @@ function makeMiniPlateRush(){
   };
 }
 
-function makeMiniBossFrenzy(){
-  // BOSS: hit Good targets quickly; no junk; no good expire
-  const baseHits = (diff === 'hard') ? 14 : (diff === 'easy' ? 10 : 12);
-  const dur = (diff === 'hard') ? 9 : (diff === 'easy' ? 11 : 10);
+function makeBossPhase(){
+  // pattern-based sequence
+  const hits = (diff === 'hard') ? 16 : (diff === 'easy' ? 12 : 14);
+  const dur  = (diff === 'hard') ? 11 : (diff === 'easy' ? 13 : 12);
+
+  // deterministic-ish pattern from seed
+  const basePattern = [0,1,2,3,4];
+  // rotate by seed
+  const rot = (seed >>> 0) % 5;
+  const pattern = basePattern.slice(rot).concat(basePattern.slice(0,rot));
+
   return {
-    key:'boss-frenzy',
-    title:`BOSS: เก็บ GOOD ${baseHits} ครั้งใน ${dur} วิ (ห้ามโดนขยะ/ห้ามพลาด)`,
+    key:'boss-phase',
+    title:`BOSS PHASE: ทำตามลำดับหมู่ให้ครบ ${hits} ครั้ง`,
     forbidJunk:true,
-    forbidMiss:true,          // expire good = fail
+    forbidMiss:true,
     durationSec: dur,
-    targetHits: baseHits,
+    targetHits: hits,
     curHits: 0,
+    pattern,             // e.g. [2,3,4,0,1]
+    patternIndex: 0,     // next required index in pattern
     startedMs: 0,
     done:false,
     fail:false,
@@ -494,39 +532,51 @@ function makeMiniBossFrenzy(){
   };
 }
 
+function requiredGroupIdx(){
+  if(!activeMini || activeMini.key !== 'boss-phase') return null;
+  const pat = activeMini.pattern || [0,1,2,3,4];
+  return pat[activeMini.patternIndex % pat.length];
+}
+function requiredEmoji(){
+  const gi = requiredGroupIdx();
+  return (gi==null) ? '' : groupEmojis[gi];
+}
+
 function startMini(mini){
   activeMini = mini;
   activeMini.startedMs = nowMs();
 
-  emit('quest:update', {
-    game:'plate',
-    goal: activeGoal ? { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done } : null,
-    mini: {
-      title: activeMini.title,
-      cur: activeMini.curHits || 0,
-      target: activeMini.targetHits || activeMini.durationSec,
-      timeLeft: activeMini.durationSec,
-      done:false
-    }
-  });
+  const tl = activeMini.durationSec;
+  const label =
+    activeMini.key === 'boss-phase'
+      ? `${activeMini.title} (ต่อไป: ${requiredEmoji()})`
+      : activeMini.title;
 
-  setText('uiMiniTitle', activeMini.title);
+  setText('uiMiniTitle', label);
   setText('uiHint',
-    activeMini.key === 'boss-frenzy'
-      ? 'บอสมาแล้ว! เก็บ GOOD ให้ครบตามจำนวนภายในเวลา ห้ามโดนขยะ/ห้ามพลาด!'
+    activeMini.key === 'boss-phase'
+      ? `ต่อไปต้องเก็บ: ${requiredEmoji()} (ถ้าผิดลำดับ = โดนลงโทษ) ห้ามโดนขยะ/ห้ามพลาด!`
       : 'ทริค: เร่งเก็บหมู่ที่ยังขาด! ระวังขยะห้ามโดน!'
   );
 
-  judge(
-    activeMini.key === 'boss-frenzy' ? '😈 BOSS START!' : '⚡ Plate Rush เริ่มแล้ว!',
-    'warn'
-  );
+  judge(activeMini.key === 'boss-phase' ? '😈 BOSS PHASE START!' : '⚡ Plate Rush เริ่มแล้ว!', 'warn');
 
   // pressure bump
-  if(activeMini.key === 'boss-frenzy'){
-    addRage(10);
+  if(activeMini.key === 'boss-phase'){
+    addRage(12);
     fxBlink();
+  }else{
+    addRage(6);
   }
+
+  emitQuestUpdate();
+  updateHUD();
+}
+
+function miniTimeLeft(){
+  if(!activeMini) return null;
+  const elapsed = (nowMs() - activeMini.startedMs) / 1000;
+  return Math.max(0, activeMini.durationSec - elapsed);
 }
 
 function finishMini(ok, reason){
@@ -539,88 +589,94 @@ function finishMini(ok, reason){
     miniCleared++;
     emit('hha:celebrate', { game:'plate', kind:'mini' });
 
-    if(activeMini.key === 'boss-frenzy'){
-      // huge reward
-      score += 450;
+    if(activeMini.key === 'boss-phase'){
+      score += 520;
       shield = clamp(shield + 2, 0, 9);
-      coolRage(18);
-      coach('บอสแตก! โคตรเดือด! 🔥🏆', 'happy');
+      coolRage(22);
+      coach('บอสพัง!! โคตรสุด!! 🏆🔥', 'happy');
       judge('🏆 BOSS CLEARED!', 'good');
     }else{
-      // plate-rush reward
+      // Rush success -> boss starts
+      score += 120;
       shield = clamp(shield + 1, 0, 9);
-      coolRage(8);
-      coach('สุดยอด! Plate Rush ผ่าน! 🔥', 'happy');
-      judge('✅ MINI COMPLETE!', 'good');
+      coolRage(10);
+      coach('Rush ผ่าน! ต่อด้วยบอส! 😈', 'happy');
+      judge('✅ RUSH CLEAR → BOSS!', 'good');
 
-      // chain into boss (only if pass rush)
-      startMini(makeMiniBossFrenzy());
-      updateHUD();
-      return; // (boss started)
+      startMini(makeBossPhase());
+      return;
     }
   }else{
-    // fail -> pressure
-    addRage(10);
-    coach('พลาดนิดเดียว! เอาใหม่ให้สุด 💪', (fever>70 || rage>70 ? 'fever' : 'sad'));
+    addRage(12);
+    coach('พลาดนิดเดียว! เอาใหม่ให้แตก 💪', (fever>70 || rage>70 ? 'fever' : 'sad'));
     judge('❌ MINI FAILED', 'bad');
   }
 
   activeMini = null;
   emitQuestUpdate();
-}
-
-function miniTimeLeft(){
-  if(!activeMini) return null;
-  const elapsed = (nowMs() - activeMini.startedMs) / 1000;
-  return Math.max(0, activeMini.durationSec - elapsed);
+  updateHUD();
 }
 
 function emitQuestUpdate(){
-  if(activeGoal){
-    emit('quest:update', {
-      game:'plate',
-      goal: { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done },
-      mini: activeMini
-        ? {
-            title: activeMini.title,
-            cur: activeMini.curHits || 0,
-            target: activeMini.targetHits || activeMini.durationSec,
-            timeLeft: miniTimeLeft(),
-            done:false
-          }
-        : { title:'—', cur:0, target:0, timeLeft:null, done:false }
-    });
+  const goalObj = activeGoal
+    ? { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done }
+    : null;
 
-    setText('uiGoalTitle', activeGoal.title);
-    setText('uiGoalCount', `${activeGoal.cur}/${activeGoal.target}`);
-    const gf = qs('uiGoalFill');
-    if(gf) gf.style.width = `${(activeGoal.target? (activeGoal.cur/activeGoal.target*100):0)}%`;
-  }else{
-    setText('uiGoalTitle', '—'); setText('uiGoalCount', '0/0');
-  }
+  let miniObj = { title:'—', cur:0, target:0, timeLeft:null, done:false };
 
   if(activeMini){
-    setText('uiMiniTitle', activeMini.title);
-    setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal, miniCleared+1)}`);
-
     const tl = miniTimeLeft();
+    if(activeMini.key === 'boss-phase'){
+      miniObj = {
+        title: `${activeMini.title} (ต่อไป: ${requiredEmoji()})`,
+        cur: activeMini.curHits || 0,
+        target: activeMini.targetHits || 0,
+        timeLeft: tl,
+        done:false
+      };
+      // UI: show hit progress as "cur/target"
+      setText('uiMiniCount', `${activeMini.curHits||0}/${activeMini.targetHits||0}`);
+    }else{
+      miniObj = {
+        title: activeMini.title,
+        cur: 0,
+        target: activeMini.durationSec,
+        timeLeft: tl,
+        done:false
+      };
+      setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal, miniCleared+1)}`);
+    }
     setText('uiMiniTime', tl==null?'--':`${Math.ceil(tl)}s`);
 
     const mf = qs('uiMiniFill');
     if(mf){
-      // boss uses hit progress; rush uses time progress
       let pct = 0;
-      if(activeMini.key === 'boss-frenzy'){
+      if(activeMini.key === 'boss-phase'){
         pct = activeMini.targetHits ? (activeMini.curHits/activeMini.targetHits*100) : 0;
       }else{
         pct = activeMini.durationSec ? ((activeMini.durationSec - (tl||0)) / activeMini.durationSec) * 100 : 0;
       }
       mf.style.width = `${clamp(pct,0,100)}%`;
     }
+
+    setText('uiMiniTitle', miniObj.title);
   }else{
     setText('uiMiniTitle','—');
     setText('uiMiniTime','--');
     const mf = qs('uiMiniFill'); if(mf) mf.style.width = `0%`;
+    setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal, miniCleared+1)}`);
+  }
+
+  emit('quest:update', { game:'plate', goal: goalObj, mini: miniObj });
+
+  if(activeGoal){
+    setText('uiGoalTitle', activeGoal.title);
+    setText('uiGoalCount', `${activeGoal.cur}/${activeGoal.target}`);
+    const gf = qs('uiGoalFill');
+    if(gf) gf.style.width = `${(activeGoal.target? (activeGoal.cur/activeGoal.target*100):0)}%`;
+  }else{
+    setText('uiGoalTitle', '—');
+    setText('uiGoalCount', '0/0');
   }
 }
 
@@ -639,7 +695,7 @@ function updateGoals(){
       activeGoal.done = true;
       goalsCleared++;
       emit('hha:celebrate', { game:'plate', kind:'goal' });
-      coach('ครบ 5 หมู่แล้ว! ต่อไป “Rush + Boss” 😈', 'happy');
+      coach('ครบ 5 หมู่แล้ว! เริ่ม Rush → Boss 😈', 'happy');
       judge('🎯 GOAL COMPLETE!', 'good');
 
       if(!activeMini){
@@ -670,12 +726,10 @@ function ensureShieldActive(){
   shieldActive = (shield > 0);
 }
 
-// ------------------------- Target spawning (ULTIMATE: gold + goldfake) -------------------------
+// ------------------------- Target spawning (gold/goldfake + boss bias + ragebreak) -------------------------
 const goodPool = groupEmojis.map((e,i)=>({ emoji:e, groupIdx:i, kind:'good' }));
 const junkPool = ['🍟','🍕','🥤','🍩','🍭','🧁','🍔','🌭','🍫','🧋'].map(e=>({ emoji:e, kind:'junk' }));
 const shieldEmoji = { emoji:'🛡️', kind:'shield' };
-
-// ✅ NEW: Gold / GoldFake
 const goldEmoji = { emoji:'🌟', kind:'gold' };
 const goldFakeEmoji = { emoji:'💫', kind:'goldfake' };
 
@@ -685,34 +739,42 @@ function currentTunings(){
   let spawnPerSec = base.spawnPerSec * adapt.spawnMul;
   let junkRate = clamp(base.junkRate * adapt.junkMul, 0.08, 0.55);
 
-  // fever pressure (existing)
+  // fever pressure
   if(!isStudy){
     const f = fever/100;
     spawnPerSec *= (1 + f*0.15);
     junkRate = clamp(junkRate + f*0.05, 0.08, 0.60);
   }
 
-  // ✅ rage pressure (new)
+  // rage pressure
   if(!isStudy){
     const r = rage/100;
     spawnPerSec *= (1 + r*0.25);
     junkRate = clamp(junkRate + r*0.08, 0.08, 0.68);
   }
 
-  // ✅ slow/stun effects (new)
+  // rage break storm (heavy!)
+  if(isRageBreak()){
+    spawnPerSec *= 1.85;
+    junkRate = clamp(junkRate + 0.16, 0.10, 0.82);
+    lifeMs *= 0.92;
+    size *= 0.96;
+  }
+
+  // slow/stun
   if(isSlow()){
     spawnPerSec *= 0.62;
-    size *= 1.08;     // help user
+    size *= 1.08;
     lifeMs *= 1.20;
   }
   if(isStun()){
     spawnPerSec *= 0.78;
-    junkRate = clamp(junkRate + 0.04, 0.08, 0.75);
+    junkRate = clamp(junkRate + 0.04, 0.08, 0.85);
   }
 
-  size = clamp(size, 38, 90);
-  spawnPerSec = clamp(spawnPerSec, 0.75, 4.0);
-  lifeMs = clamp(lifeMs, 850, 2600);
+  size = clamp(size, 38, 92);
+  spawnPerSec = clamp(spawnPerSec, 0.75, 4.3);
+  lifeMs = clamp(lifeMs, 820, 2700);
 
   return { size, lifeMs, spawnPerSec, junkRate };
 }
@@ -720,7 +782,9 @@ function currentTunings(){
 function maybeSpawnShield(){
   if(isStudy) return;
   if(shield >= 3) return;
-  const chance = (fever >= 70 || rage >= 70) ? 0.08 : 0.03;
+
+  // during ragebreak: more shield chance (fairness)
+  const chance = isRageBreak() ? 0.12 : ((fever >= 70 || rage >= 70) ? 0.08 : 0.03);
   if(rng() < chance){
     spawnTarget('shield');
   }
@@ -729,18 +793,32 @@ function maybeSpawnShield(){
 function maybeSpawnGoldKind(){
   if(isStudy) return null;
 
-  // gold shows more when player is doing well (combo) but goldfake shows more when pressure is high (rage/fever)
   const c = clamp(combo, 0, 80);
   const r = rage/100;
   const f = fever/100;
 
-  const goldChance = clamp(0.008 + (c/80)*0.010, 0.008, 0.022);
-  const fakeChance = clamp(0.006 + r*0.016 + f*0.008, 0.006, 0.030);
+  // ragebreak: gold appears slightly more (comeback hook)
+  const rb = isRageBreak() ? 0.010 : 0;
+
+  const goldChance = clamp(0.008 + (c/80)*0.010 + rb, 0.008, 0.030);
+  const fakeChance = clamp(0.006 + r*0.016 + f*0.008 + (isRageBreak()?0.010:0), 0.006, 0.045);
 
   const roll = rng();
   if(roll < goldChance) return 'gold';
   if(roll < goldChance + fakeChance) return 'goldfake';
   return null;
+}
+
+function bossPickGood(){
+  // During boss-phase: bias to required group
+  const req = requiredGroupIdx();
+  if(req == null) return pick(rng, goodPool);
+
+  const bias = isRageBreak() ? 0.60 : 0.72;
+  if(rng() < bias){
+    return { emoji: groupEmojis[req], groupIdx: req, kind:'good' };
+  }
+  return pick(rng, goodPool);
 }
 
 function spawnTarget(forcedKind){
@@ -755,7 +833,7 @@ function spawnTarget(forcedKind){
   if(!kind){
     ensureShieldActive();
 
-    // rare special first
+    // Special first
     const special = maybeSpawnGoldKind();
     if(special) kind = special;
     else if(!isStudy && shield < 2 && (fever >= 65 || rage >= 70) && rng() < 0.06) kind = 'shield';
@@ -763,11 +841,17 @@ function spawnTarget(forcedKind){
   }
 
   let spec;
-  if(kind === 'good') spec = pick(rng, goodPool);
-  else if(kind === 'junk') spec = pick(rng, junkPool);
-  else if(kind === 'shield') spec = shieldEmoji;
-  else if(kind === 'gold') spec = goldEmoji;
-  else spec = goldFakeEmoji;
+  if(kind === 'good'){
+    spec = (activeMini && activeMini.key === 'boss-phase') ? bossPickGood() : pick(rng, goodPool);
+  } else if(kind === 'junk'){
+    spec = pick(rng, junkPool);
+  } else if(kind === 'shield'){
+    spec = shieldEmoji;
+  } else if(kind === 'gold'){
+    spec = goldEmoji;
+  } else {
+    spec = goldFakeEmoji;
+  }
 
   const size = tune.size;
   const box = { x:0, y:0, w:size, h:size };
@@ -861,7 +945,7 @@ function onHit(id){
 
   despawn(id);
 
-  // ---- GOOD ----
+  // GOOD
   if(kind === 'good'){
     nHitGood++;
     combo++;
@@ -879,38 +963,62 @@ function onHit(id){
     let add = 50;
     if(rt <= 420){ add += 35; perfectHits++; }
     else if(rt <= 650){ add += 20; }
-    add += Math.min(55, combo * 2);
+    add += Math.min(60, combo * 2);
 
     score += add;
     rtGood.push(rt);
     fxPulse('good');
 
-    // cool fever + rage on good
+    // cool fever + rage
     coolFever(base.feverDownGood);
-    coolRage(3.5);
+    coolRage(3.8);
 
-    // mini: plate rush success
+    // Rush pass
     if(activeMini && activeMini.key === 'plate-rush'){
       const haveN = plateHave.filter(Boolean).length;
       const tl = miniTimeLeft();
       if(haveN >= 5 && (tl != null && tl > 0)){
         finishMini(true, 'rush-complete');
+        updateGoals();
+        updateHUD();
+        return;
       }
     }
 
-    // mini: boss frenzy progress
-    if(activeMini && activeMini.key === 'boss-frenzy'){
-      activeMini.curHits = (activeMini.curHits||0) + 1;
+    // Boss Phase progress (pattern-based)
+    if(activeMini && activeMini.key === 'boss-phase'){
+      const req = requiredGroupIdx();
 
-      // extra pressure as timer runs out
-      if((miniTimeLeft()||0) <= 3) addRage(1);
+      if(req != null && gi === req){
+        activeMini.curHits = (activeMini.curHits||0) + 1;
+        activeMini.patternIndex = (activeMini.patternIndex||0) + 1;
 
-      if(activeMini.curHits >= activeMini.targetHits && (miniTimeLeft()||0) > 0){
-        finishMini(true, 'boss-clear');
+        judge(`✅ ถูกลำดับ! ต่อไป: ${requiredEmoji()}`, 'good');
+
+        // reward: small rage cool
+        coolRage(2.8);
+
+        if(activeMini.curHits >= activeMini.targetHits && (miniTimeLeft()||0) > 0){
+          finishMini(true, 'boss-clear');
+          updateGoals();
+          updateHUD();
+          return;
+        }
+      }else{
+        // wrong order penalty
+        combo = 0;
+        score = Math.max(0, score - 55);
+        addFever(7);
+        addRage(12);
+        fxPulse('bad'); fxShake();
+        judge(`❌ ผิดลำดับ! ต้องเก็บ ${requiredEmoji()} ก่อน`, 'bad');
+
+        // heavy penalty during last seconds
+        if((miniTimeLeft()||0) <= 3.0) applyStun(600);
       }
     }
 
-  // ---- JUNK ----
+  // JUNK
   } else if(kind === 'junk'){
     ensureShieldActive();
 
@@ -927,11 +1035,9 @@ function onHit(id){
         nHitJunk++;
         miss++;
         combo = 0;
-        score = Math.max(0, score - 70);
-
+        score = Math.max(0, score - 75);
         addFever(base.feverUpJunk);
-        addRage(14);
-
+        addRage(16);
         fxPulse('bad'); fxShake();
         finishMini(false, 'hit-junk');
       }
@@ -946,11 +1052,9 @@ function onHit(id){
         nHitJunk++;
         miss++;
         combo = 0;
-        score = Math.max(0, score - 70);
-
+        score = Math.max(0, score - 75);
         addFever(base.feverUpJunk);
-        addRage(12);
-
+        addRage(14);
         fxPulse('bad'); fxShake();
         coach('โอ๊ย! โดนขยะ 😵', (fever>70 || rage>70?'fever':'sad'));
         judge('💥 JUNK!', 'bad');
@@ -959,48 +1063,53 @@ function onHit(id){
 
     ensureShieldActive();
 
-  // ---- SHIELD ----
+  // SHIELD
   } else if(kind === 'shield'){
     nHitShield++;
     shield = clamp(shield + 1, 0, 9);
     ensureShieldActive();
     score += 45;
     fxPulse('good');
-    coolRage(4);
+    coolRage(5);
     coach('ได้โล่แล้ว! 🛡️', 'happy');
     judge('🛡️ +1 SHIELD', 'good');
 
-  // ---- GOLD ----
+  // GOLD
   } else if(kind === 'gold'){
     nHitGold++;
-    score += 220 + Math.min(120, combo*3);
+    score += 240 + Math.min(140, combo*3);
     shield = clamp(shield + 1, 0, 9);
     ensureShieldActive();
-    coolFever(10);
-    coolRage(12);
+    coolFever(12);
+    coolRage(16);
     fxPulse('good');
     emit('hha:celebrate', { game:'plate', kind:'gold' });
     coach('🌟 GOLD! โบนัสมาแล้ว! โคตรคุ้ม!', 'happy');
     judge('🌟 GOLD BONUS!', 'good');
 
-  // ---- GOLD FAKE / TRAP ----
+    // during ragebreak, gold can shorten storm a bit (comeback)
+    if(isRageBreak() && rng() < 0.60){
+      rageBreakUntilMs = Math.max(nowMs(), rageBreakUntilMs - 800);
+      judge('🌟 STORM เบาลง!', 'good');
+    }
+
+  // GOLD FAKE / TRAP
   } else if(kind === 'goldfake'){
     nHitGoldFake++;
     combo = 0;
-    score = Math.max(0, score - 90);
+    score = Math.max(0, score - 95);
 
     addFever(12);
     addRage(18);
 
-    // stun+slow
-    applyStun(900);
-    applySlow(1600);
+    applyStun(950);
+    applySlow(1650);
 
     fxPulse('bad'); fxShake(); fxBlink();
     coach('💫 ทองปลอม! โดนกับดัก! 😈', 'fever');
     judge('💫 GOLD TRAP!', 'bad');
 
-    // if mini forbids junk, we also treat trap as fail (มันโหด)
+    // in mini that forbids junk, trap fails
     if(activeMini && activeMini.forbidJunk){
       finishMini(false, 'goldfake-trap');
     }
@@ -1009,6 +1118,7 @@ function onHit(id){
   if(adaptiveOn) updateAdaptive();
 
   updateGoals();
+  emitQuestUpdate();
   updateHUD();
 }
 
@@ -1023,16 +1133,16 @@ function onExpireTarget(id){
     miss++;
     combo = 0;
     addFever(base.feverUpMiss);
-    addRage(10);
+    addRage(12);
     fxPulse('bad');
 
-    // boss forbids miss
     if(activeMini && activeMini.forbidMiss){
       finishMini(false, 'expire-good');
     }
   }
 
   updateGoals();
+  emitQuestUpdate();
   updateHUD();
 }
 
@@ -1083,7 +1193,7 @@ function tick(){
     tLeftSec = newLeft;
   }
 
-  // Mini effects near end
+  // Mini near end effects
   if(activeMini){
     const tl = miniTimeLeft();
     if(tl != null){
@@ -1100,16 +1210,20 @@ function tick(){
         finishMini(false, 'timeout');
       }
 
-      // boss pressure ramps
-      if(activeMini.key === 'boss-frenzy' && tl <= 4.5){
-        addRage(0.8);
+      // boss pressure ramps last seconds
+      if(activeMini.key === 'boss-phase' && tl <= 4.5){
+        addRage(0.9);
       }
     }
   }
 
-  // natural rage decay when doing OK
-  if(!isStudy){
-    const decay = (combo >= 6 ? 1.4 : 0.6) * dt;
+  // RageBreak: constant shakes/pulse slight
+  if(isRageBreak()){
+    if((t|0) % 520 < 16) fxShake();
+    if((t|0) % 360 < 16) fxBlink();
+  }else if(!isStudy){
+    // natural rage decay when doing well
+    const decay = (combo >= 6 ? 1.5 : 0.6) * dt;
     coolRage(decay);
   }
 
@@ -1120,6 +1234,10 @@ function tick(){
     spawnAccum -= 1;
     spawnTarget();
     maybeSpawnShield();
+
+    // during ragebreak, sprinkle extra junk + extra gold chance (drama)
+    if(isRageBreak() && rng() < 0.18) spawnTarget('junk');
+    if(isRageBreak() && rng() < 0.10) spawnTarget('gold');
   }
 
   for(const [id, tObj] of targets){
@@ -1129,6 +1247,7 @@ function tick(){
   }
 
   updateGoals();
+  emitQuestUpdate();
   updateHUD();
 
   if(tLeftSec <= 0){
@@ -1165,11 +1284,7 @@ function bootButtons(){
 
   on(btnBackHub, 'click', async ()=>{
     await flushHardened('back-hub');
-    if(hubUrl){
-      location.href = hubUrl;
-    }else{
-      location.href = './hub.html';
-    }
+    location.href = hubUrl ? hubUrl : './hub.html';
   }, { passive:true });
 
   on(btnPlayAgain, 'click', async ()=>{
@@ -1211,12 +1326,12 @@ function resetState(){
   shield = 0;
   shieldActive = false;
 
-  // ✅ rage/status
   rage = 0;
   slowUntilMs = 0;
   stunUntilMs = 0;
+  rageBreakUntilMs = 0;
+  rageBreakCount = 0;
 
-  // metrics reset
   nTargetGoodSpawned = 0;
   nTargetJunkSpawned = 0;
   nTargetShieldSpawned = 0;
@@ -1360,9 +1475,9 @@ function buildSummary(reason){
     fastHitRatePct: Math.round(fastHitRatePct*10)/10,
     grade,
 
-    // pressure
     rageEnd: Math.round(rage),
     feverEnd: Math.round(fever),
+    rageBreakCount,
 
     seed,
     reason: reason || 'end',
