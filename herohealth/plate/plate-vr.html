@@ -1,0 +1,25 @@
+<!-- === /herohealth/plate/plate-vr.html ===
+Compat Redirect — keeps old links working
+Redirects to /herohealth/plate-vr.html while preserving query string
+-->
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Redirecting…</title>
+  <meta http-equiv="refresh" content="0; url=../plate-vr.html" />
+</head>
+<body>
+  <script>
+    (function(){
+      try{
+        var qs = location.search || '';
+        location.replace('../plate-vr.html' + qs);
+      }catch(e){
+        location.href = '../plate-vr.html' + (location.search || '');
+      }
+    })();
+  </script>
+</body>
+</html>
