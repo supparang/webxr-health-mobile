@@ -1,9 +1,10 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SAFE layout (PATCHED)
-✅ stage uses dvh (fix address-bar jump / "flash then gone")
-✅ reserves space for HUD(top) + controls(bottom)
-✅ VR/cVR dual-eye split with stable center
-✅ IMPORTANT: [hidden] truly hides overlays (VR hint won't block gameplay)
+GoodJunkVR UI — SAFE layout (PRODUCTION)
+✅ stage uses fixed top/bottom + dvh support (fix address-bar jump / "flash then gone")
+✅ reserves space for HUD(top) + fever + controls(bottom)
+✅ VR/cVR dual-eye split
+✅ IMPORTANT FIX: overlays respect [hidden] (was blocking play)
+✅ VR Layout Patch: declutter in VR
 */
 
 :root{
@@ -30,25 +31,32 @@ GoodJunkVR UI — SAFE layout (PATCHED)
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
-
-  /* dvh helper */
-  --dvh: 1dvh;
 }
 
 *{ box-sizing:border-box; }
 
-/* use dvh to reduce mobile URL bar jump */
 html,body{
   margin:0; padding:0;
   width:100%;
   height:100%;
-  min-height: calc(var(--dvh) * 100);
-  background: radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
-              radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
-              var(--bg);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
+    radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
+    var(--bg);
   color:var(--text);
   font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   overflow:hidden;
+}
+
+/* dvh support to reduce address-bar jump */
+@supports (height: 100dvh){
+  html,body{ height:100dvh; }
+}
+
+/* ===== Critical: overlays obey hidden ===== */
+.start-overlay[hidden],
+.vr-hint[hidden]{
+  display:none !important;
 }
 
 /* ---------- HUD ---------- */
@@ -208,7 +216,7 @@ html,body{
   width:100%;
 }
 .eye-l{ left:0; }
-.eye-r{ left:0; display:none; } /* default hidden; shown in view-vr/cvr */
+.eye-r{ left:0; display:none; } /* default hidden */
 
 /* layers fill */
 .gj-layer, .gj-crosshair, .atk-ring, .atk-laser{
@@ -216,10 +224,8 @@ html,body{
   inset:0;
 }
 
-/* crosshair (simple) */
-.gj-crosshair{
-  pointer-events:none;
-}
+/* crosshair */
+.gj-crosshair{ pointer-events:none; }
 .gj-crosshair::before{
   content:"";
   position:absolute;
@@ -232,9 +238,7 @@ html,body{
 }
 
 /* atk ring */
-.atk-ring{
-  pointer-events:none;
-}
+.atk-ring{ pointer-events:none; }
 .atk-ring::before{
   content:"";
   position:absolute;
@@ -244,7 +248,7 @@ html,body{
   border-radius:999px;
   border:2px dashed rgba(34,197,94,.45);
   filter: drop-shadow(0 0 10px rgba(34,197,94,.20));
-  opacity:.0; /* shown by JS if used */
+  opacity:0;
 }
 
 /* laser (optional) */
@@ -278,7 +282,7 @@ html,body{
 .start-overlay{
   position:fixed;
   inset:0;
-  display:none;
+  display:flex;
   align-items:center;
   justify-content:center;
   z-index:120;
@@ -310,7 +314,6 @@ html,body{
 }
 .btn-start:active{ transform: translateY(1px); }
 
-/* VR hint overlay */
 .vr-hint{
   position:fixed;
   inset:0;
@@ -320,7 +323,6 @@ html,body{
   z-index:125;
   background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
-  pointer-events:auto;
 }
 .vr-card{
   width:min(720px, 92vw);
@@ -329,36 +331,21 @@ html,body{
   border-radius: 22px;
   padding:18px;
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
-  pointer-events:auto;
 }
 .vr-title{ font-size:22px; font-weight:1000; }
 .vr-desc{ margin-top:8px; color:var(--text); font-weight:850; line-height:1.35; }
-
-/* ✅ CRITICAL: hidden must REALLY hide (otherwise blocks game) */
-#vrHint[hidden], .vr-hint[hidden],
-#startOverlay[hidden], .start-overlay[hidden]{
-  display:none !important;
-  visibility:hidden !important;
-  opacity:0 !important;
-  pointer-events:none !important;
-}
 
 /* ---------- VIEW MODES ---------- */
 body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
 body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
 
 body.view-vr, body.view-cvr{
-  --hudH: 130px;     /* in VR keep HUD smaller (but still visible) */
+  --hudH: 130px;
   --feverH: 78px;
   --ctrlH: 86px;
 }
 
 /* VR/cVR split */
-body.view-vr #gj-stage,
-body.view-cvr #gj-stage{
-  top: calc(var(--hudH) + var(--sat));
-  bottom: calc(var(--ctrlH) + var(--feverH) + var(--sab) + 12px);
-}
 body.view-vr .eye-r,
 body.view-cvr .eye-r{
   display:block;
@@ -378,9 +365,122 @@ body.view-cvr .gj-crosshair::before{
   width:26px; height:26px;
 }
 
-/* make HUD not duplicate visually in split (HUD is single, fixed) */
+/* responsive */
 @media (max-width:520px){
   .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
   .hud-badge{ width: 60vw; }
-  .hud-coach{ display:none; } /* mobile: reduce clutter */
+  .hud-coach{ display:none; }
+}
+
+/* =========================
+   VR LAYOUT PATCH (v1)
+   ========================= */
+
+/* VR mode: hide extra view pills (keep only FS + Enter VR) */
+body.view-vr .viewbar .pill:not(#btnEnterFS):not(#btnEnterVR),
+body.view-cvr .viewbar .pill:not(#btnEnterFS):not(#btnEnterVR){
+  display:none;
+}
+
+/* HUD compact in VR */
+body.view-vr .hha-hud,
+body.view-cvr .hha-hud{
+  padding: calc(8px + var(--sat)) 10px 8px;
+}
+
+body.view-vr .hud-badge,
+body.view-cvr .hud-badge{
+  width:auto;
+  max-width:none;
+  padding:10px 12px;
+}
+
+body.view-vr .hud-title,
+body.view-cvr .hud-title{ font-size:16px; }
+
+body.view-vr .hud-sub,
+body.view-cvr .hud-sub{
+  font-size:11px;
+  opacity:.85;
+}
+
+/* stats: single row + smaller cards */
+body.view-vr .hud-stats,
+body.view-cvr .hud-stats{
+  width:min(520px, 46vw);
+  grid-template-columns: repeat(4, minmax(78px, 1fr));
+  gap:8px;
+}
+
+body.view-vr .hud-stat.grade,
+body.view-cvr .hud-stat.grade{
+  display:none; /* grade during play not needed in VR */
+}
+
+body.view-vr .hud-stat,
+body.view-cvr .hud-stat{
+  padding:8px 10px;
+  border-radius:16px;
+}
+
+body.view-vr .hud-stat .v,
+body.view-cvr .hud-stat .v{
+  font-size:18px;
+}
+
+/* hide coach box in VR */
+body.view-vr .hud-coach,
+body.view-cvr .hud-coach{
+  display:none;
+}
+
+/* quest slim */
+body.view-vr .hud-quest,
+body.view-cvr .hud-quest{
+  width:min(560px, 70vw);
+  padding:10px 12px;
+  border-radius:16px;
+  opacity:.92;
+}
+
+/* fever slimmer */
+body.view-vr .hha-fever,
+body.view-cvr .hha-fever{
+  left:10px; right:10px;
+  padding:8px 10px;
+  border-radius:16px;
+  bottom: calc(var(--ctrlH) + var(--sab) + 8px);
+}
+
+body.view-vr .fever-row,
+body.view-cvr .fever-row{
+  grid-template-columns: 64px 1fr 46px;
+}
+
+body.view-vr .fever-bar,
+body.view-cvr .fever-bar{ height:10px; }
+
+body.view-vr .shield-row,
+body.view-cvr .shield-row{ margin-top:6px; }
+
+/* increase playfield area in VR */
+body.view-vr, body.view-cvr{
+  --hudH: 104px;
+  --feverH: 64px;
+  --ctrlH: 78px;
+}
+
+/* controls smaller in VR */
+body.view-vr .btn-shoot,
+body.view-cvr .btn-shoot{
+  height:62px;
+  font-size:22px;
+  border-radius:16px;
+}
+
+/* crosshair slightly cleaner */
+body.view-vr .gj-crosshair::before,
+body.view-cvr .gj-crosshair::before{
+  border-width:2px;
+  box-shadow: 0 0 0 5px rgba(34,197,94,.10);
 }
