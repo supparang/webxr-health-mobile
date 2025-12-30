@@ -5,13 +5,6 @@
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 // ✅ Flush-hardened: before end/back hub/reload
-//
-// DOM ids required (from plate-vr.html):
-// plate-layer, hitFx,
-// hudTop, miniPanel, hudBtns, coachPanel,
-// btnStart, startOverlay,
-// btnPause, hudPaused, btnRestart, btnBackHub, btnPlayAgain, btnEnterVR,
-// resultBackdrop (rScore/rG1..rG5 etc.)
 
 'use strict';
 
@@ -93,11 +86,7 @@ const base = DIFF[diff] || DIFF.normal;
 
 // Adaptive (Play only)
 let adaptiveOn = !isStudy;
-let adapt = {
-  sizeMul: 1.0,
-  spawnMul: 1.0,
-  junkMul: 1.0,
-};
+let adapt = { sizeMul: 1.0, spawnMul: 1.0, junkMul: 1.0 };
 
 // ------------------------- DOM handles -------------------------
 const layer = qs('plate-layer');
@@ -121,6 +110,11 @@ const hudBtns = qs('hudBtns');
 
 if(!layer){
   console.error('[PlateVR] missing #plate-layer');
+} else {
+  // ensure layer is a full-screen stage so absolute children move with transform
+  layer.style.position = layer.style.position || 'fixed';
+  layer.style.inset = layer.style.inset || '0';
+  layer.style.zIndex = layer.style.zIndex || '5';
 }
 
 // ------------------------- Minimal FX (CSS injection fallback) -------------------------
@@ -149,16 +143,13 @@ function fxPulse(kind){
   clearTimeout(fxPulse._t);
   fxPulse._t = setTimeout(()=>{ hitFx.classList.remove('pfx-hit-good','pfx-hit-bad'); }, 140);
 }
-
 function fxShake(){
   DOC.body.classList.remove('pfx-shake');
-  // restart animation
   void DOC.body.offsetWidth;
   DOC.body.classList.add('pfx-shake');
   clearTimeout(fxShake._t);
   fxShake._t = setTimeout(()=>DOC.body.classList.remove('pfx-shake'), 450);
 }
-
 function fxBlink(){
   DOC.body.classList.remove('pfx-blink');
   void DOC.body.offsetWidth;
@@ -166,7 +157,6 @@ function fxBlink(){
   clearTimeout(fxBlink._t);
   fxBlink._t = setTimeout(()=>DOC.body.classList.remove('pfx-blink'), 1800);
 }
-
 function fxTick(){
   DOC.body.classList.remove('pfx-tick');
   void DOC.body.offsetWidth;
@@ -174,9 +164,7 @@ function fxTick(){
   clearTimeout(fxTick._t);
   fxTick._t = setTimeout(()=>DOC.body.classList.remove('pfx-tick'), 160);
 }
-
 function playTickSound(){
-  // tiny WebAudio tick (no asset required)
   try{
     const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
     if(!AC) return;
@@ -193,7 +181,7 @@ function playTickSound(){
 }
 
 // ------------------------- VR-feel look (gyro + drag) -------------------------
-let look = { x:0, y:0, dx:0, dy:0, dragging:false, lastX:0, lastY:0 };
+let look = { x:0, y:0, dragging:false, lastX:0, lastY:0 };
 let gyro = { gx:0, gy:0, ok:false };
 
 function applyLook(){
@@ -201,23 +189,18 @@ function applyLook(){
   const maxX = 24, maxY = 22;
   const x = clamp(look.x + gyro.gx, -maxX, maxX);
   const y = clamp(look.y + gyro.gy, -maxY, maxY);
-  layer.style.transform = `translate(${x}px, ${y}px)`;
+  layer.style.transform = `translate(${x}px, ${y}px) translateZ(0)`;
 }
 
 function enableGyroIfAllowed(){
-  // iOS requires permission — we request when Start clicked.
   const DO = ROOT.DeviceOrientationEvent;
   if(!DO) return;
-  if(typeof DO.requestPermission === 'function'){
-    // requested later on Start
-    return;
-  }
+  if(typeof DO.requestPermission === 'function'){ return; }
   gyro.ok = true;
   ROOT.addEventListener('deviceorientation', (e)=>{
-    // gamma: left/right (-90..90), beta: front/back (-180..180)
     const g = Number(e.gamma)||0;
     const b = Number(e.beta)||0;
-    gyro.gx = clamp(g/90, -1, 1) * 14;   // subtle
+    gyro.gx = clamp(g/90, -1, 1) * 14;
     gyro.gy = clamp(b/90, -1, 1) * 10;
     applyLook();
   }, { passive:true });
@@ -249,6 +232,7 @@ function bindDragLook(){
     look.lastX = e.clientX;
     look.lastY = e.clientY;
   }, { passive:true });
+
   on(ROOT, 'pointermove', (e)=>{
     if(!look.dragging) return;
     const dx = (e.clientX - look.lastX);
@@ -259,6 +243,7 @@ function bindDragLook(){
     look.y = clamp(look.y + dy*0.10, -24, 24);
     applyLook();
   }, { passive:true });
+
   on(ROOT, 'pointerup', ()=>{ look.dragging = false; }, { passive:true });
 }
 
@@ -267,29 +252,24 @@ function rectOf(el){
   if(!el) return null;
   const r = el.getBoundingClientRect();
   if(!r || !isFinite(r.width)) return null;
-  return { x:r.left, y:r.top, w:r.width, h:r.height, r };
+  return { x:r.left, y:r.top, w:r.width, h:r.height };
 }
 function intersects(a, b){
   return !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y);
 }
 function buildNoSpawnRects(){
   const rects = [];
-  // avoid: top HUD, mini panel, coach panel, buttons
   [hudTop, miniPanel, coachPanel, hudBtns].forEach(el=>{
     const rr = rectOf(el);
-    if(rr) rects.push(rr);
+    if(rr && rr.w>0 && rr.h>0) rects.push(rr);
   });
   return rects;
 }
 function getPlayRect(){
-  // baseline safe insets
   const W = ROOT.innerWidth || 360;
   const H = ROOT.innerHeight || 640;
-
-  // extra safe margins
   const pad = 10;
 
-  // reserve space by reading actual DOM rects (more accurate)
   const topR = rectOf(hudTop);
   const miniR = rectOf(miniPanel);
   const btnR = rectOf(hudBtns);
@@ -301,13 +281,10 @@ function getPlayRect(){
   let right = W - pad;
 
   if(topR) top = Math.max(top, topR.y + topR.h + 10);
-  // mini panel usually under top
   if(miniR) top = Math.max(top, miniR.y + miniR.h + 10);
   if(btnR) bottom = Math.min(bottom, btnR.y - 10);
-  // coach panel at left bottom-ish
   if(coachR) left = Math.max(left, coachR.x + coachR.w + 10);
 
-  // clamp
   top = clamp(top, 0, H-40);
   bottom = clamp(bottom, top+40, H);
   left = clamp(left, 0, W-40);
@@ -323,21 +300,21 @@ let paused = false;
 let tStartMs = 0;
 let tLastTickMs = 0;
 let tLeftSec = Number(timePlannedSec) || 90;
+let lastWholeSec = -1;
 
 let score = 0;
 let combo = 0;
 let comboMax = 0;
-
 let miss = 0;
 
 // plate counts
-const groupEmojis = ['🥦','🍎','🐟','🍚','🥑']; // HUD uses uiG1..uiG5
+const groupEmojis = ['🥦','🍎','🐟','🍚','🥑'];
 let gCount = [0,0,0,0,0];
 let plateHave = [false,false,false,false,false];
 
 let fever = 0;      // 0..100
 let shield = 0;     // charges
-let shieldActive = false; // (derived) if shield>0
+let shieldActive = false;
 
 // metrics
 let nTargetGoodSpawned = 0;
@@ -349,18 +326,18 @@ let nHitJunk = 0;
 let nHitJunkGuard = 0;
 let nExpireGood = 0;
 
-let rtGood = []; // reaction times (ms)
+let rtGood = [];
 let perfectHits = 0;
 
 // active targets
-const targets = new Map(); // id -> {el, kind, groupIdx, bornMs, lifeMs, x,y, size}
+const targets = new Map();
 let spawnAccum = 0;
 
 // Quest (Goal + Mini)
 let goalsTotal = 2;
 let goalsCleared = 0;
 
-let minisTotal = 999; // chain
+let minisTotal = 1;     // ✅ Plate Rush only (report clearly)
 let miniCleared = 0;
 
 let activeGoal = null;
@@ -368,7 +345,7 @@ let activeMini = null;
 
 const GOALS = [
   { key:'fill-plate', title:'เติมจานให้ครบ 5 หมู่', target:5, cur:0, done:false },
-  { key:'accuracy', title:'จบเกมด้วยความแม่นยำ ≥ 80%', target:80, cur:0, done:false },
+  { key:'accuracy', title:'จบเกมด้วยความแม่นยำ ≥ 80%', target:80, cur:0, done:false, counted:false },
 ];
 
 function accuracyPct(){
@@ -381,9 +358,6 @@ function calcGrade(){
   const acc = accuracyPct();
   const m = miss;
   const baseScore = score;
-
-  // tune thresholds to match your SSS/SS/S/A/B/C
-  // (เน้นแม่น + miss ต่ำ + score)
   if(acc >= 95 && m <= 1 && baseScore >= 2200) return 'SSS';
   if(acc >= 92 && m <= 2 && baseScore >= 1800) return 'SS';
   if(acc >= 88 && m <= 3) return 'S';
@@ -392,34 +366,51 @@ function calcGrade(){
   return 'C';
 }
 
+// ------------------------- HUD events (standard payload) -------------------------
 function updateHUD(){
+  const acc = accuracyPct();
+  const grade = calcGrade();
+  const plateN = plateHave.filter(Boolean).length;
+
+  // ✅ Standard fields for HUD binder + keep backward compat
   emit('hha:score', {
     game:'plate',
     runMode,
     diff,
-    timeLeftSec: tLeftSec,
+
     score,
     combo,
     comboMax,
     miss,
-    plateHave: plateHave.filter(Boolean).length,
-    gCount: [...gCount],
+
+    accPct: Math.round(acc*10)/10,
+    accuracyGoodPct: Math.round(acc*10)/10, // backward compat
+    grade,
+
+    plateHave: plateN,
+
+    g1: gCount[0], g2: gCount[1], g3: gCount[2], g4: gCount[3], g5: gCount[4],
+    gCount: [...gCount], // backward compat
+
+    feverPct: clamp(fever,0,100),
     fever,
+
+    shieldN: shield,
     shield,
-    accuracyGoodPct: accuracyPct(),
-    grade: calcGrade(),
+
+    perfect: perfectHits
   });
 
-  // fallback direct DOM update (in case binder not attached)
+  // fallback direct DOM update
   setText('uiScore', score);
   setText('uiCombo', combo);
   setText('uiComboMax', comboMax);
   setText('uiMiss', miss);
-  setText('uiPlateHave', plateHave.filter(Boolean).length);
+  setText('uiPlateHave', plateN);
   setText('uiG1', gCount[0]); setText('uiG2', gCount[1]); setText('uiG3', gCount[2]); setText('uiG4', gCount[3]); setText('uiG5', gCount[4]);
-  setText('uiAcc', fmtPct(accuracyPct()));
-  setText('uiGrade', calcGrade());
-  setText('uiTime', tLeftSec);
+  setText('uiAcc', fmtPct(acc));
+  setText('uiGrade', grade);
+  setText('uiTime', Math.ceil(tLeftSec));
   const ff = qs('uiFeverFill');
   if(ff) ff.style.width = `${clamp(fever,0,100)}%`;
   setText('uiShieldN', shield);
@@ -441,7 +432,6 @@ function coach(msg, mood){
     img.src = map[m] || map.neutral;
   }
 }
-
 function judge(text, kind){
   emit('hha:judge', { game:'plate', text, kind: kind||'info' });
 }
@@ -450,30 +440,30 @@ function judge(text, kind){
 function makeMiniPlateRush(){
   return {
     key:'plate-rush',
-    title:'Plate Rush: ครบ 5 หมู่ใน 8 วิ + ห้ามโดนขยะ',
+    title:'Plate Rush: เก็บ 5 หมู่ใน 8 วิ + ห้ามโดนขยะ',
     forbidJunk:true,
     durationSec: 8,
     startedMs: 0,
     done:false,
     fail:false,
     reason:'',
-    snapPlateHave: null,
+    rushHave: [false,false,false,false,false] // ✅ แยกจาก plateHave
   };
+}
+function rushCount(){
+  if(!activeMini || activeMini.key!=='plate-rush') return 0;
+  return activeMini.rushHave.filter(Boolean).length;
 }
 
 function startMini(mini){
   activeMini = mini;
   activeMini.startedMs = nowMs();
-  activeMini.snapPlateHave = [...plateHave];
-  emit('quest:update', {
-    game:'plate',
-    goal: activeGoal ? { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done } : null,
-    mini: { title: activeMini.title, cur:0, target:activeMini.durationSec, timeLeft: activeMini.durationSec, done:false }
-  });
+
   setText('uiMiniTitle', activeMini.title);
-  setText('uiMiniTime', `${activeMini.durationSec}s`);
-  setText('uiHint', 'ทริค: เร่งเก็บหมู่ที่ยังขาด! ระวังขยะห้ามโดน!');
+  setText('uiHint', 'ทริค: รีบเก็บ “หมู่ที่ยังขาดใน Plate Rush” ให้ครบ 5 ภายในเวลา! ระวังขยะห้ามโดน!');
+
   judge('⚡ Plate Rush เริ่มแล้ว!', 'warn');
+  emitQuestUpdate(true);
 }
 
 function finishMini(ok, reason){
@@ -487,14 +477,14 @@ function finishMini(ok, reason){
     emit('hha:celebrate', { game:'plate', kind:'mini' });
     coach('สุดยอด! Plate Rush ผ่าน! 🔥', 'happy');
     judge('✅ MINI COMPLETE!', 'good');
-    // reward shield
     shield = clamp(shield + 1, 0, 9);
   }else{
-    coach('พลาดนิดเดียว! ลองใหม่เดี๋ยวก็ผ่าน 💪', (fever>70?'fever':'sad'));
+    coach('พลาดนิดเดียว! ลองใหม่รอบหน้าก็ผ่าน 💪', (fever>70?'fever':'sad'));
     judge('❌ MINI FAILED', 'bad');
   }
   activeMini = null;
-  emitQuestUpdate();
+  emitQuestUpdate(true);
+  updateHUD();
 }
 
 function miniTimeLeft(){
@@ -503,29 +493,54 @@ function miniTimeLeft(){
   return Math.max(0, activeMini.durationSec - elapsed);
 }
 
-function emitQuestUpdate(){
-  // update goal progress
+function emitQuestUpdate(force=false){
+  // goal
   if(activeGoal){
     emit('quest:update', {
       game:'plate',
-      goal: { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done },
-      mini: activeMini
-        ? { title: activeMini.title, cur: 0, target: activeMini.durationSec, timeLeft: miniTimeLeft(), done:false }
-        : { title:'—', cur:0, target:0, timeLeft:null, done:false }
+      goal: { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: !!activeGoal.done },
+      mini: activeMini ? {
+        title: activeMini.title,
+        cur: (activeMini.key==='plate-rush') ? rushCount() : 0,
+        target: (activeMini.key==='plate-rush') ? 5 : 0,
+        secLeft: miniTimeLeft(),
+        secTotal: activeMini.durationSec,
+        done:false
+      } : { title:'—', cur:0, target:0, secLeft:null, secTotal:null, done:false }
     });
+  }else{
+    emit('quest:update', {
+      game:'plate',
+      goal: { title:'—', cur:0, target:0, done:false },
+      mini: activeMini ? {
+        title: activeMini.title,
+        cur: (activeMini.key==='plate-rush') ? rushCount() : 0,
+        target: (activeMini.key==='plate-rush') ? 5 : 0,
+        secLeft: miniTimeLeft(),
+        secTotal: activeMini.durationSec,
+        done:false
+      } : { title:'—', cur:0, target:0, secLeft:null, secTotal:null, done:false }
+    });
+  }
+
+  // fallback DOM
+  if(activeGoal){
     setText('uiGoalTitle', activeGoal.title);
     setText('uiGoalCount', `${activeGoal.cur}/${activeGoal.target}`);
     const gf = qs('uiGoalFill');
     if(gf) gf.style.width = `${(activeGoal.target? (activeGoal.cur/activeGoal.target*100):0)}%`;
   }else{
     setText('uiGoalTitle', '—'); setText('uiGoalCount', '0/0');
+    const gf = qs('uiGoalFill'); if(gf) gf.style.width = '0%';
   }
 
   if(activeMini){
-    setText('uiMiniTitle', activeMini.title);
-    setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal, miniCleared+1)}`);
     const tl = miniTimeLeft();
-    setText('uiMiniTime', tl==null?'--':`${Math.ceil(tl)}s`);
+    const sc = (tl==null)?'--':`${Math.ceil(tl)}s`;
+    setText('uiMiniTitle', activeMini.title);
+    setText('uiMiniTime', sc);
+    setText('uiMiniCount', `${miniCleared}/${minisTotal}`);
+
     const mf = qs('uiMiniFill');
     if(mf){
       const pct = activeMini.durationSec ? ((activeMini.durationSec - (tl||0)) / activeMini.durationSec) * 100 : 0;
@@ -534,6 +549,7 @@ function emitQuestUpdate(){
   }else{
     setText('uiMiniTitle','—');
     setText('uiMiniTime','--');
+    setText('uiMiniCount', `${miniCleared}/${minisTotal}`);
     const mf = qs('uiMiniFill'); if(mf) mf.style.width = `0%`;
   }
 }
@@ -542,31 +558,25 @@ function emitQuestUpdate(){
 function startGoals(){
   goalsCleared = 0;
   activeGoal = { ...GOALS[0] };
-  emitQuestUpdate();
+  emitQuestUpdate(true);
 }
 function updateGoals(){
-  if(!activeGoal || activeGoal.done) return;
+  if(!activeGoal) return;
 
   if(activeGoal.key === 'fill-plate'){
     activeGoal.cur = plateHave.filter(Boolean).length;
-    if(activeGoal.cur >= activeGoal.target){
+    if(activeGoal.cur >= activeGoal.target && !activeGoal.done){
       activeGoal.done = true;
       goalsCleared++;
       emit('hha:celebrate', { game:'plate', kind:'goal' });
       coach('ครบ 5 หมู่แล้ว! ต่อไปคุมความแม่นยำ 😎', 'happy');
       judge('🎯 GOAL COMPLETE!', 'good');
 
-      // start mini immediately after goal1 in play mode
-      if(!activeMini){
-        startMini(makeMiniPlateRush());
-      }
-
-      // move to next goal
       activeGoal = { ...GOALS[1] };
     }
   } else if(activeGoal.key === 'accuracy'){
     activeGoal.cur = Math.round(accuracyPct());
-    // goal 2 completes at end (we still track live)
+    // finalize at end
   }
 
   emitQuestUpdate();
@@ -576,11 +586,9 @@ function updateGoals(){
 function addFever(amount){
   fever = clamp(fever + (Number(amount)||0), 0, 100);
   if(fever >= 85) coach('ระวัง! FEVER สูงมากแล้ว 🔥', 'fever');
-  updateHUD();
 }
 function coolFever(amount){
   fever = clamp(fever - (Number(amount)||0), 0, 100);
-  updateHUD();
 }
 function ensureShieldActive(){
   shieldActive = (shield > 0);
@@ -592,33 +600,49 @@ const junkPool = ['🍟','🍕','🥤','🍩','🍭','🧁','🍔','🌭','🍫'
 const shieldEmoji = { emoji:'🛡️', kind:'shield' };
 
 function currentTunings(){
-  // base * adaptive
   let size = base.size * adapt.sizeMul;
-  let lifeMs = base.lifeMs; // keep stable-ish
+  let lifeMs = base.lifeMs;
   let spawnPerSec = base.spawnPerSec * adapt.spawnMul;
   let junkRate = clamp(base.junkRate * adapt.junkMul, 0.08, 0.55);
 
-  // fever makes it harder a bit (but not in study)
   if(!isStudy){
     const f = fever/100;
     spawnPerSec *= (1 + f*0.15);
     junkRate = clamp(junkRate + f*0.05, 0.08, 0.60);
   }
 
-  // hard clamp
+  // ✅ Plate Rush: ให้ “พอมีโอกาสผ่าน” แต่ยังโหด
+  if(activeMini && activeMini.key==='plate-rush' && !activeMini.done){
+    junkRate = clamp(junkRate * 0.85, 0.08, 0.55);  // ลด junk นิดนึง
+    spawnPerSec = clamp(spawnPerSec * 1.10, 0.8, 3.6);
+  }
+
   size = clamp(size, 38, 86);
   spawnPerSec = clamp(spawnPerSec, 0.8, 3.6);
   return { size, lifeMs, spawnPerSec, junkRate };
 }
 
 function maybeSpawnShield(){
-  // spawn shield sometimes when fever high or after mini reward
   if(isStudy) return;
   if(shield >= 3) return;
   const chance = (fever >= 70) ? 0.06 : 0.02;
   if(rng() < chance){
     spawnTarget('shield');
   }
+}
+
+function pickGoodSpec(){
+  // ✅ Plate Rush: bias ไปที่หมู่ที่ยังขาดใน rushHave
+  if(activeMini && activeMini.key==='plate-rush' && !activeMini.done){
+    const missing = [];
+    for(let i=0;i<5;i++){
+      if(!activeMini.rushHave[i]) missing.push({ emoji: groupEmojis[i], groupIdx:i, kind:'good' });
+    }
+    if(missing.length && rng() < 0.72){
+      return pick(rng, missing);
+    }
+  }
+  return pick(rng, goodPool);
 }
 
 function spawnTarget(forcedKind){
@@ -630,38 +654,32 @@ function spawnTarget(forcedKind){
 
   let kind = forcedKind;
   if(!kind){
-    // occasional shield
     ensureShieldActive();
     if(!isStudy && shield < 2 && fever >= 65 && rng() < 0.05) kind = 'shield';
     else kind = (rng() < tune.junkRate) ? 'junk' : 'good';
   }
 
   let spec;
-  if(kind === 'good') spec = pick(rng, goodPool);
+  if(kind === 'good') spec = pickGoodSpec();
   else if(kind === 'junk') spec = pick(rng, junkPool);
   else spec = shieldEmoji;
 
-  // safe placement
   const size = tune.size;
   const box = { x:0, y:0, w:size, h:size };
   let ok = false;
 
-  // attempt spawn without intersecting HUD rects
   const tries = 38;
   for(let i=0;i<tries;i++){
     const rx = playRect.x + rng()*(Math.max(1, playRect.w - size));
     const ry = playRect.y + rng()*(Math.max(1, playRect.h - size));
     box.x = rx; box.y = ry;
 
-    // Avoid HUD rects
     let hit = false;
     for(const rr of noRects){
       if(intersects(box, rr)){ hit = true; break; }
     }
     if(!hit){ ok = true; break; }
   }
-
-  // If too constrained, relax: allow overlap checks loosened
   if(!ok){
     const rx = playRect.x + rng()*(Math.max(1, playRect.w - size));
     const ry = playRect.y + rng()*(Math.max(1, playRect.h - size));
@@ -677,8 +695,8 @@ function spawnTarget(forcedKind){
   if(spec.kind === 'good') el.setAttribute('data-group', String(spec.groupIdx));
   el.textContent = spec.emoji;
 
-  // inline style (works even if CSS missing)
-  el.style.position = 'fixed';
+  // ✅ IMPORTANT: absolute (so transform on layer makes VR-feel correctly)
+  el.style.position = 'absolute';
   el.style.left = `${Math.round(box.x)}px`;
   el.style.top  = `${Math.round(box.y)}px`;
   el.style.width = `${size}px`;
@@ -695,7 +713,6 @@ function spawnTarget(forcedKind){
   el.style.webkitTapHighlightColor = 'transparent';
   el.style.transform = 'translateZ(0)';
 
-  // pointer/tap hit
   on(el, 'pointerdown', (e)=>{
     e.preventDefault();
     if(!running || paused) return;
@@ -705,19 +722,16 @@ function spawnTarget(forcedKind){
   layer.appendChild(el);
 
   const born = nowMs();
-  const lifeMs = tune.lifeMs;
-
   targets.set(id, {
     id,
     el,
     kind: spec.kind,
     groupIdx: (spec.kind==='good') ? spec.groupIdx : null,
     bornMs: born,
-    lifeMs,
-    size,
+    lifeMs: tune.lifeMs,
+    size
   });
 
-  // metrics
   if(spec.kind === 'good') nTargetGoodSpawned++;
   else if(spec.kind === 'junk') nTargetJunkSpawned++;
   else nTargetShieldSpawned++;
@@ -731,7 +745,6 @@ function despawn(id){
   targets.delete(id);
   try{ t.el.remove(); }catch(e){}
 }
-
 function clearAllTargets(){
   for(const [id] of targets) despawn(id);
 }
@@ -751,17 +764,31 @@ function onHit(id){
     combo++;
     comboMax = Math.max(comboMax, combo);
 
-    // group counts
     const gi = Number(t.groupIdx);
     if(gi>=0 && gi<5){
       gCount[gi] += 1;
+
+      // goal1 plateHave (สะสมทั้งเกม)
       if(!plateHave[gi]){
         plateHave[gi] = true;
         judge(`+ หมู่ใหม่! ${groupEmojis[gi]}`, 'good');
       }
+
+      // ✅ Plate Rush tracking (แยกจาก plateHave)
+      if(activeMini && activeMini.key==='plate-rush' && !activeMini.done){
+        if(!activeMini.rushHave[gi]){
+          activeMini.rushHave[gi] = true;
+        }
+        // success check
+        const haveRush = rushCount();
+        if(haveRush >= 5 && (miniTimeLeft()!=null && miniTimeLeft()>0)){
+          finishMini(true, 'rush-complete');
+        } else {
+          emitQuestUpdate();
+        }
+      }
     }
 
-    // scoring: base + combo + rt bonus
     let add = 50;
     if(rt <= 420){ add += 35; perfectHits++; }
     else if(rt <= 650){ add += 20; }
@@ -772,25 +799,17 @@ function onHit(id){
     fxPulse('good');
     coolFever(base.feverDownGood);
 
-    // Mini logic: Plate Rush checks “complete 5 within 8 sec”
-    if(activeMini && activeMini.key === 'plate-rush'){
-      const haveN = plateHave.filter(Boolean).length;
-      const tl = miniTimeLeft();
-      if(haveN >= 5 && (tl != null && tl > 0)){
-        finishMini(true, 'rush-complete');
-      }
-    }
-
   } else if(kind === 'junk'){
     ensureShieldActive();
 
-    if(activeMini && activeMini.forbidJunk){
-      // immediate fail mini if forbid junk
+    // ✅ Plate Rush forbid junk
+    if(activeMini && activeMini.forbidJunk && activeMini.key==='plate-rush' && !activeMini.done){
       if(shieldActive){
         shield = Math.max(0, shield - 1);
         nHitJunkGuard++;
-        coach('โล่ช่วยไว้! 🛡️ (mini ยังอยู่)', 'neutral');
+        coach('โล่ช่วยไว้! 🛡️ (Plate Rush ยังอยู่)', 'neutral');
         judge('🛡️ BLOCKED!', 'warn');
+        fxPulse('good');
       }else{
         nHitJunk++;
         miss++;
@@ -800,7 +819,7 @@ function onHit(id){
         fxPulse('bad'); fxShake();
         finishMini(false, 'hit-junk');
       }
-    }else{
+    } else {
       if(shieldActive){
         shield = Math.max(0, shield - 1);
         nHitJunkGuard++;
@@ -819,6 +838,7 @@ function onHit(id){
       }
     }
     ensureShieldActive();
+
   } else if(kind === 'shield'){
     shield = clamp(shield + 1, 0, 9);
     ensureShieldActive();
@@ -828,9 +848,7 @@ function onHit(id){
     judge('🛡️ +1 SHIELD', 'good');
   }
 
-  // Adaptive update (Play only)
   if(adaptiveOn) updateAdaptive();
-
   updateGoals();
   updateHUD();
 }
@@ -847,33 +865,27 @@ function onExpireTarget(id){
     combo = 0;
     addFever(base.feverUpMiss);
     fxPulse('bad');
-
-    // if mini rush running, expiry still counts as pressure but not auto-fail
-    // (keep it fair)
   }
   updateGoals();
   updateHUD();
 }
 
+// ------------------------- Adaptive -------------------------
 function updateAdaptive(){
-  // Use recent accuracy + RT to tune in play mode only
   const acc = accuracyPct();
   const rtN = rtGood.length;
   const rtAvg = rtN ? (rtGood.reduce((a,b)=>a+b,0)/rtN) : 800;
 
-  // target size: if struggling -> bigger
   const sizeMul =
     (acc < 65 ? 1.18 :
      acc < 75 ? 1.10 :
      acc > 92 ? 0.92 :
      acc > 86 ? 0.96 : 1.0);
 
-  // spawn rate: if doing very well + fast -> a bit more
   let spawnMul = 1.0;
   if(acc > 90 && rtAvg < 520) spawnMul = 1.12;
   else if(acc < 68) spawnMul = 0.92;
 
-  // junk: if too easy -> more junk
   let junkMul = 1.0;
   if(acc > 90 && miss <= 2) junkMul = 1.10;
   else if(acc < 70) junkMul = 0.92;
@@ -898,15 +910,15 @@ function tick(){
     return;
   }
 
-  // time
   if(dt > 0 && isFinite(dt)){
-    // countdown based on real elapsed
-    const newLeft = Math.max(0, tLeftSec - dt);
-    if(Math.floor(newLeft) !== Math.floor(tLeftSec)){
-      // emit each second boundary
-      emit('hha:time', { game:'plate', timeLeftSec: Math.ceil(newLeft) });
-    }
-    tLeftSec = newLeft;
+    tLeftSec = Math.max(0, tLeftSec - dt);
+  }
+
+  // ✅ emit time each whole second (standard secLeft)
+  const whole = Math.ceil(tLeftSec);
+  if(whole !== lastWholeSec){
+    lastWholeSec = whole;
+    emit('hha:time', { game:'plate', secLeft: whole, timeLeftSec: whole });
   }
 
   // mini timer pressure FX (last 3 sec)
@@ -919,18 +931,15 @@ function tick(){
           playTickSound._lastSec = Math.ceil(tl);
           playTickSound();
         }
-        // mild shake when really close
         if(tl <= 1.2) fxShake();
         if(tl <= 2.0) fxBlink();
       }
-      // time out
       if(tl <= 0){
         finishMini(false, 'timeout');
       }
     }
   }
 
-  // spawn logic
   const tune = currentTunings();
   spawnAccum += dt * tune.spawnPerSec;
   while(spawnAccum >= 1){
@@ -939,7 +948,6 @@ function tick(){
     maybeSpawnShield();
   }
 
-  // expire targets
   for(const [id, tObj] of targets){
     if((t - tObj.bornMs) >= tObj.lifeMs){
       onExpireTarget(id);
@@ -949,7 +957,6 @@ function tick(){
   updateGoals();
   updateHUD();
 
-  // end
   if(tLeftSec <= 0){
     endGame('time');
     return;
@@ -982,20 +989,13 @@ function bootButtons(){
     }catch(e){}
   }, { passive:true });
 
-  // result buttons
   on(btnBackHub, 'click', async ()=>{
     await flushHardened('back-hub');
-    if(hubUrl){
-      location.href = hubUrl;
-    }else{
-      // fallback: go up one
-      location.href = '../hub.html';
-    }
+    location.href = hubUrl || '../hub.html';
   }, { passive:true });
 
   on(btnPlayAgain, 'click', async ()=>{
     await flushHardened('play-again');
-    // keep params, optionally new seed for play mode
     const u = new URL(location.href);
     if(!isStudy){
       u.searchParams.set('seed', String(Date.now() ^ (Math.random()*1e9)));
@@ -1004,14 +1004,11 @@ function bootButtons(){
   }, { passive:true });
 
   on(btnStart, 'click', async ()=>{
-    // request gyro permission (iOS)
     await requestGyroPermission();
     startGame();
   }, { passive:true });
 
-  // esc/back protection
-  on(ROOT, 'beforeunload', (e)=>{
-    // attempt flush quickly
+  on(ROOT, 'beforeunload', ()=>{
     try{ flushHardened('beforeunload'); }catch(err){}
   });
 }
@@ -1023,6 +1020,7 @@ function resetState(){
   tStartMs = 0;
   tLastTickMs = 0;
   tLeftSec = Number(timePlannedSec)||90;
+  lastWholeSec = -1;
 
   score = 0;
   combo = 0;
@@ -1055,6 +1053,8 @@ function resetState(){
 
   goalsTotal = 2;
   goalsCleared = 0;
+
+  minisTotal = 1;
   miniCleared = 0;
 
   activeGoal = null;
@@ -1069,16 +1069,17 @@ function startGame(){
   if(running) return;
   resetState();
 
-  // hide start overlay
   if(startOverlay) startOverlay.style.display = 'none';
 
-  // init look controls
   enableGyroIfAllowed();
   bindDragLook();
   applyLook();
 
-  // goals
   startGoals();
+
+  // ✅ Start Plate Rush early (makes sense + fun)
+  startMini(makeMiniPlateRush());
+
   coach('พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪', 'neutral');
   judge('▶️ START!', 'good');
 
@@ -1089,9 +1090,8 @@ function startGame(){
   tLastTickMs = tStartMs;
 
   updateHUD();
-  emit('hha:time', { game:'plate', timeLeftSec: Math.ceil(tLeftSec) });
+  emit('hha:time', { game:'plate', secLeft: Math.ceil(tLeftSec), timeLeftSec: Math.ceil(tLeftSec) });
 
-  // initial burst of targets
   for(let i=0;i<4;i++) spawnTarget();
   requestAnimationFrame(tick);
 }
@@ -1099,7 +1099,6 @@ function startGame(){
 async function restartGame(reason){
   await flushHardened(reason || 'restart');
   const u = new URL(location.href);
-  // keep deterministic in study; in play can refresh seed
   if(!isStudy){
     u.searchParams.set('seed', String(Date.now() ^ (Math.random()*1e9)));
   }
@@ -1123,21 +1122,21 @@ function buildSummary(reason){
   const medRt = rtGood.length ? median(rtGood) : 0;
   const fastHitRatePct = (nHitGood>0) ? (perfectHits/nHitGood*100) : 0;
 
-  // goal2 finalize at end
-  if(activeGoal && activeGoal.key === 'accuracy'){
-    activeGoal.cur = Math.round(acc);
-    if(acc >= activeGoal.target){
-      activeGoal.done = true;
-      goalsCleared++;
-    }
+  // finalize goal2 at end (count once)
+  let goal2Done = false;
+  if(acc >= 80) goal2Done = true;
+
+  // If goal2 achieved but not already counted (when active goal is accuracy)
+  // we only add 1 to goalsCleared here if accuracy goal not previously marked done.
+  if(activeGoal && activeGoal.key === 'accuracy' && goal2Done && !activeGoal.counted){
+    activeGoal.done = true;
+    activeGoal.counted = true;
+    goalsCleared++;
   }
 
   const grade = calcGrade();
-
-  // session id
   const sessionId = `PLATE_${Date.now()}_${uid().slice(0,6)}`;
 
-  // note: align fields with your sheet header pattern (subset okay; logger can merge)
   const summary = {
     timestampIso: new Date().toISOString(),
     projectTag: 'HHA',
@@ -1154,7 +1153,7 @@ function buildSummary(reason){
     goalsCleared,
     goalsTotal,
     miniCleared,
-    miniTotal: miniCleared, // chain
+    miniTotal: minisTotal,
     nTargetGoodSpawned,
     nTargetJunkSpawned,
     nTargetShieldSpawned,
@@ -1167,6 +1166,7 @@ function buildSummary(reason){
     avgRtGoodMs: Math.round(avgRt),
     medianRtGoodMs: Math.round(medRt),
     fastHitRatePct: Math.round(fastHitRatePct*10)/10,
+    perfectHits,
     grade,
     seed,
     reason: reason || 'end',
@@ -1192,7 +1192,9 @@ function showResult(summary){
   setText('rScore', summary.scoreFinal);
   setText('rMaxCombo', summary.comboMax);
   setText('rMiss', summary.misses);
-  setText('rPerfect', Math.round(summary.fastHitRatePct) + '%');
+
+  // FAST HIT: show percent (but keep number-style UI)
+  setText('rPerfect', `${Math.round(summary.fastHitRatePct)}%`);
   setText('rGoals', `${summary.goalsCleared}/${summary.goalsTotal}`);
   setText('rMinis', `${summary.miniCleared}/${summary.miniTotal}`);
 
@@ -1206,17 +1208,14 @@ function showResult(summary){
 
 function storeSummary(summary){
   saveJson(LS_LAST, summary);
-
   const hist = loadJson(LS_HIST, []);
   const next = Array.isArray(hist) ? hist : [];
   next.unshift(summary);
-  // keep last 50
   while(next.length > 50) next.pop();
   saveJson(LS_HIST, next);
 }
 
 async function flushHardened(reason){
-  // give logger a chance to flush (if exists)
   try{
     const L = ROOT.HHACloudLogger || ROOT.HHA_CloudLogger || ROOT.HHA_LOGGER || null;
     if(L){
@@ -1243,14 +1242,9 @@ async function endGame(reason){
   clearAllTargets();
 
   const summary = buildSummary(reason);
-
-  // store to localStorage (HHA Standard)
   storeSummary(summary);
 
-  // emit end event for hub/logger
   emit('hha:end', { game:'plate', summary });
-
-  // celebratory fx
   emit('hha:celebrate', { game:'plate', kind:'end' });
 
   coach('จบเกมแล้ว! ดูสรุปผลได้เลย 🏁', (summary.grade==='C'?'sad':'happy'));
@@ -1259,28 +1253,21 @@ async function endGame(reason){
   showResult(summary);
   updateHUD();
 
-  // flush logger
   await flushHardened(reason || 'end');
 }
 
 // ------------------------- Init -------------------------
 (function init(){
-  // sanity hints
   setText('uiDiffPreview', diff);
   setText('uiTimePreview', timePlannedSec);
   setText('uiRunPreview', runMode);
 
-  // initial UI
   resetState();
   updateHUD();
-  emitQuestUpdate();
+  emitQuestUpdate(true);
 
-  // buttons
   bootButtons();
 
-  // show start overlay
   if(startOverlay) startOverlay.style.display = 'grid';
-
-  // keep layer transform stable
   applyLook();
 })();
