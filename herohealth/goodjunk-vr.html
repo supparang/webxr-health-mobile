@@ -1,10 +1,7 @@
 <!-- === /herohealth/goodjunk-vr.html ===
 GoodJunkVR (PRODUCTION) — HHA Standard
-✅ DOM emoji targets (dual-eye for VR/cVR)
-✅ HUD + Quest + Coach + Fever/Shield
-✅ View modes + Fullscreen + cVR split
-✅ Boot gate: starts AFTER pressing "เริ่มเล่น" (fix overlay/flash)
-✅ Quest Peek: hold ยิง / press Q (when HUD collapsed in VR)
+✅ HUD toggle: FULL/COMPACT/HIDE + Hold-to-Peek
+✅ Start-gated boot
 -->
 
 <!doctype html>
@@ -29,9 +26,9 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
-<body>
+<body class="hud-full">
   <!-- ===== HUD ===== -->
-  <div class="hha-hud" aria-label="HUD">
+  <div class="hha-hud">
     <div class="hud-top">
       <div class="hud-badge">
         <div class="hud-title">GoodJunkVR</div>
@@ -43,19 +40,15 @@ GoodJunkVR (PRODUCTION) — HHA Standard
           <button class="pill" id="btnViewVR" type="button">VR</button>
           <button class="pill" id="btnViewCVR" type="button">cVR</button>
 
-          <span class="sep"></span>
+          <!-- ✅ HUD toggle -->
+          <button class="pill ghost" id="btnHudMode" type="button">HUD: Full</button>
 
-          <button class="pill ghost" id="btnEnterFS" type="button">Fullscreen</button>
+          <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
           <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
-
-          <span class="sep"></span>
-
-          <button class="pill ghost" id="btnToggleHUD" type="button">HUD</button>
-          <button class="pill ghost" id="btnPeekQuest" type="button">Quest</button>
         </div>
       </div>
 
-      <div class="hud-stats" aria-label="stats">
+      <div class="hud-stats">
         <div class="hud-stat"><div class="k">Score</div><div class="v" id="hhaScore">0</div></div>
         <div class="hud-stat"><div class="k">Combo</div><div class="v" id="hhaCombo">0</div></div>
         <div class="hud-stat"><div class="k">Miss</div><div class="v" id="hhaMiss">0</div></div>
@@ -64,7 +57,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       </div>
     </div>
 
-    <div class="hud-mid" aria-label="quest and coach">
+    <div class="hud-mid">
       <div class="hud-quest">
         <div class="q-row">
           <div class="q-title" id="hudGoalTitle">Goal: —</div>
@@ -88,8 +81,13 @@ GoodJunkVR (PRODUCTION) — HHA Standard
     </div>
   </div>
 
+  <!-- ✅ Peek button (only shown in HUD:HIDE) -->
+  <div id="hudPeek" class="hud-peek" hidden>
+    <button id="btnHudPeek" class="peek-btn" type="button">👁️ กดค้างเพื่อดูภารกิจ</button>
+  </div>
+
   <!-- ===== Fever/Shield UI ===== -->
-  <div class="hha-fever" id="hhaFever" aria-label="fever">
+  <div class="hha-fever" id="hhaFever">
     <div class="fever-row">
       <div class="fever-label">FEVER</div>
       <div class="fever-bar"><div class="fever-fill" id="feverBar"></div></div>
@@ -117,17 +115,16 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
     </div>
 
-    <!-- end summary placeholder -->
     <div id="end-summary"></div>
   </div>
 
   <!-- ===== Controls ===== -->
-  <div class="hha-controls" aria-label="controls">
+  <div class="hha-controls">
     <button id="btnShoot" class="btn-shoot" type="button">ยิง</button>
   </div>
 
-  <!-- ===== Start Overlay (VISIBLE by default) ===== -->
-  <div id="startOverlay" class="start-overlay">
+  <!-- ===== Start Overlay ===== -->
+  <div id="startOverlay" class="start-overlay" hidden>
     <div class="start-card">
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
@@ -136,7 +133,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       </div>
       <div class="start-meta" id="startMeta">—</div>
       <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
-      <div class="start-tip">Tip: โหมด VR/cVR → กดยิงค้าง เพื่อ “Peek Quest”</div>
     </div>
   </div>
 
@@ -146,13 +142,10 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="vr-title">โหมด VR/การ์ดบอร์ด</div>
       <div class="vr-desc">
         กรุณาหมุนจอเป็น <b>แนวนอน</b> เพื่อให้เป้าอยู่ระดับสายตา<br/>
-        <span class="muted">Tip: กด “Fullscreen” ก่อนเข้า VR/cVR จะนิ่งกว่า</span>
+        <span class="muted">Tip: กด “Enter Fullscreen” ก่อนเข้า VR/cVR จะนิ่งกว่า</span>
       </div>
       <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
     </div>
   </div>
-
-  <!-- ===== Small Toast (optional) ===== -->
-  <div id="toast" class="toast" hidden>—</div>
 </body>
 </html>
