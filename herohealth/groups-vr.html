@@ -1,7 +1,5 @@
 <!-- === /herohealth/groups.html ===
-Food Groups VR — LAUNCHER (แยกไฟล์จาก run ตามที่ตกลง)
-/herohealth/groups.html         = launcher
-/herohealth/vr-groups/groups-vr.html = run
+Launcher — adds VR shoot controls
 -->
 <!doctype html>
 <html lang="th">
@@ -18,15 +16,13 @@ Food Groups VR — LAUNCHER (แยกไฟล์จาก run ตามที�
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --accent:#22c55e;
-      --cyan:#22d3ee;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
     }
     html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
     .wrap{ min-height:100%; display:grid; place-items:center; padding: calc(14px + var(--sat)) 14px calc(14px + var(--sab)); }
     .card{
-      width:min(760px, 94vw);
+      width:min(820px, 94vw);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:22px;
@@ -57,13 +53,6 @@ Food Groups VR — LAUNCHER (แยกไฟล์จาก run ตามที�
     }
     .primary{ background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90)); color:#061018; }
     .ghost{ background:transparent; border:1px solid rgba(148,163,184,.22); color:var(--text); }
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:8px 10px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.55);
-      font-size:12px; font-weight:1000; color:rgba(226,232,240,.92);
-    }
     .linkbox{
       margin-top:12px;
       border:1px dashed rgba(148,163,184,.22);
@@ -83,13 +72,7 @@ Food Groups VR — LAUNCHER (แยกไฟล์จาก run ตามที�
   <div class="wrap">
     <div class="card">
       <h1>🍱 Food Groups VR — Launcher</h1>
-      <p>เลือกโหมด/ระดับ/เวลา แล้วกด Start เพื่อเข้า <b>หน้ารันเกม</b> ที่อยู่ใน <code>/herohealth/vr-groups/groups-vr.html</code></p>
-
-      <div class="row" style="margin-bottom:12px;">
-        <span class="pill">✅ Launcher แยกไฟล์</span>
-        <span class="pill">✅ Responsive PC/Mobile/VR</span>
-        <span class="pill">⭐/❄️ Power-ups + No-Junk</span>
-      </div>
+      <p>เลือกโหมด/ระดับ/เวลา + โหมดยิง VR แล้วกด Start เพื่อเข้า <code>/herohealth/vr-groups/groups-vr.html</code></p>
 
       <div class="grid">
         <div>
@@ -129,6 +112,24 @@ Food Groups VR — LAUNCHER (แยกไฟล์จาก run ตามที�
         </div>
 
         <div>
+          <label>VR Shoot mode</label>
+          <select id="shoot">
+            <option value="auto" selected>auto (ui=vr → gaze)</option>
+            <option value="gaze">gaze (จ้องค้างยิง)</option>
+            <option value="tap">tap (แตะจอยิงกลางจอ)</option>
+            <option value="off">off</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Dwell (ms) / Lock (px)</label>
+          <div class="row" style="gap:12px;">
+            <input id="dwell" type="number" min="250" max="1200" value="650" />
+            <input id="lock" type="number" min="80" max="280" value="140" />
+          </div>
+        </div>
+
+        <div>
           <label>Time (sec)</label>
           <input id="time" type="number" min="30" max="180" value="90" />
         </div>
@@ -157,6 +158,9 @@ Food Groups VR — LAUNCHER (แยกไฟล์จาก run ตามที�
       const diff = $('diff').value;
       const style = $('style').value;
       const ui = $('ui').value;
+      const shoot = $('shoot').value;
+      const dwell = Number($('dwell').value||650);
+      const lock = Number($('lock').value||140);
       const time = Number($('time').value||90);
       const seed = ($('seed').value||'').trim() || String(Date.now());
       const hub = './index.html';
@@ -166,6 +170,9 @@ Food Groups VR — LAUNCHER (แยกไฟล์จาก run ตามที�
       url.searchParams.set('diff', diff);
       url.searchParams.set('style', style);
       url.searchParams.set('ui', ui);
+      url.searchParams.set('shoot', shoot);
+      url.searchParams.set('dwell', String(dwell));
+      url.searchParams.set('lock', String(lock));
       url.searchParams.set('time', String(time));
       url.searchParams.set('seed', seed);
       url.searchParams.set('hub', hub);
@@ -179,29 +186,21 @@ Food Groups VR — LAUNCHER (แยกไฟล์จาก run ตามที�
       return link;
     }
 
-    ['runMode','diff','style','ui','time','seed'].forEach(id=>{
+    ['runMode','diff','style','ui','shoot','dwell','lock','time','seed'].forEach(id=>{
       $(id).addEventListener('input', sync);
       $(id).addEventListener('change', sync);
     });
     sync();
 
-    $('btnStart').addEventListener('click', ()=>{
-      location.href = sync();
-    });
+    $('btnStart').addEventListener('click', ()=> location.href = sync());
 
     $('btnCopy').addEventListener('click', async ()=>{
       const link = sync();
-      try{
-        await navigator.clipboard.writeText(link);
-        $('linkBox').textContent = '✅ Copied!\n' + link;
-      }catch{
-        $('linkBox').textContent = '⚠️ Copy ไม่ได้ (เบราว์เซอร์บล็อก)\n' + link;
-      }
+      try{ await navigator.clipboard.writeText(link); $('linkBox').textContent = '✅ Copied!\n' + link; }
+      catch{ $('linkBox').textContent = '⚠️ Copy ไม่ได้\n' + link; }
     });
 
-    $('btnHub').addEventListener('click', ()=>{
-      location.href = './index.html';
-    });
+    $('btnHub').addEventListener('click', ()=> location.href = './index.html');
   </script>
 </body>
 </html>
