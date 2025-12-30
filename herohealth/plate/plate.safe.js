@@ -1,7 +1,7 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION (HHA Standard + VR-feel + Plate Rush + Safe Spawn + Brutal+++)
-// ✅ Play: adaptive ON + Decoy Junk + Fake Shield + Boss Mini
-// ✅ Study/Research: deterministic seed + adaptive OFF + Brutal+++ OFF
+// Balanced Plate VR — PRODUCTION (HHA Standard + VR-feel + Plate Rush + Safe Spawn + BRUTAL+++ FX)
+// ✅ Play: adaptive ON
+// ✅ Study/Research: deterministic seed + adaptive OFF
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 // ✅ Flush-hardened: before end/back hub/reload
@@ -24,7 +24,23 @@ function setText(id, txt){
   if(el) el.textContent = String(txt);
 }
 function fmtPct(x){ x = Number(x)||0; return `${Math.round(x)}%`; }
-function randRange(rng, a, b){ return a + (b-a) * rng(); }
+
+// BRUTAL+++ CSS var helpers
+function setCssVar(name, val){
+  try{ DOC.documentElement.style.setProperty(name, String(val)); }catch(e){}
+}
+function fxCrit(){
+  if(!hitFx) return;
+  hitFx.classList.remove('pfx-critFlash');
+  void hitFx.offsetWidth;
+  hitFx.classList.add('pfx-critFlash');
+  clearTimeout(fxCrit._t);
+  fxCrit._t = setTimeout(()=>hitFx.classList.remove('pfx-critFlash'), 220);
+}
+function setPressureVignette(level){
+  const v = clamp(level, 0, 1);
+  setCssVar('--hha-vig', v.toFixed(3));
+}
 
 // Seeded RNG (mulberry32)
 function mulberry32(seed){
@@ -322,14 +338,11 @@ let spawnAccum = 0;
 let goalsTotal = 2;
 let goalsCleared = 0;
 
+let minisTotal = 999;
 let miniCleared = 0;
 
 let activeGoal = null;
 let activeMini = null;
-
-// Brutal+++ extras (Play only)
-let bossQueued = false;
-let bossTriggered = false;
 
 const GOALS = [
   { key:'fill-plate', title:'เติมจานให้ครบ 5 หมู่', target:5, cur:0, done:false },
@@ -385,6 +398,19 @@ function updateHUD(){
   const ff = qs('uiFeverFill');
   if(ff) ff.style.width = `${clamp(fever,0,100)}%`;
   setText('uiShieldN', shield);
+
+  // --- BRUTAL+++ FX drivers ---
+  const comboGlow = clamp(combo / 32, 0, 1);
+  const feverV = clamp((fever - 35) / 65, 0, 1);
+  setCssVar('--hha-comboGlow', comboGlow.toFixed(3));
+
+  // base vignette from fever (mini may override in tick)
+  setPressureVignette(feverV);
+
+  try{
+    if(fever >= 75) DOC.body.classList.add('hha-dangerPulse');
+    else DOC.body.classList.remove('hha-dangerPulse');
+  }catch(e){}
 }
 
 function coach(msg, mood){
@@ -423,90 +449,37 @@ function makeMiniPlateRush(){
   };
 }
 
-function makeMiniBossBowl(){
-  return {
-    key:'boss-bowl',
-    title:'BOSS: Plate Bowl — ยิงของดีให้ครบ 10 ใน 10 วิ (ห้ามโดนขยะ!)',
-    forbidJunk:true,
-    durationSec: 10,
-    startedMs: 0,
-    done:false,
-    fail:false,
-    reason:'',
-    goodHits: 0,
-    targetGood: 10,
-  };
-}
-
 function startMini(mini){
   activeMini = mini;
   activeMini.startedMs = nowMs();
   activeMini.snapPlateHave = [...plateHave];
-
   emit('quest:update', {
     game:'plate',
     goal: activeGoal ? { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done } : null,
     mini: { title: activeMini.title, cur:0, target:activeMini.durationSec, timeLeft: activeMini.durationSec, done:false }
   });
-
   setText('uiMiniTitle', activeMini.title);
   setText('uiMiniTime', `${activeMini.durationSec}s`);
-
-  if(activeMini.key === 'plate-rush'){
-    setText('uiHint', '⚡ เร่งเก็บหมู่ที่ยังขาด! ⛔ ห้ามโดนขยะ!');
-    judge('⚡ Plate Rush เริ่มแล้ว!', 'warn');
-  }else if(activeMini.key === 'boss-bowl'){
-    setText('uiHint', '👿 BOSS มาแล้ว! ยิงของดีให้ครบ 10 ชิ้นใน 10 วิ (ห้ามโดนขยะ)');
-    judge('👿 BOSS MINI START!', 'warn');
-    coach('บอสมา! อย่าพลาดโดนขยะนะ 🔥', (fever>60?'fever':'neutral'));
-  }else{
-    setText('uiHint', 'ทริค: คุมความแม่นยำ + โคตรไว!');
-    judge('⚡ MINI START!', 'warn');
-  }
+  setText('uiHint', 'ทริค: เร่งเก็บหมู่ที่ยังขาด! ระวังขยะห้ามโดน!');
+  judge('⚡ Plate Rush เริ่มแล้ว!', 'warn');
 }
 
 function finishMini(ok, reason){
   if(!activeMini || activeMini.done) return;
-
-  const finishedKey = activeMini.key;
-
   activeMini.done = true;
   activeMini.fail = !ok;
   activeMini.reason = reason || (ok ? 'ok' : 'fail');
 
   if(ok){
     miniCleared++;
-
-    if(finishedKey === 'plate-rush'){
-      bossQueued = true; // ✅ ผ่าน Rush แล้วคิวบอส
-    }
-
     emit('hha:celebrate', { game:'plate', kind:'mini' });
-
-    coach('สุดยอด! MINI ผ่าน! 🔥', 'happy');
+    coach('สุดยอด! Plate Rush ผ่าน! 🔥', 'happy');
     judge('✅ MINI COMPLETE!', 'good');
-
-    // base reward
     shield = clamp(shield + 1, 0, 9);
-
-    // boss extra reward
-    if(finishedKey === 'boss-bowl'){
-      score += 220;
-      shield = clamp(shield + 2, 0, 9);
-      coolFever(18);
-      coach('โหดมาก! บอสแพ้แล้ว 🏆', 'happy');
-      judge('🏆 BOSS DOWN!', 'good');
-    }
   }else{
     coach('พลาดนิดเดียว! ลองใหม่เดี๋ยวก็ผ่าน 💪', (fever>70?'fever':'sad'));
     judge('❌ MINI FAILED', 'bad');
-
-    if(finishedKey === 'boss-bowl'){
-      addFever(10);
-      score = Math.max(0, score - 120);
-    }
   }
-
   activeMini = null;
   emitQuestUpdate();
 }
@@ -517,24 +490,13 @@ function miniTimeLeft(){
   return Math.max(0, activeMini.durationSec - elapsed);
 }
 
-function miniProgress(){
-  if(!activeMini) return { cur:0, target:0 };
-  if(activeMini.key === 'plate-rush'){
-    return { cur: plateHave.filter(Boolean).length, target: 5 };
-  }
-  if(activeMini.key === 'boss-bowl'){
-    return { cur: activeMini.goodHits || 0, target: activeMini.targetGood || 0 };
-  }
-  return { cur:0, target:0 };
-}
-
 function emitQuestUpdate(){
   if(activeGoal){
     emit('quest:update', {
       game:'plate',
       goal: { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done },
       mini: activeMini
-        ? { title: activeMini.title, cur: miniProgress().cur, target: miniProgress().target, timeLeft: miniTimeLeft(), done:false }
+        ? { title: activeMini.title, cur: 0, target: activeMini.durationSec, timeLeft: miniTimeLeft(), done:false }
         : { title:'—', cur:0, target:0, timeLeft:null, done:false }
     });
     setText('uiGoalTitle', activeGoal.title);
@@ -547,10 +509,7 @@ function emitQuestUpdate(){
 
   if(activeMini){
     setText('uiMiniTitle', activeMini.title);
-
-    const mp = miniProgress();
-    setText('uiMiniCount', `${mp.cur}/${mp.target}`);
-
+    setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal, miniCleared+1)}`);
     const tl = miniTimeLeft();
     setText('uiMiniTime', tl==null?'--':`${Math.ceil(tl)}s`);
     const mf = qs('uiMiniFill');
@@ -560,7 +519,6 @@ function emitQuestUpdate(){
     }
   }else{
     setText('uiMiniTitle','—');
-    setText('uiMiniCount','0/0');
     setText('uiMiniTime','--');
     const mf = qs('uiMiniFill'); if(mf) mf.style.width = `0%`;
   }
@@ -627,12 +585,6 @@ function currentTunings(){
     junkRate = clamp(junkRate + f*0.05, 0.08, 0.60);
   }
 
-  // Boss mini intensify (Play only)
-  if(!isStudy && activeMini && activeMini.key === 'boss-bowl'){
-    spawnPerSec *= 1.35;
-    junkRate = clamp(junkRate + 0.08, 0.10, 0.70);
-  }
-
   size = clamp(size, 38, 86);
   spawnPerSec = clamp(spawnPerSec, 0.8, 3.6);
   return { size, lifeMs, spawnPerSec, junkRate };
@@ -654,48 +606,17 @@ function spawnTarget(forcedKind){
   const playRect = getPlayRect();
   const noRects = buildNoSpawnRects();
 
-  const brutal = (!isStudy); // Play only
-  const decoyRate = (diff === 'hard') ? 0.12 : (diff === 'normal' ? 0.07 : 0.04);
-  const fakeShieldRate = (fever >= 65) ? 0.28 : 0.16;
-
   let kind = forcedKind;
   if(!kind){
     ensureShieldActive();
-    // shield chance (play)
-    if(brutal && shield < 2 && fever >= 60 && rng() < 0.06) kind = 'shield';
+    if(!isStudy && shield < 2 && fever >= 65 && rng() < 0.05) kind = 'shield';
     else kind = (rng() < tune.junkRate) ? 'junk' : 'good';
   }
 
   let spec;
-  let isDecoy = false;
-  let decoyAs = null;
-  let realEmoji = null;
-
-  if(kind === 'good'){
-    spec = pick(rng, goodPool);
-    realEmoji = spec.emoji;
-  }else if(kind === 'junk'){
-    spec = pick(rng, junkPool);
-    realEmoji = spec.emoji;
-
-    // Decoy (Play only)
-    if(brutal && rng() < decoyRate){
-      isDecoy = true;
-      decoyAs = pick(rng, groupEmojis);
-    }
-  }else if(kind === 'shield'){
-    // Fake shield (Play only)
-    if(brutal && rng() < fakeShieldRate){
-      spec = { emoji:'🛡️', kind:'fakeShield' };
-      realEmoji = '🛡️';
-    }else{
-      spec = shieldEmoji;
-      realEmoji = '🛡️';
-    }
-  }else{
-    spec = shieldEmoji;
-    realEmoji = '🛡️';
-  }
+  if(kind === 'good') spec = pick(rng, goodPool);
+  else if(kind === 'junk') spec = pick(rng, junkPool);
+  else spec = shieldEmoji;
 
   const size = tune.size;
   const box = { x:0, y:0, w:size, h:size };
@@ -727,14 +648,7 @@ function spawnTarget(forcedKind){
   el.setAttribute('data-id', id);
   el.setAttribute('data-kind', spec.kind);
   if(spec.kind === 'good') el.setAttribute('data-group', String(spec.groupIdx));
-
-  // show decoy first (good-looking), then reveal junk
-  if(isDecoy){
-    el.textContent = decoyAs;
-    el.classList.add('is-decoy');
-  }else{
-    el.textContent = spec.emoji;
-  }
+  el.textContent = spec.emoji;
 
   el.style.position = 'fixed';
   el.style.left = `${Math.round(box.x)}px`;
@@ -752,6 +666,10 @@ function spawnTarget(forcedKind){
   el.style.userSelect = 'none';
   el.style.webkitTapHighlightColor = 'transparent';
   el.style.transform = 'translateZ(0)';
+
+  // spawn pop-in + ripple
+  el.classList.add('spawnIn');
+  setTimeout(()=>{ try{ el.classList.remove('spawnIn'); }catch(e){} }, 260);
 
   on(el, 'pointerdown', (e)=>{
     e.preventDefault();
@@ -772,12 +690,6 @@ function spawnTarget(forcedKind){
     bornMs: born,
     lifeMs,
     size,
-
-    // decoy fields
-    isDecoy,
-    realEmoji,
-    revealAtMs: isDecoy ? (born + randRange(rng, 220, 320)) : 0,
-    revealed: !isDecoy,
   });
 
   if(spec.kind === 'good') nTargetGoodSpawned++;
@@ -822,7 +734,11 @@ function onHit(id){
     }
 
     let add = 50;
-    if(rt <= 420){ add += 35; perfectHits++; }
+    if(rt <= 420){
+      add += 35;
+      perfectHits++;
+      fxCrit(); // ✅ CRITICAL FLASH
+    }
     else if(rt <= 650){ add += 20; }
     add += Math.min(40, combo * 2);
 
@@ -836,15 +752,6 @@ function onHit(id){
       const tl = miniTimeLeft();
       if(haveN >= 5 && (tl != null && tl > 0)){
         finishMini(true, 'rush-complete');
-      }
-    }
-
-    if(activeMini && activeMini.key === 'boss-bowl'){
-      activeMini.goodHits = (activeMini.goodHits||0) + 1;
-      const mp = miniProgress();
-      setText('uiHint', `👿 BOSS: ${mp.cur}/${mp.target} • ห้ามโดนขยะ!`);
-      if(activeMini.goodHits >= activeMini.targetGood){
-        finishMini(true, 'boss-complete');
       }
     }
 
@@ -885,21 +792,6 @@ function onHit(id){
       }
     }
     ensureShieldActive();
-
-  } else if(kind === 'fakeShield'){
-    // Fake shield = trap (Play only)
-    miss++;
-    combo = 0;
-    score = Math.max(0, score - 80);
-    addFever(14);
-    fxPulse('bad'); fxShake(); fxBlink();
-    coach('โดนหลอก! โล่ปลอม 😵‍💫', (fever>70?'fever':'sad'));
-    judge('🛡️❌ FAKE SHIELD!', 'bad');
-
-    if(activeMini && activeMini.forbidJunk){
-      finishMini(false, 'fake-shield');
-    }
-
   } else if(kind === 'shield'){
     shield = clamp(shield + 1, 0, 9);
     ensureShieldActive();
@@ -979,7 +871,6 @@ function tick(){
     tLeftSec = newLeft;
   }
 
-  // mini timer FX
   if(activeMini){
     const tl = miniTimeLeft();
     if(tl != null){
@@ -991,22 +882,26 @@ function tick(){
         }
         if(tl <= 1.2) fxShake();
         if(tl <= 2.0) fxBlink();
+
+        // --- MINI pressure / vignette override ---
+        try{
+          const panic = clamp((3.2 - tl) / 3.2, 0, 1);
+          const feverV = clamp((fever - 35) / 65, 0, 1);
+          setPressureVignette(Math.max(feverV, panic));
+
+          if(tl <= 2.6) DOC.body.classList.add('hha-miniPanic');
+          else DOC.body.classList.remove('hha-miniPanic');
+        }catch(e){}
       }
       if(tl <= 0){
         finishMini(false, 'timeout');
       }
     }
-  }
-
-  // Spawn boss mini (Play only) after Plate Rush success
-  if(!isStudy && bossQueued && !bossTriggered && !activeMini){
-    if(tLeftSec > 12){
-      bossTriggered = true;
-      bossQueued = false;
-      startMini(makeMiniBossBowl());
-    }else{
-      bossQueued = false;
-    }
+  } else {
+    // reset mini panic class + vignette back to fever
+    try{ DOC.body.classList.remove('hha-miniPanic'); }catch(e){}
+    const feverV = clamp((fever - 35) / 65, 0, 1);
+    setPressureVignette(feverV);
   }
 
   const tune = currentTunings();
@@ -1018,19 +913,6 @@ function tick(){
   }
 
   for(const [id, tObj] of targets){
-
-    // reveal decoy -> junk
-    if(!isStudy && tObj.isDecoy && !tObj.revealed && tObj.revealAtMs && t >= tObj.revealAtMs){
-      tObj.revealed = true;
-      try{
-        tObj.el.textContent = tObj.realEmoji || '🍟';
-        tObj.el.classList.remove('is-decoy');
-        tObj.el.style.filter = 'brightness(1.15) saturate(1.25)';
-        setTimeout(()=>{ try{ tObj.el.style.filter=''; }catch(_){}
-        }, 180);
-      }catch(e){}
-    }
-
     if((t - tObj.bornMs) >= tObj.lifeMs){
       onExpireTarget(id);
     }
@@ -1143,12 +1025,16 @@ function resetState(){
   activeGoal = null;
   activeMini = null;
 
-  bossQueued = false;
-  bossTriggered = false;
-
   clearAllTargets();
   if(resultBackdrop) resultBackdrop.style.display = 'none';
   if(hudPaused) hudPaused.style.display = 'none';
+
+  // reset fx vars/classes
+  setCssVar('--hha-comboGlow', '0');
+  setPressureVignette(0);
+  try{
+    DOC.body.classList.remove('hha-miniPanic','hha-dangerPulse');
+  }catch(e){}
 }
 
 function startGame(){
@@ -1204,20 +1090,16 @@ function buildSummary(reason){
   const medRt = rtGood.length ? median(rtGood) : 0;
   const fastHitRatePct = (nHitGood>0) ? (perfectHits/nHitGood*100) : 0;
 
-  // finalize accuracy goal
   if(activeGoal && activeGoal.key === 'accuracy'){
     activeGoal.cur = Math.round(acc);
-    if(acc >= activeGoal.target && !activeGoal.done){
+    if(acc >= activeGoal.target){
       activeGoal.done = true;
       goalsCleared++;
     }
   }
-  goalsCleared = clamp(goalsCleared, 0, goalsTotal);
 
   const grade = calcGrade();
   const sessionId = `PLATE_${Date.now()}_${uid().slice(0,6)}`;
-
-  const miniTotalPlanned = (!isStudy && bossTriggered) ? 2 : 1;
 
   return {
     timestampIso: new Date().toISOString(),
@@ -1235,17 +1117,14 @@ function buildSummary(reason){
     goalsCleared,
     goalsTotal,
     miniCleared,
-    miniTotal: miniTotalPlanned,
-
+    miniTotal: miniCleared,
     nTargetGoodSpawned,
     nTargetJunkSpawned,
     nTargetShieldSpawned,
-
     nHitGood,
     nHitJunk,
     nHitJunkGuard,
     nExpireGood,
-
     accuracyGoodPct: Math.round(acc*10)/10,
     junkErrorPct: Math.round(junkErrorPct*10)/10,
     avgRtGoodMs: Math.round(avgRt),
