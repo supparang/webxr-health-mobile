@@ -1,82 +1,81 @@
-// === /herohealth/vr/hha-ai-director.js ===
-// HHA AI Director — adaptive tuning + coaching signals (no external AI)
-// ✅ estimates skill/fatigue/frustration from gameplay metrics
-// ✅ returns tuning multipliers (spawnMul, sizeMul, badMul, rewardMul)
-// ✅ suggests coach moments (key,text,sub,mood)
+// === /herohealth/vr/ai-director.js ===
+// HHA AI Director — safe difficulty shaping (PLAY only, deterministic if given rng)
+// Output modifiers are bounded; never changes research locks.
+//
+// update(ctx) -> { spawnRateMul, sizeMul, pBadAdd, pShieldAdd }
 
 'use strict';
-import { clamp } from './hha-runkit.js';
+
+function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
 export function createAIDirector(opts={}){
-  const game = String(opts.game||'game');
-  const cooldownMs = clamp(opts.cooldownMs ?? 3200, 1200, 12000);
-  const emit = opts.emit || (()=>{});
+  const rng = opts.rng || Math.random;
+  const diff = String(opts.diff || 'normal').toLowerCase();
 
-  let lastAt=0, lastKey='';
+  // bounds (safe)
+  const B = {
+    spawnRateMulMin: 0.86,
+    spawnRateMulMax: 1.18,
+    sizeMulMin: 0.88,
+    sizeMulMax: 1.12,
+    pBadAddMin: -0.06,
+    pBadAddMax:  0.08,
+    pShieldAddMin: -0.02,
+    pShieldAddMax:  0.06
+  };
 
-  function say(key, text, sub='', mood='neutral'){
-    const t = performance.now();
-    if (t-lastAt < cooldownMs) return;
-    if (key && key===lastKey) return;
-    lastAt=t; lastKey=key;
-    emit('hha:coach', { game, text, sub, mood });
+  // memory / smoothing
+  let mSkill=0.5, mFrus=0.3, mFat=0.3;
+  let lastOut = { spawnRateMul:1, sizeMul:1, pBadAdd:0, pShieldAdd:0 };
+
+  function smooth(prev, next, a){ return prev*(1-a) + next*a; }
+
+  function update(ctx){
+    // ctx: { skill(0..1), frustration(0..1), fatigue(0..1), inStorm, inEndWindow, misses, combo }
+    const skill = clamp(ctx.skill,0,1);
+    const frus  = clamp(ctx.frustration,0,1);
+    const fat   = clamp(ctx.fatigue,0,1);
+
+    // smooth to avoid jitter
+    mSkill = smooth(mSkill, skill, 0.12);
+    mFrus  = smooth(mFrus,  frus,  0.10);
+    mFat   = smooth(mFat,   fat,   0.08);
+
+    // base by diff
+    let baseSpawn = diff==='hard'? 1.06 : diff==='easy'? 0.96 : 1.00;
+    let baseSize  = diff==='hard'? 0.96 : diff==='easy'? 1.04 : 1.00;
+
+    // shaping logic:
+    // - ถ้า skill สูง + frus ต่ำ -> เร่งสปีด/ลดขนาดนิด
+    // - ถ้า frus สูง หรือ fat สูง -> ผ่อน (ช้าลง/ใหญ่ขึ้น/เพิ่ม shield)
+    const pressure = clamp(mFrus*0.65 + mFat*0.35, 0, 1);
+    const mastery  = clamp(mSkill*(1-pressure), 0, 1);
+
+    // spawn rate
+    let spawnRateMul = baseSpawn * (1 + (mastery-0.5)*0.28) * (1 - (pressure-0.35)*0.20);
+    // size
+    let sizeMul = baseSize * (1 - (mastery-0.5)*0.16) * (1 + (pressure-0.35)*0.18);
+
+    // tweak probabilities
+    let pBadAdd = (mastery-0.5)*0.06 - (pressure-0.35)*0.05;
+    let pShieldAdd = (pressure-0.35)*0.06 - (mastery-0.5)*0.02;
+
+    // small randomness to feel alive but bounded (still deterministic if rng seeded)
+    const j = (rng()*2-1);
+    spawnRateMul *= (1 + j*0.015);
+    sizeMul      *= (1 - j*0.012);
+
+    // clamp
+    spawnRateMul = clamp(spawnRateMul, B.spawnRateMulMin, B.spawnRateMulMax);
+    sizeMul      = clamp(sizeMul,      B.sizeMulMin,      B.sizeMulMax);
+    pBadAdd      = clamp(pBadAdd,      B.pBadAddMin,      B.pBadAddMax);
+    pShieldAdd   = clamp(pShieldAdd,   B.pShieldAddMin,   B.pShieldAddMax);
+
+    lastOut = { spawnRateMul, sizeMul, pBadAdd, pShieldAdd };
+    return lastOut;
   }
 
-  function estimate(ctx){
-    // ctx: { acc01, missRate01, combo01, elapsed01, inMini, inBoss, shield, goal01 }
-    const acc = clamp(ctx.acc01,0,1);
-    const combo = clamp(ctx.combo01,0,1);
-    const missR = clamp(ctx.missRate01,0,1);
-    const goal = clamp(ctx.goal01,0,1);
+  function getLast(){ return lastOut; }
 
-    const skill = clamp(acc*0.7 + combo*0.3, 0, 1);
-    const fatigue = clamp(ctx.elapsed01, 0, 1);
-    const frustration = clamp((missR*0.75 + (1-acc)*0.25), 0, 1);
-
-    return { skill, fatigue, frustration, goal };
-  }
-
-  function tune(ctx){
-    const { skill, fatigue, frustration, goal } = estimate(ctx);
-
-    // baseline = 1
-    let spawnMul = 1.0;
-    let sizeMul  = 1.0;
-    let badMul   = 1.0;
-    let rewardMul= 1.0;
-
-    // if struggling -> easier
-    if (frustration > 0.62){
-      spawnMul *= 1.10;  // slower spawn (engine should invert properly, see patch)
-      sizeMul  *= 1.08;
-      badMul   *= 0.92;
-      rewardMul*= 1.05;
-      say('struggle','ช้า ๆ แต่ชัวร์นะ 🎯','หยุดรัว 1 วิ แล้วเล็งกลางจอ','neutral');
-    }
-
-    // if skill high -> harder
-    if (skill > 0.78 && frustration < 0.45){
-      spawnMul *= 0.92;
-      sizeMul  *= 0.95;
-      badMul   *= 1.06;
-      rewardMul*= 1.02;
-      say('pro','โคตรเก่ง! ลองยากขึ้นไหม ⚡','รักษาคอมโบ + เล่นให้เนียน','happy');
-    }
-
-    // fatigue high -> soften slightly
-    if (fatigue > 0.70){
-      spawnMul *= 1.08;
-      badMul   *= 0.95;
-      say('fatigue','พักสายตาแป๊บก็ได้นะ 👀','เดี๋ยว AI ผ่อนให้หน่อย','neutral');
-    }
-
-    // goal not progressing -> suggest focus
-    if (goal < 0.35 && ctx.elapsed01 > 0.45){
-      say('goal','โฟกัส “ทำ Goal ให้ผ่านก่อน” ✅','อย่าไล่ยิงทุกอัน เลือกอันที่ชัวร์','neutral');
-    }
-
-    return { skill, fatigue, frustration, spawnMul, sizeMul, badMul, rewardMul };
-  }
-
-  return { tune, say };
+  return { update, getLast };
 }
