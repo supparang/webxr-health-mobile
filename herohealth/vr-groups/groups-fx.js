@@ -1,120 +1,119 @@
 /* === /herohealth/vr-groups/groups-fx.js ===
-FX Layer for GroupsVR
-✅ Screen flash: good/bad/cyan
-✅ Shake (sets --shakeX/--shakeY)
-✅ Pop text at hit location
-Listens: hha:judge, hha:hit, hha:celebrate
+GroupsVR FX — flash + pop text + shake (sets --shakeX/--shakeY)
+Listens:
+- hha:judge (good/bad/MISS/boss text)
+- groups:stun (ms,strength)
+- hha:celebrate (goal/mini)
 */
 
 (function(root){
   'use strict';
-  const doc = root.document;
-  if (!doc) return;
-
-  const NS = (root.GroupsVR = root.GroupsVR || {});
-  let layer = null;
-  let flash = null;
-  let shakeTimer = 0;
-
-  function ensureLayer(){
-    if (layer) return layer;
-    layer = doc.querySelector('.fx-layer');
-    if (layer) return layer;
-    layer = doc.createElement('div');
-    layer.className = 'fx-layer';
-    doc.body.appendChild(layer);
-    return layer;
-  }
+  const DOC = root.document;
+  if (!DOC) return;
 
   function ensureFlash(){
-    if (flash) return flash;
-    flash = doc.querySelector('.fx-flash');
-    if (flash) return flash;
-    flash = doc.createElement('div');
-    flash.className = 'fx-flash';
-    doc.body.appendChild(flash);
-    return flash;
+    let el = DOC.querySelector('.fx-flash');
+    if (el) return el;
+    el = DOC.createElement('div');
+    el.className = 'fx-flash';
+    DOC.body.appendChild(el);
+    return el;
+  }
+  function ensureLayer(){
+    let el = DOC.querySelector('.fx-layer');
+    if (el) return el;
+    el = DOC.createElement('div');
+    el.className = 'fx-layer';
+    DOC.body.appendChild(el);
+    return el;
   }
 
-  function flashScreen(kind='cyan', ms=120){
+  function flash(kind){
     const el = ensureFlash();
     el.classList.remove('good','bad','cyan','show');
-    el.classList.add(kind);
+    if (kind === 'good') el.classList.add('good');
+    else if (kind === 'bad') el.classList.add('bad');
+    else el.classList.add('cyan');
     el.classList.add('show');
-    root.setTimeout(()=> el.classList.remove('show'), ms);
+    setTimeout(()=> el.classList.remove('show'), 120);
   }
 
-  function setShake(x, y){
-    doc.documentElement.style.setProperty('--shakeX', (x||0).toFixed(2)+'px');
-    doc.documentElement.style.setProperty('--shakeY', (y||0).toFixed(2)+'px');
+  function pop(text, x, y){
+    const layer = ensureLayer();
+    const p = DOC.createElement('div');
+    p.className = 'fx-pop';
+    p.textContent = String(text||'');
+    p.style.left = (x|| (innerWidth*0.5)) + 'px';
+    p.style.top  = (y|| (innerHeight*0.45)) + 'px';
+    layer.appendChild(p);
+    setTimeout(()=> p.remove(), 620);
   }
 
-  function shake(ms=220, intensity=8){
-    try{ root.clearInterval(shakeTimer); }catch{}
-    const t0 = Date.now();
-    shakeTimer = root.setInterval(()=>{
-      const dt = Date.now() - t0;
-      if (dt >= ms){
-        try{ root.clearInterval(shakeTimer); }catch{}
-        shakeTimer = 0;
-        setShake(0,0);
-        return;
-      }
-      const k = 1 - dt/ms;
-      const a = intensity * k;
-      const rx = (Math.random()*2-1) * a;
-      const ry = (Math.random()*2-1) * a;
-      setShake(rx, ry);
-    }, 16);
-  }
-
-  function pop(x,y,text){
-    const lay = ensureLayer();
-    const el = doc.createElement('div');
-    el.className = 'fx-pop';
-    el.textContent = text;
-    el.style.left = (x||0)+'px';
-    el.style.top  = (y||0)+'px';
-    lay.appendChild(el);
-    root.setTimeout(()=> el.remove(), 650);
-  }
-
-  // Events
-  root.addEventListener('hha:judge', (e)=>{
-    const d = e.detail || {};
-    const kind = String(d.kind||'').toLowerCase();
-    if (kind === 'bad' || kind === 'miss'){
-      flashScreen('bad', 140);
-      shake(220, 10);
-      NS.Audio?.bad?.();
-    } else if (kind === 'good'){
-      flashScreen('good', 110);
-      NS.Audio?.good?.();
-    } else if (kind === 'boss'){
-      flashScreen('cyan', 160);
-      shake(260, 12);
-      NS.Audio?.boss?.();
+  // shake: apply to fg-layer via CSS vars
+  let shakeUntil = 0;
+  let strengthNow = 0;
+  function setShake(str){
+    const layer = DOC.getElementById('fg-layer') || DOC.querySelector('.fg-layer');
+    if (!layer) return;
+    const t = performance.now();
+    if (t > shakeUntil){
+      layer.style.setProperty('--shakeX','0px');
+      layer.style.setProperty('--shakeY','0px');
+      return;
     }
+    const s = Math.max(0.4, str||1);
+    const dx = (Math.random()-0.5) * 10 * s;
+    const dy = (Math.random()-0.5) * 8  * s;
+    layer.style.setProperty('--shakeX', dx.toFixed(1)+'px');
+    layer.style.setProperty('--shakeY', dy.toFixed(1)+'px');
+  }
+
+  function loopShake(){
+    if (performance.now() <= shakeUntil){
+      setShake(strengthNow);
+      requestAnimationFrame(loopShake);
+    } else {
+      setShake(0);
+    }
+  }
+
+  root.addEventListener('groups:stun', (ev)=>{
+    const d = ev.detail || {};
+    const ms = Math.max(200, Number(d.ms||800));
+    const str = Math.max(0.6, Number(d.strength||1));
+    shakeUntil = performance.now() + ms;
+    strengthNow = str;
+    flash('bad');
+    pop('STUN!', innerWidth*0.5, innerHeight*0.40);
+    loopShake();
   });
 
-  root.addEventListener('hha:celebrate', (e)=>{
-    const d = e.detail || {};
+  root.addEventListener('hha:judge', (ev)=>{
+    const d = ev.detail || {};
     const k = String(d.kind||'').toLowerCase();
-    flashScreen(k==='goal' ? 'good' : 'cyan', 180);
-    NS.Audio?.overdrive?.();
+    const text = d.text ? String(d.text) : '';
+    if (k === 'miss' || k === 'bad'){
+      flash('bad');
+      if (text) pop(text, innerWidth*0.5, innerHeight*0.42);
+      return;
+    }
+    if (k === 'boss'){
+      flash('cyan');
+      if (text) pop(text, innerWidth*0.5, innerHeight*0.35);
+      return;
+    }
+    // good
+    flash('good');
+    if (text) pop(text, innerWidth*0.5, innerHeight*0.42);
   });
 
-  root.addEventListener('hha:hit', (e)=>{
-    const d = e.detail || {};
-    const x = Number(d.x||0);
-    const y = Number(d.y||0);
+  root.addEventListener('hha:celebrate', (ev)=>{
+    const d = ev.detail || {};
     const kind = String(d.kind||'').toLowerCase();
-    const emoji = String(d.emoji||'');
-    if (x>0 && y>0){
-      if (kind === 'good') pop(x,y, `+${d.points||0} ${emoji}`);
-      else if (kind === 'boss') pop(x,y, `👑 -1`);
-      else pop(x,y, `-${d.penalty||0} ${emoji||'💥'}`);
-    }
+    const title = d.title ? String(d.title) : '';
+    if (!title) return;
+    flash(kind === 'goal' ? 'cyan' : 'good');
+    pop(title, innerWidth*0.5, innerHeight*0.34);
   });
 
 })(typeof window !== 'undefined' ? window : globalThis);
