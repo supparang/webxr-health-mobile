@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY)
-// v3: HARD+ (Boss Wave + MissLimit + Stun/Fever FX + Stable spawn accumulator)
+// v5 HELL: Boss 2 phases + Decoy + Dynamic No-Junk Zone + Sudden Death + Fever Stun/Jitter
 
 'use strict';
 
@@ -89,12 +89,22 @@ function rankFromAcc(acc){
   return 'C';
 }
 
-function diffBase(diff){
+function diffBase(diff, hell){
   diff = String(diff||'normal').toLowerCase();
-  // missLimit โหดขึ้นตาม diff
-  if (diff === 'easy')  return { spawnMs: 980, ttlMs: 2350, size: 1.08, junk: 0.12, power: 0.038, maxT: 7, missLimit: 22, bossNeed: 3, bossSec: 9 };
-  if (diff === 'hard')  return { spawnMs: 700, ttlMs: 1580, size: 0.94, junk: 0.19, power: 0.026, maxT: 9, missLimit: 12, bossNeed: 4, bossSec: 10 };
-  return { spawnMs: 830, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.032, maxT: 8, missLimit: 16, bossNeed: 3, bossSec: 9 };
+  // HELL: spawn faster, ttl shorter, junk higher, missLimit tighter, boss harder
+  if (diff === 'easy'){
+    return hell
+      ? { spawnMs: 820, ttlMs: 2000, size: 1.06, junk: 0.16, power: 0.040, maxT: 8, missLimit: 16, bossNeed1: 3, bossNeed2: 4, bossSec: 10, suddenSec: 10 }
+      : { spawnMs: 980, ttlMs: 2350, size: 1.08, junk: 0.12, power: 0.038, maxT: 7, missLimit: 22, bossNeed1: 3, bossNeed2: 3, bossSec: 9, suddenSec: 9 };
+  }
+  if (diff === 'hard'){
+    return hell
+      ? { spawnMs: 560, ttlMs: 1320, size: 0.92, junk: 0.24, power: 0.020, maxT: 11, missLimit: 9, bossNeed1: 4, bossNeed2: 5, bossSec: 10, suddenSec: 12 }
+      : { spawnMs: 700, ttlMs: 1580, size: 0.94, junk: 0.19, power: 0.026, maxT: 9, missLimit: 12, bossNeed1: 4, bossNeed2: 4, bossSec: 10, suddenSec: 10 };
+  }
+  return hell
+    ? { spawnMs: 660, ttlMs: 1550, size: 0.98, junk: 0.21, power: 0.028, maxT: 10, missLimit: 12, bossNeed1: 3, bossNeed2: 4, bossSec: 10, suddenSec: 11 }
+    : { spawnMs: 830, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.032, maxT: 8, missLimit: 16, bossNeed1: 3, bossNeed2: 3, bossSec: 9, suddenSec: 9 };
 }
 
 function ensureTargetStyles(){
@@ -104,7 +114,6 @@ function ensureTargetStyles(){
   const st = DOC.createElement('style');
   st.id = 'gj-safe-style';
   st.textContent = `
-    #gj-stage{ position:fixed; inset:0; overflow:hidden; }
     #gj-layer, #gj-layer-l, #gj-layer-r, .gj-layer{
       position:absolute; inset:0; z-index:30;
       pointer-events:auto !important;
@@ -138,6 +147,14 @@ function ensureTargetStyles(){
       border-color: rgba(255,215,0,.38);
       box-shadow: 0 18px 60px rgba(0,0,0,.50), 0 0 0 2px rgba(255,215,0,.10) inset;
       background: rgba(2,6,23,.62);
+    }
+    .gj-target.decoy{
+      width: 82px; height: 82px;
+      font-size: 40px;
+      border-color: rgba(244,63,94,.34);
+      box-shadow: 0 18px 60px rgba(0,0,0,.50), 0 0 0 2px rgba(244,63,94,.10) inset;
+      background: rgba(2,6,23,.60);
+      filter: saturate(1.1);
     }
     .gj-target.hit{
       transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.25));
@@ -215,6 +232,7 @@ const JUNK   = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
 const STARS  = ['⭐','✨'];
 const SHIELD = '🛡️';
 const BOSS_DIAMOND = '💎';
+const DECOYS = ['🪨','🔻','💥','🧨']; // หลอก
 
 function setXY(el, x, y){
   const px = x.toFixed(1) + 'px';
@@ -259,26 +277,18 @@ function updateFeverUI(shield, fever){
   try{ FeverUI.set({ value: clamp(fever, 0, 100), shield: clamp(shield, 0, 9) }); }catch(_){}
   try{ if (typeof FeverUI.setShield === 'function') FeverUI.setShield(clamp(shield,0,9)); }catch(_){}
 }
-
 function setFeverClass(fever){
   const b = ROOT.document?.body;
   if (!b) return;
   b.classList.toggle('fever-high', fever >= 70);
   b.classList.toggle('fever-max',  fever >= 95);
 }
-
 function pulseShake(level=1){
   const b = ROOT.document?.body;
   if (!b) return;
   const cls = (level >= 2) ? 'shake-2' : 'shake-1';
   b.classList.add(cls);
   setTimeout(()=>{ try{ b.classList.remove(cls); }catch(_){} }, 220);
-}
-
-function setStun(on){
-  const b = ROOT.document?.body;
-  if (!b) return;
-  b.classList.toggle('stun', !!on);
 }
 
 function makeSummary(S, reason){
@@ -293,21 +303,30 @@ function makeSummary(S, reason){
     goalsTotal: S.goalsTotal|0,
     miniCleared: S.miniCleared|0,
     miniTotal: S.miniTotal|0,
+
     bossWon: !!S.bossWon,
-    bossNeed: S.bossNeed|0,
+    bossPhase: S.bossPhase|0,
+    bossNeed1: S.bossNeed1|0,
+    bossNeed2: S.bossNeed2|0,
     nHitBoss: S.bossHits|0,
+
+    suddenDeath: !!S.suddenActive,
+    suddenMissLeft: S.suddenMissLeft|0,
+
     nHitGood: S.hitGood|0,
     nHitJunk: S.hitJunk|0,
     nHitJunkGuard: S.hitJunkGuard|0,
     nExpireGood: S.expireGood|0,
-    nHitAll: S.hitAll|0,
     accuracyGoodPct: acc|0,
     grade: rankFromAcc(acc),
+
     feverEnd: Math.round(S.fever)|0,
     shieldEnd: S.shield|0,
+
     diff: S.diff,
     runMode: S.runMode,
     seed: S.seed,
+    challenge: S.challenge,
     durationPlayedSec: Math.round((now() - S.tStart)/1000)
   };
 }
@@ -340,7 +359,7 @@ function renderEndOverlay(summary, hubUrl){
       padding: 14px;
     ">
       <div style="
-        width:min(720px, 92vw);
+        width:min(760px, 92vw);
         border:1px solid rgba(148,163,184,.20);
         border-radius:22px;
         background: rgba(2,6,23,.82);
@@ -349,7 +368,7 @@ function renderEndOverlay(summary, hubUrl){
       ">
         <div style="font-size:22px;font-weight:1000;">สรุปผล GoodJunkVR</div>
         <div style="margin-top:6px;color:rgba(148,163,184,.95);font-weight:900;font-size:13px;">
-          reason=${summary.reason} • diff=${summary.diff} • run=${summary.runMode}
+          reason=${summary.reason} • diff=${summary.diff} • run=${summary.runMode} • challenge=${summary.challenge}
         </div>
 
         <div style="margin-top:12px;display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:10px;">
@@ -368,16 +387,14 @@ function renderEndOverlay(summary, hubUrl){
           <div style="border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:12px;background:rgba(15,23,42,.55);">
             <div style="color:rgba(148,163,184,.9);font-weight:900;font-size:12px;">Boss</div>
             <div style="font-weight:1000;font-size:22px;margin-top:2px;">
-              ${summary.bossWon ? 'CLEAR ✅' : '—'} <span style="font-size:14px;color:rgba(148,163,184,.9);">(${summary.nHitBoss}/${summary.bossNeed})</span>
+              ${summary.bossWon ? 'CLEAR ✅' : '—'} <span style="font-size:14px;color:rgba(148,163,184,.9);">(hits ${summary.nHitBoss})</span>
             </div>
           </div>
         </div>
 
         <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
           <button id="btnEndReplay" style="
-            flex:1;
-            min-width: 180px;
-            height:54px;border-radius:16px;
+            flex:1; min-width: 180px; height:54px;border-radius:16px;
             border:1px solid rgba(34,197,94,.35);
             background: rgba(34,197,94,.18);
             color:#eafff3;
@@ -385,9 +402,7 @@ function renderEndOverlay(summary, hubUrl){
           ">เล่นอีกครั้ง</button>
 
           <button id="btnEndHub" style="
-            flex:1;
-            min-width: 180px;
-            height:54px;border-radius:16px;
+            flex:1; min-width: 180px; height:54px;border-radius:16px;
             border:1px solid rgba(148,163,184,.22);
             background: rgba(2,6,23,.65);
             color:#e5e7eb;
@@ -402,7 +417,6 @@ function renderEndOverlay(summary, hubUrl){
   const btnHub = DOC.getElementById('btnEndHub');
 
   btnReplay && btnReplay.addEventListener('click', ()=> location.reload());
-
   btnHub && btnHub.addEventListener('click', ()=>{
     const hub = hubUrl || qs('hub','');
     if (hub) location.href = hub;
@@ -416,23 +430,11 @@ export function boot(opts = {}) {
 
   ensureTargetStyles();
 
-  const layerL = opts.layerEl
-    || DOC.getElementById('gj-layer-l')
-    || DOC.getElementById('gj-layer')
-    || DOC.querySelector('.gj-layer');
+  const layerL = opts.layerEl || DOC.getElementById('gj-layer-l') || DOC.getElementById('gj-layer') || DOC.querySelector('.gj-layer');
+  const layerR = opts.layerElR || DOC.getElementById('gj-layer-r') || null;
 
-  const layerR = opts.layerElR
-    || DOC.getElementById('gj-layer-r')
-    || null;
-
-  const crossL = opts.crosshairEl
-    || DOC.getElementById('gj-crosshair-l')
-    || DOC.getElementById('gj-crosshair')
-    || DOC.querySelector('.gj-crosshair');
-
-  const crossR = opts.crosshairElR
-    || DOC.getElementById('gj-crosshair-r')
-    || null;
+  const crossL = opts.crosshairEl || DOC.getElementById('gj-crosshair-l') || DOC.getElementById('gj-crosshair') || DOC.querySelector('.gj-crosshair');
+  const crossR = opts.crosshairElR || DOC.getElementById('gj-crosshair-r') || null;
 
   const shootEl = opts.shootEl || DOC.getElementById('btnShoot');
 
@@ -449,8 +451,11 @@ export function boot(opts = {}) {
   const runMode = (run === 'research') ? 'research' : 'play';
 
   const timeSec = clamp(Number(opts.time ?? qs('time','80')), 30, 600) | 0;
-  const endPolicy = String(opts.endPolicy || qs('end','time')).toLowerCase(); // time|all|miss
-  const challenge = String(opts.challenge || qs('challenge','rush')).toLowerCase();
+  const endPolicy = String(opts.endPolicy || qs('end','miss')).toLowerCase(); // time|all|miss
+  const challenge = String(opts.challenge || qs('challenge','hell')).toLowerCase();
+
+  const hell = (challenge === 'hell' || challenge === 'hardpp' || String(qs('hell','0')) === '1');
+  const hardpp = (challenge === 'hardpp');
 
   const sessionId = String(opts.sessionId || qs('sessionId', qs('sid','')) || '');
   const seedIn = opts.seed || qs('seed', null);
@@ -460,7 +465,7 @@ export function boot(opts = {}) {
   const ctx = opts.context || {};
   const hubUrl = qs('hub','');
 
-  const base = diffBase(diff);
+  const base = diffBase(diff, hell);
 
   const S = {
     running:false, ended:false, flushed:false,
@@ -479,16 +484,28 @@ export function boot(opts = {}) {
     goalsCleared:0, goalsTotal:2,
     miniCleared:0, miniTotal:7,
 
-    // boss wave
-    bossArmed:true,
+    // boss 2 phases
     bossActive:false,
     bossDone:false,
     bossWon:false,
-    bossNeed: base.bossNeed|0,
+    bossPhase:0,               // 0 none, 1 phase1, 2 phase2
+    bossNeed1: base.bossNeed1|0,
+    bossNeed2: base.bossNeed2|0,
     bossHits:0,
-    bossJunkTouched:false,
     bossEndAt:0,
     bossSec: base.bossSec|0,
+
+    // sudden death
+    suddenActive:false,
+    suddenEndAt:0,
+    suddenSec: base.suddenSec|0,
+    suddenMissLeft: 0,
+
+    // no-junk zone (dynamic)
+    noJunkOn: hell,             // เปิดเมื่อ hell
+    noJunkRadius: isMobileLike() ? 128 : 112, // px
+    noJunkMin: isMobileLike() ? 64 : 54,
+    noJunkMax: isMobileLike() ? 160 : 140,
 
     warmupUntil:0,
 
@@ -508,7 +525,7 @@ export function boot(opts = {}) {
   };
 
   if (isMobileLike()){
-    S.maxTargets = Math.max(6, S.maxTargets - 1);
+    S.maxTargets = Math.max(7, S.maxTargets - 1);
     S.size = Math.min(1.12, S.size + 0.03);
     safeMargins.left = Math.max(12, safeMargins.left);
     safeMargins.right = Math.max(12, safeMargins.right);
@@ -529,13 +546,30 @@ export function boot(opts = {}) {
   function updateTime(){ emit('hha:time', { left: Math.max(0, S.left|0) }); }
 
   function updateQuest(){
+    if (S.suddenActive){
+      const leftMs = Math.max(0, S.suddenEndAt - now());
+      emit('quest:update', {
+        goalTitle: `SUDDEN DEATH!`,
+        goalNow: 0, goalTotal: 0,
+        miniTitle: `พลาดได้อีก ${S.suddenMissLeft} ครั้ง`,
+        miniNow: 0, miniTotal: 0,
+        miniLeftMs: leftMs|0
+      });
+      emit('quest:progress', {
+        goalsCleared: S.goalsCleared, goalsTotal: S.goalsTotal,
+        miniCleared: S.miniCleared, miniTotal: S.miniTotal
+      });
+      return;
+    }
+
     if (S.bossActive){
       const leftMs = Math.max(0, S.bossEndAt - now());
+      const need = (S.bossPhase === 1) ? S.bossNeed1 : S.bossNeed2;
       emit('quest:update', {
-        goalTitle: `Goal: เก็บของดีให้ครบ`,
-        goalNow: S.goalsCleared, goalTotal: S.goalsTotal,
-        miniTitle: `BOSS: ยิง 💎 ให้ครบ (ห้ามโดนขยะ!)`,
-        miniNow: S.bossHits, miniTotal: S.bossNeed,
+        goalTitle: `BOSS PHASE ${S.bossPhase}: ยิง 💎 ให้ครบ`,
+        goalNow: S.bossHits, goalTotal: need,
+        miniTitle: (S.bossPhase === 2) ? `ระวัง DECOY! โดนหลอก = โทษหนัก` : `ห้ามพลาด!`,
+        miniNow: 0, miniTotal: 0,
         miniLeftMs: leftMs|0
       });
       emit('quest:progress', {
@@ -635,11 +669,11 @@ export function boot(opts = {}) {
     if (!el || !el.isConnected) return;
     const tp = String(el.dataset.type||'');
 
-    // miss only when good expired (as per standard)
+    // miss only for good/boss expires
     if (tp === 'good' || tp === 'boss'){
       S.misses++; S.expireGood++; S.combo = 0;
 
-      S.fever = clamp(S.fever + 8, 0, 100);
+      S.fever = clamp(S.fever + (hell ? 10 : 8), 0, 100);
       updateFeverUI(S.shield, S.fever);
       setFeverClass(S.fever);
       pulseShake(1);
@@ -648,9 +682,12 @@ export function boot(opts = {}) {
       updateScore(); updateQuest();
       logEvent('miss_expire', { kind: tp, emoji: String(el.dataset.emoji||'') });
 
-      if (endPolicy === 'miss' && S.misses >= S.missLimit){
-        endGame('miss_limit');
+      if (S.suddenActive){
+        S.suddenMissLeft = Math.max(0, S.suddenMissLeft - 1);
+        if (S.suddenMissLeft <= 0) endGame('sudden_death');
       }
+
+      if (endPolicy === 'miss' && S.misses >= S.missLimit) endGame('miss_limit');
     }
 
     el.classList.add('out');
@@ -663,64 +700,101 @@ export function boot(opts = {}) {
   }
 
   function scoreGood(){
-    // combo scaling (aggressive but fair)
-    const mult = 1 + clamp(S.combo/32, 0, 0.85);
-    const pts = Math.round(92 * mult);
+    const mult = 1 + clamp(S.combo/28, 0, hell ? 1.05 : 0.85);
+    const pts = Math.round((hell ? 96 : 92) * mult);
     S.score += pts;
     return pts;
   }
 
   function maybeTriggerStun(){
     if (S.fever < 100) return;
-    // stun only if not already in stun
     if (now() < S.stunnedUntil) return;
 
-    S.stunnedUntil = now() + 1200;
-    setStun(true);
+    S.stunnedUntil = now() + (hell ? 1400 : 1200);
     pulseShake(2);
     coach('sad', 'STUN! 😵', 'พัก 1 วิ แล้วค่อยยิงต่อ!');
     judge('bad', 'STUN!');
-    setTimeout(()=> setStun(false), 520);
   }
 
-  function startBossWave(){
+  function beginBoss(){
     if (S.bossDone || S.bossActive) return;
-
     S.bossActive = true;
-    S.bossEndAt = now() + (S.bossSec * 1000);
+    S.bossPhase = 1;
     S.bossHits = 0;
-    S.bossJunkTouched = false;
+    S.bossEndAt = now() + (S.bossSec * 1000);
 
-    coach('neutral', 'BOSS WAVE! 💎', `ยิงเพชรให้ครบ ${S.bossNeed} ครั้ง (ห้ามโดนขยะ!)`);
-    emit('hha:celebrate', { kind:'mini', title:'BOSS WAVE 💎' });
+    coach('neutral', `BOSS PHASE 1! 💎`, `ยิงเพชรให้ครบ ${S.bossNeed1} ครั้ง`);
+    emit('hha:celebrate', { kind:'mini', title:'BOSS PHASE 1 💎' });
     updateQuest();
   }
 
-  function finishBossWave(win){
+  function nextBossPhase2(){
+    if (!S.bossActive) return;
+    S.bossPhase = 2;
+    S.bossHits = 0;
+    S.bossEndAt = now() + (Math.round(S.bossSec * 0.95) * 1000);
+
+    coach('neutral', `BOSS PHASE 2! 😈`, `ยิง 💎 ให้ครบ ${S.bossNeed2} แต่มี DECOY!`);
+    emit('hha:celebrate', { kind:'mini', title:'BOSS PHASE 2 😈' });
+    updateQuest();
+  }
+
+  function finishBoss(win){
     if (!S.bossActive) return;
     S.bossActive = false;
     S.bossDone = true;
     S.bossWon = !!win;
 
     if (win){
-      const bonus = 650;
+      const bonus = hell ? 860 : 650;
       S.score += bonus;
       coach('happy', 'BOSS CLEAR! 🏆', `ได้โบนัส +${bonus}`);
       judge('good', `BOSS +${bonus}`);
       emit('hha:celebrate', { kind:'goal', title:'BOSS CLEAR!' });
+
+      // start sudden death (HELL only)
+      if (hell && runMode === 'play'){
+        startSuddenDeath();
+      }
     } else {
-      // penalty โหด
-      const penalty = 420;
+      const penalty = hell ? 520 : 420;
       S.score = Math.max(0, S.score - penalty);
-      S.fever = clamp(S.fever + 18, 0, 100);
+      S.fever = clamp(S.fever + (hell ? 22 : 18), 0, 100);
       updateFeverUI(S.shield, S.fever);
       setFeverClass(S.fever);
       pulseShake(2);
       coach('sad', 'BOSS FAIL 😵', `โดนโทษ -${penalty}`);
       judge('bad', `BOSS FAIL -${penalty}`);
+      maybeTriggerStun();
     }
 
     updateScore(); updateQuest();
+  }
+
+  function startSuddenDeath(){
+    if (S.suddenActive) return;
+    S.suddenActive = true;
+    S.suddenMissLeft = 1;
+    S.suddenEndAt = now() + (S.suddenSec * 1000);
+
+    coach('neutral', 'SUDDEN DEATH 🔥', `พลาดได้อีก ${S.suddenMissLeft} ครั้ง!`);
+    emit('hha:celebrate', { kind:'mini', title:'SUDDEN DEATH 🔥' });
+
+    // crank difficulty
+    S.spawnMs = clamp(S.spawnMs * 0.78, 360, 900);
+    S.ttlMs   = clamp(S.ttlMs * 0.78, 920, 2200);
+    S.junkP   = clamp(S.junkP + 0.05, 0.10, 0.30);
+    S.maxTargets = clamp(S.maxTargets + 2, 6, isMobileLike()? 12 : 14);
+
+    updateQuest();
+  }
+
+  function applySuddenTimers(){
+    if (!S.suddenActive) return;
+    if (now() >= S.suddenEndAt){
+      // survive -> win
+      endGame('sudden_survive');
+    }
   }
 
   function hitGood(el){
@@ -728,8 +802,7 @@ export function boot(opts = {}) {
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
 
-    // fever cool down
-    S.fever = clamp(S.fever - 2.6, 0, 100);
+    S.fever = clamp(S.fever - (hell ? 2.2 : 2.6), 0, 100);
     updateFeverUI(S.shield, S.fever);
     setFeverClass(S.fever);
 
@@ -743,22 +816,22 @@ export function boot(opts = {}) {
 
     // mini: combo thresholds
     if (S.miniCleared < S.miniTotal){
-      const needCombo = 4 + (S.miniCleared * 2);
+      const needCombo = (hell ? 5 : 4) + (S.miniCleared * (hell ? 2 : 2));
       if (S.combo >= needCombo){
         S.miniCleared++;
         emit('hha:celebrate', { kind:'mini', title:`Mini ผ่าน! ${S.miniCleared}/${S.miniTotal}` });
-        coach('happy', `คอมโบมาแล้ว! 🔥`, `อีกนิดจะโหดขึ้นนะ!`);
+        coach('happy', `คอมโบมาแล้ว! 🔥`, `ระวัง junk จะเริ่มรัว`);
         updateQuest();
       }
     }
 
     // goals: good hit milestones
     if (S.goalsCleared < S.goalsTotal){
-      const needGood = 10 + (S.goalsCleared * 9);
+      const needGood = 10 + (S.goalsCleared * (hell ? 10 : 9));
       if (S.hitGood >= needGood){
         S.goalsCleared++;
         emit('hha:celebrate', { kind:'goal', title:`Goal ผ่าน! ${S.goalsCleared}/${S.goalsTotal}` });
-        coach('happy', `Goal ผ่านแล้ว!`, `ระวัง junk ตอนท้ายจะบอส`);
+        coach('happy', `Goal ผ่านแล้ว!`, `ใกล้ท้ายเกมมีบอส`);
         updateQuest();
       }
     }
@@ -774,7 +847,7 @@ export function boot(opts = {}) {
     S.shield = clamp(S.shield + 1, 0, 9);
     updateFeverUI(S.shield, S.fever);
 
-    S.score += 80;
+    S.score += (hell ? 90 : 80);
     judge('good', 'SHIELD +1');
     emit('hha:celebrate', { kind:'mini', title:'SHIELD 🛡️' });
     burstAtEl(el, 'shield');
@@ -789,12 +862,11 @@ export function boot(opts = {}) {
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
 
-    // star: short "focus" reward (reduce fever)
-    S.fever = clamp(S.fever - 6, 0, 100);
+    S.fever = clamp(S.fever - (hell ? 7 : 6), 0, 100);
     updateFeverUI(S.shield, S.fever);
     setFeverClass(S.fever);
 
-    const pts = 160;
+    const pts = (hell ? 190 : 160);
     S.score += pts;
     judge('good', `BONUS +${pts}`);
     emit('hha:celebrate', { kind:'mini', title:'BONUS ✨' });
@@ -806,34 +878,80 @@ export function boot(opts = {}) {
   }
 
   function hitBoss(el){
-    // boss diamond hit
     S.hitAll++; S.hitGood++;
     S.combo = clamp(S.combo + 1, 0, 9999);
     S.comboMax = Math.max(S.comboMax, S.combo);
 
     S.bossHits++;
     burstAtEl(el, 'star');
-    judge('good', `💎 ${S.bossHits}/${S.bossNeed}`);
-    logEvent('boss_hit', { hits:S.bossHits, need:S.bossNeed });
+    const need = (S.bossPhase === 1) ? S.bossNeed1 : S.bossNeed2;
+    judge('good', `💎 ${S.bossHits}/${need}`);
+    logEvent('boss_hit', { phase:S.bossPhase, hits:S.bossHits, need });
 
     updateScore(); updateQuest();
     removeTargetBoth(el);
 
-    if (S.bossHits >= S.bossNeed){
-      finishBossWave(true);
-      if (endPolicy === 'all' && S.goalsCleared >= S.goalsTotal && S.miniCleared >= S.miniTotal){
-        endGame('all_complete');
-      }
+    if (S.bossHits >= need){
+      if (S.bossPhase === 1) nextBossPhase2();
+      else finishBoss(true);
     }
+  }
+
+  function hitDecoy(el){
+    // DEC0Y = โทษหนัก + ลด progress + fever + shake
+    S.hitAll++;
+
+    // shield can block decoy as "fake hit"
+    if (S.shield > 0){
+      S.shield = Math.max(0, S.shield - 1);
+      S.hitJunkGuard++;
+      updateFeverUI(S.shield, S.fever);
+
+      judge('good', 'BLOCK DECOY!');
+      burstAtEl(el, 'guard');
+      logEvent('shield_block', { kind:'decoy', emoji:String(el.dataset.emoji||'') });
+
+      updateScore(); updateQuest();
+      removeTargetBoth(el);
+      return;
+    }
+
+    S.hitJunk++; S.misses++; S.combo = 0;
+
+    const penalty = hell ? 320 : 260;
+    S.score = Math.max(0, S.score - penalty);
+
+    S.fever = clamp(S.fever + (hell ? 20 : 16), 0, 100);
+    updateFeverUI(S.shield, S.fever);
+    setFeverClass(S.fever);
+    pulseShake(2);
+
+    // reduce boss progress
+    if (S.bossActive && S.bossPhase === 2){
+      S.bossHits = Math.max(0, S.bossHits - 1);
+    }
+
+    judge('bad', `DECOY! -${penalty}`);
+    coach('sad', 'โดนหลอก! 😈', 'โฟกัส 💎 เท่านั้น!');
+    burstAtEl(el, 'junk');
+
+    logEvent('hit', { kind:'decoy', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever), boss:true });
+
+    maybeTriggerStun();
+
+    updateScore(); updateQuest();
+    removeTargetBoth(el);
+
+    if (S.suddenActive){
+      S.suddenMissLeft = Math.max(0, S.suddenMissLeft - 1);
+      if (S.suddenMissLeft <= 0) { endGame('sudden_death'); return; }
+    }
+
+    if (endPolicy === 'miss' && S.misses >= S.missLimit) endGame('miss_limit');
   }
 
   function hitJunk(el){
     S.hitAll++;
-
-    // during boss: touching junk => fail boss (no miss count rule? we still count miss as per standard)
-    if (S.bossActive){
-      S.bossJunkTouched = true;
-    }
 
     if (S.shield > 0){
       S.shield = Math.max(0, S.shield - 1);
@@ -846,16 +964,15 @@ export function boot(opts = {}) {
 
       updateScore(); updateQuest();
       removeTargetBoth(el);
-      return; // no miss (as per standard)
+      return; // no miss (standard)
     }
 
-    // miss counts here
     S.hitJunk++; S.misses++; S.combo = 0;
 
-    const penalty = S.bossActive ? 260 : 180;
+    const penalty = (S.bossActive ? (hell ? 300 : 260) : (hell ? 210 : 180));
     S.score = Math.max(0, S.score - penalty);
 
-    S.fever = clamp(S.fever + (S.bossActive ? 18 : 13), 0, 100);
+    S.fever = clamp(S.fever + (S.bossActive ? (hell ? 20 : 18) : (hell ? 14 : 13)), 0, 100);
     updateFeverUI(S.shield, S.fever);
     setFeverClass(S.fever);
     pulseShake(S.bossActive ? 2 : 1);
@@ -871,93 +988,25 @@ export function boot(opts = {}) {
     updateScore(); updateQuest();
     removeTargetBoth(el);
 
-    // end=miss
-    if (endPolicy === 'miss' && S.misses >= S.missLimit){
-      endGame('miss_limit');
-      return;
+    if (S.suddenActive){
+      S.suddenMissLeft = Math.max(0, S.suddenMissLeft - 1);
+      if (S.suddenMissLeft <= 0) { endGame('sudden_death'); return; }
     }
 
-    // boss fail instantly if junk touched during boss
-    if (S.bossActive && S.bossJunkTouched){
-      finishBossWave(false);
-    }
+    if (endPolicy === 'miss' && S.misses >= S.missLimit) endGame('miss_limit');
   }
 
   function hitTarget(el){
     if (!S.running || S.ended || !el || !el.isConnected) return;
-
-    // stunned => ignore input
     if (now() < S.stunnedUntil) return;
 
     const tp = String(el.dataset.type||'');
     if (tp === 'boss') return hitBoss(el);
+    if (tp === 'decoy') return hitDecoy(el);
     if (tp === 'good') return hitGood(el);
     if (tp === 'junk') return hitJunk(el);
     if (tp === 'shield') return hitShield(el);
     if (tp === 'star') return hitStar(el);
-  }
-
-  function spawnOne(){
-    if (!S.running || S.ended) return;
-    if (countTargets(layerL) >= S.maxTargets) return;
-
-    const t = now();
-    const inWarm = (t < S.warmupUntil);
-
-    // boss spawns: prioritize boss diamond
-    if (S.bossActive){
-      const uid = String(S.uidSeq++);
-      const pL = randPosEye(S.rng, safeMargins, 0, dual);
-      const s  = clamp(S.size * 1.06, 0.86, 1.22);
-
-      const elL = makeTarget('boss', BOSS_DIAMOND, pL.x, pL.y, s, uid);
-      layerL.appendChild(elL);
-
-      if (dual && layerR){
-        const pR = randPosEye(S.rng, safeMargins, 1, dual);
-        const elR = makeTarget('boss', BOSS_DIAMOND, pR.x, pL.y, s, uid);
-        layerR.appendChild(elR);
-      }
-      logEvent('spawn', { kind:'boss', emoji:BOSS_DIAMOND, uid });
-      return;
-    }
-
-    let tp = 'good';
-    const r = S.rng();
-    const powerP = inWarm ? (S.powerP * 0.65) : S.powerP;
-    const junkP  = inWarm ? (S.junkP * 0.58)  : S.junkP;
-
-    if (r < powerP) tp = 'shield';
-    else if (r < powerP + 0.040) tp = 'star';
-    else if (r < powerP + 0.040 + junkP) tp = 'junk';
-    else tp = 'good';
-
-    const size = (inWarm ? (S.size * 1.06) : S.size);
-    const uid = String(S.uidSeq++);
-
-    const pL = randPosEye(S.rng, safeMargins, 0, dual);
-    const emoji =
-      (tp === 'good') ? pick(S.rng, GOOD) :
-      (tp === 'junk') ? pick(S.rng, JUNK) :
-      (tp === 'star') ? pick(S.rng, STARS) :
-      SHIELD;
-
-    const s =
-      (tp === 'junk') ? (size * 0.98) :
-      (tp === 'shield') ? (size * 1.03) :
-      (tp === 'star') ? (size * 1.02) :
-      size;
-
-    const elL = makeTarget(tp, emoji, pL.x, pL.y, s, uid);
-    layerL.appendChild(elL);
-
-    if (dual && layerR){
-      const pR = randPosEye(S.rng, safeMargins, 1, dual);
-      const elR = makeTarget(tp, emoji, pR.x, pL.y, s, uid);
-      layerR.appendChild(elR);
-    }
-
-    logEvent('spawn', { kind:tp, emoji:String(emoji||''), uid });
   }
 
   function shootAtCrosshair(){
@@ -987,7 +1036,6 @@ export function boot(opts = {}) {
 
     if (best) hitTarget(best);
     else {
-      // whiff punish: ลด combo
       if (S.combo > 0) S.combo = Math.max(0, S.combo - 1);
       updateScore();
     }
@@ -1044,8 +1092,157 @@ export function boot(opts = {}) {
     emit('hha:celebrate', { kind:'end', title:'จบเกม!' });
     coach('neutral', 'จบเกมแล้ว!', 'กดกลับ HUB หรือเล่นใหม่ได้');
 
-    // render overlay summary + buttons
     renderEndOverlay(summary, hubUrl);
+  }
+
+  function computeNoJunkRadius(acc, elapsed){
+    if (!S.noJunkOn) return 0;
+
+    // เล่นเก่ง = โซนหด, fever สูง = โซนขยาย, เวลาผ่านไป = โซนค่อย ๆ หด
+    const skill = clamp((acc - 0.68) * 1.3 + clamp(S.combo/22,0,1)*0.55, 0, 1);
+    const timeRamp = clamp((elapsed - 4) / 14, 0, 1);
+
+    let r = S.noJunkMax - (skill * 70) - (timeRamp * 30);
+
+    if (S.fever >= 70) r += 28;
+    if (S.fever >= 95) r += 18;
+
+    // Sudden death: โซนหดลงอีก (โหด)
+    if (S.suddenActive) r -= 14;
+
+    return clamp(r, S.noJunkMin, S.noJunkMax);
+  }
+
+  function posFarFromCrosshair(x, y, eye){
+    if (!S.noJunkOn) return true;
+    const r = S.noJunkRadius;
+    if (r <= 0) return true;
+
+    // ใช้ crosshair ของแต่ละตาเป็น center
+    const c = (eye === 1 && crossR) ? getCenter(crossR) : (crossL ? getCenter(crossL) : { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 });
+    // note: x,y เป็น local eye coords, ต้อง convert เป็น global เพื่อเทียบกับ rect
+    const W = ROOT.innerWidth || 360;
+    const eyeW = dual ? (W * 0.5) : W;
+    const gx = x + ((dual && eye === 1) ? eyeW : 0);
+    const gy = y;
+
+    const d2 = dist2(gx, gy, c.x, c.y);
+    return d2 >= (r*r);
+  }
+
+  function spawnOne(){
+    if (!S.running || S.ended) return;
+    if (countTargets(layerL) >= S.maxTargets) return;
+
+    const t = now();
+    const inWarm = (t < S.warmupUntil);
+
+    // Boss spawns
+    if (S.bossActive){
+      const uid = String(S.uidSeq++);
+      const s = clamp(S.size * (hell ? 1.06 : 1.04), 0.84, 1.22);
+
+      // spawn diamond always
+      let pL = randPosEye(S.rng, safeMargins, 0, dual);
+      let tries = 0;
+      while (!posFarFromCrosshair(pL.x, pL.y, 0) && tries++ < 10){
+        pL = randPosEye(S.rng, safeMargins, 0, dual);
+      }
+      const elL = makeTarget('boss', BOSS_DIAMOND, pL.x, pL.y, s, uid);
+      layerL.appendChild(elL);
+
+      if (dual && layerR){
+        let pR = randPosEye(S.rng, safeMargins, 1, dual);
+        tries = 0;
+        while (!posFarFromCrosshair(pR.x, pL.y, 1) && tries++ < 10){
+          pR = randPosEye(S.rng, safeMargins, 1, dual);
+        }
+        const elR = makeTarget('boss', BOSS_DIAMOND, pR.x, pL.y, s, uid);
+        layerR.appendChild(elR);
+      }
+
+      // Phase 2: add decoy spawns sometimes
+      if (S.bossPhase === 2){
+        const decoyChance = hell ? 0.70 : 0.55;
+        if (S.rng() < decoyChance){
+          const duid = String(S.uidSeq++);
+          const de = pick(S.rng, DECOYS);
+          let dpL = randPosEye(S.rng, safeMargins, 0, dual);
+          let dtries = 0;
+          while (!posFarFromCrosshair(dpL.x, dpL.y, 0) && dtries++ < 10){
+            dpL = randPosEye(S.rng, safeMargins, 0, dual);
+          }
+          const dL = makeTarget('decoy', de, dpL.x, dpL.y, s * 0.98, duid);
+          layerL.appendChild(dL);
+
+          if (dual && layerR){
+            let dpR = randPosEye(S.rng, safeMargins, 1, dual);
+            dtries = 0;
+            while (!posFarFromCrosshair(dpR.x, dpL.y, 1) && dtries++ < 10){
+              dpR = randPosEye(S.rng, safeMargins, 1, dual);
+            }
+            const dR = makeTarget('decoy', de, dpR.x, dpL.y, s * 0.98, duid);
+            layerR.appendChild(dR);
+          }
+        }
+      }
+
+      logEvent('spawn', { kind:'boss', phase:S.bossPhase, uid });
+      return;
+    }
+
+    // Normal spawn
+    let tp = 'good';
+    const r = S.rng();
+    const powerP = inWarm ? (S.powerP * 0.65) : S.powerP;
+    const junkP  = inWarm ? (S.junkP * 0.58)  : S.junkP;
+
+    if (r < powerP) tp = 'shield';
+    else if (r < powerP + 0.040) tp = 'star';
+    else if (r < powerP + 0.040 + junkP) tp = 'junk';
+    else tp = 'good';
+
+    // Dynamic no-junk zone: reroll position for junk if too close crosshair
+    const size = (inWarm ? (S.size * 1.06) : S.size);
+    const uid = String(S.uidSeq++);
+
+    const emoji =
+      (tp === 'good') ? pick(S.rng, GOOD) :
+      (tp === 'junk') ? pick(S.rng, JUNK) :
+      (tp === 'star') ? pick(S.rng, STARS) :
+      SHIELD;
+
+    const s =
+      (tp === 'junk') ? (size * 0.98) :
+      (tp === 'shield') ? (size * 1.03) :
+      (tp === 'star') ? (size * 1.02) :
+      size;
+
+    let pL = randPosEye(S.rng, safeMargins, 0, dual);
+    if (tp === 'junk' && S.noJunkOn){
+      let tries = 0;
+      while (!posFarFromCrosshair(pL.x, pL.y, 0) && tries++ < 14){
+        pL = randPosEye(S.rng, safeMargins, 0, dual);
+      }
+    }
+
+    const elL = makeTarget(tp, emoji, pL.x, pL.y, s, uid);
+    layerL.appendChild(elL);
+
+    if (dual && layerR){
+      // keep same Y for stereo feel
+      let pR = randPosEye(S.rng, safeMargins, 1, dual);
+      if (tp === 'junk' && S.noJunkOn){
+        let tries = 0;
+        while (!posFarFromCrosshair(pR.x, pL.y, 1) && tries++ < 14){
+          pR = randPosEye(S.rng, safeMargins, 1, dual);
+        }
+      }
+      const elR = makeTarget(tp, emoji, pR.x, pL.y, s, uid);
+      layerR.appendChild(elR);
+    }
+
+    logEvent('spawn', { kind:tp, emoji:String(emoji||''), uid });
   }
 
   function tick(){
@@ -1055,54 +1252,68 @@ export function boot(opts = {}) {
     const dt = S.lastTickAt ? (t - S.lastTickAt) : 0;
     S.lastTickAt = t;
 
-    // time countdown (stable)
+    // handle STUN timeout (input uses stunnedUntil)
+    if (t >= S.stunnedUntil && S.stunnedUntil !== 0){
+      S.stunnedUntil = 0;
+    }
+
+    // time countdown
     S.left = Math.max(0, S.left - (dt/1000));
     updateTime();
 
-    // end by time
+    // end by time (unless sudden death decides earlier)
     if (S.left <= 0){
       endGame('time');
       return;
     }
 
-    // boss trigger at last ~35% time OR after goals cleared (whichever first)
     const elapsed = (t - S.tStart) / 1000;
+
+    // boss trigger: last 35% time OR after goals cleared
     const timeRatio = S.left / S.timeSec;
     if (!S.bossDone && !S.bossActive){
       if (timeRatio <= 0.35 || (S.goalsCleared >= S.goalsTotal && elapsed > 6)){
-        startBossWave();
+        beginBoss();
       }
     }
 
     // boss timeout
     if (S.bossActive && t >= S.bossEndAt){
-      finishBossWave(false);
+      finishBoss(false);
     }
 
-    // difficulty ramp (play only)
+    // sudden timers
+    applySuddenTimers();
+
+    // difficulty ramp
     if (S.runMode === 'play'){
       const acc = S.hitAll > 0 ? (S.hitGood / S.hitAll) : 0;
-      const comboHeat = clamp(S.combo / 18, 0, 1);
+      const comboHeat = clamp(S.combo / (hell ? 16 : 18), 0, 1);
 
-      const timeRamp = clamp((elapsed - 3) / 10, 0, 1);
-      const skill = clamp((acc - 0.65) * 1.2 + comboHeat * 0.85, 0, 1);
-      const heat = clamp(timeRamp * 0.55 + skill * 0.75, 0, 1);
+      const timeRamp = clamp((elapsed - 3) / (hell ? 9 : 10), 0, 1);
+      const skill = clamp((acc - 0.65) * 1.25 + comboHeat * 0.90, 0, 1);
+      const heat = clamp(timeRamp * (hell ? 0.62 : 0.55) + skill * (hell ? 0.88 : 0.75), 0, 1);
 
-      // rush ramp
-      S.spawnMs = clamp(base.spawnMs - heat * 360, 400, 1300);
-      S.ttlMs   = clamp(base.ttlMs   - heat * 460, 1120, 2800);
-      S.size    = clamp(base.size    - heat * 0.15, 0.84, 1.14);
-      S.junkP   = clamp(base.junk    + heat * 0.075, 0.08, 0.27);
-      S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.065);
+      S.spawnMs = clamp(base.spawnMs - heat * (hell ? 420 : 360), 360, 1400);
+      S.ttlMs   = clamp(base.ttlMs   - heat * (hell ? 560 : 460), 920, 3000);
+      S.size    = clamp(base.size    - heat * (hell ? 0.18 : 0.15), 0.82, 1.16);
+      S.junkP   = clamp(base.junk    + heat * (hell ? 0.095 : 0.075), 0.08, 0.32);
+      S.powerP  = clamp(base.power   + heat * (hell ? 0.012 : 0.010), 0.01, 0.070);
 
-      const maxBonus = Math.round(heat * 4);
-      S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
+      const maxBonus = Math.round(heat * (hell ? 5 : 4));
+      S.maxTargets = clamp(base.maxT + maxBonus, 6, isMobileLike() ? 12 : 14);
 
-      // fever high => fair assist (slightly bigger target, less junk)
+      // fever high => fair assist
       if (S.fever >= 70){
-        S.junkP = clamp(S.junkP - 0.035, 0.08, 0.24);
-        S.size  = clamp(S.size + 0.03, 0.84, 1.16);
+        S.junkP = clamp(S.junkP - (hell ? 0.030 : 0.035), 0.08, 0.30);
+        S.size  = clamp(S.size + 0.03, 0.82, 1.18);
       }
+
+      // update no-junk radius
+      if (S.noJunkOn){
+        S.noJunkRadius = computeNoJunkRadius(acc, elapsed);
+      }
+
     } else {
       // research stable
       S.spawnMs = base.spawnMs;
@@ -1113,11 +1324,17 @@ export function boot(opts = {}) {
       S.maxTargets = base.maxT;
     }
 
-    // spawn accumulator (stable-ish)
-    S.spawnAcc += dt;
-    const spawnCap = S.bossActive ? 2 : 3; // do not spawn too many per tick
-    let spawned = 0;
+    // Boss phase spawn intensity
+    if (S.bossActive){
+      S.spawnMs = clamp(S.spawnMs * (hell ? 0.78 : 0.86), 320, 900);
+      S.ttlMs   = clamp(S.ttlMs * (hell ? 0.84 : 0.90), 880, 2200);
+      S.maxTargets = clamp(S.maxTargets + 2, 7, isMobileLike() ? 12 : 14);
+    }
 
+    // spawn accumulator
+    S.spawnAcc += dt;
+    const spawnCap = S.bossActive ? (hell ? 4 : 3) : (hell ? 3 : 3);
+    let spawned = 0;
     while (S.spawnAcc >= S.spawnMs && spawned < spawnCap){
       S.spawnAcc -= S.spawnMs;
       spawnOne();
@@ -1143,23 +1360,23 @@ export function boot(opts = {}) {
     S.fever = 0; S.shield = 0;
     updateFeverUI(S.shield, S.fever);
     setFeverClass(S.fever);
-    setStun(false);
 
     S.goalsCleared = 0;
     S.miniCleared = 0;
 
-    S.bossArmed = true;
-    S.bossActive = false;
-    S.bossDone = false;
-    S.bossWon = false;
-    S.bossHits = 0;
-    S.bossJunkTouched = false;
-    S.bossEndAt = 0;
+    S.bossActive = false; S.bossDone = false; S.bossWon = false; S.bossPhase = 0;
+    S.bossHits = 0; S.bossEndAt = 0;
 
-    S.warmupUntil = now() + 2800;
-    S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
+    S.suddenActive = false; S.suddenEndAt = 0; S.suddenMissLeft = 0;
 
-    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', `Miss limit: ${S.missLimit} • ระวังท้ายเกมมี BOSS`);
+    S.warmupUntil = now() + (hell ? 2200 : 2800);
+    S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? (hell ? 8 : 7) : (hell ? 9 : 7));
+
+    coach('neutral',
+      hell ? 'HELL MODE 😈: ช่วงแรกนุ่ม ๆ แต่จะโหดขึ้นไว + บอส 2 เฟส + sudden death' : 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเอง 😈',
+      `Miss limit: ${S.missLimit} • end=${S.endPolicy}`
+    );
+
     updateScore(); updateTime(); updateQuest();
 
     logEvent('session_start', {
@@ -1168,6 +1385,7 @@ export function boot(opts = {}) {
       diff: S.diff,
       endPolicy: S.endPolicy,
       challenge: S.challenge,
+      hell,
       seed: S.seed,
       sessionId: sessionId || '',
       timeSec: S.timeSec,
@@ -1181,7 +1399,6 @@ export function boot(opts = {}) {
   bindFlushHard();
   start();
 
-  // expose controls
   try{
     ROOT.GoodJunkVR = ROOT.GoodJunkVR || {};
     ROOT.GoodJunkVR.endGame = endGame;
