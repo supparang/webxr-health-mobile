@@ -1,9 +1,7 @@
 <!-- === /herohealth/goodjunk-vr.html ===
 GoodJunkVR (PRODUCTION) — HHA Standard
-✅ DOM emoji targets (dual-eye for VR/cVR)
-✅ HUD + Quest + Coach + Fever/Shield
-✅ Summary end overlay + back HUB + localStorage last summary
-✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
+✅ Auto cache-bust all assets using URL param v
+✅ Boot module loaded via dynamic import with ?v=...
 -->
 
 <!doctype html>
@@ -15,15 +13,51 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Global FX + HUD + Fever + Logger -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-hud.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
+  <!-- Assets (will be cache-busted by inline script below) -->
+  <link id="gjCss" rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
+  <script id="jsParticles" src="./vr/particles.js" defer></script>
+  <script id="jsFever" src="./vr/ui-fever.js" defer></script>
+  <script id="jsHud" src="./vr/hha-hud.js" defer></script>
+  <script id="jsLogger" src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Boot (ESM) -->
-  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
+  <!-- ✅ Cache-bust ALL assets with v=... (critical for GitHub Pages) -->
+  <script>
+    (function(){
+      try{
+        var u = new URL(location.href);
+        var v = u.searchParams.get('v') || String(Date.now());
+        window.__HHA_V__ = v;
+
+        function addV(url){
+          if (!url) return url;
+          if (url.indexOf('?') >= 0) return url + '&v=' + encodeURIComponent(v);
+          return url + '?v=' + encodeURIComponent(v);
+        }
+
+        // CSS
+        var css = document.getElementById('gjCss');
+        if (css && css.href) css.href = addV(css.getAttribute('href'));
+
+        // defer scripts
+        var s1 = document.getElementById('jsParticles');
+        var s2 = document.getElementById('jsFever');
+        var s3 = document.getElementById('jsHud');
+        var s4 = document.getElementById('jsLogger');
+        [s1,s2,s3,s4].forEach(function(s){
+          if (s && s.getAttribute('src')) s.setAttribute('src', addV(s.getAttribute('src')));
+        });
+
+      }catch(e){
+        console.warn('cache-bust init failed', e);
+      }
+    })();
+  </script>
+
+  <!-- ✅ Boot (ESM) — dynamic import with v so it NEVER sticks to old cache -->
+  <script type="module">
+    const v = window.__HHA_V__ || (new URL(location.href)).searchParams.get('v') || String(Date.now());
+    import(`./vr-goodjunk/goodjunk-vr.boot.js?v=${encodeURIComponent(v)}`);
+  </script>
 </head>
 
 <body>
