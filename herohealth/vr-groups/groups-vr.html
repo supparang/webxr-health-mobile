@@ -7,6 +7,243 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./groups-vr.css" />
+
+  <!-- ✅ UNIVERSAL VR UI + ✅ AI PACK -->
+  <script src="../vr/hha-vr-ui.js" defer></script>
+  <script src="../ai/hha-ai.js" defer></script>
+
+  <style>
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    html,body{ margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; }
+
+    #fg-layer{
+      position:fixed; inset:0;
+      transform: translate(var(--vx,0px), var(--vy,0px));
+      touch-action:none; user-select:none;
+      pointer-events:auto;
+      z-index:10;
+    }
+
+    .hud{
+      position:fixed; left:0; right:0; top:0;
+      padding: calc(12px + var(--sat)) 12px 10px;
+      display:flex; justify-content:space-between; gap:10px;
+      pointer-events:none; z-index:50;
+    }
+    .hud .box{
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:16px;
+      padding:10px 12px;
+      box-shadow:0 16px 40px rgba(0,0,0,.35);
+      min-width:120px;
+    }
+    .hud .big{ font-weight:900; font-size:16px; }
+    .hud .small{ font-size:12px; color:var(--muted); margin-top:2px; }
+
+    .centerTop{
+      position:fixed; left:50%; transform:translateX(-50%);
+      top: calc(10px + var(--sat));
+      z-index:55; pointer-events:none;
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+    }
+    .pill{
+      background:rgba(15,23,42,.72);
+      border:1px solid rgba(148,163,184,.16);
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:12px;
+      color:var(--text);
+      box-shadow:0 16px 40px rgba(0,0,0,.35);
+    }
+
+    /* Quest RIGHT */
+    .questTop{
+      position:fixed;
+      right:calc(10px + var(--sar));
+      top:  calc(62px + var(--sat));
+      left: auto;
+      width: min(340px, 48vw);
+      display:flex; gap:10px; flex-wrap:wrap;
+      z-index:58; pointer-events:none;
+    }
+    .qbar{
+      flex:1 1 240px;
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:16px;
+      padding:10px 12px;
+      box-shadow:0 16px 40px rgba(0,0,0,.25);
+    }
+    .qbar .t{ font-size:12px; color:var(--muted); }
+    .qbar .b{ margin-top:2px; font-size:13px; font-weight:900; }
+    .qbar .p{
+      margin-top:8px; height:10px;
+      background:rgba(15,23,42,.65);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:999px; overflow:hidden;
+    }
+    .qbar .p > i{
+      display:block; height:100%; width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+    }
+    .qbar .time{ margin-top:6px; font-size:12px; color:rgba(226,232,240,.85); display:none; }
+
+    .powerWrap{
+      position:fixed; left:12px; right:12px;
+      bottom: calc(14px + var(--sab));
+      z-index:60; pointer-events:none;
+    }
+    .power{
+      height:14px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.65);
+      overflow:hidden;
+    }
+    .power > i{
+      display:block; height:100%; width:0%;
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+    }
+    .powerLabel{
+      margin-top:8px; font-size:12px; color:var(--muted);
+      display:flex; justify-content:space-between;
+    }
+
+    /* Coach BOTTOM-RIGHT */
+    .coachWrap{
+      position:fixed;
+      right:calc(10px + var(--sar));
+      bottom: calc(82px + var(--sab)); /* above power bar */
+      z-index:62;
+      pointer-events:none;
+      display:flex;
+      gap:10px;
+      align-items:flex-end;
+    }
+    .coachCard{
+      width:220px;
+      background:rgba(2,6,23,.60);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:18px;
+      padding:10px 10px 10px;
+      box-shadow:0 16px 40px rgba(0,0,0,.25);
+    }
+    .coachLine{ font-size:12px; color:rgba(226,232,240,.92); line-height:1.45; min-height:34px; }
+    .feverMini{
+      margin-top:8px; height:10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.65);
+      overflow:hidden;
+    }
+    .feverMini > i{ display:block; height:100%; width:0%; background:rgba(239,68,68,.85); }
+    .shieldTag{
+      margin-top:8px;
+      display:inline-flex; gap:6px; align-items:center;
+      font-size:12px; color:rgba(226,232,240,.92);
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.60);
+    }
+    .coachImg{
+      width:74px; height:74px;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.14);
+      background:rgba(15,23,42,.55);
+      overflow:hidden;
+      box-shadow:0 16px 40px rgba(0,0,0,.25);
+    }
+    .coachImg img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+    .overlay{
+      position:fixed; inset:0;
+      background:radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
+                 radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
+                 rgba(2,6,23,.82);
+      display:grid; place-items:center;
+      z-index:200;
+    }
+    .panel{
+      width:min(820px, 92vw);
+      border:1px solid rgba(148,163,184,.20);
+      border-radius:22px;
+      background:rgba(2,6,23,.72);
+      box-shadow:0 18px 55px rgba(0,0,0,.55);
+      padding:18px 18px 14px;
+    }
+    .panel h2{ margin:0 0 8px; font-size:20px; }
+    .panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; }
+
+    .panel .row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .panel button{
+      border:0; border-radius:999px; padding:12px 14px;
+      font-weight:900; cursor:pointer;
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+      color:#061018;
+    }
+    .panel button.secondary{
+      background:rgba(15,23,42,.78);
+      border:1px solid rgba(148,163,184,.18);
+      color:var(--text);
+    }
+    .dbg{ font-size:12px; color:var(--muted); opacity:.92; margin-top:6px; }
+    .warn{
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(239,68,68,.25);
+      background:rgba(239,68,68,.08);
+      color:rgba(254,226,226,.95);
+      font-size:12px;
+      display:none;
+      white-space:pre-wrap;
+    }
+
+    #endOverlay{ display:none; }
+    #endOverlay.show{ display:grid; }
+    .kv{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0 12px; }
+    .kv .k{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.55);
+      border-radius:16px;
+      padding:10px 12px;
+      font-size:13px;
+    }
+    .kv .k b{ display:block; font-size:16px; margin-top:2px; }
+
+    .aiBox{
+      margin-top:10px;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.50);
+      color:rgba(226,232,240,.92);
+      font-size:12px;
+      line-height:1.6;
+    }
+    .aiBox b{ color:#e5e7eb; }
+
+    @media (max-width: 520px){
+      .questTop{ width:min(300px, 56vw); top: calc(58px + var(--sat)); }
+      .coachWrap{ bottom: calc(90px + var(--sab)); }
+      .coachCard{ width:min(210px, 58vw); }
+    }
+    @media (max-height: 640px){
+      .coachCard{ padding: 8px 10px; }
+      .coachLine{ min-height: 28px; }
+    }
+  </style>
 </head>
 
 <body>
@@ -62,98 +299,43 @@
     </div>
   </div>
 
-  <div class="overlay" id="startOverlay" style="
-    position:fixed; inset:0; display:grid; place-items:center; z-index:200;
-    background:radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
-               radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
-               rgba(2,6,23,.82);
-  ">
-    <div class="panel" style="
-      width:min(760px, 92vw);
-      border:1px solid rgba(148,163,184,.20);
-      border-radius:22px;
-      background:rgba(2,6,23,.72);
-      box-shadow:0 18px 55px rgba(0,0,0,.55);
-      padding:18px 18px 14px;
-    ">
-      <h2 style="margin:0 0 8px; font-size:20px;">🚀 พร้อมเล่น Food Groups VR</h2>
-      <p id="startDesc" style="margin:0 0 12px; color:rgba(148,163,184,1); font-size:13px; line-height:1.6;">กำลังเตรียมระบบ…</p>
-      <div style="font-size:12px; color:rgba(148,163,184,1); opacity:.92;">Boot: <b id="dbgBoot">loading…</b></div>
-      <div id="warnBox" style="
-        margin-top:10px; padding:10px 12px; border-radius:16px;
-        border:1px solid rgba(239,68,68,.25);
-        background:rgba(239,68,68,.08);
-        color:rgba(254,226,226,.95);
-        font-size:12px; display:none; white-space:pre-wrap;
-      "></div>
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <h2>🚀 พร้อมเล่น Food Groups VR</h2>
+      <p id="startDesc">กำลังเตรียมระบบ…</p>
+      <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
+      <div class="warn" id="warnBox"></div>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-        <button id="btnStart" style="
-          border:0; border-radius:999px; padding:12px 14px; font-weight:900; cursor:pointer;
-          background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-          color:#061018;
-        ">Start</button>
-
-        <button id="btnBack" style="
-          border-radius:999px; padding:12px 14px; font-weight:900; cursor:pointer;
-          background:rgba(15,23,42,.78); border:1px solid rgba(148,163,184,.18); color:#e5e7eb;
-        ">กลับ HUB</button>
+      <div class="row" style="margin-top:10px;">
+        <button id="btnStart">Start</button>
+        <button id="btnEnterVR" class="secondary">🕶️ Enter VR</button>
+        <button id="btnFS" class="secondary">⛶ Fullscreen</button>
+        <button id="btnBack" class="secondary">กลับ HUB</button>
       </div>
     </div>
   </div>
 
-  <div class="overlay" id="endOverlay" style="display:none; position:fixed; inset:0; place-items:center; z-index:220;
-    background:radial-gradient(circle at top left, rgba(56,189,248,.10), transparent 60%),
-               radial-gradient(circle at bottom right, rgba(34,197,94,.10), transparent 60%),
-               rgba(2,6,23,.84);
-  ">
-    <div class="panel" style="
-      width:min(760px, 92vw);
-      border:1px solid rgba(148,163,184,.20);
-      border-radius:22px;
-      background:rgba(2,6,23,.72);
-      box-shadow:0 18px 55px rgba(0,0,0,.55);
-      padding:18px 18px 14px;
-    ">
-      <h2 style="margin:0 0 8px; font-size:20px;">🏁 สรุปผล</h2>
-      <p id="endReason" style="margin:0 0 12px; color:rgba(148,163,184,1); font-size:13px; line-height:1.6;"></p>
+  <div class="overlay" id="endOverlay">
+    <div class="panel">
+      <h2>🏁 สรุปผล</h2>
+      <p id="endReason"></p>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0 12px;">
-        <div style="border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.55); border-radius:16px; padding:10px 12px; font-size:13px;">
-          SCORE<b id="endScore" style="display:block; font-size:16px; margin-top:2px;">0</b>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.55); border-radius:16px; padding:10px 12px; font-size:13px;">
-          GRADE<b id="endGrade" style="display:block; font-size:16px; margin-top:2px;">C</b>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.55); border-radius:16px; padding:10px 12px; font-size:13px;">
-          ACCURACY<b id="endAcc" style="display:block; font-size:16px; margin-top:2px;">0%</b>
-        </div>
-        <div style="border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.55); border-radius:16px; padding:10px 12px; font-size:13px;">
-          COMBO MAX<b id="endComboMax" style="display:block; font-size:16px; margin-top:2px;">0</b>
-        </div>
+      <div class="kv">
+        <div class="k">SCORE<b id="endScore">0</b></div>
+        <div class="k">GRADE<b id="endGrade">C</b></div>
+        <div class="k">ACCURACY<b id="endAcc">0%</b></div>
+        <div class="k">COMBO MAX<b id="endComboMax">0</b></div>
       </div>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button id="btnReplay" style="
-          border:0; border-radius:999px; padding:12px 14px; font-weight:900; cursor:pointer;
-          background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-          color:#061018;
-        ">เล่นอีกครั้ง</button>
-        <button id="btnHub2" style="
-          border-radius:999px; padding:12px 14px; font-weight:900; cursor:pointer;
-          background:rgba(15,23,42,.78); border:1px solid rgba(148,163,184,.18); color:#e5e7eb;
-        ">กลับ HUB</button>
+      <div class="aiBox" id="aiBox" style="display:none;"></div>
+
+      <div class="row">
+        <button id="btnReplay">เล่นอีกครั้ง</button>
+        <button id="btnNextAI" style="display:none;">เล่นต่อ (ตามคำแนะนำ AI)</button>
+        <button id="btnHub2" class="secondary">กลับ HUB</button>
       </div>
     </div>
   </div>
-
-  <!-- ✅ Shared: VR UI (ใช้ได้ทุกเกม) -->
-  <script src="../vr/vr-ui.js" defer></script>
-
-  <!-- ✅ Groups modules -->
-  <script src="./audio.js" defer></script>
-  <script src="./groups-quests.js" defer></script>
-  <script src="./GameEngine.js" defer></script>
 
   <script type="module">
     const $ = (id)=>document.getElementById(id);
@@ -166,24 +348,72 @@
     const seed    = (q.get('seed') || '').trim() || String(Date.now());
     const hub     = (q.get('hub') || '../index.html').trim() || '../index.html';
     const autostart = q.get('autostart') === '1';
+    const v = (q.get('v') || String(Date.now()));
 
     $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
+
+    // ✅ init universal UI (VR buttons + shoot)
+    window.HHAVRUI?.init?.({ hub });
 
     function warn(msg){
       console.warn(msg);
       const box = $('warnBox');
+      if (!box) return;
       box.style.display = 'block';
       box.textContent += (box.textContent ? '\n' : '') + String(msg);
     }
 
-    // ✅ mount shared VR UI (ปุ่ม Enter VR + tapshoot + crosshair)
-    function mountVRUI(){
-      try{ window.HHAVRUI?.mount?.({ lockPx: 92 }); }catch{}
+    async function safeImport(path){
+      try{
+        await import(path + (path.includes('?') ? '' : ('?v='+encodeURIComponent(v))));
+        return true;
+      }catch(e){
+        warn(`⚠️ load fail: ${path}\n${e?.message || e}`);
+        return false;
+      }
     }
 
-    function goHub(){ location.href = hub; }
+    const BOOT_LIST = [
+      './groups-fx.js',
+      './audio.js',
+      './groups-quests.js',
+      './GameEngine.js',
+    ];
+
+    async function boot(){
+      $('dbgBoot').textContent = 'loading modules…';
+      for (const p of BOOT_LIST) await safeImport(p);
+      $('dbgBoot').textContent = (window.GroupsVR && window.GroupsVR.GameEngine) ? 'READY ✅' : 'ENGINE NOT FOUND ❌';
+    }
+
+    function flushHardened(reason){
+      try{ window.HHACloudLogger?.flush?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flushNow?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flushHardened?.({ reason }); }catch{}
+      try{ window.GroupsVR?.Logger?.flush?.({ reason }); }catch{}
+      try{ window.GroupsVR?.Logger?.flushNow?.({ reason }); }catch{}
+    }
+
+    function goHub(){
+      flushHardened('go_hub');
+      location.href = hub;
+    }
     $('btnBack').addEventListener('click', goHub);
     $('btnHub2').addEventListener('click', goHub);
+
+    $('btnEnterVR').addEventListener('click', ()=> window.HHAVRUI?.enterCardboard?.());
+    $('btnFS').addEventListener('click', async ()=>{
+      try{
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen();
+      }catch{}
+    });
+
+    addEventListener('pagehide', ()=>flushHardened('pagehide'));
+    addEventListener('beforeunload', ()=>flushHardened('beforeunload'));
+    document.addEventListener('visibilitychange', ()=>{
+      if (document.visibilityState === 'hidden') flushHardened('hidden');
+    });
 
     function bindEvents(){
       addEventListener('hha:score', (e)=>{
@@ -216,9 +446,11 @@
         if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
 
         let gp = (d.goalPct != null) ? Number(d.goalPct)
-               : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100 : 0;
+               : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
+               : 0;
         let mp = (d.miniPct != null) ? Number(d.miniPct)
-               : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100 : 0;
+               : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100
+               : 0;
 
         $('uiGoalBar').style.width = Math.max(0, Math.min(100, gp)).toFixed(1)+'%';
         $('uiMiniBar').style.width = Math.max(0, Math.min(100, mp)).toFixed(1)+'%';
@@ -231,9 +463,6 @@
         } else {
           timeEl.style.display = 'none';
         }
-
-        // ✅ visual urgent helper
-        document.body.classList.toggle('mini-urgent', tLeft > 0 && tLeft <= 3);
       });
 
       addEventListener('hha:coach', (e)=>{
@@ -255,9 +484,36 @@
         $('uiShieldTag').style.display = shield ? 'inline-flex' : 'none';
       });
 
+      addEventListener('hha:ai:recommend', (e)=>{
+        const r = e.detail || {};
+        const box = $('aiBox');
+        if (!box) return;
+
+        const focus = Array.isArray(r.focus) ? r.focus.join(' • ') : '';
+        box.style.display = 'block';
+        box.innerHTML = `
+          <b>AI แนะนำ</b><br/>
+          - รอบถัดไป: <b>${r.nextDiff || '-'}</b><br/>
+          - โฟกัส: ${focus || '-'}<br/>
+          ${(r.insight && r.insight.length) ? ('- Insight: ' + r.insight.join(' • ') + '<br/>') : ''}
+        `;
+
+        const btn = $('btnNextAI');
+        if (btn && r.nextDiff){
+          btn.style.display = 'inline-block';
+          btn.onclick = ()=>{
+            // replay with recommended diff
+            const u = new URL(location.href);
+            u.searchParams.set('diff', r.nextDiff);
+            u.searchParams.set('autostart', '1');
+            location.href = u.toString();
+          };
+        }
+      });
+
       addEventListener('hha:end', (e)=>{
         const d = e.detail||{};
-        $('endOverlay').style.display = 'grid';
+        $('endOverlay').classList.add('show');
         $('endReason').textContent = `เหตุผล: ${d.reason || '-'}`;
         $('endScore').textContent = String(d.scoreFinal ?? 0);
         $('endGrade').textContent = String(d.grade ?? 'C');
@@ -275,6 +531,8 @@
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
         }catch{}
+
+        flushHardened('end');
       });
     }
 
@@ -298,36 +556,37 @@
     }
 
     async function startGame(){
-      // ✅ unlock audio + mount VR UI (ปุ่ม Enter VR + tapshoot)
-      try{ window.GroupsVR?.Audio?.unlock?.(); }catch{}
-      mountVRUI();
-
       $('btnStart').disabled = true;
-      $('dbgBoot').textContent = 'starting…';
+      $('startDesc').textContent = 'กำลังเริ่มเกม…';
 
+      await boot();
       const GE = await waitEngineReady();
       if (!GE){ $('btnStart').disabled = false; return; }
+
+      // ✅ start AI session (works all games)
+      window.HHAAI?.startSession?.({ game:'GroupsVR', runMode, diff, seed, timeSec: time });
 
       GE.setLayerEl($('fg-layer'));
       GE.start(diff, { runMode, style, time, seed });
 
       $('startOverlay').style.display = 'none';
-      $('endOverlay').style.display = 'none';
+      $('endOverlay').classList.remove('show');
+      $('aiBox').style.display = 'none';
+      $('btnNextAI').style.display = 'none';
       $('btnStart').disabled = false;
-      $('dbgBoot').textContent = 'READY ✅';
     }
 
     $('btnStart').addEventListener('click', startGame);
     $('btnReplay').addEventListener('click', ()=>{
       try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
-      $('endOverlay').style.display = 'none';
+      $('endOverlay').classList.remove('show');
       $('startOverlay').style.display = 'grid';
       if (autostart) setTimeout(startGame, 250);
     });
 
     bindEvents();
-    $('dbgBoot').textContent = 'READY ✅';
-    if (autostart) setTimeout(startGame, 350);
+    await boot();
+    if (autostart) setTimeout(()=> $('btnStart').click(), 350);
   </script>
 </body>
 </html>
