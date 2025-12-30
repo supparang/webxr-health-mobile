@@ -1,8 +1,15 @@
 <!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (PATH-FIX)
-✅ ใช้ไฟล์ใน /herohealth/plate/*
-✅ Works with /herohealth/plate/plate.safe.js
-✅ Provides ALL required DOM ids
+Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED)
+✅ plate-vr.html อยู่ /herohealth/ (root)
+✅ JS/CSS อยู่ /herohealth/plate/*
+✅ vr libs อยู่ /herohealth/vr/*
+✅ img coach อยู่ /herohealth/img/*
+✅ Provides ALL required DOM ids for plate.safe.js
+  plate-layer, hitFx,
+  hudTop, miniPanel, hudBtns, coachPanel,
+  btnStart, startOverlay,
+  btnPause, hudPaused, btnRestart, btnBackHub, btnPlayAgain, btnEnterVR,
+  resultBackdrop (rScore/rG1..rG5 etc.)
 -->
 
 <!doctype html>
@@ -12,22 +19,22 @@ Balanced Plate VR — PRODUCTION HTML (PATH-FIX)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Balanced Plate VR</title>
   <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <link rel="icon" href="./favicon.ico" />
 
-  <!-- A-Frame -->
+  <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles (PATH FIX) -->
+  <!-- Styles (อยู่ใน /plate/) -->
   <link rel="stylesheet" href="./plate/plate-vr.css?v=20251230" />
 
-  <!-- Global FX + Logger -->
+  <!-- Global FX + Logger (อยู่ใน /vr/) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder -->
+  <!-- HUD binder (อยู่ใน /plate/) -->
   <script src="./plate/plate-hud.js?v=20251230" defer></script>
 
-  <!-- Game -->
+  <!-- Game (อยู่ใน /plate/) -->
   <script src="./plate/plate.safe.js?v=20251230" defer></script>
 </head>
 
