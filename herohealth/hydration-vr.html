@@ -1,11 +1,13 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + Rotate Hint)
-✅ Bigger play area
-✅ Bottom HUD = bottom sheet (collapse)
-✅ Cardboard: auto-collapse normal HUD + rotate hint if portrait
-✅ Attempts screen.orientation.lock('landscape') on user gesture
-✅ Summary fields match hydration.safe.js (stormMiniSuccess / stormSuccessRatePct / timeInGreenSec)
+HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
+✅ (1) VR Landscape helper + rotate overlay
+✅ (2) Anti-black-screen: layer mode handshake + rehome targets
+✅ (3) VR HUD minimal (cbHudTop/cbQuest) + hide heavy UI in cardboard
+✅ (4) Quest chain 1–3 + Boss announce overlay hooks
+✅ (5) Target motion + heat feel (css)
+✅ (6) Coach Hydration persona + images from /herohealth/img + flush-hardened before leaving hub
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -15,7 +17,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Global FX + compat input + logger -->
+  <!-- Global FX + compat input + logger (paths relative to /herohealth/) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
@@ -82,7 +84,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
 
     .coachCard{
       pointer-events:none;
-      width:min(380px, 38vw);
+      width:min(420px, 38vw);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:18px;
@@ -93,21 +95,21 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       gap:10px;
       align-items:flex-start;
     }
-    .coachAvatar{
-      width:44px; height:44px;
+    .coachImg{
+      width:54px; height:54px;
       border-radius:14px;
       border:1px solid rgba(148,163,184,.18);
-      background: rgba(15,23,42,.55);
-      object-fit:cover;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35);
-      flex:0 0 auto;
+      background: rgba(2,6,23,.35);
+      object-fit: cover;
+      box-shadow: 0 12px 30px rgba(0,0,0,.35);
     }
-    .coachTitle{ font-size:12px; font-weight:1100; opacity:.95; display:flex; gap:8px; align-items:center; }
+    .coachTitle{ font-size:12px; font-weight:1100; opacity:.95; }
     .coachText{ margin-top:6px; font-size:12px; font-weight:950; color:rgba(229,231,235,.92); line-height:1.25; }
     .coachSub{ margin-top:6px; font-size:11px; font-weight:900; color:var(--muted); }
 
-    /* ===== Play area (BIG) ===== */
+    /* ===== Play area ===== */
     .playWrap{ position:relative; flex:1; padding: 0 12px; display:flex; }
+
     #playfield{
       position:relative;
       flex:1;
@@ -144,7 +146,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     /* ===== Cardboard stereo wrapper ===== */
     #cbWrap{ position:fixed; inset:0; z-index:25; display:none; background:#000; }
     body.cardboard #cbWrap{ display:flex; }
-    body.cardboard .stage{ opacity:0; pointer-events:none; }
+    body.cardboard .stage{ opacity:0; pointer-events:none; } /* VR: ซ่อน stage ทั้งหมด */
 
     .cbEye{ position:relative; flex:1; overflow:hidden; border-left:1px solid rgba(255,255,255,.08); }
     .cbEye:first-child{ border-left:none; }
@@ -200,7 +202,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       filter: drop-shadow(0 10px 26px rgba(34,211,238,.18));
     }
 
-    /* ===== Cardboard HUD ===== */
+    /* ===== Cardboard HUD (VR only) ===== */
     .cbHudTop{
       position:absolute;
       left:8px; right:8px;
@@ -235,7 +237,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     .cbGrade .v{ font-size:15px; letter-spacing:.4px; }
 
     .cbQuest{
-      width:min(520px, 40vw);
+      width:min(560px, 42vw);
       background: rgba(2,6,23,.70);
       border:1px solid rgba(148,163,184,.18);
       border-radius:18px;
@@ -272,25 +274,17 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       .cbQuest{ display:none; }
     }
 
-    /* ===== Bottom HUD -> Bottom Sheet (collapse) ===== */
+    /* ===== Bottom HUD (PC/Mobile only) ===== */
     .hudBottom{
-      position:fixed;
-      left:10px; right:10px;
-      bottom: calc(var(--sab) + 12px);
-      z-index:30;
-      padding:0;
-      display:flex;
-      gap:10px;
-      align-items:stretch;
+      position:relative;
+      z-index:20;
+      padding: 10px 12px calc(var(--sab) + 12px);
+      display:flex; gap:10px;
+      align-items:flex-end;
       justify-content:space-between;
       pointer-events:none;
-      transform: translateY(0%);
-      transition: transform .18s ease, opacity .18s ease;
     }
-    body.hud-collapsed .hudBottom{
-      transform: translateY(calc(100% - 18px));
-      opacity: .92;
-    }
+    body.cardboard .hudBottom{ display:none; } /* (3) VR ลดรก: ซ่อน bottom cards */
 
     .card{
       pointer-events:none;
@@ -344,29 +338,28 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       margin-right:6px;
     }
 
-    /* Controls -> bottom center */
+    /* Controls */
     .controls{
       position:fixed;
-      left:50%;
-      transform:translateX(-50%);
-      bottom: calc(var(--sab) + 10px);
+      right:10px;
+      bottom:10px;
       z-index:80;
       display:flex;
       gap:10px;
       pointer-events:auto;
     }
+    body.cardboard .controls{ display:none; } /* VR: ใช้ shootPad แทน */
     .btn{
       border:1px solid rgba(148,163,184,.20);
       background: rgba(2,6,23,.72);
       color:var(--text);
-      border-radius:16px;
-      padding:12px 14px;
+      border-radius:14px;
+      padding:10px 12px;
       font-weight:1100;
       cursor:pointer;
       box-shadow:0 16px 36px rgba(0,0,0,.30);
       backdrop-filter: blur(8px);
       -webkit-tap-highlight-color: transparent;
-      user-select:none;
     }
     .btn:active{ transform: translateY(1px); }
     .btn.primary{ background: rgba(34,197,94,.16); }
@@ -375,7 +368,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     #shootPad{
       position:fixed;
       left:50%;
-      bottom: calc(var(--sab) + 10px);
+      bottom:10px;
       transform:translateX(-50%);
       z-index:90;
       display:none;
@@ -383,9 +376,6 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     }
     body.cardboard #shootPad{ display:block; }
     #btnShoot{ padding:14px 18px; border-radius:18px; font-size:16px; font-weight:1200; background: rgba(34,197,94,.16); }
-
-    /* Cardboard: hide normal bottom HUD (ใช้ cbHudTop แทน) */
-    body.cardboard .hudBottom{ display:none; }
 
     /* FX overlays */
     #hitFx{
@@ -449,7 +439,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     }
     #stormIntro .label{
       position:absolute;
-      left:50%; top:18%;
+      left:50%; top:16%;
       transform:translateX(-50%);
       padding:10px 14px;
       border-radius:999px;
@@ -460,6 +450,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       letter-spacing:.6px;
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
       text-align:center;
+      max-width:min(860px, 92vw);
     }
     #stormIntro .sub{
       margin-top:6px;
@@ -467,7 +458,40 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       font-weight:1000;
       color: rgba(148,163,184,.95);
       letter-spacing:.2px;
+      text-align:center;
+      line-height:1.25;
     }
+
+    /* (1) Rotate overlay for Cardboard: ต้องแนวนอน */
+    #rotateHint{
+      position:fixed; inset:0;
+      z-index:140;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(2,6,23,.86);
+      backdrop-filter: blur(12px);
+      pointer-events:auto;
+      text-align:center;
+      padding: 18px;
+    }
+    body.cardboard.rotate-needed #rotateHint{ display:flex; }
+    .rotateCard{
+      width:min(520px, 96vw);
+      background: rgba(2,6,23,.88);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+    }
+    .rotateTitle{ font-size:18px; font-weight:1200; }
+    .rotateDesc{
+      margin-top:8px;
+      font-size:12px;
+      font-weight:950;
+      color:rgba(148,163,184,.95);
+      line-height:1.35;
+    }
+    .rotateEmoji{ font-size:44px; margin: 8px 0 2px; }
 
     /* Start overlay */
     #startOverlay{
@@ -532,31 +556,6 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     }
     .endItem .k{ display:block; margin-bottom:4px; color:rgba(148,163,184,.95); font-size:11px; font-weight:950; }
     .endActions{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
-
-    /* Rotate hint (Cardboard + portrait) */
-    #rotateHint{
-      position:fixed; inset:0; z-index:200;
-      display:none;
-      align-items:center; justify-content:center;
-      background: rgba(2,6,23,.86);
-      backdrop-filter: blur(10px);
-      color:#fff;
-      font-weight:1200;
-      text-align:center;
-      padding:24px;
-      pointer-events:auto;
-    }
-    body.cardboard.portrait #rotateHint{ display:flex; }
-    #rotateHint .box{
-      max-width:560px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.82);
-      border-radius:22px;
-      padding:18px 16px;
-      box-shadow: 0 22px 80px rgba(0,0,0,.55);
-    }
-    #rotateHint .t1{ font-size:18px; }
-    #rotateHint .t2{ margin-top:8px; font-size:12px; font-weight:1000; color: rgba(148,163,184,.95); line-height:1.35; }
   </style>
 </head>
 
@@ -564,16 +563,24 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
   <div id="hitFx"></div>
   <div id="stormEdge"></div>
 
-  <div id="rotateHint" aria-hidden="true">
-    <div class="box">
-      <div class="t1">📱 หมุนเครื่องเป็นแนวนอนเพื่อเล่น Cardboard</div>
-      <div class="t2">บางรุ่น “ล็อกแนวนอน” ในเว็บไม่ได้ 100% — หมุนเองแล้วเล่นต่อได้เลย</div>
+  <div id="stormIntro" aria-hidden="true">
+    <div class="label" id="stormIntroLabel">🌀 STORM INCOMING
+      <div class="sub" id="stormIntroSub">ทำ Mini: ให้น้ำ LOW/HIGH + BLOCK BAD ตอนท้ายพายุ! + BOSS 🌩️</div>
     </div>
   </div>
 
-  <div id="stormIntro" aria-hidden="true">
-    <div class="label">🌀 STORM INCOMING
-      <div class="sub">ทำ Mini: ให้น้ำ LOW/HIGH + BLOCK BAD ตอนท้ายพายุ! + BOSS 🌩️</div>
+  <!-- (1) rotate hint -->
+  <div id="rotateHint" aria-hidden="true">
+    <div class="rotateCard">
+      <div class="rotateEmoji">📱↔️</div>
+      <div class="rotateTitle">หมุนเป็นแนวนอนเพื่อเล่น VR</div>
+      <div class="rotateDesc">
+        โหมด Cardboard/Glassboard ต้องเป็น <b>Landscape</b><br>
+        ถ้าเครื่องล็อกการหมุน ให้เปิด Auto-rotate แล้วลองใหม่
+      </div>
+      <div style="margin-top:12px; color:rgba(148,163,184,.9); font-weight:900; font-size:12px;">
+        (ระบบจะซ่อนหน้านี้ให้อัตโนมัติเมื่อเป็นแนวนอน)
+      </div>
     </div>
   </div>
 
@@ -590,11 +597,11 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       </div>
 
       <div class="coachCard">
-        <img id="coach-img" class="coachAvatar" src="./img/hydration-neutral.png" alt="coach" />
+        <img class="coachImg" id="coachImg" src="./img/coach-neutral.png" alt="coach"/>
         <div>
-          <div class="coachTitle">🧠 Coach</div>
+          <div class="coachTitle">💧 Hydration Coach</div>
           <div class="coachText" id="coach-text">แตะ START เพื่อเริ่ม</div>
-          <div class="coachSub" id="coach-sub">Tip: โหมด Cardboard = ค้างเล็งเพื่อยิง (gaze)</div>
+          <div class="coachSub" id="coach-sub">Tip: Cardboard = ค้างเล็งเพื่อยิง (gaze)</div>
         </div>
       </div>
     </div>
@@ -605,7 +612,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       </div>
     </div>
 
-    <div class="hudBottom" id="hudBottom">
+    <div class="hudBottom">
       <div class="card" style="min-width:260px;">
         <h3>💧 Water Gauge (0–100)</h3>
 
@@ -620,7 +627,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
             <div class="barWrap"><div id="water-bar" class="bar"></div></div>
             <div class="row" style="margin-top:8px;">
               <div class="stat"><span class="k">Goal</span> <b>GREEN</b></div>
-              <div class="stat"><span class="k">Mini</span> <b>LOW/HIGH + BLOCK</b></div>
+              <div class="stat"><span class="k">Mini</span> <b>STORM</b></div>
             </div>
           </div>
         </div>
@@ -631,7 +638,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
         <div class="qLine"><span class="tag">Goal</span><span id="quest-line1">—</span></div>
         <div class="qLine"><span class="tag">Progress</span><span id="quest-line2">—</span></div>
         <div class="qLine"><span class="tag">Mini</span><span id="quest-line3">—</span></div>
-        <div class="qLine"><span class="tag">State</span><span id="quest-line4">—</span></div>
+        <div class="qLine"><span class="tag">Side</span><span id="quest-line4">—</span></div>
       </div>
     </div>
   </div>
@@ -639,6 +646,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
   <div id="crosshair" aria-hidden="true"></div>
 
   <div id="cbWrap" aria-hidden="false">
+    <!-- VR HUD (อ่านง่าย) -->
     <div class="cbHudTop" aria-hidden="true">
       <div class="cbPillRow">
         <div class="cbPill">⏱️ <span class="k">TIME</span> <span class="v" id="cb-stat-time">—</span></div>
@@ -653,9 +661,9 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       <div class="cbQuest">
         <h4>🧩 Quest</h4>
         <div class="cbQLine"><span class="cbTag">Goal</span><span id="cb-quest-line1">—</span></div>
-        <div class="cbQLine"><span class="cbTag">Progress</span><span id="cb-quest-line2">—</span></div>
+        <div class="cbQLine"><span class="cbTag">Prog</span><span id="cb-quest-line2">—</span></div>
         <div class="cbQLine"><span class="cbTag">Mini</span><span id="cb-quest-line3">—</span></div>
-        <div class="cbQLine"><span class="cbTag">State</span><span id="cb-quest-line4">—</span></div>
+        <div class="cbQLine"><span class="cbTag">Side</span><span id="cb-quest-line4">—</span></div>
       </div>
     </div>
 
@@ -677,7 +685,6 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
   </div>
 
   <div class="controls">
-    <button class="btn" id="btnHud" type="button">🧩 HUD</button>
     <button class="btn" id="btnCardboard" type="button">📦 CARDBOARD</button>
     <button class="btn primary" id="btnShootCenter" type="button">🎯 SHOOT</button>
     <button class="btn danger" id="btnStop" type="button">⛔ STOP</button>
@@ -685,6 +692,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
 
   <div id="shootPad">
     <button class="btn" id="btnShoot" type="button">🎯 SHOOT</button>
+    <button class="btn danger" id="btnStopVr" type="button" style="margin-left:10px;">⛔ STOP</button>
   </div>
 
   <div id="startOverlay">
@@ -793,38 +801,30 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       o.stop(t0 + Math.max(0.03, ms/1000 + 0.02));
     }
 
-    // ----- orientation helpers -----
-    function syncPortraitClass(){
-      const portrait = window.matchMedia && window.matchMedia("(orientation: portrait)").matches;
-      body.classList.toggle('portrait', !!portrait);
+    // ----- (1) landscape helper -----
+    const rotateHint = D.getElementById('rotateHint');
+    function isLandscape(){
+      const w = window.innerWidth || 0;
+      const h = window.innerHeight || 0;
+      return w >= h;
     }
-    window.addEventListener('resize', syncPortraitClass);
-    window.addEventListener('orientationchange', syncPortraitClass);
-    syncPortraitClass();
-
-    async function tryLockLandscape(){
+    function setRotateNeeded(on){
+      body.classList.toggle('rotate-needed', !!on);
+      if (rotateHint) rotateHint.setAttribute('aria-hidden', on ? 'false':'true');
+    }
+    async function lockLandscape(){
       try{
         if (screen.orientation && screen.orientation.lock){
           await screen.orientation.lock('landscape');
         }
       }catch(_){}
     }
-
-    // ----- HUD collapse -----
-    const btnHud = D.getElementById('btnHud');
-    function setHudCollapsed(on){
-      body.classList.toggle('hud-collapsed', !!on);
-      try{ localStorage.setItem('HVR_HUD_COLLAPSED', on ? '1' : '0'); }catch{}
+    function syncRotateOverlay(){
+      if (!body.classList.contains('cardboard')) { setRotateNeeded(false); return; }
+      setRotateNeeded(!isLandscape());
     }
-    try{
-      setHudCollapsed(localStorage.getItem('HVR_HUD_COLLAPSED') === '1');
-    }catch{}
-    if (btnHud){
-      btnHud.addEventListener('click', ()=>{
-        setHudCollapsed(!body.classList.contains('hud-collapsed'));
-        beep(680, 26, 0.014);
-      });
-    }
+    window.addEventListener('resize', syncRotateOverlay, { passive:true });
+    window.addEventListener('orientationchange', syncRotateOverlay, { passive:true });
 
     // ----- Cardboard toggle -----
     function setCardboard(on){
@@ -832,10 +832,13 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       body.classList.toggle('cardboard', on);
       try{ localStorage.setItem('HVR_CARDBOARD', on ? '1' : '0'); }catch{}
       D.documentElement.style.setProperty('--gazeProg', '0');
-      if (on){
-        setHudCollapsed(true);
-        tryLockLandscape();
-      }
+
+      // (2) handshake: ให้ safe.js ย้าย/โคลนเป้าไปเลเยอร์ที่มองเห็น
+      window.dispatchEvent(new CustomEvent('hha:layer_mode', { detail:{ cardboard:on } }));
+
+      // (1) VR: lock + overlay
+      if (on) { lockLandscape(); }
+      syncRotateOverlay();
     }
     const saved = (function(){ try{ return localStorage.getItem('HVR_CARDBOARD')==='1'; }catch{ return false; } })();
     if (qs('cardboard','') === '1') setCardboard(true);
@@ -857,6 +860,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     const btnShootCenter = D.getElementById('btnShootCenter');
     const btnShoot = D.getElementById('btnShoot');
     const btnStop = D.getElementById('btnStop');
+    const btnStopVr = D.getElementById('btnStopVr');
 
     btnCardboard.addEventListener('click', async ()=>{
       await resumeAudio();
@@ -865,6 +869,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     });
 
     function shootAtCenter(){
+      // PC/Mobile
       if (!body.classList.contains('cardboard')){
         const x = window.innerWidth/2;
         const y = window.innerHeight/2;
@@ -874,6 +879,7 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
         } else beep(330, 18, 0.010);
         return;
       }
+      // Cardboard: ใช้ตาซ้ายเป็นหลัก
       const eye = D.getElementById('cbEyeL');
       if (!eye) return;
       const r = eye.getBoundingClientRect();
@@ -888,9 +894,11 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     btnShootCenter.addEventListener('click', async ()=>{ await resumeAudio(); shootAtCenter(); });
     if (btnShoot){ btnShoot.addEventListener('click', async ()=>{ await resumeAudio(); shootAtCenter(); }); }
 
-    btnStop.addEventListener('click', ()=>{
+    function forceStop(){
       window.dispatchEvent(new CustomEvent('hha:force_end', { detail:{ reason:'stop' } }));
-    });
+    }
+    btnStop.addEventListener('click', forceStop);
+    if (btnStopVr) btnStopVr.addEventListener('click', forceStop);
 
     // ----- Start gating -----
     const startOverlay = D.getElementById('startOverlay');
@@ -899,30 +907,13 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
 
     async function startNow(cardboard){
       await resumeAudio();
-      if (cardboard){
-        setCardboard(true);
-        await tryLockLandscape();
-      }
+      if (cardboard) setCardboard(true);
       if (startOverlay) startOverlay.style.display = 'none';
       beep(880, 50, 0.025);
+      window.dispatchEvent(new CustomEvent('hha:start', { detail:{ cardboard: !!cardboard } }));
     }
     btnStart.addEventListener('click', ()=> startNow(false));
     btnStartCardboard.addEventListener('click', ()=> startNow(true));
-
-    // ----- Coach (images per-game) -----
-    const coachImg = D.getElementById('coach-img');
-    const coachText = D.getElementById('coach-text');
-    const coachSub = D.getElementById('coach-sub');
-    function setCoach(mood, text, sub){
-      try{
-        if (coachImg){
-          const m = String(mood||'neutral');
-          coachImg.src = `./img/hydration-${m}.png`;
-        }
-        if (coachText && text != null) coachText.textContent = String(text);
-        if (coachSub && sub != null) coachSub.textContent = String(sub);
-      }catch(_){}
-    }
 
     // ----- judge events -----
     window.addEventListener('hha:judge', (ev)=>{
@@ -932,9 +923,9 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       else if (k === 'shield'){ flash('shield'); beep(760, 32, 0.018); }
       else if (k === 'block'){ flash('shield'); beep(680, 22, 0.016); }
       else if (k === 'bad'){ flash('bad'); beep(320, 38, 0.020); }
-      else if (k === 'storm-in'){ beep(520, 80, 0.030); }
       else if (k === 'perfect'){ flash('shield'); beep(1240, 90, 0.040); beep(1560, 70, 0.030); }
       else if (k === 'streak'){ flash('good'); beep(1040, 60, 0.030); }
+      else if (k === 'boss'){ flash('bad'); beep(520, 90, 0.030); beep(660, 80, 0.025); }
     }, { passive:true });
 
     // ----- Storm urgent tick/pulse -----
@@ -1018,10 +1009,10 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
 
     window.addEventListener('quest:update', (ev)=>{
       const d = ev.detail || {};
-      setT(cbQ1, d.goalTitle ? `${d.goalTitle}: ${Number(d.goalNeed||0)|0}` : '—');
-      setT(cbQ2, `Goal: ${(Number(d.goalNow||0)).toFixed(1)} / ${(Number(d.goalNeed||0)).toFixed(0)}`);
-      setT(cbQ3, d.miniTitle ? `${d.miniTitle} • left ${Number(d.miniLeftSec||0)|0}s` : '—');
-      setT(cbQ4, d.miniUrgent ? '⚠️ URGENT: ช่วงท้ายพายุ!' : `Mini: ${Number(d.miniCleared||0)}/${Number(d.miniTotal||0)}`);
+      setT(cbQ1, d.goalLine1 || '—');
+      setT(cbQ2, d.goalLine2 || '—');
+      setT(cbQ3, d.miniLine3 || '—');
+      setT(cbQ4, d.sideLine4 || '—');
     }, { passive:true });
 
     window.addEventListener('hha:score', (ev)=>{
@@ -1030,34 +1021,27 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       stormLeft = Number(d.stormLeftSec || 0);
       stormUrgent = !!d.stormInEndWindow;
 
-      // drift values
       applyDrift(d.driftX, d.driftY, d.driftRot);
 
-      // sync Cardboard pills
       setT(cbScore, d.score ?? 0);
       setT(cbCombo, d.combo ?? 0);
       setT(cbMiss,  d.misses ?? 0);
       setT(cbGrade, d.grade ?? 'C');
       setT(cbStorm, d.stormActive ? (Number(d.stormLeftSec||0)|0) : 0);
       setT(cbShield, d.shield ?? 0);
-
-      // Coach hint (basic)
-      if (d.stormActive){
-        setCoach(d.stormInEndWindow ? 'fever' : 'happy',
-          d.stormInEndWindow ? 'ท้ายพายุ! เตรียม BLOCK ให้ทัน' : 'STORM มาแล้ว! ดันน้ำให้เป็น LOW/HIGH แล้วค่อย BLOCK',
-          'Tip: ค้างเล็ง = ยิง (gaze) / ยิงเร็วขึ้นช่วงท้าย'
-        );
-      } else {
-        setCoach('neutral', 'สะสม GREEN ให้ครบ + เก็บ Shield ไว้กันพายุ', 'Tip: Cardboard = ค้างเล็งเพื่อยิง (gaze)');
-      }
     }, { passive:true });
 
-    // ----- Storm Intro overlay + siren pattern -----
+    // ----- Storm/Boss announce overlay -----
     const stormIntro = D.getElementById('stormIntro');
+    const stormIntroLabel = D.getElementById('stormIntroLabel');
+    const stormIntroSub = D.getElementById('stormIntroSub');
     let stormIntroUntil = 0;
     let stormSirenAt = 0;
-    function showStormIntro(ms=900){
+
+    function showStormIntro(title, sub, ms=900){
       if (!stormIntro) return;
+      if (stormIntroLabel) stormIntroLabel.firstChild.nodeValue = title + ' ';
+      if (stormIntroSub) stormIntroSub.textContent = sub || '';
       stormIntro.classList.add('show');
       stormIntroUntil = performance.now() + ms;
       stormSirenAt = performance.now();
@@ -1078,7 +1062,41 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
     window.addEventListener('hha:storm', async (ev)=>{
       await resumeAudio();
       const d = ev.detail || {};
-      if (d.state === 'enter'){ showStormIntro(900); }
+      if (d.state === 'enter'){
+        showStormIntro('🌀 STORM INCOMING', 'Mini: LOW/HIGH + BLOCK ตอนท้ายพายุ + BOSS 🌩️', 900);
+      }
+    }, { passive:true });
+
+    window.addEventListener('hha:boss', async (ev)=>{
+      await resumeAudio();
+      const d = ev.detail || {};
+      if (d.state === 'enter'){
+        showStormIntro('🌩️ BOSS WINDOW!', `BLOCK 🌩️ อย่างน้อย ${d.need||2} ครั้ง!`, 800);
+        beep(520, 110, 0.032);
+        beep(660, 110, 0.030);
+      }
+    }, { passive:true });
+
+    // ----- Coach hook -----
+    const coachImg = D.getElementById('coachImg');
+    const coachText = D.getElementById('coach-text');
+    const coachSub = D.getElementById('coach-sub');
+    function setCoach(mood, text, sub){
+      if (coachText && text) coachText.textContent = String(text);
+      if (coachSub && sub) coachSub.textContent = String(sub);
+      if (coachImg){
+        const m = String(mood||'neutral');
+        const src =
+          (m==='happy') ? './img/coach-happy.png' :
+          (m==='sad') ? './img/coach-sad.png' :
+          (m==='fever') ? './img/coach-fever.png' :
+          './img/coach-neutral.png';
+        coachImg.src = src;
+      }
+    }
+    window.addEventListener('hha:coach', (ev)=>{
+      const d = ev.detail || {};
+      setCoach(d.mood, d.text, d.sub);
     }, { passive:true });
 
     // ----- Cardboard gaze-to-shoot -----
@@ -1129,12 +1147,17 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
 
     btnRetry.addEventListener('click', ()=> location.reload());
     btnCloseEnd.addEventListener('click', ()=>{ if(endBackdrop) endBackdrop.style.display='none'; });
+
+    // (6) flush-hardened: กดกลับ HUB -> force_end ก่อน แล้วค่อย redirect
     btnBackHub.addEventListener('click', ()=>{
-      try{
-        const u = new URL(hub, location.href);
-        u.searchParams.set('ts', String(Date.now()));
-        location.href = u.toString();
-      }catch{ location.href = hub; }
+      window.dispatchEvent(new CustomEvent('hha:force_end', { detail:{ reason:'backhub' } }));
+      setTimeout(()=>{
+        try{
+          const u = new URL(hub, location.href);
+          u.searchParams.set('ts', String(Date.now()));
+          location.href = u.toString();
+        }catch{ location.href = hub; }
+      }, 260);
     });
 
     window.addEventListener('hha:end', (ev)=>{
@@ -1160,15 +1183,16 @@ HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + 
       set('endStormRate', (Number(d.stormSuccessRatePct||0).toFixed(0)) + '%');
 
       if (endBackdrop) endBackdrop.style.display = 'flex';
-      setCoach('happy', 'จบเกมแล้ว! กด Retry หรือกลับ HUB ได้เลย', 'Tip: ลอง diff=hard ให้โหดขึ้น');
     }, { passive:true });
 
     // keyboard (desktop)
     window.addEventListener('keydown', (e)=>{
       if (e.code === 'Space'){ e.preventDefault(); shootAtCenter(); }
       if (e.key && e.key.toLowerCase() === 'c'){ setCardboard(!body.classList.contains('cardboard')); }
-      if (e.key && e.key.toLowerCase() === 'h'){ setHudCollapsed(!body.classList.contains('hud-collapsed')); }
     }, { passive:false });
+
+    // initial rotate sync
+    syncRotateOverlay();
   })();
   </script>
 </body>
