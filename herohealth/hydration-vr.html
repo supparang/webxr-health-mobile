@@ -1,14 +1,10 @@
 <!-- === /herohealth/hydration-vr.html ===
-HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
-✅ Mini HUD pills
-✅ Cardboard HUD — เห็น TIME/SCORE/COMBO/MISS/GRADE/STORM/SHIELD + Quest
-✅ Storm Intro siren + dim
-✅ Urgent storm pulse + micro-shake
-✅ Drift hook (playfield translate/rotate)
-✅ Gaze-to-shoot + Shoot button
-✅ End Summary + Back HUB + Retry + save HHA_LAST_SUMMARY
-✅ Coach (PATCH A): #coach-img + coach-manager.js (per-game identity)
-✅ Landscape in Cardboard (best-effort)
+HydrationVR — PRODUCTION (Layout Patch + Cardboard Landscape + HUD Collapse + Rotate Hint)
+✅ Bigger play area
+✅ Bottom HUD = bottom sheet (collapse)
+✅ Cardboard: auto-collapse normal HUD + rotate hint if portrait
+✅ Attempts screen.orientation.lock('landscape') on user gesture
+✅ Summary fields match hydration.safe.js (stormMiniSuccess / stormSuccessRatePct / timeInGreenSec)
 -->
 <!doctype html>
 <html lang="th">
@@ -23,9 +19,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-compat-input.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
-
-  <!-- ✅ NEW: Coach manager (uses /herohealth/img/*.png) -->
-  <script src="./vr/coach-manager.js" defer></script>
 
   <style>
     :root{
@@ -87,40 +80,34 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     .grade{ padding-inline:12px; }
     .grade .v{ font-size:15px; letter-spacing:.4px; }
 
-    /* ✅ Coach card with image */
     .coachCard{
       pointer-events:none;
-      width:min(360px, 36vw);
+      width:min(380px, 38vw);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:18px;
       padding:10px 12px;
       box-shadow: 0 18px 60px rgba(0,0,0,.35);
       backdrop-filter: blur(10px);
-    }
-    .coachHead{
       display:flex;
       gap:10px;
-      align-items:center;
-      margin-bottom:8px;
+      align-items:flex-start;
     }
-    .coachImg{
-      width:52px;
-      height:52px;
-      border-radius:16px;
+    .coachAvatar{
+      width:44px; height:44px;
+      border-radius:14px;
       border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.35);
-      box-shadow: 0 16px 44px rgba(0,0,0,.35);
+      background: rgba(15,23,42,.55);
       object-fit:cover;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
       flex:0 0 auto;
     }
-    .coachTitle{ font-size:12px; font-weight:1100; opacity:.95; }
-    .coachText{ font-size:12px; font-weight:950; color:rgba(229,231,235,.92); line-height:1.25; }
+    .coachTitle{ font-size:12px; font-weight:1100; opacity:.95; display:flex; gap:8px; align-items:center; }
+    .coachText{ margin-top:6px; font-size:12px; font-weight:950; color:rgba(229,231,235,.92); line-height:1.25; }
     .coachSub{ margin-top:6px; font-size:11px; font-weight:900; color:var(--muted); }
 
-    /* ===== Play area ===== */
+    /* ===== Play area (BIG) ===== */
     .playWrap{ position:relative; flex:1; padding: 0 12px; display:flex; }
-
     #playfield{
       position:relative;
       flex:1;
@@ -285,15 +272,24 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       .cbQuest{ display:none; }
     }
 
-    /* ===== Bottom HUD ===== */
+    /* ===== Bottom HUD -> Bottom Sheet (collapse) ===== */
     .hudBottom{
-      position:relative;
-      z-index:20;
-      padding: 10px 12px calc(var(--sab) + 12px);
-      display:flex; gap:10px;
-      align-items:flex-end;
+      position:fixed;
+      left:10px; right:10px;
+      bottom: calc(var(--sab) + 12px);
+      z-index:30;
+      padding:0;
+      display:flex;
+      gap:10px;
+      align-items:stretch;
       justify-content:space-between;
       pointer-events:none;
+      transform: translateY(0%);
+      transition: transform .18s ease, opacity .18s ease;
+    }
+    body.hud-collapsed .hudBottom{
+      transform: translateY(calc(100% - 18px));
+      opacity: .92;
     }
 
     .card{
@@ -348,11 +344,12 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       margin-right:6px;
     }
 
-    /* Controls */
+    /* Controls -> bottom center */
     .controls{
       position:fixed;
-      right:10px;
-      bottom:10px;
+      left:50%;
+      transform:translateX(-50%);
+      bottom: calc(var(--sab) + 10px);
       z-index:80;
       display:flex;
       gap:10px;
@@ -362,13 +359,14 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       border:1px solid rgba(148,163,184,.20);
       background: rgba(2,6,23,.72);
       color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
+      border-radius:16px;
+      padding:12px 14px;
       font-weight:1100;
       cursor:pointer;
       box-shadow:0 16px 36px rgba(0,0,0,.30);
       backdrop-filter: blur(8px);
       -webkit-tap-highlight-color: transparent;
+      user-select:none;
     }
     .btn:active{ transform: translateY(1px); }
     .btn.primary{ background: rgba(34,197,94,.16); }
@@ -377,7 +375,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     #shootPad{
       position:fixed;
       left:50%;
-      bottom:10px;
+      bottom: calc(var(--sab) + 10px);
       transform:translateX(-50%);
       z-index:90;
       display:none;
@@ -385,6 +383,9 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
     body.cardboard #shootPad{ display:block; }
     #btnShoot{ padding:14px 18px; border-radius:18px; font-size:16px; font-weight:1200; background: rgba(34,197,94,.16); }
+
+    /* Cardboard: hide normal bottom HUD (ใช้ cbHudTop แทน) */
+    body.cardboard .hudBottom{ display:none; }
 
     /* FX overlays */
     #hitFx{
@@ -458,6 +459,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       font-weight:1200;
       letter-spacing:.6px;
       box-shadow: 0 18px 60px rgba(0,0,0,.45);
+      text-align:center;
     }
     #stormIntro .sub{
       margin-top:6px;
@@ -465,7 +467,6 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       font-weight:1000;
       color: rgba(148,163,184,.95);
       letter-spacing:.2px;
-      text-align:center;
     }
 
     /* Start overlay */
@@ -531,12 +532,44 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
     }
     .endItem .k{ display:block; margin-bottom:4px; color:rgba(148,163,184,.95); font-size:11px; font-weight:950; }
     .endActions{ margin-top:12px; display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+
+    /* Rotate hint (Cardboard + portrait) */
+    #rotateHint{
+      position:fixed; inset:0; z-index:200;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(2,6,23,.86);
+      backdrop-filter: blur(10px);
+      color:#fff;
+      font-weight:1200;
+      text-align:center;
+      padding:24px;
+      pointer-events:auto;
+    }
+    body.cardboard.portrait #rotateHint{ display:flex; }
+    #rotateHint .box{
+      max-width:560px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.82);
+      border-radius:22px;
+      padding:18px 16px;
+      box-shadow: 0 22px 80px rgba(0,0,0,.55);
+    }
+    #rotateHint .t1{ font-size:18px; }
+    #rotateHint .t2{ margin-top:8px; font-size:12px; font-weight:1000; color: rgba(148,163,184,.95); line-height:1.35; }
   </style>
 </head>
 
 <body>
   <div id="hitFx"></div>
   <div id="stormEdge"></div>
+
+  <div id="rotateHint" aria-hidden="true">
+    <div class="box">
+      <div class="t1">📱 หมุนเครื่องเป็นแนวนอนเพื่อเล่น Cardboard</div>
+      <div class="t2">บางรุ่น “ล็อกแนวนอน” ในเว็บไม่ได้ 100% — หมุนเองแล้วเล่นต่อได้เลย</div>
+    </div>
+  </div>
 
   <div id="stormIntro" aria-hidden="true">
     <div class="label">🌀 STORM INCOMING
@@ -556,16 +589,13 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
         <div class="pill" style="opacity:.92;">🛡️ <span class="k">SHIELD</span> <span class="v" id="shield-count">0</span></div>
       </div>
 
-      <!-- ✅ UPDATED Coach -->
       <div class="coachCard">
-        <div class="coachHead">
-          <img id="coach-img" class="coachImg" src="./img/coach-neutral.png" alt="coach">
-          <div>
-            <div class="coachTitle">🧠 Coach</div>
-            <div class="coachSub" id="coach-sub">Tip: โฟกัสกลางจอ</div>
-          </div>
+        <img id="coach-img" class="coachAvatar" src="./img/hydration-neutral.png" alt="coach" />
+        <div>
+          <div class="coachTitle">🧠 Coach</div>
+          <div class="coachText" id="coach-text">แตะ START เพื่อเริ่ม</div>
+          <div class="coachSub" id="coach-sub">Tip: โหมด Cardboard = ค้างเล็งเพื่อยิง (gaze)</div>
         </div>
-        <div class="coachText" id="coach-text">แตะ START เพื่อเริ่ม</div>
       </div>
     </div>
 
@@ -575,7 +605,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       </div>
     </div>
 
-    <div class="hudBottom">
+    <div class="hudBottom" id="hudBottom">
       <div class="card" style="min-width:260px;">
         <h3>💧 Water Gauge (0–100)</h3>
 
@@ -647,6 +677,7 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
   </div>
 
   <div class="controls">
+    <button class="btn" id="btnHud" type="button">🧩 HUD</button>
     <button class="btn" id="btnCardboard" type="button">📦 CARDBOARD</button>
     <button class="btn primary" id="btnShootCenter" type="button">🎯 SHOOT</button>
     <button class="btn danger" id="btnStop" type="button">⛔ STOP</button>
@@ -762,19 +793,49 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       o.stop(t0 + Math.max(0.03, ms/1000 + 0.02));
     }
 
+    // ----- orientation helpers -----
+    function syncPortraitClass(){
+      const portrait = window.matchMedia && window.matchMedia("(orientation: portrait)").matches;
+      body.classList.toggle('portrait', !!portrait);
+    }
+    window.addEventListener('resize', syncPortraitClass);
+    window.addEventListener('orientationchange', syncPortraitClass);
+    syncPortraitClass();
+
+    async function tryLockLandscape(){
+      try{
+        if (screen.orientation && screen.orientation.lock){
+          await screen.orientation.lock('landscape');
+        }
+      }catch(_){}
+    }
+
+    // ----- HUD collapse -----
+    const btnHud = D.getElementById('btnHud');
+    function setHudCollapsed(on){
+      body.classList.toggle('hud-collapsed', !!on);
+      try{ localStorage.setItem('HVR_HUD_COLLAPSED', on ? '1' : '0'); }catch{}
+    }
+    try{
+      setHudCollapsed(localStorage.getItem('HVR_HUD_COLLAPSED') === '1');
+    }catch{}
+    if (btnHud){
+      btnHud.addEventListener('click', ()=>{
+        setHudCollapsed(!body.classList.contains('hud-collapsed'));
+        beep(680, 26, 0.014);
+      });
+    }
+
     // ----- Cardboard toggle -----
     function setCardboard(on){
       on = !!on;
       body.classList.toggle('cardboard', on);
       try{ localStorage.setItem('HVR_CARDBOARD', on ? '1' : '0'); }catch{}
       D.documentElement.style.setProperty('--gazeProg', '0');
-
-      // ✅ best-effort landscape lock (some browsers may deny)
-      try{
-        if (on && screen.orientation && screen.orientation.lock){
-          screen.orientation.lock('landscape').catch(()=>{});
-        }
-      }catch(e){}
+      if (on){
+        setHudCollapsed(true);
+        tryLockLandscape();
+      }
     }
     const saved = (function(){ try{ return localStorage.getItem('HVR_CARDBOARD')==='1'; }catch{ return false; } })();
     if (qs('cardboard','') === '1') setCardboard(true);
@@ -838,12 +899,30 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
 
     async function startNow(cardboard){
       await resumeAudio();
-      if (cardboard) setCardboard(true);
+      if (cardboard){
+        setCardboard(true);
+        await tryLockLandscape();
+      }
       if (startOverlay) startOverlay.style.display = 'none';
       beep(880, 50, 0.025);
     }
     btnStart.addEventListener('click', ()=> startNow(false));
     btnStartCardboard.addEventListener('click', ()=> startNow(true));
+
+    // ----- Coach (images per-game) -----
+    const coachImg = D.getElementById('coach-img');
+    const coachText = D.getElementById('coach-text');
+    const coachSub = D.getElementById('coach-sub');
+    function setCoach(mood, text, sub){
+      try{
+        if (coachImg){
+          const m = String(mood||'neutral');
+          coachImg.src = `./img/hydration-${m}.png`;
+        }
+        if (coachText && text != null) coachText.textContent = String(text);
+        if (coachSub && sub != null) coachSub.textContent = String(sub);
+      }catch(_){}
+    }
 
     // ----- judge events -----
     window.addEventListener('hha:judge', (ev)=>{
@@ -904,180 +983,4 @@ HydrationVR — PRODUCTION (DOM + WaterGauge + Cardboard Stereo + Gaze)
       dx = Number(dx)||0; dy = Number(dy)||0; rot = Number(rot)||0;
       if (pf && lay){
         pf.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
-        lay.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
-      }
-      if (pfL && layL){
-        pfL.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
-        layL.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
-      }
-      if (pfR && layR){
-        pfR.style.transform = `translate3d(${dx*0.18}px, ${dy*0.18}px, 0) rotate(${rot*0.20}deg)`;
-        layR.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate(${rot}deg)`;
-      }
-    }
-
-    // ----- Cardboard HUD binds -----
-    const cbTime  = D.getElementById('cb-stat-time');
-    const cbScore = D.getElementById('cb-stat-score');
-    const cbCombo = D.getElementById('cb-stat-combo');
-    const cbMiss  = D.getElementById('cb-stat-miss');
-    const cbGrade = D.getElementById('cb-stat-grade');
-    const cbStorm = D.getElementById('cb-storm-left');
-    const cbShield= D.getElementById('cb-shield-count');
-
-    const cbQ1 = D.getElementById('cb-quest-line1');
-    const cbQ2 = D.getElementById('cb-quest-line2');
-    const cbQ3 = D.getElementById('cb-quest-line3');
-    const cbQ4 = D.getElementById('cb-quest-line4');
-
-    const setT = (el, v)=>{ if(el) el.textContent = String(v); };
-
-    window.addEventListener('hha:time', (ev)=>{
-      const d = ev.detail || {};
-      setT(cbTime, d.left ?? '—');
-    }, { passive:true });
-
-    window.addEventListener('quest:update', (ev)=>{
-      const d = ev.detail || {};
-      setT(cbQ1, d.goalTitle ? `${d.goalTitle}: ${Number(d.goalNeed||0)|0}` : '—');
-      setT(cbQ2, `Goal: ${(Number(d.goalNow||0)).toFixed(1)} / ${(Number(d.goalNeed||0)).toFixed(0)}`);
-      setT(cbQ3, d.miniTitle ? `${d.miniTitle} • left ${Number(d.miniLeftSec||0)|0}s` : '—');
-      setT(cbQ4, d.miniUrgent ? '⚠️ URGENT: ช่วงท้ายพายุ!' : `Mini: ${Number(d.miniCleared||0)}/${Number(d.miniTotal||0)}`);
-    }, { passive:true });
-
-    window.addEventListener('hha:score', (ev)=>{
-      const d = ev.detail || {};
-      stormActive = !!d.stormActive;
-      stormLeft = Number(d.stormLeftSec || 0);
-      stormUrgent = !!d.stormInEndWindow;
-
-      // drift values
-      applyDrift(d.driftX, d.driftY, d.driftRot);
-
-      setT(cbScore, d.score ?? 0);
-      setT(cbCombo, d.combo ?? 0);
-      setT(cbMiss,  d.misses ?? 0);
-      setT(cbGrade, d.grade ?? 'C');
-      setT(cbStorm, d.stormActive ? (Number(d.stormLeftSec||0)|0) : 0);
-      setT(cbShield, d.shield ?? 0);
-    }, { passive:true });
-
-    // ----- Storm Intro overlay + siren pattern -----
-    const stormIntro = D.getElementById('stormIntro');
-    let stormIntroUntil = 0;
-    let stormSirenAt = 0;
-    function showStormIntro(ms=900){
-      if (!stormIntro) return;
-      stormIntro.classList.add('show');
-      stormIntroUntil = performance.now() + ms;
-      stormSirenAt = performance.now();
-    }
-    function stormIntroLoop(t){
-      if (stormIntro && stormIntro.classList.contains('show')){
-        if (t >= stormSirenAt){
-          const phase = Math.floor((t - stormSirenAt) / 150) % 2;
-          beep(phase ? 520 : 660, 70, 0.030);
-          stormSirenAt = t + 160;
-        }
-        if (t >= stormIntroUntil){ stormIntro.classList.remove('show'); }
-      }
-      requestAnimationFrame(stormIntroLoop);
-    }
-    requestAnimationFrame(stormIntroLoop);
-
-    window.addEventListener('hha:storm', async (ev)=>{
-      await resumeAudio();
-      const d = ev.detail || {};
-      if (d.state === 'enter'){ showStormIntro(900); }
-    }, { passive:true });
-
-    // ----- Cardboard gaze-to-shoot -----
-    let gazeEl = null;
-    let gazeT0 = 0;
-    const gazeHoldMs = 520;
-    function setGazeProg(p){
-      p = Math.max(0, Math.min(1, p));
-      D.documentElement.style.setProperty('--gazeProg', String(p));
-    }
-    function gazeLoop(t){
-      if (!body.classList.contains('cardboard')){
-        gazeEl = null; gazeT0 = 0; setGazeProg(0);
-        requestAnimationFrame(gazeLoop);
-        return;
-      }
-      const eye = D.getElementById('cbEyeL');
-      if (!eye){ requestAnimationFrame(gazeLoop); return; }
-      const r = eye.getBoundingClientRect();
-      const x = r.left + r.width/2;
-      const y = r.top + r.height/2;
-
-      const el = document.elementFromPoint(x,y);
-      const ok = (el && el.classList && el.classList.contains('hvr-target')) ? el : null;
-
-      if (ok !== gazeEl){
-        gazeEl = ok; gazeT0 = t; setGazeProg(0);
-      } else if (gazeEl){
-        const dt = t - gazeT0;
-        const p = dt / gazeHoldMs;
-        setGazeProg(p);
-        if (p >= 1){
-          gazeEl.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
-          gazeT0 = t + 220;
-          setGazeProg(0);
-        }
-      } else setGazeProg(0);
-
-      requestAnimationFrame(gazeLoop);
-    }
-    requestAnimationFrame(gazeLoop);
-
-    // ----- End summary -----
-    const endBackdrop = D.getElementById('endBackdrop');
-    const btnRetry = D.getElementById('btnRetry');
-    const btnBackHub = D.getElementById('btnBackHub');
-    const btnCloseEnd = D.getElementById('btnCloseEnd');
-
-    btnRetry.addEventListener('click', ()=> location.reload());
-    btnCloseEnd.addEventListener('click', ()=>{ if(endBackdrop) endBackdrop.style.display='none'; });
-    btnBackHub.addEventListener('click', ()=>{
-      try{
-        const u = new URL(hub, location.href);
-        u.searchParams.set('ts', String(Date.now()));
-        location.href = u.toString();
-      }catch{ location.href = hub; }
-    });
-
-    window.addEventListener('hha:end', (ev)=>{
-      const d = (ev && ev.detail) ? ev.detail : {};
-      try{
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(d||{}));
-        localStorage.setItem('hha_last_summary', JSON.stringify(d||{}));
-      }catch{}
-
-      const set = (id,val)=>{ const el=D.getElementById(id); if(el) el.textContent=String(val); };
-      set('endScore', d.scoreFinal ?? 0);
-      set('endGrade', d.grade ?? 'C');
-      set('endAcc', ((Number(d.accuracyGoodPct||0)).toFixed(1)) + '%');
-      set('endCombo', d.comboMax ?? 0);
-      set('endMiss', d.misses ?? 0);
-      set('endGoals', String(d.goalsCleared ?? 0) + '/' + String(d.goalsTotal ?? 0));
-      set('endMinis', String(d.miniCleared ?? 0) + '/' + String(d.miniTotal ?? 0));
-
-      set('endGreen', (Number(d.timeInGreenSec||0).toFixed(1)) + 's');
-      set('endStreak', d.streakMax ?? 0);
-      set('endStorm', d.stormCycles ?? 0);
-      set('endStormOk', d.stormMiniSuccess ?? 0);
-      set('endStormRate', (Number(d.stormSuccessRatePct||0).toFixed(0)) + '%');
-
-      if (endBackdrop) endBackdrop.style.display = 'flex';
-    }, { passive:true });
-
-    // keyboard (desktop)
-    window.addEventListener('keydown', (e)=>{
-      if (e.code === 'Space'){ e.preventDefault(); shootAtCenter(); }
-      if (e.key && e.key.toLowerCase() === 'c'){ setCardboard(!body.classList.contains('cardboard')); }
-    }, { passive:false });
-  })();
-  </script>
-</body>
-</html>
+        lay.style.transform = `translate3d(${dx}px, ${dy}px, 0) rotate
