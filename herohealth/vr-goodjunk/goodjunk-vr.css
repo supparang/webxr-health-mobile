@@ -1,7 +1,7 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SAFE layout (v4 HELL)
-✅ dvh-style reserved zones
-✅ VR/cVR split + fullscreen tighten
+GoodJunkVR UI — SAFE layout (v5 VR Ultra-Compact)
+✅ Quest moved into badge; VR uses one-bar HUD
+✅ Fullscreen reflow: more play area, less HUD
 ✅ Overlay gating: body.booting / body.overlay-open prevents target flash behind
 ✅ HELL FX: fever vignette + shake + crosshair jitter + danger pulse
 */
@@ -26,6 +26,7 @@ GoodJunkVR UI — SAFE layout (v4 HELL)
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
+  /* reserved zones */
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
@@ -60,8 +61,9 @@ html,body{
   align-items:flex-start;
   justify-content:space-between;
 }
+
 .hud-badge{
-  width:min(520px, 58vw);
+  width:min(520px, 56vw);
   background:var(--panel);
   border:1px solid var(--stroke);
   border-radius:var(--r-lg);
@@ -71,6 +73,7 @@ html,body{
 }
 .hud-title{ font-weight:900; letter-spacing:.2px; font-size:18px; }
 .hud-sub{ margin-top:4px; color:var(--muted); font-size:12px; font-weight:800; }
+
 .viewbar{
   margin-top:10px;
   display:flex;
@@ -90,6 +93,21 @@ html,body{
 .pill.ghost{ opacity:.92; }
 .pill:active{ transform: translateY(1px); }
 
+/* quest inside badge (compact-friendly) */
+.hud-quest-mini{
+  margin-top:10px;
+  background: rgba(15,23,42,.46);
+  border:1px solid rgba(148,163,184,.16);
+  border-radius: 16px;
+  padding:10px;
+}
+.q-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.q-title{ font-weight:1000; }
+.q-title.mini{ color:var(--cyan); }
+.q-count{ font-weight:1000; color:#fff; opacity:.95; }
+.q-timer{ color:var(--warn); font-weight:1000; min-width:74px; text-align:right; }
+.q-progress{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:900; }
+
 .hud-stats{
   display:grid;
   grid-template-columns: repeat(2, minmax(92px, 1fr));
@@ -108,30 +126,8 @@ html,body{
 .hud-stat .v{ font-size:22px; font-weight:1000; margin-top:2px; }
 .hud-stat.grade .v{ letter-spacing:.3px; }
 
-.hud-mid{
-  margin-top:10px;
-  display:flex;
-  gap:12px;
-  align-items:stretch;
-  justify-content:space-between;
-}
-.hud-quest{
-  width:min(520px, 58vw);
-  background:var(--panel2);
-  border:1px solid var(--stroke);
-  border-radius:var(--r-lg);
-  padding:12px;
-  box-shadow: 0 10px 28px rgba(0,0,0,.25);
-}
-.q-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.q-title{ font-weight:1000; }
-.q-title.mini{ color:var(--cyan); }
-.q-count{ font-weight:1000; color:#fff; opacity:.95; }
-.q-timer{ color:var(--warn); font-weight:1000; min-width:74px; text-align:right; }
-.q-progress{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:900; }
-
 .hud-coach{
-  width:min(420px, 38vw);
+  width:min(420px, 34vw);
   display:flex;
   gap:10px;
   align-items:center;
@@ -140,8 +136,9 @@ html,body{
   border-radius:var(--r-lg);
   padding:12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.25);
+  pointer-events:none;
 }
-.coach-img{ width:62px; height:62px; border-radius:16px; border:1px solid var(--stroke); background:#0b1120; }
+.coach-img{ width:58px; height:58px; border-radius:16px; border:1px solid var(--stroke); background:#0b1120; }
 .coach-line{ font-weight:1000; }
 .coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:900; }
 
@@ -174,6 +171,7 @@ html,body{
 }
 .fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
 .fever-text{ text-align:right; font-weight:1000; }
+
 .shield-row{
   margin-top:8px;
   display:grid;
@@ -377,13 +375,14 @@ body.booting .hha-controls{
 }
 
 /* ---------- VIEW MODES ---------- */
-body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
-body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
+body.view-mobile{ --hudH: 248px; --ctrlH: 92px; --feverH: 92px; }
+body.view-pc{ --hudH: 224px; --ctrlH: 92px; --feverH: 92px; }
 
+/* ✅ VR ultra-compact bar */
 body.view-vr, body.view-cvr{
-  --hudH: 124px;
-  --feverH: 74px;
-  --ctrlH: 86px;
+  --hudH: 136px;     /* big playfield */
+  --feverH: 66px;
+  --ctrlH: 78px;
 }
 
 /* VR/cVR split */
@@ -394,39 +393,81 @@ body.view-cvr .eye-l{ width:50%; left:0; }
 body.view-vr .eye-r,
 body.view-cvr .eye-r{ width:50%; left:50%; }
 
-/* In VR: hide coach, tighten hud */
+/* VR: hide coach + hide viewbar (clean) */
 body.view-vr .hud-coach,
 body.view-cvr .hud-coach{ display:none; }
+body.view-vr .viewbar,
+body.view-cvr .viewbar{ display:none; }
+
+/* VR: badge becomes slim */
 body.view-vr .hud-badge,
 body.view-cvr .hud-badge{
-  width:min(560px, 72vw);
+  width:min(620px, 70vw);
   padding:10px;
+  border-radius:20px;
 }
+body.view-vr .hud-quest-mini,
+body.view-cvr .hud-quest-mini{
+  margin-top:8px;
+  padding:8px 10px;
+  border-radius:16px;
+}
+body.view-vr .hud-title,
+body.view-cvr .hud-title{ font-size:16px; }
+body.view-vr .hud-sub,
+body.view-cvr .hud-sub{ font-size:11px; }
+
+/* VR: stats become one-row pills */
 body.view-vr .hud-stats,
 body.view-cvr .hud-stats{
-  width:min(320px, 26vw);
-  grid-template-columns: repeat(2, minmax(86px, 1fr));
+  width:min(520px, 28vw);
+  grid-template-columns: repeat(5, minmax(64px, 1fr));
   gap:8px;
 }
-body.view-vr .hud-mid,
-body.view-cvr .hud-mid{ margin-top:8px; }
-body.view-vr .hud-quest,
-body.view-cvr .hud-quest{
-  width:min(560px, 72vw);
+body.view-vr .hud-stat,
+body.view-cvr .hud-stat{
+  padding:8px 10px;
+  border-radius:18px;
+}
+body.view-vr .hud-stat .k,
+body.view-cvr .hud-stat .k{ font-size:10px; }
+body.view-vr .hud-stat .v,
+body.view-cvr .hud-stat .v{ font-size:18px; }
+
+/* VR: fever becomes compact chip bar */
+body.view-vr .hha-fever,
+body.view-cvr .hha-fever{
+  left:12px; right:12px;
   padding:10px;
+  border-radius:18px;
+}
+body.view-vr .shield-row,
+body.view-cvr .shield-row{ display:none; } /* keep clean in VR */
+body.view-vr .fever-row,
+body.view-cvr .fever-row{
+  grid-template-columns: 56px 1fr 52px;
+}
+
+/* VR: shoot button thinner */
+body.view-vr .btn-shoot,
+body.view-cvr .btn-shoot{
+  height:62px;
+  font-size:20px;
+  border-radius:18px;
 }
 
 /* ---------- FULLSCREEN tuning ---------- */
 body.is-fs{ --gap: 10px; }
-body.is-fs.view-mobile{ --hudH: 210px; --ctrlH: 86px; --feverH: 82px; }
+body.is-fs.view-mobile{ --hudH: 206px; --ctrlH: 86px; --feverH: 82px; }
 body.is-fs.view-vr,
-body.is-fs.view-cvr{ --hudH: 112px; --ctrlH: 82px; --feverH: 70px; }
+body.is-fs.view-cvr{ --hudH: 122px; --ctrlH: 74px; --feverH: 62px; }
+
 body.is-fs .pill{ padding:7px 10px; font-size:12px; }
-body.is-fs .btn-shoot{ height:68px; font-size:22px; }
+body.is-fs .btn-shoot{ height:64px; font-size:20px; }
 
 /* ---------- Small screens ---------- */
 @media (max-width:520px){
-  .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
-  .hud-badge{ width: 60vw; }
   .hud-coach{ display:none; }
+  .hud-badge{ width: 62vw; }
+  .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); width:min(360px, 36vw); }
 }
