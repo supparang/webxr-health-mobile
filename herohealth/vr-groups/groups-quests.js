@@ -1,8 +1,12 @@
 /* === /herohealth/vr-groups/groups-quests.js ===
-GroupsVR Quest System
-✅ Goals sequential + Minis chain (timed)
-✅ Mini: No-Junk Zone (visible circle) — hit N good inside zone within T sec, no bad during mini
-✅ Emits: quest:update, groups:zone, groups:setZone, groups:mini_urgent
+GroupsVR Quest System — FUN PACK (Goals + Minis)
+✅ Emits quest:update (for UI)
+✅ Uses groups:progress from GameEngine
+✅ NEW FUN:
+  (1) Boss Pattern support: count boss_spawn/boss_down + pressure goals
+  (2) Mini "Group Sprint" (เฉพาะหมู่): hit_good N ใน T วิ, ห้ามพลาด/ห้ามโดน junk/wrong/decoy
+  (3) Perfect Chain x3 -> Overdrive buff (groups:buff {type:'overdrive'})
+  (4) Storm mini: during storm hit_good X ภายในเวลาพายุ
 */
 
 (function(root){
@@ -10,7 +14,55 @@ GroupsVR Quest System
   const NS = (root.GroupsVR = root.GroupsVR || {});
   const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{ detail: detail||{} })); }catch{} };
 
-  // seeded rng (same style as engine)
+  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
+
+  function diffNorm(d){
+    d = String(d||'normal').toLowerCase();
+    if (d==='easy'||d==='normal'||d==='hard') return d;
+    return 'normal';
+  }
+
+  function cfgByDiff(diff){
+    diff = diffNorm(diff);
+    if (diff==='easy') return {
+      goals: { swaps: 4, goodHits: 24, bosses: 1 },
+      minis: { sprintNeed: 5, sprintSec: 8, nojunkSec: 7, perfectNeed: 3, stormNeed: 5 }
+    };
+    if (diff==='hard') return {
+      goals: { swaps: 6, goodHits: 38, bosses: 2 },
+      minis: { sprintNeed: 7, sprintSec: 7, nojunkSec: 9, perfectNeed: 3, stormNeed: 7 }
+    };
+    return {
+      goals: { swaps: 5, goodHits: 30, bosses: 2 },
+      minis: { sprintNeed: 6, sprintSec: 7, nojunkSec: 8, perfectNeed: 3, stormNeed: 6 }
+    };
+  }
+
+  function pct(n, t){
+    t = Math.max(1, Number(t)||1);
+    n = Math.max(0, Number(n)||0);
+    return clamp((n/t)*100, 0, 100);
+  }
+
+  function fmtMiniCountdown(sec){
+    sec = Math.max(0, Math.ceil(Number(sec)||0));
+    return sec;
+  }
+
+  function makeGoalList(cfg){
+    return [
+      { key:'swap',  title:`สลับให้ครบ ${cfg.goals.swaps} ครั้ง`, now:0, total:cfg.goals.swaps, done:false },
+      { key:'hit',   title:`ยิงถูก ${cfg.goals.goodHits} ครั้ง`, now:0, total:cfg.goals.goodHits, done:false },
+      { key:'boss',  title:`ปราบบอส ${cfg.goals.bosses} ตัว`, now:0, total:cfg.goals.bosses, done:false },
+    ];
+  }
+
+  function randPick(rng, arr){
+    if (!arr || !arr.length) return null;
+    return arr[(rng()*arr.length)|0];
+  }
+
   function xmur3(str){
     str = String(str||'seed');
     let h = 1779033703 ^ str.length;
@@ -39,322 +91,408 @@ GroupsVR Quest System
     };
   }
   function makeRng(seed){
-    const g = xmur3(seed);
-    return sfc32(g(),g(),g(),g());
-  }
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function now(){ return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); }
-
-  function diffTuning(diff){
-    diff = String(diff||'normal').toLowerCase();
-    if (diff==='easy')   return { goalHit: 12, goalCombo: 8,  miniRushN:4, miniRushT:9,  zoneN:5, zoneT:8, zoneR:155 };
-    if (diff==='hard')   return { goalHit: 18, goalCombo: 12, miniRushN:6, miniRushT:7,  zoneN:7, zoneT:7, zoneR:130 };
-    return                { goalHit: 15, goalCombo: 10, miniRushN:5, miniRushT:8,  zoneN:6, zoneT:7, zoneR:140 };
+    const gen = xmur3(seed);
+    return sfc32(gen(), gen(), gen(), gen());
   }
 
-  function safeZonePick(rng, r){
-    const W = root.innerWidth || 360;
-    const H = root.innerHeight || 640;
-    // avoid top HUD and bottom power bar
-    const top = 190;
-    const bot = 190;
-    const side = 24;
-    const x = side + r + rng()*(W - (side+r)*2);
-    const y = top + r + rng()*(H - top - bot - r*2);
-    return { x, y };
-  }
-
-  NS.createGroupsQuest = function createGroupsQuest(opts){
+  function createGroupsQuest(opts){
     opts = opts || {};
-    const runMode = String(opts.runMode||'play').toLowerCase();
-    const diff = String(opts.diff||'normal').toLowerCase();
+    const runMode = (String(opts.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
+    const diff = diffNorm(opts.diff || 'normal');
     const style = String(opts.style||'mix').toLowerCase();
-    const seed = String(opts.seed||Date.now());
-    const rng = makeRng(seed + '|quest');
+    const seed = String(opts.seed || Date.now());
+    const rng = makeRng(seed + '::quest');
 
-    const T = diffTuning(diff);
+    const cfg = cfgByDiff(diff);
 
-    const S = {
+    const Q = {
       started:false,
       stopped:false,
+
+      goals: makeGoalList(cfg),
+      goalIdx: 0,
       goalsCleared:0,
       goalsTotal:3,
+
+      mini: null,
       miniCleared:0,
       miniTotal:999,
 
-      // goal states
-      goalIndex:0,
-      goal: null,
-
-      // mini
-      mini: null,
-      miniIdx: 0,
-      miniOrder: [],
-
-      // live counters
+      // counters
+      swaps:0,
       hitGood:0,
-      hitBad:0,
-      comboMax:0,
-      inStorm:false,
-      bossDown:0,
+      bossesDown:0,
 
-      // mini timer
-      miniEndAt:0,
-      miniLastUrgent:false,
+      // perfect chain
+      perfectChain:0,
+      lastPerfectAt:0,
 
-      // no-junk mini
-      zoneOn:false,
-      zone:{ x:0,y:0,r:140 },
-      zoneCount:0,
-      noJunkActive:false
+      // storm state
+      stormOn:false,
+
+      // mini timers
+      _miniStartMs:0,
+      _miniEndsMs:0,
+
+      // last bad hit time for nojunk
+      lastBadAt:0,
     };
 
-    const GOALS = [
-      ()=>({ key:'hit',  title:`เก็บของดีให้ได้ ${T.goalHit} ครั้ง`, now:0, total:T.goalHit }),
-      ()=>({ key:'combo',title:`ทำ COMBO ให้ถึง ${T.goalCombo}`, now:0, total:T.goalCombo }),
-      ()=>({ key:'boss', title:`โค่น BOSS ให้ได้ 1 ครั้ง`, now:0, total:1 }),
-    ];
+    function activeGoal(){ return Q.goals[Q.goalIdx] || null; }
 
-    // minis: แทรก “No-Junk Zone” + Rush ให้มันส์
-    const MINIS = [
-      { key:'rush', title:`RUSH! เก็บดี ${T.miniRushN} ภายใน ${T.miniRushT}s (ห้ามพลาด)`, n:T.miniRushN, t:T.miniRushT, noBad:true },
-      { key:'zone', title:`NO-JUNK ZONE! เก็บดี ${T.zoneN} ในโซน ภายใน ${T.zoneT}s (ห้ามโดนขยะ)`, n:T.zoneN, t:T.zoneT, noBad:true },
-    ];
+    function pushUpdate(extra){
+      const g = activeGoal();
+      const m = Q.mini;
 
-    function pushUpdate(){
-      const g = S.goal;
-      const m = S.mini;
-
-      const goalPct = g ? clamp((g.now/Math.max(1,g.total))*100, 0, 100) : 0;
-
-      let miniPct = 0;
-      let miniLeft = 0;
-      if (m && S.miniEndAt > 0){
-        miniLeft = Math.max(0, Math.ceil((S.miniEndAt - now())/1000));
-        if (m.key === 'rush') miniPct = clamp((m.now/m.total)*100,0,100);
-        if (m.key === 'zone') miniPct = clamp((S.zoneCount/m.total)*100,0,100);
-
-        // urgent event (<=3s)
-        const urgent = miniLeft > 0 && miniLeft <= 3;
-        if (urgent && !S.miniLastUrgent){
-          S.miniLastUrgent = true;
-          emit('groups:mini_urgent', { on:true, left:miniLeft });
-        }
-        if (!urgent) S.miniLastUrgent = false;
-      }
-
-      emit('quest:update', {
+      const payload = Object.assign({
         goalTitle: g ? g.title : '—',
-        goalNow:   g ? g.now : 0,
+        goalNow: g ? g.now : 0,
         goalTotal: g ? g.total : 1,
-        goalPct,
+        goalPct: g ? pct(g.now, g.total) : 0,
 
         miniTitle: m ? m.title : '—',
-        miniNow:   m ? (m.key==='zone'?S.zoneCount:m.now) : 0,
+        miniNow: m ? m.now : 0,
         miniTotal: m ? m.total : 1,
-        miniPct,
-        miniTimeLeftSec: miniLeft
+        miniPct: m ? pct(m.now, m.total) : 0,
+        miniTimeLeftSec: (m && m.timer) ? fmtMiniCountdown((Q._miniEndsMs - now())/1000) : 0
+      }, extra||{});
+
+      emit('quest:update', payload);
+    }
+
+    function completeGoal(){
+      const g = activeGoal();
+      if (!g || g.done) return;
+      g.done = true;
+      Q.goalsCleared++;
+
+      emit('hha:celebrate', { kind:'goal', title:'GOAL COMPLETE!' });
+      Q.goalIdx = Math.min(Q.goals.length-1, Q.goalIdx + 1);
+
+      pushUpdate();
+    }
+
+    function ensureMini(){
+      if (Q.mini) return Q.mini;
+
+      const pool = [];
+
+      // No-Junk timer mini (pressure)
+      pool.push({
+        key:'nojunk',
+        title:`ห้ามพลาด/ห้ามโดนขยะ ${cfg.minis.nojunkSec} วิ`,
+        now:0, total:cfg.minis.nojunkSec,
+        timer:true,
+        forbidBad:true,
+        onStart(){
+          Q._miniStartMs = now();
+          Q._miniEndsMs = Q._miniStartMs + cfg.minis.nojunkSec*1000;
+          Q.lastBadAt = 0;
+        },
+        onTick(){
+          const left = Math.max(0, (Q._miniEndsMs - now())/1000);
+          this.now = cfg.minis.nojunkSec - Math.ceil(left);
+          if (now() >= Q._miniEndsMs){
+            return { done:true };
+          }
+          return { done:false };
+        },
+        onBad(){
+          return { fail:true, reason:'hit_bad' };
+        }
       });
-    }
 
-    function nextGoal(){
-      if (S.goalIndex >= GOALS.length){
-        // done goals
-        return;
-      }
-      const g = GOALS[S.goalIndex]();
-      S.goal = { ...g, done:false };
-      pushUpdate();
-    }
+      // Group Sprint (เฉพาะหมู่) — ห้ามพลาด/ห้ามโดน junk/wrong/decoy ระหว่างทำ
+      pool.push({
+        key:'sprint',
+        title:`SPRINT หมู่นี้! ยิงถูก ${cfg.minis.sprintNeed} ใน ${cfg.minis.sprintSec} วิ (ห้ามพลาด)`,
+        now:0, total:cfg.minis.sprintNeed,
+        timer:true,
+        forbidBad:true,
+        forbidSwap:true,
+        onStart(){
+          this.now = 0;
+          Q._miniStartMs = now();
+          Q._miniEndsMs = Q._miniStartMs + cfg.minis.sprintSec*1000;
+        },
+        onGood(){
+          this.now = Math.min(this.total, this.now + 1);
+          if (this.now >= this.total) return { done:true };
+          return { done:false };
+        },
+        onBad(){ return { fail:true, reason:'hit_bad' }; },
+        onSwap(){ return { fail:true, reason:'group_swap' }; },
+        onTick(){
+          if (now() >= Q._miniEndsMs){
+            return { fail:true, reason:'time_up' };
+          }
+          return { done:false };
+        }
+      });
 
-    function passGoal(){
-      if (!S.goal || S.goal.done) return;
-      S.goal.done = true;
-      S.goalsCleared++;
-      S.goalIndex++;
-      emit('hha:celebrate', { kind:'goal', title:'GOAL CLEAR!' });
-      nextGoal();
-    }
+      // Storm mini — ตอนพายุ hit_good X ให้ได้
+      pool.push({
+        key:'stormhit',
+        title:`STORM! ยิงถูก ${cfg.minis.stormNeed} ระหว่างพายุ`,
+        now:0, total:cfg.minis.stormNeed,
+        timer:false,
+        requireStorm:true,
+        onStart(){ this.now = 0; },
+        onGood(){
+          this.now = Math.min(this.total, this.now + 1);
+          if (this.now >= this.total) return { done:true };
+          return { done:false };
+        },
+        onStormOff(){ return { fail:true, reason:'storm_end' }; }
+      });
 
-    function startMini(def){
-      const total = def.n;
-      S.mini = { key:def.key, title:def.title, now:0, total, noBad:!!def.noBad, done:false };
-      S.miniEndAt = now() + (def.t*1000);
-      S.hitBad = 0;
-      S.noJunkActive = !!def.noBad;
+      // Perfect Chain x3 -> Overdrive
+      pool.push({
+        key:'perfect3',
+        title:`Perfect Switch x${cfg.minis.perfectNeed} = OVERDRIVE!`,
+        now:0, total:cfg.minis.perfectNeed,
+        timer:true,
+        forbidBad:false,
+        onStart(){
+          this.now = 0;
+          Q.perfectChain = 0;
+          Q._miniStartMs = now();
+          Q._miniEndsMs = Q._miniStartMs + 18*1000; // window
+        },
+        onPerfect(){
+          Q.perfectChain = clamp(Q.perfectChain + 1, 0, this.total);
+          this.now = Q.perfectChain;
+          Q.lastPerfectAt = now();
+          if (this.now >= this.total){
+            return { done:true, overdrive:true };
+          }
+          return { done:false };
+        },
+        onBad(){ Q.perfectChain = 0; this.now = 0; },
+        onTick(){
+          if (now() >= Q._miniEndsMs){
+            return { fail:true, reason:'timeout' };
+          }
+          return { done:false };
+        }
+      });
 
-      // zone mini → show zone + tell engine to validate inside
-      if (def.key === 'zone'){
-        S.zone.r = T.zoneR;
-        const p = safeZonePick(rng, S.zone.r);
-        S.zone.x = p.x; S.zone.y = p.y;
-        S.zoneCount = 0;
-        S.zoneOn = true;
-        emit('groups:zone', { on:true, x:S.zone.x, y:S.zone.y, r:S.zone.r });
-        emit('groups:setZone', { on:true, x:S.zone.x, y:S.zone.y, r:S.zone.r });
+      // เลือก mini ตามสถานะ storm
+      let pickables = pool.slice();
+
+      if (!Q.stormOn){
+        pickables = pickables.filter(m=> !m.requireStorm);
       } else {
-        S.zoneOn = false;
-        emit('groups:zone', { on:false });
-        emit('groups:setZone', { on:false });
+        // ตอน storm ให้โอกาส storm mini โผล่มากขึ้น
+        if (rng() < 0.55) pickables = pickables.filter(m=> m.key==='stormhit');
       }
 
-      emit('hha:judge', { kind:'good', text:'MINI START!' });
+      Q.mini = randPick(rng, pickables) || pool[0];
+      Q._miniStartMs = 0;
+      Q._miniEndsMs = 0;
+
+      try{ Q.mini.onStart && Q.mini.onStart(); }catch{}
       pushUpdate();
+      return Q.mini;
     }
 
-    function endMini(pass, reason){
-      if (!S.mini || S.mini.done) return;
-      S.mini.done = true;
-      S.miniEndAt = 0;
+    function clearMini(kind, title){
+      Q.mini = null;
+      if (kind === 'clear') Q.miniCleared++;
+      pushUpdate({ miniTitle: title || '—', miniNow:0, miniTotal:1, miniPct:0, miniTimeLeftSec:0 });
+      // spawn next mini shortly
+      root.setTimeout(()=>{ if (!Q.stopped) ensureMini(); }, 450);
+    }
 
-      // clear zone overlay
-      if (S.zoneOn){
-        S.zoneOn = false;
-        emit('groups:zone', { on:false });
-        emit('groups:setZone', { on:false });
+    function winMini(title){
+      emit('hha:celebrate', { kind:'mini', title: title || 'MINI CLEAR!' });
+      clearMini('clear', title || 'MINI CLEAR!');
+    }
+
+    function failMini(reason){
+      emit('hha:judge', { kind:'MISS', text:`MINI FAIL: ${reason||'fail'}` });
+      clearMini('fail', 'ลองใหม่! 💥');
+    }
+
+    function updateGoalsFromCounters(){
+      // goal 1 swap
+      const g0 = Q.goals[0];
+      if (g0 && !g0.done){
+        g0.now = clamp(Q.swaps, 0, g0.total);
+        if (g0.now >= g0.total) completeGoal();
       }
-
-      if (pass){
-        S.miniCleared++;
-        emit('groups:progress', { kind:'nojunk_clear', reason: reason||'pass' });
-        emit('hha:celebrate', { kind:'mini', title:'MINI CLEAR!' });
-      } else {
-        emit('groups:progress', { kind:'nojunk_fail', reason: reason||'fail' });
-        emit('hha:judge', { kind:'bad', text:'MINI FAIL!' });
+      // goal 2 hits
+      const g1 = Q.goals[1];
+      if (g1 && !g1.done){
+        g1.now = clamp(Q.hitGood, 0, g1.total);
+        if (g1.now >= g1.total) completeGoal();
       }
-      S.mini = null;
-      pushUpdate();
+      // goal 3 bosses
+      const g2 = Q.goals[2];
+      if (g2 && !g2.done){
+        g2.now = clamp(Q.bossesDown, 0, g2.total);
+        if (g2.now >= g2.total) completeGoal();
+      }
     }
 
-    function scheduleMinis(){
-      // deterministic order in research, random-ish in play
-      const order = [0,1];
-      if (runMode !== 'research' && rng() < 0.5) order.reverse();
-      S.miniOrder = order;
-      S.miniIdx = 0;
-    }
-
-    function maybeStartNextMini(){
-      if (S.mini) return;
-      // start a mini every ~18–24 seconds (feel) or fixed in research
-      const wants = (runMode === 'research') ? true : (rng() < 0.45);
-      if (!wants) return;
-
-      const def = MINIS[ S.miniOrder[S.miniIdx % S.miniOrder.length] ];
-      S.miniIdx++;
-      startMini(def);
-
-      // auto timeout check
-      const tick = ()=>{
-        if (!S.mini) return;
-        const leftMs = S.miniEndAt - now();
-        if (leftMs <= 0){
-          endMini(false, 'timeout');
+    function tickMini(){
+      const m = Q.mini;
+      if (!m) return;
+      if (m.timer && typeof m.onTick === 'function'){
+        const r = m.onTick();
+        if (r && r.done){
+          // bonus
+          if (r.overdrive){
+            emit('groups:buff', { type:'overdrive', durSec: 8 });
+            winMini('OVERDRIVE! x2 🔥');
+          } else {
+            winMini('TIME CLEAR! ⏱️');
+          }
           return;
         }
-        pushUpdate();
-        setTimeout(tick, 220);
-      };
-      setTimeout(tick, 240);
+        if (r && r.fail){
+          failMini(r.reason || 'time');
+          return;
+        }
+      }
+      pushUpdate();
     }
 
     function onProgress(ev){
-      if (S.stopped) return;
+      if (!Q.started || Q.stopped) return;
       const d = (ev && ev.detail) ? ev.detail : {};
-      const kind = String(d.kind||'');
+      const kind = String(d.kind||'').toLowerCase();
 
-      // hit stats & goal update inputs
-      if (kind === 'combo') S.comboMax = Math.max(S.comboMax, Number(d.combo||0));
-      if (kind === 'storm_on') S.inStorm = true;
-      if (kind === 'storm_off') S.inStorm = false;
-      if (kind === 'boss_down') { S.bossDown++; }
+      // storm tracking
+      if (kind === 'storm_on') Q.stormOn = true;
+      if (kind === 'storm_off') Q.stormOn = false;
 
-      // ✅ Good/bad hits (from engine)
+      // goals counters
+      if (kind === 'group_swap'){
+        Q.swaps++;
+      }
       if (kind === 'hit_good'){
-        S.hitGood++;
+        Q.hitGood++;
+      }
+      if (kind === 'boss_down'){
+        Q.bossesDown++;
+      }
 
-        // goal 1: hit count
-        if (S.goal && S.goal.key==='hit' && !S.goal.done){
-          S.goal.now = clamp(S.hitGood, 0, S.goal.total);
-          if (S.goal.now >= S.goal.total) passGoal();
-        }
+      updateGoalsFromCounters();
 
-        // mini rush: count any good (but fail on bad)
-        if (S.mini && S.mini.key==='rush'){
-          S.mini.now = clamp(S.mini.now + 1, 0, S.mini.total);
-          if (S.mini.now >= S.mini.total) endMini(true, 'rush');
-        }
+      // mini ensure
+      const m = ensureMini();
 
-        // mini zone: count only inside
-        if (S.mini && S.mini.key==='zone'){
-          const inside = !!d.insideZone;
-          if (inside){
-            S.zoneCount = clamp(S.zoneCount + 1, 0, S.mini.total);
-            if (S.zoneCount >= S.mini.total) endMini(true, 'zone');
+      // route mini events
+      if (kind === 'hit_good'){
+        if (m && typeof m.onGood === 'function'){
+          const r = m.onGood();
+          if (r && r.done){
+            winMini('SPRINT CLEAR! ⚡');
+            return;
           }
         }
-
-        pushUpdate();
-        return;
       }
 
       if (kind === 'hit_bad'){
-        S.hitBad++;
-
-        // goal doesn't fail, but mini can fail
-        if (S.mini && S.mini.noBad){
-          endMini(false, 'hit_bad');
+        Q.lastBadAt = now();
+        if (m){
+          if (typeof m.onBad === 'function') m.onBad();
+          if (m.forbidBad){
+            if (typeof m.onBad === 'function'){
+              const r = m.onBad();
+              if (r && r.fail){ failMini(r.reason||'bad'); return; }
+            } else {
+              failMini('hit_bad');
+              return;
+            }
+          }
         }
-        pushUpdate();
-        return;
       }
 
-      // goal 2: combo
-      if (S.goal && S.goal.key==='combo' && !S.goal.done){
-        S.goal.now = clamp(S.comboMax, 0, S.goal.total);
-        if (S.goal.now >= S.goal.total) passGoal();
-        pushUpdate();
+      if (kind === 'perfect_switch'){
+        if (m && typeof m.onPerfect === 'function'){
+          const r = m.onPerfect();
+          if (r && r.done){
+            emit('groups:buff', { type:'overdrive', durSec: 8 });
+            winMini('OVERDRIVE! x2 🔥');
+            return;
+          }
+        }
       }
 
-      // goal 3: boss
-      if (S.goal && S.goal.key==='boss' && !S.goal.done){
-        S.goal.now = clamp(S.bossDown, 0, S.goal.total);
-        if (S.goal.now >= S.goal.total) passGoal();
-        pushUpdate();
+      if (kind === 'group_swap'){
+        if (m && m.forbidSwap){
+          if (typeof m.onSwap === 'function'){
+            const r = m.onSwap();
+            if (r && r.fail){ failMini(r.reason||'swap'); return; }
+          } else {
+            failMini('group_swap');
+            return;
+          }
+        }
       }
 
-      // start minis opportunistically when something exciting happens
-      if (kind === 'storm_on' || kind === 'boss_spawn' || kind === 'powerup_star'){
-        maybeStartNextMini();
+      if (kind === 'storm_off'){
+        if (m && m.requireStorm){
+          if (typeof m.onStormOff === 'function'){
+            const r = m.onStormOff();
+            if (r && r.fail){ failMini(r.reason||'storm_end'); return; }
+          } else {
+            failMini('storm_end');
+            return;
+          }
+        }
       }
+
+      pushUpdate();
     }
 
+    let _tickTimer = 0;
+
     function start(){
-      if (S.started) return;
-      S.started = true;
-      scheduleMinis();
-      nextGoal();
-      // start a first mini sometimes
-      setTimeout(()=> maybeStartNextMini(), (runMode==='research'?6500:9000));
+      if (Q.started) return;
+      Q.started = true;
+      Q.stopped = false;
+      Q.goalsCleared = 0;
+      Q.goalIdx = 0;
+      Q.mini = null;
+      Q.miniCleared = 0;
+      Q.swaps = 0;
+      Q.hitGood = 0;
+      Q.bossesDown = 0;
+      Q.perfectChain = 0;
+      Q.stormOn = false;
+
+      pushUpdate();
+
+      // mini ticker (for timer minis)
+      _tickTimer = root.setInterval(()=> tickMini(), 200);
     }
 
     function stop(){
-      S.stopped = true;
-      // hide zone if active
-      emit('groups:zone', { on:false });
-      emit('groups:setZone', { on:false });
+      Q.stopped = true;
+      try{ root.clearInterval(_tickTimer); }catch{}
     }
 
     function getState(){
       return {
-        goalsCleared: S.goalsCleared,
-        goalsTotal: S.goalsTotal,
-        miniCleared: S.miniCleared,
-        miniTotal: S.miniTotal
+        goalsCleared: Q.goalsCleared|0,
+        goalsTotal: Q.goalsTotal|0,
+        miniCleared: Q.miniCleared|0,
+        miniTotal: Q.miniTotal|0
       };
     }
 
-    return { start, stop, onProgress, getState, pushUpdate };
-  };
+    return {
+      start,
+      stop,
+      onProgress,
+      pushUpdate,
+      getState
+    };
+  }
+
+  NS.createGroupsQuest = createGroupsQuest;
 
 })(typeof window !== 'undefined' ? window : globalThis);
