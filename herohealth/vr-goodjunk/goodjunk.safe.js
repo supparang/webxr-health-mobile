@@ -1,10 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard — v5 BOSS 2 PHASES
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard — v6 BOSS P2 ONE-HIT + FAKE GOOD
 // ✅ controller { start, endGame, shoot }
 // ✅ autoStart:false supported (Start-gate in boot.js)
 // ✅ endPolicy: time | all | miss
 // ✅ minis: rush / nojunk / boss(phase1+phase2)
-// ✅ boss rule: BLOCK fail when bossBad >= bossBadLimit (default = bossNeed)
+// ✅ boss rule: BLOCK fail when bossBad >= bossBadLimit (phase-aware)
 
 'use strict';
 
@@ -138,11 +138,17 @@ function ensureTargetStyles(){
 
     /* boss targets */
     .gj-target.boss{
-      box-shadow: 0 18px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.05) inset;
+      box-shadow: 0 18px 64px rgba(0,0,0,.58), 0 0 0 1px rgba(255,255,255,.06) inset;
       border-width: 2px;
     }
-    .gj-target.boss.good{ border-color: rgba(34,197,94,.52); }
-    .gj-target.boss.junk{ border-color: rgba(239,68,68,.62); }
+    .gj-target.boss.good{ border-color: rgba(34,197,94,.56); }
+    .gj-target.boss.junk{ border-color: rgba(239,68,68,.70); }
+
+    /* fake-good (looks good, actually junk) */
+    .gj-target.fake{
+      filter: saturate(1.25);
+      box-shadow: 0 20px 70px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.06) inset;
+    }
 
     .gj-target.hit{
       transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.28));
@@ -167,9 +173,9 @@ function buildAvoidRects(){
     DOC.querySelector('.hud-top'),
     DOC.querySelector('.hud-mid'),
     DOC.getElementById('bossBar'),
+    DOC.getElementById('hudPeek'),
     DOC.querySelector('.hha-controls'),
     DOC.getElementById('hhaFever'),
-    DOC.getElementById('hudPeek')
   ].filter(Boolean);
 
   for (const el of els){
@@ -285,6 +291,7 @@ function rankSummary(S){
 
 function makeSummary(S, reason){
   const { acc, grade } = rankSummary(S);
+  const bossBadTotal = (S.bossBad1|0) + (S.bossBad2|0);
   return {
     reason: String(reason||'end'),
     scoreFinal: S.score|0,
@@ -308,6 +315,9 @@ function makeSummary(S, reason){
     seed: S.seed,
     endPolicy: S.endPolicy,
     missLimit: S.missLimit|0,
+    bossBadTotal,
+    bossBadP1: S.bossBad1|0,
+    bossBadP2: S.bossBad2|0,
     durationPlayedSec: Math.round((now() - S.tStart)/1000)
   };
 }
@@ -373,6 +383,8 @@ export function boot(opts = {}) {
 
   const safeMargins = opts.safeMargins || { top: 128, bottom: 180, left: 18, right: 18 };
 
+  const bossP2Limit = (diff === 'easy') ? 2 : 1; // ✅ Phase2 one-hit (easy=2)
+
   const S = {
     running:false, ended:false, flushed:false,
     diff, runMode, timeSec, seed, rng: makeRng(seed),
@@ -389,7 +401,7 @@ export function boot(opts = {}) {
     miniCleared:0, miniTotal:7,
     missLimit: base.missLimit,
 
-    miniActive: null, // {type, ...}
+    miniActive: null,
 
     warmupUntil:0,
     spawnTimer:0, tickTimer:0, miniTimer:0,
@@ -400,7 +412,10 @@ export function boot(opts = {}) {
     bossUsed: false,
     bossNeed: base.bossNeed,
     bossDurMs: base.bossDurMs,
-    bossBadLimit: base.bossNeed, // BLOCK line (bad >= bossBadLimit => FAIL)
+    bossBadLimit1: base.bossNeed, // P1
+    bossBadLimit2: bossP2Limit,   // P2 one-hit
+    bossBad1: 0,
+    bossBad2: 0
   };
 
   if (isMobileLike()){
@@ -451,26 +466,42 @@ export function boot(opts = {}) {
     const got2 = clamp(m.got2|0, 0, need2);
     const gotAll = clamp(got1 + got2, 0, needAll);
 
-    const bad = clamp(m.bad|0, 0, m.badLimit|0);
+    const badNow = (m.phase === 1) ? (m.bad1|0) : (m.bad2|0);
+    const badLim = (m.phase === 1) ? (m.badLimit1|0) : (m.badLimit2|0);
 
     if (fill) fill.style.width = `${(gotAll/needAll)*100}%`;
     if (text) text.textContent = `P${m.phase}  ${gotAll}/${needAll}`;
-    if (bfill) bfill.style.width = `${(bad/Math.max(1,m.badLimit|0))*100}%`;
-    if (btext) btext.textContent = `${bad}/${m.badLimit}`;
+    if (bfill) bfill.style.width = `${(badNow/Math.max(1,badLim))*100}%`;
+    if (btext) btext.textContent = `${badNow}/${badLim}`;
 
     if (note){
       if (m.phase === 1){
-        note.textContent = `PHASE 1: RUSH ยิง GOOD ${got1}/${need1} • BAD ถึง ${m.badLimit} = BLOCK`;
+        note.textContent = `PHASE 1: ยิง GOOD ${got1}/${need1} • BAD ถึง ${badLim} = BLOCK`;
       }else{
-        note.textContent = `PHASE 2: DECOY หนัก! ยิง GOOD ต่อ ${got2}/${need2} • BAD ถึง ${m.badLimit} = BLOCK`;
+        note.textContent = `PHASE 2: ONE-HIT NO-JUNK! ยิง GOOD ${got2}/${need2} • BAD ถึง ${badLim} = BLOCK`;
       }
     }
+
+    // update HUD peek too
+    const peek = DOC.getElementById('hudPeekBoss');
+    if (peek) peek.textContent = `BOSS P${m.phase}  ${gotAll}/${needAll} • BAD ${badNow}/${badLim}`;
   }
   function hideBossUI(){
     const bar = DOC.getElementById('bossBar');
     if (bar) bar.hidden = true;
+    const peek = DOC.getElementById('hudPeekBoss');
+    if (peek) peek.textContent = '';
     setBossClass(false, 0);
     setBossLast5(false);
+  }
+
+  function updatePeek(goalText, miniText, timeText){
+    const elGoal = DOC.getElementById('hudPeekGoal');
+    const elMini = DOC.getElementById('hudPeekMini');
+    const elTime = DOC.getElementById('hudPeekTime');
+    if (elGoal) elGoal.textContent = goalText || '';
+    if (elMini) elMini.textContent = miniText || '';
+    if (elTime) elTime.textContent = timeText || '';
   }
 
   function formatMini(){
@@ -501,16 +532,27 @@ export function boot(opts = {}) {
 
   function updateQuest(){
     const needGood = (S.goalNeedBase + (S.goalsCleared * 8))|0;
+
+    const mini = formatMini();
     emit('quest:update', {
       goalTitle: `Goal: เก็บของดี`,
       goalNow: clamp(S.hitGood, 0, needGood),
       goalTotal: needGood,
-      ...formatMini()
+      ...mini
     });
+
     emit('quest:progress', {
       goalsCleared: S.goalsCleared, goalsTotal: S.goalsTotal,
       miniCleared: S.miniCleared, miniTotal: S.miniTotal
     });
+
+    // HUD Peek (always readable when HUD hidden)
+    const left = Math.max(0, S.left|0);
+    const tTxt = `${left}s`;
+    const gTxt = `GOOD ${clamp(S.hitGood,0,needGood)}/${needGood}`;
+    const mTxt = (S.miniActive && S.miniActive.type==='boss') ? 'BOSS' :
+                 (mini.miniTitle || '').replace('Mini: ','');
+    updatePeek(gTxt, mTxt, tTxt);
   }
 
   function clearTimers(){
@@ -580,7 +622,7 @@ export function boot(opts = {}) {
       S.miniCleared++;
       emit('hha:celebrate', { kind:'mini', title:`BOSS CLEAR! ${S.miniCleared}/${S.miniTotal}` });
       coach('happy', 'บอสผ่านแล้ว! 🏆', 'สุดยอด! กลับไปคุมความแม่นต่อ');
-      S.score += 520;
+      S.score += 620;
       updateScore();
       S.miniActive = null;
       updateQuest();
@@ -607,7 +649,7 @@ export function boot(opts = {}) {
 
     S.bossUsed = true;
 
-    // split bossNeed into 2 phases (P1 heavy, P2 clutch)
+    // split bossNeed into 2 phases
     const needAll = Math.max(2, S.bossNeed|0);
     const need1 = Math.max(1, Math.round(needAll * 0.62));
     const need2 = Math.max(1, needAll - need1);
@@ -623,8 +665,10 @@ export function boot(opts = {}) {
       need1, need2,
       got1: 0,
       got2: 0,
-      bad: 0,
-      badLimit: S.bossBadLimit|0,
+      bad1: 0,
+      bad2: 0,
+      badLimit1: S.bossBadLimit1|0,
+      badLimit2: S.bossBadLimit2|0,
       dur1Ms: dur1,
       dur2Ms: dur2,
       tEndMs: (t + dur1)|0,
@@ -636,7 +680,7 @@ export function boot(opts = {}) {
 
     coach('neutral', 'BOSS มาแล้ว! 😈', `PHASE 1: ยิง GOOD ${need1} ก่อนหมดเวลา`);
     judge('warn', 'BOSS START!');
-    emit('hha:boss', { phase:1, need1, need2, badLimit: S.bossBadLimit|0 });
+    emit('hha:boss', { phase:1, need1, need2, badLimit1:S.bossBadLimit1|0, badLimit2:S.bossBadLimit2|0 });
 
     tickMini();
     updateQuest();
@@ -652,9 +696,9 @@ export function boot(opts = {}) {
     setBossClass(true, 2);
     setBossLast5(false);
 
-    coach('neutral', 'PHASE 2: โหดขึ้น! 😈😈', `DECOY หนักขึ้น ยิง GOOD อีก ${m.need2} ให้ครบ`);
+    coach('neutral', 'PHASE 2: ONE-HIT NO-JUNK! 😈😈', `โดน BAD ได้ ${m.badLimit2} ครั้งเท่านั้น!`);
     judge('warn', 'BOSS PHASE 2!');
-    emit('hha:boss', { phase:2, need2: m.need2|0, badLimit: m.badLimit|0 });
+    emit('hha:boss', { phase:2, need2: m.need2|0, badLimit2:m.badLimit2|0 });
 
     updateQuest();
   }
@@ -666,10 +710,7 @@ export function boot(opts = {}) {
 
     const t = now();
 
-    if (type === 'boss'){
-      bossStart();
-      return;
-    }
+    if (type === 'boss'){ bossStart(); return; }
 
     if (type === 'nojunk'){
       const dur = (6500 + (S.miniCleared * 350))|0;
@@ -750,13 +791,9 @@ export function boot(opts = {}) {
 
     const elapsed = (now() - S.tStart) / 1000;
 
-    // Boss trigger: near end OR after goals cleared OR near mini total
     const nearEnd = (S.left <= 20);
     const readyBoss = !S.bossUsed && (nearEnd || (S.goalsCleared >= S.goalsTotal) || (S.miniCleared >= Math.max(3, S.miniTotal-2)));
-    if (readyBoss){
-      startMini('boss');
-      return;
-    }
+    if (readyBoss){ startMini('boss'); return; }
 
     if (elapsed < 3.8) return;
 
@@ -777,21 +814,16 @@ export function boot(opts = {}) {
     if (tp === 'good'){
       S.misses++; S.expireGood++; S.combo = 0;
 
-      // NO-JUNK fail if active
       if (S.miniActive && S.miniActive.type === 'nojunk'){
         onMiniFail('ปล่อยให้ของดีหมดเวลา!');
       }
 
-      // Boss: miss adds a bit fever pressure
-      if (S.miniActive && S.miniActive.type === 'boss'){
-        S.fever = clamp(S.fever + 6, 0, 100);
-      } else {
-        S.fever = clamp(S.fever + 7, 0, 100);
-      }
-
+      S.fever = clamp(S.fever + 7, 0, 100);
       updateFever(DOC, S.shield, S.fever);
+
       judge('warn', 'MISS (หมดเวลา)!');
       emit('hha:fx', { kind:'miss' });
+
       updateScore(); updateQuest();
       logEvent('miss_expire', { kind:'good', emoji: String(el.dataset.emoji||'') });
 
@@ -809,13 +841,14 @@ export function boot(opts = {}) {
     }, 160);
   }
 
-  function makeTarget(type, emoji, x, y, s, uid, isBoss=false){
+  function makeTarget(type, emoji, x, y, s, uid, isBoss=false, extraClass=''){
     const el = DOC.createElement('div');
-    el.className = `gj-target ${type}` + (isBoss ? ' boss' : '');
+    el.className = `gj-target ${type}` + (isBoss ? ' boss' : '') + (extraClass ? ` ${extraClass}` : '');
     el.dataset.type = type;
     el.dataset.emoji = String(emoji||'✨');
     el.dataset.uid = String(uid||'');
     if (isBoss) el.dataset.boss = '1';
+    if (extraClass.includes('fake')) el.dataset.fake = '1';
 
     setXY(el, x, y);
     el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
@@ -863,15 +896,28 @@ export function boot(opts = {}) {
   }
 
   function bossBadHit(m, reasonText){
-    m.bad++;
-    showBossUI(m);
-
-    // BLOCK line
-    if (m.bad >= m.badLimit){
-      onMiniFail(reasonText || `BAD ถึงลิมิต ${m.badLimit} (BLOCK)`);
-      return true;
+    const phase = m.phase|0;
+    if (phase === 1){
+      m.bad1++;
+      S.bossBad1 = m.bad1|0;
+      const lim = m.badLimit1|0;
+      showBossUI(m);
+      if (m.bad1 >= lim){
+        onMiniFail(reasonText || `P1 BAD ถึงลิมิต ${lim} (BLOCK)`);
+        return true;
+      }
+      return false;
+    } else {
+      m.bad2++;
+      S.bossBad2 = m.bad2|0;
+      const lim = m.badLimit2|0;
+      showBossUI(m);
+      if (m.bad2 >= lim){
+        onMiniFail(reasonText || `P2 BAD ถึงลิมิต ${lim} (BLOCK)`);
+        return true;
+      }
+      return false;
     }
-    return false;
   }
 
   function hitGood(el){
@@ -882,7 +928,6 @@ export function boot(opts = {}) {
     S.fever = clamp(S.fever - 2.4, 0, 100);
     updateFever(DOC, S.shield, S.fever);
 
-    // mini rush counts
     if (S.miniActive && S.miniActive.type === 'rush'){
       S.miniActive.got++;
       if (S.miniActive.got >= S.miniActive.need){
@@ -890,7 +935,6 @@ export function boot(opts = {}) {
       }
     }
 
-    // boss counts ONLY boss-good (dataset.boss=1)
     if (S.miniActive && S.miniActive.type === 'boss' && el.dataset.boss === '1' && el.classList.contains('good')){
       const m = S.miniActive;
       if (m.phase === 1){
@@ -957,7 +1001,6 @@ export function boot(opts = {}) {
   function hitJunk(el){
     S.hitAll++;
 
-    // shield blocks junk (no miss)
     if (S.shield > 0){
       S.shield = Math.max(0, S.shield - 1);
       S.hitJunkGuard++;
@@ -982,25 +1025,23 @@ export function boot(opts = {}) {
     updateFever(DOC, S.shield, S.fever);
 
     judge('bad', `JUNK! -${penalty}`);
-    coach('sad', 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
+    coach('sad', el.dataset.fake==='1' ? 'โดน FAKE GOOD! 😵' : 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
     emit('hha:fx', { kind:'hurt' });
     burstAtEl(el, 'junk');
 
-    // mini nojunk fail
     if (S.miniActive && S.miniActive.type === 'nojunk'){
       onMiniFail('โดนขยะระหว่าง NO-JUNK!');
     }
 
-    // boss: count BAD + BLOCK fail when bad >= badLimit
     if (S.miniActive && S.miniActive.type === 'boss' && el.dataset.boss === '1'){
       const m = S.miniActive;
-      const blocked = bossBadHit(m, `BAD ถึงลิมิต ${m.badLimit} (BLOCK)`);
+      const blocked = bossBadHit(m, `BAD ถึงลิมิต (BLOCK)`);
       if (blocked){
-        logEvent('boss_block', { phase:m.phase|0, bad:m.bad|0, badLimit:m.badLimit|0 });
+        logEvent('boss_block', { phase:m.phase|0, bad1:m.bad1|0, bad2:m.bad2|0, lim1:m.badLimit1|0, lim2:m.badLimit2|0 });
       }
     }
 
-    logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
+    logEvent('hit', { kind:'junk', fake: el.dataset.fake==='1', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
 
     updateScore(); updateQuest();
     removeTargetBoth(el);
@@ -1031,26 +1072,37 @@ export function boot(opts = {}) {
       const m = S.miniActive;
       const uid = String(S.uidSeq++);
 
-      // Phase 2: decoy heavier + a bit smaller
-      const decoy = (m.phase === 2) ? 0.52 : 0.36;
+      // Phase 2: decoy heavier + fake-good appears
+      const decoy = (m.phase === 2) ? 0.58 : 0.38;
       const isBad = (S.rng() < decoy);
-      const tp = isBad ? 'junk' : 'good';
-      const emoji = isBad ? pick(S.rng, BOSS_BAD) : pick(S.rng, BOSS_GOOD);
+
+      let tp = isBad ? 'junk' : 'good';
+      let emoji = isBad ? pick(S.rng, BOSS_BAD) : pick(S.rng, BOSS_GOOD);
+      let extra = '';
+
+      if (m.phase === 2 && isBad){
+        // 60% of bad are fake-good: look good but is junk
+        const fake = (S.rng() < 0.60);
+        if (fake){
+          emoji = pick(S.rng, BOSS_GOOD);
+          extra = 'fake';
+        }
+      }
 
       const baseScale = (m.phase === 2) ? 0.92 : 0.96;
       const size = clamp(S.size * baseScale * (isBad ? 0.96 : 1.00), 0.82, 1.08);
 
       const pL = randPosEye(S.rng, safeMargins, 0, dual);
-      const elL = makeTarget(tp, emoji, pL.x, pL.y, size, uid, true);
+      const elL = makeTarget(tp, emoji, pL.x, pL.y, size, uid, true, extra);
       layerL.appendChild(elL);
 
       if (dual && layerR){
         const pR = randPosEye(S.rng, safeMargins, 1, dual);
-        const elR = makeTarget(tp, emoji, pR.x, pL.y, size, uid, true);
+        const elR = makeTarget(tp, emoji, pR.x, pL.y, size, uid, true, extra);
         layerR.appendChild(elR);
       }
 
-      logEvent('spawn', { kind:`boss_${tp}`, phase:m.phase|0, emoji:String(emoji||''), uid });
+      logEvent('spawn', { kind:`boss_${tp}`, fake: !!extra, phase:m.phase|0, emoji:String(emoji||''), uid });
       return;
     }
 
@@ -1081,12 +1133,12 @@ export function boot(opts = {}) {
       (tp === 'star') ? (size * 1.02) :
       size;
 
-    const elL = makeTarget(tp, emoji, pL.x, pL.y, s, uid, false);
+    const elL = makeTarget(tp, emoji, pL.x, pL.y, s, uid, false, '');
     layerL.appendChild(elL);
 
     if (dual && layerR){
       const pR = randPosEye(S.rng, safeMargins, 1, dual);
-      const elR = makeTarget(tp, emoji, pR.x, pL.y, s, uid, false);
+      const elR = makeTarget(tp, emoji, pR.x, pL.y, s, uid, false, '');
       layerR.appendChild(elR);
     }
 
@@ -1105,8 +1157,8 @@ export function boot(opts = {}) {
     let nextMs = S.spawnMs;
     if (bossOn){
       const m = S.miniActive;
-      const factor = (m.phase === 2) ? 0.62 : 0.70;
-      nextMs = clamp(S.spawnMs * factor, 240, 720);
+      const factor = (m.phase === 2) ? 0.60 : 0.70;
+      nextMs = clamp(S.spawnMs * factor, 230, 700);
     } else if (inWarm) {
       nextMs = Math.max(980, S.spawnMs + 240);
     }
@@ -1127,7 +1179,6 @@ export function boot(opts = {}) {
 
     maybeScheduleMini();
 
-    // adaptive only in play, not in research
     if (S.runMode === 'play'){
       const elapsed = (now() - S.tStart) / 1000;
       const acc = S.hitAll > 0 ? (S.hitGood / S.hitAll) : 0;
@@ -1162,11 +1213,6 @@ export function boot(opts = {}) {
     if (endPolicy === 'miss' && S.misses >= S.missLimit){
       endGame('miss_limit');
       return;
-    }
-
-    if (endPolicy === 'all' && S.left <= 0){
-      S.left = 0;
-      updateTime();
     }
 
     S.tickTimer = setTimeout(adaptiveTick, 140);
@@ -1287,6 +1333,7 @@ export function boot(opts = {}) {
     S.miniActive = null;
 
     S.bossUsed = false;
+    S.bossBad1 = 0; S.bossBad2 = 0;
     hideBossUI();
 
     S.warmupUntil = now() + 3200;
@@ -1306,7 +1353,8 @@ export function boot(opts = {}) {
       timeSec: S.timeSec,
       missLimit: S.missLimit|0,
       bossNeed: S.bossNeed|0,
-      bossBadLimit: S.bossBadLimit|0
+      bossBadLimit1: S.bossBadLimit1|0,
+      bossBadLimit2: S.bossBadLimit2|0
     });
 
     loopSpawn();
