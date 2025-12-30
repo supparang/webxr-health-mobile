@@ -1,766 +1,776 @@
 // === /herohealth/hub.safe.js ===
 // HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
 // ✅ อ่าน localStorage: HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-// ✅ ตาราง 4 เกมล่าสุด + ปุ่ม replay/copy/export/clear
+// ✅ ตาราง 4 เกมล่าสุด
 // ✅ Export CSV (last / recent4)
-// ✅ Launch 4 games พร้อมส่งพารามิเตอร์กลับไป-กลับมา (hub=..., run/runMode, diff, time, seed, + research ctx)
-// ✅ UX: แตะ 1 ครั้ง = Copy ลิงก์, แตะ 2 ครั้ง = Play (ทั้งปุ่มเกมและแถว history)
-// ✅ เพิ่ม Action ใน history: Play + Copy JSON (กดแล้วไม่ชน single/double tap)
+// ✅ Launch 4 games พร้อมพารามิเตอร์กลับไป-กลับมา (hub=..., run, diff, time, seed, + research ctx)
+// ✅ UX: แตะ 1 ครั้ง = Copy, แตะ 2 ครั้ง = Play (ทั้งปุ่มเกมและแถว history)
+// ✅ เพิ่ม Action ใน history: Play + Copy JSON
 
 'use strict';
 
-const LS_LAST = 'HHA_LAST_SUMMARY';
-const LS_HIST = 'HHA_SUMMARY_HISTORY';
-const LS_CTX  = 'HHA_STUDY_CTX';
+const STORAGE_LAST = 'HHA_LAST_SUMMARY';
+const STORAGE_HIST = 'HHA_SUMMARY_HISTORY';
 
-const PASS_KEYS = [
-  'projectTag','studyId','phase','condition','conditionGroup','sessionOrder','blockLabel',
-  'siteCode','schoolYear','semester',
-  'sessionId','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-  'gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup',
-  'vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent'
-];
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-const GAME_MAP = {
-  goodjunk:  { tag:'goodjunk',  name:'🥦 GoodJunk VR',  path:'./goodjunk-vr.html' },
-  hydration: { tag:'hydration', name:'💧 Hydration VR', path:'./hydration-vr.html' },
-  plate:     { tag:'plate',     name:'🍽️ Plate VR',     path:'./plate-vr.html' },
-  groups:    { tag:'groups',    name:'🍎 Groups VR',    path:'./vr-groups/groups-vr.html' }
-};
-
-const DEFAULT_RESEARCH_SEED = 777777;
-const TAP_DELAY_MS = 260;
-
-// ---------------- helpers ----------------
-const $ = (id) => document.getElementById(id);
-
-function safeJsonParse(str, fallback = null){
-  try { return JSON.parse(String(str || '')); } catch { return fallback; }
-}
 function clamp(n, a, b){
-  n = Number(n) || 0;
-  return n < a ? a : (n > b ? b : n);
-}
-function nowIso(){ return new Date().toISOString(); }
-function fmtLocal(dt){
-  try{
-    const d = (dt instanceof Date) ? dt : new Date(dt);
-    if (Number.isNaN(d.getTime())) return String(dt || '—');
-    const pad = (x)=>String(x).padStart(2,'0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  }catch{ return String(dt || '—'); }
-}
-function pick(obj, keys, fallback){
-  for (const k of keys){
-    if (!obj) continue;
-    const v = obj[k];
-    if (v !== undefined && v !== null && v !== '') return v;
-  }
-  return fallback;
-}
-function normalizeRun(selRunValue){
-  return (String(selRunValue || '').toLowerCase() === 'study') ? 'research' : 'play';
-}
-function normalizeDiff(v){
-  v = String(v || 'normal').toLowerCase();
-  if (v !== 'easy' && v !== 'hard') v = 'normal';
-  return v;
-}
-function getHubReturnUrl(){
-  const u = new URL(location.href);
-  u.hash = '';
-  return u.toString();
+  n = Number(n);
+  if (!Number.isFinite(n)) n = a;
+  return Math.max(a, Math.min(b, n));
 }
 
-async function copyText(text){
-  const t = String(text ?? '');
+function safeJsonParse(s, fallback){
   try{
-    await navigator.clipboard.writeText(t);
-    return true;
-  }catch{
+    if (typeof s !== 'string' || !s.trim()) return fallback;
+    return JSON.parse(s);
+  }catch(e){
+    return fallback;
+  }
+}
+
+function prettyIso(ts){
+  try{
+    const d = (typeof ts === 'number') ? new Date(ts) : new Date(String(ts));
+    if (Number.isNaN(d.getTime())) return '—';
+    // th-TH เพื่ออ่านง่ายในไทย
+    return d.toLocaleString('th-TH', { hour12:false });
+  }catch(e){
+    return '—';
+  }
+}
+
+function nowClock(){
+  try{
+    return new Date().toLocaleString('th-TH', { hour12:false });
+  }catch(e){
+    return String(Date.now());
+  }
+}
+
+function ensureToast(){
+  let t = $('#hhaToast');
+  if (t) return t;
+  t = document.createElement('div');
+  t.id = 'hhaToast';
+  t.style.cssText =
+    'position:fixed;left:50%;bottom:22px;transform:translate(-50%, 16px);' +
+    'padding:10px 14px;border-radius:999px;' +
+    'background:rgba(2,6,23,.88);border:1px solid rgba(148,163,184,.22);' +
+    'color:#e5e7eb;font:900 13px/1.2 system-ui;z-index:9999;' +
+    'opacity:0;pointer-events:none;' +
+    'transition:opacity .14s ease, transform .14s ease;';
+  document.body.appendChild(t);
+  return t;
+}
+let toastTimer = 0;
+function toast(msg){
+  const t = ensureToast();
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.transform = 'translate(-50%, 0)';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{
+    t.style.opacity = '0';
+    t.style.transform = 'translate(-50%, 16px)';
+  }, 900);
+}
+
+function copyText(text){
+  if (!text) return Promise.resolve(false);
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(text).then(()=>true).catch(()=>false);
+  }
+  return new Promise((resolve)=>{
     try{
       const ta = document.createElement('textarea');
-      ta.value = t;
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      ta.style.top = '0';
+      ta.value = String(text);
+      ta.setAttribute('readonly','readonly');
+      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
       document.body.appendChild(ta);
       ta.select();
-      document.execCommand('copy');
+      try{ document.execCommand('copy'); }catch(e){}
       ta.remove();
-      return true;
-    }catch{
-      return false;
+      resolve(true);
+    }catch(e2){
+      resolve(false);
     }
-  }
-}
-
-function downloadText(filename, text){
-  const blob = new Blob([String(text || '')], { type:'text/plain;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 250);
-}
-
-// ---------- pulse feedback ----------
-function pulse(el, kind='good'){
-  if (!el || !el.classList) return;
-  const cls = (kind === 'warn') ? 'pulseWarn' : (kind === 'bad') ? 'pulseBad' : 'pulseGood';
-  el.classList.remove('pulseGood','pulseWarn','pulseBad');
-  void el.offsetWidth;
-  el.classList.add(cls);
-  setTimeout(()=>{ try{ el.classList.remove(cls); }catch{} }, 520);
-}
-
-// ---------- hint ----------
-let _hintTimer = null;
-function setHint(targetId, msg){
-  const el = $(targetId);
-  if (!el) return;
-  el.textContent = String(msg || '');
-  if (_hintTimer) clearTimeout(_hintTimer);
-  _hintTimer = setTimeout(()=>{}, 900);
-}
-
-// ------------- tap / double tap binder -------------
-const _tapState = new WeakMap();
-function bindTap(el, onSingle, onDouble, opts = {}){
-  if (!el) return;
-  const delay = Number(opts.delayMs ?? TAP_DELAY_MS);
-  _tapState.set(el, { last:0, timer:null });
-
-  function clearState(st){
-    if (st.timer) { clearTimeout(st.timer); st.timer = null; }
-    st.last = 0;
-  }
-
-  el.addEventListener('click', (e) => {
-    const st = _tapState.get(el) || { last:0, timer:null };
-    const now = Date.now();
-
-    if (st.last && (now - st.last) <= delay){
-      if (st.timer) clearTimeout(st.timer);
-      st.timer = null;
-      st.last = 0;
-      _tapState.set(el, st);
-      try{ onDouble && onDouble(e, { el }); }catch{}
-      return;
-    }
-
-    clearState(st);
-    st.last = now;
-    st.timer = setTimeout(() => {
-      clearState(st);
-      _tapState.set(el, st);
-      try{ onSingle && onSingle(e, { el }); }catch{}
-    }, delay);
-
-    _tapState.set(el, st);
-  }, { passive: false });
-
-  el.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    const st = _tapState.get(el);
-    if (st) { if (st.timer) clearTimeout(st.timer); st.timer = null; st.last = 0; _tapState.set(el, st); }
-    try{ onSingle && onSingle(e, { el, immediate:true }); }catch{}
   });
 }
 
-// ------------- CSV -------------
-function csvEscape(v){
-  if (v === null || v === undefined) return '';
-  const s = String(v);
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
-  return s;
-}
-function toCsv(rows, columns){
-  const head = columns.map(csvEscape).join(',');
-  const body = rows.map(r => columns.map(c => csvEscape(r[c])).join(',')).join('\n');
-  return `${head}\n${body}\n`;
+function absUrl(u){
+  try{ return new URL(String(u||''), location.href).toString(); }
+  catch(e){ return String(u||''); }
 }
 
-function flattenSummaryToRow(s){
-  const ctx     = s?.ctx || s?.context || {};
-  const metrics = s?.metrics || {};
-  const counts  = s?.counts || {};
+function pick(obj, keys, fallback='—'){
+  if (!obj || typeof obj !== 'object') return fallback;
+  for (const k of keys){
+    if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') return obj[k];
+  }
+  return fallback;
+}
 
-  const runMode = pick(s, ['runMode','run','mode'], '');
-  const diff    = pick(s, ['diff','difficulty'], '');
-  const seed    = pick(s, ['seed','rngSeed'], '');
+function normalizeRun(run){
+  run = String(run||'').toLowerCase();
+  if (run === 'study' || run === 'research') return 'research';
+  return 'play';
+}
 
-  const row = {
-    timestampIso: pick(s, ['timestampIso','tsIso','timeIso','endTimeIso'], ''),
-    projectTag:   pick(s, ['projectTag'], pick(ctx, ['projectTag'], 'HeroHealth')),
-    gameTag:      pick(s, ['gameTag','game','tag'], ''),
-    runMode:      runMode,
-    diff:         diff,
-    durationPlannedSec: pick(s, ['durationPlannedSec','time','duration'], pick(ctx, ['durationPlannedSec'], '')),
-    durationPlayedSec:  pick(s, ['durationPlayedSec','playedSec','durationPlayed'], pick(metrics, ['durationPlayedSec'], '')),
-    scoreFinal:   pick(s, ['scoreFinal','score'], pick(metrics, ['scoreFinal'], 0)),
-    comboMax:     pick(s, ['comboMax','maxCombo'], pick(metrics, ['comboMax'], 0)),
-    misses:       pick(s, ['misses','miss'], pick(metrics, ['misses'], pick(counts, ['misses'], 0))),
-    goalsCleared: pick(s, ['goalsCleared'], pick(metrics, ['goalsCleared'], 0)),
-    goalsTotal:   pick(s, ['goalsTotal'], pick(metrics, ['goalsTotal'], 0)),
-    miniCleared:  pick(s, ['miniCleared','minisCleared'], pick(metrics, ['miniCleared'], 0)),
-    miniTotal:    pick(s, ['miniTotal','minisTotal'], pick(metrics, ['miniTotal'], 0)),
+function normalizeDiff(diff){
+  diff = String(diff||'normal').toLowerCase();
+  if (diff !== 'easy' && diff !== 'normal' && diff !== 'hard') diff = 'normal';
+  return diff;
+}
 
-    nTargetGoodSpawned: pick(s, ['nTargetGoodSpawned'], pick(counts, ['nTargetGoodSpawned'], '')),
-    nTargetJunkSpawned: pick(s, ['nTargetJunkSpawned'], pick(counts, ['nTargetJunkSpawned'], '')),
-    nTargetStarSpawned: pick(s, ['nTargetStarSpawned'], pick(counts, ['nTargetStarSpawned'], '')),
-    nTargetDiamondSpawned: pick(s, ['nTargetDiamondSpawned'], pick(counts, ['nTargetDiamondSpawned'], '')),
-    nTargetShieldSpawned: pick(s, ['nTargetShieldSpawned'], pick(counts, ['nTargetShieldSpawned'], '')),
+function defaultSeedFor(run){
+  // Research deterministic เสมอ -> ถ้าไม่ใส่ seed ใช้ค่า default
+  return (run === 'research') ? 1 : null;
+}
 
-    nHitGood:     pick(s, ['nHitGood'], pick(counts, ['nHitGood'], '')),
-    nHitJunk:     pick(s, ['nHitJunk'], pick(counts, ['nHitJunk'], '')),
-    nHitJunkGuard:pick(s, ['nHitJunkGuard'], pick(counts, ['nHitJunkGuard'], '')),
-    nExpireGood:  pick(s, ['nExpireGood'], pick(counts, ['nExpireGood'], '')),
+function gradeBucket(grade){
+  const g = String(grade||'').toUpperCase().trim();
+  const good = new Set(['SSS','SS','S','A']);
+  const warn = new Set(['B']);
+  const bad  = new Set(['C','D','F']);
+  if (good.has(g)) return 'good';
+  if (warn.has(g)) return 'warn';
+  if (bad.has(g))  return 'bad';
+  return 'warn';
+}
 
-    accuracyGoodPct: pick(s, ['accuracyGoodPct'], pick(metrics, ['accuracyGoodPct'], '')),
-    junkErrorPct:    pick(s, ['junkErrorPct'], pick(metrics, ['junkErrorPct'], '')),
-    avgRtGoodMs:     pick(s, ['avgRtGoodMs'], pick(metrics, ['avgRtGoodMs'], '')),
-    medianRtGoodMs:  pick(s, ['medianRtGoodMs'], pick(metrics, ['medianRtGoodMs'], '')),
-    fastHitRatePct:  pick(s, ['fastHitRatePct'], pick(metrics, ['fastHitRatePct'], '')),
+function pulse(el, bucket){
+  if (!el) return;
+  const cls = bucket === 'good' ? 'pulseGood' : bucket === 'bad' ? 'pulseBad' : 'pulseWarn';
+  el.classList.remove('pulseGood','pulseWarn','pulseBad');
+  // force reflow เพื่อเล่น animation ซ้ำได้
+  void el.offsetWidth;
+  el.classList.add(cls);
+}
 
-    grade:        pick(s, ['grade'], ''),
-    sessionId:    pick(s, ['sessionId'], pick(ctx, ['sessionId'], '')),
-    studyId:      pick(s, ['studyId'], pick(ctx, ['studyId'], '')),
-    phase:        pick(s, ['phase'], pick(ctx, ['phase'], '')),
-    conditionGroup: pick(s, ['conditionGroup','condition'], pick(ctx, ['conditionGroup','condition'], '')),
-    sessionOrder: pick(s, ['sessionOrder'], pick(ctx, ['sessionOrder'], '')),
-    blockLabel:   pick(s, ['blockLabel'], pick(ctx, ['blockLabel'], '')),
-    siteCode:     pick(s, ['siteCode'], pick(ctx, ['siteCode'], '')),
+function downloadText(filename, text){
+  try{
+    const blob = new Blob([text], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+  }catch(e){
+    // fallback: copy
+    copyText(text).then(ok=>{
+      toast(ok ? '📋 CSV คัดลอกแล้ว' : '❌ Export ไม่สำเร็จ');
+    });
+  }
+}
 
-    device:       pick(s, ['device'], pick(ctx, ['device'], navigator.userAgent || '')),
-    gameVersion:  pick(s, ['gameVersion','version'], pick(ctx, ['gameVersion'], '')),
-    reason:       pick(s, ['reason'], '')
+function toCsv(rows){
+  // rows: array of objects (flat)
+  const allKeys = new Set();
+  rows.forEach(r=>{
+    if (r && typeof r === 'object'){
+      Object.keys(r).forEach(k=>allKeys.add(k));
+    }
+  });
+
+  // Prefer “core” columns first if exist
+  const core = [
+    'timestampIso','startTimeIso','endTimeIso',
+    'projectTag','game','gameTag',
+    'runMode','run','mode',
+    'diff','durationPlannedSec','durationPlayedSec',
+    'scoreFinal','score','comboMax','misses',
+    'goalsCleared','goalsTotal','miniCleared','miniTotal',
+    'accuracyGoodPct','junkErrorPct','avgRtGoodMs','medianRtGoodMs',
+    'device','gameVersion','sessionId','reason',
+    'seed','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
+    'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel'
+  ];
+  const keys = [];
+  core.forEach(k=>{ if (allKeys.has(k) && !keys.includes(k)) keys.push(k); });
+  Array.from(allKeys).sort().forEach(k=>{ if (!keys.includes(k)) keys.push(k); });
+
+  const esc = (v)=>{
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
   };
 
-  row.seed = seed || pick(ctx, ['seed'], '');
-  if (!row.timestampIso) row.timestampIso = nowIso();
-  return row;
+  const header = keys.map(esc).join(',');
+  const lines = rows.map(r=>{
+    return keys.map(k=>esc(r && typeof r === 'object' ? r[k] : '')).join(',');
+  });
+  return [header].concat(lines).join('\n');
 }
 
-function exportCsvForSummaries(kind, summaries){
-  const arr = Array.isArray(summaries) ? summaries : (summaries ? [summaries] : []);
-  const rows = arr.map(flattenSummaryToRow);
+// ---------- URL builder ----------
+const GAME_PAGES = {
+  goodjunk: './goodjunk-vr.html',
+  hydration:'./hydration-vr.html',
+  plate:    './plate/plate-vr.html',
+  groups:   './vr-groups/groups-vr.html'
+};
 
-  const columns = [
-    'timestampIso','projectTag','gameTag','runMode','diff','seed',
-    'durationPlannedSec','durationPlayedSec',
-    'scoreFinal','comboMax','misses',
-    'goalsCleared','goalsTotal','miniCleared','miniTotal',
-    'nTargetGoodSpawned','nTargetJunkSpawned','nTargetStarSpawned','nTargetDiamondSpawned','nTargetShieldSpawned',
-    'nHitGood','nHitJunk','nHitJunkGuard','nExpireGood',
-    'accuracyGoodPct','junkErrorPct','avgRtGoodMs','medianRtGoodMs','fastHitRatePct',
-    'grade',
-    'sessionId','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
-    'device','gameVersion','reason'
-  ];
+function buildLaunchUrl(gameTag, opts){
+  const tag = String(gameTag||'').toLowerCase();
+  const page = GAME_PAGES[tag] || GAME_PAGES.plate;
 
-  const csv = toCsv(rows, columns);
-  const stamp = fmtLocal(new Date()).replace(/[:\s]/g,'-');
-  downloadText(`HHA_${kind}_${stamp}.csv`, csv);
+  const run = normalizeRun(opts.run);
+  const diff = normalizeDiff(opts.diff);
+
+  let time = Number(opts.time);
+  if (!Number.isFinite(time)) time = 70;
+  time = clamp(time, 20, 9999);
+
+  let seed = (opts.seed !== undefined && opts.seed !== null && String(opts.seed).trim() !== '')
+    ? Number(opts.seed)
+    : defaultSeedFor(run);
+
+  if (seed !== null && !Number.isFinite(seed)) seed = defaultSeedFor(run);
+
+  const u = new URL(page, location.href);
+
+  // core params
+  u.searchParams.set('diff', diff);
+  u.searchParams.set('time', String(time));
+
+  // run naming compatibility: ใส่ทั้ง run และ runMode ให้เกมรับได้หมด
+  u.searchParams.set('run', run === 'research' ? 'research' : 'play');
+  u.searchParams.set('runMode', run === 'research' ? 'research' : 'play');
+
+  // seed
+  if (seed !== null && seed !== undefined){
+    u.searchParams.set('seed', String(Math.trunc(seed)));
+  }
+
+  // hub return (ใช้ absolute ชัวร์สุด)
+  const hubUrl = new URL('./hub.html', location.href).toString();
+  u.searchParams.set('hub', hubUrl);
+
+  // cache-bust / version (ให้สอดคล้องกับ pattern เดิมของคุณ)
+  u.searchParams.set('v', String(Date.now()));
+
+  return u.toString();
 }
 
-// ------------- grade tag -------------
-function gradeClass(grade){
-  const g = String(grade || '').toUpperCase().trim();
-  if (['SSS','SS','S','A'].includes(g)) return 'good';
-  if (['B'].includes(g)) return 'warn';
-  if (['C','D','F'].includes(g)) return 'bad';
-  return '';
-}
-function computeGrade(summary){
-  const g0 = pick(summary, ['grade'], '');
-  if (g0) return String(g0).toUpperCase();
+// ---------- Tap: 1 = copy, 2 = play ----------
+function bindTapCopyPlay(el, getUrl, onPlay){
+  const DOUBLE_TAP_MS = 280;
+  let lastAt = 0;
+  let singleTimer = 0;
 
-  const acc = Number(pick(summary, ['accuracyGoodPct'], pick(summary?.metrics, ['accuracyGoodPct'], null)));
-  if (!Number.isFinite(acc)) return '—';
-  if (acc >= 95) return 'SSS';
-  if (acc >= 90) return 'SS';
-  if (acc >= 85) return 'S';
-  if (acc >= 75) return 'A';
-  if (acc >= 60) return 'B';
+  const handle = (e)=>{
+    try{ e.preventDefault(); }catch(_){}
+    const now = Date.now();
+    const dt = now - lastAt;
+
+    if (dt > 0 && dt < DOUBLE_TAP_MS){
+      lastAt = 0;
+      clearTimeout(singleTimer);
+      singleTimer = 0;
+      const url = getUrl();
+      if (url){
+        toast('▶ Play!');
+        onPlay(url);
+      }
+      return;
+    }
+
+    lastAt = now;
+    clearTimeout(singleTimer);
+    singleTimer = setTimeout(async ()=>{
+      lastAt = 0;
+      const url = getUrl();
+      if (!url) return;
+      const ok = await copyText(url);
+      toast(ok ? '📋 Copied!' : '❌ Copy ไม่สำเร็จ');
+    }, DOUBLE_TAP_MS);
+  };
+
+  el.addEventListener('pointerup', handle, { passive:false });
+
+  // keyboard accessibility
+  el.addEventListener('keydown', async (e)=>{
+    const k = e.key || '';
+    if (k === 'Enter'){
+      try{ e.preventDefault(); }catch(_){}
+      const url = getUrl();
+      if (url){
+        toast('▶ Play!');
+        onPlay(url);
+      }
+    } else if (k === ' ' || k === 'Spacebar'){
+      try{ e.preventDefault(); }catch(_){}
+      const url = getUrl();
+      if (!url) return;
+      const ok = await copyText(url);
+      toast(ok ? '📋 Copied!' : '❌ Copy ไม่สำเร็จ');
+    }
+  });
+}
+
+// ---------- HUB state ----------
+let selectedGame = 'plate';
+let lastSummary = null;
+let hist = [];
+
+function readStorage(){
+  lastSummary = safeJsonParse(localStorage.getItem(STORAGE_LAST), null);
+  hist = safeJsonParse(localStorage.getItem(STORAGE_HIST), []);
+  if (!Array.isArray(hist)) hist = [];
+}
+
+function writeStorage(){
+  try{
+    if (lastSummary) localStorage.setItem(STORAGE_LAST, JSON.stringify(lastSummary));
+    else localStorage.removeItem(STORAGE_LAST);
+  }catch(e){}
+
+  try{
+    if (Array.isArray(hist) && hist.length) localStorage.setItem(STORAGE_HIST, JSON.stringify(hist));
+    else localStorage.removeItem(STORAGE_HIST);
+  }catch(e){}
+}
+
+// ---------- UI helpers ----------
+function setText(id, v){
+  const el = $('#' + id);
+  if (!el) return;
+  el.textContent = (v === null || v === undefined) ? '—' : String(v);
+}
+
+function setBadge(el, text, bucket){
+  if (!el) return;
+  el.textContent = String(text || '—');
+  el.classList.remove('good','warn','bad');
+  if (bucket) el.classList.add(bucket);
+}
+
+function normalizeGameTagFromSummary(s){
+  const g = pick(s, ['gameTag','game','projectTag','tag'], '');
+  const gg = String(g||'').toLowerCase();
+  if (gg.includes('goodjunk')) return 'goodjunk';
+  if (gg.includes('hydration')) return 'hydration';
+  if (gg.includes('plate')) return 'plate';
+  if (gg.includes('groups')) return 'groups';
+  // fallback by pathname maybe
+  return 'plate';
+}
+
+function computeGradeFromSummary(s){
+  const g = pick(s, ['grade','finalGrade','uiGrade','rank'], '');
+  if (g && g !== '—') return String(g).toUpperCase();
+  // fallback: score/accuracy guess
+  const acc = Number(pick(s, ['accuracyGoodPct','accPct','accuracy'], 'NaN'));
+  if (Number.isFinite(acc)){
+    if (acc >= 95) return 'SSS';
+    if (acc >= 90) return 'SS';
+    if (acc >= 85) return 'S';
+    if (acc >= 75) return 'A';
+    if (acc >= 60) return 'B';
+    return 'C';
+  }
   return 'C';
 }
 
-// ------------- storage -------------
-function readLast(){ return safeJsonParse(localStorage.getItem('HHA_LAST_SUMMARY'), null); }
-function readHist(){
-  const h = safeJsonParse(localStorage.getItem('HHA_SUMMARY_HISTORY'), []);
-  return Array.isArray(h) ? h : [];
-}
-function clearLast(){ try{ localStorage.removeItem('HHA_LAST_SUMMARY'); } catch {} }
-function clearHist(){ try{ localStorage.removeItem('HHA_SUMMARY_HISTORY'); } catch {} }
+function fillLastPanel(){
+  const emptyEl = $('#lastEmpty');
+  const panelEl = $('#lastPanel');
 
-function collectStudyCtx(){
-  const ctx = {};
-  const qp = new URLSearchParams(location.search);
-
-  for (const k of PASS_KEYS){
-    if (qp.has(k)) ctx[k] = qp.get(k);
-  }
-
-  const stored = safeJsonParse(localStorage.getItem('HHA_STUDY_CTX'), null);
-  if (stored && typeof stored === 'object'){
-    for (const k of PASS_KEYS){
-      if (ctx[k] === undefined && stored[k] !== undefined && stored[k] !== null && stored[k] !== ''){
-        ctx[k] = stored[k];
-      }
-    }
-  }
-
-  if (!ctx.projectTag) ctx.projectTag = 'HeroHealth';
-  return ctx;
-}
-
-// ------------- link builder / launcher -------------
-function buildGameUrl(gameTag, opts = {}){
-  const g = GAME_MAP[gameTag];
-  if (!g) return null;
-
-  const u = new URL(g.path, location.href);
-
-  const run  = normalizeRun(opts.selRun);
-  const diff = normalizeDiff(opts.selDiff);
-  const time = clamp(opts.timeSec, 20, 9999);
-
-  let seed = opts.seed;
-  if (seed === '' || seed === null || seed === undefined) seed = '';
-  if (run === 'research' && !seed) seed = DEFAULT_RESEARCH_SEED;
-
-  u.searchParams.set('hub', getHubReturnUrl());
-  u.searchParams.set('run', run);
-  u.searchParams.set('runMode', run);
-  u.searchParams.set('diff', diff);
-  u.searchParams.set('time', String(time));
-  u.searchParams.set('duration', String(time));
-  if (seed !== '') u.searchParams.set('seed', String(seed));
-
-  const ctx = collectStudyCtx();
-  for (const k of PASS_KEYS){
-    const v = ctx[k];
-    if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
-  }
-
-  u.searchParams.set('v', String(Date.now()));
-  return u;
-}
-
-function buildGameUrlFromSummary(summary){
-  const gameTag = pick(summary, ['gameTag','game','tag'], '');
-  if (!GAME_MAP[gameTag]) return null;
-
-  const u = new URL(GAME_MAP[gameTag].path, location.href);
-
-  const run  = String(pick(summary, ['runMode','run','mode'], 'play')).toLowerCase() || 'play';
-  const diff = normalizeDiff(pick(summary, ['diff'], 'normal'));
-  const time = Number(pick(summary, ['durationPlannedSec','time','duration'], 70)) || 70;
-  const seed = pick(summary, ['seed'], pick(summary?.ctx, ['seed'], ''));
-
-  u.searchParams.set('hub', getHubReturnUrl());
-  u.searchParams.set('run', run);
-  u.searchParams.set('runMode', run);
-  u.searchParams.set('diff', diff);
-  u.searchParams.set('time', String(clamp(time, 20, 9999)));
-  u.searchParams.set('duration', String(clamp(time, 20, 9999)));
-  if (seed !== '' && seed !== undefined && seed !== null) u.searchParams.set('seed', String(seed));
-
-  const ctx = { ...(collectStudyCtx() || {}) };
-  const sctx = summary?.ctx || summary?.context || {};
-  if (sctx && typeof sctx === 'object'){
-    for (const k of PASS_KEYS){
-      if (sctx[k] !== undefined && sctx[k] !== null && sctx[k] !== '') ctx[k] = sctx[k];
-    }
-  }
-  for (const k of PASS_KEYS){
-    const v = ctx[k];
-    if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, String(v));
-  }
-
-  u.searchParams.set('v', String(Date.now()));
-  return u;
-}
-
-// ------------- UI state -------------
-let selectedGame = 'goodjunk';
-let _recentCache = [];
-
-function setSelectedGame(tag){
-  if (!GAME_MAP[tag]) tag = 'goodjunk';
-  selectedGame = tag;
-
-  const els = Array.from(document.querySelectorAll('.gameBtn'));
-  for (const el of els){
-    const isSel = el.dataset.game === selectedGame;
-    el.style.borderColor = isSel ? 'rgba(34,197,94,.55)' : 'rgba(148,163,184,.18)';
-    el.style.background   = isSel ? 'rgba(34,197,94,.10)' : 'rgba(2,6,23,.58)';
-    const rt = el.querySelector('.rightTag');
-    if (rt) rt.textContent = isSel ? 'SELECT' : 'PLAY';
-  }
-
-  const hint = $('linkHint');
-  if (hint){
-    hint.textContent = `เลือกแล้ว: ${GAME_MAP[selectedGame].name} • แตะ 1=Copy / 2=Play`;
-  }
-}
-
-function getCurrentBuildOpts(){
-  const selRun = $('selRun')?.value || 'play';
-  const selDiff= $('selDiff')?.value || 'normal';
-  const timeSec= Number($('inpTime')?.value || 70);
-  const seedRaw= String($('inpSeed')?.value || '').trim();
-  return {
-    selRun, selDiff,
-    timeSec,
-    seed: seedRaw ? Number(seedRaw) : ''
-  };
-}
-
-async function copyGameLink(gameTag){
-  const u = buildGameUrl(gameTag, getCurrentBuildOpts());
-  if (!u){ setHint('linkHint', 'สร้างลิงก์ไม่สำเร็จ'); return { ok:false, url:null }; }
-  const ok = await copyText(u.toString());
-  setHint('linkHint', ok ? `คัดลอกลิงก์แล้ว ✅ (${GAME_MAP[gameTag]?.name || gameTag})` : 'คัดลอกไม่สำเร็จ');
-  if (!ok) console.log(u.toString());
-  return { ok, url:u };
-}
-function playGame(gameTag){
-  const u = buildGameUrl(gameTag, getCurrentBuildOpts());
-  if (u) location.href = u.toString();
-}
-
-async function copyRecentLinkByIndex(i){
-  const s = _recentCache[i];
-  if (!s) return { ok:false, url:null };
-  const u = buildGameUrlFromSummary(s);
-  if (!u){ setHint('historyHint', 'สร้างลิงก์ไม่สำเร็จ'); return { ok:false, url:null }; }
-  const ok = await copyText(u.toString());
-  setHint('historyHint', ok ? 'คัดลอกลิงก์รอบนี้แล้ว ✅' : 'คัดลอกไม่สำเร็จ');
-  if (!ok) console.log(u.toString());
-  return { ok, url:u };
-}
-function playRecentByIndex(i){
-  const s = _recentCache[i];
-  if (!s) return;
-  const u = buildGameUrlFromSummary(s);
-  if (u) location.href = u.toString();
-}
-async function copyRecentJsonByIndex(i){
-  const s = _recentCache[i];
-  if (!s) return false;
-  const ok = await copyText(JSON.stringify(s, null, 2));
-  setHint('historyHint', ok ? 'คัดลอก JSON ของรอบนี้แล้ว ✅' : 'คัดลอก JSON ไม่สำเร็จ');
-  return ok;
-}
-
-function applyPreset(){
-  const selRun = $('selRun')?.value || 'play';
-  const selDiff = $('selDiff')?.value || 'normal';
-  const run = normalizeRun(selRun);
-  const diff = normalizeDiff(selDiff);
-
-  let t = 70;
-  if (diff === 'hard') t = 80;
-  if (run === 'research') t = 70;
-
-  const inpTime = $('inpTime');
-  if (inpTime) inpTime.value = String(t);
-
-  const inpSeed = $('inpSeed');
-  if (inpSeed && run === 'research' && !String(inpSeed.value || '').trim()){
-    inpSeed.value = String(DEFAULT_RESEARCH_SEED);
-  }
-}
-
-function renderNow(){
-  const el = $('nowText');
-  if (!el) return;
-  el.textContent = fmtLocal(new Date());
-}
-
-function renderLast(){
-  const last = readLast();
-  const empty = $('lastEmpty');
-  const panel = $('lastPanel');
-
-  if (!last){
-    if (empty) empty.style.display = '';
-    if (panel) panel.style.display = 'none';
+  if (!lastSummary){
+    if (emptyEl) emptyEl.style.display = '';
+    if (panelEl) panelEl.style.display = 'none';
     return;
   }
-  if (empty) empty.style.display = 'none';
-  if (panel) panel.style.display = '';
 
-  const gameTag = pick(last, ['gameTag','game','tag'], '');
-  const gameName = GAME_MAP[gameTag]?.name || (gameTag ? String(gameTag) : '—');
+  if (emptyEl) emptyEl.style.display = 'none';
+  if (panelEl) panelEl.style.display = '';
 
-  const runMode = String(pick(last, ['runMode','run','mode'], '—')).toUpperCase();
-  const diff    = String(pick(last, ['diff'], '—')).toUpperCase();
-  const seed    = pick(last, ['seed'], pick(last?.ctx, ['seed'], '—'));
+  const gameTag = normalizeGameTagFromSummary(lastSummary);
+  const grade = computeGradeFromSummary(lastSummary);
+  const bucket = gradeBucket(grade);
 
-  const score = pick(last, ['scoreFinal','score'], 0);
-  const combo = pick(last, ['comboMax','maxCombo'], 0);
-  const miss  = pick(last, ['misses','miss'], pick(last?.metrics, ['misses'], 0));
-  const gc    = pick(last, ['goalsCleared'], pick(last?.metrics, ['goalsCleared'], 0));
-  const gt    = pick(last, ['goalsTotal'],   pick(last?.metrics, ['goalsTotal'], 0));
-  const mc    = pick(last, ['miniCleared','minisCleared'], pick(last?.metrics, ['miniCleared'], 0));
-  const mt    = pick(last, ['miniTotal','minisTotal'],     pick(last?.metrics, ['miniTotal'], 0));
-  const dur   = pick(last, ['durationPlayedSec','playedSec'], pick(last?.metrics, ['durationPlayedSec'], 0));
+  // badges
+  setBadge($('#badgeGame'), `🎮 ${gameTag}`, null);
+  setBadge($('#badgeGrade'), `🏅 ${grade}`, bucket);
 
-  const grade = computeGrade(last);
+  // session/time
+  const sid = pick(lastSummary, ['sessionId','session','id'], '—');
+  setText('lastSession', sid);
 
-  const badgeGame = $('badgeGame');
-  const badgeGrade= $('badgeGrade');
+  // stats
+  setText('lastScore', pick(lastSummary, ['scoreFinal','score'], 0));
+  setText('lastCombo', pick(lastSummary, ['comboMax','maxCombo'], 0));
+  setText('lastMiss',  pick(lastSummary, ['misses','miss','missCount'], 0));
 
-  if (badgeGame){ badgeGame.textContent = gameName; badgeGame.className = 'badge'; }
-  if (badgeGrade){
-    badgeGrade.textContent = `Grade ${grade}`;
-    badgeGrade.className = `badge ${gradeClass(grade)}`.trim();
+  const gCleared = Number(pick(lastSummary, ['goalsCleared'], 0)) || 0;
+  const gTotal   = Number(pick(lastSummary, ['goalsTotal'], 0)) || 0;
+  const mCleared = Number(pick(lastSummary, ['miniCleared'], 0)) || 0;
+  const mTotal   = Number(pick(lastSummary, ['miniTotal'], 0)) || 0;
+
+  setText('lastGoals', `${gCleared}/${gTotal}`);
+  setText('lastMinis', `${mCleared}/${mTotal}`);
+
+  const dur = pick(lastSummary, ['durationPlayedSec','durPlayedSec','playedSec'], 0);
+  setText('lastDur', `${dur}s`);
+
+  // mode/diff/seed
+  const run = normalizeRun(pick(lastSummary, ['runMode','run','mode'], 'play'));
+  const diff = normalizeDiff(pick(lastSummary, ['diff'], 'normal'));
+  const seed = pick(lastSummary, ['seed'], '—');
+
+  setText('lastMode', run);
+  setText('lastDiff', diff);
+  setText('lastSeed', seed);
+
+  // json detail
+  const pre = $('#lastJson');
+  if (pre) pre.textContent = JSON.stringify(lastSummary, null, 2);
+
+  // buttons
+  const replayBtn = $('#btnReplayLast');
+  if (replayBtn){
+    replayBtn.onclick = ()=>{
+      const url = buildLaunchUrl(gameTag, {
+        run,
+        diff,
+        time: pick(lastSummary, ['durationPlannedSec','time','timeSec'], $('#inpTime')?.value ?? 70),
+        seed: (seed === '—') ? '' : seed
+      });
+      toast('▶ Play!');
+      location.href = url;
+    };
   }
 
-  const lastSession = $('lastSession');
-  if (lastSession){
-    const sid = pick(last, ['sessionId'], pick(last?.ctx, ['sessionId'], '—'));
-    lastSession.textContent = sid || '—';
+  const copyJsonBtn = $('#btnCopyLastJson');
+  if (copyJsonBtn){
+    copyJsonBtn.onclick = async ()=>{
+      const ok = await copyText(JSON.stringify(lastSummary));
+      toast(ok ? '📋 Copied JSON!' : '❌ Copy ไม่สำเร็จ');
+    };
   }
 
-  const setText = (id, v) => { const el = $(id); if (el) el.textContent = String(v); };
-  setText('lastScore', score);
-  setText('lastCombo', combo);
-  setText('lastMiss',  miss);
-  setText('lastGoals', `${gc||0}/${gt||0}`);
-  setText('lastMinis', `${mc||0}/${mt||0}`);
-  setText('lastDur',   `${Number(dur||0)}s`);
-  setText('lastMode',  runMode);
-  setText('lastDiff',  diff);
-  setText('lastSeed',  seed === undefined ? '—' : String(seed));
+  const exportLastBtn = $('#btnExportLastCsv');
+  if (exportLastBtn){
+    exportLastBtn.onclick = ()=>{
+      const row = Object.assign({}, lastSummary, {
+        gameTag,
+        grade
+      });
+      const csv = toCsv([row]);
+      downloadText(`HHA_last_${gameTag}_${Date.now()}.csv`, csv);
+      toast('⬇️ Export CSV');
+    };
+  }
 
-  const lastJson = $('lastJson');
-  if (lastJson){ lastJson.textContent = JSON.stringify(last, null, 2); }
+  const clearLastBtn = $('#btnClearLast');
+  if (clearLastBtn){
+    clearLastBtn.onclick = ()=>{
+      lastSummary = null;
+      writeStorage();
+      renderAll();
+      toast('🧹 ล้างผลล่าสุดแล้ว');
+    };
+  }
+
+  // also refresh history panels
+  fillHistoryPanel();
 }
 
-function bindRecentRowInteractions(){
-  const tbody = $('recentTbody');
-  if (!tbody) return;
+function fillHistoryPanel(){
+  const recentEmpty = $('#recentEmpty');
+  const recentPanel = $('#recentPanel');
+  const tbody = $('#recentTbody');
+  const hint = $('#historyHint');
 
-  // delegate buttons: stopPropagation กันชน tap ของแถว
-  tbody.addEventListener('click', async (e) => {
-    const btn = e.target?.closest?.('.actBtn');
-    if (!btn) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    const i = Number(btn.getAttribute('data-i'));
-    const act = btn.getAttribute('data-act');
-
-    const tr = btn.closest('tr');
-
-    if (act === 'play'){
-      pulse(tr || btn, 'warn');
-      playRecentByIndex(i);
-      return;
-    }
-    if (act === 'json'){
-      const ok = await copyRecentJsonByIndex(i);
-      pulse(tr || btn, ok ? 'good' : 'bad');
-      return;
-    }
-  }, { passive:false });
-}
-
-function renderRecent(){
-  const hist = readHist();
-  const recent = hist.slice(0, 4);
-  _recentCache = recent;
-
-  const empty = $('recentEmpty');
-  const panel = $('recentPanel');
-  const tbody = $('recentTbody');
-  const hint  = $('historyHint');
+  const arr = Array.isArray(hist) ? hist.slice() : [];
+  // show last 4 (ใหม่สุดก่อน)
+  const recent = arr.slice().reverse().slice(0, 4);
 
   if (!recent.length){
-    if (empty) empty.style.display = '';
-    if (panel) panel.style.display = 'none';
+    if (recentEmpty) recentEmpty.style.display = '';
+    if (recentPanel) recentPanel.style.display = 'none';
+    if (hint) hint.textContent = '—';
     if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="muted">—</td></tr>`;
     return;
   }
 
-  if (empty) empty.style.display = 'none';
-  if (panel) panel.style.display = '';
-
-  if (hint){
-    hint.textContent = `แสดง 4 ล่าสุด • ทั้งหมดใน history: ${hist.length} • แตะแถว 1=Copy / 2=Play • หรือกดปุ่ม ▶ / JSON`;
-  }
+  if (recentEmpty) recentEmpty.style.display = 'none';
+  if (recentPanel) recentPanel.style.display = '';
+  if (hint) hint.textContent = `แสดง ${recent.length} รายการล่าสุด`;
 
   if (!tbody) return;
 
-  tbody.innerHTML = recent.map((s, idx) => {
-    const gameTag = pick(s, ['gameTag','game','tag'], '');
-    const gameName = GAME_MAP[gameTag]?.name || gameTag || '—';
-    const runMode  = String(pick(s, ['runMode','run','mode'], '—')).toUpperCase();
-    const diff     = String(pick(s, ['diff'], '—')).toUpperCase();
-    const score    = pick(s, ['scoreFinal','score'], 0);
-    const miss     = pick(s, ['misses','miss'], pick(s?.metrics, ['misses'], 0));
-    const gc       = pick(s, ['goalsCleared'], pick(s?.metrics, ['goalsCleared'], 0));
-    const gt       = pick(s, ['goalsTotal'],   pick(s?.metrics, ['goalsTotal'], 0));
-    const mc       = pick(s, ['miniCleared','minisCleared'], pick(s?.metrics, ['miniCleared'], 0));
-    const mt       = pick(s, ['miniTotal','minisTotal'],     pick(s?.metrics, ['miniTotal'], 0));
-    const grade    = computeGrade(s);
-    const gcls     = gradeClass(grade);
-    const tIso     = pick(s, ['timestampIso','endTimeIso','timeIso'], '');
-    const tText    = tIso ? fmtLocal(tIso) : '—';
+  tbody.innerHTML = '';
 
-    const gradeHtml = `<span class="gradeTag ${gcls}">${grade}</span>`;
+  recent.forEach((s, idx)=>{
+    const gameTag = normalizeGameTagFromSummary(s);
+    const run = normalizeRun(pick(s, ['runMode','run','mode'], 'play'));
+    const diff = normalizeDiff(pick(s, ['diff'], 'normal'));
+    const score = pick(s, ['scoreFinal','score'], 0);
+    const grade = computeGradeFromSummary(s);
+    const bucket = gradeBucket(grade);
 
-    const actHtml = `
-      <div class="actWrap">
-        <span class="actBtn play" data-act="play" data-i="${idx}" title="Play">▶</span>
-        <span class="actBtn json" data-act="json" data-i="${idx}" title="Copy JSON">JSON</span>
-      </div>
-    `.trim();
+    const misses = pick(s, ['misses','miss'], 0);
+    const gCleared = Number(pick(s, ['goalsCleared'], 0)) || 0;
+    const gTotal   = Number(pick(s, ['goalsTotal'], 0)) || 0;
+    const mCleared = Number(pick(s, ['miniCleared'], 0)) || 0;
+    const mTotal   = Number(pick(s, ['miniTotal'], 0)) || 0;
 
-    return `
-      <tr data-i="${idx}" title="แตะ 1 ครั้ง=Copy ลิงก์ • แตะ 2 ครั้ง=Play">
-        <td>${csvEscape(tText)}</td>
-        <td class="tdGame">${csvEscape(gameName)}</td>
-        <td>${csvEscape(runMode)}</td>
-        <td>${csvEscape(diff)}</td>
-        <td>${csvEscape(score)}</td>
-        <td>${gradeHtml}</td>
-        <td>${csvEscape(miss)}</td>
-        <td>${csvEscape((gc||0) + '/' + (gt||0))}</td>
-        <td>${csvEscape((mc||0) + '/' + (mt||0))}</td>
-        <td>${actHtml}</td>
-      </tr>
-    `.trim();
-  }).join('\n');
+    const ts = pick(s, ['timestampIso','endTimeIso','startTimeIso','timestamp'], '');
+    const timeText = ts ? prettyIso(ts) : '—';
 
-  // bind row taps (after rows exist)
-  const rows = Array.from(tbody.querySelectorAll('tr[data-i]'));
-  for (const tr of rows){
-    const i = Number(tr.getAttribute('data-i'));
-    bindTap(
+    // build url from saved fields (fallback to current UI preset time if missing)
+    const time = pick(s, ['durationPlannedSec','time','timeSec'], $('#inpTime')?.value ?? 70);
+    const seed = pick(s, ['seed'], '');
+
+    const url = buildLaunchUrl(gameTag, { run, diff, time, seed });
+
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-i', String(idx)); // index within recent
+    tr.innerHTML = `
+      <td>${timeText}</td>
+      <td class="tdGame">${gameTag}</td>
+      <td>${run}</td>
+      <td>${diff}</td>
+      <td>${score}</td>
+      <td><span class="gradeTag ${bucket}">${grade}</span></td>
+      <td>${misses}</td>
+      <td>${gCleared}/${gTotal}</td>
+      <td>${mCleared}/${mTotal}</td>
+      <td>
+        <div class="actWrap">
+          <span class="actBtn play" data-act="play" title="Play">▶</span>
+          <span class="actBtn json" data-act="json" title="Copy JSON">📋</span>
+        </div>
+      </td>
+    `;
+
+    // row: 1 tap copy / 2 tap play (ยกเว้นกดปุ่ม action)
+    tr.tabIndex = 0;
+    tr.setAttribute('role','button');
+
+    bindTapCopyPlay(
       tr,
-      async (_e, meta) => {
-        const { ok } = await copyRecentLinkByIndex(i);
-        pulse(meta?.el || tr, ok ? 'good' : 'bad');
-      },
-      (_e, meta) => {
-        pulse(meta?.el || tr, 'warn');
-        playRecentByIndex(i);
-      },
-      { delayMs: TAP_DELAY_MS }
+      ()=>url,
+      (u)=>{ location.href = u; }
     );
+
+    // action buttons
+    tr.addEventListener('pointerup', async (e)=>{
+      const act = e.target && e.target.getAttribute && e.target.getAttribute('data-act');
+      if (!act) return;
+      // กัน row handler ทำงานซ้อน
+      e.stopPropagation();
+      try{ e.preventDefault(); }catch(_){}
+
+      if (act === 'play'){
+        toast('▶ Play!');
+        location.href = url;
+      } else if (act === 'json'){
+        const ok = await copyText(JSON.stringify(s));
+        toast(ok ? '📋 Copied JSON!' : '❌ Copy ไม่สำเร็จ');
+      }
+    }, { passive:false });
+
+    // pulse feedback
+    tr.addEventListener('pointerdown', ()=>{
+      pulse(tr, bucket);
+    }, { passive:true });
+
+    tbody.appendChild(tr);
+  });
+
+  // export/clear buttons
+  const exportRecentBtn = $('#btnExportRecentCsv');
+  if (exportRecentBtn){
+    exportRecentBtn.onclick = ()=>{
+      const rows = recent.map(s=>{
+        const gameTag = normalizeGameTagFromSummary(s);
+        const grade = computeGradeFromSummary(s);
+        return Object.assign({}, s, { gameTag, grade });
+      });
+      const csv = toCsv(rows);
+      downloadText(`HHA_recent4_${Date.now()}.csv`, csv);
+      toast('⬇️ Export CSV');
+    };
   }
 
-  bindRecentRowInteractions();
+  const clearHistBtn = $('#btnClearHistory');
+  if (clearHistBtn){
+    clearHistBtn.onclick = ()=>{
+      hist = [];
+      writeStorage();
+      renderAll();
+      toast('🧹 ล้าง History แล้ว');
+    };
+  }
 }
 
-// ------------- actions -------------
-function bindButtons(){
-  // game buttons: tap 1 copy / tap 2 play
-  for (const el of Array.from(document.querySelectorAll('.gameBtn'))){
-    const tag = el.dataset.game;
+// ---------- Launch controls ----------
+function updateSelectedGameUI(){
+  const btns = $$('.gameBtn');
+  btns.forEach(b=>{
+    const g = String(b.getAttribute('data-game')||'').toLowerCase();
+    const tag = b.querySelector('.rightTag');
+    if (g === selectedGame){
+      b.style.borderColor = 'rgba(34,197,94,.35)';
+      b.style.background = 'rgba(34,197,94,.08)';
+      if (tag) tag.textContent = 'SELECTED';
+    } else {
+      b.style.borderColor = 'rgba(148,163,184,.18)';
+      b.style.background = 'rgba(2,6,23,.58)';
+      if (tag) tag.textContent = 'PLAY';
+    }
+  });
 
-    bindTap(
+  const hint = $('#linkHint');
+  if (hint) hint.textContent = `เลือกแล้ว: ${selectedGame}`;
+}
+
+function currentOptsFromUI(){
+  const runUI = $('#selRun')?.value || 'play';
+  const diff = $('#selDiff')?.value || 'normal';
+  const time = $('#inpTime')?.value || 70;
+  const seed = $('#inpSeed')?.value || '';
+  const run = (runUI === 'study') ? 'research' : runUI;
+  return { run, diff, time, seed };
+}
+
+function wireLaunchButtons(){
+  const nowEl = $('#nowText');
+  if (nowEl){
+    nowEl.textContent = nowClock();
+    setInterval(()=>{ nowEl.textContent = nowClock(); }, 1000);
+  }
+
+  const presetBtn = $('#btnApplyPreset');
+  if (presetBtn){
+    presetBtn.onclick = ()=>{
+      const diff = normalizeDiff($('#selDiff')?.value || 'normal');
+      // preset แบบ “จับง่าย”: easy 60 / normal 70 / hard 90
+      const val = diff === 'easy' ? 60 : diff === 'hard' ? 90 : 70;
+      const inp = $('#inpTime');
+      if (inp) inp.value = String(val);
+      toast('⚙️ ตั้งเวลาอัตโนมัติแล้ว');
+    };
+  }
+
+  // choose game
+  $$('.gameBtn').forEach(el=>{
+    const g = String(el.getAttribute('data-game')||'').toLowerCase() || 'plate';
+
+    // ทำให้โฟกัสได้
+    el.tabIndex = 0;
+    el.setAttribute('role','button');
+
+    // tap = select + 1copy/2play (ตามคำสั่ง: ทั้งปุ่มเกมก็ต้อง 1=copy 2=play)
+    bindTapCopyPlay(
       el,
-      async (_e, meta) => {
-        setSelectedGame(tag);
-        const { ok } = await copyGameLink(tag);
-        pulse(meta?.el || el, ok ? 'good' : 'bad');
+      ()=>{
+        const opts = currentOptsFromUI();
+        return buildLaunchUrl(g, opts);
       },
-      (_e, meta) => {
-        setSelectedGame(tag);
-        pulse(meta?.el || el, 'warn');
-        playGame(tag);
-      },
-      { delayMs: TAP_DELAY_MS }
+      (url)=>{ location.href = url; }
     );
+
+    // แค่ pointerdown ให้ “select” เกมนั้นด้วย (ไม่รอ pointerup)
+    el.addEventListener('pointerdown', ()=>{
+      selectedGame = g;
+      updateSelectedGameUI();
+      pulse(el, 'good');
+    }, { passive:true });
+
+    // keyboard: focus + Enter จะ play (bindTapCopyPlay ทำให้แล้ว) — เพิ่ม select เมื่อ focus
+    el.addEventListener('focus', ()=>{
+      selectedGame = g;
+      updateSelectedGameUI();
+    });
+  });
+
+  // copy selected link button
+  const btnCopyLink = $('#btnCopyLink');
+  if (btnCopyLink){
+    btnCopyLink.onclick = async ()=>{
+      const opts = currentOptsFromUI();
+      const url = buildLaunchUrl(selectedGame, opts);
+      const ok = await copyText(url);
+      toast(ok ? '📋 Copied!' : '❌ Copy ไม่สำเร็จ');
+    };
   }
-
-  $('btnApplyPreset')?.addEventListener('click', applyPreset);
-
-  $('btnCopyLink')?.addEventListener('click', async () => {
-    const { ok } = await copyGameLink(selectedGame);
-    pulse(document.querySelector(`.gameBtn[data-game="${selectedGame}"]`), ok ? 'good' : 'bad');
-  });
-
-  $('btnReplayLast')?.addEventListener('click', () => {
-    const last = readLast();
-    if (!last) return;
-    const u = buildGameUrlFromSummary(last);
-    if (u) location.href = u.toString();
-  });
-
-  $('btnCopyLastJson')?.addEventListener('click', async () => {
-    const last = readLast();
-    if (!last) return;
-    await copyText(JSON.stringify(last, null, 2));
-  });
-
-  $('btnExportLastCsv')?.addEventListener('click', () => {
-    const last = readLast();
-    if (!last) return;
-    exportCsvForSummaries('last', last);
-  });
-
-  $('btnExportRecentCsv')?.addEventListener('click', () => {
-    const hist = readHist();
-    const recent = hist.slice(0, 4);
-    if (!recent.length) return;
-    exportCsvForSummaries('recent4', recent);
-  });
-
-  $('btnClearLast')?.addEventListener('click', () => {
-    clearLast();
-    renderLast();
-  });
-
-  $('btnClearHistory')?.addEventListener('click', () => {
-    clearHist();
-    renderRecent();
-  });
-
-  $('selRun')?.addEventListener('change', applyPreset);
-  $('selDiff')?.addEventListener('change', applyPreset);
 }
 
-// ------------- init -------------
-(function init(){
-  renderNow();
-  setInterval(renderNow, 1000);
+// ---------- Render everything ----------
+function renderAll(){
+  // show/hide last wrapper
+  const lastEmpty = $('#lastEmpty');
+  const lastPanel = $('#lastPanel');
+  const wrapper = $('#lastPanel')?.parentElement; // not used
 
-  setSelectedGame('goodjunk');
-
-  const qp = new URLSearchParams(location.search);
-  const pre = qp.get('game');
-  if (pre && GAME_MAP[pre]) setSelectedGame(pre);
-
-  const preRun = qp.get('run') || qp.get('runMode');
-  const preDiff= qp.get('diff');
-  const preTime= qp.get('time') || qp.get('duration');
-  const preSeed= qp.get('seed');
-
-  if ($('selRun') && preRun){
-    $('selRun').value = (String(preRun).toLowerCase() === 'research') ? 'study' : 'play';
-  }
-  if ($('selDiff') && preDiff){
-    $('selDiff').value = normalizeDiff(preDiff);
-  }
-  if ($('inpTime') && preTime){
-    $('inpTime').value = String(clamp(preTime, 20, 9999));
-  }
-  if ($('inpSeed') && preSeed){
-    $('inpSeed').value = String(Number(preSeed) || preSeed);
+  if (!lastSummary){
+    if ($('#lastPanel')) $('#lastPanel').style.display = 'none';
+    if ($('#lastEmpty')) $('#lastEmpty').style.display = '';
+  } else {
+    if ($('#lastEmpty')) $('#lastEmpty').style.display = 'none';
+    if ($('#lastPanel')) $('#lastPanel').style.display = '';
   }
 
-  applyPreset();
-  bindButtons();
-  renderLast();
-  renderRecent();
-})();
+  fillLastPanel();
+  // fillLastPanel จะเรียก fillHistoryPanel ต่อให้ด้วย (เพื่อ sync)
+  updateSelectedGameUI();
+}
+
+// ---------- Boot ----------
+function boot(){
+  readStorage();
+  wireLaunchButtons();
+
+  // ถ้าไม่มี selection เลือกจาก lastSummary ได้
+  if (lastSummary){
+    selectedGame = normalizeGameTagFromSummary(lastSummary);
+  }
+
+  // เปิดส่วน lastPanel wrapper ตามมี/ไม่มี
+  const lastEmpty = $('#lastEmpty');
+  const lastPanel = $('#lastPanel');
+  if (!lastSummary){
+    if (lastEmpty) lastEmpty.style.display = '';
+    if (lastPanel) lastPanel.style.display = 'none';
+  } else {
+    if (lastEmpty) lastEmpty.style.display = 'none';
+    if (lastPanel) lastPanel.style.display = '';
+  }
+
+  // Bind “Clear last” “Clear history” เผื่อ panel ยังไม่โชว์
+  const clearLastBtn = $('#btnClearLast');
+  if (clearLastBtn){
+    clearLastBtn.onclick = ()=>{
+      lastSummary = null;
+      writeStorage();
+      renderAll();
+      toast('🧹 ล้างผลล่าสุดแล้ว');
+    };
+  }
+  const clearHistBtn = $('#btnClearHistory');
+  if (clearHistBtn){
+    clearHistBtn.onclick = ()=>{
+      hist = [];
+      writeStorage();
+      renderAll();
+      toast('🧹 ล้าง History แล้ว');
+    };
+  }
+
+  renderAll();
+}
+
+if (document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
