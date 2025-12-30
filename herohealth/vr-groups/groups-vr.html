@@ -6,78 +6,52 @@
   <title>Food Groups VR — Run</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./groups-vr.css?v=1" />
-
-  <!-- ✅ Universal VR UI (ENTER VR / EXIT / RECENTER + crosshair + tap-to-shoot => hha:shoot) -->
-  <script src="../vr/vr-ui.js" defer></script>
-
-  <!-- optional FX/logger (ถ้ามี) -->
-  <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
+  <link rel="stylesheet" href="./groups-vr.css" />
 </head>
 
-<body class="view-pc">
-  <!-- HUD (TOP minimal) -->
-  <div class="hud-top">
-    <div class="hud-card hud-left">
-      <div class="hud-row"><span class="hud-title">SCORE</span><span class="hud-val" id="uiScore">0</span></div>
-      <div class="hud-row"><span class="hud-title">COMBO</span><span class="hud-val"><span id="uiCombo">0</span> <span style="opacity:.65">MAX</span> <span id="uiComboMax">0</span></span></div>
-      <div class="hud-row"><span class="hud-title">MISS</span><span class="hud-val" id="uiMiss">0</span></div>
+<body>
+  <div class="hud">
+    <div class="box">
+      <div class="big" id="uiScore">0</div>
+      <div class="small">SCORE</div>
     </div>
-
-    <div class="hud-card hud-mid">
-      <div class="hud-group-row">
-        <div class="hud-group" id="uiGroup">หมู่ 1</div>
-        <div class="hud-timer"><span id="uiTime">90</span>s</div>
-      </div>
-
-      <div class="power-wrap">
-        <div class="power-label">
-          <span>POWER</span>
-          <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
-        </div>
-        <div class="power-bar"><div class="power-fill" id="uiPowerBar"></div></div>
-      </div>
-    </div>
-
-    <div class="hud-card hud-right">
-      <div class="rank-box">
-        <div>
-          <div class="rank-title">GRADE</div>
-          <div class="rank-sub"><span>ACC</span><span id="uiAcc">0%</span></div>
-        </div>
-        <div class="rank-grade" id="uiGrade">C</div>
-      </div>
+    <div class="box" style="text-align:right;">
+      <div class="big"><span id="uiTime">90</span>s</div>
+      <div class="small">TIME</div>
     </div>
   </div>
 
-  <!-- ✅ Goal/Mini RIGHT (ตามที่ต้องการ) -->
-  <div class="quest-right" aria-label="Quest">
-    <div class="qcard">
-      <div class="qhead">
-        <span class="q-badge">GOAL</span>
-        <span class="q-num"><span id="uiGoalNow">0</span>/<span id="uiGoalTotal">1</span></span>
-      </div>
-      <div class="q-text" id="uiGoalTitle">—</div>
-      <div class="qbar-track"><div class="qbar-fill goal" id="uiGoalBar"></div></div>
-    </div>
+  <div class="centerTop">
+    <div class="pill">COMBO: <b id="uiCombo">0</b> (MAX <b id="uiComboMax">0</b>)</div>
+    <div class="pill">MISS: <b id="uiMiss">0</b></div>
+    <div class="pill">GRADE: <b id="uiGrade">C</b></div>
+  </div>
 
-    <div class="qcard" id="hud-mini-line">
-      <div class="qhead">
-        <span class="q-badge mini">MINI</span>
-        <span class="q-num"><span id="uiMiniNow">0</span>/<span id="uiMiniTotal">1</span></span>
-      </div>
-      <div class="q-text" id="uiMiniTitle">—</div>
-      <div class="qbar-track"><div class="qbar-fill mini" id="uiMiniBar"></div></div>
-      <div class="qbar-timer" id="uiMiniTime" style="display:none;">⏳ 0s</div>
+  <div class="questTop" aria-label="Quest">
+    <div class="qbar">
+      <div class="t">GOAL</div>
+      <div class="b" id="uiGoalTitle">—</div>
+      <div class="p"><i id="uiGoalBar"></i></div>
+    </div>
+    <div class="qbar">
+      <div class="t">MINI</div>
+      <div class="b" id="uiMiniTitle">—</div>
+      <div class="p"><i id="uiMiniBar"></i></div>
+      <div class="time" id="uiMiniTime">⏳ 0s</div>
     </div>
   </div>
 
-  <!-- ✅ Gameplay Layer -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-  <!-- ✅ Coach BOTTOM-RIGHT -->
-  <div class="coach-br" aria-label="Coach">
+  <div class="powerWrap">
+    <div class="power"><i id="uiPowerBar"></i></div>
+    <div class="powerLabel">
+      <span>POWER</span>
+      <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
+    </div>
+  </div>
+
+  <div class="coachWrap" aria-label="Coach">
     <div class="coachCard">
       <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
       <div class="feverMini"><i id="uiFeverBar"></i></div>
@@ -88,32 +62,37 @@
     </div>
   </div>
 
-  <!-- Start overlay -->
-  <div class="start-overlay" id="startOverlay">
-    <div class="start-card">
-      <h2 class="start-title">🚀 Food Groups VR</h2>
-      <p class="start-sub" id="startDesc">กำลังเตรียมระบบ…</p>
+  <!-- START -->
+  <div class="overlay" id="startOverlay">
+    <div class="panel">
+      <h2>🚀 พร้อมเล่น Food Groups VR</h2>
+      <p id="startDesc">กำลังเตรียมระบบ…</p>
 
-      <div class="start-grid">
-        <span class="pill">PC / Mobile / VR Cardboard ✅</span>
-        <span class="pill">Tap-to-shoot (Cardboard) ✅</span>
-        <span class="pill">Goal+Mini+Boss+Storm ✅</span>
+      <div class="row" style="margin:8px 0 6px; gap:10px; flex-wrap:wrap;">
+        <button id="btnModePlay" class="secondary" type="button">🖥️/📱 เล่นปกติ</button>
+        <button id="btnModeCvr"  class="secondary" type="button">🥽 Cardboard (ยิงกลางจอ)</button>
+        <button id="btnModeVr"   class="secondary" type="button">🕶️ Enter VR (XR)</button>
       </div>
 
-      <div class="start-actions">
-        <button class="btn primary" id="btnStart">Start</button>
-        <button class="btn ghost" id="btnBack">กลับ HUB</button>
+      <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
+      <div class="warn" id="warnBox" style="display:none;"></div>
+
+      <div class="row" style="margin-top:10px;">
+        <button id="btnStart" type="button">Start</button>
+        <button id="btnBack" class="secondary" type="button">กลับ HUB</button>
       </div>
 
-      <div class="start-note">Tip: ถ้าเล่น Cardboard ให้กด ENTER VR แล้ว “แตะที่จอ” เพื่อยิงจากกลางจอ 🎯</div>
+      <div class="dbg" style="margin-top:8px;">
+        tip: ถ้าใช้ Cardboard ให้ “แตะจอ = ยิง” และเล็งด้วยหัว/มือถือ
+      </div>
     </div>
   </div>
 
-  <!-- End overlay -->
-  <div class="result-overlay" id="endOverlay">
-    <div class="result-card">
-      <h2 class="start-title">🏁 สรุปผล</h2>
-      <p class="start-sub" id="endReason">—</p>
+  <!-- END -->
+  <div class="overlay" id="endOverlay">
+    <div class="panel">
+      <h2>🏁 สรุปผล</h2>
+      <p id="endReason"></p>
 
       <div class="kv">
         <div class="k">SCORE<b id="endScore">0</b></div>
@@ -122,9 +101,9 @@
         <div class="k">COMBO MAX<b id="endComboMax">0</b></div>
       </div>
 
-      <div class="result-actions">
-        <button class="btn primary" id="btnReplay">เล่นอีกครั้ง</button>
-        <button class="btn ghost" id="btnHub2">กลับ HUB</button>
+      <div class="row">
+        <button id="btnReplay" type="button">เล่นอีกครั้ง</button>
+        <button id="btnHub2" class="secondary" type="button">กลับ HUB</button>
       </div>
     </div>
   </div>
@@ -142,27 +121,58 @@
     const autostart = q.get('autostart') === '1';
     const v = (q.get('v') || String(Date.now()));
 
-    // view mode auto
-    (function setView(){
-      const ua = navigator.userAgent || '';
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
-      document.body.classList.toggle('view-mobile', !!isMobile);
-      document.body.classList.toggle('view-pc', !isMobile);
-    })();
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
 
-    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
+    // --------------------------
+    // ✅ View mode (pc/mobile/vr/cvr)
+    // --------------------------
+    function setView(view){
+      const b = document.body;
+      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      b.classList.add('view-' + view);
+      try{ localStorage.setItem('HHA_GROUPS_VIEW', view); }catch{}
+      $('startDesc').textContent =
+        `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed} | view=${view}`;
+    }
+
+    function getViewDefault(){
+      const fromQ = (q.get('view')||'').toLowerCase();
+      if (fromQ==='pc'||fromQ==='mobile'||fromQ==='vr'||fromQ==='cvr') return fromQ;
+      try{
+        const s = localStorage.getItem('HHA_GROUPS_VIEW');
+        if (s==='pc'||s==='mobile'||s==='vr'||s==='cvr') return s;
+      }catch{}
+      return isMobile ? 'mobile' : 'pc';
+    }
+
+    setView(getViewDefault());
+
+    // --------------------------
+    // warnings
+    // --------------------------
+    function warn(msg){
+      console.warn(msg);
+      const box = $('warnBox');
+      if (!box) return;
+      box.style.display = 'block';
+      box.textContent += (box.textContent ? '\n' : '') + String(msg);
+    }
 
     async function safeImport(path){
       try{
         await import(path + (path.includes('?') ? '' : ('?v='+encodeURIComponent(v))));
         return true;
       }catch(e){
-        console.warn(e);
+        warn(`⚠️ load fail: ${path}\n${e?.message || e}`);
         return false;
       }
     }
 
+    // --------------------------
+    // ✅ BOOT LIST: เพิ่ม Universal VR UI
+    // --------------------------
     const BOOT_LIST = [
+      '../vr/vr-ui.js',          // ✅ Enter VR / Exit / Recenter + Crosshair + hha:shoot
       './groups-fx.js',
       './audio.js',
       './groups-quests.js',
@@ -170,12 +180,19 @@
     ];
 
     async function boot(){
+      $('dbgBoot').textContent = 'loading modules…';
       for (const p of BOOT_LIST) await safeImport(p);
+      $('dbgBoot').textContent = (window.GroupsVR && window.GroupsVR.GameEngine) ? 'READY ✅' : 'ENGINE NOT FOUND ❌';
     }
 
+    // --------------------------
+    // flush hardened
+    // --------------------------
     function flushHardened(reason){
-      try{ window.HHACloudLogger?.flushHardened?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flush?.({ reason }); }catch{}
       try{ window.HHACloudLogger?.flushNow?.({ reason }); }catch{}
+      try{ window.HHACloudLogger?.flushHardened?.({ reason }); }catch{}
+      try{ window.GroupsVR?.Logger?.flush?.({ reason }); }catch{}
       try{ window.GroupsVR?.Logger?.flushNow?.({ reason }); }catch{}
     }
 
@@ -192,6 +209,39 @@
       if (document.visibilityState === 'hidden') flushHardened('hidden');
     });
 
+    // --------------------------
+    // Mode buttons
+    // --------------------------
+    function tryClickEnterVrButton(){
+      // รองรับหลายชื่อ เผื่อ vr-ui.js ใช้ class/id ต่างกัน
+      const btn =
+        document.querySelector('[data-hha="enter-vr"]') ||
+        document.querySelector('#hha-enter-vr') ||
+        document.querySelector('.hha-enter-vr') ||
+        document.querySelector('.hha-btn-enter-vr');
+      if (btn) btn.click();
+      else warn('ℹ️ ไม่พบปุ่ม Enter VR ของ vr-ui.js (แต่โหมด cVR ยังเล่นได้)');
+    }
+
+    $('btnModePlay').addEventListener('click', ()=>{
+      setView(isMobile ? 'mobile' : 'pc');
+    });
+    $('btnModeCvr').addEventListener('click', ()=>{
+      setView('cvr');
+      // เข้า fullscreen ให้ฟีล VR มากขึ้น (optional)
+      try{
+        const el = document.documentElement;
+        if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(()=>{});
+      }catch{}
+    });
+    $('btnModeVr').addEventListener('click', ()=>{
+      setView('vr');
+      tryClickEnterVrButton(); // ให้มี “ปุ่มเข้า VR” ชัดเจนตามที่ขอ
+    });
+
+    // --------------------------
+    // Bind UI events from engine
+    // --------------------------
     function bindEvents(){
       addEventListener('hha:score', (e)=>{
         const d = e.detail||{};
@@ -199,18 +249,11 @@
         $('uiCombo').textContent = String(d.combo ?? 0);
         $('uiComboMax').textContent = String(d.comboMax ?? 0);
         $('uiMiss').textContent = String(d.misses ?? 0);
-
-        // accuracy from rank event, but keep fallback
-        const hitAll = Number(d.hitAll||0);
-        const hitGood= Number(d.hitGood||0);
-        if (hitAll>0) $('uiAcc').textContent = Math.round((hitGood/hitAll)*100)+'%';
       });
-
       addEventListener('hha:time', (e)=>{
         const d = e.detail||{};
         $('uiTime').textContent = String(d.left ?? 0);
       });
-
       addEventListener('groups:power', (e)=>{
         const d = e.detail||{};
         const ch = Number(d.charge||0);
@@ -219,11 +262,9 @@
         $('uiPowerThr').textContent = String(thr);
         $('uiPowerBar').style.width = (Math.min(1, ch/thr)*100).toFixed(1) + '%';
       });
-
       addEventListener('hha:rank', (e)=>{
         const d = e.detail||{};
         if (d.grade) $('uiGrade').textContent = String(d.grade);
-        if (d.accuracy != null) $('uiAcc').textContent = String(d.accuracy) + '%';
       });
 
       addEventListener('quest:update', (e)=>{
@@ -231,22 +272,19 @@
         if (d.goalTitle != null) $('uiGoalTitle').textContent = String(d.goalTitle);
         if (d.miniTitle != null) $('uiMiniTitle').textContent = String(d.miniTitle);
 
-        $('uiGoalNow').textContent = String(d.goalNow ?? 0);
-        $('uiGoalTotal').textContent = String(d.goalTotal ?? 1);
-        $('uiMiniNow').textContent = String(d.miniNow ?? 0);
-        $('uiMiniTotal').textContent = String(d.miniTotal ?? 1);
+        let gp = (d.goalPct != null) ? Number(d.goalPct)
+               : (d.goalNow != null && d.goalTotal != null) ? (Number(d.goalNow)/Math.max(1,Number(d.goalTotal)))*100
+               : 0;
+        let mp = (d.miniPct != null) ? Number(d.miniPct)
+               : (d.miniNow != null && d.miniTotal != null) ? (Number(d.miniNow)/Math.max(1,Number(d.miniTotal)))*100
+               : 0;
 
-        const gp = Number(d.goalPct ?? 0);
-        const mp = Number(d.miniPct ?? 0);
         $('uiGoalBar').style.width = Math.max(0, Math.min(100, gp)).toFixed(1)+'%';
         $('uiMiniBar').style.width = Math.max(0, Math.min(100, mp)).toFixed(1)+'%';
 
         const tLeft = Number(d.miniTimeLeftSec ?? 0);
         const timeEl = $('uiMiniTime');
-        const urgent = (tLeft>0 && tLeft<=3);
-        $('hud-mini-line').classList.toggle('mini-urgent', urgent);
-
-        if (tLeft > 0){
+        if (Number.isFinite(tLeft) && tLeft > 0){
           timeEl.style.display = 'block';
           timeEl.textContent = `⏳ ${tLeft}s`;
         } else {
@@ -288,7 +326,7 @@
             game: 'GroupsVR',
             ts: new Date().toISOString(),
             ...d,
-            params: { runMode, diff, style, time, seed, hub }
+            params: { runMode, diff, style, time, seed, hub, view: document.body.className }
           };
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
@@ -310,14 +348,31 @@
           }
           if (tries > 250){
             clearInterval(t);
-            resolve(null);
+            warn('❌ ไม่พบ GroupsVR.GameEngine.start() — เช็คว่า GameEngine.js โหลดได้ 200 และชื่อไฟล์ตัวใหญ่/เล็กตรง');
+            $('dbgBoot').textContent = 'ENGINE NOT FOUND ❌';
           }
         }, 80);
       });
     }
 
+    // ✅ fallback: ถ้าอยู่โหมด cVR แล้วแตะจอ แต่ vr-ui.js ไม่ยิงให้
+    function bindFallbackTapShoot(){
+      if (bindFallbackTapShoot._done) return;
+      bindFallbackTapShoot._done = true;
+
+      window.addEventListener('pointerdown', (e)=>{
+        const b = document.body;
+        if (!b.classList.contains('view-cvr')) return;
+        // ยิงกลางจอ
+        const x = window.innerWidth * 0.5;
+        const y = window.innerHeight * 0.5;
+        window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ x, y, lockPx: 92 } }));
+      }, { passive:true });
+    }
+
     async function startGame(){
       $('btnStart').disabled = true;
+      $('startDesc').textContent = 'กำลังเริ่มเกม…';
 
       await boot();
       const GE = await waitEngineReady();
@@ -325,6 +380,9 @@
 
       GE.setLayerEl($('fg-layer'));
       GE.start(diff, { runMode, style, time, seed });
+
+      // cVR tap-to-shoot fallback
+      bindFallbackTapShoot();
 
       $('startOverlay').style.display = 'none';
       $('endOverlay').classList.remove('show');
@@ -335,13 +393,13 @@
     $('btnReplay').addEventListener('click', ()=>{
       try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
       $('endOverlay').classList.remove('show');
-      $('startOverlay').style.display = 'flex';
+      $('startOverlay').style.display = 'grid';
       if (autostart) setTimeout(startGame, 250);
     });
 
     bindEvents();
     await boot();
-    if (autostart) setTimeout(startGame, 300);
+    if (autostart) setTimeout(()=> $('btnStart').click(), 350);
   </script>
 </body>
 </html>
