@@ -5,6 +5,13 @@
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 // ✅ Flush-hardened: before end/back hub/reload
+//
+// DOM ids required (from plate-vr.html):
+// plate-layer, hitFx,
+// hudTop, miniPanel, hudBtns, coachPanel,
+// btnStart, startOverlay,
+// btnPause, hudPaused, btnRestart, btnBackHub, btnPlayAgain, btnEnterVR,
+// resultBackdrop (rScore/rG1..rG5 etc.)
 
 'use strict';
 
@@ -86,7 +93,11 @@ const base = DIFF[diff] || DIFF.normal;
 
 // Adaptive (Play only)
 let adaptiveOn = !isStudy;
-let adapt = { sizeMul: 1.0, spawnMul: 1.0, junkMul: 1.0 };
+let adapt = {
+  sizeMul: 1.0,
+  spawnMul: 1.0,
+  junkMul: 1.0,
+};
 
 // ------------------------- DOM handles -------------------------
 const layer = qs('plate-layer');
@@ -110,11 +121,6 @@ const hudBtns = qs('hudBtns');
 
 if(!layer){
   console.error('[PlateVR] missing #plate-layer');
-} else {
-  // ensure layer is a full-screen stage so absolute children move with transform
-  layer.style.position = layer.style.position || 'fixed';
-  layer.style.inset = layer.style.inset || '0';
-  layer.style.zIndex = layer.style.zIndex || '5';
 }
 
 // ------------------------- Minimal FX (CSS injection fallback) -------------------------
@@ -143,6 +149,7 @@ function fxPulse(kind){
   clearTimeout(fxPulse._t);
   fxPulse._t = setTimeout(()=>{ hitFx.classList.remove('pfx-hit-good','pfx-hit-bad'); }, 140);
 }
+
 function fxShake(){
   DOC.body.classList.remove('pfx-shake');
   void DOC.body.offsetWidth;
@@ -150,6 +157,7 @@ function fxShake(){
   clearTimeout(fxShake._t);
   fxShake._t = setTimeout(()=>DOC.body.classList.remove('pfx-shake'), 450);
 }
+
 function fxBlink(){
   DOC.body.classList.remove('pfx-blink');
   void DOC.body.offsetWidth;
@@ -157,6 +165,7 @@ function fxBlink(){
   clearTimeout(fxBlink._t);
   fxBlink._t = setTimeout(()=>DOC.body.classList.remove('pfx-blink'), 1800);
 }
+
 function fxTick(){
   DOC.body.classList.remove('pfx-tick');
   void DOC.body.offsetWidth;
@@ -164,6 +173,7 @@ function fxTick(){
   clearTimeout(fxTick._t);
   fxTick._t = setTimeout(()=>DOC.body.classList.remove('pfx-tick'), 160);
 }
+
 function playTickSound(){
   try{
     const AC = ROOT.AudioContext || ROOT.webkitAudioContext;
@@ -181,7 +191,7 @@ function playTickSound(){
 }
 
 // ------------------------- VR-feel look (gyro + drag) -------------------------
-let look = { x:0, y:0, dragging:false, lastX:0, lastY:0 };
+let look = { x:0, y:0, dx:0, dy:0, dragging:false, lastX:0, lastY:0 };
 let gyro = { gx:0, gy:0, ok:false };
 
 function applyLook(){
@@ -189,13 +199,15 @@ function applyLook(){
   const maxX = 24, maxY = 22;
   const x = clamp(look.x + gyro.gx, -maxX, maxX);
   const y = clamp(look.y + gyro.gy, -maxY, maxY);
-  layer.style.transform = `translate(${x}px, ${y}px) translateZ(0)`;
+  layer.style.transform = `translate(${x}px, ${y}px)`;
 }
 
 function enableGyroIfAllowed(){
   const DO = ROOT.DeviceOrientationEvent;
   if(!DO) return;
-  if(typeof DO.requestPermission === 'function'){ return; }
+  if(typeof DO.requestPermission === 'function'){
+    return;
+  }
   gyro.ok = true;
   ROOT.addEventListener('deviceorientation', (e)=>{
     const g = Number(e.gamma)||0;
@@ -232,7 +244,6 @@ function bindDragLook(){
     look.lastX = e.clientX;
     look.lastY = e.clientY;
   }, { passive:true });
-
   on(ROOT, 'pointermove', (e)=>{
     if(!look.dragging) return;
     const dx = (e.clientX - look.lastX);
@@ -243,7 +254,6 @@ function bindDragLook(){
     look.y = clamp(look.y + dy*0.10, -24, 24);
     applyLook();
   }, { passive:true });
-
   on(ROOT, 'pointerup', ()=>{ look.dragging = false; }, { passive:true });
 }
 
@@ -252,7 +262,7 @@ function rectOf(el){
   if(!el) return null;
   const r = el.getBoundingClientRect();
   if(!r || !isFinite(r.width)) return null;
-  return { x:r.left, y:r.top, w:r.width, h:r.height };
+  return { x:r.left, y:r.top, w:r.width, h:r.height, r };
 }
 function intersects(a, b){
   return !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y);
@@ -261,7 +271,7 @@ function buildNoSpawnRects(){
   const rects = [];
   [hudTop, miniPanel, coachPanel, hudBtns].forEach(el=>{
     const rr = rectOf(el);
-    if(rr && rr.w>0 && rr.h>0) rects.push(rr);
+    if(rr) rects.push(rr);
   });
   return rects;
 }
@@ -300,11 +310,11 @@ let paused = false;
 let tStartMs = 0;
 let tLastTickMs = 0;
 let tLeftSec = Number(timePlannedSec) || 90;
-let lastWholeSec = -1;
 
 let score = 0;
 let combo = 0;
 let comboMax = 0;
+
 let miss = 0;
 
 // plate counts
@@ -312,8 +322,8 @@ const groupEmojis = ['🥦','🍎','🐟','🍚','🥑'];
 let gCount = [0,0,0,0,0];
 let plateHave = [false,false,false,false,false];
 
-let fever = 0;      // 0..100
-let shield = 0;     // charges
+let fever = 0;
+let shield = 0;
 let shieldActive = false;
 
 // metrics
@@ -337,7 +347,7 @@ let spawnAccum = 0;
 let goalsTotal = 2;
 let goalsCleared = 0;
 
-let minisTotal = 1;     // ✅ Plate Rush only (report clearly)
+let minisTotal = 999;
 let miniCleared = 0;
 
 let activeGoal = null;
@@ -345,7 +355,7 @@ let activeMini = null;
 
 const GOALS = [
   { key:'fill-plate', title:'เติมจานให้ครบ 5 หมู่', target:5, cur:0, done:false },
-  { key:'accuracy', title:'จบเกมด้วยความแม่นยำ ≥ 80%', target:80, cur:0, done:false, counted:false },
+  { key:'accuracy', title:'จบเกมด้วยความแม่นยำ ≥ 80%', target:80, cur:0, done:false },
 ];
 
 function accuracyPct(){
@@ -358,6 +368,7 @@ function calcGrade(){
   const acc = accuracyPct();
   const m = miss;
   const baseScore = score;
+
   if(acc >= 95 && m <= 1 && baseScore >= 2200) return 'SSS';
   if(acc >= 92 && m <= 2 && baseScore >= 1800) return 'SS';
   if(acc >= 88 && m <= 3) return 'S';
@@ -366,72 +377,75 @@ function calcGrade(){
   return 'C';
 }
 
-// ------------------------- HUD events (standard payload) -------------------------
 function updateHUD(){
-  const acc = accuracyPct();
-  const grade = calcGrade();
-  const plateN = plateHave.filter(Boolean).length;
-
-  // ✅ Standard fields for HUD binder + keep backward compat
   emit('hha:score', {
     game:'plate',
     runMode,
     diff,
-
+    timeLeftSec: tLeftSec,
     score,
     combo,
     comboMax,
     miss,
-
-    accPct: Math.round(acc*10)/10,
-    accuracyGoodPct: Math.round(acc*10)/10, // backward compat
-    grade,
-
-    plateHave: plateN,
-
-    g1: gCount[0], g2: gCount[1], g3: gCount[2], g4: gCount[3], g5: gCount[4],
-    gCount: [...gCount], // backward compat
-
-    feverPct: clamp(fever,0,100),
+    plateHave: plateHave.filter(Boolean).length,
+    gCount: [...gCount],
     fever,
-
-    shieldN: shield,
     shield,
-
-    perfect: perfectHits
+    accuracyGoodPct: accuracyPct(),
+    grade: calcGrade(),
   });
 
-  // fallback direct DOM update
   setText('uiScore', score);
   setText('uiCombo', combo);
   setText('uiComboMax', comboMax);
   setText('uiMiss', miss);
-  setText('uiPlateHave', plateN);
+  setText('uiPlateHave', plateHave.filter(Boolean).length);
   setText('uiG1', gCount[0]); setText('uiG2', gCount[1]); setText('uiG3', gCount[2]); setText('uiG4', gCount[3]); setText('uiG5', gCount[4]);
-  setText('uiAcc', fmtPct(acc));
-  setText('uiGrade', grade);
-  setText('uiTime', Math.ceil(tLeftSec));
+  setText('uiAcc', fmtPct(accuracyPct()));
+  setText('uiGrade', calcGrade());
+  setText('uiTime', tLeftSec);
   const ff = qs('uiFeverFill');
   if(ff) ff.style.width = `${clamp(fever,0,100)}%`;
   setText('uiShieldN', shield);
 }
 
+/* ===================== PATH-FIX: coach image fallback loader ===================== */
+function setImgWithFallback(imgEl, urls){
+  if(!imgEl) return;
+  let i = 0;
+  const tryNext = ()=>{
+    if(i >= urls.length) return;
+    const url = urls[i++];
+    const test = new Image();
+    test.onload = ()=>{ imgEl.src = url; };
+    test.onerror = tryNext;
+    test.src = url;
+  };
+  tryNext();
+}
+
 function coach(msg, mood){
   emit('hha:coach', { game:'plate', msg, mood: mood || 'neutral' });
+
   const cm = qs('coachMsg');
   if(cm) cm.textContent = msg;
+
   const img = qs('coachImg');
-  if(img){
-    const m = mood || 'neutral';
-    const map = {
-      happy: '../img/coach-happy.png',
-      neutral:'../img/coach-neutral.png',
-      sad: '../img/coach-sad.png',
-      fever: '../img/coach-fever.png',
-    };
-    img.src = map[m] || map.neutral;
-  }
+  if(!img) return;
+
+  const m = (mood || 'neutral').toLowerCase();
+
+  // ✅ Your current structure (from screenshot):
+  // /herohealth/plate-neutral.png, plate-happy.png, plate-sad.png, plate-fever.png
+  const urls = [
+    `../plate-${m}.png`,
+    `../img/plate-${m}.png`,
+    `../img/coach-${m}.png`,
+  ];
+
+  setImgWithFallback(img, urls);
 }
+
 function judge(text, kind){
   emit('hha:judge', { game:'plate', text, kind: kind||'info' });
 }
@@ -440,30 +454,30 @@ function judge(text, kind){
 function makeMiniPlateRush(){
   return {
     key:'plate-rush',
-    title:'Plate Rush: เก็บ 5 หมู่ใน 8 วิ + ห้ามโดนขยะ',
+    title:'Plate Rush: ครบ 5 หมู่ใน 8 วิ + ห้ามโดนขยะ',
     forbidJunk:true,
     durationSec: 8,
     startedMs: 0,
     done:false,
     fail:false,
     reason:'',
-    rushHave: [false,false,false,false,false] // ✅ แยกจาก plateHave
+    snapPlateHave: null,
   };
-}
-function rushCount(){
-  if(!activeMini || activeMini.key!=='plate-rush') return 0;
-  return activeMini.rushHave.filter(Boolean).length;
 }
 
 function startMini(mini){
   activeMini = mini;
   activeMini.startedMs = nowMs();
-
+  activeMini.snapPlateHave = [...plateHave];
+  emit('quest:update', {
+    game:'plate',
+    goal: activeGoal ? { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done } : null,
+    mini: { title: activeMini.title, cur:0, target:activeMini.durationSec, timeLeft: activeMini.durationSec, done:false }
+  });
   setText('uiMiniTitle', activeMini.title);
-  setText('uiHint', 'ทริค: รีบเก็บ “หมู่ที่ยังขาดใน Plate Rush” ให้ครบ 5 ภายในเวลา! ระวังขยะห้ามโดน!');
-
+  setText('uiMiniTime', `${activeMini.durationSec}s`);
+  setText('uiHint', 'ทริค: เร่งเก็บหมู่ที่ยังขาด! ระวังขยะห้ามโดน!');
   judge('⚡ Plate Rush เริ่มแล้ว!', 'warn');
-  emitQuestUpdate(true);
 }
 
 function finishMini(ok, reason){
@@ -479,12 +493,11 @@ function finishMini(ok, reason){
     judge('✅ MINI COMPLETE!', 'good');
     shield = clamp(shield + 1, 0, 9);
   }else{
-    coach('พลาดนิดเดียว! ลองใหม่รอบหน้าก็ผ่าน 💪', (fever>70?'fever':'sad'));
+    coach('พลาดนิดเดียว! ลองใหม่เดี๋ยวก็ผ่าน 💪', (fever>70?'fever':'sad'));
     judge('❌ MINI FAILED', 'bad');
   }
   activeMini = null;
-  emitQuestUpdate(true);
-  updateHUD();
+  emitQuestUpdate();
 }
 
 function miniTimeLeft(){
@@ -493,54 +506,28 @@ function miniTimeLeft(){
   return Math.max(0, activeMini.durationSec - elapsed);
 }
 
-function emitQuestUpdate(force=false){
-  // goal
+function emitQuestUpdate(){
   if(activeGoal){
     emit('quest:update', {
       game:'plate',
-      goal: { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: !!activeGoal.done },
-      mini: activeMini ? {
-        title: activeMini.title,
-        cur: (activeMini.key==='plate-rush') ? rushCount() : 0,
-        target: (activeMini.key==='plate-rush') ? 5 : 0,
-        secLeft: miniTimeLeft(),
-        secTotal: activeMini.durationSec,
-        done:false
-      } : { title:'—', cur:0, target:0, secLeft:null, secTotal:null, done:false }
+      goal: { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done },
+      mini: activeMini
+        ? { title: activeMini.title, cur: 0, target: activeMini.durationSec, timeLeft: miniTimeLeft(), done:false }
+        : { title:'—', cur:0, target:0, timeLeft:null, done:false }
     });
-  }else{
-    emit('quest:update', {
-      game:'plate',
-      goal: { title:'—', cur:0, target:0, done:false },
-      mini: activeMini ? {
-        title: activeMini.title,
-        cur: (activeMini.key==='plate-rush') ? rushCount() : 0,
-        target: (activeMini.key==='plate-rush') ? 5 : 0,
-        secLeft: miniTimeLeft(),
-        secTotal: activeMini.durationSec,
-        done:false
-      } : { title:'—', cur:0, target:0, secLeft:null, secTotal:null, done:false }
-    });
-  }
-
-  // fallback DOM
-  if(activeGoal){
     setText('uiGoalTitle', activeGoal.title);
     setText('uiGoalCount', `${activeGoal.cur}/${activeGoal.target}`);
     const gf = qs('uiGoalFill');
     if(gf) gf.style.width = `${(activeGoal.target? (activeGoal.cur/activeGoal.target*100):0)}%`;
   }else{
     setText('uiGoalTitle', '—'); setText('uiGoalCount', '0/0');
-    const gf = qs('uiGoalFill'); if(gf) gf.style.width = '0%';
   }
 
   if(activeMini){
-    const tl = miniTimeLeft();
-    const sc = (tl==null)?'--':`${Math.ceil(tl)}s`;
     setText('uiMiniTitle', activeMini.title);
-    setText('uiMiniTime', sc);
-    setText('uiMiniCount', `${miniCleared}/${minisTotal}`);
-
+    setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal, miniCleared+1)}`);
+    const tl = miniTimeLeft();
+    setText('uiMiniTime', tl==null?'--':`${Math.ceil(tl)}s`);
     const mf = qs('uiMiniFill');
     if(mf){
       const pct = activeMini.durationSec ? ((activeMini.durationSec - (tl||0)) / activeMini.durationSec) * 100 : 0;
@@ -549,7 +536,6 @@ function emitQuestUpdate(force=false){
   }else{
     setText('uiMiniTitle','—');
     setText('uiMiniTime','--');
-    setText('uiMiniCount', `${miniCleared}/${minisTotal}`);
     const mf = qs('uiMiniFill'); if(mf) mf.style.width = `0%`;
   }
 }
@@ -558,25 +544,27 @@ function emitQuestUpdate(force=false){
 function startGoals(){
   goalsCleared = 0;
   activeGoal = { ...GOALS[0] };
-  emitQuestUpdate(true);
+  emitQuestUpdate();
 }
 function updateGoals(){
-  if(!activeGoal) return;
+  if(!activeGoal || activeGoal.done) return;
 
   if(activeGoal.key === 'fill-plate'){
     activeGoal.cur = plateHave.filter(Boolean).length;
-    if(activeGoal.cur >= activeGoal.target && !activeGoal.done){
+    if(activeGoal.cur >= activeGoal.target){
       activeGoal.done = true;
       goalsCleared++;
       emit('hha:celebrate', { game:'plate', kind:'goal' });
       coach('ครบ 5 หมู่แล้ว! ต่อไปคุมความแม่นยำ 😎', 'happy');
       judge('🎯 GOAL COMPLETE!', 'good');
 
+      if(!activeMini){
+        startMini(makeMiniPlateRush());
+      }
       activeGoal = { ...GOALS[1] };
     }
   } else if(activeGoal.key === 'accuracy'){
     activeGoal.cur = Math.round(accuracyPct());
-    // finalize at end
   }
 
   emitQuestUpdate();
@@ -586,9 +574,11 @@ function updateGoals(){
 function addFever(amount){
   fever = clamp(fever + (Number(amount)||0), 0, 100);
   if(fever >= 85) coach('ระวัง! FEVER สูงมากแล้ว 🔥', 'fever');
+  updateHUD();
 }
 function coolFever(amount){
   fever = clamp(fever - (Number(amount)||0), 0, 100);
+  updateHUD();
 }
 function ensureShieldActive(){
   shieldActive = (shield > 0);
@@ -611,12 +601,6 @@ function currentTunings(){
     junkRate = clamp(junkRate + f*0.05, 0.08, 0.60);
   }
 
-  // ✅ Plate Rush: ให้ “พอมีโอกาสผ่าน” แต่ยังโหด
-  if(activeMini && activeMini.key==='plate-rush' && !activeMini.done){
-    junkRate = clamp(junkRate * 0.85, 0.08, 0.55);  // ลด junk นิดนึง
-    spawnPerSec = clamp(spawnPerSec * 1.10, 0.8, 3.6);
-  }
-
   size = clamp(size, 38, 86);
   spawnPerSec = clamp(spawnPerSec, 0.8, 3.6);
   return { size, lifeMs, spawnPerSec, junkRate };
@@ -629,20 +613,6 @@ function maybeSpawnShield(){
   if(rng() < chance){
     spawnTarget('shield');
   }
-}
-
-function pickGoodSpec(){
-  // ✅ Plate Rush: bias ไปที่หมู่ที่ยังขาดใน rushHave
-  if(activeMini && activeMini.key==='plate-rush' && !activeMini.done){
-    const missing = [];
-    for(let i=0;i<5;i++){
-      if(!activeMini.rushHave[i]) missing.push({ emoji: groupEmojis[i], groupIdx:i, kind:'good' });
-    }
-    if(missing.length && rng() < 0.72){
-      return pick(rng, missing);
-    }
-  }
-  return pick(rng, goodPool);
 }
 
 function spawnTarget(forcedKind){
@@ -660,7 +630,7 @@ function spawnTarget(forcedKind){
   }
 
   let spec;
-  if(kind === 'good') spec = pickGoodSpec();
+  if(kind === 'good') spec = pick(rng, goodPool);
   else if(kind === 'junk') spec = pick(rng, junkPool);
   else spec = shieldEmoji;
 
@@ -680,6 +650,7 @@ function spawnTarget(forcedKind){
     }
     if(!hit){ ok = true; break; }
   }
+
   if(!ok){
     const rx = playRect.x + rng()*(Math.max(1, playRect.w - size));
     const ry = playRect.y + rng()*(Math.max(1, playRect.h - size));
@@ -695,8 +666,7 @@ function spawnTarget(forcedKind){
   if(spec.kind === 'good') el.setAttribute('data-group', String(spec.groupIdx));
   el.textContent = spec.emoji;
 
-  // ✅ IMPORTANT: absolute (so transform on layer makes VR-feel correctly)
-  el.style.position = 'absolute';
+  el.style.position = 'fixed';
   el.style.left = `${Math.round(box.x)}px`;
   el.style.top  = `${Math.round(box.y)}px`;
   el.style.width = `${size}px`;
@@ -722,14 +692,16 @@ function spawnTarget(forcedKind){
   layer.appendChild(el);
 
   const born = nowMs();
+  const lifeMs = tune.lifeMs;
+
   targets.set(id, {
     id,
     el,
     kind: spec.kind,
     groupIdx: (spec.kind==='good') ? spec.groupIdx : null,
     bornMs: born,
-    lifeMs: tune.lifeMs,
-    size
+    lifeMs,
+    size,
   });
 
   if(spec.kind === 'good') nTargetGoodSpawned++;
@@ -745,6 +717,7 @@ function despawn(id){
   targets.delete(id);
   try{ t.el.remove(); }catch(e){}
 }
+
 function clearAllTargets(){
   for(const [id] of targets) despawn(id);
 }
@@ -767,25 +740,9 @@ function onHit(id){
     const gi = Number(t.groupIdx);
     if(gi>=0 && gi<5){
       gCount[gi] += 1;
-
-      // goal1 plateHave (สะสมทั้งเกม)
       if(!plateHave[gi]){
         plateHave[gi] = true;
         judge(`+ หมู่ใหม่! ${groupEmojis[gi]}`, 'good');
-      }
-
-      // ✅ Plate Rush tracking (แยกจาก plateHave)
-      if(activeMini && activeMini.key==='plate-rush' && !activeMini.done){
-        if(!activeMini.rushHave[gi]){
-          activeMini.rushHave[gi] = true;
-        }
-        // success check
-        const haveRush = rushCount();
-        if(haveRush >= 5 && (miniTimeLeft()!=null && miniTimeLeft()>0)){
-          finishMini(true, 'rush-complete');
-        } else {
-          emitQuestUpdate();
-        }
       }
     }
 
@@ -799,17 +756,23 @@ function onHit(id){
     fxPulse('good');
     coolFever(base.feverDownGood);
 
+    if(activeMini && activeMini.key === 'plate-rush'){
+      const haveN = plateHave.filter(Boolean).length;
+      const tl = miniTimeLeft();
+      if(haveN >= 5 && (tl != null && tl > 0)){
+        finishMini(true, 'rush-complete');
+      }
+    }
+
   } else if(kind === 'junk'){
     ensureShieldActive();
 
-    // ✅ Plate Rush forbid junk
-    if(activeMini && activeMini.forbidJunk && activeMini.key==='plate-rush' && !activeMini.done){
+    if(activeMini && activeMini.forbidJunk){
       if(shieldActive){
         shield = Math.max(0, shield - 1);
         nHitJunkGuard++;
-        coach('โล่ช่วยไว้! 🛡️ (Plate Rush ยังอยู่)', 'neutral');
+        coach('โล่ช่วยไว้! 🛡️ (mini ยังอยู่)', 'neutral');
         judge('🛡️ BLOCKED!', 'warn');
-        fxPulse('good');
       }else{
         nHitJunk++;
         miss++;
@@ -819,7 +782,7 @@ function onHit(id){
         fxPulse('bad'); fxShake();
         finishMini(false, 'hit-junk');
       }
-    } else {
+    }else{
       if(shieldActive){
         shield = Math.max(0, shield - 1);
         nHitJunkGuard++;
@@ -838,7 +801,6 @@ function onHit(id){
       }
     }
     ensureShieldActive();
-
   } else if(kind === 'shield'){
     shield = clamp(shield + 1, 0, 9);
     ensureShieldActive();
@@ -849,6 +811,7 @@ function onHit(id){
   }
 
   if(adaptiveOn) updateAdaptive();
+
   updateGoals();
   updateHUD();
 }
@@ -870,7 +833,6 @@ function onExpireTarget(id){
   updateHUD();
 }
 
-// ------------------------- Adaptive -------------------------
 function updateAdaptive(){
   const acc = accuracyPct();
   const rtN = rtGood.length;
@@ -911,17 +873,13 @@ function tick(){
   }
 
   if(dt > 0 && isFinite(dt)){
-    tLeftSec = Math.max(0, tLeftSec - dt);
+    const newLeft = Math.max(0, tLeftSec - dt);
+    if(Math.floor(newLeft) !== Math.floor(tLeftSec)){
+      emit('hha:time', { game:'plate', timeLeftSec: Math.ceil(newLeft) });
+    }
+    tLeftSec = newLeft;
   }
 
-  // ✅ emit time each whole second (standard secLeft)
-  const whole = Math.ceil(tLeftSec);
-  if(whole !== lastWholeSec){
-    lastWholeSec = whole;
-    emit('hha:time', { game:'plate', secLeft: whole, timeLeftSec: whole });
-  }
-
-  // mini timer pressure FX (last 3 sec)
   if(activeMini){
     const tl = miniTimeLeft();
     if(tl != null){
@@ -991,7 +949,11 @@ function bootButtons(){
 
   on(btnBackHub, 'click', async ()=>{
     await flushHardened('back-hub');
-    location.href = hubUrl || '../hub.html';
+    if(hubUrl){
+      location.href = hubUrl;
+    }else{
+      location.href = '../hub.html';
+    }
   }, { passive:true });
 
   on(btnPlayAgain, 'click', async ()=>{
@@ -1008,7 +970,7 @@ function bootButtons(){
     startGame();
   }, { passive:true });
 
-  on(ROOT, 'beforeunload', ()=>{
+  on(ROOT, 'beforeunload', (e)=>{
     try{ flushHardened('beforeunload'); }catch(err){}
   });
 }
@@ -1020,7 +982,6 @@ function resetState(){
   tStartMs = 0;
   tLastTickMs = 0;
   tLeftSec = Number(timePlannedSec)||90;
-  lastWholeSec = -1;
 
   score = 0;
   combo = 0;
@@ -1053,8 +1014,6 @@ function resetState(){
 
   goalsTotal = 2;
   goalsCleared = 0;
-
-  minisTotal = 1;
   miniCleared = 0;
 
   activeGoal = null;
@@ -1076,10 +1035,6 @@ function startGame(){
   applyLook();
 
   startGoals();
-
-  // ✅ Start Plate Rush early (makes sense + fun)
-  startMini(makeMiniPlateRush());
-
   coach('พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪', 'neutral');
   judge('▶️ START!', 'good');
 
@@ -1090,7 +1045,7 @@ function startGame(){
   tLastTickMs = tStartMs;
 
   updateHUD();
-  emit('hha:time', { game:'plate', secLeft: Math.ceil(tLeftSec), timeLeftSec: Math.ceil(tLeftSec) });
+  emit('hha:time', { game:'plate', timeLeftSec: Math.ceil(tLeftSec) });
 
   for(let i=0;i<4;i++) spawnTarget();
   requestAnimationFrame(tick);
@@ -1122,16 +1077,12 @@ function buildSummary(reason){
   const medRt = rtGood.length ? median(rtGood) : 0;
   const fastHitRatePct = (nHitGood>0) ? (perfectHits/nHitGood*100) : 0;
 
-  // finalize goal2 at end (count once)
-  let goal2Done = false;
-  if(acc >= 80) goal2Done = true;
-
-  // If goal2 achieved but not already counted (when active goal is accuracy)
-  // we only add 1 to goalsCleared here if accuracy goal not previously marked done.
-  if(activeGoal && activeGoal.key === 'accuracy' && goal2Done && !activeGoal.counted){
-    activeGoal.done = true;
-    activeGoal.counted = true;
-    goalsCleared++;
+  if(activeGoal && activeGoal.key === 'accuracy'){
+    activeGoal.cur = Math.round(acc);
+    if(acc >= activeGoal.target){
+      activeGoal.done = true;
+      goalsCleared++;
+    }
   }
 
   const grade = calcGrade();
@@ -1153,7 +1104,7 @@ function buildSummary(reason){
     goalsCleared,
     goalsTotal,
     miniCleared,
-    miniTotal: minisTotal,
+    miniTotal: miniCleared,
     nTargetGoodSpawned,
     nTargetJunkSpawned,
     nTargetShieldSpawned,
@@ -1166,7 +1117,6 @@ function buildSummary(reason){
     avgRtGoodMs: Math.round(avgRt),
     medianRtGoodMs: Math.round(medRt),
     fastHitRatePct: Math.round(fastHitRatePct*10)/10,
-    perfectHits,
     grade,
     seed,
     reason: reason || 'end',
@@ -1192,9 +1142,7 @@ function showResult(summary){
   setText('rScore', summary.scoreFinal);
   setText('rMaxCombo', summary.comboMax);
   setText('rMiss', summary.misses);
-
-  // FAST HIT: show percent (but keep number-style UI)
-  setText('rPerfect', `${Math.round(summary.fastHitRatePct)}%`);
+  setText('rPerfect', Math.round(summary.fastHitRatePct) + '%');
   setText('rGoals', `${summary.goalsCleared}/${summary.goalsTotal}`);
   setText('rMinis', `${summary.miniCleared}/${summary.miniTotal}`);
 
@@ -1208,6 +1156,7 @@ function showResult(summary){
 
 function storeSummary(summary){
   saveJson(LS_LAST, summary);
+
   const hist = loadJson(LS_HIST, []);
   const next = Array.isArray(hist) ? hist : [];
   next.unshift(summary);
@@ -1242,6 +1191,7 @@ async function endGame(reason){
   clearAllTargets();
 
   const summary = buildSummary(reason);
+
   storeSummary(summary);
 
   emit('hha:end', { game:'plate', summary });
@@ -1264,10 +1214,11 @@ async function endGame(reason){
 
   resetState();
   updateHUD();
-  emitQuestUpdate(true);
+  emitQuestUpdate();
 
   bootButtons();
 
   if(startOverlay) startOverlay.style.display = 'grid';
+
   applyLook();
 })();
