@@ -1,13 +1,11 @@
 /* === /herohealth/vr/vr-ui.js ===
-HHA Universal VR UI (DOM/VR Cardboard Friendly)
-✅ Fullscreen button + "Enter VR" (Cardboard mode)
-✅ Crosshair overlay
-✅ Tap anywhere => emit hha:shoot (aim assist handled by engine)
-✅ Reset view button => emit hha:vr {state:'reset'}
-✅ Auto unlock audio on gesture (calls GroupsVR.Audio.unlock / HHA audio if exists)
-Usage:
-  <script src="../vr/vr-ui.js" defer></script>
-  window.HHAVRUI.mount({ lockPx: 92 });
+HeroHealth VR UI (DOM games) — Universal Module
+✅ Enter Cardboard VR (pseudo VR): fullscreen + cVR class + crosshair
+✅ Tap-to-shoot (dispatch hha:shoot) — in cVR shoot from center
+✅ PC/Mobile: optional tap-to-shoot (at tap position)
+✅ Recenter (dispatch hha:vr {state:'reset'})
+✅ LockPx aim assist configurable
+Expose: window.HHAVRUI = { init, enterVR, exitVR, recenter, setLockPx, isVR }
 */
 
 (function(root){
@@ -15,189 +13,269 @@ Usage:
   const DOC = root.document;
   if (!DOC) return;
 
-  const API = (root.HHAVRUI = root.HHAVRUI || {});
-  const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch{} };
+  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
   function qs(k, def=null){
-    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+    try{ return new URL(root.location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
   }
 
-  function isFS(){
+  function isFullscreen(){
     return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
   }
-  async function enterFS(){
+  async function requestFullscreen(){
     try{
       const el = DOC.documentElement;
       if (el.requestFullscreen) await el.requestFullscreen();
       else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-    }catch{}
+    }catch(_){}
   }
-  async function exitFS(){
+  async function exitFullscreen(){
     try{
       if (DOC.exitFullscreen) await DOC.exitFullscreen();
       else if (DOC.webkitExitFullscreen) await DOC.webkitExitFullscreen();
-    }catch{}
+    }catch(_){}
   }
 
-  function unlockAudio(){
-    try{ root.GroupsVR?.Audio?.unlock?.(); }catch{}
-    try{ root.HHAudio?.unlock?.(); }catch{}
+  function emit(name, detail){
+    try{ root.dispatchEvent(new CustomEvent(name,{ detail: detail||{} })); }catch{}
   }
 
-  function ensureStyles(){
-    if (DOC.getElementById('hha-vr-ui-style')) return;
+  function ensureStylesOnce(){
+    if (ensureStylesOnce._done) return;
+    ensureStylesOnce._done = true;
+
     const st = DOC.createElement('style');
-    st.id = 'hha-vr-ui-style';
     st.textContent = `
-      .hha-vr-ui{ position:fixed; inset:0; pointer-events:none; z-index:140; }
-      .hha-vr-bar{
-        position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px));
-        display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-        pointer-events:none; z-index:141;
-      }
-      .hha-vr-btn{
+      .hha-vrbtns{
+        position:fixed; left:12px; bottom:calc(12px + env(safe-area-inset-bottom,0px));
+        z-index:999; display:flex; gap:8px; align-items:center;
+        font-family:system-ui,-apple-system,Segoe UI,sans-serif;
         pointer-events:auto;
+      }
+      .hha-vrbtns.right{ left:auto; right:12px; }
+      .hha-vrbtn{
         border:1px solid rgba(148,163,184,.18);
         background:rgba(2,6,23,.72);
         color:#e5e7eb;
         border-radius:999px;
-        padding:10px 14px;
-        font: 900 13px/1 system-ui;
-        box-shadow:0 18px 50px rgba(0,0,0,.35);
+        padding:10px 12px;
+        font-weight:900;
+        font-size:12px;
+        box-shadow:0 16px 40px rgba(0,0,0,.35);
         cursor:pointer;
         user-select:none;
+        -webkit-tap-highlight-color: transparent;
       }
-      .hha-vr-btn.primary{
+      .hha-vrbtn.primary{
+        border:0;
         background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-        color:#061018; border:0;
+        color:#061018;
       }
       .hha-crosshair{
         position:fixed; left:50%; top:50%;
         width:26px; height:26px;
         transform:translate(-50%,-50%);
+        z-index:998;
+        pointer-events:none;
+        opacity:.92;
+        display:none;
+      }
+      body.view-cvr .hha-crosshair{ display:block; }
+
+      .hha-crosshair::before,
+      .hha-crosshair::after{
+        content:"";
+        position:absolute; left:50%; top:50%;
+        width:26px; height:26px;
+        transform:translate(-50%,-50%);
         border-radius:999px;
-        border:2px solid rgba(226,232,240,.85);
-        box-shadow:0 0 0 6px rgba(34,211,238,.10);
-        pointer-events:none; z-index:142;
+        border:2px solid rgba(226,232,240,.75);
+        box-shadow:0 0 0 6px rgba(34,211,238,.12);
       }
       .hha-crosshair::after{
-        content:""; position:absolute; left:50%; top:50%;
-        width:6px; height:6px; transform:translate(-50%,-50%);
-        border-radius:999px; background:rgba(226,232,240,.85);
+        width:6px; height:6px;
+        border:0;
+        background:rgba(34,197,94,.92);
+        box-shadow:0 0 0 8px rgba(34,197,94,.10);
       }
-      body.view-cvr .hha-crosshair{ box-shadow:0 0 0 10px rgba(34,197,94,.10); }
+
+      /* in cVR: prevent direct tapping targets, use shoot dispatch */
+      body.view-cvr .fg-target{ pointer-events:none !important; }
     `;
     DOC.head.appendChild(st);
   }
 
-  function mount(opts){
-    opts = opts || {};
-    const lockPx = Math.max(40, Math.min(160, Number(opts.lockPx||92)));
-    const tapMode = (qs('view','') || '').toLowerCase(); // optional
-    const allowReset = opts.allowReset !== false;
+  const S = {
+    inited:false,
+    isVR:false,
+    lockPx: 86,
+    tapAtCursorInVR:true,
+    tapShootOutsideVR:false,
+    buttonsSide:'left',
+    allowFullscreen:true,
+    rootEl:null,
+    crosshairEl:null,
+    btnWrap:null,
+    _bound:false
+  };
 
-    ensureStyles();
+  function ensureUI(){
+    ensureStylesOnce();
 
-    let wrap = DOC.querySelector('.hha-vr-ui');
-    if (!wrap){
-      wrap = DOC.createElement('div');
-      wrap.className = 'hha-vr-ui';
+    if (!S.crosshairEl){
+      const ch = DOC.createElement('div');
+      ch.className = 'hha-crosshair';
+      DOC.body.appendChild(ch);
+      S.crosshairEl = ch;
+    }
+
+    if (!S.btnWrap){
+      const wrap = DOC.createElement('div');
+      wrap.className = 'hha-vrbtns' + (S.buttonsSide==='right' ? ' right' : '');
+      wrap.innerHTML = `
+        <button class="hha-vrbtn primary" data-act="enter">🕶️ ENTER VR</button>
+        <button class="hha-vrbtn" data-act="recenter">🎯 RECENTER</button>
+        <button class="hha-vrbtn" data-act="exit" style="display:none;">✖ EXIT</button>
+      `;
       DOC.body.appendChild(wrap);
-    }
+      S.btnWrap = wrap;
 
-    let cross = DOC.querySelector('.hha-crosshair');
-    if (!cross){
-      cross = DOC.createElement('div');
-      cross.className = 'hha-crosshair';
-      wrap.appendChild(cross);
-    }
+      wrap.addEventListener('click', async (e)=>{
+        const b = e.target && e.target.closest ? e.target.closest('button[data-act]') : null;
+        if (!b) return;
+        const act = b.dataset.act;
 
-    let bar = DOC.querySelector('.hha-vr-bar');
-    if (!bar){
-      bar = DOC.createElement('div');
-      bar.className = 'hha-vr-bar';
-      DOC.body.appendChild(bar);
-    }else{
-      bar.innerHTML = '';
-    }
-
-    const btnFS = DOC.createElement('button');
-    btnFS.className = 'hha-vr-btn primary';
-    btnFS.textContent = '⛶ Fullscreen / Enter VR';
-    btnFS.addEventListener('click', async ()=>{
-      unlockAudio();
-      if (!isFS()) await enterFS();
-      DOC.body.classList.add('view-cvr');
-      emit('hha:vr', { state:'enter' });
-    });
-
-    const btnExit = DOC.createElement('button');
-    btnExit.className = 'hha-vr-btn';
-    btnExit.textContent = '⤫ Exit';
-    btnExit.addEventListener('click', async ()=>{
-      unlockAudio();
-      DOC.body.classList.remove('view-cvr');
-      emit('hha:vr', { state:'exit' });
-      if (isFS()) await exitFS();
-    });
-
-    bar.appendChild(btnFS);
-    if (allowReset){
-      const btnReset = DOC.createElement('button');
-      btnReset.className = 'hha-vr-btn';
-      btnReset.textContent = '🎯 Reset View';
-      btnReset.addEventListener('click', ()=>{
-        unlockAudio();
-        emit('hha:vr', { state:'reset' });
+        if (act === 'enter') await enterVR();
+        if (act === 'exit') await exitVR();
+        if (act === 'recenter') recenter();
       });
-      bar.appendChild(btnReset);
-    }
-    bar.appendChild(btnExit);
-
-    // Tap anywhere => shoot at tap coords (engine will pick nearest)
-    // VR/Cardboard: ผู้ใช้ “จิ้มจอ” ที่ไหนก็ได้ ยิงได้แน่นอน
-    function onShoot(e){
-      unlockAudio();
-      const x = (e && typeof e.clientX === 'number') ? e.clientX : (root.innerWidth*0.5);
-      const y = (e && typeof e.clientY === 'number') ? e.clientY : (root.innerHeight*0.5);
-      emit('hha:shoot', { x, y, lockPx });
-    }
-
-    // capture phase ให้ยิงได้แม้ element อื่นกัน event
-    root.addEventListener('pointerdown', (e)=>{
-      // กันยิงตอนกดปุ่ม UI
-      const t = e.target;
-      if (t && t.classList && (t.classList.contains('hha-vr-btn'))) return;
-      onShoot(e);
-    }, true);
-
-    // touchstart fallback
-    root.addEventListener('touchstart', (e)=>{
-      const t = e.touches && e.touches[0];
-      if (!t) return;
-      onShoot({ clientX:t.clientX, clientY:t.clientY, target:e.target });
-    }, { passive:true });
-
-    // shortcut: double click => toggle cVR
-    root.addEventListener('dblclick', async ()=>{
-      unlockAudio();
-      if (!DOC.body.classList.contains('view-cvr')){
-        if (!isFS()) await enterFS();
-        DOC.body.classList.add('view-cvr');
-        emit('hha:vr', { state:'enter' });
-      }else{
-        DOC.body.classList.remove('view-cvr');
-        emit('hha:vr', { state:'exit' });
-        if (isFS()) await exitFS();
-      }
-    });
-
-    // optional: start in cVR if ?cvr=1
-    if (qs('cvr','0') === '1'){
-      setTimeout(()=> btnFS.click(), 300);
     }
   }
 
-  API.mount = mount;
+  function setButtonsState(){
+    if (!S.btnWrap) return;
+    const enter = S.btnWrap.querySelector('button[data-act="enter"]');
+    const exit  = S.btnWrap.querySelector('button[data-act="exit"]');
+    if (enter) enter.style.display = S.isVR ? 'none' : 'inline-flex';
+    if (exit)  exit.style.display  = S.isVR ? 'inline-flex' : 'none';
+  }
 
-})(typeof window !== 'undefined' ? window : globalThis);
+  function setBodyVR(on){
+    DOC.body.classList.toggle('view-cvr', !!on);
+    S.isVR = !!on;
+    setButtonsState();
+  }
+
+  function recenter(){
+    emit('hha:vr', { state:'reset' });
+  }
+
+  function shootAt(x,y){
+    emit('hha:shoot', {
+      x: Number(x),
+      y: Number(y),
+      lockPx: S.lockPx
+    });
+  }
+
+  function centerXY(){
+    return { x: (root.innerWidth||360)*0.5, y: (root.innerHeight||640)*0.5 };
+  }
+
+  function bindOnce(){
+    if (S._bound) return;
+    S._bound = true;
+
+    // Tap anywhere:
+    // - in cVR => shoot from center (crosshair)
+    // - else if tapShootOutsideVR => shoot at tap position
+    DOC.addEventListener('pointerdown', (e)=>{
+      if (!S.inited) return;
+      if (S.isVR){
+        if (S.tapAtCursorInVR){
+          const c = centerXY();
+          shootAt(c.x, c.y);
+          return;
+        }
+      }else{
+        if (S.tapShootOutsideVR){
+          shootAt(e.clientX, e.clientY);
+        }
+      }
+    }, { passive:true });
+
+    // Keyboard shoot (space / enter) — aim at center
+    DOC.addEventListener('keydown', (e)=>{
+      if (!S.inited) return;
+      const k = String(e.key||'').toLowerCase();
+      if (k === ' ' || k === 'spacebar' || k === 'enter'){
+        const c = centerXY();
+        shootAt(c.x, c.y);
+      }
+      if (k === 'r') recenter();
+      if (k === 'v') (S.isVR ? exitVR() : enterVR());
+    });
+
+    // Keep in sync if fullscreen is exited by system
+    DOC.addEventListener('fullscreenchange', ()=>{
+      if (!isFullscreen() && S.isVR){
+        // user/system exited fullscreen -> still keep VR mode or exit?
+        // we keep VR mode but allow user to exit manually.
+      }
+    });
+  }
+
+  async function enterVR(){
+    ensureUI();
+    if (S.allowFullscreen) await requestFullscreen();
+    setBodyVR(true);
+    recenter();
+  }
+
+  async function exitVR(){
+    setBodyVR(false);
+    if (S.allowFullscreen && isFullscreen()) await exitFullscreen();
+    recenter();
+  }
+
+  function setLockPx(px){
+    S.lockPx = clamp(px, 40, 160);
+  }
+
+  function init(opts){
+    opts = opts || {};
+    S.inited = true;
+
+    S.lockPx = clamp(opts.lockPx ?? Number(qs('lockPx')||86), 40, 160);
+    S.tapAtCursorInVR = (opts.tapAtCursorInVR ?? true) !== false;
+    S.tapShootOutsideVR = !!opts.tapShootOutsideVR;
+    S.allowFullscreen = (opts.allowFullscreen ?? true) !== false;
+    S.buttonsSide = (opts.buttonsSide === 'right') ? 'right' : 'left';
+
+    ensureUI();
+    bindOnce();
+
+    // auto VR if ?cvr=1 or ?view=cvr
+    const auto = (String(qs('cvr')||'') === '1') || (String(qs('view')||'') === 'cvr');
+    if (auto){
+      // don’t force fullscreen automatically; user can press Enter VR
+      setBodyVR(true);
+      recenter();
+    }else{
+      setBodyVR(false);
+    }
+
+    setButtonsState();
+    return { enterVR, exitVR, recenter, setLockPx };
+  }
+
+  root.HHAVRUI = {
+    init,
+    enterVR,
+    exitVR,
+    recenter,
+    setLockPx,
+    isVR: ()=>!!S.isVR
+  };
+})(typeof window!=='undefined'?window:globalThis);
