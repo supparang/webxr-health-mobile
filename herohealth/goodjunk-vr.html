@@ -1,13 +1,176 @@
-<!-- ใน eyeL -->
-<div class="gj-quest-float" id="gjQuestFloatL" aria-hidden="true">
-  <div class="qf-title" id="qfMiniL">Mini: —</div>
-  <div class="qf-sub" id="qfGoalL">Goal: —</div>
-  <div class="qf-timer" id="qfTimeL"></div>
-</div>
+<!-- === /herohealth/goodjunk-vr.html ===
+GoodJunkVR (PRODUCTION) — HHA Standard (VR Layout + Start Gate)
+✅ Gate start: starts only after "เริ่มเล่น"
+✅ VR/cVR: dual-eye split (stable)
+✅ Fullscreen support + layout adapt (body.is-fs)
+✅ Quest Peek button (VR HUD collapsed but missions still visible)
+-->
 
-<!-- ใน eyeR -->
-<div class="gj-quest-float" id="gjQuestFloatR" aria-hidden="true">
-  <div class="qf-title" id="qfMiniR">Mini: —</div>
-  <div class="qf-sub" id="qfGoalR">Goal: —</div>
-  <div class="qf-timer" id="qfTimeR"></div>
-</div>
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — GoodJunk VR</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+
+  <!-- ✅ IMPORTANT (GitHub Pages): fix relative paths even if user opens wrong route -->
+  <base href="/webxr-health-mobile/herohealth/" />
+
+  <!-- UI -->
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css?v=2025-12-31c" />
+
+  <!-- Global FX + Fever + HUD + Logger -->
+  <script src="./vr/particles.js?v=2025-12-31c" defer></script>
+  <script src="./vr/ui-fever.js?v=2025-12-31c" defer></script>
+  <script src="./vr/hha-hud.js?v=2025-12-31c" defer></script>
+  <script src="./vr/hha-cloud-logger.js?v=2025-12-31c" defer></script>
+
+  <!-- Boot (ESM) -->
+  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js?v=2025-12-31c"></script>
+
+  <style>
+    html,body{margin:0;height:100dvh;overflow:hidden;background:#020617;color:#e5e7eb;font-family:system-ui}
+  </style>
+</head>
+
+<body>
+  <!-- ===== HUD ===== -->
+  <div class="hha-hud" id="hudRoot">
+    <div class="hud-top">
+      <div class="hud-badge">
+        <div class="hud-title">GoodJunkVR</div>
+        <div class="hud-sub" id="hudMeta">—</div>
+
+        <div class="viewbar" id="viewbar">
+          <button class="pill" id="btnViewPC" type="button">PC</button>
+          <button class="pill" id="btnViewMobile" type="button">Mobile</button>
+          <button class="pill" id="btnViewVR" type="button">VR</button>
+          <button class="pill" id="btnViewCVR" type="button">cVR</button>
+          <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
+          <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
+        </div>
+      </div>
+
+      <div class="hud-stats">
+        <div class="hud-stat"><div class="k">Score</div><div class="v" id="hhaScore">0</div></div>
+        <div class="hud-stat"><div class="k">Combo</div><div class="v" id="hhaCombo">0</div></div>
+        <div class="hud-stat"><div class="k">Miss</div><div class="v" id="hhaMiss">0</div></div>
+        <div class="hud-stat"><div class="k">Time</div><div class="v" id="hhaTime">0</div></div>
+        <div class="hud-stat grade"><div class="k">Grade</div><div class="v" id="hhaGrade">—</div></div>
+      </div>
+    </div>
+
+    <div class="hud-mid">
+      <div class="hud-quest" id="hudQuestPanel">
+        <div class="q-row">
+          <div class="q-title" id="hudGoalTitle">Goal: —</div>
+          <div class="q-count" id="hudGoalCount">0/0</div>
+        </div>
+        <div class="q-row">
+          <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
+          <div class="q-count" id="hudMiniCount">0/0</div>
+          <div class="q-timer" id="hudMiniTimer"></div>
+        </div>
+        <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
+      </div>
+
+      <div class="hud-coach">
+        <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
+        <div class="coach-talk">
+          <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
+          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== VR Mini HUD (shown only in VR/cVR) ===== -->
+  <div class="vr-mini-hud" id="vrMiniHud" hidden>
+    <div class="mini-row">
+      <div class="mini-pill"><span>Score</span><b id="mScore">0</b></div>
+      <div class="mini-pill"><span>Miss</span><b id="mMiss">0</b></div>
+      <div class="mini-pill"><span>Time</span><b id="mTime">0</b></div>
+      <button class="mini-btn" id="btnQuestPeek" type="button">ภารกิจ</button>
+    </div>
+  </div>
+
+  <!-- ===== Quest Peek Overlay (VR) ===== -->
+  <div class="quest-peek" id="questPeek" hidden>
+    <div class="peek-card">
+      <div class="peek-title">ภารกิจตอนนี้</div>
+      <div class="peek-line" id="peekGoal">Goal: —</div>
+      <div class="peek-line" id="peekMini">Mini: —</div>
+      <div class="peek-sub" id="peekProgress">Goals 0/0 • Minis 0/0</div>
+      <button class="btn-start" id="btnPeekClose" type="button">ปิด</button>
+    </div>
+  </div>
+
+  <!-- ===== Quest Toast (VR) ===== -->
+  <div class="quest-toast" id="questToast" hidden>
+    <div class="toast-card">
+      <div class="toast-title" id="toastTitle">ภารกิจอัปเดต</div>
+      <div class="toast-line" id="toastLine">—</div>
+    </div>
+  </div>
+
+  <!-- ===== Fever/Shield UI ===== -->
+  <div class="hha-fever" id="hhaFever">
+    <div class="fever-row">
+      <div class="fever-label">FEVER</div>
+      <div class="fever-bar"><div class="fever-fill" id="feverBar"></div></div>
+      <div class="fever-text" id="feverText">0%</div>
+    </div>
+    <div class="shield-row">
+      <div class="shield-label">SHIELD</div>
+      <div class="shield-pills" id="shieldPills"></div>
+    </div>
+  </div>
+
+  <!-- ===== Playfield (dual-eye) ===== -->
+  <div id="gj-stage" aria-label="playfield">
+    <div class="gj-eye eye-l" id="eyeL">
+      <div class="gj-layer" id="gj-layer-l" aria-label="targets layer left"></div>
+      <div class="gj-crosshair" id="gj-crosshair-l" aria-hidden="true"></div>
+    </div>
+
+    <div class="gj-eye eye-r" id="eyeR" aria-hidden="true">
+      <div class="gj-layer" id="gj-layer-r" aria-label="targets layer right"></div>
+      <div class="gj-crosshair" id="gj-crosshair-r" aria-hidden="true"></div>
+    </div>
+
+    <div id="end-summary"></div>
+  </div>
+
+  <!-- ===== Controls ===== -->
+  <div class="hha-controls">
+    <button id="btnShoot" class="btn-shoot" type="button">ยิง</button>
+  </div>
+
+  <!-- ===== Start Overlay ===== -->
+  <div id="startOverlay" class="start-overlay">
+    <div class="start-card">
+      <div class="start-title">GoodJunk VR</div>
+      <div class="start-desc">
+        เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
+        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
+      </div>
+      <div class="start-meta" id="startMeta">—</div>
+      <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
+    </div>
+  </div>
+
+  <!-- ===== VR Hint Overlay ===== -->
+  <div id="vrHint" class="vr-hint" hidden>
+    <div class="vr-card">
+      <div class="vr-title">โหมด VR/การ์ดบอร์ด</div>
+      <div class="vr-desc">
+        กรุณาหมุนจอเป็น <b>แนวนอน</b> เพื่อให้เป้าอยู่ระดับสายตา<br/>
+        <span class="muted">Tip: กด “Enter Fullscreen” ก่อนเข้า VR/cVR จะนิ่งกว่า</span>
+      </div>
+      <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
+    </div>
+  </div>
+</body>
+</html>
