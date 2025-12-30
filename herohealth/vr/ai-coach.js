@@ -1,5 +1,5 @@
 // === /herohealth/vr/ai-coach.js ===
-// HHA AI Coach — PRODUCTION (template-based, safe, no spam)
+// HHA AI Coach (template-based, safe, no spam)
 // Emits: hha:coach { text, sub, mood, icon? }
 
 'use strict';
@@ -9,84 +9,89 @@ function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 export function createAICoach(opts={}){
   const emit = (opts.emit || function(){});
   const game = String(opts.game || 'hydration');
-  const enabled = (opts.enabled !== false);
   const cooldownMs = clamp(opts.cooldownMs ?? 3500, 1200, 12000);
 
   let lastSayAt = 0;
   let lastKey = '';
-  let lastKeyAt = 0;
 
-  function canSpeak(key, force=false){
-    if (!enabled) return false;
+  function say(key, text, sub='', mood='neutral'){
     const t = performance.now();
-    if (!force && (t - lastSayAt < cooldownMs)) return false;
-
-    // prevent immediate repeats of same key, but allow again after longer window
-    if (!force && key && key === lastKey && (t - lastKeyAt < Math.max(6000, cooldownMs*1.6))) return false;
-    return true;
-  }
-
-  function say(key, text, sub='', mood='neutral', force=false){
-    if (!canSpeak(key, force)) return;
-    const t = performance.now();
-    lastSayAt = t;
-    lastKey = key || '';
-    lastKeyAt = t;
+    if (t - lastSayAt < cooldownMs) return;
+    if (key && key === lastKey) return;
+    lastSayAt = t; lastKey = key;
     emit('hha:coach', { game, text, sub, mood });
   }
 
-  function force(key, text, sub='', mood='neutral'){
-    say(key, text, sub, mood, true);
-  }
-
   function onStart(){
-    say('start', 'โฟกัส “น้ำให้คุมเข้า GREEN” ก่อนนะ 💧', 'Tip: ยิงแบบไม่รัว จะคุมโซนง่ายขึ้น', 'happy');
+    say('start', 'โฟกัส “คุมน้ำเข้า GREEN” ก่อนนะ 💧', 'Tip: ยิงไม่รัว จะคุมโซนง่ายขึ้น', 'happy');
   }
 
   function onUpdate(ctx){
-    // ctx: { skill, fatigue, frustration, inStorm, inEndWindow, waterZone, shield, misses, combo }
-    const f  = clamp(ctx.fatigue,0,1);
+    // ctx: { skill, fatigue, frustration, inStorm, inEndWindow, waterZone, shield, misses, combo,
+    //        directorTag, stormPattern }
+    const f = clamp(ctx.fatigue,0,1);
     const fr = clamp(ctx.frustration,0,1);
-    const wz = String(ctx.waterZone||'').toUpperCase();
 
+    // --- Director synergy (PLAY only) ---
+    // directorTag: 'relax' | 'tighten' | 'neutral'
+    if (ctx.directorTag === 'relax'){
+      say('dir_relax', 'โอเค! ผ่อนให้แล้วนะ 🙂', 'เล็งช้า ๆ ให้แม่น แล้วค่อยเร่ง', 'neutral');
+    } else if (ctx.directorTag === 'tighten'){
+      say('dir_tighten', 'เริ่มเข้ามือแล้ว! เร่งความมันส์ขึ้น 🔥', 'เป้าเล็กลงนิด + เกิดถี่ขึ้น', 'happy');
+    }
+
+    // --- Storm pattern tip ---
+    if (ctx.inStorm && !ctx.inEndWindow){
+      const p = String(ctx.stormPattern||'');
+      if (p === 'fakeout'){
+        say('pat_fakeout', 'STORM หลอก! อย่ารีบยิงมั่ว 😈', 'ตั้งสติเร็ว • เตรียม BLOCK ให้ไว', 'neutral');
+      } else if (p === 'short'){
+        say('pat_short', 'STORM สั้น! ต้องตัดสินใจไว ⚡', 'รีบทำ LOW/HIGH แล้วคุมจังหวะ', 'neutral');
+      } else if (p === 'long'){
+        say('pat_long', 'STORM ยาว! รักษาสติให้ได้ 🌀', 'เก็บ 🛡️ แล้วรอท้ายพายุค่อย BLOCK', 'neutral');
+      }
+    }
+
+    // --- End window coaching ---
     if (ctx.inStorm && ctx.inEndWindow){
-      if ((ctx.shield|0) <= 0) say('end_no_shield', 'ท้ายพายุแล้ว! ไม่มีโล่ ระวัง BAD 🔥', 'เก็บ 🛡️ ก่อนเข้าพายุรอบหน้า', 'sad');
+      if ((ctx.shield|0) <= 0) say('end_no_shield', 'ท้ายพายุแล้ว! ไม่มีโล่ ระวัง BAD 🔥', 'รอบหน้าเก็บ 🛡️ ไว้ก่อนเข้าพายุ', 'sad');
       else say('end_block', 'ท้ายพายุแล้ว! “เล็งแล้วค่อย BLOCK” 🛡️', 'ถ้าทำ LOW/HIGH ด้วยจะได้ PERFECT', 'happy');
       return;
     }
 
-    if (ctx.inStorm && (ctx.shield|0) > 0 && wz === 'GREEN'){
-      say('storm_zone', 'Storm มาแล้ว! ทำให้น้ำเป็น LOW/HIGH ก่อน ✅', 'ออกจาก GREEN แล้วค่อย BLOCK ช่วงท้าย', 'neutral');
-      return;
-    }
-
+    // frustration / fatigue / combo
     if (!ctx.inStorm && fr > 0.62){
       say('frustrated', 'ช้า ๆ แต่ชัวร์นะ 🎯', 'หยุดรัว 1 วิ แล้วคุมจังหวะยิง', 'neutral');
       return;
     }
 
     if (f > 0.68){
-      say('fatigue', 'พักสายตาแป๊บ แล้วเล่นต่อได้ 👀', 'โหมดนี้จะผ่อนให้หน่อย', 'neutral');
+      say('fatigue', 'พักสายตาแป๊บ แล้วเล่นต่อได้ 👀', 'ถ้ารู้สึกมึน ให้พัก 10 วิ', 'neutral');
       return;
     }
 
     if ((ctx.combo|0) >= 6){
-      say('combo', 'คอมโบสวยมาก! ต่ออีกนิด ⚡', 'ถ้าถึง STREAK จะได้โบนัส', 'happy');
+      say('combo', 'คอมโบสวยมาก! ต่ออีกนิด ⚡', 'พยายามอย่า MISS จะได้ STREAK', 'happy');
       return;
     }
   }
 
   function onEnd(sum){
+    // sum has grade, accuracyGoodPct, misses, stormStreakMax?, badges?
     const g = String(sum.grade||'C');
     const acc = Number(sum.accuracyGoodPct||0);
+    const st = Number(sum.stormStreakMax||0);
+    const badges = Array.isArray(sum.badges) ? sum.badges : [];
+    const btxt = badges.length ? ` • Badge: ${badges.join(', ')}` : '';
+
     if (g === 'SSS' || g === 'SS'){
-      say('end_top', `สุดยอด! เกรด ${g} 🏆`, `Accuracy ${acc.toFixed(1)}% • รอบหน้าลอง diff harder ได้`, 'happy', true);
+      say('end_top', `สุดยอด! เกรด ${g} 🏆`, `Accuracy ${acc.toFixed(1)}% • StormStreak ${st}${btxt}`, 'happy');
     } else if (g === 'S' || g === 'A'){
-      say('end_good', `ดีมาก! เกรด ${g} ✅`, `จุดโฟกัส: เก็บ 🛡️ ก่อนเข้าพายุ`, 'happy', true);
+      say('end_good', `ดีมาก! เกรด ${g} ✅`, `StormStreak ${st} • โฟกัสเก็บ 🛡️ ก่อนพายุ${btxt}`, 'happy');
     } else {
-      say('end_train', `รอบนี้เกรด ${g} ยังไหว! ซ้อมอีกนิด 💪`, `โฟกัส: อย่ารัว • ยิงให้แม่นก่อน`, 'neutral', true);
+      say('end_train', `รอบนี้เกรด ${g} ยังไหว! ซ้อมอีกนิด 💪`, `คุมโซน + อย่ารัว • StormStreak ${st}${btxt}`, 'neutral');
     }
   }
 
-  return { onStart, onUpdate, onEnd, say, force };
+  return { onStart, onUpdate, onEnd };
 }
