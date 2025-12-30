@@ -1,116 +1,120 @@
 /* === /herohealth/vr-groups/groups-fx.js ===
-GroupsVR FX overlay
-- zone indicator (No-Junk Zone)
-- edge pulse / shake
-- small text pops
+FX Layer for GroupsVR
+✅ Screen flash: good/bad/cyan
+✅ Shake (sets --shakeX/--shakeY)
+✅ Pop text at hit location
+Listens: hha:judge, hha:hit, hha:celebrate
 */
 
 (function(root){
   'use strict';
-  const DOC = root.document;
-  if (!DOC) return;
+  const doc = root.document;
+  if (!doc) return;
+
+  const NS = (root.GroupsVR = root.GroupsVR || {});
+  let layer = null;
+  let flash = null;
+  let shakeTimer = 0;
 
   function ensureLayer(){
-    let el = DOC.querySelector('.groups-fx-layer');
-    if (el) return el;
-    el = DOC.createElement('div');
-    el.className = 'groups-fx-layer';
-    el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:120;overflow:hidden;';
-    DOC.body.appendChild(el);
-    return el;
+    if (layer) return layer;
+    layer = doc.querySelector('.fx-layer');
+    if (layer) return layer;
+    layer = doc.createElement('div');
+    layer.className = 'fx-layer';
+    doc.body.appendChild(layer);
+    return layer;
   }
 
-  function ensureEdge(){
-    let el = DOC.querySelector('.groups-edge');
-    if (el) return el;
-    el = DOC.createElement('div');
-    el.className = 'groups-edge';
-    el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:121;';
-    DOC.body.appendChild(el);
-    return el;
+  function ensureFlash(){
+    if (flash) return flash;
+    flash = doc.querySelector('.fx-flash');
+    if (flash) return flash;
+    flash = doc.createElement('div');
+    flash.className = 'fx-flash';
+    doc.body.appendChild(flash);
+    return flash;
   }
 
-  function ensureZone(){
-    let z = DOC.getElementById('groupsZone');
-    if (z) return z;
-    z = DOC.createElement('div');
-    z.id = 'groupsZone';
-    z.className = 'groups-zone';
-    DOC.body.appendChild(z);
-    return z;
+  function flashScreen(kind='cyan', ms=120){
+    const el = ensureFlash();
+    el.classList.remove('good','bad','cyan','show');
+    el.classList.add(kind);
+    el.classList.add('show');
+    root.setTimeout(()=> el.classList.remove('show'), ms);
   }
 
-  function popText(text){
-    const layer = ensureLayer();
-    const el = DOC.createElement('div');
+  function setShake(x, y){
+    doc.documentElement.style.setProperty('--shakeX', (x||0).toFixed(2)+'px');
+    doc.documentElement.style.setProperty('--shakeY', (y||0).toFixed(2)+'px');
+  }
+
+  function shake(ms=220, intensity=8){
+    try{ root.clearInterval(shakeTimer); }catch{}
+    const t0 = Date.now();
+    shakeTimer = root.setInterval(()=>{
+      const dt = Date.now() - t0;
+      if (dt >= ms){
+        try{ root.clearInterval(shakeTimer); }catch{}
+        shakeTimer = 0;
+        setShake(0,0);
+        return;
+      }
+      const k = 1 - dt/ms;
+      const a = intensity * k;
+      const rx = (Math.random()*2-1) * a;
+      const ry = (Math.random()*2-1) * a;
+      setShake(rx, ry);
+    }, 16);
+  }
+
+  function pop(x,y,text){
+    const lay = ensureLayer();
+    const el = doc.createElement('div');
+    el.className = 'fx-pop';
     el.textContent = text;
-    const x = (root.innerWidth||360) * (0.5 + (Math.random()*0.06-0.03));
-    const y = (root.innerHeight||640) * (0.44 + (Math.random()*0.06-0.03));
-    el.style.cssText =
-      `position:absolute;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
-       font:1000 14px/1 system-ui;color:#fff;
-       text-shadow:0 2px 0 rgba(0,0,0,.28),0 18px 40px rgba(0,0,0,.35);
-       opacity:0;`;
-    layer.appendChild(el);
-    el.animate([
-      { transform:'translate(-50%,-50%) scale(0.85)', opacity:0 },
-      { transform:'translate(-50%,-60%) scale(1.05)', opacity:1, offset:0.22 },
-      { transform:'translate(-50%,-90%) scale(0.98)', opacity:0 }
-    ], { duration: 720, easing:'cubic-bezier(.2,.9,.2,1)' });
-    setTimeout(()=>el.remove(), 760);
+    el.style.left = (x||0)+'px';
+    el.style.top  = (y||0)+'px';
+    lay.appendChild(el);
+    root.setTimeout(()=> el.remove(), 650);
   }
 
-  function edge(kind='warn', ms=420){
-    ensureEdge();
-    DOC.body.dataset.edge = kind;
-    DOC.body.classList.add('groups-edge-on');
-    setTimeout(()=> DOC.body.classList.remove('groups-edge-on'), ms);
-  }
-
-  function shake(ms=260){
-    DOC.body.classList.add('groups-shake');
-    setTimeout(()=> DOC.body.classList.remove('groups-shake'), ms);
-  }
-
-  function zoneShow(x,y,r){
-    const z = ensureZone();
-    z.style.setProperty('--zx', x+'px');
-    z.style.setProperty('--zy', y+'px');
-    z.style.setProperty('--zr', r+'px');
-    z.classList.add('show');
-  }
-  function zoneHide(){
-    const z = ensureZone();
-    z.classList.remove('show');
-  }
-
-  // events
-  root.addEventListener('groups:zone', (e)=>{
-    const d = e.detail||{};
-    if (!d.on){ zoneHide(); return; }
-    zoneShow(Number(d.x||0), Number(d.y||0), Number(d.r||140));
+  // Events
+  root.addEventListener('hha:judge', (e)=>{
+    const d = e.detail || {};
+    const kind = String(d.kind||'').toLowerCase();
+    if (kind === 'bad' || kind === 'miss'){
+      flashScreen('bad', 140);
+      shake(220, 10);
+      NS.Audio?.bad?.();
+    } else if (kind === 'good'){
+      flashScreen('good', 110);
+      NS.Audio?.good?.();
+    } else if (kind === 'boss'){
+      flashScreen('cyan', 160);
+      shake(260, 12);
+      NS.Audio?.boss?.();
+    }
   });
 
-  root.addEventListener('groups:mini_urgent', ()=>{ edge('danger', 320); });
-
-  root.addEventListener('groups:tick', (e)=>{
-    const d = e.detail||{};
-    // tick = subtle shake when close to fire
-    if (Number(d.rate||1) >= 1.7) shake(140);
+  root.addEventListener('hha:celebrate', (e)=>{
+    const d = e.detail || {};
+    const k = String(d.kind||'').toLowerCase();
+    flashScreen(k==='goal' ? 'good' : 'cyan', 180);
+    NS.Audio?.overdrive?.();
   });
 
-  root.addEventListener('groups:progress', (e)=>{
-    const d = e.detail||{};
-    const k = String(d.kind||'');
-    if (k === 'powerup_star') { popText('⭐ OVERDRIVE!'); edge('good', 380); }
-    if (k === 'powerup_ice') { popText('❄️ FREEZE!'); edge('info', 380); }
-    if (k === 'powerup_shield') { popText('🛡️ SHIELD!'); edge('good', 380); }
-    if (k === 'boss_spawn') { popText('👑 BOSS!'); edge('warn', 520); }
-    if (k === 'boss_weak_on') { popText('🎯 WEAK SPOT!'); edge('info', 520); }
-    if (k === 'boss_teleport') { popText('💨 BOSS ESCAPE!'); edge('danger', 520); }
-    if (k === 'burst_on') { popText('⚡ BURST MODE!'); edge('good', 520); }
-    if (k === 'nojunk_fail') { popText('🚫 NO-JUNK FAIL'); edge('danger', 520); }
-    if (k === 'nojunk_clear') { popText('✅ NO-JUNK CLEAR'); edge('good', 520); }
+  root.addEventListener('hha:hit', (e)=>{
+    const d = e.detail || {};
+    const x = Number(d.x||0);
+    const y = Number(d.y||0);
+    const kind = String(d.kind||'').toLowerCase();
+    const emoji = String(d.emoji||'');
+    if (x>0 && y>0){
+      if (kind === 'good') pop(x,y, `+${d.points||0} ${emoji}`);
+      else if (kind === 'boss') pop(x,y, `👑 -1`);
+      else pop(x,y, `-${d.penalty||0} ${emoji||'💥'}`);
+    }
   });
 
 })(typeof window !== 'undefined' ? window : globalThis);
