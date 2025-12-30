@@ -2,9 +2,10 @@
 GoodJunkVR (PRODUCTION) — HHA Standard
 ✅ DOM emoji targets (dual-eye for VR/cVR)
 ✅ HUD + Quest + Coach + Fever/Shield
-✅ Summary end overlay placeholder
-✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
-✅ Boot gate: starts AFTER pressing "เริ่มเล่น" (fix overlay issues)
+✅ End summary overlay (moved OUTSIDE playfield)
+✅ Fullscreen state: body.is-fs
+✅ Overlay state: body.overlay-open / body.booting (prevent "flash behind")
+✅ Boot gate: starts AFTER pressing "เริ่มเล่น"
 -->
 
 <!doctype html>
@@ -29,7 +30,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
-<body>
+<body class="view-mobile booting overlay-open">
   <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
@@ -80,6 +81,17 @@ GoodJunkVR (PRODUCTION) — HHA Standard
     </div>
   </div>
 
+  <!-- ===== Boss Bar (reserve + no layout shift) ===== -->
+  <div id="gjBossBar" class="gj-bossbar" aria-hidden="true">
+    <div class="gj-boss-card">
+      <div class="gj-boss-top">
+        <div class="gj-boss-name" id="gjBossName">BOSS WAVE</div>
+        <div class="gj-boss-time" id="gjBossTime">0.0s</div>
+      </div>
+      <div class="gj-boss-hp"><div class="gj-boss-fill" id="gjBossFill"></div></div>
+    </div>
+  </div>
+
   <!-- ===== Fever/Shield UI ===== -->
   <div class="hha-fever" id="hhaFever">
     <div class="fever-row">
@@ -108,10 +120,10 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="atk-ring" id="atk-ring-r" aria-hidden="true"></div>
       <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
     </div>
-
-    <!-- end summary placeholder -->
-    <div id="end-summary"></div>
   </div>
+
+  <!-- ===== End summary overlay (moved OUTSIDE stage) ===== -->
+  <div id="end-summary" class="end-overlay" hidden></div>
 
   <!-- ===== Controls ===== -->
   <div class="hha-controls">
@@ -119,7 +131,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   </div>
 
   <!-- ===== Start Overlay ===== -->
-  <div id="startOverlay" class="start-overlay" hidden>
+  <div id="startOverlay" class="start-overlay">
     <div class="start-card">
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
@@ -142,5 +154,50 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
     </div>
   </div>
+
+  <!-- ===== Tiny state helpers (fullscreen + overlay flags) ===== -->
+  <script>
+    (function(){
+      const b = document.body;
+      const so = document.getElementById('startOverlay');
+      const vh = document.getElementById('vrHint');
+      const btnStart = document.getElementById('btnStart');
+      const btnOk = document.getElementById('btnVrOk');
+
+      function syncFS(){
+        b.classList.toggle('is-fs', !!document.fullscreenElement);
+      }
+      document.addEventListener('fullscreenchange', syncFS);
+      syncFS();
+
+      function syncOverlayFlag(){
+        const open = (so && !so.hidden) || (vh && !vh.hidden);
+        b.classList.toggle('overlay-open', !!open);
+      }
+
+      // startOverlay is visible by default (no hidden)
+      syncOverlayFlag();
+
+      if (vh){
+        const mo = new MutationObserver(syncOverlayFlag);
+        mo.observe(vh, { attributes:true, attributeFilter:['hidden'] });
+      }
+
+      if (btnStart){
+        btnStart.addEventListener('click', ()=>{
+          // Boot gate: hide overlay, allow stage/controls to render without flash
+          so.hidden = true;
+          b.classList.remove('booting');
+          syncOverlayFlag();
+        }, { passive:true });
+      }
+      if (btnOk){
+        btnOk.addEventListener('click', ()=>{
+          vh.hidden = true;
+          syncOverlayFlag();
+        }, { passive:true });
+      }
+    })();
+  </script>
 </body>
 </html>
