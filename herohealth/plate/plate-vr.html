@@ -2,7 +2,7 @@
 REDIRECT BRIDGE (PATH FIX)
 ✅ รองรับลิงก์เก่า /herohealth/plate/plate-vr.html
 ✅ Redirect ไป /herohealth/plate-vr.html
-✅ พาพารามิเตอร์ (?hub=...&run=...&diff=...&time=...&seed=...&v=...) และ #hash ไปด้วย
+✅ พาพารามิเตอร์ (?...) และ #hash ไปด้วย
 -->
 
 <!doctype html>
@@ -12,7 +12,7 @@ REDIRECT BRIDGE (PATH FIX)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Redirecting… | HeroHealth Plate</title>
 
-  <!-- Fallback redirect (works even if JS blocked) -->
+  <!-- Fallback redirect -->
   <meta http-equiv="refresh" content="0; url=../plate-vr.html" />
 
   <style>
@@ -56,15 +56,17 @@ REDIRECT BRIDGE (PATH FIX)
   <script>
     (function(){
       try{
-        // Preserve query + hash
         var target = '../plate-vr.html' + (location.search || '') + (location.hash || '');
         var a = document.getElementById('fallbackLink');
         if (a) a.href = target;
 
-        // Replace history so Back button doesn't loop
-        location.replace(target);
+        // กัน back-loop: replace history
+        if (location.pathname.endsWith('/plate/plate-vr.html')) {
+          location.replace(target);
+        } else {
+          location.href = target;
+        }
       }catch(e){
-        // Last resort
         location.href = '../plate-vr.html';
       }
     })();
