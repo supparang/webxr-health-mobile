@@ -152,4 +152,276 @@ html,body{
   align-items:center;
   background:var(--panel2);
   border:1px solid var(--stroke);
-  border-radius:var(--r
+  border-radius:var(--r-lg);
+  padding:12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
+}
+.coach-img{ width:62px; height:62px; border-radius:16px; border:1px solid var(--stroke); background:#0b1120; }
+.coach-line{ font-weight:900; }
+.coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:700; }
+
+/* ---------- FEVER ---------- */
+.hha-fever{
+  position:fixed;
+  left:12px; right:12px;
+  bottom: calc(var(--ctrlH) + var(--sab) + 10px);
+  z-index:70;
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--r-lg);
+  padding:12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
+  pointer-events:none;
+}
+.fever-row{
+  display:grid;
+  grid-template-columns: 70px 1fr 56px;
+  gap:10px;
+  align-items:center;
+}
+.fever-label{ color:var(--muted); font-weight:900; letter-spacing:.3px; }
+.fever-bar{
+  height:14px;
+  border-radius:999px;
+  background: rgba(148,163,184,.14);
+  border:1px solid rgba(148,163,184,.18);
+  overflow:hidden;
+}
+.fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
+.fever-text{ text-align:right; font-weight:900; }
+.shield-row{
+  margin-top:8px;
+  display:grid;
+  grid-template-columns: 70px 1fr;
+  gap:10px;
+  align-items:center;
+}
+.shield-label{ color:var(--muted); font-weight:900; }
+.shield-pills{ display:flex; flex-wrap:wrap; gap:6px; }
+
+/* ---------- PLAYFIELD ---------- */
+#gj-stage{
+  position:fixed;
+  left:0; right:0;
+  top: calc(var(--hudH) + var(--sat));
+  bottom: calc(var(--ctrlH) + var(--feverH) + var(--sab) + 14px);
+  z-index:10;
+  pointer-events:auto;
+  overflow:hidden;
+}
+
+/* eyes */
+.gj-eye{
+  position:absolute;
+  top:0; bottom:0;
+  width:100%;
+}
+.eye-l{ left:0; }
+.eye-r{ left:0; display:none; } /* default hidden */
+
+/* layers fill */
+.gj-layer, .gj-crosshair, .atk-ring, .atk-laser{
+  position:absolute;
+  inset:0;
+}
+
+/* crosshair */
+.gj-crosshair{ pointer-events:none; }
+.gj-crosshair::before{
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:28px; height:28px;
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  border:2px solid rgba(229,231,235,.8);
+  box-shadow: 0 0 0 6px rgba(34,197,94,.10);
+}
+
+/* ---------- CONTROLS ---------- */
+.hha-controls{
+  position:fixed;
+  left:12px; right:12px;
+  bottom: calc(var(--sab) + 10px);
+  z-index:75;
+}
+.btn-shoot{
+  width:100%;
+  height:72px;
+  border-radius: var(--r-lg);
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.72);
+  color:var(--text);
+  font-size:24px;
+  font-weight:900;
+  letter-spacing:.2px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+}
+.btn-shoot:active{ transform: translateY(1px); }
+
+/* ---------- OVERLAYS ---------- */
+.start-overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:120;
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+}
+.start-card{
+  width:min(560px, 92vw);
+  background: rgba(2,6,23,.80);
+  border:1px solid var(--stroke);
+  border-radius: 22px;
+  padding:18px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.45);
+}
+.start-title{ font-size:26px; font-weight:1000; }
+.start-desc{ margin-top:6px; color:var(--text); font-weight:800; line-height:1.35; }
+.muted{ color:var(--muted); font-weight:800; }
+.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:800; }
+.btn-start{
+  margin-top:14px;
+  width:100%;
+  height:56px;
+  border-radius: 16px;
+  border:1px solid rgba(34,197,94,.35);
+  background: rgba(34,197,94,.18);
+  color:#eafff3;
+  font-size:18px;
+  font-weight:1000;
+}
+.btn-start:active{ transform: translateY(1px); }
+
+.vr-hint{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:125;
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+}
+.vr-card{
+  width:min(720px, 92vw);
+  background: rgba(2,6,23,.82);
+  border:1px solid var(--stroke);
+  border-radius: 22px;
+  padding:18px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.45);
+}
+.vr-title{ font-size:22px; font-weight:1000; }
+.vr-desc{ margin-top:8px; color:var(--text); font-weight:850; line-height:1.35; }
+
+/* ---------- VIEW MODES ---------- */
+body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
+body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
+
+body.view-vr, body.view-cvr{
+  --hudH: 130px;
+  --feverH: 78px;
+  --ctrlH: 86px;
+}
+
+/* VR/cVR split */
+body.view-vr .eye-r,
+body.view-cvr .eye-r{ display:block; }
+
+body.view-vr .eye-l,
+body.view-cvr .eye-l{ width:50%; left:0; }
+
+body.view-vr .eye-r,
+body.view-cvr .eye-r{ width:50%; left:50%; }
+
+body.view-vr .gj-crosshair::before,
+body.view-cvr .gj-crosshair::before{ width:26px; height:26px; }
+
+@media (max-width:520px){
+  .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
+  .hud-badge{ width: 60vw; }
+  .hud-coach{ display:none; }
+}
+
+/* =========================================================
+   ✅ FULLSCREEN AWARE (auto tighten layout)
+   ========================================================= */
+body.is-fs.view-mobile{ --hudH: 220px; --ctrlH: 88px; --feverH: 88px; }
+body.is-fs.view-pc{     --hudH: 210px; --ctrlH: 88px; --feverH: 88px; }
+
+body.is-fs.view-vr,
+body.is-fs.view-cvr{
+  --hudH: 104px;
+  --feverH: 0px;   /* minimal in fullscreen VR */
+  --ctrlH: 78px;
+}
+
+/* In fullscreen VR/cVR: hide quest/coach/fever to free space */
+body.is-fs.view-vr .hud-mid,
+body.is-fs.view-cvr .hud-mid{ display:none !important; }
+
+body.is-fs.view-vr .hha-fever,
+body.is-fs.view-cvr .hha-fever{ display:none !important; }
+
+/* shrink top HUD */
+body.is-fs.view-vr .hha-hud,
+body.is-fs.view-cvr .hha-hud{
+  padding: calc(6px + var(--sat)) 10px 6px;
+}
+body.is-fs.view-vr .hud-badge,
+body.is-fs.view-cvr .hud-badge{
+  width:auto;
+  padding:8px 10px;
+  border-radius:16px;
+}
+body.is-fs.view-vr .hud-title,
+body.is-fs.view-cvr .hud-title{ font-size:15px; }
+body.is-fs.view-vr .hud-sub,
+body.is-fs.view-cvr .hud-sub{ display:none; }
+
+body.is-fs.view-vr .hud-stats,
+body.is-fs.view-cvr .hud-stats{
+  width:min(520px, 54vw);
+  grid-template-columns: repeat(4, minmax(72px, 1fr));
+  gap:8px;
+}
+body.is-fs.view-vr .hud-stat,
+body.is-fs.view-cvr .hud-stat{
+  padding:8px 10px;
+  border-radius:16px;
+}
+body.is-fs.view-vr .hud-stat .k,
+body.is-fs.view-cvr .hud-stat .k{ font-size:11px; }
+body.is-fs.view-vr .hud-stat .v,
+body.is-fs.view-cvr .hud-stat .v{ font-size:18px; }
+body.is-fs.view-vr .hud-stat.grade,
+body.is-fs.view-cvr .hud-stat.grade{ display:none !important; }
+
+/* maximize playfield in fullscreen VR */
+body.is-fs.view-vr #gj-stage,
+body.is-fs.view-cvr #gj-stage{
+  top: calc(var(--hudH) + var(--sat));
+  bottom: calc(var(--ctrlH) + var(--sab) + 10px);
+}
+
+body.is-fs.view-vr .btn-shoot,
+body.is-fs.view-cvr .btn-shoot{
+  height:62px;
+  font-size:22px;
+  border-radius:16px;
+}
+
+/* =========================================================
+   ✅ DRIFT ANIMS (Harder mode) — used by JS adding class drift-*
+   ========================================================= */
+@keyframes gjDrift1{ 0%{transform:translate(-50%,-50%) scale(var(--s,1));} 100%{transform:translate(calc(-50% + 16px), calc(-50% - 12px)) scale(var(--s,1));} }
+@keyframes gjDrift2{ 0%{transform:translate(-50%,-50%) scale(var(--s,1));} 100%{transform:translate(calc(-50% - 18px), calc(-50% + 10px)) scale(var(--s,1));} }
+@keyframes gjDrift3{ 0%{transform:translate(-50%,-50%) scale(var(--s,1));} 100%{transform:translate(calc(-50% + 10px), calc(-50% + 18px)) scale(var(--s,1));} }
+@keyframes gjDrift4{ 0%{transform:translate(-50%,-50%) scale(var(--s,1));} 100%{transform:translate(calc(-50% - 12px), calc(-50% - 18px)) scale(var(--s,1));} }
+
+.gj-target.drift-1{ animation: gjDrift1 1.8s ease-in-out infinite alternate; }
+.gj-target.drift-2{ animation: gjDrift2 2.0s ease-in-out infinite alternate; }
+.gj-target.drift-3{ animation: gjDrift3 1.6s ease-in-out infinite alternate; }
+.gj-target.drift-4{ animation: gjDrift4 2.2s ease-in-out infinite alternate; }
