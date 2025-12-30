@@ -1,157 +1,146 @@
 // === /herohealth/hub.safe.js ===
-// HeroHealth HUB (PRODUCTION ++ HISTORY + CSV)
+// HeroHealth HUB — PRODUCTION ++ HISTORY + CSV + Path-Fixed
 // ✅ อ่าน localStorage: HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-// ✅ ตาราง 4 เกมล่าสุด
+// ✅ ตาราง 4 เกมล่าสุด + Action (Play + Copy JSON)
 // ✅ Export CSV (last / recent4)
-// ✅ Launch 4 games พร้อมพารามิเตอร์กลับไป-กลับมา (hub=..., run, diff, time, seed, + research ctx)
+// ✅ Launch 4 games + ส่งพารามิเตอร์ (hub, run, diff, time, seed + passthrough research ctx)
 // ✅ UX: แตะ 1 ครั้ง = Copy, แตะ 2 ครั้ง = Play (ทั้งปุ่มเกมและแถว history)
-// ✅ เพิ่ม Action ใน history: Play + Copy JSON
 
 'use strict';
 
-const STORAGE_LAST = 'HHA_LAST_SUMMARY';
-const STORAGE_HIST = 'HHA_SUMMARY_HISTORY';
+const LS_LAST = 'HHA_LAST_SUMMARY';
+const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
-const $ = (sel, root=document) => root.querySelector(sel);
-const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+const $ = (id)=>document.getElementById(id);
 
-function clamp(n, a, b){
-  n = Number(n);
-  if (!Number.isFinite(n)) n = a;
-  return Math.max(a, Math.min(b, n));
+function clamp(v,min,max){
+  v = Number(v);
+  if(!isFinite(v)) v = min;
+  return v<min?min : (v>max?max:v);
 }
 
-function safeJsonParse(s, fallback){
+function loadJson(key, fallback){
   try{
-    if (typeof s !== 'string' || !s.trim()) return fallback;
+    const s = localStorage.getItem(key);
+    if(!s) return fallback;
     return JSON.parse(s);
-  }catch(e){
-    return fallback;
-  }
+  }catch(e){ return fallback; }
+}
+function saveJson(key, obj){
+  try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){}
 }
 
-function prettyIso(ts){
+function nowLocalText(){
   try{
-    const d = (typeof ts === 'number') ? new Date(ts) : new Date(String(ts));
-    if (Number.isNaN(d.getTime())) return '—';
-    // th-TH เพื่ออ่านง่ายในไทย
+    const d = new Date();
     return d.toLocaleString('th-TH', { hour12:false });
   }catch(e){
-    return '—';
+    return new Date().toISOString();
   }
 }
 
-function nowClock(){
-  try{
-    return new Date().toLocaleString('th-TH', { hour12:false });
-  }catch(e){
-    return String(Date.now());
-  }
-}
-
-function ensureToast(){
-  let t = $('#hhaToast');
-  if (t) return t;
-  t = document.createElement('div');
-  t.id = 'hhaToast';
-  t.style.cssText =
-    'position:fixed;left:50%;bottom:22px;transform:translate(-50%, 16px);' +
-    'padding:10px 14px;border-radius:999px;' +
-    'background:rgba(2,6,23,.88);border:1px solid rgba(148,163,184,.22);' +
-    'color:#e5e7eb;font:900 13px/1.2 system-ui;z-index:9999;' +
-    'opacity:0;pointer-events:none;' +
-    'transition:opacity .14s ease, transform .14s ease;';
-  document.body.appendChild(t);
-  return t;
-}
-let toastTimer = 0;
 function toast(msg){
-  const t = ensureToast();
-  t.textContent = msg;
-  t.style.opacity = '1';
-  t.style.transform = 'translate(-50%, 0)';
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>{
-    t.style.opacity = '0';
-    t.style.transform = 'translate(-50%, 16px)';
-  }, 900);
+  // super-light toast
+  try{
+    let el = document.querySelector('.hha-toast');
+    if(!el){
+      el = document.createElement('div');
+      el.className = 'hha-toast';
+      el.style.cssText = `
+        position:fixed; left:50%; bottom:calc(86px + env(safe-area-inset-bottom,0px));
+        transform:translateX(-50%);
+        background:rgba(2,6,23,.85);
+        color:rgba(229,231,235,.95);
+        border:1px solid rgba(148,163,184,.18);
+        padding:10px 12px;
+        border-radius:999px;
+        font: 900 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+        box-shadow:0 22px 70px rgba(0,0,0,.45);
+        z-index:9999;
+        opacity:0;
+        transition: opacity .16s ease, transform .16s ease;
+        pointer-events:none;
+        white-space:nowrap;
+      `;
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.opacity = '1';
+    el.style.transform = 'translateX(-50%) translateY(-2px)';
+    clearTimeout(toast._t);
+    toast._t = setTimeout(()=>{
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(-50%) translateY(0px)';
+    }, 900);
+  }catch(e){}
 }
 
-function copyText(text){
-  if (!text) return Promise.resolve(false);
-  if (navigator.clipboard && navigator.clipboard.writeText){
-    return navigator.clipboard.writeText(text).then(()=>true).catch(()=>false);
-  }
-  return new Promise((resolve)=>{
+async function copyText(text){
+  try{
+    await navigator.clipboard.writeText(String(text));
+    toast('คัดลอกแล้ว ✅');
+    return true;
+  }catch(e){
     try{
       const ta = document.createElement('textarea');
       ta.value = String(text);
-      ta.setAttribute('readonly','readonly');
-      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
+      ta.style.position='fixed';
+      ta.style.left='-9999px';
       document.body.appendChild(ta);
       ta.select();
-      try{ document.execCommand('copy'); }catch(e){}
+      document.execCommand('copy');
       ta.remove();
-      resolve(true);
-    }catch(e2){
-      resolve(false);
+      toast('คัดลอกแล้ว ✅');
+      return true;
+    }catch(err){
+      toast('คัดลอกไม่สำเร็จ');
+      return false;
+    }
+  }
+}
+
+function pulse(el, kind){
+  if(!el) return;
+  const good = 'pulseGood', warn='pulseWarn', bad='pulseBad';
+  el.classList.remove(good,warn,bad);
+  void el.offsetWidth;
+  el.classList.add(kind === 'good' ? good : (kind === 'warn' ? warn : bad));
+  clearTimeout(pulse._t);
+  pulse._t = setTimeout(()=>el.classList.remove(good,warn,bad), 520);
+}
+
+// ---------- CSV ----------
+function toCsv(rows){
+  if(!rows || !rows.length) return '';
+  // union keys
+  const keys = new Set();
+  rows.forEach(r=>{
+    if(r && typeof r === 'object'){
+      Object.keys(r).forEach(k=>keys.add(k));
     }
   });
-}
+  const headers = Array.from(keys);
 
-function absUrl(u){
-  try{ return new URL(String(u||''), location.href).toString(); }
-  catch(e){ return String(u||''); }
-}
-
-function pick(obj, keys, fallback='—'){
-  if (!obj || typeof obj !== 'object') return fallback;
-  for (const k of keys){
-    if (obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') return obj[k];
+  function esc(v){
+    if(v == null) return '';
+    if(typeof v === 'object') v = JSON.stringify(v);
+    v = String(v);
+    if(/[",\n]/.test(v)) v = `"${v.replace(/"/g,'""')}"`;
+    return v;
   }
-  return fallback;
+
+  const lines = [];
+  lines.push(headers.map(esc).join(','));
+  for(const r of rows){
+    const line = headers.map(k=>esc(r ? r[k] : '')).join(',');
+    lines.push(line);
+  }
+  return lines.join('\n');
 }
 
-function normalizeRun(run){
-  run = String(run||'').toLowerCase();
-  if (run === 'study' || run === 'research') return 'research';
-  return 'play';
-}
-
-function normalizeDiff(diff){
-  diff = String(diff||'normal').toLowerCase();
-  if (diff !== 'easy' && diff !== 'normal' && diff !== 'hard') diff = 'normal';
-  return diff;
-}
-
-function defaultSeedFor(run){
-  // Research deterministic เสมอ -> ถ้าไม่ใส่ seed ใช้ค่า default
-  return (run === 'research') ? 1 : null;
-}
-
-function gradeBucket(grade){
-  const g = String(grade||'').toUpperCase().trim();
-  const good = new Set(['SSS','SS','S','A']);
-  const warn = new Set(['B']);
-  const bad  = new Set(['C','D','F']);
-  if (good.has(g)) return 'good';
-  if (warn.has(g)) return 'warn';
-  if (bad.has(g))  return 'bad';
-  return 'warn';
-}
-
-function pulse(el, bucket){
-  if (!el) return;
-  const cls = bucket === 'good' ? 'pulseGood' : bucket === 'bad' ? 'pulseBad' : 'pulseWarn';
-  el.classList.remove('pulseGood','pulseWarn','pulseBad');
-  // force reflow เพื่อเล่น animation ซ้ำได้
-  void el.offsetWidth;
-  el.classList.add(cls);
-}
-
-function downloadText(filename, text){
+function downloadText(filename, content){
   try{
-    const blob = new Blob([text], { type:'text/csv;charset=utf-8;' });
+    const blob = new Blob([content], { type:'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -159,618 +148,440 @@ function downloadText(filename, text){
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
   }catch(e){
-    // fallback: copy
-    copyText(text).then(ok=>{
-      toast(ok ? '📋 CSV คัดลอกแล้ว' : '❌ Export ไม่สำเร็จ');
-    });
+    // fallback: open new tab
+    try{
+      const u = 'data:text/plain;charset=utf-8,' + encodeURIComponent(content);
+      window.open(u, '_blank');
+    }catch(err){}
   }
 }
 
-function toCsv(rows){
-  // rows: array of objects (flat)
-  const allKeys = new Set();
-  rows.forEach(r=>{
-    if (r && typeof r === 'object'){
-      Object.keys(r).forEach(k=>allKeys.add(k));
-    }
-  });
-
-  // Prefer “core” columns first if exist
-  const core = [
-    'timestampIso','startTimeIso','endTimeIso',
-    'projectTag','game','gameTag',
-    'runMode','run','mode',
-    'diff','durationPlannedSec','durationPlayedSec',
-    'scoreFinal','score','comboMax','misses',
-    'goalsCleared','goalsTotal','miniCleared','miniTotal',
-    'accuracyGoodPct','junkErrorPct','avgRtGoodMs','medianRtGoodMs',
-    'device','gameVersion','sessionId','reason',
-    'seed','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode',
-    'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel'
-  ];
-  const keys = [];
-  core.forEach(k=>{ if (allKeys.has(k) && !keys.includes(k)) keys.push(k); });
-  Array.from(allKeys).sort().forEach(k=>{ if (!keys.includes(k)) keys.push(k); });
-
-  const esc = (v)=>{
-    if (v === null || v === undefined) return '';
-    const s = String(v);
-    if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
-    return s;
-  };
-
-  const header = keys.map(esc).join(',');
-  const lines = rows.map(r=>{
-    return keys.map(k=>esc(r && typeof r === 'object' ? r[k] : '')).join(',');
-  });
-  return [header].concat(lines).join('\n');
-}
-
-// ---------- URL builder ----------
-const GAME_PAGES = {
+// ---------- Path mapping (✅ FIX HERE) ----------
+const GAME_PATHS = {
   goodjunk: './goodjunk-vr.html',
-  hydration:'./hydration-vr.html',
-  plate:    './plate/plate-vr.html',
-  groups:   './vr-groups/groups-vr.html'
+  hydration: './hydration-vr.html',
+  plate: './plate-vr.html',              // ✅ ตัวจริงอยู่ root
+  groups: './vr-groups/groups-vr.html'
 };
 
-function buildLaunchUrl(gameTag, opts){
-  const tag = String(gameTag||'').toLowerCase();
-  const page = GAME_PAGES[tag] || GAME_PAGES.plate;
+// passthrough research context keys (ถ้าถูกส่งมาใน hub URL จะส่งต่อเข้าเกม)
+const PASS_KEYS = [
+  'studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
+  'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel',
+  'heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue',
+  'healthDetail','consentParent'
+];
 
-  const run = normalizeRun(opts.run);
-  const diff = normalizeDiff(opts.diff);
-
-  let time = Number(opts.time);
-  if (!Number.isFinite(time)) time = 70;
-  time = clamp(time, 20, 9999);
-
-  let seed = (opts.seed !== undefined && opts.seed !== null && String(opts.seed).trim() !== '')
-    ? Number(opts.seed)
-    : defaultSeedFor(run);
-
-  if (seed !== null && !Number.isFinite(seed)) seed = defaultSeedFor(run);
-
-  const u = new URL(page, location.href);
-
-  // core params
-  u.searchParams.set('diff', diff);
-  u.searchParams.set('time', String(time));
-
-  // run naming compatibility: ใส่ทั้ง run และ runMode ให้เกมรับได้หมด
-  u.searchParams.set('run', run === 'research' ? 'research' : 'play');
-  u.searchParams.set('runMode', run === 'research' ? 'research' : 'play');
-
-  // seed
-  if (seed !== null && seed !== undefined){
-    u.searchParams.set('seed', String(Math.trunc(seed)));
+function buildHubUrl(){
+  try{
+    // hub should be absolute for safe navigation
+    const u = new URL(location.href);
+    u.hash = '';
+    return u.toString();
+  }catch(e){
+    return location.href;
   }
+}
 
-  // hub return (ใช้ absolute ชัวร์สุด)
-  const hubUrl = new URL('./hub.html', location.href).toString();
+function buildGameUrl(gameKey, opts){
+  const base = GAME_PATHS[gameKey] || './hub.html';
+  const hubUrl = buildHubUrl();
+
+  const u = new URL(base, location.href);
+
+  // required: hub back link
   u.searchParams.set('hub', hubUrl);
 
-  // cache-bust / version (ให้สอดคล้องกับ pattern เดิมของคุณ)
-  u.searchParams.set('v', String(Date.now()));
+  // core game params
+  if(opts.run)  u.searchParams.set('run', String(opts.run));
+  if(opts.diff) u.searchParams.set('diff', String(opts.diff));
+  if(opts.time != null) u.searchParams.set('time', String(opts.time));
+
+  // deterministic rules:
+  // - research (study): if no seed -> keep blank? we still allow user seed; game will default
+  // - play: if seed provided => deterministic, else random in game
+  if(opts.seed != null && String(opts.seed).trim() !== ''){
+    u.searchParams.set('seed', String(opts.seed));
+  }else{
+    // if user cleared seed, remove it (so play becomes random)
+    u.searchParams.delete('seed');
+  }
+
+  // passthrough ctx from hub URL
+  try{
+    const hubU = new URL(location.href);
+    PASS_KEYS.forEach(k=>{
+      const v = hubU.searchParams.get(k);
+      if(v != null && v !== '') u.searchParams.set(k, v);
+    });
+  }catch(e){}
 
   return u.toString();
 }
 
-// ---------- Tap: 1 = copy, 2 = play ----------
-function bindTapCopyPlay(el, getUrl, onPlay){
-  const DOUBLE_TAP_MS = 280;
-  let lastAt = 0;
-  let singleTimer = 0;
+// ---------- UI wiring ----------
+let selectedGame = null;
 
-  const handle = (e)=>{
-    try{ e.preventDefault(); }catch(_){}
-    const now = Date.now();
-    const dt = now - lastAt;
+// tap system: single = copy, double = play
+function bindTapCopyPlay(targetEl, getUrlFn, playFn){
+  if(!targetEl) return;
+  let lastTap = 0;
 
-    if (dt > 0 && dt < DOUBLE_TAP_MS){
-      lastAt = 0;
-      clearTimeout(singleTimer);
-      singleTimer = 0;
-      const url = getUrl();
-      if (url){
-        toast('▶ Play!');
-        onPlay(url);
-      }
+  targetEl.addEventListener('click', async (e)=>{
+    const t = Date.now();
+    const dt = t - lastTap;
+    lastTap = t;
+
+    // double tap
+    if(dt > 0 && dt < 420){
+      const url = getUrlFn();
+      pulse(targetEl, 'warn');
+      playFn(url);
       return;
     }
 
-    lastAt = now;
-    clearTimeout(singleTimer);
-    singleTimer = setTimeout(async ()=>{
-      lastAt = 0;
-      const url = getUrl();
-      if (!url) return;
-      const ok = await copyText(url);
-      toast(ok ? '📋 Copied!' : '❌ Copy ไม่สำเร็จ');
-    }, DOUBLE_TAP_MS);
-  };
-
-  el.addEventListener('pointerup', handle, { passive:false });
-
-  // keyboard accessibility
-  el.addEventListener('keydown', async (e)=>{
-    const k = e.key || '';
-    if (k === 'Enter'){
-      try{ e.preventDefault(); }catch(_){}
-      const url = getUrl();
-      if (url){
-        toast('▶ Play!');
-        onPlay(url);
-      }
-    } else if (k === ' ' || k === 'Spacebar'){
-      try{ e.preventDefault(); }catch(_){}
-      const url = getUrl();
-      if (!url) return;
-      const ok = await copyText(url);
-      toast(ok ? '📋 Copied!' : '❌ Copy ไม่สำเร็จ');
-    }
-  });
+    // single tap => copy link
+    const url = getUrlFn();
+    pulse(targetEl, 'good');
+    await copyText(url);
+  }, { passive:true });
 }
 
-// ---------- HUB state ----------
-let selectedGame = 'plate';
-let lastSummary = null;
-let hist = [];
-
-function readStorage(){
-  lastSummary = safeJsonParse(localStorage.getItem(STORAGE_LAST), null);
-  hist = safeJsonParse(localStorage.getItem(STORAGE_HIST), []);
-  if (!Array.isArray(hist)) hist = [];
+function renderNow(){
+  const el = $('nowText');
+  if(!el) return;
+  el.textContent = nowLocalText();
+  setInterval(()=>{ el.textContent = nowLocalText(); }, 1000);
 }
 
-function writeStorage(){
-  try{
-    if (lastSummary) localStorage.setItem(STORAGE_LAST, JSON.stringify(lastSummary));
-    else localStorage.removeItem(STORAGE_LAST);
-  }catch(e){}
-
-  try{
-    if (Array.isArray(hist) && hist.length) localStorage.setItem(STORAGE_HIST, JSON.stringify(hist));
-    else localStorage.removeItem(STORAGE_HIST);
-  }catch(e){}
+function gradeToClass(g){
+  g = String(g||'').toUpperCase();
+  if(g === 'SSS' || g === 'SS' || g === 'S' || g === 'A') return 'good';
+  if(g === 'B') return 'warn';
+  return 'bad';
 }
 
-// ---------- UI helpers ----------
-function setText(id, v){
-  const el = $('#' + id);
-  if (!el) return;
-  el.textContent = (v === null || v === undefined) ? '—' : String(v);
-}
-
-function setBadge(el, text, bucket){
-  if (!el) return;
-  el.textContent = String(text || '—');
+function setBadge(el, txt, cls){
+  if(!el) return;
+  el.textContent = txt;
   el.classList.remove('good','warn','bad');
-  if (bucket) el.classList.add(bucket);
+  if(cls) el.classList.add(cls);
 }
 
-function normalizeGameTagFromSummary(s){
-  const g = pick(s, ['gameTag','game','projectTag','tag'], '');
-  const gg = String(g||'').toLowerCase();
-  if (gg.includes('goodjunk')) return 'goodjunk';
-  if (gg.includes('hydration')) return 'hydration';
-  if (gg.includes('plate')) return 'plate';
-  if (gg.includes('groups')) return 'groups';
-  // fallback by pathname maybe
-  return 'plate';
+function normalizeGameName(game){
+  const g = String(game||'').toLowerCase();
+  if(g.includes('goodjunk')) return 'goodjunk';
+  if(g.includes('hydration')) return 'hydration';
+  if(g.includes('plate')) return 'plate';
+  if(g.includes('groups')) return 'groups';
+  return g || 'unknown';
 }
 
-function computeGradeFromSummary(s){
-  const g = pick(s, ['grade','finalGrade','uiGrade','rank'], '');
-  if (g && g !== '—') return String(g).toUpperCase();
-  // fallback: score/accuracy guess
-  const acc = Number(pick(s, ['accuracyGoodPct','accPct','accuracy'], 'NaN'));
-  if (Number.isFinite(acc)){
-    if (acc >= 95) return 'SSS';
-    if (acc >= 90) return 'SS';
-    if (acc >= 85) return 'S';
-    if (acc >= 75) return 'A';
-    if (acc >= 60) return 'B';
-    return 'C';
+function prettyGame(gameKey){
+  switch(gameKey){
+    case 'goodjunk': return '🥦 GoodJunk';
+    case 'hydration': return '💧 Hydration';
+    case 'plate': return '🍽️ Plate';
+    case 'groups': return '🍎 Groups';
+    default: return String(gameKey||'—');
   }
-  return 'C';
 }
 
-function fillLastPanel(){
-  const emptyEl = $('#lastEmpty');
-  const panelEl = $('#lastPanel');
+function playUrl(url){
+  try{ location.href = url; }catch(e){ location.assign(url); }
+}
 
-  if (!lastSummary){
-    if (emptyEl) emptyEl.style.display = '';
-    if (panelEl) panelEl.style.display = 'none';
+function readControls(){
+  const run  = ($('selRun')?.value || 'play').toLowerCase();
+  const diff = ($('selDiff')?.value || 'normal').toLowerCase();
+  const time = clamp($('inpTime')?.value || 70, 20, 9999);
+  const seedRaw = $('inpSeed')?.value;
+  const seed = (seedRaw != null && String(seedRaw).trim() !== '') ? Number(seedRaw) : null;
+  return { run, diff, time, seed };
+}
+
+function applyPreset(){
+  const run = ($('selRun')?.value || 'play').toLowerCase();
+  const diff = ($('selDiff')?.value || 'normal').toLowerCase();
+  const inpTime = $('inpTime');
+  if(!inpTime) return;
+
+  // sensible preset (ปรับได้ภายหลัง)
+  // play: easy 70 / normal 70 / hard 80
+  // study: easy 70 / normal 70 / hard 70 (เน้นเทียบเท่า)
+  let t = 70;
+  if(run === 'play'){
+    if(diff === 'easy') t = 70;
+    if(diff === 'normal') t = 70;
+    if(diff === 'hard') t = 80;
+  }else{
+    t = 70;
+  }
+  inpTime.value = String(t);
+  toast('ตั้งเวลาอัตโนมัติแล้ว ⚙️');
+}
+
+function updateLinkHint(){
+  const hint = $('linkHint');
+  if(!hint) return;
+  hint.textContent = selectedGame ? `เลือก: ${prettyGame(selectedGame)} • แตะ 1=Copy / 2=Play` : 'เลือกเกมด้านบนก่อน';
+}
+
+function bindGameButtons(){
+  document.querySelectorAll('.gameBtn[data-game]').forEach(btn=>{
+    const key = btn.getAttribute('data-game');
+    btn.addEventListener('click', ()=>{
+      selectedGame = key;
+      document.querySelectorAll('.gameBtn').forEach(x=>x.style.outline='none');
+      btn.style.outline = '2px solid rgba(34,197,94,.35)';
+      updateLinkHint();
+    }, { passive:true });
+
+    // single/double tap behavior on same button (copy/play)
+    bindTapCopyPlay(
+      btn,
+      ()=> {
+        const c = readControls();
+        return buildGameUrl(key, c);
+      },
+      (url)=>playUrl(url)
+    );
+  });
+
+  const btnCopy = $('btnCopyLink');
+  if(btnCopy){
+    btnCopy.addEventListener('click', async ()=>{
+      if(!selectedGame){
+        toast('ยังไม่ได้เลือกเกม');
+        return;
+      }
+      const url = buildGameUrl(selectedGame, readControls());
+      await copyText(url);
+    }, { passive:true });
+  }
+
+  $('btnApplyPreset')?.addEventListener('click', applyPreset, { passive:true });
+}
+
+// ---------- Last summary + History ----------
+function renderLast(){
+  const last = loadJson(LS_LAST, null);
+
+  const empty = $('lastEmpty');
+  const panel = $('lastPanel');
+
+  if(!last){
+    if(empty) empty.style.display = 'block';
+    if(panel) panel.style.display = 'none';
     return;
   }
 
-  if (emptyEl) emptyEl.style.display = 'none';
-  if (panelEl) panelEl.style.display = '';
+  if(empty) empty.style.display = 'none';
+  if(panel) panel.style.display = 'block';
 
-  const gameTag = normalizeGameTagFromSummary(lastSummary);
-  const grade = computeGradeFromSummary(lastSummary);
-  const bucket = gradeBucket(grade);
+  const gKey = normalizeGameName(last.game || last.gameMode || last.projectTag);
+  const grade = String(last.grade || '—').toUpperCase();
 
-  // badges
-  setBadge($('#badgeGame'), `🎮 ${gameTag}`, null);
-  setBadge($('#badgeGrade'), `🏅 ${grade}`, bucket);
+  setBadge($('badgeGame'), prettyGame(gKey), ''); // plain
+  setBadge($('badgeGrade'), `GRADE ${grade}`, gradeToClass(grade));
 
-  // session/time
-  const sid = pick(lastSummary, ['sessionId','session','id'], '—');
-  setText('lastSession', sid);
+  $('lastSession') && ($('lastSession').textContent = last.sessionId || '—');
+  $('lastScore') && ($('lastScore').textContent = last.scoreFinal ?? 0);
+  $('lastCombo') && ($('lastCombo').textContent = last.comboMax ?? 0);
+  $('lastMiss') && ($('lastMiss').textContent = last.misses ?? 0);
+  $('lastGoals') && ($('lastGoals').textContent = `${last.goalsCleared ?? 0}/${last.goalsTotal ?? 0}`);
+  $('lastMinis') && ($('lastMinis').textContent = `${last.miniCleared ?? 0}/${last.miniTotal ?? 0}`);
+  $('lastDur') && ($('lastDur').textContent = `${last.durationPlayedSec ?? 0}s`);
 
-  // stats
-  setText('lastScore', pick(lastSummary, ['scoreFinal','score'], 0));
-  setText('lastCombo', pick(lastSummary, ['comboMax','maxCombo'], 0));
-  setText('lastMiss',  pick(lastSummary, ['misses','miss','missCount'], 0));
+  $('lastMode') && ($('lastMode').textContent = last.runMode || last.run || '—');
+  $('lastDiff') && ($('lastDiff').textContent = last.diff || '—');
+  $('lastSeed') && ($('lastSeed').textContent = last.seed ?? '—');
 
-  const gCleared = Number(pick(lastSummary, ['goalsCleared'], 0)) || 0;
-  const gTotal   = Number(pick(lastSummary, ['goalsTotal'], 0)) || 0;
-  const mCleared = Number(pick(lastSummary, ['miniCleared'], 0)) || 0;
-  const mTotal   = Number(pick(lastSummary, ['miniTotal'], 0)) || 0;
+  $('lastJson') && ($('lastJson').textContent = JSON.stringify(last, null, 2));
 
-  setText('lastGoals', `${gCleared}/${gTotal}`);
-  setText('lastMinis', `${mCleared}/${mTotal}`);
+  // actions
+  $('btnReplayLast')?.addEventListener('click', ()=>{
+    const run  = (last.runMode || last.run || 'play');
+    const diff = (last.diff || 'normal');
+    const time = (last.durationPlannedSec || last.time || 70);
+    const seed = (last.seed != null ? last.seed : null);
 
-  const dur = pick(lastSummary, ['durationPlayedSec','durPlayedSec','playedSec'], 0);
-  setText('lastDur', `${dur}s`);
+    // prefer last.game key to choose path
+    const gameKey = normalizeGameName(last.game || last.gameMode || '');
+    if(!GAME_PATHS[gameKey]){
+      toast('ไม่รู้จักเกมในผลล่าสุด');
+      return;
+    }
+    playUrl(buildGameUrl(gameKey, { run, diff, time, seed }));
+  }, { passive:true });
 
-  // mode/diff/seed
-  const run = normalizeRun(pick(lastSummary, ['runMode','run','mode'], 'play'));
-  const diff = normalizeDiff(pick(lastSummary, ['diff'], 'normal'));
-  const seed = pick(lastSummary, ['seed'], '—');
+  $('btnCopyLastJson')?.addEventListener('click', async ()=>{
+    await copyText(JSON.stringify(last, null, 2));
+  }, { passive:true });
 
-  setText('lastMode', run);
-  setText('lastDiff', diff);
-  setText('lastSeed', seed);
+  $('btnExportLastCsv')?.addEventListener('click', ()=>{
+    const csv = toCsv([flattenForCsv(last)]);
+    downloadText(`HHA_last_${(last.game||'game')}_${Date.now()}.csv`, csv);
+  }, { passive:true });
 
-  // json detail
-  const pre = $('#lastJson');
-  if (pre) pre.textContent = JSON.stringify(lastSummary, null, 2);
-
-  // buttons
-  const replayBtn = $('#btnReplayLast');
-  if (replayBtn){
-    replayBtn.onclick = ()=>{
-      const url = buildLaunchUrl(gameTag, {
-        run,
-        diff,
-        time: pick(lastSummary, ['durationPlannedSec','time','timeSec'], $('#inpTime')?.value ?? 70),
-        seed: (seed === '—') ? '' : seed
-      });
-      toast('▶ Play!');
-      location.href = url;
-    };
-  }
-
-  const copyJsonBtn = $('#btnCopyLastJson');
-  if (copyJsonBtn){
-    copyJsonBtn.onclick = async ()=>{
-      const ok = await copyText(JSON.stringify(lastSummary));
-      toast(ok ? '📋 Copied JSON!' : '❌ Copy ไม่สำเร็จ');
-    };
-  }
-
-  const exportLastBtn = $('#btnExportLastCsv');
-  if (exportLastBtn){
-    exportLastBtn.onclick = ()=>{
-      const row = Object.assign({}, lastSummary, {
-        gameTag,
-        grade
-      });
-      const csv = toCsv([row]);
-      downloadText(`HHA_last_${gameTag}_${Date.now()}.csv`, csv);
-      toast('⬇️ Export CSV');
-    };
-  }
-
-  const clearLastBtn = $('#btnClearLast');
-  if (clearLastBtn){
-    clearLastBtn.onclick = ()=>{
-      lastSummary = null;
-      writeStorage();
-      renderAll();
-      toast('🧹 ล้างผลล่าสุดแล้ว');
-    };
-  }
-
-  // also refresh history panels
-  fillHistoryPanel();
+  $('btnClearLast')?.addEventListener('click', ()=>{
+    try{ localStorage.removeItem(LS_LAST); }catch(e){}
+    toast('ล้างผลล่าสุดแล้ว 🧹');
+    renderLast();
+    renderHistory();
+  }, { passive:true });
 }
 
-function fillHistoryPanel(){
-  const recentEmpty = $('#recentEmpty');
-  const recentPanel = $('#recentPanel');
-  const tbody = $('#recentTbody');
-  const hint = $('#historyHint');
+function flattenForCsv(obj){
+  // keep it simple: flatten shallow and keep nested JSON as string
+  const out = {};
+  if(!obj || typeof obj !== 'object') return out;
+  Object.keys(obj).forEach(k=>{
+    const v = obj[k];
+    if(v && typeof v === 'object') out[k] = JSON.stringify(v);
+    else out[k] = v;
+  });
+  return out;
+}
 
-  const arr = Array.isArray(hist) ? hist.slice() : [];
-  // show last 4 (ใหม่สุดก่อน)
-  const recent = arr.slice().reverse().slice(0, 4);
+function renderHistory(){
+  const hist = loadJson(LS_HIST, []);
+  const arr = Array.isArray(hist) ? hist : [];
+  const recent = arr.slice(0,4);
 
-  if (!recent.length){
-    if (recentEmpty) recentEmpty.style.display = '';
-    if (recentPanel) recentPanel.style.display = 'none';
-    if (hint) hint.textContent = '—';
-    if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="muted">—</td></tr>`;
+  const empty = $('recentEmpty');
+  const panel = $('recentPanel');
+  const tbody = $('recentTbody');
+  const hint = $('historyHint');
+
+  if(!recent.length){
+    if(empty) empty.style.display = 'block';
+    if(panel) panel.style.display = 'none';
+    if(hint) hint.textContent = '—';
+    if(tbody) tbody.innerHTML = `<tr><td colspan="10" class="muted">—</td></tr>`;
     return;
   }
 
-  if (recentEmpty) recentEmpty.style.display = 'none';
-  if (recentPanel) recentPanel.style.display = '';
-  if (hint) hint.textContent = `แสดง ${recent.length} รายการล่าสุด`;
+  if(empty) empty.style.display = 'none';
+  if(panel) panel.style.display = 'block';
+  if(hint) hint.textContent = `รวม ${arr.length} รายการ (แสดง 4 ล่าสุด)`;
 
-  if (!tbody) return;
-
+  if(!tbody) return;
   tbody.innerHTML = '';
 
-  recent.forEach((s, idx)=>{
-    const gameTag = normalizeGameTagFromSummary(s);
-    const run = normalizeRun(pick(s, ['runMode','run','mode'], 'play'));
-    const diff = normalizeDiff(pick(s, ['diff'], 'normal'));
-    const score = pick(s, ['scoreFinal','score'], 0);
-    const grade = computeGradeFromSummary(s);
-    const bucket = gradeBucket(grade);
-
-    const misses = pick(s, ['misses','miss'], 0);
-    const gCleared = Number(pick(s, ['goalsCleared'], 0)) || 0;
-    const gTotal   = Number(pick(s, ['goalsTotal'], 0)) || 0;
-    const mCleared = Number(pick(s, ['miniCleared'], 0)) || 0;
-    const mTotal   = Number(pick(s, ['miniTotal'], 0)) || 0;
-
-    const ts = pick(s, ['timestampIso','endTimeIso','startTimeIso','timestamp'], '');
-    const timeText = ts ? prettyIso(ts) : '—';
-
-    // build url from saved fields (fallback to current UI preset time if missing)
-    const time = pick(s, ['durationPlannedSec','time','timeSec'], $('#inpTime')?.value ?? 70);
-    const seed = pick(s, ['seed'], '');
-
-    const url = buildLaunchUrl(gameTag, { run, diff, time, seed });
+  recent.forEach((it, idx)=>{
+    const gameKey = normalizeGameName(it.game || it.gameMode || '');
+    const grade = String(it.grade || '—').toUpperCase();
 
     const tr = document.createElement('tr');
-    tr.setAttribute('data-i', String(idx)); // index within recent
+    tr.setAttribute('data-i', String(idx));
+
+    const timeTxt = (()=> {
+      try{
+        const d = new Date(it.timestampIso || it.startTimeIso || Date.now());
+        return d.toLocaleString('th-TH', { hour12:false });
+      }catch(e){
+        return it.timestampIso || '—';
+      }
+    })();
+
+    const mode = it.runMode || it.run || '—';
+    const diff = it.diff || '—';
+    const score = it.scoreFinal ?? 0;
+    const miss = it.misses ?? 0;
+    const goals = `${it.goalsCleared ?? 0}/${it.goalsTotal ?? 0}`;
+    const minis = `${it.miniCleared ?? 0}/${it.miniTotal ?? 0}`;
+
     tr.innerHTML = `
-      <td>${timeText}</td>
-      <td class="tdGame">${gameTag}</td>
-      <td>${run}</td>
-      <td>${diff}</td>
-      <td>${score}</td>
-      <td><span class="gradeTag ${bucket}">${grade}</span></td>
-      <td>${misses}</td>
-      <td>${gCleared}/${gTotal}</td>
-      <td>${mCleared}/${mTotal}</td>
+      <td>${escapeHtml(timeTxt)}</td>
+      <td class="tdGame">${escapeHtml(prettyGame(gameKey))}</td>
+      <td>${escapeHtml(mode)}</td>
+      <td>${escapeHtml(diff)}</td>
+      <td>${escapeHtml(String(score))}</td>
+      <td><span class="gradeTag ${gradeToClass(grade)}">${escapeHtml(grade)}</span></td>
+      <td>${escapeHtml(String(miss))}</td>
+      <td>${escapeHtml(goals)}</td>
+      <td>${escapeHtml(minis)}</td>
       <td>
         <div class="actWrap">
-          <span class="actBtn play" data-act="play" title="Play">▶</span>
-          <span class="actBtn json" data-act="json" title="Copy JSON">📋</span>
+          <span class="actBtn play" data-act="play">▶ Play</span>
+          <span class="actBtn json" data-act="json">📋 JSON</span>
         </div>
       </td>
     `;
 
-    // row: 1 tap copy / 2 tap play (ยกเว้นกดปุ่ม action)
-    tr.tabIndex = 0;
-    tr.setAttribute('role','button');
-
+    // row tap: 1=copy link, 2=play
     bindTapCopyPlay(
       tr,
-      ()=>url,
-      (u)=>{ location.href = u; }
+      ()=>{
+        const run  = (it.runMode || it.run || 'play');
+        const diff = (it.diff || 'normal');
+        const time = (it.durationPlannedSec || it.time || 70);
+        const seed = (it.seed != null ? it.seed : null);
+        return buildGameUrl(gameKey, { run, diff, time, seed });
+      },
+      (url)=>playUrl(url)
     );
 
     // action buttons
-    tr.addEventListener('pointerup', async (e)=>{
-      const act = e.target && e.target.getAttribute && e.target.getAttribute('data-act');
-      if (!act) return;
-      // กัน row handler ทำงานซ้อน
-      e.stopPropagation();
-      try{ e.preventDefault(); }catch(_){}
-
-      if (act === 'play'){
-        toast('▶ Play!');
-        location.href = url;
-      } else if (act === 'json'){
-        const ok = await copyText(JSON.stringify(s));
-        toast(ok ? '📋 Copied JSON!' : '❌ Copy ไม่สำเร็จ');
-      }
-    }, { passive:false });
-
-    // pulse feedback
-    tr.addEventListener('pointerdown', ()=>{
-      pulse(tr, bucket);
-    }, { passive:true });
+    tr.querySelectorAll('[data-act]').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const act = btn.getAttribute('data-act');
+        if(act === 'play'){
+          const run  = (it.runMode || it.run || 'play');
+          const diff = (it.diff || 'normal');
+          const time = (it.durationPlannedSec || it.time || 70);
+          const seed = (it.seed != null ? it.seed : null);
+          pulse(tr, 'warn');
+          playUrl(buildGameUrl(gameKey, { run, diff, time, seed }));
+        }else if(act === 'json'){
+          await copyText(JSON.stringify(it, null, 2));
+          pulse(tr, 'good');
+        }
+      }, { passive:false });
+    });
 
     tbody.appendChild(tr);
   });
 
-  // export/clear buttons
-  const exportRecentBtn = $('#btnExportRecentCsv');
-  if (exportRecentBtn){
-    exportRecentBtn.onclick = ()=>{
-      const rows = recent.map(s=>{
-        const gameTag = normalizeGameTagFromSummary(s);
-        const grade = computeGradeFromSummary(s);
-        return Object.assign({}, s, { gameTag, grade });
-      });
-      const csv = toCsv(rows);
-      downloadText(`HHA_recent4_${Date.now()}.csv`, csv);
-      toast('⬇️ Export CSV');
-    };
-  }
+  // export recent4
+  $('btnExportRecentCsv')?.addEventListener('click', ()=>{
+    const csv = toCsv(recent.map(flattenForCsv));
+    downloadText(`HHA_recent4_${Date.now()}.csv`, csv);
+  }, { passive:true });
 
-  const clearHistBtn = $('#btnClearHistory');
-  if (clearHistBtn){
-    clearHistBtn.onclick = ()=>{
-      hist = [];
-      writeStorage();
-      renderAll();
-      toast('🧹 ล้าง History แล้ว');
-    };
-  }
+  $('btnClearHistory')?.addEventListener('click', ()=>{
+    try{ localStorage.removeItem(LS_HIST); }catch(e){}
+    toast('ล้าง History แล้ว 🧹');
+    renderHistory();
+  }, { passive:true });
 }
 
-// ---------- Launch controls ----------
-function updateSelectedGameUI(){
-  const btns = $$('.gameBtn');
-  btns.forEach(b=>{
-    const g = String(b.getAttribute('data-game')||'').toLowerCase();
-    const tag = b.querySelector('.rightTag');
-    if (g === selectedGame){
-      b.style.borderColor = 'rgba(34,197,94,.35)';
-      b.style.background = 'rgba(34,197,94,.08)';
-      if (tag) tag.textContent = 'SELECTED';
-    } else {
-      b.style.borderColor = 'rgba(148,163,184,.18)';
-      b.style.background = 'rgba(2,6,23,.58)';
-      if (tag) tag.textContent = 'PLAY';
-    }
-  });
-
-  const hint = $('#linkHint');
-  if (hint) hint.textContent = `เลือกแล้ว: ${selectedGame}`;
+function escapeHtml(s){
+  s = String(s ?? '');
+  return s.replace(/[&<>"']/g, (m)=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
 }
 
-function currentOptsFromUI(){
-  const runUI = $('#selRun')?.value || 'play';
-  const diff = $('#selDiff')?.value || 'normal';
-  const time = $('#inpTime')?.value || 70;
-  const seed = $('#inpSeed')?.value || '';
-  const run = (runUI === 'study') ? 'research' : runUI;
-  return { run, diff, time, seed };
-}
+// ---------- Init ----------
+(function init(){
+  renderNow();
+  bindGameButtons();
+  updateLinkHint();
 
-function wireLaunchButtons(){
-  const nowEl = $('#nowText');
-  if (nowEl){
-    nowEl.textContent = nowClock();
-    setInterval(()=>{ nowEl.textContent = nowClock(); }, 1000);
+  // show last + history
+  renderLast();
+  renderHistory();
+
+  // default select = goodjunk for UX
+  const first = document.querySelector('.gameBtn[data-game="goodjunk"]');
+  if(first){
+    selectedGame = 'goodjunk';
+    first.style.outline = '2px solid rgba(34,197,94,.35)';
+    updateLinkHint();
   }
-
-  const presetBtn = $('#btnApplyPreset');
-  if (presetBtn){
-    presetBtn.onclick = ()=>{
-      const diff = normalizeDiff($('#selDiff')?.value || 'normal');
-      // preset แบบ “จับง่าย”: easy 60 / normal 70 / hard 90
-      const val = diff === 'easy' ? 60 : diff === 'hard' ? 90 : 70;
-      const inp = $('#inpTime');
-      if (inp) inp.value = String(val);
-      toast('⚙️ ตั้งเวลาอัตโนมัติแล้ว');
-    };
-  }
-
-  // choose game
-  $$('.gameBtn').forEach(el=>{
-    const g = String(el.getAttribute('data-game')||'').toLowerCase() || 'plate';
-
-    // ทำให้โฟกัสได้
-    el.tabIndex = 0;
-    el.setAttribute('role','button');
-
-    // tap = select + 1copy/2play (ตามคำสั่ง: ทั้งปุ่มเกมก็ต้อง 1=copy 2=play)
-    bindTapCopyPlay(
-      el,
-      ()=>{
-        const opts = currentOptsFromUI();
-        return buildLaunchUrl(g, opts);
-      },
-      (url)=>{ location.href = url; }
-    );
-
-    // แค่ pointerdown ให้ “select” เกมนั้นด้วย (ไม่รอ pointerup)
-    el.addEventListener('pointerdown', ()=>{
-      selectedGame = g;
-      updateSelectedGameUI();
-      pulse(el, 'good');
-    }, { passive:true });
-
-    // keyboard: focus + Enter จะ play (bindTapCopyPlay ทำให้แล้ว) — เพิ่ม select เมื่อ focus
-    el.addEventListener('focus', ()=>{
-      selectedGame = g;
-      updateSelectedGameUI();
-    });
-  });
-
-  // copy selected link button
-  const btnCopyLink = $('#btnCopyLink');
-  if (btnCopyLink){
-    btnCopyLink.onclick = async ()=>{
-      const opts = currentOptsFromUI();
-      const url = buildLaunchUrl(selectedGame, opts);
-      const ok = await copyText(url);
-      toast(ok ? '📋 Copied!' : '❌ Copy ไม่สำเร็จ');
-    };
-  }
-}
-
-// ---------- Render everything ----------
-function renderAll(){
-  // show/hide last wrapper
-  const lastEmpty = $('#lastEmpty');
-  const lastPanel = $('#lastPanel');
-  const wrapper = $('#lastPanel')?.parentElement; // not used
-
-  if (!lastSummary){
-    if ($('#lastPanel')) $('#lastPanel').style.display = 'none';
-    if ($('#lastEmpty')) $('#lastEmpty').style.display = '';
-  } else {
-    if ($('#lastEmpty')) $('#lastEmpty').style.display = 'none';
-    if ($('#lastPanel')) $('#lastPanel').style.display = '';
-  }
-
-  fillLastPanel();
-  // fillLastPanel จะเรียก fillHistoryPanel ต่อให้ด้วย (เพื่อ sync)
-  updateSelectedGameUI();
-}
-
-// ---------- Boot ----------
-function boot(){
-  readStorage();
-  wireLaunchButtons();
-
-  // ถ้าไม่มี selection เลือกจาก lastSummary ได้
-  if (lastSummary){
-    selectedGame = normalizeGameTagFromSummary(lastSummary);
-  }
-
-  // เปิดส่วน lastPanel wrapper ตามมี/ไม่มี
-  const lastEmpty = $('#lastEmpty');
-  const lastPanel = $('#lastPanel');
-  if (!lastSummary){
-    if (lastEmpty) lastEmpty.style.display = '';
-    if (lastPanel) lastPanel.style.display = 'none';
-  } else {
-    if (lastEmpty) lastEmpty.style.display = 'none';
-    if (lastPanel) lastPanel.style.display = '';
-  }
-
-  // Bind “Clear last” “Clear history” เผื่อ panel ยังไม่โชว์
-  const clearLastBtn = $('#btnClearLast');
-  if (clearLastBtn){
-    clearLastBtn.onclick = ()=>{
-      lastSummary = null;
-      writeStorage();
-      renderAll();
-      toast('🧹 ล้างผลล่าสุดแล้ว');
-    };
-  }
-  const clearHistBtn = $('#btnClearHistory');
-  if (clearHistBtn){
-    clearHistBtn.onclick = ()=>{
-      hist = [];
-      writeStorage();
-      renderAll();
-      toast('🧹 ล้าง History แล้ว');
-    };
-  }
-
-  renderAll();
-}
-
-if (document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', boot);
-} else {
-  boot();
-}
+})();
