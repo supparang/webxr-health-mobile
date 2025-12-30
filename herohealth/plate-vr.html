@@ -3,7 +3,7 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED)
 ✅ plate-vr.html อยู่ /herohealth/ (root)
 ✅ JS/CSS อยู่ /herohealth/plate/*
 ✅ vr libs อยู่ /herohealth/vr/*
-✅ img coach อยู่ /herohealth/img/*
+✅ img coach อยู่ /herohealth/img/* (ใช้ plate-*.png)
 ✅ Provides ALL required DOM ids for plate.safe.js
   plate-layer, hitFx,
   hudTop, miniPanel, hudBtns, coachPanel,
@@ -31,8 +31,8 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED)
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder (อยู่ใน /plate/) -->
-  <script src="./plate/plate-hud.js?v=20251230" defer></script>
+  <!-- ✅ HUD binder (อยู่ใน /vr/ ตามไฟล์จริงใน repo) -->
+  <script src="./vr/hha-hud.js?v=20251230" defer></script>
 
   <!-- Game (อยู่ใน /plate/) -->
   <script src="./plate/plate.safe.js?v=20251230" defer></script>
@@ -121,12 +121,12 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED)
   <aside id="coachPanel">
     <img
       id="coachImg"
-      src="./img/coach-neutral.png"
-      alt="Coach"
+      src="./img/plate-neutral.png"
+      alt="Plate Coach"
       draggable="false"
     />
     <div class="coachText">
-      <div class="coachName">Hero Coach</div>
+      <div class="coachName">Plate Coach</div>
       <div class="coachMsg" id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
     </div>
   </aside>
