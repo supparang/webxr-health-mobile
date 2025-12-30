@@ -1,8 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
 GoodJunkVR (PRODUCTION) — HHA Standard
-✅ LEFT eye uses legacy ids (#gj-layer / #gj-crosshair / #atk-ring / #atk-laser) for old safe.js
-✅ RIGHT eye uses -r ids for VR/cVR dual-eye
-✅ Boot loaded with cache-bust v param
+✅ DOM emoji targets (dual-eye for VR/cVR)
+✅ HUD + Quest + Coach + Fever/Shield
+✅ Summary end overlay placeholder
+✅ Logger (optional): ?log=<WEB_APP_EXEC_URL>
+✅ Boot gate: starts AFTER pressing "เริ่มเล่น" (fix overlay issues)
 -->
 
 <!doctype html>
@@ -14,41 +16,17 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <link id="gjCss" rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
-  <script id="jsParticles" src="./vr/particles.js" defer></script>
-  <script id="jsFever" src="./vr/ui-fever.js" defer></script>
-  <script id="jsHud" src="./vr/hha-hud.js" defer></script>
-  <script id="jsLogger" src="./vr/hha-cloud-logger.js" defer></script>
+  <!-- UI -->
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
-  <!-- cache-bust ALL non-module assets with ?v=... -->
-  <script>
-    (function(){
-      try{
-        var u = new URL(location.href);
-        var v = u.searchParams.get('v') || String(Date.now());
-        window.__HHA_V__ = v;
+  <!-- Global FX + Fever + HUD + Logger -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
 
-        function addV(url){
-          if (!url) return url;
-          return url + (url.indexOf('?')>=0 ? '&' : '?') + 'v=' + encodeURIComponent(v);
-        }
-
-        var css = document.getElementById('gjCss');
-        if (css) css.href = addV(css.getAttribute('href'));
-
-        ['jsParticles','jsFever','jsHud','jsLogger'].forEach(function(id){
-          var s = document.getElementById(id);
-          if (s && s.getAttribute('src')) s.setAttribute('src', addV(s.getAttribute('src')));
-        });
-      }catch(e){ console.warn(e); }
-    })();
-  </script>
-
-  <!-- Boot (ESM) via dynamic import + v -->
-  <script type="module">
-    const v = window.__HHA_V__ || (new URL(location.href)).searchParams.get('v') || String(Date.now());
-    import(`./vr-goodjunk/goodjunk-vr.boot.js?v=${encodeURIComponent(v)}`);
-  </script>
+  <!-- Boot (ESM) -->
+  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
@@ -117,15 +95,13 @@ GoodJunkVR (PRODUCTION) — HHA Standard
 
   <!-- ===== Playfield (dual-eye) ===== -->
   <div id="gj-stage" aria-label="playfield">
-    <!-- LEFT eye (legacy ids so old safe.js won't crash) -->
     <div class="gj-eye eye-l" id="eyeL">
-      <div class="gj-layer" id="gj-layer" aria-label="targets layer left"></div>
-      <div class="gj-crosshair" id="gj-crosshair" aria-hidden="true"></div>
-      <div class="atk-ring" id="atk-ring" aria-hidden="true"></div>
-      <div class="atk-laser" id="atk-laser" aria-hidden="true"></div>
+      <div class="gj-layer" id="gj-layer-l" aria-label="targets layer left"></div>
+      <div class="gj-crosshair" id="gj-crosshair-l" aria-hidden="true"></div>
+      <div class="atk-ring" id="atk-ring-l" aria-hidden="true"></div>
+      <div class="atk-laser" id="atk-laser-l" aria-hidden="true"></div>
     </div>
 
-    <!-- RIGHT eye (VR/cVR only) -->
     <div class="gj-eye eye-r" id="eyeR" aria-hidden="true">
       <div class="gj-layer" id="gj-layer-r" aria-label="targets layer right"></div>
       <div class="gj-crosshair" id="gj-crosshair-r" aria-hidden="true"></div>
@@ -133,6 +109,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
     </div>
 
+    <!-- end summary placeholder -->
     <div id="end-summary"></div>
   </div>
 
@@ -142,7 +119,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   </div>
 
   <!-- ===== Start Overlay ===== -->
-  <div id="startOverlay" class="start-overlay">
+  <div id="startOverlay" class="start-overlay" hidden>
     <div class="start-card">
       <div class="start-title">GoodJunk VR</div>
       <div class="start-desc">
