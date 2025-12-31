@@ -1,15 +1,11 @@
 <!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED)
+Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + UNIVERSAL VR UI)
 ✅ plate-vr.html อยู่ /herohealth/ (root)
-✅ JS/CSS อยู่ /herohealth/plate/*
+✅ CSS/JS อยู่ /herohealth/plate/*
 ✅ vr libs อยู่ /herohealth/vr/*
 ✅ img coach อยู่ /herohealth/img/*
 ✅ Provides ALL required DOM ids for plate.safe.js
-  plate-layer, hitFx,
-  hudTop, miniPanel, hudBtns, coachPanel,
-  btnStart, startOverlay,
-  btnPause, hudPaused, btnRestart, btnBackHub, btnPlayAgain, btnEnterVR,
-  resultBackdrop (rScore/rG1..rG5 etc.)
+✅ Adds Universal VR UI (/vr/vr-ui.js) + view modes + orientation lock attempt on VR
 -->
 
 <!doctype html>
@@ -21,24 +17,46 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
 
-  <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
+  <!-- A-Frame (Cardboard/VR) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles (อยู่ใน /plate/) -->
-  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251230S" />
+  <!-- Styles -->
+  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251231" />
 
-  <!-- Global FX + Logger (อยู่ใน /vr/) -->
+  <!-- Global FX + Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder (อยู่ใน /plate/) -->
-  <script src="./plate/plate-hud.js?v=20251230S" defer></script>
+  <!-- ✅ Universal VR UI (ENTER/EXIT/RECENTER + crosshair + tap-to-shoot emits hha:shoot) -->
+  <script src="./vr/vr-ui.js" defer></script>
 
-  <!-- Game (อยู่ใน /plate/) -->
-  <script src="./plate/plate.safe.js?v=20251230S" defer></script>
+  <!-- HUD binder (Plate-specific UI helpers) -->
+  <script src="./plate/plate-hud.js?v=20251231" defer></script>
+
+  <!-- Game -->
+  <script src="./plate/plate.safe.js?v=20251231" defer></script>
+
+  <style>
+    /* ensure overlays stack above A-Frame */
+    body{ margin:0; }
+    .viewHint{
+      position:fixed; right:10px; top:10px;
+      z-index:120; font: 900 11px/1.2 system-ui;
+      color:rgba(148,163,184,.9);
+      background:rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.14);
+      padding:6px 10px; border-radius:999px;
+      backdrop-filter: blur(8px);
+      pointer-events:none;
+      display:none;
+    }
+    body.debug-view .viewHint{ display:block; }
+  </style>
 </head>
 
-<body>
+<body class="view-pc">
+  <div class="viewHint" id="viewHint">view: —</div>
+
   <!-- Background VR scene (minimal) -->
   <a-scene
     id="scene"
@@ -85,7 +103,7 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED)
         <div class="v"><span id="uiPlateHave">0</span><span class="muted">/5</span></div>
       </div>
 
-      <div class="hudStat gradeChip" data-grade="C">
+      <div class="hudStat gradeChip">
         <div class="k">GRADE</div>
         <div class="v"><span id="uiGrade">C</span> <span class="muted" id="uiAcc">0%</span></div>
       </div>
@@ -233,19 +251,61 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED)
   </div>
 
   <script>
-    // Mirror EnterVR buttons + preview query params
+    // --- view mode helper (pc/mobile/vr/cvr) ---
     (function(){
+      function setView(view){
+        var b = document.body;
+        b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+        b.classList.add('view-' + view);
+        var hint = document.getElementById('viewHint');
+        if(hint) hint.textContent = 'view: ' + view;
+      }
+      function guess(){
+        try{
+          var u = new URL(location.href);
+          var v = (u.searchParams.get('view') || '').toLowerCase();
+          if(v === 'cvr' || v === 'cardboard' || u.searchParams.get('cvr') === '1') return 'cvr';
+          if(v === 'vr') return 'vr';
+        }catch(e){}
+        var isMobile = matchMedia && matchMedia('(pointer:coarse)').matches;
+        return isMobile ? 'mobile' : 'pc';
+      }
+      setView(guess());
+      // debug flag
+      try{
+        var u2 = new URL(location.href);
+        if(u2.searchParams.get('debug') === '1') document.body.classList.add('debug-view');
+      }catch(e){}
+    })();
+
+    // --- EnterVR buttons + optional orientation lock attempt ---
+    (function(){
+      function lockLandscape(){
+        try{
+          if (screen && screen.orientation && screen.orientation.lock){
+            // some browsers require user gesture; this is best-effort
+            return screen.orientation.lock('landscape').catch(function(){});
+          }
+        }catch(e){}
+        return Promise.resolve();
+      }
+
       function enterVR(){
         try{
           var scene = document.querySelector('a-scene');
-          if (scene && scene.enterVR) scene.enterVR();
+          if (scene && scene.enterVR){
+            lockLandscape();
+            scene.enterVR();
+          }
         }catch(e){}
       }
+
       var b1 = document.getElementById('btnEnterVR');
       var b2 = document.getElementById('btnEnterVR2');
       if (b1) b1.addEventListener('click', enterVR, { passive:true });
       if (b2) b2.addEventListener('click', enterVR, { passive:true });
 
+      // Preview query params
       try{
         var u = new URL(location.href);
         var diff = u.searchParams.get('diff') || 'normal';
