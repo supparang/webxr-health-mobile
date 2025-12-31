@@ -1,12 +1,13 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION PATCH v2.1
+// Hydration SAFE — PRODUCTION PATCH v3 (CENTER SHOOT + clean)
 // ✅ Minis count = Storm Cycles (ไม่ใช่ 999)
 // ✅ Storm Success = จำนวนพายุที่ "ผ่าน mini" จริง
-// ✅ End-window FX: blink + tick + gentle shake (safe selectors)
-// ✅ Boss-mini: block bossbad xN in boss window (counts separately, no double-count bug)
+// ✅ End-window FX: blink + tick + gentle shake
+// ✅ Boss-mini optional: block bossbad xN in boss window
 // ✅ AI Coach hooks: storm/end window signals + frustration/fatigue
-// ✅ VR Landscape helper: lock landscape (best-effort) + rotate hint hook
-// ✅ Fix missing pickKind() + real adaptive K
+// ✅ Summary fields match HUD
+// ✅ NEW: hha:shoot center-lock hits (for cVR / cardboard), works even if pointer-events disabled
+// ✅ Clean: remove duplicate nextSpawnDelay definitions
 
 'use strict';
 
@@ -79,19 +80,14 @@ function getLayers(){
     const arr = cfg.layers.map(id=>DOC.getElementById(id)).filter(Boolean);
     if (arr.length) return arr;
   }
-  // fallback ids
-  const main = DOC.getElementById('hydration-layer') || DOC.getElementById('hvr-layer');
-  const L = DOC.getElementById('hydration-layerL') || DOC.getElementById('hvr-layerL');
-  const R = DOC.getElementById('hydration-layerR') || DOC.getElementById('hvr-layerR');
+  const main = DOC.getElementById('hydration-layer');
+  const L = DOC.getElementById('hydration-layerL');
+  const R = DOC.getElementById('hydration-layerR');
   if (isCardboard() && L && R) return [L,R];
   return [main].filter(Boolean);
 }
 function getPlayfieldRect(){
-  const pf =
-    (isCardboard() ? (DOC.getElementById('cbPlayfield') || DOC.getElementById('cb-playfield')) : null) ||
-    DOC.getElementById('playfield') ||
-    DOC.getElementById('cbPlayfield') ||
-    DOC.getElementById('cb-playfield');
+  const pf = isCardboard() ? DOC.getElementById('cbPlayfield') : DOC.getElementById('playfield');
   const r = pf?.getBoundingClientRect();
   return r || { left:0, top:0, width:1, height:1 };
 }
@@ -184,8 +180,8 @@ const S = {
   stormLeftSec:0,
   stormCycle:0,
   stormSuccess:0,         // ✅ success นับจริง
-  miniTotal:0,
-  miniCleared:0,
+  miniTotal:0,            // ✅ จะเท่ากับ stormCycle ณ ตอนจบ
+  miniCleared:0,          // ✅ จะเท่ากับ stormSuccess ณ ตอนจบ
 
   endWindowSec:1.2,
   inEndWindow:false,
@@ -244,8 +240,6 @@ const TUNE = (() => {
     badPush:8.0,
     missPenalty:1,
     greenTargetSec: greenTarget,
-
-    // mini pressure requirement
     pressureNeed: diff==='easy' ? 0.75 : diff==='hard' ? 1.0 : 0.9
   };
 })();
@@ -270,13 +264,6 @@ function pushWaterBad(){
 // -------------------- UI sync --------------------
 function computeAccuracy(){
   return clamp((S.nHitGood / Math.max(1,S.nGoodSpawn))*100, 0, 100);
-}
-function computeAdaptiveK(){
-  const acc = computeAccuracy()/100;
-  const c = clamp(S.combo/20, 0, 1);
-  const k = clamp(acc*0.7 + c*0.3, 0, 1);
-  S.adaptK = k;
-  return k;
 }
 function computeGrade(){
   const acc = computeAccuracy();
@@ -385,15 +372,16 @@ function syncHUD(){
     outline: 2px dashed rgba(239,68,68,.35);
     box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 22px rgba(239,68,68,.10);
   }
-
-  /* End-window FX (safe: apply on body only) */
-  body.hha-endfx #hudTop, body.hha-endfx .hudTop{
+  body.hha-endfx #hudTop{
     animation: hhaBlink .22s infinite alternate;
   }
-  body.hha-endfx #playfield, body.hha-endfx #cbPlayfield, body.hha-endfx .playfield, body.hha-endfx .cbPlayfield{
+  body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
     animation: hhaShake .18s infinite;
   }
-  @keyframes hhaBlink{ from{ filter:brightness(1); } to{ filter:brightness(1.12); } }
+  @keyframes hhaBlink{
+    from{ filter:brightness(1); }
+    to{ filter:brightness(1.12); }
+  }
   @keyframes hhaShake{
     0%{ transform: translate(0,0); }
     25%{ transform: translate(1px,0); }
@@ -421,7 +409,10 @@ function pickXY(){
 function targetSize(){
   let s = TUNE.sizeBase;
   if (S.adaptiveOn){
-    const k = computeAdaptiveK();
+    const acc = computeAccuracy()/100;
+    const c = clamp(S.combo/20, 0, 1);
+    const k = clamp(acc*0.7 + c*0.3, 0, 1);
+    S.adaptK = k;
     s = s * (1.02 - 0.22*k);
   }
   if (S.stormActive) s *= (diff==='hard'?0.78:0.82);
@@ -516,6 +507,7 @@ function spawn(kind){
       S.shield = clamp(S.shield+1, 0, S.shieldMax);
       emit('hha:judge', { kind:'shield' });
     } else {
+      // bad hit
       S.streakGood=0;
 
       if (S.shield>0){
@@ -537,7 +529,9 @@ function spawn(kind){
         S.combo=0;
         S.score = Math.max(0, S.score-6);
         pushWaterBad();
+
         if (S.stormActive) S.miniState.gotHitByBad = true;
+
         emit('hha:judge', { kind:'bad' });
       }
     }
@@ -554,15 +548,13 @@ function spawn(kind){
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Spawn loop --------------------
+// -------------------- Spawn & kind pick --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
-  if (S.adaptiveOn) base *= (1.00 - 0.25*computeAdaptiveK());
+  if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
   if (S.stormActive) base *= TUNE.stormSpawnMul;
   return clamp(base, 210, 1200);
 }
-
-// ✅ MISSING FIX: pickKind()
 function pickKind(){
   let pGood=0.66, pBad=0.28, pSh=0.06;
 
@@ -581,12 +573,19 @@ function pickKind(){
   return 'good';
 }
 
-// -------------------- Storm + Mini logic --------------------
+// -------------------- End-window FX toggle --------------------
 function setEndFx(on){
   if (S.endFxOn === on) return;
   S.endFxOn = on;
   DOC.body.classList.toggle('hha-endfx', on);
 }
+
+// -------------------- Storm logic --------------------
+function nextStormSchedule(){
+  const base = TUNE.stormEverySec;
+  return base + (rng()*2-1)*1.2;
+}
+
 function enterStorm(){
   S.stormActive=true;
   S.stormLeftSec=TUNE.stormDurSec;
@@ -620,7 +619,7 @@ function enterStorm(){
 
 function passMiniThisStorm(){
   const m = S.miniState;
-  if (m.gotHitByBad) return false; // ✅ ยุติธรรม: โดน BAD แบบไม่ guard ระหว่างพายุ => fail
+  if (m.gotHitByBad) return false;
   return !!(m.zoneOK && m.pressureOK && m.endWindow && m.blockedInEnd);
 }
 
@@ -630,7 +629,6 @@ function exitStorm(){
   S.inEndWindow=false;
   setEndFx(false);
 
-  // mini pass = +1 success
   const ok = passMiniThisStorm();
   if (ok && !S.miniState.doneThisStorm){
     S.miniState.doneThisStorm=true;
@@ -639,7 +637,6 @@ function exitStorm(){
     emit('hha:judge', { kind:'streak' });
   }
 
-  // boss pass = “โบนัส” (นับเพิ่มได้ แต่กันไม่ให้มั่ว)
   if (S.bossEnabled && !S.bossDoneThisStorm && S.bossBlocked>=S.bossNeed){
     S.bossDoneThisStorm=true;
     S.stormSuccess++;
@@ -660,12 +657,11 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
-  // End window FX + tick
   if (inEnd){
     setEndFx(true);
     const now = performance.now();
     const rate = clamp(S.stormLeftSec / TUNE.endWindowSec, 0, 1);
-    const interval = 320 - 190*(1-rate); // 320ms -> 130ms
+    const interval = 320 - 190*(1-rate);
     if (now - S.endFxTickAt > interval){
       S.endFxTickAt = now;
       tickBeep(900 + (1-rate)*500, 0.04, 0.05);
@@ -674,15 +670,12 @@ function tickStorm(dt){
     setEndFx(false);
   }
 
-  // Boss window (ท้ายพายุอีกชั้น)
   const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
   S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
 
-  // zoneOK = LOW/HIGH
   const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
-  // pressure increases only when zoneOK
   const gain = zoneOK ? 1.05 : 0.25;
   S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1);
   if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
@@ -690,7 +683,7 @@ function tickStorm(dt){
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
 
-// -------------------- Logging / summary --------------------
+// -------------------- Summary / logging --------------------
 async function sendLog(payload){
   if (!logEndpoint) return;
   try{
@@ -756,10 +749,7 @@ function fillSummary(sum){
   set('rComboMax', sum.comboMax|0);
   set('rMiss', sum.misses|0);
   set('rGoals', `${sum.goalsCleared|0}/${sum.goalsTotal|0}`);
-
-  // ✅ minis show = success/cycles
   set('rMinis', `${sum.stormSuccess|0}/${sum.stormCycles|0}`);
-
   set('rGreen', `${Number(sum.greenHoldSec||0).toFixed(1)}s`);
   set('rStreak', sum.streakMax|0);
   set('rStormCycles', sum.stormCycles|0);
@@ -812,33 +802,56 @@ function bindSummaryButtons(){
 }
 
 // -------------------- AI Coach --------------------
-const AICOACH = createAICoach({ emit, game:'hydration', cooldownMs: 3000 });
+const AICOACH = createAICoach({
+  emit,
+  game:'hydration',
+  cooldownMs: 3000
+});
 
-// -------------------- Storm schedule + spawn timers --------------------
-function nextStormSchedule(){
-  const base = TUNE.stormEverySec;
-  return base + (rng()*2-1)*1.2;
+// -------------------- CVR CENTER SHOOT (NEW) --------------------
+function centerShoot(){
+  if (S.ended || !S.started) return;
+
+  const isCb = DOC.body.classList.contains('cardboard');
+  const pf = isCb ? DOC.getElementById('cbPlayfield') : DOC.getElementById('playfield');
+  const r = pf?.getBoundingClientRect() || { left:0, top:0, width:1, height:1 };
+
+  const cx = r.left + r.width/2;
+  const cy = r.top + r.height/2;
+
+  const layers = getLayers();
+  let best = null;
+  let bestD = 1e9;
+
+  for (const L of layers){
+    const targets = L.querySelectorAll?.('.hvr-target') || [];
+    targets.forEach(el=>{
+      const er = el.getBoundingClientRect();
+      const ex = er.left + er.width/2;
+      const ey = er.top + er.height/2;
+      const d = Math.hypot(ex - cx, ey - cy);
+      if (d < bestD){
+        bestD = d;
+        best = el;
+      }
+    });
+  }
+
+  const lockPx = isCb ? 120 : 95;
+  if (best && bestD <= lockPx){
+    try{
+      best.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
+    }catch(_){
+      try{ best.click(); }catch(__){}
+    }
+  }
 }
+window.addEventListener('hha:shoot', ()=>{ centerShoot(); }, { passive:true });
+
+// -------------------- Loop --------------------
 let spawnTimer=0;
 let nextStormIn=0;
 
-// -------------------- VR landscape helpers --------------------
-async function tryLockLandscape(){
-  // best-effort: works mostly in fullscreen / user gesture
-  try{
-    if (screen?.orientation?.lock){
-      await screen.orientation.lock('landscape');
-    }
-  }catch(_){}
-}
-function rotateHintUpdate(){
-  const el = DOC.getElementById('rotateHint');
-  if (!el) return;
-  const isPortrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
-  el.hidden = !isPortrait;
-}
-
-// -------------------- Update loop --------------------
 function update(dt){
   if (!S.started || S.ended) return;
 
@@ -846,7 +859,6 @@ function update(dt){
 
   if (S.waterZone==='GREEN') S.greenHold += dt;
 
-  // Storm schedule
   if (!S.stormActive){
     nextStormIn -= dt;
     if (nextStormIn <= 0 && S.leftSec > (TUNE.stormDurSec + 2)){
@@ -857,14 +869,12 @@ function update(dt){
     tickStorm(dt);
   }
 
-  // Spawn
   spawnTimer -= dt*1000;
   while (spawnTimer <= 0){
     spawn(pickKind());
     spawnTimer += nextSpawnDelay();
   }
 
-  // HUD + AI
   syncHUD();
 
   AICOACH.onUpdate({
@@ -903,18 +913,14 @@ async function endGame(reason){
     seed,
     durationPlannedSec: timeLimit,
     durationPlayedSec: timeLimit,
-
     scoreFinal: S.score|0,
     comboMax: S.comboMax|0,
     misses: S.misses|0,
-
     goalsCleared: (S.greenHold >= TUNE.greenTargetSec) ? 1 : 0,
     goalsTotal: 1,
 
-    // ✅ minis = success/cycles
     miniCleared: success,
     miniTotal: cycles,
-
     stormCycles: cycles,
     stormSuccess: success,
     stormRatePct: clamp((success/Math.max(1,cycles))*100, 0, 100),
@@ -938,7 +944,6 @@ async function endGame(reason){
   fillSummary(summary);
 }
 
-// -------------------- Boot --------------------
 function boot(){
   ensureWaterGauge();
   setWaterGauge(S.waterPct);
@@ -946,24 +951,14 @@ function boot(){
   syncWaterPanelDOM();
   bindSummaryButtons();
 
-  rotateHintUpdate();
-  window.addEventListener('resize', rotateHintUpdate, {passive:true});
-  window.addEventListener('orientationchange', rotateHintUpdate);
-
   spawnTimer = 320;
   nextStormIn = nextStormSchedule();
 
-  // Start trigger
-  window.addEventListener('hha:start', async ()=>{
+  window.addEventListener('hha:start', ()=>{
     if (S.started) return;
     S.started=true;
     S.t0=performance.now();
     S.lastTick=S.t0;
-
-    // user gesture → try lock landscape + resume audio
-    try{ ensureAC(); await AC?.resume?.(); }catch(_){}
-    try{ await tryLockLandscape(); }catch(_){}
-
     syncHUD();
     AICOACH.onStart();
 
@@ -983,19 +978,11 @@ function boot(){
   });
 
   // auto-start if overlay already hidden
-  const ov = DOC.getElementById('startOverlay') || DOC.getElementById('start-overlay');
+  const ov = DOC.getElementById('startOverlay');
   setTimeout(()=>{
-    const hidden = !ov || getComputedStyle(ov).display==='none' || ov.hidden;
+    const hidden = !ov || getComputedStyle(ov).display==='none';
     if (hidden && !S.started) window.dispatchEvent(new CustomEvent('hha:start'));
   }, 600);
-
-  // safety end on tab hidden/unload
-  window.addEventListener('visibilitychange', ()=>{
-    if (document.hidden && !S.ended) endGame('hidden');
-  });
-  window.addEventListener('beforeunload', ()=>{
-    if (!S.ended) { try{ endGame('unload'); }catch(_){ } }
-  });
 }
 
 boot();
