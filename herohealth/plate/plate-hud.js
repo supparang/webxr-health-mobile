@@ -1,8 +1,7 @@
 // === /herohealth/plate/plate-hud.js ===
 // Balanced Plate VR — HUD Binder (PRODUCTION)
-// ✅ Listens: hha:score, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
-// ✅ Updates DOM ids in /herohealth/plate-vr.html
-// ✅ Adds: mini toast, combo glow, fever-high state, shield pulse, grade styling
+// ✅ Listen: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
+// ✅ Adds: toast judge overlay (non-blocking) + fever-high class auto
 // ✅ Safe: if element missing -> skip
 
 (function (root) {
@@ -11,179 +10,219 @@
   const DOC = root.document;
   if (!DOC) return;
 
+  // ---------- utils ----------
   const qs = (id) => DOC.getElementById(id);
+  const setText = (id, v) => {
+    const el = qs(id);
+    if (el) el.textContent = String(v);
+  };
   const clamp = (v, a, b) => {
     v = Number(v) || 0;
     return v < a ? a : (v > b ? b : v);
   };
 
-  // ---- DOM handles (all optional) ----
-  const hudTop = qs('hudTop');
-  const miniPanel = qs('miniPanel');
-  const coachPanel = qs('coachPanel');
+  // ---------- element refs (optional) ----------
+  const el = {
+    uiScore: qs('uiScore'),
+    uiCombo: qs('uiCombo'),
+    uiComboMax: qs('uiComboMax'),
+    uiMiss: qs('uiMiss'),
+    uiPlateHave: qs('uiPlateHave'),
+    uiG1: qs('uiG1'), uiG2: qs('uiG2'), uiG3: qs('uiG3'), uiG4: qs('uiG4'), uiG5: qs('uiG5'),
+    uiAcc: qs('uiAcc'),
+    uiGrade: qs('uiGrade'),
+    uiTime: qs('uiTime'),
+    uiFeverFill: qs('uiFeverFill'),
+    uiShieldN: qs('uiShieldN'),
 
-  const uiScore = qs('uiScore');
-  const uiCombo = qs('uiCombo');
-  const uiComboMax = qs('uiComboMax');
-  const uiMiss = qs('uiMiss');
-  const uiPlateHave = qs('uiPlateHave');
-  const uiG1 = qs('uiG1');
-  const uiG2 = qs('uiG2');
-  const uiG3 = qs('uiG3');
-  const uiG4 = qs('uiG4');
-  const uiG5 = qs('uiG5');
-  const uiAcc = qs('uiAcc');
-  const uiGrade = qs('uiGrade');
-  const uiTime = qs('uiTime');
-  const uiFeverFill = qs('uiFeverFill');
-  const uiShieldN = qs('uiShieldN');
+    uiGoalTitle: qs('uiGoalTitle'),
+    uiGoalCount: qs('uiGoalCount'),
+    uiGoalFill: qs('uiGoalFill'),
 
-  const uiGoalTitle = qs('uiGoalTitle');
-  const uiGoalCount = qs('uiGoalCount');
-  const uiGoalFill  = qs('uiGoalFill');
+    uiMiniTitle: qs('uiMiniTitle'),
+    uiMiniCount: qs('uiMiniCount'),
+    uiMiniTime: qs('uiMiniTime'),
+    uiMiniFill: qs('uiMiniFill'),
+    uiHint: qs('uiHint'),
 
-  const uiMiniTitle = qs('uiMiniTitle');
-  const uiMiniCount = qs('uiMiniCount');
-  const uiMiniTime  = qs('uiMiniTime');
-  const uiMiniFill  = qs('uiMiniFill');
-  const uiHint      = qs('uiHint');
+    coachMsg: qs('coachMsg'),
+    coachImg: qs('coachImg'),
+    coachName: (function(){
+      const p = qs('coachPanel');
+      if(!p) return null;
+      return p.querySelector('.coachName');
+    })(),
 
-  const coachMsg = qs('coachMsg');
-  const coachImg = qs('coachImg');
+    resultBackdrop: qs('resultBackdrop'),
 
-  // result panel (optional)
-  const resultBackdrop = qs('resultBackdrop');
-  const rMode = qs('rMode');
-  const rGrade = qs('rGrade');
-  const rScore = qs('rScore');
-  const rMaxCombo = qs('rMaxCombo');
-  const rMiss = qs('rMiss');
-  const rPerfect = qs('rPerfect');
-  const rGoals = qs('rGoals');
-  const rMinis = qs('rMinis');
-  const rG1 = qs('rG1');
-  const rG2 = qs('rG2');
-  const rG3 = qs('rG3');
-  const rG4 = qs('rG4');
-  const rG5 = qs('rG5');
-  const rGTotal = qs('rGTotal');
+    // result ids (optional)
+    rMode: qs('rMode'),
+    rGrade: qs('rGrade'),
+    rScore: qs('rScore'),
+    rMaxCombo: qs('rMaxCombo'),
+    rMiss: qs('rMiss'),
+    rPerfect: qs('rPerfect'),
+    rGoals: qs('rGoals'),
+    rMinis: qs('rMinis'),
+    rG1: qs('rG1'), rG2: qs('rG2'), rG3: qs('rG3'), rG4: qs('rG4'), rG5: qs('rG5'),
+    rGTotal: qs('rGTotal'),
+  };
 
-  // ---- Toast layer (judge / celebrate) ----
-  function ensureToast() {
-    let wrap = DOC.querySelector('.plateToastWrap');
-    if (wrap) return wrap;
-
-    wrap = DOC.createElement('div');
-    wrap.className = 'plateToastWrap';
-    wrap.style.cssText = `
-      position:fixed; left:0; right:0;
-      top: calc(env(safe-area-inset-top, 0px) + 108px);
-      z-index:95;
-      display:flex; justify-content:center;
+  // ---------- judge toast (overlay) ----------
+  function ensureToast(){
+    let host = DOC.querySelector('.plate-judge-toast');
+    if (host) return host;
+    host = DOC.createElement('div');
+    host.className = 'plate-judge-toast';
+    host.style.cssText = `
+      position:fixed;
+      left:50%;
+      top:calc(12px + env(safe-area-inset-top,0px));
+      transform:translateX(-50%);
+      z-index:85;
       pointer-events:none;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      align-items:center;
+      width:min(560px, calc(100vw - 24px));
     `;
-    const inner = DOC.createElement('div');
-    inner.className = 'plateToast';
-    inner.style.cssText = `
-      max-width:min(560px, 92vw);
-      padding:10px 12px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.62);
-      backdrop-filter: blur(10px);
-      box-shadow: 0 18px 44px rgba(0,0,0,.28);
-      font: 1100 13px/1.15 system-ui;
-      color: rgba(229,231,235,.95);
-      opacity:0;
-      transform: translateY(-6px) scale(.98);
-      transition: opacity .14s ease, transform .14s ease;
-      text-align:center;
-      white-space:pre-wrap;
+    DOC.body.appendChild(host);
+
+    const st = DOC.createElement('style');
+    st.textContent = `
+      .plate-judge-toast .toast{
+        width:100%;
+        border-radius:18px;
+        padding:10px 12px;
+        border:1px solid rgba(148,163,184,.16);
+        background: rgba(2,6,23,.72);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 18px 60px rgba(0,0,0,.35);
+        font: 1000 13px/1.3 system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
+        color: rgba(229,231,235,.96);
+        opacity:0;
+        transform: translateY(-6px);
+        animation: plateToastIn .16s ease-out forwards;
+      }
+      .plate-judge-toast .toast.good{
+        border-color: rgba(34,197,94,.22);
+        background: rgba(34,197,94,.10);
+      }
+      .plate-judge-toast .toast.warn{
+        border-color: rgba(250,204,21,.22);
+        background: rgba(250,204,21,.10);
+      }
+      .plate-judge-toast .toast.bad{
+        border-color: rgba(239,68,68,.22);
+        background: rgba(239,68,68,.10);
+      }
+      @keyframes plateToastIn{
+        to{ opacity:1; transform: translateY(0px); }
+      }
+      @keyframes plateToastOut{
+        to{ opacity:0; transform: translateY(-8px); }
+      }
     `;
-    wrap.appendChild(inner);
-    DOC.body.appendChild(wrap);
-    return wrap;
+    DOC.head.appendChild(st);
+    return host;
   }
 
-  function toast(text, kind) {
-    const wrap = ensureToast();
-    const el = wrap.querySelector('.plateToast');
-    if (!el) return;
+  function showToast(text, kind){
+    if(!text) return;
+    const host = ensureToast();
+    const t = DOC.createElement('div');
+    t.className = `toast ${kind||''}`.trim();
+    t.textContent = String(text);
+    host.appendChild(t);
 
-    // kind styling
-    const k = (kind || 'info').toLowerCase();
-    let border = 'rgba(148,163,184,.18)';
-    let bg = 'rgba(2,6,23,.62)';
-    if (k === 'good' || k === 'success') { border = 'rgba(34,197,94,.28)'; bg = 'rgba(34,197,94,.10)'; }
-    if (k === 'warn' || k === 'warning') { border = 'rgba(250,204,21,.30)'; bg = 'rgba(250,204,21,.10)'; }
-    if (k === 'bad'  || k === 'error')   { border = 'rgba(239,68,68,.28)'; bg = 'rgba(239,68,68,.10)'; }
-
-    el.style.borderColor = border;
-    el.style.background = bg;
-    el.textContent = String(text || '');
-
-    // show
-    el.style.opacity = '1';
-    el.style.transform = 'translateY(0px) scale(1)';
-
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => {
-      el.style.opacity = '0';
-      el.style.transform = 'translateY(-6px) scale(.98)';
-    }, 950);
+    const life = (kind === 'bad') ? 1100 : (kind === 'warn' ? 950 : 850);
+    root.setTimeout(()=>{
+      try{
+        t.style.animation = 'plateToastOut .18s ease-in forwards';
+        root.setTimeout(()=>{ try{ t.remove(); }catch(_){ } }, 220);
+      }catch(_){}
+    }, life);
   }
 
-  // ---- Small HUD polish ----
-  function setText(el, v) {
-    if (!el) return;
-    el.textContent = String(v);
-  }
-
-  function setBar(el, pct) {
-    if (!el) return;
-    el.style.width = `${clamp(pct, 0, 100)}%`;
-  }
-
-  function setGradeUI(grade, accPct) {
-    if (uiGrade) uiGrade.textContent = String(grade || 'C');
-    if (uiAcc) uiAcc.textContent = `${Math.round(Number(accPct) || 0)}%`;
-
-    // subtle emphasis on top chip
-    if (!hudTop) return;
-    hudTop.classList.remove('hha-combo-glow');
-  }
-
-  function pulseShield() {
-    const pill = DOC.getElementById('uiShield');
-    if (!pill) return;
-    pill.animate(
-      [
-        { transform:'scale(1)', filter:'none' },
-        { transform:'scale(1.06)', filter:'brightness(1.15)' },
-        { transform:'scale(1)', filter:'none' },
-      ],
-      { duration: 260, easing:'ease-out' }
-    );
-  }
-
-  function comboGlow() {
-    if (!hudTop) return;
-    hudTop.classList.add('hha-combo-glow');
-    clearTimeout(comboGlow._t);
-    comboGlow._t = setTimeout(() => hudTop.classList.remove('hha-combo-glow'), 260);
-  }
-
-  function setFeverState(fever) {
-    const f = Number(fever) || 0;
-    if (!DOC.body) return;
-    if (f >= 80) DOC.body.classList.add('fever-high');
+  // ---------- fever-high helper ----------
+  function syncFeverClass(fever){
+    const v = Number(fever)||0;
+    if (v >= 80) DOC.body.classList.add('fever-high');
     else DOC.body.classList.remove('fever-high');
   }
 
-  function setCoach(mood, msg) {
-    if (coachMsg && msg != null) coachMsg.textContent = String(msg);
+  // ---------- Quest UI ----------
+  function syncGoal(goal){
+    if(!goal){
+      if(el.uiGoalTitle) el.uiGoalTitle.textContent = '—';
+      if(el.uiGoalCount) el.uiGoalCount.textContent = '0/0';
+      if(el.uiGoalFill)  el.uiGoalFill.style.width = '0%';
+      return;
+    }
+    if(el.uiGoalTitle) el.uiGoalTitle.textContent = String(goal.title || '—');
+    if(el.uiGoalCount) el.uiGoalCount.textContent = `${Number(goal.cur)||0}/${Number(goal.target)||0}`;
+    if(el.uiGoalFill){
+      const t = Number(goal.target)||0;
+      const c = Number(goal.cur)||0;
+      const pct = t>0 ? (c/t*100) : 0;
+      el.uiGoalFill.style.width = `${clamp(pct,0,100)}%`;
+    }
+  }
 
-    if (coachImg) {
+  function syncMini(mini, meta){
+    // meta can contain miniCleared/minisTotal, if caller wants to render count.
+    if(!mini || (!mini.title && !mini.target && !mini.timeLeft)){
+      if(el.uiMiniTitle) el.uiMiniTitle.textContent = '—';
+      if(el.uiMiniTime)  el.uiMiniTime.textContent  = '--';
+      if(el.uiMiniFill)  el.uiMiniFill.style.width  = '0%';
+      if(el.uiHint)      el.uiHint.textContent      = 'ทริค: เก็บให้ครบ 5 หมู่ไว ๆ แล้วคุมความแม่นยำ!';
+      if(el.uiMiniCount && meta){
+        el.uiMiniCount.textContent = `${meta.miniCleared||0}/${meta.miniTotal||0}`;
+      }
+      return;
+    }
+
+    if(el.uiMiniTitle) el.uiMiniTitle.textContent = String(mini.title || '—');
+
+    // timeLeft display (sec)
+    if(el.uiMiniTime){
+      if(mini.timeLeft == null) el.uiMiniTime.textContent = '--';
+      else el.uiMiniTime.textContent = `${Math.max(0, Math.ceil(Number(mini.timeLeft)||0))}s`;
+    }
+
+    // fill (progress by elapsed)
+    if(el.uiMiniFill){
+      const T = Number(mini.target)||0;
+      const tl = (mini.timeLeft==null) ? null : Number(mini.timeLeft)||0;
+      let pct = 0;
+      if(T>0 && tl!=null){
+        pct = ((T - Math.max(0, tl)) / T) * 100;
+      }
+      el.uiMiniFill.style.width = `${clamp(pct,0,100)}%`;
+    }
+
+    if(el.uiHint){
+      // keep hint short + punchy
+      el.uiHint.textContent = (mini.forbidJunk)
+        ? 'ทริค: เร่งเก็บหมู่ที่ยังขาด! ห้ามโดนขยะเด็ดขาด!'
+        : 'ทริค: คุมจังหวะ + คอมโบ + ความแม่นยำ!';
+    }
+
+    if(el.uiMiniCount && meta){
+      el.uiMiniCount.textContent = `${meta.miniCleared||0}/${meta.miniTotal||0}`;
+    }
+  }
+
+  // ---------- Coach ----------
+  function syncCoach(msg, mood){
+    if(el.coachMsg && msg) el.coachMsg.textContent = String(msg);
+
+    // Optional: if you ever want per-game coach name
+    // if(el.coachName) el.coachName.textContent = 'Hero Coach';
+
+    // Mood image mapping (matches /herohealth/img names in your memory)
+    if(el.coachImg){
       const m = String(mood || 'neutral').toLowerCase();
       const map = {
         happy: './img/coach-happy.png',
@@ -191,152 +230,146 @@
         sad: './img/coach-sad.png',
         fever: './img/coach-fever.png',
       };
-      coachImg.src = map[m] || map.neutral;
+      el.coachImg.src = map[m] || map.neutral;
     }
   }
 
-  // ---- Event handlers ----
-  function onScore(ev) {
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.game && d.game !== 'plate') return;
+  // ---------- Score packet ----------
+  function onScore(detail){
+    if(!detail) return;
 
-    setText(uiScore, d.score ?? 0);
-    setText(uiCombo, d.combo ?? 0);
-    setText(uiComboMax, d.comboMax ?? 0);
-    setText(uiMiss, d.miss ?? 0);
+    // update simple HUD
+    if(el.uiScore) el.uiScore.textContent = String(detail.score ?? 0);
+    if(el.uiCombo) el.uiCombo.textContent = String(detail.combo ?? 0);
+    if(el.uiComboMax) el.uiComboMax.textContent = String(detail.comboMax ?? 0);
+    if(el.uiMiss) el.uiMiss.textContent = String(detail.miss ?? 0);
+    if(el.uiPlateHave) el.uiPlateHave.textContent = String(detail.plateHave ?? 0);
 
-    setText(uiPlateHave, d.plateHave ?? 0);
-
-    if (Array.isArray(d.gCount)) {
-      setText(uiG1, d.gCount[0] ?? 0);
-      setText(uiG2, d.gCount[1] ?? 0);
-      setText(uiG3, d.gCount[2] ?? 0);
-      setText(uiG4, d.gCount[3] ?? 0);
-      setText(uiG5, d.gCount[4] ?? 0);
+    if(Array.isArray(detail.gCount)){
+      if(el.uiG1) el.uiG1.textContent = String(detail.gCount[0] ?? 0);
+      if(el.uiG2) el.uiG2.textContent = String(detail.gCount[1] ?? 0);
+      if(el.uiG3) el.uiG3.textContent = String(detail.gCount[2] ?? 0);
+      if(el.uiG4) el.uiG4.textContent = String(detail.gCount[3] ?? 0);
+      if(el.uiG5) el.uiG5.textContent = String(detail.gCount[4] ?? 0);
     }
 
-    setText(uiTime, d.timeLeftSec ?? (qs('uiTime') ? qs('uiTime').textContent : 0));
+    // accuracy & grade
+    if(el.uiAcc){
+      const a = Number(detail.accuracyGoodPct)||0;
+      el.uiAcc.textContent = `${Math.round(a)}%`;
+    }
+    if(el.uiGrade) el.uiGrade.textContent = String(detail.grade || 'C');
 
-    const fever = Number(d.fever) || 0;
-    setBar(uiFeverFill, fever);
-    setFeverState(fever);
+    // fever bar + class
+    if(el.uiFeverFill){
+      el.uiFeverFill.style.width = `${clamp(detail.fever||0,0,100)}%`;
+    }
+    syncFeverClass(detail.fever||0);
 
-    const shield = Number(d.shield) || 0;
-    setText(uiShieldN, shield);
-    if (shield > (onScore._lastShield || 0)) pulseShield();
-    onScore._lastShield = shield;
-
-    const acc = Number(d.accuracyGoodPct) || 0;
-    const grade = d.grade || 'C';
-    setGradeUI(grade, acc);
-
-    if ((Number(d.combo) || 0) >= 6) comboGlow();
+    // shield
+    if(el.uiShieldN) el.uiShieldN.textContent = String(detail.shield ?? 0);
   }
 
-  function onQuest(ev) {
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.game && d.game !== 'plate') return;
+  function onTime(detail){
+    if(!detail) return;
+    if(el.uiTime) el.uiTime.textContent = String(detail.timeLeftSec ?? detail.timeLeft ?? detail.time ?? '');
+  }
+
+  // quest:update packet is already shaped by plate.safe.js
+  function onQuestUpdate(detail){
+    if(!detail) return;
 
     // goal
-    if (d.goal) {
-      setText(uiGoalTitle, d.goal.title ?? '—');
-      const cur = Number(d.goal.cur) || 0;
-      const tar = Number(d.goal.target) || 0;
-      setText(uiGoalCount, `${cur}/${tar}`);
-      setBar(uiGoalFill, tar ? (cur / tar * 100) : 0);
-    }
+    syncGoal(detail.goal || null);
 
     // mini
-    if (d.mini) {
-      setText(uiMiniTitle, d.mini.title ?? '—');
+    // If you want count, we can't know total here; plate.safe.js sets uiMiniCount anyway.
+    syncMini(detail.mini || null, null);
+  }
 
-      if (uiMiniCount) {
-        // some games send cur/target; plate.safe.js sends miniCleared separately in its own UI
-        const cur = Number(d.mini.cur) || 0;
-        const tar = Number(d.mini.target) || 0;
-        uiMiniCount.textContent = (tar > 0) ? `${cur}/${tar}` : (uiMiniCount.textContent || '0/0');
-      }
+  function onJudge(detail){
+    if(!detail) return;
+    showToast(detail.text || detail.msg || '', detail.kind || 'good');
+  }
 
-      const tl = d.mini.timeLeft;
-      if (uiMiniTime) {
-        if (tl == null || !isFinite(tl)) uiMiniTime.textContent = '--';
-        else uiMiniTime.textContent = `${Math.ceil(Number(tl) || 0)}s`;
-      }
+  function onEnd(detail){
+    if(!detail || !detail.summary) return;
+    const s = detail.summary;
 
-      if (uiMiniFill) {
-        const tar = Number(d.mini.target) || 0;
-        const tlN = (tl == null) ? null : Number(tl) || 0;
-        const pct = (tar > 0 && tlN != null) ? ((tar - tlN) / tar * 100) : 0;
-        setBar(uiMiniFill, pct);
-      }
+    // Freeze fever class based on final
+    syncFeverClass(s.fever || 0);
+
+    // If result overlay exists, populate (plate.safe.js already does this, but safe to reinforce)
+    if(el.rMode) el.rMode.textContent = String(s.runMode || s.mode || '');
+    if(el.rGrade) el.rGrade.textContent = String(s.grade || '');
+    if(el.rScore) el.rScore.textContent = String(s.scoreFinal ?? 0);
+    if(el.rMaxCombo) el.rMaxCombo.textContent = String(s.comboMax ?? 0);
+    if(el.rMiss) el.rMiss.textContent = String(s.misses ?? 0);
+    if(el.rPerfect) el.rPerfect.textContent = `${Math.round(Number(s.fastHitRatePct)||0)}%`;
+    if(el.rGoals) el.rGoals.textContent = `${s.goalsCleared||0}/${s.goalsTotal||0}`;
+    if(el.rMinis) el.rMinis.textContent = `${s.miniCleared||0}/${s.miniTotal||0}`;
+
+    if(s.plate && Array.isArray(s.plate.counts)){
+      if(el.rG1) el.rG1.textContent = String(s.plate.counts[0]??0);
+      if(el.rG2) el.rG2.textContent = String(s.plate.counts[1]??0);
+      if(el.rG3) el.rG3.textContent = String(s.plate.counts[2]??0);
+      if(el.rG4) el.rG4.textContent = String(s.plate.counts[3]??0);
+      if(el.rG5) el.rG5.textContent = String(s.plate.counts[4]??0);
+      if(el.rGTotal) el.rGTotal.textContent = String(s.plate.total ?? 0);
     }
+
+    // Make sure overlay is visible if present
+    if(el.resultBackdrop) el.resultBackdrop.style.display = 'grid';
   }
 
-  function onCoach(ev) {
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.game && d.game !== 'plate') return;
-    setCoach(d.mood, d.msg);
+  function onCoach(detail){
+    if(!detail) return;
+    if(detail.game && String(detail.game) !== 'plate') return;
+    if(detail.msg) syncCoach(detail.msg, detail.mood);
   }
 
-  function onJudge(ev) {
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.game && d.game !== 'plate') return;
-    if (!d.text) return;
-    toast(d.text, d.kind || 'info');
+  // ---------- bind events ----------
+  function bind(){
+    root.addEventListener('hha:score', (e)=>{
+      const d = e && e.detail;
+      if(d && d.game && String(d.game) !== 'plate') return;
+      onScore(d);
+    });
+
+    root.addEventListener('hha:time', (e)=>{
+      const d = e && e.detail;
+      if(d && d.game && String(d.game) !== 'plate') return;
+      onTime(d);
+    });
+
+    root.addEventListener('quest:update', (e)=>{
+      const d = e && e.detail;
+      if(d && d.game && String(d.game) !== 'plate') return;
+      onQuestUpdate(d);
+    });
+
+    root.addEventListener('hha:coach', (e)=>{
+      const d = e && e.detail;
+      onCoach(d);
+    });
+
+    root.addEventListener('hha:judge', (e)=>{
+      const d = e && e.detail;
+      if(d && d.game && String(d.game) !== 'plate') return;
+      onJudge(d);
+    });
+
+    root.addEventListener('hha:end', (e)=>{
+      const d = e && e.detail;
+      if(d && d.game && String(d.game) !== 'plate') return;
+      onEnd(d);
+    });
   }
 
-  function onEnd(ev) {
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.game && d.game !== 'plate') return;
-    const s = d.summary || null;
-    if (!s) return;
+  // ---------- init ----------
+  bind();
 
-    // if plate.safe.js already shows result, this is just a safe mirror
-    if (resultBackdrop) resultBackdrop.style.display = 'grid';
+  // Default coach fallback (in case JS loads before plate.safe.js emits anything)
+  if(el.coachMsg && !el.coachMsg.textContent) el.coachMsg.textContent = 'พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪';
 
-    setText(rMode, s.runMode || s.mode || 'play');
-    setText(rGrade, s.grade || 'C');
-    setText(rScore, s.scoreFinal ?? 0);
-    setText(rMaxCombo, s.comboMax ?? 0);
-    setText(rMiss, s.misses ?? 0);
-    setText(rPerfect, (s.fastHitRatePct != null) ? (Math.round(Number(s.fastHitRatePct) || 0) + '%') : '0%');
-    setText(rGoals, `${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0}`);
-    setText(rMinis, `${s.miniCleared ?? 0}/${s.miniTotal ?? (s.miniCleared ?? 0)}`);
-
-    const plate = s.plate || {};
-    const c = Array.isArray(plate.counts) ? plate.counts : [0,0,0,0,0];
-    setText(rG1, c[0] ?? 0);
-    setText(rG2, c[1] ?? 0);
-    setText(rG3, c[2] ?? 0);
-    setText(rG4, c[3] ?? 0);
-    setText(rG5, c[4] ?? 0);
-    setText(rGTotal, plate.total ?? (c.reduce((a,b)=>a+(Number(b)||0),0)));
-  }
-
-  function onCelebrate(ev) {
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if (d.game && d.game !== 'plate') return;
-
-    const kind = String(d.kind || '').toLowerCase();
-    if (kind === 'goal') toast('🎯 GOAL COMPLETE!', 'good');
-    else if (kind === 'mini') toast('⚡ MINI COMPLETE!', 'warn');
-    else if (kind === 'end') toast('🏁 END!', 'good');
-  }
-
-  // ---- Wire events ----
-  root.addEventListener('hha:score', onScore);
-  root.addEventListener('quest:update', onQuest);
-  root.addEventListener('hha:coach', onCoach);
-  root.addEventListener('hha:judge', onJudge);
-  root.addEventListener('hha:end', onEnd);
-  root.addEventListener('hha:celebrate', onCelebrate);
-
-  // ---- Initial state: show coach panel even before first event ----
-  // (if plate.safe.js hasn't emitted yet)
-  try {
-    if (coachPanel && coachMsg && !coachMsg.textContent) {
-      coachMsg.textContent = 'พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪';
-    }
-  } catch (_) {}
-
-})(typeof window !== 'undefined' ? window : globalThis);
+})(window);
