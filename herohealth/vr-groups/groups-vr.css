@@ -1,31 +1,26 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — PRODUCTION CSS (Candy + HUD + Overlays + VR-feel Targets)
-✅ HUD above gameplay
-✅ fg-layer uses --vx/--vy translate
-✅ Targets absolute (move with fg-layer)
-✅ 3 Layout Profiles: PC / Mobile / cVR (Cardboard)
-✅ Mini urgent pulse + vignette for VR feel
+Food Groups VR — RUN CSS (Responsive PC/Mobile/cVR)
+✅ 4 views: view-pc / view-mobile / view-vr / view-cvr
+✅ cVR: targets pointer-events OFF (ยิงจากกลางจอด้วย vr-ui -> hha:shoot)
+✅ Safe-area + HUD/Quest/Power/Coach layout ready
+✅ Storm / Urgent / Overdrive / Freeze / Clutch FX hooks
 */
 
 :root{
   color-scheme: dark;
-
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.72);
-  --stroke:rgba(148,163,184,.22);
-
+  --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
   --accent:#22c55e;
+  --cyan:#22d3ee;
   --warn:#f59e0b;
   --bad:#ef4444;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
 
   --radius-lg:18px;
-  --radius-md:14px;
   --radius-pill:999px;
 
   /* safe-area */
@@ -34,659 +29,198 @@ Food Groups VR — PRODUCTION CSS (Candy + HUD + Overlays + VR-feel Targets)
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  /* HUD scale (tunable per view) */
-  --hudScale: 1;
-  --hudAlpha: 1;
-  --hudBlur: 10px;
+  /* playfield translate (VR feel) */
+  --vx: 0px;
+  --vy: 0px;
 
-  /* Candy palette */
-  --candy-pink: rgba(244,114,182,.38);
-  --candy-cyan: rgba(34,211,238,.30);
-  --candy-lime: rgba(34,197,94,.30);
-  --candy-amber: rgba(250,204,21,.34);
-  --candy-violet: rgba(167,139,250,.30);
+  /* spawn size base */
+  --t-size: 78px;
 
-  --stickerBorder: rgba(255,255,255,.85);
-  --stickerEdge: rgba(2,6,23,.24);
-  --stickerShadow: rgba(0,0,0,.42);
-
-  --candy-stripes:
-    repeating-linear-gradient(45deg,
-      rgba(255,255,255,.18) 0px,
-      rgba(255,255,255,.18) 8px,
-      rgba(255,255,255,0) 8px,
-      rgba(255,255,255,0) 16px);
-
-  --candy-polka:
-    radial-gradient(circle at 18px 18px, rgba(255,255,255,.16) 0 6px, rgba(255,255,255,0) 7px),
-    radial-gradient(circle at 46px 44px, rgba(255,255,255,.12) 0 5px, rgba(255,255,255,0) 6px);
+  /* crosshair */
+  --cross: rgba(226,232,240,.88);
+  --cross2: rgba(34,211,238,.55);
 }
 
 *{ box-sizing:border-box; }
-
-html, body{
+html,body{
   margin:0;
   width:100%;
   height:100%;
   overflow:hidden;
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg);
   color:var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(34,211,238,.14), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(167,139,250,.14), transparent 60%),
-    var(--bg);
-}
-
-/* ==============
-   Universal VR UI layer (from /herohealth/vr/vr-ui.js)
-   Keep above HUD? Actually HUD should be above gameplay but VR UI can be top too.
-   We'll leave vr-ui default z-index, and ensure HUD doesn't block center.
-============== */
-
-/* A-Frame embedded scene don't cover HUD */
-a-scene[embedded]{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:0 !important;
-}
-
-/* ======================
-   Gameplay Layer
-   ====================== */
-.fg-layer{
-  position:fixed;
-  inset:0;
-  z-index:3; /* below HUD */
-  pointer-events:auto;
-
-  transform: translate(var(--vx,0px), var(--vy,0px));
-  will-change: transform;
-
+  font-family:system-ui,-apple-system,Segoe UI,sans-serif;
   touch-action:none;
+}
+
+/* ====== LAYER ====== */
+#fg-layer{
+  position:fixed;
+  inset:0;
+  transform: translate(var(--vx), var(--vy));
+  will-change: transform;
+  z-index: 10;
   user-select:none;
+  touch-action:none;
 }
 
-/* Optional: No-Junk ring (set --nojunk-*) */
-.fg-layer::before{
-  content:"";
-  position:fixed;
-  left: var(--nojunk-cx, 50vw);
-  top:  var(--nojunk-cy, 50vh);
-  width: calc(var(--nojunk-r, 0px) * 2);
-  height: calc(var(--nojunk-r, 0px) * 2);
-  transform: translate(-50%,-50%);
-  border-radius:999px;
-  pointer-events:none;
-  opacity: calc(var(--nojunk-on, 0) * 0.18);
-  border:2px dashed rgba(255,255,255,.35);
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
-}
-
-/* ======================
-   VR vibe overlays
-   ====================== */
-.vignette{
-  position:fixed;
-  inset:-2px;
-  pointer-events:none;
-  z-index:7; /* below HUD (8) but above gameplay */
-  opacity:.0;
-  transition: opacity .18s ease;
-  background:
-    radial-gradient(circle at center, rgba(0,0,0,0) 58%, rgba(0,0,0,.55) 100%);
-}
-body.view-cvr .vignette{ opacity:.55; }
-body.groups-storm .vignette{ opacity:.68; }
-body.clutch .vignette{ opacity:.75; }
-
-/* ======================
-   HUD (new layout grid)
-   - TOP-LEFT: Score
-   - TOP-CENTER: Pills
-   - TOP-RIGHT: Time/Grade
-   - RIGHT: Goal/Mini (stack)
-   - BOTTOM-RIGHT: Coach
-   - BOTTOM: Power bar
-   ====================== */
-
-.hud-root{
-  position:fixed;
-  inset:0;
-  z-index:8;
-  pointer-events:none;
-  transform: scale(var(--hudScale));
-  transform-origin: top left;
-  opacity: var(--hudAlpha);
-}
-
-.hud-card{
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius:var(--radius-lg);
-  box-shadow:0 18px 60px rgba(0,0,0,.45);
-  padding:12px;
-  backdrop-filter: blur(var(--hudBlur));
-  -webkit-backdrop-filter: blur(var(--hudBlur));
-}
-
-.hud-topbar{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  top:calc(10px + var(--sat));
-  display:grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap:10px;
-  align-items:start;
-  pointer-events:none;
-}
-
-.hud-score{
-  justify-self:start;
-  min-width:140px;
-}
-.hud-time{
-  justify-self:end;
-  min-width:140px;
-  text-align:right;
-}
-.hud-big{ font-weight:1000; font-size:16px; }
-.hud-small{ font-size:12px; color:var(--muted); margin-top:2px; font-weight:900; letter-spacing:.3px; }
-
-.hud-pills{
-  justify-self:center;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  justify-content:center;
-}
-.pill{
-  background:rgba(15,23,42,.72);
-  border:1px solid rgba(148,163,184,.16);
-  border-radius:999px;
-  padding:8px 12px;
-  font-size:12px;
-  color:var(--text);
-  box-shadow:0 16px 40px rgba(0,0,0,.35);
-  font-weight:900;
-}
-.pill b{ font-weight:1100; }
-
-/* Quest RIGHT */
-.quest-right{
-  position:fixed;
-  right:calc(10px + var(--sar));
-  top: calc(74px + var(--sat));
-  width:min(360px, 52vw);
-  display:grid;
-  gap:10px;
-  z-index:9;
-  pointer-events:none;
-}
-
-.qbar{
-  background:rgba(2,6,23,.55);
-  border:1px solid rgba(148,163,184,.14);
-  border-radius:16px;
-  padding:10px 12px;
-  box-shadow:0 16px 40px rgba(0,0,0,.25);
-}
-.qbar .t{ font-size:12px; color:var(--muted); font-weight:1000; letter-spacing:.25px; }
-.qbar .b{ margin-top:2px; font-size:13px; font-weight:1000; }
-.qbar .p{
-  margin-top:8px; height:10px;
-  background:rgba(15,23,42,.65);
-  border:1px solid rgba(148,163,184,.14);
-  border-radius:999px; overflow:hidden;
-}
-.qbar .p > i{
-  display:block; height:100%; width:0%;
-  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-}
-.qbar.mini .p > i{
-  background:linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.72));
-}
-.qbar .time{
-  margin-top:6px;
-  font-size:12px;
-  color:rgba(226,232,240,.85);
-  display:none;
-  font-weight:900;
-}
-
-/* mini urgent visuals */
-body.mini-urgent .qbar.mini{
-  border-color: rgba(239,68,68,.45);
-  box-shadow:0 0 0 3px rgba(239,68,68,.12), 0 16px 40px rgba(0,0,0,.25);
-  animation: miniPulse .24s ease-in-out infinite;
-}
-@keyframes miniPulse{
-  0%,100%{ transform: translateZ(0) scale(1.00); }
-  50%{ transform: translateZ(0) scale(1.01); }
-}
-
-/* Power BOTTOM */
-.powerWrap{
-  position:fixed;
-  left:calc(10px + var(--sal));
-  right:calc(10px + var(--sar));
-  bottom: calc(12px + var(--sab));
-  z-index:9;
-  pointer-events:none;
-}
-.powerBox{
-  background:rgba(2,6,23,.45);
-  border:1px solid rgba(148,163,184,.16);
-  border-radius:16px;
-  padding:10px 12px;
-  box-shadow:0 16px 40px rgba(0,0,0,.25);
-}
-.power{
-  height:14px; border-radius:999px;
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(15,23,42,.65);
-  overflow:hidden;
-}
-.power > i{
-  display:block; height:100%; width:0%;
-  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-}
-.powerLabel{
-  margin-top:8px; font-size:12px; color:var(--muted);
-  display:flex; justify-content:space-between;
-  font-weight:1000;
-}
-
-/* Coach BOTTOM-RIGHT (above power) */
-.coachWrap{
-  position:fixed;
-  right:calc(10px + var(--sar));
-  bottom: calc(84px + var(--sab));
-  z-index:10;
-  pointer-events:none;
-  display:flex;
-  gap:10px;
-  align-items:flex-end;
-}
-.coachCard{
-  width:240px;
-  background:rgba(2,6,23,.60);
-  border:1px solid rgba(148,163,184,.14);
-  border-radius:18px;
-  padding:10px 10px 10px;
-  box-shadow:0 16px 40px rgba(0,0,0,.25);
-}
-.coachLine{
-  font-size:12px;
-  color:rgba(226,232,240,.92);
-  line-height:1.45;
-  min-height:34px;
-  font-weight:900;
-}
-.feverMini{
-  margin-top:8px;
-  height:10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.65);
-  overflow:hidden;
-}
-.feverMini > i{ display:block; height:100%; width:0%; background:rgba(239,68,68,.85); }
-.shieldTag{
-  margin-top:8px;
-  display:inline-flex;
-  gap:6px;
-  align-items:center;
-  font-size:12px;
-  color:rgba(226,232,240,.92);
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.60);
-  font-weight:1000;
-}
-.coachImg{
-  width:76px; height:76px;
-  border-radius:18px;
-  border:1px solid rgba(148,163,184,.14);
-  background:rgba(15,23,42,.55);
-  overflow:hidden;
-  box-shadow:0 16px 40px rgba(0,0,0,.25);
-}
-.coachImg img{ width:100%; height:100%; object-fit:cover; display:block; }
-
-/* ======================
-   Overlays
-   ====================== */
-.overlay{
-  position:fixed;
-  inset:0;
-  background:
-    radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 60%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,.18), transparent 60%),
-    rgba(2,6,23,.82);
-  display:grid;
-  place-items:center;
-  z-index:200;
-}
-.panel{
-  width:min(820px, 92vw);
-  border:1px solid rgba(148,163,184,.20);
-  border-radius:22px;
-  background:rgba(2,6,23,.72);
-  box-shadow:0 18px 55px rgba(0,0,0,.55);
-  padding:18px 18px 14px;
-}
-.panel h2{ margin:0 0 8px; font-size:20px; }
-.panel p{ margin:0 0 12px; color:var(--muted); font-size:13px; line-height:1.6; }
-.panel .row{ display:flex; gap:10px; flex-wrap:wrap; }
-
-.btn{
-  border:0;
-  border-radius:999px;
-  padding:12px 14px;
-  font-weight:1100;
-  cursor:pointer;
-  background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-  color:#061018;
-}
-.btn.secondary{
-  background:rgba(15,23,42,.78);
-  border:1px solid rgba(148,163,184,.18);
-  color:var(--text);
-}
-.btn.ghost{
-  background:transparent;
-  border:1px solid rgba(148,163,184,.22);
-  color:var(--text);
-}
-.btn:disabled{ opacity:.6; cursor:not-allowed; }
-
-.mode-grid{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:10px;
-  margin:12px 0 8px;
-}
-.mode-card{
-  border:1px solid rgba(148,163,184,.18);
-  background:rgba(15,23,42,.55);
-  border-radius:18px;
-  padding:12px;
-}
-.mode-card b{ display:block; margin-bottom:4px; font-size:13px; }
-.mode-card span{ color:var(--muted); font-size:12px; font-weight:900; }
-
-.warn{
-  margin-top:10px;
-  padding:10px 12px;
-  border-radius:16px;
-  border:1px solid rgba(239,68,68,.25);
-  background:rgba(239,68,68,.08);
-  color:rgba(254,226,226,.95);
-  font-size:12px;
-  display:none;
-  white-space:pre-wrap;
-}
-.dbg{ font-size:12px; color:var(--muted); opacity:.92; margin-top:6px; font-weight:900; }
-
-#endOverlay{ display:none; }
-#endOverlay.show{ display:grid; }
-.kv{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0 12px; }
-.kv .k{
-  border:1px solid rgba(148,163,184,.16);
-  background:rgba(15,23,42,.55);
-  border-radius:16px;
-  padding:10px 12px;
-  font-size:13px;
-  font-weight:900;
-}
-.kv .k b{ display:block; font-size:16px; margin-top:2px; font-weight:1100; }
-
-/* ======================
-   TARGETS — Candy Stickers
-   ====================== */
+/* ====== TARGETS ====== */
 .fg-target{
   position:absolute;
-  left: var(--x, 50vw);
-  top:  var(--y, 50vh);
-
-  width:92px;
-  height:92px;
-  border-radius:28px;
-
+  left: var(--x, 50%);
+  top:  var(--y, 50%);
+  transform: translate(-50%,-50%) scale(var(--s, 1));
+  width: var(--t-size);
+  height: var(--t-size);
+  border-radius: 22px;
   display:grid;
   place-items:center;
-
-  transform: translate(-50%,-50%) scale(var(--s,1));
-  transform-origin:center;
-
-  border:3px solid var(--stickerBorder);
-  box-shadow:
-    0 18px 36px var(--stickerShadow),
-    0 2px 0 var(--stickerEdge) inset,
-    0 -10px 18px rgba(255,255,255,.10) inset;
-
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.25), rgba(255,255,255,0) 40%),
-    radial-gradient(circle at 76% 76%, rgba(255,255,255,.16), rgba(255,255,255,0) 45%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(15,23,42,.26), rgba(15,23,42,.10));
-
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-
-  cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-
-  overflow:hidden;
-  animation: fgFloat 1.15s ease-in-out infinite;
-}
-.fg-target::before{
-  content: attr(data-emoji);
-  font-size: 46px;
+  font-size: 44px;
   line-height: 1;
-  transform: translateY(-1px);
-  filter:
-    drop-shadow(0 2px 0 rgba(255,255,255,.25))
-    drop-shadow(0 12px 18px rgba(0,0,0,.32));
+  background: rgba(15,23,42,.55);
+  border: 1px solid rgba(148,163,184,.16);
+  box-shadow: 0 18px 55px rgba(0,0,0,.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: transform .16s ease, filter .16s ease, opacity .16s ease, box-shadow .16s ease;
 }
 
-/* type fills */
-.fg-good{
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 40%),
-    radial-gradient(circle at 74% 78%, rgba(255,255,255,.18), rgba(255,255,255,0) 45%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-lime), var(--candy-cyan));
+.fg-target::after{
+  content: attr(data-emoji);
+  transform: translateY(1px);
 }
-.fg-wrong{
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.24), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-amber), rgba(251,146,60,.22));
+
+.fg-target.spawn{ animation: fgPop .14s ease-out both; }
+@keyframes fgPop{
+  from{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .75)); opacity:.2; }
+  to  { transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
 }
-.fg-decoy{
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-violet), var(--candy-cyan));
-}
-.fg-junk{
-  background:
-    radial-gradient(circle at 26% 20%, rgba(255,255,255,.22), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, var(--candy-pink), rgba(248,113,113,.26));
-}
+
+.fg-target.hit{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)); }
+.fg-target.out{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)); }
+
+/* type colors */
+.fg-good{ box-shadow: 0 18px 55px rgba(34,197,94,.16), 0 18px 55px rgba(0,0,0,.28); }
+.fg-wrong{ box-shadow: 0 18px 55px rgba(245,158,11,.16), 0 18px 55px rgba(0,0,0,.28); }
+.fg-junk{ box-shadow: 0 18px 55px rgba(239,68,68,.18), 0 18px 55px rgba(0,0,0,.28); }
+.fg-decoy{ box-shadow: 0 18px 55px rgba(168,85,247,.14), 0 18px 55px rgba(0,0,0,.28); }
+
 .fg-boss{
-  border-color: rgba(34,211,238,.70);
-  background:
-    radial-gradient(circle at 28% 22%, rgba(255,255,255,.24), transparent 44%),
-    var(--candy-polka),
-    var(--candy-stripes),
-    linear-gradient(135deg, rgba(148,163,184,.22), rgba(34,211,238,.14));
-  animation: fgBossFloat 1.00s ease-in-out infinite;
+  border-radius: 26px;
+  width: calc(var(--t-size) * 1.15);
+  height: calc(var(--t-size) * 1.15);
+  box-shadow: 0 22px 70px rgba(245,158,11,.18), 0 22px 70px rgba(0,0,0,.35);
+  border: 1px solid rgba(245,158,11,.25);
 }
-
-/* corner badges */
-.fg-wrong::after,
-.fg-decoy::after,
-.fg-junk::after,
-.fg-boss::after{
-  position:absolute;
-  right:8px;
-  top:7px;
-  font-size:16px;
-  opacity:.98;
-  filter: drop-shadow(0 12px 16px rgba(0,0,0,.35));
-  content:"";
-}
-.fg-wrong::after{ content:"⚠️"; }
-.fg-decoy::after{ content:"❓"; }
-.fg-junk::after { content:"🫧"; }
-.fg-boss::after { content:"👑"; }
-
-.fg-target:active{
-  transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.96));
-  filter: brightness(1.06);
-}
-
-/* spawn/hit/out */
-.fg-target.spawn{
-  animation: fgPopIn .18s ease-out both, fgFloat 1.15s ease-in-out .18s infinite;
-}
-.fg-target.hit{ animation: fgHit .22s ease-out both; }
-.fg-target.out{ animation: fgOut .22s ease-in both; }
-
-/* boss feedback states */
-.fg-boss.fg-boss-hurt{ animation: bossHurt .20s ease-out both; }
-@keyframes bossHurt{
-  0%{ transform: translate(-50%,-50%) scale(var(--s,1)); filter: brightness(1); }
-  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)) rotate(-1deg); filter: brightness(1.18); }
-  100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
-}
+.fg-boss.fg-boss-hurt{ filter: saturate(1.2) brightness(1.1); }
 .fg-boss.fg-boss-weak{
-  box-shadow:
-    0 0 0 4px rgba(34,211,238,.35),
-    0 18px 36px rgba(0,0,0,.40),
-    0 0 26px rgba(34,211,238,.35);
-}
-.fg-boss.fg-boss-weak::after{
-  content:"🎯";
-  right:10px;
-  bottom:10px;
-  top:auto;
-  font-size:18px;
+  outline: 2px solid rgba(239,68,68,.35);
+  box-shadow: 0 22px 70px rgba(239,68,68,.14), 0 22px 70px rgba(0,0,0,.35);
 }
 
-/* keyframes */
-@keyframes fgFloat{
-  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) translateY(0px); }
-  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) translateY(-8px); }
+/* ====== GLOBAL STATES (body classes) ====== */
+body.groups-storm{
+  background:
+    radial-gradient(circle at 10% 10%, rgba(34,211,238,.12), transparent 55%),
+    radial-gradient(circle at 90% 85%, rgba(239,68,68,.10), transparent 60%),
+    var(--bg);
 }
-@keyframes fgBossFloat{
-  0%,100%{ transform: translate(-50%, -50%) scale(var(--s,1)) rotate(-2deg) translateY(0px); }
-  50%    { transform: translate(-50%, -50%) scale(var(--s,1)) rotate( 2deg) translateY(-9px); }
+body.groups-storm #fg-layer{ filter: saturate(1.1) contrast(1.05); }
+
+body.groups-storm-urgent{
+  animation: stormPulse .45s infinite alternate;
 }
-@keyframes fgPopIn{
-  from{ transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.70)); opacity:0; }
-  to  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity:1; }
-}
-@keyframes fgHit{
-  0%  { transform: translate(-50%, -50%) scale(var(--s,1)); opacity:1; }
-  60% { transform: translate(-50%, -50%) scale(calc(var(--s,1)*1.20)); opacity:.98; filter:brightness(1.18); }
-  100%{ transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.55)); opacity:0; }
-}
-@keyframes fgOut{
-  from{ opacity:1; }
-  to  { opacity:0; transform: translate(-50%, -50%) scale(calc(var(--s,1)*0.82)); }
+@keyframes stormPulse{
+  from{ filter: none; }
+  to{ filter: saturate(1.2) brightness(1.06); }
 }
 
-/* ======================
-   Mode vibes
-   ====================== */
-body.groups-storm .hud-card{ filter: saturate(1.10) brightness(1.05); }
-body.groups-storm-urgent .hud-topbar{ animation: hudStormPulse .24s ease-in-out infinite; }
-@keyframes hudStormPulse{
-  0%,100%{ transform: translateZ(0) scale(1.00); }
-  50%{ transform: translateZ(0) scale(1.01); }
-}
-body.groups-overdrive .hud-card{
-  box-shadow: 0 18px 60px rgba(34,211,238,.18);
-  border-color: rgba(34,211,238,.30);
-}
-body.groups-freeze .fg-target{ animation-duration: 1.8s !important; }
+body.groups-overdrive #fg-layer{ filter: saturate(1.25) brightness(1.06); }
+body.groups-freeze #fg-layer{ filter: saturate(.85) brightness(.98); }
 
-/* ======================
-   View Profiles (PC / Mobile / cVR)
-   ====================== */
-
-/* Mobile: reduce HUD + stack topbar */
-@media (max-width: 700px){
-  :root{ --hudScale: .98; }
-  .hud-topbar{
-    grid-template-columns: 1fr;
-    gap:10px;
-  }
-  .hud-score, .hud-time{ min-width:unset; }
-  .hud-pills{ justify-content:flex-start; }
-  .quest-right{
-    width: min(340px, 86vw);
-    top: calc(154px + var(--sat));
-    right: calc(10px + var(--sar));
-  }
-  .coachWrap{
-    right: calc(10px + var(--sar));
-    bottom: calc(96px + var(--sab));
-  }
-  .coachCard{ width: min(240px, 70vw); }
+body.clutch .hud .box{
+  box-shadow: 0 18px 65px rgba(239,68,68,.14);
+  border-color: rgba(239,68,68,.22);
 }
 
-/* Short height: compress coach */
-@media (max-height: 640px){
-  .coachCard{ padding:8px 10px; }
-  .coachLine{ min-height:28px; }
-}
+/* ====== VIEW MODES ====== */
+body.view-pc{ --t-size: 82px; }
+body.view-mobile{ --t-size: 76px; }
+body.view-vr{ --t-size: 82px; }
+body.view-cvr{ --t-size: 86px; }
 
-/* Cardboard / cVR profile:
-   - keep HUD semi-transparent
-   - shrink and push to edges
-   - do NOT block center
-*/
-body.view-cvr{
-  --hudScale: .92;
-  --hudAlpha: .96;
-}
-body.view-cvr .hud-topbar{
-  left: calc(8px + var(--sal));
-  right: calc(8px + var(--sar));
-}
-body.view-cvr .pill{
-  padding:6px 10px;
-  font-size:11px;
-}
-body.view-cvr .quest-right{
-  width: min(320px, 44vw);
-}
-body.view-cvr .coachCard{
-  width: 220px;
-  background: rgba(2,6,23,.52);
-}
-
-/* Important: in cVR we shoot via crosshair -> targets should not intercept pointer */
+/* Cardboard mode: ยิงจากกลางจอ → ปิดการจิ้มเป้าตรงๆ */
 body.view-cvr .fg-target{ pointer-events:none; }
 
-/* reduce motion */
-@media (prefers-reduced-motion: reduce){
-  .fg-target, .fg-target.spawn, .fg-target.hit, .fg-target.out,
-  body.groups-storm-urgent .hud-topbar,
-  body.mini-urgent .qbar.mini{
-    animation:none !important;
-  }
+/* ====== VR Crosshair (fallback simple) ====== */
+.hha-crosshair{
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%,-50%);
+  z-index: 120;
+  pointer-events:none;
+  display:none;
+}
+.hha-crosshair::before,
+.hha-crosshair::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+}
+.hha-crosshair::before{
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--cross);
+  box-shadow: 0 0 0 6px rgba(34,211,238,.08);
+}
+.hha-crosshair::after{
+  width: 4px;
+  height: 4px;
+  background: var(--cross2);
+}
+body.view-cvr .hha-crosshair{ display:block; }
+
+/* ====== VR Buttons (fallback, vr-ui.js can override) ====== */
+.hha-vrbar{
+  position: fixed;
+  left: calc(10px + var(--sal));
+  bottom: calc(10px + var(--sab));
+  z-index: 130;
+  display:flex;
+  gap:10px;
+}
+.hha-vrbar button{
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.68);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 10px 12px;
+  font-weight: 900;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.hha-vrbar button.primary{
+  border: 0;
+  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
+  color:#061018;
+}
+
+/* small screens */
+@media (max-width: 520px){
+  body.view-mobile{ --t-size: 72px; }
+  body.view-cvr{ --t-size: 82px; }
+  .hha-vrbar button{ padding: 10px 11px; font-size: 13px; }
+}
+
+/* very short screens */
+@media (max-height: 640px){
+  body.view-cvr{ --t-size: 78px; }
 }
