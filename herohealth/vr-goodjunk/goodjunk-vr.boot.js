@@ -1,19 +1,55 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (GATED START + Quest Peek)
+// GoodJunkVR Boot — PRODUCTION (START-GATED + PEEK + END SUMMARY)
 // ✅ View modes: PC / Mobile / VR / cVR
 // ✅ Fullscreen handling + body.is-fs
-// ✅ VR hint overlay OK -> hide (does NOT start engine)
-// ✅ Engine starts ONLY after clicking "เริ่มเล่น" (fix: target flash / game not start)
-// ✅ Quest Peek: show on demand + auto show when HUD hidden in VR/cVR
+// ✅ Enter VR => fullscreen + cVR + hint + auto HUD off
+// ✅ HUD toggle (body.hud-hidden)
+// ✅ Missions Peek button (gjPeek.show)
+// ✅ Starts engine ONLY after pressing "เริ่มเล่น"
+// ✅ End overlay on hha:end + save history (HHA_LAST_SUMMARY / HHA_SUMMARY_HISTORY)
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
-const DOC = document;
+const ROOT = window;
+const DOC  = document;
+
+const LS_LAST = 'HHA_LAST_SUMMARY';
+const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
 function qs(k, def=null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 }
+
+function setBodyView(view){
+  const b = DOC.body;
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  b.classList.add(`view-${view}`);
+  try{ localStorage.setItem('GJ_VIEW', view); }catch(_){}
+  // show peek briefly at VR/cVR entry
+  if (view === 'vr' || view === 'cvr'){
+    peekNow(1200);
+  }
+  syncReserves();
+}
+
+function pickInitialView(){
+  const v = String(qs('view','') || '').toLowerCase();
+  if (v === 'vr') return 'vr';
+  if (v === 'cvr') return 'cvr';
+
+  try{
+    const saved = localStorage.getItem('GJ_VIEW');
+    if (saved === 'pc' || saved === 'mobile' || saved === 'vr' || saved === 'cvr') return saved;
+  }catch(_){}
+
+  const coarse = ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches;
+  const w = ROOT.innerWidth || 360;
+  const h = ROOT.innerHeight || 640;
+  const mobileLike = coarse || Math.min(w,h) < 520;
+  return mobileLike ? 'mobile' : 'pc';
+}
+
 function isFs(){
   return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
 }
@@ -26,97 +62,128 @@ async function enterFs(){
 }
 function syncFsClass(){
   DOC.body.classList.toggle('is-fs', isFs());
+  syncReserves();
 }
 
-function setBodyView(view){
-  const b = DOC.body;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add(`view-${view}`);
-
-  // default: VR/cVR = hide HUD (but keep Missions peek)
-  const hudParam = String(qs('hud', '') || '').toLowerCase(); // hud=1 force show, hud=0 force hide
-  const autoHide = (view === 'vr' || view === 'cvr');
-  const wantHide =
-    (hudParam === '0') ? true :
-    (hudParam === '1') ? false :
-    autoHide;
-
-  b.classList.toggle('hud-hidden', wantHide);
+function syncMeta(state='ready'){
+  const hudMeta = DOC.getElementById('hudMeta');
+  if (!hudMeta) return;
+  const dual = !!DOC.getElementById('gj-layer-r');
+  const v = qs('v','');
+  hudMeta.textContent = `[BOOT] ${state} • dual=${dual} • view=${pickInitialView()} • v=${v}`;
 }
 
-function pickInitialView(){
-  const v = String(qs('view','') || '').toLowerCase();
-  if (v === 'vr') return 'vr';
-  if (v === 'cvr') return 'cvr';
+/* ===== Dynamic reserves (helps avoid flashing/seeing targets behind HUD in FS/VR) ===== */
+function px(n){ return (Number(n)||0) + 'px'; }
 
-  const coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
-  const w = innerWidth || 360;
-  const h = innerHeight || 640;
-  const mobileLike = coarse || Math.min(w,h) < 520;
-  return mobileLike ? 'mobile' : 'pc';
+function syncReserves(){
+  try{
+    const hud   = DOC.querySelector('.hha-hud');
+    const fever = DOC.getElementById('hhaFever');
+    const ctrl  = DOC.querySelector('.hha-controls');
+    const hudHidden = DOC.body.classList.contains('hud-hidden');
+
+    if (hud){
+      const r = hud.getBoundingClientRect();
+      const cs = getComputedStyle(hud);
+      const padTop = parseFloat(cs.paddingTop)||0;
+      const sat = Math.max(0, padTop - 10);
+      const usable = hudHidden ? 24 : Math.max(80, Math.round(r.height - sat));
+      DOC.documentElement.style.setProperty('--hudH', px(usable));
+    }
+    if (fever){
+      const r = fever.getBoundingClientRect();
+      const usable = Math.max(70, Math.round(r.height));
+      DOC.documentElement.style.setProperty('--feverH', px(usable));
+    }
+    if (ctrl){
+      const r = ctrl.getBoundingClientRect();
+      const usable = Math.max(76, Math.round(r.height));
+      DOC.documentElement.style.setProperty('--ctrlH', px(usable));
+    }
+  }catch(_){}
 }
 
-function setOverlay(el, show){
-  if (!el) return;
-  el.hidden = !show;
-}
-
-function metaText(){
-  const diff = qs('diff','normal');
-  const run  = qs('run','play');
-  const time = qs('time', qs('duration','70'));
-  const end  = qs('end','time');
-  const ch   = qs('challenge','rush');
-  const view = DOC.body.classList.contains('view-vr') ? 'vr'
-            : DOC.body.classList.contains('view-cvr') ? 'cvr'
-            : DOC.body.classList.contains('view-mobile') ? 'mobile' : 'pc';
-  return `diff=${diff} • run=${run} • time=${time}s • end=${end} • challenge=${ch} • view=${view}`;
-}
-
-/* -------------------- Quest Peek -------------------- */
-let peekTimer = 0;
-function showPeek(ms=1600){
+/* ===== Peek ===== */
+function peekNow(ms=1300){
   const peek = DOC.getElementById('gjPeek');
   if (!peek) return;
   peek.classList.add('show');
-  peek.setAttribute('aria-hidden', 'false');
-  clearTimeout(peekTimer);
-  peekTimer = setTimeout(()=>hidePeek(), ms);
-}
-function hidePeek(){
-  const peek = DOC.getElementById('gjPeek');
-  if (!peek) return;
-  peek.classList.remove('show');
-  peek.setAttribute('aria-hidden', 'true');
-}
-function hudHidden(){
-  return DOC.body.classList.contains('hud-hidden');
-}
-function hookPeekEvents(){
-  // auto show peek when quests update & HUD hidden
-  let lastAuto = 0;
-
-  window.addEventListener('quest:update', ()=>{
-    if (!hudHidden()) return;
-    const t = Date.now();
-    if (t - lastAuto < 1100) return; // rate-limit
-    lastAuto = t;
-    showPeek(1400);
-  }, { passive:true });
-
-  window.addEventListener('hha:celebrate', ()=>{
-    if (!hudHidden()) return;
-    showPeek(2200);
-  }, { passive:true });
+  setTimeout(()=>{ try{ peek.classList.remove('show'); }catch(_){} }, ms);
 }
 
-/* -------------------- Engine gate -------------------- */
-let started = false;
+/* ===== HUD toggle ===== */
+function toggleHud(force){
+  const b = DOC.body;
+  const next = (typeof force === 'boolean') ? force : !b.classList.contains('hud-hidden');
+  b.classList.toggle('hud-hidden', next);
+
+  const btn = DOC.getElementById('btnToggleHud');
+  if (btn) btn.textContent = next ? 'HUD (Off)' : 'HUD';
+
+  if (next) peekNow(1300);
+  syncReserves();
+}
+
+/* ===== View buttons + FS + VR ===== */
+function hookButtons(){
+  const btnPC  = DOC.getElementById('btnViewPC');
+  const btnM   = DOC.getElementById('btnViewMobile');
+  const btnV   = DOC.getElementById('btnViewVR');
+  const btnC   = DOC.getElementById('btnViewCVR');
+  const btnFS  = DOC.getElementById('btnEnterFS');
+  const btnVR  = DOC.getElementById('btnEnterVR');
+  const btnHUD = DOC.getElementById('btnToggleHud');
+  const btnPeek= DOC.getElementById('btnPeek');
+
+  const vrHint = DOC.getElementById('vrHint');
+  const vrOk   = DOC.getElementById('btnVrOk');
+
+  function showVrHint(){ if (vrHint) vrHint.hidden = false; }
+  function hideVrHint(){ if (vrHint) vrHint.hidden = true; }
+
+  btnPC && btnPC.addEventListener('click', ()=>{ setBodyView('pc'); hideVrHint(); toggleHud(false); });
+  btnM  && btnM.addEventListener('click',  ()=>{ setBodyView('mobile'); hideVrHint(); toggleHud(false); });
+  btnV  && btnV.addEventListener('click',  ()=>{ setBodyView('vr'); showVrHint(); });
+  btnC  && btnC.addEventListener('click',  ()=>{ setBodyView('cvr'); showVrHint(); });
+
+  vrOk && vrOk.addEventListener('click', ()=> hideVrHint());
+
+  btnHUD && btnHUD.addEventListener('click', ()=> toggleHud());
+  btnPeek && btnPeek.addEventListener('click', ()=> peekNow(1600));
+
+  btnFS && btnFS.addEventListener('click', async ()=>{
+    await enterFs();
+    syncFsClass();
+  });
+
+  // Enter VR: fullscreen + switch to cVR + hint + auto hide HUD after a moment
+  btnVR && btnVR.addEventListener('click', async ()=>{
+    await enterFs();
+    syncFsClass();
+    setBodyView('cvr');
+    showVrHint();
+    setTimeout(()=> toggleHud(true), 1200);
+  });
+}
+
+/* ===== Start gate ===== */
+function showStartOverlay(){
+  const ol = DOC.getElementById('startOverlay');
+  if (ol) ol.hidden = false;
+  const meta = DOC.getElementById('startMeta');
+  if (meta){
+    const diff = qs('diff','normal');
+    const time = qs('time', qs('duration','70'));
+    meta.textContent = `diff=${diff} • time=${time}s • run=${qs('run','play')} • end=${qs('end','time')} • challenge=${qs('challenge','rush')}`;
+  }
+}
+function hideStartOverlay(){
+  const ol = DOC.getElementById('startOverlay');
+  if (ol) ol.hidden = true;
+}
 
 function bootEngine(){
-  if (started) return;
-  started = true;
-
   const layerL = DOC.getElementById('gj-layer-l') || DOC.getElementById('gj-layer');
   const layerR = DOC.getElementById('gj-layer-r');
 
@@ -124,13 +191,14 @@ function bootEngine(){
   const crossR = DOC.getElementById('gj-crosshair-r');
 
   const shootEl = DOC.getElementById('btnShoot');
+  const stageEl = DOC.getElementById('gj-stage');
 
   const diff = qs('diff','normal');
   const run  = qs('run','play');
   const time = Number(qs('time', qs('duration','70'))) || 70;
 
-  const endPolicy = qs('end','time');          // time | all | miss
-  const challenge = qs('challenge','rush');    // rush | survive | boss
+  const endPolicy = qs('end','time');        // time | all | miss
+  const challenge = qs('challenge','rush');  // rush | survive | boss
 
   engineBoot({
     layerEl: layerL,
@@ -138,94 +206,147 @@ function bootEngine(){
     crosshairEl: crossL,
     crosshairElR: crossR,
     shootEl,
+    stageEl,
     diff,
     run,
     time,
     endPolicy,
     challenge,
-    context: {
-      projectTag: qs('projectTag','HeroHealth')
-    }
+    context: { projectTag: qs('projectTag','HeroHealth') }
   });
 }
 
-function hookViewButtons(){
-  const btnPC  = DOC.getElementById('btnViewPC');
-  const btnM   = DOC.getElementById('btnViewMobile');
-  const btnV   = DOC.getElementById('btnViewVR');
-  const btnC   = DOC.getElementById('btnViewCVR');
-  const btnFS  = DOC.getElementById('btnEnterFS');
-  const btnVR  = DOC.getElementById('btnEnterVR');
+/* ===== End Summary Overlay (HHA Standard) ===== */
+function readJson(key, fallback){
+  try{ const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }catch(_){ return fallback; }
+}
+function saveJson(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
+}
+function copyText(txt){
+  try{
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(txt);
+  }catch(_){}
+  try{
+    const ta = DOC.createElement('textarea');
+    ta.value = txt; ta.style.position='fixed'; ta.style.left='-9999px';
+    DOC.body.appendChild(ta); ta.select(); DOC.execCommand('copy'); ta.remove();
+  }catch(_){}
+  return Promise.resolve();
+}
 
-  const btnPeek = DOC.getElementById('btnPeek');
-  const btnHud  = DOC.getElementById('btnToggleHud');
+function showEnd(summary){
+  const ol = DOC.getElementById('endOverlay');
+  if (!ol) return;
+  DOC.body.classList.add('end-shown');
+  ol.hidden = false;
 
-  const vrHint = DOC.getElementById('vrHint');
-  const vrOk   = DOC.getElementById('btnVrOk');
+  const reason = DOC.getElementById('endReason');
+  const grade  = DOC.getElementById('endGrade');
+  const score  = DOC.getElementById('endScore');
+  const acc    = DOC.getElementById('endAcc');
+  const cm     = DOC.getElementById('endComboMax');
+  const miss   = DOC.getElementById('endMiss');
+  const goals  = DOC.getElementById('endGoals');
+  const minis  = DOC.getElementById('endMinis');
+  const meta2  = DOC.getElementById('endMeta2');
 
-  function showVrHint(){ setOverlay(vrHint, true); }
-  function hideVrHint(){ setOverlay(vrHint, false); }
+  const s = summary || {};
+  if (reason) reason.textContent = `เหตุผล: ${s.reason || 'end'} • time=${s.durationPlayedSec ?? '—'}s • diff=${s.diff || qs('diff','')}`;
+  if (grade)  grade.textContent  = s.grade || '—';
+  if (score)  score.textContent  = String(s.scoreFinal ?? 0);
+  if (acc)    acc.textContent    = `${s.accuracyGoodPct ?? 0}%`;
+  if (cm)     cm.textContent     = String(s.comboMax ?? 0);
+  if (miss)   miss.textContent   = String(s.misses ?? 0);
+  if (goals)  goals.textContent  = `${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0}`;
+  if (minis)  minis.textContent  = `${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`;
 
-  btnPC && btnPC.addEventListener('click', ()=>{ setBodyView('pc'); hideVrHint(); });
-  btnM  && btnM.addEventListener('click',  ()=>{ setBodyView('mobile'); hideVrHint(); });
-  btnV  && btnV.addEventListener('click',  ()=>{ setBodyView('vr'); showVrHint(); showPeek(2000); });
-  btnC  && btnC.addEventListener('click',  ()=>{ setBodyView('cvr'); showVrHint(); showPeek(2000); });
+  if (meta2){
+    meta2.textContent = `seed=${s.seed || ''} • run=${s.runMode || qs('run','play')} • end=${qs('end','time')} • challenge=${qs('challenge','rush')}`;
+  }
 
-  vrOk && vrOk.addEventListener('click', ()=>{ hideVrHint(); showPeek(1600); });
+  // save history
+  try{
+    const hist = readJson(LS_HIST, []);
+    hist.unshift({ ...s, timestampIso: new Date().toISOString() });
+    hist.splice(50);
+    saveJson(LS_HIST, hist);
+    saveJson(LS_LAST, s);
+  }catch(_){}
 
-  btnFS && btnFS.addEventListener('click', async ()=>{
-    await enterFs();
-    syncFsClass();
+  // keep HUD off for clarity
+  toggleHud(true);
+  syncReserves();
+}
+
+function hideEnd(){
+  const ol = DOC.getElementById('endOverlay');
+  if (ol) ol.hidden = true;
+  DOC.body.classList.remove('end-shown');
+}
+
+function hookEndButtons(){
+  const btnAgain = DOC.getElementById('btnPlayAgain');
+  const btnHub   = DOC.getElementById('btnBackHub');
+  const btnCopy  = DOC.getElementById('btnCopySummary');
+  const hub = qs('hub', './hub.html');
+
+  btnAgain && btnAgain.addEventListener('click', ()=>{
+    const u = new URL(location.href);
+    u.searchParams.set('ts', String(Date.now()));
+    location.href = u.toString();
   });
 
-  btnVR && btnVR.addEventListener('click', ()=>{
-    // placeholder (no A-Frame here)
+  btnHub && btnHub.addEventListener('click', ()=>{
+    try{
+      if (ROOT.GoodJunkVR && typeof ROOT.GoodJunkVR.endGame === 'function'){
+        ROOT.GoodJunkVR.endGame('back_hub');
+      }
+    }catch(_){}
+    location.href = hub;
   });
 
-  btnPeek && btnPeek.addEventListener('click', ()=>{
-    showPeek(2400);
-  });
-
-  btnHud && btnHud.addEventListener('click', ()=>{
-    DOC.body.classList.toggle('hud-hidden');
-    if (hudHidden()) showPeek(2000);
+  btnCopy && btnCopy.addEventListener('click', async ()=>{
+    const s = readJson(LS_LAST, null);
+    await copyText(JSON.stringify(s || {}, null, 2));
+    btnCopy.textContent = 'Copied ✅';
+    setTimeout(()=> btnCopy.textContent = 'Copy JSON', 900);
   });
 }
 
-function syncMeta(){
-  const hudMeta = DOC.getElementById('hudMeta');
-  const startMeta = DOC.getElementById('startMeta');
-  const t = metaText();
-  if (hudMeta) hudMeta.textContent = t;
-  if (startMeta) startMeta.textContent = t;
-}
-
-function hookStartOverlay(){
-  const overlay = DOC.getElementById('startOverlay');
-  const btnStart = DOC.getElementById('btnStart');
-
-  // show start overlay on load (prevents target flash)
-  setOverlay(overlay, true);
-
-  btnStart && btnStart.addEventListener('click', ()=>{
-    setOverlay(overlay, false);
-    // show missions briefly on start (especially VR HUD hidden)
-    if (hudHidden()) showPeek(2200);
-    bootEngine();
+function hookEndEvent(){
+  ROOT.addEventListener('hha:end', (ev)=>{
+    const summary = ev?.detail || readJson(LS_LAST, null);
+    showEnd(summary);
   });
 }
 
 function main(){
-  hookViewButtons();
+  hookButtons();
+  hookEndButtons();
+  hookEndEvent();
+
   setBodyView(pickInitialView());
-  syncMeta();
+  syncMeta('ready');
   syncFsClass();
+  syncReserves();
+
+  ROOT.addEventListener('resize', ()=> syncReserves(), { passive:true });
+  ROOT.addEventListener('orientationchange', ()=> setTimeout(syncReserves, 180), { passive:true });
 
   DOC.addEventListener('fullscreenchange', syncFsClass);
   DOC.addEventListener('webkitfullscreenchange', syncFsClass);
 
-  hookPeekEvents();
-  hookStartOverlay();
+  // START-GATE
+  showStartOverlay();
+  const btnStart = DOC.getElementById('btnStart');
+  btnStart && btnStart.addEventListener('click', ()=>{
+    hideStartOverlay();
+    hideEnd();
+    syncMeta('running');
+    syncReserves();
+    bootEngine();
+  }, { once:true });
 }
 
 if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', main);
