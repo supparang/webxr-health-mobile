@@ -1,9 +1,10 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — VR-first layout (No HUD blocking)
+GoodJunkVR UI — VR-first layout (No HUD blocking) + WAVES + PANIC
 ✅ stage uses dvh (fix address-bar jump / "flash then gone")
 ✅ reserves space for HUD(top) + fever + controls(bottom)
 ✅ VR/cVR collapses HUD into mini HUD + Quest Peek
 ✅ Fullscreen: body.is-fs -> tighter paddings/heights
+✅ NEW: Wave HUD (Boss / No-Junk) + Panic FX
 */
 
 :root{
@@ -30,6 +31,9 @@ GoodJunkVR UI — VR-first layout (No HUD blocking)
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
+
+  /* panic 0..1 set by JS */
+  --panic: 0;
 }
 
 *{ box-sizing:border-box; }
@@ -228,6 +232,57 @@ html,body{
 .toast-title{ font-weight:1000; }
 .toast-line{ margin-top:4px; color:var(--muted); font-weight:900; }
 
+/* ---------- WAVE HUD (Boss / No-Junk) ---------- */
+.gj-wave-hud{
+  position:fixed;
+  left:12px; right:12px;
+  top: calc(var(--sat) + 52px);
+  z-index:110;
+  display:flex;
+  justify-content:center;
+  pointer-events:none;
+}
+.wave-card{
+  width:min(760px, 92vw);
+  background: rgba(2,6,23,.68);
+  border:1px solid rgba(148,163,184,.22);
+  border-radius: 18px;
+  padding:10px 12px;
+  box-shadow: 0 18px 55px rgba(0,0,0,.40);
+}
+.wave-top{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:space-between;
+}
+.wave-title{
+  font-weight:1000;
+  letter-spacing:.2px;
+}
+.wave-title.boss{ color: #eafff3; }
+.wave-title.nojunk{ color: #dbeafe; }
+.wave-right{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  color:var(--muted);
+  font-weight:1000;
+}
+.wave-bar{
+  margin-top:8px;
+  height:12px;
+  border-radius:999px;
+  background: rgba(148,163,184,.14);
+  border:1px solid rgba(148,163,184,.18);
+  overflow:hidden;
+}
+.wave-fill{
+  height:100%;
+  width:0%;
+  background: rgba(34,197,94,.85);
+}
+
 /* ---------- FEVER ---------- */
 .hha-fever{
   position:fixed;
@@ -276,6 +331,7 @@ html,body{
   z-index:10;
   pointer-events:auto;
   overflow:hidden;
+  will-change: transform;
 }
 
 /* eyes */
@@ -285,7 +341,7 @@ html,body{
   width:100%;
 }
 .eye-l{ left:0; }
-.eye-r{ left:0; display:none; } /* default hidden; shown in VR/cVR */
+.eye-r{ left:0; display:none; }
 
 /* layer fills */
 .gj-layer, .gj-crosshair{
@@ -390,8 +446,9 @@ html,body{
 body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
 body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
 
+/* VR/cVR: collapse big HUD */
 body.view-vr, body.view-cvr{
-  --hudH: 0px;       /* ✅ collapse big HUD in VR */
+  --hudH: 0px;
   --feverH: 70px;
   --ctrlH: 84px;
 }
@@ -405,15 +462,19 @@ body.view-vr .eye-r,
 body.view-cvr .eye-r{ width:50%; left:50%; }
 
 body.view-vr .gj-crosshair::before,
-body.view-cvr .gj-crosshair::before{
-  width:26px; height:26px;
-}
+body.view-cvr .gj-crosshair::before{ width:26px; height:26px; }
 
-/* hide big HUD in VR, show mini HUD instead */
+/* hide big HUD in VR, show mini HUD */
 body.view-vr .hha-hud,
 body.view-cvr .hha-hud{ display:none; }
 body.view-vr .vr-mini-hud,
 body.view-cvr .vr-mini-hud{ display:block; }
+
+/* wave hud position in VR (under mini hud) */
+body.view-vr .gj-wave-hud,
+body.view-cvr .gj-wave-hud{
+  top: calc(var(--sat) + 54px);
+}
 
 /* ---------- FULLSCREEN TUNING ---------- */
 body.is-fs.view-vr,
@@ -422,6 +483,28 @@ body.is-fs.view-cvr{
   --ctrlH: 78px;
 }
 body.is-fs .btn-shoot{ height:66px; }
+
+/* ---------- PANIC FX ---------- */
+body.panic #gj-stage{
+  animation: gj-shake 0.22s infinite linear;
+}
+@keyframes gj-shake{
+  0%   { transform: translate(0,0); }
+  25%  { transform: translate(calc(var(--panic)*1.5px), calc(var(--panic)*-1.2px)); }
+  50%  { transform: translate(calc(var(--panic)*-1.6px), calc(var(--panic)*1.2px)); }
+  75%  { transform: translate(calc(var(--panic)*1.2px), calc(var(--panic)*1.3px)); }
+  100% { transform: translate(0,0); }
+}
+body.panic::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:60;
+  background:
+    radial-gradient(circle at center,
+      rgba(0,0,0,0) 56%,
+      rgba(239,68,68, calc(.14 * var(--panic))) 100%);
+}
 
 /* ---------- RESPONSIVE ---------- */
 @media (max-width:520px){
