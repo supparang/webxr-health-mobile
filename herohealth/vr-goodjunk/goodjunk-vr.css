@@ -2,9 +2,11 @@
 GoodJunkVR UI — VR-first layout (No HUD blocking) + WAVES + PANIC
 ✅ stage uses dvh (fix address-bar jump / "flash then gone")
 ✅ reserves space for HUD(top) + fever + controls(bottom)
-✅ VR/cVR collapses HUD into mini HUD + Quest Peek
+✅ VR: single-eye (no split) + mini HUD + Quest Peek
+✅ cVR: dual-eye split (Cardboard) + Quest Float L/R
 ✅ Fullscreen: body.is-fs -> tighter paddings/heights
 ✅ NEW: Wave HUD (Boss / No-Junk) + Panic FX
+✅ NEW: Quest Float L/R styles (production)
 */
 
 :root{
@@ -341,7 +343,7 @@ html,body{
   width:100%;
 }
 .eye-l{ left:0; }
-.eye-r{ left:0; display:none; }
+.eye-r{ left:0; display:none; } /* default: single-eye */
 
 /* layer fills */
 .gj-layer, .gj-crosshair{
@@ -363,6 +365,26 @@ html,body{
   border:2px solid rgba(229,231,235,.8);
   box-shadow: 0 0 0 6px rgba(34,197,94,.10);
 }
+
+/* ---------- Quest Float (Cardboard L/R) ---------- */
+.gj-quest-float{ display:none; }
+body.view-cvr .gj-quest-float{
+  display:block;
+  position:absolute;
+  top:12px;
+  left:12px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:rgba(2,6,23,.65);
+  border:1px solid rgba(148,163,184,.18);
+  color:#e5e7eb;
+  pointer-events:none;
+  max-width:min(70vw, 360px);
+  z-index:40; /* above targets */
+}
+body.view-cvr .gj-quest-float .qf-title{ font:900 14px/1.2 system-ui; }
+body.view-cvr .gj-quest-float .qf-sub{ margin-top:4px; opacity:.9; font:800 12px/1.2 system-ui; }
+body.view-cvr .gj-quest-float .qf-timer{ margin-top:6px; font:900 14px/1.1 system-ui; color: var(--warn); }
 
 /* ---------- CONTROLS ---------- */
 .hha-controls{
@@ -453,24 +475,25 @@ body.view-vr, body.view-cvr{
   --ctrlH: 84px;
 }
 
-/* VR/cVR split */
-body.view-vr .eye-r,
-body.view-cvr .eye-r{ display:block; }
-body.view-vr .eye-l,
-body.view-cvr .eye-l{ width:50%; left:0; }
-body.view-vr .eye-r,
-body.view-cvr .eye-r{ width:50%; left:50%; }
-
 body.view-vr .gj-crosshair::before,
 body.view-cvr .gj-crosshair::before{ width:26px; height:26px; }
 
-/* hide big HUD in VR, show mini HUD */
+/* ✅ IMPORTANT: split ONLY in cVR (Cardboard) */
+body.view-cvr .eye-r{ display:block; }
+body.view-cvr .eye-l{ width:50%; left:0; }
+body.view-cvr .eye-r{ width:50%; left:50%; }
+
+/* VR (non-cardboard): single-eye full width */
+body.view-vr .eye-l{ width:100%; left:0; }
+body.view-vr .eye-r{ display:none; }
+
+/* hide big HUD in VR/cVR, show mini HUD */
 body.view-vr .hha-hud,
 body.view-cvr .hha-hud{ display:none; }
 body.view-vr .vr-mini-hud,
 body.view-cvr .vr-mini-hud{ display:block; }
 
-/* wave hud position in VR (under mini hud) */
+/* wave hud position in VR/cVR (under mini hud) */
 body.view-vr .gj-wave-hud,
 body.view-cvr .gj-wave-hud{
   top: calc(var(--sat) + 54px);
