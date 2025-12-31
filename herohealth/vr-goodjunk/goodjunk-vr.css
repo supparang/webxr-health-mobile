@@ -1,8 +1,9 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — SAFE layout (VR/cVR + Fullscreen ready)
-✅ #gj-stage uses dvh + reserved zones
-✅ VR/cVR compact HUD: still shows Goal/Mini/Time/Score
-✅ Fullscreen class body.is-fs reduces wasted padding
+GoodJunkVR UI — VR-first layout (No HUD blocking)
+✅ stage uses dvh (fix address-bar jump / "flash then gone")
+✅ reserves space for HUD(top) + fever + controls(bottom)
+✅ VR/cVR collapses HUD into mini HUD + Quest Peek
+✅ Fullscreen: body.is-fs -> tighter paddings/heights
 */
 
 :root{
@@ -25,7 +26,7 @@ GoodJunkVR UI — SAFE layout (VR/cVR + Fullscreen ready)
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
-  /* reserved zones */
+  /* reserved zones (tuned by view modes) */
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
@@ -36,10 +37,9 @@ html,body{
   margin:0; padding:0;
   width:100%;
   height:100dvh;
-  background:
-    radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
-    radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
-    var(--bg);
+  background: radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
+              radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
+              var(--bg);
   color:var(--text);
   font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   overflow:hidden;
@@ -52,7 +52,7 @@ html,body{
   top:0;
   padding: calc(10px + var(--sat)) 12px 10px;
   z-index:80;
-  pointer-events:none;
+  pointer-events:none; /* do not block playfield */
 }
 .hha-hud .hud-top{
   display:flex;
@@ -145,6 +145,89 @@ html,body{
 .coach-line{ font-weight:900; }
 .coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:700; }
 
+/* ---------- VR MINI HUD ---------- */
+.vr-mini-hud{
+  position:fixed;
+  left:12px; right:12px;
+  top: calc(var(--sat) + 10px);
+  z-index:95;
+  pointer-events:none;
+}
+.vr-mini-hud .mini-row{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  justify-content:flex-start;
+  pointer-events:none;
+}
+.mini-pill{
+  pointer-events:none;
+  display:flex;
+  gap:8px;
+  align-items:baseline;
+  background: rgba(2,6,23,.62);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius: 999px;
+  padding:8px 12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
+}
+.mini-pill span{ color:var(--muted); font-weight:900; font-size:12px; }
+.mini-pill b{ font-weight:1000; font-size:16px; }
+.mini-btn{
+  pointer-events:auto;
+  border:1px solid rgba(34,197,94,.30);
+  background: rgba(34,197,94,.14);
+  color:#eafff3;
+  border-radius:999px;
+  padding:9px 14px;
+  font-weight:1000;
+  font-size:13px;
+}
+
+/* Quest Peek Overlay */
+.quest-peek{
+  position:fixed;
+  inset:0;
+  z-index:130;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+}
+.peek-card{
+  width:min(680px, 92vw);
+  background: rgba(2,6,23,.82);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius: 22px;
+  padding:18px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.45);
+}
+.peek-title{ font-size:22px; font-weight:1000; }
+.peek-line{ margin-top:10px; font-weight:1000; font-size:16px; }
+.peek-sub{ margin-top:8px; color:var(--muted); font-weight:900; }
+
+/* Quest Toast */
+.quest-toast{
+  position:fixed;
+  left:12px; right:12px;
+  top: calc(var(--sat) + 58px);
+  z-index:120;
+  display:flex;
+  justify-content:center;
+  pointer-events:none;
+}
+.toast-card{
+  width:min(760px, 92vw);
+  background: rgba(15,23,42,.72);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius: 18px;
+  padding:10px 12px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+}
+.toast-title{ font-weight:1000; }
+.toast-line{ margin-top:4px; color:var(--muted); font-weight:900; }
+
 /* ---------- FEVER ---------- */
 .hha-fever{
   position:fixed;
@@ -173,7 +256,7 @@ html,body{
   overflow:hidden;
 }
 .fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
-.fever-text{ text-align:right; font-weight:900; }
+.fever-text{ text-align:right; font-weight:1000; }
 .shield-row{
   margin-top:8px;
   display:grid;
@@ -196,17 +279,24 @@ html,body{
 }
 
 /* eyes */
-.gj-eye{ position:absolute; top:0; bottom:0; width:100%; }
+.gj-eye{
+  position:absolute;
+  top:0; bottom:0;
+  width:100%;
+}
 .eye-l{ left:0; }
-.eye-r{ left:0; display:none; }
+.eye-r{ left:0; display:none; } /* default hidden; shown in VR/cVR */
 
-.gj-layer, .gj-crosshair, .atk-ring, .atk-laser{
+/* layer fills */
+.gj-layer, .gj-crosshair{
   position:absolute;
   inset:0;
 }
 
 /* crosshair */
-.gj-crosshair{ pointer-events:none; }
+.gj-crosshair{
+  pointer-events:none;
+}
 .gj-crosshair::before{
   content:"";
   position:absolute;
@@ -214,7 +304,7 @@ html,body{
   width:28px; height:28px;
   transform: translate(-50%,-50%);
   border-radius:999px;
-  border:2px solid rgba(229,231,235,.85);
+  border:2px solid rgba(229,231,235,.8);
   box-shadow: 0 0 0 6px rgba(34,197,94,.10);
 }
 
@@ -233,7 +323,7 @@ html,body{
   background: rgba(2,6,23,.72);
   color:var(--text);
   font-size:24px;
-  font-weight:900;
+  font-weight:1000;
   letter-spacing:.2px;
   box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
@@ -243,7 +333,7 @@ html,body{
 .start-overlay{
   position:fixed;
   inset:0;
-  display:none; /* boot.js will set flex */
+  display:flex;
   align-items:center;
   justify-content:center;
   z-index:120;
@@ -259,9 +349,9 @@ html,body{
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
 .start-title{ font-size:26px; font-weight:1000; }
-.start-desc{ margin-top:6px; color:var(--text); font-weight:800; line-height:1.35; }
-.muted{ color:var(--muted); font-weight:800; }
-.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:800; }
+.start-desc{ margin-top:6px; color:var(--text); font-weight:900; line-height:1.35; }
+.muted{ color:var(--muted); font-weight:900; }
+.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:900; }
 .btn-start{
   margin-top:14px;
   width:100%;
@@ -294,53 +384,19 @@ html,body{
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
 .vr-title{ font-size:22px; font-weight:1000; }
-.vr-desc{ margin-top:8px; color:var(--text); font-weight:850; line-height:1.35; }
+.vr-desc{ margin-top:8px; color:var(--text); font-weight:900; line-height:1.35; }
 
 /* ---------- VIEW MODES ---------- */
 body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
 body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
 
-/* ✅ VR/cVR: compact but still shows missions */
 body.view-vr, body.view-cvr{
-  --hudH: 118px;
+  --hudH: 0px;       /* ✅ collapse big HUD in VR */
   --feverH: 70px;
   --ctrlH: 84px;
 }
-body.view-vr .hud-mid,
-body.view-cvr .hud-mid{
-  display:none; /* hide big blocks */
-}
 
-/* keep quest visible as compact strip */
-body.view-vr .hud-quest,
-body.view-cvr .hud-quest{
-  width:min(720px, 96vw);
-  padding:10px 12px;
-}
-body.view-vr .hud-badge,
-body.view-cvr .hud-badge{
-  width:min(720px, 96vw);
-}
-body.view-vr .viewbar,
-body.view-cvr .viewbar{
-  display:none;
-}
-body.view-vr .hud-stats,
-body.view-cvr .hud-stats{
-  display:none; /* reduce clutter; HUD binder still updates but we don't show cards */
-}
-
-/* show only badge + quest in VR */
-body.view-vr .hud-top,
-body.view-cvr .hud-top{
-  justify-content:center;
-}
-body.view-vr .hud-badge,
-body.view-cvr .hud-badge{
-  text-align:center;
-}
-
-/* split */
+/* VR/cVR split */
 body.view-vr .eye-r,
 body.view-cvr .eye-r{ display:block; }
 body.view-vr .eye-l,
@@ -353,11 +409,21 @@ body.view-cvr .gj-crosshair::before{
   width:26px; height:26px;
 }
 
-/* fullscreen tweaks */
-body.is-fs .hha-hud{ padding-top: calc(6px + var(--sat)); }
-body.is-fs .hha-controls{ left:10px; right:10px; }
-body.is-fs .hha-fever{ left:10px; right:10px; }
+/* hide big HUD in VR, show mini HUD instead */
+body.view-vr .hha-hud,
+body.view-cvr .hha-hud{ display:none; }
+body.view-vr .vr-mini-hud,
+body.view-cvr .vr-mini-hud{ display:block; }
 
+/* ---------- FULLSCREEN TUNING ---------- */
+body.is-fs.view-vr,
+body.is-fs.view-cvr{
+  --feverH: 60px;
+  --ctrlH: 78px;
+}
+body.is-fs .btn-shoot{ height:66px; }
+
+/* ---------- RESPONSIVE ---------- */
 @media (max-width:520px){
   .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
   .hud-badge{ width: 60vw; }
