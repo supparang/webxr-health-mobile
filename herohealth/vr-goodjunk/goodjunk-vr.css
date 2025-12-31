@@ -1,12 +1,9 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR UI — VR-first layout (No HUD blocking) + WAVES + PANIC
-✅ stage uses dvh (fix address-bar jump / "flash then gone")
-✅ reserves space for HUD(top) + fever + controls(bottom)
-✅ VR: single-eye (no split) + mini HUD + Quest Peek
-✅ cVR: dual-eye split (Cardboard) + Quest Float L/R
-✅ Fullscreen: body.is-fs -> tighter paddings/heights
-✅ NEW: Wave HUD (Boss / No-Junk) + Panic FX
-✅ NEW: Quest Float L/R styles (production)
+GoodJunkVR UI — SAFE layout (PRODUCTION)
+✅ stage uses fixed top/bottom (stable) + [hidden] overlays
+✅ reserves space for HUD(top) + fever+controls(bottom)
+✅ VR/cVR dual-eye split with stable center
+✅ Fullscreen handling + STUN + Boss Rage + Quest Peek
 */
 
 :root{
@@ -29,20 +26,16 @@ GoodJunkVR UI — VR-first layout (No HUD blocking) + WAVES + PANIC
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
 
-  /* reserved zones (tuned by view modes) */
+  /* reserved zones (approx) */
   --hudH: 220px;
   --feverH: 92px;
   --ctrlH: 92px;
-
-  /* panic 0..1 set by JS */
-  --panic: 0;
 }
 
 *{ box-sizing:border-box; }
 html,body{
   margin:0; padding:0;
-  width:100%;
-  height:100dvh;
+  width:100%; height:100%;
   background: radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
               radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
               var(--bg);
@@ -58,7 +51,7 @@ html,body{
   top:0;
   padding: calc(10px + var(--sat)) 12px 10px;
   z-index:80;
-  pointer-events:none; /* do not block playfield */
+  pointer-events:none; /* HUD should not block playfield */
 }
 .hha-hud .hud-top{
   display:flex;
@@ -73,7 +66,7 @@ html,body{
   border-radius:var(--r-lg);
   padding:12px;
   box-shadow: 0 10px 28px rgba(0,0,0,.35);
-  pointer-events:auto;
+  pointer-events:auto; /* buttons clickable */
 }
 .hud-title{ font-weight:900; letter-spacing:.2px; font-size:18px; }
 .hud-sub{ margin-top:4px; color:var(--muted); font-size:12px; }
@@ -151,140 +144,6 @@ html,body{
 .coach-line{ font-weight:900; }
 .coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:700; }
 
-/* ---------- VR MINI HUD ---------- */
-.vr-mini-hud{
-  position:fixed;
-  left:12px; right:12px;
-  top: calc(var(--sat) + 10px);
-  z-index:95;
-  pointer-events:none;
-}
-.vr-mini-hud .mini-row{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:flex-start;
-  pointer-events:none;
-}
-.mini-pill{
-  pointer-events:none;
-  display:flex;
-  gap:8px;
-  align-items:baseline;
-  background: rgba(2,6,23,.62);
-  border:1px solid rgba(148,163,184,.20);
-  border-radius: 999px;
-  padding:8px 12px;
-  box-shadow: 0 10px 28px rgba(0,0,0,.25);
-}
-.mini-pill span{ color:var(--muted); font-weight:900; font-size:12px; }
-.mini-pill b{ font-weight:1000; font-size:16px; }
-.mini-btn{
-  pointer-events:auto;
-  border:1px solid rgba(34,197,94,.30);
-  background: rgba(34,197,94,.14);
-  color:#eafff3;
-  border-radius:999px;
-  padding:9px 14px;
-  font-weight:1000;
-  font-size:13px;
-}
-
-/* Quest Peek Overlay */
-.quest-peek{
-  position:fixed;
-  inset:0;
-  z-index:130;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-}
-.peek-card{
-  width:min(680px, 92vw);
-  background: rgba(2,6,23,.82);
-  border:1px solid rgba(148,163,184,.20);
-  border-radius: 22px;
-  padding:18px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.45);
-}
-.peek-title{ font-size:22px; font-weight:1000; }
-.peek-line{ margin-top:10px; font-weight:1000; font-size:16px; }
-.peek-sub{ margin-top:8px; color:var(--muted); font-weight:900; }
-
-/* Quest Toast */
-.quest-toast{
-  position:fixed;
-  left:12px; right:12px;
-  top: calc(var(--sat) + 58px);
-  z-index:120;
-  display:flex;
-  justify-content:center;
-  pointer-events:none;
-}
-.toast-card{
-  width:min(760px, 92vw);
-  background: rgba(15,23,42,.72);
-  border:1px solid rgba(148,163,184,.20);
-  border-radius: 18px;
-  padding:10px 12px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.35);
-}
-.toast-title{ font-weight:1000; }
-.toast-line{ margin-top:4px; color:var(--muted); font-weight:900; }
-
-/* ---------- WAVE HUD (Boss / No-Junk) ---------- */
-.gj-wave-hud{
-  position:fixed;
-  left:12px; right:12px;
-  top: calc(var(--sat) + 52px);
-  z-index:110;
-  display:flex;
-  justify-content:center;
-  pointer-events:none;
-}
-.wave-card{
-  width:min(760px, 92vw);
-  background: rgba(2,6,23,.68);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius: 18px;
-  padding:10px 12px;
-  box-shadow: 0 18px 55px rgba(0,0,0,.40);
-}
-.wave-top{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:space-between;
-}
-.wave-title{
-  font-weight:1000;
-  letter-spacing:.2px;
-}
-.wave-title.boss{ color: #eafff3; }
-.wave-title.nojunk{ color: #dbeafe; }
-.wave-right{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  color:var(--muted);
-  font-weight:1000;
-}
-.wave-bar{
-  margin-top:8px;
-  height:12px;
-  border-radius:999px;
-  background: rgba(148,163,184,.14);
-  border:1px solid rgba(148,163,184,.18);
-  overflow:hidden;
-}
-.wave-fill{
-  height:100%;
-  width:0%;
-  background: rgba(34,197,94,.85);
-}
-
 /* ---------- FEVER ---------- */
 .hha-fever{
   position:fixed;
@@ -313,7 +172,7 @@ html,body{
   overflow:hidden;
 }
 .fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
-.fever-text{ text-align:right; font-weight:1000; }
+.fever-text{ text-align:right; font-weight:900; }
 .shield-row{
   margin-top:8px;
   display:grid;
@@ -333,7 +192,6 @@ html,body{
   z-index:10;
   pointer-events:auto;
   overflow:hidden;
-  will-change: transform;
 }
 
 /* eyes */
@@ -343,15 +201,15 @@ html,body{
   width:100%;
 }
 .eye-l{ left:0; }
-.eye-r{ left:0; display:none; } /* default: single-eye */
+.eye-r{ left:0; display:none; } /* default hidden; shown in view-vr/cvr */
 
-/* layer fills */
-.gj-layer, .gj-crosshair{
+/* layers fill */
+.gj-layer, .gj-crosshair, .atk-ring, .atk-laser{
   position:absolute;
   inset:0;
 }
 
-/* crosshair */
+/* crosshair (simple) */
 .gj-crosshair{
   pointer-events:none;
 }
@@ -366,25 +224,27 @@ html,body{
   box-shadow: 0 0 0 6px rgba(34,197,94,.10);
 }
 
-/* ---------- Quest Float (Cardboard L/R) ---------- */
-.gj-quest-float{ display:none; }
-body.view-cvr .gj-quest-float{
-  display:block;
-  position:absolute;
-  top:12px;
-  left:12px;
-  padding:10px 12px;
-  border-radius:14px;
-  background:rgba(2,6,23,.65);
-  border:1px solid rgba(148,163,184,.18);
-  color:#e5e7eb;
+/* atk ring */
+.atk-ring{
   pointer-events:none;
-  max-width:min(70vw, 360px);
-  z-index:40; /* above targets */
 }
-body.view-cvr .gj-quest-float .qf-title{ font:900 14px/1.2 system-ui; }
-body.view-cvr .gj-quest-float .qf-sub{ margin-top:4px; opacity:.9; font:800 12px/1.2 system-ui; }
-body.view-cvr .gj-quest-float .qf-timer{ margin-top:6px; font:900 14px/1.1 system-ui; color: var(--warn); }
+.atk-ring::before{
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:54px; height:54px;
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  border:2px dashed rgba(34,197,94,.45);
+  filter: drop-shadow(0 0 10px rgba(34,197,94,.20));
+  opacity:.0;
+}
+
+/* laser (optional) */
+.atk-laser{
+  pointer-events:none;
+  opacity:0;
+}
 
 /* ---------- CONTROLS ---------- */
 .hha-controls{
@@ -401,13 +261,14 @@ body.view-cvr .gj-quest-float .qf-timer{ margin-top:6px; font:900 14px/1.1 syste
   background: rgba(2,6,23,.72);
   color:var(--text);
   font-size:24px;
-  font-weight:1000;
+  font-weight:900;
   letter-spacing:.2px;
   box-shadow: 0 12px 30px rgba(0,0,0,.35);
 }
 .btn-shoot:active{ transform: translateY(1px); }
 
 /* ---------- OVERLAYS ---------- */
+/* IMPORTANT: overlays rely on [hidden] attribute. DO NOT set display:none by default. */
 .start-overlay{
   position:fixed;
   inset:0;
@@ -418,6 +279,8 @@ body.view-cvr .gj-quest-float .qf-timer{ margin-top:6px; font:900 14px/1.1 syste
   background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
+.start-overlay[hidden]{ display:none !important; }
+
 .start-card{
   width:min(560px, 92vw);
   background: rgba(2,6,23,.80);
@@ -427,9 +290,9 @@ body.view-cvr .gj-quest-float .qf-timer{ margin-top:6px; font:900 14px/1.1 syste
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
 .start-title{ font-size:26px; font-weight:1000; }
-.start-desc{ margin-top:6px; color:var(--text); font-weight:900; line-height:1.35; }
-.muted{ color:var(--muted); font-weight:900; }
-.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:900; }
+.start-desc{ margin-top:6px; color:var(--text); font-weight:800; line-height:1.35; }
+.muted{ color:var(--muted); font-weight:800; }
+.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:800; }
 .btn-start{
   margin-top:14px;
   width:100%;
@@ -453,6 +316,8 @@ body.view-cvr .gj-quest-float .qf-timer{ margin-top:6px; font:900 14px/1.1 syste
   background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
+.vr-hint[hidden]{ display:none !important; }
+
 .vr-card{
   width:min(720px, 92vw);
   background: rgba(2,6,23,.82);
@@ -462,76 +327,104 @@ body.view-cvr .gj-quest-float .qf-timer{ margin-top:6px; font:900 14px/1.1 syste
   box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
 .vr-title{ font-size:22px; font-weight:1000; }
-.vr-desc{ margin-top:8px; color:var(--text); font-weight:900; line-height:1.35; }
+.vr-desc{ margin-top:8px; color:var(--text); font-weight:850; line-height:1.35; }
+
+/* Quest Peek overlay (for VR/cVR when HUD is minimized) */
+.gj-peek{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:110;
+  pointer-events:none;
+  opacity:0;
+  transform: translateY(10px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.gj-peek.show{
+  opacity:1;
+  transform: translateY(0);
+}
+.gj-peek .peek-card{
+  width:min(760px, 92vw);
+  background: rgba(2,6,23,.78);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius:22px;
+  padding:14px 16px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.48);
+}
+.peek-title{ font-weight:1000; letter-spacing:.2px; font-size:18px; }
+.peek-sub{ margin-top:6px; font-weight:900; color: rgba(34,197,94,.95); }
+.peek-mini{ margin-top:4px; font-weight:900; color: rgba(34,211,238,.95); }
+.peek-tip{ margin-top:8px; font-weight:800; color: var(--muted); font-size:12px; }
 
 /* ---------- VIEW MODES ---------- */
 body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
 body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
 
-/* VR/cVR: collapse big HUD */
 body.view-vr, body.view-cvr{
-  --hudH: 0px;
-  --feverH: 70px;
-  --ctrlH: 84px;
+  --hudH: 130px;
+  --feverH: 78px;
+  --ctrlH: 86px;
 }
 
+/* VR/cVR split */
+body.view-vr .eye-r,
+body.view-cvr .eye-r{ display:block; }
+body.view-vr .eye-l,
+body.view-cvr .eye-l{ width:50%; left:0; }
+body.view-vr .eye-r,
+body.view-cvr .eye-r{ width:50%; left:50%; }
 body.view-vr .gj-crosshair::before,
 body.view-cvr .gj-crosshair::before{ width:26px; height:26px; }
 
-/* ✅ IMPORTANT: split ONLY in cVR (Cardboard) */
-body.view-cvr .eye-r{ display:block; }
-body.view-cvr .eye-l{ width:50%; left:0; }
-body.view-cvr .eye-r{ width:50%; left:50%; }
-
-/* VR (non-cardboard): single-eye full width */
-body.view-vr .eye-l{ width:100%; left:0; }
-body.view-vr .eye-r{ display:none; }
-
-/* hide big HUD in VR/cVR, show mini HUD */
+/* VR: minimize HUD a bit but still readable */
 body.view-vr .hha-hud,
-body.view-cvr .hha-hud{ display:none; }
-body.view-vr .vr-mini-hud,
-body.view-cvr .vr-mini-hud{ display:block; }
+body.view-cvr .hha-hud{ opacity:.92; }
+body.view-vr .hud-coach,
+body.view-cvr .hud-coach{ display:none; }
 
-/* wave hud position in VR/cVR (under mini hud) */
-body.view-vr .gj-wave-hud,
-body.view-cvr .gj-wave-hud{
-  top: calc(var(--sat) + 54px);
-}
+/* Fullscreen tweaks */
+body.is-fs.view-mobile{ --hudH: 210px; --feverH: 86px; --ctrlH: 86px; }
+body.is-fs.view-pc{ --hudH: 200px; --feverH: 86px; --ctrlH: 86px; }
+body.is-fs.view-vr, body.is-fs.view-cvr{ --hudH: 120px; --feverH: 74px; --ctrlH: 82px; }
 
-/* ---------- FULLSCREEN TUNING ---------- */
-body.is-fs.view-vr,
-body.is-fs.view-cvr{
-  --feverH: 60px;
-  --ctrlH: 78px;
-}
-body.is-fs .btn-shoot{ height:66px; }
-
-/* ---------- PANIC FX ---------- */
-body.panic #gj-stage{
-  animation: gj-shake 0.22s infinite linear;
-}
-@keyframes gj-shake{
-  0%   { transform: translate(0,0); }
-  25%  { transform: translate(calc(var(--panic)*1.5px), calc(var(--panic)*-1.2px)); }
-  50%  { transform: translate(calc(var(--panic)*-1.6px), calc(var(--panic)*1.2px)); }
-  75%  { transform: translate(calc(var(--panic)*1.2px), calc(var(--panic)*1.3px)); }
-  100% { transform: translate(0,0); }
-}
-body.panic::before{
-  content:"";
-  position:fixed; inset:0;
-  pointer-events:none;
-  z-index:60;
-  background:
-    radial-gradient(circle at center,
-      rgba(0,0,0,0) 56%,
-      rgba(239,68,68, calc(.14 * var(--panic))) 100%);
-}
-
-/* ---------- RESPONSIVE ---------- */
 @media (max-width:520px){
   .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
   .hud-badge{ width: 60vw; }
   .hud-coach{ display:none; }
+}
+
+/* ===== ADD-ON: STUN + BOSS RAGE ===== */
+body.stun{ animation: stun-shake 0.10s infinite linear; }
+@keyframes stun-shake{
+  0%{ transform: translate(0,0); }
+  25%{ transform: translate(1px,-1px); }
+  50%{ transform: translate(-1px,1px); }
+  75%{ transform: translate(1px,1px); }
+  100%{ transform: translate(0,0); }
+}
+body.stun::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:95;
+  background: radial-gradient(circle at center, rgba(0,0,0,0) 55%, rgba(239,68,68,0.18) 100%);
+  animation: stun-vignette .18s infinite linear;
+}
+@keyframes stun-vignette{
+  0%{ opacity:.35; }
+  50%{ opacity:.85; }
+  100%{ opacity:.35; }
+}
+.gj-target.boss.rage{
+  border-color: rgba(239,68,68,.45) !important;
+  box-shadow: 0 24px 92px rgba(0,0,0,.60), 0 0 28px rgba(239,68,68,.22);
+  animation: boss-rage-pulse .55s infinite ease-in-out;
+}
+@keyframes boss-rage-pulse{
+  0%{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.00)); filter:saturate(1.1); }
+  50%{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.07)); filter:saturate(1.25); }
+  100%{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.00)); filter:saturate(1.1); }
 }
