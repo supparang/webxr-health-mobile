@@ -1,20 +1,17 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — PRODUCTION CSS (ROOT: /herohealth/plate-vr.html)
-✅ Responsive: PC / Mobile / VR / cVR
-✅ HUD Top + Mini panel + Coach + Buttons (safe-area aware)
-✅ Play area safe-zone (avoid HUD overlap in JS) + visual guide
-✅ Targets: emoji crisp + float + wobble + spawn pop + hit flash
-✅ Fever / Shield / Grade chips
-✅ Pause/Start/Result overlays
-✅ Works with plate.safe.js + plate-hud.js
+Balanced Plate VR — PRODUCTION CSS (ROOT: /herohealth/plate/plate-vr.css)
+✅ Works with /herohealth/plate-vr.html + /herohealth/plate/plate.safe.js
+✅ VR-feel target styling + hit feedback + fever glow + safe-area
+✅ HUD safe zones (top/mini/coach/buttons)
 */
 
 :root{
   color-scheme: dark;
+
   --bg:#020617;
-  --panel: rgba(2,6,23,.70);
-  --panel2: rgba(15,23,42,.62);
-  --stroke: rgba(148,163,184,.18);
+  --panel:rgba(2,6,23,.74);
+  --panel2:rgba(15,23,42,.70);
+  --stroke:rgba(148,163,184,.18);
 
   --text:#e5e7eb;
   --muted:#94a3b8;
@@ -24,705 +21,622 @@ Balanced Plate VR — PRODUCTION CSS (ROOT: /herohealth/plate-vr.html)
   --bad:#ef4444;
   --cyan:#22d3ee;
   --violet:#a78bfa;
-  --gold:#facc15;
 
-  --radius:18px;
-  --pill:999px;
+  --radius-lg:18px;
+  --radius-pill:999px;
 
-  /* safe-area */
+  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
-  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
 
-  /* spacing */
-  --pad: 10px;
-  --hudTopH: 94px;     /* used only for mental model; JS uses actual rects */
-  --btnBarH: 62px;
+  /* HUD geometry hints for spawn-safe (used by JS for rect only, but keep spacing consistent) */
+  --hud-top-h: 96px;
+  --hud-btns-h: 62px;
+  --mini-w: 340px;
+  --coach-w: 240px;
 
-  /* target look */
-  --tShadow: 0 18px 44px rgba(0,0,0,.28);
-  --tStroke: rgba(148,163,184,.18);
-  --tBg: rgba(2,6,23,.55);
-  --tBlur: blur(10px);
-
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+  /* target feel */
+  --t-shadow: 0 22px 70px rgba(0,0,0,.42);
+  --t-stroke: rgba(148,163,184,.22);
+  --t-bg: rgba(2,6,23,.54);
 }
 
-*,
-*::before,
-*::after{ box-sizing:border-box; }
-
-html,body{
-  width:100%;
-  height:100%;
-  margin:0;
-  overflow:hidden;
-  background: var(--bg);
-  color: var(--text);
+*{ box-sizing:border-box; }
+html, body{ width:100%; height:100%; margin:0; padding:0; overflow:hidden; background:var(--bg); color:var(--text); }
+body{
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+  -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 
-body{
-  /* subtle nebula */
-  background:
-    radial-gradient(circle at top left, rgba(56,189,248,.16), transparent 60%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 60%),
-    radial-gradient(circle at 70% 30%, rgba(168,85,247,.10), transparent 50%),
-    var(--bg);
-}
-
-/* A-Frame scene stays behind DOM */
+/* ===== A-Frame layer stays behind ===== */
 a-scene{ pointer-events:none; }
 
-/* ----------------------------
-   Play layer + FX
----------------------------- */
+/* ===== Play layer ===== */
 #plate-layer{
   position:fixed;
   inset:0;
   z-index:10;
   pointer-events:auto;
-  /* VR-feel look applies transform from JS */
+  /* subtle scene vignette */
+  background:
+    radial-gradient(circle at 50% 40%, rgba(56,189,248,.10), transparent 60%),
+    radial-gradient(circle at 20% 10%, rgba(34,197,94,.10), transparent 55%),
+    radial-gradient(circle at 90% 80%, rgba(167,139,250,.08), transparent 55%);
+  transform: translate(0px,0px);
   will-change: transform;
-  transform: translate(0,0);
 }
 
-/* hitFx overlay pulses via JS */
+/* ===== Hit FX overlay ===== */
 #hitFx{
   position:fixed;
   inset:0;
-  z-index:25;
+  z-index:30;
   pointer-events:none;
   opacity:0;
   transition: opacity .12s ease;
 }
 
-/* ----------------------------
-   HUD TOP
----------------------------- */
+/* ===== TOP HUD ===== */
 #hudTop{
   position:fixed;
-  top: calc(var(--sat) + 10px);
-  left: calc(var(--sal) + 10px);
-  right: calc(var(--sar) + 10px);
-  z-index:60;
-
-  border:1px solid var(--stroke);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.55));
-  box-shadow: 0 22px 70px rgba(0,0,0,.35);
-  backdrop-filter: blur(10px);
-  padding: 10px 10px 9px;
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  top: calc(10px + var(--sat));
+  z-index:40;
+  pointer-events:none;
 }
 
-.hudRow{
+#hudTop .hudRow{
   display:flex;
-  gap:8px;
+  gap:10px;
+  flex-wrap:wrap;
   align-items:stretch;
   justify-content:space-between;
+  padding:10px 10px;
+  border-radius:22px;
+  border:1px solid var(--stroke);
+  background: linear-gradient(180deg, rgba(15,23,42,.62), rgba(2,6,23,.62));
+  box-shadow: 0 22px 70px rgba(0,0,0,.42);
+  backdrop-filter: blur(10px);
 }
 
-.hudStat{
-  flex: 1 1 0;
-  min-width: 74px;
-  background: rgba(2,6,23,.46);
-  border:1px solid rgba(148,163,184,.14);
-  border-radius: 16px;
-  padding: 8px 9px;
-  box-shadow: 0 14px 40px rgba(0,0,0,.22);
+#hudTop .hudStat{
+  min-width: 88px;
+  padding:8px 10px;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,.12);
+  background: rgba(2,6,23,.42);
 }
 
-.hudStat .k{
-  font-size:10px;
-  font-weight:1100;
-  color: rgba(148,163,184,.95);
-  letter-spacing:.3px;
+#hudTop .k{
+  font-size:11px;
+  font-weight:1000;
+  letter-spacing:.2px;
+  color:rgba(148,163,184,.96);
 }
-.hudStat .v{
-  font-size:16px;
-  font-weight:1200;
+#hudTop .v{
   margin-top:3px;
-  line-height:1.05;
+  font-size:16px;
+  font-weight:1100;
+  color:rgba(229,231,235,.96);
 }
-.muted{ color: rgba(148,163,184,.92); font-weight:900; }
+#hudTop .muted{ color:rgba(148,163,184,.92); font-weight:900; }
 
-/* chips */
-.plateChip{
-  border-color: rgba(34,197,94,.22);
+#hudTop .plateChip{
+  border-color: rgba(34,197,94,.18);
   background: rgba(34,197,94,.08);
 }
-.timeChip{
-  border-color: rgba(34,211,238,.22);
-  background: rgba(34,211,238,.08);
+#hudTop .gradeChip{
+  border-color: rgba(250,204,21,.18);
+  background: rgba(250,204,21,.07);
 }
-.gradeChip{
-  border-color: rgba(148,163,184,.18);
-  background: rgba(15,23,42,.40);
+#hudTop .timeChip{
+  border-color: rgba(34,211,238,.16);
+  background: rgba(34,211,238,.07);
 }
 
-/* row2 */
-.hudRow2{
+#hudTop .hudRow2{
+  margin-top:10px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  margin-top:8px;
-}
-
-/* fever */
-.feverWrap{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  flex: 1 1 auto;
-  min-width: 220px;
-}
-.feverLabel{
-  font-weight:1200;
-  font-size:12px;
-  letter-spacing:.2px;
-  color: rgba(148,163,184,.95);
-}
-.feverBar{
-  position:relative;
-  flex: 1 1 auto;
-  height: 12px;
-  border-radius: 999px;
+  padding:10px 10px;
+  border-radius:22px;
   border:1px solid rgba(148,163,184,.14);
-  overflow:hidden;
-  background: rgba(2,6,23,.42);
-  box-shadow: 0 14px 40px rgba(0,0,0,.20);
-}
-.feverFill{
-  position:absolute;
-  inset:0;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.85), rgba(250,204,21,.85), rgba(239,68,68,.88));
-  transition: width .12s linear;
+  background: rgba(2,6,23,.50);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 16px 44px rgba(0,0,0,.30);
 }
 
-.shieldPill{
+#hudTop .feverWrap{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width: 250px;
+}
+#hudTop .feverLabel{
+  font-size:11px;
+  font-weight:1100;
+  color:rgba(148,163,184,.96);
+}
+#hudTop .feverBar{
+  width: 140px;
+  height: 12px;
+  border-radius:999px;
+  background: rgba(15,23,42,.70);
+  border:1px solid rgba(148,163,184,.16);
+  overflow:hidden;
+}
+#hudTop .feverFill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(34,197,94,.92), rgba(250,204,21,.92), rgba(239,68,68,.92));
+  transition: width .12s ease;
+}
+
+#hudTop .shieldPill{
   display:inline-flex;
   align-items:center;
-  gap:8px;
-  padding: 7px 10px;
-  border-radius: 999px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.46);
-  font-weight:1200;
-  white-space:nowrap;
-  box-shadow: 0 14px 40px rgba(0,0,0,.20);
+  gap:6px;
+  padding:8px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(15,23,42,.62);
+  font-weight:1100;
+  color:rgba(229,231,235,.96);
 }
 
-/* counts */
-.plateCounts{
+#hudTop .plateCounts{
   display:flex;
   gap:8px;
   flex-wrap:wrap;
   justify-content:flex-end;
-}
-.plateCounts .pill{
-  display:inline-flex;
   align-items:center;
+}
+#hudTop .pill{
+  display:inline-flex;
   gap:8px;
-  padding: 7px 10px;
-  border-radius: 999px;
+  align-items:center;
+  padding:8px 10px;
+  border-radius:999px;
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.44);
+  background: rgba(15,23,42,.55);
   font-weight:1100;
-  box-shadow: 0 14px 40px rgba(0,0,0,.18);
 }
-.plateCounts .pill b{ font-weight:1300; }
 
-/* fever state */
-body.fever-high #hudTop{
-  border-color: rgba(239,68,68,.22);
-}
-body.fever-high .feverLabel{ color: rgba(239,68,68,.92); }
-
-/* ----------------------------
-   Coach panel
----------------------------- */
+/* ===== COACH ===== */
 #coachPanel{
   position:fixed;
-  left: calc(var(--sal) + 10px);
-  top: calc(var(--sat) + 118px);
-  z-index:55;
-
+  left: calc(10px + var(--sal));
+  bottom: calc(86px + var(--sab));
+  z-index:40;
   display:flex;
   gap:10px;
   align-items:center;
-
-  max-width: min(360px, 56vw);
-  padding: 10px 12px;
-  border-radius: 20px;
+  width: min(420px, calc(100vw - 20px - var(--sal) - var(--sar)));
+  padding:10px 10px;
+  border-radius:22px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.62);
-  box-shadow: 0 22px 70px rgba(0,0,0,.30);
+  background: rgba(2,6,23,.58);
   backdrop-filter: blur(10px);
+  box-shadow: 0 18px 60px rgba(0,0,0,.32);
+  pointer-events:none;
 }
 
-#coachImg{
-  width:44px;
-  height:44px;
-  border-radius: 14px;
+#coachPanel img{
+  width:52px;
+  height:52px;
+  border-radius:16px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.5);
+  background: rgba(15,23,42,.60);
   box-shadow: 0 16px 44px rgba(0,0,0,.28);
-  flex: 0 0 auto;
-}
-.coachText{ min-width:0; }
-.coachName{
-  font-weight:1200;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-}
-.coachMsg{
-  margin-top:3px;
-  font-weight:1100;
-  font-size:13px;
-  line-height:1.25;
-  color: rgba(229,231,235,.95);
-  word-break:break-word;
+  object-fit:cover;
 }
 
-/* ----------------------------
-   Quest panel (Goal/Mini)
----------------------------- */
+#coachPanel .coachName{
+  font-weight:1100;
+  font-size:12px;
+  color:rgba(229,231,235,.96);
+}
+#coachPanel .coachMsg{
+  margin-top:2px;
+  font-weight:1000;
+  font-size:12px;
+  color:rgba(148,163,184,.96);
+  line-height:1.35;
+}
+
+/* ===== QUEST PANEL ===== */
 #miniPanel{
   position:fixed;
-  right: calc(var(--sar) + 10px);
-  top: calc(var(--sat) + 118px);
-  z-index:55;
-
-  width: min(420px, 48vw);
-  padding: 10px 12px;
-  border-radius: 20px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.62);
-  box-shadow: 0 22px 70px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
+  right: calc(10px + var(--sar));
+  top: calc(122px + var(--sat));
+  z-index:40;
+  width: min(360px, calc(100vw - 20px - var(--sal) - var(--sar)));
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none;
 }
 
-.questBlock + .questBlock{ margin-top:10px; }
+#miniPanel .questBlock{
+  padding:10px 10px;
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(2,6,23,.56);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 60px rgba(0,0,0,.28);
+}
 
-.questHdr{
+#miniPanel .questHdr{
   display:flex;
   gap:10px;
   align-items:center;
   justify-content:space-between;
 }
-.badge{
+
+#miniPanel .badge{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  padding: 6px 10px;
-  border-radius: 999px;
+  padding:6px 10px;
+  border-radius:999px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.50);
-  font-weight:1200;
+  background: rgba(15,23,42,.62);
+  font-weight:1100;
   font-size:11px;
-  white-space:nowrap;
 }
-.badgeGoal{
-  border-color: rgba(34,197,94,.26);
+
+#miniPanel .badgeGoal{
+  border-color: rgba(34,197,94,.20);
   background: rgba(34,197,94,.10);
 }
-.badgeMini{
-  border-color: rgba(250,204,21,.26);
+#miniPanel .badgeMini{
+  border-color: rgba(250,204,21,.22);
   background: rgba(250,204,21,.10);
 }
 
-.qTitle{
-  flex: 1 1 auto;
-  min-width:0;
-  font-weight:1200;
+#miniPanel .qTitle{
+  flex:1;
+  font-weight:1100;
   font-size:12px;
-  color: rgba(229,231,235,.95);
+  color:rgba(229,231,235,.96);
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-.qCount{
+#miniPanel .qCount{
   font-weight:1100;
   font-size:12px;
-  color: rgba(148,163,184,.95);
+  color:rgba(148,163,184,.96);
   white-space:nowrap;
 }
 
-.bar{
+#miniPanel .bar{
   margin-top:8px;
-  height: 12px;
-  border-radius: 999px;
+  height:12px;
+  border-radius:999px;
+  background: rgba(15,23,42,.70);
   border:1px solid rgba(148,163,184,.14);
   overflow:hidden;
-  background: rgba(2,6,23,.42);
 }
-.barFill{
+#miniPanel .barFill{
   height:100%;
   width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.85), rgba(34,211,238,.80));
-  transition: width .12s linear;
+  border-radius:999px;
+  background: linear-gradient(90deg, rgba(34,197,94,.90), rgba(34,211,238,.90));
+  transition: width .12s ease;
 }
-.barFill.mini{
-  background: linear-gradient(90deg, rgba(250,204,21,.88), rgba(239,68,68,.80));
+#miniPanel .barFill.mini{
+  background: linear-gradient(90deg, rgba(250,204,21,.92), rgba(239,68,68,.90));
 }
 
-.hint{
+#miniPanel .hint{
   margin-top:8px;
-  font-weight:1000;
   font-size:12px;
-  color: rgba(148,163,184,.95);
-  line-height:1.25;
+  font-weight:1000;
+  color:rgba(148,163,184,.96);
+  line-height:1.35;
 }
 
-/* ----------------------------
-   Buttons bottom-right
----------------------------- */
+/* ===== BUTTON BAR ===== */
 #hudBtns{
   position:fixed;
-  right: calc(var(--sar) + 10px);
-  bottom: calc(var(--sab) + 12px);
-  z-index:65;
-
+  left: calc(10px + var(--sal));
+  right: calc(10px + var(--sar));
+  bottom: calc(10px + var(--sab));
+  z-index:50;
   display:flex;
   gap:10px;
+  justify-content:center;
   align-items:center;
+  pointer-events:auto;
 }
 
 .btn{
-  border-radius: 16px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(34,197,94,.14);
-  color: var(--text);
-  padding: 10px 12px;
-  font-weight:1200;
+  border:1px solid rgba(148,163,184,.20);
+  background: rgba(2,6,23,.72);
+  color: rgba(229,231,235,.96);
+  border-radius:16px;
+  padding:12px 14px;
+  font-weight:1100;
   cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 18px 44px rgba(0,0,0,.26);
+  box-shadow: 0 18px 44px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
 }
 .btn:active{ transform: translateY(1px); }
-
 .btn.ghost{
-  background: rgba(2,6,23,.58);
-  border-color: rgba(148,163,184,.18);
+  background: rgba(15,23,42,.55);
+}
+.btn.big{
+  padding:14px 16px;
+  border-radius:18px;
+  font-size:15px;
 }
 
-/* ----------------------------
-   Paused overlay
----------------------------- */
+/* ===== PAUSED overlay ===== */
 #hudPaused{
-  display:none;
   position:fixed;
   inset:0;
-  z-index:120;
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
+  z-index:80;
+  display:none;
   place-items:center;
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(8px);
 }
 .pausedCard{
-  width:min(520px, 92vw);
+  width:min(520px, calc(100vw - 24px));
+  border-radius:22px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.70);
-  border-radius: 22px;
-  padding: 14px 14px;
+  background: rgba(2,6,23,.76);
   box-shadow: 0 22px 70px rgba(0,0,0,.45);
+  padding:16px;
   text-align:center;
 }
-.pausedTitle{ font-weight:1300; font-size:18px; }
-.pausedText{ margin-top:6px; font-weight:1000; color: rgba(148,163,184,.95); }
+.pausedTitle{ font-size:18px; font-weight:1200; }
+.pausedText{ margin-top:8px; font-weight:1000; color:rgba(148,163,184,.96); }
 
-/* ----------------------------
-   Start overlay
----------------------------- */
+/* ===== START overlay ===== */
 #startOverlay{
   position:fixed;
   inset:0;
-  z-index:125;
-  display:none; /* JS sets grid */
+  z-index:90;
+  display:none;
   place-items:center;
-  background: rgba(2,6,23,.58);
-  backdrop-filter: blur(12px);
+  background: radial-gradient(circle at 50% 35%, rgba(34,211,238,.10), transparent 60%),
+              rgba(2,6,23,.72);
+  backdrop-filter: blur(10px);
 }
 .startCard{
-  width:min(560px, 92vw);
+  width:min(560px, calc(100vw - 24px));
+  border-radius:26px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.72);
-  border-radius: 24px;
-  padding: 16px 14px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.45);
+  background: rgba(2,6,23,.78);
+  box-shadow: 0 26px 90px rgba(0,0,0,.55);
+  padding:16px 16px 14px;
 }
 .startTitle{
-  font-weight:1400;
-  font-size:18px;
+  font-size:20px;
+  font-weight:1200;
   letter-spacing:.2px;
 }
 .startSub{
-  margin-top:6px;
+  margin-top:8px;
   font-weight:1000;
-  color: rgba(148,163,184,.95);
+  color:rgba(148,163,184,.96);
   line-height:1.35;
 }
 .startMeta{
+  margin-top:12px;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
-  margin-top:10px;
 }
 .metaPill{
-  padding:8px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.48);
-  font-weight:1100;
-}
-.startBtns{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  margin-top:12px;
-}
-.btn.big{
-  padding: 12px 14px;
-  border-radius: 18px;
-}
-.startFoot{
-  margin-top:10px;
-  font-weight:900;
-  color: rgba(148,163,184,.92);
-  font-size:12px;
-}
-
-/* ----------------------------
-   Result overlay
----------------------------- */
-#resultBackdrop{
-  position:fixed;
-  inset:0;
-  z-index:130;
-  display:none; /* JS toggles grid */
-  place-items:center;
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(12px);
-}
-.resultCard{
-  width:min(720px, 94vw);
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.74);
-  border-radius: 26px;
-  padding: 16px 14px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.48);
-}
-.resultTitle{
-  font-weight:1400;
-  font-size:18px;
-}
-.resultGrid{
-  display:grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap:10px;
-  margin-top:12px;
-}
-@media (max-width:740px){
-  .resultGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-.resultItem{
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.42);
-  border-radius: 18px;
-  padding: 10px 12px;
-}
-.resultItem .k{
-  font-size:10px;
-  font-weight:1100;
-  color: rgba(148,163,184,.95);
-  letter-spacing:.3px;
-}
-.resultItem .v{
-  margin-top:4px;
-  font-size:16px;
-  font-weight:1300;
-}
-.resultPlate{
-  margin-top:12px;
-  border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.36);
-  border-radius: 20px;
-  padding: 10px 12px;
-}
-.plateRow{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-}
-.plateRow .pill{
   display:inline-flex;
   align-items:center;
   gap:8px;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(15,23,42,.60);
+  font-weight:1100;
+}
+.startBtns{
+  margin-top:14px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.startFoot{
+  margin-top:12px;
+  font-size:12px;
+  font-weight:1000;
+  color:rgba(148,163,184,.92);
+}
+
+/* ===== RESULT overlay ===== */
+#resultBackdrop{
+  position:fixed;
+  inset:0;
+  z-index:90;
+  display:none;
+  place-items:center;
+  background: rgba(2,6,23,.70);
+  backdrop-filter: blur(10px);
+}
+.resultCard{
+  width:min(720px, calc(100vw - 24px));
+  border-radius:26px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.78);
+  box-shadow: 0 26px 90px rgba(0,0,0,.55);
+  padding:16px;
+}
+.resultTitle{ font-size:18px; font-weight:1200; }
+.resultGrid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap:10px;
+}
+@media (max-width:760px){
+  .resultGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+.resultItem{
+  padding:10px 12px;
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.52);
+}
+.resultItem .k{ font-size:11px; font-weight:1100; color:rgba(148,163,184,.96); }
+.resultItem .v{ margin-top:4px; font-size:16px; font-weight:1200; color:rgba(229,231,235,.96); }
+
+.resultPlate{
+  margin-top:12px;
+  padding:12px;
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.48);
+}
+.resultPlate .plateRow{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.resultPlate .pill{
+  display:inline-flex;
+  gap:8px;
+  align-items:center;
   padding:8px 10px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.42);
+  background: rgba(2,6,23,.52);
   font-weight:1100;
 }
-.totalRow{
-  margin-top:8px;
+.resultPlate .totalRow{
+  margin-top:10px;
   font-weight:1100;
-  color: rgba(148,163,184,.95);
+  color:rgba(148,163,184,.96);
 }
 .resultBtns{
+  margin-top:14px;
   display:flex;
   gap:10px;
-  align-items:center;
-  justify-content:flex-end;
-  margin-top:12px;
+  flex-wrap:wrap;
 }
 
-/* ----------------------------
-   Targets (emoji)
----------------------------- */
+/* ===== TARGETS (VR-feel) ===== */
 .plateTarget{
-  position:fixed;
-  display:grid;
-  place-items:center;
-
-  border-radius: 999px;
-  border:1px solid var(--tStroke);
-  background: var(--tBg);
-  box-shadow: var(--tShadow);
-  backdrop-filter: var(--tBlur);
-
-  font: 900 28px/1 system-ui;
-  color: rgba(229,231,235,.98);
-
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-  cursor:pointer;
-
+  /* JS also sets many inline styles; this strengthens feel + animations */
+  outline:none;
+  border:1px solid var(--t-stroke) !important;
+  background: var(--t-bg) !important;
+  box-shadow: var(--t-shadow) !important;
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
   transform: translateZ(0);
-  will-change: transform, filter;
-  animation:
-    plateSpawn .14s ease-out 0s 1,
-    plateFloat 1.4s ease-in-out 0s infinite;
+  will-change: transform, filter, opacity;
+  animation: tPop .12s ease-out;
 }
 
-.plateTarget:active{
-  transform: translateZ(0) scale(.98);
+/* hover on desktop */
+body.view-pc .plateTarget:hover{
+  filter: brightness(1.15);
+  transform: translateZ(0) scale(1.05);
 }
 
-/* kind styling */
+/* subtle float to feel like VR */
+.plateTarget{
+  animation: tPop .12s ease-out, tFloat 1.25s ease-in-out infinite;
+}
+@keyframes tPop{
+  0%{ transform: translateZ(0) scale(.86); filter:brightness(.95); opacity:.0; }
+  100%{ transform: translateZ(0) scale(1); filter:none; opacity:1; }
+}
+@keyframes tFloat{
+  0%,100%{ transform: translateZ(0) translateY(0px); }
+  50%{ transform: translateZ(0) translateY(-2px); }
+}
+
+/* kind accents (JS sets data-kind) */
 .plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.24);
-  background: rgba(34,197,94,.08);
+  border-color: rgba(34,197,94,.22) !important;
+  box-shadow: 0 22px 70px rgba(0,0,0,.42), 0 0 0 2px rgba(34,197,94,.08) inset !important;
 }
 .plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.22);
-  background: rgba(239,68,68,.07);
-  filter: saturate(1.1);
+  border-color: rgba(239,68,68,.22) !important;
+  box-shadow: 0 22px 70px rgba(0,0,0,.42), 0 0 0 2px rgba(239,68,68,.07) inset !important;
 }
 .plateTarget[data-kind="shield"]{
-  border-color: rgba(34,211,238,.24);
-  background: rgba(34,211,238,.07);
+  border-color: rgba(34,211,238,.22) !important;
+  box-shadow: 0 22px 70px rgba(0,0,0,.42), 0 0 0 2px rgba(34,211,238,.08) inset !important;
 }
 
-/* float/wobble */
-@keyframes plateFloat{
-  0%,100%{ transform: translateZ(0) translateY(0px) scale(1); }
-  50%{ transform: translateZ(0) translateY(-3px) scale(1.01); }
-}
-@keyframes plateSpawn{
-  from{ transform: translateZ(0) scale(.86); filter: brightness(.95); }
-  to{ transform: translateZ(0) scale(1); filter:none; }
+/* tap/click feedback helper (JS removes element, but this still helps on slow devices) */
+.plateTarget:active{
+  transform: translateZ(0) scale(.96);
+  filter: brightness(1.18);
 }
 
-/* optional: make junk wobble more (feels dangerous) */
-.plateTarget[data-kind="junk"]{
-  animation:
-    plateSpawn .14s ease-out 0s 1,
-    plateFloatJunk 1.05s ease-in-out 0s infinite;
-}
-@keyframes plateFloatJunk{
-  0%,100%{ transform: translateZ(0) translateY(0px) rotate(0deg) scale(1); }
-  40%{ transform: translateZ(0) translateY(-2px) rotate(-1.8deg) scale(1.01); }
-  70%{ transform: translateZ(0) translateY(2px) rotate(1.8deg) scale(1.01); }
+/* ===== Fever “danger aura” (optional hooks) ===== */
+body.fever-high #hudTop .hudRow,
+body.fever-high #miniPanel .questBlock{
+  border-color: rgba(239,68,68,.22);
+  box-shadow: 0 22px 70px rgba(239,68,68,.08), 0 22px 70px rgba(0,0,0,.40);
 }
 
-/* ----------------------------
-   Responsive tweaks
----------------------------- */
-@media (max-width:900px){
-  #miniPanel{ width: min(420px, 56vw); }
-}
-@media (max-width:720px){
-  #coachPanel{
-    top: calc(var(--sat) + 106px);
-    max-width: 64vw;
-  }
+/* ===== Responsive adjustments ===== */
+@media (max-width: 780px){
   #miniPanel{
-    top: calc(var(--sat) + 106px);
-    width: min(420px, 62vw);
+    top: calc(106px + var(--sat));
+    width: min(340px, calc(100vw - 20px - var(--sal) - var(--sar)));
   }
-  .hudStat{ min-width: 70px; }
-  .hudStat .v{ font-size: 15px; }
-}
-@media (max-width:560px){
   #coachPanel{
-    left: calc(var(--sal) + 8px);
-    right: calc(var(--sar) + 8px);
-    max-width: unset;
+    bottom: calc(78px + var(--sab));
+    width: min(420px, calc(100vw - 20px - var(--sal) - var(--sar)));
   }
+  #hudBtns{ gap:8px; }
+  .btn{ padding:11px 12px; border-radius:16px; }
+}
+
+@media (max-width: 520px){
+  #hudTop .hudStat{ min-width: 78px; }
+  #hudTop .v{ font-size:15px; }
+  #hudTop .feverWrap{ min-width: 210px; }
+  #hudTop .feverBar{ width: 118px; }
   #miniPanel{
-    left: calc(var(--sal) + 8px);
-    right: calc(var(--sar) + 8px);
-    width: unset;
-    top: calc(var(--sat) + 176px);
+    right: calc(8px + var(--sar));
+    left: calc(8px + var(--sal)); /* stack full width on small */
+    width: auto;
+    top: calc(118px + var(--sat));
   }
-  #hudBtns{
-    right: calc(var(--sar) + 8px);
-    left: calc(var(--sal) + 8px);
-    justify-content:space-between;
+  #miniPanel .questHdr{ gap:8px; }
+  #coachPanel{
+    left: calc(8px + var(--sal));
+    right: calc(8px + var(--sar));
+    width:auto;
   }
-  .btn{ flex:1 1 0; text-align:center; }
 }
 
-/* ----------------------------
-   View modes (optional classes from boot/hub)
-   If you add body.view-vr / view-cvr etc. the layout can adjust.
----------------------------- */
-body.view-vr #hudBtns .btn,
-body.view-cvr #hudBtns .btn{
-  padding: 12px 14px;
-}
-
+/* ===== View modes ===== */
 body.view-vr #hudTop,
-body.view-cvr #hudTop{
-  top: calc(var(--sat) + 8px);
-  border-radius: 24px;
+body.view-vr #miniPanel,
+body.view-vr #coachPanel,
+body.view-vr #hudBtns{
+  /* keep readable in headset */
+  transform: translateZ(0);
 }
 
-/* if cVR, make targets slightly larger to feel comfortable */
-body.view-cvr .plateTarget{
-  filter: saturate(1.05);
+body.view-cvr #plate-layer{
+  /* cardboard: avoid accidental touching UI; gameplay relies on center aim in other games,
+     but Plate uses touch to hit — so keep pointer on. (If later you add vr-ui.js, can change here.) */
 }
 
-/* ----------------------------
-   Accessibility / motion
----------------------------- */
-@media (prefers-reduced-motion: reduce){
-  .plateTarget{
-    animation: plateSpawn .12s ease-out 0s 1 !important;
-  }
-  #hitFx{ transition:none; }
-}
-
-/* ----------------------------
-   Minor polish helpers (used by plate-hud.js)
----------------------------- */
-#hudTop.hha-combo-glow{
-  box-shadow: 0 0 0 6px rgba(34,197,94,.08), 0 22px 70px rgba(0,0,0,.35) !important;
-}
+/* ===== Fullscreen helper ===== */
+body.is-fs #hudTop{ top: calc(8px + var(--sat)); }
