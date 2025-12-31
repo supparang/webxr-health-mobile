@@ -1,10 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v3.1
-// ✅ endPolicy: time | all | miss
-// ✅ challenge: rush | survive | boss
-// ✅ Quest titles/counts dynamic + Quest Peek (for VR when HUD hidden)
-// ✅ FX: fever vignette + hit shake (NO dizzy screen shake for low-time)
-// ✅ NEW: low-time tick + warning (VR-friendly) via body.gj-tick / body.gj-urgent + #lowTimeToast
+// GoodJunkVR — SAFE Engine (PRODUCTION) — v4
+// ✅ Listens to hha:shoot (from /vr/vr-ui.js)  [1]
+// ✅ VR compact friendly low-time warning: emits hha:lowtime + gentle tick pulse [3]
+// ✅ End summary + flush-hardened helper GoodJunkVR.flushHard [4]
 
 'use strict';
 
@@ -108,7 +106,6 @@ function ensureTargetStyles(){
   const st = DOC.createElement('style');
   st.id = 'gj-safe-style';
   st.textContent = `
-    #gj-stage{ position:fixed; inset:0; overflow:hidden; }
     #gj-layer, #gj-layer-l, #gj-layer-r, .gj-layer{
       position:absolute; inset:0; z-index:30;
       pointer-events:auto !important;
@@ -148,7 +145,6 @@ function ensureTargetStyles(){
       transition: transform 140ms ease, opacity 140ms ease;
     }
 
-    /* hit shake (short) */
     @keyframes gjShake {
       0%{ transform: translate3d(0,0,0); }
       20%{ transform: translate3d(-2px,1px,0); }
@@ -159,7 +155,6 @@ function ensureTargetStyles(){
     }
     body.gj-shake{ animation: gjShake 160ms linear 1; }
 
-    /* vignette overlay */
     .gj-fx-vignette{
       position:fixed; inset:0;
       pointer-events:none;
@@ -205,8 +200,8 @@ function buildAvoidRects(){
   if (!DOC) return rects;
 
   const els = [
-    DOC.querySelector('.hud-top'),
-    DOC.querySelector('.hud-mid'),
+    DOC.querySelector('.hha-hud'),
+    DOC.getElementById('vrCompactHud'),
     DOC.querySelector('.hha-controls'),
     DOC.getElementById('hhaFever')
   ].filter(Boolean);
@@ -262,23 +257,15 @@ const STARS = ['⭐','💎'];
 const SHIELD = '🛡️';
 
 function setXY(el, x, y){
-  const pxv = x.toFixed(1) + 'px';
-  const pyv = y.toFixed(1) + 'px';
-  el.style.setProperty('--x', pxv);
-  el.style.setProperty('--y', pyv);
-  el.style.left = pxv;
-  el.style.top  = pyv;
+  const px = x.toFixed(1) + 'px';
+  const py = y.toFixed(1) + 'px';
+  el.style.setProperty('--x', px);
+  el.style.setProperty('--y', py);
+  el.style.left = px;
+  el.style.top  = py;
 }
 function countTargets(layerEl){
   try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
-}
-function getCenter(el){
-  try{
-    const r = el.getBoundingClientRect();
-    return { x: r.left + r.width/2, y: r.top + r.height/2 };
-  }catch(_){
-    return { x: (ROOT.innerWidth||360)*0.5, y: (ROOT.innerHeight||640)*0.5 };
-  }
 }
 function dist2(ax, ay, bx, by){
   const dx = ax - bx, dy = ay - by;
@@ -350,7 +337,6 @@ async function flushAll(summary, reason){
 function applyChallengePreset(S, base){
   const ch = String(S.challenge || 'rush').toLowerCase();
 
-  // defaults
   S.goalsTotal = 2;
   S.miniTotal  = 7;
   S.bossTotal  = 0;
@@ -386,7 +372,6 @@ function applyChallengePreset(S, base){
     return;
   }
 
-  // rush
   S.goalsTotal = 2;
   S.miniTotal  = 7;
 
@@ -405,10 +390,6 @@ export function boot(opts = {}) {
   ensureTargetStyles();
   const vignette = ensureVignette();
 
-  // low-time toast refs (VR-friendly)
-  const lowToast = DOC.getElementById('lowTimeToast');
-  const lowText  = DOC.getElementById('lowTimeText');
-
   const layerL = opts.layerEl
     || DOC.getElementById('gj-layer-l')
     || DOC.getElementById('gj-layer')
@@ -416,15 +397,6 @@ export function boot(opts = {}) {
 
   const layerR = opts.layerElR
     || DOC.getElementById('gj-layer-r')
-    || null;
-
-  const crossL = opts.crosshairEl
-    || DOC.getElementById('gj-crosshair-l')
-    || DOC.getElementById('gj-crosshair')
-    || DOC.querySelector('.gj-crosshair');
-
-  const crossR = opts.crosshairElR
-    || DOC.getElementById('gj-crosshair-r')
     || null;
 
   const shootEl = opts.shootEl || DOC.getElementById('btnShoot');
@@ -472,28 +444,16 @@ export function boot(opts = {}) {
     warmupUntil:0,
     spawnTimer:0, tickTimer:0, fxTimer:0,
 
-    // tuning
     spawnMs: base.spawnMs, ttlMs: base.ttlMs, size: base.size,
     junkP: base.junk, powerP: base.power, maxTargets: base.maxT,
 
-    // boss
-    bossArmed:false,
-    bossActive:false,
-    bossNeed:0,
-    bossGood:0,
-    bossJunk:0,
-    bossEndAt:0,
+    bossArmed:false, bossActive:false, bossNeed:0, bossGood:0, bossJunk:0, bossEndAt:0,
+    uidSeq: 1,
 
-    // low-time tick state
-    _lastTickSec: -1,
-    _warn10: false,
-    _warn5: false,
-    _warn3: false,
-
-    uidSeq: 1
+    // lowtime
+    lastLowSec: 999
   };
 
-  // mobile tweaks
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
     S.size = Math.min(1.12, S.size + 0.03);
@@ -501,22 +461,14 @@ export function boot(opts = {}) {
     safeMargins.right = Math.max(12, safeMargins.right);
   }
 
-  // apply challenge preset tuning
   applyChallengePreset(S, base);
 
-  // allow miss limit override via URL (?miss=6)
   if (missLimitParam > 0) S.missLimit = clamp(missLimitParam, 3, 20);
-
-  // if endPolicy=miss and no missLimit, set sane default
   if (endPolicy === 'miss' && S.missLimit <= 0){
     S.missLimit = (diff === 'hard') ? 6 : (diff === 'easy' ? 8 : 7);
   }
-
-  // boss requirement
   if (S.challenge === 'boss'){
-    S.bossNeed =
-      (diff === 'easy') ? 6 :
-      (diff === 'hard') ? 10 : 8;
+    S.bossNeed = (diff === 'easy') ? 6 : (diff === 'hard') ? 10 : 8;
   }
 
   function coach(mood, text, sub){
@@ -525,7 +477,6 @@ export function boot(opts = {}) {
   function judge(kind, text){
     emit('hha:judge', { kind: kind || 'info', text: String(text||'') });
   }
-
   function updatePeek(goalTitle, miniTitle){
     try{
       const g = DOC.getElementById('gjPeekGoal');
@@ -538,7 +489,6 @@ export function boot(opts = {}) {
   function calcAcc(){
     return S.hitAll > 0 ? Math.round((S.hitGood/S.hitAll)*100) : 0;
   }
-
   function updateScore(){
     emit('hha:score', {
       score:S.score|0,
@@ -552,17 +502,12 @@ export function boot(opts = {}) {
     const acc = calcAcc();
     emit('hha:rank', { grade: rankFromAcc(acc), accuracy: acc });
   }
-
   function updateTime(){
     emit('hha:time', { left: Math.max(0, S.left|0) });
   }
 
-  function getGoalNeed(){
-    return 10 + (S.goalsCleared * 8);
-  }
-  function getMiniNeed(){
-    return 4 + (S.miniCleared * 2);
-  }
+  function getGoalNeed(){ return 10 + (S.goalsCleared * 8); }
+  function getMiniNeed(){ return 4 + (S.miniCleared * 2); }
 
   function updateQuest(miniLeftMs = 0){
     const goalNeed = getGoalNeed();
@@ -618,7 +563,6 @@ export function boot(opts = {}) {
       : layerR.querySelector(`.gj-target[data-uid="${uid}"]`);
     return mate || null;
   }
-
   function removeTargetBoth(el){
     if (!el) return;
     try{ clearTimeout(el._ttl); }catch(_){}
@@ -669,10 +613,6 @@ export function boot(opts = {}) {
     el.dataset.emoji = String(emoji||'✨');
     el.dataset.uid = String(uid||'');
 
-    el.style.position = 'absolute';
-    el.style.pointerEvents = 'auto';
-    el.style.zIndex = '30';
-
     setXY(el, x, y);
     el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
     el.textContent = String(emoji||'✨');
@@ -684,6 +624,9 @@ export function boot(opts = {}) {
       ev.stopPropagation?.();
       hitTarget(el);
     };
+
+    // NOTE: in view-vr/view-cvr CSS sets pointer-events:none on targets,
+    // so these won't fire; shooting is via crosshair/hha:shoot.
     el.addEventListener('pointerdown', onHit, { passive:false });
     el.addEventListener('click', onHit, { passive:false });
 
@@ -713,7 +656,6 @@ export function boot(opts = {}) {
 
   function checkGoalProgress(){
     if (S.goalsCleared >= S.goalsTotal) return;
-
     const needGood = getGoalNeed();
     if (S.hitGood >= needGood){
       S.goalsCleared++;
@@ -729,7 +671,6 @@ export function boot(opts = {}) {
 
   function checkMiniProgress(){
     if (S.miniCleared >= S.miniTotal) return;
-
     const needCombo = getMiniNeed();
     if (S.combo >= needCombo){
       S.miniCleared++;
@@ -763,7 +704,6 @@ export function boot(opts = {}) {
     updateQuest();
 
     if (S.bossActive) S.bossGood++;
-
     removeTargetBoth(el);
   }
 
@@ -855,7 +795,7 @@ export function boot(opts = {}) {
     if (tp === 'star') return hitStar(el);
   }
 
-  /* -------------------- Boss phase (challenge=boss) -------------------- */
+  /* -------------------- Boss (unchanged logic) -------------------- */
   function armBossIfNeeded(){
     if (S.challenge !== 'boss' || S.bossTotal <= 0) return;
     if (S.bossCleared >= S.bossTotal) return;
@@ -993,45 +933,29 @@ export function boot(opts = {}) {
     S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 320, 1400));
   }
 
-  /* -------------------- Adaptive tick + end policies -------------------- */
+  /* -------------------- Adaptive tick + end policies + lowtime warning -------------------- */
   function adaptiveTick(){
     if (!S.running || S.ended) return;
 
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
 
-    // lowtime marker
     const low = (S.left <= 10);
     DOC.body.classList.toggle('gj-lowtime', !!low);
 
-    // ✅ VR-friendly low-time tick + warnings (no dizzy shake)
+    // [3] Low-time: emit per second + gentle tick pulse (handled in boot.js UI)
     if (low){
-      const sec = Math.max(0, Math.ceil(S.left));
-      const urgent = (sec <= 3);
-      DOC.body.classList.toggle('gj-urgent', urgent);
-
-      if (lowToast && lowText){
-        lowToast.hidden = false;
-        lowText.textContent = urgent ? `⏱️ เหลือ ${sec} วิ!` : `⏱️ เหลือ ${sec} วิ`;
+      const sec = Math.max(1, Math.ceil(S.left));
+      if (sec !== S.lastLowSec){
+        S.lastLowSec = sec;
+        emit('hha:lowtime', { leftSec: sec });
+        pulseBody('gj-tick', 160);
+        if (sec === 10 || sec === 5 || sec === 3){
+          judge('warn', `เหลือเวลา ${sec}s!`);
+        }
       }
-
-      if (sec !== S._lastTickSec){
-        S._lastTickSec = sec;
-
-        DOC.body.classList.add('gj-tick');
-        setTimeout(()=>{ try{ DOC.body.classList.remove('gj-tick'); }catch(_){ } }, 120);
-
-        if (sec === 10 && !S._warn10){ S._warn10 = true; judge('warn', 'เหลือ 10 วิ!'); }
-        if (sec === 5  && !S._warn5 ){ S._warn5  = true; judge('warn', 'เหลือ 5 วิ!'); }
-        if (sec === 3  && !S._warn3 ){ S._warn3  = true; judge('warn', 'เหลือ 3 วิ!'); }
-      }
-    } else {
-      DOC.body.classList.remove('gj-urgent');
-      if (lowToast) lowToast.hidden = true;
-      S._lastTickSec = -1;
     }
 
-    // boss checks
     if (S.challenge === 'boss'){
       armBossIfNeeded();
       if (S.bossActive && now() >= S.bossEndAt){
@@ -1039,7 +963,6 @@ export function boot(opts = {}) {
       }
     }
 
-    // end by time
     if (S.left <= 0){
       if (S.endPolicy === 'all'){
         endGame(allComplete() ? 'all_complete' : 'all_incomplete_time');
@@ -1049,38 +972,36 @@ export function boot(opts = {}) {
       return;
     }
 
-    // adaptive only in play
     if (S.runMode === 'play'){
       const elapsed = (now() - S.tStart) / 1000;
       const acc = S.hitAll > 0 ? (S.hitGood / S.hitAll) : 0;
       const comboHeat = clamp(S.combo / 18, 0, 1);
 
       const rampK = (S.challenge === 'rush') ? 8.5 : 10.0;
-
       const timeRamp = clamp((elapsed - 3) / rampK, 0, 1);
       const skill = clamp((acc - 0.65) * 1.2 + comboHeat * 0.8, 0, 1);
       const heat = clamp(timeRamp * 0.55 + skill * 0.75, 0, 1);
 
-      S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
-      S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
-      S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.12);
-      S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
-      S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
+      S.spawnMs = clamp(diffBase(S.diff).spawnMs - heat * 320, 420, 1200);
+      S.ttlMs   = clamp(diffBase(S.diff).ttlMs   - heat * 420, 1180, 2600);
+      S.size    = clamp(diffBase(S.diff).size    - heat * 0.14, 0.86, 1.12);
+      S.junkP   = clamp(diffBase(S.diff).junk    + heat * 0.07, 0.08, 0.25);
+      S.powerP  = clamp(diffBase(S.diff).power   + heat * 0.012, 0.01, 0.06);
 
       const maxBonus = Math.round(heat * 4);
-      S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
+      S.maxTargets = clamp(diffBase(S.diff).maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
 
       if (S.fever >= 70){
         S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
         S.size  = clamp(S.size + 0.03, 0.86, 1.15);
       }
-
       if (S.challenge === 'survive'){
         S.spawnMs = clamp(S.spawnMs + 50, 450, 1400);
         S.ttlMs   = clamp(S.ttlMs + 60, 1100, 3000);
       }
-
-      // boss active keeps its own tuning (do not overwrite)
+      if (S.bossActive && S._preBoss){
+        // keep boss tuning
+      }
     }
 
     S.tickTimer = setTimeout(adaptiveTick, 140);
@@ -1100,28 +1021,46 @@ export function boot(opts = {}) {
     S.fxTimer = setTimeout(fxLoop, 140);
   }
 
-  /* -------------------- Shooting -------------------- */
+  /* -------------------- Shooting (hha:shoot standard) -------------------- */
+  function centerForEye(eyeIndex){
+    const W = ROOT.innerWidth || 360;
+    const H = ROOT.innerHeight || 640;
+    if (!dual){
+      return { x: W*0.5, y: H*0.5 };
+    }
+    // left eye center = 25% width, right eye center = 75% width
+    return { x: (eyeIndex === 0) ? (W*0.25) : (W*0.75), y: H*0.5 };
+  }
+
   function shootAtCrosshair(){
     if (!S.running || S.ended) return;
 
     const radius = isMobileLike() ? 62 : 52;
 
-    const cL = crossL ? getCenter(crossL) : { x:(ROOT.innerWidth||360)*0.25, y:(ROOT.innerHeight||640)*0.5 };
+    const cL = centerForEye(0);
     const el1 = findTargetNear(layerL, cL.x, cL.y, radius);
     let best = el1, bestD2 = 1e18;
 
     if (best){
-      const cc = getCenter(best);
-      bestD2 = dist2(cL.x, cL.y, cc.x, cc.y);
+      try{
+        const r = best.getBoundingClientRect();
+        const tx = r.left + r.width/2;
+        const ty = r.top + r.height/2;
+        bestD2 = dist2(cL.x, cL.y, tx, ty);
+      }catch(_){}
     }
 
-    if (dual && layerR && crossR){
-      const cR = getCenter(crossR);
+    if (dual && layerR){
+      const cR = centerForEye(1);
       const el2 = findTargetNear(layerR, cR.x, cR.y, radius);
       if (el2){
-        const cc = getCenter(el2);
-        const d2 = dist2(cR.x, cR.y, cc.x, cc.y);
-        if (!best || d2 < bestD2){ best = el2; bestD2 = d2; }
+        try{
+          const r = el2.getBoundingClientRect();
+          const tx = r.left + r.width/2;
+          const ty = r.top + r.height/2;
+          const d2 = dist2(cR.x, cR.y, tx, ty);
+          if (!best || d2 < bestD2){ best = el2; bestD2 = d2; }
+        }catch(_){}
       }
     }
 
@@ -1133,11 +1072,13 @@ export function boot(opts = {}) {
   }
 
   function bindInputs(){
+    // legacy button (mobile)
     if (shootEl){
       shootEl.addEventListener('click', (e)=>{ e.preventDefault?.(); shootAtCrosshair(); });
       shootEl.addEventListener('pointerdown', (e)=>{ e.preventDefault?.(); }, { passive:false });
     }
 
+    // keyboard
     DOC.addEventListener('keydown', (e)=>{
       const k = String(e.key||'').toLowerCase();
       if (k === ' ' || k === 'spacebar' || k === 'enter'){
@@ -1146,12 +1087,24 @@ export function boot(opts = {}) {
       }
     });
 
+    // [1] Standard: listen to hha:shoot (from /vr/vr-ui.js)
+    ROOT.addEventListener('hha:shoot', (ev)=>{
+      // ev.detail may carry {lockPx,...} but we keep simplest: shoot now
+      shootAtCrosshair();
+    });
+
+    // stage tap/click (desktop convenience)
     const stage = DOC.getElementById('gj-stage') || opts.stageEl;
     if (stage){
       stage.addEventListener('click', ()=>{
         if (isMobileLike()) return;
         shootAtCrosshair();
       });
+      stage.addEventListener('pointerdown', ()=>{
+        // allow tap-to-shoot for VR/cVR too (won't click targets)
+        if (!isMobileLike()) return;
+        shootAtCrosshair();
+      }, { passive:true });
     }
   }
 
@@ -1184,12 +1137,6 @@ export function boot(opts = {}) {
     clearTimers();
     clearAllTargets();
 
-    // hide lowtime toast (clean end)
-    try{
-      DOC.body.classList.remove('gj-lowtime','gj-urgent','gj-tick');
-      if (lowToast) lowToast.hidden = true;
-    }catch(_){}
-
     const summary = makeSummary(S, reason);
     if (!S.flushed){
       S.flushed = true;
@@ -1201,6 +1148,12 @@ export function boot(opts = {}) {
     coach('neutral', 'จบเกมแล้ว!', 'กดกลับ HUB หรือเล่นใหม่ได้');
   }
 
+  async function flushHard(reason='flush'){
+    const summary = makeSummary(S, reason);
+    await flushAll(summary, reason);
+    return summary;
+  }
+
   function start(){
     S.running = true;
     S.ended = false;
@@ -1208,6 +1161,7 @@ export function boot(opts = {}) {
 
     S.tStart = now();
     S.left = timeSec;
+    S.lastLowSec = 999;
 
     S.score = 0; S.combo = 0; S.comboMax = 0;
     S.misses = 0; S.hitAll = 0; S.hitGood = 0; S.hitJunk = 0; S.hitJunkGuard = 0; S.expireGood = 0;
@@ -1221,18 +1175,10 @@ export function boot(opts = {}) {
     S.bossGood = 0;
     S.bossJunk = 0;
 
-    // reset low-time flags
-    S._lastTickSec = -1;
-    S._warn10 = S._warn5 = S._warn3 = false;
-    try{
-      DOC.body.classList.remove('gj-lowtime','gj-urgent','gj-tick');
-      if (lowToast) lowToast.hidden = true;
-    }catch(_){}
-
     S.warmupUntil = now() + 3000;
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    coach('neutral', `พร้อมลุย! challenge=${S.challenge} • end=${S.endPolicy}`, 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
+    coach('neutral', `พร้อมลุย! challenge=${S.challenge} • end=${S.endPolicy}`, 'เล็งกลางแล้วกดยิง / กดปุ่มยิง');
     updateScore(); updateTime(); updateQuest();
 
     logEvent('session_start', {
@@ -1260,5 +1206,6 @@ export function boot(opts = {}) {
     ROOT.GoodJunkVR = ROOT.GoodJunkVR || {};
     ROOT.GoodJunkVR.endGame = endGame;
     ROOT.GoodJunkVR.shoot = shootAtCrosshair;
+    ROOT.GoodJunkVR.flushHard = flushHard; // [4] for Back HUB hard flush
   }catch(_){}
 }
