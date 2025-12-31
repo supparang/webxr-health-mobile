@@ -1,12 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION PATCH v2.1 (ADD hha:shoot center aim)
-// ✅ Minis count = Storm Cycles (ไม่ใช่ 999)
-// ✅ Storm Success = จำนวนพายุที่ "ผ่าน mini" จริง
+// Hydration SAFE — PRODUCTION PATCH v2.3 (LATEST)
+// ✅ Minis count = Storm Cycles (จริง)
+// ✅ Storm Success = จำนวนพายุที่ผ่าน mini จริง (+boss bonus ถ้าผ่าน)
 // ✅ End-window FX: blink + tick + gentle shake
 // ✅ Boss-mini optional: block bossbad xN in boss window
-// ✅ AI Coach hooks
-// ✅ Summary fields match HUD
-// ✅ NEW: listens hha:shoot and shoots target at screen center (PC/Mobile/Cardboard)
+// ✅ AI Coach hooks: storm/end window + frustration/fatigue
+// ✅ Crosshair Assist + Aim Offset (from loader window.HHA_VIEW.aim)
+// ✅ Supports hha:shoot (btn/tap) -> shootAtCenter()
 
 'use strict';
 
@@ -69,7 +69,7 @@ async function copyToClipboard(text){
   return false;
 }
 
-// -------------------- View / layers from loader --------------------
+// -------------------- View / layers --------------------
 function isCardboard(){
   try{ return DOC.body.classList.contains('cardboard'); }catch(_){ return false; }
 }
@@ -85,8 +85,11 @@ function getLayers(){
   if (isCardboard() && L && R) return [L,R];
   return [main].filter(Boolean);
 }
+function getPlayfieldEl(){
+  return isCardboard() ? DOC.getElementById('cbPlayfield') : DOC.getElementById('playfield');
+}
 function getPlayfieldRect(){
-  const pf = isCardboard() ? DOC.getElementById('cbPlayfield') : DOC.getElementById('playfield');
+  const pf = getPlayfieldEl();
   const r = pf?.getBoundingClientRect();
   return r || { left:0, top:0, width:1, height:1 };
 }
@@ -119,12 +122,10 @@ function makeRng(seedStr){
 }
 const rng = makeRng(seed);
 
-// -------------------- Audio tick/beep (no file needed) --------------------
+// -------------------- Audio tick/beep --------------------
 let AC=null;
 function ensureAC(){
-  try{
-    if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
-  }catch(_){}
+  try{ if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(_){}
 }
 function tickBeep(freq=900, dur=0.045, vol=0.06){
   try{
@@ -179,8 +180,6 @@ const S = {
   stormLeftSec:0,
   stormCycle:0,
   stormSuccess:0,
-  miniTotal:0,
-  miniCleared:0,
 
   endWindowSec:1.2,
   inEndWindow:false,
@@ -195,7 +194,7 @@ const S = {
     gotHitByBad:false
   },
 
-  // Boss-mini (optional)
+  // Boss-mini
   bossEnabled:true,
   bossActive:false,
   bossNeed:2,
@@ -275,6 +274,7 @@ function computeGrade(){
   if (acc >= 55) return 'B';
   return 'C';
 }
+
 function syncWaterPanelDOM(){
   const bar = DOC.getElementById('water-bar');
   const pct = DOC.getElementById('water-pct');
@@ -283,6 +283,7 @@ function syncWaterPanelDOM(){
   if (pct) pct.textContent = String(S.waterPct|0);
   if (zone) zone.textContent = String(S.waterZone||'');
 }
+
 function syncHUD(){
   const grade = computeGrade();
   setText('stat-score', S.score|0);
@@ -337,7 +338,7 @@ function syncHUD(){
   });
 }
 
-// -------------------- Target style (injected) --------------------
+// -------------------- Target style (ensure) --------------------
 (function injectTargetStyle(){
   if (DOC.getElementById('hvr-target-style')) return;
   const st = DOC.createElement('style');
@@ -368,6 +369,14 @@ function syncHUD(){
   .hvr-target.bossbad{
     outline: 2px dashed rgba(239,68,68,.35);
     box-shadow: 0 18px 70px rgba(0,0,0,.55), 0 0 22px rgba(239,68,68,.10);
+  }
+  /* Assist feedback */
+  .hvr-target.assistFlash{
+    animation: assistFlash .18s ease 2;
+  }
+  @keyframes assistFlash{
+    from{ filter:brightness(1); }
+    to{ filter:brightness(1.22) saturate(1.15); }
   }`;
   DOC.head.appendChild(st);
 })();
@@ -402,35 +411,6 @@ function targetSize(){
 let lastHitAt=0;
 const HIT_COOLDOWN_MS=55;
 
-// -------------------- SHOOT (center aim) --------------------
-function shootAtCenter(){
-  // Find a .hvr-target under screen center within current playfield.
-  const pf = isCardboard() ? DOC.getElementById('cbPlayfield') : DOC.getElementById('playfield');
-  if (!pf) return false;
-
-  const r = pf.getBoundingClientRect();
-  const cx = r.left + r.width * 0.5;
-  const cy = r.top  + r.height * 0.5;
-
-  const list = DOC.elementsFromPoint ? DOC.elementsFromPoint(cx, cy) : [];
-  const tgt = list.find(el => el && el.classList && el.classList.contains('hvr-target'));
-  if (tgt && typeof tgt.dispatchEvent === 'function'){
-    // trigger the target's pointerdown handler
-    try{
-      tgt.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:cx, clientY:cy }));
-      return true;
-    }catch(_){
-      try{ tgt.click(); return true; }catch(__){}
-    }
-  }
-  return false;
-}
-window.addEventListener('hha:shoot', ()=>{
-  if (!S.started || S.ended) return;
-  shootAtCenter();
-}, { passive:true });
-
-// -------------------- Spawn target --------------------
 function spawn(kind){
   if (S.ended) return;
   const layers = getLayers();
@@ -438,6 +418,7 @@ function spawn(kind){
 
   const { xPct, yPct } = pickXY();
   const s = targetSize();
+
   const isBossBad = (kind==='bad' && S.bossEnabled && S.bossActive);
 
   if (kind==='good') S.nGoodSpawn++;
@@ -526,7 +507,6 @@ function spawn(kind){
           S.miniState.blockedInEnd = true;
           if (S.waterZone !== 'GREEN') emit('hha:judge', { kind:'perfect' });
         }
-
         if (isBossBad) S.bossBlocked++;
 
         emit('hha:judge', { kind:'block' });
@@ -551,10 +531,13 @@ function spawn(kind){
     nodes.push(el);
     L.appendChild(el);
   }
+
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Storm + spawn loop --------------------
+// -------------------- Spawn loop --------------------
+let spawnTimer=0;
+
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
   if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
@@ -579,11 +562,19 @@ function pickKind(){
   return 'good';
 }
 
+// -------------------- End-window FX --------------------
 function setEndFx(on){
   if (S.endFxOn === on) return;
   S.endFxOn = on;
   DOC.body.classList.toggle('hha-endfx', on);
 }
+
+// -------------------- Storm + Mini --------------------
+function nextStormSchedule(){
+  const base = TUNE.stormEverySec;
+  return base + (rng()*2-1)*1.2;
+}
+let nextStormIn = 0;
 
 function enterStorm(){
   S.stormActive=true;
@@ -682,6 +673,75 @@ function tickStorm(dt){
   if (S.stormLeftSec <= 0.001) exitStorm();
 }
 
+// -------------------- Assist + Aim Offset (hha:shoot) --------------------
+function getAimConfig(){
+  const a = (ROOT.HHA_VIEW && ROOT.HHA_VIEW.aim) ? ROOT.HHA_VIEW.aim : null;
+  // dynamic lock by diff (เอา “โหด” จริง)
+  const baseLock = clamp(a?.lockPx ?? 90, 20, 220);
+  const lockPx =
+    diff === 'easy' ? clamp(baseLock + 18, 20, 220) :
+    diff === 'hard' ? clamp(baseLock - 14, 20, 220) :
+    baseLock;
+
+  const offsetX = clamp(a?.offsetX ?? 0, -80, 80);
+  const offsetY = clamp(a?.offsetY ?? (isCardboard() ? 10 : 6), -80, 80);
+  return { lockPx, offsetX, offsetY };
+}
+
+function shootAtCenter(){
+  const pf = getPlayfieldEl();
+  if (!pf) return false;
+
+  const { lockPx, offsetX, offsetY } = getAimConfig();
+  const r = pf.getBoundingClientRect();
+
+  const cx = r.left + r.width * 0.5 + offsetX;
+  const cy = r.top  + r.height * 0.5 + offsetY;
+
+  // direct hit by elementFromPoint
+  if (DOC.elementsFromPoint){
+    const list = DOC.elementsFromPoint(cx, cy) || [];
+    const direct = list.find(el => el?.classList?.contains('hvr-target'));
+    if (direct){
+      try{
+        direct.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:cx, clientY:cy }));
+        return true;
+      }catch(_){
+        try{ direct.click(); return true; }catch(__){}
+      }
+    }
+  }
+
+  // assist: nearest target within lockPx
+  const targets = pf.querySelectorAll('.hvr-target');
+  if (!targets || !targets.length) return false;
+
+  let best=null;
+  let bestD=1e9;
+
+  for (const el of targets){
+    const br = el.getBoundingClientRect();
+    const tx = br.left + br.width*0.5;
+    const ty = br.top  + br.height*0.5;
+    const d = Math.hypot(tx - cx, ty - cy);
+    if (d < bestD){
+      bestD = d; best = el;
+    }
+  }
+
+  if (best && bestD <= lockPx){
+    try{ best.classList.add('assistFlash'); setTimeout(()=>best?.classList?.remove('assistFlash'), 220); }catch(_){}
+    try{
+      best.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:cx, clientY:cy }));
+      return true;
+    }catch(_){
+      try{ best.click(); return true; }catch(__){}
+    }
+  }
+
+  return false;
+}
+
 // -------------------- Summary / logging --------------------
 async function sendLog(payload){
   if (!logEndpoint) return;
@@ -720,7 +780,7 @@ function buildTips(sum){
   if (cycles<=0){
     tips.push('🌀 ยังไม่เจอพายุ: เล่นต่ออีกนิด จะมี STORM ให้ทำ Mini');
   } else if (ok<=0){
-    tips.push('🌀 Mini ยังไม่ผ่าน: STORM ต้องทำ “LOW/HIGH” + BLOCK ช่วงท้าย (End Window)');
+    tips.push('🌀 Mini ยังไม่ผ่าน: STORM ต้องทำ “LOW/HIGH” + BLOCK ช่วงท้าย');
   } else {
     tips.push(`🔥 ผ่าน Mini แล้ว ${ok}/${cycles} พายุ — ลองให้ผ่านทุกพายุ!`);
   }
@@ -781,6 +841,7 @@ function bindSummaryButtons(){
     u.searchParams.set('ts', String(Date.now()));
     location.href = u.toString();
   });
+
   btnBackHub?.addEventListener('click', ()=>{ location.href = hub; });
   btnClose?.addEventListener('click', ()=>{ if(backdrop) backdrop.hidden=true; });
 
@@ -788,6 +849,7 @@ function bindSummaryButtons(){
     const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
     if (raw) await copyToClipboard(raw);
   });
+
   btnCSV?.addEventListener('click', ()=>{
     const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
     if (!raw) return;
@@ -798,21 +860,9 @@ function bindSummaryButtons(){
 }
 
 // -------------------- AI Coach --------------------
-const AICOACH = createAICoach({
-  emit,
-  game:'hydration',
-  cooldownMs: 3000
-});
+const AICOACH = createAICoach({ emit, game:'hydration', cooldownMs: 3000 });
 
-// -------------------- Spawn loop --------------------
-let spawnTimer=0;
-function nextStormSchedule(){
-  const base = TUNE.stormEverySec;
-  return base + (rng()*2-1)*1.2;
-}
-let nextStormIn=0;
-
-// -------------------- Update loop --------------------
+// -------------------- Main update --------------------
 function update(dt){
   if (!S.started || S.ended) return;
 
@@ -860,7 +910,6 @@ async function endGame(reason){
 
   const grade = computeGrade();
   const acc = computeAccuracy();
-
   const cycles = S.stormCycle|0;
   const success = S.stormSuccess|0;
 
@@ -906,15 +955,24 @@ async function endGame(reason){
 }
 
 function boot(){
+  // sanity: must have layers + playfield
+  const pf = getPlayfieldEl();
+  const layers = getLayers();
+  if (!pf || !layers.length){
+    console.warn('[Hydration] missing playfield or layers', { pf:!!pf, layers:layers.length });
+  }
+
   ensureWaterGauge();
   setWaterGauge(S.waterPct);
   updateZone();
   syncWaterPanelDOM();
   bindSummaryButtons();
+  syncHUD();
 
   spawnTimer = 320;
   nextStormIn = nextStormSchedule();
 
+  // ✅ start gate from loader
   window.addEventListener('hha:start', ()=>{
     if (S.started) return;
     S.started=true;
@@ -933,17 +991,23 @@ function boot(){
     requestAnimationFrame(raf);
   }, {once:true});
 
+  // ✅ shoot event (btn/tap)
+  window.addEventListener('hha:shoot', ()=>{
+    if (!S.started || S.ended) return;
+    shootAtCenter();
+  }, {passive:true});
+
   window.addEventListener('hha:force_end', (ev)=>{
     const d = ev.detail || {};
     endGame(d.reason || 'force');
   });
 
-  // auto-start if overlay already hidden
-  const ov = DOC.getElementById('startOverlay');
+  // fallback: auto-start if overlay already hidden
   setTimeout(()=>{
-    const hidden = !ov || getComputedStyle(ov).display==='none';
+    const ov = DOC.getElementById('startOverlay');
+    const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
     if (hidden && !S.started) window.dispatchEvent(new CustomEvent('hha:start'));
-  }, 600);
+  }, 700);
 }
 
 boot();
