@@ -1,11 +1,9 @@
 <!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + Universal VR UI)
-✅ plate-vr.html อยู่ /herohealth/ (root)
-✅ JS/CSS อยู่ /herohealth/plate/*
-✅ vr libs อยู่ /herohealth/vr/*
-✅ img coach อยู่ /herohealth/img/*
-✅ Adds: /herohealth/vr/vr-ui.js (ENTER VR / EXIT / RECENTER + crosshair + hha:shoot)
-✅ Adds: view mode class (view-pc/mobile/vr/cvr)
+Balanced Plate VR — PRODUCTION HTML (B: cVR fullscreen + crosshair ยิงกลางจอ)
+✅ ไม่ใช้ scene.enterVR() (DOM ยังอยู่ครบ)
+✅ Enter VR => view-cvr + fullscreen
+✅ มี #cvrCrosshair
+✅ เพิ่มปุ่ม Recenter
 -->
 
 <!doctype html>
@@ -17,84 +15,50 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + Universal VR UI)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
 
-  <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
+  <!-- A-Frame (ใช้เป็น background เฉย ๆ) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles (อยู่ใน /plate/) -->
-  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251231" />
+  <!-- Styles -->
+  <link rel="stylesheet" href="./plate/plate-vr.css?v=20251231b" />
 
-  <!-- ✅ Universal VR UI (อยู่ใน /vr/) -->
-  <!-- Provides ENTER VR / EXIT / RECENTER + crosshair + tap-to-shoot => event "hha:shoot" -->
-  <script src="./vr/vr-ui.js?v=20251231" defer></script>
-
-  <!-- Global FX + Logger (อยู่ใน /vr/) -->
+  <!-- Global FX + Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- HUD binder (อยู่ใน /plate/) -->
-  <script src="./plate/plate-hud.js?v=20251231" defer></script>
+  <!-- HUD binder (optional) -->
+  <script src="./plate/plate-hud.js?v=20251231b" defer></script>
 
-  <!-- Game (อยู่ใน /plate/) -->
-  <script src="./plate/plate.safe.js?v=20251231" defer></script>
-
-  <!-- ✅ View mode helper -->
-  <script>
-    (function(){
-      function isMobile(){
-        try{
-          return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-        }catch(_){ return false; }
-      }
-      function qs(k, def){
-        try{ return new URL(location.href).searchParams.get(k) ?? def; }
-        catch(_){ return def; }
-      }
-      var v = String(qs('view','') || '').toLowerCase().trim();
-      if(!v){
-        // heuristic: if user explicitly wants cardboard/cVR
-        var hinted = String(qs('cvr','')||'').toLowerCase();
-        if(hinted === '1' || hinted === 'true') v = 'cvr';
-        else v = isMobile() ? 'mobile' : 'pc';
-      }
-      if(v !== 'pc' && v !== 'mobile' && v !== 'vr' && v !== 'cvr') v = 'pc';
-
-      var b = document.documentElement; // keep safe for early load
-      // We'll set on body when ready (avoid null body)
-      document.addEventListener('DOMContentLoaded', function(){
-        var body = document.body;
-        if(!body) return;
-        body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-        body.classList.add('view-' + v);
-      }, { passive:true });
-    })();
-  </script>
+  <!-- Game -->
+  <script src="./plate/plate.safe.js?v=20251231b" defer></script>
 </head>
 
 <body>
-  <!-- Background VR scene (minimal) -->
+  <!-- Background scene -->
   <a-scene
     id="scene"
     embedded
     renderer="antialias: true; colorManagement: true"
-    vr-mode-ui="enabled: true"
+    vr-mode-ui="enabled: false"
     style="position:fixed; inset:0; z-index:1;"
   >
     <a-sky color="#020617"></a-sky>
     <a-entity light="type: ambient; intensity: 0.85"></a-entity>
     <a-entity light="type: directional; intensity: 0.55" position="1 2 1"></a-entity>
-
     <a-entity id="rig" position="0 1.6 0">
       <a-camera wasd-controls="enabled:false" look-controls="pointerLockEnabled:false"></a-camera>
     </a-entity>
   </a-scene>
 
-  <!-- DOM Play layer for targets (required) -->
+  <!-- DOM Play layer -->
   <div id="plate-layer" aria-label="plate-layer"></div>
 
-  <!-- Hit FX overlay (required) -->
+  <!-- Hit FX -->
   <div id="hitFx" aria-hidden="true"></div>
 
-  <!-- TOP HUD (required: hudTop) -->
+  <!-- cVR crosshair -->
+  <div id="cvrCrosshair" aria-hidden="true"></div>
+
+  <!-- TOP HUD -->
   <header id="hudTop">
     <div class="hudRow">
       <div class="hudStat">
@@ -149,21 +113,16 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + Universal VR UI)
     </div>
   </header>
 
-  <!-- COACH PANEL (required: coachPanel) -->
+  <!-- COACH -->
   <aside id="coachPanel">
-    <img
-      id="coachImg"
-      src="./img/coach-neutral.png"
-      alt="Coach"
-      draggable="false"
-    />
+    <img id="coachImg" src="./img/coach-neutral.png" alt="Coach" draggable="false" />
     <div class="coachText">
       <div class="coachName">Hero Coach</div>
       <div class="coachMsg" id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
     </div>
   </aside>
 
-  <!-- QUEST PANEL (required: miniPanel) -->
+  <!-- QUEST -->
   <section id="miniPanel">
     <div class="questBlock">
       <div class="questHdr">
@@ -189,14 +148,15 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + Universal VR UI)
     </div>
   </section>
 
-  <!-- BUTTONS (required: hudBtns) -->
+  <!-- BUTTONS -->
   <nav id="hudBtns">
     <button class="btn ghost" id="btnPause" type="button">⏸ Pause</button>
     <button class="btn ghost" id="btnRestart" type="button">🔁 Restart</button>
+    <button class="btn ghost" id="btnRecenter" type="button">🎯 Recenter</button>
     <button class="btn" id="btnEnterVR" type="button">🕶 Enter VR</button>
   </nav>
 
-  <!-- PAUSED overlay (required: hudPaused) -->
+  <!-- PAUSED -->
   <div id="hudPaused">
     <div class="pausedCard">
       <div class="pausedTitle">Paused</div>
@@ -204,7 +164,7 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + Universal VR UI)
     </div>
   </div>
 
-  <!-- START overlay (required: startOverlay + btnStart) -->
+  <!-- START -->
   <div id="startOverlay">
     <div class="startCard">
       <div class="startTitle">🥗 Balanced Plate VR</div>
@@ -225,12 +185,12 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + Universal VR UI)
       </div>
 
       <div class="startFoot">
-        Tip: บน iOS อาจต้องกด Start ก่อนเพื่อขอสิทธิ์ motion
+        Tip: iOS/บางเครื่องต้องกด Start ก่อนเพื่อขอสิทธิ์ motion
       </div>
     </div>
   </div>
 
-  <!-- RESULT overlay (required: resultBackdrop + rScore/rG1..rG5 etc.) -->
+  <!-- RESULT -->
   <div id="resultBackdrop" style="display:none;">
     <div class="resultCard">
       <div class="resultTitle">🏁 สรุปผล</div>
@@ -265,18 +225,21 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + Universal VR UI)
   </div>
 
   <script>
-    // Mirror EnterVR buttons + preview query params
+    // Enter VR => cVR fullscreen + preserve query preview
     (function(){
-      function enterVR(){
+      async function enterCVR(){
         try{
-          var scene = document.querySelector('a-scene');
-          if (scene && scene.enterVR) scene.enterVR();
+          document.body.classList.add('view-cvr');
+          const el = document.documentElement;
+          if(el.requestFullscreen) await el.requestFullscreen();
+          else if(el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
         }catch(e){}
       }
+
       var b1 = document.getElementById('btnEnterVR');
       var b2 = document.getElementById('btnEnterVR2');
-      if (b1) b1.addEventListener('click', enterVR, { passive:true });
-      if (b2) b2.addEventListener('click', enterVR, { passive:true });
+      if (b1) b1.addEventListener('click', enterCVR, { passive:true });
+      if (b2) b2.addEventListener('click', enterCVR, { passive:true });
 
       try{
         var u = new URL(location.href);
