@@ -17,31 +17,22 @@ Expose: window.GroupsVR.AI
       t = now; return true;
     };
   }
-
   const canTip = makeRateLimit(2200);
 
   const AI = {
-    // 1) Difficulty Director: returns suggested tuning (optional)
     directorTick(state){
-      // TODO: ใส่โมเดลปรับ spawn/ttl/junk/decoy อย่างยุติธรรม
-      // return { spawnMs, ttlMs, junkBias, decoyBias, bossEvery }
+      // TODO: ใส่โมเดลปรับ spawn/ttl/junk/decoy อย่างยุติธรรม (เฉพาะ play)
       return null;
     },
-
-    // 2) Coach: return {text,mood,why} or null
     coachTip(eventName, state){
       if (!canTip()) return null;
-      // TODO: explainable micro-tips
-      // ตัวอย่าง:
       if (eventName==='miss' && state && state.fever>=60){
         return { text:'หายใจลึก ๆ แล้วเล็งกลางจอ ช้าอีกนิดแต่แม่นขึ้นนะ', mood:'neutral', why:'fever สูง + เพิ่งพลาด' };
       }
       return null;
     },
-
-    // 3) Pattern Generator: choose storm/boss patterns (seeded externally)
     stormPattern(state){
-      // TODO: ใช้ seed+state เพื่อเลือกแบบ deterministic
+      // TODO: ใช้ seed+state เพื่อเลือกแบบ deterministic (research) / adaptive (play)
       return null;
     }
   };
