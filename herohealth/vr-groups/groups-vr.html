@@ -7,16 +7,15 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- Shared CSS -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- A-Frame (minimal scene to enable WebXR Enter VR reliably) -->
+  <!-- A-Frame scene enables WebXR Enter VR reliably -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
   <script>
-    window.HHA_VRUI_CONFIG = { lockPx: 92 };
+    window.HHA_VRUI_CONFIG = { lockPx: 92 }; // tweak aim assist
   </script>
   <script src="../vr/vr-ui.js" defer></script>
 
@@ -29,12 +28,27 @@
 <body class="view-mobile">
 
   <!-- XR Scene (behind DOM) -->
-  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
+  <a-scene class="xr-scene" embedded vr-mode-ui="enabled: true" renderer="colorManagement: true">
     <a-entity position="0 1.6 0">
       <a-camera></a-camera>
     </a-entity>
     <a-sky color="#020617"></a-sky>
   </a-scene>
+
+  <!-- START overlay (unlock audio + optional enter VR) -->
+  <div id="startOverlay" class="overlay">
+    <div class="panel">
+      <div class="title">🚀 พร้อมเริ่มเล่น</div>
+      <div id="startSub" class="sub">—</div>
+      <div class="row row2">
+        <button id="btnStart" class="btn btn-strong" type="button">▶️ Start</button>
+        <button id="btnEnterVR" class="btn" type="button">🥽 ENTER VR</button>
+      </div>
+      <div class="note" style="margin-top:10px;">
+        Cardboard: กด ENTER VR → ใส่ Cardboard → แตะจอเพื่อยิง (crosshair)
+      </div>
+    </div>
+  </div>
 
   <!-- HUD -->
   <div class="hud">
@@ -117,7 +131,7 @@
       </div>
 
       <div class="note" style="margin-top:10px;">
-        VR Cardboard: แตะจอเพื่อยิงจาก crosshair (ปุ่ม ENTER VR จะอยู่มุมล่าง/แถบ UI ของ vr-ui.js)
+        Cardboard: แตะจอเพื่อยิงจาก crosshair (vr-ui.js)
       </div>
     </div>
   </div>
@@ -135,9 +149,12 @@
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
   function setView(view){
+    view = String(view||'mobile').toLowerCase();
+    if (!['pc','mobile','vr','cvr'].includes(view)) view = 'mobile';
     const b = DOC.body;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     b.classList.add('view-'+view);
+    return view;
   }
 
   async function copyText(text){
@@ -195,7 +212,6 @@
     $('pFill').style.width = Math.round((cur/thr)*100) + '%';
   }, {passive:true});
 
-  // quest:update -> goal/mini
   window.addEventListener('quest:update', (ev)=>{
     const d = ev.detail||{};
     const gTitle = String(d.goalTitle||'—');
@@ -219,16 +235,13 @@
     $('miniSub').textContent = mTitle;
     $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
 
-    const urgent = (mLeft>0 && mLeft<=3);
-    DOC.body.classList.toggle('mini-urgent', urgent);
+    DOC.body.classList.toggle('mini-urgent', (mLeft>0 && mLeft<=3));
   }, {passive:true});
 
-  // ---------- Audio tick loop (urgent) ----------
+  // ---------- Audio ----------
   function hookAudio(){
     const A = window.GroupsVR && window.GroupsVR.Audio;
     if (!A) return;
-
-    // unlock early
     try{ A.unlock && A.unlock(); }catch{}
 
     window.addEventListener('hha:judge', (ev)=>{
@@ -285,6 +298,7 @@
       runMode: String(qs('run','play')||'play'),
       diff: String(qs('diff','normal')||'normal'),
       style: String(qs('style','mix')||'mix'),
+      view: String(qs('view','mobile')||'mobile'),
       durationPlannedSec: Number(qs('time',90)||90),
       startTimeIso: startIso,
       endTimeIso: endIso,
@@ -336,15 +350,21 @@
     }, 60);
   }
 
-  function startFromParams(){
-    const view = String(qs('view','mobile')||'mobile').toLowerCase();
+  function enterVR(){
+    const scene = DOC.querySelector('a-scene');
+    try{
+      if (scene && typeof scene.enterVR === 'function') scene.enterVR();
+    }catch(_){}
+  }
+
+  function startGame(){
+    const view = setView(String(qs('view','mobile')||'mobile'));
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
     const diff = String(qs('diff','normal')||'normal').toLowerCase();
     const style= String(qs('style','mix')||'mix').toLowerCase();
     const time = clamp(qs('time',90), 30, 180);
     const seed = String(qs('seed', Date.now()) || Date.now());
 
-    setView(view);
     hookAudio();
 
     waitForEngine((E)=>{
@@ -352,9 +372,28 @@
       startIso = new Date().toISOString();
       E.start(diff, { runMode: run, diff, style, time, seed });
     });
+
+    $('startOverlay').classList.add('hidden');
   }
 
-  startFromParams();
+  // ----- Start overlay text -----
+  (function setStartText(){
+    const v = String(qs('view','mobile')||'mobile');
+    const line =
+      (v==='pc') ? 'โหมด PC: คลิกเป้าเพื่อเล่น (Enter VR ไม่จำเป็น)' :
+      (v==='mobile') ? 'โหมด Mobile: แตะเป้าเพื่อเล่น' :
+      (v==='cvr') ? 'โหมด Cardboard: เข้า VR แล้วแตะจอเพื่อยิงจาก crosshair' :
+      'โหมด VR';
+    $('startSub').textContent = line;
+  })();
+
+  // Start / Enter VR buttons
+  $('btnStart').addEventListener('click', startGame);
+  $('btnEnterVR').addEventListener('click', ()=>{
+    // gesture -> unlock audio + enter VR
+    try{ window.GroupsVR && window.GroupsVR.Audio && window.GroupsVR.Audio.unlock && window.GroupsVR.Audio.unlock(); }catch{}
+    enterVR();
+  });
 
 })();
 </script>
