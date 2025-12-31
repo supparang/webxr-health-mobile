@@ -7,88 +7,118 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./groups-vr.css" />
+
+  <!-- ✅ Universal VR UI (ENTER VR / EXIT / RECENTER / crosshair / tap-to-shoot -> emits hha:shoot) -->
+  <script src="../vr/vr-ui.js" defer></script>
+
+  <!-- (Optional) logger if you already use in other games -->
+  <script src="../vr/hha-cloud-logger.js" defer></script>
 </head>
 
-<body>
-  <div class="hud">
-    <div class="box">
-      <div class="big" id="uiScore">0</div>
-      <div class="small">SCORE</div>
+<body class="view-pc">
+  <!-- subtle VR vignette -->
+  <div class="vignette" aria-hidden="true"></div>
+
+  <!-- HUD ROOT -->
+  <div class="hud-root" aria-label="HUD">
+    <div class="hud-topbar">
+      <div class="hud-card hud-score">
+        <div class="hud-big" id="uiScore">0</div>
+        <div class="hud-small">SCORE</div>
+      </div>
+
+      <div class="hud-pills">
+        <div class="pill">COMBO: <b id="uiCombo">0</b> (MAX <b id="uiComboMax">0</b>)</div>
+        <div class="pill">MISS: <b id="uiMiss">0</b></div>
+        <div class="pill">GRADE: <b id="uiGrade">C</b></div>
+      </div>
+
+      <div class="hud-card hud-time">
+        <div class="hud-big"><span id="uiTime">90</span>s</div>
+        <div class="hud-small">TIME</div>
+      </div>
     </div>
-    <div class="box" style="text-align:right;">
-      <div class="big"><span id="uiTime">90</span>s</div>
-      <div class="small">TIME</div>
+
+    <!-- Quest RIGHT -->
+    <div class="quest-right" aria-label="Quest">
+      <div class="qbar goal">
+        <div class="t">GOAL</div>
+        <div class="b" id="uiGoalTitle">—</div>
+        <div class="p"><i id="uiGoalBar"></i></div>
+      </div>
+      <div class="qbar mini">
+        <div class="t">MINI</div>
+        <div class="b" id="uiMiniTitle">—</div>
+        <div class="p"><i id="uiMiniBar"></i></div>
+        <div class="time" id="uiMiniTime">⏳ 0s</div>
+      </div>
+    </div>
+
+    <!-- Power bottom -->
+    <div class="powerWrap">
+      <div class="powerBox">
+        <div class="power"><i id="uiPowerBar"></i></div>
+        <div class="powerLabel">
+          <span>POWER</span>
+          <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coach bottom-right -->
+    <div class="coachWrap" aria-label="Coach">
+      <div class="coachCard">
+        <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
+        <div class="feverMini"><i id="uiFeverBar"></i></div>
+        <div class="shieldTag" id="uiShieldTag" style="display:none;">🛡️ SHIELD READY</div>
+      </div>
+      <div class="coachImg">
+        <img id="uiCoachImg" src="../img/coach-neutral.png" alt="Coach"/>
+      </div>
     </div>
   </div>
 
-  <div class="centerTop">
-    <div class="pill">COMBO: <b id="uiCombo">0</b> (MAX <b id="uiComboMax">0</b>)</div>
-    <div class="pill">MISS: <b id="uiMiss">0</b></div>
-    <div class="pill">GRADE: <b id="uiGrade">C</b></div>
-  </div>
-
-  <div class="questTop" aria-label="Quest">
-    <div class="qbar">
-      <div class="t">GOAL</div>
-      <div class="b" id="uiGoalTitle">—</div>
-      <div class="p"><i id="uiGoalBar"></i></div>
-    </div>
-    <div class="qbar">
-      <div class="t">MINI</div>
-      <div class="b" id="uiMiniTitle">—</div>
-      <div class="p"><i id="uiMiniBar"></i></div>
-      <div class="time" id="uiMiniTime">⏳ 0s</div>
-    </div>
-  </div>
-
+  <!-- Gameplay layer -->
   <div id="fg-layer" class="fg-layer" aria-label="Food Groups Layer"></div>
 
-  <div class="powerWrap">
-    <div class="power"><i id="uiPowerBar"></i></div>
-    <div class="powerLabel">
-      <span>POWER</span>
-      <span><b id="uiPower">0</b>/<b id="uiPowerThr">8</b></span>
-    </div>
-  </div>
-
-  <div class="coachWrap" aria-label="Coach">
-    <div class="coachCard">
-      <div class="coachLine" id="uiCoachLine">พร้อมเล่น! 🎵</div>
-      <div class="feverMini"><i id="uiFeverBar"></i></div>
-      <div class="shieldTag" id="uiShieldTag" style="display:none;">🛡️ SHIELD READY</div>
-    </div>
-    <div class="coachImg">
-      <img id="uiCoachImg" src="../img/coach-neutral.png" alt="Coach"/>
-    </div>
-  </div>
-
-  <!-- START -->
+  <!-- Start Overlay (เลือกทางเข้าเล่น) -->
   <div class="overlay" id="startOverlay">
     <div class="panel">
-      <h2>🚀 พร้อมเล่น Food Groups VR</h2>
+      <h2>🚀 Food Groups VR</h2>
       <p id="startDesc">กำลังเตรียมระบบ…</p>
 
-      <div class="row" style="margin:8px 0 6px; gap:10px; flex-wrap:wrap;">
-        <button id="btnModePlay" class="secondary" type="button">🖥️/📱 เล่นปกติ</button>
-        <button id="btnModeCvr"  class="secondary" type="button">🥽 Cardboard (ยิงกลางจอ)</button>
-        <button id="btnModeVr"   class="secondary" type="button">🕶️ Enter VR (XR)</button>
+      <div class="mode-grid" aria-label="Mode select">
+        <div class="mode-card">
+          <b>🖥️ PC</b>
+          <span>คลิก/แตะที่เป้าได้โดยตรง</span>
+        </div>
+        <div class="mode-card">
+          <b>📱 Mobile</b>
+          <span>แตะที่เป้า + ลากเพื่อ VR-feel</span>
+        </div>
+        <div class="mode-card">
+          <b>🥽 VR Cardboard</b>
+          <span>กด ENTER VR → ยิงด้วย crosshair</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <button class="btn ghost" id="btnPC">เข้าแบบ PC</button>
+        <button class="btn ghost" id="btnMobile">เข้าแบบ Mobile</button>
+        <button class="btn ghost" id="btnCVR">เข้าแบบ VR Cardboard</button>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="btn" id="btnStart">Start</button>
+        <button class="btn secondary" id="btnBack">กลับ HUB</button>
       </div>
 
       <div class="dbg">Boot: <b id="dbgBoot">loading…</b></div>
-      <div class="warn" id="warnBox" style="display:none;"></div>
-
-      <div class="row" style="margin-top:10px;">
-        <button id="btnStart" type="button">Start</button>
-        <button id="btnBack" class="secondary" type="button">กลับ HUB</button>
-      </div>
-
-      <div class="dbg" style="margin-top:8px;">
-        tip: ถ้าใช้ Cardboard ให้ “แตะจอ = ยิง” และเล็งด้วยหัว/มือถือ
-      </div>
+      <div class="warn" id="warnBox"></div>
     </div>
   </div>
 
-  <!-- END -->
+  <!-- End Overlay -->
   <div class="overlay" id="endOverlay">
     <div class="panel">
       <h2>🏁 สรุปผล</h2>
@@ -102,8 +132,8 @@
       </div>
 
       <div class="row">
-        <button id="btnReplay" type="button">เล่นอีกครั้ง</button>
-        <button id="btnHub2" class="secondary" type="button">กลับ HUB</button>
+        <button class="btn" id="btnReplay">เล่นอีกครั้ง</button>
+        <button class="btn secondary" id="btnHub2">กลับ HUB</button>
       </div>
     </div>
   </div>
@@ -112,6 +142,7 @@
     const $ = (id)=>document.getElementById(id);
     const q = new URLSearchParams(location.search);
 
+    // Params
     const runMode = (q.get('runMode') || 'play').toLowerCase();
     const diff    = (q.get('diff') || 'normal').toLowerCase();
     const style   = (q.get('style') || 'mix').toLowerCase();
@@ -121,35 +152,16 @@
     const autostart = q.get('autostart') === '1';
     const v = (q.get('v') || String(Date.now()));
 
-    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
-
-    // --------------------------
-    // ✅ View mode (pc/mobile/vr/cvr)
-    // --------------------------
+    // view selector (pc/mobile/cvr)
     function setView(view){
-      const b = document.body;
-      b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-      b.classList.add('view-' + view);
-      try{ localStorage.setItem('HHA_GROUPS_VIEW', view); }catch{}
-      $('startDesc').textContent =
-        `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed} | view=${view}`;
+      document.body.classList.remove('view-pc','view-mobile','view-cvr','view-vr');
+      document.body.classList.add(`view-${view}`);
+      // cVR: targets should not intercept pointer (CSS handles), gameplay still runs
     }
 
-    function getViewDefault(){
-      const fromQ = (q.get('view')||'').toLowerCase();
-      if (fromQ==='pc'||fromQ==='mobile'||fromQ==='vr'||fromQ==='cvr') return fromQ;
-      try{
-        const s = localStorage.getItem('HHA_GROUPS_VIEW');
-        if (s==='pc'||s==='mobile'||s==='vr'||s==='cvr') return s;
-      }catch{}
-      return isMobile ? 'mobile' : 'pc';
-    }
+    // Start description
+    $('startDesc').textContent = `mode=${runMode} | diff=${diff} | style=${style} | time=${time}s | seed=${seed}`;
 
-    setView(getViewDefault());
-
-    // --------------------------
-    // warnings
-    // --------------------------
     function warn(msg){
       console.warn(msg);
       const box = $('warnBox');
@@ -168,11 +180,8 @@
       }
     }
 
-    // --------------------------
-    // ✅ BOOT LIST: เพิ่ม Universal VR UI
-    // --------------------------
+    // ✅ Load modules needed by GameEngine
     const BOOT_LIST = [
-      '../vr/vr-ui.js',          // ✅ Enter VR / Exit / Recenter + Crosshair + hha:shoot
       './groups-fx.js',
       './audio.js',
       './groups-quests.js',
@@ -185,9 +194,6 @@
       $('dbgBoot').textContent = (window.GroupsVR && window.GroupsVR.GameEngine) ? 'READY ✅' : 'ENGINE NOT FOUND ❌';
     }
 
-    // --------------------------
-    // flush hardened
-    // --------------------------
     function flushHardened(reason){
       try{ window.HHACloudLogger?.flush?.({ reason }); }catch{}
       try{ window.HHACloudLogger?.flushNow?.({ reason }); }catch{}
@@ -209,39 +215,20 @@
       if (document.visibilityState === 'hidden') flushHardened('hidden');
     });
 
-    // --------------------------
-    // Mode buttons
-    // --------------------------
-    function tryClickEnterVrButton(){
-      // รองรับหลายชื่อ เผื่อ vr-ui.js ใช้ class/id ต่างกัน
-      const btn =
-        document.querySelector('[data-hha="enter-vr"]') ||
-        document.querySelector('#hha-enter-vr') ||
-        document.querySelector('.hha-enter-vr') ||
-        document.querySelector('.hha-btn-enter-vr');
-      if (btn) btn.click();
-      else warn('ℹ️ ไม่พบปุ่ม Enter VR ของ vr-ui.js (แต่โหมด cVR ยังเล่นได้)');
+    // --- Mini urgent tick (1Hz) ---
+    let _tickInt = 0;
+    function stopTick(){
+      if (_tickInt) clearInterval(_tickInt);
+      _tickInt = 0;
+    }
+    function startTick(){
+      if (_tickInt) return;
+      _tickInt = setInterval(()=>{
+        try{ window.GroupsVR?.Audio?.tick?.(); }catch{}
+      }, 1000);
     }
 
-    $('btnModePlay').addEventListener('click', ()=>{
-      setView(isMobile ? 'mobile' : 'pc');
-    });
-    $('btnModeCvr').addEventListener('click', ()=>{
-      setView('cvr');
-      // เข้า fullscreen ให้ฟีล VR มากขึ้น (optional)
-      try{
-        const el = document.documentElement;
-        if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(()=>{});
-      }catch{}
-    });
-    $('btnModeVr').addEventListener('click', ()=>{
-      setView('vr');
-      tryClickEnterVrButton(); // ให้มี “ปุ่มเข้า VR” ชัดเจนตามที่ขอ
-    });
-
-    // --------------------------
-    // Bind UI events from engine
-    // --------------------------
+    // UI bind
     function bindEvents(){
       addEventListener('hha:score', (e)=>{
         const d = e.detail||{};
@@ -250,10 +237,12 @@
         $('uiComboMax').textContent = String(d.comboMax ?? 0);
         $('uiMiss').textContent = String(d.misses ?? 0);
       });
+
       addEventListener('hha:time', (e)=>{
         const d = e.detail||{};
         $('uiTime').textContent = String(d.left ?? 0);
       });
+
       addEventListener('groups:power', (e)=>{
         const d = e.detail||{};
         const ch = Number(d.charge||0);
@@ -262,6 +251,7 @@
         $('uiPowerThr').textContent = String(thr);
         $('uiPowerBar').style.width = (Math.min(1, ch/thr)*100).toFixed(1) + '%';
       });
+
       addEventListener('hha:rank', (e)=>{
         const d = e.detail||{};
         if (d.grade) $('uiGrade').textContent = String(d.grade);
@@ -290,6 +280,15 @@
         } else {
           timeEl.style.display = 'none';
         }
+
+        // ✅ urgent (<=3s) -> pulse + tick sfx
+        if (tLeft > 0 && tLeft <= 3){
+          document.body.classList.add('mini-urgent');
+          startTick();
+        }else{
+          document.body.classList.remove('mini-urgent');
+          stopTick();
+        }
       });
 
       addEventListener('hha:coach', (e)=>{
@@ -311,7 +310,27 @@
         $('uiShieldTag').style.display = shield ? 'inline-flex' : 'none';
       });
 
+      // Optional SFX routing by judge kind (nice feel)
+      addEventListener('hha:judge', (e)=>{
+        const d = e.detail||{};
+        const k = String(d.kind||'').toLowerCase();
+        try{
+          if (k === 'good') window.GroupsVR?.Audio?.good?.();
+          else if (k === 'bad') window.GroupsVR?.Audio?.bad?.();
+          else if (k === 'boss') window.GroupsVR?.Audio?.boss?.();
+          else if (k === 'miss') window.GroupsVR?.Audio?.bad?.();
+        }catch{}
+      });
+
+      addEventListener('groups:buff', (e)=>{
+        const d = e.detail||{};
+        if (String(d.type||'') === 'overdrive'){
+          try{ window.GroupsVR?.Audio?.overdrive?.(); }catch{}
+        }
+      });
+
       addEventListener('hha:end', (e)=>{
+        stopTick();
         const d = e.detail||{};
         $('endOverlay').classList.add('show');
         $('endReason').textContent = `เหตุผล: ${d.reason || '-'}`;
@@ -326,7 +345,7 @@
             game: 'GroupsVR',
             ts: new Date().toISOString(),
             ...d,
-            params: { runMode, diff, style, time, seed, hub, view: document.body.className }
+            params: { runMode, diff, style, time, seed, hub }
           };
           localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
           localStorage.setItem('HHA_LAST_SUMMARY_GROUPS', JSON.stringify(payload));
@@ -355,24 +374,12 @@
       });
     }
 
-    // ✅ fallback: ถ้าอยู่โหมด cVR แล้วแตะจอ แต่ vr-ui.js ไม่ยิงให้
-    function bindFallbackTapShoot(){
-      if (bindFallbackTapShoot._done) return;
-      bindFallbackTapShoot._done = true;
-
-      window.addEventListener('pointerdown', (e)=>{
-        const b = document.body;
-        if (!b.classList.contains('view-cvr')) return;
-        // ยิงกลางจอ
-        const x = window.innerWidth * 0.5;
-        const y = window.innerHeight * 0.5;
-        window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ x, y, lockPx: 92 } }));
-      }, { passive:true });
-    }
-
     async function startGame(){
       $('btnStart').disabled = true;
       $('startDesc').textContent = 'กำลังเริ่มเกม…';
+
+      // unlock audio on start gesture
+      try{ window.GroupsVR?.Audio?.unlock?.(); }catch{}
 
       await boot();
       const GE = await waitEngineReady();
@@ -381,21 +388,34 @@
       GE.setLayerEl($('fg-layer'));
       GE.start(diff, { runMode, style, time, seed });
 
-      // cVR tap-to-shoot fallback
-      bindFallbackTapShoot();
-
       $('startOverlay').style.display = 'none';
       $('endOverlay').classList.remove('show');
       $('btnStart').disabled = false;
     }
 
+    // View select buttons
+    $('btnPC').addEventListener('click', ()=> setView('pc'));
+    $('btnMobile').addEventListener('click', ()=> setView('mobile'));
+    $('btnCVR').addEventListener('click', ()=>{
+      setView('cvr');
+      // hint: user should press ENTER VR button (from vr-ui.js)
+      $('startDesc').textContent = `โหมด VR Cardboard: กด ENTER VR แล้ว “ยิงกลางจอ” ✅ | diff=${diff} | time=${time}s`;
+    });
+
     $('btnStart').addEventListener('click', startGame);
+
     $('btnReplay').addEventListener('click', ()=>{
       try{ window.GroupsVR?.GameEngine?.stop?.('replay'); }catch{}
       $('endOverlay').classList.remove('show');
       $('startOverlay').style.display = 'grid';
       if (autostart) setTimeout(startGame, 250);
     });
+
+    // Default view from query ?view=pc|mobile|cvr
+    const viewQ = (q.get('view')||'').toLowerCase();
+    if (viewQ === 'mobile') setView('mobile');
+    else if (viewQ === 'cvr' || viewQ === 'vr') setView('cvr');
+    else setView('pc');
 
     bindEvents();
     await boot();
