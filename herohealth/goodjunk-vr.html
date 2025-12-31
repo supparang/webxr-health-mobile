@@ -3,8 +3,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
 ✅ DOM emoji targets (dual-eye for VR/cVR)
 ✅ HUD + Quest + Coach + Fever/Shield
 ✅ Boot gate: engine starts ONLY after pressing "เริ่มเล่น"
-✅ Missions Peek (visible even when HUD hidden in VR)
-✅ End Summary Overlay (play again / back hub / copy json)
+✅ Quest Peek (missions visible even when HUD is hidden in VR)
 -->
 
 <!doctype html>
@@ -123,7 +122,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
     </div>
 
-    <!-- legacy safe -->
+    <!-- end summary placeholder -->
     <div id="end-summary"></div>
   </div>
 
@@ -154,36 +153,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard
         <span class="muted">Tip: กด “Enter Fullscreen” ก่อนเข้า VR/cVR จะนิ่งกว่า</span>
       </div>
       <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
-    </div>
-  </div>
-
-  <!-- ===== End Summary Overlay (HHA Standard) ===== -->
-  <div id="endOverlay" class="end-overlay" hidden>
-    <div class="end-card">
-      <div class="end-head">
-        <div>
-          <div class="end-title">สรุปผล</div>
-          <div class="end-sub" id="endReason">—</div>
-        </div>
-        <div class="end-grade" id="endGrade">—</div>
-      </div>
-
-      <div class="end-grid">
-        <div class="end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
-        <div class="end-item"><div class="k">ComboMax</div><div class="v" id="endComboMax">0</div></div>
-        <div class="end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
-        <div class="end-item"><div class="k">Goals</div><div class="v" id="endGoals">0/0</div></div>
-        <div class="end-item"><div class="k">Minis</div><div class="v" id="endMinis">0/0</div></div>
-      </div>
-
-      <div class="end-actions">
-        <button id="btnPlayAgain" class="btn-primary" type="button">เล่นอีกครั้ง</button>
-        <button id="btnBackHub" class="btn-ghost" type="button">กลับ HUB</button>
-        <button id="btnCopySummary" class="btn-ghost" type="button">Copy JSON</button>
-      </div>
-
-      <div class="end-foot" id="endMeta2">—</div>
     </div>
   </div>
 </body>
