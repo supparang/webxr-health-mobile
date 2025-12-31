@@ -1,11 +1,10 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION (PATCH v3)
-// ✅ View: PC / Mobile / Cardboard (cVR)
-// ✅ Fullscreen + best-effort landscape lock
-// ✅ STRICT landscape in Cardboard: portrait => show rotateHint + optionally force-exit VR
+// Hydration VR Loader — PRODUCTION (MODE CHOOSER + EXIT VR FROM ROTATEHINT)
+// ✅ View: PC / Mobile / Cardboard
+// ✅ Fullscreen + best-effort landscape lock for Cardboard
 // ✅ Emits: hha:start, hha:force_end, hha:shoot
 // ✅ Sets window.HHA_VIEW.layers so hydration.safe.js spawns correctly
-// ✅ Adds body classes: portrait / landscape (for CSS rules)
+// ✅ NEW: explicit mode buttons + rotateHint has Exit VR button
 
 'use strict';
 
@@ -18,18 +17,15 @@ function qs(k, def=null){
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
 }
-
 function isMobileUA(){
   const ua = navigator.userAgent || '';
   return /Android|iPhone|iPad|iPod/i.test(ua);
 }
-
 function setView(view){
   const b = DOC.body;
   b.classList.remove('view-pc','view-mobile','view-cvr');
   b.classList.add(`view-${view}`);
 }
-
 function showCardboard(on){
   const pf = DOC.getElementById('playfield');
   const cb = DOC.getElementById('cbPlayfield');
@@ -54,9 +50,7 @@ async function exitFullscreen(){
     else if (DOC.webkitExitFullscreen) await DOC.webkitExitFullscreen();
   }catch(_){}
 }
-
 async function lockLandscape(){
-  // works best after a user gesture + fullscreen
   try{
     if (screen?.orientation?.lock){
       await screen.orientation.lock('landscape');
@@ -64,23 +58,11 @@ async function lockLandscape(){
   }catch(_){}
 }
 
-function isPortrait(){
-  try{
-    return window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
-  }catch(_){
-    return (window.innerHeight > window.innerWidth);
-  }
-}
-function syncOrientationClasses(){
-  const p = isPortrait();
-  DOC.body.classList.toggle('portrait', p);
-  DOC.body.classList.toggle('landscape', !p);
-}
-
 function rotateHintUpdate(){
   const el = DOC.getElementById('rotateHint');
   if (!el) return;
-  const on = DOC.body.classList.contains('cardboard') && isPortrait();
+  const portrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
+  const on = DOC.body.classList.contains('cardboard') && portrait;
   el.hidden = !on;
 }
 
@@ -89,134 +71,116 @@ function applyHHAViewLayers(){
   const R = DOC.getElementById('hydration-layerR');
   const main = DOC.getElementById('hydration-layer');
   const isCb = DOC.body.classList.contains('cardboard');
-
   window.HHA_VIEW = window.HHA_VIEW || {};
   window.HHA_VIEW.layers = (isCb && L && R) ? ['hydration-layerL','hydration-layerR'] : ['hydration-layer'];
   window.HHA_VIEW._nodes = { main, L, R };
 }
 
-/* -------- STRICT landscape behavior --------
-   - If in Cardboard + portrait: show rotateHint
-   - Optional: auto-retry lockLandscape
-   - Optional: if user stays portrait too long, exit cardboard (prevent weird VR)
-*/
-let portraitWarnAt = 0;
-async function enforceLandscapeTick(){
-  syncOrientationClasses();
-  rotateHintUpdate();
-
-  const inCb = DOC.body.classList.contains('cardboard');
-  if (!inCb) { portraitWarnAt = 0; return; }
-
-  if (isPortrait()){
-    // keep trying to lock on Android/Chromium
-    if (isFullscreen()) await lockLandscape();
-
-    if (!portraitWarnAt) portraitWarnAt = performance.now();
-    const waited = performance.now() - portraitWarnAt;
-
-    // If portrait persists, we keep hint. (Do NOT force exit too aggressively.)
-    // If you want "hard force", uncomment below:
-    // if (waited > 6000){
-    //   showCardboard(false);
-    //   setView(isMobileUA() ? 'mobile' : 'pc');
-    //   applyHHAViewLayers();
-    //   rotateHintUpdate();
-    // }
-  } else {
-    portraitWarnAt = 0;
+function setMode(mode){
+  // mode: 'pc' | 'mobile' | 'cvr'
+  if (mode === 'cvr'){
+    setView('cvr');
+    showCardboard(true);
+    applyHHAViewLayers();
+    rotateHintUpdate();
+    return;
   }
+  // pc/mobile
+  showCardboard(false);
+  setView(mode === 'pc' ? 'pc' : 'mobile');
+  applyHHAViewLayers();
+  rotateHintUpdate();
+}
+
+async function enterVRFlow(){
+  setMode('cvr');
+  await enterFullscreen();
+  await lockLandscape();
 }
 
 function ensureRotateHintNode(){
   if (DOC.getElementById('rotateHint')) return;
-  const el = DOC.createElement('div');
-  el.id = 'rotateHint';
-  el.hidden = true;
-  el.className = 'hha-rotateHint';
-  el.innerHTML = `
+
+  const wrap = DOC.createElement('div');
+  wrap.id = 'rotateHint';
+  wrap.hidden = true;
+  wrap.className = 'hha-rotateHint';
+  wrap.innerHTML = `
     <div class="card">
-      <div class="big">กรุณาหมุนเครื่องเป็น “แนวนอน” เพื่อเล่นโหมด VR 📱↔️</div>
-      <div class="small">Tip: กด Fullscreen แล้วค่อยหมุน • บางรุ่นต้องปิด “ล็อกหมุนจอ” ก่อน</div>
+      <div class="big">กรุณาหมุนจอเป็นแนวนอน</div>
+      <div class="small">เพื่อเล่นโหมด VR / Cardboard 📱↔️</div>
+      <div style="display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap">
+        <button id="btnExitVR" class="hha-btn danger">⏏ ออก VR</button>
+        <button id="btnIHaveRotated" class="hha-btn primary">✅ หมุนแล้ว</button>
+      </div>
+      <div class="small" style="margin-top:10px">* ถ้ายังไม่อยากเล่น VR กด “ออก VR” เพื่อกลับโหมดปกติ</div>
     </div>
   `;
-  DOC.body.appendChild(el);
+  DOC.body.appendChild(wrap);
+
+  wrap.querySelector('#btnExitVR')?.addEventListener('click', async ()=>{
+    // Exit cardboard mode safely
+    setMode(isMobileUA() ? 'mobile' : 'pc');
+    if (isFullscreen()) {
+      // best effort; don't force if browser blocks
+      try{ await exitFullscreen(); }catch(_){}
+    }
+    rotateHintUpdate();
+  });
+
+  wrap.querySelector('#btnIHaveRotated')?.addEventListener('click', ()=>{
+    // just re-check orientation
+    rotateHintUpdate();
+  });
 }
 
 function bind(){
-  const btnStart = DOC.getElementById('btnStart');
-  const btnEnterVR = DOC.getElementById('btnEnterVR');
-  const btnCardboard = DOC.getElementById('btnCardboard');
-  const btnShoot = DOC.getElementById('btnShoot');
-  const btnStop = DOC.getElementById('btnStop');
   const overlay = DOC.getElementById('startOverlay');
 
-  // initial view
+  const btnStart = DOC.getElementById('btnStart');
+  const btnStop  = DOC.getElementById('btnStop');
+  const btnShoot = DOC.getElementById('btnShoot');
+  const btnCardboard = DOC.getElementById('btnCardboard');
+
+  // NEW: mode buttons on overlay
+  const btnModePC = DOC.getElementById('btnModePC');
+  const btnModeMobile = DOC.getElementById('btnModeMobile');
+  const btnModeVR = DOC.getElementById('btnModeVR');
+
+  // initial view: DO NOT force cvr unless query says so
   const viewParam = String(qs('view','')).toLowerCase();
   const startCb = (viewParam === 'cvr') || (String(qs('cardboard','0')) === '1');
+  setMode(startCb ? 'cvr' : (isMobileUA() ? 'mobile' : 'pc'));
 
-  const view = startCb ? 'cvr' : (isMobileUA() ? 'mobile' : 'pc');
-  setView(view);
-  showCardboard(startCb);
-  applyHHAViewLayers();
+  // MODE choose (no reload)
+  btnModePC?.addEventListener('click', ()=> setMode('pc'));
+  btnModeMobile?.addEventListener('click', ()=> setMode('mobile'));
+  btnModeVR?.addEventListener('click', ()=> enterVRFlow());
 
-  // orientation classes + hint
-  syncOrientationClasses();
-  rotateHintUpdate();
-
-  // Start
-  btnStart?.addEventListener('click', async ()=>{
+  // Start game
+  btnStart?.addEventListener('click', ()=>{
     try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
     emit('hha:start');
   });
 
-  // Enter Cardboard (from overlay)
-  btnEnterVR?.addEventListener('click', async ()=>{
-    setView('cvr');
-    showCardboard(true);
-    applyHHAViewLayers();
-
-    await enterFullscreen();
-    await lockLandscape();
-    await enforceLandscapeTick();
-
-    try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
-    emit('hha:start');
-  });
-
-  // Toggle Cardboard (bottom)
+  // Bottom cardboard toggle
   btnCardboard?.addEventListener('click', async ()=>{
     const on = !DOC.body.classList.contains('cardboard');
-    if (on){
-      setView('cvr');
-      showCardboard(true);
-      applyHHAViewLayers();
-
-      await enterFullscreen();
-      await lockLandscape();
-      await enforceLandscapeTick();
-    } else {
-      showCardboard(false);
-      setView(isMobileUA() ? 'mobile' : 'pc');
-      applyHHAViewLayers();
-
-      // keep fullscreen if user wants (no force exit)
-      syncOrientationClasses();
-      rotateHintUpdate();
-    }
+    if (on) await enterVRFlow();
+    else setMode(isMobileUA() ? 'mobile' : 'pc');
   });
 
-  // SHOOT button -> fire center shot
+  // SHOOT
   btnShoot?.addEventListener('click', ()=>{
     emit('hha:shoot', { src:'btn', t: Date.now() });
   });
 
-  // STOP (end game)
+  // STOP
   btnStop?.addEventListener('click', ()=>{
     emit('hha:force_end', { reason:'stop' });
   });
 
-  // Tap anywhere to shoot (mobile convenience)
+  // Tap anywhere to shoot (after overlay hidden)
   let lastTap=0;
   DOC.addEventListener('pointerdown', (ev)=>{
     const t = ev.target;
@@ -226,33 +190,24 @@ function bind(){
     if (now - lastTap < 80) return;
     lastTap = now;
 
-    // only when overlay hidden
     const ovHidden = !overlay || overlay.style.display === 'none' || overlay.hidden || overlay.classList.contains('hide');
     if (ovHidden) emit('hha:shoot', { src:'tap', t: Date.now() });
   }, { passive:true });
 
-  // keep hint correct (and keep trying to lock landscape)
-  const onResize = ()=>{ enforceLandscapeTick().catch(()=>{}); };
-  window.addEventListener('resize', onResize, { passive:true });
-  window.addEventListener('orientationchange', onResize, { passive:true });
-  DOC.addEventListener('fullscreenchange', onResize);
+  window.addEventListener('resize', rotateHintUpdate, {passive:true});
+  window.addEventListener('orientationchange', rotateHintUpdate);
+  DOC.addEventListener('fullscreenchange', rotateHintUpdate);
 
-  // observe body class changes
   const obs = new MutationObserver(()=>{
     applyHHAViewLayers();
-    enforceLandscapeTick().catch(()=>{});
+    rotateHintUpdate();
   });
   obs.observe(DOC.body, { attributes:true, attributeFilter:['class'] });
-
-  // periodic tick while in cardboard (helps on Android where lock is flaky)
-  setInterval(()=>{ enforceLandscapeTick().catch(()=>{}); }, 700);
 }
 
 function boot(){
   ensureRotateHintNode();
   bind();
-
-  // load game logic AFTER loader is ready
   import('./hydration.safe.js').catch(console.error);
 }
 
