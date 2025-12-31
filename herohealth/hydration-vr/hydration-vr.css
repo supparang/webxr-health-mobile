@@ -1,10 +1,11 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration VR — PRODUCTION CSS
+Hydration VR — PRODUCTION CSS (Mode Select Included)
 ✅ Responsive PC/Mobile/Cardboard
 ✅ HUD top + bottom safe-area
 ✅ Playfield + Cardboard split eyes
 ✅ Side panel collapses on mobile/cvr
 ✅ RotateHint overlay
+✅ Mode Select UI
 */
 
 :root{
@@ -59,7 +60,7 @@ html,body{
   backdrop-filter: blur(10px);
 }
 .hha-overlay-card{
-  width:min(520px, 92vw);
+  width:min(560px, 94vw);
   border-radius: 22px;
   border:1px solid var(--stroke);
   background: rgba(2,6,23,.88);
@@ -76,12 +77,6 @@ html,body{
   color: var(--muted);
   line-height:1.45;
 }
-.hha-overlay-actions{
-  display:flex;
-  gap:10px;
-  margin-top: 14px;
-  flex-wrap: wrap;
-}
 .hha-hint{
   margin-top: 10px;
   color: var(--muted);
@@ -89,33 +84,57 @@ html,body{
 }
 .hha-overlay.hide{ display:none !important; }
 
-/* ---------------- Rotate hint ---------------- */
-.hha-rotateHint{
-  position:fixed; inset:0;
-  z-index:9999;
+/* ---- Mode Select ---- */
+.hha-modeGrid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+  margin-top: 14px;
+}
+.hha-mode{
+  text-align:left;
+  border-radius: 18px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.58);
+  color: var(--text);
+  padding: 12px 12px;
+  cursor:pointer;
+  user-select:none;
+  font-weight: 900;
+  transition: transform .12s ease, filter .12s ease;
+}
+.hha-mode:hover{ filter:brightness(1.06); }
+.hha-mode:active{ transform: translateY(1px); }
+.hha-mode .top{ font-size: 14px; font-weight: 1000; }
+.hha-mode .mid{ margin-top:6px; font-size: 16px; font-weight: 1100; }
+.hha-mode .bot{ margin-top:6px; font-size: 12px; }
+.hha-mode.primary{
+  background: rgba(34,197,94,.16);
+  border-color: rgba(34,197,94,.34);
+}
+
+.hha-miniLinks{
   display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: 24px;
-  background: rgba(0,0,0,.74);
-  backdrop-filter: blur(6px);
+  gap:10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
 }
-.hha-rotateHint .card{
-  width:min(520px, 92vw);
-  border-radius: 22px;
-  border:1px solid rgba(255,255,255,.14);
-  background: rgba(2,6,23,.84);
-  padding: 18px;
-  text-align:center;
-  box-shadow: 0 30px 90px rgba(0,0,0,.62);
+.hha-howto{
+  margin-top: 12px;
+  border-radius: 18px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(2,6,23,.65);
+  padding: 12px;
 }
-.hha-rotateHint .big{
+.hha-howtoTitle{
   font-weight: 1000;
-  font-size: 20px;
+  margin-bottom: 6px;
 }
-.hha-rotateHint .small{
-  margin-top: 8px;
+.hha-howto ul{
+  margin: 8px 0 0;
+  padding-left: 18px;
   color: var(--muted);
+  line-height: 1.45;
 }
 
 /* ---------------- Buttons ---------------- */
@@ -200,17 +219,6 @@ html,body{
   position:absolute; inset:0;
   pointer-events:auto;
 }
-.hha-crosshair{
-  position:absolute;
-  left:50%; top:50%;
-  width:18px; height:18px;
-  transform: translate(-50%,-50%);
-  border-radius: 999px;
-  border:2px solid rgba(255,255,255,.30);
-  box-shadow: 0 0 0 6px rgba(255,255,255,.06);
-  pointer-events:none;
-  opacity:.78;
-}
 
 /* Hide cardboard by default; loader will toggle display */
 #cbPlayfield{ display:none; }
@@ -257,7 +265,6 @@ html,body{
 .cb-eyes .reticle::after{
   width:1px; height:26px;
   background: rgba(255,255,255,.18);
-  box-shadow: 0 0 0 12px rgba(0,0,0,0);
   opacity:.35;
 }
 
@@ -438,9 +445,7 @@ body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
 
 /* ---------------- Responsive ---------------- */
 @media (max-width: 980px){
-  .hha-main{
-    grid-template-columns: 1fr;
-  }
+  .hha-main{ grid-template-columns: 1fr; }
   .hha-side{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -448,9 +453,7 @@ body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
 }
 @media (max-width: 720px){
   :root{ --hudTopH: 70px; }
-  .hha-side{
-    grid-template-columns: 1fr;
-  }
+  .hha-side{ grid-template-columns: 1fr; }
   .hha-bottom .hha-btn{ min-width: 104px; padding: 10px 10px; }
   .hha-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
   .hha-tipsRow{ grid-template-columns: 1fr; }
@@ -461,12 +464,5 @@ body.cardboard{
   overflow:hidden;
   touch-action: none;
 }
-body.cardboard .hha-side{
-  display:none;
-}
-body.cardboard .hha-main{
-  grid-template-columns: 1fr;
-}
-body.cardboard .hha-crosshair{
-  display:none; /* use reticle per eye */
-}
+body.cardboard .hha-side{ display:none; }
+body.cardboard .hha-main{ grid-template-columns: 1fr; }
