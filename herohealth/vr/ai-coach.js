@@ -1,97 +1,96 @@
-// === /herohealth/vr/ai-coach.js ===
-// HHA AI Coach (template-based, safe, no spam)
-// Emits: hha:coach { text, sub, mood, icon? }
+/* === /herohealth/vr/ai/ai-coach.js ===
+HHA AI Coach (Explainable Micro Tips)
+- Listens to live metrics/events
+- Emits: hha:coach {text,mood}
+- Play mode: adaptive tips + praise + warnings
+- Research mode: optional minimal (default OFF)
+Expose: window.HHA_AI.Coach.create(...)
+*/
 
-'use strict';
+(function(root){
+  'use strict';
+  const HHA = (root.HHA_AI = root.HHA_AI || {});
+  const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch{} };
+  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function create(opts){
+    opts = opts || {};
+    const mode = (String(opts.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
+    const enabledResearch = !!opts.enabledResearch; // default false
+    const minGapMs = Math.max(900, Number(opts.minGapMs||1400));
+    let lastSayAt = 0;
 
-export function createAICoach(opts={}){
-  const emit = (opts.emit || function(){});
-  const game = String(opts.game || 'hydration');
-  const cooldownMs = clamp(opts.cooldownMs ?? 3500, 1200, 12000);
+    // short memory
+    let missStreak = 0;
+    let junkStreak = 0;
+    let goodStreak = 0;
 
-  let lastSayAt = 0;
-  let lastKey = '';
-
-  function say(key, text, sub='', mood='neutral'){
-    const t = performance.now();
-    if (t - lastSayAt < cooldownMs) return;
-    if (key && key === lastKey) return;
-    lastSayAt = t; lastKey = key;
-    emit('hha:coach', { game, text, sub, mood });
-  }
-
-  function onStart(){
-    say('start', 'โฟกัส “คุมน้ำเข้า GREEN” ก่อนนะ 💧', 'Tip: ยิงไม่รัว จะคุมโซนง่ายขึ้น', 'happy');
-  }
-
-  function onUpdate(ctx){
-    // ctx: { skill, fatigue, frustration, inStorm, inEndWindow, waterZone, shield, misses, combo,
-    //        directorTag, stormPattern }
-    const f = clamp(ctx.fatigue,0,1);
-    const fr = clamp(ctx.frustration,0,1);
-
-    // --- Director synergy (PLAY only) ---
-    // directorTag: 'relax' | 'tighten' | 'neutral'
-    if (ctx.directorTag === 'relax'){
-      say('dir_relax', 'โอเค! ผ่อนให้แล้วนะ 🙂', 'เล็งช้า ๆ ให้แม่น แล้วค่อยเร่ง', 'neutral');
-    } else if (ctx.directorTag === 'tighten'){
-      say('dir_tighten', 'เริ่มเข้ามือแล้ว! เร่งความมันส์ขึ้น 🔥', 'เป้าเล็กลงนิด + เกิดถี่ขึ้น', 'happy');
+    function canSpeak(){
+      const t = Date.now();
+      if (t - lastSayAt < minGapMs) return false;
+      lastSayAt = t;
+      return true;
     }
 
-    // --- Storm pattern tip ---
-    if (ctx.inStorm && !ctx.inEndWindow){
-      const p = String(ctx.stormPattern||'');
-      if (p === 'fakeout'){
-        say('pat_fakeout', 'STORM หลอก! อย่ารีบยิงมั่ว 😈', 'ตั้งสติเร็ว • เตรียม BLOCK ให้ไว', 'neutral');
-      } else if (p === 'short'){
-        say('pat_short', 'STORM สั้น! ต้องตัดสินใจไว ⚡', 'รีบทำ LOW/HIGH แล้วคุมจังหวะ', 'neutral');
-      } else if (p === 'long'){
-        say('pat_long', 'STORM ยาว! รักษาสติให้ได้ 🌀', 'เก็บ 🛡️ แล้วรอท้ายพายุค่อย BLOCK', 'neutral');
+    function say(text, mood){
+      if (mode==='research' && !enabledResearch) return;
+      if (!canSpeak()) return;
+      emit('hha:coach', { text: String(text||''), mood: mood||'neutral' });
+    }
+
+    function onHit(ev){
+      // ev: {type:'good'|'bad'|'junk'|'wrong'|'decoy'|'boss', rtMs, feverPct, shield}
+      const t = String(ev?.type||'').toLowerCase();
+      if (t === 'good' || t === 'boss'){
+        goodStreak++;
+        missStreak = 0;
+        junkStreak = 0;
+        if (goodStreak >= 6) say('ดีมาก! รักษาจังหวะคอมโบไว้ 💚', 'happy');
+      } else {
+        goodStreak = 0;
+        missStreak++;
+        if (t === 'junk') junkStreak++;
+        if (missStreak >= 2){
+          const fever = clamp(ev?.feverPct ?? 0, 0, 100);
+          if (fever >= 65) say('พักจังหวะนิดนึงนะ! เล็งให้ชัวร์ก่อนยิง 🔥', 'fever');
+          else say('ช้าอีกนิดแล้วค่อยยิง จะพลาดน้อยลง 👍', 'neutral');
+        } else if (t === 'junk'){
+          say('หลบของหวาน/ของทอด! มองหา “อาหารหมู่นี้” ก่อน 🍟🚫', 'sad');
+        } else {
+          say('ระวัง “หมู่ผิด/ตัวลวง” นะ 👀', 'neutral');
+        }
       }
     }
 
-    // --- End window coaching ---
-    if (ctx.inStorm && ctx.inEndWindow){
-      if ((ctx.shield|0) <= 0) say('end_no_shield', 'ท้ายพายุแล้ว! ไม่มีโล่ ระวัง BAD 🔥', 'รอบหน้าเก็บ 🛡️ ไว้ก่อนเข้าพายุ', 'sad');
-      else say('end_block', 'ท้ายพายุแล้ว! “เล็งแล้วค่อย BLOCK” 🛡️', 'ถ้าทำ LOW/HIGH ด้วยจะได้ PERFECT', 'happy');
-      return;
+    function onMiniUrgent(secLeft){
+      secLeft = Number(secLeft)||0;
+      if (secLeft <= 3) say('ใกล้หมดเวลาแล้ว! โฟกัสเป้ากลางจอ ⚡', 'neutral');
     }
 
-    // frustration / fatigue / combo
-    if (!ctx.inStorm && fr > 0.62){
-      say('frustrated', 'ช้า ๆ แต่ชัวร์นะ 🎯', 'หยุดรัว 1 วิ แล้วคุมจังหวะยิง', 'neutral');
-      return;
+    function onDirectorExplain(explain){
+      if (!explain) return;
+      // show occasionally only
+      if (mode==='research') return;
+      if (!canSpeak()) return;
+      emit('hha:coach', { text: `AI: ${String(explain)}`, mood:'neutral' });
     }
 
-    if (f > 0.68){
-      say('fatigue', 'พักสายตาแป๊บ แล้วเล่นต่อได้ 👀', 'ถ้ารู้สึกมึน ให้พัก 10 วิ', 'neutral');
-      return;
+    function onMetrics(m){
+      // m: {accPct, junkErrorPct, avgRtMs, feverPct, combo}
+      if (mode==='research' && !enabledResearch) return;
+      const acc = clamp((m?.accPct ?? 0)/100, 0, 1);
+      const junkE = clamp((m?.junkErrorPct ?? 0)/100, 0, 1);
+      const rt = clamp(m?.avgRtMs ?? 600, 180, 900);
+      const fever = clamp(m?.feverPct ?? 0, 0, 100);
+
+      if (junkE >= 0.18) say('ทริค: ของขยะมักสีจัด/หวาน/ทอด—เล็งอาหารจริงก่อน 🍎🥦', 'sad');
+      else if (acc >= 0.90 && rt <= 330) say('โหดมาก! ลองเก็บ PERFECT ต่อเนื่องดู 😈', 'happy');
+      else if (fever >= 70) say('ไฟลุกแล้ว! อย่ารีบ ยิงให้ชัวร์ก่อน 🔥', 'fever');
     }
 
-    if ((ctx.combo|0) >= 6){
-      say('combo', 'คอมโบสวยมาก! ต่ออีกนิด ⚡', 'พยายามอย่า MISS จะได้ STREAK', 'happy');
-      return;
-    }
+    return { say, onHit, onMiniUrgent, onMetrics, onDirectorExplain };
   }
 
-  function onEnd(sum){
-    // sum has grade, accuracyGoodPct, misses, stormStreakMax?, badges?
-    const g = String(sum.grade||'C');
-    const acc = Number(sum.accuracyGoodPct||0);
-    const st = Number(sum.stormStreakMax||0);
-    const badges = Array.isArray(sum.badges) ? sum.badges : [];
-    const btxt = badges.length ? ` • Badge: ${badges.join(', ')}` : '';
+  HHA.Coach = { create };
 
-    if (g === 'SSS' || g === 'SS'){
-      say('end_top', `สุดยอด! เกรด ${g} 🏆`, `Accuracy ${acc.toFixed(1)}% • StormStreak ${st}${btxt}`, 'happy');
-    } else if (g === 'S' || g === 'A'){
-      say('end_good', `ดีมาก! เกรด ${g} ✅`, `StormStreak ${st} • โฟกัสเก็บ 🛡️ ก่อนพายุ${btxt}`, 'happy');
-    } else {
-      say('end_train', `รอบนี้เกรด ${g} ยังไหว! ซ้อมอีกนิด 💪`, `คุมโซน + อย่ารัว • StormStreak ${st}${btxt}`, 'neutral');
-    }
-  }
-
-  return { onStart, onUpdate, onEnd };
-}
+})(typeof window !== 'undefined' ? window : globalThis);
