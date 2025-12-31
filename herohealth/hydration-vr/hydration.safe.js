@@ -1,13 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION PATCH v3 (CENTER SHOOT + clean)
+// Hydration SAFE — PRODUCTION PATCH v3 (Shoot-from-center for Mobile/Cardboard)
 // ✅ Minis count = Storm Cycles (ไม่ใช่ 999)
 // ✅ Storm Success = จำนวนพายุที่ "ผ่าน mini" จริง
 // ✅ End-window FX: blink + tick + gentle shake
 // ✅ Boss-mini optional: block bossbad xN in boss window
 // ✅ AI Coach hooks: storm/end window signals + frustration/fatigue
 // ✅ Summary fields match HUD
-// ✅ NEW: hha:shoot center-lock hits (for cVR / cardboard), works even if pointer-events disabled
-// ✅ Clean: remove duplicate nextSpawnDelay definitions
+// ✅ NEW: Listen hha:shoot => ยิงจากกลางจอ (PC/Mobile/Cardboard) โดย hit-test DOM targets
 
 'use strict';
 
@@ -180,8 +179,6 @@ const S = {
   stormLeftSec:0,
   stormCycle:0,
   stormSuccess:0,         // ✅ success นับจริง
-  miniTotal:0,            // ✅ จะเท่ากับ stormCycle ณ ตอนจบ
-  miniCleared:0,          // ✅ จะเท่ากับ stormSuccess ณ ตอนจบ
 
   endWindowSec:1.2,
   inEndWindow:false,
@@ -276,7 +273,6 @@ function computeGrade(){
   if (acc >= 55) return 'B';
   return 'C';
 }
-
 function syncWaterPanelDOM(){
   const bar = DOC.getElementById('water-bar');
   const pct = DOC.getElementById('water-pct');
@@ -285,7 +281,6 @@ function syncWaterPanelDOM(){
   if (pct) pct.textContent = String(S.waterPct|0);
   if (zone) zone.textContent = String(S.waterZone||'');
 }
-
 function syncHUD(){
   const grade = computeGrade();
   setText('stat-score', S.score|0);
@@ -315,6 +310,9 @@ function syncHUD(){
   setWaterGauge(S.waterPct);
   syncWaterPanelDOM();
 
+  const cycles = S.stormCycle|0;
+  const success = S.stormSuccess|0;
+
   emit('hha:score', {
     score:S.score|0,
     combo:S.combo|0,
@@ -327,20 +325,20 @@ function syncHUD(){
     shield:S.shield|0,
     stormActive:!!S.stormActive,
     stormLeftSec:S.stormLeftSec,
-    stormCycles:S.stormCycle|0,
-    stormSuccess:S.stormSuccess|0
+    stormCycles:cycles,
+    stormSuccess:success
   });
 
   emit('quest:update', {
     goalsCleared: (S.greenHold >= TUNE.greenTargetSec) ? 1 : 0,
     goalsTotal: 1,
-    miniCleared: S.stormSuccess|0,
-    miniTotal: S.stormCycle|0,
+    miniCleared: success,
+    miniTotal: cycles,
     miniUrgent: S.stormActive && S.inEndWindow
   });
 }
 
-// -------------------- Target style --------------------
+// -------------------- Target style (if not already) --------------------
 (function injectTargetStyle(){
   if (DOC.getElementById('hvr-target-style')) return;
   const st = DOC.createElement('style');
@@ -444,43 +442,6 @@ function spawn(kind){
   let killed=false;
   const nodes=[];
 
-  function buildNode(){
-    const el = DOC.createElement('div');
-    el.className = `hvr-target ${kind}` + (isBossBad ? ' bossbad' : '');
-    el.dataset.kind = kind;
-    if (isBossBad) el.dataset.boss='1';
-
-    el.style.setProperty('--x', xPct.toFixed(2)+'%');
-    el.style.setProperty('--y', yPct.toFixed(2)+'%');
-    el.style.setProperty('--s', s.toFixed(0)+'px');
-
-    el.textContent =
-      kind==='good' ? '💧' :
-      kind==='shield' ? '🛡️' :
-      (isBossBad ? '🌩️' : '🥤');
-
-    el.addEventListener('pointerdown',(ev)=>{
-      try{ ev.preventDefault(); ev.stopPropagation(); }catch(_){}
-      onHit();
-    }, {passive:false});
-
-    return el;
-  }
-
-  function kill(reason){
-    if (killed) return;
-    killed=true;
-    for (const n of nodes){ try{ n.remove(); }catch(_){ } }
-
-    if (reason==='expire' && kind==='good'){
-      S.misses += TUNE.missPenalty;
-      S.nExpireGood++;
-      S.combo=0;
-      S.streakGood=0;
-      syncHUD();
-    }
-  }
-
   function onHit(){
     if (killed || S.ended) return;
     const t=performance.now();
@@ -511,19 +472,23 @@ function spawn(kind){
       S.streakGood=0;
 
       if (S.shield>0){
+        // guarded => not count as miss
         S.shield--;
         S.nHitBadGuard++;
         S.score += 4;
 
+        // End window block counts for mini
         if (S.stormActive && S.inEndWindow){
           S.miniState.blockedInEnd = true;
           if (S.waterZone !== 'GREEN') emit('hha:judge', { kind:'perfect' });
         }
 
+        // Boss block counts
         if (isBossBad) S.bossBlocked++;
 
         emit('hha:judge', { kind:'block' });
       } else {
+        // unguarded => MISS + fail mini this storm
         S.nHitBad++;
         S.misses++;
         S.combo=0;
@@ -539,6 +504,45 @@ function spawn(kind){
     syncHUD();
   }
 
+  function buildNode(){
+    const el = DOC.createElement('div');
+    el.className = `hvr-target ${kind}` + (isBossBad ? ' bossbad' : '');
+    el.dataset.kind = kind;
+    if (isBossBad) el.dataset.boss='1';
+
+    el.style.setProperty('--x', xPct.toFixed(2)+'%');
+    el.style.setProperty('--y', yPct.toFixed(2)+'%');
+    el.style.setProperty('--s', s.toFixed(0)+'px');
+
+    el.textContent =
+      kind==='good' ? '💧' :
+      kind==='shield' ? '🛡️' :
+      (isBossBad ? '🌩️' : '🥤');
+
+    // Click/tap directly on target
+    el.addEventListener('pointerdown',(ev)=>{
+      try{ ev.preventDefault(); ev.stopPropagation(); }catch(_){}
+      onHit();
+    }, {passive:false});
+
+    return el;
+  }
+
+  function kill(reason){
+    if (killed) return;
+    killed=true;
+    for (const n of nodes){ try{ n.remove(); }catch(_){ } }
+
+    // expire good => miss
+    if (reason==='expire' && kind==='good'){
+      S.misses += TUNE.missPenalty;
+      S.nExpireGood++;
+      S.combo=0;
+      S.streakGood=0;
+      syncHUD();
+    }
+  }
+
   for (const L of layers){
     const el = buildNode();
     nodes.push(el);
@@ -548,7 +552,7 @@ function spawn(kind){
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Spawn & kind pick --------------------
+// -------------------- Spawn loop helpers --------------------
 function nextSpawnDelay(){
   let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
   if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
@@ -573,19 +577,14 @@ function pickKind(){
   return 'good';
 }
 
-// -------------------- End-window FX toggle --------------------
+// -------------------- End-window FX --------------------
 function setEndFx(on){
   if (S.endFxOn === on) return;
   S.endFxOn = on;
   DOC.body.classList.toggle('hha-endfx', on);
 }
 
-// -------------------- Storm logic --------------------
-function nextStormSchedule(){
-  const base = TUNE.stormEverySec;
-  return base + (rng()*2-1)*1.2;
-}
-
+// -------------------- Storm --------------------
 function enterStorm(){
   S.stormActive=true;
   S.stormLeftSec=TUNE.stormDurSec;
@@ -605,6 +604,7 @@ function enterStorm(){
   S.bossBlocked=0;
   S.bossDoneThisStorm=false;
 
+  // push out of GREEN if already GREEN
   if (S.waterZone==='GREEN'){
     S.waterPct = clamp(S.waterPct + (rng()<0.5 ? -7 : +7), 0, 100);
     updateZone();
@@ -629,6 +629,7 @@ function exitStorm(){
   S.inEndWindow=false;
   setEndFx(false);
 
+  // mini pass count
   const ok = passMiniThisStorm();
   if (ok && !S.miniState.doneThisStorm){
     S.miniState.doneThisStorm=true;
@@ -637,6 +638,7 @@ function exitStorm(){
     emit('hha:judge', { kind:'streak' });
   }
 
+  // boss pass bonus
   if (S.bossEnabled && !S.bossDoneThisStorm && S.bossBlocked>=S.bossNeed){
     S.bossDoneThisStorm=true;
     S.stormSuccess++;
@@ -657,6 +659,7 @@ function tickStorm(dt){
   S.inEndWindow = inEnd;
   S.miniState.endWindow = inEnd;
 
+  // End window FX
   if (inEnd){
     setEndFx(true);
     const now = performance.now();
@@ -670,12 +673,15 @@ function tickStorm(dt){
     setEndFx(false);
   }
 
+  // Boss window
   const inBoss = (S.stormLeftSec <= (S.bossWindowSec + 0.02));
   S.bossActive = (S.bossEnabled && inBoss && !S.bossDoneThisStorm);
 
+  // mini zone
   const zoneOK = (S.waterZone !== 'GREEN');
   if (zoneOK) S.miniState.zoneOK = true;
 
+  // pressure increases only when zoneOK
   const gain = zoneOK ? 1.05 : 0.25;
   S.miniState.pressure = clamp(S.miniState.pressure + dt*gain, 0, 1);
   if (S.miniState.pressure >= (TUNE.pressureNeed)) S.miniState.pressureOK = true;
@@ -808,47 +814,67 @@ const AICOACH = createAICoach({
   cooldownMs: 3000
 });
 
-// -------------------- CVR CENTER SHOOT (NEW) --------------------
-function centerShoot(){
-  if (S.ended || !S.started) return;
+// -------------------- NEW: Shoot from center (hha:shoot) --------------------
+function findTargetAtPoint(x, y){
+  try{
+    const list = DOC.elementsFromPoint ? DOC.elementsFromPoint(x,y) : [];
+    for (const el of list){
+      if (el && el.classList && el.classList.contains('hvr-target')) return el;
+      const t = el?.closest?.('.hvr-target');
+      if (t) return t;
+    }
+  }catch(_){}
+  return null;
+}
 
-  const isCb = DOC.body.classList.contains('cardboard');
-  const pf = isCb ? DOC.getElementById('cbPlayfield') : DOC.getElementById('playfield');
-  const r = pf?.getBoundingClientRect() || { left:0, top:0, width:1, height:1 };
+function shootOnceAt(x, y){
+  const t = findTargetAtPoint(x,y);
+  if (!t) return false;
+  try{
+    // dispatch pointerdown to trigger the target's internal onHit closure
+    const ev = new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:x, clientY:y });
+    t.dispatchEvent(ev);
+    return true;
+  }catch(_){
+    try{
+      // fallback
+      t.click?.();
+      return true;
+    }catch(__){}
+  }
+  return false;
+}
 
+function shootFromCrosshair(){
+  if (!S.started || S.ended) return;
+
+  // Cardboard: try each eye center first
+  if (isCardboard()){
+    const eyes = DOC.querySelectorAll('#cbPlayfield .eye');
+    let hit=false;
+    eyes.forEach((eye)=>{
+      const r = eye.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top + r.height/2;
+      if (!hit) hit = shootOnceAt(cx, cy);
+    });
+    if (hit) return;
+  }
+
+  // Normal: playfield center
+  const r = getPlayfieldRect();
   const cx = r.left + r.width/2;
   const cy = r.top + r.height/2;
-
-  const layers = getLayers();
-  let best = null;
-  let bestD = 1e9;
-
-  for (const L of layers){
-    const targets = L.querySelectorAll?.('.hvr-target') || [];
-    targets.forEach(el=>{
-      const er = el.getBoundingClientRect();
-      const ex = er.left + er.width/2;
-      const ey = er.top + er.height/2;
-      const d = Math.hypot(ex - cx, ey - cy);
-      if (d < bestD){
-        bestD = d;
-        best = el;
-      }
-    });
-  }
-
-  const lockPx = isCb ? 120 : 95;
-  if (best && bestD <= lockPx){
-    try{
-      best.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
-    }catch(_){
-      try{ best.click(); }catch(__){}
-    }
-  }
+  shootOnceAt(cx, cy);
 }
-window.addEventListener('hha:shoot', ()=>{ centerShoot(); }, { passive:true });
 
-// -------------------- Loop --------------------
+// -------------------- Storm schedule --------------------
+function nextStormSchedule(){
+  const base = TUNE.stormEverySec;
+  return base + (rng()*2-1)*1.2;
+}
+
+// -------------------- Update loop --------------------
 let spawnTimer=0;
 let nextStormIn=0;
 
@@ -859,6 +885,7 @@ function update(dt){
 
   if (S.waterZone==='GREEN') S.greenHold += dt;
 
+  // Storm schedule
   if (!S.stormActive){
     nextStormIn -= dt;
     if (nextStormIn <= 0 && S.leftSec > (TUNE.stormDurSec + 2)){
@@ -869,12 +896,14 @@ function update(dt){
     tickStorm(dt);
   }
 
+  // Spawn
   spawnTimer -= dt*1000;
   while (spawnTimer <= 0){
     spawn(pickKind());
     spawnTimer += nextSpawnDelay();
   }
 
+  // HUD + AI
   syncHUD();
 
   AICOACH.onUpdate({
@@ -892,6 +921,7 @@ function update(dt){
   if (S.leftSec <= 0.0001) endGame('timeup');
 }
 
+// -------------------- End game --------------------
 async function endGame(reason){
   if (S.ended) return;
   S.ended = true;
@@ -944,6 +974,7 @@ async function endGame(reason){
   fillSummary(summary);
 }
 
+// -------------------- Boot --------------------
 function boot(){
   ensureWaterGauge();
   setWaterGauge(S.waterPct);
@@ -951,14 +982,19 @@ function boot(){
   syncWaterPanelDOM();
   bindSummaryButtons();
 
-  spawnTimer = 320;
-  nextStormIn = nextStormSchedule();
+  // listen shoot event from loader (btn/tap)
+  window.addEventListener('hha:shoot', ()=> shootFromCrosshair());
 
+  // start
   window.addEventListener('hha:start', ()=>{
     if (S.started) return;
     S.started=true;
     S.t0=performance.now();
     S.lastTick=S.t0;
+
+    spawnTimer = 320;
+    nextStormIn = nextStormSchedule();
+
     syncHUD();
     AICOACH.onStart();
 
