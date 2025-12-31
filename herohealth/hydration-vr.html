@@ -1,9 +1,11 @@
 <!-- === /herohealth/hydration-vr.html ===
 Hydration VR — ROOT ENTRY (PRODUCTION)
-✅ ใช้ไฟล์แยกใน /hydration-vr/
+✅ มี OPTION เลือกเล่น: PC / Mobile / Cardboard VR
+✅ Cardboard: บังคับให้ “แนวนอน” (มี Rotate Hint)
 ✅ โหลด global FX + logger + coach-manager
-✅ loader จัดการ view: PC/Mobile/Cardboard + fullscreen/orientation + mode picker
+✅ loader: view + fullscreen + landscape lock + hha:start/shoot
 -->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -25,18 +27,47 @@ Hydration VR — ROOT ENTRY (PRODUCTION)
 </head>
 
 <body class="view-pc">
-  <!-- Start Overlay -->
+  <!-- Rotate Hint (Cardboard must be landscape) -->
+  <div id="rotateHint" class="hha-rotateHint" hidden>
+    <div class="card">
+      <div class="big">กรุณาหมุนเครื่องเป็น “แนวนอน” เพื่อเล่นโหมด VR 📱↔️</div>
+      <div class="small muted">Tip: กด Fullscreen แล้วระบบจะพยายามล็อกแนวนอนให้อัตโนมัติ</div>
+      <div class="hha-overlay-actions" style="justify-content:center; margin-top:14px;">
+        <button id="btnRotateOk" class="hha-btn primary">โอเค</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start Overlay (เลือกโหมดเล่น) -->
   <div id="startOverlay" class="hha-overlay">
     <div class="hha-overlay-card">
       <div class="hha-title">Hydration VR 💧</div>
       <div class="hha-sub">
-        เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> และเก็บ 🛡️ ไว้ <b>BLOCK</b> ตอนท้ายพายุ
+        <b>Goal:</b> คุม WATER ให้เข้าโซน <b>GREEN</b> (สะสมเวลา) <br/>
+        <b>Mini (Storm):</b> ทำให้น้ำเป็น <b>LOW/HIGH</b> + <b>BLOCK</b> ช่วงท้ายพายุ (End Window) <br/>
+        <span class="muted">Tip: เก็บ 🛡️ ไว้กัน BAD ตอนท้ายพายุ</span>
       </div>
-      <div class="hha-overlay-actions">
-        <button id="btnStart" class="hha-btn primary">▶ เริ่มเล่น</button>
-        <button id="btnEnterVR" class="hha-btn">📦 Cardboard</button>
+
+      <div class="hha-modeGrid">
+        <button id="btnStartPC" class="modeCard">
+          <div class="modeTitle">🖥️ PC</div>
+          <div class="modeDesc muted">คลิกยิงเป้า • เล่นจอใหญ่</div>
+        </button>
+
+        <button id="btnStartMobile" class="modeCard">
+          <div class="modeTitle">📱 Mobile</div>
+          <div class="modeDesc muted">แตะที่เป้า / แตะจอยิง (tap-to-shoot)</div>
+        </button>
+
+        <button id="btnEnterVR" class="modeCard vr">
+          <div class="modeTitle">📦 Cardboard VR</div>
+          <div class="modeDesc muted">Fullscreen + แนะนำแนวนอน</div>
+        </button>
       </div>
-      <div class="hha-hint">* โหมด Cardboard แนะนำหมุนจอแนวนอน</div>
+
+      <div class="hha-hint">
+        ปรับ “ช่วยเล็ง” ได้ด้วย URL: <b>?lock=90&aimy=8</b> (ยิ่ง lock มาก ยิงง่ายขึ้น)
+      </div>
     </div>
   </div>
 
@@ -56,6 +87,7 @@ Hydration VR — ROOT ENTRY (PRODUCTION)
     <!-- NORMAL PLAYFIELD -->
     <section id="playfield" class="hha-playfield">
       <div id="hydration-layer" class="hha-layer"></div>
+      <div class="hha-crosshair" aria-hidden="true"></div>
     </section>
 
     <!-- CARDBOARD PLAYFIELD -->
