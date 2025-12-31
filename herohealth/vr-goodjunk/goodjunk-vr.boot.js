@@ -1,26 +1,74 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (DOM Engine)
-// ✅ Boot gate: starts engine AFTER pressing "เริ่มเล่น"
+// GoodJunkVR Boot — PRODUCTION (Start Gate + VR HUD UX)
 // ✅ View modes: PC / Mobile / VR / cVR
-// ✅ Enter VR = Fullscreen + cVR + try lock landscape + show hint
 // ✅ Fullscreen handling + body.is-fs
-// ✅ Meta + start meta
-// ✅ PATCH: eyeR toggle + dynamic safeMargins + layout event bridge for engine/vr-ui
+// ✅ VR hint overlay OK -> hide (does NOT start engine)
+// ✅ Engine autostart=false, starts after pressing "เริ่มเล่น"
+// ✅ VR mini HUD + Quest Peek + Quest Toast on quest:update
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const ROOT = window;
-const DOC  = document;
+const DOC = document;
 
 function qs(k, def=null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 }
 
+function fatalScreen(msg){
+  const d = document;
+  const box = d.createElement('div');
+  box.style.cssText = `
+    position:fixed; inset:0; z-index:9999;
+    background:#020617; color:#e5e7eb;
+    display:flex; align-items:center; justify-content:center;
+    padding:20px; text-align:left;
+    font:800 14px/1.45 system-ui;
+  `;
+  box.innerHTML = `
+    <div style="max-width:760px;background:rgba(15,23,42,.86);border:1px solid rgba(148,163,184,.22);
+      border-radius:18px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+      <div style="font-size:18px;font-weight:1000">GoodJunkVR โหลดไม่ครบ</div>
+      <div style="margin-top:8px;opacity:.92;white-space:pre-wrap">${msg}</div>
+      <div style="margin-top:12px;opacity:.75;font-size:12px">
+        แนะนำ: เปิด URL เต็ม / เพิ่ม ?v=ใหม่ / ล้างแคช Chrome (Settings → Site settings → Storage)
+      </div>
+    </div>
+  `;
+  d.body.appendChild(box);
+}
+
+function selfCheck(){
+  const needIds = [
+    'gj-stage','gj-layer-l','btnShoot',
+    'startOverlay','btnStart','vrHint','btnVrOk',
+    'vrMiniHud','btnQuestPeek','questPeek','btnPeekClose'
+  ];
+  const miss = needIds.filter(id => !document.getElementById(id));
+  if (miss.length){
+    fatalScreen(
+      `ไม่พบ element สำคัญ: ${miss.join(', ')}\n` +
+      `เหมือนเปิดผิดไฟล์/ผิด path หรือ deploy ยังไม่อัปเดต\n` +
+      `URL ที่ควรเป็น: /webxr-health-mobile/herohealth/goodjunk-vr.html`
+    );
+    return false;
+  }
+  return true;
+}
+
+function setBodyView(view){
+  const b = DOC.body;
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  b.classList.add(`view-${view}`);
+  // toggle mini hud visibility based on view
+  const mini = DOC.getElementById('vrMiniHud');
+  if (mini) mini.hidden = !(view === 'vr' || view === 'cvr');
+}
+
 function isFs(){
   return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
 }
-
 async function enterFs(){
   try{
     const el = DOC.documentElement;
@@ -28,206 +76,146 @@ async function enterFs(){
     else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
   }catch(_){}
 }
-
 function syncFsClass(){
   DOC.body.classList.toggle('is-fs', isFs());
 }
 
-async function lockLandscape(){
-  try{
-    if (screen?.orientation?.lock) await screen.orientation.lock('landscape');
-  }catch(_){}
+function isLandscape(){
+  return (ROOT.innerWidth || 0) >= (ROOT.innerHeight || 0);
 }
 
-function mobileLike(){
-  const w = ROOT.innerWidth || 360;
-  const h = ROOT.innerHeight || 640;
-  const coarse = (ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches);
-  return coarse || (Math.min(w,h) < 520);
+function syncMeta(){
+  const hudMeta = DOC.getElementById('hudMeta');
+  if (!hudMeta) return;
+  const dual = !!DOC.getElementById('gj-layer-r');
+  const v = qs('v','');
+  hudMeta.textContent = `[BOOT] ready • dual=${dual} • v=${v}`;
 }
 
 function pickInitialView(){
   const v = String(qs('view','') || '').toLowerCase();
   if (v === 'vr') return 'vr';
   if (v === 'cvr') return 'cvr';
-  return mobileLike() ? 'mobile' : 'pc';
+
+  const coarse = ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches;
+  const w = ROOT.innerWidth || 360;
+  const h = ROOT.innerHeight || 640;
+  const mobileLike = coarse || Math.min(w,h) < 520;
+  return mobileLike ? 'mobile' : 'pc';
 }
 
-/* -------------------- View + eyeR toggle -------------------- */
-function setEyeMode(view){
-  const eyeR = DOC.getElementById('eyeR');
-  if (!eyeR) return;
+function hookViewButtons(){
+  const btnPC = DOC.getElementById('btnViewPC');
+  const btnM  = DOC.getElementById('btnViewMobile');
+  const btnV  = DOC.getElementById('btnViewVR');
+  const btnC  = DOC.getElementById('btnViewCVR');
+  const btnFS = DOC.getElementById('btnEnterFS');
+  const btnVR = DOC.getElementById('btnEnterVR');
 
-  const isDual = (view === 'cvr'); // cVR = split dual-eye
-  eyeR.style.display = isDual ? '' : 'none';
-  eyeR.setAttribute('aria-hidden', isDual ? 'false' : 'true');
-}
-
-function setBodyView(view){
-  const b = DOC.body;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add(`view-${view}`);
-  setEyeMode(view);
-
-  // notify: layout changed (engine may listen; safe even if not)
-  try{
-    ROOT.dispatchEvent(new CustomEvent('hha:layout', {
-      detail: { view, safeMargins: getSafeMargins() }
-    }));
-  }catch(_){}
-}
-
-/* -------------------- Meta -------------------- */
-function syncMeta(){
-  const hudMeta = DOC.getElementById('hudMeta');
-  if (!hudMeta) return;
-  const dual = !!DOC.getElementById('gj-layer-r');
-  const v = qs('v','');
-  const diff = qs('diff','normal');
-  const run  = qs('run', qs('runMode','play')) || 'play';
-  const time = qs('time', qs('duration','70'));
-  hudMeta.textContent = `diff=${diff} • run=${run} • time=${time}s • dual=${dual}${v?` • v=${v}`:''}`;
-}
-
-function syncStartMeta(){
-  const el = DOC.getElementById('startMeta');
-  if (!el) return;
-  const diff = qs('diff','normal');
-  const run  = qs('run', qs('runMode','play')) || 'play';
-  const time = qs('time', qs('duration','70'));
-  const end  = qs('end','time');
-  el.textContent = `โหมด: ${run} • ระดับ: ${diff} • เวลา: ${time}s • end=${end}`;
-}
-
-/* -------------------- Overlays -------------------- */
-function showStartOverlay(){
-  const ov = DOC.getElementById('startOverlay');
-  if (!ov) return;
-  ov.hidden = false;
-  ov.style.display = 'flex';
-}
-function hideStartOverlay(){
-  const ov = DOC.getElementById('startOverlay');
-  if (!ov) return;
-  ov.hidden = true;
-  ov.style.display = 'none';
-}
-
-function showVrHint(){
   const vrHint = DOC.getElementById('vrHint');
-  if (!vrHint) return;
-  vrHint.hidden = false;
-}
-function hideVrHint(){
-  const vrHint = DOC.getElementById('vrHint');
-  if (!vrHint) return;
-  vrHint.hidden = true;
-}
+  const vrOk   = DOC.getElementById('btnVrOk');
 
-/* -------------------- Dynamic Safe Margins -------------------- */
-/**
- * คำนวณ safeMargins จากสิ่งที่ "ทับ playfield จริง" แทนการเดาเลข
- * - เอา rect ของ layerL (พื้นที่เกิดเป้า)
- * - ดูว่ามี HUD/Controls/Fever/MiniHUD ทับตรงไหน → แปลงเป็น margin
- */
-function rect(el){
-  if (!el) return null;
-  const r = el.getBoundingClientRect();
-  if (!isFinite(r.width) || !isFinite(r.height) || r.width <= 1 || r.height <= 1) return null;
-  return r;
-}
-function clamp(n, a, b){ n = Number(n)||0; return n<a?a:(n>b?b:n); }
-
-function overlapMargin(layerR, uiR){
-  if (!layerR || !uiR) return null;
-
-  const x1 = Math.max(layerR.left, uiR.left);
-  const y1 = Math.max(layerR.top, uiR.top);
-  const x2 = Math.min(layerR.right, uiR.right);
-  const y2 = Math.min(layerR.bottom, uiR.bottom);
-
-  const w = x2 - x1;
-  const h = y2 - y1;
-  if (w <= 0 || h <= 0) return null; // no overlap
-
-  // decide which side to push away based on which edge is closer
-  const dTop    = y2 - layerR.top;
-  const dBottom = layerR.bottom - y1;
-  const dLeft   = x2 - layerR.left;
-  const dRight  = layerR.right - x1;
-
-  // We'll expand margins by overlap thickness + padding
-  const pad = 10;
-
-  // Top overlap if UI is near top
-  const top = (uiR.top <= layerR.top + 6) ? (y2 - layerR.top + pad) : 0;
-  const bottom = (uiR.bottom >= layerR.bottom - 6) ? (layerR.bottom - y1 + pad) : 0;
-  const left = (uiR.left <= layerR.left + 6) ? (x2 - layerR.left + pad) : 0;
-  const right = (uiR.right >= layerR.right - 6) ? (layerR.right - x1 + pad) : 0;
-
-  // If UI is floating somewhere in middle, we don't push (engine safezone handles in-spawn avoidance separately)
-  return { top, bottom, left, right };
-}
-
-function mergeMargins(a, b){
-  return {
-    top: Math.max(a.top, b.top),
-    bottom: Math.max(a.bottom, b.bottom),
-    left: Math.max(a.left, b.left),
-    right: Math.max(a.right, b.right),
-  };
-}
-
-function getSafeMargins(){
-  // Default small margins (base)
-  const b = DOC.body;
-  const isVR = b.classList.contains('view-vr') || b.classList.contains('view-cvr');
-
-  let m = isVR
-    ? { top: 14, bottom: 14, left: 12, right: 12 }
-    : (b.classList.contains('view-mobile')
-        ? { top: 14, bottom: 16, left: 12, right: 12 }
-        : { top: 14, bottom: 14, left: 14, right: 14 });
-
-  // Use actual layer rect
-  const layerEl = DOC.getElementById('gj-layer-l') || DOC.getElementById('gj-layer');
-  const layerR = rect(layerEl);
-  if (!layerR) return m;
-
-  // UI candidates that may overlap
-  const hudRoot = rect(DOC.getElementById('hudRoot'));
-  const fever   = rect(DOC.getElementById('hhaFever'));
-  const ctrls   = rect(DOC.querySelector('.hha-controls'));
-  const miniHud = rect(DOC.getElementById('vrMiniHud'));
-  const peek    = rect(DOC.getElementById('questPeek')); // if open
-
-  const list = [hudRoot, fever, ctrls, miniHud, peek].filter(Boolean);
-
-  for (const uiR of list){
-    const dm = overlapMargin(layerR, uiR);
-    if (dm) m = mergeMargins(m, dm);
+  function showVrHint(){
+    if (!vrHint) return;
+    vrHint.hidden = false;
+  }
+  function hideVrHint(){
+    if (!vrHint) return;
+    vrHint.hidden = true;
   }
 
-  // Clamp to avoid killing play area
-  const maxTop = Math.floor(layerR.height * 0.35);
-  const maxBot = Math.floor(layerR.height * 0.35);
-  const maxLR  = Math.floor(layerR.width  * 0.28);
+  btnPC && btnPC.addEventListener('click', ()=>{ setBodyView('pc'); hideVrHint(); });
+  btnM  && btnM.addEventListener('click',  ()=>{ setBodyView('mobile'); hideVrHint(); });
+  btnV  && btnV.addEventListener('click',  ()=>{ setBodyView('vr'); showVrHint(); });
+  btnC  && btnC.addEventListener('click',  ()=>{ setBodyView('cvr'); showVrHint(); });
 
-  m.top    = clamp(m.top,    8, maxTop);
-  m.bottom = clamp(m.bottom, 8, maxBot);
-  m.left   = clamp(m.left,   8, maxLR);
-  m.right  = clamp(m.right,  8, maxLR);
+  vrOk && vrOk.addEventListener('click', ()=> hideVrHint());
 
-  return m;
+  btnFS && btnFS.addEventListener('click', async ()=>{
+    await enterFs();
+    syncFsClass();
+  });
+
+  // reserved for future WebXR; safe no-op
+  btnVR && btnVR.addEventListener('click', ()=>{
+    // (optional) If later you add A-Frame/WebXR, call enter-vr here.
+    // For cardboard now: use VR/cVR buttons (dual-eye split).
+  });
 }
 
-/* -------------------- Engine Boot Gate -------------------- */
-let started = false;
+function hookQuestUX(){
+  const btnPeek = DOC.getElementById('btnQuestPeek');
+  const peek = DOC.getElementById('questPeek');
+  const close = DOC.getElementById('btnPeekClose');
 
-function bootEngineOnce(){
-  if (started) return;
-  started = true;
+  const peekGoal = DOC.getElementById('peekGoal');
+  const peekMini = DOC.getElementById('peekMini');
+  const peekProg = DOC.getElementById('peekProgress');
 
+  const toast = DOC.getElementById('questToast');
+  const toastLine = DOC.getElementById('toastLine');
+
+  let toastTimer = 0;
+
+  function inVR(){
+    return DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
+  }
+
+  function showPeek(){
+    if (!peek) return;
+    peek.hidden = false;
+  }
+  function hidePeek(){
+    if (!peek) return;
+    peek.hidden = true;
+  }
+
+  btnPeek && btnPeek.addEventListener('click', ()=>{
+    if (!inVR()) return;
+    showPeek();
+  });
+  close && close.addEventListener('click', hidePeek);
+
+  // mirror HUD to mini HUD
+  const mScore = DOC.getElementById('mScore');
+  const mMiss  = DOC.getElementById('mMiss');
+  const mTime  = DOC.getElementById('mTime');
+
+  ROOT.addEventListener('hha:score', (e)=>{
+    const d = e.detail || {};
+    if (mScore) mScore.textContent = String(d.score ?? 0);
+    if (mMiss)  mMiss.textContent  = String(d.misses ?? d.miss ?? 0);
+  }, { passive:true });
+
+  ROOT.addEventListener('hha:time', (e)=>{
+    const d = e.detail || {};
+    if (mTime) mTime.textContent = String(d.left ?? 0);
+  }, { passive:true });
+
+  ROOT.addEventListener('quest:update', (e)=>{
+    const d = e.detail || {};
+    const gTitle = d.goalTitle ?? 'Goal: —';
+    const gNow   = d.goalNow ?? 0;
+    const gTot   = d.goalTotal ?? 0;
+    const mTitle = d.miniTitle ?? 'Mini: —';
+    const mNow   = d.miniNow ?? 0;
+    const mTot   = d.miniTotal ?? 0;
+
+    if (peekGoal) peekGoal.textContent = `${gTitle}  ${gNow}/${gTot}`;
+    if (peekMini) peekMini.textContent = `${mTitle}  ${mNow}/${mTot}`;
+    if (peekProg) peekProg.textContent = `Goals ${gNow}/${gTot} • Minis ${mNow}/${mTot}`;
+
+    // VR toast
+    if (inVR() && toast && toastLine){
+      toastLine.textContent = `${gTitle} ${gNow}/${gTot} • ${mTitle} ${mNow}/${mTot}`;
+      toast.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=>{ toast.hidden = true; }, 2200);
+    }
+  }, { passive:true });
+}
+
+function bootEngine(){
   const layerL = DOC.getElementById('gj-layer-l') || DOC.getElementById('gj-layer');
   const layerR = DOC.getElementById('gj-layer-r');
 
@@ -237,13 +225,13 @@ function bootEngineOnce(){
   const shootEl = DOC.getElementById('btnShoot');
 
   const diff = qs('diff','normal');
-  const run  = qs('run', qs('runMode','play')) || 'play';
+  const run  = qs('run','play');
   const time = Number(qs('time', qs('duration','70'))) || 70;
 
-  const endPolicy = qs('end','time');      // time | all | miss
-  const challenge = qs('challenge','rush');
+  const endPolicy = qs('end','time');       // time | all | miss
+  const challenge = qs('challenge','rush'); // rush default
 
-  engineBoot({
+  const api = engineBoot({
     layerEl: layerL,
     layerElR: layerR,
     crosshairEl: crossL,
@@ -254,104 +242,72 @@ function bootEngineOnce(){
     time,
     endPolicy,
     challenge,
-    safeMargins: getSafeMargins(),
-    context: {
-      projectTag: qs('projectTag','HeroHealth')
-    }
+    autostart: false,   // ✅ gate start
+    context: { projectTag: qs('projectTag','GoodJunkVR') }
   });
+
+  return api;
 }
 
-/* -------------------- Buttons -------------------- */
-function hookViewButtons(){
-  const btnPC = DOC.getElementById('btnViewPC');
-  const btnM  = DOC.getElementById('btnViewMobile');
-  const btnV  = DOC.getElementById('btnViewVR');
-  const btnC  = DOC.getElementById('btnViewCVR');
-  const btnFS = DOC.getElementById('btnEnterFS');
-  const btnVR = DOC.getElementById('btnEnterVR');
+function hookStartButton(api){
+  const overlay = DOC.getElementById('startOverlay');
+  const btn = DOC.getElementById('btnStart');
+  const meta = DOC.getElementById('startMeta');
 
-  const vrOk = DOC.getElementById('btnVrOk');
-  vrOk && vrOk.addEventListener('click', ()=> hideVrHint());
+  const diff = qs('diff','normal');
+  const run  = qs('run','play');
+  const time = qs('time','70');
+  const view = DOC.body.classList.contains('view-vr') ? 'vr'
+            : DOC.body.classList.contains('view-cvr') ? 'cvr'
+            : DOC.body.classList.contains('view-mobile') ? 'mobile' : 'pc';
 
-  btnPC && btnPC.addEventListener('click', ()=>{ setBodyView('pc'); hideVrHint(); });
-  btnM  && btnM.addEventListener('click',  ()=>{ setBodyView('mobile'); hideVrHint(); });
-  btnV  && btnV.addEventListener('click',  ()=>{ setBodyView('vr'); showVrHint(); });
-  btnC  && btnC.addEventListener('click',  ()=>{ setBodyView('cvr'); showVrHint(); });
-
-  btnFS && btnFS.addEventListener('click', async ()=>{
-    await enterFs();
-    syncFsClass();
-  });
-
-  // Enter VR (page-level helper): Fullscreen + cVR + landscape lock + hint
-  // (vr-ui.js will also provide its own Enter/Exit/Recenter UI)
-  btnVR && btnVR.addEventListener('click', async ()=>{
-    await enterFs();
-    syncFsClass();
-    setBodyView('cvr');
-    await lockLandscape();
-    showVrHint();
-  });
-}
-
-function hookStartButton(){
-  const btnStart = DOC.getElementById('btnStart');
-  if (!btnStart) return;
-
-  btnStart.addEventListener('click', async ()=>{
-    hideStartOverlay();
-
-    const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
-    if (isVR){
-      await enterFs();
-      syncFsClass();
-      await lockLandscape();
-    }
-    bootEngineOnce();
-  });
-}
-
-/* -------------------- Recompute safe margins on resize/orient -------------------- */
-function hookResizeReflow(){
-  let t = 0;
-  function fire(){
-    clearTimeout(t);
-    t = setTimeout(() => {
-      try{
-        ROOT.dispatchEvent(new CustomEvent('hha:layout', {
-          detail: { view: getCurrentView(), safeMargins: getSafeMargins() }
-        }));
-      }catch(_){}
-    }, 120);
+  if (meta){
+    meta.textContent = `diff=${diff} • run=${run} • time=${time}s • view=${view}`;
   }
-  ROOT.addEventListener('resize', fire);
-  ROOT.addEventListener('orientationchange', fire);
+
+  function startNow(){
+    if (!api || typeof api.start !== 'function') return;
+    overlay && (overlay.style.display = 'none');
+    api.start();
+  }
+
+  btn && btn.addEventListener('click', ()=>{
+    // If VR mode but portrait -> show hint and block start until user rotates
+    if ((DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr')) && !isLandscape()){
+      const vrHint = DOC.getElementById('vrHint');
+      if (vrHint) vrHint.hidden = false;
+      return;
+    }
+    startNow();
+  });
+
+  // optional: autoStart=1 for kiosk
+  const auto = String(qs('autoStart','0')) === '1';
+  if (auto) setTimeout(startNow, 60);
 }
 
-function getCurrentView(){
-  const b = DOC.body;
-  if (b.classList.contains('view-cvr')) return 'cvr';
-  if (b.classList.contains('view-vr')) return 'vr';
-  if (b.classList.contains('view-mobile')) return 'mobile';
-  return 'pc';
-}
-
-/* -------------------- Main -------------------- */
 function main(){
+  if (!selfCheck()) return;
+
   hookViewButtons();
-  hookStartButton();
-  hookResizeReflow();
+  hookQuestUX();
 
   setBodyView(pickInitialView());
   syncMeta();
-  syncStartMeta();
   syncFsClass();
 
   DOC.addEventListener('fullscreenchange', syncFsClass);
   DOC.addEventListener('webkitfullscreenchange', syncFsClass);
 
-  // show start overlay ALWAYS and do NOT auto-start engine
-  showStartOverlay();
+  // show VR hint initially if query says view=vr/cvr
+  const v = String(qs('view','')).toLowerCase();
+  if (v === 'vr' || v === 'cvr'){
+    const vrHint = DOC.getElementById('vrHint');
+    if (vrHint) vrHint.hidden = false;
+  }
+
+  const api = bootEngine();
+  hookStartButton(api);
 }
 
 if (DOC.readyState === 'loading') DOC.addEventListener('DOMContentLoaded', main);
