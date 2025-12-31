@@ -1,9 +1,11 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION
-// ✅ View: PC / Mobile / Cardboard
-// ✅ Fullscreen + best-effort landscape lock for Cardboard
+// Hydration VR Loader — PRODUCTION (PATCH v3)
+// ✅ View: PC / Mobile / Cardboard (cVR)
+// ✅ Fullscreen + best-effort landscape lock
+// ✅ STRICT landscape in Cardboard: portrait => show rotateHint + optionally force-exit VR
 // ✅ Emits: hha:start, hha:force_end, hha:shoot
 // ✅ Sets window.HHA_VIEW.layers so hydration.safe.js spawns correctly
+// ✅ Adds body classes: portrait / landscape (for CSS rules)
 
 'use strict';
 
@@ -13,7 +15,6 @@ function qs(k, def=null){
   try{ return new URL(location.href).searchParams.get(k) ?? def; }
   catch{ return def; }
 }
-
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
 }
@@ -63,24 +64,83 @@ async function lockLandscape(){
   }catch(_){}
 }
 
+function isPortrait(){
+  try{
+    return window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
+  }catch(_){
+    return (window.innerHeight > window.innerWidth);
+  }
+}
+function syncOrientationClasses(){
+  const p = isPortrait();
+  DOC.body.classList.toggle('portrait', p);
+  DOC.body.classList.toggle('landscape', !p);
+}
+
 function rotateHintUpdate(){
   const el = DOC.getElementById('rotateHint');
   if (!el) return;
-  const portrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
-  const on = DOC.body.classList.contains('cardboard') && portrait;
+  const on = DOC.body.classList.contains('cardboard') && isPortrait();
   el.hidden = !on;
 }
 
 function applyHHAViewLayers(){
-  // ensure hydration.safe.js sees the correct layers
   const L = DOC.getElementById('hydration-layerL');
   const R = DOC.getElementById('hydration-layerR');
   const main = DOC.getElementById('hydration-layer');
   const isCb = DOC.body.classList.contains('cardboard');
+
   window.HHA_VIEW = window.HHA_VIEW || {};
   window.HHA_VIEW.layers = (isCb && L && R) ? ['hydration-layerL','hydration-layerR'] : ['hydration-layer'];
-  // also keep references for debugging
   window.HHA_VIEW._nodes = { main, L, R };
+}
+
+/* -------- STRICT landscape behavior --------
+   - If in Cardboard + portrait: show rotateHint
+   - Optional: auto-retry lockLandscape
+   - Optional: if user stays portrait too long, exit cardboard (prevent weird VR)
+*/
+let portraitWarnAt = 0;
+async function enforceLandscapeTick(){
+  syncOrientationClasses();
+  rotateHintUpdate();
+
+  const inCb = DOC.body.classList.contains('cardboard');
+  if (!inCb) { portraitWarnAt = 0; return; }
+
+  if (isPortrait()){
+    // keep trying to lock on Android/Chromium
+    if (isFullscreen()) await lockLandscape();
+
+    if (!portraitWarnAt) portraitWarnAt = performance.now();
+    const waited = performance.now() - portraitWarnAt;
+
+    // If portrait persists, we keep hint. (Do NOT force exit too aggressively.)
+    // If you want "hard force", uncomment below:
+    // if (waited > 6000){
+    //   showCardboard(false);
+    //   setView(isMobileUA() ? 'mobile' : 'pc');
+    //   applyHHAViewLayers();
+    //   rotateHintUpdate();
+    // }
+  } else {
+    portraitWarnAt = 0;
+  }
+}
+
+function ensureRotateHintNode(){
+  if (DOC.getElementById('rotateHint')) return;
+  const el = DOC.createElement('div');
+  el.id = 'rotateHint';
+  el.hidden = true;
+  el.className = 'hha-rotateHint';
+  el.innerHTML = `
+    <div class="card">
+      <div class="big">กรุณาหมุนเครื่องเป็น “แนวนอน” เพื่อเล่นโหมด VR 📱↔️</div>
+      <div class="small">Tip: กด Fullscreen แล้วค่อยหมุน • บางรุ่นต้องปิด “ล็อกหมุนจอ” ก่อน</div>
+    </div>
+  `;
+  DOC.body.appendChild(el);
 }
 
 function bind(){
@@ -94,10 +154,14 @@ function bind(){
   // initial view
   const viewParam = String(qs('view','')).toLowerCase();
   const startCb = (viewParam === 'cvr') || (String(qs('cardboard','0')) === '1');
+
   const view = startCb ? 'cvr' : (isMobileUA() ? 'mobile' : 'pc');
   setView(view);
   showCardboard(startCb);
   applyHHAViewLayers();
+
+  // orientation classes + hint
+  syncOrientationClasses();
   rotateHintUpdate();
 
   // Start
@@ -106,41 +170,43 @@ function bind(){
     emit('hha:start');
   });
 
-  // Cardboard enter (from overlay)
+  // Enter Cardboard (from overlay)
   btnEnterVR?.addEventListener('click', async ()=>{
     setView('cvr');
     showCardboard(true);
     applyHHAViewLayers();
-    rotateHintUpdate();
 
     await enterFullscreen();
     await lockLandscape();
+    await enforceLandscapeTick();
 
-    // auto-start if not started
     try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
     emit('hha:start');
   });
 
-  // Cardboard toggle (bottom)
+  // Toggle Cardboard (bottom)
   btnCardboard?.addEventListener('click', async ()=>{
     const on = !DOC.body.classList.contains('cardboard');
     if (on){
       setView('cvr');
       showCardboard(true);
       applyHHAViewLayers();
-      rotateHintUpdate();
+
       await enterFullscreen();
       await lockLandscape();
+      await enforceLandscapeTick();
     } else {
       showCardboard(false);
       setView(isMobileUA() ? 'mobile' : 'pc');
       applyHHAViewLayers();
+
+      // keep fullscreen if user wants (no force exit)
+      syncOrientationClasses();
       rotateHintUpdate();
-      // ไม่บังคับออก fullscreen เพราะบางคนอยากเล่น fullscreen ต่อ
     }
   });
 
-  // SHOOT (button)
+  // SHOOT button -> fire center shot
   btnShoot?.addEventListener('click', ()=>{
     emit('hha:shoot', { src:'btn', t: Date.now() });
   });
@@ -153,7 +219,6 @@ function bind(){
   // Tap anywhere to shoot (mobile convenience)
   let lastTap=0;
   DOC.addEventListener('pointerdown', (ev)=>{
-    // ignore taps on buttons
     const t = ev.target;
     if (t && (t.closest?.('.hha-btn') || t.id === 'btnShoot')) return;
 
@@ -161,40 +226,26 @@ function bind(){
     if (now - lastTap < 80) return;
     lastTap = now;
 
-    // only when game started (overlay hidden)
+    // only when overlay hidden
     const ovHidden = !overlay || overlay.style.display === 'none' || overlay.hidden || overlay.classList.contains('hide');
     if (ovHidden) emit('hha:shoot', { src:'tap', t: Date.now() });
   }, { passive:true });
 
-  // keep rotate hint correct
-  window.addEventListener('resize', rotateHintUpdate, {passive:true});
-  window.addEventListener('orientationchange', rotateHintUpdate);
+  // keep hint correct (and keep trying to lock landscape)
+  const onResize = ()=>{ enforceLandscapeTick().catch(()=>{}); };
+  window.addEventListener('resize', onResize, { passive:true });
+  window.addEventListener('orientationchange', onResize, { passive:true });
+  DOC.addEventListener('fullscreenchange', onResize);
 
-  // optional: if user exits fullscreen, still keep cvr mode but update hint
-  DOC.addEventListener('fullscreenchange', rotateHintUpdate);
-
-  // also ensure layers stay correct if someone toggles class manually
+  // observe body class changes
   const obs = new MutationObserver(()=>{
     applyHHAViewLayers();
-    rotateHintUpdate();
+    enforceLandscapeTick().catch(()=>{});
   });
   obs.observe(DOC.body, { attributes:true, attributeFilter:['class'] });
-}
 
-function ensureRotateHintNode(){
-  if (DOC.getElementById('rotateHint')) return;
-  const el = DOC.createElement('div');
-  el.id = 'rotateHint';
-  el.hidden = true;
-  el.style.cssText = `
-    position:fixed; inset:0; z-index:9999;
-    display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.72);
-    color:#fff; text-align:center; padding:24px;
-    font:900 18px/1.35 system-ui;
-  `;
-  el.textContent = 'กรุณาหมุนเครื่องเป็นแนวนอน (Landscape) เพื่อเล่นโหมด VR 📱↔️';
-  DOC.body.appendChild(el);
+  // periodic tick while in cardboard (helps on Android where lock is flaky)
+  setInterval(()=>{ enforceLandscapeTick().catch(()=>{}); }, 700);
 }
 
 function boot(){
@@ -202,7 +253,6 @@ function boot(){
   bind();
 
   // load game logic AFTER loader is ready
-  // hydration.safe.js is module, so import it here
   import('./hydration.safe.js').catch(console.error);
 }
 
