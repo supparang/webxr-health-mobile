@@ -4,6 +4,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard (VR Layout + Start Gate)
 ✅ VR/cVR: dual-eye split (stable)
 ✅ Fullscreen support + layout adapt (body.is-fs)
 ✅ Quest Peek button (VR HUD collapsed but missions still visible)
+✅ NEW: Quest Float L/R for Cardboard + vr-ui.js shoot bridge
 -->
 
 <!doctype html>
@@ -19,19 +20,52 @@ GoodJunkVR (PRODUCTION) — HHA Standard (VR Layout + Start Gate)
   <base href="/webxr-health-mobile/herohealth/" />
 
   <!-- UI -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css?v=2025-12-31c" />
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css?v=2025-12-31d" />
 
-  <!-- Global FX + Fever + HUD + Logger -->
-  <script src="./vr/particles.js?v=2025-12-31c" defer></script>
-  <script src="./vr/ui-fever.js?v=2025-12-31c" defer></script>
-  <script src="./vr/hha-hud.js?v=2025-12-31c" defer></script>
-  <script src="./vr/hha-cloud-logger.js?v=2025-12-31c" defer></script>
+  <!-- Global FX + Fever + Universal VR UI + HUD + Logger (ORDER MATTERS) -->
+  <script src="./vr/particles.js?v=2025-12-31d" defer></script>
+  <script src="./vr/ui-fever.js?v=2025-12-31d" defer></script>
+
+  <!-- ✅ Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair/tap-to-shoot -> hha:shoot) -->
+  <script src="./vr/vr-ui.js?v=2025-12-31d" defer></script>
+
+  <script src="./vr/hha-hud.js?v=2025-12-31d" defer></script>
+  <script src="./vr/hha-cloud-logger.js?v=2025-12-31d" defer></script>
 
   <!-- Boot (ESM) -->
-  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js?v=2025-12-31c"></script>
+  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js?v=2025-12-31d"></script>
 
   <style>
-    html,body{margin:0;height:100dvh;overflow:hidden;background:#020617;color:#e5e7eb;font-family:system-ui}
+    html,body{
+      margin:0;height:100dvh;overflow:hidden;
+      background:#020617;color:#e5e7eb;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+
+    /* ===== Quest Float (Cardboard L/R) ===== */
+    .gj-quest-float{ display:none; }
+
+    body.view-cvr .gj-quest-float{
+      display:block;
+      position:absolute;
+      top:12px;
+      left:12px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(2,6,23,.65);
+      border:1px solid rgba(148,163,184,.18);
+      color:#e5e7eb;
+      pointer-events:none;
+      max-width:min(70vw, 360px);
+      z-index:30;
+    }
+    body.view-cvr .gj-quest-float .qf-title{ font:900 14px/1.2 system-ui; }
+    body.view-cvr .gj-quest-float .qf-sub{ margin-top:4px; opacity:.9; font:800 12px/1.2 system-ui; }
+    body.view-cvr .gj-quest-float .qf-timer{ margin-top:6px; font:900 14px/1.1 system-ui; }
+
+    /* ถ้าอยากให้ VR (ไม่ใช่ cVR) เห็นด้วย เปิดบรรทัดนี้:
+    body.view-vr .gj-quest-float{ display:block; }
+    */
   </style>
 </head>
 
@@ -128,19 +162,36 @@ GoodJunkVR (PRODUCTION) — HHA Standard (VR Layout + Start Gate)
     </div>
   </div>
 
-  <!-- ===== Playfield (dual-eye) ===== -->
-  <div id="gj-stage" aria-label="playfield">
-    <div class="gj-eye eye-l" id="eyeL">
-      <div class="gj-layer" id="gj-layer-l" aria-label="targets layer left"></div>
-      <div class="gj-crosshair" id="gj-crosshair-l" aria-hidden="true"></div>
-    </div>
+  <!-- ===== Playfield wrapper (for vr-ui.js compatibility recognizes #playfield) ===== -->
+  <div id="playfield" aria-label="playfield">
+    <!-- ===== Dual-eye stage ===== -->
+    <div id="gj-stage">
+      <div class="gj-eye eye-l" id="eyeL">
+        <!-- ✅ Quest Float (LEFT) -->
+        <div class="gj-quest-float" id="gjQuestFloatL" aria-hidden="true">
+          <div class="qf-title" id="qfMiniL">Mini: —</div>
+          <div class="qf-sub" id="qfGoalL">Goal: —</div>
+          <div class="qf-timer" id="qfTimeL"></div>
+        </div>
 
-    <div class="gj-eye eye-r" id="eyeR" aria-hidden="true">
-      <div class="gj-layer" id="gj-layer-r" aria-label="targets layer right"></div>
-      <div class="gj-crosshair" id="gj-crosshair-r" aria-hidden="true"></div>
-    </div>
+        <div class="gj-layer" id="gj-layer-l" aria-label="targets layer left"></div>
+        <div class="gj-crosshair" id="gj-crosshair-l" aria-hidden="true"></div>
+      </div>
 
-    <div id="end-summary"></div>
+      <div class="gj-eye eye-r" id="eyeR" aria-hidden="true">
+        <!-- ✅ Quest Float (RIGHT) -->
+        <div class="gj-quest-float" id="gjQuestFloatR" aria-hidden="true">
+          <div class="qf-title" id="qfMiniR">Mini: —</div>
+          <div class="qf-sub" id="qfGoalR">Goal: —</div>
+          <div class="qf-timer" id="qfTimeR"></div>
+        </div>
+
+        <div class="gj-layer" id="gj-layer-r" aria-label="targets layer right"></div>
+        <div class="gj-crosshair" id="gj-crosshair-r" aria-hidden="true"></div>
+      </div>
+
+      <div id="end-summary"></div>
+    </div>
   </div>
 
   <!-- ===== Controls ===== -->
@@ -172,5 +223,121 @@ GoodJunkVR (PRODUCTION) — HHA Standard (VR Layout + Start Gate)
       <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
     </div>
   </div>
+
+  <!-- ===== Bridge: sync Quest/Score/Time to VR floats + mini HUD + peek + shoot ===== -->
+  <script type="module">
+    (() => {
+      const DOC = document;
+      const ROOT = window;
+
+      function $(id){ return DOC.getElementById(id); }
+      function setTxt(id, txt){
+        const el = $(id);
+        if (el) el.textContent = (txt ?? '');
+      }
+
+      function setQuestFloat(miniText, goalText, timeText=''){
+        // L
+        setTxt('qfMiniL', miniText);
+        setTxt('qfGoalL', goalText);
+        setTxt('qfTimeL', timeText);
+
+        // R
+        setTxt('qfMiniR', miniText);
+        setTxt('qfGoalR', goalText);
+        setTxt('qfTimeR', timeText);
+
+        // Peek overlay
+        setTxt('peekMini', miniText);
+        setTxt('peekGoal', goalText);
+      }
+
+      // Cache current quest strings
+      const Q = { mini: 'Mini: —', goal: 'Goal: —', progress: 'Goals 0/0 • Minis 0/0', miniLeft: '' };
+
+      // quest:update should carry goal/mini/progress; we accept many shapes safely
+      ROOT.addEventListener('quest:update', (ev) => {
+        const d = ev.detail || {};
+
+        const goalTitle = d.goalTitle ?? d.goal ?? d.goalText ?? '';
+        const miniTitle = d.miniTitle ?? d.mini ?? d.miniText ?? '';
+
+        const goal = goalTitle ? (String(goalTitle).startsWith('Goal:') ? String(goalTitle) : `Goal: ${goalTitle}`) : 'Goal: —';
+        const mini = miniTitle ? (String(miniTitle).startsWith('Mini:') ? String(miniTitle) : `Mini: ${miniTitle}`) : 'Mini: —';
+
+        Q.goal = goal;
+        Q.mini = mini;
+
+        // progress
+        if (d.progressText) Q.progress = String(d.progressText);
+        else if (typeof d.goalsCleared === 'number' && typeof d.goalsTotal === 'number') {
+          const g = `Goals ${d.goalsCleared}/${d.goalsTotal}`;
+          const m = (typeof d.miniCleared === 'number' && typeof d.miniTotal === 'number') ? ` • Minis ${d.miniCleared}/${d.miniTotal}` : '';
+          Q.progress = g + m;
+        }
+
+        // mini timer
+        if (typeof d.miniTimeLeftSec === 'number') {
+          Q.miniLeft = `${Math.max(0, Math.ceil(d.miniTimeLeftSec))}s`;
+        } else if (typeof d.miniLeftSec === 'number') {
+          Q.miniLeft = `${Math.max(0, Math.ceil(d.miniLeftSec))}s`;
+        }
+
+        setQuestFloat(Q.mini, Q.goal, Q.miniLeft);
+        setTxt('peekProgress', Q.progress);
+
+        // Optional toast
+        const toast = $('questToast');
+        if (toast && DOC.body.classList.contains('view-cvr')) {
+          setTxt('toastLine', `${Q.goal} • ${Q.mini}`);
+          toast.hidden = false;
+          clearTimeout(toast._t);
+          toast._t = setTimeout(() => { toast.hidden = true; }, 1200);
+        }
+      });
+
+      // time event (sync mini HUD time)
+      ROOT.addEventListener('hha:time', (ev) => {
+        const d = ev.detail || {};
+        if (typeof d.timeLeftSec === 'number') setTxt('mTime', `${Math.max(0, Math.ceil(d.timeLeftSec))}`);
+        if (typeof d.miniTimeLeftSec === 'number') {
+          Q.miniLeft = `${Math.max(0, Math.ceil(d.miniTimeLeftSec))}s`;
+          setQuestFloat(Q.mini, Q.goal, Q.miniLeft);
+        }
+      });
+
+      // score event (sync mini HUD quick stats)
+      ROOT.addEventListener('hha:score', (ev) => {
+        const d = ev.detail || {};
+        if (typeof d.score === 'number') setTxt('mScore', String(d.score));
+        if (typeof d.miss === 'number') setTxt('mMiss', String(d.miss));
+      });
+
+      // ✅ Shoot bridge: vr-ui.js emits hha:shoot -> click Shoot button
+      ROOT.addEventListener('hha:shoot', () => {
+        const btn = $('btnShoot');
+        if (btn) btn.click();
+      });
+
+      // Quest Peek buttons (guard double bind)
+      if (!$('questPeek')?.dataset.bound) {
+        const peek = $('questPeek');
+        if (peek) peek.dataset.bound = '1';
+
+        $('btnQuestPeek')?.addEventListener('click', () => { if (peek) peek.hidden = false; });
+        $('btnPeekClose')?.addEventListener('click', () => { if (peek) peek.hidden = true; });
+      }
+
+      // Show mini HUD only in VR/cVR (depends on body class set by your boot)
+      function syncMiniHud(){
+        const on = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
+        const el = $('vrMiniHud');
+        if (el) el.hidden = !on;
+      }
+      syncMiniHud();
+      const mo = new MutationObserver(syncMiniHud);
+      mo.observe(DOC.body, { attributes:true, attributeFilter:['class'] });
+    })();
+  </script>
 </body>
 </html>
