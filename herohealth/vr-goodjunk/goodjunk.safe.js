@@ -1,9 +1,12 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v3
-// ✅ Spawn uses PLAYFIELD rect (fix flash/white/targets outside stage)
-// ✅ DOES NOT inject #gj-stage style (CSS owns layout)
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v4 WAVE++
+// ✅ Spawn uses PLAYFIELD rect
 // ✅ autostart option (boot gate)
-// ✅ VR feel: mild drift movement + fever-driven ramp (play mode only)
+// ✅ VR feel: mild drift + fever-driven ramp (play mode only)
+// ✅ NEW: Boss Wave (hit good boss N times within timer)
+// ✅ NEW: No-Junk Zone wave (survive timer, junk hit = fail wave)
+// ✅ NEW: Panic Mode (fever>=80 => screen shake + red vignette via CSS class)
+// ✅ NEW: Wave HUD (Boss / No-Junk) auto-injected (safe if missing CSS)
 
 'use strict';
 
@@ -98,6 +101,7 @@ function diffBase(diff){
   return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
 }
 
+/* ---------- minimal target styles (safe) ---------- */
 function ensureTargetStyles(){
   const DOC = ROOT.document;
   if (!DOC || DOC.getElementById('gj-safe-style')) return;
@@ -105,7 +109,6 @@ function ensureTargetStyles(){
   const st = DOC.createElement('style');
   st.id = 'gj-safe-style';
   st.textContent = `
-    /* DO NOT style #gj-stage here (CSS layout owns it) */
     #gj-layer, #gj-layer-l, #gj-layer-r, .gj-layer{
       position:absolute; inset:0; z-index:30;
       pointer-events:auto !important;
@@ -133,6 +136,12 @@ function ensureTargetStyles(){
     .gj-target.junk{ border-color: rgba(239,68,68,.30); filter: saturate(1.15); }
     .gj-target.star{ border-color: rgba(34,211,238,.32); }
     .gj-target.shield{ border-color: rgba(168,85,247,.32); }
+    .gj-target.boss{
+      width: 96px; height: 96px;
+      font-size: 50px;
+      border-color: rgba(34,197,94,.38);
+      box-shadow: 0 22px 80px rgba(0,0,0,.55), 0 0 22px rgba(34,197,94,.18);
+    }
     .gj-target.hit{
       transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.25));
       opacity:.18; filter: blur(.7px);
@@ -147,10 +156,67 @@ function ensureTargetStyles(){
   DOC.head.appendChild(st);
 }
 
+/* ---------- Wave HUD (auto inject) ---------- */
+function ensureWaveHud(){
+  const DOC = ROOT.document;
+  if (!DOC || DOC.getElementById('gjWaveHud')) return;
+
+  const wrap = DOC.createElement('div');
+  wrap.id = 'gjWaveHud';
+  wrap.className = 'gj-wave-hud';
+  wrap.hidden = true;
+
+  wrap.innerHTML = `
+    <div class="wave-card">
+      <div class="wave-top">
+        <div class="wave-title" id="gjWaveTitle">—</div>
+        <div class="wave-right">
+          <span id="gjWaveRight">—</span>
+        </div>
+      </div>
+      <div class="wave-bar"><div class="wave-fill" id="gjWaveFill"></div></div>
+    </div>
+  `;
+
+  DOC.body.appendChild(wrap);
+}
+function setWaveHud(show, title, rightText, pct, kind){
+  const DOC = ROOT.document;
+  if (!DOC) return;
+  ensureWaveHud();
+
+  const hud = DOC.getElementById('gjWaveHud');
+  const t = DOC.getElementById('gjWaveTitle');
+  const r = DOC.getElementById('gjWaveRight');
+  const f = DOC.getElementById('gjWaveFill');
+
+  if (!hud || !t || !r || !f) return;
+
+  hud.hidden = !show;
+  t.textContent = String(title || '—');
+  r.textContent = String(rightText || '—');
+  f.style.width = `${clamp(pct, 0, 100).toFixed(1)}%`;
+
+  // add semantic class for coloring (CSS optional)
+  t.classList.remove('boss','nojunk');
+  if (kind === 'boss') t.classList.add('boss');
+  if (kind === 'nojunk') t.classList.add('nojunk');
+}
+
+/* ---------- Panic CSS class toggle ---------- */
+function setPanic(fever){
+  const DOC = ROOT.document;
+  if (!DOC || !DOC.body) return;
+  const p = clamp((fever - 78) / 22, 0, 1); // 0..1
+  DOC.body.style.setProperty('--panic', String(p.toFixed(3)));
+  DOC.body.classList.toggle('panic', p > 0.001);
+}
+
 const GOOD = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
 const JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
 const STARS = ['⭐','💎'];
 const SHIELD = '🛡️';
+const BOSS_EMOJI = '🥦';
 
 function setXY(el, x, y){
   const px = x.toFixed(1) + 'px';
@@ -162,9 +228,9 @@ function setXY(el, x, y){
   el._x = x;
   el._y = y;
 }
-
-function countTargets(layerEl){
-  try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
+function dist2(ax, ay, bx, by){
+  const dx = ax - bx, dy = ay - by;
+  return dx*dx + dy*dy;
 }
 function getCenter(el){
   try{
@@ -173,10 +239,6 @@ function getCenter(el){
   }catch(_){
     return { x: (ROOT.innerWidth||360)*0.5, y: (ROOT.innerHeight||640)*0.5 };
   }
-}
-function dist2(ax, ay, bx, by){
-  const dx = ax - bx, dy = ay - by;
-  return dx*dx + dy*dy;
 }
 function findTargetNear(layerEl, cx, cy, radiusPx){
   const r2max = radiusPx * radiusPx;
@@ -193,12 +255,17 @@ function findTargetNear(layerEl, cx, cy, radiusPx){
   });
   return best;
 }
+function countTargets(layerEl){
+  try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
+}
 
 function updateFever(shield, fever){
   try{ FeverUI.set({ value: clamp(fever, 0, 100), shield: clamp(shield, 0, 9) }); }catch(_){}
   try{ if (typeof FeverUI.setShield === 'function') FeverUI.setShield(clamp(shield,0,9)); }catch(_){}
+  setPanic(fever);
 }
 
+/* ===== summary + flush ===== */
 function makeSummary(S, reason){
   const acc = S.hitAll > 0 ? Math.round((S.hitGood / S.hitAll) * 100) : 0;
   return {
@@ -235,7 +302,7 @@ async function flushAll(summary, reason){
   await flushLogger(reason || (summary?.reason) || 'flush');
 }
 
-// ===== Spawn helpers (use actual playfield rect) =====
+/* ===== Spawn helpers (use actual layer rect) ===== */
 function getLayerSize(layerEl){
   try{
     const r = layerEl.getBoundingClientRect();
@@ -259,11 +326,29 @@ function randPosInLayer(rng, layerEl, margins){
   return { x, y };
 }
 
+/* ===== Wave schedule ===== */
+function buildWaveSchedule(S){
+  // deterministic schedule based on seed; research = fixed pattern, play = slightly dynamic but deterministic anyway
+  const times = [];
+  const waveEvery = (S.diff === 'hard') ? 14 : (S.diff === 'easy' ? 18 : 16);
+  let t = 10; // first wave at 10s after start
+  while (t < Math.max(8, S.timeSec - 8)){
+    times.push(t);
+    t += waveEvery;
+  }
+  // alternate boss/nojunk
+  return times.map((sec, i)=>({
+    atSec: sec,
+    kind: (i % 2 === 0) ? 'boss' : 'nojunk'
+  }));
+}
+
 export function boot(opts = {}) {
   const DOC = ROOT.document;
   if (!DOC) return { start(){} };
 
   ensureTargetStyles();
+  ensureWaveHud();
 
   const layerL = opts.layerEl
     || DOC.getElementById('gj-layer-l')
@@ -321,10 +406,16 @@ export function boot(opts = {}) {
     goalsCleared:0, goalsTotal:2,
     miniCleared:0, miniTotal:7,
     warmupUntil:0,
+
     spawnTimer:0, tickTimer:0,
     spawnMs: base.spawnMs, ttlMs: base.ttlMs, size: base.size,
     junkP: base.junk, powerP: base.power, maxTargets: base.maxT,
-    uidSeq: 1
+    uidSeq: 1,
+
+    // WAVES
+    waves: [],
+    waveIndex: 0,
+    waveActive: null, // {kind, endAtMs, ...}
   };
 
   if (isMobileLike()){
@@ -420,7 +511,7 @@ export function boot(opts = {}) {
     el.style.pointerEvents = 'auto';
     el.style.zIndex = '30';
 
-    // mild drift velocity (harder when fever high later)
+    // drift velocity
     el._vx = (S.rng() * 2 - 1) * 0.65;
     el._vy = (S.rng() * 2 - 1) * 0.55;
 
@@ -455,6 +546,199 @@ export function boot(opts = {}) {
     return pts;
   }
 
+  /* ===== WAVES (Boss / No-Junk) ===== */
+  function waveClear(){
+    S.waveActive = null;
+    setWaveHud(false);
+  }
+
+  function startBossWave(){
+    // duration + required hits by diff
+    const need = (S.diff === 'easy') ? 3 : (S.diff === 'hard' ? 5 : 4);
+    const durMs = (S.diff === 'hard') ? 9000 : 10000;
+
+    S.waveActive = {
+      kind:'boss',
+      need,
+      hit:0,
+      endAt: now() + durMs
+    };
+
+    coach('neutral', `BOSS WAVE! ยิง 🥦 ให้ครบ ${need} ครั้ง`, 'อย่าเผลอโดนขยะ!');
+    judge('info', `BOSS: ${need} hits`);
+
+    // spawn boss now (big)
+    spawnBossTarget();
+
+    setWaveHud(true, `BOSS WAVE 🥦`, `0/${need}`, 0, 'boss');
+    logEvent('wave_start', { kind:'boss', need, durMs });
+  }
+
+  function startNoJunkWave(){
+    const durMs = (S.diff === 'hard') ? 9000 : 10000;
+    S.waveActive = {
+      kind:'nojunk',
+      endAt: now() + durMs,
+      ok:true
+    };
+
+    coach('neutral', `NO-JUNK ZONE! ห้ามโดนขยะ ${Math.round(durMs/1000)} วิ`, 'โฟกัสของดี + ใช้โล่ช่วยได้');
+    judge('info', `NO-JUNK ${Math.round(durMs/1000)}s`);
+
+    setWaveHud(true, `NO-JUNK ZONE 🚫🍟`, `0:${Math.round(durMs/1000)}s`, 0, 'nojunk');
+    logEvent('wave_start', { kind:'nojunk', durMs });
+  }
+
+  function spawnBossTarget(){
+    if (!S.running || S.ended) return;
+    // keep only one boss alive at a time
+    try{
+      layerL.querySelectorAll('.gj-target.boss').forEach(el=>{ try{ el.remove(); }catch(_){} });
+      if (dual && layerR) layerR.querySelectorAll('.gj-target.boss').forEach(el=>{ try{ el.remove(); }catch(_){} });
+    }catch(_){}
+
+    const uid = String(S.uidSeq++);
+    const pL = randPosInLayer(S.rng, layerL, safeMargins);
+
+    // Boss is clickable, uses special type 'boss'
+    const elL = makeTarget('boss', BOSS_EMOJI, pL.x, pL.y, 1.0, uid);
+    elL.style.setProperty('--s', '1'); // class sets size
+    layerL.appendChild(elL);
+
+    if (dual && layerR){
+      const pR = randPosInLayer(S.rng, layerR, safeMargins);
+      const elR = makeTarget('boss', BOSS_EMOJI, pR.x, pR.y, 1.0, uid);
+      layerR.appendChild(elR);
+    }
+  }
+
+  function bossHit(el){
+    const W = S.waveActive;
+    if (!W || W.kind !== 'boss') return;
+
+    W.hit++;
+    S.hitAll++;
+    S.hitGood++; // count as good
+    S.combo = clamp(S.combo + 1, 0, 9999);
+    S.comboMax = Math.max(S.comboMax, S.combo);
+
+    const pts = 160;
+    S.score += pts;
+
+    S.fever = clamp(S.fever - 5, 0, 100);
+    updateFever(S.shield, S.fever);
+
+    judge('good', `BOSS +${pts}`);
+    burstAtEl(el, 'boss');
+    logEvent('boss_hit', { hit:W.hit, need:W.need, score:S.score|0 });
+
+    const pct = (W.need > 0) ? (W.hit / W.need) * 100 : 0;
+    setWaveHud(true, `BOSS WAVE 🥦`, `${W.hit}/${W.need}`, pct, 'boss');
+
+    updateScore(); updateQuest();
+    removeTargetBoth(el);
+
+    if (W.hit >= W.need){
+      // clear boss wave reward
+      S.score += 220;
+      S.shield = clamp(S.shield + 1, 0, 9);
+      updateFever(S.shield, S.fever);
+
+      emit('hha:celebrate', { kind:'mini', title:'BOSS CLEAR! +SHIELD' });
+      coach('happy', 'โค่นบอสแล้ว! สุดยอด 😈✅', 'ได้โล่เพิ่ม + คะแนนโบนัส');
+
+      logEvent('wave_clear', { kind:'boss' });
+
+      waveClear();
+    }else{
+      // respawn boss quickly to keep pressure
+      setTimeout(()=>{ if (S.running && !S.ended && S.waveActive?.kind==='boss') spawnBossTarget(); }, 420);
+    }
+  }
+
+  function nojunkFail(reason){
+    const W = S.waveActive;
+    if (!W || W.kind !== 'nojunk') return;
+    W.ok = false;
+
+    // extra penalty (but still fair)
+    S.misses += 2;
+    S.score = Math.max(0, S.score - 200);
+    S.fever = clamp(S.fever + 10, 0, 100);
+    updateFever(S.shield, S.fever);
+
+    coach('sad', 'NO-JUNK พลาด! 😵', 'รอบหน้าโฟกัสของดี แล้วคุมจังหวะยิง');
+    judge('bad', 'NO-JUNK FAIL');
+
+    logEvent('wave_fail', { kind:'nojunk', reason:String(reason||'junk_hit') });
+
+    updateScore(); updateQuest();
+    waveClear();
+  }
+
+  function nojunkTick(){
+    const W = S.waveActive;
+    if (!W || W.kind !== 'nojunk') return;
+    const leftMs = Math.max(0, W.endAt - now());
+    const leftS = Math.ceil(leftMs/1000);
+    const pct = 100 - (leftMs / (W._dur || (W._dur = (W.endAt - (W._start || (W._start = now())))))) * 100;
+
+    setWaveHud(true, `NO-JUNK ZONE 🚫🍟`, `0:${leftS}s`, clamp(pct,0,100), 'nojunk');
+
+    if (leftMs <= 0){
+      // reward
+      S.score += 260;
+      S.shield = clamp(S.shield + 1, 0, 9);
+      updateFever(S.shield, S.fever);
+
+      emit('hha:celebrate', { kind:'mini', title:'NO-JUNK CLEAR! +SHIELD' });
+      coach('happy', 'ผ่าน NO-JUNK แล้ว! ✅', 'ได้โล่เพิ่ม + โบนัส');
+
+      logEvent('wave_clear', { kind:'nojunk' });
+      waveClear();
+    }
+  }
+
+  function waveTick(){
+    if (!S.waveActive) return;
+    const W = S.waveActive;
+
+    if (W.kind === 'boss'){
+      const leftMs = Math.max(0, W.endAt - now());
+      const leftS = Math.ceil(leftMs/1000);
+      const pct = (W.need > 0) ? (W.hit / W.need) * 100 : 0;
+      setWaveHud(true, `BOSS WAVE 🥦`, `${W.hit}/${W.need} • ${leftS}s`, pct, 'boss');
+      if (leftMs <= 0){
+        coach('sad', 'BOSS หนีไป! 😵', 'เดี๋ยวมีบอสมาใหม่—เตรียมยิงให้ไว');
+        judge('warn', 'BOSS TIMEOUT');
+        logEvent('wave_fail', { kind:'boss', reason:'timeout' });
+        waveClear();
+      }
+      return;
+    }
+
+    if (W.kind === 'nojunk'){
+      nojunkTick();
+      return;
+    }
+  }
+
+  function tryStartWave(elapsedSec){
+    if (!S.waves.length) return;
+    if (S.waveIndex >= S.waves.length) return;
+    if (S.waveActive) return;
+
+    const next = S.waves[S.waveIndex];
+    if (!next) return;
+
+    if (elapsedSec >= next.atSec){
+      S.waveIndex++;
+      if (next.kind === 'boss') startBossWave();
+      else startNoJunkWave();
+    }
+  }
+
+  /* ===== Hits ===== */
   function hitGood(el){
     S.hitAll++; S.hitGood++;
     S.combo = clamp(S.combo + 1, 0, 9999);
@@ -466,7 +750,6 @@ export function boot(opts = {}) {
     const pts = scoreGood();
     judge('good', `+${pts}`);
     burstAtEl(el, 'good');
-
     logEvent('hit', { kind:'good', emoji:String(el.dataset.emoji||''), score:S.score|0, combo:S.combo|0, fever:Math.round(S.fever) });
 
     updateScore(); updateQuest();
@@ -533,7 +816,11 @@ export function boot(opts = {}) {
   function hitJunk(el){
     S.hitAll++;
 
+    // No-Junk wave: junk hit = instant fail (even if score logic continues)
+    const nojunkActive = (S.waveActive && S.waveActive.kind === 'nojunk');
+
     if (S.shield > 0){
+      // block does NOT count as miss (per your standard)
       S.shield = Math.max(0, S.shield - 1);
       S.hitJunkGuard++;
       updateFever(S.shield, S.fever);
@@ -547,6 +834,27 @@ export function boot(opts = {}) {
       return;
     }
 
+    // if no-junk wave and no shield -> fail wave first
+    if (nojunkActive){
+      // keep normal junk penalty too (pressure!)
+      S.hitJunk++; S.misses++; S.combo = 0;
+      S.score = Math.max(0, S.score - 170);
+      S.fever = clamp(S.fever + 12, 0, 100);
+      updateFever(S.shield, S.fever);
+
+      judge('bad', `JUNK!`);
+      burstAtEl(el, 'junk');
+      logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever), wave:'nojunk' });
+
+      updateScore(); updateQuest();
+      removeTargetBoth(el);
+
+      // then fail wave (extra penalty)
+      nojunkFail('junk_hit');
+      return;
+    }
+
+    // normal junk
     S.hitJunk++; S.misses++; S.combo = 0;
 
     const penalty = 170;
@@ -567,13 +875,17 @@ export function boot(opts = {}) {
 
   function hitTarget(el){
     if (!S.running || S.ended || !el || !el.isConnected) return;
+
     const tp = String(el.dataset.type||'');
+
+    if (tp === 'boss') return bossHit(el);
     if (tp === 'good') return hitGood(el);
     if (tp === 'junk') return hitJunk(el);
     if (tp === 'shield') return hitShield(el);
     if (tp === 'star') return hitStar(el);
   }
 
+  /* ===== Spawn logic ===== */
   function spawnOne(){
     if (!S.running || S.ended) return;
     if (countTargets(layerL) >= S.maxTargets) return;
@@ -581,14 +893,32 @@ export function boot(opts = {}) {
     const t = now();
     const inWarm = (t < S.warmupUntil);
 
+    // wave modifiers (fair but intense)
+    const inNoJunk = (S.waveActive && S.waveActive.kind === 'nojunk');
+    const inBoss = (S.waveActive && S.waveActive.kind === 'boss');
+
+    let powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
+    let junkP  = inWarm ? (S.junkP * 0.55) : S.junkP;
+
+    // No-Junk wave fairness: reduce junk, increase shield
+    if (inNoJunk){
+      junkP = clamp(junkP - 0.05, 0.06, 0.22);
+      powerP = clamp(powerP + 0.010, 0.01, 0.08);
+    }
+
+    // Boss wave pressure: a bit more junk + less star
+    let starP = 0.035;
+    if (inBoss){
+      junkP = clamp(junkP + 0.03, 0.08, 0.28);
+      starP = 0.020;
+    }
+
+    // choose type
     let tp = 'good';
     const r = S.rng();
-    const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
-    const junkP  = inWarm ? (S.junkP * 0.55)  : S.junkP;
-
     if (r < powerP) tp = 'shield';
-    else if (r < powerP + 0.035) tp = 'star';
-    else if (r < powerP + 0.035 + junkP) tp = 'junk';
+    else if (r < powerP + starP) tp = 'star';
+    else if (r < powerP + starP + junkP) tp = 'junk';
     else tp = 'good';
 
     const size = (inWarm ? (S.size * 1.06) : S.size);
@@ -622,11 +952,16 @@ export function boot(opts = {}) {
   function loopSpawn(){
     if (!S.running || S.ended) return;
     spawnOne();
+
     const t = now();
     const inWarm = (t < S.warmupUntil);
     let nextMs = S.spawnMs;
     if (inWarm) nextMs = Math.max(980, S.spawnMs + 240);
-    S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 360, 1400));
+
+    // boss wave slightly faster spawns
+    if (S.waveActive?.kind === 'boss') nextMs = Math.max(360, nextMs - 120);
+
+    S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 320, 1400));
   }
 
   function moveTargetsLayer(layerEl){
@@ -637,12 +972,13 @@ export function boot(opts = {}) {
     const maxX = Math.max(mx + 10, sz.w - Math.max(12, safeMargins.right));
     const maxY = Math.max(my + 10, sz.h - Math.max(10, safeMargins.bottom));
 
-    const heat = clamp((S.fever - 40) / 60, 0, 1); // faster when fever high
-    const speedMult = 1 + heat * 1.25;
+    const heat = clamp((S.fever - 40) / 60, 0, 1);
+    const speedMult = 1 + heat * 1.25 + (S.waveActive?.kind === 'boss' ? 0.25 : 0);
 
     const list = layerEl.querySelectorAll('.gj-target');
     list.forEach(el=>{
       if (!el || !el.isConnected) return;
+
       const vx = (el._vx || 0) * speedMult;
       const vy = (el._vy || 0) * speedMult;
 
@@ -659,7 +995,7 @@ export function boot(opts = {}) {
 
       setXY(el, x, y);
 
-      // keep mate in sync (same drift)
+      // keep mate in sync
       const mate = getMate(el);
       if (mate){
         mate._vx = el._vx; mate._vy = el._vy;
@@ -675,14 +1011,19 @@ export function boot(opts = {}) {
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
 
-    // drift each tick
+    // drift
     moveTargetsLayer(layerL);
     if (dual) moveTargetsLayer(layerR);
+
+    const elapsed = (now() - S.tStart) / 1000;
+
+    // wave scheduler
+    tryStartWave(elapsed);
+    waveTick();
 
     if (S.left <= 0){ endGame('time'); return; }
 
     if (S.runMode === 'play'){
-      const elapsed = (now() - S.tStart) / 1000;
       const acc = S.hitAll > 0 ? (S.hitGood / S.hitAll) : 0;
       const comboHeat = clamp(S.combo / 18, 0, 1);
 
@@ -690,7 +1031,6 @@ export function boot(opts = {}) {
       const skill = clamp((acc - 0.65) * 1.2 + comboHeat * 0.8, 0, 1);
       const heat = clamp(timeRamp * 0.55 + skill * 0.75, 0, 1);
 
-      // base ramp
       S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
       S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
       S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.12);
@@ -700,7 +1040,7 @@ export function boot(opts = {}) {
       const maxBonus = Math.round(heat * 4);
       S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
 
-      // high fever fairness: slightly reduce junk to avoid spiral death
+      // fairness at high fever
       if (S.fever >= 82){
         S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
         S.size  = clamp(S.size + 0.03, 0.86, 1.15);
@@ -794,6 +1134,7 @@ export function boot(opts = {}) {
     S.ended = true;
     S.running = false;
 
+    waveClear();
     clearTimers();
     clearAllTargets();
 
@@ -809,12 +1150,10 @@ export function boot(opts = {}) {
   }
 
   function start(){
-    if (S.running || S.ended) {
-      // allow restart
-      S.ended = false;
-    }
+    if (S.running) return;
 
     S.running = true;
+    S.ended = false;
     S.flushed = false;
 
     S.tStart = now();
@@ -830,7 +1169,12 @@ export function boot(opts = {}) {
     S.warmupUntil = now() + 3000;
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
 
-    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วโหดขึ้นเร็ว 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
+    // build deterministic wave schedule now
+    S.waves = buildWaveSchedule(S);
+    S.waveIndex = 0;
+    S.waveActive = null;
+
+    coach('neutral', 'พร้อมลุย! ช่วงแรกนุ่ม ๆ แล้วมี WAVE โหด ๆ 😈', 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
     updateScore(); updateTime(); updateQuest();
 
     logEvent('session_start', {
