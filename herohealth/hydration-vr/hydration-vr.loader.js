@@ -1,6 +1,7 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION (Mode Select)
+// Hydration VR Loader — PRODUCTION (LATEST)
 // ✅ View: PC / Mobile / Cardboard
+// ✅ Mode select: เล่นปกติ vs Cardboard (แก้ปัญหา "ไม่มี option")
 // ✅ Fullscreen + best-effort landscape lock for Cardboard
 // ✅ Emits: hha:start, hha:force_end, hha:shoot
 // ✅ Sets window.HHA_VIEW.layers so hydration.safe.js spawns correctly
@@ -12,13 +13,6 @@ const DOC = document;
 function qs(k, def=null){
   try{ return new URL(location.href).searchParams.get(k) ?? def; }
   catch{ return def; }
-}
-function setQS(key, value){
-  try{
-    const u = new URL(location.href);
-    u.searchParams.set(key, value);
-    history.replaceState({}, '', u.toString());
-  }catch(_){}
 }
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
@@ -46,24 +40,14 @@ function isFullscreen(){
 async function enterFullscreen(){
   try{
     const el = DOC.documentElement;
-    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI:'hide' });
     else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
   }catch(_){}
 }
 async function lockLandscape(){
   try{
-    if (screen?.orientation?.lock){
-      await screen.orientation.lock('landscape');
-    }
+    if (screen?.orientation?.lock) await screen.orientation.lock('landscape');
   }catch(_){}
-}
-
-function rotateHintUpdate(){
-  const el = DOC.getElementById('rotateHint');
-  if (!el) return;
-  const portrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
-  const on = DOC.body.classList.contains('cardboard') && portrait;
-  el.hidden = !on;
 }
 
 function applyHHAViewLayers(){
@@ -76,113 +60,105 @@ function applyHHAViewLayers(){
   window.HHA_VIEW._nodes = { main, L, R };
 }
 
-function hideOverlay(){
-  const overlay = DOC.getElementById('startOverlay');
-  try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
-}
-function overlayHidden(){
-  const overlay = DOC.getElementById('startOverlay');
-  return !overlay || overlay.style.display === 'none' || overlay.hidden || overlay.classList.contains('hide');
-}
-
-function pickInitialMode(){
-  const v = String(qs('view','')).toLowerCase();
-  if (v === 'pc') return {view:'pc', cardboard:false};
-  if (v === 'mobile') return {view:'mobile', cardboard:false};
-  if (v === 'cvr') return {view:'cvr', cardboard:true};
-
-  // fallback
-  const startCb = (String(qs('cardboard','0')) === '1');
-  if (startCb) return {view:'cvr', cardboard:true};
-  return {view: isMobileUA() ? 'mobile' : 'pc', cardboard:false};
+function ensureRotateHintNode(){
+  if (DOC.getElementById('rotateHint')) return;
+  const wrap = DOC.createElement('div');
+  wrap.id = 'rotateHint';
+  wrap.hidden = true;
+  wrap.innerHTML = `
+    <div class="card">
+      <div class="big">กรุณาหมุนจอเป็นแนวนอน</div>
+      <div class="small">เพื่อเล่นโหมด VR / Cardboard 📱↔️</div>
+      <div class="actions">
+        <button class="hha-btn" id="rhExit">เล่นแบบปกติ</button>
+        <button class="hha-btn primary" id="rhEnter">เข้า Cardboard</button>
+      </div>
+      <div class="tiny">Tip: ถ้าไม่อยากหมุนจอ ให้กด “เล่นแบบปกติ” ได้ทันที</div>
+    </div>
+  `;
+  DOC.body.appendChild(wrap);
 }
 
-async function goMode(mode){
-  // mode: 'pc' | 'mobile' | 'cvr'
-  if (mode === 'cvr'){
-    setQS('view','cvr');
-    setView('cvr');
-    showCardboard(true);
-    applyHHAViewLayers();
-    rotateHintUpdate();
-    await enterFullscreen();
-    await lockLandscape();
-  } else if (mode === 'mobile'){
-    setQS('view','mobile');
-    showCardboard(false);
-    setView('mobile');
-    applyHHAViewLayers();
-    rotateHintUpdate();
-  } else {
-    setQS('view','pc');
-    showCardboard(false);
-    setView('pc');
-    applyHHAViewLayers();
-    rotateHintUpdate();
-  }
+function rotateHintUpdate(){
+  const el = DOC.getElementById('rotateHint');
+  if (!el) return;
+  const portrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
+  const on = DOC.body.classList.contains('cardboard') && portrait;
+  el.hidden = !on;
+}
+
+async function goCardboard(){
+  setView('cvr');
+  showCardboard(true);
+  applyHHAViewLayers();
+  rotateHintUpdate();
+
+  // best effort fs+lock
+  await enterFullscreen();
+  await lockLandscape();
+}
+function goNormal(){
+  showCardboard(false);
+  setView(isMobileUA() ? 'mobile' : 'pc');
+  applyHHAViewLayers();
+  rotateHintUpdate();
+}
+
+function bindRotateHintButtons(){
+  const el = DOC.getElementById('rotateHint');
+  if (!el) return;
+  const rhExit = el.querySelector('#rhExit');
+  const rhEnter = el.querySelector('#rhEnter');
+
+  rhExit?.addEventListener('click', ()=>{
+    goNormal();
+  });
+
+  rhEnter?.addEventListener('click', async ()=>{
+    await goCardboard();
+  });
 }
 
 function bind(){
-  const btnStartQuick = DOC.getElementById('btnStartQuick');
-  const btnHowTo = DOC.getElementById('btnHowTo');
-  const howToBox = DOC.getElementById('howToBox');
-
-  const btnPlayPC = DOC.getElementById('btnPlayPC');
-  const btnPlayMobile = DOC.getElementById('btnPlayMobile');
+  const btnStart = DOC.getElementById('btnStart');
   const btnEnterVR = DOC.getElementById('btnEnterVR');
-
   const btnCardboard = DOC.getElementById('btnCardboard');
   const btnShoot = DOC.getElementById('btnShoot');
   const btnStop = DOC.getElementById('btnStop');
+  const overlay = DOC.getElementById('startOverlay');
 
-  // initial mode
-  const init = pickInitialMode();
-  goMode(init.view === 'cvr' ? 'cvr' : (init.view === 'mobile' ? 'mobile' : 'pc'));
+  // initial view
+  const viewParam = String(qs('view','')).toLowerCase();
+  const startCb = (viewParam === 'cvr') || (String(qs('cardboard','0')) === '1');
+  const view = startCb ? 'cvr' : (isMobileUA() ? 'mobile' : 'pc');
+  setView(view);
+  showCardboard(startCb);
+  applyHHAViewLayers();
+  rotateHintUpdate();
 
-  // Howto toggle
-  btnHowTo?.addEventListener('click', ()=>{
-    if (!howToBox) return;
-    howToBox.hidden = !howToBox.hidden;
-  });
-
-  // Mode select buttons (overlay)
-  btnPlayPC?.addEventListener('click', async ()=>{
-    await goMode('pc');
-    hideOverlay();
+  // Start (normal)
+  btnStart?.addEventListener('click', ()=>{
+    try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
     emit('hha:start');
   });
 
-  btnPlayMobile?.addEventListener('click', async ()=>{
-    await goMode('mobile');
-    hideOverlay();
-    emit('hha:start');
-  });
-
+  // Cardboard enter (from overlay)
   btnEnterVR?.addEventListener('click', async ()=>{
-    await goMode('cvr');
-    hideOverlay();
-    emit('hha:start');
-  });
-
-  // Start quick: start with current mode (whatever set)
-  btnStartQuick?.addEventListener('click', ()=>{
-    hideOverlay();
+    await goCardboard();
+    try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
     emit('hha:start');
   });
 
   // Cardboard toggle (bottom)
   btnCardboard?.addEventListener('click', async ()=>{
     const on = !DOC.body.classList.contains('cardboard');
-    if (on){
-      await goMode('cvr');
-    } else {
-      await goMode(isMobileUA() ? 'mobile' : 'pc');
-    }
+    if (on) await goCardboard();
+    else goNormal();
   });
 
   // SHOOT (button)
   btnShoot?.addEventListener('click', ()=>{
-    if (overlayHidden()) emit('hha:shoot', { src:'btn', t: Date.now() });
+    emit('hha:shoot', { src:'btn', t: Date.now() });
   });
 
   // STOP
@@ -190,7 +166,7 @@ function bind(){
     emit('hha:force_end', { reason:'stop' });
   });
 
-  // Tap anywhere to shoot
+  // Tap anywhere to shoot (mobile convenience)
   let lastTap=0;
   DOC.addEventListener('pointerdown', (ev)=>{
     const t = ev.target;
@@ -200,13 +176,16 @@ function bind(){
     if (now - lastTap < 80) return;
     lastTap = now;
 
-    if (overlayHidden()) emit('hha:shoot', { src:'tap', t: Date.now() });
+    const ovHidden = !overlay || overlay.style.display === 'none' || overlay.hidden || overlay.classList.contains('hide');
+    if (ovHidden) emit('hha:shoot', { src:'tap', t: Date.now() });
   }, { passive:true });
 
+  // keep rotate hint correct
   window.addEventListener('resize', rotateHintUpdate, {passive:true});
   window.addEventListener('orientationchange', rotateHintUpdate);
   DOC.addEventListener('fullscreenchange', rotateHintUpdate);
 
+  // observe class changes (robust)
   const obs = new MutationObserver(()=>{
     applyHHAViewLayers();
     rotateHintUpdate();
@@ -214,25 +193,13 @@ function bind(){
   obs.observe(DOC.body, { attributes:true, attributeFilter:['class'] });
 }
 
-function ensureRotateHintNode(){
-  if (DOC.getElementById('rotateHint')) return;
-  const el = DOC.createElement('div');
-  el.id = 'rotateHint';
-  el.hidden = true;
-  el.style.cssText = `
-    position:fixed; inset:0; z-index:9999;
-    display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.72);
-    color:#fff; text-align:center; padding:24px;
-    font:900 18px/1.35 system-ui;
-  `;
-  el.textContent = 'กรุณาหมุนเครื่องเป็นแนวนอน (Landscape) เพื่อเล่นโหมด VR / Cardboard 📱↔️';
-  DOC.body.appendChild(el);
-}
-
 function boot(){
   ensureRotateHintNode();
+  bindRotateHintButtons();
   bind();
+
+  // load game logic AFTER loader is ready
   import('./hydration.safe.js').catch(console.error);
 }
+
 boot();
