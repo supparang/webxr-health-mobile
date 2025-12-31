@@ -1,105 +1,187 @@
-/* =========================
-   VR COMPACT + LOWTIME (NON-DIZZY)
-   ========================= */
+/* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
+   PATCH (ต่อโหด++): VR layout compact + low-time tick/warning (VR-friendly, ไม่เวียนหัว)
+   ✅ เห็นชัด: Score / Time / Grade
+   ✅ low-time toast + pulse เบา ๆ + urgent flash
+   ✅ ไม่สั่นทั้งจอ (ใช้ toast + ขอบจอ vignette จาก safe.js แทน)
+*/
 
-/* Quest peek modal (always available) */
-.gj-peek{
-  position:fixed;
-  inset:0;
-  z-index:130;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  opacity:0;
-  pointer-events:none;
-  transition: opacity 140ms ease;
-}
-.gj-peek.show{
-  opacity:1;
-  pointer-events:auto;
-}
-.peek-card{
-  width:min(680px, 92vw);
-  background: rgba(2,6,23,.84);
-  border:1px solid rgba(148,163,184,.20);
-  border-radius: 22px;
-  padding:18px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.45);
-}
-.peek-title{ font-size:22px; font-weight:1000; }
-.peek-mini{ margin-top:8px; font-weight:1000; }
-.peek-sub{ margin-top:10px; color:var(--muted); font-weight:900; }
-.peek-tip{ margin-top:10px; color: rgba(148,163,184,.95); font-weight:850; font-size:12px; }
-.peek-close{
-  margin-top:14px;
-  width:100%;
-  height:52px;
-  border-radius:16px;
-  border:1px solid rgba(148,163,184,.20);
-  background: rgba(2,6,23,.60);
-  color: var(--text);
-  font-weight:1000;
-}
-
-/* VR mini hud show/hide */
-body.view-vr #vrMiniHud,
-body.view-cvr #vrMiniHud{
-  display:block !important;
-}
-#vrMiniHud[hidden]{ display:none !important; }
-
-/* Low-time toast */
+/* ---------------------------
+   Low-time Toast (VR-friendly)
+---------------------------- */
 .lowtime-toast{
-  position:fixed;
-  left:12px; right:12px;
-  top: calc(var(--sat) + 54px);
-  z-index:125;
-  display:flex;
-  justify-content:center;
-  pointer-events:none;
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 14px);
+  transform: translateX(-50%);
+  z-index: 120; /* above vignette (65), below end overlay (140) */
+  background: rgba(2,6,23,.72);
+  border: 1px solid rgba(245,158,11,.35);
+  box-shadow: 0 18px 55px rgba(0,0,0,.45);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  padding: 10px 14px;
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  pointer-events: none;
+  max-width: min(92vw, 560px);
 }
 .lowtime-toast[hidden]{ display:none !important; }
-
-.lowtime-card{
-  width:min(520px, 92vw);
-  text-align:center;
-  background: rgba(15,23,42,.72);
-  border:1px solid rgba(245,158,11,.30);
-  border-radius:999px;
-  padding:10px 14px;
-  font-weight:1000;
-  letter-spacing:.2px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.35);
-  transform: translateZ(0);
+.lowtime-dot{
+  width: 10px; height: 10px;
+  border-radius: 999px;
+  background: rgba(245,158,11,.95);
+  box-shadow: 0 0 0 6px rgba(245,158,11,.15);
+}
+.lowtime-text{
+  font-weight: 1000;
+  letter-spacing: .2px;
+  font-size: 14px;
+  color: rgba(255,255,255,.95);
+  white-space: nowrap;
+}
+.lowtime-sub{
+  font-weight: 850;
+  font-size: 12px;
+  color: rgba(148,163,184,.95);
+  white-space: nowrap;
 }
 
-/* Non-dizzy tick: gentle pulse only (no stage shake) */
-@keyframes gjPulse{
-  0%{ transform: scale(1); filter:none; }
-  50%{ transform: scale(1.06); filter: brightness(1.08); }
-  100%{ transform: scale(1); filter:none; }
+/* pulse เบา ๆ เฉพาะ toast (ไม่สั่นทั้งจอ) */
+@keyframes gjTickPulse{
+  0%   { transform: translateX(-50%) scale(1); filter: brightness(1); }
+  45%  { transform: translateX(-50%) scale(1.04); filter: brightness(1.08); }
+  100% { transform: translateX(-50%) scale(1); filter: brightness(1); }
 }
-body.gj-tick .gj-crosshair::before{
-  animation: gjPulse 120ms ease;
-  box-shadow: 0 0 0 7px rgba(245,158,11,.12), 0 0 0 16px rgba(245,158,11,.06);
-  border-color: rgba(245,158,11,.85);
-}
-body.gj-urgent .gj-crosshair::before{
-  box-shadow: 0 0 0 7px rgba(239,68,68,.14), 0 0 0 18px rgba(239,68,68,.07);
-  border-color: rgba(239,68,68,.9);
+body.gj-tick .lowtime-toast{
+  animation: gjTickPulse 120ms ease-out 1;
 }
 
-/* Make toast blink lightly near end */
-@keyframes toastBlink{
-  0%,100%{ opacity:1; }
-  50%{ opacity:.78; }
+/* urgent (<=3s) ให้ชัดขึ้น แต่ยังไม่เวียนหัว */
+@keyframes gjUrgentFlash{
+  0%   { border-color: rgba(239,68,68,.55); box-shadow: 0 18px 55px rgba(0,0,0,.45), 0 0 0 0 rgba(239,68,68,.0); }
+  50%  { border-color: rgba(239,68,68,.85); box-shadow: 0 18px 55px rgba(0,0,0,.45), 0 0 0 10px rgba(239,68,68,.10); }
+  100% { border-color: rgba(239,68,68,.55); box-shadow: 0 18px 55px rgba(0,0,0,.45), 0 0 0 0 rgba(239,68,68,.0); }
 }
-body.gj-lowtime #lowTimeText{
-  animation: toastBlink 500ms ease-in-out infinite;
+body.gj-urgent .lowtime-toast{
+  border-color: rgba(239,68,68,.70);
+  animation: gjUrgentFlash 420ms ease-in-out infinite;
 }
-body.gj-urgent #lowTimeText{
-  border-color: rgba(239,68,68,.32);
-  animation: toastBlink 360ms ease-in-out infinite;
+body.gj-urgent .lowtime-dot{
+  background: rgba(239,68,68,.95);
+  box-shadow: 0 0 0 7px rgba(239,68,68,.12);
+}
+
+/* ลดความสูง toast บนจอเล็ก */
+@media (max-width: 520px){
+  .lowtime-text{ font-size: 13px; }
+  .lowtime-sub{ display:none; }
+}
+
+/* ---------------------------
+   VR layout compact (อ่านง่าย ไม่รก)
+   target: body.view-vr / body.view-cvr
+---------------------------- */
+body.view-vr .hha-hud,
+body.view-cvr .hha-hud{
+  /* HUD ต้องยังอยู่เพื่อเห็น Score/Time/Grade แต่ไม่ให้รก */
+}
+
+body.view-vr .hud-mid,
+body.view-cvr .hud-mid{
+  display:none !important; /* ซ่อน coach+quest แผงใหญ่ (ใช้ Missions + Peek แทน) */
+}
+
+body.view-vr .hud-top,
+body.view-cvr .hud-top{
+  padding-top: calc(env(safe-area-inset-top, 0px) + 6px);
+}
+
+/* แถบปุ่มด้านบน: เอาแค่จำเป็น */
+body.view-vr #viewbar .pill,
+body.view-cvr #viewbar .pill{
+  display:none;
+}
+body.view-vr #btnPeek,
+body.view-vr #btnToggleHud,
+body.view-vr #btnEnterFS,
+body.view-vr #btnEnterVR,
+body.view-cvr #btnPeek,
+body.view-cvr #btnToggleHud,
+body.view-cvr #btnEnterFS,
+body.view-cvr #btnEnterVR{
+  display:inline-flex;
+}
+
+/* ทำปุ่มให้เล็กลงสำหรับ VR */
+body.view-vr #viewbar,
+body.view-cvr #viewbar{
+  gap:8px;
+  margin-top:10px;
+}
+body.view-vr #viewbar .pill,
+body.view-cvr #viewbar .pill{
+  height: 38px;
+  padding: 0 12px;
+  font-weight: 1000;
+  font-size: 13px;
+  border-radius: 999px;
+}
+
+/* HUD stats: เหลือ Score/Time/Grade เท่านั้น */
+body.view-vr .hud-stats .hud-stat,
+body.view-cvr .hud-stats .hud-stat{
+  display:none;
+}
+body.view-vr .hud-stats .hud-stat:nth-child(1),
+body.view-vr .hud-stats .hud-stat:nth-child(4),
+body.view-vr .hud-stats .hud-stat.grade,
+body.view-cvr .hud-stats .hud-stat:nth-child(1),
+body.view-cvr .hud-stats .hud-stat:nth-child(4),
+body.view-cvr .hud-stats .hud-stat.grade{
+  display:flex;
+}
+
+/* ทำกล่องตัวเลขใหญ่ ชัด อ่านง่าย */
+body.view-vr .hud-stats,
+body.view-cvr .hud-stats{
+  gap:10px;
+}
+body.view-vr .hud-stat .k,
+body.view-cvr .hud-stat .k{
+  font-size: 11px;
+  font-weight: 900;
+  color: rgba(148,163,184,.95);
+}
+body.view-vr .hud-stat .v,
+body.view-cvr .hud-stat .v{
+  font-size: 22px;
+  font-weight: 1100;
+  letter-spacing: .3px;
+}
+
+/* badge (ชื่อเกม+meta) ให้กระชับ */
+body.view-vr .hud-badge .hud-title,
+body.view-cvr .hud-badge .hud-title{
+  font-size: 16px;
+  font-weight: 1100;
+}
+body.view-vr .hud-badge .hud-sub,
+body.view-cvr .hud-badge .hud-sub{
+  font-size: 11px;
+  font-weight: 850;
+  opacity: .9;
+}
+
+/* Fever UI: ยังเห็นได้ */
+body.view-vr .hha-fever,
+body.view-cvr .hha-fever{
+  transform: scale(.96);
+  transform-origin: top right;
+}
+
+/* ถ้า HUD ถูกซ่อน: ให้ Peek ยังเปิดได้ (ของคุณทำไว้แล้ว) */
+body.hud-hidden .lowtime-toast{
+  /* low-time ยังต้องเห็นแม้ HUD ซ่อน */
+  opacity: 1;
 }
