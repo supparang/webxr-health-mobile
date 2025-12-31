@@ -1,10 +1,10 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION FINAL
+// Hydration VR Loader — PRODUCTION FINAL (HARD RESET)
 // ✅ Mode select (PC/Mobile/Cardboard) from overlay
 // ✅ Remembers choice in localStorage (HHA_HYDRATION_VIEW)
 // ✅ Fullscreen + landscape lock for Cardboard (on user gesture)
 // ✅ Emits: hha:start, hha:force_end, hha:shoot
-// ✅ Sets window.HHA_VIEW.layers so hydration.safe.js spawns correctly
+// ✅ Forces UI reset on entry: show overlay, hide summary (fix "open from HUB goes to Summary")
 
 'use strict';
 
@@ -36,9 +36,6 @@ function showCardboard(on){
   DOC.body.classList.toggle('cardboard', !!on);
 }
 
-function isFullscreen(){
-  return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
-}
 async function enterFullscreen(){
   try{
     const el = DOC.documentElement;
@@ -104,6 +101,36 @@ function resolveInitialMode(){
   return isMobileUA() ? 'mobile' : 'pc';
 }
 
+/* ✅ HARD RESET UI — กัน open from HUB แล้วไป Summary ทันที */
+function hardResetUI(){
+  const overlay = DOC.getElementById('startOverlay');
+  const summary = DOC.getElementById('resultBackdrop');
+
+  // 1) Always hide summary on load
+  if (summary){
+    summary.hidden = true;
+    summary.style.display = '';   // เผื่อโดน set display:none/auto
+  }
+
+  // 2) Always show overlay on load
+  if (overlay){
+    overlay.classList.remove('hide');
+    overlay.hidden = false;
+    overlay.style.display = '';   // ปล่อยให้ css จัด
+  }
+
+  // 3) Clear any leftover "last summary" open state (บางรุ่นเคยใช้)
+  try{
+    localStorage.removeItem('HHA_SUMMARY_OPEN');
+    localStorage.removeItem('hha_summary_open');
+  }catch(_){}
+
+  // 4) Clear hash that might deep-link to summary
+  try{
+    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  }catch(_){}
+}
+
 function bind(){
   const overlay = DOC.getElementById('startOverlay');
 
@@ -124,24 +151,16 @@ function bind(){
   applyMode(mode);
 
   btnModePC?.addEventListener('click', ()=>{
-    mode = 'pc';
-    pendingEnterVR = false;
-    applyMode(mode);
+    mode = 'pc'; pendingEnterVR = false; applyMode(mode);
   });
-
   btnModeMobile?.addEventListener('click', ()=>{
-    mode = 'mobile';
-    pendingEnterVR = false;
-    applyMode(mode);
+    mode = 'mobile'; pendingEnterVR = false; applyMode(mode);
   });
-
   btnModeVR?.addEventListener('click', ()=>{
-    mode = 'cvr';
-    pendingEnterVR = true; // will do fullscreen on Start
-    applyMode(mode);
+    mode = 'cvr'; pendingEnterVR = true; applyMode(mode);
   });
 
-  // Start (respect selected mode)
+  // Start (ONLY by user click)
   btnStart?.addEventListener('click', async ()=>{
     try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
     if (pendingEnterVR){
@@ -153,9 +172,7 @@ function bind(){
 
   // Enter VR now (select VR + fullscreen + start)
   btnEnterVR?.addEventListener('click', async ()=>{
-    mode = 'cvr';
-    pendingEnterVR = true;
-    applyMode(mode);
+    mode = 'cvr'; pendingEnterVR = true; applyMode(mode);
 
     await enterFullscreen();
     await lockLandscape();
@@ -168,9 +185,7 @@ function bind(){
   btnCardboard?.addEventListener('click', async ()=>{
     const on = !DOC.body.classList.contains('cardboard');
     if (on){
-      mode = 'cvr';
-      pendingEnterVR = true;
-      applyMode(mode);
+      mode = 'cvr'; pendingEnterVR = true; applyMode(mode);
       await enterFullscreen();
       await lockLandscape();
     } else {
@@ -210,6 +225,7 @@ function bind(){
 }
 
 function boot(){
+  hardResetUI();      // ✅ สำคัญมาก
   bind();
   import('./hydration.safe.js').catch(console.error);
 }
