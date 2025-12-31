@@ -1,8 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard (END SUMMARY + VR ENTRY)
-✅ Start gate: starts AFTER pressing "เริ่มเล่น"
-✅ End summary overlay + Back HUB + Play again + Copy JSON
-✅ Toggle HUD + Quest Peek for VR
+GoodJunkVR (PRODUCTION) — HHA Standard
+✅ DOM emoji targets (dual-eye for VR/cVR)
+✅ HUD + Quest + Coach + Fever/Shield
+✅ Boot gate: engine starts ONLY after pressing "เริ่มเล่น"
+✅ Quest Peek (missions visible even when HUD is hidden in VR)
 -->
 
 <!doctype html>
@@ -41,7 +42,9 @@ GoodJunkVR (PRODUCTION) — HHA Standard (END SUMMARY + VR ENTRY)
           <button class="pill" id="btnViewVR" type="button">VR</button>
           <button class="pill" id="btnViewCVR" type="button">cVR</button>
 
-          <button class="pill ghost" id="btnToggleHUD" type="button">HUD</button>
+          <button class="pill ghost" id="btnPeek" type="button">Missions</button>
+          <button class="pill ghost" id="btnToggleHud" type="button">HUD</button>
+
           <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
           <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
         </div>
@@ -93,6 +96,16 @@ GoodJunkVR (PRODUCTION) — HHA Standard (END SUMMARY + VR ENTRY)
     </div>
   </div>
 
+  <!-- ===== Quest Peek (always available) ===== -->
+  <div class="gj-peek" id="gjPeek" aria-hidden="true">
+    <div class="peek-card">
+      <div class="peek-title">🎯 ภารกิจตอนนี้</div>
+      <div class="peek-sub" id="gjPeekGoal">Goal: —</div>
+      <div class="peek-mini" id="gjPeekMini">Mini: —</div>
+      <div class="peek-tip">Tip: โหมด VR ซ่อน HUD ได้ แต่กด “Missions” เพื่อดูภารกิจได้ตลอด</div>
+    </div>
+  </div>
+
   <!-- ===== Playfield (dual-eye) ===== -->
   <div id="gj-stage" aria-label="playfield">
     <div class="gj-eye eye-l" id="eyeL">
@@ -109,7 +122,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard (END SUMMARY + VR ENTRY)
       <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
     </div>
 
-    <!-- end summary placeholder (legacy safe) -->
+    <!-- end summary placeholder -->
     <div id="end-summary"></div>
   </div>
 
@@ -140,36 +153,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard (END SUMMARY + VR ENTRY)
         <span class="muted">Tip: กด “Enter Fullscreen” ก่อนเข้า VR/cVR จะนิ่งกว่า</span>
       </div>
       <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
-    </div>
-  </div>
-
-  <!-- ===== End Summary Overlay (HHA Standard) ===== -->
-  <div id="endOverlay" class="end-overlay" hidden>
-    <div class="end-card">
-      <div class="end-head">
-        <div>
-          <div class="end-title">สรุปผล</div>
-          <div class="end-sub" id="endReason">—</div>
-        </div>
-        <div class="end-grade" id="endGrade">—</div>
-      </div>
-
-      <div class="end-grid">
-        <div class="end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
-        <div class="end-item"><div class="k">ComboMax</div><div class="v" id="endComboMax">0</div></div>
-        <div class="end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
-        <div class="end-item"><div class="k">Goals</div><div class="v" id="endGoals">0/0</div></div>
-        <div class="end-item"><div class="k">Minis</div><div class="v" id="endMinis">0/0</div></div>
-      </div>
-
-      <div class="end-actions">
-        <button id="btnPlayAgain" class="btn-primary" type="button">เล่นอีกครั้ง</button>
-        <button id="btnBackHub" class="btn-ghost" type="button">กลับ HUB</button>
-        <button id="btnCopySummary" class="btn-ghost" type="button">Copy JSON</button>
-      </div>
-
-      <div class="end-foot" id="endMeta2">—</div>
     </div>
   </div>
 </body>
