@@ -1,226 +1,488 @@
 /* === /herohealth/vr-groups/groups-vr.css ===
-Food Groups VR — RUN CSS (Responsive PC/Mobile/cVR)
-✅ 4 views: view-pc / view-mobile / view-vr / view-cvr
-✅ cVR: targets pointer-events OFF (ยิงจากกลางจอด้วย vr-ui -> hha:shoot)
-✅ Safe-area + HUD/Quest/Power/Coach layout ready
-✅ Storm / Urgent / Overdrive / Freeze / Clutch FX hooks
+Food Groups VR — PRODUCTION CSS
+✅ Responsive PC/Mobile/VR
+✅ view-cvr: disable target pointer events (shoot from crosshair)
+✅ Storm urgent / Mini urgent / Clutch / Overdrive / Freeze
+✅ Targets via CSS vars: --x --y --s + dataset emoji
 */
 
 :root{
   color-scheme: dark;
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.72);
+  --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
-
   --accent:#22c55e;
-  --cyan:#22d3ee;
   --warn:#f59e0b;
   --bad:#ef4444;
+  --cyan:#22d3ee;
+  --violet:#a78bfa;
 
-  --radius-lg:18px;
-  --radius-pill:999px;
+  --radius:18px;
+  --pill:999px;
 
-  /* safe-area */
+  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
-
-  /* playfield translate (VR feel) */
-  --vx: 0px;
-  --vy: 0px;
-
-  /* spawn size base */
-  --t-size: 78px;
-
-  /* crosshair */
-  --cross: rgba(226,232,240,.88);
-  --cross2: rgba(34,211,238,.55);
 }
 
 *{ box-sizing:border-box; }
 html,body{
-  margin:0;
   width:100%;
   height:100%;
+  margin:0;
   overflow:hidden;
-  background:var(--bg);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(34,211,238,.16), transparent 60%),
+    radial-gradient(circle at 90% 100%, rgba(167,139,250,.14), transparent 60%),
+    var(--bg);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,sans-serif;
-  touch-action:none;
 }
 
-/* ====== LAYER ====== */
-#fg-layer{
+.xr-scene{
   position:fixed;
   inset:0;
-  transform: translate(var(--vx), var(--vy));
-  will-change: transform;
-  z-index: 10;
-  user-select:none;
-  touch-action:none;
+  z-index:0;
 }
 
-/* ====== TARGETS ====== */
+/* ===== Overlays ===== */
+.overlay{
+  position:fixed;
+  inset:0;
+  z-index:90;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 16px;
+  background: rgba(2,6,23,.68);
+  backdrop-filter: blur(8px);
+}
+.overlay.hidden{ display:none; }
+
+.panel{
+  width:min(720px, 100%);
+  background: linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.72));
+  border:1px solid var(--stroke);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+}
+
+.title{
+  font-weight: 900;
+  font-size: 24px;
+  letter-spacing: .2px;
+  margin-bottom: 6px;
+}
+.sub{
+  color: var(--muted);
+  margin-bottom: 14px;
+  line-height: 1.35;
+}
+.hr{
+  height:1px;
+  background: var(--stroke);
+  margin: 14px 0;
+}
+
+.row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.row2{ margin-top: 12px; }
+
+.btn{
+  appearance:none;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.65);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+  cursor:pointer;
+  transition: transform .08s ease, border-color .12s ease, background .12s ease;
+}
+.btn:active{ transform: translateY(1px) scale(.99); }
+.btn:hover{ border-color: rgba(148,163,184,.35); }
+
+.btn-strong{
+  background: linear-gradient(180deg, rgba(34,197,94,.25), rgba(34,197,94,.10));
+  border-color: rgba(34,197,94,.35);
+}
+.btn-ghost{
+  background: rgba(15,23,42,.35);
+}
+
+.grid2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+@media (max-width:680px){
+  .grid2{ grid-template-columns:1fr; }
+}
+
+.kv .k{
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+.kv .v{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.chip{
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  color: var(--text);
+  border-radius: var(--pill);
+  padding: 8px 12px;
+  cursor:pointer;
+  font-weight: 900;
+  font-size: 13px;
+}
+.chip-on{
+  border-color: rgba(34,197,94,.42);
+  background: rgba(34,197,94,.16);
+}
+.input{
+  width: 110px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  color:var(--text);
+  font-weight: 900;
+}
+.hint{ color: var(--muted); font-weight:800; }
+
+.note{
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* ===== HUD ===== */
+.hud{
+  position:fixed;
+  left: calc(12px + var(--sal));
+  right: calc(12px + var(--sar));
+  top: calc(10px + var(--sat));
+  z-index:30;
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  pointer-events:none;
+}
+
+.hudLeft, .hudRight{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.pill{
+  background: rgba(2,6,23,.72);
+  border:1px solid var(--stroke);
+  border-radius: var(--pill);
+  padding: 8px 10px;
+  display:flex;
+  gap:8px;
+  align-items:center;
+  backdrop-filter: blur(8px);
+}
+.lbl{
+  font-size: 11px;
+  letter-spacing: .4px;
+  color: var(--muted);
+  font-weight: 900;
+}
+.val{
+  font-weight: 1000;
+  font-size: 14px;
+}
+.tag{
+  margin-left:6px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: var(--pill);
+  border:1px solid var(--stroke);
+  background: rgba(15,23,42,.55);
+  font-weight: 900;
+}
+
+/* ===== Quest ===== */
+.questTop{
+  position:fixed;
+  top: calc(62px + var(--sat));
+  right: calc(12px + var(--sar));
+  z-index:25;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  width: min(340px, 92vw);
+  pointer-events:none;
+}
+
+.questCard{
+  background: rgba(2,6,23,.72);
+  border:1px solid var(--stroke);
+  border-radius: 18px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+}
+.qTitle{
+  font-weight: 1000;
+  letter-spacing: .3px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom: 8px;
+}
+.qSub{
+  margin-top: 8px;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 12px;
+  line-height:1.25;
+}
+.miniTime{
+  color: var(--warn);
+  font-weight: 1000;
+}
+
+.bar{
+  height: 10px;
+  border-radius: var(--pill);
+  background: rgba(148,163,184,.14);
+  overflow:hidden;
+  border:1px solid rgba(148,163,184,.18);
+}
+.fill{
+  height:100%;
+  width:0%;
+  border-radius: var(--pill);
+  background: linear-gradient(90deg, rgba(34,197,94,.85), rgba(34,197,94,.35));
+}
+
+/* ===== Power ===== */
+.powerWrap{
+  position:fixed;
+  left: calc(12px + var(--sal));
+  bottom: calc(12px + var(--sab));
+  z-index:25;
+  width: min(360px, 92vw);
+  pointer-events:none;
+}
+.powerCard{
+  background: rgba(2,6,23,.72);
+  border:1px solid var(--stroke);
+  border-radius: 18px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+}
+.pHead{
+  font-weight: 1000;
+  margin-bottom: 8px;
+}
+.powerBar .fill{
+  background: linear-gradient(90deg, rgba(34,211,238,.9), rgba(167,139,250,.55));
+}
+.pFoot{
+  margin-top: 8px;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+/* ===== Coach ===== */
+.coachWrap{
+  position:fixed;
+  left: calc(12px + var(--sal));
+  top: calc(118px + var(--sat));
+  z-index:24;
+  width: min(360px, 92vw);
+  pointer-events:none;
+}
+.coachCard{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  background: rgba(2,6,23,.62);
+  border:1px solid var(--stroke);
+  border-radius: 18px;
+  padding: 10px;
+  backdrop-filter: blur(8px);
+}
+.coachImg{
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,.35));
+}
+.coachBubble{
+  flex:1;
+  min-width:0;
+}
+.coachName{
+  font-weight: 1000;
+  letter-spacing:.2px;
+  margin-bottom: 4px;
+}
+.coachText{
+  color: var(--text);
+  font-weight: 800;
+  line-height: 1.25;
+  font-size: 13px;
+}
+
+/* ===== Play Layer ===== */
+.playLayer{
+  position:fixed;
+  inset:0;
+  z-index:10;
+  transform: translate(var(--vx,0px), var(--vy,0px));
+  will-change: transform;
+}
+
+/* targets */
 .fg-target{
   position:absolute;
   left: var(--x, 50%);
   top:  var(--y, 50%);
-  transform: translate(-50%,-50%) scale(var(--s, 1));
-  width: var(--t-size);
-  height: var(--t-size);
-  border-radius: 22px;
-  display:grid;
-  place-items:center;
-  font-size: 44px;
-  line-height: 1;
-  background: rgba(15,23,42,.55);
-  border: 1px solid rgba(148,163,184,.16);
-  box-shadow: 0 18px 55px rgba(0,0,0,.35);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  cursor: pointer;
-  transition: transform .16s ease, filter .16s ease, opacity .16s ease, box-shadow .16s ease;
+  transform: translate(-50%,-50%) scale(var(--s,1));
+  width: 84px;
+  height: 84px;
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(15,23,42,.70);
+  border: 1px solid rgba(148,163,184,.22);
+  box-shadow:
+    0 10px 28px rgba(0,0,0,.25),
+    inset 0 0 0 2px rgba(255,255,255,.06);
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.fg-target::after{
+.fg-target::before{
   content: attr(data-emoji);
-  transform: translateY(1px);
+  font-size: 40px;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
 }
 
-.fg-target.spawn{ animation: fgPop .14s ease-out both; }
-@keyframes fgPop{
-  from{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .75)); opacity:.2; }
-  to  { transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
+.fg-target.spawn{
+  animation: popIn .12s ease-out;
+}
+@keyframes popIn{
+  from{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*0.82)); opacity:.2; }
+  to{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
+}
+.fg-target.hit{
+  animation: popOut .18s ease-in;
+}
+@keyframes popOut{
+  to{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.2)); opacity:0; }
+}
+.fg-target.out{
+  opacity:.18;
+  filter: blur(.6px);
 }
 
-.fg-target.hit{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)); }
-.fg-target.out{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1) * .85)); }
-
-/* type colors */
-.fg-good{ box-shadow: 0 18px 55px rgba(34,197,94,.16), 0 18px 55px rgba(0,0,0,.28); }
-.fg-wrong{ box-shadow: 0 18px 55px rgba(245,158,11,.16), 0 18px 55px rgba(0,0,0,.28); }
-.fg-junk{ box-shadow: 0 18px 55px rgba(239,68,68,.18), 0 18px 55px rgba(0,0,0,.28); }
-.fg-decoy{ box-shadow: 0 18px 55px rgba(168,85,247,.14), 0 18px 55px rgba(0,0,0,.28); }
-
+/* type accent */
+.fg-good{ border-color: rgba(34,197,94,.38); }
+.fg-wrong{ border-color: rgba(245,158,11,.40); }
+.fg-junk{ border-color: rgba(239,68,68,.45); }
+.fg-decoy{ border-color: rgba(167,139,250,.40); }
 .fg-boss{
-  border-radius: 26px;
-  width: calc(var(--t-size) * 1.15);
-  height: calc(var(--t-size) * 1.15);
-  box-shadow: 0 22px 70px rgba(245,158,11,.18), 0 22px 70px rgba(0,0,0,.35);
-  border: 1px solid rgba(245,158,11,.25);
+  width: 98px; height: 98px;
+  border-color: rgba(34,211,238,.55);
+  box-shadow: 0 14px 38px rgba(0,0,0,.28), 0 0 0 2px rgba(34,211,238,.20) inset;
 }
-.fg-boss.fg-boss-hurt{ filter: saturate(1.2) brightness(1.1); }
-.fg-boss.fg-boss-weak{
-  outline: 2px solid rgba(239,68,68,.35);
-  box-shadow: 0 22px 70px rgba(239,68,68,.14), 0 22px 70px rgba(0,0,0,.35);
+.fg-boss::before{ font-size: 44px; }
+.fg-boss-hurt{ animation: bossHurt .18s ease; }
+@keyframes bossHurt{
+  0%{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.05)); }
+  100%{ transform: translate(-50%,-50%) scale(var(--s,1)); }
+}
+.fg-boss-weak{
+  border-color: rgba(239,68,68,.55);
+  box-shadow: 0 0 0 2px rgba(239,68,68,.18) inset, 0 16px 40px rgba(0,0,0,.32);
 }
 
-/* ====== GLOBAL STATES (body classes) ====== */
+/* view modes */
+body.view-cvr .fg-target{ pointer-events:none; } /* important */
+body.view-vr .fg-target{ cursor:default; }
+body.view-mobile .fg-target{ width: 90px; height: 90px; }
+body.view-mobile .fg-target::before{ font-size: 42px; }
+
+@media (max-width:420px){
+  .coachWrap{ top: calc(108px + var(--sat)); }
+  .questTop{ top: calc(58px + var(--sat)); width: min(320px, 92vw); }
+}
+
+/* ===== FX states ===== */
 body.groups-storm{
   background:
-    radial-gradient(circle at 10% 10%, rgba(34,211,238,.12), transparent 55%),
-    radial-gradient(circle at 90% 85%, rgba(239,68,68,.10), transparent 60%),
+    radial-gradient(circle at 50% 30%, rgba(34,211,238,.18), transparent 65%),
+    radial-gradient(circle at 50% 110%, rgba(167,139,250,.14), transparent 62%),
     var(--bg);
 }
-body.groups-storm #fg-layer{ filter: saturate(1.1) contrast(1.05); }
+body.groups-storm .fg-target{
+  box-shadow: 0 14px 36px rgba(0,0,0,.28), inset 0 0 0 2px rgba(255,255,255,.06);
+}
 
 body.groups-storm-urgent{
-  animation: stormPulse .45s infinite alternate;
+  animation: urgentPulse .55s ease-in-out infinite;
 }
-@keyframes stormPulse{
-  from{ filter: none; }
-  to{ filter: saturate(1.2) brightness(1.06); }
-}
-
-body.groups-overdrive #fg-layer{ filter: saturate(1.25) brightness(1.06); }
-body.groups-freeze #fg-layer{ filter: saturate(.85) brightness(.98); }
-
-body.clutch .hud .box{
-  box-shadow: 0 18px 65px rgba(239,68,68,.14);
-  border-color: rgba(239,68,68,.22);
+@keyframes urgentPulse{
+  0%,100%{ filter: saturate(1.0); }
+  50%{ filter: saturate(1.35); }
 }
 
-/* ====== VIEW MODES ====== */
-body.view-pc{ --t-size: 82px; }
-body.view-mobile{ --t-size: 76px; }
-body.view-vr{ --t-size: 82px; }
-body.view-cvr{ --t-size: 86px; }
+body.mini-urgent .questCard:last-child{
+  border-color: rgba(245,158,11,.45);
+  box-shadow: 0 0 0 2px rgba(245,158,11,.14) inset;
+}
 
-/* Cardboard mode: ยิงจากกลางจอ → ปิดการจิ้มเป้าตรงๆ */
-body.view-cvr .fg-target{ pointer-events:none; }
+body.clutch .pill{
+  border-color: rgba(245,158,11,.35);
+}
+body.groups-overdrive .pill{
+  border-color: rgba(34,197,94,.35);
+}
+body.groups-overdrive .fg-target{
+  box-shadow: 0 14px 36px rgba(0,0,0,.28), 0 0 0 2px rgba(34,197,94,.18) inset;
+}
 
-/* ====== VR Crosshair (fallback simple) ====== */
-.hha-crosshair{
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  width: 18px;
-  height: 18px;
-  transform: translate(-50%,-50%);
-  z-index: 120;
-  pointer-events:none;
-  display:none;
+body.groups-freeze .fg-target{
+  filter: saturate(.85) brightness(.95);
+  box-shadow: 0 14px 36px rgba(0,0,0,.28), 0 0 0 2px rgba(34,211,238,.14) inset;
 }
-.hha-crosshair::before,
-.hha-crosshair::after{
-  content:'';
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform: translate(-50%,-50%);
-  border-radius:999px;
-}
-.hha-crosshair::before{
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--cross);
-  box-shadow: 0 0 0 6px rgba(34,211,238,.08);
-}
-.hha-crosshair::after{
-  width: 4px;
-  height: 4px;
-  background: var(--cross2);
-}
-body.view-cvr .hha-crosshair{ display:block; }
 
-/* ====== VR Buttons (fallback, vr-ui.js can override) ====== */
-.hha-vrbar{
-  position: fixed;
-  left: calc(10px + var(--sal));
-  bottom: calc(10px + var(--sab));
-  z-index: 130;
-  display:flex;
-  gap:10px;
-}
-.hha-vrbar button{
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.68);
-  color: var(--text);
-  border-radius: 999px;
-  padding: 10px 12px;
+/* End overlay smaller tweaks */
+.overlay-end .panel{ max-width: 540px; }
+.stat .k{
+  color: var(--muted);
   font-weight: 900;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: .4px;
 }
-.hha-vrbar button.primary{
-  border: 0;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.90));
-  color:#061018;
-}
-
-/* small screens */
-@media (max-width: 520px){
-  body.view-mobile{ --t-size: 72px; }
-  body.view-cvr{ --t-size: 82px; }
-  .hha-vrbar button{ padding: 10px 11px; font-size: 13px; }
-}
-
-/* very short screens */
-@media (max-height: 640px){
-  body.view-cvr{ --t-size: 78px; }
+.stat .v{
+  font-size: 22px;
+  font-weight: 1000;
+  margin-top: 4px;
 }
