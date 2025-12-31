@@ -1,10 +1,9 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard
-✅ DOM emoji targets (dual-eye for VR/cVR)
-✅ HUD (Score/Combo/Miss/Time/Grade) + Quest + Coach + Fever/Shield
-✅ Boot gate: engine starts ONLY after pressing "เริ่มเล่น"
-✅ Quest Peek (missions visible even when HUD is hidden in VR)
-✅ VR Hint + Low-time Toast placeholder
+GoodJunkVR (PRODUCTION) — HHA Standard + VR UI Standard + VR Compact + Low-time Warning + End Summary
+✅ Uses /vr/vr-ui.js (ENTER VR/EXIT/RECENTER + hha:shoot)
+✅ VR Compact HUD (Score/Time/Grade)
+✅ low-time tick + warning (VR-friendly)
+✅ End Summary overlay + flush-hardened Back HUB
 -->
 
 <!doctype html>
@@ -19,17 +18,37 @@ GoodJunkVR (PRODUCTION) — HHA Standard
   <!-- UI -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
-  <!-- Global FX + Fever + HUD + Logger -->
+  <!-- Global FX + Fever + HUD + Logger + Universal VR UI -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
+  <script src="./vr/vr-ui.js" defer></script>
 
   <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
+  <!-- ===== VR COMPACT HUD (shown in VR/cVR) ===== -->
+  <div class="vr-compact-hud" id="vrCompactHud" aria-hidden="true">
+    <div class="vc-row">
+      <div class="vc-pill"><span>Score</span><b id="vcScore">0</b></div>
+      <div class="vc-pill"><span>Time</span><b id="vcTime">0</b></div>
+      <div class="vc-pill"><span>Grade</span><b id="vcGrade">—</b></div>
+      <button class="vc-btn" id="btnVCPeek" type="button">Missions</button>
+    </div>
+  </div>
+
+  <!-- ===== Low-time toast (VR-friendly) ===== -->
+  <div class="lowtime-toast" id="lowTimeToast" hidden>
+    <div class="lowtime-card">
+      <div class="lt-title">⏳ ใกล้หมดเวลา</div>
+      <div class="lt-time"><b id="lowTimeSec">10</b> วินาที</div>
+      <div class="lt-sub">เล็งกลางแล้วยิงต่อเนื่อง</div>
+    </div>
+  </div>
+
   <!-- ===== HUD ===== -->
   <div class="hha-hud">
     <div class="hud-top">
@@ -103,7 +122,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="peek-title">🎯 ภารกิจตอนนี้</div>
       <div class="peek-sub" id="gjPeekGoal">Goal: —</div>
       <div class="peek-mini" id="gjPeekMini">Mini: —</div>
-      <div class="peek-tip">Tip: โหมด VR ซ่อน HUD ได้ แต่กด “Missions” เพื่อดูภารกิจได้ตลอด</div>
+      <div class="peek-tip">Tip: VR ซ่อน HUD ได้ แต่กด “Missions” เพื่อดูภารกิจได้ตลอด</div>
     </div>
   </div>
 
@@ -112,18 +131,14 @@ GoodJunkVR (PRODUCTION) — HHA Standard
     <div class="gj-eye eye-l" id="eyeL">
       <div class="gj-layer" id="gj-layer-l" aria-label="targets layer left"></div>
       <div class="gj-crosshair" id="gj-crosshair-l" aria-hidden="true"></div>
-      <div class="atk-ring" id="atk-ring-l" aria-hidden="true"></div>
-      <div class="atk-laser" id="atk-laser-l" aria-hidden="true"></div>
     </div>
 
     <div class="gj-eye eye-r" id="eyeR" aria-hidden="true">
       <div class="gj-layer" id="gj-layer-r" aria-label="targets layer right"></div>
       <div class="gj-crosshair" id="gj-crosshair-r" aria-hidden="true"></div>
-      <div class="atk-ring" id="atk-ring-r" aria-hidden="true"></div>
-      <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
     </div>
 
-    <!-- end summary placeholder -->
+    <!-- legacy safe -->
     <div id="end-summary"></div>
   </div>
 
@@ -151,17 +166,40 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="vr-title">โหมด VR/การ์ดบอร์ด</div>
       <div class="vr-desc">
         กรุณาหมุนจอเป็น <b>แนวนอน</b> เพื่อให้เป้าอยู่ระดับสายตา<br/>
-        <span class="muted">Tip: กด “Enter Fullscreen” ก่อนเข้า VR/cVR จะนิ่งกว่า</span>
+        <span class="muted">Tip: กด Fullscreen ก่อนเข้า VR/cVR จะนิ่งกว่า</span>
       </div>
       <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
     </div>
   </div>
 
-  <!-- ===== Low-time Toast (VR-friendly) ===== -->
-  <div id="lowTimeToast" class="lowtime-toast" hidden aria-hidden="true">
-    <div class="lowtime-dot" aria-hidden="true"></div>
-    <div class="lowtime-text" id="lowTimeText">⏱️ เหลือ 10 วิ</div>
-    <div class="lowtime-sub">ยิงเร็วแต่ชัวร์ 🎯</div>
+  <!-- ===== End Summary Overlay (HHA Standard) ===== -->
+  <div id="endOverlay" class="end-overlay" hidden>
+    <div class="end-card">
+      <div class="end-head">
+        <div>
+          <div class="end-title">สรุปผล</div>
+          <div class="end-sub" id="endReason">—</div>
+        </div>
+        <div class="end-grade" id="endGrade">—</div>
+      </div>
+
+      <div class="end-grid">
+        <div class="end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
+        <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
+        <div class="end-item"><div class="k">ComboMax</div><div class="v" id="endComboMax">0</div></div>
+        <div class="end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">Goals</div><div class="v" id="endGoals">0/0</div></div>
+        <div class="end-item"><div class="k">Minis</div><div class="v" id="endMinis">0/0</div></div>
+      </div>
+
+      <div class="end-actions">
+        <button id="btnPlayAgain" class="btn-primary" type="button">เล่นอีกครั้ง</button>
+        <button id="btnBackHub" class="btn-ghost" type="button">กลับ HUB</button>
+        <button id="btnCopySummary" class="btn-ghost" type="button">Copy JSON</button>
+      </div>
+
+      <div class="end-foot" id="endMeta2">—</div>
+    </div>
   </div>
 </body>
 </html>
