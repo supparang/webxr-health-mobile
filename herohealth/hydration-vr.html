@@ -1,9 +1,8 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration VR — ROOT ENTRY (PRODUCTION) vNext
-✅ มีตัวเลือกโหมดชัดเจน PC / Mobile / VR Cardboard
-✅ กันเด้งไป Summary เอง (force-hide resultBackdrop on load)
-✅ ใช้ไฟล์แยกใน /hydration-vr/ + loader เป็นตัวคุม view
-✅ โหลด global FX + logger + coach-manager
+Hydration VR — ROOT ENTRY (PRODUCTION) v2
+✅ เพิ่ม Launcher Overlay: เลือก PC/Mobile/Cardboard + run/diff/time ก่อนเริ่ม
+✅ หลังเลือกแล้วค่อยไป Start Overlay (เดิม) และส่งค่าผ่าน query params
+✅ เข้ากับ hydration-vr.loader.js (อ่าน view/cardboard) + hydration.safe.js (อ่าน run/diff/time)
 -->
 
 <!doctype html>
@@ -25,43 +24,193 @@ Hydration VR — ROOT ENTRY (PRODUCTION) vNext
   <!-- Hydration CSS -->
   <link rel="stylesheet" href="./hydration-vr/hydration-vr.css" />
 
-  <!-- HARDEN: ensure Summary not auto-visible -->
-  <script>
-    (function(){
-      try{
-        // force-hide summary on initial load (prevents "open from hub -> summary 0")
-        const hide = ()=> {
-          const bd = document.getElementById('resultBackdrop');
-          if (bd) bd.hidden = true;
-        };
-        document.addEventListener('DOMContentLoaded', hide);
-        window.addEventListener('pageshow', hide);
-      }catch(_){}
-    })();
-  </script>
+  <style>
+    /* Launcher overlay sits above startOverlay */
+    #launcherOverlay{ z-index:220; }
+    .hha-launcher-card{
+      width:min(720px, 94vw);
+      border-radius: 24px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.90);
+      box-shadow: 0 30px 120px rgba(0,0,0,.68);
+      padding: 16px;
+    }
+    .hha-launcher-top{
+      display:flex; align-items:flex-start; justify-content:space-between;
+      gap:12px; flex-wrap:wrap;
+      padding: 4px 4px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.10);
+    }
+    .hha-launcher-top .title{
+      font-weight: 1000;
+      font-size: 20px;
+      letter-spacing:.3px;
+    }
+    .hha-launcher-top .sub{
+      color: rgba(148,163,184,.95);
+      margin-top: 6px;
+      line-height:1.35;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .hha-launcher-grid{
+      display:grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+      padding: 12px 4px 4px;
+    }
+    .hha-field{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(15,23,42,.45);
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .hha-field h4{
+      margin:0 0 8px;
+      font-size: 13px;
+      font-weight: 1000;
+      color: rgba(226,232,240,.95);
+      letter-spacing:.2px;
+      display:flex; gap:8px; align-items:center;
+    }
+    .hha-row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .hha-chip{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color: rgba(226,232,240,.95);
+      padding: 10px 12px;
+      border-radius: 999px;
+      font-weight: 1000;
+      cursor:pointer;
+      user-select:none;
+    }
+    .hha-chip.active{
+      border-color: rgba(34,197,94,.45);
+      background: rgba(34,197,94,.14);
+    }
+    .hha-select{
+      width:100%;
+      border-radius: 14px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
+      color: rgba(226,232,240,.95);
+      padding: 10px 12px;
+      font-weight: 900;
+      outline:none;
+    }
+    .hha-mini{
+      font-size: 12px;
+      color: rgba(148,163,184,.95);
+      font-weight: 800;
+      margin-top: 8px;
+      line-height:1.35;
+    }
+    .hha-launcher-actions{
+      display:flex;
+      justify-content:space-between;
+      gap: 10px;
+      flex-wrap:wrap;
+      padding: 12px 4px 4px;
+    }
+    .hha-launcher-actions .left, .hha-launcher-actions .right{
+      display:flex; gap:10px; flex-wrap:wrap;
+    }
+    @media (max-width: 820px){
+      .hha-launcher-grid{ grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 
 <body class="view-pc">
-  <!-- Start Overlay (MODE SELECT) -->
-  <div id="startOverlay" class="hha-overlay">
+
+  <!-- ================= LAUNCHER (NEW) ================= -->
+  <div id="launcherOverlay" class="hha-overlay">
+    <div class="hha-launcher-card">
+      <div class="hha-launcher-top">
+        <div>
+          <div class="title">Hydration VR 💧 — เลือกโหมดก่อนเข้าเล่น</div>
+          <div class="sub">
+            เลือก “อุปกรณ์ + โหมดเล่น + ความยาก + เวลา” แล้วค่อยเริ่มเกม<br/>
+            <b>Tip:</b> ถ้าเล่น Cardboard ให้ใช้ปุ่ม “📦 เข้า VR” เพื่อเข้า fullscreen/ล็อกแนวนอน
+          </div>
+        </div>
+        <div class="muted" style="font-weight:900">
+          Seed: <span id="seedPreview">auto</span>
+        </div>
+      </div>
+
+      <div class="hha-launcher-grid">
+        <div class="hha-field">
+          <h4>🕹️ อุปกรณ์ / มุมมอง</h4>
+          <div class="hha-row">
+            <button class="hha-chip active" data-view="pc" id="chipPc">🖥 PC</button>
+            <button class="hha-chip" data-view="mobile" id="chipMobile">📱 Mobile</button>
+            <button class="hha-chip" data-view="cvr" id="chipCvr">📦 VR Cardboard</button>
+          </div>
+          <div class="hha-mini">
+            • PC/Mobile: ยิงได้ด้วย “คลิกเป้า” + ปุ่ม 🎯 SHOOT + tap-to-shoot<br/>
+            • Cardboard: ยิงด้วยปุ่ม 🎯 SHOOT (เล็งกลางตา/reticle)
+          </div>
+        </div>
+
+        <div class="hha-field">
+          <h4>🧪 โหมดวิจัย / เล่น</h4>
+          <select id="selRun" class="hha-select">
+            <option value="play">PLAY (Adaptive ON)</option>
+            <option value="research">RESEARCH (Adaptive OFF)</option>
+          </select>
+
+          <div style="height:10px"></div>
+
+          <h4>🎚 ความยาก</h4>
+          <select id="selDiff" class="hha-select">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+
+          <div style="height:10px"></div>
+
+          <h4>⏱ เวลา</h4>
+          <select id="selTime" class="hha-select">
+            <option value="50">50s</option>
+            <option value="70" selected>70s</option>
+            <option value="90">90s</option>
+            <option value="120">120s</option>
+          </select>
+
+          <div class="hha-mini">
+            * เวลา/ความยาก ส่งต่อให้ระบบ Quest + AI Coach + Summary
+          </div>
+        </div>
+      </div>
+
+      <div class="hha-launcher-actions">
+        <div class="left">
+          <button class="hha-btn" id="btnUseUrl">🔗 ใช้ค่าจาก URL</button>
+          <button class="hha-btn" id="btnDefaults">↩ ค่าเริ่มต้น</button>
+        </div>
+        <div class="right">
+          <button class="hha-btn" id="btnGoStart">➡ ไปหน้าเริ่มเกม</button>
+          <button class="hha-btn primary" id="btnGoStartNow">▶ เริ่มเลย (ตามโหมดที่เลือก)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= START OVERLAY (เดิม) ================= -->
+  <div id="startOverlay" class="hha-overlay" style="z-index:200; display:none">
     <div class="hha-overlay-card">
       <div class="hha-title">Hydration VR 💧</div>
       <div class="hha-sub">
-        เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> (สะสม) และเก็บ 🛡️ เพื่อ <b>BLOCK</b> ช่วงท้ายพายุ
+        เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> และเก็บ 🛡️ ไว้ <b>BLOCK</b> ตอนท้ายพายุ
       </div>
-
       <div class="hha-overlay-actions">
-        <!-- PC / Mobile start (same start, loader picks view automatically) -->
-        <button id="btnStart" class="hha-btn primary">🖥️/📱 เริ่มเล่น (PC/Mobile)</button>
-
-        <!-- Cardboard -->
-        <button id="btnEnterVR" class="hha-btn">🕶️ เล่นโหมด VR (Cardboard)</button>
+        <button id="btnStart" class="hha-btn primary">▶ เริ่มเล่น</button>
+        <button id="btnEnterVR" class="hha-btn">📦 เข้า VR (Cardboard)</button>
       </div>
-
-      <div class="hha-hint">
-        • ถ้าเล่น VR: แนะนำหมุนจอแนวนอนก่อน แล้วกด “VR (Cardboard)”<br/>
-        • ระหว่างเล่น: กด “📦 CARDBOARD” สลับโหมดได้
-      </div>
+      <div class="hha-hint" id="startHint">* เลือกโหมดจากหน้าเมื่อกี้แล้ว</div>
     </div>
   </div>
 
@@ -79,21 +228,20 @@ Hydration VR — ROOT ENTRY (PRODUCTION) vNext
   <!-- MAIN -->
   <main class="hha-main">
     <!-- NORMAL PLAYFIELD -->
-    <section id="playfield" class="hha-playfield" aria-label="playfield-normal">
+    <section id="playfield" class="hha-playfield">
       <div id="hydration-layer" class="hha-layer"></div>
-      <div class="hha-crosshair" aria-hidden="true"></div>
     </section>
 
     <!-- CARDBOARD PLAYFIELD -->
-    <section id="cbPlayfield" class="hha-playfield cb" aria-label="playfield-cardboard">
+    <section id="cbPlayfield" class="hha-playfield cb">
       <div class="cb-eyes">
         <div class="eye">
           <div id="hydration-layerL" class="hha-layer"></div>
-          <div class="reticle" aria-hidden="true"></div>
+          <div class="reticle"></div>
         </div>
         <div class="eye">
           <div id="hydration-layerR" class="hha-layer"></div>
-          <div class="reticle" aria-hidden="true"></div>
+          <div class="reticle"></div>
         </div>
       </div>
     </section>
@@ -107,7 +255,7 @@ Hydration VR — ROOT ENTRY (PRODUCTION) vNext
           <div>Zone <b id="water-zone">GREEN</b></div>
           <div><b id="water-pct">50</b>%</div>
         </div>
-        <div class="muted">Goal: GREEN (สะสม) • Mini: LOW/HIGH + BLOCK (End Window)</div>
+        <div class="muted">Goal: GREEN (สะสม) • Mini: LOW/HIGH + BLOCK</div>
       </div>
 
       <div class="hha-card">
@@ -187,7 +335,137 @@ Hydration VR — ROOT ENTRY (PRODUCTION) vNext
     </div>
   </div>
 
-  <!-- LOADER (imports hydration.safe.js inside) -->
+  <!-- LOADER -->
   <script type="module" src="./hydration-vr/hydration-vr.loader.js"></script>
+
+  <!-- ============ Launcher Logic (inline) ============ -->
+  <script>
+    (function(){
+      const D = document;
+      const launcher = D.getElementById('launcherOverlay');
+      const startOverlay = D.getElementById('startOverlay');
+      const startHint = D.getElementById('startHint');
+
+      const selRun = D.getElementById('selRun');
+      const selDiff = D.getElementById('selDiff');
+      const selTime = D.getElementById('selTime');
+
+      const chipPc = D.getElementById('chipPc');
+      const chipMobile = D.getElementById('chipMobile');
+      const chipCvr = D.getElementById('chipCvr');
+      let view = 'pc';
+
+      function q(){
+        try{ return new URL(location.href); }catch(_){ return null; }
+      }
+      function setChipActive(v){
+        view = v;
+        [chipPc, chipMobile, chipCvr].forEach(b=>b && b.classList.remove('active'));
+        const map = { pc: chipPc, mobile: chipMobile, cvr: chipCvr };
+        map[v]?.classList.add('active');
+      }
+      function pullFromUrl(){
+        const u = q(); if(!u) return;
+        const run = (u.searchParams.get('run') || u.searchParams.get('runMode') || 'play').toLowerCase();
+        const diff = (u.searchParams.get('diff') || 'normal').toLowerCase();
+        const time = String(u.searchParams.get('time') || u.searchParams.get('durationPlannedSec') || '70');
+        const v = (u.searchParams.get('view') || '').toLowerCase();
+        const cb = (u.searchParams.get('cardboard') === '1') || (v === 'cvr');
+
+        if (selRun) selRun.value = (run === 'research') ? 'research' : 'play';
+        if (selDiff) selDiff.value = (diff === 'easy' || diff === 'hard') ? diff : 'normal';
+        if (selTime) selTime.value = ['50','70','90','120'].includes(time) ? time : '70';
+
+        setChipActive(cb ? 'cvr' : (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mobile' : 'pc'));
+
+        const sp = D.getElementById('seedPreview');
+        if (sp){
+          const seed = u.searchParams.get('seed') || (u.searchParams.get('sessionId') || u.searchParams.get('studentKey') || '') + '|' + (u.searchParams.get('ts') || '');
+          sp.textContent = seed ? seed : 'auto';
+        }
+      }
+      function defaults(){
+        if (selRun) selRun.value = 'play';
+        if (selDiff) selDiff.value = 'normal';
+        if (selTime) selTime.value = '70';
+        setChipActive(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mobile' : 'pc');
+      }
+
+      function applyParamsToUrl(){
+        const u = q(); if(!u) return null;
+        u.searchParams.set('run', selRun?.value || 'play');
+        u.searchParams.set('diff', selDiff?.value || 'normal');
+        u.searchParams.set('time', selTime?.value || '70');
+        u.searchParams.set('ts', String(Date.now()));
+
+        if (view === 'cvr'){
+          u.searchParams.set('view', 'cvr');
+          u.searchParams.set('cardboard', '1');
+        } else {
+          u.searchParams.delete('cardboard');
+          u.searchParams.set('view', view);
+        }
+        // mark that user has chosen options
+        u.searchParams.set('chosen', '1');
+        return u;
+      }
+
+      function goStart(showNow){
+        const u = applyParamsToUrl();
+        if (!u) return;
+
+        // update URL without reload (keeps hub link etc.)
+        history.replaceState({}, '', u.toString());
+
+        // show Start Overlay
+        if (launcher) launcher.style.display = 'none';
+        if (startOverlay){
+          startOverlay.style.display = '';
+          startOverlay.classList.remove('hide');
+        }
+
+        const msg =
+          `Mode: ${view.toUpperCase()} • Run: ${(selRun?.value||'play').toUpperCase()} • Diff: ${(selDiff?.value||'normal').toUpperCase()} • Time: ${(selTime?.value||'70')}s`;
+        if (startHint) startHint.textContent = msg;
+
+        if (showNow){
+          // If user chose cvr, auto click EnterVR (still within a user gesture chain in many browsers)
+          if (view === 'cvr'){
+            const btnEnter = D.getElementById('btnEnterVR');
+            setTimeout(()=>btnEnter?.click(), 60);
+          } else {
+            const btnStart = D.getElementById('btnStart');
+            setTimeout(()=>btnStart?.click(), 60);
+          }
+        }
+      }
+
+      // Bind chips
+      chipPc?.addEventListener('click', ()=>setChipActive('pc'));
+      chipMobile?.addEventListener('click', ()=>setChipActive('mobile'));
+      chipCvr?.addEventListener('click', ()=>setChipActive('cvr'));
+
+      // Actions
+      D.getElementById('btnUseUrl')?.addEventListener('click', pullFromUrl);
+      D.getElementById('btnDefaults')?.addEventListener('click', defaults);
+      D.getElementById('btnGoStart')?.addEventListener('click', ()=>goStart(false));
+      D.getElementById('btnGoStartNow')?.addEventListener('click', ()=>goStart(true));
+
+      // Init: show launcher always when coming from hub, unless chosen=1
+      defaults();
+      pullFromUrl();
+
+      const u0 = q();
+      const chosen = u0 && (u0.searchParams.get('chosen') === '1');
+      // If user has chosen already (e.g., refresh mid-game), don't block with launcher
+      if (chosen){
+        if (launcher) launcher.style.display = 'none';
+        if (startOverlay) startOverlay.style.display = '';
+      } else {
+        if (launcher) launcher.style.display = '';
+        if (startOverlay) startOverlay.style.display = 'none';
+      }
+    })();
+  </script>
 </body>
 </html>
