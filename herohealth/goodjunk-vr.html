@@ -1,10 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
 GoodJunkVR (PRODUCTION) — HHA Standard
 ✅ DOM emoji targets (dual-eye for VR/cVR)
-✅ HUD + Quest + Coach + Fever/Shield
+✅ HUD (Score/Combo/Miss/Time/Grade) + Quest + Coach + Fever/Shield
 ✅ Boot gate: engine starts ONLY after pressing "เริ่มเล่น"
 ✅ Quest Peek (missions visible even when HUD is hidden in VR)
-✅ NEW: VR Compact Mini HUD + Low-time Toast (non-dizzy)
+✅ VR Hint + Low-time Toast placeholder
 -->
 
 <!doctype html>
@@ -84,23 +84,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard
     </div>
   </div>
 
-  <!-- ===== VR MINI HUD (compact + readable) ===== -->
-  <div class="vr-mini-hud" id="vrMiniHud" hidden aria-hidden="true">
-    <div class="mini-row">
-      <div class="mini-pill"><span>Score</span><b id="vrScore">0</b></div>
-      <div class="mini-pill"><span>Time</span><b id="vrTime">0</b></div>
-      <div class="mini-pill"><span>Grade</span><b id="vrGrade">—</b></div>
-
-      <button class="mini-btn" id="vrBtnPeek" type="button">Missions</button>
-      <button class="mini-btn" id="vrBtnHud" type="button">HUD</button>
-    </div>
-  </div>
-
-  <!-- ===== Low-time warning (VR-friendly, no dizziness) ===== -->
-  <div class="lowtime-toast" id="lowTimeToast" hidden aria-live="polite">
-    <div class="lowtime-card" id="lowTimeText">⏱️ เหลือ 10 วิ</div>
-  </div>
-
   <!-- ===== Fever/Shield UI ===== -->
   <div class="hha-fever" id="hhaFever">
     <div class="fever-row">
@@ -116,12 +99,11 @@ GoodJunkVR (PRODUCTION) — HHA Standard
 
   <!-- ===== Quest Peek (always available) ===== -->
   <div class="gj-peek" id="gjPeek" aria-hidden="true">
-    <div class="peek-card" role="dialog" aria-label="missions">
+    <div class="peek-card">
       <div class="peek-title">🎯 ภารกิจตอนนี้</div>
       <div class="peek-sub" id="gjPeekGoal">Goal: —</div>
       <div class="peek-mini" id="gjPeekMini">Mini: —</div>
       <div class="peek-tip">Tip: โหมด VR ซ่อน HUD ได้ แต่กด “Missions” เพื่อดูภารกิจได้ตลอด</div>
-      <button class="peek-close" id="btnPeekClose" type="button">ปิด</button>
     </div>
   </div>
 
@@ -141,6 +123,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
     </div>
 
+    <!-- end summary placeholder -->
     <div id="end-summary"></div>
   </div>
 
@@ -172,6 +155,13 @@ GoodJunkVR (PRODUCTION) — HHA Standard
       </div>
       <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
     </div>
+  </div>
+
+  <!-- ===== Low-time Toast (VR-friendly) ===== -->
+  <div id="lowTimeToast" class="lowtime-toast" hidden aria-hidden="true">
+    <div class="lowtime-dot" aria-hidden="true"></div>
+    <div class="lowtime-text" id="lowTimeText">⏱️ เหลือ 10 วิ</div>
+    <div class="lowtime-sub">ยิงเร็วแต่ชัวร์ 🎯</div>
   </div>
 </body>
 </html>
