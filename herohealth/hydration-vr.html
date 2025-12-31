@@ -1,8 +1,9 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration VR — ROOT ENTRY (PRODUCTION)
-✅ Mode Select: PC / Mobile / Cardboard (ชัดเจนก่อนเริ่ม)
+Hydration VR — ROOT ENTRY (PRODUCTION) vNext
+✅ มีตัวเลือกโหมดชัดเจน PC / Mobile / VR Cardboard
+✅ กันเด้งไป Summary เอง (force-hide resultBackdrop on load)
+✅ ใช้ไฟล์แยกใน /hydration-vr/ + loader เป็นตัวคุม view
 ✅ โหลด global FX + logger + coach-manager
-✅ loader จัดการ view + fullscreen/orientation
 -->
 
 <!doctype html>
@@ -23,39 +24,43 @@ Hydration VR — ROOT ENTRY (PRODUCTION)
 
   <!-- Hydration CSS -->
   <link rel="stylesheet" href="./hydration-vr/hydration-vr.css" />
+
+  <!-- HARDEN: ensure Summary not auto-visible -->
+  <script>
+    (function(){
+      try{
+        // force-hide summary on initial load (prevents "open from hub -> summary 0")
+        const hide = ()=> {
+          const bd = document.getElementById('resultBackdrop');
+          if (bd) bd.hidden = true;
+        };
+        document.addEventListener('DOMContentLoaded', hide);
+        window.addEventListener('pageshow', hide);
+      }catch(_){}
+    })();
+  </script>
 </head>
 
 <body class="view-pc">
-  <!-- Start Overlay -->
+  <!-- Start Overlay (MODE SELECT) -->
   <div id="startOverlay" class="hha-overlay">
     <div class="hha-overlay-card">
       <div class="hha-title">Hydration VR 💧</div>
       <div class="hha-sub">
-        เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> และเก็บ 🛡️ ไว้ <b>BLOCK</b> ตอนท้ายพายุ
-      </div>
-
-      <!-- ✅ Mode select -->
-      <div class="hha-modeBox">
-        <div class="hha-modeTitle">เลือกโหมดเล่น</div>
-        <div class="hha-modeChips" role="group" aria-label="Select play mode">
-          <button id="btnModePC" class="hha-chip" type="button">🖥 PC</button>
-          <button id="btnModeMobile" class="hha-chip" type="button">📱 Mobile</button>
-          <button id="btnModeVR" class="hha-chip vr" type="button">📦 Cardboard VR</button>
-        </div>
-        <div class="hha-modeMeta muted">
-          โหมดปัจจุบัน: <b id="modeLabel">PC</b>
-          <span class="dot">•</span>
-          Tip: โหมด VR แนะนำแนวนอน (Landscape)
-        </div>
+        เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> (สะสม) และเก็บ 🛡️ เพื่อ <b>BLOCK</b> ช่วงท้ายพายุ
       </div>
 
       <div class="hha-overlay-actions">
-        <button id="btnStart" class="hha-btn primary">▶ เริ่มเล่น</button>
-        <button id="btnEnterVR" class="hha-btn">📦 เข้า VR ตอนนี้</button>
+        <!-- PC / Mobile start (same start, loader picks view automatically) -->
+        <button id="btnStart" class="hha-btn primary">🖥️/📱 เริ่มเล่น (PC/Mobile)</button>
+
+        <!-- Cardboard -->
+        <button id="btnEnterVR" class="hha-btn">🕶️ เล่นโหมด VR (Cardboard)</button>
       </div>
 
       <div class="hha-hint">
-        * ยิงได้ด้วยปุ่ม 🎯 SHOOT หรือแตะที่หน้าจอ (หลังเริ่มเล่น)
+        • ถ้าเล่น VR: แนะนำหมุนจอแนวนอนก่อน แล้วกด “VR (Cardboard)”<br/>
+        • ระหว่างเล่น: กด “📦 CARDBOARD” สลับโหมดได้
       </div>
     </div>
   </div>
@@ -74,20 +79,21 @@ Hydration VR — ROOT ENTRY (PRODUCTION)
   <!-- MAIN -->
   <main class="hha-main">
     <!-- NORMAL PLAYFIELD -->
-    <section id="playfield" class="hha-playfield">
+    <section id="playfield" class="hha-playfield" aria-label="playfield-normal">
       <div id="hydration-layer" class="hha-layer"></div>
+      <div class="hha-crosshair" aria-hidden="true"></div>
     </section>
 
     <!-- CARDBOARD PLAYFIELD -->
-    <section id="cbPlayfield" class="hha-playfield cb">
+    <section id="cbPlayfield" class="hha-playfield cb" aria-label="playfield-cardboard">
       <div class="cb-eyes">
         <div class="eye">
           <div id="hydration-layerL" class="hha-layer"></div>
-          <div class="reticle"></div>
+          <div class="reticle" aria-hidden="true"></div>
         </div>
         <div class="eye">
           <div id="hydration-layerR" class="hha-layer"></div>
-          <div class="reticle"></div>
+          <div class="reticle" aria-hidden="true"></div>
         </div>
       </div>
     </section>
@@ -101,7 +107,7 @@ Hydration VR — ROOT ENTRY (PRODUCTION)
           <div>Zone <b id="water-zone">GREEN</b></div>
           <div><b id="water-pct">50</b>%</div>
         </div>
-        <div class="muted">Goal: GREEN (สะสม) • Mini: LOW/HIGH + BLOCK</div>
+        <div class="muted">Goal: GREEN (สะสม) • Mini: LOW/HIGH + BLOCK (End Window)</div>
       </div>
 
       <div class="hha-card">
@@ -181,7 +187,7 @@ Hydration VR — ROOT ENTRY (PRODUCTION)
     </div>
   </div>
 
-  <!-- LOADER -->
+  <!-- LOADER (imports hydration.safe.js inside) -->
   <script type="module" src="./hydration-vr/hydration-vr.loader.js"></script>
 </body>
 </html>
