@@ -1,11 +1,11 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION (HHA Standard + VR-feel + Plate Rush + Safe Spawn + Universal VR UI shoot)
+// Balanced Plate VR — PRODUCTION (B/cVR + FIX transformed-layer + Safe Spawn)
 // ✅ Play: adaptive ON
 // ✅ Study/Research: deterministic seed + adaptive OFF
+// ✅ cVR: fullscreen + crosshair ยิงกลางจอ (ไม่ใช้ scene.enterVR)
+// ✅ FIX: targets use position:absolute (กันเพี้ยนไปล่างขวา)
+// ✅ Recenter: reset look + gyro baseline
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
-// ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-// ✅ Flush-hardened: before end/back hub/reload
-// ✅ PATCH A+B: Support "hha:shoot" (crosshair tap-to-shoot) with aim-assist lockPx (view-vr/view-cvr)
 
 'use strict';
 
@@ -76,9 +76,9 @@ const rng = mulberry32(seed);
 
 // ------------------------- Difficulty tuning -------------------------
 const DIFF = {
-  easy:   { size: 64, lifeMs: 1800, spawnPerSec: 1.5,  junkRate: 0.18, feverUpJunk: 12, feverUpMiss: 8,  feverDownGood: 2.8 },
-  normal: { size: 56, lifeMs: 1600, spawnPerSec: 1.85, junkRate: 0.24, feverUpJunk: 14, feverUpMiss: 9,  feverDownGood: 2.4 },
-  hard:   { size: 48, lifeMs: 1400, spawnPerSec: 2.2,  junkRate: 0.30, feverUpJunk: 16, feverUpMiss: 10, feverDownGood: 2.0 },
+  easy:   { size: 64, lifeMs: 1800, spawnPerSec: 1.5, junkRate: 0.18, feverUpJunk: 12, feverUpMiss: 8, feverDownGood: 2.8 },
+  normal: { size: 56, lifeMs: 1600, spawnPerSec: 1.85, junkRate: 0.24, feverUpJunk: 14, feverUpMiss: 9, feverDownGood: 2.4 },
+  hard:   { size: 48, lifeMs: 1400, spawnPerSec: 2.2, junkRate: 0.30, feverUpJunk: 16, feverUpMiss: 10, feverDownGood: 2.0 },
 };
 const base = DIFF[diff] || DIFF.normal;
 
@@ -98,6 +98,7 @@ const btnRestart = qs('btnRestart');
 const btnBackHub = qs('btnBackHub');
 const btnPlayAgain = qs('btnPlayAgain');
 const btnEnterVR = qs('btnEnterVR');
+const btnRecenter = qs('btnRecenter');
 
 const resultBackdrop = qs('resultBackdrop');
 
@@ -110,20 +111,7 @@ if(!layer){
   console.error('[PlateVR] missing #plate-layer');
 }
 
-// ------------------------- View Mode -------------------------
-function getViewMode(){
-  try{
-    const b = DOC.body;
-    if(!b) return 'pc';
-    if(b.classList.contains('view-cvr')) return 'cvr';
-    if(b.classList.contains('view-vr')) return 'vr';
-    if(b.classList.contains('view-mobile')) return 'mobile';
-    return 'pc';
-  }catch(_){ return 'pc'; }
-}
-let viewMode = getViewMode();
-
-// ------------------------- Minimal FX (CSS injection fallback) -------------------------
+// ------------------------- Minimal FX (fallback) -------------------------
 (function ensureFxCss(){
   const id = 'plate-safe-fx-css';
   if(DOC.getElementById(id)) return;
@@ -189,7 +177,7 @@ function playTickSound(){
 
 // ------------------------- VR-feel look (gyro + drag) -------------------------
 let look = { x:0, y:0, dragging:false, lastX:0, lastY:0 };
-let gyro = { gx:0, gy:0, ok:false };
+let gyro = { gx:0, gy:0, ok:false, lastGamma:0, lastBeta:0, zeroGamma:0, zeroBeta:0 };
 
 function applyLook(){
   if(!layer) return;
@@ -197,6 +185,13 @@ function applyLook(){
   const x = clamp(look.x + gyro.gx, -maxX, maxX);
   const y = clamp(look.y + gyro.gy, -maxY, maxY);
   layer.style.transform = `translate(${x}px, ${y}px)`;
+}
+function recenterLook(){
+  look.x = 0; look.y = 0;
+  gyro.zeroGamma = gyro.lastGamma || 0;
+  gyro.zeroBeta  = gyro.lastBeta  || 0;
+  applyLook();
+  emit('hha:judge', { game:'plate', text:'🎯 RECENTER', kind:'info' });
 }
 
 function enableGyroIfAllowed(){
@@ -207,8 +202,14 @@ function enableGyroIfAllowed(){
   ROOT.addEventListener('deviceorientation', (e)=>{
     const g = Number(e.gamma)||0;
     const b = Number(e.beta)||0;
-    gyro.gx = clamp(g/90, -1, 1) * 14;
-    gyro.gy = clamp(b/90, -1, 1) * 10;
+    gyro.lastGamma = g;
+    gyro.lastBeta  = b;
+
+    const dg = g - (gyro.zeroGamma||0);
+    const db = b - (gyro.zeroBeta||0);
+
+    gyro.gx = clamp(dg/90, -1, 1) * 14;
+    gyro.gy = clamp(db/90, -1, 1) * 10;
     applyLook();
   }, { passive:true });
 }
@@ -221,8 +222,14 @@ function requestGyroPermission(){
       ROOT.addEventListener('deviceorientation', (e)=>{
         const g = Number(e.gamma)||0;
         const b = Number(e.beta)||0;
-        gyro.gx = clamp(g/90, -1, 1) * 14;
-        gyro.gy = clamp(b/90, -1, 1) * 10;
+        gyro.lastGamma = g;
+        gyro.lastBeta  = b;
+
+        const dg = g - (gyro.zeroGamma||0);
+        const db = b - (gyro.zeroBeta||0);
+
+        gyro.gx = clamp(dg/90, -1, 1) * 14;
+        gyro.gy = clamp(db/90, -1, 1) * 10;
         applyLook();
       }, { passive:true });
       return true;
@@ -233,6 +240,7 @@ function requestGyroPermission(){
 function bindDragLook(){
   if(!layer) return;
   on(layer, 'pointerdown', (e)=>{
+    if(DOC.body.classList.contains('view-cvr')) return; // cVR ยิงกลางจอ
     look.dragging = true;
     look.lastX = e.clientX;
     look.lastY = e.clientY;
@@ -276,17 +284,16 @@ function getPlayRect(){
   const topR = rectOf(hudTop);
   const miniR = rectOf(miniPanel);
   const btnR = rectOf(hudBtns);
-  const coachR = rectOf(coachPanel);
 
   let top = pad;
   let bottom = H - pad;
   let left = pad;
   let right = W - pad;
 
+  // ไม่ดันซ้ายเพราะ coachPanel แล้ว (เอาไปกันด้วย no-spawn rect แทน)
   if(topR) top = Math.max(top, topR.y + topR.h + 10);
   if(miniR) top = Math.max(top, miniR.y + miniR.h + 10);
   if(btnR) bottom = Math.min(bottom, btnR.y - 10);
-  if(coachR) left = Math.max(left, coachR.x + coachR.w + 10);
 
   top = clamp(top, 0, H-40);
   bottom = clamp(bottom, top+40, H);
@@ -351,7 +358,6 @@ function accuracyPct(){
   if(denom <= 0) return 0;
   return (nHitGood / denom) * 100;
 }
-
 function calcGrade(){
   const acc = accuracyPct();
   const m = miss;
@@ -413,7 +419,6 @@ function coach(msg, mood){
     img.src = map[m] || map.neutral;
   }
 }
-
 function judge(text, kind){
   emit('hha:judge', { game:'plate', text, kind: kind||'info' });
 }
@@ -437,11 +442,13 @@ function startMini(mini){
   activeMini = mini;
   activeMini.startedMs = nowMs();
   activeMini.snapPlateHave = [...plateHave];
+
   emit('quest:update', {
     game:'plate',
     goal: activeGoal ? { title: activeGoal.title, cur: activeGoal.cur, target: activeGoal.target, done: activeGoal.done } : null,
     mini: { title: activeMini.title, cur:0, target:activeMini.durationSec, timeLeft: activeMini.durationSec, done:false }
   });
+
   setText('uiMiniTitle', activeMini.title);
   setText('uiMiniTime', `${activeMini.durationSec}s`);
   setText('uiHint', 'ทริค: เร่งเก็บหมู่ที่ยังขาด! ระวังขยะห้ามโดน!');
@@ -483,6 +490,7 @@ function emitQuestUpdate(){
         ? { title: activeMini.title, cur: 0, target: activeMini.durationSec, timeLeft: miniTimeLeft(), done:false }
         : { title:'—', cur:0, target:0, timeLeft:null, done:false }
     });
+
     setText('uiGoalTitle', activeGoal.title);
     setText('uiGoalCount', `${activeGoal.cur}/${activeGoal.target}`);
     const gf = qs('uiGoalFill');
@@ -634,26 +642,16 @@ function spawnTarget(forcedKind){
   if(spec.kind === 'good') el.setAttribute('data-group', String(spec.groupIdx));
   el.textContent = spec.emoji;
 
-  el.style.position = 'fixed';
+  // ✅ FIX: absolute inside #plate-layer (ซึ่งเป็น fixed inset:0) กันเพี้ยนไปล่างขวา
+  el.style.position = 'absolute';
   el.style.left = `${Math.round(box.x)}px`;
   el.style.top  = `${Math.round(box.y)}px`;
   el.style.width = `${size}px`;
   el.style.height = `${size}px`;
-  el.style.borderRadius = '999px';
-  el.style.border = '1px solid rgba(148,163,184,.18)';
-  el.style.background = 'rgba(2,6,23,.55)';
-  el.style.backdropFilter = 'blur(8px)';
-  el.style.boxShadow = '0 18px 44px rgba(0,0,0,.28)';
-  el.style.font = '900 28px/1 system-ui';
-  el.style.display = 'grid';
-  el.style.placeItems = 'center';
-  el.style.userSelect = 'none';
-  el.style.webkitTapHighlightColor = 'transparent';
-  el.style.transform = 'translateZ(0)';
 
-  // pointer hit (PC/Mobile touch)
   on(el, 'pointerdown', (e)=>{
     e.preventDefault();
+    if(DOC.body.classList.contains('view-cvr')) return; // cVR ยิงกลางจอ
     if(!running || paused) return;
     onHit(id);
   }, { passive:false });
@@ -688,71 +686,6 @@ function despawn(id){
 }
 function clearAllTargets(){
   for(const [id] of targets) despawn(id);
-}
-
-// ------------------------- Universal VR UI: tap-to-shoot (PATCH) -------------------------
-function centerPoint(){
-  return { x:(ROOT.innerWidth||360)/2, y:(ROOT.innerHeight||640)/2 };
-}
-function dist2(ax,ay,bx,by){
-  const dx = ax-bx, dy = ay-by;
-  return dx*dx + dy*dy;
-}
-function findClosestTargetToCenter(lockPx){
-  if(!targets.size) return null;
-  const c = centerPoint();
-  const lock = clamp(lockPx, 35, 260);
-  const lock2 = lock*lock;
-
-  let best = null;
-  let bestD2 = Infinity;
-
-  for(const [id, t] of targets){
-    const el = t && t.el;
-    if(!el) continue;
-
-    // Skip hidden/removed
-    let r;
-    try{ r = el.getBoundingClientRect(); }catch(_){ continue; }
-    if(!r || r.width <= 0 || r.height <= 0) continue;
-
-    const cx = r.left + r.width/2;
-    const cy = r.top + r.height/2;
-
-    // slight bias: prefer good/shield if equal distance (fair aim assist)
-    let d2 = dist2(cx,cy,c.x,c.y);
-    if(t.kind === 'good') d2 = Math.max(0, d2 - 18);
-    else if(t.kind === 'shield') d2 = Math.max(0, d2 - 10);
-
-    if(d2 < bestD2){
-      bestD2 = d2;
-      best = { id, kind: t.kind, d2 };
-    }
-  }
-
-  if(!best) return null;
-  if(bestD2 > lock2) return null;
-  return best;
-}
-
-let shootCooldownMs = 0;
-function onShoot(detail){
-  if(!running || paused) return;
-
-  const now = nowMs();
-  if(now < shootCooldownMs) return;
-  shootCooldownMs = now + 40; // tiny cooldown กัน double-fire
-
-  const lockPx = clamp(detail && detail.lockPx != null ? detail.lockPx : 96, 45, 220);
-
-  const hit = findClosestTargetToCenter(lockPx);
-  if(hit && hit.id){
-    onHit(hit.id);
-  }else{
-    // tiny feedback when shoot misses center lock
-    // (ไม่เพิ่ม miss เพื่อความยุติธรรม; ให้เป็น "air shot")
-    fxTick();
-  }
 }
 
 // ------------------------- Hit / Miss handling -------------------------
@@ -892,6 +825,41 @@ function updateAdaptive(){
   emit('hha:adaptive', { game:'plate', adapt:{...adapt}, acc, rtAvg });
 }
 
+// ------------------------- cVR shoot (ยิงจากกลางจอ) -------------------------
+function cvrShoot(lockPx){
+  if(!DOC.body.classList.contains('view-cvr')) return;
+  if(!running || paused) return;
+
+  const cx = (ROOT.innerWidth||0)/2;
+  const cy = (ROOT.innerHeight||0)/2;
+
+  let bestId = null;
+  let bestD = 1e9;
+
+  for(const [id, t] of targets){
+    const r = t.el.getBoundingClientRect();
+    const tx = r.left + r.width/2;
+    const ty = r.top  + r.height/2;
+    const d = Math.hypot(tx - cx, ty - cy);
+    if(d < bestD){
+      bestD = d;
+      bestId = id;
+    }
+  }
+
+  const limit = Math.max(40, Number(lockPx)||90);
+  if(bestId && bestD <= limit){
+    onHit(bestId);
+  }
+}
+
+// รองรับทั้ง "แตะยิง" และอนาคตถ้า vr-ui.js ยิงด้วย event hha:shoot
+ROOT.addEventListener('pointerdown', ()=> cvrShoot(90), { passive:true });
+ROOT.addEventListener('hha:shoot', (e)=>{
+  const lockPx = e && e.detail ? e.detail.lockPx : 90;
+  cvrShoot(lockPx);
+}, { passive:true });
+
 // ------------------------- Timer / loop -------------------------
 function tick(){
   if(!running) return;
@@ -956,7 +924,7 @@ function tick(){
   requestAnimationFrame(tick);
 }
 
-// ------------------------- Pause / Start / Restart / VR -------------------------
+// ------------------------- Pause / Start / Restart / cVR -------------------------
 function setPaused(p){
   paused = !!p;
   if(hudPaused) hudPaused.style.display = paused ? 'grid' : 'none';
@@ -973,20 +941,18 @@ function bootButtons(){
     restartGame('restart');
   }, { passive:true });
 
+  // Enter VR button ถูกจัดการใน HTML (enterCVR)
   on(btnEnterVR, 'click', ()=>{
-    try{
-      const scene = DOC.querySelector('a-scene');
-      if(scene && scene.enterVR) scene.enterVR();
-    }catch(e){}
+    DOC.body.classList.add('view-cvr');
+  }, { passive:true });
+
+  on(btnRecenter, 'click', ()=>{
+    recenterLook();
   }, { passive:true });
 
   on(btnBackHub, 'click', async ()=>{
     await flushHardened('back-hub');
-    if(hubUrl){
-      location.href = hubUrl;
-    }else{
-      location.href = './hub.html';
-    }
+    location.href = hubUrl || './hub.html';
   }, { passive:true });
 
   on(btnPlayAgain, 'click', async ()=>{
@@ -1000,13 +966,11 @@ function bootButtons(){
 
   on(btnStart, 'click', async ()=>{
     await requestGyroPermission();
+    // ตั้ง baseline ตอนเริ่ม
+    gyro.zeroGamma = gyro.lastGamma || 0;
+    gyro.zeroBeta  = gyro.lastBeta  || 0;
     startGame();
   }, { passive:true });
-
-  // ✅ Universal VR UI shoot event
-  ROOT.addEventListener('hha:shoot', (e)=>{
-    try{ onShoot(e && e.detail ? e.detail : null); }catch(_){}
-  });
 
   on(ROOT, 'beforeunload', ()=>{
     try{ flushHardened('beforeunload'); }catch(err){}
@@ -1067,9 +1031,6 @@ function startGame(){
   resetState();
 
   if(startOverlay) startOverlay.style.display = 'none';
-
-  // view mode refresh (after body class applied)
-  viewMode = getViewMode();
 
   enableGyroIfAllowed();
   bindDragLook();
@@ -1169,7 +1130,6 @@ function buildSummary(reason){
     device: (navigator && navigator.userAgent) ? navigator.userAgent : '',
     gameVersion: URLX.searchParams.get('v') || URLX.searchParams.get('ver') || '',
     hub: hubUrl || '',
-    view: viewMode
   };
 }
 
@@ -1196,7 +1156,6 @@ function showResult(summary){
 
 function storeSummary(summary){
   saveJson(LS_LAST, summary);
-
   const hist = loadJson(LS_HIST, []);
   const next = Array.isArray(hist) ? hist : [];
   next.unshift(summary);
