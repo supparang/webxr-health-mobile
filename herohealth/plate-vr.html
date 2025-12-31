@@ -1,11 +1,11 @@
 <!-- === /herohealth/plate-vr.html ===
-Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + UNIVERSAL VR UI)
+Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + Universal VR UI)
 ✅ plate-vr.html อยู่ /herohealth/ (root)
-✅ CSS/JS อยู่ /herohealth/plate/*
+✅ JS/CSS อยู่ /herohealth/plate/*
 ✅ vr libs อยู่ /herohealth/vr/*
 ✅ img coach อยู่ /herohealth/img/*
-✅ Provides ALL required DOM ids for plate.safe.js
-✅ Adds Universal VR UI (/vr/vr-ui.js) + view modes + orientation lock attempt on VR
+✅ Adds: /herohealth/vr/vr-ui.js (ENTER VR / EXIT / RECENTER + crosshair + hha:shoot)
+✅ Adds: view mode class (view-pc/mobile/vr/cvr)
 -->
 
 <!doctype html>
@@ -17,46 +17,60 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + UNIVERSAL VR UI)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
 
-  <!-- A-Frame (Cardboard/VR) -->
+  <!-- A-Frame (Cardboard/VR button uses scene.enterVR()) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Styles -->
+  <!-- Styles (อยู่ใน /plate/) -->
   <link rel="stylesheet" href="./plate/plate-vr.css?v=20251231" />
 
-  <!-- Global FX + Logger -->
+  <!-- ✅ Universal VR UI (อยู่ใน /vr/) -->
+  <!-- Provides ENTER VR / EXIT / RECENTER + crosshair + tap-to-shoot => event "hha:shoot" -->
+  <script src="./vr/vr-ui.js?v=20251231" defer></script>
+
+  <!-- Global FX + Logger (อยู่ใน /vr/) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- ✅ Universal VR UI (ENTER/EXIT/RECENTER + crosshair + tap-to-shoot emits hha:shoot) -->
-  <script src="./vr/vr-ui.js" defer></script>
-
-  <!-- HUD binder (Plate-specific UI helpers) -->
+  <!-- HUD binder (อยู่ใน /plate/) -->
   <script src="./plate/plate-hud.js?v=20251231" defer></script>
 
-  <!-- Game -->
+  <!-- Game (อยู่ใน /plate/) -->
   <script src="./plate/plate.safe.js?v=20251231" defer></script>
 
-  <style>
-    /* ensure overlays stack above A-Frame */
-    body{ margin:0; }
-    .viewHint{
-      position:fixed; right:10px; top:10px;
-      z-index:120; font: 900 11px/1.2 system-ui;
-      color:rgba(148,163,184,.9);
-      background:rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.14);
-      padding:6px 10px; border-radius:999px;
-      backdrop-filter: blur(8px);
-      pointer-events:none;
-      display:none;
-    }
-    body.debug-view .viewHint{ display:block; }
-  </style>
+  <!-- ✅ View mode helper -->
+  <script>
+    (function(){
+      function isMobile(){
+        try{
+          return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+        }catch(_){ return false; }
+      }
+      function qs(k, def){
+        try{ return new URL(location.href).searchParams.get(k) ?? def; }
+        catch(_){ return def; }
+      }
+      var v = String(qs('view','') || '').toLowerCase().trim();
+      if(!v){
+        // heuristic: if user explicitly wants cardboard/cVR
+        var hinted = String(qs('cvr','')||'').toLowerCase();
+        if(hinted === '1' || hinted === 'true') v = 'cvr';
+        else v = isMobile() ? 'mobile' : 'pc';
+      }
+      if(v !== 'pc' && v !== 'mobile' && v !== 'vr' && v !== 'cvr') v = 'pc';
+
+      var b = document.documentElement; // keep safe for early load
+      // We'll set on body when ready (avoid null body)
+      document.addEventListener('DOMContentLoaded', function(){
+        var body = document.body;
+        if(!body) return;
+        body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+        body.classList.add('view-' + v);
+      }, { passive:true });
+    })();
+  </script>
 </head>
 
-<body class="view-pc">
-  <div class="viewHint" id="viewHint">view: —</div>
-
+<body>
   <!-- Background VR scene (minimal) -->
   <a-scene
     id="scene"
@@ -251,61 +265,19 @@ Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED + UNIVERSAL VR UI)
   </div>
 
   <script>
-    // --- view mode helper (pc/mobile/vr/cvr) ---
+    // Mirror EnterVR buttons + preview query params
     (function(){
-      function setView(view){
-        var b = document.body;
-        b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-        b.classList.add('view-' + view);
-        var hint = document.getElementById('viewHint');
-        if(hint) hint.textContent = 'view: ' + view;
-      }
-      function guess(){
-        try{
-          var u = new URL(location.href);
-          var v = (u.searchParams.get('view') || '').toLowerCase();
-          if(v === 'cvr' || v === 'cardboard' || u.searchParams.get('cvr') === '1') return 'cvr';
-          if(v === 'vr') return 'vr';
-        }catch(e){}
-        var isMobile = matchMedia && matchMedia('(pointer:coarse)').matches;
-        return isMobile ? 'mobile' : 'pc';
-      }
-      setView(guess());
-      // debug flag
-      try{
-        var u2 = new URL(location.href);
-        if(u2.searchParams.get('debug') === '1') document.body.classList.add('debug-view');
-      }catch(e){}
-    })();
-
-    // --- EnterVR buttons + optional orientation lock attempt ---
-    (function(){
-      function lockLandscape(){
-        try{
-          if (screen && screen.orientation && screen.orientation.lock){
-            // some browsers require user gesture; this is best-effort
-            return screen.orientation.lock('landscape').catch(function(){});
-          }
-        }catch(e){}
-        return Promise.resolve();
-      }
-
       function enterVR(){
         try{
           var scene = document.querySelector('a-scene');
-          if (scene && scene.enterVR){
-            lockLandscape();
-            scene.enterVR();
-          }
+          if (scene && scene.enterVR) scene.enterVR();
         }catch(e){}
       }
-
       var b1 = document.getElementById('btnEnterVR');
       var b2 = document.getElementById('btnEnterVR2');
       if (b1) b1.addEventListener('click', enterVR, { passive:true });
       if (b2) b2.addEventListener('click', enterVR, { passive:true });
 
-      // Preview query params
       try{
         var u = new URL(location.href);
         var diff = u.searchParams.get('diff') || 'normal';
