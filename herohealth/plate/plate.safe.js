@@ -1,11 +1,11 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION (HHA Standard + VR-feel + Plate Rush + Safe Spawn + H++)
+// Balanced Plate VR — PRODUCTION (HHA Standard + VR-feel + Plate Rush + Safe Spawn + Universal VR UI shoot)
 // ✅ Play: adaptive ON
 // ✅ Study/Research: deterministic seed + adaptive OFF
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
-// ✅ H++: hha:perfect (spark) + hha:slowmo (combo 25+)
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 // ✅ Flush-hardened: before end/back hub/reload
+// ✅ PATCH A+B: Support "hha:shoot" (crosshair tap-to-shoot) with aim-assist lockPx (view-vr/view-cvr)
 
 'use strict';
 
@@ -109,6 +109,19 @@ const hudBtns = qs('hudBtns');
 if(!layer){
   console.error('[PlateVR] missing #plate-layer');
 }
+
+// ------------------------- View Mode -------------------------
+function getViewMode(){
+  try{
+    const b = DOC.body;
+    if(!b) return 'pc';
+    if(b.classList.contains('view-cvr')) return 'cvr';
+    if(b.classList.contains('view-vr')) return 'vr';
+    if(b.classList.contains('view-mobile')) return 'mobile';
+    return 'pc';
+  }catch(_){ return 'pc'; }
+}
+let viewMode = getViewMode();
 
 // ------------------------- Minimal FX (CSS injection fallback) -------------------------
 (function ensureFxCss(){
@@ -353,8 +366,6 @@ function calcGrade(){
 }
 
 function updateHUD(){
-  const grade = calcGrade();
-
   emit('hha:score', {
     game:'plate',
     runMode,
@@ -369,14 +380,8 @@ function updateHUD(){
     fever,
     shield,
     accuracyGoodPct: accuracyPct(),
-    grade,
+    grade: calcGrade(),
   });
-
-  // drive crown/shimmer via data-grade
-  try{
-    const chip = DOC.querySelector('.hudStat.gradeChip');
-    if(chip) chip.setAttribute('data-grade', grade);
-  }catch(e){}
 
   setText('uiScore', score);
   setText('uiCombo', combo);
@@ -385,7 +390,7 @@ function updateHUD(){
   setText('uiPlateHave', plateHave.filter(Boolean).length);
   setText('uiG1', gCount[0]); setText('uiG2', gCount[1]); setText('uiG3', gCount[2]); setText('uiG4', gCount[3]); setText('uiG5', gCount[4]);
   setText('uiAcc', fmtPct(accuracyPct()));
-  setText('uiGrade', grade);
+  setText('uiGrade', calcGrade());
   setText('uiTime', Math.ceil(tLeftSec));
   const ff = qs('uiFeverFill');
   if(ff) ff.style.width = `${clamp(fever,0,100)}%`;
@@ -411,16 +416,6 @@ function coach(msg, mood){
 
 function judge(text, kind){
   emit('hha:judge', { game:'plate', text, kind: kind||'info' });
-}
-
-// ------------------------- H++ Slow-mo -------------------------
-let slowmoUntilMs = 0;
-function triggerSlowmo(ms){
-  slowmoUntilMs = Math.max(slowmoUntilMs, nowMs() + (Number(ms)||250));
-  emit('hha:slowmo', { game:'plate', durationMs: Number(ms)||250 });
-}
-function slowmoFactor(){
-  return (nowMs() < slowmoUntilMs) ? 0.35 : 1.0; // spawn density slow only (timer stays real)
 }
 
 // ------------------------- Mini quests -------------------------
@@ -656,6 +651,7 @@ function spawnTarget(forcedKind){
   el.style.webkitTapHighlightColor = 'transparent';
   el.style.transform = 'translateZ(0)';
 
+  // pointer hit (PC/Mobile touch)
   on(el, 'pointerdown', (e)=>{
     e.preventDefault();
     if(!running || paused) return;
@@ -694,18 +690,75 @@ function clearAllTargets(){
   for(const [id] of targets) despawn(id);
 }
 
+// ------------------------- Universal VR UI: tap-to-shoot (PATCH) -------------------------
+function centerPoint(){
+  return { x:(ROOT.innerWidth||360)/2, y:(ROOT.innerHeight||640)/2 };
+}
+function dist2(ax,ay,bx,by){
+  const dx = ax-bx, dy = ay-by;
+  return dx*dx + dy*dy;
+}
+function findClosestTargetToCenter(lockPx){
+  if(!targets.size) return null;
+  const c = centerPoint();
+  const lock = clamp(lockPx, 35, 260);
+  const lock2 = lock*lock;
+
+  let best = null;
+  let bestD2 = Infinity;
+
+  for(const [id, t] of targets){
+    const el = t && t.el;
+    if(!el) continue;
+
+    // Skip hidden/removed
+    let r;
+    try{ r = el.getBoundingClientRect(); }catch(_){ continue; }
+    if(!r || r.width <= 0 || r.height <= 0) continue;
+
+    const cx = r.left + r.width/2;
+    const cy = r.top + r.height/2;
+
+    // slight bias: prefer good/shield if equal distance (fair aim assist)
+    let d2 = dist2(cx,cy,c.x,c.y);
+    if(t.kind === 'good') d2 = Math.max(0, d2 - 18);
+    else if(t.kind === 'shield') d2 = Math.max(0, d2 - 10);
+
+    if(d2 < bestD2){
+      bestD2 = d2;
+      best = { id, kind: t.kind, d2 };
+    }
+  }
+
+  if(!best) return null;
+  if(bestD2 > lock2) return null;
+  return best;
+}
+
+let shootCooldownMs = 0;
+function onShoot(detail){
+  if(!running || paused) return;
+
+  const now = nowMs();
+  if(now < shootCooldownMs) return;
+  shootCooldownMs = now + 40; // tiny cooldown กัน double-fire
+
+  const lockPx = clamp(detail && detail.lockPx != null ? detail.lockPx : 96, 45, 220);
+
+  const hit = findClosestTargetToCenter(lockPx);
+  if(hit && hit.id){
+    onHit(hit.id);
+  }else{
+    // tiny feedback when shoot misses center lock
+    // (ไม่เพิ่ม miss เพื่อความยุติธรรม; ให้เป็น "air shot")
+    fxTick();
+  }
+}
+
 // ------------------------- Hit / Miss handling -------------------------
 function onHit(id){
   const t = targets.get(id);
   if(!t) return;
-
-  // capture click center BEFORE remove
-  let cx = null, cy = null;
-  try{
-    const r = t.el.getBoundingClientRect();
-    cx = r.left + r.width/2;
-    cy = r.top  + r.height/2;
-  }catch(e){}
 
   const rt = Math.max(0, nowMs() - t.bornMs);
   const kind = t.kind;
@@ -717,11 +770,6 @@ function onHit(id){
     combo++;
     comboMax = Math.max(comboMax, combo);
 
-    // H++ slow-mo at high combo milestones
-    if(combo === 25 || combo === 35 || combo === 45){
-      triggerSlowmo(250);
-    }
-
     const gi = Number(t.groupIdx);
     if(gi>=0 && gi<5){
       gCount[gi] += 1;
@@ -732,14 +780,8 @@ function onHit(id){
     }
 
     let add = 50;
-    if(rt <= 420){
-      add += 35;
-      perfectHits++;
-      // H++ perfect spark at hit point
-      emit('hha:perfect', { game:'plate', x: cx, y: cy, rtMs: Math.round(rt), combo });
-    } else if(rt <= 650){
-      add += 20;
-    }
+    if(rt <= 420){ add += 35; perfectHits++; }
+    else if(rt <= 650){ add += 20; }
     add += Math.min(40, combo * 2);
 
     score += add;
@@ -890,7 +932,7 @@ function tick(){
   }
 
   const tune = currentTunings();
-  spawnAccum += dt * tune.spawnPerSec * slowmoFactor(); // H++ density slow only
+  spawnAccum += dt * tune.spawnPerSec;
   while(spawnAccum >= 1){
     spawnAccum -= 1;
     spawnTarget();
@@ -961,6 +1003,11 @@ function bootButtons(){
     startGame();
   }, { passive:true });
 
+  // ✅ Universal VR UI shoot event
+  ROOT.addEventListener('hha:shoot', (e)=>{
+    try{ onShoot(e && e.detail ? e.detail : null); }catch(_){}
+  });
+
   on(ROOT, 'beforeunload', ()=>{
     try{ flushHardened('beforeunload'); }catch(err){}
   });
@@ -1010,8 +1057,6 @@ function resetState(){
   activeGoal = null;
   activeMini = null;
 
-  slowmoUntilMs = 0;
-
   clearAllTargets();
   if(resultBackdrop) resultBackdrop.style.display = 'none';
   if(hudPaused) hudPaused.style.display = 'none';
@@ -1022,6 +1067,9 @@ function startGame(){
   resetState();
 
   if(startOverlay) startOverlay.style.display = 'none';
+
+  // view mode refresh (after body class applied)
+  viewMode = getViewMode();
 
   enableGyroIfAllowed();
   bindDragLook();
@@ -1121,6 +1169,7 @@ function buildSummary(reason){
     device: (navigator && navigator.userAgent) ? navigator.userAgent : '',
     gameVersion: URLX.searchParams.get('v') || URLX.searchParams.get('ver') || '',
     hub: hubUrl || '',
+    view: viewMode
   };
 }
 
