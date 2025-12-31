@@ -1,5 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v2.1 RECT-BOUNDS FIX
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v3
+// ✅ Spawn uses PLAYFIELD rect (fix flash/white/targets outside stage)
+// ✅ DOES NOT inject #gj-stage style (CSS owns layout)
+// ✅ autostart option (boot gate)
+// ✅ VR feel: mild drift movement + fever-driven ramp (play mode only)
 
 'use strict';
 
@@ -90,7 +94,7 @@ function rankFromAcc(acc){
 function diffBase(diff){
   diff = String(diff||'normal').toLowerCase();
   if (diff === 'easy')  return { spawnMs: 980, ttlMs: 2300, size: 1.08, junk: 0.12, power: 0.035, maxT: 7 };
-  if (diff === 'hard')  return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.18, power: 0.025, maxT: 9 };
+  if (diff === 'hard')  return { spawnMs: 720, ttlMs: 1650, size: 0.94, junk: 0.19, power: 0.025, maxT: 9 };
   return { spawnMs: 840, ttlMs: 1950, size: 1.00, junk: 0.15, power: 0.030, maxT: 8 };
 }
 
@@ -101,7 +105,7 @@ function ensureTargetStyles(){
   const st = DOC.createElement('style');
   st.id = 'gj-safe-style';
   st.textContent = `
-    #gj-stage{ position:fixed; inset:0; overflow:hidden; }
+    /* DO NOT style #gj-stage here (CSS layout owns it) */
     #gj-layer, #gj-layer-l, #gj-layer-r, .gj-layer{
       position:absolute; inset:0; z-index:30;
       pointer-events:auto !important;
@@ -123,7 +127,7 @@ function ensureTargetStyles(){
       border: 1px solid rgba(148,163,184,.22);
       box-shadow: 0 16px 50px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset;
       backdrop-filter: blur(8px);
-      will-change: transform, opacity;
+      will-change: transform, opacity, left, top;
     }
     .gj-target.good{ border-color: rgba(34,197,94,.28); }
     .gj-target.junk{ border-color: rgba(239,68,68,.30); filter: saturate(1.15); }
@@ -143,55 +147,6 @@ function ensureTargetStyles(){
   DOC.head.appendChild(st);
 }
 
-function pointInRect(x, y, r){
-  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-}
-
-function buildAvoidRects(DOC){
-  // In our layout, #gj-stage already excludes HUD/fever/controls,
-  // so avoid rects are mostly not needed. Keep minimal to avoid accidental overlaps
-  // if anything floats into stage later.
-  const els = [];
-  // (Optional) place future in-stage overlays here.
-  return els.map(()=>null).filter(Boolean);
-}
-
-// ✅ CORE FIX: spawn within actual layer rect, not window
-function randPosInLayer(rng, safeMargins, layerRect){
-  const W = Math.max(1, layerRect?.width || 1);
-  const H = Math.max(1, layerRect?.height || 1);
-
-  let top = safeMargins?.top ?? 16;
-  let bottom = safeMargins?.bottom ?? 18;
-  let left = safeMargins?.left ?? 14;
-  let right = safeMargins?.right ?? 14;
-
-  if ((W - left - right) < 160){ left = 10; right = 10; }
-  if ((H - top - bottom) < 220){
-    top = Math.max(10, top - 10);
-    bottom = Math.max(10, bottom - 10);
-  }
-
-  // If you later add avoid rects, convert candidate to viewport coords
-  // using layerRect.left/top and compare.
-  const DOC = ROOT.document;
-  const avoid = buildAvoidRects(DOC);
-
-  for (let i=0;i<16;i++){
-    const x = left + rng() * (W - left - right);
-    const y = top  + rng() * (H - top - bottom);
-    const gx = (layerRect?.left || 0) + x;
-    const gy = (layerRect?.top || 0) + y;
-
-    let ok = true;
-    for (const r of avoid){
-      if (r && pointInRect(gx, gy, r)){ ok = false; break; }
-    }
-    if (ok) return { x, y };
-  }
-  return { x: left + rng() * (W - left - right), y: top + rng() * (H - top - bottom) };
-}
-
 const GOOD = ['🥦','🥬','🥕','🍎','🍌','🍊','🍉','🍓','🍍','🥗'];
 const JUNK = ['🍟','🍔','🍕','🧋','🍩','🍬','🍭','🍪'];
 const STARS = ['⭐','💎'];
@@ -204,12 +159,13 @@ function setXY(el, x, y){
   el.style.setProperty('--y', py);
   el.style.left = px;
   el.style.top  = py;
+  el._x = x;
+  el._y = y;
 }
 
 function countTargets(layerEl){
   try{ return layerEl.querySelectorAll('.gj-target').length; }catch(_){ return 0; }
 }
-
 function getCenter(el){
   try{
     const r = el.getBoundingClientRect();
@@ -218,12 +174,10 @@ function getCenter(el){
     return { x: (ROOT.innerWidth||360)*0.5, y: (ROOT.innerHeight||640)*0.5 };
   }
 }
-
 function dist2(ax, ay, bx, by){
   const dx = ax - bx, dy = ay - by;
   return dx*dx + dy*dy;
 }
-
 function findTargetNear(layerEl, cx, cy, radiusPx){
   const r2max = radiusPx * radiusPx;
   const list = layerEl.querySelectorAll('.gj-target');
@@ -271,7 +225,6 @@ function makeSummary(S, reason){
     durationPlayedSec: Math.round((now() - S.tStart)/1000)
   };
 }
-
 async function flushAll(summary, reason){
   try{
     if (summary){
@@ -282,9 +235,33 @@ async function flushAll(summary, reason){
   await flushLogger(reason || (summary?.reason) || 'flush');
 }
 
+// ===== Spawn helpers (use actual playfield rect) =====
+function getLayerSize(layerEl){
+  try{
+    const r = layerEl.getBoundingClientRect();
+    return { w: Math.max(10, r.width|0), h: Math.max(10, r.height|0) };
+  }catch(_){
+    return { w: Math.max(10, (ROOT.innerWidth||360)|0), h: Math.max(10, (ROOT.innerHeight||640)|0) };
+  }
+}
+function randPosInLayer(rng, layerEl, margins){
+  const sz = getLayerSize(layerEl);
+  let left = margins?.left ?? 18;
+  let right = margins?.right ?? 18;
+  let top = margins?.top ?? 12;
+  let bottom = margins?.bottom ?? 12;
+
+  if ((sz.w - left - right) < 140){ left = 10; right = 10; }
+  if ((sz.h - top - bottom) < 180){ top = 8; bottom = 8; }
+
+  const x = left + rng() * (sz.w - left - right);
+  const y = top  + rng() * (sz.h - top - bottom);
+  return { x, y };
+}
+
 export function boot(opts = {}) {
   const DOC = ROOT.document;
-  if (!DOC) return;
+  if (!DOC) return { start(){} };
 
   ensureTargetStyles();
 
@@ -310,14 +287,13 @@ export function boot(opts = {}) {
 
   if (!layerL){
     console.warn('[GoodJunkVR] missing layer (gj-layer-l / gj-layer)');
-    return;
+    return { start(){} };
   }
 
   const dual = !!layerR;
-  const safeMargins = opts.safeMargins || { top: 16, bottom: 18, left: 14, right: 14 };
 
   const diff = String(opts.diff || qs('diff','normal')).toLowerCase();
-  const run  = String(opts.run  || qs('run','play')).toLowerCase();
+  const run  = String(opts.run || qs('run','play')).toLowerCase();
   const runMode = (run === 'research') ? 'research' : 'play';
 
   const timeSec = clamp(Number(opts.time ?? qs('time','80')), 30, 600) | 0;
@@ -331,6 +307,8 @@ export function boot(opts = {}) {
 
   const ctx = opts.context || {};
   const base = diffBase(diff);
+
+  const safeMargins = opts.safeMargins || { top: 12, bottom: 12, left: 18, right: 18 };
 
   const S = {
     running:false, ended:false, flushed:false,
@@ -352,6 +330,8 @@ export function boot(opts = {}) {
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
     S.size = Math.min(1.12, S.size + 0.03);
+    safeMargins.left = Math.max(12, safeMargins.left);
+    safeMargins.right = Math.max(12, safeMargins.right);
   }
 
   function coach(mood, text, sub){
@@ -370,7 +350,7 @@ export function boot(opts = {}) {
     emit('quest:update', {
       goalTitle: `Goal: เก็บของดีให้ครบ`,
       goalNow: S.goalsCleared, goalTotal: S.goalsTotal,
-      miniTitle: `Mini: ทำคอมโบให้ถึง`,
+      miniTitle: `Mini: คอมโบมาแล้ว!`,
       miniNow: S.miniCleared, miniTotal: S.miniTotal,
       miniLeftMs: 0
     });
@@ -436,6 +416,14 @@ export function boot(opts = {}) {
     el.dataset.emoji = String(emoji||'✨');
     el.dataset.uid = String(uid||'');
 
+    el.style.position = 'absolute';
+    el.style.pointerEvents = 'auto';
+    el.style.zIndex = '30';
+
+    // mild drift velocity (harder when fever high later)
+    el._vx = (S.rng() * 2 - 1) * 0.65;
+    el._vy = (S.rng() * 2 - 1) * 0.55;
+
     setXY(el, x, y);
     el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
     el.textContent = String(emoji||'✨');
@@ -487,7 +475,7 @@ export function boot(opts = {}) {
       const needCombo = 4 + (S.miniCleared * 2);
       if (S.combo >= needCombo){
         S.miniCleared++;
-        emit('hha:celebrate', { kind:'mini', title:`Mini ผ่าน! ${S.miniCleared}/${S.miniTotal}` });
+        emit('hha:celebrate', { kind:'mini', title:`Mini ผ่าน! +${S.miniCleared}/${S.miniTotal}` });
         coach('happy', `คอมโบมาแล้ว! ดีมาก 🔥`, `ทำคอมโบต่อได้อีก!`);
         updateQuest();
       }
@@ -606,9 +594,7 @@ export function boot(opts = {}) {
     const size = (inWarm ? (S.size * 1.06) : S.size);
     const uid = String(S.uidSeq++);
 
-    const rectL = layerL.getBoundingClientRect();
-    const pL = randPosInLayer(S.rng, safeMargins, rectL);
-
+    const pL = randPosInLayer(S.rng, layerL, safeMargins);
     const emoji =
       (tp === 'good') ? pick(S.rng, GOOD) :
       (tp === 'junk') ? pick(S.rng, JUNK) :
@@ -625,10 +611,8 @@ export function boot(opts = {}) {
     layerL.appendChild(elL);
 
     if (dual && layerR){
-      // keep same y across eyes for comfort
-      const rectR = layerR.getBoundingClientRect();
-      const pR = randPosInLayer(S.rng, safeMargins, rectR);
-      const elR = makeTarget(tp, emoji, pR.x, pL.y, s, uid);
+      const pR = randPosInLayer(S.rng, layerR, safeMargins);
+      const elR = makeTarget(tp, emoji, pR.x, pR.y, s, uid);
       layerR.appendChild(elR);
     }
 
@@ -642,7 +626,47 @@ export function boot(opts = {}) {
     const inWarm = (t < S.warmupUntil);
     let nextMs = S.spawnMs;
     if (inWarm) nextMs = Math.max(980, S.spawnMs + 240);
-    S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 380, 1400));
+    S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 360, 1400));
+  }
+
+  function moveTargetsLayer(layerEl){
+    if (!layerEl) return;
+    const sz = getLayerSize(layerEl);
+    const mx = Math.max(12, safeMargins.left);
+    const my = Math.max(10, safeMargins.top);
+    const maxX = Math.max(mx + 10, sz.w - Math.max(12, safeMargins.right));
+    const maxY = Math.max(my + 10, sz.h - Math.max(10, safeMargins.bottom));
+
+    const heat = clamp((S.fever - 40) / 60, 0, 1); // faster when fever high
+    const speedMult = 1 + heat * 1.25;
+
+    const list = layerEl.querySelectorAll('.gj-target');
+    list.forEach(el=>{
+      if (!el || !el.isConnected) return;
+      const vx = (el._vx || 0) * speedMult;
+      const vy = (el._vy || 0) * speedMult;
+
+      let x = (typeof el._x === 'number') ? el._x : 50;
+      let y = (typeof el._y === 'number') ? el._y : 50;
+
+      x += vx;
+      y += vy;
+
+      if (x < mx){ x = mx; el._vx = Math.abs(el._vx || 0.4); }
+      if (x > maxX){ x = maxX; el._vx = -Math.abs(el._vx || 0.4); }
+      if (y < my){ y = my; el._vy = Math.abs(el._vy || 0.35); }
+      if (y > maxY){ y = maxY; el._vy = -Math.abs(el._vy || 0.35); }
+
+      setXY(el, x, y);
+
+      // keep mate in sync (same drift)
+      const mate = getMate(el);
+      if (mate){
+        mate._vx = el._vx; mate._vy = el._vy;
+        mate._x = x; mate._y = y;
+        setXY(mate, x, y);
+      }
+    });
   }
 
   function adaptiveTick(){
@@ -650,6 +674,11 @@ export function boot(opts = {}) {
 
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
+
+    // drift each tick
+    moveTargetsLayer(layerL);
+    if (dual) moveTargetsLayer(layerR);
+
     if (S.left <= 0){ endGame('time'); return; }
 
     if (S.runMode === 'play'){
@@ -661,16 +690,18 @@ export function boot(opts = {}) {
       const skill = clamp((acc - 0.65) * 1.2 + comboHeat * 0.8, 0, 1);
       const heat = clamp(timeRamp * 0.55 + skill * 0.75, 0, 1);
 
+      // base ramp
       S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
       S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
       S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.12);
-      S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
+      S.junkP   = clamp(base.junk    + heat * 0.08, 0.08, 0.26);
       S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
 
       const maxBonus = Math.round(heat * 4);
       S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
 
-      if (S.fever >= 70){
+      // high fever fairness: slightly reduce junk to avoid spiral death
+      if (S.fever >= 82){
         S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
         S.size  = clamp(S.size + 0.03, 0.86, 1.15);
       }
@@ -691,7 +722,7 @@ export function boot(opts = {}) {
 
     const radius = isMobileLike() ? 62 : 52;
 
-    const cL = crossL ? getCenter(crossL) : { x:(ROOT.innerWidth||360)*0.5, y:(ROOT.innerHeight||640)*0.5 };
+    const cL = crossL ? getCenter(crossL) : { x:(ROOT.innerWidth||360)*0.25, y:(ROOT.innerHeight||640)*0.5 };
     const el1 = findTargetNear(layerL, cL.x, cL.y, radius);
     let best = el1, bestD2 = 1e18;
 
@@ -778,8 +809,12 @@ export function boot(opts = {}) {
   }
 
   function start(){
+    if (S.running || S.ended) {
+      // allow restart
+      S.ended = false;
+    }
+
     S.running = true;
-    S.ended = false;
     S.flushed = false;
 
     S.tStart = now();
@@ -815,11 +850,23 @@ export function boot(opts = {}) {
 
   bindInputs();
   bindFlushHard();
-  start();
+
+  const api = {
+    start,
+    endGame,
+    shoot: shootAtCrosshair,
+    state: S
+  };
 
   try{
     ROOT.GoodJunkVR = ROOT.GoodJunkVR || {};
+    ROOT.GoodJunkVR.start = start;
     ROOT.GoodJunkVR.endGame = endGame;
     ROOT.GoodJunkVR.shoot = shootAtCrosshair;
   }catch(_){}
+
+  const autostart = (opts.autostart !== false);
+  if (autostart) start();
+
+  return api;
 }
