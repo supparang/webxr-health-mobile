@@ -1,10 +1,10 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
 // Hydration VR Loader — PRODUCTION (LATEST)
-// ✅ View: PC / Mobile / Cardboard
-// ✅ Mode select: เล่นปกติ vs Cardboard (แก้ปัญหา "ไม่มี option")
+// ✅ Mode picker: PC / Mobile / Cardboard VR
 // ✅ Fullscreen + best-effort landscape lock for Cardboard
+// ✅ RotateHint when Cardboard in portrait
 // ✅ Emits: hha:start, hha:force_end, hha:shoot
-// ✅ Sets window.HHA_VIEW.layers so hydration.safe.js spawns correctly
+// ✅ Sets window.HHA_VIEW.layers + window.HHA_VIEW.aim for hydration.safe.js
 
 'use strict';
 
@@ -46,8 +46,23 @@ async function enterFullscreen(){
 }
 async function lockLandscape(){
   try{
-    if (screen?.orientation?.lock) await screen.orientation.lock('landscape');
+    if (screen?.orientation?.lock){
+      await screen.orientation.lock('landscape');
+    }
   }catch(_){}
+}
+
+function isPortrait(){
+  try{
+    return window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
+  }catch(_){ return false; }
+}
+
+function rotateHintUpdate(){
+  const el = DOC.getElementById('rotateHint');
+  if (!el) return;
+  const on = DOC.body.classList.contains('cardboard') && isPortrait();
+  el.hidden = !on;
 }
 
 function applyHHAViewLayers(){
@@ -55,108 +70,107 @@ function applyHHAViewLayers(){
   const R = DOC.getElementById('hydration-layerR');
   const main = DOC.getElementById('hydration-layer');
   const isCb = DOC.body.classList.contains('cardboard');
+
   window.HHA_VIEW = window.HHA_VIEW || {};
   window.HHA_VIEW.layers = (isCb && L && R) ? ['hydration-layerL','hydration-layerR'] : ['hydration-layer'];
   window.HHA_VIEW._nodes = { main, L, R };
 }
 
-function ensureRotateHintNode(){
-  if (DOC.getElementById('rotateHint')) return;
-  const wrap = DOC.createElement('div');
-  wrap.id = 'rotateHint';
-  wrap.hidden = true;
-  wrap.innerHTML = `
-    <div class="card">
-      <div class="big">กรุณาหมุนจอเป็นแนวนอน</div>
-      <div class="small">เพื่อเล่นโหมด VR / Cardboard 📱↔️</div>
-      <div class="actions">
-        <button class="hha-btn" id="rhExit">เล่นแบบปกติ</button>
-        <button class="hha-btn primary" id="rhEnter">เข้า Cardboard</button>
-      </div>
-      <div class="tiny">Tip: ถ้าไม่อยากหมุนจอ ให้กด “เล่นแบบปกติ” ได้ทันที</div>
-    </div>
-  `;
-  DOC.body.appendChild(wrap);
+function applyAimConfig(){
+  // ?lock=90 (px) ระยะล็อกช่วยยิง
+  // ?aimx=0 (px) offset X
+  // ?aimy=6 (px) offset Y (แนะนำ 6-12 ใน Cardboard)
+  const lockPx = Number(qs('lock', qs('lockPx', 90))) || 90;
+  const offsetX = Number(qs('aimx', qs('aimOffsetX', 0))) || 0;
+  const offsetY = Number(qs('aimy', qs('aimOffsetY', 6))) || 6;
+
+  window.HHA_VIEW = window.HHA_VIEW || {};
+  window.HHA_VIEW.aim = { lockPx, offsetX, offsetY };
 }
 
-function rotateHintUpdate(){
-  const el = DOC.getElementById('rotateHint');
-  if (!el) return;
-  const portrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
-  const on = DOC.body.classList.contains('cardboard') && portrait;
-  el.hidden = !on;
+function hideOverlay(){
+  const overlay = DOC.getElementById('startOverlay');
+  try{
+    overlay?.classList.add('hide');
+    if (overlay) overlay.style.display = 'none';
+  }catch(_){}
 }
 
-async function goCardboard(){
+async function enterCardboardFlow(){
   setView('cvr');
   showCardboard(true);
   applyHHAViewLayers();
   rotateHintUpdate();
 
-  // best effort fs+lock
+  // ต้องเป็น gesture จากปุ่ม ถึงจะ lock ได้ดี
   await enterFullscreen();
   await lockLandscape();
-}
-function goNormal(){
-  showCardboard(false);
-  setView(isMobileUA() ? 'mobile' : 'pc');
-  applyHHAViewLayers();
   rotateHintUpdate();
-}
 
-function bindRotateHintButtons(){
-  const el = DOC.getElementById('rotateHint');
-  if (!el) return;
-  const rhExit = el.querySelector('#rhExit');
-  const rhEnter = el.querySelector('#rhEnter');
-
-  rhExit?.addEventListener('click', ()=>{
-    goNormal();
-  });
-
-  rhEnter?.addEventListener('click', async ()=>{
-    await goCardboard();
-  });
+  // ถ้ายัง portrait ให้แสดง hint แต่ยังเริ่มเกมได้ (ผู้ใช้หมุนแล้วจะหาย)
+  hideOverlay();
+  emit('hha:start');
 }
 
 function bind(){
-  const btnStart = DOC.getElementById('btnStart');
+  const btnStartPC = DOC.getElementById('btnStartPC');
+  const btnStartMobile = DOC.getElementById('btnStartMobile');
   const btnEnterVR = DOC.getElementById('btnEnterVR');
+
   const btnCardboard = DOC.getElementById('btnCardboard');
   const btnShoot = DOC.getElementById('btnShoot');
   const btnStop = DOC.getElementById('btnStop');
-  const overlay = DOC.getElementById('startOverlay');
 
-  // initial view
+  const btnRotateOk = DOC.getElementById('btnRotateOk');
+  btnRotateOk?.addEventListener('click', ()=>{ rotateHintUpdate(); });
+
+  // initial view (if URL says view=cvr)
   const viewParam = String(qs('view','')).toLowerCase();
   const startCb = (viewParam === 'cvr') || (String(qs('cardboard','0')) === '1');
   const view = startCb ? 'cvr' : (isMobileUA() ? 'mobile' : 'pc');
+
   setView(view);
   showCardboard(startCb);
   applyHHAViewLayers();
   rotateHintUpdate();
 
-  // Start (normal)
-  btnStart?.addEventListener('click', ()=>{
-    try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
+  // Mode: PC
+  btnStartPC?.addEventListener('click', ()=>{
+    setView('pc');
+    showCardboard(false);
+    applyHHAViewLayers();
+    rotateHintUpdate();
+    hideOverlay();
     emit('hha:start');
   });
 
-  // Cardboard enter (from overlay)
-  btnEnterVR?.addEventListener('click', async ()=>{
-    await goCardboard();
-    try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
+  // Mode: Mobile
+  btnStartMobile?.addEventListener('click', ()=>{
+    setView('mobile');
+    showCardboard(false);
+    applyHHAViewLayers();
+    rotateHintUpdate();
+    hideOverlay();
     emit('hha:start');
   });
 
-  // Cardboard toggle (bottom)
+  // Mode: Cardboard
+  btnEnterVR?.addEventListener('click', enterCardboardFlow);
+
+  // Bottom toggle Cardboard
   btnCardboard?.addEventListener('click', async ()=>{
     const on = !DOC.body.classList.contains('cardboard');
-    if (on) await goCardboard();
-    else goNormal();
+    if (on){
+      await enterCardboardFlow();
+    } else {
+      showCardboard(false);
+      setView(isMobileUA() ? 'mobile' : 'pc');
+      applyHHAViewLayers();
+      rotateHintUpdate();
+    }
   });
 
-  // SHOOT (button)
+  // SHOOT button
   btnShoot?.addEventListener('click', ()=>{
     emit('hha:shoot', { src:'btn', t: Date.now() });
   });
@@ -166,26 +180,27 @@ function bind(){
     emit('hha:force_end', { reason:'stop' });
   });
 
-  // Tap anywhere to shoot (mobile convenience)
+  // Tap-to-shoot convenience (ignore button taps)
   let lastTap=0;
   DOC.addEventListener('pointerdown', (ev)=>{
     const t = ev.target;
-    if (t && (t.closest?.('.hha-btn') || t.id === 'btnShoot')) return;
+    if (t && (t.closest?.('.hha-btn') || t.classList?.contains('modeCard'))) return;
 
     const now = performance.now();
     if (now - lastTap < 80) return;
     lastTap = now;
 
-    const ovHidden = !overlay || overlay.style.display === 'none' || overlay.hidden || overlay.classList.contains('hide');
+    const ov = DOC.getElementById('startOverlay');
+    const ovHidden = !ov || ov.style.display === 'none' || ov.hidden || ov.classList.contains('hide');
     if (ovHidden) emit('hha:shoot', { src:'tap', t: Date.now() });
   }, { passive:true });
 
-  // keep rotate hint correct
+  // keep rotate hint accurate
   window.addEventListener('resize', rotateHintUpdate, {passive:true});
   window.addEventListener('orientationchange', rotateHintUpdate);
   DOC.addEventListener('fullscreenchange', rotateHintUpdate);
 
-  // observe class changes (robust)
+  // maintain layers
   const obs = new MutationObserver(()=>{
     applyHHAViewLayers();
     rotateHintUpdate();
@@ -194,11 +209,10 @@ function bind(){
 }
 
 function boot(){
-  ensureRotateHintNode();
-  bindRotateHintButtons();
+  applyAimConfig();
   bind();
 
-  // load game logic AFTER loader is ready
+  // load game logic AFTER loader ready
   import('./hydration.safe.js').catch(console.error);
 }
 
