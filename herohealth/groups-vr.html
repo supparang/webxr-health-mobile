@@ -1,386 +1,360 @@
-<!-- === /herohealth/vr-groups/groups-vr.html ===
-Food Groups VR — PRODUCTION Entry (PC/Mobile/VR/cVR) + Universal VR UI
-✅ Choice entry: PC / Mobile / VR / Cardboard (cVR)
-✅ Includes ../vr/vr-ui.js => ENTER VR/EXIT/RECENTER + crosshair + hha:shoot
-✅ Works with: ./audio.js + ./GameEngine.js + ./groups.quest.js (createGroupsQuest)
--->
+<!-- =========================================================
+  FILE: /herohealth/groups-vr.html
+  GroupsVR LAUNCHER (PRODUCTION)
+  - เลือกเข้า: PC / Mobile / VR / Cardboard(cVR)
+  - ตั้งค่า: run(play/research), diff, style, time, seed
+  - Launch ไปที่: ./vr-groups/groups.html?...
+========================================================= -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Food Groups VR</title>
-  <meta name="color-scheme" content="dark" />
-  <link rel="icon" href="../favicon.ico" />
+  <title>HeroHealth — Groups VR (Launcher)</title>
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (needed for Enter VR button to work) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.82);
+      --panel2:rgba(15,23,42,.68);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --cyan:#22d3ee;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --r: 22px;
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; width:100%; height:100%; overflow:auto; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+    body{
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,211,238,.12), transparent 55%),
+        linear-gradient(180deg, #020617, #020617);
+    }
 
-  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + emits hha:shoot) -->
-  <script src="../vr/vr-ui.js" defer></script>
+    .wrap{
+      min-height:100%;
+      padding: calc(16px + var(--sat)) 14px calc(18px + var(--sab));
+      display:flex; align-items:center; justify-content:center;
+    }
+    .panel{
+      width:min(920px, 96vw);
+      border-radius: 26px;
+      background: var(--panel);
+      border:1px solid var(--stroke);
+      box-shadow: 0 36px 90px rgba(0,0,0,.55);
+      padding: 16px 16px 14px;
+    }
+    .head{
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+      flex-wrap:wrap;
+      padding: 6px 4px 12px;
+      border-bottom: 1px solid rgba(148,163,184,.12);
+      margin-bottom: 12px;
+    }
+    .title{
+      font-size: 18px;
+      font-weight: 1100;
+      letter-spacing:.2px;
+      display:flex; align-items:center; gap:10px;
+    }
+    .sub{ color:var(--muted); font-size:13px; line-height:1.25; margin-top:2px; }
+    .badge{
+      padding:8px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(34,211,238,.26);
+      background: rgba(34,211,238,.10);
+      color:#bdf7ff;
+      font-weight: 1000;
+      font-size: 12.5px;
+      white-space:nowrap;
+    }
 
-  <!-- SFX + Quest + Engine -->
-  <script src="./audio.js" defer></script>
-  <script src="./groups.quest.js" defer></script>
-  <script src="./GameEngine.js" defer></script>
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns:1fr; }
+    }
 
-  <link rel="stylesheet" href="./groups-vr.css" />
+    .card{
+      background: rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius: var(--r);
+      padding: 12px;
+      box-shadow: 0 18px 44px rgba(0,0,0,.30);
+    }
+    .card h3{
+      margin:0 0 6px;
+      font-size: 14px;
+      font-weight: 1100;
+    }
+    .hint{
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.25;
+    }
+
+    .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .chips{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+
+    .chip{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.25);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 9px 11px;
+      font-weight: 1000;
+      cursor:pointer;
+      user-select:none;
+    }
+    .chip.on{
+      background: rgba(34,197,94,.16);
+      border-color: rgba(34,197,94,.32);
+    }
+    .chip.alt.on{
+      background: rgba(34,211,238,.14);
+      border-color: rgba(34,211,238,.30);
+    }
+    .chip.warn.on{
+      background: rgba(245,158,11,.14);
+      border-color: rgba(245,158,11,.30);
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.65);
+      color: var(--text);
+      border-radius: 18px;
+      padding: 12px 12px;
+      font-weight: 1100;
+      cursor:pointer;
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:10px;
+      min-height: 44px;
+      transition: transform .08s ease, filter .12s ease;
+    }
+    .btn:active{ transform: scale(.987); }
+    .btn.primary{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.34);
+    }
+    .btn.ghost{ background: rgba(2,6,23,.35); }
+
+    .footer{
+      margin-top: 12px;
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center; justify-content:space-between;
+      padding: 8px 2px 0;
+    }
+    .small{ color:var(--muted); font-size:12.5px; }
+    code{ color:#c7d2fe; }
+  </style>
 </head>
 
-<body class="view-pc">
-  <!-- Minimal A-Frame scene behind (for WebXR Enter VR) -->
-  <a-scene
-    class="xr-scene"
-    embedded
-    vr-mode-ui="enabled:false"
-    device-orientation-permission-ui="enabled:true"
-    renderer="colorManagement:true; physicallyCorrectLights:false"
-  >
-    <a-entity position="0 1.6 0">
-      <a-camera wasd-controls-enabled="false" look-controls="enabled:true"></a-camera>
-    </a-entity>
-
-    <a-sky color="#061225"></a-sky>
-    <a-entity light="type:ambient; intensity:1.0"></a-entity>
-  </a-scene>
-
-  <!-- ===== Start Overlay (choose entry) ===== -->
-  <div id="startOverlay" class="overlay">
+<body>
+  <div class="wrap">
     <div class="panel">
-      <div class="title">🍽️ Food Groups VR</div>
-      <div class="sub">เลือกช่องทางเข้าเล่นให้ชัดเจน (PC / Mobile / VR / Cardboard)</div>
-
-      <div class="row">
-        <button class="btn" data-view="pc">🖥️ PC</button>
-        <button class="btn" data-view="mobile">📱 Mobile</button>
-        <button class="btn" data-view="vr">🕶️ VR</button>
-        <button class="btn btn-strong" data-view="cvr">📦 Cardboard</button>
+      <div class="head">
+        <div>
+          <div class="title">🍽️ Food Groups VR <span class="badge">Launcher</span></div>
+          <div class="sub">เลือกช่องทางเข้า + ตั้งค่าเกม แล้วกด “เริ่มเล่น” เพื่อไปหน้า run</div>
+        </div>
+        <div class="badge" id="pathHint">run: <code>./vr-groups/groups.html</code></div>
       </div>
 
-      <div class="hr"></div>
+      <div class="grid">
 
-      <div class="grid2">
-        <div class="kv">
-          <div class="k">Difficulty</div>
-          <div class="v">
-            <button class="chip" data-diff="easy">Easy</button>
-            <button class="chip chip-on" data-diff="normal">Normal</button>
-            <button class="chip" data-diff="hard">Hard</button>
+        <div class="card">
+          <h3>1) ช่องทางเข้า</h3>
+          <div class="row">
+            <div class="chip alt on" data-k="view" data-v="pc">🖥️ PC</div>
+            <div class="chip alt" data-k="view" data-v="mobile">📱 Mobile</div>
+            <div class="chip alt" data-k="view" data-v="vr">🕶️ VR</div>
+            <div class="chip alt" data-k="view" data-v="cvr">📦 Cardboard (cVR)</div>
+          </div>
+
+          <div class="hint">
+            • VR / cVR จะมีปุ่ม ENTER VR / EXIT / RECENTER ในหน้า run (มาจาก <code>vr/vr-ui.js</code>)<br>
+            • cVR จะยิงด้วยครอสแฮร์กลางจอ + แตะเพื่อยิง (เป้าไม่รับคลิกตรง ๆ)
+          </div>
+
+          <div class="hint" style="margin-top:10px;">
+            HUB: ถ้าต้องการปุ่มกลับ HUB ให้ส่ง <code>hub=./hub.safe.html</code>
           </div>
         </div>
 
-        <div class="kv">
-          <div class="k">Mode</div>
-          <div class="v">
-            <button class="chip chip-on" data-run="play">Play (Adaptive)</button>
-            <button class="chip" data-run="research">Research (Seeded)</button>
+        <div class="card">
+          <h3>2) ตั้งค่าเกม</h3>
+
+          <div class="hint"><b>Run mode</b></div>
+          <div class="chips">
+            <div class="chip on" data-k="run" data-v="play">🎮 Play (Adaptive)</div>
+            <div class="chip" data-k="run" data-v="research">🧪 Research (Deterministic)</div>
+          </div>
+
+          <div class="hint"><b>Difficulty</b></div>
+          <div class="chips">
+            <div class="chip" data-k="diff" data-v="easy">🙂 Easy</div>
+            <div class="chip on" data-k="diff" data-v="normal">😎 Normal</div>
+            <div class="chip" data-k="diff" data-v="hard">🔥 Hard</div>
+          </div>
+
+          <div class="hint"><b>Style</b></div>
+          <div class="chips">
+            <div class="chip warn on" data-k="style" data-v="mix">🎛️ Mix</div>
+            <div class="chip warn" data-k="style" data-v="feel">🌊 Feel</div>
+            <div class="chip warn" data-k="style" data-v="hard">🌀 Hard</div>
+          </div>
+
+          <div class="hint"><b>Time (sec)</b></div>
+          <div class="chips">
+            <div class="chip" data-k="time" data-v="60">60</div>
+            <div class="chip on" data-k="time" data-v="90">90</div>
+            <div class="chip" data-k="time" data-v="120">120</div>
+          </div>
+
+          <div class="hint"><b>Seed</b> (research แนะนำ fix seed)</div>
+          <div class="row" style="margin-top:8px;">
+            <input id="seedInput" style="
+              flex:1; min-width:220px;
+              padding: 12px 12px;
+              border-radius: 16px;
+              border:1px solid rgba(148,163,184,.18);
+              background: rgba(2,6,23,.35);
+              color: var(--text);
+              outline:none;
+              font-weight:900;
+            " value="" placeholder="ปล่อยว่าง = ใช้เวลาปัจจุบัน" />
+            <button class="btn ghost" id="btnRand">🎲 Random</button>
           </div>
         </div>
 
-        <div class="kv">
-          <div class="k">Style</div>
-          <div class="v">
-            <button class="chip chip-on" data-style="mix">Mix</button>
-            <button class="chip" data-style="feel">Feel</button>
-            <button class="chip" data-style="hard">Hard</button>
-          </div>
-        </div>
+      </div>
 
-        <div class="kv">
-          <div class="k">Time</div>
-          <div class="v">
-            <input id="timeInput" class="input" type="number" min="30" max="180" step="5" value="90" />
-            <span class="hint">sec</span>
-          </div>
+      <div class="footer">
+        <div class="small" id="previewUrl">—</div>
+        <div class="row">
+          <button class="btn ghost" id="btnHub">🏠 ไป HUB</button>
+          <button class="btn primary" id="btnGo">▶️ เริ่มเล่น</button>
         </div>
       </div>
 
-      <div class="hr"></div>
-
-      <div class="note">
-        • โหมด <b>Cardboard</b> (cVR) จะยิงด้วย “ครอสแฮร์กลางจอ” (tap-to-shoot) <br/>
-        • โหมด <b>VR</b> ให้กด ENTER VR (ปุ่มจาก vr-ui.js) แล้วเล่นได้ทันที
-      </div>
-
-      <div class="row row2">
-        <button id="btnStart" class="btn btn-strong">▶️ Start</button>
-        <button id="btnClose" class="btn btn-ghost">ดูหน้าจอเกม</button>
+      <div class="hint">
+        พารามิเตอร์ที่ส่งไปหน้า run: <code>view, run, diff, style, time, seed, hub, autostart</code>
       </div>
     </div>
   </div>
 
-  <!-- ===== HUD / UI ===== -->
-  <div class="hud">
-    <div class="hudLeft">
-      <div class="pill"><span class="lbl">TIME</span><span id="hudTime" class="val">90</span></div>
-      <div class="pill"><span class="lbl">SCORE</span><span id="hudScore" class="val">0</span></div>
-      <div class="pill"><span class="lbl">COMBO</span><span id="hudCombo" class="val">0</span></div>
-      <div class="pill"><span class="lbl">MISS</span><span id="hudMiss" class="val">0</span></div>
-    </div>
+<script>
+(function(){
+  'use strict';
+  const $ = (id)=>document.getElementById(id);
 
-    <div class="hudRight">
-      <div class="pill"><span class="lbl">RANK</span><span id="hudRank" class="val">C</span></div>
-      <div class="pill pill-fever">
-        <span class="lbl">FEVER</span>
-        <span id="hudFever" class="val">0%</span>
-        <span id="hudShield" class="tag">🛡️0</span>
-      </div>
-    </div>
-  </div>
+  const state = {
+    view:'pc',
+    run:'play',
+    diff:'normal',
+    style:'mix',
+    time:'90',
+    seed:'',
+    hub:'./hub.safe.html'
+  };
 
-  <!-- Quest / Goal -->
-  <div class="questTop">
-    <div class="questCard">
-      <div class="qTitle"><span id="goalTitle">GOAL</span></div>
-      <div class="bar"><div id="goalFill" class="fill" style="width:0%"></div></div>
-      <div class="qSub"><span id="goalText">—</span></div>
-    </div>
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+  }
 
-    <div class="questCard">
-      <div class="qTitle"><span id="miniTitle">MINI</span> <span id="miniTime" class="miniTime"></span></div>
-      <div class="bar"><div id="miniFill" class="fill" style="width:0%"></div></div>
-      <div class="qSub"><span id="miniText">—</span></div>
-    </div>
-  </div>
+  // init from url if provided
+  state.view  = (qs('view', state.view) || state.view).toLowerCase();
+  state.run   = (qs('run', state.run) || state.run).toLowerCase();
+  state.diff  = (qs('diff', state.diff) || state.diff).toLowerCase();
+  state.style = (qs('style', state.style) || state.style).toLowerCase();
+  state.time  = String(qs('time', state.time) || state.time);
+  state.seed  = String(qs('seed','') || '');
+  state.hub   = String(qs('hub', state.hub) || state.hub);
 
-  <!-- Power -->
-  <div class="powerWrap">
-    <div class="powerCard">
-      <div class="pHead">⚡ POWER (สลับหมู่เมื่อเต็ม)</div>
-      <div class="bar powerBar"><div id="powerFill" class="fill" style="width:0%"></div></div>
-      <div class="pFoot"><span id="powerText">0 / 8</span></div>
-    </div>
-  </div>
+  // default view guess
+  if (!qs('view', null)){
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
+    state.view = isTouch ? 'mobile' : 'pc';
+  }
 
-  <!-- Coach -->
-  <div class="coachWrap">
-    <div class="coachCard">
-      <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
-      <div class="coachBubble">
-        <div class="coachName">Coach</div>
-        <div id="coachText" class="coachText">พร้อมแล้วเลือกโหมดด้านบน แล้วเริ่มเกมได้เลย!</div>
-      </div>
-    </div>
-  </div>
+  $('seedInput').value = state.seed;
 
-  <!-- Targets Layer -->
-  <div id="fg-layer" class="playLayer" aria-label="targets layer"></div>
+  function setOn(sel, k, v){
+    document.querySelectorAll(sel).forEach(el=>{
+      const on = (String(el.dataset.k)===k && String(el.dataset.v)===v);
+      el.classList.toggle('on', on);
+    });
+  }
 
-  <!-- End Overlay -->
-  <div id="endOverlay" class="overlay overlay-end hidden">
-    <div class="panel">
-      <div class="title">🏁 จบเกม</div>
-      <div id="endLine" class="sub">—</div>
+  function syncChips(){
+    setOn('[data-k="view"]',  'view',  state.view);
+    setOn('[data-k="run"]',   'run',   state.run);
+    setOn('[data-k="diff"]',  'diff',  state.diff);
+    setOn('[data-k="style"]', 'style', state.style);
+    setOn('[data-k="time"]',  'time',  state.time);
+  }
 
-      <div class="grid2">
-        <div class="stat"><div class="k">Score</div><div id="endScore" class="v">0</div></div>
-        <div class="stat"><div class="k">Rank</div><div id="endRank" class="v">C</div></div>
-        <div class="stat"><div class="k">Accuracy</div><div id="endAcc" class="v">0%</div></div>
-        <div class="stat"><div class="k">Miss</div><div id="endMiss" class="v">0</div></div>
-      </div>
+  function buildUrl(){
+    const seed = $('seedInput').value.trim() || state.seed || '';
+    const u = new URL('./vr-groups/groups.html', location.href);
+    u.searchParams.set('view', state.view);
+    u.searchParams.set('run', state.run);
+    u.searchParams.set('diff', state.diff);
+    u.searchParams.set('style', state.style);
+    u.searchParams.set('time', state.time);
+    u.searchParams.set('hub', state.hub);
+    u.searchParams.set('autostart', '1');
+    if (seed) u.searchParams.set('seed', seed);
+    return u.toString();
+  }
 
-      <div class="row row2">
-        <button id="btnRestart" class="btn btn-strong">🔁 เล่นอีกครั้ง</button>
-        <button id="btnBack" class="btn btn-ghost">⬅️ กลับหน้าเลือกโหมด</button>
-      </div>
-    </div>
-  </div>
+  function syncPreview(){
+    syncChips();
+    $('previewUrl').textContent = '▶ ' + buildUrl();
+  }
 
-  <!-- ===== Boot Script ===== -->
-  <script>
-    (function(){
-      'use strict';
-      const $ = (id)=>document.getElementById(id);
+  document.addEventListener('click', (ev)=>{
+    const el = ev.target.closest('[data-k][data-v]');
+    if (!el) return;
+    const k = String(el.dataset.k);
+    const v = String(el.dataset.v);
+    state[k] = v;
+    syncPreview();
+  });
 
-      function qs(k, def=null){
-        try { return new URL(location.href).searchParams.get(k) ?? def; }
-        catch { return def; }
-      }
-      function clamp(v,a,b){
-        v = Number(v); if (!isFinite(v)) v = a;
-        return v<a?a:(v>b?b:v);
-      }
-      function setView(view){
-        const b = document.body;
-        b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-        b.classList.add('view-'+view);
-      }
+  $('btnRand').addEventListener('click', ()=>{
+    const s = String(Date.now()) + '-' + Math.floor(Math.random()*1000);
+    $('seedInput').value = s;
+    syncPreview();
+  });
 
-      // state from query
-      let view = String(qs('view','pc')).toLowerCase();
-      if (!['pc','mobile','vr','cvr'].includes(view)) view = 'pc';
+  $('btnGo').addEventListener('click', ()=>{
+    location.href = buildUrl();
+  });
 
-      let diff = String(qs('diff','normal')).toLowerCase();
-      if (!['easy','normal','hard'].includes(diff)) diff = 'normal';
+  $('btnHub').addEventListener('click', ()=>{
+    location.href = state.hub || './hub.safe.html';
+  });
 
-      let runMode = String(qs('run','play')).toLowerCase() === 'research' ? 'research' : 'play';
-      let style = String(qs('style','mix')).toLowerCase();
-      if (!['mix','feel','hard'].includes(style)) style = 'mix';
+  syncPreview();
+})();
+</script>
 
-      let time = clamp(qs('time', 90), 30, 180);
-      let seed = String(qs('seed', Date.now()));
-
-      // init UI
-      setView(view);
-      $('timeInput').value = String(time);
-
-      // chips
-      function syncChips(){
-        document.querySelectorAll('[data-view]').forEach(btn=>{
-          btn.classList.toggle('chip-on', btn.dataset.view === view);
-        });
-        document.querySelectorAll('[data-diff]').forEach(btn=>{
-          btn.classList.toggle('chip-on', btn.dataset.diff === diff);
-        });
-        document.querySelectorAll('[data-run]').forEach(btn=>{
-          btn.classList.toggle('chip-on', btn.dataset.run === runMode);
-        });
-        document.querySelectorAll('[data-style]').forEach(btn=>{
-          btn.classList.toggle('chip-on', btn.dataset.style === style);
-        });
-      }
-      syncChips();
-
-      // view buttons
-      document.querySelectorAll('[data-view]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          view = btn.dataset.view;
-          setView(view);
-          syncChips();
-        });
-      });
-
-      // diff/run/style
-      document.querySelectorAll('[data-diff]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{ diff = btn.dataset.diff; syncChips(); });
-      });
-      document.querySelectorAll('[data-run]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{ runMode = btn.dataset.run; syncChips(); });
-      });
-      document.querySelectorAll('[data-style]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{ style = btn.dataset.style; syncChips(); });
-      });
-
-      $('btnClose').addEventListener('click', ()=> $('startOverlay').classList.add('hidden'));
-
-      // bind engine once ready
-      function boot(){
-        const NS = window.GroupsVR || {};
-        const GE = NS.GameEngine;
-        if (!GE || typeof GE.start !== 'function') return;
-
-        GE.setLayerEl($('fg-layer'));
-
-        // HUD listeners (keep independent from any global binder)
-        window.addEventListener('hha:time', (ev)=>{
-          const d = ev.detail||{};
-          $('hudTime').textContent = String(d.left ?? 0);
-        }, {passive:true});
-
-        window.addEventListener('hha:score', (ev)=>{
-          const d = ev.detail||{};
-          $('hudScore').textContent = String(d.score ?? 0);
-          $('hudCombo').textContent = String(d.combo ?? 0);
-          $('hudMiss').textContent  = String(d.misses ?? 0);
-        }, {passive:true});
-
-        window.addEventListener('hha:rank', (ev)=>{
-          const d = ev.detail||{};
-          $('hudRank').textContent = String(d.grade ?? 'C');
-        }, {passive:true});
-
-        window.addEventListener('hha:fever', (ev)=>{
-          const d = ev.detail||{};
-          $('hudFever').textContent = String((d.feverPct ?? 0) + '%');
-          $('hudShield').textContent = '🛡️' + String(d.shield ?? 0);
-        }, {passive:true});
-
-        window.addEventListener('hha:coach', (ev)=>{
-          const d = ev.detail||{};
-          $('coachText').textContent = String(d.text || '');
-          const mood = String(d.mood||'neutral');
-          const img = $('coachImg');
-          if (mood === 'happy') img.src = '../img/coach-happy.png';
-          else if (mood === 'sad') img.src = '../img/coach-sad.png';
-          else if (mood === 'fever') img.src = '../img/coach-fever.png';
-          else img.src = '../img/coach-neutral.png';
-        }, {passive:true});
-
-        window.addEventListener('groups:power', (ev)=>{
-          const d = ev.detail||{};
-          const c = Number(d.charge||0);
-          const t = Math.max(1, Number(d.threshold||8));
-          const pct = Math.round((c/t)*100);
-          $('powerFill').style.width = pct + '%';
-          $('powerText').textContent = c + ' / ' + t;
-        }, {passive:true});
-
-        // quest update (if quest emits it)
-        window.addEventListener('quest:update', (ev)=>{
-          const d = ev.detail||{};
-          // goal
-          if (d.goalTitle != null) $('goalTitle').textContent = String(d.goalTitle);
-          if (d.goalText  != null) $('goalText').textContent  = String(d.goalText);
-          if (d.goalPct   != null) $('goalFill').style.width  = clamp(d.goalPct,0,100) + '%';
-
-          // mini
-          if (d.miniTitle != null) $('miniTitle').textContent = String(d.miniTitle);
-          if (d.miniText  != null) $('miniText').textContent  = String(d.miniText);
-          if (d.miniPct   != null) $('miniFill').style.width  = clamp(d.miniPct,0,100) + '%';
-          if (d.miniTimeLeftSec != null){
-            const s = Math.max(0, Math.round(Number(d.miniTimeLeftSec)||0));
-            $('miniTime').textContent = s ? ('⏳ ' + s + 's') : '';
-          }
-        }, {passive:true});
-
-        // end
-        window.addEventListener('hha:end', (ev)=>{
-          const d = ev.detail||{};
-          $('endOverlay').classList.remove('hidden');
-          $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
-
-          $('endScore').textContent = String(d.scoreFinal ?? 0);
-          $('endRank').textContent  = String(d.grade ?? 'C');
-          $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
-          $('endMiss').textContent  = String(d.misses ?? 0);
-        }, {passive:true});
-
-        function doStart(){
-          time = clamp($('timeInput').value, 30, 180);
-          seed = String(qs('seed', Date.now())); // keep query seed if given
-          $('startOverlay').classList.add('hidden');
-          $('endOverlay').classList.add('hidden');
-
-          // if user chose cVR: targets should not be clickable (css handles)
-          setView(view);
-
-          // unlock audio
-          try{ NS.Audio && NS.Audio.unlock && NS.Audio.unlock(); }catch{}
-
-          GE.start(diff, { runMode, diff, style, time, seed });
-        }
-
-        $('btnStart').addEventListener('click', doStart);
-        $('btnRestart').addEventListener('click', doStart);
-        $('btnBack').addEventListener('click', ()=> {
-          $('endOverlay').classList.add('hidden');
-          $('startOverlay').classList.remove('hidden');
-        });
-
-        // auto-start if ?autostart=1
-        const auto = String(qs('autostart','0'));
-        if (auto === '1') doStart();
-      }
-
-      // wait scripts
-      const it = setInterval(()=>{
-        if (window.GroupsVR && window.GroupsVR.GameEngine){
-          clearInterval(it);
-          boot();
-        }
-      }, 60);
-
-    })();
-  </script>
 </body>
 </html>
