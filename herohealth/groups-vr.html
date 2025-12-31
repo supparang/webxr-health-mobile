@@ -15,7 +15,6 @@
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
-      --radius:18px;
       --pill:999px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
@@ -34,7 +33,7 @@
         var(--bg);
     }
     .panel{
-      width:min(780px, 100%);
+      width:min(820px, 100%);
       background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.70));
       border:1px solid var(--stroke);
       border-radius: 22px;
@@ -44,10 +43,13 @@
     .title{ font-weight:1000; font-size:26px; margin-bottom:6px; }
     .sub{ color:var(--muted); font-weight:800; line-height:1.35; margin-bottom:14px; }
     .hr{ height:1px; background:var(--stroke); margin:14px 0; }
+
     .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    @media (max-width:720px){ .grid2{ grid-template-columns:1fr; } }
-    .kv .k{ font-size:12px; color:var(--muted); font-weight:1000; letter-spacing:.4px; text-transform:uppercase; margin-bottom:8px; }
+    @media (max-width:760px){ .grid2{ grid-template-columns:1fr; } }
+
+    .k{ font-size:12px; color:var(--muted); font-weight:1000; letter-spacing:.4px; text-transform:uppercase; margin-bottom:8px; }
     .row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
     .chip{
       border:1px solid var(--stroke);
       background: rgba(15,23,42,.55);
@@ -63,6 +65,7 @@
       border-color: rgba(34,197,94,.42);
       background: rgba(34,197,94,.16);
     }
+
     .input{
       width: 140px;
       padding: 10px 12px;
@@ -72,6 +75,7 @@
       color:var(--text);
       font-weight: 1000;
     }
+
     .btn{
       appearance:none;
       border:1px solid var(--stroke);
@@ -81,37 +85,47 @@
       padding: 12px 14px;
       font-weight: 1000;
       cursor:pointer;
+      transition: transform .08s ease;
     }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+
     .btn-strong{
       background: linear-gradient(180deg, rgba(34,197,94,.25), rgba(34,197,94,.10));
       border-color: rgba(34,197,94,.35);
     }
-    .note{ color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; margin-top:10px; }
+    .btn-mode{
+      flex:1;
+      min-width: 220px;
+      text-align:left;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .modeHint{
+      color:var(--muted);
+      font-weight:900;
+      font-size:12px;
+    }
+    .note{
+      color:var(--muted);
+      font-weight:800;
+      font-size:13px;
+      line-height:1.35;
+      margin-top:10px;
+    }
   </style>
 </head>
 <body>
 <div class="wrap">
   <div class="panel">
     <div class="title">🍽️ Food Groups VR — Launcher</div>
-    <div class="sub">
-      เลือกช่องทางเข้า (PC/Mobile/VR/cVR) แล้วกด “เริ่มเล่น”<br/>
-      * VR Cardboard แนะนำ <b>cVR</b> (ยิงด้วย crosshair ผ่าน tap)
-    </div>
+    <div class="sub">เลือกช่องทางเข้าเล่น: <b>PC / Mobile / Cardboard</b> แล้วระบบจะส่งพารามิเตอร์ไปหน้า Run ให้อัตโนมัติ</div>
 
     <div class="hr"></div>
 
     <div class="grid2">
-      <div class="kv">
-        <div class="k">View</div>
-        <div class="row" id="viewRow">
-          <div class="chip" data-view="pc">🖥️ PC</div>
-          <div class="chip on" data-view="mobile">📱 Mobile</div>
-          <div class="chip" data-view="vr">🥽 VR</div>
-          <div class="chip" data-view="cvr">📦 cVR (Cardboard)</div>
-        </div>
-      </div>
-
-      <div class="kv">
+      <div>
         <div class="k">Mode</div>
         <div class="row" id="modeRow">
           <div class="chip on" data-run="play">🎮 Play (Adaptive)</div>
@@ -119,7 +133,7 @@
         </div>
       </div>
 
-      <div class="kv">
+      <div>
         <div class="k">Difficulty</div>
         <div class="row" id="diffRow">
           <div class="chip" data-diff="easy">🙂 Easy</div>
@@ -128,7 +142,7 @@
         </div>
       </div>
 
-      <div class="kv">
+      <div>
         <div class="k">Style</div>
         <div class="row" id="styleRow">
           <div class="chip on" data-style="mix">🌀 Mix</div>
@@ -137,24 +151,38 @@
         </div>
       </div>
 
-      <div class="kv">
-        <div class="k">Time (sec)</div>
+      <div>
+        <div class="k">Time / Seed</div>
         <div class="row">
           <input id="inTime" class="input" type="number" min="30" max="180" value="90" />
           <button id="btnSeed" class="btn" type="button">🎲 New Seed</button>
-        </div>
-      </div>
-
-      <div class="kv">
-        <div class="k">Seed</div>
-        <div class="row">
           <input id="inSeed" class="input" type="text" value="" />
-          <button id="btnStart" class="btn btn-strong" type="button">▶️ เริ่มเล่น</button>
         </div>
       </div>
     </div>
 
+    <div class="hr"></div>
+
+    <div class="k">Choose your entry</div>
+    <div class="row">
+      <button id="goPC" class="btn btn-mode" type="button">
+        <span>🖥️ เล่นบน PC</span>
+        <span class="modeHint">คลิกเป้าได้</span>
+      </button>
+      <button id="goMobile" class="btn btn-mode" type="button">
+        <span>📱 เล่นบน Mobile</span>
+        <span class="modeHint">แตะเป้าได้</span>
+      </button>
+      <button id="goCardboard" class="btn btn-mode btn-strong" type="button">
+        <span>🥽 เล่นบน Cardboard</span>
+        <span class="modeHint">crosshair + แตะจอเพื่อยิง</span>
+      </button>
+    </div>
+
     <div class="note" id="hubNote"></div>
+    <div class="note">
+      Cardboard: เข้า Run → กด <b>ENTER VR</b> → ใส่ Cardboard → <b>แตะจอเพื่อยิง</b>
+    </div>
   </div>
 </div>
 
@@ -179,19 +207,13 @@
     const on=row.querySelector('.chip.on');
     return on ? on.getAttribute(attr) : def;
   }
-  function setSeed(){
-    $('inSeed').value = String(Date.now());
-  }
+
+  function setSeed(){ $('inSeed').value = String(Date.now()); }
   setSeed();
 
-  // preserve hub
   const hub = String(qs('hub','')||'');
-  $('hubNote').textContent = hub ? ('🏠 hub=' + hub) : 'ℹ️ (ถ้าต้องการกลับ HUB ให้เปิดจาก HUB โดยส่ง ?hub=... มาด้วย)';
+  $('hubNote').textContent = hub ? ('🏠 hub=' + hub) : 'ℹ️ (ถ้าต้องการกลับ HUB ให้ส่ง ?hub=... จาก HUB)';
 
-  // bind clicks
-  DOC.querySelectorAll('#viewRow .chip').forEach(el=>{
-    el.addEventListener('click', ()=>pickRow('viewRow','data-view', el.getAttribute('data-view')));
-  });
   DOC.querySelectorAll('#modeRow .chip').forEach(el=>{
     el.addEventListener('click', ()=>pickRow('modeRow','data-run', el.getAttribute('data-run')));
   });
@@ -201,11 +223,9 @@
   DOC.querySelectorAll('#styleRow .chip').forEach(el=>{
     el.addEventListener('click', ()=>pickRow('styleRow','data-style', el.getAttribute('data-style')));
   });
-
   $('btnSeed').addEventListener('click', setSeed);
 
-  $('btnStart').addEventListener('click', ()=>{
-    const view  = getPicked('viewRow','data-view','mobile');
+  function go(view){
     const run   = getPicked('modeRow','data-run','play');
     const diff  = getPicked('diffRow','data-diff','normal');
     const style = getPicked('styleRow','data-style','mix');
@@ -213,7 +233,7 @@
     const seed  = String($('inSeed').value || Date.now());
 
     const u = new URL('./vr-groups/groups.html', location.href);
-    u.searchParams.set('view', view);
+    u.searchParams.set('view', view);      // pc | mobile | cvr
     u.searchParams.set('run', run);
     u.searchParams.set('diff', diff);
     u.searchParams.set('style', style);
@@ -222,8 +242,11 @@
     if (hub) u.searchParams.set('hub', hub);
 
     location.href = u.toString();
-  });
+  }
 
+  $('goPC').addEventListener('click', ()=>go('pc'));
+  $('goMobile').addEventListener('click', ()=>go('mobile'));
+  $('goCardboard').addEventListener('click', ()=>go('cvr'));
 })();
 </script>
 </body>
