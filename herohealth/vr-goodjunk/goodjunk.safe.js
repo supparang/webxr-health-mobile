@@ -1207,4 +1207,58 @@ export function boot(opts = {}) {
     S.flushed = false;
 
     S.tStart = now();
-    S.left = timeSec
+    S.left = timeSec;
+
+    S.score = 0; S.combo = 0; S.comboMax = 0;
+    S.misses = 0; S.hitAll = 0; S.hitGood = 0; S.hitJunk = 0; S.hitJunkGuard = 0; S.expireGood = 0;
+    S.fever = 0; S.shield = 0; updateFever(S.shield, S.fever);
+
+    S.goalsCleared = 0;
+    S.miniCleared = 0;
+    S.bossCleared = 0;
+    S.bossArmed = false;
+    S.bossActive = false;
+    S.bossGood = 0;
+    S.bossJunk = 0;
+
+    // reset low-time flags
+    S._lastTickSec = -1;
+    S._warn10 = S._warn5 = S._warn3 = false;
+    try{
+      DOC.body.classList.remove('gj-lowtime','gj-urgent','gj-tick');
+      if (lowToast) lowToast.hidden = true;
+    }catch(_){}
+
+    S.warmupUntil = now() + 3000;
+    S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
+
+    coach('neutral', `พร้อมลุย! challenge=${S.challenge} • end=${S.endPolicy}`, 'เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้');
+    updateScore(); updateTime(); updateQuest();
+
+    logEvent('session_start', {
+      projectTag: ctx.projectTag || 'GoodJunkVR',
+      runMode: S.runMode,
+      diff: S.diff,
+      endPolicy: S.endPolicy,
+      challenge: S.challenge,
+      seed: S.seed,
+      sessionId: sessionId || '',
+      timeSec: S.timeSec,
+      missLimit: S.missLimit|0
+    });
+
+    loopSpawn();
+    adaptiveTick();
+    fxLoop();
+  }
+
+  bindInputs();
+  bindFlushHard();
+  start();
+
+  try{
+    ROOT.GoodJunkVR = ROOT.GoodJunkVR || {};
+    ROOT.GoodJunkVR.endGame = endGame;
+    ROOT.GoodJunkVR.shoot = shootAtCrosshair;
+  }catch(_){}
+}
