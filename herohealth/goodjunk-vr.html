@@ -1,12 +1,8 @@
-<!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard
-✅ DOM emoji targets (dual-eye for VR/cVR)
-✅ HUD + Quest + Coach + Fever/Shield
-✅ Boot gate: engine starts ONLY after pressing "เริ่มเล่น"
-✅ Quest Peek (missions visible even when HUD is hidden in VR)
-✅ VR compact HUD (Score/Time/Grade)
-✅ VR toast (low-time / warnings) clear in VR
-✅ End summary overlay placeholder + actions
+<!-- === /herohealth/groups-vr.html ===
+     HeroHealth — GroupsVR Launcher (PC/Mobile/Cardboard)
+     ✅ Choose entry: PC / Mobile / Cardboard(cVR)
+     ✅ Params: run diff style time seed ai hub start
+     ✅ Copy link / Open run / Back to HUB
 -->
 
 <!doctype html>
@@ -14,199 +10,437 @@ GoodJunkVR (PRODUCTION) — HHA Standard
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunk VR</title>
-  <meta name="color-scheme" content="dark" />
+  <title>HeroHealth — GroupsVR Launcher</title>
+  <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- UI -->
-  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
+  <style>
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --radius:22px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ width:100%; height:100%; margin:0; }
+    body{
+      overflow:auto;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(34,211,238,.16), transparent 60%),
+        radial-gradient(circle at 90% 100%, rgba(167,139,250,.14), transparent 60%),
+        var(--bg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color:var(--text);
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+    }
 
-  <!-- Global FX + Fever + HUD + Logger -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/ui-fever.js" defer></script>
-  <script src="./vr/hha-hud.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
+    .wrap{ max-width: 980px; margin: 0 auto; }
+    .hero{
+      display:flex; align-items:flex-end; justify-content:space-between;
+      gap:14px; flex-wrap:wrap;
+      margin-bottom: 12px;
+    }
+    .hTitle{ font-size: 28px; font-weight: 1000; letter-spacing:.2px; }
+    .hSub{ color: var(--muted); font-weight: 900; margin-top: 6px; line-height:1.35; }
 
-  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot -> hha:shoot)
-       ถ้าในโปรเจกต์คุณมีไฟล์นี้แล้ว แนะนำเปิดใช้
-  -->
-  <script src="./vr/vr-ui.js" defer></script>
+    .card{
+      background: linear-gradient(180deg, rgba(2,6,23,.88), rgba(2,6,23,.70));
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      margin-top: 12px;
+    }
+    .grid2{ display:grid; grid-template-columns: 1.05fr .95fr; gap: 12px; }
+    @media (max-width:860px){ .grid2{ grid-template-columns: 1fr; } }
 
-  <!-- Boot (ESM) -->
-  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .hr{ height:1px; background: var(--stroke); margin: 14px 0; }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.62);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 1000;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .12s ease, background .12s ease;
+    }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn:hover{ border-color: rgba(148,163,184,.35); }
+    .btn-strong{
+      background: linear-gradient(180deg, rgba(34,197,94,.25), rgba(34,197,94,.10));
+      border-color: rgba(34,197,94,.38);
+    }
+    .btn-cyan{
+      background: linear-gradient(180deg, rgba(34,211,238,.22), rgba(34,211,238,.08));
+      border-color: rgba(34,211,238,.34);
+    }
+    .btn-violet{
+      background: linear-gradient(180deg, rgba(167,139,250,.22), rgba(167,139,250,.08));
+      border-color: rgba(167,139,250,.34);
+    }
+    .btn-ghost{ background: rgba(15,23,42,.35); }
+
+    .kv{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .k{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 1000;
+      letter-spacing:.45px;
+      text-transform: uppercase;
+    }
+    .chipRow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .chip{
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.55);
+      color: var(--text);
+      border-radius: var(--pill);
+      padding: 8px 12px;
+      cursor:pointer;
+      font-weight: 1000;
+      font-size: 13px;
+      user-select:none;
+    }
+    .chip.on{
+      border-color: rgba(34,197,94,.42);
+      background: rgba(34,197,94,.14);
+    }
+
+    .input{
+      padding: 10px 12px;
+      border-radius: 12px;
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.55);
+      color:var(--text);
+      font-weight: 1000;
+      width: 140px;
+    }
+    .input.wide{ width: min(520px, 100%); }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 900; font-size: 12px; color: rgba(229,231,235,.92); }
+    .note{ color: var(--muted); font-weight:900; font-size: 13px; line-height:1.35; }
+    .linkBox{
+      padding: 12px;
+      border-radius: 16px;
+      border:1px dashed rgba(148,163,184,.26);
+      background: rgba(2,6,23,.55);
+      overflow:auto;
+    }
+    .pillTag{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 12px;
+      border-radius: var(--pill);
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.45);
+      font-weight: 1000;
+      color: rgba(229,231,235,.92);
+    }
+  </style>
 </head>
 
 <body>
-  <!-- ===== HUD ===== -->
-  <div class="hha-hud">
-    <div class="hud-top">
-      <div class="hud-badge">
-        <div class="hud-title">GoodJunkVR</div>
-        <div class="hud-sub" id="hudMeta">—</div>
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <div class="hTitle">🥦 HeroHealth — Food Groups VR</div>
+        <div class="hSub">
+          เลือกช่องทางเข้าเล่น <b>PC / Mobile / Cardboard</b> แล้วกด Start ได้เลย<br/>
+          Cardboard แนะนำให้เปิด <b>start=1</b> เพื่อคาลิเบรต lockPx ก่อนเล่นจริง
+        </div>
+      </div>
+      <div class="row">
+        <span class="pillTag">🎯 SSS/SS/S/A/B/C</span>
+        <span class="pillTag">⚡ Storm / Boss / Powerups</span>
+      </div>
+    </div>
 
-        <div class="viewbar" id="viewbar">
-          <button class="pill" id="btnViewPC" type="button">PC</button>
-          <button class="pill" id="btnViewMobile" type="button">Mobile</button>
-          <button class="pill" id="btnViewVR" type="button">VR</button>
-          <button class="pill" id="btnViewCVR" type="button">cVR</button>
+    <div class="grid2">
+      <!-- Left: Entry buttons -->
+      <div class="card">
+        <div class="k">Entry</div>
+        <div class="row" style="margin-top:10px;">
+          <button id="goPC" class="btn btn-strong" type="button">🖥️ เล่นบน PC</button>
+          <button id="goMobile" class="btn btn-cyan" type="button">📱 เล่นบน Mobile</button>
+          <button id="goCvr" class="btn btn-violet" type="button">🥽 เล่นบน Cardboard (cVR)</button>
+        </div>
 
-          <button class="pill ghost" id="btnPeek" type="button">Missions</button>
-          <button class="pill ghost" id="btnToggleHUD" type="button">HUD</button>
+        <div class="hr"></div>
 
-          <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
-          <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
+        <div class="k">Quick actions</div>
+        <div class="row" style="margin-top:10px;">
+          <button id="btnOpenRun" class="btn" type="button">▶️ Open Run (ตามค่าด้านขวา)</button>
+          <button id="btnCopy" class="btn" type="button">📋 Copy Link</button>
+          <button id="btnHub" class="btn btn-ghost" type="button">🏠 ไป HUB</button>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="note">
+          <b>Cardboard:</b> เข้า view=cvr แล้ว “แตะจอ” ยิงจาก crosshair (vr-ui.js) <br/>
+          <b>PC/Mobile:</b> แตะ/คลิกเป้าได้ (ยิงด้วย crosshair ได้เช่นกันถ้าเข้า view=cvr)
         </div>
       </div>
 
-      <div class="hud-stats">
-        <div class="hud-stat"><div class="k">Score</div><div class="v" id="hhaScore">0</div></div>
-        <div class="hud-stat"><div class="k">Combo</div><div class="v" id="hhaCombo">0</div></div>
-        <div class="hud-stat"><div class="k">Miss</div><div class="v" id="hhaMiss">0</div></div>
-        <div class="hud-stat"><div class="k">Time</div><div class="v" id="hhaTime">0</div></div>
-        <div class="hud-stat grade"><div class="k">Grade</div><div class="v" id="hhaGrade">—</div></div>
-      </div>
-    </div>
+      <!-- Right: Params -->
+      <div class="card">
+        <div class="kv">
+          <div>
+            <div class="k">Run mode</div>
+            <div class="chipRow" data-group="run">
+              <div class="chip on" data-val="play">play (adaptive)</div>
+              <div class="chip" data-val="research">research (deterministic)</div>
+            </div>
+          </div>
 
-    <div class="hud-mid">
-      <div class="hud-quest">
-        <div class="q-row">
-          <div class="q-title" id="hudGoalTitle">Goal: —</div>
-          <div class="q-count" id="hudGoalCount">0/0</div>
+          <div>
+            <div class="k">Difficulty</div>
+            <div class="chipRow" data-group="diff">
+              <div class="chip" data-val="easy">easy</div>
+              <div class="chip on" data-val="normal">normal</div>
+              <div class="chip" data-val="hard">hard</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="k">Style</div>
+            <div class="chipRow" data-group="style">
+              <div class="chip" data-val="feel">feel</div>
+              <div class="chip on" data-val="mix">mix</div>
+              <div class="chip" data-val="hard">hard</div>
+            </div>
+          </div>
+
+          <div class="row" style="align-items:flex-end;">
+            <div>
+              <div class="k">Time (sec)</div>
+              <input id="inTime" class="input" type="number" min="30" max="180" value="90" />
+            </div>
+            <div>
+              <div class="k">Seed</div>
+              <input id="inSeed" class="input" placeholder="auto" />
+            </div>
+            <button id="btnNewSeed" class="btn" type="button">🎲 New</button>
+          </div>
+
+          <div>
+            <div class="k">Options</div>
+            <div class="chipRow" data-group="opt">
+              <div class="chip on" data-opt="start">start=1 (overlay+calibration)</div>
+              <div class="chip" data-opt="ai">ai=on (stub)</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="k">Hub URL (กลับ HUB ได้)</div>
+            <input id="inHub" class="input wide" placeholder="./hub.html หรือ https://.../hub.html" />
+            <div class="note" style="margin-top:8px;">ถ้าใส่ hub แล้วในหน้า run จะมีปุ่ม “กลับ HUB” ให้</div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div>
+            <div class="k">Generated Run URL</div>
+            <div id="outLink" class="linkBox mono">—</div>
+          </div>
         </div>
-        <div class="q-row">
-          <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
-          <div class="q-count" id="hudMiniCount">0/0</div>
-          <div class="q-timer" id="hudMiniTimer"></div>
-        </div>
-        <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
-      </div>
-
-      <div class="hud-coach">
-        <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
-        <div class="coach-talk">
-          <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
-          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
-        </div>
       </div>
     </div>
   </div>
 
-  <!-- ===== Fever/Shield UI ===== -->
-  <div class="hha-fever" id="hhaFever">
-    <div class="fever-row">
-      <div class="fever-label">FEVER</div>
-      <div class="fever-bar"><div class="fever-fill" id="feverBar"></div></div>
-      <div class="fever-text" id="feverText">0%</div>
-    </div>
-    <div class="shield-row">
-      <div class="shield-label">SHIELD</div>
-      <div class="shield-pills" id="shieldPills"></div>
-    </div>
-  </div>
+<script>
+(function(){
+  'use strict';
+  const DOC = document;
+  const $ = (id)=>DOC.getElementById(id);
 
-  <!-- ===== VR Compact HUD (Score/Time/Grade) ===== -->
-  <div class="vr-compact-hud" id="vrCompactHud" aria-hidden="true">
-    <div class="vrhud-row">
-      <div class="vrhud-pill"><span>Score</span><b id="vrScore">0</b></div>
-      <div class="vrhud-pill time"><span>Time</span><b id="vrTime">0</b></div>
-      <div class="vrhud-pill"><span>Grade</span><b id="vrGrade">—</b></div>
-    </div>
-  </div>
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+  function clamp(v,a,b){
+    v = Number(v)||0;
+    return v<a?a:(v>b?b:v);
+  }
+  async function copyText(text){
+    try { await navigator.clipboard.writeText(String(text||'')); return true; }
+    catch {
+      try{
+        const ta = DOC.createElement('textarea');
+        ta.value = String(text||'');
+        DOC.body.appendChild(ta);
+        ta.select();
+        DOC.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch{ return false; }
+    }
+  }
 
-  <!-- ===== VR Toast (low-time / warning) ===== -->
-  <div class="vr-toast" id="vrToast" hidden aria-hidden="true">
-    <div class="vr-toast-card" id="vrToastText">—</div>
-  </div>
+  // ---- State ----
+  const S = {
+    run: 'play',
+    diff:'normal',
+    style:'mix',
+    time: 90,
+    seed: '',
+    start: true,
+    ai: false,
+    hub: ''
+  };
 
-  <!-- ===== Quest Peek (always available) ===== -->
-  <div class="gj-peek" id="gjPeek" aria-hidden="true">
-    <div class="peek-card">
-      <div class="peek-title">🎯 ภารกิจตอนนี้</div>
-      <div class="peek-sub" id="gjPeekGoal">Goal: —</div>
-      <div class="peek-mini" id="gjPeekMini">Mini: —</div>
-      <div class="peek-tip">Tip: โหมด VR ซ่อน HUD ได้ แต่กด “Missions” เพื่อดูภารกิจได้ตลอด</div>
-    </div>
-  </div>
+  // init hub from query if provided
+  S.hub = String(qs('hub','')||'').trim();
 
-  <!-- ===== Playfield (dual-eye) ===== -->
-  <div id="gj-stage" aria-label="playfield">
-    <div class="gj-eye eye-l" id="eyeL">
-      <div class="gj-layer" id="gj-layer-l" aria-label="targets layer left"></div>
-      <div class="gj-crosshair" id="gj-crosshair-l" aria-hidden="true"></div>
-      <div class="atk-ring" id="atk-ring-l" aria-hidden="true"></div>
-      <div class="atk-laser" id="atk-laser-l" aria-hidden="true"></div>
-    </div>
+  // ---- Chip helpers ----
+  function setChips(group, val){
+    const row = DOC.querySelector(`.chipRow[data-group="${group}"]`);
+    if (!row) return;
+    row.querySelectorAll('.chip').forEach(c=>{
+      c.classList.toggle('on', c.dataset.val === val);
+    });
+    S[group] = val;
+  }
 
-    <div class="gj-eye eye-r" id="eyeR" aria-hidden="true">
-      <div class="gj-layer" id="gj-layer-r" aria-label="targets layer right"></div>
-      <div class="gj-crosshair" id="gj-crosshair-r" aria-hidden="true"></div>
-      <div class="atk-ring" id="atk-ring-r" aria-hidden="true"></div>
-      <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
-    </div>
+  function readOptChips(){
+    const row = DOC.querySelector('.chipRow[data-group="opt"]');
+    if (!row) return;
+    row.querySelectorAll('.chip').forEach(c=>{
+      const opt = c.dataset.opt;
+      const on = c.classList.contains('on');
+      if (opt === 'start') S.start = on;
+      if (opt === 'ai') S.ai = on;
+    });
+  }
 
-    <!-- end summary placeholder -->
-    <div id="end-summary"></div>
-  </div>
+  function updateOptChipUI(){
+    const row = DOC.querySelector('.chipRow[data-group="opt"]');
+    if (!row) return;
+    row.querySelectorAll('.chip').forEach(c=>{
+      const opt = c.dataset.opt;
+      if (opt === 'start') c.classList.toggle('on', !!S.start);
+      if (opt === 'ai') c.classList.toggle('on', !!S.ai);
+    });
+  }
 
-  <!-- ===== Controls ===== -->
-  <div class="hha-controls">
-    <button id="btnShoot" class="btn-shoot" type="button">ยิง</button>
-  </div>
+  function bindChipRows(){
+    DOC.querySelectorAll('.chipRow[data-group]').forEach(row=>{
+      const g = row.dataset.group;
+      row.addEventListener('click', (e)=>{
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
 
-  <!-- ===== Start Overlay ===== -->
-  <div id="startOverlay" class="start-overlay" hidden>
-    <div class="start-card">
-      <div class="start-title">GoodJunk VR</div>
-      <div class="start-desc">
-        เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
-        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
-      </div>
-      <div class="start-meta" id="startMeta">—</div>
-      <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
-    </div>
-  </div>
+        if (g === 'opt'){
+          chip.classList.toggle('on');
+          readOptChips();
+          refreshLink();
+          return;
+        }
 
-  <!-- ===== VR Hint Overlay ===== -->
-  <div id="vrHint" class="vr-hint" hidden>
-    <div class="vr-card">
-      <div class="vr-title">โหมด VR/การ์ดบอร์ด</div>
-      <div class="vr-desc">
-        กรุณาหมุนจอเป็น <b>แนวนอน</b> เพื่อให้เป้าอยู่ระดับสายตา<br/>
-        <span class="muted">Tip: กด “Enter Fullscreen” ก่อนเข้า VR/cVR จะนิ่งกว่า</span>
-      </div>
-      <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
-    </div>
-  </div>
+        const val = chip.dataset.val;
+        if (!val) return;
+        setChips(g, val);
+        refreshLink();
+      });
+    });
+  }
 
-  <!-- ===== End Summary Overlay (HHA Standard) ===== -->
-  <div class="end-overlay" id="endOverlay" hidden>
-    <div class="end-card" role="dialog" aria-modal="true" aria-label="end summary">
-      <div class="end-head">
-        <div>
-          <div class="end-title">สรุปผลรอบนี้</div>
-          <div class="end-sub" id="endReason">เหตุผล: —</div>
-        </div>
-        <div class="end-grade" id="endGrade">—</div>
-      </div>
+  // ---- URL builder ----
+  function runBase(){
+    // launcher อยู่ /herohealth/groups-vr.html
+    // run อยู่ /herohealth/vr-groups/groups.html
+    return new URL('./vr-groups/groups.html', location.href);
+  }
 
-      <div class="end-grid">
-        <div class="end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
-        <div class="end-item"><div class="k">Combo Max</div><div class="v" id="endComboMax">0</div></div>
-        <div class="end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
-        <div class="end-item"><div class="k">Goals</div><div class="v" id="endGoals">0/0</div></div>
-        <div class="end-item"><div class="k">Minis</div><div class="v" id="endMinis">0/0</div></div>
-      </div>
+  function buildUrl(view){
+    const u = runBase();
+    u.searchParams.set('view', view);
+    u.searchParams.set('run', S.run);
+    u.searchParams.set('diff', S.diff);
+    u.searchParams.set('style', S.style);
+    u.searchParams.set('time', String(clamp(S.time, 30, 180)));
 
-      <div class="end-actions">
-        <button class="btn-primary" id="btnPlayAgain" type="button">เล่นอีกครั้ง</button>
-        <button class="btn-ghost" id="btnBackHub" type="button">กลับหน้า HUB</button>
-        <button class="btn-ghost" id="btnCopySummary" type="button">Copy JSON</button>
-        <button class="btn-ghost" type="button" onclick="document.getElementById('endOverlay').hidden=true">ปิด</button>
-      </div>
+    if (S.seed && S.seed.trim()) u.searchParams.set('seed', S.seed.trim());
+    if (S.start) u.searchParams.set('start', '1');
+    if (S.ai) u.searchParams.set('ai', 'on');
+    if (S.hub && S.hub.trim()) u.searchParams.set('hub', S.hub.trim());
 
-      <div class="end-foot" id="endMeta2">—</div>
-    </div>
-  </div>
+    return u.toString();
+  }
+
+  function refreshLink(){
+    S.time = clamp($('inTime').value, 30, 180);
+    S.seed = String($('inSeed').value||'').trim();
+    S.hub  = String($('inHub').value||'').trim();
+    readOptChips();
+    $('outLink').textContent = buildUrl('mobile'); // show sample (mobile)
+  }
+
+  // ---- Buttons ----
+  function go(view){
+    refreshLink();
+    location.href = buildUrl(view);
+  }
+
+  $('goPC').addEventListener('click', ()=>go('pc'));
+  $('goMobile').addEventListener('click', ()=>go('mobile'));
+  $('goCvr').addEventListener('click', ()=>go('cvr'));
+
+  $('btnOpenRun').addEventListener('click', ()=>go('mobile'));
+
+  $('btnCopy').addEventListener('click', async ()=>{
+    refreshLink();
+    const ok = await copyText(buildUrl('mobile'));
+    alert(ok ? 'คัดลอกลิงก์ (mobile) แล้ว ✅' : 'Copy ไม่สำเร็จ');
+  });
+
+  $('btnHub').addEventListener('click', ()=>{
+    refreshLink();
+    if (!S.hub){ alert('ยังไม่ได้ใส่ hub URL'); return; }
+    location.href = S.hub;
+  });
+
+  $('btnNewSeed').addEventListener('click', ()=>{
+    const s = String(Date.now());
+    $('inSeed').value = s;
+    refreshLink();
+  });
+
+  // ---- Init UI ----
+  bindChipRows();
+
+  // set initial values
+  $('inTime').value = String(S.time);
+  $('inSeed').value = S.seed;
+  $('inHub').value  = S.hub;
+
+  updateOptChipUI();
+  refreshLink();
+
+})();
+</script>
 </body>
 </html>
