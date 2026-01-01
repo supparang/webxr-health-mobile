@@ -1,702 +1,643 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — PRODUCTION CSS
-✅ Responsive PC/Mobile/VR/cVR layout
-✅ Safe-area insets
-✅ HUD panels non-blocking (pointer-events safe)
-✅ Hide A-Frame default VR UI button/modal
-✅ Strong target visuals + VR-feel motion
+Balanced Plate VR — PRODUCTION CSS (PATCH B)
+✅ Responsive: PC / Mobile / VR / cVR
+✅ HUD/Quest compact in VR (ไม่บังกลางจอ)
+✅ plate-layer is the coordinate system (absolute targets)
+✅ Safe-area + prevent targets under HUD panels
+✅ Target visuals: readable emoji + subtle drift (VR feel)
+✅ cVR: targets ignore pointer; shoot via crosshair (hha:shoot from vr-ui.js)
 */
 
 :root{
   color-scheme: dark;
+
   --bg:#020617;
-  --panel:rgba(2,6,23,.72);
-  --panel2:rgba(15,23,42,.62);
+  --panel:rgba(2,6,23,.78);
+  --panel2:rgba(15,23,42,.72);
   --stroke:rgba(148,163,184,.18);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
-  --good:#22c55e;
+  --accent:#22c55e;
   --warn:#f59e0b;
   --bad:#ef4444;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
-  --gold:#facc15;
 
-  --radius-lg:18px;
-  --radius-pill:999px;
+  --radius:18px;
+  --pill:999px;
 
+  /* safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
-  --hud-gap:10px;
-  --hud-pad:10px;
+  /* layout */
+  --gap:10px;
+  --hudH: 82px;
+  --btnH: 52px;
 
-  /* playfield safety margins */
-  --pf-pad: 10px;
+  /* targets */
+  --t-size: 56px;
+  --t-font: 30px;
+  --t-bg: rgba(2,6,23,.55);
+  --t-stroke: rgba(148,163,184,.22);
+  --t-shadow: 0 18px 44px rgba(0,0,0,.30);
 
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+  /* z */
+  --z-scene: 1;
+  --z-play: 20;
+  --z-hud: 60;
+  --z-overlay: 80;
 }
 
 *{ box-sizing:border-box; }
 html,body{
-  width:100%;
-  height:100%;
-  margin:0;
+  width:100%; height:100%;
+  margin:0; padding:0;
   overflow:hidden;
-  background:var(--bg);
+  background: var(--bg);
   color:var(--text);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
 }
 
-/* -----------------------------------------
-   Hide A-Frame default UI (we use our own)
------------------------------------------- */
-.a-enter-vr-button,
-.a-orientation-modal,
-.a-dialog,
-.a-loader-title,
-.a-loader-message,
-.a-fullscreen-button{
-  display:none !important;
-}
-.a-canvas{
-  outline:none !important;
-}
+a-scene{ z-index: var(--z-scene) !important; }
 
-/* -----------------------------------------
-   Layers
------------------------------------------- */
-a-scene{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:1 !important;
-}
-
+/* --------------------- PLAY LAYER (coordinate system) --------------------- */
 #plate-layer{
-  position:fixed;
-  inset:0;
-  z-index:10;
-  /* important: allow pointer events for targets */
-  pointer-events:auto;
-  /* reduce initial flash */
-  opacity:1;
-  transition: opacity .12s ease;
-  transform: translateZ(0);
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-play);
+  pointer-events: auto;
+  transform: translate(0,0);
+  will-change: transform;
+  /* keep absolute targets aligned to viewport */
 }
 
+/* Hit FX */
 #hitFx{
-  position:fixed;
-  inset:0;
-  z-index:20;
-  pointer-events:none;
-  opacity:0;
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-play) + 2);
+  pointer-events: none;
+  opacity: 0;
   transition: opacity .12s ease;
 }
 
-/* -----------------------------------------
-   HUD: pointer-events SAFE
-   - container none, buttons inside auto
------------------------------------------- */
-#hudTop,
-#miniPanel,
-#coachPanel{
-  position:fixed;
-  z-index:40;
-  pointer-events:none;
-}
-
-#hudBtns{
-  position:fixed;
-  z-index:45;
-  pointer-events:none; /* only buttons active */
-}
-
-/* children that must be clickable */
-#hudBtns .btn,
-#startOverlay .btn,
-#hudPaused .pausedCard,
-#resultBackdrop .btn{
-  pointer-events:auto;
-}
-
-/* -----------------------------------------
-   TOP HUD
------------------------------------------- */
+/* --------------------- HUD TOP --------------------- */
 #hudTop{
-  top: calc(var(--sat) + 10px);
+  position: fixed;
   left: calc(var(--sal) + 10px);
   right: calc(var(--sar) + 10px);
+  top: calc(var(--sat) + 10px);
+  z-index: var(--z-hud);
+  pointer-events: none; /* HUD should not block shots */
 }
 
-.hudRow{
+#hudTop .hudRow{
   display:flex;
-  gap:var(--hud-gap);
-  align-items:stretch;
+  gap:8px;
   flex-wrap:wrap;
-}
-
-.hudStat{
-  min-width: 110px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(15,23,42,.60), rgba(2,6,23,.62));
-  border: 1px solid var(--stroke);
-  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  align-items:stretch;
+  justify-content:space-between;
+  background: var(--panel);
+  border:1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding:10px 10px;
+  box-shadow: 0 22px 80px rgba(0,0,0,.35);
   backdrop-filter: blur(10px);
 }
 
+.hudStat{
+  min-width: 78px;
+  padding:6px 10px;
+  border-radius: 14px;
+  border:1px solid rgba(148,163,184,.12);
+  background: rgba(15,23,42,.35);
+}
 .hudStat .k{
   font-size:11px;
-  font-weight:1000;
-  color:rgba(148,163,184,.95);
-  letter-spacing:.2px;
+  letter-spacing:.08em;
+  color: rgba(148,163,184,.95);
+  font-weight:900;
 }
 .hudStat .v{
-  margin-top:4px;
+  margin-top:2px;
   font-size:18px;
-  font-weight:1100;
-  line-height:1;
+  font-weight:1000;
 }
-.muted{ color:rgba(148,163,184,.95); font-weight:900; }
+.muted{ color: rgba(148,163,184,.92); font-weight:900; }
 
-.plateChip{ border-color: rgba(34,197,94,.22); }
-.timeChip{ border-color: rgba(34,211,238,.22); }
-.gradeChip{ border-color: rgba(245,158,11,.18); }
+.plateChip .v,
+.gradeChip .v,
+.timeChip .v{ font-size:16px; }
 
-.hudRow2{
-  margin-top: 10px;
+#hudTop .hudRow2{
+  margin-top:8px;
   display:flex;
-  gap:var(--hud-gap);
+  gap:10px;
   align-items:center;
-  flex-wrap:wrap;
+  justify-content:space-between;
+  background: var(--panel2);
+  border:1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding:8px 10px;
+  box-shadow: 0 16px 60px rgba(0,0,0,.28);
+  backdrop-filter: blur(10px);
+  pointer-events:none;
 }
 
 .feverWrap{
   display:flex;
   gap:10px;
   align-items:center;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: rgba(2,6,23,.58);
-  border:1px solid rgba(148,163,184,.16);
-  box-shadow: 0 18px 50px rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
+  min-width: 220px;
 }
-
 .feverLabel{
-  font-weight:1100;
+  font-weight:1000;
+  color: rgba(148,163,184,.95);
+  letter-spacing:.06em;
   font-size:12px;
-  color:rgba(148,163,184,.95);
-  letter-spacing:.2px;
 }
-
 .feverBar{
+  position:relative;
   width: 180px;
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(148,163,184,.14);
+  height: 10px;
+  border-radius: var(--pill);
+  background: rgba(148,163,184,.16);
   overflow:hidden;
-  border:1px solid rgba(148,163,184,.14);
 }
 .feverFill{
-  height:100%;
+  position:absolute;
+  inset:0 auto 0 0;
   width:0%;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95), rgba(239,68,68,.95));
-  border-radius:999px;
-  transition: width .12s linear;
+  border-radius: var(--pill);
+  background: rgba(249,115,115,.85);
+  box-shadow: 0 0 18px rgba(249,115,115,.28);
+  transition: width .12s ease;
 }
 
 .shieldPill{
-  display:inline-flex;
-  align-items:center;
+  display:flex;
   gap:8px;
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: rgba(34,197,94,.10);
-  border:1px solid rgba(34,197,94,.22);
-  font-weight:1100;
-  box-shadow: 0 10px 28px rgba(0,0,0,.22);
+  align-items:center;
+  padding:6px 10px;
+  border-radius: var(--pill);
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.35);
+  font-weight:1000;
 }
 
 .plateCounts{
   display:flex;
   gap:8px;
   flex-wrap:wrap;
-  align-items:center;
+  justify-content:flex-end;
 }
-
 .pill{
   display:inline-flex;
   gap:8px;
   align-items:center;
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: rgba(15,23,42,.52);
-  border: 1px solid rgba(148,163,184,.16);
-  font-weight:1100;
-  box-shadow: 0 10px 28px rgba(0,0,0,.22);
+  padding:6px 10px;
+  border-radius: var(--pill);
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.28);
+  font-weight:1000;
 }
+.pill b{ font-weight:1100; }
 
-/* -----------------------------------------
-   COACH PANEL
-   - default: bottom-left floating (doesn't eat playfield width)
------------------------------------------- */
+/* --------------------- COACH PANEL --------------------- */
 #coachPanel{
+  position: fixed;
   left: calc(var(--sal) + 10px);
-  bottom: calc(var(--sab) + 92px);
-  width: min(360px, calc(100vw - 24px));
+  bottom: calc(var(--sab) + 76px);
+  z-index: var(--z-hud);
+  width: min(360px, 48vw);
   display:flex;
   gap:10px;
   align-items:center;
-  padding: 10px 12px;
+  padding:10px;
   border-radius: 18px;
+  border:1px solid var(--stroke);
   background: rgba(2,6,23,.68);
-  border: 1px solid rgba(148,163,184,.16);
-  box-shadow: 0 20px 70px rgba(0,0,0,.40);
+  box-shadow: 0 20px 70px rgba(0,0,0,.35);
   backdrop-filter: blur(10px);
+  pointer-events: none;
 }
 
 #coachPanel img{
-  width:52px;
-  height:52px;
+  width:54px;
+  height:54px;
   object-fit:contain;
-  border-radius: 14px;
-  background: rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.14);
-  box-shadow: 0 16px 40px rgba(0,0,0,.30);
-  flex: 0 0 auto;
+  border-radius: 16px;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
 }
 
-.coachText{ min-width:0; }
 .coachName{
-  font-size:12px;
   font-weight:1100;
-  color:rgba(148,163,184,.95);
+  font-size:13px;
+  color: rgba(148,163,184,.95);
 }
 .coachMsg{
   margin-top:2px;
-  font-size:13px;
   font-weight:1000;
-  line-height:1.25;
-  word-break:break-word;
+  line-height:1.2;
+  font-size:14px;
 }
 
-/* -----------------------------------------
-   QUEST PANEL
------------------------------------------- */
+/* --------------------- QUEST PANEL --------------------- */
 #miniPanel{
-  left: calc(var(--sal) + 10px);
+  position: fixed;
   right: calc(var(--sar) + 10px);
-  top: calc(var(--sat) + 112px);
-  display:flex;
+  bottom: calc(var(--sab) + 76px);
+  z-index: var(--z-hud);
+  width: min(420px, 54vw);
+  display:grid;
   gap:10px;
-  flex-wrap:wrap;
+  pointer-events:none;
 }
 
 .questBlock{
-  flex: 1 1 360px;
-  min-width: 280px;
-  padding: 10px 12px;
+  border:1px solid var(--stroke);
   border-radius: 18px;
-  background: rgba(2,6,23,.62);
-  border: 1px solid rgba(148,163,184,.16);
-  box-shadow: 0 18px 60px rgba(0,0,0,.32);
+  background: rgba(15,23,42,.70);
+  box-shadow: 0 18px 60px rgba(0,0,0,.30);
   backdrop-filter: blur(10px);
+  padding:10px;
 }
 
 .questHdr{
   display:flex;
-  align-items:center;
   gap:10px;
-  flex-wrap:wrap;
-}
-
-.badge{
-  display:inline-flex;
   align-items:center;
-  justify-content:center;
-  padding:6px 10px;
-  border-radius: 999px;
-  font-weight:1100;
-  font-size:11px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.52);
+  justify-content:space-between;
+  margin-bottom:8px;
 }
-.badgeGoal{ border-color: rgba(34,197,94,.26); background: rgba(34,197,94,.10); }
-.badgeMini{ border-color: rgba(245,158,11,.28); background: rgba(245,158,11,.10); }
+.badge{
+  font-weight:1100;
+  letter-spacing:.08em;
+  font-size:11px;
+  padding:5px 10px;
+  border-radius: var(--pill);
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.30);
+}
+.badgeGoal{ color: rgba(34,197,94,.95); }
+.badgeMini{ color: rgba(245,158,11,.98); }
 
 .qTitle{
+  flex:1;
   font-weight:1100;
   font-size:13px;
-  color: rgba(229,231,235,.98);
-  flex: 1 1 auto;
-  min-width: 160px;
+  color: var(--text);
+  opacity:.95;
 }
 .qCount{
   font-weight:1100;
+  color: rgba(148,163,184,.95);
   font-size:12px;
-  color: rgba(148,163,184,.96);
-  white-space:nowrap;
 }
 
 .bar{
-  margin-top: 8px;
-  height: 10px;
-  border-radius: 999px;
+  position:relative;
+  width:100%;
+  height:10px;
+  border-radius: var(--pill);
   background: rgba(148,163,184,.14);
-  border: 1px solid rgba(148,163,184,.14);
   overflow:hidden;
 }
 .barFill{
-  height:100%;
+  position:absolute;
+  inset:0 auto 0 0;
   width:0%;
-  border-radius:999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.92), rgba(34,211,238,.92));
-  transition: width .12s linear;
+  border-radius: var(--pill);
+  background: rgba(34,197,94,.85);
+  transition: width .12s ease;
 }
 .barFill.mini{
-  background: linear-gradient(90deg, rgba(245,158,11,.92), rgba(250,204,21,.92));
+  background: rgba(245,158,11,.92);
+  box-shadow: 0 0 18px rgba(245,158,11,.20);
 }
 
 .hint{
-  margin-top: 8px;
+  margin-top:8px;
+  color: rgba(148,163,184,.95);
   font-size:12px;
   font-weight:900;
-  color: rgba(148,163,184,.95);
-  line-height:1.25;
+  line-height:1.2;
 }
 
-/* -----------------------------------------
-   BOTTOM BUTTONS
------------------------------------------- */
+/* --------------------- BUTTONS --------------------- */
 #hudBtns{
+  position: fixed;
+  left: calc(var(--sal) + 10px);
   right: calc(var(--sar) + 10px);
-  bottom: calc(var(--sab) + 12px);
+  bottom: calc(var(--sab) + 10px);
+  z-index: var(--z-hud);
   display:flex;
   gap:10px;
-  align-items:center;
+  justify-content:center;
+  pointer-events: auto;
 }
 
 .btn{
-  appearance:none;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.70);
-  color: var(--text);
-  padding: 10px 12px;
+  height: var(--btnH);
+  padding: 0 16px;
   border-radius: 16px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(34,197,94,.18);
+  color: var(--text);
   font-weight:1100;
-  cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color:transparent;
-  box-shadow: 0 18px 44px rgba(0,0,0,.30);
+  font-size:14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.30);
   backdrop-filter: blur(10px);
+  cursor:pointer;
 }
 .btn:active{ transform: translateY(1px); }
+
 .btn.ghost{
-  background: rgba(15,23,42,.52);
-  border-color: rgba(148,163,184,.14);
-}
-.btn.big{
-  padding: 12px 16px;
-  border-radius: 18px;
-  font-size:15px;
-}
-.btn.primary{
-  background: rgba(34,197,94,.14);
-  border-color: rgba(34,197,94,.28);
-}
-
-/* -----------------------------------------
-   PAUSE overlay
------------------------------------------- */
-#hudPaused{
-  position:fixed;
-  inset:0;
-  z-index:70;
-  display:none;
-  place-items:center;
   background: rgba(2,6,23,.55);
-  backdrop-filter: blur(4px);
 }
-.pausedCard{
-  max-width: 540px;
-  width: calc(100vw - 40px);
-  padding: 16px 16px;
-  border-radius: 22px;
-  background: rgba(2,6,23,.75);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 22px 80px rgba(0,0,0,.50);
-}
-.pausedTitle{ font-weight:1100; font-size:18px; }
-.pausedText{ margin-top:8px; font-weight:900; color: rgba(148,163,184,.95); }
 
-/* -----------------------------------------
-   START overlay
------------------------------------------- */
-#startOverlay{
-  position:fixed;
-  inset:0;
-  z-index:80;
+.btn.big{
+  height: 56px;
+  font-size:16px;
+  padding:0 20px;
+  border-radius: 18px;
+}
+
+/* --------------------- PAUSED --------------------- */
+#hudPaused{
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
   display:none;
   place-items:center;
-  padding: calc(var(--sat) + 16px) 16px calc(var(--sab) + 18px);
-  background: radial-gradient(circle at top left, rgba(34,197,94,.14), transparent 55%),
-              radial-gradient(circle at bottom right, rgba(34,211,238,.14), transparent 55%),
-              rgba(2,6,23,.55);
+  background: rgba(0,0,0,.45);
   backdrop-filter: blur(6px);
 }
+.pausedCard{
+  width:min(520px, 92vw);
+  border-radius: 20px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.80);
+  box-shadow: 0 26px 90px rgba(0,0,0,.45);
+  padding:16px;
+}
+.pausedTitle{
+  font-weight:1200;
+  font-size:18px;
+}
+.pausedText{
+  margin-top:8px;
+  color: rgba(148,163,184,.95);
+  font-weight:900;
+}
+
+/* --------------------- START OVERLAY --------------------- */
+#startOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display:none;
+  place-items:center;
+  background: radial-gradient(circle at 30% 20%, rgba(34,197,94,.10), transparent 55%),
+              radial-gradient(circle at 80% 80%, rgba(56,189,248,.12), transparent 55%),
+              rgba(0,0,0,.55);
+  backdrop-filter: blur(8px);
+}
 .startCard{
-  max-width: 760px;
-  width: min(760px, calc(100vw - 24px));
-  border-radius: 26px;
-  padding: 18px 18px;
-  background: rgba(2,6,23,.78);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 24px 90px rgba(0,0,0,.55);
+  width:min(640px, 92vw);
+  border-radius: 22px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.84);
+  box-shadow: 0 30px 110px rgba(0,0,0,.50);
+  padding:16px;
 }
 .startTitle{
-  font-size: 22px;
-  font-weight: 1200;
-  letter-spacing:.2px;
+  font-weight:1300;
+  font-size:18px;
 }
 .startSub{
-  margin-top: 8px;
-  font-weight: 1000;
-  color: rgba(229,231,235,.95);
-  line-height:1.35;
+  margin-top:8px;
+  color: rgba(148,163,184,.95);
+  font-weight:900;
+  line-height:1.25;
 }
 .startMeta{
-  margin-top: 12px;
+  margin-top:12px;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
 }
 .metaPill{
-  display:inline-flex;
-  gap:8px;
-  align-items:center;
-  padding: 8px 12px;
-  border-radius: 999px;
+  padding:6px 10px;
+  border-radius: var(--pill);
+  border:1px solid rgba(148,163,184,.18);
   background: rgba(15,23,42,.55);
-  border: 1px solid rgba(148,163,184,.14);
   font-weight:1100;
+  color: rgba(148,163,184,.95);
 }
 .startBtns{
-  margin-top: 14px;
+  margin-top:12px;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
+  justify-content:flex-end;
 }
 .startFoot{
-  margin-top: 10px;
-  color: rgba(148,163,184,.95);
-  font-weight: 900;
-  font-size: 12px;
+  margin-top:12px;
+  color: rgba(148,163,184,.92);
+  font-weight:900;
+  font-size:12px;
 }
 
-/* -----------------------------------------
-   RESULT overlay
------------------------------------------- */
+/* --------------------- RESULT OVERLAY --------------------- */
 #resultBackdrop{
-  position:fixed;
-  inset:0;
-  z-index:90;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
   display:none;
   place-items:center;
-  padding: calc(var(--sat) + 16px) 16px calc(var(--sab) + 18px);
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(6px);
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(8px);
 }
 .resultCard{
-  max-width: 920px;
-  width: min(920px, calc(100vw - 24px));
-  border-radius: 26px;
-  padding: 18px 18px;
-  background: rgba(2,6,23,.80);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 24px 100px rgba(0,0,0,.60);
+  width:min(760px, 92vw);
+  border-radius: 22px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.86);
+  box-shadow: 0 32px 120px rgba(0,0,0,.55);
+  padding:16px;
 }
 .resultTitle{
-  font-size: 18px;
-  font-weight: 1200;
+  font-weight:1300;
+  font-size:18px;
 }
 .resultGrid{
-  margin-top: 12px;
+  margin-top:12px;
   display:grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: 10px;
-}
-@media (max-width:860px){
-  .resultGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:10px;
 }
 .resultItem{
-  padding: 10px 12px;
   border-radius: 18px;
+  border:1px solid rgba(148,163,184,.14);
   background: rgba(15,23,42,.55);
-  border: 1px solid rgba(148,163,184,.14);
+  padding:10px;
 }
 .resultItem .k{
-  font-weight:1100;
   font-size:11px;
+  font-weight:1100;
+  letter-spacing:.08em;
   color: rgba(148,163,184,.95);
 }
 .resultItem .v{
-  margin-top:4px;
-  font-weight:1200;
+  margin-top:2px;
   font-size:18px;
+  font-weight:1200;
 }
-
 .resultPlate{
-  margin-top: 12px;
-  padding: 12px 12px;
-  border-radius: 22px;
-  background: rgba(15,23,42,.45);
-  border: 1px solid rgba(148,163,184,.14);
+  margin-top:12px;
+  border-radius: 18px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.50);
+  padding:10px;
 }
 .plateRow{
   display:flex;
   gap:8px;
   flex-wrap:wrap;
-  align-items:center;
 }
 .totalRow{
-  margin-top: 8px;
-  font-weight: 1100;
-  color: rgba(229,231,235,.95);
+  margin-top:8px;
+  font-weight:1100;
+  color: rgba(148,163,184,.95);
 }
 .resultBtns{
-  margin-top: 14px;
+  margin-top:12px;
   display:flex;
   gap:10px;
+  justify-content:flex-end;
   flex-wrap:wrap;
 }
 
-/* -----------------------------------------
-   TARGETS (emoji buttons)
-   - strong visibility + VR feel
------------------------------------------- */
+/* --------------------- TARGETS --------------------- */
 .plateTarget{
-  position:fixed;
-  display:grid;
-  place-items:center;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-
+  /* JS sets position + left/top + size */
+  z-index: calc(var(--z-play) + 1);
+  pointer-events: auto;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.18);
-  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.10), transparent 55%),
-              rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 18px 44px rgba(0,0,0,.32),
-    inset 0 0 0 1px rgba(255,255,255,.04);
-
-  font: 1000 28px/1 system-ui;
   transform: translateZ(0);
-  will-change: transform, opacity;
-  animation: platePop .14s ease-out;
-}
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
 
-/* ring */
-.plateTarget::after{
-  content:"";
-  position:absolute;
-  inset:-8px;
-  border-radius:999px;
-  border: 2px dashed rgba(34,197,94,.22);
-  opacity:.0;
-  transform: scale(.92);
-  animation: ringIn .35s ease-out forwards;
-  pointer-events:none;
+  /* better emoji */
+  font-variant-emoji: emoji;
+  line-height: 1;
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,.25));
+  transition: transform .08s ease, filter .08s ease;
+  animation: targetFloat 1.6s ease-in-out infinite;
 }
-.plateTarget[data-kind="junk"]::after{
-  border-color: rgba(239,68,68,.22);
-}
-.plateTarget[data-kind="shield"]::after{
-  border-color: rgba(34,211,238,.24);
-}
-
-@keyframes platePop{
-  0%{ transform: scale(.86); opacity:.0; }
-  100%{ transform: scale(1); opacity:1; }
-}
-@keyframes ringIn{
-  0%{ opacity:0; transform: scale(.90); }
-  35%{ opacity:.9; }
-  100%{ opacity:0; transform: scale(1.06); }
-}
-
-/* subtle wobble */
-.plateTarget{
-  animation: platePop .14s ease-out, wobble 1.2s ease-in-out infinite;
-}
-@keyframes wobble{
-  0%,100%{ transform: translateZ(0) rotate(0deg); }
-  50%{ transform: translateZ(0) rotate(2deg); }
-}
-
-/* kind tint */
-.plateTarget[data-kind="good"]{
-  border-color: rgba(34,197,94,.22);
-  box-shadow: 0 18px 44px rgba(0,0,0,.30), 0 0 0 6px rgba(34,197,94,.06);
-}
-.plateTarget[data-kind="junk"]{
-  border-color: rgba(239,68,68,.22);
-  box-shadow: 0 18px 44px rgba(0,0,0,.30), 0 0 0 6px rgba(239,68,68,.06);
-}
-.plateTarget[data-kind="shield"]{
-  border-color: rgba(34,211,238,.22);
-  box-shadow: 0 18px 44px rgba(0,0,0,.30), 0 0 0 6px rgba(34,211,238,.06);
-}
-
-/* active press feedback */
 .plateTarget:active{
-  transform: translateZ(0) scale(.96);
+  transform: translateZ(0) scale(0.96);
 }
 
-/* -----------------------------------------
-   Responsive tuning
------------------------------------------- */
-@media (max-width: 720px){
-  .hudStat{ min-width: 96px; padding: 9px 10px; }
-  .hudStat .v{ font-size: 16px; }
-  .feverBar{ width: 140px; }
-  #miniPanel{ top: calc(var(--sat) + 136px); }
-  #coachPanel{
-    bottom: calc(var(--sab) + 96px);
-    width: min(340px, calc(100vw - 22px));
-  }
-  #coachPanel img{ width:48px; height:48px; }
+/* subtle VR feel */
+@keyframes targetFloat{
+  0%{ transform: translateZ(0) translateY(0px) }
+  50%{ transform: translateZ(0) translateY(-3px) }
+  100%{ transform: translateZ(0) translateY(0px) }
 }
 
+/* --------------------- Responsive --------------------- */
 @media (max-width: 420px){
-  .hudStat{ min-width: 92px; }
-  .feverBar{ width: 120px; }
-  #hudBtns{ left: calc(var(--sal) + 10px); right: auto; }
+  :root{
+    --btnH: 50px;
+  }
+  .hudStat{ min-width: 74px; padding:6px 8px; }
+  .hudStat .v{ font-size:16px; }
+  #coachPanel{
+    width: min(330px, 78vw);
+    bottom: calc(var(--sab) + 74px);
+  }
+  #miniPanel{
+    width: min(360px, 86vw);
+    bottom: calc(var(--sab) + 74px);
+  }
+  .feverBar{ width: 150px; }
 }
 
-/* -----------------------------------------
-   View modes (optional)
------------------------------------------- */
+@media (max-height: 700px){
+  #coachPanel, #miniPanel{
+    bottom: calc(var(--sab) + 68px);
+  }
+  #hudTop .hudRow2{ display:none; } /* กันบังจอเตี้ย */
+}
+
+/* --------------------- VR & cVR modes (body.view-vr / body.view-cvr) --------------------- */
+/* NOTE: view-vr/view-cvr are set by your boot scripts; if not, we still behave well */
 body.view-vr #hudTop,
-body.view-vr #miniPanel,
-body.view-vr #coachPanel,
-body.view-vr #hudBtns{
-  /* a bit tighter in VR */
-  filter: saturate(1.05);
-}
-body.view-cvr #hudTop,
-body.view-cvr #miniPanel,
-body.view-cvr #coachPanel{
-  opacity:.98;
+body.view-cvr #hudTop{
+  top: calc(var(--sat) + 6px);
+  left: calc(var(--sal) + 6px);
+  right: calc(var(--sar) + 6px);
 }
 
-/* Keep overlays crisp in VR */
-body.view-vr #startOverlay,
-body.view-vr #resultBackdrop,
-body.view-cvr #startOverlay,
-body.view-cvr #resultBackdrop{
-  backdrop-filter: blur(7px);
+body.view-vr #hudTop .hudRow,
+body.view-cvr #hudTop .hudRow{
+  padding:8px 8px;
+  gap:6px;
+  border-radius: 16px;
+}
+
+body.view-vr #hudTop .hudRow2,
+body.view-cvr #hudTop .hudRow2{
+  padding:6px 8px;
+  border-radius: 16px;
+}
+
+body.view-vr #coachPanel,
+body.view-cvr #coachPanel{
+  /* ✅ ใน VR เอาลงมุมซ้ายล่างให้บาง ไม่กินกลาง */
+  left: calc(var(--sal) + 6px);
+  bottom: calc(var(--sab) + 64px);
+  width: min(300px, 46vw);
+  padding:8px;
+  opacity: .92;
+}
+
+body.view-vr #coachPanel img,
+body.view-cvr #coachPanel img{
+  width:44px;
+  height:44px;
+}
+
+body.view-vr #miniPanel,
+body.view-cvr #miniPanel{
+  right: calc(var(--sar) + 6px);
+  bottom: calc(var(--sab) + 64px);
+  width: min(360px, 52vw);
+  gap:8px;
+  opacity: .92;
+}
+
+body.view-vr #hudBtns,
+body.view-cvr #hudBtns{
+  bottom: calc(var(--sab) + 6px);
+  left: calc(var(--sal) + 6px);
+  right: calc(var(--sar) + 6px);
+}
+
+/* ✅ cVR: ยิงด้วย crosshair → targets ไม่รับ pointer */
+body.view-cvr #plate-layer{
+  pointer-events: none;
+}
+body.view-cvr .plateTarget{
+  pointer-events: none;
+}
+
+/* --------------------- Reduced motion --------------------- */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{ animation:none; }
+  *{ transition:none !important; }
 }
