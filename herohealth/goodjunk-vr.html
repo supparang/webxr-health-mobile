@@ -7,10 +7,10 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame (for WebXR entry, but we use our own vr-ui.js buttons) -->
+  <!-- A-Frame to allow WebXR enter reliably (UI handled by vr-ui.js) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + optional logger -->
+  <!-- FX + logger (if exists) -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
@@ -28,37 +28,36 @@
       --bad:#ef4444;
       --radius:22px;
       --pill:999px;
-
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
     }
-
     *{ box-sizing:border-box; }
-    html, body{
-      margin:0; width:100%; height:100%;
-      background: radial-gradient(circle at 20% 10%, rgba(34,197,94,.18), transparent 55%),
-                  radial-gradient(circle at 80% 20%, rgba(34,211,238,.14), transparent 60%),
-                  radial-gradient(circle at 30% 90%, rgba(168,85,247,.12), transparent 60%),
-                  var(--bg);
-      overflow:hidden;
-      font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+    html,body{
+      margin:0; width:100%; height:100%; overflow:hidden;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
       color:var(--text);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(34,197,94,.18), transparent 55%),
+        radial-gradient(circle at 85% 15%, rgba(34,211,238,.14), transparent 60%),
+        radial-gradient(circle at 30% 90%, rgba(168,85,247,.12), transparent 60%),
+        var(--bg);
     }
 
-    /* --- A-Frame canvas behind DOM layer --- */
+    /* Invisible A-Frame canvas to enable XR enter */
     .xr-stage{
       position:fixed; inset:0; z-index:0;
-      pointer-events:none; /* we shoot via DOM/crosshair */
-      opacity:.001; /* keep WebXR available, visually invisible */
+      pointer-events:none;
+      opacity:.001;
     }
 
-    /* --- DOM gameplay layer --- */
+    /* DOM gameplay layer */
     #gj-layer{
       position:fixed; inset:0; z-index:5;
       pointer-events:none;
+      touch-action:none;
     }
 
-    /* --- HUD (minimal, your existing JS can fill IDs) --- */
+    /* HUD */
     .hud{
       position:fixed; left:0; right:0; top:0;
       padding: calc(10px + var(--sat)) 12px 10px;
@@ -73,15 +72,21 @@
       padding:10px 12px;
       backdrop-filter: blur(10px);
       box-shadow: 0 18px 45px rgba(0,0,0,.25);
-      pointer-events:none;
       min-width: 140px;
     }
-    .hud .row{ display:flex; gap:10px; align-items:center; }
     .hud .k{ color:var(--muted); font-size:12px; }
     .hud .v{ font-weight:900; font-size:18px; letter-spacing:.2px; }
-    .hud .mini{ font-size:12px; color:var(--muted); }
+    .hud .mini{ font-size:12px; color:var(--muted); line-height:1.25; }
 
-    /* --- READY overlay (device chooser) --- */
+    /* Goal/Mini center boxes */
+    .hud .mid{
+      min-width: 260px;
+      text-align:center;
+    }
+    .hud .mid .v{ font-size:16px; }
+    .hud .mid .mini{ color:#cbd5e1; }
+
+    /* Ready overlay */
     .ready{
       position:fixed; inset:0; z-index:60;
       display:flex; align-items:center; justify-content:center;
@@ -99,8 +104,8 @@
       position:relative;
     }
     .title{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding: 6px 6px 12px;
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      padding: 6px 6px 10px;
     }
     .title h1{
       margin:0;
@@ -108,11 +113,7 @@
       letter-spacing:.2px;
       display:flex; align-items:center; gap:10px;
     }
-    .sub{
-      margin:0;
-      color:var(--muted);
-      font-size: 12.5px;
-    }
+    .sub{ margin:0; color:var(--muted); font-size: 12.5px; }
     .grid{
       display:grid;
       grid-template-columns: 1fr 1fr;
@@ -125,15 +126,12 @@
       gap:12px;
     }
     .chip{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
+      display:flex; align-items:center; justify-content:center; gap:10px;
       border-radius: var(--pill);
       border: 1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.55);
       padding: 14px 12px;
-      font-weight:800;
+      font-weight:900;
       user-select:none;
       cursor:pointer;
     }
@@ -144,14 +142,6 @@
     .chip.cvr[data-on="1"]{
       border-color: rgba(245,158,11,.65);
       box-shadow: 0 0 0 2px rgba(245,158,11,.18) inset;
-    }
-    .actions{
-      display:flex;
-      gap:10px;
-      justify-content:flex-end;
-      align-items:center;
-      margin-top: 12px;
-      padding: 10px 6px 0;
     }
     .btn{
       border-radius: 16px;
@@ -172,50 +162,94 @@
       background: linear-gradient(180deg, rgba(245,158,11,.22), rgba(245,158,11,.12));
       border-color: rgba(245,158,11,.55);
     }
-    .btn:disabled{
-      opacity:.55; cursor:not-allowed;
-    }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
     .tips{
       margin-top: 10px;
       color: var(--muted);
       font-size: 12.5px;
-      line-height: 1.4;
+      line-height: 1.45;
       padding: 0 6px 2px;
     }
-    .toast{
-      position:fixed; left:50%; bottom: calc(14px + var(--sab));
-      transform: translateX(-50%);
-      z-index: 99;
-      background: rgba(2,6,23,.80);
-      border: 1px solid rgba(148,163,184,.18);
-      border-radius: 999px;
-      padding: 10px 14px;
-      font-weight:800;
-      box-shadow: 0 20px 60px rgba(0,0,0,.45);
-      opacity:0; pointer-events:none;
-      transition: opacity .2s ease, transform .2s ease;
+
+    /* Summary */
+    .summary{
+      position:fixed; inset:0; z-index:80;
+      display:none;
+      align-items:center; justify-content:center;
+      padding: 22px 14px calc(22px + var(--sab));
+      background: radial-gradient(circle at 50% 20%, rgba(15,23,42,.55), rgba(2,6,23,.92));
+      backdrop-filter: blur(8px);
     }
-    .toast.on{
-      opacity:1;
-      transform: translateX(-50%) translateY(-4px);
+    .summary.on{ display:flex; }
+    .sum-card{
+      width:min(860px, 96vw);
+      border-radius: 28px;
+      background: linear-gradient(180deg, rgba(2,6,23,.85), rgba(2,6,23,.62));
+      border: 1px solid rgba(148,163,184,.18);
+      box-shadow: 0 40px 120px rgba(0,0,0,.55);
+      padding: 18px 18px 14px;
+    }
+    .sum-top{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding: 6px 6px 10px;
+    }
+    .badge{
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-weight: 1000;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.55);
+      letter-spacing:.5px;
+    }
+    .sum-grid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top:10px;
+    }
+    .metric{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.45);
+      border-radius: 18px;
+      padding: 12px 12px;
+    }
+    .metric .k{ color:var(--muted); font-size:12px; }
+    .metric .v{ font-weight:1000; font-size:18px; margin-top:4px; }
+    .sum-actions{
+      display:flex; gap:10px; justify-content:flex-end; margin-top:12px; padding: 0 6px;
+      flex-wrap:wrap;
+    }
+
+    /* mobile: stack summary metrics */
+    @media (max-width: 720px){
+      .sum-grid{ grid-template-columns: 1fr 1fr; }
+      .hud{ gap:8px; }
+      .hud .mid{ min-width: 210px; }
     }
   </style>
 </head>
 
 <body class="view-mobile">
-  <!-- Invisible XR scene (only to allow vr-ui.js Enter VR/Exit/Recenter) -->
   <a-scene class="xr-stage" embedded vr-mode-ui="enabled:false"></a-scene>
 
-  <!-- DOM Layer for emoji targets -->
   <div id="gj-layer"></div>
 
-  <!-- HUD placeholders (your JS already knows these IDs in previous builds) -->
   <div class="hud">
     <div class="box">
       <div class="k">Score</div>
       <div id="hud-score" class="v">0</div>
       <div class="mini"><span class="k">Combo</span> <span id="hud-combo">0</span> · <span class="k">Miss</span> <span id="hud-miss">0</span></div>
     </div>
+
+    <div class="box mid">
+      <div class="k">Goal</div>
+      <div id="hud-goal" class="v">—</div>
+      <div class="mini">
+        <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span>
+        · <span class="k">Mini</span> <span id="hud-mini">—</span>
+      </div>
+    </div>
+
     <div class="box" style="text-align:right; min-width:170px;">
       <div class="k">Time</div>
       <div id="hud-time" class="v">—</div>
@@ -223,7 +257,7 @@
     </div>
   </div>
 
-  <!-- READY overlay -->
+  <!-- READY -->
   <div id="ready" class="ready" aria-modal="true" role="dialog">
     <div class="panel">
       <div class="title">
@@ -242,23 +276,54 @@
           <div id="btnCVR" class="chip cvr" role="button" tabindex="0">🕶️ cVR</div>
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:10px; align-items:center;">
+        <div style="display:flex; justify-content:flex-end; gap:10px; align-items:center; flex-wrap:wrap;">
           <button id="btnFs" class="btn">⛶ Fullscreen</button>
           <button id="btnEnterCVR" class="btn warn">🕶️ Enter cVR</button>
         </div>
       </div>
 
       <div class="tips">
-        • cVR: จอแยก 2 ตา + ยิงจาก crosshair กลางจอ (แตะจอ/ปุ่มยิง)<br/>
-        • Research: ใช้ <b>run=research</b> + <b>seed</b> เพื่อ deterministic (ปิด adaptive)<br/>
-        • กันอาการ “เป้าแว๊บ ๆ”: เกมจะเริ่ม spawn หลัง <b>START</b> จริงเท่านั้น
+        • <b>Goal</b> + <b>Mini Quest</b> จะวิ่งจริงหลัง START (กัน “เป้าแว๊บ”)<br/>
+        • <b>cVR</b>: แนะนำกด Fullscreen → Enter cVR → START<br/>
+        • <b>Research</b>: ใช้ <b>run=research</b> + <b>seed</b> เพื่อ deterministic และปิด adaptive<br/>
+        • เกรด: <b>SSS/SS/S/A/B/C</b>
       </div>
     </div>
   </div>
 
-  <div id="toast" class="toast">—</div>
+  <!-- SUMMARY -->
+  <div id="summary" class="summary" aria-modal="true" role="dialog">
+    <div class="sum-card">
+      <div class="sum-top">
+        <div>
+          <div class="k" style="color:var(--muted)">GoodJunkVR — Result</div>
+          <div style="font-weight:1000; font-size:20px; margin-top:4px;" id="sum-title">—</div>
+        </div>
+        <div class="badge" id="sum-grade">—</div>
+      </div>
 
-  <!-- Boot (IMPORTANT: engine will NOT start until START => fix "targets flash") -->
+      <div class="sum-grid">
+        <div class="metric"><div class="k">Score</div><div class="v" id="sum-score">0</div></div>
+        <div class="metric"><div class="k">Accuracy (Good)</div><div class="v" id="sum-acc">0%</div></div>
+        <div class="metric"><div class="k">Miss</div><div class="v" id="sum-miss">0</div></div>
+
+        <div class="metric"><div class="k">Combo Max</div><div class="v" id="sum-combo">0</div></div>
+        <div class="metric"><div class="k">Goals Cleared</div><div class="v" id="sum-goals">0/0</div></div>
+        <div class="metric"><div class="k">Mini Cleared</div><div class="v" id="sum-minis">0/0</div></div>
+
+        <div class="metric"><div class="k">Good Hit</div><div class="v" id="sum-goodhit">0</div></div>
+        <div class="metric"><div class="k">Junk Hit</div><div class="v" id="sum-junkhit">0</div></div>
+        <div class="metric"><div class="k">Played</div><div class="v" id="sum-played">0s</div></div>
+      </div>
+
+      <div class="sum-actions">
+        <button id="btnRetry" class="btn primary">↻ Retry</button>
+        <button id="btnBackHub" class="btn">↩ Back to HUB</button>
+        <button id="btnCloseSummary" class="btn">✕ Close</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 
   <script>
@@ -274,93 +339,85 @@
       };
 
       const ready = $('#ready');
-      const toast = $('#toast');
       const btnStart = $('#btnStart');
       const btnFs = $('#btnFs');
       const btnEnterCVR = $('#btnEnterCVR');
+      const btnPC = $('#btnPC'), btnMobile = $('#btnMobile'), btnVR = $('#btnVR'), btnCVR = $('#btnCVR');
 
-      const btnPC = $('#btnPC');
-      const btnMobile = $('#btnMobile');
-      const btnVR = $('#btnVR');
-      const btnCVR = $('#btnCVR');
-
-      let view = (qs('view') || qs('mode') || 'mobile').toLowerCase();
-      if(view === 'cvr') view = 'cvr';
-      if(view === 'vr') view = 'vr';
-      if(view === 'pc') view = 'pc';
-      if(view === 'mobile') view = 'mobile';
-
-      function toastMsg(msg){
-        toast.textContent = msg;
-        toast.classList.add('on');
-        clearTimeout(toast._t);
-        toast._t = setTimeout(()=>toast.classList.remove('on'), 1600);
-      }
+      let view = (qs('view') || 'mobile').toLowerCase();
+      if(!['pc','mobile','vr','cvr'].includes(view)) view = 'mobile';
 
       function applyView(v){
         view = v;
         document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
         document.body.classList.add('view-'+v);
-
         btnPC.dataset.on = (v==='pc')?'1':'0';
         btnMobile.dataset.on = (v==='mobile')?'1':'0';
         btnVR.dataset.on = (v==='vr')?'1':'0';
         btnCVR.dataset.on = (v==='cvr')?'1':'0';
-
         setQS('view', v);
-        // Enter cVR button only meaningful when cvr selected
         btnEnterCVR.disabled = (v!=='cvr');
       }
-
       applyView(view);
 
-      // show params line
       const diff = qs('diff','normal');
       const time = qs('time','80');
       const run  = qs('run','play');
       const end  = qs('end','time');
       const ch   = qs('ch','rush');
-      $('#paramsLine').textContent = `diff=${diff} • time=${time}s • run=${run} • end=${end} • ch=${ch}`;
+      const seed = qs('seed', '');
+      $('#paramsLine').textContent =
+        `diff=${diff} • time=${time}s • run=${run} • end=${end} • ch=${ch}` + (seed?` • seed=${seed}`:'');
 
-      // Fullscreen (best effort)
       btnFs.addEventListener('click', async ()=>{
         try{
           if(!document.fullscreenElement){
             await document.documentElement.requestFullscreen?.();
           }
-          toastMsg('Fullscreen ✓');
-        }catch(e){
-          toastMsg('Fullscreen ไม่สำเร็จ');
-        }
+        }catch{}
       });
 
-      // view buttons
       btnPC.addEventListener('click', ()=>applyView('pc'));
       btnMobile.addEventListener('click', ()=>applyView('mobile'));
       btnVR.addEventListener('click', ()=>applyView('vr'));
       btnCVR.addEventListener('click', ()=>applyView('cvr'));
 
-      // Enter cVR: relies on vr-ui.js inside boot.js (it injects buttons and handles Enter VR)
       btnEnterCVR.addEventListener('click', ()=>{
         if(view!=='cvr') return;
         window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
-        toastMsg('Enter cVR…');
       });
 
-      // START: This is the key fix. We *only* start engine/spawn after this.
       btnStart.addEventListener('click', ()=>{
-        // If cVR chosen, strongly suggest entering cVR first (prevents flash/hide confusion)
-        if(view==='cvr'){
-          toastMsg('แนะนำกด Enter cVR ก่อนเริ่ม');
-        }
         ready.style.display = 'none';
-
-        // Tell boot to start the game NOW (engine starts here, not before)
         window.dispatchEvent(new CustomEvent('hha:start', { detail:{ from:'ready', view } }));
       });
 
-      // Allow auto-hide overlay only; do NOT autostart engine.
-      // (Engine start is gated by 'hha:start' event in boot file.)
+      // Summary buttons
+      const summary = $('#summary');
+      $('#btnRetry').addEventListener('click', ()=>location.reload());
+      $('#btnCloseSummary').addEventListener('click', ()=>summary.classList.remove('on'));
+      $('#btnBackHub').addEventListener('click', ()=>{
+        const hub = qs('hub', null);
+        if(hub) location.href = hub;
+        else location.href = './hub.html';
+      });
+
+      // Listen end summary from engine
+      window.addEventListener('hha:end', (ev)=>{
+        const d = ev?.detail || {};
+        $('#sum-title').textContent = d.title || 'Session Summary';
+        $('#sum-grade').textContent = d.grade || '—';
+        $('#sum-score').textContent = d.scoreFinal ?? 0;
+        $('#sum-acc').textContent = (d.accuracyGoodPct!=null ? `${Math.round(d.accuracyGoodPct)}%` : '0%');
+        $('#sum-miss').textContent = d.misses ?? 0;
+        $('#sum-combo').textContent = d.comboMax ?? 0;
+        $('#sum-goals').textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
+        $('#sum-minis').textContent = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
+        $('#sum-goodhit').textContent = d.nHitGood ?? 0;
+        $('#sum-junkhit').textContent = d.nHitJunk ?? 0;
+        $('#sum-played').textContent = `${Math.round(d.durationPlayedSec ?? 0)}s`;
+        summary.classList.add('on');
+      }, { passive:true });
     })();
   </script>
 </body>
