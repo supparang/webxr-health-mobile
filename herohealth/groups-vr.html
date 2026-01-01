@@ -7,107 +7,182 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Reuse Groups CSS -->
+  <!-- reuse same CSS -->
   <link rel="stylesheet" href="./vr-groups/groups-vr.css" />
+  <style>
+    /* launcher-only tweaks */
+    body{ overflow:auto; }
+    .overlay{ position:relative; inset:auto; min-height:100dvh; }
+    .overlay .panel{ max-width: 920px; }
+    .launcherGrid{
+      display:grid; gap:12px;
+      grid-template-columns: 1.2fr .8fr;
+      align-items:start;
+    }
+    @media (max-width:860px){
+      .launcherGrid{ grid-template-columns:1fr; }
+    }
+    .box{
+      background: rgba(2,6,23,.62);
+      border:1px solid var(--stroke);
+      border-radius: 18px;
+      padding: 14px;
+      backdrop-filter: blur(8px);
+    }
+    .boxTitle{
+      font-weight:1000; letter-spacing:.2px; margin-bottom:10px;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .boxSub{ color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
+    .btnWide{ flex:1; display:flex; justify-content:center; min-width: 180px; }
+    .linkOut{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.55);
+      color: var(--text);
+      font-weight:900;
+      word-break: break-all;
+    }
+    .miniRow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .miniBtn{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.45);
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+    }
+    .miniBtn:hover{ border-color: rgba(148,163,184,.35); }
+  </style>
 </head>
 
 <body class="view-pc">
 
-  <div class="overlay" id="launchOverlay">
+  <div class="overlay">
     <div class="panel">
-      <div class="title">🥗 Food Groups VR — Launcher</div>
+
+      <div class="title">🍱 Food Groups VR — Launcher</div>
       <div class="sub">
-        เลือกโหมดเข้าเล่นให้ชัดเจน: <b>PC</b> / <b>Mobile</b> / <b>VR Cardboard</b><br/>
-        (Cardboard จะใช้ <b>ยิงจาก crosshair</b> + <b>แตะจอ</b> ผ่าน vr-ui.js)
+        เลือกโหมดเข้าเล่น <b>PC / Mobile / VR Cardboard</b> ได้จากหน้านี้  
+        (Run page จะมีปุ่ม ENTER VR/EXIT/RECENTER จาก <code>vr-ui.js</code> ให้อัตโนมัติ)
       </div>
 
       <div class="hr"></div>
 
-      <div class="grid2 kv">
-        <div>
-          <div class="k">VIEW (อุปกรณ์)</div>
-          <div class="v">
-            <button class="chip" id="chipViewPc" type="button">🖥️ PC</button>
-            <button class="chip" id="chipViewMobile" type="button">📱 Mobile</button>
-            <button class="chip" id="chipViewCvr" type="button">🥽 Cardboard</button>
-            <span class="hint" id="autoHint"></span>
+      <div class="launcherGrid">
+
+        <!-- LEFT: quick launch -->
+        <div class="box">
+          <div class="boxTitle">
+            <div>🚀 เข้าเล่นทันที</div>
+            <span class="tag" id="tagInfo">—</span>
+          </div>
+
+          <div class="row">
+            <button id="btnPC" class="btn btn-strong btnWide" type="button">🖥️ เล่นบน PC</button>
+            <button id="btnMobile" class="btn btn-strong btnWide" type="button">📱 เล่นบน Mobile</button>
+            <button id="btnCVR" class="btn btn-strong btnWide" type="button">🥽 VR Cardboard</button>
+          </div>
+
+          <div class="row row2">
+            <button id="btnPC_Copy" class="btn btnWide" type="button">📋 Copy link (PC)</button>
+            <button id="btnMobile_Copy" class="btn btnWide" type="button">📋 Copy link (Mobile)</button>
+            <button id="btnCVR_Copy" class="btn btnWide" type="button">📋 Copy link (Cardboard)</button>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="boxSub">
+            ✅ Cardboard: เมื่อกด ENTER VR แล้ว <b>แตะจอเพื่อยิงจาก crosshair</b> (โหมด <code>view=cvr</code>)<br/>
+            ✅ PC/Mobile: แตะ/คลิกที่เป้าได้ตามปกติ
           </div>
         </div>
 
-        <div>
-          <div class="k">RUN MODE</div>
-          <div class="v">
-            <button class="chip" id="chipRunPlay" type="button">🎮 Play (Adaptive)</button>
-            <button class="chip" id="chipRunResearch" type="button">🧪 Research (Deterministic)</button>
+        <!-- RIGHT: settings -->
+        <div class="box">
+          <div class="boxTitle">
+            <div>⚙️ ตั้งค่า</div>
           </div>
-        </div>
 
-        <div>
-          <div class="k">DIFFICULTY</div>
-          <div class="v">
-            <button class="chip" id="chipDiffEasy" type="button">Easy</button>
-            <button class="chip" id="chipDiffNormal" type="button">Normal</button>
-            <button class="chip" id="chipDiffHard" type="button">Hard</button>
-          </div>
-        </div>
+          <div class="grid2">
+            <div class="kv">
+              <div class="k">Run mode</div>
+              <div class="v" id="runModeChips">
+                <button class="chip chip-on" data-run="play" type="button">PLAY (Adaptive)</button>
+                <button class="chip" data-run="research" type="button">RESEARCH (Deterministic)</button>
+              </div>
+            </div>
 
-        <div>
-          <div class="k">STYLE</div>
-          <div class="v">
-            <button class="chip" id="chipStyleMix" type="button">Mix</button>
-            <button class="chip" id="chipStyleFeel" type="button">Feel</button>
-            <button class="chip" id="chipStyleHard" type="button">Hard</button>
-          </div>
-        </div>
+            <div class="kv">
+              <div class="k">Difficulty</div>
+              <div class="v" id="diffChips">
+                <button class="chip" data-diff="easy" type="button">Easy</button>
+                <button class="chip chip-on" data-diff="normal" type="button">Normal</button>
+                <button class="chip" data-diff="hard" type="button">Hard</button>
+              </div>
+            </div>
 
-        <div>
-          <div class="k">TIME (sec)</div>
-          <div class="v">
-            <input id="inpTime" class="input" type="number" min="30" max="180" step="5" value="90" />
-            <span class="hint">30–180</span>
-          </div>
-        </div>
+            <div class="kv">
+              <div class="k">Style</div>
+              <div class="v" id="styleChips">
+                <button class="chip chip-on" data-style="mix" type="button">Mix</button>
+                <button class="chip" data-style="feel" type="button">Feel</button>
+                <button class="chip" data-style="hard" type="button">Hard</button>
+              </div>
+            </div>
 
-        <div>
-          <div class="k">SEED (วิจัย)</div>
-          <div class="v">
-            <input id="inpSeed" class="input" type="text" value="" placeholder="auto" />
-            <button class="chip" id="btnGenSeed" type="button">🎲 gen</button>
-          </div>
-        </div>
+            <div class="kv">
+              <div class="k">AI (Hooks)</div>
+              <div class="v" id="aiChips">
+                <button class="chip chip-on" data-ai="off" type="button">AI OFF</button>
+                <button class="chip" data-ai="on" type="button">AI ON</button>
+              </div>
+              <div class="hint">เปิด AI แล้วจะมี Coach tips + Director ปรับเกม (เฉพาะ PLAY)</div>
+            </div>
 
-        <div style="grid-column:1/-1">
-          <div class="k">LOG URL (optional)</div>
-          <div class="v">
-            <input id="inpLog" class="input" style="width:min(520px,100%)" type="text"
-                   placeholder="ใส่ Apps Script / Logger URL (optional) เช่น https://script.google.com/macros/s/.../exec" />
-          </div>
-          <div class="note" style="margin-top:8px">
-            ถ้าใส่ log url → run จะพยายาม POST JSON ตอนจบเกม + flush ตอนปิดแท็บ/กดกลับ
-          </div>
-        </div>
+            <div class="kv">
+              <div class="k">Time (sec)</div>
+              <div class="v">
+                <input id="inpTime" class="input" type="number" min="30" max="180" value="90" />
+                <span class="hint">30–180</span>
+              </div>
+            </div>
 
-        <div style="grid-column:1/-1">
-          <div class="k">HUB (optional)</div>
-          <div class="v">
-            <input id="inpHub" class="input" style="width:min(520px,100%)" type="text"
-                   placeholder="ใส่ลิงก์กลับ HUB เช่น ./hub.html หรือ https://.../hub.html" />
-            <button class="chip" id="btnUseHubParam" type="button">↩︎ ใช้จาก ?hub=</button>
+            <div class="kv">
+              <div class="k">Seed</div>
+              <div class="v">
+                <input id="inpSeed" class="input" type="text" value="" placeholder="auto" />
+                <button id="btnNewSeed" class="miniBtn" type="button">🎲 New</button>
+              </div>
+              <div class="hint">Research แนะนำให้ล็อก seed เพื่อผลซ้ำได้</div>
+            </div>
           </div>
+
+          <div class="hr"></div>
+
+          <div class="kv">
+            <div class="k">Link preview</div>
+            <div class="v">
+              <div id="linkPreview" class="linkOut">—</div>
+            </div>
+            <div class="miniRow" style="margin-top:10px;">
+              <button id="btnCopyPreview" class="miniBtn" type="button">📋 Copy preview link</button>
+              <button id="btnOpenPreview" class="miniBtn" type="button">🔗 Open preview</button>
+            </div>
+          </div>
+
         </div>
       </div>
 
       <div class="hr"></div>
 
-      <div class="row">
-        <button class="btn btn-strong" id="btnPlay" type="button">▶️ เข้าเล่น</button>
-        <button class="btn" id="btnCopyLink" type="button">🔗 Copy Link</button>
-        <button class="btn btn-ghost" id="btnReset" type="button">♻️ รีเซ็ต</button>
+      <div class="note">
+        ทิป: ถ้าจะกลับ HUB ให้เปิดผ่าน <code>?hub=/herohealth/hub.html</code> แล้ว Run จะมีปุ่มกลับ HUB ในหน้าสรุปจบเกม
       </div>
 
-      <div class="note" style="margin-top:12px">
-        แนะนำ: Cardboard ใช้ Chrome + HTTPS และกด “Enter VR” บน UI ใน run (vr-ui.js)
-      </div>
     </div>
   </div>
 
@@ -138,135 +213,99 @@
     }
   }
 
-  // ---- defaults + autodetect ----
-  function autoView(){
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints>1 && innerWidth<900);
-    return isMobile ? 'mobile' : 'pc';
-  }
-
   const state = {
-    view: 'pc',
     run: 'play',
     diff: 'normal',
-    style:'mix'
+    style: 'mix',
+    ai: 'off',
+    time: 90,
+    seed: '',
+    hub: ''
   };
 
-  function chipOn(el, on){
-    if (!el) return;
-    el.classList.toggle('chip-on', !!on);
+  function setChipOn(containerId, key, val){
+    const box = $(containerId);
+    if (!box) return;
+    [...box.querySelectorAll('.chip')].forEach(ch=>{
+      const v = ch.dataset[key];
+      ch.classList.toggle('chip-on', v === val);
+    });
   }
 
-  function render(){
-    chipOn($('chipViewPc'), state.view==='pc');
-    chipOn($('chipViewMobile'), state.view==='mobile');
-    chipOn($('chipViewCvr'), state.view==='cvr');
-
-    chipOn($('chipRunPlay'), state.run==='play');
-    chipOn($('chipRunResearch'), state.run==='research');
-
-    chipOn($('chipDiffEasy'), state.diff==='easy');
-    chipOn($('chipDiffNormal'), state.diff==='normal');
-    chipOn($('chipDiffHard'), state.diff==='hard');
-
-    chipOn($('chipStyleMix'), state.style==='mix');
-    chipOn($('chipStyleFeel'), state.style==='feel');
-    chipOn($('chipStyleHard'), state.style==='hard');
-  }
-
-  function buildRunUrl(){
+  function buildRunUrl(view){
     const u = new URL('./vr-groups/groups.html', location.href);
-
-    u.searchParams.set('view', state.view);
+    u.searchParams.set('view', view);
     u.searchParams.set('run', state.run);
     u.searchParams.set('diff', state.diff);
     u.searchParams.set('style', state.style);
-
-    const time = clamp($('inpTime').value, 30, 180);
-    u.searchParams.set('time', String(time|0));
-
-    const seed = String($('inpSeed').value||'').trim();
-    if (seed) u.searchParams.set('seed', seed);
-
-    const log = String($('inpLog').value||'').trim();
-    if (log) u.searchParams.set('log', log);
-
-    const hub = String($('inpHub').value||'').trim();
-    if (hub) u.searchParams.set('hub', hub);
-
-    // ให้ run โชว์ start overlay แล้วค่อยเริ่มหลัง user gesture (ดีต่อ audio + vr)
-    u.searchParams.set('start', '1');
+    u.searchParams.set('time', String(state.time));
+    if (state.ai === 'on') u.searchParams.set('ai','on');
+    if (state.seed) u.searchParams.set('seed', state.seed);
+    if (state.hub) u.searchParams.set('hub', state.hub);
     return u.toString();
   }
 
-  // ---- bind chips ----
-  $('chipViewPc').onclick = ()=>{ state.view='pc'; render(); };
-  $('chipViewMobile').onclick = ()=>{ state.view='mobile'; render(); };
-  $('chipViewCvr').onclick = ()=>{ state.view='cvr'; render(); };
+  function refresh(){
+    state.time = clamp($('inpTime').value, 30, 180);
+    state.seed = String($('inpSeed').value || '').trim();
+    $('tagInfo').textContent = `${state.run.toUpperCase()} • ${state.diff.toUpperCase()} • ${state.style.toUpperCase()} • AI:${state.ai.toUpperCase()}`;
+    $('linkPreview').textContent = buildRunUrl('mobile');
+  }
 
-  $('chipRunPlay').onclick = ()=>{ state.run='play'; render(); };
-  $('chipRunResearch').onclick = ()=>{ state.run='research'; render(); };
+  function bindChips(containerId, key){
+    const box = $(containerId);
+    if (!box) return;
+    box.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.chip');
+      if (!btn) return;
+      const v = btn.dataset[key];
+      if (!v) return;
+      state[key] = v;
+      setChipOn(containerId, key, v);
+      refresh();
+    });
+  }
 
-  $('chipDiffEasy').onclick = ()=>{ state.diff='easy'; render(); };
-  $('chipDiffNormal').onclick = ()=>{ state.diff='normal'; render(); };
-  $('chipDiffHard').onclick = ()=>{ state.diff='hard'; render(); };
+  // init from URL
+  state.hub = String(qs('hub','')||'').trim();
+  $('inpTime').value = String(clamp(qs('time',90), 30, 180));
+  $('inpSeed').value = String(qs('seed','')||'');
 
-  $('chipStyleMix').onclick = ()=>{ state.style='mix'; render(); };
-  $('chipStyleFeel').onclick = ()=>{ state.style='feel'; render(); };
-  $('chipStyleHard').onclick = ()=>{ state.style='hard'; render(); };
+  bindChips('runModeChips', 'run');
+  bindChips('diffChips', 'diff');
+  bindChips('styleChips', 'style');
+  bindChips('aiChips', 'ai');
 
-  $('btnGenSeed').onclick = ()=>{
+  $('btnNewSeed').addEventListener('click', ()=>{
     $('inpSeed').value = String(Date.now());
-  };
+    refresh();
+  });
 
-  $('btnUseHubParam').onclick = ()=>{
-    const hub = String(qs('hub','')||'').trim();
-    if (hub) $('inpHub').value = hub;
-  };
+  $('btnPC').addEventListener('click', ()=> location.href = buildRunUrl('pc'));
+  $('btnMobile').addEventListener('click', ()=> location.href = buildRunUrl('mobile'));
+  $('btnCVR').addEventListener('click', ()=> location.href = buildRunUrl('cvr'));
 
-  $('btnPlay').onclick = ()=>{ location.href = buildRunUrl(); };
+  $('btnPC_Copy').addEventListener('click', async ()=>{
+    refresh(); const ok = await copyText(buildRunUrl('pc')); alert(ok?'คัดลอกลิงก์ PC แล้ว ✅':'Copy ไม่สำเร็จ');
+  });
+  $('btnMobile_Copy').addEventListener('click', async ()=>{
+    refresh(); const ok = await copyText(buildRunUrl('mobile')); alert(ok?'คัดลอกลิงก์ Mobile แล้ว ✅':'Copy ไม่สำเร็จ');
+  });
+  $('btnCVR_Copy').addEventListener('click', async ()=>{
+    refresh(); const ok = await copyText(buildRunUrl('cvr')); alert(ok?'คัดลอกลิงก์ Cardboard แล้ว ✅':'Copy ไม่สำเร็จ');
+  });
 
-  $('btnCopyLink').onclick = async ()=>{
-    const ok = await copyText(buildRunUrl());
-    alert(ok ? 'คัดลอกลิงก์แล้ว ✅' : 'Copy ไม่สำเร็จ');
-  };
+  $('btnCopyPreview').addEventListener('click', async ()=>{
+    refresh(); const ok = await copyText($('linkPreview').textContent); alert(ok?'คัดลอกลิงก์แล้ว ✅':'Copy ไม่สำเร็จ');
+  });
+  $('btnOpenPreview').addEventListener('click', ()=>{
+    refresh(); location.href = $('linkPreview').textContent;
+  });
 
-  $('btnReset').onclick = ()=>{
-    state.view='pc'; state.run='play'; state.diff='normal'; state.style='mix';
-    $('inpTime').value = '90';
-    $('inpSeed').value = '';
-    $('inpLog').value = '';
-    $('inpHub').value = '';
-    render();
-  };
+  $('inpTime').addEventListener('input', refresh);
+  $('inpSeed').addEventListener('input', refresh);
 
-  // init: prefer url params if present
-  const v = String(qs('view','')||'').toLowerCase();
-  state.view = (v==='pc'||v==='mobile'||v==='cvr') ? v : autoView();
-
-  const run = String(qs('run','')||'').toLowerCase();
-  state.run = (run==='research') ? 'research' : 'play';
-
-  const diff = String(qs('diff','')||'').toLowerCase();
-  state.diff = (diff==='easy'||diff==='hard'||diff==='normal') ? diff : 'normal';
-
-  const style= String(qs('style','')||'').toLowerCase();
-  state.style = (style==='mix'||style==='feel'||style==='hard') ? style : 'mix';
-
-  const t = qs('time','');
-  if (t!=null && t!=='') $('inpTime').value = String(clamp(t,30,180)|0);
-
-  const seed = String(qs('seed','')||'').trim();
-  if (seed) $('inpSeed').value = seed;
-
-  const log = String(qs('log','')||'').trim();
-  if (log) $('inpLog').value = log;
-
-  const hub = String(qs('hub','')||'').trim();
-  if (hub) $('inpHub').value = hub;
-
-  $('autoHint').textContent = ` (auto: ${autoView()})`;
-  render();
+  refresh();
 })();
 </script>
 </body>
