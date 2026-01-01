@@ -11,6 +11,9 @@
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
+  <!-- ✅ Coach UI manager (needs #coach-img/#coach-text/#coach-sub in DOM) -->
+  <script src="./vr/coach-manager.js" defer></script>
+
   <style>
     :root{
       --bg:#020617;
@@ -34,6 +37,7 @@
     html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
     button{font:inherit}
 
+    /* App */
     .app{
       position:fixed; inset:0;
       padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
@@ -45,10 +49,6 @@
       overflow:hidden;
       touch-action:none;
     }
-
-    /* ✅ show only one playfield depending on mode */
-    body.cardboard #playfield{ display:none; }
-    body:not(.cardboard) #cbPlayfield{ display:none; }
 
     /* Targets layer(s) expected by hydration.safe.js */
     #hydration-layer,
@@ -83,6 +83,32 @@
     }
     .kv{display:flex;justify-content:space-between;gap:10px;font-weight:900}
     .kv span{color:var(--muted);font-weight:800}
+
+    /* ✅ Coach HUD (bind by coach-manager.js via ids) */
+    #coachHUD{
+      position:absolute; left:12px; right:12px; top:78px;
+      z-index:60;
+      pointer-events:none;
+      display:flex; justify-content:center;
+    }
+    #coachCard{
+      width:min(760px,100%);
+      display:flex; gap:12px; align-items:center;
+      background:rgba(2,6,23,.72);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius:18px;
+      padding:10px 12px;
+      backdrop-filter:blur(10px);
+    }
+    #coach-img{
+      width:52px; height:52px; border-radius:14px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(15,23,42,.55);
+      object-fit:cover;
+      flex:0 0 auto;
+    }
+    #coach-text{font-weight:1000; line-height:1.25}
+    #coach-sub{color:var(--muted); font-weight:800; margin-top:2px; line-height:1.25}
 
     /* Quest / Water panel */
     .panelRow{
@@ -129,7 +155,7 @@
     }
     .pill span{color:var(--muted);font-weight:900}
 
-    /* Start overlay expected by hydration.safe.js */
+    /* Start overlay */
     #startOverlay{
       position:absolute; inset:0;
       z-index:80;
@@ -203,8 +229,7 @@
     .mono{white-space:pre-wrap;font:800 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;color:var(--muted)}
 
     /* End-window FX hook: hydration.safe.js toggles body.hha-endfx */
-    body.hha-endfx #playfield,
-    body.hha-endfx #cbPlayfield{ animation: shake .12s infinite linear; }
+    body.hha-endfx #playfield{ animation: shake .12s infinite linear; }
     @keyframes shake{
       0%{transform:translate(0,0)}
       25%{transform:translate(1px,0)}
@@ -218,15 +243,8 @@
 <body>
   <div class="app">
 
-    <!-- ✅ Normal playfield -->
+    <!-- playfield -->
     <div id="playfield">
-      <div id="hydration-layer" aria-label="Hydration targets"></div>
-      <div id="hydration-layerL" aria-label="Hydration targets L"></div>
-      <div id="hydration-layerR" aria-label="Hydration targets R"></div>
-    </div>
-
-    <!-- ✅ Cardboard playfield (needed by hydration.safe.js when body.cardboard) -->
-    <div id="cbPlayfield">
       <div id="hydration-layer" aria-label="Hydration targets"></div>
       <div id="hydration-layerL" aria-label="Hydration targets L"></div>
       <div id="hydration-layerR" aria-label="Hydration targets R"></div>
@@ -245,6 +263,18 @@
       </div>
     </div>
 
+    <!-- ✅ COACH HUD (wired by coach-manager.js) -->
+    <div id="coachHUD" aria-hidden="true">
+      <div id="coachCard">
+        <img id="coach-img" alt="coach" />
+        <div style="flex:1; min-width:0;">
+          <div id="coach-text">…</div>
+          <div id="coach-sub">…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quest + Water -->
     <div class="panelRow" aria-hidden="true">
       <div class="panel">
         <div class="qLine" id="quest-line1">—</div>
@@ -272,12 +302,14 @@
     <div id="startOverlay">
       <div class="startCard">
         <h1 class="title">💧 Hydration VR</h1>
-        <p class="sub">กด START เพื่อเริ่มเกม (ยิง event <b>hha:start</b>)</p>
+        <p class="sub">กด START เพื่อเริ่มเกม (จะยิง event <b>hha:start</b> ให้ hydration.safe.js)</p>
         <div class="btnRow">
           <button class="btn primary" id="btnStart">🚀 START</button>
-          <!-- ✅ เปลี่ยน id ไม่ให้ชนกับ Summary -->
           <button class="btn warn" id="btnBackHubStart">🏠 Back HUB</button>
         </div>
+        <p class="sub" style="margin-top:10px">
+          หากกดแล้วเด้ง Summary ทันที: มักเกิดจากหน้าไม่ครบ IDs หรือ event start ไม่ถูกยิง
+        </p>
       </div>
     </div>
 
@@ -291,8 +323,7 @@
 
         <div class="sumBtns">
           <button class="btn warn" id="btnRetry">🔁 Retry</button>
-          <!-- ✅ id นี้ต้องมีแค่ “จุดเดียว” เพื่อให้ hydration.safe.js bind ถูก -->
-          <button class="btn" id="btnBackHub">🏠 Back HUB</button>
+          <button class="btn" id="btnBackHubSummary">🏠 Back HUB</button>
           <button class="btn" id="btnCopyJSON">📋 Copy JSON</button>
           <button class="btn" id="btnDownloadCSV">⬇ Download CSV</button>
         </div>
@@ -323,28 +354,20 @@
 
   </div>
 
-  <!-- ✅ View/bootstrap: set cardboard + HHA_VIEW.layers (optional but useful) -->
+  <!-- Wire START buttons -->
   <script>
     (function(){
       const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-      const view = String(qs('view','mobile')).toLowerCase();
-      const hub  = String(qs('hub','./hub.html'));
+      const hub = String(qs('hub','./hub.html'));
 
-      // decide cardboard
-      const isCb = (view === 'cardboard' || view === 'cvr' || view === 'vr');
-
-      document.body.classList.toggle('cardboard', isCb);
-
-      // Provide layers list (hydration.safe.js reads ROOT.HHA_VIEW.layers first)
-      window.HHA_VIEW = window.HHA_VIEW || {};
-      window.HHA_VIEW.layers = isCb ? ['hydration-layerL','hydration-layerR'] : ['hydration-layer'];
-
-      // Back HUB in start overlay (separate id)
+      // Back HUB (start + summary)
       document.getElementById('btnBackHubStart')?.addEventListener('click', ()=> location.href = hub);
+      document.getElementById('btnBackHubSummary')?.addEventListener('click', ()=> location.href = hub);
 
       // Start: hide overlay + emit hha:start
       document.getElementById('btnStart')?.addEventListener('click', ()=>{
-        document.getElementById('startOverlay')?.classList.add('hide');
+        const ov = document.getElementById('startOverlay');
+        if (ov) ov.classList.add('hide');
         window.dispatchEvent(new CustomEvent('hha:start'));
       }, {passive:true});
     })();
