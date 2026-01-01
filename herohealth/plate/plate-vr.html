@@ -3,6 +3,7 @@ REDIRECT BRIDGE (PATH FIX)
 ✅ รองรับลิงก์เก่า /herohealth/plate/plate-vr.html
 ✅ Redirect ไป /herohealth/plate-vr.html
 ✅ พาพารามิเตอร์ (?hub=...&run=...&diff=...&time=...&seed=...&v=...) และ #hash ไปด้วย
+✅ ใช้ location.replace กัน back-loop
 -->
 
 <!doctype html>
@@ -12,6 +13,7 @@ REDIRECT BRIDGE (PATH FIX)
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Redirecting… | HeroHealth Plate</title>
 
+  <!-- Fallback redirect (works even if JS blocked) -->
   <meta http-equiv="refresh" content="0; url=../plate-vr.html" />
 
   <style>
@@ -39,6 +41,16 @@ REDIRECT BRIDGE (PATH FIX)
       font-weight:1100;
       word-break:break-all;
     }
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      margin-top:10px;
+      padding:8px 12px; border-radius:999px;
+      background:rgba(15,23,42,.58);
+      border:1px solid rgba(148,163,184,.16);
+      color:rgba(229,231,235,.92);
+      font-weight:1000;
+      white-space:nowrap;
+    }
   </style>
 </head>
 
@@ -50,16 +62,21 @@ REDIRECT BRIDGE (PATH FIX)
       <br>
       <a id="fallbackLink" href="../plate-vr.html">../plate-vr.html</a>
     </div>
+    <div class="pill">✅ preserve query + hash • ✅ replace history</div>
   </div>
 
   <script>
     (function(){
       try{
+        // Preserve query + hash
         var target = '../plate-vr.html' + (location.search || '') + (location.hash || '');
         var a = document.getElementById('fallbackLink');
         if (a) a.href = target;
+
+        // Replace history so Back button doesn't loop
         location.replace(target);
       }catch(e){
+        // Last resort
         location.href = '../plate-vr.html';
       }
     })();
