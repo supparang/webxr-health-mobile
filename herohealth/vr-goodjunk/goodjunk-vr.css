@@ -4,7 +4,9 @@ GoodJunkVR (PRODUCTION) — HHA Standard UI
 ✅ Dual-eye stage (VR/cVR)
 ✅ VR layout compact (อ่านง่าย ไม่รก แต่เห็น Score/Time/Grade)
 ✅ Low-time warning ring + gentle tick flash (no shake / no motion sickness)
+✅ Low-time toast (gjToastL/R) (optional)
 ✅ Prevent targets behind HUD/end overlay (clip by eye)
+✅ Target styles (emoji DOM) + hit/pop helpers
 */
 
 /* ---------------- Base tokens ---------------- */
@@ -36,6 +38,11 @@ GoodJunkVR (PRODUCTION) — HHA Standard UI
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
+
+  /* targets */
+  --tSize: 78px;
+  --tFont: 44px;
+  --tRing: rgba(148,163,184,.16);
 }
 
 *,
@@ -53,6 +60,7 @@ html, body{
 }
 
 button{ font-family: inherit; }
+button, .pill{ user-select:none; -webkit-user-select:none; }
 
 /* ---------------- Stage (dual-eye) ---------------- */
 #gj-stage{
@@ -72,17 +80,21 @@ button{ font-family: inherit; }
   overflow:hidden;
 }
 
+/* default single-eye */
 .gj-eye.eye-l{ left:0; width:100%; }
 .gj-eye.eye-r{ left:0; width:100%; }
-
-/* eye split in cVR */
-body.view-cvr #gj-stage{ display:flex; }
-body.view-cvr .gj-eye{ position:relative; flex:1 1 50%; inset:auto; }
-body.view-cvr .gj-eye.eye-r{ display:block !important; }
 
 /* default: hide right eye unless cVR */
 .gj-eye.eye-r{ display:none; }
 body.view-cvr .gj-eye.eye-r{ display:block; }
+
+/* eye split in cVR */
+body.view-cvr #gj-stage{ display:flex; }
+body.view-cvr .gj-eye{
+  position:relative;
+  flex:1 1 50%;
+  inset:auto;
+}
 
 /* targets layer */
 .gj-layer{
@@ -90,6 +102,12 @@ body.view-cvr .gj-eye.eye-r{ display:block; }
   z-index:30;
   pointer-events:auto;
   touch-action:none;
+}
+
+/* In cVR, we shoot by crosshair (tap-to-shoot emits hha:shoot) */
+body.view-cvr .gj-layer,
+body.view-cvr .gj-layer *{
+  pointer-events:none !important;
 }
 
 /* Crosshair */
@@ -116,6 +134,87 @@ body.view-cvr .gj-crosshair{ opacity:.95; }
 
 /* attack ring/laser placeholders (optional) */
 .atk-ring, .atk-laser{ display:none; }
+
+/* ---------------- Targets (emoji DOM) ---------------- */
+/* รองรับหลายชื่อเผื่อ engine ใช้ class ต่างกัน */
+.gj-target,
+.gjTarget,
+.target,
+.hha-target{
+  position:absolute;
+  left: var(--x, 50%);
+  top:  var(--y, 50%);
+  transform: translate(-50%,-50%) scale(var(--s, 1));
+  width:  var(--w, var(--tSize));
+  height: var(--h, var(--tSize));
+  border-radius: 999px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  font-size: var(--fs, var(--tFont));
+  line-height: 1;
+  cursor:pointer;
+
+  background: rgba(2,6,23,.20);
+  border: 1px solid rgba(148,163,184,.18);
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  backdrop-filter: blur(2px);
+  will-change: transform, opacity;
+
+  /* readable emoji */
+  text-shadow: 0 2px 0 rgba(0,0,0,.35);
+}
+
+/* subtle ring for depth */
+.gj-target::before,
+.gjTarget::before,
+.target::before,
+.hha-target::before{
+  content:"";
+  position:absolute;
+  inset: -2px;
+  border-radius: 999px;
+  border: 2px solid var(--tRing);
+  pointer-events:none;
+}
+
+/* good/junk variations if JS adds class */
+.gj-target.good, .gjTarget.good, .target.good, .hha-target.good{
+  border-color: rgba(34,197,94,.26);
+  background: rgba(34,197,94,.10);
+}
+.gj-target.junk, .gjTarget.junk, .target.junk, .hha-target.junk{
+  border-color: rgba(239,68,68,.28);
+  background: rgba(239,68,68,.10);
+}
+.gj-target.star, .gjTarget.star{
+  border-color: rgba(245,158,11,.30);
+  background: rgba(245,158,11,.12);
+}
+.gj-target.shield, .gjTarget.shield{
+  border-color: rgba(34,211,238,.35);
+  background: rgba(34,211,238,.10);
+}
+
+/* hover only on real pointer devices */
+@media (hover:hover){
+  .gj-target:hover,
+  .gjTarget:hover,
+  .target:hover,
+  .hha-target:hover{
+    filter: brightness(1.08);
+    transform: translate(-50%,-50%) scale(calc(var(--s, 1) * 1.03));
+  }
+}
+
+/* hit pop (optional class from JS) */
+@keyframes gjPop {
+  0%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .84)); opacity:.75; }
+  100%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)); opacity:1; }
+}
+.hit, .is-hit{ animation: gjPop 140ms ease-out 1; }
 
 /* ---------------- HUD shell ---------------- */
 .hha-hud{
@@ -398,6 +497,8 @@ body.view-cvr .gj-crosshair{ opacity:.95; }
   background: rgba(2,6,23,.65);
   backdrop-filter: blur(10px);
 }
+.start-overlay[hidden]{ display:none !important; }
+
 .start-card{
   width: min(620px, 92vw);
   background: rgba(2,6,23,.86);
@@ -434,6 +535,8 @@ body.view-cvr .gj-crosshair{ opacity:.95; }
   background: rgba(2,6,23,.58);
   backdrop-filter: blur(10px);
 }
+.vr-hint[hidden]{ display:none !important; }
+
 .vr-card{
   width: min(560px, 92vw);
   background: rgba(2,6,23,.86);
@@ -475,15 +578,49 @@ body.view-cvr .gj-crosshair{ opacity:.95; }
 .peek-mini{ margin-top:4px; color: rgba(229,231,235,.92); font-weight:950; font-size: 12px; }
 .peek-tip{ margin-top:6px; color: var(--muted); font-weight:850; font-size: 11px; }
 
+/* ---------------- Low-time toast (optional, if HTML has gjToastL/R) ---------------- */
+.gj-vr-toast{
+  position:absolute;
+  left:50%;
+  top: calc(10px + var(--sat));
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 18px));
+  z-index:135;
+  opacity:0;
+  pointer-events:none;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.gj-vr-toast.show{
+  opacity:1;
+  transform: translateX(-50%) translateY(0);
+}
+.gj-vr-toast > div{
+  background: rgba(2,6,23,.84);
+  border: 1px solid rgba(148,163,184,.22);
+  border-radius: 18px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  font-weight:1100;
+  font-size: 13px;
+  line-height:1.25;
+}
+.gj-vr-toast .sub{
+  margin-top: 4px;
+  font-weight: 950;
+  font-size: 12px;
+  color: rgba(148,163,184,.92);
+}
+.gj-vr-toast.warn > div{ border-color: rgba(245,158,11,.30); }
+.gj-vr-toast.danger > div{ border-color: rgba(239,68,68,.34); }
+
 /* ---------------- VR compact layout ---------------- */
-/* Key idea: VR = compact: only keep Score/Time/Grade big, hide viewbar + coach + quest panel.
+/* VR = compact: keep Score/Time/Grade big, hide mid row & viewbar
    Missions still accessible via Peek (btnPeek toggles gjPeek). */
 body.view-vr .viewbar,
 body.view-cvr .viewbar{
   display:none;
 }
-
-/* compact HUD in VR/cVR */
 body.view-vr .hud-mid,
 body.view-cvr .hud-mid{
   display:none;
@@ -510,7 +647,6 @@ body.view-vr .hud-stats .hud-stat .v,
 body.view-cvr .hud-stats .hud-stat .v{
   font-size: 20px;
 }
-
 /* keep only Score/Time/Grade in VR/cVR */
 body.view-vr .hud-stats .hud-stat:nth-child(2),
 body.view-vr .hud-stats .hud-stat:nth-child(3),
@@ -519,7 +655,7 @@ body.view-cvr .hud-stats .hud-stat:nth-child(3){
   display:none; /* hide Combo/Miss in VR */
 }
 
-/* Fever bar in VR: slightly higher but still subtle */
+/* Fever bar in VR: subtle */
 body.view-vr .hha-fever,
 body.view-cvr .hha-fever{
   opacity:.92;
@@ -545,8 +681,8 @@ body.hud-hidden .hha-fever{
   opacity:.88;
 }
 
-/* ---------------- Low-time warning (VR-friendly) ---------------- */
-/* (These classes are toggled by goodjunk.safe.js) */
+/* ---------------- Low-time warning ring (VR-friendly) ---------------- */
+/* HTML should include <div class="gj-warning-ring"></div> once (under #gj-stage or body) */
 .gj-warning-ring{
   position:fixed;
   inset:0;
@@ -571,7 +707,7 @@ body.gj-lowtime5 .gj-warning-ring{ opacity:.92; }
 }
 body.gj-tick{ animation: gjTickFlash 180ms linear 1; }
 
-/* ---------------- End overlay (matches SAFE) ---------------- */
+/* ---------------- End overlay (optional) ---------------- */
 .end-overlay{
   position:fixed;
   inset:0;
