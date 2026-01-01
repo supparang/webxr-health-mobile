@@ -1,7 +1,7 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
 Hydration VR — PRODUCTION CSS v2
+✅ Launcher choose PC/Mobile/VR + Quick Settings
 ✅ Responsive PC/Mobile/Cardboard
-✅ Overlay launcher (PC/Mobile/VR) + Quick Settings
 ✅ HUD top + bottom safe-area
 ✅ Playfield + Cardboard split eyes
 ✅ Side panel collapses on mobile/cvr
@@ -48,7 +48,7 @@ html,body{
 
 .muted{ color:var(--muted); opacity:.92; }
 
-/* ---------------- Overlay (Launcher) ---------------- */
+/* ---------------- Overlay / Launcher ---------------- */
 .hha-overlay{
   position:fixed; inset:0;
   z-index:200;
@@ -59,7 +59,6 @@ html,body{
   background: rgba(0,0,0,.62);
   backdrop-filter: blur(10px);
 }
-
 .hha-overlay-card{
   width:min(560px, 94vw);
   border-radius: 22px;
@@ -68,42 +67,52 @@ html,body{
   box-shadow: 0 28px 90px rgba(0,0,0,.58);
   padding: 18px 18px 16px;
 }
-
 .hha-title{
   font-weight: 1000;
   font-size: 22px;
   letter-spacing: .3px;
 }
-
 .hha-sub{
   margin-top: 10px;
   color: var(--muted);
   line-height:1.45;
 }
-
 .hha-overlay-actions{
   display:flex;
   gap:10px;
   margin-top: 14px;
   flex-wrap: wrap;
 }
-
 .hha-hint{
   margin-top: 10px;
   color: var(--muted);
   font-size: 13px;
-  line-height:1.35;
+  font-weight: 800;
 }
-
 .hha-overlay.hide{ display:none !important; }
 
-/* Quick settings grid helpers */
-.hha-overlay-card label{
-  user-select:none;
+/* Small UI helpers used inside overlay */
+.hha-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(15,23,42,.50);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--text);
 }
-.hha-overlay-card select{
-  width:100%;
-  cursor:pointer;
+.hha-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.hha-kbd{
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.25);
+  font-weight: 1000;
+  font-size: 12px;
+  color: var(--text);
 }
 
 /* ---------------- Rotate hint ---------------- */
@@ -135,7 +144,21 @@ html,body{
   color: var(--muted);
 }
 
-/* ---------------- Buttons / Inputs ---------------- */
+/* If loader injects #rotateHint inline, still make it pretty */
+#rotateHint{
+  border-radius: 0;
+}
+#rotateHint::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(34,211,238,.12), transparent 55%),
+    radial-gradient(circle at 70% 70%, rgba(34,197,94,.10), transparent 60%);
+  pointer-events:none;
+}
+
+/* ---------------- Buttons ---------------- */
 .hha-btn{
   appearance:none;
   border:1px solid var(--stroke);
@@ -147,40 +170,20 @@ html,body{
   letter-spacing:.2px;
   cursor:pointer;
   user-select:none;
-  outline:none;
 }
-
 .hha-btn:hover{ filter: brightness(1.05); }
 .hha-btn:active{ transform: translateY(1px); }
-
 .hha-btn.primary{
   background: rgba(34,197,94,.16);
   border-color: rgba(34,197,94,.34);
 }
-
 .hha-btn.danger{
   background: rgba(239,68,68,.14);
   border-color: rgba(239,68,68,.30);
 }
-
-/* style selects like buttons */
-select.hha-btn{
-  -webkit-appearance:none;
-  appearance:none;
-  padding-right: 34px;
-  background-image:
-    linear-gradient(45deg, transparent 50%, rgba(255,255,255,.55) 50%),
-    linear-gradient(135deg, rgba(255,255,255,.55) 50%, transparent 50%),
-    linear-gradient(to right, transparent, transparent);
-  background-position:
-    calc(100% - 18px) 50%,
-    calc(100% - 12px) 50%,
-    0 0;
-  background-size:
-    6px 6px,
-    6px 6px,
-    100% 100%;
-  background-repeat:no-repeat;
+.hha-btn:focus{
+  outline: 2px solid rgba(34,211,238,.20);
+  outline-offset: 2px;
 }
 
 /* ---------------- HUD TOP ---------------- */
@@ -196,7 +199,6 @@ select.hha-btn{
   justify-content:flex-start;
   pointer-events:none;
 }
-
 .hha-pill{
   pointer-events:none;
   display:flex;
@@ -209,7 +211,6 @@ select.hha-btn{
   backdrop-filter: blur(10px);
   font-size: 12px;
 }
-
 .hha-pill span{ color:var(--muted); font-weight:900; }
 .hha-pill b{ font-size: 15px; font-weight: 1000; }
 
@@ -239,12 +240,10 @@ select.hha-btn{
   overflow:hidden;
   min-height: 360px;
 }
-
 .hha-layer{
   position:absolute; inset:0;
   pointer-events:auto;
 }
-
 .hha-crosshair{
   position:absolute;
   left:50%; top:50%;
@@ -312,7 +311,6 @@ select.hha-btn{
   gap: 12px;
   overflow:hidden;
 }
-
 .hha-card{
   border-radius: 22px;
   border:1px solid var(--stroke);
@@ -321,7 +319,6 @@ select.hha-btn{
   padding: 14px;
   box-shadow: 0 18px 70px rgba(0,0,0,.42);
 }
-
 .hha-card h3{
   margin:0 0 10px;
   font-size: 15px;
@@ -430,30 +427,20 @@ select.hha-btn{
 }
 .hha-result-top h2{ margin:0; font-size: 18px; }
 .hha-result-actions{ display:flex; gap:10px; flex-wrap:wrap; }
-
 .hha-grid{
   display:grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   padding: 12px 6px;
 }
-
 .tile{
   border:1px solid rgba(255,255,255,.10);
   background: rgba(15,23,42,.45);
   border-radius: 18px;
   padding: 12px;
 }
-.tile .lab{
-  color: var(--muted);
-  font-weight: 900;
-  font-size: 12px;
-}
-.tile .val{
-  font-weight: 1100;
-  font-size: 20px;
-  margin-top: 6px;
-}
+.tile .lab{ color: var(--muted); font-weight: 900; font-size: 12px; }
+.tile .val{ font-weight: 1100; font-size: 20px; margin-top: 6px; }
 .tips{
   white-space: pre-wrap;
   margin: 8px 0 0;
@@ -461,7 +448,6 @@ select.hha-btn{
   font-weight: 850;
   line-height: 1.4;
 }
-
 .hha-tipsRow{
   display:grid;
   grid-template-columns: 1.6fr 1fr;
@@ -478,8 +464,7 @@ select.hha-btn{
 body.hha-endfx #hudTop{
   animation: hhaBlink .22s infinite alternate;
 }
-body.hha-endfx #playfield,
-body.hha-endfx #cbPlayfield{
+body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
   animation: hhaShake .18s infinite;
 }
 @keyframes hhaBlink{
@@ -504,22 +489,14 @@ body.hha-endfx #cbPlayfield{
     grid-template-columns: 1fr 1fr;
   }
 }
-
 @media (max-width: 720px){
   :root{ --hudTopH: 70px; }
   .hha-side{
     grid-template-columns: 1fr;
   }
-  .hha-bottom .hha-btn{
-    min-width: 104px;
-    padding: 10px 10px;
-  }
+  .hha-bottom .hha-btn{ min-width: 104px; padding: 10px 10px; }
   .hha-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
   .hha-tipsRow{ grid-template-columns: 1fr; }
-
-  .hha-overlay-card{
-    width:min(520px, 96vw);
-  }
 }
 
 /* ---------------- Cardboard mode tweaks ---------------- */
@@ -532,20 +509,30 @@ body.cardboard .hha-side{
 }
 body.cardboard .hha-main{
   grid-template-columns: 1fr;
+  gap: 10px;
+  padding:
+    calc(var(--sat) + var(--hudTopH))
+    calc(var(--sar) + 8px)
+    calc(var(--sab) + var(--hudBotH))
+    calc(var(--sal) + 8px);
 }
 body.cardboard .hha-crosshair{
   display:none; /* use reticle per eye */
 }
+body.cardboard .cb-eyes{
+  gap: 8px;
+  padding: 8px;
+}
+body.cardboard .cb-eyes .eye{
+  border-radius: 16px;
+}
 
-/* Landscape in VR: tighten HUD + bottom padding */
+/* Landscape optimize for Cardboard */
 @media (orientation: landscape){
+  body.cardboard .hha-playfield{
+    min-height: 260px;
+  }
   body.cardboard .hha-top{
-    padding: calc(var(--sat) + 8px) calc(var(--sal) + 8px) 8px calc(var(--sar) + 8px);
-  }
-  body.cardboard .hha-bottom{
-    padding: 8px calc(var(--sar) + 10px) calc(var(--sab) + 8px) calc(var(--sal) + 10px);
-  }
-  body.cardboard .hha-bottom .hha-btn{
-    min-width: 110px;
+    justify-content:center;
   }
 }
