@@ -1,11 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY)
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v4
 // ✅ endPolicy: time | all | miss
 // ✅ challenge: rush | survive | boss
-// ✅ VR: tap-to-shoot via 'hha:shoot' (from vr-ui.js)
-// ✅ low-time tick + warning (VR clear, not dizzy)
-// ✅ Quest Peek updates via #gjPeekGoal/#gjPeekMini
-// ✅ Flush-hardened: pagehide/hidden/end
+// ✅ VR/cVR shooting: listens to window event "hha:shoot" -> shoots at crosshair
+// ✅ low-time tick + warning (10/5/3/1) via hha:judge (rate-limited) + body.gj-lowtime
+// ✅ Adaptive in play WITHOUT overwriting challenge preset (uses presetBase)
+// ✅ Miss definition: miss = good expired + junk hit; shield block does NOT count as miss
 
 'use strict';
 
@@ -149,18 +149,18 @@ function ensureTargetStyles(){
       transition: transform 140ms ease, opacity 140ms ease;
     }
 
-    /* low-time pulse (very light) */
-    @keyframes gjTick {
-      0%{ transform: translateZ(0); }
-      50%{ transform: translateZ(0); }
-      100%{ transform: translateZ(0); }
+    /* tiny shake effect (body) */
+    @keyframes gjShake {
+      0%{ transform: translate3d(0,0,0); }
+      20%{ transform: translate3d(-2px,1px,0); }
+      40%{ transform: translate3d(2px,-1px,0); }
+      60%{ transform: translate3d(-1px,-2px,0); }
+      80%{ transform: translate3d(2px,1px,0); }
+      100%{ transform: translate3d(0,0,0); }
     }
-    body.gj-tick .vr-compact-hud .vrhud-pill.time{
-      box-shadow: 0 0 0 2px rgba(245,158,11,.25) inset, 0 18px 60px rgba(0,0,0,.25);
-      border-color: rgba(245,158,11,.35);
-    }
+    body.gj-shake{ animation: gjShake 160ms linear 1; }
 
-    /* fever vignette */
+    /* FX overlay */
     .gj-fx-vignette{
       position:fixed; inset:0;
       pointer-events:none;
@@ -174,8 +174,8 @@ function ensureTargetStyles(){
     }
     body.gj-lowtime .gj-fx-vignette{
       background:
-        radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 46%, rgba(245,158,11,.18) 82%, rgba(245,158,11,.28) 100%),
-        radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.18) 100%);
+        radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 46%, rgba(245,158,11,.22) 82%, rgba(245,158,11,.38) 100%),
+        radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.22) 100%);
     }
   `;
   DOC.head.appendChild(st);
@@ -192,11 +192,11 @@ function ensureVignette(){
   return el;
 }
 
-function pulseLowTime(){
+function pulseBody(cls, ms=160){
   const DOC = ROOT.document;
   if (!DOC) return;
-  DOC.body.classList.add('gj-tick');
-  setTimeout(()=>{ try{ DOC.body.classList.remove('gj-tick'); }catch(_){ } }, 140);
+  DOC.body.classList.add(cls);
+  setTimeout(()=>{ try{ DOC.body.classList.remove(cls); }catch(_){ } }, ms);
 }
 
 /* -------------------- Spawn placement -------------------- */
@@ -211,6 +211,7 @@ function buildAvoidRects(){
     DOC.querySelector('.hha-controls'),
     DOC.getElementById('hhaFever'),
     DOC.getElementById('vrCompactHud'),
+    DOC.getElementById('vrToast')
   ].filter(Boolean);
 
   for (const el of els){
@@ -352,6 +353,7 @@ async function flushAll(summary, reason){
 function applyChallengePreset(S, base){
   const ch = String(S.challenge || 'rush').toLowerCase();
 
+  // defaults
   S.goalsTotal = 2;
   S.miniTotal  = 7;
   S.bossTotal  = 0;
@@ -362,7 +364,9 @@ function applyChallengePreset(S, base){
     S.miniTotal  = 6;
 
     const d = String(S.diff||'normal');
-    S.missLimit = (d === 'easy') ? 7 : (d === 'hard') ? 5 : 6;
+    S.missLimit =
+      (d === 'easy') ? 7 :
+      (d === 'hard') ? 5 : 6;
 
     S.spawnMs = clamp(base.spawnMs + 60, 520, 1400);
     S.ttlMs   = clamp(base.ttlMs + 120, 1200, 2800);
@@ -385,6 +389,7 @@ function applyChallengePreset(S, base){
     return;
   }
 
+  // rush
   S.goalsTotal = 2;
   S.miniTotal  = 7;
 
@@ -436,7 +441,7 @@ export function boot(opts = {}) {
   const runMode = (run === 'research') ? 'research' : 'play';
 
   const timeSec = clamp(Number(opts.time ?? qs('time', qs('duration','80'))), 30, 600) | 0;
-  const endPolicy = String(opts.endPolicy || qs('end','time')).toLowerCase();   // time | all | miss
+  const endPolicy = String(opts.endPolicy || qs('end','time')).toLowerCase();     // time | all | miss
   const challenge = String(opts.challenge || qs('challenge','rush')).toLowerCase(); // rush | survive | boss
 
   const missLimitParam = Number(qs('miss', '0')) || 0;
@@ -447,7 +452,6 @@ export function boot(opts = {}) {
   const seed = String(seedIn || (sessionId ? (sessionId + '|' + ts) : ts));
 
   const ctx = opts.context || {};
-
   const base = diffBase(diff);
 
   const S = {
@@ -455,22 +459,23 @@ export function boot(opts = {}) {
     diff, runMode, timeSec, seed, rng: makeRng(seed),
     endPolicy, challenge,
     tStart:0, left: timeSec,
-
     score:0, combo:0, comboMax:0,
     misses:0, missLimit:0,
     hitAll:0, hitGood:0, hitJunk:0, hitJunkGuard:0, expireGood:0,
     fever:0, shield:0,
 
     goalsCleared:0, goalsTotal:2,
-    miniCleared:0,  miniTotal:7,
-    bossCleared:0,  bossTotal:0,
+    miniCleared:0, miniTotal:7,
+    bossCleared:0, bossTotal:0,
 
     warmupUntil:0,
     spawnTimer:0, tickTimer:0, fxTimer:0,
 
+    // tuning
     spawnMs: base.spawnMs, ttlMs: base.ttlMs, size: base.size,
     junkP: base.junk, powerP: base.power, maxTargets: base.maxT,
 
+    // boss
     bossArmed:false,
     bossActive:false,
     bossNeed:0,
@@ -478,12 +483,17 @@ export function boot(opts = {}) {
     bossJunk:0,
     bossEndAt:0,
 
+    // lowtime UI rate limit
+    _warnedAt: { 10:false, 5:false, 3:false, 1:false },
+    _lastTickMs: 0,
+
     uidSeq: 1,
 
-    // lowtime warn control
-    lastWarnSec: 999
+    // will be set after preset
+    presetBase: null
   };
 
+  // mobile tweaks
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
     S.size = Math.min(1.12, S.size + 0.03);
@@ -491,16 +501,32 @@ export function boot(opts = {}) {
     safeMargins.right = Math.max(12, safeMargins.right);
   }
 
+  // apply challenge preset tuning
   applyChallengePreset(S, base);
 
+  // save preset baseline so adaptive won't overwrite it
+  S.presetBase = {
+    spawnMs: S.spawnMs,
+    ttlMs: S.ttlMs,
+    size: S.size,
+    junkP: S.junkP,
+    powerP: S.powerP,
+    maxTargets: S.maxTargets
+  };
+
+  // allow miss limit override via URL (?miss=6)
   if (missLimitParam > 0) S.missLimit = clamp(missLimitParam, 3, 20);
 
+  // if endPolicy=miss and no missLimit, set sane default
   if (endPolicy === 'miss' && S.missLimit <= 0){
     S.missLimit = (diff === 'hard') ? 6 : (diff === 'easy' ? 8 : 7);
   }
 
+  // boss requirement
   if (S.challenge === 'boss'){
-    S.bossNeed = (diff === 'easy') ? 6 : (diff === 'hard') ? 10 : 8;
+    S.bossNeed =
+      (diff === 'easy') ? 6 :
+      (diff === 'hard') ? 10 : 8;
   }
 
   function coach(mood, text, sub){
@@ -541,8 +567,12 @@ export function boot(opts = {}) {
     emit('hha:time', { left: Math.max(0, S.left|0) });
   }
 
-  function getGoalNeed(){ return 10 + (S.goalsCleared * 8); }
-  function getMiniNeed(){ return 4 + (S.miniCleared * 2); }
+  function getGoalNeed(){
+    return 10 + (S.goalsCleared * 8);
+  }
+  function getMiniNeed(){
+    return 4 + (S.miniCleared * 2);
+  }
 
   function updateQuest(miniLeftMs = 0){
     const goalNeed = getGoalNeed();
@@ -616,6 +646,7 @@ export function boot(opts = {}) {
     if (!el || !el.isConnected) return;
     const tp = String(el.dataset.type||'');
     if (tp === 'good'){
+      // ✅ miss = good expired
       S.misses++; S.expireGood++; S.combo = 0;
 
       S.fever = clamp(S.fever + 7, 0, 100);
@@ -648,6 +679,10 @@ export function boot(opts = {}) {
     el.dataset.type = type;
     el.dataset.emoji = String(emoji||'✨');
     el.dataset.uid = String(uid||'');
+
+    el.style.position = 'absolute';
+    el.style.pointerEvents = 'auto';
+    el.style.zIndex = '30';
 
     setXY(el, x, y);
     el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
@@ -689,25 +724,33 @@ export function boot(opts = {}) {
 
   function checkGoalProgress(){
     if (S.goalsCleared >= S.goalsTotal) return;
+
     const needGood = getGoalNeed();
     if (S.hitGood >= needGood){
       S.goalsCleared++;
       emit('hha:celebrate', { kind:'goal', title:`Goal ผ่าน! ${S.goalsCleared}/${S.goalsTotal}` });
       coach('happy', `Goal ผ่านแล้ว!`, `คุมความแม่น + หลีกขยะ`);
       updateQuest();
-      if (S.endPolicy === 'all' && allComplete()) endGame('all_complete');
+
+      if (S.endPolicy === 'all' && allComplete()){
+        endGame('all_complete');
+      }
     }
   }
 
   function checkMiniProgress(){
     if (S.miniCleared >= S.miniTotal) return;
+
     const needCombo = getMiniNeed();
     if (S.combo >= needCombo){
       S.miniCleared++;
       emit('hha:celebrate', { kind:'mini', title:`Mini ผ่าน! ${S.miniCleared}/${S.miniTotal}` });
       coach('happy', `คอมโบมาแล้ว! ดีมาก 🔥`, `ทำคอมโบต่อได้อีก!`);
       updateQuest();
-      if (S.endPolicy === 'all' && allComplete()) endGame('all_complete');
+
+      if (S.endPolicy === 'all' && allComplete()){
+        endGame('all_complete');
+      }
     }
   }
 
@@ -731,7 +774,6 @@ export function boot(opts = {}) {
     updateQuest();
 
     if (S.bossActive) S.bossGood++;
-
     removeTargetBoth(el);
   }
 
@@ -771,9 +813,11 @@ export function boot(opts = {}) {
 
   function hitJunk(el){
     S.hitAll++;
+
     if (S.bossActive) S.bossJunk++;
 
     if (S.shield > 0){
+      // ✅ shield block does NOT count as miss
       S.shield = Math.max(0, S.shield - 1);
       S.hitJunkGuard++;
       updateFever(S.shield, S.fever);
@@ -787,6 +831,7 @@ export function boot(opts = {}) {
       return;
     }
 
+    // ✅ miss = junk hit
     S.hitJunk++; S.misses++; S.combo = 0;
 
     const penalty = 170;
@@ -798,6 +843,7 @@ export function boot(opts = {}) {
     judge('bad', `JUNK! -${penalty}`);
     coach('sad', 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
     burstAtEl(el, 'junk');
+    pulseBody('gj-shake', 180);
 
     logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
 
@@ -821,7 +867,7 @@ export function boot(opts = {}) {
     if (tp === 'star') return hitStar(el);
   }
 
-  /* -------------------- Boss phase -------------------- */
+  /* -------------------- Boss phase (challenge=boss) -------------------- */
   function armBossIfNeeded(){
     if (S.challenge !== 'boss' || S.bossTotal <= 0) return;
     if (S.bossCleared >= S.bossTotal) return;
@@ -845,8 +891,11 @@ export function boot(opts = {}) {
     emit('hha:celebrate', { kind:'mini', title:'BOSS TIME 😈' });
     coach('neutral', 'BOSS TIME! ห้ามโดนขยะ', `เก็บของดีให้ได้ ≥ ${S.bossNeed} ภายใน ~8 วิ`);
     judge('warn', 'BOSS!');
+    pulseBody('gj-shake', 160);
 
-    S._preBoss = { spawnMs:S.spawnMs, ttlMs:S.ttlMs, junkP:S.junkP, powerP:S.powerP, maxTargets:S.maxTargets, size:S.size };
+    S._preBoss = {
+      spawnMs:S.spawnMs, ttlMs:S.ttlMs, junkP:S.junkP, powerP:S.powerP, maxTargets:S.maxTargets, size:S.size
+    };
     S.spawnMs = clamp(S.spawnMs - 220, 360, 1200);
     S.ttlMs   = clamp(S.ttlMs - 260, 900, 2400);
     S.junkP   = clamp(S.junkP + 0.06, 0.10, 0.30);
@@ -881,7 +930,9 @@ export function boot(opts = {}) {
       judge('good', 'BOSS CLEAR +420');
       updateScore(); updateQuest();
 
-      if (S.endPolicy === 'all' && allComplete()) endGame('all_complete');
+      if (S.endPolicy === 'all' && allComplete()){
+        endGame('all_complete');
+      }
     } else {
       S.score = Math.max(0, S.score - 220);
       S.fever = clamp(S.fever + 16, 0, 100);
@@ -890,6 +941,7 @@ export function boot(opts = {}) {
       emit('hha:celebrate', { kind:'mini', title:'BOSS FAIL 💥' });
       coach('sad', 'BOSS ยังไม่ผ่าน 😵', `ต้องได้ดี ≥ ${S.bossNeed} และห้ามโดนขยะ`);
       judge('bad', 'BOSS FAIL -220');
+      pulseBody('gj-shake', 200);
 
       updateScore(); updateQuest();
     }
@@ -909,7 +961,8 @@ export function boot(opts = {}) {
     const r = S.rng();
     const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
     const junkP  = inWarm ? (S.junkP * 0.55)  : S.junkP;
-    const starP  = S.bossActive ? 0.020 : 0.035;
+
+    const starP = S.bossActive ? 0.020 : 0.035;
 
     if (r < powerP) tp = 'shield';
     else if (r < powerP + starP) tp = 'star';
@@ -954,25 +1007,34 @@ export function boot(opts = {}) {
     S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 320, 1400));
   }
 
-  /* -------------------- Adaptive tick + low-time warning -------------------- */
+  /* -------------------- Low-time warnings (VR-friendly) -------------------- */
+  function lowTimeWarnOnce(sec, kind, text){
+    if (S._warnedAt[sec]) return;
+    S._warnedAt[sec] = true;
+    judge(kind || 'warn', text || `เหลือ ${sec} วิ!`);
+    emit('hha:vr_tick', { sec }); // boot.js จะทำ tick ที่ vrCompactHud แบบเบา ๆ
+  }
+
+  /* -------------------- Adaptive tick + end policies -------------------- */
   function adaptiveTick(){
     if (!S.running || S.ended) return;
 
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
 
-    const sec = Math.ceil(S.left);
-    const low = (sec <= 10);
+    const leftI = Math.ceil(S.left);
+
+    // lowtime state (visual only)
+    const low = (S.left <= 10);
     DOC.body.classList.toggle('gj-lowtime', !!low);
 
-    // 🔥 low-time tick: warning once per second (10..1)
-    if (low && sec !== S.lastWarnSec){
-      S.lastWarnSec = sec;
-      pulseLowTime(); // light highlight on time pill
-      judge('warn', `ใกล้หมดเวลา ${sec} วินาที`);
-      emit('hha:toast', { text:`⏳ ใกล้หมดเวลา ${sec} วิ`, ms: 820 });
-    }
+    // ✅ clean, non-dizzy warning thresholds
+    if (leftI <= 10 && leftI > 9) lowTimeWarnOnce(10, 'warn', '⏳ เหลือ 10 วิ!');
+    if (leftI <= 5  && leftI > 4) lowTimeWarnOnce(5,  'warn', '⏳ เหลือ 5 วิ!');
+    if (leftI <= 3  && leftI > 2) lowTimeWarnOnce(3,  'warn', '⚠️ เหลือ 3 วิ!');
+    if (leftI <= 1  && leftI > 0) lowTimeWarnOnce(1,  'bad',  '🔥 เหลือ 1 วิ!');
 
+    // boss phase checks
     if (S.challenge === 'boss'){
       armBossIfNeeded();
       if (S.bossActive && now() >= S.bossEndAt){
@@ -980,6 +1042,7 @@ export function boot(opts = {}) {
       }
     }
 
+    // end by time
     if (S.left <= 0){
       if (S.endPolicy === 'all'){
         endGame(allComplete() ? 'all_complete' : 'all_incomplete_time');
@@ -989,37 +1052,40 @@ export function boot(opts = {}) {
       return;
     }
 
-    if (S.runMode === 'play'){
+    // adaptive only in play (use presetBase)
+    if (S.runMode === 'play' && S.presetBase){
       const elapsed = (now() - S.tStart) / 1000;
       const acc = S.hitAll > 0 ? (S.hitGood / S.hitAll) : 0;
       const comboHeat = clamp(S.combo / 18, 0, 1);
 
       const rampK = (S.challenge === 'rush') ? 8.5 : 10.0;
-
       const timeRamp = clamp((elapsed - 3) / rampK, 0, 1);
       const skill = clamp((acc - 0.65) * 1.2 + comboHeat * 0.8, 0, 1);
       const heat = clamp(timeRamp * 0.55 + skill * 0.75, 0, 1);
 
-      S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
-      S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
-      S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.12);
-      S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
-      S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
+      const pb = S.presetBase;
 
-      const maxBonus = Math.round(heat * 4);
-      S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
+      // if boss active keep boss tuning untouched
+      if (!(S.bossActive && S._preBoss)){
+        S.spawnMs = clamp(pb.spawnMs - heat * 300, 380, 1400);
+        S.ttlMs   = clamp(pb.ttlMs   - heat * 420, 1050, 3000);
+        S.size    = clamp(pb.size    - heat * 0.14, 0.84, 1.16);
+        S.junkP   = clamp(pb.junkP   + heat * 0.07, 0.08, 0.30);
+        S.powerP  = clamp(pb.powerP  + heat * 0.012, 0.01, 0.08);
 
-      if (S.fever >= 70){
-        S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
-        S.size  = clamp(S.size + 0.03, 0.86, 1.15);
+        const maxBonus = Math.round(heat * 4);
+        S.maxTargets = clamp(pb.maxTargets + maxBonus, 5, isMobileLike() ? 11 : 13);
+
+        if (S.fever >= 70){
+          S.junkP = clamp(S.junkP - 0.03, 0.08, 0.26);
+          S.size  = clamp(S.size + 0.03, 0.84, 1.18);
+        }
+
+        if (S.challenge === 'survive'){
+          S.spawnMs = clamp(S.spawnMs + 50, 420, 1500);
+          S.ttlMs   = clamp(S.ttlMs + 60, 1050, 3200);
+        }
       }
-
-      if (S.challenge === 'survive'){
-        S.spawnMs = clamp(S.spawnMs + 50, 450, 1400);
-        S.ttlMs   = clamp(S.ttlMs + 60, 1100, 3000);
-      }
-
-      // boss active: keep boss tuning
     }
 
     S.tickTimer = setTimeout(adaptiveTick, 140);
@@ -1031,21 +1097,19 @@ export function boot(opts = {}) {
 
     if (vignette){
       const f = clamp(S.fever/100, 0, 1);
-      const low = (Math.ceil(S.left) <= 10) ? 0.28 : 0;
-      const boss = (S.bossActive ? 0.18 : 0);
-      vignette.style.opacity = String(clamp(f*0.60 + low + boss, 0, 0.82));
+      const low = (S.left <= 10) ? 0.45 : 0;
+      const boss = (S.bossActive ? 0.22 : 0);
+      vignette.style.opacity = String(clamp(f*0.65 + low + boss, 0, 0.92));
     }
 
     S.fxTimer = setTimeout(fxLoop, 140);
   }
 
   /* -------------------- Shooting -------------------- */
-  function shootAtCrosshair(radiusOverride){
+  function shootAtCrosshair(){
     if (!S.running || S.ended) return;
 
-    const radius = (Number(radiusOverride) > 0)
-      ? Number(radiusOverride)
-      : (isMobileLike() ? 62 : 52);
+    const radius = isMobileLike() ? 62 : 52;
 
     const cL = crossL ? getCenter(crossL) : { x:(ROOT.innerWidth||360)*0.25, y:(ROOT.innerHeight||640)*0.5 };
     const el1 = findTargetNear(layerL, cL.x, cL.y, radius);
@@ -1079,7 +1143,12 @@ export function boot(opts = {}) {
       shootEl.addEventListener('pointerdown', (e)=>{ e.preventDefault?.(); }, { passive:false });
     }
 
-    // keyboard
+    // ✅ Universal VR UI -> emits hha:shoot
+    ROOT.addEventListener('hha:shoot', (ev)=>{
+      // in cVR/VR we rely on this
+      shootAtCrosshair();
+    });
+
     DOC.addEventListener('keydown', (e)=>{
       const k = String(e.key||'').toLowerCase();
       if (k === ' ' || k === 'spacebar' || k === 'enter'){
@@ -1088,7 +1157,6 @@ export function boot(opts = {}) {
       }
     });
 
-    // stage click (PC assist)
     const stage = DOC.getElementById('gj-stage') || opts.stageEl;
     if (stage){
       stage.addEventListener('click', ()=>{
@@ -1096,13 +1164,6 @@ export function boot(opts = {}) {
         shootAtCrosshair();
       });
     }
-
-    // ✅ Universal VR UI -> tap-to-shoot emits 'hha:shoot'
-    ROOT.addEventListener('hha:shoot', (ev)=>{
-      const lockPx = Number(ev?.detail?.lockPx || 0);
-      if (lockPx > 0) shootAtCrosshair(Math.max(28, Math.min(120, lockPx)));
-      else shootAtCrosshair();
-    }, { passive:true });
   }
 
   function bindFlushHard(){
@@ -1152,7 +1213,6 @@ export function boot(opts = {}) {
 
     S.tStart = now();
     S.left = timeSec;
-    S.lastWarnSec = 999;
 
     S.score = 0; S.combo = 0; S.comboMax = 0;
     S.misses = 0; S.hitAll = 0; S.hitGood = 0; S.hitJunk = 0; S.hitJunkGuard = 0; S.expireGood = 0;
@@ -1165,6 +1225,9 @@ export function boot(opts = {}) {
     S.bossActive = false;
     S.bossGood = 0;
     S.bossJunk = 0;
+
+    S._warnedAt = { 10:false, 5:false, 3:false, 1:false };
+    DOC.body.classList.toggle('gj-lowtime', false);
 
     S.warmupUntil = now() + 3000;
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
