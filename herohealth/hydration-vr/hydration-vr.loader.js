@@ -1,11 +1,12 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION v2 (Launcher + cVR aim shoot)
-// ✅ Launcher: choose PC / Mobile / VR Cardboard
+// Hydration VR Loader — PRODUCTION (v2)
+// ✅ Launcher options: Play (PC/Mobile) / Mobile Fullscreen / Cardboard (cVR)
 // ✅ Fullscreen + best-effort landscape lock for Cardboard
+// ✅ RotateHint overlay (portrait in cardboard)
 // ✅ Emits: hha:start, hha:force_end, hha:shoot
 // ✅ Sets window.HHA_VIEW.layers so hydration.safe.js spawns correctly
-// ✅ Rotate hint overlay if Cardboard but portrait
-// ✅ In cVR, shoot uses center aim (crosshair) so user can "tap to shoot" reliably
+// ✅ Fix: coming from HUB should always show launcher (unless autostart=1)
+// ✅ Safe: works without A-Frame (DOM targets)
 
 'use strict';
 
@@ -14,14 +15,6 @@ const DOC = document;
 function qs(k, def=null){
   try{ return new URL(location.href).searchParams.get(k) ?? def; }
   catch{ return def; }
-}
-function setQS(k, v){
-  try{
-    const u = new URL(location.href);
-    if (v == null) u.searchParams.delete(k);
-    else u.searchParams.set(k, String(v));
-    history.replaceState(null, '', u.toString());
-  }catch(_){}
 }
 
 function emit(name, detail){
@@ -73,14 +66,31 @@ async function lockLandscape(){
   }catch(_){}
 }
 
-function isPortrait(){
-  try{
-    return !!(window.matchMedia && window.matchMedia('(orientation: portrait)').matches);
-  }catch(_){ return false; }
+function rotateHintUpdate(){
+  const el = DOC.getElementById('rotateHint');
+  if (!el) return;
+  const portrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
+  const on = DOC.body.classList.contains('cardboard') && portrait;
+  el.hidden = !on;
+}
+
+function applyHHAViewLayers(){
+  // ensure hydration.safe.js sees the correct layers
+  const L = DOC.getElementById('hydration-layerL');
+  const R = DOC.getElementById('hydration-layerR');
+  const main = DOC.getElementById('hydration-layer');
+  const isCb = DOC.body.classList.contains('cardboard');
+
+  window.HHA_VIEW = window.HHA_VIEW || {};
+  window.HHA_VIEW.layers = (isCb && L && R)
+    ? ['hydration-layerL','hydration-layerR']
+    : ['hydration-layer'];
+
+  // keep references for debugging
+  window.HHA_VIEW._nodes = { main, L, R };
 }
 
 function ensureRotateHintNode(){
-  // loader also works if CSS has .hha-rotateHint, but we keep this as hard fallback
   if (DOC.getElementById('rotateHint')) return;
   const el = DOC.createElement('div');
   el.id = 'rotateHint';
@@ -96,201 +106,126 @@ function ensureRotateHintNode(){
   DOC.body.appendChild(el);
 }
 
-function rotateHintUpdate(){
-  const el = DOC.getElementById('rotateHint');
-  if (!el) return;
-  const on = DOC.body.classList.contains('cardboard') && isPortrait();
-  el.hidden = !on;
-}
-
-function applyHHAViewLayers(){
-  // ensure hydration.safe.js sees the correct layers
-  const L = DOC.getElementById('hydration-layerL');
-  const R = DOC.getElementById('hydration-layerR');
-  const main = DOC.getElementById('hydration-layer');
-  const isCb = DOC.body.classList.contains('cardboard');
-
-  window.HHA_VIEW = window.HHA_VIEW || {};
-  window.HHA_VIEW.layers = (isCb && L && R) ? ['hydration-layerL','hydration-layerR'] : ['hydration-layer'];
-  window.HHA_VIEW._nodes = { main, L, R };
-}
-
-function overlayHide(){
+function ensureLauncherButtons(){
+  // If user only has btnStart+btnEnterVR in HTML, we optionally add a "Mobile Fullscreen" choice
   const overlay = DOC.getElementById('startOverlay');
-  try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
-}
-function overlayShow(){
-  const overlay = DOC.getElementById('startOverlay');
-  try{
-    overlay?.classList.remove('hide');
-    overlay && (overlay.style.display='flex');
-  }catch(_){}
+  if (!overlay) return;
+
+  const actions = overlay.querySelector('.hha-overlay-actions');
+  if (!actions) return;
+
+  // add only once
+  if (DOC.getElementById('btnPlayMobile')) return;
+
+  const btn = DOC.createElement('button');
+  btn.id = 'btnPlayMobile';
+  btn.className = 'hha-btn';
+  btn.textContent = '📱 เล่นมือถือ (Fullscreen)';
+  // insert between Start and Cardboard if possible
+  actions.insertBefore(btn, actions.children[1] || null);
 }
 
-function getOverlayHidden(){
-  const overlay = DOC.getElementById('startOverlay');
+function overlayHidden(overlay){
   if (!overlay) return true;
-  try{
-    return overlay.style.display === 'none' || overlay.hidden || overlay.classList.contains('hide');
-  }catch(_){ return false; }
-}
-
-/* ---------------- Launcher labels (optional) ----------------
-   We can reuse existing buttons:
-   - #btnStart     => "PC / Desktop"
-   - #btnEnterVR   => "VR Cardboard"
-   And we add (optional) #btnStartMobile if not exists.
-*/
-function ensureMobileStartButton(){
-  const actions = DOC.querySelector('.hha-overlay-actions');
-  if (!actions) return null;
-  let b = DOC.getElementById('btnStartMobile');
-  if (b) return b;
-  b = DOC.createElement('button');
-  b.id = 'btnStartMobile';
-  b.className = 'hha-btn';
-  b.textContent = '📱 เล่นบนมือถือ';
-  actions.insertBefore(b, actions.firstChild?.nextSibling || null);
-  return b;
-}
-
-function setLauncherText(){
-  // Make launcher clearly "choose mode"
-  const title = DOC.querySelector('#startOverlay .hha-title');
-  const sub = DOC.querySelector('#startOverlay .hha-sub');
-  const hint = DOC.querySelector('#startOverlay .hha-hint');
-  const btnStart = DOC.getElementById('btnStart');
-  const btnEnterVR = DOC.getElementById('btnEnterVR');
-  const btnMobile = ensureMobileStartButton();
-
-  if (title) title.textContent = 'Hydration VR 💧 — เลือกโหมดเล่น';
-  if (sub) sub.innerHTML =
-    'เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> และเก็บ 🛡️ ไว้ <b>BLOCK</b> ตอนท้ายพายุ <br>' +
-    '<span class="muted">แนะนำ: มือถือใช้ “แตะจอยิง” • Cardboard ใช้ “เล็งกลางจอแล้วแตะยิง”</span>';
-
-  if (btnStart) btnStart.textContent = '🖥 เล่นบนคอม/จอใหญ่';
-  if (btnMobile) btnMobile.textContent = '📱 เล่นบนมือถือ';
-  if (btnEnterVR) btnEnterVR.textContent = '🕶 VR Cardboard';
-
-  if (hint) hint.textContent = 'Tip: โหมด VR ต้องหมุนจอ “แนวนอน” ก่อน (Landscape)';
-}
-
-function setBottomButtonsVisibility(){
-  // bottom buttons exist for convenience in mobile/cvr
-  const view = DOC.body.classList.contains('cardboard') ? 'cvr'
-            : DOC.body.classList.contains('view-mobile') ? 'mobile'
-            : 'pc';
-  const bottom = DOC.getElementById('hudBtns');
-  if (!bottom) return;
-  bottom.style.display = (view === 'pc') ? 'flex' : 'flex';
-}
-
-function setMode(mode){
-  // mode: 'pc' | 'mobile' | 'cvr'
-  if (mode === 'cvr'){
-    setView('cvr');
-    showCardboard(true);
-    setQS('view', 'cvr');
-  } else if (mode === 'mobile'){
-    setView('mobile');
-    showCardboard(false);
-    setQS('view', 'mobile');
-  } else {
-    setView('pc');
-    showCardboard(false);
-    setQS('view', 'pc');
-  }
-  applyHHAViewLayers();
-  rotateHintUpdate();
-  setBottomButtonsVisibility();
-}
-
-async function enterCardboardFlow(){
-  setMode('cvr');
-  // gesture -> fullscreen/lock landscape best effort
-  await enterFullscreen();
-  await lockLandscape();
-  rotateHintUpdate();
+  return overlay.style.display === 'none'
+    || overlay.hidden
+    || overlay.classList.contains('hide');
 }
 
 function bind(){
-  ensureRotateHintNode();
-  setLauncherText();
-
-  const btnPC = DOC.getElementById('btnStart');
-  const btnVR = DOC.getElementById('btnEnterVR');
-  const btnMobile = ensureMobileStartButton();
-
+  const btnStart = DOC.getElementById('btnStart');
+  const btnPlayMobile = DOC.getElementById('btnPlayMobile');
+  const btnEnterVR = DOC.getElementById('btnEnterVR');
   const btnCardboard = DOC.getElementById('btnCardboard');
   const btnShoot = DOC.getElementById('btnShoot');
   const btnStop = DOC.getElementById('btnStop');
+  const overlay = DOC.getElementById('startOverlay');
 
-  // Decide initial mode BUT DO NOT auto-start game.
-  // If query says view=cvr/mobile/pc => set mode, still show launcher.
-  // If query says cardboard=1 => set cvr mode, still show launcher.
+  // initial view (but keep launcher visible by default)
   const viewParam = String(qs('view','')).toLowerCase();
   const startCb = (viewParam === 'cvr') || (String(qs('cardboard','0')) === '1');
-  const startMobile = (viewParam === 'mobile');
-  const startPC = (viewParam === 'pc');
 
-  if (startCb) setMode('cvr');
-  else if (startMobile) setMode('mobile');
-  else if (startPC) setMode('pc');
-  else {
-    // default based on UA (BUT still show launcher)
-    setMode(isMobileUA() ? 'mobile' : 'pc');
+  // If user explicitly wants cVR, start in cVR; otherwise detect device
+  const initialView = startCb ? 'cvr' : (isMobileUA() ? 'mobile' : 'pc');
+  setView(initialView);
+  showCardboard(startCb);
+  applyHHAViewLayers();
+  rotateHintUpdate();
+
+  // Optional autostart (for testing only): ?autostart=1
+  const autostart = String(qs('autostart','0')) === '1';
+  if (autostart && overlay){
+    try{ overlay.classList.add('hide'); overlay.style.display='none'; }catch(_){}
+    emit('hha:start');
   }
 
-  // Make sure launcher is visible on load (fix "from HUB open comes to this page")
-  overlayShow();
-
-  // --- Launcher buttons ---
-  btnPC?.addEventListener('click', async ()=>{
-    setMode('pc');
-    overlayHide();
+  // Start (PC/Mobile normal)
+  btnStart?.addEventListener('click', async ()=>{
+    // keep current view; just hide overlay + start
+    try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
     emit('hha:start');
   });
 
-  btnMobile?.addEventListener('click', async ()=>{
-    setMode('mobile');
-    overlayHide();
+  // Mobile Fullscreen (explicit)
+  btnPlayMobile?.addEventListener('click', async ()=>{
+    setView('mobile');
+    showCardboard(false);
+    applyHHAViewLayers();
+    rotateHintUpdate();
+
+    // fullscreen best effort
+    if (!isFullscreen()) await enterFullscreen();
+
+    try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
     emit('hha:start');
   });
 
-  btnVR?.addEventListener('click', async ()=>{
-    await enterCardboardFlow();
-    overlayHide();
+  // Cardboard enter (from overlay)
+  btnEnterVR?.addEventListener('click', async ()=>{
+    setView('cvr');
+    showCardboard(true);
+    applyHHAViewLayers();
+    rotateHintUpdate();
+
+    await enterFullscreen();
+    await lockLandscape();
+    rotateHintUpdate();
+
+    try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
     emit('hha:start');
   });
 
-  // --- Bottom toggle to cardboard (during play) ---
+  // Cardboard toggle (bottom)
   btnCardboard?.addEventListener('click', async ()=>{
     const on = !DOC.body.classList.contains('cardboard');
     if (on){
-      await enterCardboardFlow();
-    } else {
-      // back to non-cardboard view, keep fullscreen if user wants
-      showCardboard(false);
-      setView(isMobileUA() ? 'mobile' : 'pc');
-      setQS('view', isMobileUA() ? 'mobile' : 'pc');
+      setView('cvr');
+      showCardboard(true);
       applyHHAViewLayers();
       rotateHintUpdate();
+      await enterFullscreen();
+      await lockLandscape();
+      rotateHintUpdate();
+    } else {
+      showCardboard(false);
+      setView(isMobileUA() ? 'mobile' : 'pc');
+      applyHHAViewLayers();
+      rotateHintUpdate();
+      // don’t force exit FS
     }
   });
 
-  // --- SHOOT (button) ---
+  // SHOOT (button)
   btnShoot?.addEventListener('click', ()=>{
-    // In cVR, use center aim for deterministic shooting
-    const isCb = DOC.body.classList.contains('cardboard');
-    emit('hha:shoot', isCb ? { src:'btn', aim:{ x:0.5, y:0.5 }, t: Date.now() } : { src:'btn', t: Date.now() });
+    emit('hha:shoot', { src:'btn', t: Date.now() });
   });
 
-  // --- STOP (end game) ---
+  // STOP (end game)
   btnStop?.addEventListener('click', ()=>{
     emit('hha:force_end', { reason:'stop' });
   });
 
-  // Tap anywhere to shoot (mobile/cvr convenience)
+  // Tap anywhere to shoot (mobile convenience)
   let lastTap=0;
   DOC.addEventListener('pointerdown', (ev)=>{
     // ignore taps on buttons
@@ -302,34 +237,31 @@ function bind(){
     lastTap = now;
 
     // only when game started (overlay hidden)
-    if (!getOverlayHidden()) return;
-
-    const isCb = DOC.body.classList.contains('cardboard');
-    emit('hha:shoot', isCb ? { src:'tap', aim:{ x:0.5, y:0.5 }, t: Date.now() } : { src:'tap', t: Date.now() });
+    if (overlayHidden(overlay)) emit('hha:shoot', { src:'tap', t: Date.now() });
   }, { passive:true });
 
-  // rotate hint
+  // keep rotate hint correct
   window.addEventListener('resize', rotateHintUpdate, {passive:true});
   window.addEventListener('orientationchange', rotateHintUpdate);
   DOC.addEventListener('fullscreenchange', rotateHintUpdate);
 
-  // layers correct even if class toggled
+  // ensure layers stay correct if someone toggles class manually
   const obs = new MutationObserver(()=>{
     applyHHAViewLayers();
     rotateHintUpdate();
   });
   obs.observe(DOC.body, { attributes:true, attributeFilter:['class'] });
 
-  // keep layers correct at start
-  applyHHAViewLayers();
-  rotateHintUpdate();
+  // If page loads in cVR explicitly, and overlay exists, keep it visible but hint rotate
+  // (user still must press a button to enter fullscreen/lock + start)
 }
 
 function boot(){
+  ensureRotateHintNode();
+  ensureLauncherButtons();
   bind();
 
   // load game logic AFTER loader is ready
-  // hydration.safe.js is module, so import it here
   import('./hydration.safe.js').catch(console.error);
 }
 
