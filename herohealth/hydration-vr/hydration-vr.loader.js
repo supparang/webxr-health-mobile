@@ -1,10 +1,10 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — PRODUCTION (HARDEN vNext)
-// ✅ View: PC / Mobile / Cardboard
+// Hydration VR Loader — PRODUCTION v2 (Launcher + VR landscape)
+// ✅ Launcher: PC / Mobile / VR Cardboard (3 buttons)
+// ✅ Quick Settings (diff/time/run/seed) -> update URL and reload
 // ✅ Fullscreen + best-effort landscape lock for Cardboard
 // ✅ Emits: hha:start, hha:force_end, hha:shoot
 // ✅ Sets window.HHA_VIEW.layers so hydration.safe.js spawns correctly
-// ✅ HARDEN: prevent "summary 0" / prevent force_end before start / no double start
 
 'use strict';
 
@@ -13,6 +13,12 @@ const DOC = document;
 function qs(k, def=null){
   try{ return new URL(location.href).searchParams.get(k) ?? def; }
   catch{ return def; }
+}
+function qset(url, k, v){
+  try{
+    if (v == null || v === '') url.searchParams.delete(k);
+    else url.searchParams.set(k, String(v));
+  }catch(_){}
 }
 function emit(name, detail){
   try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
@@ -23,6 +29,7 @@ function isMobileUA(){
   return /Android|iPhone|iPad|iPod/i.test(ua);
 }
 
+/* ---------------- View state ---------------- */
 function setView(view){
   const b = DOC.body;
   b.classList.remove('view-pc','view-mobile','view-cvr');
@@ -37,18 +44,39 @@ function showCardboard(on){
   DOC.body.classList.toggle('cardboard', !!on);
 }
 
+function applyHHAViewLayers(){
+  // ensure hydration.safe.js sees the correct layers
+  const L = DOC.getElementById('hydration-layerL');
+  const R = DOC.getElementById('hydration-layerR');
+  const main = DOC.getElementById('hydration-layer');
+  const isCb = DOC.body.classList.contains('cardboard');
+
+  window.HHA_VIEW = window.HHA_VIEW || {};
+  window.HHA_VIEW.layers = (isCb && L && R) ? ['hydration-layerL','hydration-layerR'] : ['hydration-layer'];
+
+  window.HHA_VIEW._nodes = { main, L, R };
+}
+
+/* ---------------- Fullscreen + Orientation ---------------- */
 function isFullscreen(){
   return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
 }
 async function enterFullscreen(){
   try{
     const el = DOC.documentElement;
-    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI:'hide' });
     else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
   }catch(_){}
 }
+async function exitFullscreen(){
+  try{
+    if (DOC.exitFullscreen) await DOC.exitFullscreen();
+    else if (DOC.webkitExitFullscreen) await DOC.webkitExitFullscreen();
+  }catch(_){}
+}
+
 async function lockLandscape(){
-  // Works best after a user gesture + fullscreen
+  // works best after user gesture + fullscreen (not guaranteed on iOS)
   try{
     if (screen?.orientation?.lock){
       await screen.orientation.lock('landscape');
@@ -56,199 +84,272 @@ async function lockLandscape(){
   }catch(_){}
 }
 
+function isPortrait(){
+  try{
+    return window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
+  }catch(_){ return false; }
+}
+
+/* ---------------- Rotate hint ---------------- */
 function ensureRotateHintNode(){
   if (DOC.getElementById('rotateHint')) return;
   const el = DOC.createElement('div');
   el.id = 'rotateHint';
+  el.className = 'hha-rotateHint';
   el.hidden = true;
-  el.style.cssText = `
-    position:fixed; inset:0; z-index:9999;
-    display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.72);
-    color:#fff; text-align:center; padding:24px;
-    font:900 18px/1.35 system-ui;
+  el.innerHTML = `
+    <div class="card">
+      <div class="big">กรุณาหมุนเครื่องเป็นแนวนอน</div>
+      <div class="small">Landscape เพื่อเล่นโหมด VR 📱↔️</div>
+      <div style="margin-top:12px; opacity:.9; font-weight:900;">* ถ้าไม่หมุน เป้าจะเพี้ยน/เล็งยาก</div>
+    </div>
   `;
-  el.textContent = 'กรุณาหมุนเครื่องเป็นแนวนอน (Landscape) เพื่อเล่นโหมด VR 📱↔️';
   DOC.body.appendChild(el);
 }
-
 function rotateHintUpdate(){
   const el = DOC.getElementById('rotateHint');
   if (!el) return;
-  const portrait = window.matchMedia && window.matchMedia('(orientation: portrait)').matches;
-  const on = DOC.body.classList.contains('cardboard') && portrait;
+  const on = DOC.body.classList.contains('cardboard') && isPortrait();
   el.hidden = !on;
 }
 
-function applyHHAViewLayers(){
-  // ensure hydration.safe.js sees the correct layers
-  const L = DOC.getElementById('hydration-layerL');
-  const R = DOC.getElementById('hydration-layerR');
-  const main = DOC.getElementById('hydration-layer');
-
-  const isCb = DOC.body.classList.contains('cardboard');
-
-  window.HHA_VIEW = window.HHA_VIEW || {};
-  window.HHA_VIEW.layers = (isCb && L && R)
-    ? ['hydration-layerL','hydration-layerR']
-    : ['hydration-layer'];
-
-  // keep refs for debugging
-  window.HHA_VIEW._nodes = { main, L, R };
+/* ---------------- Launcher helpers ---------------- */
+function hideOverlay(){
+  const overlay = DOC.getElementById('startOverlay');
+  try{ overlay?.classList.add('hide'); overlay && (overlay.style.display='none'); }catch(_){}
+}
+function showOverlay(){
+  const overlay = DOC.getElementById('startOverlay');
+  try{ overlay?.classList.remove('hide'); overlay && (overlay.style.display=''); }catch(_){}
 }
 
-function forceHideSummary(){
-  try{
-    const bd = DOC.getElementById('resultBackdrop');
-    if (bd) bd.hidden = true;
-  }catch(_){}
+function hydrateQuickSettingsUI(){
+  // (Optional) these nodes exist in updated hydration-vr.html (launcher)
+  const selDiff = DOC.getElementById('selDiff');
+  const selRun  = DOC.getElementById('selRun');
+  const selTime = DOC.getElementById('selTime');
+  const inpSeed = DOC.getElementById('inpSeed');
+
+  if (selDiff) selDiff.value = String(qs('diff','normal')).toLowerCase();
+  if (selRun)  selRun.value  = String(qs('run', qs('runMode','play'))).toLowerCase();
+  if (selTime) selTime.value = String(qs('time', qs('durationPlannedSec', 70)));
+  if (inpSeed) inpSeed.value = String(qs('seed', qs('sessionId','')) || '');
 }
 
-function bind(){
-  const btnStart     = DOC.getElementById('btnStart');
-  const btnEnterVR   = DOC.getElementById('btnEnterVR');
-  const btnCardboard = DOC.getElementById('btnCardboard');
-  const btnShoot     = DOC.getElementById('btnShoot');
-  const btnStop      = DOC.getElementById('btnStop');
-  const overlay      = DOC.getElementById('startOverlay');
+function bindQuickSettings(){
+  const selDiff = DOC.getElementById('selDiff');
+  const selRun  = DOC.getElementById('selRun');
+  const selTime = DOC.getElementById('selTime');
+  const inpSeed = DOC.getElementById('inpSeed');
+  const btnApply = DOC.getElementById('btnApplySettings');
 
-  // HARDEN flags
-  let started = false;   // local guard (prevents double start)
-  let overlayHidden = false;
+  if (!selDiff && !selRun && !selTime && !inpSeed && !btnApply) return;
 
-  function hideOverlay(){
-    if (overlayHidden) return;
-    overlayHidden = true;
-    try{
-      overlay.classList.add('hide');
-      overlay.style.display = 'none';
-      overlay.hidden = true;
-    }catch(_){}
+  function apply(){
+    const u = new URL(location.href);
+    if (selDiff) qset(u, 'diff', selDiff.value);
+    if (selRun)  qset(u, 'run',  selRun.value);
+    if (selTime) qset(u, 'time', selTime.value);
+    if (inpSeed) qset(u, 'seed', inpSeed.value.trim());
+
+    // keep hub param untouched if present
+    // add fresh ts to avoid caching
+    qset(u, 'ts', Date.now());
+    location.href = u.toString();
   }
 
-  function startOnce(){
-    if (started) return;
-    started = true;
+  btnApply?.addEventListener('click', apply);
+
+  // small convenience: change selects auto-apply on mobile
+  const auto = (el)=> el?.addEventListener('change', ()=>{ /* do nothing until apply */ }, {passive:true});
+  auto(selDiff); auto(selRun); auto(selTime);
+}
+
+/* ---------------- Mode switching ---------------- */
+async function enterPC(){
+  setView('pc');
+  showCardboard(false);
+  applyHHAViewLayers();
+  rotateHintUpdate();
+}
+async function enterMobile(){
+  setView('mobile');
+  showCardboard(false);
+  applyHHAViewLayers();
+  rotateHintUpdate();
+}
+async function enterCardboard(){
+  setView('cvr');
+  showCardboard(true);
+  applyHHAViewLayers();
+  rotateHintUpdate();
+
+  // best effort VR: fullscreen + landscape lock
+  await enterFullscreen();
+  await lockLandscape();
+  rotateHintUpdate();
+}
+
+function bindLauncherButtons(){
+  // NEW launcher buttons (preferred)
+  const btnPC = DOC.getElementById('btnPlayPC');
+  const btnMB = DOC.getElementById('btnPlayMobile');
+  const btnVR = DOC.getElementById('btnPlayVR');
+
+  // Backward compat (older ids)
+  const btnStart = DOC.getElementById('btnStart');
+  const btnEnterVR = DOC.getElementById('btnEnterVR');
+
+  const overlay = DOC.getElementById('startOverlay');
+
+  function startGame(){
     hideOverlay();
-    // also ensure summary isn't visible
-    forceHideSummary();
     emit('hha:start');
   }
 
-  // initial view selection
-  // Supported:
-  // - ?view=cvr  or ?cardboard=1  => start in cardboard view (but still requires user gesture to fullscreen/lock)
-  // - ?view=pc / ?view=mobile => force view
-  const viewParam = String(qs('view','')).toLowerCase();
-  const startCb = (viewParam === 'cvr') || (String(qs('cardboard','0')) === '1');
-
-  let view = 'pc';
-  if (viewParam === 'pc' || viewParam === 'mobile' || viewParam === 'cvr'){
-    view = viewParam;
-  } else {
-    view = isMobileUA() ? 'mobile' : 'pc';
-    if (startCb) view = 'cvr';
-  }
-
-  setView(view);
-  showCardboard(!!startCb);
-  applyHHAViewLayers();
-  rotateHintUpdate();
-  forceHideSummary();
-
-  // --- Buttons ---
-  // Start (PC/Mobile)
-  btnStart?.addEventListener('click', ()=>{
-    startOnce();
+  // PC
+  btnPC?.addEventListener('click', async ()=>{
+    await enterPC();
+    startGame();
   });
 
-  // Enter Cardboard (from overlay)
+  // Mobile
+  btnMB?.addEventListener('click', async ()=>{
+    await enterMobile();
+    startGame();
+  });
+
+  // VR Cardboard
+  btnVR?.addEventListener('click', async ()=>{
+    await enterCardboard();
+    startGame();
+  });
+
+  // Backward compat:
+  btnStart?.addEventListener('click', async ()=>{
+    // choose best default view
+    if (isMobileUA()) await enterMobile();
+    else await enterPC();
+    startGame();
+  });
+
   btnEnterVR?.addEventListener('click', async ()=>{
-    setView('cvr');
-    showCardboard(true);
-    applyHHAViewLayers();
-    rotateHintUpdate();
-
-    await enterFullscreen();
-    await lockLandscape();
-    startOnce();
+    await enterCardboard();
+    startGame();
   });
 
-  // Cardboard toggle (bottom)
+  // If overlay is missing, autostart (dev mode)
+  if (!overlay){
+    // choose view by UA
+    (isMobileUA() ? enterMobile() : enterPC()).then(()=> emit('hha:start'));
+  }
+}
+
+/* ---------------- In-game controls ---------------- */
+function bindIngameButtons(){
+  const btnCardboard = DOC.getElementById('btnCardboard');
+  const btnShoot = DOC.getElementById('btnShoot');
+  const btnStop = DOC.getElementById('btnStop');
+  const overlay = DOC.getElementById('startOverlay');
+
   btnCardboard?.addEventListener('click', async ()=>{
     const on = !DOC.body.classList.contains('cardboard');
     if (on){
-      setView('cvr');
-      showCardboard(true);
-      applyHHAViewLayers();
-      rotateHintUpdate();
-
-      await enterFullscreen();
-      await lockLandscape();
+      await enterCardboard();
     } else {
       showCardboard(false);
       setView(isMobileUA() ? 'mobile' : 'pc');
       applyHHAViewLayers();
       rotateHintUpdate();
-      // do not force exit fullscreen
+      // don’t force exit fullscreen (user may want it)
     }
   });
 
-  // SHOOT (button)
   btnShoot?.addEventListener('click', ()=>{
-    if (!started) return; // HARDEN
     emit('hha:shoot', { src:'btn', t: Date.now() });
   });
 
-  // STOP (end game)
   btnStop?.addEventListener('click', ()=>{
-    if (!started) return; // HARDEN: prevent "summary 0" before start
     emit('hha:force_end', { reason:'stop' });
   });
 
-  // Tap anywhere to shoot (mobile convenience)
+  // Tap anywhere to shoot (only after start)
   let lastTap=0;
   DOC.addEventListener('pointerdown', (ev)=>{
     const t = ev.target;
-    // ignore taps on buttons
     if (t && (t.closest?.('.hha-btn') || t.id === 'btnShoot')) return;
-
-    // only after started + overlay hidden
-    if (!started) return;
 
     const now = performance.now();
     if (now - lastTap < 80) return;
     lastTap = now;
 
-    emit('hha:shoot', { src:'tap', t: Date.now() });
+    const ovHidden =
+      !overlay ||
+      overlay.style.display === 'none' ||
+      overlay.hidden ||
+      overlay.classList.contains('hide');
+
+    if (ovHidden) emit('hha:shoot', { src:'tap', t: Date.now() });
   }, { passive:true });
 
-  // Keep rotate hint correct
-  window.addEventListener('resize', rotateHintUpdate, {passive:true});
-  window.addEventListener('orientationchange', rotateHintUpdate);
+  // Keyboard support (PC)
+  window.addEventListener('keydown', (e)=>{
+    const key = (e.key||'').toLowerCase();
+    if (key === ' ' || key === 'spacebar' || key === 'enter'){
+      const overlayShown = overlay && overlay.style.display !== 'none' && !overlay.classList.contains('hide');
+      if (!overlayShown){
+        emit('hha:shoot', { src:'key', t: Date.now() });
+        e.preventDefault();
+      }
+    }
+    if (key === 'escape'){
+      // don’t auto-stop; just a convenience to exit fullscreen
+      if (isFullscreen()) exitFullscreen();
+    }
+  }, { passive:false });
 
-  DOC.addEventListener('fullscreenchange', rotateHintUpdate);
+  // keep rotate hint correct
+  window.addEventListener('resize', rotateHintUpdate, { passive:true });
+  window.addEventListener('orientationchange', rotateHintUpdate, { passive:true });
+  DOC.addEventListener('fullscreenchange', rotateHintUpdate, { passive:true });
 
-  // ensure layers stay correct if class changes
+  // if someone toggles body class externally
   const obs = new MutationObserver(()=>{
     applyHHAViewLayers();
     rotateHintUpdate();
   });
   obs.observe(DOC.body, { attributes:true, attributeFilter:['class'] });
-
-  // If user navigates back/forward from hub cache, keep things sane
-  window.addEventListener('pageshow', ()=>{
-    forceHideSummary();
-    applyHHAViewLayers();
-    rotateHintUpdate();
-  });
 }
 
+/* ---------------- Initial view decision ---------------- */
+function applyInitialView(){
+  const viewParam = String(qs('view','')).toLowerCase();
+  const startCb = (viewParam === 'cvr') || (String(qs('cardboard','0')) === '1');
+
+  if (startCb){
+    setView('cvr');
+    showCardboard(true);
+  } else {
+    // don’t force auto-start; just pick a reasonable initial view for preview
+    setView(isMobileUA() ? 'mobile' : 'pc');
+    showCardboard(false);
+  }
+
+  applyHHAViewLayers();
+  rotateHintUpdate();
+}
+
+/* ---------------- Boot ---------------- */
 function boot(){
   ensureRotateHintNode();
-  bind();
+  applyInitialView();
 
-  // Load game logic AFTER loader is ready
+  hydrateQuickSettingsUI();
+  bindQuickSettings();
+  bindLauncherButtons();
+  bindIngameButtons();
+
+  // load game logic AFTER loader is ready
   import('./hydration.safe.js').catch(console.error);
 }
 
