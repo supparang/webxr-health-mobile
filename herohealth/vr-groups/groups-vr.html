@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -13,11 +14,8 @@
   <!-- A-Frame (minimal scene to enable WebXR Enter VR reliably) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + (optional) logger -->
+  <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
-
-  <!-- Universal VR UI (ENTER VR/EXIT/RECENTER + crosshair + tap-to-shoot -> hha:shoot) -->
   <script>
     window.HHA_VRUI_CONFIG = { lockPx: 92 };
   </script>
@@ -26,7 +24,7 @@
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
-  <script src="./ai.js" defer></script> <!-- stub: จำไว้ก่อน -->
+  <script src="./ai-stubs.js" defer></script>
   <script src="./GameEngine.js" defer></script>
 </head>
 
@@ -90,7 +88,7 @@
       <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
       <div class="coachBubble">
         <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">พร้อมแล้ว! กดเริ่มเกมได้เลย</div>
+        <div id="coachText" class="coachText">กำลังเริ่มเกม…</div>
       </div>
     </div>
   </div>
@@ -98,29 +96,8 @@
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- START overlay -->
-  <div id="startOverlay" class="overlay hidden">
-    <div class="panel">
-      <div class="title">▶️ พร้อมเริ่ม GroupsVR</div>
-      <div class="sub" id="startDesc">—</div>
-
-      <div class="row">
-        <button id="btnStart" class="btn btn-strong" type="button">🚀 เริ่มเกม</button>
-        <button id="btnEnterVR" class="btn" type="button">🥽 Enter VR</button>
-        <button id="btnCopyLink" class="btn" type="button">🔗 Copy Link</button>
-      </div>
-
-      <div class="row row2">
-        <button id="btnBackLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
-        <button id="btnHub" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        <b>Cardboard:</b> เปิด <code>view=cvr</code> แล้วแตะจอเพื่อยิงจาก crosshair (ผ่าน vr-ui.js)<br/>
-        <b>PC/Mobile:</b> แตะ/คลิกที่เป้าได้เลย
-      </div>
-    </div>
-  </div>
+  <!-- Debug badge -->
+  <div id="dbgBadge" class="dbgBadge">—</div>
 
   <!-- End overlay -->
   <div id="endOverlay" class="overlay overlay-end hidden">
@@ -140,8 +117,12 @@
         <button id="btnCopy" class="btn" type="button">📋 Copy JSON</button>
       </div>
       <div class="row row2">
-        <button id="btnBackLauncher2" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
-        <button id="btnHub2" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
+        <button id="btnBackLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
+        <button id="btnHub" class="btn btn-ghost" type="button">🏠 กลับ HUB</button>
+      </div>
+
+      <div class="note" style="margin-top:10px;">
+        VR Cardboard: แตะจอเพื่อยิงจาก crosshair (ปุ่ม ENTER VR/EXIT/RECENTER จะมาจาก vr-ui.js)
       </div>
     </div>
   </div>
@@ -158,6 +139,12 @@
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
+  function setView(view){
+    const b = DOC.body;
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    b.classList.add('view-'+view);
+  }
+
   async function copyText(text){
     try { await navigator.clipboard.writeText(String(text||'')); return true; }
     catch {
@@ -173,19 +160,7 @@
     }
   }
 
-  function autoView(){
-    const ua = navigator.userAgent || '';
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints>1 && innerWidth<900);
-    return isMobile ? 'mobile' : 'pc';
-  }
-
-  function setView(view){
-    const b = DOC.body;
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-    b.classList.add('view-'+view);
-  }
-
-  // ---------------- HUD binds ----------------
+  // ---------- HUD binds ----------
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail||{};
     $('vScore').textContent = String(d.score ?? 0);
@@ -225,6 +200,7 @@
     $('pFill').style.width = Math.round((cur/thr)*100) + '%';
   }, {passive:true});
 
+  // quest:update -> goal/mini
   window.addEventListener('quest:update', (ev)=>{
     const d = ev.detail||{};
     const gTitle = String(d.goalTitle||'—');
@@ -252,10 +228,11 @@
     DOC.body.classList.toggle('mini-urgent', urgent);
   }, {passive:true});
 
-  // ---------------- Audio hooks ----------------
+  // ---------- Audio tick loop (urgent) ----------
   function hookAudio(){
     const A = window.GroupsVR && window.GroupsVR.Audio;
     if (!A) return;
+
     try{ A.unlock && A.unlock(); }catch{}
 
     window.addEventListener('hha:judge', (ev)=>{
@@ -285,13 +262,12 @@
     tickLoop();
   }
 
-  // ---------------- Logger + flush hardened ----------------
+  // ---------- End / Summary ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
   let lastSummary = null;
   let startIso = new Date().toISOString();
-  let _flushOnce = false;
 
   function saveLast(summary){
     try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch{}
@@ -302,48 +278,6 @@
     }catch{}
   }
 
-  function getLogUrl(){
-    const q = String(qs('log','')||'').trim();
-    if (q) return q;
-    return String(window.HHA_LOG_URL || '');
-  }
-
-  async function postLog(payload){
-    const url = getLogUrl();
-    if (!url) return false;
-    try{
-      const L = window.HHACloudLogger;
-      if (L && typeof L.post === 'function') return await L.post(url, payload);
-      const r = await fetch(url, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      return !!r.ok;
-    }catch(_){ return false; }
-  }
-
-  async function flushEnd(reason){
-    if (_flushOnce) return;
-    if (!lastSummary) return;
-    _flushOnce = true;
-    try{
-      lastSummary.reason = lastSummary.reason || reason || 'flush';
-      await postLog(lastSummary);
-    }catch(_){}
-  }
-
-  window.addEventListener('pagehide', ()=>flushEnd('pagehide'), {passive:true});
-  document.addEventListener('visibilitychange', ()=>{
-    if (document.visibilityState === 'hidden') flushEnd('hidden');
-  }, {passive:true});
-  window.addEventListener('beforeunload', ()=>flushEnd('beforeunload'), {passive:true});
-
-  function goSafe(url){
-    flushEnd('nav').finally(()=>{ location.href = url; });
-  }
-
-  // ---------------- End overlay ----------------
   window.addEventListener('hha:end', (ev)=>{
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
@@ -355,6 +289,7 @@
       runMode: String(qs('run','play')||'play'),
       diff: String(qs('diff','normal')||'normal'),
       style: String(qs('style','mix')||'mix'),
+      ai: String(qs('ai','off')||'off'),
       durationPlannedSec: Number(qs('time',90)||90),
       startTimeIso: startIso,
       endTimeIso: endIso,
@@ -362,7 +297,6 @@
     }, d);
 
     saveLast(lastSummary);
-    flushEnd('end'); // ✅ ส่ง log ตอนจบทันที
 
     $('endOverlay').classList.remove('hidden');
     $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
@@ -372,7 +306,7 @@
     $('endMiss').textContent  = String(d.misses ?? 0);
 
     const hub = String(qs('hub','')||'');
-    $('btnHub2').style.display = hub ? 'inline-flex' : 'none';
+    $('btnHub').style.display = hub ? 'inline-flex' : 'none';
   }, {passive:true});
 
   $('btnRestart').addEventListener('click', ()=> location.reload());
@@ -383,61 +317,20 @@
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
-  $('btnBackLauncher2').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
-    const u = new URL('../groups-vr.html', location.href);
-    if (hub) u.searchParams.set('hub', hub);
-    goSafe(u.toString());
-  });
-
-  $('btnHub2').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
-    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    goSafe(hub);
-  });
-
-  // ---------------- Start overlay controls ----------------
-  function enterVR(){
-    const scene = DOC.querySelector('a-scene');
-    let n = 0;
-    const tryEnter = ()=>{
-      n++;
-      try{
-        if (scene && typeof scene.enterVR === 'function') scene.enterVR();
-      }catch(_){}
-      if (n < 6) setTimeout(tryEnter, 250);
-    };
-    tryEnter();
-  }
-
-  function buildSelfLink(){
-    const u = new URL(location.href);
-    return u.toString();
-  }
-
-  $('btnCopyLink').addEventListener('click', async ()=>{
-    const ok = await copyText(buildSelfLink());
-    alert(ok ? 'คัดลอกลิงก์แล้ว ✅' : 'Copy ไม่สำเร็จ');
-  });
-
   $('btnBackLauncher').addEventListener('click', ()=>{
     const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
     if (hub) u.searchParams.set('hub', hub);
-    goSafe(u.toString());
+    location.href = u.toString();
   });
 
   $('btnHub').addEventListener('click', ()=>{
     const hub = String(qs('hub','')||'');
     if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    goSafe(hub);
+    location.href = hub;
   });
 
-  $('btnEnterVR').addEventListener('click', ()=>{
-    enterVR();
-  });
-
-  // ---------------- Start engine (manual) ----------------
+  // ---------- Start engine ----------
   function waitForEngine(cb){
     const it = setInterval(()=>{
       const E = window.GroupsVR && window.GroupsVR.GameEngine;
@@ -448,56 +341,29 @@
     }, 60);
   }
 
-  function startGameNow(){
-    const viewQ = String(qs('view','')||'').toLowerCase();
-    const view = (viewQ==='pc'||viewQ==='mobile'||viewQ==='cvr') ? viewQ : autoView();
+  function startFromParams(){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
     const diff = String(qs('diff','normal')||'normal').toLowerCase();
     const style= String(qs('style','mix')||'mix').toLowerCase();
     const time = clamp(qs('time',90), 30, 180);
     const seed = String(qs('seed', Date.now()) || Date.now());
+    const ai   = (String(qs('ai','off')||'off').toLowerCase()==='on');
 
     setView(view);
     hookAudio();
 
+    // debug badge
+    $('dbgBadge').textContent = `VIEW:${view} • RUN:${run} • DIFF:${diff} • AI:${ai?'ON':'OFF'} • SEED:${seed}`;
+
     waitForEngine((E)=>{
       E.setLayerEl($('playLayer'));
       startIso = new Date().toISOString();
-      E.start(diff, { runMode: run, diff, style, time, seed });
+      E.start(diff, { runMode: run, diff, style, time, seed, ai });
     });
   }
 
-  function initStartOverlay(){
-    const viewQ = String(qs('view','')||'').toLowerCase();
-    const view = (viewQ==='pc'||viewQ==='mobile'||viewQ==='cvr') ? viewQ : autoView();
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
-    const diff = String(qs('diff','normal')||'normal');
-    const style= String(qs('style','mix')||'mix');
-    const time = String(qs('time',90)||90);
-    const seed = String(qs('seed','')||'auto');
-
-    setView(view);
-
-    const hub = String(qs('hub','')||'');
-    $('btnHub').style.display = hub ? 'inline-flex' : 'none';
-
-    $('btnEnterVR').style.display = (view==='cvr') ? 'inline-flex' : 'none';
-
-    $('startDesc').innerHTML =
-      `โหมด: <b>${view.toUpperCase()}</b> • run=<b>${run}</b> • diff=<b>${diff}</b> • style=<b>${style}</b> • time=<b>${time}</b>s • seed=<b>${seed}</b>`;
-
-    $('startOverlay').classList.remove('hidden');
-  }
-
-  $('btnStart').addEventListener('click', ()=>{
-    $('startOverlay').classList.add('hidden');
-    startGameNow();
-  });
-
-  // start=1 => show overlay; else autostart
-  const wantOverlay = String(qs('start','')||'') === '1';
-  if (wantOverlay) initStartOverlay();
-  else startGameNow();
+  startFromParams();
 
 })();
 </script>
