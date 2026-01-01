@@ -1,575 +1,629 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — PRODUCTION CSS (ROOT PATH FIXED)
-✅ plate-layer fixed inset:0 (กันเป้าหลุด/ไปล่างขวา)
-✅ z-index layering ชัดเจน (scene < targets < HUD < overlays)
-✅ ลดอาการเป้าแว๊บ ๆ (gpu + backface-visibility + will-change)
-✅ Responsive PC/Mobile/VR Cardboard
-✅ Safe-area + HUD ไม่ทับพื้นที่เล่น
+Balanced Plate VR — PRODUCTION CSS
+✅ Responsive: PC / Mobile / VR / cVR
+✅ HUD stable (ไม่สั่น ไม่ทับ)
+✅ plate-layer เต็มจอ fixed (แก้ target โผล่ล่างขวา)
+✅ Target: pop-in + hover/press + less flicker
+✅ Safe areas + z-index ladder ชัดเจน
 */
 
 :root{
   color-scheme: dark;
 
   --bg:#020617;
-  --panel: rgba(2,6,23,.78);
-  --panel2: rgba(15,23,42,.68);
-  --stroke: rgba(148,163,184,.18);
-  --text: #e5e7eb;
+  --panel:rgba(2,6,23,.72);
+  --panel2:rgba(15,23,42,.62);
+  --stroke:rgba(148,163,184,.18);
+
+  --text:#e5e7eb;
   --muted:#94a3b8;
 
   --good:#22c55e;
   --warn:#f59e0b;
   --bad:#ef4444;
-  --cyan:#22d3ee;
-  --violet:#a78bfa;
 
   --radius:18px;
   --radius2:22px;
-  --pill:999px;
 
-  --hudZ: 50;
-  --overlayZ: 80;
-  --targetZ: 30;
-  --sceneZ: 1;
-
-  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   --sar: env(safe-area-inset-right, 0px);
 
+  --hudTopH: 96px;      /* ปรับตาม layout ด้านบน */
+  --btnBarH: 64px;      /* ปุ่มล่าง */
+  --coachW: 240px;      /* แถบโค้ชซ้าย */
+
+  --shadow: 0 22px 70px rgba(0,0,0,.45);
+  --shadow2: 0 18px 44px rgba(0,0,0,.28);
+
   font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
 }
 
 *{ box-sizing:border-box; }
-
-html, body{
-  width:100%;
-  height:100%;
+html,body{
   margin:0;
   padding:0;
+  width:100%;
+  height:100%;
   overflow:hidden;
-  background: var(--bg);
-  color: var(--text);
+  background:var(--bg);
+  color:var(--text);
 }
 
-body{
-  /* กัน bounce / highlight */
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
+/* ===== Z-Index Ladder =====
+scene: 1
+plate-layer targets: 10
+hitFx: 30
+HUD top/quest/coach/buttons: 40-60
+overlays (start/paused/result): 80-90
+*/
+a-scene{ z-index:1 !important; }
 
-/* ===== A-Frame scene sits behind ===== */
-a-scene#scene{
-  position: fixed !important;
-  inset: 0 !important;
-  z-index: var(--sceneZ) !important;
-}
-
-/* ===== Play layer (targets) =====
-   สำคัญมาก: fixed + inset 0 กันตำแหน่งเพี้ยน/หลุด/ไปล่างขวา */
+/* IMPORTANT: แก้ target โผล่ล่างขวา / layer ไม่เต็มจอ */
 #plate-layer{
-  position: fixed;
-  inset: 0;
-  z-index: var(--targetZ);
-  pointer-events: none; /* เป้าเป็น button เองค่อย pointer-events:auto */
-  overflow: hidden;
-
-  /* ลดอาการ “แว๊บ” */
-  transform: translate3d(0,0,0);
+  position:fixed;
+  inset:0;                 /* ✅ full viewport */
+  width:100vw;
+  height:100vh;
+  overflow:hidden;         /* กันเป้าเด้งออกนอกจอ */
+  z-index:10;
+  pointer-events:none;     /* ให้ target เป็นตัวรับ event เอง */
+  transform: translate(0,0);
   will-change: transform;
-  backface-visibility: hidden;
 }
 
 /* Hit FX overlay */
 #hitFx{
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--targetZ) + 1);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .12s ease;
+  position:fixed;
+  inset:0;
+  z-index:30;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity .14s ease;
 }
 
-/* ===== TOP HUD ===== */
+/* ===== HUD TOP ===== */
 #hudTop{
-  position: fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  top: calc(10px + var(--sat));
-  z-index: var(--hudZ);
+  position:fixed;
+  left:calc(10px + var(--sal));
+  right:calc(10px + var(--sar));
+  top:calc(10px + var(--sat));
+  z-index:50;
 
-  background: linear-gradient(180deg, rgba(15,23,42,.62), rgba(2,6,23,.62));
-  border: 1px solid var(--stroke);
+  border:1px solid var(--stroke);
   border-radius: var(--radius2);
-  padding: 10px 10px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.40);
+  background: linear-gradient(180deg, rgba(15,23,42,.62), rgba(2,6,23,.62));
+  box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
+
+  padding:10px 10px;
 }
 
 .hudRow{
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0,1fr));
-  gap: 8px;
+  display:flex;
+  gap:10px;
+  align-items:stretch;
+  justify-content:space-between;
 }
 
 .hudStat{
-  background: rgba(2,6,23,.52);
+  flex:1;
+  min-width: 72px;
+  background: rgba(15,23,42,.45);
   border: 1px solid rgba(148,163,184,.14);
-  border-radius: 14px;
-  padding: 8px 8px;
-  min-height: 44px;
+  border-radius: 16px;
+  padding:8px 10px;
 }
-
 .hudStat .k{
-  font-size: 11px;
-  font-weight: 1000;
+  font-size:10px;
+  font-weight:1100;
   color: rgba(148,163,184,.95);
-  letter-spacing: .2px;
+  letter-spacing:.2px;
 }
-
 .hudStat .v{
-  margin-top: 3px;
-  font-size: 16px;
-  font-weight: 1100;
-  line-height: 1.1;
+  margin-top:2px;
+  font-size:16px;
+  font-weight:1200;
 }
 
-.muted{ color: rgba(148,163,184,.95); font-weight: 900; }
+.plateChip{ border-color: rgba(34,197,94,.18); }
+.gradeChip.good{ border-color: rgba(34,197,94,.26); }
+.gradeChip.warn{ border-color: rgba(250,204,21,.28); }
+.gradeChip.bad{  border-color: rgba(239,68,68,.26); }
+.timeChip{ border-color: rgba(34,211,238,.22); }
 
-.plateChip{
-  border-color: rgba(34,197,94,.22);
-  background: rgba(34,197,94,.10);
-}
-.gradeChip{
-  border-color: rgba(250,204,21,.20);
-  background: rgba(250,204,21,.08);
-}
-.timeChip{
-  border-color: rgba(34,211,238,.18);
-  background: rgba(34,211,238,.06);
-}
+.muted{ color: rgba(148,163,184,.95); font-weight:900; }
 
+/* Row 2: fever + group counts */
 .hudRow2{
   display:flex;
   gap:10px;
+  margin-top:10px;
   align-items:center;
   justify-content:space-between;
-  margin-top: 8px;
-  flex-wrap: wrap;
 }
 
 .feverWrap{
   display:flex;
   gap:10px;
   align-items:center;
+  min-width: 220px;
 }
-
 .feverLabel{
-  font-size: 11px;
-  font-weight: 1100;
-  color: rgba(148,163,184,.95);
+  font-weight:1100;
+  font-size:11px;
+  color: rgba(148,163,184,.98);
 }
-
 .feverBar{
-  width: 160px;
-  height: 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.50);
+  flex:1;
+  height:12px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.50);
   overflow:hidden;
 }
-
 .feverFill{
-  height: 100%;
-  width: 0%;
+  height:100%;
+  width:0%;
+  border-radius:999px;
   background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(250,204,21,.95), rgba(239,68,68,.95));
-  transition: width .14s ease;
+  transition: width .12s linear;
 }
 
 .shieldPill{
   display:inline-flex;
   gap:8px;
   align-items:center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(15,23,42,.52);
-  border: 1px solid rgba(148,163,184,.16);
-  font-weight: 1100;
+  justify-content:center;
+  padding:7px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(15,23,42,.45);
+  font-weight:1100;
+  box-shadow: var(--shadow2);
+  white-space:nowrap;
 }
 
 .plateCounts{
   display:flex;
   gap:8px;
-  align-items:center;
-  flex-wrap: wrap;
+  flex-wrap:wrap;
+  justify-content:flex-end;
 }
-
 .pill{
   display:inline-flex;
   gap:8px;
   align-items:center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(2,6,23,.52);
-  border: 1px solid rgba(148,163,184,.14);
-  font-weight: 1100;
+  padding:7px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.42);
+  font-weight:1100;
+  white-space:nowrap;
 }
 
 /* ===== COACH ===== */
 #coachPanel{
-  position: fixed;
-  left: calc(10px + var(--sal));
-  bottom: calc(92px + var(--sab));
-  z-index: var(--hudZ);
+  position:fixed;
+  left:calc(10px + var(--sal));
+  bottom:calc(var(--btnBarH) + 14px + var(--sab));
+  z-index:55;
 
   display:flex;
   gap:10px;
   align-items:center;
 
-  background: rgba(2,6,23,.62);
-  border: 1px solid rgba(148,163,184,.18);
-  border-radius: 22px;
-  padding: 10px 12px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.40);
+  padding:10px 10px;
+  border:1px solid var(--stroke);
+  border-radius: var(--radius2);
+  background: rgba(2,6,23,.72);
+  box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
-  max-width: min(420px, calc(100vw - 20px - var(--sal) - var(--sar)));
+
+  max-width: min(360px, 92vw);
 }
 
 #coachImg{
-  width: 54px;
-  height: 54px;
-  border-radius: 18px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.55);
-  box-shadow: 0 16px 40px rgba(0,0,0,.32);
+  width:56px;
+  height:56px;
+  object-fit:contain;
+  border-radius:16px;
+  background: rgba(34,197,94,.10);
+  border:1px solid rgba(34,197,94,.22);
+  box-shadow: var(--shadow2);
 }
 
-.coachName{ font-weight:1100; font-size: 13px; }
-.coachMsg{ color: rgba(229,231,235,.95); font-weight: 900; font-size: 12px; line-height: 1.25; margin-top: 2px; }
+.coachText{ min-width:0; }
+.coachName{
+  font-weight:1200;
+  font-size:12px;
+  color: rgba(148,163,184,.95);
+}
+.coachMsg{
+  margin-top:2px;
+  font-weight:1100;
+  font-size:13px;
+  line-height:1.25;
+  color: rgba(229,231,235,.95);
+  max-width: 260px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 
-/* ===== QUEST PANEL (Goal/Mini) ===== */
+/* ===== QUEST PANEL ===== */
 #miniPanel{
-  position: fixed;
-  right: calc(10px + var(--sar));
-  bottom: calc(92px + var(--sab));
-  z-index: var(--hudZ);
+  position:fixed;
+  right:calc(10px + var(--sar));
+  top:calc(10px + var(--sat) + 110px);
+  z-index:54;
 
-  width: min(420px, calc(100vw - 20px - var(--sal) - var(--sar)));
-  display: grid;
-  gap: 10px;
+  width: min(420px, 92vw);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+
+  padding:10px 10px;
+  border:1px solid var(--stroke);
+  border-radius: var(--radius2);
+  background: rgba(2,6,23,.70);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
 }
 
 .questBlock{
-  background: rgba(2,6,23,.62);
-  border: 1px solid rgba(148,163,184,.18);
-  border-radius: 22px;
-  padding: 10px 12px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.36);
-  backdrop-filter: blur(10px);
+  background: rgba(15,23,42,.45);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius: 16px;
+  padding:10px;
 }
 
 .questHdr{
   display:flex;
   gap:10px;
   align-items:center;
-  justify-content:space-between;
-  flex-wrap: wrap;
 }
-
 .badge{
   display:inline-flex;
   align-items:center;
-  gap:8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 1100;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.50);
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:999px;
+  font-weight:1200;
+  font-size:11px;
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.52);
+  white-space:nowrap;
 }
+.badgeGoal{ border-color: rgba(34,197,94,.24); background: rgba(34,197,94,.10); }
+.badgeMini{ border-color: rgba(250,204,21,.24); background: rgba(250,204,21,.10); }
 
-.badgeGoal{
-  border-color: rgba(34,197,94,.24);
-  background: rgba(34,197,94,.10);
+.qTitle{
+  flex:1;
+  min-width:0;
+  font-weight:1200;
+  font-size:12px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
-.badgeMini{
-  border-color: rgba(250,204,21,.24);
-  background: rgba(250,204,21,.10);
+.qCount{
+  font-weight:1100;
+  font-size:12px;
+  color: rgba(148,163,184,.95);
+  white-space:nowrap;
 }
-
-.qTitle{ font-weight:1100; font-size: 12px; color: rgba(229,231,235,.95); }
-.qCount{ font-weight:1000; font-size: 12px; color: rgba(148,163,184,.95); }
 
 .bar{
-  margin-top: 8px;
-  height: 10px;
-  border-radius: 999px;
+  margin-top:8px;
+  height:12px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(2,6,23,.48);
   overflow:hidden;
-  border: 1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.50);
 }
 .barFill{
-  height: 100%;
-  width: 0%;
+  height:100%;
+  width:0%;
+  border-radius:999px;
   background: rgba(34,197,94,.95);
-  transition: width .14s ease;
+  transition: width .12s linear;
 }
 .barFill.mini{
   background: rgba(250,204,21,.95);
 }
 
 .hint{
-  margin-top: 8px;
-  font-size: 11px;
-  font-weight: 900;
+  margin-top:8px;
   color: rgba(148,163,184,.95);
-  line-height: 1.3;
+  font-weight:900;
+  font-size:11px;
+  line-height:1.25;
 }
 
-/* ===== Bottom buttons ===== */
+/* ===== BUTTON BAR ===== */
 #hudBtns{
-  position: fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  bottom: calc(10px + var(--sab));
-  z-index: var(--hudZ);
+  position:fixed;
+  left:calc(10px + var(--sal));
+  right:calc(10px + var(--sar));
+  bottom:calc(10px + var(--sab));
+  z-index:60;
 
   display:flex;
   gap:10px;
-  justify-content:center;
+  justify-content:flex-end;
   align-items:center;
 
-  background: rgba(2,6,23,.58);
-  border: 1px solid rgba(148,163,184,.16);
-  border-radius: 999px;
-  padding: 10px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.40);
+  padding:10px 10px;
+  border:1px solid var(--stroke);
+  border-radius: var(--radius2);
+  background: rgba(2,6,23,.70);
+  box-shadow: var(--shadow);
   backdrop-filter: blur(10px);
 }
-
 .btn{
-  appearance:none;
-  border: 1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.58);
-  color: rgba(229,231,235,.95);
-  border-radius: 14px;
-  padding: 10px 12px;
-  font-weight: 1100;
+  border:none;
+  outline:none;
   cursor:pointer;
   user-select:none;
   -webkit-tap-highlight-color: transparent;
+
+  padding:10px 12px;
+  border-radius: 16px;
+
+  background: rgba(34,197,94,.14);
+  border:1px solid rgba(34,197,94,.28);
+  color: rgba(229,231,235,.96);
+  font-weight:1200;
+  box-shadow: var(--shadow2);
 }
 .btn:active{ transform: translateY(1px); }
 
 .btn.ghost{
-  background: rgba(2,6,23,.48);
+  background: rgba(15,23,42,.45);
+  border:1px solid rgba(148,163,184,.18);
+}
+.btn.big{
+  padding:12px 14px;
+  border-radius: 18px;
+  font-size:14px;
 }
 
-/* ===== Paused overlay ===== */
+/* ===== PAUSED overlay ===== */
 #hudPaused{
-  position: fixed;
-  inset: 0;
-  z-index: var(--overlayZ);
+  position:fixed;
+  inset:0;
+  z-index:85;
   display:none;
   place-items:center;
   background: rgba(2,6,23,.55);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
 }
-
 .pausedCard{
-  width: min(460px, calc(100vw - 28px));
+  width:min(520px, 92vw);
+  padding:16px;
   border-radius: 22px;
-  border: 1px solid rgba(148,163,184,.20);
-  background: rgba(2,6,23,.82);
-  box-shadow: 0 22px 70px rgba(0,0,0,.45);
-  padding: 16px;
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.80);
+  box-shadow: var(--shadow);
 }
-.pausedTitle{ font-size: 16px; font-weight: 1100; }
-.pausedText{ margin-top: 8px; color: rgba(148,163,184,.95); font-weight: 900; }
+.pausedTitle{
+  font-weight:1300;
+  font-size:18px;
+}
+.pausedText{
+  margin-top:6px;
+  color: rgba(148,163,184,.95);
+  font-weight:900;
+}
 
-/* ===== Start overlay ===== */
+/* ===== START overlay ===== */
 #startOverlay{
-  position: fixed;
-  inset: 0;
-  z-index: var(--overlayZ);
+  position:fixed;
+  inset:0;
+  z-index:90;
   display:none;
   place-items:center;
-  background: radial-gradient(circle at top left, rgba(34,211,238,.10), transparent 55%),
-              radial-gradient(circle at bottom right, rgba(34,197,94,.10), transparent 60%),
-              rgba(2,6,23,.72);
-  backdrop-filter: blur(12px);
+  background:
+    radial-gradient(circle at top left, rgba(56,189,248,.14), transparent 60%),
+    radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 60%),
+    rgba(2,6,23,.55);
+  backdrop-filter: blur(8px);
 }
-
 .startCard{
-  width: min(520px, calc(100vw - 28px));
+  width:min(680px, 92vw);
+  padding:16px;
   border-radius: 24px;
-  border: 1px solid rgba(148,163,184,.20);
+  border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.86);
-  box-shadow: 0 22px 70px rgba(0,0,0,.52);
-  padding: 16px;
+  box-shadow: var(--shadow);
 }
-
-.startTitle{ font-size: 18px; font-weight: 1200; }
+.startTitle{
+  font-weight:1400;
+  font-size:22px;
+}
 .startSub{
-  margin-top: 8px;
-  color: rgba(148,163,184,.95);
-  font-weight: 900;
-  line-height: 1.35;
+  margin-top:6px;
+  font-weight:1000;
+  color: rgba(229,231,235,.92);
+  line-height:1.35;
 }
 .startMeta{
   display:flex;
   gap:10px;
-  align-items:center;
   flex-wrap:wrap;
-  margin-top: 10px;
+  margin-top:12px;
 }
 .metaPill{
-  display:inline-flex; gap:8px; align-items:center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.58);
-  font-weight: 1100;
+  padding:8px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(15,23,42,.50);
+  font-weight:1100;
 }
 .startBtns{
   display:flex;
   gap:10px;
-  align-items:center;
-  justify-content:center;
-  margin-top: 12px;
+  margin-top:14px;
   flex-wrap:wrap;
 }
-.btn.big{
-  padding: 12px 16px;
-  border-radius: 16px;
-}
 .startFoot{
-  margin-top: 10px;
+  margin-top:12px;
   color: rgba(148,163,184,.95);
-  font-weight: 900;
-  font-size: 12px;
+  font-weight:900;
+  font-size:12px;
 }
 
-/* ===== Result overlay ===== */
+/* ===== RESULT overlay ===== */
 #resultBackdrop{
-  position: fixed;
-  inset: 0;
-  z-index: var(--overlayZ);
+  position:fixed;
+  inset:0;
+  z-index:88;
   display:none;
   place-items:center;
-  background: rgba(2,6,23,.68);
-  backdrop-filter: blur(10px);
+  background: rgba(2,6,23,.58);
+  backdrop-filter: blur(8px);
 }
-
 .resultCard{
-  width: min(720px, calc(100vw - 28px));
+  width:min(760px, 94vw);
+  padding:16px;
   border-radius: 24px;
-  border: 1px solid rgba(148,163,184,.20);
+  border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.86);
-  box-shadow: 0 22px 70px rgba(0,0,0,.55);
-  padding: 16px;
+  box-shadow: var(--shadow);
 }
-
-.resultTitle{ font-size: 18px; font-weight: 1200; }
+.resultTitle{
+  font-weight:1400;
+  font-size:20px;
+}
 .resultGrid{
-  margin-top: 10px;
   display:grid;
   grid-template-columns: repeat(4, minmax(0,1fr));
   gap:10px;
+  margin-top:12px;
 }
 .resultItem{
-  background: rgba(15,23,42,.55);
-  border: 1px solid rgba(148,163,184,.14);
-  border-radius: 16px;
-  padding: 10px 12px;
-}
-.resultItem .k{ font-size: 11px; color: rgba(148,163,184,.95); font-weight: 1000; }
-.resultItem .v{ margin-top: 4px; font-size: 16px; font-weight: 1100; }
-
-.resultPlate{
-  margin-top: 10px;
+  padding:10px 10px;
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.14);
   background: rgba(15,23,42,.45);
-  border: 1px solid rgba(148,163,184,.14);
-  border-radius: 18px;
-  padding: 10px 12px;
+}
+.resultItem .k{
+  color: rgba(148,163,184,.95);
+  font-weight:1100;
+  font-size:10px;
+}
+.resultItem .v{
+  margin-top:2px;
+  font-weight:1300;
+  font-size:16px;
+}
+.resultPlate{
+  margin-top:12px;
+  padding:12px;
+  border-radius: 20px;
+  border:1px solid rgba(148,163,184,.14);
+  background: rgba(15,23,42,.40);
 }
 .plateRow{
   display:flex;
   gap:8px;
   flex-wrap:wrap;
-  align-items:center;
 }
 .totalRow{
-  margin-top: 8px;
-  font-weight: 1100;
-  color: rgba(229,231,235,.95);
+  margin-top:10px;
+  color: rgba(148,163,184,.95);
+  font-weight:1100;
 }
 .resultBtns{
   display:flex;
   gap:10px;
-  justify-content:center;
-  margin-top: 12px;
   flex-wrap:wrap;
+  justify-content:flex-end;
+  margin-top:14px;
 }
 
-/* ===== TARGET STYLE (important) ===== */
+/* ===== TARGETS ===== */
 .plateTarget{
-  pointer-events: auto;
-  /* กัน flash/flicker */
-  backface-visibility: hidden;
-  transform: translate3d(0,0,0);
-  will-change: transform, opacity;
-  outline: none;
+  pointer-events:auto;      /* ✅ layer เป็น none แต่ target ต้องคลิกได้ */
+  touch-action: manipulation;
 
-  /* pop-in animation */
-  animation: platePop .10s ease-out;
+  /* กัน “แว๊บ” ตอนสร้าง */
+  opacity:0;
+  transform: translateZ(0) scale(.88);
+  filter: saturate(1.02);
+
+  animation: platePopIn .12s ease-out forwards;
+  will-change: transform, opacity, filter;
+
+  /* ปุ่มวงกลม อ่านง่าย */
+  font-size:28px;
+  line-height:1;
+}
+@keyframes platePopIn{
+  from{ opacity:0; transform: translateZ(0) scale(.86); }
+  to  { opacity:1; transform: translateZ(0) scale(1); }
 }
 
-@keyframes platePop{
-  0%{ transform: translate3d(0,0,0) scale(.90); opacity:.0; }
-  100%{ transform: translate3d(0,0,0) scale(1); opacity:1; }
-}
-
-/* hover/active feel */
 .plateTarget:active{
-  transform: translate3d(0,0,0) scale(.98);
+  transform: translateZ(0) scale(.96);
+  filter: brightness(1.08);
 }
 
-/* ===== Responsive ===== */
-@media (max-width: 980px){
-  .hudRow{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-  .feverBar{ width: 140px; }
-  #miniPanel{ width: min(420px, calc(100vw - 20px - var(--sal) - var(--sar))); }
-}
-
+/* ===== Responsive tweaks ===== */
 @media (max-width: 720px){
-  #coachPanel{
-    left: calc(10px + var(--sal));
-    right: calc(10px + var(--sar));
-    bottom: calc(96px + var(--sab));
-    max-width: none;
+  #hudTop{
+    left:calc(8px + var(--sal));
+    right:calc(8px + var(--sar));
+    top:calc(8px + var(--sat));
+    padding:10px 8px;
   }
+  .hudRow{ gap:8px; }
+  .hudStat{ min-width: 60px; padding:8px 8px; }
+  .hudStat .v{ font-size:15px; }
+
   #miniPanel{
-    left: calc(10px + var(--sal));
-    right: calc(10px + var(--sar));
-    bottom: calc(170px + var(--sab));
-    width: auto;
+    right:calc(8px + var(--sar));
+    top:calc(8px + var(--sat) + 112px);
+    width: min(440px, 92vw);
   }
+
+  #coachPanel{
+    left:calc(8px + var(--sal));
+    bottom:calc(72px + var(--sab));
+    max-width: min(420px, 92vw);
+  }
+
+  #hudBtns{
+    left:calc(8px + var(--sal));
+    right:calc(8px + var(--sar));
+    bottom:calc(8px + var(--sab));
+    justify-content:space-between;
+  }
+}
+
+/* ===== VR / cVR modes =====
+- ลด panel ให้ไม่บังจอ
+- เพิ่มความ “นิ่ง” (ลด blur หนัก ๆ)
+*/
+body.view-vr #hudTop,
+body.view-cvr #hudTop,
+body.view-vr #miniPanel,
+body.view-cvr #miniPanel,
+body.view-vr #coachPanel,
+body.view-cvr #coachPanel,
+body.view-vr #hudBtns,
+body.view-cvr #hudBtns{
+  backdrop-filter: blur(6px);
+  background: rgba(2,6,23,.62);
+}
+
+/* cVR: เป้าไม่ควรรับ pointer โดยตรง (ยิงจาก crosshair) — เผื่ออนาคต hook */
+body.view-cvr .plateTarget{
+  pointer-events:none;
+}
+
+/* ===== Result grid on small ===== */
+@media (max-width: 820px){
   .resultGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
-
-/* ===== VR view helpers ===== */
-body.view-vr #hudTop,
-body.view-vr #miniPanel,
-body.view-vr #coachPanel,
-body.view-vr #hudBtns{
-  /* VR/Cardboard: ลดความสูงเพื่อไม่บังกลางจอ */
-  opacity: .96;
-}
-
-body.view-cvr #plate-layer{
-  /* โหมด crosshair strict: layer ยังอยู่ แต่เป้าต้องกดได้ */
-  pointer-events: none; /* ถ้าจะใช้ยิงกลางจอ ให้ปิดกด */
-}
-
-/* ถ้ามีปุ่ม enterVR ซ้อนกับ HUD ให้ยก z-index overlay/start สูงกว่า HUD อยู่แล้ว */
