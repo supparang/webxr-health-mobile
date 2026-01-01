@@ -3,7 +3,8 @@
 // ✅ Buttons: ENTER VR / EXIT / RECENTER
 // ✅ Crosshair (for view-vr / view-cvr)
 // ✅ Tap-to-shoot => dispatch CustomEvent('hha:shoot', {detail:{x,y,lockPx,source}})
-// ✅ Optional A-Frame controller trigger -> shoot
+// ✅ Emits: hha:enter_vr / hha:exit_vr / hha:recenter (for DOM-based games like GoodJunk)
+// ✅ Optional A-Frame scene enterVR/exitVR/recenter best-effort
 // ✅ Safe to include on every game page
 
 (function (root) {
@@ -18,12 +19,19 @@
     v = Number(v) || 0;
     return v < a ? a : (v > b ? b : v);
   };
-  const qs = (sel) => DOC.querySelector(sel);
+
+  function emit(type, detail){
+    try{ root.dispatchEvent(new CustomEvent(type, { detail })); }catch(e){}
+  }
 
   function emitShoot(detail){
-    try{
-      root.dispatchEvent(new CustomEvent('hha:shoot', { detail }));
-    }catch(e){}
+    emit('hha:shoot', detail);
+  }
+
+  function getLockPx(){
+    const cfg = root.HHA_VRUI_CONFIG || {};
+    const v = Number(cfg.lockPx ?? 26) || 26;
+    return clamp(v, 8, 240);
   }
 
   function ensureCss(){
@@ -102,11 +110,6 @@
       /* show crosshair on view-vr / view-cvr */
       body.view-vr .hha-crosshair,
       body.view-cvr .hha-crosshair{ opacity:.92; }
-
-      /* if you want targets non-clickable in view-cvr, do it in game css:
-         body.view-cvr .plateTarget{ pointer-events:none; }
-         vr-ui will still shoot via hha:shoot.
-      */
     `;
     DOC.head.appendChild(st);
   }
@@ -125,9 +128,9 @@
     const panel = DOC.createElement('div');
     panel.className = 'panel';
     panel.innerHTML = `
-      <button class="btn primary" data-act="enter">🕶 ENTER VR</button>
-      <button class="btn" data-act="exit">🚪 EXIT</button>
-      <button class="btn warn" data-act="recenter">🎯 RECENTER</button>
+      <button class="btn primary" data-act="enter" data-vrui="enter-vr">🕶 ENTER VR</button>
+      <button class="btn" data-act="exit" data-vrui="exit-vr">🚪 EXIT</button>
+      <button class="btn warn" data-act="recenter" data-vrui="recenter">🎯 RECENTER</button>
     `;
 
     wrap.appendChild(cross);
@@ -142,17 +145,27 @@
 
   function enterVR(){
     try{
+      // notify DOM-based games (GoodJunk/Hydration DOM/etc.)
+      emit('hha:enter_vr');
+
+      // if A-Frame scene exists, also enter WebXR
       const scene = getScene();
       if (scene && typeof scene.enterVR === 'function') scene.enterVR();
     }catch(e){}
   }
+
   function exitVR(){
     try{
+      emit('hha:exit_vr');
       const scene = getScene();
       if (scene && typeof scene.exitVR === 'function') scene.exitVR();
     }catch(e){}
   }
+
   function recenter(){
+    // notify games first
+    emit('hha:recenter');
+
     // best-effort across A-Frame versions
     try{
       const scene = getScene();
@@ -160,11 +173,9 @@
       if (cam && cam.components && cam.components['look-controls']){
         const lc = cam.components['look-controls'];
         if (typeof lc.resetOrientation === 'function') lc.resetOrientation();
-        // some versions keep yawObject/pitchObject
         if (lc.yawObject && lc.yawObject.rotation) lc.yawObject.rotation.y = 0;
         if (lc.pitchObject && lc.pitchObject.rotation) lc.pitchObject.rotation.x = 0;
       }
-      // fallback: zero rotation on rig/camera
       if (cam) cam.setAttribute('rotation', '0 0 0');
       const rig = DOC.querySelector('#rig');
       if (rig) rig.setAttribute('rotation', '0 0 0');
@@ -186,7 +197,6 @@
   }
 
   function bindTapToShoot(){
-    // Tap anywhere (except panel buttons) => shoot at center
     DOC.addEventListener('pointerdown', (e)=>{
       const uiBtn = e.target && e.target.closest('.hha-vrui .panel button');
       if (uiBtn) return;
@@ -194,28 +204,18 @@
       const W = root.innerWidth || 360;
       const H = root.innerHeight || 640;
 
-      // shoot from center crosshair
-      const x = W/2;
-      const y = H/2;
-
-      // aim assist: lockPx (tight default)
-      const lockPx = 26;
-
-      emitShoot({ x, y, lockPx, source:'tap' });
+      emitShoot({ x:W/2, y:H/2, lockPx:getLockPx(), source:'tap' });
     }, { passive:true });
 
-    // A-Frame controllers (triggerdown) -> shoot
-    // Works if controllers exist
-    root.addEventListener('loaded', ()=>{}, { passive:true });
+    // A-Frame controller triggerdown -> shoot (if present)
     DOC.addEventListener('triggerdown', ()=>{
       const W = root.innerWidth || 360;
       const H = root.innerHeight || 640;
-      emitShoot({ x:W/2, y:H/2, lockPx:26, source:'trigger' });
+      emitShoot({ x:W/2, y:H/2, lockPx:getLockPx(), source:'trigger' });
     }, { passive:true });
   }
 
   function syncButtonsVisibility(){
-    // If not on a-scene page, hide enter/exit/recenter to avoid confusion
     const wrap = DOC.querySelector('.hha-vrui');
     if(!wrap) return;
 
@@ -223,7 +223,9 @@
     const panel = wrap.querySelector('.panel');
     if(!panel) return;
 
-    panel.style.display = scene ? 'flex' : 'none';
+    // If no a-scene, still show buttons (DOM games use events).
+    // So: keep panel visible always.
+    panel.style.display = 'flex';
   }
 
   // ---------------- init ----------------
@@ -233,7 +235,6 @@
   bindTapToShoot();
   syncButtonsVisibility();
 
-  // update when layout changes
-  root.addEventListener('resize', ()=>{ /* noop */ }, { passive:true });
+  root.addEventListener('resize', ()=>{}, { passive:true });
 
 })(window);
