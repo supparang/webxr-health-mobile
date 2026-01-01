@@ -1,9 +1,7 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration VR — ROOT ENTRY (PRODUCTION v2)
-✅ ใช้ไฟล์แยกใน /hydration-vr/
-✅ โหลด global FX + logger + coach-manager
-✅ loader จัดการ view: PC/Mobile/Cardboard + fullscreen/orientation
-✅ NEW: Overlay มี “เลือกโหมดเล่น” (loader inject cards)
+Hydration VR — ROOT ENTRY (PRODUCTION v2: mode options)
+/show: PC / Mobile / Cardboard options
+/keeps: loader handles view + fullscreen + shoot + start
 -->
 
 <!doctype html>
@@ -15,25 +13,98 @@ Hydration VR — ROOT ENTRY (PRODUCTION v2)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" />
 
-  <!-- Global FX + logger (optional) -->
+  <!-- Global FX + logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Coach auto image (hydration-*) -->
+  <!-- Coach image binder -->
   <script src="./vr/coach-manager.js" defer></script>
 
   <!-- Hydration CSS -->
   <link rel="stylesheet" href="./hydration-vr/hydration-vr.css" />
+
+  <style>
+    /* tiny extras for the new option UI */
+    .optRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .optCard{
+      flex:1 1 150px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(15,23,42,.45);
+      padding: 12px;
+    }
+    .optCard .t{ font-weight:1000; }
+    .optCard .d{ color:var(--muted); font-weight:850; margin-top:6px; line-height:1.35; font-size:13px; }
+    .optActions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .optActions .hha-btn{ min-width prevent; }
+    .miniSettings{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .miniSettings label{
+      display:flex; flex-direction:column; gap:6px;
+      font-weight:900; color:var(--muted);
+      font-size:12px;
+    }
+    .miniSettings select, .miniSettings input{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-weight: 950;
+      outline:none;
+    }
+    .miniSettings .full{ grid-column: 1 / -1; }
+    .topMiniBtns{
+      position:fixed;
+      top: calc(var(--sat) + 10px);
+      right: calc(var(--sar) + 10px);
+      z-index: 210;
+      display:flex; gap:8px;
+    }
+    .ghostBtn{
+      pointer-events:auto;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(2,6,23,.55);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 1000;
+      cursor:pointer;
+      backdrop-filter: blur(10px);
+    }
+    .ghostBtn:active{ transform: translateY(1px); }
+    .settingsBox{
+      margin-top:12px;
+      border:1px dashed rgba(255,255,255,.18);
+      border-radius:18px;
+      padding:12px;
+      background: rgba(2,6,23,.45);
+      display:none;
+    }
+    .settingsBox.show{ display:block; }
+    .settingsHint{
+      margin-top:8px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:850;
+      line-height:1.4;
+    }
+    @media (max-width:520px){
+      .miniSettings{ grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 
 <body class="view-pc">
-
-  <!-- Rotate hint (loader will toggle hidden) -->
-  <div id="rotateHint" class="hha-rotateHint" hidden>
-    <div class="card">
-      <div class="big">กรุณาหมุนเครื่องเป็นแนวนอน (Landscape) 📱↔️</div>
-      <div class="small">โหมด VR Cardboard ต้องเล่นแนวนอนเพื่อแยก 2 ตา</div>
-    </div>
+  <!-- quick top buttons (works even before start) -->
+  <div class="topMiniBtns">
+    <button class="ghostBtn" id="btnGoHub">🏠 HUB</button>
+    <button class="ghostBtn" id="btnToggleSettings">⚙️</button>
   </div>
 
   <!-- Start Overlay -->
@@ -41,19 +112,74 @@ Hydration VR — ROOT ENTRY (PRODUCTION v2)
     <div class="hha-overlay-card">
       <div class="hha-title">Hydration VR 💧</div>
       <div class="hha-sub">
-        เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> (สะสมเวลา) และเก็บ 🛡️ ไว้ <b>BLOCK</b> ตอนท้ายพายุ
+        เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> และเก็บ 🛡️ ไว้ <b>BLOCK</b> ตอนท้ายพายุ
+        <div class="settingsHint">Tip: ถ้าเล่นบนมือถือ แนะนำ “Mobile / Tap-to-shoot” • ถ้าใช้ Cardboard ให้หมุนแนวนอน</div>
       </div>
 
-      <!-- NOTE: loader จะ inject “การ์ดเลือกโหมด” เข้าใต้ข้อความนี้อัตโนมัติ -->
+      <!-- Mode options -->
+      <div class="optRow">
+        <div class="optCard">
+          <div class="t">🖥 PC</div>
+          <div class="d">คลิกยิงเป้า • เหมาะทดสอบ/สาธิต</div>
+          <div class="optActions">
+            <button class="hha-btn primary" id="btnStartPC">▶ เล่นบน PC</button>
+          </div>
+        </div>
 
-      <div class="hha-overlay-actions">
-        <button id="btnStart" class="hha-btn primary">▶ เริ่มเล่น</button>
-        <button id="btnEnterVR" class="hha-btn">📦 VR Cardboard</button>
+        <div class="optCard">
+          <div class="t">📱 Mobile</div>
+          <div class="d">แตะจอเพื่อยิง + ปุ่ม SHOOT • เหมาะมือถือ/แท็บเล็ต</div>
+          <div class="optActions">
+            <button class="hha-btn primary" id="btnStartMobile">▶ เล่นบน Mobile</button>
+          </div>
+        </div>
+
+        <div class="optCard">
+          <div class="t">📦 VR Cardboard</div>
+          <div class="d">เล็งกลางจอ (reticle) แล้วกด SHOOT • fullscreen + ล็อกแนวนอน</div>
+          <div class="optActions">
+            <button class="hha-btn" id="btnEnterVR">🎮 เข้า Cardboard</button>
+          </div>
+        </div>
       </div>
 
-      <div class="hha-hint">
-        * ถ้าเล่น VR Cardboard แนะนำ “หมุนจอแนวนอน” และกดอนุญาต Fullscreen/Orientation
+      <!-- Settings -->
+      <div id="settingsBox" class="settingsBox">
+        <div class="miniSettings">
+          <label>
+            Difficulty
+            <select id="setDiff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </label>
+
+          <label>
+            Time (sec)
+            <input id="setTime" type="number" min="20" max="600" value="70" />
+          </label>
+
+          <label class="full">
+            Run Mode
+            <select id="setRun">
+              <option value="play" selected>play</option>
+              <option value="research">research</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="settingsHint">
+          ✅ ระบบจะปรับ URL แล้วรีโหลดทันที • โหมด research จะปิด adaptive (ตามมาตรฐานวิจัย)
+        </div>
       </div>
+
+      <div class="hha-overlay-actions" style="margin-top:14px;">
+        <button id="btnStart" class="hha-btn primary">▶ เริ่มเล่น (ตามโหมดที่เลือก)</button>
+        <button id="btnStartDefault" class="hha-btn">⚡ Auto (ตามเครื่อง)</button>
+      </div>
+
+      <div class="hha-hint">* ถ้าจอดำ/ไม่เริ่ม: กด “เริ่มเล่น” อีกครั้ง (ต้องมี user gesture สำหรับเสียง/เต็มจอ)</div>
     </div>
   </div>
 
@@ -70,16 +196,14 @@ Hydration VR — ROOT ENTRY (PRODUCTION v2)
 
   <!-- MAIN -->
   <main class="hha-main">
-
     <!-- NORMAL PLAYFIELD -->
-    <section id="playfield" class="hha-playfield" aria-label="playfield">
+    <section id="playfield" class="hha-playfield">
       <div id="hydration-layer" class="hha-layer"></div>
-      <!-- optional crosshair for non-cardboard view -->
       <div class="hha-crosshair" aria-hidden="true"></div>
     </section>
 
     <!-- CARDBOARD PLAYFIELD -->
-    <section id="cbPlayfield" class="hha-playfield cb" aria-label="cardboard" style="display:none">
+    <section id="cbPlayfield" class="hha-playfield cb">
       <div class="cb-eyes">
         <div class="eye">
           <div id="hydration-layerL" class="hha-layer"></div>
@@ -101,7 +225,7 @@ Hydration VR — ROOT ENTRY (PRODUCTION v2)
           <div>Zone <b id="water-zone">GREEN</b></div>
           <div><b id="water-pct">50</b>%</div>
         </div>
-        <div class="muted">Goal: GREEN (สะสม) • Mini: LOW/HIGH + BLOCK (ท้ายพายุ)</div>
+        <div class="muted">Goal: GREEN (สะสม) • Mini: LOW/HIGH + BLOCK</div>
       </div>
 
       <div class="hha-card">
@@ -181,7 +305,118 @@ Hydration VR — ROOT ENTRY (PRODUCTION v2)
     </div>
   </div>
 
-  <!-- LOADER (imports hydration.safe.js internally) -->
+  <!-- LOADER -->
   <script type="module" src="./hydration-vr/hydration-vr.loader.js"></script>
+
+  <!-- Small overlay logic for options (pure inline, safe) -->
+  <script>
+    (function(){
+      const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(e){ return d; } };
+      const overlay = document.getElementById('startOverlay');
+
+      const btnGoHub = document.getElementById('btnGoHub');
+      const btnToggleSettings = document.getElementById('btnToggleSettings');
+      const settingsBox = document.getElementById('settingsBox');
+
+      const setDiff = document.getElementById('setDiff');
+      const setTime = document.getElementById('setTime');
+      const setRun  = document.getElementById('setRun');
+
+      const btnStart = document.getElementById('btnStart');
+      const btnStartDefault = document.getElementById('btnStartDefault');
+      const btnStartPC = document.getElementById('btnStartPC');
+      const btnStartMobile = document.getElementById('btnStartMobile');
+      const btnEnterVR = document.getElementById('btnEnterVR');
+
+      // init controls from URL
+      const diff = (qs('diff','normal')||'normal').toLowerCase();
+      const time = parseInt(qs('time','70'),10) || 70;
+      const run  = (qs('run', qs('runMode','play'))||'play').toLowerCase();
+
+      if (setDiff) setDiff.value = (diff==='easy'||diff==='hard'||diff==='normal') ? diff : 'normal';
+      if (setTime) setTime.value = String(Math.max(20, Math.min(600, time)));
+      if (setRun)  setRun.value  = (run==='research') ? 'research' : 'play';
+
+      function hideOverlay(){
+        try{ overlay.classList.add('hide'); overlay.style.display='none'; }catch(e){}
+      }
+
+      function setUrlParams(obj){
+        const u = new URL(location.href);
+        Object.keys(obj).forEach(k=>{
+          if (obj[k] === null || obj[k] === undefined) return;
+          u.searchParams.set(k, String(obj[k]));
+        });
+        return u;
+      }
+
+      function applySettingsAndReload(extra={}){
+        const u = setUrlParams({
+          diff: (setDiff && setDiff.value) || diff,
+          time: (setTime && setTime.value) || time,
+          run:  (setRun && setRun.value) || run,
+          ...extra
+        });
+        // keep hub param
+        const hub = qs('hub', null);
+        if (hub) u.searchParams.set('hub', hub);
+        // refresh ts for deterministic sessions (optional)
+        u.searchParams.set('ts', String(Date.now()));
+        location.href = u.toString();
+      }
+
+      btnToggleSettings?.addEventListener('click', ()=>{
+        settingsBox?.classList.toggle('show');
+      });
+
+      // update instantly when changed (nice UX)
+      setDiff?.addEventListener('change', ()=>applySettingsAndReload({}));
+      setTime?.addEventListener('change', ()=>applySettingsAndReload({}));
+      setRun?.addEventListener('change', ()=>applySettingsAndReload({}));
+
+      btnGoHub?.addEventListener('click', ()=>{
+        const hub = qs('hub','./hub.html');
+        location.href = hub;
+      });
+
+      // Mode buttons:
+      btnStartPC?.addEventListener('click', ()=>{
+        document.body.classList.remove('view-mobile','view-cvr');
+        document.body.classList.add('view-pc');
+        hideOverlay();
+        window.dispatchEvent(new CustomEvent('hha:start'));
+      });
+
+      btnStartMobile?.addEventListener('click', ()=>{
+        document.body.classList.remove('view-pc','view-cvr');
+        document.body.classList.add('view-mobile');
+        hideOverlay();
+        window.dispatchEvent(new CustomEvent('hha:start'));
+      });
+
+      // Enter VR button is handled by loader (it binds #btnEnterVR).
+      // Our overlay also provides a fallback: if loader didn't bind yet, still start.
+      btnEnterVR?.addEventListener('click', ()=>{
+        // if loader hasn't bound, at least hide overlay; loader will flip to cvr.
+        setTimeout(()=>{
+          hideOverlay();
+          window.dispatchEvent(new CustomEvent('hha:start'));
+        }, 200);
+      });
+
+      // Start (whatever loader decided for view)
+      btnStart?.addEventListener('click', ()=>{
+        hideOverlay();
+        window.dispatchEvent(new CustomEvent('hha:start'));
+      });
+
+      // Auto by device (just hide + start; loader already picked view on boot)
+      btnStartDefault?.addEventListener('click', ()=>{
+        hideOverlay();
+        window.dispatchEvent(new CustomEvent('hha:start'));
+      });
+
+    })();
+  </script>
 </body>
 </html>
