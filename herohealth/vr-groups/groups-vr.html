@@ -1,3 +1,10 @@
+<!-- === /herohealth/vr-groups/groups.html ===
+GroupsVR Run (PC/Mobile/Cardboard)
+✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
+✅ Practice 15s (cVR) then auto start real run
+✅ Flush-hardened logging (?log=...)
+✅ Research ctx passthrough
+-->
 <!doctype html>
 <html lang="th">
 <head>
@@ -7,25 +14,23 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- Shared CSS -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- A-Frame (minimal scene to enable WebXR Enter VR reliably) -->
+  <!-- A-Frame: minimal scene for WebXR Enter VR reliability -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
-  <script>
-    // vr-ui.js: aim-assist lock radius (px) for hha:shoot
-    window.HHA_VRUI_CONFIG = { lockPx: 92 };
-  </script>
+  <script>window.HHA_VRUI_CONFIG = { lockPx: 92 };</script>
   <script src="../vr/vr-ui.js" defer></script>
 
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>
-  <script src="./calibration.js" defer></script>
   <script src="./groups-quests.js" defer></script>
+  <script src="./ai-hooks.js" defer></script>         <!-- (27) AI hooks (disabled by default) -->
+  <script src="./research-ctx.js" defer></script>     <!-- (22) -->
+  <script src="./flush-log.js" defer></script>        <!-- (23) -->
+  <script src="./view-helper.js" defer></script>      <!-- (27) helper -->
   <script src="./GameEngine.js" defer></script>
 </head>
 
@@ -33,9 +38,7 @@
 
   <!-- XR Scene (behind DOM) -->
   <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
-    <a-entity position="0 1.6 0">
-      <a-camera></a-camera>
-    </a-entity>
+    <a-entity position="0 1.6 0"><a-camera></a-camera></a-entity>
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
@@ -50,7 +53,7 @@
     <div class="hudRight">
       <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
       <div class="pill"><span class="lbl">🎯 ACC</span><span id="vAcc" class="val">0%</span></div>
-      <div class="pill"><span class="lbl">🎮 PHASE</span><span id="vPhase" class="val">MAIN</span></div>
+      <div class="pill"><span class="lbl">🧪 MODE</span><span id="vMode" class="val">PLAY</span></div>
     </div>
   </div>
 
@@ -90,33 +93,13 @@
       <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
       <div class="coachBubble">
         <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">แตะ “เริ่มเล่น” เพื่อปลดล็อกเสียง/การยิง…</div>
+        <div id="coachText" class="coachText">กำลังเริ่มเกม…</div>
       </div>
     </div>
   </div>
 
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
-
-  <!-- Start overlay -->
-  <div id="startOverlay" class="overlay">
-    <div class="panel">
-      <div class="title">🎮 พร้อมลุย GroupsVR</div>
-      <div class="sub">
-        PC: คลิกเป้า • Mobile: แตะเป้า • Cardboard(cVR): แตะจอเพื่อยิงจาก crosshair<br/>
-        ปุ่ม <b>ENTER VR/RECENTER/EXIT</b> จะมาจาก <b>vr-ui.js</b>
-      </div>
-      <div class="hr"></div>
-      <div class="row">
-        <button id="btnStartNow" class="btn btn-strong" type="button">▶️ เริ่มเล่น</button>
-        <button id="btnFS" class="btn" type="button">📱 Fullscreen</button>
-        <button id="btnRecenter" class="btn btn-ghost" type="button">🎯 Recenter</button>
-      </div>
-      <div class="note" style="margin-top:10px;">
-        Cardboard: ถ้าเอียง/หลุดศูนย์ ให้กด Recenter ได้ตลอด
-      </div>
-    </div>
-  </div>
 
   <!-- End overlay -->
   <div id="endOverlay" class="overlay overlay-end hidden">
@@ -141,7 +124,7 @@
       </div>
 
       <div class="note" style="margin-top:10px;">
-        Cardboard: แตะจอเพื่อยิงจาก crosshair (view=cvr) • Enter VR อยู่ใน UI ของ vr-ui.js
+        Cardboard (cVR): แตะจอเพื่อยิงจาก crosshair • ปุ่ม ENTER VR/RECENTER อยู่ UI ของ vr-ui.js
       </div>
     </div>
   </div>
@@ -158,28 +141,10 @@
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  function emit(name, detail){
-    try{ window.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch{}
-  }
-
   function setView(view){
-    view = String(view||'mobile').toLowerCase();
-    if (view === 'vr') view = 'cvr'; // map
-    if (view !== 'pc' && view !== 'mobile' && view !== 'cvr') view = 'mobile';
-
     const b = DOC.body;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     b.classList.add('view-'+view);
-  }
-
-  async function enterFs(){
-    try{
-      const el = DOC.documentElement;
-      if (DOC.fullscreenElement) return true;
-      if (el.requestFullscreen) await el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-      return !!DOC.fullscreenElement;
-    }catch{ return false; }
   }
 
   async function copyText(text){
@@ -207,7 +172,7 @@
 
   window.addEventListener('hha:time', (ev)=>{
     const d = ev.detail||{};
-    $('vTime').textContent = String(d.left ?? 0);
+    $('vTime').textContent = String(Math.max(0, Math.round(d.left ?? 0)));
   }, {passive:true});
 
   window.addEventListener('hha:rank', (ev)=>{
@@ -265,25 +230,7 @@
     DOC.body.classList.toggle('mini-urgent', urgent);
   }, {passive:true});
 
-  // phase indicator (practice/main)
-  window.addEventListener('groups:phase', (ev)=>{
-    const d = ev.detail||{};
-    const ph = String(d.phase||'main').toLowerCase();
-    const left = Number(d.left||0);
-
-    if (ph === 'practice'){
-      $('vPhase').textContent = `PRACTICE ${Math.max(0, left|0)}s`;
-      DOC.body.classList.add('phase-practice');
-    }else if (ph === 'switch'){
-      $('vPhase').textContent = 'START!';
-      DOC.body.classList.remove('phase-practice');
-    }else{
-      $('vPhase').textContent = 'MAIN';
-      DOC.body.classList.remove('phase-practice');
-    }
-  }, {passive:true});
-
-  // ---------- Audio + urgent tick ----------
+  // ---------- Audio hooks ----------
   function hookAudio(){
     const A = window.GroupsVR && window.GroupsVR.Audio;
     if (!A) return;
@@ -317,7 +264,7 @@
     tickLoop();
   }
 
-  // ---------- End / Summary ----------
+  // ---------- Summary / History / Logger ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
@@ -333,24 +280,59 @@
     }catch{}
   }
 
-  window.addEventListener('hha:end', (ev)=>{
-    const d = ev.detail||{};
-    const endIso = new Date().toISOString();
+  // practice flow
+  let practiceActive = false;
+  let practiceDone = false;
 
-    lastSummary = Object.assign({
+  function buildBaseSummary(d, endIso){
+    const ctx = (window.GroupsVR && window.GroupsVR.getResearchCtx) ? window.GroupsVR.getResearchCtx() : {};
+    return Object.assign({
       timestampIso: endIso,
       projectTag: 'HeroHealth',
       gameTag: 'GroupsVR',
       runMode: String(qs('run','play')||'play'),
       diff: String(qs('diff','normal')||'normal'),
       style: String(qs('style','mix')||'mix'),
+      view: String(qs('view','mobile')||'mobile'),
       durationPlannedSec: Number(qs('time',90)||90),
       startTimeIso: startIso,
       endTimeIso: endIso,
       seed: String(qs('seed','')||'')
-    }, d);
+    }, ctx, d||{});
+  }
 
+  function postNow(summary){
+    try{
+      const P = window.GroupsVR && window.GroupsVR.postSummary;
+      P && P(summary);
+    }catch(_){}
+  }
+
+  // flush on leave
+  try{
+    const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
+    B && B(()=>lastSummary);
+  }catch(_){}
+
+  window.addEventListener('hha:end', (ev)=>{
+    const d = ev.detail||{};
+    const endIso = new Date().toISOString();
+
+    // practice: don't show end overlay, don't save history
+    if (practiceActive && !practiceDone){
+      practiceDone = true;
+      practiceActive = false;
+      // start real run quickly
+      const E = window.GroupsVR && window.GroupsVR.GameEngine;
+      if (E && typeof E.start === 'function'){
+        setTimeout(()=> startReal(E), 180);
+      }
+      return;
+    }
+
+    lastSummary = buildBaseSummary(d, endIso);
     saveLast(lastSummary);
+    postNow(lastSummary);
 
     $('endOverlay').classList.remove('hidden');
     $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
@@ -375,11 +357,19 @@
     const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
     if (hub) u.searchParams.set('hub', hub);
-    // passthrough research ctx
-    ['study','phase','cg','order','site','school','student'].forEach(k=>{
-      const v = qs(k,'');
-      if (v) u.searchParams.set(k, v);
+
+    // carry log param too
+    const log = String(qs('log','')||'');
+    if (log) u.searchParams.set('log', log);
+
+    // carry research ctx too (passthrough)
+    const sp = new URL(location.href).searchParams;
+    sp.forEach((v,k)=>{
+      if (['view','run','diff','style','time','seed','practice'].includes(k)) return;
+      if (k==='hub' || k==='log') return;
+      u.searchParams.set(k,v);
     });
+
     location.href = u.toString();
   });
 
@@ -400,19 +390,50 @@
     }, 60);
   }
 
-  // fallback: if view=cvr and user taps screen, shoot center (in case vr-ui missed)
-  function bindCVRFallbackShoot(lockPx){
-    let lastAt = 0;
-    DOC.addEventListener('pointerdown', (e)=>{
-      if (!DOC.body.classList.contains('view-cvr')) return;
-      const t = Date.now();
-      if (t - lastAt < 90) return;
-      lastAt = t;
+  function startPractice(E, cfg){
+    practiceActive = true;
+    practiceDone = false;
 
-      const x = (window.innerWidth||360) * 0.5;
-      const y = (window.innerHeight||640) * 0.5;
-      emit('hha:shoot', { x, y, lockPx: lockPx || 92 });
-    }, {passive:true});
+    // mark HUD
+    $('vMode').textContent = 'PRACTICE';
+
+    const seedP = String(cfg.seed) + '-practice';
+    startIso = new Date().toISOString();
+    E.setLayerEl($('playLayer'));
+    E.start(cfg.diff, { runMode:'play', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
+
+    // helper: try fullscreen/orientation for cVR
+    try{
+      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
+      H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
+    }catch(_){}
+  }
+
+  function startReal(E){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
+    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const style= String(qs('style','mix')||'mix').toLowerCase();
+    const time = clamp(qs('time',90), 30, 180);
+    const seed = String(qs('seed', Date.now()) || Date.now());
+
+    $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
+
+    startIso = new Date().toISOString();
+    E.setLayerEl($('playLayer'));
+    E.start(diff, { runMode: run, diff, style, time, seed });
+
+    // AI hooks (default disabled; research disabled always)
+    try{
+      const AI = window.GroupsVR && window.GroupsVR.AIHooks;
+      AI && AI.attach && AI.attach({ runMode: run, seed });
+    }catch(_){}
+
+    // helper: cVR strict fallback shooter + fullscreen/orientation
+    try{
+      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
+      H && H.init && H.init({ view });
+    }catch(_){}
   }
 
   function startFromParams(){
@@ -425,42 +446,24 @@
 
     setView(view);
     hookAudio();
-    bindCVRFallbackShoot(92);
 
-    // AI Hooks: ปิดไว้ก่อน (ตามที่บอก) / research บังคับ off อยู่แล้ว
-    try{
-      const AI = window.GroupsVR && window.GroupsVR.AIHooks;
-      AI && AI.init && AI.init({ enabled:false, runMode: run, seed, diff, style });
-    }catch{}
+    // default practice for cVR if param exists
+    const practiceSec = clamp(qs('practice', 0), 0, 30);
 
     waitForEngine((E)=>{
-      E.setLayerEl($('playLayer'));
-      startIso = new Date().toISOString();
-
-      // PRACTICE: เฉพาะ cVR + play (15s)
-      const practiceSec = (view==='cvr' && run==='play') ? 15 : 0;
-
-      E.start(diff, { runMode: run, diff, style, time, seed, practiceSec });
+      // cVR strict (extra hard) -> disable click on targets already by CSS
+      if (view === 'cvr'){
+        // if practice enabled
+        if (practiceSec > 0){
+          startPractice(E, { diff, style, seed, practiceSec });
+          return;
+        }
+      }
+      startReal(E);
     });
   }
 
-  // start overlay controls
-  $('btnStartNow').addEventListener('click', ()=>{
-    $('startOverlay').classList.add('hidden');
-    startFromParams();
-  });
-
-  $('btnFS').addEventListener('click', async ()=>{
-    await enterFs();
-  });
-
-  $('btnRecenter').addEventListener('click', ()=>{
-    emit('hha:vr', { state:'reset' });
-    try{
-      const A = window.GroupsVR && window.GroupsVR.Audio;
-      A && A.unlock && A.unlock();
-    }catch{}
-  });
+  startFromParams();
 
 })();
 </script>
