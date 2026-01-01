@@ -1,10 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v4 (VR tick + fair spawn when HUD hidden)
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v4 (VR TICK EVENT)
 // ✅ endPolicy: time | all | miss
 // ✅ challenge: rush | survive | boss
-// ✅ Quest Peek (missions visible even when HUD is hidden in VR)
-// ✅ FX: fever vignette + hit shake + low-time class
-// ✅ NEW: hha:vr_tick (sec 10..1) for VR low-time warning (non-nausea)
+// ✅ Quest Peek (for VR when HUD hidden)
+// ✅ FX: fever vignette + lowtime class
+// ✅ NEW: emits hha:vr_tick (sec 10..1) for VR toast (non-nausea)
+// ✅ NEW: low-time warning (rate-limited, no screen shake)
 
 'use strict';
 
@@ -148,16 +149,7 @@ function ensureTargetStyles(){
       transition: transform 140ms ease, opacity 140ms ease;
     }
 
-    @keyframes gjShake {
-      0%{ transform: translate3d(0,0,0); }
-      20%{ transform: translate3d(-2px,1px,0); }
-      40%{ transform: translate3d(2px,-1px,0); }
-      60%{ transform: translate3d(-1px,-2px,0); }
-      80%{ transform: translate3d(2px,1px,0); }
-      100%{ transform: translate3d(0,0,0); }
-    }
-    body.gj-shake{ animation: gjShake 160ms linear 1; }
-
+    /* FX overlay */
     .gj-fx-vignette{
       position:fixed; inset:0;
       pointer-events:none;
@@ -189,25 +181,15 @@ function ensureVignette(){
   return el;
 }
 
-function pulseBody(cls, ms=160){
-  const DOC = ROOT.document;
-  if (!DOC) return;
-  DOC.body.classList.add(cls);
-  setTimeout(()=>{ try{ DOC.body.classList.remove(cls); }catch(_){ } }, ms);
-}
-
 /* -------------------- Spawn placement -------------------- */
 function buildAvoidRects(){
   const DOC = ROOT.document;
   const rects = [];
   if (!DOC) return rects;
 
-  const hudHidden = DOC.body.classList.contains('hud-hidden');
-
-  // ✅ ถ้า HUD ซ่อน (VR/cVR) จะไม่กันพื้นที่ HUD ใหญ่ ๆ เพื่อให้เป้าเกิดกว้างขึ้น
   const els = [
-    (!hudHidden ? DOC.querySelector('.hud-top') : null),
-    (!hudHidden ? DOC.querySelector('.hud-mid') : null),
+    DOC.querySelector('.hud-top'),
+    DOC.querySelector('.hud-mid'),
     DOC.querySelector('.hha-controls'),
     DOC.getElementById('hhaFever')
   ].filter(Boolean);
@@ -351,7 +333,6 @@ async function flushAll(summary, reason){
 function applyChallengePreset(S, base){
   const ch = String(S.challenge || 'rush').toLowerCase();
 
-  // defaults
   S.goalsTotal = 2;
   S.miniTotal  = 7;
   S.bossTotal  = 0;
@@ -450,7 +431,6 @@ export function boot(opts = {}) {
   const seed = String(seedIn || (sessionId ? (sessionId + '|' + ts) : ts));
 
   const ctx = opts.context || {};
-
   const base = diffBase(diff);
 
   const S = {
@@ -458,8 +438,10 @@ export function boot(opts = {}) {
     diff, runMode, timeSec, seed, rng: makeRng(seed),
     endPolicy, challenge,
     tStart:0, left: timeSec,
+
     score:0, combo:0, comboMax:0,
     misses:0, missLimit:0,
+
     hitAll:0, hitGood:0, hitJunk:0, hitJunkGuard:0, expireGood:0,
     fever:0, shield:0,
 
@@ -482,9 +464,9 @@ export function boot(opts = {}) {
     bossJunk:0,
     bossEndAt:0,
 
-    // ✅ VR tick rate-limit
-    lastVrTickSec: 999,
-    lastWarnSec: 999,
+    // NEW: vr tick (10..1) rate limit
+    lastTickSec: null,
+    lastWarnSec: null,
 
     uidSeq: 1
   };
@@ -497,18 +479,13 @@ export function boot(opts = {}) {
     safeMargins.right = Math.max(12, safeMargins.right);
   }
 
-  // apply challenge preset tuning
   applyChallengePreset(S, base);
 
-  // allow miss limit override via URL (?miss=6)
   if (missLimitParam > 0) S.missLimit = clamp(missLimitParam, 3, 20);
-
-  // if endPolicy=miss and no missLimit, set sane default
   if (endPolicy === 'miss' && S.missLimit <= 0){
     S.missLimit = (diff === 'hard') ? 6 : (diff === 'easy' ? 8 : 7);
   }
 
-  // boss requirement
   if (S.challenge === 'boss'){
     S.bossNeed =
       (diff === 'easy') ? 6 :
@@ -553,12 +530,8 @@ export function boot(opts = {}) {
     emit('hha:time', { left: Math.max(0, S.left|0) });
   }
 
-  function getGoalNeed(){
-    return 10 + (S.goalsCleared * 8);
-  }
-  function getMiniNeed(){
-    return 4 + (S.miniCleared * 2);
-  }
+  function getGoalNeed(){ return 10 + (S.goalsCleared * 8); }
+  function getMiniNeed(){ return 4 + (S.miniCleared * 2); }
 
   function updateQuest(miniLeftMs = 0){
     const goalNeed = getGoalNeed();
@@ -632,6 +605,7 @@ export function boot(opts = {}) {
     if (!el || !el.isConnected) return;
     const tp = String(el.dataset.type||'');
     if (tp === 'good'){
+      // MISS definition: expire good counts as miss
       S.misses++; S.expireGood++; S.combo = 0;
 
       S.fever = clamp(S.fever + 7, 0, 100);
@@ -799,9 +773,11 @@ export function boot(opts = {}) {
 
   function hitJunk(el){
     S.hitAll++;
+
     if (S.bossActive) S.bossJunk++;
 
     if (S.shield > 0){
+      // shield block does NOT count as miss
       S.shield = Math.max(0, S.shield - 1);
       S.hitJunkGuard++;
       updateFever(S.shield, S.fever);
@@ -815,6 +791,7 @@ export function boot(opts = {}) {
       return;
     }
 
+    // junk hit counts as miss
     S.hitJunk++; S.misses++; S.combo = 0;
 
     const penalty = 170;
@@ -826,7 +803,6 @@ export function boot(opts = {}) {
     judge('bad', `JUNK! -${penalty}`);
     coach('sad', 'โดนขยะแล้ว 😵', 'เล็งดี ๆ แล้วกดยิงกลาง');
     burstAtEl(el, 'junk');
-    pulseBody('gj-shake', 180);
 
     logEvent('hit', { kind:'junk', emoji:String(el.dataset.emoji||''), score:S.score|0, fever:Math.round(S.fever) });
 
@@ -874,7 +850,6 @@ export function boot(opts = {}) {
     emit('hha:celebrate', { kind:'mini', title:'BOSS TIME 😈' });
     coach('neutral', 'BOSS TIME! ห้ามโดนขยะ', `เก็บของดีให้ได้ ≥ ${S.bossNeed} ภายใน ~8 วิ`);
     judge('warn', 'BOSS!');
-    pulseBody('gj-shake', 160);
 
     S._preBoss = { spawnMs:S.spawnMs, ttlMs:S.ttlMs, junkP:S.junkP, powerP:S.powerP, maxTargets:S.maxTargets, size:S.size };
     S.spawnMs = clamp(S.spawnMs - 220, 360, 1200);
@@ -922,7 +897,6 @@ export function boot(opts = {}) {
       emit('hha:celebrate', { kind:'mini', title:'BOSS FAIL 💥' });
       coach('sad', 'BOSS ยังไม่ผ่าน 😵', `ต้องได้ดี ≥ ${S.bossNeed} และห้ามโดนขยะ`);
       judge('bad', 'BOSS FAIL -220');
-      pulseBody('gj-shake', 200);
 
       updateScore(); updateQuest();
     }
@@ -988,25 +962,30 @@ export function boot(opts = {}) {
     S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 320, 1400));
   }
 
-  /* -------------------- Adaptive tick + end policies + VR tick -------------------- */
+  /* -------------------- VR low-time tick helper (NEW) -------------------- */
   function maybeEmitVrTick(){
-    // ส่งเฉพาะตอนเหลือ 10..1 และ “เปลี่ยนวินาที” เท่านั้น
-    const sec = Math.max(0, Math.ceil(S.left));
-    if (sec <= 10 && sec >= 1 && sec !== S.lastVrTickSec){
-      S.lastVrTickSec = sec;
-      emit('hha:vr_tick', { sec, left: S.left, boss: !!S.bossActive, endPolicy: S.endPolicy, challenge: S.challenge });
+    const sec = Math.ceil(S.left); // 10..1
+    if (sec > 10 || sec < 1) return;
+
+    if (S.lastTickSec !== sec){
+      S.lastTickSec = sec;
+      emit('hha:vr_tick', { sec });
     }
 
-    // optional judge/coach แบบไม่สแปม (เฉพาะ 10,5,3,1)
-    if ((sec === 10 || sec === 5 || sec === 3 || sec === 1) && sec !== S.lastWarnSec){
+    // rate-limited warning (no nausea, no shake)
+    const important = (sec === 10 || sec === 5 || sec === 3 || sec === 2 || sec === 1);
+    if (important && S.lastWarnSec !== sec){
       S.lastWarnSec = sec;
-      if (sec === 10) judge('warn', 'เหลือ 10 วิ!');
-      if (sec === 5)  judge('warn', 'เหลือ 5 วิ!');
-      if (sec === 3)  judge('warn', 'เหลือ 3 วิ!');
-      if (sec === 1)  judge('bad',  'วินาทีสุดท้าย!');
+      if (sec <= 3){
+        coach('neutral', `ใกล้หมดเวลา! ${sec} วิ`, 'เร่งยิงเป้าใกล้กลาง');
+        judge('warn', `เหลือ ${sec} วิ!`);
+      } else {
+        judge('warn', `เหลือ ${sec} วิ`);
+      }
     }
   }
 
+  /* -------------------- Adaptive tick + end policies -------------------- */
   function adaptiveTick(){
     if (!S.running || S.ended) return;
 
@@ -1064,12 +1043,10 @@ export function boot(opts = {}) {
         S.ttlMs   = clamp(S.ttlMs + 60, 1100, 3000);
       }
 
-      // boss active keeps its own tuning (do not overwrite)
+      // boss active: keep boss tuning (do not overwrite)
       if (S.bossActive && S._preBoss){
-        // keep
+        // keep as is
       }
-    } else {
-      // research fixed (seeded)
     }
 
     S.tickTimer = setTimeout(adaptiveTick, 140);
@@ -1204,8 +1181,9 @@ export function boot(opts = {}) {
     S.bossGood = 0;
     S.bossJunk = 0;
 
-    S.lastVrTickSec = 999;
-    S.lastWarnSec = 999;
+    // NEW: reset tick state
+    S.lastTickSec = null;
+    S.lastWarnSec = null;
 
     S.warmupUntil = now() + 3000;
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
@@ -1220,7 +1198,7 @@ export function boot(opts = {}) {
       endPolicy: S.endPolicy,
       challenge: S.challenge,
       seed: S.seed,
-      sessionId: String(opts.sessionId || qs('sessionId','') || ''),
+      sessionId: sessionId || '',
       timeSec: S.timeSec,
       missLimit: S.missLimit|0
     });
