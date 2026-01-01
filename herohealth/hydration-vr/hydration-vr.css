@@ -1,11 +1,11 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration VR — PRODUCTION CSS v2
-✅ Launcher choose PC/Mobile/VR + Quick Settings
+Hydration VR — PRODUCTION CSS (v2)
 ✅ Responsive PC/Mobile/Cardboard
 ✅ HUD top + bottom safe-area
 ✅ Playfield + Cardboard split eyes
 ✅ Side panel collapses on mobile/cvr
-✅ RotateHint overlay
+✅ RotateHint overlay (node created by loader)
+✅ Launcher overlay (3 modes) + Quick settings row
 */
 
 :root{
@@ -60,7 +60,7 @@ html,body{
   backdrop-filter: blur(10px);
 }
 .hha-overlay-card{
-  width:min(560px, 94vw);
+  width:min(560px, 92vw);
   border-radius: 22px;
   border:1px solid var(--stroke);
   background: rgba(2,6,23,.88);
@@ -87,75 +87,15 @@ html,body{
   margin-top: 10px;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 800;
 }
 .hha-overlay.hide{ display:none !important; }
 
-/* Small UI helpers used inside overlay */
-.hha-chip{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  border:1px solid rgba(255,255,255,.12);
-  background: rgba(15,23,42,.50);
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 900;
-  font-size: 12px;
-  color: var(--text);
-}
-.hha-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-.hha-kbd{
-  padding: 2px 6px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(0,0,0,.25);
-  font-weight: 1000;
-  font-size: 12px;
-  color: var(--text);
-}
-
-/* ---------------- Rotate hint ---------------- */
-.hha-rotateHint{
-  position:fixed; inset:0;
-  z-index:9999;
+/* Quick settings row */
+.hha-quick{
   display:flex;
+  gap:10px;
+  flex-wrap:wrap;
   align-items:center;
-  justify-content:center;
-  padding: 24px;
-  background: rgba(0,0,0,.74);
-  backdrop-filter: blur(6px);
-}
-.hha-rotateHint .card{
-  width:min(520px, 92vw);
-  border-radius: 22px;
-  border:1px solid rgba(255,255,255,.14);
-  background: rgba(2,6,23,.84);
-  padding: 18px;
-  text-align:center;
-  box-shadow: 0 30px 90px rgba(0,0,0,.62);
-}
-.hha-rotateHint .big{
-  font-weight: 1000;
-  font-size: 20px;
-}
-.hha-rotateHint .small{
-  margin-top: 8px;
-  color: var(--muted);
-}
-
-/* If loader injects #rotateHint inline, still make it pretty */
-#rotateHint{
-  border-radius: 0;
-}
-#rotateHint::before{
-  content:'';
-  position:absolute;
-  inset:0;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(34,211,238,.12), transparent 55%),
-    radial-gradient(circle at 70% 70%, rgba(34,197,94,.10), transparent 60%);
-  pointer-events:none;
 }
 
 /* ---------------- Buttons ---------------- */
@@ -180,10 +120,6 @@ html,body{
 .hha-btn.danger{
   background: rgba(239,68,68,.14);
   border-color: rgba(239,68,68,.30);
-}
-.hha-btn:focus{
-  outline: 2px solid rgba(34,211,238,.20);
-  outline-offset: 2px;
 }
 
 /* ---------------- HUD TOP ---------------- */
@@ -244,6 +180,8 @@ html,body{
   position:absolute; inset:0;
   pointer-events:auto;
 }
+
+/* center crosshair (PC/Mobile) */
 .hha-crosshair{
   position:absolute;
   left:50%; top:50%;
@@ -407,7 +345,7 @@ html,body{
   backdrop-filter: blur(10px);
 }
 .hha-result-panel{
-  width: min(960px, 96vw);
+  width: min(980px, 96vw);
   max-height: min(92vh, 920px);
   overflow:auto;
   border-radius: 24px;
@@ -460,7 +398,7 @@ html,body{
   padding: 10px 6px 6px;
 }
 
-/* ---------------- End-window FX class driven by hydration.safe.js ---------------- */
+/* ---------------- End-window FX (class driven by hydration.safe.js) ---------------- */
 body.hha-endfx #hudTop{
   animation: hhaBlink .22s infinite alternate;
 }
@@ -494,7 +432,10 @@ body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
   .hha-side{
     grid-template-columns: 1fr;
   }
-  .hha-bottom .hha-btn{ min-width: 104px; padding: 10px 10px; }
+  .hha-bottom .hha-btn{
+    min-width: 104px;
+    padding: 10px 10px;
+  }
   .hha-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
   .hha-tipsRow{ grid-template-columns: 1fr; }
 }
@@ -505,34 +446,35 @@ body.cardboard{
   touch-action: none;
 }
 body.cardboard .hha-side{
-  display:none;
+  display:none; /* focus playfield */
 }
 body.cardboard .hha-main{
   grid-template-columns: 1fr;
-  gap: 10px;
-  padding:
-    calc(var(--sat) + var(--hudTopH))
-    calc(var(--sar) + 8px)
-    calc(var(--sab) + var(--hudBotH))
-    calc(var(--sal) + 8px);
 }
 body.cardboard .hha-crosshair{
   display:none; /* use reticle per eye */
 }
-body.cardboard .cb-eyes{
-  gap: 8px;
-  padding: 8px;
-}
-body.cardboard .cb-eyes .eye{
-  border-radius: 16px;
+
+/* ---------------- cVR view (explicit) ---------------- */
+body.view-cvr #cbPlayfield{ display:block; }
+body.view-cvr #playfield{ display:none; }
+body.view-cvr .hha-side{ display:none; }
+body.view-cvr .hha-main{
+  padding:
+    calc(var(--sat) + var(--hudTopH))
+    calc(var(--sar) + 10px)
+    calc(var(--sab) + var(--hudBotH))
+    calc(var(--sal) + 10px);
 }
 
-/* Landscape optimize for Cardboard */
-@media (orientation: landscape){
-  body.cardboard .hha-playfield{
-    min-height: 260px;
-  }
-  body.cardboard .hha-top{
-    justify-content:center;
-  }
+/* Make playfield look wider in landscape on phones */
+@media (max-height: 520px){
+  .hha-main{ gap: 10px; }
+  .hha-playfield{ min-height: 260px; }
+  .hha-bottom{ padding-top: 8px; padding-bottom: calc(var(--sab) + 8px); }
+}
+
+/* Rotate hint node (loader creates #rotateHint) — keep style consistent */
+#rotateHint{
+  font: 900 18px/1.35 system-ui !important;
 }
