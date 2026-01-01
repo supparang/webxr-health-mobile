@@ -1,23 +1,18 @@
 /* === /herohealth/vr-goodjunk/goodjunk-vr.css ===
-GoodJunkVR (PRODUCTION) — HHA Standard UI
-✅ HUD + Quest + Coach + Fever/Shield
-✅ Dual-eye stage (VR/cVR)
-✅ VR layout compact (อ่านง่าย ไม่รก แต่เห็น Score/Time/Grade)
-✅ Low-time warning ring + gentle tick flash (no shake / no motion sickness)
-✅ Low-time toast (gjToastL/R) (optional)
-✅ Prevent targets behind HUD/end overlay (clip by eye)
-✅ Target styles (emoji DOM) + hit/pop helpers
+GoodJunkVR UI — VR-first layout (No HUD blocking) + COMPACT VR HUD + LOW-TIME WARNING (no dizziness)
+✅ stage uses dvh (fix address-bar jump)
+✅ reserves space for HUD(top) + fever + controls(bottom)
+✅ VR/cVR collapses HUD -> compact mini HUD (Score/Time/Grade) + Missions Peek
+✅ Low-time warning ring + tick pulse (no shake) + 5s big countdown (soft)
+✅ Fullscreen: body.is-fs -> tighter paddings/heights
 */
 
-/* ---------------- Base tokens ---------------- */
 :root{
   color-scheme: dark;
-
   --bg:#020617;
-  --panel:rgba(2,6,23,.78);
-  --panel2:rgba(15,23,42,.68);
+  --panel:rgba(2,6,23,.76);
+  --panel2:rgba(15,23,42,.70);
   --stroke:rgba(148,163,184,.18);
-  --stroke2:rgba(148,163,184,.24);
   --text:#e5e7eb;
   --muted:#94a3b8;
 
@@ -27,786 +22,492 @@ GoodJunkVR (PRODUCTION) — HHA Standard UI
   --cyan:#22d3ee;
   --violet:#a78bfa;
 
-  --radius-lg:18px;
-  --radius-xl:22px;
-  --radius-pill:999px;
+  --r-lg:18px;
+  --r-pill:999px;
 
-  --shadow: 0 18px 60px rgba(0,0,0,.45);
-
-  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
 
-  /* targets */
-  --tSize: 78px;
-  --tFont: 44px;
-  --tRing: rgba(148,163,184,.16);
+  /* reserved zones (tuned by view modes) */
+  --hudH: 220px;
+  --feverH: 92px;
+  --ctrlH: 92px;
+
+  /* for warning ring strength 0..1 set by JS if needed */
+  --panic: 0;
 }
 
-*,
-*::before,
-*::after{ box-sizing:border-box; }
-
-html, body{
+*{ box-sizing:border-box; }
+html,body{
   margin:0; padding:0;
-  width:100%; height:100%;
-  overflow:hidden;
-  background: var(--bg);
-  color: var(--text);
-  font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  -webkit-tap-highlight-color: transparent;
-}
-
-button{ font-family: inherit; }
-button, .pill{ user-select:none; -webkit-user-select:none; }
-
-/* ---------------- Stage (dual-eye) ---------------- */
-#gj-stage{
-  position:fixed;
-  inset:0;
-  overflow:hidden;
+  width:100%;
+  height:100dvh;
   background:
-    radial-gradient(circle at 20% 10%, rgba(34,211,238,.09), transparent 60%),
-    radial-gradient(circle at 85% 85%, rgba(34,197,94,.08), transparent 55%),
-    radial-gradient(circle at 50% 55%, rgba(168,85,247,.06), transparent 55%),
-    #020617;
-}
-
-/* each eye clips its own targets (critical in VR/cVR) */
-.gj-eye{
-  position:absolute; inset:0;
+    radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
+    radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
+    var(--bg);
+  color:var(--text);
+  font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   overflow:hidden;
 }
 
-/* default single-eye */
-.gj-eye.eye-l{ left:0; width:100%; }
-.gj-eye.eye-r{ left:0; width:100%; }
-
-/* default: hide right eye unless cVR */
-.gj-eye.eye-r{ display:none; }
-body.view-cvr .gj-eye.eye-r{ display:block; }
-
-/* eye split in cVR */
-body.view-cvr #gj-stage{ display:flex; }
-body.view-cvr .gj-eye{
-  position:relative;
-  flex:1 1 50%;
-  inset:auto;
-}
-
-/* targets layer */
-.gj-layer{
-  position:absolute; inset:0;
-  z-index:30;
-  pointer-events:auto;
-  touch-action:none;
-}
-
-/* In cVR, we shoot by crosshair (tap-to-shoot emits hha:shoot) */
-body.view-cvr .gj-layer,
-body.view-cvr .gj-layer *{
-  pointer-events:none !important;
-}
-
-/* Crosshair */
-.gj-crosshair{
-  position:absolute;
-  left:50%; top:50%;
-  transform: translate(-50%,-50%);
-  width:18px; height:18px;
-  border-radius:999px;
-  border:2px solid rgba(229,231,235,.92);
-  box-shadow: 0 0 0 2px rgba(2,6,23,.55);
-  opacity:0;
-  pointer-events:none;
-  z-index:58;
-}
-.gj-crosshair::after{
-  content:"";
-  position:absolute; inset:-10px;
-  border-radius:999px;
-  border:1px solid rgba(229,231,235,.18);
-}
-body.view-vr .gj-crosshair,
-body.view-cvr .gj-crosshair{ opacity:.95; }
-
-/* attack ring/laser placeholders (optional) */
-.atk-ring, .atk-laser{ display:none; }
-
-/* ---------------- Targets (emoji DOM) ---------------- */
-/* รองรับหลายชื่อเผื่อ engine ใช้ class ต่างกัน */
-.gj-target,
-.gjTarget,
-.target,
-.hha-target{
-  position:absolute;
-  left: var(--x, 50%);
-  top:  var(--y, 50%);
-  transform: translate(-50%,-50%) scale(var(--s, 1));
-  width:  var(--w, var(--tSize));
-  height: var(--h, var(--tSize));
-  border-radius: 999px;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  font-size: var(--fs, var(--tFont));
-  line-height: 1;
-  cursor:pointer;
-
-  background: rgba(2,6,23,.20);
-  border: 1px solid rgba(148,163,184,.18);
-  box-shadow: 0 18px 50px rgba(0,0,0,.35);
-  backdrop-filter: blur(2px);
-  will-change: transform, opacity;
-
-  /* readable emoji */
-  text-shadow: 0 2px 0 rgba(0,0,0,.35);
-}
-
-/* subtle ring for depth */
-.gj-target::before,
-.gjTarget::before,
-.target::before,
-.hha-target::before{
-  content:"";
-  position:absolute;
-  inset: -2px;
-  border-radius: 999px;
-  border: 2px solid var(--tRing);
-  pointer-events:none;
-}
-
-/* good/junk variations if JS adds class */
-.gj-target.good, .gjTarget.good, .target.good, .hha-target.good{
-  border-color: rgba(34,197,94,.26);
-  background: rgba(34,197,94,.10);
-}
-.gj-target.junk, .gjTarget.junk, .target.junk, .hha-target.junk{
-  border-color: rgba(239,68,68,.28);
-  background: rgba(239,68,68,.10);
-}
-.gj-target.star, .gjTarget.star{
-  border-color: rgba(245,158,11,.30);
-  background: rgba(245,158,11,.12);
-}
-.gj-target.shield, .gjTarget.shield{
-  border-color: rgba(34,211,238,.35);
-  background: rgba(34,211,238,.10);
-}
-
-/* hover only on real pointer devices */
-@media (hover:hover){
-  .gj-target:hover,
-  .gjTarget:hover,
-  .target:hover,
-  .hha-target:hover{
-    filter: brightness(1.08);
-    transform: translate(-50%,-50%) scale(calc(var(--s, 1) * 1.03));
-  }
-}
-
-/* hit pop (optional class from JS) */
-@keyframes gjPop {
-  0%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * .84)); opacity:.75; }
-  100%{ transform: translate(-50%,-50%) scale(calc(var(--s,1) * 1.06)); opacity:1; }
-}
-.hit, .is-hit{ animation: gjPop 140ms ease-out 1; }
-
-/* ---------------- HUD shell ---------------- */
+/* ---------- HUD ---------- */
 .hha-hud{
   position:fixed;
-  left: calc(10px + var(--sal));
-  right: calc(10px + var(--sar));
-  top: calc(10px + var(--sat));
-  z-index:120; /* above targets */
-  pointer-events:auto;
+  left:0; right:0;
+  top:0;
+  padding: calc(10px + var(--sat)) 12px 10px;
+  z-index:80;
+  pointer-events:none; /* do not block playfield */
 }
-
-.hud-top{
+.hha-hud .hud-top{
   display:flex;
+  gap:12px;
   align-items:flex-start;
   justify-content:space-between;
-  gap:10px;
 }
-
 .hud-badge{
-  flex: 1 1 auto;
-  min-width: 260px;
-  background: var(--panel);
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius-xl);
-  padding: 10px 12px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
+  width:min(520px, 58vw);
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--r-lg);
+  padding:12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.35);
+  pointer-events:auto;
 }
-
-.hud-title{
-  font-weight:1000;
-  font-size: 16px;
-  letter-spacing:.2px;
-}
-.hud-sub{
-  margin-top:2px;
-  color: var(--muted);
-  font-weight:800;
-  font-size: 12px;
-}
+.hud-title{ font-weight:900; letter-spacing:.2px; font-size:18px; }
+.hud-sub{ margin-top:4px; color:var(--muted); font-size:12px; font-weight:800; }
 
 .viewbar{
-  margin-top:8px;
+  margin-top:10px;
   display:flex;
   flex-wrap:wrap;
   gap:8px;
 }
-
 .pill{
-  height:34px;
-  padding:0 12px;
-  border-radius: var(--radius-pill);
-  border:1px solid rgba(148,163,184,.22);
-  background: rgba(2,6,23,.55);
-  color: var(--text);
-  font-weight:950;
-  font-size:12px;
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.60);
+  color:var(--text);
+  padding:8px 12px;
+  border-radius:999px;
+  font-weight:900;
+  font-size:13px;
   cursor:pointer;
 }
-.pill.ghost{
-  background: rgba(15,23,42,.44);
-  border-color: rgba(148,163,184,.18);
-  color: rgba(229,231,235,.92);
-}
+.pill.ghost{ opacity:.92; }
 .pill:active{ transform: translateY(1px); }
 
 .hud-stats{
-  display:flex;
-  gap:8px;
-  align-items:stretch;
-  flex: 0 0 auto;
+  display:grid;
+  grid-template-columns: repeat(2, minmax(92px, 1fr));
+  gap:10px;
+  width:min(420px, 38vw);
+  pointer-events:none;
 }
-
 .hud-stat{
-  min-width: 90px;
-  background: var(--panel);
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius-xl);
-  padding: 10px 10px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-  text-align:center;
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--r-lg);
+  padding:10px 12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
-.hud-stat .k{
-  color: var(--muted);
-  font-weight:900;
-  font-size:12px;
-}
-.hud-stat .v{
-  margin-top:3px;
-  font-weight:1100;
-  font-size: 22px;
-  letter-spacing:.2px;
-}
+.hud-stat .k{ color:var(--muted); font-size:12px; font-weight:800; }
+.hud-stat .v{ font-size:22px; font-weight:1000; margin-top:2px; }
 
-.hud-stat.grade .v{
-  font-size: 22px;
-  padding:2px 6px;
-  border-radius: 12px;
-  border:1px solid rgba(34,197,94,.30);
-  background: rgba(34,197,94,.12);
-}
-
-/* mid row */
 .hud-mid{
   margin-top:10px;
   display:flex;
-  gap:10px;
+  gap:12px;
   align-items:stretch;
-}
-
-.hud-quest{
-  flex: 1 1 48%;
-  background: var(--panel2);
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius-xl);
-  padding: 10px 12px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-}
-.q-row{
-  display:flex;
-  align-items:center;
   justify-content:space-between;
-  gap:10px;
 }
-.q-title{
-  font-weight:1000;
-  font-size: 13px;
+.hud-quest{
+  width:min(520px, 58vw);
+  background:var(--panel2);
+  border:1px solid var(--stroke);
+  border-radius:var(--r-lg);
+  padding:12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
-.q-title.mini{ color: rgba(229,231,235,.95); }
-.q-count{
-  font-weight:1100;
-  font-size: 13px;
-  color: rgba(229,231,235,.94);
-}
-.q-timer{
-  font-weight:1100;
-  font-size: 12px;
-  color: rgba(245,158,11,.98);
-  min-width: 52px;
-  text-align:right;
-}
-.q-progress{
-  margin-top:6px;
-  color: var(--muted);
-  font-weight:900;
-  font-size: 12px;
-}
+.q-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.q-title{ font-weight:1000; }
+.q-title.mini{ color:var(--cyan); }
+.q-count{ font-weight:1000; color:#fff; opacity:.95; }
+.q-timer{ color:var(--warn); font-weight:1000; min-width:64px; text-align:right; }
+.q-progress{ margin-top:6px; color:var(--muted); font-size:12px; font-weight:900; }
 
 .hud-coach{
-  flex: 1 1 52%;
-  background: var(--panel2);
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius-xl);
-  padding: 10px 12px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
+  width:min(420px, 38vw);
   display:flex;
   gap:10px;
   align-items:center;
+  background:var(--panel2);
+  border:1px solid var(--stroke);
+  border-radius:var(--r-lg);
+  padding:12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
-.coach-img{
-  width:54px; height:54px;
-  border-radius: 18px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  object-fit: cover;
-}
-.coach-talk{ flex:1 1 auto; min-width:0; }
-.coach-line{
-  font-weight:1100;
-  font-size: 14px;
-  line-height:1.2;
-}
-.coach-sub{
-  margin-top:4px;
-  color: var(--muted);
-  font-weight:850;
-  font-size: 12px;
-}
+.coach-img{ width:62px; height:62px; border-radius:16px; border:1px solid var(--stroke); background:#0b1120; }
+.coach-line{ font-weight:1000; }
+.coach-sub{ color:var(--muted); font-size:12px; margin-top:4px; font-weight:900; }
 
-/* ---------------- Fever / Shield UI ---------------- */
-.hha-fever{
+/* ---------- VR MINI HUD (compact readable) ---------- */
+.vr-mini-hud{
   position:fixed;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  bottom: calc(12px + var(--sab));
-  z-index:110;
+  left:12px; right:12px;
+  top: calc(var(--sat) + 10px);
+  z-index:105;
   pointer-events:none;
-  opacity:.96;
+  display:none; /* default off; enabled in view-vr/cvr */
 }
-
-.fever-row, .shield-row{
+.vr-mini-hud .mini-row{
   display:flex;
-  align-items:center;
   gap:10px;
-  padding: 8px 10px;
-  margin-top:8px;
-  background: rgba(2,6,23,.68);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius: var(--radius-xl);
-  backdrop-filter: blur(10px);
+  align-items:center;
+  justify-content:flex-start;
 }
-
-.fever-label, .shield-label{
-  font-weight:1000;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
-  letter-spacing:.3px;
-}
-
-.fever-bar{
-  flex:1 1 auto;
-  height:12px;
-  border-radius: 999px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.55);
-  overflow:hidden;
-}
-.fever-fill{
-  height:100%;
-  width:0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(245,158,11,.95), rgba(239,68,68,.95));
-}
-.fever-text{
-  width:46px;
-  text-align:right;
-  font-weight:1100;
-  font-size:12px;
-  color: rgba(229,231,235,.92);
-}
-
-.shield-pills{
+.mini-pill{
   display:flex;
-  gap:6px;
-  flex-wrap:wrap;
+  gap:8px;
+  align-items:baseline;
+  background: rgba(2,6,23,.62);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius: 999px;
+  padding:8px 12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
 }
-.shield-pills .pill-dot{
-  width:10px; height:10px;
-  border-radius:999px;
-  background: rgba(148,163,184,.22);
-  border:1px solid rgba(148,163,184,.22);
-}
-.shield-pills .pill-dot.on{
-  background: rgba(168,85,247,.82);
-  border-color: rgba(168,85,247,.55);
-}
+.mini-pill span{ color:var(--muted); font-weight:1000; font-size:12px; }
+.mini-pill b{ font-weight:1100; font-size:16px; }
 
-/* ---------------- Controls (shoot button) ---------------- */
-.hha-controls{
-  position:fixed;
-  right: calc(14px + var(--sar));
-  bottom: calc(78px + var(--sab));
-  z-index:125;
+.mini-btn{
   pointer-events:auto;
-}
-.btn-shoot{
-  height:54px;
-  padding: 0 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(34,197,94,.30);
-  background: rgba(34,197,94,.18);
-  color: #eafff3;
+  border:1px solid rgba(34,197,94,.30);
+  background: rgba(34,197,94,.14);
+  color:#eafff3;
+  border-radius:999px;
+  padding:9px 14px;
   font-weight:1100;
-  font-size: 16px;
-  cursor:pointer;
-  box-shadow: 0 18px 50px rgba(0,0,0,.40);
+  font-size:13px;
 }
-.btn-shoot:active{ transform: translateY(1px); }
+.mini-btn:active{ transform: translateY(1px); }
 
-/* ---------------- Start overlay ---------------- */
-.start-overlay{
-  position:fixed; inset:0;
+/* ---------- MISSIONS PEEK (overlay) ---------- */
+.gj-peek{
+  position:fixed;
+  inset:0;
+  z-index:130;
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index:150;
-  background: rgba(2,6,23,.65);
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+  pointer-events:none;
+  opacity:0;
+  transition: opacity 180ms ease;
+}
+.gj-peek[aria-hidden="true"]{ opacity:0; }
+.gj-peek[aria-hidden="false"]{ opacity:1; }
+
+.peek-card{
+  width:min(680px, 92vw);
+  background: rgba(2,6,23,.82);
+  border:1px solid rgba(148,163,184,.20);
+  border-radius: 22px;
+  padding:18px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.45);
+}
+.peek-title{ font-size:22px; font-weight:1100; }
+.peek-sub, .peek-mini{
+  margin-top:10px;
+  font-weight:1100;
+  font-size:16px;
+}
+.peek-tip{ margin-top:10px; color:var(--muted); font-weight:900; font-size:12px; }
+
+/* ---------- FEVER ---------- */
+.hha-fever{
+  position:fixed;
+  left:12px; right:12px;
+  bottom: calc(var(--ctrlH) + var(--sab) + 10px);
+  z-index:70;
+  background:var(--panel);
+  border:1px solid var(--stroke);
+  border-radius:var(--r-lg);
+  padding:12px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.25);
+  pointer-events:none;
+}
+.fever-row{
+  display:grid;
+  grid-template-columns: 70px 1fr 56px;
+  gap:10px;
+  align-items:center;
+}
+.fever-label{ color:var(--muted); font-weight:1000; letter-spacing:.3px; }
+.fever-bar{
+  height:14px;
+  border-radius:999px;
+  background: rgba(148,163,184,.14);
+  border:1px solid rgba(148,163,184,.18);
+  overflow:hidden;
+}
+.fever-fill{ height:100%; width:0%; background: rgba(34,197,94,.85); }
+.fever-text{ text-align:right; font-weight:1100; }
+.shield-row{
+  margin-top:8px;
+  display:grid;
+  grid-template-columns: 70px 1fr;
+  gap:10px;
+  align-items:center;
+}
+.shield-label{ color:var(--muted); font-weight:1000; }
+.shield-pills{ display:flex; flex-wrap:wrap; gap:6px; }
+
+/* ---------- PLAYFIELD ---------- */
+#gj-stage{
+  position:fixed;
+  left:0; right:0;
+  top: calc(var(--hudH) + var(--sat));
+  bottom: calc(var(--ctrlH) + var(--feverH) + var(--sab) + 14px);
+  z-index:10;
+  pointer-events:auto;
+  overflow:hidden;
+  will-change: transform;
+}
+.gj-eye{
+  position:absolute;
+  top:0; bottom:0;
+  width:100%;
+  overflow:hidden; /* each eye clips */
+}
+.eye-l{ left:0; }
+.eye-r{ left:0; display:none; }
+
+.gj-layer, .gj-crosshair{
+  position:absolute;
+  inset:0;
+}
+.gj-crosshair{ pointer-events:none; }
+.gj-crosshair::before{
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:28px; height:28px;
+  transform: translate(-50%,-50%);
+  border-radius:999px;
+  border:2px solid rgba(229,231,235,.82);
+  box-shadow: 0 0 0 6px rgba(34,197,94,.10);
+}
+
+/* ---------- CONTROLS ---------- */
+.hha-controls{
+  position:fixed;
+  left:12px; right:12px;
+  bottom: calc(var(--sab) + 10px);
+  z-index:75;
+}
+.btn-shoot{
+  width:100%;
+  height:72px;
+  border-radius: var(--r-lg);
+  border:1px solid var(--stroke);
+  background: rgba(2,6,23,.72);
+  color:var(--text);
+  font-size:24px;
+  font-weight:1100;
+  letter-spacing:.2px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+}
+.btn-shoot:active{ transform: translateY(1px); }
+
+/* ---------- OVERLAYS ---------- */
+.start-overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:120;
+  background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
-.start-overlay[hidden]{ display:none !important; }
-
 .start-card{
-  width: min(620px, 92vw);
-  background: rgba(2,6,23,.86);
-  border: 1px solid rgba(148,163,184,.22);
-  border-radius: 24px;
-  padding: 18px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.55);
+  width:min(560px, 92vw);
+  background: rgba(2,6,23,.80);
+  border:1px solid var(--stroke);
+  border-radius: 22px;
+  padding:18px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
-.start-title{ font-weight:1200; font-size: 26px; }
-.start-desc{ margin-top:10px; font-weight:950; color: rgba(229,231,235,.92); }
-.start-desc .muted{ color: var(--muted); font-weight:900; }
-.start-meta{ margin-top:10px; color: var(--muted); font-weight:900; font-size: 12px; }
+.start-title{ font-size:26px; font-weight:1100; }
+.start-desc{ margin-top:6px; color:var(--text); font-weight:900; line-height:1.35; }
+.muted{ color:var(--muted); font-weight:900; }
+.start-meta{ margin-top:10px; color:var(--muted); font-size:12px; font-weight:900; }
 .btn-start{
   margin-top:14px;
   width:100%;
   height:56px;
-  border-radius: 18px;
-  border: 1px solid rgba(34,197,94,.35);
-  background: rgba(34,197,94,.22);
+  border-radius: 16px;
+  border:1px solid rgba(34,197,94,.35);
+  background: rgba(34,197,94,.18);
   color:#eafff3;
-  font-weight:1200;
-  font-size: 17px;
-  cursor:pointer;
+  font-size:18px;
+  font-weight:1100;
 }
 .btn-start:active{ transform: translateY(1px); }
 
-/* ---------------- VR hint overlay ---------------- */
 .vr-hint{
-  position:fixed; inset:0;
+  position:fixed;
+  inset:0;
   display:flex;
   align-items:center;
   justify-content:center;
-  z-index:155;
-  background: rgba(2,6,23,.58);
+  z-index:125;
+  background: rgba(2,6,23,.55);
   backdrop-filter: blur(10px);
 }
-.vr-hint[hidden]{ display:none !important; }
-
 .vr-card{
-  width: min(560px, 92vw);
-  background: rgba(2,6,23,.86);
-  border: 1px solid rgba(148,163,184,.22);
-  border-radius: 24px;
-  padding: 16px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.55);
-}
-.vr-title{ font-weight:1200; font-size: 18px; }
-.vr-desc{ margin-top:8px; color: rgba(229,231,235,.92); font-weight:950; line-height:1.35; }
-.vr-desc .muted{ color: var(--muted); font-weight:900; }
-
-/* ---------------- Quest Peek (always available) ---------------- */
-.gj-peek{
-  position:fixed;
-  left: calc(10px + var(--sal));
-  top: calc(10px + var(--sat));
-  z-index:130;
-  pointer-events:none;
-  opacity:0;
-  transform: translateY(-6px);
-  transition: opacity 140ms ease, transform 140ms ease;
-}
-.gj-peek[aria-hidden="false"]{
-  opacity:1;
-  transform: translateY(0);
-}
-.peek-card{
-  width: min(360px, 86vw);
-  background: rgba(2,6,23,.84);
-  border: 1px solid rgba(148,163,184,.22);
+  width:min(720px, 92vw);
+  background: rgba(2,6,23,.82);
+  border:1px solid var(--stroke);
   border-radius: 22px;
-  padding: 10px 12px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
+  padding:18px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.45);
 }
-.peek-title{ font-weight:1200; font-size: 14px; }
-.peek-sub{ margin-top:6px; color: rgba(229,231,235,.92); font-weight:950; font-size: 12px; }
-.peek-mini{ margin-top:4px; color: rgba(229,231,235,.92); font-weight:950; font-size: 12px; }
-.peek-tip{ margin-top:6px; color: var(--muted); font-weight:850; font-size: 11px; }
+.vr-title{ font-size:22px; font-weight:1100; }
+.vr-desc{ margin-top:8px; color:var(--text); font-weight:900; line-height:1.35; }
 
-/* ---------------- Low-time toast (optional, if HTML has gjToastL/R) ---------------- */
-.gj-vr-toast{
-  position:absolute;
-  left:50%;
-  top: calc(10px + var(--sat));
-  transform: translateX(-50%);
-  width: min(420px, calc(100% - 18px));
-  z-index:135;
-  opacity:0;
+/* ---------- LOW-TIME WARNING (VR-safe) ---------- */
+
+/* warning ring layer (no shake) */
+.gj-warning-ring{
+  position:fixed;
+  inset:0;
+  z-index:64;
   pointer-events:none;
-  transition: opacity 140ms ease, transform 140ms ease;
+  opacity:0;
+  transition: opacity 160ms ease, filter 160ms ease;
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(0,0,0,0) 54%,
+      rgba(245,158,11,.12) 72%,
+      rgba(245,158,11,.22) 86%,
+      rgba(245,158,11,.32) 100%);
+  mix-blend-mode: screen;
 }
-.gj-vr-toast.show{
-  opacity:1;
-  transform: translateX(-50%) translateY(0);
+body.gj-lowtime .gj-warning-ring{ opacity:.78; }
+body.gj-lowtime5 .gj-warning-ring{
+  opacity:.92;
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(0,0,0,0) 52%,
+      rgba(239,68,68,.16) 72%,
+      rgba(239,68,68,.26) 86%,
+      rgba(239,68,68,.36) 100%);
 }
-.gj-vr-toast > div{
-  background: rgba(2,6,23,.84);
-  border: 1px solid rgba(148,163,184,.22);
-  border-radius: 18px;
-  padding: 10px 12px;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-  font-weight:1100;
-  font-size: 13px;
-  line-height:1.25;
-}
-.gj-vr-toast .sub{
-  margin-top: 4px;
-  font-weight: 950;
-  font-size: 12px;
-  color: rgba(148,163,184,.92);
-}
-.gj-vr-toast.warn > div{ border-color: rgba(245,158,11,.30); }
-.gj-vr-toast.danger > div{ border-color: rgba(239,68,68,.34); }
-
-/* ---------------- VR compact layout ---------------- */
-/* VR = compact: keep Score/Time/Grade big, hide mid row & viewbar
-   Missions still accessible via Peek (btnPeek toggles gjPeek). */
-body.view-vr .viewbar,
-body.view-cvr .viewbar{
-  display:none;
-}
-body.view-vr .hud-mid,
-body.view-cvr .hud-mid{
-  display:none;
-}
-body.view-vr .hud-badge,
-body.view-cvr .hud-badge{
-  padding: 8px 10px;
-  border-radius: 20px;
-}
-body.view-vr .hud-title,
-body.view-cvr .hud-title{
-  font-size: 14px;
-}
-body.view-vr .hud-sub,
-body.view-cvr .hud-sub{
-  font-size: 11px;
-}
-body.view-vr .hud-stats .hud-stat,
-body.view-cvr .hud-stats .hud-stat{
-  min-width: 86px;
-  padding: 8px 8px;
-}
-body.view-vr .hud-stats .hud-stat .v,
-body.view-cvr .hud-stats .hud-stat .v{
-  font-size: 20px;
-}
-/* keep only Score/Time/Grade in VR/cVR */
-body.view-vr .hud-stats .hud-stat:nth-child(2),
-body.view-vr .hud-stats .hud-stat:nth-child(3),
-body.view-cvr .hud-stats .hud-stat:nth-child(2),
-body.view-cvr .hud-stats .hud-stat:nth-child(3){
-  display:none; /* hide Combo/Miss in VR */
+body.gj-tick .gj-warning-ring{
+  filter: brightness(1.12) saturate(1.12);
 }
 
-/* Fever bar in VR: subtle */
-body.view-vr .hha-fever,
-body.view-cvr .hha-fever{
+/* big countdown overlay (soft) */
+.gj-lowtime-overlay{
+  position:fixed;
+  inset:0;
+  z-index:116;
+  pointer-events:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  opacity:0;
+  transition: opacity 160ms ease;
+}
+.gj-lowtime-overlay[aria-hidden="true"]{ opacity:0; }
+.gj-lowtime-overlay[aria-hidden="false"]{ opacity:1; }
+
+.gj-lowtime-num{
+  font-weight:1200;
+  font-size:min(18vh, 160px);
+  letter-spacing:-1px;
+  color: rgba(255,255,255,.88);
+  text-shadow:
+    0 16px 60px rgba(0,0,0,.55),
+    0 0 0 1px rgba(255,255,255,.06);
+  opacity:.75;
+}
+body.gj-lowtime5 .gj-lowtime-num{
   opacity:.92;
 }
-body.view-vr .hha-controls,
-body.view-cvr .hha-controls{
-  bottom: calc(16px + var(--sab));
-  right: calc(12px + var(--sar));
+
+/* tick pulse (subtle) */
+@keyframes gjPulse {
+  0%   { transform: scale(1);   filter: brightness(1); }
+  45%  { transform: scale(1.02);filter: brightness(1.08); }
+  100% { transform: scale(1);   filter: brightness(1); }
 }
-body.view-vr .btn-shoot,
-body.view-cvr .btn-shoot{
-  height: 52px;
-  font-size: 15px;
-  border-radius: 18px;
+body.gj-tick .gj-lowtime-num{
+  animation: gjPulse 220ms ease-out 1;
 }
 
-/* allow user to hide HUD completely (Peek still works) */
+/* ---------- VIEW MODES ---------- */
+body.view-mobile{ --hudH: 240px; --ctrlH: 92px; --feverH: 92px; }
+body.view-pc{ --hudH: 220px; --ctrlH: 92px; --feverH: 92px; }
+
+/* VR/cVR: collapse big HUD */
+body.view-vr, body.view-cvr{
+  --hudH: 0px;
+  --feverH: 70px;
+  --ctrlH: 84px;
+}
+
+/* VR/cVR split */
+body.view-vr .eye-r,
+body.view-cvr .eye-r{ display:block; }
+body.view-vr .eye-l,
+body.view-cvr .eye-l{ width:50%; left:0; }
+body.view-vr .eye-r,
+body.view-cvr .eye-r{ width:50%; left:50%; }
+
+body.view-vr .gj-crosshair::before,
+body.view-cvr .gj-crosshair::before{ width:26px; height:26px; }
+
+/* hide big HUD in VR, show mini HUD */
+body.view-vr .hha-hud,
+body.view-cvr .hha-hud{ display:none; }
+body.view-vr .vr-mini-hud,
+body.view-cvr .vr-mini-hud{ display:block; }
+
+/* VR compact fever */
+body.view-vr .hha-fever,
+body.view-cvr .hha-fever{
+  padding:10px;
+}
+body.view-vr .fever-row,
+body.view-cvr .fever-row{
+  grid-template-columns: 60px 1fr 52px;
+}
+body.view-vr .fever-bar,
+body.view-cvr .fever-bar{ height:12px; }
+
+/* ---------- FULLSCREEN TUNING ---------- */
+body.is-fs.view-vr,
+body.is-fs.view-cvr{
+  --feverH: 60px;
+  --ctrlH: 78px;
+}
+body.is-fs .btn-shoot{ height:66px; }
+
+/* ---------- HUD hidden ---------- */
 body.hud-hidden .hha-hud{
   opacity:0;
   pointer-events:none;
 }
 body.hud-hidden .hha-fever{
-  opacity:.88;
+  opacity:.92;
 }
 
-/* ---------------- Low-time warning ring (VR-friendly) ---------------- */
-/* HTML should include <div class="gj-warning-ring"></div> once (under #gj-stage or body) */
-.gj-warning-ring{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:64;
-  opacity:0;
-  transition: opacity 160ms ease;
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(0,0,0,0) 55%,
-      rgba(245,158,11,.10) 78%,
-      rgba(245,158,11,.22) 100%);
+/* ---------- RESPONSIVE ---------- */
+@media (max-width:520px){
+  .hud-stats{ grid-template-columns: repeat(2, minmax(86px,1fr)); }
+  .hud-badge{ width: 60vw; }
+  .hud-coach{ display:none; }
 }
-body.gj-lowtime .gj-warning-ring{ opacity:.70; }
-body.gj-lowtime5 .gj-warning-ring{ opacity:.92; }
-
-/* gentle tick flash: brightness pulse only (no shake) */
-@keyframes gjTickFlash {
-  0%{ filter: brightness(1); }
-  50%{ filter: brightness(1.12); }
-  100%{ filter: brightness(1); }
-}
-body.gj-tick{ animation: gjTickFlash 180ms linear 1; }
-
-/* ---------------- End overlay (optional) ---------------- */
-.end-overlay{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:140;
-  background: rgba(2,6,23,.62);
-  backdrop-filter: blur(10px);
-}
-.end-overlay[hidden]{ display:none !important; }
-
-.end-card{
-  width:min(780px, 94vw);
-  background: rgba(2,6,23,.86);
-  border:1px solid rgba(148,163,184,.22);
-  border-radius: 24px;
-  padding:18px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.55);
-}
-.end-head{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-}
-.end-title{ font-size:24px; font-weight:1000; letter-spacing:.2px; }
-.end-sub{ margin-top:6px; color: rgba(148,163,184,.95); font-weight:800; font-size:12px; }
-.end-grade{
-  min-width:88px;
-  text-align:center;
-  font-weight:1100;
-  font-size:28px;
-  padding:10px 12px;
-  border-radius:18px;
-  border:1px solid rgba(34,197,94,.35);
-  background: rgba(34,197,94,.14);
-}
-
-.end-grid{
-  margin-top:14px;
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap:10px;
-}
-.end-item{
-  background: rgba(15,23,42,.55);
-  border:1px solid rgba(148,163,184,.18);
-  border-radius:18px;
-  padding:10px 12px;
-}
-.end-item .k{ color: rgba(148,163,184,.95); font-weight:850; font-size:12px; }
-.end-item .v{ margin-top:4px; font-weight:1100; font-size:20px; }
-
-.end-actions{
-  margin-top:14px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.btn-primary, .btn-ghost{
-  height:54px;
-  border-radius:16px;
-  font-weight:1000;
-  font-size:16px;
-  border:1px solid rgba(148,163,184,.20);
-  padding:0 16px;
-  cursor:pointer;
-}
-.btn-primary{
-  background: rgba(34,197,94,.18);
-  border-color: rgba(34,197,94,.35);
-  color:#eafff3;
-}
-.btn-ghost{
-  background: rgba(2,6,23,.55);
-  color: var(--text);
-}
-.btn-primary:active, .btn-ghost:active{ transform: translateY(1px); }
-
-.end-foot{
-  margin-top:10px;
-  color: rgba(148,163,184,.95);
-  font-weight:850;
-  font-size:12px;
-}
-
-/* ---------------- Responsive tweaks ---------------- */
-@media (max-width:900px){
-  .hud-stat{ min-width: 86px; }
-  .hud-stat .v{ font-size: 20px; }
-}
-@media (max-width:700px){
-  .hud-top{ flex-direction:column; }
-  .hud-stats{ width:100%; justify-content:space-between; }
-  .hud-badge{ width:100%; }
-  .end-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-/* ---------------- Safety: avoid accidental pointer blocking ---------------- */
-.hha-hud, .hha-controls{ pointer-events:auto; }
-.hha-fever, .gj-warning-ring{ pointer-events:none; }
