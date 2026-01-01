@@ -1,665 +1,674 @@
 /* === /herohealth/plate/plate-vr.css ===
 Balanced Plate VR — PRODUCTION CSS
-✅ Glass HUD + Mobile-first responsive
-✅ Big play space (center) + safe-area insets
-✅ Works with plate-vr.html DOM ids
-✅ Supports Plate targets + overlays + pause/result/start
+✅ Stable layout PC/Mobile/VR
+✅ Safe-area (notch) support
+✅ Plate layer is a true container (FIX: target drift / blink)
+✅ HUD panels lock to viewport; playfield moves by JS transform
+✅ Big readable UI + glassmorphism
 */
 
 :root{
   color-scheme: dark;
 
   --bg:#020617;
-  --panel: rgba(2,6,23,.78);
-  --panel2: rgba(15,23,42,.72);
+  --bg2:#0b1220;
+  --panel: rgba(2,6,23,.74);
+  --panel2: rgba(15,23,42,.70);
   --stroke: rgba(148,163,184,.18);
-  --stroke2: rgba(148,163,184,.24);
 
   --text:#e5e7eb;
   --muted:#94a3b8;
 
   --accent:#22c55e;
-  --accent2:#38bdf8;
   --warn:#f59e0b;
   --bad:#ef4444;
+  --cyan:#22d3ee;
+  --violet:#a78bfa;
+
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
 
   --shadow: 0 22px 70px rgba(0,0,0,.42);
-  --shadow2: 0 18px 44px rgba(0,0,0,.28);
+  --shadow2: 0 16px 42px rgba(0,0,0,.28);
 
-  --r-lg: 20px;
-  --r-md: 16px;
-  --r-sm: 14px;
-
-  /* safe-area */
+  /* Safe area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+
+  /* HUD sizes */
+  --hud-pad: 10px;
+  --hud-gap: 10px;
+
+  /* Target defaults (can be overridden by JS inline styles) */
+  --t-font: 28px;
 }
 
+/* ---------------- Base ---------------- */
 *,
 *::before,
 *::after{ box-sizing:border-box; }
 
-html,body{
-  margin:0;
+html, body{
   width:100%;
   height:100%;
+  margin:0;
+  padding:0;
   overflow:hidden;
-  background: radial-gradient(circle at 20% 10%, rgba(56,189,248,.18), transparent 55%),
-              radial-gradient(circle at 80% 90%, rgba(168,85,247,.16), transparent 60%),
+  background: radial-gradient(circle at 30% 20%, rgba(34,211,238,.10), transparent 45%),
+              radial-gradient(circle at 80% 70%, rgba(167,139,250,.10), transparent 45%),
+              radial-gradient(circle at 50% 90%, rgba(34,197,94,.07), transparent 50%),
               var(--bg);
-  color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+               "Noto Sans Thai", Roboto, sans-serif;
+  color: var(--text);
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button{
-  font-family: inherit;
+  font: inherit;
+  color: inherit;
 }
 
-/* A-Frame scene stays behind DOM */
-#scene,
-a-scene{
-  position:fixed !important;
-  inset:0 !important;
-  z-index:1 !important;
+/* Keep A-Frame scene behind DOM */
+a-scene, canvas{
+  touch-action: none;
 }
 
-/* ===================== Play layer ===================== */
-/* ✅ ต้อง fixed เต็มจอ และเป็น reference ให้เป้า absolute */
+/* ---------------- Plate Layer (IMPORTANT FIX) ---------------- */
+/* ✅ MUST be fixed container for absolute children.
+   JS moves this layer with transform translate(x,y).
+   Targets are position:absolute inside the layer. */
 #plate-layer{
   position: fixed;
   inset: 0;
-  z-index: 5;
+  z-index: 10;
+
+  /* Prevent weird scroll/resize artifacts */
+  width: 100vw;
+  height: 100vh;
+
   overflow: hidden;
   pointer-events: auto;
-  transform: translate(0,0);
+
+  /* Make transforms smooth (VR feel) */
   will-change: transform;
-  /* กันการเลือก/ไฮไลต์ */
-  user-select:none;
-  -webkit-user-select:none;
-  -webkit-tap-highlight-color: transparent;
+  transform: translate(0,0);
 }
 
 /* Hit FX overlay */
 #hitFx{
-  position:fixed;
+  position: fixed;
   inset:0;
-  z-index:8;
+  z-index: 60;
   pointer-events:none;
   opacity:0;
   transition: opacity .12s ease;
 }
 
-/* ===================== Targets ===================== */
-.plateTarget{
-  position:absolute; /* ✅ สำคัญ: ห้าม fixed (จะเพี้ยนถ้า parent transform) */
-  display:grid;
-  place-items:center;
-
-  border-radius: 999px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: var(--shadow2);
-
-  color: var(--text);
-  cursor:pointer;
-
-  /* feel */
-  transform: translateZ(0);
-  will-change: transform, opacity, filter;
-
-  transition: transform .08s ease, filter .12s ease;
-}
-
-.plateTarget:active{
-  transform: scale(.96);
-  filter: brightness(1.10);
-}
-
-/* subtle spawn pop */
-@keyframes platePop{
-  0%{ transform: scale(.78); opacity:.0; }
-  60%{ transform: scale(1.05); opacity:1; }
-  100%{ transform: scale(1); opacity:1; }
-}
-.plateTarget{
-  animation: platePop .12s ease-out 0s 1;
-}
-
-/* ===================== HUD base panel ===================== */
-#hudTop,
-#miniPanel,
-#coachPanel,
-#hudBtns{
-  position: fixed;
-  z-index: 20;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-}
-
-.panelGlass{
-  border:1px solid var(--stroke);
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--shadow);
-  border-radius: var(--r-lg);
-}
-
-/* ===================== TOP HUD ===================== */
+/* ---------------- HUD blocks ---------------- */
 #hudTop{
-  top: calc(12px + var(--sat));
-  border:1px solid var(--stroke);
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--shadow);
-  border-radius: var(--r-lg);
-  padding: 10px;
+  position: fixed;
+  z-index: 40;
+  top: calc(var(--sat) + var(--hud-pad));
+  left: calc(var(--sal) + var(--hud-pad));
+  right: calc(var(--sar) + var(--hud-pad));
+
+  display: grid;
+  gap: var(--hud-gap);
+
+  pointer-events: none; /* allow playfield taps through */
 }
 
-.hudRow{
+/* HUD rows */
+#hudTop .hudRow{
   display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
+
+#hudTop .hudRow2{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  justify-content:space-between;
+}
+
+/* Card-like stat */
 .hudStat{
+  pointer-events:auto;
   border:1px solid var(--stroke);
-  background: rgba(2,6,23,.55);
-  border-radius: var(--r-md);
-  padding: 9px 10px;
-  min-height: 56px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  box-shadow: var(--shadow2);
+  min-height: 58px;
+
   display:flex;
   flex-direction:column;
   justify-content:center;
-  gap:4px;
 }
 .hudStat .k{
-  font-size: 10px;
-  letter-spacing: .08em;
+  font-size: 11px;
+  letter-spacing: .06em;
   color: rgba(148,163,184,.92);
   font-weight: 900;
 }
 .hudStat .v{
-  font-weight: 1100;
+  margin-top: 4px;
   font-size: 18px;
-  line-height: 1;
-  color: var(--text);
+  font-weight: 1100;
 }
-.muted{ color: rgba(148,163,184,.92); font-weight:900; }
+.muted{ color: rgba(148,163,184,.95); font-weight: 900; }
 
-/* make some chips stand out */
-.plateChip .v{ color: #86efac; }
-.gradeChip .v{ color: #a78bfa; }
-.timeChip .v{ color: #67e8f9; }
+/* Chips */
+.plateChip .v,
+.gradeChip .v,
+.timeChip .v{ font-size:18px; }
 
-/* row2 */
-.hudRow2{
-  margin-top: 8px;
-  display:grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-
+/* Fever row */
 .feverWrap{
+  pointer-events:auto;
+  flex: 1 1 auto;
+  min-width: 180px;
+
   border:1px solid var(--stroke);
-  background: rgba(2,6,23,.52);
-  border-radius: var(--r-md);
-  padding: 8px 10px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-xl);
+  padding: 10px 12px;
+  box-shadow: var(--shadow2);
+
   display:flex;
   align-items:center;
-  gap:10px;
+  gap: 10px;
 }
 .feverLabel{
-  font-weight: 1100;
   font-size: 12px;
-  letter-spacing:.06em;
-  color: rgba(148,163,184,.92);
+  font-weight: 1100;
+  color: rgba(148,163,184,.95);
+  letter-spacing: .06em;
 }
 .feverBar{
-  flex:1;
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(15,23,42,.85);
-  border:1px solid rgba(148,163,184,.14);
+  flex: 1 1 auto;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(148,163,184,.16);
   overflow:hidden;
+  border:1px solid rgba(148,163,184,.14);
 }
 .feverFill{
-  height:100%;
   width:0%;
-  border-radius: 999px;
+  height:100%;
+  border-radius: var(--radius-pill);
   background: linear-gradient(90deg, #22c55e, #f59e0b, #ef4444);
+  transition: width .12s linear;
 }
 .shieldPill{
+  pointer-events:auto;
   display:flex;
   align-items:center;
-  gap:6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  font-weight:1100;
-  color: var(--text);
-}
-
-.plateCounts{
-  display:grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-.plateCounts .pill{
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
-  border-radius: 999px;
-  padding: 6px 8px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
   gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-pill);
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.55);
   font-weight: 1100;
-  color: var(--text);
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
 }
 
-/* ===================== COACH ===================== */
-#coachPanel{
-  bottom: calc(86px + var(--sab));
-  border:1px solid var(--stroke);
-  background: var(--panel2);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--shadow);
-  border-radius: var(--r-lg);
-  padding: 10px;
+/* Plate counts row right */
+.plateCounts{
+  pointer-events:auto;
+  display:flex;
+  gap: 10px;
+  align-items:center;
+}
+.pill{
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-pill);
+  padding: 8px 10px;
+  font-weight: 1100;
+  box-shadow: 0 10px 26px rgba(0,0,0,.25);
   display:flex;
   align-items:center;
-  gap: 12px;
+  gap: 6px;
+  min-width: 64px;
+  justify-content:center;
 }
-#coachImg{
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
+
+/* ---------------- Coach Panel ---------------- */
+#coachPanel{
+  position: fixed;
+  z-index: 40;
+  left: calc(var(--sal) + var(--hud-pad));
+  bottom: calc(var(--sab) + 96px);
+  width: min(520px, calc(100vw - (var(--sal) + var(--sar) + 20px)));
+
+  border:1px solid var(--stroke);
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-xl);
+  padding: 12px;
+  box-shadow: var(--shadow);
+
+  display:flex;
+  gap: 12px;
+  align-items:center;
+
+  pointer-events:auto;
+}
+#coachPanel img{
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
   border: 1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.55);
+  background: rgba(0,0,0,.25);
   object-fit: cover;
   flex: 0 0 auto;
 }
-.coachText{ min-width:0; }
+.coachText{ min-width: 0; }
 .coachName{
   font-weight: 1100;
-  font-size: 14px;
+  letter-spacing: .02em;
   color: rgba(229,231,235,.98);
-  margin-bottom: 2px;
 }
 .coachMsg{
+  margin-top: 6px;
   font-weight: 950;
-  font-size: 13px;
-  color: rgba(148,163,184,.98);
-  line-height:1.25;
+  color: rgba(148,163,184,.95);
+  line-height: 1.2;
   white-space: nowrap;
-  overflow:hidden;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* ===================== QUEST / MINI ===================== */
+/* ---------------- Quest Panel ---------------- */
 #miniPanel{
-  bottom: calc(164px + var(--sab));
-  border:1px solid var(--stroke);
-  background: var(--panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--shadow);
-  border-radius: var(--r-lg);
-  padding: 10px;
-  display:grid;
+  position: fixed;
+  z-index: 40;
+  left: calc(var(--sal) + var(--hud-pad));
+  right: calc(var(--sar) + var(--hud-pad));
+  bottom: calc(var(--sab) + 96px + 92px); /* above coach panel */
+
+  display: grid;
   gap: 10px;
+
+  pointer-events: none; /* internal blocks pointer auto */
 }
 
 .questBlock{
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.50);
-  border-radius: var(--r-md);
-  padding: 10px;
+  pointer-events:auto;
+  border:1px solid var(--stroke);
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-xl);
+  padding: 12px;
+  box-shadow: var(--shadow2);
 }
+
 .questHdr{
   display:flex;
   align-items:center;
   gap: 10px;
-  margin-bottom: 8px;
-  min-width:0;
+  font-weight: 1100;
 }
 .badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 1100;
+  border-radius: var(--radius-pill);
+  border:1px solid rgba(148,163,184,.18);
+  background: rgba(2,6,23,.55);
   font-size: 12px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.60);
+  letter-spacing: .06em;
 }
-.badgeGoal{ color: #67e8f9; }
-.badgeMini{ color: #a78bfa; }
+.badgeGoal{ color: rgba(56,189,248,.95); }
+.badgeMini{ color: rgba(167,139,250,.95); }
 
 .qTitle{
-  font-weight: 1100;
-  font-size: 14px;
-  color: rgba(229,231,235,.98);
-  flex:1;
-  min-width:0;
+  flex:1 1 auto;
+  min-width: 0;
   white-space: nowrap;
-  overflow:hidden;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 .qCount{
   font-weight: 1100;
-  color: rgba(148,163,184,.98);
-  font-size: 13px;
+  color: rgba(148,163,184,.95);
 }
 
 .bar{
+  margin-top: 10px;
   height: 10px;
-  border-radius: 999px;
-  background: rgba(15,23,42,.85);
-  border:1px solid rgba(148,163,184,.14);
+  border-radius: var(--radius-pill);
+  border:1px solid rgba(148,163,184,.16);
+  background: rgba(148,163,184,.12);
   overflow:hidden;
 }
 .barFill{
-  height:100%;
   width:0%;
-  background: linear-gradient(90deg, rgba(34,197,94,.92), rgba(56,189,248,.86));
-  border-radius: 999px;
-  transition: width .12s ease;
+  height:100%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, rgba(56,189,248,.95), rgba(34,197,94,.95));
+  transition: width .12s linear;
 }
 .barFill.mini{
-  background: linear-gradient(90deg, rgba(168,85,247,.92), rgba(56,189,248,.86));
+  background: linear-gradient(90deg, rgba(167,139,250,.95), rgba(34,211,238,.95));
 }
 
 .hint{
-  margin-top: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 900;
   color: rgba(148,163,184,.92);
-  font-weight: 950;
-  font-size: 12px;
+  line-height: 1.2;
 }
 
-/* ===================== BUTTON BAR ===================== */
+/* ---------------- Bottom Buttons ---------------- */
 #hudBtns{
-  bottom: calc(12px + var(--sab));
+  position: fixed;
+  z-index: 45;
+  left: calc(var(--sal) + var(--hud-pad));
+  right: calc(var(--sar) + var(--hud-pad));
+  bottom: calc(var(--sab) + var(--hud-pad));
+
   display:flex;
-  gap: 10px;
+  gap: 12px;
+  justify-content: space-between;
+
+  pointer-events:auto;
 }
 
 .btn{
-  flex: 1 1 auto;
-  padding: 14px 12px;
+  appearance:none;
+  border: 1px solid rgba(148,163,184,.18);
+  background: rgba(34,197,94,.16);
+  color: rgba(229,231,235,.98);
   border-radius: 18px;
-  border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.70);
-  color: var(--text);
+  padding: 12px 14px;
   font-weight: 1100;
-  font-size: 15px;
-  box-shadow: 0 14px 40px rgba(0,0,0,.25);
-  cursor:pointer;
+  box-shadow: var(--shadow2);
+  min-height: 50px;
+  flex: 1 1 0;
 }
-.btn:hover{ filter: brightness(1.05); }
-.btn:active{ transform: scale(.99); }
+.btn:active{ transform: translateY(1px); }
 
 .btn.ghost{
-  background: rgba(2,6,23,.45);
+  background: rgba(2,6,23,.55);
 }
+
 .btn.big{
-  padding: 16px 14px;
+  min-height: 56px;
   font-size: 16px;
+  border-radius: 20px;
 }
 
-/* EnterVR primary highlight */
-#btnEnterVR{
-  background: rgba(34,197,94,.20);
-  border-color: rgba(34,197,94,.28);
-}
-
-/* ===================== PAUSED ===================== */
+/* ---------------- Paused Overlay ---------------- */
 #hudPaused{
-  position:fixed;
-  inset:0;
-  z-index:60;
-  display:none;
-  place-items:center;
-  background: rgba(0,0,0,.38);
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: none;
+  place-items: center;
+  background: rgba(0,0,0,.42);
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 .pausedCard{
-  width:min(520px, calc(100% - 28px));
-  border-radius: 22px;
+  width: min(520px, calc(100vw - 28px));
   border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.82);
+  border-radius: 22px;
   box-shadow: var(--shadow);
-  padding: 18px;
+  padding: 16px;
 }
 .pausedTitle{
   font-weight: 1200;
   font-size: 18px;
-  margin-bottom: 6px;
 }
 .pausedText{
-  color: rgba(148,163,184,.98);
-  font-weight: 950;
+  margin-top: 8px;
+  font-weight: 900;
+  color: rgba(148,163,184,.95);
 }
 
-/* ===================== START OVERLAY ===================== */
+/* ---------------- Start Overlay ---------------- */
 #startOverlay{
-  position:fixed;
-  inset:0;
-  z-index:70;
-  display:none;
-  place-items:center;
-  background: radial-gradient(circle at 20% 10%, rgba(56,189,248,.18), transparent 55%),
-              radial-gradient(circle at 80% 90%, rgba(168,85,247,.16), transparent 60%),
-              rgba(0,0,0,.40);
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  place-items: center;
+  background: radial-gradient(circle at 50% 20%, rgba(34,211,238,.12), transparent 45%),
+              radial-gradient(circle at 70% 80%, rgba(167,139,250,.12), transparent 45%),
+              rgba(0,0,0,.45);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
-
 .startCard{
-  width:min(760px, calc(100% - 28px));
-  border-radius: 24px;
+  width: min(720px, calc(100vw - 28px));
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.84);
+  background: rgba(2,6,23,.82);
+  border-radius: 24px;
   box-shadow: var(--shadow);
   padding: 18px;
 }
 .startTitle{
-  font-weight: 1200;
-  font-size: 20px;
-  margin-bottom: 6px;
+  font-weight: 1300;
+  font-size: 22px;
 }
 .startSub{
-  color: rgba(148,163,184,.98);
-  font-weight: 950;
-  line-height: 1.35;
+  margin-top: 10px;
+  color: rgba(148,163,184,.95);
+  font-weight: 900;
+  line-height: 1.25;
 }
 .startMeta{
+  margin-top: 14px;
   display:flex;
-  flex-wrap:wrap;
   gap: 10px;
-  margin-top: 12px;
+  flex-wrap: wrap;
 }
 .metaPill{
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.60);
-  border-radius: 999px;
+  background: rgba(2,6,23,.55);
+  border-radius: var(--radius-pill);
   padding: 8px 10px;
   font-weight: 1100;
-  color: rgba(148,163,184,.98);
 }
-.metaPill b{ color: var(--text); }
-
 .startBtns{
+  margin-top: 16px;
   display:flex;
   gap: 10px;
-  margin-top: 14px;
 }
 .startFoot{
-  margin-top: 10px;
-  color: rgba(148,163,184,.92);
-  font-weight: 950;
-  font-size: 12px;
+  margin-top: 14px;
+  color: rgba(148,163,184,.9);
+  font-weight: 850;
+  font-size: 13px;
 }
 
-/* ===================== RESULT OVERLAY ===================== */
+/* ---------------- Result Overlay ---------------- */
 #resultBackdrop{
-  position:fixed;
-  inset:0;
-  z-index:80;
-  display:none;
-  place-items:center;
-  background: rgba(0,0,0,.46);
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: none;
+  place-items: center;
+  background: rgba(0,0,0,.52);
   backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 .resultCard{
-  width:min(820px, calc(100% - 28px));
-  border-radius: 24px;
+  width: min(820px, calc(100vw - 28px));
   border:1px solid rgba(148,163,184,.18);
   background: rgba(2,6,23,.86);
+  border-radius: 24px;
   box-shadow: var(--shadow);
   padding: 18px;
 }
+
 .resultTitle{
-  font-weight: 1200;
-  font-size: 20px;
-  margin-bottom: 12px;
+  font-weight: 1300;
+  font-size: 22px;
 }
+
 .resultGrid{
+  margin-top: 14px;
   display:grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .resultItem{
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.52);
+  background: rgba(2,6,23,.55);
   border-radius: 18px;
-  padding: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.24);
 }
 .resultItem .k{
-  font-size: 10px;
-  letter-spacing:.08em;
-  color: rgba(148,163,184,.92);
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: rgba(148,163,184,.95);
   font-weight: 900;
-  margin-bottom: 4px;
 }
 .resultItem .v{
-  font-weight: 1200;
+  margin-top: 6px;
   font-size: 18px;
+  font-weight: 1200;
 }
 
 .resultPlate{
-  margin-top: 12px;
+  margin-top: 14px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.52);
+  background: rgba(2,6,23,.55);
   border-radius: 18px;
   padding: 12px;
 }
 .plateRow{
   display:flex;
-  flex-wrap:wrap;
-  gap: 8px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .totalRow{
   margin-top: 10px;
   font-weight: 1100;
-  color: rgba(148,163,184,.98);
+  color: rgba(148,163,184,.95);
 }
 
 .resultBtns{
+  margin-top: 14px;
   display:flex;
   gap: 10px;
-  margin-top: 14px;
 }
 
-/* ===================== Responsive improvements ===================== */
-@media (min-width: 680px){
-  .hudRow{
-    grid-template-columns: repeat(6, 1fr);
+/* ---------------- Targets ---------------- */
+/* JS sets most styling inline; these provide nice defaults + animations */
+.plateTarget{
+  cursor: pointer;
+  outline: none;
+
+  /* Crisp & stable */
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+
+  /* Spawn animation (reduce "blink") */
+  animation: platePop .10s ease-out 0s 1;
+}
+@keyframes platePop{
+  from{ transform: scale(.86) translateZ(0); opacity: .0; }
+  to  { transform: scale(1) translateZ(0); opacity: 1; }
+}
+
+/* hover/active (desktop) */
+.plateTarget:active{
+  transform: scale(.96) translateZ(0);
+}
+
+/* ---------------- Responsive ---------------- */
+
+/* Mobile portrait: compress top stats into 3 columns */
+@media (max-width: 560px){
+  #hudTop .hudRow{
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .hudRow2{
-    grid-template-columns: 1fr 1fr;
-    align-items:center;
+  .hudStat{ min-height: 56px; padding: 10px; }
+  .hudStat .v{ font-size: 17px; }
+  #coachPanel{
+    bottom: calc(var(--sab) + 90px);
   }
-  .resultGrid{
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  #miniPanel{
+    bottom: calc(var(--sab) + 90px + 92px);
+  }
+  #coachPanel img{
+    width: 56px;
+    height: 56px;
   }
 }
 
-/* ✅ Free space boost on small screens */
-@media (max-height: 820px), (max-width: 460px){
-  #hudTop{ padding:8px; border-radius:18px; }
-  .hudStat{ padding:7px 9px; border-radius:14px; min-height:50px; }
-  .hudStat .k{ font-size:10px; }
-  .hudStat .v{ font-size:16px; }
-
-  .feverWrap{ padding:7px 9px; border-radius:14px; gap:8px; }
-  .shieldPill{ padding:5px 9px; }
-
-  .plateCounts .pill{ padding:5px 8px; font-size:13px; }
-
-  #miniPanel{ padding:8px; border-radius:18px; gap:8px; }
-  .questBlock{ padding:8px; border-radius:16px; }
-  .badge{ padding:5px 8px; font-size:11px; }
-  .hint{ display:none; }
-
-  #coachPanel{ padding:8px; border-radius:18px; gap:10px; }
-  #coachImg{ width:44px; height:44px; border-radius:14px; }
-  .coachName{ font-size:13px; }
-  .coachMsg{ font-size:12px; }
-
-  #hudBtns{ gap:8px; }
-  .btn{ padding:12px 10px; border-radius:16px; font-size:14px; }
-
-  /* ขยับแผงล่างให้กินพื้นที่น้อยลง */
-  #hudBtns{ bottom: calc(8px + var(--sab)); }
-  #coachPanel{ bottom: calc(74px + var(--sab)); }
-  #miniPanel{ bottom: calc(138px + var(--sab)); }
+/* Very small height: stack quest/coach tighter */
+@media (max-height: 740px){
+  #coachPanel{
+    bottom: calc(var(--sab) + 82px);
+    padding: 10px;
+  }
+  #miniPanel{
+    bottom: calc(var(--sab) + 82px + 84px);
+  }
+  .questBlock{ padding: 10px; }
 }
 
-@media (max-height: 720px){
-  #hudTop{ transform: scale(.96); transform-origin: top center; }
-  #miniPanel{ transform: scale(.96); transform-origin: bottom center; }
-  #coachPanel{ transform: scale(.96); transform-origin: bottom center; }
-  #hudBtns{ transform: scale(.96); transform-origin: bottom center; }
+/* Landscape phone: move coach to right to free vertical space */
+@media (max-width: 900px) and (orientation: landscape){
+  #hudTop{
+    top: calc(var(--sat) + 8px);
+    left: calc(var(--sal) + 8px);
+    right: calc(var(--sar) + 8px);
+  }
+  #coachPanel{
+    left: auto;
+    right: calc(var(--sar) + 8px);
+    bottom: calc(var(--sab) + 80px);
+    width: min(420px, 46vw);
+  }
+  #miniPanel{
+    left: calc(var(--sal) + 8px);
+    right: calc(var(--sar) + 8px);
+    bottom: calc(var(--sab) + 80px + 84px);
+  }
+  #hudBtns{
+    left: calc(var(--sal) + 8px);
+    right: calc(var(--sar) + 8px);
+    bottom: calc(var(--sab) + 8px);
+  }
 }
 
-/* tiny phones */
-@media (max-width: 360px){
-  .hudStat .v{ font-size:15px; }
-  .plateCounts{ gap:6px; }
-  .plateCounts .pill{ font-size:12px; }
+/* VR / A-Frame fullscreen tends to change viewport units:
+   keep everything anchored & avoid accidental selection */
+body, #hudTop, #miniPanel, #coachPanel, #hudBtns{
+  user-select: none;
 }
 
-/* ===================== Utility for FX classes used by plate.safe.js ===================== */
-.pfx-shake { animation:pfxShake .18s ease-in-out 0s 2; }
-@keyframes pfxShake {
-  0%{transform:translate(0,0)}
-  25%{transform:translate(2px,0)}
-  50%{transform:translate(-2px,1px)}
-  75%{transform:translate(1px,-1px)}
-  100%{transform:translate(0,0)}
+/* ---------------- Accessibility / reduced motion ---------------- */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{ animation: none; }
+  .feverFill{ transition: none; }
+  .barFill{ transition: none; }
 }
-.pfx-blink { animation:pfxBlink .26s ease-in-out 0s 6; }
-@keyframes pfxBlink { 0%,100%{filter:none} 50%{filter:brightness(1.35)} }
-.pfx-tick { animation:pfxTick .12s linear 0s 1; }
-@keyframes pfxTick { 0%{transform:scale(1)} 50%{transform:scale(1.03)} 100%{transform:scale(1)} }
 
-#hitFx.pfx-hit-good{
-  opacity:1;
-  background: radial-gradient(circle at center, rgba(34,197,94,.18), transparent 55%);
+/* ---------------- Optional: Debug helpers (toggle in dev) ---------------- */
+/*
+#plate-layer::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  border:2px dashed rgba(34,211,238,.25);
+  pointer-events:none;
 }
-#hitFx.pfx-hit-bad{
-  opacity:1;
-  background: radial-gradient(circle at center, rgba(239,68,68,.18), transparent 55%);
-}
+*/
