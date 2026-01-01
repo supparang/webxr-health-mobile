@@ -1,279 +1,217 @@
+<!-- === /herohealth/goodjunk-vr.html ===
+GoodJunkVR (PRODUCTION) — HHA Standard + VR UX (COMPACT + TICK + END OVERLAY)
+✅ DOM emoji targets (dual-eye for VR/cVR)
+✅ HUD + Quest + Coach + Fever/Shield
+✅ Boot gate: engine starts ONLY after pressing "เริ่มเล่น"
+✅ Quest Peek (missions visible even when HUD hidden)
+✅ VR Compact HUD + VR Toast (clear in VR, no dizziness)
+✅ End Overlay (readable, exits VR/cVR + fullscreen before show)
+-->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — Food Groups VR (Launcher)</title>
-  <meta name="color-scheme" content="light dark" />
+  <title>HeroHealth — GoodJunk VR</title>
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- ใช้ CSS เดียวกันเพื่อหน้าตาสวย/คุมโทน -->
-  <link rel="stylesheet" href="./vr-groups/groups-vr.css" />
+  <!-- UI -->
+  <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
-  <style>
-    body{ overflow:auto; }
-    .overlay{ position:relative; inset:auto; min-height:100vh; }
-    .panel{ margin: 22px auto; }
-    .grid3{
-      display:grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap:12px;
-    }
-    @media (max-width:720px){ .grid3{ grid-template-columns:1fr; } }
-    .btn-big{
-      padding: 14px 14px;
-      border-radius: 16px;
-      font-weight: 1000;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-    .btn-big .r{ opacity:.9; font-weight:900; }
-    .badge{
-      display:inline-flex; align-items:center; gap:8px;
-      border:1px solid var(--stroke);
-      background: rgba(15,23,42,.45);
-      padding: 8px 10px; border-radius: var(--pill);
-      font-weight: 900; color: var(--text);
-    }
-    .minihelp{ color: var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
-    .warnline{ color: #f59e0b; font-weight:900; }
-  </style>
+  <!-- Global FX + Fever + HUD + Logger -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/ui-fever.js" defer></script>
+  <script src="./vr/hha-hud.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- Boot (ESM) -->
+  <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
 </head>
 
 <body>
-  <div class="overlay">
-    <div class="panel">
-      <div class="title">🥗 Food Groups VR</div>
-      <div class="sub">
-        เลือกโหมด + ระดับ + เวลา แล้วกด “เข้าเล่น” ตามอุปกรณ์ที่ใช้ (PC / Mobile / Cardboard)
-      </div>
+  <!-- ===== HUD ===== -->
+  <div class="hha-hud">
+    <div class="hud-top">
+      <div class="hud-badge">
+        <div class="hud-title">GoodJunkVR</div>
+        <div class="hud-sub" id="hudMeta">—</div>
 
-      <div class="hr"></div>
+        <div class="viewbar" id="viewbar">
+          <button class="pill" id="btnViewPC" type="button">PC</button>
+          <button class="pill" id="btnViewMobile" type="button">Mobile</button>
+          <button class="pill" id="btnViewVR" type="button">VR</button>
+          <button class="pill" id="btnViewCVR" type="button">cVR</button>
 
-      <div class="grid2">
-        <div class="kv">
-          <div class="k">RUN MODE</div>
-          <div class="v">
-            <button id="runPlay" class="chip chip-on" type="button">🎮 play</button>
-            <button id="runResearch" class="chip" type="button">🧪 research</button>
-            <span class="hint">research = deterministic (ไม่ adaptive)</span>
-          </div>
-        </div>
+          <button class="pill ghost" id="btnPeek" type="button">Missions</button>
+          <button class="pill ghost" id="btnToggleHud" type="button">HUD</button>
 
-        <div class="kv">
-          <div class="k">DIFFICULTY</div>
-          <div class="v">
-            <button data-diff="easy" class="chip" type="button">ง่าย</button>
-            <button data-diff="normal" class="chip chip-on" type="button">ปกติ</button>
-            <button data-diff="hard" class="chip" type="button">ยาก</button>
-          </div>
-        </div>
-
-        <div class="kv">
-          <div class="k">STYLE</div>
-          <div class="v">
-            <button data-style="mix" class="chip chip-on" type="button">mix</button>
-            <button data-style="feel" class="chip" type="button">feel</button>
-            <button data-style="hard" class="chip" type="button">hard</button>
-          </div>
-        </div>
-
-        <div class="kv">
-          <div class="k">TIME (sec)</div>
-          <div class="v">
-            <input id="timeSec" class="input" type="number" min="30" max="180" value="90" />
-            <span class="hint">30–180</span>
-          </div>
-        </div>
-
-        <div class="kv">
-          <div class="k">SEED</div>
-          <div class="v">
-            <input id="seedTxt" class="input" type="text" value="" placeholder="auto" style="width:160px" />
-            <button id="btnSeedNow" class="chip" type="button">สุ่มใหม่</button>
-          </div>
-        </div>
-
-        <div class="kv">
-          <div class="k">AI</div>
-          <div class="v">
-            <button id="aiOn" class="chip chip-on" type="button">AI ON</button>
-            <button id="aiOff" class="chip" type="button">AI OFF</button>
-            <span class="hint">research: AI จะ “แนะนำ” ได้ แต่ไม่ปรับความยาก</span>
-          </div>
+          <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
+          <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
         </div>
       </div>
 
-      <div class="hr"></div>
+      <div class="hud-stats">
+        <div class="hud-stat"><div class="k">Score</div><div class="v" id="hhaScore">0</div></div>
+        <div class="hud-stat"><div class="k">Combo</div><div class="v" id="hhaCombo">0</div></div>
+        <div class="hud-stat"><div class="k">Miss</div><div class="v" id="hhaMiss">0</div></div>
+        <div class="hud-stat"><div class="k">Time</div><div class="v" id="hhaTime">0</div></div>
+        <div class="hud-stat grade"><div class="k">Grade</div><div class="v" id="hhaGrade">—</div></div>
+      </div>
+    </div>
 
-      <div class="sub">
-        <span class="badge">🎯 PC</span>
-        <span class="badge">📱 Mobile</span>
-        <span class="badge">🕶️ Cardboard</span>
-        <div class="minihelp" style="margin-top:10px;">
-          <div class="warnline">Cardboard:</div>
-          - เข้าแล้วกดปุ่ม <b>ENTER VR</b> มุมล่าง (จาก <code>vr-ui.js</code>)<br/>
-          - โหมด <b>Cardboard = view=cvr</b> ยิงด้วย crosshair ผ่าน tap-to-shoot (event <code>hha:shoot</code>)
+    <div class="hud-mid">
+      <div class="hud-quest">
+        <div class="q-row">
+          <div class="q-title" id="hudGoalTitle">Goal: —</div>
+          <div class="q-count" id="hudGoalCount">0/0</div>
         </div>
+        <div class="q-row">
+          <div class="q-title mini" id="hudMiniTitle">Mini: —</div>
+          <div class="q-count" id="hudMiniCount">0/0</div>
+          <div class="q-timer" id="hudMiniTimer"></div>
+        </div>
+        <div class="q-progress" id="hudQProgress">Goals 0/0 • Minis 0/0</div>
       </div>
 
-      <div class="hr"></div>
-
-      <div class="grid3">
-        <button id="btnPC" class="btn btn-big" type="button">
-          <span>🖥️ เข้าเล่นบน PC</span><span class="r">view=pc</span>
-        </button>
-        <button id="btnMobile" class="btn btn-big btn-strong" type="button">
-          <span>📱 เข้าเล่นบน Mobile</span><span class="r">view=mobile</span>
-        </button>
-        <button id="btnCVR" class="btn btn-big" type="button">
-          <span>🕶️ เข้าเล่น Cardboard</span><span class="r">view=cvr</span>
-        </button>
-      </div>
-
-      <div class="row row2" style="margin-top:14px;">
-        <button id="btnHub" class="btn btn-ghost" type="button">🏠 ไป HUB</button>
-        <button id="btnCopy" class="btn" type="button">📋 Copy Link (run)</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        รองรับพารามิเตอร์ passthrough: <code>hub</code>, <code>log</code>, <code>studyId</code>, <code>phase</code>, ฯลฯ — ส่งต่อไป run อัตโนมัติ
+      <div class="hud-coach">
+        <img id="hudCoachImg" class="coach-img" src="./img/coach-neutral.png" alt="coach" />
+        <div class="coach-talk">
+          <div class="coach-line" id="hudCoachLine">พร้อมลุย! เก็บของดี หลีกขยะ 🥦🚫</div>
+          <div class="coach-sub" id="hudCoachSub">เล็งกลางแล้วกดยิง / คลิกเป้าก็ได้</div>
+        </div>
       </div>
     </div>
   </div>
 
-<script>
-(function(){
-  'use strict';
-  const DOC = document;
-  const $ = (id)=>DOC.getElementById(id);
+  <!-- ===== Fever/Shield UI ===== -->
+  <div class="hha-fever" id="hhaFever">
+    <div class="fever-row">
+      <div class="fever-label">FEVER</div>
+      <div class="fever-bar"><div class="fever-fill" id="feverBar"></div></div>
+      <div class="fever-text" id="feverText">0%</div>
+    </div>
+    <div class="shield-row">
+      <div class="shield-label">SHIELD</div>
+      <div class="shield-pills" id="shieldPills"></div>
+    </div>
+  </div>
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  <!-- ===== Quest Peek (always available) ===== -->
+  <div class="gj-peek" id="gjPeek" aria-hidden="true">
+    <div class="peek-card">
+      <div class="peek-title">🎯 ภารกิจตอนนี้</div>
+      <div class="peek-sub" id="gjPeekGoal">Goal: —</div>
+      <div class="peek-mini" id="gjPeekMini">Mini: —</div>
+      <div class="peek-tip">Tip: โหมด VR ซ่อน HUD ได้ แต่กด “Missions” เพื่อดูภารกิจได้ตลอด</div>
+    </div>
+  </div>
 
-  const state = {
-    run: (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play',
-    diff: String(qs('diff','normal')||'normal').toLowerCase(),
-    style: String(qs('style','mix')||'mix').toLowerCase(),
-    time: clamp(qs('time',90), 30, 180),
-    seed: String(qs('seed','')||''),
-    ai: (String(qs('ai','on')||'on').toLowerCase()!=='off'),
-  };
+  <!-- ===== Playfield (dual-eye) ===== -->
+  <div id="gj-stage" aria-label="playfield">
+    <div class="gj-eye eye-l" id="eyeL">
+      <!-- VR Compact HUD (L) -->
+      <div class="vr-compact" id="vrCompactHud-l" aria-hidden="true">
+        <div class="vr-pill"><span class="t">Score</span><span class="v" id="vrScore-l">0</span></div>
+        <div class="vr-pill"><span class="t">Time</span><span class="v" id="vrTime-l">0</span></div>
+        <div class="vr-pill grade"><span class="t">Grade</span><span class="v" id="vrGrade-l">—</span></div>
+      </div>
 
-  function chipOn(el, on){ el.classList.toggle('chip-on', !!on); }
+      <!-- VR Toast (L) -->
+      <div class="vr-toast" id="vrToast-l" hidden aria-hidden="true">
+        <div class="vr-toast-card">
+          <div class="vr-toast-text warn" id="vrToastText-l">—</div>
+        </div>
+      </div>
 
-  function syncUI(){
-    chipOn($('runPlay'), state.run==='play');
-    chipOn($('runResearch'), state.run==='research');
+      <div class="gj-layer" id="gj-layer-l" aria-label="targets layer left"></div>
+      <div class="gj-crosshair" id="gj-crosshair-l" aria-hidden="true"></div>
+      <div class="atk-ring" id="atk-ring-l" aria-hidden="true"></div>
+      <div class="atk-laser" id="atk-laser-l" aria-hidden="true"></div>
+    </div>
 
-    DOC.querySelectorAll('[data-diff]').forEach(b=>{
-      chipOn(b, String(b.dataset.diff)===state.diff);
-    });
-    DOC.querySelectorAll('[data-style]').forEach(b=>{
-      chipOn(b, String(b.dataset.style)===state.style);
-    });
+    <div class="gj-eye eye-r" id="eyeR" aria-hidden="true">
+      <!-- VR Compact HUD (R) -->
+      <div class="vr-compact" id="vrCompactHud-r" aria-hidden="true">
+        <div class="vr-pill"><span class="t">Score</span><span class="v" id="vrScore-r">0</span></div>
+        <div class="vr-pill"><span class="t">Time</span><span class="v" id="vrTime-r">0</span></div>
+        <div class="vr-pill grade"><span class="t">Grade</span><span class="v" id="vrGrade-r">—</span></div>
+      </div>
 
-    $('timeSec').value = String(state.time|0);
-    $('seedTxt').value = state.seed || '';
-    chipOn($('aiOn'), !!state.ai);
-    chipOn($('aiOff'), !state.ai);
+      <!-- VR Toast (R) -->
+      <div class="vr-toast" id="vrToast-r" hidden aria-hidden="true">
+        <div class="vr-toast-card">
+          <div class="vr-toast-text warn" id="vrToastText-r">—</div>
+        </div>
+      </div>
 
-    // ถ้า research -> แนะนำให้ ai on ได้ (coach) แต่ไม่ adaptive อยู่แล้ว
-  }
+      <div class="gj-layer" id="gj-layer-r" aria-label="targets layer right"></div>
+      <div class="gj-crosshair" id="gj-crosshair-r" aria-hidden="true"></div>
+      <div class="atk-ring" id="atk-ring-r" aria-hidden="true"></div>
+      <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
+    </div>
 
-  function passthroughParams(u){
-    // ส่งต่อพารามิเตอร์วิจัย/โลจิกที่ user อาจใส่มา
-    const pass = ['hub','log','studyId','phase','conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester','sessionId','studentKey','schoolCode','schoolName','classRoom','studentNo','nickName','gender','age','gradeLevel','heightCm','weightKg','bmi','bmiGroup','vrExperience','gameFrequency','handedness','visionIssue','healthDetail','consentParent'];
-    pass.forEach(k=>{
-      const v = qs(k, null);
-      if (v !== null && v !== '') u.searchParams.set(k, v);
-    });
-  }
+    <!-- legacy placeholder -->
+    <div id="end-summary"></div>
+  </div>
 
-  function buildRunUrl(view){
-    const u = new URL('./vr-groups/groups.html', location.href);
-    u.searchParams.set('view', view);
-    u.searchParams.set('run', state.run);
-    u.searchParams.set('diff', state.diff);
-    u.searchParams.set('style', state.style);
-    u.searchParams.set('time', String(state.time|0));
-    u.searchParams.set('ai', state.ai ? 'on' : 'off');
-    const seed = state.seed || String(Date.now());
-    u.searchParams.set('seed', seed);
-    passthroughParams(u);
-    return u;
-  }
+  <!-- ===== Controls ===== -->
+  <div class="hha-controls">
+    <button id="btnShoot" class="btn-shoot" type="button">ยิง</button>
+  </div>
 
-  async function copyText(text){
-    try { await navigator.clipboard.writeText(String(text||'')); return true; }
-    catch{
-      try{
-        const ta = DOC.createElement('textarea');
-        ta.value = String(text||'');
-        DOC.body.appendChild(ta);
-        ta.select();
-        DOC.execCommand('copy');
-        ta.remove();
-        return true;
-      }catch{ return false; }
-    }
-  }
+  <!-- ===== Start Overlay ===== -->
+  <div id="startOverlay" class="start-overlay" hidden>
+    <div class="start-card">
+      <div class="start-title">GoodJunk VR</div>
+      <div class="start-desc">
+        เก็บของดี 🥦 และหลีกขยะ 🍟<br/>
+        <span class="muted">ช่วงแรกนุ่ม ๆ แล้วค่อยโหดขึ้นเอง</span>
+      </div>
+      <div class="start-meta" id="startMeta">—</div>
+      <button id="btnStart" class="btn-start" type="button">เริ่มเล่น</button>
+    </div>
+  </div>
 
-  // run mode
-  $('runPlay').addEventListener('click', ()=>{ state.run='play'; syncUI(); });
-  $('runResearch').addEventListener('click', ()=>{ state.run='research'; syncUI(); });
+  <!-- ===== VR Hint Overlay ===== -->
+  <div id="vrHint" class="vr-hint" hidden>
+    <div class="vr-card">
+      <div class="vr-title">โหมด VR/การ์ดบอร์ด</div>
+      <div class="vr-desc">
+        กรุณาหมุนจอเป็น <b>แนวนอน</b> เพื่อให้เป้าอยู่ระดับสายตา<br/>
+        <span class="muted">Tip: กด “Enter Fullscreen” ก่อนเข้า VR/cVR จะนิ่งกว่า</span>
+      </div>
+      <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
+    </div>
+  </div>
 
-  // diff/style chips
-  DOC.querySelectorAll('[data-diff]').forEach(b=>{
-    b.addEventListener('click', ()=>{ state.diff=String(b.dataset.diff); syncUI(); });
-  });
-  DOC.querySelectorAll('[data-style]').forEach(b=>{
-    b.addEventListener('click', ()=>{ state.style=String(b.dataset.style); syncUI(); });
-  });
+  <!-- ===== End Overlay (HHA Standard) ===== -->
+  <div id="endOverlay" class="end-overlay" hidden>
+    <div class="end-card">
+      <div class="end-head">
+        <div>
+          <div class="end-title">สรุปผล</div>
+          <div class="end-sub" id="endSub">—</div>
+        </div>
+        <div class="end-grade" id="endGrade">—</div>
+      </div>
 
-  // time/seed
-  $('timeSec').addEventListener('change', ()=>{
-    state.time = clamp($('timeSec').value, 30, 180);
-    syncUI();
-  });
-  $('seedTxt').addEventListener('change', ()=>{
-    state.seed = String($('seedTxt').value||'').trim();
-    syncUI();
-  });
-  $('btnSeedNow').addEventListener('click', ()=>{
-    state.seed = String(Date.now());
-    syncUI();
-  });
+      <div class="end-grid">
+        <div class="end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
+        <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
+        <div class="end-item"><div class="k">ComboMax</div><div class="v" id="endCombo">0</div></div>
+        <div class="end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">Played</div><div class="v" id="endTimePlayed">0s</div></div>
+        <div class="end-item"><div class="k">Quest</div><div class="v" id="endQuest">0/0</div></div>
+      </div>
 
-  // AI
-  $('aiOn').addEventListener('click', ()=>{ state.ai=true; syncUI(); });
-  $('aiOff').addEventListener('click', ()=>{ state.ai=false; syncUI(); });
-
-  // launch buttons
-  $('btnPC').addEventListener('click', ()=> location.href = buildRunUrl('pc').toString());
-  $('btnMobile').addEventListener('click', ()=> location.href = buildRunUrl('mobile').toString());
-  $('btnCVR').addEventListener('click', ()=> location.href = buildRunUrl('cvr').toString());
-
-  $('btnHub').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
-    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    location.href = hub;
-  });
-
-  $('btnCopy').addEventListener('click', async ()=>{
-    const u = buildRunUrl('mobile').toString();
-    const ok = await copyText(u);
-    alert(ok ? 'คัดลอกลิงก์ run แล้ว ✅' : 'Copy ไม่สำเร็จ');
-  });
-
-  // init defaults
-  syncUI();
-})();
-</script>
+      <div class="end-actions">
+        <button id="btnReplay" class="btn-primary" type="button">เล่นอีกครั้ง</button>
+        <button id="btnBackHub" class="btn-ghost" type="button">กลับ HUB</button>
+        <button id="btnCopyJson" class="btn-ghost" type="button">Copy JSON</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
