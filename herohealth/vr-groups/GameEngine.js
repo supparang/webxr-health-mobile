@@ -1,12 +1,12 @@
 /* === /herohealth/vr-groups/GameEngine.js ===
-GroupsVR — PRODUCTION Engine (Pack 28–30)
-(28) Clutch Finale: last 10s -> speed up + score mult + FX class
-(29) Boss Patterns: lane dodge + weak window (double damage) after trick
-(30) Deterministic Replay Timeline (Research): record + replay 1:1
+GroupsVR — PRODUCTION Engine (Pack 31–33 ready)
+(31) Boss Phase 2: HP <= 50% -> faster dodge + decoy pressure + shorter weak window
+(32) Streak System: correct chain -> streak mult + FX classes + coach tip
+(33) Works with practice-calib.js (run page handles practice before start)
 
 Emits:
   hha:score, hha:time, hha:rank, hha:judge, hha:coach, hha:end
-  groups:power, groups:progress
+  groups:power, groups:progress, groups:streak
 Listens:
   hha:shoot (for view-cvr)
   hha:vr {state:'reset'} (recenter)
@@ -26,7 +26,6 @@ Listens:
     try{ root.dispatchEvent(new CustomEvent(name, {detail})); }catch{}
   }
 
-  // ---------- Data ----------
   const FOOD_GROUPS = [
     { key:'veg',  name:'🥦 ผัก',    good:['🥦','🥬','🥒','🥕','🍅','🫑'] },
     { key:'fruit',name:'🍎 ผลไม้',  good:['🍎','🍌','🍇','🍉','🍍','🍓'] },
@@ -37,7 +36,6 @@ Listens:
   const JUNK = ['🍟','🥤','🍩','🍔','🍕','🍪'];
   function pick(rng, arr){ return arr[(arr.length*rng())|0]; }
 
-  // ---------- Aim assist for cVR ----------
   function aimPickTarget(layerEl, lockPx){
     const els = Array.from(layerEl.querySelectorAll('.fg-target'));
     if (!els.length) return null;
@@ -55,43 +53,35 @@ Listens:
     return best;
   }
 
-  // ---------- Engine ----------
   function makeEngine(){
     const E = {};
     let layerEl = null;
 
-    // runtime
     let running=false;
     let tStart=0;
     let tLeft=90;
     let tickTmr=0;
 
-    // spawn clock (better deterministic)
     let spawnClockTmr=0;
     let nextSpawnAt=0;
 
-    // mode
     let runMode='play';
     let diff='normal';
     let style='mix';
     let seed='seed';
 
-    // replay
     let isReplay=false;
     let replayer=null;
     let recorder=null;
 
-    // RNG & patterns
     let rng=Math.random;
     let patternGen=null;
 
-    // quest + power
     let Q=null;
     let groupIndex=0;
     let power=0;
     let powerThr=8;
 
-    // pacing
     let baseSpawnMs=840;
     let baseTtlMs=1400;
     let spawnMs=840;
@@ -101,52 +91,44 @@ Listens:
     let clutchOn=false;
     let scoreMult=1.0;
 
+    // (32) streak
+    let streak=0;
+    let streakTier=0;     // 0..3
+    let streakMult=1.0;
+
     // storm/boss
     let stormOn=false;
     let stormEndsAt=0;
+
     let bossOn=false;
     let bossHp=0;
     let bossHpMax=0;
     let bossTrickUsed=false;
     let bossInvulnUntil=0;
-    let bossWeakUntil=0;      // (29) weak window -> double damage
+    let bossWeakUntil=0;
     let bossLanePhase=0;
 
-    // score
+    // (31) boss phase2
+    let bossPhase=1; // 1 or 2
+
     let score=0;
     let combo=0;
     let misses=0;
 
-    // metrics
     const M = {
-      nTargetGoodSpawned:0,
-      nTargetWrongSpawned:0,
-      nTargetJunkSpawned:0,
-      nTargetDecoySpawned:0,
-      nTargetBossSpawned:0,
-
-      nHitGood:0,
-      nHitWrong:0,
-      nHitJunk:0,
-      nHitBoss:0,
-
-      nExpireGood:0,
-      nExpireWrong:0,
-      nExpireJunk:0,
-      nExpireDecoy:0,
-      nExpireBoss:0,
-
-      rtGood:[],
-      rtBoss:[],
-
+      nTargetGoodSpawned:0, nTargetWrongSpawned:0, nTargetJunkSpawned:0, nTargetDecoySpawned:0, nTargetBossSpawned:0,
+      nHitGood:0, nHitWrong:0, nHitJunk:0, nHitBoss:0,
+      nExpireGood:0, nExpireWrong:0, nExpireJunk:0, nExpireDecoy:0, nExpireBoss:0,
+      rtGood:[], rtBoss:[],
       perfectSwitches:0,
-
       clutchUsed:0,
       bossTrickUsed:0,
-      bossWeakHits:0
+      bossWeakHits:0,
+      bossPhase2:0,
+      streakMax:0
     };
 
-    const active = new Map(); // id -> {el,type,spawnAt,ttlAt}
+    const active = new Map();
 
     function setLayerEl(el){ layerEl = el; }
 
@@ -159,14 +141,23 @@ Listens:
       if (layerEl) layerEl.innerHTML='';
 
       score=0; combo=0; misses=0;
-      groupIndex=0;
-      power=0; powerThr = (diff==='easy'?7:(diff==='hard'?9:8));
 
-      stormOn=false; bossOn=false;
+      groupIndex=0;
+      power=0;
+      powerThr = (diff==='easy'?7:(diff==='hard'?9:8));
+
+      stormOn=false;
+      bossOn=false;
       bossHp=0; bossHpMax=0; bossTrickUsed=false; bossInvulnUntil=0; bossWeakUntil=0; bossLanePhase=0;
+      bossPhase=1;
+      DOC.body.classList.remove('boss-phase2');
 
       clutchOn=false; scoreMult=1.0;
-      DOC.body.classList.remove('clutch','boss-weak');
+      DOC.body.classList.remove('clutch');
+
+      // streak reset
+      streak=0; streakTier=0; streakMult=1.0;
+      DOC.body.classList.remove('streak-1','streak-2','streak-3');
 
       for (const k in M){
         if (Array.isArray(M[k])) M[k]=[];
@@ -201,9 +192,8 @@ Listens:
     function doPerfectSwitch(){
       M.perfectSwitches++;
       emit('groups:progress', { kind:'perfect_switch', total:M.perfectSwitches });
-      if (Q && Q.onPerfectSwitch) Q.onPerfectSwitch();
 
-      score += Math.round(180 * scoreMult);
+      score += Math.round(180 * scoreMult * streakMult);
       combo += 2;
       setCoach('สลับหมู่สำเร็จ! +BONUS 🎉', 'happy');
       setScoreHUD(); updateRank();
@@ -213,6 +203,41 @@ Listens:
       power = 0;
       setPowerHUD();
       setCoach(`สลับเป็นหมู่: ${curGroup().name}`, 'neutral');
+    }
+
+    function setStreakTier(tier){
+      tier = clamp(tier, 0, 3)|0;
+      if (tier === streakTier) return;
+      streakTier = tier;
+
+      DOC.body.classList.remove('streak-1','streak-2','streak-3');
+      if (tier===1) DOC.body.classList.add('streak-1');
+      if (tier===2) DOC.body.classList.add('streak-2');
+      if (tier===3) DOC.body.classList.add('streak-3');
+
+      streakMult = (tier===1) ? 1.10 : (tier===2) ? 1.20 : (tier===3) ? 1.35 : 1.0;
+
+      emit('groups:streak', { streak, tier, mult: streakMult });
+
+      if (tier===1) setCoach('🔥 STREAK x1.10! ยิงถูกติดกันไว้', 'happy');
+      if (tier===2) setCoach('⚡ STREAK x1.20! อีกนิดจะเข้าโหมดโหด', 'fever');
+      if (tier===3) setCoach('🏆 STREAK MAX x1.35! อย่าพลาด!', 'fever');
+    }
+
+    function streakOnCorrect(){
+      streak++;
+      if (streak > M.streakMax) M.streakMax = streak;
+
+      if (streak >= 15) setStreakTier(3);
+      else if (streak >= 10) setStreakTier(2);
+      else if (streak >= 5) setStreakTier(1);
+    }
+    function streakReset(reason){
+      if (streak>0){
+        emit('groups:streak', { streak, tier:0, mult:1.0, reset:true, reason:String(reason||'') });
+      }
+      streak=0;
+      setStreakTier(0);
     }
 
     function applyDifficultyBase(){
@@ -230,10 +255,15 @@ Listens:
       if (bossOn){
         spawnMs = Math.max(560, spawnMs - 120);
       }
-      // (28) clutch finale boosts
       if (clutchOn){
         spawnMs = Math.max(480, spawnMs - 180);
         ttlMs   = Math.max(860, ttlMs  - 120);
+      }
+
+      // (31) boss phase2 => faster
+      if (bossOn && bossPhase===2){
+        spawnMs = Math.max(460, spawnMs - 130);
+        ttlMs   = Math.max(820, ttlMs  - 120);
       }
     }
 
@@ -241,18 +271,19 @@ Listens:
       if (runMode !== 'play') return;
       const hits = M.nHitGood + M.nHitWrong + M.nHitJunk + M.nHitBoss;
       const acc = hits ? (M.nHitGood + M.nHitBoss)/hits : 0.8;
+
       if (acc < 0.72 || misses >= 8){
         spawnMs = clamp(spawnMs + 30, 620, 980);
         ttlMs   = clamp(ttlMs + 20, 980, 1700);
       }
       if (acc > 0.90 && combo >= 6){
         spawnMs = clamp(spawnMs - 25, 480, 980);
-        ttlMs   = clamp(ttlMs - 18, 860, 1700);
+        ttlMs   = clamp(ttlMs - 18, 820, 1700);
       }
     }
 
     function safePatternMode(){
-      if (bossOn) return (bossLanePhase++ % 2 === 0) ? 'lanesV' : 'ring8'; // (29)
+      if (bossOn) return (bossLanePhase++ % 2 === 0) ? 'lanesV' : 'ring8';
       if (style==='feel') return 'feel';
       if (style==='hard') return 'hard';
       if (style==='mix')  return 'mix';
@@ -277,13 +308,31 @@ Listens:
 
     function spawnBoss(){
       bossOn = true;
+      bossPhase = 1;
+      DOC.body.classList.remove('boss-phase2');
+
       bossTrickUsed = false;
       bossHpMax = (diff==='easy'?6:(diff==='hard'?10:8));
       bossHp = bossHpMax;
+
       emit('groups:progress', {kind:'boss_spawn', hp:bossHpMax});
       recorder && recorder.push('boss_spawn', {hp:bossHpMax});
       setCoach('BOSS มาแล้ว! ยิงให้ครบ 💥', 'fever');
       createTarget('boss');
+    }
+
+    function enterBossPhase2(){
+      if (!bossOn || bossPhase===2) return;
+      bossPhase = 2;
+      M.bossPhase2 = 1;
+      DOC.body.classList.add('boss-phase2');
+
+      emit('groups:progress', {kind:'boss_phase2'});
+      recorder && recorder.push('boss_phase2', {});
+      setCoach('🔥 BOSS PHASE 2! หลบเร็ว + หลอกหนักขึ้น', 'fever');
+
+      // pressure burst
+      for (let i=0;i<4;i++) createTarget('decoy', {decoyHard:true});
     }
 
     function maybeBossTrick(){
@@ -292,17 +341,23 @@ Listens:
 
       bossTrickUsed = true;
       M.bossTrickUsed++;
-      bossInvulnUntil = now() + 1200; // invuln
-      bossWeakUntil   = now() + 2600; // (29) weak window after trick
+
+      const invuln = (bossPhase===2) ? 900 : 1200;
+      const weak   = (bossPhase===2) ? 1700 : 2600;
+
+      bossInvulnUntil = now() + invuln;
+      bossWeakUntil   = now() + weak;
+
       DOC.body.classList.add('boss-weak');
-      setTimeout(()=> DOC.body.classList.remove('boss-weak'), 2600);
+      setTimeout(()=> DOC.body.classList.remove('boss-weak'), weak);
 
       emit('groups:progress', {kind:'boss_trick'});
-      recorder && recorder.push('boss_trick', {});
+      recorder && recorder.push('boss_trick', {invuln, weak});
+
       setCoach('BOSS หลอก! รอสวนตอน “อ่อนแอ” 🔥', 'sad');
 
-      // decoy burst
-      for (let i=0;i<3;i++) createTarget('decoy', {decoyHard:true});
+      for (let i=0;i< (bossPhase===2 ? 5 : 3); i++) createTarget('decoy', {decoyHard:true});
+
       DOC.body.classList.add('groups-storm-urgent');
       setTimeout(()=> DOC.body.classList.remove('groups-storm-urgent'), 900);
     }
@@ -332,11 +387,9 @@ Listens:
       el.style.setProperty('--x', p.x.toFixed(2)+'%');
       el.style.setProperty('--y', p.y.toFixed(2)+'%');
 
-      // smooth dodge feel (29) for boss/decoy
       if (type==='boss' || type==='decoy'){
         el.style.transition = 'left .18s linear, top .18s linear, transform .12s ease';
       }
-
       return el;
     }
 
@@ -348,32 +401,19 @@ Listens:
       const g = curGroup();
       let emoji = '⭐';
 
-      if (type==='good'){
-        emoji = pick(rng, g.good);
-        M.nTargetGoodSpawned++;
-      }else if (type==='wrong'){
+      if (type==='good'){ emoji = pick(rng, g.good); M.nTargetGoodSpawned++; }
+      else if (type==='wrong'){
         const other = pick(rng, FOOD_GROUPS.filter(x=>x.key!==g.key));
-        emoji = pick(rng, other.good);
-        M.nTargetWrongSpawned++;
-      }else if (type==='junk'){
-        emoji = pick(rng, JUNK);
-        M.nTargetJunkSpawned++;
-      }else if (type==='decoy'){
-        emoji = pick(rng, ['⭐','💎','🌀','⚡']);
-        M.nTargetDecoySpawned++;
-      }else if (type==='boss'){
-        emoji = pick(rng, ['👿','🧠','🦾','🦹‍♂️']);
-        M.nTargetBossSpawned++;
+        emoji = pick(rng, other.good); M.nTargetWrongSpawned++;
       }
+      else if (type==='junk'){ emoji = pick(rng, JUNK); M.nTargetJunkSpawned++; }
+      else if (type==='decoy'){ emoji = pick(rng, ['⭐','💎','🌀','⚡']); M.nTargetDecoySpawned++; }
+      else if (type==='boss'){ emoji = pick(rng, ['👿','🧠','🦾','🦹‍♂️']); M.nTargetBossSpawned++; }
 
       const el = createEl(id, type, emoji);
+      if (type==='decoy' && extra.decoyHard) el.dataset.decoyHard='1';
 
-      if (type==='decoy' && extra.decoyHard) el.dataset.decoyHard = '1';
-
-      el.addEventListener('click', ()=>{
-        if (!running) return;
-        onHitEl(el, 'tap');
-      });
+      el.addEventListener('click', ()=>{ if (!running) return; onHitEl(el, 'tap'); });
 
       const spawnAt = now();
       const ttlAt = spawnAt + ttlMs;
@@ -388,12 +428,8 @@ Listens:
         ttlMs
       });
 
-      // (29) boss dodge: move a few times deterministically
-      if (type==='boss'){
-        bossDodge(el, id);
-      }
+      if (type==='boss'){ bossDodge(el, id); }
 
-      // expire
       setTimeout(()=>{
         const a = active.get(id);
         if (!a) return;
@@ -407,9 +443,11 @@ Listens:
     }
 
     function bossDodge(el, id){
-      // deterministic dodge steps (uses patternGen with boss lanes)
       if (!patternGen) return;
       let steps = (diff==='easy'?5:(diff==='hard'?8:6));
+      // (31) phase2 -> more steps
+      if (bossPhase===2) steps += 4;
+
       let tmr = 0;
 
       function step(){
@@ -424,7 +462,10 @@ Listens:
         recorder && recorder.push('boss_move', { id, x: el.style.getPropertyValue('--x'), y: el.style.getPropertyValue('--y') });
 
         if (--steps <= 0) return;
-        tmr = setTimeout(step, 260);
+
+        // (31) phase2 -> faster dodge
+        const dt = (bossPhase===2) ? 200 : 260;
+        tmr = setTimeout(step, dt);
       }
       step();
     }
@@ -432,6 +473,8 @@ Listens:
     function onExpire(type, id){
       combo = Math.max(0, combo-1);
       misses++;
+      streakReset('expire');
+
       setScoreHUD(); updateRank();
 
       if (type==='good') M.nExpireGood++;
@@ -472,11 +515,11 @@ Listens:
 
       recorder && recorder.push('hit', { id, type, via, rtMs: rt });
 
-      // boss invuln trick window
       if (type==='boss' && now() < bossInvulnUntil){
         judge('bad','INVULN');
         combo = Math.max(0, combo-1);
         misses++;
+        streakReset('invuln');
         setScoreHUD(); updateRank();
         if (Q && Q.onWrongHit) Q.onWrongHit();
         return;
@@ -484,12 +527,15 @@ Listens:
 
       if (type==='good'){
         onHit('good', rt);
-        score += Math.round((120 + combo*6) * scoreMult);
+        streakOnCorrect();
+
+        score += Math.round((120 + combo*6) * scoreMult * streakMult);
         combo++;
         power++;
         if (Q && Q.onCorrectHit) Q.onCorrectHit();
         judge('good','GOOD');
-        setCoach('ดีมาก! 🎯', (combo>=8?'happy':'neutral'));
+
+        if (streakTier>=2) setCoach('โคตรนิ่ง! รักษา streak ไว้ 👀', 'happy');
 
         if (power >= powerThr){
           if (combo >= 4) doPerfectSwitch();
@@ -502,18 +548,20 @@ Listens:
         score = Math.max(0, score-40);
         combo = Math.max(0, combo-2);
         misses++;
+        streakReset('wrong');
         if (Q && Q.onWrongHit) Q.onWrongHit();
         judge('bad','WRONG');
-        setCoach('ผิดหมู่! ระวัง 😅','sad');
+        setCoach('ผิดหมู่! รีเซ็ตจังหวะใหม่ 😅','sad');
       }
       else if (type==='junk'){
         onHit('junk', rt);
         score = Math.max(0, score-70);
         combo = 0;
         misses++;
+        streakReset('junk');
         if (Q && Q.onJunkHit) Q.onJunkHit();
         judge('bad','JUNK');
-        setCoach('โดนขยะ! 😖','sad');
+        setCoach('โดนขยะ! เสีย streak 😖','sad');
       }
       else if (type==='decoy'){
         onHit('wrong', rt);
@@ -521,14 +569,20 @@ Listens:
         score = Math.max(0, score-(hard?85:50));
         combo = Math.max(0, combo-3);
         misses++;
+        streakReset('decoy');
         if (Q && Q.onWrongHit) Q.onWrongHit();
         judge('bad','DECOY');
-        setCoach('โดนหลอก! 😵','sad');
+        setCoach('โดนหลอก! ระวังเดคอย 😵','sad');
       }
       else if (type==='boss'){
         onHit('boss', rt);
+        streakOnCorrect();
 
-        // (29) weak window -> double damage + bonus
+        // phase2 trigger
+        if (bossOn && bossPhase===1 && bossHp <= Math.ceil(bossHpMax*0.5)){
+          enterBossPhase2();
+        }
+
         const weak = now() < bossWeakUntil;
         const dmg = weak ? 2 : 1;
         bossHp = Math.max(0, bossHp - dmg);
@@ -537,9 +591,13 @@ Listens:
         if (Q && Q.onBossHit) Q.onBossHit();
         judge('boss', weak ? 'BOSS x2' : 'BOSS');
 
-        score += Math.round((160 + combo*7 + (weak?80:0)) * scoreMult);
+        score += Math.round((160 + combo*7 + (weak?80:0)) * scoreMult * streakMult);
         combo++;
-        setCoach(weak ? `โดนตอนอ่อนแอ! เหลือ ${bossHp}/${bossHpMax} 🔥` : `โดนแล้ว! เหลือ ${bossHp}/${bossHpMax} 💥`, 'fever');
+
+        setCoach(
+          weak ? `โดนตอนอ่อนแอ! เหลือ ${bossHp}/${bossHpMax} 🔥` : `โดนแล้ว! เหลือ ${bossHp}/${bossHpMax} 💥`,
+          'fever'
+        );
 
         maybeBossTrick();
 
@@ -547,11 +605,14 @@ Listens:
           bossOn = false;
           emit('groups:progress', {kind:'boss_down'});
           recorder && recorder.push('boss_down', {});
-          score += Math.round(350 * scoreMult);
+          score += Math.round(350 * scoreMult * streakMult);
           setCoach('โค่น BOSS สำเร็จ!! 🏆','happy');
           endStorm();
+          DOC.body.classList.remove('boss-phase2');
         }else{
           if (bossHp % 2 === 0) createTarget('boss');
+          // phase2 extra pressure
+          if (bossPhase===2 && rng()<0.45) createTarget('decoy', {decoyHard:true});
         }
       }
 
@@ -563,7 +624,6 @@ Listens:
       const d = ev && ev.detail ? ev.detail : {};
       const gLock = root.HHA_VRUI_CONFIG && root.HHA_VRUI_CONFIG.lockPx;
       const lockPx = clamp(Number(d.lockPx ?? gLock ?? 92), 40, 160);
-
       const el = aimPickTarget(layerEl, lockPx);
       if (el) onHitEl(el, 'shoot');
     }
@@ -576,7 +636,6 @@ Listens:
       setCoach('RECENTER ✅', 'happy');
     }
 
-    // ---------- Replay plumbing ----------
     function handleReplayEvent(e){
       const t = e.type;
       const d = e.d || {};
@@ -584,12 +643,20 @@ Listens:
       if (t === 'storm_on'){ stormOn=true; DOC.body.classList.add('groups-storm'); }
       if (t === 'storm_off'){ stormOn=false; DOC.body.classList.remove('groups-storm','groups-storm-urgent'); }
       if (t === 'clutch_on'){ clutchOn=true; DOC.body.classList.add('clutch'); scoreMult=1.35; }
-      if (t === 'boss_spawn'){ bossOn=true; bossHpMax=d.hp||bossHpMax||8; bossHp=bossHpMax; }
-      if (t === 'boss_trick'){ bossTrickUsed=true; bossInvulnUntil=now()+1200; bossWeakUntil=now()+2600; DOC.body.classList.add('boss-weak'); setTimeout(()=>DOC.body.classList.remove('boss-weak'), 2600); }
-      if (t === 'boss_down'){ bossOn=false; }
+      if (t === 'boss_spawn'){ bossOn=true; bossHpMax=d.hp||bossHpMax||8; bossHp=bossHpMax; bossPhase=1; DOC.body.classList.remove('boss-phase2'); }
+      if (t === 'boss_phase2'){ bossPhase=2; DOC.body.classList.add('boss-phase2'); }
+      if (t === 'boss_trick'){
+        bossTrickUsed=true;
+        const invuln = Number(d.invuln||1200);
+        const weak   = Number(d.weak||2600);
+        bossInvulnUntil=now()+invuln;
+        bossWeakUntil=now()+weak;
+        DOC.body.classList.add('boss-weak');
+        setTimeout(()=>DOC.body.classList.remove('boss-weak'), weak);
+      }
+      if (t === 'boss_down'){ bossOn=false; DOC.body.classList.remove('boss-phase2'); }
 
       if (t === 'spawn'){
-        // spawn exactly same (type/pos/emoji)
         const id = d.id || ('r'+Math.random().toString(16).slice(2));
         const type = d.type || 'good';
         const emoji = d.emoji || '⭐';
@@ -639,11 +706,9 @@ Listens:
       }
     }
 
-    // ---------- Spawn clock (deterministic-friendly) ----------
     function spawnOnce(){
       if (!running) return;
 
-      // urgent class
       if (stormOn){
         const left = stormEndsAt - now();
         DOC.body.classList.toggle('groups-storm-urgent', left <= 3000);
@@ -656,11 +721,12 @@ Listens:
       applyDifficultyBase();
       adaptiveNudge();
 
-      // type weights
       const baseGood=0.58, baseWrong=0.18, baseJunk=0.16, baseDecoy=0.08;
       let goodW=baseGood, wrongW=baseWrong, junkW=baseJunk, decoyW=baseDecoy;
+
       if (stormOn){ goodW-=0.07; junkW+=0.05; decoyW+=0.02; }
       if (bossOn){ goodW-=0.10; wrongW-=0.03; decoyW+=0.06; }
+      if (bossOn && bossPhase===2){ goodW-=0.06; decoyW+=0.06; }
 
       const sum=goodW+wrongW+junkW+decoyW;
       goodW/=sum; wrongW/=sum; junkW/=sum; decoyW/=sum;
@@ -668,21 +734,20 @@ Listens:
       let type='good';
       const r = rng();
 
-      if (bossOn && rng()<0.22) type='boss';
+      if (bossOn && rng()< (bossPhase===2 ? 0.28 : 0.22)) type='boss';
       else if (r < goodW) type='good';
       else if (r < goodW+wrongW) type='wrong';
       else if (r < goodW+wrongW+junkW) type='junk';
       else type='decoy';
 
       const el = createTarget(type);
-      if (el && type==='decoy' && bossTrickUsed) el.dataset.decoyHard='1';
+      if (el && type==='decoy' && (bossTrickUsed || bossPhase===2)) el.dataset.decoyHard='1';
     }
 
     function spawnClock(){
       clearTimeout(spawnClockTmr);
       if (!running) return;
 
-      // replay mode: spawn driven by timeline only
       if (isReplay && replayer){
         replayer.poll(handleReplayEvent);
         spawnClockTmr = setTimeout(spawnClock, 40);
@@ -691,17 +756,15 @@ Listens:
 
       const t = now();
       if (t >= nextSpawnAt){
-        // catch up (bounded)
         let guard=0;
         while (guard++ < 3 && t >= nextSpawnAt){
           spawnOnce();
-          nextSpawnAt += spawnMs; // deterministic step accumulation
+          nextSpawnAt += spawnMs;
         }
       }
       spawnClockTmr = setTimeout(spawnClock, 40);
     }
 
-    // ---------- Tick ----------
     function tick(){
       if (!running) return;
 
@@ -709,7 +772,6 @@ Listens:
       setTimeHUD();
       if (Q && Q.tick) Q.tick();
 
-      // (28) clutch finale at 10s
       if (!clutchOn && tLeft <= 10){
         clutchOn = true;
         M.clutchUsed = 1;
@@ -720,7 +782,6 @@ Listens:
         setCoach('🔥 CLUTCH! 10 วิท้าย คะแนนคูณ + เร่งสปีด!', 'fever');
       }
 
-      // storms schedule
       const played = Math.round((now()-tStart)/1000);
       if (runMode==='play'){
         if (!stormOn && !bossOn && played>0 && played % 22 === 0){
@@ -765,7 +826,6 @@ Listens:
 
       const qsState = Q && Q.getState ? Q.getState() : {goalsCleared:0,goalsTotal:0,miniCleared:0,miniTotal:0,perfectSwitches:0};
 
-      // (30) save timeline
       let timeline = null;
       if (recorder){
         timeline = recorder.saveToLocal();
@@ -806,8 +866,11 @@ Listens:
         clutchUsed: M.clutchUsed|0,
         bossTrickUsed: M.bossTrickUsed|0,
         bossWeakHits: M.bossWeakHits|0,
+        bossPhase2: M.bossPhase2|0,
 
+        streakMax: M.streakMax|0,
         scoreMultiplier: scoreMult,
+        streakMultiplier: streakMult,
 
         timelineSaved: !!timeline,
         timelineKey: (root.GroupsVR && root.GroupsVR.Replay && root.GroupsVR.Replay.LS_TL) ? root.GroupsVR.Replay.LS_TL : '',
@@ -823,10 +886,8 @@ Listens:
       style = String(opts.style || 'mix').toLowerCase();
       seed = String(opts.seed || 'seed');
 
-      // replay?
       isReplay = String(qs('replay','0')||'0') === '1';
 
-      // patterns rng
       const gen = root.GroupsVR && root.GroupsVR.Patterns && root.GroupsVR.Patterns.makePatternGen;
       if (gen){
         patternGen = gen({ seed, mode: style, safe:{ left:10,right:10, top:20,bottom:14 }});
@@ -841,7 +902,6 @@ Listens:
       tStart = now();
       running = true;
 
-      // recorder/replayer (30)
       const R = root.GroupsVR && root.GroupsVR.Replay;
       if (R){
         if (isReplay){
@@ -858,7 +918,6 @@ Listens:
         }
       }
 
-      // quest
       const QF = root.GroupsVR && root.GroupsVR.Quests && root.GroupsVR.Quests.makeQuestDirector;
       Q = QF ? QF({ diff, runMode }) : null;
 
@@ -868,7 +927,6 @@ Listens:
       root.addEventListener('hha:shoot', onShoot, {passive:true});
       root.addEventListener('hha:vr', onVR, {passive:true});
 
-      // spawn clock init
       applyDifficultyBase();
       nextSpawnAt = now() + spawnMs;
       spawnClock();
