@@ -27,10 +27,10 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
-  <script src="./ai-hooks.js" defer></script>         <!-- (27) AI hooks (disabled by default) -->
-  <script src="./research-ctx.js" defer></script>     <!-- (22) -->
-  <script src="./flush-log.js" defer></script>        <!-- (23) -->
-  <script src="./view-helper.js" defer></script>      <!-- (27) helper -->
+  <script src="./ai-hooks.js" defer></script>         <!-- AI hooks (disabled by default; use ?ai=1 in play) -->
+  <script src="./research-ctx.js" defer></script>
+  <script src="./flush-log.js" defer></script>
+  <script src="./view-helper.js" defer></script>
   <script src="./GameEngine.js" defer></script>
 </head>
 
@@ -147,6 +147,22 @@ GroupsVR Run (PC/Mobile/Cardboard)
     b.classList.add('view-'+view);
   }
 
+  function aiEnabled(){
+    const run = String(qs('run','play')||'play').toLowerCase();
+    const on  = String(qs('ai','0')||'0');
+    if (run === 'research') return false;      // ✅ research: ไม่ใช้ adaptive
+    return (on === '1' || on === 'true');
+  }
+
+  function getPracticeSec(view){
+    const p = String(qs('practice','0')||'0');
+    let sec = Number(p)||0;
+    if (p === '1') sec = 15;                  // ✅ practice=1 => 15s
+    sec = clamp(sec, 0, 30);
+    if (view !== 'cvr') sec = 0;              // ✅ practice เฉพาะ cVR
+    return sec;
+  }
+
   async function copyText(text){
     try { await navigator.clipboard.writeText(String(text||'')); return true; }
     catch {
@@ -202,7 +218,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('pFill').style.width = Math.round((cur/thr)*100) + '%';
   }, {passive:true});
 
-  // quest:update -> goal/mini
   window.addEventListener('quest:update', (ev)=>{
     const d = ev.detail||{};
     const gTitle = String(d.goalTitle||'—');
@@ -280,7 +295,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch{}
   }
 
-  // practice flow
   let practiceActive = false;
   let practiceDone = false;
 
@@ -308,7 +322,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
-  // flush on leave
   try{
     const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
     B && B(()=>lastSummary);
@@ -318,11 +331,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
-    // practice: don't show end overlay, don't save history
     if (practiceActive && !practiceDone){
       practiceDone = true;
       practiceActive = false;
-      // start real run quickly
       const E = window.GroupsVR && window.GroupsVR.GameEngine;
       if (E && typeof E.start === 'function'){
         setTimeout(()=> startReal(E), 180);
@@ -358,11 +369,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const u = new URL('../groups-vr.html', location.href);
     if (hub) u.searchParams.set('hub', hub);
 
-    // carry log param too
     const log = String(qs('log','')||'');
     if (log) u.searchParams.set('log', log);
 
-    // carry research ctx too (passthrough)
     const sp = new URL(location.href).searchParams;
     sp.forEach((v,k)=>{
       if (['view','run','diff','style','time','seed','practice'].includes(k)) return;
@@ -394,7 +403,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     practiceActive = true;
     practiceDone = false;
 
-    // mark HUD
     $('vMode').textContent = 'PRACTICE';
 
     const seedP = String(cfg.seed) + '-practice';
@@ -402,7 +410,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     E.setLayerEl($('playLayer'));
     E.start(cfg.diff, { runMode:'play', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
 
-    // helper: try fullscreen/orientation for cVR
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
       H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
@@ -423,13 +430,14 @@ GroupsVR Run (PC/Mobile/Cardboard)
     E.setLayerEl($('playLayer'));
     E.start(diff, { runMode: run, diff, style, time, seed });
 
-    // AI hooks (default disabled; research disabled always)
+    // AI hooks: only when ?ai=1 and only in play
     try{
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
-      AI && AI.attach && AI.attach({ runMode: run, seed });
+      if (AI && AI.attach && aiEnabled()){
+        AI.attach({ runMode: run, seed, enabled:true });
+      }
     }catch(_){}
 
-    // helper: cVR strict fallback shooter + fullscreen/orientation
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
       H && H.init && H.init({ view });
@@ -438,33 +446,25 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   function startFromParams(){
     const view = String(qs('view','mobile')||'mobile').toLowerCase();
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
     const diff = String(qs('diff','normal')||'normal').toLowerCase();
     const style= String(qs('style','mix')||'mix').toLowerCase();
-    const time = clamp(qs('time',90), 30, 180);
     const seed = String(qs('seed', Date.now()) || Date.now());
 
     setView(view);
     hookAudio();
 
-    // default practice for cVR if param exists
-    const practiceSec = clamp(qs('practice', 0), 0, 30);
+    const practiceSec = getPracticeSec(view);
 
     waitForEngine((E)=>{
-      // cVR strict (extra hard) -> disable click on targets already by CSS
-      if (view === 'cvr'){
-        // if practice enabled
-        if (practiceSec > 0){
-          startPractice(E, { diff, style, seed, practiceSec });
-          return;
-        }
+      if (view === 'cvr' && practiceSec > 0){
+        startPractice(E, { diff, style, seed, practiceSec });
+        return;
       }
       startReal(E);
     });
   }
 
   startFromParams();
-
 })();
 </script>
 </body>
