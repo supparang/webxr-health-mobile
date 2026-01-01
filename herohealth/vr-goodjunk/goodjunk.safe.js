@@ -1,11 +1,10 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v4 (VR TICK EVENT)
+// GoodJunkVR — SAFE Engine (PRODUCTION) — HHA Standard (DUAL-EYE READY) — v4
 // ✅ endPolicy: time | all | miss
 // ✅ challenge: rush | survive | boss
 // ✅ Quest Peek (for VR when HUD hidden)
-// ✅ FX: fever vignette + lowtime class
-// ✅ NEW: emits hha:vr_tick (sec 10..1) for VR toast (non-nausea)
-// ✅ NEW: low-time warning (rate-limited, no screen shake)
+// ✅ FX: fever vignette + low-time warning ring + gentle tick flash (no motion sickness)
+// ✅ VR-UI: listens to hha:shoot (from /vr/vr-ui.js) and shoots at crosshair
 
 'use strict';
 
@@ -149,7 +148,7 @@ function ensureTargetStyles(){
       transition: transform 140ms ease, opacity 140ms ease;
     }
 
-    /* FX overlay */
+    /* Fever vignette */
     .gj-fx-vignette{
       position:fixed; inset:0;
       pointer-events:none;
@@ -161,10 +160,30 @@ function ensureTargetStyles(){
         radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.20) 100%);
       mix-blend-mode: screen;
     }
-    body.gj-lowtime .gj-fx-vignette{
+
+    /* Low-time warning ring (NO SHAKE) */
+    .gj-warning-ring{
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:64;
+      opacity:0;
+      transition: opacity 160ms ease;
       background:
-        radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 46%, rgba(245,158,11,.22) 82%, rgba(245,158,11,.38) 100%),
-        radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.22) 100%);
+        radial-gradient(circle at 50% 50%,
+          rgba(0,0,0,0) 55%,
+          rgba(245,158,11,.10) 78%,
+          rgba(245,158,11,.22) 100%);
+    }
+    body.gj-lowtime .gj-warning-ring{ opacity:.70; }
+    body.gj-lowtime5 .gj-warning-ring{ opacity:.92; }
+
+    @keyframes gjTickFlash {
+      0%{ filter: brightness(1); }
+      50%{ filter: brightness(1.12); }
+      100%{ filter: brightness(1); }
+    }
+    body.gj-tick{
+      animation: gjTickFlash 180ms linear 1;
     }
   `;
   DOC.head.appendChild(st);
@@ -179,6 +198,24 @@ function ensureVignette(){
   el.className = 'gj-fx-vignette';
   DOC.body.appendChild(el);
   return el;
+}
+
+function ensureWarnRing(){
+  const DOC = ROOT.document;
+  if (!DOC) return null;
+  let el = DOC.querySelector('.gj-warning-ring');
+  if (el) return el;
+  el = DOC.createElement('div');
+  el.className = 'gj-warning-ring';
+  DOC.body.appendChild(el);
+  return el;
+}
+
+function pulseBody(cls, ms=180){
+  const DOC = ROOT.document;
+  if (!DOC) return;
+  DOC.body.classList.add(cls);
+  setTimeout(()=>{ try{ DOC.body.classList.remove(cls); }catch(_){ } }, ms);
 }
 
 /* -------------------- Spawn placement -------------------- */
@@ -341,7 +378,6 @@ function applyChallengePreset(S, base){
   if (ch === 'survive'){
     S.goalsTotal = 2;
     S.miniTotal  = 6;
-
     const d = String(S.diff||'normal');
     S.missLimit =
       (d === 'easy') ? 7 :
@@ -368,10 +404,9 @@ function applyChallengePreset(S, base){
     return;
   }
 
-  // rush
+  // rush default
   S.goalsTotal = 2;
   S.miniTotal  = 7;
-
   S.spawnMs = clamp(base.spawnMs - 90, 380, 1200);
   S.ttlMs   = clamp(base.ttlMs - 110, 1050, 2600);
   S.junkP   = clamp(base.junk + 0.015, 0.08, 0.26);
@@ -386,6 +421,7 @@ export function boot(opts = {}) {
 
   ensureTargetStyles();
   const vignette = ensureVignette();
+  const warnRing = ensureWarnRing();
 
   const layerL = opts.layerEl
     || DOC.getElementById('gj-layer-l')
@@ -438,10 +474,8 @@ export function boot(opts = {}) {
     diff, runMode, timeSec, seed, rng: makeRng(seed),
     endPolicy, challenge,
     tStart:0, left: timeSec,
-
     score:0, combo:0, comboMax:0,
     misses:0, missLimit:0,
-
     hitAll:0, hitGood:0, hitJunk:0, hitJunkGuard:0, expireGood:0,
     fever:0, shield:0,
 
@@ -464,14 +498,13 @@ export function boot(opts = {}) {
     bossJunk:0,
     bossEndAt:0,
 
-    // NEW: vr tick (10..1) rate limit
-    lastTickSec: null,
-    lastWarnSec: null,
+    // lowtime warning
+    _lastWarnBucket: -1,
+    _lastTickAt: 0,
 
     uidSeq: 1
   };
 
-  // mobile tweaks
   if (isMobileLike()){
     S.maxTargets = Math.max(6, S.maxTargets - 1);
     S.size = Math.min(1.12, S.size + 0.03);
@@ -605,7 +638,6 @@ export function boot(opts = {}) {
     if (!el || !el.isConnected) return;
     const tp = String(el.dataset.type||'');
     if (tp === 'good'){
-      // MISS definition: expire good counts as miss
       S.misses++; S.expireGood++; S.combo = 0;
 
       S.fever = clamp(S.fever + 7, 0, 100);
@@ -620,7 +652,6 @@ export function boot(opts = {}) {
           return;
         }
       }
-
       logEvent('miss_expire', { kind:'good', emoji: String(el.dataset.emoji||'') });
     }
     el.classList.add('out');
@@ -638,10 +669,6 @@ export function boot(opts = {}) {
     el.dataset.type = type;
     el.dataset.emoji = String(emoji||'✨');
     el.dataset.uid = String(uid||'');
-
-    el.style.position = 'absolute';
-    el.style.pointerEvents = 'auto';
-    el.style.zIndex = '30';
 
     setXY(el, x, y);
     el.style.setProperty('--s', String(Number(s||1).toFixed(3)));
@@ -683,14 +710,12 @@ export function boot(opts = {}) {
 
   function checkGoalProgress(){
     if (S.goalsCleared >= S.goalsTotal) return;
-
     const needGood = getGoalNeed();
     if (S.hitGood >= needGood){
       S.goalsCleared++;
       emit('hha:celebrate', { kind:'goal', title:`Goal ผ่าน! ${S.goalsCleared}/${S.goalsTotal}` });
       coach('happy', `Goal ผ่านแล้ว!`, `คุมความแม่น + หลีกขยะ`);
       updateQuest();
-
       if (S.endPolicy === 'all' && allComplete()){
         endGame('all_complete');
       }
@@ -699,14 +724,12 @@ export function boot(opts = {}) {
 
   function checkMiniProgress(){
     if (S.miniCleared >= S.miniTotal) return;
-
     const needCombo = getMiniNeed();
     if (S.combo >= needCombo){
       S.miniCleared++;
       emit('hha:celebrate', { kind:'mini', title:`Mini ผ่าน! ${S.miniCleared}/${S.miniTotal}` });
       coach('happy', `คอมโบมาแล้ว! ดีมาก 🔥`, `ทำคอมโบต่อได้อีก!`);
       updateQuest();
-
       if (S.endPolicy === 'all' && allComplete()){
         endGame('all_complete');
       }
@@ -733,7 +756,6 @@ export function boot(opts = {}) {
     updateQuest();
 
     if (S.bossActive) S.bossGood++;
-
     removeTargetBoth(el);
   }
 
@@ -773,11 +795,9 @@ export function boot(opts = {}) {
 
   function hitJunk(el){
     S.hitAll++;
-
     if (S.bossActive) S.bossJunk++;
 
     if (S.shield > 0){
-      // shield block does NOT count as miss
       S.shield = Math.max(0, S.shield - 1);
       S.hitJunkGuard++;
       updateFever(S.shield, S.fever);
@@ -791,7 +811,6 @@ export function boot(opts = {}) {
       return;
     }
 
-    // junk hit counts as miss
     S.hitJunk++; S.misses++; S.combo = 0;
 
     const penalty = 170;
@@ -916,8 +935,7 @@ export function boot(opts = {}) {
     const r = S.rng();
     const powerP = inWarm ? (S.powerP * 0.6) : S.powerP;
     const junkP  = inWarm ? (S.junkP * 0.55)  : S.junkP;
-
-    const starP = S.bossActive ? 0.020 : 0.035;
+    const starP  = S.bossActive ? 0.020 : 0.035;
 
     if (r < powerP) tp = 'shield';
     else if (r < powerP + starP) tp = 'star';
@@ -962,25 +980,34 @@ export function boot(opts = {}) {
     S.spawnTimer = setTimeout(loopSpawn, clamp(nextMs, 320, 1400));
   }
 
-  /* -------------------- VR low-time tick helper (NEW) -------------------- */
-  function maybeEmitVrTick(){
-    const sec = Math.ceil(S.left); // 10..1
-    if (sec > 10 || sec < 1) return;
+  /* -------------------- Low-time warning (VR-friendly) -------------------- */
+  function lowtimeWarnTick(){
+    // buckets: 10..6 => 1, 5..4 => 2, 3..2 => 3, 1..0 => 4
+    const left = Math.max(0, S.left);
+    let bucket = 0;
+    if (left <= 10 && left > 5) bucket = 1;
+    else if (left <= 5 && left > 3) bucket = 2;
+    else if (left <= 3 && left > 1) bucket = 3;
+    else if (left <= 1) bucket = 4;
 
-    if (S.lastTickSec !== sec){
-      S.lastTickSec = sec;
-      emit('hha:vr_tick', { sec });
-    }
+    DOC.body.classList.toggle('gj-lowtime', left <= 10);
+    DOC.body.classList.toggle('gj-lowtime5', left <= 5);
 
-    // rate-limited warning (no nausea, no shake)
-    const important = (sec === 10 || sec === 5 || sec === 3 || sec === 2 || sec === 1);
-    if (important && S.lastWarnSec !== sec){
-      S.lastWarnSec = sec;
-      if (sec <= 3){
-        coach('neutral', `ใกล้หมดเวลา! ${sec} วิ`, 'เร่งยิงเป้าใกล้กลาง');
-        judge('warn', `เหลือ ${sec} วิ!`);
-      } else {
-        judge('warn', `เหลือ ${sec} วิ`);
+    if (bucket > 0){
+      // gentle visual tick about 2 Hz (no shake)
+      const t = now();
+      if (t - S._lastTickAt >= 480){
+        S._lastTickAt = t;
+        pulseBody('gj-tick', 180);
+      }
+
+      // show text warning only once per bucket
+      if (bucket !== S._lastWarnBucket){
+        S._lastWarnBucket = bucket;
+        if (bucket === 1) judge('warn', 'ใกล้หมดเวลา!');
+        if (bucket === 2) judge('warn', 'เหลือ 5 วิ!');
+        if (bucket === 3) judge('warn', 'เหลือ 3 วิ!');
+        if (bucket === 4) judge('warn', 'เหลือ 1 วิ!');
       }
     }
   }
@@ -992,10 +1019,7 @@ export function boot(opts = {}) {
     S.left = Math.max(0, S.left - 0.14);
     updateTime();
 
-    const low = (S.left <= 10);
-    DOC.body.classList.toggle('gj-lowtime', !!low);
-
-    if (low) maybeEmitVrTick();
+    lowtimeWarnTick();
 
     if (S.challenge === 'boss'){
       armBossIfNeeded();
@@ -1019,33 +1043,29 @@ export function boot(opts = {}) {
       const comboHeat = clamp(S.combo / 18, 0, 1);
 
       const rampK = (S.challenge === 'rush') ? 8.5 : 10.0;
-
       const timeRamp = clamp((elapsed - 3) / rampK, 0, 1);
       const skill = clamp((acc - 0.65) * 1.2 + comboHeat * 0.8, 0, 1);
       const heat = clamp(timeRamp * 0.55 + skill * 0.75, 0, 1);
 
-      S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
-      S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
-      S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.12);
-      S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
-      S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
+      // do NOT override boss tuning while boss active
+      if (!(S.bossActive && S._preBoss)){
+        S.spawnMs = clamp(base.spawnMs - heat * 320, 420, 1200);
+        S.ttlMs   = clamp(base.ttlMs   - heat * 420, 1180, 2600);
+        S.size    = clamp(base.size    - heat * 0.14, 0.86, 1.12);
+        S.junkP   = clamp(base.junk    + heat * 0.07, 0.08, 0.25);
+        S.powerP  = clamp(base.power   + heat * 0.012, 0.01, 0.06);
 
-      const maxBonus = Math.round(heat * 4);
-      S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
+        const maxBonus = Math.round(heat * 4);
+        S.maxTargets = clamp(base.maxT + maxBonus, 5, isMobileLike() ? 11 : 13);
 
-      if (S.fever >= 70){
-        S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
-        S.size  = clamp(S.size + 0.03, 0.86, 1.15);
-      }
-
-      if (S.challenge === 'survive'){
-        S.spawnMs = clamp(S.spawnMs + 50, 450, 1400);
-        S.ttlMs   = clamp(S.ttlMs + 60, 1100, 3000);
-      }
-
-      // boss active: keep boss tuning (do not overwrite)
-      if (S.bossActive && S._preBoss){
-        // keep as is
+        if (S.fever >= 70){
+          S.junkP = clamp(S.junkP - 0.03, 0.08, 0.22);
+          S.size  = clamp(S.size + 0.03, 0.86, 1.15);
+        }
+        if (S.challenge === 'survive'){
+          S.spawnMs = clamp(S.spawnMs + 50, 450, 1400);
+          S.ttlMs   = clamp(S.ttlMs + 60, 1100, 3000);
+        }
       }
     }
 
@@ -1058,9 +1078,11 @@ export function boot(opts = {}) {
 
     if (vignette){
       const f = clamp(S.fever/100, 0, 1);
-      const low = (S.left <= 10) ? 0.45 : 0;
       const boss = (S.bossActive ? 0.22 : 0);
-      vignette.style.opacity = String(clamp(f*0.65 + low + boss, 0, 0.92));
+      vignette.style.opacity = String(clamp(f*0.65 + boss, 0, 0.92));
+    }
+    if (warnRing){
+      // ring itself is controlled by body classes; keep here for future tuning
     }
 
     S.fxTimer = setTimeout(fxLoop, 140);
@@ -1103,6 +1125,9 @@ export function boot(opts = {}) {
       shootEl.addEventListener('click', (e)=>{ e.preventDefault?.(); shootAtCrosshair(); });
       shootEl.addEventListener('pointerdown', (e)=>{ e.preventDefault?.(); }, { passive:false });
     }
+
+    // Universal VR UI ยิงจากกลางจอ (tap-to-shoot) จะยิง event hha:shoot มา
+    ROOT.addEventListener('hha:shoot', ()=> shootAtCrosshair());
 
     DOC.addEventListener('keydown', (e)=>{
       const k = String(e.key||'').toLowerCase();
@@ -1181,9 +1206,8 @@ export function boot(opts = {}) {
     S.bossGood = 0;
     S.bossJunk = 0;
 
-    // NEW: reset tick state
-    S.lastTickSec = null;
-    S.lastWarnSec = null;
+    S._lastWarnBucket = -1;
+    S._lastTickAt = 0;
 
     S.warmupUntil = now() + 3000;
     S.maxTargets = Math.min(S.maxTargets, isMobileLike() ? 6 : 7);
