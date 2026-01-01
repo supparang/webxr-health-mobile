@@ -1,12 +1,11 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + VR Compact HUD + VR Toast + Universal VR UI
+GoodJunkVR (PRODUCTION) — HHA Standard
 ✅ DOM emoji targets (dual-eye for VR/cVR)
 ✅ HUD + Quest + Coach + Fever/Shield
 ✅ Boot gate: engine starts ONLY after pressing "เริ่มเล่น"
 ✅ Quest Peek (missions visible even when HUD is hidden in VR)
-✅ VR compact HUD: Score/Time/Grade (อ่านง่าย ไม่รก)
-✅ VR toast: low-time warnings + judge warn/bad (ไม่เวียนหัว)
-✅ Universal VR UI (/vr/vr-ui.js): Enter VR/Exit/Recenter + emits hha:shoot
+✅ VR Compact HUD (Score/Time/Grade) + VR Toast (low-time tick + warning)
+✅ End overlay (Replay / Back HUB / Copy JSON) + flush-hardened
 -->
 
 <!doctype html>
@@ -21,144 +20,17 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Compact HUD + VR Toast + Universal
   <!-- UI -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
-  <!-- Global FX + Fever + HUD + Logger + Universal VR UI -->
+  <!-- Universal VR UI (Enter VR/Exit/Recenter + crosshair/tap shoot -> hha:shoot) -->
+  <script src="./vr/vr-ui.js" defer></script>
+
+  <!-- Global FX + Fever + HUD + Logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/ui-fever.js" defer></script>
   <script src="./vr/hha-hud.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
-  <script src="./vr/vr-ui.js" defer></script>
 
   <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
-
-  <!-- ===== Inline PATCH (safe) ถ้าอยากย้ายไปใส่ใน goodjunk-vr.css ก็ได้ ===== -->
-  <style>
-    /* each eye should clip its own targets (important in VR/cVR) */
-    .gj-eye{ overflow:hidden; }
-
-    /* when HUD hidden: hide panels (quest peek + compact HUD still shows) */
-    body.hud-hidden .hha-hud{ opacity:0; pointer-events:none; }
-    body.hud-hidden .hha-fever{ opacity:.88; }
-
-    /* In cVR: disable direct clicking targets (ยิงจากกลางจอผ่าน hha:shoot) */
-    body.view-cvr .gj-layer,
-    body.view-cvr .gj-target{
-      pointer-events:none !important;
-    }
-
-    /* ===== Quest Peek show/hide ===== */
-    .gj-peek{
-      position: fixed;
-      left: 50%;
-      top: calc(env(safe-area-inset-top, 0px) + 62px);
-      transform: translateX(-50%);
-      z-index: 118;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 140ms ease;
-    }
-    .gj-peek.show{ opacity: 1; }
-    .peek-card{
-      width: min(520px, 92vw);
-      background: rgba(2,6,23,.68);
-      border: 1px solid rgba(148,163,184,.22);
-      border-radius: 18px;
-      padding: 12px 14px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.40);
-      backdrop-filter: blur(10px);
-      text-align: center;
-    }
-    .peek-title{ font-weight:1100; font-size:14px; letter-spacing:.2px; }
-    .peek-sub, .peek-mini{ margin-top:6px; font-weight:900; color: rgba(229,231,235,.95); }
-    .peek-tip{ margin-top:6px; font-size:11px; font-weight:850; color: rgba(148,163,184,.95); }
-
-    /* ===== VR Compact HUD + Toast (ต้องมี id ให้ boot.js อัปเดตได้) ===== */
-    .vr-compact-hud{
-      position: fixed;
-      top: calc(env(safe-area-inset-top, 0px) + 10px);
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 120;
-      pointer-events: none;
-      display: none;
-    }
-    body.view-vr .vr-compact-hud,
-    body.view-cvr .vr-compact-hud{ display:block; }
-
-    .vrhud-row{ display:flex; gap:8px; align-items:center; }
-    .vrhud-pill{
-      display:flex; gap:10px; align-items:baseline;
-      padding:10px 12px;
-      border-radius: 999px;
-      background: rgba(2,6,23,.55);
-      border: 1px solid rgba(148,163,184,.22);
-      box-shadow: 0 14px 50px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.04) inset;
-      backdrop-filter: blur(10px);
-      min-width: 110px;
-      justify-content: space-between;
-    }
-    .vrhud-pill span{
-      font-size: 11px;
-      font-weight: 900;
-      color: rgba(148,163,184,.95);
-      letter-spacing: .2px;
-    }
-    .vrhud-pill b{
-      font-size: 18px;
-      font-weight: 1100;
-      color: #e5e7eb;
-    }
-    .vrhud-pill.time b{ font-variant-numeric: tabular-nums; }
-
-    @keyframes vrPulseGlow{
-      0%{ box-shadow: 0 14px 50px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.04) inset; }
-      50%{ box-shadow: 0 14px 50px rgba(0,0,0,.35), 0 0 0 1px rgba(245,158,11,.45) inset, 0 0 22px rgba(245,158,11,.18); }
-      100%{ box-shadow: 0 14px 50px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.04) inset; }
-    }
-    body.gj-lowtime .vrhud-pill.time{
-      border-color: rgba(245,158,11,.40);
-      animation: vrPulseGlow 0.9s ease-in-out infinite;
-    }
-
-    @keyframes vrTick{
-      0%{ transform: translateX(-50%) scale(1); }
-      35%{ transform: translateX(-50%) scale(1.015); }
-      100%{ transform: translateX(-50%) scale(1); }
-    }
-    .vr-compact-hud.tick{ animation: vrTick 140ms ease-out 1; }
-
-    .vr-toast{
-      position: fixed;
-      left: 50%;
-      top: calc(env(safe-area-inset-top, 0px) + 60px);
-      transform: translateX(-50%);
-      z-index: 125;
-      pointer-events: none;
-    }
-    .vr-toast[hidden]{ display:none !important; }
-    .vr-toast-card{
-      padding: 10px 14px;
-      border-radius: 16px;
-      font-weight: 1000;
-      letter-spacing: .2px;
-      background: rgba(2,6,23,.66);
-      border: 1px solid rgba(148,163,184,.22);
-      box-shadow: 0 18px 60px rgba(0,0,0,.40);
-      backdrop-filter: blur(10px);
-      color: #e5e7eb;
-      max-width: min(520px, 92vw);
-      text-align:center;
-      line-height: 1.2;
-    }
-    .vr-toast-card.warn{
-      border-color: rgba(245,158,11,.40);
-      box-shadow: 0 18px 60px rgba(0,0,0,.40), 0 0 18px rgba(245,158,11,.14);
-    }
-    .vr-toast-card.bad{
-      border-color: rgba(239,68,68,.40);
-      box-shadow: 0 18px 60px rgba(0,0,0,.40), 0 0 18px rgba(239,68,68,.12);
-    }
-  </style>
 </head>
 
 <body>
@@ -176,8 +48,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Compact HUD + VR Toast + Universal
           <button class="pill" id="btnViewCVR" type="button">cVR</button>
 
           <button class="pill ghost" id="btnPeek" type="button">Missions</button>
-          <!-- ✅ IMPORTANT: id ต้องเป็น btnToggleHUD ให้ตรงกับ boot.js -->
-          <button class="pill ghost" id="btnToggleHUD" type="button">HUD</button>
+          <button class="pill ghost" id="btnToggleHud" type="button">HUD</button>
 
           <button class="pill ghost" id="btnEnterFS" type="button">Enter Fullscreen</button>
           <button class="pill ghost" id="btnEnterVR" type="button">Enter VR</button>
@@ -230,20 +101,6 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Compact HUD + VR Toast + Universal
     </div>
   </div>
 
-  <!-- ===== VR Compact HUD (Score/Time/Grade) ===== -->
-  <div id="vrCompactHud" class="vr-compact-hud" aria-hidden="true">
-    <div class="vrhud-row">
-      <div class="vrhud-pill score"><span>SCORE</span><b id="vrScore">0</b></div>
-      <div class="vrhud-pill time"><span>TIME</span><b id="vrTime">0</b></div>
-      <div class="vrhud-pill grade"><span>GRADE</span><b id="vrGrade">—</b></div>
-    </div>
-  </div>
-
-  <!-- ===== VR Toast (warnings) ===== -->
-  <div id="vrToast" class="vr-toast" hidden>
-    <div id="vrToastText" class="vr-toast-card warn">—</div>
-  </div>
-
   <!-- ===== Quest Peek (always available) ===== -->
   <div class="gj-peek" id="gjPeek" aria-hidden="true">
     <div class="peek-card">
@@ -257,6 +114,24 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Compact HUD + VR Toast + Universal
   <!-- ===== Playfield (dual-eye) ===== -->
   <div id="gj-stage" aria-label="playfield">
     <div class="gj-eye eye-l" id="eyeL">
+      <!-- VR Compact HUD (Left eye) -->
+      <div class="vr-compact" id="vrCompactHud-l" aria-hidden="true">
+        <div class="vr-pill">
+          <span class="vr-k">Score</span><span class="vr-v" id="vrScore-l">0</span>
+        </div>
+        <div class="vr-pill">
+          <span class="vr-k">Time</span><span class="vr-v" id="vrTime-l">0</span>
+        </div>
+        <div class="vr-pill grade">
+          <span class="vr-k">Grade</span><span class="vr-v" id="vrGrade-l">—</span>
+        </div>
+      </div>
+
+      <!-- VR Toast (Left eye) -->
+      <div class="vr-toast" id="vrToast-l" hidden>
+        <div class="vr-toast-card warn" id="vrToastText-l">—</div>
+      </div>
+
       <div class="gj-layer" id="gj-layer-l" aria-label="targets layer left"></div>
       <div class="gj-crosshair" id="gj-crosshair-l" aria-hidden="true"></div>
       <div class="atk-ring" id="atk-ring-l" aria-hidden="true"></div>
@@ -264,12 +139,31 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Compact HUD + VR Toast + Universal
     </div>
 
     <div class="gj-eye eye-r" id="eyeR" aria-hidden="true">
+      <!-- VR Compact HUD (Right eye) -->
+      <div class="vr-compact" id="vrCompactHud-r" aria-hidden="true">
+        <div class="vr-pill">
+          <span class="vr-k">Score</span><span class="vr-v" id="vrScore-r">0</span>
+        </div>
+        <div class="vr-pill">
+          <span class="vr-k">Time</span><span class="vr-v" id="vrTime-r">0</span>
+        </div>
+        <div class="vr-pill grade">
+          <span class="vr-k">Grade</span><span class="vr-v" id="vrGrade-r">—</span>
+        </div>
+      </div>
+
+      <!-- VR Toast (Right eye) -->
+      <div class="vr-toast" id="vrToast-r" hidden>
+        <div class="vr-toast-card warn" id="vrToastText-r">—</div>
+      </div>
+
       <div class="gj-layer" id="gj-layer-r" aria-label="targets layer right"></div>
       <div class="gj-crosshair" id="gj-crosshair-r" aria-hidden="true"></div>
       <div class="atk-ring" id="atk-ring-r" aria-hidden="true"></div>
       <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
     </div>
 
+    <!-- end summary placeholder (will be filled by boot end-overlay binder) -->
     <div id="end-summary"></div>
   </div>
 
@@ -302,5 +196,36 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR Compact HUD + VR Toast + Universal
       <button id="btnVrOk" class="btn-start" type="button">โอเค</button>
     </div>
   </div>
+
+  <!-- ===== End Overlay (HHA Standard) ===== -->
+  <div class="end-overlay" id="endOverlay" hidden>
+    <div class="end-card">
+      <div class="end-head">
+        <div>
+          <div class="end-title" id="endTitle">จบเกม!</div>
+          <div class="end-sub" id="endSub">—</div>
+        </div>
+        <div class="end-grade" id="endGrade">—</div>
+      </div>
+
+      <div class="end-grid">
+        <div class="end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
+        <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
+        <div class="end-item"><div class="k">Combo Max</div><div class="v" id="endCombo">0</div></div>
+        <div class="end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
+        <div class="end-item"><div class="k">Time Played</div><div class="v" id="endTimePlayed">0s</div></div>
+        <div class="end-item"><div class="k">Goals / Minis</div><div class="v" id="endQuest">0/0 • 0/0</div></div>
+      </div>
+
+      <div class="end-actions">
+        <button class="btn-primary" id="btnReplay" type="button">เล่นใหม่</button>
+        <button class="btn-ghost" id="btnBackHub" type="button">กลับ HUB</button>
+        <button class="btn-ghost" id="btnCopyJson" type="button">Copy JSON</button>
+      </div>
+
+      <div class="end-foot" id="endFoot">Tip: โหมดวิจัยใช้ seed คงที่ / โหมดเล่นจะสุ่มใหม่เมื่อเล่นใหม่</div>
+    </div>
+  </div>
+
 </body>
 </html>
