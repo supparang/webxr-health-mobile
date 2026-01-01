@@ -2,9 +2,8 @@
 GoodJunkVR Launcher — PC / Mobile / Cardboard (cVR)
 ✅ Remembers last view
 ✅ Pass-through all query params to goodjunk-vr.html
-✅ One-tap open + best-effort fullscreen/orientation hint
+✅ Optional HUB button if hub=... exists
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -55,18 +54,9 @@ GoodJunkVR Launcher — PC / Mobile / Cardboard (cVR)
       box-shadow: 0 22px 70px rgba(0,0,0,.55);
       backdrop-filter: blur(10px);
     }
-    .head{
-      display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;
-    }
-    .title{
-      font-weight:1100; font-size:22px; letter-spacing:.2px;
-    }
-    .sub{
-      margin-top:4px;
-      color:var(--muted);
-      font-weight:850;
-      font-size:12px;
-    }
+    .head{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .title{ font-weight:1100; font-size:22px; letter-spacing:.2px; }
+    .sub{ margin-top:4px; color:var(--muted); font-weight:850; font-size:12px; }
     .meta{
       margin-top:10px;
       background:var(--panel2);
@@ -121,11 +111,7 @@ GoodJunkVR Launcher — PC / Mobile / Cardboard (cVR)
       font-weight:950;
       cursor:pointer;
     }
-    .hint{
-      color:var(--muted);
-      font-weight:850;
-      font-size:12px;
-    }
+    .hint{ color:var(--muted); font-weight:850; font-size:12px; }
 
     @media (max-width:720px){
       .grid{ grid-template-columns: 1fr; }
@@ -141,7 +127,10 @@ GoodJunkVR Launcher — PC / Mobile / Cardboard (cVR)
           <div class="title">🥦🍟 GoodJunkVR — เลือกโหมดเล่น</div>
           <div class="sub">PC / Mobile / Cardboard (cVR) — จำค่าโหมดล่าสุดอัตโนมัติ</div>
         </div>
-        <button class="pill" id="btnPlayLast" type="button">▶ เล่นโหมดล่าสุด</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="pill" id="btnPlayLast" type="button">▶ เล่นโหมดล่าสุด</button>
+          <button class="pill" id="btnHub" type="button" style="display:none;">🏠 HUB</button>
+        </div>
       </div>
 
       <div class="meta" id="metaBox">loading…</div>
@@ -173,10 +162,14 @@ GoodJunkVR Launcher — PC / Mobile / Cardboard (cVR)
   <script>
     const RUN_URL = './goodjunk-vr.html';
 
+    function qs(k, def=null){
+      try { return new URL(location.href).searchParams.get(k) ?? def; }
+      catch { return def; }
+    }
+
     function getParams(){
       try{
         const u = new URL(location.href);
-        // keep everything except view (we will set)
         u.searchParams.delete('view');
         return u.searchParams;
       }catch(e){
@@ -213,6 +206,12 @@ GoodJunkVR Launcher — PC / Mobile / Cardboard (cVR)
       ].join(' • ');
 
       document.getElementById('metaBox').textContent = meta;
+
+      const btnHub = document.getElementById('btnHub');
+      if (hub){
+        btnHub.style.display = 'inline-flex';
+        btnHub.addEventListener('click', ()=> location.href = hub);
+      }
     }
 
     function saveLast(view){
