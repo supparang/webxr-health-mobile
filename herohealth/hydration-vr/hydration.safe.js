@@ -1,14 +1,12 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION PATCH v3 (FULL)
+// Hydration SAFE — PRODUCTION PATCH v3
 // ✅ Minis count = Storm Cycles (ไม่ใช่ 999)
 // ✅ Storm Success = จำนวนพายุที่ "ผ่าน mini" จริง
 // ✅ End-window FX: blink + tick + gentle shake
-// ✅ Boss-mini optional: block bossbad xN in boss window (โบนัส)
+// ✅ Boss-mini optional: block bossbad xN in boss window
 // ✅ AI Coach hooks: storm/end window signals + frustration/fatigue
-// ✅ Summary fields match HUD + localStorage HHA_LAST_SUMMARY
-// ✅ NEW: Crosshair SHOOT support via event 'hha:shoot' (works for PC/Mobile/Cardboard)
-//    - ยิงจากปุ่ม 🎯 SHOOT / tap anywhere (loader) ได้
-//    - Cardboard: ยิงจากกลางตาแต่ละข้าง (เลือกเป้าที่อยู่ “กลางจอ” จริง ๆ)
+// ✅ Summary fields match HUD
+// ✅ NEW: hha:shoot support (button/tap/crosshair) + aim-assist lockPx (PC/Mobile/Cardboard)
 
 'use strict';
 
@@ -92,6 +90,11 @@ function getPlayfieldRect(){
   const r = pf?.getBoundingClientRect();
   return r || { left:0, top:0, width:1, height:1 };
 }
+function getAimPointPx(){
+  // aim at center of playfield (not viewport)
+  const r = getPlayfieldRect();
+  return { x: r.left + r.width*0.5, y: r.top + r.height*0.5, r };
+}
 
 // -------------------- Config --------------------
 const diff = String(qs('diff','normal')).toLowerCase();
@@ -103,6 +106,9 @@ const sessionId = String(qs('sessionId', qs('studentKey','')) || '');
 const ts = String(qs('ts', Date.now()));
 const seed = String(qs('seed', sessionId ? (sessionId + '|' + ts) : ts));
 const logEndpoint = String(qs('log','') || '');
+
+// Aim-assist lock radius (px)
+const lockPx = clamp(parseInt(qs('lockPx', isCardboard()? 46 : 36),10) || (isCardboard()?46:36), 18, 120);
 
 // RNG deterministic-ish
 function hashStr(s){
@@ -180,9 +186,9 @@ const S = {
   stormActive:false,
   stormLeftSec:0,
   stormCycle:0,
-  stormSuccess:0,         // ✅ success นับจริง
-  miniTotal:0,            // ✅ จะเท่ากับ stormCycle ณ ตอนจบ
-  miniCleared:0,          // ✅ จะเท่ากับ stormSuccess ณ ตอนจบ
+  stormSuccess:0,
+  miniTotal:0,
+  miniCleared:0,
 
   endWindowSec:1.2,
   inEndWindow:false,
@@ -277,6 +283,7 @@ function computeGrade(){
   if (acc >= 55) return 'B';
   return 'C';
 }
+
 function syncWaterPanelDOM(){
   const bar = DOC.getElementById('water-bar');
   const pct = DOC.getElementById('water-pct');
@@ -285,6 +292,7 @@ function syncWaterPanelDOM(){
   if (pct) pct.textContent = String(S.waterPct|0);
   if (zone) zone.textContent = String(S.waterZone||'');
 }
+
 function syncHUD(){
   const grade = computeGrade();
   setText('stat-score', S.score|0);
@@ -327,8 +335,7 @@ function syncHUD(){
     stormActive:!!S.stormActive,
     stormLeftSec:S.stormLeftSec,
     stormCycles:S.stormCycle|0,
-    stormSuccess:S.stormSuccess|0,
-    bossActive: !!S.bossActive
+    stormSuccess:S.stormSuccess|0
   });
 
   emit('quest:update', {
@@ -340,7 +347,7 @@ function syncHUD(){
   });
 }
 
-// -------------------- Target style (if not already) --------------------
+// -------------------- Target style --------------------
 (function injectTargetStyle(){
   if (DOC.getElementById('hvr-target-style')) return;
   const st = DOC.createElement('style');
@@ -415,6 +422,9 @@ function targetSize(){
 let lastHitAt=0;
 const HIT_COOLDOWN_MS=55;
 
+// Track live targets for crosshair shooting
+const LIVE = new Set();
+
 function spawn(kind){
   if (S.ended) return;
   const layers = getLayers();
@@ -422,7 +432,6 @@ function spawn(kind){
 
   const { xPct, yPct } = pickXY();
   const s = targetSize();
-
   const isBossBad = (kind==='bad' && S.bossEnabled && S.bossActive);
 
   if (kind==='good') S.nGoodSpawn++;
@@ -437,10 +446,36 @@ function spawn(kind){
   let killed=false;
   const nodes=[];
 
+  function buildNode(){
+    const el = DOC.createElement('div');
+    el.className = `hvr-target ${kind}` + (isBossBad ? ' bossbad' : '');
+    el.dataset.kind = kind;
+    if (isBossBad) el.dataset.boss='1';
+
+    el.style.setProperty('--x', xPct.toFixed(2)+'%');
+    el.style.setProperty('--y', yPct.toFixed(2)+'%');
+    el.style.setProperty('--s', s.toFixed(0)+'px');
+
+    el.textContent =
+      kind==='good' ? '💧' :
+      kind==='shield' ? '🛡️' :
+      (isBossBad ? '🌩️' : '🥤');
+
+    el.addEventListener('pointerdown',(ev)=>{
+      try{ ev.preventDefault(); ev.stopPropagation(); }catch(_){}
+      onHit();
+    }, {passive:false});
+
+    return el;
+  }
+
   function kill(reason){
     if (killed) return;
     killed=true;
-    for (const n of nodes){ try{ n.remove(); }catch(_){ } }
+    for (const n of nodes){
+      try{ LIVE.delete(n); }catch(_){}
+      try{ n.remove(); }catch(_){}
+    }
 
     if (reason==='expire' && kind==='good'){
       S.misses += TUNE.missPenalty;
@@ -507,95 +542,76 @@ function spawn(kind){
     syncHUD();
   }
 
-  function buildNode(){
-    const el = DOC.createElement('div');
-    el.className = `hvr-target ${kind}` + (isBossBad ? ' bossbad' : '');
-    el.dataset.kind = kind;
-    if (isBossBad) el.dataset.boss='1';
-
-    el.style.setProperty('--x', xPct.toFixed(2)+'%');
-    el.style.setProperty('--y', yPct.toFixed(2)+'%');
-    el.style.setProperty('--s', s.toFixed(0)+'px');
-
-    el.textContent =
-      kind==='good' ? '💧' :
-      kind==='shield' ? '🛡️' :
-      (isBossBad ? '🌩️' : '🥤');
-
-    // pointer/click hit
-    el.addEventListener('pointerdown',(ev)=>{
-      try{ ev.preventDefault(); ev.stopPropagation(); }catch(_){}
-      onHit();
-    }, {passive:false});
-
-    // allow programmatic "shoot" to trigger the same logic
-    el.__hhaHit = onHit;
-
-    return el;
-  }
-
   for (const L of layers){
     const el = buildNode();
     nodes.push(el);
+    LIVE.add(el);
     L.appendChild(el);
   }
 
   setTimeout(()=>kill('expire'), life);
 }
 
-// -------------------- Shooting (Crosshair) --------------------
-// Strategy: find topmost .hvr-target at reticle point using elementsFromPoint.
-// Cardboard: sample both eye centers; hit first target found.
-function findTargetAtPoint(x, y){
-  try{
-    const els = DOC.elementsFromPoint(x, y) || [];
-    for (const el of els){
-      if (!el) continue;
-      if (el.classList && el.classList.contains('hvr-target')) return el;
-      const t = el.closest?.('.hvr-target');
-      if (t) return t;
+// -------------------- Crosshair shoot (hha:shoot) --------------------
+function pickTargetNearAim(){
+  const { x, y, r } = getAimPointPx();
+  let best=null;
+  let bestD=1e9;
+
+  // Only consider targets that are actually in DOM & visible-ish
+  LIVE.forEach((el)=>{
+    if (!el || !el.isConnected) { try{ LIVE.delete(el); }catch(_){ } return; }
+
+    const br = el.getBoundingClientRect();
+    // If somehow outside playfield (safety), ignore
+    const cx = br.left + br.width/2;
+    const cy = br.top + br.height/2;
+
+    // keep within playfield rect
+    if (cx < r.left || cx > r.left + r.width || cy < r.top || cy > r.top + r.height) return;
+
+    const dx = cx - x;
+    const dy = cy - y;
+    const d = Math.hypot(dx,dy);
+    if (d < bestD){
+      bestD = d;
+      best = el;
     }
-  }catch(_){}
+  });
+
+  if (best && bestD <= lockPx) return best;
   return null;
 }
-function shootOnce(){
-  if (!S.started || S.ended) return false;
 
-  // Cardboard: two eyes
-  if (isCardboard()){
-    const eyes = DOC.querySelectorAll('#cbPlayfield .eye');
-    for (const eye of eyes){
-      const r = eye.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-      const t = findTargetAtPoint(cx, cy);
-      if (t){
-        try{
-          if (typeof t.__hhaHit === 'function') t.__hhaHit();
-          else t.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:cx, clientY:cy }));
-        }catch(_){}
-        return true;
-      }
-    }
-    return false;
-  }
-
-  // Normal (pc/mobile)
-  const r = getPlayfieldRect();
-  const cx = r.left + r.width/2;
-  const cy = r.top + r.height/2;
-  const t = findTargetAtPoint(cx, cy);
+function doShoot(src='shoot'){
+  if (!S.started || S.ended) return;
+  const t = pickTargetNearAim();
   if (t){
+    // hit by firing synthetic pointerdown
     try{
-      if (typeof t.__hhaHit === 'function') t.__hhaHit();
-      else t.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, clientX:cx, clientY:cy }));
-    }catch(_){}
-    return true;
+      t.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true }));
+    }catch(_){
+      try{ t.click(); }catch(__){}
+    }
+  } else {
+    // optional: small penalty? (NO) keep fair
+    emit('hha:judge', { kind:'miss-air', src });
   }
-  return false;
 }
 
+// Listen shoot events from loader (button/tap)
+window.addEventListener('hha:shoot', (ev)=>{
+  const d = ev.detail || {};
+  doShoot(d.src || 'shoot');
+}, { passive:true });
+
 // -------------------- Storm + spawn loop --------------------
+function nextSpawnDelay(){
+  let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
+  if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
+  if (S.stormActive) base *= TUNE.stormSpawnMul;
+  return clamp(base, 210, 1200);
+}
 function pickKind(){
   let pGood=0.66, pBad=0.28, pSh=0.06;
 
@@ -783,7 +799,9 @@ function fillSummary(sum){
   set('rComboMax', sum.comboMax|0);
   set('rMiss', sum.misses|0);
   set('rGoals', `${sum.goalsCleared|0}/${sum.goalsTotal|0}`);
+
   set('rMinis', `${sum.stormSuccess|0}/${sum.stormCycles|0}`);
+
   set('rGreen', `${Number(sum.greenHoldSec||0).toFixed(1)}s`);
   set('rStreak', sum.streakMax|0);
   set('rStormCycles', sum.stormCycles|0);
@@ -842,7 +860,7 @@ const AICOACH = createAICoach({
   cooldownMs: 3000
 });
 
-// -------------------- Scheduling --------------------
+// -------------------- Storm schedule --------------------
 function nextStormSchedule(){
   const base = TUNE.stormEverySec;
   return base + (rng()*2-1)*1.2;
@@ -850,13 +868,6 @@ function nextStormSchedule(){
 
 let spawnTimer=0;
 let nextStormIn=0;
-
-function nextSpawnDelay(){
-  let base = TUNE.spawnBaseMs + (rng()*2-1)*TUNE.spawnJitter;
-  if (S.adaptiveOn) base *= (1.00 - 0.25*S.adaptK);
-  if (S.stormActive) base *= TUNE.stormSpawnMul;
-  return clamp(base, 210, 1200);
-}
 
 // -------------------- Update loop --------------------
 function update(dt){
@@ -893,8 +904,7 @@ function update(dt){
     waterZone: S.waterZone,
     shield: S.shield|0,
     misses: S.misses|0,
-    combo: S.combo|0,
-    bossActive: !!S.bossActive
+    combo: S.combo|0
   });
 
   if (S.leftSec <= 0.0001) endGame('timeup');
@@ -952,7 +962,6 @@ async function endGame(reason){
   fillSummary(summary);
 }
 
-// -------------------- Boot --------------------
 function boot(){
   ensureWaterGauge();
   setWaterGauge(S.waterPct);
@@ -963,7 +972,6 @@ function boot(){
   spawnTimer = 320;
   nextStormIn = nextStormSchedule();
 
-  // Start signal from loader
   window.addEventListener('hha:start', ()=>{
     if (S.started) return;
     S.started=true;
@@ -982,18 +990,11 @@ function boot(){
     requestAnimationFrame(raf);
   }, {once:true});
 
-  // FORCE END
   window.addEventListener('hha:force_end', (ev)=>{
     const d = ev.detail || {};
     endGame(d.reason || 'force');
   });
 
-  // ✅ NEW: SHOOT event (from loader button/tap/vr-ui)
-  window.addEventListener('hha:shoot', ()=>{
-    shootOnce();
-  }, { passive:true });
-
-  // auto-start if overlay already hidden
   const ov = DOC.getElementById('startOverlay');
   setTimeout(()=>{
     const hidden = !ov || getComputedStyle(ov).display==='none';
