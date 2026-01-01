@@ -1,20 +1,18 @@
 /* === /herohealth/plate/plate-vr.css ===
 Balanced Plate VR — PRODUCTION CSS
-✅ Responsive: PC / Mobile / VR / cVR
-✅ HUD stable (ไม่สั่น ไม่ทับ)
-✅ plate-layer เต็มจอ fixed (แก้ target โผล่ล่างขวา)
-✅ Target: pop-in + hover/press + less flicker
-✅ Safe areas + z-index ladder ชัดเจน
+✅ Fullscreen safe layout (PC/Mobile/VR Cardboard)
+✅ Anti target "bottom-right" / anti blink (layer hardening)
+✅ HUD/Quest/Coach responsive + safe-area
+✅ Clean buttons + overlays + result card
 */
 
 :root{
   color-scheme: dark;
 
   --bg:#020617;
-  --panel:rgba(2,6,23,.72);
+  --panel:rgba(2,6,23,.74);
   --panel2:rgba(15,23,42,.62);
   --stroke:rgba(148,163,184,.18);
-
   --text:#e5e7eb;
   --muted:#94a3b8;
 
@@ -22,281 +20,345 @@ Balanced Plate VR — PRODUCTION CSS
   --warn:#f59e0b;
   --bad:#ef4444;
 
-  --radius:18px;
-  --radius2:22px;
+  --radius-lg:18px;
+  --radius-pill:999px;
 
+  /* Safe area */
   --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
 
-  --hudTopH: 96px;      /* ปรับตาม layout ด้านบน */
-  --btnBarH: 64px;      /* ปุ่มล่าง */
-  --coachW: 240px;      /* แถบโค้ชซ้าย */
+  /* Mobile vh fix (plate-hud.js sets --vh) */
+  --vh: 1vh;
 
-  --shadow: 0 22px 70px rgba(0,0,0,.45);
-  --shadow2: 0 18px 44px rgba(0,0,0,.28);
-
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
 }
 
-*{ box-sizing:border-box; }
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
 html,body{
   margin:0;
   padding:0;
   width:100%;
   height:100%;
-  overflow:hidden;
+  overflow:hidden; /* critical */
   background:var(--bg);
   color:var(--text);
 }
 
-/* ===== Z-Index Ladder =====
-scene: 1
-plate-layer targets: 10
-hitFx: 30
-HUD top/quest/coach/buttons: 40-60
-overlays (start/paused/result): 80-90
-*/
-a-scene{ z-index:1 !important; }
-
-/* IMPORTANT: แก้ target โผล่ล่างขวา / layer ไม่เต็มจอ */
-#plate-layer{
-  position:fixed;
-  inset:0;                 /* ✅ full viewport */
-  width:100vw;
-  height:100vh;
-  overflow:hidden;         /* กันเป้าเด้งออกนอกจอ */
-  z-index:10;
-  pointer-events:none;     /* ให้ target เป็นตัวรับ event เอง */
-  transform: translate(0,0);
-  will-change: transform;
+/* ---------- A-Frame scene behind everything ---------- */
+a-scene, #scene{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:1 !important;
 }
 
-/* Hit FX overlay */
+/* Hide A-Frame EnterVR/AR buttons if any appear */
+.a-enter-vr,
+.a-enter-vr-button,
+.a-enter-ar{
+  display:none !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+/* ---------- Gameplay DOM layer ---------- */
+#plate-layer{
+  position:fixed;
+  inset:0;
+  z-index:20;
+  pointer-events:auto;
+  touch-action:none;
+  overflow:hidden;
+
+  /* “VR-feel” transform from JS (gyro/drag) */
+  transform:translate(0,0);
+  will-change:transform;
+}
+
+/* prevent accidental selections */
+#plate-layer, #plate-layer *{
+  -webkit-user-select:none;
+  user-select:none;
+}
+
+/* ---------- Hit FX overlay ---------- */
 #hitFx{
   position:fixed;
   inset:0;
-  z-index:30;
+  z-index:25;
   pointer-events:none;
   opacity:0;
-  transition: opacity .14s ease;
+  transition: opacity .12s ease;
 }
 
-/* ===== HUD TOP ===== */
+/* plate.safe.js toggles pfx-hit-good/bad */
+#hitFx.pfx-hit-good,
+#hitFx.pfx-hit-bad{
+  opacity:1;
+}
+
+/* ---------- Target button ---------- */
+.plateTarget{
+  appearance:none;
+  -webkit-appearance:none;
+  border:none;
+  padding:0;
+  margin:0;
+  cursor:pointer;
+
+  /* visual */
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.58);
+  backdrop-filter: blur(10px);
+  box-shadow:0 18px 44px rgba(0,0,0,.28);
+
+  display:grid;
+  place-items:center;
+
+  /* emoji quality */
+  font: 900 28px/1 system-ui, -apple-system, "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji";
+  text-rendering: optimizeLegibility;
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
+.plateTarget:active{
+  transform: translateZ(0) scale(.96);
+}
+
+/* tiny pop-in for “no blink” feel */
+.plateTarget{
+  animation: platePopIn .10s ease-out both;
+}
+@keyframes platePopIn{
+  from{ transform: translateZ(0) scale(.92); opacity:.55; }
+  to{ transform: translateZ(0) scale(1); opacity:1; }
+}
+
+/* ---------- TOP HUD ---------- */
 #hudTop{
   position:fixed;
+  top:calc(10px + var(--sat));
   left:calc(10px + var(--sal));
   right:calc(10px + var(--sar));
-  top:calc(10px + var(--sat));
-  z-index:50;
+  z-index:40;
 
+  background:linear-gradient(180deg, rgba(15,23,42,.62), rgba(2,6,23,.62));
   border:1px solid var(--stroke);
-  border-radius: var(--radius2);
-  background: linear-gradient(180deg, rgba(15,23,42,.62), rgba(2,6,23,.62));
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-
+  border-radius:22px;
   padding:10px 10px;
+  backdrop-filter: blur(12px);
+  box-shadow:0 22px 70px rgba(0,0,0,.40);
 }
 
-.hudRow{
+#hudTop .hudRow{
+  display:grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap:8px;
+  align-items:stretch;
+}
+
+#hudTop .hudRow2{
+  margin-top:8px;
   display:flex;
   gap:10px;
-  align-items:stretch;
+  align-items:center;
   justify-content:space-between;
+  flex-wrap:wrap;
 }
 
 .hudStat{
-  flex:1;
-  min-width: 72px;
-  background: rgba(15,23,42,.45);
-  border: 1px solid rgba(148,163,184,.14);
-  border-radius: 16px;
+  background:rgba(2,6,23,.52);
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:16px;
   padding:8px 10px;
+  min-height:54px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
 }
+
 .hudStat .k{
-  font-size:10px;
-  font-weight:1100;
-  color: rgba(148,163,184,.95);
-  letter-spacing:.2px;
-}
-.hudStat .v{
-  margin-top:2px;
-  font-size:16px;
-  font-weight:1200;
-}
-
-.plateChip{ border-color: rgba(34,197,94,.18); }
-.gradeChip.good{ border-color: rgba(34,197,94,.26); }
-.gradeChip.warn{ border-color: rgba(250,204,21,.28); }
-.gradeChip.bad{  border-color: rgba(239,68,68,.26); }
-.timeChip{ border-color: rgba(34,211,238,.22); }
-
-.muted{ color: rgba(148,163,184,.95); font-weight:900; }
-
-/* Row 2: fever + group counts */
-.hudRow2{
-  display:flex;
-  gap:10px;
-  margin-top:10px;
-  align-items:center;
-  justify-content:space-between;
-}
-
-.feverWrap{
-  display:flex;
-  gap:10px;
-  align-items:center;
-  min-width: 220px;
-}
-.feverLabel{
+  color:rgba(148,163,184,.95);
   font-weight:1100;
   font-size:11px;
-  color: rgba(148,163,184,.98);
+  letter-spacing:.3px;
 }
-.feverBar{
+
+.hudStat .v{
+  font-weight:1200;
+  font-size:16px;
+  margin-top:2px;
+}
+
+.muted{ color:rgba(148,163,184,.95); font-weight:900; }
+
+/* grade tint */
+.gradeChip.good{ border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.10); }
+.gradeChip.warn{ border-color:rgba(250,204,21,.30); background:rgba(250,204,21,.10); }
+.gradeChip.bad { border-color:rgba(239,68,68,.26); background:rgba(239,68,68,.10); }
+
+/* ---------- FEVER / SHIELD ---------- */
+.feverWrap{
   flex:1;
+  min-width:240px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.feverLabel{
+  font-weight:1200;
+  font-size:12px;
+  color:rgba(229,231,235,.92);
+}
+
+.feverBar{
+  position:relative;
   height:12px;
+  flex:1;
   border-radius:999px;
+  background:rgba(148,163,184,.14);
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.50);
   overflow:hidden;
 }
+
 .feverFill{
   height:100%;
   width:0%;
   border-radius:999px;
-  background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(250,204,21,.95), rgba(239,68,68,.95));
-  transition: width .12s linear;
+  background:rgba(239,68,68,.55);
+  box-shadow:0 0 0 1px rgba(239,68,68,.10) inset;
+  transition: width .08s linear;
 }
 
 .shieldPill{
   display:inline-flex;
-  gap:8px;
   align-items:center;
-  justify-content:center;
-  padding:7px 10px;
+  gap:8px;
+  padding:8px 10px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.45);
-  font-weight:1100;
-  box-shadow: var(--shadow2);
+  border:1px solid rgba(34,197,94,.24);
+  background:rgba(34,197,94,.10);
+  font-weight:1200;
   white-space:nowrap;
 }
 
+/* ---------- Plate counts ---------- */
 .plateCounts{
   display:flex;
   gap:8px;
+  align-items:center;
   flex-wrap:wrap;
   justify-content:flex-end;
 }
 .pill{
   display:inline-flex;
-  gap:8px;
   align-items:center;
-  padding:7px 10px;
+  gap:8px;
+  padding:8px 10px;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.42);
+  background:rgba(2,6,23,.50);
   font-weight:1100;
   white-space:nowrap;
 }
+.pill b{ font-weight:1300; }
 
-/* ===== COACH ===== */
+/* ---------- Coach panel ---------- */
 #coachPanel{
   position:fixed;
   left:calc(10px + var(--sal));
-  bottom:calc(var(--btnBarH) + 14px + var(--sab));
-  z-index:55;
+  top:calc(110px + var(--sat)); /* below hudTop */
+  z-index:40;
 
   display:flex;
   gap:10px;
   align-items:center;
-
-  padding:10px 10px;
-  border:1px solid var(--stroke);
-  border-radius: var(--radius2);
-  background: rgba(2,6,23,.72);
-  box-shadow: var(--shadow);
+  padding:10px 12px;
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(2,6,23,.62);
+  box-shadow:0 18px 44px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
 
-  max-width: min(360px, 92vw);
+  max-width:min(420px, calc(100vw - 20px - var(--sal) - var(--sar)));
 }
 
 #coachImg{
   width:56px;
   height:56px;
-  object-fit:contain;
   border-radius:16px;
-  background: rgba(34,197,94,.10);
-  border:1px solid rgba(34,197,94,.22);
-  box-shadow: var(--shadow2);
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.60);
+  object-fit:cover;
+  flex:0 0 auto;
 }
 
 .coachText{ min-width:0; }
 .coachName{
-  font-weight:1200;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
+  font-weight:1300;
+  font-size:13px;
 }
 .coachMsg{
   margin-top:2px;
-  font-weight:1100;
-  font-size:13px;
+  font-weight:1000;
+  font-size:12px;
+  color:rgba(148,163,184,.98);
   line-height:1.25;
-  color: rgba(229,231,235,.95);
-  max-width: 260px;
+  max-width:360px;
   overflow:hidden;
   text-overflow:ellipsis;
 }
 
-/* ===== QUEST PANEL ===== */
+/* ---------- Quest panel ---------- */
 #miniPanel{
   position:fixed;
   right:calc(10px + var(--sar));
-  top:calc(10px + var(--sat) + 110px);
-  z-index:54;
+  top:calc(110px + var(--sat)); /* align with coachPanel */
+  z-index:40;
 
-  width: min(420px, 92vw);
-  display:flex;
-  flex-direction:column;
-  gap:10px;
+  width:min(520px, calc(100vw - 20px - var(--sal) - var(--sar)));
+  max-width:520px;
 
-  padding:10px 10px;
-  border:1px solid var(--stroke);
-  border-radius: var(--radius2);
-  background: rgba(2,6,23,.70);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
-}
-
-.questBlock{
-  background: rgba(15,23,42,.45);
+  border-radius:22px;
   border:1px solid rgba(148,163,184,.14);
-  border-radius: 16px;
-  padding:10px;
+  background:rgba(2,6,23,.62);
+  box-shadow:0 18px 44px rgba(0,0,0,.28);
+  backdrop-filter: blur(10px);
+
+  padding:10px 12px;
 }
+
+.questBlock + .questBlock{ margin-top:10px; }
 
 .questHdr{
   display:flex;
   gap:10px;
   align-items:center;
+  justify-content:space-between;
+  margin-bottom:8px;
 }
+
 .badge{
   display:inline-flex;
   align-items:center;
   justify-content:center;
   padding:6px 10px;
   border-radius:999px;
-  font-weight:1200;
-  font-size:11px;
   border:1px solid rgba(148,163,184,.16);
-  background: rgba(2,6,23,.52);
-  white-space:nowrap;
+  background:rgba(15,23,42,.54);
+  font-weight:1300;
+  font-size:11px;
+  letter-spacing:.2px;
 }
-.badgeGoal{ border-color: rgba(34,197,94,.24); background: rgba(34,197,94,.10); }
-.badgeMini{ border-color: rgba(250,204,21,.24); background: rgba(250,204,21,.10); }
+.badgeGoal{ border-color:rgba(34,197,94,.25); background:rgba(34,197,94,.10); }
+.badgeMini{ border-color:rgba(250,204,21,.26); background:rgba(250,204,21,.10); }
 
 .qTitle{
   flex:1;
@@ -306,212 +368,195 @@ a-scene{ z-index:1 !important; }
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
+  padding-right:10px;
 }
+
 .qCount{
-  font-weight:1100;
+  font-weight:1200;
   font-size:12px;
-  color: rgba(148,163,184,.95);
+  color:rgba(148,163,184,.98);
   white-space:nowrap;
 }
 
 .bar{
-  margin-top:8px;
-  height:12px;
+  height:10px;
   border-radius:999px;
+  background:rgba(148,163,184,.14);
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(2,6,23,.48);
   overflow:hidden;
 }
+
 .barFill{
   height:100%;
   width:0%;
   border-radius:999px;
-  background: rgba(34,197,94,.95);
-  transition: width .12s linear;
+  background:rgba(34,197,94,.55);
+  transition: width .10s linear;
 }
 .barFill.mini{
-  background: rgba(250,204,21,.95);
+  background:rgba(250,204,21,.55);
 }
 
 .hint{
   margin-top:8px;
-  color: rgba(148,163,184,.95);
-  font-weight:900;
-  font-size:11px;
+  font-weight:1000;
+  font-size:12px;
+  color:rgba(148,163,184,.98);
   line-height:1.25;
 }
 
-/* ===== BUTTON BAR ===== */
+/* ---------- Buttons bottom ---------- */
 #hudBtns{
   position:fixed;
   left:calc(10px + var(--sal));
   right:calc(10px + var(--sar));
   bottom:calc(10px + var(--sab));
-  z-index:60;
+  z-index:40;
 
   display:flex;
   gap:10px;
-  justify-content:flex-end;
   align-items:center;
+  justify-content:center;
+  padding:10px 12px;
 
-  padding:10px 10px;
-  border:1px solid var(--stroke);
-  border-radius: var(--radius2);
-  background: rgba(2,6,23,.70);
-  box-shadow: var(--shadow);
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(2,6,23,.62);
+  box-shadow:0 18px 44px rgba(0,0,0,.28);
   backdrop-filter: blur(10px);
 }
+
 .btn{
-  border:none;
-  outline:none;
+  appearance:none;
+  -webkit-appearance:none;
+  border:1px solid rgba(148,163,184,.18);
+  background:rgba(15,23,42,.50);
+  color:rgba(229,231,235,.96);
+  border-radius:16px;
+  padding:10px 12px;
+  font-weight:1200;
   cursor:pointer;
   user-select:none;
-  -webkit-tap-highlight-color: transparent;
-
-  padding:10px 12px;
-  border-radius: 16px;
-
-  background: rgba(34,197,94,.14);
-  border:1px solid rgba(34,197,94,.28);
-  color: rgba(229,231,235,.96);
-  font-weight:1200;
-  box-shadow: var(--shadow2);
+  -webkit-tap-highlight-color:transparent;
+  box-shadow:0 14px 38px rgba(0,0,0,.25);
 }
-.btn:active{ transform: translateY(1px); }
-
+.btn:active{ transform:translateY(1px); }
+.btn.big{ padding:12px 14px; border-radius:18px; font-size:14px; }
 .btn.ghost{
-  background: rgba(15,23,42,.45);
-  border:1px solid rgba(148,163,184,.18);
+  background:rgba(2,6,23,.52);
 }
-.btn.big{
-  padding:12px 14px;
-  border-radius: 18px;
-  font-size:14px;
-}
+.btn:hover{ filter:brightness(1.04); }
 
-/* ===== PAUSED overlay ===== */
+/* ---------- Paused overlay ---------- */
 #hudPaused{
   position:fixed;
   inset:0;
-  z-index:85;
+  z-index:60;
   display:none;
   place-items:center;
-  background: rgba(2,6,23,.55);
-  backdrop-filter: blur(6px);
+  background:rgba(2,6,23,.55);
+  backdrop-filter: blur(10px);
 }
 .pausedCard{
-  width:min(520px, 92vw);
-  padding:16px;
-  border-radius: 22px;
+  width:min(520px, calc(100vw - 24px));
+  border-radius:22px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.80);
-  box-shadow: var(--shadow);
+  background:rgba(2,6,23,.78);
+  box-shadow:0 22px 70px rgba(0,0,0,.45);
+  padding:16px;
+  text-align:center;
 }
-.pausedTitle{
-  font-weight:1300;
-  font-size:18px;
-}
-.pausedText{
-  margin-top:6px;
-  color: rgba(148,163,184,.95);
-  font-weight:900;
-}
+.pausedTitle{ font-weight:1300; font-size:18px; }
+.pausedText{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:1000; }
 
-/* ===== START overlay ===== */
+/* ---------- Start overlay ---------- */
 #startOverlay{
   position:fixed;
   inset:0;
-  z-index:90;
+  z-index:65;
   display:none;
   place-items:center;
-  background:
-    radial-gradient(circle at top left, rgba(56,189,248,.14), transparent 60%),
-    radial-gradient(circle at bottom right, rgba(34,197,94,.14), transparent 60%),
-    rgba(2,6,23,.55);
-  backdrop-filter: blur(8px);
+  background: radial-gradient(circle at 30% 20%, rgba(34,197,94,.14), transparent 55%),
+              radial-gradient(circle at 80% 80%, rgba(56,189,248,.12), transparent 55%),
+              rgba(2,6,23,.70);
+  backdrop-filter: blur(12px);
 }
 .startCard{
-  width:min(680px, 92vw);
-  padding:16px;
-  border-radius: 24px;
+  width:min(720px, calc(100vw - 24px));
+  border-radius:22px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.86);
-  box-shadow: var(--shadow);
+  background:rgba(2,6,23,.78);
+  box-shadow:0 22px 70px rgba(0,0,0,.45);
+  padding:16px;
 }
-.startTitle{
-  font-weight:1400;
-  font-size:22px;
-}
+.startTitle{ font-weight:1400; font-size:20px; }
 .startSub{
   margin-top:6px;
   font-weight:1000;
-  color: rgba(229,231,235,.92);
+  color:rgba(148,163,184,.98);
   line-height:1.35;
 }
 .startMeta{
+  margin-top:10px;
   display:flex;
-  gap:10px;
+  gap:8px;
   flex-wrap:wrap;
-  margin-top:12px;
 }
 .metaPill{
   padding:8px 10px;
   border-radius:999px;
-  border:1px solid rgba(148,163,184,.16);
-  background: rgba(15,23,42,.50);
+  border:1px solid rgba(148,163,184,.14);
+  background:rgba(15,23,42,.55);
   font-weight:1100;
 }
 .startBtns{
+  margin-top:12px;
   display:flex;
   gap:10px;
-  margin-top:14px;
   flex-wrap:wrap;
 }
 .startFoot{
-  margin-top:12px;
-  color: rgba(148,163,184,.95);
+  margin-top:10px;
+  color:rgba(148,163,184,.95);
   font-weight:900;
   font-size:12px;
 }
 
-/* ===== RESULT overlay ===== */
+/* ---------- Result overlay ---------- */
 #resultBackdrop{
   position:fixed;
   inset:0;
-  z-index:88;
-  display:none;
+  z-index:70;
+  display:none; /* plate.safe.js toggles */
   place-items:center;
-  background: rgba(2,6,23,.58);
-  backdrop-filter: blur(8px);
+  background:rgba(2,6,23,.60);
+  backdrop-filter: blur(12px);
 }
 .resultCard{
-  width:min(760px, 94vw);
-  padding:16px;
-  border-radius: 24px;
+  width:min(760px, calc(100vw - 24px));
+  border-radius:22px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(2,6,23,.86);
-  box-shadow: var(--shadow);
+  background:rgba(2,6,23,.82);
+  box-shadow:0 22px 70px rgba(0,0,0,.48);
+  padding:16px;
 }
-.resultTitle{
-  font-weight:1400;
-  font-size:20px;
-}
+.resultTitle{ font-weight:1400; font-size:18px; }
 .resultGrid{
+  margin-top:10px;
   display:grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap:10px;
-  margin-top:12px;
 }
 .resultItem{
-  padding:10px 10px;
-  border-radius:18px;
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.45);
+  background:rgba(15,23,42,.55);
+  border-radius:16px;
+  padding:10px 12px;
 }
 .resultItem .k{
-  color: rgba(148,163,184,.95);
+  color:rgba(148,163,184,.98);
   font-weight:1100;
-  font-size:10px;
+  font-size:11px;
 }
 .resultItem .v{
   margin-top:2px;
@@ -519,11 +564,11 @@ a-scene{ z-index:1 !important; }
   font-size:16px;
 }
 .resultPlate{
-  margin-top:12px;
-  padding:12px;
-  border-radius: 20px;
+  margin-top:10px;
   border:1px solid rgba(148,163,184,.14);
-  background: rgba(15,23,42,.40);
+  background:rgba(15,23,42,.45);
+  border-radius:18px;
+  padding:12px;
 }
 .plateRow{
   display:flex;
@@ -531,99 +576,65 @@ a-scene{ z-index:1 !important; }
   flex-wrap:wrap;
 }
 .totalRow{
-  margin-top:10px;
-  color: rgba(148,163,184,.95);
-  font-weight:1100;
+  margin-top:8px;
+  font-weight:1200;
+  color:rgba(148,163,184,.98);
 }
 .resultBtns{
+  margin-top:12px;
   display:flex;
   gap:10px;
   flex-wrap:wrap;
   justify-content:flex-end;
-  margin-top:14px;
 }
 
-/* ===== TARGETS ===== */
-.plateTarget{
-  pointer-events:auto;      /* ✅ layer เป็น none แต่ target ต้องคลิกได้ */
-  touch-action: manipulation;
-
-  /* กัน “แว๊บ” ตอนสร้าง */
-  opacity:0;
-  transform: translateZ(0) scale(.88);
-  filter: saturate(1.02);
-
-  animation: platePopIn .12s ease-out forwards;
-  will-change: transform, opacity, filter;
-
-  /* ปุ่มวงกลม อ่านง่าย */
-  font-size:28px;
-  line-height:1;
-}
-@keyframes platePopIn{
-  from{ opacity:0; transform: translateZ(0) scale(.86); }
-  to  { opacity:1; transform: translateZ(0) scale(1); }
-}
-
-.plateTarget:active{
-  transform: translateZ(0) scale(.96);
-  filter: brightness(1.08);
-}
-
-/* ===== Responsive tweaks ===== */
-@media (max-width: 720px){
-  #hudTop{
-    left:calc(8px + var(--sal));
-    right:calc(8px + var(--sar));
-    top:calc(8px + var(--sat));
-    padding:10px 8px;
+/* ---------- Responsive tune ---------- */
+@media (max-width: 980px){
+  #hudTop .hudRow{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+  #coachPanel, #miniPanel{
+    top: calc(150px + var(--sat));
   }
-  .hudRow{ gap:8px; }
-  .hudStat{ min-width: 60px; padding:8px 8px; }
-  .hudStat .v{ font-size:15px; }
-
   #miniPanel{
-    right:calc(8px + var(--sar));
-    top:calc(8px + var(--sat) + 112px);
-    width: min(440px, 92vw);
+    width:min(520px, calc(100vw - 20px - var(--sal) - var(--sar)));
+  }
+}
+
+@media (max-width: 720px){
+  #hudTop{ padding:10px; }
+  #hudTop .hudRow{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+
+  /* Stack coach + mini to avoid stealing play area */
+  #coachPanel{
+    left:calc(10px + var(--sal));
+    right:calc(10px + var(--sar));
+    top: calc(140px + var(--sat));
+    max-width:unset;
+  }
+  #miniPanel{
+    left:calc(10px + var(--sal));
+    right:calc(10px + var(--sar));
+    top: calc(220px + var(--sat));
+    max-width:unset;
   }
 
-  #coachPanel{
-    left:calc(8px + var(--sal));
-    bottom:calc(72px + var(--sab));
-    max-width: min(420px, 92vw);
-  }
+  .feverWrap{ min-width:unset; width:100%; }
+  .plateCounts{ justify-content:flex-start; }
 
   #hudBtns{
-    left:calc(8px + var(--sal));
-    right:calc(8px + var(--sar));
-    bottom:calc(8px + var(--sab));
     justify-content:space-between;
   }
+  .btn{ flex:1; }
 }
 
-/* ===== VR / cVR modes =====
-- ลด panel ให้ไม่บังจอ
-- เพิ่มความ “นิ่ง” (ลด blur หนัก ๆ)
-*/
-body.view-vr #hudTop,
-body.view-cvr #hudTop,
-body.view-vr #miniPanel,
-body.view-cvr #miniPanel,
-body.view-vr #coachPanel,
-body.view-cvr #coachPanel,
-body.view-vr #hudBtns,
-body.view-cvr #hudBtns{
-  backdrop-filter: blur(6px);
-  background: rgba(2,6,23,.62);
-}
-
-/* cVR: เป้าไม่ควรรับ pointer โดยตรง (ยิงจาก crosshair) — เผื่ออนาคต hook */
-body.view-cvr .plateTarget{
-  pointer-events:none;
-}
-
-/* ===== Result grid on small ===== */
-@media (max-width: 820px){
+@media (max-width: 420px){
+  .hudStat{ padding:8px 9px; }
+  .hudStat .v{ font-size:15px; }
+  #coachImg{ width:50px; height:50px; }
   .resultGrid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+/* ---------- Prefer reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{ animation:none; }
+  .barFill, .feverFill{ transition:none; }
 }
