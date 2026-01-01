@@ -1,5 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
 // GoodJunkVR — PRODUCTION (C: gameplay + research-ready)
+// PATCH: faster spawn + longer lifetime + grace period + mobile missLimit+2
 // ✅ START-gated (no spawn before start)
 // ✅ Practice 15s (play only) + skip in research
 // ✅ Goal + Mini Quest chain
@@ -34,7 +35,6 @@ function makeSeededRng(seed){
 
 function nowMs(){ return performance.now(); }
 function byId(id){ return DOC.getElementById(id); }
-
 function emit(name, detail){ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }
 
 // -------------------------
@@ -64,7 +64,7 @@ function hudUpdate(state){
     hudSetText(HUD.goalCur, state.goal.cur);
     hudSetText(HUD.goalTarget, state.goal.target);
   }
-  hudSetText(HUD.mini, state.mini ? `${state.mini.title} (${state.mini.cur}/${state.mini.target})` : '—');
+  hudSetText(HUD.mini, state.mini ? `${state.mini.title} (${Math.floor(state.mini.cur)}/${state.mini.target})` : '—');
 }
 
 // -------------------------
@@ -72,23 +72,19 @@ function hudUpdate(state){
 // -------------------------
 function diffCfg(diff){
   diff = String(diff||'normal').toLowerCase();
+  // spawnPps = targets per second (ชัด ๆ)
   const base = {
-    easy:   { timeMul:1.00, goodTarget:10, missLimit:7, spawnRate:1.15, junkRatio:0.35 },
-    normal: { timeMul:1.00, goodTarget:14, missLimit:6, spawnRate:1.00, junkRatio:0.40 },
-    hard:   { timeMul:1.00, goodTarget:18, missLimit:5, spawnRate:0.90, junkRatio:0.45 },
+    easy:   { timeMul:1.00, goodTarget:10, missLimit:7, spawnPps:1.8, junkRatio:0.34 },
+    normal: { timeMul:1.00, goodTarget:14, missLimit:6, spawnPps:2.0, junkRatio:0.40 },
+    hard:   { timeMul:1.00, goodTarget:18, missLimit:5, spawnPps:2.2, junkRatio:0.46 },
   };
   return base[diff] || base.normal;
 }
 
-function gradeFrom({acc, miss, score, comboMax}){
-  // Simple but meaningful grading (tune later)
-  // acc: 0-100
-  // strong emphasis on accuracy & low miss; combo helps
+function gradeFrom({acc, miss, comboMax}){
   const a = Number(acc)||0;
   const m = Number(miss)||0;
   const c = Number(comboMax)||0;
-
-  // SSS: very high accuracy + low miss
   if(a >= 92 && m <= 2 && c >= 10) return 'SSS';
   if(a >= 88 && m <= 3) return 'SS';
   if(a >= 82 && m <= 4) return 'S';
@@ -111,15 +107,12 @@ function pickGoal(cfg){
 }
 
 function pickMiniSequence(){
-  // Chain minis — short, fun, research-safe
-  // Each mini is deterministic sequence-driven (no adaptive required)
   return [
     { type:'streak_good', title:'เก็บดีติดกัน', target:3, cur:0, done:false },
-    { type:'avoid_junk',  title:'อย่าโดนขยะ', target:6, cur:0, done:false }, // cur counts seconds survived
-    { type:'fast_hits',   title:'ยิงให้ไว', target:4, cur:0, done:false },   // count hits under threshold
+    { type:'avoid_junk',  title:'อย่าโดนขยะ', target:6, cur:0, done:false }, // seconds survived
+    { type:'fast_hits',   title:'ยิงให้ไว', target:4, cur:0, done:false },   // hits under threshold
   ];
 }
-
 function resetMini(m){ m.cur=0; m.done=false; }
 
 function miniOnGoodHit(state, rtMs){
@@ -129,7 +122,7 @@ function miniOnGoodHit(state, rtMs){
     m.cur++;
     if(m.cur >= m.target){ m.done=true; state.miniCleared++; emit('quest:update', { mini:m }); }
   } else if(m.type === 'fast_hits'){
-    const thr = 520; // ms
+    const thr = 560; // ผ่อนให้ง่ายขึ้นนิด
     if(rtMs != null && rtMs <= thr){
       m.cur++;
       if(m.cur >= m.target){ m.done=true; state.miniCleared++; emit('quest:update', { mini:m }); }
@@ -141,13 +134,10 @@ function miniOnJunkHit(state){
   const m = state.mini;
   if(!m || m.done) return;
   if(m.type === 'streak_good'){
-    // break streak
     m.cur = 0;
-  } else if(m.type === 'fast_hits'){
-    // no change
   }
   if(m.type === 'avoid_junk'){
-    // fail mini instantly
+    // fail mini style: reset progress (ไม่จบเกม)
     m.cur = 0;
   }
 }
@@ -169,8 +159,7 @@ function miniTick(state, dtSec){
 function advanceMini(state){
   if(state.mini && !state.mini.done) return;
   state.miniIndex++;
-  if(state.miniIndex >= state.miniSeq.length){
-    // finished chain
+  if(state.miniIndex >= rememberLen(state.miniSeq)){
     state.mini = null;
     return;
   }
@@ -178,6 +167,8 @@ function advanceMini(state){
   resetMini(state.mini);
   emit('quest:update', { mini:state.mini });
 }
+
+function rememberLen(arr){ return Array.isArray(arr) ? arr.length : 0; }
 
 // -------------------------
 // Spawning (DOM emoji targets)
@@ -197,6 +188,7 @@ function createTargetEl(kind, emoji){
     opacity: 0;
     transition: opacity .10s ease;
     pointer-events:auto;
+    user-select:none;
   `;
   return el;
 }
@@ -215,7 +207,7 @@ function removeEl(el){
 }
 
 // -------------------------
-// Engine State
+// State
 // -------------------------
 function makeInitialState(cfg, opts){
   return {
@@ -225,19 +217,16 @@ function makeInitialState(cfg, opts){
     comboMax: 0,
     miss: 0,
 
-    // counts
     nSpawnGood: 0,
     nSpawnJunk: 0,
     nHitGood: 0,
     nHitJunk: 0,
     nExpireGood: 0,
 
-    // timing
     timeTotalSec: opts.timeSec,
     timeLeftSec: opts.timeSec,
     playedSec: 0,
 
-    // goal/mini
     goal: pickGoal(cfg),
     goalsCleared: 0,
     goalsTotal: 1,
@@ -251,19 +240,19 @@ function makeInitialState(cfg, opts){
     // practice
     practiceLeft: 15,
 
-    // runtime
+    // PATCH: grace period (seconds) — only in PLAY phase
+    graceSec: 5,
+
     grade: '—',
     rng: opts.rng,
-    lastGoodHitAtMs: null,
     lastSpawnAtMs: 0,
   };
 }
 
 // -------------------------
-// Logging (lightweight + compatible)
+// Logging hooks
 // -------------------------
 function logEvent(type, payload){
-  // If hha-cloud-logger exists, it may listen to events already.
   emit('hha:log', { type, ...payload });
 }
 
@@ -282,7 +271,6 @@ export function boot(opts={}){
   const run  = String(opts.run||'play').toLowerCase();
   const isResearch = (run === 'research');
 
-  // deterministic seed for research
   const seed = opts.seed != null ? Number(opts.seed) : (isResearch ? 12345 : Date.now());
   const rng = makeSeededRng(seed);
 
@@ -291,54 +279,42 @@ export function boot(opts={}){
 
   const state = makeInitialState(cfg, { timeSec, rng });
 
-  // mini start
+  // Start mini chain
   advanceMini(state);
 
-  // Practice: only in play mode
-  if(isResearch){
-    state.phase = 'play';
-  }else{
-    state.phase = 'practice';
-  }
+  // Practice only in play
+  state.phase = isResearch ? 'play' : 'practice';
 
-  // Apply HUD once
+  // Mobile fairness: missLimit + 2 (patch)
+  const missLimitBase = cfg.missLimit ?? 6;
+  const missLimit = (view === 'mobile') ? (missLimitBase + 2) : missLimitBase;
+
+  // HUD initial
   hudUpdate(state);
 
-  // Let UI know session start (for sheets/logger)
   const meta = {
     projectTag: 'GoodJunkVR',
     runMode: run,
-    diff,
-    view,
-    seed,
+    diff, view, seed,
     durationPlannedSec: timeSec,
     studyId: opts.studyId || null,
     phase: opts.phase || null,
     conditionGroup: opts.conditionGroup || null,
     startTimeIso: new Date().toISOString(),
-    gameVersion: 'gj-2026-01-01C'
+    gameVersion: 'gj-2026-01-01C-speed'
   };
   emit('hha:start', meta);
   logEvent('start', meta);
 
-  // Shooting / tapping: click targets + optional crosshair (vr-ui emits hha:shoot)
-  function onShoot(ev){
-    // if ev.detail has {x,y} we could raycast; here we just "tap to shoot" means click target
-    // Keep for compatibility
-  }
-  ROOT.addEventListener('hha:shoot', onShoot, { passive:true });
-
-  // Handle target clicks
   function onTargetClick(e){
     const el = e.target;
     if(!el || !el.dataset) return;
-    const kind = el.dataset.kind;
 
     if(state.phase !== 'practice' && state.phase !== 'play') return;
 
+    const kind = el.dataset.kind;
     const tNow = nowMs();
-    let rt = null;
-    if(state.lastSpawnAtMs) rt = Math.max(0, tNow - state.lastSpawnAtMs);
+    const rt = state.lastSpawnAtMs ? Math.max(0, tNow - state.lastSpawnAtMs) : null;
 
     if(kind === 'good'){
       state.nHitGood++;
@@ -346,7 +322,7 @@ export function boot(opts={}){
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
 
-      // goal progress
+      // goal
       if(state.goal && !state.goal.done){
         state.goal.cur = clamp(state.goal.cur + 1, 0, state.goal.target);
         if(state.goal.cur >= state.goal.target){
@@ -356,7 +332,6 @@ export function boot(opts={}){
         }
       }
 
-      // mini update
       miniOnGoodHit(state, rt);
       if(state.mini && state.mini.done) advanceMini(state);
 
@@ -365,8 +340,6 @@ export function boot(opts={}){
     } else if(kind === 'junk'){
       state.nHitJunk++;
       state.score = Math.max(0, state.score - 6);
-
-      // MISS rule (junk hit counts as miss) — shield-block handled externally if needed
       state.miss++;
       state.combo = 0;
 
@@ -375,37 +348,24 @@ export function boot(opts={}){
       logEvent('hit_junk', { score: state.score, miss: state.miss });
     }
 
-    // remove target instantly
     removeEl(el);
     hudUpdate(state);
 
-    // Win/Lose checks
-    if(state.goal?.done && state.phase === 'play'){
-      // allow to continue until time ends (more data), but can end early if you want:
-      // endGame('goal');
-    }
-    // miss limit (play only)
-    const missLimit = cfg.missLimit ?? 6;
-    if(state.miss >= missLimit && state.phase === 'play'){
+    // lose by miss limit (play only)
+    if(state.phase === 'play' && state.miss >= missLimit){
       endGame('missLimit');
     }
   }
 
-  layer.addEventListener('click', onTargetClick);
-  layer.addEventListener('pointerdown', (e)=>{
-    // mobile fast tap
-    if(e.target && e.target.classList && e.target.classList.contains('gj-target')){
-      // click handler already does it; keep for compatibility
-    }
-  }, { passive:true });
+  layer.addEventListener('click', onTargetClick, { passive:false });
 
-  // Spawn logic (simple, stable)
+  // Spawn controls
   const activeTargets = new Set();
+  let ended = false;
 
   function spawnOne(){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
 
-    // spawn good/junk by ratio
     const isJunk = (state.rng() < (cfg.junkRatio ?? 0.40));
     const kind = isJunk ? 'junk' : 'good';
 
@@ -415,60 +375,62 @@ export function boot(opts={}){
     const W = DOC.documentElement.clientWidth;
     const H = DOC.documentElement.clientHeight;
 
-    // safe HUD top area
-    const topPad = 140 + (Number(getComputedStyle(DOC.documentElement).getPropertyValue('--sat').replace('px',''))||0);
+    const topPad = 130 + (Number(getComputedStyle(DOC.documentElement).getPropertyValue('--sat').replace('px',''))||0);
 
-    // spawn position
     const x = randIn(state.rng, 0.18, 0.82) * W;
     const y = randIn(state.rng, 0.25, 0.78) * H;
     el.style.left = `${x}px`;
     el.style.top  = `${Math.max(topPad, y)}px`;
 
-    // size slightly varied
     const s = randIn(state.rng, 0.92, 1.18);
     el.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
 
-    // lifetime
-    const lifeMs = (kind==='good') ? randIn(state.rng, 900, 1400) : randIn(state.rng, 900, 1500);
+    // PATCH: lifetime longer (especially good)
+    const lifeMs = (kind==='good')
+      ? randIn(state.rng, 1400, 2200)
+      : randIn(state.rng, 1200, 2000);
+
     const born = nowMs();
     state.lastSpawnAtMs = born;
 
     el.style.opacity = '1';
-
     layer.appendChild(el);
     activeTargets.add(el);
 
     if(kind==='good') state.nSpawnGood++; else state.nSpawnJunk++;
-    logEvent('spawn', { kind });
 
     // expire
     setTimeout(()=>{
-      if(!activeTargets.has(el)) return;
+      if(!activeTargets.has(el) || ended) return;
       activeTargets.delete(el);
-      // if good expires => miss rule (good expired counts as miss)
+
       if(el.dataset.kind === 'good' && (state.phase==='practice' || state.phase==='play')){
-        state.nExpireGood++;
-        state.miss++;
-        state.combo = 0;
-        logEvent('expire_good', { miss: state.miss });
-        // miss limit
-        const missLimit = cfg.missLimit ?? 6;
-        if(state.miss >= missLimit && state.phase === 'play'){
-          removeEl(el);
+        // PATCH: Grace period in PLAY => good expire not count as miss
+        if(state.phase === 'play' && state.graceSec > 0){
+          // no miss
+        } else {
+          state.nExpireGood++;
+          state.miss++;
+          state.combo = 0;
           hudUpdate(state);
-          endGame('missLimit');
-          return;
+
+          if(state.phase === 'play' && state.miss >= missLimit){
+            removeEl(el);
+            endGame('missLimit');
+            return;
+          }
         }
-        hudUpdate(state);
       }
       removeEl(el);
     }, Math.floor(lifeMs));
   }
 
+  // PATCH: Faster spawn model (pps) + cap per frame to avoid burst
   let lastTick = nowMs();
   let spawnAcc = 0;
 
   function tick(){
+    if(ended) return;
     const t = nowMs();
     const dt = Math.min(0.05, (t - lastTick)/1000);
     lastTick = t;
@@ -476,16 +438,34 @@ export function boot(opts={}){
     if(state.phase === 'practice'){
       state.practiceLeft = Math.max(0, state.practiceLeft - dt);
       miniTick(state, dt);
-      if(state.practiceLeft <= 0){
-        state.phase = 'play';
-      }
-      // show time HUD as practice remaining (nice)
+      // show practice countdown in Time
       state.timeLeftSec = state.practiceLeft;
       hudSetText(HUD.time, Math.ceil(state.timeLeftSec));
+
+      // spawn in practice too (รู้สึกว่ามีอะไรให้ทำ)
+      spawnAcc += dt * (cfg.spawnPps * 0.95);
+
+      const cap = (view==='mobile') ? 2 : 3;
+      let spawned = 0;
+      while(spawnAcc >= 1 && spawned < cap){
+        spawnAcc -= 1;
+        spawnOne();
+        spawned++;
+      }
+
+      if(state.practiceLeft <= 0){
+        state.phase = 'play';
+        // reset grace at actual play start
+        state.graceSec = 5;
+      }
+      hudUpdate(state);
     }
     else if(state.phase === 'play'){
       state.playedSec += dt;
       state.timeLeftSec = Math.max(0, state.timeTotalSec - state.playedSec);
+
+      // grace countdown
+      state.graceSec = Math.max(0, state.graceSec - dt);
 
       miniTick(state, dt);
       if(state.mini && state.mini.done) advanceMini(state);
@@ -496,14 +476,15 @@ export function boot(opts={}){
         return;
       }
 
-      // spawn pacing: cfg.spawnRate lower = faster (e.g., 1.0)
-      // Use accumulator in "spawns per second" style
-      const spawnsPerSec = 1.35 / (cfg.spawnRate || 1.0);
-      spawnAcc += dt * spawnsPerSec;
+      // spawn faster
+      spawnAcc += dt * (cfg.spawnPps || 2.0);
 
-      while(spawnAcc >= 1){
+      const cap = (view==='mobile') ? 2 : 3;
+      let spawned = 0;
+      while(spawnAcc >= 1 && spawned < cap){
         spawnAcc -= 1;
         spawnOne();
+        spawned++;
       }
 
       hudUpdate(state);
@@ -514,8 +495,6 @@ export function boot(opts={}){
 
   requestAnimationFrame(tick);
 
-  // End game
-  let ended = false;
   function endGame(reason='time'){
     if(ended) return;
     ended = true;
@@ -525,15 +504,12 @@ export function boot(opts={}){
     activeTargets.forEach(el=>removeEl(el));
     activeTargets.clear();
 
-    const nTotalHits = state.nHitGood + state.nHitJunk;
-    const accGood = (state.nHitGood + state.nExpireGood + 0) > 0
-      ? (state.nHitGood / (state.nHitGood + state.nExpireGood)) * 100
-      : 0;
+    const denom = (state.nHitGood + state.nExpireGood);
+    const accGood = denom > 0 ? (state.nHitGood / denom) * 100 : 0;
 
     const grade = gradeFrom({
       acc: accGood,
       miss: state.miss,
-      score: state.score,
       comboMax: state.comboMax
     });
     state.grade = grade;
@@ -566,31 +542,23 @@ export function boot(opts={}){
       studyId: opts.studyId || null,
       phase: opts.phase || null,
       conditionGroup: opts.conditionGroup || null,
-      gameVersion: 'gj-2026-01-01C',
+      gameVersion: 'gj-2026-01-01C-speed',
       startTimeIso: meta.startTimeIso,
       endTimeIso: new Date().toISOString(),
       hub: opts.hub || null,
     };
 
-    // Save last summary (HHA standard memory)
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-    }catch{}
-
-    // Emit end summary (UI overlay listens in HTML)
+    try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch{}
     emit('hha:end', summary);
     logEvent('end', summary);
   }
 
-  // Safety: allow external force-end
   ROOT.addEventListener('hha:force-end', (ev)=>{
     endGame(ev?.detail?.reason || 'force');
   }, { passive:true });
 
-  // (Optional) Back button flush-hardening: store last summary on unload too
   ROOT.addEventListener('pagehide', ()=>{
     try{
-      // if ended, already stored; if not ended, store partial
       if(!ended){
         localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
           projectTag:'GoodJunkVR',
@@ -602,7 +570,7 @@ export function boot(opts={}){
           scoreFinal: state.score,
           misses: state.miss,
           durationPlayedSec: state.playedSec,
-          gameVersion:'gj-2026-01-01C',
+          gameVersion:'gj-2026-01-01C-speed',
           startTimeIso: meta.startTimeIso,
           endTimeIso: new Date().toISOString(),
         }));
