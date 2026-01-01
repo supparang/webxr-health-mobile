@@ -1,9 +1,9 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration VR — ROOT ENTRY (PRODUCTION) v2
-✅ มี “Option เลือกโหมด” ชัดเจน: PC / Mobile / VR Cardboard
-✅ Quick Settings (diff/time/run) เพื่อเทสไว
-✅ ใช้ loader (/hydration-vr/hydration-vr.loader.js) คุม view + fullscreen + lock
-✅ Loads global FX + logger + coach-manager
+Hydration VR — ROOT ENTRY (PRODUCTION v2)
+✅ Launcher: choose PC / Mobile / VR Cardboard
+✅ Quick Settings panel updates URL params
+✅ Loads loader (which imports hydration.safe.js)
+✅ Uses global FX + cloud logger + coach-manager
 -->
 
 <!doctype html>
@@ -27,74 +27,76 @@ Hydration VR — ROOT ENTRY (PRODUCTION) v2
 </head>
 
 <body class="view-pc">
-  <!-- Start Overlay (MODE PICKER) -->
+  <!-- LAUNCHER / START OVERLAY -->
   <div id="startOverlay" class="hha-overlay">
     <div class="hha-overlay-card">
       <div class="hha-title">Hydration VR 💧</div>
       <div class="hha-sub">
-        เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> และเก็บ 🛡️ ไว้ <b>BLOCK</b> ตอนท้ายพายุ<br/>
-        <span class="muted">Tip: โหมด VR (Cardboard) ยิงด้วยปุ่ม 🎯 SHOOT / แตะจอ (aim-assist ล็อกเป้า)</span>
-      </div>
-
-      <!-- MODE OPTIONS -->
-      <div class="hha-overlay-actions" style="margin-top:14px">
-        <button id="btnStart" class="hha-btn primary">🖥️ เล่นโหมด PC</button>
-        <button id="btnStartMobile" class="hha-btn">📱 เล่นโหมด Mobile</button>
-        <button id="btnEnterVR" class="hha-btn">🥽 เล่นโหมด VR Cardboard</button>
+        <b>Goal</b>: คุม WATER ให้เข้าโซน <b>GREEN</b> (สะสมเวลา)<br/>
+        <b>Mini (Storm)</b>: ทำให้น้ำเป็น <b>LOW/HIGH</b> + เก็บ 🛡️ ไว้ <b>BLOCK</b> ตอนท้ายพายุ
       </div>
 
       <!-- Quick settings -->
-      <div style="margin-top:14px; border-top:1px solid rgba(255,255,255,.10); padding-top:12px">
-        <div style="font-weight:900; margin-bottom:8px">⚙️ Quick Settings (optional)</div>
-        <div class="muted" style="font-size:13px; line-height:1.45">
-          ปรับได้เร็วสำหรับเทส: diff / time / run โดยจะเขียนลง URL แล้วรีโหลดเอง
-        </div>
+      <div style="margin-top:14px; border-top:1px solid rgba(255,255,255,.10); padding-top:12px;">
+        <div style="font-weight:1000; margin-bottom:8px;">⚙️ Quick Settings</div>
 
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:10px">
-          <label style="display:flex; flex-direction:column; gap:6px">
-            <span class="muted" style="font-weight:900; font-size:12px">DIFF</span>
-            <select id="optDiff" class="hha-btn" style="text-align:left">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <label style="display:flex; flex-direction:column; gap:6px; font-weight:900;">
+            <span style="color:var(--muted); font-size:12px;">DIFF</span>
+            <select id="selDiff" class="hha-btn" style="text-align:left;">
               <option value="easy">easy</option>
               <option value="normal" selected>normal</option>
               <option value="hard">hard</option>
             </select>
           </label>
-          <label style="display:flex; flex-direction:column; gap:6px">
-            <span class="muted" style="font-weight:900; font-size:12px">TIME</span>
-            <select id="optTime" class="hha-btn" style="text-align:left">
-              <option value="50">50</option>
+
+          <label style="display:flex; flex-direction:column; gap:6px; font-weight:900;">
+            <span style="color:var(--muted); font-size:12px;">RUN MODE</span>
+            <select id="selRun" class="hha-btn" style="text-align:left;">
+              <option value="play" selected>play (adaptive)</option>
+              <option value="research">research (fixed)</option>
+            </select>
+          </label>
+
+          <label style="display:flex; flex-direction:column; gap:6px; font-weight:900;">
+            <span style="color:var(--muted); font-size:12px;">TIME (sec)</span>
+            <select id="selTime" class="hha-btn" style="text-align:left;">
+              <option value="60">60</option>
               <option value="70" selected>70</option>
+              <option value="80">80</option>
               <option value="90">90</option>
               <option value="120">120</option>
             </select>
           </label>
-          <label style="display:flex; flex-direction:column; gap:6px">
-            <span class="muted" style="font-weight:900; font-size:12px">RUN</span>
-            <select id="optRun" class="hha-btn" style="text-align:left">
-              <option value="play" selected>play</option>
-              <option value="research">research</option>
-            </select>
+
+          <label style="display:flex; flex-direction:column; gap:6px; font-weight:900;">
+            <span style="color:var(--muted); font-size:12px;">SEED (optional)</span>
+            <input id="inpSeed" class="hha-btn" style="text-align:left; padding:10px 12px;" placeholder="เช่น studentA|1700000000" />
           </label>
         </div>
 
-        <div class="hha-overlay-actions" style="margin-top:10px">
-          <button id="btnApplyQS" class="hha-btn">✅ Apply Settings</button>
-          <button id="btnResetQS" class="hha-btn danger">↩ Reset URL</button>
+        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+          <button id="btnApplySettings" class="hha-btn">✅ Apply settings</button>
+          <div style="color:var(--muted); font-weight:900; font-size:12px; display:flex; align-items:center;">
+            * Apply จะอัปเดต URL (diff/run/time/seed) แล้วรีโหลด
+          </div>
         </div>
       </div>
 
-      <div class="hha-hint">
-        * โหมด Cardboard แนะนำ <b>หมุนจอแนวนอน</b> และเปิด <b>Fullscreen</b><br/>
-        * ถ้าเข้าจาก HUB แล้วอยากให้เด้ง VR อัตโนมัติ: ใส่ <b>&view=cvr</b>
+      <!-- Mode chooser -->
+      <div class="hha-overlay-actions" style="margin-top:14px;">
+        <button id="btnPlayPC" class="hha-btn primary">🖥️ เล่นบน PC</button>
+        <button id="btnPlayMobile" class="hha-btn primary">📱 เล่นบนมือถือ</button>
+        <button id="btnPlayVR" class="hha-btn">📦 VR Cardboard</button>
       </div>
-    </div>
-  </div>
 
-  <!-- Rotate Hint (fallback node - loader ก็จะคุมอีกที) -->
-  <div id="rotateHint" class="hha-rotateHint" hidden>
-    <div class="card">
-      <div class="big">📱↔️ กรุณาหมุนจอเป็นแนวนอน</div>
-      <div class="small">เพื่อเล่นโหมด VR Cardboard ได้เต็มจอ</div>
+      <div class="hha-hint">
+        * โหมด VR แนะนำ “หมุนจอแนวนอน” และกดปุ่ม VR เพื่อเข้าเต็มจอ
+      </div>
+
+      <!-- Backward compatibility (hidden) -->
+      <button id="btnStart" style="display:none;"></button>
+      <button id="btnEnterVR" style="display:none;"></button>
     </div>
   </div>
 
@@ -220,69 +222,7 @@ Hydration VR — ROOT ENTRY (PRODUCTION) v2
     </div>
   </div>
 
-  <!-- LOADER -->
+  <!-- LOADER (imports hydration.safe.js) -->
   <script type="module" src="./hydration-vr/hydration-vr.loader.js"></script>
-
-  <!-- Overlay mode buttons + quick settings controller -->
-  <script>
-    (function(){
-      const qs = (k, d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch{ return d; } };
-      const setQS = (k,v)=>{
-        const u = new URL(location.href);
-        if (v===null || v===undefined || v==='') u.searchParams.delete(k);
-        else u.searchParams.set(k, String(v));
-        return u;
-      };
-
-      // init selectors from url
-      const optDiff = document.getElementById('optDiff');
-      const optTime = document.getElementById('optTime');
-      const optRun  = document.getElementById('optRun');
-      if (optDiff) optDiff.value = String(qs('diff','normal'));
-      if (optTime) optTime.value = String(qs('time','70'));
-      if (optRun)  optRun.value  = String(qs('run','play'));
-
-      // Apply quick settings -> reload
-      document.getElementById('btnApplyQS')?.addEventListener('click', ()=>{
-        let u = new URL(location.href);
-        u.searchParams.set('diff', optDiff?.value || 'normal');
-        u.searchParams.set('time', optTime?.value || '70');
-        u.searchParams.set('run',  optRun?.value  || 'play');
-        u.searchParams.set('ts', String(Date.now()));
-        location.href = u.toString();
-      });
-
-      // Reset URL -> keep only hub if any
-      document.getElementById('btnResetQS')?.addEventListener('click', ()=>{
-        const u = new URL(location.href);
-        const hub = u.searchParams.get('hub');
-        const base = u.origin + u.pathname + (hub ? ('?hub=' + encodeURIComponent(hub)) : '');
-        location.href = base;
-      });
-
-      // Mode buttons -> set view and click loader buttons
-      const btnPC = document.getElementById('btnStart');
-      const btnMB = document.getElementById('btnStartMobile');
-      const btnVR = document.getElementById('btnEnterVR');
-
-      btnPC?.addEventListener('click', ()=>{
-        // PC
-        const u = new URL(location.href);
-        u.searchParams.set('view','pc');
-        u.searchParams.set('ts', String(Date.now()));
-        history.replaceState({},'',u.toString());
-      });
-
-      btnMB?.addEventListener('click', ()=>{
-        const u = new URL(location.href);
-        u.searchParams.set('view','mobile');
-        u.searchParams.set('ts', String(Date.now()));
-        history.replaceState({},'',u.toString());
-      });
-
-      // VR uses loader's btnEnterVR (already exists)
-      // nothing else needed here
-    })();
-  </script>
 </body>
 </html>
