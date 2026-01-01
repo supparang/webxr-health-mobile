@@ -1,10 +1,10 @@
 // === /herohealth/vr/vr-ui.js ===
-// HeroHealth — Universal VR UI (PRODUCTION)
-// ✅ Buttons: ENTER VR / EXIT / RECENTER
+// HeroHealth — Universal VR UI (PRODUCTION+)
+// ✅ Buttons: ENTER VR / EXIT / RECENTER (A-Frame only)
 // ✅ Crosshair (for view-vr / view-cvr)
 // ✅ Tap-to-shoot => dispatch CustomEvent('hha:shoot', {detail:{x,y,lockPx,source}})
-// ✅ Emits: hha:enter_vr / hha:exit_vr / hha:recenter (for DOM-based games like GoodJunk)
-// ✅ Optional A-Frame scene enterVR/exitVR/recenter best-effort
+// ✅ Uses window.HHA_VRUI_CONFIG.lockPx
+// ✅ Soft cooldown to prevent double fire
 // ✅ Safe to include on every game page
 
 (function (root) {
@@ -15,23 +15,20 @@
   if (root.__HHA_VR_UI_BOUND__) return;
   root.__HHA_VR_UI_BOUND__ = true;
 
-  const clamp = (v, a, b) => {
-    v = Number(v) || 0;
-    return v < a ? a : (v > b ? b : v);
-  };
+  const qs = (sel) => DOC.querySelector(sel);
 
-  function emit(type, detail){
-    try{ root.dispatchEvent(new CustomEvent(type, { detail })); }catch(e){}
+  function getCfg(){
+    const c = root.HHA_VRUI_CONFIG || {};
+    return {
+      lockPx: Math.max(8, Number(c.lockPx || 26) || 26),
+      cooldownMs: Math.max(0, Number(c.cooldownMs || 90) || 90),
+    };
   }
 
   function emitShoot(detail){
-    emit('hha:shoot', detail);
-  }
-
-  function getLockPx(){
-    const cfg = root.HHA_VRUI_CONFIG || {};
-    const v = Number(cfg.lockPx ?? 26) || 26;
-    return clamp(v, 8, 240);
+    try{
+      root.dispatchEvent(new CustomEvent('hha:shoot', { detail }));
+    }catch(e){}
   }
 
   function ensureCss(){
@@ -106,8 +103,6 @@
         background:rgba(34,197,94,.85);
         box-shadow:0 0 0 4px rgba(34,197,94,.12);
       }
-
-      /* show crosshair on view-vr / view-cvr */
       body.view-vr .hha-crosshair,
       body.view-cvr .hha-crosshair{ opacity:.92; }
     `;
@@ -128,9 +123,9 @@
     const panel = DOC.createElement('div');
     panel.className = 'panel';
     panel.innerHTML = `
-      <button class="btn primary" data-act="enter" data-vrui="enter-vr">🕶 ENTER VR</button>
-      <button class="btn" data-act="exit" data-vrui="exit-vr">🚪 EXIT</button>
-      <button class="btn warn" data-act="recenter" data-vrui="recenter">🎯 RECENTER</button>
+      <button class="btn primary" data-act="enter">🕶 ENTER VR</button>
+      <button class="btn" data-act="exit">🚪 EXIT</button>
+      <button class="btn warn" data-act="recenter">🎯 RECENTER</button>
     `;
 
     wrap.appendChild(cross);
@@ -145,28 +140,17 @@
 
   function enterVR(){
     try{
-      // notify DOM-based games (GoodJunk/Hydration DOM/etc.)
-      emit('hha:enter_vr');
-
-      // if A-Frame scene exists, also enter WebXR
       const scene = getScene();
       if (scene && typeof scene.enterVR === 'function') scene.enterVR();
     }catch(e){}
   }
-
   function exitVR(){
     try{
-      emit('hha:exit_vr');
       const scene = getScene();
       if (scene && typeof scene.exitVR === 'function') scene.exitVR();
     }catch(e){}
   }
-
   function recenter(){
-    // notify games first
-    emit('hha:recenter');
-
-    // best-effort across A-Frame versions
     try{
       const scene = getScene();
       const cam = scene ? (scene.camera && scene.camera.el ? scene.camera.el : scene.querySelector('[camera]')) : null;
@@ -197,21 +181,36 @@
   }
 
   function bindTapToShoot(){
+    let lastFireAt = 0;
+
     DOC.addEventListener('pointerdown', (e)=>{
+      // don't fire when clicking UI buttons
       const uiBtn = e.target && e.target.closest('.hha-vrui .panel button');
       if (uiBtn) return;
 
+      const cfg = getCfg();
+      const now = Date.now();
+      if (now - lastFireAt < cfg.cooldownMs) return;
+      lastFireAt = now;
+
       const W = root.innerWidth || 360;
       const H = root.innerHeight || 640;
+      const x = W/2;
+      const y = H/2;
 
-      emitShoot({ x:W/2, y:H/2, lockPx:getLockPx(), source:'tap' });
+      emitShoot({ x, y, lockPx: cfg.lockPx, source:'tap' });
     }, { passive:true });
 
-    // A-Frame controller triggerdown -> shoot (if present)
+    // controllers (best-effort)
     DOC.addEventListener('triggerdown', ()=>{
+      const cfg = getCfg();
+      const now = Date.now();
+      if (now - lastFireAt < cfg.cooldownMs) return;
+      lastFireAt = now;
+
       const W = root.innerWidth || 360;
       const H = root.innerHeight || 640;
-      emitShoot({ x:W/2, y:H/2, lockPx:getLockPx(), source:'trigger' });
+      emitShoot({ x:W/2, y:H/2, lockPx: cfg.lockPx, source:'trigger' });
     }, { passive:true });
   }
 
@@ -223,18 +222,14 @@
     const panel = wrap.querySelector('.panel');
     if(!panel) return;
 
-    // If no a-scene, still show buttons (DOM games use events).
-    // So: keep panel visible always.
-    panel.style.display = 'flex';
+    // show buttons only on A-Frame pages (a-scene exists)
+    panel.style.display = scene ? 'flex' : 'none';
   }
 
-  // ---------------- init ----------------
   ensureCss();
   const wrap = ensureUi();
   bindButtons(wrap);
   bindTapToShoot();
   syncButtonsVisibility();
-
-  root.addEventListener('resize', ()=>{}, { passive:true });
 
 })(window);
