@@ -1,9 +1,12 @@
-<!-- === /herohealth/plate/plate-vr.html ===
-REDIRECT BRIDGE (PATH FIX)
-✅ รองรับลิงก์เก่า /herohealth/plate/plate-vr.html
-✅ Redirect ไป /herohealth/plate-vr.html
-✅ พาพารามิเตอร์ (?hub=...&run=...&diff=...&time=...&seed=...&v=...) และ #hash ไปด้วย
-✅ Replace history so Back doesn't loop
+<!-- === /herohealth/plate-vr.html ===
+Balanced Plate VR — PRODUCTION HTML (ROOT PATH FIXED)
+✅ plate-vr.html อยู่ /herohealth/ (root)
+✅ CSS/JS อยู่ /herohealth/plate/*
+✅ vr libs อยู่ /herohealth/vr/*
+✅ img coach อยู่ /herohealth/img/*
+✅ Provides ALL required DOM ids for plate.safe.js
+✅ Added: grade class binder (SSS/SS/S/A/B/C) via hha:score + result binding
+✅ A-Frame default EnterVR UI hidden by CSS (ใช้ปุ่มเรา)
 -->
 
 <!doctype html>
@@ -11,64 +14,295 @@ REDIRECT BRIDGE (PATH FIX)
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Redirecting… | HeroHealth Plate</title>
+  <title>HeroHealth — Balanced Plate VR</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" />
 
-  <!-- Fallback redirect (works even if JS blocked) -->
-  <meta http-equiv="refresh" content="0; url=../plate-vr.html" />
+  <!-- A-Frame (Cardboard/VR) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <style>
-    :root{color-scheme:dark;}
-    body{
-      margin:0; min-height:100vh;
-      display:grid; place-items:center;
-      background:#020617; color:#e5e7eb;
-      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      padding:18px;
-    }
-    .card{
-      max-width:720px;
-      width:100%;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.70);
-      border-radius:18px;
-      padding:16px;
-      box-shadow:0 22px 70px rgba(0,0,0,.40);
-    }
-    .t{font-weight:1100; font-size:16px;}
-    .m{margin-top:8px; color:rgba(148,163,184,.95); font-weight:900; line-height:1.4}
-    a{
-      color:#22c55e;
-      font-weight:1100;
-      word-break:break-all;
-    }
-  </style>
+  <!-- Styles (อยู่ใน /plate/) -->
+  <link rel="stylesheet" href="./plate/plate-vr.css?v=20260101" />
+
+  <!-- Global FX + Logger (อยู่ใน /vr/) -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- HUD binder (อยู่ใน /plate/) -->
+  <script src="./plate/plate-hud.js?v=20260101" defer></script>
+
+  <!-- Game (อยู่ใน /plate/) -->
+  <script src="./plate/plate.safe.js?v=20260101" defer></script>
+
+  <!-- Small UI glue (grade class + enterVR mirror) -->
+  <script>
+    (function(){
+      function setGradeClass(el, grade){
+        if(!el) return;
+        el.classList.remove('g-SSS','g-SS','g-S','g-A','g-B','g-C');
+        const g = String(grade||'').toUpperCase();
+        if(g === 'SSS') el.classList.add('g-SSS');
+        else if(g === 'SS') el.classList.add('g-SS');
+        else if(g === 'S') el.classList.add('g-S');
+        else if(g === 'A') el.classList.add('g-A');
+        else if(g === 'B') el.classList.add('g-B');
+        else el.classList.add('g-C');
+      }
+
+      function enterVR(){
+        try{
+          var scene = document.querySelector('a-scene');
+          if(scene && scene.enterVR) scene.enterVR();
+        }catch(e){}
+      }
+
+      // Bind enterVR buttons (2 จุด)
+      function bindEnterVR(){
+        var b1 = document.getElementById('btnEnterVR');
+        var b2 = document.getElementById('btnEnterVR2');
+        if(b1) b1.addEventListener('click', enterVR, { passive:true });
+        if(b2) b2.addEventListener('click', enterVR, { passive:true });
+      }
+
+      // Preview query params in start overlay
+      function bindPreview(){
+        try{
+          var u = new URL(location.href);
+          var diff = u.searchParams.get('diff') || 'normal';
+          var time = u.searchParams.get('time') || '90';
+          var run  = u.searchParams.get('run') || u.searchParams.get('runMode') || 'play';
+          var el;
+          el = document.getElementById('uiDiffPreview'); if(el) el.textContent = String(diff);
+          el = document.getElementById('uiTimePreview'); if(el) el.textContent = String(time);
+          el = document.getElementById('uiRunPreview');  if(el) el.textContent  = String(run);
+        }catch(e){}
+      }
+
+      // Listen hha:score for grade glow (HUD)
+      function bindGradeListener(){
+        window.addEventListener('hha:score', function(ev){
+          try{
+            var d = (ev && ev.detail) ? ev.detail : null;
+            if(!d || d.game !== 'plate') return;
+            var gEl = document.getElementById('uiGrade');
+            setGradeClass(gEl, d.grade);
+          }catch(e){}
+        }, { passive:true });
+
+        // Also keep result grade colored if it changes
+        window.addEventListener('hha:end', function(ev){
+          try{
+            var d = ev && ev.detail ? ev.detail : null;
+            if(!d || d.game !== 'plate') return;
+            var sum = d.summary || null;
+            if(!sum) return;
+            setGradeClass(document.getElementById('rGrade'), sum.grade);
+          }catch(e){}
+        }, { passive:true });
+      }
+
+      // DOM ready
+      document.addEventListener('DOMContentLoaded', function(){
+        bindEnterVR();
+        bindPreview();
+        bindGradeListener();
+      });
+    })();
+  </script>
 </head>
 
 <body>
-  <div class="card">
-    <div class="t">กำลังพาไปหน้า Plate ใหม่… 🍽️</div>
-    <div class="m">
-      ถ้าไม่เด้งอัตโนมัติ ให้กดลิงก์นี้:
-      <br>
-      <a id="fallbackLink" href="../plate-vr.html">../plate-vr.html</a>
+  <!-- Background VR scene (minimal) -->
+  <a-scene
+    id="scene"
+    embedded
+    renderer="antialias: true; colorManagement: true"
+    vr-mode-ui="enabled: true"
+    style="position:fixed; inset:0; z-index:1;"
+  >
+    <a-sky color="#020617"></a-sky>
+    <a-entity light="type: ambient; intensity: 0.85"></a-entity>
+    <a-entity light="type: directional; intensity: 0.55" position="1 2 1"></a-entity>
+
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera wasd-controls="enabled:false" look-controls="pointerLockEnabled:false"></a-camera>
+    </a-entity>
+  </a-scene>
+
+  <!-- DOM Play layer for targets (required) -->
+  <div id="plate-layer" aria-label="plate-layer"></div>
+
+  <!-- Hit FX overlay (required) -->
+  <div id="hitFx" aria-hidden="true"></div>
+
+  <!-- TOP HUD (required: hudTop) -->
+  <header id="hudTop">
+    <div class="hudRow">
+      <div class="hudStat">
+        <div class="k">SCORE</div>
+        <div class="v" id="uiScore">0</div>
+      </div>
+
+      <div class="hudStat">
+        <div class="k">COMBO</div>
+        <div class="v"><span id="uiCombo">0</span> <span class="muted">/</span> <span id="uiComboMax">0</span></div>
+      </div>
+
+      <div class="hudStat">
+        <div class="k">MISS</div>
+        <div class="v" id="uiMiss">0</div>
+      </div>
+
+      <div class="hudStat plateChip">
+        <div class="k">PLATE</div>
+        <div class="v"><span id="uiPlateHave">0</span><span class="muted">/5</span></div>
+      </div>
+
+      <div class="hudStat gradeChip">
+        <div class="k">GRADE</div>
+        <div class="v"><span id="uiGrade">C</span> <span class="muted" id="uiAcc">0%</span></div>
+      </div>
+
+      <div class="hudStat timeChip">
+        <div class="k">TIME</div>
+        <div class="v"><span id="uiTime">90</span><span class="muted">s</span></div>
+      </div>
+    </div>
+
+    <div class="hudRow2">
+      <div class="feverWrap">
+        <div class="feverLabel">FEVER</div>
+        <div class="feverBar">
+          <div class="feverFill" id="uiFeverFill"></div>
+        </div>
+        <div class="shieldPill" id="uiShield" title="Shield">
+          🛡️ <span id="uiShieldN">0</span>
+        </div>
+      </div>
+
+      <div class="plateCounts">
+        <span class="pill">🥦 <b id="uiG1">0</b></span>
+        <span class="pill">🍎 <b id="uiG2">0</b></span>
+        <span class="pill">🐟 <b id="uiG3">0</b></span>
+        <span class="pill">🍚 <b id="uiG4">0</b></span>
+        <span class="pill">🥑 <b id="uiG5">0</b></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- COACH PANEL (required: coachPanel) -->
+  <aside id="coachPanel">
+    <img
+      id="coachImg"
+      src="./img/coach-neutral.png"
+      alt="Coach"
+      draggable="false"
+    />
+    <div class="coachText">
+      <div class="coachName">Hero Coach</div>
+      <div class="coachMsg" id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+    </div>
+  </aside>
+
+  <!-- QUEST PANEL (required: miniPanel) -->
+  <section id="miniPanel">
+    <div class="questBlock">
+      <div class="questHdr">
+        <span class="badge badgeGoal">GOAL</span>
+        <span class="qTitle" id="uiGoalTitle">—</span>
+        <span class="qCount" id="uiGoalCount">0/0</span>
+      </div>
+      <div class="bar">
+        <div class="barFill" id="uiGoalFill"></div>
+      </div>
+    </div>
+
+    <div class="questBlock">
+      <div class="questHdr">
+        <span class="badge badgeMini">MINI</span>
+        <span class="qTitle" id="uiMiniTitle">—</span>
+        <span class="qCount"><span id="uiMiniCount">0/0</span> · <span id="uiMiniTime">--</span></span>
+      </div>
+      <div class="bar">
+        <div class="barFill mini" id="uiMiniFill"></div>
+      </div>
+      <div class="hint" id="uiHint">ทริค: เก็บให้ครบ 5 หมู่ไว ๆ แล้วคุมความแม่นยำ!</div>
+    </div>
+  </section>
+
+  <!-- BUTTONS (required: hudBtns) -->
+  <nav id="hudBtns">
+    <button class="btn ghost" id="btnPause" type="button">⏸ Pause</button>
+    <button class="btn ghost" id="btnRestart" type="button">🔁 Restart</button>
+    <button class="btn" id="btnEnterVR" type="button">🕶 Enter VR</button>
+  </nav>
+
+  <!-- PAUSED overlay (required: hudPaused) -->
+  <div id="hudPaused">
+    <div class="pausedCard">
+      <div class="pausedTitle">Paused</div>
+      <div class="pausedText">แตะปุ่ม Pause อีกครั้งเพื่อเล่นต่อ</div>
     </div>
   </div>
 
-  <script>
-    (function(){
-      try{
-        // Preserve query + hash
-        var target = '../plate-vr.html' + (location.search || '') + (location.hash || '');
-        var a = document.getElementById('fallbackLink');
-        if (a) a.href = target;
+  <!-- START overlay (required: startOverlay + btnStart) -->
+  <div id="startOverlay">
+    <div class="startCard">
+      <div class="startTitle">🥗 Balanced Plate VR</div>
+      <div class="startSub">
+        โหมดสนุก + ภารกิจโหด!<br/>
+        <span class="muted">Plate Rush: ครบ 5 หมู่ใน 8 วิ + ห้ามโดนขยะ</span>
+      </div>
 
-        // Replace history so Back button doesn't loop
-        location.replace(target);
-      }catch(e){
-        // Last resort
-        location.href = '../plate-vr.html';
-      }
-    })();
-  </script>
+      <div class="startMeta">
+        <div class="metaPill">diff: <b id="uiDiffPreview">normal</b></div>
+        <div class="metaPill">time: <b id="uiTimePreview">90</b>s</div>
+        <div class="metaPill">run: <b id="uiRunPreview">play</b></div>
+      </div>
+
+      <div class="startBtns">
+        <button class="btn big" id="btnStart" type="button">▶ Start</button>
+        <button class="btn ghost big" id="btnEnterVR2" type="button">🕶 Enter VR</button>
+      </div>
+
+      <div class="startFoot">
+        Tip: บน iOS อาจต้องกด Start ก่อนเพื่อขอสิทธิ์ motion
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULT overlay (required: resultBackdrop + rScore/rG1..rG5 etc.) -->
+  <div id="resultBackdrop" style="display:none;">
+    <div class="resultCard">
+      <div class="resultTitle">🏁 สรุปผล</div>
+
+      <div class="resultGrid">
+        <div class="resultItem"><div class="k">MODE</div><div class="v" id="rMode">play</div></div>
+        <div class="resultItem"><div class="k">GRADE</div><div class="v" id="rGrade">C</div></div>
+        <div class="resultItem"><div class="k">SCORE</div><div class="v" id="rScore">0</div></div>
+        <div class="resultItem"><div class="k">MAX COMBO</div><div class="v" id="rMaxCombo">0</div></div>
+        <div class="resultItem"><div class="k">MISS</div><div class="v" id="rMiss">0</div></div>
+        <div class="resultItem"><div class="k">FAST HIT</div><div class="v" id="rPerfect">0</div></div>
+        <div class="resultItem"><div class="k">GOALS</div><div class="v" id="rGoals">0/0</div></div>
+        <div class="resultItem"><div class="k">MINIS</div><div class="v" id="rMinis">0/0</div></div>
+      </div>
+
+      <div class="resultPlate">
+        <div class="plateRow">
+          <span class="pill">🥦 หมู่1 <b id="rG1">0</b></span>
+          <span class="pill">🍎 หมู่2 <b id="rG2">0</b></span>
+          <span class="pill">🐟 หมู่3 <b id="rG3">0</b></span>
+          <span class="pill">🍚 หมู่4 <b id="rG4">0</b></span>
+          <span class="pill">🥑 หมู่5 <b id="rG5">0</b></span>
+        </div>
+        <div class="totalRow">รวมทั้งหมด: <b id="rGTotal">0</b></div>
+      </div>
+
+      <div class="resultBtns">
+        <button class="btn ghost" id="btnBackHub" type="button">↩ กลับ HUB</button>
+        <button class="btn" id="btnPlayAgain" type="button">🔁 เล่นอีกครั้ง</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
