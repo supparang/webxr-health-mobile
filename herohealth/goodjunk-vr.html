@@ -1,11 +1,10 @@
 <!-- === /herohealth/goodjunk-vr.html ===
-GoodJunkVR (PRODUCTION) — HHA Standard + VR UX (COMPACT + TICK + END OVERLAY)
+GoodJunkVR (PRODUCTION) — HHA Standard
 ✅ DOM emoji targets (dual-eye for VR/cVR)
 ✅ HUD + Quest + Coach + Fever/Shield
 ✅ Boot gate: engine starts ONLY after pressing "เริ่มเล่น"
-✅ Quest Peek (missions visible even when HUD hidden)
-✅ VR Compact HUD + VR Toast (clear in VR, no dizziness)
-✅ End Overlay (readable, exits VR/cVR + fullscreen before show)
+✅ Quest Peek (missions visible even when HUD is hidden in VR)
+✅ VR Compact HUD + VR low-time tick (hha:vr_tick) — non-nausea
 -->
 
 <!doctype html>
@@ -17,7 +16,7 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR UX (COMPACT + TICK + END OVERLAY)
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- UI -->
+  <!-- Base UI -->
   <link rel="stylesheet" href="./vr-goodjunk/goodjunk-vr.css" />
 
   <!-- Global FX + Fever + HUD + Logger -->
@@ -28,6 +27,233 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR UX (COMPACT + TICK + END OVERLAY)
 
   <!-- Boot (ESM) -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
+
+  <!-- ===== PATCH CSS: VR compact HUD + low-time tick toast (non-nausea) ===== -->
+  <style>
+    /* each eye clips its own targets (important in VR/cVR) */
+    .gj-eye{ overflow:hidden; }
+
+    /* when HUD hidden: fully hide panels (quest peek still show) */
+    body.hud-hidden .hha-hud{
+      opacity:0;
+      pointer-events:none;
+    }
+    body.hud-hidden .hha-fever{ opacity:.88; }
+
+    /* -------- VR Compact HUD --------
+       Goal: not clutter, still keep Score/Time/Grade visible
+    */
+    body.view-vr .hha-hud,
+    body.view-cvr .hha-hud{
+      padding: 8px 10px;
+    }
+
+    /* hide heavy sections in VR for readability */
+    body.view-vr .hud-mid,
+    body.view-cvr .hud-mid{
+      display:none !important;
+    }
+
+    /* compact top row: keep title/meta + viewbar minimal */
+    body.view-vr .hud-top,
+    body.view-cvr .hud-top{
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    /* viewbar compress in VR */
+    body.view-vr .viewbar,
+    body.view-cvr .viewbar{
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    body.view-vr .viewbar .pill,
+    body.view-cvr .viewbar .pill{
+      height: 34px;
+      padding: 0 10px;
+      font-size: 12px;
+      border-radius: 999px;
+      font-weight: 900;
+    }
+
+    /* compact stats: show only Score/Time/Grade in VR */
+    body.view-vr .hud-stats,
+    body.view-cvr .hud-stats{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      margin-left: auto;
+      align-self: flex-start;
+    }
+    body.view-vr .hud-stats .hud-stat,
+    body.view-cvr .hud-stats .hud-stat{
+      padding: 8px 10px;
+      border-radius: 14px;
+    }
+    body.view-vr .hud-stats .hud-stat:nth-child(2), /* Combo */
+    body.view-vr .hud-stats .hud-stat:nth-child(3), /* Miss */
+    body.view-cvr .hud-stats .hud-stat:nth-child(2),
+    body.view-cvr .hud-stats .hud-stat:nth-child(3){
+      display:none !important;
+    }
+    body.view-vr .hud-stats .hud-stat .k,
+    body.view-cvr .hud-stats .hud-stat .k{
+      font-size: 10px;
+      opacity: .92;
+      font-weight: 900;
+      letter-spacing: .2px;
+    }
+    body.view-vr .hud-stats .hud-stat .v,
+    body.view-cvr .hud-stats .hud-stat .v{
+      font-size: 18px;
+      font-weight: 1100;
+      margin-top: 2px;
+    }
+
+    /* compact title area */
+    body.view-vr .hud-badge .hud-title,
+    body.view-cvr .hud-badge .hud-title{
+      font-size: 14px;
+      font-weight: 1000;
+      letter-spacing: .2px;
+    }
+    body.view-vr .hud-badge .hud-sub,
+    body.view-cvr .hud-badge .hud-sub{
+      font-size: 11px;
+      font-weight: 850;
+      opacity: .92;
+      margin-top: 2px;
+    }
+
+    /* -------- VR low-time toast (per-eye) -------- */
+    .vr-tick{
+      position:absolute;
+      left:50%;
+      top: 18%;
+      transform: translate(-50%,-50%);
+      z-index: 120;
+      pointer-events:none;
+
+      min-width: 92px;
+      height: 56px;
+      padding: 8px 12px;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap: 8px;
+
+      border-radius: 18px;
+      border: 1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.68);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 18px 56px rgba(0,0,0,.55);
+
+      opacity: 0;
+    }
+    .vr-tick .n{
+      font-size: 26px;
+      font-weight: 1100;
+      letter-spacing: .2px;
+      line-height: 1;
+    }
+    .vr-tick .s{
+      font-size: 11px;
+      font-weight: 950;
+      opacity: .92;
+      line-height: 1;
+      transform: translateY(1px);
+    }
+
+    /* soft pulse animation — no shake */
+    @keyframes vrTickPop{
+      0%   { opacity: 0; transform: translate(-50%,-50%) scale(.92); }
+      18%  { opacity: 1; transform: translate(-50%,-50%) scale(1.02); }
+      55%  { opacity: 1; transform: translate(-50%,-50%) scale(1.00); }
+      100% { opacity: 0; transform: translate(-50%,-50%) scale(.98); }
+    }
+    .vr-tick.show{
+      animation: vrTickPop 520ms ease-out 1;
+    }
+
+    /* low-time tone color (visual only) */
+    body.gj-lowtime .vr-tick{
+      border-color: rgba(245,158,11,.26);
+      box-shadow: 0 18px 60px rgba(0,0,0,.55), 0 0 0 1px rgba(245,158,11,.08) inset;
+    }
+
+    /* make toast a bit lower in cVR to avoid notch top */
+    body.view-cvr .vr-tick{ top: 20%; }
+
+    /* -------- End overlay (kept) -------- */
+    .end-overlay{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:140;
+      background: rgba(2,6,23,.62);
+      backdrop-filter: blur(10px);
+    }
+    .end-overlay[hidden]{ display:none !important; }
+    .end-card{
+      width:min(780px, 94vw);
+      background: rgba(2,6,23,.86);
+      border:1px solid rgba(148,163,184,.22);
+      border-radius: 24px;
+      padding:18px;
+      box-shadow: 0 22px 70px rgba(0,0,0,.55);
+    }
+    .end-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .end-title{ font-size:24px; font-weight:1000; letter-spacing:.2px; }
+    .end-sub{ margin-top:6px; color: rgba(148,163,184,.95); font-weight:800; font-size:12px; }
+    .end-grade{
+      min-width:88px;
+      text-align:center;
+      font-weight:1100;
+      font-size:28px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:1px solid rgba(34,197,94,.35);
+      background: rgba(34,197,94,.14);
+    }
+    .end-grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:10px;
+    }
+    .end-item{
+      background: rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:18px;
+      padding:10px 12px;
+    }
+    .end-item .k{ color: rgba(148,163,184,.95); font-weight:850; font-size:12px; }
+    .end-item .v{ margin-top:4px; font-weight:1100; font-size:20px; }
+    .end-actions{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+    .btn-primary, .btn-ghost{
+      height:54px;
+      border-radius:16px;
+      font-weight:1000;
+      font-size:16px;
+      border:1px solid rgba(148,163,184,.20);
+      padding:0 16px;
+      cursor:pointer;
+    }
+    .btn-primary{
+      background: rgba(34,197,94,.18);
+      border-color: rgba(34,197,94,.35);
+      color:#eafff3;
+    }
+    .btn-ghost{ background: rgba(2,6,23,.55); color: var(--text, #e5e7eb); }
+    .btn-primary:active, .btn-ghost:active{ transform: translateY(1px); }
+    .end-foot{ margin-top:10px; color: rgba(148,163,184,.95); font-weight:850; font-size:12px; }
+    @media (max-width:700px){
+      .end-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
 </head>
 
 <body>
@@ -111,48 +337,32 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR UX (COMPACT + TICK + END OVERLAY)
   <!-- ===== Playfield (dual-eye) ===== -->
   <div id="gj-stage" aria-label="playfield">
     <div class="gj-eye eye-l" id="eyeL">
-      <!-- VR Compact HUD (L) -->
-      <div class="vr-compact" id="vrCompactHud-l" aria-hidden="true">
-        <div class="vr-pill"><span class="t">Score</span><span class="v" id="vrScore-l">0</span></div>
-        <div class="vr-pill"><span class="t">Time</span><span class="v" id="vrTime-l">0</span></div>
-        <div class="vr-pill grade"><span class="t">Grade</span><span class="v" id="vrGrade-l">—</span></div>
-      </div>
-
-      <!-- VR Toast (L) -->
-      <div class="vr-toast" id="vrToast-l" hidden aria-hidden="true">
-        <div class="vr-toast-card">
-          <div class="vr-toast-text warn" id="vrToastText-l">—</div>
-        </div>
-      </div>
-
       <div class="gj-layer" id="gj-layer-l" aria-label="targets layer left"></div>
       <div class="gj-crosshair" id="gj-crosshair-l" aria-hidden="true"></div>
       <div class="atk-ring" id="atk-ring-l" aria-hidden="true"></div>
       <div class="atk-laser" id="atk-laser-l" aria-hidden="true"></div>
+
+      <!-- VR tick toast (left eye) -->
+      <div class="vr-tick" id="vrTickL" hidden>
+        <div class="n" id="vrTickNumL">10</div>
+        <div class="s">SEC</div>
+      </div>
     </div>
 
     <div class="gj-eye eye-r" id="eyeR" aria-hidden="true">
-      <!-- VR Compact HUD (R) -->
-      <div class="vr-compact" id="vrCompactHud-r" aria-hidden="true">
-        <div class="vr-pill"><span class="t">Score</span><span class="v" id="vrScore-r">0</span></div>
-        <div class="vr-pill"><span class="t">Time</span><span class="v" id="vrTime-r">0</span></div>
-        <div class="vr-pill grade"><span class="t">Grade</span><span class="v" id="vrGrade-r">—</span></div>
-      </div>
-
-      <!-- VR Toast (R) -->
-      <div class="vr-toast" id="vrToast-r" hidden aria-hidden="true">
-        <div class="vr-toast-card">
-          <div class="vr-toast-text warn" id="vrToastText-r">—</div>
-        </div>
-      </div>
-
       <div class="gj-layer" id="gj-layer-r" aria-label="targets layer right"></div>
       <div class="gj-crosshair" id="gj-crosshair-r" aria-hidden="true"></div>
       <div class="atk-ring" id="atk-ring-r" aria-hidden="true"></div>
       <div class="atk-laser" id="atk-laser-r" aria-hidden="true"></div>
+
+      <!-- VR tick toast (right eye) -->
+      <div class="vr-tick" id="vrTickR" hidden>
+        <div class="n" id="vrTickNumR">10</div>
+        <div class="s">SEC</div>
+      </div>
     </div>
 
-    <!-- legacy placeholder -->
+    <!-- end summary placeholder -->
     <div id="end-summary"></div>
   </div>
 
@@ -186,32 +396,96 @@ GoodJunkVR (PRODUCTION) — HHA Standard + VR UX (COMPACT + TICK + END OVERLAY)
     </div>
   </div>
 
-  <!-- ===== End Overlay (HHA Standard) ===== -->
-  <div id="endOverlay" class="end-overlay" hidden>
-    <div class="end-card">
-      <div class="end-head">
-        <div>
-          <div class="end-title">สรุปผล</div>
-          <div class="end-sub" id="endSub">—</div>
-        </div>
-        <div class="end-grade" id="endGrade">—</div>
-      </div>
+  <!-- ===== PATCH JS: listen hha:vr_tick + gentle beep (non-nausea) ===== -->
+  <script>
+    (function(){
+      const doc = document;
+      const tickL = doc.getElementById('vrTickL');
+      const tickR = doc.getElementById('vrTickR');
+      const numL  = doc.getElementById('vrTickNumL');
+      const numR  = doc.getElementById('vrTickNumR');
 
-      <div class="end-grid">
-        <div class="end-item"><div class="k">Score</div><div class="v" id="endScore">0</div></div>
-        <div class="end-item"><div class="k">Accuracy</div><div class="v" id="endAcc">0%</div></div>
-        <div class="end-item"><div class="k">ComboMax</div><div class="v" id="endCombo">0</div></div>
-        <div class="end-item"><div class="k">Miss</div><div class="v" id="endMiss">0</div></div>
-        <div class="end-item"><div class="k">Played</div><div class="v" id="endTimePlayed">0s</div></div>
-        <div class="end-item"><div class="k">Quest</div><div class="v" id="endQuest">0/0</div></div>
-      </div>
+      let audioCtx = null;
+      let audioUnlocked = false;
 
-      <div class="end-actions">
-        <button id="btnReplay" class="btn-primary" type="button">เล่นอีกครั้ง</button>
-        <button id="btnBackHub" class="btn-ghost" type="button">กลับ HUB</button>
-        <button id="btnCopyJson" class="btn-ghost" type="button">Copy JSON</button>
-      </div>
-    </div>
-  </div>
+      function unlockAudio(){
+        if (audioUnlocked) return;
+        audioUnlocked = true;
+        try{
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return;
+          audioCtx = new AC();
+          if (audioCtx.state === 'suspended') audioCtx.resume?.();
+        }catch(_){}
+      }
+
+      // unlock on first user gesture (Start is best)
+      const btnStart = doc.getElementById('btnStart');
+      if (btnStart) btnStart.addEventListener('click', unlockAudio, { passive:true });
+      doc.addEventListener('pointerdown', unlockAudio, { passive:true, once:true });
+
+      function beep(sec){
+        if (!audioCtx) return;
+        try{
+          const t0 = audioCtx.currentTime;
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+
+          const f = (sec === 1) ? 520 : 740; // last second slightly lower
+          o.frequency.setValueAtTime(f, t0);
+          o.type = 'sine';
+
+          g.gain.setValueAtTime(0.0001, t0);
+          g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.10);
+
+          o.connect(g);
+          g.connect(audioCtx.destination);
+          o.start(t0);
+          o.stop(t0 + 0.11);
+        }catch(_){}
+      }
+
+      function showToast(sec){
+        // show only in VR/cVR (dual-eye layout)
+        const b = doc.body;
+        const isVR = b.classList.contains('view-vr') || b.classList.contains('view-cvr');
+        if (!isVR) return;
+
+        if (numL) numL.textContent = String(sec);
+        if (numR) numR.textContent = String(sec);
+
+        [tickL, tickR].forEach(el=>{
+          if (!el) return;
+          el.hidden = false;
+          el.classList.remove('show');
+          // restart animation
+          void el.offsetWidth;
+          el.classList.add('show');
+        });
+
+        // gentle sound
+        beep(sec);
+
+        // auto hide
+        setTimeout(()=>{
+          [tickL, tickR].forEach(el=>{
+            if (!el) return;
+            el.hidden = true;
+            el.classList.remove('show');
+          });
+        }, 560);
+      }
+
+      // listen to SAFE engine tick event (10..1)
+      window.addEventListener('hha:vr_tick', (e)=>{
+        try{
+          const sec = Math.max(1, Math.min(10, Number(e.detail && e.detail.sec) || 0));
+          if (!sec) return;
+          showToast(sec);
+        }catch(_){}
+      }, { passive:true });
+    })();
+  </script>
 </body>
 </html>
