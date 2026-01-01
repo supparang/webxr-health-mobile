@@ -1,257 +1,272 @@
 // === /herohealth/plate/plate-hud.js ===
 // HeroHealth Plate — HUD Binder (PRODUCTION)
-// ✅ Bind UI for PlateVR (DOM HUD)
-// ✅ Listen: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
-// ✅ Safe: missing elements won't crash
-// ✅ Coach images from /herohealth/img: coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
+// ✅ Listen: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
+// ✅ Updates: top HUD, fever/shield, goal+mini bars, coach panel, result overlay
+// ✅ Grade class support: SSS/SS/S/A/B/C (adds CSS classes to #uiGrade + #badgeGrade if exists)
+// ✅ Safe: ignore if missing elements, prevent double-binding
 
 (function (root) {
   'use strict';
 
-  const doc = root.document;
-  if (!doc) return;
+  const DOC = root.document;
+  if (!DOC) return;
 
-  const $ = (id) => doc.getElementById(id);
+  // prevent double-bind
+  if (root.__HHA_PLATE_HUD_BOUND__) return;
+  root.__HHA_PLATE_HUD_BOUND__ = true;
 
-  function clamp(v, a, b){ v = Number(v)||0; return v<a?a : (v>b?b:v); }
+  const $ = (id) => DOC.getElementById(id);
 
-  // --------- Soft judge toast (optional) ----------
-  function ensureJudgeToast(){
-    let el = doc.querySelector('.plate-judge-toast');
-    if(el) return el;
-
-    el = doc.createElement('div');
-    el.className = 'plate-judge-toast';
-    el.style.cssText = `
-      position:fixed;
-      left:50%;
-      top:calc(14px + env(safe-area-inset-top,0px));
-      transform:translateX(-50%) translateY(-8px);
-      z-index:80;
-      pointer-events:none;
-      opacity:0;
-      transition: opacity .16s ease, transform .16s ease;
-      font: 1100 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
-      color:rgba(229,231,235,.95);
-      background:rgba(2,6,23,.78);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:999px;
-      padding:10px 12px;
-      box-shadow:0 18px 50px rgba(0,0,0,.35);
-      backdrop-filter: blur(10px);
-      white-space:nowrap;
-    `;
-    doc.body.appendChild(el);
-    return el;
+  function clamp(v, a, b) {
+    v = Number(v) || 0;
+    return v < a ? a : (v > b ? b : v);
   }
 
-  function showJudge(text, kind){
-    const el = ensureJudgeToast();
-    if(!el) return;
-
-    // color hint
-    const good = 'rgba(34,197,94,.28)';
-    const warn = 'rgba(250,204,21,.30)';
-    const bad  = 'rgba(239,68,68,.28)';
-    const bc = (kind === 'bad') ? bad : (kind === 'warn') ? warn : good;
-
-    el.style.borderColor = bc;
-    el.textContent = String(text || '');
-    el.style.opacity = '1';
-    el.style.transform = 'translateX(-50%) translateY(0px)';
-
-    clearTimeout(showJudge._t);
-    showJudge._t = setTimeout(()=>{
-      el.style.opacity = '0';
-      el.style.transform = 'translateX(-50%) translateY(-8px)';
-    }, 900);
-  }
-
-  // --------- Celebrate flash ----------
-  function flashCelebrate(kind){
-    // try use particles.js if present (global)
-    try{
-      if(root.Particles && typeof root.Particles.celebrate === 'function'){
-        root.Particles.celebrate(kind || 'end');
-      }
-    }catch(_){}
-
-    // small body flash
-    try{
-      doc.body.classList.remove('plate-celebrate');
-      void doc.body.offsetWidth;
-      doc.body.classList.add('plate-celebrate');
-      clearTimeout(flashCelebrate._t);
-      flashCelebrate._t = setTimeout(()=>doc.body.classList.remove('plate-celebrate'), 420);
-    }catch(_){}
-  }
-
-  // inject minimal css once
-  (function ensureCss(){
-    const id = 'plate-hud-binder-css';
-    if(doc.getElementById(id)) return;
-    const st = doc.createElement('style');
-    st.id = id;
-    st.textContent = `
-      .plate-celebrate{
-        animation: plateCelebrate .42s ease-out 0s 1;
-      }
-      @keyframes plateCelebrate{
-        0%{ filter:none; }
-        35%{ filter:brightness(1.25) saturate(1.15); }
-        100%{ filter:none; }
-      }
-    `;
-    doc.head.appendChild(st);
-  })();
-
-  // --------- UI setters ----------
-  function setText(id, v){
+  function setText(id, v) {
     const el = $(id);
-    if(el) el.textContent = String(v);
-  }
-  function setWidth(id, pct){
-    const el = $(id);
-    if(el) el.style.width = `${clamp(pct,0,100)}%`;
+    if (el) el.textContent = String(v ?? '');
   }
 
-  function setCoach(msg, mood){
-    const msgEl = $('coachMsg');
-    if(msgEl && msg != null) msgEl.textContent = String(msg);
+  function setWidth(id, pct) {
+    const el = $(id);
+    if (!el) return;
+    const p = clamp(pct, 0, 100);
+    el.style.width = `${p}%`;
+  }
+
+  function fmtPct(x) {
+    x = Number(x) || 0;
+    return `${Math.round(x)}%`;
+  }
+
+  function isPlateEvent(detail) {
+    // accept either detail.game === 'plate' or missing game (fallback)
+    if (!detail || typeof detail !== 'object') return false;
+    const g = String(detail.game || detail.gameMode || '').toLowerCase();
+    return (!g || g === 'plate');
+  }
+
+  // ---------- Grade styling ----------
+  const GRADE_CLASSES = ['g-SSS', 'g-SS', 'g-S', 'g-A', 'g-B', 'g-C'];
+
+  function applyGrade(grade) {
+    grade = String(grade || 'C').toUpperCase();
+    const ui = $('uiGrade');
+    if (ui) {
+      ui.classList.remove(...GRADE_CLASSES);
+      ui.classList.add(`g-${grade}`);
+      ui.setAttribute('data-grade', grade);
+      ui.textContent = grade;
+    }
+    // optional: if hub badge exists in this page (usually not)
+    const bg = $('badgeGrade');
+    if (bg) {
+      bg.classList.remove(...GRADE_CLASSES);
+      bg.classList.add(`g-${grade}`);
+      bg.setAttribute('data-grade', grade);
+      bg.textContent = `GRADE ${grade}`;
+    }
+  }
+
+  // ---------- Quest UI ----------
+  function updateGoalUI(goal) {
+    if (!goal) {
+      setText('uiGoalTitle', '—');
+      setText('uiGoalCount', '0/0');
+      setWidth('uiGoalFill', 0);
+      return;
+    }
+    const cur = Number(goal.cur) || 0;
+    const tar = Math.max(1, Number(goal.target) || 1);
+    setText('uiGoalTitle', goal.title || '—');
+    setText('uiGoalCount', `${cur}/${tar}`);
+    setWidth('uiGoalFill', (cur / tar) * 100);
+  }
+
+  function updateMiniUI(mini, miniClearedHint) {
+    if (!mini || !mini.title || mini.title === '—') {
+      setText('uiMiniTitle', '—');
+      if ($('uiMiniCount')) setText('uiMiniCount', (miniClearedHint != null) ? String(miniClearedHint) : '0/0');
+      setText('uiMiniTime', '--');
+      setWidth('uiMiniFill', 0);
+      return;
+    }
+
+    setText('uiMiniTitle', mini.title || '—');
+
+    // mini count: this page shows "miniCleared / something" in plate.safe.js
+    // so we only set if passed in
+    if (miniClearedHint != null && $('uiMiniCount')) {
+      setText('uiMiniCount', String(miniClearedHint));
+    }
+
+    // timeLeft may be null
+    if (mini.timeLeft == null) setText('uiMiniTime', '--');
+    else setText('uiMiniTime', `${Math.ceil(Number(mini.timeLeft) || 0)}s`);
+
+    // progress bar: if we know target + timeLeft
+    const target = Math.max(1, Number(mini.target) || 1);
+    const tl = (mini.timeLeft == null) ? null : Math.max(0, Number(mini.timeLeft) || 0);
+    if (tl == null) setWidth('uiMiniFill', 0);
+    else setWidth('uiMiniFill', ((target - tl) / target) * 100);
+
+    // hint
+    if ($('uiHint') && mini.hint) setText('uiHint', mini.hint);
+  }
+
+  // ---------- Coach UI ----------
+  const DEFAULT_COACH_MAP = {
+    happy: './img/coach-happy.png',
+    neutral: './img/coach-neutral.png',
+    sad: './img/coach-sad.png',
+    fever: './img/coach-fever.png',
+  };
+
+  function updateCoach(msg, mood, imgOverride) {
+    if ($('coachMsg') && msg != null) setText('coachMsg', msg);
 
     const img = $('coachImg');
-    if(img){
-      const m = String(mood || 'neutral').toLowerCase();
-      const map = {
-        happy:  './img/coach-happy.png',
-        neutral:'./img/coach-neutral.png',
-        sad:    './img/coach-sad.png',
-        fever:  './img/coach-fever.png',
-      };
-      img.src = map[m] || map.neutral;
-    }
-  }
+    if (!img) return;
 
-  // --------- Event handlers ----------
-  function onScore(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if(String(d.game||'') !== 'plate') return;
-
-    if(d.score != null) setText('uiScore', d.score);
-    if(d.combo != null) setText('uiCombo', d.combo);
-    if(d.comboMax != null) setText('uiComboMax', d.comboMax);
-    if(d.miss != null) setText('uiMiss', d.miss);
-
-    if(d.plateHave != null) setText('uiPlateHave', d.plateHave);
-
-    if(Array.isArray(d.gCount)){
-      setText('uiG1', d.gCount[0] ?? 0);
-      setText('uiG2', d.gCount[1] ?? 0);
-      setText('uiG3', d.gCount[2] ?? 0);
-      setText('uiG4', d.gCount[3] ?? 0);
-      setText('uiG5', d.gCount[4] ?? 0);
+    // allow override from event
+    if (imgOverride) {
+      img.src = String(imgOverride);
+      return;
     }
 
-    if(d.accuracyGoodPct != null) setText('uiAcc', `${Math.round(Number(d.accuracyGoodPct)||0)}%`);
-    if(d.grade != null) setText('uiGrade', d.grade);
-
-    if(d.timeLeftSec != null) setText('uiTime', Math.ceil(Number(d.timeLeftSec)||0));
-
-    if(d.fever != null) setWidth('uiFeverFill', d.fever);
-    if(d.shield != null) setText('uiShieldN', d.shield);
+    const m = String(mood || 'neutral').toLowerCase();
+    img.src = DEFAULT_COACH_MAP[m] || DEFAULT_COACH_MAP.neutral;
   }
 
-  function onTime(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if(String(d.game||'') !== 'plate') return;
-    if(d.timeLeftSec != null) setText('uiTime', Math.ceil(Number(d.timeLeftSec)||0));
-  }
+  // ---------- Result overlay ----------
+  function showResult(summary) {
+    const wrap = $('resultBackdrop');
+    if (!wrap) return;
 
-  function onQuest(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if(String(d.game||'') !== 'plate') return;
-
-    const goal = d.goal || null;
-    const mini = d.mini || null;
-
-    if(goal){
-      setText('uiGoalTitle', goal.title ?? '—');
-      setText('uiGoalCount', `${goal.cur ?? 0}/${goal.target ?? 0}`);
-      const pct = (goal.target ? (Number(goal.cur)||0) / (Number(goal.target)||1) * 100 : 0);
-      setWidth('uiGoalFill', pct);
+    // let game code control display; but if not shown yet, show it
+    if (wrap.style.display === 'none' || !wrap.style.display) {
+      wrap.style.display = 'grid';
     }
 
-    if(mini){
-      setText('uiMiniTitle', mini.title ?? '—');
+    setText('rMode', summary.runMode || summary.run || 'play');
+    setText('rGrade', summary.grade || 'C');
+    setText('rScore', summary.scoreFinal ?? 0);
+    setText('rMaxCombo', summary.comboMax ?? 0);
+    setText('rMiss', summary.misses ?? 0);
 
-      // miniCount may be managed by game; if provided, use it
-      if(mini.countText != null) setText('uiMiniCount', mini.countText);
-      // else keep whatever game sets elsewhere
+    // fast hit stored as percent in plate.safe.js summary
+    if (summary.fastHitRatePct != null) setText('rPerfect', `${Math.round(Number(summary.fastHitRatePct) || 0)}%`);
+    else setText('rPerfect', '0%');
 
-      const tl = (mini.timeLeft == null) ? null : Number(mini.timeLeft);
-      setText('uiMiniTime', tl == null ? '--' : `${Math.ceil(Math.max(0, tl))}s`);
+    setText('rGoals', `${summary.goalsCleared ?? 0}/${summary.goalsTotal ?? 0}`);
+    setText('rMinis', `${summary.miniCleared ?? 0}/${summary.miniTotal ?? 0}`);
 
-      const dur = Number(mini.target)||0;
-      if(dur > 0 && tl != null){
-        const pct = (dur - tl) / dur * 100;
-        setWidth('uiMiniFill', pct);
-      }
+    // plate counts
+    const p = summary.plate || {};
+    const c = Array.isArray(p.counts) ? p.counts : [0,0,0,0,0];
+    setText('rG1', c[0] ?? 0);
+    setText('rG2', c[1] ?? 0);
+    setText('rG3', c[2] ?? 0);
+    setText('rG4', c[3] ?? 0);
+    setText('rG5', c[4] ?? 0);
+    setText('rGTotal', p.total ?? (c.reduce((a,b)=>a+(Number(b)||0),0)));
+  }
+
+  // ---------- Main HUD update ----------
+  function onScore(detail) {
+    if (!isPlateEvent(detail)) return;
+
+    // Top stats
+    if (detail.score != null) setText('uiScore', detail.score);
+    if (detail.combo != null) setText('uiCombo', detail.combo);
+    if (detail.comboMax != null) setText('uiComboMax', detail.comboMax);
+    if (detail.miss != null) setText('uiMiss', detail.miss);
+
+    // plate
+    if (detail.plateHave != null) setText('uiPlateHave', detail.plateHave);
+
+    // groups counts
+    if (Array.isArray(detail.gCount)) {
+      setText('uiG1', detail.gCount[0] ?? 0);
+      setText('uiG2', detail.gCount[1] ?? 0);
+      setText('uiG3', detail.gCount[2] ?? 0);
+      setText('uiG4', detail.gCount[3] ?? 0);
+      setText('uiG5', detail.gCount[4] ?? 0);
     }
+
+    // fever/shield
+    if (detail.fever != null) setWidth('uiFeverFill', detail.fever);
+    if (detail.shield != null) setText('uiShieldN', detail.shield);
+
+    // accuracy/grade
+    if (detail.accuracyGoodPct != null) setText('uiAcc', fmtPct(detail.accuracyGoodPct));
+    if (detail.grade != null) applyGrade(detail.grade);
+
+    // time
+    if (detail.timeLeftSec != null) setText('uiTime', Math.ceil(Number(detail.timeLeftSec) || 0));
   }
 
-  function onCoach(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if(String(d.game||'') !== 'plate') return;
-    setCoach(d.msg, d.mood);
+  function onTime(detail) {
+    if (!isPlateEvent(detail)) return;
+    if (detail.timeLeftSec != null) setText('uiTime', Math.ceil(Number(detail.timeLeftSec) || 0));
   }
 
-  function onJudge(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if(String(d.game||'') !== 'plate') return;
-    if(d.text != null) showJudge(d.text, d.kind || 'info');
+  function onQuest(detail) {
+    if (!isPlateEvent(detail)) return;
+
+    // goal
+    updateGoalUI(detail.goal || null);
+
+    // mini
+    // plate.safe.js sets its own mini count string, but we support if provided
+    // If engine sends { miniCleared, miniTotal }, you can pass it here later
+    updateMiniUI(detail.mini || null, null);
+
+    // hint support (optional)
+    if (detail.hint && $('uiHint')) setText('uiHint', detail.hint);
   }
 
-  function onEnd(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if(String(d.game||'') !== 'plate') return;
-
-    // We don't control result card (plate.safe.js writes ids r*)
-    // but we can do a final flash / toast.
-    try{
-      const s = d.summary || null;
-      if(s && s.grade){
-        showJudge(`🏁 END • GRADE ${String(s.grade).toUpperCase()}`, (String(s.grade).toUpperCase()==='C'?'bad':'good'));
-      }else{
-        showJudge('🏁 END', 'good');
-      }
-    }catch(_){}
-    flashCelebrate('end');
+  function onCoach(detail) {
+    if (!isPlateEvent(detail)) return;
+    updateCoach(detail.msg, detail.mood, detail.img);
   }
 
-  function onCelebrate(ev){
-    const d = (ev && ev.detail) ? ev.detail : {};
-    if(String(d.game||'') !== 'plate') return;
-    flashCelebrate(d.kind || 'end');
+  function onJudge(detail) {
+    // Plate doesn't have dedicated judge label in HTML (it uses Particles layer / hitFx)
+    // If later you add #uiJudge, we support it automatically.
+    if (!isPlateEvent(detail)) return;
+    if ($('uiJudge')) setText('uiJudge', detail.text || '');
   }
 
-  // --------- Bind ----------
-  root.addEventListener('hha:score', onScore);
-  root.addEventListener('hha:time', onTime);
-  root.addEventListener('quest:update', onQuest);
-  root.addEventListener('hha:coach', onCoach);
-  root.addEventListener('hha:judge', onJudge);
-  root.addEventListener('hha:end', onEnd);
-  root.addEventListener('hha:celebrate', onCelebrate);
+  function onEnd(detail) {
+    if (!detail || typeof detail !== 'object') return;
+    const summary = detail.summary || detail;
+    const g = String(summary.game || summary.gameMode || detail.game || '').toLowerCase();
+    if (g && g !== 'plate') return;
 
-  // boot: sync preview values if present
-  try{
-    const u = new URL(location.href);
-    const diff = u.searchParams.get('diff') || 'normal';
-    const time = u.searchParams.get('time') || '90';
-    const run  = u.searchParams.get('run') || u.searchParams.get('runMode') || 'play';
-    if($('uiDiffPreview')) $('uiDiffPreview').textContent = diff;
-    if($('uiTimePreview')) $('uiTimePreview').textContent = time;
-    if($('uiRunPreview'))  $('uiRunPreview').textContent  = run;
-  }catch(_){}
+    // ensure grade applied
+    if (summary.grade) applyGrade(summary.grade);
 
-})(window);
+    // show result (safe)
+    showResult(summary);
+  }
+
+  // ---------- Bind events ----------
+  function bind() {
+    root.addEventListener('hha:score', (e) => onScore(e.detail || {}), { passive: true });
+    root.addEventListener('hha:time', (e) => onTime(e.detail || {}), { passive: true });
+    root.addEventListener('quest:update', (e) => onQuest(e.detail || {}), { passive: true });
+    root.addEventListener('hha:coach', (e) => onCoach(e.detail || {}), { passive: true });
+    root.addEventListener('hha:judge', (e) => onJudge(e.detail || {}), { passive: true });
+    root.addEventListener('hha:end', (e) => onEnd(e.detail || {}), { passive: true });
+
+    // initial render defaults
+    // (plate.safe.js also sets these, but this prevents blank on slow devices)
+    if ($('uiAcc') && $('uiAcc').textContent.trim() === '') setText('uiAcc', '0%');
+    if ($('uiGrade') && $('uiGrade').textContent.trim() === '') applyGrade('C');
+  }
+
+  // DOM already parsed? (script is defer, so usually yes)
+  try { bind(); } catch (e) {}
+
+})(typeof window !== 'undefined' ? window : globalThis);
