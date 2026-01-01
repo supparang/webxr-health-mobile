@@ -1,33 +1,25 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (START-GATED + VR COMPACT HUD + VR TOAST + END OVERLAY)
+// GoodJunkVR Boot — PRODUCTION (VR COMPACT + TICK WARNING + START GATE)
 // ✅ View modes: PC / Mobile / VR / cVR
 // ✅ Fullscreen handling + body.is-fs
-// ✅ Enter VR => fullscreen + cVR + hint + auto HUD off
-// ✅ Toggle HUD (body.hud-hidden)
-// ✅ Missions button: show/hide Quest Peek instantly
-// ✅ VR Compact HUD (L/R) sync: listens hha:score/hha:time/hha:rank
-// ✅ VR Toast (L/R): listens hha:judge + lowtime tick event hha:vr_tick
-// ✅ End overlay (Replay / Back HUB / Copy JSON) on hha:end
+// ✅ Enter VR => fullscreen + cVR + hint + auto-hide HUD (VR comfort)
+// ✅ Missions button shows Quest Peek anytime
+// ✅ VR Compact HUD updates (Score/Time/Grade) from events
+// ✅ VR Tick warning (from safe.js: hha:vr_tick) -> toast + subtle vibrate + compact pulse
 // ✅ Starts engine ONLY after pressing "เริ่มเล่น"
+// ✅ End overlay on hha:end (if page has endOverlay elements)
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const ROOT = window;
-const DOC = document;
+const DOC  = document;
 
-function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b,v)); }
+const LS_LAST = 'HHA_LAST_SUMMARY';
+const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
 function qs(k, def=null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
-}
-
-function setBodyView(view){
-  const b = DOC.body;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add(`view-${view}`);
-  try{ localStorage.setItem('GJ_VIEW', view); }catch(_){}
-  syncReserves();
 }
 
 function isFs(){
@@ -40,9 +32,14 @@ async function enterFs(){
     else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
   }catch(_){}
 }
+async function exitFs(){
+  try{
+    if (DOC.exitFullscreen) await DOC.exitFullscreen();
+    else if (DOC.webkitExitFullscreen) await DOC.webkitExitFullscreen();
+  }catch(_){}
+}
 function syncFsClass(){
   DOC.body.classList.toggle('is-fs', isFs());
-  syncReserves();
 }
 
 function pickInitialView(){
@@ -55,149 +52,181 @@ function pickInitialView(){
     if (saved === 'pc' || saved === 'mobile' || saved === 'vr' || saved === 'cvr') return saved;
   }catch(_){}
 
-  const coarse = (ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches);
+  const coarse = ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches;
   const w = ROOT.innerWidth || 360;
   const h = ROOT.innerHeight || 640;
   const mobileLike = coarse || Math.min(w,h) < 520;
   return mobileLike ? 'mobile' : 'pc';
 }
 
-/* ===== Dynamic reserves: keep spawner away from HUD/fever/controls ===== */
-function px(n){ return (Number(n)||0) + 'px'; }
-function syncReserves(){
-  try{
-    const hud = DOC.querySelector('.hha-hud');
-    const fever = DOC.getElementById('hhaFever');
-    const ctrl = DOC.querySelector('.hha-controls');
-
-    const hudHidden = DOC.body.classList.contains('hud-hidden');
-
-    if (hud){
-      const r = hud.getBoundingClientRect();
-      const usable = hudHidden ? 24 : Math.max(80, Math.round(r.height));
-      DOC.documentElement.style.setProperty('--hudH', px(usable));
-    }
-    if (fever){
-      const r = fever.getBoundingClientRect();
-      DOC.documentElement.style.setProperty('--feverH', px(Math.max(70, Math.round(r.height))));
-    }
-    if (ctrl){
-      const r = ctrl.getBoundingClientRect();
-      DOC.documentElement.style.setProperty('--ctrlH', px(Math.max(76, Math.round(r.height))));
-    }
-  }catch(_){}
+function setBodyView(view){
+  const b = DOC.body;
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+  b.classList.add(`view-${view}`);
+  try{ localStorage.setItem('GJ_VIEW', view); }catch(_){}
 }
 
-/* ===== Quest Peek ===== */
-function showPeek(ms=1200){
+function ensurePeekShow(ms=1300){
   const peek = DOC.getElementById('gjPeek');
   if (!peek) return;
   peek.classList.add('show');
-  if (ms > 0) setTimeout(()=>peek.classList.remove('show'), ms);
-}
-function togglePeek(){
-  const peek = DOC.getElementById('gjPeek');
-  if (!peek) return;
-  const on = !peek.classList.contains('show');
-  peek.classList.toggle('show', on);
-  if (on) setTimeout(()=>peek.classList.remove('show'), 1600);
+  setTimeout(()=>{ try{ peek.classList.remove('show'); }catch(_){ } }, ms);
 }
 
-/* ===== HUD toggle ===== */
 function toggleHud(force){
   const b = DOC.body;
   const next = (typeof force === 'boolean') ? force : !b.classList.contains('hud-hidden');
   b.classList.toggle('hud-hidden', next);
 
-  const btn = DOC.getElementById('btnToggleHud');
+  const btn = DOC.getElementById('btnToggleHud'); // ✅ match HTML ล่าสุด
   if (btn) btn.textContent = next ? 'HUD (Off)' : 'HUD';
 
-  if (next) showPeek(1300);
-  syncReserves();
+  // when HUD turns off -> show missions peek
+  if (next) ensurePeekShow(1300);
 }
 
-/* ===== VR Compact HUD sync (dual-eye) ===== */
-function setText(id, t){
+/* -------------------------
+   VR Compact HUD updater
+-------------------------- */
+function setText(id, txt){
   const el = DOC.getElementById(id);
-  if (el) el.textContent = String(t ?? '');
+  if (el) el.textContent = String(txt);
 }
-function tickCompact(){
-  const L = DOC.getElementById('vrCompactHud-l');
-  const R = DOC.getElementById('vrCompactHud-r');
-  if (L) L.classList.add('tick');
-  if (R) R.classList.add('tick');
-  setTimeout(()=>{
-    try{ L && L.classList.remove('tick'); }catch(_){}
-    try{ R && R.classList.remove('tick'); }catch(_){}
-  }, 170);
+function setCompactScore(v){
+  setText('vrScore-l', v);
+  setText('vrScore-r', v);
 }
-
-/* ===== VR Toast (dual-eye) ===== */
-let toastTimer = 0;
-function showToast(text, kind='warn', ms=720){
-  const wl = DOC.getElementById('vrToast-l');
-  const wr = DOC.getElementById('vrToast-r');
-  const tl = DOC.getElementById('vrToastText-l');
-  const tr = DOC.getElementById('vrToastText-r');
-  if (!wl || !wr || !tl || !tr) return;
-
-  wl.hidden = false; wr.hidden = false;
-
-  tl.classList.remove('warn','bad');
-  tr.classList.remove('warn','bad');
-  tl.classList.add(kind === 'bad' ? 'bad' : 'warn');
-  tr.classList.add(kind === 'bad' ? 'bad' : 'warn');
-
-  tl.textContent = String(text || '—');
-  tr.textContent = String(text || '—');
-
-  try{ clearTimeout(toastTimer); }catch(_){}
-  toastTimer = setTimeout(()=>{ wl.hidden = true; wr.hidden = true; }, clamp(ms, 380, 1400));
+function setCompactTime(v){
+  setText('vrTime-l', v);
+  setText('vrTime-r', v);
+}
+function setCompactGrade(v){
+  setText('vrGrade-l', v);
+  setText('vrGrade-r', v);
 }
 
-/* ===== End overlay binder ===== */
-function bindEndOverlay(){
-  const overlay = DOC.getElementById('endOverlay');
-  if (!overlay) return;
+function pulseCompact(){
+  const l = DOC.getElementById('vrCompactHud-l');
+  const r = DOC.getElementById('vrCompactHud-r');
+  if (l) { l.classList.add('tick'); setTimeout(()=>l.classList.remove('tick'), 170); }
+  if (r) { r.classList.add('tick'); setTimeout(()=>r.classList.remove('tick'), 170); }
+}
 
-  const btnReplay = DOC.getElementById('btnReplay');
-  const btnHub   = DOC.getElementById('btnBackHub');
-  const btnCopy  = DOC.getElementById('btnCopyJson');
+/* -------------------------
+   VR Toast (per eye)
+-------------------------- */
+let toastT = 0;
+function showVrToast(text, kind='warn', ms=650){
+  const tl = DOC.getElementById('vrToast-l');
+  const tr = DOC.getElementById('vrToast-r');
+  const txl = DOC.getElementById('vrToastText-l');
+  const txr = DOC.getElementById('vrToastText-r');
 
-  let lastSummary = null;
+  if (txl){ txl.classList.remove('warn','bad'); txl.classList.add(kind); txl.textContent = String(text); }
+  if (txr){ txr.classList.remove('warn','bad'); txr.classList.add(kind); txr.textContent = String(text); }
 
-  function show(summary){
-    lastSummary = summary || null;
+  if (tl) tl.hidden = false;
+  if (tr) tr.hidden = false;
 
-    const acc = Number(summary?.accuracyGoodPct ?? 0) || 0;
-    const grade = String(summary?.grade ?? '—');
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>{
+    if (tl) tl.hidden = true;
+    if (tr) tr.hidden = true;
+  }, ms);
+}
 
-    setText('endGrade', grade);
-    setText('endScore', summary?.scoreFinal ?? 0);
-    setText('endAcc', `${acc}%`);
-    setText('endCombo', summary?.comboMax ?? 0);
-    setText('endMiss', summary?.misses ?? 0);
-    setText('endTimePlayed', `${summary?.durationPlayedSec ?? 0}s`);
-    setText('endQuest', `${summary?.goalsCleared ?? 0}/${summary?.goalsTotal ?? 0} • ${summary?.miniCleared ?? 0}/${summary?.miniTotal ?? 0}`);
+function subtleVibrate(sec){
+  // กันเวียนหัว: สั่นนิดเดียว และเฉพาะตอน 5,3,1
+  try{
+    const ok = (navigator.vibrate && (DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr')));
+    if (!ok) return;
+    if (sec === 5) navigator.vibrate(15);
+    if (sec === 3) navigator.vibrate([10, 40, 10]);
+    if (sec === 1) navigator.vibrate([20, 60, 20]);
+  }catch(_){}
+}
 
-    const sub = [
-      `reason=${summary?.reason ?? 'end'}`,
-      `diff=${summary?.diff ?? '-'}`,
-      `run=${summary?.runMode ?? '-'}`,
-      `end=${summary?.endPolicy ?? '-'}`,
-      `challenge=${summary?.challenge ?? '-'}`
-    ].join(' • ');
-    setText('endSub', sub);
+/* -------------------------
+   Optional beep (disabled by default)
+   enable: ?beep=1
+-------------------------- */
+let audioCtx = null;
+function beep(sec){
+  if (String(qs('beep','0')) !== '1') return;
+  try{
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    const f = (sec <= 3) ? 880 : 660;
+    o.frequency.setValueAtTime(f, t0);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.06, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t0);
+    o.stop(t0 + 0.14);
+  }catch(_){}
+}
 
-    overlay.hidden = false;
+/* -------------------------
+   End Overlay (optional)
+-------------------------- */
+function readJson(key, fallback){
+  try{ const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }catch(_){ return fallback; }
+}
+function saveJson(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
+}
+function copyText(txt){
+  try{
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(txt);
+  }catch(_){}
+  try{
+    const ta = DOC.createElement('textarea');
+    ta.value = txt; ta.style.position='fixed'; ta.style.left='-9999px';
+    DOC.body.appendChild(ta); ta.select(); DOC.execCommand('copy'); ta.remove();
+  }catch(_){}
+  return Promise.resolve();
+}
 
-    // leave VR/cVR: keep overlay readable (optional)
-    showPeek(0);
-    toggleHud(false);
-    syncReserves();
+function showEndOverlay(summary){
+  const ol = DOC.getElementById('endOverlay');
+  if (!ol) return;
+
+  const s = summary || {};
+  setText('endGrade', s.grade ?? '—');
+  setText('endScore', s.scoreFinal ?? 0);
+  setText('endAcc', `${s.accuracyGoodPct ?? 0}%`);
+  setText('endCombo', s.comboMax ?? 0);
+  setText('endMiss', s.misses ?? 0);
+  setText('endTimePlayed', `${s.durationPlayedSec ?? 0}s`);
+  setText('endQuest', `${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0} • ${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`);
+
+  const sub = DOC.getElementById('endSub');
+  if (sub){
+    sub.textContent = `เหตุผล: ${s.reason || 'end'} • diff=${s.diff || qs('diff','')} • run=${s.runMode || qs('run','play')}`;
   }
 
-  function hide(){ overlay.hidden = true; }
+  // save history
+  try{
+    const hist = readJson(LS_HIST, []);
+    hist.unshift({ ...s, timestampIso: new Date().toISOString() });
+    hist.splice(50);
+    saveJson(LS_HIST, hist);
+    saveJson(LS_LAST, s);
+  }catch(_){}
+
+  ol.hidden = false;
+}
+
+function hookEndOverlayButtons(){
+  const btnReplay = DOC.getElementById('btnReplay');
+  const btnHub    = DOC.getElementById('btnBackHub');
+  const btnCopy   = DOC.getElementById('btnCopyJson');
+
+  const hub = qs('hub', './hub.html');
 
   btnReplay && btnReplay.addEventListener('click', ()=>{
     const u = new URL(location.href);
@@ -205,88 +234,88 @@ function bindEndOverlay(){
     location.href = u.toString();
   });
 
-  btnCopy && btnCopy.addEventListener('click', async ()=>{
-    try{
-      const txt = JSON.stringify(lastSummary || {}, null, 2);
-      await navigator.clipboard.writeText(txt);
-      showToast('✅ Copy JSON แล้ว', 'warn', 680);
-    }catch(_){
-      showToast('❌ Copy ไม่สำเร็จ', 'bad', 760);
-    }
-  });
-
   btnHub && btnHub.addEventListener('click', async ()=>{
-    const hub = qs('hub', './index.html');
     try{
-      // flush-hardened: ask engine to end + flush first
       if (ROOT.GoodJunkVR && typeof ROOT.GoodJunkVR.endGame === 'function'){
-        await ROOT.GoodJunkVR.endGame('back_hub');
+        ROOT.GoodJunkVR.endGame('back_hub');
       }
     }catch(_){}
-    setTimeout(()=>{ location.href = hub; }, 120);
+    location.href = hub;
   });
 
-  ROOT.addEventListener('hha:end', (ev)=>{
-    const summary = ev?.detail || null;
-    show(summary);
+  btnCopy && btnCopy.addEventListener('click', async ()=>{
+    const s = readJson(LS_LAST, null);
+    await copyText(JSON.stringify(s || {}, null, 2));
+    btnCopy.textContent = 'Copied ✅';
+    setTimeout(()=> btnCopy.textContent = 'Copy JSON', 900);
   });
-
-  // hide overlay when re-enter start overlay (rare)
-  ROOT.addEventListener('hha:force_end', ()=>{ try{ hide(); }catch(_){ } });
 }
 
-/* ===== View buttons + FS + VR ===== */
-function hookViewButtons(){
-  const btnPC = DOC.getElementById('btnViewPC');
-  const btnM  = DOC.getElementById('btnViewMobile');
-  const btnV  = DOC.getElementById('btnViewVR');
-  const btnC  = DOC.getElementById('btnViewCVR');
-  const btnFS = DOC.getElementById('btnEnterFS');
-  const btnVR = DOC.getElementById('btnEnterVR');
-  const btnHUD= DOC.getElementById('btnToggleHud');
-  const btnPeek = DOC.getElementById('btnPeek');
+/* -------------------------
+   Hook buttons / view
+-------------------------- */
+function hookControls(){
+  const btnPC   = DOC.getElementById('btnViewPC');
+  const btnM    = DOC.getElementById('btnViewMobile');
+  const btnV    = DOC.getElementById('btnViewVR');
+  const btnC    = DOC.getElementById('btnViewCVR');
 
-  const vrHint = DOC.getElementById('vrHint');
-  const vrOk   = DOC.getElementById('btnVrOk');
+  const btnFS   = DOC.getElementById('btnEnterFS');
+  const btnVR   = DOC.getElementById('btnEnterVR');
+
+  const btnHud  = DOC.getElementById('btnToggleHud'); // ✅ match HTML ล่าสุด
+  const btnPeek = DOC.getElementById('btnPeek');      // ✅ match HTML ล่าสุด
+
+  const vrHint  = DOC.getElementById('vrHint');
+  const vrOk    = DOC.getElementById('btnVrOk');
 
   function showVrHint(){ if (vrHint) vrHint.hidden = false; }
   function hideVrHint(){ if (vrHint) vrHint.hidden = true; }
 
   btnPC && btnPC.addEventListener('click', ()=>{ setBodyView('pc'); hideVrHint(); toggleHud(false); });
   btnM  && btnM.addEventListener('click',  ()=>{ setBodyView('mobile'); hideVrHint(); toggleHud(false); });
-  btnV  && btnV.addEventListener('click',  ()=>{ setBodyView('vr'); showVrHint(); showPeek(1200); });
-  btnC  && btnC.addEventListener('click',  ()=>{ setBodyView('cvr'); showVrHint(); showPeek(1200); });
+  btnV  && btnV.addEventListener('click',  ()=>{ setBodyView('vr'); showVrHint(); });
+  btnC  && btnC.addEventListener('click',  ()=>{ setBodyView('cvr'); showVrHint(); });
 
   vrOk && vrOk.addEventListener('click', ()=> hideVrHint());
 
-  btnHUD && btnHUD.addEventListener('click', ()=> toggleHud());
-  btnPeek && btnPeek.addEventListener('click', ()=> togglePeek());
+  btnHud && btnHud.addEventListener('click', ()=> toggleHud());
+
+  btnPeek && btnPeek.addEventListener('click', ()=>{
+    ensurePeekShow(1400);
+  });
 
   btnFS && btnFS.addEventListener('click', async ()=>{
     await enterFs();
     syncFsClass();
   });
 
-  // Enter VR: fullscreen + cVR + hint + auto-hide HUD
+  // Enter VR: fullscreen + switch to cVR + hint + auto hide HUD (comfort)
   btnVR && btnVR.addEventListener('click', async ()=>{
     await enterFs();
     syncFsClass();
     setBodyView('cvr');
     showVrHint();
-    showPeek(1300);
-    setTimeout(()=> toggleHud(true), 1050);
+    setTimeout(()=> toggleHud(true), 850);
+    setTimeout(()=> ensurePeekShow(1200), 900);
   });
 }
 
-/* ===== Start overlay ===== */
+/* -------------------------
+   Start gate / Engine boot
+-------------------------- */
 function showStartOverlay(){
   const ol = DOC.getElementById('startOverlay');
   if (ol) ol.hidden = false;
+
   const meta = DOC.getElementById('startMeta');
   if (meta){
     const diff = qs('diff','normal');
     const time = qs('time', qs('duration','70'));
-    meta.textContent = `diff=${diff} • time=${time}s • run=${qs('run','play')} • end=${qs('end','time')} • challenge=${qs('challenge','rush')}`;
+    const run  = qs('run','play');
+    const end  = qs('end','time');
+    const ch   = qs('challenge','rush');
+    meta.textContent = `diff=${diff} • time=${time}s • run=${run} • end=${end} • ch=${ch}`;
   }
 }
 function hideStartOverlay(){
@@ -294,7 +323,6 @@ function hideStartOverlay(){
   if (ol) ol.hidden = true;
 }
 
-/* ===== Boot engine ===== */
 function bootEngine(){
   const layerL = DOC.getElementById('gj-layer-l') || DOC.getElementById('gj-layer');
   const layerR = DOC.getElementById('gj-layer-r');
@@ -309,8 +337,8 @@ function bootEngine(){
   const run  = qs('run','play');
   const time = Number(qs('time', qs('duration','70'))) || 70;
 
-  const endPolicy = qs('end','time');            // time | all | miss
-  const challenge = qs('challenge','rush');      // rush | survive | boss
+  const endPolicy = qs('end','time');       // time | all | miss
+  const challenge = qs('challenge','rush'); // rush | survive | boss
 
   engineBoot({
     layerEl: layerL,
@@ -328,67 +356,74 @@ function bootEngine(){
   });
 }
 
-/* ===== Listen game events -> VR UI ===== */
+/* -------------------------
+   Event hooks (score/time/rank + vr_tick + end)
+-------------------------- */
 function hookGameEvents(){
+  // compact HUD update
   ROOT.addEventListener('hha:score', (ev)=>{
-    const s = ev?.detail || {};
-    setText('vrScore-l', s.score ?? 0);
-    setText('vrScore-r', s.score ?? 0);
+    const d = ev?.detail || {};
+    setCompactScore(d.score ?? 0);
   });
 
   ROOT.addEventListener('hha:time', (ev)=>{
-    const t = ev?.detail || {};
-    const left = Number(t.left ?? 0) || 0;
-    setText('vrTime-l', left);
-    setText('vrTime-r', left);
-
-    if (left <= 10){
-      const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
-      if (isVR) tickCompact();
-    }
+    const d = ev?.detail || {};
+    const left = Math.max(0, Math.ceil(Number(d.left ?? 0)));
+    setCompactTime(left);
   });
 
   ROOT.addEventListener('hha:rank', (ev)=>{
-    const r = ev?.detail || {};
-    setText('vrGrade-l', r.grade ?? '—');
-    setText('vrGrade-r', r.grade ?? '—');
-  });
-
-  ROOT.addEventListener('hha:judge', (ev)=>{
-    const j = ev?.detail || {};
-    const kind = String(j.kind || 'info');
-    const text = String(j.text || '');
-
-    const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
-    if (!isVR) return;
-
-    if (kind === 'warn') showToast(text, 'warn', 740);
-    if (kind === 'bad')  showToast(text, 'bad', 780);
-  });
-
-  ROOT.addEventListener('hha:vr_tick', (ev)=>{
     const d = ev?.detail || {};
-    const sec = Number(d.sec||0);
-    const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
-    if (!isVR) return;
+    setCompactGrade(d.grade ?? '—');
+  });
 
-    tickCompact();
-    if (sec <= 3) showToast(`⚠️ เหลือ ${sec} วิ!`, sec <= 1 ? 'bad' : 'warn', 780);
+  // low-time tick warning (from safe.js)
+  ROOT.addEventListener('hha:vr_tick', (ev)=>{
+    const sec = Number(ev?.detail?.sec ?? 0) | 0;
+
+    // only meaningful in VR/cVR
+    const inVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
+    if (!inVR) return;
+
+    // pulse compact (light, no shake camera)
+    pulseCompact();
+
+    // show toast only when HUD hidden OR always? -> ให้ชัดใน VR เลย
+    if (sec <= 10 && sec >= 1){
+      const kind = (sec <= 3) ? 'bad' : 'warn';
+      showVrToast(`⏳ เหลือ ${sec} วิ`, kind, (sec <= 3 ? 520 : 420));
+      subtleVibrate(sec);
+      beep(sec);
+    }
+  });
+
+  // End event: show end overlay, exit fullscreen (อ่านง่าย)
+  ROOT.addEventListener('hha:end', async (ev)=>{
+    const summary = ev?.detail || readJson(LS_LAST, null);
+
+    // ไม่ให้คนอ่านยากใน cVR: ออกจาก fullscreen ก่อนโชว์ (best-effort)
+    try{ await exitFs(); }catch(_){}
+    syncFsClass();
+
+    // เปิด HUD กลับมา (ถ้าอยากให้ end ดูชัด)
+    try{ toggleHud(false); }catch(_){}
+
+    showEndOverlay(summary);
   });
 }
 
+/* -------------------------
+   Main
+-------------------------- */
 function main(){
-  hookViewButtons();
+  hookControls();
+  hookEndOverlayButtons();
   hookGameEvents();
-  bindEndOverlay();
 
   setBodyView(pickInitialView());
   syncFsClass();
-  syncReserves();
 
-  ROOT.addEventListener('resize', ()=> syncReserves(), { passive:true });
-  ROOT.addEventListener('orientationchange', ()=> setTimeout(syncReserves, 180), { passive:true });
-
+  ROOT.addEventListener('resize', ()=>{}, { passive:true });
   DOC.addEventListener('fullscreenchange', syncFsClass);
   DOC.addEventListener('webkitfullscreenchange', syncFsClass);
 
@@ -397,9 +432,7 @@ function main(){
   const btnStart = DOC.getElementById('btnStart');
   btnStart && btnStart.addEventListener('click', ()=>{
     hideStartOverlay();
-    syncReserves();
     bootEngine();
-    showPeek(1100);
   }, { once:true });
 }
 
