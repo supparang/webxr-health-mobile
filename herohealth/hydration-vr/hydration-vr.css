@@ -4,8 +4,8 @@ Hydration VR — PRODUCTION CSS (v2)
 ✅ HUD top + bottom safe-area
 ✅ Playfield + Cardboard split eyes
 ✅ Side panel collapses on mobile/cvr
-✅ RotateHint overlay
-✅ NEW: Mode Picker UI (injected by loader)
+✅ RotateHint overlay styled
+✅ Prevent HUD/buttons overlap VR aiming area
 */
 
 :root{
@@ -31,6 +31,10 @@ Hydration VR — PRODUCTION CSS (v2)
 
   --hudTopH: 58px;
   --hudBotH: 64px;
+
+  /* playfield padding safety (avoid HUD overlap for targets) */
+  --pfTopSafe: 12px;
+  --pfBotSafe: 12px;
 }
 
 *{ box-sizing:border-box; }
@@ -63,7 +67,7 @@ html,body{
   width:min(560px, 94vw);
   border-radius: 22px;
   border:1px solid var(--stroke);
-  background: rgba(2,6,23,.88);
+  background: rgba(2,6,23,.90);
   box-shadow: 0 28px 90px rgba(0,0,0,.58);
   padding: 18px 18px 16px;
 }
@@ -90,76 +94,8 @@ html,body{
 }
 .hha-overlay.hide{ display:none !important; }
 
-/* ---------------- NEW: Mode Picker (injected by loader) ----------------
-Expected injected DOM:
-<div class="hha-modePicker">
-  <div class="mp-title">เลือกโหมดเล่น</div>
-  <div class="mp-grid">
-    <button class="mp-card" data-mode="pc">...</button>
-    <button class="mp-card" data-mode="mobile">...</button>
-    <button class="mp-card" data-mode="cvr">...</button>
-  </div>
-  <div class="mp-mini">...</div>
-</div>
-*/
-.hha-modePicker{
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255,255,255,.10);
-}
-.hha-modePicker .mp-title{
-  font-weight: 1000;
-  letter-spacing:.2px;
-  margin-bottom: 10px;
-}
-.hha-modePicker .mp-grid{
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.hha-modePicker .mp-card{
-  appearance:none;
-  border:1px solid rgba(255,255,255,.12);
-  border-radius: 18px;
-  padding: 12px;
-  background: rgba(15,23,42,.55);
-  color: var(--text);
-  cursor:pointer;
-  text-align:left;
-  transition: transform .08s ease, filter .12s ease, border-color .12s ease;
-}
-.hha-modePicker .mp-card:hover{ filter: brightness(1.08); border-color: rgba(255,255,255,.20); }
-.hha-modePicker .mp-card:active{ transform: translateY(1px); }
-.hha-modePicker .mp-top{
-  display:flex; align-items:center; gap:10px;
-  font-weight: 1000;
-}
-.hha-modePicker .mp-ico{
-  width:36px; height:36px;
-  display:grid; place-items:center;
-  border-radius: 14px;
-  border:1px solid rgba(255,255,255,.12);
-  background: rgba(2,6,23,.55);
-  font-size: 18px;
-}
-.hha-modePicker .mp-desc{
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 12.5px;
-  line-height: 1.35;
-}
-.hha-modePicker .mp-mini{
-  margin-top: 10px;
-  color: var(--muted);
-  font-size: 12.5px;
-}
-.hha-modePicker .mp-card.primary{
-  border-color: rgba(34,197,94,.35);
-  background: rgba(34,197,94,.12);
-}
-
-/* ---------------- Rotate hint ---------------- */
-.hha-rotateHint{
+/* ---------------- Rotate hint (loader uses #rotateHint) ---------------- */
+#rotateHint{
   position:fixed; inset:0;
   z-index:9999;
   display:flex;
@@ -169,22 +105,36 @@ Expected injected DOM:
   background: rgba(0,0,0,.74);
   backdrop-filter: blur(6px);
 }
-.hha-rotateHint .card{
-  width:min(520px, 92vw);
+#rotateHint[hidden]{ display:none !important; }
+#rotateHint::before{
+  content:'';
+  width:min(560px, 92vw);
+  height:auto;
   border-radius: 22px;
   border:1px solid rgba(255,255,255,.14);
   background: rgba(2,6,23,.84);
-  padding: 18px;
-  text-align:center;
   box-shadow: 0 30px 90px rgba(0,0,0,.62);
+  position:absolute;
+  inset:auto;
+  padding: 18px;
 }
-.hha-rotateHint .big{
-  font-weight: 1000;
-  font-size: 20px;
+#rotateHint{
+  font: 1000 18px/1.35 system-ui;
+  color:#fff;
+  text-align:center;
 }
-.hha-rotateHint .small{
-  margin-top: 8px;
-  color: var(--muted);
+#rotateHint span{
+  display:block;
+  width:min(520px, 92vw);
+  position:relative;
+  z-index:1;
+  padding: 18px;
+}
+#rotateHint{
+  /* fallback if loader set plain textContent */
+}
+#rotateHint:empty::after{
+  content:'กรุณาหมุนเครื่องเป็นแนวนอน (Landscape) เพื่อเล่นโหมด VR 📱↔️';
 }
 
 /* ---------------- Buttons ---------------- */
@@ -268,6 +218,9 @@ Expected injected DOM:
 .hha-layer{
   position:absolute; inset:0;
   pointer-events:auto;
+  /* give engines a safe visual padding without changing bounding rect too much */
+  padding-top: var(--pfTopSafe);
+  padding-bottom: var(--pfBotSafe);
 }
 .hha-crosshair{
   position:absolute;
@@ -304,6 +257,10 @@ Expected injected DOM:
     radial-gradient(circle at 50% 40%, rgba(255,255,255,.06), transparent 60%),
     rgba(2,6,23,.42);
   overflow:hidden;
+}
+.cb-eyes .eye .hha-layer{
+  padding-top: 0;
+  padding-bottom: 0;
 }
 .cb-eyes .reticle{
   position:absolute; inset:0;
@@ -507,38 +464,63 @@ body.hha-endfx #cbPlayfield{
 
 /* ---------------- Responsive ---------------- */
 @media (max-width: 980px){
-  .hha-main{
-    grid-template-columns: 1fr;
-  }
+  .hha-main{ grid-template-columns: 1fr; }
   .hha-side{
     display:grid;
     grid-template-columns: 1fr 1fr;
   }
-  .hha-modePicker .mp-grid{
-    grid-template-columns: 1fr;
-  }
 }
 @media (max-width: 720px){
   :root{ --hudTopH: 70px; }
-  .hha-side{
-    grid-template-columns: 1fr;
-  }
+  .hha-side{ grid-template-columns: 1fr; }
   .hha-bottom .hha-btn{ min-width: 104px; padding: 10px 10px; }
   .hha-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
   .hha-tipsRow{ grid-template-columns: 1fr; }
 }
 
-/* ---------------- Cardboard mode tweaks ---------------- */
+/* ---------------- Cardboard / cVR specific ---------------- */
+/* body.cardboard is toggled by loader. view-cvr is set for clarity. */
 body.cardboard{
   overflow:hidden;
-  touch-action: none;
+  touch-action:none;
 }
-body.cardboard .hha-side{ display:none; }
-body.cardboard .hha-main{ grid-template-columns: 1fr; }
-body.cardboard .hha-crosshair{ display:none; } /* use reticle per eye */
+body.cardboard .hha-side{
+  display:none; /* focus on playfield */
+}
+body.cardboard .hha-main{
+  grid-template-columns: 1fr;
+  padding:
+    calc(var(--sat) + 54px)
+    calc(var(--sar) + 10px)
+    calc(var(--sab) + 72px)
+    calc(var(--sal) + 10px);
+}
+body.cardboard .hha-top{
+  padding: calc(var(--sat) + 8px) calc(var(--sal) + 8px) 8px calc(var(--sar) + 8px);
+  gap:6px;
+}
+body.cardboard .hha-pill{
+  padding: 8px 10px;
+  font-size: 11px;
+}
+body.cardboard .hha-pill b{ font-size: 14px; }
+body.cardboard .hha-bottom{
+  padding: 8px calc(var(--sar) + 10px) calc(var(--sab) + 8px) calc(var(--sal) + 10px);
+}
+body.cardboard .hha-bottom .hha-btn{
+  min-width: 118px;
+}
+body.cardboard .hha-crosshair{
+  display:none; /* use reticle per eye */
+}
 
-/* Make bottom controls slightly larger in cVR */
-body.view-cvr .hha-bottom .hha-btn{
-  min-width: 132px;
-  padding: 12px 12px;
+/* When in cVR, prevent HUD from wrapping too many rows */
+body.view-cvr .hha-top{
+  max-height: calc(var(--sat) + 92px);
+  overflow:hidden;
+}
+
+/* Make playfield taller in landscape mobile */
+@media (max-width: 980px) and (orientation: landscape){
+  .hha-playfield{ min-height: 62vh; }
 }
