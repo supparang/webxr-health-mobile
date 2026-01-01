@@ -6,130 +6,85 @@
   <title>HeroHealth — GroupsVR Launcher</title>
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
-  <!-- reuse overlay/panel style from groups-vr.css -->
   <link rel="stylesheet" href="./vr-groups/groups-vr.css" />
-  <style>
-    body{ overflow:auto; }
-    .overlay{ position:relative; inset:auto; min-height:100vh; }
-    .panel{ margin: 18px auto; }
-    .launchGrid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-      margin-top: 12px;
-    }
-    @media (max-width:720px){ .launchGrid{ grid-template-columns:1fr; } }
-    .card{
-      border:1px solid var(--stroke);
-      border-radius: 18px;
-      background: rgba(2,6,23,.65);
-      padding: 12px;
-    }
-    .card h3{ margin:0 0 8px 0; font-size:14px; letter-spacing:.2px; }
-    .miniRow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .aRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-    .small{ font-size:12px; color:var(--muted); font-weight:800; line-height:1.35; }
-    .hrefPreview{
-      margin-top:10px;
-      padding:10px;
-      border-radius: 14px;
-      border:1px dashed rgba(148,163,184,.28);
-      background: rgba(15,23,42,.35);
-      font: 800 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      color: rgba(229,231,235,.95);
-      word-break: break-all;
-    }
-  </style>
 </head>
-
-<body>
-  <div class="overlay">
+<body class="view-mobile">
+  <div class="overlay" id="launcher">
     <div class="panel">
-      <div class="title">🍱 Food Groups VR — Launcher</div>
-      <div class="sub">
-        เลือกโหมดเข้าเล่น: <b>PC</b> / <b>Mobile</b> / <b>VR Cardboard (cVR)</b><br/>
-        ✅ VR Cardboard: แตะจอเพื่อยิงจาก crosshair (vr-ui.js)
-      </div>
-
+      <div class="title">🍽️ Food Groups VR</div>
+      <div class="sub">เลือกอุปกรณ์ + โหมด + ความยาก แล้วเริ่มเล่นได้เลย</div>
       <div class="hr"></div>
 
-      <div class="launchGrid">
-        <div class="card">
-          <h3>1) เลือก View</h3>
-          <div class="miniRow" id="viewRow">
-            <button class="chip chip-on" data-view="pc" type="button">🖥️ PC</button>
-            <button class="chip" data-view="mobile" type="button">📱 Mobile</button>
-            <button class="chip" data-view="vr" type="button">🕶️ VR (WebXR)</button>
-            <button class="chip" data-view="cvr" type="button">📦 Cardboard (cVR)</button>
-          </div>
-          <div class="small" style="margin-top:8px;">
-            * แนะนำ Cardboard ใช้ <b>view=cvr</b> (ยิงจาก crosshair, targets ไม่รับ tap)
+      <div class="kv">
+        <div class="k">DEVICE</div>
+        <div class="v">
+          <button class="btn btn-strong" data-view="pc" type="button">🖥️ PC</button>
+          <button class="btn btn-strong" data-view="mobile" type="button">📱 Mobile</button>
+          <button class="btn btn-strong" data-view="cvr" type="button">🕶️ Cardboard (cVR)</button>
+        </div>
+      </div>
+
+      <div class="grid2" style="margin-top:12px;">
+        <div class="kv">
+          <div class="k">RUN</div>
+          <div class="v">
+            <span class="chip chip-on" data-run="play">PLAY</span>
+            <span class="chip" data-run="research">RESEARCH</span>
           </div>
         </div>
-
-        <div class="card">
-          <h3>2) โหมดวิจัย/เล่น</h3>
-          <div class="miniRow" id="runRow">
-            <button class="chip chip-on" data-run="play" type="button">🎮 play (adaptive)</button>
-            <button class="chip" data-run="research" type="button">🧪 research (deterministic)</button>
-          </div>
-
-          <div class="small" style="margin-top:8px;">
-            research จะปิด adaptive และใช้ seed เพื่อให้ reproducible
+        <div class="kv">
+          <div class="k">DIFF</div>
+          <div class="v">
+            <span class="chip" data-diff="easy">EASY</span>
+            <span class="chip chip-on" data-diff="normal">NORMAL</span>
+            <span class="chip" data-diff="hard">HARD</span>
           </div>
         </div>
+      </div>
 
-        <div class="card">
-          <h3>3) ความยาก / สไตล์</h3>
-          <div class="miniRow" id="diffRow">
-            <button class="chip" data-diff="easy" type="button">easy</button>
-            <button class="chip chip-on" data-diff="normal" type="button">normal</button>
-            <button class="chip" data-diff="hard" type="button">hard</button>
-          </div>
-
-          <div class="miniRow" id="styleRow" style="margin-top:10px;">
-            <button class="chip chip-on" data-style="mix" type="button">mix</button>
-            <button class="chip" data-style="feel" type="button">feel</button>
-            <button class="chip" data-style="hard" type="button">hard</button>
-          </div>
-
-          <div class="small" style="margin-top:8px;">
-            feel = wave ชัด / hard = spiral ชัด / mix = สุ่ม burst/wave
+      <div class="grid2" style="margin-top:12px;">
+        <div class="kv">
+          <div class="k">STYLE</div>
+          <div class="v">
+            <span class="chip chip-on" data-style="mix">MIX</span>
+            <span class="chip" data-style="feel">FEEL</span>
+            <span class="chip" data-style="hard">HARD</span>
           </div>
         </div>
-
-        <div class="card">
-          <h3>4) เวลา / seed / practice</h3>
-          <div class="miniRow">
-            <label class="small">เวลา (30–180s)</label>
-            <input id="inTime" class="input" type="number" value="90" min="30" max="180"/>
-            <button id="btnRandSeed" class="btn btn-ghost" type="button">🎲 seed</button>
+        <div class="kv">
+          <div class="k">TIME (sec)</div>
+          <div class="v">
+            <input id="inTime" class="input" type="number" value="90" min="30" max="180" />
+            <span class="hint">30–180</span>
           </div>
-          <div class="miniRow" style="margin-top:10px;">
-            <label class="small">seed</label>
-            <input id="inSeed" class="input" style="width:220px" type="text" value=""/>
-          </div>
+        </div>
+      </div>
 
-          <div class="miniRow" style="margin-top:10px;">
-            <button class="chip chip-on" id="chipPractice" type="button">✅ practice 15s</button>
-            <div class="small">เปิดแล้วจะฝึกก่อนเริ่มเกมจริง</div>
+      <div class="grid2" style="margin-top:12px;">
+        <div class="kv">
+          <div class="k">PRACTICE</div>
+          <div class="v">
+            <span class="chip chip-on" data-practice="1">ON</span>
+            <span class="chip" data-practice="0">OFF</span>
+          </div>
+        </div>
+        <div class="kv">
+          <div class="k">SEED</div>
+          <div class="v">
+            <input id="inSeed" class="input" type="text" value="123" />
+            <span class="hint">research แนะนำ fix</span>
           </div>
         </div>
       </div>
 
       <div class="hr"></div>
-
-      <div class="aRow">
-        <button id="btnPlay" class="btn btn-strong" type="button">▶️ เข้าเล่น</button>
-        <button id="btnCopy" class="btn" type="button">📋 Copy URL</button>
-        <button id="btnOpenHub" class="btn btn-ghost" type="button">🏠 ไป HUB</button>
+      <div class="row">
+        <button id="btnStart" class="btn btn-strong" type="button">▶️ START</button>
+        <button id="btnStartHub" class="btn btn-ghost" type="button">🏠 START + HUB</button>
       </div>
-
-      <div id="urlBox" class="hrefPreview">—</div>
 
       <div class="note" style="margin-top:10px;">
-        💡 Tip: Cardboard ให้ใช้ <b>view=cvr</b> และเปิด practice ช่วยคาลิเบรตการยิง
+        Cardboard: เข้าแล้วกด ENTER VR/RECENTER จาก vr-ui.js และแตะจอเพื่อยิง (crosshair)
       </div>
     </div>
   </div>
@@ -140,115 +95,83 @@
   const DOC = document;
   const $ = (id)=>DOC.getElementById(id);
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function setOn(rowId, attr, value){
-    const row = $(rowId);
-    row.querySelectorAll('.chip').forEach(b=>{
-      const v = b.getAttribute(attr);
-      b.classList.toggle('chip-on', v===value);
+  let state = {
+    view:'mobile',
+    run:'play',
+    diff:'normal',
+    style:'mix',
+    practice:'1'
+  };
+
+  function setChip(groupAttr, val){
+    DOC.querySelectorAll(`[data-${groupAttr}]`).forEach(el=>{
+      if (String(el.getAttribute(`data-${groupAttr}`)) === String(val)) el.classList.add('chip-on');
+      else el.classList.remove('chip-on');
     });
   }
-  function getOn(rowId, attr){
-    const row = $(rowId);
-    const on = row.querySelector('.chip-on');
-    return on ? on.getAttribute(attr) : null;
-  }
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  // defaults
-  const hub = qs('hub','') || '';
-  if (!$('inSeed').value){
-    $('inSeed').value = String(Date.now());
-  }
-
-  // click chips
-  function bindRow(rowId, attr){
-    const row = $(rowId);
-    row.addEventListener('click', (e)=>{
-      const b = e.target.closest('.chip');
-      if (!b) return;
-      const v = b.getAttribute(attr);
-      setOn(rowId, attr, v);
-      renderUrl();
+  // device buttons
+  DOC.querySelectorAll('[data-view]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.view = btn.getAttribute('data-view');
+      DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+      DOC.body.classList.add('view-'+state.view);
     });
-  }
-  bindRow('viewRow','data-view');
-  bindRow('runRow','data-run');
-  bindRow('diffRow','data-diff');
-  bindRow('styleRow','data-style');
-
-  // practice toggle
-  $('chipPractice').addEventListener('click', ()=>{
-    $('chipPractice').classList.toggle('chip-on');
-    renderUrl();
   });
 
-  $('btnRandSeed').addEventListener('click', ()=>{
-    $('inSeed').value = String(Date.now());
-    renderUrl();
+  // chips
+  DOC.querySelectorAll('[data-run]').forEach(ch=>{
+    ch.addEventListener('click', ()=>{
+      state.run = ch.getAttribute('data-run');
+      setChip('run', state.run);
+    });
+  });
+  DOC.querySelectorAll('[data-diff]').forEach(ch=>{
+    ch.addEventListener('click', ()=>{
+      state.diff = ch.getAttribute('data-diff');
+      setChip('diff', state.diff);
+    });
+  });
+  DOC.querySelectorAll('[data-style]').forEach(ch=>{
+    ch.addEventListener('click', ()=>{
+      state.style = ch.getAttribute('data-style');
+      setChip('style', state.style);
+    });
+  });
+  DOC.querySelectorAll('[data-practice]').forEach(ch=>{
+    ch.addEventListener('click', ()=>{
+      state.practice = ch.getAttribute('data-practice');
+      setChip('practice', state.practice);
+    });
   });
 
-  $('inTime').addEventListener('input', renderUrl);
-  $('inSeed').addEventListener('input', renderUrl);
+  setChip('run', state.run);
+  setChip('diff', state.diff);
+  setChip('style', state.style);
+  setChip('practice', state.practice);
 
-  function makeUrl(){
-    const view = getOn('viewRow','data-view') || 'pc';
-    const run  = getOn('runRow','data-run') || 'play';
-    const diff = getOn('diffRow','data-diff') || 'normal';
-    const style= getOn('styleRow','data-style') || 'mix';
+  function buildUrl(withHub){
     const time = clamp($('inTime').value, 30, 180);
     const seed = String($('inSeed').value || Date.now());
-    const practice = $('chipPractice').classList.contains('chip-on') ? '1' : '0';
-
     const u = new URL('./vr-groups/groups.html', location.href);
-    u.searchParams.set('view', view);
-    u.searchParams.set('run', run);
-    u.searchParams.set('diff', diff);
-    u.searchParams.set('style', style);
+    u.searchParams.set('view', state.view);
+    u.searchParams.set('run', state.run);
+    u.searchParams.set('diff', state.diff);
+    u.searchParams.set('style', state.style);
     u.searchParams.set('time', String(time));
     u.searchParams.set('seed', seed);
-    u.searchParams.set('practice', practice);
-    if (hub) u.searchParams.set('hub', hub);
+    u.searchParams.set('practice', state.practice);
+    if (withHub){
+      // default hub path
+      u.searchParams.set('hub', './hub.html');
+    }
     return u.toString();
   }
 
-  function renderUrl(){
-    $('urlBox').textContent = makeUrl();
-  }
+  $('btnStart').addEventListener('click', ()=> location.href = buildUrl(false));
+  $('btnStartHub').addEventListener('click', ()=> location.href = buildUrl(true));
 
-  async function copyText(text){
-    try { await navigator.clipboard.writeText(String(text||'')); return true; }
-    catch {
-      try{
-        const ta = DOC.createElement('textarea');
-        ta.value = String(text||'');
-        DOC.body.appendChild(ta);
-        ta.select();
-        DOC.execCommand('copy');
-        ta.remove();
-        return true;
-      }catch{ return false; }
-    }
-  }
-
-  $('btnPlay').addEventListener('click', ()=>{
-    location.href = makeUrl();
-  });
-
-  $('btnCopy').addEventListener('click', async ()=>{
-    const ok = await copyText(makeUrl());
-    alert(ok ? 'คัดลอก URL แล้ว ✅' : 'Copy ไม่สำเร็จ');
-  });
-
-  $('btnOpenHub').addEventListener('click', ()=>{
-    if (!hub){ alert('Launcher นี้ไม่ได้รับพารามิเตอร์ hub=...'); return; }
-    location.href = hub;
-  });
-
-  renderUrl();
 })();
 </script>
 </body>
