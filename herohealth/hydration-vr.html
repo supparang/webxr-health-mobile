@@ -1,10 +1,9 @@
 <!-- === /herohealth/hydration-vr.html ===
-Hydration VR — ROOT ENTRY (PRODUCTION v2)
+Hydration VR — ROOT ENTRY (PRODUCTION) v2
+✅ มี option เลือกเล่น PC / Mobile / Cardboard (cVR) ชัด ๆ
 ✅ ใช้ไฟล์แยกใน /hydration-vr/
 ✅ โหลด global FX + logger + coach-manager
-✅ มี Launcher เลือกโหมด PC / Mobile / VR Cardboard ชัดเจน
-✅ แสดง Quick Settings (diff/time/run/seed) จาก query เพื่อกันงงตอนเข้าจาก HUB
-✅ loader จัดการ view + fullscreen + landscape lock + shoot events
+✅ loader จัดการ view: PC/Mobile/Cardboard + fullscreen/orientation
 -->
 
 <!doctype html>
@@ -28,48 +27,56 @@ Hydration VR — ROOT ENTRY (PRODUCTION v2)
 </head>
 
 <body class="view-pc">
-
-  <!-- Start Overlay / Launcher -->
+  <!-- START / MODE PICKER OVERLAY -->
   <div id="startOverlay" class="hha-overlay">
     <div class="hha-overlay-card">
-      <div class="hha-title">Hydration VR 💧 — เลือกโหมดเล่น</div>
-
+      <div class="hha-title">Hydration VR 💧</div>
       <div class="hha-sub">
-        เป้าหมาย: คุม WATER ให้เข้าโซน <b>GREEN</b> และเก็บ 🛡️ ไว้ <b>BLOCK</b> ตอนท้ายพายุ
-        <div class="muted" style="margin-top:8px">
-          แนะนำ: มือถือ “แตะยิง” • VR Cardboard “เล็งกลางจอแล้วแตะยิง”
-        </div>
+        <b>Goal:</b> คุม WATER ให้เข้าโซน <b>GREEN</b> (สะสมเวลา)<br/>
+        <b>Mini (Storm):</b> ทำให้น้ำเป็น <b>LOW/HIGH</b> + เก็บ 🛡️ แล้ว <b>BLOCK</b> ช่วงท้ายพายุ
       </div>
 
-      <!-- Quick settings from query -->
-      <div class="hha-quick" style="
-        margin-top:12px;
-        border:1px solid rgba(148,163,184,.18);
-        background: rgba(2,6,23,.55);
-        border-radius: 16px;
-        padding: 10px 12px;
-        font-weight: 900;
-        color: rgba(229,231,235,.92);
-      ">
-        <span style="color:rgba(148,163,184,.95)">Quick:</span>
-        <span id="qDiff">diff=?</span>
-        <span style="opacity:.5">•</span>
-        <span id="qTime">time=?</span>
-        <span style="opacity:.5">•</span>
-        <span id="qRun">run=?</span>
-        <span style="opacity:.5">•</span>
-        <span id="qSeed">seed=?</span>
-      </div>
-
-      <div class="hha-overlay-actions">
-        <!-- loader will relabel these; keep ids stable -->
-        <button id="btnStart" class="hha-btn primary">🖥 เล่นบนคอม/จอใหญ่</button>
-        <button id="btnStartMobile" class="hha-btn">📱 เล่นบนมือถือ</button>
-        <button id="btnEnterVR" class="hha-btn">🕶 VR Cardboard</button>
-      </div>
-
+      <!-- QUICK INFO -->
       <div class="hha-hint">
-        * โหมด VR แนะนำหมุนจอแนวนอน (Landscape) ก่อน
+        • PC: คลิกเป้าได้ / กด “SHOOT” ก็ได้<br/>
+        • Mobile: แตะหน้าจอยิง (Tap-to-shoot) + ปุ่ม SHOOT<br/>
+        • Cardboard: ยิงจาก “จุดเล็งกลางจอ” (crosshair)
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="hha-overlay-actions">
+        <button id="btnStart" class="hha-btn primary" title="เริ่มแบบอัตโนมัติ">
+          ▶ Quick Start
+        </button>
+
+        <button id="btnPlayPC" class="hha-btn" title="โหมด PC / จอใหญ่">
+          🖥 เล่นบน PC
+        </button>
+
+        <button id="btnPlayMobile" class="hha-btn" title="โหมดมือถือ Tap-to-shoot">
+          📱 เล่นบนมือถือ
+        </button>
+
+        <button id="btnEnterVR" class="hha-btn" title="โหมด Cardboard (cVR)">
+          📦 เล่นแบบ Cardboard
+        </button>
+      </div>
+
+      <div class="hha-overlay-actions" style="margin-top:10px">
+        <button id="btnHow" class="hha-btn">ℹ วิธีเล่น</button>
+        <button id="btnGoHub" class="hha-btn">🏠 กลับ HUB</button>
+      </div>
+
+      <div id="howBox" class="hha-hint" style="display:none; margin-top:10px; line-height:1.5">
+        <b>How to (30 วิ)</b><br/>
+        1) ยิง 💧 เพื่อดันน้ำเข้ากลาง (GREEN) และลากคอมโบ<br/>
+        2) ตอน 🌀 STORM: ทำให้น้ำออกจาก GREEN → LOW/HIGH<br/>
+        3) เก็บ 🛡️ แล้วรอช่วงท้ายพายุ (หน้าจอกระพริบ) → BLOCK 🥤/🌩️<br/>
+        4) ถ้าโดน BAD แบบไม่มีโล่ ระหว่างพายุ → Mini fail (ยุติธรรม)
+      </div>
+
+      <div class="hha-hint" style="margin-top:10px">
+        * โหมด Cardboard แนะนำหมุนจอแนวนอน (Landscape)
       </div>
     </div>
   </div>
@@ -90,7 +97,6 @@ Hydration VR — ROOT ENTRY (PRODUCTION v2)
     <!-- NORMAL PLAYFIELD -->
     <section id="playfield" class="hha-playfield">
       <div id="hydration-layer" class="hha-layer"></div>
-      <!-- optional crosshair for non-cvr -->
       <div class="hha-crosshair" aria-hidden="true"></div>
     </section>
 
@@ -143,7 +149,7 @@ Hydration VR — ROOT ENTRY (PRODUCTION v2)
 
   <!-- BOTTOM CONTROLS -->
   <div id="hudBtns" class="hha-bottom">
-    <button class="hha-btn" id="btnCardboard">🕶 VR Cardboard</button>
+    <button class="hha-btn" id="btnCardboard">📦 CARDBOARD</button>
     <button class="hha-btn primary" id="btnShoot">🎯 SHOOT</button>
     <button class="hha-btn danger" id="btnStop">⛔ STOP</button>
   </div>
@@ -197,27 +203,59 @@ Hydration VR — ROOT ENTRY (PRODUCTION v2)
     </div>
   </div>
 
-  <!-- Inline helper: fill Quick Settings -->
+  <!-- LOADER -->
+  <script type="module" src="./hydration-vr/hydration-vr.loader.js"></script>
+
+  <!-- Overlay helper (mode buttons) -->
   <script>
     (function(){
-      function qs(k, def){
-        try{ return new URL(location.href).searchParams.get(k) ?? def; }
-        catch{ return def; }
-      }
-      const diff = qs('diff','normal');
-      const time = qs('time', qs('durationPlannedSec','70'));
-      const run  = qs('run', qs('runMode','play'));
-      const seed = qs('seed', qs('sessionId','auto'));
-      const $ = (id)=>document.getElementById(id);
+      const qs = (k, def=null)=>{
+        try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; }
+      };
+      const hub = String(qs('hub','./hub.html'));
 
-      if ($('qDiff')) $('qDiff').textContent = `diff=${diff}`;
-      if ($('qTime')) $('qTime').textContent = `time=${time}s`;
-      if ($('qRun'))  $('qRun').textContent  = `run=${run}`;
-      if ($('qSeed')) $('qSeed').textContent = `seed=${seed}`;
+      const overlay = document.getElementById('startOverlay');
+      const btnHow = document.getElementById('btnHow');
+      const howBox = document.getElementById('howBox');
+      const btnGoHub = document.getElementById('btnGoHub');
+
+      const btnPlayPC = document.getElementById('btnPlayPC');
+      const btnPlayMobile = document.getElementById('btnPlayMobile');
+
+      btnHow?.addEventListener('click', ()=>{
+        const on = howBox && (howBox.style.display !== 'none');
+        if (howBox) howBox.style.display = on ? 'none' : 'block';
+      });
+
+      btnGoHub?.addEventListener('click', ()=>{
+        location.href = hub;
+      });
+
+      // These two only set view param then rely on loader
+      btnPlayPC?.addEventListener('click', ()=>{
+        const u = new URL(location.href);
+        u.searchParams.set('view','pc');
+        u.searchParams.delete('cardboard');
+        location.href = u.toString();
+      });
+
+      btnPlayMobile?.addEventListener('click', ()=>{
+        const u = new URL(location.href);
+        u.searchParams.set('view','mobile');
+        u.searchParams.delete('cardboard');
+        location.href = u.toString();
+      });
+
+      // Make Quick Start a bit smarter:
+      // if user sets view=cvr => auto suggest cardboard. otherwise current.
+      document.getElementById('btnStart')?.addEventListener('click', ()=>{
+        try{
+          overlay?.classList.add('hide');
+          overlay && (overlay.style.display='none');
+        }catch(_){}
+        window.dispatchEvent(new CustomEvent('hha:start'));
+      });
     })();
   </script>
-
-  <!-- LOADER (imports hydration.safe.js) -->
-  <script type="module" src="./hydration-vr/hydration-vr.loader.js"></script>
 </body>
 </html>
