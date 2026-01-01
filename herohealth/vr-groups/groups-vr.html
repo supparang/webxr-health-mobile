@@ -10,21 +10,41 @@
   <!-- Shared CSS -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- A-Frame minimal scene to enable WebXR + Enter VR -->
+  <!-- A-Frame (minimal scene to enable WebXR Enter VR reliably) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Universal VR UI (Enter VR / Exit / Recenter / Crosshair / TapShoot) -->
+  <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
   <script>
-    // lockPx = ระยะ aim-assist รอบ crosshair (Cardboard)
+    // default lockPx (calibration slider will change this)
     window.HHA_VRUI_CONFIG = { lockPx: 92 };
   </script>
   <script src="../vr/vr-ui.js" defer></script>
+
+  <!-- AI hooks (disabled by default; keep for later) -->
+  <script src="../vr/ai-hooks.js" defer></script>
 
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
   <script src="./GameEngine.js" defer></script>
+
+  <style>
+    /* corner buttons (tap-able even in VR/cVR) */
+    .cornerBtns{
+      position:fixed;
+      right: calc(12px + env(safe-area-inset-right, 0px));
+      bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+      z-index: 60;
+      display:flex;
+      gap:10px;
+      pointer-events:auto;
+    }
+    body.view-pc .cornerBtns,
+    body.view-mobile .cornerBtns{ bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+    .cornerBtns .btn{ padding: 10px 12px; border-radius: 14px; font-weight: 1000; }
+    .overlay .btn{ pointer-events:auto; }
+  </style>
 </head>
 
 <body class="view-mobile">
@@ -36,70 +56,6 @@
     </a-entity>
     <a-sky color="#020617"></a-sky>
   </a-scene>
-
-  <!-- START overlay (เลือกก่อนเริ่ม ถ้ามาจาก launcher จะ auto-start ได้) -->
-  <div id="startOverlay" class="overlay">
-    <div class="panel">
-      <div class="title">🥗 Food Groups VR</div>
-      <div class="sub">
-        เลือกโหมดแล้วกด “เริ่ม”<br/>
-        <b>ENTER VR</b> / <b>EXIT</b> / <b>RECENTER</b> จะอยู่ใน UI ของ <span class="mono">vr-ui.js</span>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="grid2">
-        <div class="kv">
-          <div class="k">Device / View</div>
-          <div class="v" id="pickView">
-            <button class="chip" data-view="pc" type="button">🖥️ PC</button>
-            <button class="chip" data-view="mobile" type="button">📱 Mobile</button>
-            <button class="chip chip-on" data-view="cvr" type="button">🥽 Cardboard</button>
-          </div>
-          <div class="note">Cardboard: แตะจอ = ยิงจาก crosshair (เป้าถูกปิดการคลิกโดยตรง)</div>
-        </div>
-
-        <div class="kv">
-          <div class="k">Mode</div>
-          <div class="v" id="pickRun">
-            <button class="chip chip-on" data-run="play" type="button">Play (Adaptive)</button>
-            <button class="chip" data-run="research" type="button">Research (Seeded)</button>
-          </div>
-          <div class="note">Research จะไม่ adaptive และ seed จะทำให้ผลซ้ำได้</div>
-        </div>
-
-        <div class="kv">
-          <div class="k">Difficulty</div>
-          <div class="v" id="pickDiff">
-            <button class="chip" data-diff="easy" type="button">Easy</button>
-            <button class="chip chip-on" data-diff="normal" type="button">Normal</button>
-            <button class="chip" data-diff="hard" type="button">Hard</button>
-          </div>
-        </div>
-
-        <div class="kv">
-          <div class="k">Time (sec) / Style</div>
-          <div class="v">
-            <input id="inTime" class="input" type="number" min="30" max="180" step="5" value="90"/>
-            <button class="chip chip-on" data-style="mix" type="button">Mix</button>
-            <button class="chip" data-style="feel" type="button">Feel</button>
-            <button class="chip" data-style="hard" type="button">Hard</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="row">
-        <button id="btnStart" class="btn btn-strong" type="button">▶️ เริ่มเล่น</button>
-        <button id="btnCopyLink" class="btn" type="button">🔗 Copy link</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        ถ้าเข้า VR แล้ว “แตะยิงไม่ได้” ให้แตะ 1 ครั้งเพื่อ unlock audio/gesture และลองอีกครั้ง
-      </div>
-    </div>
-  </div>
 
   <!-- HUD -->
   <div class="hud">
@@ -151,13 +107,69 @@
       <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
       <div class="coachBubble">
         <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">พร้อมลุย! 🎵</div>
+        <div id="coachText" class="coachText">กำลังเริ่มเกม…</div>
       </div>
     </div>
   </div>
 
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
+
+  <!-- corner buttons -->
+  <div class="cornerBtns">
+    <button id="btnCal" class="btn btn-ghost" type="button">🎯 Calibrate</button>
+  </div>
+
+  <!-- Practice overlay -->
+  <div id="practiceOverlay" class="overlay hidden">
+    <div class="panel">
+      <div class="title">🧪 Practice 15s</div>
+      <div class="sub">
+        ฝึกเล็ง + ยิงจาก crosshair ก่อนเริ่มเกมจริง<br/>
+        <b id="pracLine">กำลังเริ่ม…</b>
+      </div>
+      <div class="row row2">
+        <button id="btnSkipPractice" class="btn btn-strong" type="button">ข้ามฝึก ▶️</button>
+      </div>
+      <div class="note" style="margin-top:10px;">
+        Cardboard: แตะจอเพื่อยิง / กด Calibrate เพื่อ recenter ได้
+      </div>
+    </div>
+  </div>
+
+  <!-- Calibration overlay -->
+  <div id="calOverlay" class="overlay hidden">
+    <div class="panel">
+      <div class="title">🎯 Calibration (Cardboard)</div>
+      <div class="sub">
+        1) หันมือถือให้ crosshair อยู่กลางมุมมอง<br/>
+        2) กด <b>RECENTER</b> แล้วลองแตะยิง<br/>
+        3) ปรับ <b>Lock</b> ถ้าเล็งยาก/ดูดเป้าไม่ติด
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid2">
+        <div class="kv">
+          <div class="k">Aim Assist LockPx</div>
+          <div class="v">
+            <input id="lockRange" type="range" min="40" max="160" value="92" style="width:100%">
+            <span class="tag" id="lockVal">92</span>
+          </div>
+          <div class="note">ยิ่งมาก = ดูดเป้าง่ายขึ้น (แต่ไม่ควรใหญ่เกิน)</div>
+        </div>
+
+        <div class="kv">
+          <div class="k">Actions</div>
+          <div class="v">
+            <button id="btnRecenter" class="btn btn-strong" type="button">🧭 RECENTER</button>
+            <button id="btnCloseCal" class="btn" type="button">✅ Done</button>
+          </div>
+          <div class="note">RECENTER จะ emit <code>hha:vr {state:'reset'}</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- End overlay -->
   <div id="endOverlay" class="overlay overlay-end hidden">
@@ -182,7 +194,7 @@
       </div>
 
       <div class="note" style="margin-top:10px;">
-        Cardboard: แตะจอเพื่อยิงจาก crosshair (ENTER VR/RECENTER จะอยู่ใน UI ของ vr-ui.js)
+        VR Cardboard: แตะจอเพื่อยิงจาก crosshair (ENTER VR/EXIT/RECENTER อยู่บน vr-ui.js)
       </div>
     </div>
   </div>
@@ -199,26 +211,10 @@
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-  const state = {
-    view:  String(qs('view','cvr')||'cvr').toLowerCase(),
-    run:   (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play',
-    diff:  String(qs('diff','normal')||'normal').toLowerCase(),
-    style: String(qs('style','mix')||'mix').toLowerCase(),
-    time:  clamp(qs('time',90), 30, 180),
-    seed:  String(qs('seed','')||'').trim() || String(Date.now()),
-    hub:   String(qs('hub','')||'').trim()
-  };
-
   function setView(view){
     const b = DOC.body;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     b.classList.add('view-'+view);
-  }
-
-  function markPick(groupSel, attr, value){
-    DOC.querySelectorAll(groupSel+' .chip').forEach(el=>{
-      el.classList.toggle('chip-on', el.dataset[attr] === value);
-    });
   }
 
   async function copyText(text){
@@ -236,19 +232,7 @@
     }
   }
 
-  function buildLink(){
-    const u = new URL(location.href);
-    u.searchParams.set('view', state.view);
-    u.searchParams.set('run', state.run);
-    u.searchParams.set('diff', state.diff);
-    u.searchParams.set('style', state.style);
-    u.searchParams.set('time', String(state.time));
-    u.searchParams.set('seed', String(state.seed));
-    if (state.hub) u.searchParams.set('hub', state.hub);
-    return u.toString();
-  }
-
-  // --------- HUD binds ---------
+  // ---------- HUD binds ----------
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail||{};
     $('vScore').textContent = String(d.score ?? 0);
@@ -316,10 +300,11 @@
     DOC.body.classList.toggle('mini-urgent', urgent);
   }, {passive:true});
 
-  // --------- Audio hooks ---------
+  // ---------- Audio ----------
   function hookAudio(){
     const A = window.GroupsVR && window.GroupsVR.Audio;
     if (!A) return;
+
     try{ A.unlock && A.unlock(); }catch{}
 
     window.addEventListener('hha:judge', (ev)=>{
@@ -349,12 +334,42 @@
     tickLoop();
   }
 
-  // --------- Summary + history ---------
+  // ---------- AI hooks (disabled; collect only) ----------
+  function hookAI(seed, runMode){
+    const AI = window.HHA_AI;
+    if (!AI || typeof AI.init !== 'function') return;
+    AI.init({ seed, runMode, gameTag:'GroupsVR' });
+
+    const feed = (name)=>(ev)=>{
+      try{ AI.onEvent(name, ev.detail||{}); }catch{}
+    };
+
+    ['hha:score','hha:rank','hha:fever','hha:time','groups:progress','quest:update','hha:judge','hha:coach']
+      .forEach(n=> window.addEventListener(n, feed(n), {passive:true}));
+
+    // NOTE: to enable later set window.HHA_AI_ENABLED=true and then apply suggestions
+  }
+
+  // ---------- End / Summary (HHA Standard + flush-hardened) ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
+  function deviceHint(){
+    const ua = navigator.userAgent || '';
+    if (/Oculus|Quest/i.test(ua)) return 'vr-headset';
+    if (/Android/i.test(ua)) return 'android';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+    return 'pc';
+  }
+  function makeSessionId(){
+    return 'G' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
+  const SESSION_ID = makeSessionId();
+  const GAME_VERSION = 'groups-2026-01-01b';
+
   let lastSummary = null;
   let startIso = new Date().toISOString();
+  let flushed = false;
 
   function saveLast(summary){
     try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch{}
@@ -365,24 +380,96 @@
     }catch{}
   }
 
+  async function flushSummaryOnce(reason){
+    if (flushed) return;
+    if (!lastSummary) return;
+    flushed = true;
+    lastSummary.flushReason = String(reason||'flush');
+
+    // optional cloud logger (if you use hha-cloud-logger.js)
+    try{
+      const L = window.HHA_CloudLogger;
+      if (L && typeof L.post === 'function'){
+        await L.post(lastSummary);
+      }
+    }catch(_){}
+
+    try{ localStorage.setItem(LS_LAST, JSON.stringify(lastSummary)); }catch{}
+  }
+
+  // ---------- Practice mode ----------
+  let ERef = null;
+  let practiceActive = false;
+
+  function showPractice(on){
+    $('practiceOverlay').classList.toggle('hidden', !on);
+  }
+  function setPracLine(t){
+    $('pracLine').textContent = String(t||'');
+  }
+
+  function startEngine(E, diff, runMode, style, time, seed){
+    ERef = E;
+    E.setLayerEl($('playLayer'));
+    startIso = new Date().toISOString();
+    E.start(diff, { runMode, diff, style, time, seed });
+  }
+
+  $('btnSkipPractice').addEventListener('click', ()=>{
+    if (!practiceActive) return;
+    // end practice immediately and go real
+    try{ window.GroupsVR && window.GroupsVR.GameEngine && window.GroupsVR.GameEngine.stop('skip_practice'); }catch{}
+  });
+
+  // intercept end: if practiceActive -> start real game, do not save/show endOverlay
   window.addEventListener('hha:end', (ev)=>{
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
+    // practice flow
+    if (practiceActive){
+      practiceActive = false;
+      showPractice(false);
+      // start real game using cached params
+      const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+      const diff = String(qs('diff','normal')||'normal').toLowerCase();
+      const style= String(qs('style','mix')||'mix').toLowerCase();
+      const time = clamp(qs('time',90), 30, 180);
+      const seed = String(qs('seed', Date.now()) || Date.now());
+
+      // reset flush state
+      lastSummary = null;
+      flushed = false;
+
+      // tiny countdown text
+      setPracLine('เริ่มเกมจริง! 🚀');
+      setTimeout(()=>{
+        if (ERef) startEngine(ERef, diff, run, style, time, seed);
+      }, 250);
+      return;
+    }
+
+    // REAL end summary
     lastSummary = Object.assign({
       timestampIso: endIso,
       projectTag: 'HeroHealth',
       gameTag: 'GroupsVR',
-      runMode: state.run,
-      diff: state.diff,
-      style: state.style,
-      durationPlannedSec: state.time,
+      sessionId: SESSION_ID,
+      gameVersion: GAME_VERSION,
+      device: deviceHint(),
+      view: String(qs('view','mobile')||'mobile'),
+      runMode: String(qs('run','play')||'play'),
+      diff: String(qs('diff','normal')||'normal'),
+      style: String(qs('style','mix')||'mix'),
+      durationPlannedSec: Number(qs('time',90)||90),
+      durationPlayedSec: Math.round((Date.now() - Date.parse(startIso))/1000),
       startTimeIso: startIso,
       endTimeIso: endIso,
-      seed: state.seed
+      seed: String(qs('seed','')||'')
     }, d);
 
     saveLast(lastSummary);
+    flushSummaryOnce('end');
 
     $('endOverlay').classList.remove('hidden');
     $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
@@ -391,64 +478,67 @@
     $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
     $('endMiss').textContent  = String(d.misses ?? 0);
 
-    $('btnHub').style.display = state.hub ? 'inline-flex' : 'none';
+    const hub = String(qs('hub','')||'');
+    $('btnHub').style.display = hub ? 'inline-flex' : 'none';
   }, {passive:true});
 
-  $('btnRestart').addEventListener('click', ()=> location.reload());
+  // flush-hardened
+  window.addEventListener('pagehide', ()=>{ flushSummaryOnce('pagehide'); }, {passive:true});
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.visibilityState === 'hidden') flushSummaryOnce('hidden');
+  }, {passive:true});
+  window.addEventListener('beforeunload', ()=>{ flushSummaryOnce('beforeunload'); }, {passive:true});
 
+  $('btnRestart').addEventListener('click', ()=> location.reload());
   $('btnCopy').addEventListener('click', async ()=>{
     if (!lastSummary){ alert('ยังไม่มีผลให้คัดลอก'); return; }
     const ok = await copyText(JSON.stringify(lastSummary, null, 2));
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
+  const _go = (href, why)=>{
+    flushSummaryOnce(why).finally(()=>{ location.href = href; });
+  };
+
   $('btnBackLauncher').addEventListener('click', ()=>{
+    const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
-    if (state.hub) u.searchParams.set('hub', state.hub);
-    location.href = u.toString();
+    if (hub) u.searchParams.set('hub', hub);
+    _go(u.toString(), 'backLauncher');
   });
 
   $('btnHub').addEventListener('click', ()=>{
-    if (!state.hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    location.href = state.hub;
+    const hub = String(qs('hub','')||'');
+    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
+    _go(hub, 'backHub');
   });
 
-  // --------- Start overlay controls ---------
-  function pickView(v){ state.view = v; setView(v); markPick('#pickView','view',v); }
-  function pickRun(v){ state.run = v; markPick('#pickRun','run',v); }
-  function pickDiff(v){ state.diff = v; markPick('#pickDiff','diff',v); }
-  function pickStyle(v){
-    state.style = v;
-    DOC.querySelectorAll('#pickView ~ .grid2 .chip[data-style], #pickDiff ~ .grid2 .chip[data-style]').forEach(()=>{});
-    DOC.querySelectorAll('[data-style]').forEach(el=>{
-      el.classList.toggle('chip-on', el.dataset.style === v);
-    });
+  // ---------- Calibration UI ----------
+  function openCal(on){
+    $('calOverlay').classList.toggle('hidden', !on);
   }
-
-  DOC.querySelectorAll('#pickView .chip').forEach(el=>{
-    el.addEventListener('click', ()=> pickView(el.dataset.view), {passive:true});
-  });
-  DOC.querySelectorAll('#pickRun .chip').forEach(el=>{
-    el.addEventListener('click', ()=> pickRun(el.dataset.run), {passive:true});
-  });
-  DOC.querySelectorAll('#pickDiff .chip').forEach(el=>{
-    el.addEventListener('click', ()=> pickDiff(el.dataset.diff), {passive:true});
-  });
-  DOC.querySelectorAll('[data-style]').forEach(el=>{
-    el.addEventListener('click', ()=> pickStyle(el.dataset.style), {passive:true});
+  $('btnCal').addEventListener('click', ()=> openCal(true));
+  $('btnCloseCal').addEventListener('click', ()=> openCal(false));
+  $('btnRecenter').addEventListener('click', ()=>{
+    // reset view drift for DOM layer (GameEngine listens)
+    try{
+      window.dispatchEvent(new CustomEvent('hha:vr', { detail:{ state:'reset' }}));
+    }catch{}
   });
 
-  $('inTime').value = String(state.time);
-  $('inTime').addEventListener('input', ()=>{
-    state.time = clamp($('inTime').value, 30, 180);
-  }, {passive:true});
+  const lockRange = $('lockRange');
+  const lockVal   = $('lockVal');
+  function setLock(v){
+    v = clamp(v, 40, 160);
+    lockRange.value = String(v|0);
+    lockVal.textContent = String(v|0);
+    window.HHA_VRUI_CONFIG = window.HHA_VRUI_CONFIG || {};
+    window.HHA_VRUI_CONFIG.lockPx = v|0;
+  }
+  lockRange.addEventListener('input', ()=> setLock(lockRange.value));
+  setLock( (window.HHA_VRUI_CONFIG && window.HHA_VRUI_CONFIG.lockPx) || 92 );
 
-  $('btnCopyLink').addEventListener('click', async ()=>{
-    const ok = await copyText(buildLink());
-    alert(ok ? 'คัดลอกลิงก์แล้ว ✅' : 'Copy ไม่สำเร็จ');
-  });
-
-  // --------- Start engine ---------
+  // ---------- Start engine ----------
   function waitForEngine(cb){
     const it = setInterval(()=>{
       const E = window.GroupsVR && window.GroupsVR.GameEngine;
@@ -459,39 +549,39 @@
     }, 60);
   }
 
-  function startGame(){
-    // view side-effects:
-    setView(state.view);
+  function startFromParams(){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
+    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
+    const diff = String(qs('diff','normal')||'normal').toLowerCase();
+    const style= String(qs('style','mix')||'mix').toLowerCase();
+    const time = clamp(qs('time',90), 30, 180);
+    const seed = String(qs('seed', Date.now()) || Date.now());
 
-    // Cardboard -> disable clicking targets (CSS already does pointer-events:none on targets)
+    setView(view);
     hookAudio();
+    hookAI(seed, run);
+
+    // practice default for cVR unless explicitly disabled
+    const practiceParam = String(qs('practice', (view==='cvr'?'1':'0'))||'0');
+    const doPractice = (practiceParam === '1');
 
     waitForEngine((E)=>{
-      E.setLayerEl($('playLayer'));
-      startIso = new Date().toISOString();
-      E.start(state.diff, { runMode: state.run, diff: state.diff, style: state.style, time: state.time, seed: state.seed });
+      // if practice, run 15s easy-ish (still uses same diff but shorter time)
+      if (doPractice){
+        practiceActive = true;
+        showPractice(true);
+        setPracLine('ฝึก 15 วินาที… 🎯');
+
+        // start practice with separate seed
+        const pSeed = seed + '::practice';
+        startEngine(E, diff, 'play', style, 15, pSeed);
+      }else{
+        startEngine(E, diff, run, style, time, seed);
+      }
     });
   }
 
-  $('btnStart').addEventListener('click', ()=>{
-    DOC.getElementById('startOverlay').classList.add('hidden');
-    startGame();
-  });
-
-  // --------- Auto-start if launched from launcher (has query) ---------
-  // ถ้ามาจาก groups-vr.html จะมีพารามิเตอร์ครบ -> auto-start
-  // แต่ยังคงให้ overlay โผล่ก่อน 1 ชั้น (กันผู้ใช้สับสน)
-  pickView(state.view);
-  pickRun(state.run);
-  pickDiff(state.diff);
-  pickStyle(state.style);
-
-  // ถ้าอยาก auto-start ทันที: ใส่ autostart=1
-  if (String(qs('autostart','0')||'0') === '1'){
-    DOC.getElementById('startOverlay').classList.add('hidden');
-    startGame();
-  }
-
+  startFromParams();
 })();
 </script>
 </body>
