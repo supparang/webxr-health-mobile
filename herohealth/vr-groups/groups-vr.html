@@ -7,7 +7,6 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- Shared CSS -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
   <!-- A-Frame minimal scene -> WebXR session reliable -->
@@ -16,18 +15,24 @@
   <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
   <script>
-    // lockPx for aim assist (crosshair lock)
     window.HHA_VRUI_CONFIG = { lockPx: 92 };
   </script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- (NEW) AI stubs -->
+  <!-- AI stubs (remember-first) -->
   <script src="./ai-stubs.js" defer></script>
 
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
   <script src="./GameEngine.js" defer></script>
+
+  <style>
+    /* start overlay tweaks */
+    .overlay-start .panel{ max-width: 760px; }
+    .row3{ display:flex; gap:10px; flex-wrap:wrap; }
+    .miniHint{ color: var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
+  </style>
 </head>
 
 <body class="view-mobile">
@@ -39,6 +44,65 @@
     </a-entity>
     <a-sky color="#020617"></a-sky>
   </a-scene>
+
+  <!-- START overlay -->
+  <div id="startOverlay" class="overlay overlay-start">
+    <div class="panel">
+      <div class="title">🥗 Food Groups VR</div>
+      <div class="sub" id="startSub">
+        เลือกอุปกรณ์ + กดเริ่มเกม (โหมด Cardboard แนะนำให้กด ENTER VR หลังเริ่ม)
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid2">
+        <div class="kv">
+          <div class="k">DEVICE / VIEW</div>
+          <div class="v">
+            <button id="vPC" class="chip" type="button">🖥️ PC</button>
+            <button id="vMobile" class="chip chip-on" type="button">📱 Mobile</button>
+            <button id="vCVR" class="chip" type="button">🕶️ Cardboard</button>
+          </div>
+          <div class="miniHint" id="viewHint" style="margin-top:8px;">—</div>
+        </div>
+
+        <div class="kv">
+          <div class="k">PARAMS</div>
+          <div class="v" style="flex-wrap:wrap;">
+            <span class="chip" id="pRun">run=play</span>
+            <span class="chip" id="pDiff">diff=normal</span>
+            <span class="chip" id="pStyle">style=mix</span>
+            <span class="chip" id="pTime">time=90</span>
+            <span class="chip" id="pAI">ai=on</span>
+          </div>
+          <div class="miniHint" style="margin-top:8px;">
+            ถ้าเข้าแบบ “run ตรง” แล้วไม่ใส่ view ระบบจะเดาให้ (PC/Mobile/Cardboard)
+          </div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="row3">
+        <button id="btnStart" class="btn btn-strong" type="button">▶️ เริ่มเกม</button>
+        <button id="btnEnterVR" class="btn" type="button">🕶️ ENTER VR</button>
+        <button id="btnFs" class="btn btn-ghost" type="button">⛶ Fullscreen</button>
+      </div>
+
+      <div class="note" style="margin-top:10px;">
+        Cardboard: ยิงด้วย crosshair → แตะจอ / ปุ่ม ENTER VR จะขึ้นทั้งจาก vr-ui.js และปุ่มด้านบนนี้
+      </div>
+
+      <div class="note" id="logReady" style="margin-top:8px; display:none;">
+        📡 Logging พร้อมใช้งาน (จะส่งผลตอนจบเกม)
+      </div>
+
+      <div class="row row2">
+        <button id="btnGoLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
+        <button id="btnGoHub" class="btn btn-ghost" type="button">🏠 ไป HUB</button>
+      </div>
+    </div>
+  </div>
 
   <!-- HUD -->
   <div class="hud">
@@ -90,7 +154,7 @@
       <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
       <div class="coachBubble">
         <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">กำลังเริ่มเกม…</div>
+        <div id="coachText" class="coachText">กำลังรอเริ่มเกม…</div>
       </div>
     </div>
   </div>
@@ -121,10 +185,10 @@
       </div>
 
       <div class="note" style="margin-top:10px;">
-        Cardboard (cVR): ยิงด้วย crosshair → แตะจอ (ปุ่ม ENTER VR จะอยู่มุมล่างจาก vr-ui.js)
+        Cardboard: ยิงด้วย crosshair → แตะจอ / ENTER VR อยู่ที่ปุ่มล่าง (vr-ui.js)
       </div>
       <div class="note" id="logNote" style="margin-top:8px; display:none;">
-        📡 Logging: พร้อมส่งผลไปยังระบบแล้ว
+        📡 Logging: บันทึกผลแล้ว (จะพยายามส่งให้สำเร็จ)
       </div>
     </div>
   </div>
@@ -140,10 +204,50 @@
     catch { return def; }
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function isMobile(){
+    const w = window.innerWidth || 0;
+    const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
+    return touch && w <= 900;
+  }
+  function isQuest(){
+    const ua = String(navigator.userAgent||'');
+    return /OculusBrowser|Quest|Meta Quest/i.test(ua);
+  }
   function setView(view){
     const b = DOC.body;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     b.classList.add('view-'+view);
+  }
+  function chipOn(el, on){ el.classList.toggle('chip-on', !!on); }
+
+  // ---------- Resolve view (AUTO DETECT) ----------
+  function resolveView(){
+    const v = String(qs('view','')||'').toLowerCase().trim();
+    if (v==='pc'||v==='mobile'||v==='cvr'||v==='vr') return v;
+
+    // auto
+    if (isQuest()) return 'vr';
+    if (isMobile()) return 'cvr';     // mobile default to cardboard-friendly (ยิงจาก crosshair)
+    return 'pc';
+  }
+
+  // ---------- Fullscreen + EnterVR fallback ----------
+  function isFs(){
+    return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
+  }
+  async function enterFs(){
+    try{
+      const el = DOC.documentElement;
+      if (el.requestFullscreen) await el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+    }catch(_){}
+  }
+  async function enterVR(){
+    // fallback: call A-Frame scene.enterVR()
+    try{
+      const scene = DOC.querySelector('a-scene');
+      if (scene && scene.enterVR) scene.enterVR();
+    }catch(_){}
   }
 
   async function copyText(text){
@@ -201,7 +305,6 @@
     $('pFill').style.width = Math.round((cur/thr)*100) + '%';
   }, {passive:true});
 
-  // quest:update -> goal/mini
   window.addEventListener('quest:update', (ev)=>{
     const d = ev.detail||{};
     const gTitle = String(d.goalTitle||'—');
@@ -225,11 +328,10 @@
     $('miniSub').textContent = mTitle;
     $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
 
-    const urgent = (mLeft>0 && mLeft<=3);
-    DOC.body.classList.toggle('mini-urgent', urgent);
+    DOC.body.classList.toggle('mini-urgent', (mLeft>0 && mLeft<=3));
   }, {passive:true});
 
-  // ---------- Audio tick loop (urgent) ----------
+  // ---------- Audio hook ----------
   function hookAudio(){
     const A = window.GroupsVR && window.GroupsVR.Audio;
     if (!A) return;
@@ -262,30 +364,23 @@
     tickLoop();
   }
 
-  // ---------- End / Summary + HUB history ----------
+  // ---------- Logging (flush-hardened) ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
-
-  // ---------- Logging (flush-hardened) ----------
   const LS_PENDING = 'HHA_LOG_PENDING';
+
   let pending = { sent:false, url:'', payload:null };
 
-  function getLogUrl(){
-    const u = String(qs('log','')||'').trim();
-    return u;
-  }
+  function getLogUrl(){ return String(qs('log','')||'').trim(); }
 
   function loadPending(){
     try{
       const obj = JSON.parse(localStorage.getItem(LS_PENDING)||'null');
-      if (obj && obj.url && obj.payload && !obj.sent){
-        pending = obj;
-      }
+      if (obj && obj.url && obj.payload && !obj.sent) pending = obj;
     }catch{}
   }
-  function savePending(){
-    try{ localStorage.setItem(LS_PENDING, JSON.stringify(pending)); }catch{}
-  }
+  function savePending(){ try{ localStorage.setItem(LS_PENDING, JSON.stringify(pending)); }catch{} }
+
   async function postLog(url, payload){
     if (!url) return false;
     try{
@@ -298,13 +393,16 @@
       return !!res && (res.ok || res.status===0);
     }catch{ return false; }
   }
+
   async function flushLog(){
-    if (!pending || pending.sent || !pending.url || !pending.payload) return;
+    if (!pending || pending.sent || !pending.url || !pending.payload) return false;
     const ok = await postLog(pending.url, pending.payload);
     if (ok){
       pending.sent = true;
       savePending();
+      return true;
     }
+    return false;
   }
 
   function saveLast(summary){
@@ -316,6 +414,12 @@
     }catch{}
   }
 
+  // retry pending early (help if last time offline)
+  loadPending();
+  flushLog().catch(()=>{});
+  window.addEventListener('pageshow', ()=>{ try{ flushLog(); }catch{} });
+
+  // ---------- End / Summary ----------
   let lastSummary = null;
   let startIso = new Date().toISOString();
 
@@ -339,13 +443,11 @@
 
     saveLast(lastSummary);
 
-    // prepare pending log
     const logUrl = getLogUrl();
     if (logUrl){
       $('logNote').style.display = 'block';
       pending = { sent:false, url: logUrl, payload: lastSummary };
       savePending();
-      // try flush now
       await flushLog();
     }
 
@@ -358,6 +460,8 @@
 
     const hub = String(qs('hub','')||'');
     $('btnHub').style.display = hub ? 'inline-flex' : 'none';
+
+    DOC.body.dataset.ended = '1';
   }, {passive:false});
 
   $('btnRestart').addEventListener('click', ()=> location.reload());
@@ -369,7 +473,6 @@
   });
 
   function go(url){
-    // flush-hardened ก่อนออก
     flushLog().finally(()=>{ location.href = url; });
   }
 
@@ -387,11 +490,23 @@
     go(hub);
   });
 
-  // extra harden: flush on unload if pending
-  loadPending();
-  window.addEventListener('beforeunload', ()=>{ try{ flushLog(); }catch{} });
+  // ---------- Back button harden ----------
+  // ถ้ากด back ระหว่างเล่น: พาไป launcher (พร้อม flush)
+  history.pushState({hha:1}, '', location.href);
+  window.addEventListener('popstate', ()=>{
+    const ended = (DOC.body.dataset.ended==='1');
+    if (ended){
+      // ถ้าจบแล้วให้ปล่อยตามผู้ใช้ (แต่ก็ flush)
+      flushLog().finally(()=> history.pushState({hha:1}, '', location.href));
+    }else{
+      const u = new URL('../groups-vr.html', location.href);
+      const hub = String(qs('hub','')||''); if (hub) u.searchParams.set('hub', hub);
+      const logUrl = getLogUrl(); if (logUrl) u.searchParams.set('log', logUrl);
+      go(u.toString());
+    }
+  });
 
-  // ---------- Start engine ----------
+  // ---------- Engine boot ----------
   function waitForEngine(cb){
     const it = setInterval(()=>{
       const E = window.GroupsVR && window.GroupsVR.GameEngine;
@@ -402,26 +517,100 @@
     }, 60);
   }
 
-  function startFromParams(){
-    const view = String(qs('view','mobile')||'mobile').toLowerCase();
-    const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
-    const diff = String(qs('diff','normal')||'normal').toLowerCase();
-    const style= String(qs('style','mix')||'mix').toLowerCase();
-    const time = clamp(qs('time',90), 30, 180);
-    const seed = String(qs('seed', Date.now()) || Date.now());
-    const ai   = (String(qs('ai','on')||'on').toLowerCase() !== 'off');
+  // ---------- Start overlay control ----------
+  const state = {
+    view: resolveView(),
+    run: (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play',
+    diff: String(qs('diff','normal')||'normal').toLowerCase(),
+    style: String(qs('style','mix')||'mix').toLowerCase(),
+    time: clamp(qs('time',90), 30, 180),
+    seed: String(qs('seed', Date.now()) || Date.now()),
+    ai: (String(qs('ai','on')||'on').toLowerCase() !== 'off'),
+  };
 
-    setView(view);
+  function syncStartUI(){
+    chipOn($('vPC'), state.view==='pc');
+    chipOn($('vMobile'), state.view==='mobile');
+    chipOn($('vCVR'), state.view==='cvr');
+
+    $('pRun').textContent  = 'run=' + state.run;
+    $('pDiff').textContent = 'diff=' + state.diff;
+    $('pStyle').textContent= 'style=' + state.style;
+    $('pTime').textContent = 'time=' + String(state.time|0);
+    $('pAI').textContent   = 'ai=' + (state.ai?'on':'off');
+
+    const hint =
+      (state.view==='cvr')
+        ? '🕶️ Cardboard: ยิงด้วย crosshair (แตะจอเพื่อยิง) แนะนำกด ENTER VR'
+        : (state.view==='vr')
+          ? '🕶️ VR HMD: ใช้ ENTER VR แล้วเล่นแบบ VR'
+          : (state.view==='mobile')
+            ? '📱 Mobile: แตะเป้าได้โดยตรง / หรือสลับไป Cardboard ได้'
+            : '🖥️ PC: คลิกเป้าได้โดยตรง';
+    $('viewHint').textContent = hint;
+
+    const logUrl = getLogUrl();
+    $('logReady').style.display = logUrl ? 'block' : 'none';
+  }
+
+  $('vPC').addEventListener('click', ()=>{ state.view='pc'; setView('pc'); syncStartUI(); });
+  $('vMobile').addEventListener('click', ()=>{ state.view='mobile'; setView('mobile'); syncStartUI(); });
+  $('vCVR').addEventListener('click', ()=>{ state.view='cvr'; setView('cvr'); syncStartUI(); });
+
+  $('btnFs').addEventListener('click', ()=> enterFs());
+  $('btnEnterVR').addEventListener('click', ()=> enterVR());
+
+  $('btnGoLauncher').addEventListener('click', ()=>{
+    const u = new URL('../groups-vr.html', location.href);
+    const hub = String(qs('hub','')||''); if (hub) u.searchParams.set('hub', hub);
+    const logUrl = getLogUrl(); if (logUrl) u.searchParams.set('log', logUrl);
+    go(u.toString());
+  });
+
+  $('btnGoHub').addEventListener('click', ()=>{
+    const hub = String(qs('hub','')||'');
+    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
+    go(hub);
+  });
+
+  function hideStart(){
+    $('startOverlay').classList.add('hidden');
+  }
+
+  function startEngine(){
     hookAudio();
-
     waitForEngine((E)=>{
       E.setLayerEl($('playLayer'));
       startIso = new Date().toISOString();
-      E.start(diff, { runMode: run, diff, style, time, seed, ai });
+      E.start(state.diff, { runMode: state.run, diff: state.diff, style: state.style, time: state.time, seed: state.seed, ai: state.ai });
     });
   }
 
-  startFromParams();
+  $('btnStart').addEventListener('click', async ()=>{
+    // unlock audio early
+    try{
+      const A = window.GroupsVR && window.GroupsVR.Audio;
+      A && A.unlock && A.unlock();
+    }catch(_){}
+    // auto fullscreen for cvr (optional)
+    if (state.view==='cvr' && !isFs()) await enterFs();
+    hideStart();
+    startEngine();
+  });
+
+  // init
+  setView(state.view==='vr' ? 'vr' : state.view);
+  syncStartUI();
+
+  // end overlay buttons
+  $('btnBackLauncher').addEventListener('click', ()=>{
+    const hub = String(qs('hub','')||'');
+    const u = new URL('../groups-vr.html', location.href);
+    if (hub) u.searchParams.set('hub', hub);
+    const logUrl = getLogUrl(); if (logUrl) u.searchParams.set('log', logUrl);
+    go(u.toString());
+  });
+
 })();
 </script>
 </body>
