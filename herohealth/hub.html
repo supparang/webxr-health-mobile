@@ -1,14 +1,6 @@
 <!-- === /herohealth/hub.html ===
-HeroHealth HUB (PRODUCTION ++ HISTORY + CSV) — PATH FIXED
-✅ ใช้ hub.safe.js (path mapping ถูกต้อง)
-✅ Plate -> /herohealth/plate-vr.html
-✅ GoodJunk -> /herohealth/goodjunk-vr.html
-✅ Hydration -> /herohealth/hydration-vr.html
-✅ Groups -> /herohealth/vr-groups/groups-vr.html
-✅ แตะ 1=Copy / 2=Play (ทั้งปุ่มเกมและแถว history)
-✅ Export CSV (last / recent4)
+HeroHealth HUB — เลือกเกม + ส่งพารามิเตอร์วิจัยต่อ + ใส่ hub=... ให้อัตโนมัติ
 -->
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -17,455 +9,257 @@ HeroHealth HUB (PRODUCTION ++ HISTORY + CSV) — PATH FIXED
   <title>HeroHealth — HUB</title>
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
   <style>
     :root{
       color-scheme: dark;
       --bg:#020617;
-      --panel:rgba(2,6,23,.70);
-      --panel2:rgba(15,23,42,.62);
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
-      --good:#22c55e;
+      --accent:#22c55e;
       --warn:#f59e0b;
-      --bad:#ef4444;
-      --gold:#facc15;
-      --radius:18px;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --radius:22px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    html,body{height:100%; margin:0; background:var(--bg); color:var(--text);}
-    .wrap{max-width:1000px; margin:0 auto; padding:14px 12px 28px;}
-    .topbar{
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
-      padding:12px;
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      background:linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.55));
-      box-shadow:0 22px 70px rgba(0,0,0,.40);
-      backdrop-filter: blur(10px);
-    }
-    .brand{display:flex; gap:10px; align-items:center;}
-    .logo{
-      width:44px; height:44px; border-radius:14px;
-      background:rgba(34,197,94,.14);
-      border:1px solid rgba(34,197,94,.25);
-      display:grid; place-items:center;
-      font-weight:1100;
-      box-shadow:0 16px 40px rgba(0,0,0,.35);
-    }
-    .title{font-size:16px; font-weight:1100; line-height:1.1;}
-    .sub{color:rgba(148,163,184,.95); font-weight:900; font-size:12px; margin-top:2px;}
-    .pill{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:8px 12px; border-radius:999px;
-      background:rgba(15,23,42,.58);
-      border:1px solid rgba(148,163,184,.16);
-      font-weight:1000;
-      white-space:nowrap;
-    }
-    .k{color:var(--muted); font-weight:900; font-size:11px;}
-    .v{font-weight:1100;}
-    .grid{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap:12px;
-    }
-    @media (max-width:900px){
-      .grid{grid-template-columns:1fr; }
-    }
-    .card{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:12px;
-      box-shadow:0 20px 60px rgba(0,0,0,.35);
-      backdrop-filter: blur(10px);
-    }
-    .card h3{
-      margin:0 0 8px 0;
-      font-size:14px;
-      font-weight:1100;
-      letter-spacing:.2px;
-    }
-    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
-    .row + .row{margin-top:10px;}
-    .btn{
-      background:rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.20);
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; width:100%; height:100%;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 60%),
+        radial-gradient(circle at 90% 92%, rgba(167,139,250,.10), transparent 62%),
+        radial-gradient(circle at 60% 55%, rgba(34,197,94,.08), transparent 60%),
+        var(--bg);
       color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:1100;
-      user-select:none;
-      -webkit-tap-highlight-color:transparent;
-      box-shadow:0 16px 40px rgba(0,0,0,.32);
-      backdrop-filter: blur(10px);
-      cursor:pointer;
+      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
     }
-    .btn:active{transform:translateY(1px);}
-    .btn.primary{
-      background:rgba(34,197,94,.14);
-      border-color:rgba(34,197,94,.30);
+    .wrap{
+      min-height:100%;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+      display:flex; align-items:center; justify-content:center;
     }
-    .btn.warn{
-      background:rgba(250,204,21,.12);
-      border-color:rgba(250,204,21,.30);
+    .panel{
+      width:min(980px, 100%);
+      background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.72));
+      border:1px solid var(--stroke);
+      border-radius: 28px;
+      padding: 18px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.38);
     }
-    .btn.danger{
-      background:rgba(239,68,68,.12);
-      border-color:rgba(239,68,68,.28);
-    }
-    select,input{
-      background:rgba(15,23,42,.62);
-      border:1px solid rgba(148,163,184,.20);
-      color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:1000;
-      outline:none;
-    }
-    input{width:140px;}
-    .miniGrid{
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
-      gap:10px;
-      margin-top:10px;
-    }
-    @media (max-width:720px){
-      .miniGrid{grid-template-columns: repeat(2, minmax(0,1fr));}
-    }
-    .kv{
-      background:rgba(15,23,42,.55);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:16px;
-      padding:10px 12px;
-    }
-    .kv .k{display:block; margin-bottom:4px;}
-    .kv .v{font-size:16px;}
-    .badge{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 12px; border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.55);
-      font-weight:1100;
-    }
-    .badge.good{border-color:rgba(34,197,94,.28); background:rgba(34,197,94,.10);}
-    .badge.warn{border-color:rgba(250,204,21,.30); background:rgba(250,204,21,.10);}
-    .badge.bad{border-color:rgba(239,68,68,.28); background:rgba(239,68,68,.10);}
-    .muted{color:rgba(148,163,184,.95); font-weight:900;}
-    details{
-      margin-top:10px;
-      background:rgba(15,23,42,.42);
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:16px;
-      padding:10px 12px;
-    }
-    pre{
-      margin:8px 0 0 0;
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:12px;
-      color:rgba(229,231,235,.92);
-    }
-    .games{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:10px;
-    }
-    @media (max-width:720px){
-      .games{grid-template-columns:1fr;}
-    }
-    .gameBtn{
-      display:flex; justify-content:space-between; align-items:center;
-      padding:12px; border-radius:18px;
-      background:rgba(2,6,23,.58);
-      border:1px solid rgba(148,163,184,.18);
-      box-shadow:0 18px 44px rgba(0,0,0,.28);
-      cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color:transparent;
-    }
-    .gameBtn:active{transform:translateY(1px);}
-    .gameName{font-weight:1100;}
-    .gameHint{color:rgba(148,163,184,.95); font-weight:900; font-size:12px; margin-top:4px;}
-    .rightTag{
-      font-weight:1100;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.52);
-      white-space:nowrap;
-    }
+    .top{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .title{ font-weight:1100; font-size:26px; letter-spacing:.2px; }
+    .sub{ color:var(--muted); margin-top:6px; line-height:1.35; font-weight:850; }
+    .hr{ height:1px; background:var(--stroke); margin: 14px 0; }
+    .grid{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
+    @media (max-width:860px){ .grid{ grid-template-columns:1fr; } }
 
-    /* ===== Recent table ===== */
-    .tableWrap{
-      margin-top:10px;
-      border:1px solid rgba(148,163,184,.14);
-      border-radius:16px;
-      overflow:hidden;
-      background:rgba(15,23,42,.40);
+    .card{
+      background: rgba(2,6,23,.55);
+      border:1px solid var(--stroke);
+      border-radius: 18px;
+      padding: 14px;
     }
-    table{width:100%; border-collapse:collapse; font-size:12px;}
-    thead th{
+    .h{ font-weight:1000; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+    .hint{ color: var(--muted); font-weight:900; font-size:13px; line-height:1.35; }
+    .btn{
+      appearance:none;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.65);
+      color: var(--text);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-weight: 1050;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .12s ease, background .12s ease;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      width:100%;
       text-align:left;
-      padding:10px 10px;
-      background:rgba(2,6,23,.62);
-      color:rgba(148,163,184,.98);
-      font-weight:1100;
-      border-bottom:1px solid rgba(148,163,184,.14);
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn:hover{ border-color: rgba(148,163,184,.35); }
+    .tag{
+      font-size:12px;
+      font-weight:950;
+      color: rgba(229,231,235,.92);
+      padding: 6px 10px;
+      border-radius: var(--pill);
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.55);
       white-space:nowrap;
     }
-    tbody td{
-      padding:10px 10px;
-      border-bottom:1px solid rgba(148,163,184,.10);
+    .tag.good{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
+    .tag.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
+    .tag.cyan{ border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
+    .meta{
+      margin-top:10px;
+      background:var(--panel2);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:10px 12px;
       color:rgba(229,231,235,.92);
       font-weight:900;
-      vertical-align:top;
+      font-size:12px;
+      line-height:1.35;
+      word-break:break-word;
     }
-    tbody tr:last-child td{border-bottom:none;}
-    .tdGame{font-weight:1100;}
-    .gradeTag{
-      display:inline-flex; align-items:center; justify-content:center;
-      min-width:44px;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.52);
-      font-weight:1100;
-    }
-    .gradeTag.good{border-color:rgba(34,197,94,.26); background:rgba(34,197,94,.10);}
-    .gradeTag.warn{border-color:rgba(250,204,21,.28); background:rgba(250,204,21,.10);}
-    .gradeTag.bad{border-color:rgba(239,68,68,.26); background:rgba(239,68,68,.10);}
-
-    /* ===== Tap Feedback FX ===== */
-    .gameBtn, .btn { touch-action: manipulation; }
-    .gameBtn.pulseGood, tr.pulseGood { animation:hhaPulseGood .42s ease-out; }
-    .gameBtn.pulseWarn, tr.pulseWarn { animation:hhaPulseWarn .42s ease-out; }
-    .gameBtn.pulseBad,  tr.pulseBad  { animation:hhaPulseBad  .42s ease-out; }
-
-    @keyframes hhaPulseGood{
-      0%{ box-shadow:0 0 0 rgba(34,197,94,0); transform:translateY(0); }
-      35%{ box-shadow:0 0 0 6px rgba(34,197,94,.18), 0 18px 44px rgba(0,0,0,.28); }
-      100%{ box-shadow:0 18px 44px rgba(0,0,0,.28); transform:translateY(0); }
-    }
-    @keyframes hhaPulseWarn{
-      0%{ box-shadow:0 0 0 rgba(250,204,21,0); transform:translateY(0); }
-      35%{ box-shadow:0 0 0 6px rgba(250,204,21,.18), 0 18px 44px rgba(0,0,0,.28); }
-      100%{ box-shadow:0 18px 44px rgba(0,0,0,.28); transform:translateY(0); }
-    }
-    @keyframes hhaPulseBad{
-      0%{ box-shadow:0 0 0 rgba(239,68,68,0); transform:translateY(0); }
-      35%{ box-shadow:0 0 0 6px rgba(239,68,68,.16), 0 18px 44px rgba(0,0,0,.28); }
-      100%{ box-shadow:0 18px 44px rgba(0,0,0,.28); transform:translateY(0); }
-    }
-
-    /* ===== Make history rows clickable ===== */
-    tbody tr[data-i]{ cursor:pointer; }
-    tbody tr[data-i]:hover td{ background:rgba(34,197,94,.05); }
-
-    /* ===== history action buttons ===== */
-    .actWrap{display:flex; gap:8px; align-items:center;}
-    .actBtn{
-      display:inline-flex; align-items:center; justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.52);
+    .pill{
+      border-radius: var(--pill);
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(15,23,42,.55);
       color:rgba(229,231,235,.92);
-      font-weight:1100;
+      height:38px;
+      padding:0 12px;
+      font-weight:950;
       cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color:transparent;
     }
-    .actBtn:active{transform:translateY(1px);}
-    .actBtn.play{
-      border-color:rgba(250,204,21,.28);
-      background:rgba(250,204,21,.10);
-    }
-    .actBtn.json{
-      border-color:rgba(34,197,94,.24);
-      background:rgba(34,197,94,.10);
-    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; }
   </style>
-
-  <!-- ✅ PATH FIX script -->
-  <script type="module" src="./hub.safe.js?v=20251230"></script>
 </head>
 
 <body>
   <div class="wrap">
-    <div class="topbar">
-      <div class="brand">
-        <div class="logo">HHA</div>
+    <div class="panel">
+      <div class="top">
         <div>
-          <div class="title">HeroHealth HUB</div>
-          <div class="sub">ผลล่าสุด + 4 ล่าสุด + Export CSV • แตะ 1=Copy / 2=Play</div>
+          <div class="title">🏠 HeroHealth — HUB</div>
+          <div class="sub">เลือกเกมเข้าเล่น • ส่งพารามิเตอร์วิจัยต่ออัตโนมัติ • ใส่ <span class="mono">hub=...</span> ให้กลับมาหน้านี้ได้</div>
+        </div>
+        <button class="pill" id="btnCopyHub" type="button">📋 Copy HUB link</button>
+      </div>
+
+      <div class="meta" id="metaBox">loading…</div>
+
+      <div class="hr"></div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="h">🥦🍟 GoodJunkVR</div>
+          <button class="btn" id="btnGoodJunkLauncher" type="button">
+            <span>เข้า Launcher (PC/Mobile/Cardboard)</span>
+            <span class="tag good">recommended</span>
+          </button>
+          <div class="hint" style="margin-top:10px;">ไฟล์: <span class="mono">/herohealth/goodjunk-vr-launcher.html</span></div>
+        </div>
+
+        <div class="card">
+          <div class="h">🍽️ Food Groups VR</div>
+          <button class="btn" id="btnGroupsLauncher" type="button">
+            <span>เข้า Launcher (PC/Mobile/Cardboard)</span>
+            <span class="tag cyan">launcher</span>
+          </button>
+          <div class="hint" style="margin-top:10px;">ไฟล์: <span class="mono">/herohealth/groups-vr.html</span></div>
+        </div>
+
+        <div class="card">
+          <div class="h">🥤 Hydration VR</div>
+          <button class="btn" id="btnHydrationRun" type="button">
+            <span>เข้าหน้าเกม (Run)</span>
+            <span class="tag warn">direct</span>
+          </button>
+          <div class="hint" style="margin-top:10px;">คาดว่าอยู่ที่ <span class="mono">/herohealth/hydration-vr/hydration-vr.html</span> (ถ้าไฟล์มีอยู่)</div>
+        </div>
+
+        <div class="card">
+          <div class="h">🍱 Balanced Plate VR</div>
+          <button class="btn" id="btnPlateRun" type="button">
+            <span>เข้าหน้าเกม (Run)</span>
+            <span class="tag warn">direct</span>
+          </button>
+          <div class="hint" style="margin-top:10px;">คาดว่าอยู่ที่ <span class="mono">/herohealth/plate/plate-vr.html</span> หรือ <span class="mono">/herohealth/plate/plate.html</span> (ตามไฟล์จริง)</div>
         </div>
       </div>
-      <div class="row" style="justify-content:flex-end">
-        <span class="pill"><span class="k">NOW</span> <span id="nowText" class="v">—</span></span>
+
+      <div class="hr"></div>
+      <div class="hint">
+        • ถ้าต้องการ “โหมดวิจัย” ให้ใส่พารามิเตอร์เช่น <span class="mono">run=research&amp;seed=...</span> ที่ HUB แล้วกดเข้าเกมจากปุ่ม<br/>
+        • ทุกปุ่มจะ “พกพารามิเตอร์ทั้งหมด” ไปด้วย และจะเติม <span class="mono">hub=...</span> ให้อัตโนมัติ
       </div>
     </div>
+  </div>
 
-    <div class="grid">
-      <!-- Left: Launch / Settings -->
-      <div class="card">
-        <h3>เริ่มเกม</h3>
+<script>
+(function(){
+  'use strict';
+  const DOC = document;
 
-        <div class="row">
-          <span class="pill"><span class="k">MODE</span>
-            <select id="selRun">
-              <option value="play">Play</option>
-              <option value="study">Research</option>
-            </select>
-          </span>
+  function baseHubUrl(){
+    // เอา HUB ปัจจุบันเป็นตัวกลับ (รวม query ปัจจุบันด้วย)
+    return location.href;
+  }
 
-          <span class="pill"><span class="k">DIFF</span>
-            <select id="selDiff">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
-            </select>
-          </span>
+  function buildTo(path){
+    const to = new URL(path, location.href);
+    const sp = new URL(location.href).searchParams;
 
-          <span class="pill"><span class="k">TIME</span>
-            <input id="inpTime" type="number" min="20" step="1" value="70" />
-          </span>
+    // ส่งพารามิเตอร์ทั้งหมดต่อไป ยกเว้น hub เดิม (จะเขียนใหม่)
+    sp.forEach((v,k)=>{
+      if (k === 'hub') return;
+      if (!to.searchParams.has(k)) to.searchParams.set(k, v);
+    });
 
-          <span class="pill"><span class="k">SEED</span>
-            <input id="inpSeed" type="number" step="1" placeholder="(optional)" />
-          </span>
+    // ใส่ hub กลับมาหน้านี้
+    to.searchParams.set('hub', baseHubUrl());
+    return to.toString();
+  }
 
-          <button class="btn warn" id="btnApplyPreset">⚙️ ตั้งเวลาอัตโนมัติ</button>
-        </div>
+  function setMeta(){
+    const sp = new URL(location.href).searchParams;
+    const showKeys = [];
+    sp.forEach((v,k)=> showKeys.push(`${k}=${v}`));
+    DOC.getElementById('metaBox').textContent =
+      showKeys.length ? ('Params: ' + showKeys.join(' • ')) : 'Params: — (no query params)';
+  }
 
-        <div class="muted" style="margin-top:8px; line-height:1.3">
-          • Research = deterministic เสมอ (ถ้าไม่ใส่ seed เกมจะใช้ค่า default) <br>
-          • Play = random ปกติ (แต่ถ้าใส่ seed จะ deterministic)
-        </div>
+  async function copyText(text){
+    try{ await navigator.clipboard.writeText(String(text||'')); return true; }
+    catch{
+      try{
+        const ta = DOC.createElement('textarea');
+        ta.value = String(text||'');
+        DOC.body.appendChild(ta);
+        ta.select(); DOC.execCommand('copy');
+        ta.remove();
+        return true;
+      }catch{ return false; }
+    }
+  }
 
-        <div class="games">
-          <div class="gameBtn" data-game="goodjunk">
-            <div>
-              <div class="gameName">🥦 GoodJunk VR</div>
-              <div class="gameHint">ของดี/ขยะ + FEVER/Shield + Boss</div>
-            </div>
-            <div class="rightTag">PLAY</div>
-          </div>
+  setMeta();
 
-          <div class="gameBtn" data-game="hydration">
-            <div>
-              <div class="gameName">💧 Hydration VR</div>
-              <div class="gameHint">น้ำสมดุล + Storm minis + Adaptive (Play)</div>
-            </div>
-            <div class="rightTag">PLAY</div>
-          </div>
+  DOC.getElementById('btnGoodJunkLauncher').addEventListener('click', ()=>{
+    location.href = buildTo('./goodjunk-vr-launcher.html');
+  });
 
-          <div class="gameBtn" data-game="plate">
-            <div>
-              <div class="gameName">🍽️ Plate VR</div>
-              <div class="gameHint">จานสมดุล 5 หมู่ + Plate Rush (ไฟล์ใหม่ plate-vr.html)</div>
-            </div>
-            <div class="rightTag">PLAY</div>
-          </div>
+  DOC.getElementById('btnGroupsLauncher').addEventListener('click', ()=>{
+    location.href = buildTo('./groups-vr.html');
+  });
 
-          <div class="gameBtn" data-game="groups">
-            <div>
-              <div class="gameName">🍎 Groups VR</div>
-              <div class="gameHint">เกมอาหาร 5 หมู่ + Boss/Decoy</div>
-            </div>
-            <div class="rightTag">PLAY</div>
-          </div>
-        </div>
+  DOC.getElementById('btnHydrationRun').addEventListener('click', ()=>{
+    location.href = buildTo('./hydration-vr/hydration-vr.html');
+  });
 
-        <div class="row" style="margin-top:10px">
-          <button class="btn" id="btnCopyLink">🔗 คัดลอกลิงก์เกมที่เลือก</button>
-          <span class="muted" id="linkHint">เลือกเกมด้านบนก่อน</span>
-        </div>
-      </div>
+  DOC.getElementById('btnPlateRun').addEventListener('click', ()=>{
+    // ปรับปลายทางให้ตรงไฟล์จริงถ้าชื่อไม่ใช่นี้
+    location.href = buildTo('./plate/plate-vr.html');
+  });
 
-      <!-- Right: Last summary + Recent -->
-      <div class="card">
-        <h3>ผลล่าสุด (HHA_LAST_SUMMARY)</h3>
-
-        <div id="lastEmpty" class="muted" style="display:none; line-height:1.3">
-          ยังไม่มีผลล่าสุด — ไปเล่นสักเกมก่อน แล้วกลับมาดูได้เลย ✅
-        </div>
-
-        <div id="lastPanel" style="display:none">
-          <div class="row">
-            <span id="badgeGame" class="badge">—</span>
-            <span id="badgeGrade" class="badge">—</span>
-            <span class="pill"><span class="k">SESSION</span> <span id="lastSession" class="v">—</span></span>
-          </div>
-
-          <div class="miniGrid">
-            <div class="kv"><span class="k">Score</span><span id="lastScore" class="v">0</span></div>
-            <div class="kv"><span class="k">Max Combo</span><span id="lastCombo" class="v">0</span></div>
-            <div class="kv"><span class="k">Miss</span><span id="lastMiss" class="v">0</span></div>
-            <div class="kv"><span class="k">Goals</span><span id="lastGoals" class="v">0/0</span></div>
-            <div class="kv"><span class="k">Minis</span><span id="lastMinis" class="v">0/0</span></div>
-            <div class="kv"><span class="k">Played</span><span id="lastDur" class="v">0s</span></div>
-          </div>
-
-          <div class="row" style="margin-top:10px">
-            <span class="pill"><span class="k">MODE</span> <span id="lastMode" class="v">—</span></span>
-            <span class="pill"><span class="k">DIFF</span> <span id="lastDiff" class="v">—</span></span>
-            <span class="pill"><span class="k">SEED</span> <span id="lastSeed" class="v">—</span></span>
-          </div>
-
-          <div class="row" style="margin-top:10px">
-            <button class="btn primary" id="btnReplayLast">▶️ เล่นเกมเดิม (ค่าล่าสุด)</button>
-            <button class="btn" id="btnCopyLastJson">📋 คัดลอก JSON</button>
-            <button class="btn warn" id="btnExportLastCsv">⬇️ Export CSV (ล่าสุด)</button>
-            <button class="btn danger" id="btnClearLast">🧹 ล้างผลล่าสุด</button>
-          </div>
-
-          <details>
-            <summary class="muted" style="cursor:pointer; font-weight:1000">ดูรายละเอียด (metrics/ctx)</summary>
-            <pre id="lastJson">—</pre>
-          </details>
-
-          <h3 style="margin-top:14px">4 เกมล่าสุด (History)</h3>
-          <div id="recentEmpty" class="muted" style="display:none; line-height:1.3">
-            ยังไม่มีประวัติ — (เล่น 1 ครั้ง จะเริ่มเก็บอัตโนมัติ)
-          </div>
-
-          <div id="recentPanel" style="display:none">
-            <div class="row">
-              <button class="btn warn" id="btnExportRecentCsv">⬇️ Export CSV (4 ล่าสุด)</button>
-              <button class="btn danger" id="btnClearHistory">🧹 ล้าง History</button>
-              <span class="muted" id="historyHint">—</span>
-            </div>
-
-            <div class="tableWrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Game</th>
-                    <th>Mode</th>
-                    <th>Diff</th>
-                    <th>Score</th>
-                    <th>Grade</th>
-                    <th>Miss</th>
-                    <th>Goals</th>
-                    <th>Minis</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody id="recentTbody">
-                  <tr><td colspan="10" class="muted">—</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div><!-- lastPanel -->
-      </div>
-    </div><!-- grid -->
-  </div><!-- wrap -->
+  DOC.getElementById('btnCopyHub').addEventListener('click', async ()=>{
+    const ok = await copyText(baseHubUrl());
+    alert(ok ? 'คัดลอก HUB link แล้ว ✅' : 'Copy ไม่สำเร็จ');
+  });
+})();
+</script>
 </body>
 </html>
