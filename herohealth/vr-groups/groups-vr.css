@@ -44,6 +44,9 @@ html,body{
   color:var(--text);
 }
 
+.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+/* XR behind DOM */
 .xr-scene{
   position:fixed;
   inset:0;
@@ -151,6 +154,7 @@ html,body{
   cursor:pointer;
   font-weight: 900;
   font-size: 13px;
+  -webkit-tap-highlight-color: transparent;
 }
 .chip-on{
   border-color: rgba(34,197,94,.42);
@@ -383,16 +387,12 @@ html,body{
   filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
 }
 
-.fg-target.spawn{
-  animation: popIn .12s ease-out;
-}
+.fg-target.spawn{ animation: popIn .12s ease-out; }
 @keyframes popIn{
   from{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*0.82)); opacity:.2; }
   to{ transform: translate(-50%,-50%) scale(var(--s,1)); opacity:1; }
 }
-.fg-target.hit{
-  animation: popOut .18s ease-in;
-}
+.fg-target.hit{ animation: popOut .18s ease-in; }
 @keyframes popOut{
   to{ transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.2)); opacity:0; }
 }
@@ -444,9 +444,7 @@ body.groups-storm .fg-target{
   box-shadow: 0 14px 36px rgba(0,0,0,.28), inset 0 0 0 2px rgba(255,255,255,.06);
 }
 
-body.groups-storm-urgent{
-  animation: urgentPulse .55s ease-in-out infinite;
-}
+body.groups-storm-urgent{ animation: urgentPulse .55s ease-in-out infinite; }
 @keyframes urgentPulse{
   0%,100%{ filter: saturate(1.0); }
   50%{ filter: saturate(1.35); }
@@ -457,12 +455,8 @@ body.mini-urgent .questCard:last-child{
   box-shadow: 0 0 0 2px rgba(245,158,11,.14) inset;
 }
 
-body.clutch .pill{
-  border-color: rgba(245,158,11,.35);
-}
-body.groups-overdrive .pill{
-  border-color: rgba(34,197,94,.35);
-}
+body.clutch .pill{ border-color: rgba(245,158,11,.35); }
+body.groups-overdrive .pill{ border-color: rgba(34,197,94,.35); }
 body.groups-overdrive .fg-target{
   box-shadow: 0 14px 36px rgba(0,0,0,.28), 0 0 0 2px rgba(34,197,94,.18) inset;
 }
