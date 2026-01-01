@@ -7,9 +7,10 @@
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
+  <!-- Shared CSS -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- A-Frame minimal scene -> WebXR session reliable -->
+  <!-- A-Frame (minimal scene to enable WebXR Enter VR reliably) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Universal VR UI -->
@@ -19,90 +20,19 @@
   </script>
   <script src="../vr/vr-ui.js" defer></script>
 
-  <!-- AI stubs (remember-first) -->
-  <script src="./ai-stubs.js" defer></script>
-
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
   <script src="./GameEngine.js" defer></script>
-
-  <style>
-    /* start overlay tweaks */
-    .overlay-start .panel{ max-width: 760px; }
-    .row3{ display:flex; gap:10px; flex-wrap:wrap; }
-    .miniHint{ color: var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
-  </style>
 </head>
 
 <body class="view-mobile">
 
   <!-- XR Scene (behind DOM) -->
   <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
-    <a-entity position="0 1.6 0">
-      <a-camera></a-camera>
-    </a-entity>
+    <a-entity position="0 1.6 0"><a-camera></a-camera></a-entity>
     <a-sky color="#020617"></a-sky>
   </a-scene>
-
-  <!-- START overlay -->
-  <div id="startOverlay" class="overlay overlay-start">
-    <div class="panel">
-      <div class="title">🥗 Food Groups VR</div>
-      <div class="sub" id="startSub">
-        เลือกอุปกรณ์ + กดเริ่มเกม (โหมด Cardboard แนะนำให้กด ENTER VR หลังเริ่ม)
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="grid2">
-        <div class="kv">
-          <div class="k">DEVICE / VIEW</div>
-          <div class="v">
-            <button id="vPC" class="chip" type="button">🖥️ PC</button>
-            <button id="vMobile" class="chip chip-on" type="button">📱 Mobile</button>
-            <button id="vCVR" class="chip" type="button">🕶️ Cardboard</button>
-          </div>
-          <div class="miniHint" id="viewHint" style="margin-top:8px;">—</div>
-        </div>
-
-        <div class="kv">
-          <div class="k">PARAMS</div>
-          <div class="v" style="flex-wrap:wrap;">
-            <span class="chip" id="pRun">run=play</span>
-            <span class="chip" id="pDiff">diff=normal</span>
-            <span class="chip" id="pStyle">style=mix</span>
-            <span class="chip" id="pTime">time=90</span>
-            <span class="chip" id="pAI">ai=on</span>
-          </div>
-          <div class="miniHint" style="margin-top:8px;">
-            ถ้าเข้าแบบ “run ตรง” แล้วไม่ใส่ view ระบบจะเดาให้ (PC/Mobile/Cardboard)
-          </div>
-        </div>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="row3">
-        <button id="btnStart" class="btn btn-strong" type="button">▶️ เริ่มเกม</button>
-        <button id="btnEnterVR" class="btn" type="button">🕶️ ENTER VR</button>
-        <button id="btnFs" class="btn btn-ghost" type="button">⛶ Fullscreen</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        Cardboard: ยิงด้วย crosshair → แตะจอ / ปุ่ม ENTER VR จะขึ้นทั้งจาก vr-ui.js และปุ่มด้านบนนี้
-      </div>
-
-      <div class="note" id="logReady" style="margin-top:8px; display:none;">
-        📡 Logging พร้อมใช้งาน (จะส่งผลตอนจบเกม)
-      </div>
-
-      <div class="row row2">
-        <button id="btnGoLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
-        <button id="btnGoHub" class="btn btn-ghost" type="button">🏠 ไป HUB</button>
-      </div>
-    </div>
-  </div>
 
   <!-- HUD -->
   <div class="hud">
@@ -154,13 +84,91 @@
       <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
       <div class="coachBubble">
         <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">กำลังรอเริ่มเกม…</div>
+        <div id="coachText" class="coachText">กดเริ่มเกมได้เลย…</div>
       </div>
     </div>
   </div>
 
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
+
+  <!-- Crosshair (fallback) -->
+  <div id="xhair" class="xhair" aria-hidden="true"></div>
+
+  <!-- Start overlay (shows when autostart!=1) -->
+  <div id="startOverlay" class="overlay">
+    <div class="panel">
+      <div class="title">🚀 เริ่มเล่น GroupsVR</div>
+      <div class="sub" id="startLine">เลือกโหมดแล้วกด Start (Cardboard แนะนำ: ยิงกลางจอ)</div>
+      <div class="hr"></div>
+
+      <div class="grid2">
+        <div class="kv">
+          <div class="k">DEVICE / VIEW</div>
+          <div class="v">
+            <button id="vPC" class="chip" type="button">🖥️ PC</button>
+            <button id="vMobile" class="chip chip-on" type="button">📱 Mobile</button>
+            <button id="vCVR" class="chip" type="button">🕶️ Cardboard</button>
+          </div>
+          <div class="miniHint" id="viewHint" style="margin-top:8px;">—</div>
+
+          <div class="k" style="margin-top:12px;">AIM MODE</div>
+          <div class="v">
+            <button id="aimTap" class="chip chip-on" type="button">👆 แตะเป้า</button>
+            <button id="aimShoot" class="chip" type="button">🎯 ยิงกลางจอ</button>
+          </div>
+          <div class="miniHint" id="aimHint" style="margin-top:8px;">—</div>
+
+          <div class="k" style="margin-top:12px;">AUDIO</div>
+          <div class="v" style="gap:10px; align-items:center;">
+            <button id="muteBtn" class="chip" type="button">🔈 Mute: Off</button>
+            <input id="volSlider" class="input" style="width:160px;" type="range" min="0" max="100" value="22" />
+            <span id="volText" class="hint">22%</span>
+          </div>
+        </div>
+
+        <div class="kv">
+          <div class="k">PARAMS</div>
+          <div class="v">
+            <button id="runPlay" class="chip chip-on" type="button">run=play</button>
+            <button id="runRes" class="chip" type="button">run=research</button>
+          </div>
+
+          <div class="v" style="margin-top:10px;">
+            <button id="diffEasy" class="chip" type="button">easy</button>
+            <button id="diffNormal" class="chip chip-on" type="button">normal</button>
+            <button id="diffHard" class="chip" type="button">hard</button>
+          </div>
+
+          <div class="v" style="margin-top:10px;">
+            <button id="styleMix" class="chip chip-on" type="button">mix</button>
+            <button id="styleFeel" class="chip" type="button">feel</button>
+            <button id="styleHard" class="chip" type="button">hard</button>
+          </div>
+
+          <div class="v" style="margin-top:10px;">
+            <span class="hint">time</span>
+            <input id="timeInput" class="input" type="number" min="30" max="180" value="90" />
+            <button id="seedRand" class="chip" type="button">🎲 seed=random</button>
+          </div>
+
+          <div class="v" style="margin-top:10px;">
+            <button id="btnCopyLink" class="btn" type="button">📋 Copy link</button>
+            <button id="btnShareLink" class="btn" type="button">📤 Share</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row row2">
+        <button id="btnStart" class="btn btn-strong" type="button">▶️ START</button>
+        <button id="btnLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
+      </div>
+
+      <div class="note" style="margin-top:10px;">
+        VR Cardboard: เข้าเกมแล้ว กด <b>ENTER VR</b> (มุม UI จาก vr-ui.js) แล้ว <b>แตะจอ</b> เพื่อยิงจาก crosshair
+      </div>
+    </div>
+  </div>
 
   <!-- End overlay -->
   <div id="endOverlay" class="overlay overlay-end hidden">
@@ -185,10 +193,7 @@
       </div>
 
       <div class="note" style="margin-top:10px;">
-        Cardboard: ยิงด้วย crosshair → แตะจอ / ENTER VR อยู่ที่ปุ่มล่าง (vr-ui.js)
-      </div>
-      <div class="note" id="logNote" style="margin-top:8px; display:none;">
-        📡 Logging: บันทึกผลแล้ว (จะพยายามส่งให้สำเร็จ)
+        Tip: ถ้าเล่นแบบ “ยิงกลางจอ” → อย่าลืมให้ <b>crosshair อยู่กลางเป้า</b> แล้วค่อยแตะยิง
       </div>
     </div>
   </div>
@@ -199,55 +204,19 @@
   const DOC = document;
   const $ = (id)=>DOC.getElementById(id);
 
+  const LS_VOL = 'HHA_AUDIO_VOL';
+  const LS_MUT = 'HHA_AUDIO_MUTE';
+
   function qs(k, def=null){
     try { return new URL(location.href).searchParams.get(k) ?? def; }
     catch { return def; }
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-  function isMobile(){
-    const w = window.innerWidth || 0;
-    const touch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0);
-    return touch && w <= 900;
-  }
-  function isQuest(){
-    const ua = String(navigator.userAgent||'');
-    return /OculusBrowser|Quest|Meta Quest/i.test(ua);
-  }
+
   function setView(view){
     const b = DOC.body;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     b.classList.add('view-'+view);
-  }
-  function chipOn(el, on){ el.classList.toggle('chip-on', !!on); }
-
-  // ---------- Resolve view (AUTO DETECT) ----------
-  function resolveView(){
-    const v = String(qs('view','')||'').toLowerCase().trim();
-    if (v==='pc'||v==='mobile'||v==='cvr'||v==='vr') return v;
-
-    // auto
-    if (isQuest()) return 'vr';
-    if (isMobile()) return 'cvr';     // mobile default to cardboard-friendly (ยิงจาก crosshair)
-    return 'pc';
-  }
-
-  // ---------- Fullscreen + EnterVR fallback ----------
-  function isFs(){
-    return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
-  }
-  async function enterFs(){
-    try{
-      const el = DOC.documentElement;
-      if (el.requestFullscreen) await el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-    }catch(_){}
-  }
-  async function enterVR(){
-    // fallback: call A-Frame scene.enterVR()
-    try{
-      const scene = DOC.querySelector('a-scene');
-      if (scene && scene.enterVR) scene.enterVR();
-    }catch(_){}
   }
 
   async function copyText(text){
@@ -265,7 +234,122 @@
     }
   }
 
-  // ---------- HUD binds ----------
+  // ---------------- State ----------------
+  const state = {
+    view: String(qs('view','mobile')||'mobile').toLowerCase(), // pc|mobile|cvr
+    aim:  String(qs('aim','tap')||'tap').toLowerCase(),        // tap|shoot
+    run:  (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play',
+    diff: String(qs('diff','normal')||'normal').toLowerCase(),
+    style:String(qs('style','mix')||'mix').toLowerCase(),
+    time: clamp(qs('time',90), 30, 180),
+    seed: String(qs('seed','')||'').trim() || String(Date.now()),
+    ai:   String(qs('ai','1')||'1') !== '0',
+    hub:  String(qs('hub','')||''),
+  };
+
+  // sanitize
+  if (!['pc','mobile','cvr'].includes(state.view)) state.view='mobile';
+  if (!['tap','shoot'].includes(state.aim)) state.aim='tap';
+  if (!['easy','normal','hard'].includes(state.diff)) state.diff='normal';
+  if (!['mix','feel','hard'].includes(state.style)) state.style='mix';
+  if (state.view==='cvr') state.aim='shoot';
+
+  // ---------------- UI chips ----------------
+  function chip(id, on){
+    const el = $(id); if(!el) return;
+    el.classList.toggle('chip-on', !!on);
+  }
+
+  function applyHints(){
+    $('viewHint').textContent =
+      (state.view==='cvr') ? '🕶️ Cardboard: ยิงกลางจอ + เข้า ENTER VR' :
+      (state.view==='pc')  ? '🖥️ PC: คลิกเป้าหรือยิงกลางจอได้' :
+                             '📱 Mobile: แตะเป้าหรือยิงกลางจอได้';
+
+    $('aimHint').textContent =
+      (state.aim==='shoot') ? '🎯 ยิงกลางจอ: crosshair + แตะ/คลิกยิง (เหมาะ Cardboard)' :
+                              '👆 แตะเป้า: ง่ายสุดบน PC/Mobile';
+  }
+
+  function applyChips(){
+    chip('vPC', state.view==='pc');
+    chip('vMobile', state.view==='mobile');
+    chip('vCVR', state.view==='cvr');
+
+    chip('aimTap', state.aim==='tap');
+    chip('aimShoot', state.aim==='shoot');
+
+    chip('runPlay', state.run==='play');
+    chip('runRes', state.run==='research');
+
+    chip('diffEasy', state.diff==='easy');
+    chip('diffNormal', state.diff==='normal');
+    chip('diffHard', state.diff==='hard');
+
+    chip('styleMix', state.style==='mix');
+    chip('styleFeel', state.style==='feel');
+    chip('styleHard', state.style==='hard');
+
+    $('timeInput').value = String(state.time|0);
+
+    applyHints();
+    applyAimMode();
+  }
+
+  function applyAimMode(){
+    const shoot = (state.aim==='shoot');
+    DOC.body.classList.toggle('aim-shoot', shoot); // CSS patch ทำ crosshair + disable pointer events
+  }
+
+  // ---------------- Audio UI ----------------
+  function loadAudioPrefs(){
+    const vol = clamp(qs('vol', null) ?? localStorage.getItem(LS_VOL) ?? 22, 0, 100);
+    const mute = String(qs('mute', null) ?? localStorage.getItem(LS_MUT) ?? '0');
+    const isMute = (mute==='1'||mute==='true');
+    $('volSlider').value = String(vol|0);
+    $('volText').textContent = String(vol|0) + '%';
+    $('muteBtn').textContent = isMute ? '🔇 Mute: On' : '🔈 Mute: Off';
+    return { vol, isMute };
+  }
+  function saveAudioPrefs(vol, isMute){
+    try{ localStorage.setItem(LS_VOL, String(vol|0)); }catch{}
+    try{ localStorage.setItem(LS_MUT, isMute ? '1' : '0'); }catch{}
+  }
+  function applyAudioToEngine(){
+    const A = window.GroupsVR && window.GroupsVR.Audio;
+    if (!A) return;
+    const vol = clamp($('volSlider').value, 0, 100);
+    const isMute = $('muteBtn').textContent.includes('On');
+    try{ A.setMute && A.setMute(!!isMute); }catch{}
+    try{ A.setVolume && A.setVolume(vol/100); }catch{}
+  }
+
+  // ---------------- Build share link ----------------
+  function buildLink(){
+    const u = new URL(location.href);
+    u.searchParams.set('view', state.view);
+    u.searchParams.set('aim', state.aim);
+    u.searchParams.set('run', state.run);
+    u.searchParams.set('diff', state.diff);
+    u.searchParams.set('style', state.style);
+    u.searchParams.set('time', String(state.time|0));
+    u.searchParams.set('seed', state.seed);
+    u.searchParams.set('ai', state.ai ? '1' : '0');
+
+    if (state.hub) u.searchParams.set('hub', state.hub);
+
+    // carry audio prefs
+    const vol = clamp($('volSlider').value, 0, 100);
+    const isMute = $('muteBtn').textContent.includes('On');
+    u.searchParams.set('vol', String(vol|0));
+    u.searchParams.set('mute', isMute ? '1' : '0');
+
+    // do NOT force autostart in share link (ให้เลือกเอง)
+    u.searchParams.delete('autostart');
+    return u.toString();
+  }
+
+  // ---------------- HUD binds ----------------
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail||{};
     $('vScore').textContent = String(d.score ?? 0);
@@ -328,14 +412,17 @@
     $('miniSub').textContent = mTitle;
     $('miniTime').textContent = (mLeft>0) ? `${mLeft}s` : '—';
 
-    DOC.body.classList.toggle('mini-urgent', (mLeft>0 && mLeft<=3));
+    const urgent = (mLeft>0 && mLeft<=3);
+    DOC.body.classList.toggle('mini-urgent', urgent);
   }, {passive:true});
 
-  // ---------- Audio hook ----------
+  // ---------------- Audio hooks ----------------
   function hookAudio(){
     const A = window.GroupsVR && window.GroupsVR.Audio;
     if (!A) return;
+
     try{ A.unlock && A.unlock(); }catch{}
+    applyAudioToEngine();
 
     window.addEventListener('hha:judge', (ev)=>{
       const d = ev.detail||{};
@@ -364,46 +451,33 @@
     tickLoop();
   }
 
-  // ---------- Logging (flush-hardened) ----------
+  // ---------------- Shoot fallback (aim=shoot) ----------------
+  function emitShoot(lockPx){
+    const x = (window.innerWidth||360) * 0.5;
+    const y = (window.innerHeight||640) * 0.5;
+    try{ window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ x, y, lockPx: lockPx||92 } })); }catch{}
+    DOC.body.classList.add('shot-pulse');
+    setTimeout(()=> DOC.body.classList.remove('shot-pulse'), 90);
+  }
+
+  DOC.addEventListener('pointerdown', (e)=>{
+    const startShown = !$('startOverlay').classList.contains('hidden');
+    const endShown = !$('endOverlay').classList.contains('hidden');
+    if (startShown || endShown) return;
+    if (state.aim !== 'shoot') return;
+
+    const t = e.target;
+    if (t && t.closest && t.closest('button,.panel,.overlay')) return;
+
+    emitShoot(92);
+  }, { passive:true });
+
+  // ---------------- End / Summary ----------------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
-  const LS_PENDING = 'HHA_LOG_PENDING';
 
-  let pending = { sent:false, url:'', payload:null };
-
-  function getLogUrl(){ return String(qs('log','')||'').trim(); }
-
-  function loadPending(){
-    try{
-      const obj = JSON.parse(localStorage.getItem(LS_PENDING)||'null');
-      if (obj && obj.url && obj.payload && !obj.sent) pending = obj;
-    }catch{}
-  }
-  function savePending(){ try{ localStorage.setItem(LS_PENDING, JSON.stringify(pending)); }catch{} }
-
-  async function postLog(url, payload){
-    if (!url) return false;
-    try{
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify(payload),
-        keepalive: true
-      });
-      return !!res && (res.ok || res.status===0);
-    }catch{ return false; }
-  }
-
-  async function flushLog(){
-    if (!pending || pending.sent || !pending.url || !pending.payload) return false;
-    const ok = await postLog(pending.url, pending.payload);
-    if (ok){
-      pending.sent = true;
-      savePending();
-      return true;
-    }
-    return false;
-  }
+  let lastSummary = null;
+  let startIso = new Date().toISOString();
 
   function saveLast(summary){
     try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch{}
@@ -414,16 +488,7 @@
     }catch{}
   }
 
-  // retry pending early (help if last time offline)
-  loadPending();
-  flushLog().catch(()=>{});
-  window.addEventListener('pageshow', ()=>{ try{ flushLog(); }catch{} });
-
-  // ---------- End / Summary ----------
-  let lastSummary = null;
-  let startIso = new Date().toISOString();
-
-  window.addEventListener('hha:end', async (ev)=>{
+  window.addEventListener('hha:end', (ev)=>{
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
@@ -431,25 +496,19 @@
       timestampIso: endIso,
       projectTag: 'HeroHealth',
       gameTag: 'GroupsVR',
-      runMode: String(qs('run','play')||'play'),
-      diff: String(qs('diff','normal')||'normal'),
-      style: String(qs('style','mix')||'mix'),
-      ai: String(qs('ai','on')||'on'),
-      durationPlannedSec: Number(qs('time',90)||90),
+      runMode: state.run,
+      diff: state.diff,
+      style: state.style,
+      view: state.view,
+      aim: state.aim,
+      ai: state.ai ? 1 : 0,
+      durationPlannedSec: state.time|0,
       startTimeIso: startIso,
       endTimeIso: endIso,
-      seed: String(qs('seed','')||'')
+      seed: state.seed
     }, d);
 
     saveLast(lastSummary);
-
-    const logUrl = getLogUrl();
-    if (logUrl){
-      $('logNote').style.display = 'block';
-      pending = { sent:false, url: logUrl, payload: lastSummary };
-      savePending();
-      await flushLog();
-    }
 
     $('endOverlay').classList.remove('hidden');
     $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
@@ -458,11 +517,8 @@
     $('endAcc').textContent   = String((d.accuracyGoodPct ?? 0) + '%');
     $('endMiss').textContent  = String(d.misses ?? 0);
 
-    const hub = String(qs('hub','')||'');
-    $('btnHub').style.display = hub ? 'inline-flex' : 'none';
-
-    DOC.body.dataset.ended = '1';
-  }, {passive:false});
+    $('btnHub').style.display = state.hub ? 'inline-flex' : 'none';
+  }, {passive:true});
 
   $('btnRestart').addEventListener('click', ()=> location.reload());
 
@@ -472,41 +528,79 @@
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
-  function go(url){
-    flushLog().finally(()=>{ location.href = url; });
-  }
-
   $('btnBackLauncher').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
-    if (hub) u.searchParams.set('hub', hub);
-    const logUrl = getLogUrl(); if (logUrl) u.searchParams.set('log', logUrl);
-    go(u.toString());
+    if (state.hub) u.searchParams.set('hub', state.hub);
+    location.href = u.toString();
   });
 
   $('btnHub').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
-    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    go(hub);
+    if (!state.hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
+    location.href = state.hub;
   });
 
-  // ---------- Back button harden ----------
-  // ถ้ากด back ระหว่างเล่น: พาไป launcher (พร้อม flush)
-  history.pushState({hha:1}, '', location.href);
-  window.addEventListener('popstate', ()=>{
-    const ended = (DOC.body.dataset.ended==='1');
-    if (ended){
-      // ถ้าจบแล้วให้ปล่อยตามผู้ใช้ (แต่ก็ flush)
-      flushLog().finally(()=> history.pushState({hha:1}, '', location.href));
+  // ---------------- Start overlay controls ----------------
+  $('vPC').addEventListener('click', ()=>{ state.view='pc'; applyChips(); });
+  $('vMobile').addEventListener('click', ()=>{ state.view='mobile'; applyChips(); });
+  $('vCVR').addEventListener('click', ()=>{ state.view='cvr'; state.aim='shoot'; applyChips(); });
+
+  $('aimTap').addEventListener('click', ()=>{ state.aim='tap'; applyChips(); });
+  $('aimShoot').addEventListener('click', ()=>{ state.aim='shoot'; applyChips(); });
+
+  $('runPlay').addEventListener('click', ()=>{ state.run='play'; applyChips(); });
+  $('runRes').addEventListener('click', ()=>{ state.run='research'; applyChips(); });
+
+  $('diffEasy').addEventListener('click', ()=>{ state.diff='easy'; applyChips(); });
+  $('diffNormal').addEventListener('click', ()=>{ state.diff='normal'; applyChips(); });
+  $('diffHard').addEventListener('click', ()=>{ state.diff='hard'; applyChips(); });
+
+  $('styleMix').addEventListener('click', ()=>{ state.style='mix'; applyChips(); });
+  $('styleFeel').addEventListener('click', ()=>{ state.style='feel'; applyChips(); });
+  $('styleHard').addEventListener('click', ()=>{ state.style='hard'; applyChips(); });
+
+  $('timeInput').addEventListener('change', ()=>{ state.time = clamp($('timeInput').value, 30, 180); applyChips(); });
+
+  $('seedRand').addEventListener('click', ()=>{ state.seed = String(Date.now()); applyChips(); });
+
+  $('btnCopyLink').addEventListener('click', async ()=>{
+    const ok = await copyText(buildLink());
+    alert(ok ? 'คัดลอกลิงก์แล้ว ✅' : 'Copy ไม่สำเร็จ');
+  });
+
+  $('btnShareLink').addEventListener('click', async ()=>{
+    const url = buildLink();
+    if (navigator.share){
+      try{ await navigator.share({ title:'HeroHealth GroupsVR', url }); }catch{}
     }else{
-      const u = new URL('../groups-vr.html', location.href);
-      const hub = String(qs('hub','')||''); if (hub) u.searchParams.set('hub', hub);
-      const logUrl = getLogUrl(); if (logUrl) u.searchParams.set('log', logUrl);
-      go(u.toString());
+      const ok = await copyText(url);
+      alert(ok ? 'เครื่องนี้ไม่รองรับ Share → คัดลอกลิงก์แล้ว ✅' : 'Share/Copy ไม่สำเร็จ');
     }
   });
 
-  // ---------- Engine boot ----------
+  $('btnLauncher').addEventListener('click', ()=>{
+    const u = new URL('../groups-vr.html', location.href);
+    if (state.hub) u.searchParams.set('hub', state.hub);
+    location.href = u.toString();
+  });
+
+  // audio controls on start overlay
+  loadAudioPrefs();
+  $('volSlider').addEventListener('input', ()=>{
+    const vol = clamp($('volSlider').value, 0, 100);
+    $('volText').textContent = String(vol|0) + '%';
+    const isMute = $('muteBtn').textContent.includes('On');
+    saveAudioPrefs(vol, isMute);
+    applyAudioToEngine();
+  });
+  $('muteBtn').addEventListener('click', ()=>{
+    const isOn = $('muteBtn').textContent.includes('On');
+    $('muteBtn').textContent = isOn ? '🔈 Mute: Off' : '🔇 Mute: On';
+    const vol = clamp($('volSlider').value, 0, 100);
+    saveAudioPrefs(vol, !isOn);
+    applyAudioToEngine();
+  });
+
+  // ---------------- Start engine ----------------
   function waitForEngine(cb){
     const it = setInterval(()=>{
       const E = window.GroupsVR && window.GroupsVR.GameEngine;
@@ -517,99 +611,31 @@
     }, 60);
   }
 
-  // ---------- Start overlay control ----------
-  const state = {
-    view: resolveView(),
-    run: (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play',
-    diff: String(qs('diff','normal')||'normal').toLowerCase(),
-    style: String(qs('style','mix')||'mix').toLowerCase(),
-    time: clamp(qs('time',90), 30, 180),
-    seed: String(qs('seed', Date.now()) || Date.now()),
-    ai: (String(qs('ai','on')||'on').toLowerCase() !== 'off'),
-  };
-
-  function syncStartUI(){
-    chipOn($('vPC'), state.view==='pc');
-    chipOn($('vMobile'), state.view==='mobile');
-    chipOn($('vCVR'), state.view==='cvr');
-
-    $('pRun').textContent  = 'run=' + state.run;
-    $('pDiff').textContent = 'diff=' + state.diff;
-    $('pStyle').textContent= 'style=' + state.style;
-    $('pTime').textContent = 'time=' + String(state.time|0);
-    $('pAI').textContent   = 'ai=' + (state.ai?'on':'off');
-
-    const hint =
-      (state.view==='cvr')
-        ? '🕶️ Cardboard: ยิงด้วย crosshair (แตะจอเพื่อยิง) แนะนำกด ENTER VR'
-        : (state.view==='vr')
-          ? '🕶️ VR HMD: ใช้ ENTER VR แล้วเล่นแบบ VR'
-          : (state.view==='mobile')
-            ? '📱 Mobile: แตะเป้าได้โดยตรง / หรือสลับไป Cardboard ได้'
-            : '🖥️ PC: คลิกเป้าได้โดยตรง';
-    $('viewHint').textContent = hint;
-
-    const logUrl = getLogUrl();
-    $('logReady').style.display = logUrl ? 'block' : 'none';
-  }
-
-  $('vPC').addEventListener('click', ()=>{ state.view='pc'; setView('pc'); syncStartUI(); });
-  $('vMobile').addEventListener('click', ()=>{ state.view='mobile'; setView('mobile'); syncStartUI(); });
-  $('vCVR').addEventListener('click', ()=>{ state.view='cvr'; setView('cvr'); syncStartUI(); });
-
-  $('btnFs').addEventListener('click', ()=> enterFs());
-  $('btnEnterVR').addEventListener('click', ()=> enterVR());
-
-  $('btnGoLauncher').addEventListener('click', ()=>{
-    const u = new URL('../groups-vr.html', location.href);
-    const hub = String(qs('hub','')||''); if (hub) u.searchParams.set('hub', hub);
-    const logUrl = getLogUrl(); if (logUrl) u.searchParams.set('log', logUrl);
-    go(u.toString());
-  });
-
-  $('btnGoHub').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
-    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    go(hub);
-  });
-
-  function hideStart(){
-    $('startOverlay').classList.add('hidden');
-  }
-
   function startEngine(){
+    setView(state.view);
+    applyChips();
     hookAudio();
+
     waitForEngine((E)=>{
       E.setLayerEl($('playLayer'));
       startIso = new Date().toISOString();
-      E.start(state.diff, { runMode: state.run, diff: state.diff, style: state.style, time: state.time, seed: state.seed, ai: state.ai });
+      E.start(state.diff, { runMode: state.run, diff: state.diff, style: state.style, time: state.time, seed: state.seed });
     });
   }
 
-  $('btnStart').addEventListener('click', async ()=>{
-    // unlock audio early
-    try{
-      const A = window.GroupsVR && window.GroupsVR.Audio;
-      A && A.unlock && A.unlock();
-    }catch(_){}
-    // auto fullscreen for cvr (optional)
-    if (state.view==='cvr' && !isFs()) await enterFs();
-    hideStart();
+  $('btnStart').addEventListener('click', ()=>{
+    $('startOverlay').classList.add('hidden');
     startEngine();
   });
 
-  // init
-  setView(state.view==='vr' ? 'vr' : state.view);
-  syncStartUI();
-
-  // end overlay buttons
-  $('btnBackLauncher').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
-    const u = new URL('../groups-vr.html', location.href);
-    if (hub) u.searchParams.set('hub', hub);
-    const logUrl = getLogUrl(); if (logUrl) u.searchParams.set('log', logUrl);
-    go(u.toString());
-  });
+  // autostart
+  const auto = String(qs('autostart','0')||'0');
+  if (auto === '1'){
+    $('startOverlay').classList.add('hidden');
+    startEngine();
+  }else{
+    applyChips();
+  }
 
 })();
 </script>
