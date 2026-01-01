@@ -1,17 +1,16 @@
 // === /herohealth/vr/coach-manager.js ===
-// HeroHealth Coach Manager — PRODUCTION
-// ✅ Auto-picks coach image set per game by URL/path
+// HeroHealth Coach Manager — PRODUCTION (Distinct per game)
+// ✅ Auto-picks coach image set per game by URL/path or query gameMode
 // ✅ Binds #coach-img / #coach-text / #coach-sub (optional)
 // ✅ Reacts to events: hha:coach, hha:score, hha:judge, hha:end
-// ✅ Uses your existing images in /herohealth/img
-//    Required (global fallback): coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
-//    Optional per game: hydration-*, plate-*, groups-*, goodjunk-*  (same suffix names)
+// ✅ Uses images in /herohealth/img
+//    Required global fallback: coach-fever.png, coach-happy.png, coach-neutral.png, coach-sad.png
+//    Optional per game: hydration-*, plate-*, groups-*, goodjunk-* (same suffix set)
 
 (function () {
   'use strict';
 
   const D = document;
-
   const elImg  = D.getElementById('coach-img');
   const elText = D.getElementById('coach-text');
   const elSub  = D.getElementById('coach-sub');
@@ -19,11 +18,13 @@
   if (!elImg && !elText && !elSub) return;
 
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function now(){ return (typeof performance!=='undefined' && performance.now) ? performance.now() : Date.now(); }
 
+  // ---- detect game ----
   function detectGame(){
     const url = (location.pathname || '').toLowerCase();
     const q = new URL(location.href).searchParams;
-    const gm = String(q.get('gameMode') || '').toLowerCase();
+    const gm = String(q.get('gameMode') || q.get('game') || '').toLowerCase();
     if (gm) return gm;
 
     if (url.includes('hydration')) return 'hydration';
@@ -32,10 +33,60 @@
     if (url.includes('goodjunk')) return 'goodjunk';
     return 'herohealth';
   }
-
   const GAME = detectGame();
 
-  // image resolver (prefer per-game set, fallback to generic coach-*)
+  // ---- persona text per game ----
+  const PERSONA = {
+    hydration: {
+      name:'Coach Aqua',
+      start:'คุม GREEN ให้นิ่งก่อนนะ 💧',
+      hint:'Tip: เก็บ 🛡️ ไว้ BLOCK ตอนท้ายพายุ',
+      hype:'มันส์มาก! คุมโซนได้แล้ว! ✅',
+      warn:'ระวัง BAD 🥤 อย่ารัวเกิน!',
+      endWin:'ท้ายพายุแล้ว! เล็งแล้วค่อย BLOCK 🛡️',
+      perfect:'PERFECT! จังหวะสวย ⚡'
+    },
+    plate: {
+      name:'Chef Balance',
+      start:'จัดจานให้บาลานซ์! 🍽️',
+      hint:'Tip: เล็งหมวดให้ชัวร์ก่อน แล้วค่อยสปีด',
+      hype:'บาลานซ์โคตรดี! 🔥',
+      warn:'อย่าสับสนหมวดนะ! 👀',
+      endWin:'ใกล้หมดเวลา! รีบแต่ต้องแม่น ⚡',
+      perfect:'จัดจานเป๊ะ! ⭐'
+    },
+    groups: {
+      name:'Captain Groups',
+      start:'แยกหมวดอาหารให้แม่น! 🧠',
+      hint:'Tip: ดูไอคอนก่อนยิง 0.3 วิ',
+      hype:'จำหมวดได้ไวมาก! 🚀',
+      warn:'ช้าลงนิดนึง แล้วค่อยยิง 🎯',
+      endWin:'ช่วงท้าย! โฟกัสหมวดให้ถูก ✅',
+      perfect:'ช็อตนี้โคตรแม่น! 🎯'
+    },
+    goodjunk: {
+      name:'Coach Clean',
+      start:'เก็บ GOOD หลบ JUNK! 🥦🥤',
+      hint:'Tip: อย่ายิงมั่ว เลือกเป้าที่ชัวร์',
+      hype:'สายคลีนตัวจริง! 🏆',
+      warn:'JUNK มา! กันพลาดด้วย 🛡️',
+      endWin:'ท้ายเกม! อย่าโดน JUNK เด็ดขาด 🔥',
+      perfect:'หลบ/บล็อกสวยมาก! ⚡'
+    },
+    herohealth: {
+      name:'Coach Hero',
+      start:'เล็งกลางจอ แล้วค่อยยิง 🎯',
+      hint:'Tip: ช้าแต่ชัวร์ = คะแนนพุ่ง',
+      hype:'ดีมาก! ต่อเลย! 🔥',
+      warn:'ระวังพลาดนะ!',
+      endWin:'ใกล้หมดเวลาแล้ว!',
+      perfect:'PERFECT! ⭐'
+    }
+  };
+
+  const P = PERSONA[GAME] || PERSONA.herohealth;
+
+  // ---- image resolver ----
   function imgPath(mood){
     const base = './img/';
     const suf =
@@ -44,12 +95,8 @@
       mood === 'fever' ? 'fever' :
       'neutral';
 
-    // Try game-specific
     const tryGame = `${base}${GAME}-${suf}.png`;
     const fallback = `${base}coach-${suf}.png`;
-
-    // We can’t sync-check file existence reliably without fetch; use optimistic swap:
-    // If image fails to load, onerror will swap to fallback.
     return { tryGame, fallback };
   }
 
@@ -57,123 +104,145 @@
     if (!elImg) return;
     const { tryGame, fallback } = imgPath(mood);
     elImg.onerror = () => {
-      // prevent loop
       elImg.onerror = null;
       elImg.src = fallback;
     };
     elImg.src = tryGame;
   }
 
-  // mood state
+  function setText(text, sub){
+    if (elText && text != null) elText.textContent = String(text);
+    if (elSub && sub != null) elSub.textContent = String(sub);
+  }
+
+  // ---- mood + spam guard ----
   let mood = 'neutral';
   let lastSayAt = 0;
-
-  function say(text, sub){
-    if (elText && text) elText.textContent = String(text);
-    if (elSub && sub != null) elSub.textContent = String(sub);
-    lastSayAt = performance.now();
-  }
-
-  // initial
-  setImg('neutral');
-  if (elSub && !elSub.textContent.trim()){
-    elSub.textContent = `GAME: ${GAME} • Tip: เล็งกลางจอ`;
-  }
-
-  // --- event bindings ---
-  window.addEventListener('hha:coach', (ev)=>{
-    const d = ev.detail || {};
-    if (d.mood) {
-      mood = String(d.mood).toLowerCase();
-      if (!['neutral','happy','sad','fever'].includes(mood)) mood = 'neutral';
-      setImg(mood);
-    }
-    if (d.text) say(d.text, d.sub ?? elSub?.textContent);
-  }, { passive:true });
-
-  // simple heuristics from score/judge
-  let lastScore = 0;
-  let lastMiss = 0;
+  const SAY_GAP = 1100;
 
   function setMood(m){
-    m = String(m||'neutral');
+    m = String(m||'neutral').toLowerCase();
+    if (!['neutral','happy','sad','fever'].includes(m)) m='neutral';
     if (mood === m) return;
     mood = m;
     setImg(mood);
   }
 
-  window.addEventListener('hha:judge', (ev)=>{
+  function say(text, sub){
+    const t = now();
+    if (t - lastSayAt < SAY_GAP) return;
+    lastSayAt = t;
+    setText(text, sub);
+  }
+
+  // ---- init ----
+  setImg('neutral');
+  if (elText && !String(elText.textContent||'').trim()) elText.textContent = P.start;
+  if (elSub && !String(elSub.textContent||'').trim()) elSub.textContent = `${P.hint} • ${P.name}`;
+
+  // ---- derived signals from score ----
+  let lastScore = 0;
+  let lastMiss = 0;
+  let lastCombo = 0;
+
+  // hha:coach (from ai-coach.js or game)
+  window.addEventListener('hha:coach', (ev)=>{
     const d = ev.detail || {};
-    const k = String(d.kind||'');
-    if (k === 'bad') {
-      setMood('sad');
-      say('โอ๊ย! ระวัง BAD 🥤', `โฟกัส + เก็บ 🛡️ ไว้กัน`);
-    }
-    if (k === 'good') {
-      setMood('happy');
-      const t = performance.now();
-      if (t - lastSayAt > 1200) say('ดีมาก! ยิง 💧 ต่อ!', `รักษาโซน GREEN`);
-    }
-    if (k === 'shield') {
-      setMood('neutral');
-      const t = performance.now();
-      if (t - lastSayAt > 1200) say('เยี่ยม! ได้ 🛡️', `เอาไว้ BLOCK ตอนท้ายพายุ`);
-    }
-    if (k === 'perfect') {
-      setMood('happy');
-      say('PERFECT! บล็อกถูกจังหวะ! ⚡', `ทำแบบนี้ตอนท้ายพายุ`);
-    }
-    if (k === 'streak') {
-      setMood('happy');
-      say('STREAK! โคตรมันส์! 🔥', `คอมโบกำลังมา`);
+    if (d.mood) setMood(d.mood);
+    if (d.text) {
+      const sub = (d.sub != null) ? d.sub : (elSub ? elSub.textContent : '');
+      say(d.text, sub);
     }
   }, { passive:true });
 
+  // hha:judge (from game engine)
+  window.addEventListener('hha:judge', (ev)=>{
+    const d = ev.detail || {};
+    const k = String(d.kind||'').toLowerCase();
+
+    if (k === 'bad'){
+      setMood('sad');
+      say(P.warn, 'โฟกัส + เก็บ 🛡️ ไว้กัน');
+      return;
+    }
+    if (k === 'good'){
+      setMood('happy');
+      say(P.hype, P.hint);
+      return;
+    }
+    if (k === 'shield'){
+      setMood('neutral');
+      say('เยี่ยม! ได้ 🛡️', 'เก็บไว้ใช้ช่วงท้าย/ช่วงโหด');
+      return;
+    }
+    if (k === 'perfect'){
+      setMood('happy');
+      say(P.perfect, 'จังหวะแบบนี้แหละ!');
+      return;
+    }
+    if (k === 'streak'){
+      setMood('happy');
+      say('STREAK! 🔥', 'คอมโบกำลังมา!');
+      return;
+    }
+    if (k === 'storm'){
+      setMood('neutral');
+      say('STORM มาแล้ว! 🌀', 'เตรียมทำ MINI ช่วงท้าย');
+      return;
+    }
+    if (k === 'block'){
+      setMood('neutral');
+      say('BLOCK ✅', 'ดี! ถ้าช่วงท้ายจะนับ MINI');
+      return;
+    }
+  }, { passive:true });
+
+  // hha:score (continuous)
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail || {};
     const score = Number(d.score||0);
     const miss  = Number(d.misses||0);
+    const combo = Number(d.combo||0);
     const storm = !!d.stormActive;
     const left  = Number(d.stormLeftSec||0);
-    const wz    = String(d.waterZone||'').toUpperCase();
 
-    // fever proxy: more misses -> more fever
+    // fever proxy: misses -> fever mood
     const fever = clamp(miss * 18, 0, 100);
 
-    // mood logic
     if (fever >= 70) setMood('fever');
     else if (miss > lastMiss) setMood('sad');
-    else if (score > lastScore) setMood('happy');
+    else if (score > lastScore || combo > lastCombo) setMood('happy');
     else setMood('neutral');
 
     lastScore = score;
     lastMiss = miss;
+    lastCombo = combo;
 
-    // gentle coaching text occasionally
-    const t = performance.now();
-    if (t - lastSayAt > 1800){
+    const t = now();
+    if (t - lastSayAt > 1700){
       if (storm){
-        if (left <= 2.2) say('ท้ายพายุแล้ว! ต้อง BLOCK ให้ได้! ⏱️', `น้ำต้องไม่ใช่ GREEN (${wz})`);
-        else say('STORM มาแล้ว! เตรียมทำ MINI 🌀', `ให้น้ำเป็น LOW/HIGH แล้วค่อย BLOCK`);
+        if (left <= 2.2) say(P.endWin, 'เล็งแล้วค่อย BLOCK / เก็บแต้มชัวร์');
+        else say('STORM กำลังมา 🌀', 'เก็บ 🛡️ แล้วเตรียมช่วงท้าย');
       } else {
-        if (wz === 'GREEN') say('ดี! อยู่ GREEN แล้ว สะสมเวลาต่อ ✅', `อย่าเผลอโดน BAD`);
-        else say('ดันน้ำเข้า GREEN 💧', `ยิง GOOD เพื่อคุมโซน`);
+        // light idle encouragement
+        if (combo >= 6) say('คอมโบโหดมาก! ⚡', 'อย่าพลาด BAD');
       }
     }
   }, { passive:true });
 
+  // hha:end (summary)
   window.addEventListener('hha:end', (ev)=>{
     const d = ev.detail || {};
-    const g = String(d.grade||'C');
-    if (g === 'SSS' || g === 'SS' || g === 'S') {
+    const g = String(d.grade||'C').toUpperCase();
+    if (g === 'SSS' || g === 'SS' || g === 'S'){
       setMood('happy');
-      say(`โคตรเก่ง! ได้เกรด ${g} 🏆`, 'ลองโหมดยากขึ้นมั้ย?');
-    } else if (g === 'A' || g === 'B') {
+      say(`โคตรเก่ง! ได้เกรด ${g} 🏆`, 'ลองโหมดโหดขึ้นมั้ย?');
+    } else if (g === 'A' || g === 'B'){
       setMood('neutral');
-      say(`ดีมาก! เกรด ${g} ✅`, 'คุม GREEN ให้ยาวขึ้น + เก็บ 🛡️');
+      say(`ดีมาก! เกรด ${g} ✅`, 'เพิ่มความแม่น + ลด MISS อีกนิด');
     } else {
       setMood('sad');
-      say(`ไม่เป็นไร เกรด ${g} 😅`, 'โฟกัสยิง 💧 และหลบ 🥤');
+      say(`ไม่เป็นไร เกรด ${g} 😅`, 'ช้าแต่ชัวร์ แล้วจะดีขึ้นเร็วมาก');
     }
   }, { passive:true });
 
