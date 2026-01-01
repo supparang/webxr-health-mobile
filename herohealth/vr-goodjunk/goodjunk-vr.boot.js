@@ -1,18 +1,21 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — PRODUCTION (START-GATED + VR COMPACT HUD + VR TOAST)
+// GoodJunkVR Boot — PRODUCTION (START-GATED + VR COMPACT HUD + VR TOAST + END OVERLAY)
 // ✅ View modes: PC / Mobile / VR / cVR
 // ✅ Fullscreen handling + body.is-fs
 // ✅ Enter VR => fullscreen + cVR + hint + auto HUD off
 // ✅ Toggle HUD (body.hud-hidden)
 // ✅ Missions button: show/hide Quest Peek instantly
-// ✅ VR Compact HUD sync: listens hha:score/hha:time/hha:rank
-// ✅ VR Toast: listens hha:judge + lowtime tick event hha:vr_tick (from safe.js)
+// ✅ VR Compact HUD (L/R) sync: listens hha:score/hha:time/hha:rank
+// ✅ VR Toast (L/R): listens hha:judge + lowtime tick event hha:vr_tick
+// ✅ End overlay (Replay / Back HUB / Copy JSON) on hha:end
 // ✅ Starts engine ONLY after pressing "เริ่มเล่น"
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const ROOT = window;
 const DOC = document;
+
+function clamp(v,a,b){ v=Number(v)||0; return Math.max(a, Math.min(b,v)); }
 
 function qs(k, def=null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
@@ -52,14 +55,14 @@ function pickInitialView(){
     if (saved === 'pc' || saved === 'mobile' || saved === 'vr' || saved === 'cvr') return saved;
   }catch(_){}
 
-  const coarse = ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches;
+  const coarse = (ROOT.matchMedia && ROOT.matchMedia('(pointer: coarse)').matches);
   const w = ROOT.innerWidth || 360;
   const h = ROOT.innerHeight || 640;
   const mobileLike = coarse || Math.min(w,h) < 520;
   return mobileLike ? 'mobile' : 'pc';
 }
 
-/* ===== Dynamic reserves: keep playfield away from HUD/fever/controls ===== */
+/* ===== Dynamic reserves: keep spawner away from HUD/fever/controls ===== */
 function px(n){ return (Number(n)||0) + 'px'; }
 function syncReserves(){
   try{
@@ -71,10 +74,7 @@ function syncReserves(){
 
     if (hud){
       const r = hud.getBoundingClientRect();
-      const cs = getComputedStyle(hud);
-      const padTop = parseFloat(cs.paddingTop)||0;
-      const sat = Math.max(0, padTop - 10);
-      const usable = hudHidden ? 24 : Math.max(80, Math.round(r.height - sat));
+      const usable = hudHidden ? 24 : Math.max(80, Math.round(r.height));
       DOC.documentElement.style.setProperty('--hudH', px(usable));
     }
     if (fever){
@@ -109,41 +109,131 @@ function toggleHud(force){
   const next = (typeof force === 'boolean') ? force : !b.classList.contains('hud-hidden');
   b.classList.toggle('hud-hidden', next);
 
-  const btn = DOC.getElementById('btnToggleHUD');
+  const btn = DOC.getElementById('btnToggleHud');
   if (btn) btn.textContent = next ? 'HUD (Off)' : 'HUD';
 
   if (next) showPeek(1300);
   syncReserves();
 }
 
-/* ===== VR Compact HUD sync ===== */
+/* ===== VR Compact HUD sync (dual-eye) ===== */
 function setText(id, t){
   const el = DOC.getElementById(id);
   if (el) el.textContent = String(t ?? '');
 }
 function tickCompact(){
-  const el = DOC.getElementById('vrCompactHud');
-  if (!el) return;
-  el.classList.add('tick');
-  setTimeout(()=>el.classList.remove('tick'), 160);
+  const L = DOC.getElementById('vrCompactHud-l');
+  const R = DOC.getElementById('vrCompactHud-r');
+  if (L) L.classList.add('tick');
+  if (R) R.classList.add('tick');
+  setTimeout(()=>{
+    try{ L && L.classList.remove('tick'); }catch(_){}
+    try{ R && R.classList.remove('tick'); }catch(_){}
+  }, 170);
 }
 
-/* ===== VR Toast ===== */
+/* ===== VR Toast (dual-eye) ===== */
 let toastTimer = 0;
-function showToast(text, kind='warn', ms=700){
-  const wrap = DOC.getElementById('vrToast');
-  const card = DOC.getElementById('vrToastText');
-  if (!wrap || !card) return;
+function showToast(text, kind='warn', ms=720){
+  const wl = DOC.getElementById('vrToast-l');
+  const wr = DOC.getElementById('vrToast-r');
+  const tl = DOC.getElementById('vrToastText-l');
+  const tr = DOC.getElementById('vrToastText-r');
+  if (!wl || !wr || !tl || !tr) return;
 
-  wrap.hidden = false;
-  card.classList.remove('warn','bad');
-  card.classList.add(kind === 'bad' ? 'bad' : 'warn');
-  card.textContent = String(text || '—');
+  wl.hidden = false; wr.hidden = false;
+
+  tl.classList.remove('warn','bad');
+  tr.classList.remove('warn','bad');
+  tl.classList.add(kind === 'bad' ? 'bad' : 'warn');
+  tr.classList.add(kind === 'bad' ? 'bad' : 'warn');
+
+  tl.textContent = String(text || '—');
+  tr.textContent = String(text || '—');
 
   try{ clearTimeout(toastTimer); }catch(_){}
-  toastTimer = setTimeout(()=>{ wrap.hidden = true; }, clampMs(ms));
+  toastTimer = setTimeout(()=>{ wl.hidden = true; wr.hidden = true; }, clamp(ms, 380, 1400));
 }
-function clampMs(ms){ ms = Number(ms)||0; return Math.max(350, Math.min(1400, ms)); }
+
+/* ===== End overlay binder ===== */
+function bindEndOverlay(){
+  const overlay = DOC.getElementById('endOverlay');
+  if (!overlay) return;
+
+  const btnReplay = DOC.getElementById('btnReplay');
+  const btnHub   = DOC.getElementById('btnBackHub');
+  const btnCopy  = DOC.getElementById('btnCopyJson');
+
+  let lastSummary = null;
+
+  function show(summary){
+    lastSummary = summary || null;
+
+    const acc = Number(summary?.accuracyGoodPct ?? 0) || 0;
+    const grade = String(summary?.grade ?? '—');
+
+    setText('endGrade', grade);
+    setText('endScore', summary?.scoreFinal ?? 0);
+    setText('endAcc', `${acc}%`);
+    setText('endCombo', summary?.comboMax ?? 0);
+    setText('endMiss', summary?.misses ?? 0);
+    setText('endTimePlayed', `${summary?.durationPlayedSec ?? 0}s`);
+    setText('endQuest', `${summary?.goalsCleared ?? 0}/${summary?.goalsTotal ?? 0} • ${summary?.miniCleared ?? 0}/${summary?.miniTotal ?? 0}`);
+
+    const sub = [
+      `reason=${summary?.reason ?? 'end'}`,
+      `diff=${summary?.diff ?? '-'}`,
+      `run=${summary?.runMode ?? '-'}`,
+      `end=${summary?.endPolicy ?? '-'}`,
+      `challenge=${summary?.challenge ?? '-'}`
+    ].join(' • ');
+    setText('endSub', sub);
+
+    overlay.hidden = false;
+
+    // leave VR/cVR: keep overlay readable (optional)
+    showPeek(0);
+    toggleHud(false);
+    syncReserves();
+  }
+
+  function hide(){ overlay.hidden = true; }
+
+  btnReplay && btnReplay.addEventListener('click', ()=>{
+    const u = new URL(location.href);
+    u.searchParams.set('ts', String(Date.now()));
+    location.href = u.toString();
+  });
+
+  btnCopy && btnCopy.addEventListener('click', async ()=>{
+    try{
+      const txt = JSON.stringify(lastSummary || {}, null, 2);
+      await navigator.clipboard.writeText(txt);
+      showToast('✅ Copy JSON แล้ว', 'warn', 680);
+    }catch(_){
+      showToast('❌ Copy ไม่สำเร็จ', 'bad', 760);
+    }
+  });
+
+  btnHub && btnHub.addEventListener('click', async ()=>{
+    const hub = qs('hub', './index.html');
+    try{
+      // flush-hardened: ask engine to end + flush first
+      if (ROOT.GoodJunkVR && typeof ROOT.GoodJunkVR.endGame === 'function'){
+        await ROOT.GoodJunkVR.endGame('back_hub');
+      }
+    }catch(_){}
+    setTimeout(()=>{ location.href = hub; }, 120);
+  });
+
+  ROOT.addEventListener('hha:end', (ev)=>{
+    const summary = ev?.detail || null;
+    show(summary);
+  });
+
+  // hide overlay when re-enter start overlay (rare)
+  ROOT.addEventListener('hha:force_end', ()=>{ try{ hide(); }catch(_){ } });
+}
 
 /* ===== View buttons + FS + VR ===== */
 function hookViewButtons(){
@@ -153,7 +243,7 @@ function hookViewButtons(){
   const btnC  = DOC.getElementById('btnViewCVR');
   const btnFS = DOC.getElementById('btnEnterFS');
   const btnVR = DOC.getElementById('btnEnterVR');
-  const btnHUD= DOC.getElementById('btnToggleHUD');
+  const btnHUD= DOC.getElementById('btnToggleHud');
   const btnPeek = DOC.getElementById('btnPeek');
 
   const vrHint = DOC.getElementById('vrHint');
@@ -184,7 +274,7 @@ function hookViewButtons(){
     setBodyView('cvr');
     showVrHint();
     showPeek(1300);
-    setTimeout(()=> toggleHud(true), 1100);
+    setTimeout(()=> toggleHud(true), 1050);
   });
 }
 
@@ -240,31 +330,30 @@ function bootEngine(){
 
 /* ===== Listen game events -> VR UI ===== */
 function hookGameEvents(){
-  // score -> vrScore
   ROOT.addEventListener('hha:score', (ev)=>{
     const s = ev?.detail || {};
-    setText('vrScore', s.score ?? 0);
+    setText('vrScore-l', s.score ?? 0);
+    setText('vrScore-r', s.score ?? 0);
   });
 
-  // time -> vrTime + lowtime tick
   ROOT.addEventListener('hha:time', (ev)=>{
     const t = ev?.detail || {};
     const left = Number(t.left ?? 0) || 0;
-    setText('vrTime', left);
+    setText('vrTime-l', left);
+    setText('vrTime-r', left);
 
-    // micro tick every ~1 sec only when lowtime
     if (left <= 10){
-      tickCompact();
+      const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
+      if (isVR) tickCompact();
     }
   });
 
-  // rank -> vrGrade
   ROOT.addEventListener('hha:rank', (ev)=>{
     const r = ev?.detail || {};
-    setText('vrGrade', r.grade ?? '—');
+    setText('vrGrade-l', r.grade ?? '—');
+    setText('vrGrade-r', r.grade ?? '—');
   });
 
-  // judge -> toast (only warn/bad)
   ROOT.addEventListener('hha:judge', (ev)=>{
     const j = ev?.detail || {};
     const kind = String(j.kind || 'info');
@@ -273,24 +362,25 @@ function hookGameEvents(){
     const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
     if (!isVR) return;
 
-    if (kind === 'warn') showToast(text, 'warn', 720);
+    if (kind === 'warn') showToast(text, 'warn', 740);
     if (kind === 'bad')  showToast(text, 'bad', 780);
   });
 
-  // lowtime tick event from safe.js
   ROOT.addEventListener('hha:vr_tick', (ev)=>{
     const d = ev?.detail || {};
     const sec = Number(d.sec||0);
     const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
     if (!isVR) return;
+
     tickCompact();
-    if (sec <= 3) showToast(`⚠️ เหลือ ${sec} วิ!`, sec <= 1 ? 'bad' : 'warn', 760);
+    if (sec <= 3) showToast(`⚠️ เหลือ ${sec} วิ!`, sec <= 1 ? 'bad' : 'warn', 780);
   });
 }
 
 function main(){
   hookViewButtons();
   hookGameEvents();
+  bindEndOverlay();
 
   setBodyView(pickInitialView());
   syncFsClass();
@@ -309,7 +399,6 @@ function main(){
     hideStartOverlay();
     syncReserves();
     bootEngine();
-    // show peek briefly at start (esp VR)
     showPeek(1100);
   }, { once:true });
 }
