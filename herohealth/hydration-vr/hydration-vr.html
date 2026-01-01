@@ -1,0 +1,15 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=../hydration-vr.html">
+  <script>
+    // keep query string
+    const u = new URL(location.href);
+    const target = new URL('../hydration-vr.html', location.href);
+    target.search = u.search;
+    location.replace(target.toString());
+  </script>
+</head>
+<body></body>
+</html>
