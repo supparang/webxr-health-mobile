@@ -1,206 +1,242 @@
 // === /herohealth/plate/plate-hud.js ===
 // Balanced Plate VR — HUD Binder (PRODUCTION)
-// ✅ listens: hha:score, quest:update, hha:coach, hha:end
-// ✅ updates: top stats, fever/shield, plate counts, goal/mini bars, result overlay
-// ✅ safe: element missing -> skip
-// ✅ prevents double-binding
+// ✅ Listens: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end
+// ✅ Safe: if element missing -> skip
+// ✅ Adds: Judge/Toast overlay for clarity (good/warn/bad)
+// ✅ No conflict with plate.safe.js (can be redundant, but safe)
 
-(function (root) {
+(function(root){
   'use strict';
 
   const DOC = root.document;
-  if (!DOC) return;
+  if(!DOC) return;
 
-  // prevent double bind
-  if (root.__HHA_PLATE_HUD_BOUND__) return;
+  if(root.__HHA_PLATE_HUD_BOUND__) return;
   root.__HHA_PLATE_HUD_BOUND__ = true;
 
-  function qs(id){ return DOC.getElementById(id); }
-  function setText(id, v){
+  // ---------------- utils ----------------
+  const qs = (id)=>DOC.getElementById(id);
+  const clamp = (v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
+  const setText = (id, v)=>{
     const el = qs(id);
-    if (!el) return;
-    el.textContent = String(v);
-  }
-  function setWidth(id, pct){
+    if(el) el.textContent = String(v);
+  };
+  const setWidthPct = (id, pct)=>{
     const el = qs(id);
-    if (!el) return;
-    const x = Math.max(0, Math.min(100, Number(pct)||0));
-    el.style.width = x + '%';
+    if(el) el.style.width = `${clamp(pct,0,100)}%`;
+  };
+  const fmtPct = (x)=>`${Math.round((Number(x)||0))}%`;
+
+  // ---------------- toast/judge layer ----------------
+  function ensureToast(){
+    let wrap = DOC.querySelector('.hha-plate-toast');
+    if(wrap) return wrap;
+
+    wrap = DOC.createElement('div');
+    wrap.className = 'hha-plate-toast';
+    wrap.style.cssText = `
+      position:fixed;
+      left:50%;
+      top:calc(env(safe-area-inset-top, 0px) + 12px);
+      transform:translateX(-50%);
+      z-index:88;
+      pointer-events:none;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      align-items:center;
+    `;
+    DOC.body.appendChild(wrap);
+    return wrap;
   }
-  function fmtPct(x){
-    x = Number(x)||0;
-    return Math.round(x) + '%';
+
+  function toast(text, kind){
+    if(!text) return;
+    const wrap = ensureToast();
+    const el = DOC.createElement('div');
+    const k = String(kind||'info');
+
+    let bg = 'rgba(2,6,23,.72)';
+    let bd = 'rgba(148,163,184,.18)';
+    let glow = 'rgba(0,0,0,.35)';
+
+    if(k === 'good'){ bg='rgba(34,197,94,.16)'; bd='rgba(34,197,94,.30)'; glow='rgba(34,197,94,.12)'; }
+    else if(k === 'warn'){ bg='rgba(245,158,11,.16)'; bd='rgba(245,158,11,.30)'; glow='rgba(245,158,11,.10)'; }
+    else if(k === 'bad'){ bg='rgba(239,68,68,.16)'; bd='rgba(239,68,68,.30)'; glow='rgba(239,68,68,.10)'; }
+
+    el.textContent = String(text);
+    el.style.cssText = `
+      max-width:min(720px, calc(100vw - 22px));
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid ${bd};
+      background:${bg};
+      backdrop-filter: blur(10px);
+      color:rgba(229,231,235,.98);
+      font: 1100 13px/1.2 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 18px 44px ${glow}, 0 22px 70px rgba(0,0,0,.35);
+      letter-spacing:.01em;
+      opacity:0;
+      transform: translateY(-6px) scale(.98);
+      transition: opacity .12s ease, transform .12s ease;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    `;
+    wrap.appendChild(el);
+
+    // animate in
+    requestAnimationFrame(()=>{
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0) scale(1)';
+    });
+
+    // auto remove
+    clearTimeout(el._t);
+    el._t = setTimeout(()=>{
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(-6px) scale(.98)';
+      setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 200);
+    }, (k==='bad' ? 950 : 720));
   }
-  function safeNum(x, d=0){
-    x = Number(x);
-    return isFinite(x) ? x : d;
+
+  // ---------------- coach image mapping ----------------
+  function setCoach(mood){
+    const img = qs('coachImg');
+    if(!img) return;
+
+    const m = String(mood||'neutral');
+    const map = {
+      happy: './img/coach-happy.png',
+      neutral: './img/coach-neutral.png',
+      sad: './img/coach-sad.png',
+      fever: './img/coach-fever.png'
+    };
+    img.src = map[m] || map.neutral;
   }
 
-  // cache ids (optional)
-  const elFeverFill = qs('uiFeverFill');
+  // ---------------- event handlers ----------------
+  function onScore(d){
+    if(!d || d.game !== 'plate') return;
 
-  // -------------------- handlers --------------------
-  function onScore(ev){
-    const d = (ev && ev.detail) ? ev.detail : null;
-    if(!d) return;
-    if(String(d.game||'') !== 'plate') return;
+    // core stats
+    if(d.score != null) setText('uiScore', d.score);
+    if(d.combo != null) setText('uiCombo', d.combo);
+    if(d.comboMax != null) setText('uiComboMax', d.comboMax);
+    if(d.miss != null) setText('uiMiss', d.miss);
 
-    // basic stats
-    setText('uiScore', safeNum(d.score, 0));
-    setText('uiCombo', safeNum(d.combo, 0));
-    setText('uiComboMax', safeNum(d.comboMax, 0));
-    setText('uiMiss', safeNum(d.miss, 0));
+    // plate state
+    if(d.plateHave != null) setText('uiPlateHave', d.plateHave);
+    if(Array.isArray(d.gCount)){
+      setText('uiG1', d.gCount[0]||0);
+      setText('uiG2', d.gCount[1]||0);
+      setText('uiG3', d.gCount[2]||0);
+      setText('uiG4', d.gCount[3]||0);
+      setText('uiG5', d.gCount[4]||0);
+    }
 
-    // plate
-    setText('uiPlateHave', safeNum(d.plateHave, 0));
-
-    // counts
-    const gc = Array.isArray(d.gCount) ? d.gCount : [];
-    setText('uiG1', safeNum(gc[0], 0));
-    setText('uiG2', safeNum(gc[1], 0));
-    setText('uiG3', safeNum(gc[2], 0));
-    setText('uiG4', safeNum(gc[3], 0));
-    setText('uiG5', safeNum(gc[4], 0));
-
-    // grade/acc
-    if (d.grade != null) setText('uiGrade', String(d.grade));
-    if (d.accuracyGoodPct != null) setText('uiAcc', fmtPct(d.accuracyGoodPct));
+    // grade + acc
+    if(d.accuracyGoodPct != null) setText('uiAcc', fmtPct(d.accuracyGoodPct));
+    if(d.grade) setText('uiGrade', d.grade);
 
     // time
-    if (d.timeLeftSec != null) setText('uiTime', Math.max(0, Math.ceil(safeNum(d.timeLeftSec, 0))));
+    if(d.timeLeftSec != null) setText('uiTime', Math.ceil(Number(d.timeLeftSec)||0));
 
-    // fever
-    const fever = Math.max(0, Math.min(100, safeNum(d.fever, 0)));
-    if (elFeverFill) elFeverFill.style.width = fever + '%';
-
-    // shield
-    setText('uiShieldN', Math.max(0, safeNum(d.shield, 0)));
+    // fever/shield
+    if(d.fever != null) setWidthPct('uiFeverFill', d.fever);
+    if(d.shield != null) setText('uiShieldN', d.shield);
   }
 
-  function onQuest(ev){
-    const d = (ev && ev.detail) ? ev.detail : null;
-    if(!d) return;
-    if(String(d.game||'') !== 'plate') return;
+  function onTime(d){
+    if(!d || d.game !== 'plate') return;
+    if(d.timeLeftSec != null) setText('uiTime', Math.ceil(Number(d.timeLeftSec)||0));
+  }
 
-    const goal = d.goal || null;
-    const mini = d.mini || null;
+  function onQuest(d){
+    if(!d || d.game !== 'plate') return;
 
-    // GOAL
-    if(goal){
-      setText('uiGoalTitle', goal.title || '—');
-      const cur = safeNum(goal.cur, 0);
-      const tar = Math.max(0, safeNum(goal.target, 0));
-      setText('uiGoalCount', tar ? (cur + '/' + tar) : '0/0');
-      setWidth('uiGoalFill', tar ? (cur / tar * 100) : 0);
-    }else{
-      setText('uiGoalTitle', '—');
-      setText('uiGoalCount', '0/0');
-      setWidth('uiGoalFill', 0);
+    const goal = d.goal;
+    const mini = d.mini;
+
+    if(goal && goal.title != null){
+      setText('uiGoalTitle', goal.title);
+      setText('uiGoalCount', `${goal.cur||0}/${goal.target||0}`);
+      const pct = (goal.target ? ((goal.cur||0)/(goal.target||1)*100) : 0);
+      setWidthPct('uiGoalFill', pct);
     }
 
-    // MINI
-    if(mini){
+    if(mini && mini.title != null){
       setText('uiMiniTitle', mini.title || '—');
-
-      // miniCount: show "cleared/total" if provided or fallback "0/0"
-      // (Plate safe.js sets uiMiniCount separately sometimes, but binder will keep stable)
-      if (qs('uiMiniCount')){
-        // If caller provides explicit cur/target for mini, show that,
-        // otherwise keep whatever is currently shown.
-        const cur = safeNum(mini.cur, null);
-        const tar = safeNum(mini.target, null);
-        if(cur != null && tar != null && tar > 0){
-          setText('uiMiniCount', cur + '/' + tar);
-        }
-      }
-
-      // mini time left
-      if(mini.timeLeft == null){
+      // uiMiniCount is used as "cleared/total" by safe.js; we won't override if not provided
+      if(mini.timeLeft != null){
+        setText('uiMiniTime', `${Math.ceil(Number(mini.timeLeft)||0)}s`);
+        const dur = Number(mini.target)||0;
+        const left = Number(mini.timeLeft)||0;
+        const pct = (dur>0 ? ((dur-left)/dur*100) : 0);
+        setWidthPct('uiMiniFill', pct);
+      }else{
         setText('uiMiniTime', '--');
-      }else{
-        const tl = Math.max(0, Math.ceil(safeNum(mini.timeLeft, 0)));
-        setText('uiMiniTime', tl + 's');
+        setWidthPct('uiMiniFill', 0);
       }
-
-      // progress bar (for time-based mini, show elapsed)
-      if(mini.target && mini.timeLeft != null){
-        const tar = Math.max(1, safeNum(mini.target, 1));
-        const tl  = Math.max(0, safeNum(mini.timeLeft, 0));
-        const pct = (tar - tl) / tar * 100;
-        setWidth('uiMiniFill', pct);
-      }else{
-        setWidth('uiMiniFill', 0);
-      }
-    }else{
-      setText('uiMiniTitle', '—');
-      setText('uiMiniTime', '--');
-      setWidth('uiMiniFill', 0);
     }
   }
 
-  function onCoach(ev){
-    const d = (ev && ev.detail) ? ev.detail : null;
-    if(!d) return;
-    if(String(d.game||'') !== 'plate') return;
-
-    const msg = d.msg || '';
-    const mood = (d.mood || 'neutral').toLowerCase();
-
-    const cm = qs('coachMsg');
-    if (cm && msg) cm.textContent = String(msg);
-
-    const img = qs('coachImg');
-    if(img){
-      const map = {
-        happy: './img/coach-happy.png',
-        neutral:'./img/coach-neutral.png',
-        sad: './img/coach-sad.png',
-        fever: './img/coach-fever.png',
-      };
-      img.src = map[mood] || map.neutral;
-    }
+  function onCoach(d){
+    if(!d || d.game !== 'plate') return;
+    if(d.msg != null) setText('coachMsg', d.msg);
+    if(d.mood) setCoach(d.mood);
   }
 
-  function onEnd(ev){
-    const d = (ev && ev.detail) ? ev.detail : null;
-    if(!d) return;
-    if(String(d.game||'') !== 'plate') return;
+  function onJudge(d){
+    if(!d || d.game !== 'plate') return;
+    const text = d.text || d.msg || '';
+    const kind = d.kind || 'info';
+    toast(text, kind);
+  }
 
+  function onEnd(d){
+    if(!d || d.game !== 'plate') return;
     const s = d.summary || null;
     if(!s) return;
 
-    // result overlay ids (plate-vr.html provides them)
+    // If plate.safe.js already shows result, this just reinforces correctness
     setText('rMode', s.runMode || 'play');
     setText('rGrade', s.grade || 'C');
-    setText('rScore', safeNum(s.scoreFinal, 0));
-    setText('rMaxCombo', safeNum(s.comboMax, 0));
-    setText('rMiss', safeNum(s.misses, 0));
-    setText('rPerfect', (s.fastHitRatePct != null) ? (Math.round(s.fastHitRatePct) + '%') : '0%');
-    setText('rGoals', (safeNum(s.goalsCleared, 0)) + '/' + (safeNum(s.goalsTotal, 0)));
-    setText('rMinis', (safeNum(s.miniCleared, 0)) + '/' + (safeNum(s.miniTotal, 0)));
+    setText('rScore', s.scoreFinal || 0);
+    setText('rMaxCombo', s.comboMax || 0);
+    setText('rMiss', s.misses || 0);
+    setText('rPerfect', (s.fastHitRatePct != null ? Math.round(s.fastHitRatePct)+'%' : '0%'));
+    setText('rGoals', `${s.goalsCleared||0}/${s.goalsTotal||0}`);
+    setText('rMinis', `${s.miniCleared||0}/${s.miniTotal||0}`);
 
-    const plate = s.plate || {};
-    const c = Array.isArray(plate.counts) ? plate.counts : [];
-    setText('rG1', safeNum(c[0], 0));
-    setText('rG2', safeNum(c[1], 0));
-    setText('rG3', safeNum(c[2], 0));
-    setText('rG4', safeNum(c[3], 0));
-    setText('rG5', safeNum(c[4], 0));
-    setText('rGTotal', safeNum(plate.total, 0));
-
-    // show overlay if exists
-    const bd = qs('resultBackdrop');
-    if (bd) bd.style.display = 'grid';
+    if(s.plate && Array.isArray(s.plate.counts)){
+      setText('rG1', s.plate.counts[0]||0);
+      setText('rG2', s.plate.counts[1]||0);
+      setText('rG3', s.plate.counts[2]||0);
+      setText('rG4', s.plate.counts[3]||0);
+      setText('rG5', s.plate.counts[4]||0);
+      setText('rGTotal', s.plate.total || (s.plate.counts.reduce((a,b)=>a+(b||0),0)));
+    }
   }
 
-  // -------------------- attach listeners --------------------
-  root.addEventListener('hha:score', onScore);
-  root.addEventListener('quest:update', onQuest);
-  root.addEventListener('hha:coach', onCoach);
-  root.addEventListener('hha:end', onEnd);
+  // ---------------- bind ----------------
+  root.addEventListener('hha:score', (ev)=>{ try{ onScore(ev.detail||{}); }catch(e){} }, { passive:true });
+  root.addEventListener('hha:time', (ev)=>{ try{ onTime(ev.detail||{}); }catch(e){} }, { passive:true });
+  root.addEventListener('quest:update', (ev)=>{ try{ onQuest(ev.detail||{}); }catch(e){} }, { passive:true });
+  root.addEventListener('hha:coach', (ev)=>{ try{ onCoach(ev.detail||{}); }catch(e){} }, { passive:true });
+  root.addEventListener('hha:judge', (ev)=>{ try{ onJudge(ev.detail||{}); }catch(e){} }, { passive:true });
+  root.addEventListener('hha:end', (ev)=>{ try{ onEnd(ev.detail||{}); }catch(e){} }, { passive:true });
 
-  // also accept direct custom names if you ever emit them
-  // (no-op if never used)
-  root.addEventListener('plate:score', onScore);
+  // ---------------- initial polish ----------------
+  // If overlay exists at load, ensure preview labels are readable (safe no-op)
+  try{
+    const u = new URL(location.href);
+    const diff = (u.searchParams.get('diff') || 'normal').toLowerCase();
+    const time = (u.searchParams.get('time') || '90');
+    const run  = (u.searchParams.get('run') || u.searchParams.get('runMode') || 'play').toLowerCase();
+    setText('uiDiffPreview', diff);
+    setText('uiTimePreview', time);
+    setText('uiRunPreview', run);
+  }catch(e){}
 
-})(typeof window !== 'undefined' ? window : globalThis);
+})(window);
