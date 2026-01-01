@@ -5,7 +5,8 @@
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 // ✅ Flush-hardened: before end/back hub/reload
-// ✅ PATCH B: Layout-stable spawn + VR/FS resize reflow + absolute targets + hha:shoot crosshair
+// ✅ PATCH B: Layout-stable spawn + resize/enterVR reflow + look-shift compensated spawn
+// ✅ PATCH B: target "แว๊บ" ลดลง (spawn after settle) + clamp within viewport
 
 'use strict';
 
@@ -25,7 +26,6 @@ function setText(id, txt){
   if(el) el.textContent = String(txt);
 }
 function fmtPct(x){ x = Number(x)||0; return `${Math.round(x)}%`; }
-function raf2(fn){ requestAnimationFrame(()=>requestAnimationFrame(fn)); }
 
 // Seeded RNG (mulberry32)
 function mulberry32(seed){
@@ -38,7 +38,9 @@ function mulberry32(seed){
   };
 }
 function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)] || arr[0]; }
-function uid(){ return Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2); }
+function uid(){
+  return Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
+}
 
 // ------------------------- HHA Standard: storage -------------------------
 const LS_LAST = 'HHA_LAST_SUMMARY';
@@ -177,12 +179,21 @@ function playTickSound(){
 let look = { x:0, y:0, dragging:false, lastX:0, lastY:0 };
 let gyro = { gx:0, gy:0, ok:false };
 
-function applyLook(){
-  if(!layer) return;
+// PATCH B: keep last applied shift (for spawn compensation)
+let lookShift = { x:0, y:0 };
+
+function computeLookShift(){
   const maxX = 24, maxY = 22;
   const x = clamp(look.x + gyro.gx, -maxX, maxX);
   const y = clamp(look.y + gyro.gy, -maxY, maxY);
-  layer.style.transform = `translate(${x}px, ${y}px)`;
+  return { x, y };
+}
+function applyLook(){
+  if(!layer) return;
+  const sh = computeLookShift();
+  lookShift.x = sh.x;
+  lookShift.y = sh.y;
+  layer.style.transform = `translate3d(${sh.x}px, ${sh.y}px, 0)`;
 }
 
 function enableGyroIfAllowed(){
@@ -236,40 +247,56 @@ function bindDragLook(){
   on(ROOT, 'pointerup', ()=>{ look.dragging = false; }, { passive:true });
 }
 
-// ------------------------- Layout / Safe spawn geometry (PATCH B) -------------------------
-function viewportBox(){
-  const vv = ROOT.visualViewport;
-  const W = Math.round(vv ? vv.width : (ROOT.innerWidth || 360));
-  const H = Math.round(vv ? vv.height : (ROOT.innerHeight || 640));
-  const ox = Math.round(vv ? vv.offsetLeft : 0);
-  const oy = Math.round(vv ? vv.offsetTop  : 0);
-  return { W, H, ox, oy };
-}
-
+// ------------------------- Safe spawn geometry (avoid HUD overlap) -------------------------
 function rectOf(el){
   if(!el) return null;
   const r = el.getBoundingClientRect();
-  if(!r || !isFinite(r.width) || r.width <= 0 || r.height <= 0) return null;
+  if(!r || !isFinite(r.width)) return null;
   return { x:r.left, y:r.top, w:r.width, h:r.height, r };
+}
+function expandRect(rr, pad){
+  if(!rr) return rr;
+  const p = Number(pad)||0;
+  return { x: rr.x - p, y: rr.y - p, w: rr.w + p*2, h: rr.h + p*2 };
 }
 function intersects(a, b){
   return !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y);
 }
+
+// PATCH B: cache layout (debounced) — ลดเป้าแว๊บและกัน spawn เพี้ยนหลัง EnterVR/rotate
+let layoutCache = {
+  W: 360, H: 640,
+  playRect: { x:10, y:80, w:340, h:480 },
+  noRects: [],
+  stamp: 0
+};
+
+function viewportSize(){
+  // visualViewport ช่วยมากตอน EnterVR / mobile address bar
+  const vv = ROOT.visualViewport;
+  const W = vv && vv.width ? vv.width : (ROOT.innerWidth || 360);
+  const H = vv && vv.height ? vv.height : (ROOT.innerHeight || 640);
+  return { W: Math.max(1, Math.round(W)), H: Math.max(1, Math.round(H)) };
+}
+
 function buildNoSpawnRects(){
   const rects = [];
+  // padding กันโดน HUD ขอบ ๆ
+  const PAD = 8;
   [hudTop, miniPanel, coachPanel, hudBtns].forEach(el=>{
     const rr = rectOf(el);
-    if(rr) rects.push(rr);
+    if(rr) rects.push(expandRect(rr, PAD));
   });
   return rects;
 }
+
 function getPlayRect(){
-  const { W, H } = viewportBox();
+  const { W, H } = viewportSize();
   const pad = 10;
 
-  const topR   = rectOf(hudTop);
-  const miniR  = rectOf(miniPanel);
-  const btnR   = rectOf(hudBtns);
+  const topR = rectOf(hudTop);
+  const miniR = rectOf(miniPanel);
+  const btnR = rectOf(hudBtns);
   const coachR = rectOf(coachPanel);
 
   let top = pad;
@@ -277,67 +304,50 @@ function getPlayRect(){
   let left = pad;
   let right = W - pad;
 
-  if(topR)  top = Math.max(top,  topR.y  + topR.h  + 10);
-  if(miniR) top = Math.max(top,  miniR.y + miniR.h + 10);
-  if(btnR)  bottom = Math.min(bottom, btnR.y - 10);
+  if(topR) top = Math.max(top, topR.y + topR.h + 10);
+  if(miniR) top = Math.max(top, miniR.y + miniR.h + 10);
+  if(btnR) bottom = Math.min(bottom, btnR.y - 10);
 
-  // ✅ PATCH: ใน VR อย่าบีบซ้ายด้วย coach (กัน playRect แคบจนเป้ากองมุม)
-  const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
-  if(!isVR && coachR){
-    left = Math.max(left, coachR.x + coachR.w + 10);
-  }
+  // PATCH B: coachPanel อยู่ขวาล่างแล้ว (CSS), แต่อย่ายัด playRect จนเหลือแต่ขวา
+  // ดังนั้น "ไม่ดัน left" แล้ว — ปล่อยให้ coach เป็น no-rect กันทับแทน
+  // if(coachR) left = Math.max(left, coachR.x + coachR.w + 10);
 
-  top = clamp(top, 0, H-60);
-  bottom = clamp(bottom, top+140, H);
-  left = clamp(left, 0, W-80);
-  right = clamp(right, left+180, W);
+  top = clamp(top, 0, H-40);
+  bottom = clamp(bottom, top+40, H);
+  left = clamp(left, 0, W-40);
+  right = clamp(right, left+40, W);
 
-  // guard
-  const pr = { x:left, y:top, w:(right-left), h:(bottom-top) };
-  pr.x = clamp(pr.x, 0, W-1);
-  pr.y = clamp(pr.y, 0, H-1);
-  pr.w = clamp(pr.w, 40, W - pr.x);
-  pr.h = clamp(pr.h, 40, H - pr.y);
-  return pr;
+  return { x:left, y:top, w:(right-left), h:(bottom-top) };
 }
 
-// Layout cache
-const LAYOUT = {
-  ready:false,
-  playRect:{x:10,y:120,w:300,h:380},
-  noRects:[],
-  lastRefreshMs:0,
-  stale:true,
-};
-function layoutIsReady(){
-  const pr = LAYOUT.playRect;
-  return !!(pr && pr.w >= 220 && pr.h >= 240 && isFinite(pr.x) && isFinite(pr.y));
-}
-function refreshLayout(reason){
-  try{
-    if(layer){
-      // make sure layer has stable coordinate system for absolute targets
-      // (CSS should already set it, but we enforce the safe minimum)
-      layer.style.position = layer.style.position || 'fixed';
-      layer.style.inset = layer.style.inset || '0';
+function refreshLayout(){
+  const { W, H } = viewportSize();
+  let playRect = getPlayRect();
+  let noRects = buildNoSpawnRects();
+
+  // PATCH B: ถ้า playRect เล็กเกิน → relax การกันทับบางตัว (กัน spawn ตันแล้วไหลไปมุม)
+  if(playRect.w < 140 || playRect.h < 180){
+    // ลองตัด coachRect ออกก่อน
+    const coachR = rectOf(coachPanel);
+    if(coachR){
+      noRects = noRects.filter(rr=>{
+        // rough compare: if rect overlaps coachR area
+        const same = Math.abs(rr.x - coachR.x) < 6 && Math.abs(rr.y - coachR.y) < 6;
+        return !same;
+      });
     }
-    LAYOUT.playRect = getPlayRect();
-    LAYOUT.noRects = buildNoSpawnRects();
-    LAYOUT.ready = layoutIsReady();
-    LAYOUT.lastRefreshMs = nowMs();
-    LAYOUT.stale = false;
-    emit('hha:layout', { game:'plate', reason: reason||'refresh', ready: LAYOUT.ready, playRect: LAYOUT.playRect });
-  }catch(e){
-    LAYOUT.ready = false;
   }
+
+  layoutCache.W = W;
+  layoutCache.H = H;
+  layoutCache.playRect = playRect;
+  layoutCache.noRects = noRects;
+  layoutCache.stamp = nowMs();
 }
 
-// ✅ When viewport changes (VR/FS/rotate), clear + refresh after 2 RAF
-function scheduleReflow(reason){
-  LAYOUT.stale = true;
-  clearAllTargets();
-  spawnAccum = 0;
-  raf2(()=>refreshLayout(reason || 'reflow'));
+function refreshLayoutSoon(ms){
+  clearTimeout(refreshLayoutSoon._t);
+  refreshLayoutSoon._t = setTimeout(()=>{ try{ refreshLayout(); }catch(e){} }, ms||80);
 }
 
 // ------------------------- Game State -------------------------
@@ -387,7 +397,7 @@ let activeMini = null;
 
 const GOALS = [
   { key:'fill-plate', title:'เติมจานให้ครบ 5 หมู่', target:5, cur:0, done:false },
-  { key:'accuracy', title:'จบเกมด้วยความแม่นยำ ≥ 80%', target:80, cur:0, done:false },
+  { key:'accuracy',   title:'จบเกมด้วยความแม่นยำ ≥ 80%', target:80, cur:0, done:false },
 ];
 
 function accuracyPct(){
@@ -435,7 +445,7 @@ function updateHUD(){
   setText('uiG1', gCount[0]); setText('uiG2', gCount[1]); setText('uiG3', gCount[2]); setText('uiG4', gCount[3]); setText('uiG5', gCount[4]);
   setText('uiAcc', fmtPct(accuracyPct()));
   setText('uiGrade', calcGrade());
-  setText('uiTime', Math.max(0, Math.ceil(tLeftSec)));
+  setText('uiTime', Math.ceil(tLeftSec));
   const ff = qs('uiFeverFill');
   if(ff) ff.style.width = `${clamp(fever,0,100)}%`;
   setText('uiShieldN', shield);
@@ -630,12 +640,15 @@ function maybeSpawnShield(){
 function spawnTarget(forcedKind){
   if(!layer) return;
 
-  // ✅ PATCH B: อย่า spawn ถ้า layout ยังไม่ ready/stable
-  if(LAYOUT.stale || !LAYOUT.ready) return;
+  // PATCH B: ensure layout cache fresh enough
+  if(!layoutCache.stamp || (nowMs() - layoutCache.stamp) > 800){
+    try{ refreshLayout(); }catch(e){}
+  }
 
   const tune = currentTunings();
-  const playRect = LAYOUT.playRect;
-  const noRects = LAYOUT.noRects;
+  const { W, H } = layoutCache;
+  const playRect = layoutCache.playRect;
+  const noRects = layoutCache.noRects;
 
   let kind = forcedKind;
   if(!kind){
@@ -650,45 +663,58 @@ function spawnTarget(forcedKind){
   else spec = shieldEmoji;
 
   const size = tune.size;
-  const box = { x:0, y:0, w:size, h:size };
+
+  // PATCH B: compensate look shift — spawn in screen-space, then place element at (screen - shift)
+  const shX = lookShift.x || 0;
+  const shY = lookShift.y || 0;
+
+  // screen-space test box
+  const screenBox = { x:0, y:0, w:size, h:size };
   let ok = false;
 
-  const tries = 42;
+  const tries = 44;
   for(let i=0;i<tries;i++){
-    const rx = playRect.x + rng()*(Math.max(1, playRect.w - size));
-    const ry = playRect.y + rng()*(Math.max(1, playRect.h - size));
-    box.x = rx; box.y = ry;
+    const sx = playRect.x + rng()*(Math.max(1, playRect.w - size));
+    const sy = playRect.y + rng()*(Math.max(1, playRect.h - size));
+    screenBox.x = sx; screenBox.y = sy;
 
     let hit = false;
     for(const rr of noRects){
-      if(intersects(box, rr)){ hit = true; break; }
+      if(intersects(screenBox, rr)){ hit = true; break; }
     }
     if(!hit){ ok = true; break; }
   }
 
   if(!ok){
-    const rx = playRect.x + rng()*(Math.max(1, playRect.w - size));
-    const ry = playRect.y + rng()*(Math.max(1, playRect.h - size));
-    box.x = rx; box.y = ry;
+    const sx = playRect.x + rng()*(Math.max(1, playRect.w - size));
+    const sy = playRect.y + rng()*(Math.max(1, playRect.h - size));
+    screenBox.x = sx; screenBox.y = sy;
   }
+
+  // convert to layer-local (because layer is shifted)
+  let lx = screenBox.x - shX;
+  let ly = screenBox.y - shY;
+
+  // clamp to viewport (layer is fullscreen)
+  lx = clamp(lx, 6, W - size - 6);
+  ly = clamp(ly, 6, H - size - 6);
 
   const el = DOC.createElement('button');
   const id = `t_${uid()}`;
   el.className = 'plateTarget';
   el.type = 'button';
+  el.tabIndex = -1;
   el.setAttribute('data-id', id);
   el.setAttribute('data-kind', spec.kind);
   if(spec.kind === 'good') el.setAttribute('data-group', String(spec.groupIdx));
   el.textContent = spec.emoji;
 
-  // ✅ PATCH B: absolute (ไม่ใช้ fixed ใต้ parent ที่มี transform)
+  // IMPORTANT: absolute inside layer (layer fixed full-screen)
   el.style.position = 'absolute';
-  el.style.left = `${Math.round(box.x)}px`;
-  el.style.top  = `${Math.round(box.y)}px`;
+  el.style.left = `${Math.round(lx)}px`;
+  el.style.top  = `${Math.round(ly)}px`;
   el.style.width = `${size}px`;
   el.style.height = `${size}px`;
-
-  // baseline visuals (css จะทับได้)
   el.style.borderRadius = '999px';
   el.style.border = '1px solid rgba(148,163,184,.18)';
   el.style.background = 'rgba(2,6,23,.55)';
@@ -699,6 +725,7 @@ function spawnTarget(forcedKind){
   el.style.placeItems = 'center';
   el.style.userSelect = 'none';
   el.style.webkitTapHighlightColor = 'transparent';
+  el.style.outline = 'none';
   el.style.transform = 'translateZ(0)';
 
   on(el, 'pointerdown', (e)=>{
@@ -876,29 +903,6 @@ function updateAdaptive(){
   emit('hha:adaptive', { game:'plate', adapt:{...adapt}, acc, rtAvg });
 }
 
-// ------------------------- Crosshair shooting (hha:shoot) -------------------------
-function bindCrosshairShoot(){
-  // vr-ui.js emits: window.dispatchEvent(new CustomEvent('hha:shoot',{detail:{x,y}}))
-  on(ROOT, 'hha:shoot', (e)=>{
-    try{
-      if(!running || paused) return;
-      const d = e.detail || {};
-      const x = Number(d.x);
-      const y = Number(d.y);
-      if(!isFinite(x) || !isFinite(y)) return;
-
-      const el = DOC.elementFromPoint(x, y);
-      if(!el) return;
-
-      const btn = el.closest ? el.closest('.plateTarget') : null;
-      if(!btn) return;
-
-      const id = btn.getAttribute('data-id');
-      if(id) onHit(id);
-    }catch(_){}
-  }, { passive:true });
-}
-
 // ------------------------- Timer / loop -------------------------
 function tick(){
   if(!running) return;
@@ -910,14 +914,6 @@ function tick(){
   if(paused){
     requestAnimationFrame(tick);
     return;
-  }
-
-  // ✅ PATCH B: ถ้า layout ยังไม่พร้อม ให้พยายาม refresh จนพร้อม แล้วค่อย spawn
-  if(LAYOUT.stale || !LAYOUT.ready){
-    // refresh แบบไม่ถี่เกินไป
-    if((t - LAYOUT.lastRefreshMs) > 120){
-      refreshLayout('tick-refresh');
-    }
   }
 
   if(dt > 0 && isFinite(dt)){
@@ -946,18 +942,14 @@ function tick(){
     }
   }
 
-  // spawn only if layout ready
-  if(LAYOUT.ready){
-    const tune = currentTunings();
-    spawnAccum += dt * tune.spawnPerSec;
-    while(spawnAccum >= 1){
-      spawnAccum -= 1;
-      spawnTarget();
-      maybeSpawnShield();
-    }
+  const tune = currentTunings();
+  spawnAccum += dt * tune.spawnPerSec;
+  while(spawnAccum >= 1){
+    spawnAccum -= 1;
+    spawnTarget();
+    maybeSpawnShield();
   }
 
-  // expire
   for(const [id, tObj] of targets){
     if((t - tObj.bornMs) >= tObj.lifeMs){
       onExpireTarget(id);
@@ -997,6 +989,9 @@ function bootButtons(){
       const scene = DOC.querySelector('a-scene');
       if(scene && scene.enterVR) scene.enterVR();
     }catch(e){}
+    // PATCH B: EnterVR มักทำให้ viewport เปลี่ยน → refresh layout กัน spawn เพี้ยน
+    refreshLayoutSoon(120);
+    refreshLayoutSoon(360);
   }, { passive:true });
 
   on(btnBackHub, 'click', async ()=>{
@@ -1026,20 +1021,15 @@ function bootButtons(){
     try{ flushHardened('beforeunload'); }catch(err){}
   });
 
-  // ✅ PATCH B: Reflow hooks
-  on(ROOT, 'resize', ()=>scheduleReflow('resize'), { passive:true });
-  on(ROOT, 'orientationchange', ()=>scheduleReflow('orientation'), { passive:true });
-  on(DOC, 'fullscreenchange', ()=>scheduleReflow('fullscreen'), { passive:true });
-  on(DOC, 'webkitfullscreenchange', ()=>scheduleReflow('fullscreen'), { passive:true });
+  // PATCH B: resize/orientation/visualViewport
+  on(ROOT, 'resize', ()=> refreshLayoutSoon(90), { passive:true });
+  on(ROOT, 'orientationchange', ()=> refreshLayoutSoon(140), { passive:true });
 
-  // A-Frame VR enter/exit -> schedule reflow
-  try{
-    const scene = qs('scene') || DOC.querySelector('a-scene');
-    if(scene){
-      scene.addEventListener('enter-vr', ()=>scheduleReflow('enter-vr'));
-      scene.addEventListener('exit-vr', ()=>scheduleReflow('exit-vr'));
-    }
-  }catch(_){}
+  const vv = ROOT.visualViewport;
+  if(vv){
+    on(vv, 'resize', ()=> refreshLayoutSoon(60), { passive:true });
+    on(vv, 'scroll', ()=> refreshLayoutSoon(80), { passive:true });
+  }
 }
 
 function resetState(){
@@ -1099,6 +1089,11 @@ function startGame(){
 
   enableGyroIfAllowed();
   bindDragLook();
+
+  // PATCH B: refresh layout AFTER overlay hides (กัน rect เพี้ยน)
+  refreshLayoutSoon(20);
+  refreshLayoutSoon(160);
+
   applyLook();
 
   startGoals();
@@ -1111,19 +1106,15 @@ function startGame(){
   tStartMs = nowMs();
   tLastTickMs = tStartMs;
 
-  // ✅ PATCH B: refresh layout AFTER overlay hidden + 2 RAF เพื่อกัน flash/มุมล่างขวา
-  scheduleReflow('startgame');
-
   updateHUD();
   emit('hha:time', { game:'plate', timeLeftSec: Math.ceil(tLeftSec) });
 
-  // spawn a few only when ready
-  raf2(()=>{
-    refreshLayout('startgame-raf2');
-    if(LAYOUT.ready){
+  // PATCH B: spawn หลัง layout settle 2 เฟรม ลด “แว๊บ”
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
       for(let i=0;i<4;i++) spawnTarget();
-    }
-    requestAnimationFrame(tick);
+      requestAnimationFrame(tick);
+    });
   });
 }
 
@@ -1285,15 +1276,12 @@ async function endGame(reason){
   setText('uiTimePreview', timePlannedSec);
   setText('uiRunPreview', runMode);
 
+  try{ refreshLayout(); }catch(e){}
   resetState();
   updateHUD();
   emitQuestUpdate();
 
-  // layout baseline (before start)
-  raf2(()=>refreshLayout('init-raf2'));
-
   bootButtons();
-  bindCrosshairShoot();
 
   if(startOverlay) startOverlay.style.display = 'grid';
   applyLook();
