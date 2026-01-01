@@ -4,183 +4,240 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — GroupsVR Launcher</title>
-  <meta name="color-scheme" content="light dark" />
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
-
-  <!-- reuse same CSS -->
-  <link rel="stylesheet" href="./vr-groups/groups-vr.css" />
   <style>
-    /* launcher-only tweaks */
-    body{ overflow:auto; }
-    .overlay{ position:relative; inset:auto; min-height:100dvh; }
-    .overlay .panel{ max-width: 920px; }
-    .launcherGrid{
-      display:grid; gap:12px;
-      grid-template-columns: 1.2fr .8fr;
-      align-items:start;
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.82);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --warn:#f59e0b;
+      --radius:20px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    @media (max-width:860px){
-      .launcherGrid{ grid-template-columns:1fr; }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; width:100%; height:100%; overflow:hidden; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:
+      radial-gradient(circle at 10% 0%, rgba(34,211,238,.16), transparent 60%),
+      radial-gradient(circle at 90% 100%, rgba(167,139,250,.14), transparent 60%),
+      var(--bg);
+      color:var(--text);
     }
-    .box{
-      background: rgba(2,6,23,.62);
+    .wrap{
+      position:fixed; inset:0;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
+      overflow:auto;
+    }
+    .panel{
+      max-width: 980px;
+      margin: 0 auto;
+      background: linear-gradient(180deg, rgba(2,6,23,.92), rgba(2,6,23,.70));
       border:1px solid var(--stroke);
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+    }
+    .title{ font-weight: 1000; font-size: 26px; letter-spacing:.2px; }
+    .sub{ color:var(--muted); margin-top:6px; line-height:1.35; }
+    .hr{ height:1px; background:var(--stroke); margin: 14px 0; }
+    .grid2{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:14px;
+    }
+    @media(max-width:860px){ .grid2{ grid-template-columns:1fr; } }
+
+    .card{
+      background: rgba(15,23,42,.50);
+      border:1px solid rgba(148,163,184,.16);
       border-radius: 18px;
       padding: 14px;
-      backdrop-filter: blur(8px);
     }
-    .boxTitle{
-      font-weight:1000; letter-spacing:.2px; margin-bottom:10px;
-      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    .k{
+      color:var(--muted);
+      font-weight: 900;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      font-size: 12px;
+      margin-bottom:10px;
     }
-    .boxSub{ color:var(--muted); font-weight:800; font-size:13px; line-height:1.35; }
-    .btnWide{ flex:1; display:flex; justify-content:center; min-width: 180px; }
-    .linkOut{
-      width:100%;
-      padding:10px 12px;
-      border-radius:12px;
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .chip{
       border:1px solid var(--stroke);
-      background: rgba(15,23,42,.55);
-      color: var(--text);
-      font-weight:900;
-      word-break: break-all;
-    }
-    .miniRow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-    .miniBtn{
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid var(--stroke);
-      background: rgba(15,23,42,.45);
+      background: rgba(2,6,23,.48);
       color:var(--text);
-      font-weight:900;
+      border-radius: var(--pill);
+      padding: 9px 12px;
+      font-weight: 1000;
+      font-size: 13px;
       cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .08s ease, border-color .12s ease, background .12s ease;
     }
-    .miniBtn:hover{ border-color: rgba(148,163,184,.35); }
+    .chip:hover{ border-color: rgba(148,163,184,.35); }
+    .chip:active{ transform: translateY(1px) scale(.99); }
+    .chip.on{
+      border-color: rgba(34,197,94,.42);
+      background: rgba(34,197,94,.14);
+    }
+    .chip.warn.on{
+      border-color: rgba(245,158,11,.45);
+      background: rgba(245,158,11,.14);
+    }
+    .input{
+      width: 110px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border:1px solid var(--stroke);
+      background: rgba(2,6,23,.45);
+      color:var(--text);
+      font-weight: 1000;
+    }
+    .btn{
+      appearance:none;
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.62);
+      color:var(--text);
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 1000;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .12s ease, background .12s ease;
+    }
+    .btn:hover{ border-color: rgba(148,163,184,.35); }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn-strong{
+      background: linear-gradient(180deg, rgba(34,197,94,.25), rgba(34,197,94,.10));
+      border-color: rgba(34,197,94,.35);
+    }
+    .btn-cyan{
+      background: linear-gradient(180deg, rgba(34,211,238,.22), rgba(34,211,238,.08));
+      border-color: rgba(34,211,238,.32);
+    }
+    .note{
+      color:var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      margin-top:10px;
+    }
+    .miniHint{
+      margin-top:8px;
+      color:var(--muted);
+      font-weight: 900;
+      line-height: 1.35;
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; color:rgba(229,231,235,.92); }
+    .vol{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+    }
+    .slider{
+      width: 220px;
+      max-width: 70vw;
+    }
   </style>
 </head>
-
-<body class="view-pc">
-
-  <div class="overlay">
+<body>
+  <div class="wrap">
     <div class="panel">
-
-      <div class="title">🍱 Food Groups VR — Launcher</div>
+      <div class="title">🍽️ Food Groups VR — Launcher</div>
       <div class="sub">
-        เลือกโหมดเข้าเล่น <b>PC / Mobile / VR Cardboard</b> ได้จากหน้านี้  
-        (Run page จะมีปุ่ม ENTER VR/EXIT/RECENTER จาก <code>vr-ui.js</code> ให้อัตโนมัติ)
+        เลือกอุปกรณ์ + โหมดเล่น แล้วกด “เริ่มเกม” → จะเปิดหน้า Run (<span class="mono">/herohealth/vr-groups/groups.html</span>)
       </div>
 
       <div class="hr"></div>
 
-      <div class="launcherGrid">
-
-        <!-- LEFT: quick launch -->
-        <div class="box">
-          <div class="boxTitle">
-            <div>🚀 เข้าเล่นทันที</div>
-            <span class="tag" id="tagInfo">—</span>
-          </div>
-
+      <div class="grid2">
+        <div class="card">
+          <div class="k">Device / View</div>
           <div class="row">
-            <button id="btnPC" class="btn btn-strong btnWide" type="button">🖥️ เล่นบน PC</button>
-            <button id="btnMobile" class="btn btn-strong btnWide" type="button">📱 เล่นบน Mobile</button>
-            <button id="btnCVR" class="btn btn-strong btnWide" type="button">🥽 VR Cardboard</button>
+            <button id="vPC" class="chip" type="button">🖥️ PC</button>
+            <button id="vMobile" class="chip on" type="button">📱 Mobile</button>
+            <button id="vCVR" class="chip" type="button">🕶️ Cardboard</button>
+          </div>
+          <div id="viewHint" class="miniHint">—</div>
+
+          <div class="k" style="margin-top:14px;">Aim Mode</div>
+          <div class="row">
+            <button id="aimTap" class="chip on" type="button">👆 แตะเป้า</button>
+            <button id="aimShoot" class="chip" type="button">🎯 ยิงกลางจอ</button>
+          </div>
+          <div id="aimHint" class="miniHint">—</div>
+
+          <div class="k" style="margin-top:14px;">Run / Difficulty / Style</div>
+          <div class="row">
+            <button id="runPlay" class="chip on" type="button">run=play</button>
+            <button id="runRes" class="chip" type="button">run=research</button>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button id="diffEasy" class="chip" type="button">easy</button>
+            <button id="diffNormal" class="chip on" type="button">normal</button>
+            <button id="diffHard" class="chip warn" type="button">hard</button>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button id="styleMix" class="chip on" type="button">mix</button>
+            <button id="styleFeel" class="chip" type="button">feel</button>
+            <button id="styleHard" class="chip" type="button">hard</button>
           </div>
 
-          <div class="row row2">
-            <button id="btnPC_Copy" class="btn btnWide" type="button">📋 Copy link (PC)</button>
-            <button id="btnMobile_Copy" class="btn btnWide" type="button">📋 Copy link (Mobile)</button>
-            <button id="btnCVR_Copy" class="btn btnWide" type="button">📋 Copy link (Cardboard)</button>
+          <div class="k" style="margin-top:14px;">Time / Seed / AI flag</div>
+          <div class="row">
+            <span class="miniHint" style="margin:0;">time(s)</span>
+            <input id="timeInput" class="input" type="number" min="30" max="180" value="90" />
+            <button id="seedRand" class="chip" type="button">🎲 seed=random</button>
+            <input id="seedInput" class="input" type="text" value="" placeholder="seed (opt)" />
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button id="aiOn" class="chip on" type="button">ai=on</button>
+            <button id="aiOff" class="chip" type="button">ai=off</button>
+            <span class="miniHint" style="margin:0;">(เก็บเป็น flag ไว้ก่อน)</span>
           </div>
 
-          <div class="hr"></div>
-
-          <div class="boxSub">
-            ✅ Cardboard: เมื่อกด ENTER VR แล้ว <b>แตะจอเพื่อยิงจาก crosshair</b> (โหมด <code>view=cvr</code>)<br/>
-            ✅ PC/Mobile: แตะ/คลิกที่เป้าได้ตามปกติ
+          <div class="k" style="margin-top:14px;">Audio</div>
+          <div class="vol">
+            <button id="muteBtn" class="chip" type="button">🔈 Mute: Off</button>
+            <input id="volSlider" class="slider" type="range" min="0" max="100" value="22" />
+            <span id="volText" class="miniHint" style="margin:0;">Volume 22%</span>
+          </div>
+          <div class="note">
+            ✅ Cardboard แนะนำ: <b>view=cvr</b> + <b>aim=shoot</b> แล้วเข้า Run → กด ENTER VR → แตะจอเพื่อยิงจาก crosshair
           </div>
         </div>
 
-        <!-- RIGHT: settings -->
-        <div class="box">
-          <div class="boxTitle">
-            <div>⚙️ ตั้งค่า</div>
+        <div class="card">
+          <div class="k">Actions</div>
+          <div class="row">
+            <button id="btnStart" class="btn btn-strong" type="button">▶️ เริ่มเกม (Run)</button>
+            <button id="btnStartNewTab" class="btn btn-cyan" type="button">🧭 เปิด Run (แท็บใหม่)</button>
           </div>
-
-          <div class="grid2">
-            <div class="kv">
-              <div class="k">Run mode</div>
-              <div class="v" id="runModeChips">
-                <button class="chip chip-on" data-run="play" type="button">PLAY (Adaptive)</button>
-                <button class="chip" data-run="research" type="button">RESEARCH (Deterministic)</button>
-              </div>
-            </div>
-
-            <div class="kv">
-              <div class="k">Difficulty</div>
-              <div class="v" id="diffChips">
-                <button class="chip" data-diff="easy" type="button">Easy</button>
-                <button class="chip chip-on" data-diff="normal" type="button">Normal</button>
-                <button class="chip" data-diff="hard" type="button">Hard</button>
-              </div>
-            </div>
-
-            <div class="kv">
-              <div class="k">Style</div>
-              <div class="v" id="styleChips">
-                <button class="chip chip-on" data-style="mix" type="button">Mix</button>
-                <button class="chip" data-style="feel" type="button">Feel</button>
-                <button class="chip" data-style="hard" type="button">Hard</button>
-              </div>
-            </div>
-
-            <div class="kv">
-              <div class="k">AI (Hooks)</div>
-              <div class="v" id="aiChips">
-                <button class="chip chip-on" data-ai="off" type="button">AI OFF</button>
-                <button class="chip" data-ai="on" type="button">AI ON</button>
-              </div>
-              <div class="hint">เปิด AI แล้วจะมี Coach tips + Director ปรับเกม (เฉพาะ PLAY)</div>
-            </div>
-
-            <div class="kv">
-              <div class="k">Time (sec)</div>
-              <div class="v">
-                <input id="inpTime" class="input" type="number" min="30" max="180" value="90" />
-                <span class="hint">30–180</span>
-              </div>
-            </div>
-
-            <div class="kv">
-              <div class="k">Seed</div>
-              <div class="v">
-                <input id="inpSeed" class="input" type="text" value="" placeholder="auto" />
-                <button id="btnNewSeed" class="miniBtn" type="button">🎲 New</button>
-              </div>
-              <div class="hint">Research แนะนำให้ล็อก seed เพื่อผลซ้ำได้</div>
-            </div>
+          <div class="row" style="margin-top:12px;">
+            <button id="btnCopyLink" class="btn" type="button">📋 Copy Link</button>
+            <button id="btnShare" class="btn" type="button">📤 Share</button>
+            <button id="btnOpenHub" class="btn" type="button">🏠 เปิด HUB</button>
           </div>
 
           <div class="hr"></div>
+          <div class="k">Preview URL</div>
+          <div id="preview" class="mono" style="white-space:pre-wrap; word-break:break-all;">—</div>
 
-          <div class="kv">
-            <div class="k">Link preview</div>
-            <div class="v">
-              <div id="linkPreview" class="linkOut">—</div>
-            </div>
-            <div class="miniRow" style="margin-top:10px;">
-              <button id="btnCopyPreview" class="miniBtn" type="button">📋 Copy preview link</button>
-              <button id="btnOpenPreview" class="miniBtn" type="button">🔗 Open preview</button>
-            </div>
+          <div class="hr"></div>
+          <div class="k">Tips</div>
+          <div class="note">
+            <b>PC:</b> เลือก “แตะเป้า” (คลิก) หรือ “ยิงกลางจอ” (เหมือนเกม VR) <br/>
+            <b>Mobile:</b> ถ้าจิ้มยาก ให้เลือก “ยิงกลางจอ” <br/>
+            <b>Cardboard:</b> ใช้ “ยิงกลางจอ” เท่านั้นจะคุมง่ายที่สุด
           </div>
-
         </div>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="note">
-        ทิป: ถ้าจะกลับ HUB ให้เปิดผ่าน <code>?hub=/herohealth/hub.html</code> แล้ว Run จะมีปุ่มกลับ HUB ในหน้าสรุปจบเกม
       </div>
 
     </div>
@@ -192,11 +249,31 @@
   const DOC = document;
   const $ = (id)=>DOC.getElementById(id);
 
+  const LS_VOL = 'HHA_AUDIO_VOL';
+  const LS_MUT = 'HHA_AUDIO_MUTE';
+
+  const state = {
+    view: 'mobile',     // pc | mobile | cvr
+    aim:  'tap',        // tap | shoot
+    run:  'play',       // play | research
+    diff: 'normal',     // easy | normal | hard
+    style:'mix',        // mix | feel | hard
+    time: 90,
+    seed: '',
+    ai: true,
+    hub: ''
+  };
+
   function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  function setOn(id, on){
+    const el = $(id); if(!el) return;
+    el.classList.toggle('on', !!on);
+  }
 
   async function copyText(text){
     try { await navigator.clipboard.writeText(String(text||'')); return true; }
@@ -213,99 +290,197 @@
     }
   }
 
-  const state = {
-    run: 'play',
-    diff: 'normal',
-    style: 'mix',
-    ai: 'off',
-    time: 90,
-    seed: '',
-    hub: ''
-  };
-
-  function setChipOn(containerId, key, val){
-    const box = $(containerId);
-    if (!box) return;
-    [...box.querySelectorAll('.chip')].forEach(ch=>{
-      const v = ch.dataset[key];
-      ch.classList.toggle('chip-on', v === val);
-    });
+  function loadAudioPrefs(){
+    const v = clamp(qs('vol', null) ?? localStorage.getItem(LS_VOL) ?? 22, 0, 100);
+    const m = String(qs('mute', null) ?? localStorage.getItem(LS_MUT) ?? '0');
+    $('volSlider').value = String(v|0);
+    $('volText').textContent = `Volume ${v|0}%`;
+    const mute = (m==='1' || m==='true');
+    $('muteBtn').textContent = mute ? '🔇 Mute: On' : '🔈 Mute: Off';
+    return { vol:v, mute };
   }
 
-  function buildRunUrl(view){
+  function saveAudioPrefs(vol, mute){
+    try{ localStorage.setItem(LS_VOL, String(vol|0)); }catch{}
+    try{ localStorage.setItem(LS_MUT, mute ? '1' : '0'); }catch{}
+  }
+
+  function applyHints(){
+    $('viewHint').textContent =
+      (state.view==='cvr') ? '🕶️ Cardboard: เข้า Run → กด ENTER VR → แตะจอยิงจาก crosshair' :
+      (state.view==='pc')  ? '🖥️ PC: คลิกเป้า หรือยิงกลางจอ (aim=shoot) ได้' :
+                             '📱 Mobile: แตะเป้าหรือยิงกลางจอได้ (แนะนำ shoot ถ้าจิ้มยาก)';
+
+    $('aimHint').textContent =
+      (state.aim==='shoot') ? '🎯 ยิงกลางจอ: เปิด crosshair + แตะ/คลิกเพื่อยิง (โหมดเกมจริงมาก)' :
+                              '👆 แตะเป้าโดยตรง: เล่นง่ายบน PC/Mobile';
+  }
+
+  function applyChips(){
+    setOn('vPC', state.view==='pc');
+    setOn('vMobile', state.view==='mobile');
+    setOn('vCVR', state.view==='cvr');
+
+    setOn('aimTap', state.aim==='tap');
+    setOn('aimShoot', state.aim==='shoot');
+
+    setOn('runPlay', state.run==='play');
+    setOn('runRes', state.run==='research');
+
+    setOn('diffEasy', state.diff==='easy');
+    setOn('diffNormal', state.diff==='normal');
+    setOn('diffHard', state.diff==='hard');
+
+    setOn('styleMix', state.style==='mix');
+    setOn('styleFeel', state.style==='feel');
+    setOn('styleHard', state.style==='hard');
+
+    setOn('aiOn', !!state.ai);
+    setOn('aiOff', !state.ai);
+
+    $('timeInput').value = String(state.time|0);
+    $('seedInput').value = String(state.seed||'');
+
+    applyHints();
+    updatePreview();
+  }
+
+  function buildRunUrl(){
+    // Run page is: /herohealth/vr-groups/groups.html
     const u = new URL('./vr-groups/groups.html', location.href);
-    u.searchParams.set('view', view);
-    u.searchParams.set('run', state.run);
+
+    u.searchParams.set('view', state.view);
+    u.searchParams.set('aim',  state.aim);
+    u.searchParams.set('run',  state.run);
     u.searchParams.set('diff', state.diff);
-    u.searchParams.set('style', state.style);
-    u.searchParams.set('time', String(state.time));
-    if (state.ai === 'on') u.searchParams.set('ai','on');
+    u.searchParams.set('style',state.style);
+    u.searchParams.set('time', String(state.time|0));
     if (state.seed) u.searchParams.set('seed', state.seed);
+    u.searchParams.set('ai', state.ai ? '1' : '0');
+
+    // auto start from launcher
+    u.searchParams.set('autostart', '1');
+
+    // hub passthrough
     if (state.hub) u.searchParams.set('hub', state.hub);
+
+    // audio prefs passthrough
+    const vol = clamp($('volSlider').value, 0, 100);
+    const mute = $('muteBtn').textContent.includes('On');
+    u.searchParams.set('vol', String(vol|0));
+    u.searchParams.set('mute', mute ? '1' : '0');
+
     return u.toString();
   }
 
-  function refresh(){
-    state.time = clamp($('inpTime').value, 30, 180);
-    state.seed = String($('inpSeed').value || '').trim();
-    $('tagInfo').textContent = `${state.run.toUpperCase()} • ${state.diff.toUpperCase()} • ${state.style.toUpperCase()} • AI:${state.ai.toUpperCase()}`;
-    $('linkPreview').textContent = buildRunUrl('mobile');
+  function updatePreview(){
+    $('preview').textContent = buildRunUrl();
   }
 
-  function bindChips(containerId, key){
-    const box = $(containerId);
-    if (!box) return;
-    box.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.chip');
-      if (!btn) return;
-      const v = btn.dataset[key];
-      if (!v) return;
-      state[key] = v;
-      setChipOn(containerId, key, v);
-      refresh();
-    });
-  }
+  // init hub from query if exists
+  state.hub = String(qs('hub','')||'');
 
-  // init from URL
-  state.hub = String(qs('hub','')||'').trim();
-  $('inpTime').value = String(clamp(qs('time',90), 30, 180));
-  $('inpSeed').value = String(qs('seed','')||'');
+  // default for cardboard
+  $('vCVR').addEventListener('click', ()=>{
+    state.view='cvr';
+    state.aim='shoot';
+    applyChips();
+  });
+  $('vPC').addEventListener('click', ()=>{ state.view='pc'; applyChips(); });
+  $('vMobile').addEventListener('click', ()=>{ state.view='mobile'; applyChips(); });
 
-  bindChips('runModeChips', 'run');
-  bindChips('diffChips', 'diff');
-  bindChips('styleChips', 'style');
-  bindChips('aiChips', 'ai');
+  $('aimTap').addEventListener('click', ()=>{ state.aim='tap'; applyChips(); });
+  $('aimShoot').addEventListener('click', ()=>{ state.aim='shoot'; applyChips(); });
 
-  $('btnNewSeed').addEventListener('click', ()=>{
-    $('inpSeed').value = String(Date.now());
-    refresh();
+  $('runPlay').addEventListener('click', ()=>{ state.run='play'; applyChips(); });
+  $('runRes').addEventListener('click', ()=>{ state.run='research'; applyChips(); });
+
+  $('diffEasy').addEventListener('click', ()=>{ state.diff='easy'; applyChips(); });
+  $('diffNormal').addEventListener('click', ()=>{ state.diff='normal'; applyChips(); });
+  $('diffHard').addEventListener('click', ()=>{ state.diff='hard'; applyChips(); });
+
+  $('styleMix').addEventListener('click', ()=>{ state.style='mix'; applyChips(); });
+  $('styleFeel').addEventListener('click', ()=>{ state.style='feel'; applyChips(); });
+  $('styleHard').addEventListener('click', ()=>{ state.style='hard'; applyChips(); });
+
+  $('timeInput').addEventListener('change', ()=>{ state.time = clamp($('timeInput').value, 30, 180); applyChips(); });
+
+  $('seedRand').addEventListener('click', ()=>{
+    state.seed = String(Date.now());
+    applyChips();
+  });
+  $('seedInput').addEventListener('change', ()=>{ state.seed = String($('seedInput').value||'').trim(); applyChips(); });
+
+  $('aiOn').addEventListener('click', ()=>{ state.ai=true; applyChips(); });
+  $('aiOff').addEventListener('click', ()=>{ state.ai=false; applyChips(); });
+
+  // Audio prefs
+  const pref = loadAudioPrefs();
+  $('volSlider').addEventListener('input', ()=>{
+    const v = clamp($('volSlider').value, 0, 100);
+    $('volText').textContent = `Volume ${v|0}%`;
+    const mute = $('muteBtn').textContent.includes('On');
+    saveAudioPrefs(v, mute);
+    updatePreview();
+  });
+  $('muteBtn').addEventListener('click', ()=>{
+    const isOn = $('muteBtn').textContent.includes('On');
+    $('muteBtn').textContent = isOn ? '🔈 Mute: Off' : '🔇 Mute: On';
+    const v = clamp($('volSlider').value, 0, 100);
+    saveAudioPrefs(v, !isOn);
+    updatePreview();
   });
 
-  $('btnPC').addEventListener('click', ()=> location.href = buildRunUrl('pc'));
-  $('btnMobile').addEventListener('click', ()=> location.href = buildRunUrl('mobile'));
-  $('btnCVR').addEventListener('click', ()=> location.href = buildRunUrl('cvr'));
+  // Actions
+  $('btnStart').addEventListener('click', ()=>{ location.href = buildRunUrl(); });
+  $('btnStartNewTab').addEventListener('click', ()=>{ window.open(buildRunUrl(), '_blank'); });
 
-  $('btnPC_Copy').addEventListener('click', async ()=>{
-    refresh(); const ok = await copyText(buildRunUrl('pc')); alert(ok?'คัดลอกลิงก์ PC แล้ว ✅':'Copy ไม่สำเร็จ');
-  });
-  $('btnMobile_Copy').addEventListener('click', async ()=>{
-    refresh(); const ok = await copyText(buildRunUrl('mobile')); alert(ok?'คัดลอกลิงก์ Mobile แล้ว ✅':'Copy ไม่สำเร็จ');
-  });
-  $('btnCVR_Copy').addEventListener('click', async ()=>{
-    refresh(); const ok = await copyText(buildRunUrl('cvr')); alert(ok?'คัดลอกลิงก์ Cardboard แล้ว ✅':'Copy ไม่สำเร็จ');
+  $('btnCopyLink').addEventListener('click', async ()=>{
+    const ok = await copyText(buildRunUrl());
+    alert(ok ? 'คัดลอกลิงก์แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
-  $('btnCopyPreview').addEventListener('click', async ()=>{
-    refresh(); const ok = await copyText($('linkPreview').textContent); alert(ok?'คัดลอกลิงก์แล้ว ✅':'Copy ไม่สำเร็จ');
-  });
-  $('btnOpenPreview').addEventListener('click', ()=>{
-    refresh(); location.href = $('linkPreview').textContent;
+  $('btnShare').addEventListener('click', async ()=>{
+    const url = buildRunUrl();
+    if (navigator.share){
+      try{ await navigator.share({ title:'HeroHealth GroupsVR', url }); }catch{}
+    }else{
+      const ok = await copyText(url);
+      alert(ok ? 'เครื่องนี้ไม่รองรับ Share → คัดลอกลิงก์แล้ว ✅' : 'Share/Copy ไม่สำเร็จ');
+    }
   });
 
-  $('inpTime').addEventListener('input', refresh);
-  $('inpSeed').addEventListener('input', refresh);
+  $('btnOpenHub').addEventListener('click', ()=>{
+    if (!state.hub){
+      alert('ไม่มีพารามิเตอร์ hub=... (ถ้ามี hub ให้เปิดจาก HUB จะส่งมาเอง)');
+      return;
+    }
+    location.href = state.hub;
+  });
 
-  refresh();
+  // initial apply
+  // if launcher opened with ?view=cvr etc (optional)
+  const qv = String(qs('view','')||'').toLowerCase();
+  if (qv==='pc'||qv==='mobile'||qv==='cvr') state.view=qv;
+  const qa = String(qs('aim','')||'').toLowerCase();
+  if (qa==='tap'||qa==='shoot') state.aim=qa;
+  const qr = String(qs('run','')||'').toLowerCase();
+  if (qr==='play'||qr==='research') state.run=qr;
+  const qd = String(qs('diff','')||'').toLowerCase();
+  if (qd==='easy'||qd==='normal'||qd==='hard') state.diff=qd;
+  const qsx = String(qs('style','')||'').toLowerCase();
+  if (qsx==='mix'||qsx==='feel'||qsx==='hard') state.style=qsx;
+  const qt = qs('time', null);
+  if (qt!=null) state.time = clamp(qt, 30, 180);
+  const qseed = String(qs('seed','')||'').trim();
+  if (qseed) state.seed = qseed;
+  const qai = String(qs('ai','')||'').toLowerCase();
+  if (qai==='0'||qai==='false') state.ai=false;
+
+  // cardboard safety default
+  if (state.view==='cvr') state.aim='shoot';
+
+  applyChips();
 })();
 </script>
 </body>
