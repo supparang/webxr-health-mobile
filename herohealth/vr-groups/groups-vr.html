@@ -10,12 +10,13 @@
   <!-- Shared CSS -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- A-Frame (minimal scene to enable WebXR Enter VR reliably) -->
+  <!-- A-Frame minimal scene to enable WebXR + Enter VR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + Universal VR UI -->
+  <!-- FX + Universal VR UI (Enter VR / Exit / Recenter / Crosshair / TapShoot) -->
   <script src="../vr/particles.js" defer></script>
   <script>
+    // lockPx = ระยะ aim-assist รอบ crosshair (Cardboard)
     window.HHA_VRUI_CONFIG = { lockPx: 92 };
   </script>
   <script src="../vr/vr-ui.js" defer></script>
@@ -30,9 +31,75 @@
 
   <!-- XR Scene (behind DOM) -->
   <a-scene class="xr-scene" embedded vr-mode-ui="enabled: false" renderer="colorManagement: true">
-    <a-entity position="0 1.6 0"><a-camera></a-camera></a-entity>
+    <a-entity position="0 1.6 0">
+      <a-camera></a-camera>
+    </a-entity>
     <a-sky color="#020617"></a-sky>
   </a-scene>
+
+  <!-- START overlay (เลือกก่อนเริ่ม ถ้ามาจาก launcher จะ auto-start ได้) -->
+  <div id="startOverlay" class="overlay">
+    <div class="panel">
+      <div class="title">🥗 Food Groups VR</div>
+      <div class="sub">
+        เลือกโหมดแล้วกด “เริ่ม”<br/>
+        <b>ENTER VR</b> / <b>EXIT</b> / <b>RECENTER</b> จะอยู่ใน UI ของ <span class="mono">vr-ui.js</span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid2">
+        <div class="kv">
+          <div class="k">Device / View</div>
+          <div class="v" id="pickView">
+            <button class="chip" data-view="pc" type="button">🖥️ PC</button>
+            <button class="chip" data-view="mobile" type="button">📱 Mobile</button>
+            <button class="chip chip-on" data-view="cvr" type="button">🥽 Cardboard</button>
+          </div>
+          <div class="note">Cardboard: แตะจอ = ยิงจาก crosshair (เป้าถูกปิดการคลิกโดยตรง)</div>
+        </div>
+
+        <div class="kv">
+          <div class="k">Mode</div>
+          <div class="v" id="pickRun">
+            <button class="chip chip-on" data-run="play" type="button">Play (Adaptive)</button>
+            <button class="chip" data-run="research" type="button">Research (Seeded)</button>
+          </div>
+          <div class="note">Research จะไม่ adaptive และ seed จะทำให้ผลซ้ำได้</div>
+        </div>
+
+        <div class="kv">
+          <div class="k">Difficulty</div>
+          <div class="v" id="pickDiff">
+            <button class="chip" data-diff="easy" type="button">Easy</button>
+            <button class="chip chip-on" data-diff="normal" type="button">Normal</button>
+            <button class="chip" data-diff="hard" type="button">Hard</button>
+          </div>
+        </div>
+
+        <div class="kv">
+          <div class="k">Time (sec) / Style</div>
+          <div class="v">
+            <input id="inTime" class="input" type="number" min="30" max="180" step="5" value="90"/>
+            <button class="chip chip-on" data-style="mix" type="button">Mix</button>
+            <button class="chip" data-style="feel" type="button">Feel</button>
+            <button class="chip" data-style="hard" type="button">Hard</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="row">
+        <button id="btnStart" class="btn btn-strong" type="button">▶️ เริ่มเล่น</button>
+        <button id="btnCopyLink" class="btn" type="button">🔗 Copy link</button>
+      </div>
+
+      <div class="note" style="margin-top:10px;">
+        ถ้าเข้า VR แล้ว “แตะยิงไม่ได้” ให้แตะ 1 ครั้งเพื่อ unlock audio/gesture และลองอีกครั้ง
+      </div>
+    </div>
+  </div>
 
   <!-- HUD -->
   <div class="hud">
@@ -84,91 +151,13 @@
       <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
       <div class="coachBubble">
         <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">กดเริ่มเกมได้เลย…</div>
+        <div id="coachText" class="coachText">พร้อมลุย! 🎵</div>
       </div>
     </div>
   </div>
 
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
-
-  <!-- Crosshair (fallback) -->
-  <div id="xhair" class="xhair" aria-hidden="true"></div>
-
-  <!-- Start overlay (shows when autostart!=1) -->
-  <div id="startOverlay" class="overlay">
-    <div class="panel">
-      <div class="title">🚀 เริ่มเล่น GroupsVR</div>
-      <div class="sub" id="startLine">เลือกโหมดแล้วกด Start (Cardboard แนะนำ: ยิงกลางจอ)</div>
-      <div class="hr"></div>
-
-      <div class="grid2">
-        <div class="kv">
-          <div class="k">DEVICE / VIEW</div>
-          <div class="v">
-            <button id="vPC" class="chip" type="button">🖥️ PC</button>
-            <button id="vMobile" class="chip chip-on" type="button">📱 Mobile</button>
-            <button id="vCVR" class="chip" type="button">🕶️ Cardboard</button>
-          </div>
-          <div class="miniHint" id="viewHint" style="margin-top:8px;">—</div>
-
-          <div class="k" style="margin-top:12px;">AIM MODE</div>
-          <div class="v">
-            <button id="aimTap" class="chip chip-on" type="button">👆 แตะเป้า</button>
-            <button id="aimShoot" class="chip" type="button">🎯 ยิงกลางจอ</button>
-          </div>
-          <div class="miniHint" id="aimHint" style="margin-top:8px;">—</div>
-
-          <div class="k" style="margin-top:12px;">AUDIO</div>
-          <div class="v" style="gap:10px; align-items:center;">
-            <button id="muteBtn" class="chip" type="button">🔈 Mute: Off</button>
-            <input id="volSlider" class="input" style="width:160px;" type="range" min="0" max="100" value="22" />
-            <span id="volText" class="hint">22%</span>
-          </div>
-        </div>
-
-        <div class="kv">
-          <div class="k">PARAMS</div>
-          <div class="v">
-            <button id="runPlay" class="chip chip-on" type="button">run=play</button>
-            <button id="runRes" class="chip" type="button">run=research</button>
-          </div>
-
-          <div class="v" style="margin-top:10px;">
-            <button id="diffEasy" class="chip" type="button">easy</button>
-            <button id="diffNormal" class="chip chip-on" type="button">normal</button>
-            <button id="diffHard" class="chip" type="button">hard</button>
-          </div>
-
-          <div class="v" style="margin-top:10px;">
-            <button id="styleMix" class="chip chip-on" type="button">mix</button>
-            <button id="styleFeel" class="chip" type="button">feel</button>
-            <button id="styleHard" class="chip" type="button">hard</button>
-          </div>
-
-          <div class="v" style="margin-top:10px;">
-            <span class="hint">time</span>
-            <input id="timeInput" class="input" type="number" min="30" max="180" value="90" />
-            <button id="seedRand" class="chip" type="button">🎲 seed=random</button>
-          </div>
-
-          <div class="v" style="margin-top:10px;">
-            <button id="btnCopyLink" class="btn" type="button">📋 Copy link</button>
-            <button id="btnShareLink" class="btn" type="button">📤 Share</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="row row2">
-        <button id="btnStart" class="btn btn-strong" type="button">▶️ START</button>
-        <button id="btnLauncher" class="btn btn-ghost" type="button">⬅️ กลับ Launcher</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        VR Cardboard: เข้าเกมแล้ว กด <b>ENTER VR</b> (มุม UI จาก vr-ui.js) แล้ว <b>แตะจอ</b> เพื่อยิงจาก crosshair
-      </div>
-    </div>
-  </div>
 
   <!-- End overlay -->
   <div id="endOverlay" class="overlay overlay-end hidden">
@@ -193,7 +182,7 @@
       </div>
 
       <div class="note" style="margin-top:10px;">
-        Tip: ถ้าเล่นแบบ “ยิงกลางจอ” → อย่าลืมให้ <b>crosshair อยู่กลางเป้า</b> แล้วค่อยแตะยิง
+        Cardboard: แตะจอเพื่อยิงจาก crosshair (ENTER VR/RECENTER จะอยู่ใน UI ของ vr-ui.js)
       </div>
     </div>
   </div>
@@ -204,19 +193,32 @@
   const DOC = document;
   const $ = (id)=>DOC.getElementById(id);
 
-  const LS_VOL = 'HHA_AUDIO_VOL';
-  const LS_MUT = 'HHA_AUDIO_MUTE';
-
   function qs(k, def=null){
     try { return new URL(location.href).searchParams.get(k) ?? def; }
     catch { return def; }
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
+  const state = {
+    view:  String(qs('view','cvr')||'cvr').toLowerCase(),
+    run:   (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play',
+    diff:  String(qs('diff','normal')||'normal').toLowerCase(),
+    style: String(qs('style','mix')||'mix').toLowerCase(),
+    time:  clamp(qs('time',90), 30, 180),
+    seed:  String(qs('seed','')||'').trim() || String(Date.now()),
+    hub:   String(qs('hub','')||'').trim()
+  };
+
   function setView(view){
     const b = DOC.body;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     b.classList.add('view-'+view);
+  }
+
+  function markPick(groupSel, attr, value){
+    DOC.querySelectorAll(groupSel+' .chip').forEach(el=>{
+      el.classList.toggle('chip-on', el.dataset[attr] === value);
+    });
   }
 
   async function copyText(text){
@@ -234,122 +236,19 @@
     }
   }
 
-  // ---------------- State ----------------
-  const state = {
-    view: String(qs('view','mobile')||'mobile').toLowerCase(), // pc|mobile|cvr
-    aim:  String(qs('aim','tap')||'tap').toLowerCase(),        // tap|shoot
-    run:  (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play',
-    diff: String(qs('diff','normal')||'normal').toLowerCase(),
-    style:String(qs('style','mix')||'mix').toLowerCase(),
-    time: clamp(qs('time',90), 30, 180),
-    seed: String(qs('seed','')||'').trim() || String(Date.now()),
-    ai:   String(qs('ai','1')||'1') !== '0',
-    hub:  String(qs('hub','')||''),
-  };
-
-  // sanitize
-  if (!['pc','mobile','cvr'].includes(state.view)) state.view='mobile';
-  if (!['tap','shoot'].includes(state.aim)) state.aim='tap';
-  if (!['easy','normal','hard'].includes(state.diff)) state.diff='normal';
-  if (!['mix','feel','hard'].includes(state.style)) state.style='mix';
-  if (state.view==='cvr') state.aim='shoot';
-
-  // ---------------- UI chips ----------------
-  function chip(id, on){
-    const el = $(id); if(!el) return;
-    el.classList.toggle('chip-on', !!on);
-  }
-
-  function applyHints(){
-    $('viewHint').textContent =
-      (state.view==='cvr') ? '🕶️ Cardboard: ยิงกลางจอ + เข้า ENTER VR' :
-      (state.view==='pc')  ? '🖥️ PC: คลิกเป้าหรือยิงกลางจอได้' :
-                             '📱 Mobile: แตะเป้าหรือยิงกลางจอได้';
-
-    $('aimHint').textContent =
-      (state.aim==='shoot') ? '🎯 ยิงกลางจอ: crosshair + แตะ/คลิกยิง (เหมาะ Cardboard)' :
-                              '👆 แตะเป้า: ง่ายสุดบน PC/Mobile';
-  }
-
-  function applyChips(){
-    chip('vPC', state.view==='pc');
-    chip('vMobile', state.view==='mobile');
-    chip('vCVR', state.view==='cvr');
-
-    chip('aimTap', state.aim==='tap');
-    chip('aimShoot', state.aim==='shoot');
-
-    chip('runPlay', state.run==='play');
-    chip('runRes', state.run==='research');
-
-    chip('diffEasy', state.diff==='easy');
-    chip('diffNormal', state.diff==='normal');
-    chip('diffHard', state.diff==='hard');
-
-    chip('styleMix', state.style==='mix');
-    chip('styleFeel', state.style==='feel');
-    chip('styleHard', state.style==='hard');
-
-    $('timeInput').value = String(state.time|0);
-
-    applyHints();
-    applyAimMode();
-  }
-
-  function applyAimMode(){
-    const shoot = (state.aim==='shoot');
-    DOC.body.classList.toggle('aim-shoot', shoot); // CSS patch ทำ crosshair + disable pointer events
-  }
-
-  // ---------------- Audio UI ----------------
-  function loadAudioPrefs(){
-    const vol = clamp(qs('vol', null) ?? localStorage.getItem(LS_VOL) ?? 22, 0, 100);
-    const mute = String(qs('mute', null) ?? localStorage.getItem(LS_MUT) ?? '0');
-    const isMute = (mute==='1'||mute==='true');
-    $('volSlider').value = String(vol|0);
-    $('volText').textContent = String(vol|0) + '%';
-    $('muteBtn').textContent = isMute ? '🔇 Mute: On' : '🔈 Mute: Off';
-    return { vol, isMute };
-  }
-  function saveAudioPrefs(vol, isMute){
-    try{ localStorage.setItem(LS_VOL, String(vol|0)); }catch{}
-    try{ localStorage.setItem(LS_MUT, isMute ? '1' : '0'); }catch{}
-  }
-  function applyAudioToEngine(){
-    const A = window.GroupsVR && window.GroupsVR.Audio;
-    if (!A) return;
-    const vol = clamp($('volSlider').value, 0, 100);
-    const isMute = $('muteBtn').textContent.includes('On');
-    try{ A.setMute && A.setMute(!!isMute); }catch{}
-    try{ A.setVolume && A.setVolume(vol/100); }catch{}
-  }
-
-  // ---------------- Build share link ----------------
   function buildLink(){
     const u = new URL(location.href);
     u.searchParams.set('view', state.view);
-    u.searchParams.set('aim', state.aim);
     u.searchParams.set('run', state.run);
     u.searchParams.set('diff', state.diff);
     u.searchParams.set('style', state.style);
-    u.searchParams.set('time', String(state.time|0));
-    u.searchParams.set('seed', state.seed);
-    u.searchParams.set('ai', state.ai ? '1' : '0');
-
+    u.searchParams.set('time', String(state.time));
+    u.searchParams.set('seed', String(state.seed));
     if (state.hub) u.searchParams.set('hub', state.hub);
-
-    // carry audio prefs
-    const vol = clamp($('volSlider').value, 0, 100);
-    const isMute = $('muteBtn').textContent.includes('On');
-    u.searchParams.set('vol', String(vol|0));
-    u.searchParams.set('mute', isMute ? '1' : '0');
-
-    // do NOT force autostart in share link (ให้เลือกเอง)
-    u.searchParams.delete('autostart');
     return u.toString();
   }
 
-  // ---------------- HUD binds ----------------
+  // --------- HUD binds ---------
   window.addEventListener('hha:score', (ev)=>{
     const d = ev.detail||{};
     $('vScore').textContent = String(d.score ?? 0);
@@ -389,6 +288,7 @@
     $('pFill').style.width = Math.round((cur/thr)*100) + '%';
   }, {passive:true});
 
+  // quest:update -> goal/mini
   window.addEventListener('quest:update', (ev)=>{
     const d = ev.detail||{};
     const gTitle = String(d.goalTitle||'—');
@@ -416,13 +316,11 @@
     DOC.body.classList.toggle('mini-urgent', urgent);
   }, {passive:true});
 
-  // ---------------- Audio hooks ----------------
+  // --------- Audio hooks ---------
   function hookAudio(){
     const A = window.GroupsVR && window.GroupsVR.Audio;
     if (!A) return;
-
     try{ A.unlock && A.unlock(); }catch{}
-    applyAudioToEngine();
 
     window.addEventListener('hha:judge', (ev)=>{
       const d = ev.detail||{};
@@ -451,28 +349,7 @@
     tickLoop();
   }
 
-  // ---------------- Shoot fallback (aim=shoot) ----------------
-  function emitShoot(lockPx){
-    const x = (window.innerWidth||360) * 0.5;
-    const y = (window.innerHeight||640) * 0.5;
-    try{ window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ x, y, lockPx: lockPx||92 } })); }catch{}
-    DOC.body.classList.add('shot-pulse');
-    setTimeout(()=> DOC.body.classList.remove('shot-pulse'), 90);
-  }
-
-  DOC.addEventListener('pointerdown', (e)=>{
-    const startShown = !$('startOverlay').classList.contains('hidden');
-    const endShown = !$('endOverlay').classList.contains('hidden');
-    if (startShown || endShown) return;
-    if (state.aim !== 'shoot') return;
-
-    const t = e.target;
-    if (t && t.closest && t.closest('button,.panel,.overlay')) return;
-
-    emitShoot(92);
-  }, { passive:true });
-
-  // ---------------- End / Summary ----------------
+  // --------- Summary + history ---------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
@@ -499,10 +376,7 @@
       runMode: state.run,
       diff: state.diff,
       style: state.style,
-      view: state.view,
-      aim: state.aim,
-      ai: state.ai ? 1 : 0,
-      durationPlannedSec: state.time|0,
+      durationPlannedSec: state.time,
       startTimeIso: startIso,
       endTimeIso: endIso,
       seed: state.seed
@@ -539,68 +413,42 @@
     location.href = state.hub;
   });
 
-  // ---------------- Start overlay controls ----------------
-  $('vPC').addEventListener('click', ()=>{ state.view='pc'; applyChips(); });
-  $('vMobile').addEventListener('click', ()=>{ state.view='mobile'; applyChips(); });
-  $('vCVR').addEventListener('click', ()=>{ state.view='cvr'; state.aim='shoot'; applyChips(); });
+  // --------- Start overlay controls ---------
+  function pickView(v){ state.view = v; setView(v); markPick('#pickView','view',v); }
+  function pickRun(v){ state.run = v; markPick('#pickRun','run',v); }
+  function pickDiff(v){ state.diff = v; markPick('#pickDiff','diff',v); }
+  function pickStyle(v){
+    state.style = v;
+    DOC.querySelectorAll('#pickView ~ .grid2 .chip[data-style], #pickDiff ~ .grid2 .chip[data-style]').forEach(()=>{});
+    DOC.querySelectorAll('[data-style]').forEach(el=>{
+      el.classList.toggle('chip-on', el.dataset.style === v);
+    });
+  }
 
-  $('aimTap').addEventListener('click', ()=>{ state.aim='tap'; applyChips(); });
-  $('aimShoot').addEventListener('click', ()=>{ state.aim='shoot'; applyChips(); });
+  DOC.querySelectorAll('#pickView .chip').forEach(el=>{
+    el.addEventListener('click', ()=> pickView(el.dataset.view), {passive:true});
+  });
+  DOC.querySelectorAll('#pickRun .chip').forEach(el=>{
+    el.addEventListener('click', ()=> pickRun(el.dataset.run), {passive:true});
+  });
+  DOC.querySelectorAll('#pickDiff .chip').forEach(el=>{
+    el.addEventListener('click', ()=> pickDiff(el.dataset.diff), {passive:true});
+  });
+  DOC.querySelectorAll('[data-style]').forEach(el=>{
+    el.addEventListener('click', ()=> pickStyle(el.dataset.style), {passive:true});
+  });
 
-  $('runPlay').addEventListener('click', ()=>{ state.run='play'; applyChips(); });
-  $('runRes').addEventListener('click', ()=>{ state.run='research'; applyChips(); });
-
-  $('diffEasy').addEventListener('click', ()=>{ state.diff='easy'; applyChips(); });
-  $('diffNormal').addEventListener('click', ()=>{ state.diff='normal'; applyChips(); });
-  $('diffHard').addEventListener('click', ()=>{ state.diff='hard'; applyChips(); });
-
-  $('styleMix').addEventListener('click', ()=>{ state.style='mix'; applyChips(); });
-  $('styleFeel').addEventListener('click', ()=>{ state.style='feel'; applyChips(); });
-  $('styleHard').addEventListener('click', ()=>{ state.style='hard'; applyChips(); });
-
-  $('timeInput').addEventListener('change', ()=>{ state.time = clamp($('timeInput').value, 30, 180); applyChips(); });
-
-  $('seedRand').addEventListener('click', ()=>{ state.seed = String(Date.now()); applyChips(); });
+  $('inTime').value = String(state.time);
+  $('inTime').addEventListener('input', ()=>{
+    state.time = clamp($('inTime').value, 30, 180);
+  }, {passive:true});
 
   $('btnCopyLink').addEventListener('click', async ()=>{
     const ok = await copyText(buildLink());
     alert(ok ? 'คัดลอกลิงก์แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
-  $('btnShareLink').addEventListener('click', async ()=>{
-    const url = buildLink();
-    if (navigator.share){
-      try{ await navigator.share({ title:'HeroHealth GroupsVR', url }); }catch{}
-    }else{
-      const ok = await copyText(url);
-      alert(ok ? 'เครื่องนี้ไม่รองรับ Share → คัดลอกลิงก์แล้ว ✅' : 'Share/Copy ไม่สำเร็จ');
-    }
-  });
-
-  $('btnLauncher').addEventListener('click', ()=>{
-    const u = new URL('../groups-vr.html', location.href);
-    if (state.hub) u.searchParams.set('hub', state.hub);
-    location.href = u.toString();
-  });
-
-  // audio controls on start overlay
-  loadAudioPrefs();
-  $('volSlider').addEventListener('input', ()=>{
-    const vol = clamp($('volSlider').value, 0, 100);
-    $('volText').textContent = String(vol|0) + '%';
-    const isMute = $('muteBtn').textContent.includes('On');
-    saveAudioPrefs(vol, isMute);
-    applyAudioToEngine();
-  });
-  $('muteBtn').addEventListener('click', ()=>{
-    const isOn = $('muteBtn').textContent.includes('On');
-    $('muteBtn').textContent = isOn ? '🔈 Mute: Off' : '🔇 Mute: On';
-    const vol = clamp($('volSlider').value, 0, 100);
-    saveAudioPrefs(vol, !isOn);
-    applyAudioToEngine();
-  });
-
-  // ---------------- Start engine ----------------
+  // --------- Start engine ---------
   function waitForEngine(cb){
     const it = setInterval(()=>{
       const E = window.GroupsVR && window.GroupsVR.GameEngine;
@@ -611,9 +459,11 @@
     }, 60);
   }
 
-  function startEngine(){
+  function startGame(){
+    // view side-effects:
     setView(state.view);
-    applyChips();
+
+    // Cardboard -> disable clicking targets (CSS already does pointer-events:none on targets)
     hookAudio();
 
     waitForEngine((E)=>{
@@ -624,17 +474,22 @@
   }
 
   $('btnStart').addEventListener('click', ()=>{
-    $('startOverlay').classList.add('hidden');
-    startEngine();
+    DOC.getElementById('startOverlay').classList.add('hidden');
+    startGame();
   });
 
-  // autostart
-  const auto = String(qs('autostart','0')||'0');
-  if (auto === '1'){
-    $('startOverlay').classList.add('hidden');
-    startEngine();
-  }else{
-    applyChips();
+  // --------- Auto-start if launched from launcher (has query) ---------
+  // ถ้ามาจาก groups-vr.html จะมีพารามิเตอร์ครบ -> auto-start
+  // แต่ยังคงให้ overlay โผล่ก่อน 1 ชั้น (กันผู้ใช้สับสน)
+  pickView(state.view);
+  pickRun(state.run);
+  pickDiff(state.diff);
+  pickStyle(state.style);
+
+  // ถ้าอยาก auto-start ทันที: ใส่ autostart=1
+  if (String(qs('autostart','0')||'0') === '1'){
+    DOC.getElementById('startOverlay').classList.add('hidden');
+    startGame();
   }
 
 })();
