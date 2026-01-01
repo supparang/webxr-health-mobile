@@ -5,7 +5,7 @@
 // ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
 // ✅ Flush-hardened: before end/back hub/reload
-// ✅ PATCH B1+B2: spawn coords in layer-space (absolute targets) -> fixes "targets drift to corner" when layer transforms
+// ✅ PATCH B: Layout-stable spawn + VR/FS resize reflow + absolute targets + hha:shoot crosshair
 
 'use strict';
 
@@ -25,6 +25,7 @@ function setText(id, txt){
   if(el) el.textContent = String(txt);
 }
 function fmtPct(x){ x = Number(x)||0; return `${Math.round(x)}%`; }
+function raf2(fn){ requestAnimationFrame(()=>requestAnimationFrame(fn)); }
 
 // Seeded RNG (mulberry32)
 function mulberry32(seed){
@@ -37,9 +38,7 @@ function mulberry32(seed){
   };
 }
 function pick(rng, arr){ return arr[Math.floor(rng()*arr.length)] || arr[0]; }
-function uid(){
-  return Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
-}
+function uid(){ return Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2); }
 
 // ------------------------- HHA Standard: storage -------------------------
 const LS_LAST = 'HHA_LAST_SUMMARY';
@@ -183,7 +182,6 @@ function applyLook(){
   const maxX = 24, maxY = 22;
   const x = clamp(look.x + gyro.gx, -maxX, maxX);
   const y = clamp(look.y + gyro.gy, -maxY, maxY);
-  // translate playfield (HUD is outside)
   layer.style.transform = `translate(${x}px, ${y}px)`;
 }
 
@@ -238,11 +236,20 @@ function bindDragLook(){
   on(ROOT, 'pointerup', ()=>{ look.dragging = false; }, { passive:true });
 }
 
-// ------------------------- Safe spawn geometry (avoid HUD overlap) -------------------------
+// ------------------------- Layout / Safe spawn geometry (PATCH B) -------------------------
+function viewportBox(){
+  const vv = ROOT.visualViewport;
+  const W = Math.round(vv ? vv.width : (ROOT.innerWidth || 360));
+  const H = Math.round(vv ? vv.height : (ROOT.innerHeight || 640));
+  const ox = Math.round(vv ? vv.offsetLeft : 0);
+  const oy = Math.round(vv ? vv.offsetTop  : 0);
+  return { W, H, ox, oy };
+}
+
 function rectOf(el){
   if(!el) return null;
   const r = el.getBoundingClientRect();
-  if(!r || !isFinite(r.width)) return null;
+  if(!r || !isFinite(r.width) || r.width <= 0 || r.height <= 0) return null;
   return { x:r.left, y:r.top, w:r.width, h:r.height, r };
 }
 function intersects(a, b){
@@ -257,13 +264,12 @@ function buildNoSpawnRects(){
   return rects;
 }
 function getPlayRect(){
-  const W = ROOT.innerWidth || 360;
-  const H = ROOT.innerHeight || 640;
+  const { W, H } = viewportBox();
   const pad = 10;
 
-  const topR = rectOf(hudTop);
-  const miniR = rectOf(miniPanel);
-  const btnR = rectOf(hudBtns);
+  const topR   = rectOf(hudTop);
+  const miniR  = rectOf(miniPanel);
+  const btnR   = rectOf(hudBtns);
   const coachR = rectOf(coachPanel);
 
   let top = pad;
@@ -271,24 +277,67 @@ function getPlayRect(){
   let left = pad;
   let right = W - pad;
 
-  if(topR) top = Math.max(top, topR.y + topR.h + 10);
-  if(miniR) top = Math.max(top, miniR.y + miniR.h + 10);
-  if(btnR) bottom = Math.min(bottom, btnR.y - 10);
-  if(coachR) left = Math.max(left, coachR.x + coachR.w + 10);
+  if(topR)  top = Math.max(top,  topR.y  + topR.h  + 10);
+  if(miniR) top = Math.max(top,  miniR.y + miniR.h + 10);
+  if(btnR)  bottom = Math.min(bottom, btnR.y - 10);
 
-  top = clamp(top, 0, H-40);
-  bottom = clamp(bottom, top+40, H);
-  left = clamp(left, 0, W-40);
-  right = clamp(right, left+40, W);
+  // ✅ PATCH: ใน VR อย่าบีบซ้ายด้วย coach (กัน playRect แคบจนเป้ากองมุม)
+  const isVR = DOC.body.classList.contains('view-vr') || DOC.body.classList.contains('view-cvr');
+  if(!isVR && coachR){
+    left = Math.max(left, coachR.x + coachR.w + 10);
+  }
 
-  return { x:left, y:top, w:(right-left), h:(bottom-top) };
+  top = clamp(top, 0, H-60);
+  bottom = clamp(bottom, top+140, H);
+  left = clamp(left, 0, W-80);
+  right = clamp(right, left+180, W);
+
+  // guard
+  const pr = { x:left, y:top, w:(right-left), h:(bottom-top) };
+  pr.x = clamp(pr.x, 0, W-1);
+  pr.y = clamp(pr.y, 0, H-1);
+  pr.w = clamp(pr.w, 40, W - pr.x);
+  pr.h = clamp(pr.h, 40, H - pr.y);
+  return pr;
 }
 
-// ✅ PATCH B2: convert viewport coords -> layer-local coords
-function layerOrigin(){
-  if(!layer) return { lx:0, ly:0 };
-  const r = layer.getBoundingClientRect();
-  return { lx:r.left, ly:r.top };
+// Layout cache
+const LAYOUT = {
+  ready:false,
+  playRect:{x:10,y:120,w:300,h:380},
+  noRects:[],
+  lastRefreshMs:0,
+  stale:true,
+};
+function layoutIsReady(){
+  const pr = LAYOUT.playRect;
+  return !!(pr && pr.w >= 220 && pr.h >= 240 && isFinite(pr.x) && isFinite(pr.y));
+}
+function refreshLayout(reason){
+  try{
+    if(layer){
+      // make sure layer has stable coordinate system for absolute targets
+      // (CSS should already set it, but we enforce the safe minimum)
+      layer.style.position = layer.style.position || 'fixed';
+      layer.style.inset = layer.style.inset || '0';
+    }
+    LAYOUT.playRect = getPlayRect();
+    LAYOUT.noRects = buildNoSpawnRects();
+    LAYOUT.ready = layoutIsReady();
+    LAYOUT.lastRefreshMs = nowMs();
+    LAYOUT.stale = false;
+    emit('hha:layout', { game:'plate', reason: reason||'refresh', ready: LAYOUT.ready, playRect: LAYOUT.playRect });
+  }catch(e){
+    LAYOUT.ready = false;
+  }
+}
+
+// ✅ When viewport changes (VR/FS/rotate), clear + refresh after 2 RAF
+function scheduleReflow(reason){
+  LAYOUT.stale = true;
+  clearAllTargets();
+  spawnAccum = 0;
+  raf2(()=>refreshLayout(reason || 'reflow'));
 }
 
 // ------------------------- Game State -------------------------
@@ -386,7 +435,7 @@ function updateHUD(){
   setText('uiG1', gCount[0]); setText('uiG2', gCount[1]); setText('uiG3', gCount[2]); setText('uiG4', gCount[3]); setText('uiG5', gCount[4]);
   setText('uiAcc', fmtPct(accuracyPct()));
   setText('uiGrade', calcGrade());
-  setText('uiTime', tLeftSec);
+  setText('uiTime', Math.max(0, Math.ceil(tLeftSec)));
   const ff = qs('uiFeverFill');
   if(ff) ff.style.width = `${clamp(fever,0,100)}%`;
   setText('uiShieldN', shield);
@@ -580,10 +629,13 @@ function maybeSpawnShield(){
 
 function spawnTarget(forcedKind){
   if(!layer) return;
-  const tune = currentTunings();
 
-  const playRect = getPlayRect();
-  const noRects = buildNoSpawnRects();
+  // ✅ PATCH B: อย่า spawn ถ้า layout ยังไม่ ready/stable
+  if(LAYOUT.stale || !LAYOUT.ready) return;
+
+  const tune = currentTunings();
+  const playRect = LAYOUT.playRect;
+  const noRects = LAYOUT.noRects;
 
   let kind = forcedKind;
   if(!kind){
@@ -601,7 +653,7 @@ function spawnTarget(forcedKind){
   const box = { x:0, y:0, w:size, h:size };
   let ok = false;
 
-  const tries = 38;
+  const tries = 42;
   for(let i=0;i<tries;i++){
     const rx = playRect.x + rng()*(Math.max(1, playRect.w - size));
     const ry = playRect.y + rng()*(Math.max(1, playRect.h - size));
@@ -620,11 +672,6 @@ function spawnTarget(forcedKind){
     box.x = rx; box.y = ry;
   }
 
-  // ✅ PATCH B2: convert box coords into layer-local coords
-  const O = layerOrigin();
-  const lx = Math.round(box.x - O.lx);
-  const ly = Math.round(box.y - O.ly);
-
   const el = DOC.createElement('button');
   const id = `t_${uid()}`;
   el.className = 'plateTarget';
@@ -634,13 +681,14 @@ function spawnTarget(forcedKind){
   if(spec.kind === 'good') el.setAttribute('data-group', String(spec.groupIdx));
   el.textContent = spec.emoji;
 
-  // ✅ PATCH B1: absolute in layer (not fixed to viewport)
+  // ✅ PATCH B: absolute (ไม่ใช้ fixed ใต้ parent ที่มี transform)
   el.style.position = 'absolute';
-  el.style.left = `${lx}px`;
-  el.style.top  = `${ly}px`;
-
+  el.style.left = `${Math.round(box.x)}px`;
+  el.style.top  = `${Math.round(box.y)}px`;
   el.style.width = `${size}px`;
   el.style.height = `${size}px`;
+
+  // baseline visuals (css จะทับได้)
   el.style.borderRadius = '999px';
   el.style.border = '1px solid rgba(148,163,184,.18)';
   el.style.background = 'rgba(2,6,23,.55)';
@@ -828,6 +876,29 @@ function updateAdaptive(){
   emit('hha:adaptive', { game:'plate', adapt:{...adapt}, acc, rtAvg });
 }
 
+// ------------------------- Crosshair shooting (hha:shoot) -------------------------
+function bindCrosshairShoot(){
+  // vr-ui.js emits: window.dispatchEvent(new CustomEvent('hha:shoot',{detail:{x,y}}))
+  on(ROOT, 'hha:shoot', (e)=>{
+    try{
+      if(!running || paused) return;
+      const d = e.detail || {};
+      const x = Number(d.x);
+      const y = Number(d.y);
+      if(!isFinite(x) || !isFinite(y)) return;
+
+      const el = DOC.elementFromPoint(x, y);
+      if(!el) return;
+
+      const btn = el.closest ? el.closest('.plateTarget') : null;
+      if(!btn) return;
+
+      const id = btn.getAttribute('data-id');
+      if(id) onHit(id);
+    }catch(_){}
+  }, { passive:true });
+}
+
 // ------------------------- Timer / loop -------------------------
 function tick(){
   if(!running) return;
@@ -839,6 +910,14 @@ function tick(){
   if(paused){
     requestAnimationFrame(tick);
     return;
+  }
+
+  // ✅ PATCH B: ถ้า layout ยังไม่พร้อม ให้พยายาม refresh จนพร้อม แล้วค่อย spawn
+  if(LAYOUT.stale || !LAYOUT.ready){
+    // refresh แบบไม่ถี่เกินไป
+    if((t - LAYOUT.lastRefreshMs) > 120){
+      refreshLayout('tick-refresh');
+    }
   }
 
   if(dt > 0 && isFinite(dt)){
@@ -867,14 +946,18 @@ function tick(){
     }
   }
 
-  const tune = currentTunings();
-  spawnAccum += dt * tune.spawnPerSec;
-  while(spawnAccum >= 1){
-    spawnAccum -= 1;
-    spawnTarget();
-    maybeSpawnShield();
+  // spawn only if layout ready
+  if(LAYOUT.ready){
+    const tune = currentTunings();
+    spawnAccum += dt * tune.spawnPerSec;
+    while(spawnAccum >= 1){
+      spawnAccum -= 1;
+      spawnTarget();
+      maybeSpawnShield();
+    }
   }
 
+  // expire
   for(const [id, tObj] of targets){
     if((t - tObj.bornMs) >= tObj.lifeMs){
       onExpireTarget(id);
@@ -942,6 +1025,21 @@ function bootButtons(){
   on(ROOT, 'beforeunload', ()=>{
     try{ flushHardened('beforeunload'); }catch(err){}
   });
+
+  // ✅ PATCH B: Reflow hooks
+  on(ROOT, 'resize', ()=>scheduleReflow('resize'), { passive:true });
+  on(ROOT, 'orientationchange', ()=>scheduleReflow('orientation'), { passive:true });
+  on(DOC, 'fullscreenchange', ()=>scheduleReflow('fullscreen'), { passive:true });
+  on(DOC, 'webkitfullscreenchange', ()=>scheduleReflow('fullscreen'), { passive:true });
+
+  // A-Frame VR enter/exit -> schedule reflow
+  try{
+    const scene = qs('scene') || DOC.querySelector('a-scene');
+    if(scene){
+      scene.addEventListener('enter-vr', ()=>scheduleReflow('enter-vr'));
+      scene.addEventListener('exit-vr', ()=>scheduleReflow('exit-vr'));
+    }
+  }catch(_){}
 }
 
 function resetState(){
@@ -1013,11 +1111,20 @@ function startGame(){
   tStartMs = nowMs();
   tLastTickMs = tStartMs;
 
+  // ✅ PATCH B: refresh layout AFTER overlay hidden + 2 RAF เพื่อกัน flash/มุมล่างขวา
+  scheduleReflow('startgame');
+
   updateHUD();
   emit('hha:time', { game:'plate', timeLeftSec: Math.ceil(tLeftSec) });
 
-  for(let i=0;i<4;i++) spawnTarget();
-  requestAnimationFrame(tick);
+  // spawn a few only when ready
+  raf2(()=>{
+    refreshLayout('startgame-raf2');
+    if(LAYOUT.ready){
+      for(let i=0;i<4;i++) spawnTarget();
+    }
+    requestAnimationFrame(tick);
+  });
 }
 
 async function restartGame(reason){
@@ -1182,7 +1289,11 @@ async function endGame(reason){
   updateHUD();
   emitQuestUpdate();
 
+  // layout baseline (before start)
+  raf2(()=>refreshLayout('init-raf2'));
+
   bootButtons();
+  bindCrosshairShoot();
 
   if(startOverlay) startOverlay.style.display = 'grid';
   applyLook();
