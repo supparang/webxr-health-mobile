@@ -13,12 +13,10 @@
   <!-- A-Frame (minimal scene to enable WebXR Enter VR reliably) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + (optional) cloud logger + Universal VR UI -->
+  <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
-  <script src="../vr/hha-cloud-logger.js" defer></script>
-
   <script>
-    // config for vr-ui.js (crosshair lock)
+    // vr-ui.js: aim-assist lock radius (px) for hha:shoot
     window.HHA_VRUI_CONFIG = { lockPx: 92 };
   </script>
   <script src="../vr/vr-ui.js" defer></script>
@@ -26,16 +24,9 @@
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./ai-hooks.js" defer></script>
+  <script src="./calibration.js" defer></script>
   <script src="./groups-quests.js" defer></script>
   <script src="./GameEngine.js" defer></script>
-
-  <style>
-    /* ensure vr-ui is always above DOM HUD/Overlays */
-    .hha-vrui, .vrui, .vr-ui, .hha-vr-ui{
-      position:fixed !important;
-      z-index: 140 !important;
-    }
-  </style>
 </head>
 
 <body class="view-mobile">
@@ -48,28 +39,6 @@
     <a-sky color="#020617"></a-sky>
   </a-scene>
 
-  <!-- START overlay (PACK 7) -->
-  <div id="startOverlay" class="overlay">
-    <div class="panel">
-      <div class="title">🍽️ Food Groups VR</div>
-      <div class="sub">
-        แตะ “เริ่ม” เพื่อปลดล็อกเสียง/VR และแสดงปุ่ม <b>ENTER VR</b><br/>
-        <span style="color:#94a3b8;font-weight:900">PC: คลิก/แตะเป้าได้ • Mobile: แตะเป้า • Cardboard: ยิงด้วย crosshair (view-cvr)</span>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="row">
-        <button id="btnStartNow" class="btn btn-strong" type="button">🚀 เริ่มเกม</button>
-        <button id="btnToggleView" class="btn" type="button">🔁 สลับ View</button>
-      </div>
-
-      <div class="note" style="margin-top:10px;">
-        Cardboard แนะนำ: เริ่ม → Calibration → กด RECENTER → กด ENTER VR (จาก vr-ui.js) → ซ้อม 15 วิ → เล่นจริง
-      </div>
-    </div>
-  </div>
-
   <!-- HUD -->
   <div class="hud">
     <div class="hudLeft">
@@ -81,6 +50,7 @@
     <div class="hudRight">
       <div class="pill"><span class="lbl">🏅 RANK</span><span id="vRank" class="val">C</span></div>
       <div class="pill"><span class="lbl">🎯 ACC</span><span id="vAcc" class="val">0%</span></div>
+      <div class="pill"><span class="lbl">🎮 PHASE</span><span id="vPhase" class="val">MAIN</span></div>
     </div>
   </div>
 
@@ -120,7 +90,7 @@
       <img id="coachImg" class="coachImg" src="../img/coach-neutral.png" alt="coach" />
       <div class="coachBubble">
         <div class="coachName">🥦 Coach</div>
-        <div id="coachText" class="coachText">แตะ “เริ่มเกม” เพื่อเริ่ม…</div>
+        <div id="coachText" class="coachText">แตะ “เริ่มเล่น” เพื่อปลดล็อกเสียง/การยิง…</div>
       </div>
     </div>
   </div>
@@ -128,34 +98,22 @@
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- Calibration overlay (PACK 37) -->
-  <div id="calOverlay" class="overlay hidden">
+  <!-- Start overlay -->
+  <div id="startOverlay" class="overlay">
     <div class="panel">
-      <div class="title">🎯 Calibration & Recenter</div>
+      <div class="title">🎮 พร้อมลุย GroupsVR</div>
       <div class="sub">
-        Cardboard (cVR): วางมือถือในกล่อง → มองตรงกลางจอ → กด <b>RECENTER</b><br/>
-        จากนั้นกด <b>ENTER VR</b> (ปุ่มของ <code>vr-ui.js</code>)
+        PC: คลิกเป้า • Mobile: แตะเป้า • Cardboard(cVR): แตะจอเพื่อยิงจาก crosshair<br/>
+        ปุ่ม <b>ENTER VR/RECENTER/EXIT</b> จะมาจาก <b>vr-ui.js</b>
       </div>
+      <div class="hr"></div>
       <div class="row">
-        <button id="btnRecenter" class="btn btn-strong" type="button">🧭 RECENTER</button>
-        <button id="btnCalDone" class="btn" type="button">✅ พร้อมแล้ว</button>
+        <button id="btnStartNow" class="btn btn-strong" type="button">▶️ เริ่มเล่น</button>
+        <button id="btnFS" class="btn" type="button">📱 Fullscreen</button>
+        <button id="btnRecenter" class="btn btn-ghost" type="button">🎯 Recenter</button>
       </div>
       <div class="note" style="margin-top:10px;">
-        Tip: ถ้าภาพเอียง/หลุดศูนย์ ให้กด RECENTER ซ้ำได้ตลอด
-      </div>
-    </div>
-  </div>
-
-  <!-- Practice overlay (PACK 38) -->
-  <div id="pracOverlay" class="overlay hidden">
-    <div class="panel">
-      <div class="title">⏱️ Practice (15s)</div>
-      <div class="sub">
-        ซ้อมวอร์มมือก่อนเกมจริง — คะแนนช่วงซ้อมจะไม่ถูกสรุปผล
-      </div>
-      <div class="row">
-        <div class="pill"><span class="lbl">⏳ เหลือ</span><span id="vPractice" class="val">15</span></div>
-        <button id="btnSkipPractice" class="btn" type="button">⏭️ ข้ามการซ้อม</button>
+        Cardboard: ถ้าเอียง/หลุดศูนย์ ให้กด Recenter ได้ตลอด
       </div>
     </div>
   </div>
@@ -183,7 +141,7 @@
       </div>
 
       <div class="note" style="margin-top:10px;">
-        Cardboard: แตะจอเพื่อยิงจาก crosshair (view-cvr) • ENTER VR อยู่มุมล่าง/แถบ vr-ui.js
+        Cardboard: แตะจอเพื่อยิงจาก crosshair (view=cvr) • Enter VR อยู่ใน UI ของ vr-ui.js
       </div>
     </div>
   </div>
@@ -200,18 +158,28 @@
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
+  function emit(name, detail){
+    try{ window.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch{}
+  }
+
   function setView(view){
+    view = String(view||'mobile').toLowerCase();
+    if (view === 'vr') view = 'cvr'; // map
+    if (view !== 'pc' && view !== 'mobile' && view !== 'cvr') view = 'mobile';
+
     const b = DOC.body;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     b.classList.add('view-'+view);
   }
 
-  function autoViewFallback(){
-    const v = String(qs('view','')||'').toLowerCase();
-    if (v==='pc' || v==='mobile' || v==='vr' || v==='cvr') return v;
-    // fallback: wide => pc else mobile
-    const W = window.innerWidth || 360;
-    return (W >= 860) ? 'pc' : 'mobile';
+  async function enterFs(){
+    try{
+      const el = DOC.documentElement;
+      if (DOC.fullscreenElement) return true;
+      if (el.requestFullscreen) await el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      return !!DOC.fullscreenElement;
+    }catch{ return false; }
   }
 
   async function copyText(text){
@@ -297,7 +265,25 @@
     DOC.body.classList.toggle('mini-urgent', urgent);
   }, {passive:true});
 
-  // ---------- Audio tick loop (urgent) ----------
+  // phase indicator (practice/main)
+  window.addEventListener('groups:phase', (ev)=>{
+    const d = ev.detail||{};
+    const ph = String(d.phase||'main').toLowerCase();
+    const left = Number(d.left||0);
+
+    if (ph === 'practice'){
+      $('vPhase').textContent = `PRACTICE ${Math.max(0, left|0)}s`;
+      DOC.body.classList.add('phase-practice');
+    }else if (ph === 'switch'){
+      $('vPhase').textContent = 'START!';
+      DOC.body.classList.remove('phase-practice');
+    }else{
+      $('vPhase').textContent = 'MAIN';
+      DOC.body.classList.remove('phase-practice');
+    }
+  }, {passive:true});
+
+  // ---------- Audio + urgent tick ----------
   function hookAudio(){
     const A = window.GroupsVR && window.GroupsVR.Audio;
     if (!A) return;
@@ -331,7 +317,7 @@
     tickLoop();
   }
 
-  // ---------- HHA Last/History ----------
+  // ---------- End / Summary ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
@@ -347,27 +333,6 @@
     }catch{}
   }
 
-  // ---------- Cloud logger helpers (PACK 8) ----------
-  function tryFlushLogger(){
-    try{
-      // support any global logger naming
-      const L = window.HHA_CloudLogger || window.HHACloudLogger || window.CloudLogger;
-      if (L && typeof L.flush === 'function') L.flush();
-    }catch{}
-  }
-  function tryPostToCloud(summary){
-    try{
-      const L = window.HHA_CloudLogger || window.HHACloudLogger || window.CloudLogger;
-      if (L && typeof L.post === 'function') { L.post(summary); return true; }
-    }catch{}
-    return false;
-  }
-
-  // flush on hide/back
-  window.addEventListener('pagehide', ()=>{ tryFlushLogger(); }, {passive:true});
-  window.addEventListener('visibilitychange', ()=>{ if (document.visibilityState==='hidden') tryFlushLogger(); }, {passive:true});
-
-  // ---------- End / Summary ----------
   window.addEventListener('hha:end', (ev)=>{
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
@@ -382,14 +347,10 @@
       durationPlannedSec: Number(qs('time',90)||90),
       startTimeIso: startIso,
       endTimeIso: endIso,
-      seed: String(qs('seed','')||''),
-      deviceView: String(qs('view','')||'')
+      seed: String(qs('seed','')||'')
     }, d);
 
     saveLast(lastSummary);
-
-    // optional cloud post
-    tryPostToCloud(lastSummary);
 
     $('endOverlay').classList.remove('hidden');
     $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
@@ -400,12 +361,6 @@
 
     const hub = String(qs('hub','')||'');
     $('btnHub').style.display = hub ? 'inline-flex' : 'none';
-
-    // AI hooks event (PACK 9)
-    try{
-      const AI = window.GroupsVR && window.GroupsVR.AIHooks;
-      AI && AI.onEvent('end', { grade:d.grade, acc:d.accuracyGoodPct, score:d.scoreFinal, misses:d.misses });
-    }catch{}
   }, {passive:true});
 
   $('btnRestart').addEventListener('click', ()=> location.reload());
@@ -417,21 +372,24 @@
   });
 
   $('btnBackLauncher').addEventListener('click', ()=>{
-    tryFlushLogger();
     const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
     if (hub) u.searchParams.set('hub', hub);
+    // passthrough research ctx
+    ['study','phase','cg','order','site','school','student'].forEach(k=>{
+      const v = qs(k,'');
+      if (v) u.searchParams.set(k, v);
+    });
     location.href = u.toString();
   });
 
   $('btnHub').addEventListener('click', ()=>{
-    tryFlushLogger();
     const hub = String(qs('hub','')||'');
     if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
     location.href = hub;
   });
 
-  // ---------- Engine start helpers ----------
+  // ---------- Start engine ----------
   function waitForEngine(cb){
     const it = setInterval(()=>{
       const E = window.GroupsVR && window.GroupsVR.GameEngine;
@@ -442,134 +400,67 @@
     }, 60);
   }
 
-  // ---------- PACK 7: Tap-to-start gate ----------
-  function unlockAll(){
-    try{ (window.GroupsVR && window.GroupsVR.Audio && window.GroupsVR.Audio.unlock) && window.GroupsVR.Audio.unlock(); }catch{}
-    try{
-      const scene = document.querySelector('a-scene');
-      const s = scene && scene.renderer && scene.renderer.xr;
-      if (s && s.isPresenting) { /* ok */ }
-    }catch{}
+  // fallback: if view=cvr and user taps screen, shoot center (in case vr-ui missed)
+  function bindCVRFallbackShoot(lockPx){
+    let lastAt = 0;
+    DOC.addEventListener('pointerdown', (e)=>{
+      if (!DOC.body.classList.contains('view-cvr')) return;
+      const t = Date.now();
+      if (t - lastAt < 90) return;
+      lastAt = t;
+
+      const x = (window.innerWidth||360) * 0.5;
+      const y = (window.innerHeight||640) * 0.5;
+      emit('hha:shoot', { x, y, lockPx: lockPx || 92 });
+    }, {passive:true});
   }
 
-  // ---------- PACK 37/38/9: Calibration + Practice + AI hooks ----------
-  function shouldShowCal(view){
-    if (view!=='vr' && view!=='cvr') return false;
-    try{
-      const k='HHA_GROUPS_CAL_DONE';
-      if (sessionStorage.getItem(k)==='1') return false;
-      return true;
-    }catch{ return true; }
-  }
-  function markCalDone(){
-    try{ sessionStorage.setItem('HHA_GROUPS_CAL_DONE','1'); }catch{}
-  }
-
-  function showCalOverlay(next){
-    $('calOverlay').classList.remove('hidden');
-    $('btnRecenter').onclick = ()=>{
-      try{ window.dispatchEvent(new CustomEvent('hha:vr', {detail:{state:'reset'}})); }catch{}
-    };
-    $('btnCalDone').onclick = ()=>{
-      $('calOverlay').classList.add('hidden');
-      markCalDone();
-      next && next();
-    };
-  }
-
-  function wantPractice(){
-    const p = String(qs('practice','1')||'1');
-    return p !== '0';
-  }
-
-  function startEngine(E, cfg){
-    E.setLayerEl($('playLayer'));
-    startIso = new Date().toISOString();
-    E.start(cfg.diff, cfg);
-  }
-
-  function startPracticeThenMain(){
-    const view = String(qs('view', autoViewFallback())||'mobile').toLowerCase();
+  function startFromParams(){
+    const view = String(qs('view','mobile')||'mobile').toLowerCase();
     const run  = (String(qs('run','play')||'play').toLowerCase()==='research') ? 'research' : 'play';
     const diff = String(qs('diff','normal')||'normal').toLowerCase();
     const style= String(qs('style','mix')||'mix').toLowerCase();
-    const timeMain = clamp(qs('time',90), 30, 180);
+    const time = clamp(qs('time',90), 30, 180);
     const seed = String(qs('seed', Date.now()) || Date.now());
 
     setView(view);
     hookAudio();
+    bindCVRFallbackShoot(92);
+
+    // AI Hooks: ปิดไว้ก่อน (ตามที่บอก) / research บังคับ off อยู่แล้ว
+    try{
+      const AI = window.GroupsVR && window.GroupsVR.AIHooks;
+      AI && AI.init && AI.init({ enabled:false, runMode: run, seed, diff, style });
+    }catch{}
 
     waitForEngine((E)=>{
-      // init AI hooks (PACK 9)
-      try{
-        const AI = window.GroupsVR && window.GroupsVR.AIHooks;
-        AI && AI.init({ runMode: run, seed });
-        AI && AI.onEvent('start_flow', {view, runMode:run, diff, style, time:timeMain});
-      }catch{}
+      E.setLayerEl($('playLayer'));
+      startIso = new Date().toISOString();
 
-      const doMain = ()=>{
-        $('pracOverlay').classList.add('hidden');
-        startEngine(E, { runMode: run, diff, style, time: timeMain, seed, practice:false, practiceOnly:false });
-      };
+      // PRACTICE: เฉพาะ cVR + play (15s)
+      const practiceSec = (view==='cvr' && run==='play') ? 15 : 0;
 
-      if (!wantPractice()){
-        doMain();
-        return;
-      }
-
-      // practice 15s then main
-      $('pracOverlay').classList.remove('hidden');
-      let left = 15;
-      $('vPractice').textContent = String(left);
-
-      $('btnSkipPractice').onclick = ()=>{
-        try{ E.stop && E.stop('practice_skip'); }catch{}
-        doMain();
-      };
-
-      startEngine(E, { runMode: run, diff, style, time: 15, seed: seed+'-p', practice:true, practiceOnly:true });
-
-      const tmr = setInterval(()=>{
-        left = Math.max(0, left-1);
-        $('vPractice').textContent = String(left);
-        if (left<=0){
-          clearInterval(tmr);
-          try{ E.stop && E.stop('practice_done'); }catch{}
-          doMain();
-        }
-      }, 1000);
+      E.start(diff, { runMode: run, diff, style, time, seed, practiceSec });
     });
   }
 
-  function flowStart(){
-    unlockAll();
-    const view = String(qs('view', autoViewFallback())||'mobile').toLowerCase();
-    setView(view);
-
-    // hide start overlay
+  // start overlay controls
+  $('btnStartNow').addEventListener('click', ()=>{
     $('startOverlay').classList.add('hidden');
-
-    const go = ()=> startPracticeThenMain();
-
-    if (shouldShowCal(view)) showCalOverlay(go);
-    else go();
-  }
-
-  // start overlay buttons
-  $('btnStartNow').addEventListener('click', flowStart);
-
-  $('btnToggleView').addEventListener('click', ()=>{
-    const cur =
-      DOC.body.classList.contains('view-pc') ? 'pc' :
-      DOC.body.classList.contains('view-cvr') ? 'cvr' :
-      DOC.body.classList.contains('view-vr') ? 'vr' : 'mobile';
-
-    const next = (cur==='pc') ? 'mobile' : (cur==='mobile') ? 'cvr' : (cur==='cvr') ? 'pc' : 'pc';
-    setView(next);
+    startFromParams();
   });
 
-  // default: set initial view (but do NOT auto start until user taps)
-  setView(String(qs('view', autoViewFallback())||'mobile').toLowerCase());
+  $('btnFS').addEventListener('click', async ()=>{
+    await enterFs();
+  });
+
+  $('btnRecenter').addEventListener('click', ()=>{
+    emit('hha:vr', { state:'reset' });
+    try{
+      const A = window.GroupsVR && window.GroupsVR.Audio;
+      A && A.unlock && A.unlock();
+    }catch{}
+  });
 
 })();
 </script>
