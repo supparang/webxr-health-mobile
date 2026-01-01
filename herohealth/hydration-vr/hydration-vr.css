@@ -1,12 +1,11 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration VR — PRODUCTION CSS v2
+Hydration VR — PRODUCTION CSS (v2)
 ✅ Responsive PC/Mobile/Cardboard
-✅ Launcher overlay with mode options (PC/Mobile/cVR)
 ✅ HUD top + bottom safe-area
 ✅ Playfield + Cardboard split eyes
 ✅ Side panel collapses on mobile/cvr
 ✅ RotateHint overlay
-✅ End-window FX class (hha-endfx) support
+✅ NEW: Mode chooser cards in overlay
 */
 
 :root{
@@ -49,7 +48,7 @@ html,body{
 
 .muted{ color:var(--muted); opacity:.92; }
 
-/* ---------------- Overlay (Launcher) ---------------- */
+/* ---------------- Overlay ---------------- */
 .hha-overlay{
   position:fixed; inset:0;
   z-index:200;
@@ -62,9 +61,9 @@ html,body{
 }
 .hha-overlay-card{
   width:min(560px, 94vw);
-  border-radius: 24px;
+  border-radius: 22px;
   border:1px solid var(--stroke);
-  background: rgba(2,6,23,.90);
+  background: rgba(2,6,23,.88);
   box-shadow: 0 28px 90px rgba(0,0,0,.58);
   padding: 18px 18px 16px;
 }
@@ -76,9 +75,62 @@ html,body{
 .hha-sub{
   margin-top: 10px;
   color: var(--muted);
-  line-height:1.5;
-  font-weight: 750;
+  line-height:1.45;
 }
+
+/* ✅ NEW: Mode chooser */
+.hha-modeTitle{
+  margin-top: 14px;
+  font-weight: 1000;
+  letter-spacing:.2px;
+  opacity:.96;
+}
+.hha-modeGrid{
+  margin-top: 10px;
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 10px;
+}
+.hha-modeCard{
+  appearance:none;
+  border:1px solid rgba(255,255,255,.12);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.12), transparent 55%),
+    rgba(15,23,42,.58);
+  color: var(--text);
+  border-radius: 18px;
+  padding: 12px 10px;
+  cursor:pointer;
+  text-align:left;
+  user-select:none;
+  box-shadow: 0 18px 65px rgba(0,0,0,.35);
+  transition: transform .12s ease, filter .12s ease, border-color .12s ease;
+}
+.hha-modeCard:hover{ filter: brightness(1.06); border-color: rgba(255,255,255,.18); }
+.hha-modeCard:active{ transform: translateY(1px) scale(.99); }
+.hha-modeCard .ico{
+  font-size: 22px;
+  line-height:1;
+}
+.hha-modeCard .t{
+  margin-top: 8px;
+  font-weight: 1000;
+  letter-spacing:.2px;
+}
+.hha-modeCard .d{
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height:1.25;
+}
+.hha-modeCard.vr{
+  background:
+    radial-gradient(circle at 25% 25%, rgba(34,197,94,.16), transparent 58%),
+    rgba(15,23,42,.58);
+  border-color: rgba(34,197,94,.26);
+}
+
 .hha-overlay-actions{
   display:flex;
   gap:10px;
@@ -91,13 +143,6 @@ html,body{
   font-size: 13px;
 }
 .hha-overlay.hide{ display:none !important; }
-
-/* Nice micro dividers (optional) */
-.hha-divider{
-  height:1px;
-  margin: 12px 0 8px;
-  background: rgba(255,255,255,.08);
-}
 
 /* ---------------- Rotate hint ---------------- */
 .hha-rotateHint{
@@ -140,10 +185,9 @@ html,body{
   letter-spacing:.2px;
   cursor:pointer;
   user-select:none;
-  -webkit-tap-highlight-color: transparent;
 }
 .hha-btn:hover{ filter: brightness(1.05); }
-.hha-btn:active{ transform: translateY(1px) scale(.995); }
+.hha-btn:active{ transform: translateY(1px); }
 .hha-btn.primary{
   background: rgba(34,197,94,.16);
   border-color: rgba(34,197,94,.34);
@@ -151,21 +195,6 @@ html,body{
 .hha-btn.danger{
   background: rgba(239,68,68,.14);
   border-color: rgba(239,68,68,.30);
-}
-.hha-btn:focus{
-  outline: 2px solid rgba(34,211,238,.25);
-  outline-offset: 2px;
-}
-
-/* Make overlay buttons look like "mode cards" on small screens */
-@media (max-width: 520px){
-  .hha-overlay-actions{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-  }
-  .hha-overlay-actions .hha-btn{
-    min-height: 46px;
-  }
 }
 
 /* ---------------- HUD TOP ---------------- */
@@ -446,7 +475,8 @@ html,body{
 body.hha-endfx #hudTop{
   animation: hhaBlink .22s infinite alternate;
 }
-body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
+body.hha-endfx #playfield,
+body.hha-endfx #cbPlayfield{
   animation: hhaShake .18s infinite;
 }
 @keyframes hhaBlink{
@@ -463,13 +493,12 @@ body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
 
 /* ---------------- Responsive ---------------- */
 @media (max-width: 980px){
-  .hha-main{
-    grid-template-columns: 1fr;
-  }
+  .hha-main{ grid-template-columns: 1fr; }
   .hha-side{
     display:grid;
     grid-template-columns: 1fr 1fr;
   }
+  .hha-modeGrid{ grid-template-columns: 1fr; }
 }
 @media (max-width: 720px){
   :root{ --hudTopH: 70px; }
@@ -477,23 +506,20 @@ body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
   .hha-bottom .hha-btn{ min-width: 104px; padding: 10px 10px; }
   .hha-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
   .hha-tipsRow{ grid-template-columns: 1fr; }
-  .hha-overlay-card{ padding: 16px 14px 14px; }
-  .hha-title{ font-size: 21px; }
 }
 
-/* ---------------- Cardboard mode tweaks ---------------- */
+/* Cardboard mode tweaks */
 body.cardboard{
   overflow:hidden;
   touch-action: none;
 }
-body.cardboard .hha-side{
-  display:none;
-}
-body.cardboard .hha-main{
-  grid-template-columns: 1fr;
-}
-body.cardboard .hha-crosshair{
-  display:none; /* use reticle per eye */
-}
+body.cardboard .hha-side{ display:none; }
+body.cardboard .hha-main{ grid-template-columns: 1fr; }
+body.cardboard .hha-crosshair{ display:none; } /* use reticle per eye */
 
-/* When in cardboard + portrait => rotateHint will show (loader controls visibility) */
+/* ✅ Make playfield fill better in landscape */
+@media (orientation: landscape) and (max-height: 520px){
+  :root{ --hudTopH: 46px; --hudBotH: 56px; }
+  .hha-pill{ padding: 8px 10px; }
+  .hha-playfield{ min-height: 260px; }
+}
