@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="th">
 <head>
@@ -11,20 +10,23 @@
   <!-- Shared CSS -->
   <link rel="stylesheet" href="./groups-vr.css" />
 
-  <!-- A-Frame (minimal scene to enable WebXR Enter VR reliably) -->
+  <!-- A-Frame minimal scene -> WebXR session reliable -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Universal VR UI -->
   <script src="../vr/particles.js" defer></script>
   <script>
+    // lockPx for aim assist (crosshair lock)
     window.HHA_VRUI_CONFIG = { lockPx: 92 };
   </script>
   <script src="../vr/vr-ui.js" defer></script>
 
+  <!-- (NEW) AI stubs -->
+  <script src="./ai-stubs.js" defer></script>
+
   <!-- Groups modules -->
   <script src="./audio.js" defer></script>
   <script src="./groups-quests.js" defer></script>
-  <script src="./ai-stubs.js" defer></script>
   <script src="./GameEngine.js" defer></script>
 </head>
 
@@ -96,9 +98,6 @@
   <!-- Play Layer -->
   <div id="playLayer" class="playLayer"></div>
 
-  <!-- Debug badge -->
-  <div id="dbgBadge" class="dbgBadge">—</div>
-
   <!-- End overlay -->
   <div id="endOverlay" class="overlay overlay-end hidden">
     <div class="panel">
@@ -122,7 +121,10 @@
       </div>
 
       <div class="note" style="margin-top:10px;">
-        VR Cardboard: แตะจอเพื่อยิงจาก crosshair (ปุ่ม ENTER VR/EXIT/RECENTER จะมาจาก vr-ui.js)
+        Cardboard (cVR): ยิงด้วย crosshair → แตะจอ (ปุ่ม ENTER VR จะอยู่มุมล่างจาก vr-ui.js)
+      </div>
+      <div class="note" id="logNote" style="margin-top:8px; display:none;">
+        📡 Logging: พร้อมส่งผลไปยังระบบแล้ว
       </div>
     </div>
   </div>
@@ -138,7 +140,6 @@
     catch { return def; }
   }
   function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-
   function setView(view){
     const b = DOC.body;
     b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
@@ -232,7 +233,6 @@
   function hookAudio(){
     const A = window.GroupsVR && window.GroupsVR.Audio;
     if (!A) return;
-
     try{ A.unlock && A.unlock(); }catch{}
 
     window.addEventListener('hha:judge', (ev)=>{
@@ -262,12 +262,50 @@
     tickLoop();
   }
 
-  // ---------- End / Summary ----------
+  // ---------- End / Summary + HUB history ----------
   const LS_LAST = 'HHA_LAST_SUMMARY';
   const LS_HIST = 'HHA_SUMMARY_HISTORY';
 
-  let lastSummary = null;
-  let startIso = new Date().toISOString();
+  // ---------- Logging (flush-hardened) ----------
+  const LS_PENDING = 'HHA_LOG_PENDING';
+  let pending = { sent:false, url:'', payload:null };
+
+  function getLogUrl(){
+    const u = String(qs('log','')||'').trim();
+    return u;
+  }
+
+  function loadPending(){
+    try{
+      const obj = JSON.parse(localStorage.getItem(LS_PENDING)||'null');
+      if (obj && obj.url && obj.payload && !obj.sent){
+        pending = obj;
+      }
+    }catch{}
+  }
+  function savePending(){
+    try{ localStorage.setItem(LS_PENDING, JSON.stringify(pending)); }catch{}
+  }
+  async function postLog(url, payload){
+    if (!url) return false;
+    try{
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true
+      });
+      return !!res && (res.ok || res.status===0);
+    }catch{ return false; }
+  }
+  async function flushLog(){
+    if (!pending || pending.sent || !pending.url || !pending.payload) return;
+    const ok = await postLog(pending.url, pending.payload);
+    if (ok){
+      pending.sent = true;
+      savePending();
+    }
+  }
 
   function saveLast(summary){
     try{ localStorage.setItem(LS_LAST, JSON.stringify(summary)); }catch{}
@@ -278,7 +316,10 @@
     }catch{}
   }
 
-  window.addEventListener('hha:end', (ev)=>{
+  let lastSummary = null;
+  let startIso = new Date().toISOString();
+
+  window.addEventListener('hha:end', async (ev)=>{
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
@@ -289,7 +330,7 @@
       runMode: String(qs('run','play')||'play'),
       diff: String(qs('diff','normal')||'normal'),
       style: String(qs('style','mix')||'mix'),
-      ai: String(qs('ai','off')||'off'),
+      ai: String(qs('ai','on')||'on'),
       durationPlannedSec: Number(qs('time',90)||90),
       startTimeIso: startIso,
       endTimeIso: endIso,
@@ -297,6 +338,16 @@
     }, d);
 
     saveLast(lastSummary);
+
+    // prepare pending log
+    const logUrl = getLogUrl();
+    if (logUrl){
+      $('logNote').style.display = 'block';
+      pending = { sent:false, url: logUrl, payload: lastSummary };
+      savePending();
+      // try flush now
+      await flushLog();
+    }
 
     $('endOverlay').classList.remove('hidden');
     $('endLine').textContent = 'เหตุผล: ' + String(d.reason || 'end');
@@ -307,7 +358,7 @@
 
     const hub = String(qs('hub','')||'');
     $('btnHub').style.display = hub ? 'inline-flex' : 'none';
-  }, {passive:true});
+  }, {passive:false});
 
   $('btnRestart').addEventListener('click', ()=> location.reload());
 
@@ -317,18 +368,28 @@
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
+  function go(url){
+    // flush-hardened ก่อนออก
+    flushLog().finally(()=>{ location.href = url; });
+  }
+
   $('btnBackLauncher').addEventListener('click', ()=>{
     const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
     if (hub) u.searchParams.set('hub', hub);
-    location.href = u.toString();
+    const logUrl = getLogUrl(); if (logUrl) u.searchParams.set('log', logUrl);
+    go(u.toString());
   });
 
   $('btnHub').addEventListener('click', ()=>{
     const hub = String(qs('hub','')||'');
     if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    location.href = hub;
+    go(hub);
   });
+
+  // extra harden: flush on unload if pending
+  loadPending();
+  window.addEventListener('beforeunload', ()=>{ try{ flushLog(); }catch{} });
 
   // ---------- Start engine ----------
   function waitForEngine(cb){
@@ -348,13 +409,10 @@
     const style= String(qs('style','mix')||'mix').toLowerCase();
     const time = clamp(qs('time',90), 30, 180);
     const seed = String(qs('seed', Date.now()) || Date.now());
-    const ai   = (String(qs('ai','off')||'off').toLowerCase()==='on');
+    const ai   = (String(qs('ai','on')||'on').toLowerCase() !== 'off');
 
     setView(view);
     hookAudio();
-
-    // debug badge
-    $('dbgBadge').textContent = `VIEW:${view} • RUN:${run} • DIFF:${diff} • AI:${ai?'ON':'OFF'} • SEED:${seed}`;
 
     waitForEngine((E)=>{
       E.setLayerEl($('playLayer'));
@@ -364,7 +422,6 @@
   }
 
   startFromParams();
-
 })();
 </script>
 </body>
