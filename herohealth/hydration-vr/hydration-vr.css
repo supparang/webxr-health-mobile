@@ -1,9 +1,11 @@
 /* === /herohealth/hydration-vr/hydration-vr.css ===
-Hydration VR — PRODUCTION CSS (FINAL)
+Hydration VR — PRODUCTION CSS v2
 ✅ Responsive PC/Mobile/Cardboard
-✅ Mode Select UI (chips)
-✅ HUD safe-area
+✅ Overlay launcher (PC/Mobile/VR) + Quick Settings
+✅ HUD top + bottom safe-area
+✅ Playfield + Cardboard split eyes
 ✅ Side panel collapses on mobile/cvr
+✅ RotateHint overlay
 */
 
 :root{
@@ -45,9 +47,8 @@ html,body{
 }
 
 .muted{ color:var(--muted); opacity:.92; }
-.dot{ margin:0 8px; opacity:.45; }
 
-/* ---------------- Overlay ---------------- */
+/* ---------------- Overlay (Launcher) ---------------- */
 .hha-overlay{
   position:fixed; inset:0;
   z-index:200;
@@ -58,82 +59,83 @@ html,body{
   background: rgba(0,0,0,.62);
   backdrop-filter: blur(10px);
 }
+
 .hha-overlay-card{
-  width:min(560px, 92vw);
+  width:min(560px, 94vw);
   border-radius: 22px;
   border:1px solid var(--stroke);
   background: rgba(2,6,23,.88);
   box-shadow: 0 28px 90px rgba(0,0,0,.58);
   padding: 18px 18px 16px;
 }
+
 .hha-title{
   font-weight: 1000;
   font-size: 22px;
   letter-spacing: .3px;
 }
+
 .hha-sub{
   margin-top: 10px;
   color: var(--muted);
   line-height:1.45;
 }
+
 .hha-overlay-actions{
   display:flex;
   gap:10px;
   margin-top: 14px;
   flex-wrap: wrap;
 }
+
 .hha-hint{
   margin-top: 10px;
   color: var(--muted);
   font-size: 13px;
+  line-height:1.35;
 }
+
 .hha-overlay.hide{ display:none !important; }
 
-/* ---------------- Mode select ---------------- */
-.hha-modeBox{
-  margin-top: 14px;
-  padding: 12px;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(15,23,42,.40);
-}
-.hha-modeTitle{
-  font-weight: 950;
-  letter-spacing:.2px;
-  margin-bottom: 10px;
-}
-.hha-modeChips{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.hha-chip{
-  appearance:none;
-  border:1px solid rgba(255,255,255,.12);
-  background: rgba(2,6,23,.55);
-  color: var(--text);
-  padding: 10px 12px;
-  border-radius: 999px;
-  font-weight: 950;
-  cursor:pointer;
+/* Quick settings grid helpers */
+.hha-overlay-card label{
   user-select:none;
 }
-.hha-chip:hover{ filter: brightness(1.06); }
-.hha-chip:active{ transform: translateY(1px); }
-.hha-chip.active{
-  border-color: rgba(34,197,94,.35);
-  background: rgba(34,197,94,.14);
-}
-.hha-chip.vr.active{
-  border-color: rgba(34,211,238,.35);
-  background: rgba(34,211,238,.12);
-}
-.hha-modeMeta{
-  margin-top: 10px;
-  font-size: 13px;
+.hha-overlay-card select{
+  width:100%;
+  cursor:pointer;
 }
 
-/* ---------------- Buttons ---------------- */
+/* ---------------- Rotate hint ---------------- */
+.hha-rotateHint{
+  position:fixed; inset:0;
+  z-index:9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 24px;
+  background: rgba(0,0,0,.74);
+  backdrop-filter: blur(6px);
+}
+.hha-rotateHint .card{
+  width:min(520px, 92vw);
+  border-radius: 22px;
+  border:1px solid rgba(255,255,255,.14);
+  background: rgba(2,6,23,.84);
+  padding: 18px;
+  text-align:center;
+  box-shadow: 0 30px 90px rgba(0,0,0,.62);
+}
+.hha-rotateHint .big{
+  font-weight: 1000;
+  font-size: 20px;
+}
+.hha-rotateHint .small{
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+/* ---------------- Buttons / Inputs ---------------- */
 .hha-btn{
   appearance:none;
   border:1px solid var(--stroke);
@@ -145,16 +147,40 @@ html,body{
   letter-spacing:.2px;
   cursor:pointer;
   user-select:none;
+  outline:none;
 }
+
 .hha-btn:hover{ filter: brightness(1.05); }
 .hha-btn:active{ transform: translateY(1px); }
+
 .hha-btn.primary{
   background: rgba(34,197,94,.16);
   border-color: rgba(34,197,94,.34);
 }
+
 .hha-btn.danger{
   background: rgba(239,68,68,.14);
   border-color: rgba(239,68,68,.30);
+}
+
+/* style selects like buttons */
+select.hha-btn{
+  -webkit-appearance:none;
+  appearance:none;
+  padding-right: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255,255,255,.55) 50%),
+    linear-gradient(135deg, rgba(255,255,255,.55) 50%, transparent 50%),
+    linear-gradient(to right, transparent, transparent);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 12px) 50%,
+    0 0;
+  background-size:
+    6px 6px,
+    6px 6px,
+    100% 100%;
+  background-repeat:no-repeat;
 }
 
 /* ---------------- HUD TOP ---------------- */
@@ -170,6 +196,7 @@ html,body{
   justify-content:flex-start;
   pointer-events:none;
 }
+
 .hha-pill{
   pointer-events:none;
   display:flex;
@@ -182,6 +209,7 @@ html,body{
   backdrop-filter: blur(10px);
   font-size: 12px;
 }
+
 .hha-pill span{ color:var(--muted); font-weight:900; }
 .hha-pill b{ font-size: 15px; font-weight: 1000; }
 
@@ -211,10 +239,25 @@ html,body{
   overflow:hidden;
   min-height: 360px;
 }
+
 .hha-layer{
   position:absolute; inset:0;
   pointer-events:auto;
 }
+
+.hha-crosshair{
+  position:absolute;
+  left:50%; top:50%;
+  width:18px; height:18px;
+  transform: translate(-50%,-50%);
+  border-radius: 999px;
+  border:2px solid rgba(255,255,255,.30);
+  box-shadow: 0 0 0 6px rgba(255,255,255,.06);
+  pointer-events:none;
+  opacity:.78;
+}
+
+/* Hide cardboard by default; loader will toggle display */
 #cbPlayfield{ display:none; }
 
 /* ---------------- Cardboard layout ---------------- */
@@ -269,6 +312,7 @@ html,body{
   gap: 12px;
   overflow:hidden;
 }
+
 .hha-card{
   border-radius: 22px;
   border:1px solid var(--stroke);
@@ -277,6 +321,7 @@ html,body{
   padding: 14px;
   box-shadow: 0 18px 70px rgba(0,0,0,.42);
 }
+
 .hha-card h3{
   margin:0 0 10px;
   font-size: 15px;
@@ -385,20 +430,30 @@ html,body{
 }
 .hha-result-top h2{ margin:0; font-size: 18px; }
 .hha-result-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+
 .hha-grid{
   display:grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   padding: 12px 6px;
 }
+
 .tile{
   border:1px solid rgba(255,255,255,.10);
   background: rgba(15,23,42,.45);
   border-radius: 18px;
   padding: 12px;
 }
-.tile .lab{ color: var(--muted); font-weight: 900; font-size: 12px; }
-.tile .val{ font-weight: 1100; font-size: 20px; margin-top: 6px; }
+.tile .lab{
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 12px;
+}
+.tile .val{
+  font-weight: 1100;
+  font-size: 20px;
+  margin-top: 6px;
+}
 .tips{
   white-space: pre-wrap;
   margin: 8px 0 0;
@@ -406,6 +461,7 @@ html,body{
   font-weight: 850;
   line-height: 1.4;
 }
+
 .hha-tipsRow{
   display:grid;
   grid-template-columns: 1.6fr 1fr;
@@ -418,14 +474,18 @@ html,body{
   padding: 10px 6px 6px;
 }
 
-/* ---------------- End-window FX ---------------- */
+/* ---------------- End-window FX class driven by hydration.safe.js ---------------- */
 body.hha-endfx #hudTop{
   animation: hhaBlink .22s infinite alternate;
 }
-body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
+body.hha-endfx #playfield,
+body.hha-endfx #cbPlayfield{
   animation: hhaShake .18s infinite;
 }
-@keyframes hhaBlink{ from{ filter:brightness(1);} to{ filter:brightness(1.12);} }
+@keyframes hhaBlink{
+  from{ filter:brightness(1); }
+  to{ filter:brightness(1.12); }
+}
 @keyframes hhaShake{
   0%{ transform: translate(0,0); }
   25%{ transform: translate(1px,0); }
@@ -436,18 +496,56 @@ body.hha-endfx #playfield, body.hha-endfx #cbPlayfield{
 
 /* ---------------- Responsive ---------------- */
 @media (max-width: 980px){
-  .hha-main{ grid-template-columns: 1fr; }
-  .hha-side{ display:grid; grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 720px){
-  :root{ --hudTopH: 70px; }
-  .hha-side{ grid-template-columns: 1fr; }
-  .hha-bottom .hha-btn{ min-width: 104px; padding: 10px 10px; }
-  .hha-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .hha-tipsRow{ grid-template-columns: 1fr; }
+  .hha-main{
+    grid-template-columns: 1fr;
+  }
+  .hha-side{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
-/* Cardboard mode tweaks */
-body.cardboard{ overflow:hidden; touch-action: none; }
-body.cardboard .hha-side{ display:none; }
-body.cardboard .hha-main{ grid-template-columns: 1fr; }
+@media (max-width: 720px){
+  :root{ --hudTopH: 70px; }
+  .hha-side{
+    grid-template-columns: 1fr;
+  }
+  .hha-bottom .hha-btn{
+    min-width: 104px;
+    padding: 10px 10px;
+  }
+  .hha-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .hha-tipsRow{ grid-template-columns: 1fr; }
+
+  .hha-overlay-card{
+    width:min(520px, 96vw);
+  }
+}
+
+/* ---------------- Cardboard mode tweaks ---------------- */
+body.cardboard{
+  overflow:hidden;
+  touch-action: none;
+}
+body.cardboard .hha-side{
+  display:none;
+}
+body.cardboard .hha-main{
+  grid-template-columns: 1fr;
+}
+body.cardboard .hha-crosshair{
+  display:none; /* use reticle per eye */
+}
+
+/* Landscape in VR: tighten HUD + bottom padding */
+@media (orientation: landscape){
+  body.cardboard .hha-top{
+    padding: calc(var(--sat) + 8px) calc(var(--sal) + 8px) 8px calc(var(--sar) + 8px);
+  }
+  body.cardboard .hha-bottom{
+    padding: 8px calc(var(--sar) + 10px) calc(var(--sab) + 8px) calc(var(--sal) + 10px);
+  }
+  body.cardboard .hha-bottom .hha-btn{
+    min-width: 110px;
+  }
+}
