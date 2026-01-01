@@ -1,147 +1,242 @@
-/* === /herohealth/vr/ai-hooks.js ===
-HHA AI Hooks (DISABLED BY DEFAULT)
-- Collects events + metrics
-- Provides hook points for:
-  (1) AI Difficulty Director (adaptive, fair, deterministic)
-  (2) AI Coach micro-tips (explainable, rate-limited)
-  (3) AI Pattern Generator (seeded)
-Enable later by setting: window.HHA_AI_ENABLED = true
-*/
+// === /herohealth/vr/ai-hooks.js ===
+// HHA AI Hooks — PRODUCTION (hooks only; AI default OFF)
+// ✅ Collects rolling metrics (accuracy/miss/rt/streak/fatigue proxy)
+// ✅ Deterministic-friendly (seed input, no randomness inside)
+// ✅ Provides hooks for: Difficulty Director / Coach / Pattern Generator
+// ✅ Safe defaults: disabled in research unless explicitly enabled
 
-(function(root){
-  'use strict';
-  const NS = (root.HHA_AI = root.HHA_AI || {});
-  const ENABLED = ()=> !!root.HHA_AI_ENABLED;
+'use strict';
 
-  function xmur3(str){
-    str = String(str||'seed');
-    let h = 1779033703 ^ str.length;
-    for (let i=0;i<str.length;i++){
-      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-      h = (h << 13) | (h >>> 19);
+function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+function nowMs(){ return (typeof performance!=='undefined' ? performance.now() : Date.now()); }
+
+function qs(k, def=null){
+  try { return new URL(location.href).searchParams.get(k) ?? def; }
+  catch { return def; }
+}
+function qsBool(k, def=false){
+  const v = qs(k, null);
+  if(v==null) return def;
+  return (v==='1'||v==='true'||v==='yes');
+}
+
+export function createAIHooks(opts={}){
+  const run = (opts.runMode || qs('run','play')).toLowerCase();
+  const isResearch = (run==='research' || run==='study');
+
+  // ✅ AI is OFF by default, especially in research
+  const enabled = (() => {
+    if (isResearch) return qsBool('ai', false); // research must opt-in
+    return qsBool('ai', false) || !!opts.enabled; // play can opt-in too
+  })();
+
+  const seed = (opts.seed ?? Number(qs('seed', 0)) ?? 0) || 0;
+
+  // Rolling metrics (simple, deterministic)
+  const M = {
+    enabled,
+    runMode: run,
+    isResearch,
+    seed,
+
+    // counts
+    hit: 0,
+    miss: 0,
+    hitGood: 0,
+    hitBad: 0,
+    streak: 0,
+    streakMax: 0,
+
+    // RT
+    rtN: 0,
+    rtSum: 0,
+    rtAvg: 0,
+
+    // time windows
+    t0: nowMs(),
+    lastEventMs: 0,
+
+    // fatigue/frustration proxy
+    missBurst: 0,
+    missBurstMax: 0,
+    fatigue: 0,        // 0..1
+    frustration: 0,    // 0..1
+
+    // difficulty suggestion output (hooks)
+    diffHint: {
+      // director can write suggestions; engine may choose to read them
+      spawnRateMul: 1,
+      sizeMul: 1,
+      speedMul: 1,
+      pattern: null, // e.g., 'grid9', 'ring', 'wave'
+    },
+
+    // coach output (micro tips)
+    coach: {
+      lastTipMs: 0,
+      lastTip: '',
     }
-    return function(){
-      h = Math.imul(h ^ (h >>> 16), 2246822507);
-      h = Math.imul(h ^ (h >>> 13), 3266489909);
-      h ^= (h >>> 16);
-      return h >>> 0;
-    };
-  }
-  function sfc32(a,b,c,d){
-    return function(){
-      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-      let t = (a + b) | 0;
-      a = b ^ (b >>> 9);
-      b = (c + (c << 3)) | 0;
-      c = (c << 21) | (c >>> 11);
-      d = (d + 1) | 0;
-      t = (t + d) | 0;
-      c = (c + t) | 0;
-      return (t >>> 0) / 4294967296;
-    };
-  }
-  function makeRng(seed){
-    const gen = xmur3(seed);
-    return sfc32(gen(), gen(), gen(), gen());
-  }
-
-  const S = {
-    inited:false,
-    seed:'seed',
-    runMode:'play',
-    gameTag:'HHA',
-    rng:Math.random,
-
-    // rolling metrics
-    lastScore:null,
-    lastRank:null,
-    lastFever:null,
-    lastTime:null,
-
-    // buffer (for later AI)
-    events:[],
-    maxEvents:240,
-
-    // rate-limit coach tips
-    lastTipAt:0
   };
 
-  function pushEv(name, detail){
-    const e = { t: Date.now(), name: String(name||''), d: detail||{} };
-    S.events.push(e);
-    if (S.events.length > S.maxEvents) S.events.splice(0, S.events.length - S.maxEvents);
+  // subscribers
+  const subs = new Map(); // event -> Set(fn)
+  function on(evt, fn){
+    if(!subs.has(evt)) subs.set(evt, new Set());
+    subs.get(evt).add(fn);
+    return ()=> subs.get(evt)?.delete(fn);
+  }
+  function emit(evt, payload){
+    const set = subs.get(evt);
+    if(!set || set.size===0) return;
+    for(const fn of set){
+      try{ fn(payload); }catch(e){ /* never break game */ }
+    }
   }
 
-  function init(opts){
-    opts = opts || {};
-    S.seed = String(opts.seed || S.seed);
-    S.runMode = String(opts.runMode || S.runMode);
-    S.gameTag = String(opts.gameTag || S.gameTag);
-    S.rng = makeRng(S.seed + '::ai-hooks::' + S.gameTag);
-    S.inited = true;
+  function resetSession(){
+    M.hit = M.miss = M.hitGood = M.hitBad = 0;
+    M.streak = M.streakMax = 0;
+    M.rtN = M.rtSum = M.rtAvg = 0;
+    M.missBurst = M.missBurstMax = 0;
+    M.fatigue = 0;
+    M.frustration = 0;
+    M.diffHint.spawnRateMul = 1;
+    M.diffHint.sizeMul = 1;
+    M.diffHint.speedMul = 1;
+    M.diffHint.pattern = null;
+    M.coach.lastTipMs = 0;
+    M.coach.lastTip = '';
+    M.t0 = nowMs();
+    emit('session:reset', { ...M });
   }
 
-  function onEvent(name, detail){
-    if (!S.inited) return;
-    pushEv(name, detail);
+  // ---- core recorders (call from game engine) ----
+  function recordHit({good=true, rtMs=null}={}){
+    M.hit++;
+    if(good) M.hitGood++; else M.hitBad++;
+    M.streak++;
+    M.streakMax = Math.max(M.streakMax, M.streak);
+    M.missBurst = 0;
 
-    // cache common
-    if (name === 'hha:score') S.lastScore = detail||{};
-    if (name === 'hha:rank')  S.lastRank  = detail||{};
-    if (name === 'hha:fever') S.lastFever = detail||{};
-    if (name === 'hha:time')  S.lastTime  = detail||{};
+    if(rtMs!=null){
+      const r = clamp(rtMs, 60, 5000);
+      M.rtN++; M.rtSum += r;
+      M.rtAvg = (M.rtSum / Math.max(1, M.rtN));
+    }
+
+    updateFatigueFrustration();
+    M.lastEventMs = nowMs();
+    emit('event:hit', { good, rtMs, metrics: snapshot() });
   }
 
-  // -------- Hook points (return suggestions only; DO NOT apply now) --------
-  function suggestDifficulty(){
-    // placeholder: later use accuracy, misses, combo trend, rt metrics
-    if (!S.inited) return null;
+  function recordMiss({reason='miss'}={}){
+    M.miss++;
+    M.streak = 0;
+    M.missBurst++;
+    M.missBurstMax = Math.max(M.missBurstMax, M.missBurst);
+
+    updateFatigueFrustration();
+    M.lastEventMs = nowMs();
+    emit('event:miss', { reason, metrics: snapshot() });
+  }
+
+  function recordTick({timeLeftSec=null}={}){
+    // optional: engine calls every ~1s or per HUD tick
+    updateFatigueFrustration();
+    emit('event:tick', { timeLeftSec, metrics: snapshot() });
+  }
+
+  function recordGoal({done=false, id='goal'}={}){
+    emit('quest:goal', { id, done, metrics: snapshot() });
+  }
+  function recordMini({done=false, id='mini', reason=''}={}){
+    emit('quest:mini', { id, done, reason, metrics: snapshot() });
+  }
+
+  function updateFatigueFrustration(){
+    // deterministic proxy:
+    // - frustration rises with missBurst
+    // - fatigue rises slowly with session time and low accuracy
+    const total = M.hit + M.miss;
+    const acc = total>0 ? (M.hit / total) : 1;
+    const t = (nowMs() - M.t0) / 1000; // sec
+    const f1 = clamp(M.missBurst / 6, 0, 1);
+    const f2 = clamp((t / 180), 0, 1) * clamp((1 - acc), 0, 1);
+    M.frustration = clamp(0.55*f1 + 0.45*f2, 0, 1);
+    M.fatigue = clamp(0.25*clamp(t/240,0,1) + 0.75*f2, 0, 1);
+  }
+
+  function accuracy(){
+    const total = M.hit + M.miss;
+    return total>0 ? (M.hit / total) : 1;
+  }
+
+  function snapshot(){
+    // return lightweight snapshot for logs/UI
     return {
-      enabled: ENABLED(),
-      mode:'director',
-      // example output (NOT applied)
-      spawnMs:null,
-      ttlMs:null,
-      junkBias:null,
-      decoyBias:null,
-      reason:'hook-only'
+      enabled: M.enabled,
+      runMode: M.runMode,
+      isResearch: M.isResearch,
+      seed: M.seed,
+      hit: M.hit,
+      miss: M.miss,
+      hitGood: M.hitGood,
+      hitBad: M.hitBad,
+      streak: M.streak,
+      streakMax: M.streakMax,
+      rtAvg: Math.round(M.rtAvg||0),
+      accuracy: Number(accuracy().toFixed(4)),
+      missBurst: M.missBurst,
+      fatigue: Number(M.fatigue.toFixed(4)),
+      frustration: Number(M.frustration.toFixed(4)),
+      diffHint: { ...M.diffHint },
+      coach: { ...M.coach },
     };
   }
 
-  function microTip(){
-    // placeholder: explainable tips
-    if (!S.inited) return null;
-    const now = Date.now();
-    if (now - S.lastTipAt < 8000) return null; // rate-limit
-    S.lastTipAt = now;
-
-    return {
-      enabled: ENABLED(),
-      mode:'coach',
-      text:null,
-      reason:'hook-only'
-    };
+  // ---- coach helper (rate-limited micro tips) ----
+  function canTip(minGapMs=12000){
+    const t = nowMs();
+    return (t - M.coach.lastTipMs) >= minGapMs;
+  }
+  function pushTip(text, minGapMs=12000){
+    if(!text) return false;
+    if(!canTip(minGapMs)) return false;
+    M.coach.lastTipMs = nowMs();
+    M.coach.lastTip = String(text);
+    emit('coach:tip', { text: M.coach.lastTip, metrics: snapshot() });
+    return true;
   }
 
-  function patternHint(){
-    // placeholder: seeded pattern generator
-    if (!S.inited) return null;
-    return {
-      enabled: ENABLED(),
-      mode:'pattern',
-      stormPattern:null,
-      bossTrick:null,
-      reason:'hook-only'
-    };
+  // ---- director hint setters (AI can write; engine may read) ----
+  function setDiffHint(patch={}){
+    if(patch.spawnRateMul!=null) M.diffHint.spawnRateMul = clamp(patch.spawnRateMul, 0.4, 2.5);
+    if(patch.sizeMul!=null)      M.diffHint.sizeMul      = clamp(patch.sizeMul, 0.6, 1.8);
+    if(patch.speedMul!=null)     M.diffHint.speedMul     = clamp(patch.speedMul, 0.6, 1.8);
+    if(patch.pattern!==undefined) M.diffHint.pattern = patch.pattern;
+    emit('director:hint', { hint: { ...M.diffHint }, metrics: snapshot() });
   }
 
-  function getBuffer(){ return S.events.slice(); }
+  const api = {
+    enabled: ()=> M.enabled,
+    runMode: ()=> M.runMode,
+    isResearch: ()=> M.isResearch,
+    seed: ()=> M.seed,
+    metrics: ()=> snapshot(),
 
-  NS.init = init;
-  NS.onEvent = onEvent;
-  NS.suggestDifficulty = suggestDifficulty;
-  NS.microTip = microTip;
-  NS.patternHint = patternHint;
-  NS.getBuffer = getBuffer;
+    on, emit,
+    resetSession,
 
-})(typeof window !== 'undefined' ? window : globalThis);
+    recordHit,
+    recordMiss,
+    recordTick,
+    recordGoal,
+    recordMini,
+
+    // helpers for AI modules later
+    pushTip,
+    setDiffHint,
+  };
+
+  return api;
+}
