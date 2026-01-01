@@ -1,10 +1,8 @@
 <!-- === /herohealth/groups-vr.html ===
-HeroHealth — GroupsVR Launcher (PC / Mobile / VR Cardboard)
-✅ เลือก view: pc / mobile / cvr
-✅ เลือก run: play / research
-✅ เลือก diff/style/time/seed
-✅ จำค่าเดิม (localStorage)
-✅ ส่งต่อ hub=... ไป run
+HeroHealth — GroupsVR Launcher (PC/Mobile/Cardboard)
+✅ remembers last settings
+✅ passthrough unknown params (study ctx etc.)
+✅ sends: view, run, diff, style, time, seed, practice
 -->
 <!doctype html>
 <html lang="th">
@@ -15,137 +13,225 @@ HeroHealth — GroupsVR Launcher (PC / Mobile / VR Cardboard)
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Reuse main css (มี panel/btn/grid อยู่แล้ว) -->
-  <link rel="stylesheet" href="./vr-groups/groups-vr.css" />
-
   <style>
-    /* launcher tweaks (ไม่ไปรบกวน run) */
-    body{ overflow:auto; }
-    .overlay{ position:relative; min-height:100dvh; }
-    .overlay{ background: radial-gradient(circle at 20% 0%, rgba(34,211,238,.18), transparent 55%),
-                        radial-gradient(circle at 80% 110%, rgba(167,139,250,.16), transparent 60%),
-                        rgba(2,6,23,.88); }
-    .panel{ margin: 22px auto; }
-    .preview{
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:18px;
-      padding:12px;
-      background: rgba(15,23,42,.35);
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --radius:18px;
+      --pill:999px;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
     }
-    .mini{
+    *{ box-sizing:border-box; }
+    html,body{
+      width:100%; height:100%; margin:0; overflow:hidden;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(34,211,238,.16), transparent 60%),
+        radial-gradient(circle at 90% 100%, rgba(167,139,250,.14), transparent 60%),
+        var(--bg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color:var(--text);
+    }
+    .wrap{
+      position:fixed; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab));
+    }
+    .panel{
+      width:min(820px, 100%);
+      background: linear-gradient(180deg, rgba(2,6,23,.90), rgba(2,6,23,.72));
+      border:1px solid var(--stroke);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+    }
+    .title{
+      font-weight: 1000;
+      font-size: 24px;
+      letter-spacing: .2px;
+      margin-bottom: 6px;
+    }
+    .sub{
+      color: var(--muted);
+      line-height: 1.35;
+      margin-bottom: 14px;
+    }
+    .hr{ height:1px; background:var(--stroke); margin:14px 0; }
+
+    .grid2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    @media (max-width:760px){ .grid2{ grid-template-columns:1fr; } }
+
+    .card{
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.45);
+      border-radius: 18px;
+      padding: 12px;
+    }
+    .k{
       font-size: 12px;
-      color: rgba(229,231,235,.82);
-      line-height:1.35;
-      font-weight:800;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 900;
+      letter-spacing: .4px;
+      text-transform: uppercase;
     }
-    .btnRow{ display:flex; gap:10px; flex-wrap:wrap; }
-    .btnWide{ min-width: 190px; justify-content:center; display:inline-flex; }
-    .chip{ user-select:none; }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .chip{
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.55);
+      color: var(--text);
+      border-radius: var(--pill);
+      padding: 8px 12px;
+      cursor:pointer;
+      font-weight: 1000;
+      font-size: 13px;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .chip-on{
+      border-color: rgba(34,197,94,.42);
+      background: rgba(34,197,94,.16);
+    }
+    .input{
+      width: 120px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.55);
+      color:var(--text);
+      font-weight: 1000;
+    }
+    .btn{
+      appearance:none;
+      border:1px solid var(--stroke);
+      background: rgba(15,23,42,.65);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-weight: 1000;
+      cursor:pointer;
+      transition: transform .08s ease, border-color .12s ease, background .12s ease;
+    }
+    .btn:hover{ border-color: rgba(148,163,184,.35); }
+    .btn:active{ transform: translateY(1px) scale(.99); }
+    .btn-strong{
+      background: linear-gradient(180deg, rgba(34,197,94,.25), rgba(34,197,94,.10));
+      border-color: rgba(34,197,94,.35);
+    }
+    .btn-warn{
+      background: linear-gradient(180deg, rgba(245,158,11,.22), rgba(245,158,11,.08));
+      border-color: rgba(245,158,11,.32);
+    }
+    .note{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      margin-top: 10px;
+    }
+    .small{
+      font-size:12px;
+      color: var(--muted);
+      font-weight: 900;
+    }
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      border:1px solid var(--stroke);
+      border-radius: var(--pill);
+      padding: 8px 12px;
+      background: rgba(2,6,23,.55);
+      font-weight: 1000;
+    }
   </style>
 </head>
-
 <body>
-  <div class="overlay">
+  <div class="wrap">
     <div class="panel">
-      <div class="title">🍽️ Food Groups VR — Launcher</div>
-      <div class="sub">
-        เลือกโหมดเข้าเล่นให้ชัด ๆ: <b>PC / Mobile / VR Cardboard</b><br/>
-        <span class="hint">Cardboard ใช้ <b>view=cvr</b> แล้ว “แตะจอ = ยิงจาก crosshair” ผ่าน vr-ui.js</span>
-      </div>
-
-      <div class="hr"></div>
+      <div class="title">🍱 Food Groups VR — Launcher</div>
+      <div class="sub">เลือกช่องทางเข้าเล่นได้เลย: <b>PC / Mobile / VR Cardboard (cVR)</b> — ค่าจะจำไว้ให้ และส่งพารามิเตอร์เข้าหน้า Run อัตโนมัติ</div>
 
       <div class="grid2">
-        <div class="kv">
-          <div class="k">Device / View</div>
-          <div class="v" id="viewChips">
-            <button class="chip" data-view="pc">🖥️ PC</button>
-            <button class="chip" data-view="mobile">📱 Mobile</button>
-            <button class="chip" data-view="cvr">🕶️ Cardboard (VR)</button>
+        <div class="card">
+          <div class="k">Mode</div>
+          <div class="row" id="rowView">
+            <div class="chip" data-k="view" data-v="pc">🖥️ PC</div>
+            <div class="chip" data-k="view" data-v="mobile">📱 Mobile</div>
+            <div class="chip" data-k="view" data-v="cvr">🥽 Cardboard (cVR)</div>
           </div>
-          <div class="note" style="margin-top:8px;">
-            <b>PC/Mobile</b>: แตะ/คลิกเป้าได้ตรง ๆ<br/>
-            <b>Cardboard</b>: เป้า “ไม่รับคลิก” (pointer-events off) — ยิงด้วย crosshair
+
+          <div class="hr"></div>
+
+          <div class="k">Run Mode</div>
+          <div class="row" id="rowRun">
+            <div class="chip" data-k="run" data-v="play">🎮 Play (Adaptive ON)</div>
+            <div class="chip" data-k="run" data-v="research">🧪 Research (Deterministic)</div>
+          </div>
+
+          <div class="note">
+            <span class="pill">🧪 Research</span>
+            จะล็อกให้ deterministic (seeded) และปิด adaptive/AI ตามมาตรฐาน
           </div>
         </div>
 
-        <div class="kv">
-          <div class="k">Run mode</div>
-          <div class="v" id="runChips">
-            <button class="chip" data-run="play">🎮 Play (Adaptive ON)</button>
-            <button class="chip" data-run="research">🧪 Research (Deterministic)</button>
-          </div>
-          <div class="note" style="margin-top:8px;">
-            Research: ปิด adaptive/AI (คงที่ด้วย seed) เพื่อความเที่ยงตรง
-          </div>
-        </div>
-      </div>
-
-      <div class="hr"></div>
-
-      <div class="grid2">
-        <div class="kv">
+        <div class="card">
           <div class="k">Difficulty</div>
-          <div class="v" id="diffChips">
-            <button class="chip" data-diff="easy">🙂 Easy</button>
-            <button class="chip" data-diff="normal">😎 Normal</button>
-            <button class="chip" data-diff="hard">😈 Hard</button>
+          <div class="row" id="rowDiff">
+            <div class="chip" data-k="diff" data-v="easy">😄 Easy</div>
+            <div class="chip" data-k="diff" data-v="normal">😈 Normal</div>
+            <div class="chip" data-k="diff" data-v="hard">💀 Hard</div>
           </div>
-        </div>
 
-        <div class="kv">
-          <div class="k">Style</div>
-          <div class="v" id="styleChips">
-            <button class="chip" data-style="mix">🎛️ Mix</button>
-            <button class="chip" data-style="feel">🌊 Feel</button>
-            <button class="chip" data-style="hard">🌀 Hard</button>
-          </div>
-          <div class="note" style="margin-top:8px;">
-            Feel: wave storm เด่น / Hard: spiral storm เด่น / Mix: สลับ pattern
-          </div>
-        </div>
-      </div>
+          <div class="hr"></div>
 
-      <div class="hr"></div>
-
-      <div class="grid2">
-        <div class="kv">
-          <div class="k">Time (sec)</div>
-          <div class="v">
-            <input id="timeInput" class="input" type="number" min="30" max="180" step="5" />
-            <span class="hint">30–180</span>
+          <div class="k">Style (Pattern feel)</div>
+          <div class="row" id="rowStyle">
+            <div class="chip" data-k="style" data-v="mix">🎛️ Mix</div>
+            <div class="chip" data-k="style" data-v="feel">🌊 Feel</div>
+            <div class="chip" data-k="style" data-v="hard">🌀 Hard</div>
           </div>
-        </div>
 
-        <div class="kv">
-          <div class="k">Seed</div>
-          <div class="v">
-            <input id="seedInput" class="input" type="text" />
-            <button id="btnNewSeed" class="btn btn-ghost" type="button">🎲 สุ่ม</button>
+          <div class="hr"></div>
+
+          <div class="k">Time / Seed</div>
+          <div class="row">
+            <input id="inTime" class="input" type="number" min="30" max="180" step="5" value="90" />
+            <input id="inSeed" class="input" type="text" placeholder="seed (auto)" />
+            <button id="btnSeed" class="btn" type="button">🎲 Random Seed</button>
           </div>
-          <div class="note" style="margin-top:8px;">
-            ใส่ seed เดียวกัน = ได้ pattern ใกล้เคียงกัน (สำคัญใน research)
+
+          <div class="note">
+            Cardboard จะส่ง <b>practice=15s</b> ก่อนเริ่มเกมจริงอัตโนมัติ (กันงง/กันเวียนหัว)
           </div>
         </div>
       </div>
 
       <div class="hr"></div>
 
-      <div class="preview">
-        <div class="mini"><b>ลิงก์ที่จะเข้าเล่น:</b></div>
-        <div class="mini" id="previewUrl" style="word-break:break-all; margin-top:6px;"></div>
+      <div class="row">
+        <button id="btnPlay" class="btn btn-strong" type="button">🚀 เข้าเกม (Run)</button>
+        <button id="btnCopy" class="btn" type="button">📋 Copy Link</button>
+        <span class="small" id="hintCarry">—</span>
       </div>
 
-      <div class="hr"></div>
-
-      <div class="btnRow">
-        <button id="btnStart" class="btn btn-strong btnWide" type="button">🚀 START</button>
-        <button id="btnCopyLink" class="btn btnWide" type="button">🔗 Copy Link</button>
-        <button id="btnHub" class="btn btn-ghost btnWide" type="button">🏠 ไป HUB</button>
-      </div>
-
-      <div class="note" style="margin-top:12px;">
-        ถ้าเปิดบนมือถือแล้วอยากเล่น VR Cardboard: กด START (view=cvr) → ในหน้ารันจะมีปุ่ม <b>ENTER VR</b> จาก vr-ui.js
+      <div class="note">
+        ทิป: ถ้ามี <code>hub=...</code> หรือ <code>log=...</code> หรือพารามิเตอร์วิจัยอื่น ๆ (study/phase/ฯลฯ) Launcher จะ “ส่งต่อ” ไปหน้า Run ให้ทั้งหมด
       </div>
     </div>
   </div>
@@ -153,20 +239,92 @@ HeroHealth — GroupsVR Launcher (PC / Mobile / VR Cardboard)
 <script>
 (function(){
   'use strict';
+  const LS = 'HHA_GROUPS_LAUNCH';
   const DOC = document;
   const $ = (id)=>DOC.getElementById(id);
 
-  const LS = 'HHA_GROUPS_LAUNCHER';
-
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
+  function qsAll(){
+    try{ return new URL(location.href).searchParams; }catch{ return new URLSearchParams(); }
   }
-  function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+  function clamp(v,a,b){
+    v = Number(v); if (!Number.isFinite(v)) v = a;
+    return v<a?a:(v>b?b:v);
+  }
+  function load(){
+    try{ return JSON.parse(localStorage.getItem(LS)||'{}')||{}; }catch{ return {}; }
+  }
+  function save(st){
+    try{ localStorage.setItem(LS, JSON.stringify(st||{})); }catch{}
+  }
+
+  const state = Object.assign({
+    view:'mobile',
+    run:'play',
+    diff:'normal',
+    style:'mix',
+    time:90,
+    seed:''
+  }, load());
+
+  function applyChips(){
+    DOC.querySelectorAll('.chip[data-k]').forEach(ch=>{
+      const k = ch.dataset.k;
+      const v = ch.dataset.v;
+      ch.classList.toggle('chip-on', String(state[k])===String(v));
+    });
+    $('inTime').value = String(state.time||90);
+    $('inSeed').value = String(state.seed||'');
+  }
+
+  function bindChips(){
+    DOC.querySelectorAll('.chip[data-k]').forEach(ch=>{
+      ch.addEventListener('click', ()=>{
+        const k = ch.dataset.k;
+        const v = ch.dataset.v;
+        state[k]=v;
+        save(state);
+        applyChips();
+        updateCarryHint();
+      }, {passive:true});
+    });
+  }
+
+  function randSeed(){
+    return String(Date.now()) + '-' + Math.floor(Math.random()*1e6);
+  }
+
+  function buildRunUrl(){
+    const base = new URL('./vr-groups/groups.html', location.href);
+
+    // passthrough all existing params first
+    const sp = qsAll();
+    sp.forEach((val,key)=>{
+      // do not pass view/run/diff/style/time/seed/practice duplicates
+      if (['view','run','diff','style','time','seed','practice'].includes(key)) return;
+      base.searchParams.set(key, val);
+    });
+
+    // set run params
+    base.searchParams.set('view', state.view);
+    base.searchParams.set('run', state.run);
+    base.searchParams.set('diff', state.diff);
+    base.searchParams.set('style', state.style);
+    base.searchParams.set('time', String(clamp(state.time,30,180)));
+
+    const seed = String(state.seed||'').trim() || randSeed();
+    base.searchParams.set('seed', seed);
+
+    // practice for cardboard
+    if (state.view === 'cvr'){
+      base.searchParams.set('practice', '15');
+    }
+
+    return base;
+  }
 
   async function copyText(text){
     try { await navigator.clipboard.writeText(String(text||'')); return true; }
-    catch{
+    catch {
       try{
         const ta = DOC.createElement('textarea');
         ta.value = String(text||'');
@@ -179,126 +337,61 @@ HeroHealth — GroupsVR Launcher (PC / Mobile / VR Cardboard)
     }
   }
 
-  const state = {
-    view: 'mobile',
-    run: 'play',
-    diff: 'normal',
-    style:'mix',
-    time: 90,
-    seed: String(Date.now())
-  };
-
-  function load(){
-    try{
-      const s = JSON.parse(localStorage.getItem(LS)||'null');
-      if (s && typeof s==='object'){
-        if (s.view) state.view = String(s.view);
-        if (s.run) state.run = String(s.run);
-        if (s.diff) state.diff = String(s.diff);
-        if (s.style) state.style = String(s.style);
-        if (s.time) state.time = clamp(s.time, 30, 180);
-        if (s.seed) state.seed = String(s.seed);
-      }
-    }catch{}
-    // allow URL override
-    state.view  = String(qs('view',  state.view)  || state.view);
-    state.run   = String(qs('run',   state.run)   || state.run);
-    state.diff  = String(qs('diff',  state.diff)  || state.diff);
-    state.style = String(qs('style', state.style) || state.style);
-    state.time  = clamp(qs('time', state.time), 30, 180);
-    state.seed  = String(qs('seed', state.seed) || state.seed);
-  }
-  function save(){
-    try{ localStorage.setItem(LS, JSON.stringify(state)); }catch{}
-  }
-
-  function setChipOn(containerId, key, val){
-    const box = $(containerId);
-    if (!box) return;
-    box.querySelectorAll('.chip').forEach(btn=>{
-      const v = btn.dataset[key];
-      btn.classList.toggle('chip-on', String(v) === String(val));
+  function updateCarryHint(){
+    const sp = qsAll();
+    const hub = sp.get('hub');
+    const log = sp.get('log');
+    const keys = [];
+    if (hub) keys.push('hub✅');
+    if (log) keys.push('log✅');
+    // แค่โชว์ว่ามีพารามิเตอร์อื่น ๆ ด้วย
+    let extra = 0;
+    sp.forEach((v,k)=>{
+      if (['view','run','diff','style','time','seed','practice'].includes(k)) return;
+      if (k==='hub' || k==='log') return;
+      extra++;
     });
-  }
+    $('hintCarry').textContent =
+      'ส่งต่อพารามิเตอร์: ' + (keys.length?keys.join(' , '):'—') + (extra?(' + อื่นๆ '+extra+' ค่า'):'');
 
-  function buildUrl(){
-    const hub = String(qs('hub','')||'');
-    const u = new URL('./vr-groups/groups.html', location.href);
-    u.searchParams.set('view', state.view);
-    u.searchParams.set('run', state.run);
-    u.searchParams.set('diff', state.diff);
-    u.searchParams.set('style', state.style);
-    u.searchParams.set('time', String(state.time));
-    u.searchParams.set('seed', state.seed);
-    if (hub) u.searchParams.set('hub', hub);
-    return u.toString();
-  }
-
-  function refresh(){
-    setChipOn('viewChips','view',state.view);
-    setChipOn('runChips','run',state.run);
-    setChipOn('diffChips','diff',state.diff);
-    setChipOn('styleChips','style',state.style);
-
-    $('timeInput').value = String(state.time);
-    $('seedInput').value = state.seed;
-
-    $('previewUrl').textContent = buildUrl();
-    save();
-  }
-
-  // bind chips
-  function bindChips(containerId, key){
-    const box = $(containerId);
-    if (!box) return;
-    box.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.chip');
-      if (!btn) return;
-      const v = btn.dataset[key];
-      if (!v) return;
-      state[key] = v;
-      refresh();
-    });
+    // sync seed if empty
+    if (!String(state.seed||'').trim()){
+      $('inSeed').placeholder = 'seed (auto: '+randSeed().slice(0,8)+'...)';
+    }
   }
 
   // init
-  load();
-  bindChips('viewChips','view');
-  bindChips('runChips','run');
-  bindChips('diffChips','diff');
-  bindChips('styleChips','style');
+  bindChips();
+  applyChips();
+  updateCarryHint();
 
-  $('timeInput').addEventListener('change', ()=>{
-    state.time = clamp($('timeInput').value, 30, 180);
-    refresh();
+  $('inTime').addEventListener('change', ()=>{
+    state.time = clamp($('inTime').value,30,180);
+    save(state);
+  }, {passive:true});
+
+  $('inSeed').addEventListener('input', ()=>{
+    state.seed = String($('inSeed').value||'').trim();
+    save(state);
+  }, {passive:true});
+
+  $('btnSeed').addEventListener('click', ()=>{
+    state.seed = randSeed();
+    save(state);
+    applyChips();
   });
 
-  $('seedInput').addEventListener('change', ()=>{
-    state.seed = String($('seedInput').value || Date.now());
-    refresh();
+  $('btnPlay').addEventListener('click', ()=>{
+    const u = buildRunUrl();
+    location.href = u.toString();
   });
 
-  $('btnNewSeed').addEventListener('click', ()=>{
-    state.seed = String(Date.now());
-    refresh();
-  });
-
-  $('btnStart').addEventListener('click', ()=>{
-    location.href = buildUrl();
-  });
-
-  $('btnCopyLink').addEventListener('click', async ()=>{
-    const ok = await copyText(buildUrl());
+  $('btnCopy').addEventListener('click', async ()=>{
+    const u = buildRunUrl();
+    const ok = await copyText(u.toString());
     alert(ok ? 'คัดลอกลิงก์แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
-  $('btnHub').addEventListener('click', ()=>{
-    const hub = String(qs('hub','')||'');
-    if (!hub){ alert('ไม่มีพารามิเตอร์ hub=...'); return; }
-    location.href = hub;
-  });
-
-  refresh();
 })();
 </script>
 </body>
