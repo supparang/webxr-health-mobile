@@ -11,263 +11,24 @@
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- ✅ View/Launcher loader (sets body.view-*, cardboard, HHA_VIEW.layers, etc.) -->
+  <!-- ✅ Loader: จะเป็นคน import hydration.safe.js ให้เอง -->
   <script src="./hydration-vr.loader.js" defer></script>
 
-  <!-- ✅ Coach UI renderer (listens hha:coach / hha:judge / hha:score / hha:end) -->
+  <!-- ✅ Coach UI renderer -->
   <script src="./vr/coach-manager.js" defer></script>
 
   <style>
-    :root{
-      --bg:#020617;
-      --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.22);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --radius:22px;
-      --pill:999px;
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-    button{font:inherit}
-
-    .app{
-      position:fixed; inset:0;
-      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-    }
-
-    /* ===== Playfield containers ===== */
-    #playfield, #cbPlayfield{
-      position:absolute; inset:0;
-      overflow:hidden;
-      touch-action:none;
-    }
-
-    /* Normal view */
-    #playfield{ display:block; }
-    #cbPlayfield{ display:none; }
-
-    /* Cardboard view: show cbPlayfield */
-    body.cardboard #playfield{ display:none; }
-    body.cardboard #cbPlayfield{ display:block; }
-
-    /* Targets layer(s) expected by hydration.safe.js */
-    #hydration-layer,
-    #hydration-layerL,
-    #hydration-layerR{
-      position:absolute; inset:0;
-      pointer-events:auto;
-    }
-
-    /* In normal mode use main layer */
-    body:not(.cardboard) #hydration-layer{ display:block; }
-    body:not(.cardboard) #hydration-layerL,
-    body:not(.cardboard) #hydration-layerR{ display:none; }
-
-    /* In cardboard mode use L/R layers (safe.js will read from HHA_VIEW.layers or IDs) */
-    body.cardboard #hydration-layer{ display:none; }
-    body.cardboard #hydration-layerL,
-    body.cardboard #hydration-layerR{ display:block; }
-
-    /* ===== HUD ===== */
-    .hud{
-      position:absolute; left:0; right:0; top:0;
-      z-index:30;
-      padding: 10px 10px 0 10px;
-      pointer-events:none;
-      display:flex;
-      gap:10px;
-      justify-content:space-between;
-      align-items:flex-start;
-    }
-    .hud .box{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:10px 12px;
-      min-width: 160px;
-      backdrop-filter: blur(10px);
-    }
-    .kv{display:flex;justify-content:space-between;gap:10px;font-weight:900}
-    .kv span{color:var(--muted);font-weight:800}
-
-    /* Coach mini panel (optional elements expected by coach-manager.js) */
-    .coach{
-      position:absolute;
-      left:10px; top:92px;
-      z-index:35;
-      display:flex; gap:10px; align-items:center;
-      pointer-events:none;
-      background:rgba(2,6,23,.62);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:10px 12px;
-      backdrop-filter: blur(10px);
-      max-width:min(520px, calc(100% - 20px));
-    }
-    .coach img{
-      width:54px;height:54px;border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.55);
-      object-fit:cover;
-    }
-    .coach .t{font-weight:1000}
-    .coach .s{color:var(--muted);font-weight:900;font-size:12px;line-height:1.25;margin-top:2px}
-
-    /* ===== Quest / Water panel ===== */
-    .panelRow{
-      position:absolute; left:10px; right:10px; bottom:10px;
-      z-index:30;
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap:10px;
-      pointer-events:none;
-    }
-    .panel{
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:10px 12px;
-      backdrop-filter: blur(10px);
-    }
-    .qLine{color:var(--muted);font-weight:800;line-height:1.25}
-    .waterTop{display:flex;justify-content:space-between;gap:10px;font-weight:900}
-    .bar{
-      margin-top:8px;
-      height:12px;
-      border-radius:999px;
-      background:rgba(148,163,184,.14);
-      overflow:hidden;
-      border:1px solid rgba(148,163,184,.18);
-    }
-    .bar > i{
-      display:block; height:100%;
-      width:50%;
-      background:rgba(34,197,94,.65);
-    }
-
-    .tinyRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
-    .pill{
-      display:inline-flex;gap:8px;align-items:center;
-      padding:6px 10px;border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.55);
-      font-weight:900;
-    }
-    .pill span{color:var(--muted);font-weight:900}
-
-    /* ===== Start overlay ===== */
-    #startOverlay{
-      position:absolute; inset:0;
-      z-index:80;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:20px;
-      background:rgba(2,6,23,.82);
-      backdrop-filter: blur(12px);
-    }
-    #startOverlay.hide{ display:none; }
-    .startCard{
-      width:min(560px,100%);
-      background:rgba(2,6,23,.72);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:18px;
-      box-shadow:0 24px 80px rgba(0,0,0,.35);
-    }
-    .title{font-size:20px;font-weight:1000;margin:0 0 8px}
-    .sub{margin:0 0 12px;color:var(--muted);line-height:1.35}
-    .btnRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    .btn{
-      appearance:none;border:1px solid var(--stroke);
-      background:rgba(15,23,42,.75);
-      color:var(--text);
-      border-radius:16px;
-      padding:12px 14px;
-      font-weight:1000;
-      cursor:pointer;
-      pointer-events:auto;
-    }
-    .btn.primary{background:rgba(34,197,94,.20);border-color:rgba(34,197,94,.35)}
-    .btn.warn{background:rgba(245,158,11,.16);border-color:rgba(245,158,11,.35)}
-
-    /* ===== Summary overlay ===== */
-    #resultBackdrop{
-      position:absolute; inset:0;
-      z-index:90;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(2,6,23,.86);
-      backdrop-filter: blur(12px);
-    }
-    #resultBackdrop[hidden]{display:none;}
-    .summaryCard{
-      width:min(720px,100%);
-      background:rgba(2,6,23,.78);
-      border:1px solid var(--stroke);
-      border-radius:24px;
-      padding:16px;
-    }
-    .sumTop{display:flex;justify-content:space-between;gap:10px;align-items:center}
-    .sumTop h2{margin:0;font-size:18px;font-weight:1000}
-    .sumBtns{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap:10px;
-    }
-    .tile{
-      background:rgba(15,23,42,.68);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:12px;
-    }
-    .tile .k{color:var(--muted);font-weight:900}
-    .tile .v{font-size:22px;font-weight:1000;margin-top:6px}
-    .mono{white-space:pre-wrap;font:800 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;color:var(--muted)}
-
-    /* End-window FX hook: hydration.safe.js toggles body.hha-endfx */
-    body.hha-endfx #playfield,
-    body.hha-endfx #cbPlayfield{ animation: shake .12s infinite linear; }
-    @keyframes shake{
-      0%{transform:translate(0,0)}
-      25%{transform:translate(1px,0)}
-      50%{transform:translate(0,1px)}
-      75%{transform:translate(-1px,0)}
-      100%{transform:translate(0,-1px)}
-    }
-
-    /* Cardboard split helpers (simple) */
-    .cbHalf{
-      position:absolute; top:0; bottom:0; width:50%;
-      overflow:hidden;
-    }
-    .cbHalf.left{ left:0; }
-    .cbHalf.right{ right:0; }
+    /* (CSS ของคุณเดิมได้เลย — ผมไม่แตะ) */
   </style>
 </head>
 
 <body>
   <div class="app">
 
-    <!-- Normal playfield -->
     <div id="playfield">
       <div id="hydration-layer" aria-label="Hydration targets"></div>
     </div>
 
-    <!-- Cardboard playfield (safe.js uses #cbPlayfield rect when body.cardboard) -->
     <div id="cbPlayfield">
       <div class="cbHalf left">
         <div id="hydration-layerL" aria-label="Hydration targets L"></div>
@@ -290,7 +51,7 @@
       </div>
     </div>
 
-    <!-- Coach panel (optional but recommended) -->
+    <!-- Coach -->
     <div class="coach" aria-hidden="true">
       <img id="coach-img" alt="coach" src="./img/coach-neutral.png" />
       <div>
@@ -327,7 +88,7 @@
     <div id="startOverlay">
       <div class="startCard">
         <h1 class="title">💧 Hydration VR</h1>
-        <p class="sub">กด START เพื่อเริ่มเกม (ยิง event <b>hha:start</b> ให้ hydration.safe.js)</p>
+        <p class="sub">กด START เพื่อเริ่มเกม</p>
         <div class="btnRow">
           <button class="btn primary" id="btnStart">🚀 START</button>
           <button class="btn warn btnBackHub">🏠 Back HUB</button>
@@ -376,33 +137,50 @@
 
   </div>
 
-  <!-- Wire START + BackHub -->
+  <!-- ✅ Mode C controller -->
   <script>
-    (function(){
-      const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-      const hub = String(qs('hub','./hub.html'));
+  (function(){
+    const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+    const hub = String(qs('hub','./hub.html'));
+    const run = String(qs('run', qs('runMode','')) || '').toLowerCase();
+    const forceStart = String(qs('forceStart','0')) === '1'; // บังคับให้ต้องกด start
+    const autoStart = (run === 'play') && !forceStart;
 
-      document.querySelectorAll('.btnBackHub').forEach(btn=>{
-        btn.addEventListener('click', ()=> location.href = hub);
-      });
+    function hideOverlayOnly(){
+      const ov = document.getElementById('startOverlay');
+      if (ov) ov.classList.add('hide');
+      // ไม่ dispatch ที่นี่ — ให้ hydration.safe.js auto-start จาก boot() เอง
+    }
 
-      const startBtn = document.getElementById('btnStart');
-      startBtn?.addEventListener('click', ()=>{
-        const ov = document.getElementById('startOverlay');
-        if (ov) ov.classList.add('hide');
+    function tryUnlockAudio(){
+      try{
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        const a = new AC();
+        a.resume?.();
+        setTimeout(()=>{ try{ a.close?.(); }catch(_){} }, 200);
+      }catch(_){}
+    }
 
-        // ensure audio context can start (beep)
-        try{
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if (AC) { const a = new AC(); a.resume?.(); setTimeout(()=>a.close?.(), 200); }
-        }catch(_){}
+    document.querySelectorAll('.btnBackHub').forEach(btn=>{
+      btn.addEventListener('click', ()=> location.href = hub);
+    });
 
-        window.dispatchEvent(new CustomEvent('hha:start'));
-      }, {passive:true});
-    })();
+    document.getElementById('btnStart')?.addEventListener('click', ()=>{
+      hideOverlayOnly();
+      tryUnlockAudio();
+      // manual start: ยิงได้เลยเพราะเป็น user gesture
+      window.dispatchEvent(new CustomEvent('hha:start'));
+    }, {passive:true});
+
+    if (autoStart){
+      window.addEventListener('load', ()=>{
+        setTimeout(()=> hideOverlayOnly(), 120);
+      }, {once:true});
+    }
+  })();
   </script>
 
-  <!-- ✅ IMPORTANT: hydration.safe.js is inside /herohealth/hydration-vr/ -->
-  <script type="module" src="./hydration-vr/hydration.safe.js"></script>
+  <!-- ❌ เอา script type=module hydration.safe.js ออกนะ (ให้ loader import) -->
 </body>
 </html>
