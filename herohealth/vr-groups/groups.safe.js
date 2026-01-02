@@ -1,14 +1,11 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish, HHA Standard)
+Food Groups VR — SAFE (PRODUCTION-ish)
 ✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
 ✅ run=research => adaptive OFF + deterministic seed (spawns repeatable)
 ✅ diff=easy|normal|hard + basic adaptive (play only)
 ✅ Grade: SSS, SS, S, A, B, C
-✅ Mini counts: miniTotal / miniCleared (real)
-✅ MISS (HHA): miss = good expired + junk hit (ONLY)
-   - wrong hit => tracked as error (not MISS)
-   - shoot miss => tracked separately (not MISS)
+✅ MINI chain stats: miniCleared / miniTotal / miniFail (+ miss breakdown)
 Note: ไฟล์นี้ “ทำงานเดี่ยวได้” — export ไว้ที่ window.GroupsVR.GameEngine
 */
 
@@ -154,8 +151,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.score = 0;
     this.combo = 0;
     this.comboMax = 0;
-
-    // ✅ MISS (HHA) = expire_good + hit_junk ONLY
     this.misses = 0;
 
     // counts (research/log)
@@ -173,16 +168,13 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
-    // mini counts (real)
-    this.miniTotal = 0;
+    // ✅ MINI chain stats + miss breakdown
     this.miniCleared = 0;
+    this.miniTotal = 0;
+    this.miniFail = 0;
 
-    // miss breakdown (HHA + extra)
-    this.missExpireGood = 0; // contributes to misses
-    this.missHitJunk = 0;    // contributes to misses
-    this.errHitWrong = 0;    // not a miss (separate)
-    this.shootMiss = 0;      // not a miss (separate)
-    this.miniFail = 0;       // not a miss (separate)
+    this.missExpireGood = 0;
+    this.missHitJunk = 0;
 
     // gameplay
     this.activeGroupIdx = 0;
@@ -259,14 +251,12 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
-    this.miniTotal = 0;
+    // ✅ reset mini stats + miss breakdown
     this.miniCleared = 0;
-
+    this.miniTotal = 0;
+    this.miniFail = 0;
     this.missExpireGood = 0;
     this.missHitJunk = 0;
-    this.errHitWrong = 0;
-    this.shootMiss = 0;
-    this.miniFail = 0;
 
     this.targets = [];
     this._id = 0;
@@ -303,6 +293,7 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
   };
 
   Engine.prototype._installInput = function () {
+    // clear old listeners by using a stable handler ref on instance
     const self = this;
 
     if (!this._onShoot) {
@@ -365,6 +356,7 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       const leftMs = this.stormUntil - t;
       addBodyClass('groups-storm-urgent', leftMs > 0 && leftMs <= 2500);
 
+      // end storm
       if (t >= this.stormUntil) {
         this.stormOn = false;
         addBodyClass('groups-storm', false);
@@ -382,11 +374,12 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
 
   Engine.prototype._tickMini = function (t) {
     if (!this.mini && t >= this.nextMiniAt) {
+      // ✅ count minis started (shown)
+      this.miniTotal += 1;
+
       const forbidJunk = (this.rng() < 0.55);
       const need = (this.cfg.diff === 'hard') ? 6 : (this.cfg.diff === 'easy' ? 4 : 5);
       const durMs = (this.cfg.diff === 'hard') ? 8500 : 9000;
-
-      this.miniTotal += 1; // ✅ count started
 
       this.mini = {
         on: true,
@@ -398,12 +391,8 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
         startedAt: t
       };
       this._emitQuestUpdate();
-      this._emitCoach(
-        forbidJunk
-          ? `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ และห้ามโดนขยะ!`
-          : `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ`,
-        'neutral'
-      );
+      this._emitCoach(forbidJunk ? `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ และห้ามโดนขยะ!` :
+                                   `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ`, 'neutral');
     }
 
     if (this.mini && this.mini.on) {
@@ -412,21 +401,17 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
 
       if (leftMs <= 0) {
         const ok = (this.mini.now >= this.mini.need) && this.mini.ok;
-
         if (ok) {
-          this.miniCleared += 1; // ✅ cleared
-          emit('groups:progress', { kind: 'mini_clear' });
-
+          this.miniCleared += 1; // ✅
           this.score += 180;
           this.combo += 1;
           this.comboMax = Math.max(this.comboMax, this.combo);
           emit('hha:judge', { kind: 'good', text: 'MINI CLEAR +180' });
           this._emitCoach('เยี่ยม! MINI ผ่าน! 🎉', 'happy');
         } else {
-          this.miniFail += 1; // ✅ separate, not MISS
-          emit('groups:progress', { kind: 'mini_fail' });
-
+          this.miniFail += 1; // ✅
           this.combo = 0;
+          this.misses += 1;
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL' });
           this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
         }
@@ -436,7 +421,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
         this._emitRank();
         this._emitQuestUpdate();
 
-        // next mini later
         this.nextMiniAt = t + 22000 + ((this.rng() * 6000) | 0);
       } else {
         this._emitQuestUpdate(leftMs);
@@ -450,7 +434,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     const p = this.cfg.preset;
     const base = p.baseSpawnMs;
 
-    // adaptive (play only)
     let speed = 1.0;
     if (this.cfg.runMode === 'play') {
       const acc = this._accuracyPct();
@@ -459,7 +442,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       if (this.misses >= 8) speed *= 1.12;
     }
 
-    // storm: faster
     if (this.stormOn) speed *= 0.78;
 
     const every = clamp(base * speed, 360, 980);
@@ -474,14 +456,9 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     for (let i = this.targets.length - 1; i >= 0; i--) {
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
-        if (tg.kind === 'good') {
-          this.nExpireGood++;
-          this._onMiss('expire_good'); // ✅ contributes to MISS (HHA)
-        } else if (tg.kind === 'wrong') {
-          this.nExpireWrong++;
-        } else if (tg.kind === 'junk') {
-          this.nExpireJunk++;
-        }
+        if (tg.kind === 'good') { this.nExpireGood++; this.missExpireGood++; this._onMiss('expire_good'); }
+        else if (tg.kind === 'wrong') { this.nExpireWrong++; }
+        else if (tg.kind === 'junk') { this.nExpireJunk++; }
         this._removeTarget(i, 'expire');
       }
     }
@@ -560,12 +537,13 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
 
-    // avoid HUD / quest / coach / power
+    // NOTE: เหล่านี้ถูกตั้งให้ “ปลอดภัย” ไม่ทับ HUD/quest/power/coach
     const topPad = 150;
     const botPad = 130;
     const leftPad = 210;
     const rightPad = 24;
 
+    // relax if small screens
     const xMin = Math.min(leftPad, Math.max(12, W * 0.20));
     const xMax = Math.max(W - rightPad, W * 0.80);
     const yMin = Math.min(topPad, Math.max(12, H * 0.18));
@@ -613,13 +591,9 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     const tg = this.targets[idx];
     if (!tg) return;
 
-    try {
-      tg.el.classList.add(why === 'hit' ? 'hit' : 'out');
-    } catch (_) {}
+    try { tg.el.classList.add(why === 'hit' ? 'hit' : 'out'); } catch (_) {}
 
-    setTimeout(() => {
-      try { tg.el.remove(); } catch (_) {}
-    }, 220);
+    setTimeout(() => { try { tg.el.remove(); } catch (_) {} }, 220);
 
     this.targets.splice(idx, 1);
   };
@@ -656,8 +630,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // not MISS by HHA definition; track separately
-      this.shootMiss += 1;
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS' });
       this._emitScore();
@@ -672,7 +644,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     if (tg.kind === 'boss') {
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
       try { tg.el.classList.add('fg-boss-hurt'); setTimeout(() => tg.el.classList.remove('fg-boss-hurt'), 120); } catch (_) {}
-
       emit('hha:judge', { kind: 'boss', text: `BOSS -${1}` });
 
       if (tg.bossHp <= Math.floor((tg.bossHpMax || 8) * 0.35)) {
@@ -728,6 +699,7 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       this._emitQuestUpdate();
 
       if (this.combo === 6) this._emitCoach('คอมโบเริ่มมา! คุมจังหวะไว้ 🔥', 'happy');
+
       return;
     }
 
@@ -735,13 +707,11 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       this.nHitWrong++;
       this.totalJudgedForAcc++;
 
-      // HHA: wrong is NOT miss; separate error
-      this.errHitWrong += 1;
-
       this.combo = 0;
+      this._onMiss('wrong');
+
       this.score = Math.max(0, this.score - 12);
 
-      emit('groups:progress', { kind: 'wrong_hit' });
       emit('hha:judge', { kind: 'bad', text: '-12' });
 
       this._removeTarget(idx, 'hit');
@@ -760,9 +730,9 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       this.mini.ok = false;
     }
 
-    this.combo = 0;
+    this.missHitJunk += 1; // ✅ miss breakdown
 
-    // HHA: junk hit is MISS
+    this.combo = 0;
     this._onMiss('junk');
 
     this.score = Math.max(0, this.score - 18);
@@ -777,24 +747,9 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
   };
 
   Engine.prototype._onMiss = function (why) {
-    const w = String(why || '');
-
-    // ✅ HHA: MISS only when expire_good OR junk
-    if (w === 'expire_good') {
-      this.misses += 1;
-      this.missExpireGood += 1;
-      emit('groups:progress', { kind: 'miss', why: w });
-      return;
-    }
-    if (w === 'junk') {
-      this.misses += 1;
-      this.missHitJunk += 1;
-      emit('groups:progress', { kind: 'miss', why: w });
-      return;
-    }
-
-    // everything else is tracked separately (no MISS)
-    emit('groups:progress', { kind: 'non_miss', why: w });
+    // miss definition: good expired + junk hit (+ wrong hit counts here as well)
+    this.misses += 1;
+    emit('groups:progress', { kind: 'miss', why });
   };
 
   Engine.prototype._maybeSwitchGroup = function () {
@@ -904,14 +859,16 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       miniPct,
       miniTimeLeftSec,
 
+      // ✅ MINI chain stats
+      miniCleared: this.miniCleared | 0,
+      miniTotalAll: this.miniTotal | 0, // alt name (won't break old UI)
+      miniTotal: this.miniTotal | 0,    // preferred
+      miniFail: this.miniFail | 0,
+
       groupKey: g.key,
       groupName: g.th,
       goalIndex: this.goalIndex,
-      goalsTotal: this.goalsTotal,
-
-      // ✅ optional debug
-      miniCleared: this.miniCleared | 0,
-      miniStarted: this.miniTotal | 0
+      goalsTotal: this.goalsTotal
     });
   };
 
@@ -942,26 +899,17 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       reason: String(reason || 'end'),
       scoreFinal: this.score | 0,
       comboMax: this.comboMax | 0,
-
-      // ✅ HHA MISS
       misses: this.misses | 0,
-      missExpireGood: this.missExpireGood | 0,
-      missHitJunk: this.missHitJunk | 0,
-
-      // ✅ extra (not MISS)
-      errHitWrong: this.errHitWrong | 0,
-      shootMiss: this.shootMiss | 0,
-      miniFail: this.miniFail | 0,
-
       accuracyGoodPct: acc,
       grade,
 
       goalsCleared: Math.min(this.goalsTotal, this.goalIndex + (this.goalNow >= this.goalNeed ? 1 : 0)),
       goalsTotal: this.goalsTotal,
 
-      // ✅ real mini
+      // ✅ MINI chain
       miniCleared: this.miniCleared | 0,
       miniTotal: this.miniTotal | 0,
+      miniFail: this.miniFail | 0,
 
       durationPlayedSec: playedSec,
       durationPlannedSec: this.cfg.timeSec | 0,
@@ -980,6 +928,11 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       nExpireJunk: this.nExpireJunk | 0,
       nExpireWrong: this.nExpireWrong | 0,
 
+      // ✅ MISS breakdown (HHA)
+      missExpireGood: this.missExpireGood | 0,
+      missHitJunk: this.missHitJunk | 0,
+
+      // context
       runMode: this.cfg.runMode,
       diff: this.cfg.diff,
       seed: this.cfg.seed
