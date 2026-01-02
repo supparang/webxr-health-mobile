@@ -4,6 +4,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ Practice 15s (cVR) then auto start real run
 ✅ Flush-hardened logging (?log=...)
 ✅ Research ctx passthrough
+✅ Uses groups.safe.js (standalone engine) — no GameEngine.js dependency
 -->
 <!doctype html>
 <html lang="th">
@@ -31,7 +32,9 @@ GroupsVR Run (PC/Mobile/Cardboard)
   <script src="./research-ctx.js" defer></script>
   <script src="./flush-log.js" defer></script>
   <script src="./view-helper.js" defer></script>
-  <script src="./GameEngine.js" defer></script>
+
+  <!-- ✅ Standalone engine -->
+  <script src="./groups.safe.js" defer></script>
 </head>
 
 <body class="view-mobile">
@@ -331,6 +334,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const d = ev.detail||{};
     const endIso = new Date().toISOString();
 
+    // practice chain → auto start real run
     if (practiceActive && !practiceDone){
       practiceDone = true;
       practiceActive = false;
@@ -399,6 +403,10 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }, 60);
   }
 
+  function getLayerEl(){
+    return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
+  }
+
   function startPractice(E, cfg){
     practiceActive = true;
     practiceDone = false;
@@ -407,7 +415,8 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     const seedP = String(cfg.seed) + '-practice';
     startIso = new Date().toISOString();
-    E.setLayerEl($('playLayer'));
+
+    E.setLayerEl(getLayerEl());
     E.start(cfg.diff, { runMode:'play', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
 
     try{
@@ -427,20 +436,22 @@ GroupsVR Run (PC/Mobile/Cardboard)
     $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
 
     startIso = new Date().toISOString();
-    E.setLayerEl($('playLayer'));
+
+    // ensure view helper already init (best effort)
+    try{
+      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
+      H && H.init && H.init({ view });
+    }catch(_){}
+
+    E.setLayerEl(getLayerEl());
     E.start(diff, { runMode: run, diff, style, time, seed });
 
     // AI hooks: only when ?ai=1 and only in play
     try{
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
-      if (AI && AI.attach && aiEnabled()){
-        AI.attach({ runMode: run, seed, enabled:true });
+      if (AI && AI.attach){
+        AI.attach({ runMode: run, seed, enabled: aiEnabled() && run!=='research' });
       }
-    }catch(_){}
-
-    try{
-      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
-      H && H.init && H.init({ view });
     }catch(_){}
   }
 
@@ -452,6 +463,12 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     setView(view);
     hookAudio();
+
+    // init helper before engine start (so body classes/strict cVR ready)
+    try{
+      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
+      H && H.init && H.init({ view });
+    }catch(_){}
 
     const practiceSec = getPracticeSec(view);
 
