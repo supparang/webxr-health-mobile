@@ -1,211 +1,326 @@
 // === /herohealth/vr/practice-mode.js ===
-// HHA Practice Mode (pre-game warmup)
-// - Shows countdown overlay (default 15s)
-// - Emits: hha:practice_start, hha:practice_tick, hha:practice_end
-// - After practice ends, emits hha:start (game begins)
-// Works with any game that starts on hha:start (your Hydration already does)
+// HHA Practice Mode (Universal) — 15s warmup before real game
+// - Overlay: Start Practice / Skip / Start Real
+// - Emits: hha:practice:start, hha:practice:end, then hha:start
+// - Provides window.HHA_PRACTICE state for games to read (isPractice, leftSec, etc.)
+// - Safe defaults; no dependencies
 
-'use strict';
-
-(function(root){
+(function (root) {
+  'use strict';
   const DOC = root.document;
   if (!DOC) return;
 
-  const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
-
-  // practice=0 disables
-  const practiceSec = clamp(parseInt(qs('practice','15'),10) || 15, 0, 60);
-  const wantPractice = (practiceSec > 0);
-
-  // If already started by user (rare), don't block
-  let started=false;
-  root.addEventListener('hha:start', ()=>{ started=true; }, { once:false });
-
-  function emit(name, detail){
-    try{ root.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+  function qs(k, def = null) {
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+  function emit(name, detail) {
+    try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
   }
 
-  function injectStyle(){
-    if (DOC.getElementById('hha-practice-style')) return;
-    const st = DOC.createElement('style');
-    st.id='hha-practice-style';
-    st.textContent = `
-      .hha-practice{
-        position:fixed; inset:0;
-        z-index:140;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        padding: calc(18px + env(safe-area-inset-top,0px)) calc(18px + env(safe-area-inset-right,0px))
-                 calc(18px + env(safe-area-inset-bottom,0px)) calc(18px + env(safe-area-inset-left,0px));
-        background: rgba(2,6,23,.72);
-        backdrop-filter: blur(10px);
-      }
-      .hha-practice[hidden]{ display:none; }
-      .hha-practice-card{
-        width:min(720px, 100%);
-        border-radius:22px;
-        border:1px solid rgba(148,163,184,.18);
-        background: rgba(2,6,23,.70);
-        box-shadow: 0 24px 90px rgba(0,0,0,.55);
-        padding:16px;
-      }
-      .hha-practice-top{
-        display:flex; justify-content:space-between; gap:12px; align-items:center;
-      }
-      .hha-practice-title{
-        font: 900 14px/1.2 system-ui;
-        letter-spacing:.2px;
-        color: rgba(229,231,235,.95);
-      }
-      .hha-practice-sub{
-        margin-top:8px;
-        color: rgba(148,163,184,.95);
-        font: 600 12px/1.35 system-ui;
-        white-space: pre-line;
-      }
-      .hha-practice-timer{
-        margin-top:14px;
-        font: 1000 56px/1 system-ui;
-        letter-spacing:.5px;
-        text-align:center;
-      }
-      .hha-practice-bar{
-        margin-top:12px;
-        height:10px;
-        border-radius:999px;
-        background: rgba(148,163,184,.18);
-        overflow:hidden;
-        border:1px solid rgba(148,163,184,.12);
-      }
-      .hha-practice-bar > div{
-        height:100%;
-        width:100%;
-        background: linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
-        transform-origin:left center;
-        transform: scaleX(1);
-      }
-      .hha-practice-btnrow{
-        display:flex; gap:10px; justify-content:flex-end; margin-top:14px; flex-wrap:wrap;
-      }
-      .hha-btn{
-        appearance:none;
-        border:1px solid rgba(148,163,184,.18);
-        background: rgba(15,23,42,.62);
-        color: rgba(229,231,235,.95);
-        padding:10px 12px;
-        border-radius:14px;
-        font: 900 13px/1 system-ui;
-        cursor:pointer;
-        user-select:none;
-      }
-      .hha-btn.primary{
-        border-color: rgba(34,197,94,.26);
-        background: rgba(34,197,94,.16);
-      }
-    `;
-    DOC.head.appendChild(st);
+  const view = String(qs('view','pc')).toLowerCase();
+  const run  = String(qs('run', qs('runMode','play')) || 'play').toLowerCase();
+  const diff = String(qs('diff','normal')).toLowerCase();
+
+  const enabledParam = String(qs('practice','1')); // default ON
+  const enabled = enabledParam !== '0';
+
+  const practiceSec = Math.max(5, Math.min(60, parseInt(qs('psec','15'),10) || 15));
+  const game = String(qs('game','') || qs('gameMode','') || '').toLowerCase(); // optional
+  const storeKey = 'HHA_PRACTICE_PREF_V1';
+
+  // Expose state (games can read this)
+  const P = root.HHA_PRACTICE || (root.HHA_PRACTICE = {});
+  P.enabled = enabled;
+  P.practiceSec = practiceSec;
+  P.isPractice = false;
+  P.leftSec = practiceSec;
+  P.view = view;
+  P.run = run;
+  P.diff = diff;
+  P.game = game;
+
+  function shouldAutoShow() {
+    if (!enabled) return false;
+
+    // allow force
+    if (String(qs('practice','')) === '1' && String(qs('forcePractice','')) === '1') return true;
+
+    // If view not chosen yet (no view param), do nothing (launcher will handle)
+    if (!view) return false;
+
+    // remember preference: if user previously chose "skip always" for this session
+    try {
+      const raw = localStorage.getItem(storeKey);
+      if (!raw) return true;
+      const obj = JSON.parse(raw);
+      // if user chose skip practice and it was recent, don't show
+      if (obj && obj.skip === true) return false;
+      return true;
+    } catch (_) {
+      return true;
+    }
   }
 
-  function mountUI(){
-    if (DOC.getElementById('hhaPractice')) return;
-    injectStyle();
+  function savePref(skip) {
+    try {
+      localStorage.setItem(storeKey, JSON.stringify({
+        ts: Date.now(),
+        iso: new Date().toISOString(),
+        skip: !!skip
+      }));
+    } catch (_) {}
+  }
+
+  function makeOverlay() {
     const wrap = DOC.createElement('div');
-    wrap.id = 'hhaPractice';
-    wrap.className = 'hha-practice';
-    wrap.hidden = true;
-    wrap.innerHTML = `
-      <div class="hha-practice-card">
-        <div class="hha-practice-top">
-          <div class="hha-practice-title">🧪 Practice Mode (Warm-up)</div>
-          <div style="font:900 12px system-ui;color:rgba(148,163,184,.95)">ก่อนเริ่มเกมจริง</div>
-        </div>
-        <div class="hha-practice-sub">
-• เล็ง/ยิงให้คุ้นมือ
-• อย่ารัวมั่ว ๆ — เน้นความชัวร์
-• ครบเวลาแล้วจะ “เริ่มจริง” ทันที 😈
-        </div>
-        <div class="hha-practice-timer"><span id="hhaPracticeLeft">15</span>s</div>
-        <div class="hha-practice-bar"><div id="hhaPracticeBar"></div></div>
-        <div class="hha-practice-btnrow">
-          <button class="hha-btn" id="hhaPracticeSkip">⏭ Skip</button>
-          <button class="hha-btn primary" id="hhaPracticeStartNow">🔥 Start Now</button>
+    wrap.id = 'hha-practice-overlay';
+    wrap.style.cssText = `
+      position:fixed; inset:0; z-index:140;
+      display:flex; align-items:center; justify-content:center;
+      padding: calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-right,0px))
+               calc(16px + env(safe-area-inset-bottom,0px)) calc(16px + env(safe-area-inset-left,0px));
+      background: rgba(2,6,23,.78);
+      backdrop-filter: blur(10px);
+      color:#e5e7eb;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    `;
+
+    const card = DOC.createElement('div');
+    card.style.cssText = `
+      width:min(920px,100%);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.72);
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
+      padding:16px;
+    `;
+
+    const title = DOC.createElement('div');
+    title.style.cssText = 'display:flex;gap:10px;align-items:center;margin-bottom:10px;';
+    title.innerHTML = `
+      <div style="width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+                  background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.18);font-size:22px;">🧪</div>
+      <div>
+        <div style="font-weight:900;font-size:16px;letter-spacing:.2px;">Practice Mode (${practiceSec}s)</div>
+        <div style="opacity:.9;font-size:12.5px;line-height:1.3;">
+          ซ้อมก่อนเล่นจริง — เป้าช้าลง/ง่ายขึ้น/เน้น “เล็งให้ชัวร์”
         </div>
       </div>
     `;
-    DOC.body.appendChild(wrap);
-  }
 
-  function show(){ const el=DOC.getElementById('hhaPractice'); if(el){ el.hidden=false; } }
-  function hide(){ const el=DOC.getElementById('hhaPractice'); if(el){ el.hidden=true; } }
-  function setLeft(sec){
-    const t=DOC.getElementById('hhaPracticeLeft'); if(t) t.textContent = String(sec|0);
-  }
-  function setBar(k){
-    const b=DOC.getElementById('hhaPracticeBar'); if(b) b.style.transform = `scaleX(${k})`;
-  }
+    const box = DOC.createElement('div');
+    box.style.cssText = `
+      margin:12px 0;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.58);
+      padding:12px;
+      line-height:1.35;
+      font-size:13px;
+      white-space:pre-line;
+    `;
 
-  function beginPractice(){
-    if (!wantPractice) return false;
-    if (started) return false;
+    const tips = [
+      `• PC: คลิกยิง (ไม่ต้องรัว)`,
+      `• Mobile: แตะเป้า / หรือ cVR แตะเพื่อยิงกลางจอ`,
+      `• Cardboard: หันมองตรง + RECENTER ก่อนเริ่ม`,
+      `• เป้าดี = ทำแต้ม/คอมโบ | เป้าแย่ = ทำ MISS/เพี้ยน`
+    ].join('\n');
 
-    mountUI();
-    show();
+    box.textContent = tips;
 
-    let left = practiceSec;
-    const total = practiceSec;
+    const meter = DOC.createElement('div');
+    meter.style.cssText = `
+      margin-top:10px;
+      display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    `;
+    meter.innerHTML = `
+      <div style="flex:1;min-width:220px;height:10px;border-radius:999px;background:rgba(148,163,184,.18);
+                  overflow:hidden;border:1px solid rgba(148,163,184,.12);">
+        <div id="hha-practice-bar" style="height:100%;width:0%;background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));"></div>
+      </div>
+      <div style="font-weight:900;">
+        เหลือ <span id="hha-practice-left">${practiceSec}</span>s
+      </div>
+    `;
+    box.appendChild(meter);
 
-    emit('hha:practice_start', { practiceSec: total });
+    const row = DOC.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;';
 
-    let last = performance.now();
-    let acc = 0;
-    let rafId = 0;
-
-    function tick(now){
-      const dt = Math.min(0.05, Math.max(0.001, (now - last)/1000));
-      last = now;
-      acc += dt;
-
-      // update every ~0.1s to keep it smooth
-      if (acc >= 0.1){
-        acc = 0;
-        left = Math.max(0, left - 0.1);
-        const s = Math.ceil(left);
-        setLeft(s);
-        setBar(clamp(left/Math.max(0.001,total), 0, 1));
-        emit('hha:practice_tick', { leftSec:left, totalSec:total });
+    function btn(label, kind) {
+      const b = DOC.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.style.cssText = `
+        appearance:none; cursor:pointer; user-select:none;
+        border-radius:14px; padding:10px 12px; font-weight:900; font-size:13px;
+        border:1px solid rgba(148,163,184,.18);
+        background: rgba(15,23,42,.62);
+        color:#e5e7eb;
+      `;
+      if (kind === 'primary') {
+        b.style.borderColor = 'rgba(34,197,94,.26)';
+        b.style.background = 'rgba(34,197,94,.16)';
       }
-
-      if (left <= 0.001){
-        endPractice('timeout');
-        return;
+      if (kind === 'cyan') {
+        b.style.borderColor = 'rgba(34,211,238,.26)';
+        b.style.background = 'rgba(34,211,238,.12)';
       }
-      rafId = requestAnimationFrame(tick);
+      if (kind === 'warn') {
+        b.style.borderColor = 'rgba(245,158,11,.26)';
+        b.style.background = 'rgba(245,158,11,.14)';
+      }
+      return b;
     }
 
-    function endPractice(reason){
-      try{ cancelAnimationFrame(rafId); }catch(_){}
-      hide();
-      emit('hha:practice_end', { reason, practiceSec: total });
-      // start game for real
-      try{ root.dispatchEvent(new CustomEvent('hha:start')); }catch(_){}
+    const bStartPractice = btn('▶️ เริ่มซ้อม', 'primary');
+    const bSkip = btn('⏭️ ข้ามซ้อม', 'warn');
+    const bSkipAlways = btn('🚫 ไม่ต้องซ้อมอีก (จำค่า)', '');
+    const bStartReal = btn('🔥 เริ่มเกมจริงเลย', 'cyan');
+    bStartReal.disabled = true;
+    bStartReal.style.opacity = '.55';
+
+    row.appendChild(bStartPractice);
+    row.appendChild(bStartReal);
+    row.appendChild(bSkip);
+    row.appendChild(bSkipAlways);
+
+    card.appendChild(title);
+    card.appendChild(box);
+    card.appendChild(row);
+    wrap.appendChild(card);
+
+    let timer = null;
+    let started = false;
+
+    function setRealEnabled(on) {
+      bStartReal.disabled = !on;
+      bStartReal.style.opacity = on ? '1' : '.55';
     }
 
-    DOC.getElementById('hhaPracticeSkip')?.addEventListener('click', ()=>endPractice('skip'));
-    DOC.getElementById('hhaPracticeStartNow')?.addEventListener('click', ()=>endPractice('startnow'));
+    function close() {
+      try { wrap.remove(); } catch (_) {}
+    }
 
-    // Important: practice should start only after user gesture (mobile audio/fs policies)
-    // We'll start countdown immediately once invoked.
-    setLeft(total);
-    setBar(1);
-    requestAnimationFrame(tick);
+    function startPractice() {
+      if (started) return;
+      started = true;
+      P.isPractice = true;
+      P.leftSec = practiceSec;
 
-    return true;
+      emit('hha:practice:start', {
+        view, run, diff, practiceSec,
+        game: P.game || ''
+      });
+
+      setRealEnabled(false);
+      bStartPractice.disabled = true;
+      bStartPractice.style.opacity = '.6';
+
+      const leftEl = DOC.getElementById('hha-practice-left');
+      const barEl = DOC.getElementById('hha-practice-bar');
+
+      const t0 = performance.now();
+      timer = root.setInterval(() => {
+        const t = performance.now();
+        const elapsed = (t - t0) / 1000;
+        const left = Math.max(0, practiceSec - elapsed);
+        P.leftSec = left;
+
+        if (leftEl) leftEl.textContent = String(Math.ceil(left));
+        if (barEl) barEl.style.width = String(Math.min(100, (elapsed / practiceSec) * 100).toFixed(1)) + '%';
+
+        if (left <= 0.001) {
+          endPractice('timeout');
+        }
+      }, 120);
+    }
+
+    function endPractice(reason) {
+      if (!started) return;
+      if (timer) { clearInterval(timer); timer = null; }
+
+      P.isPractice = false;
+      P.leftSec = 0;
+
+      emit('hha:practice:end', {
+        view, run, diff, practiceSec,
+        reason: reason || 'end',
+        game: P.game || ''
+      });
+
+      // enable "start real" (doesn't auto-close unless user chooses)
+      setRealEnabled(true);
+    }
+
+    function startReal() {
+      // after practice or skip
+      close();
+      // IMPORTANT: start real game
+      emit('hha:start', { from:'practice-mode', view, run, diff, game: P.game || '' });
+    }
+
+    bStartPractice.addEventListener('click', startPractice);
+
+    bStartReal.addEventListener('click', () => {
+      // if practice never started, treat as "skip"
+      startReal();
+    });
+
+    bSkip.addEventListener('click', () => {
+      // skip practice this time
+      savePref(false); // do not force skip always
+      startReal();
+    });
+
+    bSkipAlways.addEventListener('click', () => {
+      savePref(true);
+      startReal();
+    });
+
+    // If user already started real game elsewhere, close overlay
+    root.addEventListener('hha:start', () => {
+      // avoid recursive close on our own emit
+      if (DOC.getElementById('hha-practice-overlay')) close();
+    }, { once:true });
+
+    // Allow external end practice
+    root.addEventListener('hha:practice:force_end', (ev) => {
+      const d = (ev && ev.detail) || {};
+      endPractice(d.reason || 'force');
+    });
+
+    return wrap;
   }
 
-  // expose API
-  root.HHA_Practice = root.HHA_Practice || {};
-  root.HHA_Practice.begin = beginPractice;
+  function init() {
+    if (!shouldAutoShow()) return;
+
+    // If startOverlay exists (your launcher overlay), don't fight it.
+    // If user already has a startOverlay, we wait until it hides (view selected).
+    const startOverlay = DOC.getElementById('startOverlay');
+    if (startOverlay && !startOverlay.classList.contains('hide')) {
+      // Wait: when their overlay hides, show practice overlay
+      const mo = new MutationObserver(() => {
+        const hidden = startOverlay.classList.contains('hide') || getComputedStyle(startOverlay).display === 'none';
+        if (hidden) {
+          try { mo.disconnect(); } catch (_) {}
+          DOC.body.appendChild(makeOverlay());
+        }
+      });
+      try { mo.observe(startOverlay, { attributes:true, attributeFilter:['class','style'] }); } catch (_) {}
+      return;
+    }
+
+    DOC.body.appendChild(makeOverlay());
+  }
+
+  if (DOC.readyState === 'loading') {
+    DOC.addEventListener('DOMContentLoaded', init, { once:true });
+  } else {
+    init();
+  }
 
 })(window);
