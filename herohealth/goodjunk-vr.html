@@ -9,33 +9,53 @@
   <style>
     :root{
       --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --warn:#f59e0b;
-      --r:22px; --pill:999px;
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e; --r:22px;
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
     }
     *{box-sizing:border-box}
-    html,body{height:100%; margin:0; background:var(--bg); color:var(--text); font-family:system-ui}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui}
     body{
-      display:flex; align-items:center; justify-content:center;
-      padding: calc(14px + var(--sat)) 14px calc(14px + var(--sab));
+      display:flex;align-items:center;justify-content:center;
+      padding:calc(14px + var(--sat)) 14px calc(14px + var(--sab));
       background:
         radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
         radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
         var(--bg);
     }
     .card{
-      width:min(880px, 96vw);
+      width:min(920px, 96vw);
       background:var(--panel);
       border:1px solid var(--stroke);
       border-radius:var(--r);
       padding:16px;
       box-shadow: 0 18px 50px rgba(0,0,0,.45);
     }
-    .top{display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap}
-    .title{font-weight:1100; font-size:26px}
-    .sub{color:var(--muted); font-weight:900; margin-top:6px}
-    .grid{display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:14px}
+    .top{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+    .title{font-weight:1100;font-size:26px}
+    .sub{color:var(--muted);font-weight:900;margin-top:6px}
+    .meta{
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.42);
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:1000;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    label{font-weight:1000;color:var(--muted);font-size:12px}
+    select,input{
+      background: rgba(2,6,23,.55);
+      border:1px solid rgba(148,163,184,.22);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 12px;
+      font-weight:1000;
+      outline:none;
+      min-width:160px;
+    }
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
     .btn{
       border:1px solid rgba(148,163,184,.22);
       background: rgba(2,6,23,.52);
@@ -52,38 +72,18 @@
       color:#eafff3;
     }
     .btn:active{transform: translateY(1px)}
-    .row{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px}
-    label{font-weight:1000; color:var(--muted); font-size:12px}
-    select,input{
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.22);
-      color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
-      font-weight:1000;
-      outline:none;
-      min-width:160px;
-    }
-    .pill{
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.42);
-      border-radius: var(--pill);
-      padding:8px 12px;
-      font-weight:1000;
-      color:var(--muted);
-    }
-    .note{margin-top:12px; color:var(--muted); font-weight:900; font-size:12px; line-height:1.35}
-    @media (max-width:820px){ .grid{grid-template-columns: repeat(2, 1fr);} }
+    .note{margin-top:12px;color:var(--muted);font-weight:900;font-size:12px;line-height:1.35}
+    @media (max-width:820px){ .grid{grid-template-columns:repeat(2,1fr)} }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="top">
       <div>
-        <div class="title">🥦 GoodJunkVR</div>
+        <div class="title">🥦🍟 GoodJunkVR</div>
         <div class="sub">เลือกโหมดเข้าเล่น (PC / Mobile / VR / Cardboard)</div>
       </div>
-      <div class="pill" id="meta">—</div>
+      <div class="meta" id="meta">—</div>
     </div>
 
     <div class="row">
@@ -118,7 +118,7 @@
     <div class="row">
       <div>
         <label>Hub URL (optional)</label><br/>
-        <input id="hub" style="min-width:min(520px, 92vw)" placeholder="https://.../hub.html"/>
+        <input id="hub" style="min-width:min(560px, 92vw)" placeholder="https://.../hub.html"/>
       </div>
     </div>
 
@@ -138,15 +138,13 @@
 <script>
 (function(){
   const $ = (id)=>document.getElementById(id);
-  const LS = {
-    diff:'HHA_GJ_DIFF',
-    run:'HHA_GJ_RUN',
-    time:'HHA_GJ_TIME',
-    seed:'HHA_GJ_SEED',
-    hub:'HHA_GJ_HUB'
-  };
+  const LS = { diff:'HHA_GJ_DIFF', run:'HHA_GJ_RUN', time:'HHA_GJ_TIME', seed:'HHA_GJ_SEED', hub:'HHA_GJ_HUB' };
   const RUN_URL = './vr-goodjunk/goodjunk-vr.html';
 
+  function refreshMeta(){
+    $('meta').textContent =
+      `diff=${$('diff').value} • run=${$('run').value} • time=${$('time').value}s • seed=${$('seed').value||'auto'}`;
+  }
   function load(){
     $('diff').value = localStorage.getItem(LS.diff) || 'normal';
     $('run').value  = localStorage.getItem(LS.run)  || 'play';
@@ -163,9 +161,6 @@
     localStorage.setItem(LS.hub,  $('hub').value || '');
     refreshMeta();
   }
-  function refreshMeta(){
-    $('meta').textContent = `diff=${$('diff').value} • run=${$('run').value} • time=${$('time').value}s • seed=${$('seed').value||'auto'}`;
-  }
   ['diff','run','time','seed','hub'].forEach(id=>{
     $(id).addEventListener('change', save);
     $(id).addEventListener('input', save);
@@ -173,16 +168,16 @@
 
   function go(view){
     save();
+    const me = new URL(location.href);
     const p = new URLSearchParams();
     p.set('view', view);
     p.set('diff', $('diff').value);
-    p.set('run', $('run').value);
+    p.set('run',  $('run').value);
     p.set('time', String(Number($('time').value||80)));
     if($('seed').value) p.set('seed', $('seed').value);
     if($('hub').value)  p.set('hub', $('hub').value);
 
     // pass-through research meta if launcher opened with those params
-    const me = new URL(location.href);
     ['study','studyId','phase','cond','conditionGroup','pid','participant','protocol','ai','aiMode','aiApply','aiForce']
       .forEach(k=>{ if(me.searchParams.get(k)) p.set(k, me.searchParams.get(k)); });
 
