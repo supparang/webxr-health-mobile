@@ -1,22 +1,29 @@
 // === /herohealth/vr/ai-hooks.js ===
-// AI Hooks (OFF by default, especially in research)
-// จุดเสียบสำหรับ:
-// (1) AI Difficulty Director (fair, smooth)
-// (2) AI Coach (micro tips, explainable)
-// (3) AI Pattern/Spawn Generator (seeded/deterministic)
-//
-// Usage:
-//   import { createAIHooks } from '../vr/ai-hooks.js';
-//   const AI = createAIHooks({ enabled, seed, runMode, diff, game, emit });
-//   AI.onStart(...); AI.onUpdate(...); AI.onEnd(...);
-//   base = AI.tuneSpawn({...});
-//   probs = AI.tuneKind({...});
-//   s = AI.tuneSize({...});
-//   px = AI.tuneAim({...});
+// HHA AI Hooks — standard plug points (OFF by default, esp. research)
+// Supports:
+//  (1) AI Difficulty Director (fair, smooth)
+//  (2) AI Coach micro-tips (rate-limited, explainable)
+//  (3) AI Pattern Generator (seeded/deterministic)
+// Notes:
+//  - Default: DISABLED unless ai=1 AND run!=research
+//  - In research: always OFF unless ai=force (explicit)
+
+// API:
+//   const AI = createAIHooks({ game, run, diff, seed, emit })
+//   AI.enabled -> boolean
+//   AI.flags -> { director, coach, pattern }
+//   AI.onStart({ getState, getTune })
+//   AI.onUpdate({ dt, stateSnapshot, tuneSnapshot })
+//   AI.onEvent(name, detail)  // forward important events
+//   AI.applyDirector({ propose }) -> director suggestions (not auto-apply unless you call propose.apply())
+//   AI.applyPattern({ propose }) -> pattern suggestions
+//   AI.getCoachTip(stateSnapshot) -> optional tip string (rate-limited)
+//   AI.debug() -> current AI internal values
 
 'use strict';
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
 function hashStr(s){
   s=String(s||''); let h=2166136261;
   for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
@@ -28,186 +35,248 @@ function makeRng(seedStr){
     x ^= x << 13; x >>>= 0;
     x ^= x >> 17; x >>>= 0;
     x ^= x << 5;  x >>>= 0;
-    return (x>>>0) / 4294967296;
+    return (x>>>0)/4294967296;
   };
 }
 
-export function createAIHooks(opts={}){
-  const enabled = !!opts.enabled;
-  const seed = String(opts.seed || Date.now());
-  const runMode = String(opts.runMode || 'play').toLowerCase();
-  const diff = String(opts.diff || 'normal').toLowerCase();
+function qs(k, def=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; }
+}
+
+function parseBool(v, def=false){
+  if (v==null) return def;
+  const s=String(v).toLowerCase();
+  if (s==='1'||s==='true'||s==='yes'||s==='on') return true;
+  if (s==='0'||s==='false'||s==='no'||s==='off') return false;
+  return def;
+}
+
+export function createAIHooks(opts = {}){
   const game = String(opts.game || 'game');
-  const emit = (typeof opts.emit === 'function') ? opts.emit : ()=>{};
+  const run  = String(opts.run  || 'play').toLowerCase();
+  const diff = String(opts.diff || 'normal').toLowerCase();
+  const seed = String(opts.seed || Date.now());
 
-  // research/study: default OFF แม้ user ส่ง enabled มาผิด
-  const safeEnabled = enabled && !(runMode === 'research' || runMode === 'study');
-
-  // deterministic rng for AI decisions
-  const rng = makeRng(`${seed}|AI|${game}`);
-
-  // internal smooth signals
-  const M = {
-    t0: 0,
-    lastTipAt: 0,
-    // EMA signals
-    emaSkill: 0.45,
-    emaFrust: 0.20,
-    emaFatigue: 0.0,
-    // “pressure” จาก performance เพื่อปรับความยากแบบยุติธรรม
-    directorK: 0.0, // -1..+1
+  const emit = (typeof opts.emit === 'function') ? opts.emit : (name, detail)=>{
+    try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   };
 
-  function note(type, data){
-    if (!safeEnabled) return;
-    emit('hha:ai', { type, game, ...data });
+  // ---- Flags (default OFF) ----
+  // ai=1 enables in play; research stays OFF unless ai=force
+  const aiParam = String(qs('ai', qs('aiHooks','')) || '');
+  const force = (aiParam.toLowerCase()==='force');
+
+  const enabledDefault =
+    (force && aiParam) ? true :
+    (parseBool(aiParam, false) && run !== 'research');
+
+  const flags = {
+    director: enabledDefault && parseBool(qs('aiDiff', '1'), true),
+    coach:    enabledDefault && parseBool(qs('aiCoach','1'), true),
+    pattern:  enabledDefault && parseBool(qs('aiPattern','1'), true),
+  };
+
+  const enabled = !!(flags.director || flags.coach || flags.pattern);
+
+  // Seeded RNG for pattern/director choices (deterministic when enabled)
+  const rng = makeRng(`${seed}|${game}|AIHOOKS|${run}|${diff}`);
+
+  // ---- Internal state (kept deterministic-ish) ----
+  const M = {
+    started:false,
+    t0:0,
+    lastTipAt:0,
+    tipCooldownMs: 3200,
+
+    // director smoothing
+    emaSkill: 0.45,
+    emaStress: 0.25,
+    emaMissRate: 0.20,
+    emaAcc: 0.70,
+
+    // pattern schedule (optional)
+    patternMode: 'neutral', // neutral | pressure | recovery
+    patternTimer: 0,
+    nextPatternSwitchIn: 6.0,
+
+    // last proposals
+    lastDirector: null,
+    lastPattern: null,
+  };
+
+  function now(){ return performance.now(); }
+
+  function onStart(ctx = {}){
+    M.started = true;
+    M.t0 = now();
+    M.lastTipAt = 0;
+    M.patternTimer = 0;
+    M.nextPatternSwitchIn = 6.0 + rng()*3.0;
+    emit('hha:ai', { type:'start', game, run, diff, seed, enabled, flags });
   }
 
-  function onStart(ctx={}){
-    if (!safeEnabled) return;
-    M.t0 = performance.now();
-    note('start', { diff, runMode, seed });
+  // Explainable coach tip (rate-limited)
+  function getCoachTip(s){
+    if (!enabled || !flags.coach) return null;
+    const t = now();
+    if (t - M.lastTipAt < M.tipCooldownMs) return null;
+
+    // Expect s includes: acc(0-1), combo, misses, inStorm, inEndWindow, waterZone, shield
+    const acc = clamp(s.acc||0, 0, 1);
+    const combo = (s.combo|0);
+    const miss = (s.misses|0);
+    const inStorm = !!s.inStorm;
+    const inEnd = !!s.inEndWindow;
+    const zone = String(s.waterZone||'');
+    const shield = (s.shield|0);
+
+    // Choose 1 tip with reasons (explainable)
+    let tip = null;
+
+    if (inStorm && inEnd){
+      if (shield<=0) tip = `⚠️ End Window แล้ว แต่ไม่มี 🛡️ — เก็บโล่ก่อนพายุ 1–2 อัน จะ BLOCK ได้ชัวร์`;
+      else tip = `✅ End Window! ตอนนี้โฟกัส BLOCK (ใช้ 🛡️) ให้ผ่าน Mini`;
+    } else if (inStorm && zone==='GREEN'){
+      tip = `🌀 STORM: ต้องทำให้น้ำไม่ GREEN (LOW/HIGH) ก่อน แล้วค่อยรอ End Window เพื่อ BLOCK`;
+    } else if (!inStorm && shield<=0){
+      tip = `🛡️ ทิป: เก็บโล่ไว้ก่อนพายุ จะผ่าน Stage2/Stage3 ง่ายขึ้น`;
+    } else if (acc < 0.60){
+      tip = `🎯 Accuracy ต่ำ (${Math.round(acc*100)}%) — เล็งค้างนิดเดียวแล้วค่อยยิง อย่ารัว`;
+    } else if (miss >= 18){
+      tip = `💥 MISS เยอะ — เลือกยิงเป้าที่ชัวร์ ลดการสุ่มยิง`;
+    } else if (combo >= 10 && acc >= 0.78){
+      tip = `⚡ ฟอร์มดีมาก! รักษาคอมโบยาว ๆ แล้วเกรดจะพุ่ง`;
+    }
+
+    if (!tip) return null;
+    M.lastTipAt = t;
+    return tip;
   }
 
-  function onUpdate(ctx={}){
-    if (!safeEnabled) return;
+  // Director: propose gentle tuning changes (DO NOT auto-apply unless caller applies)
+  // propose({ spawnMul, sizeMul, badMul, shieldMul, reason })
+  function applyDirector({ propose } = {}){
+    if (!enabled || !flags.director) return null;
 
-    const skill = clamp(ctx.skill ?? 0.5, 0, 1);
-    const frust = clamp(ctx.frustration ?? 0.2, 0, 1);
-    const fatigue = clamp(ctx.fatigue ?? 0.0, 0, 1);
+    // propose is callback you supply; we only compute suggestion
+    // Expect snapshots from onUpdate caller
+    // We'll use M.emaSkill etc. already updated in onUpdate
+    const skill = clamp(M.emaSkill, 0, 1);
+    const stress = clamp(M.emaStress, 0, 1);
+
+    // Fair adaptive: if stress high -> ease; if skill high -> pressure
+    let spawnMul = 1.0;
+    let sizeMul  = 1.0;
+    let badMul   = 1.0;
+    let shieldMul= 1.0;
+
+    if (stress > 0.72){
+      spawnMul *= 1.08;  // slower
+      sizeMul  *= 1.10;  // bigger
+      badMul   *= 0.92;  // fewer bad
+      shieldMul*= 1.12;  // slightly more shields
+    } else if (skill > 0.78 && stress < 0.45){
+      spawnMul *= 0.92;  // faster
+      sizeMul  *= 0.94;  // smaller
+      badMul   *= 1.08;  // more bad
+      shieldMul*= 0.96;  // fewer shields
+    } else {
+      // neutral
+    }
+
+    const suggestion = {
+      spawnMul: clamp(spawnMul, 0.85, 1.20),
+      sizeMul:  clamp(sizeMul, 0.88, 1.18),
+      badMul:   clamp(badMul,  0.85, 1.18),
+      shieldMul:clamp(shieldMul,0.85, 1.25),
+      reason: `director: skill=${skill.toFixed(2)} stress=${stress.toFixed(2)}`
+    };
+
+    M.lastDirector = suggestion;
+    emit('hha:ai', { type:'director', ...suggestion });
+
+    if (typeof propose === 'function') propose(suggestion);
+    return suggestion;
+  }
+
+  // Pattern: propose phase flavor (pressure/recovery) to modify spawn mix temporarily
+  function applyPattern({ propose } = {}){
+    if (!enabled || !flags.pattern) return null;
+
+    const suggestion = {
+      mode: M.patternMode,
+      // multipliers applied to probabilities (caller decides how)
+      pGoodMul: (M.patternMode==='pressure') ? 0.92 : (M.patternMode==='recovery') ? 1.08 : 1.00,
+      pBadMul:  (M.patternMode==='pressure') ? 1.12 : (M.patternMode==='recovery') ? 0.88 : 1.00,
+      pShieldMul:(M.patternMode==='pressure')? 0.96 : (M.patternMode==='recovery') ? 1.10 : 1.00,
+      reason: `pattern:${M.patternMode}`
+    };
+
+    M.lastPattern = suggestion;
+    emit('hha:ai', { type:'pattern', ...suggestion });
+
+    if (typeof propose === 'function') propose(suggestion);
+    return suggestion;
+  }
+
+  // Update smoothing values using stateSnapshot
+  function onUpdate(payload = {}){
+    if (!enabled) return;
+
+    const s = payload.stateSnapshot || {};
+    const dt = clamp(payload.dt || 0, 0, 0.2);
+
+    // Inputs expected in snapshot:
+    //  acc(0-1), missRate(0-1), frustration(0-1), fatigue(0-1), inStorm, inEndWindow
+    const acc = clamp(s.acc ?? s.accuracy ?? 0.75, 0, 1);
+    const missRate = clamp(s.missRate ?? 0.15, 0, 1);
+    const frustration = clamp(s.frustration ?? 0.2, 0, 1);
+    const fatigue = clamp(s.fatigue ?? 0.2, 0, 1);
+    const combo = clamp(s.combo ?? 0, 0, 999);
+
+    // skill proxy
+    const skill = clamp(acc*0.72 + clamp(combo/20,0,1)*0.28, 0, 1);
+    const stress = clamp(frustration*0.55 + fatigue*0.25 + missRate*0.20, 0, 1);
 
     // EMA
-    M.emaSkill = M.emaSkill*0.90 + skill*0.10;
-    M.emaFrust = M.emaFrust*0.90 + frust*0.10;
-    M.emaFatigue = M.emaFatigue*0.92 + fatigue*0.08;
+    const a = clamp(dt*2.5, 0.02, 0.22);
+    M.emaSkill = M.emaSkill*(1-a) + skill*a;
+    M.emaStress = M.emaStress*(1-a) + stress*a;
+    M.emaAcc = M.emaAcc*(1-a) + acc*a;
+    M.emaMissRate = M.emaMissRate*(1-a) + missRate*a;
 
-    // Director: ถ้า frust สูง -> ผ่อนเล็กน้อย / ถ้า skill สูง+frust ต่ำ -> เร่ง
-    const want = clamp((M.emaSkill - 0.55)*1.25 - (M.emaFrust - 0.25)*1.35 - (M.emaFatigue - 0.55)*0.60, -1, 1);
-    M.directorK = M.directorK*0.92 + want*0.08;
+    // Pattern switching (seeded)
+    M.patternTimer += dt;
+    if (M.patternTimer >= M.nextPatternSwitchIn){
+      M.patternTimer = 0;
+      M.nextPatternSwitchIn = 5.5 + rng()*4.5;
 
-    // micro-tip แบบ rate-limit (ไม่ spam)
-    const now = performance.now();
-    const cooldown = 3500;
-    if (now - M.lastTipAt > cooldown){
-      // tip trigger เฉพาะช่วงสำคัญ (storm/endwindow) หรือ frust สูง
-      const inStorm = !!ctx.inStorm;
-      const inEnd = !!ctx.inEndWindow;
-      if (inEnd || (inStorm && M.emaFrust > 0.55) || (M.emaSkill < 0.35 && M.emaFrust > 0.45)){
-        M.lastTipAt = now;
-
-        let msg = 'เล็งค้างนิด แล้วค่อยยิง';
-        if (inEnd) msg = 'End Window มาแล้ว! เก็บ 🛡️ แล้ว BLOCK ให้ทัน';
-        else if (ctx.shield <= 0 && inStorm) msg = 'พายุมาแล้ว แต่โล่หมด! โฟกัสหา 🛡️ ก่อน';
-        else if (M.emaSkill > 0.72 && M.emaFrust < 0.30) msg = 'โหดได้! ลากคอมโบยาว ๆ แล้วคุมจังหวะ';
-
-        emit('hha:coach', {
-          type: 'ai-tip',
-          game,
-          msg,
-          explain: `directorK=${M.directorK.toFixed(2)} skill=${M.emaSkill.toFixed(2)} frust=${M.emaFrust.toFixed(2)} fat=${M.emaFatigue.toFixed(2)}`
-        });
+      // choose mode based on stress/skill
+      const r = rng();
+      if (M.emaStress > 0.70){
+        M.patternMode = (r<0.65) ? 'recovery' : 'neutral';
+      } else if (M.emaSkill > 0.78 && M.emaStress < 0.45){
+        M.patternMode = (r<0.60) ? 'pressure' : 'neutral';
+      } else {
+        M.patternMode = (r<0.15) ? 'pressure' : (r<0.30) ? 'recovery' : 'neutral';
       }
     }
   }
 
-  function onEnd(summary={}){
-    if (!safeEnabled) return;
-    note('end', { grade: summary.grade, score: summary.scoreFinal, acc: summary.accuracyGoodPct, miss: summary.misses });
+  function onEvent(name, detail){
+    if (!enabled) return;
+    emit('hha:ai', { type:'event', name, detail: detail||null });
   }
 
-  // ---- Tuning hooks ----
-  function tuneSpawn(ctx={}){
-    // ctx.baseMs, ctx.inStorm, ctx.adaptK, etc.
-    let ms = Number(ctx.baseMs || 600);
-
-    if (!safeEnabled) return ms;
-
-    // directorK>0 = ยากขึ้น (ถี่ขึ้น), <0 = ผ่อน (ช้าลง)
-    const k = clamp(M.directorK, -1, 1);
-
-    // น้ำหนักคุมไม่ให้แกว่ง: ปรับแค่ ~±12%
-    const mul = 1.0 - 0.12*k;
-
-    // ถ้า frust สูงมาก -> ผ่อนเพิ่มอีกนิด
-    const fr = M.emaFrust;
-    const soft = (fr > 0.65) ? 1.08 : 1.0;
-
-    ms = ms * mul * soft;
-
-    // deterministic micro jitter เพิ่ม feel แต่ไม่ทำให้ unfair
-    const j = (rng()*2-1) * 18; // +/-18ms
-    return ms + j;
+  function debug(){
+    return {
+      enabled, flags,
+      emaSkill: M.emaSkill, emaStress: M.emaStress, emaAcc: M.emaAcc, emaMissRate: M.emaMissRate,
+      patternMode: M.patternMode,
+      lastDirector: M.lastDirector,
+      lastPattern: M.lastPattern
+    };
   }
 
-  function tuneKind(ctx={}){
-    // ctx: pGood, pBad, pSh, inStorm, inBoss
-    let pGood = Number(ctx.pGood ?? 0.66);
-    let pBad  = Number(ctx.pBad  ?? 0.28);
-    let pSh   = Number(ctx.pSh   ?? 0.06);
-
-    if (!safeEnabled) return { pGood, pBad, pSh };
-
-    const k = clamp(M.directorK, -1, 1);
-
-    // directorK>0 เพิ่ม bad นิด (โหดขึ้น), directorK<0 เพิ่ม good/shield (ผ่อน)
-    // จำกัดการขยับไม่เกิน +/-0.06
-    const delta = 0.06 * k;
-
-    pBad  = clamp(pBad + delta, 0.12, 0.55);
-    pGood = clamp(pGood - delta*0.75, 0.25, 0.80);
-
-    // ถ้า frust สูง + storm: เพิ่ม shield เล็กน้อย (ให้โอกาสพลิกเกม)
-    if (ctx.inStorm && M.emaFrust > 0.55){
-      pSh = clamp(pSh + 0.03, 0.05, 0.18);
-    } else {
-      pSh = clamp(pSh + (-0.01*k), 0.04, 0.14);
-    }
-
-    // normalize
-    const sum = pGood + pBad + pSh;
-    pGood /= sum; pBad /= sum; pSh /= sum;
-
-    return { pGood, pBad, pSh };
-  }
-
-  function tuneSize(ctx={}){
-    let s = Number(ctx.s || 64);
-    if (!safeEnabled) return s;
-
-    // directorK>0 -> เป้าเล็กลงนิด (โหดขึ้น), <0 -> ใหญ่ขึ้นนิด
-    const k = clamp(M.directorK, -1, 1);
-    const mul = 1.0 - 0.08*k; // +/-8%
-    s = s * mul;
-
-    // ถ้า skill ต่ำ/ frust สูง -> เพิ่ม size ช่วยเล็กน้อย
-    if (M.emaSkill < 0.35 && M.emaFrust > 0.45) s *= 1.06;
-
-    return s;
-  }
-
-  function tuneAim(ctx={}){
-    let px = Number(ctx.px || 56);
-    if (!safeEnabled) return px;
-
-    // directorK>0 -> lock แคบลง (โหดขึ้น), <0 -> กว้างขึ้น
-    const k = clamp(M.directorK, -1, 1);
-    px = px * (1.0 + (-0.10*k)); // +/-10%
-
-    // ถ้า frust สูงมาก -> ช่วยเพิ่มอีกนิด
-    if (M.emaFrust > 0.70) px *= 1.10;
-
-    return px;
-  }
-
-  return {
-    enabled: safeEnabled,
-    note,
-    onStart,
-    onUpdate,
-    onEnd,
-    tuneSpawn,
-    tuneKind,
-    tuneSize,
-    tuneAim
-  };
+  return { enabled, flags, onStart, onUpdate, onEvent, applyDirector, applyPattern, getCoachTip, debug };
 }
