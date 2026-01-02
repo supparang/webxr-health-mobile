@@ -1,334 +1,241 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Start-gated boot (no target flash) + unify PC/Mobile/VR/cVR + UI glue (peek/lowtime/end/backhub)
-'use strict';
+// GoodJunkVR Boot — PRODUCTION (HHA Standard)
+// ✅ Reads URL params -> passes into goodjunk.safe.js boot()
+// ✅ Sets body view classes (pc/mobile/vr/cvr)
+// ✅ Sets VRUI lockPx per diff (optional)
+// ✅ HUD bridge: score/time/miss/grade + quest/update + coach + end
+// ✅ End summary + Back to HUB button support (if present in DOM)
+// ✅ Flush hardened: pagehide + visibilitychange
 
 import { boot as engineBoot } from './goodjunk.safe.js';
 
 const ROOT = window;
 const DOC  = document;
 
-function qs(k, def=null){
+function qs(k, def = null){
   try { return new URL(location.href).searchParams.get(k) ?? def; }
   catch { return def; }
 }
-function normalizeView(v){
-  v = String(v||'').toLowerCase();
-  if(v==='pc') return 'pc';
-  if(v==='vr') return 'vr';
-  if(v==='cvr') return 'cvr';
-  return 'mobile';
+function qsn(k, def = 0){
+  const v = qs(k, null);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
 }
+function qsb(k, def = false){
+  const v = String(qs(k, '')).toLowerCase();
+  if(v === '1' || v === 'true' || v === 'yes' || v === 'on') return true;
+  if(v === '0' || v === 'false' || v === 'no' || v === 'off') return false;
+  return def;
+}
+
 function setBodyView(view){
   const b = DOC.body;
-  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-  b.classList.add('view-'+view);
-}
-function $(sel){ return DOC.querySelector(sel); }
-function byId(id){ return DOC.getElementById(id); }
+  if(!b) return;
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','view-cardboard','view-cvr-strict');
 
-let started = false;
+  const v = String(view || '').toLowerCase();
+  if(v === 'pc') b.classList.add('view-pc');
+  else if(v === 'vr') b.classList.add('view-vr','view-cardboard');
+  else if(v === 'cvr') b.classList.add('view-cvr','view-cardboard');
+  else b.classList.add('view-mobile');
 
-function ensureVrUi(){
-  if(ROOT.__HHA_VRUI_LOADED) return;
-  ROOT.__HHA_VRUI_LOADED = true;
-  const s = DOC.createElement('script');
-  s.src = './vr/vr-ui.js';
-  s.defer = true;
-  DOC.head.appendChild(s);
+  // strict mode: targets not clickable; must shoot via crosshair event
+  if(v === 'cvr') b.classList.add('view-cvr-strict');
 }
 
-function hide(el, yes=true){
-  if(!el) return;
-  el.setAttribute('aria-hidden', yes ? 'true' : 'false');
-  el.style.pointerEvents = yes ? 'none' : 'auto';
-}
-function show(el){ hide(el,false); }
+function wireHud(){
+  const $ = (id)=>DOC.getElementById(id);
 
-function setStartMeta(){
-  const m = byId('start-meta');
-  if(!m) return;
-  const diff = qs('diff','normal');
-  const run  = qs('run','play');
-  const time = qs('time','80');
-  const seed = qs('seed','auto');
-  m.textContent = `diff=${diff} • run=${run} • time=${time}s • seed=${seed}`;
-}
-
-function syncHudDup(){
-  const score = byId('hud-score')?.textContent ?? '0';
-  const time  = byId('hud-time')?.textContent ?? '0';
-  byId('hud-score-dup') && (byId('hud-score-dup').textContent = score);
-  byId('hud-time-dup')  && (byId('hud-time-dup').textContent  = time);
-}
-
-// Missions peek uses the same ids as HUD
-function updatePeek(){
-  const goal = byId('hud-goal')?.textContent ?? '—';
-  const cur  = byId('hud-goal-cur')?.textContent ?? '0';
-  const tar  = byId('hud-goal-target')?.textContent ?? '0';
-  const mini = byId('hud-mini')?.textContent ?? '—';
-  byId('peek-goal') && (byId('peek-goal').textContent = goal);
-  byId('peek-goal-cur') && (byId('peek-goal-cur').textContent = cur);
-  byId('peek-goal-target') && (byId('peek-goal-target').textContent = tar);
-  byId('peek-mini') && (byId('peek-mini').textContent = mini);
-}
-
-function wirePeek(){
-  const peek = byId('peek');
-  const btn1 = byId('btn-missions');
-  const btn2 = byId('btn-peek');
-  const toggle = ()=>{
-    if(!peek) return;
-    const open = peek.getAttribute('aria-hidden') === 'true';
-    updatePeek();
-    open ? show(peek) : hide(peek,true);
+  const hud = {
+    score: $('hud-score'),
+    time:  $('hud-time'),
+    miss:  $('hud-miss'),
+    grade: $('hud-grade'),
+    goal:  $('hud-goal'),
+    goalCur: $('hud-goal-cur'),
+    goalTarget: $('hud-goal-target'),
+    mini:  $('hud-mini'),
   };
-  btn1 && btn1.addEventListener('click', toggle);
-  btn2 && btn2.addEventListener('click', toggle);
-  peek && peek.addEventListener('click', ()=> hide(peek,true));
-}
 
-function wireHudHide(){
-  const hideBtn = byId('btn-hud-hide');
-  const showBtn = byId('btn-hud-show');
-  hideBtn && hideBtn.addEventListener('click', ()=>{
-    DOC.body.classList.add('hud-hidden');
-    hideBtn.style.display = 'none';
-    showBtn.style.display = 'inline-flex';
-  });
-  showBtn && showBtn.addEventListener('click', ()=>{
-    DOC.body.classList.remove('hud-hidden');
-    showBtn.style.display = 'none';
-    hideBtn.style.display = 'inline-flex';
-  });
-}
+  function setText(el, v){ if(el) el.textContent = String(v); }
 
-function wireShoot(){
-  const layer = byId('gj-layer');
-  const btn = byId('btn-shoot');
-
-  // Tap button -> shoot at center crosshair (best-effort): click element under center
-  function shoot(){
-    // VR UI module can dispatch hha:shoot too; we support both
-    ROOT.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ source:'btn' } }));
-
-    if(!layer) return;
-    const x = Math.floor(innerWidth/2);
-    const y = Math.floor(innerHeight/2);
-    const el = DOC.elementFromPoint(x,y);
-
-    // If it hits a target, forward click to it
-    if(el && el.classList && el.classList.contains('gj-target')){
-      el.click();
-      return;
+  // optional: show goal area if present
+  function showGoalPanelIfNeeded(){
+    const mid = DOC.querySelector('.hud-mid');
+    if(!mid) return;
+    // if any goal elements exist, allow it
+    if(hud.goal || hud.goalCur || hud.goalTarget){
+      mid.style.display = '';
     }
-    // Otherwise: pick nearest target around center (small radius)
-    const targets = layer.querySelectorAll('.gj-target');
-    if(!targets.length) return;
-    let best = null, bestD = 1e9;
-    for(const t of targets){
-      const r = t.getBoundingClientRect();
-      const cx = r.left + r.width/2, cy = r.top + r.height/2;
-      const d = (cx-x)*(cx-x) + (cy-y)*(cy-y);
-      if(d < bestD){ bestD = d; best = t; }
-    }
-    if(best && bestD < (160*160)) best.click();
   }
+  showGoalPanelIfNeeded();
 
-  btn && btn.addEventListener('click', shoot);
-  ROOT.addEventListener('hha:shoot', (ev)=>{
-    // allow vr-ui.js to call; if source already btn, ignore duplication
-    if(ev?.detail?.source === 'btn') return;
-    shoot();
-  }, { passive:true });
-
-  // Space / Enter
-  ROOT.addEventListener('keydown', (e)=>{
-    if(e.code === 'Space' || e.code === 'Enter'){
-      e.preventDefault();
-      shoot();
+  // listen from engine (goodjunk.safe.js emits)
+  ROOT.addEventListener('hha:score', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.score != null) setText(hud.score, d.score);
+    if(d.combo != null){
+      // (optional) if you have hud-combo in CSS/HTML, update it too
+      const hc = $('hud-combo');
+      if(hc) setText(hc, d.combo);
     }
-  }, { passive:false });
-}
-
-function wireLowTime(){
-  const overlay = $('.gj-lowtime-overlay');
-  const num = byId('lowtime-num');
-
-  let lastInt = null;
+  });
 
   ROOT.addEventListener('hha:time', (ev)=>{
-    const t = Number(ev?.detail?.timeLeftSec ?? 0);
+    const d = ev?.detail || {};
+    if(d.timeLeftSec != null) setText(hud.time, Math.ceil(d.timeLeftSec));
+  });
 
-    // toggle warning classes
-    DOC.body.classList.toggle('gj-lowtime', t <= 12 && t > 5);
-    DOC.body.classList.toggle('gj-lowtime5', t <= 5 && t > 0);
-
-    const ti = Math.ceil(t);
-    if(ti !== lastInt){
-      lastInt = ti;
-
-      // tick pulse
-      if(t <= 12 && t > 0){
-        DOC.body.classList.add('gj-tick');
-        setTimeout(()=>DOC.body.classList.remove('gj-tick'), 260);
-      }
-
-      // show big countdown for last 5 seconds
-      if(t <= 5 && t > 0){
-        if(num) num.textContent = String(ti);
-        overlay && show(overlay);
-        setTimeout(()=> overlay && hide(overlay,true), 240);
-      }else{
-        overlay && hide(overlay,true);
-      }
+  ROOT.addEventListener('hha:judge', (ev)=>{
+    const d = ev?.detail || {};
+    // optional toast via Particles handled in engine
+    // could also set sub line
+    if(d.label){
+      // lightweight: show in mini line if present
+      const sub = $('hud-mini');
+      if(sub) sub.textContent = d.label;
     }
-  }, { passive:true });
-}
+  });
 
-function wireEndSummary(){
-  const end = byId('end');
-  const line1 = byId('end-line1');
-  const line2 = byId('end-line2');
-  const meta = byId('end-meta');
+  ROOT.addEventListener('quest:update', (ev)=>{
+    const d = ev?.detail || {};
+    if(d.goal){
+      setText(hud.goal, d.goal.title || '—');
+      setText(hud.goalCur, d.goal.cur ?? 0);
+      setText(hud.goalTarget, d.goal.target ?? 0);
+    }
+    if(d.mini){
+      const m = d.mini;
+      const cur = (m.cur != null) ? Math.floor(m.cur) : 0;
+      setText(hud.mini, `${m.title || 'Mini'} (${cur}/${m.target || 0})`);
+    }
+  });
 
-  const btnReplay = byId('btn-replay');
-  const btnHub = byId('btn-backhub');
-
-  function goHub(){
-    const hub = qs('hub', null);
-    if(hub) location.href = hub;
-    else location.href = './hub.html';
-  }
-  function replay(){
-    // restart by reloading with same params but force run/play preserved
-    location.reload();
-  }
-
-  btnReplay && btnReplay.addEventListener('click', replay);
-  btnHub && btnHub.addEventListener('click', goHub);
+  ROOT.addEventListener('hha:coach', (ev)=>{
+    // your HTML currently hides coach panel; keep as hook for future
+    // If you later enable coach UI, update it here.
+  });
 
   ROOT.addEventListener('hha:end', (ev)=>{
     const s = ev?.detail || {};
-    if(line1) line1.textContent = `Grade: ${s.grade || '—'} • Score: ${s.scoreFinal ?? 0} • Miss: ${s.misses ?? 0}`;
-    if(line2) line2.textContent = `AccGood: ${(s.accuracyGoodPct ?? 0).toFixed?.(1) ?? s.accuracyGoodPct}% • AvgRT: ${Math.round(s.avgRtGoodMs ?? 0)}ms • ComboMax: ${s.comboMax ?? 0}`;
-    if(meta) meta.textContent = `reason=${s.reason || 'time'} • sessionId=${s.sessionId || '-'} • seed=${s.seed || '-'} • ver=${s.gameVersion || '-'}`;
-
-    show(end);
-  }, { passive:true });
-
-  // click outside to close? (optional)
-  end && end.addEventListener('click', (e)=>{
-    // do not close when clicking buttons
-    const t = e.target;
-    if(t && (t.id === 'btn-replay' || t.id === 'btn-backhub')) return;
+    if(s.scoreFinal != null) setText(hud.score, s.scoreFinal);
+    if(s.misses != null) setText(hud.miss, s.misses);
+    if(s.grade) setText(hud.grade, s.grade);
+    if(s.durationPlayedSec != null) setText(hud.time, 0);
   });
 }
 
-function wireCoach(){
-  const coachLine = byId('coach-line');
-  const coachSub  = byId('coach-sub');
-  ROOT.addEventListener('hha:coach', (ev)=>{
-    const d = ev?.detail || {};
-    if(d.text && coachLine) coachLine.textContent = d.text;
-    if(d.why && coachSub) coachSub.textContent = d.why;
+function wireHubBack(){
+  // Optional: if you have a "Back HUB" button in this run page
+  const btn = DOC.getElementById('btnBackHub') || DOC.querySelector('[data-act="back-hub"]');
+  if(!btn) return;
+
+  btn.addEventListener('click', ()=>{
+    const hub = qs('hub','');
+    if(hub) location.href = hub;
+    else alert('ยังไม่ได้ส่งพารามิเตอร์ hub=');
+  });
+}
+
+function flushHardened(){
+  // If you have cloud logger module that exposes flush
+  const logger =
+    (ROOT.GAME_MODULES && ROOT.GAME_MODULES.CloudLogger) ||
+    ROOT.CloudLogger ||
+    null;
+
+  let flushed = false;
+
+  async function flush(reason){
+    if(flushed) return;
+    flushed = true;
+    try{
+      if(logger && typeof logger.flush === 'function'){
+        await logger.flush({ reason });
+      }
+    }catch(_){}
+  }
+
+  // page lifecycle
+  ROOT.addEventListener('pagehide', ()=>{ flush('pagehide'); }, { passive:true });
+  DOC.addEventListener('visibilitychange', ()=>{
+    if(DOC.visibilityState === 'hidden') flush('hidden');
+  }, { passive:true });
+
+  // expose manual
+  ROOT.addEventListener('hha:flush', (ev)=>{
+    flush(ev?.detail?.reason || 'manual');
   }, { passive:true });
 }
 
-// START engine only after hha:start (from overlay)
-function startEngine(opts={}){
-  if(started) return;
-  started = true;
+function attachEngine(){
+  const view = String(qs('view','mobile')).toLowerCase();
+  const run  = String(qs('run','play')).toLowerCase();
+  const diff = String(qs('diff','normal')).toLowerCase();
+  const time = qsn('time', 80);
 
-  const view = normalizeView(opts.view || qs('view','mobile'));
-  setBodyView(view);
+  // seed: in research, if empty -> keep deterministic (engine handles default too)
+  const seedParam = qs('seed', '');
+  const seed = (seedParam === '' || seedParam == null) ? null : Number(seedParam);
 
-  // Preload VR UI when user chooses VR/cVR
-  if(view === 'vr' || view === 'cvr') ensureVrUi();
+  const hub = qs('hub', '') || null;
 
-  // close start overlay
-  hide(byId('start'), true);
+  const studyId = qs('studyId', null);
+  const phase   = qs('phase', null);
+  const conditionGroup = qs('conditionGroup', null) || qs('cond', null);
 
-  engineBoot({
-    view,
-    diff: (qs('diff','normal')||'normal'),
-    run:  (qs('run','play')||'play'),
-    time: Number(qs('time','80')||80),
-    seed: qs('seed', null),
-    hub:  qs('hub', null),
-
-    // research meta (optional)
-    studyId: qs('study', qs('studyId', null)),
-    phase: qs('phase', null),
-    conditionGroup: qs('cond', qs('conditionGroup', null)),
-  });
-
-  // Sync dup HUD (score/time) periodically
-  setInterval(syncHudDup, 120);
-}
-
-function startWith(view){
-  ROOT.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
-}
-
-ROOT.addEventListener('hha:start', (ev)=>{
-  const view = ev?.detail?.view || qs('view','mobile');
-  startEngine({ view });
-}, { passive:true });
-
-// Preload VR UI when user wants cVR
-ROOT.addEventListener('hha:enter-cvr', ()=>{
-  ensureVrUi();
-}, { passive:true });
-
-function wireStartOverlay(){
-  const start = byId('start');
-  const bAuto = byId('btn-start-auto');
-  const bM = byId('btn-start-mobile');
-  const bP = byId('btn-start-pc');
-  const bV = byId('btn-start-vr');
-  const bC = byId('btn-start-cvr');
-
-  setStartMeta();
-  show(start);
-
-  const autoPick = ()=>{
-    // if query says view, respect; else decide by screen width
-    const vq = qs('view', null);
-    if(vq) return normalizeView(vq);
-    return (innerWidth >= 820) ? 'pc' : 'mobile';
+  // VRUI tuning (optional)
+  // lockPx bigger = easier aim assist (จับเป้าใกล้ crosshair)
+  ROOT.HHA_VRUI_CONFIG = ROOT.HHA_VRUI_CONFIG || {};
+  ROOT.HHA_VRUI_CONFIG.lockPx = ROOT.HHA_VRUI_CONFIG.lockPx || 26;
+  ROOT.HHA_VRUI_CONFIG.perDiffLockPx = ROOT.HHA_VRUI_CONFIG.perDiffLockPx || {
+    easy: 30,
+    normal: 26,
+    hard: 22
   };
+  // In cVR we want shoot even if target pointer-events disabled
+  ROOT.HHA_VRUI_CONFIG.allowShootInCardboard = true;
 
-  bAuto && bAuto.addEventListener('click', ()=> startWith(autoPick()));
-  bM && bM.addEventListener('click', ()=> startWith('mobile'));
-  bP && bP.addEventListener('click', ()=> startWith('pc'));
-  bV && bV.addEventListener('click', ()=> startWith('vr'));
-  bC && bC.addEventListener('click', ()=>{
-    ensureVrUi();
-    startWith('cvr');
-  });
-}
+  // Start when gate event arrives (your run html dispatches hha:start after overlay)
+  let started = false;
+  function startEngine(detail){
+    if(started) return;
+    started = true;
 
-function wireIdsForSafeJs(){
-  // goodjunk.safe.js uses hud-score/hud-time/hud-grade as source of truth
-  // We already included hidden spans; sync dup ones
-  syncHudDup();
-}
+    setBodyView(detail?.view || view);
 
-DOC.addEventListener('DOMContentLoaded', ()=>{
-  wireIdsForSafeJs();
-  wireStartOverlay();
-  wirePeek();
-  wireHudHide();
-  wireShoot();
-  wireLowTime();
-  wireEndSummary();
-  wireCoach();
+    engineBoot({
+      view,
+      run,
+      diff,
+      time,
+      seed,
+      hub,
+      studyId,
+      phase,
+      conditionGroup,
+    });
+  }
 
-  // missions peek quick close via Escape
-  ROOT.addEventListener('keydown', (e)=>{
-    if(e.code === 'Escape'){
-      hide(byId('peek'), true);
-    }
+  // If you keep overlay gate: wait for it
+  ROOT.addEventListener('hha:start', (ev)=>{
+    startEngine(ev?.detail || {});
   }, { passive:true });
-});
+
+  // fallback: if page has no gate overlay, auto-start after load
+  // (keep false by default to avoid double start)
+  const auto = qsb('auto', false);
+  if(auto){
+    ROOT.addEventListener('DOMContentLoaded', ()=>{
+      startEngine({ view });
+    }, { once:true });
+  }
+}
+
+// ---- boot ----
+(function main(){
+  wireHud();
+  wireHubBack();
+  flushHardened();
+  attachEngine();
+})();
