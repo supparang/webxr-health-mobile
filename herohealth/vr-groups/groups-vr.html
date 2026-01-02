@@ -5,6 +5,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 ✅ Flush-hardened logging (?log=...)
 ✅ Research ctx passthrough
 ✅ Uses groups.safe.js (standalone engine) — no GameEngine.js dependency
+✅ PATCH: waitForEngine timeout-safe + always init ViewHelper before start + robust layer mount
 -->
 <!doctype html>
 <html lang="th">
@@ -325,6 +326,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     }catch(_){}
   }
 
+  // flush-hardened
   try{
     const B = window.GroupsVR && window.GroupsVR.bindFlushOnLeave;
     B && B(()=>lastSummary);
@@ -394,17 +396,35 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
   // ---------- Start engine ----------
   function waitForEngine(cb){
+    const t0 = Date.now();
     const it = setInterval(()=>{
       const E = window.GroupsVR && window.GroupsVR.GameEngine;
-      if (E && typeof E.start === 'function'){
+      if (E && typeof E.start === 'function' && typeof E.setLayerEl === 'function'){
         clearInterval(it);
         cb(E);
+        return;
+      }
+      // timeout-safe: show coach message instead of silent fail
+      if (Date.now() - t0 > 7000){
+        clearInterval(it);
+        try{
+          window.dispatchEvent(new CustomEvent('hha:coach', {
+            detail:{ text:'โหลดเอนจินไม่ขึ้น (groups.safe.js). เช็ค path/ชื่อไฟล์ แล้วรีเฟรชอีกครั้ง', mood:'sad' }
+          }));
+        }catch(_){}
       }
     }, 60);
   }
 
   function getLayerEl(){
     return $('playLayer') || DOC.querySelector('.playLayer') || DOC.body;
+  }
+
+  function initViewHelper(view){
+    try{
+      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
+      H && H.init && H.init({ view });
+    }catch(_){}
   }
 
   function startPractice(E, cfg){
@@ -416,9 +436,11 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const seedP = String(cfg.seed) + '-practice';
     startIso = new Date().toISOString();
 
+    initViewHelper('cvr');
     E.setLayerEl(getLayerEl());
     E.start(cfg.diff, { runMode:'play', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
 
+    // best-effort: immersive + recenter hint (handled by view-helper)
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
       H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
@@ -437,12 +459,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     startIso = new Date().toISOString();
 
-    // ensure view helper already init (best effort)
-    try{
-      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
-      H && H.init && H.init({ view });
-    }catch(_){}
-
+    initViewHelper(view);
     E.setLayerEl(getLayerEl());
     E.start(diff, { runMode: run, diff, style, time, seed });
 
@@ -465,10 +482,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     hookAudio();
 
     // init helper before engine start (so body classes/strict cVR ready)
-    try{
-      const H = window.GroupsVR && window.GroupsVR.ViewHelper;
-      H && H.init && H.init({ view });
-    }catch(_){}
+    initViewHelper(view);
 
     const practiceSec = getPracticeSec(view);
 
