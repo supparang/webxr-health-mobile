@@ -1,7 +1,7 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
 // Hydration SAFE — PRODUCTION (FULL) — 1-3 DONE (AIM + FX + 3-STAGE)
 // ✅ Smart Aim Assist lockPx (cVR) adaptive + fair + deterministic in research
-// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score
+// ✅ FX: hit pulse, shockwave, boss flash, end-window blink+shake, pop score (+ burst)
 // ✅ Mission 3-Stage: GREEN -> Storm Mini -> Boss Clear
 // ✅ Cardboard layers via window.HHA_VIEW.layers from loader
 
@@ -120,21 +120,23 @@ function shockAt(x, y){
   pf.appendChild(el);
   setTimeout(()=>{ try{ el.remove(); }catch(_){ } }, 520);
 }
-function shockAtCenter(){
-  const { cx, cy } = centerPoint();
-  shockAt(cx, cy);
-}
-function popScore(text='+10'){
-  // best-effort particles API match (your particles.js may expose different names)
+
+// ✅ pop/burst แบบ XY (ไม่พึ่ง element ที่ถูก remove แล้ว)
+function popScoreAt(x, y, text='+10'){
   try{
     const P = window.Particles || (window.GAME_MODULES && window.GAME_MODULES.Particles);
     if (P){
-      const { cx, cy } = centerPoint();
-      if (typeof P.popText === 'function'){ P.popText(cx, cy, text, ''); return; }
-      if (typeof P.pop === 'function'){ P.pop(cx, cy, text); return; }
+      if (typeof P.popText === 'function'){ P.popText(x, y, text, ''); return; }
+      if (typeof P.pop === 'function'){ P.pop(x, y, text); return; }
     }
   }catch(_){}
   pulseBody('hha-hitfx', 140);
+}
+function burstAt(x, y, n=14){
+  try{
+    const P = window.Particles || (window.GAME_MODULES && window.GAME_MODULES.Particles);
+    if (P && typeof P.burst === 'function'){ P.burst(x, y, n); }
+  }catch(_){}
 }
 
 // -------------------- Audio tick (no file needed) --------------------
@@ -376,7 +378,8 @@ function syncHUD(){
       const m = S.miniState;
       const bossTxt = (S.bossEnabled && S.bossActive) ? ` • BOSS 🌩️ ${S.bossBlocked}/${S.bossNeed}` : '';
       setText('quest-line3', `Storm Mini: LOW/HIGH + BLOCK${bossTxt}`);
-      setText('quest-line4', `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
+      setText('quest-line4',
+        `Mini: zone=${m.zoneOK?'OK':'NO'} pressure=${m.pressureOK?'OK':'..'} end=${m.endWindow?'YES':'..'} block=${m.blockedInEnd?'YES':'..'}`
         + (m.gotHitByBad ? ' • FAIL: HIT BAD' : '')
       );
     } else {
@@ -390,7 +393,7 @@ function syncHUD(){
       setText('quest-line3', `BOSS WINDOW! 🌩️ โผล่ถี่ขึ้น — ใช้ 🛡️ BLOCK ให้ครบ`);
       setText('quest-line4', `BOSS: ${S.bossBlocked|0}/${S.bossNeed|0} (รอบนี้)`);
     } else {
-      setText('quest-line3', `รอช่วงท้ายพายุ (Boss Window) แล้วค่อย BLOCK 🌩️`);
+      setText('quest-line3', `รอช่วงท้ายพายุ (Boss Window) แล้วค่อย BLOCK 🌩️ ให้ครบ`);
       setText('quest-line4', `Tip: เก็บ 🛡️ ไว้ 1–2 อันก่อนพายุ`);
     }
   }
@@ -554,11 +557,12 @@ function spawn(kind){
     if (t - lastHitAt < HIT_COOLDOWN_MS) return;
     lastHitAt=t;
 
-    kill('hit');
-
+    // เก็บตำแหน่งก่อน/ทันที (กัน el หายแล้วพิกัดเพี้ยน)
     const r = srcEl?.getBoundingClientRect?.();
     const hx = r ? (r.left + r.width/2) : centerPoint().cx;
     const hy = r ? (r.top + r.height/2) : centerPoint().cy;
+
+    kill('hit');
 
     if (kind==='good'){
       S.nHitGood++;
@@ -571,17 +575,22 @@ function spawn(kind){
       S.streakGood++;
       S.streakMax = Math.max(S.streakMax, S.streakGood);
 
-      emit('hha:judge', { kind:'good' });
+      emit('hha:judge', { kind:'good', x:hx, y:hy, score:add, combo:S.combo|0 });
       pulseBody('hha-hitfx', 140);
-      popScore('+'+add);
+      popScoreAt(hx, hy, '+'+add);
+      burstAt(hx, hy, 10);
+
     } else if (kind==='shield'){
       S.score += 6;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
       S.shield = clamp(S.shield+1, 0, S.shieldMax);
-      emit('hha:judge', { kind:'shield' });
+
+      emit('hha:judge', { kind:'shield', x:hx, y:hy });
       pulseBody('hha-hitfx', 120);
-      popScore('+6');
+      popScoreAt(hx, hy, '+6');
+      burstAt(hx, hy, 8);
+
     } else {
       S.streakGood=0;
 
@@ -596,9 +605,11 @@ function spawn(kind){
         }
         if (isBossBad) S.bossBlocked++;
 
-        emit('hha:judge', { kind:'block' });
+        emit('hha:judge', { kind:'block', x:hx, y:hy });
         pulseBody('hha-hitfx', 120);
-        popScore('+4');
+        popScoreAt(hx, hy, '+4');
+        burstAt(hx, hy, 6);
+
       } else {
         S.nHitBad++;
         S.misses++;
@@ -608,8 +619,9 @@ function spawn(kind){
 
         if (S.stormActive) S.miniState.gotHitByBad = true;
 
-        emit('hha:judge', { kind:'bad' });
+        emit('hha:judge', { kind:'bad', x:hx, y:hy });
         shockAt(hx, hy);
+        burstAt(hx, hy, 14);
         pulseBody('hha-hitfx', 160);
       }
     }
@@ -708,7 +720,8 @@ function exitStorm(){
     S.score += 40;
     emit('hha:judge', { kind:'streak' });
     pulseBody('hha-hitfx', 180);
-    popScore('+40');
+    const {cx,cy}=centerPoint();
+    popScoreAt(cx, cy, '+40');
   }
 
   // boss bonus success
@@ -719,7 +732,9 @@ function exitStorm(){
     S.score += 50;
     emit('hha:judge', { kind:'perfect' });
     pulseBody('hha-hitfx', 200);
-    popScore('+50');
+    const {cx,cy}=centerPoint();
+    popScoreAt(cx, cy, '+50');
+    burstAt(cx, cy, 18);
   }
 
   S.bossActive=false;
@@ -943,7 +958,6 @@ function aimLockPx(){
   px += Math.min(18, AIM.streakMiss*4);
   px -= Math.min(10, AIM.streakHit*1.6);
 
-  // research deterministic: state-only (already)
   return clamp(px, AIM.min, AIM.max);
 }
 function registerShot(hit){
