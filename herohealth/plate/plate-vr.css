@@ -1,11 +1,12 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — UI + Safe-area + Targets + Result
-✅ Works PC/Mobile/VR/Cardboard
-✅ Safe area insets, no-spawn HUD blocks, stable touch
+Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION+)
+✅ Targets: pop/glow/wobble, better emoji clarity, hit feedback
+✅ HUD: soft neon, better contrast, safe-area
+✅ Boss/Storm: fx classes (boss-on/boss-panic), storm pulse
+✅ Result: crisp grade badge
 */
 
 :root{
-  color-scheme: dark;
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
@@ -19,7 +20,7 @@ Balanced Plate VR — UI + Safe-area + Targets + Result
   --cyan:#22d3ee;
   --violet:#a78bfa;
 
-  --radius:22px;
+  --radius:18px;
   --pill:999px;
 
   --sat: env(safe-area-inset-top, 0px);
@@ -28,455 +29,159 @@ Balanced Plate VR — UI + Safe-area + Targets + Result
   --sal: env(safe-area-inset-left, 0px);
 }
 
-*{ box-sizing:border-box; }
-html,body{
-  margin:0; padding:0;
-  width:100%; height:100%;
-  overflow:hidden;
-  background: radial-gradient(circle at top left, rgba(34,197,94,.12), transparent 55%),
-              radial-gradient(circle at bottom right, rgba(34,211,238,.10), transparent 55%),
-              var(--bg);
-  color:var(--text);
-  font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+/* ---------- micro glow helpers ---------- */
+@keyframes hhaGlow {
+  0% { box-shadow: 0 16px 44px rgba(0,0,0,.26), 0 0 0 rgba(34,197,94,0); }
+  50%{ box-shadow: 0 18px 52px rgba(0,0,0,.30), 0 0 28px rgba(34,197,94,.18); }
+  100%{ box-shadow: 0 16px 44px rgba(0,0,0,.26), 0 0 0 rgba(34,197,94,0); }
+}
+@keyframes hhaWarnPulse{
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.20); }
+  100%{ filter:brightness(1); }
+}
+@keyframes hhaBadPulse{
+  0%{ filter:brightness(1); }
+  50%{ filter:brightness(1.22); }
+  100%{ filter:brightness(1); }
+}
+@keyframes hhaPop {
+  0%{ transform: translateZ(0) scale(.86); opacity:.0; }
+  40%{ transform: translateZ(0) scale(1.06); opacity:1; }
+  100%{ transform: translateZ(0) scale(1); opacity:1; }
+}
+@keyframes hhaWobble {
+  0%{ transform: translateZ(0) rotate(0deg); }
+  25%{ transform: translateZ(0) rotate(1.4deg); }
+  50%{ transform: translateZ(0) rotate(-1.4deg); }
+  75%{ transform: translateZ(0) rotate(1deg); }
+  100%{ transform: translateZ(0) rotate(0deg); }
 }
 
-/* Playfield */
-#plate-layer{
-  position:fixed; inset:0;
-  z-index:2;
-  touch-action: manipulation;
-  user-select:none;
+/* ---------- Targets feel (emoji clarity + VR-ish depth) ---------- */
+#plate-layer .plateTarget{
+  border-radius:999px !important;
+  border:1px solid rgba(148,163,184,.20) !important;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
+    radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
+    rgba(2,6,23,.56) !important;
+  backdrop-filter: blur(10px) saturate(1.15);
+  box-shadow:
+    0 18px 48px rgba(0,0,0,.32),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.8s ease-in-out .12s infinite;
+  transform: translateZ(0);
+  text-shadow: 0 2px 0 rgba(0,0,0,.25);
+  font-variation-settings: "wght" 900;
 }
-#hitFx{
+#plate-layer .plateTarget:active{
+  transform: translateZ(0) scale(.98);
+}
+
+/* Kind-specific vibe */
+#plate-layer .plateTarget[data-kind="good"]{
+  border-color: rgba(34,197,94,.30) !important;
+  box-shadow:
+    0 18px 52px rgba(0,0,0,.32),
+    0 0 26px rgba(34,197,94,.12),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
+#plate-layer .plateTarget[data-kind="junk"]{
+  border-color: rgba(239,68,68,.28) !important;
+  box-shadow:
+    0 18px 52px rgba(0,0,0,.32),
+    0 0 26px rgba(239,68,68,.12),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  animation: hhaPop .14s ease-out 0s 1, hhaWobble 1.2s ease-in-out .12s infinite;
+}
+#plate-layer .plateTarget[data-kind="shield"]{
+  border-color: rgba(34,211,238,.34) !important;
+  box-shadow:
+    0 18px 52px rgba(0,0,0,.32),
+    0 0 26px rgba(34,211,238,.14),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+/* make emoji look crisp */
+#plate-layer .plateTarget{
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- HUD polish ---------- */
+.card, .pill, .questCard, .startCard, .pausedCard, .resultCard, .eventCard{
+  box-shadow: 0 16px 48px rgba(0,0,0,.28) !important;
+}
+.pill{
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
+    rgba(15,23,42,.68) !important;
+}
+.bar{
+  background: rgba(148,163,184,.10) !important;
+}
+.bar > i{
+  box-shadow: 0 0 18px rgba(34,197,94,.16);
+}
+.bar.warn > i{ box-shadow: 0 0 18px rgba(245,158,11,.16); }
+.bar.bad  > i{ box-shadow: 0 0 18px rgba(239,68,68,.14); }
+
+/* Fever bar should feel dangerous */
+.bar.bad{
+  background:
+    linear-gradient(90deg, rgba(239,68,68,.12), rgba(245,158,11,.08)) !important;
+}
+#uiFeverFill{
+  background: linear-gradient(90deg, rgba(245,158,11,.80), rgba(239,68,68,.85)) !important;
+  box-shadow: 0 0 18px rgba(239,68,68,.16) !important;
+}
+
+/* Buttons */
+.btn.primary{ animation: hhaGlow 2.2s ease-in-out 0s infinite; }
+.btn.warn:hover{ filter:brightness(1.1); }
+.btn.bad:hover{ filter:brightness(1.05); }
+
+/* ---------- Boss / Storm FX (hook for plate.safe.js toggles) ---------- */
+#bossFx{
   position:fixed; inset:0;
-  z-index:3;
   pointer-events:none;
+  z-index:58;
   opacity:0;
-  transition:opacity .08s ease;
+  transition: opacity .15s ease;
+}
+#bossFx.boss-on{
+  opacity:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(167,139,250,.10), transparent 55%),
+    radial-gradient(circle at 50% 90%, rgba(239,68,68,.10), transparent 55%);
+}
+#bossFx.boss-panic{
+  animation: hhaBadPulse .22s ease-in-out 0s infinite;
 }
 
-/* Targets (JS sets most inline styles; keep base here too) */
-.plateTarget{
-  -webkit-tap-highlight-color: transparent;
-}
-body.view-cvr .plateTarget,
-body.view-vr .plateTarget{
-  /* in strict cVR you can disable pointer events if you want:
-     pointer-events:none;
-     but we keep enabled by default for flexibility */
-}
-
-/* Overlays */
-.overlay,
-.pauseOverlay,
-.resultBackdrop{
+#stormFx{
   position:fixed; inset:0;
-  z-index:20;
-  display:grid;
-  place-items:center;
-  padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(10px);
-}
-
-.card, .resultCard{
-  width:min(860px, 100%);
-  background:var(--panel);
-  border:1px solid var(--stroke);
-  border-radius: var(--radius);
-  box-shadow: 0 26px 90px rgba(0,0,0,.45);
-  padding:16px;
-}
-
-.title{
-  font-weight:1100;
-  font-size:18px;
-  letter-spacing:.2px;
-}
-.sub{
-  margin-top:8px;
-  color:rgba(148,163,184,.95);
-  font-weight:900;
-  line-height:1.5;
-}
-.hint{
-  margin-top:12px;
-  color:rgba(148,163,184,.95);
-  font-weight:900;
-  border:1px dashed rgba(148,163,184,.22);
-  border-radius:18px;
-  padding:10px 12px;
-  background: rgba(2,6,23,.35);
-}
-
-.btnRow{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:14px;
-}
-.btn{
-  appearance:none;
-  border:none;
-  cursor:pointer;
-  border-radius: 16px;
-  padding:12px 14px;
-  font-weight:1100;
-  background: rgba(15,23,42,.55);
-  border:1px solid var(--stroke);
-  color: var(--text);
-  box-shadow: 0 18px 44px rgba(0,0,0,.30);
-}
-.btn:active{ transform: translateY(1px); }
-.btn.primary{
-  background: rgba(34,197,94,.14);
-  border-color: rgba(34,197,94,.28);
-}
-
-/* HUD TOP */
-.hudTop{
-  position:fixed;
-  left: calc(12px + var(--sal));
-  top:  calc(12px + var(--sat));
-  right: calc(12px + var(--sar));
-  z-index:8;
-  display:grid;
-  gap:10px;
-  pointer-events:none; /* important: no-spawn zone + avoid blocking taps */
-}
-.hudBlock{
   pointer-events:none;
-  background: var(--panel);
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding:10px 12px;
-  box-shadow: 0 18px 52px rgba(0,0,0,.30);
+  z-index:57;
+  opacity:0;
+  transition: opacity .15s ease;
 }
-.hudBlock .label{
-  font-weight:1100;
-  font-size:11px;
-  letter-spacing:.18em;
-  color: rgba(148,163,184,.95);
-}
-.hudBlock .row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-top:6px;
-}
-.hudBlock .ttl{
-  font-weight:1100;
-  font-size:14px;
-}
-.hudBlock .count{
-  font-weight:1100;
-  color: rgba(148,163,184,.95);
-  white-space:nowrap;
-}
-.hudBlock .bar{
-  margin-top:8px;
-  height:10px;
-  border-radius: 999px;
-  background: rgba(148,163,184,.12);
-  overflow:hidden;
-}
-.hudBlock .fill{
-  height:100%;
-  width:0%;
-  background: rgba(34,197,94,.85);
-}
-.hudBlock .fill.warn{ background: rgba(245,158,11,.85); }
-.hudBlock .hint2{
-  margin-top:8px;
-  color: rgba(148,163,184,.95);
-  font-weight:900;
-  font-size:12px;
+#stormFx.storm-on{
+  opacity:1;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,211,238,.12), transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%),
+    radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
+  animation: hhaWarnPulse .32s ease-in-out 0s infinite;
 }
 
-/* Coach */
-.coach{
-  position:fixed;
-  left: calc(12px + var(--sal));
-  bottom: calc(12px + var(--sab));
-  z-index:9;
-  display:flex;
-  gap:10px;
-  align-items:flex-end;
-  pointer-events:none;
-}
-.coach img{
-  width:64px;
-  height:64px;
-  border-radius: 18px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.55);
-  box-shadow: 0 18px 52px rgba(0,0,0,.30);
-}
-.coach .bubble{
-  max-width:min(560px, 72vw);
-  background: var(--panel2);
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding:10px 12px;
-  box-shadow: 0 18px 52px rgba(0,0,0,.30);
-}
-.coach .name{
-  font-weight:1100;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-}
-.coach .msg{
-  margin-top:4px;
-  font-weight:1100;
-  line-height:1.35;
-}
-
-/* HUD buttons */
-.hudBtns{
-  position:fixed;
-  right: calc(12px + var(--sar));
-  top: calc(12px + var(--sat));
-  z-index:10;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-.hbtn{
-  width:44px; height:44px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.70);
-  color: rgba(229,231,235,.95);
-  font: 1000 16px/1 system-ui;
-  box-shadow: 0 18px 44px rgba(0,0,0,.30);
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-.hbtn:active{ transform: translateY(1px); }
-
-/* HUD stats */
-.hudStats{
-  position:fixed;
-  left: calc(12px + var(--sal));
-  bottom: calc(92px + var(--sab));
-  z-index:8;
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  pointer-events:none;
-}
-.chip{
-  pointer-events:none;
-  display:flex;
-  gap:8px;
-  align-items:baseline;
-  padding:8px 10px;
-  border-radius: 16px;
-  border:1px solid var(--stroke);
-  background: rgba(2,6,23,.72);
-  box-shadow: 0 18px 44px rgba(0,0,0,.26);
-}
-.chip .k{
-  font-weight:1100;
-  font-size:10px;
-  letter-spacing:.16em;
-  color: rgba(148,163,184,.95);
-}
-.chip .v{
-  font-weight:1200;
-  font-size:14px;
-}
-.chip.danger .v{ color: rgba(239,68,68,.95); }
-.chip.grade .v{ color: rgba(34,197,94,.95); }
-
-/* Plate panel */
-.platePanel{
-  position:fixed;
-  left: calc(12px + var(--sal));
-  right: calc(12px + var(--sar));
-  bottom: calc(12px + var(--sab));
-  z-index:7;
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  background: rgba(2,6,23,.68);
-  box-shadow: 0 18px 60px rgba(0,0,0,.32);
-  padding:10px 12px;
-  pointer-events:none;
-}
-.plateHead{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-}
-.plateT{ font-weight:1200; }
-.plateN{ font-weight:1100; color: rgba(148,163,184,.95); }
-.plateRow{
-  margin-top:10px;
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-}
-.pchip{
+/* ---------- Result grade badge (optional feel) ---------- */
+#rGrade{
+  display:inline-block;
+  padding:6px 12px;
+  border-radius:999px;
   border:1px solid rgba(148,163,184,.18);
-  background: rgba(15,23,42,.52);
-  border-radius: 14px;
-  padding:8px 10px;
-  font-weight:1100;
-}
-.pchip.total{
-  border-color: rgba(34,197,94,.28);
-  background: rgba(34,197,94,.10);
-}
-
-/* Gauges */
-.gauges{
-  position:fixed;
-  right: calc(12px + var(--sar));
-  bottom: calc(12px + var(--sab));
-  z-index:8;
-  display:grid;
-  gap:8px;
-  width: min(220px, 42vw);
-  pointer-events:none;
-}
-.gauge{
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  background: rgba(2,6,23,.68);
-  box-shadow: 0 18px 60px rgba(0,0,0,.32);
-  padding:10px 12px;
-}
-.gt{
-  font-weight:1100;
-  font-size:12px;
-  color: rgba(148,163,184,.95);
-}
-.gbar{
-  margin-top:8px;
-  height:10px;
-  border-radius: 999px;
-  background: rgba(148,163,184,.12);
-  overflow:hidden;
-}
-.gfill{
-  height:100%;
-  width:0%;
-  background: rgba(245,158,11,.90);
-}
-.gfill.shield{ background: rgba(34,211,238,.90); width:100%; }
-.gsmall{
-  margin-top:6px;
-  color: rgba(148,163,184,.95);
-  font-weight:1100;
-}
-
-/* Boss */
-.bossHud{
-  position:fixed;
-  left:50%;
-  transform: translateX(-50%);
-  top: calc(12px + var(--sat));
-  z-index:11;
-  width: min(520px, 92vw);
-  border:1px solid rgba(239,68,68,.24);
-  background: rgba(2,6,23,.78);
-  border-radius: 18px;
-  padding:10px 12px;
-  box-shadow: 0 22px 70px rgba(0,0,0,.38);
-  pointer-events:none;
-}
-.bossTitle{
-  font-weight:1200;
-  color: rgba(239,68,68,.95);
-}
-.bossBar{
-  margin-top:8px;
-  height:10px;
-  border-radius: 999px;
-  background: rgba(239,68,68,.12);
-  overflow:hidden;
-}
-.bossFill{
-  height:100%;
-  width:0%;
-  background: rgba(239,68,68,.85);
-}
-.bossText{
-  margin-top:6px;
-  font-weight:1100;
-  color: rgba(148,163,184,.95);
-}
-.bossFx{
-  position:fixed; inset:0;
-  z-index:10;
-  pointer-events:none;
-  background: radial-gradient(circle at center, rgba(239,68,68,.10), transparent 60%);
-  opacity: .0;
-  transition: opacity .18s ease;
-}
-.bossFx.boss-on{ opacity: .95; }
-.bossFx.boss-panic{
-  animation: bossBlink .26s ease-in-out 0s 10;
-}
-@keyframes bossBlink{
-  0%,100%{ filter:none; }
-  50%{ filter:brightness(1.25) saturate(1.2); }
-}
-
-/* Result */
-.resultCard .rTop{
-  display:flex;
-  justify-content:space-between;
-  align-items:baseline;
-  gap:10px;
-}
-.rTitle{ font-weight:1200; font-size:18px; }
-.rSub{ color: rgba(148,163,184,.95); font-weight:1100; }
-
-.rGrid{
-  margin-top:12px;
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap:10px;
-}
-.rBig{
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding:10px 12px;
-  background: rgba(2,6,23,.55);
-}
-.rBig .k{ color: rgba(148,163,184,.95); font-weight:1100; letter-spacing:.12em; font-size:11px; }
-.rBig .v{ margin-top:6px; font-weight:1300; font-size:26px; color: rgba(34,197,94,.95); }
-
-.rBox{
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding:10px 12px;
-  background: rgba(15,23,42,.45);
-}
-.rBox .k{ color: rgba(148,163,184,.95); font-weight:1100; font-size:11px; letter-spacing:.12em; }
-.rBox .v2{ margin-top:6px; font-weight:1200; font-size:16px; }
-
-.rPlate{
-  margin-top:12px;
-  border:1px solid var(--stroke);
-  border-radius: 18px;
-  padding:10px 12px;
-  background: rgba(2,6,23,.45);
-}
-.rPlate .k{
-  color: rgba(148,163,184,.95);
-  font-weight:1100;
-  letter-spacing:.12em;
-  font-size:11px;
-}
-
-/* Responsive */
-@media (max-width:520px){
-  .coach img{ width:56px; height:56px; }
-  .coach .bubble{ max-width: 70vw; }
-  .hudStats{ bottom: calc(106px + var(--sab)); }
-  .gauges{ width: min(190px, 46vw); }
+  background: rgba(15,23,42,.70);
+  box-shadow: 0 14px 40px rgba(0,0,0,.25);
 }
