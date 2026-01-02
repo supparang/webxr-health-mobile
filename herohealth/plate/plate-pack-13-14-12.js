@@ -223,4 +223,82 @@
         ซ้อม <b id="pSec">${practice.sec}</b> วินาที (ไม่มีโทษ) • ครบแล้วจะเริ่ม “เกมจริง” อัตโนมัติ
       </div>
       <div class="plate-pack-row" style="align-items:flex-end">
-        <div class
+        <div class="plate-pack-pill" style="font-size:14px">⏳ เหลือ <b id="pLeft">--</b>s</div>
+        <div class="plate-pack-pill">🎯 โฟกัส “เล็งให้ชัวร์”</div>
+        <div class="plate-pack-pill">🛡️ ลองยิงจาก crosshair (ถ้าเป็น cVR/VR)</div>
+      </div>
+      <div class="plate-pack-actions">
+        <button class="warn" type="button" data-act="skip">ข้ามซ้อม → เริ่มจริง</button>
+        <button class="ok" type="button" data-act="ok">โอเค</button>
+      </div>
+    </div>
+  `;
+  DOC.body.appendChild(pModal);
+
+  function showPracticeUI(){
+    if(!practice.enabled) return;
+    const pLeft = qs('#pLeft', pModal);
+    const pSec = qs('#pSec', pModal);
+    if(pSec) pSec.textContent = String(practice.sec);
+    if(pLeft) pLeft.textContent = String(practice.sec);
+    pModal.style.display = 'grid';
+  }
+  function hidePracticeUI(){
+    pModal.style.display = 'none';
+  }
+
+  pModal.addEventListener('click', (ev)=>{
+    const b = ev.target && ev.target.closest('button');
+    if(!b) return;
+    const act = b.getAttribute('data-act');
+    if(act === 'ok'){ hidePracticeUI(); }
+    if(act === 'skip'){
+      hidePracticeUI();
+      try{
+        const api = WIN.__PLATE_API__ || null;
+        if(api && typeof api.startRealFromPractice === 'function'){
+          api.startRealFromPractice('skip');
+        }else{
+          // fallback: emit
+          WIN.dispatchEvent(new CustomEvent('hha:practice', {detail:{phase:'force-real', reason:'skip'}}));
+        }
+      }catch(e){}
+    }
+  }, {passive:true});
+
+  // Listen ticks from game
+  WIN.addEventListener('hha:practice', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    if(!practice.enabled) return;
+
+    if(d.phase === 'start'){
+      practice.active = true;
+      practice.startedMs = Date.now();
+      showPracticeUI();
+    }
+    if(d.phase === 'tick'){
+      const left = Math.max(0, Number(d.tLeftSec)||0);
+      const pLeft = qs('#pLeft', pModal);
+      if(pLeft) pLeft.textContent = String(Math.ceil(left));
+      if(left <= 0.01){
+        // start real
+        hidePracticeUI();
+      }
+    }
+    if(d.phase === 'end'){
+      practice.active = false;
+      hidePracticeUI();
+    }
+  }, {passive:true});
+
+  // open calibration automatically for cvr on first load
+  if(view === 'cvr'){
+    setTimeout(()=>openCal(), 350);
+  }
+
+  // inform game about strict mode (optional)
+  if(view === 'cvr'){
+    try{ WIN.dispatchEvent(new CustomEvent('hha:view', {detail:{view:'cvr', strict:true}})); }catch(e){}
+  }
+
+})();
