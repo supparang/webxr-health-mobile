@@ -4,31 +4,27 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth — Hydration VR</title>
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Global FX / Logger -->
+  <!-- Global FX + optional logger -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
 
-  <!-- ✅ Safe Loader (imports hydration.safe.js from the correct place; shows overlay if failed) -->
-  <script src="./hydration-vr.loader.js" defer></script>
-
-  <!-- ✅ Coach renderer (listens hha:coach / hha:judge / hha:score / hha:end) -->
-  <script src="./vr/coach-manager.js" defer></script>
-
   <style>
     :root{
+      color-scheme: dark;
       --bg:#020617;
       --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
-      --stroke:rgba(148,163,184,.22);
+      --panel2:rgba(15,23,42,.72);
+      --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
       --warn:#f59e0b;
       --bad:#ef4444;
-      --radius:22px;
+      --cyan:#22d3ee;
+      --radius:18px;
       --pill:999px;
 
       --sat: env(safe-area-inset-top, 0px);
@@ -36,372 +32,484 @@
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
-    *{box-sizing:border-box}
-    html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-    button{font:inherit}
 
-    .app{
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    a{ color:inherit; }
+
+    /* Background soft glow */
+    body::before{
+      content:"";
       position:fixed; inset:0;
-      padding: calc(12px + var(--sat)) calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal));
-    }
-
-    /* ===== Playfield containers ===== */
-    #playfield, #cbPlayfield{
-      position:absolute; inset:0;
-      overflow:hidden;
-      touch-action:none;
-    }
-
-    /* Normal view */
-    #playfield{ display:block; }
-    #cbPlayfield{ display:none; }
-
-    /* Cardboard view: show cbPlayfield */
-    body.cardboard #playfield{ display:none; }
-    body.cardboard #cbPlayfield{ display:block; }
-
-    /* Targets layer(s) expected by hydration.safe.js */
-    #hydration-layer,
-    #hydration-layerL,
-    #hydration-layerR{
-      position:absolute; inset:0;
-      pointer-events:auto;
-    }
-
-    /* In normal mode use main layer */
-    body:not(.cardboard) #hydration-layer{ display:block; }
-    body:not(.cardboard) #hydration-layerL,
-    body:not(.cardboard) #hydration-layerR{ display:none; }
-
-    /* In cardboard mode use L/R layers */
-    body.cardboard #hydration-layer{ display:none; }
-    body.cardboard #hydration-layerL,
-    body.cardboard #hydration-layerR{ display:block; }
-
-    /* ===== HUD ===== */
-    .hud{
-      position:absolute; left:0; right:0; top:0;
-      z-index:30;
-      padding: 10px 10px 0 10px;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(34,211,238,.12), transparent 55%),
+        radial-gradient(circle at 85% 75%, rgba(34,197,94,.10), transparent 60%),
+        radial-gradient(circle at 40% 90%, rgba(168,85,247,.08), transparent 60%);
       pointer-events:none;
+      z-index:0;
+    }
+
+    /* ---------- HUD layout ---------- */
+    .hud{
+      position:fixed;
+      inset:0;
+      z-index:50;
+      pointer-events:none;
+      padding:
+        calc(12px + var(--sat)) calc(12px + var(--sar))
+        calc(12px + var(--sab)) calc(12px + var(--sal));
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr auto;
+      gap:12px;
+    }
+
+    .panel{
+      pointer-events:none;
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow: 0 18px 70px rgba(0,0,0,.40);
+      backdrop-filter: blur(10px);
+      padding:12px 12px;
+    }
+
+    .statGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      align-items:stretch;
+    }
+    .statBox{
+      display:flex; justify-content:space-between; align-items:baseline;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
+    }
+    .k{ font-size:12px; color:var(--muted); letter-spacing:.2px; }
+    .v{ font-size:20px; font-weight:900; }
+
+    .questTitle{ font-weight:900; letter-spacing:.2px; margin:0 0 6px 0; }
+    .questLine{ margin:2px 0; color:rgba(229,231,235,.92); font-size:13px; line-height:1.25; }
+    .questLine.muted{ color:rgba(148,163,184,.95); }
+
+    .miniRow{
+      margin-top:10px;
       display:flex;
       gap:10px;
       justify-content:space-between;
-      align-items:flex-start;
-    }
-    .hud .box{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:10px 12px;
-      min-width: 160px;
-      backdrop-filter: blur(10px);
-    }
-    .kv{display:flex;justify-content:space-between;gap:10px;font-weight:900}
-    .kv span{color:var(--muted);font-weight:800}
-
-    /* Coach mini panel */
-    .coach{
-      position:absolute;
-      left:10px; top:92px;
-      z-index:35;
-      display:flex; gap:10px; align-items:center;
-      pointer-events:none;
-      background:rgba(2,6,23,.62);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:10px 12px;
-      backdrop-filter: blur(10px);
-      max-width:min(520px, calc(100% - 20px));
-    }
-    .coach img{
-      width:54px;height:54px;border-radius:16px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.55);
-      object-fit:cover;
-    }
-    .coach .t{font-weight:1000}
-    .coach .s{color:var(--muted);font-weight:900;font-size:12px;line-height:1.25;margin-top:2px}
-
-    /* ===== Quest / Water panel ===== */
-    .panelRow{
-      position:absolute; left:10px; right:10px; bottom:10px;
-      z-index:30;
-      display:grid;
-      grid-template-columns: 1.2fr .8fr;
-      gap:10px;
-      pointer-events:none;
-    }
-    .panel{
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:10px 12px;
-      backdrop-filter: blur(10px);
-    }
-    .qLine{color:var(--muted);font-weight:800;line-height:1.25}
-    .waterTop{display:flex;justify-content:space-between;gap:10px;font-weight:900}
-    .bar{
-      margin-top:8px;
-      height:12px;
-      border-radius:999px;
-      background:rgba(148,163,184,.14);
-      overflow:hidden;
-      border:1px solid rgba(148,163,184,.18);
-    }
-    .bar > i{
-      display:block; height:100%;
-      width:50%;
-      background:rgba(34,197,94,.65);
-    }
-
-    .tinyRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
-    .pill{
-      display:inline-flex;gap:8px;align-items:center;
-      padding:6px 10px;border-radius:999px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.55);
-      font-weight:900;
-    }
-    .pill span{color:var(--muted);font-weight:900}
-
-    /* ===== Start overlay ===== */
-    #startOverlay{
-      position:absolute; inset:0;
-      z-index:80;
-      display:flex;
       align-items:center;
-      justify-content:center;
-      padding:20px;
-      background:rgba(2,6,23,.82);
-      backdrop-filter: blur(12px);
+      color:rgba(229,231,235,.92);
+      font-size:12px;
     }
-    #startOverlay.hide{ display:none; }
-    .startCard{
-      width:min(560px,100%);
-      background:rgba(2,6,23,.72);
-      border:1px solid var(--stroke);
-      border-radius:var(--radius);
-      padding:18px;
-      box-shadow:0 24px 80px rgba(0,0,0,.35);
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border-radius:var(--pill);
+      background:rgba(15,23,42,.55);
+      border:1px solid rgba(148,163,184,.14);
     }
-    .title{font-size:20px;font-weight:1000;margin:0 0 8px}
-    .sub{margin:0 0 12px;color:var(--muted);line-height:1.35}
-    .btnRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    .btn{
-      appearance:none;border:1px solid var(--stroke);
-      background:rgba(15,23,42,.75);
-      color:var(--text);
-      border-radius:16px;
-      padding:12px 14px;
-      font-weight:1000;
-      cursor:pointer;
+
+    .waterPanel .top{
+      display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
+    }
+    .waterPanel h3{ margin:0; font-size:14px; font-weight:900; letter-spacing:.2px; }
+    .waterPanel .zone{ margin-top:4px; color:rgba(148,163,184,.95); font-size:12px; }
+    .barWrap{
+      margin-top:10px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(148,163,184,.18);
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.12);
+    }
+    #water-bar{
+      height:100%;
+      width:50%;
+      background:linear-gradient(90deg, rgba(34,197,94,.95), rgba(34,211,238,.95));
+    }
+    .waterTip{
+      margin-top:10px;
+      font-size:12px;
+      color:rgba(229,231,235,.85);
+      white-space:pre-line;
+      line-height:1.25;
+    }
+
+    /* ---------- Playfield ---------- */
+    #playfield, #cbPlayfield{
+      position:fixed;
+      inset:0;
+      z-index:10;
+      overflow:hidden;
+      touch-action:manipulation;
+    }
+    /* main target layer for PC/Mobile */
+    #hydration-layer{
+      position:absolute; inset:0;
       pointer-events:auto;
     }
-    .btn.primary{background:rgba(34,197,94,.20);border-color:rgba(34,197,94,.35)}
-    .btn.warn{background:rgba(245,158,11,.16);border-color:rgba(245,158,11,.35)}
 
-    /* ===== Summary overlay ===== */
-    #resultBackdrop{
-      position:absolute; inset:0;
-      z-index:90;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(2,6,23,.86);
-      backdrop-filter: blur(12px);
-    }
-    #resultBackdrop[hidden]{display:none;}
-    .summaryCard{
-      width:min(720px,100%);
-      background:rgba(2,6,23,.78);
-      border:1px solid var(--stroke);
-      border-radius:24px;
-      padding:16px;
-    }
-    .sumTop{display:flex;justify-content:space-between;gap:10px;align-items:center}
-    .sumTop h2{margin:0;font-size:18px;font-weight:1000}
-    .sumBtns{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap:10px;
-    }
-    .tile{
-      background:rgba(15,23,42,.68);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:12px;
-    }
-    .tile .k{color:var(--muted);font-weight:900}
-    .tile .v{font-size:22px;font-weight:1000;margin-top:6px}
-    .mono{white-space:pre-wrap;font:800 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;color:var(--muted)}
-
-    /* End-window FX hook */
-    body.hha-endfx #playfield,
-    body.hha-endfx #cbPlayfield{ animation: shake .12s infinite linear; }
-    @keyframes shake{
-      0%{transform:translate(0,0)}
-      25%{transform:translate(1px,0)}
-      50%{transform:translate(0,1px)}
-      75%{transform:translate(-1px,0)}
-      100%{transform:translate(0,-1px)}
-    }
-
-    /* Cardboard split helpers */
+    /* cardboard: split L/R */
+    #cbPlayfield{ display:none; }
     .cbHalf{
-      position:absolute; top:0; bottom:0; width:50%;
+      position:absolute;
+      top:0; bottom:0;
+      width:50%;
       overflow:hidden;
+      pointer-events:auto;
     }
     .cbHalf.left{ left:0; }
     .cbHalf.right{ right:0; }
+    .cbLayer{
+      position:absolute; inset:0;
+      pointer-events:auto;
+    }
+    /* small lens vignette */
+    .cbHalf::before{
+      content:"";
+      position:absolute; inset:0;
+      background: radial-gradient(circle at center, transparent 58%, rgba(0,0,0,.45) 100%);
+      pointer-events:none;
+      z-index:2;
+    }
+
+    /* view modes */
+    body.view-pc #playfield{ display:block; }
+    body.view-mobile #playfield{ display:block; }
+    body.cardboard #playfield{ display:none; }
+    body.cardboard #cbPlayfield{ display:block; }
+
+    /* ---------- Start Overlay ---------- */
+    #startOverlay{
+      position:fixed;
+      inset:0;
+      z-index:100;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(18px + var(--sat)) calc(18px + var(--sar)) calc(18px + var(--sab)) calc(18px + var(--sal));
+      background:rgba(2,6,23,.86);
+      backdrop-filter: blur(10px);
+    }
+    #startOverlay.hide{ display:none; }
+
+    .card{
+      width:min(920px, 100%);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.70);
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
+      padding:18px;
+    }
+    .header{
+      display:flex; gap:14px; align-items:center;
+      margin-bottom:14px;
+    }
+    .logo{
+      width:52px; height:52px; border-radius:14px;
+      background:rgba(34,211,238,.12);
+      border:1px solid rgba(34,211,238,.18);
+      display:flex; align-items:center; justify-content:center;
+      font-size:26px;
+    }
+    .title{
+      font-size:18px; font-weight:900; margin:0;
+    }
+    .sub{
+      margin:4px 0 0 0;
+      color:rgba(148,163,184,.95);
+      font-size:13px;
+      line-height:1.3;
+    }
+    .btnRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+    .btn{
+      pointer-events:auto;
+      appearance:none;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.62);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      font-weight:900;
+      font-size:13px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn.primary{
+      border-color: rgba(34,197,94,.26);
+      background: rgba(34,197,94,.16);
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.26);
+      background: rgba(245,158,11,.14);
+    }
+    .note{
+      margin-top:12px;
+      font-size:12px;
+      color:rgba(229,231,235,.85);
+      line-height:1.35;
+      white-space:pre-line;
+    }
+
+    /* ---------- End Summary ---------- */
+    #resultBackdrop{
+      position:fixed;
+      inset:0;
+      z-index:120;
+      background:rgba(2,6,23,.74);
+      backdrop-filter: blur(10px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
+    }
+    #resultBackdrop[hidden]{ display:none; }
+
+    .resultCard{
+      width:min(980px, 100%);
+      border-radius:22px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.74);
+      box-shadow: 0 24px 90px rgba(0,0,0,.55);
+      padding:16px;
+    }
+    .resultTop{
+      display:flex; justify-content:space-between; gap:12px; align-items:flex-start;
+    }
+    .resultTop h2{ margin:0; font-size:16px; font-weight:900; }
+    .resultGrid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    .kv{ display:flex; justify-content:space-between; gap:10px; margin:6px 0; }
+    .kv .k2{ color:rgba(148,163,184,.95); font-size:12px; }
+    .kv .v2{ font-weight:900; }
+    pre{
+      margin:10px 0 0 0;
+      white-space:pre-wrap;
+      background:rgba(15,23,42,.70);
+      border:1px solid rgba(148,163,184,.14);
+      border-radius:14px;
+      padding:10px;
+      color:rgba(229,231,235,.92);
+      font-size:12px;
+      line-height:1.3;
+    }
+
+    /* End-window FX hook (hydration.safe.js toggles body.hha-endfx) */
+    body.hha-endfx{
+      animation: endBlink .55s ease-in-out infinite;
+    }
+    @keyframes endBlink{
+      0%,100%{ filter: brightness(1); }
+      50%{ filter: brightness(1.06); }
+    }
   </style>
 </head>
 
-<body>
-  <div class="app">
+<body class="view-pc">
 
-    <!-- Normal playfield -->
-    <div id="playfield">
-      <div id="hydration-layer" aria-label="Hydration targets"></div>
-    </div>
-
-    <!-- Cardboard playfield -->
-    <div id="cbPlayfield">
-      <div class="cbHalf left">
-        <div id="hydration-layerL" aria-label="Hydration targets L"></div>
-      </div>
-      <div class="cbHalf right">
-        <div id="hydration-layerR" aria-label="Hydration targets R"></div>
-      </div>
-    </div>
-
-    <!-- HUD -->
-    <div class="hud" aria-hidden="true">
-      <div class="box">
-        <div class="kv"><span>Score</span><b id="stat-score">0</b></div>
-        <div class="kv"><span>Combo</span><b id="stat-combo">0</b></div>
-      </div>
-      <div class="box">
-        <div class="kv"><span>Time</span><b id="stat-time">0</b></div>
-        <div class="kv"><span>Miss</span><b id="stat-miss">0</b></div>
-        <div class="kv"><span>Grade</span><b id="stat-grade">C</b></div>
-      </div>
-    </div>
-
-    <!-- Coach panel -->
-    <div class="coach" aria-hidden="true">
-      <img id="coach-img" alt="coach" src="./img/coach-neutral.png" />
-      <div>
-        <div class="t" id="coach-text">คุม GREEN ให้นิ่งก่อนนะ 💧</div>
-        <div class="s" id="coach-sub">Tip: เก็บ 🛡️ ไว้ BLOCK ตอนท้ายพายุ</div>
-      </div>
-    </div>
-
-    <!-- Quest/Water -->
-    <div class="panelRow" aria-hidden="true">
-      <div class="panel">
-        <div class="qLine" id="quest-line1">—</div>
-        <div class="qLine" id="quest-line2">—</div>
-        <div class="qLine" id="quest-line3">—</div>
-        <div class="qLine" id="quest-line4">—</div>
-
-        <div class="tinyRow">
-          <div class="pill"><span>Storm</span><b id="storm-left">0</b></div>
-          <div class="pill"><span>Shield</span><b id="shield-count">0</b></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="waterTop">
-          <div>💧 Water <b id="water-pct">50</b>%</div>
-          <div><span style="color:var(--muted);font-weight:900">Zone</span> <b id="water-zone">GREEN</b></div>
-        </div>
-        <div class="bar"><i id="water-bar" style="width:50%"></i></div>
-        <div class="mono" style="margin-top:10px">Tip: เก็บ Shield ก่อนพายุ แล้วรอ End Window เพื่อ BLOCK</div>
-      </div>
-    </div>
-
-    <!-- START overlay -->
-    <div id="startOverlay">
-      <div class="startCard">
-        <h1 class="title">💧 Hydration VR</h1>
-        <p class="sub">กด START เพื่อเริ่มเกม (ยิง event <b>hha:start</b>)</p>
-        <div class="btnRow">
-          <button class="btn primary" id="btnStart">🚀 START</button>
-          <button class="btn warn btnBackHub">🏠 Back HUB</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- SUMMARY overlay -->
-    <div id="resultBackdrop" hidden>
-      <div class="summaryCard">
-        <div class="sumTop">
-          <h2>🏁 Summary</h2>
-          <button class="btn" id="btnCloseSummary">✖ ปิด</button>
-        </div>
-
-        <div class="sumBtns">
-          <button class="btn warn" id="btnRetry">🔁 Retry</button>
-          <button class="btn btnBackHub">🏠 Back HUB</button>
-          <button class="btn" id="btnCopyJSON">📋 Copy JSON</button>
-          <button class="btn" id="btnDownloadCSV">⬇ Download CSV</button>
-        </div>
-
-        <div class="grid">
-          <div class="tile"><div class="k">Score</div><div class="v" id="rScore">0</div></div>
-          <div class="tile"><div class="k">Grade</div><div class="v" id="rGrade">C</div></div>
-          <div class="tile"><div class="k">Accuracy</div><div class="v" id="rAcc">0%</div></div>
-          <div class="tile"><div class="k">Combo Max</div><div class="v" id="rComboMax">0</div></div>
-          <div class="tile"><div class="k">Miss</div><div class="v" id="rMiss">0</div></div>
-          <div class="tile"><div class="k">Goals</div><div class="v" id="rGoals">0/1</div></div>
-          <div class="tile"><div class="k">Minis</div><div class="v" id="rMinis">0/0</div></div>
-          <div class="tile"><div class="k">Time in GREEN</div><div class="v" id="rGreen">0.0s</div></div>
-          <div class="tile"><div class="k">Streak Max</div><div class="v" id="rStreak">0</div></div>
-          <div class="tile"><div class="k">Storm Cycles</div><div class="v" id="rStormCycles">0</div></div>
-          <div class="tile"><div class="k">Storm Success</div><div class="v" id="rStormOk">0</div></div>
-          <div class="tile"><div class="k">Storm Rate</div><div class="v" id="rStormRate">0%</div></div>
-        </div>
-
-        <div class="tile" style="margin-top:10px">
-          <div class="k">AI Tips</div>
-          <div class="mono" id="rTips">• ...</div>
-          <div class="mono" id="rTier" style="margin-top:8px">Tier: Beginner</div>
-          <div class="mono" id="rNext" style="margin-top:8px">เป้าหมายถัดไป...</div>
-        </div>
-      </div>
-    </div>
-
+  <!-- PLAYFIELD (PC/Mobile) -->
+  <div id="playfield">
+    <div id="hydration-layer"></div>
   </div>
 
-  <!-- Wire START + BackHub -->
+  <!-- PLAYFIELD (Cardboard split) -->
+  <div id="cbPlayfield">
+    <div class="cbHalf left">
+      <div id="hydration-layerL" class="cbLayer"></div>
+    </div>
+    <div class="cbHalf right">
+      <div id="hydration-layerR" class="cbLayer"></div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div class="hud">
+    <!-- top-left stats -->
+    <div class="panel">
+      <div class="statGrid">
+        <div class="statBox">
+          <div class="k">Score</div><div class="v" id="stat-score">0</div>
+        </div>
+        <div class="statBox">
+          <div class="k">Combo</div><div class="v" id="stat-combo">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- top-right stats -->
+    <div class="panel">
+      <div class="statGrid">
+        <div class="statBox">
+          <div class="k">Time</div><div class="v" id="stat-time">0</div>
+        </div>
+        <div class="statBox">
+          <div class="k">Miss</div><div class="v" id="stat-miss">0</div>
+        </div>
+      </div>
+      <div style="margin-top:10px" class="statBox">
+        <div class="k">Grade</div><div class="v" id="stat-grade">C</div>
+      </div>
+    </div>
+
+    <!-- middle left: quest -->
+    <div class="panel" style="grid-column:1 / span 1; grid-row:2; align-self:start;">
+      <div class="questTitle">ภารกิจ Hydration 💧</div>
+      <div class="questLine" id="quest-line1">คุม GREEN ให้ครบ 0s (สะสม)</div>
+      <div class="questLine" id="quest-line2">GREEN: 0 / 0s</div>
+      <div class="questLine muted" id="quest-line3">รอ Storm แล้วค่อยทำ Mini</div>
+      <div class="questLine muted" id="quest-line4">State: เก็บ Shield ก่อนพายุ</div>
+
+      <div class="miniRow">
+        <div class="pill">Storm <b id="storm-left">0</b></div>
+        <div class="pill">Shield <b id="shield-count">0</b></div>
+      </div>
+    </div>
+
+    <!-- middle right: water -->
+    <div class="panel waterPanel" style="grid-column:2 / span 1; grid-row:2; align-self:end;">
+      <div class="top">
+        <div>
+          <h3>Water</h3>
+          <div class="zone">Zone <b id="water-zone">GREEN</b></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:900; font-size:22px;">
+            <span id="water-pct">50</span><span style="font-size:14px;color:rgba(148,163,184,.95)">%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="barWrap"><div id="water-bar"></div></div>
+      <div class="waterTip" id="water-tip">Tip: เก็บ Shield ก่อนพายุ แล้วรอ End Window เพื่อ BLOCK</div>
+    </div>
+
+    <!-- bottom row spacer (keeps grid stable) -->
+    <div style="grid-column:1 / span 2; grid-row:3;"></div>
+  </div>
+
+  <!-- START OVERLAY -->
+  <div id="startOverlay">
+    <div class="card">
+      <div class="header">
+        <div class="logo">💧</div>
+        <div>
+          <p class="title">HeroHealth — Hydration VR</p>
+          <p class="sub">
+            เลือกโหมดการเล่นให้ตรงอุปกรณ์ของอาจารย์/นักเรียน\n
+            • PC: เมาส์/คลิก\n
+            • Mobile: แตะหน้าจอ\n
+            • VR Cardboard: จอแยกซ้าย–ขวา + fullscreen/landscape (best-effort)
+          </p>
+        </div>
+      </div>
+
+      <div class="btnRow">
+        <button class="btn" id="btnPC">🖥️ PC</button>
+        <button class="btn" id="btnMobile">📱 Mobile</button>
+        <button class="btn primary" id="btnCardboard">🕶️ VR Cardboard</button>
+        <button class="btn warn btnBackHub">🏠 Back HUB</button>
+      </div>
+
+      <div class="note">
+        ทิปเล่นให้ผ่าน Mini (พายุ):
+        1) ช่วง Storm ทำให้น้ำ “ไม่เป็น GREEN” (เข้า LOW/HIGH)
+        2) รอช่วงท้าย (End Window) แล้ว “BLOCK” ด้วย Shield
+        3) ห้ามโดน BAD ตอนพายุ (ถ้าโดนจะ fail mini)
+      </div>
+    </div>
+  </div>
+
+  <!-- END SUMMARY -->
+  <div id="resultBackdrop" hidden>
+    <div class="resultCard">
+      <div class="resultTop">
+        <h2>สรุปผลการเล่น</h2>
+        <div class="btnRow" style="margin:0;">
+          <button class="btn" id="btnRetry">🔁 Retry</button>
+          <button class="btn warn btnBackHub">🏠 Back HUB</button>
+          <button class="btn" id="btnCloseSummary">✖ Close</button>
+        </div>
+      </div>
+
+      <div class="resultGrid">
+        <div class="panel" style="margin:0;">
+          <div class="kv"><div class="k2">Score</div><div class="v2" id="rScore">0</div></div>
+          <div class="kv"><div class="k2">Grade</div><div class="v2" id="rGrade">C</div></div>
+          <div class="kv"><div class="k2">Accuracy</div><div class="v2" id="rAcc">0%</div></div>
+          <div class="kv"><div class="k2">Combo Max</div><div class="v2" id="rComboMax">0</div></div>
+          <div class="kv"><div class="k2">Miss</div><div class="v2" id="rMiss">0</div></div>
+          <div class="kv"><div class="k2">Goals</div><div class="v2" id="rGoals">0/1</div></div>
+          <div class="kv"><div class="k2">Minis</div><div class="v2" id="rMinis">0/0</div></div>
+        </div>
+
+        <div class="panel" style="margin:0;">
+          <div class="kv"><div class="k2">GREEN Hold</div><div class="v2" id="rGreen">0s</div></div>
+          <div class="kv"><div class="k2">Streak Max</div><div class="v2" id="rStreak">0</div></div>
+          <div class="kv"><div class="k2">Storm Cycles</div><div class="v2" id="rStormCycles">0</div></div>
+          <div class="kv"><div class="k2">Storm Success</div><div class="v2" id="rStormOk">0</div></div>
+          <div class="kv"><div class="k2">Storm Rate</div><div class="v2" id="rStormRate">0%</div></div>
+          <div class="kv"><div class="k2" id="rTier">Tier:</div><div></div></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:12px;">
+        <div class="kv"><div class="k2">Tips</div></div>
+        <pre id="rTips">—</pre>
+        <div class="kv" style="margin-top:10px;"><div class="k2">Next</div><div class="v2" id="rNext">—</div></div>
+
+        <div class="btnRow">
+          <button class="btn" id="btnCopyJSON">📋 Copy JSON</button>
+          <button class="btn" id="btnDownloadCSV">⬇️ Download CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Select view + auto start (reload with view=...) -->
   <script>
-    (function(){
-      const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
-      const hub = String(qs('hub','./hub.html'));
+  (function(){
+    const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+    const hub = String(qs('hub','./hub.html'));
 
-      document.querySelectorAll('.btnBackHub').forEach(btn=>{
-        btn.addEventListener('click', ()=> location.href = hub);
-      });
+    document.querySelectorAll('.btnBackHub').forEach(btn=>{
+      btn.addEventListener('click', ()=> location.href = hub);
+    });
 
-      const startBtn = document.getElementById('btnStart');
-      startBtn?.addEventListener('click', ()=>{
-        const ov = document.getElementById('startOverlay');
-        if (ov) ov.classList.add('hide');
+    function go(view){
+      const u = new URL(location.href);
+      u.searchParams.set('view', view);
+      // cache-bust
+      if (!u.searchParams.get('ts')) u.searchParams.set('ts', String(Date.now()));
+      location.href = u.toString();
+    }
 
-        // kick audio context once (for beeps)
-        try{
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if (AC) { const a = new AC(); a.resume?.(); setTimeout(()=>a.close?.(), 200); }
-        }catch(_){}
+    document.getElementById('btnPC')?.addEventListener('click', ()=>go('pc'), {passive:true});
+    document.getElementById('btnMobile')?.addEventListener('click', ()=>go('mobile'), {passive:true});
+    document.getElementById('btnCardboard')?.addEventListener('click', ()=>go('cardboard'), {passive:true});
 
-        window.dispatchEvent(new CustomEvent('hha:start'));
-      }, {passive:true});
-    })();
+    // If already has view=..., hide overlay + start game
+    const view = String(qs('view','')).toLowerCase();
+    if (view){
+      const ov = document.getElementById('startOverlay');
+      ov?.classList.add('hide');
+      window.dispatchEvent(new CustomEvent('hha:start'));
+    }
+  })();
   </script>
 
-  <!-- ✅ IMPORTANT: DO NOT load hydration.safe.js here (loader will import it) -->
+  <!-- Loader (sets view + imports hydration.safe.js) -->
+  <script type="module" src="./hydration-vr.loader.js"></script>
 </body>
 </html>
