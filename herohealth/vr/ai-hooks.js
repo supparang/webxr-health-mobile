@@ -1,263 +1,213 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HeroHealth — AI Hooks (PRODUCTION, default OFF for research)
-// ✅ AI Difficulty Director (fair, smooth) — optional
-// ✅ AI Coach micro-tips (explainable + rate-limit) — optional
-// ✅ AI Pattern Generator (seeded) — optional
-// ✅ Deterministic in study by default: ALL AI OFF unless explicitly allowed
-// ✅ Emits: hha:adaptive (if director), hha:coach (if coach), hha:log (optional)
+// AI Hooks (OFF by default, especially in research)
+// จุดเสียบสำหรับ:
+// (1) AI Difficulty Director (fair, smooth)
+// (2) AI Coach (micro tips, explainable)
+// (3) AI Pattern/Spawn Generator (seeded/deterministic)
+//
+// Usage:
+//   import { createAIHooks } from '../vr/ai-hooks.js';
+//   const AI = createAIHooks({ enabled, seed, runMode, diff, game, emit });
+//   AI.onStart(...); AI.onUpdate(...); AI.onEnd(...);
+//   base = AI.tuneSpawn({...});
+//   probs = AI.tuneKind({...});
+//   s = AI.tuneSize({...});
+//   px = AI.tuneAim({...});
 
 'use strict';
 
 function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-function mulberry32(seed){
-  let t = (seed >>> 0) || 1;
+function hashStr(s){
+  s=String(s||''); let h=2166136261;
+  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+  return (h>>>0);
+}
+function makeRng(seedStr){
+  let x = hashStr(seedStr) || 123456789;
   return function(){
-    t += 0x6D2B79F5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    x ^= x << 13; x >>>= 0;
+    x ^= x >> 17; x >>>= 0;
+    x ^= x << 5;  x >>>= 0;
+    return (x>>>0) / 4294967296;
   };
 }
-function qs(k, def=null){
-  try{ return new URL(location.href).searchParams.get(k) ?? def; }
-  catch{ return def; }
-}
-function qbool(k, def=false){
-  const v = String(qs(k,'')||'').toLowerCase();
-  if(!v) return !!def;
-  if(['1','true','yes','y','on','enable','enabled'].includes(v)) return true;
-  if(['0','false','no','n','off','disable','disabled'].includes(v)) return false;
-  return !!def;
-}
-function emit(name, detail){
-  try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(e){}
-}
 
-function softSign(x){ x=Number(x)||0; return x/(1+Math.abs(x)); }
+export function createAIHooks(opts={}){
+  const enabled = !!opts.enabled;
+  const seed = String(opts.seed || Date.now());
+  const runMode = String(opts.runMode || 'play').toLowerCase();
+  const diff = String(opts.diff || 'normal').toLowerCase();
+  const game = String(opts.game || 'game');
+  const emit = (typeof opts.emit === 'function') ? opts.emit : ()=>{};
 
-// ------------------------- Config policy -------------------------
-// Default rules (สำคัญ):
-// - runMode=study => AI OFF (director/coach/pattern) unless aiStudy=1
-// - runMode=play  => AI optional via ?ai=1 OR explicit flags
-// - You can granularly enable: ?aidir=1&aicoach=1&aipattern=1
-function resolveEnable({ runMode }){
-  const isStudy = (runMode === 'study' || runMode === 'research');
-  const allowStudy = qbool('aiStudy', false); // must opt-in explicitly
-  const master = qbool('ai', false);
+  // research/study: default OFF แม้ user ส่ง enabled มาผิด
+  const safeEnabled = enabled && !(runMode === 'research' || runMode === 'study');
 
-  const dir = qbool('aidir', master);
-  const coach = qbool('aicoach', master);
-  const pattern = qbool('aipattern', master);
+  // deterministic rng for AI decisions
+  const rng = makeRng(`${seed}|AI|${game}`);
 
-  if(isStudy && !allowStudy){
-    return { dir:false, coach:false, pattern:false };
-  }
-  return { dir, coach, pattern };
-}
+  // internal smooth signals
+  const M = {
+    t0: 0,
+    lastTipAt: 0,
+    // EMA signals
+    emaSkill: 0.45,
+    emaFrust: 0.20,
+    emaFatigue: 0.0,
+    // “pressure” จาก performance เพื่อปรับความยากแบบยุติธรรม
+    directorK: 0.0, // -1..+1
+  };
 
-// ------------------------- AI Coach (micro tips) -------------------------
-function createAICoach({ game='unknown', seed=1 }){
-  const rng = mulberry32((seed ^ 0xC0ACh) >>> 0);
-  let lastTipAt = 0;
-  let coolMs = clamp(qs('coachCooldown', 2600), 900, 120000);
-
-  function canTip(){
-    const now = Date.now();
-    if(now - lastTipAt < coolMs) return false;
-    lastTipAt = now;
-    return true;
+  function note(type, data){
+    if (!safeEnabled) return;
+    emit('hha:ai', { type, game, ...data });
   }
 
-  function tip(msg, mood='neutral', why=''){
-    if(!canTip()) return;
-    emit('hha:coach', { game, msg, mood, why, source:'ai-coach' });
-    emit('hha:log', { game, kind:'ai_tip', msg, mood, why, t:Date.now() });
+  function onStart(ctx={}){
+    if (!safeEnabled) return;
+    M.t0 = performance.now();
+    note('start', { diff, runMode, seed });
   }
 
-  // Make short, explainable tips based on state signals
-  function onUpdate(state){
-    // state: { acc, miss, fever, combo, rtAvg, shield, tLeftSec, miniActive, miniTimeLeft, goalKey }
-    if(!state) return;
+  function onUpdate(ctx={}){
+    if (!safeEnabled) return;
 
-    const acc = Number(state.acc)||0;
-    const miss = Number(state.miss)||0;
-    const fever = Number(state.fever)||0;
-    const rtAvg = Number(state.rtAvg)||0;
-    const shield = Number(state.shield)||0;
+    const skill = clamp(ctx.skill ?? 0.5, 0, 1);
+    const frust = clamp(ctx.frustration ?? 0.2, 0, 1);
+    const fatigue = clamp(ctx.fatigue ?? 0.0, 0, 1);
 
-    // 1) High fever
-    if(fever >= 85){
-      tip('🔥 FEVER สูงมาก! โฟกัส “ดี” ก่อน ลดการเสี่ยงโดนขยะ', 'fever', 'fever>=85');
-      return;
-    }
+    // EMA
+    M.emaSkill = M.emaSkill*0.90 + skill*0.10;
+    M.emaFrust = M.emaFrust*0.90 + frust*0.10;
+    M.emaFatigue = M.emaFatigue*0.92 + fatigue*0.08;
 
-    // 2) Accuracy struggling
-    if(acc > 0 && acc < 72 && miss >= 3){
-      tip('🎯 ลอง “ช้าลงนิด” แล้วเลือกเป้าดีให้ชัวร์ (คอมโบจะกลับมาเอง)', 'sad', 'low-acc');
-      return;
-    }
+    // Director: ถ้า frust สูง -> ผ่อนเล็กน้อย / ถ้า skill สูง+frust ต่ำ -> เร่ง
+    const want = clamp((M.emaSkill - 0.55)*1.25 - (M.emaFrust - 0.25)*1.35 - (M.emaFatigue - 0.55)*0.60, -1, 1);
+    M.directorK = M.directorK*0.92 + want*0.08;
 
-    // 3) Great performance => push challenge
-    if(acc >= 90 && rtAvg > 0 && rtAvg < 520){
-      if(rng() < 0.5){
-        tip('⚡ เร็วมาก! ลองเก็บ “หมู่ที่ยังขาด” แบบต่อเนื่อง 3 ตัวติด', 'happy', 'high-skill');
-      }else{
-        tip('😎 สวย! ต่อไปคุมไม่ให้โดนขยะเลยนะ จะได้เกรด S/SSS', 'happy', 'high-skill');
-      }
-      return;
-    }
+    // micro-tip แบบ rate-limit (ไม่ spam)
+    const now = performance.now();
+    const cooldown = 3500;
+    if (now - M.lastTipAt > cooldown){
+      // tip trigger เฉพาะช่วงสำคัญ (storm/endwindow) หรือ frust สูง
+      const inStorm = !!ctx.inStorm;
+      const inEnd = !!ctx.inEndWindow;
+      if (inEnd || (inStorm && M.emaFrust > 0.55) || (M.emaSkill < 0.35 && M.emaFrust > 0.45)){
+        M.lastTipAt = now;
 
-    // 4) Shield reminder
-    if(shield >= 2 && fever >= 65){
-      tip('🛡 มีโล่แล้ว! ใช้กันพลาดช่วง FEVER ได้ แต่ยังอย่าเสี่ยงเกิน', 'neutral', 'shield-remind');
-      return;
-    }
+        let msg = 'เล็งค้างนิด แล้วค่อยยิง';
+        if (inEnd) msg = 'End Window มาแล้ว! เก็บ 🛡️ แล้ว BLOCK ให้ทัน';
+        else if (ctx.shield <= 0 && inStorm) msg = 'พายุมาแล้ว แต่โล่หมด! โฟกัสหา 🛡️ ก่อน';
+        else if (M.emaSkill > 0.72 && M.emaFrust < 0.30) msg = 'โหดได้! ลากคอมโบยาว ๆ แล้วคุมจังหวะ';
 
-    // 5) Mini end window cues
-    if(state.miniActive && state.miniTimeLeft != null){
-      const tl = Number(state.miniTimeLeft)||0;
-      if(tl <= 3.2 && tl > 0){
-        tip('⏱ ใกล้หมดเวลา MINI! เลือกหมู่ที่ “ขาด” ก่อน!', 'warn', 'mini-end');
-        return;
+        emit('hha:coach', {
+          type: 'ai-tip',
+          game,
+          msg,
+          explain: `directorK=${M.directorK.toFixed(2)} skill=${M.emaSkill.toFixed(2)} frust=${M.emaFrust.toFixed(2)} fat=${M.emaFatigue.toFixed(2)}`
+        });
       }
     }
   }
 
-  return { tip, onUpdate };
-}
-
-// ------------------------- AI Difficulty Director -------------------------
-// Goal: keep "challenge band" fair & smooth; never abrupt.
-// Output: { sizeMul, spawnMul, junkMul } (multipliers)
-function createAIDirector({ seed=1 }){
-  const rng = mulberry32((seed ^ 0xD1RECT0R) >>> 0);
-
-  // internal smooth state
-  let out = { sizeMul:1.0, spawnMul:1.0, junkMul:1.0 };
-  let lastAt = 0;
-
-  // aggressiveness: 0..1 (default 0.35)
-  const alpha = clamp(qs('aidAlpha', 0.35), 0.05, 0.9);
-  const maxStep = clamp(qs('aidStep', 0.06), 0.01, 0.20);
-
-  function lerp(a,b,t){ return a+(b-a)*t; }
-  function nudge(cur, target){
-    const delta = clamp(target - cur, -maxStep, +maxStep);
-    return cur + delta;
+  function onEnd(summary={}){
+    if (!safeEnabled) return;
+    note('end', { grade: summary.grade, score: summary.scoreFinal, acc: summary.accuracyGoodPct, miss: summary.misses });
   }
 
-  function update(state){
-    // state: { acc, miss, rtAvg, fever, combo, tLeftSec }
-    const now = Date.now();
-    if(now - lastAt < 160) return out; // throttle
-    lastAt = now;
+  // ---- Tuning hooks ----
+  function tuneSpawn(ctx={}){
+    // ctx.baseMs, ctx.inStorm, ctx.adaptK, etc.
+    let ms = Number(ctx.baseMs || 600);
 
-    const acc = clamp(state?.acc ?? 0, 0, 100);
-    const miss = clamp(state?.miss ?? 0, 0, 999);
-    const rtAvg = clamp(state?.rtAvg ?? 800, 120, 2500);
-    const fever = clamp(state?.fever ?? 0, 0, 100);
+    if (!safeEnabled) return ms;
 
-    // target band: acc 78–90, rt 520–760, miss pressure low
-    // performance score p: -1..+1
-    const pAcc = softSign((acc - 84) / 10);
-    const pRt  = softSign((680 - rtAvg) / 220); // faster -> positive
-    const pMiss= softSign((3 - miss) / 2.2);
-    const pFv  = softSign((55 - fever) / 18);   // lower fever -> positive
-    let p = 0.42*pAcc + 0.28*pRt + 0.20*pMiss + 0.10*pFv;
-    p = clamp(p, -1, 1);
+    // directorK>0 = ยากขึ้น (ถี่ขึ้น), <0 = ผ่อน (ช้าลง)
+    const k = clamp(M.directorK, -1, 1);
 
-    // Convert to targets
-    // If p positive => harder: smaller size, higher spawn, higher junk
-    // If p negative => easier: bigger size, lower spawn, lower junk
-    const tgtSize  = clamp(1.0 - p*0.10, 0.86, 1.18);
-    const tgtSpawn = clamp(1.0 + p*0.14, 0.82, 1.22);
-    const tgtJunk  = clamp(1.0 + p*0.10, 0.85, 1.22);
+    // น้ำหนักคุมไม่ให้แกว่ง: ปรับแค่ ~±12%
+    const mul = 1.0 - 0.12*k;
 
-    // Smooth + step-limited
-    out.sizeMul  = clamp(nudge(out.sizeMul,  lerp(out.sizeMul,  tgtSize,  alpha)),  0.84, 1.24);
-    out.spawnMul = clamp(nudge(out.spawnMul, lerp(out.spawnMul, tgtSpawn, alpha)),  0.80, 1.28);
-    out.junkMul  = clamp(nudge(out.junkMul,  lerp(out.junkMul,  tgtJunk,  alpha)),  0.82, 1.28);
+    // ถ้า frust สูงมาก -> ผ่อนเพิ่มอีกนิด
+    const fr = M.emaFrust;
+    const soft = (fr > 0.65) ? 1.08 : 1.0;
 
-    // Optional gentle randomness (very small) to avoid static feel (still deterministic via seed)
-    if(qbool('aidJitter', true)){
-      const j = (rng()-0.5) * 0.008;
-      out.spawnMul = clamp(out.spawnMul + j, 0.80, 1.28);
+    ms = ms * mul * soft;
+
+    // deterministic micro jitter เพิ่ม feel แต่ไม่ทำให้ unfair
+    const j = (rng()*2-1) * 18; // +/-18ms
+    return ms + j;
+  }
+
+  function tuneKind(ctx={}){
+    // ctx: pGood, pBad, pSh, inStorm, inBoss
+    let pGood = Number(ctx.pGood ?? 0.66);
+    let pBad  = Number(ctx.pBad  ?? 0.28);
+    let pSh   = Number(ctx.pSh   ?? 0.06);
+
+    if (!safeEnabled) return { pGood, pBad, pSh };
+
+    const k = clamp(M.directorK, -1, 1);
+
+    // directorK>0 เพิ่ม bad นิด (โหดขึ้น), directorK<0 เพิ่ม good/shield (ผ่อน)
+    // จำกัดการขยับไม่เกิน +/-0.06
+    const delta = 0.06 * k;
+
+    pBad  = clamp(pBad + delta, 0.12, 0.55);
+    pGood = clamp(pGood - delta*0.75, 0.25, 0.80);
+
+    // ถ้า frust สูง + storm: เพิ่ม shield เล็กน้อย (ให้โอกาสพลิกเกม)
+    if (ctx.inStorm && M.emaFrust > 0.55){
+      pSh = clamp(pSh + 0.03, 0.05, 0.18);
+    } else {
+      pSh = clamp(pSh + (-0.01*k), 0.04, 0.14);
     }
 
-    return out;
+    // normalize
+    const sum = pGood + pBad + pSh;
+    pGood /= sum; pBad /= sum; pSh /= sum;
+
+    return { pGood, pBad, pSh };
   }
 
-  return { update, get:()=>({ ...out }) };
-}
+  function tuneSize(ctx={}){
+    let s = Number(ctx.s || 64);
+    if (!safeEnabled) return s;
 
-// ------------------------- AI Pattern Generator (seeded) -------------------------
-// Helps vary spawn kind distribution + “streak shaping” (still fair).
-function createAIPattern({ seed=1 }){
-  const rng = mulberry32((seed ^ 0xPA77ERN) >>> 0);
-  let streakGood = 0;
-  let streakJunk = 0;
+    // directorK>0 -> เป้าเล็กลงนิด (โหดขึ้น), <0 -> ใหญ่ขึ้นนิด
+    const k = clamp(M.directorK, -1, 1);
+    const mul = 1.0 - 0.08*k; // +/-8%
+    s = s * mul;
 
-  // call per spawn decision
-  function decideKind({ baseJunkRate=0.25, fever=0, shield=0 }){
-    // base junk rate modified mildly by fever
-    let jr = clamp(baseJunkRate + (fever/100)*0.04, 0.08, 0.60);
+    // ถ้า skill ต่ำ/ frust สูง -> เพิ่ม size ช่วยเล็กน้อย
+    if (M.emaSkill < 0.35 && M.emaFrust > 0.45) s *= 1.06;
 
-    // streak shaping:
-    // avoid too many junk in a row, avoid too many good in a row (keeps rhythm)
-    if(streakJunk >= 2) jr *= 0.62;
-    if(streakGood >= 6) jr *= 1.22;
-
-    // shield available => can allow slightly more junk (pressure)
-    if(shield >= 2) jr *= 1.06;
-
-    jr = clamp(jr, 0.08, 0.62);
-
-    const isJunk = rng() < jr;
-    if(isJunk){ streakJunk++; streakGood = 0; }
-    else { streakGood++; streakJunk = 0; }
-    return isJunk ? 'junk' : 'good';
+    return s;
   }
 
-  // tiny chance spawn shield when struggle
-  function maybeShield({ fever=0, shield=0, isStudy=false }){
-    if(isStudy) return false;
-    if(shield >= 3) return false;
-    const p = (fever >= 70) ? 0.06 : 0.02;
-    return (rng() < p);
-  }
+  function tuneAim(ctx={}){
+    let px = Number(ctx.px || 56);
+    if (!safeEnabled) return px;
 
-  return { decideKind, maybeShield };
-}
+    // directorK>0 -> lock แคบลง (โหดขึ้น), <0 -> กว้างขึ้น
+    const k = clamp(M.directorK, -1, 1);
+    px = px * (1.0 + (-0.10*k)); // +/-10%
 
-// ------------------------- Factory -------------------------
-export function createAIHooks(opts = {}){
-  const runMode = opts.runMode || 'play';
-  const seed = Number(opts.seed)||1;
-  const game = opts.game || 'unknown';
+    // ถ้า frust สูงมาก -> ช่วยเพิ่มอีกนิด
+    if (M.emaFrust > 0.70) px *= 1.10;
 
-  const en = resolveEnable({ runMode });
-
-  const coach = en.coach ? createAICoach({ game, seed }) : null;
-  const director = en.dir ? createAIDirector({ seed }) : null;
-  const pattern = en.pattern ? createAIPattern({ seed }) : null;
-
-  function onUpdate(state){
-    if(coach) coach.onUpdate(state);
-  }
-
-  function getDirectorMult(state){
-    if(!director) return null;
-    const m = director.update(state);
-    emit('hha:adaptive', { game, source:'ai-director', adapt:{...m}, t:Date.now() });
-    return m;
+    return px;
   }
 
   return {
-    enabled: { ...en },
-    coach,
-    director,
-    pattern,
+    enabled: safeEnabled,
+    note,
+    onStart,
     onUpdate,
-    getDirectorMult
+    onEnd,
+    tuneSpawn,
+    tuneKind,
+    tuneSize,
+    tuneAim
   };
 }
