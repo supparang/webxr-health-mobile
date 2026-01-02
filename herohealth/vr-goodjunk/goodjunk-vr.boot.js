@@ -1,9 +1,7 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Start-gated boot to prevent target flash + unify PC/Mobile/VR/cVR
 'use strict';
 
 import { boot as engineBoot } from './goodjunk.safe.js';
-import { applyCalibration, openCalibration } from './gj-calibration.js';
 
 const ROOT = window;
 const DOC  = document;
@@ -36,68 +34,56 @@ function ensureVrUi(){
   DOC.head.appendChild(s);
 }
 
-function startEngine(opts={}){
+function emitStartAndBoot(){
   if(started) return;
   started = true;
 
-  const view = normalizeView(opts.view || qs('view','mobile'));
+  const view = normalizeView(qs('view','mobile'));
   setBodyView(view);
 
-  // ✅ load aimpoint from saved calibration (cVR/VR)
-  applyCalibration(view);
+  if (view === 'cvr' || view === 'vr') ensureVrUi();
 
-  ensureVrUi();
+  // ✅ Pack25 meta
+  const meta = (ROOT.HHA_SESSION && ROOT.HHA_SESSION.buildMeta)
+    ? ROOT.HHA_SESSION.buildMeta('GoodJunkVR', { gameVersion: 'gj-2026-01-02' })
+    : { projectTag:'GoodJunkVR', runMode: qs('run','play'), diff: qs('diff','normal'), view, sessionId: 'S-'+Date.now() };
 
+  // ✅ must include hub in meta for back button
+  if (!meta.hub) meta.hub = qs('hub', null);
+
+  // ✅ dispatch hha:start ONCE
+  ROOT.dispatchEvent(new CustomEvent('hha:start', { detail: meta }));
+
+  // ✅ start engine with meta-derived args
   engineBoot({
     view,
-    diff: (qs('diff','normal')||'normal'),
-    run:  (qs('run','play')||'play'),
-    time: Number(qs('time','80')||80),
-    seed: qs('seed', null),
-    hub:  qs('hub', null),
+    diff: meta.diff,
+    run: meta.runMode,
+    time: meta.durationPlannedSec,
+    seed: meta.seed,
+    hub: meta.hub,
 
-    // research meta (optional)
-    studyId: qs('study', qs('studyId', null)),
-    phase: qs('phase', null),
-    conditionGroup: qs('cond', qs('conditionGroup', null)),
+    // research meta
+    sessionId: meta.sessionId,
+    studyId: meta.studyId,
+    phase: meta.phase,
+    conditionGroup: meta.conditionGroup,
+    pid: meta.pid,
+    protocol: meta.protocol,
+    challenge: meta.gameMode, // if you use it
+    gameVersion: meta.gameVersion
   });
 }
 
-// ---- UI wiring ----
-const overlay = DOC.getElementById('startOverlay');
-const btnStart = DOC.getElementById('btnStart');
-const btnCalib = DOC.getElementById('btnCalib');
-const btnEnterVR = DOC.getElementById('btnEnterVR');
-
-btnStart?.addEventListener('click', ()=>{
-  overlay.style.display = 'none';
-  startEngine({ view: qs('view','mobile') });
+// ✅ Hook your START button to this:
+DOC.addEventListener('click', (e)=>{
+  const t = e.target;
+  if(t && (t.id === 'btn-start' || t.classList.contains('btn-start'))){
+    emitStartAndBoot();
+  }
 }, { passive:true });
 
-btnCalib?.addEventListener('click', ()=>{
-  const v = normalizeView(qs('view','cvr'));
-  openCalibration({ view:v, shotsNeed: 8 });
-}, { passive:true });
-
-btnEnterVR?.addEventListener('click', ()=>{
-  // preload VR UI then user can press Enter VR
-  ensureVrUi();
-  overlay.querySelector('.hint').textContent = 'โหลด VR UI แล้ว ✅ กด ENTER VR ที่มุมจอได้เลย';
-}, { passive:true });
-
-// Open calibration by query
-if(qs('calib','0')==='1'){
-  const v = normalizeView(qs('view','cvr'));
-  openCalibration({ view:v, shotsNeed: 8 });
+// (optional) auto-start if you want run=play&autostart=1
+if(qs('autostart','0') === '1'){
+  window.addEventListener('load', ()=> emitStartAndBoot(), { passive:true });
 }
-
-// RECENTER from vr-ui opens calibration (cVR/VR only)
-ROOT.addEventListener('hha:recenter', ()=>{
-  const v = normalizeView(qs('view','cvr'));
-  if(v==='cvr' || v==='vr') openCalibration({ view:v, shotsNeed: 8 });
-}, { passive:true });
-
-// Preload VR UI when user wants cVR
-ROOT.addEventListener('hha:enter-cvr', ()=>{
-  ensureVrUi();
-}, { passive:true });
