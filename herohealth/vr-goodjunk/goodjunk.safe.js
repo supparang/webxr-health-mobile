@@ -1,13 +1,14 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — PRODUCTION (C: gameplay + research-ready) + Pack25–27
+// GoodJunkVR — PRODUCTION (C: gameplay + research-ready)
 // ✅ MISS = good expired + junk hit (shield blocks junk miss => NO miss)
 // ✅ Play: practice 15s (no penalty) then real play timer resets
-// ✅ Research: deterministic seed (pid|protocol|diff|mode) if HHA_SESSION exists, NO practice
+// ✅ Research: deterministic seed, NO practice
 // ✅ RT: avg / median / fast% + breakdown JSON
-// ✅ FX: Particles burst/scorePop/toast (if available) + spawn/gone CSS hooks
-// ✅ Patch ticker: every ~6s emits session_patch (if HHA_PATCH_TICKER exists; fallback emits hha:patch)
-// ✅ End summary: sessionId + hub + last summary storage
+// ✅ FX: Particles burst/scorePop/toast (if available)
 // ✅ AI hooks: OFF by default, research OFF unless aiForce=1
+// ✅ Crosshair shooting: hha:shoot picks nearest target within lockPx
+// ✅ Low-time: ring + 5..1 countdown
+// ✅ Fever/Shield UI: fever = miss ratio proxy (safe)
 
 'use strict';
 
@@ -76,15 +77,27 @@ function hudUpdate(state){
 }
 
 // -------------------------
-// Pack27: Patch ticker fallback
+// FEVER / SHIELD UI (safe)
 // -------------------------
-function fallbackPatchEmit(meta, patch){
-  // if logger listens to hha:patch, it can send to sheet
-  emit('hha:patch', { ...meta, ...patch, type:'session_patch' });
+function setFeverUI(pct){
+  const p = clamp(pct,0,100);
+  const fill = byId('feverFill');
+  const txt  = byId('feverText');
+  if(fill) fill.style.width = `${p.toFixed(0)}%`;
+  if(txt) txt.textContent = `${p.toFixed(0)}%`;
+}
+function setShieldUI(sec){
+  const box = byId('shieldPills');
+  if(!box) return;
+  const s = Math.max(0, Number(sec)||0);
+  const n = Math.min(6, Math.ceil(s));
+  box.innerHTML = n
+    ? new Array(n).fill('🛡️').map(x=>`<span style="font-weight:1100">${x}</span>`).join('')
+    : '<span style="opacity:.7">—</span>';
 }
 
 // -------------------------
-// UX: Danger warning overlay (เดิมของคุณ)
+// UX: Danger warning overlay
 // -------------------------
 function ensureDangerLayer(){
   let el = DOC.querySelector('.gj-danger');
@@ -138,7 +151,7 @@ function setDanger(level01){
 }
 
 // -------------------------
-// Practice hint (pack 14) — เดิม
+// Practice hint (pack 14)
 // -------------------------
 function ensurePracticeHint(){
   let el = DOC.querySelector('.gj-practice');
@@ -295,8 +308,8 @@ function removeEl(el){
 }
 
 // -------------------------
-// RT buckets (pack 12)
-/// ------------------------
+// RT buckets
+// -------------------------
 function pushRtBucket(bucket, rt, cap, rng){
   if(!bucket || rt==null) return;
   bucket.n++; bucket.sum += rt;
@@ -327,10 +340,6 @@ function makeInitialState(cfg, opts){
     comboMax:0,
     miss:0,
 
-    // ✅ Pack5: miss breakdown
-    missFromExpire:0,
-    missFromJunk:0,
-
     nSpawnGood:0, nSpawnJunk:0, nSpawnStar:0, nSpawnShield:0,
     nHitGood:0, nHitJunk:0, nHitJunkGuard:0,
     nExpireGood:0,
@@ -360,7 +369,7 @@ function makeInitialState(cfg, opts){
     rng: opts.rng,
     lastSpawnAtMs: 0,
 
-    // RT main (sheet)
+    // RT main
     rtGoodCount:0,
     rtGoodSumMs:0,
     rtGoodFastCount:0,
@@ -399,21 +408,7 @@ export function boot(opts={}){
   const run  = String(opts.run||'play').toLowerCase();
   const isResearch = (run === 'research');
 
-  // ✅ Pack25: deterministic seed for research if deriveSeed exists
-  let seed;
-  if (opts.seed != null) seed = Number(opts.seed);
-  else if (isResearch && ROOT.HHA_SESSION?.deriveSeed) {
-    seed = ROOT.HHA_SESSION.deriveSeed({
-      pid: qs('pid', qs('participant','')),
-      protocol: qs('protocol',''),
-      diff,
-      gameMode: qs('mode', qs('gameMode','rush')),
-      projectTag: 'GoodJunkVR'
-    });
-  } else {
-    seed = Date.now();
-  }
-
+  const seed = opts.seed != null ? Number(opts.seed) : (isResearch ? 12345 : Date.now());
   const rng = makeSeededRng(seed);
 
   const cfg = diffCfg(diff);
@@ -436,54 +431,17 @@ export function boot(opts={}){
 
   hudUpdate(state);
 
-  // ✅ Pack25: meta (prefer HHA_SESSION.buildMeta)
-  const meta = (ROOT.HHA_SESSION && ROOT.HHA_SESSION.buildMeta)
-    ? ROOT.HHA_SESSION.buildMeta('GoodJunkVR', { gameVersion:'gj-2026-01-02C', seed, view, diff, runMode:run, durationPlannedSec: timeSec })
-    : {
-        projectTag:'GoodJunkVR',
-        runMode: run,
-        diff,
-        view,
-        seed,
-        durationPlannedSec: timeSec,
-        studyId: opts.studyId || null,
-        phase: opts.phase || null,
-        conditionGroup: opts.conditionGroup || null,
-        startTimeIso: new Date().toISOString(),
-        gameVersion:'gj-2026-01-02C',
-        sessionId: `S-${Date.now()}-${Math.floor(Math.random()*1e6)}`
-      };
-
-  meta.hub = opts.hub || meta.hub || null;
-
+  const meta = {
+    projectTag:'GoodJunkVR', runMode:run, diff, view, seed,
+    durationPlannedSec: timeSec,
+    studyId: opts.studyId || null,
+    phase: opts.phase || null,
+    conditionGroup: opts.conditionGroup || null,
+    startTimeIso: new Date().toISOString(),
+    gameVersion:'gj-2026-01-02C+'
+  };
   emit('hha:start', meta);
   logEvent('start', meta);
-
-  // ✅ Pack27: patch ticker
-  const TICK = (ROOT.HHA_PATCH_TICKER && ROOT.HHA_PATCH_TICKER.makeTicker)
-    ? ROOT.HHA_PATCH_TICKER.makeTicker({ everySec: 6, minDeltaScore: 10, minDeltaMiss: 1 })
-    : null;
-
-  if (TICK){
-    TICK.start(meta, ()=>({
-      sessionId: meta.sessionId,
-      durationPlayedSec: Number(state.playedSec||0),
-      scoreFinal: Number(state.score||0),
-      comboMax: Number(state.comboMax||0),
-      misses: Number(state.miss||0),
-      goalsCleared: Number(state.goalsCleared||0),
-      goalsTotal: Number(state.goalsTotal||0),
-      miniCleared: Number(state.miniCleared||0),
-      miniTotal: Number(state.miniTotal||0),
-      accuracyGoodPct: (state.nHitGood + state.nExpireGood) > 0
-        ? (state.nHitGood / (state.nHitGood + state.nExpireGood))*100 : 0,
-      avgRtGoodMs: (state.rtGoodCount>0) ? (state.rtGoodSumMs/state.rtGoodCount) : 0,
-      fastHitRatePct: (state.rtGoodCount>0) ? (state.rtGoodFastCount/state.rtGoodCount)*100 : 0,
-    }));
-  }
-
-  // fallback patch (still useful if your logger listens)
-  let patchAcc = 0;
 
   // practice hint UI
   if(!isResearch){
@@ -491,7 +449,7 @@ export function boot(opts={}){
     ensurePracticeHint().querySelector('.gj-skip').onclick = ()=>{ state.practiceLeft = 0; };
   }
 
-  // ✅ AI hooks (OFF default, research OFF)
+  // ✅ AI hooks (OFF default)
   const ai = (ROOT.HHA_AI && ROOT.HHA_AI.createAIHooks)
     ? ROOT.HHA_AI.createAIHooks({
         enabled: (qs('ai','0') === '1'),
@@ -508,7 +466,6 @@ export function boot(opts={}){
   let aiAcc = 0;
   let aiLast = null;
 
-  // coach/ai hint -> toast + coach event
   ROOT.addEventListener('hha:ai:hint', (ev)=>{
     const d = ev?.detail;
     if(!d || !d.text) return;
@@ -519,6 +476,54 @@ export function boot(opts={}){
   const activeTargets = new Set();
   let ended = false;
 
+  // -------------------------
+  // Crosshair shooting (from vr-ui.js / btnShoot)
+  // -------------------------
+  function pickTargetNearPoint(x, y, lockPx){
+    const px = Math.max(8, Number(lockPx)||26);
+    let best = null;
+    let bestD2 = px*px;
+
+    activeTargets.forEach(el=>{
+      if(!el || !el.isConnected) return;
+      if(el.classList && el.classList.contains('gone')) return;
+
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top  + r.height/2;
+      const dx = cx - x;
+      const dy = cy - y;
+      const d2 = dx*dx + dy*dy;
+
+      if(d2 <= bestD2){
+        bestD2 = d2;
+        best = el;
+      }
+    });
+
+    return best;
+  }
+
+  function shootAt(detail){
+    if(state.phase !== 'practice' && state.phase !== 'play') return;
+
+    const W = ROOT.innerWidth || DOC.documentElement.clientWidth || 360;
+    const H = ROOT.innerHeight|| DOC.documentElement.clientHeight|| 640;
+
+    const x = (detail && detail.x != null) ? Number(detail.x) : (W/2);
+    const y = (detail && detail.y != null) ? Number(detail.y) : (H/2);
+    const lockPx = (detail && detail.lockPx != null) ? Number(detail.lockPx) : 26;
+
+    const target = pickTargetNearPoint(x, y, lockPx);
+    if(!target) return;
+
+    target.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, view:ROOT }));
+  }
+
+  ROOT.addEventListener('hha:shoot', (ev)=>{
+    shootAt(ev && ev.detail ? ev.detail : null);
+  }, { passive:true });
+
   function onTargetClick(e){
     const el = e.target;
     if(!el || !el.dataset) return;
@@ -527,7 +532,7 @@ export function boot(opts={}){
     const kind = el.dataset.kind;
     const tNow = nowMs();
 
-    // ✅ RT from bornAt (per target)
+    // ✅ RT from bornAt
     const bornAt = Number(el.dataset.bornAt || 0);
     const rt = bornAt ? Math.max(0, tNow - bornAt) : null;
 
@@ -571,7 +576,6 @@ export function boot(opts={}){
       miniOnGoodHit(state, rt);
       if(state.mini && state.mini.done) advanceMini(state, 'done');
 
-      // FX
       try{
         const r = el.getBoundingClientRect();
         const cx = r.left + r.width/2, cy = r.top + r.height/2;
@@ -584,7 +588,6 @@ export function boot(opts={}){
     } else if(kind === 'junk'){
       state.nHitJunk++;
 
-      // ✅ PRACTICE: no penalty
       if(state.phase === 'practice'){
         state.combo = 0;
         miniOnJunkHit(state);
@@ -596,7 +599,6 @@ export function boot(opts={}){
         logEvent('hit_junk_practice', { score: state.score, miss: state.miss });
       }
       else {
-        // ✅ PLAY: shield blocks miss
         if(state.shieldSec > 0){
           state.nHitJunkGuard++;
           state.score = Math.max(0, state.score - 1);
@@ -610,7 +612,6 @@ export function boot(opts={}){
         }else{
           state.score = Math.max(0, state.score - 6);
           state.miss++;
-          state.missFromJunk++;
           state.combo = 0;
           miniOnJunkHit(state);
           try{
@@ -625,9 +626,6 @@ export function boot(opts={}){
     } else if(kind === 'star'){
       state.score += 18;
       state.miss = Math.max(0, state.miss - 1);
-      // adjust breakdown safely
-      if(state.missFromExpire > 0) state.missFromExpire--;
-      else if(state.missFromJunk > 0) state.missFromJunk--;
       state.combo = Math.max(state.combo, 1);
       try{
         const r = el.getBoundingClientRect();
@@ -650,7 +648,6 @@ export function boot(opts={}){
     removeEl(el);
     hudUpdate(state);
 
-    // danger UI only matters in play
     if(state.phase === 'play'){
       setDanger(clamp((state.miss / Math.max(1, missLimit)), 0, 1));
       if(state.miss >= missLimit){
@@ -687,8 +684,6 @@ export function boot(opts={}){
 
     const W = DOC.documentElement.clientWidth;
     const H = DOC.documentElement.clientHeight;
-
-    // NOTE: we keep your old pad, but you already have VR-first stage in CSS
     const topPad = 130 + (Number(getComputedStyle(DOC.documentElement).getPropertyValue('--sat').replace('px',''))||0);
 
     const x = randIn(state.rng, 0.18, 0.82) * W;
@@ -701,7 +696,6 @@ export function boot(opts={}){
       : randIn(state.rng, 0.92, 1.18);
     el.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
 
-    // lifetime (mobile a bit longer => less "ended too fast")
     const mobileMul = (view==='mobile') ? 1.18 : 1.0;
     let lifeMs;
     if(kind==='good') lifeMs = randIn(state.rng, 1500, 2400) * mobileMul;
@@ -713,7 +707,7 @@ export function boot(opts={}){
     state.lastSpawnAtMs = born;
 
     layer.appendChild(el);
-    requestAnimationFrame(()=> el.classList.add('spawn')); // ✅ needs CSS .spawn
+    requestAnimationFrame(()=> el.classList.add('spawn'));
     activeTargets.add(el);
 
     if(kind==='good') state.nSpawnGood++;
@@ -736,7 +730,6 @@ export function boot(opts={}){
           }else{
             state.nExpireGood++;
             state.miss++;
-            state.missFromExpire++;
             state.combo = 0;
             hudUpdate(state);
 
@@ -753,7 +746,6 @@ export function boot(opts={}){
     }, Math.floor(lifeMs));
   }
 
-  // spawn pacing
   let lastTick = nowMs();
   let spawnAcc = 0;
 
@@ -763,23 +755,7 @@ export function boot(opts={}){
     const dt = Math.min(0.05, (t - lastTick)/1000);
     lastTick = t;
 
-    // shield countdown
     if(state.shieldSec > 0) state.shieldSec = Math.max(0, state.shieldSec - dt);
-
-    // ✅ fallback patch every ~6s (even if ticker module absent)
-    patchAcc += dt;
-    if(patchAcc >= 6.0){
-      patchAcc = 0;
-      if(!TICK){
-        fallbackPatchEmit(meta, {
-          sessionId: meta.sessionId,
-          durationPlayedSec: Number(state.playedSec||0),
-          scoreFinal: Number(state.score||0),
-          misses: Number(state.miss||0),
-          comboMax: Number(state.comboMax||0),
-        });
-      }
-    }
 
     if(state.phase === 'practice'){
       if(!isResearch) showPracticeHint(true);
@@ -790,7 +766,6 @@ export function boot(opts={}){
       state.timeLeftSec = state.practiceLeft;
       hudSetText(HUD.time, Math.ceil(state.timeLeftSec));
 
-      // spawn a bit softer in practice
       const pps = (view==='mobile') ? (cfg.spawnPps * 0.85) : (cfg.spawnPps * 0.95);
       spawnAcc += dt * pps;
 
@@ -803,7 +778,6 @@ export function boot(opts={}){
       }
 
       if(state.practiceLeft <= 0){
-        // ✅ enter play: reset real timer
         state.phase = 'play';
         state.playTimerStarted = true;
         state.playedSec = 0;
@@ -815,12 +789,33 @@ export function boot(opts={}){
         try{ Particles.toast && Particles.toast('START!', 'PLAY'); }catch(_){}
       }
 
+      // UI update
+      setShieldUI(state.shieldSec);
+      setFeverUI(clamp((state.miss / Math.max(1, missLimit)) * 100, 0, 100));
       hudUpdate(state);
     }
     else if(state.phase === 'play'){
       state.playedSec += dt;
       state.timeLeftSec = Math.max(0, state.timeTotalSec - state.playedSec);
       state.graceSec = Math.max(0, state.graceSec - dt);
+
+      // low-time warning + 5..1 countdown
+      const tLeft = state.timeLeftSec;
+      DOC.body.classList.toggle('gj-lowtime', tLeft <= 15 && tLeft > 5);
+      DOC.body.classList.toggle('gj-lowtime5', tLeft <= 5 && tLeft > 0);
+
+      const lowOverlay = DOC.getElementById('gjLowOverlay');
+      const lowNum = DOC.getElementById('gj-lowtime-num');
+      if(lowOverlay && lowNum){
+        if(tLeft <= 5 && tLeft > 0){
+          lowOverlay.setAttribute('aria-hidden','false');
+          lowNum.textContent = String(Math.ceil(tLeft));
+          DOC.body.classList.add('gj-tick');
+          setTimeout(()=>DOC.body.classList.remove('gj-tick'), 220);
+        }else{
+          lowOverlay.setAttribute('aria-hidden','true');
+        }
+      }
 
       miniTick(state, dt);
       if(state.mini && state.mini.done) advanceMini(state, 'done');
@@ -830,7 +825,6 @@ export function boot(opts={}){
         return;
       }
 
-      // base spawn (+ optional AI apply)
       const basePps = (cfg.spawnPps || 2.0);
       const aiApply = (qs('aiApply','0') === '1');
       const mul = (aiApply && !isResearch) ? (state.__aiSpawnMul || 1.0) : 1.0;
@@ -838,7 +832,6 @@ export function boot(opts={}){
       const pps = (view==='mobile') ? (basePps * 0.90 * mul) : (basePps * mul);
       spawnAcc += dt * pps;
 
-      // burst
       if(state.burstQueue > 0){
         state.burstCooldown = Math.max(0, state.burstCooldown - dt);
         if(state.burstCooldown <= 0){
@@ -857,9 +850,12 @@ export function boot(opts={}){
       }
 
       setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1));
+
+      // UI update
+      setShieldUI(state.shieldSec);
+      setFeverUI(clamp((state.miss / Math.max(1, missLimit)) * 100, 0, 100));
       hudUpdate(state);
 
-      // ✅ AI update (~1s)
       if(ai && ai.enabled){
         aiAcc += dt;
         if(aiAcc >= 1.0){
@@ -886,7 +882,6 @@ export function boot(opts={}){
 
           aiLast = ai.update(snap);
 
-          // optional apply
           if((qs('aiApply','0')==='1') && !isResearch && aiLast && aiLast.director){
             state.__aiSpawnMul = aiLast.director.spawnPpsMul || 1.0;
             state.__aiJunkDelta = aiLast.director.junkRatioDelta || 0.0;
@@ -906,7 +901,10 @@ export function boot(opts={}){
     state.phase = 'end';
     setDanger(0);
 
-    try{ TICK?.stop?.(); }catch(_){}
+    // clear lowtime
+    DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick');
+    const lowOverlay = DOC.getElementById('gjLowOverlay');
+    if(lowOverlay) lowOverlay.setAttribute('aria-hidden','true');
 
     activeTargets.forEach(el=>removeEl(el));
     activeTargets.clear();
@@ -944,20 +942,11 @@ export function boot(opts={}){
       diff,
       device: view,
       seed,
-      sessionId: meta.sessionId,
-
-      gameMode: qs('mode', qs('gameMode','rush')),
-      durationPlannedSec: Number(meta.durationPlannedSec || state.timeTotalSec),
+      durationPlannedSec: state.timeTotalSec,
       durationPlayedSec: state.playedSec,
-
       scoreFinal: state.score,
       comboMax: state.comboMax,
       misses: state.miss,
-
-      // ✅ miss breakdown
-      missFromExpire: state.missFromExpire,
-      missFromJunk: state.missFromJunk,
-
       goalsCleared: state.goalsCleared,
       goalsTotal: state.goalsTotal,
       miniCleared: state.miniCleared,
@@ -981,14 +970,14 @@ export function boot(opts={}){
 
       grade,
 
-      studyId: opts.studyId || meta.studyId || null,
-      phase: opts.phase || meta.phase || null,
-      conditionGroup: opts.conditionGroup || meta.conditionGroup || null,
+      studyId: opts.studyId || null,
+      phase: opts.phase || null,
+      conditionGroup: opts.conditionGroup || null,
 
-      gameVersion:'gj-2026-01-02C',
+      gameVersion:'gj-2026-01-02C+',
       startTimeIso: meta.startTimeIso,
       endTimeIso: new Date().toISOString(),
-      hub: opts.hub || meta.hub || null,
+      hub: opts.hub || null,
     };
 
     try{ localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary)); }catch(_){}
@@ -1013,17 +1002,13 @@ export function boot(opts={}){
           diff,
           device:view,
           seed,
-          sessionId: meta.sessionId,
           reason:'pagehide',
           scoreFinal: state.score,
           misses: state.miss,
-          missFromExpire: state.missFromExpire,
-          missFromJunk: state.missFromJunk,
           durationPlayedSec: state.playedSec,
-          gameVersion:'gj-2026-01-02C',
+          gameVersion:'gj-2026-01-02C+',
           startTimeIso: meta.startTimeIso,
           endTimeIso: new Date().toISOString(),
-          hub: meta.hub || null
         }));
       }
     }catch(_){}
