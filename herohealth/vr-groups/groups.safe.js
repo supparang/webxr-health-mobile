@@ -1,16 +1,14 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
+Food Groups VR — SAFE (PRODUCTION-ish) — PACK 26
+✅ FIX spawn bounds: no corner-clump, no out-of-screen
+✅ Hit radius scales by size + view (cVR assist)
+✅ miniTotal/miniCleared tracked in summary (true counts)
 ✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
-✅ Standalone engine (no GameEngine.js dependency) — window.GroupsVR.GameEngine
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
-✅ run=research => adaptive OFF + deterministic seed (spawns repeatable)
+✅ run=research => adaptive OFF + deterministic seed
 ✅ diff=easy|normal|hard + basic adaptive (play only)
-✅ Grade: SSS, SS, S, A, B, C (PACK25 tuned)
-✅ PACK25:
-   - Shield system 🛡️ (rare spawn): junk hit can be blocked; shield-hit DOES NOT count miss
-   - MINI variant: Shield Window (6s) must hit good AND must not lose shield
-   - Diamond drop 💎 after Boss down (bonus reward)
-   - Intensity ramp (PLAY only)
+✅ Grade: SSS, SS, S, A, B, C
+Note: Standalone engine (no GameEngine.js) — export at window.GroupsVR.GameEngine
 */
 
 (function (root) {
@@ -59,6 +57,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     DOC.body.classList.toggle(c, !!on);
   }
 
+  function getViewFromBodyOrParam(v) {
+    const b = DOC.body;
+    const cls = (b && b.className) ? b.className : '';
+    if (String(v || '').includes('cvr') || cls.includes('view-cvr')) return 'cvr';
+    if (String(v || '').includes('vr') || cls.includes('view-vr')) return 'vr';
+    if (String(v || '').includes('pc') || cls.includes('view-pc')) return 'pc';
+    return 'mobile';
+  }
+
   // ---------------- Content ----------------
   const GROUPS = [
     { key: 'fruit',   th: 'ผลไม้',     emoji: ['🍎','🍌','🍊','🍇','🍉','🍍','🥭','🍐'] },
@@ -86,9 +93,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
         powerThreshold: 7,
         goalTargets: 16,
         goalsTotal: 2,
-
-        // PACK25: shield rate
-        shieldRate: 0.030
       };
     }
     if (diff === 'hard') {
@@ -104,8 +108,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
         powerThreshold: 9,
         goalTargets: 22,
         goalsTotal: 2,
-
-        shieldRate: 0.022
       };
     }
     return {
@@ -120,27 +122,82 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
       powerThreshold: 8,
       goalTargets: 19,
       goalsTotal: 2,
-
-      shieldRate: 0.026
     };
   }
 
-  // PACK25: Grade tuning (SSS not free)
   function gradeFrom(accPct, misses, score) {
     accPct = Number(accPct) || 0;
     misses = Number(misses) || 0;
     score  = Number(score)  || 0;
 
-    const mPenalty = Math.min(26, misses * 3.0);
-    const sBoost   = Math.min(6, Math.log10(Math.max(10, score)) * 1.6);
+    const mPenalty = Math.min(18, misses * 2.2);
+    const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.2);
     const v = accPct - mPenalty + sBoost;
 
-    if (v >= 93 && misses <= 2 && accPct >= 90) return 'SSS';
-    if (v >= 87 && misses <= 4) return 'SS';
+    if (v >= 92) return 'SSS';
+    if (v >= 86) return 'SS';
     if (v >= 80) return 'S';
     if (v >= 72) return 'A';
     if (v >= 62) return 'B';
     return 'C';
+  }
+
+  // ---------------- Spawn bounds (PACK 26) ----------------
+  function computePlayRect(view) {
+    // We avoid HUD top, coach left, power bottom, and keep margins.
+    const W = Math.max(320, root.innerWidth  || 360);
+    const H = Math.max(420, root.innerHeight || 640);
+
+    // padding base
+    const padTopBase = 150;   // HUD + quest
+    const padBotBase = 130;   // power
+    const padLeftBase= 210;   // coach card
+    const padRight   = 24;
+
+    // scale pads slightly by screen
+    const padTop  = clamp(padTopBase, 110, Math.round(H * 0.28));
+    const padBot  = clamp(padBotBase, 96,  Math.round(H * 0.26));
+    const padLeft = clamp(padLeftBase, 120, Math.round(W * 0.52));
+
+    // For PC, give a bit more horizontal room; for cVR, keep center clear (crosshair)
+    const extraCenter = (view === 'cvr') ? 22 : 0;
+
+    let xMin = 12 + extraCenter;
+    let xMax = W - padRight - extraCenter;
+    let yMin = 12 + Math.round(H * 0.02);
+    let yMax = H - 12;
+
+    // apply HUD/coach/power exclusions
+    xMin = Math.max(xMin, padLeft);
+    yMin = Math.max(yMin, padTop);
+    yMax = Math.min(yMax, H - padBot);
+
+    // If rect is too tight, relax progressively (prevents corner clump)
+    const minW = Math.max(120, Math.round(W * 0.34));
+    const minH = Math.max(140, Math.round(H * 0.34));
+
+    if ((xMax - xMin) < minW) {
+      const relax = Math.round((minW - (xMax - xMin)) * 0.55);
+      xMin = Math.max(10, xMin - relax);
+      xMax = Math.min(W - 10, xMax + relax);
+    }
+    if ((yMax - yMin) < minH) {
+      const relax = Math.round((minH - (yMax - yMin)) * 0.55);
+      yMin = Math.max(10, yMin - relax);
+      yMax = Math.min(H - 10, yMax + relax);
+    }
+
+    // Final clamp sanity
+    xMin = clamp(xMin, 8, W - 60);
+    xMax = clamp(xMax, 60, W - 8);
+    yMin = clamp(yMin, 8, H - 80);
+    yMax = clamp(yMax, 80, H - 8);
+
+    // Ensure proper order
+    if (xMax <= xMin + 8) { xMin = 12; xMax = W - 12; }
+    if (yMax <= yMin + 8) { yMin = 12; yMax = H - 12; }
+
+    return { W, H, xMin, xMax, yMin, yMax };
   }
 
   // ---------------- Engine ----------------
@@ -166,18 +223,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-
-    // PACK25 counts
-    this.nTargetShieldSpawned = 0;
-    this.nTargetDiamondSpawned = 0;
-
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
-    this.nHitShield = 0;
-    this.nHitDiamond = 0;
-    this.nHitJunkGuard = 0;
-
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -203,13 +251,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     this.goalNeed = 18;
 
     // mini
-    this.mini = null; // {on, now, need, leftMs, forbidJunk, ok}
+    this.mini = null;
     this.nextMiniAt = 0;
-
-    // PACK25: mini variants
-    this.miniType = 'basic';       // 'basic' | 'shieldWindow'
-    this.miniShieldStart = 0;      // 0/1 at mini start
-    this.miniShieldLost = false;   // shield consumed during window
+    this.miniTotal = 0;      // ✅ PACK 26
+    this.miniCleared = 0;    // ✅ PACK 26
 
     // targets
     this.targets = [];
@@ -217,10 +262,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
 
     // coach
     this.coachLastAt = 0;
-
-    // PACK25: shield state
-    this.shield = 0;          // 0/1
-    this.shieldUntil = 0;     // ms
   }
 
   Engine.prototype.setLayerEl = function (el) {
@@ -243,7 +284,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
       preset,
     };
 
-    this.view = String(opts.view || DOC.body.className || '').includes('view-cvr') ? 'cvr' : (opts.view || 'mobile');
+    this.view = getViewFromBodyOrParam(opts.view);
 
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
 
@@ -259,20 +300,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-    this.nTargetShieldSpawned = 0;
-    this.nTargetDiamondSpawned = 0;
-
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
-    this.nHitShield = 0;
-    this.nHitDiamond = 0;
-    this.nHitJunkGuard = 0;
-
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
-
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
@@ -288,18 +321,13 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     this.goalNow = 0;
 
     this.mini = null;
+    this.miniTotal = 0;     // ✅ PACK 26
+    this.miniCleared = 0;   // ✅ PACK 26
     this.nextMiniAt = nowMs() + 14000;
-
-    this.miniType = 'basic';
-    this.miniShieldStart = 0;
-    this.miniShieldLost = false;
 
     this.stormOn = false;
     this.stormUntil = 0;
     this.nextStormAt = nowMs() + preset.stormEverySec * 1000;
-
-    this.shield = 0;
-    this.shieldUntil = 0;
 
     this.running = true;
     this.startAt = nowMs();
@@ -318,7 +346,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
 
   Engine.prototype._installInput = function () {
     const self = this;
-
     if (!this._onShoot) {
       this._onShoot = function () {
         if (!self.running) return;
@@ -338,7 +365,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
       self.lastTick = t;
 
       self._tickTime(t);
-      self._tickShield(t);
       self._tickStorm(t);
       self._tickMini(t);
       self._tickSpawn(t);
@@ -365,15 +391,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     }
   };
 
-  // PACK25: shield expiry
-  Engine.prototype._tickShield = function (t) {
-    if (this.shield > 0 && t >= this.shieldUntil) {
-      this.shield = 0;
-      emit('groups:progress', { kind: 'shield_off' });
-      this._emitCoach('โล่หมดเวลา 🛡️', 'neutral');
-    }
-  };
-
   Engine.prototype._tickStorm = function (t) {
     const p = this.cfg.preset;
 
@@ -394,14 +411,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
         addBodyClass('groups-storm', false);
         addBodyClass('groups-storm-urgent', false);
 
-        // spawn boss at storm end
         this._spawnBoss();
-
-        // PACK25: intensity ramp (PLAY only)
-        if (this.cfg.runMode === 'play') {
-          this.cfg.preset.stormEverySec = clamp(this.cfg.preset.stormEverySec * 0.985, 18, 30);
-          this.cfg.preset.baseSpawnMs   = clamp(this.cfg.preset.baseSpawnMs * 0.99, 420, 920);
-        }
 
         this.nextStormAt = t + p.stormEverySec * 1000;
         emit('groups:progress', { kind: 'storm_off' });
@@ -412,27 +422,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
 
   Engine.prototype._tickMini = function (t) {
     if (!this.mini && t >= this.nextMiniAt) {
-      // PACK25: choose mini type
-      const hasShield = (this.shield > 0) && (t <= (this.shieldUntil || 0));
-      const isShieldMini = hasShield && (this.rng() < 0.45);
-
-      let forbidJunk = (this.rng() < 0.55);
-      let need = (this.cfg.diff === 'hard') ? 6 : (this.cfg.diff === 'easy' ? 4 : 5);
-      let durMs = (this.cfg.diff === 'hard') ? 8500 : 9000;
-
-      this.miniType = isShieldMini ? 'shieldWindow' : 'basic';
-
-      if (this.miniType === 'shieldWindow') {
-        forbidJunk = true;
-        durMs = 6000;
-        need = (this.cfg.diff === 'hard') ? 5 : (this.cfg.diff === 'easy' ? 3 : 4);
-
-        this.miniShieldStart = this.shield ? 1 : 0;
-        this.miniShieldLost = false;
-      } else {
-        this.miniShieldStart = 0;
-        this.miniShieldLost = false;
-      }
+      const forbidJunk = (this.rng() < 0.55);
+      const need = (this.cfg.diff === 'hard') ? 6 : (this.cfg.diff === 'easy' ? 4 : 5);
+      const durMs = (this.cfg.diff === 'hard') ? 8500 : 9000;
 
       this.mini = {
         on: true,
@@ -444,15 +436,16 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
         startedAt: t
       };
 
-      this._emitQuestUpdate();
+      // ✅ PACK 26: count mini start
+      this.miniTotal += 1;
 
-      if (this.miniType === 'shieldWindow') {
-        this._emitCoach(`MINI: Shield Window! ถูก ${need} ใน 6 วิ และห้ามเสียโล่ 🛡️`, 'fever');
-      } else {
-        this._emitCoach(forbidJunk
+      this._emitQuestUpdate();
+      this._emitCoach(
+        forbidJunk
           ? `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ และห้ามโดนขยะ!`
-          : `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ`, 'neutral');
-      }
+          : `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ`,
+        'neutral'
+      );
     }
 
     if (this.mini && this.mini.on) {
@@ -460,43 +453,25 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
       const leftMs = Math.max(0, this.mini.leftMs - passed);
 
       if (leftMs <= 0) {
-        let ok = (this.mini.now >= this.mini.need) && this.mini.ok;
-
-        // PACK25: shieldWindow requires no shield loss (if shield existed at start)
-        if (ok && this.miniType === 'shieldWindow') {
-          if (this.miniShieldStart === 1 && this.miniShieldLost) ok = false;
-        }
+        const ok = (this.mini.now >= this.mini.need) && this.mini.ok;
 
         if (ok) {
-          if (this.miniType === 'shieldWindow') {
-            this.score += 220;
-            this.combo += 1;
-            this.comboMax = Math.max(this.comboMax, this.combo);
-            emit('hha:judge', { kind: 'good', text: 'SHIELD MINI +220' });
-            this._emitCoach('โคตรนิ่ง! Shield Window ผ่าน! 🛡️✨', 'happy');
-          } else {
-            this.score += 180;
-            this.combo += 1;
-            this.comboMax = Math.max(this.comboMax, this.combo);
-            emit('hha:judge', { kind: 'good', text: 'MINI CLEAR +180' });
-            this._emitCoach('เยี่ยม! MINI ผ่าน! 🎉', 'happy');
-          }
+          this.score += 180;
+          this.combo += 1;
+          this.comboMax = Math.max(this.comboMax, this.combo);
+          emit('hha:judge', { kind: 'good', text: 'MINI CLEAR +180' });
+          this._emitCoach('เยี่ยม! MINI ผ่าน! 🎉', 'happy');
+
+          // ✅ PACK 26
+          this.miniCleared += 1;
         } else {
           this.combo = 0;
           this.misses += 1;
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL' });
-          if (this.miniType === 'shieldWindow') {
-            this._emitCoach('โล่หลุด/พลาด! Shield Window ไม่ผ่าน 😤', 'sad');
-          } else {
-            this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
-          }
+          this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
         }
 
         this.mini = null;
-        this.miniType = 'basic';
-        this.miniShieldStart = 0;
-        this.miniShieldLost = false;
-
         this._emitScore();
         this._emitRank();
         this._emitQuestUpdate();
@@ -514,7 +489,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     const p = this.cfg.preset;
     const base = p.baseSpawnMs;
 
-    // simple adaptive (play only)
     let speed = 1.0;
     if (this.cfg.runMode === 'play') {
       const acc = this._accuracyPct();
@@ -522,7 +496,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
       if (this.combo >= 8) speed *= 0.90;
       if (this.misses >= 8) speed *= 1.12;
     }
-
     if (this.stormOn) speed *= 0.78;
 
     const every = clamp(base * speed, 360, 980);
@@ -540,7 +513,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
         if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); }
         else if (tg.kind === 'wrong') { this.nExpireWrong++; }
         else if (tg.kind === 'junk') { this.nExpireJunk++; }
-        // shield/diamond/boss expire: no miss
         this._removeTarget(i, 'expire');
       }
     }
@@ -549,23 +521,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
   Engine.prototype._spawnOne = function () {
     const p = this.cfg.preset;
 
-    // decide kind: shield rare (but deterministic); not during storm urgent
-    const r0 = this.rng();
-    const shieldRate = clamp(p.shieldRate || 0.025, 0, 0.08);
-
-    if (r0 < shieldRate && !this.stormOn) {
-      this.nTargetShieldSpawned++;
-      this._spawnDomTarget({
-        kind: 'shield',
-        emoji: '🛡️',
-        cls: 'fg-target fg-shield',
-        size: 0.86,
-        lifeMs: 2600
-      });
-      return;
-    }
-
-    // normal kind selection
     let kind = 'good';
     const r = this.rng();
 
@@ -629,38 +584,16 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     this._emitCoach('บอสมา! ยิงให้ถูกหมู่เพื่อแตกบอส 👊', 'fever');
   };
 
-  // PACK25: diamond reward
-  Engine.prototype._spawnDiamondReward = function(){
-    if (!this.layerEl) return;
-    this.nTargetDiamondSpawned++;
-    this._spawnDomTarget({
-      kind: 'diamond',
-      emoji: '💎',
-      cls: 'fg-target fg-diamond',
-      size: 0.90,
-      lifeMs: 2500
-    });
-  };
-
   Engine.prototype._spawnDomTarget = function (spec) {
     const layer = this.layerEl;
     if (!layer) return;
 
-    const W = root.innerWidth || 360;
-    const H = root.innerHeight || 640;
+    const view = this.view || getViewFromBodyOrParam();
+    const R = computePlayRect(view);
 
-    const topPad = 150;     // HUD + quest
-    const botPad = 130;     // power
-    const leftPad = 210;    // coach area
-    const rightPad = 24;
-
-    const xMin = Math.min(leftPad, Math.max(12, W * 0.20));
-    const xMax = Math.max(W - rightPad, W * 0.80);
-    const yMin = Math.min(topPad, Math.max(12, H * 0.18));
-    const yMax = Math.max(H - botPad, H * 0.82);
-
-    const x = clamp((this.rng() * (xMax - xMin)) + xMin, 8, W - 8);
-    const y = clamp((this.rng() * (yMax - yMin)) + yMin, 8, H - 8);
+    // choose x,y in play rect
+    const x = clamp((this.rng() * (R.xMax - R.xMin)) + R.xMin, 8, R.W - 8);
+    const y = clamp((this.rng() * (R.yMax - R.yMin)) + R.yMin, 8, R.H - 8);
 
     const el = DOC.createElement('div');
     el.className = spec.cls + ' spawn';
@@ -672,19 +605,27 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
 
     const id = (++this._id);
     const born = nowMs();
+
+    // ✅ PACK 26: hit radius scales by size & view
+    const s = Number(spec.size ?? 1) || 1;
+    const baseR = (spec.kind === 'boss') ? 66 : 48;
+    const assist = (view === 'cvr') ? 1.10 : 1.0; // slight assist for crosshair shoot
+    const rHit = Math.round(baseR * s * assist);
+
     const tg = {
       id,
       el,
       kind: spec.kind,
       emoji: spec.emoji,
       x, y,
-      r: (spec.kind === 'boss') ? 60 : 46,
+      r: rHit,
       bornAt: born,
       expireAt: born + (spec.lifeMs || 3000),
       bossHp: spec.bossHp || 0,
       bossHpMax: spec.bossHpMax || 0
     };
 
+    // click/tap hit (PC/mobile/VR; in cVR pointer-events may be none in CSS)
     el.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -701,13 +642,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     const tg = this.targets[idx];
     if (!tg) return;
 
-    try {
-      tg.el.classList.add(why === 'hit' ? 'hit' : 'out');
-    } catch (_) {}
+    try { tg.el.classList.add(why === 'hit' ? 'hit' : 'out'); } catch (_) {}
 
-    setTimeout(() => {
-      try { tg.el.remove(); } catch (_) {}
-    }, 220);
+    setTimeout(() => { try { tg.el.remove(); } catch (_) {} }, 220);
 
     this.targets.splice(idx, 1);
   };
@@ -715,7 +652,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
   Engine.prototype._hitTargetById = function (id, via) {
     if (!this.running) return;
     const t = nowMs();
-
     for (let i = 0; i < this.targets.length; i++) {
       if (this.targets[i].id === id) {
         const tg = this.targets[i];
@@ -755,45 +691,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
 
-    // PACK25: diamond
-    if (tg.kind === 'diamond') {
-      this.nHitDiamond++;
-      this.combo += 2;
-      this.comboMax = Math.max(this.comboMax, this.combo);
-      this.score += 150;
-      this.powerCharge = Math.min(p.powerThreshold, this.powerCharge + 1);
-
-      emit('hha:judge', { kind:'good', text:'DIAMOND +150' });
-      this._emitCoach('เก็บเพชรได้! โบนัสแตก! 💎', 'happy');
-
-      this._removeTarget(idx, 'hit');
-      this._emitScore();
-      this._emitPower();
-      this._emitRank();
-      return;
-    }
-
-    // PACK25: shield pickup
-    if (tg.kind === 'shield') {
-      this.nHitShield++;
-      this.score += 60;
-      this.combo += 1;
-      this.comboMax = Math.max(this.comboMax, this.combo);
-
-      this.shield = 1;
-      this.shieldUntil = t + 7000;
-
-      emit('hha:judge', { kind:'good', text:'SHIELD +60' });
-      emit('groups:progress', { kind:'shield_on' });
-      this._emitCoach('ได้โล่แล้ว! กันขยะได้ 1 ครั้ง 🛡️', 'happy');
-
-      this._removeTarget(idx, 'hit');
-      this._emitScore();
-      this._emitRank();
-      return;
-    }
-
-    // boss
     if (tg.kind === 'boss') {
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
       try { tg.el.classList.add('fg-boss-hurt'); setTimeout(() => tg.el.classList.remove('fg-boss-hurt'), 120); } catch (_) {}
@@ -814,9 +711,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
         emit('groups:progress', { kind: 'boss_down' });
         this._emitCoach('บอสแตกแล้ว! โหดมาก! 💥', 'happy');
 
-        // PACK25: diamond drop
-        this._spawnDiamondReward();
-
         this._removeTarget(idx, 'hit');
         this._emitScore();
         this._emitPower();
@@ -827,7 +721,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
       return;
     }
 
-    // good
     if (tg.kind === 'good') {
       this.nHitGood++;
       this.hitGoodForAcc++;
@@ -858,15 +751,14 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
       return;
     }
 
-    // wrong
     if (tg.kind === 'wrong') {
       this.nHitWrong++;
       this.totalJudgedForAcc++;
 
       this.combo = 0;
       this._onMiss('wrong');
-
       this.score = Math.max(0, this.score - 12);
+
       emit('hha:judge', { kind: 'bad', text: '-12' });
 
       this._removeTarget(idx, 'hit');
@@ -878,42 +770,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     }
 
     // junk
+    this.nHitJunk++;
     this.totalJudgedForAcc++;
 
-    // PACK25: shield guard (if active) — guard => NOT a miss
-    const shieldActive = (this.shield > 0) && (t <= (this.shieldUntil || 0));
-    if (shieldActive) {
-      this.shield = 0;
-      this.shieldUntil = 0;
-      this.nHitJunkGuard++;
-
-      // mini forbid: even guarded junk should fail the mini condition
-      if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
-
-      // PACK25: shieldWindow loses shield => fail window
-      if (this.mini && this.mini.on && this.miniType === 'shieldWindow') {
-        this.miniShieldLost = true;
-      }
-
-      emit('hha:judge', { kind: 'good', text: 'SHIELD BLOCK 🛡️' });
-      emit('groups:progress', { kind: 'shield_block' });
-      this._emitCoach('โล่กันขยะให้แล้ว! 🛡️', 'neutral');
-
-      this._removeTarget(idx, 'hit');
-      this._emitScore();
-      this._emitRank();
-      this._emitQuestUpdate();
-      return;
-    }
-
-    // normal junk hit => miss (as definition)
-    this.nHitJunk++;
     if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
 
     this.combo = 0;
     this._onMiss('junk');
-
     this.score = Math.max(0, this.score - 18);
+
     emit('hha:judge', { kind: 'bad', text: '-18' });
 
     this._removeTarget(idx, 'hit');
@@ -924,7 +789,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
   };
 
   Engine.prototype._onMiss = function (why) {
-    // miss definition: good expired + junk hit (+ wrong hit counts here as well)
     this.misses += 1;
     emit('groups:progress', { kind: 'miss', why });
   };
@@ -968,7 +832,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
       if (this.goalIndex >= this.goalsTotal) {
         this._end('all-goals');
       } else {
-        // next goal a bit harder in play mode
         if (this.cfg.runMode === 'play') {
           this.goalNeed = Math.round(this.goalNeed * 1.08);
           this.cfg.preset.baseSpawnMs = clamp(this.cfg.preset.baseSpawnMs * 0.97, 420, 920);
@@ -1011,22 +874,17 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
     let miniTimeLeftSec = 0;
 
     if (this.mini && this.mini.on) {
-      if (this.miniType === 'shieldWindow') {
-        miniTitle = `MINI: Shield Window (ห้ามเสียโล่)`;
-      } else {
-        miniTitle = this.mini.forbidJunk
-          ? `MINI: ถูก ${this.mini.need} และห้ามโดนขยะ`
-          : `MINI: ถูก ${this.mini.need} ภายในเวลา`;
-      }
-
+      miniTitle = this.mini.forbidJunk
+        ? `MINI: ถูก ${this.mini.need} และห้ามโดนขยะ`
+        : `MINI: ถูก ${this.mini.need} ภายในเวลา`;
       miniNow = this.mini.now | 0;
       miniTotal = this.mini.need | 0;
       miniPct = clamp((miniNow / Math.max(1, miniTotal)) * 100, 0, 100);
 
-      const tt = nowMs();
+      const t = nowMs();
       const left = (miniLeftMs != null)
         ? Number(miniLeftMs)
-        : Math.max(0, (this.mini.leftMs - (tt - this.mini.startedAt)));
+        : Math.max(0, (this.mini.leftMs - (t - this.mini.startedAt)));
       miniTimeLeftSec = Math.ceil(left / 1000);
     }
 
@@ -1045,7 +903,11 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
       groupKey: g.key,
       groupName: g.th,
       goalIndex: this.goalIndex,
-      goalsTotal: this.goalsTotal
+      goalsTotal: this.goalsTotal,
+
+      // ✅ PACK 26 (optional debug)
+      miniCountTotal: this.miniTotal,
+      miniCountCleared: this.miniCleared
     });
   };
 
@@ -1082,28 +944,22 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PACK 25 FULL
 
       goalsCleared: Math.min(this.goalsTotal, this.goalIndex + (this.goalNow >= this.goalNeed ? 1 : 0)),
       goalsTotal: this.goalsTotal,
-      miniCleared: 0,
-      miniTotal: 0,
+
+      // ✅ PACK 26: true mini counts
+      miniCleared: this.miniCleared | 0,
+      miniTotal: this.miniTotal | 0,
 
       durationPlayedSec: playedSec,
       durationPlannedSec: this.cfg.timeSec | 0,
 
-      // counts
       nTargetGoodSpawned: this.nTargetGoodSpawned | 0,
       nTargetJunkSpawned: this.nTargetJunkSpawned | 0,
       nTargetWrongSpawned: this.nTargetWrongSpawned | 0,
       nTargetBossSpawned: this.nTargetBossSpawned | 0,
 
-      // PACK25 counts
-      nTargetShieldSpawned: this.nTargetShieldSpawned | 0,
-      nTargetDiamondSpawned: this.nTargetDiamondSpawned | 0,
-
       nHitGood: this.nHitGood | 0,
       nHitJunk: this.nHitJunk | 0,
       nHitWrong: this.nHitWrong | 0,
-      nHitShield: this.nHitShield | 0,
-      nHitDiamond: this.nHitDiamond | 0,
-      nHitJunkGuard: this.nHitJunkGuard | 0,
 
       nExpireGood: this.nExpireGood | 0,
       nExpireJunk: this.nExpireJunk | 0,
