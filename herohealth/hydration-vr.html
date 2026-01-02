@@ -1,3 +1,4 @@
+<!-- === /herohealth/hydration-vr.html === -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -223,6 +224,7 @@
       color:rgba(148,163,184,.95);
       font-size:13px;
       line-height:1.3;
+      white-space:pre-line;
     }
     .btnRow{
       display:flex;
@@ -407,9 +409,9 @@
         <div>
           <p class="title">HeroHealth — Hydration VR</p>
           <p class="sub">
-            เลือกโหมดการเล่นให้ตรงอุปกรณ์ของอาจารย์/นักเรียน\n
-            • PC: เมาส์/คลิก\n
-            • Mobile: แตะหน้าจอ\n
+            เลือกโหมดการเล่นให้ตรงอุปกรณ์ของอาจารย์/นักเรียน
+            • PC: เมาส์/คลิก
+            • Mobile: แตะหน้าจอ
             • VR Cardboard: จอแยกซ้าย–ขวา + fullscreen/landscape (best-effort)
           </p>
         </div>
@@ -490,7 +492,6 @@
     function go(view){
       const u = new URL(location.href);
       u.searchParams.set('view', view);
-      // cache-bust
       if (!u.searchParams.get('ts')) u.searchParams.set('ts', String(Date.now()));
       location.href = u.toString();
     }
@@ -499,7 +500,6 @@
     document.getElementById('btnMobile')?.addEventListener('click', ()=>go('mobile'), {passive:true});
     document.getElementById('btnCardboard')?.addEventListener('click', ()=>go('cardboard'), {passive:true});
 
-    // If already has view=..., hide overlay + start game
     const view = String(qs('view','')).toLowerCase();
     if (view){
       const ov = document.getElementById('startOverlay');
