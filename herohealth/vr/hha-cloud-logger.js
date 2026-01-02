@@ -1,249 +1,177 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger — PRODUCTION (1-row per session on hha:end)
-// - Uses sendBeacon first (best for pagehide), fallback fetch keepalive
-// - Endpoint configurable via ?log=SCRIPT_URL or window.HHA_LOG_ENDPOINT
+// HHA Cloud Logger — Universal (beacon-first, keepalive fallback)
+// Listens: hha:start, hha:end, hha:log (optional)
+// Saves last summary + ships to Google Apps Script endpoint.
 
-(function (ROOT) {
+(function(ROOT){
   'use strict';
-
   const DOC = ROOT.document;
 
-  function qs(k, def = null) {
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function num(v, def = 0) {
-    v = Number(v);
-    return Number.isFinite(v) ? v : def;
-  }
-  function str(v, def = '') {
-    return (v == null) ? def : String(v);
-  }
-  function isoNow() { return new Date().toISOString(); }
+  // ✅ put your endpoint here (or pass via ?log=)
+  const DEFAULT_ENDPOINT = (function(){
+    // You can hardcode your Apps Script URL here if you want:
+    // return "https://script.google.com/macros/s/XXXXX/exec";
+    return null;
+  })();
 
-  // -------- Endpoint --------
-  const ENDPOINT =
-    qs('log', null) ||
-    ROOT.HHA_LOG_ENDPOINT ||
-    null;
-
-  // If you want a global default, you can uncomment + set your Apps Script:
-  // const ENDPOINT = qs('log', null) || ROOT.HHA_LOG_ENDPOINT || 'https://script.google.com/macros/s/XXXX/exec';
-
-  if (!ENDPOINT) {
-    // No endpoint configured; logger stays silent.
-    // console.warn('[HHA-Logger] No ENDPOINT. Use ?log=... or window.HHA_LOG_ENDPOINT');
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch{ return def; }
   }
 
-  // -------- Student profile (optional) --------
-  // You can pass these via query params, or store in localStorage under HHA_STUDENT_PROFILE.
-  function loadProfile() {
-    let p = {};
-    try {
-      const raw = localStorage.getItem('HHA_STUDENT_PROFILE');
-      if (raw) p = JSON.parse(raw) || {};
-    } catch (_) {}
+  function nowIso(){ return new Date().toISOString(); }
 
-    // Query params override local profile
-    const q = (k) => qs(k, null);
+  // ---------- transport ----------
+  function postJSON(url, obj){
+    if(!url) return Promise.resolve({ok:false, skipped:true});
+    const body = JSON.stringify(obj);
 
-    return {
-      studentKey: q('studentKey') ?? p.studentKey ?? null,
-      schoolCode: q('schoolCode') ?? p.schoolCode ?? null,
-      schoolName: q('schoolName') ?? p.schoolName ?? null,
-      classRoom: q('classRoom') ?? p.classRoom ?? null,
-      studentNo: q('studentNo') ?? p.studentNo ?? null,
-      nickName: q('nickName') ?? p.nickName ?? null,
-      gender: q('gender') ?? p.gender ?? null,
-      age: q('age') ?? p.age ?? null,
-      gradeLevel: q('grade') ?? q('gradeLevel') ?? p.gradeLevel ?? null,
-      heightCm: q('heightCm') ?? p.heightCm ?? null,
-      weightKg: q('weightKg') ?? p.weightKg ?? null,
-      bmi: q('bmi') ?? p.bmi ?? null,
-      bmiGroup: q('bmiGroup') ?? p.bmiGroup ?? null,
-      vrExperience: q('vrExperience') ?? p.vrExperience ?? null,
-      gameFrequency: q('gameFrequency') ?? p.gameFrequency ?? null,
-      handedness: q('handedness') ?? p.handedness ?? null,
-      visionIssue: q('visionIssue') ?? p.visionIssue ?? null,
-      healthDetail: q('healthDetail') ?? p.healthDetail ?? null,
-      consentParent: q('consentParent') ?? p.consentParent ?? null,
-    };
-  }
-
-  // -------- Device --------
-  function detectDevice() {
-    const v = str(qs('view', ''), '').toLowerCase();
-    if (v) return v; // pc/mobile/vr/cvr from your launcher
-    const ua = (navigator.userAgent || '').toLowerCase();
-    if (ua.includes('oculus') || ua.includes('quest') || ua.includes('vive')) return 'vr';
-    if (ua.includes('mobile')) return 'mobile';
-    return 'pc';
-  }
-
-  // -------- Build 1 row matching your sheet header --------
-  // Header you posted (partial):
-  // timestampIso projectTag runMode studyId phase conditionGroup sessionOrder blockLabel siteCode schoolYear semester
-  // sessionId gameMode diff durationPlannedSec durationPlayedSec scoreFinal comboMax misses goalsCleared goalsTotal
-  // miniCleared miniTotal nTargetGoodSpawned nTargetJunkSpawned nTargetStarSpawned nTargetDiamondSpawned nTargetShieldSpawned
-  // nHitGood nHitJunk nHitJunkGuard nExpireGood accuracyGoodPct junkErrorPct avgRtGoodMs medianRtGoodMs fastHitRatePct
-  // device gameVersion reason startTimeIso endTimeIso studentKey schoolCode schoolName classRoom studentNo nickName gender age gradeLevel
-  // heightCm weightKg bmi bmiGroup vrExperience gameFrequency handedness visionIssue healthDetail consentParent
-
-  function buildRowFromSummary(summary) {
-    const prof = loadProfile();
-
-    // Best-effort parse additional meta from URL
-    const runMode = str(summary.runMode ?? qs('run', 'play'), 'play');
-    const diff = str(summary.diff ?? qs('diff', 'normal'), 'normal');
-
-    // Some projects call it "gameMode" or "challenge"
-    const gameMode = str(summary.gameMode ?? qs('gameMode', qs('challenge', '')), '');
-
-    // Compute extra metrics
-    const nHitGood = num(summary.nHitGood, 0);
-    const nHitJunk = num(summary.nHitJunk, 0);
-    const nHitJunkGuard = num(summary.nHitJunkGuard, 0);
-    const nExpireGood = num(summary.nExpireGood, 0);
-
-    const denomGood = (nHitGood + nExpireGood);
-    const accuracyGoodPct = Number.isFinite(summary.accuracyGoodPct)
-      ? num(summary.accuracyGoodPct, 0)
-      : (denomGood > 0 ? (nHitGood / denomGood) * 100 : 0);
-
-    // junkErrorPct: proportion of junk hits among all hits (good+junk), guard can be tracked separately
-    const denomHit = (nHitGood + nHitJunk);
-    const junkErrorPct = denomHit > 0 ? (nHitJunk / denomHit) * 100 : 0;
-
-    // RT metrics: if your engine later emits, keep placeholders for now
-    const avgRtGoodMs = num(summary.avgRtGoodMs, 0);
-    const medianRtGoodMs = num(summary.medianRtGoodMs, 0);
-    const fastHitRatePct = num(summary.fastHitRatePct, 0);
-
-    // Diamonds not used in GoodJunk boot engine now
-    const nTargetDiamondSpawned = num(summary.nTargetDiamondSpawned, 0);
-
-    const row = {
-      // ---- required session meta ----
-      timestampIso: isoNow(),
-      projectTag: str(summary.projectTag, 'GoodJunkVR'),
-      runMode,
-      studyId: summary.studyId ?? qs('study', qs('studyId', null)),
-      phase: summary.phase ?? qs('phase', null),
-      conditionGroup: summary.conditionGroup ?? qs('cond', qs('conditionGroup', null)),
-      sessionOrder: summary.sessionOrder ?? qs('sessionOrder', null),
-      blockLabel: summary.blockLabel ?? qs('blockLabel', null),
-      siteCode: summary.siteCode ?? qs('siteCode', null),
-      schoolYear: summary.schoolYear ?? qs('schoolYear', null),
-      semester: summary.semester ?? qs('semester', null),
-
-      sessionId: summary.sessionId ?? qs('sessionId', null) ?? summary.seed ?? null, // fallback
-      gameMode,
-      diff,
-
-      durationPlannedSec: num(summary.durationPlannedSec, num(qs('time', 0), 0)),
-      durationPlayedSec: num(summary.durationPlayedSec, 0),
-
-      // ---- outcome ----
-      scoreFinal: num(summary.scoreFinal, 0),
-      comboMax: num(summary.comboMax, 0),
-      misses: num(summary.misses, 0),
-
-      goalsCleared: num(summary.goalsCleared, 0),
-      goalsTotal: num(summary.goalsTotal, 0),
-      miniCleared: num(summary.miniCleared, 0),
-      miniTotal: num(summary.miniTotal, 0),
-
-      // ---- spawn counts ----
-      nTargetGoodSpawned: num(summary.nTargetGoodSpawned, 0),
-      nTargetJunkSpawned: num(summary.nTargetJunkSpawned, 0),
-      nTargetStarSpawned: num(summary.nTargetStarSpawned, 0),
-      nTargetDiamondSpawned,
-      nTargetShieldSpawned: num(summary.nTargetShieldSpawned, 0),
-
-      // ---- hit/expire ----
-      nHitGood,
-      nHitJunk,
-      nHitJunkGuard,
-      nExpireGood,
-
-      // ---- metrics ----
-      accuracyGoodPct: Number(accuracyGoodPct.toFixed(2)),
-      junkErrorPct: Number(junkErrorPct.toFixed(2)),
-      avgRtGoodMs,
-      medianRtGoodMs,
-      fastHitRatePct,
-
-      device: str(summary.device ?? detectDevice(), detectDevice()),
-      gameVersion: str(summary.gameVersion, qs('ver', qs('v', '')) || 'unknown'),
-      reason: str(summary.reason, 'time'),
-      startTimeIso: summary.startTimeIso ?? null,
-      endTimeIso: summary.endTimeIso ?? isoNow(),
-
-      // ---- profile ----
-      studentKey: prof.studentKey,
-      schoolCode: prof.schoolCode,
-      schoolName: prof.schoolName,
-      classRoom: prof.classRoom,
-      studentNo: prof.studentNo,
-      nickName: prof.nickName,
-      gender: prof.gender,
-      age: prof.age,
-      gradeLevel: prof.gradeLevel,
-      heightCm: prof.heightCm,
-      weightKg: prof.weightKg,
-      bmi: prof.bmi,
-      bmiGroup: prof.bmiGroup,
-      vrExperience: prof.vrExperience,
-      gameFrequency: prof.gameFrequency,
-      handedness: prof.handedness,
-      visionIssue: prof.visionIssue,
-      healthDetail: prof.healthDetail,
-      consentParent: prof.consentParent,
-    };
-
-    return row;
-  }
-
-  // -------- Send --------
-  function sendRow(row) {
-    if (!ENDPOINT) return;
-
-    const payload = JSON.stringify(row);
-
-    // Prefer sendBeacon (survives pagehide/navigation)
-    try {
-      if (navigator.sendBeacon) {
-        const ok = navigator.sendBeacon(ENDPOINT, new Blob([payload], { type: 'application/json' }));
-        if (ok) return;
+    // beacon first
+    try{
+      if(navigator.sendBeacon){
+        const blob = new Blob([body], { type:'application/json' });
+        const ok = navigator.sendBeacon(url, blob);
+        if(ok) return Promise.resolve({ok:true, via:'beacon'});
       }
-    } catch (_) {}
+    }catch(_){}
 
-    // Fallback fetch keepalive
-    try {
-      fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-        keepalive: true,
-        mode: 'cors',
-      }).catch(()=>{});
-    } catch (_) {}
+    // fetch keepalive fallback
+    try{
+      return fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body,
+        keepalive:true,
+        mode:'no-cors' // Apps Script often returns CORS issues; no-cors still sends
+      }).then(()=>({ok:true, via:'fetch-keepalive'}))
+        .catch((e)=>({ok:false, err:String(e)}));
+    }catch(e){
+      return Promise.resolve({ok:false, err:String(e)});
+    }
   }
 
-  // -------- Listen only once per end --------
-  let sent = false;
-  ROOT.addEventListener('hha:end', (ev) => {
-    try {
-      if (sent) return;
-      sent = true;
-      const summary = ev && ev.detail ? ev.detail : {};
-      const row = buildRowFromSummary(summary);
+  // ---------- schema mapping ----------
+  // We accept partial summary/meta and map to your sheet columns.
+  function toRowPayload(meta, summary){
+    const s = summary || {};
+    const m = meta || {};
+    const url = new URL(location.href);
 
-      // Persist locally too (debug)
-      try { localStorage.setItem('HHA_LAST_ROW', JSON.stringify(row)); } catch (_) {}
+    // Standard fields (match your sheet header names where possible)
+    return {
+      timestampIso: nowIso(),
+      projectTag: s.projectTag || m.projectTag || '',
+      runMode: s.runMode || m.runMode || qs('run','play'),
+      studyId: s.studyId || m.studyId || qs('study', qs('studyId','')),
+      phase: s.phase || m.phase || qs('phase',''),
+      conditionGroup: s.conditionGroup || m.conditionGroup || qs('cond', qs('conditionGroup','')),
+      sessionOrder: s.sessionOrder || m.sessionOrder || qs('order',''),
+      blockLabel: s.blockLabel || m.blockLabel || qs('block',''),
+      siteCode: s.siteCode || m.siteCode || qs('site',''),
+      schoolYear: s.schoolYear || m.schoolYear || qs('sy',''),
+      semester: s.semester || m.semester || qs('sem',''),
+      sessionId: s.sessionId || m.sessionId || qs('sid',''),
+      gameMode: s.gameMode || m.gameMode || qs('mode',''),
+      diff: s.diff || m.diff || qs('diff','normal'),
+      durationPlannedSec: s.durationPlannedSec ?? m.durationPlannedSec ?? Number(qs('time','0')||0),
+      durationPlayedSec: s.durationPlayedSec ?? 0,
 
-      sendRow(row);
-    } catch (_) {}
-  }, { passive: true });
+      scoreFinal: s.scoreFinal ?? 0,
+      comboMax: s.comboMax ?? 0,
+      misses: s.misses ?? 0,
+
+      goalsCleared: s.goalsCleared ?? 0,
+      goalsTotal: s.goalsTotal ?? 0,
+      miniCleared: s.miniCleared ?? 0,
+      miniTotal: s.miniTotal ?? 0,
+
+      nTargetGoodSpawned: s.nTargetGoodSpawned ?? 0,
+      nTargetJunkSpawned: s.nTargetJunkSpawned ?? 0,
+      nTargetStarSpawned: s.nTargetStarSpawned ?? 0,
+      nTargetDiamondSpawned: s.nTargetDiamondSpawned ?? 0,
+      nTargetShieldSpawned: s.nTargetShieldSpawned ?? 0,
+
+      nHitGood: s.nHitGood ?? 0,
+      nHitJunk: s.nHitJunk ?? 0,
+      nHitJunkGuard: s.nHitJunkGuard ?? 0,
+      nExpireGood: s.nExpireGood ?? 0,
+
+      accuracyGoodPct: s.accuracyGoodPct ?? 0,
+      junkErrorPct: s.junkErrorPct ?? 0,
+      avgRtGoodMs: s.avgRtGoodMs ?? 0,
+      medianRtGoodMs: s.medianRtGoodMs ?? 0,
+      fastHitRatePct: s.fastHitRatePct ?? 0,
+
+      device: s.device || m.view || qs('view','mobile'),
+      gameVersion: s.gameVersion || m.gameVersion || '',
+      reason: s.reason || '',
+
+      startTimeIso: s.startTimeIso || m.startTimeIso || '',
+      endTimeIso: s.endTimeIso || '',
+
+      // extra debug
+      seed: s.seed ?? m.seed ?? qs('seed',''),
+      url: url.toString()
+    };
+  }
+
+  // ---------- state ----------
+  let START_META = null;
+  let END_SENT = false;
+  let ENDPOINT = qs('log', DEFAULT_ENDPOINT);
+
+  // allow setting globally too
+  if(!ENDPOINT && ROOT.HHA_LOG_ENDPOINT) ENDPOINT = ROOT.HHA_LOG_ENDPOINT;
+
+  function saveLocal(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(_){}
+  }
+  function loadLocal(key){
+    try{ return JSON.parse(localStorage.getItem(key)||'null'); }catch(_){ return null; }
+  }
+
+  async function sendEnd(summary){
+    if(END_SENT) return;
+    END_SENT = true;
+
+    const row = toRowPayload(START_META, summary);
+    saveLocal('HHA_LAST_SENT', row);
+
+    // Wrap payload for Apps Script
+    const payload = { kind:'hha_end', row };
+
+    await postJSON(ENDPOINT, payload);
+  }
+
+  // expose flush function
+  ROOT.HHA_LOGGER = {
+    flush: async function(reason='manual'){
+      const last = loadLocal('HHA_LAST_SUMMARY');
+      if(!last) return {ok:false, skipped:true};
+      last.reason = last.reason || reason;
+      return sendEnd(last);
+    }
+  };
+
+  // ---------- listeners ----------
+  ROOT.addEventListener('hha:start', (ev)=>{
+    START_META = ev?.detail || {};
+    END_SENT = false;
+    // persist start meta (useful for resume)
+    saveLocal('HHA_LAST_START', START_META);
+  }, { passive:true });
+
+  ROOT.addEventListener('hha:end', (ev)=>{
+    const summary = ev?.detail || {};
+    // ensure local summary stored (even if game didn't)
+    saveLocal('HHA_LAST_SUMMARY', summary);
+    sendEnd(summary);
+  }, { passive:true });
+
+  // optional event stream (not needed for sheet row)
+  ROOT.addEventListener('hha:log', (ev)=>{
+    // you can stream events later if desired
+    // const e = ev?.detail || {};
+  }, { passive:true });
 
 })(window);
