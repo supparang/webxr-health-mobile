@@ -37,6 +37,9 @@
     html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     a{ color:inherit; }
 
+    /* ✅ Force FX on top of everything (fix: effect หายเกลี้ยง) */
+    .hha-fx-layer{ z-index: 9999 !important; }
+
     /* Background soft glow */
     body::before{
       content:"";
