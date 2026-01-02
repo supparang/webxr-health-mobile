@@ -1,14 +1,13 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — PRODUCTION (C: gameplay + research-ready)
+// GoodJunkVR — PRODUCTION (C+FX PATCH: lowtime + fever/shield UI + VR-safe FX)
 // ✅ MISS = good expired + junk hit (shield blocks junk miss => NO miss)
 // ✅ Play: practice 15s (no penalty) then real play timer resets
 // ✅ Research: deterministic seed, NO practice
 // ✅ RT: avg / median / fast% + breakdown JSON
-// ✅ FX: Particles burst/scorePop/toast (if available)
-// ✅ AI hooks: OFF by default, research OFF unless aiForce=1
-// ✅ Crosshair shooting: hha:shoot picks nearest target within lockPx
-// ✅ Low-time: ring + 5..1 countdown
-// ✅ Fever/Shield UI: fever = miss ratio proxy (safe)
+// ✅ FX: Particles burst/scorePop/toast (if available) + VR-safe throttle
+// ✅ Low-time: ring + tick pulse + 5s soft countdown overlay
+// ✅ Fever UI: bar + % + shield pills render
+// ✅ VR-safe: no shake in VR/cVR, lighter FX frequency
 
 'use strict';
 
@@ -77,27 +76,7 @@ function hudUpdate(state){
 }
 
 // -------------------------
-// FEVER / SHIELD UI (safe)
-// -------------------------
-function setFeverUI(pct){
-  const p = clamp(pct,0,100);
-  const fill = byId('feverFill');
-  const txt  = byId('feverText');
-  if(fill) fill.style.width = `${p.toFixed(0)}%`;
-  if(txt) txt.textContent = `${p.toFixed(0)}%`;
-}
-function setShieldUI(sec){
-  const box = byId('shieldPills');
-  if(!box) return;
-  const s = Math.max(0, Number(sec)||0);
-  const n = Math.min(6, Math.ceil(s));
-  box.innerHTML = n
-    ? new Array(n).fill('🛡️').map(x=>`<span style="font-weight:1100">${x}</span>`).join('')
-    : '<span style="opacity:.7">—</span>';
-}
-
-// -------------------------
-// UX: Danger warning overlay
+// UX: Danger warning overlay (VR-safe)
 // -------------------------
 function ensureDangerLayer(){
   let el = DOC.querySelector('.gj-danger');
@@ -134,7 +113,10 @@ function ensureDangerLayer(){
   }
   return el;
 }
-function setDanger(level01){
+function isVRView(view){
+  return view === 'vr' || view === 'cvr';
+}
+function setDanger(level01, view){
   const layer = ensureDangerLayer();
   const lv = clamp(level01, 0, 1);
   if(lv <= 0){
@@ -145,8 +127,11 @@ function setDanger(level01){
   }
   layer.style.opacity = String(0.10 + 0.22*lv);
   layer.style.animation = `gjPulse ${lv>0.75?0.55:0.75}s ease-in-out infinite`;
-  if(lv > 0.82) DOC.body.classList.add('gj-shake');
+
+  // ✅ VR-safe: NO shake in VR/cVR
+  if(!isVRView(view) && lv > 0.82) DOC.body.classList.add('gj-shake');
   else DOC.body.classList.remove('gj-shake');
+
   emit('hha:danger', { level: lv });
 }
 
@@ -188,6 +173,118 @@ function ensurePracticeHint(){
 function showPracticeHint(show){
   const el = ensurePracticeHint();
   el.style.display = show ? 'block' : 'none';
+}
+
+// -------------------------
+// FX helpers (VR-safe throttle)
+// -------------------------
+function makeFx(view){
+  const vr = isVRView(view);
+  let lastBurstAt = 0;
+  let lastPopAt = 0;
+  return {
+    burst(cx,cy,kind){
+      const t = Date.now();
+      const minGap = vr ? 90 : 40;
+      if(t - lastBurstAt < minGap) return;
+      lastBurstAt = t;
+      try{ Particles.burstAt && Particles.burstAt(cx, cy, kind); }catch(_){}
+    },
+    pop(cx,cy,text,tag){
+      const t = Date.now();
+      const minGap = vr ? 110 : 55;
+      if(t - lastPopAt < minGap) return;
+      lastPopAt = t;
+      try{ Particles.scorePop && Particles.scorePop(cx, cy, text, tag); }catch(_){}
+    },
+    toast(text,tag){
+      try{ Particles.toast && Particles.toast(text, tag); }catch(_){}
+    },
+    celebrate(payload){
+      try{ Particles.celebrate && Particles.celebrate(payload); }catch(_){}
+    }
+  };
+}
+
+// -------------------------
+// Low-time warning UI (CSS-driven)
+// -------------------------
+function lowtimeInit(){
+  const ring = DOC.querySelector('.gj-warning-ring');
+  const overlay = DOC.querySelector('.gj-lowtime-overlay');
+  const num = byId('gj-lowtime-num');
+  return { ring, overlay, num };
+}
+function lowtimeApply(ui, timeLeftSec){
+  if(!ui) return;
+  const t = Math.max(0, Number(timeLeftSec)||0);
+
+  const isLow10 = t > 0 && t <= 10.0;
+  const isLow5  = t > 0 && t <= 5.05;
+
+  DOC.body.classList.toggle('gj-lowtime', isLow10);
+  DOC.body.classList.toggle('gj-lowtime5', isLow5);
+
+  // show countdown only in last 5
+  if(ui.overlay && ui.num){
+    if(isLow5){
+      const s = Math.max(1, Math.ceil(t));
+      ui.num.textContent = String(s);
+      ui.overlay.setAttribute('aria-hidden','false');
+    }else{
+      ui.overlay.setAttribute('aria-hidden','true');
+    }
+  }
+}
+
+// tick pulse: toggle body.gj-tick briefly once per second in lowtime window
+function lowtimeTickPulse(secCeil){
+  // only pulse for 10..1
+  if(secCeil <= 10 && secCeil >= 1){
+    DOC.body.classList.add('gj-tick');
+    setTimeout(()=> DOC.body.classList.remove('gj-tick'), 90);
+  }else{
+    DOC.body.classList.remove('gj-tick');
+  }
+}
+
+// -------------------------
+// Fever + Shield UI render
+// -------------------------
+function feverInit(){
+  return {
+    fill: byId('feverFill'),
+    text: byId('feverText'),
+    pills: byId('shieldPills'),
+  };
+}
+
+// fever model: miss ratio + small pressure from junk hits (capped)
+function feverCompute(state, missLimit){
+  const missP = clamp(state.miss / Math.max(1, missLimit), 0, 1);
+  const junkP = clamp(state.nHitJunk / 14, 0, 0.25); // gentle extra pressure
+  return clamp(missP + junkP, 0, 1);
+}
+function feverRender(ui, fever01){
+  if(!ui) return;
+  const pct = Math.round(clamp(fever01,0,1) * 100);
+  if(ui.fill) ui.fill.style.width = `${pct}%`;
+  if(ui.text) ui.text.textContent = `${pct}%`;
+}
+
+// show shield as pills per 2s (max 6s => 3 pills)
+function shieldRender(ui, shieldSec){
+  if(!ui || !ui.pills) return;
+  const s = Math.max(0, Number(shieldSec)||0);
+  const n = clamp(Math.ceil(s / 2), 0, 4); // up to 4 pills if future buff
+  const arr = [];
+  for(let i=0;i<n;i++) arr.push('🛡️');
+  ui.pills.innerHTML = arr.length ? arr.map(x=>`<span style="display:inline-flex;align-items:center;justify-content:center;
+    min-width:34px;height:28px;border-radius:999px;
+    border:1px solid rgba(34,197,94,.26);
+    background:rgba(34,197,94,.12);
+    font: 1000 14px/1 system-ui;
+  ">${x}</span>`).join('') : `<span style="opacity:.7;">—</span>`;
 }
 
 // -------------------------
@@ -298,14 +395,7 @@ function pickEmoji(kind, rng){
   const arr = (kind==='good') ? good : junk;
   return arr[Math.floor(rng()*arr.length)] || (kind==='good'?'🍎':'🍟');
 }
-function removeEl(el){
-  try{
-    el.classList.add('gone');
-    setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 160);
-  }catch(_){
-    try{ el.remove(); }catch(__){}
-  }
-}
+function removeEl(el){ try{ el.classList.add('gone'); setTimeout(()=>{ try{ el.remove(); }catch(_){} }, 160); }catch(_){ try{ el.remove(); }catch(__){} } }
 
 // -------------------------
 // RT buckets
@@ -415,6 +505,10 @@ export function boot(opts={}){
   const timeSec = Math.max(20, Number(opts.time)||80) * (cfg.timeMul||1);
   const state = makeInitialState(cfg, { timeSec, rng });
 
+  const fx = makeFx(view);
+  const lowUI = lowtimeInit();
+  const feverUI = feverInit();
+
   advanceMini(state, 'init');
 
   // ✅ practice only in play
@@ -438,7 +532,7 @@ export function boot(opts={}){
     phase: opts.phase || null,
     conditionGroup: opts.conditionGroup || null,
     startTimeIso: new Date().toISOString(),
-    gameVersion:'gj-2026-01-02C+'
+    gameVersion:'gj-2026-01-02Cfx'
   };
   emit('hha:start', meta);
   logEvent('start', meta);
@@ -449,7 +543,7 @@ export function boot(opts={}){
     ensurePracticeHint().querySelector('.gj-skip').onclick = ()=>{ state.practiceLeft = 0; };
   }
 
-  // ✅ AI hooks (OFF default)
+  // ✅ AI hooks (OFF default, research OFF)
   const ai = (ROOT.HHA_AI && ROOT.HHA_AI.createAIHooks)
     ? ROOT.HHA_AI.createAIHooks({
         enabled: (qs('ai','0') === '1'),
@@ -469,60 +563,12 @@ export function boot(opts={}){
   ROOT.addEventListener('hha:ai:hint', (ev)=>{
     const d = ev?.detail;
     if(!d || !d.text) return;
-    try{ Particles.toast && Particles.toast(d.text, 'AI'); }catch(_){}
+    fx.toast(d.text, 'AI');
     emit('hha:coach', { text: d.text, why: d.why, mood:'neutral' });
   }, { passive:true });
 
   const activeTargets = new Set();
   let ended = false;
-
-  // -------------------------
-  // Crosshair shooting (from vr-ui.js / btnShoot)
-  // -------------------------
-  function pickTargetNearPoint(x, y, lockPx){
-    const px = Math.max(8, Number(lockPx)||26);
-    let best = null;
-    let bestD2 = px*px;
-
-    activeTargets.forEach(el=>{
-      if(!el || !el.isConnected) return;
-      if(el.classList && el.classList.contains('gone')) return;
-
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top  + r.height/2;
-      const dx = cx - x;
-      const dy = cy - y;
-      const d2 = dx*dx + dy*dy;
-
-      if(d2 <= bestD2){
-        bestD2 = d2;
-        best = el;
-      }
-    });
-
-    return best;
-  }
-
-  function shootAt(detail){
-    if(state.phase !== 'practice' && state.phase !== 'play') return;
-
-    const W = ROOT.innerWidth || DOC.documentElement.clientWidth || 360;
-    const H = ROOT.innerHeight|| DOC.documentElement.clientHeight|| 640;
-
-    const x = (detail && detail.x != null) ? Number(detail.x) : (W/2);
-    const y = (detail && detail.y != null) ? Number(detail.y) : (H/2);
-    const lockPx = (detail && detail.lockPx != null) ? Number(detail.lockPx) : 26;
-
-    const target = pickTargetNearPoint(x, y, lockPx);
-    if(!target) return;
-
-    target.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, view:ROOT }));
-  }
-
-  ROOT.addEventListener('hha:shoot', (ev)=>{
-    shootAt(ev && ev.detail ? ev.detail : null);
-  }, { passive:true });
 
   function onTargetClick(e){
     const el = e.target;
@@ -532,7 +578,6 @@ export function boot(opts={}){
     const kind = el.dataset.kind;
     const tNow = nowMs();
 
-    // ✅ RT from bornAt
     const bornAt = Number(el.dataset.bornAt || 0);
     const rt = bornAt ? Math.max(0, tNow - bornAt) : null;
 
@@ -542,7 +587,6 @@ export function boot(opts={}){
       state.combo++;
       state.comboMax = Math.max(state.comboMax, state.combo);
 
-      // RT stats (main)
       if(rt != null){
         state.rtGoodCount++;
         state.rtGoodSumMs += rt;
@@ -555,21 +599,19 @@ export function boot(opts={}){
           arr[j] = rt;
         }
 
-        // RT breakdown
         const ph = (state.phase === 'practice') ? 'practice' : 'play';
         const miniKey = state.mini ? String(state.mini.type || 'none') : 'none';
         pushRtBucket(state.rtByPhase[ph], rt, state.rtArrCap2, state.rng);
         pushRtBucket(state.rtByMini[miniKey] || state.rtByMini.none, rt, state.rtArrCap2, state.rng);
       }
 
-      // goal progress
       if(state.goal && !state.goal.done){
         state.goal.cur = clamp(state.goal.cur + 1, 0, state.goal.target);
         if(state.goal.cur >= state.goal.target){
           state.goal.done = true;
           state.goalsCleared = 1;
           emit('hha:goal-complete', { goal: state.goal });
-          try{ Particles.celebrate && Particles.celebrate({ kind:'GOAL', intensity:1.0 }); }catch(_){}
+          fx.celebrate({ kind:'GOAL', intensity:1.0 });
         }
       }
 
@@ -579,8 +621,8 @@ export function boot(opts={}){
       try{
         const r = el.getBoundingClientRect();
         const cx = r.left + r.width/2, cy = r.top + r.height/2;
-        Particles.burstAt && Particles.burstAt(cx, cy, 'good');
-        Particles.scorePop && Particles.scorePop(cx, cy, '+10', 'GOOD');
+        fx.burst(cx, cy, 'good');
+        fx.pop(cx, cy, '+10', 'GOOD');
       }catch(_){}
 
       logEvent('hit_good', { rtMs: rt, score: state.score, combo: state.combo });
@@ -593,8 +635,8 @@ export function boot(opts={}){
         miniOnJunkHit(state);
         try{
           const r = el.getBoundingClientRect();
-          Particles.burstAt && Particles.burstAt(r.left+r.width/2, r.top+r.height/2, 'trap');
-          Particles.scorePop && Particles.scorePop(r.left+r.width/2, r.top+r.height/2, '', 'NOPE');
+          fx.burst(r.left+r.width/2, r.top+r.height/2, 'trap');
+          fx.pop(r.left+r.width/2, r.top+r.height/2, '', 'NOPE');
         }catch(_){}
         logEvent('hit_junk_practice', { score: state.score, miss: state.miss });
       }
@@ -605,8 +647,8 @@ export function boot(opts={}){
           state.combo = Math.max(0, state.combo - 1);
           try{
             const r = el.getBoundingClientRect();
-            Particles.scorePop && Particles.scorePop(r.left+r.width/2, r.top+r.height/2, '🛡️', 'BLOCK');
-            Particles.burstAt && Particles.burstAt(r.left+r.width/2, r.top+r.height/2, 'power');
+            fx.pop(r.left+r.width/2, r.top+r.height/2, '🛡️', 'BLOCK');
+            fx.burst(r.left+r.width/2, r.top+r.height/2, 'power');
           }catch(_){}
           logEvent('hit_junk_guard', { score: state.score, shieldSec: state.shieldSec });
         }else{
@@ -616,8 +658,8 @@ export function boot(opts={}){
           miniOnJunkHit(state);
           try{
             const r = el.getBoundingClientRect();
-            Particles.scorePop && Particles.scorePop(r.left+r.width/2, r.top+r.height/2, '', 'MISS');
-            Particles.burstAt && Particles.burstAt(r.left+r.width/2, r.top+r.height/2, 'trap');
+            fx.pop(r.left+r.width/2, r.top+r.height/2, '', 'MISS');
+            fx.burst(r.left+r.width/2, r.top+r.height/2, 'trap');
           }catch(_){}
           logEvent('hit_junk', { score: state.score, miss: state.miss });
         }
@@ -629,8 +671,8 @@ export function boot(opts={}){
       state.combo = Math.max(state.combo, 1);
       try{
         const r = el.getBoundingClientRect();
-        Particles.scorePop && Particles.scorePop(r.left+r.width/2, r.top+r.height/2, '+18', 'STAR');
-        Particles.burstAt && Particles.burstAt(r.left+r.width/2, r.top+r.height/2, 'gold');
+        fx.pop(r.left+r.width/2, r.top+r.height/2, '+18', 'STAR');
+        fx.burst(r.left+r.width/2, r.top+r.height/2, 'gold');
       }catch(_){}
       logEvent('pickup_star', { score: state.score, miss: state.miss });
 
@@ -639,8 +681,8 @@ export function boot(opts={}){
       state.score += 6;
       try{
         const r = el.getBoundingClientRect();
-        Particles.scorePop && Particles.scorePop(r.left+r.width/2, r.top+r.height/2, '+SHIELD', '🛡️');
-        Particles.burstAt && Particles.burstAt(r.left+r.width/2, r.top+r.height/2, 'power');
+        fx.pop(r.left+r.width/2, r.top+r.height/2, '+SHIELD', '🛡️');
+        fx.burst(r.left+r.width/2, r.top+r.height/2, 'power');
       }catch(_){}
       logEvent('pickup_shield', { score: state.score, shieldSec: state.shieldSec });
     }
@@ -648,8 +690,14 @@ export function boot(opts={}){
     removeEl(el);
     hudUpdate(state);
 
+    // refresh fever/shield UI
+    const fever01 = feverCompute(state, missLimit);
+    feverRender(feverUI, fever01);
+    shieldRender(feverUI, state.shieldSec);
+
+    // danger UI only matters in play
     if(state.phase === 'play'){
-      setDanger(clamp((state.miss / Math.max(1, missLimit)), 0, 1));
+      setDanger(clamp((state.miss / Math.max(1, missLimit)), 0, 1), view);
       if(state.miss >= missLimit){
         endGame('missLimit');
       }
@@ -733,7 +781,10 @@ export function boot(opts={}){
             state.combo = 0;
             hudUpdate(state);
 
-            setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1));
+            const fever01 = feverCompute(state, missLimit);
+            feverRender(feverUI, fever01);
+
+            setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1), view);
             if(state.miss >= missLimit){
               removeEl(el);
               endGame('missLimit');
@@ -746,8 +797,12 @@ export function boot(opts={}){
     }, Math.floor(lifeMs));
   }
 
+  // spawn pacing
   let lastTick = nowMs();
   let spawnAcc = 0;
+
+  // lowtime tracking
+  let lastLowSec = 999;
 
   function tick(){
     if(ended) return;
@@ -755,7 +810,11 @@ export function boot(opts={}){
     const dt = Math.min(0.05, (t - lastTick)/1000);
     lastTick = t;
 
+    // shield countdown
     if(state.shieldSec > 0) state.shieldSec = Math.max(0, state.shieldSec - dt);
+
+    // always render shield pills
+    shieldRender(feverUI, state.shieldSec);
 
     if(state.phase === 'practice'){
       if(!isResearch) showPracticeHint(true);
@@ -765,6 +824,10 @@ export function boot(opts={}){
 
       state.timeLeftSec = state.practiceLeft;
       hudSetText(HUD.time, Math.ceil(state.timeLeftSec));
+
+      // practice: no lowtime
+      DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick');
+      if(lowUI.overlay) lowUI.overlay.setAttribute('aria-hidden','true');
 
       const pps = (view==='mobile') ? (cfg.spawnPps * 0.85) : (cfg.spawnPps * 0.95);
       spawnAcc += dt * pps;
@@ -786,35 +849,27 @@ export function boot(opts={}){
         if(!isResearch) showPracticeHint(false);
         logEvent('practice_end', {});
         emit('hha:judge', { label:'START!' });
-        try{ Particles.toast && Particles.toast('START!', 'PLAY'); }catch(_){}
+        fx.toast('START!', 'PLAY');
       }
 
-      // UI update
-      setShieldUI(state.shieldSec);
-      setFeverUI(clamp((state.miss / Math.max(1, missLimit)) * 100, 0, 100));
       hudUpdate(state);
+
+      // fever in practice: show gentle (based on misses only; mostly 0)
+      const fever01 = feverCompute(state, missLimit);
+      feverRender(feverUI, fever01);
     }
     else if(state.phase === 'play'){
       state.playedSec += dt;
       state.timeLeftSec = Math.max(0, state.timeTotalSec - state.playedSec);
       state.graceSec = Math.max(0, state.graceSec - dt);
 
-      // low-time warning + 5..1 countdown
-      const tLeft = state.timeLeftSec;
-      DOC.body.classList.toggle('gj-lowtime', tLeft <= 15 && tLeft > 5);
-      DOC.body.classList.toggle('gj-lowtime5', tLeft <= 5 && tLeft > 0);
-
-      const lowOverlay = DOC.getElementById('gjLowOverlay');
-      const lowNum = DOC.getElementById('gj-lowtime-num');
-      if(lowOverlay && lowNum){
-        if(tLeft <= 5 && tLeft > 0){
-          lowOverlay.setAttribute('aria-hidden','false');
-          lowNum.textContent = String(Math.ceil(tLeft));
-          DOC.body.classList.add('gj-tick');
-          setTimeout(()=>DOC.body.classList.remove('gj-tick'), 220);
-        }else{
-          lowOverlay.setAttribute('aria-hidden','true');
-        }
+      // ✅ Low-time UI
+      lowtimeApply(lowUI, state.timeLeftSec);
+      const secCeil = Math.ceil(state.timeLeftSec);
+      if(secCeil !== lastLowSec){
+        lastLowSec = secCeil;
+        // pulse once per second in 10..1 window
+        if(secCeil <= 10 && secCeil >= 1) lowtimeTickPulse(secCeil);
       }
 
       miniTick(state, dt);
@@ -849,13 +904,15 @@ export function boot(opts={}){
         spawned++;
       }
 
-      setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1));
+      setDanger(clamp(state.miss / Math.max(1, missLimit), 0, 1), view);
 
-      // UI update
-      setShieldUI(state.shieldSec);
-      setFeverUI(clamp((state.miss / Math.max(1, missLimit)) * 100, 0, 100));
+      // fever render
+      const fever01 = feverCompute(state, missLimit);
+      feverRender(feverUI, fever01);
+
       hudUpdate(state);
 
+      // ✅ AI update (~1s)
       if(ai && ai.enabled){
         aiAcc += dt;
         if(aiAcc >= 1.0){
@@ -875,7 +932,7 @@ export function boot(opts={}){
             accuracyGoodPct: accGood,
             avgRtGoodMs: avgRt,
             fastHitRatePct: fastPct,
-            fever: 0,
+            fever: Math.round(fever01 * 100),
             shield: (state.shieldSec>0) ? 1 : 0,
             miniType: state.mini ? state.mini.type : 'none'
           };
@@ -899,12 +956,11 @@ export function boot(opts={}){
     if(ended) return;
     ended = true;
     state.phase = 'end';
-    setDanger(0);
+    setDanger(0, view);
 
-    // clear lowtime
+    // cleanup lowtime classes
     DOC.body.classList.remove('gj-lowtime','gj-lowtime5','gj-tick');
-    const lowOverlay = DOC.getElementById('gjLowOverlay');
-    if(lowOverlay) lowOverlay.setAttribute('aria-hidden','true');
+    if(lowUI.overlay) lowUI.overlay.setAttribute('aria-hidden','true');
 
     activeTargets.forEach(el=>removeEl(el));
     activeTargets.clear();
@@ -974,7 +1030,7 @@ export function boot(opts={}){
       phase: opts.phase || null,
       conditionGroup: opts.conditionGroup || null,
 
-      gameVersion:'gj-2026-01-02C+',
+      gameVersion:'gj-2026-01-02Cfx',
       startTimeIso: meta.startTimeIso,
       endTimeIso: new Date().toISOString(),
       hub: opts.hub || null,
@@ -985,10 +1041,8 @@ export function boot(opts={}){
     emit('hha:end', summary);
     logEvent('end', summary);
 
-    try{
-      Particles.celebrate && Particles.celebrate({ kind:'END', intensity:1.2 });
-      Particles.toast && Particles.toast(`GRADE ${grade}`, 'RESULT');
-    }catch(_){}
+    fx.celebrate({ kind:'END', intensity:1.2 });
+    fx.toast(`GRADE ${grade}`, 'RESULT');
   }
 
   ROOT.addEventListener('hha:force-end', (ev)=> endGame(ev?.detail?.reason || 'force'), { passive:true });
@@ -1006,7 +1060,7 @@ export function boot(opts={}){
           scoreFinal: state.score,
           misses: state.miss,
           durationPlayedSec: state.playedSec,
-          gameVersion:'gj-2026-01-02C+',
+          gameVersion:'gj-2026-01-02Cfx',
           startTimeIso: meta.startTimeIso,
           endTimeIso: new Date().toISOString(),
         }));
