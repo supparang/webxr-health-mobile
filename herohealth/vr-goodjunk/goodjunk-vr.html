@@ -7,38 +7,18 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame -->
+  <!-- A-Frame (ช่วยให้ Enter VR เสถียร) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <!-- FX + Logger -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- Universal VR UI -->
-  <script src="../vr/vr-ui.js" defer></script>
-
   <!-- CSS -->
   <link rel="stylesheet" href="./goodjunk-vr.css" />
 </head>
 
 <body class="view-mobile">
-  <script>
-  // set body view classes early
-  (function(){
-    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-    const v = String(qs('view','mobile')).toLowerCase();
-    const b = document.body;
-    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','view-cardboard');
-    if(v==='pc') b.classList.add('view-pc');
-    else if(v==='vr') b.classList.add('view-vr','view-cardboard');
-    else if(v==='cvr') b.classList.add('view-cvr','view-cardboard');
-    else b.classList.add('view-mobile');
-
-    // strict mode: targets not clickable, must shoot via crosshair
-    if(v==='cvr') b.classList.add('view-cvr-strict');
-  })();
-  </script>
-
   <!-- minimal aframe scene -->
   <a-scene embedded vr-mode-ui="enabled:false"
     style="position:fixed; inset:0; width:1px; height:1px; opacity:0; pointer-events:none;">
@@ -47,7 +27,7 @@
 
   <!-- WARNING RING + COUNTDOWN -->
   <div class="gj-warning-ring"></div>
-  <div class="gj-lowtime-overlay" aria-hidden="true" id="gjLowOverlay">
+  <div class="gj-lowtime-overlay" aria-hidden="true">
     <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
   </div>
 
@@ -61,14 +41,13 @@
       </div>
       <div class="start-meta" id="startMeta"></div>
       <button class="btn-start" id="btnStart">Start</button>
-      <button class="btn-start" id="btnStartVR"
-        style="margin-top:10px;background:rgba(34,211,238,.14);border-color:rgba(34,211,238,.30);">
+      <button class="btn-start" id="btnStartVR" style="margin-top:10px;background:rgba(34,211,238,.14);border-color:rgba(34,211,238,.30);">
         Enter VR
       </button>
     </div>
   </div>
 
-  <!-- HUD -->
+  <!-- HUD (PC/Mobile) -->
   <div class="hha-hud">
     <div class="hud-top">
       <div class="hud-badge">
@@ -120,7 +99,7 @@
     </div>
   </div>
 
-  <!-- FEVER / SHIELD -->
+  <!-- FEVER -->
   <div class="hha-fever">
     <div class="fever-row">
       <div class="fever-label">FEVER</div>
@@ -140,7 +119,7 @@
       <div class="gj-crosshair"></div>
     </div>
     <div class="gj-eye eye-r">
-      <div class="gj-layer"></div>
+      <div class="gj-layer" id="gj-layer-r"></div>
       <div class="gj-crosshair"></div>
     </div>
   </div>
@@ -154,55 +133,58 @@
   <script type="module" src="./goodjunk-vr.boot.js"></script>
 
   <script>
-  (function(){
-    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-    const view = String(qs('view','mobile')).toLowerCase();
-    const diff = String(qs('diff','normal')).toLowerCase();
-    const run  = String(qs('run','play')).toLowerCase();
+    (function(){
+      const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
+      const btnStart = document.getElementById('btnStart');
+      const btnStartVR= document.getElementById('btnStartVR');
+      const overlay  = document.getElementById('startOverlay');
+      const meta     = document.getElementById('startMeta');
 
-    const overlay  = document.getElementById('startOverlay');
-    const meta     = document.getElementById('startMeta');
-    meta.textContent = `view=${view} | run=${run} | diff=${diff}`;
+      const view = qs('view','mobile');
+      const diff = qs('diff','normal');
+      const run  = qs('run','play');
+      meta.textContent = `view=${view} | run=${run} | diff=${diff}`;
 
-    function start(){
-      overlay.style.display = 'none';
-      window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
-    }
+      function start(){
+        overlay.style.display = 'none';
+        window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
+      }
 
-    document.getElementById('btnStart')?.addEventListener('click', start);
+      btnStart.addEventListener('click', start);
 
-    document.getElementById('btnStartVR')?.addEventListener('click', ()=>{
-      window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
-      start();
-      // vr-ui.js มีปุ่ม ENTER VR อยู่แล้ว (กดได้ทันที)
-    });
+      btnStartVR.addEventListener('click', ()=>{
+        window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
+        start();
+      });
 
-    document.getElementById('btnShoot')?.addEventListener('click', ()=>{
-      window.dispatchEvent(new CustomEvent('hha:shoot', { detail:{ x: innerWidth/2, y: innerHeight/2 } }));
-    });
+      document.getElementById('btnShoot').addEventListener('click', ()=>{
+        window.dispatchEvent(new CustomEvent('hha:shoot'));
+      });
 
-    const peek = document.getElementById('gjPeek');
-    function openPeek(){
-      peek.setAttribute('aria-hidden','false');
-      setTimeout(()=>peek.setAttribute('aria-hidden','true'), 1300);
-    }
-    document.getElementById('btnPeek')?.addEventListener('click', openPeek);
-    document.getElementById('btnPeekMini')?.addEventListener('click', openPeek);
+      const peek = document.getElementById('gjPeek');
+      function openPeek(){
+        peek.setAttribute('aria-hidden','false');
+        setTimeout(()=>peek.setAttribute('aria-hidden','true'), 1300);
+      }
+      document.getElementById('btnPeek')?.addEventListener('click', openPeek);
+      document.getElementById('btnPeekMini')?.addEventListener('click', openPeek);
 
-    document.getElementById('btnHideHud')?.addEventListener('click', ()=>{
-      document.body.classList.toggle('hud-hidden');
-    });
+      document.getElementById('btnHideHud')?.addEventListener('click', ()=>{
+        document.body.classList.toggle('hud-hidden');
+      });
 
-    const pg = document.getElementById('peekGoal');
-    const pm = document.getElementById('peekMini');
-    setInterval(()=>{
-      pg.textContent = document.getElementById('hud-goal')?.textContent || '—';
-      pm.textContent = document.getElementById('hud-mini')?.textContent || '—';
-      document.getElementById('hud-score-mini').textContent = document.getElementById('hud-score')?.textContent || '0';
-      document.getElementById('hud-time-mini').textContent  = document.getElementById('hud-time')?.textContent || '0';
-      document.getElementById('hud-grade-mini').textContent = document.getElementById('hud-grade')?.textContent || '—';
-    }, 250);
-  })();
+      const pg = document.getElementById('peekGoal');
+      const pm = document.getElementById('peekMini');
+      setInterval(()=>{
+        const g = document.getElementById('hud-goal')?.textContent || '—';
+        const m = document.getElementById('hud-mini')?.textContent || '—';
+        pg.textContent = g;
+        pm.textContent = m;
+        document.getElementById('hud-score-mini').textContent = document.getElementById('hud-score')?.textContent || '0';
+        document.getElementById('hud-time-mini').textContent  = document.getElementById('hud-time')?.textContent || '0';
+        document.getElementById('hud-grade-mini').textContent = document.getElementById('hud-grade')?.textContent || '—';
+      }, 250);
+    })();
   </script>
 </body>
 </html>
