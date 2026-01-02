@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — Launcher</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+  <style>
+    :root{
+      --bg:#020617; --panel:rgba(2,6,23,.78); --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb; --muted:#94a3b8; --accent:#22c55e;
+      --r:22px;
+      --sat: env(safe-area-inset-top,0px);
+      --sab: env(safe-area-inset-bottom,0px);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui; }
+    .wrap{
+      min-height:100dvh;
+      padding: calc(14px + var(--sat)) 14px calc(14px + var(--sab));
+      max-width: 920px; margin:0 auto;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
+        radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
+        var(--bg);
+    }
+    .card{
+      background:var(--panel); border:1px solid var(--stroke); border-radius:var(--r);
+      padding:14px; box-shadow: 0 18px 60px rgba(0,0,0,.45);
+    }
+    h1{ margin:0 0 8px 0; font-size:22px; font-weight:1100; }
+    .sub{ color:var(--muted); font-weight:900; font-size:12px; line-height:1.35; }
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:12px; }
+    @media (max-width:820px){ .grid{ grid-template-columns: 1fr; } }
+    .row{ display:grid; grid-template-columns: 120px 1fr; gap:10px; align-items:center; margin:10px 0; }
+    label{ color:var(--muted); font-weight:900; font-size:12px; }
+    input,select{
+      height:42px; border-radius:14px; padding:0 12px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.55);
+      color:var(--text); font-weight:900;
+    }
+    .modes{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
+    .mode{
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.40);
+      border-radius: 18px;
+      padding:12px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .mode b{ display:block; font-size:16px; font-weight:1100; }
+    .mode span{ color:var(--muted); font-weight:900; font-size:12px; display:block; margin-top:6px; }
+    .mode.active{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
+    .btn{
+      width:100%; height:54px; border-radius: 18px;
+      border:1px solid rgba(34,197,94,.35);
+      background: rgba(34,197,94,.18);
+      color:#eafff3; font-weight:1100; font-size:18px;
+      margin-top:12px;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .mini{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .ghost{
+      height:40px; padding:0 12px; border-radius: 999px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(2,6,23,.38);
+      color:var(--text); font-weight:1000;
+    }
+    .note{
+      margin-top:10px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(15,23,42,.40);
+      border-radius: 16px;
+      padding:10px;
+      color:var(--muted);
+      font-weight:900;
+      font-size:12px;
+      line-height:1.35;
+    }
+    .warn{ color:#fbbf24; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1 id="ttl">HeroHealth — Launcher</h1>
+      <div class="sub" id="desc">เลือกอุปกรณ์/โหมดเล่น แล้วกด Start → จะพาไปหน้า run พร้อม query params มาตรฐาน (จำค่าล่าสุดให้)</div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="sub">1) เลือกอุปกรณ์ (View)</div>
+          <div class="modes" id="modes">
+            <div class="mode" data-view="pc"><b>PC</b><span>เมาส์/คีย์บอร์ด</span></div>
+            <div class="mode active" data-view="mobile"><b>Mobile</b><span>แตะยิง/เอียงเครื่อง</span></div>
+            <div class="mode" data-view="vr"><b>Cardboard VR</b><span>Enter VR + แยกตา</span></div>
+            <div class="mode" data-view="cvr"><b>cVR (Crosshair)</b><span>ยิงจากจุดกลางจอ (strict)</span></div>
+          </div>
+
+          <div class="note">
+            <span class="warn">Cardboard/VR:</span> แนะนำเปิด Fullscreen + หันจอแนวนอนก่อนกด Start
+          </div>
+
+          <div class="mini">
+            <button class="ghost" id="btnFS">Fullscreen</button>
+            <button class="ghost" id="btnRotate">Lock Landscape</button>
+            <button class="ghost" id="btnReset">Reset Prefs</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="sub">2) ตั้งค่าเกม (ส่งต่อไป run)</div>
+
+          <div class="row"><label>run</label>
+            <select id="run">
+              <option value="play">play</option>
+              <option value="research">research</option>
+            </select>
+          </div>
+
+          <div class="row"><label>diff</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="row"><label>time (sec)</label>
+            <input id="time" type="number" min="20" max="180" step="5" value="70" />
+          </div>
+
+          <div class="row"><label>seed</label>
+            <input id="seed" placeholder="ปล่อยว่างได้ (play) / ล็อกได้ (research)" />
+          </div>
+
+          <div class="row"><label>hub</label>
+            <input id="hub" placeholder="auto" />
+          </div>
+
+          <button class="btn" id="start">Start ▶</button>
+
+          <div class="note" id="status">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+
+    // ✅ ตั้งค่านี้ให้ตรงเกม: ชี้ไปหน้า RUN ของเกมนั้น
+    // ตัวอย่าง GroupsVR: '/herohealth/vr-groups/groups.html'
+    // ตัวอย่าง GoodJunk: '/herohealth/goodjunk-vr.html' (ถ้าหน้านี้เป็น run แล้ว ให้ชี้ไป run จริง)
+    const RUN_URL = './vr-groups/groups.html'; // <<< แก้ตรงนี้
+
+    const LS_KEY = 'HHA_LAUNCHER_PREFS_V1';
+    const $ = (q)=>document.querySelector(q);
+
+    const modes = $('#modes');
+    const status = $('#status');
+
+    const els = {
+      run: $('#run'),
+      diff: $('#diff'),
+      time: $('#time'),
+      seed: $('#seed'),
+      hub:  $('#hub'),
+      start:$('#start'),
+      btnFS:$('#btnFS'),
+      btnRotate:$('#btnRotate'),
+      btnReset:$('#btnReset'),
+    };
+
+    function readPrefs(){
+      try{ return JSON.parse(localStorage.getItem(LS_KEY)||'null') || {}; }catch{ return {}; }
+    }
+    function writePrefs(p){
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(p)); }catch{}
+    }
+
+    function qs(k, def=null){
+      try { return new URL(location.href).searchParams.get(k) ?? def; }
+      catch { return def; }
+    }
+
+    function getView(){
+      return document.querySelector('.mode.active')?.dataset?.view || 'mobile';
+    }
+    function setView(view){
+      document.querySelectorAll('.mode').forEach(m=>m.classList.remove('active'));
+      const el = document.querySelector(`.mode[data-view="${view}"]`) || document.querySelector('.mode[data-view="mobile"]');
+      if(el) el.classList.add('active');
+    }
+
+    function hash32(str){
+      str = String(str||'');
+      let h = 2166136261 >>> 0;
+      for (let i=0;i<str.length;i++){
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h>>>0);
+    }
+
+    function collect(){
+      const p = {};
+      p.view = getView();
+      p.run  = els.run.value;
+      p.diff = els.diff.value;
+      p.time = String(Number(els.time.value||70));
+      p.seed = (els.seed.value||'').trim();
+
+      // hub backlink
+      p.hub = (els.hub.value||'').trim() || (qs('hub', null) || location.href);
+
+      return p;
+    }
+
+    function apply(p){
+      setView(p.view || qs('view','mobile') || 'mobile');
+      els.run.value  = p.run  || qs('run','play') || 'play';
+      els.diff.value = p.diff || qs('diff','normal') || 'normal';
+      els.time.value = p.time || qs('time','70') || '70';
+      els.seed.value = (p.seed!=null) ? p.seed : (qs('seed','')||'');
+      els.hub.value  = p.hub || qs('hub','') || location.href;
+      updateStatus();
+    }
+
+    function updateStatus(){
+      const p = collect();
+
+      let seed = p.seed;
+      if(p.run==='research' && !seed){
+        seed = String(hash32(`${p.hub}|${p.diff}|${p.time}|${p.view}`));
+      }else if(p.run==='play' && !seed){
+        seed = String(Date.now());
+      }
+
+      status.textContent =
+        `view=${p.view}  run=${p.run}  diff=${p.diff}  time=${p.time}s  seed=${seed}`;
+    }
+
+    function buildRunUrl(){
+      const p = collect();
+      const url = new URL(RUN_URL, location.href);
+
+      // ✅ core
+      url.searchParams.set('view', p.view);
+      url.searchParams.set('run',  p.run);
+      url.searchParams.set('diff', p.diff);
+      url.searchParams.set('time', p.time);
+      url.searchParams.set('hub',  p.hub);
+
+      // ✅ seed rules (reproducible)
+      if(p.run==='research'){
+        const seed = p.seed || String(hash32(`${p.hub}|${p.diff}|${p.time}|${p.view}`));
+        url.searchParams.set('seed', seed);
+      }else{
+        url.searchParams.set('seed', p.seed || String(Date.now()));
+      }
+
+      // cache bust
+      url.searchParams.set('ts', String(Date.now()));
+
+      return url.toString();
+    }
+
+    // ---------- fullscreen + rotation helpers ----------
+    async function goFullscreen(){
+      try{
+        if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+      }catch(e){
+        status.textContent = `Fullscreen failed: ${e?.message || e}`;
+      }
+    }
+    async function lockLandscape(){
+      try{
+        if (screen?.orientation?.lock) await screen.orientation.lock('landscape');
+      }catch(e){
+        status.textContent = `Landscape lock not supported: ${e?.message || e}`;
+      }
+    }
+
+    // ---------- events ----------
+    modes.addEventListener('click', (ev)=>{
+      const m = ev.target.closest('.mode');
+      if(!m) return;
+      setView(m.dataset.view);
+      updateStatus();
+      writePrefs(collect());
+    });
+
+    ['change','input'].forEach(evt=>{
+      els.run.addEventListener(evt, ()=>{ updateStatus(); writePrefs(collect()); });
+      els.diff.addEventListener(evt, ()=>{ updateStatus(); writePrefs(collect()); });
+      els.time.addEventListener(evt, ()=>{ updateStatus(); writePrefs(collect()); });
+      els.seed.addEventListener(evt, ()=>{ updateStatus(); writePrefs(collect()); });
+      els.hub.addEventListener(evt, ()=>{ updateStatus(); writePrefs(collect()); });
+    });
+
+    els.btnFS.addEventListener('click', goFullscreen);
+    els.btnRotate.addEventListener('click', lockLandscape);
+
+    els.btnReset.addEventListener('click', ()=>{
+      try{ localStorage.removeItem(LS_KEY); }catch{}
+      apply({});
+      status.textContent = 'Prefs reset ✓';
+    });
+
+    // ✅ START: start-gated launch (prevents target flash in run page)
+    els.start.addEventListener('click', async ()=>{
+      // For VR/cVR, try to help user: fullscreen + landscape first
+      const p = collect();
+      if(p.view==='vr' || p.view==='cvr'){
+        await goFullscreen();
+        await lockLandscape();
+      }
+      writePrefs(collect());
+      location.href = buildRunUrl();
+    });
+
+    // init
+    apply(readPrefs());
+    updateStatus();
+  })();
+  </script>
+</body>
+</html>
