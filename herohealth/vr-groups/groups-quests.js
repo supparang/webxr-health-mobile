@@ -1,187 +1,210 @@
 /* === /herohealth/vr-groups/groups-quests.js ===
-Quest pack for GroupsVR
-- Goal sequential + Mini chain
-- Emits: quest:update
+GroupsVR — Quest Counter + End Summary Patch (PACK 25)
+✅ Tracks GOAL/MINI state from quest:update
+✅ Counts miniTotal / miniCleared (real)
+✅ Patches hha:end detail with {miniTotal, miniCleared, goalsTotal, goalsCleared} before UI/logger
+✅ Safe in play/research
 */
-(function(root){
+
+(function (root) {
   'use strict';
-  root.GroupsVR = root.GroupsVR || {};
 
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  const NS = root.GroupsVR = root.GroupsVR || {};
 
-  function makeQuestDirector(opts){
-    opts = opts || {};
-    const diff = String(opts.diff||'normal');
-    const runMode = String(opts.runMode||'play');
+  const ST = {
+    // goal
+    goalsTotal: 0,
+    goalIndex: 0,
+    goalNow: 0,
+    goalTotal: 1,
 
-    const GOALS = [
-      { id:'g1', title:'Hit correct group targets', target: (diff==='easy'?18:(diff==='hard'?26:22)) },
-      { id:'g2', title:'Perfect switch count', target: (diff==='easy'?3:(diff==='hard'?5:4)) }
-    ];
+    // mini
+    miniActive: false,
+    miniNow: 0,
+    miniNeed: 0,
+    miniLeft: 0,
+    miniTitle: '—',
 
-    const MINIS = [
-      { id:'m1', title:'No-Wrong streak', target:(diff==='easy'?5:(diff==='hard'?8:6)), secs:(diff==='easy'?10:(diff==='hard'?8:9)), forbidWrong:true },
-      { id:'m2', title:'Rush correct hits', target:(diff==='easy'?6:(diff==='hard'?8:7)), secs:(diff==='easy'?8:(diff==='hard'?6:7)), forbidJunk:true },
-      { id:'m3', title:'Boss warm-up: hit boss 3 times', target:3, secs:12, bossOnly:true }
-    ];
+    // counts
+    miniTotal: 0,
+    miniCleared: 0,
 
-    const Q = {
-      goalIndex: 0,
-      goalNow: 0,
-      goalsCleared: 0,
+    // de-dupe
+    _lastMiniKey: '',
+    _lastMiniSeenAt: 0,
 
-      miniIndex: 0,
-      miniNow: 0,
-      miniCleared: 0,
-      miniActive: null,
-      miniEndAt: 0,
+    // judge latch (for mini result hint)
+    _lastJudgeAt: 0,
+    _lastJudgeKind: '',
+    _lastJudgeText: ''
+  };
 
-      // live flags
-      forbidWrong:false,
-      forbidJunk:false,
-      bossOnly:false,
+  function nowMs() {
+    return (root.performance && performance.now) ? performance.now() : Date.now();
+  }
 
-      // counters from engine
-      perfectSwitches: 0
-    };
+  function clamp(v, a, b) {
+    v = Number(v) || 0;
+    return v < a ? a : (v > b ? b : v);
+  }
 
-    function activeGoal(){ return GOALS[Q.goalIndex] || null; }
-    function pickMini(){ return MINIS[Q.miniIndex % MINIS.length]; }
+  function str(x){ return String(x ?? ''); }
 
-    function pushUpdate(extra){
-      const g = activeGoal() || {title:'—', target:1};
-      const now = Date.now();
-      const mLeft = Q.miniActive ? Math.max(0, Math.ceil((Q.miniEndAt - now)/1000)) : 0;
+  // ---- Core: detect mini start/end from quest:update ----
+  function onQuestUpdate(ev){
+    const d = ev && ev.detail ? ev.detail : {};
 
-      const detail = Object.assign({
-        goalTitle: g.title,
-        goalNow: Q.goalNow,
-        goalTotal: g.target,
-        goalPct: clamp(Q.goalNow/g.target*100, 0, 100),
+    // goal
+    ST.goalsTotal = Number(d.goalsTotal ?? ST.goalsTotal) || ST.goalsTotal;
+    ST.goalIndex  = Number(d.goalIndex  ?? ST.goalIndex)  || ST.goalIndex;
+    ST.goalNow    = Number(d.goalNow    ?? ST.goalNow)    || ST.goalNow;
+    ST.goalTotal  = Math.max(1, Number(d.goalTotal ?? ST.goalTotal) || ST.goalTotal);
 
-        miniTitle: Q.miniActive ? Q.miniActive.title : '—',
-        miniNow: Q.miniNow,
-        miniTotal: Q.miniActive ? Q.miniActive.target : 1,
-        miniPct: Q.miniActive ? clamp(Q.miniNow/Q.miniActive.target*100, 0, 100) : 0,
-        miniTimeLeftSec: mLeft
-      }, extra||{});
+    // mini snapshot
+    const title = str(d.miniTitle ?? '—').trim();
+    const now = Number(d.miniNow ?? 0) || 0;
+    const tot = Number(d.miniTotal ?? 0) || 0;
+    const left = Number(d.miniTimeLeftSec ?? 0) || 0;
 
-      try{ window.dispatchEvent(new CustomEvent('quest:update', {detail})); }catch{}
-    }
+    const miniOn = (title !== '—' && tot > 0);
 
-    function startMini(){
-      Q.miniActive = pickMini();
-      Q.miniIndex++;
-      Q.miniNow = 0;
-      Q.forbidWrong = !!Q.miniActive.forbidWrong;
-      Q.forbidJunk  = !!Q.miniActive.forbidJunk;
-      Q.bossOnly    = !!Q.miniActive.bossOnly;
-      Q.miniEndAt = Date.now() + (Number(Q.miniActive.secs||8)*1000);
-      pushUpdate({miniStart:true});
-    }
+    // create a key to detect a "new mini"
+    // (title + tot + approximate start window via leftSec bucket)
+    const leftBucket = Math.min(99, Math.max(0, Math.round(left)));
+    const key = `${title}|${tot}|${leftBucket}`;
 
-    function failMini(reason){
-      // just restart next mini (keeps pressure)
-      Q.miniActive = null;
-      Q.forbidWrong=false; Q.forbidJunk=false; Q.bossOnly=false;
-      pushUpdate({miniFail:String(reason||'fail')});
-      setTimeout(startMini, 300);
-    }
+    // If mini becomes active, count miniTotal once per mini instance
+    if (miniOn && !ST.miniActive) {
+      ST.miniActive = true;
+      ST.miniTitle = title;
+      ST.miniNow = now;
+      ST.miniNeed = tot;
+      ST.miniLeft = left;
 
-    function winMini(){
-      Q.miniCleared++;
-      Q.miniActive = null;
-      Q.forbidWrong=false; Q.forbidJunk=false; Q.bossOnly=false;
-      pushUpdate({miniWin:true});
-      setTimeout(startMini, 350);
-    }
-
-    function winGoal(){
-      Q.goalsCleared++;
-      Q.goalIndex++;
-      Q.goalNow = 0;
-      pushUpdate({goalWin:true});
-    }
-
-    function tick(){
-      if (Q.miniActive){
-        const left = Q.miniEndAt - Date.now();
-        if (left <= 0){
-          // time out
-          failMini('timeout');
-        }else{
-          pushUpdate();
-        }
+      // count total (guard with key/time)
+      const t = nowMs();
+      if (key !== ST._lastMiniKey || (t - ST._lastMiniSeenAt) > 1200) {
+        ST.miniTotal += 1;
+        ST._lastMiniKey = key;
+        ST._lastMiniSeenAt = t;
       }
+      return;
     }
 
-    function onCorrectHit(){
-      // goal1 counts correct hits
-      const g = activeGoal();
-      if (!g) return;
-      if (g.id === 'g1'){
-        Q.goalNow++;
-        if (Q.goalNow >= g.target) winGoal();
+    // While active, update progress
+    if (miniOn && ST.miniActive) {
+      ST.miniTitle = title;
+      ST.miniNow = now;
+      ST.miniNeed = tot;
+      ST.miniLeft = left;
+      return;
+    }
+
+    // If mini is no longer on => it ended
+    if (!miniOn && ST.miniActive) {
+      // Decide cleared or not:
+      // Best: look at last judge kind within a short window, otherwise fallback to progress.
+      const t = nowMs();
+      const judgeFresh = (t - ST._lastJudgeAt) <= 900;
+
+      let cleared = false;
+      if (judgeFresh) {
+        const k = ST._lastJudgeKind;
+        const txt = str(ST._lastJudgeText).toUpperCase();
+        // your engine uses: judge kind 'good' with text 'MINI CLEAR +180' or 'MINI FAIL'
+        if (k === 'good' && txt.includes('MINI')) cleared = true;
+        if (txt.includes('MINI CLEAR')) cleared = true;
+        if (txt.includes('MINI FAIL')) cleared = false;
+      } else {
+        // fallback: if progress met requirement at end moment
+        cleared = (ST.miniNow >= ST.miniNeed);
       }
-      // mini counts
-      if (Q.miniActive && !Q.bossOnly){
-        Q.miniNow++;
-        if (Q.miniNow >= Q.miniActive.target) winMini();
-      }
-      pushUpdate();
-    }
 
-    function onPerfectSwitch(){
-      Q.perfectSwitches++;
-      const g = activeGoal();
-      if (g && g.id === 'g2'){
-        Q.goalNow = Q.perfectSwitches;
-        if (Q.goalNow >= g.target) winGoal();
-      }
-      pushUpdate({perfectSwitches:Q.perfectSwitches});
-    }
+      if (cleared) ST.miniCleared += 1;
 
-    function onWrongHit(){
-      if (Q.miniActive && Q.forbidWrong) failMini('wrong');
+      // reset mini active
+      ST.miniActive = false;
+      ST.miniTitle = '—';
+      ST.miniNow = 0;
+      ST.miniNeed = 0;
+      ST.miniLeft = 0;
+      return;
     }
-    function onJunkHit(){
-      if (Q.miniActive && Q.forbidJunk) failMini('junk');
-    }
+  }
 
-    function onBossHit(){
-      if (Q.miniActive && Q.bossOnly){
-        Q.miniNow++;
-        if (Q.miniNow >= Q.miniActive.target) winMini();
-        pushUpdate();
-      }
-    }
+  function onJudge(ev){
+    const d = ev && ev.detail ? ev.detail : {};
+    ST._lastJudgeAt = nowMs();
+    ST._lastJudgeKind = str(d.kind || '').toLowerCase();
+    ST._lastJudgeText = str(d.text || '');
+  }
 
-    function getState(){
-      return {
-        goalsCleared: Q.goalsCleared,
-        goalsTotal: GOALS.length,
-        miniCleared: Q.miniCleared,
-        miniTotal: 999,
-        perfectSwitches: Q.perfectSwitches
-      };
-    }
+  // ---- Patch end summary before UI/logger consumes it ----
+  // Important: capture phase so we can mutate ev.detail early.
+  function onEndCapture(ev){
+    if (!ev || !ev.detail) return;
 
-    // init
-    startMini();
-    pushUpdate();
+    // infer goalsCleared robustly (engine already sets it; but keep safe)
+    const gTotal = Number(ev.detail.goalsTotal ?? ST.goalsTotal) || ST.goalsTotal || 0;
+    const gCleared = Number(ev.detail.goalsCleared ?? 0) || 0;
 
-    return {
-      tick,
-      onCorrectHit,
-      onWrongHit,
-      onJunkHit,
-      onBossHit,
-      onPerfectSwitch,
-      getState,
-      getMiniFlags: ()=>({ forbidWrong:Q.forbidWrong, forbidJunk:Q.forbidJunk, bossOnly:Q.bossOnly })
+    // attach mini counts
+    ev.detail.miniTotal = Number(ev.detail.miniTotal ?? ST.miniTotal) || ST.miniTotal || 0;
+    ev.detail.miniCleared = Number(ev.detail.miniCleared ?? ST.miniCleared) || ST.miniCleared || 0;
+
+    // also ensure goal totals exist (some builds want both)
+    ev.detail.goalsTotal = gTotal || ev.detail.goalsTotal || 0;
+    ev.detail.goalsCleared = gCleared || ev.detail.goalsCleared || 0;
+
+    // Optional: add a compact quest snapshot for debugging
+    ev.detail._quest = {
+      goalNow: ST.goalNow,
+      goalTotal: ST.goalTotal,
+      goalsTotal: ST.goalsTotal,
+      miniTotal: ST.miniTotal,
+      miniCleared: ST.miniCleared
     };
   }
 
-  root.GroupsVR.Quests = { makeQuestDirector };
+  // ---- Public helpers (optional) ----
+  NS.getQuestStats = function(){
+    return {
+      goalsTotal: ST.goalsTotal,
+      goalIndex: ST.goalIndex,
+      goalNow: ST.goalNow,
+      goalTotal: ST.goalTotal,
+      miniTotal: ST.miniTotal,
+      miniCleared: ST.miniCleared,
+      miniActive: ST.miniActive
+    };
+  };
 
-})(typeof window!=='undefined'?window:globalThis);
+  NS.resetQuestStats = function(){
+    ST.goalsTotal = 0;
+    ST.goalIndex = 0;
+    ST.goalNow = 0;
+    ST.goalTotal = 1;
+    ST.miniActive = false;
+    ST.miniNow = 0;
+    ST.miniNeed = 0;
+    ST.miniLeft = 0;
+    ST.miniTitle = '—';
+    ST.miniTotal = 0;
+    ST.miniCleared = 0;
+    ST._lastMiniKey = '';
+    ST._lastMiniSeenAt = 0;
+    ST._lastJudgeAt = 0;
+    ST._lastJudgeKind = '';
+    ST._lastJudgeText = '';
+  };
+
+  // ---- Wire listeners ----
+  root.addEventListener('quest:update', onQuestUpdate, { passive:true });
+
+  // judge helps decide mini clear/fail reliably
+  root.addEventListener('hha:judge', onJudge, { passive:true });
+
+  // capture to patch detail before run html handler
+  root.addEventListener('hha:end', onEndCapture, true);
+
+})(typeof window !== 'undefined' ? window : globalThis);
