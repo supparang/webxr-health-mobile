@@ -1,9 +1,10 @@
-<!-- === /herohealth/plate/plate-vr.html ===
-REDIRECT BRIDGE (PATH FIX) — PRODUCTION
-✅ รองรับลิงก์เก่า /herohealth/plate/plate-vr.html
-✅ Redirect ไป /herohealth/plate-vr.html
-✅ พาพารามิเตอร์ (?hub=...&run=...&diff=...&time=...&seed=...&v=...) และ #hash ไปด้วย
-✅ กันวนลูป + replace history
+<!-- === /herohealth/plate-vr.html ===
+Balanced Plate VR — MAIN (Launcher + Run) — PRODUCTION
+✅ PC / Mobile / Cardboard / cVR entry (remember last view)
+✅ Pass params: hub, run, diff, time, seed, policy, assist, ai, pattern
+✅ Includes Universal VR UI: /herohealth/vr/vr-ui.js (hha:shoot crosshair)
+✅ Loads engine: /herohealth/plate/plate.safe.js
+✅ Has required DOM ids for plate.safe.js
 -->
 
 <!doctype html>
@@ -11,42 +12,191 @@ REDIRECT BRIDGE (PATH FIX) — PRODUCTION
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Redirecting… | HeroHealth Plate</title>
+  <title>HeroHealth — Balanced Plate VR</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- fallback (works if JS blocked) -->
-  <meta http-equiv="refresh" content="0; url=../plate-vr.html" />
+  <!-- A-Frame (minimal scene to enable Enter VR reliably) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Global FX + optional logger (if you use it elsewhere) -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- Universal VR UI: EnterVR/Exit/Recenter + crosshair tap-to-shoot emits hha:shoot -->
+  <script src="./vr/vr-ui.js" defer></script>
 
   <style>
-    :root{ color-scheme:dark; }
-    body{
-      margin:0; min-height:100vh;
-      display:grid; place-items:center;
-      background:#020617; color:#e5e7eb;
-      font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
-      padding:18px;
+    :root{
+      color-scheme: dark;
+      --bg:#020617;
+      --panel:rgba(2,6,23,.78);
+      --panel2:rgba(15,23,42,.70);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --cyan:#22d3ee;
+      --violet:#a78bfa;
+      --radius:22px;
+      --pill:999px;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
     }
-    .card{
-      max-width:760px; width:100%;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(2,6,23,.78);
-      border-radius:20px;
-      padding:16px;
-      box-shadow:0 22px 70px rgba(0,0,0,.40);
+
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif; }
+
+    /* A-Frame hidden but active */
+    a-scene{
+      position:fixed; inset:0;
+      width:1px; height:1px;
+      opacity:0; pointer-events:none;
+      z-index:0;
     }
-    .t{ font-weight:1200; font-size:16px; }
-    .m{
-      margin-top:8px;
-      color:rgba(148,163,184,.95);
-      font-weight:900; line-height:1.5
+
+    /* Game play layer */
+    #plate-layer{
+      position:fixed; inset:0;
+      overflow:hidden;
+      z-index:10;
+      touch-action:none;
     }
-    .row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; }
-    .btn{
-      border-radius:16px;
+
+    /* Hit FX overlay (safe.js toggles classes) */
+    #hitFx{
+      position:fixed; inset:0;
+      pointer-events:none;
+      opacity:0;
+      z-index:40;
+      transition: opacity .12s ease;
+    }
+
+    /* Top HUD */
+    #hudTop{
+      position:fixed;
+      left: calc(12px + var(--sal));
+      right: calc(12px + var(--sar));
+      top: calc(12px + var(--sat));
+      display:grid;
+      gap:10px;
+      z-index:70;
+      pointer-events:none; /* don't block play */
+    }
+
+    .hudRow{
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center; justify-content:space-between;
+    }
+
+    .pill{
+      pointer-events:none;
+      display:flex; gap:10px; align-items:center;
       padding:10px 12px;
+      border-radius:var(--radius);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      backdrop-filter: blur(10px);
+      box-shadow:0 22px 70px rgba(0,0,0,.40);
+      min-height:44px;
+    }
+
+    .pill .k{ color:var(--muted); font-weight:1100; font-size:12px; }
+    .pill .v{ font-weight:1300; font-size:14px; letter-spacing:.2px; }
+    .sep{ opacity:.35; }
+
+    .bar{
+      width:130px; height:10px; border-radius:999px;
+      background:rgba(148,163,184,.18);
+      overflow:hidden;
+      border:1px solid rgba(148,163,184,.14);
+    }
+    .bar > i{ display:block; height:100%; width:0%; background:rgba(34,197,94,.60); }
+
+    .miniBar > i{ background:rgba(245,158,11,.60); }
+    .feverBar > i{ background:rgba(239,68,68,.60); }
+
+    /* Goal/Mini panels */
+    #miniPanel, #coachPanel{
+      position:fixed;
+      left: calc(12px + var(--sal));
+      right: calc(12px + var(--sar));
+      z-index:65;
+      pointer-events:none;
+    }
+    #miniPanel{ top: calc(92px + var(--sat)); }
+    #coachPanel{ bottom: calc(86px + var(--sab)); }
+
+    .panel{
+      background:var(--panel2);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:var(--radius);
+      padding:12px;
+      backdrop-filter: blur(10px);
+      box-shadow:0 22px 70px rgba(0,0,0,.35);
+    }
+
+    .title{
+      font-weight:1400;
+      font-size:14px;
+    }
+    .sub{
+      margin-top:4px;
+      color:rgba(148,163,184,.95);
+      font-weight:1000;
+      font-size:12px;
+      line-height:1.4;
+    }
+    .row2{
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center; justify-content:space-between;
+      margin-top:10px;
+    }
+
+    /* Coach */
+    .coachWrap{
+      display:flex; gap:12px; align-items:center;
+    }
+    #coachImg{
+      width:44px; height:44px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.55);
+      object-fit:cover;
+    }
+    #coachMsg{
       font-weight:1200;
+      font-size:13px;
+      line-height:1.35;
+    }
+
+    /* Bottom buttons row */
+    #hudBtns{
+      position:fixed;
+      left: calc(12px + var(--sal));
+      right: calc(12px + var(--sar));
+      bottom: calc(12px + var(--sab));
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      z-index:75;
+      pointer-events:auto;
+    }
+
+    .btn{
+      appearance:none;
+      border-radius:18px;
+      padding:10px 12px;
+      font-weight:1300;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(15,23,42,.55);
-      color:#e5e7eb;
+      color:var(--text);
       cursor:pointer;
       user-select:none;
       -webkit-tap-highlight-color:transparent;
@@ -56,98 +206,635 @@ REDIRECT BRIDGE (PATH FIX) — PRODUCTION
       border-color:rgba(34,197,94,.28);
       background:rgba(34,197,94,.12);
     }
-    a{
-      color:#22c55e;
-      font-weight:1200;
-      word-break:break-all;
+    .btn.danger{
+      border-color:rgba(239,68,68,.28);
+      background:rgba(239,68,68,.10);
     }
-    code{
-      display:inline-block;
-      padding:2px 8px;
+
+    /* Start overlay (launcher) */
+    #startOverlay{
+      position:fixed; inset:0;
+      display:grid; place-items:center;
+      padding:18px;
+      background: radial-gradient(circle at 20% 10%, rgba(34,197,94,.14), transparent 45%),
+                  radial-gradient(circle at 80% 80%, rgba(34,211,238,.12), transparent 45%),
+                  rgba(2,6,23,.92);
+      z-index:200;
+    }
+    .card{
+      width:min(900px, 96vw);
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.78);
+      backdrop-filter: blur(12px);
+      box-shadow:0 28px 90px rgba(0,0,0,.50);
+      padding:16px;
+    }
+    .card h1{
+      margin:0;
+      font-size:18px;
+      font-weight:1500;
+      letter-spacing:.2px;
+    }
+    .card .meta{
+      margin-top:6px;
+      color:rgba(148,163,184,.95);
+      font-weight:1000;
+      line-height:1.45;
+      font-size:12.5px;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:12px;
+      margin-top:12px;
+    }
+    @media (max-width: 860px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+    .box{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.42);
+      border-radius:20px;
+      padding:12px;
+    }
+    .box .h{
+      font-weight:1400;
+      font-size:13px;
+      margin-bottom:10px;
+      color:rgba(229,231,235,.98);
+    }
+    .chips{ display:flex; flex-wrap:wrap; gap:10px; }
+    .chip{
       border-radius:999px;
+      padding:10px 12px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.45);
+      color:var(--text);
+      font-weight:1300;
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .chip.on{
+      border-color:rgba(34,197,94,.28);
+      background:rgba(34,197,94,.10);
+      box-shadow:0 18px 44px rgba(34,197,94,.08);
+    }
+    .formRow{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      margin-top:10px;
+    }
+    .inp{
+      flex:1;
+      min-width:140px;
+      border-radius:16px;
+      padding:10px 12px;
       border:1px solid rgba(148,163,184,.18);
       background:rgba(2,6,23,.52);
-      color:rgba(229,231,235,.95);
-      font-weight:1100;
+      color:var(--text);
+      font-weight:1200;
+      outline:none;
     }
+    .help{
+      margin-top:8px;
+      font-size:12px;
+      color:rgba(148,163,184,.95);
+      font-weight:1000;
+      line-height:1.4;
+    }
+
+    /* Pause overlay */
+    #hudPaused{
+      position:fixed; inset:0;
+      display:none;
+      place-items:center;
+      background:rgba(2,6,23,.78);
+      z-index:150;
+    }
+    .pausedCard{
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.84);
+      padding:16px;
+      width:min(520px, 92vw);
+      box-shadow:0 28px 90px rgba(0,0,0,.55);
+      text-align:center;
+    }
+    .pausedCard .big{ font-size:18px; font-weight:1500; }
+    .pausedCard .small{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:1100; }
+
+    /* Result overlay */
+    #resultBackdrop{
+      position:fixed; inset:0;
+      display:none;
+      place-items:center;
+      background:rgba(2,6,23,.86);
+      z-index:180;
+      padding:18px;
+    }
+    .resultCard{
+      width:min(900px, 96vw);
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(2,6,23,.78);
+      backdrop-filter: blur(12px);
+      box-shadow:0 28px 90px rgba(0,0,0,.55);
+      padding:16px;
+    }
+    .resultTop{
+      display:flex; gap:10px; flex-wrap:wrap;
+      align-items:center; justify-content:space-between;
+    }
+    .grade{
+      font-size:22px;
+      font-weight:1700;
+      padding:8px 12px;
+      border-radius:18px;
+      border:1px solid rgba(34,197,94,.25);
+      background:rgba(34,197,94,.10);
+    }
+    .statGrid{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:10px;
+      margin-top:12px;
+    }
+    @media (max-width: 860px){
+      .statGrid{ grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat{
+      border:1px solid rgba(148,163,184,.16);
+      background:rgba(15,23,42,.40);
+      border-radius:20px;
+      padding:12px;
+    }
+    .stat .k{ color:rgba(148,163,184,.95); font-weight:1100; font-size:12px; }
+    .stat .v{ margin-top:6px; font-weight:1500; font-size:16px; }
+    .resultBtns{
+      display:flex; gap:10px; flex-wrap:wrap;
+      justify-content:flex-end;
+      margin-top:12px;
+    }
+
+    /* View modes */
+    body.view-pc   { }
+    body.view-mobile{ }
+    body.view-cardboard{ }
+    body.view-cvr .plateTarget{ pointer-events:none !important; } /* strict: shoot via crosshair */
+
+    /* Keep safe area for VR UI buttons (vr-ui.js) */
+    .hha-vr-ui{ z-index:190 !important; } /* if vr-ui uses this class */
   </style>
 </head>
 
-<body>
-  <div class="card">
-    <div class="t">กำลังพาไปหน้า Plate ใหม่… 🍽️</div>
-    <div class="m">
-      หน้านี้เป็น “สะพานลิงก์เก่า” เพื่อให้ URL เดิมยังใช้ได้
-      <br/>กำลังไปที่: <code>/herohealth/plate-vr.html</code>
+<body class="view-mobile">
+  <!-- A-Frame scene for Enter VR -->
+  <a-scene embedded vr-mode-ui="enabled: false"></a-scene>
+
+  <!-- FX -->
+  <div id="hitFx" aria-hidden="true"></div>
+
+  <!-- Game layer -->
+  <div id="plate-layer" aria-label="plate-play-layer"></div>
+
+  <!-- HUD top -->
+  <div id="hudTop">
+    <div class="hudRow">
+      <div class="pill">
+        <span class="k">Mode</span><span class="v" id="uiRunPreview">play</span>
+        <span class="sep">•</span>
+        <span class="k">Diff</span><span class="v" id="uiDiffPreview">normal</span>
+        <span class="sep">•</span>
+        <span class="k">Time</span><span class="v"><span id="uiTime">0</span>s</span>
+      </div>
+
+      <div class="pill">
+        <span class="k">Score</span><span class="v" id="uiScore">0</span>
+        <span class="sep">•</span>
+        <span class="k">Combo</span><span class="v"><span id="uiCombo">0</span> <span style="opacity:.55">/</span> <span id="uiComboMax">0</span></span>
+        <span class="sep">•</span>
+        <span class="k">Miss</span><span class="v" id="uiMiss">0</span>
+      </div>
+
+      <div class="pill">
+        <span class="k">Plate</span><span class="v"><span id="uiPlateHave">0</span>/5</span>
+        <span class="sep">•</span>
+        <span class="k">Acc</span><span class="v" id="uiAcc">0%</span>
+        <span class="sep">•</span>
+        <span class="k">Grade</span><span class="v" id="uiGrade">C</span>
+      </div>
     </div>
 
-    <div class="m" style="margin-top:10px">
-      ถ้าไม่เด้งอัตโนมัติ ให้กดลิงก์นี้:
-      <br>
-      <a id="fallbackLink" href="../plate-vr.html">../plate-vr.html</a>
+    <div class="hudRow">
+      <div class="pill" style="flex:1; min-width:220px;">
+        <span class="k">Goal</span>
+        <span class="v" id="uiGoalTitle">—</span>
+        <span class="sep">•</span>
+        <span class="v" id="uiGoalCount">0/0</span>
+        <span class="bar" aria-hidden="true"><i id="uiGoalFill"></i></span>
+      </div>
+
+      <div class="pill" style="flex:1; min-width:220px;">
+        <span class="k">Mini</span>
+        <span class="v" id="uiMiniTitle">—</span>
+        <span class="sep">•</span>
+        <span class="v" id="uiMiniTime">--</span>
+        <span class="sep">•</span>
+        <span class="v" id="uiMiniCount">0/0</span>
+        <span class="bar miniBar" aria-hidden="true"><i id="uiMiniFill"></i></span>
+      </div>
+
+      <div class="pill" style="min-width:220px;">
+        <span class="k">Fever</span>
+        <span class="bar feverBar" aria-hidden="true"><i id="uiFeverFill"></i></span>
+        <span class="sep">•</span>
+        <span class="k">Shield</span><span class="v">🛡️ <span id="uiShieldN">0</span></span>
+      </div>
     </div>
 
-    <div class="row">
-      <button class="btn primary" id="btnGo" type="button">ไปต่อทันที ▶</button>
-      <button class="btn" id="btnCopy" type="button">คัดลอกลิงก์ใหม่ 🔗</button>
+    <div class="hudRow">
+      <div class="pill" style="flex:1;">
+        <span class="k">Hint</span>
+        <span class="v" id="uiHint">เลือกโหมด แล้วกด Start</span>
+      </div>
+
+      <div class="pill" style="min-width:260px;">
+        <span class="k">Groups</span>
+        <span class="v">🥦<span id="uiG1">0</span></span>
+        <span class="v">🍎<span id="uiG2">0</span></span>
+        <span class="v">🐟<span id="uiG3">0</span></span>
+        <span class="v">🍚<span id="uiG4">0</span></span>
+        <span class="v">🥑<span id="uiG5">0</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mini panel (extra explanation area) -->
+  <div id="miniPanel">
+    <div class="panel">
+      <div class="title">ภารกิจพิเศษ</div>
+      <div class="sub">ทำให้ผ่านเพื่อรับโล่/โบนัส และเพิ่มความเร้าใจในโหมดเล่น</div>
+      <div class="row2">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div class="pill" style="min-height:36px; padding:8px 10px;">
+            <span class="k">Mini</span><span class="v" id="uiMiniTitle2">—</span>
+            <span class="sep">•</span><span class="k">Time</span><span class="v" id="uiMiniTime2">--</span>
+          </div>
+        </div>
+        <div class="sub" style="margin:0;">Tip: โหมด cVR ยิงกลางจออย่างเดียว</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Coach panel -->
+  <div id="coachPanel">
+    <div class="panel">
+      <div class="coachWrap">
+        <img id="coachImg" alt="Coach" src="./img/coach-neutral.png">
+        <div>
+          <div class="title">Coach</div>
+          <div id="coachMsg">พร้อมแล้วเลือกโหมดแล้วกด Start ได้เลย</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom buttons -->
+  <div id="hudBtns">
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn primary" id="btnStart" type="button">Start ▶</button>
+      <button class="btn" id="btnPause" type="button">Pause ⏸</button>
+      <button class="btn" id="btnRestart" type="button">Restart ↻</button>
     </div>
 
-    <div class="m" id="dbg" style="margin-top:10px; opacity:.95"></div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+      <button class="btn" id="btnEnterVR" type="button">Enter VR 🥽</button>
+      <button class="btn danger" id="btnBackHub" type="button">Back HUB ⬅</button>
+    </div>
+  </div>
+
+  <!-- Pause overlay -->
+  <div id="hudPaused">
+    <div class="pausedCard">
+      <div class="big">⏸ หยุดชั่วคราว</div>
+      <div class="small">กด Pause อีกครั้งเพื่อเล่นต่อ</div>
+    </div>
+  </div>
+
+  <!-- Result overlay -->
+  <div id="resultBackdrop">
+    <div class="resultCard">
+      <div class="resultTop">
+        <div>
+          <div style="font-weight:1600; font-size:16px;">สรุปผลการเล่น 🍽️</div>
+          <div style="color:rgba(148,163,184,.95); font-weight:1100; margin-top:4px;">
+            Mode: <b id="rMode">play</b>
+          </div>
+        </div>
+        <div class="grade">Grade: <span id="rGrade">C</span></div>
+      </div>
+
+      <div class="statGrid">
+        <div class="stat"><div class="k">Score</div><div class="v" id="rScore">0</div></div>
+        <div class="stat"><div class="k">Max Combo</div><div class="v" id="rMaxCombo">0</div></div>
+        <div class="stat"><div class="k">Miss</div><div class="v" id="rMiss">0</div></div>
+        <div class="stat"><div class="k">Perfect</div><div class="v" id="rPerfect">0%</div></div>
+        <div class="stat"><div class="k">Goals</div><div class="v" id="rGoals">0/0</div></div>
+        <div class="stat"><div class="k">Minis</div><div class="v" id="rMinis">0/0</div></div>
+      </div>
+
+      <div class="statGrid" style="margin-top:10px;">
+        <div class="stat"><div class="k">🥦</div><div class="v" id="rG1">0</div></div>
+        <div class="stat"><div class="k">🍎</div><div class="v" id="rG2">0</div></div>
+        <div class="stat"><div class="k">🐟</div><div class="v" id="rG3">0</div></div>
+        <div class="stat"><div class="k">🍚</div><div class="v" id="rG4">0</div></div>
+        <div class="stat"><div class="k">🥑</div><div class="v" id="rG5">0</div></div>
+        <div class="stat"><div class="k">Total</div><div class="v" id="rGTotal">0</div></div>
+      </div>
+
+      <div class="resultBtns">
+        <button class="btn primary" id="btnPlayAgain" type="button">Play Again ▶</button>
+        <button class="btn danger" id="btnBackHub2" type="button">Back HUB ⬅</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start overlay: Mode picker + params -->
+  <div id="startOverlay" aria-label="launcher">
+    <div class="card">
+      <h1>Balanced Plate VR 🍽️</h1>
+      <div class="meta">
+        เลือก “โหมดอุปกรณ์” ก่อน แล้วกด <b>Start</b><br>
+        - <b>cVR</b> = ยิงกลางจออย่างเดียว (เหมาะ Cardboard / crosshair)<br>
+        - <b>Study/Research</b> = deterministic (AI/assist/powerups/boss ปิดตาม policy)
+      </div>
+
+      <div class="grid">
+        <div class="box">
+          <div class="h">1) เลือกอุปกรณ์</div>
+          <div class="chips" id="chipViews">
+            <button class="chip" data-view="pc" type="button">🖥 PC</button>
+            <button class="chip" data-view="mobile" type="button">📱 Mobile</button>
+            <button class="chip" data-view="cardboard" type="button">🥽 Cardboard</button>
+            <button class="chip" data-view="cvr" type="button">🎯 cVR (shoot center)</button>
+          </div>
+          <div class="help" id="viewHelp">กำลังเลือก…</div>
+        </div>
+
+        <div class="box">
+          <div class="h">2) ตั้งค่าเล่น</div>
+
+          <div class="formRow">
+            <select class="inp" id="selRun" aria-label="run">
+              <option value="play">Play (adaptive/AI/Power/Boss ON)</option>
+              <option value="study">Study/Research (deterministic strict)</option>
+            </select>
+
+            <select class="inp" id="selDiff" aria-label="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </div>
+
+          <div class="formRow">
+            <input class="inp" id="inpTime" type="number" min="20" max="9999" value="90" aria-label="time" placeholder="time (sec)">
+            <input class="inp" id="inpSeed" type="number" value="" aria-label="seed" placeholder="seed (blank=auto)">
+          </div>
+
+          <div class="formRow">
+            <select class="inp" id="selPolicy" aria-label="policy">
+              <option value="">policy: auto</option>
+              <option value="research">policy: research strict</option>
+            </select>
+            <select class="inp" id="selPattern" aria-label="pattern">
+              <option value="mix" selected>pattern: mix</option>
+              <option value="grid">pattern: grid</option>
+              <option value="center">pattern: center</option>
+              <option value="edges">pattern: edges</option>
+              <option value="ring">pattern: ring</option>
+            </select>
+          </div>
+
+          <div class="formRow">
+            <select class="inp" id="selAI" aria-label="ai">
+              <option value="on" selected>AI: ON</option>
+              <option value="off">AI: OFF</option>
+            </select>
+            <select class="inp" id="selAssist" aria-label="assist">
+              <option value="on" selected>Assist: ON</option>
+              <option value="off">Assist: OFF</option>
+            </select>
+          </div>
+
+          <div class="help" id="policyHelp">
+            Tip: ถ้าเลือก Study/Research หรือ policy=research → AI/assist/powerups/boss จะปิดเองใน safe.js
+          </div>
+        </div>
+      </div>
+
+      <div class="row2" style="margin-top:12px;">
+        <div class="help" id="dbgLine" style="margin:0;"></div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+          <button class="btn" id="btnCopyLink" type="button">คัดลอกลิงก์ 🔗</button>
+          <button class="btn primary" id="btnApply" type="button">ใช้ค่านี้ ▶</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
     (function(){
-      function buildTarget(){
-        // Preserve query + hash
-        var base = '../plate-vr.html';
-        var q = (location.search || '');
-        var h = (location.hash || '');
-        return base + q + h;
+      const LS_VIEW = 'HHA_PLATE_LAST_VIEW';
+      const u = new URL(location.href);
+      const qp = u.searchParams;
+
+      function qs(id){ return document.getElementById(id); }
+      function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+      function setBodyView(v){
+        const b = document.body;
+        b.classList.remove('view-pc','view-mobile','view-cardboard','view-cvr');
+        if(v==='pc') b.classList.add('view-pc');
+        else if(v==='cardboard') b.classList.add('view-cardboard');
+        else if(v==='cvr') b.classList.add('view-cvr');
+        else b.classList.add('view-mobile');
       }
 
-      function safeReplace(url){
-        try{
-          // กัน redirect loop แบบง่าย ๆ (ถ้า somehow อยู่หน้าใหม่แล้ว)
-          if (String(location.pathname || '').endsWith('/plate-vr.html')) return;
+      function currentView(){
+        const v = (qp.get('view') || localStorage.getItem(LS_VIEW) || 'mobile').toLowerCase();
+        if(v==='pc'||v==='mobile'||v==='cardboard'||v==='cvr') return v;
+        return 'mobile';
+      }
 
-          // Replace history so Back button doesn't loop
-          location.replace(url);
-        }catch(e){
-          location.href = url;
+      function applyToUrlFromUI(){
+        const v = selectedView || currentView();
+        qp.set('view', v);
+
+        const run = (qs('selRun').value || 'play');
+        const diff = (qs('selDiff').value || 'normal');
+        const time = clamp(qs('inpTime').value || 90, 20, 9999);
+
+        qp.set('run', run);
+        qp.set('diff', diff);
+        qp.set('time', String(time));
+
+        const seedVal = (qs('inpSeed').value || '').trim();
+        if(seedVal){
+          qp.set('seed', seedVal);
+        }else{
+          // Study defaults deterministic; play random if blank
+          if(run === 'study' || run === 'research') qp.set('seed', String(qp.get('seed') || 13579));
+          else qp.delete('seed');
         }
+
+        const policy = (qs('selPolicy').value || '').trim();
+        if(policy) qp.set('policy', policy); else qp.delete('policy');
+
+        const pat = (qs('selPattern').value || 'mix');
+        qp.set('pattern', pat);
+
+        const ai = (qs('selAI').value || 'on');
+        const assist = (qs('selAssist').value || 'on');
+        qp.set('ai', ai);
+        qp.set('assist', assist);
+
+        // keep hub if present; else keep as-is
+        // qp.set('hub', qp.get('hub') || '');
+
+        return u;
       }
 
-      var target = buildTarget();
+      function updateDbg(){
+        const uu = applyToUrlFromUI();
+        qs('dbgLine').textContent = 'URL จะเป็น: ' + uu.pathname + '?' + uu.searchParams.toString();
+      }
 
-      // Update fallback link
-      var a = document.getElementById('fallbackLink');
-      if(a) a.href = target;
+      // ---- init UI from URL
+      const viewHelp = qs('viewHelp');
+      const chips = Array.from(document.querySelectorAll('#chipViews .chip'));
+      let selectedView = currentView();
 
-      // Buttons
-      var btnGo = document.getElementById('btnGo');
-      if(btnGo) btnGo.addEventListener('click', function(){ safeReplace(target); }, { passive:true });
+      function markChips(){
+        chips.forEach(c=>{
+          c.classList.toggle('on', c.dataset.view === selectedView);
+        });
+        localStorage.setItem(LS_VIEW, selectedView);
+        setBodyView(selectedView);
 
-      var btnCopy = document.getElementById('btnCopy');
-      if(btnCopy) btnCopy.addEventListener('click', async function(){
-        try{
-          await navigator.clipboard.writeText(new URL(target, location.href).href);
-          var dbg = document.getElementById('dbg');
-          if(dbg) dbg.textContent = '✅ คัดลอกลิงก์ใหม่แล้ว';
-        }catch(e){
-          var dbg2 = document.getElementById('dbg');
-          if(dbg2) dbg2.textContent = '⚠️ คัดลอกไม่สำเร็จ (เบราว์เซอร์บล็อก) — ใช้ลิงก์ด้านบนแทนได้';
+        const msg = {
+          pc: 'PC: แตะ/คลิกเป้าได้ตรง ๆ',
+          mobile: 'Mobile: รองรับลาก/เอียงเครื่องเพื่อ VR-feel',
+          cardboard: 'Cardboard: แนะนำกด Enter VR + ยิงกลางจอ',
+          cvr: 'cVR: ปิดการแตะเป้า → ยิงจาก crosshair ผ่าน hha:shoot'
+        }[selectedView] || '';
+        viewHelp.textContent = msg;
+      }
+
+      chips.forEach(c=>{
+        c.addEventListener('click', ()=>{
+          selectedView = c.dataset.view;
+          // If choose cvr, reflect in URL (will also set body class)
+          markChips();
+          updateDbg();
+          // Cardboard best effort: request fullscreen/landscape after apply
+        }, {passive:true});
+      });
+
+      // init selects
+      const run = (qp.get('run') || 'play').toLowerCase();
+      const diff = (qp.get('diff') || 'normal').toLowerCase();
+      const time = qp.get('time') || '90';
+      const seed = qp.get('seed') || '';
+      const policy = qp.get('policy') || '';
+      const pat = qp.get('pattern') || 'mix';
+      const ai = qp.get('ai') || 'on';
+      const assist = qp.get('assist') || 'on';
+
+      qs('selRun').value = (run==='study'||run==='research') ? 'study' : 'play';
+      qs('selDiff').value = (diff==='easy'||diff==='hard'||diff==='normal') ? diff : 'normal';
+      qs('inpTime').value = clamp(time, 20, 9999);
+      qs('inpSeed').value = seed;
+      qs('selPolicy').value = policy;
+      qs('selPattern').value = pat;
+      qs('selAI').value = ai;
+      qs('selAssist').value = assist;
+
+      // reflect previews on HUD (nice even before engine starts)
+      document.getElementById('uiRunPreview').textContent = qs('selRun').value;
+      document.getElementById('uiDiffPreview').textContent = qs('selDiff').value;
+      document.getElementById('uiTimePreview').textContent = String(qs('inpTime').value||90);
+
+      // apply view now
+      markChips();
+      updateDbg();
+
+      // update previews when changed
+      ['selRun','selDiff','inpTime','inpSeed','selPolicy','selPattern','selAI','selAssist'].forEach(id=>{
+        const el = qs(id);
+        el.addEventListener('change', ()=>{
+          document.getElementById('uiRunPreview').textContent = qs('selRun').value;
+          document.getElementById('uiDiffPreview').textContent = qs('selDiff').value;
+          document.getElementById('uiTimePreview').textContent = String(qs('inpTime').value||90);
+          updateDbg();
+        }, {passive:true});
+        el.addEventListener('input', ()=>{
+          document.getElementById('uiTimePreview').textContent = String(qs('inpTime').value||90);
+          updateDbg();
+        }, {passive:true});
+      });
+
+      // Apply -> replace URL (no reload) so safe.js reads correct params
+      qs('btnApply').addEventListener('click', ()=>{
+        const uu = applyToUrlFromUI();
+        history.replaceState({}, '', uu.toString());
+
+        // fullscreen/orientation helper for cardboard
+        const v = selectedView;
+        if(v === 'cardboard' || v === 'cvr'){
+          try{
+            document.documentElement.requestFullscreen?.().catch(()=>{});
+            screen.orientation?.lock?.('landscape').catch(()=>{});
+          }catch(e){}
         }
-      }, { passive:true });
 
-      // Debug text
-      var dbg = document.getElementById('dbg');
-      if(dbg){
-        dbg.textContent = 'Redirect target: ' + new URL(target, location.href).href;
+        // Hide overlay; the engine Start button is the same btnStart in HUD
+        const o = qs('startOverlay');
+        if(o) o.style.display = 'none';
+
+        // update body class again
+        markChips();
+
+        // trigger start
+        const b = document.getElementById('btnStart');
+        if(b) b.click();
+      }, {passive:true});
+
+      // Copy link
+      qs('btnCopyLink').addEventListener('click', async ()=>{
+        const uu = applyToUrlFromUI();
+        const full = uu.toString();
+        try{
+          await navigator.clipboard.writeText(full);
+          qs('dbgLine').textContent = '✅ คัดลอกแล้ว: ' + full;
+        }catch(e){
+          qs('dbgLine').textContent = '⚠️ คัดลอกไม่ได้ (browser block) — ลิงก์: ' + full;
+        }
+      }, {passive:true});
+
+      // Back HUB (result overlay duplicate id)
+      const b2 = document.getElementById('btnBackHub2');
+      if(b2){
+        b2.addEventListener('click', ()=>{
+          const hub = qp.get('hub');
+          location.href = hub ? hub : './hub.html';
+        }, {passive:true});
       }
-
-      // Auto redirect immediately
-      safeReplace(target);
     })();
   </script>
+
+  <!-- Engine -->
+  <script type="module" src="./plate/plate.safe.js"></script>
 </body>
 </html>
