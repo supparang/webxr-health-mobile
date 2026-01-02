@@ -1,12 +1,10 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish)
-✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
-✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
-✅ run=research => adaptive OFF + deterministic seed (spawns repeatable)
-✅ diff=easy|normal|hard + basic adaptive (play only)
-✅ Grade: SSS, SS, S, A, B, C
-✅ MINI chain stats: miniCleared / miniTotal / miniFail (+ miss breakdown)
-Note: ไฟล์นี้ “ทำงานเดี่ยวได้” — export ไว้ที่ window.GroupsVR.GameEngine
+Food Groups VR — SAFE (PRODUCTION-ish) + PACK 4–6
+✅ Spawn bounds from playLayer rect (not whole window)  [PACK-4]
+✅ Safe-zone from actual DOM rects (HUD/Quest/Power/Coach + VRUI) [PACK-6]
+✅ cVR strict: targets pointer-less + shoot only (no click bind)  [PACK-5]
+✅ Handles resize/orientation changes; keeps target geometry synced
+✅ Mini stats + summary fields complete
 */
 
 (function (root) {
@@ -22,7 +20,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
   function nowMs() { return (root.performance && performance.now) ? performance.now() : Date.now(); }
 
   function hashSeed(str) {
-    // xfnv1a-ish
     str = String(str ?? '');
     let h = 2166136261 >>> 0;
     for (let i = 0; i < str.length; i++) {
@@ -33,7 +30,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
   }
 
   function makeRng(seedU32) {
-    // LCG
     let s = (seedU32 >>> 0) || 1;
     return function rand() {
       s = (Math.imul(1664525, s) + 1013904223) >>> 0;
@@ -55,6 +51,32 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
 
   function addBodyClass(c, on) {
     DOC.body.classList.toggle(c, !!on);
+  }
+
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+
+  function rectOf(sel){
+    const el = DOC.querySelector(sel);
+    if (!el) return null;
+    try { return el.getBoundingClientRect(); } catch { return null; }
+  }
+
+  function rectPad(r, pad){
+    if (!r) return null;
+    const p = pad||0;
+    return { left:r.left-p, top:r.top-p, right:r.right+p, bottom:r.bottom+p };
+  }
+
+  function rectContains(r, x, y){
+    return !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }
+
+  function rectIntersect(a,b){
+    if (!a || !b) return false;
+    return !(b.left>a.right || b.right<a.left || b.top>a.bottom || b.bottom<a.top);
   }
 
   // ---------------- Content ----------------
@@ -121,7 +143,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     misses = Number(misses) || 0;
     score  = Number(score)  || 0;
 
-    // เน้นความแม่น + ความนิ่ง
     const mPenalty = Math.min(18, misses * 2.2);
     const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.2);
     const v = accPct - mPenalty + sBoost;
@@ -153,7 +174,7 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.comboMax = 0;
     this.misses = 0;
 
-    // counts (research/log)
+    // counts
     this.nTargetGoodSpawned = 0;
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
@@ -168,7 +189,7 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
-    // ✅ MINI chain stats + miss breakdown
+    // mini stats + miss breakdown
     this.miniCleared = 0;
     this.miniTotal = 0;
     this.miniFail = 0;
@@ -185,7 +206,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.nextStormAt = 0;
 
     this.spawnTmr = 0;
-    this.spawnEveryMs = 650;
 
     // quest
     this.goalsTotal = 2;
@@ -194,7 +214,7 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.goalNeed = 18;
 
     // mini
-    this.mini = null; // {on, now, need, leftMs, forbidJunk, ok}
+    this.mini = null;
     this.nextMiniAt = 0;
 
     // targets
@@ -203,6 +223,11 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
 
     // coach
     this.coachLastAt = 0;
+
+    // [PACK-4/6] cached play rect + avoid rects
+    this.playRect = null;      // {left,top,right,bottom,w,h}
+    this.avoidRects = [];      // array of rects (padded)
+    this._rectTick = 0;        // throttled recompute
   }
 
   Engine.prototype.setLayerEl = function (el) {
@@ -215,7 +240,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     const seedIn  = (opts.seed != null) ? String(opts.seed) : String(Date.now());
     const preset  = diffPreset(diff);
 
-    // allow override time from opts.time (clamped)
     const timeSec = clamp(opts.time ?? preset.time, 30, 180);
 
     this.cfg = {
@@ -226,11 +250,13 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       preset,
     };
 
-    this.view = String(opts.view || DOC.body.className || '').includes('view-cvr') ? 'cvr' : (opts.view || 'mobile');
+    // view-cvr strict if body has class OR view param says cvr
+    const bodyHasCVR = DOC.body && DOC.body.classList.contains('view-cvr');
+    const vParam = String(opts.view || qs('view','') || '').toLowerCase();
+    this.view = (bodyHasCVR || vParam === 'cvr') ? 'cvr' : (vParam || 'mobile');
 
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
 
-    this.spawnEveryMs = preset.baseSpawnMs;
     this.leftSec = Math.round(timeSec);
 
     this.score = 0;
@@ -251,7 +277,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
-    // ✅ reset mini stats + miss breakdown
     this.miniCleared = 0;
     this.miniTotal = 0;
     this.miniFail = 0;
@@ -270,7 +295,7 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.goalNow = 0;
 
     this.mini = null;
-    this.nextMiniAt = nowMs() + 14000; // first mini later
+    this.nextMiniAt = nowMs() + 14000;
 
     this.stormOn = false;
     this.stormUntil = 0;
@@ -280,7 +305,9 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.startAt = nowMs();
     this.lastTick = this.startAt;
 
-    // initial UI pushes
+    // [PACK-4/6] compute rects immediately
+    this._recomputeRects(true);
+
     emit('hha:time', { left: this.leftSec });
     emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
     this._emitRank();
@@ -293,7 +320,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
   };
 
   Engine.prototype._installInput = function () {
-    // clear old listeners by using a stable handler ref on instance
     const self = this;
 
     if (!this._onShoot) {
@@ -303,6 +329,18 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       };
       root.addEventListener('hha:shoot', this._onShoot, { passive: true });
     }
+
+    // [PACK-4] recompute rects on resize/orientation (throttled)
+    if (!this._onResize) {
+      this._onResize = function(){
+        if (!self.running) return;
+        self._recomputeRects(true);
+      };
+      root.addEventListener('resize', this._onResize, { passive:true });
+      root.addEventListener('orientationchange', this._onResize, { passive:true });
+      // some browsers keep scroll offset changes in fullscreen/vr
+      root.addEventListener('scroll', this._onResize, { passive:true });
+    }
   };
 
   Engine.prototype._loop = function () {
@@ -311,8 +349,10 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       if (!self.running) return;
 
       const t = nowMs();
-      const dt = Math.min(80, t - self.lastTick);
       self.lastTick = t;
+
+      // [PACK-6] keep rects fresh every ~700ms (HUD can animate/VRUI appear)
+      if (t - self._rectTick > 700) self._recomputeRects(false);
 
       self._tickTime(t);
       self._tickStorm(t);
@@ -356,13 +396,11 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       const leftMs = this.stormUntil - t;
       addBodyClass('groups-storm-urgent', leftMs > 0 && leftMs <= 2500);
 
-      // end storm
       if (t >= this.stormUntil) {
         this.stormOn = false;
         addBodyClass('groups-storm', false);
         addBodyClass('groups-storm-urgent', false);
 
-        // spawn boss at storm end
         this._spawnBoss();
 
         this.nextStormAt = t + p.stormEverySec * 1000;
@@ -374,7 +412,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
 
   Engine.prototype._tickMini = function (t) {
     if (!this.mini && t >= this.nextMiniAt) {
-      // ✅ count minis started (shown)
       this.miniTotal += 1;
 
       const forbidJunk = (this.rng() < 0.55);
@@ -402,14 +439,14 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       if (leftMs <= 0) {
         const ok = (this.mini.now >= this.mini.need) && this.mini.ok;
         if (ok) {
-          this.miniCleared += 1; // ✅
+          this.miniCleared += 1;
           this.score += 180;
           this.combo += 1;
           this.comboMax = Math.max(this.comboMax, this.combo);
           emit('hha:judge', { kind: 'good', text: 'MINI CLEAR +180' });
           this._emitCoach('เยี่ยม! MINI ผ่าน! 🎉', 'happy');
         } else {
-          this.miniFail += 1; // ✅
+          this.miniFail += 1;
           this.combo = 0;
           this.misses += 1;
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL' });
@@ -441,7 +478,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       if (this.combo >= 8) speed *= 0.90;
       if (this.misses >= 8) speed *= 1.12;
     }
-
     if (this.stormOn) speed *= 0.78;
 
     const every = clamp(base * speed, 360, 980);
@@ -530,27 +566,97 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this._emitCoach('บอสมา! ยิงให้ถูกหมู่เพื่อแตกบอส 👊', 'fever');
   };
 
+  // -------- [PACK-4/6] Rect computation --------
+  Engine.prototype._recomputeRects = function (force) {
+    const t = nowMs();
+    if (!force && (t - this._rectTick < 650)) return;
+    this._rectTick = t;
+
+    // play rect from layer element
+    let pr = null;
+    try { pr = this.layerEl && this.layerEl.getBoundingClientRect ? this.layerEl.getBoundingClientRect() : null; } catch {}
+    if (!pr) {
+      pr = { left:0, top:0, right:(root.innerWidth||360), bottom:(root.innerHeight||640) };
+    }
+
+    // clamp minimal size
+    const w = Math.max(1, pr.right - pr.left);
+    const h = Math.max(1, pr.bottom - pr.top);
+    this.playRect = { left:pr.left, top:pr.top, right:pr.right, bottom:pr.bottom, w, h };
+
+    // avoid rects from actual DOM
+    const pad = 10;
+    const rects = [];
+    // major UI blocks
+    const hud  = rectPad(rectOf('.hud'), pad);
+    const qt   = rectPad(rectOf('.questTop'), pad);
+    const pw   = rectPad(rectOf('.powerWrap'), pad);
+    const cc   = rectPad(rectOf('.coachWrap'), pad);
+    // vr-ui overlay/buttons if present
+    const vrui = rectPad(rectOf('.hha-vrui'), pad);
+
+    [hud, qt, pw, cc, vrui].forEach(r=>{
+      if (!r) return;
+      // ignore if outside playRect
+      if (!rectIntersect(r, this.playRect)) return;
+      rects.push(r);
+    });
+
+    this.avoidRects = rects;
+
+    // sync existing target stored x,y (viewport-based) stays OK,
+    // but if playRect moved (safe-area change) we keep as-is.
+    // (We deliberately do not reposition existing targets to avoid "teleport".)
+  };
+
+  // [PACK-4/6] sample a point inside playRect avoiding avoidRects
+  Engine.prototype._sampleSpawnPoint = function () {
+    const pr = this.playRect || { left:0, top:0, right:(root.innerWidth||360), bottom:(root.innerHeight||640), w:(root.innerWidth||360), h:(root.innerHeight||640) };
+
+    // margins inside playRect
+    const margin = 16;
+    let xMin = pr.left + margin;
+    let xMax = pr.right - margin;
+    let yMin = pr.top + margin;
+    let yMax = pr.bottom - margin;
+
+    // if very tight, relax
+    if (xMax - xMin < 80) { xMin = pr.left + 6; xMax = pr.right - 6; }
+    if (yMax - yMin < 120) { yMin = pr.top + 6; yMax = pr.bottom - 6; }
+
+    const avoid = this.avoidRects || [];
+
+    // try multiple times, else fallback to center-ish
+    for (let tries = 0; tries < 24; tries++) {
+      const x = (this.rng() * (xMax - xMin)) + xMin;
+      const y = (this.rng() * (yMax - yMin)) + yMin;
+
+      // keep away from crosshair center a bit (prevents constant "free hits")
+      const cx = (root.innerWidth||0) * 0.5;
+      const cy = (root.innerHeight||0) * 0.5;
+      const d = Math.hypot(x - cx, y - cy);
+      if (d < 58) continue;
+
+      let bad = false;
+      for (let i = 0; i < avoid.length; i++) {
+        if (rectContains(avoid[i], x, y)) { bad = true; break; }
+      }
+      if (!bad) return { x, y };
+    }
+
+    return { x: (xMin+xMax)/2, y: (yMin+yMax)/2 };
+  };
+
+  // -------- DOM spawn --------
   Engine.prototype._spawnDomTarget = function (spec) {
     const layer = this.layerEl;
     if (!layer) return;
 
-    const W = root.innerWidth || 360;
-    const H = root.innerHeight || 640;
+    // ensure rect cache fresh when spawning (cheap)
+    this._recomputeRects(false);
 
-    // NOTE: เหล่านี้ถูกตั้งให้ “ปลอดภัย” ไม่ทับ HUD/quest/power/coach
-    const topPad = 150;
-    const botPad = 130;
-    const leftPad = 210;
-    const rightPad = 24;
-
-    // relax if small screens
-    const xMin = Math.min(leftPad, Math.max(12, W * 0.20));
-    const xMax = Math.max(W - rightPad, W * 0.80);
-    const yMin = Math.min(topPad, Math.max(12, H * 0.18));
-    const yMax = Math.max(H - botPad, H * 0.82);
-
-    const x = clamp((this.rng() * (xMax - xMin)) + xMin, 8, W - 8);
-    const y = clamp((this.rng() * (yMax - yMin)) + yMin, 8, H - 8);
+    const pt = this._sampleSpawnPoint();
+    const x = pt.x, y = pt.y;
 
     const el = DOC.createElement('div');
     el.className = spec.cls + ' spawn';
@@ -575,11 +681,14 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       bossHpMax: spec.bossHpMax || 0
     };
 
-    el.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this._hitTargetById(id, 'tap');
-    }, { passive: false });
+    // [PACK-5] cVR strict: no click bind (shoot only)
+    if (this.view !== 'cvr') {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this._hitTargetById(id, 'tap');
+      }, { passive: false });
+    }
 
     layer.appendChild(el);
     setTimeout(() => { try { el.classList.remove('spawn'); } catch (_) {} }, 160);
@@ -592,7 +701,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     if (!tg) return;
 
     try { tg.el.classList.add(why === 'hit' ? 'hit' : 'out'); } catch (_) {}
-
     setTimeout(() => { try { tg.el.remove(); } catch (_) {} }, 220);
 
     this.targets.splice(idx, 1);
@@ -637,6 +745,7 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     }
   };
 
+  // -------- Hit logic --------
   Engine.prototype._onHit = function (tg, idx, via, t) {
     const p = this.cfg.preset;
     const gActive = GROUPS[this.activeGroupIdx];
@@ -685,9 +794,7 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
 
       emit('hha:judge', { kind: 'good', text: `+${Math.round(add)}` });
 
-      if (this.mini && this.mini.on) {
-        this.mini.now += 1;
-      }
+      if (this.mini && this.mini.on) this.mini.now += 1;
 
       this._advanceQuestOnGood(1);
       this._maybeSwitchGroup();
@@ -699,7 +806,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       this._emitQuestUpdate();
 
       if (this.combo === 6) this._emitCoach('คอมโบเริ่มมา! คุมจังหวะไว้ 🔥', 'happy');
-
       return;
     }
 
@@ -711,7 +817,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       this._onMiss('wrong');
 
       this.score = Math.max(0, this.score - 12);
-
       emit('hha:judge', { kind: 'bad', text: '-12' });
 
       this._removeTarget(idx, 'hit');
@@ -726,17 +831,14 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
-    if (this.mini && this.mini.on && this.mini.forbidJunk) {
-      this.mini.ok = false;
-    }
+    if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
 
-    this.missHitJunk += 1; // ✅ miss breakdown
+    this.missHitJunk += 1;
 
     this.combo = 0;
     this._onMiss('junk');
 
     this.score = Math.max(0, this.score - 18);
-
     emit('hha:judge', { kind: 'bad', text: '-18' });
 
     this._removeTarget(idx, 'hit');
@@ -747,7 +849,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
   };
 
   Engine.prototype._onMiss = function (why) {
-    // miss definition: good expired + junk hit (+ wrong hit counts here as well)
     this.misses += 1;
     emit('groups:progress', { kind: 'miss', why });
   };
@@ -859,10 +960,9 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       miniPct,
       miniTimeLeftSec,
 
-      // ✅ MINI chain stats
       miniCleared: this.miniCleared | 0,
-      miniTotalAll: this.miniTotal | 0, // alt name (won't break old UI)
-      miniTotal: this.miniTotal | 0,    // preferred
+      miniTotalAll: this.miniTotal | 0,
+      miniTotal: this.miniTotal | 0,
       miniFail: this.miniFail | 0,
 
       groupKey: g.key,
@@ -906,7 +1006,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       goalsCleared: Math.min(this.goalsTotal, this.goalIndex + (this.goalNow >= this.goalNeed ? 1 : 0)),
       goalsTotal: this.goalsTotal,
 
-      // ✅ MINI chain
       miniCleared: this.miniCleared | 0,
       miniTotal: this.miniTotal | 0,
       miniFail: this.miniFail | 0,
@@ -914,7 +1013,6 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       durationPlayedSec: playedSec,
       durationPlannedSec: this.cfg.timeSec | 0,
 
-      // counts
       nTargetGoodSpawned: this.nTargetGoodSpawned | 0,
       nTargetJunkSpawned: this.nTargetJunkSpawned | 0,
       nTargetWrongSpawned: this.nTargetWrongSpawned | 0,
@@ -928,11 +1026,9 @@ Note: ไฟล์นี้ “ทำงานเดี่ยวได้” —
       nExpireJunk: this.nExpireJunk | 0,
       nExpireWrong: this.nExpireWrong | 0,
 
-      // ✅ MISS breakdown (HHA)
       missExpireGood: this.missExpireGood | 0,
       missHitJunk: this.missHitJunk | 0,
 
-      // context
       runMode: this.cfg.runMode,
       diff: this.cfg.diff,
       seed: this.cfg.seed
