@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth — PlateVR Launcher</title>
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+
+  <style>
+    :root{
+      --bg:#020617;
+      --panel:rgba(2,6,23,.80);
+      --panel2:rgba(15,23,42,.74);
+      --stroke:rgba(148,163,184,.18);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#22c55e;
+      --warn:#f59e0b;
+      --violet:#a78bfa;
+      --cyan:#22d3ee;
+      --radius:22px;
+      --pill:999px;
+
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); overflow:hidden;
+      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
+    }
+    .bg{
+      position:fixed; inset:0;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(34,211,238,.16), transparent 40%),
+        radial-gradient(circle at 88% 20%, rgba(167,139,250,.14), transparent 42%),
+        radial-gradient(circle at 50% 92%, rgba(34,197,94,.12), transparent 48%),
+        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
+      z-index:0;
+    }
+
+    .wrap{
+      position:relative;
+      z-index:1;
+      height:100%;
+      display:grid;
+      place-items:center;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+    }
+
+    .card{
+      width:min(980px, 100%);
+      background:var(--panel);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow: 0 26px 90px rgba(0,0,0,.42);
+      backdrop-filter: blur(10px);
+    }
+
+    .top{
+      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
+      margin-bottom:12px;
+    }
+    .title{ font-size:18px; font-weight:1000; }
+    .sub{ margin-top:6px; color:var(--muted); font-size:13px; line-height:1.35; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap:12px;
+    }
+
+    .panel{
+      background:var(--panel2);
+      border:1px solid var(--stroke);
+      border-radius:18px;
+      padding:12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.28);
+    }
+
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .field{
+      flex:1 1 160px;
+      display:flex; flex-direction:column; gap:6px;
+      min-width: 160px;
+    }
+    label{ font-size:12px; color:var(--muted); font-weight:900; }
+    select,input{
+      width:100%;
+      background: rgba(2,6,23,.62);
+      border:1px solid rgba(148,163,184,.18);
+      color: var(--text);
+      border-radius: 14px;
+      padding:10px 12px;
+      font-weight:900;
+      outline:none;
+    }
+
+    .bigBtns{
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .btn{
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.62);
+      color: var(--text);
+      border-radius: 18px;
+      padding:12px 14px;
+      font-weight:1000;
+      letter-spacing:.2px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color:transparent;
+      box-shadow: 0 16px 44px rgba(0,0,0,.28);
+      min-height: 54px;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.primary{
+      background: rgba(34,197,94,.16);
+      border-color: rgba(34,197,94,.32);
+    }
+    .btn.cyan{
+      background: rgba(34,211,238,.14);
+      border-color: rgba(34,211,238,.32);
+    }
+    .btn.violet{
+      background: rgba(167,139,250,.12);
+      border-color: rgba(167,139,250,.30);
+    }
+
+    .hint{
+      margin-top:10px;
+      color: rgba(229,231,235,.86);
+      font-size:12px;
+      line-height:1.45;
+    }
+    .muted{ color: var(--muted); }
+
+    .footerRow{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      margin-top:12px;
+    }
+    .miniBtn{
+      border-radius: 999px;
+      padding:10px 12px;
+      border:1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.60);
+      color: var(--text);
+      font-weight:1000;
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+      box-shadow: 0 14px 40px rgba(0,0,0,.24);
+    }
+
+    @media (max-width: 900px){
+      .grid{ grid-template-columns: 1fr; }
+      .bigBtns{ grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg"></div>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <div>
+          <div class="title">🍽️ PlateVR Launcher</div>
+          <div class="sub">
+            เลือกเข้าเล่นแบบ <b>PC / Mobile / Cardboard / cVR</b> ชัด ๆ<br/>
+            ✅ จำค่าล่าสุด • ✅ ส่งพารามิเตอร์ไป <code>plate-vr.html</code> • ✅ โหมดวิจัยล็อก seed/adaptive ตามมาตรฐาน
+          </div>
+        </div>
+        <div class="sub" style="text-align:right">
+          Last: <b id="lastBadge">—</b><br/>
+          <span class="muted" id="dbgUrl"></span>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <div class="row">
+            <div class="field">
+              <label>Run Mode</label>
+              <select id="run">
+                <option value="play">play (Adaptive ON)</option>
+                <option value="study">study/research (Seeded, Adaptive OFF)</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Difficulty</label>
+              <select id="diff">
+                <option value="easy">easy</option>
+                <option value="normal" selected>normal</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Time (sec)</label>
+              <input id="time" type="number" min="20" max="9999" value="90" />
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <div class="field">
+              <label>Seed (ใช้เมื่อ study เท่านั้น)</label>
+              <input id="seed" type="number" placeholder="เช่น 13579" />
+            </div>
+            <div class="field">
+              <label>Hub URL (กลับ HUB)</label>
+              <input id="hub" type="text" placeholder="./hub.html หรือ https://..." />
+            </div>
+          </div>
+
+          <div class="hint">
+            💡 แนะนำ:
+            <ul style="margin:8px 0 0 18px; padding:0;">
+              <li><b>Mobile</b> = แตะยิง/ลากเลื่อน VR-feel</li>
+              <li><b>Cardboard (cVR)</b> = ยิงด้วย crosshair (ผ่าน <code>vr-ui.js</code>) + เป้าถูกปิด pointer-events แบบ strict</li>
+              <li><b>VR</b> = ใช้ Enter VR + crosshair</li>
+              <li><b>Study</b> = ใส่ seed เพื่อให้ deterministic (งานวิจัย)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div style="font-weight:1000; margin-bottom:8px">🚀 เข้าเล่น</div>
+          <div class="bigBtns">
+            <button class="btn primary" id="goMobile" type="button">📱 Mobile (tap-to-shoot)</button>
+            <button class="btn cyan" id="goPC" type="button">🖥️ PC (mouse)</button>
+            <button class="btn violet" id="goVR" type="button">🥽 VR (EnterVR)</button>
+            <button class="btn warn" id="goCVR" type="button" style="background:rgba(245,158,11,.14);border-color:rgba(245,158,11,.32)">📦 Cardboard / cVR (crosshair strict)</button>
+          </div>
+
+          <div class="footerRow">
+            <button class="miniBtn" id="save" type="button">💾 บันทึกค่าล่าสุด</button>
+            <button class="miniBtn" id="reset" type="button">♻️ ค่าเริ่มต้น</button>
+            <button class="miniBtn" id="openHub" type="button">🏠 ไป HUB</button>
+          </div>
+
+          <div class="hint">
+            🔗 Target preview:<br/>
+            <span class="muted" id="preview">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const LS = 'HHA_PLATE_LASTCFG';
+
+      const $ = (id)=>document.getElementById(id);
+
+      const runEl  = $('run');
+      const diffEl = $('diff');
+      const timeEl = $('time');
+      const seedEl = $('seed');
+      const hubEl  = $('hub');
+
+      const lastBadge = $('lastBadge');
+      const preview = $('preview');
+      const dbgUrl = $('dbgUrl');
+
+      function clamp(n,a,b){ n = Number(n)||0; return n<a?a:(n>b?b:n); }
+
+      function load(){
+        try{
+          const s = localStorage.getItem(LS);
+          if(!s) return null;
+          return JSON.parse(s);
+        }catch(e){ return null; }
+      }
+      function save(cfg){
+        try{ localStorage.setItem(LS, JSON.stringify(cfg)); }catch(e){}
+      }
+
+      function getHubFromQuery(){
+        try{
+          const u = new URL(location.href);
+          return u.searchParams.get('hub') || '';
+        }catch(e){ return ''; }
+      }
+
+      function defaults(){
+        return {
+          run: 'play',
+          diff: 'normal',
+          time: 90,
+          seed: 13579,
+          hub: getHubFromQuery() || './hub.html',
+        };
+      }
+
+      function apply(cfg){
+        const c = cfg || defaults();
+        runEl.value = c.run || 'play';
+        diffEl.value = c.diff || 'normal';
+        timeEl.value = String(clamp(c.time||90, 20, 9999));
+        seedEl.value = (c.seed!=null && c.seed!=='') ? String(Number(c.seed)||13579) : '';
+        hubEl.value = c.hub || getHubFromQuery() || './hub.html';
+        updatePreview();
+      }
+
+      function readForm(){
+        const run = (runEl.value || 'play').toLowerCase();
+        const diff = (diffEl.value || 'normal').toLowerCase();
+        const time = clamp(timeEl.value || 90, 20, 9999);
+        let seed = Number(seedEl.value || 0);
+        if(!seed) seed = 13579;
+        const hub = (hubEl.value || '').trim();
+        return { run, diff, time, seed, hub };
+      }
+
+      function buildUrl(view){
+        const cfg = readForm();
+        const u = new URL('./plate-vr.html', location.href);
+
+        u.searchParams.set('view', view);
+        u.searchParams.set('run', cfg.run);
+        u.searchParams.set('diff', cfg.diff);
+        u.searchParams.set('time', String(cfg.time));
+
+        if(cfg.hub) u.searchParams.set('hub', cfg.hub);
+
+        // seed rules:
+        // - play: optional seed allowed, but typically auto -> omit to let plate.safe.js randomize if not present
+        // - study: must set seed
+        if(cfg.run === 'study' || cfg.run === 'research'){
+          u.searchParams.set('seed', String(cfg.seed || 13579));
+        }else{
+          // keep seed only if user explicitly set non-empty
+          if(String(seedEl.value||'').trim() !== ''){
+            u.searchParams.set('seed', String(cfg.seed || 13579));
+          }else{
+            u.searchParams.delete('seed');
+          }
+        }
+
+        return u.toString();
+      }
+
+      function updatePreview(){
+        const cfg = readForm();
+        const v = buildUrl('mobile');
+        preview.textContent = v;
+        dbgUrl.textContent = 'plate-vr.html';
+        lastBadge.textContent = `${cfg.run}/${cfg.diff}/${cfg.time}s`;
+      }
+
+      // events
+      ['change','input'].forEach(ev=>{
+        runEl.addEventListener(ev, updatePreview, {passive:true});
+        diffEl.addEventListener(ev, updatePreview, {passive:true});
+        timeEl.addEventListener(ev, updatePreview, {passive:true});
+        seedEl.addEventListener(ev, updatePreview, {passive:true});
+        hubEl.addEventListener(ev, updatePreview, {passive:true});
+      });
+
+      $('save').addEventListener('click', ()=>{
+        const cfg = readForm();
+        save(cfg);
+        lastBadge.textContent = `Saved: ${cfg.run}/${cfg.diff}/${cfg.time}s`;
+      }, {passive:true});
+
+      $('reset').addEventListener('click', ()=>{
+        apply(defaults());
+        save(readForm());
+      }, {passive:true});
+
+      $('openHub').addEventListener('click', ()=>{
+        const cfg = readForm();
+        location.href = cfg.hub || './hub.html';
+      }, {passive:true});
+
+      function go(view){
+        const cfg = readForm();
+        save(cfg);
+        location.href = buildUrl(view);
+      }
+
+      $('goMobile').addEventListener('click', ()=>go('mobile'), {passive:true});
+      $('goPC').addEventListener('click', ()=>go('pc'), {passive:true});
+      $('goVR').addEventListener('click', ()=>go('vr'), {passive:true});
+      $('goCVR').addEventListener('click', ()=>go('cvr'), {passive:true});
+
+      // init
+      const cached = load();
+      apply(cached || defaults());
+      save(readForm());
+    })();
+  </script>
+</body>
+</html>
