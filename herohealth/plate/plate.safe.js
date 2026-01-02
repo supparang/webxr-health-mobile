@@ -1,15 +1,14 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION (HHA Standard + VR-feel + Plate Rush + Safe Spawn + AI + Boss + Pattern)
-// ✅ Play: adaptive ON (AI Director)
-// ✅ Study/Research: deterministic seed + adaptive OFF (AI Coach = text only)
-// ✅ Crosshair shoot: listens hha:shoot (vr-ui.js)
-// ✅ Pattern generator seeded: ?pattern=mix|grid|ring|edges|center
-// ✅ Boss window (play): 10s peak + fair success snapshot + bonus
-// ✅ Emits: hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate, hha:boss, hha:ai-director, hha:adaptive
+// Balanced Plate VR — PRODUCTION+ (HHA Standard + VR-feel + Plate Rush + Safe Spawn + Logger FIX)
+// ✅ Play: adaptive ON
+// ✅ Study/Research: deterministic seed + adaptive OFF
+// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
+// ✅ hha:end: emits SUMMARY DIRECT (matches hha-cloud-logger.js expectation)
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-// ✅ Flush-hardened: before end/back hub/reload
+// ✅ Flush-hardened: uses ROOT.HHA_LOGGER.flush(reason) (matches your logger)
 // ✅ PATCH B: Layout-stable spawn + resize/enterVR reflow + look-shift compensated spawn
 // ✅ PATCH B: target "แว๊บ" ลดลง (spawn after settle) + clamp within viewport
+// ✅ Universal VR UI: listens to hha:shoot (crosshair/tap-to-shoot) and hits nearest target within lockPx
 
 'use strict';
 
@@ -67,9 +66,7 @@ const runRaw = (URLX.searchParams.get('run') || URLX.searchParams.get('runMode')
 const diff   = (URLX.searchParams.get('diff') || 'normal').toLowerCase();
 const timePlannedSec = clamp(URLX.searchParams.get('time') || 90, 20, 9999);
 const seedParam = URLX.searchParams.get('seed');
-
-// ✅ NEW: pattern generator (seeded)
-const pattern = (URLX.searchParams.get('pattern') || 'mix').toLowerCase();
+const viewParam = (URLX.searchParams.get('view') || 'mobile').toLowerCase();
 
 const isStudy = (runRaw === 'study' || runRaw === 'research');
 const runMode = isStudy ? 'study' : 'play';
@@ -112,6 +109,12 @@ const hudTop = qs('hudTop');
 const miniPanel = qs('miniPanel');
 const coachPanel = qs('coachPanel');
 const hudBtns = qs('hudBtns');
+
+// optional boss UI (safe)
+const bossHud = qs('bossHud');
+const bossFill = qs('bossFill');
+const bossText = qs('bossText');
+const bossFx = qs('bossFx');
 
 if(!layer){
   console.error('[PlateVR] missing #plate-layer');
@@ -278,7 +281,6 @@ let layoutCache = {
 };
 
 function viewportSize(){
-  // visualViewport ช่วยมากตอน EnterVR / mobile address bar
   const vv = ROOT.visualViewport;
   const W = vv && vv.width ? vv.width : (ROOT.innerWidth || 360);
   const H = vv && vv.height ? vv.height : (ROOT.innerHeight || 640);
@@ -325,7 +327,6 @@ function refreshLayout(){
   let playRect = getPlayRect();
   let noRects = buildNoSpawnRects();
 
-  // relax if too small
   if(playRect.w < 140 || playRect.h < 180){
     const coachR = rectOf(coachPanel);
     if(coachR){
@@ -355,6 +356,9 @@ let paused = false;
 let tStartMs = 0;
 let tLastTickMs = 0;
 let tLeftSec = Number(timePlannedSec) || 90;
+
+// ✅ logger needs startTimeIso/endTimeIso
+let startTimeIso = '';
 
 let score = 0;
 let combo = 0;
@@ -393,18 +397,16 @@ let miniCleared = 0;
 let activeGoal = null;
 let activeMini = null;
 
-// ✅ NEW: crosshair shooting stats (for summary)
-let shotsFired = 0;
-let shotsMiss = 0;
-
-// ✅ NEW: Boss Window (play)
+// optional boss state (safe)
 let boss = {
   active:false,
-  endsAtMs:0,
-  nextAtSec: 28,
-  everySec: 26,
+  startedMs:0,
+  durationSec: 10,
+  needGood: 8,
+  hitGood: 0,
+  forbidJunk: true,
   bonus: 180,
-  snap: { miss:0, hitJunk:0 }
+  done:false,
 };
 
 const GOALS = [
@@ -447,10 +449,6 @@ function updateHUD(){
     shield,
     accuracyGoodPct: accuracyPct(),
     grade: calcGrade(),
-    bossActive: boss.active,
-    pattern,
-    shotsFired,
-    shotsMiss
   });
 
   setText('uiScore', score);
@@ -479,7 +477,6 @@ function coach(msg, mood){
       neutral:'./img/coach-neutral.png',
       sad: './img/coach-sad.png',
       fever: './img/coach-fever.png',
-      warn: './img/coach-neutral.png',
     };
     img.src = map[m] || map.neutral;
   }
@@ -487,101 +484,6 @@ function coach(msg, mood){
 
 function judge(text, kind){
   emit('hha:judge', { game:'plate', text, kind: kind||'info' });
-}
-
-// ------------------------- AI Coach (Micro tips + rate limit) -------------------------
-const AIC = {
-  lastAt: 0,
-  lastKey: '',
-  streakMiss: 0,
-  streakGood: 0,
-  lastAccHintAt: 0,
-  lastFeverHintAt: 0,
-  lastMiniHintAt: 0,
-  lastComboHintAt: 0,
-};
-
-function aiEnabled(){
-  const qp = (()=>{ try{ return new URL(location.href).searchParams; }catch(e){ return null; }})();
-  const ai = qp ? (qp.get('ai')||'on').toLowerCase() : 'on';
-  const policy = qp ? (qp.get('policy')||'').toLowerCase() : '';
-  if(policy === 'research') return true;
-  return (ai !== 'off');
-}
-function aiCooldownMs(){
-  return isStudy ? 14000 : 9500;
-}
-function aiSay(key, msg, mood){
-  if(!aiEnabled()) return;
-  const now = Date.now();
-  const cd = aiCooldownMs();
-  if(now - AIC.lastAt < cd) return;
-  if(key && key === AIC.lastKey && (now - AIC.lastAt) < cd*2.0) return;
-  AIC.lastAt = now;
-  AIC.lastKey = key || '';
-  coach(msg, mood || 'neutral');
-}
-function aiOnGoodHit(rt){
-  AIC.streakGood++;
-  AIC.streakMiss = 0;
-
-  if(AIC.streakGood === 5 && miss >= 2){
-    aiSay('recover', 'ดีมาก! กลับมาแม่นแล้ว 👍 โฟกัสเก็บ good ต่อเนื่อง', 'happy');
-  }
-  if(!isStudy && rt != null && rt <= 420 && AIC.streakGood === 6){
-    aiSay('perfect-chain', 'โหด! จังหวะดีมาก 🔥 ลองรักษา combo ให้ยาวขึ้น!', 'happy');
-  }
-}
-function aiOnJunkHit(blocked){
-  AIC.streakGood = 0;
-  AIC.streakMiss++;
-
-  if(blocked){
-    aiSay('shield-use', 'โล่ช่วยไว้! 🛡️ ถ้า FEVER สูงให้มองหาโล่เพิ่ม', 'neutral');
-    return;
-  }
-  if(AIC.streakMiss >= 2){
-    aiSay('junk-streak', 'โดนขยะติดกันเลย 😵 ลอง “ช้าลงนิด” แล้วเล็งเฉพาะ good', (fever>70?'fever':'sad'));
-  }else{
-    aiSay('junk-once', 'ระวังขยะนะ! เล็ง good ก่อน แล้วค่อยเสี่ยง 🔍', (fever>70?'fever':'neutral'));
-  }
-}
-function aiOnMissExpire(){
-  AIC.streakGood = 0;
-  AIC.streakMiss++;
-
-  if(AIC.streakMiss === 2){
-    aiSay('miss2', 'พลาด 2 ครั้งแล้ว—ลอง “คุมจังหวะ” อย่ากดรัว 🙂', 'neutral');
-  }else if(AIC.streakMiss >= 4){
-    aiSay('miss4', 'พลาดรัว ๆ เลย 😮‍💨 แนะนำ: โฟกัสเป้าที่ใกล้ ๆ ก่อน ลดการส่าย', (fever>70?'fever':'sad'));
-  }
-}
-function aiTickHints(){
-  if(!aiEnabled()) return;
-
-  const now = Date.now();
-  const acc = accuracyPct();
-  const tLeft = tLeftSec;
-
-  if(fever >= 80 && now - AIC.lastFeverHintAt > (isStudy?18000:12000)){
-    AIC.lastFeverHintAt = now;
-    aiSay('fever-hi', 'FEVER สูงมาก 🔥 ถ้ามีโล่ให้เก็บไว้กันพลาด แล้วเลี่ยงขยะ!', 'fever');
-  }
-  if(tLeft <= 18 && acc < 78 && now - AIC.lastAccHintAt > (isStudy?20000:13000)){
-    AIC.lastAccHintAt = now;
-    aiSay('acc-end', 'ช่วงท้ายแล้ว! เน้นเก็บ good ชัวร์ ๆ เพื่อดันความแม่นยำ ⬆️', 'neutral');
-  }
-  if(!isStudy && combo >= 12 && now - AIC.lastComboHintAt > 14000){
-    AIC.lastComboHintAt = now;
-    aiSay('combo-keep', 'คอมโบกำลังสวย! 😎 เล่น safe ต่ออีกนิด ได้เกรด S/SS ง่ายขึ้น', 'happy');
-  }
-  if(activeMini){
-    const tl = miniTimeLeft();
-    if(tl != null && tl <= 3.2 && now - AIC.lastMiniHintAt > 9000){
-      AIC.lastMiniHintAt = now;
-      aiSay('mini-end', 'ใกล้หมดเวลาแล้ว! ⚡ รีบเก็บหมู่ที่ยังขาด และอย่าแตะขยะ!', 'warn');
-    }
-  }
 }
 
 // ------------------------- Mini quests -------------------------
@@ -659,7 +561,8 @@ function emitQuestUpdate(){
 
   if(activeMini){
     setText('uiMiniTitle', activeMini.title);
-    setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal, miniCleared+1)}`);
+    // แสดงเป็น cleared/(cleared+1) ชั่วคราวให้ไม่เป็น 999
+    setText('uiMiniCount', `${miniCleared}/${Math.max(miniCleared+1, 1)}`);
     const tl = miniTimeLeft();
     setText('uiMiniTime', tl==null?'--':`${Math.ceil(tl)}s`);
     const mf = qs('uiMiniFill');
@@ -670,6 +573,7 @@ function emitQuestUpdate(){
   }else{
     setText('uiMiniTitle','—');
     setText('uiMiniTime','--');
+    setText('uiMiniCount', `${miniCleared}/${Math.max(miniCleared,1)}`);
     const mf = qs('uiMiniFill'); if(mf) mf.style.width = `0%`;
   }
 }
@@ -718,107 +622,6 @@ function ensureShieldActive(){
   shieldActive = (shield > 0);
 }
 
-// ------------------------- Boss Window -------------------------
-function startBossWindow(){
-  if(isStudy) return;
-  boss.active = true;
-  boss.endsAtMs = nowMs() + 10000;
-  boss.snap = { miss, hitJunk: nHitJunk };
-
-  judge('👾 BOSS WINDOW! 10s — ห้ามพลาด ห้ามโดนขยะ!', 'warn');
-  coach('บอสมาแล้ว! 🔥 เล็งดี ๆ และเลี่ยงขยะ!', (fever>70?'fever':'neutral'));
-  emit('hha:boss', { game:'plate', active:true, endsAt: boss.endsAtMs });
-
-  for(let i=0;i<3;i++) spawnTarget('junk');
-  spawnTarget('good');
-}
-function endBossWindow(success){
-  boss.active = false;
-  emit('hha:boss', { game:'plate', active:false });
-
-  if(success){
-    score += boss.bonus;
-    shield = clamp(shield + 1, 0, 9);
-    coach('ผ่านบอส! 🏆 โบนัส + โล่ + คะแนน!', 'happy');
-    judge('🏆 BOSS CLEARED!', 'good');
-    emit('hha:celebrate', { game:'plate', kind:'boss' });
-  }else{
-    coach('บอสยังโหดอยู่ 😵 รอบหน้าเอาใหม่!', (fever>70?'fever':'sad'));
-    judge('💥 BOSS FAILED', 'bad');
-  }
-  updateHUD();
-}
-
-// ------------------------- Spawn Pattern Generator (seeded) -------------------------
-function choosePointInPlayRect(size){
-  const pr = layoutCache.playRect;
-  const w = Math.max(1, pr.w - size);
-  const h = Math.max(1, pr.h - size);
-  return { sx: pr.x + rng()*w, sy: pr.y + rng()*h };
-}
-function choosePointGrid(size){
-  const pr = layoutCache.playRect;
-  const cols = 3, rows = 3;
-  const ci = Math.floor(rng()*cols);
-  const ri = Math.floor(rng()*rows);
-  const cellW = pr.w / cols;
-  const cellH = pr.h / rows;
-  const jx = (rng()*0.70 + 0.15);
-  const jy = (rng()*0.70 + 0.15);
-  const sx = pr.x + ci*cellW + jx*(Math.max(1, cellW - size));
-  const sy = pr.y + ri*cellH + jy*(Math.max(1, cellH - size));
-  return { sx, sy };
-}
-function choosePointRing(size){
-  const pr = layoutCache.playRect;
-  const cx = pr.x + pr.w/2;
-  const cy = pr.y + pr.h/2;
-  const minR = Math.min(pr.w, pr.h) * 0.18;
-  const maxR = Math.min(pr.w, pr.h) * 0.42;
-  const r = minR + rng()*(maxR - minR);
-  const ang = rng() * Math.PI * 2;
-  const sx = cx + Math.cos(ang)*r - size/2;
-  const sy = cy + Math.sin(ang)*r - size/2;
-  return { sx, sy };
-}
-function choosePointEdges(size){
-  const pr = layoutCache.playRect;
-  const edge = Math.floor(rng()*4);
-  const pad = 10;
-  if(edge === 0){
-    return { sx: pr.x + rng()*(Math.max(1, pr.w - size)), sy: pr.y + pad };
-  }else if(edge === 1){
-    return { sx: pr.x + pr.w - size - pad, sy: pr.y + rng()*(Math.max(1, pr.h - size)) };
-  }else if(edge === 2){
-    return { sx: pr.x + rng()*(Math.max(1, pr.w - size)), sy: pr.y + pr.h - size - pad };
-  }else{
-    return { sx: pr.x + pad, sy: pr.y + rng()*(Math.max(1, pr.h - size)) };
-  }
-}
-function choosePointCenter(size){
-  const pr = layoutCache.playRect;
-  const cx = pr.x + pr.w/2;
-  const cy = pr.y + pr.h/2;
-  const spread = Math.min(pr.w, pr.h) * 0.18;
-  const sx = cx + (rng()*2 - 1)*spread - size/2;
-  const sy = cy + (rng()*2 - 1)*spread - size/2;
-  return { sx, sy };
-}
-function choosePatternPoint(size){
-  const p = pattern || 'mix';
-  if(p === 'grid') return choosePointGrid(size);
-  if(p === 'ring') return choosePointRing(size);
-  if(p === 'edges') return choosePointEdges(size);
-  if(p === 'center') return choosePointCenter(size);
-
-  const r = rng();
-  if(r < 0.28) return choosePointInPlayRect(size);
-  if(r < 0.50) return choosePointGrid(size);
-  if(r < 0.72) return choosePointRing(size);
-  if(r < 0.86) return choosePointEdges(size);
-  return choosePointCenter(size);
-}
-
 // ------------------------- Target spawning -------------------------
 const goodPool = groupEmojis.map((e,i)=>({ emoji:e, groupIdx:i, kind:'good' }));
 const junkPool = ['🍟','🍕','🥤','🍩','🍭','🧁','🍔','🌭','🍫','🧋'].map(e=>({ emoji:e, kind:'junk' }));
@@ -834,13 +637,6 @@ function currentTunings(){
     const f = fever/100;
     spawnPerSec *= (1 + f*0.15);
     junkRate = clamp(junkRate + f*0.05, 0.08, 0.60);
-  }
-
-  // ✅ Boss window tuning (play only)
-  if(!isStudy && boss.active){
-    spawnPerSec *= 1.22;
-    junkRate = clamp(junkRate + 0.10, 0.10, 0.75);
-    size *= 0.96;
   }
 
   size = clamp(size, 38, 86);
@@ -866,6 +662,7 @@ function spawnTarget(forcedKind){
 
   const tune = currentTunings();
   const { W, H } = layoutCache;
+  const playRect = layoutCache.playRect;
   const noRects = layoutCache.noRects;
 
   let kind = forcedKind;
@@ -875,11 +672,6 @@ function spawnTarget(forcedKind){
     else kind = (rng() < tune.junkRate) ? 'junk' : 'good';
   }
 
-  // Boss flavor: junk bias during boss
-  if(!isStudy && boss.active && !forcedKind && rng() < 0.18){
-    kind = 'junk';
-  }
-
   let spec;
   if(kind === 'good') spec = pick(rng, goodPool);
   else if(kind === 'junk') spec = pick(rng, junkPool);
@@ -887,6 +679,7 @@ function spawnTarget(forcedKind){
 
   const size = tune.size;
 
+  // compensate look shift
   const shX = lookShift.x || 0;
   const shY = lookShift.y || 0;
 
@@ -895,9 +688,8 @@ function spawnTarget(forcedKind){
 
   const tries = 44;
   for(let i=0;i<tries;i++){
-    const pt = choosePatternPoint(size);
-    const sx = pt.sx;
-    const sy = pt.sy;
+    const sx = playRect.x + rng()*(Math.max(1, playRect.w - size));
+    const sy = playRect.y + rng()*(Math.max(1, playRect.h - size));
     screenBox.x = sx; screenBox.y = sy;
 
     let hit = false;
@@ -908,8 +700,9 @@ function spawnTarget(forcedKind){
   }
 
   if(!ok){
-    const pt = choosePatternPoint(size);
-    screenBox.x = pt.sx; screenBox.y = pt.sy;
+    const sx = playRect.x + rng()*(Math.max(1, playRect.w - size));
+    const sy = playRect.y + rng()*(Math.max(1, playRect.h - size));
+    screenBox.x = sx; screenBox.y = sy;
   }
 
   let lx = screenBox.x - shX;
@@ -984,70 +777,45 @@ function clearAllTargets(){
   for(const [id] of targets) despawn(id);
 }
 
-// ------------------------- Crosshair Shoot (VR UI -> hha:shoot) -------------------------
-function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx + dy*dy; }
+// ------------------------- Universal VR UI: hha:shoot hit nearest target -------------------------
+function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 
-function findNearestTargetAt(x, y, lockPx){
-  const lock = Math.max(8, Number(lockPx)||26);
-  let bestId = null;
-  let bestD2 = Infinity;
+function hitFromShoot(x, y, lockPx){
+  if(!running || paused) return false;
+  const L = Math.max(8, Number(lockPx||26)||26);
+  const best = { id:null, d2: Infinity };
 
   for(const [id, t] of targets){
     if(!t || !t.el) continue;
     const r = t.el.getBoundingClientRect();
-    if(!r || !isFinite(r.width)) continue;
-
     const cx = r.left + r.width/2;
-    const cy = r.top  + r.height/2;
-
-    const thresh = lock + Math.max(6, r.width * 0.20);
+    const cy = r.top + r.height/2;
     const d2 = dist2(x,y,cx,cy);
-    if(d2 <= thresh*thresh && d2 < bestD2){
-      bestD2 = d2;
-      bestId = id;
+    if(d2 < best.d2){
+      best.id = id;
+      best.d2 = d2;
     }
   }
-  return bestId;
-}
+  if(!best.id) return false;
 
-function onShootEvent(detail){
-  if(!running || paused) return;
-
-  shotsFired++;
-
-  const x = detail && typeof detail.x === 'number' ? detail.x : (ROOT.innerWidth||360)/2;
-  const y = detail && typeof detail.y === 'number' ? detail.y : (ROOT.innerHeight||640)/2;
-  const lockPx = detail && detail.lockPx != null ? detail.lockPx : 26;
-  const source = detail && detail.source ? String(detail.source) : 'shoot';
-
-  const id = findNearestTargetAt(x, y, lockPx);
-
-  if(id){
-    onHit(id);
-
-    // tiny bonus for shooting (kept minimal)
-    if(source && source !== 'tapTouch'){
-      score += 3;
-      updateHUD();
-    }
-  }else{
-    shotsMiss++;
-    if(!isStudy){
-      miss++;
-      combo = 0;
-      addFever(base.feverUpMiss * 0.6);
-      judge('🎯 ยิงพลาด!', 'warn');
-      fxTick();
-      updateHUD();
-    }
+  if(best.d2 <= (L*L)){
+    onHit(best.id);
+    return true;
   }
+  return false;
 }
 
+// bind once
 (function bindShoot(){
   if(ROOT.__PLATE_SHOOT_BOUND__) return;
   ROOT.__PLATE_SHOOT_BOUND__ = true;
-  ROOT.addEventListener('hha:shoot', (e)=>{
-    try{ onShootEvent(e && e.detail ? e.detail : null); }catch(_){}
+
+  ROOT.addEventListener('hha:shoot', (ev)=>{
+    const d = ev && ev.detail ? ev.detail : {};
+    const x = Number(d.x)|| (ROOT.innerWidth||360)/2;
+    const y = Number(d.y)|| (ROOT.innerHeight||640)/2;
+    const lockPx = Number(d.lockPx)||26;
+    hitFromShoot(x,y,lockPx);
   }, { passive:true });
 })();
 
@@ -1085,6 +853,15 @@ function onHit(id){
     fxPulse('good');
     coolFever(base.feverDownGood);
 
+    // boss progress (optional)
+    if(boss.active && !boss.done){
+      boss.hitGood++;
+      updateBossHud();
+      if(boss.hitGood >= boss.needGood){
+        finishBoss(true, 'need-met');
+      }
+    }
+
     if(activeMini && activeMini.key === 'plate-rush'){
       const haveN = plateHave.filter(Boolean).length;
       const tl = miniTimeLeft();
@@ -1093,10 +870,30 @@ function onHit(id){
       }
     }
 
-    aiOnGoodHit(rt);
-
   } else if(kind === 'junk'){
     ensureShieldActive();
+
+    // boss forbid junk (optional)
+    if(boss.active && !boss.done && boss.forbidJunk){
+      if(shieldActive){
+        shield = Math.max(0, shield - 1);
+        nHitJunkGuard++;
+        coach('โล่ช่วยไว้! 🛡️ (boss ยังอยู่)', 'neutral');
+        judge('🛡️ BLOCKED!', 'warn');
+      }else{
+        nHitJunk++;
+        miss++;
+        combo = 0;
+        score = Math.max(0, score - 60);
+        addFever(base.feverUpJunk);
+        fxPulse('bad'); fxShake();
+        finishBoss(false, 'hit-junk');
+      }
+      ensureShieldActive();
+      if(adaptiveOn) updateAdaptive();
+      updateGoals(); updateHUD();
+      return;
+    }
 
     if(activeMini && activeMini.forbidJunk){
       if(shieldActive){
@@ -1104,7 +901,6 @@ function onHit(id){
         nHitJunkGuard++;
         coach('โล่ช่วยไว้! 🛡️ (mini ยังอยู่)', 'neutral');
         judge('🛡️ BLOCKED!', 'warn');
-        aiOnJunkHit(true);
       }else{
         nHitJunk++;
         miss++;
@@ -1113,7 +909,6 @@ function onHit(id){
         addFever(base.feverUpJunk);
         fxPulse('bad'); fxShake();
         finishMini(false, 'hit-junk');
-        aiOnJunkHit(false);
       }
     }else{
       if(shieldActive){
@@ -1122,7 +917,6 @@ function onHit(id){
         coach('โล่กันขยะ! 🛡️', 'neutral');
         judge('🛡️ BLOCK!', 'warn');
         fxPulse('good');
-        aiOnJunkHit(true);
       }else{
         nHitJunk++;
         miss++;
@@ -1132,11 +926,9 @@ function onHit(id){
         fxPulse('bad'); fxShake();
         coach('โอ๊ย! โดนขยะ 😵', (fever>70?'fever':'sad'));
         judge('💥 JUNK!', 'bad');
-        aiOnJunkHit(false);
       }
     }
     ensureShieldActive();
-
   } else if(kind === 'shield'){
     shield = clamp(shield + 1, 0, 9);
     ensureShieldActive();
@@ -1164,7 +956,6 @@ function onExpireTarget(id){
     combo = 0;
     addFever(base.feverUpMiss);
     fxPulse('bad');
-    aiOnMissExpire();
   }
   updateGoals();
   updateHUD();
@@ -1196,53 +987,75 @@ function updateAdaptive(){
   emit('hha:adaptive', { game:'plate', adapt:{...adapt}, acc, rtAvg });
 }
 
-// ------------------------- AI Difficulty Director (Play only) -------------------------
-const AID = {
-  lastAt: 0,
-  windowMs: 9000,
-  lastScore: 0,
-  lastMiss: 0,
-};
+// ------------------------- Boss (optional, light) -------------------------
+function startBoss(){
+  if(isStudy) return; // ปิด boss ในโหมดวิจัย (ถ้าต้องการเปิด ให้ลบบรรทัดนี้)
+  if(boss.active) return;
 
-function aiDirectorTick(){
-  if(isStudy) return;
-  const now = Date.now();
-  if(now - AID.lastAt < AID.windowMs) return;
-  AID.lastAt = now;
+  boss.active = true;
+  boss.done = false;
+  boss.startedMs = nowMs();
+  boss.hitGood = 0;
 
-  const acc = accuracyPct();
-  const rtN = rtGood.length;
-  const rtAvg = rtN ? (rtGood.reduce((a,b)=>a+b,0)/rtN) : 900;
-  const missDelta = miss - AID.lastMiss;
-  const scoreDelta = score - AID.lastScore;
-
-  AID.lastMiss = miss;
-  AID.lastScore = score;
-
-  let relax = 0;
-  if(missDelta >= 3) relax += 1;
-  if(acc < 70) relax += 1;
-  if(rtAvg > 800) relax += 1;
-
-  let tighten = 0;
-  if(acc > 90 && rtAvg < 560 && missDelta === 0) tighten += 1;
-  if(scoreDelta > 700) tighten += 1;
-
-  if(fever >= 75) tighten = Math.max(0, tighten - 1);
-
-  if(relax > tighten){
-    adapt.sizeMul = clamp(adapt.sizeMul * 1.04, 0.90, 1.28);
-    adapt.spawnMul = clamp(adapt.spawnMul * 0.96, 0.75, 1.22);
-    adapt.junkMul = clamp(adapt.junkMul * 0.96, 0.75, 1.22);
-    emit('hha:ai-director', { game:'plate', action:'relax', acc, rtAvg, missDelta, fever, adapt:{...adapt} });
-  }else if(tighten > relax){
-    adapt.sizeMul = clamp(adapt.sizeMul * 0.98, 0.84, 1.20);
-    adapt.spawnMul = clamp(adapt.spawnMul * 1.04, 0.80, 1.30);
-    adapt.junkMul  = clamp(adapt.junkMul  * 1.03, 0.80, 1.30);
-    emit('hha:ai-director', { game:'plate', action:'tighten', acc, rtAvg, missDelta, fever, adapt:{...adapt} });
-  }else{
-    emit('hha:ai-director', { game:'plate', action:'hold', acc, rtAvg, missDelta, fever, adapt:{...adapt} });
+  if(bossHud) bossHud.style.display = 'block';
+  if(bossFx){
+    bossFx.style.display = 'block';
+    bossFx.classList.add('boss-on');
+    bossFx.classList.remove('boss-panic');
   }
+
+  updateBossHud();
+  coach('👾 BOSS มาแล้ว! เก็บ GOOD ให้ครบก่อนหมดเวลา!', 'neutral');
+  judge('👾 BOSS START!', 'warn');
+}
+function bossTimeLeft(){
+  if(!boss.active) return null;
+  const el = (nowMs() - boss.startedMs)/1000;
+  return Math.max(0, boss.durationSec - el);
+}
+function updateBossHud(){
+  if(!boss.active || !bossHud) return;
+  const tl = bossTimeLeft();
+  const pct = boss.needGood ? (boss.hitGood/boss.needGood*100) : 0;
+  if(bossFill) bossFill.style.width = `${clamp(pct,0,100)}%`;
+  if(bossText){
+    bossText.textContent = `${Math.ceil(tl||0)}s • GOOD ${boss.hitGood}/${boss.needGood}`;
+  }
+  if(bossFx){
+    if((tl||0) <= 3){
+      bossFx.classList.add('boss-panic');
+    }else{
+      bossFx.classList.remove('boss-panic');
+    }
+  }
+}
+function finishBoss(ok, reason){
+  if(!boss.active || boss.done) return;
+  boss.done = true;
+  boss.active = false;
+
+  if(bossHud) bossHud.style.display = 'none';
+  if(bossFx){
+    bossFx.classList.remove('boss-on','boss-panic');
+    bossFx.style.display = 'none';
+  }
+
+  if(ok){
+    score += boss.bonus;
+    emit('hha:celebrate', { game:'plate', kind:'boss' });
+    coach(`ชนะบอส! +${boss.bonus} คะแนน 🔥`, 'happy');
+    judge('👾✅ BOSS WIN!', 'good');
+    shield = clamp(shield + 1, 0, 9);
+  }else{
+    coach('บอสโหด! รอบหน้าเอาใหม่ 💪', (fever>70?'fever':'sad'));
+    judge(`👾❌ BOSS LOSE (${reason||'fail'})`, 'bad');
+    // ลงโทษเล็กน้อย
+    miss += 1;
+    combo = 0;
+    addFever(8);
+  }
+
+  updateHUD();
 }
 
 // ------------------------- Timer / loop -------------------------
@@ -1258,30 +1071,12 @@ function tick(){
     return;
   }
 
-  // boss trigger by timeLeft (play)
-  if(!isStudy){
-    if(!boss.active && tLeftSec <= boss.nextAtSec){
-      startBossWindow();
-      boss.nextAtSec = Math.max(6, boss.nextAtSec - boss.everySec);
-    }
-  }
-
   if(dt > 0 && isFinite(dt)){
     const newLeft = Math.max(0, tLeftSec - dt);
     if(Math.floor(newLeft) !== Math.floor(tLeftSec)){
       emit('hha:time', { game:'plate', timeLeftSec: Math.ceil(newLeft) });
     }
     tLeftSec = newLeft;
-  }
-
-  // boss end
-  if(!isStudy && boss.active){
-    if(nowMs() >= boss.endsAtMs){
-      const missDelta = miss - (boss.snap ? boss.snap.miss : 0);
-      const junkDelta = nHitJunk - (boss.snap ? boss.snap.hitJunk : 0);
-      const ok = (missDelta <= 1 && junkDelta === 0);
-      endBossWindow(ok);
-    }
   }
 
   if(activeMini){
@@ -1302,6 +1097,25 @@ function tick(){
     }
   }
 
+  // boss timing (optional)
+  if(!boss.active && !isStudy){
+    // โอกาสเปิดบอสช่วงท้ายเกม หรือหลังทำ goal แรกแล้ว
+    const acc = accuracyPct();
+    const allow = (goalsCleared >= 1) && (tLeftSec <= 45);
+    if(allow && rng() < 0.0035){
+      boss.needGood = clamp(Math.round(7 + acc/20), 7, 10);
+      boss.durationSec = 10;
+      startBoss();
+    }
+  }
+  if(boss.active && !boss.done){
+    updateBossHud();
+    const tl = bossTimeLeft();
+    if(tl != null && tl <= 0){
+      finishBoss(false, 'timeout');
+    }
+  }
+
   const tune = currentTunings();
   spawnAccum += dt * tune.spawnPerSec;
   while(spawnAccum >= 1){
@@ -1318,10 +1132,6 @@ function tick(){
 
   updateGoals();
   updateHUD();
-
-  // AI: tips + director tick
-  aiTickHints();
-  aiDirectorTick();
 
   if(tLeftSec <= 0){
     endGame('time');
@@ -1384,6 +1194,12 @@ function bootButtons(){
     try{ flushHardened('beforeunload'); }catch(err){}
   });
 
+  on(DOC, 'visibilitychange', ()=>{
+    if(DOC.hidden){
+      try{ flushHardened('hidden'); }catch(e){}
+    }
+  }, { passive:true });
+
   on(ROOT, 'resize', ()=> refreshLayoutSoon(90), { passive:true });
   on(ROOT, 'orientationchange', ()=> refreshLayoutSoon(140), { passive:true });
 
@@ -1401,6 +1217,8 @@ function resetState(){
   tStartMs = 0;
   tLastTickMs = 0;
   tLeftSec = Number(timePlannedSec)||90;
+
+  startTimeIso = '';
 
   score = 0;
   combo = 0;
@@ -1438,17 +1256,18 @@ function resetState(){
   activeGoal = null;
   activeMini = null;
 
-  shotsFired = 0;
-  shotsMiss = 0;
-
   boss.active = false;
-  boss.endsAtMs = 0;
-  boss.nextAtSec = 28;
-  boss.snap = { miss:0, hitJunk:0 };
+  boss.done = false;
+  boss.hitGood = 0;
 
   clearAllTargets();
   if(resultBackdrop) resultBackdrop.style.display = 'none';
   if(hudPaused) hudPaused.style.display = 'none';
+  if(bossHud) bossHud.style.display = 'none';
+  if(bossFx){
+    bossFx.classList.remove('boss-on','boss-panic');
+    bossFx.style.display = 'none';
+  }
 }
 
 function startGame(){
@@ -1474,6 +1293,20 @@ function startGame(){
 
   tStartMs = nowMs();
   tLastTickMs = tStartMs;
+
+  // ✅ set startTimeIso (for logger)
+  startTimeIso = new Date().toISOString();
+
+  // ✅ Emit hha:start for logger meta
+  emit('hha:start', {
+    projectTag: 'HHA',
+    runMode,
+    gameMode: 'plate',
+    diff,
+    view: viewParam || 'mobile',
+    startTimeIso,
+    seed
+  });
 
   updateHUD();
   emit('hha:time', { game:'plate', timeLeftSec: Math.ceil(tLeftSec) });
@@ -1522,6 +1355,7 @@ function buildSummary(reason){
 
   const grade = calcGrade();
   const sessionId = `PLATE_${Date.now()}_${uid().slice(0,6)}`;
+  const endTimeIso = new Date().toISOString();
 
   return {
     timestampIso: new Date().toISOString(),
@@ -1540,34 +1374,42 @@ function buildSummary(reason){
     goalsTotal,
     miniCleared,
     miniTotal: miniCleared,
-
     nTargetGoodSpawned,
     nTargetJunkSpawned,
     nTargetShieldSpawned,
+    nTargetStarSpawned: 0,
+    nTargetDiamondSpawned: 0,
     nHitGood,
     nHitJunk,
     nHitJunkGuard,
     nExpireGood,
-
     accuracyGoodPct: Math.round(acc*10)/10,
     junkErrorPct: Math.round(junkErrorPct*10)/10,
     avgRtGoodMs: Math.round(avgRt),
     medianRtGoodMs: Math.round(medRt),
     fastHitRatePct: Math.round(fastHitRatePct*10)/10,
-
     grade,
     seed,
-    pattern,
-
-    shotsFired,
-    shotsMiss,
-
     reason: reason || 'end',
+
+    // ✅ match logger columns
+    startTimeIso: startTimeIso || '',
+    endTimeIso,
+
     plate: {
       have: plateHave.map(Boolean),
       counts: [...gCount],
       total: gCount.reduce((a,b)=>a+b,0)
     },
+
+    // optional boss snapshot
+    boss: {
+      enabled: !isStudy,
+      bonus: boss.bonus,
+      needGood: boss.needGood,
+      durationSec: boss.durationSec
+    },
+
     device: (navigator && navigator.userAgent) ? navigator.userAgent : '',
     gameVersion: URLX.searchParams.get('v') || URLX.searchParams.get('ver') || '',
     hub: hubUrl || '',
@@ -1605,20 +1447,25 @@ function storeSummary(summary){
   saveJson(LS_HIST, next);
 }
 
+// ✅ flush-hardened (matches your hha-cloud-logger.js)
 async function flushHardened(reason){
   try{
-    const L = ROOT.HHACloudLogger || ROOT.HHA_CloudLogger || ROOT.HHA_LOGGER || null;
-    if(L){
-      if(typeof L.flushNow === 'function'){
-        await Promise.race([
-          Promise.resolve(L.flushNow({ reason })),
-          new Promise(res=>setTimeout(res, 650))
-        ]);
-      } else if(typeof L.flush === 'function'){
-        await Promise.race([
-          Promise.resolve(L.flush({ reason })),
-          new Promise(res=>setTimeout(res, 650))
-        ]);
+    const L = ROOT.HHA_LOGGER || null;
+    if(L && typeof L.flush === 'function'){
+      await Promise.race([
+        Promise.resolve(L.flush(reason || 'manual')),
+        new Promise(res=>setTimeout(res, 650))
+      ]);
+      return;
+    }
+
+    // fallback older variants
+    const L2 = ROOT.HHACloudLogger || ROOT.HHA_CloudLogger || ROOT.HHA_LOGGER || null;
+    if(L2){
+      if(typeof L2.flushNow === 'function'){
+        await Promise.race([ Promise.resolve(L2.flushNow({ reason })), new Promise(res=>setTimeout(res, 650)) ]);
+      } else if(typeof L2.flush === 'function'){
+        await Promise.race([ Promise.resolve(L2.flush({ reason })), new Promise(res=>setTimeout(res, 650)) ]);
       }
     }
   }catch(e){}
@@ -1634,7 +1481,8 @@ async function endGame(reason){
   const summary = buildSummary(reason);
   storeSummary(summary);
 
-  emit('hha:end', { game:'plate', summary });
+  // ✅ IMPORTANT: emit SUMMARY DIRECT (logger expects ev.detail = summary)
+  emit('hha:end', summary);
   emit('hha:celebrate', { game:'plate', kind:'end' });
 
   coach('จบเกมแล้ว! ดูสรุปผลได้เลย 🏁', (summary.grade==='C'?'sad':'happy'));
@@ -1648,6 +1496,13 @@ async function endGame(reason){
 
 // ------------------------- Init -------------------------
 (function init(){
+  // body view class (helps vr-ui crosshair)
+  try{
+    DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    const v = viewParam || 'mobile';
+    DOC.body.classList.add(v === 'cvr' ? 'view-cvr' : (v === 'vr' ? 'view-vr' : (v === 'pc' ? 'view-pc' : 'view-mobile')));
+  }catch(e){}
+
   setText('uiDiffPreview', diff);
   setText('uiTimePreview', timePlannedSec);
   setText('uiRunPreview', runMode);
