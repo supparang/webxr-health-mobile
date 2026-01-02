@@ -1,14 +1,15 @@
 // === /herohealth/plate/plate.safe.js ===
-// Balanced Plate VR — PRODUCTION+ (HHA Standard + VR-feel + Plate Rush + Safe Spawn + Logger FIX)
+// Balanced Plate VR — PRODUCTION+ (HHA Standard + VR-feel + Plate Rush + Safe Spawn + Storm + Boss + AI Hooks)
 // ✅ Play: adaptive ON
-// ✅ Study/Research: deterministic seed + adaptive OFF
-// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate
+// ✅ Study/Research: deterministic seed + adaptive OFF (boss/storm still deterministic but can be lighter)
+// ✅ Emits: hha:start, hha:score, hha:time, quest:update, hha:coach, hha:judge, hha:end, hha:celebrate, hha:adaptive, hha:ai
 // ✅ hha:end: emits SUMMARY DIRECT (matches hha-cloud-logger.js expectation)
 // ✅ End summary: localStorage HHA_LAST_SUMMARY + HHA_SUMMARY_HISTORY
-// ✅ Flush-hardened: uses ROOT.HHA_LOGGER.flush(reason) (matches your logger)
-// ✅ PATCH B: Layout-stable spawn + resize/enterVR reflow + look-shift compensated spawn
-// ✅ PATCH B: target "แว๊บ" ลดลง (spawn after settle) + clamp within viewport
+// ✅ Flush-hardened: uses ROOT.HHA_LOGGER.flush(reason)
+// ✅ PATCH: Layout-stable spawn + resize/enterVR reflow + look-shift compensated spawn
 // ✅ Universal VR UI: listens to hha:shoot (crosshair/tap-to-shoot) and hits nearest target within lockPx
+// ✅ NEW: Storm Cycles mini (real miniTotal) + Boss HUD ids match plate-vr.html
+// ✅ NEW: AI hooks + explainable micro-tips (rate limited), deterministic pattern plan
 
 'use strict';
 
@@ -110,11 +111,18 @@ const miniPanel = qs('miniPanel');
 const coachPanel = qs('coachPanel');
 const hudBtns = qs('hudBtns');
 
-// optional boss UI (safe)
-const bossHud = qs('bossHud');
-const bossFill = qs('bossFill');
-const bossText = qs('bossText');
-const bossFx = qs('bossFx');
+// ✅ Boss UI — MATCH plate-vr.html
+const bossHud   = qs('bossHud');
+const bossTitle = qs('bossTitle');
+const bossHint  = qs('bossHint');
+const bossProg  = qs('bossProg');
+const bossFx    = qs('bossFx');
+
+// ✅ Storm UI — MATCH plate-vr.html
+const stormHud   = qs('stormHud');
+const stormTitle = qs('stormTitle');
+const stormHint  = qs('stormHint');
+const stormFx    = qs('stormFx');
 
 if(!layer){
   console.error('[PlateVR] missing #plate-layer');
@@ -135,6 +143,10 @@ if(!layer){
     @keyframes pfxTick { 0%{transform:scale(1)} 50%{transform:scale(1.03)} 100%{transform:scale(1)} }
     #hitFx.pfx-hit-good{opacity:1; background:radial-gradient(circle at center, rgba(34,197,94,.18), transparent 55%);}
     #hitFx.pfx-hit-bad {opacity:1; background:radial-gradient(circle at center, rgba(239,68,68,.18), transparent 55%);}
+
+    /* storm/boss extra */
+    #stormFx.storm-panic{ filter:brightness(1.25); }
+    #bossFx.boss-panic{ filter:brightness(1.25); }
   `;
   DOC.head.appendChild(st);
 })();
@@ -188,7 +200,7 @@ function playTickSound(){
 let look = { x:0, y:0, dragging:false, lastX:0, lastY:0 };
 let gyro = { gx:0, gy:0, ok:false };
 
-// PATCH B: keep last applied shift (for spawn compensation)
+// keep last applied shift (for spawn compensation)
 let lookShift = { x:0, y:0 };
 
 function computeLookShift(){
@@ -272,7 +284,6 @@ function intersects(a, b){
   return !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y);
 }
 
-// PATCH B: cache layout (debounced) — ลดเป้าแว๊บและกัน spawn เพี้ยนหลัง EnterVR/rotate
 let layoutCache = {
   W: 360, H: 640,
   playRect: { x:10, y:80, w:340, h:480 },
@@ -357,7 +368,7 @@ let tStartMs = 0;
 let tLastTickMs = 0;
 let tLeftSec = Number(timePlannedSec) || 90;
 
-// ✅ logger needs startTimeIso/endTimeIso
+// logger needs startTimeIso/endTimeIso
 let startTimeIso = '';
 
 let score = 0;
@@ -391,13 +402,13 @@ let spawnAccum = 0;
 let goalsTotal = 2;
 let goalsCleared = 0;
 
-let minisTotal = 999;
+let minisTotal = 0; // ✅ real
 let miniCleared = 0;
 
 let activeGoal = null;
 let activeMini = null;
 
-// optional boss state (safe)
+// Boss state
 let boss = {
   active:false,
   startedMs:0,
@@ -407,7 +418,30 @@ let boss = {
   forbidJunk: true,
   bonus: 180,
   done:false,
+  _startedOnce:false,
 };
+
+// Storm state
+let storm = {
+  active:false,
+  startedMs:0,
+  durationSec: 6,
+  needGood: 9,
+  hitGood: 0,
+  forbidJunk: false,
+  done:false,
+  cycleIndex: 0,
+  cyclesPlanned: 0,
+};
+
+function computeMinisPlanned(){
+  // ✅ mini = storm cycles + plate rush + boss (play only)
+  const stormCycles = isStudy ? 2 : 3;
+  const rushCount   = 1;
+  const bossCount   = isStudy ? 0 : 1;
+  storm.cyclesPlanned = stormCycles;
+  minisTotal = stormCycles + rushCount + bossCount;
+}
 
 const GOALS = [
   { key:'fill-plate', title:'เติมจานให้ครบ 5 หมู่', target:5, cur:0, done:false },
@@ -486,6 +520,23 @@ function judge(text, kind){
   emit('hha:judge', { game:'plate', text, kind: kind||'info' });
 }
 
+// ------------------------- AI hooks (PRODUCTION+, study default OFF) -------------------------
+const AI = {
+  enabled: !isStudy,
+  lastTipMs: 0,
+  tipCooldownMs: 6500,
+  emit(type, data){
+    emit('hha:ai', { game:'plate', type, ...(data||{}) });
+  },
+  maybeTip(key, msg, mood){
+    const t = nowMs();
+    if(t - AI.lastTipMs < AI.tipCooldownMs) return;
+    AI.lastTipMs = t;
+    coach(msg, mood || 'neutral');
+    AI.emit('coach-tip', { key, msg, mood:mood||'neutral' });
+  }
+};
+
 // ------------------------- Mini quests -------------------------
 function makeMiniPlateRush(){
   return {
@@ -559,10 +610,11 @@ function emitQuestUpdate(){
     setText('uiGoalTitle', '—'); setText('uiGoalCount', '0/0');
   }
 
+  // ✅ mini counter real
+  setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal,1)}`);
+
   if(activeMini){
     setText('uiMiniTitle', activeMini.title);
-    // แสดงเป็น cleared/(cleared+1) ชั่วคราวให้ไม่เป็น 999
-    setText('uiMiniCount', `${miniCleared}/${Math.max(miniCleared+1, 1)}`);
     const tl = miniTimeLeft();
     setText('uiMiniTime', tl==null?'--':`${Math.ceil(tl)}s`);
     const mf = qs('uiMiniFill');
@@ -573,7 +625,6 @@ function emitQuestUpdate(){
   }else{
     setText('uiMiniTitle','—');
     setText('uiMiniTime','--');
-    setText('uiMiniCount', `${miniCleared}/${Math.max(miniCleared,1)}`);
     const mf = qs('uiMiniFill'); if(mf) mf.style.width = `0%`;
   }
 }
@@ -819,6 +870,177 @@ function hitFromShoot(x, y, lockPx){
   }, { passive:true });
 })();
 
+// ------------------------- Boss (MATCH HTML ids) -------------------------
+function startBoss(){
+  if(isStudy) return; // ✅ study ปิด boss
+  if(boss.active) return;
+
+  boss.active = true;
+  boss.done = false;
+  boss.startedMs = nowMs();
+  boss.hitGood = 0;
+
+  if(bossHud) bossHud.style.display = 'block';
+  if(bossFx){
+    bossFx.style.display = 'block';
+    bossFx.classList.add('boss-on');
+    bossFx.classList.remove('boss-panic');
+  }
+
+  updateBossHud();
+  coach('👹 BOSS มาแล้ว! เก็บ GOOD ให้ครบก่อนหมดเวลา!', 'neutral');
+  judge('👹 BOSS START!', 'warn');
+
+  AI.emit('pattern', { mode:'boss', seed, plan:{ needGood:boss.needGood, duration:boss.durationSec, forbidJunk:boss.forbidJunk } });
+}
+function bossTimeLeft(){
+  if(!boss.active) return null;
+  const el = (nowMs() - boss.startedMs)/1000;
+  return Math.max(0, boss.durationSec - el);
+}
+function updateBossHud(){
+  if(!boss.active) return;
+
+  const tl = bossTimeLeft();
+  if(bossHud) bossHud.style.display = 'block';
+
+  if(bossTitle) bossTitle.textContent = '👹 BOSS';
+  if(bossHint){
+    bossHint.textContent = boss.forbidJunk
+      ? 'ห้ามโดนขยะ! เก็บ GOOD ให้ครบก่อนหมดเวลา'
+      : 'เก็บ GOOD ให้ครบก่อนหมดเวลา';
+  }
+  if(bossProg){
+    bossProg.textContent = `${Math.ceil(tl||0)}s • GOOD ${boss.hitGood}/${boss.needGood}`;
+  }
+
+  if(bossFx){
+    if((tl||0) <= 3) bossFx.classList.add('boss-panic');
+    else bossFx.classList.remove('boss-panic');
+  }
+}
+function finishBoss(ok, reason){
+  if(!boss.active || boss.done) return;
+  boss.done = true;
+  boss.active = false;
+
+  if(bossHud) bossHud.style.display = 'none';
+  if(bossFx){
+    bossFx.classList.remove('boss-on','boss-panic');
+    bossFx.style.display = 'none';
+  }
+
+  if(ok){
+    score += boss.bonus;
+    miniCleared++; // ✅ boss counts as mini
+    emit('hha:celebrate', { game:'plate', kind:'boss' });
+    coach(`ชนะบอส! +${boss.bonus} คะแนน 🔥`, 'happy');
+    judge('👹✅ BOSS WIN!', 'good');
+    shield = clamp(shield + 1, 0, 9);
+  }else{
+    coach('บอสโหด! รอบหน้าเอาใหม่ 💪', (fever>70?'fever':'sad'));
+    judge(`👹❌ BOSS LOSE (${reason||'fail'})`, 'bad');
+    miss += 1;
+    combo = 0;
+    addFever(8);
+  }
+
+  emitQuestUpdate();
+  updateHUD();
+}
+
+// ------------------------- Storm Cycles (real minis) -------------------------
+function startStormCycle(){
+  if(storm.active) return;
+
+  storm.active = true;
+  storm.done = false;
+  storm.startedMs = nowMs();
+  storm.hitGood = 0;
+
+  const acc = accuracyPct();
+  storm.durationSec = isStudy ? 6 : 7;
+  storm.needGood = clamp(Math.round(8 + acc/25), 8, 12);
+  storm.forbidJunk = !isStudy && (fever >= 70);
+
+  if(stormHud) stormHud.style.display = 'block';
+  if(stormFx) stormFx.style.display = 'block';
+
+  if(stormTitle) stormTitle.textContent = `🌪️ STORM ${storm.cycleIndex+1}/${storm.cyclesPlanned}`;
+  if(stormHint){
+    stormHint.textContent = storm.forbidJunk
+      ? `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s (ห้ามโดนขยะ!)`
+      : `เก็บ GOOD ${storm.needGood} ชิ้นใน ${storm.durationSec}s`;
+  }
+
+  judge('🌪️ STORM START!', 'warn');
+  coach('พายุมาแล้ว! เก็บ GOOD ให้ทัน! 🌪️', (fever>70?'fever':'neutral'));
+
+  setText('uiMiniTitle', `STORM ${storm.cycleIndex+1}/${storm.cyclesPlanned}`);
+  setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal,1)}`);
+
+  AI.emit('pattern', { mode:'storm', cycle: storm.cycleIndex+1, seed, plan:{ needGood:storm.needGood, duration:storm.durationSec } });
+}
+
+function stormTimeLeft(){
+  if(!storm.active) return null;
+  const el = (nowMs() - storm.startedMs)/1000;
+  return Math.max(0, storm.durationSec - el);
+}
+
+function updateStormHud(){
+  if(!storm.active) return;
+  const tl = stormTimeLeft();
+  if(stormHint){
+    const a = storm.forbidJunk ? ' (ห้ามโดนขยะ!)' : '';
+    stormHint.textContent = `เหลือ ${Math.ceil(tl||0)}s • GOOD ${storm.hitGood}/${storm.needGood}${a}`;
+  }
+
+  const mf = qs('uiMiniFill');
+  if(mf){
+    const pct = storm.needGood ? (storm.hitGood/storm.needGood*100) : 0;
+    mf.style.width = `${clamp(pct,0,100)}%`;
+  }
+  setText('uiMiniTime', `${Math.ceil(tl||0)}s`);
+  setText('uiMiniCount', `${miniCleared}/${Math.max(minisTotal,1)}`);
+
+  if(stormFx){
+    if((tl||0) <= 2.5) stormFx.classList.add('storm-panic');
+    else stormFx.classList.remove('storm-panic');
+  }
+}
+
+function finishStorm(ok, reason){
+  if(!storm.active) return;
+  storm.active = false;
+  storm.done = true;
+
+  if(stormHud) stormHud.style.display = 'none';
+  if(stormFx){
+    stormFx.classList.remove('storm-panic');
+    stormFx.style.display = 'none';
+  }
+
+  if(ok){
+    miniCleared++;
+    score += 160;
+    shield = clamp(shield + 1, 0, 9);
+    emit('hha:celebrate', { game:'plate', kind:'storm' });
+    judge('🌪️✅ STORM CLEAR!', 'good');
+    coach('ผ่านพายุแล้ว! +160 คะแนน 🔥', 'happy');
+  }else{
+    judge(`🌪️❌ STORM FAIL (${reason||'fail'})`, 'bad');
+    coach('พายุแรงไปนิด! เดี๋ยวเอาใหม่ 💪', (fever>70?'fever':'sad'));
+    miss += 1;
+    combo = 0;
+    addFever(8);
+  }
+
+  storm.cycleIndex++;
+  emitQuestUpdate();
+  updateHUD();
+}
+
 // ------------------------- Hit / Miss handling -------------------------
 function onHit(id){
   const t = targets.get(id);
@@ -833,6 +1055,14 @@ function onHit(id){
     nHitGood++;
     combo++;
     comboMax = Math.max(comboMax, combo);
+
+    // storm progress
+    if(storm.active){
+      storm.hitGood++;
+      if(storm.hitGood >= storm.needGood){
+        finishStorm(true, 'need-met');
+      }
+    }
 
     const gi = Number(t.groupIdx);
     if(gi>=0 && gi<5){
@@ -853,7 +1083,7 @@ function onHit(id){
     fxPulse('good');
     coolFever(base.feverDownGood);
 
-    // boss progress (optional)
+    // boss progress
     if(boss.active && !boss.done){
       boss.hitGood++;
       updateBossHud();
@@ -873,7 +1103,27 @@ function onHit(id){
   } else if(kind === 'junk'){
     ensureShieldActive();
 
-    // boss forbid junk (optional)
+    // storm forbid junk
+    if(storm.active && storm.forbidJunk){
+      if(shieldActive){
+        shield = Math.max(0, shield - 1);
+        nHitJunkGuard++;
+        judge('🛡️ BLOCKED! (storm)', 'warn');
+      }else{
+        nHitJunk++;
+        miss++;
+        combo = 0;
+        addFever(base.feverUpJunk);
+        fxPulse('bad'); fxShake();
+        finishStorm(false, 'hit-junk');
+      }
+      ensureShieldActive();
+      if(adaptiveOn) updateAdaptive();
+      updateGoals(); updateHUD();
+      return;
+    }
+
+    // boss forbid junk
     if(boss.active && !boss.done && boss.forbidJunk){
       if(shieldActive){
         shield = Math.max(0, shield - 1);
@@ -985,77 +1235,13 @@ function updateAdaptive(){
   adapt.junkMul  = clamp(junkMul, 0.85, 1.25);
 
   emit('hha:adaptive', { game:'plate', adapt:{...adapt}, acc, rtAvg });
-}
 
-// ------------------------- Boss (optional, light) -------------------------
-function startBoss(){
-  if(isStudy) return; // ปิด boss ในโหมดวิจัย (ถ้าต้องการเปิด ให้ลบบรรทัดนี้)
-  if(boss.active) return;
-
-  boss.active = true;
-  boss.done = false;
-  boss.startedMs = nowMs();
-  boss.hitGood = 0;
-
-  if(bossHud) bossHud.style.display = 'block';
-  if(bossFx){
-    bossFx.style.display = 'block';
-    bossFx.classList.add('boss-on');
-    bossFx.classList.remove('boss-panic');
-  }
-
-  updateBossHud();
-  coach('👾 BOSS มาแล้ว! เก็บ GOOD ให้ครบก่อนหมดเวลา!', 'neutral');
-  judge('👾 BOSS START!', 'warn');
-}
-function bossTimeLeft(){
-  if(!boss.active) return null;
-  const el = (nowMs() - boss.startedMs)/1000;
-  return Math.max(0, boss.durationSec - el);
-}
-function updateBossHud(){
-  if(!boss.active || !bossHud) return;
-  const tl = bossTimeLeft();
-  const pct = boss.needGood ? (boss.hitGood/boss.needGood*100) : 0;
-  if(bossFill) bossFill.style.width = `${clamp(pct,0,100)}%`;
-  if(bossText){
-    bossText.textContent = `${Math.ceil(tl||0)}s • GOOD ${boss.hitGood}/${boss.needGood}`;
-  }
-  if(bossFx){
-    if((tl||0) <= 3){
-      bossFx.classList.add('boss-panic');
-    }else{
-      bossFx.classList.remove('boss-panic');
-    }
-  }
-}
-function finishBoss(ok, reason){
-  if(!boss.active || boss.done) return;
-  boss.done = true;
-  boss.active = false;
-
-  if(bossHud) bossHud.style.display = 'none';
-  if(bossFx){
-    bossFx.classList.remove('boss-on','boss-panic');
-    bossFx.style.display = 'none';
-  }
-
-  if(ok){
-    score += boss.bonus;
-    emit('hha:celebrate', { game:'plate', kind:'boss' });
-    coach(`ชนะบอส! +${boss.bonus} คะแนน 🔥`, 'happy');
-    judge('👾✅ BOSS WIN!', 'good');
-    shield = clamp(shield + 1, 0, 9);
-  }else{
-    coach('บอสโหด! รอบหน้าเอาใหม่ 💪', (fever>70?'fever':'sad'));
-    judge(`👾❌ BOSS LOSE (${reason||'fail'})`, 'bad');
-    // ลงโทษเล็กน้อย
-    miss += 1;
-    combo = 0;
-    addFever(8);
-  }
-
-  updateHUD();
+  // ✅ AI signal (explainable)
+  AI.emit('difficulty-signal', {
+    acc, miss, fever, rtAvg,
+    adapt:{...adapt},
+    rationale: { sizeMul: adapt.sizeMul, spawnMul: adapt.spawnMul, junkMul: adapt.junkMul }
+  });
 }
 
 // ------------------------- Timer / loop -------------------------
@@ -1079,6 +1265,7 @@ function tick(){
     tLeftSec = newLeft;
   }
 
+  // plate-rush mini timer FX
   if(activeMini){
     const tl = miniTimeLeft();
     if(tl != null){
@@ -1097,14 +1284,36 @@ function tick(){
     }
   }
 
-  // boss timing (optional)
+  // --- Storm scheduler (deterministic feel) ---
+  if(!storm.active){
+    const played = (nowMs() - tStartMs)/1000;
+    const marks = isStudy ? [18, 42] : [20, 45, 70];
+    const idx = storm.cycleIndex;
+    if(idx < marks.length && played >= marks[idx]){
+      startStormCycle();
+    }
+  }
+  if(storm.active){
+    updateStormHud();
+    const tl = stormTimeLeft();
+    if(tl != null && tl <= 0){
+      finishStorm(false, 'timeout');
+    }
+  }
+
+  // --- Boss scheduler: guaranteed once (play) ---
   if(!boss.active && !isStudy){
-    // โอกาสเปิดบอสช่วงท้ายเกม หรือหลังทำ goal แรกแล้ว
-    const acc = accuracyPct();
-    const allow = (goalsCleared >= 1) && (tLeftSec <= 45);
-    if(allow && rng() < 0.0035){
-      boss.needGood = clamp(Math.round(7 + acc/20), 7, 10);
+    const played = (nowMs() - tStartMs)/1000;
+    const shouldStart =
+      (goalsCleared >= 1 && played >= Math.max(25, timePlannedSec*0.55)) &&
+      (tLeftSec <= Math.min(35, timePlannedSec*0.45));
+
+    if(shouldStart && !boss._startedOnce){
+      boss._startedOnce = true;
+      const acc = accuracyPct();
+      boss.needGood = clamp(Math.round(7 + acc/22), 7, 11);
       boss.durationSec = 10;
+      boss.forbidJunk = true;
       startBoss();
     }
   }
@@ -1116,6 +1325,7 @@ function tick(){
     }
   }
 
+  // spawn
   const tune = currentTunings();
   spawnAccum += dt * tune.spawnPerSec;
   while(spawnAccum >= 1){
@@ -1124,10 +1334,19 @@ function tick(){
     maybeSpawnShield();
   }
 
+  // expire
   for(const [id, tObj] of targets){
     if((t - tObj.bornMs) >= tObj.lifeMs){
       onExpireTarget(id);
     }
+  }
+
+  // AI micro tips (rate limited)
+  if(AI.enabled){
+    const acc = accuracyPct();
+    if(fever >= 80) AI.maybeTip('fever-high', 'FEVER ใกล้เต็มแล้ว! โฟกัสเก็บ GOOD ช้าแต่ชัวร์ ลดพลาดนะ 🔥', 'fever');
+    else if(miss >= 6 && acc < 75) AI.maybeTip('stabilize', 'ลองลดความรีบลงนิดนึง จิ้มให้ตรงก่อน คอมโบจะกลับมาเอง 💪', 'neutral');
+    else if(combo >= 12) AI.maybeTip('combo', 'คอมโบกำลังสวย! รักษาจังหวะนี้ไว้ แล้วคะแนนจะพุ่ง 🚀', 'happy');
   }
 
   updateGoals();
@@ -1259,6 +1478,15 @@ function resetState(){
   boss.active = false;
   boss.done = false;
   boss.hitGood = 0;
+  boss._startedOnce = false;
+
+  storm.active = false;
+  storm.done = false;
+  storm.hitGood = 0;
+  storm.cycleIndex = 0;
+  storm.cyclesPlanned = 0;
+
+  computeMinisPlanned();
 
   clearAllTargets();
   if(resultBackdrop) resultBackdrop.style.display = 'none';
@@ -1267,6 +1495,11 @@ function resetState(){
   if(bossFx){
     bossFx.classList.remove('boss-on','boss-panic');
     bossFx.style.display = 'none';
+  }
+  if(stormHud) stormHud.style.display = 'none';
+  if(stormFx){
+    stormFx.classList.remove('storm-panic');
+    stormFx.style.display = 'none';
   }
 }
 
@@ -1294,10 +1527,8 @@ function startGame(){
   tStartMs = nowMs();
   tLastTickMs = tStartMs;
 
-  // ✅ set startTimeIso (for logger)
   startTimeIso = new Date().toISOString();
 
-  // ✅ Emit hha:start for logger meta
   emit('hha:start', {
     projectTag: 'HHA',
     runMode,
@@ -1373,7 +1604,7 @@ function buildSummary(reason){
     goalsCleared,
     goalsTotal,
     miniCleared,
-    miniTotal: miniCleared,
+    miniTotal: minisTotal, // ✅ real
     nTargetGoodSpawned,
     nTargetJunkSpawned,
     nTargetShieldSpawned,
@@ -1391,8 +1622,6 @@ function buildSummary(reason){
     grade,
     seed,
     reason: reason || 'end',
-
-    // ✅ match logger columns
     startTimeIso: startTimeIso || '',
     endTimeIso,
 
@@ -1402,12 +1631,16 @@ function buildSummary(reason){
       total: gCount.reduce((a,b)=>a+b,0)
     },
 
-    // optional boss snapshot
     boss: {
       enabled: !isStudy,
       bonus: boss.bonus,
       needGood: boss.needGood,
       durationSec: boss.durationSec
+    },
+    storm: {
+      enabled: true,
+      cyclesPlanned: storm.cyclesPlanned,
+      cyclesDone: storm.cycleIndex
     },
 
     device: (navigator && navigator.userAgent) ? navigator.userAgent : '',
@@ -1447,7 +1680,7 @@ function storeSummary(summary){
   saveJson(LS_HIST, next);
 }
 
-// ✅ flush-hardened (matches your hha-cloud-logger.js)
+// flush-hardened (matches your hha-cloud-logger.js)
 async function flushHardened(reason){
   try{
     const L = ROOT.HHA_LOGGER || null;
@@ -1459,7 +1692,6 @@ async function flushHardened(reason){
       return;
     }
 
-    // fallback older variants
     const L2 = ROOT.HHACloudLogger || ROOT.HHA_CloudLogger || ROOT.HHA_LOGGER || null;
     if(L2){
       if(typeof L2.flushNow === 'function'){
@@ -1481,8 +1713,7 @@ async function endGame(reason){
   const summary = buildSummary(reason);
   storeSummary(summary);
 
-  // ✅ IMPORTANT: emit SUMMARY DIRECT (logger expects ev.detail = summary)
-  emit('hha:end', summary);
+  emit('hha:end', summary); // ✅ summary direct
   emit('hha:celebrate', { game:'plate', kind:'end' });
 
   coach('จบเกมแล้ว! ดูสรุปผลได้เลย 🏁', (summary.grade==='C'?'sad':'happy'));
@@ -1496,7 +1727,6 @@ async function endGame(reason){
 
 // ------------------------- Init -------------------------
 (function init(){
-  // body view class (helps vr-ui crosshair)
   try{
     DOC.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
     const v = viewParam || 'mobile';
