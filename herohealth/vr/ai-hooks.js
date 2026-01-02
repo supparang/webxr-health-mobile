@@ -1,14 +1,5 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — Universal, OFF by default.
-// Provides: createAIHooks({enabled, runMode, seed, pid, protocol, diff, gameTag})
-// Hooks:
-// - director: suggest pacing (spawnPpsMul, junkRatioDelta, missLimitDelta)
-// - coach: micro-tips (rate-limited, explainable)
-// - pattern: spawn plan hints (e.g., burst, clusters) - can be ignored by engine
-//
-// IMPORTANT:
-// - Default is disabled. In research mode, stays disabled unless explicitly forced.
-// - Deterministic RNG if seed provided.
+// HHA AI Hooks — Universal, OFF by default. Research OFF unless aiForce=1.
 
 (function(ROOT){
   'use strict';
@@ -46,50 +37,26 @@
     const protocol = String(opts.protocol || qs('protocol', qs('pid','')) || '');
     const conditionGroup = String(opts.conditionGroup || qs('cond', qs('conditionGroup','')) || '');
 
-    // Enabled?
-    // - default off
-    // - allow enable via opts.enabled or ?ai=1
-    // - research: force OFF unless ?aiForce=1
     const qAi = qs('ai','0');
     const aiForce = qs('aiForce','0') === '1';
     const enabled = !!opts.enabled || (qAi === '1');
     const safeEnabled = (runMode === 'research' && !aiForce) ? false : enabled;
 
-    // Which sub-modes?
     const aiMode = String(opts.aiMode || qs('aiMode','all') || 'all').toLowerCase();
     const modeOn = (m)=> (aiMode==='all' || aiMode===m);
 
-    // Deterministic RNG
     let seed = opts.seed;
     seed = (seed!=null) ? (Number(seed)>>>0) : hash32(`${pid}|${protocol}|${diff}|${conditionGroup}|${gameTag}`);
     const rnd = mulberry32(seed);
 
-    // Rate limit for coach tips
-    const coach = {
-      lastTipAt: 0,
-      minGapMs: 4800,
-      maxPerSession: 8,
-      sent: 0
-    };
+    const coach = { lastTipAt: 0, minGapMs: 4800, maxPerSession: 8, sent: 0 };
 
-    // Director state
     const director = {
-      // we only "suggest" multipliers; engine may apply or ignore
-      spawnPpsMul: 1.0,
-      junkRatioDelta: 0.0,
-      missLimitDelta: 0,
-      // smoothing
-      _emaRt: 0,
-      _emaAcc: 0,
-      _emaMissRate: 0
+      spawnPpsMul: 1.0, junkRatioDelta: 0.0, missLimitDelta: 0,
+      _emaRt: 0, _emaAcc: 0, _emaMissRate: 0
     };
 
-    // Pattern generator (optional)
-    const pattern = {
-      nextPlanAt: 0,
-      planEveryMs: 1800,
-      lastPlan: null
-    };
+    const pattern = { nextPlanAt: 0, planEveryMs: 1800, lastPlan: null };
 
     function emit(name, detail){
       try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
@@ -105,7 +72,6 @@
       if(coach.sent >= coach.maxPerSession) return null;
       if(now - coach.lastTipAt < coach.minGapMs) return null;
 
-      // state hints (generic):
       const rt = Number(state.avgRtGoodMs)||0;
       const fast = Number(state.fastHitRatePct)||0;
       const miss = Number(state.misses)||0;
@@ -113,18 +79,16 @@
 
       let tip = null;
 
-      // deterministic branching (but based on state)
       if(miss >= 4 && rnd() < 0.75){
-        tip = makeTip('ลอง “หยุด 0.3 วิ” ก่อนยิง เพื่อแยกของดี/ขยะให้ชัดขึ้น', 'คุณพลาดหลายครั้ง → ลดการยิงรัวจะช่วยความแม่นยำ', 'COACH');
+        tip = makeTip('ลอง “หยุด 0.3 วิ” ก่อนยิง เพื่อแยกของดี/ขยะให้ชัดขึ้น', 'พลาดหลายครั้ง → ลดการยิงรัวช่วยความแม่นยำ', 'COACH');
       } else if(rt >= 650 && rnd() < 0.70){
         tip = makeTip('ลอง “เล็งกลางจอ” แล้วให้เป้าเข้ามาหา (ไม่กวาดสายตากว้าง)', 'RT สูง → ลดระยะกวาดสายตาจะตอบสนองไวขึ้น', 'COACH');
       } else if(fast <= 35 && rnd() < 0.70){
-        tip = makeTip('ภารกิจ “ยิงให้ไว” ให้โฟกัสเป้าที่อยู่ใกล้จุดเล็งก่อน', 'อัตรายิงไวต่ำ → เลือกเป้าที่ใกล้ crosshair ช่วยได้', 'COACH');
+        tip = makeTip('ภารกิจ “ยิงให้ไว” ให้โฟกัสเป้าที่อยู่ใกล้จุดเล็งก่อน', 'อัตรายิงไวต่ำ → เลือกเป้าใกล้ crosshair', 'COACH');
       } else if(combo >= 10 && rnd() < 0.55){
-        tip = makeTip('คอมโบดีมาก! ตอนนี้ “เน้นไม่โดนขยะ” เพื่อรักษาแรงกดดันต่ำ', 'คอมโบสูง → โหมดปลอดภัยจะทำคะแนนคงที่ขึ้น', 'COACH');
+        tip = makeTip('คอมโบดีมาก! ตอนนี้ “เน้นไม่โดนขยะ” เพื่อรักษาคะแนน', 'คอมโบสูง → เล่นนิ่ง ๆ จะเสถียรขึ้น', 'COACH');
       } else {
-        // occasional encouragement (rare)
-        if(rnd() < 0.18) tip = makeTip('ดีมาก! ลองรักษาจังหวะเดิมอีกนิด 💪', 'จังหวะการเล่นคงที่ช่วยให้คะแนนเสถียร', 'COACH');
+        if(rnd() < 0.18) tip = makeTip('ดีมาก! ลองรักษาจังหวะเดิมอีกนิด 💪', 'จังหวะคงที่ช่วยความแม่นยำ', 'COACH');
       }
 
       if(tip){
@@ -138,42 +102,27 @@
     function updateDirector(state){
       if(!safeEnabled || !modeOn('director')) return null;
 
-      // Inputs
       const rt = clamp(Number(state.avgRtGoodMs)||0, 0, 2000);
       const acc = clamp(Number(state.accuracyGoodPct)||0, 0, 100);
       const miss = clamp(Number(state.misses)||0, 0, 999);
       const timeLeft = clamp(Number(state.timeLeftSec)||0, 0, 999);
 
-      // EMA smoothing
       director._emaRt = director._emaRt ? (director._emaRt*0.88 + rt*0.12) : rt;
       director._emaAcc = director._emaAcc ? (director._emaAcc*0.88 + acc*0.12) : acc;
-      const missRate = (timeLeft>0) ? (miss / Math.max(1, (Number(state.playedSec)||1))) : miss;
-      director._emaMissRate = director._emaMissRate ? (director._emaMissRate*0.90 + missRate*0.10) : missRate;
 
-      // Suggest adjustments (small, fair)
-      let spawnMul = 1.0;
-      let junkDelta = 0.0;
-      let missDelta = 0;
+      let spawnMul = 1.0, junkDelta = 0.0, missDelta = 0;
 
-      // If player struggling: slow down slightly, reduce junk
       if(director._emaAcc < 62 || director._emaRt > 720){
         spawnMul *= 0.92;
         junkDelta -= 0.04;
         missDelta += 1;
       }
-      // If player very strong: speed up slightly, more junk pressure
       if(director._emaAcc > 85 && director._emaRt < 520 && miss < 3){
         spawnMul *= 1.06;
         junkDelta += 0.03;
-        missDelta -= 0; // don't punish
       }
+      if(timeLeft <= 12) spawnMul *= 1.04;
 
-      // Endgame: slight adrenaline
-      if(timeLeft <= 12){
-        spawnMul *= 1.04;
-      }
-
-      // Clamp safely
       director.spawnPpsMul = clamp(spawnMul, 0.85, 1.15);
       director.junkRatioDelta = clamp(junkDelta, -0.07, 0.07);
       director.missLimitDelta = clamp(missDelta, 0, 2);
@@ -192,43 +141,27 @@
 
     function patternPlan(state){
       if(!safeEnabled || !modeOn('pattern')) return null;
-
       const now = performance.now();
       if(now < pattern.nextPlanAt) return null;
       pattern.nextPlanAt = now + pattern.planEveryMs;
 
-      // Create a tiny deterministic plan: "cluster near aim" vs "spread"
       const fever = clamp(Number(state.fever||0), 0, 100);
       const mode = (rnd() < 0.55) ? 'spread' : 'cluster';
       const intensity = clamp(0.6 + (fever/100)*0.6, 0.6, 1.2);
-
       const plan = { mode, intensity: Number(intensity.toFixed(2)), seed, gameTag, diff };
       pattern.lastPlan = plan;
       emit('hha:ai:pattern', plan);
       return plan;
     }
 
-    // public API
     return {
       enabled: safeEnabled,
-      seed,
-      runMode,
-      diff,
-      gameTag,
+      seed, runMode, diff, gameTag,
       update(state){
-        // state = engine snapshot (safe subset)
         if(!safeEnabled) return { enabled:false };
-
-        // coach tips
         maybeCoachTip(state);
-
-        // director suggestions
         const d = updateDirector(state);
-
-        // pattern generator
         const p = patternPlan(state);
-
-        // expose combined
         const out = { enabled:true, director:d||null, pattern:p||null };
         emit('hha:ai:state', out);
         return out;
@@ -236,7 +169,6 @@
     };
   }
 
-  // expose globally
   ROOT.HHA_AI = ROOT.HHA_AI || {};
   ROOT.HHA_AI.createAIHooks = createAIHooks;
 
