@@ -3,422 +3,153 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth — GoodJunkVR</title>
+  <title>HeroHealth — GoodJunk VR</title>
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- A-Frame to allow WebXR enter reliably (UI handled by vr-ui.js) -->
+  <!-- A-Frame core (for Enter VR UI reliability) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- FX + logger (if exists) -->
+  <!-- FX + logger MUST load before engine -->
   <script src="./vr/particles.js" defer></script>
   <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- AI hooks (OFF by default) -->
+  <script src="./vr/ai-hooks.js" defer></script>
 
   <style>
     :root{
       color-scheme: light dark;
       --bg:#020617;
       --panel:rgba(2,6,23,.78);
-      --panel2:rgba(15,23,42,.70);
       --stroke:rgba(148,163,184,.18);
       --text:#e5e7eb;
       --muted:#94a3b8;
       --accent:#22c55e;
       --warn:#f59e0b;
       --bad:#ef4444;
-      --radius:22px;
-      --pill:999px;
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
     }
-    *{ box-sizing:border-box; }
-    html,body{
-      margin:0; width:100%; height:100%; overflow:hidden;
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 15% 10%, rgba(34,197,94,.18), transparent 55%),
-        radial-gradient(circle at 85% 15%, rgba(34,211,238,.14), transparent 60%),
-        radial-gradient(circle at 30% 90%, rgba(168,85,247,.12), transparent 60%),
-        var(--bg);
-    }
-
-    /* Invisible A-Frame canvas to enable XR enter */
-    .xr-stage{
-      position:fixed; inset:0; z-index:0;
-      pointer-events:none;
-      opacity:.001;
-    }
-
-    /* DOM gameplay layer */
-    #gj-layer{
-      position:fixed; inset:0; z-index:5;
-      pointer-events:none;
-      touch-action:none;
-    }
-
-    /* HUD */
+    html,body{height:100%; margin:0; overflow:hidden; background:var(--bg); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--text);}
+    .stage{position:fixed; inset:0; overflow:hidden;}
+    #gj-layer{position:absolute; inset:0; z-index:20; pointer-events:auto;}
     .hud{
-      position:fixed; left:0; right:0; top:0;
-      padding: calc(10px + var(--sat)) 12px 10px;
-      z-index:20;
-      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
+      position:fixed; left:12px; right:12px;
+      top: calc(10px + var(--sat));
+      z-index:50;
+      display:flex; gap:10px; align-items:stretch; justify-content:space-between;
       pointer-events:none;
     }
-    .hud .box{
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:16px;
+    .hud .card{
+      pointer-events:none;
+      flex:1;
+      background: rgba(2,6,23,.70);
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 18px;
       padding:10px 12px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 18px 45px rgba(0,0,0,.25);
-      min-width: 140px;
+      backdrop-filter: blur(6px);
     }
-    .hud .k{ color:var(--muted); font-size:12px; }
-    .hud .v{ font-weight:900; font-size:18px; letter-spacing:.2px; }
-    .hud .mini{ font-size:12px; color:var(--muted); line-height:1.25; }
-
-    /* Goal/Mini center boxes */
-    .hud .mid{
-      min-width: 260px;
-      text-align:center;
+    .hud .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .k{font:900 12px/1 system-ui; opacity:.75}
+    .v{font:950 18px/1 system-ui}
+    .mini{font:900 12px/1.25 system-ui; opacity:.9; margin-top:6px}
+    .goal{font:900 12px/1.25 system-ui; opacity:.9; margin-top:4px}
+    .pill{
+      display:inline-flex; gap:6px; align-items:center;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(148,163,184,.16);
+      background: rgba(148,163,184,.10);
     }
-    .hud .mid .v{ font-size:16px; }
-    .hud .mid .mini{ color:#cbd5e1; }
 
-    /* Ready overlay */
-    .ready{
-      position:fixed; inset:0; z-index:60;
+    /* targets */
+    .gj-target{
+      position:absolute;
+      transform: translate(-50%,-50%);
+      font-size: 44px;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+      user-select:none;
+      cursor:pointer;
+      opacity:0;
+      transition: opacity .10s ease, transform .10s ease;
+      will-change: transform, opacity;
+    }
+    .gj-target.spawn{ opacity:1; transform: translate(-50%,-50%) scale(1.02); }
+    .gj-target.gone{ opacity:0; transform: translate(-50%,-50%) scale(0.92); }
+
+    /* START overlay (gate) */
+    .start{
+      position:fixed; inset:0; z-index:80;
       display:flex; align-items:center; justify-content:center;
-      padding: 24px 14px calc(24px + var(--sab));
-      background: radial-gradient(circle at 50% 20%, rgba(15,23,42,.55), rgba(2,6,23,.88));
-      backdrop-filter: blur(8px);
+      background: radial-gradient(circle at top, rgba(56,189,248,.12), transparent 55%),
+                  radial-gradient(circle at bottom, rgba(34,197,94,.10), transparent 60%),
+                  rgba(2,6,23,.92);
+      padding: calc(18px + var(--sat)) 16px calc(18px + var(--sab));
     }
     .panel{
-      width:min(980px, 96vw);
-      border-radius: 28px;
-      background: linear-gradient(180deg, rgba(2,6,23,.82), rgba(2,6,23,.62));
-      border: 1px solid rgba(148,163,184,.18);
-      box-shadow: 0 40px 120px rgba(0,0,0,.55);
-      padding: 18px 18px 16px;
-      position:relative;
-    }
-    .title{
-      display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
-      padding: 6px 6px 10px;
-    }
-    .title h1{
-      margin:0;
-      font-size: 22px;
-      letter-spacing:.2px;
-      display:flex; align-items:center; gap:10px;
-    }
-    .sub{ margin:0; color:var(--muted); font-size: 12.5px; }
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-      margin-top:10px;
-    }
-    .choice{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-    }
-    .chip{
-      display:flex; align-items:center; justify-content:center; gap:10px;
-      border-radius: var(--pill);
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      padding: 14px 12px;
-      font-weight:900;
-      user-select:none;
-      cursor:pointer;
-    }
-    .chip[data-on="1"]{
-      border-color: rgba(34,197,94,.55);
-      box-shadow: 0 0 0 2px rgba(34,197,94,.18) inset;
-    }
-    .chip.cvr[data-on="1"]{
-      border-color: rgba(245,158,11,.65);
-      box-shadow: 0 0 0 2px rgba(245,158,11,.18) inset;
-    }
-    .btn{
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.60);
-      padding: 12px 14px;
-      font-weight:900;
-      color: var(--text);
-      cursor:pointer;
-      user-select:none;
-      display:flex; align-items:center; gap:10px;
-    }
-    .btn.primary{
-      background: linear-gradient(180deg, rgba(34,197,94,.28), rgba(34,197,94,.14));
-      border-color: rgba(34,197,94,.55);
-    }
-    .btn.warn{
-      background: linear-gradient(180deg, rgba(245,158,11,.22), rgba(245,158,11,.12));
-      border-color: rgba(245,158,11,.55);
-    }
-    .btn:disabled{ opacity:.55; cursor:not-allowed; }
-    .tips{
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 12.5px;
-      line-height: 1.45;
-      padding: 0 6px 2px;
-    }
-
-    /* Summary */
-    .summary{
-      position:fixed; inset:0; z-index:80;
-      display:none;
-      align-items:center; justify-content:center;
-      padding: 22px 14px calc(22px + var(--sab));
-      background: radial-gradient(circle at 50% 20%, rgba(15,23,42,.55), rgba(2,6,23,.92));
+      width:min(760px, 94vw);
+      border-radius:24px;
+      border:1px solid rgba(148,163,184,.20);
+      background: rgba(2,6,23,.80);
+      padding:16px;
+      box-shadow: 0 24px 70px rgba(0,0,0,.50);
       backdrop-filter: blur(8px);
     }
-    .summary.on{ display:flex; }
-    .sum-card{
-      width:min(860px, 96vw);
-      border-radius: 28px;
-      background: linear-gradient(180deg, rgba(2,6,23,.85), rgba(2,6,23,.62));
-      border: 1px solid rgba(148,163,184,.18);
-      box-shadow: 0 40px 120px rgba(0,0,0,.55);
-      padding: 18px 18px 14px;
+    .title{font:950 18px/1.1 system-ui; margin:0 0 6px;}
+    .sub{font:800 13px/1.45 system-ui; opacity:.82; margin:0 0 12px;}
+    .btns{display:flex; gap:10px; flex-wrap:wrap;}
+    button{
+      border:0; border-radius:16px;
+      padding:12px 14px;
+      font:950 14px/1 system-ui;
+      cursor:pointer;
     }
-    .sum-top{
-      display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding: 6px 6px 10px;
-    }
-    .badge{
-      padding: 10px 14px;
-      border-radius: 999px;
-      font-weight: 1000;
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.55);
-      letter-spacing:.5px;
-    }
-    .sum-grid{
-      display:grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-top:10px;
-    }
-    .metric{
-      border:1px solid rgba(148,163,184,.18);
-      background: rgba(2,6,23,.45);
-      border-radius: 18px;
-      padding: 12px 12px;
-    }
-    .metric .k{ color:var(--muted); font-size:12px; }
-    .metric .v{ font-weight:1000; font-size:18px; margin-top:4px; }
-    .sum-actions{
-      display:flex; gap:10px; justify-content:flex-end; margin-top:12px; padding: 0 6px;
-      flex-wrap:wrap;
-    }
-
-    /* mobile: stack summary metrics */
-    @media (max-width: 720px){
-      .sum-grid{ grid-template-columns: 1fr 1fr; }
-      .hud{ gap:8px; }
-      .hud .mid{ min-width: 210px; }
-    }
+    .btn-go{background: rgba(34,197,94,.92); color:#04120a;}
+    .btn-ghost{background: rgba(148,163,184,.14); color:var(--text); border:1px solid rgba(148,163,184,.18);}
+    .hint{margin-top:10px; font:800 12px/1.4 system-ui; opacity:.72}
   </style>
 </head>
 
 <body class="view-mobile">
-  <a-scene class="xr-stage" embedded vr-mode-ui="enabled:false"></a-scene>
-
-  <div id="gj-layer"></div>
+  <div class="stage">
+    <div id="gj-layer" aria-label="GoodJunk layer"></div>
+  </div>
 
   <div class="hud">
-    <div class="box">
-      <div class="k">Score</div>
-      <div id="hud-score" class="v">0</div>
-      <div class="mini"><span class="k">Combo</span> <span id="hud-combo">0</span> · <span class="k">Miss</span> <span id="hud-miss">0</span></div>
-    </div>
-
-    <div class="box mid">
-      <div class="k">Goal</div>
-      <div id="hud-goal" class="v">—</div>
-      <div class="mini">
-        <span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span>
-        · <span class="k">Mini</span> <span id="hud-mini">—</span>
+    <div class="card">
+      <div class="row">
+        <span class="pill"><span class="k">SCORE</span><span class="v" id="hud-score">0</span></span>
+        <span class="pill"><span class="k">COMBO</span><span class="v" id="hud-combo">0</span></span>
+        <span class="pill"><span class="k">MISS</span><span class="v" id="hud-miss">0</span></span>
+        <span class="pill"><span class="k">TIME</span><span class="v" id="hud-time">0</span></span>
+        <span class="pill"><span class="k">GRADE</span><span class="v" id="hud-grade">—</span></span>
       </div>
-    </div>
-
-    <div class="box" style="text-align:right; min-width:170px;">
-      <div class="k">Time</div>
-      <div id="hud-time" class="v">—</div>
-      <div class="mini"><span class="k">Grade</span> <span id="hud-grade">—</span></div>
+      <div class="goal">🎯 <span id="hud-goal">—</span> <b><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></b></div>
+      <div class="mini">🧩 <span id="hud-mini">—</span></div>
     </div>
   </div>
 
-  <!-- READY -->
-  <div id="ready" class="ready" aria-modal="true" role="dialog">
+  <!-- Start Gate -->
+  <div class="start" id="startOverlay">
     <div class="panel">
-      <div class="title">
-        <div>
-          <h1>🥦🍟 GoodJunkVR — Ready?</h1>
-          <p id="paramsLine" class="sub">—</p>
-        </div>
-        <button id="btnStart" class="btn primary">▶ START</button>
+      <h1 class="title">Good vs Junk VR 🍎🍟</h1>
+      <p class="sub">
+        กติกา: <b>MISS = ของดีหาย + โดนขยะ</b> (ถ้ามี 🛡️ บล็อกขยะ จะ <b>ไม่</b> นับ miss)
+        <br/>โหมดเล่น (play) มี <b>PRACTICE 15s</b> ก่อนเริ่มจริง
+      </p>
+      <div class="btns">
+        <button class="btn-go" id="btnStart">START</button>
+        <button class="btn-ghost" id="btnCalib">Calibration (cVR)</button>
+        <button class="btn-ghost" id="btnEnterVR">ENTER VR</button>
       </div>
-
-      <div class="grid">
-        <div class="choice">
-          <div id="btnPC" class="chip" role="button" tabindex="0">🖥️ PC</div>
-          <div id="btnMobile" class="chip" role="button" tabindex="0">📱 Mobile</div>
-          <div id="btnVR" class="chip" role="button" tabindex="0">🕶️ VR</div>
-          <div id="btnCVR" class="chip cvr" role="button" tabindex="0">🕶️ cVR</div>
-        </div>
-
-        <div style="display:flex; justify-content:flex-end; gap:10px; align-items:center; flex-wrap:wrap;">
-          <button id="btnFs" class="btn">⛶ Fullscreen</button>
-          <button id="btnEnterCVR" class="btn warn">🕶️ Enter cVR</button>
-        </div>
-      </div>
-
-      <div class="tips">
-        • <b>Goal</b> + <b>Mini Quest</b> จะวิ่งจริงหลัง START (กัน “เป้าแว๊บ”)<br/>
-        • <b>cVR</b>: แนะนำกด Fullscreen → Enter cVR → START<br/>
-        • <b>Research</b>: ใช้ <b>run=research</b> + <b>seed</b> เพื่อ deterministic และปิด adaptive<br/>
-        • เกรด: <b>SSS/SS/S/A/B/C</b>
+      <div class="hint">
+        Tip: ถ้าเล็งแล้วหลุด ให้กด RECENTER (บน VR UI) เพื่อเปิด Calibration ได้เช่นกัน
       </div>
     </div>
   </div>
 
-  <!-- SUMMARY -->
-  <div id="summary" class="summary" aria-modal="true" role="dialog">
-    <div class="sum-card">
-      <div class="sum-top">
-        <div>
-          <div class="k" style="color:var(--muted)">GoodJunkVR — Result</div>
-          <div style="font-weight:1000; font-size:20px; margin-top:4px;" id="sum-title">—</div>
-        </div>
-        <div class="badge" id="sum-grade">—</div>
-      </div>
-
-      <div class="sum-grid">
-        <div class="metric"><div class="k">Score</div><div class="v" id="sum-score">0</div></div>
-        <div class="metric"><div class="k">Accuracy (Good)</div><div class="v" id="sum-acc">0%</div></div>
-        <div class="metric"><div class="k">Miss</div><div class="v" id="sum-miss">0</div></div>
-
-        <div class="metric"><div class="k">Combo Max</div><div class="v" id="sum-combo">0</div></div>
-        <div class="metric"><div class="k">Goals Cleared</div><div class="v" id="sum-goals">0/0</div></div>
-        <div class="metric"><div class="k">Mini Cleared</div><div class="v" id="sum-minis">0/0</div></div>
-
-        <div class="metric"><div class="k">Good Hit</div><div class="v" id="sum-goodhit">0</div></div>
-        <div class="metric"><div class="k">Junk Hit</div><div class="v" id="sum-junkhit">0</div></div>
-        <div class="metric"><div class="k">Played</div><div class="v" id="sum-played">0s</div></div>
-      </div>
-
-      <div class="sum-actions">
-        <button id="btnRetry" class="btn primary">↻ Retry</button>
-        <button id="btnBackHub" class="btn">↩ Back to HUB</button>
-        <button id="btnCloseSummary" class="btn">✕ Close</button>
-      </div>
-    </div>
-  </div>
-
+  <!-- Boot module -->
   <script type="module" src="./vr-goodjunk/goodjunk-vr.boot.js"></script>
-
-  <script>
-    (function(){
-      const $ = (s)=>document.querySelector(s);
-      const qs = (k, def=null)=>{
-        try { return new URL(location.href).searchParams.get(k) ?? def; } catch { return def; }
-      };
-      const setQS = (k,v)=>{
-        const u = new URL(location.href);
-        if(v==null) u.searchParams.delete(k); else u.searchParams.set(k, String(v));
-        history.replaceState(null,'',u.toString());
-      };
-
-      const ready = $('#ready');
-      const btnStart = $('#btnStart');
-      const btnFs = $('#btnFs');
-      const btnEnterCVR = $('#btnEnterCVR');
-      const btnPC = $('#btnPC'), btnMobile = $('#btnMobile'), btnVR = $('#btnVR'), btnCVR = $('#btnCVR');
-
-      let view = (qs('view') || 'mobile').toLowerCase();
-      if(!['pc','mobile','vr','cvr'].includes(view)) view = 'mobile';
-
-      function applyView(v){
-        view = v;
-        document.body.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
-        document.body.classList.add('view-'+v);
-        btnPC.dataset.on = (v==='pc')?'1':'0';
-        btnMobile.dataset.on = (v==='mobile')?'1':'0';
-        btnVR.dataset.on = (v==='vr')?'1':'0';
-        btnCVR.dataset.on = (v==='cvr')?'1':'0';
-        setQS('view', v);
-        btnEnterCVR.disabled = (v!=='cvr');
-      }
-      applyView(view);
-
-      const diff = qs('diff','normal');
-      const time = qs('time','80');
-      const run  = qs('run','play');
-      const end  = qs('end','time');
-      const ch   = qs('ch','rush');
-      const seed = qs('seed', '');
-      $('#paramsLine').textContent =
-        `diff=${diff} • time=${time}s • run=${run} • end=${end} • ch=${ch}` + (seed?` • seed=${seed}`:'');
-
-      btnFs.addEventListener('click', async ()=>{
-        try{
-          if(!document.fullscreenElement){
-            await document.documentElement.requestFullscreen?.();
-          }
-        }catch{}
-      });
-
-      btnPC.addEventListener('click', ()=>applyView('pc'));
-      btnMobile.addEventListener('click', ()=>applyView('mobile'));
-      btnVR.addEventListener('click', ()=>applyView('vr'));
-      btnCVR.addEventListener('click', ()=>applyView('cvr'));
-
-      btnEnterCVR.addEventListener('click', ()=>{
-        if(view!=='cvr') return;
-        window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
-      });
-
-      btnStart.addEventListener('click', ()=>{
-        ready.style.display = 'none';
-        window.dispatchEvent(new CustomEvent('hha:start', { detail:{ from:'ready', view } }));
-      });
-
-      // Summary buttons
-      const summary = $('#summary');
-      $('#btnRetry').addEventListener('click', ()=>location.reload());
-      $('#btnCloseSummary').addEventListener('click', ()=>summary.classList.remove('on'));
-      $('#btnBackHub').addEventListener('click', ()=>{
-        const hub = qs('hub', null);
-        if(hub) location.href = hub;
-        else location.href = './hub.html';
-      });
-
-      // Listen end summary from engine
-      window.addEventListener('hha:end', (ev)=>{
-        const d = ev?.detail || {};
-        $('#sum-title').textContent = d.title || 'Session Summary';
-        $('#sum-grade').textContent = d.grade || '—';
-        $('#sum-score').textContent = d.scoreFinal ?? 0;
-        $('#sum-acc').textContent = (d.accuracyGoodPct!=null ? `${Math.round(d.accuracyGoodPct)}%` : '0%');
-        $('#sum-miss').textContent = d.misses ?? 0;
-        $('#sum-combo').textContent = d.comboMax ?? 0;
-        $('#sum-goals').textContent = `${d.goalsCleared ?? 0}/${d.goalsTotal ?? 0}`;
-        $('#sum-minis').textContent = `${d.miniCleared ?? 0}/${d.miniTotal ?? 0}`;
-        $('#sum-goodhit').textContent = d.nHitGood ?? 0;
-        $('#sum-junkhit').textContent = d.nHitJunk ?? 0;
-        $('#sum-played').textContent = `${Math.round(d.durationPlayedSec ?? 0)}s`;
-        summary.classList.add('on');
-      }, { passive:true });
-    })();
-  </script>
 </body>
 </html>
