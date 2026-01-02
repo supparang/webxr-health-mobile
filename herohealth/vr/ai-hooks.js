@@ -1,175 +1,156 @@
-// === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — Universal, OFF by default. Research OFF unless aiForce=1.
-
-(function(ROOT){
+/* === /herohealth/vr-groups/ai-hooks.js ===
+AI Hooks — GroupsVR
+✅ Disabled by default
+✅ Enable in PLAY with ?ai=1 (run=play only)
+✅ Explainable micro-tips + rate-limit
+*/
+(function(root){
   'use strict';
+  const NS = root.GroupsVR = root.GroupsVR || {};
 
-  function qs(k, def=null){
-    try { return new URL(location.href).searchParams.get(k) ?? def; }
-    catch { return def; }
-  }
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
-  function hash32(str){
-    str = String(str||'');
-    let h = 2166136261 >>> 0;
-    for (let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h>>>0;
-  }
-  function mulberry32(seed){
-    let a = (seed>>>0) || 0x12345678;
-    return function(){
-      a |= 0; a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
+  function nowMs(){ return (root.performance && performance.now) ? performance.now() : Date.now(); }
+  function emitCoach(text, mood){
+    try{ root.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text, mood } })); }catch(_){}
   }
 
-  function createAIHooks(opts={}){
-    const gameTag = String(opts.gameTag || 'HHA').trim();
-    const runMode = String(opts.runMode || qs('run','play') || 'play').toLowerCase();
-    const diff = String(opts.diff || qs('diff','normal') || 'normal').toLowerCase();
+  const AI = {
+    enabled:false,
+    runMode:'play',
+    seed:'',
+    _lastTipAt:0,
+    _cooldownMs:5200,
+    _lastJudgeAt:0,
+    _streakMiss:0,
+    _streakJunk:0,
+    _streakWrong:0,
+    _acc:0,
+    _grade:'C',
+    _miniUrgent:false,
+    _stormUrgent:false,
+    _lastMiniSeenAt:0,
+  };
 
-    const pid = String(opts.pid || qs('pid', qs('participant','')) || '');
-    const protocol = String(opts.protocol || qs('protocol', qs('pid','')) || '');
-    const conditionGroup = String(opts.conditionGroup || qs('cond', qs('conditionGroup','')) || '');
-
-    const qAi = qs('ai','0');
-    const aiForce = qs('aiForce','0') === '1';
-    const enabled = !!opts.enabled || (qAi === '1');
-    const safeEnabled = (runMode === 'research' && !aiForce) ? false : enabled;
-
-    const aiMode = String(opts.aiMode || qs('aiMode','all') || 'all').toLowerCase();
-    const modeOn = (m)=> (aiMode==='all' || aiMode===m);
-
-    let seed = opts.seed;
-    seed = (seed!=null) ? (Number(seed)>>>0) : hash32(`${pid}|${protocol}|${diff}|${conditionGroup}|${gameTag}`);
-    const rnd = mulberry32(seed);
-
-    const coach = { lastTipAt: 0, minGapMs: 4800, maxPerSession: 8, sent: 0 };
-
-    const director = {
-      spawnPpsMul: 1.0, junkRatioDelta: 0.0, missLimitDelta: 0,
-      _emaRt: 0, _emaAcc: 0, _emaMissRate: 0
-    };
-
-    const pattern = { nextPlanAt: 0, planEveryMs: 1800, lastPlan: null };
-
-    function emit(name, detail){
-      try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-    }
-
-    function makeTip(text, why, tag='TIP'){
-      return { tag, text, why, seed, gameTag, diff };
-    }
-
-    function maybeCoachTip(state){
-      if(!safeEnabled || !modeOn('coach')) return null;
-      const now = performance.now();
-      if(coach.sent >= coach.maxPerSession) return null;
-      if(now - coach.lastTipAt < coach.minGapMs) return null;
-
-      const rt = Number(state.avgRtGoodMs)||0;
-      const fast = Number(state.fastHitRatePct)||0;
-      const miss = Number(state.misses)||0;
-      const combo = Number(state.comboMax)||0;
-
-      let tip = null;
-
-      if(miss >= 4 && rnd() < 0.75){
-        tip = makeTip('ลอง “หยุด 0.3 วิ” ก่อนยิง เพื่อแยกของดี/ขยะให้ชัดขึ้น', 'พลาดหลายครั้ง → ลดการยิงรัวช่วยความแม่นยำ', 'COACH');
-      } else if(rt >= 650 && rnd() < 0.70){
-        tip = makeTip('ลอง “เล็งกลางจอ” แล้วให้เป้าเข้ามาหา (ไม่กวาดสายตากว้าง)', 'RT สูง → ลดระยะกวาดสายตาจะตอบสนองไวขึ้น', 'COACH');
-      } else if(fast <= 35 && rnd() < 0.70){
-        tip = makeTip('ภารกิจ “ยิงให้ไว” ให้โฟกัสเป้าที่อยู่ใกล้จุดเล็งก่อน', 'อัตรายิงไวต่ำ → เลือกเป้าใกล้ crosshair', 'COACH');
-      } else if(combo >= 10 && rnd() < 0.55){
-        tip = makeTip('คอมโบดีมาก! ตอนนี้ “เน้นไม่โดนขยะ” เพื่อรักษาคะแนน', 'คอมโบสูง → เล่นนิ่ง ๆ จะเสถียรขึ้น', 'COACH');
-      } else {
-        if(rnd() < 0.18) tip = makeTip('ดีมาก! ลองรักษาจังหวะเดิมอีกนิด 💪', 'จังหวะคงที่ช่วยความแม่นยำ', 'COACH');
-      }
-
-      if(tip){
-        coach.lastTipAt = now;
-        coach.sent++;
-        emit('hha:ai:hint', { ...tip });
-      }
-      return tip;
-    }
-
-    function updateDirector(state){
-      if(!safeEnabled || !modeOn('director')) return null;
-
-      const rt = clamp(Number(state.avgRtGoodMs)||0, 0, 2000);
-      const acc = clamp(Number(state.accuracyGoodPct)||0, 0, 100);
-      const miss = clamp(Number(state.misses)||0, 0, 999);
-      const timeLeft = clamp(Number(state.timeLeftSec)||0, 0, 999);
-
-      director._emaRt = director._emaRt ? (director._emaRt*0.88 + rt*0.12) : rt;
-      director._emaAcc = director._emaAcc ? (director._emaAcc*0.88 + acc*0.12) : acc;
-
-      let spawnMul = 1.0, junkDelta = 0.0, missDelta = 0;
-
-      if(director._emaAcc < 62 || director._emaRt > 720){
-        spawnMul *= 0.92;
-        junkDelta -= 0.04;
-        missDelta += 1;
-      }
-      if(director._emaAcc > 85 && director._emaRt < 520 && miss < 3){
-        spawnMul *= 1.06;
-        junkDelta += 0.03;
-      }
-      if(timeLeft <= 12) spawnMul *= 1.04;
-
-      director.spawnPpsMul = clamp(spawnMul, 0.85, 1.15);
-      director.junkRatioDelta = clamp(junkDelta, -0.07, 0.07);
-      director.missLimitDelta = clamp(missDelta, 0, 2);
-
-      const rec = {
-        spawnPpsMul: director.spawnPpsMul,
-        junkRatioDelta: director.junkRatioDelta,
-        missLimitDelta: director.missLimitDelta,
-        emaRtMs: Math.round(director._emaRt),
-        emaAccPct: Number(director._emaAcc.toFixed(2)),
-        seed, gameTag, diff
-      };
-      emit('hha:ai:director', rec);
-      return rec;
-    }
-
-    function patternPlan(state){
-      if(!safeEnabled || !modeOn('pattern')) return null;
-      const now = performance.now();
-      if(now < pattern.nextPlanAt) return null;
-      pattern.nextPlanAt = now + pattern.planEveryMs;
-
-      const fever = clamp(Number(state.fever||0), 0, 100);
-      const mode = (rnd() < 0.55) ? 'spread' : 'cluster';
-      const intensity = clamp(0.6 + (fever/100)*0.6, 0.6, 1.2);
-      const plan = { mode, intensity: Number(intensity.toFixed(2)), seed, gameTag, diff };
-      pattern.lastPlan = plan;
-      emit('hha:ai:pattern', plan);
-      return plan;
-    }
-
-    return {
-      enabled: safeEnabled,
-      seed, runMode, diff, gameTag,
-      update(state){
-        if(!safeEnabled) return { enabled:false };
-        maybeCoachTip(state);
-        const d = updateDirector(state);
-        const p = patternPlan(state);
-        const out = { enabled:true, director:d||null, pattern:p||null };
-        emit('hha:ai:state', out);
-        return out;
-      }
-    };
+  function canTip(){
+    const t = nowMs();
+    if (!AI.enabled) return false;
+    if (AI.runMode === 'research') return false;
+    if (t - AI._lastTipAt < AI._cooldownMs) return false;
+    AI._lastTipAt = t;
+    return true;
   }
 
-  ROOT.HHA_AI = ROOT.HHA_AI || {};
-  ROOT.HHA_AI.createAIHooks = createAIHooks;
+  function tip(text, mood){
+    if (!canTip()) return;
+    emitCoach(text, mood || 'neutral');
+  }
 
-})(window);
+  function onJudge(ev){
+    const d = ev.detail||{};
+    const k = String(d.kind||'').toLowerCase();
+    AI._lastJudgeAt = nowMs();
+
+    if (k === 'miss'){
+      AI._streakMiss++;
+      if (AI._streakMiss >= 2){
+        tip('พลาดติดกัน 😤 เพราะยิงไม่โดนเป้า/จังหวะไวเกินไป → “หยุดครึ่งจังหวะ” แล้วค่อยยิงจากกลางจอ', 'sad');
+      }
+      return;
+    }
+
+    // reset miss streak on any hit
+    AI._streakMiss = 0;
+
+    if (k === 'bad'){
+      // เราไม่รู้ว่า bad มาจาก wrong/junk ใน event นี้ → ใช้ heuristic จากข้อความ/สถานะอื่น
+      // ปล่อยให้ handler groups:progress + safe.js breakdown ช่วย
+      return;
+    }
+
+    if (k === 'good'){
+      // เมื่อเล่นดีมาก → tip ย้ำกลยุทธ์
+      if (AI._acc >= 85 && (AI._grade==='S' || AI._grade==='SS' || AI._grade==='SSS')){
+        tip('โหดมาก 🔥 เพราะความแม่นสูง → รักษาจังหวะเดิม แล้ว “คุมคอมโบ” อย่ายิงถี่ตอนพายุ', 'happy');
+      }
+    }
+  }
+
+  function onRank(ev){
+    const d = ev.detail||{};
+    AI._acc = Number(d.accuracy||0);
+    AI._grade = String(d.grade||'C');
+
+    if (AI._acc <= 55){
+      tip('ความแม่นยังต่ำ 📉 เพราะโดน “ผิดหมู่/ขยะ” เยอะ → โฟกัสอ่านชื่อหมู่ใน GOAL ก่อนยิงทุกครั้ง', 'neutral');
+    }
+  }
+
+  function onProgress(ev){
+    const d = ev.detail||{};
+    const kind = String(d.kind||'');
+    const why  = String(d.why||'');
+
+    if (kind === 'miss'){
+      if (why === 'junk'){
+        AI._streakJunk++;
+        AI._streakWrong = 0;
+        if (AI._streakJunk >= 2){
+          tip('โดนขยะติดกัน 🗑️ เพราะยิงเร็วเกิน/ไม่แยกสี → เล็งเฉพาะเป้าหมู่ที่ถูก แล้ว “ปล่อยขยะผ่าน”', 'sad');
+        }
+      } else if (why === 'wrong'){
+        AI._streakWrong++;
+        AI._streakJunk = 0;
+        if (AI._streakWrong >= 2){
+          tip('ยิงผิดหมู่ซ้ำ 😵 เพราะสลับหมู่แล้วไม่ทันตั้งตัว → ดู Power เต็มเมื่อไหร่ “หยุดยิง 1 วิ” แล้วอ่านหมู่ใหม่', 'neutral');
+        }
+      } else if (why === 'expire_good'){
+        tip('เป้าหลุดเวลา ⏳ เพราะลังเลนานไป → เลือกยิง “เป้าที่ใกล้กลางจอ” ก่อน จะคุมเวลาง่ายขึ้น', 'neutral');
+      }
+      return;
+    }
+
+    if (kind === 'storm_on'){
+      tip('พายุมา 🌪️ เพราะรอบนี้สปีดจะเร็วขึ้น → ลดการยิงรัว แล้วเลือกยิงทีละเป้าให้ชัวร์', 'fever');
+    }
+    if (kind === 'boss_spawn'){
+      tip('บอสมา 👊 เพราะจบรอบพายุ → จัด “ยิงต่อเนื่อง 3–4 นัด” จากกลางจอ จะละลายไว', 'fever');
+    }
+    if (kind === 'perfect_switch'){
+      tip('สลับหมู่แล้ว ✅ เพราะ Power เต็ม → อ่าน GOAL ใหม่ก่อนยิงทันที จะกัน wrong/junk ได้', 'happy');
+    }
+  }
+
+  function onQuest(ev){
+    const d = ev.detail||{};
+    const left = Number(d.miniTimeLeftSec||0);
+    AI._miniUrgent = (left>0 && left<=3);
+
+    if (AI._miniUrgent){
+      tip('MINI ใกล้หมดเวลา ⚡ เพราะเหลือไม่กี่วินาที → ยิงเป้า “ใกล้กลางจอ” ก่อน อย่าลากสายตาไกล', 'fever');
+    }
+  }
+
+  AI.attach = function(cfg){
+    cfg = cfg || {};
+    AI.runMode = String(cfg.runMode||'play');
+    AI.seed = String(cfg.seed||'');
+    AI.enabled = !!cfg.enabled && (AI.runMode !== 'research');
+
+    // detach old (simple: once per page load; guard)
+    if (AI._wired) return;
+    AI._wired = true;
+
+    root.addEventListener('hha:judge', onJudge, {passive:true});
+    root.addEventListener('hha:rank', onRank, {passive:true});
+    root.addEventListener('groups:progress', onProgress, {passive:true});
+    root.addEventListener('quest:update', onQuest, {passive:true});
+
+    // first tip on enable
+    if (AI.enabled){
+      AI._lastTipAt = nowMs() - 99999;
+      tip('AI Coach เปิดแล้ว 🤖 เพราะคุณใส่ ?ai=1 → ผมจะช่วยเตือนจังหวะ/ความแม่นแบบไม่รบกวน (มีคูลดาวน์)', 'happy');
+    }
+  };
+
+  NS.AIHooks = AI;
+
+})(typeof window!=='undefined' ? window : globalThis);
