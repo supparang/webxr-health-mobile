@@ -1,185 +1,124 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// HydrationVR Folder Loader — PRODUCTION (cVR shoot bridge)
-// - Applies view classes + layers mapping
-// - Imports ./hydration.safe.js
-// - cVR: shoot from crosshair (hha:shoot + tap + keyboard) even when layer pointer-events:none
-// - Shows readable overlay on failure
+// Hydration VR Loader — PRODUCTION (PC/Mobile/Cardboard/cVR)
+// ✅ Sets body view classes
+// ✅ Sets window.HHA_VIEW.layers for game (main or L/R)
+// ✅ Best-effort fullscreen + landscape lock for Cardboard/cVR
+// ✅ cVR fallback: tap-to-shoot -> emit hha:shoot (if Universal VR UI not present)
 
 'use strict';
 
-(function(){
-  const q = new URLSearchParams(location.search);
-  const v = q.get('v') || q.get('ts') || '';
-  const view = String(q.get('view') || '').toLowerCase();
-  const lockPx = Math.max(12, Math.min(260, parseInt(q.get('lockPx') || '120', 10) || 120)); // aim assist radius for cVR
-  const body = document.body;
+const ROOT = window;
+const DOC  = document;
 
-  function withBust(p){
-    if (!v) return p;
-    return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v);
+function qs(k, def=null){
+  try{ return new URL(location.href).searchParams.get(k) ?? def; }
+  catch{ return def; }
+}
+
+function setBodyView(view){
+  const b = DOC.body;
+  b.classList.remove('view-pc','view-mobile','view-vr','view-cvr','cardboard');
+
+  if (view === 'cardboard') b.classList.add('cardboard');
+  else if (view === 'cvr') b.classList.add('view-cvr');
+  else if (view === 'vr') b.classList.add('view-vr');
+  else if (view === 'mobile') b.classList.add('view-mobile');
+  else b.classList.add('view-pc');
+}
+
+function setLayersForHydration(){
+  // ให้ safe.js เรียกใช้ผ่าน window.HHA_VIEW.layers
+  // main: hydration-layer
+  // cardboard: hydration-layerL + hydration-layerR
+  const main = DOC.getElementById('hydration-layer');
+  const L = DOC.getElementById('hydration-layerL');
+  const R = DOC.getElementById('hydration-layerR');
+
+  ROOT.HHA_VIEW = ROOT.HHA_VIEW || {};
+  if (DOC.body.classList.contains('cardboard') && L && R){
+    ROOT.HHA_VIEW.layers = ['hydration-layerL','hydration-layerR'];
+  } else if (main){
+    ROOT.HHA_VIEW.layers = ['hydration-layer'];
+  } else if (L && R){
+    // เผื่อกรณี main ไม่มี
+    ROOT.HHA_VIEW.layers = ['hydration-layerL','hydration-layerR'];
+  } else {
+    ROOT.HHA_VIEW.layers = [];
   }
+}
 
-  function setBodyView(){
-    body.classList.remove('view-pc','view-mobile','cardboard','view-cvr');
-    if (view === 'mobile') body.classList.add('view-mobile');
-    else if (view === 'cardboard') body.classList.add('cardboard');
-    else if (view === 'cvr') body.classList.add('view-cvr');
-    else body.classList.add('view-pc');
-  }
-  setBodyView();
-
-  // map layers for hydration.safe.js
-  (function setLayers(){
-    const cfg = window.HHA_VIEW || (window.HHA_VIEW = {});
-    if (body.classList.contains('cardboard')){
-      cfg.layers = ['hydration-layerL','hydration-layerR'];
-    } else {
-      cfg.layers = ['hydration-layer'];
+async function tryFullscreenAndLandscape(){
+  // best-effort (บางเครื่อง/เบราว์เซอร์อาจไม่ให้)
+  try{
+    const el = DOC.documentElement;
+    if (!DOC.fullscreenElement && el.requestFullscreen){
+      await el.requestFullscreen({ navigationUI:'hide' });
     }
-    cfg.view = body.classList.contains('view-cvr') ? 'cvr' :
-               body.classList.contains('cardboard') ? 'cardboard' :
-               body.classList.contains('view-mobile') ? 'mobile' : 'pc';
-    cfg.lockPx = lockPx;
-  })();
+  }catch(_){}
 
-  // -------- cVR shoot bridge (no changes needed in hydration.safe.js) --------
-  function centerPoint(){
-    const x = Math.round(window.innerWidth / 2);
-    const y = Math.round(window.innerHeight / 2);
-    return { x, y };
-  }
-
-  function dist2(ax,ay,bx,by){
-    const dx=ax-bx, dy=ay-by;
-    return dx*dx + dy*dy;
-  }
-
-  function findClosestTargetNear(x, y, maxR){
-    // Collect all current targets (spawned by hydration.safe.js)
-    const targets = document.querySelectorAll('.hvr-target');
-    if (!targets || !targets.length) return null;
-
-    const maxD2 = maxR * maxR;
-    let best = null;
-    let bestD2 = Infinity;
-
-    for (const el of targets){
-      if (!el || !el.isConnected) continue;
-      const r = el.getBoundingClientRect();
-      // ignore offscreen / tiny
-      if (r.width < 10 || r.height < 10) continue;
-
-      const cx = r.left + r.width/2;
-      const cy = r.top + r.height/2;
-
-      const d2 = dist2(cx, cy, x, y);
-      if (d2 <= maxD2 && d2 < bestD2){
-        bestD2 = d2;
-        best = el;
-      }
+  try{
+    if (screen.orientation && screen.orientation.lock){
+      await screen.orientation.lock('landscape');
     }
-    return best;
+  }catch(_){}
+}
+
+function emit(name, detail){
+  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+}
+
+function installCVRFallbackTapToShoot(){
+  // ถ้ามี Universal VR UI อยู่แล้ว มันจะยิง hha:shoot ให้เอง (tap-to-shoot ผ่าน crosshair)
+  // แต่เพื่อกัน “เงียบ” ในบางหน้า เราทำ fallback: แตะจอ = emit hha:shoot
+  // NOTE: safe.js ฟัง hha:shoot เฉพาะเมื่อ body.view-cvr
+  let last=0;
+
+  function shootOnce(e){
+    const now = performance.now();
+    if (now - last < 90) return;
+    last = now;
+    emit('hha:shoot', { src:'cvr-fallback' });
   }
 
-  function fireAtElement(el){
-    if (!el) return false;
-    try{
-      // pointerdown is what hydration.safe.js listens to
-      const ev = new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerType:'touch' });
-      el.dispatchEvent(ev);
-      return true;
-    }catch(_){
-      try{
-        el.dispatchEvent(new Event('pointerdown', { bubbles:true, cancelable:true }));
-        return true;
-      }catch(__){}
-    }
-    return false;
+  DOC.addEventListener('pointerdown', (e)=>{
+    if (!DOC.body.classList.contains('view-cvr')) return;
+    // กันกดบนปุ่ม HUD/overlay
+    const t = e.target;
+    if (t && t.closest && t.closest('button,a,input,textarea,select,#startOverlay,#resultBackdrop')) return;
+    shootOnce(e);
+  }, { passive:true });
+}
+
+async function boot(){
+  const view = String(qs('view','pc')).toLowerCase();
+
+  // view normalization
+  const v =
+    (view === 'cardboard' || view === 'cb') ? 'cardboard' :
+    (view === 'cvr') ? 'cvr' :
+    (view === 'vr') ? 'vr' :
+    (view === 'mobile' || view === 'm') ? 'mobile' :
+    'pc';
+
+  setBodyView(v);
+
+  // fullscreen for cardboard/cvr
+  if (v === 'cardboard' || v === 'cvr'){
+    // ถ้า user มาจากปุ่มเลือกโหมด มักเรียก fullscreen ไปแล้ว
+    // แต่เราทำ best-effort ซ้ำอีกครั้งเพื่อความชัวร์
+    await tryFullscreenAndLandscape();
   }
 
-  function installCVRBridge(){
-    if (!body.classList.contains('view-cvr')) return;
+  setLayersForHydration();
 
-    // 1) listen to hha:shoot from Universal VR UI (vr-ui.js) if present
-    window.addEventListener('hha:shoot', (ev)=>{
-      const d = (ev && ev.detail) || {};
-      const p = centerPoint();
-      const x = (typeof d.x === 'number') ? d.x : p.x;
-      const y = (typeof d.y === 'number') ? d.y : p.y;
-      const r = (typeof d.lockPx === 'number') ? Math.max(12, Math.min(260, d.lockPx)) : lockPx;
+  // cVR: install fallback tap-to-shoot (กรณีไม่ได้โหลด /vr/vr-ui.js)
+  installCVRFallbackTapToShoot();
 
-      const hit = findClosestTargetNear(x, y, r);
-      if (hit) fireAtElement(hit);
-    });
+  // Import game logic (safe.js)
+  await import('./hydration.safe.js');
 
-    // 2) tap anywhere -> shoot (mobile cardboard-style strict)
-    const onTapShoot = (ev)=>{
-      // prevent double triggers when clicking buttons/overlay
-      const t = ev && ev.target;
-      if (t && (t.closest && (t.closest('#startOverlay') || t.closest('#resultBackdrop')))) return;
-      const p = centerPoint();
-      const hit = findClosestTargetNear(p.x, p.y, lockPx);
-      if (hit) fireAtElement(hit);
-    };
-    window.addEventListener('pointerdown', onTapShoot, { passive:true });
+  // Auto start (เพราะหน้าเลือกโหมดจะ hide overlay แล้ว)
+  emit('hha:start');
+}
 
-    // 3) keyboard support
-    window.addEventListener('keydown', (ev)=>{
-      if (!ev) return;
-      const k = String(ev.key || '').toLowerCase();
-      if (k === ' ' || k === 'spacebar' || k === 'enter'){
-        const p = centerPoint();
-        const hit = findClosestTargetNear(p.x, p.y, lockPx);
-        if (hit) fireAtElement(hit);
-      }
-    });
-
-    // helpful hint in console
-    try{
-      console.log('[HydrationVR Loader] cVR shoot bridge enabled. lockPx=', lockPx);
-    }catch(_){}
-  }
-  installCVRBridge();
-
-  // -------- failure overlay helpers --------
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, (m)=>({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[m]));
-  }
-
-  function showFail(err, tried){
-    const el = document.createElement('div');
-    el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
-    el.innerHTML = `
-      <div style="max-width:900px;margin:0 auto">
-        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (folder loader)</h2>
-        <div style="opacity:.9;margin-bottom:10px">URL: <code>${escapeHtml(location.href)}</code></div>
-        <div style="opacity:.9;margin-bottom:10px">baseURI: <code>${escapeHtml(document.baseURI)}</code></div>
-        <div style="opacity:.9;margin-bottom:10px">view: <code>${escapeHtml(view || 'pc')}</code> lockPx: <code>${escapeHtml(String(lockPx))}</code></div>
-        <div style="margin:12px 0 8px 0;font-weight:700">Tried paths:</div>
-        <ol style="line-height:1.55">${tried.map(s=>`<li><code>${escapeHtml(s)}</code></li>`).join('')}</ol>
-        <div style="margin:12px 0 6px 0;font-weight:700">Error:</div>
-        <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${escapeHtml(String(err && (err.stack || err.message || err)))}</pre>
-      </div>
-    `;
-    document.body.appendChild(el);
-  }
-
-  // candidates (keep simple + robust)
-  const candidates = [
-    './hydration.safe.js',
-  ].map(withBust);
-
-  (async()=>{
-    const tried=[];
-    for (const p of candidates){
-      tried.push(p);
-      try{
-        await import(p);
-        return;
-      }catch(_){}
-    }
-    showFail(new Error('All candidate imports failed.'), tried);
-  })();
-})();
+boot();
