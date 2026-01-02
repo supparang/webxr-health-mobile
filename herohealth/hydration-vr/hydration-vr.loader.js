@@ -1,154 +1,75 @@
 // === /herohealth/hydration-vr/hydration-vr.loader.js ===
-// Hydration VR Loader — FIX: prevent instant Summary (time=0 / engine not started)
-// ✅ robust query parsing (time/diff/run/seed)
-// ✅ start flow: click START -> import engine -> start
-// ✅ if import fails -> show error, NOT summary
+// HydrationVR Folder Loader
+// - Applies view classes + layers mapping
+// - Imports ./hydration.safe.js
+// - Shows readable overlay on failure
 
 'use strict';
 
-const DOC = document;
+(function(){
+  const q = new URLSearchParams(location.search);
+  const v = q.get('v') || q.get('ts') || '';
 
-function qs(key, def=null){
-  try { return new URL(location.href).searchParams.get(key) ?? def; }
-  catch { return def; }
-}
-
-function qsNum(key, def){
-  const v = qs(key, null);
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : def;
-}
-
-function clamp(v,min,max){
-  v = Number(v) || 0;
-  if (v < min) return min;
-  if (v > max) return max;
-  return v;
-}
-
-function ensureSeed(){
-  const s = qs('seed', null);
-  const n = Number(s);
-  if (Number.isFinite(n) && n > 0) return Math.floor(n);
-  // deterministic-ish per page load (ยังเป็น random แต่คุมได้ถ้าใส่ seed เอง)
-  return Date.now();
-}
-
-function setText(id, txt){
-  const el = DOC.getElementById(id);
-  if (el) el.textContent = String(txt);
-}
-
-function showDebug(obj){
-  const box = DOC.getElementById('debugBox');
-  if (!box) return;
-  box.style.display = 'block';
-  box.textContent = JSON.stringify(obj, null, 2);
-}
-
-function showError(err, params){
-  console.error(err);
-  const retry = DOC.getElementById('btnRetry');
-  if (retry) retry.style.display = 'inline-flex';
-  showDebug({
-    ERROR: String(err?.message || err),
-    params
-  });
-}
-
-function goHub(){
-  const hub = qs('hub', null);
-  if (hub) location.href = hub;
-  else location.href = './hub.html';
-}
-
-function safeRunMode(){
-  const run = String(qs('run','play')).toLowerCase();
-  // คุณใช้ run=play อยู่แล้ว — รองรับ research ด้วย
-  if (run === 'research' || run === 'study') return 'research';
-  return 'play';
-}
-
-function safeDiff(){
-  const d = String(qs('diff','normal')).toLowerCase();
-  if (d === 'easy' || d === 'normal' || d === 'hard') return d;
-  return 'normal';
-}
-
-async function startGame(){
-  const run = safeRunMode();
-  const diff = safeDiff();
-  const time = clamp(qsNum('time', 70), 10, 600); // กัน 0/NaN
-  const seed = ensureSeed();
-  const hub  = qs('hub', null);
-
-  const params = { run, diff, time, seed, hub, href: location.href };
-  console.log('[Hydration params]', params);
-
-  // Update pills
-  setText('p-run', run);
-  setText('p-diff', diff);
-  setText('p-time', time);
-  setText('p-seed', qs('seed', null) ? seed : 'auto');
-
-  // Hide overlay only when engine really starts
-  const overlay = DOC.getElementById('startOverlay');
-  const btnStart = DOC.getElementById('btnStart');
-  if (btnStart) btnStart.disabled = true;
-
-  try{
-    // ✅ IMPORTANT PATH: hydration.safe.js should be in same folder
-    const mod = await import('./hydration.safe.js');
-
-    // รองรับหลายรูปแบบ export: { boot } หรือ default
-    const bootFn =
-      (typeof mod.boot === 'function') ? mod.boot :
-      (typeof mod.default === 'function') ? mod.default :
-      null;
-
-    if (!bootFn){
-      throw new Error('hydration.safe.js has no boot() export (expected named boot or default function).');
-    }
-
-    // ให้ engine ได้ params ที่จำเป็น
-    // NOTE: ถ้าใน hydration.safe.js ของคุณรับ signature ต่างไป
-    // ให้บอกผม แล้วผมจะปรับให้ตรงจริง 100%
-    bootFn({
-      layerId: 'hz-layer',
-      runMode: run,
-      diff,
-      durationPlannedSec: time,
-      seed,
-      hub,
-      summaryMountId: 'hha-summary'
-    });
-
-    if (overlay) overlay.style.display = 'none';
-
-  }catch(err){
-    if (btnStart) btnStart.disabled = false;
-    showError(err, params);
+  function withBust(p){
+    if (!v) return p;
+    return p + (p.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(v);
   }
-}
 
-function wireUI(){
-  const btnStart = DOC.getElementById('btnStart');
-  const btnBack  = DOC.getElementById('btnBackHub');
-  const btnRetry = DOC.getElementById('btnRetry');
+  const view = String(q.get('view') || '').toLowerCase();
+  const body = document.body;
 
-  if (btnStart) btnStart.addEventListener('click', startGame, { passive:true });
-  if (btnBack)  btnBack.addEventListener('click', goHub, { passive:true });
-  if (btnRetry) btnRetry.addEventListener('click', () => location.reload(), { passive:true });
+  function setBodyView(){
+    body.classList.remove('view-pc','view-mobile','cardboard','view-cvr');
+    if (view === 'mobile') body.classList.add('view-mobile');
+    else if (view === 'cardboard') body.classList.add('cardboard');
+    else if (view === 'cvr') body.classList.add('view-cvr');
+    else body.classList.add('view-pc');
+  }
+  setBodyView();
 
-  // preload pills from query (ก่อนกด start)
-  setText('p-run', safeRunMode());
-  setText('p-diff', safeDiff());
-  setText('p-time', clamp(qsNum('time', 70), 10, 600));
-  setText('p-seed', qs('seed', null) ? ensureSeed() : 'auto');
-}
+  // map layers for safe.js
+  (function setLayers(){
+    const cfg = window.HHA_VIEW || (window.HHA_VIEW = {});
+    if (body.classList.contains('cardboard')){
+      cfg.layers = ['hydration-layerL','hydration-layerR'];
+    } else {
+      cfg.layers = ['hydration-layer'];
+    }
+  })();
 
-if (DOC.readyState === 'loading'){
-  DOC.addEventListener('DOMContentLoaded', wireUI, { once:true });
-}else{
-  wireUI();
-}
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, (m)=>({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+  }
+
+  function showFail(err, tried){
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.92);color:#e5e7eb;font-family:system-ui;padding:16px;overflow:auto';
+    el.innerHTML = `
+      <div style="max-width:900px;margin:0 auto">
+        <h2 style="margin:0 0 10px 0;font-size:18px">❌ HydrationVR: import failed (folder loader)</h2>
+        <div style="opacity:.9;margin-bottom:10px">URL: <code>${escapeHtml(location.href)}</code></div>
+        <div style="opacity:.9;margin-bottom:10px">baseURI: <code>${escapeHtml(document.baseURI)}</code></div>
+        <div style="margin:12px 0 8px 0;font-weight:700">Tried paths:</div>
+        <ol style="line-height:1.55">${tried.map(s=>`<li><code>${escapeHtml(s)}</code></li>`).join('')}</ol>
+        <div style="margin:12px 0 6px 0;font-weight:700">Error:</div>
+        <pre style="white-space:pre-wrap;background:rgba(15,23,42,.75);padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.18)">${escapeHtml(String(err && (err.stack || err.message || err)))}</pre>
+      </div>
+    `;
+    document.body.appendChild(el);
+  }
+
+  const candidates = [
+    './hydration.safe.js',
+  ].map(withBust);
+
+  (async()=>{
+    const tried=[];
+    for (const p of candidates){
+      tried.push(p);
+      try{ await import(p); return; }catch(_){}
+    }
+    showFail(new Error('All candidate imports failed.'), tried);
+  })();
+})();
