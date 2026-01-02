@@ -1,242 +1,243 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — PRODUCTION (hooks only; AI default OFF)
-// ✅ Collects rolling metrics (accuracy/miss/rt/streak/fatigue proxy)
-// ✅ Deterministic-friendly (seed input, no randomness inside)
-// ✅ Provides hooks for: Difficulty Director / Coach / Pattern Generator
-// ✅ Safe defaults: disabled in research unless explicitly enabled
+// HHA AI Hooks — Universal, OFF by default.
+// Provides: createAIHooks({enabled, runMode, seed, pid, protocol, diff, gameTag})
+// Hooks:
+// - director: suggest pacing (spawnPpsMul, junkRatioDelta, missLimitDelta)
+// - coach: micro-tips (rate-limited, explainable)
+// - pattern: spawn plan hints (e.g., burst, clusters) - can be ignored by engine
+//
+// IMPORTANT:
+// - Default is disabled. In research mode, stays disabled unless explicitly forced.
+// - Deterministic RNG if seed provided.
 
-'use strict';
+(function(ROOT){
+  'use strict';
 
-function clamp(v, a, b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
-function nowMs(){ return (typeof performance!=='undefined' ? performance.now() : Date.now()); }
-
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
-function qsBool(k, def=false){
-  const v = qs(k, null);
-  if(v==null) return def;
-  return (v==='1'||v==='true'||v==='yes');
-}
-
-export function createAIHooks(opts={}){
-  const run = (opts.runMode || qs('run','play')).toLowerCase();
-  const isResearch = (run==='research' || run==='study');
-
-  // ✅ AI is OFF by default, especially in research
-  const enabled = (() => {
-    if (isResearch) return qsBool('ai', false); // research must opt-in
-    return qsBool('ai', false) || !!opts.enabled; // play can opt-in too
-  })();
-
-  const seed = (opts.seed ?? Number(qs('seed', 0)) ?? 0) || 0;
-
-  // Rolling metrics (simple, deterministic)
-  const M = {
-    enabled,
-    runMode: run,
-    isResearch,
-    seed,
-
-    // counts
-    hit: 0,
-    miss: 0,
-    hitGood: 0,
-    hitBad: 0,
-    streak: 0,
-    streakMax: 0,
-
-    // RT
-    rtN: 0,
-    rtSum: 0,
-    rtAvg: 0,
-
-    // time windows
-    t0: nowMs(),
-    lastEventMs: 0,
-
-    // fatigue/frustration proxy
-    missBurst: 0,
-    missBurstMax: 0,
-    fatigue: 0,        // 0..1
-    frustration: 0,    // 0..1
-
-    // difficulty suggestion output (hooks)
-    diffHint: {
-      // director can write suggestions; engine may choose to read them
-      spawnRateMul: 1,
-      sizeMul: 1,
-      speedMul: 1,
-      pattern: null, // e.g., 'grid9', 'ring', 'wave'
-    },
-
-    // coach output (micro tips)
-    coach: {
-      lastTipMs: 0,
-      lastTip: '',
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function hash32(str){
+    str = String(str||'');
+    let h = 2166136261 >>> 0;
+    for (let i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
     }
-  };
-
-  // subscribers
-  const subs = new Map(); // event -> Set(fn)
-  function on(evt, fn){
-    if(!subs.has(evt)) subs.set(evt, new Set());
-    subs.get(evt).add(fn);
-    return ()=> subs.get(evt)?.delete(fn);
+    return h>>>0;
   }
-  function emit(evt, payload){
-    const set = subs.get(evt);
-    if(!set || set.size===0) return;
-    for(const fn of set){
-      try{ fn(payload); }catch(e){ /* never break game */ }
-    }
-  }
-
-  function resetSession(){
-    M.hit = M.miss = M.hitGood = M.hitBad = 0;
-    M.streak = M.streakMax = 0;
-    M.rtN = M.rtSum = M.rtAvg = 0;
-    M.missBurst = M.missBurstMax = 0;
-    M.fatigue = 0;
-    M.frustration = 0;
-    M.diffHint.spawnRateMul = 1;
-    M.diffHint.sizeMul = 1;
-    M.diffHint.speedMul = 1;
-    M.diffHint.pattern = null;
-    M.coach.lastTipMs = 0;
-    M.coach.lastTip = '';
-    M.t0 = nowMs();
-    emit('session:reset', { ...M });
-  }
-
-  // ---- core recorders (call from game engine) ----
-  function recordHit({good=true, rtMs=null}={}){
-    M.hit++;
-    if(good) M.hitGood++; else M.hitBad++;
-    M.streak++;
-    M.streakMax = Math.max(M.streakMax, M.streak);
-    M.missBurst = 0;
-
-    if(rtMs!=null){
-      const r = clamp(rtMs, 60, 5000);
-      M.rtN++; M.rtSum += r;
-      M.rtAvg = (M.rtSum / Math.max(1, M.rtN));
-    }
-
-    updateFatigueFrustration();
-    M.lastEventMs = nowMs();
-    emit('event:hit', { good, rtMs, metrics: snapshot() });
-  }
-
-  function recordMiss({reason='miss'}={}){
-    M.miss++;
-    M.streak = 0;
-    M.missBurst++;
-    M.missBurstMax = Math.max(M.missBurstMax, M.missBurst);
-
-    updateFatigueFrustration();
-    M.lastEventMs = nowMs();
-    emit('event:miss', { reason, metrics: snapshot() });
-  }
-
-  function recordTick({timeLeftSec=null}={}){
-    // optional: engine calls every ~1s or per HUD tick
-    updateFatigueFrustration();
-    emit('event:tick', { timeLeftSec, metrics: snapshot() });
-  }
-
-  function recordGoal({done=false, id='goal'}={}){
-    emit('quest:goal', { id, done, metrics: snapshot() });
-  }
-  function recordMini({done=false, id='mini', reason=''}={}){
-    emit('quest:mini', { id, done, reason, metrics: snapshot() });
-  }
-
-  function updateFatigueFrustration(){
-    // deterministic proxy:
-    // - frustration rises with missBurst
-    // - fatigue rises slowly with session time and low accuracy
-    const total = M.hit + M.miss;
-    const acc = total>0 ? (M.hit / total) : 1;
-    const t = (nowMs() - M.t0) / 1000; // sec
-    const f1 = clamp(M.missBurst / 6, 0, 1);
-    const f2 = clamp((t / 180), 0, 1) * clamp((1 - acc), 0, 1);
-    M.frustration = clamp(0.55*f1 + 0.45*f2, 0, 1);
-    M.fatigue = clamp(0.25*clamp(t/240,0,1) + 0.75*f2, 0, 1);
-  }
-
-  function accuracy(){
-    const total = M.hit + M.miss;
-    return total>0 ? (M.hit / total) : 1;
-  }
-
-  function snapshot(){
-    // return lightweight snapshot for logs/UI
-    return {
-      enabled: M.enabled,
-      runMode: M.runMode,
-      isResearch: M.isResearch,
-      seed: M.seed,
-      hit: M.hit,
-      miss: M.miss,
-      hitGood: M.hitGood,
-      hitBad: M.hitBad,
-      streak: M.streak,
-      streakMax: M.streakMax,
-      rtAvg: Math.round(M.rtAvg||0),
-      accuracy: Number(accuracy().toFixed(4)),
-      missBurst: M.missBurst,
-      fatigue: Number(M.fatigue.toFixed(4)),
-      frustration: Number(M.frustration.toFixed(4)),
-      diffHint: { ...M.diffHint },
-      coach: { ...M.coach },
+  function mulberry32(seed){
+    let a = (seed>>>0) || 0x12345678;
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
 
-  // ---- coach helper (rate-limited micro tips) ----
-  function canTip(minGapMs=12000){
-    const t = nowMs();
-    return (t - M.coach.lastTipMs) >= minGapMs;
+  function createAIHooks(opts={}){
+    const gameTag = String(opts.gameTag || 'HHA').trim();
+    const runMode = String(opts.runMode || qs('run','play') || 'play').toLowerCase();
+    const diff = String(opts.diff || qs('diff','normal') || 'normal').toLowerCase();
+
+    const pid = String(opts.pid || qs('pid', qs('participant','')) || '');
+    const protocol = String(opts.protocol || qs('protocol', qs('pid','')) || '');
+    const conditionGroup = String(opts.conditionGroup || qs('cond', qs('conditionGroup','')) || '');
+
+    // Enabled?
+    // - default off
+    // - allow enable via opts.enabled or ?ai=1
+    // - research: force OFF unless ?aiForce=1
+    const qAi = qs('ai','0');
+    const aiForce = qs('aiForce','0') === '1';
+    const enabled = !!opts.enabled || (qAi === '1');
+    const safeEnabled = (runMode === 'research' && !aiForce) ? false : enabled;
+
+    // Which sub-modes?
+    const aiMode = String(opts.aiMode || qs('aiMode','all') || 'all').toLowerCase();
+    const modeOn = (m)=> (aiMode==='all' || aiMode===m);
+
+    // Deterministic RNG
+    let seed = opts.seed;
+    seed = (seed!=null) ? (Number(seed)>>>0) : hash32(`${pid}|${protocol}|${diff}|${conditionGroup}|${gameTag}`);
+    const rnd = mulberry32(seed);
+
+    // Rate limit for coach tips
+    const coach = {
+      lastTipAt: 0,
+      minGapMs: 4800,
+      maxPerSession: 8,
+      sent: 0
+    };
+
+    // Director state
+    const director = {
+      // we only "suggest" multipliers; engine may apply or ignore
+      spawnPpsMul: 1.0,
+      junkRatioDelta: 0.0,
+      missLimitDelta: 0,
+      // smoothing
+      _emaRt: 0,
+      _emaAcc: 0,
+      _emaMissRate: 0
+    };
+
+    // Pattern generator (optional)
+    const pattern = {
+      nextPlanAt: 0,
+      planEveryMs: 1800,
+      lastPlan: null
+    };
+
+    function emit(name, detail){
+      try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+    }
+
+    function makeTip(text, why, tag='TIP'){
+      return { tag, text, why, seed, gameTag, diff };
+    }
+
+    function maybeCoachTip(state){
+      if(!safeEnabled || !modeOn('coach')) return null;
+      const now = performance.now();
+      if(coach.sent >= coach.maxPerSession) return null;
+      if(now - coach.lastTipAt < coach.minGapMs) return null;
+
+      // state hints (generic):
+      const rt = Number(state.avgRtGoodMs)||0;
+      const fast = Number(state.fastHitRatePct)||0;
+      const miss = Number(state.misses)||0;
+      const combo = Number(state.comboMax)||0;
+
+      let tip = null;
+
+      // deterministic branching (but based on state)
+      if(miss >= 4 && rnd() < 0.75){
+        tip = makeTip('ลอง “หยุด 0.3 วิ” ก่อนยิง เพื่อแยกของดี/ขยะให้ชัดขึ้น', 'คุณพลาดหลายครั้ง → ลดการยิงรัวจะช่วยความแม่นยำ', 'COACH');
+      } else if(rt >= 650 && rnd() < 0.70){
+        tip = makeTip('ลอง “เล็งกลางจอ” แล้วให้เป้าเข้ามาหา (ไม่กวาดสายตากว้าง)', 'RT สูง → ลดระยะกวาดสายตาจะตอบสนองไวขึ้น', 'COACH');
+      } else if(fast <= 35 && rnd() < 0.70){
+        tip = makeTip('ภารกิจ “ยิงให้ไว” ให้โฟกัสเป้าที่อยู่ใกล้จุดเล็งก่อน', 'อัตรายิงไวต่ำ → เลือกเป้าที่ใกล้ crosshair ช่วยได้', 'COACH');
+      } else if(combo >= 10 && rnd() < 0.55){
+        tip = makeTip('คอมโบดีมาก! ตอนนี้ “เน้นไม่โดนขยะ” เพื่อรักษาแรงกดดันต่ำ', 'คอมโบสูง → โหมดปลอดภัยจะทำคะแนนคงที่ขึ้น', 'COACH');
+      } else {
+        // occasional encouragement (rare)
+        if(rnd() < 0.18) tip = makeTip('ดีมาก! ลองรักษาจังหวะเดิมอีกนิด 💪', 'จังหวะการเล่นคงที่ช่วยให้คะแนนเสถียร', 'COACH');
+      }
+
+      if(tip){
+        coach.lastTipAt = now;
+        coach.sent++;
+        emit('hha:ai:hint', { ...tip });
+      }
+      return tip;
+    }
+
+    function updateDirector(state){
+      if(!safeEnabled || !modeOn('director')) return null;
+
+      // Inputs
+      const rt = clamp(Number(state.avgRtGoodMs)||0, 0, 2000);
+      const acc = clamp(Number(state.accuracyGoodPct)||0, 0, 100);
+      const miss = clamp(Number(state.misses)||0, 0, 999);
+      const timeLeft = clamp(Number(state.timeLeftSec)||0, 0, 999);
+
+      // EMA smoothing
+      director._emaRt = director._emaRt ? (director._emaRt*0.88 + rt*0.12) : rt;
+      director._emaAcc = director._emaAcc ? (director._emaAcc*0.88 + acc*0.12) : acc;
+      const missRate = (timeLeft>0) ? (miss / Math.max(1, (Number(state.playedSec)||1))) : miss;
+      director._emaMissRate = director._emaMissRate ? (director._emaMissRate*0.90 + missRate*0.10) : missRate;
+
+      // Suggest adjustments (small, fair)
+      let spawnMul = 1.0;
+      let junkDelta = 0.0;
+      let missDelta = 0;
+
+      // If player struggling: slow down slightly, reduce junk
+      if(director._emaAcc < 62 || director._emaRt > 720){
+        spawnMul *= 0.92;
+        junkDelta -= 0.04;
+        missDelta += 1;
+      }
+      // If player very strong: speed up slightly, more junk pressure
+      if(director._emaAcc > 85 && director._emaRt < 520 && miss < 3){
+        spawnMul *= 1.06;
+        junkDelta += 0.03;
+        missDelta -= 0; // don't punish
+      }
+
+      // Endgame: slight adrenaline
+      if(timeLeft <= 12){
+        spawnMul *= 1.04;
+      }
+
+      // Clamp safely
+      director.spawnPpsMul = clamp(spawnMul, 0.85, 1.15);
+      director.junkRatioDelta = clamp(junkDelta, -0.07, 0.07);
+      director.missLimitDelta = clamp(missDelta, 0, 2);
+
+      const rec = {
+        spawnPpsMul: director.spawnPpsMul,
+        junkRatioDelta: director.junkRatioDelta,
+        missLimitDelta: director.missLimitDelta,
+        emaRtMs: Math.round(director._emaRt),
+        emaAccPct: Number(director._emaAcc.toFixed(2)),
+        seed, gameTag, diff
+      };
+      emit('hha:ai:director', rec);
+      return rec;
+    }
+
+    function patternPlan(state){
+      if(!safeEnabled || !modeOn('pattern')) return null;
+
+      const now = performance.now();
+      if(now < pattern.nextPlanAt) return null;
+      pattern.nextPlanAt = now + pattern.planEveryMs;
+
+      // Create a tiny deterministic plan: "cluster near aim" vs "spread"
+      const fever = clamp(Number(state.fever||0), 0, 100);
+      const mode = (rnd() < 0.55) ? 'spread' : 'cluster';
+      const intensity = clamp(0.6 + (fever/100)*0.6, 0.6, 1.2);
+
+      const plan = { mode, intensity: Number(intensity.toFixed(2)), seed, gameTag, diff };
+      pattern.lastPlan = plan;
+      emit('hha:ai:pattern', plan);
+      return plan;
+    }
+
+    // public API
+    return {
+      enabled: safeEnabled,
+      seed,
+      runMode,
+      diff,
+      gameTag,
+      update(state){
+        // state = engine snapshot (safe subset)
+        if(!safeEnabled) return { enabled:false };
+
+        // coach tips
+        maybeCoachTip(state);
+
+        // director suggestions
+        const d = updateDirector(state);
+
+        // pattern generator
+        const p = patternPlan(state);
+
+        // expose combined
+        const out = { enabled:true, director:d||null, pattern:p||null };
+        emit('hha:ai:state', out);
+        return out;
+      }
+    };
   }
-  function pushTip(text, minGapMs=12000){
-    if(!text) return false;
-    if(!canTip(minGapMs)) return false;
-    M.coach.lastTipMs = nowMs();
-    M.coach.lastTip = String(text);
-    emit('coach:tip', { text: M.coach.lastTip, metrics: snapshot() });
-    return true;
-  }
 
-  // ---- director hint setters (AI can write; engine may read) ----
-  function setDiffHint(patch={}){
-    if(patch.spawnRateMul!=null) M.diffHint.spawnRateMul = clamp(patch.spawnRateMul, 0.4, 2.5);
-    if(patch.sizeMul!=null)      M.diffHint.sizeMul      = clamp(patch.sizeMul, 0.6, 1.8);
-    if(patch.speedMul!=null)     M.diffHint.speedMul     = clamp(patch.speedMul, 0.6, 1.8);
-    if(patch.pattern!==undefined) M.diffHint.pattern = patch.pattern;
-    emit('director:hint', { hint: { ...M.diffHint }, metrics: snapshot() });
-  }
+  // expose globally
+  ROOT.HHA_AI = ROOT.HHA_AI || {};
+  ROOT.HHA_AI.createAIHooks = createAIHooks;
 
-  const api = {
-    enabled: ()=> M.enabled,
-    runMode: ()=> M.runMode,
-    isResearch: ()=> M.isResearch,
-    seed: ()=> M.seed,
-    metrics: ()=> snapshot(),
-
-    on, emit,
-    resetSession,
-
-    recordHit,
-    recordMiss,
-    recordTick,
-    recordGoal,
-    recordMini,
-
-    // helpers for AI modules later
-    pushTip,
-    setDiffHint,
-  };
-
-  return api;
-}
+})(window);
