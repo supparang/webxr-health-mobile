@@ -49,21 +49,7 @@
       z-index:0;
     }
 
-    /* ---------- HUD layout ---------- */
-    .hud{
-      position:fixed;
-      inset:0;
-      z-index:50;
-      pointer-events:none;
-      padding:
-        calc(12px + var(--sat)) calc(12px + var(--sar))
-        calc(12px + var(--sab)) calc(12px + var(--sal));
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto 1fr auto;
-      gap:12px;
-    }
-
+    /* ---------- HUD (base panel styles) ---------- */
     .panel{
       pointer-events:none;
       background:var(--panel);
@@ -91,7 +77,15 @@
     .k{ font-size:12px; color:var(--muted); letter-spacing:.2px; }
     .v{ font-size:20px; font-weight:900; }
 
-    .questTitle{ font-weight:900; letter-spacing:.2px; margin:0 0 6px 0; }
+    .questTitle{
+      font-weight:900;
+      letter-spacing:.2px;
+      margin:0 0 6px 0;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
     .questLine{ margin:2px 0; color:rgba(229,231,235,.92); font-size:13px; line-height:1.25; }
     .questLine.muted{ color:rgba(148,163,184,.95); }
 
@@ -184,7 +178,7 @@
     body.view-cvr #playfield{ display:block; }
     body.view-cvr #cbPlayfield{ display:none; }
     body.view-cvr #hydration-layer{
-      pointer-events:none; /* สำคัญ: ยิงจากกลางจอ ไม่แตะเป้าโดยตรง */
+      pointer-events:none; /* ยิงจากกลางจอ */
     }
     .crosshair{
       position:fixed;
@@ -341,7 +335,6 @@
     }
 
     /* ---------------- FX HOOKS ---------------- */
-    /* End-window FX hook (hydration.safe.js toggles body.hha-endfx) */
     body.hha-endfx{
       animation: endBlink .55s ease-in-out infinite, endShake .26s ease-in-out infinite;
     }
@@ -385,6 +378,107 @@
       0%{ transform: translate(-50%,-50%) scale(1); opacity:.85; }
       100%{ transform: translate(-50%,-50%) scale(18); opacity:0; }
     }
+
+    /* =========================================================
+       ✅ NEW: HUD Docked Layout (พื้นที่เล่นโล่ง / Mobile-first)
+       ========================================================= */
+    .hud{
+      position:fixed; inset:0;
+      z-index:50;
+      pointer-events:none;
+      padding: calc(10px + var(--sat)) calc(10px + var(--sar))
+               calc(10px + var(--sab)) calc(10px + var(--sal));
+      display:block; /* เปลี่ยนจาก grid -> dock */
+    }
+    .hud .panel{
+      position:fixed;
+      max-width:min(46vw, 340px);
+      pointer-events:none;
+    }
+    .hud-statsL{
+      top: calc(10px + var(--sat));
+      left: calc(10px + var(--sal));
+    }
+    .hud-statsR{
+      top: calc(10px + var(--sat));
+      right: calc(10px + var(--sar));
+    }
+    .hud-quest{
+      left: calc(10px + var(--sal));
+      bottom: calc(10px + var(--sab));
+      max-width:min(56vw, 420px);
+    }
+    .hud-water{
+      right: calc(10px + var(--sar));
+      bottom: calc(10px + var(--sab));
+      max-width:min(44vw, 360px);
+    }
+
+    /* tighter */
+    .statBox{ padding:8px 10px; border-radius:14px; }
+    .k{ font-size:11px; }
+    .v{ font-size:18px; }
+    .hud-quest .questLine{ font-size:12px; line-height:1.22; }
+    .hud-quest .miniRow{ margin-top:8px; }
+    .hud-quest .pill{ padding:7px 9px; }
+    .hud-water h3{ font-size:13px; }
+    .hud-water .barWrap{ height:9px; margin-top:8px; }
+    .hud-water .waterTip{ font-size:11.5px; margin-top:8px; }
+
+    /* ✅ HUD toggle button */
+    .hudToggle{
+      pointer-events:auto;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(15,23,42,.60);
+      color:rgba(229,231,235,.92);
+      border-radius:12px;
+      padding:4px 8px;
+      font-weight:900;
+      cursor:pointer;
+      line-height:1;
+    }
+
+    /* Mobile: ซ่อนรายละเอียดเพื่อไม่บังสนามเล่น */
+    @media (max-width: 520px){
+      .hud{ padding: calc(8px + var(--sat)) 8px calc(8px + var(--sab)) 8px; }
+
+      .hud .panel{
+        max-width: min(48vw, 260px);
+        padding:10px;
+        border-radius:16px;
+      }
+
+      .hud-quest{ max-width: 62vw; }
+      .hud-water{ max-width: 46vw; }
+
+      /* hide long detail by default */
+      .hud-quest #quest-line3,
+      .hud-quest #quest-line4{ display:none; }
+      .hud-water #water-tip{ display:none; }
+
+      /* expanded: show */
+      body.hud-expanded .hud-quest #quest-line3,
+      body.hud-expanded .hud-quest #quest-line4,
+      body.hud-expanded .hud-water #water-tip{
+        display:block !important;
+      }
+    }
+
+    /* Short height: landscape/cardboard/cVR */
+    @media (max-height: 520px){
+      .hud .panel{ padding:9px; }
+      .hud-quest #quest-line3,
+      .hud-quest #quest-line4{ display:none; }
+      .hud-water #water-tip{ display:none; }
+      body.hud-expanded .hud-quest #quest-line3,
+      body.hud-expanded .hud-quest #quest-line4,
+      body.hud-expanded .hud-water #water-tip{
+        display:block !important;
+      }
+    }
+
+    /* cVR: ลดความทึบเล็กน้อย */
+    body.view-cvr .hud .panel{ opacity:0.92; }
   </style>
 </head>
 
@@ -409,14 +503,16 @@
 
   <!-- HUD -->
   <div class="hud">
-    <div class="panel">
+    <!-- stats left -->
+    <div class="panel hud-stats hud-statsL">
       <div class="statGrid">
         <div class="statBox"><div class="k">Score</div><div class="v" id="stat-score">0</div></div>
         <div class="statBox"><div class="k">Combo</div><div class="v" id="stat-combo">0</div></div>
       </div>
     </div>
 
-    <div class="panel">
+    <!-- stats right -->
+    <div class="panel hud-stats hud-statsR">
       <div class="statGrid">
         <div class="statBox"><div class="k">Time</div><div class="v" id="stat-time">0</div></div>
         <div class="statBox"><div class="k">Miss</div><div class="v" id="stat-miss">0</div></div>
@@ -426,8 +522,12 @@
       </div>
     </div>
 
-    <div class="panel" style="grid-column:1 / span 1; grid-row:2; align-self:start;">
-      <div class="questTitle">ภารกิจ Hydration 💧</div>
+    <!-- quest bottom-left -->
+    <div class="panel hud-quest">
+      <div class="questTitle">
+        <span>ภารกิจ Hydration 💧</span>
+        <button class="hudToggle" id="hudToggle" type="button" title="กาง/ย่อรายละเอียด">⋯</button>
+      </div>
       <div class="questLine" id="quest-line1">Stage 1/3 ...</div>
       <div class="questLine" id="quest-line2">—</div>
       <div class="questLine muted" id="quest-line3">—</div>
@@ -439,7 +539,8 @@
       </div>
     </div>
 
-    <div class="panel waterPanel" style="grid-column:2 / span 1; grid-row:2; align-self:end;">
+    <!-- water bottom-right -->
+    <div class="panel waterPanel hud-water">
       <div class="top">
         <div>
           <h3>Water</h3>
@@ -454,8 +555,6 @@
       <div class="barWrap"><div id="water-bar"></div></div>
       <div class="waterTip" id="water-tip">Tip: เก็บ Shield ก่อนพายุ แล้วรอ End Window เพื่อ BLOCK</div>
     </div>
-
-    <div style="grid-column:1 / span 2; grid-row:3;"></div>
   </div>
 
   <!-- START OVERLAY -->
@@ -557,7 +656,6 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
     }
 
     async function go(view){
-      // สำหรับ Cardboard/cVR: พยายาม fullscreen + lock landscape (ต้องมาจาก user gesture)
       if (view === 'cardboard' || view === 'cvr'){
         await enterFull();
       }
@@ -572,12 +670,22 @@ Stage3) เคลียร์ BOSS: ช่วงท้ายพายุ (Boss W
     document.getElementById('btnCardboard')?.addEventListener('click', ()=>go('cardboard'));
     document.getElementById('btnCVR')?.addEventListener('click', ()=>go('cvr'));
 
-    // If already has view=..., hide overlay + start
     const view = String(qs('view','')).toLowerCase();
     if (view){
       document.getElementById('startOverlay')?.classList.add('hide');
       window.dispatchEvent(new CustomEvent('hha:start'));
     }
+  })();
+  </script>
+
+  <!-- ✅ HUD details toggle -->
+  <script>
+  (function(){
+    const btn = document.getElementById('hudToggle');
+    if(!btn) return;
+    btn.addEventListener('click', ()=>{
+      document.body.classList.toggle('hud-expanded');
+    });
   })();
   </script>
 
