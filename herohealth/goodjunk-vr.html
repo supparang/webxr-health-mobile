@@ -24,7 +24,9 @@
         radial-gradient(circle at 10% 0%, rgba(56,189,248,.14), transparent 55%),
         radial-gradient(circle at 90% 100%, rgba(34,197,94,.12), transparent 55%),
         var(--bg);
-      color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;}
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    }
     .wrap{min-height:100%;padding:calc(18px + var(--sat)) 16px calc(18px + var(--sab));
       display:flex;align-items:center;justify-content:center;}
     .card{width:min(860px, 96vw);background:rgba(2,6,23,.72);border:1px solid var(--stroke);
@@ -140,7 +142,6 @@
   };
 
   const el = (id)=>document.getElementById(id);
-
   const viewRow = el('viewRow');
   const runRow  = el('runRow');
 
