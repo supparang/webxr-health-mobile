@@ -1,19 +1,13 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — PATCH v3
+Food Groups VR — SAFE (PRODUCTION-ish)
 ✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
 ✅ run=research => adaptive OFF + deterministic seed (spawns repeatable)
 ✅ diff=easy|normal|hard + basic adaptive (play only)
 ✅ Grade: SSS, SS, S, A, B, C
-
-PATCH v3:
-✅ FIX: Practice -> Real start “coach จบเกมแล้วค้าง” (reset coach rate-limit on start)
-✅ HHA Miss definition: miss = good expired + junk hit ONLY
-   - wrong hit NO longer increments misses
-   - mini fail NO longer increments misses
-✅ Track miniTotal / miniCleared for end summary
-✅ goalsCleared uses goalIndex (true cleared goals)
-Note: ไฟล์นี้ทำงานเดี่ยวได้ — export ไว้ที่ window.GroupsVR.GameEngine
+✅ Miss definition aligned with HHA: miss = good expired + junk hit (wrong + mini fail NOT miss)
+✅ Mini counters: miniCleared / miniTotal
+Note: standalone engine — export at window.GroupsVR.GameEngine
 */
 
 (function (root) {
@@ -52,13 +46,8 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
   }
 
-  function cssSet(el, k, v) {
-    try { el.style.setProperty(k, v); } catch (_) {}
-  }
-
-  function addBodyClass(c, on) {
-    DOC.body.classList.toggle(c, !!on);
-  }
+  function cssSet(el, k, v) { try { el.style.setProperty(k, v); } catch (_) {} }
+  function addBodyClass(c, on) { DOC.body.classList.toggle(c, !!on); }
 
   // ---------------- Content ----------------
   const GROUPS = [
@@ -68,55 +57,21 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     { key: 'grain',   th: 'ข้าว-แป้ง', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙'] },
     { key: 'dairy',   th: 'นม',        emoji: ['🥛','🧈','🧀','🍦','🥣','🍼'] },
   ];
-
   const JUNK = ['🍟','🍔','🌭','🍕','🍩','🍭','🍬','🥤','🧋','🍫','🧁','🍰'];
 
   // ---------------- Difficulty presets ----------------
   function diffPreset(diff) {
     diff = String(diff || 'normal').toLowerCase();
     if (diff === 'easy') {
-      return {
-        time: 90,
-        baseSpawnMs: 780,
-        stormEverySec: 26,
-        stormLenSec: 7,
-        targetSize: 1.02,
-        wrongRate: 0.22,
-        junkRate: 0.12,
-        bossHp: 6,
-        powerThreshold: 7,
-        goalTargets: 16,
-        goalsTotal: 2,
-      };
+      return { time: 90, baseSpawnMs: 780, stormEverySec: 26, stormLenSec: 7, targetSize: 1.02,
+        wrongRate: 0.22, junkRate: 0.12, bossHp: 6, powerThreshold: 7, goalTargets: 16, goalsTotal: 2 };
     }
     if (diff === 'hard') {
-      return {
-        time: 90,
-        baseSpawnMs: 560,
-        stormEverySec: 22,
-        stormLenSec: 8,
-        targetSize: 0.92,
-        wrongRate: 0.32,
-        junkRate: 0.18,
-        bossHp: 10,
-        powerThreshold: 9,
-        goalTargets: 22,
-        goalsTotal: 2,
-      };
+      return { time: 90, baseSpawnMs: 560, stormEverySec: 22, stormLenSec: 8, targetSize: 0.92,
+        wrongRate: 0.32, junkRate: 0.18, bossHp: 10, powerThreshold: 9, goalTargets: 22, goalsTotal: 2 };
     }
-    return {
-      time: 90,
-      baseSpawnMs: 650,
-      stormEverySec: 24,
-      stormLenSec: 7,
-      targetSize: 0.98,
-      wrongRate: 0.27,
-      junkRate: 0.15,
-      bossHp: 8,
-      powerThreshold: 8,
-      goalTargets: 19,
-      goalsTotal: 2,
-    };
+    return { time: 90, baseSpawnMs: 650, stormEverySec: 24, stormLenSec: 7, targetSize: 0.98,
+      wrongRate: 0.27, junkRate: 0.15, bossHp: 8, powerThreshold: 8, goalTargets: 19, goalsTotal: 2 };
   }
 
   function gradeFrom(accPct, misses, score) {
@@ -143,7 +98,6 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
 
     this.cfg = null;
     this.view = 'mobile';
-
     this.rng = null;
 
     this.startAt = 0;
@@ -154,7 +108,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     this.combo = 0;
     this.comboMax = 0;
 
-    // ✅ HHA Miss definition: good expired + junk hit ONLY
+    // ✅ MISS (HHA): good expired + junk hit only
     this.misses = 0;
 
     // counts (research/log)
@@ -162,11 +116,9 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
-
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -183,17 +135,18 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     this.nextStormAt = 0;
 
     this.spawnTmr = 0;
-    this.spawnEveryMs = 650;
 
     // quest
     this.goalsTotal = 2;
-    this.goalIndex = 0;   // ✅ counts cleared goals
+    this.goalIndex = 0;
     this.goalNow = 0;
     this.goalNeed = 18;
 
     // mini
     this.mini = null; // {on, now, need, leftMs, forbidJunk, ok}
     this.nextMiniAt = 0;
+
+    // ✅ mini counters
     this.miniTotal = 0;
     this.miniCleared = 0;
 
@@ -205,9 +158,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     this.coachLastAt = 0;
   }
 
-  Engine.prototype.setLayerEl = function (el) {
-    this.layerEl = el;
-  };
+  Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
 
   Engine.prototype.start = function (diff, opts) {
     opts = opts || {};
@@ -217,19 +168,10 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
 
     const timeSec = clamp(opts.time ?? preset.time, 30, 180);
 
-    this.cfg = {
-      diff: String(diff || 'normal').toLowerCase(),
-      runMode,
-      seed: seedIn,
-      timeSec,
-      preset,
-    };
-
+    this.cfg = { diff: String(diff || 'normal').toLowerCase(), runMode, seed: seedIn, timeSec, preset };
     this.view = String(opts.view || DOC.body.className || '').includes('view-cvr') ? 'cvr' : (opts.view || 'mobile');
-
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
 
-    this.spawnEveryMs = preset.baseSpawnMs;
     this.leftSec = Math.round(timeSec);
 
     this.score = 0;
@@ -241,15 +183,12 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
-
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
-
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
-
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
@@ -266,6 +205,8 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
 
     this.mini = null;
     this.nextMiniAt = nowMs() + 14000;
+
+    // ✅ reset mini counters each run
     this.miniTotal = 0;
     this.miniCleared = 0;
 
@@ -273,18 +214,23 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     this.stormUntil = 0;
     this.nextStormAt = nowMs() + preset.stormEverySec * 1000;
 
+    // ✅ IMPORTANT: reset coach limiter so “start coach” never gets blocked
+    this.coachLastAt = 0;
+
     this.running = true;
     this.startAt = nowMs();
     this.lastTick = this.startAt;
 
-    // ✅ FIX: allow coach message immediately on new start (practice -> real)
-    this.coachLastAt = -1e9;
+    addBodyClass('clutch', false);
+    addBodyClass('groups-storm', false);
+    addBodyClass('groups-storm-urgent', false);
 
     emit('hha:time', { left: this.leftSec });
     emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
     this._emitRank();
     this._emitPower();
     this._emitQuestUpdate();
+
     this._emitCoach('เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
 
     this._installInput();
@@ -293,7 +239,6 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
 
   Engine.prototype._installInput = function () {
     const self = this;
-
     if (!this._onShoot) {
       this._onShoot = function () {
         if (!self.running) return;
@@ -327,7 +272,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     const left = Math.max(0, Math.ceil(this.cfg.timeSec - elapsed));
     if (left !== this.leftSec) {
       this.leftSec = left;
-      emit('hha:time', { left: left });
+      emit('hha:time', { left });
 
       if (left === 10) this._emitCoach('อีก 10 วิ! เร่งขึ้น! 🔥', 'fever');
       if (left <= 3 && left > 0) addBodyClass('clutch', true);
@@ -373,16 +318,9 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
       const need = (this.cfg.diff === 'hard') ? 6 : (this.cfg.diff === 'easy' ? 4 : 5);
       const durMs = (this.cfg.diff === 'hard') ? 8500 : 9000;
 
-      this.mini = {
-        on: true,
-        now: 0,
-        need,
-        leftMs: durMs,
-        forbidJunk,
-        ok: true,
-        startedAt: t
-      };
+      this.mini = { on: true, now: 0, need, leftMs: durMs, forbidJunk, ok: true, startedAt: t };
 
+      // ✅ count mini started
       this.miniTotal += 1;
 
       this._emitQuestUpdate();
@@ -400,7 +338,9 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
 
       if (leftMs <= 0) {
         const ok = (this.mini.now >= this.mini.need) && this.mini.ok;
+
         if (ok) {
+          // ✅ mini clear
           this.miniCleared += 1;
 
           this.score += 180;
@@ -409,7 +349,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
           emit('hha:judge', { kind: 'good', text: 'MINI CLEAR +180' });
           this._emitCoach('เยี่ยม! MINI ผ่าน! 🎉', 'happy');
         } else {
-          // ✅ mini fail should NOT affect HHA Miss
+          // ❌ mini fail: DO NOT increase MISS (HHA rule)
           this.combo = 0;
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL' });
           this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
@@ -440,7 +380,6 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
       if (this.combo >= 8) speed *= 0.90;
       if (this.misses >= 8) speed *= 1.12;
     }
-
     if (this.stormOn) speed *= 0.78;
 
     const every = clamp(base * speed, 360, 980);
@@ -457,7 +396,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
       if (t >= tg.expireAt) {
         if (tg.kind === 'good') {
           this.nExpireGood++;
-          // ✅ HHA Miss: good expired counts
+          // ✅ miss: good expired
           this._onMiss('expire_good');
         } else if (tg.kind === 'wrong') {
           this.nExpireWrong++;
@@ -565,6 +504,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
 
     const id = (++this._id);
     const born = nowMs();
+
     const tg = {
       id,
       el,
@@ -596,17 +536,13 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
 
     try { tg.el.classList.add(why === 'hit' ? 'hit' : 'out'); } catch (_) {}
 
-    setTimeout(() => {
-      try { tg.el.remove(); } catch (_) {}
-    }, 220);
-
+    setTimeout(() => { try { tg.el.remove(); } catch (_) {} }, 220);
     this.targets.splice(idx, 1);
   };
 
   Engine.prototype._hitTargetById = function (id, via) {
     if (!this.running) return;
     const t = nowMs();
-
     for (let i = 0; i < this.targets.length; i++) {
       if (this.targets[i].id === id) {
         const tg = this.targets[i];
@@ -635,7 +571,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // "shoot miss" ไม่ถือเป็น Miss ตามนิยาม HHA
+      // crosshair miss: ไม่เพิ่ม misses (HHA miss is specific)
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS' });
       this._emitScore();
@@ -650,12 +586,9 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
     if (tg.kind === 'boss') {
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
       try { tg.el.classList.add('fg-boss-hurt'); setTimeout(() => tg.el.classList.remove('fg-boss-hurt'), 120); } catch (_) {}
-
       emit('hha:judge', { kind: 'boss', text: `BOSS -1` });
 
-      if (tg.bossHp <= Math.floor((tg.bossHpMax || 8) * 0.35)) {
-        try { tg.el.classList.add('fg-boss-weak'); } catch (_) {}
-      }
+      if (tg.bossHp <= Math.floor((tg.bossHpMax || 8) * 0.35)) { try { tg.el.classList.add('fg-boss-weak'); } catch (_) {} }
 
       if (tg.bossHp <= 0) {
         this.score += 320;
@@ -687,7 +620,6 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
 
       const add = 20 + Math.min(24, this.combo * 1.6);
       this.score += Math.round(add);
-
       this.powerCharge = Math.min(p.powerThreshold, this.powerCharge + 1);
 
       emit('hha:judge', { kind: 'good', text: `+${Math.round(add)}` });
@@ -711,7 +643,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
       this.nHitWrong++;
       this.totalJudgedForAcc++;
 
-      // ✅ wrong hit is NOT Miss (HHA definition)
+      // ✅ WRONG = ไม่ใช่ MISS ตามนิยาม HHA
       this.combo = 0;
       this.score = Math.max(0, this.score - 12);
 
@@ -722,6 +654,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
       this._emitRank();
       this._emitQuestUpdate();
       this._emitCoach(`ไม่ใช่หมู่ “${gActive.th}” นะ!`, 'sad');
+      emit('groups:progress', { kind: 'wrong' });
       return;
     }
 
@@ -731,9 +664,8 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
 
     if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
 
+    // ✅ JUNK HIT = MISS ตามนิยาม HHA
     this.combo = 0;
-
-    // ✅ HHA Miss: junk hit counts
     this._onMiss('junk');
 
     this.score = Math.max(0, this.score - 18);
@@ -748,7 +680,7 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
   };
 
   Engine.prototype._onMiss = function (why) {
-    // ✅ HHA Miss definition only
+    // ✅ HHA miss: good expired + junk hit only
     this.misses += 1;
     emit('groups:progress', { kind: 'miss', why });
   };
@@ -897,9 +829,10 @@ Note: ไฟล์นี้ทำงานเดี่ยวได้ — export
       accuracyGoodPct: acc,
       grade,
 
-      goalsCleared: Math.min(this.goalsTotal, this.goalIndex | 0),
-      goalsTotal: this.goalsTotal | 0,
+      goalsCleared: Math.min(this.goalsTotal, this.goalIndex),
+      goalsTotal: this.goalsTotal,
 
+      // ✅ mini counters included
       miniCleared: this.miniCleared | 0,
       miniTotal: this.miniTotal | 0,
 
