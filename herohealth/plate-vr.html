@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- Optional: external CSS (recommended) -->
+  <!-- Optional: external CSS -->
   <link rel="stylesheet" href="./plate/plate-vr.css" />
 
   <!-- A-Frame (for ENTER VR / EXIT / RECENTER) -->
@@ -43,10 +43,8 @@
       font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
     }
 
-    /* A-Frame scene stays behind; UI is DOM overlay */
     a-scene{ position:fixed; inset:0; z-index:0; }
 
-    /* main background */
     .bg{
       position:fixed; inset:0; z-index:1;
       background:
@@ -57,13 +55,12 @@
       pointer-events:none;
     }
 
-    /* game stage */
     .stage{
       position:fixed; inset:0; z-index:2;
       padding: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
     }
 
-    /* where targets spawn (JS uses absolute left/top in px) */
+    /* spawn layer */
     #plate-layer{
       position:fixed; inset:0;
       z-index:10;
@@ -72,7 +69,6 @@
       user-select:none;
     }
 
-    /* hit FX overlay */
     #hitFx{
       position:fixed; inset:0;
       z-index:12;
@@ -81,7 +77,6 @@
       transition: opacity .12s ease;
     }
 
-    /* HUD blocks */
     .hudTop{
       position:fixed;
       left:10px; right:10px;
@@ -91,7 +86,7 @@
       flex-wrap:wrap;
       gap:10px;
       align-items:flex-start;
-      pointer-events:none; /* prevent blocking targets */
+      pointer-events:none;
     }
 
     .card{
@@ -133,7 +128,6 @@
       background:rgba(34,197,94,.85);
     }
 
-    /* Goal/Mini */
     #miniPanel, #coachPanel{
       position:fixed;
       left:10px; right:10px;
@@ -158,7 +152,6 @@
     .k{ font-weight:1100; font-size:12px; color:rgba(229,231,235,.92); }
     .hint{ font-weight:900; font-size:12px; color:rgba(148,163,184,.95); line-height:1.25; }
 
-    /* HUD buttons row (bottom right area) */
     #hudBtns{
       position:fixed;
       right:10px;
@@ -186,81 +179,20 @@
       user-select:none;
     }
     .btn:active{ transform: translateY(1px); }
-    .btn.primary{
-      background:rgba(34,197,94,.14);
-      border-color:rgba(34,197,94,.30);
-    }
-    .btn.warn{
-      background:rgba(245,158,11,.14);
-      border-color:rgba(245,158,11,.30);
-    }
-    .btn.bad{
-      background:rgba(239,68,68,.14);
-      border-color:rgba(239,68,68,.30);
-    }
+    .btn.primary{ background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.30); }
+    .btn.warn{ background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.30); }
 
-    /* Start overlay */
-    #startOverlay{
-      position:fixed; inset:0;
-      z-index:60;
-      display:grid;
-      place-items:center;
-      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
-      background: rgba(2,6,23,.55);
-      backdrop-filter: blur(10px);
-    }
-    .startCard{
-      width:min(920px, 100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      padding:16px;
-      box-shadow: 0 26px 90px rgba(0,0,0,.42);
-    }
-    .startTop{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start; }
-    .startTitle{ font-weight:1200; font-size:18px; }
-    .startSub{ margin-top:6px; color:var(--muted); font-weight:900; line-height:1.35; font-size:13px; }
-    .startRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:center; }
-    .chip{
-      display:inline-flex; gap:8px; align-items:center;
-      padding:8px 10px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.55);
-      font-weight:1100;
-    }
-
-    /* Paused overlay */
-    #hudPaused{
+    /* overlays */
+    #startOverlay, #hudPaused, #resultBackdrop{
       position:fixed; inset:0;
       z-index:70;
       display:none;
       place-items:center;
-      background: rgba(2,6,23,.45);
-      backdrop-filter: blur(8px);
-      padding:18px;
-    }
-    .pausedCard{
-      width:min(520px, 100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius:22px;
-      padding:16px;
-      box-shadow: 0 26px 90px rgba(0,0,0,.42);
-      text-align:center;
-    }
-
-    /* Result overlay */
-    #resultBackdrop{
-      position:fixed; inset:0;
-      z-index:80;
-      display:none;
-      place-items:center;
       padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
       background: rgba(2,6,23,.55);
       backdrop-filter: blur(10px);
     }
-    .resultCard{
+    .panelCard{
       width:min(980px, 100%);
       background:var(--panel);
       border:1px solid var(--stroke);
@@ -268,30 +200,16 @@
       padding:16px;
       box-shadow: 0 26px 90px rgba(0,0,0,.42);
     }
-    .resultGrid{
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap:12px;
-      margin-top:10px;
-    }
-    .box{
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.26);
-    }
-    .bigNum{ font-size:22px; font-weight:1200; }
-    .kv{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
-    .kv .pill{ font-size:12px; }
 
-    @media (max-width: 920px){
-      .resultGrid{ grid-template-columns: 1fr; }
-      .card{ min-width: 170px; }
-      .bar{ width:140px; }
+    /* Boss/Storm FX layers (JS toggles classes) */
+    #bossFx, #stormFx{
+      position:fixed; inset:0;
+      pointer-events:none;
+      z-index:55;
+      display:none;
     }
 
-    /* Boss HUD */
+    /* Boss HUD (ids must match JS) */
     #bossHud{
       position:fixed;
       left:10px;
@@ -302,46 +220,52 @@
     }
     .bossCard{
       pointer-events:auto;
-      background:rgba(15,23,42,.70);
+      background:rgba(15,23,42,.72);
       border:1px solid rgba(167,139,250,.28);
       border-radius:18px;
       padding:10px 12px;
       box-shadow: 0 18px 60px rgba(0,0,0,.26);
-      min-width: 240px;
+      min-width: 280px;
     }
-    .bossBar{
-      margin-top:8px;
-      width:220px;
-      height:10px;
-      border-radius:999px;
-      background:rgba(148,163,184,.10);
-      border:1px solid rgba(148,163,184,.14);
-      overflow:hidden;
-    }
-    .bossBar > i{
-      display:block; height:100%;
-      width:0%;
-      background:rgba(167,139,250,.85);
-      box-shadow: 0 0 18px rgba(167,139,250,.16);
-    }
+    .bossLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
+    .bossProg{ margin-top:8px; font-weight:1100; }
 
-    /* Boss FX layer (CSS file may override too) */
-    #bossFx{
-      position:fixed; inset:0;
-      pointer-events:none;
-      z-index:55;
+    /* Storm HUD (ids must match JS) */
+    #stormHud{
+      position:fixed;
+      left:10px;
+      top: calc(10px + var(--sat));
+      z-index:43;
       display:none;
+      pointer-events:none;
+      transform: translateY(54px); /* อยู่ใต้ HUD top */
+    }
+    .stormCard{
+      pointer-events:auto;
+      background:rgba(15,23,42,.72);
+      border:1px solid rgba(34,211,238,.28);
+      border-radius:18px;
+      padding:10px 12px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.26);
+      min-width: 320px;
+    }
+    .stormLine{ margin-top:6px; color:rgba(148,163,184,.95); font-weight:900; font-size:12px; }
+    .stormProg{ margin-top:8px; font-weight:1100; }
+
+    @media (max-width: 920px){
+      .card{ min-width: 170px; }
+      .bar{ width:140px; }
+      #stormHud{ transform: translateY(62px); }
     }
   </style>
 
-  <!-- lockPx config for vr-ui crosshair shooting -->
   <script>
     window.HHA_VRUI_CONFIG = { lockPx: 28, cooldownMs: 90 };
   </script>
 </head>
 
 <body>
-  <!-- Minimal A-Frame scene just to enable enterVR/exitVR/recenter -->
+  <!-- Minimal A-Frame scene (enterVR/exit/recenter work) -->
   <a-scene embedded vr-mode-ui="enabled:false" renderer="antialias:true" background="color: #000">
     <a-entity id="rig" position="0 0 0">
       <a-camera position="0 1.6 0" look-controls="enabled:true"></a-camera>
@@ -350,15 +274,12 @@
 
   <div class="bg"></div>
 
-  <!-- Boss FX -->
+  <!-- FX layers required by JS -->
+  <div id="stormFx"></div>
   <div id="bossFx"></div>
 
-  <!-- Game stage -->
   <div class="stage">
-    <!-- Spawn layer -->
     <div id="plate-layer" aria-label="plate targets layer"></div>
-
-    <!-- Hit FX overlay -->
     <div id="hitFx"></div>
 
     <!-- HUD TOP -->
@@ -389,7 +310,7 @@
         </div>
         <div class="v" style="margin-top:8px">
           <span class="muted">FEVER</span>
-          <div class="bar bad" style="flex:1; min-width:140px">
+          <div class="bar" style="flex:1; min-width:140px">
             <i id="uiFeverFill"></i>
           </div>
         </div>
@@ -407,6 +328,15 @@
       </div>
     </div>
 
+    <!-- Storm HUD (MATCH IDs) -->
+    <div id="stormHud">
+      <div class="stormCard">
+        <div class="t" id="stormTitle">🌪️ STORM</div>
+        <div class="stormLine" id="stormHint">—</div>
+        <div class="stormProg" id="stormProg">—</div>
+      </div>
+    </div>
+
     <!-- GOAL + MINI -->
     <div id="miniPanel">
       <div class="questCard">
@@ -415,9 +345,7 @@
           <div style="font-weight:1100" id="uiGoalTitle">—</div>
           <div class="questRow">
             <span class="pill"><span id="uiGoalCount">0/0</span></span>
-            <div class="bar" style="width:200px">
-              <i id="uiGoalFill" style="width:0%"></i>
-            </div>
+            <div class="bar" style="width:200px"><i id="uiGoalFill" style="width:0%"></i></div>
           </div>
         </div>
 
@@ -427,7 +355,7 @@
           <div class="questRow">
             <span class="pill">⏳ <span id="uiMiniTime">--</span></span>
             <span class="pill">✅ <span id="uiMiniCount">0/0</span></span>
-            <div class="bar warn" style="width:200px">
+            <div class="bar" style="width:200px">
               <i id="uiMiniFill" style="width:0%; background:rgba(245,158,11,.85)"></i>
             </div>
           </div>
@@ -457,28 +385,55 @@
       </div>
     </div>
 
-    <!-- Boss HUD -->
+    <!-- Boss HUD (MATCH IDs) -->
     <div id="bossHud">
       <div class="bossCard">
-        <div class="t">👾 BOSS</div>
-        <div class="muted" id="bossText">--</div>
-        <div class="bossBar"><i id="bossFill" style="width:0%"></i></div>
+        <div class="t" id="bossTitle">👹 BOSS</div>
+        <div class="bossLine" id="bossHint">—</div>
+        <div class="bossProg" id="bossProg">—</div>
       </div>
     </div>
 
-    <!-- HUD Buttons -->
+    <!-- Buttons -->
     <div id="hudBtns">
+      <!-- IMPORTANT: JS binds #btnStart -->
       <button class="btn primary" id="btnStart" type="button" style="display:none">▶ START</button>
       <button class="btn" id="btnPause" type="button">⏸ PAUSE</button>
       <button class="btn warn" id="btnRestart" type="button">♻ RESTART</button>
       <button class="btn" id="btnEnterVR" type="button">🕶 ENTER VR</button>
     </div>
 
+    <!-- Start overlay -->
+    <div id="startOverlay" style="display:grid">
+      <div class="panelCard">
+        <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start">
+          <div>
+            <div style="font-weight:1200; font-size:18px">🍽️ Balanced Plate VR</div>
+            <div style="margin-top:6px; color:var(--muted); font-weight:900; line-height:1.35; font-size:13px">
+              โหมด: <b id="uiRunPreview">play</b> • ระดับ: <b id="uiDiffPreview">normal</b> • เวลา: <b id="uiTimePreview">90</b>s
+              <br/>Play = Adaptive ON • Study = Seeded & Adaptive OFF
+            </div>
+          </div>
+          <div style="color:var(--muted); font-weight:900; font-size:13px; text-align:right">
+            Tip: Cardboard ใช้ <b>view=cvr</b><br/>ยิงจาก crosshair ได้เลย
+          </div>
+        </div>
+
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+          <button class="btn primary" id="btnStartMain" type="button">เริ่มเกม ▶</button>
+          <button class="btn" id="btnCopyLink" type="button">คัดลอกลิงก์นี้ 🔗</button>
+          <button class="btn warn" id="btnGoLauncher" type="button">ไปหน้า Launcher 🧭</button>
+        </div>
+
+        <div id="startDbg" style="margin-top:10px; color:var(--muted); font-weight:900; font-size:12px"></div>
+      </div>
+    </div>
+
     <!-- Paused overlay -->
     <div id="hudPaused">
-      <div class="pausedCard">
+      <div class="panelCard" style="width:min(520px,100%); text-align:center">
         <div style="font-weight:1200; font-size:18px">⏸ Paused</div>
-        <div class="muted" style="margin-top:6px">กด Pause อีกครั้งเพื่อเล่นต่อ</div>
+        <div style="margin-top:6px; color:var(--muted); font-weight:900">กด Pause อีกครั้งเพื่อเล่นต่อ</div>
         <div style="margin-top:12px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
           <button class="btn primary" onclick="document.getElementById('btnPause').click()">▶ เล่นต่อ</button>
           <button class="btn warn" onclick="document.getElementById('btnRestart').click()">♻ เริ่มใหม่</button>
@@ -486,47 +441,13 @@
       </div>
     </div>
 
-    <!-- Start overlay (preview params) -->
-    <div id="startOverlay">
-      <div class="startCard">
-        <div class="startTop">
-          <div>
-            <div class="startTitle">🍽️ Balanced Plate VR</div>
-            <div class="startSub">
-              โหมด: <b id="uiRunPreview">play</b> • ระดับ: <b id="uiDiffPreview">normal</b> • เวลา: <b id="uiTimePreview">90</b>s
-              <br/>✅ Play = Adaptive ON • ✅ Study = Seeded & Adaptive OFF
-            </div>
-          </div>
-          <div class="startSub" style="text-align:right">
-            Tip: ถ้าเล่น Cardboard ให้เปิด <b>view=cvr</b><br/>
-            ยิงจาก crosshair ได้เลย
-          </div>
-        </div>
-
-        <div class="startRow">
-          <span class="chip">🎯 Goal: เติม 5 หมู่ + แม่น ≥ 80%</span>
-          <span class="chip">⚡ Mini: Plate Rush (8 วิ + ห้ามโดนขยะ)</span>
-          <span class="chip">👾 Boss: โผล่ช่วงท้าย (ปิดใน study)</span>
-          <span class="chip">🛡️ Shield: ช่วยบล็อกขยะ (ไม่เป็น miss)</span>
-        </div>
-
-        <div class="startRow" style="margin-top:14px">
-          <button class="btn primary" id="btnStartMain" type="button">เริ่มเกม ▶</button>
-          <button class="btn" id="btnCopyLink" type="button">คัดลอกลิงก์นี้ 🔗</button>
-          <button class="btn warn" id="btnGoLauncher" type="button">ไปหน้า Launcher 🧭</button>
-        </div>
-
-        <div class="startSub" id="startDbg" style="margin-top:10px"></div>
-      </div>
-    </div>
-
     <!-- Result overlay -->
     <div id="resultBackdrop">
-      <div class="resultCard">
+      <div class="panelCard">
         <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start">
           <div>
             <div style="font-weight:1200; font-size:18px">🏁 สรุปผล</div>
-            <div class="muted" style="margin-top:6px">
+            <div style="margin-top:6px; color:var(--muted); font-weight:900">
               Mode: <b id="rMode">—</b> • Grade: <b id="rGrade">—</b>
             </div>
           </div>
@@ -537,11 +458,11 @@
           </div>
         </div>
 
-        <div class="resultGrid">
-          <div class="box">
+        <div style="margin-top:12px; display:grid; grid-template-columns: 1.1fr .9fr; gap:12px">
+          <div style="background:var(--panel2); border:1px solid var(--stroke); border-radius:18px; padding:12px">
             <div class="t">ภาพรวม</div>
-            <div class="kv">
-              <span class="pill">🏆 <span class="bigNum" id="rScore">0</span></span>
+            <div class="v" style="margin-top:10px">
+              <span class="pill">🏆 <span id="rScore">0</span></span>
               <span class="pill">🔥 Max Combo <b id="rMaxCombo">0</b></span>
               <span class="pill">💥 Miss <b id="rMiss">0</b></span>
               <span class="pill">⚡ Perfect <b id="rPerfect">0%</b></span>
@@ -550,9 +471,9 @@
             </div>
           </div>
 
-          <div class="box">
+          <div style="background:var(--panel2); border:1px solid var(--stroke); border-radius:18px; padding:12px">
             <div class="t">5 หมู่ที่เก็บได้</div>
-            <div class="kv">
+            <div class="v" style="margin-top:10px">
               <span class="pill">🥦 <b id="rG1">0</b></span>
               <span class="pill">🍎 <b id="rG2">0</b></span>
               <span class="pill">🐟 <b id="rG3">0</b></span>
@@ -560,30 +481,30 @@
               <span class="pill">🥑 <b id="rG5">0</b></span>
               <span class="pill">Σ <b id="rGTotal">0</b></span>
             </div>
-            <div class="muted" style="margin-top:10px">
-              ระบบจะบันทึก <code>HHA_LAST_SUMMARY</code> และส่งไป Google Sheet ผ่าน <code>hha-cloud-logger.js</code> (ถ้าตั้ง endpoint แล้ว)
-            </div>
           </div>
         </div>
+
+        <style>
+          @media (max-width: 920px){
+            #resultBackdrop > .panelCard > div[style*="grid-template-columns"]{ grid-template-columns: 1fr !important; }
+          }
+        </style>
       </div>
     </div>
+
   </div>
 
-  <!-- Bridge buttons -->
+  <!-- Start overlay bridge -->
   <script>
     (function(){
-      const btnStart = document.getElementById('btnStartMain');
+      const btnStartMain = document.getElementById('btnStartMain');
       const dbg = document.getElementById('startDbg');
       const btnCopy = document.getElementById('btnCopyLink');
       const btnGoLauncher = document.getElementById('btnGoLauncher');
 
-      if(dbg){
-        dbg.textContent = 'URL: ' + location.href;
-      }
+      if(dbg) dbg.textContent = 'URL: ' + location.href;
 
-      // Start overlay uses JS start button inside plate.safe.js
-      // We forward click to #btnStart (the one plate.safe.js binds)
-      btnStart?.addEventListener('click', ()=>{
+      btnStartMain?.addEventListener('click', ()=>{
         const b = document.getElementById('btnStart');
         if(b) b.click();
       }, {passive:true});
@@ -593,7 +514,7 @@
           await navigator.clipboard.writeText(location.href);
           if(dbg) dbg.textContent = '✅ คัดลอกลิงก์แล้ว';
         }catch(e){
-          if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ (เบราว์เซอร์บล็อก) — คัดลอกเองจากแถบ URL ได้';
+          if(dbg) dbg.textContent = '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากแถบ URL ได้';
         }
       }, {passive:true});
 
@@ -606,7 +527,7 @@
     })();
   </script>
 
-  <!-- RUN GAME LOGIC -->
+  <!-- RUN GAME -->
   <script type="module" src="./plate/plate.safe.js"></script>
 </body>
 </html>
