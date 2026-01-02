@@ -7,219 +7,201 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- CSS -->
-  <link rel="stylesheet" href="./plate-vr.css" />
-
-  <!-- A-Frame (minimal scene to enable enterVR/exitVR/recenter buttons from vr-ui.js) -->
+  <!-- A-Frame (for ENTER VR button support; safe even if you mostly use DOM targets) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Global FX + optional cloud logger + universal VR UI -->
-  <script src="./vr/particles.js" defer></script>
-  <script src="./vr/hha-cloud-logger.js" defer></script>
-  <script src="./vr/vr-ui.js" defer></script>
+  <!-- Shared CSS -->
+  <link rel="stylesheet" href="./plate/plate-vr.css" />
 
-  <!-- Plate engine -->
-  <script src="./plate/plate.safe.js" defer></script>
+  <!-- FX + Universal VR UI + Logger -->
+  <script src="./vr/particles.js" defer></script>
+  <script src="./vr/vr-ui.js" defer></script>
+  <script src="./vr/hha-cloud-logger.js" defer></script>
+
+  <!-- Game -->
+  <script type="module" src="./plate/plate.safe.js"></script>
 </head>
 
 <body class="view-mobile">
-  <!-- Minimal A-Frame scene (kept tiny & non-blocking) -->
+  <!-- Minimal A-Frame scene for reliable EnterVR() -->
   <a-scene
     embedded
-    vr-mode-ui="enabled: false"
-    renderer="antialias: true; colorManagement: true"
-    style="position:fixed; left:-9999px; top:-9999px; width:1px; height:1px; opacity:0; pointer-events:none;"
+    vr-mode-ui="enabled:false"
+    renderer="colorManagement:true; physicallyCorrectLights:false"
+    style="position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0;"
   >
-    <a-entity id="rig" position="0 0 0">
-      <a-entity camera look-controls position="0 1.6 0"></a-entity>
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera camera look-controls></a-camera>
     </a-entity>
   </a-scene>
 
-  <!-- FX overlays -->
-  <div id="hitFx" class="hitFx" aria-hidden="true"></div>
-  <div id="bossFx" class="bossFx" style="display:none" aria-hidden="true"></div>
+  <!-- FX layer (hit pulse overlay) -->
+  <div id="hitFx" aria-hidden="true"></div>
 
-  <!-- GAME LAYER -->
-  <div id="plate-layer" class="plateLayer" aria-label="Plate play layer"></div>
+  <!-- PLAYFIELD (DOM targets live here) -->
+  <div id="plate-layer" aria-label="playfield"></div>
 
   <!-- START OVERLAY -->
-  <div id="startOverlay" class="overlay startOverlay" role="dialog" aria-modal="true">
+  <div id="startOverlay" class="overlay">
     <div class="card">
       <div class="title">🍽️ Balanced Plate VR</div>
-      <div class="sub">เติมจานให้ครบ 5 หมู่ + คุมความแม่นยำ + รับมือ Mini & Boss</div>
-
-      <div class="meta">
-        <div class="pill">Diff: <span id="uiDiffPreview">normal</span></div>
-        <div class="pill">Time: <span id="uiTimePreview">90</span>s</div>
-        <div class="pill">Mode: <span id="uiRunPreview">play</span></div>
+      <div class="sub">
+        เติมจานให้ครบ 5 หมู่ + คุมความแม่นยำให้โหด!<br>
+        โหมด: <b id="uiRunPreview">play</b> • ระดับ: <b id="uiDiffPreview">normal</b> • เวลา: <b id="uiTimePreview">90</b>s
       </div>
 
-      <div class="how">
-        <div class="howRow">
-          <div class="k">แตะ/คลิก</div>
-          <div class="v">เก็บอาหารดี 🥦🍎🐟🍚🥑</div>
-        </div>
-        <div class="howRow">
-          <div class="k">หลบ</div>
-          <div class="v">ขยะ 🍟🍔🥤 (ถ้าโดน = fever ขึ้น)</div>
-        </div>
-        <div class="howRow">
-          <div class="k">VR / cVR</div>
-          <div class="v">เล็ง crosshair กลางจอ + แตะยิง (ผ่าน <code>hha:shoot</code>)</div>
-        </div>
+      <div class="hint">
+        🎯 โหมด VR/Cardboard: กด ENTER VR (มุมขวาล่าง) หรือใช้ crosshair ยิงกลางจอได้<br>
+        📌 โหมดวิจัย: run=study จะล็อก seed และปิด adaptive
       </div>
 
-      <div class="actions">
-        <button id="btnStart" class="btn primary" type="button">▶ เริ่มเล่น</button>
-        <button id="btnEnterVR" class="btn" type="button">🕶 ENTER VR</button>
-      </div>
-
-      <div class="note">
-        * ถ้า iOS ขอ permission เซ็นเซอร์ ให้กด “Allow” แล้วค่อยเริ่ม
+      <div class="btnRow">
+        <button id="btnStart" class="btn primary" type="button">เริ่มเกม ▶</button>
       </div>
     </div>
   </div>
 
-  <!-- HUD TOP -->
-  <div id="hudTop" class="hudTop" aria-live="polite">
-    <div class="hudRow">
-      <div class="hudBox">
-        <div class="lab">SCORE</div>
-        <div class="val" id="uiScore">0</div>
+  <!-- HUD TOP (Goal/Mini) -->
+  <div id="hudTop" class="hudTop">
+    <div class="hudBlock">
+      <div class="label">GOAL</div>
+      <div class="row">
+        <div id="uiGoalTitle" class="ttl">—</div>
+        <div id="uiGoalCount" class="count">0/0</div>
       </div>
-
-      <div class="hudBox">
-        <div class="lab">TIME</div>
-        <div class="val" id="uiTime">0</div>
-      </div>
-
-      <div class="hudBox">
-        <div class="lab">COMBO</div>
-        <div class="val"><span id="uiCombo">0</span> <span class="muted">/</span> <span id="uiComboMax">0</span></div>
-      </div>
-
-      <div class="hudBox">
-        <div class="lab">MISS</div>
-        <div class="val" id="uiMiss">0</div>
-      </div>
-
-      <div class="hudBox">
-        <div class="lab">ACC</div>
-        <div class="val"><span id="uiAcc">0%</span> <span class="muted">•</span> <span id="uiGrade">C</span></div>
-      </div>
-
-      <div class="hudBox">
-        <div class="lab">PLATE</div>
-        <div class="val"><span id="uiPlateHave">0</span><span class="muted">/5</span></div>
-      </div>
-
-      <div class="hudBox">
-        <div class="lab">🛡️</div>
-        <div class="val" id="uiShieldN">0</div>
-      </div>
+      <div class="bar"><div id="uiGoalFill" class="fill"></div></div>
     </div>
 
-    <!-- FEVER -->
-    <div class="fever">
-      <div class="feverLab">FEVER</div>
-      <div class="feverBar"><div id="uiFeverFill" class="feverFill" style="width:0%"></div></div>
-    </div>
-
-    <!-- GOAL -->
-    <div class="quest">
-      <div class="questHead">
-        <div class="qtag">🎯 GOAL</div>
-        <div class="qtext"><span id="uiGoalTitle">—</span> <span class="muted">•</span> <span id="uiGoalCount">0/0</span></div>
-      </div>
-      <div class="qbar"><div id="uiGoalFill" class="qfill" style="width:0%"></div></div>
-    </div>
-
-    <!-- MINI -->
-    <div id="miniPanel" class="quest miniQuest">
-      <div class="questHead">
-        <div class="qtag">⚡ MINI</div>
-        <div class="qtext">
-          <span id="uiMiniTitle">—</span>
-          <span class="muted">•</span>
-          <span id="uiMiniTime">--</span>
-          <span class="muted">•</span>
-          <span id="uiMiniCount">0/0</span>
+    <div id="miniPanel" class="hudBlock">
+      <div class="label">MINI</div>
+      <div class="row">
+        <div id="uiMiniTitle" class="ttl">—</div>
+        <div class="count">
+          <span id="uiMiniCount">0/0</span> • <span id="uiMiniTime">--</span>
         </div>
       </div>
-      <div class="qbar"><div id="uiMiniFill" class="qfill" style="width:0%"></div></div>
-      <div id="uiHint" class="hint">ทริค: เก็บ GOOD ให้แม่น ๆ</div>
-    </div>
-
-    <!-- BOSS -->
-    <div id="bossHud" class="bossHud" style="display:none">
-      <div class="bossRow">
-        <div class="bossTag">👾 BOSS</div>
-        <div id="bossText" class="bossText">10s • GOOD 0/8</div>
-      </div>
-      <div class="bossBar">
-        <div id="bossFill" class="bossFill" style="width:0%"></div>
-      </div>
+      <div class="bar"><div id="uiMiniFill" class="fill warn"></div></div>
+      <div id="uiHint" class="hint2">—</div>
     </div>
   </div>
 
-  <!-- COACH PANEL (bottom-right, above VR-UI panel) -->
-  <div id="coachPanel" class="coachPanel" aria-live="polite">
-    <img id="coachImg" class="coachImg" src="./img/coach-neutral.png" alt="Coach" />
-    <div class="coachMsg" id="coachMsg">พร้อมลุย! เติมจานให้ครบ 5 หมู่ 💪</div>
+  <!-- COACH -->
+  <div id="coachPanel" class="coach">
+    <img id="coachImg" alt="coach" src="./img/coach-neutral.png" />
+    <div class="bubble">
+      <div class="name">Coach</div>
+      <div id="coachMsg" class="msg">พร้อมแล้วกดเริ่มได้เลย!</div>
+    </div>
   </div>
 
-  <!-- HUD BUTTONS (bottom-left, keep bottom-right for vr-ui.js) -->
+  <!-- HUD BUTTONS -->
   <div id="hudBtns" class="hudBtns">
-    <button id="btnPause" class="btnHud" type="button">⏸</button>
-    <button id="btnRestart" class="btnHud" type="button">↻</button>
-    <button id="btnBackHub" class="btnHud" type="button">🏠</button>
+    <button id="btnPause" class="hbtn" type="button">⏸</button>
+    <button id="btnEnterVR" class="hbtn" type="button">🕶</button>
   </div>
 
-  <!-- PAUSED OVERLAY -->
-  <div id="hudPaused" class="overlay pausedOverlay" style="display:none" role="dialog" aria-modal="true">
-    <div class="card small">
+  <!-- HUD STATS -->
+  <div class="hudStats">
+    <div class="chip"><span class="k">TIME</span> <span id="uiTime" class="v">0</span></div>
+    <div class="chip"><span class="k">SCORE</span> <span id="uiScore" class="v">0</span></div>
+    <div class="chip"><span class="k">COMBO</span> <span id="uiCombo" class="v">0</span></div>
+    <div class="chip"><span class="k">MAX</span> <span id="uiComboMax" class="v">0</span></div>
+    <div class="chip danger"><span class="k">MISS</span> <span id="uiMiss" class="v">0</span></div>
+    <div class="chip"><span class="k">ACC</span> <span id="uiAcc" class="v">0%</span></div>
+    <div class="chip grade"><span class="k">GRADE</span> <span id="uiGrade" class="v">C</span></div>
+  </div>
+
+  <!-- Plate progress -->
+  <div class="platePanel">
+    <div class="plateHead">
+      <div class="plateT">🍽️ Plate</div>
+      <div class="plateN"><span id="uiPlateHave">0</span>/5</div>
+    </div>
+    <div class="plateRow">
+      <div class="pchip">🥦 <b id="uiG1">0</b></div>
+      <div class="pchip">🍎 <b id="uiG2">0</b></div>
+      <div class="pchip">🐟 <b id="uiG3">0</b></div>
+      <div class="pchip">🍚 <b id="uiG4">0</b></div>
+      <div class="pchip">🥑 <b id="uiG5">0</b></div>
+    </div>
+  </div>
+
+  <!-- Fever/Shield -->
+  <div class="gauges">
+    <div class="gauge">
+      <div class="gt">🔥 FEVER</div>
+      <div class="gbar"><div id="uiFeverFill" class="gfill"></div></div>
+    </div>
+    <div class="gauge">
+      <div class="gt">🛡 SHIELD</div>
+      <div class="gbar"><div class="gfill shield" style="width:100%"></div></div>
+      <div class="gsmall">x <b id="uiShieldN">0</b></div>
+    </div>
+  </div>
+
+  <!-- PAUSED -->
+  <div id="hudPaused" class="pauseOverlay" style="display:none">
+    <div class="card">
       <div class="title">⏸ Paused</div>
-      <div class="sub">แตะปุ่ม ⏸ อีกครั้งเพื่อเล่นต่อ</div>
-      <div class="actions">
-        <button class="btn primary" type="button" onclick="document.getElementById('btnPause').click()">▶ เล่นต่อ</button>
+      <div class="sub">กดปุ่ม Pause อีกครั้งเพื่อเล่นต่อ</div>
+      <div class="btnRow">
+        <button id="btnRestart" class="btn" type="button">เริ่มใหม่ ↻</button>
       </div>
     </div>
   </div>
 
-  <!-- RESULT MODAL -->
-  <div id="resultBackdrop" class="overlay resultOverlay" style="display:none" role="dialog" aria-modal="true">
-    <div class="card resultCard">
-      <div class="title">🏁 สรุปผล</div>
-      <div class="grid">
-        <div class="item"><div class="k">MODE</div><div class="v" id="rMode">play</div></div>
-        <div class="item"><div class="k">GRADE</div><div class="v" id="rGrade">C</div></div>
-        <div class="item"><div class="k">SCORE</div><div class="v" id="rScore">0</div></div>
-        <div class="item"><div class="k">MAX COMBO</div><div class="v" id="rMaxCombo">0</div></div>
-        <div class="item"><div class="k">MISS</div><div class="v" id="rMiss">0</div></div>
-        <div class="item"><div class="k">PERFECT</div><div class="v" id="rPerfect">0%</div></div>
-        <div class="item"><div class="k">GOALS</div><div class="v" id="rGoals">0/0</div></div>
-        <div class="item"><div class="k">MINIS</div><div class="v" id="rMinis">0/0</div></div>
+  <!-- BOSS HUD (optional) -->
+  <div id="bossHud" class="bossHud" style="display:none">
+    <div class="bossTitle">👾 BOSS</div>
+    <div class="bossBar"><div id="bossFill" class="bossFill"></div></div>
+    <div id="bossText" class="bossText">--</div>
+  </div>
+  <div id="bossFx" class="bossFx" style="display:none"></div>
+
+  <!-- RESULT -->
+  <div id="resultBackdrop" class="resultBackdrop" style="display:none">
+    <div class="resultCard">
+      <div class="rTop">
+        <div class="rTitle">🏁 Summary</div>
+        <div class="rSub">Mode: <b id="rMode">play</b></div>
       </div>
 
-      <div class="plateGrid">
-        <div class="pitem">🥦 <span id="rG1">0</span></div>
-        <div class="pitem">🍎 <span id="rG2">0</span></div>
-        <div class="pitem">🐟 <span id="rG3">0</span></div>
-        <div class="pitem">🍚 <span id="rG4">0</span></div>
-        <div class="pitem">🥑 <span id="rG5">0</span></div>
-        <div class="pitem total">รวม <span id="rGTotal">0</span></div>
+      <div class="rGrid">
+        <div class="rBig">
+          <div class="k">GRADE</div>
+          <div id="rGrade" class="v">A</div>
+        </div>
+        <div class="rBig">
+          <div class="k">SCORE</div>
+          <div id="rScore" class="v">0</div>
+        </div>
+        <div class="rBox"><div class="k">MAX COMBO</div><div id="rMaxCombo" class="v2">0</div></div>
+        <div class="rBox"><div class="k">MISS</div><div id="rMiss" class="v2">0</div></div>
+        <div class="rBox"><div class="k">FAST HIT</div><div id="rPerfect" class="v2">0%</div></div>
+        <div class="rBox"><div class="k">GOALS</div><div id="rGoals" class="v2">0/0</div></div>
+        <div class="rBox"><div class="k">MINIS</div><div id="rMinis" class="v2">0/0</div></div>
       </div>
 
-      <div class="actions">
-        <button id="btnPlayAgain" class="btn primary" type="button">▶ เล่นอีกครั้ง</button>
-        <button id="btnBackHub2" class="btn" type="button" onclick="document.getElementById('btnBackHub').click()">🏠 กลับ HUB</button>
+      <div class="rPlate">
+        <div class="k">Plate Counts</div>
+        <div class="plateRow">
+          <div class="pchip">🥦 <b id="rG1">0</b></div>
+          <div class="pchip">🍎 <b id="rG2">0</b></div>
+          <div class="pchip">🐟 <b id="rG3">0</b></div>
+          <div class="pchip">🍚 <b id="rG4">0</b></div>
+          <div class="pchip">🥑 <b id="rG5">0</b></div>
+          <div class="pchip total">Σ <b id="rGTotal">0</b></div>
+        </div>
       </div>
 
-      <div class="note">
-        * บันทึกผลล่าสุดไว้ใน <code>localStorage</code> (HHA_LAST_SUMMARY / HHA_SUMMARY_HISTORY)
+      <div class="btnRow">
+        <button id="btnPlayAgain" class="btn primary" type="button">เล่นอีกครั้ง ▶</button>
+        <button id="btnBackHub" class="btn" type="button">กลับ HUB ↩</button>
       </div>
     </div>
   </div>
 
+  <!-- ids used by JS but not visible (safe placeholders) -->
+  <span id="uiShieldN2" hidden></span>
 </body>
 </html>
