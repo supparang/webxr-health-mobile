@@ -1,8 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// Start-gated boot to prevent "target flash" + unify PC/Mobile/VR/cVR
+// Start-gated boot to prevent target flash + unify PC/Mobile/VR/cVR
 'use strict';
 
 import { boot as engineBoot } from './goodjunk.safe.js';
+import { applyCalibration, openCalibration } from './gj-calibration.js';
 
 const ROOT = window;
 const DOC  = document;
@@ -35,13 +36,15 @@ function ensureVrUi(){
   DOC.head.appendChild(s);
 }
 
-// START engine only after hha:start
 function startEngine(opts={}){
   if(started) return;
   started = true;
 
   const view = normalizeView(opts.view || qs('view','mobile'));
   setBodyView(view);
+
+  // ✅ load aimpoint from saved calibration (cVR/VR)
+  applyCalibration(view);
 
   ensureVrUi();
 
@@ -60,9 +63,38 @@ function startEngine(opts={}){
   });
 }
 
-ROOT.addEventListener('hha:start', (ev)=>{
-  const view = ev?.detail?.view || qs('view','mobile');
-  startEngine({ view });
+// ---- UI wiring ----
+const overlay = DOC.getElementById('startOverlay');
+const btnStart = DOC.getElementById('btnStart');
+const btnCalib = DOC.getElementById('btnCalib');
+const btnEnterVR = DOC.getElementById('btnEnterVR');
+
+btnStart?.addEventListener('click', ()=>{
+  overlay.style.display = 'none';
+  startEngine({ view: qs('view','mobile') });
+}, { passive:true });
+
+btnCalib?.addEventListener('click', ()=>{
+  const v = normalizeView(qs('view','cvr'));
+  openCalibration({ view:v, shotsNeed: 8 });
+}, { passive:true });
+
+btnEnterVR?.addEventListener('click', ()=>{
+  // preload VR UI then user can press Enter VR
+  ensureVrUi();
+  overlay.querySelector('.hint').textContent = 'โหลด VR UI แล้ว ✅ กด ENTER VR ที่มุมจอได้เลย';
+}, { passive:true });
+
+// Open calibration by query
+if(qs('calib','0')==='1'){
+  const v = normalizeView(qs('view','cvr'));
+  openCalibration({ view:v, shotsNeed: 8 });
+}
+
+// RECENTER from vr-ui opens calibration (cVR/VR only)
+ROOT.addEventListener('hha:recenter', ()=>{
+  const v = normalizeView(qs('view','cvr'));
+  if(v==='cvr' || v==='vr') openCalibration({ view:v, shotsNeed: 8 });
 }, { passive:true });
 
 // Preload VR UI when user wants cVR
