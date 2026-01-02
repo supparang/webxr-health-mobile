@@ -1,13 +1,15 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish)
+Food Groups VR — SAFE (PRODUCTION-ish, HHA Standard)
 ✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
 ✅ run=research => adaptive OFF + deterministic seed (spawns repeatable)
 ✅ diff=easy|normal|hard + basic adaptive (play only)
 ✅ Grade: SSS, SS, S, A, B, C
-✅ Miss definition aligned with HHA: miss = good expired + junk hit (wrong + mini fail NOT miss)
-✅ Mini counters: miniCleared / miniTotal
-Note: standalone engine — export at window.GroupsVR.GameEngine
+✅ Mini counts: miniTotal / miniCleared (real)
+✅ MISS (HHA): miss = good expired + junk hit (ONLY)
+   - wrong hit => tracked as error (not MISS)
+   - shoot miss => tracked separately (not MISS)
+Note: ไฟล์นี้ “ทำงานเดี่ยวได้” — export ไว้ที่ window.GroupsVR.GameEngine
 */
 
 (function (root) {
@@ -23,6 +25,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
   function nowMs() { return (root.performance && performance.now) ? performance.now() : Date.now(); }
 
   function hashSeed(str) {
+    // xfnv1a-ish
     str = String(str ?? '');
     let h = 2166136261 >>> 0;
     for (let i = 0; i < str.length; i++) {
@@ -33,6 +36,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
   }
 
   function makeRng(seedU32) {
+    // LCG
     let s = (seedU32 >>> 0) || 1;
     return function rand() {
       s = (Math.imul(1664525, s) + 1013904223) >>> 0;
@@ -40,14 +44,21 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     };
   }
 
-  function pick(rng, arr) { return arr[(rng() * arr.length) | 0]; }
+  function pick(rng, arr) {
+    return arr[(rng() * arr.length) | 0];
+  }
 
   function emit(name, detail) {
     try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
   }
 
-  function cssSet(el, k, v) { try { el.style.setProperty(k, v); } catch (_) {} }
-  function addBodyClass(c, on) { DOC.body.classList.toggle(c, !!on); }
+  function cssSet(el, k, v) {
+    try { el.style.setProperty(k, v); } catch (_) {}
+  }
+
+  function addBodyClass(c, on) {
+    DOC.body.classList.toggle(c, !!on);
+  }
 
   // ---------------- Content ----------------
   const GROUPS = [
@@ -57,21 +68,55 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     { key: 'grain',   th: 'ข้าว-แป้ง', emoji: ['🍚','🍞','🥖','🍜','🍝','🥟','🥞','🍙'] },
     { key: 'dairy',   th: 'นม',        emoji: ['🥛','🧈','🧀','🍦','🥣','🍼'] },
   ];
+
   const JUNK = ['🍟','🍔','🌭','🍕','🍩','🍭','🍬','🥤','🧋','🍫','🧁','🍰'];
 
   // ---------------- Difficulty presets ----------------
   function diffPreset(diff) {
     diff = String(diff || 'normal').toLowerCase();
     if (diff === 'easy') {
-      return { time: 90, baseSpawnMs: 780, stormEverySec: 26, stormLenSec: 7, targetSize: 1.02,
-        wrongRate: 0.22, junkRate: 0.12, bossHp: 6, powerThreshold: 7, goalTargets: 16, goalsTotal: 2 };
+      return {
+        time: 90,
+        baseSpawnMs: 780,
+        stormEverySec: 26,
+        stormLenSec: 7,
+        targetSize: 1.02,
+        wrongRate: 0.22,
+        junkRate: 0.12,
+        bossHp: 6,
+        powerThreshold: 7,
+        goalTargets: 16,
+        goalsTotal: 2,
+      };
     }
     if (diff === 'hard') {
-      return { time: 90, baseSpawnMs: 560, stormEverySec: 22, stormLenSec: 8, targetSize: 0.92,
-        wrongRate: 0.32, junkRate: 0.18, bossHp: 10, powerThreshold: 9, goalTargets: 22, goalsTotal: 2 };
+      return {
+        time: 90,
+        baseSpawnMs: 560,
+        stormEverySec: 22,
+        stormLenSec: 8,
+        targetSize: 0.92,
+        wrongRate: 0.32,
+        junkRate: 0.18,
+        bossHp: 10,
+        powerThreshold: 9,
+        goalTargets: 22,
+        goalsTotal: 2,
+      };
     }
-    return { time: 90, baseSpawnMs: 650, stormEverySec: 24, stormLenSec: 7, targetSize: 0.98,
-      wrongRate: 0.27, junkRate: 0.15, bossHp: 8, powerThreshold: 8, goalTargets: 19, goalsTotal: 2 };
+    return {
+      time: 90,
+      baseSpawnMs: 650,
+      stormEverySec: 24,
+      stormLenSec: 7,
+      targetSize: 0.98,
+      wrongRate: 0.27,
+      junkRate: 0.15,
+      bossHp: 8,
+      powerThreshold: 8,
+      goalTargets: 19,
+      goalsTotal: 2,
+    };
   }
 
   function gradeFrom(accPct, misses, score) {
@@ -79,6 +124,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     misses = Number(misses) || 0;
     score  = Number(score)  || 0;
 
+    // เน้นความแม่น + ความนิ่ง
     const mPenalty = Math.min(18, misses * 2.2);
     const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.2);
     const v = accPct - mPenalty + sBoost;
@@ -98,6 +144,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
 
     this.cfg = null;
     this.view = 'mobile';
+
     this.rng = null;
 
     this.startAt = 0;
@@ -108,7 +155,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     this.combo = 0;
     this.comboMax = 0;
 
-    // ✅ MISS (HHA): good expired + junk hit only
+    // ✅ MISS (HHA) = expire_good + hit_junk ONLY
     this.misses = 0;
 
     // counts (research/log)
@@ -126,6 +173,17 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
+    // mini counts (real)
+    this.miniTotal = 0;
+    this.miniCleared = 0;
+
+    // miss breakdown (HHA + extra)
+    this.missExpireGood = 0; // contributes to misses
+    this.missHitJunk = 0;    // contributes to misses
+    this.errHitWrong = 0;    // not a miss (separate)
+    this.shootMiss = 0;      // not a miss (separate)
+    this.miniFail = 0;       // not a miss (separate)
+
     // gameplay
     this.activeGroupIdx = 0;
     this.powerCharge = 0;
@@ -135,6 +193,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     this.nextStormAt = 0;
 
     this.spawnTmr = 0;
+    this.spawnEveryMs = 650;
 
     // quest
     this.goalsTotal = 2;
@@ -146,10 +205,6 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     this.mini = null; // {on, now, need, leftMs, forbidJunk, ok}
     this.nextMiniAt = 0;
 
-    // ✅ mini counters
-    this.miniTotal = 0;
-    this.miniCleared = 0;
-
     // targets
     this.targets = [];
     this._id = 0;
@@ -158,7 +213,9 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     this.coachLastAt = 0;
   }
 
-  Engine.prototype.setLayerEl = function (el) { this.layerEl = el; };
+  Engine.prototype.setLayerEl = function (el) {
+    this.layerEl = el;
+  };
 
   Engine.prototype.start = function (diff, opts) {
     opts = opts || {};
@@ -166,12 +223,22 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     const seedIn  = (opts.seed != null) ? String(opts.seed) : String(Date.now());
     const preset  = diffPreset(diff);
 
+    // allow override time from opts.time (clamped)
     const timeSec = clamp(opts.time ?? preset.time, 30, 180);
 
-    this.cfg = { diff: String(diff || 'normal').toLowerCase(), runMode, seed: seedIn, timeSec, preset };
+    this.cfg = {
+      diff: String(diff || 'normal').toLowerCase(),
+      runMode,
+      seed: seedIn,
+      timeSec,
+      preset,
+    };
+
     this.view = String(opts.view || DOC.body.className || '').includes('view-cvr') ? 'cvr' : (opts.view || 'mobile');
+
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
 
+    this.spawnEveryMs = preset.baseSpawnMs;
     this.leftSec = Math.round(timeSec);
 
     this.score = 0;
@@ -192,6 +259,15 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
+    this.miniTotal = 0;
+    this.miniCleared = 0;
+
+    this.missExpireGood = 0;
+    this.missHitJunk = 0;
+    this.errHitWrong = 0;
+    this.shootMiss = 0;
+    this.miniFail = 0;
+
     this.targets = [];
     this._id = 0;
 
@@ -204,34 +280,23 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     this.goalNow = 0;
 
     this.mini = null;
-    this.nextMiniAt = nowMs() + 14000;
-
-    // ✅ reset mini counters each run
-    this.miniTotal = 0;
-    this.miniCleared = 0;
+    this.nextMiniAt = nowMs() + 14000; // first mini later
 
     this.stormOn = false;
     this.stormUntil = 0;
     this.nextStormAt = nowMs() + preset.stormEverySec * 1000;
 
-    // ✅ IMPORTANT: reset coach limiter so “start coach” never gets blocked
-    this.coachLastAt = 0;
-
     this.running = true;
     this.startAt = nowMs();
     this.lastTick = this.startAt;
 
-    addBodyClass('clutch', false);
-    addBodyClass('groups-storm', false);
-    addBodyClass('groups-storm-urgent', false);
-
+    // initial UI pushes
     emit('hha:time', { left: this.leftSec });
     emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
     this._emitRank();
+    this._emitCoach('เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
     this._emitPower();
     this._emitQuestUpdate();
-
-    this._emitCoach('เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
 
     this._installInput();
     this._loop();
@@ -239,6 +304,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
 
   Engine.prototype._installInput = function () {
     const self = this;
+
     if (!this._onShoot) {
       this._onShoot = function () {
         if (!self.running) return;
@@ -254,6 +320,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
       if (!self.running) return;
 
       const t = nowMs();
+      const dt = Math.min(80, t - self.lastTick);
       self.lastTick = t;
 
       self._tickTime(t);
@@ -272,7 +339,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     const left = Math.max(0, Math.ceil(this.cfg.timeSec - elapsed));
     if (left !== this.leftSec) {
       this.leftSec = left;
-      emit('hha:time', { left });
+      emit('hha:time', { left: left });
 
       if (left === 10) this._emitCoach('อีก 10 วิ! เร่งขึ้น! 🔥', 'fever');
       if (left <= 3 && left > 0) addBodyClass('clutch', true);
@@ -303,6 +370,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
         addBodyClass('groups-storm', false);
         addBodyClass('groups-storm-urgent', false);
 
+        // spawn boss at storm end
         this._spawnBoss();
 
         this.nextStormAt = t + p.stormEverySec * 1000;
@@ -318,11 +386,17 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
       const need = (this.cfg.diff === 'hard') ? 6 : (this.cfg.diff === 'easy' ? 4 : 5);
       const durMs = (this.cfg.diff === 'hard') ? 8500 : 9000;
 
-      this.mini = { on: true, now: 0, need, leftMs: durMs, forbidJunk, ok: true, startedAt: t };
+      this.miniTotal += 1; // ✅ count started
 
-      // ✅ count mini started
-      this.miniTotal += 1;
-
+      this.mini = {
+        on: true,
+        now: 0,
+        need,
+        leftMs: durMs,
+        forbidJunk,
+        ok: true,
+        startedAt: t
+      };
       this._emitQuestUpdate();
       this._emitCoach(
         forbidJunk
@@ -340,8 +414,8 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
         const ok = (this.mini.now >= this.mini.need) && this.mini.ok;
 
         if (ok) {
-          // ✅ mini clear
-          this.miniCleared += 1;
+          this.miniCleared += 1; // ✅ cleared
+          emit('groups:progress', { kind: 'mini_clear' });
 
           this.score += 180;
           this.combo += 1;
@@ -349,7 +423,9 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
           emit('hha:judge', { kind: 'good', text: 'MINI CLEAR +180' });
           this._emitCoach('เยี่ยม! MINI ผ่าน! 🎉', 'happy');
         } else {
-          // ❌ mini fail: DO NOT increase MISS (HHA rule)
+          this.miniFail += 1; // ✅ separate, not MISS
+          emit('groups:progress', { kind: 'mini_fail' });
+
           this.combo = 0;
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL' });
           this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
@@ -360,6 +436,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
         this._emitRank();
         this._emitQuestUpdate();
 
+        // next mini later
         this.nextMiniAt = t + 22000 + ((this.rng() * 6000) | 0);
       } else {
         this._emitQuestUpdate(leftMs);
@@ -373,6 +450,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     const p = this.cfg.preset;
     const base = p.baseSpawnMs;
 
+    // adaptive (play only)
     let speed = 1.0;
     if (this.cfg.runMode === 'play') {
       const acc = this._accuracyPct();
@@ -380,6 +458,8 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
       if (this.combo >= 8) speed *= 0.90;
       if (this.misses >= 8) speed *= 1.12;
     }
+
+    // storm: faster
     if (this.stormOn) speed *= 0.78;
 
     const every = clamp(base * speed, 360, 980);
@@ -396,8 +476,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
       if (t >= tg.expireAt) {
         if (tg.kind === 'good') {
           this.nExpireGood++;
-          // ✅ miss: good expired
-          this._onMiss('expire_good');
+          this._onMiss('expire_good'); // ✅ contributes to MISS (HHA)
         } else if (tg.kind === 'wrong') {
           this.nExpireWrong++;
         } else if (tg.kind === 'junk') {
@@ -481,6 +560,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     const W = root.innerWidth || 360;
     const H = root.innerHeight || 640;
 
+    // avoid HUD / quest / coach / power
     const topPad = 150;
     const botPad = 130;
     const leftPad = 210;
@@ -504,7 +584,6 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
 
     const id = (++this._id);
     const born = nowMs();
-
     const tg = {
       id,
       el,
@@ -534,15 +613,21 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     const tg = this.targets[idx];
     if (!tg) return;
 
-    try { tg.el.classList.add(why === 'hit' ? 'hit' : 'out'); } catch (_) {}
+    try {
+      tg.el.classList.add(why === 'hit' ? 'hit' : 'out');
+    } catch (_) {}
 
-    setTimeout(() => { try { tg.el.remove(); } catch (_) {} }, 220);
+    setTimeout(() => {
+      try { tg.el.remove(); } catch (_) {}
+    }, 220);
+
     this.targets.splice(idx, 1);
   };
 
   Engine.prototype._hitTargetById = function (id, via) {
     if (!this.running) return;
     const t = nowMs();
+
     for (let i = 0; i < this.targets.length; i++) {
       if (this.targets[i].id === id) {
         const tg = this.targets[i];
@@ -571,7 +656,8 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
-      // crosshair miss: ไม่เพิ่ม misses (HHA miss is specific)
+      // not MISS by HHA definition; track separately
+      this.shootMiss += 1;
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS' });
       this._emitScore();
@@ -586,9 +672,12 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     if (tg.kind === 'boss') {
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
       try { tg.el.classList.add('fg-boss-hurt'); setTimeout(() => tg.el.classList.remove('fg-boss-hurt'), 120); } catch (_) {}
-      emit('hha:judge', { kind: 'boss', text: `BOSS -1` });
 
-      if (tg.bossHp <= Math.floor((tg.bossHpMax || 8) * 0.35)) { try { tg.el.classList.add('fg-boss-weak'); } catch (_) {} }
+      emit('hha:judge', { kind: 'boss', text: `BOSS -${1}` });
+
+      if (tg.bossHp <= Math.floor((tg.bossHpMax || 8) * 0.35)) {
+        try { tg.el.classList.add('fg-boss-weak'); } catch (_) {}
+      }
 
       if (tg.bossHp <= 0) {
         this.score += 320;
@@ -620,11 +709,14 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
 
       const add = 20 + Math.min(24, this.combo * 1.6);
       this.score += Math.round(add);
+
       this.powerCharge = Math.min(p.powerThreshold, this.powerCharge + 1);
 
       emit('hha:judge', { kind: 'good', text: `+${Math.round(add)}` });
 
-      if (this.mini && this.mini.on) this.mini.now += 1;
+      if (this.mini && this.mini.on) {
+        this.mini.now += 1;
+      }
 
       this._advanceQuestOnGood(1);
       this._maybeSwitchGroup();
@@ -643,10 +735,13 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
       this.nHitWrong++;
       this.totalJudgedForAcc++;
 
-      // ✅ WRONG = ไม่ใช่ MISS ตามนิยาม HHA
+      // HHA: wrong is NOT miss; separate error
+      this.errHitWrong += 1;
+
       this.combo = 0;
       this.score = Math.max(0, this.score - 12);
 
+      emit('groups:progress', { kind: 'wrong_hit' });
       emit('hha:judge', { kind: 'bad', text: '-12' });
 
       this._removeTarget(idx, 'hit');
@@ -654,7 +749,6 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
       this._emitRank();
       this._emitQuestUpdate();
       this._emitCoach(`ไม่ใช่หมู่ “${gActive.th}” นะ!`, 'sad');
-      emit('groups:progress', { kind: 'wrong' });
       return;
     }
 
@@ -662,10 +756,13 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
-    if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
+    if (this.mini && this.mini.on && this.mini.forbidJunk) {
+      this.mini.ok = false;
+    }
 
-    // ✅ JUNK HIT = MISS ตามนิยาม HHA
     this.combo = 0;
+
+    // HHA: junk hit is MISS
     this._onMiss('junk');
 
     this.score = Math.max(0, this.score - 18);
@@ -680,9 +777,24 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
   };
 
   Engine.prototype._onMiss = function (why) {
-    // ✅ HHA miss: good expired + junk hit only
-    this.misses += 1;
-    emit('groups:progress', { kind: 'miss', why });
+    const w = String(why || '');
+
+    // ✅ HHA: MISS only when expire_good OR junk
+    if (w === 'expire_good') {
+      this.misses += 1;
+      this.missExpireGood += 1;
+      emit('groups:progress', { kind: 'miss', why: w });
+      return;
+    }
+    if (w === 'junk') {
+      this.misses += 1;
+      this.missHitJunk += 1;
+      emit('groups:progress', { kind: 'miss', why: w });
+      return;
+    }
+
+    // everything else is tracked separately (no MISS)
+    emit('groups:progress', { kind: 'non_miss', why: w });
   };
 
   Engine.prototype._maybeSwitchGroup = function () {
@@ -795,7 +907,11 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
       groupKey: g.key,
       groupName: g.th,
       goalIndex: this.goalIndex,
-      goalsTotal: this.goalsTotal
+      goalsTotal: this.goalsTotal,
+
+      // ✅ optional debug
+      miniCleared: this.miniCleared | 0,
+      miniStarted: this.miniTotal | 0
     });
   };
 
@@ -803,6 +919,7 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
     const t = nowMs();
     if (t - this.coachLastAt < 450) return;
     this.coachLastAt = t;
+
     emit('hha:coach', { text: String(text || ''), mood: String(mood || 'neutral') });
   };
 
@@ -825,20 +942,31 @@ Note: standalone engine — export at window.GroupsVR.GameEngine
       reason: String(reason || 'end'),
       scoreFinal: this.score | 0,
       comboMax: this.comboMax | 0,
+
+      // ✅ HHA MISS
       misses: this.misses | 0,
+      missExpireGood: this.missExpireGood | 0,
+      missHitJunk: this.missHitJunk | 0,
+
+      // ✅ extra (not MISS)
+      errHitWrong: this.errHitWrong | 0,
+      shootMiss: this.shootMiss | 0,
+      miniFail: this.miniFail | 0,
+
       accuracyGoodPct: acc,
       grade,
 
-      goalsCleared: Math.min(this.goalsTotal, this.goalIndex),
+      goalsCleared: Math.min(this.goalsTotal, this.goalIndex + (this.goalNow >= this.goalNeed ? 1 : 0)),
       goalsTotal: this.goalsTotal,
 
-      // ✅ mini counters included
+      // ✅ real mini
       miniCleared: this.miniCleared | 0,
       miniTotal: this.miniTotal | 0,
 
       durationPlayedSec: playedSec,
       durationPlannedSec: this.cfg.timeSec | 0,
 
+      // counts
       nTargetGoodSpawned: this.nTargetGoodSpawned | 0,
       nTargetJunkSpawned: this.nTargetJunkSpawned | 0,
       nTargetWrongSpawned: this.nTargetWrongSpawned | 0,
