@@ -1,13 +1,19 @@
 /* === /herohealth/vr-groups/groups.safe.js ===
-Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
+Food Groups VR — SAFE (PRODUCTION-ish) — PATCH v3
 ✅ PC / Mobile / Cardboard(cVR) (shoot from crosshair via hha:shoot)
 ✅ Emits: hha:score, hha:time, hha:rank, hha:coach, quest:update, groups:power, groups:progress, hha:judge, hha:end
-✅ run=research => adaptive OFF + deterministic seed
+✅ run=research => adaptive OFF + deterministic seed (spawns repeatable)
 ✅ diff=easy|normal|hard + basic adaptive (play only)
 ✅ Grade: SSS, SS, S, A, B, C
-✅ PATCH A: Miss definition = good expired + junk hit (wrong hit NOT miss)
-✅ PATCH B: lifeMul by view (mobile/cvr) + spawn clamp more fair
-✅ PATCH C: miniCleared/miniTotal tracked & included in summary
+
+PATCH v3:
+✅ FIX: Practice -> Real start “coach จบเกมแล้วค้าง” (reset coach rate-limit on start)
+✅ HHA Miss definition: miss = good expired + junk hit ONLY
+   - wrong hit NO longer increments misses
+   - mini fail NO longer increments misses
+✅ Track miniTotal / miniCleared for end summary
+✅ goalsCleared uses goalIndex (true cleared goals)
+Note: ไฟล์นี้ทำงานเดี่ยวได้ — export ไว้ที่ window.GroupsVR.GameEngine
 */
 
 (function (root) {
@@ -23,7 +29,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
   function nowMs() { return (root.performance && performance.now) ? performance.now() : Date.now(); }
 
   function hashSeed(str) {
-    // xfnv1a-ish
     str = String(str ?? '');
     let h = 2166136261 >>> 0;
     for (let i = 0; i < str.length; i++) {
@@ -34,7 +39,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
   }
 
   function makeRng(seedU32) {
-    // LCG
     let s = (seedU32 >>> 0) || 1;
     return function rand() {
       s = (Math.imul(1664525, s) + 1013904223) >>> 0;
@@ -42,9 +46,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     };
   }
 
-  function pick(rng, arr) {
-    return arr[(rng() * arr.length) | 0];
-  }
+  function pick(rng, arr) { return arr[(rng() * arr.length) | 0]; }
 
   function emit(name, detail) {
     try { root.dispatchEvent(new CustomEvent(name, { detail })); } catch (_) {}
@@ -122,7 +124,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     misses = Number(misses) || 0;
     score  = Number(score)  || 0;
 
-    // เน้นความแม่น + ความนิ่ง
     const mPenalty = Math.min(18, misses * 2.2);
     const sBoost   = Math.min(8, Math.log10(Math.max(10, score)) * 2.2);
     const v = accPct - mPenalty + sBoost;
@@ -152,19 +153,20 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     this.score = 0;
     this.combo = 0;
     this.comboMax = 0;
-    this.misses = 0;
 
-    // PATCH B: lifetime multiplier by view
-    this.lifeMul = 1.0;
+    // ✅ HHA Miss definition: good expired + junk hit ONLY
+    this.misses = 0;
 
     // counts (research/log)
     this.nTargetGoodSpawned = 0;
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
+
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
+
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
@@ -185,15 +187,13 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
 
     // quest
     this.goalsTotal = 2;
-    this.goalIndex = 0;
+    this.goalIndex = 0;   // ✅ counts cleared goals
     this.goalNow = 0;
     this.goalNeed = 18;
 
     // mini
     this.mini = null; // {on, now, need, leftMs, forbidJunk, ok}
     this.nextMiniAt = 0;
-
-    // PATCH C: mini counters
     this.miniTotal = 0;
     this.miniCleared = 0;
 
@@ -215,7 +215,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     const seedIn  = (opts.seed != null) ? String(opts.seed) : String(Date.now());
     const preset  = diffPreset(diff);
 
-    // allow override time from opts.time (clamped)
     const timeSec = clamp(opts.time ?? preset.time, 30, 180);
 
     this.cfg = {
@@ -227,9 +226,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     };
 
     this.view = String(opts.view || DOC.body.className || '').includes('view-cvr') ? 'cvr' : (opts.view || 'mobile');
-
-    // PATCH B: fairer lifetime by view
-    this.lifeMul = (this.view === 'cvr') ? 1.40 : (this.view === 'mobile' ? 1.30 : 1.00);
 
     this.rng = makeRng(hashSeed(seedIn + '::groups'));
 
@@ -245,12 +241,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     this.nTargetWrongSpawned = 0;
     this.nTargetJunkSpawned = 0;
     this.nTargetBossSpawned = 0;
+
     this.nHitGood = 0;
     this.nHitWrong = 0;
     this.nHitJunk = 0;
+
     this.nExpireGood = 0;
     this.nExpireWrong = 0;
     this.nExpireJunk = 0;
+
     this.hitGoodForAcc = 0;
     this.totalJudgedForAcc = 0;
 
@@ -266,9 +265,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     this.goalNow = 0;
 
     this.mini = null;
-    this.nextMiniAt = nowMs() + 14000; // first mini later
-    this.miniTotal = 0;   // PATCH C
-    this.miniCleared = 0; // PATCH C
+    this.nextMiniAt = nowMs() + 14000;
+    this.miniTotal = 0;
+    this.miniCleared = 0;
 
     this.stormOn = false;
     this.stormUntil = 0;
@@ -278,13 +277,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     this.startAt = nowMs();
     this.lastTick = this.startAt;
 
-    // initial UI pushes
+    // ✅ FIX: allow coach message immediately on new start (practice -> real)
+    this.coachLastAt = -1e9;
+
     emit('hha:time', { left: this.leftSec });
     emit('hha:score', { score: this.score, combo: this.combo, misses: this.misses });
     this._emitRank();
-    this._emitCoach('เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
     this._emitPower();
     this._emitQuestUpdate();
+    this._emitCoach('เริ่มเลย! เล็งให้ตรงหมู่ แล้วค่อยยิง 🎯', 'happy');
 
     this._installInput();
     this._loop();
@@ -292,6 +293,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
 
   Engine.prototype._installInput = function () {
     const self = this;
+
     if (!this._onShoot) {
       this._onShoot = function () {
         if (!self.running) return;
@@ -307,7 +309,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
       if (!self.running) return;
 
       const t = nowMs();
-      const dt = Math.min(80, t - self.lastTick);
       self.lastTick = t;
 
       self._tickTime(t);
@@ -357,7 +358,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
         addBodyClass('groups-storm', false);
         addBodyClass('groups-storm-urgent', false);
 
-        // spawn boss at storm end
         this._spawnBoss();
 
         this.nextStormAt = t + p.stormEverySec * 1000;
@@ -383,12 +383,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
         startedAt: t
       };
 
-      // PATCH C
       this.miniTotal += 1;
 
       this._emitQuestUpdate();
-      this._emitCoach(forbidJunk ? `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ และห้ามโดนขยะ!` :
-                                   `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ`, 'neutral');
+      this._emitCoach(
+        forbidJunk
+          ? `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ และห้ามโดนขยะ!`
+          : `MINI: ให้ถูก ${need} ภายใน ${Math.round(durMs/1000)} วิ`,
+        'neutral'
+      );
     }
 
     if (this.mini && this.mini.on) {
@@ -398,7 +401,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
       if (leftMs <= 0) {
         const ok = (this.mini.now >= this.mini.need) && this.mini.ok;
         if (ok) {
-          // PATCH C
           this.miniCleared += 1;
 
           this.score += 180;
@@ -407,8 +409,8 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
           emit('hha:judge', { kind: 'good', text: 'MINI CLEAR +180' });
           this._emitCoach('เยี่ยม! MINI ผ่าน! 🎉', 'happy');
         } else {
+          // ✅ mini fail should NOT affect HHA Miss
           this.combo = 0;
-          this.misses += 1; // mini fail = miss pressure (ยังคงไว้)
           emit('hha:judge', { kind: 'miss', text: 'MINI FAIL' });
           this._emitCoach('เกือบแล้ว! รอบหน้าเอาใหม่ 😤', 'sad');
         }
@@ -441,8 +443,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
 
     if (this.stormOn) speed *= 0.78;
 
-    // PATCH B: clamp more fair (avoid too fast on small screens)
-    const every = clamp(base * speed, 420, 980);
+    const every = clamp(base * speed, 360, 980);
 
     if (t - this.spawnTmr >= every) {
       this.spawnTmr = t;
@@ -454,9 +455,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     for (let i = this.targets.length - 1; i >= 0; i--) {
       const tg = this.targets[i];
       if (t >= tg.expireAt) {
-        if (tg.kind === 'good') { this.nExpireGood++; this._onMiss('expire_good'); }
-        else if (tg.kind === 'wrong') { this.nExpireWrong++; }
-        else if (tg.kind === 'junk') { this.nExpireJunk++; }
+        if (tg.kind === 'good') {
+          this.nExpireGood++;
+          // ✅ HHA Miss: good expired counts
+          this._onMiss('expire_good');
+        } else if (tg.kind === 'wrong') {
+          this.nExpireWrong++;
+        } else if (tg.kind === 'junk') {
+          this.nExpireJunk++;
+        }
         this._removeTarget(i, 'expire');
       }
     }
@@ -501,10 +508,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     }
 
     const size = p.targetSize * (kind === 'junk' ? 0.98 : 1.0);
-
-    // PATCH B: longer lifetime on mobile/cvr
-    const baseLife = this.stormOn ? 2400 : 3100;
-    const lifeMs = Math.round(baseLife * (this.lifeMul || 1));
+    const lifeMs = this.stormOn ? 2400 : 3100;
 
     this._spawnDomTarget({ kind, emoji, cls, size, lifeMs });
   };
@@ -517,16 +521,12 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     const hp = p.bossHp;
 
     this.nTargetBossSpawned++;
-
-    // boss also benefits a bit from lifeMul but not too much
-    const lifeMs = Math.round(7000 * clamp(this.lifeMul || 1, 1.0, 1.25));
-
     this._spawnDomTarget({
       kind: 'boss',
       emoji,
       cls: 'fg-target fg-boss',
       size: 1.0,
-      lifeMs,
+      lifeMs: 7000,
       bossHp: hp,
       bossHpMax: hp
     });
@@ -595,7 +595,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     if (!tg) return;
 
     try { tg.el.classList.add(why === 'hit' ? 'hit' : 'out'); } catch (_) {}
-    setTimeout(() => { try { tg.el.remove(); } catch (_) {} }, 220);
+
+    setTimeout(() => {
+      try { tg.el.remove(); } catch (_) {}
+    }, 220);
 
     this.targets.splice(idx, 1);
   };
@@ -632,6 +635,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
       const tg = this.targets[bestI];
       this._onHit(tg, bestI, 'shoot', nowMs());
     } else {
+      // "shoot miss" ไม่ถือเป็น Miss ตามนิยาม HHA
       this.combo = 0;
       emit('hha:judge', { kind: 'miss', text: 'MISS' });
       this._emitScore();
@@ -647,7 +651,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
       tg.bossHp = Math.max(0, (tg.bossHp || 1) - 1);
       try { tg.el.classList.add('fg-boss-hurt'); setTimeout(() => tg.el.classList.remove('fg-boss-hurt'), 120); } catch (_) {}
 
-      emit('hha:judge', { kind: 'boss', text: `BOSS -${1}` });
+      emit('hha:judge', { kind: 'boss', text: `BOSS -1` });
 
       if (tg.bossHp <= Math.floor((tg.bossHpMax || 8) * 0.35)) {
         try { tg.el.classList.add('fg-boss-weak'); } catch (_) {}
@@ -707,12 +711,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
       this.nHitWrong++;
       this.totalJudgedForAcc++;
 
+      // ✅ wrong hit is NOT Miss (HHA definition)
       this.combo = 0;
-
-      // PATCH A: wrong hit NOT a miss (per HHA miss definition)
-      emit('groups:progress', { kind: 'wrong', why: 'wrong' });
-
       this.score = Math.max(0, this.score - 12);
+
       emit('hha:judge', { kind: 'bad', text: '-12' });
 
       this._removeTarget(idx, 'hit');
@@ -727,14 +729,15 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     this.nHitJunk++;
     this.totalJudgedForAcc++;
 
-    if (this.mini && this.mini.on && this.mini.forbidJunk) {
-      this.mini.ok = false;
-    }
+    if (this.mini && this.mini.on && this.mini.forbidJunk) this.mini.ok = false;
 
     this.combo = 0;
-    this._onMiss('junk'); // PATCH A: junk hit counts as miss
+
+    // ✅ HHA Miss: junk hit counts
+    this._onMiss('junk');
 
     this.score = Math.max(0, this.score - 18);
+
     emit('hha:judge', { kind: 'bad', text: '-18' });
 
     this._removeTarget(idx, 'hit');
@@ -745,7 +748,7 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
   };
 
   Engine.prototype._onMiss = function (why) {
-    // PATCH A: miss definition = good expired + junk hit
+    // ✅ HHA Miss definition only
     this.misses += 1;
     emit('groups:progress', { kind: 'miss', why });
   };
@@ -838,10 +841,10 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
       miniTotal = this.mini.need | 0;
       miniPct = clamp((miniNow / Math.max(1, miniTotal)) * 100, 0, 100);
 
-      const tt = nowMs();
+      const t = nowMs();
       const left = (miniLeftMs != null)
         ? Number(miniLeftMs)
-        : Math.max(0, (this.mini.leftMs - (tt - this.mini.startedAt)));
+        : Math.max(0, (this.mini.leftMs - (t - this.mini.startedAt)));
       miniTimeLeftSec = Math.ceil(left / 1000);
     }
 
@@ -868,7 +871,6 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
     const t = nowMs();
     if (t - this.coachLastAt < 450) return;
     this.coachLastAt = t;
-
     emit('hha:coach', { text: String(text || ''), mood: String(mood || 'neutral') });
   };
 
@@ -895,10 +897,9 @@ Food Groups VR — SAFE (PRODUCTION-ish) — PATCH A+B+C
       accuracyGoodPct: acc,
       grade,
 
-      goalsCleared: Math.min(this.goalsTotal, this.goalIndex + (this.goalNow >= this.goalNeed ? 1 : 0)),
-      goalsTotal: this.goalsTotal,
+      goalsCleared: Math.min(this.goalsTotal, this.goalIndex | 0),
+      goalsTotal: this.goalsTotal | 0,
 
-      // PATCH C: mini counters
       miniCleared: this.miniCleared | 0,
       miniTotal: this.miniTotal | 0,
 
