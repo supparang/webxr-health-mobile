@@ -1,282 +1,328 @@
 // === /herohealth/vr/ai-hooks.js ===
-// HHA AI Hooks — standard plug points (OFF by default, esp. research)
-// Supports:
-//  (1) AI Difficulty Director (fair, smooth)
-//  (2) AI Coach micro-tips (rate-limited, explainable)
-//  (3) AI Pattern Generator (seeded/deterministic)
-// Notes:
-//  - Default: DISABLED unless ai=1 AND run!=research
-//  - In research: always OFF unless ai=force (explicit)
-
-// API:
-//   const AI = createAIHooks({ game, run, diff, seed, emit })
-//   AI.enabled -> boolean
-//   AI.flags -> { director, coach, pattern }
-//   AI.onStart({ getState, getTune })
-//   AI.onUpdate({ dt, stateSnapshot, tuneSnapshot })
-//   AI.onEvent(name, detail)  // forward important events
-//   AI.applyDirector({ propose }) -> director suggestions (not auto-apply unless you call propose.apply())
-//   AI.applyPattern({ propose }) -> pattern suggestions
-//   AI.getCoachTip(stateSnapshot) -> optional tip string (rate-limited)
-//   AI.debug() -> current AI internal values
+// HHA AI Hooks — Universal plug points for all HeroHealth games
+// Provides: window.HHA_AI = { cfg, rng, onEvent, onTick, get, suggest, decide, pattern }
+// Default: SAFE (no-op). Research mode disables adaptive unless explicitly enabled.
+//
+// Usage:
+// 1) Include before game safe.js (or at least before boot): <script src="../vr/ai-hooks.js" defer></script>
+// 2) In game safe.js: call HHA_AI.onEvent(...), HHA_AI.onTick(...)
+// 3) Ask for decisions:
+//    - director: HHA_AI.decide('difficulty', {baseSpawnMs, baseSizePx, ...})
+//    - pattern : HHA_AI.pattern('spawn', {t, stage, inStorm, ...})
+//    - coach   : HHA_AI.suggest('tip', {state snapshot})
+//
+// Query flags:
+// - run=research => adaptive OFF by default
+// - ai=1 => enable AI (still deterministic if seed provided)
+// - aiDirector=1 / aiCoach=1 / aiPattern=1 granular enable
+// - seed=... deterministic RNG
 
 'use strict';
 
-function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+(function(root){
+  const DOC = root.document;
+  const qs=(k,d=null)=>{ try{ return new URL(location.href).searchParams.get(k) ?? d; }catch(_){ return d; } };
+  const clamp=(v,a,b)=>{ v=Number(v)||0; return v<a?a:(v>b?b:v); };
 
-function hashStr(s){
-  s=String(s||''); let h=2166136261;
-  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
-  return (h>>>0);
-}
-function makeRng(seedStr){
-  let x = hashStr(seedStr) || 123456789;
-  return function(){
-    x ^= x << 13; x >>>= 0;
-    x ^= x >> 17; x >>>= 0;
-    x ^= x << 5;  x >>>= 0;
-    return (x>>>0)/4294967296;
-  };
-}
-
-function qs(k, def=null){
-  try{ return new URL(location.href).searchParams.get(k) ?? def; }catch(_){ return def; }
-}
-
-function parseBool(v, def=false){
-  if (v==null) return def;
-  const s=String(v).toLowerCase();
-  if (s==='1'||s==='true'||s==='yes'||s==='on') return true;
-  if (s==='0'||s==='false'||s==='no'||s==='off') return false;
-  return def;
-}
-
-export function createAIHooks(opts = {}){
-  const game = String(opts.game || 'game');
-  const run  = String(opts.run  || 'play').toLowerCase();
-  const diff = String(opts.diff || 'normal').toLowerCase();
-  const seed = String(opts.seed || Date.now());
-
-  const emit = (typeof opts.emit === 'function') ? opts.emit : (name, detail)=>{
-    try{ window.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-  };
-
-  // ---- Flags (default OFF) ----
-  // ai=1 enables in play; research stays OFF unless ai=force
-  const aiParam = String(qs('ai', qs('aiHooks','')) || '');
-  const force = (aiParam.toLowerCase()==='force');
-
-  const enabledDefault =
-    (force && aiParam) ? true :
-    (parseBool(aiParam, false) && run !== 'research');
-
-  const flags = {
-    director: enabledDefault && parseBool(qs('aiDiff', '1'), true),
-    coach:    enabledDefault && parseBool(qs('aiCoach','1'), true),
-    pattern:  enabledDefault && parseBool(qs('aiPattern','1'), true),
-  };
-
-  const enabled = !!(flags.director || flags.coach || flags.pattern);
-
-  // Seeded RNG for pattern/director choices (deterministic when enabled)
-  const rng = makeRng(`${seed}|${game}|AIHOOKS|${run}|${diff}`);
-
-  // ---- Internal state (kept deterministic-ish) ----
-  const M = {
-    started:false,
-    t0:0,
-    lastTipAt:0,
-    tipCooldownMs: 3200,
-
-    // director smoothing
-    emaSkill: 0.45,
-    emaStress: 0.25,
-    emaMissRate: 0.20,
-    emaAcc: 0.70,
-
-    // pattern schedule (optional)
-    patternMode: 'neutral', // neutral | pressure | recovery
-    patternTimer: 0,
-    nextPatternSwitchIn: 6.0,
-
-    // last proposals
-    lastDirector: null,
-    lastPattern: null,
-  };
-
-  function now(){ return performance.now(); }
-
-  function onStart(ctx = {}){
-    M.started = true;
-    M.t0 = now();
-    M.lastTipAt = 0;
-    M.patternTimer = 0;
-    M.nextPatternSwitchIn = 6.0 + rng()*3.0;
-    emit('hha:ai', { type:'start', game, run, diff, seed, enabled, flags });
+  // ---------- Deterministic RNG ----------
+  function hashStr(s){
+    s=String(s||''); let h=2166136261;
+    for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+    return (h>>>0);
   }
-
-  // Explainable coach tip (rate-limited)
-  function getCoachTip(s){
-    if (!enabled || !flags.coach) return null;
-    const t = now();
-    if (t - M.lastTipAt < M.tipCooldownMs) return null;
-
-    // Expect s includes: acc(0-1), combo, misses, inStorm, inEndWindow, waterZone, shield
-    const acc = clamp(s.acc||0, 0, 1);
-    const combo = (s.combo|0);
-    const miss = (s.misses|0);
-    const inStorm = !!s.inStorm;
-    const inEnd = !!s.inEndWindow;
-    const zone = String(s.waterZone||'');
-    const shield = (s.shield|0);
-
-    // Choose 1 tip with reasons (explainable)
-    let tip = null;
-
-    if (inStorm && inEnd){
-      if (shield<=0) tip = `⚠️ End Window แล้ว แต่ไม่มี 🛡️ — เก็บโล่ก่อนพายุ 1–2 อัน จะ BLOCK ได้ชัวร์`;
-      else tip = `✅ End Window! ตอนนี้โฟกัส BLOCK (ใช้ 🛡️) ให้ผ่าน Mini`;
-    } else if (inStorm && zone==='GREEN'){
-      tip = `🌀 STORM: ต้องทำให้น้ำไม่ GREEN (LOW/HIGH) ก่อน แล้วค่อยรอ End Window เพื่อ BLOCK`;
-    } else if (!inStorm && shield<=0){
-      tip = `🛡️ ทิป: เก็บโล่ไว้ก่อนพายุ จะผ่าน Stage2/Stage3 ง่ายขึ้น`;
-    } else if (acc < 0.60){
-      tip = `🎯 Accuracy ต่ำ (${Math.round(acc*100)}%) — เล็งค้างนิดเดียวแล้วค่อยยิง อย่ารัว`;
-    } else if (miss >= 18){
-      tip = `💥 MISS เยอะ — เลือกยิงเป้าที่ชัวร์ ลดการสุ่มยิง`;
-    } else if (combo >= 10 && acc >= 0.78){
-      tip = `⚡ ฟอร์มดีมาก! รักษาคอมโบยาว ๆ แล้วเกรดจะพุ่ง`;
-    }
-
-    if (!tip) return null;
-    M.lastTipAt = t;
-    return tip;
-  }
-
-  // Director: propose gentle tuning changes (DO NOT auto-apply unless caller applies)
-  // propose({ spawnMul, sizeMul, badMul, shieldMul, reason })
-  function applyDirector({ propose } = {}){
-    if (!enabled || !flags.director) return null;
-
-    // propose is callback you supply; we only compute suggestion
-    // Expect snapshots from onUpdate caller
-    // We'll use M.emaSkill etc. already updated in onUpdate
-    const skill = clamp(M.emaSkill, 0, 1);
-    const stress = clamp(M.emaStress, 0, 1);
-
-    // Fair adaptive: if stress high -> ease; if skill high -> pressure
-    let spawnMul = 1.0;
-    let sizeMul  = 1.0;
-    let badMul   = 1.0;
-    let shieldMul= 1.0;
-
-    if (stress > 0.72){
-      spawnMul *= 1.08;  // slower
-      sizeMul  *= 1.10;  // bigger
-      badMul   *= 0.92;  // fewer bad
-      shieldMul*= 1.12;  // slightly more shields
-    } else if (skill > 0.78 && stress < 0.45){
-      spawnMul *= 0.92;  // faster
-      sizeMul  *= 0.94;  // smaller
-      badMul   *= 1.08;  // more bad
-      shieldMul*= 0.96;  // fewer shields
-    } else {
-      // neutral
-    }
-
-    const suggestion = {
-      spawnMul: clamp(spawnMul, 0.85, 1.20),
-      sizeMul:  clamp(sizeMul, 0.88, 1.18),
-      badMul:   clamp(badMul,  0.85, 1.18),
-      shieldMul:clamp(shieldMul,0.85, 1.25),
-      reason: `director: skill=${skill.toFixed(2)} stress=${stress.toFixed(2)}`
+  function makeRng(seedStr){
+    let x = hashStr(seedStr) || 123456789;
+    return function(){
+      x ^= x << 13; x >>>= 0;
+      x ^= x >> 17; x >>>= 0;
+      x ^= x << 5;  x >>>= 0;
+      return (x>>>0) / 4294967296;
     };
-
-    M.lastDirector = suggestion;
-    emit('hha:ai', { type:'director', ...suggestion });
-
-    if (typeof propose === 'function') propose(suggestion);
-    return suggestion;
   }
 
-  // Pattern: propose phase flavor (pressure/recovery) to modify spawn mix temporarily
-  function applyPattern({ propose } = {}){
-    if (!enabled || !flags.pattern) return null;
+  // ---------- Config ----------
+  const run = String(qs('run', qs('runMode','play'))).toLowerCase();
+  const diff = String(qs('diff','normal')).toLowerCase();
+  const seed = String(qs('seed', qs('sessionId', qs('studentKey','')) || qs('ts', Date.now())));
 
-    const suggestion = {
-      mode: M.patternMode,
-      // multipliers applied to probabilities (caller decides how)
-      pGoodMul: (M.patternMode==='pressure') ? 0.92 : (M.patternMode==='recovery') ? 1.08 : 1.00,
-      pBadMul:  (M.patternMode==='pressure') ? 1.12 : (M.patternMode==='recovery') ? 0.88 : 1.00,
-      pShieldMul:(M.patternMode==='pressure')? 0.96 : (M.patternMode==='recovery') ? 1.10 : 1.00,
-      reason: `pattern:${M.patternMode}`
-    };
+  const ai = String(qs('ai','')).toLowerCase();              // "1" => enable
+  const aiDirector = String(qs('aiDirector','')).toLowerCase();
+  const aiCoach = String(qs('aiCoach','')).toLowerCase();
+  const aiPattern = String(qs('aiPattern','')).toLowerCase();
 
-    M.lastPattern = suggestion;
-    emit('hha:ai', { type:'pattern', ...suggestion });
+  const isResearch = (run === 'research' || run === 'study');
 
-    if (typeof propose === 'function') propose(suggestion);
-    return suggestion;
-  }
+  // SAFE DEFAULT: in research, all off unless explicitly enabled
+  const enableAll = (!isResearch) && (ai === '1' || ai === 'true');
+  const enableDirector = (aiDirector === '1' || aiDirector === 'true') || enableAll;
+  const enableCoach    = (aiCoach === '1' || aiCoach === 'true') || enableAll;
+  const enablePattern  = (aiPattern === '1' || aiPattern === 'true') || enableAll;
 
-  // Update smoothing values using stateSnapshot
-  function onUpdate(payload = {}){
-    if (!enabled) return;
+  const cfg = {
+    run, diff, seed, isResearch,
+    enabled: enableAll || enableDirector || enableCoach || enablePattern,
+    enableDirector: !!enableDirector,
+    enableCoach: !!enableCoach,
+    enablePattern: !!enablePattern,
 
-    const s = payload.stateSnapshot || {};
-    const dt = clamp(payload.dt || 0, 0, 0.2);
+    // Coach defaults
+    coachCooldownMs: clamp(parseInt(qs('aiCoachCd','3000'),10)||3000, 800, 15000),
+    coachExplain: String(qs('aiExplain','1')) !== '0',
 
-    // Inputs expected in snapshot:
-    //  acc(0-1), missRate(0-1), frustration(0-1), fatigue(0-1), inStorm, inEndWindow
-    const acc = clamp(s.acc ?? s.accuracy ?? 0.75, 0, 1);
-    const missRate = clamp(s.missRate ?? 0.15, 0, 1);
-    const frustration = clamp(s.frustration ?? 0.2, 0, 1);
-    const fatigue = clamp(s.fatigue ?? 0.2, 0, 1);
-    const combo = clamp(s.combo ?? 0, 0, 999);
+    // Director bounds (safety rails)
+    director: {
+      spawnMulMin: 0.70,
+      spawnMulMax: 1.25,
+      sizeMulMin:  0.72,
+      sizeMulMax:  1.18,
+      jitterMulMin:0.70,
+      jitterMulMax:1.30
+    },
 
-    // skill proxy
-    const skill = clamp(acc*0.72 + clamp(combo/20,0,1)*0.28, 0, 1);
-    const stress = clamp(frustration*0.55 + fatigue*0.25 + missRate*0.20, 0, 1);
-
-    // EMA
-    const a = clamp(dt*2.5, 0.02, 0.22);
-    M.emaSkill = M.emaSkill*(1-a) + skill*a;
-    M.emaStress = M.emaStress*(1-a) + stress*a;
-    M.emaAcc = M.emaAcc*(1-a) + acc*a;
-    M.emaMissRate = M.emaMissRate*(1-a) + missRate*a;
-
-    // Pattern switching (seeded)
-    M.patternTimer += dt;
-    if (M.patternTimer >= M.nextPatternSwitchIn){
-      M.patternTimer = 0;
-      M.nextPatternSwitchIn = 5.5 + rng()*4.5;
-
-      // choose mode based on stress/skill
-      const r = rng();
-      if (M.emaStress > 0.70){
-        M.patternMode = (r<0.65) ? 'recovery' : 'neutral';
-      } else if (M.emaSkill > 0.78 && M.emaStress < 0.45){
-        M.patternMode = (r<0.60) ? 'pressure' : 'neutral';
-      } else {
-        M.patternMode = (r<0.15) ? 'pressure' : (r<0.30) ? 'recovery' : 'neutral';
-      }
+    // Pattern behavior
+    pattern: {
+      mode: String(qs('aiPatternMode','seeded')).toLowerCase(), // seeded | none
+      // you can extend later
     }
+  };
+
+  const rng = makeRng(seed + '|HHA_AI');
+
+  // ---------- Internal state buffer ----------
+  const AI = {
+    cfg, rng,
+
+    // rolling snapshot of game signals
+    state: {
+      t: 0,
+      lastEventAt: 0,
+      events: [],
+      lastTipAt: 0,
+      // performance signals
+      skill: 0.5,
+      fatigue: 0,
+      frustration: 0,
+      // contextual
+      stage: 1,
+      inStorm: false,
+      inBoss: false,
+      view: String(qs('view','pc')).toLowerCase(),
+      device: String(qs('device','')).toLowerCase()
+    },
+
+    // external callbacks (optional)
+    handlers: {
+      director: null,
+      coach: null,
+      pattern: null
+    }
+  };
+
+  // ---------- Helpers ----------
+  function emit(name, detail){
+    try{ root.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  function onEvent(name, detail){
-    if (!enabled) return;
-    emit('hha:ai', { type:'event', name, detail: detail||null });
+  function pushEvent(type, payload){
+    const e = { t: AI.state.t, type, ...payload };
+    AI.state.events.push(e);
+    if (AI.state.events.length > 120) AI.state.events.shift();
+    AI.state.lastEventAt = performance.now();
   }
 
-  function debug(){
+  // ---------- Default Director (simple, fair, bounded) ----------
+  // Input: {baseSpawnMs, baseSizePx, baseJitter, inStorm, inBoss, skill, frustration, fatigue}
+  // Output: {spawnMs, sizePx, jitterMs, notes}
+  function defaultDirector(input){
+    const d = cfg.director;
+    const baseSpawn = Math.max(160, Number(input.baseSpawnMs)||600);
+    const baseSize  = Math.max(28,  Number(input.baseSizePx)||64);
+    const baseJit   = Math.max(0,   Number(input.baseJitter)||160);
+
+    // If disabled => return base (no change)
+    if (!cfg.enableDirector) return { spawnMs: baseSpawn, sizePx: baseSize, jitterMs: baseJit, notes:'director off' };
+
+    const skill = clamp(Number(input.skill ?? AI.state.skill), 0, 1);
+    const frus  = clamp(Number(input.frustration ?? AI.state.frustration), 0, 1);
+    const fat   = clamp(Number(input.fatigue ?? AI.state.fatigue), 0, 1);
+
+    // principle:
+    // - higher skill => faster spawns, smaller targets
+    // - high frustration/fatigue => ease slightly to keep flow
+    let spawnMul = 1.00 - 0.30*skill + 0.15*frus + 0.10*fat;
+    let sizeMul  = 1.00 - 0.22*skill + 0.18*frus + 0.10*fat;
+
+    if (input.inStorm) { spawnMul *= 0.88; sizeMul *= 0.92; }
+    if (input.inBoss)  { spawnMul *= 0.92; sizeMul *= 0.90; }
+
+    spawnMul = clamp(spawnMul, d.spawnMulMin, d.spawnMulMax);
+    sizeMul  = clamp(sizeMul,  d.sizeMulMin,  d.sizeMulMax);
+
+    // jitter: slightly lower when frustration high (stability)
+    let jitMul = 1.00 - 0.18*frus + 0.08*skill;
+    jitMul = clamp(jitMul, d.jitterMulMin, d.jitterMulMax);
+
     return {
-      enabled, flags,
-      emaSkill: M.emaSkill, emaStress: M.emaStress, emaAcc: M.emaAcc, emaMissRate: M.emaMissRate,
-      patternMode: M.patternMode,
-      lastDirector: M.lastDirector,
-      lastPattern: M.lastPattern
+      spawnMs: clamp(baseSpawn*spawnMul, 180, 1500),
+      sizePx:  clamp(baseSize*sizeMul,  34,  96),
+      jitterMs: clamp(baseJit*jitMul, 0, 500),
+      notes: `dir: skill=${skill.toFixed(2)} frus=${frus.toFixed(2)} fat=${fat.toFixed(2)}`
     };
   }
 
-  return { enabled, flags, onStart, onUpdate, onEvent, applyDirector, applyPattern, getCoachTip, debug };
-}
+  // ---------- Default Pattern Generator (seeded) ----------
+  // Returns a stable choice per tick context (does not peek future randomness beyond rng)
+  function defaultPattern(key, ctx){
+    if (!cfg.enablePattern) return null;
+    if (cfg.pattern.mode !== 'seeded') return null;
+
+    // Example patterns you can extend later:
+    // spawn lanes, burst waves, boss timing offsets, etc.
+    const r = rng();
+
+    if (key === 'spawnKind'){
+      // return deterministic bias
+      // ctx: {inStorm, inBoss, diff}
+      let pShield = ctx?.inStorm ? 0.10 : 0.06;
+      let pBad    = ctx?.inStorm ? 0.38 : 0.28;
+      if (ctx?.inBoss) { pBad += 0.10; }
+      if (diff === 'hard') { pBad += 0.04; }
+      pShield = clamp(pShield, 0.03, 0.18);
+      pBad = clamp(pBad, 0.10, 0.70);
+      const pGood = clamp(1 - (pShield + pBad), 0.15, 0.85);
+
+      const x = r;
+      if (x < pShield) return 'shield';
+      if (x < pShield + pBad) return 'bad';
+      return 'good';
+    }
+
+    if (key === 'spawnXYMode'){
+      // seeded mode: 'centerBias' | 'uniform' | 'ring'
+      const x = r;
+      if (x < 0.18) return 'ring';
+      if (x < 0.52) return 'centerBias';
+      return 'uniform';
+    }
+
+    return null;
+  }
+
+  // ---------- Default Coach (micro tips; rate-limited) ----------
+  function defaultCoach(topic, snap){
+    if (!cfg.enableCoach) return null;
+
+    const now = performance.now();
+    if (now - AI.state.lastTipAt < cfg.coachCooldownMs) return null;
+
+    const s = snap || {};
+    const skill = clamp(Number(s.skill ?? AI.state.skill), 0, 1);
+    const frus  = clamp(Number(s.frustration ?? AI.state.frustration), 0, 1);
+    const inEnd = !!s.inEndWindow;
+    const inStorm = !!s.inStorm;
+    const shield = Number(s.shield||0);
+    const zone = String(s.waterZone||'').toUpperCase();
+    const miss = Number(s.misses||0);
+    const acc  = Number(s.accuracyGoodPct||0);
+
+    let msg=null;
+    let why=null;
+
+    if (inStorm && inEnd && shield <= 0){
+      msg = '🛡️ ช่วงท้ายพายุ! เก็บ Shield ก่อน แล้วค่อย BLOCK ให้ชัวร์';
+      why = 'End Window ต้อง BLOCK';
+    } else if (zone === 'GREEN' && acc < 60){
+      msg = '🎯 เล็งนิ่งขึ้นนิดนึง แล้วค่อยยิง 💧 เพื่อคุม GREEN';
+      why = 'Accuracy ต่ำทำให้หลุด GREEN';
+    } else if (miss >= 18 && frus > 0.55){
+      msg = '😈 โหมดโหด: ลดการรัว เลือกยิง “เป้าชัวร์” ก่อน คอมโบจะกลับมาเอง';
+      why = 'MISS เยอะทำให้เสีย flow';
+    } else if (skill > 0.72 && !inStorm){
+      msg = '⚡ ฟอร์มมาแล้ว! ลากคอมโบยาว ๆ แล้วค่อยเร่งตอนพายุ';
+      why = 'เพิ่มคะแนนแบบปลอดภัย';
+    } else {
+      return null;
+    }
+
+    AI.state.lastTipAt = now;
+    return { msg, why, explain: cfg.coachExplain ? why : undefined };
+  }
+
+  // ---------- Public API ----------
+  function onEvent(type, payload){
+    pushEvent(type, payload||{});
+  }
+
+  function onTick(snapshot){
+    // snapshot should be a compact state from game per frame or per second
+    // Example: {t, stage, skill, fatigue, frustration, inStorm, inBoss, ...}
+    const s = snapshot || {};
+    if (typeof s.t === 'number') AI.state.t = s.t;
+    if (typeof s.stage === 'number') AI.state.stage = s.stage|0;
+    if (typeof s.skill === 'number') AI.state.skill = clamp(s.skill,0,1);
+    if (typeof s.fatigue === 'number') AI.state.fatigue = clamp(s.fatigue,0,1);
+    if (typeof s.frustration === 'number') AI.state.frustration = clamp(s.frustration,0,1);
+    if (typeof s.inStorm === 'boolean') AI.state.inStorm = s.inStorm;
+    if (typeof s.inBoss === 'boolean') AI.state.inBoss = s.inBoss;
+  }
+
+  function decide(kind, input){
+    if (kind === 'difficulty'){
+      if (typeof AI.handlers.director === 'function'){
+        try{ return AI.handlers.director(input||{}, AI); }catch(_){}
+      }
+      return defaultDirector(input||{});
+    }
+    return null;
+  }
+
+  function pattern(key, ctx){
+    if (typeof AI.handlers.pattern === 'function'){
+      try{
+        const out = AI.handlers.pattern(key, ctx||{}, AI);
+        if (out !== undefined) return out;
+      }catch(_){}
+    }
+    return defaultPattern(key, ctx||{});
+  }
+
+  function suggest(topic, snapshot){
+    if (typeof AI.handlers.coach === 'function'){
+      try{
+        const out = AI.handlers.coach(topic, snapshot||{}, AI);
+        if (out) return out;
+      }catch(_){}
+    }
+    return defaultCoach(topic, snapshot||{});
+  }
+
+  function get(){
+    return {
+      cfg: AI.cfg,
+      state: { ...AI.state },
+      events: AI.state.events.slice(-40)
+    };
+  }
+
+  function setHandler(type, fn){
+    if (type === 'director') AI.handlers.director = fn;
+    if (type === 'coach') AI.handlers.coach = fn;
+    if (type === 'pattern') AI.handlers.pattern = fn;
+  }
+
+  // expose
+  root.HHA_AI = {
+    cfg,
+    rng,
+    onEvent,
+    onTick,
+    decide,
+    suggest,
+    pattern,
+    get,
+    setHandler
+  };
+
+  emit('hha:ai_ready', { cfg });
+
+})(window);
