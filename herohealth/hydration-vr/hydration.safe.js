@@ -1,5 +1,5 @@
 // === /herohealth/hydration-vr/hydration.safe.js ===
-// Hydration SAFE — PRODUCTION PATCH v2 (Mini real count + End-window FX + Boss mini + AI Coach)
+// Hydration SAFE — PRODUCTION PATCH v2 + FX (Particles hook)
 // ✅ Minis count = Storm Cycles (ไม่ใช่ 999)
 // ✅ Storm Success = จำนวนพายุที่ "ผ่าน mini" จริง (+ boss bonus optional)
 // ✅ End-window FX: blink + tick + gentle shake
@@ -7,6 +7,7 @@
 // ✅ AI Coach hooks: storm/end window signals + frustration/fatigue
 // ✅ Summary fields match HUD (Goals/Minis shown)
 // ✅ Cardboard L/R layers via window.HHA_VIEW.layers from loader
+// ✅ NEW FX: popText/burst/celebrate + fallback flash/pulse/shake
 
 'use strict';
 
@@ -119,6 +120,70 @@ function makeRng(seedStr){
 }
 const rng = makeRng(seed);
 
+// -------------------- FX (Particles + fallback) --------------------
+function getParticles(){
+  try{ return (window.Particles || (window.GAME_MODULES && window.GAME_MODULES.Particles)) || null; }
+  catch(_){ return null; }
+}
+function fxPop(text, cls='score'){
+  const p = getParticles();
+  try{
+    if (p && typeof p.popText === 'function'){
+      const r = getPlayfieldRect();
+      const x = r.left + r.width * (0.5 + (rng()*2-1)*0.12);
+      const y = r.top  + r.height * (0.30 + (rng()*2-1)*0.10);
+      p.popText(x, y, String(text), cls);
+      return;
+    }
+  }catch(_){}
+  try{
+    DOC.body.classList.add('fx-flash');
+    setTimeout(()=>DOC.body.classList.remove('fx-flash'), 120);
+  }catch(_){}
+}
+function fxBurst(kind='celebrate'){
+  const p = getParticles();
+  try{
+    if (p && typeof p.burst === 'function'){
+      const r = getPlayfieldRect();
+      const x = r.left + r.width * (0.5 + (rng()*2-1)*0.14);
+      const y = r.top  + r.height * (0.35 + (rng()*2-1)*0.12);
+      p.burst(x, y, kind);
+      return;
+    }
+  }catch(_){}
+  try{
+    DOC.body.classList.add('fx-pulse');
+    setTimeout(()=>DOC.body.classList.remove('fx-pulse'), 220);
+  }catch(_){}
+}
+function fxShake(ms=180, amp=7){
+  try{
+    DOC.body.style.setProperty('--fx-amp', amp+'px');
+    DOC.body.classList.add('fx-shake');
+    setTimeout(()=>DOC.body.classList.remove('fx-shake'), ms);
+  }catch(_){}
+}
+(function injectFxCss(){
+  if (DOC.getElementById('hvr-fx-style')) return;
+  const st = DOC.createElement('style');
+  st.id='hvr-fx-style';
+  st.textContent = `
+  body.fx-flash{ filter: brightness(1.07); }
+  body.fx-pulse{ animation: fxPulse .22s ease-out; }
+  @keyframes fxPulse{ 0%{filter:brightness(1);} 50%{filter:brightness(1.10);} 100%{filter:brightness(1);} }
+  body.fx-shake #playfield,
+  body.fx-shake #cbPlayfield{ animation: fxShake .18s ease-in-out; }
+  @keyframes fxShake{
+    0%{ transform: translate(0,0); }
+    25%{ transform: translate(var(--fx-amp,7px), calc(var(--fx-amp,7px) * -0.6)); }
+    50%{ transform: translate(calc(var(--fx-amp,7px) * -0.8), var(--fx-amp,7px)); }
+    75%{ transform: translate(var(--fx-amp,7px), 0); }
+    100%{ transform: translate(0,0); }
+  }`;
+  DOC.head.appendChild(st);
+})();
+
 // -------------------- Audio tick (no file needed) --------------------
 let AC=null;
 function ensureAC(){
@@ -176,21 +241,21 @@ const S = {
   stormActive:false,
   stormLeftSec:0,
   stormCycle:0,
-  stormSuccess:0,         // ✅ success นับจริง
-  miniTotal:0,            // ✅ = stormCycle ณ ตอนจบ
-  miniCleared:0,          // ✅ = stormSuccess ณ ตอนจบ
+  stormSuccess:0,
+  miniTotal:0,
+  miniCleared:0,
 
   endWindowSec:1.2,
   inEndWindow:false,
 
   miniState:{
-    zoneOK:false,         // ทำให้น้ำไม่ใช่ GREEN
-    pressure:0,           // อยู่ใน LOW/HIGH นานพอ
+    zoneOK:false,
+    pressure:0,
     pressureOK:false,
-    endWindow:false,      // เข้า end window จริง
-    blockedInEnd:false,   // BLOCK ใน end window
+    endWindow:false,
+    blockedInEnd:false,
     doneThisStorm:false,
-    gotHitByBad:false     // ✅ ถ้าโดน BAD แบบไม่ guard ระหว่างพายุ => fail mini
+    gotHitByBad:false
   },
 
   // Boss-mini (optional)
@@ -237,8 +302,6 @@ const TUNE = (() => {
     badPush:8.0,
     missPenalty:1,
     greenTargetSec: greenTarget,
-
-    // mini pressure requirement
     pressureNeed: diff==='easy' ? 0.75 : diff==='hard' ? 1.0 : 0.9
   };
 })();
@@ -267,7 +330,7 @@ function computeAccuracy(){
 function computeGrade(){
   const acc = computeAccuracy();
   const miss = S.misses|0;
-  const mini = S.stormSuccess|0; // ✅ success จริง
+  const mini = S.stormSuccess|0;
   if (acc >= 95 && miss <= 2 && mini >= 1) return 'SSS';
   if (acc >= 90 && miss <= 4) return 'SS';
   if (acc >= 82) return 'S';
@@ -381,7 +444,6 @@ function pickXY(){
   const pad=22;
   const w=Math.max(1, r.width - pad*2);
   const h=Math.max(1, r.height - pad*2);
-  // triangular-ish distribution
   const rx=(rng()+rng())/2;
   const ry=(rng()+rng())/2;
   const x = pad + rx*w;
@@ -460,6 +522,7 @@ function spawn(kind){
       S.nExpireGood++;
       S.combo=0;
       S.streakGood=0;
+      fxPop('MISS', 'warn');
       syncHUD();
     }
   }
@@ -474,7 +537,8 @@ function spawn(kind){
 
     if (kind==='good'){
       S.nHitGood++;
-      S.score += 10 + Math.min(15, (S.combo|0));
+      const add = 10 + Math.min(15, (S.combo|0));
+      S.score += add;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
       nudgeWaterGood();
@@ -482,12 +546,18 @@ function spawn(kind){
       S.streakGood++;
       S.streakMax = Math.max(S.streakMax, S.streakGood);
 
+      fxPop(`+${add}`, 'score');
+
       emit('hha:judge', { kind:'good' });
     } else if (kind==='shield'){
       S.score += 6;
       S.combo++;
       S.comboMax = Math.max(S.comboMax, S.combo);
       S.shield = clamp(S.shield+1, 0, S.shieldMax);
+
+      fxPop('🛡️ +1', 'score');
+      fxBurst('celebrate');
+
       emit('hha:judge', { kind:'shield' });
     } else {
       // bad hit
@@ -500,9 +570,15 @@ function spawn(kind){
 
         if (S.stormActive && S.inEndWindow){
           S.miniState.blockedInEnd = true;
+          fxPop('END BLOCK ✅', 'score');
+          fxBurst('celebrate');
           if (S.waterZone !== 'GREEN') emit('hha:judge', { kind:'perfect' });
         }
+
         if (isBossBad) S.bossBlocked++;
+
+        fxPop('BLOCK!', 'warn');
+        fxShake(140, 6);
 
         emit('hha:judge', { kind:'block' });
       } else {
@@ -513,6 +589,10 @@ function spawn(kind){
         pushWaterBad();
 
         if (S.stormActive) S.miniState.gotHitByBad = true;
+
+        fxPop('MISS!', 'warn');
+        fxShake(240, 10);
+        fxBurst('burst');
 
         emit('hha:judge', { kind:'bad' });
       }
@@ -588,6 +668,9 @@ function enterStorm(){
   setEndFx(false);
   S.endFxTickAt = 0;
 
+  fxPop('STORM 🌀', 'warn');
+  fxBurst('burst');
+
   emit('hha:judge', { kind:'storm' });
   syncHUD();
 }
@@ -609,7 +692,13 @@ function exitStorm(){
     S.miniState.doneThisStorm=true;
     S.stormSuccess++;
     S.score += 40;
+
+    fxPop('MINI PASS ✅', 'score');
+    fxBurst('celebrate');
+
     emit('hha:judge', { kind:'streak' });
+  } else if (!ok){
+    fxPop('MINI FAIL', 'warn');
   }
 
   // boss bonus success
@@ -617,6 +706,10 @@ function exitStorm(){
     S.bossDoneThisStorm=true;
     S.stormSuccess++;
     S.score += 50;
+
+    fxPop('BOSS BONUS 🌩️', 'score');
+    fxBurst('celebrate');
+
     emit('hha:judge', { kind:'perfect' });
   }
 
@@ -642,6 +735,7 @@ function tickStorm(dt){
     if (now - S.endFxTickAt > interval){
       S.endFxTickAt = now;
       tickBeep(900 + (1-rate)*500, 0.04, 0.05);
+      fxShake(90, 5); // gentle shake in end window
     }
   } else {
     setEndFx(false);
@@ -751,9 +845,7 @@ function fillSummary(sum){
 }
 
 function bindSummaryButtons(){
-  const backdrop = DOC.getElementById('resultBackdrop');
   const btnRetry = DOC.getElementById('btnRetry');
-  const btnBackHub = DOC.getElementById('btnBackHub');
   const btnClose = DOC.getElementById('btnCloseSummary');
   const btnCopy = DOC.getElementById('btnCopyJSON');
   const btnCSV = DOC.getElementById('btnDownloadCSV');
@@ -764,9 +856,14 @@ function bindSummaryButtons(){
     location.href = u.toString();
   });
 
-  btnBackHub?.addEventListener('click', ()=>{ location.href = hub; });
+  DOC.querySelectorAll('.btnBackHub').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ location.href = hub; });
+  });
 
-  btnClose?.addEventListener('click', ()=>{ if(backdrop) backdrop.hidden=true; });
+  btnClose?.addEventListener('click', ()=>{
+    const backdrop=DOC.getElementById('resultBackdrop');
+    if(backdrop) backdrop.hidden=true;
+  });
 
   btnCopy?.addEventListener('click', async ()=>{
     const raw = localStorage.getItem('HHA_LAST_SUMMARY') || '';
@@ -891,6 +988,10 @@ async function endGame(reason){
   AICOACH.onEnd(summary);
 
   await sendLog(summary);
+
+  fxBurst('celebrate');
+  fxPop(`Grade ${grade}`, 'score');
+
   fillSummary(summary);
 }
 
@@ -927,7 +1028,6 @@ function boot(){
     endGame(d.reason || 'force');
   });
 
-  // If overlay already hidden somehow, auto-start
   const ov = DOC.getElementById('startOverlay');
   setTimeout(()=>{
     const hidden = !ov || getComputedStyle(ov).display==='none' || ov.classList.contains('hide');
