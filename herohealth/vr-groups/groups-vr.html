@@ -1,4 +1,4 @@
-<!-- === /herohealth/vr-groups/groups.html ===
+<!-- === /herohealth/vr-groups/groups-vr.html ===
 GroupsVR Run (PC/Mobile/Cardboard)
 ✅ Uses vr-ui.js (Enter VR/Exit/Recenter + crosshair + tap-to-shoot => hha:shoot)
 ✅ Practice 15s (cVR) then auto start real run
@@ -370,6 +370,7 @@ GroupsVR Run (PC/Mobile/Cardboard)
     alert(ok ? 'คัดลอก JSON แล้ว ✅' : 'Copy ไม่สำเร็จ');
   });
 
+  // ✅ กลับ launcher (ไฟล์ launcher คือ ../groups-vr.html)
   $('btnBackLauncher').addEventListener('click', ()=>{
     const hub = String(qs('hub','')||'');
     const u = new URL('../groups-vr.html', location.href);
@@ -404,7 +405,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
         cb(E);
         return;
       }
-      // timeout-safe: show coach message instead of silent fail
       if (Date.now() - t0 > 7000){
         clearInterval(it);
         try{
@@ -430,7 +430,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
   function startPractice(E, cfg){
     practiceActive = true;
     practiceDone = false;
-
     $('vMode').textContent = 'PRACTICE';
 
     const seedP = String(cfg.seed) + '-practice';
@@ -440,7 +439,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
     E.setLayerEl(getLayerEl());
     E.start(cfg.diff, { runMode:'play', diff:cfg.diff, style:cfg.style, time: cfg.practiceSec, seed: seedP });
 
-    // best-effort: immersive + recenter hint (handled by view-helper)
     try{
       const H = window.GroupsVR && window.GroupsVR.ViewHelper;
       H && H.tryImmersiveForCVR && H.tryImmersiveForCVR();
@@ -456,14 +454,12 @@ GroupsVR Run (PC/Mobile/Cardboard)
     const seed = String(qs('seed', Date.now()) || Date.now());
 
     $('vMode').textContent = (run==='research') ? 'RESEARCH' : 'PLAY';
-
     startIso = new Date().toISOString();
 
     initViewHelper(view);
     E.setLayerEl(getLayerEl());
     E.start(diff, { runMode: run, diff, style, time, seed });
 
-    // AI hooks: only when ?ai=1 and only in play
     try{
       const AI = window.GroupsVR && window.GroupsVR.AIHooks;
       if (AI && AI.attach){
@@ -480,8 +476,6 @@ GroupsVR Run (PC/Mobile/Cardboard)
 
     setView(view);
     hookAudio();
-
-    // init helper before engine start (so body classes/strict cVR ready)
     initViewHelper(view);
 
     const practiceSec = getPracticeSec(view);
