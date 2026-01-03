@@ -1,9 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
 // GoodJunkVR Boot — V2 (safe start + VR UI preload + FX wait)
-// ✅ waits for hha:start from overlay, but also auto-start fallback if overlay missing
-// ✅ preloads vr-ui.js when view=cvr or on hha:enter-cvr
-// ✅ prevents “start fired before boot loaded” via __HHA_PENDING_START__
-// ✅ waits briefly for Particles module so FX won't be missing
 
 'use strict';
 
@@ -60,7 +56,6 @@ async function startEngine(opts={}){
   const view = normalizeView(opts.view || qs('view','mobile'));
   setBodyView(view);
 
-  // preload vr-ui for VR/cVR
   if(view === 'vr' || view === 'cvr') ensureVrUi();
 
   // ✅ give particles a short chance to load
@@ -115,7 +110,7 @@ ROOT.addEventListener('hha:enter-cvr', ()=>{
   ensureVrUi();
 }, { passive:true });
 
-// ✅ safety fallback (กัน “จอดำเพราะไม่มีใคร dispatch hha:start”)
+// ✅ safety fallback
 setTimeout(()=>{
   if(started) return;
   const overlay = DOC.getElementById('startOverlay');
