@@ -1,9 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk-vr.boot.js ===
-// GoodJunkVR Boot — LATEST (safe start + VR UI preload + black-screen recovery)
+// GoodJunkVR Boot — V2 (safe start + VR UI preload + FX wait)
 // ✅ waits for hha:start from overlay, but also auto-start fallback if overlay missing
 // ✅ preloads vr-ui.js when view=cvr or on hha:enter-cvr
 // ✅ prevents “start fired before boot loaded” via __HHA_PENDING_START__
-// ✅ adds tiny diagnostics to console for quick debugging
+// ✅ waits briefly for Particles module so FX won't be missing
 
 'use strict';
 
@@ -40,7 +40,20 @@ function ensureVrUi(){
   DOC.head.appendChild(s);
 }
 
-function startEngine(opts={}){
+// ✅ wait a bit so FX module is ready (prevents “effect missing”)
+async function waitForFxReady(timeoutMs=600){
+  const t0 = performance.now();
+  while(performance.now() - t0 < timeoutMs){
+    const P =
+      (ROOT.GAME_MODULES && ROOT.GAME_MODULES.Particles) ||
+      ROOT.Particles;
+    if(P && (typeof P.burstAt === 'function' || typeof P.scorePop === 'function')) return true;
+    await new Promise(r=>setTimeout(r, 30));
+  }
+  return false;
+}
+
+async function startEngine(opts={}){
   if(started) return;
   started = true;
 
@@ -49,6 +62,9 @@ function startEngine(opts={}){
 
   // preload vr-ui for VR/cVR
   if(view === 'vr' || view === 'cvr') ensureVrUi();
+
+  // ✅ give particles a short chance to load
+  await waitForFxReady(600);
 
   const payload = {
     view,
@@ -100,7 +116,6 @@ ROOT.addEventListener('hha:enter-cvr', ()=>{
 }, { passive:true });
 
 // ✅ safety fallback (กัน “จอดำเพราะไม่มีใคร dispatch hha:start”)
-// - ถ้า 900ms แล้วยังไม่ started และไม่มี start overlay ให้เริ่มเอง
 setTimeout(()=>{
   if(started) return;
   const overlay = DOC.getElementById('startOverlay');
