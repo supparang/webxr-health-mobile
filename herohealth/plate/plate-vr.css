@@ -1,15 +1,13 @@
 /* === /herohealth/plate/plate-vr.css ===
-Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION FINAL)
-✔ Targets: pop/glow/wobble, emoji crisp
-✔ HUD: neon soft, contrast ดี, safe-area
-✔ Boss/Storm: fx classes + panic pulse
-✔ Result: grade badge
-✔ view-cVR strict: ยิงจาก crosshair เท่านั้น
-✔ VR UI safe: z-index กันทับ
+Balanced Plate VR — PRODUCTION+ (HHA Standard)
+✅ Safe-area + mobile HUD
+✅ Target styling (good/junk/shield) + gentle motion
+✅ view=cvr strict: no pointer on layer, shoot from crosshair (vr-ui.js)
+✅ FX classes hooks for plate.safe.js (#bossFx/#stormFx + body FX)
 */
 
-/* ---------- Root / Tokens ---------- */
 :root{
+  color-scheme: dark;
   --bg:#020617;
   --panel:rgba(2,6,23,.78);
   --panel2:rgba(15,23,42,.70);
@@ -26,144 +24,160 @@ Balanced Plate VR — UI Polish + VR-Feel (PRODUCTION FINAL)
   --radius:18px;
   --pill:999px;
 
+  /* safe-area */
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 }
 
-/* ---------- Micro FX ---------- */
-@keyframes hhaGlow{
-  0%{box-shadow:0 16px 44px rgba(0,0,0,.26),0 0 0 rgba(34,197,94,0)}
-  50%{box-shadow:0 18px 52px rgba(0,0,0,.30),0 0 28px rgba(34,197,94,.18)}
-  100%{box-shadow:0 16px 44px rgba(0,0,0,.26),0 0 0 rgba(34,197,94,0)}
-}
-@keyframes hhaWarnPulse{0%{filter:brightness(1)}50%{filter:brightness(1.20)}100%{filter:brightness(1)}}
-@keyframes hhaBadPulse{0%{filter:brightness(1)}50%{filter:brightness(1.22)}100%{filter:brightness(1)}}
-@keyframes hhaPop{
-  0%{transform:translateZ(0) scale(.86);opacity:0}
-  40%{transform:translateZ(0) scale(1.06);opacity:1}
-  100%{transform:translateZ(0) scale(1);opacity:1}
-}
-@keyframes hhaWobble{
-  0%{transform:translateZ(0) rotate(0)}
-  25%{transform:translateZ(0) rotate(1.4deg)}
-  50%{transform:translateZ(0) rotate(-1.4deg)}
-  75%{transform:translateZ(0) rotate(1deg)}
-  100%{transform:translateZ(0) rotate(0)}
+/* ---------- helpers ---------- */
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
+html, body{
+  margin:0; padding:0;
+  width:100%; height:100%;
+  overflow:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,"Noto Sans Thai",Segoe UI,Roboto,sans-serif;
 }
 
-/* ---------- Targets (emoji clarity + VR depth) ---------- */
-#plate-layer .plateTarget{
-  border-radius:999px!important;
-  border:1px solid rgba(148,163,184,.20)!important;
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 36%),
-    radial-gradient(circle at 70% 75%, rgba(34,197,94,.10), transparent 42%),
-    rgba(2,6,23,.56)!important;
-  backdrop-filter: blur(10px) saturate(1.15);
-  box-shadow:0 18px 48px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08);
-  animation:hhaPop .14s ease-out 0s 1, hhaWobble 1.8s ease-in-out .12s infinite;
-  transform:translateZ(0);
-  text-shadow:0 2px 0 rgba(0,0,0,.25);
-  font-variation-settings:"wght" 900;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
-}
-#plate-layer .plateTarget:active{transform:translateZ(0) scale(.98)}
+a{ color:inherit; }
 
-#plate-layer .plateTarget[data-kind="good"]{
-  border-color:rgba(34,197,94,.30)!important;
-  box-shadow:0 18px 52px rgba(0,0,0,.32),0 0 26px rgba(34,197,94,.12), inset 0 1px 0 rgba(255,255,255,.08);
-}
-#plate-layer .plateTarget[data-kind="junk"]{
-  border-color:rgba(239,68,68,.28)!important;
-  box-shadow:0 18px 52px rgba(0,0,0,.32),0 0 26px rgba(239,68,68,.12), inset 0 1px 0 rgba(255,255,255,.08);
-  animation:hhaPop .14s ease-out 0s 1, hhaWobble 1.2s ease-in-out .12s infinite;
-}
-#plate-layer .plateTarget[data-kind="shield"]{
-  border-color:rgba(34,211,238,.34)!important;
-  box-shadow:0 18px 52px rgba(0,0,0,.32),0 0 26px rgba(34,211,238,.14), inset 0 1px 0 rgba(255,255,255,.08);
-}
+/* ---------- targets ---------- */
+.plateTarget{
+  appearance:none;
+  border:none;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
 
-/* ---------- HUD polish ---------- */
-.card,.pill,.questCard,.panelCard{
-  box-shadow:0 16px 48px rgba(0,0,0,.28)!important;
-}
-.pill{
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
-    rgba(15,23,42,.68)!important;
-}
-.bar{background:rgba(148,163,184,.10)!important}
-.bar>i{box-shadow:0 0 18px rgba(34,197,94,.16)}
-.bar.warn>i{box-shadow:0 0 18px rgba(245,158,11,.16)}
-.bar.bad>i{box-shadow:0 0 18px rgba(239,68,68,.14)}
-
-.bar.bad{
-  background:linear-gradient(90deg, rgba(239,68,68,.12), rgba(245,158,11,.08))!important;
-}
-#uiFeverFill{
-  background:linear-gradient(90deg, rgba(245,158,11,.80), rgba(239,68,68,.85))!important;
-  box-shadow:0 0 18px rgba(239,68,68,.16)!important;
-}
-
-/* Buttons */
-.btn.primary{animation:hhaGlow 2.2s ease-in-out infinite}
-.btn.warn:hover{filter:brightness(1.1)}
-.btn.bad:hover{filter:brightness(1.05)}
-
-/* ---------- Boss / Storm FX ---------- */
-#bossFx{
-  position:fixed; inset:0; pointer-events:none; z-index:58;
-  opacity:0; transition:opacity .15s ease;
-}
-#bossFx.boss-on{
-  opacity:1;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(167,139,250,.10), transparent 55%),
-    radial-gradient(circle at 50% 90%, rgba(239,68,68,.10), transparent 55%);
-}
-#bossFx.boss-panic{animation:hhaBadPulse .22s ease-in-out infinite}
-
-#stormFx{
-  position:fixed; inset:0; pointer-events:none; z-index:57;
-  opacity:0; transition:opacity .15s ease;
-}
-#stormFx.storm-on{
-  opacity:1;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(34,211,238,.12), transparent 50%),
-    radial-gradient(circle at 80% 30%, rgba(34,211,238,.10), transparent 50%),
-    radial-gradient(circle at 40% 80%, rgba(34,211,238,.10), transparent 50%);
-  animation:hhaWarnPulse .32s ease-in-out infinite;
-}
-
-/* ---------- Result grade badge ---------- */
-#rGrade{
-  display:inline-block;
-  padding:6px 12px;
+  /* base look (JS also sets inline, but keep fallback) */
+  display:grid;
+  place-items:center;
   border-radius:999px;
   border:1px solid rgba(148,163,184,.18);
-  background:rgba(15,23,42,.70);
-  box-shadow:0 14px 40px rgba(0,0,0,.25);
+  background:rgba(2,6,23,.55);
+  box-shadow: 0 18px 44px rgba(0,0,0,.28);
+  backdrop-filter: blur(8px);
+  transform: translateZ(0);
+
+  /* gentle motion */
+  animation: plateFloat 2.6s ease-in-out infinite;
 }
 
-/* ============================================================
-   HHA: view-cVR STRICT  (ยิงจาก crosshair เท่านั้น)
-   ============================================================ */
-body.view-cvr #plate-layer,
-body.view-cvr #plate-layer .plateTarget{
-  pointer-events:none!important;
-}
-body.view-cvr #uiCvrHint{color:rgba(34,211,238,.92)!important}
-
-/* ---------- VR UI safety (กันทับ) ---------- */
-.hha-vrui,#hha-vrui,.vrui,#vrui,[data-vrui]{
-  position:fixed!important;
-  z-index:220!important;
+@keyframes plateFloat{
+  0%,100%{ transform: translateZ(0) translateY(0); }
+  50%{ transform: translateZ(0) translateY(-2px); }
 }
 
-/* HUD layers order (ไม่ทับ VR UI) */
-#hudTop,#miniPanel,#coachPanel,#hudBtns,#bossHud,#stormHud{z-index:40}
-#startOverlay,#hudPaused,#resultBackdrop{z-index:70}
+/* feedback */
+.plateTarget:active{
+  transform: translateZ(0) scale(0.98);
+}
+
+/* kind tint */
+.plateTarget[data-kind="good"]{
+  border-color: rgba(34,197,94,.28);
+  box-shadow:
+    0 18px 44px rgba(0,0,0,.28),
+    0 0 0 1px rgba(34,197,94,.10) inset;
+}
+
+.plateTarget[data-kind="junk"]{
+  border-color: rgba(239,68,68,.28);
+  box-shadow:
+    0 18px 44px rgba(0,0,0,.28),
+    0 0 0 1px rgba(239,68,68,.10) inset;
+}
+
+.plateTarget[data-kind="shield"]{
+  border-color: rgba(34,211,238,.28);
+  box-shadow:
+    0 18px 44px rgba(0,0,0,.28),
+    0 0 0 1px rgba(34,211,238,.10) inset;
+}
+
+/* reduce motion in VR/cVR */
+body.view-vr .plateTarget,
+body.view-cvr .plateTarget{
+  animation: none;
+}
+
+/* ---------- overlays / panels (light reinforcements) ---------- */
+#startOverlay, #hudPaused, #resultBackdrop{
+  backdrop-filter: blur(10px);
+}
+
+.panelCard{
+  border-radius: 22px;
+}
+
+/* ---------- boss/storm FX layers ---------- */
+#bossFx, #stormFx{
+  pointer-events:none;
+}
+
+/* Boss FX classes toggled by JS */
+#bossFx.boss-on{
+  display:block;
+  background:
+    radial-gradient(circle at 20% 40%, rgba(167,139,250,.12), transparent 55%),
+    radial-gradient(circle at 80% 60%, rgba(167,139,250,.10), transparent 60%);
+}
+#bossFx.boss-panic{
+  filter:brightness(1.22);
+  animation: bossPulse .28s ease-in-out infinite alternate;
+}
+@keyframes bossPulse{
+  from{ opacity:.75; }
+  to{ opacity:1; }
+}
+
+/* Storm FX classes toggled by JS */
+#stormFx{
+  display:none;
+}
+#stormFx.storm-on{
+  display:block;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(34,211,238,.12), transparent 55%),
+    radial-gradient(circle at 70% 80%, rgba(34,211,238,.10), transparent 60%);
+}
+#stormFx.storm-panic{
+  filter:brightness(1.22);
+  animation: stormPulse .22s ease-in-out infinite alternate;
+}
+@keyframes stormPulse{
+  from{ opacity:.70; }
+  to{ opacity:1; }
+}
+
+/* ---------- view=cvr strict ---------- */
+body.view-cvr #plate-layer{
+  pointer-events:none !important;
+}
+
+/* In cVR: hint stronger */
+body.view-cvr #uiCvrHint{
+  color: rgba(229,231,235,.95) !important;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 520px){
+  .card{ min-width: 160px; }
+  .bar{ width: 132px; }
+}
+
+@media (max-height: 680px){
+  #coachPanel{ bottom: calc(58px + var(--sab)); }
+}
+
+/* Accessibility: reduce flashing */
+@media (prefers-reduced-motion: reduce){
+  .plateTarget{ animation:none !important; }
+  #bossFx.boss-panic, #stormFx.storm-panic{ animation:none !important; }
+}
