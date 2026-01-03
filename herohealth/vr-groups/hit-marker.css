@@ -1,0 +1,59 @@
+/* === /herohealth/vr-groups/hit-marker.css ===
+PACK 39: FPS hit marker
+*/
+
+.hitMarker{
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%,-50%);
+  z-index: 86; /* under vr-ui buttons (80)?? actually above crosshair is ok; keep < microTip 87 */
+  pointer-events: none;
+  opacity: 0;
+}
+
+.mk{
+  position:absolute;
+  width: 14px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(229,231,235,.92);
+  box-shadow: 0 0 10px rgba(0,0,0,.25);
+}
+.mkA{ left: 50%; top: 6px;   transform: translateX(-50%) rotate(45deg); }
+.mkB{ right: 6px; top: 50%;  transform: translateY(-50%) rotate(45deg); }
+.mkC{ left: 50%; bottom: 6px;transform: translateX(-50%) rotate(45deg); }
+.mkD{ left: 6px; top: 50%;   transform: translateY(-50%) rotate(45deg); }
+
+.mkRing{
+  position:absolute;
+  inset: 7px;
+  border-radius: 999px;
+  border: 2px solid rgba(34,211,238,.0);
+  opacity: 0;
+}
+
+body.mk-on .hitMarker{ opacity: 1; animation: mkPop .12s ease-out; }
+@keyframes mkPop{
+  from{ transform: translate(-50%,-50%) scale(.92); opacity:0; }
+  to{ transform: translate(-50%,-50%) scale(1); opacity:1; }
+}
+
+/* variants */
+body.mk-good .mk{ background: rgba(34,197,94,.92); }
+body.mk-bad  .mk{ background: rgba(239,68,68,.92); }
+body.mk-boss .mk{ background: rgba(167,139,250,.95); height: 4px; }
+body.mk-perfect .mk{ background: rgba(34,211,238,.95); }
+body.mk-miss .mk{ background: rgba(148,163,184,.75); opacity:.8; }
+
+body.mk-perfect .mkRing{
+  border-color: rgba(34,211,238,.55);
+  opacity: 1;
+  animation: ringOut .18s ease-out;
+}
+@keyframes ringOut{
+  from{ transform: scale(.92); opacity:.0; }
+  to{ transform: scale(1.04); opacity:1; }
+}
