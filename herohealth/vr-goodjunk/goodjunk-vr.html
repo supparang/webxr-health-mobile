@@ -7,236 +7,217 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ CRITICAL: hide A-Frame default UI even if CSS 404 -->
-  <style>
-    .a-enter-vr, .a-enter-ar { display:none !important; }
-    /* tiny debug overlay */
-    #gj-debug{
-      position:fixed; left:10px; right:10px;
-      bottom:10px; z-index:9999;
-      background:rgba(2,6,23,.78);
-      border:1px solid rgba(148,163,184,.22);
-      border-radius:14px;
-      padding:10px 12px;
-      color:#e5e7eb;
-      font: 900 12px/1.35 system-ui;
-      display:none;
-      backdrop-filter: blur(6px);
-      white-space: pre-wrap;
-    }
-  </style>
+  <!-- UI -->
+  <link rel="stylesheet" href="./goodjunk-vr.css" />
 
-  <!-- A-Frame (ช่วยให้ Enter VR เสถียร) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- FX + Logger -->
+  <!-- Global FX + Cloud Logger (ต้องอยู่ก่อน boot เพื่อให้พร้อม) -->
   <script src="../vr/particles.js" defer></script>
   <script src="../vr/hha-cloud-logger.js" defer></script>
 
-  <!-- ✅ CSS (UI ทั้งหมด) -->
-  <link rel="stylesheet" href="./goodjunk-vr.css" />
+  <!-- Boot (module) -->
+  <script type="module" src="./goodjunk-vr.boot.js"></script>
 </head>
 
 <body class="view-mobile">
-  <!-- minimal aframe scene -->
-  <a-scene embedded vr-mode-ui="enabled:false"
-    style="position:fixed; inset:0; width:1px; height:1px; opacity:0; pointer-events:none;">
-    <a-entity camera position="0 1.6 0"></a-entity>
-  </a-scene>
 
-  <!-- WARNING RING + COUNTDOWN -->
-  <div class="gj-warning-ring"></div>
-  <div class="gj-lowtime-overlay" aria-hidden="true">
-    <div class="gj-lowtime-num" id="gj-lowtime-num">5</div>
-  </div>
+  <!-- LOW TIME WARNING RING -->
+  <div class="gj-warning-ring" aria-hidden="true"></div>
 
-  <!-- START overlay -->
-  <div class="start-overlay" id="startOverlay">
-    <div class="start-card">
-      <div class="start-title">🥦🍎 GoodJunkVR</div>
-      <div class="start-desc">
-        ยิง “ของดี” ให้ไว เลี่ยง “ขยะ”<br/>
-        <span class="muted">VR/cVR: เล็งกลางจอแล้วแตะยิง</span>
-      </div>
-      <div class="start-meta" id="startMeta"></div>
-      <button class="btn-start" id="btnStart" type="button">Start</button>
-      <button class="btn-start" id="btnStartVR" type="button"
-        style="margin-top:10px;background:rgba(34,211,238,.14);border-color:rgba(34,211,238,.30);">
-        Enter VR / cVR
-      </button>
+  <!-- VR MINI HUD (show only in VR/cVR) -->
+  <div class="vr-mini-hud" id="vrMiniHud">
+    <div class="mini-row">
+      <div class="mini-pill"><span>SCORE</span><b id="miniScore">0</b></div>
+      <div class="mini-pill"><span>TIME</span><b id="miniTime">0</b></div>
+      <div class="mini-pill"><span>GRADE</span><b id="miniGrade">—</b></div>
+      <button class="mini-btn" id="btnPeek">Missions</button>
     </div>
   </div>
 
-  <!-- HUD (PC/Mobile) -->
-  <div class="hha-hud">
+  <!-- HUD -->
+  <div class="hha-hud" id="hud">
     <div class="hud-top">
       <div class="hud-badge">
         <div class="hud-title">GoodJunkVR</div>
-        <div class="hud-sub" id="hud-mini">—</div>
+        <div class="hud-sub" id="hudSub">ยิงดีเลี่ยง “ขยะ”</div>
+
         <div class="viewbar">
-          <button class="pill ghost" id="btnPeek" type="button">Missions</button>
-          <button class="pill ghost" id="btnHideHud" type="button">Hide HUD</button>
+          <button class="pill ghost" id="btnMissions">Missions</button>
+          <button class="pill ghost" id="btnHideHud">Hide HUD</button>
         </div>
       </div>
 
       <div class="hud-stats">
-        <div class="hud-stat"><div class="k">SCORE</div><div class="v" id="hud-score">0</div></div>
-        <div class="hud-stat"><div class="k">TIME</div><div class="v" id="hud-time">0</div></div>
-        <div class="hud-stat"><div class="k">MISS</div><div class="v" id="hud-miss">0</div></div>
-        <div class="hud-stat"><div class="k">GRADE</div><div class="v" id="hud-grade">—</div></div>
+        <div class="hud-stat"><div class="k">SCORE</div><div class="v" id="hudScore">0</div></div>
+        <div class="hud-stat"><div class="k">TIME</div><div class="v" id="hudTime">0</div></div>
+        <div class="hud-stat"><div class="k">MISS</div><div class="v" id="hudMiss">0</div></div>
+        <div class="hud-stat"><div class="k">GRADE</div><div class="v" id="hudGrade">—</div></div>
       </div>
     </div>
 
-    <!-- (optional) quest area -->
-    <div class="hud-mid" style="display:none;">
+    <div class="hud-mid">
       <div class="hud-quest">
         <div class="q-row">
-          <div class="q-title">GOAL</div>
-          <div class="q-count"><span id="hud-goal-cur">0</span>/<span id="hud-goal-target">0</span></div>
-          <div class="q-timer"></div>
+          <div class="q-title" id="goalTitle">—</div>
+          <div class="q-count" id="goalCount">0/0</div>
         </div>
-        <div class="q-progress" id="hud-goal">—</div>
-      </div>
-    </div>
-  </div>
+        <div class="q-progress" id="goalDesc">—</div>
 
-  <!-- VR MINI HUD -->
-  <div class="vr-mini-hud">
-    <div class="mini-row">
-      <div class="mini-pill"><span>S</span><b id="hud-score-mini">0</b></div>
-      <div class="mini-pill"><span>T</span><b id="hud-time-mini">0</b></div>
-      <div class="mini-pill"><span>G</span><b id="hud-grade-mini">—</b></div>
-      <button class="mini-btn" id="btnPeekMini" type="button">Missions</button>
+        <div style="height:10px"></div>
+
+        <div class="q-row">
+          <div class="q-title mini" id="miniTitle">—</div>
+          <div class="q-timer" id="miniTimer">—</div>
+        </div>
+        <div class="q-progress" id="miniDesc">—</div>
+      </div>
     </div>
   </div>
 
   <!-- MISSIONS PEEK -->
-  <div class="gj-peek" id="gjPeek" aria-hidden="true">
+  <div class="gj-peek" id="peek" aria-hidden="true">
     <div class="peek-card">
       <div class="peek-title">Missions</div>
-      <div class="peek-sub"><b>Goal:</b> <span id="peekGoal">—</span></div>
-      <div class="peek-mini"><b>Mini:</b> <span id="peekMini">—</span></div>
-      <div class="peek-tip">Tip: VR/cVR ให้เล็งกลางจอแล้วแตะยิง</div>
+      <div class="peek-sub" id="peekGoal">—</div>
+      <div class="peek-mini" id="peekMini">—</div>
+      <div class="peek-tip" id="peekTip">แตะ/ยิงเพื่อปิด</div>
     </div>
   </div>
 
   <!-- FEVER -->
-  <div class="hha-fever">
+  <div class="hha-fever" id="feverBox">
     <div class="fever-row">
       <div class="fever-label">FEVER</div>
       <div class="fever-bar"><div class="fever-fill" id="feverFill"></div></div>
-      <div class="fever-text" id="feverText">0%</div>
+      <div class="fever-text" id="feverPct">0%</div>
     </div>
+
     <div class="shield-row">
       <div class="shield-label">SHIELD</div>
-      <div class="shield-pills" id="shieldPills"></div>
+      <div class="shield-pills" id="shieldPills">—</div>
     </div>
   </div>
 
   <!-- STAGE -->
   <div id="gj-stage">
     <div class="gj-eye eye-l">
-      <div class="gj-layer" id="gj-layer"></div>
-      <div class="gj-crosshair"></div>
+      <div class="gj-layer" id="layerL"></div>
+      <div class="gj-crosshair" id="crosshairL"></div>
     </div>
     <div class="gj-eye eye-r">
-      <div class="gj-layer" id="gj-layer-r"></div>
-      <div class="gj-crosshair"></div>
+      <div class="gj-layer" id="layerR"></div>
+      <div class="gj-crosshair" id="crosshairR"></div>
     </div>
   </div>
 
   <!-- CONTROLS -->
   <div class="hha-controls">
-    <button class="btn-shoot" id="btnShoot" type="button">ยิง / TAP</button>
+    <button class="btn-shoot" id="btnShoot">ยิง / TAP</button>
   </div>
 
-  <!-- Debug -->
-  <div id="gj-debug"></div>
+  <!-- LOWTIME BIG COUNTDOWN -->
+  <div class="gj-lowtime-overlay" id="lowTimeOverlay" aria-hidden="true">
+    <div class="gj-lowtime-num" id="lowTimeNum">5</div>
+  </div>
 
-  <!-- Boot -->
-  <script type="module" src="./goodjunk-vr.boot.js"></script>
+  <!-- START OVERLAY -->
+  <div id="startOverlay" style="
+    position:fixed; inset:0; z-index:200;
+    display:flex; align-items:center; justify-content:center;
+    background: rgba(2,6,23,.86); backdrop-filter: blur(10px);
+  ">
+    <div style="
+      width:min(720px,92vw);
+      background: rgba(2,6,23,.82);
+      border:1px solid rgba(148,163,184,.20);
+      border-radius: 22px;
+      padding:18px;
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    ">
+      <div style="font-size:26px;font-weight:1200;">GoodJunkVR</div>
+      <div id="startMeta" style="margin-top:8px;color:#94a3b8;font-weight:900;font-size:12px;">—</div>
 
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button id="btnStart" style="
+          border:1px solid rgba(34,197,94,.30);
+          background: rgba(34,197,94,.16);
+          color:#eafff3;
+          border-radius: 14px;
+          padding:12px 16px;
+          font-weight:1200;
+          font-size:16px;
+        ">Start</button>
+
+        <button id="btnStartVR" style="
+          border:1px solid rgba(34,211,238,.30);
+          background: rgba(34,211,238,.14);
+          color:#e9fbff;
+          border-radius: 14px;
+          padding:12px 16px;
+          font-weight:1200;
+          font-size:16px;
+        ">Enter VR</button>
+      </div>
+
+      <div style="margin-top:12px;color:#94a3b8;font-weight:900;font-size:12px;">
+        Mobile: แตะเป้าได้ / VR(cVR): เล็งกลางจอแล้วแตะ “ยิง”
+      </div>
+    </div>
+  </div>
+
+  <!-- INLINE UI WIRING -->
   <script>
-    (function(){
-      const dbg = document.getElementById('gj-debug');
-      function showDbg(msg){
-        if(!dbg) return;
-        dbg.style.display = 'block';
-        dbg.textContent = msg;
-      }
+  (function(){
+    const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
 
-      // ✅ catch errors => tell us why it becomes black screen / no targets
-      window.addEventListener('error', (e)=>{
-        showDbg('JS ERROR:\n' + (e?.message || e) + '\n' + (e?.filename || '') + ':' + (e?.lineno || ''));
-      });
-      window.addEventListener('unhandledrejection', (e)=>{
-        showDbg('PROMISE ERROR:\n' + (e?.reason?.message || e?.reason || e));
-      });
+    const overlay  = document.getElementById('startOverlay');
+    const meta     = document.getElementById('startMeta');
+    const btnStart = document.getElementById('btnStart');
+    const btnStartVR= document.getElementById('btnStartVR');
 
-      const qs = (k,d=null)=>{ try{return new URL(location.href).searchParams.get(k) ?? d;}catch{return d;} };
-      const btnStart = document.getElementById('btnStart');
-      const btnStartVR= document.getElementById('btnStartVR');
-      const overlay  = document.getElementById('startOverlay');
-      const meta     = document.getElementById('startMeta');
+    const view = qs('view','mobile');
+    const diff = qs('diff','normal');
+    const run  = qs('run','play');
+    meta.textContent = `view=${view} | run=${run} | diff=${diff}`;
 
-      const view = qs('view','mobile');
-      const diff = qs('diff','normal');
-      const run  = qs('run','play');
-      meta.textContent = `view=${view} | run=${run} | diff=${diff}`;
+    function start(){
+      overlay.style.display = 'none';
 
-      function start(){
-        overlay.style.display = 'none';
-        // ✅ fire ONLY ONCE (UI start)
-        window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
-      }
+      // ✅ สำคัญ: กัน start เกิดก่อน boot.js โหลด
+      window.__HHA_PENDING_START__ = { view };
 
-      btnStart.addEventListener('click', start);
+      window.dispatchEvent(new CustomEvent('hha:start', { detail:{ view } }));
+    }
 
-      btnStartVR.addEventListener('click', ()=>{
-        // preload vr-ui.js (crosshair + enter/exit/recenter)
-        window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
-        start();
-      });
+    btnStart.addEventListener('click', start);
 
-      // TAP -> hha:shoot for cVR
-      document.getElementById('btnShoot').addEventListener('click', ()=>{
-        window.dispatchEvent(new CustomEvent('hha:shoot'));
-      });
+    btnStartVR.addEventListener('click', ()=>{
+      window.dispatchEvent(new CustomEvent('hha:enter-cvr'));
+      start();
+    });
 
-      const peek = document.getElementById('gjPeek');
-      function openPeek(){
-        peek.setAttribute('aria-hidden','false');
-        setTimeout(()=>peek.setAttribute('aria-hidden','true'), 1300);
-      }
-      document.getElementById('btnPeek')?.addEventListener('click', openPeek);
-      document.getElementById('btnPeekMini')?.addEventListener('click', openPeek);
+    // shoot button => engine listens via event
+    document.getElementById('btnShoot').addEventListener('click', ()=>{
+      window.dispatchEvent(new CustomEvent('hha:shoot'));
+    });
 
-      document.getElementById('btnHideHud')?.addEventListener('click', ()=>{
-        document.body.classList.toggle('hud-hidden');
-      });
+    // mission peek close by any tap
+    const peek = document.getElementById('peek');
+    peek.addEventListener('click', ()=>{
+      peek.setAttribute('aria-hidden','true');
+    });
 
-      // mirror HUD -> mini peek
-      const pg = document.getElementById('peekGoal');
-      const pm = document.getElementById('peekMini');
-      setInterval(()=>{
-        const g = document.getElementById('hud-goal')?.textContent || '—';
-        const m = document.getElementById('hud-mini')?.textContent || '—';
-        pg.textContent = g;
-        pm.textContent = m;
-        document.getElementById('hud-score-mini').textContent = document.getElementById('hud-score')?.textContent || '0';
-        document.getElementById('hud-time-mini').textContent  = document.getElementById('hud-time')?.textContent || '0';
-        document.getElementById('hud-grade-mini').textContent = document.getElementById('hud-grade')?.textContent || '—';
-      }, 250);
+    document.getElementById('btnMissions').addEventListener('click', ()=>{
+      peek.setAttribute('aria-hidden','false');
+    });
+    document.getElementById('btnPeek').addEventListener('click', ()=>{
+      peek.setAttribute('aria-hidden','false');
+    });
 
-      // ✅ quick health check: if CSS failed to load => warn
-      setTimeout(()=>{
-        const s = getComputedStyle(document.body);
-        const bg = s.backgroundImage || '';
-        if(!bg || bg === 'none'){
-          showDbg('WARN:\nCSS อาจไม่โหลด (background none)\nเช็คว่า ./goodjunk-vr.css 404 หรือไม่');
-        }
-      }, 1200);
-    })();
+    document.getElementById('btnHideHud').addEventListener('click', ()=>{
+      document.body.classList.toggle('hud-hidden');
+    });
+  })();
   </script>
+
 </body>
 </html>
