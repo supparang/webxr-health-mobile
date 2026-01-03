@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk.safe.js ===
-// GoodJunkVR — PRODUCTION (C+FX PATCH + TWO-EYE + cVR SHOOT)
+// GoodJunkVR — PRODUCTION (C+FX PATCH + TWO-EYE + cVR SHOOT) — FULL (LATEST)
 // ✅ MISS = good expired + junk hit (shield blocks junk miss => NO miss)
 // ✅ Play: practice 15s (no penalty) then real play timer resets
 // ✅ Research: deterministic seed, NO practice
@@ -10,6 +10,7 @@
 // ✅ VR-safe: no shake in VR/cVR, lighter FX frequency
 // ✅ TWO-EYE: spawn pair L/R in VR/cVR + click/shoot removes BOTH + expire removes BOTH (miss counted once)
 // ✅ cVR shoot: via event hha:shoot, aim-assist lockPx around center
+// ✅ FALLBACK: target visible even if CSS fails (force absolute + injected fallback styles)
 
 'use strict';
 
@@ -53,7 +54,7 @@ function medianOf(arr){
 // -------------------------
 const HUD = {
   score: byId('hud-score'),
-  combo: byId('hud-combo'),
+  combo: byId('hud-combo'), // (optional)
   miss:  byId('hud-miss'),
   time:  byId('hud-time'),
   grade: byId('hud-grade'),
@@ -377,6 +378,17 @@ function createTargetEl(kind, emoji){
   el.className = 'gj-target';
   el.dataset.kind = kind;
   el.textContent = emoji;
+
+  // ✅ FALLBACK STYLE (ทำให้เห็นแน่ ๆ แม้ CSS ไม่โหลด)
+  el.style.position = 'absolute';
+  el.style.transform = 'translate(-50%,-50%)';
+  el.style.fontSize = (kind==='star' || kind==='shield') ? '46px' : '52px';
+  el.style.lineHeight = '1';
+  el.style.userSelect = 'none';
+  el.style.cursor = 'pointer';
+  el.style.zIndex = '5';
+  el.style.filter = 'drop-shadow(0 10px 22px rgba(0,0,0,.35))';
+
   el.style.left = '0px';
   el.style.top  = '0px';
   return el;
@@ -495,7 +507,33 @@ export function boot(opts={}){
   const layer = byId('gj-layer');
   if(!layer){ console.error('GoodJunkVR: missing #gj-layer'); return; }
 
-  const layerR = byId('gj-layer-r'); // ✅ right eye layer (VR/cVR)
+  const layerR = byId('gj-layer-r'); // right eye layer (VR/cVR)
+
+  // ✅ FALLBACK: ensure layers are clickable & have area even if CSS missing
+  const ensureLayerBox = (el)=>{
+    if(!el) return;
+    const cs = getComputedStyle(el);
+    if(cs.position === 'static') el.style.position = 'fixed';
+    if(!el.style.inset) el.style.inset = '0';
+    el.style.pointerEvents = 'auto';
+    el.style.zIndex = el.style.zIndex || '2';
+    if(!el.style.minHeight) el.style.minHeight = '60vh';
+    if(!el.style.minWidth)  el.style.minWidth  = '60vw';
+  };
+  ensureLayerBox(layer);
+  ensureLayerBox(layerR);
+
+  // ✅ FALLBACK CSS: force targets absolute (if your CSS didn’t load)
+  if(!DOC.getElementById('gj-fallback-style')){
+    const st = DOC.createElement('style');
+    st.id = 'gj-fallback-style';
+    st.textContent = `
+      #gj-layer, #gj-layer-r { position: fixed; inset: 0; pointer-events:auto; }
+      .gj-target{ position:absolute !important; transform:translate(-50%,-50%); }
+      .gj-target.spawn{ opacity:1; }
+    `;
+    DOC.head.appendChild(st);
+  }
 
   const view = String(opts.view||'mobile');
   const diff = String(opts.diff||'normal').toLowerCase();
@@ -536,7 +574,7 @@ export function boot(opts={}){
     phase: opts.phase || null,
     conditionGroup: opts.conditionGroup || null,
     startTimeIso: new Date().toISOString(),
-    gameVersion:'gj-2026-01-02D-twoeye'
+    gameVersion:'gj-2026-01-03A-fallback-twoeye'
   };
   emit('hha:start', meta);
   logEvent('start', meta);
@@ -571,7 +609,6 @@ export function boot(opts={}){
     emit('hha:coach', { text: d.text, why: d.why, mood:'neutral' });
   }, { passive:true });
 
-  const activeTargets = new Set();
   let ended = false;
 
   // -------- Pair (L/R) management --------
@@ -584,8 +621,8 @@ export function boot(opts={}){
     if(!p) return;
     pairMap.delete(pid);
     if(p.expireT){ try{ clearTimeout(p.expireT); }catch(_){} }
-    if(p.l){ try{ activeTargets.delete(p.l); removeEl(p.l); }catch(_){} }
-    if(p.r){ try{ activeTargets.delete(p.r); removeEl(p.r); }catch(_){} }
+    if(p.l){ try{ removeEl(p.l); }catch(_){} }
+    if(p.r){ try{ removeEl(p.r); }catch(_){} }
   }
   function pairFromEl(el){ return el ? elToPid.get(el) : null; }
 
@@ -734,6 +771,12 @@ export function boot(opts={}){
   layer.addEventListener('click', onTargetClick, { passive:false });
   if(layerR) layerR.addEventListener('click', onTargetClick, { passive:false });
 
+  // ✅ backup click catcher (กัน pointer-events ซ้อน)
+  DOC.addEventListener('click', (e)=>{
+    const t = e.target && e.target.closest ? e.target.closest('.gj-target') : null;
+    if(t) onTargetClick({ target: t });
+  }, { passive:false });
+
   function spawnOne(forceKind=null){
     if(state.phase !== 'practice' && state.phase !== 'play') return;
 
@@ -766,7 +809,9 @@ export function boot(opts={}){
 
     const W = DOC.documentElement.clientWidth;
     const H = DOC.documentElement.clientHeight;
-    const topPad = 130 + (Number(getComputedStyle(DOC.documentElement).getPropertyValue('--sat').replace('px',''))||0);
+
+    const sat = Number(getComputedStyle(DOC.documentElement).getPropertyValue('--sat').replace('px',''))||0;
+    const topPad = 130 + sat;
 
     const x = randIn(state.rng, 0.18, 0.82) * W;
     const y = randIn(state.rng, 0.25, 0.78) * H;
@@ -783,6 +828,7 @@ export function boot(opts={}){
       ? randIn(state.rng, 0.95, 1.08)
       : randIn(state.rng, 0.92, 1.18);
 
+    // keep fallback translate(-50%,-50%) and scale it
     elL.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
     if(elR) elR.style.transform = `translate(-50%,-50%) scale(${s.toFixed(3)})`;
 
@@ -803,9 +849,6 @@ export function boot(opts={}){
 
     requestAnimationFrame(()=> elL.classList.add('spawn'));
     if(elR) requestAnimationFrame(()=> elR.classList.add('spawn'));
-
-    activeTargets.add(elL);
-    if(elR) activeTargets.add(elR);
 
     pairMap.set(pid, { kind, l: elL, r: elR, bornAt: born, expireT: 0 });
     elToPid.set(elL, pid);
@@ -849,7 +892,6 @@ export function boot(opts={}){
       }
 
       pairRemove(pid);
-
     }, Math.floor(lifeMs));
 
     const p0 = pairMap.get(pid);
@@ -1054,7 +1096,6 @@ export function boot(opts={}){
     for(const pid of pairMap.keys()){
       pairRemove(pid);
     }
-    activeTargets.clear();
 
     const denom = (state.nHitGood + state.nExpireGood);
     const accGood = denom > 0 ? (state.nHitGood / denom) * 100 : 0;
@@ -1121,7 +1162,7 @@ export function boot(opts={}){
       phase: opts.phase || null,
       conditionGroup: opts.conditionGroup || null,
 
-      gameVersion:'gj-2026-01-02D-twoeye',
+      gameVersion:'gj-2026-01-03A-fallback-twoeye',
       startTimeIso: meta.startTimeIso,
       endTimeIso: new Date().toISOString(),
       hub: opts.hub || null,
@@ -1151,7 +1192,7 @@ export function boot(opts={}){
           scoreFinal: state.score,
           misses: state.miss,
           durationPlayedSec: state.playedSec,
-          gameVersion:'gj-2026-01-02D-twoeye',
+          gameVersion:'gj-2026-01-03A-fallback-twoeye',
           startTimeIso: meta.startTimeIso,
           endTimeIso: new Date().toISOString(),
         }));
