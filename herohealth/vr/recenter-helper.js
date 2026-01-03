@@ -1,192 +1,124 @@
 // === /herohealth/vr/recenter-helper.js ===
-// HeroHealth — Recenter / Calibration Helper (Cardboard + cVR + Mobile)
-// ✅ Long-press anywhere (default 650ms) => recenter
-// ✅ Optional button mount (top-right) if you want
-// ✅ Emits: hha:recenter {reason, view, ts}
-// ✅ Provides hook to integrate with touch-look / gyro / translate-based playfields
-// ✅ Does NOT change pointer-events; safe for view-cvr strict
+// HHA Recenter Helper — PRODUCTION
+// - Provides a simple "recenter offset" for crosshair/tap-to-shoot aiming
+// - Works well for cVR/Cardboard where user wants center calibration
+// - Stores per game/view in localStorage
+// - Emits: hha:recenter { dx, dy, source }
+// - Exposes: window.HHA_RECENTER.recenter(), get(), set(dx,dy), clear()
 
-'use strict';
+(function(){
+  'use strict';
+  const ROOT = window;
+  const DOC  = document;
 
-const ROOT = (typeof window !== 'undefined') ? window : globalThis;
-const DOC  = ROOT.document;
-
-function qs(k, def=null){
-  try { return new URL(location.href).searchParams.get(k) ?? def; }
-  catch { return def; }
-}
-function emit(name, detail){
-  try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
-}
-
-function clamp(v,min,max){ v=Number(v)||0; return v<min?min:(v>max?max:v); }
-
-export function createRecenterHelper(opts={}){
-  const cfg = {
-    // where to listen
-    rootEl: opts.rootEl || DOC.body,
-    // optional: element to avoid triggering long-press (HUD buttons)
-    ignoreSelector: opts.ignoreSelector || '#hudBtns, .btnRow, button, a, input, textarea, [data-no-recenter]',
-    // behavior
-    enabled: (opts.enabled !== false),
-    holdMs: clamp(opts.holdMs ?? 650, 350, 1800),
-    vibMs: clamp(opts.vibMs ?? 18, 0, 60),
-    // overlay
-    showOverlay: (opts.showOverlay !== false),
-    overlayText: opts.overlayText || 'CALIBRATE',
-    overlaySub: opts.overlaySub || 'แตะค้างเพื่อรีเซ็นเตอร์',
-    // callback to actually reset your control system
-    onRecenter: (typeof opts.onRecenter === 'function') ? opts.onRecenter : null,
-  };
-
-  const S = {
-    pressing:false,
-    pressT:0,
-    timer:0,
-    lastFire:0
-  };
-
-  // detect view
-  function view(){
-    const b = DOC.body;
-    if (b.classList.contains('cardboard')) return 'cardboard';
-    if (b.classList.contains('view-cvr')) return 'cvr';
-    if (b.classList.contains('view-mobile')) return 'mobile';
-    return 'pc';
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch(_){ return def; }
+  }
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function emit(name, detail){
+    try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
   }
 
-  // overlay
-  let overlay=null;
-  function ensureOverlay(){
-    if (!cfg.showOverlay) return null;
-    if (overlay && overlay.isConnected) return overlay;
+  const game = (qs('game') || qs('gameMode') || 'plate').toLowerCase();
+  const view = (qs('view') || 'mobile').toLowerCase();
+  const KEY = `HHA_RECENTER_${game}_${view}`;
 
-    const el = DOC.createElement('div');
-    el.id = 'hhaRecenterOverlay';
-    el.style.cssText = `
-      position:fixed;
-      left:50%; top:16%;
-      transform:translate(-50%,-50%);
-      z-index:9998;
+  let state = { dx:0, dy:0 };
+
+  function load(){
+    try{
+      const s = localStorage.getItem(KEY);
+      if(!s) return;
+      const j = JSON.parse(s);
+      if(j && typeof j.dx==='number' && typeof j.dy==='number'){
+        state.dx = clamp(j.dx, -120, 120);
+        state.dy = clamp(j.dy, -120, 120);
+      }
+    }catch(_){}
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify({ dx:state.dx, dy:state.dy })); }catch(_){}
+  }
+
+  function set(dx, dy, source){
+    state.dx = clamp(dx, -120, 120);
+    state.dy = clamp(dy, -120, 120);
+    save();
+    emit('hha:recenter', { dx:state.dx, dy:state.dy, source: source||'set' });
+  }
+
+  function clear(){
+    state.dx = 0; state.dy = 0;
+    try{ localStorage.removeItem(KEY); }catch(_){}
+    emit('hha:recenter', { dx:0, dy:0, source:'clear' });
+  }
+
+  function get(){ return { dx:state.dx, dy:state.dy }; }
+
+  // “Recenter now” = ตั้ง offset ให้ crosshair ณ ตอนนี้เป็นศูนย์
+  // วิธี: วัด visualViewport center (หรือ inner) แล้ว set offset = 0 (เกมจะใช้ offset นี้ไปชดเชยตอนยิง)
+  // แต่เราไม่มี sensor ของผู้ใช้จริง ๆ จึงให้ UX เป็น: ปรับจูนด้วยปุ่ม +/- ใน UI ได้ (ด้านล่าง)
+  function recenter(source){
+    // hard reset to 0 (simple & reliable)
+    set(0,0, source||'recenter');
+  }
+
+  // Optional mini UI for calibration (only show in cVR/VR)
+  function ensureMiniUI(){
+    const show = (view === 'cvr' || view === 'vr');
+    if(!show) return;
+
+    const id = 'hha-recenter-mini';
+    if(DOC.getElementById(id)) return;
+
+    const wrap = DOC.createElement('div');
+    wrap.id = id;
+    wrap.style.cssText = `
+      position:fixed; left:10px; top: calc(10px + var(--sat,0px));
+      z-index:160; display:flex; gap:6px; flex-wrap:wrap;
       pointer-events:none;
-      opacity:0;
-      transition: opacity 160ms ease, transform 160ms ease;
-      padding:10px 12px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.22);
-      background:rgba(2,6,23,.78);
-      color:rgba(229,231,235,.95);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      text-align:center;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 18px 70px rgba(0,0,0,.40);
     `;
-    el.innerHTML = `
-      <div style="font-weight:900; letter-spacing:.2px; font-size:13px">${cfg.overlayText}</div>
-      <div style="margin-top:4px; opacity:.85; font-size:12px">${cfg.overlaySub}</div>
-      <div id="hhaRecenterBar" style="margin-top:8px;height:8px;border-radius:999px;background:rgba(148,163,184,.18);overflow:hidden;border:1px solid rgba(148,163,184,.12)">
-        <div style="height:100%;width:0%;background:linear-gradient(90deg, rgba(34,211,238,.95), rgba(34,197,94,.95))"></div>
-      </div>
-    `;
-    DOC.body.appendChild(el);
-    overlay = el;
-    return overlay;
-  }
-  function setOverlay(pct, visible){
-    const el = ensureOverlay();
-    if (!el) return;
-    const bar = el.querySelector('#hhaRecenterBar > div');
-    if (bar) bar.style.width = `${clamp(pct,0,100).toFixed(0)}%`;
-    el.style.opacity = visible ? '1' : '0';
-    el.style.transform = visible ? 'translate(-50%,-50%) scale(1.0)' : 'translate(-50%,-60%) scale(0.98)';
-  }
 
-  function canTriggerFrom(ev){
-    try{
-      const t = ev.target;
-      if (!t) return true;
-      if (cfg.ignoreSelector && t.closest && t.closest(cfg.ignoreSelector)) return false;
-    }catch(_){}
-    return true;
-  }
-
-  function vibrate(){
-    try{
-      if (cfg.vibMs > 0 && navigator.vibrate) navigator.vibrate(cfg.vibMs);
-    }catch(_){}
-  }
-
-  function fire(reason='hold'){
-    const now = performance.now();
-    if (now - S.lastFire < 250) return;
-    S.lastFire = now;
-
-    vibrate();
-    setOverlay(100, true);
-    setTimeout(()=>setOverlay(0, false), 260);
-
-    const info = { reason, view: view(), ts: Date.now() };
-    emit('hha:recenter', info);
-
-    try{ cfg.onRecenter && cfg.onRecenter(info); }catch(_){}
-  }
-
-  function startPress(ev){
-    if (!cfg.enabled) return;
-    if (!canTriggerFrom(ev)) return;
-
-    S.pressing = true;
-    S.pressT = performance.now();
-    setOverlay(0, true);
-
-    clearTimeout(S.timer);
-    S.timer = setTimeout(()=>fire('hold'), cfg.holdMs);
-  }
-  function endPress(){
-    if (!S.pressing) return;
-    S.pressing = false;
-    clearTimeout(S.timer);
-    S.timer = 0;
-    setOverlay(0, false);
-  }
-
-  // progress fill while holding
-  function rafTick(){
-    if (!cfg.enabled) return;
-    if (S.pressing){
-      const dt = performance.now() - S.pressT;
-      const pct = clamp((dt/cfg.holdMs)*100, 0, 100);
-      setOverlay(pct, true);
+    function mkBtn(txt, onClick){
+      const b = DOC.createElement('button');
+      b.type = 'button';
+      b.textContent = txt;
+      b.style.cssText = `
+        pointer-events:auto;
+        appearance:none;border:none;border-radius:999px;
+        padding:9px 10px;
+        background:rgba(2,6,23,.72);
+        border:1px solid rgba(148,163,184,.22);
+        color:rgba(229,231,235,.95);
+        font: 1000 12px/1 system-ui;
+        backdrop-filter: blur(10px);
+      `;
+      b.addEventListener('click', onClick, { passive:true });
+      return b;
     }
-    requestAnimationFrame(rafTick);
+
+    const step = 6;
+    wrap.appendChild(mkBtn('⟲ RECENTER', ()=>recenter('mini-ui')));
+    wrap.appendChild(mkBtn('←', ()=>set(state.dx - step, state.dy, 'mini-ui')));
+    wrap.appendChild(mkBtn('→', ()=>set(state.dx + step, state.dy, 'mini-ui')));
+    wrap.appendChild(mkBtn('↑', ()=>set(state.dx, state.dy - step, 'mini-ui')));
+    wrap.appendChild(mkBtn('↓', ()=>set(state.dx, state.dy + step, 'mini-ui')));
+    wrap.appendChild(mkBtn('✖', ()=>clear()));
+
+    DOC.body.appendChild(wrap);
   }
-  requestAnimationFrame(rafTick);
 
-  // listeners
-  const el = cfg.rootEl || DOC.body;
-  el.addEventListener('pointerdown', startPress, {passive:true});
-  el.addEventListener('pointerup', endPress, {passive:true});
-  el.addEventListener('pointercancel', endPress, {passive:true});
-  el.addEventListener('pointerleave', endPress, {passive:true});
+  load();
+  ROOT.HHA_RECENTER = { recenter, get, set, clear, key: KEY };
 
-  // key shortcut (PC)
-  window.addEventListener('keydown', (e)=>{
-    if (!cfg.enabled) return;
-    if (e.key === 'r' || e.key === 'R'){
-      fire('key');
-    }
-  });
+  // emit initial so game can pick up immediately
+  emit('hha:recenter', { dx:state.dx, dy:state.dy, source:'init' });
 
-  return {
-    fire,
-    destroy(){
-      try{
-        el.removeEventListener('pointerdown', startPress);
-        el.removeEventListener('pointerup', endPress);
-        el.removeEventListener('pointercancel', endPress);
-        el.removeEventListener('pointerleave', endPress);
-      }catch(_){}
-      try{ if (overlay) overlay.remove(); }catch(_){}
-    }
-  };
-}
+  // build mini UI after DOM ready
+  if(DOC.readyState === 'loading'){
+    DOC.addEventListener('DOMContentLoaded', ensureMiniUI, { once:true });
+  }else{
+    ensureMiniUI();
+  }
+})();
