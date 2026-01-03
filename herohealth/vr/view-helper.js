@@ -1,76 +1,117 @@
 // === /herohealth/vr/view-helper.js ===
-// HeroHealth — View Helper (Fullscreen + Orientation + Safe HUD offsets)
-// - requestFullscreenBestEffort()
-// - lockLandscapeBestEffort()
-// - applyFsClass()
-// - computeHudSafeOffsets() => {top,right,bottom,left} (px)
-// NOTE: must be called from user gesture for fullscreen/orientation
+// HHA View Helper — PRODUCTION
+// - Apply body view classes: view-pc / view-mobile / view-vr / view-cvr
+// - Best-effort fullscreen + landscape lock for cVR
+// - HUD guard: expose safe bottom offset to avoid covering EnterVR button
+// - Emits: hha:view (detail: { view, isFS, isLandscape, safeBottomPx })
 
-(function(root){
+(function(){
   'use strict';
-  const DOC = root.document;
+  const ROOT = window;
+  const DOC  = document;
 
-  async function requestFullscreenBestEffort(){
+  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }
+    catch(_){ return def; }
+  }
+
+  const VIEW = (qs('view','mobile')||'mobile').toLowerCase();
+  const view = (VIEW==='cvr')?'cvr':(VIEW==='vr')?'vr':(VIEW==='pc')?'pc':'mobile';
+
+  function emit(name, detail){
+    try{ ROOT.dispatchEvent(new CustomEvent(name, { detail })); }catch(_){}
+  }
+
+  function isFullscreen(){
+    return !!(DOC.fullscreenElement || DOC.webkitFullscreenElement);
+  }
+
+  function isLandscape(){
+    const so = ROOT.screen && ROOT.screen.orientation;
+    if(so && typeof so.type === 'string'){
+      return so.type.includes('landscape');
+    }
+    return (ROOT.innerWidth || 0) >= (ROOT.innerHeight || 0);
+  }
+
+  function applyBodyView(){
+    const b = DOC.body;
+    if(!b) return;
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    b.classList.add(view==='cvr'?'view-cvr':view==='vr'?'view-vr':view==='pc'?'view-pc':'view-mobile');
+  }
+
+  async function requestFullscreen(){
     try{
       const el = DOC.documentElement;
-      if (!DOC.fullscreenElement && el.requestFullscreen){
-        await el.requestFullscreen({ navigationUI:'hide' });
+      if(el.requestFullscreen) await el.requestFullscreen();
+      else if(el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      return true;
+    }catch(_){ return false; }
+  }
+
+  async function lockLandscape(){
+    try{
+      const so = ROOT.screen && ROOT.screen.orientation;
+      if(so && so.lock){
+        await so.lock('landscape');
+        return true;
       }
     }catch(_){}
-    applyFsClass();
+    return false;
   }
 
-  async function lockLandscapeBestEffort(){
-    try{
-      if (screen.orientation && screen.orientation.lock){
-        await screen.orientation.lock('landscape');
-      }
-    }catch(_){}
+  function calcSafeBottom(){
+    // สำหรับกัน HUD ทับ EnterVR/exit/recenter (และ safe-area iOS)
+    const sab = parseFloat(getComputedStyle(DOC.documentElement).getPropertyValue('--sab')) || 0;
+    const base = 10 + sab;
+    // cVR ควรยกพื้นที่ปุ่มให้สูงขึ้นหน่อย
+    const extra = (view==='cvr') ? 16 : 0;
+    return Math.round(base + extra);
   }
 
-  function applyFsClass(){
-    try{
-      DOC.body.classList.toggle('is-fs', !!DOC.fullscreenElement);
-    }catch(_){}
+  function applyHudGuard(){
+    const safeBottomPx = calcSafeBottom();
+    DOC.documentElement.style.setProperty('--hhaSafeBottom', safeBottomPx + 'px');
+    emit('hha:view', { view, isFS: isFullscreen(), isLandscape: isLandscape(), safeBottomPx });
   }
 
-  function computeHudSafeOffsets(){
-    // HUD should avoid: safe-area + crosshair center zone + optional VR UI buttons (#hudBtns etc.)
-    const sat = pxVar('--sat');
-    const sab = pxVar('--sab');
-    const sal = pxVar('--sal');
-    const sar = pxVar('--sar');
+  async function ensureCVR(){
+    if(view !== 'cvr') return;
+    // Best effort: fullscreen + landscape (user gesture required in many browsers)
+    await requestFullscreen();
+    await lockLandscape();
+    applyHudGuard();
+  }
 
-    // crosshair center keep-out (so HUD not overlap center)
-    // (this is conservative; tweak if needed)
-    const keepCenter = 56;
+  function init(){
+    applyBodyView();
+    applyHudGuard();
 
-    return {
-      top:  Math.max(0, sat),
-      right:Math.max(0, sar),
-      bottom:Math.max(0, sab),
-      left: Math.max(0, sal),
-      keepCenter
+    // keep updating on changes
+    ROOT.addEventListener('resize', applyHudGuard, { passive:true });
+    ROOT.addEventListener('orientationchange', applyHudGuard, { passive:true });
+    DOC.addEventListener('fullscreenchange', applyHudGuard, { passive:true });
+    DOC.addEventListener('webkitfullscreenchange', applyHudGuard, { passive:true });
+
+    const vv = ROOT.visualViewport;
+    if(vv){
+      vv.addEventListener('resize', applyHudGuard, { passive:true });
+      vv.addEventListener('scroll', applyHudGuard, { passive:true });
+    }
+
+    // expose helper
+    ROOT.HHA_VIEW_HELPER = {
+      view,
+      ensureCVR,
+      requestFullscreen,
+      lockLandscape,
+      applyHudGuard,
+      isFullscreen,
+      isLandscape,
     };
   }
 
-  function pxVar(name){
-    try{
-      const v = getComputedStyle(DOC.documentElement).getPropertyValue(name).trim();
-      if (!v) return 0;
-      if (v.endsWith('px')) return parseFloat(v)||0;
-      const n = parseFloat(v);
-      return Number.isFinite(n) ? n : 0;
-    }catch(_){ return 0; }
-  }
-
-  root.HHA_ViewHelper = {
-    requestFullscreenBestEffort,
-    lockLandscapeBestEffort,
-    applyFsClass,
-    computeHudSafeOffsets
-  };
-
-  // keep class in sync
-  DOC.addEventListener('fullscreenchange', applyFsClass);
-})(typeof window !== 'undefined' ? window : globalThis);
+  init();
+})();
