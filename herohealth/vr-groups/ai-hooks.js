@@ -1,72 +1,116 @@
 // === /herohealth/vr-groups/ai-hooks.js ===
-// AI Hooks (Disabled by default) — PRODUCTION SAFE
-// ✅ attach({runMode, seed, enabled})
-// ✅ Emits hha:ai events as hook points (no gameplay mutation by default)
-// ✅ Adds micro-tip coach (rate-limited) when enabled
-(function(root){
-  'use strict';
-  const NS = (root.GroupsVR = root.GroupsVR || {});
-  const emit = (name, detail)=>{ try{ root.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch{} };
+// PACK 69: AI Hooks v2 (disabled by default; research-safe)
 
+(function(){
+  'use strict';
+  const WIN = window;
+
+  function qs(k, def=null){
+    try{ return new URL(location.href).searchParams.get(k) ?? def; }catch{ return def; }
+  }
   function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+
+  function hashSeed(str){
+    str=String(str??'');
+    let h=2166136261>>>0;
+    for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
+    return h>>>0;
+  }
+  function makeRng(u32){
+    let s=(u32>>>0)||1;
+    return ()=>((s=(Math.imul(1664525,s)+1013904223)>>>0)/4294967296);
+  }
+
+  function emitCoach(text, mood='neutral'){
+    try{ WIN.dispatchEvent(new CustomEvent('hha:coach',{detail:{text,mood}})); }catch(_){}
+  }
 
   const AI = {
     enabled:false,
     runMode:'play',
+    seed:'0',
+    rng:()=>Math.random(),
+
     lastTipAt:0,
-    tipGapMs: 5500,
-    seed:''
+    tipCooldownMs: 4200,
+    lastPatchAt:0,
+
+    attach(cfg){
+      cfg = cfg||{};
+      AI.runMode = (String(cfg.runMode||'play').toLowerCase()==='research') ? 'research' : 'play';
+
+      if (AI.runMode === 'research'){ AI.enabled = false; return; } // hard safety
+
+      AI.enabled = !!cfg.enabled;  // default OFF
+      AI.seed = String(cfg.seed ?? qs('seed', Date.now()));
+      AI.rng = makeRng(hashSeed(AI.seed + '::aihooks'));
+
+      AI.lastTipAt = 0;
+      AI.lastPatchAt = 0;
+
+      if (AI.enabled) emitCoach('AI Assist เปิดแล้ว 🤖', 'happy');
+    },
+
+    // 1) Difficulty Director
+    onTick(state){
+      if (!AI.enabled) return null;
+      const t = Date.now();
+      if (t - AI.lastPatchAt < 380) return null;
+      AI.lastPatchAt = t;
+
+      const acc = clamp(state.accPct, 0, 100);
+      const combo = clamp(state.combo, 0, 99);
+      const misses = clamp(state.misses, 0, 99);
+
+      let spawnMul = 1.0;
+      if (acc >= 88) spawnMul *= 0.92;
+      if (combo >= 8) spawnMul *= 0.90;
+      if (misses >= 8) spawnMul *= 1.10;
+      if (state.stormOn) spawnMul *= 0.86;
+
+      const jitter = (AI.rng() - 0.5) * 0.04;
+      spawnMul = clamp(spawnMul + jitter, 0.82, 1.18);
+
+      return { spawnMul };
+    },
+
+    // 2) Coach micro-tips (explainable + rate-limit)
+    onJudge(state, judge){
+      if (!AI.enabled) return;
+      const t = Date.now();
+      if (t - AI.lastTipAt < AI.tipCooldownMs) return;
+
+      const k = String(judge.kind||'').toLowerCase();
+      const acc = clamp(state.accPct, 0, 100);
+
+      if (k === 'bad' || k === 'miss'){
+        AI.lastTipAt = t;
+        emitCoach('ทิป: ดูชื่อหมู่ด้านบนก่อนยิง 0.5 วิ แล้วค่อยแตะ 🔍', 'neutral');
+        return;
+      }
+      if (k === 'good' && acc < 65){
+        AI.lastTipAt = t;
+        emitCoach('ทิป: เล็งกลางเป้าให้นิ่ง แล้วค่อยยิง 🎯', 'neutral');
+        return;
+      }
+      if (k === 'boss'){
+        AI.lastTipAt = t;
+        emitCoach('ทิปบอส: ยิงต่อเนื่อง “กลางวง” จะละลาย HP เร็ว 💥', 'fever');
+      }
+    },
+
+    // 3) Pattern hints
+    onStormBoss(state, kind){
+      if (!AI.enabled) return;
+      const t = Date.now();
+      if (t - AI.lastTipAt < AI.tipCooldownMs) return;
+
+      kind = String(kind||'').toLowerCase();
+      if (kind === 'storm_on'){ AI.lastTipAt = t; emitCoach('พายุ: เป้าถี่ขึ้น—คุมจังหวะ ⚡', 'fever'); }
+      if (kind === 'boss_spawn'){ AI.lastTipAt = t; emitCoach('บอส: โฟกัสเป้าเดียว ยิงรัว ๆ 😈', 'fever'); }
+    }
   };
 
-  function maybeTip(text, mood){
-    if (!AI.enabled) return;
-    const t = Date.now();
-    if (t - AI.lastTipAt < AI.tipGapMs) return;
-    AI.lastTipAt = t;
-    emit('hha:coach', { text, mood: mood || 'neutral' });
-  }
-
-  function attach(cfg){
-    cfg = cfg || {};
-    AI.runMode = String(cfg.runMode||'play');
-    AI.seed = String(cfg.seed||'');
-    AI.enabled = !!cfg.enabled && AI.runMode !== 'research';
-
-    emit('hha:ai', { kind:'attach', enabled: AI.enabled, seed: AI.seed, runMode: AI.runMode });
-
-    if (!AI.enabled) return;
-
-    // Difficulty Director (hook-only): just observe & suggest
-    root.addEventListener('hha:rank', (ev)=>{
-      const d = ev.detail||{};
-      const acc = clamp(d.accuracy||0, 0, 100);
-      emit('hha:ai', { kind:'observe_rank', acc });
-
-      if (acc < 55) maybeTip('ลอง “แตะให้มั่น” ก่อนยิงเร็ว — เน้นถูกมากกว่ารัวนะ!', 'sad');
-      else if (acc >= 85) maybeTip('ดีมาก! ตอนนี้ลองคุม “คอมโบ” ให้ยาวขึ้นอีกนิด 🔥', 'happy');
-    }, { passive:true });
-
-    // Coach micro-tips on mistakes
-    root.addEventListener('hha:judge', (ev)=>{
-      const d = ev.detail||{};
-      const k = String(d.kind||'').toLowerCase();
-      emit('hha:ai', { kind:'observe_judge', judge:k });
-
-      if (k === 'bad') maybeTip('เจอของหลอก/อาหารขยะแล้ว! มอง “สี/ตำแหน่ง” ก่อนแตะ 0.2 วิ', 'neutral');
-      if (k === 'miss') maybeTip('พลาดได้ แต่รีเซ็ตแล้วเริ่มคอมโบใหม่ทันที ✨', 'neutral');
-    }, { passive:true });
-
-    // Pattern Generator hook: observe storm/boss
-    root.addEventListener('groups:progress', (ev)=>{
-      const d = ev.detail||{};
-      const kind = String(d.kind||'');
-      emit('hha:ai', { kind:'observe_progress', event: kind });
-
-      if (kind === 'storm_on') maybeTip('STORM มาแล้ว! โฟกัส “ถูกก่อนเร็ว” 🔥', 'fever');
-      if (kind === 'boss_spawn') maybeTip('บอสโผล่! เล็งกลางเป้า แล้วแตะให้ชัวร์ 🎯', 'happy');
-    }, { passive:true });
-  }
-
-  NS.AIHooks = { attach };
-
-})(typeof window !== 'undefined' ? window : globalThis);
+  WIN.GroupsVR = WIN.GroupsVR || {};
+  WIN.GroupsVR.AIHooks = AI;
+})();
