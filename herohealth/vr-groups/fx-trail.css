@@ -1,0 +1,50 @@
+/* === /herohealth/vr-groups/fx-trails.css ===
+PACK 22: Trails CSS
+Requires: .fg-target exists (from groups-vr.css)
+Respects: body[data-fx-level="0|1|2|3"]
+*/
+
+body[data-fx-level="0"] .groups-trail-layer{ display:none !important; }
+
+.groups-trail-layer .fg-ghost{
+  position:absolute;
+  left: var(--x);
+  top: var(--y);
+  transform: translate(-50%,-50%) scale(var(--s,1));
+  width: var(--tSize);
+  height: var(--tSize);
+  border-radius: 999px;
+  opacity: .35;
+  filter: blur(0.2px);
+  animation: ghostOut .28s ease-out forwards;
+}
+
+.groups-trail-layer .fg-ghost::before{
+  content: attr(data-emoji);
+  font-size: var(--tFont);
+  line-height: 1;
+  opacity: .85;
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.45));
+}
+.groups-trail-layer .fg-ghost::after{ display:none !important; } /* remove ring */
+
+@keyframes ghostOut{
+  from{ opacity:.35; transform: translate(-50%,-50%) scale(var(--s,1)); }
+  to{ opacity:0; transform: translate(-50%,-50%) scale(calc(var(--s,1)*1.12)); }
+}
+
+.groups-trail-layer .fg-ghost-boss{
+  opacity:.45;
+  animation-duration: .42s;
+}
+
+/* storm aura (cheap) */
+body.fx-storm-aura .playLayer{
+  box-shadow: inset 0 0 0 2px rgba(34,211,238,.08);
+}
+body.fx-storm-aura .fg-target{
+  filter: saturate(1.08);
+}
+body[data-fx-level="1"].fx-storm-aura .fg-target{
+  filter: none;
+}
