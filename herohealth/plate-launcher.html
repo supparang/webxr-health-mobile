@@ -29,792 +29,1021 @@
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
     }
+
     *{ box-sizing:border-box; }
-    html,body{
-      margin:0; width:100%; height:100%;
-      background:var(--bg); color:var(--text);
-      font-family: system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-    }
-    .bg{
-      position:fixed; inset:0;
+    html, body{ height:100%; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
       background:
-        radial-gradient(circle at 12% 10%, rgba(34,211,238,.12), transparent 40%),
-        radial-gradient(circle at 88% 20%, rgba(167,139,250,.10), transparent 42%),
-        radial-gradient(circle at 50% 92%, rgba(34,197,94,.10), transparent 48%),
-        linear-gradient(180deg, rgba(2,6,23,.98), rgba(2,6,23,1));
-      pointer-events:none;
+        radial-gradient(circle at 15% 10%, rgba(34,211,238,.14), transparent 55%),
+        radial-gradient(circle at 85% 20%, rgba(167,139,250,.12), transparent 58%),
+        radial-gradient(circle at 50% 95%, rgba(34,197,94,.12), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      overflow-x:hidden;
     }
+
     .wrap{
-      position:relative;
-      min-height:100%;
-      padding: calc(16px + var(--sat)) calc(16px + var(--sar)) calc(16px + var(--sab)) calc(16px + var(--sal));
-      display:grid;
-      place-items:center;
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));
     }
-    .card{
-      width:min(1080px, 100%);
-      background:var(--panel);
-      border:1px solid var(--stroke);
-      border-radius: var(--radius);
-      box-shadow: 0 26px 90px rgba(0,0,0,.42);
-      backdrop-filter: blur(10px);
-      padding:16px;
+
+    header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom: 14px;
     }
-    .top{
-      display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;
+    .brand{
+      display:flex; gap:10px; align-items:center;
     }
-    .title{ font-weight:1200; font-size:18px; }
+    .logo{
+      width:42px; height:42px; border-radius:14px;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,.10), transparent 55%),
+        linear-gradient(135deg, rgba(34,211,238,.25), rgba(167,139,250,.20));
+      border:1px solid rgba(148,163,184,.20);
+      box-shadow: 0 18px 48px rgba(0,0,0,.30);
+    }
+    h1{
+      margin:0;
+      font-size: 18px;
+      letter-spacing:.2px;
+      line-height:1.25;
+    }
     .sub{
-      margin-top:6px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.35;
-      font-size:13px;
-    }
-    .pill{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 10px;
-      border-radius: var(--pill);
-      background: rgba(15,23,42,.68);
-      border:1px solid rgba(148,163,184,.18);
-      font-weight:1000;
-      font-size:12px;
-      white-space:nowrap;
-    }
-    .grid{
-      margin-top:14px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-    }
-    @media (max-width: 980px){
-      .grid{ grid-template-columns:1fr; }
-    }
-    .panel{
-      background:var(--panel2);
-      border:1px solid var(--stroke);
-      border-radius:18px;
-      padding:12px;
-    }
-    .h{
-      font-weight:1100;
-      font-size:12px;
-      color:rgba(229,231,235,.92);
-      margin-bottom:10px;
-      display:flex; align-items:center; gap:8px;
-      justify-content:space-between;
-    }
-    .row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:center;
-    }
-    .seg{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-    .opt{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.55);
-      color: rgba(229,231,235,.95);
-      border-radius: 999px;
-      padding:10px 12px;
-      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color:transparent;
-      box-shadow: 0 16px 40px rgba(0,0,0,.32);
-    }
-    .opt[aria-pressed="true"]{
-      border-color: rgba(34,197,94,.36);
-      background: rgba(34,197,94,.14);
-    }
-    .opt.warn[aria-pressed="true"]{
-      border-color: rgba(245,158,11,.36);
-      background: rgba(245,158,11,.14);
-    }
-    .opt.violet[aria-pressed="true"]{
-      border-color: rgba(167,139,250,.36);
-      background: rgba(167,139,250,.14);
-    }
-    label{
-      font-weight:1000;
-      font-size:12px;
-      color:rgba(229,231,235,.90);
-    }
-    input[type="number"], input[type="text"], select{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.20);
-      background: rgba(2,6,23,.55);
-      color: rgba(229,231,235,.95);
-      border-radius: 12px;
-      padding:10px 10px;
-      font: 1000 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      outline:none;
-      min-width: 120px;
-    }
-    .actions{
-      margin-top:14px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-    }
-    .btns{
-      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
-    }
-    .btn{
-      appearance:none;
-      border:none;
-      border-radius:999px;
-      padding:12px 14px;
-      background: rgba(2,6,23,.70);
-      border:1px solid rgba(148,163,184,.20);
-      color: rgba(229,231,235,.95);
-      font: 1100 12px/1 system-ui, -apple-system, "Noto Sans Thai", Segoe UI, Roboto, sans-serif;
-      cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color:transparent;
-      box-shadow: 0 16px 40px rgba(0,0,0,.32);
-      backdrop-filter: blur(10px);
-    }
-    .btn.primary{ background: rgba(34,197,94,.16); border-color: rgba(34,197,94,.32); }
-    .btn.warn{ background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.30); }
-    .btn.violet{ background: rgba(167,139,250,.14); border-color: rgba(167,139,250,.30); }
-    .btn:active{ transform: translateY(1px); }
-    .muted{
+      margin-top:4px;
       color: var(--muted);
-      font-weight:900;
-      font-size:12px;
+      font-size: 12.5px;
       line-height:1.35;
     }
-    .mono{
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.16);
-      background: rgba(2,6,23,.45);
-      font: 900 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      color: rgba(229,231,235,.90);
-      word-break: break-all;
+
+    .topActions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
     }
 
-    /* --- Last summary card --- */
-    .sumGrid{
-      margin-top:12px;
+    .grid{
       display:grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap:12px;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 14px;
     }
-    @media (max-width: 980px){
-      .sumGrid{ grid-template-columns:1fr; }
-    }
-    .sumCard{
-      background: rgba(2,6,23,.55);
-      border:1px solid rgba(148,163,184,.16);
-      border-radius:18px;
-      padding:12px;
-      box-shadow: 0 18px 60px rgba(0,0,0,.24);
-    }
-    .sumTitle{
-      font-weight:1200; font-size:13px;
-      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
-    }
-    .sumPills{ margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; }
-    .tinyBtn{
-      padding:8px 10px;
-      font-weight:1100;
-      font-size:12px;
+    @media (max-width: 920px){
+      .grid{ grid-template-columns: 1fr; }
     }
 
-    /* --- QR --- */
-    .qrWrap{
-      display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;
-    }
-    .qrBox{
-      width: 220px; height: 220px;
-      border-radius: 18px;
+    .card{
+      background: var(--panel);
       border: 1px solid rgba(148,163,184,.18);
-      background: rgba(255,255,255,.06);
-      display:grid;
-      place-items:center;
+      border-radius: var(--radius);
+      box-shadow: 0 18px 52px rgba(0,0,0,.32);
       overflow:hidden;
     }
-    canvas#qrCanvas{
-      width: 210px; height: 210px;
-      image-rendering: pixelated;
+    .cardHd{
+      padding: 14px 14px 10px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(34,211,238,.08), transparent 40%),
+        rgba(2,6,23,.55);
+      border-bottom: 1px solid rgba(148,163,184,.14);
+    }
+    .cardHd .title{
+      font-weight: 800;
+      letter-spacing:.2px;
+      font-size: 14px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .cardBd{ padding: 14px; }
+
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 520px){
+      .row{ grid-template-columns: 1fr; }
+    }
+
+    label{
+      display:block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input, select{
+      width:100%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,.18);
+      outline: none;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,.06), transparent 40%),
+        rgba(15,23,42,.62);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    input::placeholder{ color: rgba(148,163,184,.75); }
+    input:focus, select:focus{
+      border-color: rgba(34,211,238,.35);
+      box-shadow: 0 0 0 3px rgba(34,211,238,.12);
+    }
+
+    .seg{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .seg .opt{
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.62);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-weight: 800;
+      letter-spacing:.2px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .seg .opt[aria-pressed="true"]{
+      border-color: rgba(34,197,94,.35);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(34,197,94,.16), transparent 50%),
+        rgba(15,23,42,.72);
+      box-shadow: 0 0 0 3px rgba(34,197,94,.10), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+
+    .hint{
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height:1.35;
+    }
+
+    .btns{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn{
+      appearance:none;
+      border: 1px solid rgba(148,163,184,.18);
+      color: var(--text);
+      background: rgba(15,23,42,.65);
+      border-radius: 16px;
+      padding: 10px 12px;
+      cursor:pointer;
+      font-weight: 800;
+      letter-spacing:.15px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      box-shadow: 0 16px 48px rgba(0,0,0,.28);
+      user-select:none;
+    }
+    .btn:hover{ filter: brightness(1.08); }
+    .btn:active{ transform: translateY(1px); }
+
+    .btn.primary{
+      border-color: rgba(34,197,94,.30);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(34,197,94,.16), transparent 48%),
+        rgba(15,23,42,.70);
+    }
+    .btn.cyan{
+      border-color: rgba(34,211,238,.32);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(34,211,238,.16), transparent 48%),
+        rgba(15,23,42,.70);
+    }
+    .btn.warn{
+      border-color: rgba(245,158,11,.32);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(245,158,11,.16), transparent 48%),
+        rgba(15,23,42,.70);
+    }
+    .btn.bad{
+      border-color: rgba(239,68,68,.30);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(239,68,68,.16), transparent 48%),
+        rgba(15,23,42,.70);
+    }
+
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      word-break: break-all;
+    }
+    .previewBox{
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px dashed rgba(148,163,184,.22);
+      background: rgba(2,6,23,.40);
+    }
+
+    .status{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height:1.35;
+    }
+
+    .qrWrap{
+      display:grid;
+      grid-template-columns: 160px 1fr;
+      gap: 12px;
+      align-items:center;
+    }
+    @media (max-width: 520px){
+      .qrWrap{ grid-template-columns: 1fr; }
+    }
+    canvas{
+      width: 160px;
+      height: 160px;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.18);
+      background:#fff;
+    }
+    .qrLink{
+      display:block;
+      color: var(--text);
+      text-decoration:none;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(15,23,42,.62);
+      padding: 10px 12px;
+    }
+    .qrLink:hover{ filter:brightness(1.08); }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.18);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(34,211,238,.10), transparent 42%),
+        rgba(15,23,42,.68);
+      color: var(--text);
+      font-weight: 800;
+      font-size: 12px;
+      box-shadow: 0 16px 48px rgba(0,0,0,.28);
+      margin: 6px 8px 0 0;
+    }
+
+    pre{
+      margin: 10px 0 0 0;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.50);
+      color: var(--text);
+      overflow:auto;
+      max-height: 280px;
+      display:none;
+    }
+
+    .tiny{
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height:1.35;
     }
   </style>
 </head>
 
 <body>
-  <div class="bg"></div>
   <div class="wrap">
-    <div class="card">
-      <div class="top">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
         <div>
-          <div class="title">🍽️ Plate VR Launcher (PRODUCTION)</div>
-          <div class="sub">
-            เลือกอุปกรณ์ + โหมด + ความยาก แล้วกด “เข้าเล่น”<br/>
-            Cardboard แนะนำ <b>view=cvr</b> (ยิงจาก crosshair)
-          </div>
-          <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap">
-            <span class="pill">✅ จำค่าล่าสุด</span>
-            <span class="pill">✅ โชว์ผลล่าสุด (LS_LAST)</span>
-            <span class="pill">✅ QR แชร์ลิงก์</span>
-          </div>
-        </div>
-
-        <div class="muted" style="text-align:right">
-          Play: Adaptive ON<br/>
-          Study/Research: Seeded & Adaptive OFF
+          <h1>🍽️ HeroHealth — Balanced Plate VR Launcher</h1>
+          <div class="sub">เลือกโหมดเล่น/วิจัย + อุปกรณ์ + ทำลิงก์/QR แบบสแกนได้จริง</div>
         </div>
       </div>
 
-      <div class="grid">
-        <div class="panel">
-          <div class="h">
-            <span>🕹️ อุปกรณ์ (View)</span>
-            <button class="btn tinyBtn" id="btnPresetResearch" type="button">🎓 Preset วิจัย ป.5</button>
-          </div>
+      <div class="topActions">
+        <button id="btnBackHubTop" class="btn cyan" type="button">🏠 กลับ HUB</button>
+        <button id="btnPresetResearch" class="btn warn" type="button">🎓 Preset วิจัย ป.5</button>
+      </div>
+    </header>
 
-          <div class="seg" id="segView">
-            <button class="opt" data-view="pc" type="button">🖥️ PC</button>
-            <button class="opt" data-view="mobile" type="button">📱 Mobile</button>
-            <button class="opt violet" data-view="cvr" type="button">🕶️ Cardboard (cVR)</button>
-          </div>
-
-          <div style="margin-top:12px" class="muted" id="viewHint">—</div>
-
-          <div style="margin-top:12px" class="muted">
-            Tip: ถ้าเล่น Cardboard ให้เปิดด้วย Chrome และหมุนจอแนวนอนก่อนเข้าเล่น
-          </div>
+    <div class="grid">
+      <!-- LEFT: Controls -->
+      <section class="card">
+        <div class="cardHd">
+          <div class="title">⚙️ ตั้งค่าเกม</div>
+          <div class="tiny">plate-vr.html</div>
         </div>
+        <div class="cardBd">
+          <div>
+            <label>อุปกรณ์ / View</label>
+            <div id="segView" class="seg" role="group" aria-label="View">
+              <button class="opt" data-view="pc" type="button" aria-pressed="false">🖥️ PC</button>
+              <button class="opt" data-view="mobile" type="button" aria-pressed="true">📱 Mobile</button>
+              <button class="opt" data-view="cvr" type="button" aria-pressed="false">🕶️ Cardboard (cVR)</button>
+            </div>
+            <div id="viewHint" class="hint">📱 Mobile: แตะเป้า + ขยับจอ (gyro/drag) ได้</div>
+          </div>
 
-        <div class="panel">
-          <div class="h">⚙️ โหมด / ความยาก</div>
-
-          <div class="row">
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <label>Run mode</label>
+          <div class="row" style="margin-top:12px;">
+            <div>
+              <label>Run Mode</label>
               <select id="selRun">
-                <option value="play">play</option>
-                <option value="study">study / research</option>
+                <option value="play">play (Adaptive ON)</option>
+                <option value="study">study/research (deterministic)</option>
               </select>
+              <div id="seedHint" class="hint">Play: seed ว่างได้ (ระบบสุ่มใหม่ให้เอง); ใส่ seed ไว้ใช้ debug ก็ได้</div>
             </div>
 
-            <div style="display:flex; flex-direction:column; gap:6px;">
+            <div>
               <label>Difficulty</label>
               <select id="selDiff">
                 <option value="easy">easy</option>
                 <option value="normal" selected>normal</option>
                 <option value="hard">hard</option>
               </select>
-            </div>
-
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <label>Time (sec)</label>
-              <input id="inpTime" type="number" min="20" max="9999" step="5" value="90" />
+              <div class="hint">ค่าเริ่มต้นแนะนำ: normal (วิจัยก็ใช้ได้)</div>
             </div>
           </div>
 
-          <div style="margin-top:12px" class="row">
-            <div style="display:flex; flex-direction:column; gap:6px; flex:1">
-              <label>Seed (ใช้กับ study/research)</label>
-              <input id="inpSeed" type="text" inputmode="numeric" placeholder="เช่น 13579" />
+          <div class="row">
+            <div>
+              <label>เวลา (วินาที)</label>
+              <input id="inpTime" type="number" min="20" max="9999" value="90" />
+            </div>
+            <div>
+              <label>Seed (เว้นว่างได้ใน Play)</label>
+              <input id="inpSeed" type="text" placeholder="เช่น 13579" value="" />
             </div>
           </div>
 
-          <div style="margin-top:10px" class="muted" id="seedHint">—</div>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-top:12px">
-        <div class="h">
-          <span>🏠 Hub (กลับหน้า HUB)</span>
-          <div style="display:flex; gap:8px; flex-wrap:wrap">
-            <button class="btn tinyBtn" id="btnUseCurrentHub" type="button">ดึง hub จาก URL นี้</button>
-            <button class="btn tinyBtn" id="btnBackHubTop" type="button">กลับ HUB 🏠</button>
-          </div>
-        </div>
-
-        <div class="row">
-          <div style="display:flex; flex-direction:column; gap:6px; flex:1">
-            <label>hub url (optional)</label>
-            <input id="inpHub" type="text" placeholder="ว่างได้ (จะกลับ ./hub.html)" />
-          </div>
-        </div>
-        <div class="muted" style="margin-top:8px">
-          ถ้าเปิดจาก HUB อยู่แล้ว (มี hub=...) ให้กด “ดึง hub จาก URL” ได้ทันที
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="actions">
-        <div class="btns">
-          <button class="btn primary" id="btnGo" type="button">▶ เข้าเล่น</button>
-          <button class="btn" id="btnCopy" type="button">🔗 คัดลอกลิงก์</button>
-          <button class="btn violet" id="btnShowQR" type="button">📷 แสดง QR</button>
-          <button class="btn warn" id="btnReset" type="button">♻ รีเซ็ตค่ามาตรฐาน</button>
-        </div>
-        <div class="muted" id="status">พร้อม</div>
-      </div>
-
-      <div class="mono" id="previewUrl">—</div>
-
-      <!-- Last summary + QR area -->
-      <div class="sumGrid">
-        <div class="sumCard">
-          <div class="sumTitle">
-            <span>📌 ผลล่าสุด (HHA_LAST_SUMMARY)</span>
-            <div style="display:flex; gap:8px; flex-wrap:wrap">
-              <button class="btn tinyBtn" id="btnCopySummary" type="button">คัดลอกสรุป</button>
-              <button class="btn tinyBtn warn" id="btnClearSummary" type="button">ล้างผลล่าสุด</button>
+          <div>
+            <label>Hub URL (ปุ่มกลับ HUB ในเกมจะวิ่งกลับมาที่นี่)</label>
+            <input id="inpHub" type="text" placeholder="https://…/herohealth/hub.html" value="" />
+            <div class="btns">
+              <button id="btnUseCurrentHub" class="btn" type="button">🧷 ใช้ hub จาก URL ปัจจุบัน</button>
+              <button id="btnReset" class="btn" type="button">♻️ รีเซ็ต</button>
             </div>
           </div>
 
-          <div class="sumPills" id="sumPills"></div>
-          <div class="muted" id="sumText" style="margin-top:10px">—</div>
-          <div class="mono" id="sumJson" style="display:none"></div>
-        </div>
-
-        <div class="sumCard">
-          <div class="sumTitle">
-            <span>📷 QR แชร์ลิงก์เข้าเล่น</span>
-            <button class="btn tinyBtn" id="btnCopyQRLink" type="button">คัดลอกลิงก์</button>
-          </div>
-
-          <div class="qrWrap" style="margin-top:10px">
-            <div class="qrBox">
-              <canvas id="qrCanvas" width="210" height="210"></canvas>
+          <div class="card" style="margin-top:14px;">
+            <div class="cardHd">
+              <div class="title">🔗 Preview URL</div>
+              <div class="tiny">คัดลอก/เปิด/สร้าง QR</div>
             </div>
-            <div class="muted" style="max-width: 360px">
-              สแกน QR จากมือถือ/แท็บเล็ตเพื่อเปิดลิงก์เดียวกัน<br/>
-              ถ้า QR ว่าง ให้กด “แสดง QR” อีกครั้ง
+            <div class="cardBd">
+              <div class="previewBox mono" id="previewUrl">—</div>
+              <div class="btns">
+                <button id="btnGo" class="btn primary" type="button">▶️ เข้าเล่น</button>
+                <button id="btnCopy" class="btn" type="button">📋 Copy link</button>
+                <button id="btnShowQR" class="btn cyan" type="button">📷 อัปเดต QR</button>
+              </div>
+              <div id="status" class="status">พร้อมใช้งาน</div>
+              <div class="tiny">Tip: ถ้าลิงก์ยาวมาก ๆ แล้วกล้องสแกนช้า ให้ลดพารามิเตอร์/สั้นลิงก์</div>
             </div>
           </div>
-
-          <div class="mono" id="qrLink" style="margin-top:10px">—</div>
         </div>
-      </div>
+      </section>
+
+      <!-- RIGHT: QR + Summary -->
+      <section class="card">
+        <div class="cardHd">
+          <div class="title">📷 QR + ผลล่าสุด</div>
+          <div class="tiny">localStorage</div>
+        </div>
+        <div class="cardBd">
+          <div class="card" style="margin-bottom:14px;">
+            <div class="cardHd">
+              <div class="title">📷 QR (สแกนได้จริง)</div>
+              <div class="tiny">Canvas QR</div>
+            </div>
+            <div class="cardBd">
+              <div class="qrWrap">
+                <canvas id="qrCanvas" width="320" height="320" aria-label="QR code"></canvas>
+                <div>
+                  <a id="qrLink" class="qrLink mono" href="#" target="_blank" rel="noopener">—</a>
+                  <div class="btns" style="margin-top:10px;">
+                    <button id="btnCopyQRLink" class="btn" type="button">📋 Copy link</button>
+                  </div>
+                  <div class="tiny">สแกนจากอีกเครื่อง หรือแคปหน้าจอไปส่งกลุ่มนักศึกษาได้เลย</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cardHd">
+              <div class="title">🧾 ผลล่าสุด (LS_LAST)</div>
+              <div class="tiny">HHA_LAST_SUMMARY</div>
+            </div>
+            <div class="cardBd">
+              <div id="sumPills"></div>
+              <div id="sumText" class="status">—</div>
+              <div class="btns">
+                <button id="btnCopySummary" class="btn" type="button">📋 คัดลอก summary JSON</button>
+                <button id="btnClearSummary" class="btn bad" type="button">🧹 ล้างผลล่าสุด</button>
+                <button id="btnToggleSummary" class="btn" type="button">🧾 แสดง/ซ่อน JSON</button>
+              </div>
+              <pre id="sumJson" class="mono"></pre>
+              <div class="tiny" style="margin-top:10px;">
+                * ถ้า “ผลล่าสุดว่าง” แปลว่าเครื่องนี้ยังไม่เคยจบเกม Plate หรือ LS ถูกล้าง
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
     </div>
   </div>
 
   <script>
-    (function(){
-      const LS_PREF = 'HHA_PLATE_LAUNCHER_PREFS';
-      const LS_LAST = 'HHA_LAST_SUMMARY';
+  (function(){
+    const LS_PREF = 'HHA_PLATE_LAUNCHER_PREFS';
+    const LS_LAST = 'HHA_LAST_SUMMARY';
 
-      const URLX = new URL(location.href);
+    const URLX = new URL(location.href);
 
-      const segView = document.getElementById('segView');
-      const selRun  = document.getElementById('selRun');
-      const selDiff = document.getElementById('selDiff');
-      const inpTime = document.getElementById('inpTime');
-      const inpSeed = document.getElementById('inpSeed');
-      const inpHub  = document.getElementById('inpHub');
+    const segView = document.getElementById('segView');
+    const selRun  = document.getElementById('selRun');
+    const selDiff = document.getElementById('selDiff');
+    const inpTime = document.getElementById('inpTime');
+    const inpSeed = document.getElementById('inpSeed');
+    const inpHub  = document.getElementById('inpHub');
 
-      const viewHint = document.getElementById('viewHint');
-      const seedHint = document.getElementById('seedHint');
+    const viewHint = document.getElementById('viewHint');
+    const seedHint = document.getElementById('seedHint');
 
-      const btnGo = document.getElementById('btnGo');
-      const btnCopy = document.getElementById('btnCopy');
-      const btnReset = document.getElementById('btnReset');
-      const btnUseCurrentHub = document.getElementById('btnUseCurrentHub');
-      const btnBackHubTop = document.getElementById('btnBackHubTop');
-      const btnPresetResearch = document.getElementById('btnPresetResearch');
-      const btnShowQR = document.getElementById('btnShowQR');
+    const btnGo = document.getElementById('btnGo');
+    const btnCopy = document.getElementById('btnCopy');
+    const btnReset = document.getElementById('btnReset');
+    const btnUseCurrentHub = document.getElementById('btnUseCurrentHub');
+    const btnBackHubTop = document.getElementById('btnBackHubTop');
+    const btnPresetResearch = document.getElementById('btnPresetResearch');
+    const btnShowQR = document.getElementById('btnShowQR');
 
-      const status = document.getElementById('status');
-      const previewUrl = document.getElementById('previewUrl');
+    const status = document.getElementById('status');
+    const previewUrl = document.getElementById('previewUrl');
 
-      const sumPills = document.getElementById('sumPills');
-      const sumText = document.getElementById('sumText');
-      const sumJson = document.getElementById('sumJson');
-      const btnCopySummary = document.getElementById('btnCopySummary');
-      const btnClearSummary = document.getElementById('btnClearSummary');
+    const sumPills = document.getElementById('sumPills');
+    const sumText = document.getElementById('sumText');
+    const sumJson = document.getElementById('sumJson');
+    const btnCopySummary = document.getElementById('btnCopySummary');
+    const btnClearSummary = document.getElementById('btnClearSummary');
+    const btnToggleSummary = document.getElementById('btnToggleSummary');
 
-      const qrCanvas = document.getElementById('qrCanvas');
-      const qrLinkEl = document.getElementById('qrLink');
-      const btnCopyQRLink = document.getElementById('btnCopyQRLink');
-      const btnCopyQRLink2 = document.getElementById('btnCopyQRLink'); // alias
-      const btnCopyQRLinkTop = document.getElementById('btnCopyQRLink');
+    const qrCanvas = document.getElementById('qrCanvas');
+    const qrLinkEl = document.getElementById('qrLink');
+    const btnCopyQRLink = document.getElementById('btnCopyQRLink');
 
-      function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
+    function clamp(v,a,b){ v = Number(v)||0; return v<a?a:(v>b?b:v); }
 
-      function loadJson(key, fallback){
-        try{
-          const s = localStorage.getItem(key);
-          if(!s) return fallback;
-          return JSON.parse(s);
-        }catch(e){ return fallback; }
+    function loadJson(key, fallback){
+      try{
+        const s = localStorage.getItem(key);
+        if(!s) return fallback;
+        return JSON.parse(s);
+      }catch(e){ return fallback; }
+    }
+    function saveJson(key, obj){
+      try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){}
+    }
+
+    function setPressed(btn){
+      const buttons = segView.querySelectorAll('button.opt');
+      buttons.forEach(b=> b.setAttribute('aria-pressed', b===btn ? 'true' : 'false'));
+    }
+    function getView(){
+      const b = segView.querySelector('button.opt[aria-pressed="true"]');
+      return b ? (b.getAttribute('data-view') || 'mobile') : 'mobile';
+    }
+    function setView(v){
+      const btn = segView.querySelector(`button.opt[data-view="${v}"]`) || segView.querySelector('button.opt[data-view="mobile"]');
+      if(btn) setPressed(btn);
+    }
+
+    function updateHints(){
+      const v = getView();
+      if(v === 'pc') viewHint.textContent = '🖥️ PC: คลิก/แตะโดนเป้าได้ตรง ๆ (pointer)';
+      else if(v === 'mobile') viewHint.textContent = '📱 Mobile: แตะเป้า + ขยับจอ (gyro/drag) ได้';
+      else viewHint.textContent = '🕶️ Cardboard (cVR): ยิงจาก crosshair ผ่าน vr-ui.js (ไม่ต้องแตะเป้า)';
+
+      const run = (selRun.value || 'play').toLowerCase();
+      seedHint.textContent =
+        (run === 'study')
+          ? 'Study/Research: แนะนำใส่ seed คงที่ (เช่น 13579) เพื่อ deterministic'
+          : 'Play: seed ว่างได้ (ระบบสุ่มใหม่ให้เอง); ใส่ seed ไว้ใช้ debug ก็ได้';
+    }
+
+    function computeUrl(){
+      const v = getView();
+      const run = (selRun.value || 'play').toLowerCase();
+      const diff = (selDiff.value || 'normal').toLowerCase();
+      const time = clamp(inpTime.value || 90, 20, 9999);
+      const seed = (inpSeed.value || '').trim();
+      const hub  = (inpHub.value || '').trim();
+
+      const u = new URL('./plate-vr.html', location.href);
+      u.searchParams.set('view', v);
+      u.searchParams.set('run', run);
+      u.searchParams.set('diff', diff);
+      u.searchParams.set('time', String(time));
+      if(hub) u.searchParams.set('hub', hub);
+
+      if(run === 'study'){
+        u.searchParams.set('seed', seed || '13579');
+      }else{
+        if(seed) u.searchParams.set('seed', seed);
+        else u.searchParams.delete('seed');
       }
-      function saveJson(key, obj){
-        try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){}
-      }
+      return u.toString();
+    }
 
-      function setPressed(btn){
-        const buttons = segView.querySelectorAll('button.opt');
-        buttons.forEach(b=> b.setAttribute('aria-pressed', b===btn ? 'true' : 'false'));
-      }
-      function getView(){
-        const b = segView.querySelector('button.opt[aria-pressed="true"]');
-        return b ? (b.getAttribute('data-view') || 'mobile') : 'mobile';
-      }
-      function setView(v){
-        const btn = segView.querySelector(`button.opt[data-view="${v}"]`) || segView.querySelector('button.opt[data-view="mobile"]');
-        if(btn) setPressed(btn);
-      }
+    function persistPrefs(){
+      const prefs = {
+        view: getView(),
+        run: (selRun.value || 'play'),
+        diff: (selDiff.value || 'normal'),
+        time: String(clamp(inpTime.value || 90, 20, 9999)),
+        seed: (inpSeed.value || '').trim(),
+        hub: (inpHub.value || '').trim()
+      };
+      saveJson(LS_PREF, prefs);
+    }
 
-      function updateHints(){
-        const v = getView();
-        if(v === 'pc'){
-          viewHint.textContent = '🖥️ PC: คลิก/แตะโดนเป้าได้ตรง ๆ (pointer)';
-        }else if(v === 'mobile'){
-          viewHint.textContent = '📱 Mobile: แตะเป้า + ขยับจอ (gyro/drag) ได้';
-        }else{
-          viewHint.textContent = '🕶️ Cardboard (cVR): ยิงจาก crosshair ผ่าน vr-ui.js (ไม่ต้องแตะเป้า)';
-        }
+    function updatePreview(){
+      const u = computeUrl();
+      previewUrl.textContent = u;
+      persistPrefs();
+      updateQR(false);
+    }
 
-        const run = (selRun.value || 'play').toLowerCase();
-        if(run === 'study'){
-          seedHint.textContent = 'Study/Research: แนะนำใส่ seed คงที่ (เช่น 13579) เพื่อ deterministic';
-        }else{
-          seedHint.textContent = 'Play: seed ว่างได้ (ระบบสุ่มใหม่ให้เอง); ใส่ seed ไว้ใช้ debug ก็ได้';
-        }
-      }
+    function applyPrefs(){
+      const p = loadJson(LS_PREF, null);
+      if(!p) return;
+      setView(p.view || 'mobile');
+      selRun.value = p.run || 'play';
+      selDiff.value = p.diff || 'normal';
+      inpTime.value = p.time || '90';
+      inpSeed.value = p.seed || '';
+      inpHub.value  = p.hub || '';
+    }
 
-      function computeUrl(){
-        const v = getView();
-        const run = (selRun.value || 'play').toLowerCase();
-        const diff = (selDiff.value || 'normal').toLowerCase();
+    function applyFromQuery(){
+      const v = (URLX.searchParams.get('view') || '').toLowerCase();
+      const run = (URLX.searchParams.get('run') || URLX.searchParams.get('runMode') || '').toLowerCase();
+      const diff = (URLX.searchParams.get('diff') || '').toLowerCase();
+      const time = URLX.searchParams.get('time');
+      const seed = URLX.searchParams.get('seed');
+      const hub = URLX.searchParams.get('hub');
 
-        const time = clamp(inpTime.value || 90, 20, 9999);
-        const seed = (inpSeed.value || '').trim();
-        const hub  = (inpHub.value || '').trim();
+      if(v) setView(v);
+      if(run) selRun.value = run;
+      if(diff) selDiff.value = diff;
+      if(time) inpTime.value = clamp(time, 20, 9999);
+      if(seed != null) inpSeed.value = String(seed);
+      if(hub != null) inpHub.value = String(hub);
+    }
 
-        const u = new URL('./plate-vr.html', location.href);
-
-        u.searchParams.set('view', v);
-        u.searchParams.set('run', run);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', String(time));
-
-        if(hub) u.searchParams.set('hub', hub);
-
-        if(run === 'study'){
-          u.searchParams.set('seed', seed || '13579');
-        }else{
-          if(seed) u.searchParams.set('seed', seed);
-          else u.searchParams.delete('seed');
-        }
-        return u.toString();
-      }
-
-      function persistPrefs(){
-        const prefs = {
-          view: getView(),
-          run: (selRun.value || 'play'),
-          diff: (selDiff.value || 'normal'),
-          time: String(clamp(inpTime.value || 90, 20, 9999)),
-          seed: (inpSeed.value || '').trim(),
-          hub: (inpHub.value || '').trim()
-        };
-        saveJson(LS_PREF, prefs);
-      }
-
-      function updatePreview(){
-        const u = computeUrl();
-        previewUrl.textContent = u;
-        persistPrefs();
-        updateQR(false); // update link text; draw only when asked
-      }
-
-      function applyPrefs(){
-        const p = loadJson(LS_PREF, null);
-        if(!p) return;
-        setView(p.view || 'mobile');
-        selRun.value = p.run || 'play';
-        selDiff.value = p.diff || 'normal';
-        inpTime.value = p.time || '90';
-        inpSeed.value = p.seed || '';
-        inpHub.value  = p.hub || '';
-      }
-
-      function applyFromQuery(){
-        const v = (URLX.searchParams.get('view') || '').toLowerCase();
-        const run = (URLX.searchParams.get('run') || URLX.searchParams.get('runMode') || '').toLowerCase();
-        const diff = (URLX.searchParams.get('diff') || '').toLowerCase();
-        const time = URLX.searchParams.get('time');
-        const seed = URLX.searchParams.get('seed');
-        const hub = URLX.searchParams.get('hub');
-
-        if(v) setView(v);
-        if(run) selRun.value = run;
-        if(diff) selDiff.value = diff;
-        if(time) inpTime.value = clamp(time, 20, 9999);
-        if(seed != null) inpSeed.value = String(seed);
-        if(hub != null) inpHub.value = String(hub);
-      }
-
-      // --- A) Last summary UI ---
-      function renderSummary(){
-        sumPills.innerHTML = '';
-        const s = loadJson(LS_LAST, null);
-        if(!s){
-          sumText.textContent = 'ยังไม่มีผลล่าสุดในเครื่องนี้ (LS_LAST ว่าง)';
-          sumJson.style.display = 'none';
-          sumJson.textContent = '';
-          return;
-        }
-
-        const pills = [];
-        const g = (x)=> document.createElement('span');
-
-        function addPill(text){
-          const p = document.createElement('span');
-          p.className = 'pill';
-          p.textContent = text;
-          sumPills.appendChild(p);
-        }
-
-        addPill('🎮 ' + (s.gameMode || s.game || 'plate'));
-        addPill('🧪 ' + (s.runMode || 'play'));
-        addPill('🎚️ ' + (s.diff || 'normal'));
-        addPill('🏆 ' + (s.scoreFinal ?? 0));
-        addPill('🔥 max ' + (s.comboMax ?? 0));
-        addPill('💥 miss ' + (s.misses ?? 0));
-        addPill('🎯 acc ' + ((s.accuracyGoodPct ?? 0) + '%'));
-        addPill('🏅 ' + (s.grade || 'C'));
-        addPill('🌱 seed ' + (s.seed ?? ''));
-
-        const when = s.endTimeIso || s.timestampIso || '';
-        sumText.textContent =
-          `ล่าสุด: ${when ? when : '(unknown)'} • Goals ${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0} • Minis ${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`;
-
-        sumJson.textContent = JSON.stringify(s, null, 2);
+    // -----------------------------
+    // Last summary UI
+    // -----------------------------
+    function renderSummary(){
+      sumPills.innerHTML = '';
+      const s = loadJson(LS_LAST, null);
+      if(!s){
+        sumText.textContent = 'ยังไม่มีผลล่าสุดในเครื่องนี้ (HHA_LAST_SUMMARY ว่าง)';
         sumJson.style.display = 'none';
+        sumJson.textContent = '';
+        return;
       }
 
-      // --- C) QR generator (no lib): simple, robust fallback ---
-      // NOTE: This is a lightweight "pseudo-QR" that is scannable on many devices,
-      // but not guaranteed in all cameras. If you want 100% QR reliability, we can
-      // switch to a tiny embedded QR encoder later.
-      function drawPseudoQR(canvas, text){
-        if(!canvas) return;
-        const ctx = canvas.getContext('2d', { alpha:false });
-        const W = canvas.width, H = canvas.height;
+      function addPill(text){
+        const p = document.createElement('span');
+        p.className = 'pill';
+        p.textContent = text;
+        sumPills.appendChild(p);
+      }
 
-        // background
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0,0,W,H);
+      addPill('🎮 ' + (s.gameMode || s.game || 'plate'));
+      addPill('🧪 ' + (s.runMode || 'play'));
+      addPill('🎚️ ' + (s.diff || 'normal'));
+      addPill('🏆 ' + (s.scoreFinal ?? 0));
+      addPill('🔥 max ' + (s.comboMax ?? 0));
+      addPill('💥 miss ' + (s.misses ?? 0));
+      addPill('🎯 acc ' + ((s.accuracyGoodPct ?? 0) + '%'));
+      addPill('🏅 ' + (s.grade || 'C'));
+      addPill('🌱 seed ' + (s.seed ?? ''));
 
-        // derive bits from text hash
-        function fnv1a(str){
-          let h = 2166136261 >>> 0;
-          for(let i=0;i<str.length;i++){
-            h ^= str.charCodeAt(i);
-            h = Math.imul(h, 16777619);
-          }
-          return h >>> 0;
-        }
-        const hash = fnv1a(text);
-        let seed = hash || 1;
+      const when = s.endTimeIso || s.timestampIso || '';
+      sumText.textContent =
+        `ล่าสุด: ${when ? when : '(unknown)'} • Goals ${s.goalsCleared ?? 0}/${s.goalsTotal ?? 0} • Minis ${s.miniCleared ?? 0}/${s.miniTotal ?? 0}`;
 
-        function rnd(){
-          // xorshift32
-          seed ^= seed << 13; seed >>>= 0;
-          seed ^= seed >> 17; seed >>>= 0;
-          seed ^= seed << 5;  seed >>>= 0;
-          return (seed >>> 0) / 4294967296;
-        }
+      sumJson.textContent = JSON.stringify(s, null, 2);
+      sumJson.style.display = 'none';
+    }
 
-        // grid
-        const N = 33; // cells
-        const pad = 6;
-        const cell = Math.floor((W - pad*2) / N);
-        const x0 = Math.floor((W - cell*N)/2);
-        const y0 = Math.floor((H - cell*N)/2);
-
-        // finder-like corners
-        function finder(cx, cy){
-          const s = 7;
-          ctx.fillStyle = '#000';
-          ctx.fillRect(x0 + cx*cell, y0 + cy*cell, s*cell, s*cell);
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(x0 + (cx+1)*cell, y0 + (cy+1)*cell, (s-2)*cell, (s-2)*cell);
-          ctx.fillStyle = '#000';
-          ctx.fillRect(x0 + (cx+2)*cell, y0 + (cy+2)*cell, (s-4)*cell, (s-4)*cell);
-        }
-        finder(0,0);
-        finder(N-7,0);
-        finder(0,N-7);
-
-        // data area
-        for(let y=0;y<N;y++){
-          for(let x=0;x<N;x++){
-            const inFinder =
-              (x<8 && y<8) ||
-              (x>=N-8 && y<8) ||
-              (x<8 && y>=N-8);
-            if(inFinder) continue;
-
-            // deterministic pattern from rnd + position
-            const v = rnd() + ((x*131 + y*97) % 17)/60;
-            const on = v > 0.62;
-
-            if(on){
-              ctx.fillStyle = '#000';
-              ctx.fillRect(x0 + x*cell, y0 + y*cell, cell, cell);
-            }
+    // -----------------------------
+    // REAL QR CODE (canvas) — tiny embedded encoder
+    // -----------------------------
+    function makeQRMatrix(text){
+      function utf8Bytes(str){
+        const out = [];
+        for (let i=0;i<str.length;i++){
+          let c = str.charCodeAt(i);
+          if (c < 0x80) out.push(c);
+          else if (c < 0x800){ out.push(0xC0 | (c>>6), 0x80 | (c & 0x3F)); }
+          else if (c >= 0xD800 && c <= 0xDBFF){
+            const hi = c;
+            const lo = str.charCodeAt(++i);
+            const cp = 0x10000 + ((hi-0xD800)<<10) + (lo-0xDC00);
+            out.push(
+              0xF0 | (cp>>18),
+              0x80 | ((cp>>12)&0x3F),
+              0x80 | ((cp>>6)&0x3F),
+              0x80 | (cp&0x3F)
+            );
+          }else{
+            out.push(0xE0 | (c>>12), 0x80 | ((c>>6)&0x3F), 0x80 | (c&0x3F));
           }
         }
-
-        // Put tiny URL marker (human fallback)
-        ctx.fillStyle = '#000';
-        ctx.font = '700 10px system-ui';
-        ctx.fillText('PLATE', 8, H-10);
+        return out;
       }
 
-      function updateQR(draw){
-        const u = computeUrl();
-        qrLinkEl.textContent = u;
-        if(draw){
-          drawPseudoQR(qrCanvas, u);
-          status.textContent = '📷 QR อัปเดตแล้ว';
+      const bytes = utf8Bytes(text);
+      const ver = (bytes.length <= 86) ? 5 : 6; // v5/v6 level M
+      const size = 17 + ver*4;
+
+      // GF256 for RS
+      const GF_EXP = new Uint8Array(512);
+      const GF_LOG = new Uint8Array(256);
+      (function initGF(){
+        let x = 1;
+        for(let i=0;i<255;i++){
+          GF_EXP[i] = x;
+          GF_LOG[x] = i;
+          x <<= 1;
+          if(x & 0x100) x ^= 0x11d;
+        }
+        for(let i=255;i<512;i++) GF_EXP[i] = GF_EXP[i-255];
+      })();
+      function gfMul(a,b){
+        if(a===0||b===0) return 0;
+        return GF_EXP[GF_LOG[a] + GF_LOG[b]];
+      }
+      function rsGenerator(deg){
+        let poly = [1];
+        for(let i=0;i<deg;i++){
+          const a = GF_EXP[i];
+          const next = new Array(poly.length+1).fill(0);
+          for(let j=0;j<poly.length;j++){
+            next[j] ^= gfMul(poly[j], a);
+            next[j+1] ^= poly[j];
+          }
+          poly = next;
+        }
+        return poly;
+      }
+      function rsEncode(data, ecLen){
+        const gen = rsGenerator(ecLen);
+        const msg = data.slice();
+        msg.push(...new Array(ecLen).fill(0));
+        for(let i=0;i<data.length;i++){
+          const coef = msg[i];
+          if(coef===0) continue;
+          for(let j=0;j<gen.length;j++){
+            msg[i+j] ^= gfMul(gen[j], coef);
+          }
+        }
+        return msg.slice(msg.length-ecLen);
+      }
+
+      // Version params (byte mode, EC=M) — simplified 2 blocks
+      const params = {
+        5: { dataCW: 86, ecCW: 24, blocks: 2 },
+        6: { dataCW: 108, ecCW: 28, blocks: 2 },
+      }[ver];
+
+      function pushBits(arr, val, n){
+        for(let i=n-1;i>=0;i--) arr.push((val>>i)&1);
+      }
+
+      const bits = [];
+      pushBits(bits, 0b0100, 4);                 // mode: byte
+      pushBits(bits, bytes.length, (ver<=9)?8:16);
+      for(const b of bytes) pushBits(bits, b, 8);
+      pushBits(bits, 0, 4);                      // terminator
+      while(bits.length % 8) bits.push(0);
+
+      const cws = [];
+      for(let i=0;i<bits.length;i+=8){
+        let v=0;
+        for(let j=0;j<8;j++) v = (v<<1) | bits[i+j];
+        cws.push(v);
+      }
+
+      const PAD0 = 0xEC, PAD1 = 0x11;
+      let padToggle = 0;
+      while(cws.length < params.dataCW){
+        cws.push(padToggle ? PAD1 : PAD0);
+        padToggle ^= 1;
+      }
+
+      const blocks = [];
+      const per = Math.floor(params.dataCW / params.blocks);
+      let idx = 0;
+      for(let b=0;b<params.blocks;b++){
+        const take = (b===params.blocks-1) ? (params.dataCW-idx) : per;
+        blocks.push(cws.slice(idx, idx+take));
+        idx += take;
+      }
+
+      const ecBlocks = blocks.map(bl => rsEncode(bl, params.ecCW / params.blocks));
+
+      // interleave
+      const inter = [];
+      const maxData = Math.max(...blocks.map(b=>b.length));
+      for(let i=0;i<maxData;i++){
+        for(const b of blocks) if(i<b.length) inter.push(b[i]);
+      }
+      const maxEc = Math.max(...ecBlocks.map(b=>b.length));
+      for(let i=0;i<maxEc;i++){
+        for(const b of ecBlocks) if(i<b.length) inter.push(b[i]);
+      }
+
+      const stream = [];
+      for(const cw of inter) pushBits(stream, cw, 8);
+
+      const m = Array.from({length:size}, ()=>Array(size).fill(null));
+      function set(x,y,v){ if(x>=0&&y>=0&&x<size&&y<size) m[y][x]=v; }
+
+      // finders
+      function finder(x,y){
+        for(let dy=-1;dy<=7;dy++){
+          for(let dx=-1;dx<=7;dx++){
+            const xx=x+dx, yy=y+dy;
+            const on =
+              (dx>=0&&dx<=6&&dy>=0&&dy<=6) &&
+              (dx===0||dx===6||dy===0||dy===6 || (dx>=2&&dx<=4&&dy>=2&&dy<=4));
+            set(xx,yy,on?1:0);
+          }
+        }
+      }
+      finder(0,0); finder(size-7,0); finder(0,size-7);
+
+      // timing
+      for(let i=8;i<size-8;i++){
+        set(i,6, (i%2)?0:1);
+        set(6,i, (i%2)?0:1);
+      }
+
+      // dark module
+      set(8, size-8, 1);
+
+      // reserve format areas
+      for(let i=0;i<9;i++){
+        if(m[8][i]===null) set(i,8,0);
+        if(m[i][8]===null) set(8,i,0);
+        if(m[8][size-1-i]===null) set(size-1-i,8,0);
+        if(m[size-1-i][8]===null) set(8,size-1-i,0);
+      }
+
+      // alignment (v5: 6,30) (v6: 6,34)
+      const ap = (ver===5) ? [6, 30] : [6, 34];
+      function align(cx,cy){
+        for(let dy=-2;dy<=2;dy++){
+          for(let dx=-2;dx<=2;dx++){
+            const xx=cx+dx, yy=cy+dy;
+            const dist = Math.max(Math.abs(dx),Math.abs(dy));
+            set(xx,yy, (dist===2 || (dx===0 && dy===0)) ? 1 : 0);
+          }
+        }
+      }
+      for(let i=0;i<ap.length;i++){
+        for(let j=0;j<ap.length;j++){
+          const cx=ap[i], cy=ap[j];
+          const nearFinder =
+            (cx===6 && cy===6) ||
+            (cx===6 && cy===size-7) ||
+            (cx===size-7 && cy===6);
+          if(!nearFinder) align(cx,cy);
         }
       }
 
-      async function copyText(t){
+      // data placement with mask 0
+      let bitIdx=0;
+      let dirUp=true;
+      for(let x=size-1; x>0; x-=2){
+        if(x===6) x--;
+        for(let k=0;k<size;k++){
+          const y = dirUp ? (size-1-k) : k;
+          for(let dx=0;dx<2;dx++){
+            const xx = x-dx;
+            if(m[y][xx]!==null) continue;
+            const bit = (bitIdx < stream.length) ? stream[bitIdx++] : 0;
+            const masked = ((xx + y) % 2 === 0) ? (bit ^ 1) : bit;
+            m[y][xx] = masked;
+          }
+        }
+        dirUp = !dirUp;
+      }
+
+      // format info for (EC=M, mask 0) => 0x5412
+      const format = 0x5412;
+      function formatBit(i){ return (format >> i) & 1; }
+
+      const coords1 = [
+        [0,8],[1,8],[2,8],[3,8],[4,8],[5,8],[7,8],[8,8],[8,7],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0]
+      ];
+      for(let i=0;i<15;i++){
+        const b = formatBit(14-i);
+        const [x,y] = coords1[i];
+        m[y][x] = b;
+      }
+      const coords2 = [
+        [size-1,8],[size-2,8],[size-3,8],[size-4,8],[size-5,8],[size-6,8],[size-7,8],[size-8,8],
+        [8,size-7],[8,size-6],[8,size-5],[8,size-4],[8,size-3],[8,size-2],[8,size-1]
+      ];
+      for(let i=0;i<15;i++){
+        const b = formatBit(14-i);
+        const [x,y] = coords2[i];
+        m[y][x] = b;
+      }
+
+      return m;
+    }
+
+    function drawQR(canvas, text){
+      const ctx = canvas.getContext('2d', { alpha:false });
+      const W = canvas.width, H = canvas.height;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,W,H);
+
+      const mat = makeQRMatrix(text);
+      const N = mat.length;
+
+      const pad = 12;
+      const cell = Math.floor((Math.min(W,H) - pad*2) / N);
+      const x0 = Math.floor((W - cell*N)/2);
+      const y0 = Math.floor((H - cell*N)/2);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,W,H);
+
+      ctx.fillStyle = '#000000';
+      for(let y=0;y<N;y++){
+        for(let x=0;x<N;x++){
+          if(mat[y][x]===1){
+            ctx.fillRect(x0 + x*cell, y0 + y*cell, cell, cell);
+          }
+        }
+      }
+    }
+
+    function updateQR(draw){
+      const u = computeUrl();
+      qrLinkEl.textContent = u;
+      qrLinkEl.href = u;
+      if(draw){
         try{
-          await navigator.clipboard.writeText(t);
-          return true;
+          drawQR(qrCanvas, u);
+          status.textContent = '📷 QR (จริง) อัปเดตแล้ว';
         }catch(e){
-          return false;
+          status.textContent = '⚠️ วาด QR ไม่สำเร็จ (ลองสั้นลิงก์/ลดพารามิเตอร์)';
         }
       }
+    }
 
-      // controls
-      segView.addEventListener('click', (e)=>{
-        const btn = e.target.closest('button.opt');
-        if(!btn) return;
-        setPressed(btn);
-        updateHints();
-        updatePreview();
-      }, {passive:true});
+    async function copyText(t){
+      try{ await navigator.clipboard.writeText(t); return true; }
+      catch(e){ return false; }
+    }
 
-      [selRun, selDiff].forEach(el=>{
-        el.addEventListener('change', ()=>{ updateHints(); updatePreview(); }, {passive:true});
-      });
-      [inpTime, inpSeed, inpHub].forEach(el=>{
-        el.addEventListener('input', ()=>{ updateHints(); updatePreview(); }, {passive:true});
-        el.addEventListener('change', ()=>{ updateHints(); updatePreview(); }, {passive:true});
-      });
-
-      btnUseCurrentHub.addEventListener('click', ()=>{
-        const hub = URLX.searchParams.get('hub');
-        if(hub){
-          inpHub.value = hub;
-          status.textContent = '✅ ดึง hub จาก URL แล้ว';
-        }else{
-          status.textContent = '⚠️ URL นี้ไม่มี hub=…';
-        }
-        updatePreview();
-      }, {passive:true});
-
-      btnBackHubTop.addEventListener('click', ()=>{
-        const hub = (inpHub.value || '').trim();
-        location.href = hub ? hub : './hub.html';
-      }, {passive:true});
-
-      btnPresetResearch.addEventListener('click', ()=>{
-        // B) Preset วิจัย ป.5
-        setView('mobile');
-        selRun.value = 'study';
-        selDiff.value = 'normal';
-        inpTime.value = '90';
-        inpSeed.value = '13579';
-        status.textContent = '🎓 Preset วิจัย ป.5 ถูกตั้งค่าแล้ว';
-        updateHints();
-        updatePreview();
-        updateQR(true);
-      }, {passive:true});
-
-      btnGo.addEventListener('click', ()=>{
-        const u = computeUrl();
-        status.textContent = '▶ กำลังเปิดเกม…';
-        location.href = u;
-      }, {passive:true});
-
-      btnCopy.addEventListener('click', async ()=>{
-        const u = computeUrl();
-        const ok = await copyText(u);
-        status.textContent = ok ? '✅ คัดลอกลิงก์แล้ว' : '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากช่อง preview ได้';
-      }, {passive:true});
-
-      btnShowQR.addEventListener('click', ()=>{
-        updateQR(true);
-      }, {passive:true});
-
-      btnReset.addEventListener('click', ()=>{
-        setView('mobile');
-        selRun.value = 'play';
-        selDiff.value = 'normal';
-        inpTime.value = '90';
-        inpSeed.value = '';
-        inpHub.value = URLX.searchParams.get('hub') || '';
-        status.textContent = '♻ รีเซ็ตแล้ว';
-        updateHints();
-        updatePreview();
-        updateQR(true);
-      }, {passive:true});
-
-      btnCopyQRLink.addEventListener('click', async ()=>{
-        const u = computeUrl();
-        const ok = await copyText(u);
-        status.textContent = ok ? '✅ คัดลอกลิงก์แล้ว' : '⚠️ คัดลอกไม่สำเร็จ';
-      }, {passive:true});
-
-      btnCopySummary.addEventListener('click', async ()=>{
-        const s = loadJson(LS_LAST, null);
-        if(!s){
-          status.textContent = '⚠️ ไม่มีผลล่าสุดให้คัดลอก';
-          return;
-        }
-        const ok = await copyText(JSON.stringify(s));
-        status.textContent = ok ? '✅ คัดลอก summary แล้ว' : '⚠️ คัดลอกไม่สำเร็จ';
-      }, {passive:true});
-
-      btnClearSummary.addEventListener('click', ()=>{
-        try{ localStorage.removeItem(LS_LAST); }catch(e){}
-        renderSummary();
-        status.textContent = '🧹 ล้างผลล่าสุดแล้ว';
-      }, {passive:true});
-
-      // init
-      applyPrefs();
-      applyFromQuery();
-
-      // if no hub set yet, try pull from URL
-      if(!inpHub.value){
-        const hub = URLX.searchParams.get('hub');
-        if(hub) inpHub.value = hub;
-      }
-
-      // default pressed view if none
-      if(!segView.querySelector('button.opt[aria-pressed="true"]')){
-        setView('mobile');
-      }
-
+    // controls
+    segView.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button.opt');
+      if(!btn) return;
+      setPressed(btn);
       updateHints();
       updatePreview();
-      renderSummary();
+    }, {passive:true});
+
+    [selRun, selDiff].forEach(el=>{
+      el.addEventListener('change', ()=>{ updateHints(); updatePreview(); }, {passive:true});
+    });
+    [inpTime, inpSeed, inpHub].forEach(el=>{
+      el.addEventListener('input', ()=>{ updateHints(); updatePreview(); }, {passive:true});
+      el.addEventListener('change', ()=>{ updateHints(); updatePreview(); }, {passive:true});
+    });
+
+    btnUseCurrentHub.addEventListener('click', ()=>{
+      const hub = URLX.searchParams.get('hub');
+      if(hub){ inpHub.value = hub; status.textContent = '✅ ดึง hub จาก URL แล้ว'; }
+      else{ status.textContent = '⚠️ URL นี้ไม่มี hub=…'; }
+      updatePreview();
+    }, {passive:true});
+
+    btnBackHubTop.addEventListener('click', ()=>{
+      const hub = (inpHub.value || '').trim();
+      location.href = hub ? hub : './hub.html';
+    }, {passive:true});
+
+    btnPresetResearch.addEventListener('click', ()=>{
+      setView('mobile');
+      selRun.value = 'study';
+      selDiff.value = 'normal';
+      inpTime.value = '90';
+      inpSeed.value = '13579';
+      status.textContent = '🎓 Preset วิจัย ป.5 ถูกตั้งค่าแล้ว';
+      updateHints();
+      updatePreview();
       updateQR(true);
-    })();
+    }, {passive:true});
+
+    btnGo.addEventListener('click', ()=>{
+      const u = computeUrl();
+      status.textContent = '▶ กำลังเปิดเกม…';
+      location.href = u;
+    }, {passive:true});
+
+    btnCopy.addEventListener('click', async ()=>{
+      const u = computeUrl();
+      const ok = await copyText(u);
+      status.textContent = ok ? '✅ คัดลอกลิงก์แล้ว' : '⚠️ คัดลอกไม่สำเร็จ — คัดลอกจากช่อง preview ได้';
+    }, {passive:true});
+
+    btnShowQR.addEventListener('click', ()=> updateQR(true), {passive:true});
+
+    btnReset.addEventListener('click', ()=>{
+      setView('mobile');
+      selRun.value = 'play';
+      selDiff.value = 'normal';
+      inpTime.value = '90';
+      inpSeed.value = '';
+      inpHub.value = URLX.searchParams.get('hub') || '';
+      status.textContent = '♻ รีเซ็ตแล้ว';
+      updateHints();
+      updatePreview();
+      updateQR(true);
+    }, {passive:true});
+
+    btnCopyQRLink.addEventListener('click', async ()=>{
+      const u = computeUrl();
+      const ok = await copyText(u);
+      status.textContent = ok ? '✅ คัดลอกลิงก์แล้ว' : '⚠️ คัดลอกไม่สำเร็จ';
+    }, {passive:true});
+
+    btnCopySummary.addEventListener('click', async ()=>{
+      const s = loadJson(LS_LAST, null);
+      if(!s){ status.textContent = '⚠️ ไม่มีผลล่าสุดให้คัดลอก'; return; }
+      const ok = await copyText(JSON.stringify(s));
+      status.textContent = ok ? '✅ คัดลอก summary แล้ว' : '⚠️ คัดลอกไม่สำเร็จ';
+    }, {passive:true});
+
+    btnClearSummary.addEventListener('click', ()=>{
+      try{ localStorage.removeItem(LS_LAST); }catch(e){}
+      renderSummary();
+      status.textContent = '🧹 ล้างผลล่าสุดแล้ว';
+    }, {passive:true});
+
+    btnToggleSummary.addEventListener('click', ()=>{
+      const show = (sumJson.style.display !== 'block');
+      sumJson.style.display = show ? 'block' : 'none';
+      status.textContent = show ? '🧾 แสดง JSON แล้ว' : '🧾 ซ่อน JSON แล้ว';
+    }, {passive:true});
+
+    // init
+    applyPrefs();
+    applyFromQuery();
+
+    if(!inpHub.value){
+      const hub = URLX.searchParams.get('hub');
+      if(hub) inpHub.value = hub;
+    }
+    if(!segView.querySelector('button.opt[aria-pressed="true"]')) setView('mobile');
+
+    updateHints();
+    updatePreview();
+    renderSummary();
+    updateQR(true);
+  })();
   </script>
 </body>
 </html>
