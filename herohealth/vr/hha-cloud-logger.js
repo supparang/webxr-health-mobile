@@ -1,9 +1,9 @@
 // === /herohealth/vr/hha-cloud-logger.js ===
-// HHA Cloud Logger V2.1.1 — ROW Schema + Dedup + Queue + Beacon (PRODUCTION SAFE)
-// ✅ Fix CORS: send as text/plain + no-cors (avoid preflight)
-// ✅ Beacon uses text/plain blob
-// ✅ Default endpoint updated (can override by ?log=...)
-// (ตัวเต็มล่าสุด)
+// HHA Cloud Logger V2.1.1 — ROW Schema + Dedup + Queue + Beacon + NO-CORS TEXT (PRODUCTION SAFE)
+// ✅ Default endpoint = your new Apps Script
+// ✅ postRows: sendBeacon -> fetch(no-cors) WITHOUT headers (text/plain, no preflight)
+// ✅ Supports payload kind: HHA_ROWS_V21 { rows: [...] }
+// ✅ Queue: mem + localStorage + flush hardened (pagehide/visibilitychange)
 
 (function(){
   'use strict';
@@ -14,7 +14,7 @@
   if (ROOT.__HHA_CLOUD_LOGGER_V211__) return;
   ROOT.__HHA_CLOUD_LOGGER_V211__ = true;
 
-  // ✅ NEW DEFAULT ENDPOINT (your latest)
+  // ✅ NEW DEFAULT ENDPOINT (yours)
   const DEFAULT_ENDPOINT =
     'https://script.google.com/macros/s/AKfycbzViUBbG-pNLDIXZx7BdFEJj_pf8oFDkRh0_7ryke0nCUdQClPZIZ_k5-qPod14K3DHFA/exec';
 
@@ -27,9 +27,9 @@
   const DISABLED = (qs('nolog','0') === '1');
 
   const LS_KEY = 'HHA_LOG_QUEUE_V21';
-  const MAX_QUEUE = 240;
-  const MAX_LS = 160;
-  const FLUSH_BATCH = 24;
+  const MAX_QUEUE = 240;     // memory queue cap
+  const MAX_LS = 160;        // localStorage cap
+  const FLUSH_BATCH = 24;    // send batch size
 
   const DEDUP_TTL_MS = 1800;
   const dedup = new Map();
@@ -73,6 +73,9 @@
     }catch(_){ return []; }
   }
 
+  // -------------------------
+  // Context (hydrate from URL)
+  // -------------------------
   const ctx = {
     sessionId: null,
     startTimeIso: null,
@@ -159,6 +162,9 @@
     }catch(_){}
   })();
 
+  // -------------------------
+  // Row schema builder
+  // -------------------------
   function baseRow(){
     return {
       timestampIso: safeNowIso(),
@@ -316,6 +322,9 @@
     return r;
   }
 
+  // -------------------------
+  // Queue + Dedup
+  // -------------------------
   const memQ = [];
   function memPush(item){
     if(DISABLED) return;
@@ -352,46 +361,27 @@
     }
   }
 
-  // =========================
-  // ✅ CORS-SAFE SENDERS
-  // =========================
-
-  // IMPORTANT:
-  // - application/json triggers preflight
-  // - Use text/plain;charset=utf-8 to avoid preflight
-  // - mode:'no-cors' makes response opaque, but data reaches Apps Script
+  // -------------------------
+  // Transport (CORS-safe)
+  // -------------------------
   function sendBeacon(url, bodyStr){
     try{
       if(!navigator.sendBeacon) return false;
-      const blob = new Blob([bodyStr], { type:'text/plain;charset=utf-8' });
+      const blob = new Blob([bodyStr], { type:'text/plain' }); // ✅ text/plain
       return navigator.sendBeacon(url, blob);
     }catch(_){ return false; }
   }
 
-  async function sendFetchNoCorsPlain(url, bodyStr){
+  async function sendFetchNoCorsText(url, bodyStr){
     try{
+      // ✅ no headers => browser uses text/plain;charset=UTF-8 (simple request) => no preflight
       await fetch(url, {
         method:'POST',
-        mode:'no-cors',
-        keepalive: true,
-        // ✅ simple header -> no preflight
-        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
         body: bodyStr,
-        credentials:'omit',
+        keepalive: true,
+        mode: 'no-cors',
+        credentials: 'omit',
       });
-      return true;
-    }catch(_){ return false; }
-  }
-
-  // (optional) last resort GET payload (no-cors not needed)
-  function sendGetPixel(url, bodyStr){
-    try{
-      const u = new URL(url);
-      u.searchParams.set('payload', encodeURIComponent(bodyStr));
-      // tiny image request (GET) — safest but payload length limited
-      const img = new Image();
-      img.referrerPolicy = 'no-referrer';
-      img.src = u.toString();
       return true;
     }catch(_){ return false; }
   }
@@ -403,12 +393,11 @@
     const payload = { kind: 'HHA_ROWS_V21', count: rows.length, rows };
     const bodyStr = safeJson(payload);
 
-    // ✅ order: Beacon -> no-cors plain -> (optional) GET pixel
+    // ✅ 1) sendBeacon first
     if(sendBeacon(ENDPOINT, bodyStr)) return true;
-    if(await sendFetchNoCorsPlain(ENDPOINT, bodyStr)) return true;
 
-    // optional fallback for small payload only
-    if(bodyStr.length < 1700) return sendGetPixel(ENDPOINT, bodyStr);
+    // ✅ 2) fallback no-cors text/plain (no preflight)
+    if(await sendFetchNoCorsText(ENDPOINT, bodyStr)) return true;
 
     return false;
   }
@@ -430,6 +419,7 @@
     flushing = true;
 
     try{
+      // pull from LS first (older first)
       const fromLS = popLS(maxBatch);
       if(fromLS.length){
         for(const it of fromLS) memQ.unshift(it);
@@ -470,6 +460,9 @@
     try{ setTimeout(()=>{ flushAll(); }, 0); }catch(_){}
   }
 
+  // -------------------------
+  // Apply ctx
+  // -------------------------
   function applyCtxFromStart(d){
     try{
       ctx.projectTag = d.projectTag ?? ctx.projectTag ?? null;
@@ -505,6 +498,9 @@
     }catch(_){}
   }
 
+  // -------------------------
+  // Event handlers
+  // -------------------------
   function onStart(detail){
     try{
       const d = (detail && typeof detail === 'object') ? detail : {};
@@ -521,7 +517,7 @@
       const row = toRowFromEnd(d);
       if(allowByDedup(row)) memPush(row);
       flushSoon();
-      persistMemQ();
+      persistMemQ(); // ✅ ensure LS has end row if leaving quickly
     }catch(_){}
   }
   function onLog(detail){
@@ -537,6 +533,7 @@
   ROOT.addEventListener('hha:end',   (ev)=> onEnd(ev && ev.detail),   { passive:true });
   ROOT.addEventListener('hha:log',   (ev)=> onLog(ev && ev.detail),   { passive:true });
 
+  // Flush-hardened
   ROOT.addEventListener('pagehide', ()=>{
     try{
       persistMemQ();
@@ -553,6 +550,7 @@
     }catch(_){}
   }, { passive:true });
 
+  // Kick flush
   flushSoon();
 
 })();
