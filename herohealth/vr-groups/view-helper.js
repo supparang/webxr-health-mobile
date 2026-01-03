@@ -1,129 +1,107 @@
-// === /herohealth/vr-groups/view-helper.js ===
-// View Helper — PRODUCTION
-// (12) fullscreen/orientation helper + view-cvr strict assist
-// ✅ init({view})
-// ✅ best-effort fullscreen
-// ✅ best-effort landscape lock (mobile/cVR)
-// ✅ tryImmersiveForCVR(): พยายาม enter VR (A-Frame) แบบสุภาพ (ไม่พังถ้าไม่ได้)
-// ✅ safe CSS variables for viewport
+/* === /herohealth/vr-groups/view-helper.js ===
+GroupsVR ViewHelper — PACK 13 (Calibration/Recenter helper for Cardboard)
+✅ init({view})
+✅ tryImmersiveForCVR(): fullscreen + best-effort landscape
+✅ recenter(): lightweight recenter hook (dom + aframe if available)
+*/
 
 (function(root){
   'use strict';
-
   const DOC = root.document;
   if (!DOC) return;
 
   const NS = root.GroupsVR = root.GroupsVR || {};
-  const ViewHelper = NS.ViewHelper = NS.ViewHelper || {};
+  const H = NS.ViewHelper = NS.ViewHelper || {};
 
-  function clamp(v,a,b){ v=Number(v)||0; return v<a?a:(v>b?b:v); }
+  let _view = 'mobile';
+
+  function qs(k, def=null){
+    try { return new URL(location.href).searchParams.get(k) ?? def; }
+    catch { return def; }
+  }
 
   function isMobile(){
-    const ua = (navigator.userAgent||'').toLowerCase();
-    return /android|iphone|ipad|ipod|mobile/.test(ua);
+    const ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod/i.test(ua);
   }
 
-  function setCssViewportVars(){
+  async function requestFullscreen(){
+    const el = DOC.documentElement;
     try{
-      const vw = Math.max(1, root.innerWidth||1);
-      const vh = Math.max(1, root.innerHeight||1);
-      DOC.documentElement.style.setProperty('--vw', vw+'px');
-      DOC.documentElement.style.setProperty('--vh', vh+'px');
+      if (DOC.fullscreenElement) return true;
+      if (el.requestFullscreen) { await el.requestFullscreen({ navigationUI:'hide' }); return true; }
+      if (el.webkitRequestFullscreen) { el.webkitRequestFullscreen(); return true; }
     }catch(_){}
-  }
-
-  function requestFs(el){
-    try{
-      el = el || DOC.documentElement;
-      const f = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-      if (f) return f.call(el);
-    }catch(_){}
-    return Promise.resolve();
+    return false;
   }
 
   async function lockLandscape(){
     try{
-      const so = screen && screen.orientation;
-      if (so && so.lock) await so.lock('landscape');
+      const so = screen.orientation;
+      if (so && so.lock) { await so.lock('landscape'); return true; }
     }catch(_){}
+    return false;
   }
 
-  function bindResize(){
-    try{
-      root.addEventListener('resize', setCssViewportVars, {passive:true});
-      root.addEventListener('orientationchange', ()=>{
-        setTimeout(setCssViewportVars, 80);
-      }, {passive:true});
-      setCssViewportVars();
-    }catch(_){}
+  function nudgeScrollTop(){
+    try{ root.scrollTo(0,0); }catch(_){}
   }
 
-  function ensureCVRStrict(){
-    // “strict” ที่สำคัญของ cVR จริงๆ = ยิงจาก crosshair (vr-ui.js) + ปิด pointer events ของเป้า (ใน CSS ทำแล้ว)
-    // ตรงนี้ช่วยแค่เรื่อง UX: แตะจอแล้วพยายาม fullscreen + lock landscape
-    function onFirstTouch(){
-      DOC.removeEventListener('touchstart', onFirstTouch, {passive:true});
-      requestFs(DOC.documentElement);
-      lockLandscape();
-    }
-    try{
-      DOC.addEventListener('touchstart', onFirstTouch, {passive:true, once:true});
-    }catch(_){}
+  function setBodyView(view){
+    const b = DOC.body;
+    if (!b) return;
+    b.classList.remove('view-pc','view-mobile','view-vr','view-cvr');
+    b.classList.add('view-' + view);
   }
 
-  function getAFrameScene(){
+  // lightweight “recenter”
+  function recenter(){
+    // 1) DOM nudge (helps some Cardboard webviews)
+    nudgeScrollTop();
+
+    // 2) A-Frame: if scene/camera exists, ask A-Frame to reset pose (best effort)
     try{
-      // AFRAME.scenes[0] มักจะมีในหน้า run
-      if (root.AFRAME && root.AFRAME.scenes && root.AFRAME.scenes.length) return root.AFRAME.scenes[0];
-      const s = DOC.querySelector('a-scene');
-      return s && s.object3D ? s : null;
+      const scene = DOC.querySelector('a-scene');
+      if (scene && scene.renderer && scene.xr && scene.xr.getSession){
+        // WebXR recenter is session/space dependent; best effort via entering/exiting not possible here
+        // but we can dispatch a hint event for vr-ui.js or game code to use.
+      }
     }catch(_){}
-    return null;
+
+    try{
+      root.dispatchEvent(new CustomEvent('hha:recenter', { detail:{ view:_view, ts:Date.now() } }));
+    }catch(_){}
   }
 
   async function tryImmersiveForCVR(){
-    // best-effort: ไม่บังคับ, ถ้า browser/gesture ไม่อนุญาตก็เงียบ
-    try{
-      await requestFs(DOC.documentElement);
-      await lockLandscape();
-    }catch(_){}
+    // Only for cVR/Cardboard
+    if (_view !== 'cvr') return;
 
+    // Fullscreen is most important; then orientation lock
+    if (isMobile()){
+      await requestFullscreen();
+      await lockLandscape();
+      nudgeScrollTop();
+    }
+    // Tell UI to show crosshair / remind user tap to shoot
     try{
-      const scene = getAFrameScene();
-      if (scene && typeof scene.enterVR === 'function'){
-        // ต้องมี user gesture บางเครื่องถึงจะเข้าได้
-        scene.enterVR();
-      }
+      root.dispatchEvent(new CustomEvent('hha:cvr:ready', { detail:{ view:_view, ts:Date.now() } }));
     }catch(_){}
   }
 
   function init(opts){
     opts = opts || {};
-    const view = String(opts.view||'mobile').toLowerCase();
+    _view = String(opts.view || qs('view','mobile') || 'mobile').toLowerCase();
+    if (_view !== 'pc' && _view !== 'mobile' && _view !== 'vr' && _view !== 'cvr') _view = 'mobile';
+    setBodyView(_view);
 
-    bindResize();
-
-    // mobile/cvr: ช่วยเรื่อง orientation
-    if (view === 'mobile' || view === 'cvr'){
-      if (isMobile()){
-        // พยายาม lock landscape หลังมี gesture (บางเครื่องต้อง)
-        DOC.addEventListener('touchstart', ()=> lockLandscape(), {passive:true, once:true});
-      }
-    }
-
-    if (view === 'cvr'){
-      ensureCVRStrict();
-    }
-
-    // ทำ marker class เผื่อ debug
-    try{
-      DOC.body && DOC.body.classList.add('vh-inited');
-    }catch(_){}
+    // If user rotates device, keep things stable
+    root.addEventListener('orientationchange', ()=>{ setTimeout(nudgeScrollTop, 60); }, {passive:true});
+    root.addEventListener('resize', ()=>{ setTimeout(nudgeScrollTop, 60); }, {passive:true});
   }
 
-  ViewHelper.init = init;
-  ViewHelper.requestFs = requestFs;
-  ViewHelper.lockLandscape = lockLandscape;
-  ViewHelper.tryImmersiveForCVR = tryImmersiveForCVR;
-  ViewHelper.isMobile = isMobile;
-})(window);
+  H.init = init;
+  H.tryImmersiveForCVR = tryImmersiveForCVR;
+  H.recenter = recenter;
+
+})(typeof window !== 'undefined' ? window : globalThis);
