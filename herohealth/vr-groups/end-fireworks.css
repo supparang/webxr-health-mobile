@@ -1,0 +1,44 @@
+/* === /herohealth/vr-groups/end-fireworks.css ===
+PACK 45: highlights styling
+*/
+
+.hiWrap{
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(15,23,42,.55);
+  border: 1px solid rgba(148,163,184,.14);
+}
+.hiTitle{
+  font-weight: 1000;
+  font-size: 12px;
+  color: rgba(34,211,238,.92);
+  letter-spacing: .2px;
+}
+.hiRow{
+  margin-top: 10px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.hiChip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(2,6,23,.55);
+  border: 1px solid rgba(148,163,184,.16);
+  box-shadow: var(--soft);
+}
+.hiI{ font-size: 14px; }
+.hiT{
+  font-weight: 1000;
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* end party glow */
+body.fx-endparty .panel{
+  box-shadow: 0 0 0 2px rgba(34,197,94,.10), 0 24px 70px rgba(0,0,0,.55) !important;
+}
