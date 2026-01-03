@@ -1,47 +1,47 @@
 /* === /herohealth/vr-groups/storm-wind.css ===
-PACK 29: Windlines overlay
+PACK 37: Wind streaks overlay
 */
 
-.storm-wind{
-  position:fixed;
-  inset:0;
-  z-index: 45;           /* above playLayer, under vr-ui (80) */
-  pointer-events:none;
-  opacity:0;
-  transition: opacity .2s ease;
-  overflow:hidden;
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.25));
+.stormWind{
+  position: fixed;
+  inset: 0;
+  z-index: 58;              /* under vr-ui (80) and over playLayer (20) */
+  pointer-events: none;
+  display: none;
+  overflow: hidden;
 }
 
-.storm-wind.on{ opacity:1; }
+body.fx-wind-on .stormWind{ display:block; }
 
-.storm-wind .wind-a,
-.storm-wind .wind-b,
-.storm-wind .wind-c{
-  position:absolute;
-  inset:-30% -40%;
+.stormVignette{
+  position:absolute; inset:-2px;
   background:
-    repeating-linear-gradient(
-      115deg,
-      rgba(34,211,238,.0) 0px,
-      rgba(34,211,238,.0) 12px,
-      rgba(34,211,238,.14) 12px,
-      rgba(34,211,238,.14) 14px,
-      rgba(34,211,238,.0) 14px,
-      rgba(34,211,238,.0) 32px
-    );
-  transform: translate3d(0,0,0) rotate(-6deg);
+    radial-gradient(circle at 50% 50%, rgba(2,6,23,0) 40%, rgba(2,6,23,.22) 78%, rgba(2,6,23,.40) 100%);
+  opacity:.9;
 }
 
-.storm-wind .wind-a{ animation: windMove 1.2s linear infinite; opacity:.55; }
-.storm-wind .wind-b{ animation: windMove 1.6s linear infinite; opacity:.42; filter: blur(0.2px); }
-.storm-wind .wind-c{ animation: windMove 2.0s linear infinite; opacity:.30; filter: blur(0.5px); }
-
-@keyframes windMove{
-  from{ transform: translate3d(-3%, -2%, 0) rotate(-6deg); }
-  to  { transform: translate3d( 7%,  4%, 0) rotate(-6deg); }
+.windLine{
+  position:absolute;
+  left: -30vw;
+  top: calc((var(--i) * 6vh) + (var(--sat) * 0px));
+  width: 70vw;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(34,211,238,.40), rgba(34,211,238,.08), transparent);
+  filter: blur(.2px);
+  opacity: .75;
+  transform: rotate(-14deg);
+  animation: windFly 1.1s linear infinite;
+  animation-delay: calc(var(--i) * -0.09s);
 }
 
-/* “storm urgent” = slightly stronger */
-body.groups-storm-urgent .storm-wind.on{ opacity: 1; }
-body.groups-storm-urgent .storm-wind .wind-a{ opacity:.68; }
+@keyframes windFly{
+  from{ transform: translateX(0) rotate(-14deg); opacity:.20; }
+  10%{ opacity:.75; }
+  to{ transform: translateX(160vw) rotate(-14deg); opacity:.10; }
+}
+
+/* make it calmer on small devices */
+@media (max-width:420px){
+  .windLine{ height: 1.6px; opacity:.62; }
+}
